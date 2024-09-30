@@ -86,6 +86,10 @@ Definition dummy_oracle_def:
   dummy_oracle name = dummy_oracle_f
 End
 
+Definition dummy_ffi_state_def:
+  dummy_ffi_state = <| oracle := dummy_oracle; ffi_state := (); io_events := [] |>
+End
+
 Definition from_bstate_noffi_def:
   from_bstate_noffi (s:'a bstate) =
   <| locals      := s.locals
@@ -95,7 +99,7 @@ Definition from_bstate_noffi_def:
      ; memaddrs    := s.memaddrs
      ; sh_memaddrs := s.sh_memaddrs
      ; be          := s.be
-     ; ffi         := <| oracle := dummy_oracle; ffi_state := (); io_events := [] |>
+     ; ffi         := dummy_ffi_state
      ; base_addr   := s.base_addr
      ; clock       := 0
   |>

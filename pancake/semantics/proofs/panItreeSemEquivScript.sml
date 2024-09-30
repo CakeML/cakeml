@@ -610,7 +610,6 @@ Proof
   rw [ltree_lift_cases, ltree_lift_bind_left_ident]
 QED
 
-(* TODO: move *)
 Theorem to_stree_simps:
   to_stree (Ret x) = Ret x ∧
   to_stree (Tau t) = Tau (to_stree t) ∧
@@ -664,20 +663,20 @@ Datatype:
     | SemFail
 End
 
-(* TODO: Determine where the FFI should come from and fix. *)
 Definition fbs_semantics_beh_def:
   fbs_semantics_beh s prog =
-  if ∃k. FST $ panSem$evaluate (prog,(from_bstate s) with clock := k) ≠ SOME TimeOut
-  then (case some (r,s'). ∃k. evaluate (prog,(from_bstate s) with clock := k) = (r,s') ∧ r ≠ SOME TimeOut of
-         SOME (r,s') => (case r of
-                           SOME (Return _) => SemTerminate (r,to_bstate s')
-                         | SOME (FinalFFI _) => SemTerminate (r,to_bstate s')
-                         | SOME Error => SemFail
-                         | _ =>  SemTerminate (r,to_bstate s'))
-       | NONE => SemFail)
+  if ∃k. FST $ panSem$evaluate (prog,s with clock := k) ≠ SOME TimeOut
+  then (case some (r,s'). ∃k. evaluate (prog,s with clock := k) = (r,s') ∧
+                              r ≠ SOME TimeOut of
+          SOME (r,s') => (case r of
+                            SOME (Return _) => SemTerminate (r,to_bstate s')
+                          | SOME (FinalFFI _) => SemTerminate (r,to_bstate s')
+                          | SOME Error => SemFail
+                          | _ =>  SemTerminate (r,to_bstate s'))
+        | NONE => SemFail)
   else SemDiverge (build_lprefix_lub
                    (IMAGE (λk. fromList
-                               (SND (evaluate (prog,(from_bstate s) with clock := k))).ffi.io_events) UNIV))
+                               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
 
 Definition event_filter_def:
@@ -687,7 +686,7 @@ End
 
 Definition itree_semantics_beh_def:
   itree_semantics_beh s prog =
-  let lt = ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) in
+  let lt = ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,to_bstate s))) in
       case some (r,s'). lt ≈ Ret (r,s') of
       | SOME (r,s') => (case r of
                       SOME TimeOut => SemTerminate (r,s')
@@ -695,13 +694,12 @@ Definition itree_semantics_beh_def:
                     | SOME (Return _) => SemTerminate (r,s')
                     | SOME Error => SemFail
                     | _ => SemTerminate (r,s'))
-      | NONE => SemDiverge (fromList(s.ffi.io_events) ++ₗ stree_trace query_oracle event_filter s.ffi (to_stree (mrec_sem (h_prog (prog,s)))))
+      | NONE => SemDiverge (fromList (s.ffi.io_events) ++ₗ stree_trace query_oracle event_filter s.ffi (to_stree (mrec_sem (h_prog (prog,to_bstate s)))))
 End
 
 Theorem fbs_sem_div_compos_thm:
   fbs_semantics_beh s (Dec v e prog) = SemDiverge l ∧
-  eval (from_bstate_noffi s) e = SOME x ⇒
-  fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l
+  eval s e = SOME x ⇒ fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l
 Proof
   rpt strip_tac>>
   fs[fbs_semantics_beh_def,Once evaluate_def] >>
@@ -711,7 +709,7 @@ Proof
   conj_tac>-
    (strip_tac>>first_x_assum $ qspec_then ‘k’ assume_tac>>
     FULL_CASE_TAC>>fs[]>>
-    pairarg_tac>>fs[]>>gvs[panPropsTheory.eval_upd_clock_eq,panItreeSemTheory.from_bstate_noffi_def])>>
+    pairarg_tac>>fs[]>>gvs[panPropsTheory.eval_upd_clock_eq])>>
   irule lprefix_lubTheory.IMP_build_lprefix_lub_EQ>>
   conj_asm1_tac>-
    (simp[lprefix_chain_def]>>
@@ -749,7 +747,6 @@ Proof
     simp[PULL_EXISTS]>>
     simp[LPREFIX_def,from_toList]>>
     simp[Once evaluate_def,
-         panItreeSemTheory.from_bstate_noffi_def,
          panPropsTheory.eval_upd_clock_eq]>>
     pairarg_tac>>fs[]>>
     qexists_tac ‘k’>>fs[])>>
@@ -758,22 +755,22 @@ Proof
   simp[PULL_EXISTS]>>
   simp[LPREFIX_def,from_toList]>>
   simp[SimpR “isPREFIX”, Once evaluate_def,
-       panItreeSemTheory.from_bstate_noffi_def,
        panPropsTheory.eval_upd_clock_eq]>>
   qexists_tac ‘k’>>
-  pairarg_tac>>fs[panItreeSemTheory.from_bstate_noffi_def]
+  pairarg_tac>>
+    fs [panItreeSemTheory.from_bstate_def]
 QED
 
 Theorem fbs_semantics_beh_simps:
-  fbs_semantics_beh s Skip = SemTerminate (NONE,s) ∧
-  (eval (from_bstate_noffi s) e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p)
+  fbs_semantics_beh s Skip = SemTerminate (NONE,to_bstate s) ∧
+  (eval s e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p)
 Proof
   rw []
   >- (rw [fbs_semantics_beh_def,
           evaluate_def] >>
       DEEP_INTRO_TAC some_intro >> rw [EXISTS_PROD] >>
       ntac 2 TOP_CASE_TAC >>
-      pairarg_tac >> gvs [panItreeSemTheory.to_bstate_def,panItreeSemTheory.from_bstate_noffi_def,
+      pairarg_tac >> gvs [panItreeSemTheory.to_bstate_def,panItreeSemTheory.from_bstate_def,
                           panItreeSemTheory.bstate_component_equality])
   >- (rw [fbs_semantics_beh_def,
           evaluate_def] >>
@@ -839,7 +836,6 @@ Proof
   metis_tac[]
 QED
 
-
 Theorem ltree_lift_FUNPOW_Tau:
   ltree_lift f st (FUNPOW Tau n t) = FUNPOW Tau n (ltree_lift f st t)
 Proof
@@ -860,9 +856,18 @@ Proof
   Induct_on ‘n’>>fs[FUNPOW_SUC,stree_trace_simps]
 QED
 
+(* TODO: Fix proof. *)
+Theorem eval_bstate_indep:
+  eval (from_bstate_noffi (to_bstate s)) e = eval s e
+Proof
+  Cases_on ‘e’ >>
+  rw [from_bstate_noffi_def,to_bstate_def,eval_def]
+QED
+
+(* TODO: Fix proof and remove cheats. *)
 Theorem itree_semantics_beh_Dec:
   itree_semantics_beh s (Dec vname e prog) =
-  case eval (from_bstate_noffi s) e of
+  case eval s e of
     NONE => SemFail
   | SOME value =>
       case itree_semantics_beh (s with locals := s.locals |+ (vname,value)) prog of
@@ -871,7 +876,7 @@ Theorem itree_semantics_beh_Dec:
       | res => res
 Proof
   rw[itree_semantics_beh_def] >>
-  Cases_on ‘eval (from_bstate_noffi s) e’ >>
+  Cases_on ‘eval s e’ >>
   gvs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
       itree_wbisim_neq,
       ELIM_UNCURRY
@@ -885,8 +890,7 @@ Proof
          to_stree_monad_law,
          to_stree_simps,
          stree_trace_simps,
-         ltree_lift_nonret_bind_stree
-        ]) >>
+         ltree_lift_nonret_bind_stree]) >>
   rw[] >>
   rename1 ‘Ret r’ >> Cases_on ‘r’ >> gvs[] >>
   drule ltree_lift_bind_left_ident >>
@@ -907,21 +911,22 @@ Proof
   rpt(PURE_TOP_CASE_TAC >> gvs[])
 QED
 
+(* TODO: Fix proof. *)
 Theorem itree_semantics_beh_If:
   itree_semantics_beh s (If e p1 p2) =
-  case eval (from_bstate_noffi s) e of
+  case eval s e of
   | SOME(ValWord g) => itree_semantics_beh s (if g ≠ 0w then p1 else p2)
   | _ => SemFail
 Proof
-  rw[itree_semantics_beh_def] >>
-  Cases_on ‘eval (from_bstate_noffi s) e’ >>
-  gvs[h_prog_def,h_prog_rule_cond_def,mrec_sem_simps,ltree_lift_cases,
-      itree_wbisim_neq,
-      ELIM_UNCURRY
-     ] >>
-  CONV_TAC SYM_CONV >>
-  PURE_TOP_CASE_TAC >> gvs[mrec_sem_simps,ltree_lift_cases,itree_wbisim_neq] >>
-  PURE_TOP_CASE_TAC >> gvs[mrec_sem_simps,ltree_lift_cases,itree_wbisim_neq] >>
+  rw [itree_semantics_beh_def] >>
+  Cases_on ‘eval s e’ >>
+  gvs [h_prog_def,h_prog_rule_cond_def,mrec_sem_simps,ltree_lift_cases,
+       itree_wbisim_neq,
+       ELIM_UNCURRY] >>
+  (* CONV_TAC SYM_CONV >> *)
+  PURE_TOP_CASE_TAC >> gvs [mrec_sem_simps,ltree_lift_cases,itree_wbisim_neq] >>
+
+  (* PURE_TOP_CASE_TAC >> gvs[mrec_sem_simps,ltree_lift_cases,itree_wbisim_neq] >> *)
   rename1 ‘h_prog(p,s)’ >>
   PURE_TOP_CASE_TAC >> gvs[] >>
   gvs[stree_trace_simps,to_stree_simps]
@@ -1005,255 +1010,261 @@ Proof
   PURE_TOP_CASE_TAC >> gvs[mrec_sem_simps]
 QED
 
-Theorem ltree_lift_state_lift:
-  ltree_lift query_oracle s.ffi (mrec_sem (h_prog (p,s))) ≈ Ret (res,s')
-  ⇒
-  (ltree_lift_state query_oracle s.ffi (mrec_sem (h_prog (p,s)))) = s'.ffi
-Proof
-  strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >>
-  simp[PULL_EXISTS] >>
-  MAP_EVERY qid_spec_tac [‘p’,‘s’,‘res’,‘s'’] >>
-  Induct_on ‘n’ using COMPLETE_INDUCTION >>
-  CONV_TAC $ RESORT_FORALL_CONV rev >>
-  Cases
-  >~ [‘Dec’]
-  >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_dec_def,
-         ltree_lift_state_simps,
-         ret_eq_funpow_tau
-        ] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-          h_prog_rule_dec_def,
-          ltree_lift_state_simps,ret_eq_funpow_tau,
-          tau_eq_funpow_tau
-         ] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
-      drule FUNPOW_Tau_bind_thm >>
-      rw[] >>
-      pairarg_tac >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau] >>
-      rename [‘ltree_lift _ _ _ = FUNPOW Tau mm _’] >>
-      last_x_assum $ qspec_then ‘mm’ mp_tac >>
-      impl_tac >- simp[] >>
-      disch_then $ resolve_then (Pos hd) mp_tac EQ_TRANS >>
-      disch_then $ drule_at $ Pos last >>
-      qmatch_goalsub_abbrev_tac ‘h_prog (a1,a2)’ >>
-      disch_then $ qspecl_then [‘a2’,‘a1’] mp_tac >>
-      unabbrev_all_tac >>
-      simp[] >>
-      strip_tac >>
-      qmatch_goalsub_abbrev_tac ‘_ >>= a1’ >>
-      drule_then (qspec_then ‘a1’ mp_tac) ltree_lift_state_bind_funpow >>
-      unabbrev_all_tac >>
-      rw[mrec_sem_simps,ltree_lift_state_simps])
-  >~ [‘If’]
-  >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_cond_def,
-         ltree_lift_state_simps,
-         ret_eq_funpow_tau
-        ] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-          h_prog_rule_dec_def,
-          ltree_lift_state_simps,ret_eq_funpow_tau,
-          tau_eq_funpow_tau
-         ] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-          ltree_lift_state_simps,ret_eq_funpow_tau,
-          tau_eq_funpow_tau
-         ] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-          ltree_lift_state_simps,ret_eq_funpow_tau,
-          tau_eq_funpow_tau
-         ] >>
-      first_x_assum irule >>
-      first_x_assum $ irule_at Any >>
-      simp[])
-  >~ [‘While’]
-  >- (rw[ltree_lift_cases,mrec_sem_simps,
-         Once mrec_sem_while_unfold,
-         ltree_lift_state_simps,
-         ret_eq_funpow_tau
-        ] >>
-      PURE_REWRITE_TAC[Once mrec_sem_while_unfold] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
-      gvs[tau_eq_funpow_tau] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
-      drule FUNPOW_Tau_bind_thm >>
-      rw[] >>
-      pairarg_tac >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
-          FUNPOW_Tau_bind,FUNPOW_ADD] >>
-      last_assum $ drule_at Any >>
-      impl_tac >- simp[] >>
-      strip_tac >>
-      qpat_x_assum ‘ltree_lift _ s.ffi _ = _ ’ assume_tac >>
-      qmatch_goalsub_abbrev_tac ‘_ >>= a1’ >>
-      drule_then (qspec_then ‘a1’ mp_tac) ltree_lift_state_bind_funpow >>
-      unabbrev_all_tac >>
-      strip_tac >>
-      simp[mrec_sem_simps,ltree_lift_state_simps] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[ltree_lift_state_simps,
-          ltree_lift_cases,
-          tau_eq_funpow_tau
-         ]
-      >- (last_x_assum $ irule_at $ Pos hd >>
-          first_x_assum $ irule_at $ Pos last >>
-          simp[]) >>
-      PURE_TOP_CASE_TAC >>
-      gvs[ltree_lift_state_simps,
-          ltree_lift_cases,
-          tau_eq_funpow_tau,
-          ret_eq_funpow_tau
-         ] >>
-      last_x_assum $ irule_at $ Pos hd >>
-      first_x_assum $ irule_at $ Pos last >>
-      simp[])
-  >~ [‘ExtCall’]
-  >- (rw [ltree_lift_cases,h_prog_def,mrec_sem_simps,
-          h_prog_rule_ext_call_def,
-          ltree_lift_state_simps,
-          ret_eq_funpow_tau] >>
-      rpt (PURE_TOP_CASE_TAC >>
-           gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-               ltree_lift_state_simps,ret_eq_funpow_tau,
-               tau_eq_funpow_tau]) >>
-      gvs [query_oracle_def,ELIM_UNCURRY,AllCaseEqs(),
-          tau_eq_funpow_tau,ret_eq_funpow_tau] >>
-      rpt(PURE_FULL_CASE_TAC >> gvs[empty_locals_defs]) >>
-      cheat)
-  >~ [‘ShMem’]
-  >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_sh_mem_def,
-         oneline h_prog_rule_sh_mem_op_def,
-         h_prog_rule_sh_mem_load_def,
-         h_prog_rule_sh_mem_store_def,
-         ltree_lift_state_simps,
-         ret_eq_funpow_tau
-        ] >>
-      rpt(PURE_TOP_CASE_TAC >>
-          gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-              ltree_lift_state_simps,ret_eq_funpow_tau,
-              tau_eq_funpow_tau]) >>
-      gvs[query_oracle_def,ELIM_UNCURRY,AllCaseEqs(),
-          tau_eq_funpow_tau,ret_eq_funpow_tau
-         ] >>
-      rpt(PURE_FULL_CASE_TAC >> gvs[empty_locals_defs]) >>
-      cheat)
-  >~ [‘Call’]
-  >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_call_def,
-         ltree_lift_state_simps,
-         ret_eq_funpow_tau
-        ] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >>
-      PURE_TOP_CASE_TAC >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
-          tau_eq_funpow_tau] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
-      drule FUNPOW_Tau_bind_thm >>
-      rw[] >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
-          FUNPOW_Tau_bind] >>
-      irule EQ_TRANS >>
-      irule_at (Pos hd) ltree_lift_state_bind_funpow >>
-      first_assum $ irule_at $ Pos hd >>
-      rename [‘ltree_lift _ s.ffi _ = FUNPOW _ mm (Ret st)’] >>
-      Cases_on ‘st’ >>
-      last_assum $ qspec_then ‘mm’ mp_tac >>
-      impl_tac >- simp[] >>
-      disch_then $ resolve_then (Pos hd) mp_tac EQ_TRANS >>
-      disch_then $ drule_at $ Pos last >>
-      qmatch_goalsub_abbrev_tac ‘h_prog (a1,a2)’ >>
-      disch_then $ qspecl_then [‘a2’,‘a1’] mp_tac >>
-      unabbrev_all_tac >>
-      simp[] >>
-      strip_tac >>
-      gvs[] >>
-      gvs[oneline h_handle_call_ret_def] >>
-      rpt(IF_CASES_TAC ORELSE PURE_TOP_CASE_TAC >>
-          gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps,
-              tau_eq_funpow_tau,empty_locals_defs,
-              set_var_def,panSemTheory.set_var_def]) >>
-      qmatch_goalsub_abbrev_tac ‘_ _ a1.ffi (_ (_ (_, a2)))’ >>
-      ‘a1.ffi = a2.ffi’ by(rw[Abbr ‘a1’, Abbr ‘a2’]) >>
-      pop_assum SUBST_ALL_TAC >>
-      first_x_assum irule >>
-      first_x_assum $ irule_at $ Pos last >>
-      simp[])
-  >~ [‘Seq’]
-  >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_seq_def,
-         ltree_lift_state_simps,
-         ret_eq_funpow_tau
-        ] >>
-      gvs[tau_eq_funpow_tau] >>
-      gvs[msem_lift_monad_law,ltree_lift_monad_law] >>
-      drule FUNPOW_Tau_bind_thm >>
-      rw[] >>
-      pairarg_tac >>
-      gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
-          FUNPOW_Tau_bind,FUNPOW_ADD] >>
-      last_assum $ drule_at Any >>
-      impl_tac >- simp[] >>
-      strip_tac >>
-      qpat_x_assum ‘ltree_lift _ s.ffi _ = _ ’ assume_tac >>
-      qmatch_goalsub_abbrev_tac ‘_ >>= a1’ >>
-      drule_then (qspec_then ‘a1’ mp_tac) ltree_lift_state_bind_funpow >>
-      unabbrev_all_tac >>
-      strip_tac >>
-      simp[mrec_sem_simps,ltree_lift_state_simps] >>
-      reverse IF_CASES_TAC >>
-      gvs[ltree_lift_state_simps,mrec_sem_simps,ltree_lift_cases,
-          ret_eq_funpow_tau,tau_eq_funpow_tau
-         ] >>
-      last_x_assum irule >>
-      first_x_assum $ irule_at $ Pos last >>
-      simp[]
-     )
-  >~ [‘Raise’]
-  >- (pop_assum kall_tac >>
-      rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-         h_prog_rule_raise_def,
-         ltree_lift_state_simps,
-         ret_eq_funpow_tau] >>
-      rpt(IF_CASES_TAC ORELSE PURE_TOP_CASE_TAC >>
-          gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,
-              ltree_lift_state_simps,empty_locals_defs])) >>
-  rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-     h_prog_rule_store_def,
-     h_prog_rule_store_byte_def,
-     h_prog_rule_assign_def,
-     h_prog_rule_raise_def,
-     h_prog_rule_return_def,
-     ltree_lift_state_simps,
-     ret_eq_funpow_tau
-    ] >>
-  rpt (PURE_TOP_CASE_TAC >>
-       gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps,
-           ltree_lift_state_simps,ret_eq_funpow_tau,
-           tau_eq_funpow_tau,empty_locals_defs])
-QED
+(* TODO: Determine if this is still required with bstate. *)
+(* TODO: Where is this needed and how can it be replaced now that ffi is
+ removed from bstate? *)
+(* TODO: This can be removed as we will just calculate the ltree_lift_state directly. *)
+(* TODO: Replace all occurrences that use this theorem with direct calculation
+ from ltree_lift_state. *)
+(* Theorem ltree_lift_state_lift: *)
+(*   ltree_lift query_oracle ffis (mrec_sem (h_prog (p,s))) ≈ Ret (res,s') *)
+(*   ⇒ *)
+(*   (ltree_lift_state query_oracle ffis (mrec_sem (h_prog (p,s)))) = s'.ffi *)
+(* Proof *)
+(*   strip_tac >> dxrule itree_wbisim_Ret_FUNPOW >> *)
+(*   simp[PULL_EXISTS] >> *)
+(*   MAP_EVERY qid_spec_tac [‘p’,‘s’,‘res’,‘s'’] >> *)
+(*   Induct_on ‘n’ using COMPLETE_INDUCTION >> *)
+(*   CONV_TAC $ RESORT_FORALL_CONV rev >> *)
+(*   Cases *)
+(*   >~ [‘Dec’] *)
+(*   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*          h_prog_rule_dec_def, *)
+(*          ltree_lift_state_simps, *)
+(*          ret_eq_funpow_tau *)
+(*         ] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*           h_prog_rule_dec_def, *)
+(*           ltree_lift_state_simps,ret_eq_funpow_tau, *)
+(*           tau_eq_funpow_tau *)
+(*          ] >> *)
+(*       gvs[msem_lift_monad_law,ltree_lift_monad_law] >> *)
+(*       drule FUNPOW_Tau_bind_thm >> *)
+(*       rw[] >> *)
+(*       pairarg_tac >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau] >> *)
+(*       rename [‘ltree_lift _ _ _ = FUNPOW Tau mm _’] >> *)
+(*       last_x_assum $ qspec_then ‘mm’ mp_tac >> *)
+(*       impl_tac >- simp[] >> *)
+(*       disch_then $ resolve_then (Pos hd) mp_tac EQ_TRANS >> *)
+(*       disch_then $ drule_at $ Pos last >> *)
+(*       qmatch_goalsub_abbrev_tac ‘h_prog (a1,a2)’ >> *)
+(*       disch_then $ qspecl_then [‘a2’,‘a1’] mp_tac >> *)
+(*       unabbrev_all_tac >> *)
+(*       simp[] >> *)
+(*       strip_tac >> *)
+(*       qmatch_goalsub_abbrev_tac ‘_ >>= a1’ >> *)
+(*       drule_then (qspec_then ‘a1’ mp_tac) ltree_lift_state_bind_funpow >> *)
+(*       unabbrev_all_tac >> *)
+(*       rw[mrec_sem_simps,ltree_lift_state_simps]) *)
+(*   >~ [‘If’] *)
+(*   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*          h_prog_rule_cond_def, *)
+(*          ltree_lift_state_simps, *)
+(*          ret_eq_funpow_tau *)
+(*         ] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*           h_prog_rule_dec_def, *)
+(*           ltree_lift_state_simps,ret_eq_funpow_tau, *)
+(*           tau_eq_funpow_tau *)
+(*          ] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*           ltree_lift_state_simps,ret_eq_funpow_tau, *)
+(*           tau_eq_funpow_tau *)
+(*          ] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*           ltree_lift_state_simps,ret_eq_funpow_tau, *)
+(*           tau_eq_funpow_tau *)
+(*          ] >> *)
+(*       first_x_assum irule >> *)
+(*       first_x_assum $ irule_at Any >> *)
+(*       simp[]) *)
+(*   >~ [‘While’] *)
+(*   >- (rw[ltree_lift_cases,mrec_sem_simps, *)
+(*          Once mrec_sem_while_unfold, *)
+(*          ltree_lift_state_simps, *)
+(*          ret_eq_funpow_tau *)
+(*         ] >> *)
+(*       PURE_REWRITE_TAC[Once mrec_sem_while_unfold] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >> *)
+(*       gvs[tau_eq_funpow_tau] >> *)
+(*       gvs[msem_lift_monad_law,ltree_lift_monad_law] >> *)
+(*       drule FUNPOW_Tau_bind_thm >> *)
+(*       rw[] >> *)
+(*       pairarg_tac >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau, *)
+(*           FUNPOW_Tau_bind,FUNPOW_ADD] >> *)
+(*       last_assum $ drule_at Any >> *)
+(*       impl_tac >- simp[] >> *)
+(*       strip_tac >> *)
+(*       qpat_x_assum ‘ltree_lift _ s.ffi _ = _ ’ assume_tac >> *)
+(*       qmatch_goalsub_abbrev_tac ‘_ >>= a1’ >> *)
+(*       drule_then (qspec_then ‘a1’ mp_tac) ltree_lift_state_bind_funpow >> *)
+(*       unabbrev_all_tac >> *)
+(*       strip_tac >> *)
+(*       simp[mrec_sem_simps,ltree_lift_state_simps] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[ltree_lift_state_simps, *)
+(*           ltree_lift_cases, *)
+(*           tau_eq_funpow_tau *)
+(*          ] *)
+(*       >- (last_x_assum $ irule_at $ Pos hd >> *)
+(*           first_x_assum $ irule_at $ Pos last >> *)
+(*           simp[]) >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[ltree_lift_state_simps, *)
+(*           ltree_lift_cases, *)
+(*           tau_eq_funpow_tau, *)
+(*           ret_eq_funpow_tau *)
+(*          ] >> *)
+(*       last_x_assum $ irule_at $ Pos hd >> *)
+(*       first_x_assum $ irule_at $ Pos last >> *)
+(*       simp[]) *)
+(*   >~ [‘ExtCall’] *)
+(*   >- (rw [ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*           h_prog_rule_ext_call_def, *)
+(*           ltree_lift_state_simps, *)
+(*           ret_eq_funpow_tau] >> *)
+(*       rpt (PURE_TOP_CASE_TAC >> *)
+(*            gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*                ltree_lift_state_simps,ret_eq_funpow_tau, *)
+(*                tau_eq_funpow_tau]) >> *)
+(*       gvs [query_oracle_def,ELIM_UNCURRY,AllCaseEqs(), *)
+(*           tau_eq_funpow_tau,ret_eq_funpow_tau] >> *)
+(*       rpt(PURE_FULL_CASE_TAC >> gvs[empty_locals_defs]) >> *)
+(*       cheat) *)
+(*   >~ [‘ShMem’] *)
+(*   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*          h_prog_rule_sh_mem_def, *)
+(*          oneline h_prog_rule_sh_mem_op_def, *)
+(*          h_prog_rule_sh_mem_load_def, *)
+(*          h_prog_rule_sh_mem_store_def, *)
+(*          ltree_lift_state_simps, *)
+(*          ret_eq_funpow_tau *)
+(*         ] >> *)
+(*       rpt(PURE_TOP_CASE_TAC >> *)
+(*           gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*               ltree_lift_state_simps,ret_eq_funpow_tau, *)
+(*               tau_eq_funpow_tau]) >> *)
+(*       gvs[query_oracle_def,ELIM_UNCURRY,AllCaseEqs(), *)
+(*           tau_eq_funpow_tau,ret_eq_funpow_tau *)
+(*          ] >> *)
+(*       rpt(PURE_FULL_CASE_TAC >> gvs[empty_locals_defs]) >> *)
+(*       cheat) *)
+(*   >~ [‘Call’] *)
+(*   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*          h_prog_rule_call_def, *)
+(*          ltree_lift_state_simps, *)
+(*          ret_eq_funpow_tau *)
+(*         ] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps] >> *)
+(*       PURE_TOP_CASE_TAC >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps, *)
+(*           tau_eq_funpow_tau] >> *)
+(*       gvs[msem_lift_monad_law,ltree_lift_monad_law] >> *)
+(*       drule FUNPOW_Tau_bind_thm >> *)
+(*       rw[] >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau, *)
+(*           FUNPOW_Tau_bind] >> *)
+(*       irule EQ_TRANS >> *)
+(*       irule_at (Pos hd) ltree_lift_state_bind_funpow >> *)
+(*       first_assum $ irule_at $ Pos hd >> *)
+(*       rename [‘ltree_lift _ s.ffi _ = FUNPOW _ mm (Ret st)’] >> *)
+(*       Cases_on ‘st’ >> *)
+(*       last_assum $ qspec_then ‘mm’ mp_tac >> *)
+(*       impl_tac >- simp[] >> *)
+(*       disch_then $ resolve_then (Pos hd) mp_tac EQ_TRANS >> *)
+(*       disch_then $ drule_at $ Pos last >> *)
+(*       qmatch_goalsub_abbrev_tac ‘h_prog (a1,a2)’ >> *)
+(*       disch_then $ qspecl_then [‘a2’,‘a1’] mp_tac >> *)
+(*       unabbrev_all_tac >> *)
+(*       simp[] >> *)
+(*       strip_tac >> *)
+(*       gvs[] >> *)
+(*       gvs[oneline h_handle_call_ret_def] >> *)
+(*       rpt(IF_CASES_TAC ORELSE PURE_TOP_CASE_TAC >> *)
+(*           gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau,ltree_lift_state_simps, *)
+(*               tau_eq_funpow_tau,empty_locals_defs, *)
+(*               set_var_def,panSemTheory.set_var_def]) >> *)
+(*       qmatch_goalsub_abbrev_tac ‘_ _ a1.ffi (_ (_ (_, a2)))’ >> *)
+(*       ‘a1.ffi = a2.ffi’ by(rw[Abbr ‘a1’, Abbr ‘a2’]) >> *)
+(*       pop_assum SUBST_ALL_TAC >> *)
+(*       first_x_assum irule >> *)
+(*       first_x_assum $ irule_at $ Pos last >> *)
+(*       simp[]) *)
+(*   >~ [‘Seq’] *)
+(*   >- (rw[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*          h_prog_rule_seq_def, *)
+(*          ltree_lift_state_simps, *)
+(*          ret_eq_funpow_tau *)
+(*         ] >> *)
+(*       gvs[tau_eq_funpow_tau] >> *)
+(*       gvs[msem_lift_monad_law,ltree_lift_monad_law] >> *)
+(*       drule FUNPOW_Tau_bind_thm >> *)
+(*       rw[] >> *)
+(*       pairarg_tac >> *)
+(*       gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau, *)
+(*           FUNPOW_Tau_bind,FUNPOW_ADD] >> *)
+(*       last_assum $ drule_at Any >> *)
+(*       impl_tac >- simp[] >> *)
+(*       strip_tac >> *)
+(*       qpat_x_assum ‘ltree_lift _ s.ffi _ = _ ’ assume_tac >> *)
+(*       qmatch_goalsub_abbrev_tac ‘_ >>= a1’ >> *)
+(*       drule_then (qspec_then ‘a1’ mp_tac) ltree_lift_state_bind_funpow >> *)
+(*       unabbrev_all_tac >> *)
+(*       strip_tac >> *)
+(*       simp[mrec_sem_simps,ltree_lift_state_simps] >> *)
+(*       reverse IF_CASES_TAC >> *)
+(*       gvs[ltree_lift_state_simps,mrec_sem_simps,ltree_lift_cases, *)
+(*           ret_eq_funpow_tau,tau_eq_funpow_tau *)
+(*          ] >> *)
+(*       last_x_assum irule >> *)
+(*       first_x_assum $ irule_at $ Pos last >> *)
+(*       simp[] *)
+(*      ) *)
+(*   >~ [‘Raise’] *)
+(*   >- (pop_assum kall_tac >> *)
+(*       rw[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*          h_prog_rule_raise_def, *)
+(*          ltree_lift_state_simps, *)
+(*          ret_eq_funpow_tau] >> *)
+(*       rpt(IF_CASES_TAC ORELSE PURE_TOP_CASE_TAC >> *)
+(*           gvs[mrec_sem_simps,ltree_lift_cases,ret_eq_funpow_tau, *)
+(*               ltree_lift_state_simps,empty_locals_defs])) >> *)
+(*   rw[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*      h_prog_rule_store_def, *)
+(*      h_prog_rule_store_byte_def, *)
+(*      h_prog_rule_assign_def, *)
+(*      h_prog_rule_raise_def, *)
+(*      h_prog_rule_return_def, *)
+(*      ltree_lift_state_simps, *)
+(*      ret_eq_funpow_tau *)
+(*     ] >> *)
+(*   rpt (PURE_TOP_CASE_TAC >> *)
+(*        gvs[ltree_lift_cases,h_prog_def,mrec_sem_simps, *)
+(*            ltree_lift_state_simps,ret_eq_funpow_tau, *)
+(*            tau_eq_funpow_tau,empty_locals_defs]) *)
+(* QED *)
 
 Theorem ltree_lift_state_lift':
   ltree_lift query_oracle (s:('a,'b)state).ffi (mrec_sem (h_prog (p,t))) ≈ Ret (res,s') ∧
@@ -2500,13 +2511,12 @@ Proof
   fs [Once itree_wbisim_cases]
 QED
 
-(* TODO: Determine where the FFI comes from and fix. *)
 Theorem fbs_semantics_beh_cases:
   fbs_semantics_beh s prog = SemDiverge l ⇔
-  (∀k. FST (evaluate (prog,(from_bstate s) with clock := k)) = SOME TimeOut) ∧
+  (∀k. FST (evaluate (prog,s with clock := k)) = SOME TimeOut) ∧
   l = LUB (IMAGE
            (λk. fromList
-                (SND (evaluate (prog,(from_bstate s) with clock := k))).ffi.io_events) 𝕌(:num))
+                (SND (evaluate (prog,s with clock := k))).ffi.io_events) 𝕌(:num))
 Proof
   EQ_TAC
   >- (rpt strip_tac >>>
@@ -2600,7 +2610,6 @@ Proof
   irule itreeTauTheory.itree_wbisim_refl
 QED
 
-(* TODO: move *)
 Theorem read_write_bytearray_lemma:
   ∀n addr bytes.
    good_dimindex(:α) ∧
@@ -2966,13 +2975,15 @@ Proof
   gvs []
 QED
 
-(* TODO: Determine where the FFI comes from and fix. *)
+(* TODO: Fix theorem *)
+(* Needs to say that evaluate from_bstate with the FFI that is produced at the end of the evaluate
+ is equal... *)
 Theorem ltree_Ret_to_evaluate:
   ∀s r s' prog:'a prog.
   good_dimindex (:α) ∧
-  ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret (r,s') ⇒
-  ∃k k'. evaluate (prog,from_bstate (s with clock := k)) = (r,from_bstate (s' with clock := k'))
-         ∧ r ≠ SOME TimeOut ∧ k' ≤ k
+  ltree_lift query_oracle t.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret (r,s') ⇒
+  ∃k k'. evaluate (prog,t with clock := k) = (r,(from_bstate s' t.ffi) with clock := k') ∧
+         r ≠ SOME TimeOut ∧ k' ≤ k
 Proof
   simp[GSYM AND_IMP_INTRO,GSYM PULL_FORALL] >> strip_tac >>
   ConseqConv.ONCE_CONSEQ_REWRITE_TAC ([itree_wbisim_Ret_FUNPOW],[],[]) >>
@@ -2983,8 +2994,8 @@ Proof
   >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
          ltree_lift_cases,
          ret_eq_funpow_tau,
-         tau_eq_funpow_tau
-        ] >>
+         tau_eq_funpow_tau,
+         from_bstate_def] >>
       rw[state_component_equality])
   >~ [‘Dec’]
   >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
@@ -3112,17 +3123,17 @@ Proof
       simp [panPropsTheory.eval_upd_clock_eq] >>
       Cases_on ‘eval (from_bstate_noffi s) e’ >> rw []
       >- (gvs [h_prog_def,h_prog_rule_cond_def,mrec_sem_simps,
-                ltree_lift_cases] >>
+               ltree_lift_cases] >>
           drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
           ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
           ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
           qexistsl_tac [‘k’,‘k’] >> rw []) >>
       ntac 2 (reverse $ TOP_CASE_TAC
-      >- (gvs [h_prog_def,h_prog_rule_cond_def,mrec_sem_simps,ltree_lift_cases] >>
-          drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
-          ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
-          ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
-          qexistsl_tac [‘k’,‘k’] >> rw [])) >>
+              >- (gvs [h_prog_def,h_prog_rule_cond_def,mrec_sem_simps,ltree_lift_cases] >>
+                  drule_then assume_tac itree_wbisim_Ret_FUNPOW' >>
+                  ‘r = SOME Error’ by (gvs [itree_wbisim_neq]) >>
+                  ‘s = s'’ by (gvs [itree_wbisim_neq]) >>
+                  qexistsl_tac [‘k’,‘k’] >> rw [])) >>
       Cases_on ‘c = 0w’ >> rw [] >>
       gvs [h_prog_def,h_prog_rule_cond_def,mrec_sem_simps,
            ltree_lift_cases,tau_eq_funpow_tau] >>
@@ -3400,24 +3411,24 @@ Proof
       qexistsl_tac [‘0’,‘k'’] >> rw [empty_locals_defs])
   >~ [‘ExtCall’]
   >- (cheat)
-      (*   PRED_ASSUM is_forall kall_tac >> *)
-      (* rw[Once evaluate_def,h_prog_def,mrec_sem_simps, *)
-      (*    ltree_lift_cases,ret_eq_funpow_tau, *)
-      (*    tau_eq_funpow_tau,h_prog_rule_ext_call_def, *)
-      (*    panPropsTheory.eval_upd_clock_eq *)
-      (*   ] >> *)
-      (* rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >> *)
-      (*     gvs[h_prog_def,mrec_sem_simps, *)
-      (*         ltree_lift_cases,ret_eq_funpow_tau, *)
-      (*         tau_eq_funpow_tau, *)
-      (*         panPropsTheory.eval_upd_clock_eq, *)
-      (*         msem_lift_monad_law, *)
-      (*         ltree_lift_monad_law, *)
-      (*         ffiTheory.call_FFI_def, *)
-      (*         query_oracle_def,empty_locals_defs *)
-      (*        ]) >> *)
-      (* rw[state_component_equality] >> *)
-      (* metis_tac[read_write_bytearray_lemma]) *)
+  (*   PRED_ASSUM is_forall kall_tac >> *)
+  (* rw[Once evaluate_def,h_prog_def,mrec_sem_simps, *)
+  (*    ltree_lift_cases,ret_eq_funpow_tau, *)
+  (*    tau_eq_funpow_tau,h_prog_rule_ext_call_def, *)
+  (*    panPropsTheory.eval_upd_clock_eq *)
+  (*   ] >> *)
+  (* rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >> *)
+  (*     gvs[h_prog_def,mrec_sem_simps, *)
+  (*         ltree_lift_cases,ret_eq_funpow_tau, *)
+  (*         tau_eq_funpow_tau, *)
+  (*         panPropsTheory.eval_upd_clock_eq, *)
+  (*         msem_lift_monad_law, *)
+  (*         ltree_lift_monad_law, *)
+  (*         ffiTheory.call_FFI_def, *)
+  (*         query_oracle_def,empty_locals_defs *)
+  (*        ]) >> *)
+  (* rw[state_component_equality] >> *)
+  (* metis_tac[read_write_bytearray_lemma]) *)
   >~ [‘Raise’]
   >- (PRED_ASSUM is_forall kall_tac >>
       rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
@@ -3454,30 +3465,30 @@ Proof
       rw[state_component_equality,empty_locals_defs])
   >~ [‘ShMem’]
   >- (cheat)
-      (* PRED_ASSUM is_forall kall_tac >> *)
-      (* rw[Once evaluate_def,h_prog_def,mrec_sem_simps, *)
-      (*    ltree_lift_cases,ret_eq_funpow_tau, *)
-      (*    tau_eq_funpow_tau,h_prog_rule_sh_mem_def, *)
-      (*    oneline h_prog_rule_sh_mem_op_def, *)
-      (*    oneline h_prog_rule_sh_mem_load_def, *)
-      (*    oneline h_prog_rule_sh_mem_store_def, *)
-      (*    panPropsTheory.eval_upd_clock_eq, *)
-      (*    oneline sh_mem_op_def, *)
-      (*    oneline sh_mem_store_def, *)
-      (*    oneline sh_mem_load_def *)
-      (*   ] >> *)
-      (* rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >> *)
-      (*     gvs[h_prog_def,mrec_sem_simps, *)
-      (*         ltree_lift_cases,ret_eq_funpow_tau, *)
-      (*         tau_eq_funpow_tau, *)
-      (*         panPropsTheory.eval_upd_clock_eq, *)
-      (*         msem_lift_monad_law, *)
-      (*         ltree_lift_monad_law, *)
-      (*         ffiTheory.call_FFI_def, *)
-      (*         query_oracle_def,empty_locals_defs, *)
-      (*         set_var_def, panSemTheory.set_var_def *)
-      (*        ]) >> *)
-      (* rw[state_component_equality]) *)
+  (* PRED_ASSUM is_forall kall_tac >> *)
+  (* rw[Once evaluate_def,h_prog_def,mrec_sem_simps, *)
+  (*    ltree_lift_cases,ret_eq_funpow_tau, *)
+  (*    tau_eq_funpow_tau,h_prog_rule_sh_mem_def, *)
+  (*    oneline h_prog_rule_sh_mem_op_def, *)
+  (*    oneline h_prog_rule_sh_mem_load_def, *)
+  (*    oneline h_prog_rule_sh_mem_store_def, *)
+  (*    panPropsTheory.eval_upd_clock_eq, *)
+  (*    oneline sh_mem_op_def, *)
+  (*    oneline sh_mem_store_def, *)
+  (*    oneline sh_mem_load_def *)
+  (*   ] >> *)
+  (* rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >> *)
+  (*     gvs[h_prog_def,mrec_sem_simps, *)
+  (*         ltree_lift_cases,ret_eq_funpow_tau, *)
+  (*         tau_eq_funpow_tau, *)
+  (*         panPropsTheory.eval_upd_clock_eq, *)
+  (*         msem_lift_monad_law, *)
+  (*         ltree_lift_monad_law, *)
+  (*         ffiTheory.call_FFI_def, *)
+  (*         query_oracle_def,empty_locals_defs, *)
+  (*         set_var_def, panSemTheory.set_var_def *)
+  (*        ]) >> *)
+  (* rw[state_component_equality]) *)
   >~ [‘Tick’]
   >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
          ltree_lift_cases,
@@ -3490,12 +3501,10 @@ QED
 
 (* TODO: Determine where the FFI comes from and fix. *)
 Theorem ltree_Ret_to_evaluate':
-    good_dimindex (:α) ∧
-    ltree_lift query_oracle (t:('a,'b)state).ffi (mrec_sem (h_prog (prog,s))) ≈
-               Ret (r,s')
-    ∧ (s:('a,'b)bstate).ffi = t.ffi ⇒
-    ∃k k'. evaluate (prog,from_bstate s with clock := k) = (r,from_bstate s' with clock := k')
-           ∧ r ≠ SOME TimeOut ∧ k' ≤ k
+  good_dimindex (:α) ∧
+  ltree_lift query_oracle t.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret (r,s') ⇒
+  ∃k k'. evaluate (prog,t with clock := k) = (r,(from_bstate s' t.ffi) with clock := k') ∧
+         r ≠ SOME TimeOut ∧ k' ≤ k
 Proof
   rpt strip_tac>>
   drule ltree_Ret_to_evaluate>>
@@ -3532,7 +3541,7 @@ Proof
        gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>NO_TAC)
   >- (* Dec *)
    (gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>
-fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
+    fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
        msem_lift_monad_law,to_stree_simps,stree_trace_simps,to_stree_monad_law,
        panPropsTheory.eval_upd_clock_eq,ltree_lift_monad_law]>>
     qmatch_asmsub_abbrev_tac ‘¬(X >>= Y ≈ _)’>>
@@ -3545,13 +3554,13 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
     fs[Abbr‘X’]>>
     drule (INST_TYPE [delta|->alpha] ltree_lift_nonret_bind_stree)>>
     strip_tac>>fs[]>>metis_tac[])
-  (* ShMem *)
+   (* ShMem *)
    >>~- ([‘ShMem’],
          gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>
          fs[h_prog_def,h_prog_rule_sh_mem_def,mrec_sem_simps,ltree_lift_cases,
             to_stree_simps,stree_trace_simps,ltree_lift_monad_law,
-         panPropsTheory.opt_mmap_eval_upd_clock_eq1,set_var_defs,
-         panPropsTheory.eval_upd_clock_eq,to_stree_monad_law]>>
+            panPropsTheory.opt_mmap_eval_upd_clock_eq1,set_var_defs,
+            panPropsTheory.eval_upd_clock_eq,to_stree_monad_law]>>
          Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
          rpt (FULL_CASE_TAC>>gvs[]))
   >- (* Seq *)
@@ -3654,16 +3663,16 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
          (fs[Abbr‘X’]>>
           Cases_on ‘p’>>rename1 ‘Ret (q,r')’>>
           imp_res_tac ltree_lift_state_lift'>>fs[]>>
-         qspecl_then [‘dec_clock s’,‘r'’,‘to_bstate (dec_clock s)’,‘q’,‘c’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
-         gvs[]>>
-         qspecl_then [‘c’,‘dec_clock s’,‘k-(dec_clock s).clock’] assume_tac(panPropsTheory.evaluate_add_clock_io_events_mono)>>
-         ‘(dec_clock s).clock < k’ by
-           (CCONTR_TAC>>fs[NOT_LESS]>>
-            drule panPropsTheory.evaluate_add_clock_eq>>
-            disch_then $ qspec_then ‘(dec_clock s).clock-k’ assume_tac>>
-            gvs[]>>
-            ‘(dec_clock s with clock := (dec_clock s).clock) = dec_clock s’
-              by simp[state_component_equality]>>fs[])>>
+          qspecl_then [‘dec_clock s’,‘r'’,‘to_bstate (dec_clock s)’,‘q’,‘c’] assume_tac(GEN_ALL ltree_Ret_to_evaluate')>>
+          gvs[]>>
+          qspecl_then [‘c’,‘dec_clock s’,‘k-(dec_clock s).clock’] assume_tac(panPropsTheory.evaluate_add_clock_io_events_mono)>>
+          ‘(dec_clock s).clock < k’ by
+            (CCONTR_TAC>>fs[NOT_LESS]>>
+             drule panPropsTheory.evaluate_add_clock_eq>>
+             disch_then $ qspec_then ‘(dec_clock s).clock-k’ assume_tac>>
+             gvs[]>>
+             ‘(dec_clock s with clock := (dec_clock s).clock) = dec_clock s’
+               by simp[state_component_equality]>>fs[])>>
           gvs[]>>
           drule_then drule (iffLR ret_bind_nonret)>>strip_tac>>
           fs[Abbr‘Y’]>>Cases_on ‘q’>>
@@ -3709,7 +3718,7 @@ fs[h_prog_def,h_prog_rule_dec_def,mrec_sem_simps,ltree_lift_cases,
   >- (gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])>>
       fs[h_prog_def,empty_locals_defs,mrec_sem_simps,to_stree_simps,
          stree_trace_simps]>>metis_tac[])>>
-(* Call *)
+  (* Call *)
   gvs[AllCaseEqs()]>>rpt (pairarg_tac>>gvs[])
   >- (fs[empty_locals_defs]>>metis_tac[])
   >- (fs[Once mrec_sem_Call_simps,
@@ -3786,9 +3795,9 @@ QED
 (* TODO: Determine where the FFI comes from and fix. *)
 Theorem nonret_imp_timeout:
   ∀s r s' prog:'a prog k.
-    good_dimindex (:α) ∧
-    (∀p. ¬(ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret p)) ⇒
-    ∃s'. evaluate (prog,from_bstate s with clock := k) = (SOME TimeOut,s')
+                                  good_dimindex (:α) ∧
+                                  (∀p. ¬(ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret p)) ⇒
+                                  ∃s'. evaluate (prog,from_bstate s with clock := k) = (SOME TimeOut,s')
 Proof
   rpt strip_tac >>
   spose_not_then strip_assume_tac >>
@@ -3804,8 +3813,8 @@ QED
 (* TODO: Determine where the FFI comes from and fix. *)
 Theorem nonret_imp_timeout':
   good_dimindex (:α) ∧
-    (∀p. ¬(ltree_lift query_oracle (t:('a,'b)state).ffi (mrec_sem (h_prog (prog,s))) ≈ Ret p)) ∧ t.ffi = s.ffi ⇒
-    ∃s'. evaluate (prog:'a prog,from_bstate s with clock := k) = (SOME TimeOut,s')
+  (∀p. ¬(ltree_lift query_oracle (t:('a,'b)state).ffi (mrec_sem (h_prog (prog,s))) ≈ Ret p)) ∧ t.ffi = s.ffi ⇒
+  ∃s'. evaluate (prog:'a prog,from_bstate s with clock := k) = (SOME TimeOut,s')
 Proof
   strip_tac>>
   irule nonret_imp_timeout>>
@@ -3814,8 +3823,8 @@ QED
 
 Theorem nonret_imp_spin:
   ∀f st t.
-    (∀p. ¬(ltree_lift f st t ≈ Ret p)) ⇒
-    ltree_lift f st t = spin
+                                  (∀p. ¬(ltree_lift f st t ≈ Ret p)) ⇒
+                                  ltree_lift f st t = spin
 Proof
   rpt strip_tac >>
   CONV_TAC SYM_CONV >>
@@ -3877,7 +3886,7 @@ Theorem LCONS_nonret_imp_Vis:
   stree_trace q p st (to_stree ht) = h:::t ∧
   (∀p. ¬(ltree_lift q st ht ≈ Ret p)) ⇒
   ∃n e k.
-  to_stree ht = FUNPOW Tau n (Vis e k)
+                                  to_stree ht = FUNPOW Tau n (Vis e k)
 Proof
   strip_tac>>
   Cases_on ‘∃t. strip_tau ht t’>>fs[]
@@ -3922,7 +3931,7 @@ QED
 (* move *)
 Theorem prefix_chain_APPEND:
   prefix_chain X ⇔
-  prefix_chain (IMAGE (λx. APPEND l x) X)
+    prefix_chain (IMAGE (λx. APPEND l x) X)
 Proof
   simp[EQ_IMP_THM]>>
   strip_tac>>fs[prefix_chain_def]>>
@@ -3935,15 +3944,15 @@ QED
 (* move *)
 Theorem lprefix_chain_LAPPEND:
   lprefix_chain X ⇔
-  lprefix_chain (IMAGE (λx. LAPPEND (fromList l) x) X)
+    lprefix_chain (IMAGE (λx. LAPPEND (fromList l) x) X)
 Proof
   simp[EQ_IMP_THM]>>
   strip_tac>>fs[lprefix_chain_def]>>
   rpt strip_tac>>
   fs[LPREFIX_APPEND]
-    >- (simp[Once LAPPEND_ASSOC]>>
-        simp[Once LAPPEND_ASSOC]>>
-        simp[LFINITE_fromList,LAPPEND11_FINITE1])>>
+  >- (simp[Once LAPPEND_ASSOC]>>
+      simp[Once LAPPEND_ASSOC]>>
+      simp[LFINITE_fromList,LAPPEND11_FINITE1])>>
   first_x_assum $ qspecl_then [‘LAPPEND (fromList l) ll1’,‘LAPPEND (fromList l) ll2’] assume_tac>>
   gvs[LFINITE_fromList,LAPPEND11_FINITE1]>>
   fs[Once LAPPEND_ASSOC]>>
@@ -4088,7 +4097,7 @@ Proof
   qmatch_goalsub_abbrev_tac ‘lprefix_chain X’>>
   ‘X = IMAGE fromList
              {(SND (evaluate (prog,s with clock := k))).ffi.
-                                              io_events|k|T}’
+             io_events|k|T}’
     by (simp[Abbr‘X’,IMAGE_DEF]>>
         simp[FUN_EQ_THM]>>rw[EQ_IMP_THM]>>metis_tac[])>>simp[]>>
   irule lprefix_lubTheory.prefix_chain_lprefix_chain>>
@@ -4098,7 +4107,7 @@ QED
 (* generalise? *)
 Theorem lprefix_chain_LUB_upper:
   LUB {fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | T} =
-  LUB {fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | n < k}
+                                                                              LUB {fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | n < k}
 Proof
   qmatch_goalsub_abbrev_tac ‘LUB X = LUB Y’>>
   ‘lprefix_chain X’
@@ -4134,18 +4143,18 @@ QED
 
 Theorem evaluate_io_events_prefix:
   {(SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k} =
-  IMAGE (λx. APPEND s.ffi.io_events x)
-        {DROP (LENGTH s.ffi.io_events)
-              (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k}
+                                                                 IMAGE (λx. APPEND s.ffi.io_events x)
+                                                                       {DROP (LENGTH s.ffi.io_events)
+                                                                       (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k}
 Proof
   simp[IMAGE_DEF,EXTENSION,PULL_EXISTS]>>
   simp[EQ_IMP_THM]>>
   simp[PULL_EXISTS,PULL_FORALL]>>
   rpt gen_tac>>
   ‘∀k. (SND (evaluate (prog, s with clock := k))).ffi.io_events
-             = s.ffi.io_events ++
-               DROP (LENGTH s.ffi.io_events)
-                    (SND (evaluate (prog, s with clock := k))).ffi.io_events’ by
+       = s.ffi.io_events ++
+         DROP (LENGTH s.ffi.io_events)
+              (SND (evaluate (prog, s with clock := k))).ffi.io_events’ by
     (strip_tac>>
      qpat_abbrev_tac ‘X = evaluate _’>>
      Cases_on ‘X’>>fs[]>>
@@ -4157,12 +4166,12 @@ QED
 
 Theorem initial_io_events_LAPPEND:
   LUB
-   {fromList
-    (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | T} =
-  LAPPEND (fromList s.ffi.io_events)
-   (LUB {fromList
-      (DROP (LENGTH s.ffi.io_events)
- (SND (evaluate (prog,s with clock := k))).ffi.io_events)|k|s.clock < k})
+  {fromList
+  (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | T} =
+                                                                LAPPEND (fromList s.ffi.io_events)
+                                                                        (LUB {fromList
+                                                                             (DROP (LENGTH s.ffi.io_events)
+                                                                                   (SND (evaluate (prog,s with clock := k))).ffi.io_events)|k|s.clock < k})
 Proof
   irule EQ_TRANS>>
   irule_at Any (GSYM LUB_LAPPEND_fromList)>>
@@ -4173,9 +4182,9 @@ Proof
     qexists ‘s.ffi.io_events’>>
     qpat_abbrev_tac ‘X = IMAGE _ _’>>
     ‘X = IMAGE fromList
-           (IMAGE (λx. s.ffi.io_events ++ x)
-                  {DROP (LENGTH s.ffi.io_events)
-                  (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k})’
+               (IMAGE (λx. s.ffi.io_events ++ x)
+                      {DROP (LENGTH s.ffi.io_events)
+                      (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k})’
       by simp[IMAGE_DEF,Abbr‘X’,EXTENSION,PULL_EXISTS,
               LAPPEND_fromList]>>
     simp[]>>
@@ -4206,7 +4215,7 @@ Proof
   irule EQ_TRANS>>
   qexists ‘IMAGE fromList (IMAGE (λx. s.ffi.io_events ++ x)
                                  {DROP (LENGTH s.ffi.io_events)
-      (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k})’>>
+                                 (SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k})’>>
   reverse conj_tac >- simp[EXTENSION,LAPPEND_fromList,PULL_EXISTS]>>
   irule EQ_TRANS>>
   qexists ‘IMAGE fromList {(SND (evaluate (prog,s with clock := k))).ffi.io_events | k | s.clock < k}’>>
@@ -5059,8 +5068,8 @@ Proof
                  irule clock_0_imp_LNIL>>gvs[Abbr‘t’]>>
                  strip_tac>>
                  ‘∀w. ¬(ltree_lift query_oracle (from_bstate r').ffi
-                     (mrec_sem (h_prog
-                           (r'³',r' with locals := s.locals |+ (q'³',ex)))) ≈
+                                   (mrec_sem (h_prog
+                                              (r'³',r' with locals := s.locals |+ (q'³',ex)))) ≈
                                    Ret w)’
                    by simp[]>>
                  drule_then drule nonret_imp_timeout'>>gvs[]>>
@@ -5075,59 +5084,59 @@ Proof
                  rev_drule panPropsTheory.evaluate_add_clock_eq>>
                  strip_tac>>gvs[])>>
               gvs[empty_locals_defs,LAPPEND_NIL_2ND])>>
-      ‘k < s.clock’
-        by (CCONTR_TAC>>fs[NOT_LESS]>>
-            drule panPropsTheory.evaluate_add_clock_eq>>
-            strip_tac>>gvs[]>>
-            first_x_assum $ qspec_then ‘k - (dec_clock s).clock’ assume_tac>>
-            gvs[dec_clock_def]>>
-            fs[state_component_equality])>>
-      rev_drule panPropsTheory.evaluate_add_clock_eq>>
+          ‘k < s.clock’
+            by (CCONTR_TAC>>fs[NOT_LESS]>>
+                drule panPropsTheory.evaluate_add_clock_eq>>
+                strip_tac>>gvs[]>>
+                first_x_assum $ qspec_then ‘k - (dec_clock s).clock’ assume_tac>>
+                gvs[dec_clock_def]>>
+                fs[state_component_equality])>>
+          rev_drule panPropsTheory.evaluate_add_clock_eq>>
+          strip_tac>>gvs[]>>
+          first_x_assum $ qspec_then ‘(dec_clock s).clock - k’ assume_tac>>
+          gvs[dec_clock_def,set_var_defs]>>
+          gvs[h_handle_call_ret_def,mrec_sem_simps,to_stree_simps,
+              stree_trace_simps,set_var_defs]>>
+          simp[GSYM LAPPEND_ASSOC]>>
+          first_x_assum irule>>
+          rpt strip_tac>>gvs[]>>
+          first_x_assum $ qspec_then ‘k' + k + 1’ assume_tac>>
+          fs[Once evaluate_def]>>
+          fs[panPropsTheory.opt_mmap_eval_upd_clock_eq1,
+             panPropsTheory.eval_upd_clock_eq]>>
+          gvs[dec_clock_def]>>
+          FULL_CASE_TAC>>gvs[]>>
+          qhdtm_x_assum ‘evaluate’ mp_tac>>
+          qhdtm_x_assum ‘evaluate’ assume_tac>>
+          drule panPropsTheory.evaluate_add_clock_eq>>
+          strip_tac>>gvs[]>>
+          strip_tac>>gvs[]>>
+          first_x_assum $ qspec_then ‘SUC (k' + k - s.clock)’ assume_tac>>
+          gvs[dec_clock_def,set_var_defs,ADD1])>>
+      (* nonret *)
+      ‘(dec_clock s).ffi = s.ffi’ by simp[dec_clock_def]>>fs[]>>
+      fs[Abbr‘X’]>>
+      drule (INST_TYPE [delta|->alpha] ltree_lift_nonret_bind_stree)>>
       strip_tac>>gvs[]>>
-      first_x_assum $ qspec_then ‘(dec_clock s).clock - k’ assume_tac>>
-      gvs[dec_clock_def,set_var_defs]>>
-      gvs[h_handle_call_ret_def,mrec_sem_simps,to_stree_simps,
-          stree_trace_simps,set_var_defs]>>
-      simp[GSYM LAPPEND_ASSOC]>>
-      first_x_assum irule>>
-      rpt strip_tac>>gvs[]>>
-      first_x_assum $ qspec_then ‘k' + k + 1’ assume_tac>>
-      fs[Once evaluate_def]>>
-      fs[panPropsTheory.opt_mmap_eval_upd_clock_eq1,
-         panPropsTheory.eval_upd_clock_eq]>>
-      gvs[dec_clock_def]>>
-      FULL_CASE_TAC>>gvs[]>>
-      qhdtm_x_assum ‘evaluate’ mp_tac>>
-      qhdtm_x_assum ‘evaluate’ assume_tac>>
-      drule panPropsTheory.evaluate_add_clock_eq>>
-      strip_tac>>gvs[]>>
-      strip_tac>>gvs[]>>
-      first_x_assum $ qspec_then ‘SUC (k' + k - s.clock)’ assume_tac>>
-      gvs[dec_clock_def,set_var_defs,ADD1])>>
-  (* nonret *)
-  ‘(dec_clock s).ffi = s.ffi’ by simp[dec_clock_def]>>fs[]>>
-  fs[Abbr‘X’]>>
-  drule (INST_TYPE [delta|->alpha] ltree_lift_nonret_bind_stree)>>
-  strip_tac>>gvs[]>>
-  drule_then drule nonret_imp_timeout'>>strip_tac>>fs[]>>
-  first_assum $ qspec_then ‘s.clock-1’ assume_tac>>
-  ‘s with clock := s.clock - 1 = dec_clock s’
-    by simp[state_component_equality,dec_clock_def]>>fs[]>>
-  irule EQ_TRANS>>
-  first_x_assum $ irule_at Any>>
-  last_x_assum assume_tac>>
-  conj_tac >-
-   (rpt strip_tac>>
-    first_x_assum $ qspec_then ‘SUC k'’ mp_tac>>
-    simp[Once evaluate_def,empty_locals_defs]>>fs[dec_clock_def]>>
-    strip_tac>>
-    once_rewrite_tac[evaluate_def]>>
-    simp[panPropsTheory.eval_upd_clock_eq,
-         panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
-    fs[dec_clock_def]>>
-    TOP_CASE_TAC>>gvs[]>>
-    first_x_assum $ qspec_then ‘k'’ assume_tac>>gvs[empty_locals_defs])>>
-  simp[Once evaluate_def,empty_locals_defs]>>fs[dec_clock_def])>>
+      drule_then drule nonret_imp_timeout'>>strip_tac>>fs[]>>
+      first_assum $ qspec_then ‘s.clock-1’ assume_tac>>
+      ‘s with clock := s.clock - 1 = dec_clock s’
+        by simp[state_component_equality,dec_clock_def]>>fs[]>>
+      irule EQ_TRANS>>
+      first_x_assum $ irule_at Any>>
+      last_x_assum assume_tac>>
+      conj_tac >-
+       (rpt strip_tac>>
+        first_x_assum $ qspec_then ‘SUC k'’ mp_tac>>
+        simp[Once evaluate_def,empty_locals_defs]>>fs[dec_clock_def]>>
+        strip_tac>>
+        once_rewrite_tac[evaluate_def]>>
+        simp[panPropsTheory.eval_upd_clock_eq,
+             panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+        fs[dec_clock_def]>>
+        TOP_CASE_TAC>>gvs[]>>
+        first_x_assum $ qspec_then ‘k'’ assume_tac>>gvs[empty_locals_defs])>>
+      simp[Once evaluate_def,empty_locals_defs]>>fs[dec_clock_def])>>
   (* ExtCall *)
   fs[h_prog_def,h_prog_rule_ext_call_def,
      panPropsTheory.eval_upd_clock_eq,ltree_lift_cases,
@@ -5212,12 +5221,12 @@ QED
 (* A path p (aka. maximal answer trace) is an (:'a semtree_ans llist)
  that describes a particular path in an itree. Such a path is valid iff
  is_valid_path t p = T
-*)
+ *)
 CoInductive is_valid_path:
   (∀x. is_valid_path (Ret x) [||]) ∧
   (∀t p. is_valid_path t p ⇒ is_valid_path (Tau t) p) ∧
   (∀e k t. is_valid_path t p ∧ (∃a. k a = t) ⇒ is_valid_path (Vis e k) (a:::p))
-End
+                                 End
 
 Datatype:
   atrace_ffi =
@@ -5232,10 +5241,10 @@ End
 
 Definition stree_trace_oracle_def:
   (stree_trace_oracle : 'a atrace_ffi oracle) s st conf bytes =
-     case st.alist of
-       (FFI_return st' bytes):::as => Oracle_return (st with alist := as) bytes
-     | (FFI_final (Final_event s' conf' bytes' outcome)):::as => Oracle_final outcome
-     | LNIL => Oracle_final FFI_failed
+  case st.alist of
+    (FFI_return st' bytes):::as => Oracle_return (st with alist := as) bytes
+  | (FFI_final (Final_event s' conf' bytes' outcome)):::as => Oracle_final outcome
+  | LNIL => Oracle_final FFI_failed
 End
 
 (* TODO: Fix all the broken ExtCall and ShmMem goals in
@@ -5250,10 +5259,10 @@ Theorem itree_semantics_completeness:
         (build_lprefix_lub (IMAGE (λk. fromList (SND (evaluate (prog,((from_bstate s) with <| clock := k; ffi := ffi_or_state |>)))).ffi.io_events) UNIV) =
          stree_trace query_oracle event_filter ffi_or_state (to_stree (mrec_sem (h_prog (prog,s))))) ∧
         case toList path of
-             SOME finPath =>
-          let (r,s') = evaluate (prog,(from_bstate s) with ffi := ffi_or_state) in
-            ltree_lift query_oracle ffi_or_state (mrec_sem (h_prog (prog,s))) ≈ Ret (r,to_bstate s')
-            | NONE => T
+          SOME finPath =>
+            let (r,s') = evaluate (prog,(from_bstate s) with ffi := ffi_or_state) in
+              ltree_lift query_oracle ffi_or_state (mrec_sem (h_prog (prog,s))) ≈ Ret (r,to_bstate s')
+              | NONE => T
 Proof
   rw [] >>
   qexists_tac ‘stree_trace_oracle’ >> reverse $ rw []
