@@ -353,11 +353,12 @@ End
 val _ = Datatype `
   next_indices = <| vidx : num; tidx : num; eidx : num |>`;
 
-val _ = Define `
+Definition lookup_inc_def:
   lookup_inc i t =
     case sptree$lookup i t of
     | NONE => (0, sptree$insert i 1 t)
-    | SOME n => (n, sptree$insert i (n+1) t)`;
+    | SOME n => (n, sptree$insert i (n+1) t)
+End
 
 Definition alloc_tags1_def:
   (alloc_tags1 [] = (nsEmpty, LN, [])) ∧
