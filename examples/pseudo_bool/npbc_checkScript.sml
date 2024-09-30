@@ -1362,7 +1362,7 @@ QED
 
 Definition pres_set_spt_def:
   pres_set_spt pres =
-    pres_set (OPTION_MAP domain pres)
+    case pres of NONE => {} | SOME pres => domain pres
 End
 
 Theorem check_pres_subst_fun:
@@ -1372,7 +1372,7 @@ Theorem check_pres_subst_fun:
     subst_fun (mk_subst s) x = NONE)
 Proof
   Cases_on`pres`>>
-  gvs[check_pres_def,pres_set_spt_def,pbcTheory.pres_set_def]>>
+  gvs[check_pres_def,pres_set_spt_def]>>
   ho_match_mp_tac mk_subst_ind>>
   rw[pres_set_spt_def,mk_subst_def,subst_fun_def,check_pres_def,domain_lookup]
   >-
@@ -2554,16 +2554,16 @@ Proof
   metis_tac[]
 QED
 
-Theorem bimp_obj_bimp_pres_obj:
+Theorem bimp_obj_bimp_pres_obj_empty:
   bimp_obj bound fopt1 C1 fopt2 C2 ⇒
-  bimp_pres_obj bound NONE fopt1 C1 NONE fopt2 C2
+  bimp_pres_obj bound {} fopt1 C1 {} fopt2 C2
 Proof
   rw[bimp_pres_obj_def,bimp_obj_def]>>
   first_x_assum drule>>
   rw[imp_obj_def,sat_obj_le_def]>>
   gvs[PULL_EXISTS]>>
   qexists_tac`I`>>
-  rw[INJ_DEF,pbcTheory.proj_pres_def,pbcTheory.pres_set_def]>>
+  rw[INJ_DEF,pbcTheory.proj_pres_def]>>
   metis_tac[]
 QED
 
@@ -2614,7 +2614,7 @@ Proof
 QED
 
 Theorem sat_obj_po_bimp_pres_obj:
-  sat_obj_po (pres_set pres) ord obj A B ⇒
+  sat_obj_po pres ord obj A B ⇒
   bimp_pres_obj bound pres obj A pres obj B
 Proof
   rw[sat_obj_po_def,bimp_pres_obj_def]>>
@@ -2819,13 +2819,13 @@ Theorem bimp_pres_obj_update_pres_1:
       satisfies w (core_only_fml T fml) ⇒
       v_iff_npbc_sem v c w) ⇒
   bimp_pres_obj dbound
-    (SOME (domain pres)) obj
+    (domain pres) obj
     (core_only_fml F fml)
-    (SOME (domain (update_pres b v pres))) obj
+    (domain (update_pres b v pres)) obj
     (core_only_fml F fml)
 Proof
   rw[bimp_pres_obj_def]>>
-  gvs[pbcTheory.proj_pres_def,pbcTheory.pres_set_def,domain_update_pres]>>
+  gvs[pbcTheory.proj_pres_def,domain_update_pres]>>
   drule pres_only_dependency>>rw[]
   >- ( (* insertion: the injection maps v to its definition *)
     qexists_tac
@@ -2861,13 +2861,13 @@ Theorem bimp_pres_obj_update_pres_2:
       satisfies w (core_only_fml T fml) ⇒
       v_iff_npbc_sem v c w) ⇒
   bimp_pres_obj dbound
-    (SOME (domain (update_pres b v pres))) obj
+    (domain (update_pres b v pres)) obj
     (core_only_fml T fml)
-    (SOME (domain pres)) obj
+    (domain pres) obj
     (core_only_fml T fml)
 Proof
   rw[bimp_pres_obj_def]>>
-  gvs[pbcTheory.proj_pres_def,pbcTheory.pres_set_def,domain_update_pres]>>
+  gvs[pbcTheory.proj_pres_def,domain_update_pres]>>
   drule pres_only_dependency>>rw[]
   >- ( (* reversed insertion: The injection drops v *)
     Cases_on`v ∈ domain pres`
@@ -2929,15 +2929,15 @@ Theorem check_cstep_correct:
         sat_obj_le pc.obj
           (THE pc'.bound) (core_only_fml T fml)) ∧
       bimp_pres_obj pc'.dbound
-        (OPTION_MAP domain pc.pres)
+        (pres_set_spt pc.pres)
           pc.obj  (core_only_fml F fml)
-        (OPTION_MAP domain pc'.pres)
+        (pres_set_spt pc'.pres)
           pc'.obj (core_only_fml F fml') ∧
       (pc'.chk ⇒
         bimp_pres_obj pc'.bound
-        (OPTION_MAP domain pc'.pres)
+        (pres_set_spt pc'.pres)
           pc'.obj (core_only_fml T fml')
-        (OPTION_MAP domain pc.pres)
+        (pres_set_spt pc.pres)
           pc.obj (core_only_fml T fml)) ∧
       (pc'.chk ⇒ pc.chk) ∧ (¬pc'.chk ⇒ pc.bound = pc'.bound) ∧
       OPTION_ALL good_spo pc'.ord ∧
@@ -3762,14 +3762,14 @@ Theorem check_csteps_correct:
     (opt_lt pc'.bound pc.bound ⇒
       sat_obj_le pc.obj (THE pc'.bound) (core_only_fml T fml)) ∧
     (bimp_pres_obj pc'.dbound
-      (OPTION_MAP domain pc.pres)
+      (pres_set_spt pc.pres)
         pc.obj (core_only_fml F fml)
-      (OPTION_MAP domain pc'.pres)
+      (pres_set_spt pc'.pres)
         pc'.obj (core_only_fml F fml')) ∧
     (pc'.chk ⇒ bimp_pres_obj pc'.bound
-        (OPTION_MAP domain pc'.pres)
+        (pres_set_spt pc'.pres)
           pc'.obj (core_only_fml T fml')
-        (OPTION_MAP domain pc.pres)
+        (pres_set_spt pc.pres)
           pc.obj (core_only_fml T fml)) ∧
     (pc'.chk ⇒ pc.chk) ∧ (¬pc.chk ⇒ pc.bound = pc'.bound) ∧
     OPTION_ALL good_spo pc'.ord ∧
@@ -4183,9 +4183,9 @@ End
 
 Theorem valid_conf_proj_pres_eq:
   valid_conf T pres ord obj tcb fml ⇒
-  proj_pres (OPTION_MAP domain pres)
+  proj_pres (pres_set_spt pres)
     {w | satisfies w (core_only_fml T fml) ∧ eval_obj obj w ≤ v} =
-  proj_pres (OPTION_MAP domain pres)
+  proj_pres (pres_set_spt pres)
     {w | satisfies w (core_only_fml F fml) ∧ eval_obj obj w ≤ v}
 Proof
   rw[valid_conf_def,valid_req_def,sat_obj_po_def,pbcTheory.proj_pres_def,EXTENSION,EQ_IMP_THM,pres_set_spt_def]
@@ -4220,9 +4220,9 @@ Theorem check_csteps_check_output:
   check_output fml' pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlt prest objt output ⇒
   sem_output
     (core_only_fml T fml) obj
-      (OPTION_MAP domain pres) pc'.bound
+      (pres_set_spt pres) pc'.bound
     (set fmlt) objt
-      (OPTION_MAP domain prest) output
+      (pres_set_spt prest) output
 Proof
   rw[]>>
   drule_at Any check_csteps_correct>>
@@ -4314,9 +4314,9 @@ Proof
       (Cases_on`pc'.bound`>>fs[opt_lt_def])>>
     `opt_lt (SOME v) pc'.dbound` by
        metis_tac[opt_lt_le]>>
-    `proj_pres (OPTION_MAP domain pc'.pres)
+    `proj_pres (pres_set_spt pc'.pres)
       {w | satisfies w (core_only_fml T fml') ∧ eval_obj objt w ≤ v} =
-     proj_pres (OPTION_MAP domain pc'.pres)
+     proj_pres (pres_set_spt pc'.pres)
       {w' | satisfies w' (set fmlt) ∧ eval_obj objt w' ≤ v}`
       by (
       pop_assum kall_tac>>

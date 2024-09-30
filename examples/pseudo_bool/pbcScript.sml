@@ -554,23 +554,10 @@ Proof
     metis_tac[satisfies_map_pbf])
 QED
 
-(* projection of assignment onto a preserved set
-  NOTE: NONE is a dummy *)
-Definition pres_set_def:
-  pres_set presopt =
-  case presopt of
-    NONE => {}
-  | SOME pres => pres
-End
-
 (* projecting set ws of solutions onto preserved set *)
 Definition proj_pres_def:
   proj_pres pres ws =
-    IMAGE (λw. pres_set pres ∩ w) ws
-End
-
-Definition map_pres_def:
-  map_pres f pres = OPTION_MAP (IMAGE f) pres
+    IMAGE (λw. pres ∩ w) ws
 End
 
 (* Output section for a pseudoboolean formula *)
@@ -612,6 +599,59 @@ Definition sem_output_def:
   )
 End
 
+Theorem sem_output_equioptimal_NONE_imp_equisatisfiable:
+  sem_output pbf obj pres NONE pbf' obj' pres' Equioptimal ⇒
+  sem_output pbf obj pres NONE pbf' obj' pres' Equisatisfiable
+Proof
+  rw[sem_output_def,satisfiable_def]>>
+  metis_tac[integerTheory.INT_LE_TOTAL]
+QED
+
+Theorem sem_output_equioptimal_NONE_optimal_val:
+  sem_output pbf (SOME obj) pres NONE pbf' (SOME obj') pres' Equioptimal ⇒
+  optimal_val pbf obj = optimal_val pbf' obj'
+Proof
+  strip_tac>>drule sem_output_equioptimal_NONE_imp_equisatisfiable>>
+  gvs[sem_output_def]>>
+  Cases_on`obj`>>Cases_on`obj'`>>
+  rename1`optimal_val _ (f,c) = _ _ (f',c')`>>
+  reverse (Cases_on`satisfiable pbf`)
+  >-
+    rw[optimal_val_def]>>
+  rw[]>>
+  gvs[satisfiable_def]>>
+  imp_res_tac optimal_exists >>
+  pop_assum (qspec_then`f` mp_tac)>>
+  pop_assum (qspec_then`f'` mp_tac)>>
+  rw[]>>
+  drule optimal_optimal_val>>
+  disch_then(qspec_then`c` mp_tac)>>
+  pop_assum mp_tac>>
+  drule optimal_optimal_val>>
+  disch_then(qspec_then`c'` mp_tac)>>
+  rw[]>>gvs[eval_obj_def,optimal_def]>>
+  gvs[EQ_IMP_THM,FORALL_AND_THM,PULL_EXISTS]>>
+  last_x_assum drule>>
+  last_x_assum drule>>
+  rename1`eval_lin_term ww _ + _ = eval_lin_term ww' _ + _`>>
+  disch_then(qspec_then`eval_lin_term ww' f' + c'` assume_tac)>>
+  disch_then(qspec_then`eval_lin_term ww f + c` assume_tac)>>
+  gvs[]>>
+  last_x_assum drule>>
+  last_x_assum drule>>
+  intLib.ARITH_TAC
+QED
+
+Theorem sem_output_equisolvable_imp_equioptimal:
+  sem_output pbf obj pres bound pbf' obj' pres' Equisolvable ⇒
+  sem_output pbf obj pres bound pbf' obj' pres' Equioptimal
+Proof
+  rw[sem_output_def,satisfiable_def]>>
+  first_x_assum drule>>rw[]>>
+  gvs[BIJ_DEF,proj_pres_def,SURJ_DEF]>>
+  metis_tac[]
+QED
+
 Theorem eval_term_bounded:
   eval_term w h ≤ ABS (FST h)
 Proof
@@ -643,8 +683,8 @@ Proof
   metis_tac[eval_lin_term_bounded]
 QED
 
-(* The unbounded version... this should be the only case
-  where we will ever use this... *)
+(* The unbounded version, i.e., all solutions are preserved.
+  This should be the main case where we will use this... *)
 Theorem sem_output_equisolvable_NONE:
   sem_output pbf obj pres NONE pbf' obj' pres' Equisolvable ⇒
   ∃f.
@@ -662,23 +702,74 @@ Proof
   rw[]
 QED
 
-Theorem pres_set_map_pres:
-  fx ∈ pres_set (map_pres f pres) ⇔
-    ∃x. x ∈ pres_set pres ∧ fx = f x
+Theorem optimal_val_iff:
+  optimal_val pbf (ob,c) = SOME v ⇒
+  (optimal w pbf ob
+  ⇔
+  satisfies w pbf ∧ eval_obj (SOME (ob,c)) w ≤ v)
 Proof
-  rw[pres_set_def,map_pres_def]>>
-  every_case_tac>>gvs[]>>
-  metis_tac[]
+  strip_tac>>
+  eq_tac
+  >- (
+    strip_tac>>
+    drule optimal_optimal_val>>
+    disch_then(qspec_then`c` assume_tac)>>
+    gvs[optimal_val_def,eval_obj_def,optimal_def])>>
+  rw[]>>
+  drule optimal_exists>>
+  disch_then(qspec_then`ob` assume_tac)>>
+  gvs[]>>
+  drule optimal_optimal_val>>
+  disch_then(qspec_then`c` assume_tac)>>
+  gvs[]>>
+  gvs[optimal_def]>>
+  rw[]>>
+  gvs[eval_obj_def]>>
+  first_x_assum drule>>
+  intLib.ARITH_TAC
 QED
 
-(*
-  take x, y, z -> bool
+(* In particular, there is a bijection on projections of the optimal solutions *)
+Theorem sem_output_equisolvable_NONE_2:
+  sem_output pbf (SOME (ob,c)) pres NONE pbf' (SOME (ob',c')) pres' Equisolvable ⇒
+  ∃f.
+    BIJ f
+      (proj_pres pres {w | optimal w pbf ob})
+      (proj_pres pres' {w' | optimal w' pbf' ob'})
+Proof
+  rw[]>>
+  reverse (Cases_on`satisfiable pbf`)
+  >- (
+    drule sem_output_equisolvable_NONE>>
+    rw[]>>qexists_tac`f`>>
+    gvs[satisfiable_def,proj_pres_def,optimal_def,EXTENSION])>>
+  drule sem_output_equisolvable_imp_equioptimal>>
+  strip_tac>>
+  drule sem_output_equioptimal_NONE_optimal_val>>
+  pop_assum kall_tac>>
+  strip_tac>>
+  `∃v. optimal_val pbf (ob,c) = SOME v` by
+    gvs[optimal_val_def]>>
+  gvs[sem_output_def]>>
+  first_x_assum(qspec_then`v` mp_tac)>>
+  rw[]>>
+  qexists_tac`f`>>
+  qmatch_asmsub_abbrev_tac`BIJ f (_ _ A) (_ _ B)`>>
+  qmatch_goalsub_abbrev_tac`BIJ f (_ _ A') (_ _ B')`>>
+  `A = A' ∧ B = B'` by (
+    unabbrev_all_tac>>
+    rw[EXTENSION]>>
+    metis_tac[optimal_val_iff])>>
+  rw[]
+QED
+
+(* take x, y, z -> bool
   f x, f y, f z -> bool *)
 Theorem image_sol_set:
-  INJ f (pbf_vars pbf ∪ obj_vars obj ∪ pres_set pres) UNIV ∧
-  (∀x y. x ∈ pres_set pres ∧ f x = f y ⇒ x = y) ⇒
+  INJ f (pbf_vars pbf ∪ obj_vars obj ∪ pres) UNIV ∧
+  (∀x y. x ∈ pres ∧ f x = f y ⇒ x = y) ⇒
   IMAGE (λpfw. pfw o f)
-  (proj_pres (map_pres f pres)
+  (proj_pres (IMAGE f pres)
     {fw | satisfies fw (IMAGE (map_pbc f) pbf) ∧
            eval_obj (map_obj f obj) fw ≤ v}) =
   proj_pres pres
@@ -687,11 +778,11 @@ Proof
   rw[proj_pres_def,Once EXTENSION,EQ_IMP_THM]
   >- (
     rename1`eval_obj _ fw`>>
-    gvs[eval_obj_map_obj,FORALL_AND_THM,pres_set_map_pres,IMP_CONJ_THM]>>
+    gvs[eval_obj_map_obj,FORALL_AND_THM,IMP_CONJ_THM]>>
     drule satisfies_map_pbf>>
     strip_tac>>
     first_x_assum (irule_at Any)>>simp[]>>
-    simp[pres_set_map_pres,o_DEF,EXTENSION]>>
+    simp[o_DEF,EXTENSION]>>
     rw[EQ_IMP_THM]>>gvs[IN_DEF]>>
     metis_tac[])
   >- (
@@ -701,7 +792,7 @@ Proof
     disch_then (irule_at Any)>>
     simp[eval_obj_map_obj]>>
     CONJ_TAC >- (
-      simp[pres_set_map_pres,o_DEF,EXTENSION]>>
+      simp[o_DEF,EXTENSION]>>
       rw[EQ_IMP_THM]
       >- metis_tac[]
       >- (
@@ -728,29 +819,29 @@ QED
 
 Theorem BIJ_IMAGE_proj_pres:
   BIJ (λpfw. pfw o f)
-  (proj_pres (map_pres f pres) ws)
+  (proj_pres (IMAGE f pres) ws)
   (IMAGE (λpfw. pfw o f)
-  (proj_pres (map_pres f pres) ws))
+  (proj_pres (IMAGE f pres) ws))
 Proof
   match_mp_tac INJ_IMAGE_BIJ>>
   qexists_tac`UNIV`>>
   simp[INJ_DEF,proj_pres_def,PULL_EXISTS]>>rw[EXTENSION]>>
-  gvs[pres_set_map_pres,o_DEF,PULL_EXISTS]>>
+  gvs[o_DEF,PULL_EXISTS]>>
   metis_tac[]
 QED
 
 (* Applying an injection on variables for input/output problems preserves their semantic output relation *)
 Theorem output_INJ_iff:
-  INJ f (pbf_vars pbf ∪ obj_vars obj ∪ pres_set pres) UNIV ∧
-  INJ g (pbf_vars pbf' ∪ obj_vars obj' ∪ pres_set pres') UNIV ∧
-  (∀x y. x ∈ pres_set pres ∧ f x = f y ⇒ x = y) ∧
-  (∀x y. x ∈ pres_set pres' ∧ g x = g y ⇒ x = y)
+  INJ f (pbf_vars pbf ∪ obj_vars obj ∪ pres) UNIV ∧
+  INJ g (pbf_vars pbf' ∪ obj_vars obj' ∪ pres') UNIV ∧
+  (∀x y. x ∈ pres ∧ f x = f y ⇒ x = y) ∧
+  (∀x y. x ∈ pres' ∧ g x = g y ⇒ x = y)
   ⇒
   sem_output pbf obj pres bound pbf' obj' pres' output =
   sem_output
-    (IMAGE (map_pbc f) pbf) (map_obj f obj) (map_pres f pres)
+    (IMAGE (map_pbc f) pbf) (map_obj f obj) (IMAGE f pres)
     bound
-    (IMAGE (map_pbc g) pbf') (map_obj g obj') (map_pres g pres')
+    (IMAGE (map_pbc g) pbf') (map_obj g obj') (IMAGE g pres')
     output
 Proof
   Cases_on`output`>>rw[sem_output_def]
