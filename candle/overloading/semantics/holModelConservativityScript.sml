@@ -2608,6 +2608,7 @@ End
 Overload type_interpretation_ext_of = ``type_interpretation_ext_of0 ^mem``
 Overload term_interpretation_ext_of = ``term_interpretation_ext_of0 ^mem``
 
+val type_interpretation_ext_of_def = type_interpretation_ext_of0_def;
 val type_interpretation_ext_of_ind = fetch "-" "type_interpretation_ext_of0_ind";
 
 (* symbols from the independent fragment keeps their earlier interpretation *)
