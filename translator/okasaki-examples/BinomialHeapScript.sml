@@ -45,38 +45,52 @@ val is_heap_ordered_def = tDefine "is_heap_ordered" `
                                   | INR (_,_,x) => tree_size (\x.0) x)` >>
  rw [tree_size_def]);
 
-val empty_def = mlDefine `
-empty = []`;
+Definition empty_def:
+empty = []
+End
+val r = translate empty_def;
 
-val is_empty_def = mlDefine `
+Definition is_empty_def:
 (is_empty [] = T) ∧
-(is_empty _ = F)`;
+(is_empty _ = F)
+End
+val r = translate is_empty_def;
 
-val rank_def = mlDefine `
-rank (Node r x c) = r`;
+Definition rank_def:
+rank (Node r x c) = r
+End
+val r = translate rank_def;
 
-val root_def = mlDefine `
-root (Node r x c) = x`;
+Definition root_def:
+root (Node r x c) = x
+End
+val r = translate root_def;
 
-val link_def = mlDefine `
+Definition link_def:
 link get_key leq (Node r x1 c1) (Node r' x2 c2) =
   if leq (get_key x1) (get_key x2) then
     Node (r+1) x1 ((Node r' x2 c2)::c1)
   else
-    Node (r+1) x2 ((Node r x1 c1)::c2)`;
+    Node (r+1) x2 ((Node r x1 c1)::c2)
+End
+val r = translate link_def;
 
-val ins_tree_def = mlDefine `
+Definition ins_tree_def:
 (ins_tree get_key leq t [] = [t]) ∧
 (ins_tree get_key leq t (t'::ts') =
   if rank t < rank t' then
     t::t'::ts'
   else
-    ins_tree get_key leq (link get_key leq t t') ts')`;
+    ins_tree get_key leq (link get_key leq t t') ts')
+End
+val r = translate ins_tree_def;
 
-val insert_def = mlDefine `
-insert get_key leq x ts = ins_tree get_key leq (Node 0 x []) ts`;
+Definition insert_def:
+insert get_key leq x ts = ins_tree get_key leq (Node 0 x []) ts
+End
+val r = translate insert_def;
 
-val merge_def = mlDefine `
+Definition merge_def:
 (merge get_key leq ts [] = ts) ∧
 (merge get_key leq [] ts = ts) ∧
 (merge get_key leq (t1::ts1) (t2::ts2) =
@@ -85,28 +99,36 @@ val merge_def = mlDefine `
   else if rank t2 < rank t1 then
     t2 :: merge get_key leq (t1::ts1) ts2
   else
-    ins_tree get_key leq (link get_key leq t1 t2) (merge get_key leq ts1 ts2))`;
+    ins_tree get_key leq (link get_key leq t1 t2) (merge get_key leq ts1 ts2))
+End
+val r = translate merge_def;
 
 val merge_ind = fetch "-" "merge_ind";
 
-val remove_min_tree_def = mlDefine `
+Definition remove_min_tree_def:
 (remove_min_tree get_key leq [t] = (t,[])) ∧
 (remove_min_tree get_key leq (t::ts) =
   let (t',ts') = remove_min_tree get_key leq ts in
     if leq (get_key (root t)) (get_key (root t')) then
       (t,ts)
     else
-      (t',t::ts'))`;
+      (t',t::ts'))
+End
+val r = translate remove_min_tree_def;
 
-val find_min_def = mlDefine `
+Definition find_min_def:
 find_min get_key leq ts =
   let (t,ts') = remove_min_tree get_key leq ts in
-    root t`;
+    root t
+End
+val r = translate find_min_def;
 
-val delete_min_def = mlDefine `
+Definition delete_min_def:
 delete_min get_key leq ts =
   case remove_min_tree get_key leq ts of
-    | (Node _ x ts1, ts2) => merge get_key leq (REVERSE ts1) ts2`;
+    | (Node _ x ts1, ts2) => merge get_key leq (REVERSE ts1) ts2
+End
+val r = translate delete_min_def;
 
 
 (* Functional correctness proof *)

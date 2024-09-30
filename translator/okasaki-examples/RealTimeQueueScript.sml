@@ -14,29 +14,43 @@ Datatype:
   queue = QUEUE ('a list) ('a list) ('a list)
 End
 
-val empty_def = mlDefine `
-  empty = QUEUE [] [] []`;
+Definition empty_def:
+  empty = QUEUE [] [] []
+End
+val r = translate empty_def;
 
-val is_empty_def = mlDefine `
+Definition is_empty_def:
   (is_empty (QUEUE [] _ _) = T) /\
-  (is_empty _ = F)`;
+  (is_empty _ = F)
+End
+val r = translate is_empty_def;
 
-val rotate_def = mlDefine `
+Definition rotate_def:
   (rotate (QUEUE [] (y::_) a) = y::a) /\
-  (rotate (QUEUE (x::xs) (y::ys) a) = x::rotate (QUEUE xs ys (y::a)))`
+  (rotate (QUEUE (x::xs) (y::ys) a) = x::rotate (QUEUE xs ys (y::a)))
+End
+val r = translate rotate_def;
 
-val exec_def = mlDefine `
+Definition exec_def:
   (exec (QUEUE f r (x::s)) = QUEUE f r s) /\
-  (exec (QUEUE f r []) = let f = rotate (QUEUE f r []) in QUEUE f [] f)`
+  (exec (QUEUE f r []) = let f = rotate (QUEUE f r []) in QUEUE f [] f)
+End
+val r = translate exec_def;
 
-val snoc_def = mlDefine `
-  snoc (QUEUE f r s) x = exec (QUEUE f (x::r) s)`;
+Definition snoc_def:
+  snoc (QUEUE f r s) x = exec (QUEUE f (x::r) s)
+End
+val r = translate snoc_def;
 
-val head_def = mlDefine `
-  head (QUEUE (x::f) r s) = x`;
+Definition head_def:
+  head (QUEUE (x::f) r s) = x
+End
+val r = translate head_def;
 
-val tail_def = mlDefine `
-  tail (QUEUE (x::f) r s) = exec (QUEUE f r s)`;
+Definition tail_def:
+  tail (QUEUE (x::f) r s) = exec (QUEUE f r s)
+End
+val r = translate tail_def;
 
 (* verification proof *)
 

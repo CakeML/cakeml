@@ -14,25 +14,37 @@ Datatype:
   queue = QUEUE ('a list) ('a list)
 End
 
-val empty_def = mlDefine `
-  empty = QUEUE [] []`;
+Definition empty_def:
+  empty = QUEUE [] []
+End
+val r = translate empty_def;
 
-val is_empty_def = mlDefine `
+Definition is_empty_def:
   (is_empty (QUEUE [] xs) = T) /\
-  (is_empty _ = F)`;
+  (is_empty _ = F)
+End
+val r = translate is_empty_def;
 
-val checkf_def = mlDefine `
+Definition checkf_def:
   (checkf (QUEUE [] xs) = QUEUE (REVERSE xs) []) /\
-  (checkf q = q)`;
+  (checkf q = q)
+End
+val r = translate checkf_def;
 
-val snoc_def = mlDefine `
-  snoc (QUEUE f r) x = checkf (QUEUE f (x::r))`;
+Definition snoc_def:
+  snoc (QUEUE f r) x = checkf (QUEUE f (x::r))
+End
+val r = translate snoc_def;
 
-val head_def = mlDefine `
-  head (QUEUE (x::f) r) = x`;
+Definition head_def:
+  head (QUEUE (x::f) r) = x
+End
+val r = translate head_def;
 
-val tail_def = mlDefine `
-  tail (QUEUE (x::f) r) = checkf (QUEUE f r)`;
+Definition tail_def:
+  tail (QUEUE (x::f) r) = checkf (QUEUE f r)
+End
+val r = translate tail_def;
 
 (* verification proof *)
 
