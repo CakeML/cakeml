@@ -3,29 +3,12 @@
 *)
 
 open preamble HolKernel Parse boolLib bossLib stringLib numLib intLib
-     panLangTheory panPtreeConversionTheory panSemTheory;
+     panLangTheory panPtreeConversionTheory panSemTheory
+     panHoareTheory panHoareLib;
 
 val _ = new_theory "quickSort";
 
 (* copied from panConcreteExampleScript *)
-
-fun read_file fname = let
-    val s = TextIO.openIn fname
-    fun get ss = case TextIO.inputLine s of
-        SOME str => get (str :: ss)
-      | NONE => rev ss
-  in concat (get []) end
-
-fun parse_pancake_file fname =
-  let
-    val str = stringLib.fromMLstring (read_file fname)
-    val thm = EVAL ``parse_funs_to_ast ^str``
-    val r = rhs (concl thm)
-  in
-    if sumSyntax.is_inl r
-    then (fst (sumSyntax.dest_inl r), thm)
-    else failwith ("parse_pancake_file: failed to EVAL")
-  end
 
 val (ast, _) = parse_pancake_file "../examples/quick_sort.pnk"
 
@@ -331,6 +314,13 @@ Proof
   \\ rw [combinTheory.UPDATE_def] \\ fs []
 QED
 
+Triviality NOT_NONE_EQ_EX = IS_SOME_EQ_NOT_NONE |> GSYM |> REWRITE_RULE [IS_SOME_EXISTS]
+
+Triviality case_opt_f = TypeBase.case_pred_imp_of ``: 'a option``
+  |> Q.GEN `v` |> Q.ISPEC `F` |> Q.SPEC `\x. x` |> SIMP_RULE bool_ss []
+
+
+
 
 Theorem do_sort_hoare_correct:
 
@@ -340,20 +330,21 @@ Theorem do_sort_hoare_correct:
   hoare_logic G 
     (\s ls.
         the_code ⊑ s.code /\
-        EVERY ((<>) NONE) (MAP (local_word s.locals) [«len»;«base_addr»]) /\
-        let v nm = THE (local_word s.locals nm) in
-        let addrs = MAP (\i. v «base_addr» + (i * 8w)) (w_count 0w (v «len»)) in
+        EVERY ((<>) NONE) (MAP (local_word s.locals) [«base_addr»; «x»; «y»]) /\
+        let v = tlw s in
+        ?len.
+        0w <= v «x» /\ v «y» <= len /\
+        let addrs = MAP (\i. v «base_addr» + (i * 8w)) (w_count 0w len) in
         set addrs SUBSET s.memaddrs /\
         EVERY (((<>) NONE) o word_of o s.memory) addrs /\
         (!shuffle. PERM shuffle (MAP s.memory addrs) ==>
             !locs clock. Q (SOME (Return (ValWord 0w)))
                 (s with <| locals := locs; clock := clock; memory := s.memory =++ ZIP (addrs, shuffle) |>) ls)
     )
-    (TailCall (Label «do_sort») [Var «base_addr»; Var «len»])
+    (TailCall (Label «do_sort») [Var «base_addr»; Var «x»; Var «y»])
     Q
 
 Proof
-
 
   ho_match_mp_tac hoare_logic_image_triple_induction
   \\ rw []
@@ -378,11 +369,15 @@ Proof
   \\ irule_at Any boolTheory.OR_INTRO_THM1
   \\ simp []
   \\ rpt rev_hoare_tac
-  \\ rev_hoare_simp
+
   \\ qspec_then `\s ls.
-    EVERY ((<>) NONE) (MAP (local_word s.locals) [«x»;«y»;«piv»;«len»;«base_addr»]) /\
-    let v nm = THE (local_word s.locals nm) in
-    v «x» < v «len» /\ v «y» < v «len» /\ 0w < v «x» /\ 0w < v «y» /\
+    the_code ⊑ s.code /\
+    EVERY ((<>) NONE) (MAP (local_word s.locals) [«x»;«y»;«xt»;«yt»;«piv»;«len»;«base_addr»]) /\
+    let v = tlw s in
+    ?len.
+    v «x» < len /\ v «y» <= len /\ 0w <= v «x» /\ 0w <= v «y» /\
+    v «xt» < len /\ v «yt» < len /\ 0w <= v «xt» /\ 0w <= v «yt» /\
+    v «xt» <= v «yt» /\
     let addrs = MAP (\i. v «base_addr» + (i * 8w)) (w_count 0w (v «len»)) in
     set addrs SUBSET s.memaddrs /\
     EVERY (((<>) NONE) o word_of o s.memory) addrs /\
@@ -390,24 +385,20 @@ Proof
         !locs clock. Q (SOME (Return (ValWord 0w)))
             (s with <| locals := locs; clock := clock; memory := s.memory =++ ZIP (addrs, shuffle) |>) ls)`
     (REWRITE_TAC o single) (GSYM annot_While_def)
-  \\ ntac 4 rev_hoare_tac
   \\ rpt rev_hoare_tac
   \\ simp hoare_simp_rules
+
   \\ conj_tac
   >- (
-    simp [logic_imp_def, PULL_EXISTS]
-    \\ rpt (gen_tac ORELSE disch_tac)
-    \\ fs []
-    \\ imp_res_tac neq_NONE_IMP
-    \\ gs []
-    \\ imp_res_tac neq_NONE_IMP
-    \\ gs [val_of_eq_SOME, val_of_def]
-    \\ imp_res_tac neq_NONE_IMP
-    \\ gs [word_of_eq_SOME, word_of_def]
-    \\ simp hoare_simp_rules
+    csimp ([logic_imp_def] @ hoare_simp_ex_rules)
+    \\ rw []
+    \\ ntac 3 (imp_res_tac neq_NONE_IMP \\ fs [])
+    \\ gs [val_of_eq_SOME, word_of_eq_SOME]
     \\ simp [pan_op_def, wordLangTheory.word_op_def, flatten_def, mem_stores_def, mem_store_def]
-    \\ simp hoare_simp_rules
-
+    \\ gvs []
+    \\ rw []
+    \\ Cases_on 
+    \\ reverse (Cases_on `word_cmp Less (tlw s «x») (tlw s «y»)`) \\ gs []
 
  
   \\ WITHOUT_ABBREVS (simp [])

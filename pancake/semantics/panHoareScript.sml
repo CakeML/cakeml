@@ -62,6 +62,7 @@ Proof
 QED
 
 Overload local_word = ``\locs nm. OPTION_BIND (FLOOKUP locs nm) val_word_of``
+Overload tlw = ``\s nm. THE (local_word s.locals nm)``
 
 Definition eval_logic_def:
   eval_logic G P exp Q = (! s ls. P s ls ==> ?x. eval s exp = SOME x /\
@@ -1017,6 +1018,42 @@ QED
 Theorem hoare_logic_use_context_triple_rev = hoare_logic_rule_to_rev_form
     hoare_logic_use_context_triple
 
-val _ = export_theory();
+(* Miscellaneous extra rules used by the Hoare logic automation *)
 
+Theorem FLOOKUP_res_var:
+  FLOOKUP (res_var fmap (nm1, r)) nm2 = if nm1 = nm2 then r
+    else FLOOKUP fmap nm2
+Proof
+  Cases_on `r` \\ simp [res_var_def, FLOOKUP_UPDATE, DOMSUB_FLOOKUP_THM]
+QED
+
+Theorem to_option_bind:
+  option_CASE x NONE f = OPTION_BIND x f
+Proof
+  Cases_on `x` \\ simp []
+QED
+
+Theorem option_case_F_exists:
+  option_CASE x F f = (?y. x = SOME y /\ f y)
+Proof
+  Cases_on `x` \\ simp []
+QED
+
+Theorem v_case_F_exists:
+  (v_CASE v (\_. F) s_case = (?xs. v = Struct xs /\ s_case xs)) /\
+  (v_CASE v wl_case (\_. F) = (?wl. v = Val wl /\ wl_case wl))
+Proof
+  Cases_on `v` \\ simp []
+QED
+
+Theorem wl_case_F_exists:
+  (word_lab_CASE wl (\_. F) l_case = (?l. wl = Label l /\ l_case l)) /\
+  (word_lab_CASE wl w_case (\_. F) = (?w. wl = Word w /\ w_case w))
+Proof
+  Cases_on `wl` \\ simp []
+QED
+
+
+
+val _ = export_theory();
 

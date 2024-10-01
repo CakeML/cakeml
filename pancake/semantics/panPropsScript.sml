@@ -1173,51 +1173,6 @@ Termination
   WF_REL_TAC `measure (panLang$exp_size (K 0) o SND)`
 End
 
-Triviality shape_of_Val:
-  shape_of (Val v) = One
-Proof
-  Cases_on `v` \\ simp [shape_of_def]
-QED
-
-Triviality mem_load_shape1:
-  (! shape addr dm m (v : 'a v).
-  shape_size shape < n /\
-  mem_load shape addr dm m = SOME v ==>
-  shape_of v = shape
-  ) /\
-  (! shapes addr dm m (vs : 'a v list).
-  list_size shape_size shapes < n /\
-  mem_loads shapes addr dm m = SOME vs ==>
-  MAP shape_of vs = shapes
-  )
-
-Proof
-  measureInduct_on `I n`
-  \\ conj_tac \\ Cases
-  \\ rw [shape_size_def, mem_load_def, shape_of_def]
-  \\ simp [shape_of_def, shape_of_Val]
-  \\ fs [CaseEq "option", CaseEq "shape"] \\ gvs []
-  \\ simp [shape_of_def, shape_of_Val]
-  \\ fs [shape_size_eq, IMP_CONJ_THM, FORALL_AND_THM, list_size_def, shape_size_def]
-  \\ simp [ETA_THM]
-  \\ fs [PULL_FORALL]
-  \\ res_tac
-  \\ simp []
-QED
-
-Theorem mem_load_shape:
-  (! shape addr dm m v.
-  mem_load shape addr dm m = SOME v ==>
-  shape_of v = shape
-  ) /\
-  (! shapes addr dm m vs.
-  mem_loads shapes addr dm m = SOME vs ==>
-  MAP shape_of vs = shapes
-  )
-Proof
-  metis_tac [LESS_EQ_REFL, LESS_EQ_IFF_LESS_SUC, mem_load_shape1]
-QED
-
 Theorem eval_exp_shape:
   ! s exp v. eval s exp = SOME v ==>
   exp_shape (FMAP_MAP2 (shape_of o SND) s.locals) exp = shape_of v
@@ -1227,11 +1182,13 @@ Proof
   \\ rw []
   \\ simp [shape_of_def, FLOOKUP_SIMP]
   \\ fs [CaseEq "option", CaseEq "v", CaseEq "bool", CaseEq "word_lab"] \\ gvs []
-  \\ imp_res_tac mem_load_shape
+  \\ imp_res_tac mem_load_some_shape_eq
   \\ simp [shape_of_def, EL_MAP]
   \\ fs [opt_mmap_eq_some]
   \\ gs [LIST_EQ_REWRITE, EL_MAP, MEM_EL, PULL_EXISTS]
 QED
+
+
 
 
 val _ = export_theory();
