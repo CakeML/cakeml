@@ -265,8 +265,9 @@ End
 
 val _ = Parse.add_infix("<:",425,Parse.NONASSOC)
 
-val inset_def = xDefine"inset"
-  `x <: s ⇔ level s = Powerset(level x) ∧ element x ∈ set s`
+Definition inset_def:
+  x <: s ⇔ level s = Powerset(level x) ∧ element x ∈ set s
+End
 
 val _ = Parse.add_infix("<=:",450,Parse.NONASSOC)
 

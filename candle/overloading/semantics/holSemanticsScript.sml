@@ -923,8 +923,9 @@ QED
 *)
 
 (* todo: useless? *)
-val empty_valuation = xDefine "empty_valuation"
-  `empty_valuation0 ^mem = (K One):(mlstring # type -> 'U)`;
+Definition empty_valuation_def:
+  empty_valuation0 ^mem = (K One):(mlstring # type -> 'U)
+End
 
 Overload empty_valuation = ``empty_valuation0 ^mem``
 
