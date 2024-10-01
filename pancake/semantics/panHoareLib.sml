@@ -7,6 +7,7 @@ structure panHoareLib = struct
 local open Parse boolLib bossLib stringLib numLib intLib
      panLangTheory panPtreeConversionTheory panSemTheory
      panHoareTheory
+     finite_mapSyntax mlstringSyntax
 in end
 
 open Term Tactic Tactical Rewrite HolKernel boolSyntax Drule bossLib
@@ -154,12 +155,13 @@ val rev_hoare_tac = FIRST
     rev_hoare_step_tac]
 
 
-(*
+(* Is this just a name for something that exists in a HOL4 lib? *)
 
-TODO: write a gadget that replaces the assumption "FLOOKUP locs addr = SOME (ValWord x''')"
-with "FLOOKUP locs addr = SOME (ValWord addr_v)",
-that is, gets rid of the tedious x'''' var names and replaces them with ones that come
-from the local name
+fun rename_var_tac from_v to_v_sugg_name = let
+    val to_v = mk_var (to_v_sugg_name, type_of from_v)
+    val x_rew_thm = prove (mk_exists (to_v, mk_eq (from_v, to_v)), simp_tac bool_ss [])
+  in CHOOSE_TAC x_rew_thm \\ full_simp_tac bool_ss [] \\ POP_ASSUM kall_tac end
+
 
 val name_flookup_tac = ASSUM_LIST (fn asms => let
     fun renames_of thm = let
@@ -167,13 +169,12 @@ val name_flookup_tac = ASSUM_LIST (fn asms => let
         val (_, nm) = finite_mapSyntax.dest_flookup lhs
         val nm_s = stringSyntax.fromHOLstring (mlstringSyntax.dest_strlit nm)
         val xs = find_terms is_var rhs
-        val ren_xs = filter (fn t => not (String.isPrefix nm_s (fst (dest_var t)))) xs
-      in map (fn x => (nm_s, x)) ren_xs end
+        val (no_ren_xs, ren_xs) = partition (String.isPrefix nm_s o fst o dest_var) xs
+        val i = length no_ren_xs
+      in mapi (fn j => fn x => (x, nm_s ^ "_v_" ^ Int.toString (i + j + 1))) ren_xs end
         handle HOL_ERR _ => []
     val renames = List.concat (map renames_of asms)
-in FIRST_MAP (fn (nm_s,  end)
-
-*)
+  in MAP_EVERY (fn (v, nm) => rename_var_tac v nm) renames end)
 
 
 end

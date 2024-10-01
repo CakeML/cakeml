@@ -229,6 +229,7 @@ Proof
     rw ([logic_imp_def] @ hoare_simp_rules)
     \\ ntac 3 (imp_res_tac neq_NONE_IMP \\ fs [])
     \\ gs [val_of_eq_SOME, word_of_eq_SOME]
+    \\ name_flookup_tac
     \\ simp [pan_op_def, wordLangTheory.word_op_def, flatten_def,
         asmTheory.word_cmp_def, bool_case_eq_specs]
     \\ gvs []
@@ -237,7 +238,6 @@ Proof
       fs [w_count_def, miscTheory.UPDATE_LIST_THM]
     )
     \\ fs [w_count_cons, mem_stores_def, mem_store_def, miscTheory.UPDATE_LIST_THM]
-    \\ simp [shape_of_def]
   )
   \\ rpt rev_hoare_tac
   \\ rw ([logic_imp_def] @ hoare_simp_rules)
