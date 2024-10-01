@@ -922,4 +922,42 @@ Definition clos_to_bvl_compile_inc_def:
       (c, p)
 End
 
+
+Theorem build_aux_append_aux:
+  !xs n aux aux_extra. build_aux n xs (aux ++ aux_extra) =
+    ((\(ys, aux2). (ys, aux2 ++ aux_extra)) (build_aux n xs aux))
+Proof
+  Induct \\ fs [build_aux_def]
+  \\ full_simp_tac bool_ss [GSYM APPEND]
+QED
+
+Theorem compile_exps_append_aux:
+  !max_app xs aux. compile_exps max_app xs (aux ++ aux_extra) =
+    ((\(ys, aux2). (ys, aux2 ++ aux_extra)) (compile_exps max_app xs aux))
+Proof
+  ho_match_mp_tac compile_exps_ind
+  \\ fs [compile_exps_def]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ fs [list_case_eq, pair_case_eq]
+  \\ rpt (rveq \\ fs [] \\ pairarg_tac \\ fs [])
+  \\ imp_res_tac compile_exps_LENGTH
+  \\ fs [listTheory.APPEND_11_LENGTH]
+  \\ rveq \\ fs []
+  \\ fs [compile_exps_def]
+  \\ rveq \\ fs []
+  \\ fs [build_aux_append_aux]
+QED
+
+Theorem compile_exps_eq_append:
+  compile_exps max_app xs aux =
+    ((\(ys, aux2). (ys, aux2 ++ aux)) (I compile_exps max_app xs []))
+Proof
+  mp_tac (Q.SPECL [`aux`, `max_app`, `xs`, `[]`]
+    (GEN_ALL compile_exps_append_aux))
+  \\ rpt (pairarg_tac \\ fs [])
+QED
+
+
 val _ = export_theory()
