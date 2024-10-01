@@ -86,6 +86,19 @@ End
 
 
 
+
+Definition bvl_to_bvi_compile_alt_def:
+  bvl_to_bvi_compile_alt_def start bvl_conf p =
+    let (inlines, prog) = bvl_inline$compile_prog bvl_conf.inline_size_limit
+           bvl_conf.split_main_at_seq bvl_conf.exp_cut p in
+    let (loc, code, n1) = bvl_to_bvi$compile_prog start 0 p in
+    let num_stubs = backend_common$bvl_num_stubs in
+    let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2) code in
+      (loc, code', inlines, n1, n2)
+End
+
+
+
 (* TODO: extend this step-by-step *)
 Definition compile_alt_def:
   compile_alt c p =
@@ -248,6 +261,13 @@ Definition icompile_clos_to_bvl_def:
   let (p_bvl_fst, p_bvl_snd) = icompile_clos_to_bvl_prog clos_iconf.max_app p in
     (clos_iconf, p_bvl_fst, p_bvl_snd)
 End
+
+
+Definition icompile_bvl_to_bvi_inline_def:
+  icompile_bvl_to_bvi_inline limit split_seq cut_size cs p =
+  bvl_inline$compile_inc limit split_seq cut_size cs p
+End
+
 
 
 Definition init_icompile_source_to_flat_def:
@@ -745,6 +765,11 @@ Proof
 QED
 
 
+
+
+
+
+
 Theorem icompile_icompile_clos_to_bvl_prog:
   icompile_clos_to_bvl_prog max_app p1 = (new_exps_p1, aux_p1) ∧
   icompile_clos_to_bvl_prog max_app p2 = (new_exps_p2, aux_p2) ⇒
@@ -792,6 +817,161 @@ Proof
   disch_then rev_drule >>
   strip_tac >> gvs[]
 QED
+
+
+(*
+Theorem bvl_tick_inline_all_cons:
+  bvl_inline$tick_inline_all limit cs (x :: xs) aux =
+  let (cs1, aux1) = bvl_inline$tick_inline_all limit cs [x] aux in
+    bvl_inline$tick_inline_all limit cs1 xs (REVERSE aux1)
+Proof
+  rw[] >>
+  pairarg_tac >> gvs[] >>
+  namedCases_on ‘x’ ["n arity es1"] >>
+  rw[bvl_inlineTheory.tick_inline_all_eq] >>
+  fs[bvl_inlineTheory.tick_inline_all_def] >>
+  fs[bvl_inlineTheory.tick_inline_sing] >>
+  rw[REVERSE_APPEND]
+QED
+*)
+
+
+Theorem bvl_tick_inline_all_aux_disch:
+  ∀ cs p aux cs' p'.
+  bvl_inline$tick_inline_all limit cs p aux = (cs', p') ⇒
+  bvl_inline$tick_inline_all limit cs p (aux ++ aux_extra) = (cs', (REVERSE aux_extra) ++ p')
+Proof
+  Induct_on ‘p’ >> rw[bvl_inlineTheory.tick_inline_all_def] >>
+  namedCases_on ‘h’ ["n arity es1"] >>
+  fs[bvl_inlineTheory.tick_inline_all_eq] >>
+  rw[] >> gvs[] >>
+  qspecl_then [‘aux’, ‘aux_extra’, ‘(n,arity,tick_inline_sing cs es1)’] mp_tac (cj 2 (GSYM APPEND) ) >>
+  disch_then (fn t => once_rewrite_tac[t]) >>
+  last_x_assum drule >>
+  rw[]
+QED
+
+Theorem bvl_tick_inline_all_cons:
+  bvl_inline$tick_inline_all limit cs (x :: xs) [] =
+  let (cs1, aux1) = bvl_inline$tick_inline_all limit cs [x] [] in
+  let (cs2, aux2) = bvl_inline$tick_inline_all limit cs1 xs [] in
+    (cs2, aux1 ++ aux2)
+Proof
+  rw[] >>
+  pairarg_tac >> gvs[] >>
+  namedCases_on ‘x’ ["n arity es1"] >>
+  pairarg_tac >> gvs[] >>
+  rw[bvl_inlineTheory.tick_inline_all_eq] >>
+  gvs[bvl_inlineTheory.tick_inline_all_def] >>
+  fs[bvl_inlineTheory.tick_inline_sing] >>
+  drule bvl_tick_inline_all_aux_disch >>
+  rw[]
+QED
+
+
+Theorem bvl_tick_inline_all_append:
+  ∀p1 p2 cs cs1 aux aux1 cs2 aux2.
+  bvl_inline$tick_inline_all limit cs p1 aux = (cs1, aux1) ∧
+  bvl_inline$tick_inline_all limit cs1 p2 (REVERSE aux1) = (cs2, aux2) ⇒
+  bvl_inline$tick_inline_all limit cs (p1 ++ p2) aux = (cs2, aux2)
+Proof
+  Induct_on ‘p1’ >>
+  rw[bvl_inlineTheory.tick_inline_all_def] >> simp[] >>
+  gvs[REVERSE_REVERSE] >>
+  ntac 2 (pop_assum mp_tac) >>
+  once_rewrite_tac[bvl_tick_inline_all_cons] >>
+  simp[] >> pairarg_tac >> simp[]
+QED
+
+
+Theorem bvl_tick_inline_all_append:
+  ∀p1 p2 cs cs1 aux aux1 cs2 aux2.
+  bvl_inline$tick_inline_all limit cs p1 [] = (cs1, aux1) ∧
+  bvl_inline$tick_inline_all limit cs1 p2 [] = (cs2, aux2) ⇒
+  bvl_inline$tick_inline_all limit cs (p1 ++ p2) [] = (cs2, aux1 ++ aux2)
+Proof
+  Induct_on ‘p1’ >>
+  rw[bvl_inlineTheory.tick_inline_all_def] >> simp[] >>
+  ntac 2 (pop_assum mp_tac) >>
+  once_rewrite_tac[bvl_tick_inline_all_cons] >>
+  simp[] >> rpt (pairarg_tac >> simp[]) >>
+  strip_tac >>
+  pop_assum mp_tac >>
+  pop_assum (fn t => simp[GSYM t]) >>
+  strip_tac >>
+  strip_tac >>
+  last_x_assum rev_drule_all >>
+  rw[]
+
+QED
+
+
+Theorem bvl_tick_compile_prog_append:
+  bvl_inline$tick_compile_prog limit cs p1 = (cs1, p1') ∧
+  bvl_inline$tick_compile_prog limit cs1 p2 = (cs2, p2') ⇒
+  bvl_inline$tick_compile_prog limit cs (p1 ++ p2) = (cs2, p1' ++ p2')
+Proof
+  rw[bvl_inlineTheory.tick_compile_prog_def] >>
+  metis_tac[bvl_tick_inline_all_append]
+QED
+
+Theorem bvl_inline_compile_inc_append:
+  bvl_inline$compile_inc limit split_seq cut_size cs p1 = (cs1, p1') ∧
+  bvl_inline$compile_inc limit split_seq cut_size cs1 p2 = (cs2, p2') ⇒
+  bvl_inline$compile_inc limit split_seq cut_size cs (p1 ++ p2) = (cs2, p1' ++ p2')
+Proof
+  rw[bvl_inlineTheory.compile_inc_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  rev_drule_all bvl_tick_compile_prog_append >>
+  rw[]
+QED
+
+
+
+
+
+Theorem bvl_to_bvi_compile_list:
+  ∀p1 p2 p1' p2' n n1 n2 p1'p2'.
+  bvl_to_bvi$compile_list n p1 = (p1', n1) ∧
+  bvl_to_bvi$compile_list n1 p2 = (p2', n2) ∧
+  bvl_to_bvi$compile_list n (p1 ++ p2) = (p1'p2', n12)
+  ⇒
+  append p1' ++ append p2' = append p1'p2' ∧
+  n12 = n2
+
+Proof
+  Induct_on ‘p1’ >>
+  rw[bvl_to_bviTheory.compile_list_def] >>
+  gvs[] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  last_x_assum drule >>
+  disch_then rev_drule >>
+  disch_then drule >> rw[]
+QED
+
+
+
+Theorem bvl_to_bvi_compile_list_append:
+  ∀ p1 p2 n n1 n2 p1' p2'.
+  bvl_to_bvi$compile_inc n p1 = (n1, p1') ∧
+  bvl_to_bvi$compile_inc n1 p2 = (n2, p2') ⇒
+  bvl_to_bvi$compile_inc n (p1 ++ p2) = (n2, p1' ++ p2')
+Proof
+  rw[bvl_to_bviTheory.compile_inc_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  drule bvl_to_bvi_compile_list >>
+  last_x_assum assume_tac >>
+  disch_then rev_drule >>
+  disch_then drule >>
+  rw[]
+QED
+
+
+
+
+
+
+
 
 
 
