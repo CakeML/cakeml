@@ -195,7 +195,15 @@ Datatype:
   |>
 End
 
-
+Datatype:
+  bvl_iconfig = <| inline_size_limit : num (* zero disables inlining *)
+                   ; exp_cut : num (* huge number effectively disables exp splitting *)
+                   ; split_main_at_seq : bool (* split main expression at Seqs *)
+                   ; inlines : (num # bvl$exp) spt
+                   ; n1 : num
+                   ; n2 : num
+            |>
+End
 
 Definition icompile_source_to_flat_def:
   icompile_source_to_flat (source_iconf: source_iconfig) p =
@@ -268,6 +276,24 @@ Definition icompile_bvl_to_bvi_inline_def:
   bvl_inline$compile_inc limit split_seq cut_size cs p
 End
 
+Definition icompile_bvl_to_bvi_prog_def:
+  icompile_bvl_to_bvi_prog n p =
+  let (code, n1) = bvl_to_bvi$compile_list n p in
+    (append code, n1)
+End
+
+Definition icompile_bvl_to_bvi_def:
+  icompile_bvl_to_bvi bvl_iconf p =
+  let (inlines, p) = icompile_bvl_to_bvi_inline bvl_iconf.inline_size_limit
+                                                bvl_iconf.split_main_at_seq
+                                                bvl_iconf.exp_cut
+                                                bvl_iconf.inlines p in
+  let (code, n1) = icompile_bvl_to_bvi_prog bvl_iconf.n1 p in
+  let (n2, code) = bvi_tailrec$compile_prog bvl_iconf.n2 code in
+  let bvl_iconf = bvl_iconf with <| n1 := n1; n2 := n2; inlines := inlines |> in
+    (bvl_iconf, code)
+End
+
 
 
 Definition init_icompile_source_to_flat_def:
@@ -311,7 +337,7 @@ End
 
 
 Definition init_icompile_clos_to_bvl_def:
-init_icompile_clos_to_bvl (clos_conf:clos_to_bvl$config) clos_stub =
+  init_icompile_clos_to_bvl (clos_conf:clos_to_bvl$config) clos_stub =
   let clos_iconf = <| do_mti := clos_conf.do_mti;
                       max_app := clos_conf.max_app;
                       next_loc := 0;
@@ -343,7 +369,6 @@ Definition end_icompile_clos_to_bvl_def:
   let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.next_loc))] in
   (clos_conf, init_globs, es_chained_bvl_fst, es_chained_bvl_snd)
 End
-
 
 
 Definition init_icompile_def:
@@ -915,6 +940,7 @@ Proof
   metis_tac[bvl_tick_inline_all_append]
 QED
 
+
 Theorem bvl_inline_compile_inc_append:
   bvl_inline$compile_inc limit split_seq cut_size cs p1 = (cs1, p1') ∧
   bvl_inline$compile_inc limit split_seq cut_size cs1 p2 = (cs2, p2') ⇒
@@ -926,11 +952,7 @@ Proof
   rw[]
 QED
 
-
-
-
-
-Theorem bvl_to_bvi_compile_list:
+Theorem bvl_to_bvi_compile_list_append:
   ∀p1 p2 p1' p2' n n1 n2 p1'p2'.
   bvl_to_bvi$compile_list n p1 = (p1', n1) ∧
   bvl_to_bvi$compile_list n1 p2 = (p2', n2) ∧
@@ -949,15 +971,58 @@ Proof
   disch_then drule >> rw[]
 QED
 
+(*
+Theorem bvl_to_bvi_tailrec_compile_prog_cons:
+  bvi_tailrec$compile_prog next (x :: xs) =
 
+*)
 
-Theorem bvl_to_bvi_compile_list_append:
-  ∀ p1 p2 n n1 n2 p1' p2'.
-  bvl_to_bvi$compile_inc n p1 = (n1, p1') ∧
-  bvl_to_bvi$compile_inc n1 p2 = (n2, p2') ⇒
-  bvl_to_bvi$compile_inc n (p1 ++ p2) = (n2, p1' ++ p2')
+Theorem bvl_to_bvi_tailrec_compile_prog_append:
+  ∀p1 p2 next next1 next2 p1' p2'.
+  bvi_tailrec$compile_prog next p1 = (next1, p1') ∧
+  bvi_tailrec$compile_prog next1 p2 = (next2, p2') ⇒
+  bvi_tailrec$compile_prog next (p1 ++ p2) = (next2, p1' ++ p2')
 Proof
-  rw[bvl_to_bviTheory.compile_inc_def] >>
+  Induct_on ‘p1’ >>
+  rw[bvi_tailrecTheory.compile_prog_def] >>
+  namedCases_on ‘h’ ["loc arity exp"]  >>
+  gvs[bvi_tailrecTheory.compile_prog_def] >>
+  Cases_on ‘compile_exp loc next arity exp’ >> simp[]
+  >- (rpt (pairarg_tac >> gvs[]) >>
+      last_x_assum drule >>
+      disch_then rev_drule >>
+      rw[])
+  >- (namedCases_on ‘x’ ["exp_aux exp_opt"] >>
+      gvs[] >>
+      rpt (pairarg_tac >> gvs[]) >>
+      last_x_assum drule >>
+      disch_then rev_drule >>
+      rw[])
+QED
+
+
+
+
+
+
+
+Theorem  icompile_icompile_bvl_to_bvi_inline:
+  icompile_bvl_to_bvi_inline limit split_seq cut_size cs p1 = (cs1, p1') ∧
+  icompile_bvl_to_bvi_inline limit split_seq cut_size cs1 p2 = (cs2, p2') ⇒
+  icompile_bvl_to_bvi_inline limit split_seq cut_size cs (p1 ++ p2) = (cs2, p1' ++ p2')
+Proof
+  rw[icompile_bvl_to_bvi_inline_def] >>
+  rw[bvl_inline_compile_inc_append]
+QED
+
+
+Theorem icompile_icompile_bvl_to_bvi_prog:
+  ∀ p1 p2 n n1 n2 p1' p2'.
+  icompile_bvl_to_bvi_prog n p1 = (p1', n1) ∧
+  icompile_bvl_to_bvi_prog n1 p2 = (p2', n2) ⇒
+  icompile_bvl_to_bvi_prog n (p1 ++ p2) = (p1' ++ p2', n2)
+Proof
+  rw[icompile_bvl_to_bvi_prog_def] >>
   rpt (pairarg_tac >> gvs[]) >>
   drule bvl_to_bvi_compile_list >>
   last_x_assum assume_tac >>
@@ -967,6 +1032,31 @@ Proof
 QED
 
 
+Theorem icompile_icompile_bvl_to_bvi:
+  icompile_bvl_to_bvi bvl_iconf p1 = (bvl_iconf', p') ∧
+  icompile_bvl_to_bvi bvl_iconf' p2 = (bvl_iconf'', p'') ⇒
+  icompile_bvl_to_bvi bvl_iconf (p1 ++ p2) = (bvl_iconf'', p' ++ p'')
+Proof
+  rw[icompile_bvl_to_bvi_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  drule icompile_icompile_bvl_to_bvi_inline >>
+  disch_then (fn t =>
+                ntac 3 (pop_assum mp_tac) >>
+              drule t) >>
+  strip_tac >> gvs[] >>
+  ntac 2 strip_tac >>
+  drule icompile_icompile_bvl_to_bvi_prog >>
+  disch_then (fn t =>
+                pop_assum mp_tac >>
+              drule t) >>
+  strip_tac >> gvs[] >>
+  ntac 2 strip_tac >>
+  drule bvl_to_bvi_tailrec_compile_prog_append >>
+  disch_then (fn t =>
+                pop_assum mp_tac >>
+              drule t) >>
+  strip_tac >> gvs[]
+QED
 
 
 
