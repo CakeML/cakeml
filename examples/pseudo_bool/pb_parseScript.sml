@@ -190,6 +190,29 @@ Definition parse_obj_def:
   )
 End
 
+(* raw string but must be a valid var name *)
+Definition parse_var_raw_def:
+  (parse_var (INL s) =
+    if goodString s then SOME s else NONE) ∧
+  (parse_var _ = NONE)
+End
+
+Definition parse_vars_raw_def:
+  (parse_vars_raw [] = SOME []) ∧
+  (parse_vars_raw (s::ss) =
+    case parse_var s of NONE => NONE | SOME v =>
+    case parse_vars_raw ss of NONE => NONE | SOME vs => SOME (v::vs))
+End
+
+(* parse projection or preserved line in PBF *)
+Definition parse_pres_def:
+  (parse_pres [] = NONE) ∧
+  (parse_pres (x::xs) =
+    if x = INL (strlit "preserve_init:") then
+      parse_vars_raw xs
+    else NONE)
+End
+
 (* parse optional objective line *)
 Definition parse_obj_maybe_def:
   (parse_obj_maybe [] = (NONE , [])) ∧
@@ -199,14 +222,35 @@ Definition parse_obj_maybe_def:
   | SOME obj => (SOME obj, ls))
 End
 
+(* parse optional preserved line *)
+Definition parse_pres_maybe_def:
+  (parse_pres_maybe [] = (NONE , [])) ∧
+  (parse_pres_maybe (l::ls) =
+  case parse_pres l of
+    NONE => (NONE, l::ls)
+  | SOME pres => (SOME pres, ls))
+End
+
+Definition parse_obj_pres_maybe_def:
+  parse_obj_pres_maybe ls =
+    case parse_obj_maybe ls of
+    | (SOME obj,ls) =>
+        (SOME obj, parse_pres_maybe ls)
+    | (NONE, ls) =>
+      (case parse_pres_maybe ls of
+      | (SOME pres,ls) =>
+        (case parse_obj_maybe ls of (ob,ls) => (ob, SOME pres, ls))
+      | (NONE,ls) => (NONE,NONE,ls))
+End
+
 (* Parse the tokenized pbf file *)
 Definition parse_pbf_toks_def:
   parse_pbf_toks tokss =
   let nocomments = FILTER nocomment_line tokss in
-  let (obj,rest) = parse_obj_maybe nocomments in
+  let (obj,pres,rest) = parse_obj_pres_maybe nocomments in
   case parse_constraints rest [] of
     NONE => NONE
-  | SOME pbf => SOME (obj,pbf)
+  | SOME pbf => SOME (obj,pres,pbf)
 End
 
 (* Parse a list of strings in pbf format *)
@@ -915,6 +959,7 @@ Datatype:
   | StoreOrderpar mlstring
   | CheckedDeletepar num subst_raw
   | ChangeObjpar bool ((int # num) list # int)
+  | ChangePrespar bool num npbc
 End
 
 Definition parse_load_order_def:
@@ -1002,6 +1047,22 @@ Definition parse_strengthen_def:
   (parse_strengthen f_ns _ = NONE)
 End
 
+Definition parse_preserve_def:
+  (parse_preserve f_ns (INL c::cs) =
+    case parse_var f_ns c of
+      NONE => NONE
+    | SOME (x,f_ns') =>
+    (case parse_constraint_npbc f_ns' cs of
+      SOME (constr,rest,f_ns'') =>
+        (case rest of
+          [INL beg] =>
+            if beg = strlit"begin" then
+              SOME (x,constr,f_ns'')
+            else NONE
+        | _ => NONE)
+      | NONE => NONE)) ∧
+  (parse_preserve f_ns _ = NONE)
+End
 
 (* Parse the first line of a cstep, sstep supported differently *)
 Definition parse_cstep_head_def:
@@ -1030,6 +1091,12 @@ Definition parse_cstep_head_def:
       | NONE =>
         (case strip_numbers rs [] of NONE => NONE
         | SOME n => SOME (Done (UncheckedDelete n),f_ns))
+    else if r = INL (strlit "preserve_add") ∨
+            r = INL (strlit "preserve_remove") then
+      case parse_preserve f_ns rs of NONE => NONE
+      | SOME (x, c, f_ns') =>
+        let b = (r = INL(strlit "preserve_add")) in
+          SOME (ChangePrespar b x c,f_ns')
     else if r = INL (strlit "soli") ∨ r = INL (strlit "sol") then
       case parse_assg f_ns rs LN of NONE => NONE
       | SOME (assg,ov,f_ns') =>
@@ -1080,7 +1147,15 @@ Definition parse_cstep_def:
             SOME (INR (ChangeObj b f pf), f_ns'', rest)
           | _ => NONE
         )
-    )
+      | SOME (ChangePrespar b x c, f_ns'') =>
+        (case parse_red_aux f_ns'' rest [] of
+          NONE => NONE
+        | SOME (res,pf,f_ns'',rest) =>
+          case res of NONE =>
+            SOME (INR (ChangePres b x c pf), f_ns'', rest)
+          | _ => NONE
+        )
+  )
 End
 
 (* parse a hconcl *)
@@ -1179,6 +1254,7 @@ Definition parse_output_def:
       if y = INL(strlit"DERIVABLE") then SOME Derivable
       else if y = INL(strlit"EQUISATISFIABLE") then SOME Equisatisfiable
       else if y = INL(strlit"EQUIOPTIMAL") then SOME Equioptimal
+      else if y = INL(strlit"EQUISOLVABLE") then SOME Equisolvable
       else NONE)
     else NONE
   | _ => NONE
@@ -1270,7 +1346,6 @@ End
 Definition parse_pbp_def:
   parse_pbp strs = parse_pbp_toks (MAP toks_fast strs)
 End
-
 *)
 
 val _ = export_theory();
