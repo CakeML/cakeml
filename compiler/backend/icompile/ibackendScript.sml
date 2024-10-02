@@ -894,19 +894,6 @@ Proof
 QED
 
 
-Theorem bvl_tick_inline_all_append:
-  ∀p1 p2 cs cs1 aux aux1 cs2 aux2.
-  bvl_inline$tick_inline_all limit cs p1 aux = (cs1, aux1) ∧
-  bvl_inline$tick_inline_all limit cs1 p2 (REVERSE aux1) = (cs2, aux2) ⇒
-  bvl_inline$tick_inline_all limit cs (p1 ++ p2) aux = (cs2, aux2)
-Proof
-  Induct_on ‘p1’ >>
-  rw[bvl_inlineTheory.tick_inline_all_def] >> simp[] >>
-  gvs[REVERSE_REVERSE] >>
-  ntac 2 (pop_assum mp_tac) >>
-  once_rewrite_tac[bvl_tick_inline_all_cons] >>
-  simp[] >> pairarg_tac >> simp[]
-QED
 
 
 Theorem bvl_tick_inline_all_append:
@@ -1024,7 +1011,7 @@ Theorem icompile_icompile_bvl_to_bvi_prog:
 Proof
   rw[icompile_bvl_to_bvi_prog_def] >>
   rpt (pairarg_tac >> gvs[]) >>
-  drule bvl_to_bvi_compile_list >>
+  drule bvl_to_bvi_compile_list_append >>
   last_x_assum assume_tac >>
   disch_then rev_drule >>
   disch_then drule >>
