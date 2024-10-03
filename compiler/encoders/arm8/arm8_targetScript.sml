@@ -26,8 +26,9 @@ End
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
-val arm8_encode_fail_def = zDefine`
-  arm8_encode_fail = [NoOperation]`
+Definition arm8_encode_fail_def[nocompute]:
+  arm8_encode_fail = [NoOperation]
+End
 
 Definition arm8_encode_def:
    arm8_encode i =

@@ -98,16 +98,18 @@ Proof
   \\ Cases_on`i` \\ fs[ADD1,LEFT_ADD_DISTRIB,RIGHT_ADD_DISTRIB]
 QED
 
-val asserts_def = zDefine `
+Definition asserts_def[nocompute]:
   (asserts 0 next ms _ Q <=> Q (next 0 ms)) /\
   (asserts (SUC n) next ms P Q <=>
-     let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)`
+     let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)
+End
 
-val asserts2_def = zDefine`
+Definition asserts2_def[nocompute]:
   (asserts2 n fi fc ms P =
    if n = 0n then T else
      P ms (fc ms) ∧
-     asserts2 (n-1) fi fc (fi n (fc ms)) P)`;
+     asserts2 (n-1) fi fc (fi n (fc ms)) P)
+End
 
 Definition encoder_correct_def:
   encoder_correct t <=>
