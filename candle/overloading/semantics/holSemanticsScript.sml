@@ -606,19 +606,23 @@ Proof
       >> rw[] >> MAP_FIRST MATCH_ACCEPT_TAC (CONJUNCTS has_type_rules))
 QED
 
-val is_type_frag_interpretation_def = xDefine "is_type_frag_interpretation"`
+Definition is_type_frag_interpretation_def:
   is_type_frag_interpretation0 ^mem (tyfrag: type -> bool) (δ: type -> 'U) ⇔
-    (∀ty. ty ∈ tyfrag ⇒ inhabited(δ ty))`
+    (∀ty. ty ∈ tyfrag ⇒ inhabited(δ ty))
+End
+
 
 Overload is_type_frag_interpretation = ``is_type_frag_interpretation0 ^mem``
 
 (* Todo: grotesque patterns *)
-val ext_type_frag_builtins_def = xDefine "ext_type_frag_builtins"`
+Definition ext_type_frag_builtins_def:
   ext_type_frag_builtins0 ^mem (δ: type -> 'U) ty ⇔
   case ty of Bool => boolset
     |  Fun dom rng => Funspace (ext_type_frag_builtins0 ^mem δ dom)
                                (ext_type_frag_builtins0 ^mem δ rng)
-    | _ => δ ty`
+    | _ => δ ty
+End
+
 
 Overload "ext_type_frag_builtins" = ``ext_type_frag_builtins0 ^mem``
 
@@ -650,17 +654,18 @@ Proof
       >> disch_then assume_tac >> simp[Once ext_type_frag_builtins_def])
 QED
 
-val is_frag_interpretation_def = xDefine "is_frag_interpretation"`
+Definition is_frag_interpretation_def:
   is_frag_interpretation0 ^mem (tyfrag,tmfrag)
                                (δ: type -> 'U) (γ: mlstring # type -> 'U) ⇔
   (is_type_frag_interpretation tyfrag δ /\
    ∀(c,ty). (c,ty) ∈ tmfrag ⇒ γ(c,ty) ⋲ ext_type_frag_builtins δ ty)
-  `
+End
+
 
 Overload is_frag_interpretation = ``is_frag_interpretation0 ^mem``
 
 (* TODO: grotesque patterns *)
-val ext_term_frag_builtins_def = xDefine "ext_term_frag_builtins"`
+Definition ext_term_frag_builtins_def:
   ext_term_frag_builtins0 ^mem (δ: type -> 'U) (γ: mlstring # type -> 'U) tm =
   if ?ty. tm = (strlit "=",Fun ty (Fun ty Bool)) then
     case tm of (_, Fun ty _) =>
@@ -668,7 +673,8 @@ val ext_term_frag_builtins_def = xDefine "ext_term_frag_builtins"`
         (λx. Abstract (δ ty) boolset (λy. Boolean (x = y)))
     | _ => γ tm
   else γ tm
-  `
+End
+
 
 Overload ext_term_frag_builtins = ``ext_term_frag_builtins0 ^mem``
 
@@ -763,7 +769,7 @@ QED
 
 Type valuation = ``:mlstring # type -> 'U``
 
-val termsem_def = xDefine "termsem"`
+Definition termsem_def:
   (termsem0 ^mem (δ: type -> 'U) (γ: mlstring # type -> 'U) (v:'U valuation) sigma (Var x ty)
    = v (x,ty)) ∧
   (termsem0 ^mem δ γ v sigma (Const name ty) = γ(name,TYPE_SUBSTf sigma ty)) ∧
@@ -771,14 +777,18 @@ val termsem_def = xDefine "termsem"`
    termsem0 ^mem δ γ v sigma t1 ' (termsem0 ^mem δ γ v sigma t2)) ∧
   (termsem0 ^mem δ γ v sigma (Abs (Var x ty) b) =
    Abstract (δ (TYPE_SUBSTf sigma ty)) (δ (TYPE_SUBSTf sigma (typeof b)))
-     (λm. termsem0 ^mem δ γ (((x,ty)=+m)v) sigma b))`
+     (λm. termsem0 ^mem δ γ (((x,ty)=+m)v) sigma b))
+End
+
 
 Overload termsem = ``termsem0 ^mem``
 
-val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
+Definition is_std_type_assignment_def:
   is_std_type_assignment0 ^mem (δ: type -> 'U) ⇔
     (∀dom rng. δ(Fun dom rng) = Funspace (δ dom) (δ rng)) ∧
-    (δ(Bool) = boolset)`
+    (δ(Bool) = boolset)
+End
+
 Overload is_std_type_assignment = ``is_std_type_assignment0 ^mem``
 
 Theorem ext_std_type_assignment:
@@ -791,13 +801,15 @@ Proof
       >> fs[is_std_type_assignment_def])
 QED
 
-val is_std_interpretation_def = xDefine "is_std_interpretation"`
+Definition is_std_interpretation_def:
   is_std_interpretation0 ^mem tyfrag δ γ ⇔
     is_std_type_assignment δ ∧
     builtin_closure tyfrag = tyfrag ∧
     (!ty1 ty2. Fun ty1 ty2 ∈ tyfrag ==> ty1 ∈ tyfrag /\ ty2 ∈ tyfrag) ∧
     !ty. ty ∈ tyfrag ==> γ(strlit "=", Fun ty (Fun ty Bool)) = Abstract (δ ty) (Funspace (δ ty) boolset)
-          (λx. Abstract (δ ty) boolset (λy. Boolean (x = y)))`
+          (λx. Abstract (δ ty) boolset (λy. Boolean (x = y)))
+End
+
 
 Overload is_std_interpretation = ``is_std_interpretation0 ^mem``
 
@@ -1087,15 +1099,19 @@ Proof
   >> fs[CLOSED_def]
 QED
 
-val valuates_frag_def = xDefine "valuates_frag"`
-  valuates_frag0 ^mem frag δ v sigma = (!x ty. TYPE_SUBSTf sigma ty ∈ types_of_frag frag ==> v(x,ty) ⋲ (ext_type_frag_builtins δ (TYPE_SUBSTf sigma ty)))`;
+Definition valuates_frag_def:
+  valuates_frag0 ^mem frag δ v sigma = (!x ty. TYPE_SUBSTf sigma ty ∈ types_of_frag frag ==> v(x,ty) ⋲ (ext_type_frag_builtins δ (TYPE_SUBSTf sigma ty)))
+End
+
 Overload valuates_frag = ``valuates_frag0 ^mem``
 
-val satisfies_def = xDefine"satisfies"`
+Definition satisfies_def:
   satisfies0 ^mem frag δ γ sigma (h,c) ⇔
     ∀v. valuates_frag frag δ v sigma ∧ c ∈ terms_of_frag_uninst frag sigma ∧ EVERY (λt. t ∈ terms_of_frag_uninst frag sigma) h ∧
       EVERY (λt. termsem δ γ v sigma t = True) h
-      ⇒ termsem δ γ v sigma c = True`
+      ⇒ termsem δ γ v sigma c = True
+End
+
 Overload satisfies = ``satisfies0 ^mem``
 
 (* TODO: move to syntax *)
@@ -1142,29 +1158,32 @@ Proof
   CONV_TAC(SWAP_FORALL_CONV) \\ Cases \\ rw[total_fragment_def,is_sig_fragment_def]
 QED
 
-val satisfies_t_def = xDefine"satisfies_t"`
+Definition satisfies_t_def:
   satisfies_t0 ^mem sig δ γ (h,c) ⇔
   !sigma.
     (!ty. tyvars(sigma ty) = []) /\
     (!ty. type_ok (tysof sig) (sigma ty)) /\
     EVERY (λtm. tm ∈ ground_terms_uninst sig sigma) h /\ c ∈ ground_terms_uninst sig sigma
     ==> satisfies (total_fragment sig) δ γ sigma (h,c)
-  `
+End
+
 
 Overload satisfies_t = ``satisfies_t0 ^mem``
 (*val _ = Parse.add_infix("satisfies",450,Parse.NONASSOC)*)
 
-val models_def = xDefine"models"`
+Definition models_def:
   models0 ^mem δ γ (thy:thy) ⇔
     is_frag_interpretation (total_fragment (sigof thy)) δ γ ∧
     ∀p. p ∈ (axsof thy) ⇒
     satisfies_t (sigof thy)
                 (ext_type_frag_builtins δ)
                 (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)
-                ([],p)`
+                ([],p)
+End
+
 Overload models = ``models0 ^mem``
 
-val entails_def = xDefine"entails"`
+Definition entails_def:
   entails0 ^mem (thy,h) c ⇔
     theory_ok thy ∧
     EVERY (term_ok (sigof thy)) (c::h) ∧
@@ -1174,19 +1193,25 @@ val entails_def = xDefine"entails"`
       ⇒ satisfies_t (sigof thy)
                     (ext_type_frag_builtins δ)
                     (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)
-                    (h,c)`
+                    (h,c)
+End
+
 val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
 Overload "|=" = ``entails0 ^mem``
 
 (* TODO: use in many places above *)
-val termsem_ext_def = xDefine"termsem_ext"`
+Definition termsem_ext_def:
   termsem_ext0 ^mem δ γ v t = termsem (ext_type_frag_builtins δ)
-                                      (ext_term_frag_builtins (ext_type_frag_builtins δ) γ) v t`
+                                      (ext_term_frag_builtins (ext_type_frag_builtins δ) γ) v t
+End
+
 Overload termsem_ext = ``termsem_ext0 ^mem``
 
-val is_structure_def = xDefine"is_structure"`
+Definition is_structure_def:
   is_structure0 ^mem sig δ γ v ⇔
-    is_frag_interpretation (total_fragment sig) δ γ`
+    is_frag_interpretation (total_fragment sig) δ γ
+End
+
 Overload is_structure = ``is_structure0 ^mem``
 
 val _ = export_theory()

@@ -270,8 +270,10 @@ val inset_def = xDefine"inset"
 
 val _ = Parse.add_infix("<=:",450,Parse.NONASSOC)
 
-val subset_def = xDefine"subset"`
-  s <=: t ⇔ level s = level t ∧ ∀x. x <: s ⇒ x <: t`
+Definition subset_def:
+  s <=: t ⇔ level s = level t ∧ ∀x. x <: s ⇒ x <: t
+End
+
 
 Theorem MEMBERS_ISASET:
    ∀x s. x <: s ⇒ isaset s
