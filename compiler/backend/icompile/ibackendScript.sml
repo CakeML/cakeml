@@ -4,7 +4,7 @@
   compiling program in a part-by-part manner
 *)
 
-open preamble backendTheory;
+open preamble backendTheory namespacePropsTheory;
 
 val _ = new_theory"ibackend";
 
@@ -63,8 +63,6 @@ Definition source_to_flat_compile_prog_alt_def:
      alloc_env_ref :: p')
 End
 
-
-
 Definition source_to_flat_compile_alt_def:
   source_to_flat_compile_alt (c: source_to_flat$config) p =
   let (c', p') = source_to_flat_compile_prog_alt c p in
@@ -78,15 +76,29 @@ Definition flat_to_clos_compile_alt_def:
   (clos_interp$compile_init T) :: flat_to_clos$compile_decs p
 End
 
-Definition clos_to_bvl_compile_alt_def:
-  clos_to_bvl_compile_alt clos_conf p =
-  let (c, p, _) = clos_to_bvl$compile clos_conf p in
-    (c, p)
+(* TODO: temporarily ignore aux *)
+Definition clos_to_bvl_compile_prog_alt_def:
+  clos_to_bvl_compile_prog_alt max_app prog =
+    let (new_exps, aux) = compile_exps max_app (MAP (SND o SND) prog) [] in
+      MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app, args, exp))
+        prog new_exps
 End
 
+(* TODO: just to remove the names field, probably just use
+  original instead *)
+Definition clos_to_bvl_compile_alt_def:
+  clos_to_bvl_compile_alt c0 es =
+    let (c, prog) = compile_common c0 es in
+    let init_stubs = toAList (init_code c.max_app) in
+    let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start))] in
+    let comp_progs = compile_prog c.max_app prog in
+    let prog' = init_stubs ++ comp_progs ++ init_globs in
+    let c = c with start := num_stubs c.max_app - 1 in
+      (c, prog')
+End
 
-
-
+(* TODO: just to remove the names field, probably just use
+  original instead *)
 Definition bvl_to_bvi_compile_alt_def:
   bvl_to_bvi_compile_alt_def start bvl_conf p =
     let (inlines, prog) = bvl_inline$compile_prog bvl_conf.inline_size_limit
@@ -97,9 +109,7 @@ Definition bvl_to_bvi_compile_alt_def:
       (loc, code', inlines, n1, n2)
 End
 
-
-
-(* TODO: extend this step-by-step *)
+(* TODO: this is old *)
 Definition compile_alt_def:
   compile_alt c p =
     let p = source_to_source$compile p in
@@ -111,7 +121,7 @@ Definition compile_alt_def:
     (c, p) (* to add names later *)
 End
 
-
+(* TODO: extend this step-by-step *)
 Definition compile_alt1_def:
   compile_alt1 source_conf clos_conf p =
  (* skip source to source for now *)
@@ -120,7 +130,6 @@ Definition compile_alt1_def:
   let (clos_conf', compiled_p_bvl) = clos_to_bvl_compile_alt clos_conf compiled_p_clos in
     (source_conf', clos_conf', compiled_p_bvl)
 End
-
 
 (******************************************************************************)
 (*                                                                            *)
@@ -166,9 +175,6 @@ End
 
 
 *)
-
-
-
 
 Datatype:
   source_iconfig =
@@ -221,8 +227,6 @@ Definition icompile_flat_to_clos_def:
   flat_to_clos$compile_decs p
 End
 
-
-
 Definition icompile_clos_to_bvl_common_def:
   icompile_clos_to_bvl_common (clos_iconf: clos_iconfig) p =
   let p = clos_mti$compile clos_iconf.do_mti clos_iconf.max_app p in
@@ -253,7 +257,7 @@ Definition icompile_clos_to_bvl_common_def:
   (clos_iconf, p)
 End
 
-
+(* TODO: modify this and try the rest *)
 Definition icompile_clos_to_bvl_prog_def:
   icompile_clos_to_bvl_prog max_app p =
   let prog = MAP (SND o SND) p in
@@ -262,14 +266,12 @@ Definition icompile_clos_to_bvl_prog_def:
     (new_bvl_exps, aux)
 End
 
-
 Definition icompile_clos_to_bvl_def:
   icompile_clos_to_bvl (clos_iconf: clos_iconfig)  p =
   let (clos_iconf, p) = icompile_clos_to_bvl_common clos_iconf p in
   let (p_bvl_fst, p_bvl_snd) = icompile_clos_to_bvl_prog clos_iconf.max_app p in
     (clos_iconf, p_bvl_fst, p_bvl_snd)
 End
-
 
 Definition icompile_bvl_to_bvi_inline_def:
   icompile_bvl_to_bvi_inline limit split_seq cut_size cs p =
@@ -294,8 +296,6 @@ Definition icompile_bvl_to_bvi_def:
     (bvl_iconf, code)
 End
 
-
-
 Definition init_icompile_source_to_flat_def:
   init_icompile_source_to_flat source_conf =
   let next = source_conf.next with <| vidx := source_conf.next.vidx + 1 |> in
@@ -307,7 +307,6 @@ Definition init_icompile_source_to_flat_def:
                         pattern_cfg := source_conf.pattern_cfg |> in
   let flat_stub = flat_pattern$compile_dec source_conf.pattern_cfg source_to_flat$alloc_env_ref in
   (source_iconf, [flat_stub])
-
 End
 
 Definition end_icompile_source_to_flat_def:
@@ -334,7 +333,6 @@ End
 Definition end_icompile_flat_to_clos_def:
   end_icompile_flat_to_clos = ()
 End
-
 
 Definition init_icompile_clos_to_bvl_def:
   init_icompile_clos_to_bvl (clos_conf:clos_to_bvl$config) clos_stub =
@@ -370,7 +368,6 @@ Definition end_icompile_clos_to_bvl_def:
   (clos_conf, init_globs, es_chained_bvl_fst, es_chained_bvl_snd)
 End
 
-
 Definition init_icompile_def:
   init_icompile source_conf clos_conf =
   let (source_iconf, flat_stub) = init_icompile_source_to_flat source_conf in
@@ -378,8 +375,6 @@ Definition init_icompile_def:
   let (clos_iconf, bvl_stub_fst, bvl_stub_snd, init_stubs_bvl) = init_icompile_clos_to_bvl clos_conf clos_stub in
   (source_iconf, clos_iconf, bvl_stub_fst, bvl_stub_snd, init_stubs_bvl)
 End
-
-
 
 Definition end_icompile_def:
   end_icompile source_iconf source_conf
@@ -393,7 +388,6 @@ Definition end_icompile_def:
 
 End
 
-
 Definition icompile_def:
   icompile source_iconf clos_iconf p =
   let (source_iconf', icompiled_p_flat) = icompile_source_to_flat source_iconf p in
@@ -402,7 +396,6 @@ Definition icompile_def:
       (source_iconf', clos_iconf', icompiled_p_bvl_fst, icompiled_p_bvl_snd)
 End
 
-
 Definition fold_icompile_def:
   fold_icompile source_iconf clos_iconf []  = icompile source_iconf clos_iconf []
   /\
@@ -410,17 +403,13 @@ Definition fold_icompile_def:
   let (source_iconf', clos_iconf' , p_fst, p_snd) = icompile source_iconf clos_iconf p in
   let (source_iconf'', clos_iconf'', ps_fst, ps_snd) = fold_icompile source_iconf' clos_iconf' ps in
     (source_iconf'', clos_iconf'', ps_fst ++ p_fst, p_snd ++ ps_snd)
-
 End
 
 (******************************************************************************)
 (*                                                                            *)
-(* Syntactic correctness or icompile                                          *)
+(* Syntactic correctness for icompile                                          *)
 (*                                                                            *)
 (******************************************************************************)
-
-
-
 
 Triviality extend_env_assoc:
   extend_env e1 ( extend_env e2 e3) = extend_env (extend_env e1 e2) e3
@@ -721,10 +710,6 @@ Proof
   last_x_assum drule_all >> gvs[]
 QED
 
-
-
-
-(* Super ugly, to fix, also how to do a drule for this *)
 Theorem clos_to_bvl_compile_exps_append :
   ∀ p1 p2 p1' aux_p1 p2' aux_p2.
   compile_exps max_app p1 [] = (p1', aux_p1) ∧
@@ -753,9 +738,6 @@ Proof
       rpt (pairarg_tac >> gvs[]) >>
       last_x_assum rev_drule >> gvs[])
 QED
-
-
-
 
 Theorem icompile_icompile_clos_to_bvl_common:
   icompile_clos_to_bvl_common clos_iconf p1 = (clos_iconf_p1, p1_bvl) ∧
@@ -789,12 +771,6 @@ Proof
             rw[clos_annotateTheory.compile_def]))
 QED
 
-
-
-
-
-
-
 Theorem icompile_icompile_clos_to_bvl_prog:
   icompile_clos_to_bvl_prog max_app p1 = (new_exps_p1, aux_p1) ∧
   icompile_clos_to_bvl_prog max_app p2 = (new_exps_p2, aux_p2) ⇒
@@ -814,8 +790,6 @@ Proof
 QED
 
 
-
-
 Theorem icompile_clos_to_bvl_max_app_constant:
   icompile_clos_to_bvl clos_iconf p = (clos_iconf', p_fst, p_snd) ⇒
   clos_iconf.max_app = clos_iconf'.max_app
@@ -823,8 +797,6 @@ Proof
   rw[icompile_clos_to_bvl_def, icompile_clos_to_bvl_common_def, icompile_clos_to_bvl_prog_def] >>
   rpt (pairarg_tac >> gvs[])
 QED
-
-
 
 Theorem icompile_icompile_clos_to_bvl:
   icompile_clos_to_bvl clos_iconf p1 = (clos_iconf_p1, p1_bvl_fst, p1_bvl_snd) ∧
@@ -843,7 +815,6 @@ Proof
   strip_tac >> gvs[]
 QED
 
-
 (*
 Theorem bvl_tick_inline_all_cons:
   bvl_inline$tick_inline_all limit cs (x :: xs) aux =
@@ -859,7 +830,6 @@ Proof
   rw[REVERSE_APPEND]
 QED
 *)
-
 
 Theorem bvl_tick_inline_all_aux_disch:
   ∀ cs p aux cs' p'.
@@ -893,9 +863,6 @@ Proof
   rw[]
 QED
 
-
-
-
 Theorem bvl_tick_inline_all_append:
   ∀p1 p2 cs cs1 aux aux1 cs2 aux2.
   bvl_inline$tick_inline_all limit cs p1 [] = (cs1, aux1) ∧
@@ -917,7 +884,6 @@ Proof
 
 QED
 
-
 Theorem bvl_tick_compile_prog_append:
   bvl_inline$tick_compile_prog limit cs p1 = (cs1, p1') ∧
   bvl_inline$tick_compile_prog limit cs1 p2 = (cs2, p2') ⇒
@@ -926,7 +892,6 @@ Proof
   rw[bvl_inlineTheory.tick_compile_prog_def] >>
   metis_tac[bvl_tick_inline_all_append]
 QED
-
 
 Theorem bvl_inline_compile_inc_append:
   bvl_inline$compile_inc limit split_seq cut_size cs p1 = (cs1, p1') ∧
@@ -947,7 +912,6 @@ Theorem bvl_to_bvi_compile_list_append:
   ⇒
   append p1' ++ append p2' = append p1'p2' ∧
   n12 = n2
-
 Proof
   Induct_on ‘p1’ >>
   rw[bvl_to_bviTheory.compile_list_def] >>
@@ -986,12 +950,6 @@ Proof
       disch_then rev_drule >>
       rw[])
 QED
-
-
-
-
-
-
 
 Theorem  icompile_icompile_bvl_to_bvi_inline:
   icompile_bvl_to_bvi_inline limit split_seq cut_size cs p1 = (cs1, p1') ∧
@@ -1045,18 +1003,11 @@ Proof
   strip_tac >> gvs[]
 QED
 
-
-
-
-
-
-
-
-
 Theorem icompile_icompile:
   icompile source_iconf clos_iconf prog1 = (source_iconf', clos_iconf', prog1_fst, prog1_snd) ∧
   icompile source_iconf' clos_iconf' prog2 = (source_iconf'', clos_iconf'', prog2_fst, prog2_snd) ⇒
-  icompile source_iconf clos_iconf (prog1 ++ prog2) = (source_iconf'', clos_iconf'', prog2_fst ++ prog1_fst, prog1_snd ++ prog2_snd)
+  icompile source_iconf clos_iconf (prog1 ++ prog2) =
+    (source_iconf'', clos_iconf'', prog2_fst ++ prog1_fst, prog1_snd ++ prog2_snd)
 Proof
   rw[] >>
   gvs[icompile_def] >> rpt (pairarg_tac >> gvs[]) >>
