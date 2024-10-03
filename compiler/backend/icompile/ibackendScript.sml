@@ -76,7 +76,7 @@ Definition flat_to_clos_compile_alt_def:
   (clos_interp$compile_init T) :: flat_to_clos$compile_decs p
 End
 
-(* change the order of chain_exps *)        
+(* change the order of chain_exps *)
 Definition clos_to_bvl_compile_common_alt_def:
   clos_to_bvl_compile_common_alt c es =
     let es = clos_mti$compile c.do_mti c.max_app es in
@@ -92,7 +92,7 @@ Definition clos_to_bvl_compile_common_alt_def:
                  call_state := (g,aux) |>,
        prog)
 End
-        
+
 (* TODO: temporarily ignore aux *)
 Definition clos_to_bvl_compile_prog_alt_def:
   clos_to_bvl_compile_prog_alt max_app prog =
@@ -280,14 +280,14 @@ Definition icompile_clos_to_bvl_prog_def:
   let prog = MAP (SND o SND) p in
   let (new_exps, aux) = clos_to_bvl$compile_exps max_app prog [] in
   let new_bvl_exps = MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app, args, exp)) p new_exps in
-    (new_bvl_exps, aux)
+    new_bvl_exps
 End
 
 Definition icompile_clos_to_bvl_def:
   icompile_clos_to_bvl (clos_iconf: clos_iconfig)  p =
   let (clos_iconf, p) = icompile_clos_to_bvl_common clos_iconf p in
-  let (p_bvl_fst, p_bvl_snd) = icompile_clos_to_bvl_prog clos_iconf.max_app p in
-    (clos_iconf, p_bvl_fst, p_bvl_snd)
+  let p = icompile_clos_to_bvl_prog clos_iconf.max_app p in
+    (clos_iconf, p)
 End
 
 Definition icompile_bvl_to_bvi_inline_def:
@@ -352,7 +352,7 @@ Definition end_icompile_flat_to_clos_def:
 End
 
 Definition init_icompile_clos_to_bvl_def:
-  init_icompile_clos_to_bvl (clos_conf:clos_to_bvl$config) clos_stub =
+  init_icompile_clos_to_bvl (clos_conf:clos_to_bvl$config) =
   let clos_iconf = <| do_mti := clos_conf.do_mti;
                       max_app := clos_conf.max_app;
                       next_loc := 0;
@@ -363,9 +363,8 @@ Definition init_icompile_clos_to_bvl_def:
                       clos_call_g := LN;
                       es_to_chain := [];
                       length_acc := 0 |> in
-  let (clos_iconf, bvl_stub_fst, bvl_stub_snd) = icompile_clos_to_bvl clos_iconf clos_stub in
   let init_stubs = toAList (init_code clos_iconf.max_app) in
-    (clos_iconf, bvl_stub_fst, bvl_stub_snd, init_stubs)
+    (clos_iconf, init_stubs)
 End
 
 Definition end_icompile_clos_to_bvl_def:
@@ -373,7 +372,7 @@ Definition end_icompile_clos_to_bvl_def:
   let es_chained = clos_to_bvl$chain_exps clos_iconf.next_loc
                                           clos_iconf.es_to_chain in
   let es_chained = clos_annotate$compile es_chained in
-  let (es_chained_bvl_fst, es_chained_bvl_snd) = icompile_clos_to_bvl_prog clos_iconf.max_app es_chained in
+  let es_chained = icompile_clos_to_bvl_prog clos_iconf.max_app es_chained in
   let clos_conf = clos_conf with
                             <| next_loc :=
                                clos_iconf.next_loc + MAX 1 (clos_iconf.length_acc); (* need to add the length of the es *)
@@ -382,35 +381,32 @@ Definition end_icompile_clos_to_bvl_def:
                                call_state := (clos_iconf.clos_call_g, clos_iconf.clos_call_aux) |> in
   let c = clos_iconf in
   let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.next_loc))] in
-  (clos_conf, init_globs, es_chained_bvl_fst, es_chained_bvl_snd)
+  (clos_conf, es_chained ++ init_globs)
 End
 
 Definition init_icompile_def:
   init_icompile source_conf clos_conf =
   let (source_iconf, flat_stub) = init_icompile_source_to_flat source_conf in
   let clos_stub = init_icompile_flat_to_clos flat_stub in
-  let (clos_iconf, bvl_stub_fst, bvl_stub_snd, init_stubs_bvl) = init_icompile_clos_to_bvl clos_conf clos_stub in
-  (source_iconf, clos_iconf, bvl_stub_fst, bvl_stub_snd, init_stubs_bvl)
+  let (clos_iconf, bvl_init) = init_icompile_clos_to_bvl clos_conf in
+  (source_iconf, clos_iconf, clos_stub, bvl_init)
 End
 
 Definition end_icompile_def:
   end_icompile source_iconf source_conf
                clos_iconf clos_conf  =
   let source_conf_after_ic = end_icompile_source_to_flat source_iconf source_conf in
-  let (clos_conf_after_ic,
-       init_globs_bvl,
-       es_chained_bvl_fst,
-       es_chained_bvl_snd) = end_icompile_clos_to_bvl clos_iconf clos_conf in
-    (source_conf_after_ic, clos_conf_after_ic, init_globs_bvl, es_chained_bvl_fst, es_chained_bvl_snd)
+  let (clos_conf_after_ic, bvl_end) = end_icompile_clos_to_bvl clos_iconf clos_conf in
+    (source_conf_after_ic, clos_conf_after_ic, bvl_end)
 
 End
 
 Definition icompile_def:
-  icompile source_iconf clos_iconf p =
+  icompile source_iconf clos_iconf clos_stub p =
   let (source_iconf', icompiled_p_flat) = icompile_source_to_flat source_iconf p in
   let icompiled_p_clos = icompile_flat_to_clos icompiled_p_flat in
-  let (clos_iconf', icompiled_p_bvl_fst, icompiled_p_bvl_snd) = icompile_clos_to_bvl clos_iconf icompiled_p_clos in
-      (source_iconf', clos_iconf', icompiled_p_bvl_fst, icompiled_p_bvl_snd)
+  let (clos_iconf', icompiled_p_bvl) = icompile_clos_to_bvl clos_iconf (clos_stub ++ icompiled_p_clos) in
+      (source_iconf', clos_iconf', icompiled_p_bvl)
 End
 
 Definition fold_icompile_def:
@@ -789,9 +785,8 @@ Proof
 QED
 
 Theorem icompile_icompile_clos_to_bvl_prog:
-  icompile_clos_to_bvl_prog max_app p1 = (new_exps_p1, aux_p1) ∧
-  icompile_clos_to_bvl_prog max_app p2 = (new_exps_p2, aux_p2) ⇒
-  icompile_clos_to_bvl_prog max_app (p2 ++ p1) = (new_exps_p2 ++ new_exps_p1, aux_p1 ++ aux_p2)
+  icompile_clos_to_bvl_prog max_app (p2 ++ p1) =
+  icompile_clos_to_bvl_prog max_app p2 ++ icompile_clos_to_bvl_prog max_app p1
 Proof
   rw[icompile_clos_to_bvl_prog_def] >>
   rpt (pairarg_tac >> gvs[]) >>
@@ -808,7 +803,7 @@ QED
 
 
 Theorem icompile_clos_to_bvl_max_app_constant:
-  icompile_clos_to_bvl clos_iconf p = (clos_iconf', p_fst, p_snd) ⇒
+  icompile_clos_to_bvl clos_iconf p = (clos_iconf', p') ⇒
   clos_iconf.max_app = clos_iconf'.max_app
 Proof
   rw[icompile_clos_to_bvl_def, icompile_clos_to_bvl_common_def, icompile_clos_to_bvl_prog_def] >>
@@ -816,9 +811,9 @@ Proof
 QED
 
 Theorem icompile_icompile_clos_to_bvl:
-  icompile_clos_to_bvl clos_iconf p1 = (clos_iconf_p1, p1_bvl_fst, p1_bvl_snd) ∧
-  icompile_clos_to_bvl clos_iconf_p1 p2 = (clos_iconf_p2, p2_bvl_fst, p2_bvl_snd) ⇒
-  icompile_clos_to_bvl clos_iconf (p1 ++ p2) = (clos_iconf_p2, p2_bvl_fst ++ p1_bvl_fst, p1_bvl_snd ++ p2_bvl_snd)
+  icompile_clos_to_bvl clos_iconf p1 = (clos_iconf_p1, p1_bvl) ∧
+  icompile_clos_to_bvl clos_iconf_p1 p2 = (clos_iconf_p2, p2_bvl) ⇒
+  icompile_clos_to_bvl clos_iconf (p1 ++ p2) = (clos_iconf_p2, p2_bvl ++ p1_bvl)
 Proof
   strip_tac >>
   drule (GEN_ALL icompile_clos_to_bvl_max_app_constant) >>
@@ -826,10 +821,7 @@ Proof
   fs[icompile_clos_to_bvl_def] >> rpt (pairarg_tac >> gvs[]) >>
   drule_all icompile_icompile_clos_to_bvl_common >> gvs[] >>
   ntac 3 strip_tac >> gvs[] >>
-  drule icompile_icompile_clos_to_bvl_prog >>
-  ntac 2 (last_x_assum assume_tac) >>
-  disch_then rev_drule >>
-  strip_tac >> gvs[]
+  rw[icompile_icompile_clos_to_bvl_prog]
 QED
 
 (*
@@ -1129,6 +1121,52 @@ QED
 
 
 
+Theorem init_icompile_icompile_end_icompile_c2b_alt:
+  init_icompile_clos_to_bvl clos_conf = (clos_iconf, bvl_stub)
+  ∧
+  icompile_clos_to_bvl clos_iconf (clos_stub ++ p) = (clos_iconf', p_bvl)
+  ∧
+  end_icompile_clos_to_bvl clos_iconf' clos_conf = (clos_conf_after_ic, p_bvl_end)
+  ∧
+  clos_to_bvl_compile_alt clos_conf (clos_stub ++ p) =
+  (clos_conf_after_c, compiled_p)
+  ∧
+  clos_conf = clos_to_bvl$default_config ⇒
+  config_prog_pair_rel clos_conf_after_ic (bvl_stub ++ p_bvl ++ p_bvl_end)
+                       clos_conf_after_c compiled_p
+
+Proof
+  rw[clos_to_bvlTheory.default_config_def,
+      init_icompile_clos_to_bvl_def] >>
+  drule icompile_clos_to_bvl_max_app_constant >> simp[] >>
+  fs[clos_to_bvl_compile_alt_def,
+     clos_to_bvl_compile_common_alt_def,
+     clos_to_bvl_compile_prog_alt_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  fs[icompile_clos_to_bvl_def, icompile_clos_to_bvl_prog_def, icompile_clos_to_bvl_common_def] >> rpt (pairarg_tac >> gvs[]) >>
+  fs[clos_knownTheory.compile_def, clos_callTheory.compile_def] >>
+  gvs[end_icompile_clos_to_bvl_def] >>
+  rw[config_prog_pair_rel_def] >>
+  gvs[icompile_clos_to_bvl_prog_def] >>
+
+  rpt (pairarg_tac >> gvs[]) >>
+  qmatch_goalsub_rename_tac ‘_ ++ MAP2 f _ _ = MAP2 f _ _’ >>
+  gvs[clos_annotate_compile_append] >>
+  last_x_assum mp_tac >>
+  drule clos_to_bvl_compile_exps_append >>
+  disch_then rev_drule >>
+  strip_tac >> strip_tac >> gvs[] >>
+  pop_assum mp_tac >>
+  rev_drule clos_to_bvlTheory.compile_exps_LENGTH >>
+  simp[LENGTH_MAP] >>
+  disch_then (fn t => assume_tac (GSYM t)) >>
+  drule (INST_TYPE [gamma|->“:(num#num#bvl$exp)”] MAP2_APPEND) >>
+  disch_then (fn t => qspecl_then [‘compile (chain_exps n es'')’, ‘new_exps''’, ‘f’] mp_tac t) >>
+  rw[]
+QED
+
+
+(*
 Theorem init_icompile_icompile_end_icompile_c2b:
   init_icompile_clos_to_bvl clos_conf clos_stub = (clos_iconf, bvl_stub_fst, bvl_stub_snd, init_stubs_bvl)
   ∧
@@ -1155,7 +1193,7 @@ Proof
    drule icompile_clos_to_bvl_max_app_constant >> simp[] >>
    rev_drule_all icompile_icompile_clos_to_bvl >> gvs[] >>
    last_x_assum kall_tac >>
-   pop_assum kall_tac >>
+   Pop_assum kall_tac >>
    fs[clos_to_bvl_compile_alt_def,
       clos_to_bvlTheory.compile_def,
       clos_to_bvlTheory.compile_common_def] >>
@@ -1191,7 +1229,7 @@ Proof
    disch_then (fn t => qspecl_then [‘compile aux’, ‘new_exps’, ‘f’] mp_tac t) >>
    rw[]
 QED
-
+*)
 
 
 Theorem init_icompile_icompile_end_icompile_s2b:
@@ -1199,17 +1237,17 @@ Theorem init_icompile_icompile_end_icompile_s2b:
   ∧
   init_icompile_flat_to_clos flat_stub = clos_stub
   ∧
-  init_icompile_clos_to_bvl clos_conf clos_stub = (clos_iconf, bvl_stub_fst, bvl_stub_snd, init_stubs_bvl)
+  init_icompile_clos_to_bvl clos_conf = (clos_iconf, bvl_init)
   ∧
   icompile_source_to_flat source_iconf p = (source_iconf', icompiled_p_flat)
   ∧
   icompile_flat_to_clos icompiled_p_flat = icompiled_p_clos
   ∧
-  icompile_clos_to_bvl clos_iconf icompiled_p_clos = (clos_iconf', icompiled_p_bvl_fst, icompiled_p_bvl_snd)
+  icompile_clos_to_bvl clos_iconf (clos_stub ++ icompiled_p_clos) = (clos_iconf', icompiled_p_bvl)
   ∧
   end_icompile_source_to_flat source_iconf' source_conf = source_conf_after_ic
   ∧
-  end_icompile_clos_to_bvl clos_iconf' clos_conf  = (clos_conf_after_ic, init_globs_bvl, es_chained_bvl_fst, es_chained_bvl_snd)
+  end_icompile_clos_to_bvl clos_iconf' clos_conf  = (clos_conf_after_ic, bvl_end)
   ∧
   source_to_flat_compile_alt source_conf p = (source_conf_after_c, compiled_p_flat)
   ∧
@@ -1219,24 +1257,15 @@ Theorem init_icompile_icompile_end_icompile_s2b:
   ∧
   source_conf = source_to_flat$empty_config
   ∧
-  clos_conf = clos_to_bvl$default_config
-  ⇒
-  let icompiled_p_bvl_finalised = init_stubs_bvl ++
-                                  init_globs_bvl ++
-                                  (es_chained_bvl_fst  ++
-                                   icompiled_p_bvl_fst ++
-                                   bvl_stub_fst ++
-                                   bvl_stub_snd ++
-                                   icompiled_p_bvl_snd ++
-                                   es_chained_bvl_snd) in
-  config_prog_rel_s2b source_conf_after_ic clos_conf_after_ic (icompiled_p_bvl_finalised)
+  clos_conf = clos_to_bvl$default_config ⇒
+  config_prog_rel_s2b source_conf_after_ic clos_conf_after_ic (bvl_init ++ icompiled_p_bvl ++ bvl_end)
                       source_conf_after_c clos_conf_after_c compiled_p_bvl
 Proof
   strip_tac >>
   drule_all init_icompile_icompile_end_icompile_s2f >>
   simp[config_prog_pair_rel_def] >>
   strip_tac >> pop_assum (fn f => assume_tac (GSYM f)) >>
-  qpat_x_assum ‘flat_to_clos_compile_alt _ = _’ mp_tac >>
+d  qpat_x_assum ‘flat_to_clos_compile_alt _ = _’ mp_tac >>
   simp[] >> strip_tac  >>
   drule_all init_icompile_icompile_end_icompile_f2c >>
   strip_tac >>
@@ -1244,7 +1273,7 @@ Proof
   qpat_x_assum ‘clos_conf = _ ’ mp_tac >>
   qpat_x_assum ‘clos_to_bvl_compile_alt _ _ = _ ’ mp_tac >> simp[] >>
   rpt strip_tac >>
-  drule_all init_icompile_icompile_end_icompile_c2b >>
+  drule_all init_icompile_icompile_end_icompile_c2b_alt >>
   rw[config_prog_pair_rel_def] >>
   rw[config_prog_rel_s2b_def]
 QED
@@ -1262,13 +1291,13 @@ QED
 
 
 Theorem init_icompile_icompile_end_icompile:
-  init_icompile source_conf clos_conf = (source_iconf, clos_iconf, bvl_stub_fst, bvl_stub_snd, init_stubs_bvl)
+  init_icompile source_conf clos_conf = (source_iconf, clos_iconf, clos_stub, bvl_init)
   ∧
-  icompile source_iconf clos_iconf p = (source_iconf', clos_iconf', icompiled_p_bvl_fst, icompiled_p_bvl_snd)
+  icompile source_iconf clos_iconf clos_stub p = (source_iconf', clos_iconf', icompiled_p_bvl)
   ∧
   end_icompile source_iconf' source_conf
                clos_iconf' clos_conf
-  = (source_conf_after_ic, clos_conf_after_ic, init_globs_bvl, es_chained_bvl_fst, es_chained_bvl_snd)
+  = (source_conf_after_ic, clos_conf_after_ic, bvl_end)
   ∧
   compile_alt1 source_conf clos_conf p = (source_conf_after_c, clos_conf_after_c, compiled_p)
   ∧
@@ -1276,15 +1305,7 @@ Theorem init_icompile_icompile_end_icompile:
   ∧
   clos_conf = clos_to_bvl$default_config
   ⇒
-  let icompiled_p_bvl_finalised = init_stubs_bvl ++
-                                  init_globs_bvl ++
-                                  (es_chained_bvl_fst  ++
-                                   icompiled_p_bvl_fst ++
-                                   bvl_stub_fst ++
-                                   bvl_stub_snd ++
-                                   icompiled_p_bvl_snd ++
-                                   es_chained_bvl_snd) in
-  config_prog_rel_s2b source_conf_after_ic clos_conf_after_ic (icompiled_p_bvl_finalised)
+  config_prog_rel_s2b source_conf_after_ic clos_conf_after_ic (bvl_init ++ icompiled_p_bvl ++ bvl_end)
                       source_conf_after_c clos_conf_after_c compiled_p
 Proof
   once_rewrite_tac[init_icompile_def, icompile_def, end_icompile_def, compile_alt1_def] >>
@@ -1305,7 +1326,7 @@ Proof
   strip_tac >> pop_assum $ qspec_then ‘icompiled_p_flat’ assume_tac >>
   gvs[] >>
   strip_tac >>
-  drule_all init_icompile_icompile_end_icompile_c2b >>
+  drule_all init_icompile_icompile_end_icompile_c2b_alt >>
   rw[config_prog_pair_rel_def] >>
   rw[config_prog_rel_s2b_def]
 QED
