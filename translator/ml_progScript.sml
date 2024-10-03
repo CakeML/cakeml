@@ -18,7 +18,7 @@ val _ = new_theory "ml_prog";
 
 (* Functions write, write_cons, write_mod, empty_env, merge_env should
    never be expanded by EVAL and are therefore defined using
-   zDefine. These should never be exanded by EVAL because that would
+   nocompute. These should never be exanded by EVAL because that would
    cause very slow appends. *)
 
 Definition write_def[nocompute]:
@@ -621,8 +621,9 @@ local
 in
   (* init_env_def should not be unpacked by EVAL. Queries will be handled
      by the nsLookup_conv apparatus, which will use the pfun_eqs thm below. *)
-  val init_env_def = zDefine `
-    init_env = ^init_env_tm`;
+Definition init_env_def[nocompute]:
+  init_env = ^init_env_tm
+End
   val init_state_def = Define `
     init_state ffi = ^init_state_tm`;
 end
