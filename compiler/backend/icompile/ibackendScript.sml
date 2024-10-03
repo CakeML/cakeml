@@ -76,6 +76,23 @@ Definition flat_to_clos_compile_alt_def:
   (clos_interp$compile_init T) :: flat_to_clos$compile_decs p
 End
 
+(* change the order of chain_exps *)        
+Definition clos_to_bvl_compile_common_alt_def:
+  clos_to_bvl_compile_common_alt c es =
+    let es = clos_mti$compile c.do_mti c.max_app es in
+    let loc = c.next_loc in
+    (* Alignment padding *)
+    let loc = if loc MOD 2 = 0 then loc else loc + 1 in
+    let (n,es) = renumber_code_locs_list loc es in
+    let (kc, es) = clos_known$compile c.known_conf es in
+    let (es,g,aux) = clos_call$compile c.do_call es in
+    let prog = aux ++ (chain_exps n es) in
+    let prog = clos_annotate$compile prog in
+      (c with <| start := n; next_loc := n + MAX 1 (LENGTH es); known_conf := kc;
+                 call_state := (g,aux) |>,
+       prog)
+End
+        
 (* TODO: temporarily ignore aux *)
 Definition clos_to_bvl_compile_prog_alt_def:
   clos_to_bvl_compile_prog_alt max_app prog =
@@ -88,10 +105,10 @@ End
   original instead *)
 Definition clos_to_bvl_compile_alt_def:
   clos_to_bvl_compile_alt c0 es =
-    let (c, prog) = compile_common c0 es in
+    let (c, prog) = clos_to_bvl_compile_common_alt c0 es in
     let init_stubs = toAList (init_code c.max_app) in
     let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start))] in
-    let comp_progs = compile_prog c.max_app prog in
+    let comp_progs = clos_to_bvl_compile_prog_alt c.max_app prog in
     let prog' = init_stubs ++ comp_progs ++ init_globs in
     let c = c with start := num_stubs c.max_app - 1 in
       (c, prog')
