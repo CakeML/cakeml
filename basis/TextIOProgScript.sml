@@ -16,9 +16,11 @@ val _ = ml_prog_update (open_module "TextIO");
 
 val _ = ml_prog_update open_local_block;
 
-
-(* val get_buffered_in_def = Define `get_out (InstreamBuffered)` *)
-
+(*
+Definition get_buffered_in_def:
+  get_out (InstreamBuffered)
+End
+*)
 
 Datatype:
   instream = Instream mlstring

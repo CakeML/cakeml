@@ -2923,10 +2923,10 @@ Proof
   qexists_tac `0` >> simp[]
 QED
 
-val ag32_ffi_get_arg_length_loop1_code_def = Define‘
+Definition ag32_ffi_get_arg_length_loop1_code_def:
   ag32_ffi_get_arg_length_loop1_code =
     GENLIST (λi. EL (i + 2) ag32_ffi_get_arg_length_loop_code) 4
-’;
+End
 
 val instn = instn0
               (CONV_RULE (RAND_CONV EVAL)
@@ -2976,13 +2976,13 @@ val loop_code_def' = Q.prove(
 val instn = instn0 loop_code_def'
 val combined = combined0 instn gmw
 
-val has_n_args_def = Define‘
+Definition has_n_args_def:
   (has_n_args mem a 0 ⇔ T) ∧
   (has_n_args (mem : word32 -> word8) a (SUC n) ⇔
      ∃off. mem (a + n2w off) = 0w ∧
            (∀i. i < off ⇒ mem (a + n2w i) ≠ 0w) ∧
            has_n_args mem (a + n2w off + 1w) n)
-’;
+End
 
 Theorem ag32_ffi_get_arg_length_loop_code_thm:
    has_n_args s.MEM (s.R 5w) argc ∧ w2n (s.R 6w) ≤ argc ∧

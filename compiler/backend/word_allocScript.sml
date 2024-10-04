@@ -835,7 +835,7 @@ Proof
 QED
 
 (* Old representation *)
-(* val get_clash_sets_def = Define`
+(* Definition get_clash_sets_def:
   (get_clash_sets (Seq s1 s2) live =
     let (hd,ls) = get_clash_sets s2 live in
     let (hd',ls') = get_clash_sets s1 hd in
@@ -867,7 +867,8 @@ QED
   (*Catchall for cases where we dont have in sub programs live sets*)
   (get_clash_sets prog live =
     let i_set = union (get_writes prog) live in
-      (get_live prog live,[i_set]))`
+      (get_live prog live,[i_set]))
+  End
 *)
 
 (* Potentially more efficient liveset representation for checking / allocation*)
