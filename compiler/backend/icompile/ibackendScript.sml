@@ -836,22 +836,6 @@ Proof
   rw[icompile_icompile_clos_to_bvl_prog]
 QED
 
-(*
-Theorem bvl_tick_inline_all_cons:
-  bvl_inline$tick_inline_all limit cs (x :: xs) aux =
-  let (cs1, aux1) = bvl_inline$tick_inline_all limit cs [x] aux in
-    bvl_inline$tick_inline_all limit cs1 xs (REVERSE aux1)
-Proof
-  rw[] >>
-  pairarg_tac >> gvs[] >>
-  namedCases_on ‘x’ ["n arity es1"] >>
-  rw[bvl_inlineTheory.tick_inline_all_eq] >>
-  fs[bvl_inlineTheory.tick_inline_all_def] >>
-  fs[bvl_inlineTheory.tick_inline_sing] >>
-  rw[REVERSE_APPEND]
-QED
-*)
-
 Theorem bvl_tick_inline_all_aux_disch:
   ∀ cs p aux cs' p'.
   bvl_inline$tick_inline_all limit cs p aux = (cs', p') ⇒
@@ -1180,71 +1164,6 @@ Proof
 QED
 
 
-(*
-Theorem init_icompile_icompile_end_icompile_c2b:
-  init_icompile_clos_to_bvl clos_conf clos_stub = (clos_iconf, bvl_stub_fst, bvl_stub_snd, init_stubs_bvl)
-  ∧
-  icompile_clos_to_bvl clos_iconf p = (clos_iconf', p_bvl_fst, p_bvl_snd)
-  ∧
-  end_icompile_clos_to_bvl clos_iconf' clos_conf = (clos_conf_after_ic, init_globs_bvl, es_chained_bvl_fst, es_chained_bvl_snd)
-  ∧
-  clos_to_bvl_compile_alt clos_conf (clos_stub ++ p) =
-  (clos_conf_after_c, compiled_p)
-  ∧
-  clos_conf = clos_to_bvl$default_config ⇒
-  (* note that the order is :  compile_prog bvl_stubs  ++ p ++ chained es*)
-
-
-  let icompiled_p = init_stubs_bvl ++
-                    init_globs_bvl ++
-                    (es_chained_bvl_fst  ++ p_bvl_fst ++ bvl_stub_fst ++ bvl_stub_snd ++ p_bvl_snd ++ es_chained_bvl_snd) in
-    config_prog_pair_rel clos_conf_after_ic (icompiled_p)
-                         clos_conf_after_c compiled_p
-Proof
-   rw[clos_to_bvlTheory.default_config_def,
-      init_icompile_clos_to_bvl_def] >>
-   rpt (pairarg_tac >> gvs[]) >>
-   drule icompile_clos_to_bvl_max_app_constant >> simp[] >>
-   rev_drule_all icompile_icompile_clos_to_bvl >> gvs[] >>
-   last_x_assum kall_tac >>
-   Pop_assum kall_tac >>
-   fs[clos_to_bvl_compile_alt_def,
-      clos_to_bvlTheory.compile_def,
-      clos_to_bvlTheory.compile_common_def] >>
-   rpt (pairarg_tac >> gvs[]) >>
-
-   simp[icompile_clos_to_bvl_def, icompile_clos_to_bvl_common_def] >> rpt (pairarg_tac >> gvs[]) >>
-   fs[clos_knownTheory.compile_def, clos_callTheory.compile_def] >>
-   pairarg_tac >> gvs[] >>
-   rw[] >>
-   gvs[end_icompile_clos_to_bvl_def] >>
-   pairarg_tac >> gvs[] >>
-   rw[config_prog_pair_rel_def] >>
-   last_x_assum kall_tac >>
-   last_x_assum assume_tac >>
-   ntac 3 (last_x_assum kall_tac) >>
-   gvs[icompile_clos_to_bvl_prog_def] >>
-   rpt (pairarg_tac >> gvs[]) >>
-   rw[clos_to_bvlTheory.compile_prog_def] >>
-   last_x_assum mp_tac >>
-   qmatch_goalsub_rename_tac ‘MAP2 f _ _ = _ ⇒ _’ >>
-   strip_tac >>
-   rpt (pairarg_tac >> gvs[]) >>
-   gvs[clos_annotate_compile_append] >>
-   rev_drule clos_to_bvl_compile_exps_append >>
-   last_x_assum assume_tac >>
-   disch_then rev_drule >>
-   strip_tac >> gvs[] >>
-   pop_assum kall_tac >>
-   rev_drule clos_to_bvlTheory.compile_exps_LENGTH >>
-   simp[LENGTH_MAP] >>
-   disch_then (fn t => assume_tac (GSYM t)) >>
-   drule (INST_TYPE [gamma|->“:(num#num#bvl$exp)”] MAP2_APPEND) >>
-   disch_then (fn t => qspecl_then [‘compile aux’, ‘new_exps’, ‘f’] mp_tac t) >>
-   rw[]
-QED
-*)
-
 
 Theorem init_icompile_icompile_end_icompile_s2b:
   init_icompile_source_to_flat source_conf = (source_iconf, flat_stub)
@@ -1279,7 +1198,7 @@ Proof
   drule_all init_icompile_icompile_end_icompile_s2f >>
   simp[config_prog_pair_rel_def] >>
   strip_tac >> pop_assum (fn f => assume_tac (GSYM f)) >>
-d  qpat_x_assum ‘flat_to_clos_compile_alt _ = _’ mp_tac >>
+  qpat_x_assum ‘flat_to_clos_compile_alt _ = _’ mp_tac >>
   simp[] >> strip_tac  >>
   drule_all init_icompile_icompile_end_icompile_f2c >>
   strip_tac >>
@@ -1364,7 +1283,16 @@ Theorem icompile_icompile1:
   icompile a' b' [] p2 = (a'', b'', p2') ⇒
   icompile a b c (p1 ++ p2) = (a'', b'', p2' ++ p1')
 Proof
-  cheat
+  rw[icompile_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  drule_all icompile_icompile_source_to_flat >>
+  strip_tac >>
+  gvs[] >> 
+  fs[icompile_flat_to_clos_and_append_commute] >>
+  drule icompile_icompile_clos_to_bvl >>
+  last_x_assum assume_tac >>
+  disch_then rev_drule >>
+  strip_tac >> gvs[]
 QED
 
 
