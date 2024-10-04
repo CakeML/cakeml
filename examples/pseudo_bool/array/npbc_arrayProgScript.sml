@@ -5073,24 +5073,56 @@ End
 
 val res = translate equioptimal_res_def;
 
+Definition pres_string_def:
+  (pres_string (xs:num_set) =
+    concatWith (strlit" ") (MAP (toString o FST) (toAList xs)))
+End
+
+(* Add a checking command? *)
+Definition err_pres_string_def:
+  err_pres_string pres pres' =
+  case pres of NONE => strlit"projection set check failed, no projection set available"
+  | SOME pres =>
+    concat[
+    strlit"projection set check failed, expect: ";
+    pres_string pres';
+    strlit" got: ";
+    pres_string pres]
+End
+
+Definition opt_err_pres_string_def:
+  (opt_err_pres_string (SOME pres) (SOME pres') =
+    err_pres_string (SOME pres) pres') ∧
+  (opt_err_pres_string _ _ = strlit "missing projection set")
+End
+
+val res = translate pres_string_def;
+val res = translate err_pres_string_def;
+val res = translate opt_err_pres_string_def;
+
+val res = translate npbc_checkTheory.opt_eq_obj_opt_def;
+val res = translate npbc_checkTheory.opt_eq_pres_def;
+
 Definition equisolvable_res_def:
   equisolvable_res
     (bound:int option) (dbound:int option) chk
     obj obj' (pres:num_set option) pres' b2opt b3opt =
   let b11 = opt_le bound dbound in
-  let b12 = opt_eq_obj obj obj' in
+  let b12 = opt_eq_obj_opt obj obj' in
   let b12s =
     if b12 then strlit"T" else opt_err_obj_check_string obj obj' in
   let b2 = (b2opt = NONE) in
   let b3 = (b3opt = NONE) in
-  let b4 = (pres = pres') in
+  let b4 = opt_eq_pres pres pres' in
+  let b4s =
+    if b4 then strlit"T" else opt_err_pres_string pres pres' in
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3 ∧ b4
   then NONE
     else SOME (
-      strlit "output EQUIOPTIMAL check failed:" ^
+      strlit "output EQUISOLVABLE check failed:" ^
       strlit " [bound <= dbound]: " ^ bool_to_string b11 ^
-      strlit " [obj = output obj]: " ^ b12s ^
-      strlit " [pres = output pres]: " ^ bool_to_string b4 ^
+      strlit " [obj = output obj (if present)]: " ^ b12s ^
+      strlit " [pres = output pres]: " ^ b4s ^
       strlit " [checked deletion]: " ^ bool_to_string chk ^
       strlit " [core in output] " ^ print_opt_string b2opt ^
       strlit " [output in core] " ^ print_opt_string b3opt

@@ -1360,11 +1360,6 @@ Proof
   metis_tac[add_thm]
 QED
 
-Definition pres_set_spt_def:
-  pres_set_spt pres =
-    case pres of NONE => {} | SOME pres => domain pres
-End
-
 Theorem check_pres_subst_fun:
   ∀s.
   check_pres pres s ⇒
@@ -4146,6 +4141,17 @@ Definition opt_eq_obj_def:
   (opt_eq_obj _ _ = F)
 End
 
+Definition opt_eq_pres_def:
+  (opt_eq_pres (SOME pres) (SOME pres') ⇔ pres = pres') ∧
+  (opt_eq_pres _ _ = F)
+End
+
+Definition opt_eq_obj_opt_def:
+  (opt_eq_obj_opt (SOME fc) (SOME fc') ⇔ eq_obj fc fc') ∧
+  (opt_eq_obj_opt NONE NONE = T) ∧
+  (opt_eq_obj_opt _ _ = F)
+End
+
 Definition check_output_def:
   (check_output fml (pres:num_set option) obj bound dbound chk
     fml' (pres':num_set option) obj' NoOutput = T) ∧
@@ -4177,8 +4183,8 @@ Definition check_output_def:
       chk ∧ opt_le bound dbound ∧
       fml_include cls fml' ∧
       fml_include fml' cls ∧
-      opt_eq_obj obj obj' ∧
-      pres = pres')
+      opt_eq_obj_opt obj obj' ∧
+      opt_eq_pres pres pres')
 End
 
 Theorem valid_conf_proj_pres_eq:
@@ -4304,9 +4310,9 @@ Proof
     metis_tac[])
   >- ( (* Equisolvable *)
     rw[]>>
-    `∀w. eval_obj pc'.obj w = eval_obj objt w` by
-      (Cases_on`pc'.obj`>>Cases_on`objt`>>
-      gvs[opt_eq_obj_def]>>
+    `∀w. eval_obj pc'.obj w = eval_obj objt w` by (
+      Cases_on`pc'.obj`>>Cases_on`objt`>>
+      gvs[opt_eq_obj_opt_def]>>
       drule eq_obj_eval_obj>>
       simp[])>>
     drule all_core_core_only_fml_eq>>rw[]>>
@@ -4338,6 +4344,10 @@ Proof
     rpt(first_x_assum drule)>>
     rw[]>>
     drule valid_conf_proj_pres_eq>>rw[]>>
+    `pres_set_spt pc'.pres = pres_set_spt prest` by
+      (Cases_on`pc'.pres`>>
+      Cases_on`prest`>>
+      gvs[opt_eq_pres_def])>>
     metis_tac[BIJ_INJ_INJ])
 QED
 

@@ -4051,8 +4051,8 @@ Definition check_output_list_def:
       chk ∧ opt_le bound dbound ∧
       fml_include_list cls fml' ∧
       fml_include_list fml' cls ∧
-      opt_eq_obj obj obj' ∧
-      pres = pres')
+      opt_eq_obj_opt obj obj' ∧
+      opt_eq_pres pres pres')
 End
 
 Theorem fml_include_set:

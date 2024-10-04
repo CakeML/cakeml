@@ -2004,6 +2004,11 @@ Definition sem_concl_def:
       (∃w. satisfies w fml ∧ eval_obj obj w ≤ ub))))
 End
 
+Definition pres_set_spt_def:
+  pres_set_spt pres =
+    case pres of NONE => {} | SOME pres => domain pres
+End
+
 Definition sem_output_def:
   (sem_output (fml: npbc set) obj pres bound fml' obj' pres' NoOutput = T) ∧
   (sem_output fml obj pres bound fml' obj' pres' Derivable =

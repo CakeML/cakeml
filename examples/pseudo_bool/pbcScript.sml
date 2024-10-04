@@ -554,6 +554,12 @@ Proof
     metis_tac[satisfies_map_pbf])
 QED
 
+(* More convenient input representation as lists *)
+Definition pres_set_list_def:
+  pres_set_list pres =
+    case pres of NONE => {} | SOME pres => set pres
+End
+
 (* projecting set ws of solutions onto preserved set *)
 Definition proj_pres_def:
   proj_pres pres ws =

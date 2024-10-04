@@ -192,15 +192,15 @@ End
 
 (* raw string but must be a valid var name *)
 Definition parse_var_raw_def:
-  (parse_var (INL s) =
+  (parse_var_raw (INL s) =
     if goodString s then SOME s else NONE) ∧
-  (parse_var _ = NONE)
+  (parse_var_raw _ = NONE)
 End
 
 Definition parse_vars_raw_def:
   (parse_vars_raw [] = SOME []) ∧
   (parse_vars_raw (s::ss) =
-    case parse_var s of NONE => NONE | SOME v =>
+    case parse_var_raw s of NONE => NONE | SOME v =>
     case parse_vars_raw ss of NONE => NONE | SOME vs => SOME (v::vs))
 End
 
@@ -208,7 +208,7 @@ End
 Definition parse_pres_def:
   (parse_pres [] = NONE) ∧
   (parse_pres (x::xs) =
-    if x = INL (strlit "preserve_init:") then
+    if x = INL (strlit "preserve_init") then
       parse_vars_raw xs
     else NONE)
 End
@@ -250,7 +250,7 @@ Definition parse_pbf_toks_def:
   let (obj,pres,rest) = parse_obj_pres_maybe nocomments in
   case parse_constraints rest [] of
     NONE => NONE
-  | SOME pbf => SOME (obj,pres,pbf)
+  | SOME pbf => SOME (pres,obj,pbf)
 End
 
 (* Parse a list of strings in pbf format *)

@@ -1180,12 +1180,6 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-(* More convenient input representation as lists *)
-Definition pres_set_list_def:
-  pres_set_list pres =
-    case pres of NONE => {} | SOME pres => set pres
-End
-
 Theorem name_to_num_pres:
   name_to_num_pres pres s = (pres',t) ∧
   name_to_num_state_ok s
@@ -1220,6 +1214,11 @@ Definition normalise_obj_pbf_def:
   normalise fml)
 End
 
+Definition normalise_prob_def:
+  normalise_prob (x,objf) =
+    (OPTION_MAP list_to_num_set x,normalise_obj_pbf objf)
+End
+
 Theorem eval_obj_normalise_obj:
   eval_obj (normalise_obj obj) w = eval_obj obj w
 Proof
@@ -1246,24 +1245,32 @@ Proof
   metis_tac[normalise_thm]
 QED
 
-Theorem normalise_obj_pbf_sem_concl:
-  normalise_obj_pbf (obj,fml) = (obj',fml') ⇒
+Theorem normalise_prob_sem_concl:
+  normalise_prob (pres,obj,fml) = (pres',obj',fml') ⇒
   sem_concl (set fml) obj concl = sem_concl (set fml') obj' concl
 Proof
   Cases_on`concl`>>
-  rw[normalise_obj_pbf_def,sem_concl_def,pbcTheory.sem_concl_def,satisfiable_normalise,pbcTheory.unsatisfiable_def,unsatisfiable_def,eval_obj_normalise_obj,normalise_thm]>>
+  rw[normalise_prob_def,normalise_obj_pbf_def,sem_concl_def,pbcTheory.sem_concl_def,satisfiable_normalise,pbcTheory.unsatisfiable_def,unsatisfiable_def,eval_obj_normalise_obj,normalise_thm]>>
   simp[satisfiable_normalise,eval_obj_normalise_obj,normalise_thm]
 QED
 
-Theorem normalise_obj_pbf_sem_output:
-  normalise_obj_pbf (obj1,fml1) = (obj1',fml1') ∧
-  normalise_obj_pbf (obj2,fml2) = (obj2',fml2') ⇒
-  (pbc$sem_output (set fml1) obj1 pres1 bound (set fml2) obj2 pres2 output ⇔
-  npbc$sem_output (set fml1') obj1' pres1 bound (set fml2') obj2' pres2 output)
+Theorem pres_set_spt_pres_set_list:
+  pres_set_spt (OPTION_MAP list_to_num_set pres) =
+  pres_set_list pres
+Proof
+  Cases_on`pres`>>simp[pres_set_list_def,pres_set_spt_def]>>
+  simp[EXTENSION,domain_list_to_num_set]
+QED
+
+Theorem normalise_prob_sem_output:
+  normalise_prob (pres1,obj1,fml1) = (pres1',obj1',fml1') ∧
+  normalise_prob (pres2,obj2,fml2) = (pres2',obj2',fml2') ⇒
+  (pbc$sem_output (set fml1) obj1 (pres_set_list pres1) bound (set fml2) obj2 (pres_set_list pres2) output ⇔
+  npbc$sem_output (set fml1') obj1' (pres_set_spt pres1') bound (set fml2') obj2' (pres_set_spt pres2') output)
 Proof
   Cases_on`output`>>
-  rw[npbcTheory.sem_output_def,pbcTheory.sem_output_def,normalise_obj_pbf_def]>>
-  simp[satisfiable_normalise,eval_obj_normalise_obj,normalise_thm]
+  rw[npbcTheory.sem_output_def,pbcTheory.sem_output_def,normalise_prob_def,normalise_obj_pbf_def]>>
+  simp[satisfiable_normalise,eval_obj_normalise_obj,normalise_thm,pres_set_spt_pres_set_list]
 QED
 
 Theorem name_to_num_prob_concl_thm:
@@ -1315,8 +1322,8 @@ Proof
 QED
 
 Theorem name_to_num_state_ok_name_to_num_prob:
-  name_to_num_state_ok s ∧
-  name_to_num_prob res s = (res,t) ⇒
+  name_to_num_state_ok (s:'a name_to_num_state) ∧
+  name_to_num_prob res s = (res',t) ⇒
   name_to_num_state_ok t
 Proof
   PairCases_on`res`>>rw[name_to_num_prob_def]>>
