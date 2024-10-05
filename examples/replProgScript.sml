@@ -160,7 +160,9 @@ Definition add_repl_printer_name_dec_def:
     Dlet unknown_loc (Pvar repl_printer_name) exp
 End
 
-val _ = Datatype`repl_inf_state = <| ienv : inf_env; next_id : num |>`;
+Datatype:
+  repl_inf_state = <| ienv : inf_env; next_id : num |>
+End
 
 Definition repl_infertype_prog_def:
   repl_infertype_prog inf_state prog =

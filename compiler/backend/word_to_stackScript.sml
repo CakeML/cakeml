@@ -12,8 +12,10 @@ open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
 val _ = new_theory "word_to_stack";
 
 (* bitmaps_length stores the current length of the bitmaps *)
-val _ = Datatype `config = <| bitmaps_length: num ;
-                              stack_frame_size : num spt |>`;
+Datatype:
+  config = <| bitmaps_length: num ;
+                              stack_frame_size : num spt |>
+End
 
 (* -- *)
 

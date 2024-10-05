@@ -21,7 +21,8 @@ open jsonLangTheory presLangTheory
 
 val _ = new_theory"backend";
 
-val _ = Datatype`config =
+Datatype:
+  config =
   <| source_conf : source_to_flat$config
    ; clos_conf : clos_to_bvl$config
    ; bvl_conf : bvl_to_bvi$config
@@ -33,7 +34,8 @@ val _ = Datatype`config =
    ; symbols : (mlstring # num # num) list
    ; tap_conf : tap_config
    ; exported : mlstring list (* field for Pancake entry points - empty for CakeML *)
-   |>`;
+   |>
+End
 
 val config_component_equality = theorem"config_component_equality";
 

@@ -71,7 +71,9 @@ Datatype:
            | Noop
 End
 
-val _ = Datatype `v_ty = Int | List | Any`;
+Datatype:
+  v_ty = Int | List | Any
+End
 
 Definition op_type_def:
   op_type Append = List /\

@@ -229,8 +229,12 @@ val foo_def = tDefine"foo"`
 
 val res = translate foo_def
 
-val _ = Datatype `bar1 = ta | ti`
-val _ = Datatype `bar2 = Ta | TI`
+Datatype:
+  bar1 = ta | ti
+End
+Datatype:
+  bar2 = Ta | TI
+End
 val _ = register_type ``:bar1``
 val _ = register_type ``:bar2``
 
@@ -292,9 +296,13 @@ val res = translate shift_test_def;
 val _ = res |> hyp |> null orelse fail ();
 
 (* Translation failure with primes *)
-val _ = Datatype` idrec = <|v : num; f : 'a|>`;
+Datatype:
+  idrec = <|v : num; f : 'a|>
+End
 
-val _ = Datatype` t = V num | F 'a | D t t`;
+Datatype:
+  t = V num | F 'a | D t t
+End
 
 Definition test_def:
   test ids = D (F ids.f) (V ids.v)
@@ -349,7 +357,9 @@ val r = translate_no_ind test3_def;
 
 (* registering types inside modules *)
 
-val _ = Datatype `my_type = my_case1 | my_case2 | my_case3`;
+Datatype:
+  my_type = my_case1 | my_case2 | my_case3
+End
 Definition my_fun_def:
   (my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
                          (my_fun my_case3 = 2n)
@@ -362,7 +372,9 @@ val r = register_type ``:my_type``;
 val _ = ml_prog_update (close_module NONE);
 val r = translate my_fun_def;
 
-val _ = Datatype `my_type3 = SomE num num | NonE`;
+Datatype:
+  my_type3 = SomE num num | NonE
+End
 
 val _ = ml_prog_update (open_module "My_other_module");
 val r = register_type ``:my_type3``;
@@ -386,14 +398,22 @@ val r = concretise [``map_again``, ``inc_list``];
 
 (* check EqualityType proves for some modestly complex datatypes *)
 
-val _ = Datatype `a_type = AT_Nil | AT_Rec (a_type list) ((a_type # num) list)`;
-val _ = Datatype `a_b_type = ABT_Nil
-  | ABT_Rec (bool list) ((a_b_type # num) list)`;
+Datatype:
+  a_type = AT_Nil | AT_Rec (a_type list) ((a_type # num) list)
+End
+Datatype:
+  a_b_type = ABT_Nil
+  | ABT_Rec (bool list) ((a_b_type # num) list)
+End
 Datatype:
   a_c_type = ACT_Nil | ACT_One 'a | ACT_Two 'b | ACT_Rec ((a_c_type # num) list)
 End
-val _ = Datatype `simple_type = STA | STB | STC | STX | STY | STZ`;
-val _ = Datatype `simple_type2 = ST2A | ST2B | ST2C | ST2X | ST2Y | ST2Z`;
+Datatype:
+  simple_type = STA | STB | STC | STX | STY | STZ
+End
+Datatype:
+  simple_type2 = ST2A | ST2B | ST2C | ST2X | ST2Y | ST2Z
+End
 
 val r = register_type ``:a_type``;
 val r = register_type ``:a_b_type``;

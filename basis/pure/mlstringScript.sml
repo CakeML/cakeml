@@ -14,7 +14,9 @@ val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
 (* Defines strings as a separate type from char list. This theory should be
    moved into HOL, either as its own theory, or as an addendum to stringTheory *)
 
-val _ = Datatype`mlstring = strlit string`
+Datatype:
+  mlstring = strlit string
+End
 val _ = add_strliteral_form{inj=``strlit``, ldelim = "«"};
 
 Definition implode_def:

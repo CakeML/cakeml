@@ -10,7 +10,9 @@ val _ = new_theory "queueProg";
 
 val _ = translation_extends"basisProg";
 
-val _ = Datatype `exn_type = FullQueue | EmptyQueue`;
+Datatype:
+  exn_type = FullQueue | EmptyQueue
+End
 val _ = register_exn_type ``:exn_type``;
 
 val queue_decls = process_topdecs

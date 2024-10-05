@@ -127,10 +127,12 @@ Definition is_gen_gc_def:
   (is_gen_gc _ = F)
 End
 
-val _ = Datatype`config =
+Datatype:
+  config =
   <| reg_names : num num_map
    ; jump : bool (* whether to compile to JumpLower or If Lower ... in stack_remove*)
-   |>`;
+   |>
+End
 
 Definition compile_def:
  compile stack_conf data_conf max_heap sp offset prog =

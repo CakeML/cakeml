@@ -447,7 +447,9 @@ Definition clos_gen_noinline_def:
     ClosNoInline (n+2*i) a::clos_gen_noinline n (i+1) xs)
 End
 
-val _ = Datatype `globalOpt = gO_Int int | gO_NullTuple num | gO_None`
+Datatype:
+  globalOpt = gO_Int int | gO_NullTuple num | gO_None
+End
 
 Definition isGlobal_def:
   (isGlobal (Global _) ⇔ T) ∧

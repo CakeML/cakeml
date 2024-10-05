@@ -1881,8 +1881,10 @@ Proof
   simp [idx_prev_def]
 QED
 
-val _ = Datatype `idx_types =
-  Idx_Var | Idx_Type | Idx_Exn`;
+Datatype:
+  idx_types =
+  Idx_Var | Idx_Type | Idx_Exn
+End
 
 Theorem idx_types_FORALL:
   (!x. P x) = (P Idx_Var ∧ P Idx_Type ∧ P Idx_Exn)
