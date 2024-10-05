@@ -878,8 +878,9 @@ Proof
   CASE_TAC >> full_simp_tac(srw_ss())[]
 QED
 
-val _ = Datatype`
-  result_view = Vloc num num | Vtimeout | Verr`;
+Datatype:
+  result_view = Vloc num num | Vtimeout | Verr
+End
 
 Definition result_view_def:
   (result_view (Result (Loc n1 n2)) = Vloc n1 n2) ∧

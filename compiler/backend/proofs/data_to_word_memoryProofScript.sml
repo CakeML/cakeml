@@ -130,8 +130,9 @@ QED
 
 (* -- *)
 
-val _ = Datatype `
-  tag = BlockTag num | RefTag | BytesTag bool num | NumTag bool | Word64Tag`;
+Datatype:
+  tag = BlockTag num | RefTag | BytesTag bool num | NumTag bool | Word64Tag
+End
 
 Definition BlockRep_def:
   BlockRep tag xs = DataElement xs (LENGTH xs) (BlockTag tag,[])

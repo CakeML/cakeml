@@ -11,7 +11,7 @@ val _ = new_theory"bviSem";
 
 Overload num_stubs[local] = ``bvl_num_stubs``
 
-val _ = Datatype `
+Datatype:
   state =
     <| refs    : num |-> bvlSem$v ref
      ; clock   : num
@@ -19,7 +19,8 @@ val _ = Datatype `
      ; compile : 'c -> (num # num # bvi$exp) list -> (word8 list # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvi$exp) list
      ; code    : (num # bvi$exp) num_map
-     ; ffi     : 'ffi ffi_state |> `
+     ; ffi     : 'ffi ffi_state |>
+End
 
 Definition dec_clock_def:
   dec_clock x s = s with clock := s.clock - x

@@ -14,8 +14,9 @@ val _ = translation_extends "ListProg";
 (* Note, we're following Chargueraud and just cutting out the laziness since it
  * shouldn't affect functional correctness *)
 
-val _ = Datatype`
-  heap = Empty | Tree 'a heap heap`;
+Datatype:
+  heap = Empty | Tree 'a heap heap
+End
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []

@@ -23,10 +23,11 @@ val res = translate def;
 
 (* red-black tree example *)
 
-val _ = Datatype `
+Datatype:
   tree = Empty
        | Red tree 'a tree
-       | Black tree 'a tree`;
+       | Black tree 'a tree
+End
 
 (* causes the normal case-of syntax to be parsed as PMATCH *)
 val _ = patternMatchesSyntax.ENABLE_PMATCH_CASES();
@@ -45,7 +46,7 @@ val res = translate balance_black_def;
 
 (* tricky case from BVL *)
 
-val _ = Datatype `
+Datatype:
   exp = Var num
       | If exp exp exp
       | Let (exp list) exp
@@ -53,7 +54,8 @@ val _ = Datatype `
       | Handle exp exp
       | Tick exp
       | Call num (num option) (exp list)
-      | Op num (exp list) `
+      | Op num (exp list)
+End
 
 val dest_Seq_def = PmatchHeuristics.with_classic_heuristic Define `
   (dest_Seq (Let [e1;e2] (Var 1)) = SOME (e1,e2)) /\

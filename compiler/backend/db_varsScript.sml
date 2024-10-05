@@ -6,11 +6,12 @@ open preamble;
 
 val _ = new_theory "db_vars";
 
-val _ = Datatype `
+Datatype:
   db_var_set = Empty
              | Var num
              | Shift num db_var_set
-             | Union db_var_set db_var_set`;
+             | Union db_var_set db_var_set
+End
 
 Definition mk_Union_def:
   mk_Union t1 t2 =

@@ -12,13 +12,14 @@ val _ = set_grammar_ancestry
    "wordSem" (* for word_loc *)
   ];
 
-val _ = Datatype `
+Datatype:
   result = Result ('w word_loc)
          | Exception ('w word_loc)
          | Halt ('w word_loc)
          | TimeOut
          | FinalFFI final_event
-         | Error `
+         | Error
+End
 
 Definition bit_length_def:
   bit_length w = if w = 0w then (0:num) else bit_length (w >>> 1) + 1
@@ -81,7 +82,7 @@ Definition read_bitmap_def:
        SOME (GENLIST (\i. w ' i) (bit_length w - 1)))
 End
 
-val _ = Datatype `
+Datatype:
   state =
     <| regs    : num |-> 'a word_loc
      ; fp_regs : num |-> word64
@@ -104,7 +105,8 @@ val _ = Datatype `
      ; code    : ('a stackLang$prog) num_map
      ; ffi     : 'ffi ffi_state
      ; ffi_save_regs : num set
-     ; be      : bool (* is big-endian *) |> `
+     ; be      : bool (* is big-endian *) |>
+End
 
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_loc) (s:('a,'c,'ffi) stackSem$state) =

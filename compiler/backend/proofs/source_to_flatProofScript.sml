@@ -98,10 +98,11 @@ val nsBindList_pat_tups_bind_locals = Q.prove(`
   Induct>>rw[pat_tups_def,namespaceTheory.nsBindList_def,bind_locals_def]>>
   qexists_tac`(t § (LENGTH ls + 1))::tss`>>simp[]);
 
-val _ = Datatype `
+Datatype:
   global_env =
     <| v : flatSem$v option list; c : (ctor_id # type_id) # num |-> stamp;
-        tys : num |-> (ctor_id # num) list |>`;
+        tys : num |-> (ctor_id # num) list |>
+End
 
 Theorem submap_distinct_fupdate_flookup:
   x ∉ FDOM f ==>

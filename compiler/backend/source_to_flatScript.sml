@@ -20,8 +20,9 @@ val _ = set_grammar_ancestry ["ast", "flatLang", "evaluate"];
 val _ = numLib.temp_prefer_num();
 val _ = temp_tight_equality ();
 
-val _ = Datatype `
-  var_name = Glob tra num | Local tra string`
+Datatype:
+  var_name = Glob tra num | Local tra string
+End
 
 Datatype:
   environment =
@@ -350,8 +351,9 @@ Definition lift_env_def:
   lift_env mn e = <| v := nsLift mn e.v; c := nsLift mn e.c |>
 End
 
-val _ = Datatype `
-  next_indices = <| vidx : num; tidx : num; eidx : num |>`;
+Datatype:
+  next_indices = <| vidx : num; tidx : num; eidx : num |>
+End
 
 Definition lookup_inc_def:
   lookup_inc i t =
@@ -445,12 +447,13 @@ Termination
   WF_REL_TAC `measure (list_size ast$dec_size o SND o SND o SND o SND o SND)`
 End
 
-val _ = Datatype`
+Datatype:
   config = <| next : next_indices
             ; mod_env : environment
             ; pattern_cfg : flat_pattern$config
             ; envs : environment_store
-            |>`;
+            |>
+End
 
 Definition empty_config_def:
   empty_config =

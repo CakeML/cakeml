@@ -66,12 +66,13 @@ Definition clos_tag_shift_def:
 End
 
 (* Trace of an expression through the compiler, for exploring transformations *)
-val _ = Datatype`
+Datatype:
   tra =
     | SourceLoc num (* start-row *) num (* start-col *) num (* end-row *) num (* end-col *)
     | Cons tra num
     | Union tra tra
-    | None (* Dead trace, do not make traces at all *)`
+    | None (* Dead trace, do not make traces at all *)
+End
 
 (* The code below replaces "Cons" in hol output with the chosen symbol *)
 val _ = set_fixity "▷" (Infixl 480);

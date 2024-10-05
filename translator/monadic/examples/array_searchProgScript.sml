@@ -10,8 +10,9 @@ val _ = new_theory "array_searchProg"
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
 (* Create the data type to handle the array. *)
-val _ = Datatype `
-  state_array = <| arr : num list |>`; (* single resizeable array *)
+Datatype:
+  state_array = <| arr : num list |>
+End (* single resizeable array *)
 
 (* Data type for the exceptions *)
 Datatype:

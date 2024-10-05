@@ -274,14 +274,15 @@ End
 
    ----------------------------------------------------------------- *)
 
-val _ = Datatype `
+Datatype:
   val_approx =
     ClosNoInline num num        (* location in code table, arity *)
   | Clos num num exp num        (* loc, arity, body, body size *)
   | Tuple num (val_approx list) (* conses or tuples *)
   | Int int                     (* used to index tuples *)
   | Other                       (* unknown *)
-  | Impossible`                 (* value 'returned' by Raise *)
+  | Impossible
+End                 (* value 'returned' by Raise *)
 val val_approx_size_def = definition "val_approx_size_def"
 
 Definition merge_def[nocompute]:
@@ -479,18 +480,19 @@ Termination
   wf_rel_tac `measure (FST o SND o SND)`
 End
 
-val _ = Datatype `
+Datatype:
   inliningDecision = inlD_Nothing
                    | inlD_Annotate num
                    | inlD_LetInline exp
-`;
+End
 
-val _ = Datatype`
+Datatype:
   config = <| inline_max_body_size : num
             ; inline_factor : num (* As in 'Inline expansion: when and how?' by Manuel Serrano *)
             ; initial_inline_factor : num
             ; val_approx_spt : val_approx spt (* TODO: this could replace the explicit g argument in known_def *)
-            |>`;
+            |>
+End
 
 Definition default_inline_factor_def:
   default_inline_factor = 8n

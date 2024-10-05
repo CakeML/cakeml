@@ -16,11 +16,12 @@ Overload return[local] = ``st_ex_return``
 
 val _ = hide "state";
 
-val _ = Datatype`
+Datatype:
   live_tree = Writes (num list)
             | Reads (num list)
             | Branch live_tree live_tree
-            | Seq live_tree live_tree`
+            | Seq live_tree live_tree
+End
 
 
 Definition numset_list_insert_def:
@@ -312,7 +313,7 @@ Definition get_intervals_ct_def:
         (n-1, numset_list_add_if_lt listlive n int_beg, numset_list_add_if_gt listlive n int_end)
 End
 
-val _ = Datatype `
+Datatype:
   linear_scan_state =
     <| active: (int # num) list (* interval end # reg *)
      ; colorpool: num list
@@ -320,16 +321,18 @@ val _ = Datatype `
      ; colornum: num
      ; colormax: num
      ; stacknum: num
-     |>`
+     |>
+End
 
-val _ = Datatype `
+Datatype:
   linear_scan_hidden_state =
     <| colors : num list
      ; int_beg : int list
      ; int_end : int list
      ; sorted_regs : num list
      ; sorted_moves : (num # (num # num)) list
-     |>`
+     |>
+End
 
 val accessors = define_monad_access_funs ``:linear_scan_hidden_state``;
 
@@ -995,14 +998,15 @@ Definition extract_coloration_def:
   )
 End
 
-val _ = Datatype `
+Datatype:
   bijection_state =
     <| bij : num num_map
      ; invbij : num num_map
      ; nmax : num
      ; nstack : num
      ; nalloc : num
-     |>`
+     |>
+End
 
 Definition find_bijection_init_def:
     find_bijection_init =

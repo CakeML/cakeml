@@ -72,16 +72,19 @@ Type reg = ``:num``
 Type fp_reg = ``:num``
 Type imm = ``:'a word``
 
-val () = Datatype `
-  reg_imm = Reg reg | Imm ('a imm)`
+Datatype:
+  reg_imm = Reg reg | Imm ('a imm)
+End
 
-val () = Datatype `
-  binop = Add | Sub | And | Or | Xor`
+Datatype:
+  binop = Add | Sub | And | Or | Xor
+End
 
-val () = Datatype `
-  cmp = Equal | Lower | Less | Test | NotEqual | NotLower | NotLess | NotTest`
+Datatype:
+  cmp = Equal | Lower | Less | Test | NotEqual | NotLower | NotLess | NotTest
+End
 
-val () = Datatype `
+Datatype:
   arith = Binop binop reg reg ('a reg_imm)
         | Shift shift reg reg num
         | Div reg reg reg
@@ -89,9 +92,10 @@ val () = Datatype `
         | LongDiv reg reg reg reg reg
         | AddCarry reg reg reg reg
         | AddOverflow reg reg reg reg
-        | SubOverflow reg reg reg reg`
+        | SubOverflow reg reg reg reg
+End
 
-val () = Datatype `
+Datatype:
   fp = (* orderings *)
        FPLess reg fp_reg fp_reg
      | FPLessEqual reg fp_reg fp_reg
@@ -112,36 +116,42 @@ val () = Datatype `
      | FPMovToReg reg reg fp_reg
      | FPMovFromReg fp_reg reg reg
      | FPToInt fp_reg fp_reg
-     | FPFromInt fp_reg fp_reg`
+     | FPFromInt fp_reg fp_reg
+End
 
-val () = Datatype `
-  addr = Addr reg ('a word)`
+Datatype:
+  addr = Addr reg ('a word)
+End
 
-val () = Datatype `
+Datatype:
   memop = Load  | Load8  | Load32
-        | Store | Store8 | Store32`
+        | Store | Store8 | Store32
+End
 
-val () = Datatype `
+Datatype:
   inst = Skip
        | Const reg ('a word)
        | Arith ('a arith)
        | Mem memop reg ('a addr)
-       | FP fp`
+       | FP fp
+End
 
-val () = Datatype `
+Datatype:
   asm = Inst ('a inst)
       | Jump ('a word)
       | JumpCmp cmp reg ('a reg_imm) ('a word)
       | Call ('a word)
       | JumpReg reg
-      | Loc reg ('a word)`
+      | Loc reg ('a word)
+End
 
 (* -- ASM target-specific configuration -- *)
 
-val () = Datatype `
-  architecture = ARMv7 | ARMv8 | MIPS | RISC_V | Ag32 | x86_64`
+Datatype:
+  architecture = ARMv7 | ARMv8 | MIPS | RISC_V | Ag32 | x86_64
+End
 
-val () = Datatype `
+Datatype:
   asm_config =
     <| ISA            : architecture
      ; encode         : 'a asm -> word8 list
@@ -158,7 +168,8 @@ val () = Datatype `
      ; jump_offset    : 'a word # 'a word
      ; cjump_offset   : 'a word # 'a word
      ; loc_offset     : 'a word # 'a word
-     |>`
+     |>
+End
 
 Definition reg_ok_def:
   reg_ok r c <=> r < c.reg_count /\ ~MEM r c.avoid_regs

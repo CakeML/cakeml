@@ -19,9 +19,10 @@ val _ = translation_extends "basisProg";
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* Create the data type to handle the references and I/O. *)
-val _ = Datatype `
+Datatype:
   state_references = <| commandline : mlstring list
-                      ; stdio : IO_fs |>`;
+                      ; stdio : IO_fs |>
+End
 
 (* Data type for the exceptions *)
 Datatype:

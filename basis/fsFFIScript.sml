@@ -27,13 +27,14 @@ val _ = Datatype` mode = ReadMode | WriteMode`;
 *  ulimit -n has a usual value of 1024
 *)
 
-val _ = Datatype`
+Datatype:
   IO_fs = <| inode_tbl : (inode # char list) list ;
              files : (mlstring # mlstring) list;
              infds : (num # (inode # mode # num)) list;
              numchars : num llist;
              maxFD : num
-           |>`
+           |>
+End
 
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
 

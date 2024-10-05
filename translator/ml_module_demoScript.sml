@@ -10,8 +10,9 @@ val _ = (use_full_type_names := false);
 
 val _ = ml_prog_update (open_module "Even");
 
-val _ = Datatype `
-  even = Even num`;
+Datatype:
+  even = Even num
+End
 
 Definition zero_def:
   zero = Even 0

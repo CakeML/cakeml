@@ -15,8 +15,9 @@ val _ = translation_extends "ListProg";
 
 (* Okasaki page 20 *)
 
-val _ = Datatype`
-  heap = Empty | Tree num 'a heap heap`;
+Datatype:
+  heap = Empty | Tree num 'a heap heap
+End
 
 Definition heap_to_bag_def:
 (heap_to_bag Empty = {||}) ∧

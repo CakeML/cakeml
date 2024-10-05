@@ -111,8 +111,9 @@ Definition exn_infer_t_def:
   exn_infer_t = Infer_Tapp [] Texn_num
 End
 
-val _ = Datatype`
-  top_level = REPLCommand mlstring exp | TopLevelDecs (dec list)`;
+Datatype:
+  top_level = REPLCommand mlstring exp | TopLevelDecs (dec list)
+End
 
 Definition ptree_REPLCommand_def:
   ptree_REPLCommand (Lf _) = NONE ∧

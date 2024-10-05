@@ -512,10 +512,11 @@ val st = get_ml_prog_state();
 val maincall =
   ``Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short "forward_matching_lines"); Con NONE []])``
 
-val filter_ffi = Datatype `
+Datatype:
   filter_ffi =
   <| input : word8 list llist
-   |>`
+   |>
+End
 
 Definition filter_oracle:
   (filter_oracle:filter_ffi oracle) port st conf bytes =

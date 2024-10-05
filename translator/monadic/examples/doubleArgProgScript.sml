@@ -10,8 +10,9 @@ val _ = new_theory "doubleArgProg"
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* Create the data type to handle the references and I/O. *)
-val _ = Datatype `
-  state_num_refs = <| the_num_ref : num |>`;
+Datatype:
+  state_num_refs = <| the_num_ref : num |>
+End
 
 val config =  global_state_config |>
               with_state ``:state_num_refs`` |>

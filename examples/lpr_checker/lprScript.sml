@@ -45,10 +45,11 @@ Definition interp_spt_def:
 End
 
 (* Implementation *)
-val _ = Datatype`
+Datatype:
   lprstep =
   | Delete (num list) (* Clauses to delete *)
-  | PR num cclause (cclause option) (num list) ((num,(num list)) alist)`
+  | PR num cclause (cclause option) (num list) ((num,(num list)) alist)
+End
     (* PR step:
       PR n C wopt i0 (ik id ~> ik)
       n is the new id of the clause C
@@ -1162,10 +1163,11 @@ Proof
 QED
 
 (* Top-level DRAT-style proofs, i.e., every line is a clause that is either deleted or added *)
-val _ = Datatype`
+Datatype:
   step =
     Del cclause (* Clause to delete *)
-  | Add cclause` (* Clause to add *)
+  | Add cclause
+End (* Clause to add *)
 
 Type proof = ``:step list``
 

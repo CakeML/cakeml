@@ -9,13 +9,14 @@ val _ = new_theory "wordLang";
 
 Type shift = ``:ast$shift``
 
-val _ = Datatype `
+Datatype:
   exp = Const ('a word)
       | Var num
       | Lookup store_name
       | Load exp
       | Op binop (exp list)
-      | Shift shift exp num`
+      | Shift shift exp num
+End
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
@@ -25,7 +26,7 @@ Proof
   \\ RES_TAC \\ DECIDE_TAC
 QED
 
-val _ = Datatype `
+Datatype:
   prog = Skip
        | Move num ((num # num) list)
        | Inst ('a inst)
@@ -54,7 +55,8 @@ val _ = Datatype `
        | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
        | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
-       | ShareInst memop num ('a exp)`; (* memory operation, varname, expression for memory address *)
+       | ShareInst memop num ('a exp)
+End (* memory operation, varname, expression for memory address *)
 
 Definition raise_stub_location_def:
   raise_stub_location = word_num_stubs - 2

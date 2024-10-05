@@ -6,10 +6,11 @@ local open alignmentTheory targetSemTheory in end;
 
 val _ = new_theory"labSem";
 
-val _ = Datatype `
-  word8_loc = Byte word8 | LocByte num num num`;
+Datatype:
+  word8_loc = Byte word8 | LocByte num num num
+End
 
-val _ = Datatype `
+Datatype:
   state =
     <| regs       : num -> 'a word_loc
      ; fp_regs    : num -> word64
@@ -33,7 +34,8 @@ val _ = Datatype `
      ; ptr2_reg    : num
      ; len2_reg    : num
      ; link_reg   : num
-     |>`
+     |>
+End
 
 Definition is_Label_def:
   (is_Label (Label _ _ _) = T) /\

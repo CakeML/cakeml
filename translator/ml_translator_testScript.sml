@@ -211,12 +211,13 @@ Definition foo2_def:
 End
 val res = translate foo2_def
 
-val _ = Datatype`
+Datatype:
   foo = <| next_loc : num
             ; start : num
             ; do_mti : bool
             ; do_known : bool
-            ; do_call : bool |>`
+            ; do_call : bool |>
+End
 val res = register_type``:foo``
 
 val foo_def = tDefine"foo"`
@@ -322,12 +323,13 @@ val _ = register_type ``:'a option``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:('a # 'b)``;
 
-val _ = Datatype `
+Datatype:
   tt = A1
      | B1 tt
      | C1 (tt option)
      | D1 (tt list)
-     | E1 (tt # tt)`
+     | E1 (tt # tt)
+End
 
 val _ = register_type ``:tt``;
 
