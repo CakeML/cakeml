@@ -55,8 +55,8 @@ Datatype:
        | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
        | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
-       | ShareInst memop num ('a exp)
-End (* memory operation, varname, expression for memory address *)
+       | ShareInst memop num ('a exp) (* memory operation, varname, expression for memory address *)
+End
 
 Definition raise_stub_location_def:
   raise_stub_location = word_num_stubs - 2

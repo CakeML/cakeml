@@ -1009,8 +1009,8 @@ Datatype:
              | Set num_set (* Fixed set *)
              | Branch (num_set option) clash_tree clash_tree
              | Seq clash_tree clash_tree
-End
              (* Binary branch, with an optional liveset at the head*)
+End
 
 (* --- clash_tree oracle checks --- *)
 Definition numset_list_delete_def:

@@ -238,8 +238,8 @@ End
 
 Datatype:
   data_sort = Protected 'a      (* pointer to old generations *)
-            | Real 'b
-End         (* data or pointer to current generation *)
+            | Real 'b           (* data or pointer to current generation *)
+End
 
 Definition to_gen_heap_address_def:
   (to_gen_heap_address conf (Data a) = Data (Real a)) /\

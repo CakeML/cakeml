@@ -11,8 +11,8 @@ fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
 (* Create the data type to handle the array. *)
 Datatype:
-  state_array = <| arr : num list |>
-End (* single resizeable array *)
+  state_array = <| arr : num list |> (* single resizeable array *)
+End
 
 (* Data type for the exceptions *)
 Datatype:

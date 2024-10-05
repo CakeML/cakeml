@@ -281,8 +281,8 @@ Datatype:
   | Tuple num (val_approx list) (* conses or tuples *)
   | Int int                     (* used to index tuples *)
   | Other                       (* unknown *)
-  | Impossible
-End                 (* value 'returned' by Raise *)
+  | Impossible                  (* value 'returned' by Raise *)
+End
 val val_approx_size_def = definition "val_approx_size_def"
 
 Definition merge_def[nocompute]:

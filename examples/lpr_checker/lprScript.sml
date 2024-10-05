@@ -1166,8 +1166,8 @@ QED
 Datatype:
   step =
     Del cclause (* Clause to delete *)
-  | Add cclause
-End (* Clause to add *)
+  | Add cclause (* Clause to add *)
+End
 
 Type proof = ``:step list``
 
