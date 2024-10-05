@@ -333,15 +333,19 @@ val _ = register_type ``:tt``;
 
 (* test no_ind again *)
 
-val test3_def = xDefine "test3" `test3 x = (case x of
-  | A1 => [()]
-  | B1 x => test3 x ++ [()]
-  | C1 NONE => []
-  | C1 (SOME x) => test3 x ++ REVERSE (test3 x)
-  | D1 tts => (case tts of [] => [(); ()]
+Definition test3_def:
+  test3 x =
+  (case x of
+   | A1 => [()]
+   | B1 x => test3 x ++ [()]
+   | C1 NONE => []
+   | C1 (SOME x) => test3 x ++ REVERSE (test3 x)
+   | D1 tts =>
+       (case tts of
+        | [] => [(); ()]
         | (tt :: tts) => test3 (D1 tts) ++ test3 tt)
-  | E1 (x, y) => REVERSE (test3 x) ++ test3 y)`
-;
+   | E1 (x, y) => REVERSE (test3 x) ++ test3 y)
+End
 
 val r = translate_no_ind test3_def;
 

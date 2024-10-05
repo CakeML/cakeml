@@ -43,56 +43,74 @@ Proof
   rpt AP_TERM_TAC >> rw[FUN_EQ_THM,tyvars_def] >> EVAL_TAC >> metis_tac[]
 QED
 
-val Boolrel_def = xDefine"Boolrel"`
+Definition Boolrel_def:
   Boolrel0 ^mem R =
       (Abstract boolset (Funspace boolset boolset)
            (λp. (Abstract boolset boolset
-              (λq. Boolean (R (p = True) (q = True))))))`
+              (λq. Boolean (R (p = True) (q = True))))))
+End
+
 Overload Boolrel = ``Boolrel0 ^mem``
 
-val is_true_interpretation_def = xDefine"is_true_interpretation"`
-  is_true_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets (strlit "T") on [] as K True`
+Definition is_true_interpretation_def:
+  is_true_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets (strlit "T") on [] as K True
+End
+
 Overload is_true_interpretation = ``is_true_interpretation0 ^mem``
 
-val is_and_interpretation_def = xDefine"is_and_interpretation"`
-  is_and_interpretation0 ^mem γ ⇔ γ interprets (strlit "/\\") on [] as K (Boolrel $/\)`
+Definition is_and_interpretation_def:
+  is_and_interpretation0 ^mem γ ⇔ γ interprets (strlit "/\\") on [] as K (Boolrel $/\)
+End
+
 Overload is_and_interpretation = ``is_and_interpretation0 ^mem``
 
-val is_implies_interpretation_def = xDefine"is_implies_interpretation"`
-  is_implies_interpretation0 ^mem γ ⇔ γ interprets (strlit "==>") on [] as K (Boolrel $==>)`
+Definition is_implies_interpretation_def:
+  is_implies_interpretation0 ^mem γ ⇔ γ interprets (strlit "==>") on [] as K (Boolrel $==>)
+End
+
 Overload is_implies_interpretation = ``is_implies_interpretation0 ^mem``
 
-val is_forall_interpretation_def = xDefine"is_forall_interpretation"`
+Definition is_forall_interpretation_def:
   is_forall_interpretation0 ^mem γ ⇔ γ
     interprets (strlit "!") on [strlit "A"] as
        (λl. Abstract (Funspace (HD l) boolset) boolset
-              (λP. Boolean (∀x. x <: (HD l) ⇒ Holds P x)))`
+              (λP. Boolean (∀x. x <: (HD l) ⇒ Holds P x)))
+End
+
 Overload is_forall_interpretation = ``is_forall_interpretation0 ^mem``
 
-val is_exists_interpretation_def = xDefine"is_exists_interpretation"`
+Definition is_exists_interpretation_def:
   is_exists_interpretation0 ^mem γ ⇔ γ
     interprets (strlit "?") on [strlit "A"] as
        (λl. Abstract (Funspace (HD l) boolset) boolset
-              (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x)))`
+              (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x)))
+End
+
 Overload is_exists_interpretation = ``is_exists_interpretation0 ^mem``
 
-val is_or_interpretation_def = xDefine"is_or_interpretation"`
-  is_or_interpretation0 ^mem γ ⇔ γ interprets (strlit "\\/") on [] as K (Boolrel $\/)`
+Definition is_or_interpretation_def:
+  is_or_interpretation0 ^mem γ ⇔ γ interprets (strlit "\\/") on [] as K (Boolrel $\/)
+End
+
 Overload is_or_interpretation = ``is_or_interpretation0 ^mem``
 
-val is_false_interpretation_def = xDefine"is_false_interpretation"`
-  is_false_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets (strlit "F") on [] as K False`
+Definition is_false_interpretation_def:
+  is_false_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets (strlit "F") on [] as K False
+End
+
 Overload is_false_interpretation = ``is_false_interpretation0 ^mem``
 
-val is_not_interpretation_def = xDefine"is_not_interpretation"`
-  is_not_interpretation0 ^mem γ ⇔ γ interprets (strlit "~") on [] as K (Abstract boolset boolset (λp. Boolean (p ≠ True)))`
+Definition is_not_interpretation_def:
+  is_not_interpretation0 ^mem γ ⇔ γ interprets (strlit "~") on [] as K (Abstract boolset boolset (λp. Boolean (p ≠ True)))
+End
+
 Overload is_not_interpretation = ``is_not_interpretation0 ^mem``
 
 val ints = [is_true_interpretation_def,is_and_interpretation_def,is_implies_interpretation_def,
             is_forall_interpretation_def,is_exists_interpretation_def,is_or_interpretation_def,
             is_false_interpretation_def,is_not_interpretation_def]
 
-val is_bool_interpretation_def = xDefine"is_bool_interpretation"`
+Definition is_bool_interpretation_def:
   is_bool_interpretation0 ^mem i ⇔
     is_std_interpretation i ∧
     is_true_interpretation (tmaof i) ∧
@@ -102,7 +120,9 @@ val is_bool_interpretation_def = xDefine"is_bool_interpretation"`
     is_exists_interpretation (tmaof i) ∧
     is_or_interpretation (tmaof i) ∧
     is_false_interpretation (tmaof i) ∧
-    is_not_interpretation (tmaof i)`
+    is_not_interpretation (tmaof i)
+End
+
 Overload is_bool_interpretation = ``is_bool_interpretation0 ^mem``
 
 Theorem boolrel_in_funspace:
