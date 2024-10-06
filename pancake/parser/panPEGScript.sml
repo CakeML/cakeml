@@ -133,7 +133,8 @@ Definition pancake_peg_def[nocompute]:
     tokEOF := "Failed to see expected token; saw EOF instead";
     notFAIL := "Not combinator failed";
     rules := FEMPTY |++ [
-        (INL FunListNT, seql [rpt (mknt FunNT) FLAT] (mksubtree FunListNT));
+        (INL FunListNT, seql [rpt (choicel [mknt FunNT; keep_annot]) FLAT]
+                          (mksubtree FunListNT));
         (INL FunNT, seql [try_default (keep_kw ExportK) StaticT;
                           consume_kw FunK;
                           keep_ident;
