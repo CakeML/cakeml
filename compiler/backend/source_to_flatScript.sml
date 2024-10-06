@@ -381,6 +381,15 @@ Definition env_id_tuple_def:
     [Lit None (IntLit (& gen)); Lit None (IntLit (& id))]
 End
 
+Definition glob_alloc_def:
+  glob_alloc n =
+    Dlet
+      (Let om_tra NONE
+        (App om_tra
+          (GlobalVarAlloc n) [])
+        (flatLang$Con om_tra NONE []))
+End
+
 Definition compile_decs_def:
   (compile_decs (t:string list) n next env envs [ast$Dlet locs p e] =
      let n' = n + 4 in
@@ -388,10 +397,11 @@ Definition compile_decs_def:
      let e' = compile_exp (xs++t) env e in
      let l = LENGTH xs in
      let n'' = n' + l in
-       (n'', (next with vidx := next.vidx + l),
+       (n'', next with vidx := next.vidx + l,
         <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
         envs,
-        [flatLang$Dlet (Mat None e'
+        [glob_alloc l;
+          flatLang$Dlet (Mat None e'
           [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
   (compile_decs t n next env envs [ast$Dletrec locs funs] =
      let fun_names = MAP FST funs in
@@ -402,7 +412,8 @@ Definition compile_decs_def:
                    c := nsEmpty |> in
        (n' + LENGTH funs, (next with vidx := next.vidx + LENGTH funs),
         env', envs,
-        [flatLang$Dlet (flatLang$Letrec (join_all_names t) flat_funs
+        [glob_alloc (LENGTH funs);
+          flatLang$Dlet (flatLang$Letrec (join_all_names t) flat_funs
            (make_varls 0 None next.vidx (REVERSE fun_names)))])) /\
   (compile_decs t n next env envs [Dtype locs type_def] =
     let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) constrs) type_def in
@@ -431,7 +442,8 @@ Definition compile_decs_def:
         <| v := nsBind nenv (Glob None next.vidx) nsEmpty; c := nsEmpty |>,
         envs with <| next := envs.next + 1;
             envs := insert envs.next env envs.envs |>,
-        [flatLang$Dlet (App None (GlobalVarInit next.vidx)
+        [glob_alloc 1n;
+          flatLang$Dlet (App None (GlobalVarInit next.vidx)
             [env_id_tuple envs.generation envs.next])])) ∧
   (compile_decs t n next env envs [] =
     (n, next, empty_env, envs, [])) ∧
@@ -450,29 +462,24 @@ val _ = Datatype`
             ; mod_env : environment
             ; pattern_cfg : flat_pattern$config
             ; envs : environment_store
+            ; do_elim : bool
             |>`;
 
 Definition empty_config_def:
   empty_config =
-    <| next := <| vidx := 0; tidx := 0; eidx := 0 |>;
+    <|  next := <| vidx := 0; tidx := 0; eidx := 0 |>;
         mod_env := empty_env;
         pattern_cfg := flat_pattern$init_config 0;
-        envs := <| next := 0; env_gens := LN |>
+        envs := <| next := 0; env_gens := LN |>;
+        do_elim := T
     |>
 End
 
 Definition compile_flat_def:
-  compile_flat pcfg = MAP (flat_pattern$compile_dec pcfg)
-    o flat_elim$remove_flat_prog
-End
-
-Definition glob_alloc_def:
-  glob_alloc next c =
-    Dlet
-      (Let om_tra NONE
-        (App om_tra
-          (GlobalVarAlloc (next.vidx - c.next.vidx)) [])
-        (flatLang$Con om_tra NONE []))
+  compile_flat b pcfg prog =
+    MAP (flat_pattern$compile_dec pcfg)
+    (if b then flat_elim$remove_flat_prog prog
+    else prog)
 End
 
 Definition alloc_env_ref_def:
@@ -482,13 +489,14 @@ End
 
 Definition compile_prog_def:
   compile_prog c p =
-    let next = c.next with <| vidx := c.next.vidx + 1 |> in
+    (* let next = c.next with <| vidx := c.next.vidx + 1 |> in *)
+    let next = c.next in
     let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
     let (_,next,e,gen,p') = compile_decs [] 1n next c.mod_env envs p in
     let envs2 = <| next := c.envs.next + 1;
         env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
     (c with <| next := next; envs := envs2; mod_env := e |>,
-        glob_alloc next c :: alloc_env_ref :: p')
+        alloc_env_ref :: p')
 End
 
 Definition lookup_env_id_def:
@@ -515,13 +523,13 @@ Definition inc_compile_prog_def:
     let envs2 = <| next := c.envs.next + 1;
         env_gens := insert c.envs.next gen_envs c.envs.env_gens |> in
     (c with <| next := next; envs := envs2 |>,
-        glob_alloc next c :: p' ++ [store_env_id gen.generation gen.next])
+        p' ++ [store_env_id gen.generation gen.next])
 End
 
 Definition compile_def:
   compile c p =
     let (c', p') = compile_prog c p in
-    let p' = compile_flat c'.pattern_cfg p' in
+    let p' = compile_flat c'.do_elim c'.pattern_cfg p' in
     (c', p')
 End
 
@@ -529,7 +537,7 @@ End
 Definition inc_compile_def:
   inc_compile env_id c p =
     let (c', p') = inc_compile_prog env_id c p in
-    let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
+    let p' = compile_flat F c'.pattern_cfg p' in
     (c', p')
 End
 
