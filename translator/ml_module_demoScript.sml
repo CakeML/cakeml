@@ -13,15 +13,21 @@ val _ = ml_prog_update (open_module "Even");
 val _ = Datatype `
   even = Even num`;
 
-val zero_def = mlDefine `
-  zero = Even 0`;
+Definition zero_def:
+  zero = Even 0
+End
+val r = translate zero_def;
 
-val two_def = mlDefine `
-  two = Even 2`;
+Definition two_def:
+  two = Even 2
+End
+val r = translate two_def;
 
-val add_def = mlDefine `
+Definition add_def:
   add x y =
-    case x of Even m => case y of Even n => Even (m + n)`;
+    case x of Even m => case y of Even n => Even (m + n)
+End
+val r = translate add_def;
 
 val _ = ml_prog_update (close_module NONE);
 

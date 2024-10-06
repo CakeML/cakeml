@@ -14,24 +14,37 @@ Datatype:
   queue = QUEUE num ('a list) num ('a list)
 End
 
-val empty_def = mlDefine `empty = QUEUE 0 [] 0 []`;
+Definition empty_def:
+  empty = QUEUE 0 [] 0 []
+End
+val r = translate empty_def;
 
-val is_empty_def = mlDefine `
-  is_empty (QUEUE lenf _ _ _) = (lenf = 0)`;
+Definition is_empty_def:
+  is_empty (QUEUE lenf _ _ _) = (lenf = 0)
+End
+val r = translate is_empty_def;
 
-val checkf_def = mlDefine `
+Definition checkf_def:
   checkf (QUEUE lenf f lenr r) =
     if lenr <= lenf then QUEUE lenf f lenr r
-                    else QUEUE (lenf + lenr) (f ++ REVERSE r) 0 []`;
+                    else QUEUE (lenf + lenr) (f ++ REVERSE r) 0 []
+End
+val r = translate checkf_def;
 
-val snoc_def = mlDefine `
-  snoc (QUEUE lenf f lenr r) x = checkf (QUEUE lenf f (lenr+1) (x::r))`;
+Definition snoc_def:
+  snoc (QUEUE lenf f lenr r) x = checkf (QUEUE lenf f (lenr+1) (x::r))
+End
+val r = translate snoc_def;
 
-val head_def = mlDefine `
-  head (QUEUE lenf (x::xs) lenr r) = x`;
+Definition head_def:
+  head (QUEUE lenf (x::xs) lenr r) = x
+End
+val r = translate head_def;
 
-val tail_def = mlDefine `
-  tail (QUEUE lenf (x::xs) lenr r) = checkf (QUEUE (lenf-1) xs lenr r)`;
+Definition tail_def:
+  tail (QUEUE lenf (x::xs) lenr r) = checkf (QUEUE (lenf-1) xs lenr r)
+End
+val r = translate tail_def;
 
 (* verification proof *)
 

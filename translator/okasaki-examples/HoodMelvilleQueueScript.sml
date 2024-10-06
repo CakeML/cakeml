@@ -24,50 +24,68 @@ Datatype:
   queue = QUEUE num ('a list) ('a status) num ('a list)
 End
 
-val exec_def = mlDefine `
+Definition exec_def:
   exec s = case s of
     Reversing ok (x::f) f' (y::r) r' => Reversing (ok+1) f (x::f') r (y::r')
   | Reversing ok [] f' [y] r' => Appending ok f' (y::r')
   | Appending 0 f' r' => Finished r'
   | Appending ok (x::f') r' => Appending (ok-1) f' (x::r')
-  | s => s`
+  | s => s
+End
+val r = translate exec_def;
 
-val invalidate_def = mlDefine `
+Definition invalidate_def:
   invalidate s = case s of
     Reversing ok f f' r r' => Reversing (ok-1) f f' r r'
   | Appending 0 f' (x::r') => Finished r'
   | Appending ok f' r' => Appending (ok-1) f' r'
-  | s => s`;
+  | s => s
+End
+val r = translate invalidate_def;
 
-val exec2_def = mlDefine `
+Definition exec2_def:
   exec2 (QUEUE lenf f state lenr r) =
     case exec (exec state) of
       Finished newf => QUEUE lenf newf Idle lenr r
-    | newstate => QUEUE lenf f newstate lenr r`;
+    | newstate => QUEUE lenf f newstate lenr r
+End
+val r = translate exec2_def;
 
-val check_def = mlDefine `
+Definition check_def:
   check (QUEUE lenf f state lenr r) =
     if lenr <= lenf
        then exec2 (QUEUE lenf f state lenr r)
        else let newstate = Reversing 0 f [] r [] in
-            exec2 (QUEUE (lenf+lenr) f newstate 0 [])`
+            exec2 (QUEUE (lenf+lenr) f newstate 0 [])
+End
+val r = translate check_def;
 
-val empty_def = mlDefine `
-  empty = QUEUE 0 [] Idle 0 []`
+Definition empty_def:
+  empty = QUEUE 0 [] Idle 0 []
+End
+val r = translate empty_def;
 
-val is_empty_def = mlDefine `
-  is_empty lenf _ _ _ _ = (lenf = 0:num)`;
+Definition is_empty_def:
+  is_empty lenf _ _ _ _ = (lenf = 0:num)
+End
+val r = translate is_empty_def;
 
-val snoc_def = mlDefine `
+Definition snoc_def:
   snoc (QUEUE lenf f state lenr r) x =
-    check (QUEUE lenf f state (lenr+1) (x::r))`;
+    check (QUEUE lenf f state (lenr+1) (x::r))
+End
+val r = translate snoc_def;
 
-val head_def = mlDefine `
-  head (QUEUE _ (x::_) _ _ _) = x`;
+Definition head_def:
+  head (QUEUE _ (x::_) _ _ _) = x
+End
+val r = translate head_def;
 
-val tail_def = mlDefine `
+Definition tail_def:
   tail (QUEUE lenf (x::f) state lenr r) =
-    check (QUEUE (lenf-1) f (invalidate state) lenr r)`;
+    check (QUEUE (lenf-1) f (invalidate state) lenr r)
+End
+val r = translate tail_def;
 
 (* verification proof
 

@@ -36,12 +36,16 @@ Definition is_heap_ordered_def:
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2))
 End
 
-val empty_def = mlDefine `
-empty = Empty`;
+Definition empty_def:
+empty = Empty
+End
+val r = translate empty_def;
 
-val is_empty = mlDefine `
+Definition is_empty:
 (is_empty Empty = T) ∧
-(is_empty _ = F)`;
+(is_empty _ = F)
+End
+val r = translate is_empty;
 
 (*
 Definition merge_def:
@@ -144,14 +148,20 @@ val merge_thm = Q.prove(`
 
 val _ = translate merge_thm;
 
-val insert_def = mlDefine `
-insert get_key leq x a = merge get_key leq (Tree x Empty Empty) a`;
+Definition insert_def:
+insert get_key leq x a = merge get_key leq (Tree x Empty Empty) a
+End
+val r = translate insert_def;
 
-val find_min_def = mlDefine `
-find_min (Tree x _ _) = x`;
+Definition find_min_def:
+find_min (Tree x _ _) = x
+End
+val r = translate find_min_def;
 
-val delete_min_def = mlDefine `
-delete_min get_key leq (Tree _ a b) = merge get_key leq a b`;
+Definition delete_min_def:
+delete_min get_key leq (Tree _ a b) = merge get_key leq a b
+End
+val r = translate delete_min_def;
 
 (* Functional correctness *)
 

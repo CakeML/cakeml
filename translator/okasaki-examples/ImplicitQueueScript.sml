@@ -29,30 +29,40 @@ Datatype:
         | Deep ('a digit) queue ('a digit)
 End
 
-val empty_def = mlDefine `
-  empty = Shallow Zero`;
+Definition empty_def:
+  empty = Shallow Zero
+End
+val r = translate empty_def;
 
-val is_empty_def = mlDefine `
+Definition is_empty_def:
   (is_empty (Shallow Zero) = T) /\
-  (is_empty _ = F)`;
+  (is_empty _ = F)
+End
+val r = translate is_empty_def;
 
-val snoc_def = mlDefine `
+Definition snoc_def:
   (snoc (Shallow Zero) y = Shallow (One y)) /\
   (snoc (Shallow (One x)) y = Deep (Two x y) empty Zero) /\
   (snoc (Deep f m Zero) y = Deep f m (One y)) /\
-  (snoc (Deep f m (One x)) y = Deep f (snoc m (Twice x y)) Zero)`
+  (snoc (Deep f m (One x)) y = Deep f (snoc m (Twice x y)) Zero)
+End
+val r = translate snoc_def;
 
-val head_def = mlDefine `
+Definition head_def:
   (head (Shallow (One x)) = x) /\
   (head (Deep (One x) m r) = x) /\
-  (head (Deep (Two x y) m r) = x)`;
+  (head (Deep (Two x y) m r) = x)
+End
+val r = translate head_def;
 
-val tail_def = mlDefine `
+Definition tail_def:
   (tail (Shallow (One x)) = empty) /\
   (tail (Deep (Two x y) m r) = Deep (One y) m r) /\
   (tail (Deep (One x) q r) =
      if is_empty q then Shallow r else
-       case head q of Twice y z => Deep (Two y z) (tail q) r)`
+       case head q of Twice y z => Deep (Two y z) (tail q) r)
+End
+val r = translate tail_def;
 
 (* verification *)
 

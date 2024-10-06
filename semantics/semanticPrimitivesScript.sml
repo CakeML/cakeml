@@ -62,42 +62,110 @@ End
 Type env_ctor = ``: (modN, conN, (num # stamp)) namespace``
 Type env_val = ``: (modN, varN, v) namespace``
 
-val _ = Define ‘bind_stamp = ExnStamp 0’
-val _ = Define ‘chr_stamp = ExnStamp 1’
-val _ = Define ‘div_stamp = ExnStamp 2’
-val _ = Define ‘subscript_stamp = ExnStamp 3’
+Definition bind_stamp_def:
+  bind_stamp = ExnStamp 0
+End
+Definition chr_stamp_def:
+  chr_stamp = ExnStamp 1
+End
+Definition div_stamp_def:
+  div_stamp = ExnStamp 2
+End
+Definition subscript_stamp_def:
+  subscript_stamp = ExnStamp 3
+End
 
-val _ = Define ‘bind_exn_v = Conv (SOME bind_stamp) []’
-val _ = Define ‘chr_exn_v = Conv (SOME chr_stamp) []’
-val _ = Define ‘div_exn_v = Conv (SOME div_stamp) []’
-val _ = Define ‘sub_exn_v = Conv (SOME subscript_stamp) []’
+Definition bind_exn_v_def:
+  bind_exn_v = Conv (SOME bind_stamp) []
+End
+Definition chr_exn_v_def:
+  chr_exn_v = Conv (SOME chr_stamp) []
+End
+Definition div_exn_v_def:
+  div_exn_v = Conv (SOME div_stamp) []
+End
+Definition sub_exn_v_def:
+  sub_exn_v = Conv (SOME subscript_stamp) []
+End
 
-val _ = Define ‘bool_type_num   = 0’
-val _ = Define ‘list_type_num   = 1’
-val _ = Define ‘option_type_num = 2’
-val _ = Define ‘lit_type_num    = 3’
-val _ = Define ‘id_type_num     = 4’
-val _ = Define ‘ast_t_type_num  = 5’
-val _ = Define ‘pat_type_num    = 6’
-val _ = Define ‘lop_type_num    = 7’
-val _ = Define ‘opn_type_num    = 8’
-val _ = Define ‘opb_type_num    = 9’
-val _ = Define ‘opw_type_num    = 10’
-val _ = Define ‘shift_type_num  = 11’
-val _ = Define ‘word_size_type_num = 12’
-val _ = Define ‘fp_uop_type_num = 13’
-val _ = Define ‘fp_bop_type_num = 14’
-val _ = Define ‘fp_top_type_num = 15’
-val _ = Define ‘fp_cmp_type_num = 16’
-val _ = Define ‘real_uop_type_num = 17’
-val _ = Define ‘real_bop_type_num = 18’
-val _ = Define ‘real_cmp_type_num = 19’
-val _ = Define ‘op_type_num     = 20’
-val _ = Define ‘locn_type_num   = 21’
-val _ = Define ‘locs_type_num   = 22’
-val _ = Define ‘fp_opt_num      = 23’
-val _ = Define ‘exp_type_num    = 24’
-val _ = Define ‘dec_type_num    = 25’
+Definition bool_type_num_def:
+  bool_type_num   = 0
+End
+Definition list_type_num_def:
+  list_type_num   = 1
+End
+Definition option_type_num_def:
+  option_type_num = 2
+End
+Definition lit_type_num_def:
+  lit_type_num    = 3
+End
+Definition id_type_num_def:
+  id_type_num     = 4
+End
+Definition ast_t_type_num_def:
+  ast_t_type_num  = 5
+End
+Definition pat_type_num_def:
+  pat_type_num    = 6
+End
+Definition lop_type_num_def:
+  lop_type_num    = 7
+End
+Definition opn_type_num_def:
+  opn_type_num    = 8
+End
+Definition opb_type_num_def:
+  opb_type_num    = 9
+End
+Definition opw_type_num_def:
+  opw_type_num    = 10
+End
+Definition shift_type_num_def:
+  shift_type_num  = 11
+End
+Definition word_size_type_num_def:
+  word_size_type_num = 12
+End
+Definition fp_uop_type_num_def:
+  fp_uop_type_num = 13
+End
+Definition fp_bop_type_num_def:
+  fp_bop_type_num = 14
+End
+Definition fp_top_type_num_def:
+  fp_top_type_num = 15
+End
+Definition fp_cmp_type_num_def:
+  fp_cmp_type_num = 16
+End
+Definition real_uop_type_num_def:
+  real_uop_type_num = 17
+End
+Definition real_bop_type_num_def:
+  real_bop_type_num = 18
+End
+Definition real_cmp_type_num_def:
+  real_cmp_type_num = 19
+End
+Definition op_type_num_def:
+  op_type_num     = 20
+End
+Definition locn_type_num_def:
+  locn_type_num   = 21
+End
+Definition locs_type_num_def:
+  locs_type_num   = 22
+End
+Definition fp_opt_num_def:
+  fp_opt_num      = 23
+End
+Definition exp_type_num_def:
+  exp_type_num    = 24
+End
+Definition dec_type_num_def:
+  dec_type_num    = 25
+End
 
 (* The result of evaluation *)
 Datatype:
@@ -142,7 +210,9 @@ End
 (* The nth item in the list is the value at location n *)
 Type store = “:('a store_v) list”
 
-val _ = Define ‘empty_store = []:α store_v list’
+Definition empty_store_def:
+  empty_store = []:α store_v list
+End
 
 Definition store_lookup_def:
   store_lookup l (st:('a store_v) list) =

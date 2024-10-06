@@ -17,25 +17,53 @@ val _ = numLib.temp_prefer_num();
 
 (* these must match what the prim_types_program generates *)
 
-val _ = Define `bind_tag      = 0`;
-val _ = Define `chr_tag       = 1`;
-val _ = Define `div_tag       = 2`;
-val _ = Define `subscript_tag = 3`;
+Definition bind_tag_def:
+  bind_tag      = 0
+End
+Definition chr_tag_def:
+  chr_tag       = 1
+End
+Definition div_tag_def:
+  div_tag       = 2
+End
+Definition subscript_tag_def:
+  subscript_tag = 3
+End
 
-val _ = Define `false_tag = 0`;
-val _ = Define `true_tag  = 1`;
+Definition false_tag_def:
+  false_tag = 0
+End
+Definition true_tag_def:
+  true_tag  = 1
+End
 
-val _ = Define `nil_tag   = 0`;
-val _ = Define `cons_tag  = 0`;
+Definition nil_tag_def:
+  nil_tag   = 0
+End
+Definition cons_tag_def:
+  cons_tag  = 0
+End
 
-val _ = Define `none_tag  = 0`;
-val _ = Define `some_tag  = 0`;
+Definition none_tag_def:
+  none_tag  = 0
+End
+Definition some_tag_def:
+  some_tag  = 0
+End
 
-val _ = Define `tuple_tag = 0`;
+Definition tuple_tag_def:
+  tuple_tag = 0
+End
 
-val _ = Define`closure_tag = 30:num`
-val _ = Define`partial_app_tag = 31:num`
-val _ = Define`clos_tag_shift tag = if tag < 30 then tag:num else tag+2`
+Definition closure_tag_def:
+  closure_tag = 30:num
+End
+Definition partial_app_tag_def:
+  partial_app_tag = 31:num
+End
+Definition clos_tag_shift_def:
+  clos_tag_shift tag = if tag < 30 then tag:num else tag+2
+End
 
 (* Trace of an expression through the compiler, for exploring transformations *)
 val _ = Datatype`

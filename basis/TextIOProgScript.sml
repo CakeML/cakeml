@@ -10,6 +10,8 @@ val _ = new_theory"TextIOProg";
 
 val _ = translation_extends "MarshallingProg";
 
+val cakeml = append_prog o process_topdecs;
+
 val _ = ml_prog_update (open_module "TextIO");
 
 val _ = ml_prog_update open_local_block;
@@ -39,13 +41,14 @@ val _ = register_type ``:instream``;
 val _ = register_type ``:outstream``;
 val _ = (use_full_type_names := true);
 
-val instreamBuffered_def = (append_prog o process_topdecs)
-  `datatype instreambuffered =
+Quote cakeml:
+  datatype instreambuffered =
   InstreamBuffered
     instream     (* stream name *)
     (int ref)    (* read index *)
-    (int ref)   (* write index *)
-    byte_array`;
+    (int ref)    (* write index *)
+    byte_array
+End
 
 val cur_env = get_env (get_ml_prog_state());
 val stamp_eval = EVAL ``nsLookup (^cur_env).c (Short "InstreamBuffered")``
@@ -70,12 +73,12 @@ val _ = ml_prog_update (add_dec
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "b_instream" (Atapp [] (Short "instreambuffered"))`` I);
 
-val _ = process_topdecs `
+Quote cakeml:
   exception BadFileName;
   exception InvalidFD;
   exception EndOfFile;
   exception IllegalArgument
-` |> append_prog
+End
 
 val _ = ml_prog_update open_local_block;
 
@@ -159,8 +162,8 @@ val _ = ml_prog_update open_local_block;
 * write: idem, but keeps writing until the whole (specified part of the) buffer
 * is written *)
 
-val _ =
-  process_topdecs`fun writei fd n i =
+Quote cakeml:
+  fun writei fd n i =
     let val a = Marshalling.n2w2 n iobuff 0
         val a = Marshalling.n2w2 i iobuff 2
         val a = #(write) fd iobuff in
@@ -175,19 +178,20 @@ val _ =
     fun write fd n i =
       if n = 0 then () else
         let val nw = writei fd n i in
-          if nw < n then write fd (n-nw) (i+nw) else () end` |> append_prog
+          if nw < n then write fd (n-nw) (i+nw) else () end
+End
 
 val _ = ml_prog_update open_local_in_block;
 
 (* Output functions on given file descriptor *)
-val _ =
-  process_topdecs` fun output1 fd c =
+Quote cakeml:
+  fun output1 fd c =
     (Word8Array.update iobuff 4 (Word8.fromInt(Char.ord c)); write (get_out fd) 1 0; ())
-    ` |> append_prog
+End
 
 (* writes a string into a file *)
-val _ =
-  process_topdecs` fun output fd s =
+Quote cakeml:
+  fun output fd s =
   if s = "" then () else
   let val z = String.size s
       val n = if z <= 2048 then z else 2048
@@ -197,102 +201,105 @@ val _ =
   end;
   fun print s = output stdOut s
   fun print_err s = output stdErr s
-    ` |> append_prog
+End
 
-val _ = process_topdecs`
+Quote cakeml:
   fun print_list ls =
-    case ls of [] => () | (x::xs) => (print x; print_list xs)`
-       |> append_prog ;
+    case ls of [] => () | (x::xs) => (print x; print_list xs)
+End
 
-val _ = process_topdecs`
-fun openIn fname =
-  let val b = Word8Array.array 9 (Word8.fromInt 0)
-      val a = #(open_in) (fname^^(String.str (Char.chr 0))) b in
-        if Word8Array.sub b 0 = Word8.fromInt 0
-        then Instream (Word8Array.substring b 1 8)
-        else raise BadFileName
-  end
-fun openOut fname =
-  let val b = Word8Array.array 9 (Word8.fromInt 0)
-      val a = #(open_out) (fname^^(String.str (Char.chr 0))) b in
-        if Word8Array.sub b 0 = Word8.fromInt 0
-        then Outstream (Word8Array.substring b 1 8)
-        else raise BadFileName
-  end` |> append_prog
-val _ = process_topdecs`
+Quote cakeml:
+  fun openIn fname =
+    let val b = Word8Array.array 9 (Word8.fromInt 0)
+        val a = #(open_in) (fname^^(String.str (Char.chr 0))) b in
+          if Word8Array.sub b 0 = Word8.fromInt 0
+          then Instream (Word8Array.substring b 1 8)
+          else raise BadFileName
+    end
+  fun openOut fname =
+    let val b = Word8Array.array 9 (Word8.fromInt 0)
+        val a = #(open_out) (fname^^(String.str (Char.chr 0))) b in
+          if Word8Array.sub b 0 = Word8.fromInt 0
+          then Outstream (Word8Array.substring b 1 8)
+          else raise BadFileName
+    end
+End
 
-fun closeOut fd =
-  let val a = #(close) (get_out fd) iobuff in
-        if Word8Array.sub iobuff 0 = Word8.fromInt 0
-        then () else raise InvalidFD
-  end` |> append_prog
+Quote cakeml:
+  fun closeOut fd =
+    let val a = #(close) (get_out fd) iobuff in
+          if Word8Array.sub iobuff 0 = Word8.fromInt 0
+          then () else raise InvalidFD
+    end
+End
 
-val _ = process_topdecs`
-
-fun closeIn fd =
-  let val a = #(close) (get_in fd) iobuff in
-        if Word8Array.sub iobuff 0 = Word8.fromInt 0
-        then () else raise InvalidFD
-  end` |> append_prog
+Quote cakeml:
+  fun closeIn fd =
+    let val a = #(close) (get_in fd) iobuff in
+          if Word8Array.sub iobuff 0 = Word8.fromInt 0
+          then () else raise InvalidFD
+    end
+End
 
 val _ = ml_prog_update open_local_block;
 
 (* wrapper for ffi call *)
-val _ = process_topdecs`
+Quote cakeml:
   fun read fd n =
     let val a = Marshalling.n2w2 n iobuff 0 in
           (#(read) fd iobuff;
           if Word8.toInt (Word8Array.sub iobuff 0) <> 1
           then Marshalling.w22n iobuff 1
           else raise InvalidFD)
-    end` |> append_prog
+    end
+End
 
 (* reads 1 char *)
-val _ = process_topdecs`
-fun read_byte fd =
-    if read fd 1 = 0 then raise EndOfFile
-    else Word8Array.sub iobuff 4
-` |> append_prog
-
+Quote cakeml:
+  fun read_byte fd =
+      if read fd 1 = 0 then raise EndOfFile
+      else Word8Array.sub iobuff 4
+End
 
 (* val input : in_channel -> bytes -> int -> int -> int
 * input ic buf pos len reads up to len characters from the given channel ic,
 * storing them in byte sequence buf, starting at character number pos. *)
 (* TODO: input0 as local fun *)
-val _ =
-  process_topdecs`
-fun input fd buff off len =
-let fun input0 off len count =
-    let val nread = read (get_in fd) (min len 2048) in
-        if nread = 0 then count else
-          (Word8Array.copy iobuff 4 nread buff off;
-           input0 (off + nread) (len - nread) (count + nread))
-    end
-in input0 off len 0 end
-` |> append_prog
+Quote cakeml:
+  fun input fd buff off len =
+  let fun input0 off len count =
+      let val nread = read (get_in fd) (min len 2048) in
+          if nread = 0 then count else
+            (Word8Array.copy iobuff 4 nread buff off;
+             input0 (off + nread) (len - nread) (count + nread))
+      end
+  in input0 off len 0 end
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = (append_prog o process_topdecs)`
-  fun input1 fd = Char.some(Char.fromByte(read_byte (get_in fd))) handle EndOfFile => None`
+Quote cakeml:
+  fun input1 fd = Char.some(Char.fromByte(read_byte (get_in fd))) handle EndOfFile => None
+End
 
 val _ = ml_prog_update open_local_block;
 
 (* helper function:
    extend a byte array, or, more accurately
    copy a byte array into a new one twice the size *)
-val () = (append_prog o process_topdecs)`
+Quote cakeml:
   fun extend_array arr =
     let
       val len = Word8Array.length arr
       val arr' = Word8Array.array (2*len) (Word8.fromInt 0)
-    in (Word8Array.copy arr 0 len arr' 0; arr') end`;
+    in (Word8Array.copy arr 0 len arr' 0; arr') end
+End
 
 val _ = ml_prog_update open_local_in_block;
 
 (* read a line (same semantics as SML's TextIO.inputLine) *)
 (* simple, inefficient version that reads 1 char at a time *)
-val () = (append_prog o process_topdecs)`
+Quote cakeml:
   fun inputLine fd =
     let
       val nl = Word8.fromInt (Char.ord #"\n")
@@ -310,11 +317,12 @@ val () = (append_prog o process_topdecs)`
             else (Word8Array.update arr i nl;
                   Some (Word8Array.substring arr 0 (i+1)))
         else inputLine_aux (extend_array arr) i
-      in inputLine_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end`;
+      in inputLine_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end
+End
 
 (* This version doesn't work because CF makes it difficult (impossible?) to
    work with references/arrays inside data structures (here inside a pair)
-val () = (append_prog o process_topdecs)`
+Quote cakeml:
   fun inputLine fd =
     let
       fun realloc arr =
@@ -336,7 +344,8 @@ val () = (append_prog o process_topdecs)`
     in if nr = 0 then NONE else
       (Word8Array.update arr (nr-1) nl;
        SOME (Word8Array.substring arr 0 nr))
-    end`;
+    end
+End
 *)
 
 (*
@@ -348,7 +357,7 @@ efficient if we switch to buffered streams.  I.e., the buffering
 shouldn't be inputLine-specific.
 
 (* generalisable to splitl *)
-val _ = process_topdecs`
+Quote cakeml:
 fun find_newline s i l =
   if i >= l then l else
   if String.sub s i = #"\n" then i
@@ -358,11 +367,11 @@ fun split_newline s =
       val i = find_newline s 0 l in
         (String.substring s 0 i, String.substring s i (l-i))
   end
-` |> append_prog
+End
 
 (* using lets/ifs as case take a while in xlet *)
 (* if/if take a while in xcf *)
-val _ = process_topdecs`
+
 fun inputLine fd lbuf =
   let fun inputLine_aux lacc =
     let val nr = read fd (Word8.fromInt 255) in
@@ -386,23 +395,25 @@ fun inputLine fd lbuf =
   end` |> append_prog
 *)
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun inputLines fd =
     case inputLine fd of
         None => []
-      | Some l => l::inputLines fd`;
+      | Some l => l::inputLines fd
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun inputLinesFrom fname =
     let
       val fd = openIn fname
       val lines = inputLines fd
     in
       closeIn fd; Some lines
-    end handle BadFileName => None`;
+    end handle BadFileName => None
+End
 
 (* read everything (same semantics as SML's TextIO.inputAll) *)
-val () = (append_prog o process_topdecs)`
+Quote cakeml:
   fun inputAll fd =
     let
       fun inputAll_aux arr i =
@@ -416,61 +427,60 @@ val () = (append_prog o process_topdecs)`
             end
           else inputAll_aux (extend_array arr) i
         end
-      in inputAll_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end`;
+      in inputAll_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end
+End
 
 (* copies all of an input stream to an output stream by chunks of 2048 bytes *)
 (* similar to ocaml batteries included batIO.copy *)
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
     fun copy inp out =
     let val nr = read (get_in inp) 2048 in
       if nr = 0 then () else (write (get_out out) nr 0; copy inp out)
-    end`
+    end
+End
 
 (*Buffered IO section*)
 
 (*Open a buffered stdin with a buffer size of bsize.
   Force 1028 <= size < 256^2*)
-val _ =
-  process_topdecs`
-fun b_openStdInSetBufferSize bsize =
+Quote cakeml:
+  fun b_openStdInSetBufferSize bsize =
       InstreamBuffered stdIn (Ref 4) (Ref 4)
         (Word8Array.array (min 65535 (max (bsize+4) 1028))
           (Word8.fromInt 48))
-` |> append_prog
+End
 
-val _ =
-  process_topdecs`
-fun b_openStdIn () = b_openStdInSetBufferSize 4096
-` |> append_prog
+Quote cakeml:
+  fun b_openStdIn () = b_openStdInSetBufferSize 4096
+End
 
 (*Open a buffered instream with a buffer size of bsize.
   Force 1028 <= size < 256^2*)
-val _ =
-  process_topdecs`
-fun b_openInSetBufferSize fname bsize =
-  let
-    val is = openIn fname
-  in
-      InstreamBuffered is (Ref 4) (Ref 4)
-        (Word8Array.array (min 65535 (max (bsize+4) 1028))
-          (Word8.fromInt 48))
-  end
-` |> append_prog
+Quote cakeml:
+  fun b_openInSetBufferSize fname bsize =
+    let
+      val is = openIn fname
+    in
+        InstreamBuffered is (Ref 4) (Ref 4)
+          (Word8Array.array (min 65535 (max (bsize+4) 1028))
+            (Word8.fromInt 48))
+    end
+End
 
-val _ =
-  process_topdecs`
-fun b_openIn fname = b_openInSetBufferSize fname 4096
-` |> append_prog
+Quote cakeml:
+  fun b_openIn fname = b_openInSetBufferSize fname 4096
+End
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_closeIn is =
     case is of InstreamBuffered fd rref wref surplus =>
-      closeIn fd`;
+      closeIn fd
+End
 
 val _ = ml_prog_update open_local_block;
 (*b_input helper function for the case when there are
   enough bytes in instream buffer*)
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_input_aux is buff off len =
     case is of InstreamBuffered fd rref wref surplus =>
       let
@@ -479,11 +489,12 @@ val _ = (append_prog o process_topdecs)`
         Word8Array.copy surplus readat len buff off;
         rref := readat + len;
         len
-      end`;
+      end
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
  fun b_input is buff off len =
    case is of InstreamBuffered fd rref wref surplus =>
      let
@@ -505,40 +516,44 @@ val _ = (append_prog o process_topdecs)`
            (*If there are enough bytes in the buffer, just copy them*)
            else
              b_input_aux is buff off len
-     end`;
+     end
+End
 
 val _ = ml_prog_update open_local_block;
 
 (* wrapper for ffi call *)
-val _ = process_topdecs`
+Quote cakeml:
   fun read_into fd buff n =
     let val a = Marshalling.n2w2 n buff 0 in
           (#(read) fd buff;
           if Word8.toInt (Word8Array.sub buff 0) <> 1
           then Marshalling.w22n buff 1
           else raise InvalidFD)
-    end` |> append_prog
+    end
+End
 
 val _ = ml_prog_update open_local_in_block;
 val _ = ml_prog_update open_local_block;
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
  fun b_refillBuffer_with_read is =
    case is of InstreamBuffered fd rref wref surplus =>
        (wref := 4 + (read_into (get_in fd) surplus ((Word8Array.length surplus)-4));
        rref := 4;
-       (!wref) - 4)`;
+       (!wref) - 4)
+End
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
  fun b_peekChar_aux is =
    case is of InstreamBuffered fd rref wref surplus =>
           if (!wref) = (!rref) then None
           else
             let val readat = (!rref) in
               Char.some (Char.fromByte (Word8Array.sub surplus readat))
-            end`;
+            end
+End
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
  fun b_input1_aux is =
    case is of InstreamBuffered fd rref wref surplus =>
           let val readat = (!rref) in
@@ -546,35 +561,39 @@ val _ = (append_prog o process_topdecs)`
             else
               (rref := readat + 1;
               Char.some (Char.fromByte (Word8Array.sub surplus readat)))
-          end`;
+          end
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_peekChar is =
     case is of InstreamBuffered fd rref wref surplus =>
         if (!wref) = (!rref)
         then (b_refillBuffer_with_read is; b_peekChar_aux is)
-        else b_peekChar_aux is`;
+        else b_peekChar_aux is
+End
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_input1 is =
     case is of InstreamBuffered fd rref wref surplus =>
         if (!wref) = (!rref)
         then (b_refillBuffer_with_read is; b_input1_aux is)
-        else b_input1_aux is`;
+        else b_input1_aux is
+End
 
 val _ = ml_prog_update open_local_block;
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun find_surplus c surplus readat writeat =
   if readat = writeat then None
   else
     if Char.fromByte (Word8Array.sub surplus readat) = c
     then Some (readat)
-    else find_surplus c surplus (readat + 1) writeat;`
+    else find_surplus c surplus (readat + 1) writeat;
+End
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_inputUntil_1 is chr =
   case is of InstreamBuffered fd rref wref surplus =>
   let
@@ -588,16 +607,17 @@ val _ = (append_prog o process_topdecs)`
     | Some i =>
       (rref := i+1;
         Inr (Word8Array.substring surplus readat (i+1-readat)))
-  end;`
+  end;
+End
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_refillBuffer_with_read_guard is =
-  (b_refillBuffer_with_read is;
-  case is of InstreamBuffered fd rref wref surplus =>
-  (!wref) = (!rref)
-  );`
+    (b_refillBuffer_with_read is;
+     case is of InstreamBuffered fd rref wref surplus =>
+     (!wref) = (!rref));
+End
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_inputUntil_2 is chr acc =
   case b_inputUntil_1 is chr of
     Inr s => Some (case acc of [] => s | _ => String.concat (List.rev (s :: acc)))
@@ -608,41 +628,47 @@ val _ = (append_prog o process_topdecs)`
           val res = String.concat (List.rev (String.str chr :: s :: acc))
         in if String.size res = 1 then None else Some res end
       else
-        b_inputUntil_2 is chr (s :: acc);`
+        b_inputUntil_2 is chr (s :: acc);
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = (append_prog o process_topdecs)`
-  fun b_inputLine c0 is = b_inputUntil_2 is c0 []`;
+Quote cakeml:
+  fun b_inputLine c0 is = b_inputUntil_2 is c0 []
+End
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_inputLineTokens c0 is tokP mp =
     case b_inputLine c0 is of
       None => None
     | Some l =>
-      Some (List.map mp (String.tokens tokP l))`;
+      Some (List.map mp (String.tokens tokP l))
+End
 
 val _ = ml_prog_update open_local_block;
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_inputLines_aux c0 is acc =
      case b_inputLine c0 is of
        None => List.rev acc
-     | Some l => b_inputLines_aux c0 is (l::acc)`;
+     | Some l => b_inputLines_aux c0 is (l::acc)
+End
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_inputAllTokens_aux c0 is f g acc =
      case b_inputLineTokens c0 is f g of
        None => List.rev acc
-     | Some l => b_inputAllTokens_aux c0 is f g (l::acc)`;
+     | Some l => b_inputAllTokens_aux c0 is f g (l::acc)
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun b_consume_rest is =
     case b_input1 is of
       None => ()
-    | Some c => b_consume_rest is;`;
+    | Some c => b_consume_rest is;
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun b_open_option stdin_or_fname =
     case stdin_or_fname of
       None (* stdin *) =>
@@ -652,9 +678,10 @@ val _ = (append_prog o process_topdecs) `
     | Some fname => (let
                        val is = b_openIn fname
                      in Some (is, (fn () => b_closeIn is)) end
-                     handle BadFileName => None)`;
+                     handle BadFileName => None)
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun fold_chars_loop f is y =
     case b_input1 is of
       None => y
@@ -666,54 +693,61 @@ val _ = (append_prog o process_topdecs) `
   fun fold_tokens_loop c0 tokP mp fld is y =
     case b_inputLineTokens c0 is tokP mp of
       None => y
-    | Some c => fold_tokens_loop c0 tokP mp fld is (fld c y);`;
+    | Some c => fold_tokens_loop c0 tokP mp fld is (fld c y);
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_inputLines c0 is =
-    b_inputLines_aux c0 is []`;
+    b_inputLines_aux c0 is []
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun b_inputLinesFrom c0 fname =
     let
       val is = b_openIn fname
       val lines = b_inputLines c0 is
     in
       b_closeIn is; Some lines
-    end handle BadFileName => None`;
+    end handle BadFileName => None
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun b_inputLinesStdIn c0 =
     let
       val is = b_openStdIn ()
     in
       b_inputLines c0 is
-    end`;
+    end
+End
 
-val _ = (append_prog o process_topdecs)`
+Quote cakeml:
   fun b_inputAllTokens c0 is f g =
-    b_inputAllTokens_aux c0 is f g []`;
+    b_inputAllTokens_aux c0 is f g []
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun b_inputAllTokensFrom c0 fname f g =
     let
       val is = b_openIn fname
       val lines = b_inputAllTokens c0 is f g
     in
       b_closeIn is; Some lines
-    end handle BadFileName => None`;
+    end handle BadFileName => None
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun b_inputAllTokensStdIn c0 f g =
     let
       val is = b_openStdIn ()
       val lines = b_inputAllTokens c0 is f g
     in
       Some lines (* TODO: remove the OPTION on the return value *)
-    end`;
+    end
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun foldChars f x stdin_or_fname =
     case b_open_option stdin_or_fname of
       None => None
@@ -722,9 +756,10 @@ val _ = (append_prog o process_topdecs) `
          val res = fold_chars_loop f is x
          val _ = close ()
        in Some res end
-       handle e => (close (); raise e))`;
+       handle e => (close (); raise e))
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun foldLines c0 f x stdin_or_fname =
     case b_open_option stdin_or_fname of
       None => None
@@ -733,9 +768,10 @@ val _ = (append_prog o process_topdecs) `
          val res = fold_lines_loop c0 f is x
          val _ = close ()
        in Some res end
-       handle e => (close (); raise e))`;
+       handle e => (close (); raise e))
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun foldTokens c0 tokP mp fld x stdin_or_fname =
     case b_open_option stdin_or_fname of
       None => None
@@ -744,7 +780,8 @@ val _ = (append_prog o process_topdecs) `
          val res = fold_tokens_loop c0 tokP mp fld is x
          val _ = close ()
        in Some res end
-       handle e => (close (); raise e))`;
+       handle e => (close (); raise e))
+End
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);

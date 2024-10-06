@@ -22,11 +22,6 @@ sig
 
     val declare_new_ref : string -> term -> thm
 
-    (* wrapper functions *)
-
-    val mlDefine   : term quotation -> thm
-    val mltDefine  : string -> term quotation -> tactic -> thm
-
     (* interface for teaching the translator about new types *)
 
     val add_type_inv   : term -> hol_type -> unit

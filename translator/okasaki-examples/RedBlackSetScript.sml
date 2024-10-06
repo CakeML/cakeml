@@ -72,10 +72,12 @@ Definition red_black_invariant2_def:
                   NONE)
 End
 
-val empty_def = mlDefine `
-empty = Empty`;
+Definition empty_def:
+empty = Empty
+End
+val r = translate empty_def;
 
-val member_def = mlDefine `
+Definition member_def:
 (member lt x Empty = F) ∧
 (member lt x (Tree _ a y b) =
   if lt x y then
@@ -83,7 +85,9 @@ val member_def = mlDefine `
   else if lt y x then
     member lt x b
   else
-    T)`;
+    T)
+End
+val r = translate member_def;
 
 Definition balance_def:
 (balance Black (Tree Red (Tree Red a x b) y c) z d =
@@ -105,35 +109,43 @@ val balance_ind = fetch "-" "balance_ind"
 
 (* HOL expands the above balance into over 50 cases, so this alternate
  * definition works better for the current translator. *)
-val balance_left_left_def = mlDefine `
+Definition balance_left_left_def:
   balance_left_left a z d =
     case a of
     | (Tree Red (Tree Red a x b) y c) =>
          SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))
-    | _ => NONE`
+    | _ => NONE
+End
+val r = translate balance_left_left_def;
 
-val balance_left_right_def = mlDefine `
+Definition balance_left_right_def:
   balance_left_right a z d =
     case a of
     | (Tree Red a x (Tree Red b y c)) =>
          SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))
-    | _ => NONE`;
+    | _ => NONE
+End
+val r = translate balance_left_right_def;
 
-val balance_right_left_def = mlDefine `
+Definition balance_right_left_def:
   balance_right_left a x b =
     case b of
     | (Tree Red (Tree Red b y c) z d) =>
          SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))
-    | _ => NONE`;
+    | _ => NONE
+End
+val r = translate balance_right_left_def;
 
-val balance_right_right_def = mlDefine `
+Definition balance_right_right_def:
   balance_right_right a x b =
     case b of
     | (Tree Red b y (Tree Red c z d)) =>
          SOME (Tree Red (Tree Black a x b) y (Tree Black c z d))
-    | _ => NONE`
+    | _ => NONE
+End
+val r = translate balance_right_right_def;
 
-val balance'_def = mlDefine `
+Definition balance'_def:
 balance' c a x b =
   if c = Black then
     case balance_left_left a x b of
@@ -149,9 +161,11 @@ balance' c a x b =
                             | SOME t => t
                             | NONE => Tree c a x b
   else
-    Tree c a x b`;
+    Tree c a x b
+End
+val r = translate balance'_def;
 
-val ins_def = mlDefine `
+Definition ins_def:
 (ins lt x Empty = Tree Red Empty x Empty) ∧
 (ins lt x (Tree col a y b) =
   if lt x y then
@@ -159,12 +173,16 @@ val ins_def = mlDefine `
   else if lt y x then
     balance' col a y (ins lt x b)
   else
-    Tree col a y b)`;
+    Tree col a y b)
+End
+val r = translate ins_def;
 
-val insert_def = mlDefine `
+Definition insert_def:
 insert lt x s =
   case ins lt x s of
-     | Tree _ a y b => Tree Black a y b`;
+     | Tree _ a y b => Tree Black a y b
+End
+val r = translate insert_def;
 
 
 (* Proof of functional correctness *)
