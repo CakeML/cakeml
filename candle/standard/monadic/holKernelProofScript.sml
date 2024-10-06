@@ -2176,8 +2176,9 @@ Proof
   \\ match_mp_tac ALL_DISTINCT_DISJOINT \\ fs []
 QED
 
-val STRCAT_SHADOW_def = zDefine`
-  STRCAT_SHADOW = STRCAT`
+Definition STRCAT_SHADOW_def[nocompute]:
+  STRCAT_SHADOW = STRCAT
+End
 
 val first_dup_thm = Q.prove(
   `∀ls acc. (first_dup ls acc = NONE) ⇒ ALL_DISTINCT ls ∧ (∀x. MEM x ls ⇒ ¬MEM x acc)`,

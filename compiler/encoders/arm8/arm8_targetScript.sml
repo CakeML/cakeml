@@ -26,8 +26,9 @@ End
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
-val arm8_encode_fail_def = zDefine`
-  arm8_encode_fail = [NoOperation]`
+Definition arm8_encode_fail_def[nocompute]:
+  arm8_encode_fail = [NoOperation]
+End
 
 Definition arm8_encode_def:
    arm8_encode i =
@@ -253,8 +254,9 @@ Definition arm8_ast_def:
         ])
 End
 
-val arm8_enc_def = zDefine
-  `arm8_enc = combin$C LIST_BIND arm8_encode o arm8_ast`
+Definition arm8_enc_def[nocompute]:
+  arm8_enc = combin$C LIST_BIND arm8_encode o arm8_ast
+End
 
 (* --- Configuration for ARMv8 --- *)
 

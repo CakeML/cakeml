@@ -45,44 +45,51 @@ End
 
 (* constructors *)
 
-val Num_def = zDefine `
+Definition Num_def[nocompute]:
   ((Num i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 0 else iNum i)`
+    FFI_TYPE (\n. if n = iNum 0 then iNum 0 else iNum i)
+End
 
-val Str_def = zDefine `
+Definition Str_def[nocompute]:
   ((Str i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 1 else iStr i)`
+    FFI_TYPE (\n. if n = iNum 0 then iNum 1 else iStr i)
+End
 
-val Cons_def = zDefine `
+Definition Cons_def[nocompute]:
   ((Cons (x:ffi) (y:ffi)):ffi) =
     FFI_TYPE (\n. if n = iNum 0 then iNum 2 else
                     case n of
                     | iCons (iNum 0) m => ffi_app x m
                     | iCons (iNum 1) m => ffi_app y m
-                    | _ => iNum 0)`
+                    | _ => iNum 0)
+End
 
-val List_def = zDefine `
+Definition List_def[nocompute]:
   ((List (xs:ffi list)):ffi) =
     FFI_TYPE (\n. if n = iNum 0 then iNum 3 else
                   if n = iNum 1 then iNum (LENGTH xs) else
                     case n of
                     | iCons (iNum k) m => ffi_app (EL k xs) m
-                    | _ => iNum 0)`
+                    | _ => iNum 0)
+End
 
-val Stream_def = zDefine `
+Definition Stream_def[nocompute]:
   ((Stream i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 4 else iStream i)`
+    FFI_TYPE (\n. if n = iNum 0 then iNum 4 else iStream i)
+End
 
-val Fun_def = zDefine `
+Definition Fun_def[nocompute]:
   ((Fun (f:ffi_inner -> ffi)):ffi) =
     FFI_TYPE (\n. if n = iNum 0 then iNum 5 else
                     case n of
                     | iCons x y => ffi_app (f x) y
-                    | _ => iNum 0)`;
+                    | _ => iNum 0)
+End
 
-val Inner_def = zDefine `
+Definition Inner_def[nocompute]:
   ((Inner i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 6 else i)`;
+    FFI_TYPE (\n. if n = iNum 0 then iNum 6 else i)
+End
 
 (* injectivity *)
 

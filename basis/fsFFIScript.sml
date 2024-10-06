@@ -318,7 +318,7 @@ Definition encode_files_def:
   encode_files fs = encode_list (encode_pair (Str o explode) (Str o explode)) fs
 End
 
-val encode_def = zDefine`
+Definition encode_def[nocompute]:
   encode fs = Cons
                (Cons
                  (cfFFIType$Cons
@@ -327,7 +327,8 @@ val encode_def = zDefine`
                     (encode_fds fs.infds))
                   (Stream fs.numchars))
                  (encode_files fs.files))
-               (Num fs.maxFD)`
+               (Num fs.maxFD)
+End
 
 Theorem encode_inode_11[simp]:
    !x y. encode_inode x = encode_inode y <=> x = y

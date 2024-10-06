@@ -117,8 +117,12 @@ Triviality to_flat_inc_thm0 = eval ``to_flat_inc
   ^config ^env_id ^p``
 
 val (c, ps) = to_flat_inc_thm0 |> rconc |> dest_pair
-val flat_conf_inc_def = zDefine`flat_conf_inc = ^c`;
-val flat_prog_def = zDefine`flat_prog = ^ps`;
+Definition flat_conf_inc_def[nocompute]:
+  flat_conf_inc = ^c
+End
+Definition flat_prog_def[nocompute]:
+  flat_prog = ^ps
+End
 val to_flat_inc_thm =
   to_flat_inc_thm0 |> CONV_RULE(RAND_CONV(
     FORK_CONV(REWR_CONV(SYM flat_conf_inc_def),
@@ -141,7 +145,9 @@ Triviality to_clos_inc_thm0 =
       REWR_CONV LET_THM THENC eval)
 
 val ps = to_clos_inc_thm0 |> rconc |> dest_pair |> #2
-val clos_prog_def = zDefine`clos_prog = ^ps`;
+Definition clos_prog_def[nocompute]:
+  clos_prog = ^ps
+End
 val to_clos_inc_thm =
   to_clos_inc_thm0 |> CONV_RULE(RAND_CONV(
     RAND_CONV(REWR_CONV(SYM clos_prog_def))))
@@ -181,8 +187,12 @@ Triviality to_bvl_inc_thm0 =
   |> CONV_RULE(RAND_CONV eval)
 
 val (c,ps) = to_bvl_inc_thm0 |> rconc |> dest_pair
-val bvl_conf_inc_def = zDefine`bvl_conf_inc = ^c`;
-val bvl_prog_def = zDefine`bvl_prog = ^ps`;
+Definition bvl_conf_inc_def[nocompute]:
+  bvl_conf_inc = ^c
+End
+Definition bvl_prog_def[nocompute]:
+  bvl_prog = ^ps
+End
 val to_bvl_inc_thm =
   to_bvl_inc_thm0 |> CONV_RULE(RAND_CONV(
     FORK_CONV(REWR_CONV(SYM bvl_conf_inc_def),
@@ -215,8 +225,12 @@ Triviality to_bvi_inc_thm0 =
   |> CONV_RULE (RAND_CONV eval)
 
 val (c,ps) = to_bvi_inc_thm0 |> rconc |> dest_pair
-val bvi_conf_inc_def = zDefine`bvi_conf_inc = ^c`;
-val bvi_prog_def = zDefine`bvi_prog = ^ps`;
+Definition bvi_conf_inc_def[nocompute]:
+  bvi_conf_inc = ^c
+End
+Definition bvi_prog_def[nocompute]:
+  bvi_prog = ^ps
+End
 val to_bvi_inc_thm =
   to_bvi_inc_thm0 |> CONV_RULE(RAND_CONV(
     FORK_CONV(REWR_CONV(SYM bvi_conf_inc_def),
@@ -251,7 +265,9 @@ val to_data_inc_thm0 =
   |> CONV_RULE(RAND_CONV eval)
 
 val (_,ps) = to_data_inc_thm0 |> rconc |> dest_pair
-val data_prog_def = zDefine`data_prog = ^ps`;
+Definition data_prog_def[nocompute]:
+  data_prog = ^ps
+End
 val to_data_inc_thm =
   to_data_inc_thm0 |> CONV_RULE(RAND_CONV(
   (RAND_CONV(REWR_CONV(SYM data_prog_def)))));
@@ -360,7 +376,9 @@ val to_word_inc_thm1 =
        REWR_CONV_BETA LET_THM))
 
 val (_,ps) = to_word_inc_thm1 |> rconc |> dest_pair
-val word_prog_def = zDefine`word_prog = ^ps`;
+Definition word_prog_def[nocompute]:
+  word_prog = ^ps
+End
 val () = computeLib.extend_compset
   [computeLib.Defs [word_prog_def]] cs;
 val to_word_inc_thm =

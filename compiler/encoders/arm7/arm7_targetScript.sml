@@ -44,8 +44,9 @@ val () = List.app Parse.temp_overload_on
        "HI", "LS", "GE", "LT", "GT", "LE", "AL"],
       List.tabulate (15, fn i => wordsSyntax.mk_wordii (i, 4))))
 
-val arm7_encode_fail_def = zDefine`
-  arm7_encode_fail = [0w; 0w; 0w; 0w] : word8 list`
+Definition arm7_encode_fail_def[nocompute]:
+  arm7_encode_fail = [0w; 0w; 0w; 0w] : word8 list
+End
 
 Definition arm7_encode1_def:
   arm7_encode1 c i =

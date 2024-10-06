@@ -787,14 +787,15 @@ val fix_clock_IMP_LESS_EQ = Q.prove(
   `!x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep`,
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
-val MustTerminate_limit_def = zDefine `
+Definition MustTerminate_limit_def[nocompute]:
   MustTerminate_limit (:'a) =
     (* This is just a number that's large enough for our purposes.
        It stated in a way that makes proofs easy. *)
     2 * dimword (:'a) +
     dimword (:'a) * dimword (:'a) +
     dimword (:'a) ** dimword (:'a) +
-    dimword (:'a) ** dimword (:'a) ** dimword (:'a)`;
+    dimword (:'a) ** dimword (:'a) ** dimword (:'a)
+End
 
 Definition const_addresses_def:
   const_addresses a [] d = T ∧

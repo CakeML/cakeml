@@ -2090,8 +2090,9 @@ fs [t_wfs_def] >|
      rw [encode_infer_t_def, decode_infer_t_def, decode_left_inverse]]
 QED
 
-val t_walk_def = zDefine `
-t_walk s t = decode_infer_t (walk (encode_infer_t o_f s) (encode_infer_t t))`;
+Definition t_walk_def[nocompute]:
+t_walk s t = decode_infer_t (walk (encode_infer_t o_f s) (encode_infer_t t))
+End
 
 Theorem t_walk_eqn:
  (!s v. t_walk s (Infer_Tuvar v) = t_vwalk s v) ∧
@@ -2102,8 +2103,9 @@ rw [t_walk_def, walk_def, t_vwalk_def, encode_infer_t_def,
     decode_infer_t_def, decode_left_inverse]
 QED
 
-val t_oc_def = zDefine `
-t_oc s t v = oc (encode_infer_t o_f s) (encode_infer_t t) v`;
+Definition t_oc_def[nocompute]:
+t_oc s t v = oc (encode_infer_t o_f s) (encode_infer_t t) v
+End
 
 (*
 val t_oc_ind' = Q.prove (
@@ -2174,11 +2176,12 @@ cases_on `t_vwalk s n` >>
 rw [encode_infer_t_def, t_oc_eqn_help]
 QED
 
-val t_ext_s_check_def = zDefine `
+Definition t_ext_s_check_def[nocompute]:
 t_ext_s_check s v t =
   OPTION_MAP
     ((o_f) decode_infer_t)
-    (ext_s_check (encode_infer_t o_f s) v (encode_infer_t t))`;
+    (ext_s_check (encode_infer_t o_f s) v (encode_infer_t t))
+End
 
 Theorem t_ext_s_check_eqn:
  !s v t.
@@ -2189,11 +2192,12 @@ rw [t_ext_s_check_def, t_oc_def, decode_left_inverse_I,
 metis_tac [FUPDATE_PURGE]
 QED
 
-val t_unify_def = zDefine `
+Definition t_unify_def[nocompute]:
 t_unify s t1 t2 =
   OPTION_MAP
     ((o_f) decode_infer_t)
-    (unify (encode_infer_t o_f s) (encode_infer_t t1) (encode_infer_t t2))`;
+    (unify (encode_infer_t o_f s) (encode_infer_t t1) (encode_infer_t t2))
+End
 
 Definition ts_unify_def:
 (ts_unify s [] [] = SOME s) ∧
@@ -2600,8 +2604,9 @@ Proof
   fs[t_wfs_def]
 QED
 
-val apply_subst_t_def = zDefine `
-apply_subst_t s t = decode_infer_t (subst_APPLY (encode_infer_t o_f s) (encode_infer_t t))`;
+Definition apply_subst_t_def[nocompute]:
+apply_subst_t s t = decode_infer_t (subst_APPLY (encode_infer_t o_f s) (encode_infer_t t))
+End
 
 Theorem apply_subst_t_eqn:
  (!s n.
@@ -2624,9 +2629,10 @@ induct_on `ts` >>
 rw [apply_subst_t_def, encode_infer_t_def, decode_infer_t_def]
 QED
 
-val t_walkstar_def = zDefine `
+Definition t_walkstar_def[nocompute]:
 t_walkstar s t =
-  decode_infer_t (walkstar (encode_infer_t o_f s) (encode_infer_t t))`;
+  decode_infer_t (walkstar (encode_infer_t o_f s) (encode_infer_t t))
+End
 
 Theorem t_walkstar_cwalkstar:
   t_walkstar s t = cwalkstar (fm2sp s) t
@@ -2692,9 +2698,10 @@ Proof
   metis_tac[]
 QED
 
-val t_collapse_def = zDefine `
+Definition t_collapse_def[nocompute]:
 t_collapse s =
-  decode_infer_t o_f collapse (encode_infer_t o_f s)`;
+  decode_infer_t o_f collapse (encode_infer_t o_f s)
+End
 
 Theorem t_collapse_eqn:
  !s. t_collapse s = FUN_FMAP (\v. t_walkstar s (Infer_Tuvar v)) (FDOM s)
