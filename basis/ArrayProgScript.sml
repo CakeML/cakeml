@@ -8,6 +8,8 @@ val _ = new_theory"ArrayProg"
 
 val _ = translation_extends"Word8ArrayProg"
 
+val cakeml = append_prog o process_topdecs;
+
 val () = ml_prog_update (open_module "Array");
 
 val _ = ml_prog_update (add_dec
@@ -22,8 +24,8 @@ val () = append_decs
        (Fun "x" (Fun "y" (Fun "z"
          (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]``;
 
-val array_fromList = process_topdecs
-  `fun fromList l =
+Quote cakeml:
+  fun fromList l =
     let fun f arr l i =
        case l of
           [] => arr
@@ -32,12 +34,11 @@ val array_fromList = process_topdecs
       case l of
         [] => arrayEmpty ()
       | h::t => f (array (List.length l) h) t 1
-    end`;
+    end
+End
 
-val _ = append_prog array_fromList;
-
-val array_tabulate = process_topdecs
-  `fun tabulate n f =
+Quote cakeml:
+  fun tabulate n f =
     let fun u arr x =
         if x = n then arr
         else (update arr x (f x); u arr (x + 1))
@@ -46,213 +47,187 @@ val array_tabulate = process_topdecs
         arrayEmpty ()
       else
         u (array n (f 0)) 1
-    end`;
-
-val _ = append_prog array_tabulate;
-
-(*val array_vector = process_topdecs
-  `fun vector arr = Vector.tabulate (length arr) (fn i => sub arr i)`*)
+    end
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_copy_aux = process_topdecs
-  `fun copy_aux src dst di max n =
+Quote cakeml:
+  fun copy_aux src dst di max n =
     if n = max
       then ()
-    else (update dst di (sub src n); copy_aux src dst (di + 1) max (n + 1))`
-
-val _ = append_prog array_copy_aux;
+    else (update dst di (sub src n); copy_aux src dst (di + 1) max (n + 1))
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_copy = process_topdecs
-  `fun copy src dst di =
-    copy_aux src dst di (length src) 0`
-
-val _ = append_prog array_copy;
+Quote cakeml:
+  fun copy src dst di =
+    copy_aux src dst di (length src) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_copyVec_aux = process_topdecs
-  `fun copyVec_aux src dst di max n =
+Quote cakeml:
+  fun copyVec_aux src dst di max n =
     if n = max
         then ()
-    else (update dst (di + n) (Vector.sub src n); copyVec_aux src dst di max (n + 1))`
-
-val _ = append_prog array_copyVec_aux;
+    else (update dst (di + n) (Vector.sub src n); copyVec_aux src dst di max (n + 1))
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_copyVec = process_topdecs
-  `fun copyVec src dst di =
-    copyVec_aux src dst di (Vector.length src) 0`
-
-val _ = append_prog array_copyVec;
+Quote cakeml:
+  fun copyVec src dst di =
+    copyVec_aux src dst di (Vector.length src) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_app_aux = process_topdecs
-  `fun app_aux f arr max n =
+Quote cakeml:
+  fun app_aux f arr max n =
     if n = max
       then ()
-    else (f (sub arr n); app_aux f arr max (n + 1))`
-
-val _ = append_prog array_app_aux;
+    else (f (sub arr n); app_aux f arr max (n + 1))
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_app = process_topdecs
-  `fun app f arr =
-    app_aux f arr (length arr) 0`
-
-val _ = append_prog array_app;
+Quote cakeml:
+  fun app f arr =
+    app_aux f arr (length arr) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_appi_aux = process_topdecs
-  `fun appi_aux f arr max n =
+Quote cakeml:
+  fun appi_aux f arr max n =
     if n = max
       then ()
     else (f n (sub arr n): unit;
-          appi_aux f arr max (n + 1))`
-
-val _ = append_prog array_appi_aux;
+          appi_aux f arr max (n + 1))
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_appi = process_topdecs
-  `fun appi f arr =
-    appi_aux f arr (length arr) 0`
-
-val _ = append_prog array_appi;
+Quote cakeml:
+  fun appi f arr =
+    appi_aux f arr (length arr) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_modify_aux = process_topdecs
-  `fun modify_aux f arr max n =
+Quote cakeml:
+  fun modify_aux f arr max n =
     if n = max
       then ()
-    else (update arr n (f (sub arr n)); modify_aux f arr max (n + 1))`
-
-val _ = append_prog array_modify_aux;
+    else (update arr n (f (sub arr n)); modify_aux f arr max (n + 1))
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_modify = process_topdecs
-  `fun modify f arr =
-    modify_aux f arr (length arr) 0`
-
-val _ = append_prog array_modify;
+Quote cakeml:
+  fun modify f arr =
+    modify_aux f arr (length arr) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_modifyi_aux = process_topdecs
-  `fun modifyi_aux f arr max n =
+Quote cakeml:
+  fun modifyi_aux f arr max n =
     if n = max
       then ()
-    else (update arr n (f n (sub arr n)); modifyi_aux f arr max (n + 1))`
-
-val _ = append_prog array_modifyi_aux;
+    else (update arr n (f n (sub arr n)); modifyi_aux f arr max (n + 1))
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_modifyi = process_topdecs
-  `fun modifyi f arr =
-    modifyi_aux f arr (length arr) 0`
-
-val _ = append_prog array_modifyi;
+Quote cakeml:
+  fun modifyi f arr =
+    modifyi_aux f arr (length arr) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_foldli_aux = process_topdecs
-  `fun foldli_aux f init arr max n =
+Quote cakeml:
+  fun foldli_aux f init arr max n =
     if n = max
       then init
-    else foldli_aux f (f n (sub arr n) init ) arr max (n + 1)`
-
-val _ = append_prog array_foldli_aux;
+    else foldli_aux f (f n (sub arr n) init ) arr max (n + 1)
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_foldli = process_topdecs
-  `fun foldli f init arr =
-    foldli_aux f init arr (length arr) 0`
-
-val _ = append_prog array_foldli;
+Quote cakeml:
+  fun foldli f init arr =
+    foldli_aux f init arr (length arr) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_foldl_aux = process_topdecs
-  `fun foldl_aux f init arr max n =
+Quote cakeml:
+  fun foldl_aux f init arr max n =
     if n = max
       then init
-    else foldl_aux f (f (sub arr n) init ) arr max (n + 1)`
-
-val _ = append_prog array_foldl_aux;
+    else foldl_aux f (f (sub arr n) init ) arr max (n + 1)
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_foldl = process_topdecs
-  `fun foldl f init arr =
-    foldl_aux f init arr (length arr) 0`
-
-val _ = append_prog array_foldl;
+Quote cakeml:
+  fun foldl f init arr =
+    foldl_aux f init arr (length arr) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_foldri_aux = process_topdecs
-  `fun foldri_aux f init arr n =
+Quote cakeml:
+  fun foldri_aux f init arr n =
     if n = 0
       then init
-    else foldri_aux f (f (n - 1) (sub arr (n - 1)) init) arr (n - 1)`
-
-val _ = append_prog array_foldri_aux;
+    else foldri_aux f (f (n - 1) (sub arr (n - 1)) init) arr (n - 1)
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_foldri = process_topdecs
-  `fun foldri f init arr =
-    foldri_aux f init arr (length arr)`
-
-val _ = append_prog array_foldri;
+Quote cakeml:
+  fun foldri f init arr =
+    foldri_aux f init arr (length arr)
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_foldr_aux = process_topdecs
-  `fun foldr_aux f init arr n =
+Quote cakeml:
+  fun foldr_aux f init arr n =
     if n = 0
       then init
-    else foldr_aux f (f (sub arr (n - 1)) init) arr (n - 1)`
-
-val _ = append_prog array_foldr_aux;
+    else foldr_aux f (f (sub arr (n - 1)) init) arr (n - 1)
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_foldr = process_topdecs
-  `fun foldr f init arr =
-    foldr_aux f init arr (length arr)`
-
-val _ = append_prog array_foldr;
+Quote cakeml:
+  fun foldr f init arr =
+    foldr_aux f init arr (length arr)
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_find_aux = process_topdecs
-  `fun find_aux f arr max n =
+Quote cakeml:
+  fun find_aux f arr max n =
     if n = max
       then None
     else (if f (sub arr n)
         then Some(sub arr n)
-      else find_aux f arr max (n + 1))`
-
-val _ = append_prog array_find_aux;
+      else find_aux f arr max (n + 1))
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_find = process_topdecs
-  `fun find f arr =
-    find_aux f arr (length arr) 0`
-
-val _ = append_prog array_find;
+Quote cakeml:
+  fun find f arr =
+    find_aux f arr (length arr) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
@@ -308,81 +283,75 @@ val _ = append_prog array_findi_aux;
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_findi = process_topdecs
-  `fun findi f arr =
-    findi_aux f arr (length arr) 0`
-
-val _ = append_prog array_findi;
+Quote cakeml:
+  fun findi f arr =
+    findi_aux f arr (length arr) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_exists_aux = process_topdecs
-  `fun exists_aux f arr max n =
+Quote cakeml:
+  fun exists_aux f arr max n =
     if n = max
       then False
     else (if f (sub arr n)
       then True
-    else exists_aux f arr max (n + 1))`
-
-val _ = append_prog array_exists_aux;
+    else exists_aux f arr max (n + 1))
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_exists = process_topdecs
-  `fun exists f arr =
-    exists_aux f arr (length arr) 0`
-
-val _ = append_prog array_exists;
+Quote cakeml:
+  fun exists f arr =
+    exists_aux f arr (length arr) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_all_aux = process_topdecs
-  `fun all_aux f arr max n =
+Quote cakeml:
+  fun all_aux f arr max n =
     if n = max
       then True
     else (if f (sub arr n)
       then all_aux f arr max (n + 1)
-    else False)`
-
-val _ = append_prog array_all_aux;
+    else False)
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_all = process_topdecs
-  `fun all f arr =
-    all_aux f arr (length arr) 0`
-
-val _ = append_prog array_all;
+Quote cakeml:
+  fun all f arr =
+    all_aux f arr (length arr) 0
+End
 
 val _ = ml_prog_update open_local_block;
 
-val array_collate_aux = process_topdecs
-  `fun collate_aux f a1 a2 max ord n =
+Quote cakeml:
+  fun collate_aux f a1 a2 max ord n =
     if n = max
       then ord
     else (if f (sub a1 n) (sub a2 n) = Equal
         then collate_aux f a1 a2 max ord (n + 1)
-      else f (sub a1 n) (sub a2 n))`
-
-val _ = append_prog array_collate_aux;
+      else f (sub a1 n) (sub a2 n))
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_collate = process_topdecs
-  `fun collate f a1 a2 =
+Quote cakeml:
+  fun collate f a1 a2 =
     if (length a1) < (length a2)
       then collate_aux f a1 a2 (length a1) Less 0
     else if (length a2) < (length a1)
       then collate_aux f a1 a2 (length a2) Greater 0
-    else collate_aux f a1 a2 (length a2) Equal 0`
+    else collate_aux f a1 a2 (length a2) Equal 0
+End
 
-val _ = append_prog array_collate;
-
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   val lookup = fn arr => fn default => fn n =>
-    sub arr n handle _ => default`
+    sub arr n handle _ => default
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   val updateResize = fn arr => fn default => fn n => fn v =>
     (update arr n v; arr) handle _ =>
     let
@@ -391,7 +360,8 @@ val _ = (append_prog o process_topdecs) `
       (copy arr arr' 0;
        update arr' n v;
        arr')
-    end`
+    end
+End
 
 val _ = ml_prog_update close_local_blocks;
 

@@ -8,6 +8,7 @@ open preamble ml_translatorLib ml_progLib cfDivTheory
 val _ = new_theory "RuntimeProg";
 
 val _ = translation_extends "cfDiv";
+val cakeml = append_prog o process_topdecs;
 
 val _ = ml_prog_update (open_module "Runtime");
 
@@ -42,17 +43,17 @@ val exit =
 
 val _ = append_prog exit
 
-val abort = process_topdecs `fun abort u = case u of () => exit 1`
+Quote cakeml:
+  fun abort u = case u of () => exit 1
+End
 
-val _ = append_prog abort
-
-val _ = process_topdecs `
+Quote cakeml:
   fun assert cond msg =
-  if cond
-  then ()
-  else (debugMsg msg;
-        abort());`
-  |> append_prog;
+    if cond
+    then ()
+    else (debugMsg msg;
+          abort());
+End
 
 val _ = ml_prog_update (close_module NONE);
 

@@ -9,6 +9,8 @@ val _ = new_theory"ListProg"
 
 val _ = translation_extends "OptionProg"
 
+val cakeml = append_prog o process_topdecs;
+
 val _ = ml_prog_update (open_module "List");
 
 val () = generate_sigs := true;
@@ -106,10 +108,10 @@ val result = next_ml_names := ["mapi","mapPartial"];
 val result = translate MAPI_thm;
 val result = translate mapPartial_def;
 
-val app = process_topdecs`
+Quote cakeml:
   fun app f ls = case ls of [] => ()
-    | (x::xs) => (f x; app f xs)`;
-val _ = ml_prog_update(ml_progLib.add_prog app pick_name)
+    | (x::xs) => (f x; app f xs)
+End
 
 val result = translate FIND_thm;
 

@@ -13,6 +13,8 @@ val _ = new_theory"DoubleProg";
 
 val _ = translation_extends "CommandLineProg";
 
+val cakeml = append_prog o process_topdecs;
+
 (* Double module -- translated *)
 
 val _ = ml_prog_update (open_module "Double");
@@ -99,7 +101,7 @@ End
 
 val _ = translate is_0_byte_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun read_bytes offset =
     let
       val a = Word8Array.sub bytes offset;
@@ -112,9 +114,10 @@ val _ = (append_prog o process_topdecs) `
       val h = Word8Array.sub bytes (offset + 7);
     in
       Word64.concatAll a b c d e f g h
-    end`;
+    end
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun write_bytes offset d =
     let
       val _ = Word8Array.update bytes offset (byte_0 d);
@@ -127,8 +130,8 @@ val _ = (append_prog o process_topdecs) `
       val _ = Word8Array.update bytes (offset + 7) (byte_7 d);
     in
       ()
-    end`;
-
+    end
+End
 
 Definition prepareString_def:
   prepareString (s:mlstring) = translate (\c. if c = #"~" then #"-" else c) s
@@ -150,7 +153,7 @@ val _ = append_prog
  * ------------------------------------------------------------------------- *)
 
 (* 0: Double.fromString *)
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun fromString s =
     let
       val _ = #(double_fromString) (preparestring s) bytes;
@@ -161,10 +164,10 @@ val _ = (append_prog o process_topdecs) `
       else
         None
     end
-  `;
+End
 
 (* 1: Double.toString *)
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun toString d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -173,10 +176,10 @@ val _ = (append_prog o process_topdecs) `
     in
       Word8Array.substring bytes 0 n
     end
-  `;
+End
 
 (* 2: Double.fromInt *)
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun fromInt n =
     let
       val _ = write_bytes 0 (Word64.fromInt n)
@@ -184,10 +187,10 @@ val _ = (append_prog o process_topdecs) `
     in
       fromWord (read_bytes 0)
     end
-  `;
+End
 
 (* 3: Double.toInt *)
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun toInt d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -195,10 +198,10 @@ val _ = (append_prog o process_topdecs) `
     in
       Word64.toIntSigned (read_bytes 0)
     end
-  `;
+End
 
 (* 4: Double.pow *)
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun pow x y =
     let
       val _ = write_bytes 0 (toWord x)
@@ -207,10 +210,10 @@ val _ = (append_prog o process_topdecs) `
     in
       fromWord (read_bytes 0)
     end
-  `;
+End
 
 (* 5: Double.ln *)
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun ln d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -218,10 +221,10 @@ val _ = (append_prog o process_topdecs) `
     in
       fromWord (read_bytes 0)
     end
-  `;
+End
 
 (* 6: Double.exp *)
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun exp d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -229,10 +232,10 @@ val _ = (append_prog o process_topdecs) `
     in
       fromWord (read_bytes 0)
     end
-  `;
+End
 
 (* 7: Double.floor *)
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun floor d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -240,7 +243,7 @@ val _ = (append_prog o process_topdecs) `
     in
       fromWord (read_bytes 0)
     end
-  `;
+End
 
 (* --------------------------------------------------------------------------
  * Ternary operations

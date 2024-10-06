@@ -41,19 +41,23 @@ Definition sortable_to_bag_def:
   BAG_UNION (list_to_bag seg) (sortable_to_bag (size-LENGTH seg,segs)))
 End
 
-val mrg_def = mlDefine `
+Definition mrg_def:
 (mrg leq [] ys = ys) ∧
 (mrg leq xs [] = xs) ∧
 (mrg leq (x::xs) (y::ys) =
   if leq x y then
     x :: mrg leq xs (y::ys)
   else
-    y :: mrg leq (x::xs) ys)`;
+    y :: mrg leq (x::xs) ys)
+End
+val r = translate mrg_def;
 
 val mrg_ind = fetch "-" "mrg_ind"
 
-val empty_def = mlDefine `
-empty = (0, [])`;
+Definition empty_def:
+empty = (0, [])
+End
+val r = translate empty_def;
 
 val sptree_size = Parse.hide"size"
 val _ = Parse.hide"seg"
@@ -73,15 +77,21 @@ val add_seg_ind = fetch "-" "add_seg_ind"
 
 val _ = translate add_seg_def;
 
-val add_def = mlDefine `
-add leq x (size,segs) = (size+1, add_seg leq [x] segs size)`;
+Definition add_def:
+add leq x (size,segs) = (size+1, add_seg leq [x] segs size)
+End
+val r = translate add_def;
 
-val mrg_all_def = mlDefine `
+Definition mrg_all_def:
 (mrg_all leq xs [] = xs) ∧
-(mrg_all leq xs (seg::segs) = mrg_all leq (mrg leq xs seg) segs)`;
+(mrg_all leq xs (seg::segs) = mrg_all leq (mrg leq xs seg) segs)
+End
+val r = translate mrg_all_def;
 
-val sort_def = mlDefine `
-sort leq (size, segs) = mrg_all leq [] segs`;
+Definition sort_def:
+sort leq (size, segs) = mrg_all leq [] segs
+End
+val r = translate sort_def;
 
 
 

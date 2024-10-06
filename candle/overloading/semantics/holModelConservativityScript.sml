@@ -3868,7 +3868,7 @@ QED
 
 (* models that can be extended require that each constant is interpreted as
  * equal to its witness *)
-val models_ConstSpec_witnesses_def = xDefine "models_ConstSpec_witnesses"`
+Definition models_ConstSpec_witnesses_def:
   models_ConstSpec_witnesses0 ^mem (Δ:type->'U) (Γ :mlstring # type -> 'U) ctxt =
     ∀ov cl prop c cdefn ty sigma. MEM (ConstSpec ov cl prop) ctxt
     ∧ MEM (c,cdefn) cl
@@ -3879,7 +3879,8 @@ val models_ConstSpec_witnesses_def = xDefine "models_ConstSpec_witnesses"`
       = termsem (ext_type_frag_builtins Δ)
                 (ext_term_frag_builtins (ext_type_frag_builtins Δ) Γ)
                 empty_valuation (λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x)) cdefn
-`
+End
+
 Overload models_ConstSpec_witnesses = ``models_ConstSpec_witnesses0 ^mem``
 
 Theorem terms_of_frag_uninst_ConstSpec_indep_frag_upd:

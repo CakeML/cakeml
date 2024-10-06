@@ -26,21 +26,25 @@ Overload inhabited = ``λs. ∃x. x <: s``
 
 Type tyass = ``:mlstring -> 'U list -> 'U``
 
-val is_type_assignment_def = xDefine "is_type_assignment"`
+Definition is_type_assignment_def:
   is_type_assignment0 ^mem tysig (δ:'U tyass) ⇔
     FEVERY
       (λ(name,arity).
         ∀ls. LENGTH ls = arity ∧ EVERY inhabited ls ⇒
              inhabited ((δ name) ls))
-      tysig`
+      tysig
+End
+
 Overload is_type_assignment = ``is_type_assignment0 ^mem``
 
 (* A type valuation is a map from type variable names to non-empty sets. *)
 
 Type tyval = ``:mlstring -> 'U``
 
-val is_type_valuation_def = xDefine "is_type_valuation"`
-  is_type_valuation0 ^mem (τ:'U tyval) ⇔ ∀x. inhabited (τ x)`
+Definition is_type_valuation_def:
+  is_type_valuation0 ^mem (τ:'U tyval) ⇔ ∀x. inhabited (τ x)
+End
+
 Overload is_type_valuation = ``is_type_valuation0 ^mem``
 
 (* Semantics of types. Simply applies the valuation and assignment. *)
@@ -57,13 +61,15 @@ val typesem_def = tDefine "typesem"`
 
 Type tmass = ``:mlstring -> 'U list -> 'U``
 
-val is_term_assignment_def = xDefine "is_term_assignment"`
+Definition is_term_assignment_def:
   is_term_assignment0 ^mem tmsig δ (γ:'U tmass) ⇔
     FEVERY
       (λ(name,ty).
         ∀τ. is_type_valuation τ ⇒
               γ name (MAP τ (MAP implode (STRING_SORT (MAP explode (tyvars ty))))) <: typesem δ τ ty)
-      tmsig`
+      tmsig
+End
+
 Overload is_term_assignment = ``is_term_assignment0 ^mem``
 
 (* A term valuation is a map from a variable to an element of its type. The
@@ -72,9 +78,11 @@ Overload is_term_assignment = ``is_term_assignment0 ^mem``
 
 Type tmval = ``:mlstring # type -> 'U``
 
-val is_term_valuation_def = xDefine "is_term_valuation"`
+Definition is_term_valuation_def:
   is_term_valuation0 ^mem tysig δ τ (σ:'U tmval) ⇔
-    ∀v ty. type_ok tysig ty ⇒ σ (v,ty) <: typesem δ τ ty`
+    ∀v ty. type_ok tysig ty ⇒ σ (v,ty) <: typesem δ τ ty
+End
+
 Overload is_term_valuation = ``is_term_valuation0 ^mem``
 
 (* An interpretation is a pair of assignments.
@@ -87,10 +95,12 @@ Type valuation = ``:'U tyval # 'U tmval``
 Overload tyvof = ``FST:'U valuation->'U tyval``
 Overload tmvof = ``SND:'U valuation->'U tmval``
 
-val is_valuation_def = xDefine"is_valuation"`
+Definition is_valuation_def:
   is_valuation0 ^mem tysig δ v ⇔
     is_type_valuation (tyvof v) ∧
-    is_term_valuation tysig δ (tyvof v) (tmvof v)`
+    is_term_valuation tysig δ (tyvof v) (tmvof v)
+End
+
 Overload is_valuation = ``is_valuation0 ^mem``
 
 (* term assignment for instances of constants *)
@@ -117,42 +127,50 @@ val instance_def = new_specification("instance_def",["instance"],
 
 (* Semantics of terms. *)
 
-val termsem_def = xDefine "termsem"`
+Definition termsem_def:
   (termsem0 ^mem (tmsig:tmsig) (i:'U interpretation) (v:'U valuation) (Var x ty) = tmvof v (x,ty)) ∧
   (termsem0 ^mem tmsig i v (Const name ty) = instance tmsig i name ty (tyvof v)) ∧
   (termsem0 ^mem tmsig i v (Comb t1 t2) =
    termsem0 ^mem tmsig i v t1 ' (termsem0 ^mem tmsig i v t2)) ∧
   (termsem0 ^mem tmsig i v (Abs (Var x ty) b) =
    Abstract (typesem (tyaof i) (tyvof v) ty) (typesem (tyaof i) (tyvof v) (typeof b))
-     (λm. termsem0 ^mem tmsig i (tyvof v, ((x,ty)=+m)(tmvof v)) b))`
+     (λm. termsem0 ^mem tmsig i (tyvof v, ((x,ty)=+m)(tmvof v)) b))
+End
+
 Overload termsem = ``termsem0 ^mem``
 
 (* Satisfaction of sequents. *)
 
-val satisfies_def = xDefine"satisfies"`
+Definition satisfies_def:
   satisfies0 ^mem i (sig:sig,h,c) ⇔
     ∀v. is_valuation (tysof sig) (tyaof i) v ∧
       EVERY (λt. termsem (tmsof sig) i v t = True) h
-      ⇒ termsem (tmsof sig) i v c = True`
+      ⇒ termsem (tmsof sig) i v c = True
+End
+
 val _ = Parse.add_infix("satisfies",450,Parse.NONASSOC)
 Overload satisfies = ``satisfies0 ^mem``
 
 (* A interpretation of a theory is a pair of assignments to the constants and
    types in the theory. *)
 
-val is_interpretation_def = xDefine "is_interpretation"`
+Definition is_interpretation_def:
   is_interpretation0 ^mem (sig:sig) int ⇔
     is_type_assignment (tysof sig) (tyaof int) ∧
-    is_term_assignment (tmsof sig) (tyaof int) (tmaof int)`
+    is_term_assignment (tmsof sig) (tyaof int) (tmaof int)
+End
+
 Overload is_interpretation = ``is_interpretation0 ^mem``
 
 (* The assignments are standard if they interpret fun, bool, and = according
    to the standard model. *)
 
-val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
+Definition is_std_type_assignment_def:
   is_std_type_assignment0 ^mem (δ:'U tyass) ⇔
     (∀dom rng. δ (strlit "fun") [dom;rng] = Funspace dom rng) ∧
-    (δ (strlit "bool") [] = boolset)`
+    (δ (strlit "bool") [] = boolset)
+End
+
 Overload is_std_type_assignment = ``is_std_type_assignment0 ^mem``
 
 local
@@ -166,51 +184,61 @@ val _ = Parse.add_rule{term_name = "interprets",
                        paren_style = OnlyIfNecessary,
                        block_style = (AroundEachPhrase, (PP.INCONSISTENT, 0))}
 end
-val interprets_def = xDefine"interprets"`
-  interprets0 ^mem γ name vs f ⇔ ∀τ. is_type_valuation τ ⇒ γ name (MAP τ vs) = f (MAP τ vs)`
+Definition interprets_def:
+  interprets0 ^mem γ name vs f ⇔ ∀τ. is_type_valuation τ ⇒ γ name (MAP τ vs) = f (MAP τ vs)
+End
+
 Overload interprets = ``interprets0 ^mem``
 
-val is_std_interpretation_def = xDefine "is_std_interpretation"`
+Definition is_std_interpretation_def:
   is_std_interpretation0 ^mem (i:'U interpretation) ⇔
     is_std_type_assignment (tyaof i) ∧
     tmaof i interprets (strlit "=") on [(strlit "A")] as
     λl. (Abstract (HD l) (Funspace (HD l) boolset)
-          (λx. Abstract (HD l) boolset (λy. Boolean (x = y))))`
+          (λx. Abstract (HD l) boolset (λy. Boolean (x = y))))
+End
+
 Overload is_std_interpretation = ``is_std_interpretation0 ^mem``
 
 (* A model of a theory is a standard interpretation that satisfies all the
    axioms. *)
 
-val models_def = xDefine"models"`
+Definition models_def:
   models0 ^mem i (thy:thy) ⇔
     is_interpretation (sigof thy) i ∧
     is_std_interpretation i ∧
-    ∀p. p ∈ (axsof thy) ⇒ i satisfies (sigof thy,[],p)`
+    ∀p. p ∈ (axsof thy) ⇒ i satisfies (sigof thy,[],p)
+End
+
 val _ = Parse.add_infix("models",450,Parse.NONASSOC)
 Overload models = ``models0 ^mem``
 
 (* Validity of sequents. *)
 
-val entails_def = xDefine"entails"`
+Definition entails_def:
   entails0 ^mem (thy,h) c ⇔
     theory_ok thy ∧
     EVERY (term_ok (sigof thy)) (c::h) ∧
     EVERY (λp. p has_type Bool) (c::h) ∧
     hypset_ok h ∧
     ∀i. i models thy
-        ⇒ i satisfies (sigof thy,h,c)`
+        ⇒ i satisfies (sigof thy,h,c)
+End
+
 val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
 Overload "|=" = ``entails0 ^mem``
 
 (* Collect standard signature, standard interpretation and valuation up in one
    predicate *)
 
-val is_structure_def = xDefine"is_structure"`
+Definition is_structure_def:
   is_structure0 ^mem sig int val ⇔
     is_std_sig sig ∧
     is_std_interpretation int ∧
     is_interpretation sig int ∧
-    is_valuation (tysof sig) (tyaof int) val`
+    is_valuation (tysof sig) (tyaof int) val
+End
+
 Overload is_structure = ``is_structure0 ^mem``
 
 val _ = export_theory()

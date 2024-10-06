@@ -31,10 +31,12 @@ Definition is_bst_def:
   (!y. y ∈ tree_to_set t2 ⇒ lt x y))
 End
 
-val empty_def = mlDefine `
-empty = Empty`;
+Definition empty_def:
+empty = Empty
+End
+val r = translate empty_def;
 
-val member_def = mlDefine `
+Definition member_def:
 (member lt x Empty = F) ∧
 (member lt x (Tree a y b) =
   if lt x y then
@@ -42,9 +44,11 @@ val member_def = mlDefine `
   else if lt y x then
     member lt x b
   else
-    T)`;
+    T)
+End
+val r = translate member_def;
 
-val insert_def = mlDefine `
+Definition insert_def:
 (insert lt x Empty = Tree Empty x Empty) ∧
 (insert lt x (Tree a y b) =
   if lt x y then
@@ -52,7 +56,9 @@ val insert_def = mlDefine `
   else if lt y x then
     Tree a y (insert lt x b)
   else
-    Tree a y b)`;
+    Tree a y b)
+End
+val r = translate insert_def;
 
 
 (* Correctness proof *)

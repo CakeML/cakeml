@@ -403,8 +403,10 @@ End
 
 val _ = Parse.add_infix("===",460,Parse.RIGHT)
 
-val equation_def = xDefine "equation"`
-  (s === t) = Comb (Comb (Equal(typeof s)) s) t`
+Definition equation_def:
+  (s === t) = Comb (Comb (Equal(typeof s)) s) t
+End
+
 
 (* Signature of a theory: indicates the defined type operators, with arities,
    and defined constants, with types. *)
