@@ -237,6 +237,14 @@ val _ = cv_trans (compile_0_x64_def
 val _ = cv_trans backend_x64Theory.to_word_0_x64_def;
 val _ = cv_auto_trans backend_x64Theory.to_livesets_0_x64_def;
 
+val _ = cv_auto_trans (backend_x64Theory.to_word_all_x64_def
+                         |> SRULE [data_to_wordTheory.stubs_def,to_map_compile_part,
+                                   backend_64_cvTheory.inline]);
+val _ = cv_trans backend_x64Theory.to_stack_all_x64_def;
+val _ = cv_trans (backend_x64Theory.to_lab_all_x64_def
+                    |> SRULE [data_to_wordTheory.max_heap_limit_def,
+                              backend_64_cvTheory.inline]);
+
 (* export *)
 
 Definition export_funcs_alt_def:
@@ -263,10 +271,11 @@ val _ = cv_auto_trans
                             to_words_line_byte,
                             split16_eq_chunks16]);
 
-(* main two translations below *)
+(* main translations below *)
 
 val _ = cv_trans backend_x64Theory.to_livesets_x64_def;
 val _ = cv_trans backend_x64Theory.compile_cake_x64_def;
+val _ = cv_auto_trans backend_x64Theory.compile_cake_explore_x64_def;
 
 (* lemma used by automation *)
 

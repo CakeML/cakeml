@@ -301,6 +301,8 @@ QED
 
 val _ = word_instTheory.op_consts_def |> arch_spec |> cv_trans;
 
+val _ = word_instTheory.reduce_const_def |> arch_spec |> cv_auto_trans;
+
 val pre = word_instTheory.optimize_consts_def |> arch_spec |> cv_auto_trans_pre;
 Theorem optimize_consts_pre:
   ∀op ls. op ≠ Sub ⇒ word_inst_optimize_consts_pre op ls
