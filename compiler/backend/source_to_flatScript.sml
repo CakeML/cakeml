@@ -450,6 +450,8 @@ val _ = Datatype`
             ; mod_env : environment
             ; pattern_cfg : flat_pattern$config
             ; envs : environment_store
+            ; do_elim : bool
+            ; init_vidx : num
             |>`;
 
 Definition empty_config_def:
@@ -457,13 +459,17 @@ Definition empty_config_def:
     <| next := <| vidx := 0; tidx := 0; eidx := 0 |>;
         mod_env := empty_env;
         pattern_cfg := flat_pattern$init_config 0;
-        envs := <| next := 0; env_gens := LN |>
+        envs := <| next := 0; env_gens := LN |>;
+        do_elim := T;
+        init_vidx := 0
     |>
 End
 
 Definition compile_flat_def:
-  compile_flat pcfg = MAP (flat_pattern$compile_dec pcfg)
-    o flat_elim$remove_flat_prog
+  compile_flat b pcfg prog =
+    MAP (flat_pattern$compile_dec pcfg)
+    (if b then flat_elim$remove_flat_prog prog
+    else prog)
 End
 
 Definition glob_alloc_def:
@@ -480,11 +486,19 @@ Definition alloc_env_ref_def:
     [App None Opref [Con None NONE []]])
 End
 
+Definition init_next_vidx_def:
+  init_next_vidx next init_vidx =
+  if next.vidx < init_vidx
+  then next with vidx := init_vidx
+  else next
+End
+
 Definition compile_prog_def:
   compile_prog c p =
     let next = c.next with <| vidx := c.next.vidx + 1 |> in
     let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
     let (_,next,e,gen,p') = compile_decs [] 1n next c.mod_env envs p in
+    let next = init_next_vidx next c.init_vidx in
     let envs2 = <| next := c.envs.next + 1;
         env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
     (c with <| next := next; envs := envs2; mod_env := e |>,
@@ -521,7 +535,7 @@ End
 Definition compile_def:
   compile c p =
     let (c', p') = compile_prog c p in
-    let p' = compile_flat c'.pattern_cfg p' in
+    let p' = compile_flat c.do_elim c'.pattern_cfg p' in
     (c', p')
 End
 
@@ -529,7 +543,7 @@ End
 Definition inc_compile_def:
   inc_compile env_id c p =
     let (c', p') = inc_compile_prog env_id c p in
-    let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
+    let p' = compile_flat F c'.pattern_cfg p' in
     (c', p')
 End
 

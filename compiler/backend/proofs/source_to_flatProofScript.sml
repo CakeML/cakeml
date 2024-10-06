@@ -5175,12 +5175,12 @@ Proof
   >- (
     fs [idx_range_rel_def]
     \\ drule_then assume_tac precondition_stamp_helper
-    \\ qexists_tac `next`
+    \\ qexists_tac `init_next_vidx next cfg.init_vidx`
     \\ simp [idx_prev_refl]
     \\ conj_tac >- (
       every_case_tac \\ fs []
     )
-    \\ Cases_on `next.vidx` \\ fs [idx_prev_def]
+    \\ Cases_on `next.vidx` \\ fs [idx_prev_def,init_next_vidx_def] \\ rw[]
     \\ simp [init_genv_def]
     \\ fs [ALL_DISJOINT_CONS, idx_block_def, idx_final_block_def,
         genv_allocated_idxs_def]
@@ -5198,7 +5198,8 @@ Proof
     simp [fin_idx_match_def]
     \\ every_case_tac \\ fs []
     \\ imp_res_tac compile_decs_idx_prev
-    \\ fs [idx_prev_def]
+    \\ fs [idx_prev_def,init_next_vidx_def]
+    \\ rw[]
   )
 QED
 
@@ -5228,7 +5229,9 @@ Proof
   \\ imp_res_tac compile_decs_idx_prev
   \\ fs [idx_prev_def, precondition1_def]
   \\ imp_res_tac init_global_env_inv_imp
-  \\ Cases_on `next.vidx` \\ fs []
+  \\ `next.vidx ≤ (init_next_vidx next cfg.init_vidx).vidx` by
+    rw[init_next_vidx_def]
+  \\ Cases_on `(init_next_vidx next cfg.init_vidx).vidx` \\ fs []
   \\ simp [LUPDATE_def]
   \\ rw []
   \\ drule_then drule (List.last (CONJUNCTS compile_correct))
@@ -5250,6 +5253,9 @@ Proof
       \\ simp [compile_prog_def]
       \\ imp_res_tac compile_decs_generation
       \\ fs []
+    )
+    >- (
+      rw[init_next_vidx_def,idx_prev_def]
     )
   )
   \\ rw []
@@ -5378,7 +5384,7 @@ Theorem compile_flat_correct:
    semantics ec1 ffi prog <> Fail
    ==>
    semantics ec1 ffi prog =
-   semantics ec2 ffi (compile_flat cfg prog)
+   semantics ec2 ffi (compile_flat b cfg prog)
 Proof
   rw [compile_flat_def]
   \\ metis_tac [flat_patternProofTheory.compile_decs_semantics,
@@ -5513,7 +5519,7 @@ Proof
 QED
 
 Theorem compile_flat_esgc_free:
-   compile_flat cfg ds = ds' /\
+   compile_flat b cfg ds = ds' /\
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
    ==>
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds'))
@@ -5544,7 +5550,7 @@ QED
 Theorem inc_compile_esgc_free:
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (SND (inc_compile env_id c p))))
 Proof
-  rw [inc_compile_def]
+  rw [inc_compile_def,compile_flat_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ irule flat_patternProofTheory.compile_decs_esgc_free
   \\ metis_tac [inc_compile_prog_esgc_free, SND]
@@ -5653,7 +5659,7 @@ Proof
 QED
 
 Theorem compile_flat_sub_bag:
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet (compile_flat cfg p))) <=
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet (compile_flat b cfg p))) <=
   elist_globals (MAP dest_Dlet (FILTER is_Dlet p))
 Proof
   fs [source_to_flatTheory.compile_flat_def]
@@ -5689,7 +5695,7 @@ Theorem inc_compile_globals_BAG_ALL_DISTINCT:
     (SND (inc_compile env_id c prog)))))
 Proof
   rw []
-  \\ fs [inc_compile_def, inc_compile_prog_def]
+  \\ fs [inc_compile_def, inc_compile_prog_def, compile_flat_def]
   \\ rpt (pairarg_tac \\ full_simp_tac bool_ss [UNCURRY_DEF])
   \\ simp[]
   \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
@@ -5749,6 +5755,7 @@ Proof
   \\ fs [Q.ISPEC `FST (FST _)` (Q.SPEC `x` EQ_SYM_EQ)]
   \\ rw [] \\ fs []
   \\ fs [IN_LIST_TO_BAG, MEM_MAP, MEM_COUNT_LIST]
+  \\ rw[init_next_vidx_def]
 QED
 
 val _ = export_theory ();
