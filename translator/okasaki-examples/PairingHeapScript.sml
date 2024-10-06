@@ -39,40 +39,54 @@ rw [fetch "-" "heap_size_def"] >>
 fs [] >>
 decide_tac);
 
-val empty_def = mlDefine `
-empty = Empty`;
+Definition empty_def:
+empty = Empty
+End
+val r = translate empty_def;
 
-val is_empty_def = mlDefine `
+Definition is_empty_def:
 (is_empty Empty = T) ∧
-(is_empty _ = F)`;
+(is_empty _ = F)
+End
+val r = translate is_empty_def;
 
-val merge_def = mlDefine `
+Definition merge_def:
 (merge get_key leq h Empty = h) ∧
 (merge get_key leq Empty h = h) ∧
 (merge get_key leq (Tree x hs1) (Tree y hs2) =
   if leq (get_key x) (get_key y) then
     Tree x (Tree y hs2 :: hs1)
   else
-    Tree y (Tree x hs1 :: hs2))`;
+    Tree y (Tree x hs1 :: hs2))
+End
+val r = translate merge_def;
 
 val merge_ind = fetch "-" "merge_ind"
 
-val insert_def = mlDefine `
-insert get_key leq x h = merge get_key leq (Tree x []) h`;
+Definition insert_def:
+insert get_key leq x h = merge get_key leq (Tree x []) h
+End
+val r = translate insert_def;
 
-val merge_pairs_def = mlDefine `
+Definition merge_pairs_def:
 (merge_pairs get_key leq [] = Empty) ∧
 (merge_pairs get_key leq [h] = h) ∧
 (merge_pairs get_key leq (h1::h2::hs) =
-  merge get_key leq (merge get_key leq h1 h2) (merge_pairs get_key leq hs))`;
+  merge get_key leq (merge get_key leq h1 h2) (merge_pairs get_key leq hs))
+End
+val r = translate merge_pairs_def;
 
 val merge_pairs_ind = fetch "-" "merge_pairs_ind"
 
-val find_min_def = mlDefine `
-find_min (Tree x _) = x`;
+Definition find_min_def:
+find_min (Tree x _) = x
+End
+val r = translate find_min_def;
 
-val delete_min_def = mlDefine `
-delete_min get_key leq (Tree x hs) = merge_pairs get_key leq hs`;
+Definition delete_min_def:
+delete_min get_key leq (Tree x hs) = merge_pairs get_key leq hs
+End
+val r = translate delete_min_def;
 
 
 (* Functional correctness proof *)

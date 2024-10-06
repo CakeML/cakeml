@@ -128,10 +128,9 @@ val _ = translate pattern_compTheory.comp_def
 val res = translate flat_patternTheory.enc_num_to_name_def;
 
 val enc_side = Q.prove(
-  `!n s. flat_pattern_enc_num_to_name_side n s = T`,
-  gen_tac
-  \\ measureInduct_on `I n`
-  \\ simp [fetch "-" "flat_pattern_enc_num_to_name_side_def"]
+  ‘!n s. flat_pattern_enc_num_to_name_side n s = T’,
+  completeInduct_on ‘n’ >>
+  simp[Once $ fetch "-" "flat_pattern_enc_num_to_name_side_def"]
   ) |> update_precondition;
 
 val res = translate flat_patternTheory.dec_name_to_num_def;

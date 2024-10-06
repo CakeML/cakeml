@@ -265,13 +265,16 @@ End
 
 val _ = Parse.add_infix("<:",425,Parse.NONASSOC)
 
-val inset_def = xDefine"inset"
-  `x <: s ⇔ level s = Powerset(level x) ∧ element x ∈ set s`
+Definition inset_def:
+  x <: s ⇔ level s = Powerset(level x) ∧ element x ∈ set s
+End
 
 val _ = Parse.add_infix("<=:",450,Parse.NONASSOC)
 
-val subset_def = xDefine"subset"`
-  s <=: t ⇔ level s = level t ∧ ∀x. x <: s ⇒ x <: t`
+Definition subset_def:
+  s <=: t ⇔ level s = level t ∧ ∀x. x <: s ⇒ x <: t
+End
+
 
 Theorem MEMBERS_ISASET:
    ∀x s. x <: s ⇒ isaset s
