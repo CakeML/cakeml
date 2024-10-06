@@ -2967,7 +2967,7 @@ Proof
 QED
 
 Theorem keep_glob_alloc:
-  flat_elim$keep calc (glob_alloc next)
+  flat_elim$keep calc (glob_alloc next st)
 Proof
   simp [glob_alloc_def, flat_elimTheory.keep_def, flat_elimTheory.is_pure_def]
 QED
@@ -3651,14 +3651,13 @@ val compile_correct_setup = setup (`
     r ≠ Rerr (Rabort Rtype_error) ∧
     env_gen_rel gen s.eval_state ∧
     env_gen_future_rel interp gen' s.eval_state ∧
-    idx_prev idx end_idx
+    idx_prev idx' end_idx
     ⇒
-    ? ^s1_i1 genv' r_i1 end_idx'.
+    ? ^s1_i1 genv' r_i1.
     flatSem$evaluate_decs s_i1 ds_i1 = (s1_i1,r_i1) ∧
     s_rel genv' s' s1_i1 ∧
-    idx_prev idx' end_idx' ∧
     (~ abort r ⇒
-      invariant interp g gen' genv' (idx', end_idx', os) s' s1_i1 ∧
+      invariant interp g gen' genv' (idx', end_idx, os) s' s1_i1 ∧
       orac_forward_rel interp s.eval_state s'.eval_state ∧
       genv.c ⊑ genv'.c ∧
       genv.tys ⊑ genv'.tys ∧
@@ -3987,8 +3986,6 @@ QED
 Triviality compile_correct_App:
   ^(#get_goal compile_correct_setup `Case [App _ _]`)
 Proof
-  cheat
-QED
   rpt disch_tac
   \\ fs [pair_case_eq] \\ fs []
   \\ first_x_assum (drule_then (drule_then drule))
