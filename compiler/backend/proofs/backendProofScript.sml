@@ -2669,7 +2669,7 @@ Proof
   \\ rveq \\ fs []
   \\ imp_res_tac source_compile_pattern_cfg
   \\ rfs []
-  \\ fs [source_to_flatTheory.inc_compile_def]
+  \\ fs [source_to_flatTheory.inc_compile_def,source_to_flatTheory.compile_flat_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ CASE_TAC

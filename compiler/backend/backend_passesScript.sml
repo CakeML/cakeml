@@ -29,7 +29,7 @@ Definition to_flat_all_def:
     let ps = ps ++ [(strlit "after source_let",Source p)] in
     let (c',p) = source_to_flat$compile_prog c.source_conf p in
     let ps = ps ++ [(strlit "after source_to_flat",Flat p)] in
-    let p = flat_elim$remove_flat_prog p in
+    let p = if c.source_conf.do_elim then flat_elim$remove_flat_prog p else p in
     let ps = ps ++ [(strlit "after remove_flat",Flat p)] in
     let p = MAP (flat_pattern$compile_dec c'.pattern_cfg) p in
     let ps = ps ++ [(strlit "after flat_pattern",Flat p)] in
