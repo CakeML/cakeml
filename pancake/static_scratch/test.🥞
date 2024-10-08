@@ -467,6 +467,84 @@
 
 //     return 1;
 // }
+// fun t () {
+//     var x = @base;
+    
+//     {
+//         var x = 1;
+        
+//         var y = lds 1 x;
+//         y = ld8 x;
+//         st x, y;
+//         st8 x, y;
+//         !ldw y, x;
+//         !stw x, y;
+//     };
+    
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun u () {
+//     var x = @base;
+    
+//     while (1) {
+//         var x = 1;
+        
+//         var y = lds 1 x;
+//         y = ld8 x;
+//         st x, y;
+//         st8 x, y;
+//         !ldw y, x;
+//         !stw x, y;
+//     }
+    
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun v (1 a) {
+//     var x = @base;
+    
+//     if (1) {
+//         var x = 1;
+        
+//         var y = lds 1 x;
+//         y = ld8 x;
+//         st x, y;
+//         st8 x, y;
+//         !ldw y, x;
+//         !stw x, y;
+//     } else {
+//         var x = a;
+        
+//         var y = lds 1 x;
+//         y = ld8 x;
+//         st x, y;
+//         st8 x, y;
+//         !ldw y, x;
+//         !stw x, y;
+//     }
+    
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
 // fun foo () {
 //     return 1;
 // }
