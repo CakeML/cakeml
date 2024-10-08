@@ -45,31 +45,6 @@ val _ = new_theory"ibackend";
   TODO: this is being defined incrementally
   TODO: the _alt parts of this definition will need to be moved into backend/ *)
 
-(* TODO: need to remove builtin call to flat_elim *)
-Definition compile_flat_alt_def:
-  compile_flat_alt pcfg =
-    MAP (flat_pattern$compile_dec pcfg)
-End
-
-(* TODO: we'll need to re-insert the global allocations here *)
-Definition source_to_flat_compile_prog_alt_def:
-  source_to_flat_compile_prog_alt (c: source_to_flat$config) p =
-  let next = c.next with <| vidx := c.next.vidx + 1 |> in
-  let envs = <| next := 0; generation := c.envs.next; envs := LN |> in
-  let (_, next, e, gen, p') = compile_decs [] 1n next c.mod_env envs p in
-  let envs2 = <| next := c.envs.next + 1;
-                 env_gens := insert c.envs.next gen.envs c.envs.env_gens |> in
-    (c with <| next := next; envs := envs2; mod_env := e |>,
-     alloc_env_ref :: p')
-End
-
-Definition source_to_flat_compile_alt_def:
-  source_to_flat_compile_alt (c: source_to_flat$config) p =
-  let (c', p') = source_to_flat_compile_prog_alt c p in
-  let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
-  (c', p')
-End
-
 (* we always insert the clos_interpreter code, this should be put into config *)
 Definition flat_to_clos_compile_alt_def:
   flat_to_clos_compile_alt p =
@@ -142,10 +117,13 @@ End
 Definition compile_alt1_def:
   compile_alt1 source_conf clos_conf p =
  (* skip source to source for now *)
-  let (source_conf', compiled_p_flat) = source_to_flat_compile_alt source_conf p in
-  let compiled_p_clos = flat_to_clos_compile_alt compiled_p_flat in
-  let (clos_conf', compiled_p_bvl) = clos_to_bvl_compile_alt clos_conf compiled_p_clos in
-    (source_conf', clos_conf', compiled_p_bvl)
+  let (source_conf', compiled_p_flat) =
+    source_to_flat$compile source_conf p in
+  let compiled_p_clos =
+    flat_to_clos_compile_alt compiled_p_flat in
+  let (clos_conf', compiled_p_bvl) =
+    clos_to_bvl_compile_alt clos_conf compiled_p_clos in
+  (source_conf', clos_conf', compiled_p_bvl)
 End
 
 (******************************************************************************)
@@ -199,7 +177,8 @@ Datatype:
      next : next_indices;
      env : environment;
      env_gens : environment_generation_store;
-     pattern_cfg : flat_pattern$config
+     pattern_cfg : flat_pattern$config ;
+     init_vidx : num
      |>
 End
 
@@ -231,12 +210,17 @@ End
 Definition icompile_source_to_flat_def:
   icompile_source_to_flat (source_iconf: source_iconfig) p =
   let n = source_iconf.n in
+  let init_vidx = source_iconf.init_vidx in
   let next = source_iconf.next in
   let env = source_iconf.env in
   let envs = source_iconf.env_gens in
-  let (n', next1, new_env1, env_gens1, p') = compile_decs [] n next env envs p in
-  let source_iconf = source_iconf with <| n := n'; next := next1; env := extend_env new_env1 env; env_gens := env_gens1|> in
-  (source_iconf, MAP (flat_pattern$compile_dec source_iconf.pattern_cfg) p')
+  let (n', next1, new_env1, env_gens1, p') =
+    compile_decs [] n next env envs p in
+  if next.vidx < init_vidx
+  then
+    let source_iconf = source_iconf with <| n := n'; next := next1; env := extend_env new_env1 env; env_gens := env_gens1|> in
+    SOME (source_iconf, MAP (flat_pattern$compile_dec source_iconf.pattern_cfg) p')
+  else NONE
 End
 
 Definition icompile_flat_to_clos_def:
@@ -313,17 +297,28 @@ Definition icompile_bvl_to_bvi_def:
     (bvl_iconf, code)
 End
 
+Definition glob_alloc_fixed_def:
+  glob_alloc_fixed init =
+    Dlet
+      (Let om_tra NONE
+        (App om_tra
+          (GlobalVarAlloc init) [])
+        (flatLang$Con om_tra NONE []))
+End
+
 Definition init_icompile_source_to_flat_def:
   init_icompile_source_to_flat source_conf =
   let next = source_conf.next with <| vidx := source_conf.next.vidx + 1 |> in
   let env_gens = <| next := 0; generation := source_conf.envs.next; envs := LN |> in
-  let source_iconf = <| n := 1n;
-                        next := next;
-                        env := source_conf.mod_env;
-                        env_gens := env_gens;
-                        pattern_cfg := source_conf.pattern_cfg |> in
-  let flat_stub = flat_pattern$compile_dec source_conf.pattern_cfg source_to_flat$alloc_env_ref in
-  (source_iconf, [flat_stub])
+  let source_iconf =
+    <| n := 1n;
+       next := next;
+       env := source_conf.mod_env;
+       env_gens := env_gens;
+       pattern_cfg := source_conf.pattern_cfg;
+       init_vidx := source_conf.init_vidx |> in
+  let flat_stubs = MAP (flat_pattern$compile_dec source_conf.pattern_cfg) [glob_alloc_fixed source_conf.init_vidx; source_to_flat$alloc_env_ref] in
+  (source_iconf, flat_stubs)
 End
 
 Definition end_icompile_source_to_flat_def:
@@ -336,7 +331,9 @@ Definition end_icompile_source_to_flat_def:
                 source_conf.envs.env_gens;
       |> in
     source_conf with
-                <| next := source_iconf.next;
+                <| next :=
+                    (source_iconf.next with
+                      vidx := source_iconf.init_vidx);
                    envs := envs;
                    mod_env := source_iconf.env |>
 End
@@ -403,13 +400,14 @@ End
 
 Definition icompile_def:
   icompile source_iconf clos_iconf clos_stub p =
-  let (source_iconf', icompiled_p_flat) = icompile_source_to_flat source_iconf p in
+  case icompile_source_to_flat source_iconf p of NONE => NONE
+  | SOME (source_iconf', icompiled_p_flat) =>
   let icompiled_p_clos = icompile_flat_to_clos icompiled_p_flat in
   let (clos_iconf', icompiled_p_bvl) = icompile_clos_to_bvl clos_iconf (clos_stub ++ icompiled_p_clos) in
-      (source_iconf', clos_iconf', icompiled_p_bvl)
+      SOME (source_iconf', clos_iconf', icompiled_p_bvl)
 End
 
-
+(* TODO: Broken, maybe consider OPTION_BIND_def *)
 Definition fold_icompile'_def:
   fold_icompile' source_iconf clos_iconf []  = icompile source_iconf clos_iconf [] []
   /\
@@ -419,14 +417,17 @@ Definition fold_icompile'_def:
     (source_iconf'', clos_iconf'', ps' ++ p')
 End
 
+(* TODO: Broken *)
 Definition fold_icompile_def:
-  fold_icompile source_iconf clos_iconf clos_stub []  = icompile source_iconf clos_iconf clos_stub []
+  fold_icompile source_iconf clos_iconf clos_stub [] =
+    icompile source_iconf clos_iconf clos_stub []
   ∧
   fold_icompile source_iconf clos_iconf clos_stub (p :: ps)  =
-  let (source_iconf', clos_iconf' , p') = icompile source_iconf clos_iconf clos_stub p in
-  let (source_iconf'', clos_iconf'', ps') = fold_icompile' source_iconf' clos_iconf' ps in
-    (source_iconf'', clos_iconf'', ps' ++ p')
-
+  case icompile source_iconf clos_iconf clos_stub p of NONE => NONE
+  | SOME (source_iconf', clos_iconf' , p') =>
+    (case fold_icompile' source_iconf' clos_iconf' ps of NONE => NONE
+    | SOME (source_iconf'', clos_iconf'', ps') =>
+      SOME (source_iconf'', clos_iconf'', ps' ++ p'))
 End
 
 
@@ -508,15 +509,12 @@ Proof
   rw[flat_to_closTheory.compile_decs_def]
 QED
 
-
-
 Theorem icompile_flat_to_clos_and_append_commute:
   icompile_flat_to_clos (p1 ++ p2) =
   (icompile_flat_to_clos p1) ++ (icompile_flat_to_clos p2)
 Proof
   rw[icompile_flat_to_clos_def] >> simp[flat_to_clos_compile_decs_and_append_commute]
 QED
-
 
 Theorem source_to_source_compile_append:
   ∀p1 p2.
@@ -529,13 +527,16 @@ Proof
 QED
 
 Theorem icompile_icompile_source_to_flat:
-  icompile_source_to_flat source_iconf p1 = (source_iconf_p1, p1_flat) ∧
-  icompile_source_to_flat source_iconf_p1 p2 = (source_iconf_p2, p2_flat) ⇒
-  icompile_source_to_flat source_iconf (p1 ++ p2) = (source_iconf_p2, p1_flat ++ p2_flat)
+  icompile_source_to_flat source_iconf p1 =
+    SOME (source_iconf_p1, p1_flat) ∧
+  icompile_source_to_flat source_iconf_p1 p2 =
+    SOME (source_iconf_p2, p2_flat) ⇒
+  icompile_source_to_flat source_iconf (p1 ++ p2) =
+    SOME (source_iconf_p2, p1_flat ++ p2_flat)
 Proof
-  rw[icompile_source_to_flat_def] >> rpt (pairarg_tac >> gvs[]) >>
+  rw[icompile_source_to_flat_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
   gvs[source_to_flat_compile_decs_lemma, extend_env_assoc]
-
 QED
 
 Theorem intro_multi_cons:
@@ -1287,7 +1288,7 @@ Proof
   rpt (pairarg_tac >> gvs[]) >>
   drule_all icompile_icompile_source_to_flat >>
   strip_tac >>
-  gvs[] >> 
+  gvs[] >>
   fs[icompile_flat_to_clos_and_append_commute] >>
   drule icompile_icompile_clos_to_bvl >>
   last_x_assum assume_tac >>
