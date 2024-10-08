@@ -300,7 +300,7 @@ Proof
   rw[env_rel_def,MEM_EL,PULL_EXISTS,EQ_IMP_THM,LIST_REL_EL_EQN]
 QED
 
-val v_rel_def = tDefine"v_rel"`
+Definition v_rel_def:
   (v_rel g l code (Number i) v ⇔ v = Number i) ∧
   (v_rel g l code (Word64 w) v ⇔ v = Word64 w) ∧
   (v_rel g l code (Block n vs) v ⇔
@@ -318,13 +318,15 @@ val v_rel_def = tDefine"v_rel"`
        recclosure_rel g l code loc fns1 fns2 ∧
        v = Recclosure (SOME loc) vs2 env2 fns2 i ∧ loco = SOME loc ∧
        LIST_REL (v_rel g l code) vs1 vs2 ∧
-       env_rel (v_rel g l code) env1 env2 (LENGTH fns2) fns2)`
-  (WF_REL_TAC `measure (v_size o FST o SND o SND o SND)` >> simp[v_size_def] >>
-   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[]);
+       env_rel (v_rel g l code) env1 env2 (LENGTH fns2) fns2)
+Termination
+  WF_REL_TAC `measure (v_size o FST o SND o SND o SND)` >> simp[v_size_def] >>
+   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[]
+End
 
 val v_rel_ind = theorem"v_rel_ind";
 
-val wfv_def = tDefine"wfv"`
+Definition wfv_def:
   (wfv g l code (Closure NONE _ _ _ _) ⇔ F) ∧
   (wfv g l code (Recclosure NONE _ _ _ _) ⇔ F) ∧
   (wfv g l code (Closure (SOME loc) vs env n bod) ⇔
@@ -336,9 +338,11 @@ val wfv_def = tDefine"wfv"`
     ∃fns2.
     recclosure_rel g l code loc fns fns2) ∧
   (wfv g l code (Block _ vs) ⇔ EVERY (wfv g l code) vs) ∧
-  (wfv _ _ _ _ ⇔ T)`
-  (WF_REL_TAC `measure (v_size o SND o SND o SND)` >> simp[v_size_def] >>
-   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[]);
+  (wfv _ _ _ _ ⇔ T)
+Termination
+  WF_REL_TAC `measure (v_size o SND o SND o SND)` >> simp[v_size_def] >>
+   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[]
+End
 val _ = export_rewrites["wfv_def"];
 
 val wfv_ind = theorem"wfv_ind";

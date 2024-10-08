@@ -9,7 +9,7 @@ val _ = set_grammar_ancestry ["closLang"]
 
 (* add fresh code locations *)
 
-val renumber_code_locs_def = tDefine "renumber_code_locs" `
+Definition renumber_code_locs_def:
   (renumber_code_locs_list n [] = (n,[])) /\
   (renumber_code_locs_list n (x::xs) =
      let (n,x) = renumber_code_locs n x in
@@ -51,15 +51,17 @@ val renumber_code_locs_def = tDefine "renumber_code_locs" `
        (n,Handle t x1 x2)) /\
   (renumber_code_locs n (Call t ticks dest xs) =
      let (n,xs) = renumber_code_locs_list n xs in
-       (n,Op t Add xs)) (* this case cannot occur *)`
- (WF_REL_TAC `inv_image $< (λx. case x of INL p => exp3_size (SND p) | INR p => exp_size (SND p))` >>
+       (n,Op t Add xs)) (* this case cannot occur *)
+Termination
+  WF_REL_TAC `inv_image $< (λx. case x of INL p => exp3_size (SND p) | INR p => exp_size (SND p))` >>
  rw [] >>
  TRY decide_tac >>
  Induct_on `fns` >>
  srw_tac [ARITH_ss] [exp_size_def] >>
  Cases_on `h` >>
  rw [exp_size_def] >>
- decide_tac);
+ decide_tac
+End
 
 val renumber_code_locs_ind = theorem"renumber_code_locs_ind";
 

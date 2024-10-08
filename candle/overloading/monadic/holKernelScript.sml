@@ -247,15 +247,17 @@ End
         | (Tyvar v as tv) -> [tv]
 *)
 
-val _ = tDefine "tyvars" `
+Definition tyvars_def:
   tyvars x =
     dtcase x of (Tyapp _ args) => itlist union (MAP tyvars args) []
-            | (Tyvar tv) => [tv]`
- (WF_REL_TAC `measure (type_size)` THEN Induct_on `args`
+            | (Tyvar tv) => [tv]
+Termination
+  WF_REL_TAC `measure (type_size)` THEN Induct_on `args`
   THEN FULL_SIMP_TAC (srw_ss()) [type_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
   THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
-  THEN DECIDE_TAC);
+  THEN DECIDE_TAC
+End
 
 (*
   let rec type_subst i ty =
@@ -274,18 +276,20 @@ Definition rev_assocd_def:
     | ((x,y)::l) => if y = a then x else rev_assocd a l d
 End
 
-val _ = tDefine "type_subst" `
+Definition type_subst_def:
   type_subst i ty =
     dtcase ty of
       Tyapp tycon args =>
          let args' = MAP (type_subst i) args in
          if args' = args then ty else Tyapp tycon args'
-    | _ => rev_assocd ty i ty`
- (WF_REL_TAC `measure (type_size o SND)` THEN Induct_on `args`
+    | _ => rev_assocd ty i ty
+Termination
+  WF_REL_TAC `measure (type_size o SND)` THEN Induct_on `args`
   THEN FULL_SIMP_TAC (srw_ss()) [type_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
   THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
-  THEN DECIDE_TAC);
+  THEN DECIDE_TAC
+End
 
 (*
   let bool_ty = mk_type("bool",[]);;
@@ -716,7 +720,7 @@ val ZERO_LT_term_size = Q.prove(
   `!t. 0 < my_term_size t`,
   Cases THEN EVAL_TAC THEN DECIDE_TAC);
 
-val inst_aux_def = tDefine "inst_aux" `
+Definition inst_aux_def:
   (inst_aux (env:(term # term) list) tyin tm) =
     dtcase tm of
       Var n ty   => let ty' = type_subst tyin ty in
@@ -745,12 +749,14 @@ val inst_aux_def = tDefine "inst_aux" `
                             t' <- inst_aux ((Var v1 ty,Var v1 ty')::env) tyin
                                     (vsubst_aux [(Var v1 ty,y)] t) ;
                             return (Abs y' t') od)
-                    od`
-  (WF_REL_TAC `measure (\(env,tyin,tm). my_term_size tm)`
+                    od
+Termination
+  WF_REL_TAC `measure (\(env,tyin,tm). my_term_size tm)`
    THEN SIMP_TAC (srw_ss()) [my_term_size_def]
    THEN REPEAT STRIP_TAC
    THEN FULL_SIMP_TAC std_ss [my_term_size_vsubst_aux]
-   THEN DECIDE_TAC)
+   THEN DECIDE_TAC
+End
 
 Definition inst_def:
   inst tyin tm = if tyin = [] then return tm else inst_aux [] tyin tm

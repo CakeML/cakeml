@@ -589,11 +589,12 @@ Proof
   >> tac
 QED
 
-val pmov_def = tDefine"pmov"`
+Definition pmov_def:
   pmov s = case s of
     | ([],[],_) => s
-    | _ => pmov (fstep s)`
-  (WF_REL_TAC`measure (λ(μ,σ,τ). 2 * LENGTH μ + LENGTH σ)` >>
+    | _ => pmov (fstep s)
+Termination
+  WF_REL_TAC`measure (λ(μ,σ,τ). 2 * LENGTH μ + LENGTH σ)` >>
    rw[fstep_def] >- (
      fs[NULL_LENGTH,LENGTH_NIL,splitAtPki_def] >>
      simp[UNCURRY] >> rw[] >>
@@ -619,7 +620,8 @@ val pmov_def = tDefine"pmov"`
      rw[] >> simp[LENGTH_TAKE,ADD1] >>
      rfs[DROP_CONS_EL] >> rw[] >>
      simp[ADD1] >>
-     metis_tac[]))
+     metis_tac[])
+End
 
 val pmov_ind = theorem"pmov_ind";
 

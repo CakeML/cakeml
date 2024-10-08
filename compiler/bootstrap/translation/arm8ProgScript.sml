@@ -234,18 +234,20 @@ val arm8_simp6 = arm8_enc6 |> SIMP_RULE (srw_ss() ++ LET_ss)
 val arm8_enc_thm = reconstruct_case ``arm8_enc i`` rand
 [arm8_simp1,arm8_simp2,arm8_simp3,arm8_simp4,arm8_simp5,arm8_simp6]
 
-val ct_curr_def = tDefine "ct_curr" `
+Definition ct_curr_def:
   ct_curr b (w:word64) =
      if
        ((1w && w) ≠ 0w ⇔ b) ∨
        if b then w = 0w else w = 0xFFFFFFFFFFFFFFFFw
      then
        0n
-     else 1 + ct_curr b (w ⋙ 1)`
-  (WF_REL_TAC`measure (w2n o SND)`
+     else 1 + ct_curr b (w ⋙ 1)
+Termination
+  WF_REL_TAC`measure (w2n o SND)`
   THEN SRW_TAC [] [wordsTheory.LSR_LESS]
   THEN Cases_on `w = 0w`
-  THEN FULL_SIMP_TAC (srw_ss()) [wordsTheory.word_0, wordsTheory.LSR_LESS]);
+  THEN FULL_SIMP_TAC (srw_ss()) [wordsTheory.word_0, wordsTheory.LSR_LESS]
+End
 
 val CountTrailing_eq = Q.prove(`
   ∀b w. CountTrailing (b,w) = ct_curr b w`,

@@ -179,12 +179,14 @@ QED
 (* Auxiliary functions to deal with null termination.                        *)
 (*---------------------------------------------------------------------------*)
 
-val null_index_def = tDefine "null_index"
-  `null_index s n =
-    if n >= strlen s then NONE
-    else if strsub s n = CHR 0 then SOME n
-    else null_index s (SUC n)`
-  (wf_rel_tac `inv_image (measure (λ(a,b). SUC a - b)) (strlen ## I)`);
+Definition null_index_def:
+  null_index s n =
+   if n >= strlen s then NONE
+   else if strsub s n = CHR 0 then SOME n
+   else null_index s (SUC n)
+Termination
+  wf_rel_tac `inv_image (measure (λ(a,b). SUC a - b)) (strlen ## I)`
+End
 
 val null_index_ind = fetch "-" "null_index_ind";
 
@@ -291,12 +293,14 @@ val cut_at_null_side_lem = Q.prove(`!s. cut_at_null_side s <=> T`,
   >> imp_res_tac null_index_le_len >> fs[])
  |> update_precondition;
 
-val null_index_w_def = tDefine "null_index_w"
-  `null_index_w s n =
-    if n >= LENGTH s then NONE
-    else if EL n s = 0w then SOME n
-    else null_index_w s (SUC n)`
-  (wf_rel_tac `inv_image (measure (λ(a,b). SUC a - b)) (LENGTH ## I)`);
+Definition null_index_w_def:
+  null_index_w s n =
+   if n >= LENGTH s then NONE
+   else if EL n s = 0w then SOME n
+   else null_index_w s (SUC n)
+Termination
+  wf_rel_tac `inv_image (measure (λ(a,b). SUC a - b)) (LENGTH ## I)`
+End
 
 val null_index_w_ind = fetch "-" "null_index_w_ind";
 

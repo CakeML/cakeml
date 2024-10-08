@@ -174,7 +174,7 @@ Definition num_from_hex_string_alt_def:
   num_from_hex_string_alt = s2n 16 unhex_alt
 End
 
-val next_sym_alt_def = tDefine "next_sym_alt" `
+Definition next_sym_alt_def:
   (next_sym_alt "" _ = NONE) /\
   (next_sym_alt (c::str) loc =
      if c = #"\n" then (* skip new line *)
@@ -270,12 +270,14 @@ val next_sym_alt_def = tDefine "next_sym_alt" `
                          rest)
      else if c = #"_" then SOME (OtherS "_", Locs loc loc, str)
      else (* input not recognised *)
-       SOME (ErrorS, Locs loc loc, str))`
- ( WF_REL_TAC `measure (LENGTH o FST) ` THEN REPEAT STRIP_TAC
+       SOME (ErrorS, Locs loc loc, str))
+Termination
+   WF_REL_TAC `measure (LENGTH o FST) ` THEN REPEAT STRIP_TAC
    THEN IMP_RES_TAC (GSYM read_while_thm)
    THEN IMP_RES_TAC (GSYM read_string_thm)
    THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
-   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC);
+   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC
+End
 
 val EVERY_isDigit_imp = Q.prove(`
   EVERY isDigit x ⇒
@@ -503,14 +505,16 @@ QED
 
 (* lex_impl_all *)
 
-val lex_impl_all_def = tDefine "lex_impl_all" `
+Definition lex_impl_all_def:
   lex_impl_all input l =
     case lex_until_toplevel_semicolon input l of
       | NONE => []
-      | SOME (t, loc, input') => t ::lex_impl_all input' loc`
-  (WF_REL_TAC `measure (LENGTH o FST)` >>
+      | SOME (t, loc, input') => t ::lex_impl_all input' loc
+Termination
+  WF_REL_TAC `measure (LENGTH o FST)` >>
    rw [] >>
-   metis_tac [lex_until_toplevel_semicolon_LESS]);
+   metis_tac [lex_until_toplevel_semicolon_LESS]
+End
 
 Definition lex_aux_tokens_def:
   lex_aux_tokens acc (d:num) input =
@@ -555,14 +559,16 @@ val lex_aux_tokens_LESS = Q.prove(
   >> FULL_SIMP_TAC (srw_ss()) [] >> RES_TAC
   >> Cases_on `q` >> Cases_on `d` >> fs[] >> res_tac >> fs[]);
 
-val lex_impl_all_tokens_def = tDefine "lex_impl_all_tokens" `
+Definition lex_impl_all_tokens_def:
   lex_impl_all_tokens input =
      case lex_until_toplevel_semicolon_tokens input of
        NONE => []
-     | SOME (t,input) => t::lex_impl_all_tokens input`
-  (WF_REL_TAC `measure LENGTH`
+     | SOME (t,input) => t::lex_impl_all_tokens input
+Termination
+  WF_REL_TAC `measure LENGTH`
    >> SIMP_TAC std_ss [lex_until_toplevel_semicolon_tokens_def]
-   >> METIS_TAC [lex_aux_tokens_LESS])
+   >> METIS_TAC [lex_aux_tokens_LESS]
+End
 
 val lex_aux_tokens_thm = Q.prove(
   `!input l acc d res1 res2.

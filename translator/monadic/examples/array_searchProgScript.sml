@@ -58,7 +58,7 @@ Definition linear_search_def:
 End
 
 
-val binary_search_aux_def = tDefine "binary_search_aux" `
+Definition binary_search_aux_def:
   binary_search_aux value start finish =
     do
       len <- arr_length;
@@ -73,15 +73,16 @@ val binary_search_aux_def = tDefine "binary_search_aux" `
                 binary_search_aux value (mid + 1n) finish
             od
   od
-`
-  (
+Termination
+
     WF_REL_TAC `measure (λ (_, start, finish) . finish - start)` >>
     rw[] >>
     fs[NOT_GREATER_EQ, NOT_GREATER, ADD1] >>
     `start <= (finish + start) DIV 2` by fs[X_LE_DIV]
     >- DECIDE_TAC
     >- fs[DIV_LT_X]
-  );
+
+End
 
 Definition binary_search_def:
   binary_search value =

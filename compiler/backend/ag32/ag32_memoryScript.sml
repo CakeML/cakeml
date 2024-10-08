@@ -449,7 +449,7 @@ Definition ag32_ffi_copy_code_def:
      JumpIfZero (fSnd, Imm (4w * -6w), Imm 0w, Imm 0w)]
 End
 
-val ag32_ffi_copy_def = tDefine"ag32_ffi_copy"`
+Definition ag32_ffi_copy_def:
   ag32_ffi_copy s0 =
   let s = dfn'JumpIfZero (fSnd, Reg 2w, Imm 0w, Reg 1w) s0 in
   if (s0.R 1w = 0w) then s else
@@ -459,8 +459,9 @@ val ag32_ffi_copy_def = tDefine"ag32_ffi_copy"`
   let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
   let s0 = dfn'Normal (fDec, 1w, Reg 1w, Imm 1w) s in
   let s = dfn'JumpIfZero (fSnd, Imm (4w * -6w), Imm 0w, Imm 0w) s0 in
-  ag32_ffi_copy s`
-  (wf_rel_tac`measure (λs. w2n (s.R 1w))`
+  ag32_ffi_copy s
+Termination
+  wf_rel_tac`measure (λs. w2n (s.R 1w))`
    \\ rw[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ALU_def,
          ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
          ag32Theory.dfn'LoadConstant_def,
@@ -468,7 +469,8 @@ val ag32_ffi_copy_def = tDefine"ag32_ffi_copy"`
          ag32Theory.ri2word_def, ag32Theory.incPC_def, APPLY_UPDATE_THM]
    \\ Cases_on`s0.R 1w` \\ fs[]
    \\ Cases_on`n` \\ fs[]
-   \\ simp[ADD1, GSYM word_add_n2w]);
+   \\ simp[ADD1, GSYM word_add_n2w]
+End
 
 Theorem ag32_ffi_copy_thm:
    ∀s written.
@@ -837,15 +839,16 @@ Proof
   \\ simp[GSYM word_mul_n2w]
 QED
 
-val ag32_ffi_get_arg_length_loop1_def = tDefine"ag32_ffi_get_arg_length_loop1"`
+Definition ag32_ffi_get_arg_length_loop1_def:
   ag32_ffi_get_arg_length_loop1 s =
     if (∀n. s.MEM (s.R 5w + n2w n) ≠ 0w) then s else
     let s = dfn'LoadMEMByte (8w, Reg 5w) s in
     let s = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
     let s0 = dfn'Normal (fInc, 4w, Reg 4w, Imm 1w) s in
     let s = dfn'JumpIfNotZero (fSnd, Imm (4w * -3w), Imm 0w, Reg 8w) s0 in
-    if (s0.R 8w = 0w) then s else ag32_ffi_get_arg_length_loop1 s`
-  (wf_rel_tac`measure (λs. LEAST n. (s.MEM (s.R 5w + n2w n) = 0w))`
+    if (s0.R 8w = 0w) then s else ag32_ffi_get_arg_length_loop1 s
+Termination
+  wf_rel_tac`measure (λs. LEAST n. (s.MEM (s.R 5w + n2w n) = 0w))`
    \\ rw[ag32Theory.dfn'LoadMEMByte_def,
          ag32Theory.incPC_def,
          ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ALU_def, ag32Theory.ri2word_def,
@@ -862,7 +865,8 @@ val ag32_ffi_get_arg_length_loop1_def = tDefine"ag32_ffi_get_arg_length_loop1"`
    \\ Cases_on`n'''` \\ fs[ADD1]
    \\ Cases_on`n` \\ fs[ADD1]
    \\ `¬(n'''' < n''' + 1)` by metis_tac[ADD_ASSOC,ADD_COMM]
-   \\ fs[NOT_LESS]);
+   \\ fs[NOT_LESS]
+End
 
 Theorem ag32_ffi_get_arg_length_loop1_thm:
    ag32_ffi_get_arg_length_loop1 s =
@@ -926,7 +930,7 @@ Proof
   \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM, ADD1, GSYM word_add_n2w]
 QED
 
-val ag32_ffi_get_arg_length_loop_def = tDefine"ag32_ffi_get_arg_length_loop"`
+Definition ag32_ffi_get_arg_length_loop_def:
   ag32_ffi_get_arg_length_loop s0 =
   let s = dfn'JumpIfZero (fSnd, Reg 7w, Imm 0w, Reg 6w) s0 in
   if (s0.R 6w = 0w) then s else
@@ -934,8 +938,9 @@ val ag32_ffi_get_arg_length_loop_def = tDefine"ag32_ffi_get_arg_length_loop"`
   let s = ag32_ffi_get_arg_length_loop1 s in
   let s = dfn'Normal (fDec, 6w, Reg 6w, Imm 1w) s in
   let s = dfn'JumpIfZero (fSnd, Imm (4w * -7w), Imm 0w, Imm 0w) s in
-  ag32_ffi_get_arg_length_loop s`
-  (wf_rel_tac`measure (λs. w2n (s.R 6w))`
+  ag32_ffi_get_arg_length_loop s
+Termination
+  wf_rel_tac`measure (λs. w2n (s.R 6w))`
    \\ rw[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ALU_def,
          ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
          ag32Theory.dfn'LoadConstant_def,
@@ -944,13 +949,15 @@ val ag32_ffi_get_arg_length_loop_def = tDefine"ag32_ffi_get_arg_length_loop"`
          ag32_ffi_get_arg_length_loop1_thm]
    \\ CASE_TAC \\ simp[APPLY_UPDATE_THM]
    \\ Cases_on`s0.R 6w` \\ fs[]
-   \\ Cases_on`n` \\ fs[ADD1, GSYM word_add_n2w]);
+   \\ Cases_on`n` \\ fs[ADD1, GSYM word_add_n2w]
+End
 
-val get_next_mem_arg_def = tDefine"get_next_mem_arg"`
+Definition get_next_mem_arg_def:
   get_next_mem_arg (m:word32->word8) a acc =
     if m a = 0w ∨ ∀n. m (a + n2w n) ≠ 0w then (a, REVERSE acc)
-    else get_next_mem_arg m (a + 1w) (m a :: acc)`
-  (wf_rel_tac`measure(λ(m,a,acc). LEAST n. m (a + n2w n) = 0w)`
+    else get_next_mem_arg m (a + 1w) (m a :: acc)
+Termination
+  wf_rel_tac`measure(λ(m,a,acc). LEAST n. m (a + n2w n) = 0w)`
    \\ rw[]
    \\ numLib.LEAST_ELIM_TAC
    \\ Cases_on`n` \\ fs[ADD1]
@@ -966,7 +973,8 @@ val get_next_mem_arg_def = tDefine"get_next_mem_arg"`
    \\ `¬(n' < n)` by metis_tac[word_add_n2w, WORD_ADD_ASSOC]
    \\ fs[NOT_LESS]
    \\ `¬(n''' < n)` by metis_tac[word_add_n2w, WORD_ADD_ASSOC]
-   \\ fs[NOT_LESS]);
+   \\ fs[NOT_LESS]
+End
 
 val get_next_mem_arg_ind = theorem"get_next_mem_arg_ind";
 
@@ -1251,14 +1259,15 @@ Proof
   \\ simp[GSYM word_mul_n2w]
 QED
 
-val ag32_ffi_get_arg_find1_def = tDefine"ag32_ffi_get_arg_find1"`
+Definition ag32_ffi_get_arg_find1_def:
   ag32_ffi_get_arg_find1 s =
     if (∀n. s.MEM (s.R 5w + n2w n) ≠ 0w) then s else
     let s = dfn'LoadMEMByte (8w, Reg 5w) s in
     let s0 = dfn'Normal (fInc, 5w, Reg 5w, Imm 1w) s in
     let s = dfn'JumpIfNotZero (fSnd, Imm (4w * -2w), Imm 0w, Reg 8w) s0 in
-    if (s0.R 8w = 0w) then s else ag32_ffi_get_arg_find1 s`
-  (wf_rel_tac`measure (λs. LEAST n. (s.MEM (s.R 5w + n2w n) = 0w))`
+    if (s0.R 8w = 0w) then s else ag32_ffi_get_arg_find1 s
+Termination
+  wf_rel_tac`measure (λs. LEAST n. (s.MEM (s.R 5w + n2w n) = 0w))`
    \\ rw[ag32Theory.dfn'LoadMEMByte_def,
          ag32Theory.incPC_def,
          ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ALU_def, ag32Theory.ri2word_def,
@@ -1275,7 +1284,8 @@ val ag32_ffi_get_arg_find1_def = tDefine"ag32_ffi_get_arg_find1"`
    \\ Cases_on`n'''` \\ fs[ADD1]
    \\ Cases_on`n` \\ fs[ADD1]
    \\ `¬(n'''' < n''' + 1)` by metis_tac[ADD_ASSOC,ADD_COMM]
-   \\ fs[NOT_LESS]);
+   \\ fs[NOT_LESS]
+End
 
 Theorem ag32_ffi_get_arg_find1_thm:
    ag32_ffi_get_arg_find1 s =
@@ -1338,15 +1348,16 @@ Proof
   \\ simp[FUN_EQ_THM, APPLY_UPDATE_THM, ADD1, GSYM word_add_n2w]
 QED
 
-val ag32_ffi_get_arg_find_def = tDefine"ag32_ffi_get_arg_find"`
+Definition ag32_ffi_get_arg_find_def:
   ag32_ffi_get_arg_find s0 =
   let s = dfn'JumpIfZero (fSnd, Imm (4w * 6w), Imm 0w, Reg 6w) s0 in
   if (s0.R 6w = 0w) then s else
   let s = ag32_ffi_get_arg_find1 s in
   let s = dfn'Normal (fDec, 6w, Reg 6w, Imm 1w) s in
   let s = dfn'JumpIfZero (fSnd, Imm (4w * -5w), Imm 0w, Imm 0w) s in
-  ag32_ffi_get_arg_find s`
-  (wf_rel_tac`measure (λs. w2n (s.R 6w))`
+  ag32_ffi_get_arg_find s
+Termination
+  wf_rel_tac`measure (λs. w2n (s.R 6w))`
    \\ rw[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ALU_def,
          ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
          ag32Theory.dfn'LoadConstant_def,
@@ -1355,7 +1366,8 @@ val ag32_ffi_get_arg_find_def = tDefine"ag32_ffi_get_arg_find"`
          ag32_ffi_get_arg_find1_thm]
    \\ CASE_TAC \\ simp[APPLY_UPDATE_THM]
    \\ Cases_on`s0.R 6w` \\ fs[]
-   \\ Cases_on`n` \\ fs[ADD1, GSYM word_add_n2w]);
+   \\ Cases_on`n` \\ fs[ADD1, GSYM word_add_n2w]
+End
 
 Theorem ag32_ffi_get_arg_find_thm:
    (s.R 6w = n2w (index)) ∧ index ≤ cline_size ∧
@@ -1429,7 +1441,7 @@ Proof
   \\ IF_CASES_TAC \\ fs[]
 QED
 
-val ag32_ffi_get_arg_store_def = tDefine"ag32_ffi_get_arg_store"`
+Definition ag32_ffi_get_arg_store_def:
   ag32_ffi_get_arg_store s =
   if ¬(∃n. (s.MEM (s.R 5w + n2w n) = 0w) ∧ (∀i. i ≤ n ⇒ s.R 3w ≠ s.R 5w + n2w i)) then s else
   let s0 = dfn'LoadMEMByte (8w, Reg 5w) s in
@@ -1439,8 +1451,9 @@ val ag32_ffi_get_arg_store_def = tDefine"ag32_ffi_get_arg_store"`
   let s = dfn'Normal(fInc, 3w, Reg 3w, Imm 1w) s in
   let s = dfn'Normal(fInc, 5w, Reg 5w, Imm 1w) s in
   let s = dfn'JumpIfZero (fSnd, Imm (4w * -5w), Imm 0w, Imm 0w) s in
-  ag32_ffi_get_arg_store s`
-  (wf_rel_tac`measure(λs. LEAST n. (s.MEM (s.R 5w + n2w n) = 0w))`
+  ag32_ffi_get_arg_store s
+Termination
+  wf_rel_tac`measure(λs. LEAST n. (s.MEM (s.R 5w + n2w n) = 0w))`
    \\ rw[ag32Theory.dfn'LoadMEMByte_def,
          ag32Theory.incPC_def,
          ag32Theory.dfn'Normal_def, ag32Theory.norm_def, ag32Theory.ALU_def, ag32Theory.ri2word_def,
@@ -1481,7 +1494,8 @@ val ag32_ffi_get_arg_store_def = tDefine"ag32_ffi_get_arg_store"`
    \\ `¬(n' + 1 < n''''' + 1)` by metis_tac[ADD_COMM, ADD_ASSOC]
    \\ fs[NOT_LESS]
    \\ last_x_assum(qspec_then`n'''''+1`mp_tac)
-   \\ simp[]);
+   \\ simp[]
+End
 
 Theorem ag32_ffi_get_arg_store_thm:
    ((OLEAST n. s.MEM (s.R 5w + n2w n) = 0w) = SOME n) ∧

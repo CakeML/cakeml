@@ -784,11 +784,12 @@ QED
 
 val _ = DefnBase.export_cong "alistSub_cong";
 
-val nsSub_compute_def = tDefine "nsSub_compute" `
+Definition nsSub_compute_def:
   nsSub_compute path R (Bind e1V e1M) (Bind e2V e2M) ⇔
     alistSub (\k v1 v2. R (mk_id (REVERSE path) k) v1 v2) e1V e2V ∧
-    alistSub (\k v1 v2. nsSub_compute (k::path) R v1 v2) e1M e2M`
- (wf_rel_tac `measure (\(p,r,env,_). namespace_size (\x.0) (\x.0) (\x.0) env)`
+    alistSub (\k v1 v2. nsSub_compute (k::path) R v1 v2) e1M e2M
+Termination
+  wf_rel_tac `measure (\(p,r,env,_). namespace_size (\x.0) (\x.0) (\x.0) env)`
  >> rw []
  >> Induct_on `e1M`
  >> rw [namespace_size_def]
@@ -796,7 +797,8 @@ val nsSub_compute_def = tDefine "nsSub_compute" `
  >> fs [ALOOKUP_def]
  >> every_case_tac
  >> fs []
- >> rw [namespace_size_def]);
+ >> rw [namespace_size_def]
+End
 
 Theorem nsLookup_FOLDR_nsLift:
    !e p k. nsLookup (FOLDR nsLift e p) (mk_id p k) = nsLookup e (Short k)

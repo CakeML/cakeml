@@ -74,7 +74,7 @@ Definition isClos_def:
   isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])
 End
 
-val do_eq_def = tDefine"do_eq"`
+Definition do_eq_def:
   (do_eq _ (CodePtr _) _ = Eq_type_error) ∧
   (do_eq _ _ (CodePtr _) = Eq_type_error) ∧
   (do_eq _ (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
@@ -104,8 +104,10 @@ val do_eq_def = tDefine"do_eq"`
    | Eq_val T => do_eq_list refs vs1 vs2
    | Eq_val F => Eq_val F
    | bad => bad) ∧
-  (do_eq_list _ _ _ = Eq_val F)`
-  (WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`);
+  (do_eq_list _ _ _ = Eq_val F)
+Termination
+  WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`
+End
 val _ = export_rewrites["do_eq_def"];
 
 Overload Error[local] = ``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``
@@ -483,7 +485,7 @@ val fix_clock_IMP = Q.prove(
    convenience of subsequent proofs, the evaluation function is
    defined to evaluate a list of exp expressions. *)
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def:
   (evaluate ([],env,^s) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
      case fix_clock s (evaluate ([x],env,s)) of
@@ -529,14 +531,16 @@ val evaluate_def = tDefine "evaluate" `
           | SOME (args,exp) =>
               if s.clock < ticks + 1 then (Rerr(Rabort Rtimeout_error),s with clock := 0) else
                   evaluate ([exp],args,dec_clock (ticks + 1) s))
-     | res => res)`
- (WF_REL_TAC `(inv_image (measure I LEX measure exp1_size)
+     | res => res)
+Termination
+  WF_REL_TAC `(inv_image (measure I LEX measure exp1_size)
                          (\(xs,env,s). (s.clock,xs)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
   \\ imp_res_tac fix_clock_IMP
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ decide_tac);
+  \\ decide_tac
+End
 
 val evaluate_ind = theorem"evaluate_ind";
 

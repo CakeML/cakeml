@@ -679,7 +679,7 @@ val _ = export_rewrites["ctors_of_dec_def"]
 
 (* free vars *)
 
-val FV_def = tDefine "FV"`
+Definition FV_def:
   (FV (Raise e) = FV e) ∧
   (FV (Handle e pes) = FV e ∪ FV_pes pes) ∧
   (FV (Lit _) = {}) ∧
@@ -702,12 +702,14 @@ val FV_def = tDefine "FV"`
      (FV e DIFF (IMAGE Short (set (pat_bindings p [])))) ∪ FV_pes pes) ∧
   (FV_defs [] = {}) ∧
   (FV_defs ((_,x,e)::defs) =
-     (FV e DIFF {Short x}) ∪ FV_defs defs)`
-  (WF_REL_TAC `inv_image $< (λx. case x of
+     (FV e DIFF {Short x}) ∪ FV_defs defs)
+Termination
+  WF_REL_TAC `inv_image $< (λx. case x of
      | INL e => exp_size e
      | INR (INL es) => exp6_size es
      | INR (INR (INL pes)) => exp3_size pes
-     | INR (INR (INR (defs))) => exp1_size defs)`);
+     | INR (INR (INR (defs))) => exp1_size defs)`
+End
 val _ = export_rewrites["FV_def"]
 
 Overload SFV = ``λe. {x | Short x ∈ FV e}``

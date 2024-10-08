@@ -803,7 +803,7 @@ Definition op_gbag_def:
   op_gbag _ = {||}
 End
 
-val set_globals_def = tDefine "set_globals" `
+Definition set_globals_def:
   (set_globals (Raise t e) = set_globals e) /\
   (set_globals (Handle t e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) /\
   (set_globals (Con t id es) = elist_globals es) /\
@@ -817,8 +817,9 @@ val set_globals_def = tDefine "set_globals" `
     set_globals e ⊎ elist_globals (MAP (SND o SND) fs)) /\
   (set_globals _ = {||}) /\
   (elist_globals [] = {||}) /\
-  (elist_globals (e::es) = set_globals e ⊎ elist_globals es)`
- (WF_REL_TAC
+  (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
+Termination
+  WF_REL_TAC
      `measure (\a. case a of INL e => exp_size e | INR es => exp6_size es)`
    \\ rw [flatLangTheory.exp_size_def]
    \\ fs [GSYM o_DEF]
@@ -826,11 +827,12 @@ val set_globals_def = tDefine "set_globals" `
     (`exp6_size (MAP (SND o SND) fs) < exp1_size fs + 1` suffices_by rw []
      \\ fs [flatLangTheory.exp_size_MAP])
    \\ `exp6_size (MAP SND pes) < exp3_size pes + 1` suffices_by rw []
-   \\ fs [flatLangTheory.exp_size_MAP]);
+   \\ fs [flatLangTheory.exp_size_MAP]
+End
 
 val _ = export_rewrites ["set_globals_def"];
 
-val esgc_free_def = tDefine "esgc_free" `
+Definition esgc_free_def:
   (esgc_free (Raise t e) <=> esgc_free e) /\
   (esgc_free (Handle t e pes) <=>
     esgc_free e /\ EVERY esgc_free (MAP SND pes)) /\
@@ -843,11 +845,13 @@ val esgc_free_def = tDefine "esgc_free" `
   (esgc_free (Let t v e1 e2) <=> esgc_free e1 /\ esgc_free e2) /\
   (esgc_free (Letrec t fs e) <=>
     esgc_free e /\ elist_globals (MAP (SND o SND) fs) = {||}) /\
-  (esgc_free _ <=> T)`
- (WF_REL_TAC `measure exp_size`
+  (esgc_free _ <=> T)
+Termination
+  WF_REL_TAC `measure exp_size`
   \\ rw []
   \\ fs [MEM_MAP] \\ rw []
-  \\ imp_res_tac flatLangTheory.exp_size_MEM \\ fs [])
+  \\ imp_res_tac flatLangTheory.exp_size_MEM \\ fs []
+End
 
 val esgc_free_def = save_thm("esgc_free_def[simp,compute,allow_rebind]",
   SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)

@@ -17,7 +17,7 @@ val _ = translation_extends "ListProg";
 
 Type sortable = ``:num # 'a list list``
 
-val sortable_inv_def = tDefine "sortable_inv" `
+Definition sortable_inv_def:
 (sortable_inv leq (n,[]) m = (n = 0)) ∧
 (sortable_inv leq (n,xs::xss) m =
   if (n = 0) then
@@ -27,11 +27,13 @@ val sortable_inv_def = tDefine "sortable_inv" `
   else
     (LENGTH xs = m) ∧
     SORTED leq xs ∧
-    sortable_inv leq (n DIV 2, xss) (m * 2))`
-(wf_rel_tac `measure (\(x,(y,z),s). y)` >>
+    sortable_inv leq (n DIV 2, xss) (m * 2))
+Termination
+  wf_rel_tac `measure (\(x,(y,z),s). y)` >>
  rw [] >>
  Cases_on `n = 0` >>
- full_simp_tac (srw_ss()++ARITH_ss) []);
+ full_simp_tac (srw_ss()++ARITH_ss) []
+End
 
 val sortable_inv_ind = fetch "-" "sortable_inv_ind"
 
@@ -62,16 +64,18 @@ val r = translate empty_def;
 val sptree_size = Parse.hide"size"
 val _ = Parse.hide"seg"
 
-val add_seg_def = tDefine "add_seg" `
+Definition add_seg_def:
 add_seg leq seg segs size =
   if size MOD 2 = 0 then
     seg::segs
   else
-    add_seg leq (mrg leq seg (HD segs)) (TL segs) (size DIV 2)`
-(wf_rel_tac `measure (\(x,y,z,s). s)` >>
+    add_seg leq (mrg leq seg (HD segs)) (TL segs) (size DIV 2)
+Termination
+  wf_rel_tac `measure (\(x,y,z,s). s)` >>
  rw [] >>
  Cases_on `size = 0` >>
- full_simp_tac (srw_ss()++ARITH_ss) []);
+ full_simp_tac (srw_ss()++ARITH_ss) []
+End
 
 val add_seg_ind = fetch "-" "add_seg_ind"
 

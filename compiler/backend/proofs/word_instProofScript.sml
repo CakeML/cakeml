@@ -354,17 +354,19 @@ val flatten_exp_ok = Q.prove(`
     res_tac>>fs[]);
 
 (*All ops are 2 args. Technically, we should probably check that Sub has 2 args. However, the semantics already checks that and it will get removed later*)
-val binary_branch_exp_def = tDefine "binary_branch_exp" `
+Definition binary_branch_exp_def:
   (binary_branch_exp (Op Sub exps) = EVERY (binary_branch_exp) exps) ∧
   (binary_branch_exp (Op op xs) = (LENGTH xs = 2 ∧ EVERY (binary_branch_exp) xs)) ∧
   (binary_branch_exp (Load exp) = binary_branch_exp exp) ∧
   (binary_branch_exp (Shift shift exp nexp) = binary_branch_exp exp) ∧
-  (binary_branch_exp exp = T)`
-  (WF_REL_TAC `measure (exp_size ARB)`
+  (binary_branch_exp exp = T)
+Termination
+  WF_REL_TAC `measure (exp_size ARB)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ full_simp_tac(srw_ss())[exp_size_def]
-   \\ TRY (DECIDE_TAC));
+   \\ TRY (DECIDE_TAC)
+End
 
 (* flatten_exp syntax *)
 val flatten_exp_binary_branch_exp = Q.prove(`

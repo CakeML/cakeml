@@ -71,16 +71,18 @@ Theorem store_consts_stub_location_eq = EVAL``store_consts_stub_location``;
 *)
 
 (* Recursors for variables *)
-val every_var_exp_def = tDefine "every_var_exp" `
+Definition every_var_exp_def:
   (every_var_exp P (Var num) = P num) ∧
   (every_var_exp P (Load exp) = every_var_exp P exp) ∧
   (every_var_exp P (Op wop ls) = EVERY (every_var_exp P) ls) ∧
   (every_var_exp P (Shift sh exp n) = every_var_exp P exp) ∧
-  (every_var_exp P expr = T)`
-(WF_REL_TAC `measure (exp_size ARB o SND)`
+  (every_var_exp P expr = T)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC);
+  \\ DECIDE_TAC
+End
 
 Definition every_var_imm_def:
   (every_var_imm P (Reg r) = P r) ∧
@@ -189,16 +191,18 @@ Definition every_stack_var_def:
 End
 
 (*Find the maximum variable*)
-val max_var_exp_def = tDefine "max_var_exp" `
+Definition max_var_exp_def:
   (max_var_exp (Var num) = num) ∧
   (max_var_exp (Load exp) = max_var_exp exp) ∧
   (max_var_exp (Op wop ls) = list_max (MAP (max_var_exp) ls))∧
   (max_var_exp (Shift sh exp n) = max_var_exp exp) ∧
-  (max_var_exp exp = 0:num)`
-(WF_REL_TAC `measure (exp_size ARB )`
+  (max_var_exp exp = 0:num)
+Termination
+  WF_REL_TAC `measure (exp_size ARB )`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC);
+  \\ DECIDE_TAC
+End
 
 Definition max_var_inst_def:
   (max_var_inst Skip = 0) ∧

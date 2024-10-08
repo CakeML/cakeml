@@ -28,7 +28,7 @@ End
   It omits some checks, which are unnecessary for the translator but needed in
   the semantics; it thereby makes the translator's automation easier.
 *)
-val Pmatch_def = tDefine"Pmatch"`
+Definition Pmatch_def:
   (Pmatch env refs [] [] = SOME env) ∧
   (Pmatch env refs (p1::p2::ps) (v1::v2::vs) =
      case Pmatch env refs [p1] [v1] of | NONE => NONE
@@ -57,8 +57,10 @@ val Pmatch_def = tDefine"Pmatch"`
    | SOME (Refv v) => Pmatch env refs [p] [v]
    | _ => NONE) ∧
   (Pmatch env refs [Ptannot p t] [v] = Pmatch env refs [p] [v]) ∧
-  (Pmatch env refs _ _ = NONE)`
-  (WF_REL_TAC`measure (pat1_size o FST o SND o SND)`)
+  (Pmatch env refs _ _ = NONE)
+Termination
+  WF_REL_TAC`measure (pat1_size o FST o SND o SND)`
+End
 
 val Pmatch_ind = theorem"Pmatch_ind"
 

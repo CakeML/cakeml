@@ -580,7 +580,7 @@ Termination
 End
 
 (* translator friendly version for bootstrapping *)
-val sexppat_alt_def = tDefine"sexppat_alt"`
+Definition sexppat_alt_def:
  (sexppat_alt s =
     OPTION_MAP Pvar (odestSEXSTR s) ++
     case dstrip_sexp s of
@@ -611,10 +611,12 @@ val sexppat_alt_def = tDefine"sexppat_alt"`
        case sexppat_list d of
        | NONE => NONE
        | SOME t => SOME (h::t))
-    | _ => NONE)`
-  (wf_rel_tac`inv_image (measure sexp_size) (λx. case x of INL y => y | INR y => y)` \\ rw[] \\
+    | _ => NONE)
+Termination
+  wf_rel_tac`inv_image (measure sexp_size) (λx. case x of INL y => y | INR y => y)` \\ rw[] \\
    imp_res_tac dstrip_sexp_size \\
-   fs[LENGTH_EQ_NUM_compute]);
+   fs[LENGTH_EQ_NUM_compute]
+End
 
 val sexppat_alt_ind = theorem"sexppat_alt_ind";
 
@@ -1058,7 +1060,7 @@ Definition sexptype_def_def:
         (sexplist (sexppair odestSEXSTR (sexplist sexptype)))))
 End
 
-val sexpdec_def = tDefine"sexpdec"`
+Definition sexpdec_def:
   sexpdec s =
     do
       (nm, args) <- dstrip_sexp s;
@@ -1089,13 +1091,15 @@ val sexpdec_def = tDefine"sexpdec"`
       guard (nm = "Dlocal" ∧ LENGTH args = 2)
             (lift2 Dlocal (sexplist sexpdec (EL 0 args))
                 (sexplist sexpdec (EL 1 args)))
-    od`
-  (wf_rel_tac`measure sexp_size`
+    od
+Termination
+  wf_rel_tac`measure sexp_size`
    \\ rw[LENGTH_EQ_NUM_compute] \\ fs[]
-   \\ metis_tac[sxMEM_sizelt,dstrip_sexp_size,MEM,LESS_TRANS]);
+   \\ metis_tac[sxMEM_sizelt,dstrip_sexp_size,MEM,LESS_TRANS]
+End
 
 (* translator friendly version for bootstrapping *)
-val sexpdec_alt_def = tDefine"sexpdec_alt"`
+Definition sexpdec_alt_def:
   (sexpdec_alt s =
     case dstrip_sexp s of
     | NONE => NONE
@@ -1136,13 +1140,15 @@ val sexpdec_alt_def = tDefine"sexpdec_alt"`
          case sexpdec_list d of
          | NONE => NONE
          | SOME t => SOME (h::t))
-      | _ => NONE)`
-  (wf_rel_tac`inv_image (measure sexp_size)
+      | _ => NONE)
+Termination
+  wf_rel_tac`inv_image (measure sexp_size)
     (λx. case x of
          | INL y => y
          | INR y => y)` \\ rw[] \\
    imp_res_tac dstrip_sexp_size \\
-   fs[LENGTH_EQ_NUM_compute]);
+   fs[LENGTH_EQ_NUM_compute]
+End
 
 val sexpdec_alt_ind = theorem"sexpdec_alt_ind";
 
@@ -1210,14 +1216,16 @@ Proof
   Induct >> gen_tac >> cases_on `i2` >> fs[idsexp_def]
 QED
 
-val typesexp_def = tDefine"typesexp"`
+Definition typesexp_def:
   (typesexp (Atvar s) = listsexp [SX_SYM "Atvar"; SEXSTR s]) ∧
   (typesexp (Atfun t1 t2) = listsexp [SX_SYM "Atfun"; typesexp t1; typesexp t2]) ∧
   (typesexp (Attup ts) = listsexp [SX_SYM "Attup"; listsexp (MAP typesexp ts)]) ∧
-  (typesexp (Atapp ts tc) = listsexp [SX_SYM "Atapp"; listsexp (MAP typesexp ts); idsexp tc])`
-  (WF_REL_TAC`measure ast_t_size` >> rw[] \\
+  (typesexp (Atapp ts tc) = listsexp [SX_SYM "Atapp"; listsexp (MAP typesexp ts); idsexp tc])
+Termination
+  WF_REL_TAC`measure ast_t_size` >> rw[] \\
    Induct_on`ts` >> simp[ast_t_size_def] >>
-   rw[] >> res_tac >> simp[]);
+   rw[] >> res_tac >> simp[]
+End
 
 Theorem typesexp_11[simp]:
    ∀t1 t2. typesexp t1 = typesexp t2 ⇔ t1 = t2
@@ -1248,20 +1256,22 @@ Proof
   \\ intLib.COOPER_TAC
 QED
 
-val patsexp_def = tDefine"patsexp"`
+Definition patsexp_def:
   (patsexp Pany = listsexp [SX_SYM "Pany"]) ∧
   (patsexp (Pvar s) = SEXSTR s) ∧
   (patsexp (Plit l) = listsexp [SX_SYM "Plit"; litsexp l]) ∧
   (patsexp (Pcon cn ps) = listsexp [SX_SYM "Pcon"; optsexp (OPTION_MAP idsexp cn); listsexp (MAP patsexp ps)]) ∧
   (patsexp (Pas p i) = listsexp [SX_SYM "Pas"; patsexp p; SEXSTR i]) ∧
   (patsexp (Pref p) = listsexp [SX_SYM "Pref"; patsexp p]) ∧
-  (patsexp (Ptannot p t) = listsexp [SX_SYM "Ptannot" ; patsexp p; typesexp t])`
-  (WF_REL_TAC`measure pat_size` >>
+  (patsexp (Ptannot p t) = listsexp [SX_SYM "Ptannot" ; patsexp p; typesexp t])
+Termination
+  WF_REL_TAC`measure pat_size` >>
    simp [] >>
    Induct_on`ps`>>simp[pat_size_def] >>
    rw[] >> simp[] >> res_tac >>
    first_x_assum(qspec_then`cn`strip_assume_tac)>>
-   decide_tac );
+   decide_tac
+End
 
 Theorem patsexp_11[simp]:
    ∀p1 p2. patsexp p1 = patsexp p2 ⇔ p1 = p2

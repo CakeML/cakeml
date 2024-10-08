@@ -33,7 +33,7 @@ Definition gc_move_list_def:
        (x::xs,h2,a,n,heap,c))
 End
 
-val gc_move_loop_def = tDefine "gc_move_loop" `
+Definition gc_move_loop_def:
   (gc_move_loop (h1,[],a,n,heap,c,limit) = (h1,a,n,heap,c)) /\
   (gc_move_loop (h1,h::h2,a,n,heap,c,limit) =
      if limit < heap_length (h1 ++ h::h2) then (h1,a,n,heap,F) else
@@ -44,9 +44,11 @@ val gc_move_loop_def = tDefine "gc_move_loop" `
           let h2 = TL h2 in
           let h1 = h1 ++ [DataElement xs l d] in
             gc_move_loop (h1,h2,a,n,heap,c,limit)
-       | _ => (h1,a,n,heap,F))`
-  (WF_REL_TAC `measure (\(h1,h2,a,n,heap,c,limit). limit - heap_length h1)`
-   \\ SRW_TAC [] [heap_length_def,el_length_def,SUM_APPEND] \\ decide_tac);
+       | _ => (h1,a,n,heap,F))
+Termination
+  WF_REL_TAC `measure (\(h1,h2,a,n,heap,c,limit). limit - heap_length h1)`
+   \\ SRW_TAC [] [heap_length_def,el_length_def,SUM_APPEND] \\ decide_tac
+End
 
 Definition full_gc_def:
   full_gc (roots,heap,limit) =

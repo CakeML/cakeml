@@ -2816,13 +2816,14 @@ Proof
   METIS_TAC[]
 QED
 
-val variant_def = tDefine "variant" `
+Definition variant_def:
   variant avoid v =
     if EXISTS (vfree_in v) avoid then
     case v of
        Var s ty => variant avoid (Var(s ^ (strlit "'")) ty)
-    | _ => v else v`
-  (WF_REL_TAC `measure (\(avoid,v).
+    | _ => v else v
+Termination
+  WF_REL_TAC `measure (\(avoid,v).
      let n = SUM_SET (BIGUNION (set (MAP (λa. {strlen x + 1 | ∃ty. VFREE_IN (Var x ty) a}) avoid))) in
        n - (case v of Var x ty => strlen x | _ => 0))` >>
    gen_tac >> Cases >> srw_tac[][strlen_def,strcat_thm,implode_def] >>
@@ -2836,7 +2837,8 @@ val variant_def = tDefine "variant" `
      simp[Abbr`s`,pred_setTheory.EXTENSION,PULL_EXISTS,strlen_def] ) >>
    pop_assum SUBST1_TAC >>
    match_mp_tac pred_setTheory.IMAGE_FINITE >>
-   simp[])
+   simp[]
+End
 
 val variant_ind = fetch "-" "variant_ind"
 
@@ -3956,7 +3958,7 @@ QED
 
 (* a type matching algorithm, based on the implementation in HOL4 *)
 
-val tymatch_def = tDefine"tymatch"`
+Definition tymatch_def:
   (tymatch [] [] sids = SOME sids) ∧
   (tymatch [] _ _ = NONE) ∧
   (tymatch _ [] _ = NONE) ∧
@@ -3970,19 +3972,23 @@ val tymatch_def = tDefine"tymatch"`
     | SOME ty1 => if ty1=ty then tymatch ps obs sids else NONE) ∧
   (tymatch (Tyapp c1 a1::ps) (Tyapp c2 a2::obs) sids =
    if c1=c2 then tymatch (a1++ps) (a2++obs) sids else NONE) ∧
-  (tymatch _ _ _ = NONE)`
-  (WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (FST(SND x)))` >>
-   simp[type1_size_append])
+  (tymatch _ _ _ = NONE)
+Termination
+  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (FST(SND x)))` >>
+   simp[type1_size_append]
+End
 val tymatch_ind = theorem "tymatch_ind";
 
-val arities_match_def = tDefine"arities_match"`
+Definition arities_match_def:
   (arities_match [] [] ⇔ T) ∧
   (arities_match [] _ ⇔ F) ∧
   (arities_match _ [] ⇔ F) ∧
   (arities_match (Tyapp c1 a1::xs) (Tyapp c2 a2::ys) ⇔
    ((c1 = c2) ⇒ arities_match a1 a2) ∧ arities_match xs ys) ∧
-  (arities_match (_::xs) (_::ys) ⇔ arities_match xs ys)`
-  (WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (SND x))`)
+  (arities_match (_::xs) (_::ys) ⇔ arities_match xs ys)
+Termination
+  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (SND x))`
+End
 val arities_match_ind = theorem "arities_match_ind"
 
 Theorem arities_match_length:

@@ -111,7 +111,7 @@ Proof
   Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM]
 QED
 
-val code_locs_def = tDefine "code_locs" `
+Definition code_locs_def:
   (code_locs [] = []) /\
   (code_locs (x::y::xs) =
      let c1 = code_locs [x] in
@@ -151,14 +151,16 @@ val code_locs_def = tDefine "code_locs" `
      let c2 = code_locs [x2] in
        c1 ++ c2) /\
   (code_locs [Call _ ticks dest xs] =
-     code_locs xs)`
-  (WF_REL_TAC `measure (exp3_size)`
+     code_locs xs)
+Termination
+  WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    Cases_on `h` >>
    full_simp_tac(srw_ss())[exp_size_def] >>
-   decide_tac);
+   decide_tac
+End
 
 Theorem code_locs_cons:
    ∀x xs. code_locs (x::xs) = code_locs [x] ++ code_locs xs
@@ -190,7 +192,7 @@ Proof
   \\ fs [code_locs_def]
 QED
 
-val contains_App_SOME_def = tDefine "contains_App_SOME" `
+Definition contains_App_SOME_def:
   (contains_App_SOME max_app [] ⇔ F) /\
   (contains_App_SOME max_app (x::y::xs) ⇔
      contains_App_SOME max_app [x] ∨
@@ -222,14 +224,16 @@ val contains_App_SOME_def = tDefine "contains_App_SOME" `
      contains_App_SOME max_app [x1] ∨
      contains_App_SOME max_app [x2]) /\
   (contains_App_SOME max_app [Call _ ticks dest xs] ⇔
-     contains_App_SOME max_app xs)`
-  (WF_REL_TAC `measure (exp3_size o SND)`
+     contains_App_SOME max_app xs)
+Termination
+  WF_REL_TAC `measure (exp3_size o SND)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    Cases_on `h` >>
    full_simp_tac(srw_ss())[exp_size_def] >>
-   decide_tac);
+   decide_tac
+End
 
 Theorem contains_App_SOME_EXISTS:
    ∀ls max_app. contains_App_SOME max_app ls ⇔ EXISTS (λx. contains_App_SOME max_app [x]) ls
@@ -238,7 +242,7 @@ Proof
   Cases_on`ls`>>full_simp_tac(srw_ss())[contains_App_SOME_def]
 QED
 
-val every_Fn_SOME_def = tDefine "every_Fn_SOME" `
+Definition every_Fn_SOME_def:
   (every_Fn_SOME [] ⇔ T) ∧
   (every_Fn_SOME (x::y::xs) ⇔
      every_Fn_SOME [x] ∧
@@ -271,14 +275,16 @@ val every_Fn_SOME_def = tDefine "every_Fn_SOME" `
      every_Fn_SOME [x1] ∧
      every_Fn_SOME [x2]) ∧
   (every_Fn_SOME [Call _ ticks dest xs] ⇔
-     every_Fn_SOME xs)`
-  (WF_REL_TAC `measure (exp3_size)`
+     every_Fn_SOME xs)
+Termination
+  WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    Cases_on `h` >>
    full_simp_tac(srw_ss())[exp_size_def] >>
-   decide_tac);
+   decide_tac
+End
 val _ = export_rewrites["every_Fn_SOME_def"];
 
 Theorem every_Fn_SOME_EVERY:
@@ -294,7 +300,7 @@ Proof
   once_rewrite_tac[every_Fn_SOME_EVERY] \\ rw[]
 QED
 
-val every_Fn_vs_NONE_def = tDefine "every_Fn_vs_NONE" `
+Definition every_Fn_vs_NONE_def:
   (every_Fn_vs_NONE [] ⇔ T) ∧
   (every_Fn_vs_NONE (x::y::xs) ⇔
      every_Fn_vs_NONE [x] ∧
@@ -327,14 +333,16 @@ val every_Fn_vs_NONE_def = tDefine "every_Fn_vs_NONE" `
      every_Fn_vs_NONE [x1] ∧
      every_Fn_vs_NONE [x2]) ∧
   (every_Fn_vs_NONE [Call _ ticks dest xs] ⇔
-     every_Fn_vs_NONE xs)`
-  (WF_REL_TAC `measure (exp3_size)`
+     every_Fn_vs_NONE xs)
+Termination
+  WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    Cases_on `h` >>
    full_simp_tac(srw_ss())[exp_size_def] >>
-   decide_tac);
+   decide_tac
+End
 val _ = export_rewrites["every_Fn_vs_NONE_def"];
 
 Theorem every_Fn_vs_NONE_EVERY:
@@ -357,7 +365,7 @@ Proof
   once_rewrite_tac[every_Fn_vs_NONE_EVERY] \\ rw[]
 QED
 
-val every_Fn_vs_SOME_def = tDefine "every_Fn_vs_SOME" `
+Definition every_Fn_vs_SOME_def:
   (every_Fn_vs_SOME [] ⇔ T) ∧
   (every_Fn_vs_SOME (x::y::xs) ⇔
      every_Fn_vs_SOME [x] ∧
@@ -390,14 +398,16 @@ val every_Fn_vs_SOME_def = tDefine "every_Fn_vs_SOME" `
      every_Fn_vs_SOME [x1] ∧
      every_Fn_vs_SOME [x2]) ∧
   (every_Fn_vs_SOME [Call _ ticks dest xs] ⇔
-     every_Fn_vs_SOME xs)`
-  (WF_REL_TAC `measure (exp3_size)`
+     every_Fn_vs_SOME xs)
+Termination
+  WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    Cases_on `h` >>
    full_simp_tac(srw_ss())[exp_size_def] >>
-   decide_tac);
+   decide_tac
+End
 val _ = export_rewrites["every_Fn_vs_SOME_def"];
 
 Theorem every_Fn_vs_SOME_EVERY:
@@ -1816,7 +1826,7 @@ Proof
   Cases_on `h` >> simp[]
 QED
 
-val set_globals_def = tDefine "set_globals" `
+Definition set_globals_def:
   (set_globals (Var _ _) = {||}) ∧
   (set_globals (If _ e1 e2 e3) =
     set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
@@ -1832,11 +1842,12 @@ val set_globals_def = tDefine "set_globals" `
   (set_globals (Op _ opn args) = op_gbag opn ⊎ elist_globals args) ∧
   (elist_globals [] = {||}) ∧
   (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
-`
-  (WF_REL_TAC `
+Termination
+  WF_REL_TAC `
       measure (λa. case a of INL e => exp_size e | INR x => exp3_size x)` >>
    simp[] >> rpt strip_tac >>
-   imp_res_tac exp_size_MEM >> simp[])
+   imp_res_tac exp_size_MEM >> simp[]
+End
 val _ = export_rewrites ["set_globals_def"]
 
 (* {foo}sgc_free: foo is free of SetGlobal closures, meaning closures that
@@ -1851,7 +1862,7 @@ Proof
 QED
 
 (* value is setglobal-closure free *)
-val vsgc_free_def = tDefine "vsgc_free" `
+Definition vsgc_free_def:
   (vsgc_free (Closure _ VL1 VL2 _ body) ⇔
      set_globals body = {||} ∧
      EVERY vsgc_free VL1 ∧ EVERY vsgc_free VL2) ∧
@@ -1860,8 +1871,10 @@ val vsgc_free_def = tDefine "vsgc_free" `
      EVERY vsgc_free VL1 ∧ EVERY vsgc_free VL2) ∧
   (vsgc_free (Block _ VL) ⇔ EVERY vsgc_free VL) ∧
   (vsgc_free _ ⇔ T)
-` (WF_REL_TAC `measure closSem$v_size` >> simp[v_size_def] >>
-   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[])
+Termination
+  WF_REL_TAC `measure closSem$v_size` >> simp[v_size_def] >>
+   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[]
+End
 
 val vsgc_free_def = save_thm(
   "vsgc_free_def[simp,allow_rebind]",
@@ -1887,7 +1900,7 @@ Definition rsgc_free_def:
 End
 val _ = export_rewrites ["rsgc_free_def"]
 
-val esgc_free_def = tDefine "esgc_free" `
+Definition esgc_free_def:
   (esgc_free (Var _ _) ⇔ T) ∧
   (esgc_free (If _ e1 e2 e3) ⇔ esgc_free e1 ∧ esgc_free e2 ∧ esgc_free e3) ∧
   (esgc_free (Let _ binds e) ⇔ EVERY esgc_free binds ∧ esgc_free e) ∧
@@ -1900,8 +1913,10 @@ val esgc_free_def = tDefine "esgc_free" `
   (esgc_free (Letrec _ _ _ binds bod) ⇔
     elist_globals (MAP SND binds) = {||} ∧ esgc_free bod) ∧
   (esgc_free (Op _ _ args) ⇔ EVERY esgc_free args)
-` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
-   imp_res_tac exp_size_MEM >> simp[])
+Termination
+  WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
+   imp_res_tac exp_size_MEM >> simp[]
+End
 val esgc_free_def = save_thm("esgc_free_def[simp,compute,allow_rebind]",
   SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
 
@@ -3310,7 +3325,7 @@ Proof
   \\ imp_res_tac do_app_SUBMAP_Rerr
 QED
 
-val obeys_max_app_def = tDefine"obeys_max_app"`
+Definition obeys_max_app_def:
   (obeys_max_app m (Var _ _) ⇔ T) ∧
   (obeys_max_app m (If _ e1 e2 e3) ⇔ obeys_max_app m e1 ∧ obeys_max_app m e2 ∧ obeys_max_app m e3) ∧
   (obeys_max_app m (Let _ es e) ⇔ EVERY (obeys_max_app m) es ∧ obeys_max_app m e) ∧
@@ -3321,20 +3336,22 @@ val obeys_max_app_def = tDefine"obeys_max_app"`
   (obeys_max_app m (App _ _ e es) ⇔ LENGTH es ≤ m ∧ obeys_max_app m e ∧ EVERY (obeys_max_app m) es) ∧
   (obeys_max_app m (Fn _ _ _ _ e) ⇔ obeys_max_app m e) ∧
   (obeys_max_app m (Letrec _ _ _ es e) ⇔ EVERY (obeys_max_app m) (MAP SND es) ∧ obeys_max_app m e) ∧
-  (obeys_max_app m (Op _ _ es) ⇔ EVERY (obeys_max_app m) es)`
-(wf_rel_tac`measure (exp_size o SND)`
+  (obeys_max_app m (Op _ _ es) ⇔ EVERY (obeys_max_app m) es)
+Termination
+  wf_rel_tac`measure (exp_size o SND)`
  \\ simp [closLangTheory.exp_size_def]
  \\ rpt conj_tac \\ rpt gen_tac
  \\ Induct_on`es`
  \\ rw [closLangTheory.exp_size_def]
- \\ simp [] \\ res_tac \\ simp []);
+ \\ simp [] \\ res_tac \\ simp []
+End
 
 val obeys_max_app_def =
   obeys_max_app_def
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
   |> curry save_thm "obeys_max_app_def[simp,compute,allow_rebind]"
 
-val no_Labels_def = tDefine"no_Labels"`
+Definition no_Labels_def:
   (no_Labels (Var _ _) ⇔ T) ∧
   (no_Labels (If _ e1 e2 e3) ⇔ no_Labels e1 ∧ no_Labels e2 ∧ no_Labels e3) ∧
   (no_Labels (Let _ es e) ⇔ EVERY no_Labels es ∧ no_Labels e) ∧
@@ -3345,20 +3362,22 @@ val no_Labels_def = tDefine"no_Labels"`
   (no_Labels (App _ _ e es) ⇔ no_Labels e ∧ EVERY no_Labels es) ∧
   (no_Labels (Fn _ _ _ _ e) ⇔ no_Labels e) ∧
   (no_Labels (Letrec _ _ _ es e) ⇔ EVERY no_Labels (MAP SND es) ∧ no_Labels e) ∧
-  (no_Labels (Op _ op es) ⇔ (∀n. op ≠ Label n) ∧ EVERY no_Labels es)`
-(wf_rel_tac`measure exp_size`
+  (no_Labels (Op _ op es) ⇔ (∀n. op ≠ Label n) ∧ EVERY no_Labels es)
+Termination
+  wf_rel_tac`measure exp_size`
  \\ simp [closLangTheory.exp_size_def]
  \\ rpt conj_tac \\ rpt gen_tac
  \\ Induct_on`es`
  \\ rw [closLangTheory.exp_size_def]
- \\ simp [] \\ res_tac \\ simp []);
+ \\ simp [] \\ res_tac \\ simp []
+End
 
 val no_Labels_def =
   no_Labels_def
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
   |> curry save_thm "no_Labels_def[simp,compute,allow_rebind]"
 
-val app_call_dests_def = tDefine "app_call_dests" `
+Definition app_call_dests_def:
   (app_call_dests opt [] = {}) /\
   (app_call_dests opt (x::y::xs) =
      let c1 = app_call_dests opt [x] in
@@ -3398,14 +3417,16 @@ val app_call_dests_def = tDefine "app_call_dests" `
        c1 ∪ c2) /\
   (app_call_dests opt [Call _ ticks dest xs] =
      if opt = SOME F then app_call_dests opt xs else
-       dest INSERT app_call_dests opt xs)`
-  (WF_REL_TAC `measure (exp3_size o SND)`
+       dest INSERT app_call_dests opt xs)
+Termination
+  WF_REL_TAC `measure (exp3_size o SND)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
    Cases_on `h` >>
    full_simp_tac(srw_ss())[closLangTheory.exp_size_def] >>
-   decide_tac);
+   decide_tac
+End
 
 val _ = save_thm("app_call_dests_def[simp,compute,allow_rebind]",app_call_dests_def);
 
@@ -3464,7 +3485,7 @@ Proof
   \\ fs [EXTENSION] \\ rw[] \\ eq_tac \\ rw [] \\ fs []
 QED
 
-val get_code_labels_def = tDefine"get_code_labels" `
+Definition get_code_labels_def:
   (get_code_labels (Var _ _) = {}) ∧
   (get_code_labels (If _ e1 e2 e3) =
     get_code_labels e1 ∪
@@ -3494,13 +3515,15 @@ val get_code_labels_def = tDefine"get_code_labels" `
     BIGUNION (set (MAP get_code_labels (MAP SND es)))) ∧
   (get_code_labels (Op _ op es) =
     BIGUNION (set (MAP get_code_labels es)) ∪
-    closLang$assign_get_code_label op)`
-  (wf_rel_tac `measure exp_size`
+    closLang$assign_get_code_label op)
+Termination
+  wf_rel_tac `measure exp_size`
    \\ simp [closLangTheory.exp_size_def]
    \\ rpt conj_tac \\ rpt gen_tac
    \\ Induct_on`es`
    \\ rw [closLangTheory.exp_size_def]
-   \\ simp [] \\ res_tac \\ simp []);
+   \\ simp [] \\ res_tac \\ simp []
+End
 
 val get_code_labels_def =
   get_code_labels_def

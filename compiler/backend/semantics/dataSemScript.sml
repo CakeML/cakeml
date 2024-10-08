@@ -253,19 +253,23 @@ Definition space_consumed_def:
   (space_consumed s (op:closLang$op) (vs:v list) = 0:num)
 End
 
-val vb_size_def = tDefine"vb_size"`
+Definition vb_size_def:
   (vb_size (Block ts t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
-  (vb_size _ = 1n)`
-(WF_REL_TAC`measure v_size` \\
+  (vb_size _ = 1n)
+Termination
+  WF_REL_TAC`measure v_size` \\
  ntac 2 gen_tac \\ Induct \\ rw[fetch "-" "v_size_def"] \\ rw[]
- \\ res_tac \\ rw[]);
+ \\ res_tac \\ rw[]
+End
 
-val vs_depth_def = tDefine"vs_depth"`
+Definition vs_depth_def:
   (vs_depth (Block ts t ls) = vs_depth_list ls) ∧
   (vs_depth _ = 0) ∧
   (vs_depth_list [] = 0) ∧
-  (vs_depth_list (x::xs) = MAX (1 + vs_depth x) (vs_depth_list xs))`
-(WF_REL_TAC`measure (λx. sum_CASE x v_size v1_size)`);
+  (vs_depth_list (x::xs) = MAX (1 + vs_depth x) (vs_depth_list xs))
+Termination
+  WF_REL_TAC`measure (λx. sum_CASE x v_size v1_size)`
+End
 
 Definition eq_code_stack_max_def:
   eq_code_stack_max n tsz =
@@ -421,7 +425,7 @@ Definition isClos_def:
   isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])
 End
 
-val do_eq_def = tDefine"do_eq"`
+Definition do_eq_def:
   (do_eq _ (CodePtr _) _ = Eq_type_error) ∧
   (do_eq _ _ (CodePtr _) = Eq_type_error) ∧
   (do_eq _ (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
@@ -452,8 +456,10 @@ val do_eq_def = tDefine"do_eq"`
    | Eq_val T => do_eq_list refs vs1 vs2
    | Eq_val F => Eq_val F
    | bad => bad) ∧
-  (do_eq_list _ _ _ = Eq_val F)`
-  (WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`);
+  (do_eq_list _ _ _ = Eq_val F)
+Termination
+  WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`
+End
 val _ = export_rewrites["do_eq_def"];
 
 Overload Error[local] =

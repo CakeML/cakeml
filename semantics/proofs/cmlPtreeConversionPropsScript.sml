@@ -53,7 +53,7 @@ Proof
 QED
 
 
-val user_expressible_type_def = tDefine "user_expressible_type" ‘
+Definition user_expressible_type_def:
   (user_expressible_type (Atvar _) ⇔ T) ∧
   (user_expressible_type (Atapp tys tycon) ⇔
      EVERY user_expressible_type tys ∧
@@ -62,13 +62,15 @@ val user_expressible_type_def = tDefine "user_expressible_type" ‘
      EVERY user_expressible_type tys ∧ 2 ≤ LENGTH tys) ∧
   (user_expressible_type (Atfun dty rty) ⇔
      user_expressible_type dty ∧ user_expressible_type rty)
-’ (WF_REL_TAC ‘measure ast$ast_t_size’ >> simp[] >> conj_tac >> rpt gen_tac >>
+Termination
+  WF_REL_TAC ‘measure ast$ast_t_size’ >> simp[] >> conj_tac >> rpt gen_tac >>
    Induct_on ‘tys’ >>
-   dsimp[astTheory.ast_t_size_def] >> rpt strip_tac >> res_tac  >> simp[]);
+   dsimp[astTheory.ast_t_size_def] >> rpt strip_tac >> res_tac  >> simp[]
+End
 val _ = augment_srw_ss [rewrites [
            SIMP_RULE (srw_ss() ++ ETA_ss) [] user_expressible_type_def]]
 
-val type_to_AST_def = tDefine "type_to_AST" ‘
+Definition type_to_AST_def:
   type_to_AST (Atvar s) (* : (token,MMLnonT,unit) parsetree *) =
     ND nType [ND nPType [ND nDType [ND nTbase [LF (TyvarT s)]]]] ∧
   (type_to_AST (Atfun dty rty) =
@@ -124,10 +126,12 @@ val type_to_AST_def = tDefine "type_to_AST" ‘
     ND nPType [ND nDType [ND nTbase [LF LparT; type_to_AST ty; LF RparT]];
                LF StarT;
                typel_to_AST_PType tys]
-’ (WF_REL_TAC
+Termination
+  WF_REL_TAC
      ‘measure (λs. case s of INL ty => ast_t_size ty
                            | INR (INL tyl) => ast_t1_size tyl
-                           | INR (INR tyl) => ast_t1_size tyl)’)
+                           | INR (INR tyl) => ast_t1_size tyl)’
+End
 
 Theorem destTyvarPT_tyname_to_AST:
    ∀i. user_expressible_tyname i ⇒ destTyvarPT (tyname_to_AST i) = NONE

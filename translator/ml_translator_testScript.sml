@@ -219,12 +219,14 @@ val _ = Datatype`
             ; do_call : bool |>`
 val res = register_type``:foo``
 
-val foo_def = tDefine"foo"`
+Definition foo_def:
   foo (k:num) n =
   if n = 0 then []
   else if n ≤ 256n then [k]
-  else foo (k+1) (n-256)`
-  (WF_REL_TAC `measure SND`\\fs[])
+  else foo (k+1) (n-256)
+Termination
+  WF_REL_TAC `measure SND`\\fs[]
+End
 
 val res = translate foo_def
 
@@ -586,10 +588,12 @@ val _ = register_type ``:lit``
 
 (* step 2: translate a function that walks a char list producing datatype with strings *)
 val _ = use_string_type false;
-val chop_str_def = tDefine "chop_str" `
+Definition chop_str_def:
   chop_str [] = [] /\
-  chop_str xs = StrLit (TAKE 5 xs) :: chop_str (DROP 5 xs)`
-  (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_DROP]);
+  chop_str xs = StrLit (TAKE 5 xs) :: chop_str (DROP 5 xs)
+Termination
+  WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_DROP]
+End
 val res = translate TAKE_def;
 val res = translate DROP_def;
 val res = translate chop_str_def

@@ -101,7 +101,7 @@ Proof
   \\ metis_tac [IS_PREFIX_TRANS]
 QED
 
-val gc_move_data_def = tDefine "gc_move_data"  `
+Definition gc_move_data_def:
   (gc_move_data conf state =
     case state.h2 of
     | [] => state
@@ -114,14 +114,16 @@ val gc_move_data_def = tDefine "gc_move_data"  `
          let h2 = TL state.h2 in
          let ok = state.ok /\ state.h2 <> [] /\ (HD state.h2 = h) in
            gc_move_data conf (state with <| h1 := h1; h2 := h2; ok := ok |>)
-       | _ => state with <| ok := F |>)`
-  (WF_REL_TAC `measure (\(conf,state). conf.limit - heap_length state.h1)`
+       | _ => state with <| ok := F |>)
+Termination
+  WF_REL_TAC `measure (\(conf,state). conf.limit - heap_length state.h1)`
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
   \\ imp_res_tac (GSYM gc_move_list_IMP)
   \\ fs []
-  \\ decide_tac)
+  \\ decide_tac
+End
 
-val gc_move_refs_def = tDefine "gc_move_refs" `
+Definition gc_move_refs_def:
   (* maybe more refs (r4 could have more) *)
   gc_move_refs conf state =
     case state.r2 of
@@ -132,10 +134,12 @@ val gc_move_refs_def = tDefine "gc_move_refs" `
         let (xs,state) = gc_move_list conf state xs in
         let r3 = state.r3 ++ [DataElement xs l d] in
           gc_move_refs conf (state with <| r2 := r2; r3 := r3 |>)
-      | _ => state with <| ok := F |>`
-  (WF_REL_TAC `measure (\(conf,state). heap_length state.r2)`
+      | _ => state with <| ok := F |>
+Termination
+  WF_REL_TAC `measure (\(conf,state). heap_length state.r2)`
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
-  \\ decide_tac);
+  \\ decide_tac
+End
 
 (* The main gc loop *)
 (* Runs a clock to simplify the termination argument *)

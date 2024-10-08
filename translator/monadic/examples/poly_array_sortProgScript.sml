@@ -438,7 +438,7 @@ val partition_helper_def = allowing_rebind (mtDefine "partition_helper" `
 (* TODO fix s5 / s6 problem - can get away with it for now,
    but probably not in general... *)
 (*
-val partition_helper_def = tDefine "partition_helper" `
+Definition partition_helper_def:
   partition_helper (cmp : 'a -> 'a -> bool) pivot lb ub s =
     if ub ≤ lb then (return ub s) else (
       monad_bind (scan_lower cmp pivot lb)
@@ -461,7 +461,9 @@ val partition_helper_def = tDefine "partition_helper" `
         )
       s1 )
     ) s
-`
+Termination
+  ...
+End
 *)
 
 Theorem partition_helper_index:
@@ -705,17 +707,18 @@ Proof
   metis_tac[]
 QED
 
-val array_get_aux_def = tDefine "array_get_aux" `
+Definition array_get_aux_def:
   array_get_aux length n =
     if n ≥ length then return [] else do
       rest <- array_get_aux length (n + 1);
       elem <- arr_sub n;
       return (elem :: rest)
     od
-`
-(
+Termination
+
   WF_REL_TAC `measure (λ (length, n) . length - n)`
-)
+
+End
 
 Definition array_get_def:
   array_get () = do

@@ -1924,8 +1924,7 @@ val one_one_conext = EVAL ``conexts_of_upd(EL 3 (mk_infinity_ctxt ARB))`` |> con
 
 (* construction of the model extension basing on the independent fragment *)
 
-val type_interpretation_ext_of_def =
-  tDefine "type_interpretation_ext_of0" `
+Definition type_interpretation_ext_of0_def:
   (type_interpretation_ext_of0
    ^mem ind upd ctxt Δ (Γ :mlstring # type -> 'U) ty =
    if ~terminating(subst_clos (dependency (upd::ctxt))) then
@@ -2070,8 +2069,9 @@ val type_interpretation_ext_of_def =
                        sigma'
                        trm0
          | NONE => One (* cannot happen *)
-  )`
-(
+  )
+Termination
+
   wf_rel_tac `subst_clos_term_ext_rel`
   >- (
     rw[wellorderTheory.WF_IND,subst_clos_term_ext_rel_def,WF_TC_EQN] >>
@@ -2602,11 +2602,13 @@ val type_interpretation_ext_of_def =
           fs[extends_init_def]
          )
       )
-  )
+
+End
 
 Overload type_interpretation_ext_of = ``type_interpretation_ext_of0 ^mem``
 Overload term_interpretation_ext_of = ``term_interpretation_ext_of0 ^mem``
 
+val type_interpretation_ext_of_def = type_interpretation_ext_of0_def;
 val type_interpretation_ext_of_ind = fetch "-" "type_interpretation_ext_of0_ind";
 
 (* symbols from the independent fragment keeps their earlier interpretation *)

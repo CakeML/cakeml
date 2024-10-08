@@ -3571,17 +3571,19 @@ Theorem wStackLoad_thm3 =
  |> Q.INST [`t`|->`set_var v1 v2 t`]
  |> PURE_REWRITE_RULE[set_var_const]
 
-val map_var_def = tDefine"map_var"`
+Definition map_var_def:
   (map_var f (Var num) = Var (f num)) ∧
   (map_var f (Load exp) = Load (map_var f exp)) ∧
   (map_var f (Op wop ls) = Op wop (MAP (map_var f) ls)) ∧
   (map_var f (Shift sh e1 e2) = Shift sh (map_var f e1) e2) ∧
   (map_var f (Const c) = Const c) ∧
-  (map_var f (Lookup v) = Lookup v)`
-(WF_REL_TAC`measure (exp_size ARB o SND)`
+  (map_var f (Lookup v) = Lookup v)
+Termination
+  WF_REL_TAC`measure (exp_size ARB o SND)`
  \\ simp[]
  \\ Induct \\ simp[] \\ rw[]
- \\ EVAL_TAC \\ simp[] \\ res_tac \\ simp[]);
+ \\ EVAL_TAC \\ simp[] \\ res_tac \\ simp[]
+End
 val _ = export_rewrites["map_var_def"];
 
 Theorem the_words_EVERY_IS_SOME_Word:

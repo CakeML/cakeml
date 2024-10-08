@@ -789,7 +789,7 @@ Proof
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[destVar_def]
 QED
 
-val bVarBound_def = tDefine "bVarBound" `
+Definition bVarBound_def:
   (bVarBound n [] <=> T) /\
   (bVarBound n ((x:bvl$exp)::y::xs) <=>
      bVarBound n [x] /\ bVarBound n (y::xs)) /\
@@ -803,12 +803,14 @@ val bVarBound_def = tDefine "bVarBound" `
   (bVarBound n [Op op xs] <=> bVarBound n xs) /\
   (bVarBound n [Handle x1 x2] <=>
      bVarBound n [x1] /\ bVarBound (n + 1) [x2]) /\
-  (bVarBound n [Call ticks dest xs] <=> bVarBound n xs)`
-  (WF_REL_TAC `measure (exp1_size o SND)`
+  (bVarBound n [Call ticks dest xs] <=> bVarBound n xs)
+Termination
+  WF_REL_TAC `measure (exp1_size o SND)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+End
 
-val bEvery_def = tDefine "bEvery" `
+Definition bEvery_def:
   (bEvery P [] <=> T) /\
   (bEvery P ((x:bvl$exp)::y::xs) <=>
      bEvery P [x] /\ bEvery P (y::xs)) /\
@@ -822,10 +824,12 @@ val bEvery_def = tDefine "bEvery" `
   (bEvery P [Op op xs] <=> P (Op op xs) /\ bEvery P xs) /\
   (bEvery P [Handle x1 x2] <=> P (Handle x1 x2) /\
      bEvery P [x1] /\ bEvery P [x2]) /\
-  (bEvery P [Call ticks dest xs] <=> P (Call ticks dest xs) /\ bEvery P xs)`
-  (WF_REL_TAC `measure (exp1_size o SND)`
+  (bEvery P [Call ticks dest xs] <=> P (Call ticks dest xs) /\ bEvery P xs)
+Termination
+  WF_REL_TAC `measure (exp1_size o SND)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+End
 
 val _ = export_rewrites["bEvery_def","bVarBound_def"];
 
@@ -843,21 +847,23 @@ Proof
   Cases_on`ls`>>simp[]
 QED
 
-val get_code_labels_def = tDefine"get_code_labels"
-  `(get_code_labels (bvl$Var _) = {}) ∧
-   (get_code_labels (If e1 e2 e3) = get_code_labels e1 ∪ get_code_labels e2 ∪ get_code_labels e3) ∧
-   (get_code_labels (Let es e) = BIGUNION (set (MAP get_code_labels es)) ∪ get_code_labels e) ∧
-   (get_code_labels (Raise e) = get_code_labels e) ∧
-   (get_code_labels (Handle e1 e2) = get_code_labels e1 ∪ get_code_labels e2) ∧
-   (get_code_labels (Tick e) = get_code_labels e) ∧
-   (get_code_labels (Call _ d es) = (case d of NONE => {} | SOME n => {n}) ∪ BIGUNION (set (MAP get_code_labels es))) ∧
-   (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))`
-  (wf_rel_tac`measure exp_size`
-   \\ simp[bvlTheory.exp_size_def]
-   \\ rpt conj_tac \\ rpt gen_tac
-   \\ Induct_on`es`
-   \\ rw[bvlTheory.exp_size_def]
-   \\ simp[] \\ res_tac \\ simp[]);
+Definition get_code_labels_def:
+  (get_code_labels (bvl$Var _) = {}) ∧
+  (get_code_labels (If e1 e2 e3) = get_code_labels e1 ∪ get_code_labels e2 ∪ get_code_labels e3) ∧
+  (get_code_labels (Let es e) = BIGUNION (set (MAP get_code_labels es)) ∪ get_code_labels e) ∧
+  (get_code_labels (Raise e) = get_code_labels e) ∧
+  (get_code_labels (Handle e1 e2) = get_code_labels e1 ∪ get_code_labels e2) ∧
+  (get_code_labels (Tick e) = get_code_labels e) ∧
+  (get_code_labels (Call _ d es) = (case d of NONE => {} | SOME n => {n}) ∪ BIGUNION (set (MAP get_code_labels es))) ∧
+  (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))
+Termination
+  wf_rel_tac`measure exp_size`
+  \\ simp[bvlTheory.exp_size_def]
+  \\ rpt conj_tac \\ rpt gen_tac
+  \\ Induct_on`es`
+  \\ rw[bvlTheory.exp_size_def]
+  \\ simp[] \\ res_tac \\ simp[]
+End
 val get_code_labels_def =
   get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp,compute,allow_rebind]"
 

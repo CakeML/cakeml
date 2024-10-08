@@ -31,15 +31,17 @@ val drule = old_drule
 Overload num_stubs[local] = ``bvl_num_stubs``
 Overload nss[local] = ``bvl_to_bvi_namespaces``
 
-val adjust_bv_def = tDefine "adjust_bv" `
+Definition adjust_bv_def:
   (adjust_bv b (Number i) = Number i) /\
   (adjust_bv b (Word64 w) = Word64 w) /\
   (adjust_bv b (RefPtr r) = RefPtr (b r)) /\
   (adjust_bv b (CodePtr c) = CodePtr (num_stubs + nss * c)) /\
-  (adjust_bv b (Block tag vs) = Block tag (MAP (adjust_bv b) vs))`
-  (WF_REL_TAC `measure (v_size o SND)`
+  (adjust_bv b (Block tag vs) = Block tag (MAP (adjust_bv b) vs))
+Termination
+  WF_REL_TAC `measure (v_size o SND)`
    \\ Induct_on `vs` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [v_size_def]
-   \\ RES_TAC \\ FIRST_X_ASSUM (ASSUME_TAC o SPEC_ALL) \\ DECIDE_TAC)
+   \\ RES_TAC \\ FIRST_X_ASSUM (ASSUME_TAC o SPEC_ALL) \\ DECIDE_TAC
+End
 
 val adjust_bv_ind = theorem"adjust_bv_ind";
 
@@ -138,13 +140,15 @@ Proof
   >> rfs[]
 QED
 
-val bv_ok_def = tDefine "bv_ok" `
+Definition bv_ok_def:
   (bv_ok (refs: num |-> v ref) (RefPtr r) <=> r IN FDOM refs) /\
   (bv_ok refs (Block tag vs) <=> EVERY (bv_ok refs) vs) /\
-  (bv_ok refs _ <=> T)`
-  (WF_REL_TAC `measure (v_size o SND)`
+  (bv_ok refs _ <=> T)
+Termination
+  WF_REL_TAC `measure (v_size o SND)`
    \\ Induct_on `vs` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [v_size_def]
-   \\ RES_TAC \\ FIRST_X_ASSUM (ASSUME_TAC o SPEC_ALL) \\ DECIDE_TAC)
+   \\ RES_TAC \\ FIRST_X_ASSUM (ASSUME_TAC o SPEC_ALL) \\ DECIDE_TAC
+End
 
 val bv_ok_ind = theorem"bv_ok_ind";
 

@@ -610,14 +610,16 @@ val generalise_list_length = Q.prove (
   srw_tac[] [] >>
   metis_tac [SND]);
 
-val gen_d_ind_def = tDefine "gen_d_ind" `
+Definition gen_d_ind_def:
   (gen_d_ind (Dmod n ds) = gen_ds_ind ds) /\
   (gen_d_ind (Dlocal lds ds) = (gen_ds_ind lds /\ gen_ds_ind ds)) /\
   (gen_d_ind _ = T) /\
   (gen_ds_ind [] = T) /\
-  (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))`
-  (WF_REL_TAC `measure (\x. case x of INL d => dec_size d
-                                    | INR ds => dec1_size ds)`)
+  (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))
+Termination
+  WF_REL_TAC `measure (\x. case x of INL d => dec_size d
+                                    | INR ds => dec1_size ds)`
+End
 
 val infer_p_wfs_dest = infer_p_wfs |> BODY_CONJUNCTS
     |> map (CONV_RULE (ONCE_DEPTH_CONV (REWR_CONV CONJ_COMM)))
@@ -648,23 +650,25 @@ val MEM_anub = prove(``
   MEM (k,v1) e1M``,
   ho_match_mp_tac anub_ind>>rw[anub_def]>>metis_tac[]);
 
-val nsSub_translate_def = tDefine "nsSub_translate"
-  `nsSub_translate path R b1 b2 ⇔
-   case b1 of (Bind e1V e1M) => case b2 of (Bind e2V e2M) =>
-     EVERY (λ(k,v1).
-       case ALOOKUP e2V k of
-         NONE => F
-       | SOME v2 => R (mk_id (REVERSE path) k) v1 v2) (anub e1V []) ∧
-     EVERY (λ(k,v1).
-       case ALOOKUP e2M k of
-         NONE => F
-       | SOME v2 => nsSub_translate (k::path) R v1 v2) (anub e1M [])`
-  (wf_rel_tac `measure (\(p,r,env,_). namespace_size (\x.0) (\x.0) (\x.0) env)`
-   >> rw[]
-   >> imp_res_tac MEM_anub >> last_x_assum kall_tac
-   >> Induct_on `e1M`
-   >> rw [namespaceTheory.namespace_size_def]
-   >> fs [namespaceTheory.namespace_size_def]);
+Definition nsSub_translate_def:
+  nsSub_translate path R b1 b2 ⇔
+  case b1 of (Bind e1V e1M) => case b2 of (Bind e2V e2M) =>
+    EVERY (λ(k,v1).
+      case ALOOKUP e2V k of
+        NONE => F
+      | SOME v2 => R (mk_id (REVERSE path) k) v1 v2) (anub e1V []) ∧
+    EVERY (λ(k,v1).
+      case ALOOKUP e2M k of
+        NONE => F
+      | SOME v2 => nsSub_translate (k::path) R v1 v2) (anub e1M [])
+Termination
+  wf_rel_tac `measure (\(p,r,env,_). namespace_size (\x.0) (\x.0) (\x.0) env)`
+  >> rw[]
+  >> imp_res_tac MEM_anub >> last_x_assum kall_tac
+  >> Induct_on `e1M`
+  >> rw [namespaceTheory.namespace_size_def]
+  >> fs [namespaceTheory.namespace_size_def]
+End
 
 val ALOOKUP_MEM_anub = prove(
   ``∀ls acc k v.

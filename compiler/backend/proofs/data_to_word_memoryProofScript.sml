@@ -216,14 +216,16 @@ Termination
   \\ imp_res_tac v_size_LEMMA \\ DECIDE_TAC
 End
 
-val get_refs_def = tDefine "get_refs" `
+Definition get_refs_def:
   (get_refs (Number _) = []) /\
   (get_refs (Word64 _) = []) /\
   (get_refs (CodePtr _) = []) /\
   (get_refs (RefPtr p) = [p]) /\
-  (get_refs (Block _ _ vs) = FLAT (MAP get_refs vs))`
- (WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `vs`
-  \\ srw_tac [] [v_size_def] \\ res_tac \\ DECIDE_TAC);
+  (get_refs (Block _ _ vs) = FLAT (MAP get_refs vs))
+Termination
+  WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `vs`
+  \\ srw_tac [] [v_size_def] \\ res_tac \\ DECIDE_TAC
+End
 
 Definition ref_edge_def:
   ref_edge refs (x:num) (y:num) =
@@ -254,11 +256,13 @@ Definition bc_ref_inv_def:
 End
 
 (* TODO: MOVE *)
-val v_all_ts_def = tDefine"v_all_ts" `
+Definition v_all_ts_def:
   v_all_ts (Block ts _ xs) = ts :: FLAT (MAP v_all_ts xs)
-∧ v_all_ts _ = []`
-  (WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `xs`
-  \\ srw_tac [] [v_size_def] \\ res_tac \\ DECIDE_TAC);
+∧ v_all_ts _ = []
+Termination
+  WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `xs`
+  \\ srw_tac [] [v_size_def] \\ res_tac \\ DECIDE_TAC
+End
 
 (* TODO: MOVE *)
 Definition all_ts_def:
@@ -2080,11 +2084,13 @@ Proof
   rw [GSYM all_ts_append]
 QED
 
-val v_all_vs_def = tDefine"v_all_vs"`
+Definition v_all_vs_def:
   v_all_vs (Block ts tag l :: xs) = Block ts tag l :: v_all_vs l ++ v_all_vs xs
 ∧ v_all_vs (x::xs)                = x :: v_all_vs xs
-∧ v_all_vs [] = []`
-  (WF_REL_TAC `measure (v1_size)`);
+∧ v_all_vs [] = []
+Termination
+  WF_REL_TAC `measure (v1_size)`
+End
 
 Definition all_vs_def:
   all_vs refs stack = { v | ∃(n:num) l. lookup n refs = SOME (ValueArray l) ∧ MEM v (v_all_vs l)} ∪
@@ -8620,18 +8626,20 @@ val word_cmp_loop_refl = Q.prove(
 
 val good_dimindex_def = good_dimindex_def
 
-val v_same_type_def = tDefine"v_same_type"`
+Definition v_same_type_def:
   (v_same_type (Number _) (Number _) = T) ∧
   (v_same_type (Word64 _) (Word64 _) = T) ∧
   (v_same_type (Block _ t1 l1) (Block _ t2 l2) = (t1 = t2 ∧ LENGTH l1 = LENGTH l2 ⇒ LIST_REL v_same_type l1 l2)) ∧
   (v_same_type (CodePtr _) (CodePtr _) = T) ∧
   (v_same_type (RefPtr _) (RefPtr _) = T) ∧
-  (v_same_type _ _ = F)`
-(wf_rel_tac`measure (v_size o FST)`
+  (v_same_type _ _ = F)
+Termination
+  wf_rel_tac`measure (v_size o FST)`
  \\ Induct_on`l1` \\ ntac 2 (rw[v_size_def])
  \\ Cases_on`l2` \\ fs[] \\ rw[]
  \\ res_tac \\ fs[] \\ rfs[]
- \\ first_x_assum(qspecl_then[`0`,`t1`]mp_tac) \\ rw[]);
+ \\ first_x_assum(qspecl_then[`0`,`t1`]mp_tac) \\ rw[]
+End
 val _ = export_rewrites["v_same_type_def"];
 
 val v_ind =
@@ -8892,12 +8900,14 @@ Proof
   Induct \\ rw[v_size_def]
 QED
 
-val v_depth_def = tDefine"v_depth"`
+Definition v_depth_def:
   (v_depth (Block _ _ ls) = (if NULL ls then 0 else 1) + list_max (MAP v_depth ls)) ∧
-  (v_depth _ = 0n)`
-(WF_REL_TAC`measure v_size` \\
+  (v_depth _ = 0n)
+Termination
+  WF_REL_TAC`measure v_size` \\
  ntac 2 gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
- \\ res_tac \\ rw[]);
+ \\ res_tac \\ rw[]
+End
 val _ = export_rewrites["v_depth_def"];
 
 val v_depth_ind = theorem"v_depth_ind";
@@ -9264,7 +9274,7 @@ End
    ck is an upper bound on the number of stack frames
       allocated by an equality comparison.
   *)
-val word_eq_def = tDefine "word_eq" `
+Definition word_eq_def:
   (word_eq c st dm m l ck w1 (w2:'a word) =
      if w1 = w2 then SOME (1w:'a word,l,ck) else
      if ~(word_bit 0 w1 /\ word_bit 0 w2) then SOME (0w,l,ck) else
@@ -9301,11 +9311,13 @@ val word_eq_def = tDefine "word_eq" `
                             if l = 0 then NONE else
                               word_eq_list c st dm m (l-1) ck (w-1w)
                                 (a1 + bytes_in_word) (a2 + bytes_in_word))
-       | _ => NONE)`
- (WF_REL_TAC `measure(\x. case x of
+       | _ => NONE)
+Termination
+  WF_REL_TAC `measure(\x. case x of
                           | INL (c,st,dm,m,l1,ck1,w1,w2) => l1
                           | INR (c,st,dm,m,l1,ck1,w,a1,a2) => l1)` >>
-  rw[] >> imp_res_tac fix_clock_IMP >> rw[])
+  rw[] >> imp_res_tac fix_clock_IMP >> rw[]
+End
 
 val word_eq_ind = theorem "word_eq_ind";
 
@@ -10491,7 +10503,7 @@ QED
 
 (* copy forward *)
 
-val word_copy_fwd_def = tDefine "word_copy_fwd" `
+Definition word_copy_fwd_def:
   word_copy_fwd be (n:'a word) a b (m:'a word -> 'a word_loc) dm =
     if dimword (:'a) <= 4 then NONE else
     if n <+ 4w then
@@ -10519,11 +10531,13 @@ val word_copy_fwd_def = tDefine "word_copy_fwd" `
       OPTION_BIND (mem_store_byte_aux m dm be (b+1w) w2) (\m.
       OPTION_BIND (mem_store_byte_aux m dm be (b+2w) w3) (\m.
       OPTION_BIND (mem_store_byte_aux m dm be (b+3w) w4) (\m.
-        word_copy_fwd be (n-4w) (a+4w) (b+4w) m dm))))))))`
- (WF_REL_TAC `measure (w2n o FST o SND)`
+        word_copy_fwd be (n-4w) (a+4w) (b+4w) m dm))))))))
+Termination
+  WF_REL_TAC `measure (w2n o FST o SND)`
   \\ Cases_on `n` \\ fs [] \\ rw []
   \\ fs [WORD_LO] \\ rfs [NOT_LESS]
-  \\ rewrite_tac [addressTheory.word_arith_lemma2,GSYM word_sub_def] \\ fs [])
+  \\ rewrite_tac [addressTheory.word_arith_lemma2,GSYM word_sub_def] \\ fs []
+End
 
 Definition list_copy_fwd_def:
   list_copy_fwd n xp xs yp ys =
@@ -10734,7 +10748,7 @@ QED
 
 (* copy backward *)
 
-val word_copy_bwd_def = tDefine "word_copy_bwd" `
+Definition word_copy_bwd_def:
   word_copy_bwd be (n:'a word) a b (m:'a word -> 'a word_loc) dm =
     if dimword (:'a) <= 4 then NONE else
     if n <+ 4w then
@@ -10762,11 +10776,13 @@ val word_copy_bwd_def = tDefine "word_copy_bwd" `
       OPTION_BIND (mem_store_byte_aux m dm be (b-1w) w2) (\m.
       OPTION_BIND (mem_store_byte_aux m dm be (b-2w) w3) (\m.
       OPTION_BIND (mem_store_byte_aux m dm be (b-3w) w4) (\m.
-        word_copy_bwd be (n-4w) (a-4w) (b-4w) m dm))))))))`
- (WF_REL_TAC `measure (w2n o FST o SND)`
+        word_copy_bwd be (n-4w) (a-4w) (b-4w) m dm))))))))
+Termination
+  WF_REL_TAC `measure (w2n o FST o SND)`
   \\ Cases_on `n` \\ fs [] \\ rw []
   \\ fs [WORD_LO] \\ rfs [NOT_LESS]
-  \\ rewrite_tac [addressTheory.word_arith_lemma2,GSYM word_sub_def] \\ fs [])
+  \\ rewrite_tac [addressTheory.word_arith_lemma2,GSYM word_sub_def] \\ fs []
+End
 
 Definition minus_def:
   minus m n = m - n:num

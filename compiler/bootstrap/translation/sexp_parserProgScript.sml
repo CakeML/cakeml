@@ -339,7 +339,7 @@ QED
 val _ = add_user_proved_v_thm num_to_dec_string_v_thm;
 
 (* TODO: translator failed for some reason if I just prove these as equations on print_sexp *)
-val print_sexp_alt_def = tDefine"print_sexp_alt"`
+Definition print_sexp_alt_def:
   (print_sexp_alt (SX_SYM s) = s) ∧
   (print_sexp_alt (SX_NUM n) = toString n) ∧
   (print_sexp_alt (SX_STR s) = "\"" ++ IMPLODE(escape_string s) ++ "\"") ∧
@@ -351,15 +351,17 @@ val print_sexp_alt_def = tDefine"print_sexp_alt"`
      then "'" ++ print_sexp_alt (EL 1 ls)
      else "(" ++ print_space_separated (MAP print_sexp_alt ls) ++ ")"
    | SOME lst =>
-       "(" ++ print_space_separated (MAP print_sexp_alt ls) ++ " . " ++ print_sexp_alt lst ++ ")")`
- (WF_REL_TAC`measure sexp_size` >> rw[] >> simp[simpleSexpTheory.sexp_size_def] >>
+       "(" ++ print_space_separated (MAP print_sexp_alt ls) ++ " . " ++ print_sexp_alt lst ++ ")")
+Termination
+  WF_REL_TAC`measure sexp_size` >> rw[] >> simp[simpleSexpTheory.sexp_size_def] >>
    fs[Once simpleSexpParseTheory.strip_dot_def] >>
    pairarg_tac \\ fs[] \\ rw[simpleSexpTheory.sexp_size_def] \\ fs[]
    \\ imp_res_tac simpleSexpParseTheory.strip_dot_MEM_sizelt
    \\ imp_res_tac simpleSexpParseTheory.strip_dot_last_sizeleq
    \\ fsrw_tac[boolSimps.DNF_ss][] \\ simp[]
    \\ fs[LENGTH_EQ_NUM_compute] \\ rw[] \\ fs[]
-   \\ res_tac \\ simp[]);
+   \\ res_tac \\ simp[]
+End
 
 Theorem strip_dot_EQ_NILSOME:
   strip_dot s = ([], SOME x) ⇒ s = x

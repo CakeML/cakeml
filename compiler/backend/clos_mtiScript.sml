@@ -95,7 +95,7 @@ val collect_apps_more = Q.prove (
   res_tac >>
   decide_tac);
 
-val intro_multi_def = tDefine "intro_multi" `
+Definition intro_multi_def:
   (intro_multi max_app [] = []) ∧
   (intro_multi max_app (e1::e2::es) =
     HD (intro_multi max_app [e1]) :: HD (intro_multi max_app [e2]) :: intro_multi max_app es) ∧
@@ -135,8 +135,9 @@ val intro_multi_def = tDefine "intro_multi" `
   (intro_multi max_app [Letrec t NONE (SOME fvs) funs e] =
      [Letrec t NONE (SOME fvs) funs (HD (intro_multi max_app [e]))]) ∧
   (intro_multi max_app [Op t op es] =
-    [Op t op (intro_multi max_app es)])`
-  (WF_REL_TAC `measure (exp3_size o SND)` >>
+    [Op t op (intro_multi max_app es)])
+Termination
+  WF_REL_TAC `measure (exp3_size o SND)` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    imp_res_tac collect_args_size >>
    imp_res_tac collect_apps_size >>
@@ -147,7 +148,8 @@ val intro_multi_def = tDefine "intro_multi" `
                srw_tac[][exp_size_def] >>
                res_tac >>
                decide_tac) >>
-   decide_tac);
+   decide_tac
+End
 
 val intro_multi_ind = theorem "intro_multi_ind";
 

@@ -27,17 +27,19 @@ Definition heap_to_bag_def:
   BAG_UNION (heap_to_bag h) (heaps_to_bag hs))
 End
 
-val is_heap_ordered_def = tDefine "is_heap_ordered" `
+Definition is_heap_ordered_def:
 (is_heap_ordered get_key leq Empty <=> T) ∧
 (is_heap_ordered get_key leq (Tree x hs) <=>
   EVERY (is_heap_ordered get_key leq) hs ∧
-  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heaps_to_bag hs))`
-(wf_rel_tac `measure (\(_,_,h). (heap_size (\x.1) h))` >>
+  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heaps_to_bag hs))
+Termination
+  wf_rel_tac `measure (\(_,_,h). (heap_size (\x.1) h))` >>
 rw [] >>
 induct_on `hs` >>
 rw [fetch "-" "heap_size_def"] >>
 fs [] >>
-decide_tac);
+decide_tac
+End
 
 Definition empty_def:
 empty = Empty

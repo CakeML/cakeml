@@ -18,12 +18,14 @@ Definition tabulate_def:
   tabulate n f = Vector (GENLIST f n)
 End
 
-val toList_aux_def = tDefine "toList_aux"`
+Definition toList_aux_def:
   toList_aux vec n =
   if length(vec) <= n
     then []
-  else sub vec n::toList_aux vec (n + 1)`
-(wf_rel_tac `measure (\(vec, n). length(vec) - n)`)
+  else sub vec n::toList_aux vec (n + 1)
+Termination
+  wf_rel_tac `measure (\(vec, n). length(vec) - n)`
+End
 
 val toList_aux_ind = theorem"toList_aux_ind";
 

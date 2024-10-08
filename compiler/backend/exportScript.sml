@@ -6,14 +6,16 @@ open preamble mlstringTheory mlvectorTheory mlintTheory;
 
 val _ = new_theory "export";
 
-val split16_def = tDefine "split16" `
+Definition split16_def:
   (split16 f [] = Nil) /\
   (split16 f xs =
      let xs1 = TAKE 16 xs in
      let xs2 = DROP 16 xs in
-       SmartAppend (f xs1) (split16 f xs2))`
-  (WF_REL_TAC `measure (LENGTH o SND)`
-   \\ fs [listTheory.LENGTH_DROP]);
+       SmartAppend (f xs1) (split16 f xs2))
+Termination
+  WF_REL_TAC `measure (LENGTH o SND)`
+   \\ fs [listTheory.LENGTH_DROP]
+End
 
 val preamble_tm =
   ``(MAP (\n. strlit(n ++ "\n"))

@@ -233,12 +233,14 @@ Proof
   rw[strcat_thm]
 QED
 
-val concatWith_aux_def = tDefine "concatWith_aux"`
+Definition concatWith_aux_def:
   (concatWith_aux s [] bool = implode []) /\
   (concatWith_aux s (h::t) T = strcat h (concatWith_aux s t F)) /\
-  (concatWith_aux s (h::t) F = strcat s (concatWith_aux s (h::t) T))`
-  (wf_rel_tac `inv_image ($< LEX $<) (\(s,l,b). (LENGTH l, if b then 0n else 1))` \\
-  rw[]);
+  (concatWith_aux s (h::t) F = strcat s (concatWith_aux s (h::t) T))
+Termination
+  wf_rel_tac `inv_image ($< LEX $<) (\(s,l,b). (LENGTH l, if b then 0n else 1))` \\
+  rw[]
+End
 
 Definition concatWith_def:
   concatWith s l = concatWith_aux s l T
@@ -296,12 +298,14 @@ Proof
   rw [translate_def, translate_aux_thm]
 QED
 
-val splitl_aux_def = tDefine"splitl_aux"`
+Definition splitl_aux_def:
   splitl_aux P s i =
     if i < strlen s ∧ P (strsub s i) then
         splitl_aux P s (i+1)
-    else (extract s 0 (SOME i), extract s i NONE)`
-(WF_REL_TAC`inv_image $< (λ(x,s,i). strlen s - i)`);
+    else (extract s 0 (SOME i), extract s i NONE)
+Termination
+  WF_REL_TAC`inv_image $< (λ(x,s,i). strlen s - i)`
+End
 
 val splitl_aux_ind = theorem"splitl_aux_ind";
 

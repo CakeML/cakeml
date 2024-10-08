@@ -32,14 +32,14 @@ End
 (* Projection from `dataSem$v` into `bvlSem$v` that basically gets rid of
    timestamp information (note this make the function non-injective)
 *)
-val data_to_bvi_v_def = tDefine"data_to_bvi_v_def"`
+Definition data_to_bvi_v_def:
   data_to_bvi_v (Number i)      = bvlSem$Number i
 ∧ data_to_bvi_v (Word64 w)      = bvlSem$Word64 w
 ∧ data_to_bvi_v (CodePtr p)     = bvlSem$CodePtr p
 ∧ data_to_bvi_v (RefPtr r)      = bvlSem$RefPtr r
 ∧ data_to_bvi_v (Block _ tag l) = bvlSem$Block tag (MAP data_to_bvi_v l)
-`
-(wf_rel_tac `measure v_size`
+Termination
+  wf_rel_tac `measure v_size`
 \\ `∀l. v1_size l = SUM (MAP (λx. v_size x + 1) l)`
    by (Induct >> rw [v_size_def])
 \\ rw []
@@ -49,7 +49,8 @@ val data_to_bvi_v_def = tDefine"data_to_bvi_v_def"`
 \\ rw []
 \\ ho_match_mp_tac LESS_EQ_TRANS
 \\ Q.EXISTS_TAC `v_size a + 1`
-\\ rw [])
+\\ rw []
+End
 
 (* Projection for Unit constant *)
 Theorem data_to_bvi_v_Unit:
