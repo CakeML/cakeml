@@ -85,8 +85,8 @@ val my_program2 = parse_pancake ‘fun main() {return y; }’ |> concl |> rhs |>
 
 val my_check2 = EVAL “scope_check ^my_program2” |> concl |> rhs
 
-val my_program = parse_pancake_from_file "test.🥞" |> concl |> rhs |> rand
+val my_program3 = parse_pancake_from_file "test.🥞" |> concl |> rhs |> rand
 
-val my_check = EVAL “scope_check ^my_program” |> concl |> rhs
+val my_check3 = EVAL “scope_check ^my_program3” |> concl |> rhs
 
 val _ = export_theory();
