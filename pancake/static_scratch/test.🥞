@@ -39,7 +39,7 @@
 
 // // exported func with >4 args
 // export fun f (1 a, 1 b, 1 c, 1 d) {
-//     return 1;
+//     return a;
 // }
 // export fun g (1 a, 1 b, 1 c, 1 d, 1 e) {
 //     return 1;
@@ -83,6 +83,15 @@
 //     raise Err 1;
 //     skip;
 // }
+// !TODO:
+// fun h () {
+//     var x = 12;
+//     {
+//         x = 0;
+//         return x;
+//     };
+//     return 1;
+// }
 
 // // rogue break/continue
 // fun f () {
@@ -110,4 +119,379 @@
 //         break;
 //     }
 //     continue;
+// }
+
+// memory address basedness
+// fun a () {
+//     var y = lds 1 0;
+//     y = ld8 0;
+//     st 0, y;
+//     st8 0, y;
+//     !ldw y, 0;
+//     !stw 0, y;
+
+//     return 1;
+// }
+// fun b () {
+//     var y = lds 1 @base;
+//     y = ld8 @base;
+//     st @base, y;
+//     st8 @base, y;
+//     !ldw y, @base;
+//     !stw @base, y;
+
+//     return 1;
+// }
+// fun c () {
+//     var x = 0 + 1;
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     x = @base + 1;
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     x = @base + @base;
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun d () {
+//     var 1 x = foo();
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     x = foo();
+
+//     y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun e (1 a) {
+
+//     var y = lds 1 a;
+//     y = ld8 a;
+//     st a, y;
+//     st8 a, y;
+
+//     y = lds 1 y;
+//     y = ld8 y;
+//     st y, y;
+//     st8 y, y;
+//     !ldw y, y;
+//     !stw y, y;
+
+//     !ldw y, a;
+//     !stw a, y;
+
+//     y = ld8 y;
+//     st y, y;
+//     st8 y, y;
+//     !ldw y, y;
+//     !stw y, y;
+
+//     return 1;
+// }
+// fun f () {
+//     var x = 0;
+//     if (1) {
+//         x = x + 1;
+//     } else {
+//         x = x + 1;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun g () {
+//     var x = 0;
+//     if (1) {
+//         x = x + @base;
+//     } else {
+//         x = x + @base;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun h () {
+//     var x = 0;
+//     if (1) {
+//         x = x + @base;
+//     } else {
+//         x = x + 1;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     x = x + 1;
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     x = x + @base;
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     x = x + 1;
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun i () {
+//     var x = 0;
+//     if (1) {
+//         x = 1;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun j () {
+//     var x = 0;
+//     if (1) {
+//         x = x + @base;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun k () {
+//     var x = @base;
+//     if (1) {
+//         x = x + 1;
+//     } else {
+//         x = x + 1;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun l () {
+//     var x = @base;
+//     if (1) {
+//         x = x + @base;
+//     } else {
+//         x = x + @base;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun m () {
+//     var x = @base;
+//     if (1) {
+//         x = x + @base;
+//     } else {
+//         x = x + 1;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun n () {
+//     var x = @base;
+//     if (1) {
+//         x = 1;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun o () {
+//     var x = @base;
+//     if (1) {
+//         x = x + @base;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun p () {
+//     var x = 0;
+//     while (1) {
+//         x = x + 1;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun q () {
+//     var x = 0;
+//     while (1) {
+//         x = x + @base;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun r () {
+//     var x = @base;
+//     while (1) {
+//         x = x + 1;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun s () {
+//     var x = @base;
+//     while (1) {
+//         x = x + @base;
+//     }
+
+//     var y = lds 1 x;
+//     y = ld8 x;
+//     st x, y;
+//     st8 x, y;
+//     !ldw y, x;
+//     !stw x, y;
+
+//     return 1;
+// }
+// fun foo () {
+//     return 1;
+// }
+
+
+
+
+
+
+
+
+
+// fp syntax notes
+// fun f () {
+//     var x = &f + 1;
+//     *(x+1)();
+//     return x;
+// }
+
+// field access order
+// fun main() {
+//     var o = < 1, < 3, 4 >, 7 >;
+//     @f0(0, o.0, 0, 0);
+//     @f0(0, o.0.1, 0, 0);
+//     @f0(0, o.1.1, 0, 0);
+//     @f0(0, o.2, 0, 0);
+//     return 0;
 // }
