@@ -301,6 +301,20 @@ Definition icompile_bvl_to_bvi_prog_def:
     (append code, n1)
 End
 
+Definition init_icompile_bvl_to_bvi_def:
+  init_icompile_bvl_to_bvi start bvl_conf =
+  let bvl_iconf = <| inline_size_limit := bvl_conf.inline_size_limit;
+                     exp_cut := bvl_conf.exp_cut;
+                     split_main_at_seq := bvl_conf.split_main_at_seq;
+                     n1 := 0 ;
+                     n2 := backend_common$bvl_num_stubs + 2|>
+  in
+  let init_globs_loc = bvl_to_bvi$InitGlobals_location in
+  (init_globs_loc, bvl_iconf)
+End
+
+
+
 Definition icompile_bvl_to_bvi_def:
   icompile_bvl_to_bvi bvl_iconf p =
   let (inlines, p) = icompile_bvl_to_bvi_inline bvl_iconf.inline_size_limit
@@ -956,6 +970,15 @@ Proof
       rw[])
 QED
 
+Theorem alloc_glob_count_bvl_to_bvi_append:
+  bvl_to_bvi$alloc_glob_count p1 = p1_num ∧
+  bvl_to_bvi$alloc_glob_count p2 = p2_num ⇒
+  bvl_to_bvi$alloc_glob_count (p1 ++ p2) = p1_num + p2_num
+Proof
+  cheat
+QED
+
+
 Theorem  icompile_icompile_bvl_to_bvi_inline:
   icompile_bvl_to_bvi_inline limit split_seq cut_size cs p1 = (cs1, p1') ∧
   icompile_bvl_to_bvi_inline limit split_seq cut_size cs1 p2 = (cs2, p2') ⇒
@@ -980,6 +1003,7 @@ Proof
   disch_then drule >>
   rw[]
 QED
+
 
 
 Theorem icompile_icompile_bvl_to_bvi:
@@ -1287,7 +1311,7 @@ Proof
   rpt (pairarg_tac >> gvs[]) >>
   drule_all icompile_icompile_source_to_flat >>
   strip_tac >>
-  gvs[] >> 
+  gvs[] >>
   fs[icompile_flat_to_clos_and_append_commute] >>
   drule icompile_icompile_clos_to_bvl >>
   last_x_assum assume_tac >>
