@@ -644,7 +644,7 @@ Theorem nsLookup_init_env_pfun_eqs =
   |> map (SIMP_CONV bool_ss
         [init_env_def, nsLookup_Short_Bind, nsLookup_Mod1_def,
             namespace_case_def, sem_env_accfupds, K_DEF])
-  |> LIST_CONJ
+  |> LIST_CONJ;
 
 end
 
