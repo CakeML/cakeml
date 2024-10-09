@@ -14,14 +14,15 @@ val _ = new_theory "stackLang";
 val _ = set_grammar_ancestry["asm", "backend_common",
   "misc" (* for bytes_in_word *)];
 
-val _ = Datatype `
+Datatype:
   store_name =
     NextFree | EndOfHeap | TriggerGC | HeapLength | ProgStart | BitmapBase |
     CurrHeap | OtherHeap | AllocSize | Globals | GlobReal | Handler | GenStart |
     CodeBuffer | CodeBufferEnd | BitmapBuffer | BitmapBufferEnd |
-    Temp (5 word)`
+    Temp (5 word)
+End
 
-val _ = Datatype `
+Datatype:
   prog = Skip
        | Inst ('a inst)
        | Get num store_name
@@ -60,7 +61,8 @@ val _ = Datatype `
        | StackGetSize num       (* used when installing exc handler *)
        | StackSetSize num       (* used by implementation of raise *)
        | BitmapLoad num num     (* load word from read-only region *)
-       | Halt num`;
+       | Halt num
+End
 
 val _ = map overload_on
   [("move",``\dest src. Inst (Arith (Binop Or dest src (Reg src)))``),

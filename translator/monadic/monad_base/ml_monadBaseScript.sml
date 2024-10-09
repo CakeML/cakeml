@@ -12,8 +12,9 @@ val _ = hide "state";
 (* 'a is the type of the state, 'b is the type of successful computations, and
  * 'c is the type of exceptions *)
 
-val _ = Datatype `
-  exc = M_success 'a | M_failure 'b`;
+Datatype:
+  exc = M_success 'a | M_failure 'b
+End
 
 Type M = ``:'a -> ('b, 'c) exc # 'a``
 
@@ -105,8 +106,9 @@ Definition can_def:
 End
 
 (* Dynamic allocation of references *)
-val _ = Datatype `
-  store_ref = StoreRef num`;
+Datatype:
+  store_ref = StoreRef num
+End
 
 (* Arrays *)
 

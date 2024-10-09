@@ -463,10 +463,11 @@ Definition check_loc_def:
     num_params = num_args ∧ so_far = (0:num) ∧ SOME p = loc)
 End
 
-val _ = Datatype `
+Datatype:
   app_kind =
     | Partial_app closSem$v
-    | Full_app closLang$exp (closSem$v list) (closSem$v list)`;
+    | Full_app closLang$exp (closSem$v list) (closSem$v list)
+End
 
 Definition dest_closure_def:
   dest_closure max_app loc_opt f args =

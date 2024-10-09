@@ -16,11 +16,12 @@ val gc_state_component_equality = DB.fetch "gc_shared" "gc_state_component_equal
 (* Copying GC which moves references to the end of the heap. This
    implementation is a pre-stage to the generational GC. *)
 
-val _ = Datatype `
+Datatype:
   gen_gc_conf =
     <| limit : num
      ; isRef : 'a -> bool
-     |>`;
+     |>
+End
 
 Definition gc_move_def:
   (gc_move conf state (Data d) = (Data d, state)) /\

@@ -11,11 +11,12 @@ val _ = set_grammar_ancestry [
   "lprefix_lub", (* for build_lprefix_lub *)
   "machine_ieee" (* for FP *)
 ]
-val _ = Datatype `
+Datatype:
   buffer =
     <| position   : 'a word
      ; buffer     : 'b word list
-     ; space_left : num |>`
+     ; space_left : num |>
+End
 
 Definition buffer_flush_def:
   buffer_flush cb (w1:'a word) w2 =
@@ -78,8 +79,9 @@ Definition write_bytearray_def:
      | NONE => m)
 End
 
-val _ = Datatype `
-  stack_frame = StackFrame (num option) ((num # ('a word_loc)) list) ((num # num # num)option) `;
+Datatype:
+  stack_frame = StackFrame (num option) ((num # ('a word_loc)) list) ((num # num # num)option)
+End
 
 Type gc_fun_type =
   ``: ('a word_loc list) # (('a word) -> ('a word_loc)) # ('a word) set #
@@ -91,7 +93,7 @@ Definition gc_bij_ok_def:
   gc_bij_ok (seq':num->num->num) = !n. BIJ (seq' n) UNIV UNIV
 End
 
-val _ = Datatype `
+Datatype:
   state =
     <| locals  : ('a word_loc) num_map
      ; locals_size : num option (* size of locals when pushed to stack, NONE if unbounded *)
@@ -115,7 +117,8 @@ val _ = Datatype `
      ; termdep : num (* count of how many MustTerminates we can still enter *)
      ; code    : (num # ('a wordLang$prog)) num_map
      ; be      : bool (*is big-endian*)
-     ; ffi     : 'ffi ffi_state |> `
+     ; ffi     : 'ffi ffi_state |>
+End
 
 Definition stack_size_frame_def:
   stack_size_frame (StackFrame n _ NONE) = n /\
@@ -128,13 +131,14 @@ End
 
 val state_component_equality = theorem"state_component_equality";
 
-val _ = Datatype `
+Datatype:
   result = Result ('w word_loc) ('w word_loc)
          | Exception ('w word_loc) ('w word_loc)
          | TimeOut
          | NotEnoughSpace
          | FinalFFI final_event
-         | Error `
+         | Error
+End
 
 Definition isResult_def:
   (isResult (Result a b) = T) /\ (isResult _ = F)

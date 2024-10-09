@@ -20,9 +20,10 @@ val _ = translation_extends "basisProg";
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* Create the data type to handle the references and I/O. *)
-val _ = Datatype `
+Datatype:
   state_refs = <| the_num_ref : num
-                ; stdio : IO_fs |>`;
+                ; stdio : IO_fs |>
+End
 
 val config =  global_state_config |>
               with_state ``:state_refs`` |>

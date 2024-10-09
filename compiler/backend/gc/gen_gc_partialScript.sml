@@ -11,13 +11,14 @@ val _ = ParseExtras.temp_loose_equality();
 
 val gc_state_component_equality = DB.fetch "gc_shared" "gc_state_component_equality";
 
-val _ = Datatype `
+Datatype:
   gen_gc_partial_conf =
     <| limit : num              (* size of heap *)
      ; isRef : 'a -> bool
      ; gen_start : num          (* start of generation *)
      ; refs_start : num         (* start of references *)
-     |>`;
+     |>
+End
 
 Definition gc_move_def:
   (gc_move conf state (Data d) = (Data d, state)) /\
@@ -237,9 +238,10 @@ Definition heap_gen_ok_def:
       (!xs l d. MEM (DataElement xs l d) refs ==> conf.isRef d)
 End
 
-val _ = Datatype `
+Datatype:
   data_sort = Protected 'a      (* pointer to old generations *)
-            | Real 'b`;         (* data or pointer to current generation *)
+            | Real 'b           (* data or pointer to current generation *)
+End
 
 Definition to_gen_heap_address_def:
   (to_gen_heap_address conf (Data a) = Data (Real a)) /\

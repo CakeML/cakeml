@@ -21,8 +21,9 @@ val _ = new_theory"MonitorProof";
   A step of the loop body can have 2 error cases and 1 success case
 *)
 
-val _ = Datatype`
-  status = Success | PlantViol | DefViol `
+Datatype:
+  status = Success | PlantViol | DefViol
+End
 
 (* prevent automatic rewrite *)
 Definition hide_def:

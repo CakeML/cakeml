@@ -17,7 +17,7 @@ val _ = new_theory"botFFI"
    - The mach_oracle gives the oracle transitions
 *)
 
-val _ = Datatype`
+Datatype:
   mach_config = <|
     const_names        : string list;
     sensor_names       : string list;
@@ -30,16 +30,18 @@ val _ = Datatype`
     ctrlfixed_names    : string list;
     ctrlfixed_rhs      : string list;
     default            : trm list
-  |>`
+  |>
+End
 
-val _ = Datatype`
+Datatype:
   mach_state = <|
     const_vals   : word32 list; (* Fixed constants *)
     ctrl_vals    : word32 list; (* Current values of ctrl *)
     sensor_vals  : word32 list; (* Current values of sensors *)
-    |>`
+    |>
+End
 
-val _ = Datatype`
+Datatype:
   mach_oracle = <|
     (* Returns the next control decision when given some input words *)
     ctrl_oracle   : num -> word32 list -> word32 list;
@@ -48,13 +50,15 @@ val _ = Datatype`
     transition_oracle : num -> (mach_state # word32 list) -> word32 list;
     (* Returns whether we should stop the loop *)
     stop_oracle   : num -> bool;
-  |>`
+  |>
+End
 
 (* a mach is a record of the three components above *)
-val _ = Datatype`
+Datatype:
   mach = <| wc : mach_config ;
             ws : mach_state  ;
-            wo : mach_oracle |>`
+            wo : mach_oracle |>
+End
 
 (* flatten 4 tuples *)
 Definition FLAT_TUP_def:

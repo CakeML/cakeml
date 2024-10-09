@@ -111,8 +111,9 @@ Definition exn_infer_t_def:
   exn_infer_t = Infer_Tapp [] Texn_num
 End
 
-val _ = Datatype`
-  top_level = REPLCommand mlstring exp | TopLevelDecs (dec list)`;
+Datatype:
+  top_level = REPLCommand mlstring exp | TopLevelDecs (dec list)
+End
 
 Definition ptree_REPLCommand_def:
   ptree_REPLCommand (Lf _) = NONE ∧
@@ -159,7 +160,9 @@ Definition add_repl_printer_name_dec_def:
     Dlet unknown_loc (Pvar repl_printer_name) exp
 End
 
-val _ = Datatype`repl_inf_state = <| ienv : inf_env; next_id : num |>`;
+Datatype:
+  repl_inf_state = <| ienv : inf_env; next_id : num |>
+End
 
 Definition repl_infertype_prog_def:
   repl_infertype_prog inf_state prog =

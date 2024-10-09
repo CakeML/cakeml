@@ -174,8 +174,9 @@ val LLOOKUP_TAKE_IMP = save_thm("LLOOKUP_TAKE_IMP", listTheory.oEL_TAKE_E);
 val LLOOKUP_LUPDATE  = save_thm("LLOOKUP_LUPDATE", listTheory.oEL_LUPDATE);
 
 (* app_list stuff should be in an app_list theory *)
-val _ = Datatype `
-  app_list = List ('a list) | Append app_list app_list | Nil`
+Datatype:
+  app_list = List ('a list) | Append app_list app_list | Nil
+End
 
 Definition append_aux_def:
   (append_aux Nil aux = aux) /\

@@ -64,13 +64,16 @@ QED
 
 val _ = export_rewrites ["is_const_def"];
 
-val _ = Datatype `
+Datatype:
   assoc_op = Plus
            | Times
            | Append
-           | Noop`;
+           | Noop
+End
 
-val _ = Datatype `v_ty = Int | List | Any`;
+Datatype:
+  v_ty = Int | List | Any
+End
 
 Definition op_type_def:
   op_type Append = List /\

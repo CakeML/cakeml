@@ -676,7 +676,7 @@ Proof
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
 QED
 
-val _ = Datatype`
+Datatype:
   config = <| next_loc : num
             ; start : num
             ; do_mti : bool
@@ -684,7 +684,8 @@ val _ = Datatype`
             ; do_call : bool
             ; call_state : num_set # (num, num # closLang$exp) alist
             ; max_app : num
-            |>`;
+            |>
+End
 
 Definition default_config_def:
   default_config = <|

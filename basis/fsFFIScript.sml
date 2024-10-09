@@ -11,11 +11,15 @@ val _ = option_monadsyntax.temp_add_option_monadsyntax();
 (* Logical model of filesystem and I/O streams *)
 
 (* regular files and unnamed streams *)
-val _ = Datatype` inode = UStream mlstring | File mlstring`
+Datatype:
+  inode = UStream mlstring | File mlstring
+End
 
 Overload isFile = ``λinode. ∃fnm. inode = File fnm``
 
-val _ = Datatype` mode = ReadMode | WriteMode`;
+Datatype:
+  mode = ReadMode | WriteMode
+End
 
 (* files: a list of file names and their content.
 *  infds: descriptor * (filename * mode * position)
@@ -27,13 +31,14 @@ val _ = Datatype` mode = ReadMode | WriteMode`;
 *  ulimit -n has a usual value of 1024
 *)
 
-val _ = Datatype`
+Datatype:
   IO_fs = <| inode_tbl : (inode # char list) list ;
              files : (mlstring # mlstring) list;
              infds : (num # (inode # mode # num)) list;
              numchars : num llist;
              maxFD : num
-           |>`
+           |>
+End
 
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
 

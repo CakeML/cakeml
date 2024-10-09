@@ -29,15 +29,17 @@ important injectivity (suffix: "_11") are here.
 
 *)
 
-val _ = Datatype `
+Datatype:
   ffi_inner = iStr string
             | iNum num
             | iCons ffi_inner ffi_inner
             | iList (ffi_inner list)
-            | iStream (num llist)`
+            | iStream (num llist)
+End
 
-val _ = Datatype `
-  ffi = FFI_TYPE (ffi_inner -> ffi_inner)`
+Datatype:
+  ffi = FFI_TYPE (ffi_inner -> ffi_inner)
+End
 
 Definition ffi_app_def:
   ffi_app x n = case x of FFI_TYPE f => f n

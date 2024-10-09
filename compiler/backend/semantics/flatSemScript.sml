@@ -30,27 +30,30 @@ val _ = new_theory "flatSem";
 val _ = set_grammar_ancestry ["flatLang", "semanticPrimitivesProps", "fpSem"];
 val _ = temp_tight_equality();
 
-val _ = Datatype`
+Datatype:
   (* 'v *) environment = <|
     v : (varN, 'v) alist
-  |>`;
+  |>
+End
 
-val _ = Datatype`
+Datatype:
   v =
     | Litv lit
     | Conv ((ctor_id # type_id) option) (v list)
     | Closure (v environment) varN exp
     | Recclosure (v environment) ((varN # varN # exp) list) varN
     | Loc num
-    | Vectorv (v list)`;
+    | Vectorv (v list)
+End
 
-val _ = Datatype `
+Datatype:
   install_config =
    <| compile : 'c -> flatLang$dec list -> (word8 list # word64 list # 'c) option
     ; compile_oracle : num -> 'c # flatLang$dec list
-    |>`
+    |>
+End
 
-val _ = Datatype`
+Datatype:
   state = <|
     clock   : num;
     refs    : v store;
@@ -60,7 +63,8 @@ val _ = Datatype`
     c : ((ctor_id # type_id) # num) set;
     (* eval or install mode *)
     eval_config : 'c install_config
-  |>`;
+  |>
+End
 
 val s = ``s:('c,'ffi) flatSem$state``
 

@@ -8,12 +8,13 @@ local open backendPropsTheory in end;
 
 val _ = new_theory"dataSem";
 
-val _ = Datatype `
+Datatype:
   v = Number int              (* integer *)
     | Word64 word64
     | Block num num (v list)  (* cons block: timestamp, tag and payload *)
     | CodePtr num             (* code pointer *)
-    | RefPtr num              (* pointer to ref cell *)`;
+    | RefPtr num              (* pointer to ref cell *)
+End
 
 Definition Boolv_def:
   Boolv b = Block 0 (bool_to_tag b) []
@@ -29,13 +30,14 @@ End
    -  Possibly a `handler`
 
   *)
-val _ = Datatype `
+Datatype:
        (* Env  ss           env  *)
   stack = Env (num option) (v num_map)
        (* Exc  ss           env        handler*)
-        | Exc (num option) (v num_map) num`;
+        | Exc (num option) (v num_map) num
+End
 
-val _ = Datatype `
+Datatype:
   limits =
     <| heap_limit   : num;    (* number of words in the heap *)
        length_limit : num;    (* length field in a Block *)
@@ -43,9 +45,10 @@ val _ = Datatype `
        arch_64_bit  : bool;   (* the arch is either 64-bit or 32-bit *)
        has_fp_ops   : bool;   (* the arch supports float ops *)
        has_fp_tops  : bool    (* the arch supports float ops *)
-       |> `
+       |>
+End
 
-val _ = Datatype `
+Datatype:
   state =
     <| locals      : v num_map
      ; locals_size : num option  (* size of locals when pushed to stack, NONE if unbounded *)
@@ -64,7 +67,8 @@ val _ = Datatype `
      ; limits      : limits
      ; safe_for_space   : bool
      ; peak_heap_length : num
-     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |> `
+     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |>
+End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
 val vs = ``(vs:dataSem$v list)``

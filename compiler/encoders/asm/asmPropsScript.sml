@@ -39,7 +39,7 @@ End
 
 (* -- correctness property to be proved for each backend -- *)
 
-val () = Datatype `
+Datatype:
   target =
     <| config : 'a asm_config
      ; next : 'b -> 'b
@@ -49,7 +49,8 @@ val () = Datatype `
      ; get_byte : 'b -> 'a word -> word8
      ; state_ok : 'b -> bool
      ; proj : 'a word set -> 'b -> 'c
-     |>`
+     |>
+End
 
 Definition target_state_rel_def:
   target_state_rel t s ms <=>
