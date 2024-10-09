@@ -520,7 +520,8 @@ val constrain_op_success =
         PULL_EXISTS]
   )
 
-val _ = save_thm ("constrain_op_success", constrain_op_success);
+Theorem constrain_op_success =
+  constrain_op_success
 
 val get_next_uvar_success = Q.prove (
 `!st v st'.
@@ -694,7 +695,8 @@ val success_eqns =
              check_ctor_types_success,
              check_ctors_success];
 
-val _ = save_thm ("success_eqns", success_eqns);
+Theorem success_eqns =
+  success_eqns
 
 Theorem remove_pair_lem:
  (!f v. (\(x,y). f x y) v = f (FST v) (SND v)) ∧

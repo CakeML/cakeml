@@ -380,8 +380,8 @@ Proof
   \\ metis_tac[fromChars_range_lemma,EVERY_DEF]
 QED
 
-val fromString_eq_unsafe = save_thm("fromString_eq_unsafe",
-  fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]);
+Theorem fromString_eq_unsafe =
+  fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]
 
 Theorem fromString_toString_Num:
    0 ≤ n ⇒ fromString (strlit (num_to_dec_string (Num n))) = SOME n

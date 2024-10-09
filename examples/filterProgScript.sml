@@ -23,12 +23,11 @@ val _ = translation_extends"MapProg";
 val regexp_compilation_results as {certificate, aux, ...}
   = regexpLib.gen_dfa regexpLib.HOL (Regexp_Type.fromString the_regexp);
 
-val matcher_certificate = save_thm
-  ("matcher_certificate",
-    certificate
+Theorem matcher_certificate =
+  certificate
       |> valOf
       |> CONV_RULE(QUANT_CONV(LHS_CONV (REWRITE_CONV [MAP])))
-);
+
 
 (*---------------------------------------------------------------------------*)
 (* Define a named matcher function                                           *)

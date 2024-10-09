@@ -78,8 +78,8 @@ val result = translate padLen_DEC_eq;
 val result = translate maxSmall_DEC_def;
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("fromChars_unsafe_ind",
-  fromChars_unsafe_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+Theorem fromChars_unsafe_ind =
+  fromChars_unsafe_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]
 val result = translate (fromChars_unsafe_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
@@ -117,8 +117,8 @@ QED
 val result = translate fromChar_thm;
 val result = translate fromChars_range_def;
 
-val _ = save_thm("fromChars_ind",
-  fromChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+Theorem fromChars_ind =
+  fromChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]
 val result = translate (fromChars_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 

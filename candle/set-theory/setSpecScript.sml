@@ -446,7 +446,8 @@ Proof
   metis_tac[pair_inj]
 QED
 
-val axiom_of_choice = save_thm("axiom_of_choice",UNDISCH(prove(
+Theorem axiom_of_choice =
+  UNDISCH(prove(
   ``is_set_theory ^mem ⇒
     ∀x. (∀a. mem a x ⇒ ∃b. mem b a) ⇒
        ∃f. ∀a. mem a x ⇒ mem (f ' a) a``,
@@ -460,7 +461,7 @@ val axiom_of_choice = save_thm("axiom_of_choice",UNDISCH(prove(
   match_mp_tac apply_abstract_matchable >>
   rw[mem_union] >>
   SELECT_ELIM_TAC >> rw[] >>
-  metis_tac[])))
+  metis_tac[]))
 
 val indset = ``indset:'U``
 val ch = ``ch:'U->'U``
