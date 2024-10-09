@@ -49,8 +49,8 @@ Theorem append_v_thm[allow_rebind] =
   append_v_thm
 
 (* Old list-append translation *)
-(*val append_v_thm = translate APPEND;*)
-(*val _ = save_thm("append_v_thm",append_v_thm);*)
+(* val append_v_thm = translate APPEND; *)
+(* Theorem append_v_thm = append_v_thm *)
 
 val result = translate HD;
 val hd_side_def = Q.prove(
