@@ -623,16 +623,16 @@ Proof
   \\ metis_tac[]
 QED
 
-val basis_ffi_length_thms = save_thm("basis_ffi_length_thms",
+Theorem basis_ffi_length_thms =
   LIST_CONJ
     [ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,
      ffi_close_length, clFFITheory.ffi_get_arg_count_length,
      clFFITheory.ffi_get_arg_length_length,  clFFITheory.ffi_get_arg_length,
-     ffi_exit_length]);
+     ffi_exit_length]
 
-val basis_ffi_part_defs = save_thm("basis_ffi_part_defs",
+Theorem basis_ffi_part_defs =
   LIST_CONJ
-    [fs_ffi_part_def,clFFITheory.cl_ffi_part_def,runtime_ffi_part_def]);
+    [fs_ffi_part_def,clFFITheory.cl_ffi_part_def,runtime_ffi_part_def]
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
 Theorem oracle_parts:

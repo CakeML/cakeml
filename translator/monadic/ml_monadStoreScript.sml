@@ -8,13 +8,14 @@ open packLib
 
 val _ = new_theory "ml_monadStore"
 
-val HCOND_EXTRACT = save_thm("HCOND_EXTRACT", cfLetAutoTheory.HCOND_EXTRACT);
+Theorem HCOND_EXTRACT =
+  cfLetAutoTheory.HCOND_EXTRACT
 
-val SEP_EXISTS_SEPARATE = save_thm("SEP_EXISTS_SEPARATE",
-  List.hd(SPEC_ALL SEP_CLAUSES |> CONJUNCTS) |> GSYM |> GEN_ALL);
+Theorem SEP_EXISTS_SEPARATE =
+  List.hd(SPEC_ALL SEP_CLAUSES |> CONJUNCTS) |> GSYM |> GEN_ALL
 
-val SEP_EXISTS_INWARD = save_thm("SEP_EXISTS_INWARD",
-  List.nth(SPEC_ALL SEP_CLAUSES |> CONJUNCTS, 1) |> GSYM |> GEN_ALL);
+Theorem SEP_EXISTS_INWARD =
+  List.nth(SPEC_ALL SEP_CLAUSES |> CONJUNCTS, 1) |> GSYM |> GEN_ALL
 
 Theorem ALLOCATE_ARRAY_evaluate:
    !env s n xname xv.

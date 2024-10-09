@@ -37,7 +37,8 @@ val asm_exists_tac = first_assum(match_exists_tac o concl)
 val _ = numLib.temp_prefer_num();
 
 (* theorem behind impl_tac *)
-val IMP_IMP = save_thm("IMP_IMP",METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``);
+Theorem IMP_IMP =
+  METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``
 
 (* used elsewhere in cakeml *)
 Theorem SUBSET_IMP:
@@ -166,12 +167,18 @@ QED
 
 Overload LLOOKUP = “λl n. oEL n l”
 
-val LLOOKUP_def      = save_thm("LLOOKUP_def", listTheory.oEL_def);
-val LLOOKUP_EQ_EL    = save_thm("LLOOKUP_EQ_EL", listTheory.oEL_EQ_EL);
-val LLOOKUP_THM      = save_thm("LLOOKUP_THM", listTheory.oEL_THM);
-val LLOOOKUP_DROP    = save_thm("LLOOKUP_DROP", listTheory.oEL_DROP);
-val LLOOKUP_TAKE_IMP = save_thm("LLOOKUP_TAKE_IMP", listTheory.oEL_TAKE_E);
-val LLOOKUP_LUPDATE  = save_thm("LLOOKUP_LUPDATE", listTheory.oEL_LUPDATE);
+Theorem LLOOKUP_def =
+  listTheory.oEL_def
+Theorem LLOOKUP_EQ_EL =
+  listTheory.oEL_EQ_EL
+Theorem LLOOKUP_THM =
+  listTheory.oEL_THM
+Theorem LLOOKUP_DROP =
+  listTheory.oEL_DROP
+Theorem LLOOKUP_TAKE_IMP =
+  listTheory.oEL_TAKE_E
+Theorem LLOOKUP_LUPDATE =
+  listTheory.oEL_LUPDATE
 
 (* app_list stuff should be in an app_list theory *)
 Datatype:
@@ -1775,10 +1782,10 @@ Proof
   \\ MP_TAC (Q.SPEC `x::xs` LASTN_LENGTH_ID) \\ full_simp_tac(srw_ss())[ADD1]
 QED
 
-val LASTN_TL = save_thm("LASTN_TL",
+Theorem LASTN_TL =
   LASTN_CONS |> Q.SPECL[`n+1`,`xs`]
   |> C MP (DECIDE``n < LENGTH xs ⇒ n + 1 ≤ LENGTH xs`` |> UNDISCH)
-  |> SPEC_ALL |> DISCH_ALL);
+  |> SPEC_ALL |> DISCH_ALL
 
 Theorem LASTN_LENGTH_LESS_EQ:
    !xs n. LENGTH xs <= n ==> LASTN n xs = xs
@@ -1815,8 +1822,8 @@ Proof
 QED
 (*
 NB: this is weaker:
-val MAP_EQ_MAP_IMP = save_thm("MAP_EQ_MAP_IMP",
-  INJ_MAP_EQ |> SIMP_RULE (srw_ss()) [INJ_DEF]);
+Theorem MAP_EQ_MAP_IMP =
+  INJ_MAP_EQ |> SIMP_RULE (srw_ss()) [INJ_DEF]
 *)
 
 Theorem INJ_MAP_EQ_2:
@@ -2608,9 +2615,8 @@ Proof
   Induct_on `l` >> simp[findi_def, bool_case_eq, ADD1] >> metis_tac[]
 QED
 
-val NOT_MEM_findi = save_thm( (* more useful as conditional rewrite *)
-  "NOT_MEM_findi",
-  NOT_MEM_findi_IFF |> EQ_IMP_RULE |> #1);
+Theorem NOT_MEM_findi =
+  NOT_MEM_findi_IFF |> EQ_IMP_RULE |> #1
 
 Theorem ORD_eq_0:
    (ORD c = 0 ⇔ c = CHR 0) ∧ (0 = ORD c ⇔ c = CHR 0)
@@ -3061,8 +3067,8 @@ rw[FUN_EQ_THM]
 QED
 
 (* used once *)
-val SUM_COUNT_LIST = save_thm("SUM_COUNT_LIST",
-  SUM_MAP_COUNT_LIST |> Q.SPECL [`n`,`0`] |> SIMP_RULE (srw_ss()) []);
+Theorem SUM_COUNT_LIST =
+  SUM_MAP_COUNT_LIST |> Q.SPECL [`n`,`0`] |> SIMP_RULE (srw_ss()) []
 
 Theorem OPTION_MAP_I[simp]:
    OPTION_MAP I x = x
@@ -3234,11 +3240,11 @@ Proof
  rw[] \\ Cases_on `x` \\ Cases_on `y` \\ fs[]
 QED
 
-val _ =  save_thm("option_eq_some",
-    LIST_CONJ [
+Theorem option_eq_some =
+  LIST_CONJ [
     OPTION_IGNORE_BIND_EQUALS_OPTION,
     OPTION_BIND_EQUALS_OPTION,
-    OPTION_CHOICE_EQUALS_OPTION]);
+    OPTION_CHOICE_EQUALS_OPTION]
 
 Theorem ALL_DISTINCT_alist_to_fmap_REVERSE:
    ALL_DISTINCT (MAP FST ls) ⇒ alist_to_fmap (REVERSE ls) = alist_to_fmap ls
@@ -3398,8 +3404,8 @@ Proof
   \\ srw_tac [] [ADD1]
 QED
 
-val IN_EVEN =
-  save_thm("IN_EVEN", SIMP_CONV std_ss [IN_DEF] ``x ∈ EVEN``);
+Theorem IN_EVEN =
+  SIMP_CONV std_ss [IN_DEF] ``x ∈ EVEN``
 
 Theorem FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM:
    FOLDL OPTION_CHOICE x ls = SOME y ⇒ MEM (SOME y) (x::ls)

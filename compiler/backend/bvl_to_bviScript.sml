@@ -130,22 +130,22 @@ Definition ConcatByte_location_def:
   ConcatByte_location = SumListLength_location+1
 End
 
-val AllocGlobal_location_eq = save_thm("AllocGlobal_location_eq",
-  ``AllocGlobal_location`` |> EVAL);
-val CopyGlobals_location_eq = save_thm("CopyGlobals_location_eq",
-  ``CopyGlobals_location`` |> EVAL);
-val InitGlobals_location_eq = save_thm("InitGlobals_location_eq",
-  ``InitGlobals_location`` |> EVAL);
-val ListLength_location_eq = save_thm("ListLength_location_eq",
-  ``ListLength_location`` |> EVAL);
-val FromListByte_location_eq = save_thm("FromListByte_location_eq",
-  ``FromListByte_location`` |> EVAL);
-val ToListByte_location_eq = save_thm("ToListByte_location_eq",
-  ``ToListByte_location`` |> EVAL);
-val SumListLength_location_eq = save_thm("SumListLength_location_eq",
-  ``SumListLength_location`` |> EVAL);
-val ConcatByte_location_eq = save_thm("ConcatByte_location_eq",
-  ``ConcatByte_location`` |> EVAL);
+Theorem AllocGlobal_location_eq =
+  ``AllocGlobal_location`` |> EVAL
+Theorem CopyGlobals_location_eq =
+  ``CopyGlobals_location`` |> EVAL
+Theorem InitGlobals_location_eq =
+  ``InitGlobals_location`` |> EVAL
+Theorem ListLength_location_eq =
+  ``ListLength_location`` |> EVAL
+Theorem FromListByte_location_eq =
+  ``FromListByte_location`` |> EVAL
+Theorem ToListByte_location_eq =
+  ``ToListByte_location`` |> EVAL
+Theorem SumListLength_location_eq =
+  ``SumListLength_location`` |> EVAL
+Theorem ConcatByte_location_eq =
+  ``ConcatByte_location`` |> EVAL
 
 Definition AllocGlobal_code_def:
   AllocGlobal_code = (1:num,

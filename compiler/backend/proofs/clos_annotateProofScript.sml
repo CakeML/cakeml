@@ -78,7 +78,9 @@ QED
 Definition alt_fv1_def:
   alt_fv1 v e = alt_fv v [e]
 End
-val alt_fv1_intro = save_thm("alt_fv1_intro[simp]",GSYM alt_fv1_def)
+
+Theorem alt_fv1_intro[simp] =
+  GSYM alt_fv1_def
 Theorem alt_fv1_thm =
   alt_fv |> SIMP_RULE (srw_ss())[]
 
@@ -1243,10 +1245,10 @@ Proof
   full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,env_ok_def]
 QED
 
-val annotate_correct = save_thm("annotate_correct",
+Theorem annotate_correct =
   shift_correct |> CONJUNCT1
   |> SPEC_ALL |> Q.INST [`m`|->`0`,`l`|->`0`,`i`|->`LN`,`env`|->`[]`]
-  |> REWRITE_RULE [GSYM annotate_def,env_set_default,LENGTH,ADD_0]);
+  |> REWRITE_RULE [GSYM annotate_def,env_set_default,LENGTH,ADD_0]
 
 (* more correctness properties *)
 

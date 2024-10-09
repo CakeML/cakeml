@@ -1319,7 +1319,8 @@ val qsort_v_thm = qsort_v_thm |> DISCH_ALL |>
                     (qsort_v_precond |> SPEC_ALL |> UNDISCH_ALL)) |>
                   DISCH_ALL
 
-val _ = save_thm("qsort_v_thm[allow_rebind]", qsort_v_thm)
+Theorem qsort_v_thm[allow_rebind] =
+  qsort_v_thm
 
 
 (*******************************************************************************

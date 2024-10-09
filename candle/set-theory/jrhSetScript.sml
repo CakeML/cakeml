@@ -764,7 +764,7 @@ Proof
   fs[inset_def]
 QED
 
-val inset_ind =
-  save_thm("inset_ind",MATCH_MP WF_INDUCTION_THM WF_inset)
+Theorem inset_ind =
+  MATCH_MP WF_INDUCTION_THM WF_inset
 
 val _ = export_theory()

@@ -370,11 +370,16 @@ val int_end_manip = el 3 arr_manip;
 val sorted_regs_manip = el 4 arr_manip;
 val sorted_moves_manip = el 5 arr_manip;
 
-val colors_accessor = save_thm("colors_accessor",accessor_thm colors_manip);
-val int_beg_accessor = save_thm("int_beg_accessor",accessor_thm int_beg_manip);
-val int_end_accessor = save_thm("int_end_accessor",accessor_thm int_end_manip);
-val sorted_regs_accessor = save_thm("sorted_regs_accessor",accessor_thm sorted_regs_manip);
-val sorted_moves_accessor = save_thm("sorted_moves_accessor",accessor_thm sorted_moves_manip);
+Theorem colors_accessor =
+  accessor_thm colors_manip
+Theorem int_beg_accessor =
+  accessor_thm int_beg_manip
+Theorem int_end_accessor =
+  accessor_thm int_end_manip
+Theorem sorted_regs_accessor =
+  accessor_thm sorted_regs_manip
+Theorem sorted_moves_accessor =
+  accessor_thm sorted_moves_manip
 
 val colors_length_def = fetch "-" "colors_length_def";
 val colors_sub_def    = fetch "-" "colors_sub_def";

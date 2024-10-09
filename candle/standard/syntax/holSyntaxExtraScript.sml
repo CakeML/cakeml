@@ -14,14 +14,14 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
 
-val type_ind = save_thm("type_ind",
+Theorem type_ind =
   TypeBase.induction_of``:holSyntax$type``
   |> Q.SPECL[`P`,`EVERY P`]
   |> SIMP_RULE std_ss [EVERY_DEF]
   |> UNDISCH_ALL
   |> CONJUNCT1
   |> DISCH_ALL
-  |> Q.GEN`P`)
+  |> Q.GEN`P`
 
 Theorem type1_size_append:
    ∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2
@@ -265,15 +265,15 @@ End
 
 val _ = Parse.add_infix("subtype",401,Parse.NONASSOC)
 Overload subtype =``RTC subtype1``
-val subtype_Tyvar = save_thm("subtype_Tyvar",
+Theorem subtype_Tyvar =
   ``ty subtype (Tyvar x)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subtype1_cases])
+      [Once relationTheory.RTC_CASES2,subtype1_cases]
 val _ = export_rewrites["subtype_Tyvar"]
-val subtype_Tyapp = save_thm("subtype_Tyapp",
+Theorem subtype_Tyapp =
   ``ty subtype (Tyapp name args)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subtype1_cases])
+      [Once relationTheory.RTC_CASES2,subtype1_cases]
 
 Theorem subtype_type_ok:
    ∀tysig ty1 ty2. type_ok tysig ty2 ∧ ty1 subtype ty2 ⇒ type_ok tysig ty1
@@ -302,25 +302,25 @@ End
 
 val _ = Parse.add_infix("subterm",401,Parse.NONASSOC)
 Overload subterm = ``RTC subterm1``
-val subterm_Var = save_thm("subterm_Var",
+Theorem subterm_Var =
   ``tm subterm (Var x ty)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subterm1_cases])
-val subterm_Const = save_thm("subterm_Const",
+      [Once relationTheory.RTC_CASES2,subterm1_cases]
+Theorem subterm_Const =
   ``tm subterm (Const x ty)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subterm1_cases])
+      [Once relationTheory.RTC_CASES2,subterm1_cases]
 val _ = export_rewrites["subterm_Var","subterm_Const"]
-val subterm_Comb = save_thm("subterm_Comb",
+Theorem subterm_Comb =
   ``tm subterm (Comb t1 t2)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subterm1_cases])
-val subterm_Abs = save_thm("subterm_Abs",
+      [Once relationTheory.RTC_CASES2,subterm1_cases]
+Theorem subterm_Abs =
   ``tm subterm (Abs v t)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subterm1_cases])
+      [Once relationTheory.RTC_CASES2,subterm1_cases]
 
-val subterm_welltyped = save_thm("subterm_welltyped",
+Theorem subterm_welltyped =
   let val th =
     Q.prove(`∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t`,
       ho_match_mp_tac has_type_strongind >>
@@ -328,7 +328,7 @@ val subterm_welltyped = save_thm("subterm_welltyped",
       rw[] >> imp_res_tac WELLTYPED_LEMMA >> simp[])
   in METIS_PROVE[th,welltyped_def]
     ``∀t tm. welltyped tm ∧ t subterm tm ⇒ welltyped t``
-  end)
+  end
 
 (* term ordering *)
 
@@ -1031,13 +1031,13 @@ Proof
     transitive_alpha_lt, antisymmetric_alpha_lt]
 QED
 
-val hypset_ok_append = save_thm("hypset_ok_append",
+Theorem hypset_ok_append =
   Q.ISPEC`alpha_lt` sortingTheory.SORTED_APPEND_GEN
-  |> REWRITE_RULE[GSYM hypset_ok_def])
+  |> REWRITE_RULE[GSYM hypset_ok_def]
 
-val hypset_ok_el_less = save_thm("hypset_ok_el_less",
+Theorem hypset_ok_el_less =
   MATCH_MP sortingTheory.SORTED_EL_LESS transitive_alpha_lt
-  |> REWRITE_RULE[GSYM hypset_ok_def])
+  |> REWRITE_RULE[GSYM hypset_ok_def]
 
 (* term_union lemmas *)
 
@@ -2874,7 +2874,8 @@ End
 
 val variant_ind = fetch "-" "variant_ind"
 
-val variant_vsubst_thm = save_thm("variant_vsubst_thm",prove(
+Theorem variant_vsubst_thm =
+  prove(
   ``!xs v x name.
       (xs = [x]) /\ (v = (Var name ty)) ==>
       (variant xs (Var name ty) =
@@ -2908,10 +2909,10 @@ val variant_vsubst_thm = save_thm("variant_vsubst_thm",prove(
   \\ `VARIANT_PRIMES x (STRCAT (explode name) "'") ty < n \/
       n < VARIANT_PRIMES x (STRCAT (explode name) "'") ty` by DECIDE_TAC
   \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
-  |> SIMP_RULE std_ss [] |> SPEC_ALL);
+  |> SIMP_RULE std_ss [] |> SPEC_ALL
 
-val VSUBST_thm = save_thm("VSUBST_thm",
-  REWRITE_RULE[SYM variant_vsubst_thm] VSUBST_def)
+Theorem VSUBST_thm =
+  REWRITE_RULE[SYM variant_vsubst_thm] VSUBST_def
 
 Definition subtract_def:
   subtract l1 l2 = FILTER (\t. ~(MEM t l2)) l1
@@ -2967,7 +2968,8 @@ Proof
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ METIS_TAC []
 QED
 
-val variant_inst_thm = save_thm("variant_inst_thm",prove(
+Theorem variant_inst_thm =
+  prove(
   ``!xs v x name a.
       welltyped a ∧
       (xs = frees a) /\
@@ -3014,7 +3016,7 @@ val variant_inst_thm = save_thm("variant_inst_thm",prove(
   \\ REPEAT STRIP_TAC
   \\ `k < n \/ n < k` by DECIDE_TAC
   \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
-  |> SIMP_RULE std_ss [] |> SPEC_ALL);
+  |> SIMP_RULE std_ss [] |> SPEC_ALL
 
 Theorem INST_CORE_Abs_thm:
    ∀v t env tyin. welltyped (Abs v t) ⇒
@@ -3124,16 +3126,16 @@ QED
 (* some derived rules *)
 
 val assume = proves_rules |> CONJUNCTS |> el 2
-val deductAntisym_equation = save_thm("deductAntisym_equation",
-  proves_rules |> CONJUNCTS |> el 4)
-val eqMp_equation = save_thm("eqMp_equation",
+Theorem deductAntisym_equation =
+  proves_rules |> CONJUNCTS |> el 4
+Theorem eqMp_equation =
   proves_rules |> CONJUNCTS |> el 5
-  |> REWRITE_RULE[GSYM AND_IMP_INTRO])
-val refl_equation =  save_thm("refl_equation",
-  proves_rules |> CONJUNCTS |> el 9)
-val appThm_equation = save_thm("appThm_equation",
+  |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+Theorem refl_equation =
+  proves_rules |> CONJUNCTS |> el 9
+Theorem appThm_equation =
   proves_rules |> CONJUNCTS |> el 8
-  |> REWRITE_RULE[GSYM AND_IMP_INTRO])
+  |> REWRITE_RULE[GSYM AND_IMP_INTRO]
 
 Theorem addAssum:
    ∀thy h c a. (thy,h) |- c ∧ term_ok (sigof thy) a ∧ (a has_type Bool) ⇒

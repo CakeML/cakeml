@@ -39,7 +39,8 @@ val case_eq_thms = LIST_CONJ
    ``:closLang$op``,``:'a ffi_result``])
 val case_eq_thms = CONJ bool_case_eq (CONJ pair_case_eq case_eq_thms)
 
-val _ = save_thm ("case_eq_thms", case_eq_thms);
+Theorem case_eq_thms =
+  case_eq_thms
 
 val do_app_split_list = prove(
   ``do_app op vs s = res
@@ -54,19 +55,19 @@ Proof
   srw_tac[][]
 QED
 
-val do_app_cases_val = save_thm ("do_app_cases_val",
+Theorem do_app_cases_val =
   ``do_app op vs s = Rval (v,s')`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV));
+   ALL_CONV)
 
-val do_app_cases_err = save_thm ("do_app_cases_err",
-``do_app op vs s = Rerr err`` |>
+Theorem do_app_cases_err =
+  ``do_app op vs s = Rerr err`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV));
+   ALL_CONV)
 
 Theorem do_app_Rval_swap:
    do_app op a (s1:('a,'b) bvlSem$state) = Rval (x0,x1) /\ op <> Install /\
@@ -216,7 +217,8 @@ val evaluate_LENGTH = Q.prove(
   \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) [])
   |> SIMP_RULE std_ss [];
 
-val _ = save_thm("evaluate_LENGTH", evaluate_LENGTH);
+Theorem evaluate_LENGTH =
+  evaluate_LENGTH
 
 Theorem evaluate_IMP_LENGTH:
    (evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)

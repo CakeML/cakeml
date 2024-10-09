@@ -150,7 +150,8 @@ Definition all_bytes_def:
   all_bytes = Vector (GENLIST (\n. byte_to_string (n2w n)) 256)
 End
 
-val all_bytes_eq = save_thm("all_bytes_eq",EVAL ``all_bytes``);
+Theorem all_bytes_eq =
+  EVAL ``all_bytes``
 
 Theorem byte_to_string_eq:
    !b. byte_to_string b = sub all_bytes (w2n b)

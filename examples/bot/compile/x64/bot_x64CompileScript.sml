@@ -20,7 +20,8 @@ max_print_depth := 10
 val _ = intermediate_prog_prefix := "bot_";
 
 (* Produce .S files *)
-val x64 = save_thm("bot_x64", compile_x64 500 500 (folder_str ^ "/bot_x64") bot_prog_def);
+Theorem bot_x64 =
+  compile_x64 500 500 (folder_str ^ "/bot_x64") bot_prog_def
 
 val _ = intermediate_prog_prefix := "";
 

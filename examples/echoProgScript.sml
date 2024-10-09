@@ -66,9 +66,9 @@ Definition echo_prog_def:
   echo_prog = ^echo_prog_tm
 End
 
-val echo_semantics = save_thm("echo_semantics",
+Theorem echo_semantics =
   call_thm_echo |> ONCE_REWRITE_RULE[GSYM echo_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+  |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 val _ = export_theory();

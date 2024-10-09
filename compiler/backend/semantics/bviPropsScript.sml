@@ -131,7 +131,8 @@ val evaluate_LENGTH = Q.prove(
   \\ every_case_tac \\ fs[])
   |> SIMP_RULE std_ss [];
 
-val _ = save_thm("evaluate_LENGTH", evaluate_LENGTH);
+Theorem evaluate_LENGTH =
+  evaluate_LENGTH
 
 Theorem evaluate_IMP_LENGTH:
    (evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)
