@@ -84,7 +84,7 @@ Definition clos_to_bvl_compile_alt_def:
     let (c, prog) = clos_to_bvl_compile_common_alt c0 es in
     let init_stubs = toAList (init_code c.max_app) in
     let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start))] in
-    let comp_progs = clos_to_bvl_compile_prog_alt c.max_app prog in
+    let comp_progs = clos_to_bvl$compile_prog c.max_app prog in
     let prog' = init_stubs ++ comp_progs ++ init_globs in
     let c = c with start := num_stubs c.max_app - 1 in
       (c, prog')
@@ -184,6 +184,7 @@ Datatype:
      clos_call_g : sptree$num_set;
      es_to_chain : closLang$exp list;
      length_acc : num;
+     compile_exps_aux: (num # num # bvl$exp) list;
   |>
 End
 
@@ -251,17 +252,19 @@ End
 
 (* TODO: modify this and try the rest *)
 Definition icompile_clos_to_bvl_prog_def:
-  icompile_clos_to_bvl_prog max_app p =
+  icompile_clos_to_bvl_prog max_app config_aux p  =
   let prog = MAP (SND o SND) p in
   let (new_exps, aux) = clos_to_bvl$compile_exps max_app prog [] in
   let new_bvl_exps = MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app, args, exp)) p new_exps in
-    new_bvl_exps
+  let new_config_aux = aux ++ config_aux in
+    (new_config_aux, new_bvl_exps)
 End
 
 Definition icompile_clos_to_bvl_def:
   icompile_clos_to_bvl (clos_iconf: clos_iconfig)  p =
   let (clos_iconf, p) = icompile_clos_to_bvl_common clos_iconf p in
-  let p = icompile_clos_to_bvl_prog clos_iconf.max_app p in
+  let (aux, p) = icompile_clos_to_bvl_prog clos_iconf.max_app clos_iconf.compile_exps_aux p in
+  let clos_iconf = clos_iconf with compile_exps_aux := aux in
     (clos_iconf, p)
 End
 
@@ -364,7 +367,8 @@ Definition init_icompile_clos_to_bvl_def:
                       clos_call_aux := [];
                       clos_call_g := LN;
                       es_to_chain := [];
-                      length_acc := 0 |> in
+                      length_acc := 0 ;
+                      compile_exps_aux := []|> in
   let init_stubs = toAList (init_code clos_iconf.max_app) in
   let (clos_iconf, bvl_stub) = icompile_clos_to_bvl clos_iconf clos_stub in
     (clos_iconf, init_stubs ++ bvl_stub)
@@ -375,7 +379,7 @@ Definition end_icompile_clos_to_bvl_def:
   let es_chained = clos_to_bvl$chain_exps clos_iconf.next_loc
                                           clos_iconf.es_to_chain in
   let es_chained = clos_annotate$compile es_chained in
-  let es_chained = icompile_clos_to_bvl_prog clos_iconf.max_app es_chained in
+  let (new_aux, es_chained) = icompile_clos_to_bvl_prog clos_iconf.max_app clos_iconf.compile_exps_aux es_chained in
   let clos_conf = clos_conf with
                             <| next_loc :=
                                clos_iconf.next_loc + MAX 1 (clos_iconf.length_acc); (* need to add the length of the es *)
@@ -384,7 +388,7 @@ Definition end_icompile_clos_to_bvl_def:
                                call_state := (clos_iconf.clos_call_g, REVERSE clos_iconf.clos_call_aux) |> in
   let c = clos_iconf in
   let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.next_loc))] in
-  (clos_conf, es_chained ++ init_globs)
+  (clos_conf, es_chained ++ new_aux  ++ init_globs)
 End
 
 Definition init_icompile_def:
@@ -822,7 +826,6 @@ Theorem icompile_icompile_clos_to_bvl_common:
   icompile_clos_to_bvl_common clos_iconf p1 = (clos_iconf_p1, p1_bvl) ∧
   icompile_clos_to_bvl_common clos_iconf_p1 p2 = (clos_iconf_p2, p2_bvl) ⇒
   icompile_clos_to_bvl_common clos_iconf (p1 ++ p2) = (clos_iconf_p2, p1_bvl ++ p2_bvl)
-
 Proof
   rw[icompile_clos_to_bvl_common_def] >> rpt (pairarg_tac >> gvs[]) >>
   gvs[clos_mti_compile_append] >>
@@ -850,31 +853,72 @@ Proof
             rw[clos_annotateTheory.compile_def]))
 QED
 
+Theorem icompile_clos_to_bvl_common_no_compile_exps:
+  icompile_clos_to_bvl_common clos_iconf p = (clos_iconf', p') ⇒
+  clos_iconf.compile_exps_aux = clos_iconf'.compile_exps_aux
+Proof
+  rw[icompile_clos_to_bvl_common_def] >>
+  rpt (pairarg_tac >> gvs[])
+QED
+
+Theorem icompile_clos_to_bvl_common_rest_same:
+  icompile_clos_to_bvl_common clos_iconf p = (clos_iconf', p') ⇒
+  icompile_clos_to_bvl_common (clos_iconf with compile_exps_aux := aux) p = (clos_iconf' with compile_exps_aux := aux, p')
+Proof
+  rw[icompile_clos_to_bvl_common_def] >>
+  rpt (pairarg_tac >> gvs[])
+QED
+
+Triviality clos_iconfig_helper:
+  clos_iconf = clos_iconf with compile_exps_aux := clos_iconf.compile_exps_aux
+Proof
+  rw[fetch "-" "clos_iconfig_component_equality"]
+QED
+
+
+
+
+
 Theorem icompile_icompile_clos_to_bvl_prog:
-  icompile_clos_to_bvl_prog max_app (p1 ++ p2) =
-  icompile_clos_to_bvl_prog max_app p1 ++ icompile_clos_to_bvl_prog max_app p2
+  icompile_clos_to_bvl_prog max_app aux p1 = (aux_p1, p1') ∧
+  icompile_clos_to_bvl_prog max_app aux_p1 p2 = (aux_p2, p2') ⇒
+  icompile_clos_to_bvl_prog max_app aux (p1 ++ p2) = (aux_p2, p1' ++ p2')
 Proof
   rw[icompile_clos_to_bvl_prog_def] >>
   rpt (pairarg_tac >> gvs[]) >>
   qmatch_goalsub_rename_tac `MAP2 f _ _ = _` >>
-  drule clos_to_bvl_compile_exps_append >>
-  last_x_assum assume_tac >>
-  disch_then rev_drule >>
-  strip_tac >> gvs[] >>
-  rev_drule clos_to_bvlTheory.compile_exps_LENGTH >>
+  last_x_assum mp_tac >>
+  rev_drule clos_to_bvl_compile_exps_append >>
+
+  disch_then drule >>
+  ntac 2 strip_tac >> gvs[] >>
+  pop_assum mp_tac >>
+  drule clos_to_bvlTheory.compile_exps_LENGTH >>
   simp[LENGTH_MAP] >>
   disch_then (fn t => assume_tac (GSYM t)) >>
+  strip_tac >>
   irule MAP2_APPEND >> rw[]
 QED
 
 
-Theorem icompile_clos_to_bvl_max_app_constant:
-  icompile_clos_to_bvl clos_iconf p = (clos_iconf', p') ⇒
+Theorem icompile_clos_to_bvl_common_max_app_constant:
+  icompile_clos_to_bvl_common clos_iconf p = (clos_iconf', p') ⇒
   clos_iconf.max_app = clos_iconf'.max_app
 Proof
-  rw[icompile_clos_to_bvl_def, icompile_clos_to_bvl_common_def, icompile_clos_to_bvl_prog_def] >>
+  rw[icompile_clos_to_bvl_common_def] >>
   rpt (pairarg_tac >> gvs[])
 QED
+
+Theorem icompile_clos_to_bvl_max_app_constant:
+  icompile_clos_to_bvl c p = (c', p') ⇒
+  c.max_app = c'.max_app
+Proof
+  rw[icompile_clos_to_bvl_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  drule icompile_clos_to_bvl_common_max_app_constant >> rw[]
+QED
+
+
 
 Theorem icompile_icompile_clos_to_bvl:
   icompile_clos_to_bvl clos_iconf p1 = (clos_iconf_p1, p1_bvl) ∧
@@ -882,12 +926,37 @@ Theorem icompile_icompile_clos_to_bvl:
   icompile_clos_to_bvl clos_iconf (p1 ++ p2) = (clos_iconf_p2, p1_bvl ++ p2_bvl)
 Proof
   strip_tac >>
-  drule (GEN_ALL icompile_clos_to_bvl_max_app_constant) >>
-  rev_drule (GEN_ALL icompile_clos_to_bvl_max_app_constant) >>
   fs[icompile_clos_to_bvl_def] >> rpt (pairarg_tac >> gvs[]) >>
-  drule_all icompile_icompile_clos_to_bvl_common >> gvs[] >>
-  ntac 3 strip_tac >> gvs[] >>
-  rw[icompile_icompile_clos_to_bvl_prog]
+  last_x_assum assume_tac >>
+  rev_drule icompile_clos_to_bvl_common_max_app_constant >>
+  simp[] >>
+  disch_then (fn t => assume_tac (GSYM t) >> gvs[]) >>
+  drule icompile_clos_to_bvl_common_max_app_constant >>
+  ntac 2 (pop_assum mp_tac) >>
+  drule icompile_clos_to_bvl_common_max_app_constant >>
+  ntac 4 strip_tac >>
+  gvs[] >>
+  rename1 ‘icompile_clos_to_bvl_prog max_app _ _ = _’ >>
+  rpt (qpat_x_assum ‘_ = max_app’ kall_tac) >>
+  pop_assum mp_tac >>
+  drule icompile_clos_to_bvl_common_rest_same >>
+  disch_then $ qspec_then ‘aux''’ mp_tac >>
+  strip_tac >>
+  drule_all icompile_icompile_clos_to_bvl_common >>
+  strip_tac >>
+  strip_tac >>
+  drule icompile_clos_to_bvl_common_rest_same >>
+  disch_then $ qspec_then ‘aux''’ assume_tac >> gvs[] >>
+  drule_all icompile_icompile_clos_to_bvl_prog >>
+  strip_tac >>
+  ntac 2 (pop_assum mp_tac) >>
+  drule icompile_clos_to_bvl_common_no_compile_exps >>
+  disch_then (fn t => assume_tac (GSYM t) >> gvs[]) >>
+  pop_assum kall_tac >>
+  ntac 2 (pop_assum mp_tac) >>
+  drule icompile_clos_to_bvl_common_no_compile_exps >>
+  strip_tac >> gvs[]
+
 QED
 
 Theorem bvl_tick_inline_all_aux_disch:
@@ -1214,17 +1283,19 @@ Proof
   fs[icompile_clos_to_bvl_def, icompile_clos_to_bvl_prog_def, icompile_clos_to_bvl_common_def] >> rpt (pairarg_tac >> gvs[]) >>
   fs[clos_knownTheory.compile_def, clos_callTheory.compile_def] >>
   rpt (pairarg_tac >> gvs[]) >>
-  gvs[end_icompile_clos_to_bvl_def] >>
+  gvs[end_icompile_clos_to_bvl_def] >> rpt (pairarg_tac >> gvs[]) >>
   rw[config_prog_pair_rel_def] >>
-  gvs[icompile_clos_to_bvl_prog_def] >>
+  gvs[clos_to_bvlTheory.compile_prog_def] >>
   rpt (pairarg_tac >> gvs[]) >>
-  qmatch_goalsub_rename_tac ‘_ ++ MAP2 f _ _ = MAP2 f _ _’ >>
+  ntac 3 (last_x_assum mp_tac) >>
+  disch_then (fn t => assume_tac (GSYM t)) >>
+  ntac 2 strip_tac >> rpt (pairarg_tac >> gvs[]) >> gvs[] >>
+  fs[icompile_clos_to_bvl_prog_def] >>
+  qmatch_goalsub_rename_tac ‘MAP2 f _ _ ++ _ ++ _ = MAP2 f _ _ ++ _’ >> rpt (pairarg_tac >> gvs[]) >>
   gvs[clos_annotate_compile_append] >>
-  last_x_assum mp_tac >>
   drule clos_to_bvl_compile_exps_append >>
-  last_x_assum assume_tac >>
   disch_then rev_drule >>
-  strip_tac >> strip_tac >> gvs[] >>
+  strip_tac >> gvs[] >>
   rev_drule clos_to_bvlTheory.compile_exps_LENGTH >>
   simp[LENGTH_MAP] >>
   disch_then (fn t => assume_tac (GSYM t)) >>
