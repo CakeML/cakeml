@@ -719,7 +719,7 @@ Proof
        keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
        keep_ident_def, keep_annot_def, keep_ffi_ident_def, try_def,
        try_default_def] >>
-  simp(pancake_wfpeg_thm2 :: wfpeg_rwts' @ peg1_rwts @ npeg1_rwts)
+  simp(pancake_wfpeg_FunNT_thm :: wfpeg_rwts' @ peg1_rwts @ npeg1_rwts)
 QED
 
 val _ = export_theory();
