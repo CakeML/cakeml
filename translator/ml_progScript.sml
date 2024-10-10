@@ -624,8 +624,10 @@ in
 Definition init_env_def[nocompute]:
   init_env = ^init_env_tm
 End
-  val init_state_def = Define `
-    init_state ffi = ^init_state_tm`;
+
+Definition init_state_def:
+  init_state ffi = ^init_state_tm
+End
 end
 
 Theorem init_state_env_thm:

@@ -47,14 +47,15 @@ End
 
 val EmptyQueue_exn_def = EVAL ``EmptyQueue_exn v``;
 
-val lqueue_def = Define‘
+Definition lqueue_def:
   lqueue qels f r els ⇔
     f < LENGTH qels ∧ r < LENGTH qels ∧
     (f ≤ r ∧
      (∃pj rj. qels = pj ++ els ++ rj ∧ LENGTH pj = f ∧
               r + LENGTH rj = LENGTH qels) ∨
      r ≤ f ∧ (∃p s mj. qels = s ++ mj ++ p ∧ els = p ++ s ∧
-                       r = LENGTH s ∧ f = r + LENGTH mj))’;
+                       r = LENGTH s ∧ f = r + LENGTH mj))
+End
 
 Theorem lqueue_empty:
    i < LENGTH xs ⇒ lqueue xs i i []
@@ -114,14 +115,15 @@ QED
    operations can be expressed in terms of the abstract value
 *)
 
-val QUEUE_def = Define‘
+Definition QUEUE_def:
   QUEUE A sz els qv ⇔
     SEP_EXISTS av fv rv cv qelvs.
       REF qv (Conv NONE [av;fv;rv;cv]) *
       ARRAY av qelvs *
       & (0 < sz ∧ NUM (LENGTH els) cv ∧
          ∃qels f r. LIST_REL A qels qelvs ∧ NUM f fv ∧ NUM r rv ∧
-                    lqueue qels f r els ∧ LENGTH qels = sz)’;
+                    lqueue qels f r els ∧ LENGTH qels = sz)
+End
 (*
    type_of “QUEUE”;
 *)

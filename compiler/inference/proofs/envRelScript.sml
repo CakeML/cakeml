@@ -26,11 +26,13 @@ Definition convert_env_def:
 convert_env s env = MAP (\(x,t). (x, convert_t (t_walkstar s t))) env
 End
 
-(* val convert_decls_def = Define `
-convert_decls idecls =
+(*
+Definition convert_decls_def:
+  convert_decls idecls =
   <| defined_mods := set idecls.inf_defined_mods;
      defined_types :=  set idecls.inf_defined_types;
-     defined_exns := set idecls.inf_defined_exns|>`;
+     defined_exns := set idecls.inf_defined_exns|>
+End
 
 Theorem convert_append_decls:
  !decls1 decls2. convert_decls (append_decls decls1 decls2) = union_decls (convert_decls decls1) (convert_decls decls2)

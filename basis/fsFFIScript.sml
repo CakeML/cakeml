@@ -286,7 +286,8 @@ Definition ffi_close_def:
 End
 
 (* given a file descriptor and an offset, returns 0 and update fs or returns 1
-* if an error is met val ffi_seek = Define`
+ * if an error is met
+Definition ffi_seek_def:
   ffi_seek bytes fs =
     do
       assert(LENGTH bytes = 2);
@@ -295,7 +296,9 @@ End
         return(LUPDATE 0w 0 bytes, fs')
       od ++
       return (LUPDATE 1w 0 bytes, fs)
-    od`; *)
+    od
+End
+ *)
 (* -- *)
 
 (* Packaging up the model as an ffi_part *)

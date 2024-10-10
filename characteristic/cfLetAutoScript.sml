@@ -91,8 +91,10 @@ Definition HPROP_INJ_def:
 End
 
 (* TODO: use that *)
-(* val HPROP_FRAME_IMP_def = Define `HPROP_FRAME_IMP H1 H2 Frame <=>
-?s. VALID_HEAP s /\ H1 s /\ (H2 * Frame) s`;
+(*
+Definition HPROP_FRAME_IMP_def:
+  HPROP_FRAME_IMP H1 H2 Frame <=> ?s. VALID_HEAP s /\ H1 s /\ (H2 * Frame) s
+End
 
 Theorem HPROP_FRAME_HCOND:
  HPROP_FRAME_IMP H1 (&PF * H2) Frame <=> PF /\ HPROP_FRAME_IMP H1 H2 Frame

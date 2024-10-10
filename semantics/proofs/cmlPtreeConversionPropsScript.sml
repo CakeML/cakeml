@@ -16,21 +16,21 @@ val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
 (* first, capture those types that we expect to be in the range of the
    conversion *)
-val user_expressible_tyname_def = Define‘
+Definition user_expressible_tyname_def:
   (user_expressible_tyname (Short s) ⇔ T) ∧
   (user_expressible_tyname (Long m (Short s)) ⇔ T) ∧
   (user_expressible_tyname _ ⇔ F)
-’;
+End
 val _ = augment_srw_ss [rewrites [user_expressible_tyname_def]]
 
 Overload ND[local] = “λn. Nd (mkNT n, ARB)”
 Overload LF[local] = “λt. Lf (TOK t, ARB)”
 
-val tyname_to_AST_def = Define‘
+Definition tyname_to_AST_def:
   tyname_to_AST (Short n) = ND nTyOp [ND nUQTyOp [LF (AlphaT n)]] ∧
   tyname_to_AST (Long md (Short n)) = ND nTyOp [LF (LongidT md n)] ∧
   tyname_to_AST _ = ARB
-’;
+End
 
 Theorem tyname_inverted:
    ∀id. user_expressible_tyname id ⇒

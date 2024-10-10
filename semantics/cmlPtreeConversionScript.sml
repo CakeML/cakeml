@@ -831,8 +831,7 @@ Definition letFromPat_def:
     | _ => Mat rhs [(p,body)]
 End
 
-local
-  val ptree_Expr_quotation = `
+Definition ptree_Expr_def:
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd (nt,loc) subs) =
   do
@@ -1217,11 +1216,8 @@ local
             seq <- ptree_Eseq seq_pt;
             SOME(e::seq)
           od
-        | _ => NONE)`
-in
-
-val ptree_Expr_def = Define ptree_Expr_quotation
-end
+        | _ => NONE)
+End
 
 Definition ptree_StructName_def:
   ptree_StructName (Lf _) = NONE ∧
