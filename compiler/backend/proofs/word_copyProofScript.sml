@@ -289,26 +289,18 @@ Proof
         ‘t = lookup_eq cs v’
           by metis_tac[lookup_eq_set_eq_is_alloc_var2]>>
         (* t = lookup_eq cs v, v≠t, hence lookup t cs.eq ≠ NONE *)
-        first_x_assum mp_tac>>
-        simp[lookup_eq_def]>>every_case_tac>-decide_tac>-decide_tac
-        >-metis_tac[CPstate_inv_def,NOT_NONE_SOME]
+        pop_assum mp_tac>>
+        simp[lookup_eq_def]>>every_case_tac>>
+        metis_tac[CPstate_inv_def,NOT_NONE_SOME]
       )
     )
-    >-(
-      ‘lookup_eq cs s ≠ lookup_eq cs v’
-        by metis_tac[lookup_eq_set_eq_is_alloc_var1]>>
-      ‘v≠t’ by (qpat_x_assum‘lookup_eq (set_eq cs t s) v = r’mp_tac>>metis_tac[lookup_eq_set_eq_t])>>
-      metis_tac[lookup_eq_set_eq_is_alloc_var2]
-    )
+    >-metis_tac[lookup_eq_set_eq_t,lookup_eq_set_eq_is_alloc_var1,lookup_eq_set_eq_is_alloc_var2]
   )
   >-(
-    drule lookup_eq_set_eq_not_is_alloc_var>>
-    DISCH_TAC>>
-    first_x_assum(fn eq=>rewrite_tac[eq])>>
-    first_x_assum(K ALL_TAC)>>
+    ‘lookup_eq (set_eq cs t s) v = lookup_eq cs v’
+      by metis_tac[lookup_eq_set_eq_not_is_alloc_var]>>
     rw[]>>
     DISJ1_TAC>>
-    first_x_assum mp_tac>>
     fs[CPstate_inv_def,lookup_eq_def]>>
     every_case_tac>>
     metis_tac[NOT_NONE_SOME]
@@ -326,11 +318,7 @@ Theorem CPstate_model:
   CPstate_models cs st ⇒
   lookup v st.locals = lookup (lookup_eq cs v) st.locals
 Proof
-  rw[CPstate_models_def]>>
-  namedCases_on‘lookup v cs.to_eq’["","c"]>>
-  rw[lookup_eq_def]>>
-  namedCases_on‘lookup c cs.from_eq’["","vrep"]>>
-  rw[]
+  rw[CPstate_models_def,lookup_eq_def]>>every_case_tac>>rw[]
 QED
 
 Theorem CPstate_modelsI:
@@ -349,10 +337,7 @@ Theorem CPstate_modelsD:
   CPstate_models cs st ⇒
   ∀x y. lookup_eq cs x = lookup_eq cs y ⇒ lookup x st.locals = lookup y st.locals
 Proof
-  rw[CPstate_models_def]>>
-  drule_all same_classD>>
-  rw[]>>
-  metis_tac[]
+  rw[CPstate_models_def]>>metis_tac[same_classD]
 QED
 
 Theorem CPstate_models_remove_eq:
@@ -391,14 +376,23 @@ Proof
     TOP_CASE_TAC>>rw[empty_eq_def]
   )>>
   CONJ_TAC>-pop_assum ACCEPT_TAC>>
-  (* CPstate_models *)
+  (* CPstate_inv was easy. Now prove CPstate_models *)
   irule CPstate_modelsI>>
   rw[]>>
   ‘lookup t (remove_eq cs t).to_eq = NONE’ by (
     rw[remove_eq_def]>>
     Cases_on‘lookup t cs.to_eq’>>rw[empty_eq_def]
   )>>
-  Cases_on‘t=x’>>Cases_on‘t=y’>>
+  Cases_on‘t=x∧t=y’>-rw[lookup_eq_set_eq_t,lookup_insert]>>
+  Cases_on‘t≠x∧t≠y’>-(
+    qpat_x_assum‘¬(t=x∧t=y)’kall_tac>>
+    rw[lookup_insert]>>
+    Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) x’>>
+    Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) y’>>
+    metis_tac[lookup_eq_set_eq_is_alloc_var1,lookup_eq_set_eq_is_alloc_var2,
+      lookup_eq_set_eqD,CPstate_models_remove_eq,CPstate_modelsD]
+  )>>
+  wlog_tac‘t=x∧t≠y’[‘x’,‘y’]>-metis_tac[]>>
   rw[lookup_eq_set_eq_t]>-(
     Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) y’
     >-(
@@ -410,26 +404,6 @@ Proof
       gvs[lookup_eq_set_eq_t]>>
       metis_tac[lookup_eq_set_eq_is_alloc_var2,lookup_eq_remove_eq_t]
     )
-  )
-  (* symmetric *)
-  >-(
-    Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) x’
-    >-(
-      rw[lookup_insert]>>
-      metis_tac[lookup_eq_set_eq_is_alloc_var1,CPstate_models_remove_eq,CPstate_modelsD]
-    )
-    >-(
-      rw[lookup_insert]>>
-      gvs[lookup_eq_set_eq_t]>>
-      metis_tac[lookup_eq_set_eq_is_alloc_var2,lookup_eq_remove_eq_t]
-    )
-  )
-  >-(
-    rw[lookup_insert]>>
-    Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) x’>>
-    Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) y’>>
-    metis_tac[lookup_eq_set_eq_is_alloc_var1,lookup_eq_set_eq_is_alloc_var2,
-      lookup_eq_set_eqD,CPstate_models_remove_eq,CPstate_modelsD]
   )
 QED
 
