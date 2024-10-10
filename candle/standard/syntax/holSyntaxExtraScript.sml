@@ -320,15 +320,17 @@ Theorem subterm_Abs =
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subterm1_cases]
 
+Triviality subterm_welltyped_helper:
+  ∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t
+Proof
+  ho_match_mp_tac has_type_strongind >>
+  simp[subterm_Comb,subterm_Abs] >> rw[] >>
+  rw[] >> imp_res_tac WELLTYPED_LEMMA >> simp[]
+QED
+
 Theorem subterm_welltyped =
-  let val th =
-    Q.prove(`∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t`,
-      ho_match_mp_tac has_type_strongind >>
-      simp[subterm_Comb,subterm_Abs] >> rw[] >>
-      rw[] >> imp_res_tac WELLTYPED_LEMMA >> simp[])
-  in METIS_PROVE[th,welltyped_def]
+  METIS_PROVE[subterm_welltyped_helper,welltyped_def]
     ``∀t tm. welltyped tm ∧ t subterm tm ⇒ welltyped t``
-  end
 
 (* term ordering *)
 
