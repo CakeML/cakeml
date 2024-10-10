@@ -80,7 +80,7 @@ End
 
 val res = m_translate hello_def;
 
-val hello_app_thm = save_thm("hello_app_thm",
-  cfMonadLib.mk_app_of_ArrowP res |> SPEC_ALL);
+Theorem hello_app_thm =
+  cfMonadLib.mk_app_of_ArrowP res |> SPEC_ALL
 
 val _ = export_theory ();

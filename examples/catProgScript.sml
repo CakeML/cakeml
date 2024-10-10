@@ -212,9 +212,8 @@ val cat_spec0 = Q.prove(
   simp[Once file_contents_def,SimpR``(==>>)``,concat_cons] \\
   simp[file_contents_add_stdout] \\ xsimpl);
 
-val cat_spec = save_thm(
-  "cat_spec",
-  cat_spec0 |> SIMP_RULE (srw_ss()) [])
+Theorem cat_spec =
+  cat_spec0 |> SIMP_RULE (srw_ss()) []
 
 val _ = process_topdecs `
   fun cat1 f =

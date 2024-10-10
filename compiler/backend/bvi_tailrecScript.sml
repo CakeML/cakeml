@@ -108,11 +108,11 @@ Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [from_op_def]
 QED
 
-val from_op_thm = save_thm("from_op_thm[simp]",
+Theorem from_op_thm[simp] =
   map (fn tm => EVAL ``from_op ^tm``)
   (TypeBase.case_def_of ``:closLang$op``
    |> CONJUNCTS |> map (el 1 o #2 o strip_comb o lhs o concl o SPEC_ALL))
-  |> LIST_CONJ)
+  |> LIST_CONJ
 
 Definition op_eq_def:
   (op_eq Plus   (Op op xs) <=> op = Add) /\

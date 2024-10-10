@@ -299,7 +299,9 @@ End
 
 val (arm7_config, arm7_asm_ok) = asmLib.target_asm_rwts [] ``arm7_config``
 
-val arm7_config = save_thm("arm7_config", arm7_config)
-val arm7_asm_ok = save_thm("arm7_asm_ok", arm7_asm_ok)
+Theorem arm7_config =
+  arm7_config
+Theorem arm7_asm_ok =
+  arm7_asm_ok
 
 val () = export_theory ()

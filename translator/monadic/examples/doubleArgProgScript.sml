@@ -51,7 +51,7 @@ val double_tail_rec_v = double_tail_rec_def |> translate;
 
 val double_ref_v = double_ref_def |> m_translate;
 
-val double_ref_thm = save_thm("double_ref_thm",
-  cfMonadLib.mk_app_of_ArrowP double_ref_v |> SPEC_ALL);
+Theorem double_ref_thm =
+  cfMonadLib.mk_app_of_ArrowP double_ref_v |> SPEC_ALL
 
 val _ = export_theory ();

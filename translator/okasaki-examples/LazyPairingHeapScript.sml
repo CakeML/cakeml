@@ -121,11 +121,13 @@ decide_tac);
 (* Remove the size constraints *)
 
 val merge_def = SIMP_RULE (srw_ss()) [merge_size_lem, LET_THM] merge_def;
-val _ = save_thm ("merge_def[compute,allow_rebind]",merge_def);
+Theorem merge_def[compute,allow_rebind] =
+  merge_def
 
 val merge_ind =
   SIMP_RULE (srw_ss()) [merge_size_lem, LET_THM] (fetch "-" "merge_ind");
-val _ = save_thm ("merge_ind[allow_rebind]",merge_ind);
+Theorem merge_ind[allow_rebind] =
+  merge_ind
 
 val merge_thm = Q.prove(`
   merge get_key leq a b =

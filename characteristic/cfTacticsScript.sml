@@ -149,10 +149,10 @@ Proof
   first_assum progress
 QED
 
-val BOOL_T = save_thm("BOOL_T",
-  EVAL ``BOOL T (Conv (SOME (TypeStamp "True" 0)) [])``);
+Theorem BOOL_T =
+  EVAL ``BOOL T (Conv (SOME (TypeStamp "True" 0)) [])``
 
-val BOOL_F = save_thm("BOOL_F",
-  EVAL ``BOOL F (Conv (SOME (TypeStamp "False" 0)) [])``);
+Theorem BOOL_F =
+  EVAL ``BOOL F (Conv (SOME (TypeStamp "False" 0)) [])``
 
 val _ = export_theory()

@@ -366,8 +366,8 @@ val mk_single_app_F_unchanged_gen = Q.prove(
   imp_res_tac dest_opapp_eq_single_IMP >>
   fs[]);
 
-val mk_single_app_F_unchanged = save_thm("mk_single_app_F_unchanged",
-  SIMP_RULE std_ss [] mk_single_app_F_unchanged_gen);
+Theorem mk_single_app_F_unchanged =
+  SIMP_RULE std_ss [] mk_single_app_F_unchanged_gen
 
 Definition mk_inr_res_def:
   (mk_inr_res(Rval vs) =
@@ -2523,8 +2523,8 @@ val make_single_app_F_unchanged_gen = Q.prove(
   imp_res_tac dest_opapp_eq_single_IMP >>
   fs[]);
 
-val make_single_app_F_unchanged = save_thm("make_single_app_F_unchanged",
-  SIMP_RULE std_ss [] make_single_app_F_unchanged_gen);
+Theorem make_single_app_F_unchanged =
+  SIMP_RULE std_ss [] make_single_app_F_unchanged_gen
 
 Definition mk_tyerr_res_def:
   mk_tyerr_res (Rerr e) = Rerr e /\

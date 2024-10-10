@@ -1224,10 +1224,10 @@ val MEM_compile = prove(
   \\ fs [code_subset_def]
   \\ rw [] \\ fs []);
 
-val compile_NIL_IMP = save_thm("compile_NIL_IMP",
+Theorem compile_NIL_IMP =
   MEM_compile
   |> Q.SPECL [`k`,`l1`,`l2`,`(l,[])`]
-  |> SIMP_RULE std_ss [good_code_def,MEM]);
+  |> SIMP_RULE std_ss [good_code_def,MEM]
 
 
 (* correctenss judgement *)
@@ -2125,7 +2125,7 @@ val code_subset_refl = prove(
 
 val mc_iop_corr_thm = fetch "-" "mc_iop_corr_thm"
 
-val evaluate_mc_iop = save_thm("evaluate_mc_iop",
+Theorem evaluate_mc_iop =
   mc_iop_corr_thm
   |> REWRITE_RULE [Corr_def] |> UNDISCH_ALL
   |> MATCH_MP compile_thm
@@ -2169,6 +2169,6 @@ val evaluate_mc_iop = save_thm("evaluate_mc_iop",
   |> Q.INST [`cs2`|->`cs`]
   |> SIMP_RULE std_ss [code_subset_refl]
   |> Q.GENL [`i1`,`i2`,`l'`,`frame`,`zs`,`t`,`ret_val`,
-             `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]);
+             `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]
 
 val _ = export_theory();

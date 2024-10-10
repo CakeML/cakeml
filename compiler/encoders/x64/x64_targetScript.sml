@@ -257,7 +257,9 @@ End
 val (x64_config, x64_asm_ok) =
   asmLib.target_asm_rwts [alignmentTheory.aligned_0] ``x64_config``
 
-val x64_config = save_thm("x64_config", x64_config)
-val x64_asm_ok = save_thm("x64_asm_ok", x64_asm_ok)
+Theorem x64_config =
+  x64_config
+Theorem x64_asm_ok =
+  x64_asm_ok
 
 val () = export_theory ()

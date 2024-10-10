@@ -27,8 +27,8 @@ Definition arm8_names_def:
      insert 30 26) LN:num num_map
 End
 
-val arm8_names_def = save_thm("arm8_names_def[compute,allow_rebind]",
-  CONV_RULE (RAND_CONV EVAL) arm8_names_def);
+Theorem arm8_names_def[compute,allow_rebind] =
+  CONV_RULE (RAND_CONV EVAL) arm8_names_def
 
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
