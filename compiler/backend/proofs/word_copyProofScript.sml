@@ -140,7 +140,8 @@ Proof
   metis_tac[CPstate_inv_def]
 QED
 
-Theorem same_classD:
+(* XXX: get rid of this *)
+Theorem same_classD_old:
   CPstate_inv cs ∧
   lookup_eq cs x = lookup_eq cs y ⇒
   x = y ∨
@@ -168,6 +169,26 @@ Proof
     rw[])>>
   fs[CPstate_inv_def]>>
   metis_tac[SOME_11]
+QED
+
+Theorem same_classD:
+  CPstate_inv cs ∧
+  lookup_eq cs x = lookup_eq cs y ⇒
+  x = y ∨ (x ≠ y ∧
+  ∃c rep.
+    lookup x cs.to_eq = SOME c ∧
+    lookup y cs.to_eq = SOME c ∧
+    lookup c cs.from_eq = SOME rep)
+Proof
+  rw[]>>
+  Cases_on‘x=y’>-(DISJ1_TAC>>pop_assum ACCEPT_TAC)>>
+  DISJ2_TAC>>
+  CONJ_TAC>-pop_assum ACCEPT_TAC>>
+  drule_all same_classD_old>>
+  rw[]>>
+  qexists_tac‘c’>>
+  gvs[lookup_eq_def]>>
+  Cases_on‘lookup c cs.from_eq’>>gvs[]
 QED
 
 Theorem lookup_eqI:
@@ -233,11 +254,21 @@ Proof
 QED
 
 Theorem lookup_eq_set_eq_t:
-  is_alloc_var t ∧ is_alloc_var s ⇒
+  CPstate_inv cs ∧
+  is_alloc_var s ∧ is_alloc_var t ⇒
   lookup_eq (set_eq cs t s) t = t
 Proof
   simp[lookup_eq_def,set_eq_def]>>
   every_case_tac>>gvs[lookup_insert]
+QED
+
+Theorem lookup_eq_set_eq_s:
+  CPstate_inv cs ∧
+  is_alloc_var s ∧ is_alloc_var t ⇒
+  lookup t cs.to_eq = NONE ⇒
+  lookup_eq (set_eq cs t s) s = t
+Proof
+Cases_on‘s=t’>-rw[lookup_eq_set_eq_t]>-rw[lookup_eq_set_eq_is_alloc_var1]
 QED
 
 Theorem lookup_eq_set_eqD:
@@ -281,6 +312,124 @@ Proof
     fs[CPstate_inv_def,lookup_eq_def]>>
     every_case_tac>>
     metis_tac[NOT_NONE_SOME]
+  )
+QED
+
+Definition CPstate_models_def:
+  CPstate_models cs S ⇔ ∀v c vrep.
+    lookup v cs.to_eq = SOME c ⇒
+    lookup c cs.from_eq = SOME vrep ⇒
+    lookup v S.locals = lookup vrep S.locals
+End
+
+Theorem CPstate_model:
+  CPstate_models cs st ⇒
+  lookup v st.locals = lookup (lookup_eq cs v) st.locals
+Proof
+  rw[CPstate_models_def]>>
+  namedCases_on‘lookup v cs.to_eq’["","c"]>>
+  rw[lookup_eq_def]>>
+  namedCases_on‘lookup c cs.from_eq’["","vrep"]>>
+  rw[]
+QED
+
+Theorem CPstate_modelsI:
+  CPstate_inv cs ⇒
+  (∀x y. lookup_eq cs x = lookup_eq cs y ⇒ lookup x st.locals = lookup y st.locals) ⇒
+  CPstate_models cs st
+Proof
+  rw[CPstate_inv_def,CPstate_models_def]>>
+  qpat_x_assum‘∀x y. _ ⇒ lookup x st.locals = lookup y st.locals’irule>>
+  rw[lookup_eq_def]>>TOP_CASE_TAC>>TOP_CASE_TAC>>
+  metis_tac[domain_lookup,NOT_NONE_SOME,SOME_11]
+QED
+
+Theorem CPstate_modelsD:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  ∀x y. lookup_eq cs x = lookup_eq cs y ⇒ lookup x st.locals = lookup y st.locals
+Proof
+  rw[CPstate_models_def]>>
+  drule_all same_classD>>
+  rw[]>>
+  metis_tac[]
+QED
+
+Theorem CPstate_models_remove_eq:
+  CPstate_models cs st ⇒
+  CPstate_models (remove_eq cs t) st
+Proof
+  rw[remove_eq_def]>>
+  TOP_CASE_TAC>>rw[empty_eq_def,CPstate_models_def]
+QED
+
+Theorem lookup_eq_remove_eq_t:
+  CPstate_inv cs ⇒
+  lookup_eq (remove_eq cs t) x = t ⇒ x=t
+Proof
+  rw[remove_eq_def,lookup_eq_def]>>
+  Cases_on‘lookup t cs.to_eq’>>fs[empty_eq_def]>>
+  namedCases_on‘lookup x cs.to_eq’["","c"]>>
+  namedCases_on‘lookup c cs.from_eq’["","c_rep"]>>gvs[]>>
+  metis_tac[CPstate_inv_def,NOT_NONE_SOME]
+QED
+
+Theorem aux_Move:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  is_alloc_var t ∧ is_alloc_var s ⇒
+  lookup s st.locals = SOME sval ⇒
+  CPstate_inv (set_eq (remove_eq cs t) t s) ∧
+  CPstate_models (set_eq (remove_eq cs t) t s) (st with locals := insert t sval st.locals)
+Proof
+  rpt DISCH_TAC>>
+  ‘CPstate_inv (remove_eq cs t)’ by metis_tac[remove_eq_inv]>>
+  ‘CPstate_inv (set_eq (remove_eq cs t) t s)’
+  by (
+    irule set_eq_inv>>
+    rw[remove_eq_def]>>
+    TOP_CASE_TAC>>rw[empty_eq_def]
+  )>>
+  CONJ_TAC>-pop_assum ACCEPT_TAC>>
+  (* CPstate_models *)
+  irule CPstate_modelsI>>
+  rw[]>>
+  ‘lookup t (remove_eq cs t).to_eq = NONE’ by (
+    rw[remove_eq_def]>>
+    Cases_on‘lookup t cs.to_eq’>>rw[empty_eq_def]
+  )>>
+  Cases_on‘t=x’>>Cases_on‘t=y’>>
+  rw[lookup_eq_set_eq_t]>-(
+    Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) y’
+    >-(
+      rw[lookup_insert]>>
+      metis_tac[lookup_eq_set_eq_is_alloc_var1,CPstate_models_remove_eq,CPstate_modelsD]
+    )
+    >-(
+      rw[lookup_insert]>>
+      gvs[lookup_eq_set_eq_t]>>
+      metis_tac[lookup_eq_set_eq_is_alloc_var2,lookup_eq_remove_eq_t]
+    )
+  )
+  (* symmetric *)
+  >-(
+    Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) x’
+    >-(
+      rw[lookup_insert]>>
+      metis_tac[lookup_eq_set_eq_is_alloc_var1,CPstate_models_remove_eq,CPstate_modelsD]
+    )
+    >-(
+      rw[lookup_insert]>>
+      gvs[lookup_eq_set_eq_t]>>
+      metis_tac[lookup_eq_set_eq_is_alloc_var2,lookup_eq_remove_eq_t]
+    )
+  )
+  >-(
+    rw[lookup_insert]>>
+    Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) x’>>
+    Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) y’>>
+    metis_tac[lookup_eq_set_eq_is_alloc_var1,lookup_eq_set_eq_is_alloc_var2,
+      lookup_eq_set_eqD,CPstate_models_remove_eq,CPstate_modelsD]
   )
 QED
 
