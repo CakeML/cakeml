@@ -1,7 +1,7 @@
 (*
   Correctness proof for word_copy
 *)
-open preamble word_copyTheory wordPropsTheory;
+open preamble word_copyTheory wordPropsTheory wordSemTheory;
 
 val _ = new_theory "word_copyProof";
 
@@ -407,7 +407,103 @@ Proof
   )
 QED
 
+(*
+theorem copy_prop_prog_correct:
+  assumes cs: "CPstate_inv cs" "CPstate_models cs st"
+  shows
+    "exec_prog (fst (copy_prop_prog p cs)) st = exec_prog p st ∧
+     CPstate_inv (snd (copy_prop_prog p cs)) ∧
+     CPstate_models (snd (copy_prop_prog p cs)) (exec_prog p st)"
+*)
+
+Theorem lookup_eq_idempotent:
+  CPstate_inv cs ⇒
+  lookup_eq cs (lookup_eq cs x) = lookup_eq cs x
+Proof
+  rw[CPstate_inv_def]>>
+  ‘∀rep. rep = lookup_eq cs x ⇒ lookup_eq cs rep = rep’ suffices_by metis_tac[]>>
+  rw[lookup_eq_def]>>
+  every_case_tac>>metis_tac[CPstate_inv_def,NOT_NONE_SOME,SOME_11]
+QED
+
+Theorem MAP_get_var_eqD:
+  MAP (λx. get_var x st) xx = MAP (λx. get_var x st) yy ⇒
+  get_vars xx st = get_vars yy st
+Proof
+  qid_spec_tac‘yy’>>
+  Induct_on‘xx’>>rw[]>>
+  Cases_on‘yy’>-fs[]>>
+  rename[‘get_vars (x::xx) st = get_vars (y::yy) st’]>>
+  ‘get_var x st = get_var y st’ by fs[]>>
+  ‘get_vars xx st = get_vars yy st’ by (first_assum irule>>fs[])>>
+  rw[get_vars_def]
+QED
+
+Theorem copy_prop_move_correct_aux1:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  ∀moves' cs'.
+  (moves', cs') = copy_prop_move moves cs ⇒
+  MAP (λx. get_var x st) (MAP SND moves') = MAP (λx. get_var x st) (MAP SND moves)
+Proof
+  Induct_on‘moves’>>rw[copy_prop_move_def](* NIL case solved *)>>
+  (* CONS case *)
+  pop_assum mp_tac>>
+  namedCases_on‘h’["t s"]>>
+  rw[evaluate_def,copy_prop_move_def]>>
+  pairarg_tac>>
+  gvs[]>>
+  simp[get_var_def]>>
+  ‘lookup_eq cs (lookup_eq cs s) = lookup_eq cs s’
+    by metis_tac[lookup_eq_idempotent]>>
+  metis_tac[CPstate_modelsD]
+QED
+
+Theorem copy_prop_move_correct_aux2:
+  MAP FST moves1 = MAP FST moves2 ⇒
+  get_vars (MAP SND moves1) st = get_vars (MAP SND moves2) st ⇒
+  evaluate (Move pri moves1, st) = evaluate (Move pri moves2, st)
+Proof
+  rw[evaluate_def]
+QED
+
+Theorem copy_prop_move_correct_aux3:
+  ∀moves' cs'.
+  (moves', cs') = copy_prop_move moves cs ⇒
+  MAP FST moves' = MAP FST moves
+Proof
+  Induct_on‘moves’>>rw[copy_prop_move_def]>>
+  namedCases_on‘h’["t s"]>>
+  Cases_on‘moves'’>>(
+    fs[copy_prop_move_def]>>
+    pairarg_tac>>gvs[]
+  )
+QED
+
+Theorem copy_prop_move_correct:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  ∀moves' cs'.
+  (moves', cs') = copy_prop_move moves cs ⇒
+  evaluate (Move pri moves', st) = evaluate (Move pri moves, st)
+Proof
+  metis_tac[copy_prop_move_correct_aux1,copy_prop_move_correct_aux2,copy_prop_move_correct_aux3,MAP_get_var_eqD]
+QED
+
 (* TODO: insert an induction over copy_prop_prog *)
+
+(*
+Theorem evaluate_copy_prop_Move:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  ∀prog' cs'.
+  (prog', cs') = copy_prop_prog (Move pri moves) cs ⇒
+  evaluate (prog', st) = evaluate (Move pri moves, st) ∧
+  CPstate_inv cs' ∧
+  CPstate_models cs' (SND (evaluate (Move pri moves, st)))
+Proof
+QED
+*)
 
 (* Main semantics result *)
 Theorem evaluate_copy_prop:
