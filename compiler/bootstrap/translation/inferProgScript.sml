@@ -671,7 +671,7 @@ val MEM_anub = prove(``
   ∀e1M ls k v1.
   MEM (k,v1) (anub e1M ls) ⇒
   MEM (k,v1) e1M``,
-  ho_match_mp_tac anub_ind>>rw[anub_def]>>metis_tac[]);
+  ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>metis_tac[]);
 
 Definition nsSub_translate_def:
   nsSub_translate path R b1 b2 ⇔
@@ -697,7 +697,7 @@ val ALOOKUP_MEM_anub = prove(
   ``∀ls acc k v.
     MEM (k,v) (anub ls acc) ⇔
     (ALOOKUP ls k = SOME v ∧ ¬MEM k acc)``,
-    ho_match_mp_tac anub_ind>>rw[anub_def]>>IF_CASES_TAC>>fs[]>>
+    ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>IF_CASES_TAC>>fs[]>>
     metis_tac[]);
 
 val MEM_ALOOKUP = prove(``
