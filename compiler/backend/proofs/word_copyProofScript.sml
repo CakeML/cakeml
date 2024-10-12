@@ -426,6 +426,35 @@ Proof
   every_case_tac>>metis_tac[CPstate_inv_def,NOT_NONE_SOME,SOME_11]
 QED
 
+Theorem CPstate_modelsD_get_var:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  get_var (lookup_eq cs x) st = get_var x st
+Proof
+  rw[get_var_def]>>
+  metis_tac[CPstate_modelsD,lookup_eq_idempotent]
+QED
+
+Theorem CPstate_modelsD_Var:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  word_exp st (Var (lookup_eq cs x)) = word_exp st (Var x)
+Proof
+  rw[word_exp_def]>>
+  metis_tac[CPstate_modelsD,lookup_eq_idempotent]
+QED
+
+Theorem CPstate_modelsD_lookup_eq_imm:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  word_exp st (case lookup_eq_imm cs x of Reg r => Var r | Imm w => Const w) =
+  word_exp st (case x of Reg r => Var r | Imm w => Const w)
+Proof
+  Cases_on‘x’>>
+  rw[lookup_eq_imm_def,word_exp_def]>>
+  metis_tac[CPstate_modelsD,lookup_eq_idempotent]
+QED
+
 Theorem MAP_get_var_eqD:
   MAP (λx. get_var x st) xx = MAP (λx. get_var x st) yy ⇒
   get_vars xx st = get_vars yy st
@@ -488,6 +517,159 @@ Theorem copy_prop_move_correct:
   evaluate (Move pri moves', st) = evaluate (Move pri moves, st)
 Proof
   metis_tac[copy_prop_move_correct_aux1,copy_prop_move_correct_aux2,copy_prop_move_correct_aux3,MAP_get_var_eqD]
+QED
+
+Theorem word_exp_cong_Var:
+  get_var x' st = get_var x st ⇒
+  word_exp st (Var x') = word_exp st (Var x)
+Proof
+  rw[word_exp_def,get_var_def]
+QED
+
+Theorem word_exp_cong_Load:
+  word_exp st addr' = word_exp st addr ⇒
+  word_exp st (Load addr') = word_exp st (Load addr)
+Proof
+  rw[word_exp_def]
+QED
+
+Theorem word_exp_cong_Op:
+  MAP (word_exp st) aa' = MAP (word_exp st) aa ⇒
+  word_exp st (Op op aa') = word_exp st (Op op aa)
+Proof
+  qid_spec_tac‘aa'’>>Induct_on‘aa’>>rw[word_exp_def,the_words_def]>>
+  Cases_on‘aa'’>>gvs[]>>
+  rw[the_words_def]>>
+  Cases_on‘word_exp st h’>>rw[]>>
+  rename[‘MAP _ aa' = MAP _ aa’,‘word_exp st h = SOME wl’]>>
+  Cases_on‘wl’>>fs[SF ETA_ss]
+QED
+
+Theorem word_exp_cong_Shift:
+  word_exp st e' = word_exp st e ⇒
+  word_exp st (Shift sh e' n) = word_exp st (Shift sh e n)
+Proof
+  rw[word_exp_def]
+QED
+
+(* "inst" is constant wordSem$inst *)
+Theorem copy_prop_move_correct:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  ∀ins' cs'.
+  (prog', cs') = copy_prop_inst ins cs ⇒
+  evaluate (prog', st) = evaluate (Inst ins, st)
+Proof
+  Cases_on‘ins’>>rw[]>-(
+    (* Skip *)
+    fs[evaluate_def,inst_def,copy_prop_inst_def]
+  )
+  >-(
+    (* Const *)
+    fs[evaluate_def,inst_def,copy_prop_inst_def]
+  )
+  >-(
+    (* Arith *)
+    Cases_on‘a’>>fs[evaluate_def,inst_def,copy_prop_inst_def]
+    (* 7 subgoals *)
+    >-(
+      rw[assign_def]>>
+(* Slow.
+      metis_tac[CPstate_modelsD_Var,CPstate_modelsD_lookup_eq_imm,word_exp_cong_Op,MAP]
+*)
+      ‘word_exp st (Op b
+         [Var (lookup_eq cs n0);
+          case lookup_eq_imm cs r of
+            Reg r3 => Var r3
+          | Imm w => Const w]) =
+       word_exp st (Op b
+         [Var n0; case r of Reg r3 => Var r3 | Imm w => Const w])’
+        suffices_by simp[]>>
+      irule word_exp_cong_Op>>
+      simp[]>>
+      metis_tac[CPstate_modelsD_Var,CPstate_modelsD_lookup_eq_imm]
+    )
+    >-(
+      rw[assign_def]>>
+      metis_tac[CPstate_modelsD_Var,word_exp_cong_Shift]
+    )
+    >-(
+      ‘get_vars [lookup_eq cs n1; lookup_eq cs n0] st = get_vars [n1; n0] st’ suffices_by simp[]>>
+      irule MAP_get_var_eqD>>
+      simp[]>>
+      metis_tac[CPstate_modelsD_get_var]
+    )
+    >-(
+      ‘get_vars [lookup_eq cs n1; lookup_eq cs n2; lookup_eq cs n3] st =
+       get_vars [n1; n2; n3] st’ suffices_by simp[]>>
+      irule MAP_get_var_eqD>>
+      simp[]>>
+      metis_tac[CPstate_modelsD_get_var]
+    )
+    >-(
+      ‘get_vars [lookup_eq cs n0; lookup_eq cs n1; n2] st =
+       get_vars [n0; n1; n2] st’ suffices_by simp[]>>
+      irule MAP_get_var_eqD>>
+      simp[]>>
+      metis_tac[CPstate_modelsD_get_var]
+    )
+    >-(
+      ‘get_vars [lookup_eq cs n0; lookup_eq cs n1] st =
+       get_vars [n0; n1] st’ suffices_by simp[]>>
+      irule MAP_get_var_eqD>>
+      simp[]>>
+      metis_tac[CPstate_modelsD_get_var]
+    )
+    >-(
+      ‘get_vars [lookup_eq cs n0; lookup_eq cs n1] st =
+       get_vars [n0; n1] st’ suffices_by simp[]>>
+      irule MAP_get_var_eqD>>
+      simp[]>>
+      metis_tac[CPstate_modelsD_get_var]
+    )
+  )
+  >-(
+    (* Mem *)
+    Cases_on‘a’>>Cases_on‘m’>>
+    fs[evaluate_def,inst_def,copy_prop_inst_def]
+    >-(
+      ‘word_exp st (Op Add [Var (lookup_eq cs n'); Const c]) =
+       word_exp st (Op Add [Var n'; Const c])’ suffices_by simp[]>>
+      irule word_exp_cong_Op>>
+      simp[]>>
+      metis_tac[CPstate_modelsD_Var]
+    )
+    >-(
+      ‘word_exp st (Op Add [Var (lookup_eq cs n'); Const c]) =
+       word_exp st (Op Add [Var n'; Const c])’ suffices_by simp[]>>
+      irule word_exp_cong_Op>>
+      simp[]>>
+      metis_tac[CPstate_modelsD_Var]
+    )
+    >-(
+      ‘get_var (lookup_eq cs n) st = get_var n st’
+        by metis_tac[CPstate_modelsD_get_var]>>
+      ‘word_exp st (Op Add [Var (lookup_eq cs n'); Const c]) =
+       word_exp st (Op Add [Var n'; Const c])’ suffices_by simp[]>>
+      irule word_exp_cong_Op>>
+      simp[]>>
+      metis_tac[CPstate_modelsD_Var]
+    )
+    >-(
+      ‘get_var (lookup_eq cs n) st = get_var n st’
+        by metis_tac[CPstate_modelsD_get_var]>>
+      ‘word_exp st (Op Add [Var (lookup_eq cs n'); Const c]) =
+       word_exp st (Op Add [Var n'; Const c])’ suffices_by simp[]>>
+      irule word_exp_cong_Op>>
+      simp[]>>
+      metis_tac[CPstate_modelsD_Var]
+    )
+  )
+  >-(
+    (* FP *)
+    Cases_on‘f’>>fs[evaluate_def,inst_def,copy_prop_inst_def]>>
+    drule_all CPstate_modelsD_get_var>>rw[]
+  )
 QED
 
 (* TODO: insert an induction over copy_prop_prog *)
