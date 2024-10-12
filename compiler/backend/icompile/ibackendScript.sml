@@ -69,13 +69,6 @@ Definition clos_to_bvl_compile_common_alt_def:
        prog)
 End
 
-(* TODO: temporarily ignore aux *)
-Definition clos_to_bvl_compile_prog_alt_def:
-  clos_to_bvl_compile_prog_alt max_app prog =
-    let (new_exps, aux) = compile_exps max_app (MAP (SND o SND) prog) [] in
-      MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app, args, exp))
-        prog new_exps
-End
 
 (* TODO: just to remove the names field, probably just use
   original instead *)
@@ -90,22 +83,50 @@ Definition clos_to_bvl_compile_alt_def:
       (c, prog')
 End
 
-(* TODO: just to remove the names field, probably just use
-  original instead *)
-Definition bvl_to_bvi_compile_alt_def:
-  bvl_to_bvi_compile_alt_def start bvl_conf p =
-    let (inlines, prog) = bvl_inline$compile_prog bvl_conf.inline_size_limit
-           bvl_conf.split_main_at_seq bvl_conf.exp_cut p in
-    let (loc, code, n1) = bvl_to_bvi$compile_prog start 0 p in
-    let num_stubs = backend_common$bvl_num_stubs in
-    let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2) code in
-      (loc, code', inlines, n1, n2)
+Definition bvi_stubs_without_init_globs_def:
+  bvi_stubs_without_init_globs =
+  [(AllocGlobal_location, AllocGlobal_code);
+   (CopyGlobals_location, CopyGlobals_code);
+   (ListLength_location, ListLength_code);
+   (FromListByte_location, FromListByte_code);
+   (ToListByte_location, ToListByte_code);
+   (SumListLength_location, SumListLength_code);
+   (ConcatByte_location, ConcatByte_code)]
 End
 
 
+Definition bvl_to_bvi_compile_prog_alt_def:
+  bvl_to_bvi_compile_prog_alt start n prog =
+    let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
+    let (code,n1) = bvl_to_bvi$compile_list n prog in
+    let init_globs_start = backend_common$bvl_num_stubs + bvl_to_bvi_namespaces * start in
+    let init_globs_stub = [(InitGlobals_location, InitGlobals_code init_globs_start k)] in
+      (InitGlobals_location, bvi_stubs_without_init_globs ++ append code ++ init_globs_stub, n1)
+End
+
+(* change the order of the stubs *)
+Definition bvl_to_bvi_compile_alt_def:
+  bvl_to_bvi_compile_alt start (c: bvl_to_bvi$config) names prog =
+    let (inlines, prog) = bvl_inline$compile_prog c.inline_size_limit
+           c.split_main_at_seq c.exp_cut prog in
+    let (loc, code, n1) = bvl_to_bvi_compile_prog_alt start 0 prog in
+    let (n2, code') = bvi_tailrec$compile_prog (backend_common$bvl_num_stubs + 2) code in
+      (loc, code', inlines, n1, n2, get_names (MAP FST code') names)
+End
+
+(* collate all the things *)
+Definition bvl_to_bvi_compile_update_config_def:
+  bvl_to_bvi_compile_update_config clos_conf bvl_conf p =
+  let (s, p, l, n1, n2, _) =
+    bvl_to_bvi_compile_alt clos_conf.start bvl_conf LN p in (* no names *)
+  let clos_conf = clos_conf with start := s in
+  let bvl_conf = bvl_conf with <| inlines := l; next_name1 := n1; next_name2 := n2 |> in
+    (clos_conf, bvl_conf, p)
+End
+
 (* TODO: extend this step-by-step *)
 Definition compile_alt1_def:
-  compile_alt1 source_conf clos_conf p =
+  compile_alt1 source_conf clos_conf bvl_conf p =
  (* skip source to source for now *)
   let (source_conf', compiled_p_flat) =
     source_to_flat$compile source_conf p in
@@ -113,7 +134,9 @@ Definition compile_alt1_def:
     flat_to_clos_compile_alt compiled_p_flat in
   let (clos_conf', compiled_p_bvl) =
     clos_to_bvl_compile_alt clos_conf compiled_p_clos in
-  (source_conf', clos_conf', compiled_p_bvl)
+  let (clos_conf', bvl_conf', compiled_p_bvi) =
+    bvl_to_bvi_compile_alt clos_conf bvl_conf compiled_p_bvl in
+  (source_conf', clos_conf', bvl_conf', compiled_p_bvi)
 End
 
 (******************************************************************************)
@@ -195,6 +218,7 @@ Datatype:
                    ; inlines : (num # bvl$exp) spt
                    ; n1 : num
                    ; n2 : num
+                   ; alloc_glob_count : num
             |>
 End
 
@@ -273,25 +297,13 @@ Definition icompile_bvl_to_bvi_inline_def:
   bvl_inline$compile_inc limit split_seq cut_size cs p
 End
 
+(* will this result in inefficiencies due to the append code*)
 Definition icompile_bvl_to_bvi_prog_def:
-  icompile_bvl_to_bvi_prog n p =
+  icompile_bvl_to_bvi_prog n p k_acc =
+  let k = bvl_to_bvi$alloc_glob_count (MAP (\(_,_,p). p) p) in
   let (code, n1) = bvl_to_bvi$compile_list n p in
-    (append code, n1)
+    (append code, n1, k_acc + k)
 End
-
-Definition init_icompile_bvl_to_bvi_def:
-  init_icompile_bvl_to_bvi start bvl_conf =
-  let bvl_iconf = <| inline_size_limit := bvl_conf.inline_size_limit;
-                     exp_cut := bvl_conf.exp_cut;
-                     split_main_at_seq := bvl_conf.split_main_at_seq;
-                     n1 := 0 ;
-                     n2 := backend_common$bvl_num_stubs + 2|>
-  in
-  let init_globs_loc = bvl_to_bvi$InitGlobals_location in
-  (init_globs_loc, bvl_iconf)
-End
-
-
 
 Definition icompile_bvl_to_bvi_def:
   icompile_bvl_to_bvi bvl_iconf p =
@@ -299,11 +311,44 @@ Definition icompile_bvl_to_bvi_def:
                                                 bvl_iconf.split_main_at_seq
                                                 bvl_iconf.exp_cut
                                                 bvl_iconf.inlines p in
-  let (code, n1) = icompile_bvl_to_bvi_prog bvl_iconf.n1 p in
+  let (code, n1, k) = icompile_bvl_to_bvi_prog bvl_iconf.n1 p bvl_iconf.alloc_glob_count in
   let (n2, code) = bvi_tailrec$compile_prog bvl_iconf.n2 code in
-  let bvl_iconf = bvl_iconf with <| n1 := n1; n2 := n2; inlines := inlines |> in
+  let bvl_iconf = bvl_iconf with <| n1 := n1; n2 := n2; inlines := inlines; alloc_glob_count := k|> in
     (bvl_iconf, code)
 End
+
+Definition init_icompile_bvl_to_bvi_def:
+  init_icompile_bvl_to_bvi (bvl_conf: bvl_to_bvi$config) bvl_init =
+  let bvl_iconf = <| inline_size_limit := bvl_conf.inline_size_limit;
+                     exp_cut := bvl_conf.exp_cut;
+                     split_main_at_seq := bvl_conf.split_main_at_seq;
+                     n1 := 0 ;
+                     n2 := backend_common$bvl_num_stubs + 2;
+                     inlines := LN ;
+                     alloc_glob_count := 0|>
+  in
+  let (n2, bvi_stubs) = bvi_tailrec$compile_prog bvl_iconf.n2 bvi_stubs_without_init_globs in
+  let bvl_iconf = bvl_iconf with n2 := n2 in
+  let (bvl_iconf, bvi_stubs1) = icompile_bvl_to_bvi bvl_iconf bvl_init in
+  (bvl_iconf,  bvi_stubs ++ bvi_stubs1)
+End
+
+
+
+Definition end_icompile_bvl_to_bvi_def:
+  end_icompile_bvl_to_bvi bvl_end bvl_iconf clos_conf bvl_conf =
+  let (bvl_iconf, bvi_stubs) = icompile_bvl_to_bvi bvl_iconf bvl_end in
+  let init_globs_start = backend_common$bvl_num_stubs + bvl_to_bvi_namespaces * clos_conf.start in
+  let init_globs_stub = [(InitGlobals_location, InitGlobals_code init_globs_start bvl_iconf.alloc_glob_count)] in
+  let (n2, init_globs_stub) = bvi_tailrec$compile_prog bvl_iconf.n2 init_globs_stub in
+  let bvl_conf = bvl_conf with
+                          <| next_name1 := bvl_iconf.n1;
+                             next_name2 := n2;
+                             inlines := bvl_iconf.inlines |> in
+  let clos_conf = clos_conf with start := InitGlobals_location in
+    (clos_conf, bvl_conf: bvl_to_bvi$config, bvi_stubs ++ init_globs_stub)
+End
+
 
 Definition glob_alloc_fixed_def:
   glob_alloc_fixed init =
@@ -1080,11 +1125,17 @@ Proof
 QED
 
 Theorem alloc_glob_count_bvl_to_bvi_append:
+  ∀p1 p2 p1_num p2_num.
   bvl_to_bvi$alloc_glob_count p1 = p1_num ∧
   bvl_to_bvi$alloc_glob_count p2 = p2_num ⇒
   bvl_to_bvi$alloc_glob_count (p1 ++ p2) = p1_num + p2_num
+
 Proof
-  cheat
+  Induct_on ‘p1’ >>
+  rw[bvl_to_bviTheory.alloc_glob_count_def] >>
+  gvs[GSYM bvl_to_bviTheory.alloc_glob_count_eq_global_count_list] >>
+  once_rewrite_tac[bvl_to_bviTheory.global_count_sing_def] >>
+  rw[]
 QED
 
 
@@ -1099,10 +1150,10 @@ QED
 
 
 Theorem icompile_icompile_bvl_to_bvi_prog:
-  ∀ p1 p2 n n1 n2 p1' p2'.
-  icompile_bvl_to_bvi_prog n p1 = (p1', n1) ∧
-  icompile_bvl_to_bvi_prog n1 p2 = (p2', n2) ⇒
-  icompile_bvl_to_bvi_prog n (p1 ++ p2) = (p1' ++ p2', n2)
+  ∀ p1 p2 n n1 n2 p1' p2' k k1 k2.
+  icompile_bvl_to_bvi_prog n p1 k = (p1', n1, k1) ∧
+  icompile_bvl_to_bvi_prog n1 p2 k1 = (p2', n2, k2) ⇒
+  icompile_bvl_to_bvi_prog n (p1 ++ p2) k = (p1' ++ p2', n2, k2)
 Proof
   rw[icompile_bvl_to_bvi_prog_def] >>
   rpt (pairarg_tac >> gvs[]) >>
@@ -1110,10 +1161,8 @@ Proof
   last_x_assum assume_tac >>
   disch_then rev_drule >>
   disch_then drule >>
-  rw[]
+  rw[alloc_glob_count_bvl_to_bvi_append]
 QED
-
-
 
 Theorem icompile_icompile_bvl_to_bvi:
   icompile_bvl_to_bvi bvl_iconf p1 = (bvl_iconf', p') ∧
@@ -1157,8 +1206,6 @@ Proof
   strip_tac >> gvs[]
 QED
 
-
-
 Definition config_prog_rel_def:
   config_prog_rel source_conf' clos_conf' cat_prog c' compiled_prog ⇔
     source_conf' = c'.source_conf ∧
@@ -1183,11 +1230,21 @@ End
 
 
 Definition config_prog_rel_s2b_def:
-  config_prog_rel_s2b source_conf_after_ic clos_conf_after_ic icompiled_p
-                      source_conf_after_c clos_conf_after_c compiled_p ⇔
-    source_conf_after_ic = source_conf_after_c ∧
-    clos_conf_after_ic = clos_conf_after_c ∧
-    icompiled_p = compiled_p
+  config_prog_rel_s2b source_conf_after_ic source_conf_after_c
+                      clos_conf_after_c clos_conf_after_ic
+                      clos_conf_after_c_bvi clos_conf_after_ic_bvi
+                      bvl_conf_after_ic bvl_conf_after_c
+                      icompiled_p_bvi_combined compiled_p_bvi
+  =
+  (source_conf_after_ic = source_conf_after_c
+   ∧
+   clos_conf_after_c = clos_conf_after_ic
+   ∧
+   clos_conf_after_c_bvi = clos_conf_after_ic_bvi
+   ∧
+   bvl_conf_after_ic = bvl_conf_after_c
+   ∧
+   icompiled_p_bvi_combined = compiled_p_bvi)
 
 End
 
@@ -1196,6 +1253,16 @@ Definition config_prog_pair_rel_def:
     c1 = c2 ∧ p1 = p2
 End
 
+Definition config_prog_rel_b2b_def:
+  config_prog_rel_b2b clos_conf_after_ic bvl_conf_after_ic (icompiled_bvi_combined)
+                      clos_conf_after_c bvl_conf_after_c compiled_p_bvi
+  =
+  (clos_conf_after_ic = clos_conf_after_c
+  ∧
+  bvl_conf_after_ic = bvl_conf_after_c
+  ∧
+  icompiled_bvi_combined = compiled_p_bvi)
+End
 
 
 Definition config_prog_rel_alt_def:
@@ -1304,6 +1371,56 @@ Proof
   rw[]
 QED
 
+(* clean up proof, lots of individual gvs *)
+Theorem init_icompile_icompile_end_icompile_b2b:
+  init_icompile_bvl_to_bvi (bvl_conf: bvl_to_bvi$config) bvl_init = (bvl_iconf, bvi_init)
+  ∧
+  icompile_bvl_to_bvi bvl_iconf p = (bvl_iconf', p_bvi)
+  ∧
+  end_icompile_bvl_to_bvi bvl_end bvl_iconf' clos_conf bvl_conf = (clos_conf_after_ic, bvl_conf_after_ic, bvi_end)
+  ∧
+  bvl_to_bvi_compile_update_config clos_conf bvl_conf (bvl_init ++ p ++ bvl_end)  = (clos_conf_after_c, bvl_conf_after_c, compiled_p_bvi)
+  ∧
+  bvl_conf = bvl_to_bvi$default_config ⇒
+  config_prog_rel_b2b clos_conf_after_ic bvl_conf_after_ic (bvi_init ++ p_bvi ++ bvi_end)
+                      clos_conf_after_c bvl_conf_after_c compiled_p_bvi
+Proof
+  strip_tac >>
+  fs[init_icompile_bvl_to_bvi_def, end_icompile_bvl_to_bvi_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  drule icompile_icompile_bvl_to_bvi >>
+  disch_then rev_drule >>
+  strip_tac >>
+  drule icompile_icompile_bvl_to_bvi >>
+  last_x_assum assume_tac >>
+  disch_then rev_drule >>
+  rpt (qpat_x_assum ‘icompile_bvl_to_bvi _ _ = _’ kall_tac) >>
+  strip_tac >>
+  fs[icompile_bvl_to_bvi_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  qpat_x_assum ‘(n2', bvi_stubs') = _’ (fn t => assume_tac (GSYM t)) >>
+  drule bvl_to_bvi_tailrec_compile_prog_append >>
+  disch_then (fn t => pop_assum mp_tac >> drule t) >>
+  simp[] >> strip_tac >>
+  disch_then (fn t => mp_tac (GSYM t)) >>
+  drule bvl_to_bvi_tailrec_compile_prog_append >>
+  disch_then rev_drule >>
+  strip_tac >> gvs[] >>
+  disch_then kall_tac >>
+  pop_assum mp_tac >>
+  rpt (qpat_x_assum ‘compile_prog _ _ = _’ kall_tac) >>
+  strip_tac >>
+  gvs[bvl_to_bvi_compile_update_config_def,
+      icompile_bvl_to_bvi_inline_def,
+      icompile_bvl_to_bvi_prog_def,
+      bvl_to_bviTheory.default_config_def,
+      bvl_to_bvi_compile_alt_def,
+      bvl_to_bvi_compile_prog_alt_def,
+      bvl_inlineTheory.compile_prog_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  rw[config_prog_rel_b2b_def]
+QED
+
 
 
 Theorem init_icompile_icompile_end_icompile_s2b:
@@ -1313,15 +1430,21 @@ Theorem init_icompile_icompile_end_icompile_s2b:
   ∧
   init_icompile_clos_to_bvl clos_conf clos_stub = (clos_iconf, bvl_init)
   ∧
+  init_icompile_bvl_to_bvi bvl_conf bvl_init = (bvl_iconf, bvi_init)
+  ∧
   icompile_source_to_flat source_iconf p = SOME (source_iconf', icompiled_p_flat)
   ∧
   icompile_flat_to_clos icompiled_p_flat = icompiled_p_clos
   ∧
   icompile_clos_to_bvl clos_iconf icompiled_p_clos = (clos_iconf', icompiled_p_bvl)
   ∧
+  icompile_bvl_to_bvi bvl_iconf icompiled_p_bvl = (bvl_iconf, icompiled_p_bvi)
+  ∧
   end_icompile_source_to_flat source_iconf' source_conf = source_conf_after_ic
   ∧
   end_icompile_clos_to_bvl clos_iconf' clos_conf  = (clos_conf_after_ic, bvl_end)
+  ∧
+  end_icompile_bvl_to_bvi bvl_end bvl_iconf clos_conf_after_ic bvl_conf = (clos_conf_after_ic_bvi, bvl_conf_after_ic, bvi_end)
   ∧
   source_to_flat$compile source_conf p = (source_conf_after_c, compiled_p_flat)
   ∧
@@ -1329,11 +1452,21 @@ Theorem init_icompile_icompile_end_icompile_s2b:
   ∧
   clos_to_bvl_compile_alt clos_conf compiled_p_clos = (clos_conf_after_c, compiled_p_bvl)
   ∧
+  bvl_to_bvi_compile_update_config clos_conf_after_c bvl_conf compiled_p_bvl = (clos_conf_after_c_bvi, bvl_conf_after_c, compiled_p_bvi)
+  ∧
   source_conf = source_to_flat$empty_config
   ∧
-  clos_conf = clos_to_bvl$default_config ⇒
-  config_prog_rel_s2b source_conf_after_ic clos_conf_after_ic (bvl_init ++ icompiled_p_bvl ++ bvl_end)
-                      source_conf_after_c clos_conf_after_c compiled_p_bvl
+  clos_conf = clos_to_bvl$default_config
+  ∧
+  bvl_conf = bvl_to_bvi$default_config ⇒
+  config_prog_rel_s2b source_conf_after_ic source_conf_after_c
+                      clos_conf_after_c clos_conf_after_ic
+                      clos_conf_after_c_bvi clos_conf_after_ic_bvi (* dont think i need to define a separate one but just for clarity *)
+                      bvl_conf_after_ic bvl_conf_after_c
+                      (bvi_init ++ icompiled_p_bvi ++ bvi_end) compiled_p_bvi
+
+
+
 Proof
   strip_tac >>
   drule_all init_icompile_icompile_end_icompile_s2f >>
@@ -1347,8 +1480,12 @@ Proof
   qpat_x_assum ‘clos_conf = _ ’ mp_tac >>
   qpat_x_assum ‘clos_to_bvl_compile_alt _ _ = _ ’ mp_tac >> simp[] >>
   rpt strip_tac >>
+  qpat_x_assum ‘bvl_conf = _’ mp_tac >>
   drule_all init_icompile_icompile_end_icompile_c2b_alt >>
-  rw[config_prog_pair_rel_def] >>
+  strip_tac >> gvs[config_prog_pair_rel_def] >> gvs[] >>
+  strip_tac >>
+  drule_all init_icompile_icompile_end_icompile_b2b >>
+  rw[config_prog_rel_b2b_def] >>
   rw[config_prog_rel_s2b_def]
 QED
 
@@ -1444,6 +1581,7 @@ Theorem fold_icompile_collapse:
 Proof
   Induct >>
   rw[fold_icompile_def] >>
+ (* use >> *)
   Cases_on ‘icompile source_iconf clos_iconf h’
   >- (simp[] >>
       drule icompile_none >> rw[])
