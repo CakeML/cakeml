@@ -564,7 +564,9 @@ QED
 Theorem full_encode_sem_output:
   full_encode wfml = (obj,pbf) ∧
   full_encode wfml' = (obj',pbf') ∧
-  pbc$sem_output (set pbf) obj bound (set pbf') obj' output ∧
+  pbc$sem_output
+    (set pbf) obj {} bound
+    (set pbf') obj' {} output ∧
   conv_output bound output = SOME T ⇒
   ∀v.
     ((∃w. sat_hard w wfml ∧ cost w wfml ≤ v) ⇔
@@ -574,8 +576,11 @@ Proof
   gvs[full_encode_def]>>
   pairarg_tac>>gvs[]>>
   pairarg_tac>>gvs[]>>
-  qpat_x_assum`sem_output _ _ _ _ _ _ ` mp_tac>>
+  qpat_x_assum`sem_output _ _ _ _ _ _ _ _ ` mp_tac>>
   simp[LIST_TO_SET_MAP]>>
+  `{} = IMAGE enc_string {}` by
+    simp[]>>
+  pop_assum SUBST_ALL_TAC>>
   DEP_REWRITE_TAC[GSYM output_INJ_iff]>>
   CONJ_TAC >- (
     assume_tac enc_string_INJ>>
@@ -615,7 +620,8 @@ QED
 Theorem full_encode_sem_output_opt_cost:
   full_encode wfml = (obj,pbf) ∧
   full_encode wfml' = (obj',pbf') ∧
-  pbc$sem_output (set pbf) obj bound (set pbf') obj' output ∧
+  pbc$sem_output (set pbf) obj {} bound
+    (set pbf') obj' {} output ∧
   conv_output bound output = SOME T ⇒
   opt_cost wfml = opt_cost wfml'
 Proof
