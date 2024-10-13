@@ -5627,10 +5627,9 @@ Proof
   \\ imp_res_tac EVERY2_SWAP \\ fs[]
 QED
 
-val memory_rel_WordOp64_alt =
+Theorem memory_rel_WordOp64_alt =
   memory_rel_Word64_alt |> Q.GEN`vs` |> Q.SPEC`[w1;w2]`
   |> CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[]))
-  |> curry save_thm "memory_rel_WordOp64_alt"
 
 val IMP_memory_rel_bignum_alt = Q.prove(
   `memory_rel c be ts refs sp st m dm (vs ++ vars) ∧
@@ -6356,12 +6355,11 @@ Definition last_bytes_def:
       set_byte a b (last_bytes (k-1) b (a+1w) w be) be
 End
 
-val last_bytes_simp = Q.prove(
+Theorem last_bytes_simp = Q.prove(
   `(last_bytes 0 b a w be = w) ∧
    (last_bytes (SUC n) b a w be = set_byte a b (last_bytes n b (a + 1w) w be) be)`,
   rw[Once last_bytes_def] \\ rw[Once last_bytes_def])
   |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ |> CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV
-  |> curry save_thm "last_bytes_simp";
 
 Theorem last_bytes_bytes_to_word_REPLICATE:
    !n1 n k a (w:'a word).
@@ -8613,7 +8611,7 @@ Proof
   \\ full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL]
 QED
 
-val word_cmp_loop_refl = Q.prove(
+Theorem word_cmp_loop_refl = Q.prove(
   `∀l a b dm m x. a = b ∧ word_cmp_loop l a a dm m = SOME x ⇒ x = 1w`,
   recInduct word_cmp_loop_ind
   \\ rpt strip_tac \\ rveq
@@ -8623,7 +8621,7 @@ val word_cmp_loop_refl = Q.prove(
   \\ every_case_tac \\ strip_tac
   \\ first_x_assum(match_mp_tac o MP_CANON)
   \\ simp[])
-  |> SIMP_RULE(srw_ss())[] |> curry save_thm "word_cmp_loop_refl";
+  |> SIMP_RULE(srw_ss())[]
 
 val good_dimindex_def = good_dimindex_def
 
@@ -8937,7 +8935,7 @@ val _ = export_rewrites["elements_list_def"];
 
 val elements_list_ind = theorem"elements_list_ind";
 
-val elements_list_size_mono = Q.prove(
+Theorem elements_list_size_mono = Q.prove(
   `∀ls x xs y. ls = x::xs ==> elements_list (x::xs) ==> MEM y xs ==> vb_size x < vb_size y`,
   ho_match_mp_tac elements_list_ind
   \\ rw[] \\ fs[vb_size_def]
@@ -8945,7 +8943,7 @@ val elements_list_size_mono = Q.prove(
   \\ first_x_assum(qspec_then`vb_size`mp_tac)
   \\ srw_tac[ETA_ss][] \\ fs[] \\ res_tac
   \\ fsrw_tac[ETA_ss][] \\ decide_tac)
-  |> SIMP_RULE std_ss [] |> curry save_thm "elements_list_size_mono";
+  |> SIMP_RULE std_ss []
 
 Theorem memory_rel_depth_limit:
    ∀v w vars.

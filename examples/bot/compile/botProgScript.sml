@@ -746,11 +746,10 @@ Definition bot_prog_def:
   bot_prog = ^prog_tm
 End
 
-val bot_semantics_thm =
+Theorem bot_semantics_thm =
   semantics_thm
   |> ONCE_REWRITE_RULE[GSYM bot_prog_def]
   |> DISCH_ALL
   |> SIMP_RULE std_ss [AND_IMP_INTRO]
-  |> curry save_thm "bot_semantics_thm";
 
 val _ = export_theory();

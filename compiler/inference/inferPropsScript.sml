@@ -2360,14 +2360,13 @@ rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 rw []);
 
-val t_ind = t_induction
+Theorem t_ind = t_induction
   |> Q.SPECL[`P`,`EVERY P`]
   |> UNDISCH_ALL
   |> CONJUNCT1
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) []
   |> Q.GEN`P`
-  |> curry save_thm "t_ind";
 
 (* Rename (type_system) type identifiers with a function *)
 Definition ts_tid_rename_def:

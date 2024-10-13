@@ -11,13 +11,14 @@ open preamble
 
 val _ = new_theory"sortProof";
 
-val sort_stdin_semantics = Q.prove(
-  `∃io_events.
-     semantics_prog (init_state (basis_ffi [strlit"sort"] (stdin_fs input))) init_env
-       sort_prog (Terminate Success io_events) ∧
-     (∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
-      (extract_fs (stdin_fs input) io_events =
-       SOME (add_stdout (fastForwardFD (stdin_fs input) 0) (concat output))))`,
+Theorem sort_stdin_semantics:
+  ∃io_events.
+    semantics_prog (init_state (basis_ffi [strlit"sort"] (stdin_fs input))) init_env
+      sort_prog (Terminate Success io_events) ∧
+    (∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
+     (extract_fs (stdin_fs input) io_events =
+      SOME (add_stdout (fastForwardFD (stdin_fs input) 0) (concat output))))
+Proof
   qspecl_then[`stdin_fs input`,`[strlit"sort"]`]mp_tac (GEN_ALL sort_semantics)
   \\ `stdin (stdin_fs input) input 0` by EVAL_TAC
   \\ drule TextIOProofTheory.stdin_get_file_content
@@ -25,8 +26,8 @@ val sort_stdin_semantics = Q.prove(
   \\ asm_exists_tac \\ rw[]
   \\ fs[valid_sort_result_def, fsFFIPropsTheory.all_lines_def]
   \\ rfs[TextIOProofTheory.stdin_def]
-  \\ asm_exists_tac \\ simp[])
-  |> curry save_thm "sort_stdin_semantics";
+  \\ asm_exists_tac \\ simp[]
+QED
 
 val sort_io_events_def =
   new_specification("sort_io_events_def",["sort_io_events"],
@@ -140,7 +141,7 @@ Proof
   \\ simp[]
 QED
 
-val sort_machine_sem =
+Theorem sort_machine_sem =
   compile_correct_applied
   |> C MATCH_MP (
       sort_installed
@@ -149,7 +150,6 @@ val sort_machine_sem =
        |> SIMP_RULE(srw_ss())[cline_size_def]
        |> UNDISCH)
   |> DISCH_ALL
-  |> curry save_thm "sort_machine_sem";
 
 (* TODO: theorems currently in ag32Bootstrap can make this shorter *)
 Theorem sort_extract_writes_stdout:

@@ -227,23 +227,23 @@ val state_rel_code = Q.prove(
   `state_rel s t ⇒ s.code = FEMPTY ∧ t.code = FEMPTY`,
   rw[state_rel_def]);
 
-val v_rel_simp = let
-  val f = SIMP_CONV (srw_ss()) [Once v_rel_cases]
-  in map f [``v_rel max_app (Number x) y``,
-            ``v_rel max_app (Word64 n) y``,
-            ``v_rel max_app (Block n l) y``,
-            ``v_rel max_app (ByteVector ws) y``,
-            ``v_rel max_app (RefPtr x) y``,
-            ``v_rel max_app (Closure n a l narg x) y``,
-            ``v_rel max_app (Recclosure x1 x2 x3 x4 x5) y``,
-            ``v_rel max_app y (Number x)``,
-            ``v_rel max_app y (Word64 n)``,
-            ``v_rel max_app y (Block n l)``,
-            ``v_rel max_app y (ByteVector ws)``,
-            ``v_rel max_app y (RefPtr x)``,
-            ``v_rel max_app y (Closure n a l narg x)``,
-            ``v_rel max_app y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
-  |> curry save_thm"v_rel_simp"
+Theorem v_rel_simp =
+  map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
+      [``v_rel max_app (Number x) y``,
+       ``v_rel max_app (Word64 n) y``,
+       ``v_rel max_app (Block n l) y``,
+       ``v_rel max_app (ByteVector ws) y``,
+       ``v_rel max_app (RefPtr x) y``,
+       ``v_rel max_app (Closure n a l narg x) y``,
+       ``v_rel max_app (Recclosure x1 x2 x3 x4 x5) y``,
+       ``v_rel max_app y (Number x)``,
+       ``v_rel max_app y (Word64 n)``,
+       ``v_rel max_app y (Block n l)``,
+       ``v_rel max_app y (ByteVector ws)``,
+       ``v_rel max_app y (RefPtr x)``,
+       ``v_rel max_app y (Closure n a l narg x)``,
+       ``v_rel max_app y (Recclosure x1 x2 x3 x4 x5)``]
+    |> LIST_CONJ
 
 Theorem v_rel_Boolv[simp]:
    (v_rel max_app x (Boolv b) ⇔ (x = Boolv b)) ∧

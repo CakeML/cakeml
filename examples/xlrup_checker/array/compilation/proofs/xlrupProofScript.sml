@@ -29,11 +29,10 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val cake_xlrup_compiled_thm =
+Theorem cake_xlrup_compiled_thm =
   CONJ compile_correct_applied cake_xlrup_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "cake_xlrup_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:

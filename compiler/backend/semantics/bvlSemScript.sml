@@ -554,10 +554,13 @@ val ref_thms = { nchotomy = ref_nchotomy, case_def = ref_case_def };
 val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
 val word_size_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def };
 val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def };
-val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_eq_thm
-  [list_thms, option_thms, op_thms, v_thms, ref_thms, word_size_thms, eq_result_thms,
-   ffi_result_thms]))
-  |> curry save_thm"case_eq_thms";
+Theorem case_eq_thms =
+  (pair_case_eq::
+   bool_case_eq::
+   (List.map prove_case_eq_thm
+             [list_thms, option_thms, op_thms, v_thms, ref_thms,
+              word_size_thms, eq_result_thms, ffi_result_thms]))
+  |> LIST_CONJ
 
 Theorem do_app_const:
    (bvlSem$do_app op args s1 = Rval (res,s2)) ==>

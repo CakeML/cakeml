@@ -483,7 +483,7 @@ Proof
   \\ full_simp_tac(srw_ss())[get_var_def,wordSemTheory.get_var_def]
 QED
 
-val word_ml_inv_get_vars_IMP_lemma = Q.prove(`
+Theorem word_ml_inv_get_vars_IMP_lemma[allow_rebind] = Q.prove(`
   !n x w envs.
       word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
         (join_env ll
@@ -507,9 +507,8 @@ val word_ml_inv_get_vars_IMP_lemma = Q.prove(`
   \\ res_tac \\ pop_assum (K all_tac) \\ pop_assum mp_tac
   \\ match_mp_tac word_ml_inv_rearrange
   \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][] \\ fs[]) |> SPEC_ALL
-  |> curry save_thm "word_ml_inv_get_vars_IMP_lemma[allow_rebind]";
 
-val word_ml_inv_get_vars_IMP = Q.prove(`
+Theorem word_ml_inv_get_vars_IMP[allow_rebind] = Q.prove(`
   !n x w envs.
       word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
         (join_env s.locals
@@ -520,7 +519,6 @@ val word_ml_inv_get_vars_IMP = Q.prove(`
         (ZIP(x,w)++join_env s.locals
            (toAList (inter t.locals (adjust_set s.locals)))++envs)`,
   metis_tac [word_ml_inv_get_vars_IMP_lemma]) |> SPEC_ALL
-  |> curry save_thm "word_ml_inv_get_vars_IMP[allow_rebind]";
 
 Theorem IMP_adjust_var:
    n <> 0 /\ EVEN n ==> adjust_var ((n - 2) DIV 2) = n
@@ -5650,13 +5648,15 @@ Proof
   \\ metis_tac[]
 QED
 
-val jump_exc_push_env_NONE_simp = Q.prove(`
-    (jump_exc (wordSem$dec_clock t) = NONE <=> jump_exc t = NONE) /\
-    (jump_exc (wordSem$push_env y NONE t) = NONE <=> jump_exc t = NONE) /\
-    (jump_exc (t with stack_max := b) = NONE <=> jump_exc t = NONE) (* /\
-    (jump_exc (wordSem$call_env args ss s) = NONE <=> jump_exc s = NONE) *)`,
+Theorem jump_exc_push_env_NONE_simp[allow_rebind]:
+ (jump_exc (wordSem$dec_clock t) = NONE <=> jump_exc t = NONE) /\
+ (jump_exc (wordSem$push_env y NONE t) = NONE <=> jump_exc t = NONE) /\
+ (jump_exc (t with stack_max := b) = NONE <=> jump_exc t = NONE)
+ (* /\ (jump_exc (wordSem$call_env args ss s) = NONE <=> jump_exc s = NONE) *)
+Proof
   full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
-      wordSemTheory.dec_clock_def] \\ srw_tac[][] THEN1 every_case_tac
+                          wordSemTheory.dec_clock_def]
+  \\ srw_tac[][] THEN1 every_case_tac
   \\ full_simp_tac(srw_ss())[wordSemTheory.push_env_def]
   \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ Cases_on `t.handler = LENGTH t.stack` \\ full_simp_tac(srw_ss())[LASTN_ADD1]
@@ -5664,9 +5664,9 @@ val jump_exc_push_env_NONE_simp = Q.prove(`
   THEN1 (`F` by DECIDE_TAC)
   \\ fs [CaseEq"list",CaseEq"stack_frame",CaseEq"option",pair_case_eq]
   \\ `LASTN (t.handler + 1) (StackFrame t.locals_size q NONE::t.stack) =
-      LASTN (t.handler + 1) t.stack` by
-    (match_mp_tac LASTN_TL \\ decide_tac) \\ full_simp_tac(srw_ss())[])
-  |> curry save_thm "jump_exc_push_env_NONE_simp[allow_rebind]";
+     LASTN (t.handler + 1) t.stack` by
+    (match_mp_tac LASTN_TL \\ decide_tac) \\ full_simp_tac(srw_ss())[]
+QED
 
 Theorem s_key_eq_handler_eq_IMP:
    s_key_eq t.stack t1.stack /\ t.handler = t1.handler ==>
@@ -6237,14 +6237,13 @@ Proof
   \\ full_simp_tac(srw_ss())[] \\ Q.LIST_EXISTS_TAC [`h::zs1`,`zs2`] \\ full_simp_tac(srw_ss())[]
 QED
 
-val IMP_loc_merge_APPEND = Q.prove(`
+Theorem IMP_loc_merge_APPEND[allow_rebind] = Q.prove(`
   !ts qs xs ys.
       LENGTH (FILTER isWord ts) = LENGTH qs ==>
       loc_merge (ts ++ xs) (qs ++ ys) = loc_merge ts qs ++ loc_merge xs ys`,
   Induct \\ full_simp_tac(srw_ss())[] THEN1 (full_simp_tac(srw_ss())[LENGTH,loc_merge_def])
   \\ Cases \\ full_simp_tac(srw_ss())[isWord_def,loc_merge_def]
   \\ Cases \\ full_simp_tac(srw_ss())[loc_merge_def]) |> SPEC_ALL
-  |> curry save_thm "IMP_loc_merge_APPEND[allow_rebind]";
 
 Theorem TAKE_DROP_loc_merge_APPEND:
    TAKE (LENGTH q) (loc_merge (MAP SND q) xs ++ ys) = loc_merge (MAP SND q) xs /\
@@ -6439,7 +6438,7 @@ Proof
   full_simp_tac(srw_ss())[]
 QED
 
-val word_gc_fun_EL_lemma = Q.prove(`
+Theorem word_gc_fun_EL_lemma[allow_rebind] = Q.prove(`
   !xs ys stack1 m dm st m1 s1 stack.
       LIST_REL stack_rel xs stack /\
       EVERY2 (\x y. isWord x = isWord y /\ (~isWord x ==> x = y))
@@ -6465,7 +6464,6 @@ val word_gc_fun_EL_lemma = Q.prove(`
   \\ match_mp_tac lemma1
   \\ rpt strip_tac \\ TRY (first_x_assum match_mp_tac \\ full_simp_tac(srw_ss())[])
   \\ TRY (match_mp_tac join_env_EQ_ZIP) \\ full_simp_tac(srw_ss())[]) |> SPEC_ALL
-  |> curry save_thm "word_gc_fun_EL_lemma[allow_rebind]";
 
 Theorem word_ml_inv_cons_snoc:
   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs (x::xs) ⇒

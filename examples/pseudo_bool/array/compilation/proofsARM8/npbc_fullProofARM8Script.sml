@@ -30,11 +30,10 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl arm8_asl_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val cake_pb_compiled_thm =
+Theorem cake_pb_compiled_thm =
   CONJ compile_correct_applied cake_pb_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "cake_pb_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_arm8_asl_def:

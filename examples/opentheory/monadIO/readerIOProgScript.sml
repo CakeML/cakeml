@@ -401,7 +401,7 @@ Definition readerIO_prog_def:
   readerIO_prog = ^prog_tm
 End
 
-val semantics_readerIO_prog =
+Theorem semantics_readerIO_prog =
   sem_thm
   |> REWRITE_RULE[GSYM readerIO_prog_def]
   |> DISCH_ALL
@@ -411,6 +411,5 @@ val semantics_readerIO_prog =
      |> CONV_RULE (RHS_CONV (SIMP_CONV std_ss []))
      |> ONCE_REWRITE_RULE [CONJ_COMM] |> GSYM]
   |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
-  |> curry save_thm "semantics_readerIO_prog";
 
 val _ = export_theory ();

@@ -83,11 +83,12 @@ val IMP_EXISTS_IFF = Q.prove(
 
 (* correctness of free *)
 
-val free_thm = Q.prove(
-  `!xs.
-     let (ys,l) = free xs in
-       !n. (fv n ys = has_var n l) /\
-           (fv n xs = has_var n l)`,
+Theorem free_thm:
+  !xs.
+    let (ys,l) = free xs in
+      !n. (fv n ys = has_var n l) /\
+          (fv n xs = has_var n l)
+Proof
   recInduct free_ind \\ REPEAT STRIP_TAC \\ fs [free_def,LET_DEF]
   \\ TRY (fs [has_var_def,fv_def,fv1_thm] \\ NO_TAC)
   THEN1 (* cons *)
@@ -113,8 +114,8 @@ val free_thm = Q.prove(
   \\ MATCH_MP_TAC IMP_EXISTS_IFF \\ fs [FORALL_PROD]
   \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ Cases_on `free [p_2]` \\ fs []
-  \\ IMP_RES_TAC free_SING \\ fs [])
-|> curry save_thm "free_thm";
+  \\ IMP_RES_TAC free_SING \\ fs []
+QED
 
 (* value relation *)
 

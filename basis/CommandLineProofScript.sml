@@ -27,10 +27,9 @@ val set_thm =
   |> Q.SPEC`cl`
 val set_tm = set_thm |> concl |> find_term(pred_setSyntax.is_insert)
 
-val COMMANDLINE_precond = Q.prove(
+Theorem COMMANDLINE_precond = Q.prove(
   `wfcl cl ⇒ (COMMANDLINE cl) ^set_tm`,
   rw[set_thm]) |> UNDISCH
-  |> curry save_thm "COMMANDLINE_precond";
 
 Theorem COMMANDLINE_FFI_part_hprop:
    FFI_part_hprop (COMMANDLINE x)

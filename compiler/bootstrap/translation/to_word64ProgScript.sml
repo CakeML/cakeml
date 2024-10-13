@@ -334,11 +334,10 @@ val word_msb_rw = Q.prove(
 
 val arith_shift_right_ind_orig = arith_shift_right_ind;
 
-val arith_shift_right_ind = (
+Theorem arith_shift_right_ind =
   arith_shift_right_ind_orig |> spec64
   |> SIMP_RULE std_ss [word_msb_rw]
-  |> CONV_RULE (QUANT_CONV(LAND_CONV fcpLib.INDEX_CONV)) |> gconv)
-  |> curry save_thm "arith_shift_right_ind";
+  |> CONV_RULE (QUANT_CONV(LAND_CONV fcpLib.INDEX_CONV)) |> gconv
 
 val _ = translate (
   arith_shift_right_def |> spec64

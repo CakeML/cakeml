@@ -926,26 +926,18 @@ Proof
   every_case_tac >> srw_tac[][] >> fsrw_tac[ARITH_ss][]
 QED
 
-val v_rel_SIMP = LIST_CONJ
-  [``v_rel max_app f refs code (RefPtr p) y``
-   |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
-   ``v_rel max_app f refs code (Block tag xs) y``
-   |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
-   ``v_rel max_app f refs code (ByteVector bs) y``
-   |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
-   ``v_rel max_app f refs code (Number i) y``
-   |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
-   ``v_rel max_app f refs code y (Number i)``
-   |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
-   ``v_rel max_app f refs code (Word64 i) y``
-   |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
-   ``v_rel max_app f refs code y (Word64 i)``
-   |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
-   ``v_rel max_app f refs code (Closure loc args env num_args exp) y``
-   |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F],
-   ``v_rel max_app f refs code (Recclosure loc args env exp k) y``
-   |> SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F]]
-  |> curry save_thm "v_rel_SIMP"
+Theorem v_rel_SIMP =
+  map (SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F])
+      [``v_rel max_app f refs code (RefPtr p) y``,
+       ``v_rel max_app f refs code (Block tag xs) y``,
+       ``v_rel max_app f refs code (ByteVector bs) y``,
+       ``v_rel max_app f refs code (Number i) y``,
+       ``v_rel max_app f refs code y (Number i)``,
+       ``v_rel max_app f refs code (Word64 i) y``,
+       ``v_rel max_app f refs code y (Word64 i)``,
+       ``v_rel max_app f refs code (Closure loc args env num_args exp) y``,
+       ``v_rel max_app f refs code (Recclosure loc args env exp k) y``]
+    |> LIST_CONJ
 
 Definition env_rel_def:
   (env_rel max_app f refs code [] [] = T) /\
@@ -2694,7 +2686,7 @@ Proof
   \\ metis_tac[closure_code_installed_subspt]
 QED
 
-val v_rel_subspt = Q.prove(
+Theorem v_rel_subspt = Q.prove(
   `!x y. v_rel max_app f refs code1 x y ==>
       subspt code1 code2 ==>
       v_rel max_app f refs code2 x y`,
@@ -2708,7 +2700,7 @@ val v_rel_subspt = Q.prove(
   \\ fs[]
   \\ imp_res_tac subspt_lookup \\ fs[]
   \\ metis_tac[cl_rel_subspt])
-  |> SPEC_ALL |> MP_CANON |> curry save_thm "v_rel_subspt";
+  |> SPEC_ALL |> MP_CANON
 
 Theorem env_rel_subspt:
    ∀x y z code e1 e2.
