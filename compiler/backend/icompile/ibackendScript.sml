@@ -135,7 +135,7 @@ Definition compile_alt1_def:
   let (clos_conf', compiled_p_bvl) =
     clos_to_bvl_compile_alt clos_conf compiled_p_clos in
   let (clos_conf', bvl_conf', compiled_p_bvi) =
-    bvl_to_bvi_compile_alt clos_conf bvl_conf compiled_p_bvl in
+    bvl_to_bvi_compile_update_config clos_conf' bvl_conf compiled_p_bvl in
   (source_conf', clos_conf', bvl_conf', compiled_p_bvi)
 End
 
@@ -437,29 +437,37 @@ Definition end_icompile_clos_to_bvl_def:
 End
 
 Definition init_icompile_def:
-  init_icompile source_conf clos_conf =
+  init_icompile source_conf clos_conf bvl_conf =
   let (source_iconf, flat_stub) = init_icompile_source_to_flat source_conf in
   let clos_stub = init_icompile_flat_to_clos flat_stub in
   let (clos_iconf, bvl_init) = init_icompile_clos_to_bvl clos_conf clos_stub in
-  (source_iconf, clos_iconf, bvl_init)
+  let (bvl_iconf, bvi_init) = init_icompile_bvl_to_bvi bvl_conf bvl_init in
+    (source_iconf, clos_iconf, bvl_iconf, bvi_init)
 End
 
 Definition end_icompile_def:
   end_icompile source_iconf source_conf
-               clos_iconf clos_conf  =
+               clos_iconf clos_conf
+               bvl_iconf bvl_conf
+
+  =
   let source_conf_after_ic = end_icompile_source_to_flat source_iconf source_conf in
   let (clos_conf_after_ic, bvl_end) = end_icompile_clos_to_bvl clos_iconf clos_conf in
-    (source_conf_after_ic, clos_conf_after_ic, bvl_end)
+  let (clos_conf_after_ic_bvi, bvl_conf_after_ic, bvi_end) =
+      end_icompile_bvl_to_bvi bvl_end bvl_iconf clos_conf_after_ic bvl_conf in
+    (source_conf_after_ic, clos_conf_after_ic_bvi, bvl_conf_after_ic, bvi_end)
 
 End
 
 Definition icompile_def:
-  icompile source_iconf clos_iconf  p =
+  icompile source_iconf clos_iconf bvl_iconf p =
   case icompile_source_to_flat source_iconf p of NONE => NONE
   | SOME (source_iconf', icompiled_p_flat) =>
   let icompiled_p_clos = icompile_flat_to_clos icompiled_p_flat in
   let (clos_iconf', icompiled_p_bvl) = icompile_clos_to_bvl clos_iconf icompiled_p_clos in
-      SOME (source_iconf', clos_iconf', icompiled_p_bvl)
+  let (bvl_iconf', icompiled_p_bvi) = icompile_bvl_to_bvi bvl_iconf icompiled_p_bvl in
+    SOME (source_iconf', clos_iconf', bvl_iconf', icompiled_p_bvi)
+
 End
 
 (*
@@ -476,15 +484,15 @@ End
 *)
 
 Definition fold_icompile_def:
-  fold_icompile source_iconf clos_iconf [] =
-    icompile source_iconf clos_iconf []
+  fold_icompile source_iconf clos_iconf bvl_iconf [] =
+    icompile source_iconf clos_iconf bvl_iconf []
   ∧
-  fold_icompile source_iconf clos_iconf (p :: ps)  =
-  case icompile source_iconf clos_iconf p of NONE => NONE
-  | SOME (source_iconf', clos_iconf' , p') =>
-    (case fold_icompile source_iconf' clos_iconf' ps of NONE => NONE
-    | SOME (source_iconf'', clos_iconf'', ps') =>
-      SOME (source_iconf'', clos_iconf'', p' ++ ps'))
+  fold_icompile source_iconf clos_iconf bvl_iconf (p :: ps)  =
+  case icompile source_iconf clos_iconf bvl_iconf p of NONE => NONE
+  | SOME (source_iconf', clos_iconf' , bvl_iconf', p') =>
+    (case fold_icompile source_iconf' clos_iconf' bvl_iconf' ps of NONE => NONE
+    | SOME (source_iconf'', clos_iconf'', bvl_iconf'', ps') =>
+      SOME (source_iconf'', clos_iconf'', bvl_iconf'', p' ++ ps'))
 End
 
 
@@ -1192,10 +1200,10 @@ QED
 
 
 Theorem icompile_icompile:
-  icompile source_iconf clos_iconf prog1 = SOME (source_iconf', clos_iconf', prog1') ∧
-  icompile source_iconf' clos_iconf' prog2 = SOME (source_iconf'', clos_iconf'', prog2') ⇒
-  icompile source_iconf clos_iconf (prog1 ++ prog2) =
-    SOME (source_iconf'', clos_iconf'', prog1' ++ prog2')
+  icompile source_iconf clos_iconf bvl_iconf prog1 = SOME (source_iconf', clos_iconf', bvl_iconf', prog1') ∧
+  icompile source_iconf' clos_iconf' bvl_iconf' prog2 = SOME (source_iconf'', clos_iconf'', bvl_iconf'', prog2') ⇒
+  icompile source_iconf clos_iconf bvl_iconf (prog1 ++ prog2) =
+    SOME (source_iconf'', clos_iconf'', bvl_iconf'', prog1' ++ prog2')
 Proof
   rw[] >>
   gvs[icompile_def] >> rpt (pairarg_tac >> gvs[]) >>
@@ -1203,7 +1211,9 @@ Proof
   drule_all icompile_icompile_source_to_flat >> strip_tac >> gvs[] >>
   fs[icompile_flat_to_clos_and_append_commute] >>
   rev_drule_all icompile_icompile_clos_to_bvl >>
-  strip_tac >> gvs[]
+  rpt (strip_tac >> gvs[]) >>
+  drule_all icompile_icompile_bvl_to_bvi >>
+  rpt (strip_tac >> gvs[])
 QED
 
 Definition config_prog_rel_def:
@@ -1346,23 +1356,23 @@ Proof
   strip_tac >>
   fs[clos_to_bvl_compile_alt_def,
      clos_to_bvl_compile_common_alt_def,
-     clos_to_bvl_compile_prog_alt_def] >> rpt (pairarg_tac >> gvs[]) >>
+     clos_to_bvlTheory.compile_prog_def] >> rpt (pairarg_tac >> gvs[]) >>
   fs[icompile_clos_to_bvl_def, icompile_clos_to_bvl_prog_def, icompile_clos_to_bvl_common_def] >> rpt (pairarg_tac >> gvs[]) >>
   fs[clos_knownTheory.compile_def, clos_callTheory.compile_def] >>
   rpt (pairarg_tac >> gvs[]) >>
   gvs[end_icompile_clos_to_bvl_def] >> rpt (pairarg_tac >> gvs[]) >>
   rw[config_prog_pair_rel_def] >>
-  gvs[clos_to_bvlTheory.compile_prog_def] >>
+  gvs[icompile_clos_to_bvl_prog_def] >>
   rpt (pairarg_tac >> gvs[]) >>
-  ntac 3 (last_x_assum mp_tac) >>
+  ntac 4 (last_x_assum mp_tac) >>
   disch_then (fn t => assume_tac (GSYM t)) >>
-  ntac 2 strip_tac >> rpt (pairarg_tac >> gvs[]) >> gvs[] >>
-  fs[icompile_clos_to_bvl_prog_def] >>
-  qmatch_goalsub_rename_tac ‘MAP2 f _ _ ++ _ ++ _ = MAP2 f _ _ ++ _’ >> rpt (pairarg_tac >> gvs[]) >>
+  ntac 3 strip_tac >> rpt (pairarg_tac >> gvs[]) >> gvs[] >>
+  qmatch_goalsub_rename_tac ‘MAP2 f _ _ ++ MAP2 f _ _ ++ _ ++ _ = MAP2 f _ _ ++ _’ >> rpt (pairarg_tac >> gvs[]) >>
   gvs[clos_annotate_compile_append] >>
+  pop_assum mp_tac >>
   drule clos_to_bvl_compile_exps_append >>
   disch_then rev_drule >>
-  strip_tac >> gvs[] >>
+  rpt (strip_tac >> gvs[]) >>
   rev_drule clos_to_bvlTheory.compile_exps_LENGTH >>
   simp[LENGTH_MAP] >>
   disch_then (fn t => assume_tac (GSYM t)) >>
@@ -1502,27 +1512,33 @@ QED
 
 
 Theorem init_icompile_icompile_end_icompile:
-  init_icompile source_conf clos_conf = (source_iconf, clos_iconf, bvl_init)
+  init_icompile source_conf clos_conf bvl_conf = (source_iconf, clos_iconf, bvl_iconf,  bvi_init)
   ∧
-  icompile source_iconf clos_iconf p = SOME (source_iconf', clos_iconf', icompiled_p_bvl)
+  icompile source_iconf clos_iconf bvl_iconf p = SOME (source_iconf', clos_iconf', bvl_iconf', icompiled_p_bvi)
   ∧
   end_icompile source_iconf' source_conf
                clos_iconf' clos_conf
-  = (source_conf_after_ic, clos_conf_after_ic, bvl_end)
+               bvl_iconf' bvl_conf
+  = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, bvi_end)
   ∧
-  compile_alt1 source_conf clos_conf p = (source_conf_after_c, clos_conf_after_c, compiled_p)
+  compile_alt1 source_conf clos_conf bvl_conf p = (source_conf_after_c, clos_conf_after_c, bvl_conf_after_c, compiled_p)
   ∧
   source_conf = source_to_flat$empty_config
   ∧
   clos_conf = clos_to_bvl$default_config
+  ∧
+  bvl_conf = bvl_to_bvi$default_config
   ⇒
-  config_prog_rel_s2b source_conf_after_ic clos_conf_after_ic (bvl_init ++ icompiled_p_bvl ++ bvl_end)
-                      source_conf_after_c clos_conf_after_c compiled_p
+  config_prog_rel_s2b source_conf_after_ic source_conf_after_c
+                      clos_conf_after_c clos_conf_after_ic
+                      clos_conf_after_c clos_conf_after_ic (* dont think i need to define a separate one but just for clarity *)
+                      bvl_conf_after_ic bvl_conf_after_c
+                      (bvi_init ++ icompiled_p_bvi ++ bvi_end) compiled_p
 Proof
   once_rewrite_tac[init_icompile_def, icompile_def, end_icompile_def, compile_alt1_def] >>
   simp[] >>
   strip_tac >>
-  ntac 2 (pop_assum mp_tac) >>
+  ntac 3 (pop_assum mp_tac) >>
   rpt (pairarg_tac >> fs[]) >>
   qpat_x_assum ‘end_icompile_source_to_flat _ _ = _’ mp_tac >>
   gvs[AllCaseEqs()] >> rpt (pairarg_tac >> gvs[]) >>
@@ -1532,21 +1548,27 @@ Proof
   strip_tac >>
   pop_assum (fn f => assume_tac (GSYM f)) >>
   qpat_x_assum ‘clos_conf = _ ’ mp_tac >>
+  qpat_x_assum ‘bvl_conf = _ ’ mp_tac >>
   qpat_x_assum ‘clos_to_bvl_compile_alt _ _ = _ ’ mp_tac >> simp[] >>
   strip_tac >>
   drule_all init_icompile_icompile_end_icompile_f2c_alt >>
   strip_tac >> pop_assum $ qspec_then ‘icompiled_p_flat’ assume_tac >>
   gvs[] >>
-  strip_tac >>
+  rpt strip_tac >>
+  qpat_x_assum ‘bvl_conf = _ ’ mp_tac >>
   drule_all init_icompile_icompile_end_icompile_c2b_alt >>
-  rw[config_prog_pair_rel_def] >>
-  rw[config_prog_rel_s2b_def]
+  simp[config_prog_pair_rel_def] >>
+  strip_tac >> qpat_x_assum ‘clos_conf = _’ mp_tac >>
+  gvs[] >> rpt strip_tac >>
+  drule_all init_icompile_icompile_end_icompile_b2b >>
+  simp[config_prog_rel_b2b_def] >>
+  strip_tac >> gvs[config_prog_rel_s2b_def]
 QED
 
 
 Theorem icompile_none:
-  icompile a b p = NONE ⇒
-  icompile a b (p ++ p') = NONE
+  icompile a b c p = NONE ⇒
+  icompile a b c (p ++ p') = NONE
 Proof
   rw[icompile_def] >>
   rw[icompile_icompile_source_to_flat] >>
@@ -1557,10 +1579,10 @@ Proof
 QED
 
 Theorem icompile_none1:
-  ∀ a b a' b' p p'.
-  icompile a b p = SOME (a', b', _) ∧
-  icompile a' b' p' = NONE ⇒
-  icompile a b (p ++ p') = NONE
+  ∀ a b c a' b' c' p p'.
+  icompile a b c p = SOME (a', b', c', _) ∧
+  icompile a' b' c' p' = NONE ⇒
+  icompile a b c (p ++ p') = NONE
 Proof
   rw[icompile_def] >>
   Cases_on ‘icompile_source_to_flat a p’ >> gvs[] >>
@@ -1575,45 +1597,51 @@ QED
 
 
 Theorem fold_icompile_collapse:
-  ∀pss source_iconf clos_iconf.
-  fold_icompile source_iconf clos_iconf pss =
-  icompile source_iconf clos_iconf (FLAT pss)
+  ∀pss source_iconf clos_iconf bvl_iconf.
+  fold_icompile source_iconf clos_iconf bvl_iconf pss =
+  icompile source_iconf clos_iconf bvl_iconf (FLAT pss)
 Proof
   Induct >>
   rw[fold_icompile_def] >>
- (* use >> *)
-  Cases_on ‘icompile source_iconf clos_iconf h’
+
+  Cases_on ‘icompile source_iconf clos_iconf bvl_iconf h’
   >- (simp[] >>
       drule icompile_none >> rw[])
-  >- (namedCases_on ‘x’ ["source_iconf' clos_iconf' p"] >>
+  >- (namedCases_on ‘x’ ["source_iconf' clos_iconf' bvl_iconf' p'"] >>
       rw[] >>
       drule icompile_none1 >> strip_tac >>
-      Cases_on ‘icompile source_iconf' clos_iconf' (FLAT pss)’
-      >- (simp[])
-      >- (namedCases_on ‘x’ ["source_iconf'' clos_iconf'' p"] >>
-          simp[] >>
-          rev_drule_all icompile_icompile >> rw[]))
+      Cases_on ‘icompile source_iconf' clos_iconf' bvl_iconf' (FLAT pss)’ >>
+      simp[] >>
+      namedCases_on ‘x’ ["source_iconf'' clos_iconf'' clos_iconf'' ps'"] >>
+      simp[] >>
+      rev_drule_all icompile_icompile >> rw[])
 QED
 
 
 
 Theorem icompile_eq:
-  init_icompile source_conf clos_conf = (source_iconf, clos_iconf, bvl_init)
+  init_icompile source_conf clos_conf bvl_conf = (source_iconf, clos_iconf, bvl_iconf, bvi_init)
   ∧
-  fold_icompile source_iconf clos_iconf pss = SOME (source_iconf', clos_iconf', icompiled_p_bvl)
+  fold_icompile source_iconf clos_iconf bvl_iconf pss = SOME (source_iconf', clos_iconf', bvl_iconf', icompiled_p_bvi)
   ∧
   end_icompile source_iconf' source_conf
                clos_iconf' clos_conf
-  = (source_conf_after_ic, clos_conf_after_ic, bvl_end)
+               bvl_iconf' bvl_conf
+  = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, bvi_end)
   ∧
-  compile_alt1 source_conf clos_conf (FLAT pss) = (source_conf_after_c, clos_conf_after_c, compiled_p)
+  compile_alt1 source_conf clos_conf bvl_conf (FLAT pss) = (source_conf_after_c, clos_conf_after_c, bvl_conf_after_c, compiled_p)
   ∧
   source_conf = source_to_flat$empty_config
   ∧
   clos_conf = clos_to_bvl$default_config
+  ∧
+  bvl_conf = bvl_to_bvi$default_config
   ⇒
-  config_prog_rel_s2b source_conf_after_ic clos_conf_after_ic (bvl_init ++ icompiled_p_bvl ++ bvl_end)
-                      source_conf_after_c clos_conf_after_c compiled_p
+  config_prog_rel_s2b source_conf_after_ic source_conf_after_c
+                      clos_conf_after_c clos_conf_after_ic
+                      clos_conf_after_c clos_conf_after_ic (* dont think i need to define a separate one but just for clarity *)
+                      bvl_conf_after_ic bvl_conf_after_c
+                      (bvi_init ++ icompiled_p_bvi ++ bvi_end) compiled_p
 Proof
   once_rewrite_tac[fold_icompile_collapse] >>
   metis_tac[init_icompile_icompile_end_icompile]
