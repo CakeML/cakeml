@@ -76,23 +76,29 @@ Theorem machine_code_sound:
       inFS_fname fs (EL 1 cl) ∧
       (
         (LENGTH cl = 2 ∧
-        ∃objf.
-          parse_pbf (all_lines fs (EL 1 cl)) = SOME objf ∧
-          out = concat (print_pbf objf)) ∨
+        ∃prob.
+          parse_pbf (all_lines fs (EL 1 cl)) = SOME prob ∧
+          out = concat (print_prob prob)) ∨
         (LENGTH cl = 3 ∧
-        ∃obj fml concl.
-          parse_pbf (all_lines fs (EL 1 cl)) = SOME (obj, fml) ∧
+        ∃pres obj fml concl.
+          parse_pbf (all_lines fs (EL 1 cl)) =
+            SOME (pres, obj, fml) ∧
           out = concl_to_string concl ∧
           pbc$sem_concl (set fml) obj concl) ∨
         (LENGTH cl = 4 ∧
-        ∃obj fml objt fmlt output bound concl.
-          parse_pbf (all_lines fs (EL 1 cl)) = SOME (obj, fml) ∧
-          parse_pbf (all_lines fs (EL 3 cl)) = SOME (objt, fmlt) ∧
+        ∃pres obj fml prest objt fmlt output bound concl.
+          parse_pbf (all_lines fs (EL 1 cl)) =
+            SOME (pres, obj, fml) ∧
+          parse_pbf (all_lines fs (EL 3 cl)) =
+            SOME (prest, objt, fmlt) ∧
           out =
             (concl_to_string concl ^
             output_to_string bound output) ∧
           pbc$sem_concl (set fml) obj concl ∧
-          pbc$sem_output (set fml) obj bound (set fmlt) objt output)
+          pbc$sem_output
+            (set fml) obj (pres_set_list pres)
+            bound
+            (set fmlt) objt (pres_set_list prest) output)
       )
     )
 Proof

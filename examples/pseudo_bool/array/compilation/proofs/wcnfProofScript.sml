@@ -76,7 +76,7 @@ Theorem machine_code_sound:
         (LENGTH cl = 2 ∧
         ∃wfml.
           get_fml fs (EL 1 cl) = SOME wfml ∧
-          out = concat (print_pbf (full_encode wfml))) ∨
+          out = concat (print_prob (mk_prob (full_encode wfml)))) ∨
         (LENGTH cl = 3 ∧
         ∃wfml bounds.
           get_fml fs (EL 1 cl) = SOME wfml ∧
