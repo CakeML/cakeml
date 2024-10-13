@@ -175,8 +175,8 @@ Definition catfiles_string_def:
     concat (MAP (λfnm. file_contents fnm fs) fns)
 End
 
-val cat_spec0 = Q.prove(
-  `∀fns fnsv fs.
+Triviality cat_spec0:
+  ∀fns fnsv fs.
      LIST_TYPE FILENAME fns fnsv ∧
      EVERY (inFS_fname fs) fns ∧
      hasFreeFD fs
@@ -185,7 +185,8 @@ val cat_spec0 = Q.prove(
        (STDIO fs)
        (POSTv u.
           &UNIT_TYPE () u *
-          STDIO (add_stdout fs (catfiles_string fs fns)))`,
+          STDIO (add_stdout fs (catfiles_string fs fns)))
+Proof
   Induct >>
   rpt strip_tac >> xcf "cat" (get_ml_prog_state()) >>
   fs[LIST_TYPE_def] >>
@@ -210,7 +211,8 @@ val cat_spec0 = Q.prove(
   imp_res_tac add_stdo_o \\
   simp[Abbr`fs0`] \\
   simp[Once file_contents_def,SimpR``(==>>)``,concat_cons] \\
-  simp[file_contents_add_stdout] \\ xsimpl);
+  simp[file_contents_add_stdout] \\ xsimpl
+QED
 
 val cat_spec = save_thm(
   "cat_spec",

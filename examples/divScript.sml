@@ -32,8 +32,11 @@ QED
 
 (* Lemma needed for examples with integers *)
 
-val eq_v_INT_thm = Q.prove(`(INT --> INT --> BOOL) $= eq_v`,
-  metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]);
+Triviality eq_v_INT_thm:
+  (INT --> INT --> BOOL) $= eq_v
+Proof
+  metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]
+QED
 
 (* A conditionally terminating loop *)
 
@@ -896,14 +899,16 @@ Proof
   rw[FUN_EQ_THM,cell_def,REF_def,SEP_EXISTS,cond_STAR]
 QED
 
-val LTAKE_LNTH_EQ = Q.prove(
-  `!x ll y. LTAKE (LENGTH x) ll = SOME x
+Triviality LTAKE_LNTH_EQ:
+  !x ll y. LTAKE (LENGTH x) ll = SOME x
    /\ y < LENGTH x
-   ==> LNTH y ll = SOME(EL y x)`,
+   ==> LNTH y ll = SOME(EL y x)
+Proof
   Induct_on `x` >> rw[LTAKE] >>
   Cases_on `ll` >> fs[] >>
   PURE_FULL_CASE_TAC >> fs[] >> rveq >>
-  Cases_on `y` >> fs[]);
+  Cases_on `y` >> fs[]
+QED
 
 Theorem LTAKE_LPREFIX:
   !x ll.
@@ -994,29 +999,36 @@ Proof
   metis_tac[]
 QED
 
-val push_cond = Q.prove(`
-   m ~~>> v * (&C * B) = cond C * (m ~~>> v * B)
+Triviality push_cond:
+  m ~~>> v * (&C * B) = cond C * (m ~~>> v * B)
 /\ m ~~>> v * &C = &C * m ~~>> v
 /\ REF_LIST rv rvs A l * (&C * B) = cond C * (REF_LIST rv rvs A l * B)
 /\ REF_LIST rv rvs A l * &C = &C * REF_LIST rv rvs A l
-`,
-  simp[AC STAR_COMM STAR_ASSOC]);
+Proof
+  simp[AC STAR_COMM STAR_ASSOC]
+QED
 
-val EL_LENGTH_TAKE = Q.prove(
-  `!h e. EL (LENGTH l) (h::TAKE (LENGTH l) (e::l))
-   = EL(LENGTH l) (h::e::l)`,
- Induct_on `l` >> fs[]);
+Triviality EL_LENGTH_TAKE:
+  !h e. EL (LENGTH l) (h::TAKE (LENGTH l) (e::l))
+   = EL(LENGTH l) (h::e::l)
+Proof
+  Induct_on `l` >> fs[]
+QED
 
-val EL_LENGTH_TAKE2 = Q.prove(
-  `!h e l. n < LENGTH l ==>
+Triviality EL_LENGTH_TAKE2:
+  !h e l. n < LENGTH l ==>
    EL n (h::TAKE n (e::l))
-   = EL n (h::e::l)`,
- Induct_on `n` >> rw[] >>
- Cases_on `l` >> fs[]);
+   = EL n (h::e::l)
+Proof
+  Induct_on `n` >> rw[] >>
+ Cases_on `l` >> fs[]
+QED
 
-val PRE_SUB = Q.prove(
-  `!n. n <> 0 ==> PRE n = n - 1`,
-  Cases >> simp[]);
+Triviality PRE_SUB:
+  !n. n <> 0 ==> PRE n = n - 1
+Proof
+  Cases >> simp[]
+QED
 
 Theorem REF_LIST_rv_loc:
   REF_LIST rv rvs n l h ==> ?loc. rv = Loc loc
@@ -1112,18 +1124,21 @@ Proof
   simp[]
 QED
 
-val highly_specific_MOD_lemma = Q.prove(
-  `!n a. n < a
+Triviality highly_specific_MOD_lemma:
+  !n a. n < a
    ==> (n + 2) MOD (a + 1)
-    = if n + 1 = a then 0 else (n + 1) MOD a + 1`,
-  rw[] >> rw[]);
+    = if n + 1 = a then 0 else (n + 1) MOD a + 1
+Proof
+  rw[] >> rw[]
+QED
 
-val highly_specific_MOD_lemma2 = Q.prove(
- `0 < LENGTH l
+Triviality highly_specific_MOD_lemma2:
+  0 < LENGTH l
   ==>
   EL ((i+1) MOD LENGTH l) (CONS (LAST l) (FRONT l))
-  = EL (i MOD LENGTH l) l`,
-strip_tac >>
+  = EL (i MOD LENGTH l) l
+Proof
+  strip_tac >>
 Cases_on `1 < LENGTH l` >-
   (Cases_on `i MOD LENGTH l = LENGTH l - 1` >-
      (drule(GSYM MOD_PLUS) >>
@@ -1148,7 +1163,8 @@ Cases_on `1 < LENGTH l` >-
    match_mp_tac EL_FRONT >>
    Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
    fs[] >> rveq >> fs[FRONT_APPEND]) >>
-  Cases_on `l` >> fs[] >> Cases_on `t` >> fs[]);
+  Cases_on `l` >> fs[] >> Cases_on `t` >> fs[]
+QED
 
 Theorem LIST_ROTATE_CONS_NEXT:
   !n l. n < LENGTH l ==> ?l'.
@@ -1173,8 +1189,8 @@ Proof
   >> Cases_on `t` >> fs[]
 QED
 
-val LNTH_LREPEAT_ub = Q.prove(
-  `!n l.
+Triviality LNTH_LREPEAT_ub:
+  !n l.
     (l <> []
     /\
     ∀x.
@@ -1185,7 +1201,7 @@ val LNTH_LREPEAT_ub = Q.prove(
     LNTH n ub
     =
     LNTH n (LAPPEND (fromList (MAP put_char_event l)) ub)
-  `,
+Proof
   rpt strip_tac >>
   `~LFINITE(LREPEAT l)`
     by(rw[LFINITE_LLENGTH,LLENGTH_MAP,LLENGTH_LREPEAT,NULL_EQ] >>
@@ -1226,21 +1242,24 @@ val LNTH_LREPEAT_ub = Q.prove(
   simp[EL_MAP] >>
   IF_CASES_TAC >- simp[] >>
   `0 < LENGTH l` by(Cases_on `l` >> fs[]) >>
-  simp[SUB_MOD]);
+  simp[SUB_MOD]
+QED
 
-val LPREFIX_ub_LAPPEND = Q.prove(
-  `l <> [] /\
+Triviality LPREFIX_ub_LAPPEND:
+  l <> [] /\
    (∀x.
     LPREFIX
      (fromList (THE (LTAKE x (LMAP put_char_event (LREPEAT l)))))
      ub
    )
-   ==> ub = LAPPEND (fromList(MAP put_char_event l)) ub`,
+   ==> ub = LAPPEND (fromList(MAP put_char_event l)) ub
+Proof
   rpt strip_tac >>
   simp[LTAKE_EQ,PULL_FORALL] >>
   Induct_on `n` >> rw[] >>
   fs[LTAKE_SNOC_LNTH] >>
-  metis_tac[LNTH_LREPEAT_ub]);
+  metis_tac[LNTH_LREPEAT_ub]
+QED
 
 val _ = process_topdecs `
   fun pointerLoop c = (

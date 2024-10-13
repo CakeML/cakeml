@@ -148,16 +148,20 @@ Proof
   fs[EVERY_MEM,lexer_implTheory.unhex_alt_def]
 QED
 
-val lemma = Q.prove(`
+Triviality lemma:
   isHexDigit x ∧ isHexDigit y ∧ A ∧ B ∧ ¬isPrint (CHR (num_from_hex_string[x;y])) ⇔
-  isHexDigit x ∧ isHexDigit y ∧ A ∧ B ∧ ¬isPrint (CHR (num_from_hex_string_alt[x;y]))`,
+  isHexDigit x ∧ isHexDigit y ∧ A ∧ B ∧ ¬isPrint (CHR (num_from_hex_string_alt[x;y]))
+Proof
   rw[EQ_IMP_THM,num_from_hex_string_alt_intro]
-  \\ rfs[num_from_hex_string_alt_intro]);
+  \\ rfs[num_from_hex_string_alt_intro]
+QED
 
-val lemma2 = Q.prove(`
+Triviality lemma2:
   isHexDigit x ∧ isHexDigit y ⇒
-  num_from_hex_string [x;y] = num_from_hex_string_alt [x;y]`,
-  rw[num_from_hex_string_alt_intro]);
+  num_from_hex_string [x;y] = num_from_hex_string_alt [x;y]
+Proof
+  rw[num_from_hex_string_alt_intro]
+QED
 
 val _ = ml_translatorLib.use_string_type false;
 
@@ -410,8 +414,11 @@ val print_sexp_alt_side = Q.prove(
 
 val _ = translate print_sexp_alt_thm;
 
-val listsexp_alt = Q.prove(`listsexp = FOLDR (λs1 s2. SX_CONS s1 s2) nil`,
-  rpt(CHANGED_TAC(CONV_TAC (DEPTH_CONV ETA_CONV))) >> simp[listsexp_def]);
+Triviality listsexp_alt:
+  listsexp = FOLDR (λs1 s2. SX_CONS s1 s2) nil
+Proof
+  rpt(CHANGED_TAC(CONV_TAC (DEPTH_CONV ETA_CONV))) >> simp[listsexp_def]
+QED
 
 val _ = translate listsexp_alt
 
@@ -421,16 +428,22 @@ val _ = ml_translatorLib.use_string_type false;
 
 val _ = translate HEX_def
 
-val l2n_side_thm = Q.prove(`!n l. l2n_side n l <=> (l <> [] ==> n <> 0)`,
+Triviality l2n_side_thm:
+  !n l. l2n_side n l <=> (l <> [] ==> n <> 0)
+Proof
   strip_tac >>
   Induct >>
   rpt strip_tac >>
   PURE_ONCE_REWRITE_TAC[lexerProgTheory.l2n_side_def] >>
   rw[] >>
-  Cases_on `l = []` >> fs[])
+  Cases_on `l = []` >> fs[]
+QED
 
-val s2n_side_thm = Q.prove(`!n f l. s2n_side n f l <=> (l <> [] ==> n <> 0)`,
-  rw[l2n_side_thm,lexerProgTheory.s2n_side_def]);
+Triviality s2n_side_thm:
+  !n f l. s2n_side n f l <=> (l <> [] ==> n <> 0)
+Proof
+  rw[l2n_side_thm,lexerProgTheory.s2n_side_def]
+QED
 
 Definition hex_alt_def:
   hex_alt x = if x < 16 then HEX x else #"0"

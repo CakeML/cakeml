@@ -332,15 +332,17 @@ Proof
     [`l1`,`l2`]
 QED
 
-val lemmas = Q.prove(
-  `(2 + 2 * n - 1 = 2 * n + 1:num) /\
+Triviality lemmas:
+  (2 + 2 * n - 1 = 2 * n + 1:num) /\
     (2 + 2 * n' = 2 * n'' + 2 <=> n' = n'':num) /\
     (2 * m = 2 * n <=> (m = n)) /\
     ((2 * n'' + 1) DIV 2 = n'') /\
     ((2 * n) DIV 2 = n) /\
     (2 + 2 * n' <> 2 * n'' + 1) /\
-    (2 * m + 1 <> 2 * n' + 2)`,
-  intLib.ARITH_TAC);
+    (2 * m + 1 <> 2 * n' + 2)
+Proof
+  intLib.ARITH_TAC
+QED
 
 Definition lookup_any_def:
   lookup_any x sp d =
@@ -353,15 +355,17 @@ Definition fromList2_def:
   fromList2 l = SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (0,LN) l)
 End
 
-val EVEN_fromList2_lemma = Q.prove(
-  `!l n t.
+Triviality EVEN_fromList2_lemma:
+  !l n t.
       EVEN n /\ (!x. x IN domain t ==> EVEN x) ==>
-      !x. x IN domain (SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (n,t) l)) ==> EVEN x`,
+      !x. x IN domain (SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (n,t) l)) ==> EVEN x
+Proof
   Induct \\ full_simp_tac(srw_ss())[FOLDL] \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[PULL_FORALL]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n+2`,`insert n h t`,`x`])
   \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ POP_ASSUM MATCH_MP_TAC
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[EVEN_EXISTS]
-  \\ Q.EXISTS_TAC `SUC m` \\ DECIDE_TAC);
+  \\ Q.EXISTS_TAC `SUC m` \\ DECIDE_TAC
+QED
 
 Theorem EVEN_fromList2:
    !l n. n IN domain (fromList2 l) ==> EVEN n
@@ -2442,33 +2446,37 @@ Proof
     \\ fs[DROP_EL_CONS]
 QED
 
-val FRONT_APPEND' = Q.prove(
-  `!l h a b t. l = h ++ [a; b] ++ t ==>
-      FRONT l = h ++ FRONT([a; b] ++ t)`,
-      Induct \\ rw[FRONT_DEF, FRONT_APPEND]
+Triviality FRONT_APPEND':
+  !l h a b t. l = h ++ [a; b] ++ t ==>
+      FRONT l = h ++ FRONT([a; b] ++ t)
+Proof
+  Induct \\ rw[FRONT_DEF, FRONT_APPEND]
       >-(rw[LIST_EQ_REWRITE])
       \\ Cases_on `h'` \\ fs[FRONT_APPEND, FRONT_DEF]
-);
+QED
 
 
-val EVERY_NOT_IMP = Q.prove(
-  `!ls a. (EVERY ($~ o (\x. x = a)) ls) ==> (LIST_ELEM_COUNT a ls = 0)`,
-    Induct \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
-);
+Triviality EVERY_NOT_IMP:
+  !ls a. (EVERY ($~ o (\x. x = a)) ls) ==> (LIST_ELEM_COUNT a ls = 0)
+Proof
+  Induct \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
+QED
 
-val LIST_ELEM_COUNT_CONS = Q.prove(
-  `!h t a. LIST_ELEM_COUNT a (h::t) = LIST_ELEM_COUNT a [h] + LIST_ELEM_COUNT a t`,
-    simp_tac std_ss [Once CONS_APPEND, LIST_ELEM_COUNT_THM]
-);
+Triviality LIST_ELEM_COUNT_CONS:
+  !h t a. LIST_ELEM_COUNT a (h::t) = LIST_ELEM_COUNT a [h] + LIST_ELEM_COUNT a t
+Proof
+  simp_tac std_ss [Once CONS_APPEND, LIST_ELEM_COUNT_THM]
+QED
 
-val FRONT_COUNT_IMP = Q.prove(
-  `!l1 l2 a. l1 <> [] /\ FRONT l1 = l2 ==> (LIST_ELEM_COUNT a l2 = LIST_ELEM_COUNT a l1) \/ (LIST_ELEM_COUNT a l2 + 1 = LIST_ELEM_COUNT a l1)`,
-    gen_tac \\ Induct_on `l1` \\ gen_tac \\ Cases_on `l2` \\ rw[FRONT_DEF]
+Triviality FRONT_COUNT_IMP:
+  !l1 l2 a. l1 <> [] /\ FRONT l1 = l2 ==> (LIST_ELEM_COUNT a l2 = LIST_ELEM_COUNT a l1) \/ (LIST_ELEM_COUNT a l2 + 1 = LIST_ELEM_COUNT a l1)
+Proof
+  gen_tac \\ Induct_on `l1` \\ gen_tac \\ Cases_on `l2` \\ rw[FRONT_DEF]
     >-(Cases_on `h = a` \\ rw[LIST_ELEM_COUNT_DEF])
     \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
     \\ Cases_on `LENGTH (FILTER (\x. x = a) l1)`
     \\ first_x_assum (qspecl_then [`a`] mp_tac) \\ rw[] \\ rfs[]
-);
+QED
 
 Definition CONCAT_WITH_aux_def:
     (CONCAT_WITH_aux [] l fl = REVERSE fl ++ FLAT l) /\
@@ -4351,35 +4359,41 @@ Proof
   fs[good_dimindex_def]
 QED
 
-val byte_index_LESS_IMP = Q.prove(
-  `(dimindex (:'a) = 32 \/ dimindex (:'a) = 64) /\
+Triviality byte_index_LESS_IMP:
+  (dimindex (:'a) = 32 \/ dimindex (:'a) = 64) /\
     byte_index (a:'a word) be < byte_index (a':'a word) be /\ i < 8 ==>
     byte_index a be + i < byte_index a' be /\
     byte_index a be <= i + byte_index a' be /\
     byte_index a be + 8 <= i + byte_index a' be /\
-    i + byte_index a' be < byte_index a be + dimindex (:α)`,
+    i + byte_index a' be < byte_index a be + dimindex (:α)
+Proof
   fs [byte_index_def,LET_DEF] \\ Cases_on `be` \\ fs []
   \\ rpt strip_tac \\ rfs [] \\ fs []
   \\ `w2n a MOD 4 < 4` by (match_mp_tac MOD_LESS \\ decide_tac)
   \\ `w2n a' MOD 4 < 4` by (match_mp_tac MOD_LESS \\ decide_tac)
   \\ `w2n a MOD 8 < 8` by (match_mp_tac MOD_LESS \\ decide_tac)
   \\ `w2n a' MOD 8 < 8` by (match_mp_tac MOD_LESS \\ decide_tac)
-  \\ decide_tac);
+  \\ decide_tac
+QED
 
-val NOT_w2w_bit = Q.prove(
-  `8 <= i /\ i < dimindex (:'b) ==> ~((w2w:word8->'b word) w ' i)`,
-  rpt strip_tac \\ rfs [w2w] \\ decide_tac);
+Triviality NOT_w2w_bit:
+  8 <= i /\ i < dimindex (:'b) ==> ~((w2w:word8->'b word) w ' i)
+Proof
+  rpt strip_tac \\ rfs [w2w] \\ decide_tac
+QED
 
 val LESS4 = DECIDE ``n < 4 <=> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``
 val LESS8 = DECIDE ``n < 8 <=> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num) \/
                                (n = 4) \/ (n = 5) \/ (n = 6) \/ (n = 7)``
 
-val DIV_EQ_DIV_IMP = Q.prove(
-  `0 < d /\ n <> n' /\ (n DIV d * d = n' DIV d * d) ==> n MOD d <> n' MOD d`,
+Triviality DIV_EQ_DIV_IMP:
+  0 < d /\ n <> n' /\ (n DIV d * d = n' DIV d * d) ==> n MOD d <> n' MOD d
+Proof
   rpt strip_tac \\ Q.PAT_X_ASSUM `n <> n'` mp_tac \\ fs []
   \\ MP_TAC (Q.SPEC `d` DIVISION) \\ fs []
   \\ rpt strip_tac \\ pop_assum (fn th => once_rewrite_tac [th])
-  \\ fs []);
+  \\ fs []
+QED
 
 Theorem get_byte_set_byte_diff:
    good_dimindex (:'a) /\ a <> a' /\ (byte_align a = byte_align a') ==>

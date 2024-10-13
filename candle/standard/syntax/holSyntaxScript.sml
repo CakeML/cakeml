@@ -266,9 +266,11 @@ Proof
   simp[GSYM MEMBER_NOT_EMPTY] >> rw[] >> metis_tac[]
 QED
 
-val LEAST_EXISTS = Q.prove(
-  `(∃n:num. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)`,
-  metis_tac[whileTheory.LEAST_EXISTS])
+Triviality LEAST_EXISTS:
+  (∃n:num. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)
+Proof
+  metis_tac[whileTheory.LEAST_EXISTS]
+QED
 
 val VARIANT_PRIMES_def = new_specification
   ("VARIANT_PRIMES_def"

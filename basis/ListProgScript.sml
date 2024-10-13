@@ -431,11 +431,13 @@ Definition AUPDATE_def:
 End
 val AUPDATE_eval = translate AUPDATE_def;
 
-val FMAP_EQ_ALIST_UPDATE = Q.prove(
-  `FMAP_EQ_ALIST f l ==> FMAP_EQ_ALIST (FUPDATE f (x,y)) (AUPDATE l (x,y))`,
+Triviality FMAP_EQ_ALIST_UPDATE:
+  FMAP_EQ_ALIST f l ==> FMAP_EQ_ALIST (FUPDATE f (x,y)) (AUPDATE l (x,y))
+Proof
   SIMP_TAC (srw_ss()) [FMAP_EQ_ALIST_def,AUPDATE_def,ALOOKUP_def,FUN_EQ_THM,
     finite_mapTheory.FLOOKUP_DEF,finite_mapTheory.FAPPLY_FUPDATE_THM]
-  THEN METIS_TAC []);
+  THEN METIS_TAC []
+QED
 
 val Eval_FUPDATE = Q.prove(
   `!v. ((LIST_TYPE (PAIR_TYPE a b) -->
@@ -473,22 +475,28 @@ val _ = next_ml_names := ["every","every"];
 val _ = translate AEVERY_AUX_def;
 val AEVERY_eval = translate AEVERY_def;
 
-val AEVERY_AUX_THM = Q.prove(
-  `!l aux P. AEVERY_AUX aux P l <=>
-              !x y. (ALOOKUP l x = SOME y) /\ ~(MEM x aux) ==> P (x,y)`,
+Triviality AEVERY_AUX_THM:
+  !l aux P. AEVERY_AUX aux P l <=>
+              !x y. (ALOOKUP l x = SOME y) /\ ~(MEM x aux) ==> P (x,y)
+Proof
   Induct
   THEN FULL_SIMP_TAC std_ss [ALOOKUP_def,AEVERY_AUX_def,FORALL_PROD,
     MEM,GSYM MEMBER_INTRO] THEN REPEAT STRIP_TAC
-  THEN SRW_TAC [] [] THEN METIS_TAC [SOME_11]);
+  THEN SRW_TAC [] [] THEN METIS_TAC [SOME_11]
+QED
 
-val AEVERY_THM = Q.prove(
-  `AEVERY P l <=> !x y. (ALOOKUP l x = SOME y) ==> P (x,y)`,
-  SIMP_TAC (srw_ss()) [AEVERY_def,AEVERY_AUX_THM]);
+Triviality AEVERY_THM:
+  AEVERY P l <=> !x y. (ALOOKUP l x = SOME y) ==> P (x,y)
+Proof
+  SIMP_TAC (srw_ss()) [AEVERY_def,AEVERY_AUX_THM]
+QED
 
-val AEVERY_EQ_FEVERY = Q.prove(
-  `FMAP_EQ_ALIST f l ==> (AEVERY P l <=> FEVERY P f)`,
+Triviality AEVERY_EQ_FEVERY:
+  FMAP_EQ_ALIST f l ==> (AEVERY P l <=> FEVERY P f)
+Proof
   FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_def,FEVERY_DEF,AEVERY_THM]
-  THEN FULL_SIMP_TAC std_ss [FLOOKUP_DEF]);
+  THEN FULL_SIMP_TAC std_ss [FLOOKUP_DEF]
+QED
 
 val Eval_FEVERY = Q.prove(
   `!v. (((PAIR_TYPE (a:'a->v->bool) (b:'b->v->bool) --> BOOL) -->
@@ -509,16 +517,20 @@ Definition AMAP_def:
 End
 val AMAP_eval = translate AMAP_def;
 
-val ALOOKUP_AMAP = Q.prove(
-  `!l. ALOOKUP (AMAP f l) a =
-        case ALOOKUP l a of NONE => NONE | SOME x => SOME (f x)`,
+Triviality ALOOKUP_AMAP:
+  !l. ALOOKUP (AMAP f l) a =
+        case ALOOKUP l a of NONE => NONE | SOME x => SOME (f x)
+Proof
   Induct THEN SIMP_TAC std_ss [AMAP_def,ALOOKUP_def,FORALL_PROD]
-  THEN SRW_TAC [] []);
+  THEN SRW_TAC [] []
+QED
 
-val FMAP_EQ_ALIST_o_f = Q.prove(
-  `FMAP_EQ_ALIST m l ==> FMAP_EQ_ALIST (x o_f m) (AMAP x l)`,
+Triviality FMAP_EQ_ALIST_o_f:
+  FMAP_EQ_ALIST m l ==> FMAP_EQ_ALIST (x o_f m) (AMAP x l)
+Proof
   SIMP_TAC std_ss [FMAP_EQ_ALIST_def,FUN_EQ_THM,FLOOKUP_DEF,
-    o_f_DEF,ALOOKUP_AMAP] THEN REPEAT STRIP_TAC THEN SRW_TAC [] []);
+    o_f_DEF,ALOOKUP_AMAP] THEN REPEAT STRIP_TAC THEN SRW_TAC [] []
+QED
 
 val Eval_o_f = Q.prove(
   `!v. (((b --> c) --> LIST_TYPE (PAIR_TYPE (a:'a->v->bool) (b:'b->v->bool)) -->
@@ -567,17 +579,21 @@ Definition ADEL_def:
 End
 val ADEL_eval = translate ADEL_def;
 
-val ALOOKUP_ADEL = Q.prove(
-  `!l a x. ALOOKUP (ADEL l a) x = if x = a then NONE else ALOOKUP l x`,
+Triviality ALOOKUP_ADEL:
+  !l a x. ALOOKUP (ADEL l a) x = if x = a then NONE else ALOOKUP l x
+Proof
   Induct THEN SRW_TAC [] [ALOOKUP_def,ADEL_def] THEN Cases_on `h`
-  THEN SRW_TAC [] [ALOOKUP_def,ADEL_def]);
+  THEN SRW_TAC [] [ALOOKUP_def,ADEL_def]
+QED
 
-val FMAP_EQ_ALIST_ADEL = Q.prove(
-  `!x l. FMAP_EQ_ALIST x l ==>
-          FMAP_EQ_ALIST (x \\ a) (ADEL l a)`,
+Triviality FMAP_EQ_ALIST_ADEL:
+  !x l. FMAP_EQ_ALIST x l ==>
+          FMAP_EQ_ALIST (x \\ a) (ADEL l a)
+Proof
   FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_def,ALOOKUP_def,fmap_domsub,FUN_EQ_THM]
   THEN REPEAT STRIP_TAC THEN SRW_TAC [] [ALOOKUP_ADEL,FLOOKUP_DEF,DRESTRICT_DEF]
-  THEN FULL_SIMP_TAC std_ss []);
+  THEN FULL_SIMP_TAC std_ss []
+QED
 
 val Eval_fmap_domsub = Q.prove(
   `!v. ((LIST_TYPE (PAIR_TYPE a b) --> a -->

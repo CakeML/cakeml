@@ -208,12 +208,14 @@ Proof
   \\ gvs [compile_def]
 QED
 
-val compile_LESS_EQ_lemma = Q.prove(
-  `!n env tail live xs.
-      n <= SND (SND (compile n env tail live xs))`,
+Triviality compile_LESS_EQ_lemma:
+  !n env tail live xs.
+      n <= SND (SND (compile n env tail live xs))
+Proof
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC
+QED
 
 Theorem compile_LESS_EQ:
    !n env tail live xs c vs new_var.
@@ -223,12 +225,14 @@ Proof
   \\ FULL_SIMP_TAC std_ss []
 QED
 
-val compile_LENGTH_lemma = Q.prove(
-  `!n env tail live xs.
-      (LENGTH (FST (SND (compile n env tail live xs))) = LENGTH xs)`,
+Triviality compile_LENGTH_lemma:
+  !n env tail live xs.
+      (LENGTH (FST (SND (compile n env tail live xs))) = LENGTH xs)
+Proof
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []);
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []
+QED
 
 Theorem compile_LENGTH:
    !n env tail live xs c vs new_var.

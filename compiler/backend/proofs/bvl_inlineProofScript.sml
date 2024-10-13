@@ -1597,8 +1597,8 @@ Definition let_op_cc_def:
      (λcfg prog. cc cfg (MAP (I ## let_opt q4 l4) prog))
 End
 
-val let_evaluate_Call = Q.prove(
-  `evaluate ([Call 0 (SOME start) []], [],
+Triviality let_evaluate_Call:
+  evaluate ([Call 0 (SOME start) []], [],
              initial_state ffi0 prog co (let_op_cc q4 l4 cc) k) = (r, s) /\
    r <> Rerr (Rabort Rtype_error) ⇒
    ∃(s2:('c,'ffi) bvlSem$state).
@@ -1607,7 +1607,8 @@ val let_evaluate_Call = Q.prove(
         initial_state ffi0 (map (let_opt q4 l4) prog)
           ((I ## MAP (I ## let_opt q4 l4)) o co)
           cc k) = (r, s2) ∧
-     s2.ffi = s.ffi /\ s.clock = s2.clock`,
+     s2.ffi = s.ffi /\ s.clock = s2.clock
+Proof
   strip_tac \\ fs [let_op_cc_def]
   \\ imp_res_tac evaluate_let_op
   \\ fs [let_op_def]
@@ -1615,7 +1616,8 @@ val let_evaluate_Call = Q.prove(
   \\ first_x_assum (qspecl_then [`t4`,`q4`,`l4`] mp_tac)
   \\ impl_tac \\ rw [] \\ fs []
   \\ fs [let_state_rel_def]
-  \\ unabbrev_all_tac \\ fs [initial_state_def]);
+  \\ unabbrev_all_tac \\ fs [initial_state_def]
+QED
 
 val semantics_let_op = prove(
   ``semantics ffi prog co (let_op_cc q4 l4 cc) start <> Fail ==>

@@ -875,8 +875,8 @@ QED
 val say = say0 "evaluate_changed_globals_0";
 
 (* Evaluate  *)
-val evaluate_changed_globals_0 = Q.prove(
-  `(!es env (s0:('c,'ffi) closSem$state) res s.
+Triviality evaluate_changed_globals_0:
+  (!es env (s0:('c,'ffi) closSem$state) res s.
       evaluate (es, env, s0) = (res, s) /\
       ssgc_free s0 /\ EVERY esgc_free es /\
       EVERY vsgc_free env ==>
@@ -893,7 +893,8 @@ val evaluate_changed_globals_0 = Q.prove(
         ?n.
           s.compile_oracle = shift_seq n s0.compile_oracle /\
           mglobals_extend s0.globals
-            (SET_OF_BAG (elist_globals (FLAT (first_n_exps s0.compile_oracle n)))) s.globals)`,
+            (SET_OF_BAG (elist_globals (FLAT (first_n_exps s0.compile_oracle n)))) s.globals)
+Proof
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
@@ -1150,7 +1151,8 @@ val evaluate_changed_globals_0 = Q.prove(
            \\ `g3 = g1 ∪ g2` suffices_by metis_tac [mglobals_extend_trans]
            \\ fs [elist_globals_append, SET_OF_BAG_UNION]
            \\ metis_tac [UNION_ASSOC, UNION_COMM])
-    \\ qexists_tac `n` \\ fs []));
+    \\ qexists_tac `n` \\ fs [])
+QED
 
 val evaluate_changed_globals = save_thm(
    "evaluate_changed_globals",
@@ -1422,14 +1424,16 @@ Proof
   simp[o_DEF,ADD1]
 QED
 
-val letrec_case_eq = Q.prove(`
+Triviality letrec_case_eq:
   !limit loc fns.
   (case loc of
     NONE => REPLICATE (LENGTH fns) Other
   | SOME n => clos_gen_noinline n 0 fns) =
   GENLIST (case loc of NONE => K Other |
-                       SOME n => λi. ClosNoInline (n + 2*i) (FST (EL i fns))) (LENGTH fns)`,
-  Cases_on`loc`>>fs[clos_gen_noinline_eq,REPLICATE_GENLIST])
+                       SOME n => λi. ClosNoInline (n + 2*i) (FST (EL i fns))) (LENGTH fns)
+Proof
+  Cases_on`loc`>>fs[clos_gen_noinline_eq,REPLICATE_GENLIST]
+QED
 
 Definition every_var_def:
   (every_var P Empty = T) /\
@@ -2745,13 +2749,14 @@ Proof
   \\ metis_tac [OPTREL_SOME]
 QED
 
-val do_app_lemma = Q.prove(
-  `!c g s t xs ys opp. state_rel c g s t /\ LIST_REL (v_rel c g) xs ys ==>
+Triviality do_app_lemma:
+  !c g s t xs ys opp. state_rel c g s t /\ LIST_REL (v_rel c g) xs ys ==>
     case do_app opp xs s of
       | Rerr err1 => ?err2. do_app opp ys t = Rerr err2 /\
                             exc_rel (v_rel c g) err1 err2
       | Rval (x, s1) => ?y t1. v_rel c g x y /\ state_rel c g s1 t1 /\
-                               do_app opp ys t = Rval (y, t1)`,
+                               do_app opp ys t = Rval (y, t1)
+Proof
   rpt gen_tac
   \\ match_mp_tac simple_val_rel_do_app
   \\ conj_tac THEN1 (fs [simple_val_rel_def] \\ rw []
@@ -2763,7 +2768,8 @@ val do_app_lemma = Q.prove(
   \\ rfs []
   \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
   \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rw [] \\ fs [ref_rel_cases]);
+  \\ rw [] \\ fs [ref_rel_cases]
+QED
 
 Theorem evaluate_app_exact_rw:
    args <> [] /\ num_args = LENGTH args

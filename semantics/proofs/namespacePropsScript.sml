@@ -1192,10 +1192,12 @@ Proof
   rw [nsLookupMod_def]
 QED
 
-val lemma = Q.prove (
-  `(?x. y = SOME x) ⇔ y ≠ NONE`,
+Triviality lemma:
+  (?x. y = SOME x) ⇔ y ≠ NONE
+Proof
   Cases_on `y` >>
-  rw []);
+  rw []
+QED
 
 Theorem nsDom_nsAppend_equal:
    !n1 n2 n3 n4.

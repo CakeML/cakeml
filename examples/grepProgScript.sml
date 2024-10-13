@@ -217,30 +217,39 @@ QED
 
 val r = translate regexp_matcher_with_limit_def;
 
-val mem_tolist = Q.prove(`MEM (toList l) (MAP toList ll) = MEM l ll`,
-  Induct_on `ll` >> fs[]);
+Triviality mem_tolist:
+  MEM (toList l) (MAP toList ll) = MEM l ll
+Proof
+  Induct_on `ll` >> fs[]
+QED
 
-val EL_map_toList = Q.prove(`!n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = sub (EL n l) n'`,
+Triviality EL_map_toList:
+  !n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = sub (EL n l) n'
+Proof
   Induct_on `l`
   >> fs[]
   >> rpt strip_tac
   >> Cases_on `n`
-  >> fs[mlvectorTheory.EL_toList]);
+  >> fs[mlvectorTheory.EL_toList]
+QED
 
-val length_tolist_cancel = Q.prove(
-  `!n. n < LENGTH l ==> LENGTH (EL n (MAP mlvector$toList l)) = length (EL n l)`,
+Triviality length_tolist_cancel:
+  !n. n < LENGTH l ==> LENGTH (EL n (MAP mlvector$toList l)) = length (EL n l)
+Proof
   Induct_on `l`
   >> fs[]
   >> rpt strip_tac
   >> Cases_on `n`
-  >> fs[mlvectorTheory.length_toList]);
+  >> fs[mlvectorTheory.length_toList]
+QED
 
-val exec_dfa_side_imp = Q.prove(
-  `!finals table n s.
+Triviality exec_dfa_side_imp:
+  !finals table n s.
    good_vec (MAP toList (toList table)) (toList finals)
     /\ EVERY (λc. MEM (ORD c) ALPHABET) (EXPLODE s)
     /\ n < length finals
-   ==> exec_dfa_side finals table n s`,
+   ==> exec_dfa_side finals table n s
+Proof
   Induct_on `s`
   >- fs[fetch "-" "exec_dfa_side_def"]
   >> PURE_ONCE_REWRITE_TAC [fetch "-" "exec_dfa_side_def"]
@@ -258,27 +267,32 @@ val exec_dfa_side_imp = Q.prove(
     >- metis_tac[]
     >> first_x_assum(ASSUME_TAC o Q.SPECL [`toList (EL n l)`,`ORD h`])
     >> first_x_assum(MATCH_MP_TAC o Q.SPECL [`n`,`ORD h`,`x1`])
-    >> rfs[mlvectorTheory.length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]);
+    >> rfs[mlvectorTheory.length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]
+QED
 
-val compile_regexp_with_limit_dom_brz = Q.prove(
-  `!r result.
+Triviality compile_regexp_with_limit_dom_brz:
+  !r result.
     compile_regexp_with_limit r = SOME result
     ==> dom_Brz empty (singleton (normalize r) ())
-                (1,singleton (normalize r) 0, [])`,
+                (1,singleton (normalize r) 0, [])
+Proof
   rw[compile_regexp_with_limit_def, dom_Brz_def, MAXNUM_32_def]
   >> every_case_tac
-  >> metis_tac [IS_SOME_EXISTS]);
+  >> metis_tac [IS_SOME_EXISTS]
+QED
 
-val compile_regexp_with_limit_lookup = Q.prove(
-  `!r state_numbering delta accepts.
+Triviality compile_regexp_with_limit_lookup:
+  !r state_numbering delta accepts.
    compile_regexp_with_limit r = SOME(state_numbering,delta,accepts)
-   ==> IS_SOME(lookup regexp_compare (normalize r) state_numbering)`,
+   ==> IS_SOME(lookup regexp_compare (normalize r) state_numbering)
+Proof
   rpt strip_tac
   >> `normalize r ∈ fdom regexp_compare state_numbering`
        by(metis_tac[compile_regexp_with_limit_dom_brz,
                     compile_regexp_good_vec,
                     compile_regexp_with_limit_sound])
-  >> fs[regexp_mapTheory.fdom_def]);
+  >> fs[regexp_mapTheory.fdom_def]
+QED
 
 Theorem tolist_fromlist_map_cancel:
    MAP mlvector$toList (MAP fromList ll) = ll
@@ -290,17 +304,21 @@ QED
 val compile_regexp_with_limit_side_def =
     fetch"-" "compile_regexp_with_limit_side_def"
 
-val lem = Q.prove
-(`!bst. balanced_map$null bst <=> (bst = Tip)`,
- Cases >> rw[balanced_mapTheory.null_def]);
+Triviality lem:
+  !bst. balanced_map$null bst <=> (bst = Tip)
+Proof
+  Cases >> rw[balanced_mapTheory.null_def]
+QED
 
 val brz_side_def =
   fetch "-" "brz_side_def"
     |> simp_rule [deleteFindmin_side_thm,lem]
 
-val brz_side_thm = Q.prove
-(`!a b c d. brz_side a b c d`,
- Induct_on `d` >> rw[Once brz_side_def]);
+Triviality brz_side_thm:
+  !a b c d. brz_side a b c d
+Proof
+  Induct_on `d` >> rw[Once brz_side_def]
+QED
 
 val regexp_matcher_with_limit_side_def = Q.prove
 (`!r s. regexp_matcher_with_limit_side r s ⇔ T`,

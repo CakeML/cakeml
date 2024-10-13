@@ -409,17 +409,21 @@ Definition pop_env_def:
     | _ => NONE
 End
 
-val push_env_clock = Q.prove(
-  `(wordSem$push_env env b ^s).clock = s.clock`,
+Triviality push_env_clock:
+  (wordSem$push_env env b ^s).clock = s.clock
+Proof
   Cases_on `b` \\ TRY(PairCases_on`x`) \\ full_simp_tac(srw_ss())[push_env_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
+  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+QED
 
-val pop_env_clock = Q.prove(
-  `(wordSem$pop_env ^s = SOME s1) ==> (s1.clock = s.clock)`,
+Triviality pop_env_clock:
+  (wordSem$pop_env ^s = SOME s1) ==> (s1.clock = s.clock)
+Proof
   full_simp_tac(srw_ss())[pop_env_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
+  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+QED
 
 Definition jump_exc_def:
   jump_exc ^s =
@@ -783,15 +787,19 @@ Definition bad_dest_args_def:
   bad_dest_args dest args ⇔ dest = NONE ∧ args = []
 End
 
-val termdep_rw = Q.prove(
-  `((call_env p_1 ss ^s).termdep = s.termdep) /\
+Triviality termdep_rw:
+  ((call_env p_1 ss ^s).termdep = s.termdep) /\
     ((dec_clock s).termdep = s.termdep) /\
-    ((set_var n v s).termdep = s.termdep)`,
-  EVAL_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
+    ((set_var n v s).termdep = s.termdep)
+Proof
+  EVAL_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+QED
 
-val fix_clock_IMP_LESS_EQ = Q.prove(
-  `!x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep`,
-  full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
+Triviality fix_clock_IMP_LESS_EQ:
+  !x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep
+Proof
+  full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac
+QED
 
 Definition MustTerminate_limit_def[nocompute]:
   MustTerminate_limit (:'a) =
@@ -1093,13 +1101,15 @@ Proof
   simp[]
 QED
 
-val inst_clock = Q.prove(
-  `inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep`,
+Triviality inst_clock:
+  inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep
+Proof
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
   \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[mem_store_def] \\ SRW_TAC [] []
-  \\ EVAL_TAC \\ fs[]);
+  \\ EVAL_TAC \\ fs[]
+QED
 
 Theorem evaluate_clock:
    !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==>

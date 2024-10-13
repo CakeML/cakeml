@@ -29,10 +29,12 @@ val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
 
 val PUSH_EXISTS_IMP = SPEC_ALL RIGHT_EXISTS_IMP_THM;
 
-val v_size_lemma = Q.prove(
-  `MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl`,
+Triviality v_size_lemma:
+  MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl
+Proof
   Induct_on `vl` >> dsimp[v_size_def] >> rpt strip_tac >>
-  res_tac >> simp[]);
+  res_tac >> simp[]
+QED
 
 Theorem code_locs_GENLIST_Var[simp]:
    ∀n t i. code_locs (GENLIST_Var t i n) = []
@@ -74,10 +76,12 @@ Definition every_refv_def:
 End
 val _ = export_rewrites["every_refv_def"];
 
-val IMP_EXISTS_IFF = Q.prove(
-  `!xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
-         (EXISTS P xs <=> EXISTS Q xs)`,
-  Induct \\ fs []);
+Triviality IMP_EXISTS_IFF:
+  !xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
+         (EXISTS P xs <=> EXISTS Q xs)
+Proof
+  Induct \\ fs []
+QED
 
 (* -- *)
 
@@ -1113,10 +1117,11 @@ Proof
   \\ metis_tac[SND_insert_each, SND, FST_insert_each_same, FST]
 QED
 
-val calls_acc_0 = Q.prove(
-  `!xs tmp x r.
+Triviality calls_acc_0:
+  !xs tmp x r.
      x ++ r = SND tmp ⇒
-     calls xs tmp = (I ## I ## (combin$C (++) r)) (calls xs (FST tmp, x))`,
+     calls xs tmp = (I ## I ## (combin$C (++) r)) (calls xs (FST tmp, x))
+Proof
   recInduct calls_ind
   \\ rw[calls_def]
   \\ rpt(pairarg_tac \\ fs[])
@@ -1190,7 +1195,8 @@ val calls_acc_0 = Q.prove(
     \\ strip_tac \\ rveq \\ fs[]
     \\ pairmaparg_tac \\ fs[]
     \\ `q'' = q` by metis_tac[FST_code_list, FST]
-    \\ fs[] ));
+    \\ fs[] )
+QED
 
 Theorem calls_acc:
    !xs d old res d1 aux.
@@ -4289,30 +4295,36 @@ Proof
   )
 QED
 
-val code_locs_calls_list = Q.prove(`
-  ∀ls n tr i. code_locs (MAP SND (calls_list tr i n ls)) = []`,
+Triviality code_locs_calls_list:
+  ∀ls n tr i. code_locs (MAP SND (calls_list tr i n ls)) = []
+Proof
   Induct>>fs[calls_list_def,FORALL_PROD,Once code_locs_cons]>>
-  rw[Once code_locs_def])
+  rw[Once code_locs_def]
+QED
 
-val code_locs_code_list_MEM = Q.prove(`
+Triviality code_locs_code_list_MEM:
   ∀ls n rest x.
   MEM x (code_locs (MAP (SND o SND) (SND (code_list n ls rest)))) ⇔
-  MEM x (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))`,
+  MEM x (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))
+Proof
   Induct>>fs[code_list_def,FORALL_PROD,Once code_locs_cons,code_locs_append]>>
   rw[]>>EVAL_TAC>>
   rw[EQ_IMP_THM]>>
-  fs[Once code_locs_cons,code_locs_def])
+  fs[Once code_locs_cons,code_locs_def]
+QED
 
-val code_locs_code_list_ALL_DISTINCT = Q.prove(`
+Triviality code_locs_code_list_ALL_DISTINCT:
   ∀ls n rest.
   ALL_DISTINCT (code_locs (MAP (SND o SND) (SND (code_list n ls rest)))) ⇔
-  ALL_DISTINCT (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))`,
+  ALL_DISTINCT (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))
+Proof
   Induct>>fs[code_list_def,FORALL_PROD,Once code_locs_cons,code_locs_append]>>
   rw[]>>EVAL_TAC>>
   fs[ALL_DISTINCT_APPEND]>>
   rw[EQ_IMP_THM]>>
   fs[Once code_locs_cons,ALL_DISTINCT_APPEND,code_locs_def]>>
-  metis_tac[])
+  metis_tac[]
+QED
 
 (* All code_locs come from the original code,
    and therefore, are all even

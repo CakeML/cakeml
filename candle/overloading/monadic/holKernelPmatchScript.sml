@@ -25,9 +25,11 @@ val _ = hide "state";
 Type M = ``: hol_refs -> ('a, hol_exn) exc # hol_refs``
 
 (* TODO: stolen from deepMatchesLib.sml; should be exported? *)
-val PAIR_EQ_COLLAPSE = Q.prove (
-`(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))`,
-Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[])
+Triviality PAIR_EQ_COLLAPSE:
+  (((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))
+Proof
+  Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[]
+QED
 
 val pabs_elim_ss =
     simpLib.conv_ss

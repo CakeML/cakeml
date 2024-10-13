@@ -5968,11 +5968,12 @@ Proof
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[isWord_def]
 QED
 
-val word_gc_move_roots_IMP_FILTER0 = Q.prove(
-  `!ws i pa old m dm ws2 i2 pa2 m2 c2 c.
+Triviality word_gc_move_roots_IMP_FILTER0:
+  !ws i pa old m dm ws2 i2 pa2 m2 c2 c.
       word_gc_move_roots c (ws,i,pa,old,m,dm) = (ws2,i2,pa2,m2,c2) ==>
       word_gc_move_roots c (FILTER isWord ws,i,pa,old,m,dm) =
-                           (FILTER isWord ws2,i2,pa2,m2,c2)`,
+                           (FILTER isWord ws2,i2,pa2,m2,c2)
+Proof
   Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def]
   \\ Cases \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_gc_move_roots_def]
@@ -5983,14 +5984,16 @@ val word_gc_move_roots_IMP_FILTER0 = Q.prove(
     \\ res_tac \\ fs [])
   \\ fs [isWord_def,word_gc_move_def,LET_DEF]
   \\ rpt (pairarg_tac \\ fs []) \\ fs [] \\ rveq
-  \\ res_tac \\ fs [isWord_def]);
+  \\ res_tac \\ fs [isWord_def]
+QED
 
-val word_gen_gc_move_roots_IMP_FILTER0 = Q.prove(
-  `!ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
+Triviality word_gen_gc_move_roots_IMP_FILTER0:
+  !ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
       word_gen_gc_move_roots c (ws,i,pa,ib,pb,old,m,dm) =
          (ws2,i2,pa2,ib2,pb2,m2,c2) ==>
       word_gen_gc_move_roots c (FILTER isWord ws,i,pa,ib,pb,old,m,dm) =
-                               (FILTER isWord ws2,i2,pa2,ib2,pb2,m2,c2)`,
+                               (FILTER isWord ws2,i2,pa2,ib2,pb2,m2,c2)
+Proof
   Induct \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def]
   \\ Cases \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def]
@@ -6001,7 +6004,8 @@ val word_gen_gc_move_roots_IMP_FILTER0 = Q.prove(
     \\ res_tac \\ fs [])
   \\ fs [isWord_def,word_gen_gc_move_def,LET_DEF]
   \\ rpt (pairarg_tac \\ fs []) \\ fs [] \\ rveq
-  \\ res_tac \\ fs [isWord_def]);
+  \\ res_tac \\ fs [isWord_def]
+QED
 
 Theorem word_gen_gc_partial_move_roots_IMP_FILTER:
    !ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.

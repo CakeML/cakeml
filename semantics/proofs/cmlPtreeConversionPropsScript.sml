@@ -395,10 +395,12 @@ Proof
   simp[ptree_Op_def, tokcheck_def, tokcheckl_def, singleSymP_def]
 QED
 
-val MAP_TK11 = Q.prove(
-  `∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2`,
+Triviality MAP_TK11:
+  ∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2
+Proof
   Induct_on `l1` >> simp[] >> rpt gen_tac >>
-  Cases_on `l2` >> simp[]);
+  Cases_on `l2` >> simp[]
+QED
 val _ = augment_srw_ss [rewrites [MAP_TK11]]
 
 Theorem OpID_OK:

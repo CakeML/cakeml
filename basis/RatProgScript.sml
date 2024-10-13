@@ -52,10 +52,11 @@ val _ = add_type_inv ``REAL_TYPE`` ``:rational``;
 
 (* transfer *)
 
-val RAT_RAT = Q.prove(
-  `(!r1. real_of_rat (f1 r1) = f2 (real_of_rat r1)) ==>
+Triviality RAT_RAT:
+  (!r1. real_of_rat (f1 r1) = f2 (real_of_rat r1)) ==>
    !v. (RAT_TYPE --> RAT_TYPE) f1 v ==>
-       (REAL_TYPE --> REAL_TYPE) f2 v`,
+       (REAL_TYPE --> REAL_TYPE) f2 v
+Proof
   strip_tac
   \\ SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
                           FORALL_PROD] \\ rw []
@@ -64,12 +65,14 @@ val RAT_RAT = Q.prove(
                      mp_then.mp_then (mp_then.Pos hd)
                                     (qspec_then ‘R’ strip_assume_tac))
   \\ fs [] \\ asm_exists_tac \\ fs []
-  \\ fs [] \\ asm_exists_tac \\ fs []);
+  \\ fs [] \\ asm_exists_tac \\ fs []
+QED
 
-val RAT_RAT_RAT = Q.prove(
-  `(!r1 r2. real_of_rat (f1 r1 r2) = f2 (real_of_rat r1) (real_of_rat r2)) ==>
+Triviality RAT_RAT_RAT:
+  (!r1 r2. real_of_rat (f1 r1 r2) = f2 (real_of_rat r1) (real_of_rat r2)) ==>
    !v. (RAT_TYPE --> RAT_TYPE --> RAT_TYPE) f1 v ==>
-       (REAL_TYPE --> REAL_TYPE --> REAL_TYPE) f2 v`,
+       (REAL_TYPE --> REAL_TYPE --> REAL_TYPE) f2 v
+Proof
   strip_tac
   \\ SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
                           FORALL_PROD] \\ rw []
@@ -81,12 +84,14 @@ val RAT_RAT_RAT = Q.prove(
   \\ rw [] \\ first_x_assum drule
   \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
   \\ disch_then (qspec_then `refs2` mp_tac)
-  \\ strip_tac \\ rpt (asm_exists_tac \\ fs []));
+  \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
+QED
 
-val RAT_RAT_BOOL = Q.prove(
-  `(!r1 r2. f1 r1 r2 <=> f2 (real_of_rat r1) (real_of_rat r2)) ==>
+Triviality RAT_RAT_BOOL:
+  (!r1 r2. f1 r1 r2 <=> f2 (real_of_rat r1) (real_of_rat r2)) ==>
    !v. (RAT_TYPE --> RAT_TYPE --> BOOL) f1 v ==>
-       (REAL_TYPE --> REAL_TYPE --> BOOL) f2 v`,
+       (REAL_TYPE --> REAL_TYPE --> BOOL) f2 v
+Proof
   strip_tac
   \\ SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
                           FORALL_PROD] \\ rw []
@@ -98,23 +103,28 @@ val RAT_RAT_BOOL = Q.prove(
   \\ rw [] \\ first_x_assum drule
   \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
   \\ disch_then (qspec_then `refs2` mp_tac)
-  \\ strip_tac \\ rpt (asm_exists_tac \\ fs []));
+  \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
+QED
 
-val RAT_BOOL = Q.prove(
-  `(!r1. (f1 r1) = f2 (real_of_rat r1)) ==>
+Triviality RAT_BOOL:
+  (!r1. (f1 r1) = f2 (real_of_rat r1)) ==>
    !v. (RAT_TYPE --> BOOL) f1 v ==>
-       (REAL_TYPE --> BOOL) f2 v`,
+       (REAL_TYPE --> BOOL) f2 v
+Proof
   strip_tac
   \\ SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
-                          FORALL_PROD] \\ rw []);
+                          FORALL_PROD] \\ rw []
+QED
 
-val RAT_INT = Q.prove(
-  `(!r1. (f1 r1) = f2 (real_of_rat r1)) ==>
+Triviality RAT_INT:
+  (!r1. (f1 r1) = f2 (real_of_rat r1)) ==>
    !v. (RAT_TYPE --> INT) f1 v ==>
-       (REAL_TYPE --> INT) f2 v`,
+       (REAL_TYPE --> INT) f2 v
+Proof
   strip_tac
   \\ SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
-                          FORALL_PROD] \\ rw []);
+                          FORALL_PROD] \\ rw []
+QED
 
 
 (* -- *)
@@ -362,8 +372,9 @@ Proof
          arithmeticTheory.NOT_ZERO_LT_ZERO])
 QED
 
-val INT_NEG_DIV_FACTOR = Q.prove(
-  ‘0 < (x:num) ==> (-&(x * y):int / &x = -&y)’,
+Triviality INT_NEG_DIV_FACTOR:
+  0 < (x:num) ==> (-&(x * y):int / &x = -&y)
+Proof
   strip_tac >> qspec_then ‘&x’ mp_tac integerTheory.INT_DIVISION >>
   simp[] >> disch_then (qspec_then ‘-&(x * y)’ strip_assume_tac) >>
   map_every qabbrev_tac [`D:int = -&(x * y)`, `q = D / &x`, `r = D % &x`] >>
@@ -388,7 +399,8 @@ val INT_NEG_DIV_FACTOR = Q.prove(
   >- (rename [‘q + &y = 0’] >> disch_then kall_tac >>
       ‘q + &y + -&y = -&y’ by metis_tac [integerTheory.INT_ADD_LID] >>
       metis_tac[integerTheory.INT_ADD_ASSOC, integerTheory.INT_ADD_RID,
-                integerTheory.INT_ADD_RINV]))
+                integerTheory.INT_ADD_RINV])
+QED
 
 val PAIR_TYPE_IMP_RAT_TYPE = prove(
   ``r = rat_of_int m / & n /\ n <> 0 ==>
@@ -424,9 +436,11 @@ End
 val _ = next_ml_names := ["+"];
 val pair_add_v_thm = translate pair_add_def;
 
-val abs_rat_ONTO = Q.prove(
-  ‘!r. ?f. abs_rat f = r’,
-  gen_tac >> qexists_tac ‘rep_rat r’ >> simp[rat_type_thm]);
+Triviality abs_rat_ONTO:
+  !r. ?f. abs_rat f = r
+Proof
+  gen_tac >> qexists_tac ‘rep_rat r’ >> simp[rat_type_thm]
+QED
 
 val Eval_RAT_ADD = Q.prove(
   `!v.

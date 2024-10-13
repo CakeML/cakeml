@@ -139,12 +139,13 @@ val r = translate partition_def;
 val partition_ind = fetch "-" "partition_ind"
 val heap_size_def = fetch "-" "heap_size_def"
 
-val partition_size = Q.prove (
-`!get_key leq p h1 h2 h3.
+Triviality partition_size:
+  !get_key leq p h1 h2 h3.
   ((h2,h3) = partition get_key leq p h1)
   ⇒
-  heap_size f h2 ≤ heap_size f h1 ∧ heap_size f h3 ≤ heap_size f h1`,
-recInduct partition_ind >>
+  heap_size f h2 ≤ heap_size f h1 ∧ heap_size f h3 ≤ heap_size f h1
+Proof
+  recInduct partition_ind >>
 rw [heap_size_def, partition_def] >>
 every_case_tac >>
 fs [] >>
@@ -153,7 +154,8 @@ cases_on `partition get_key leq pivot h0` >>
 cases_on `partition get_key leq pivot h` >>
 fs [LET_THM] >>
 rw [heap_size_def] >>
-decide_tac);
+decide_tac
+QED
 
 Definition insert_def:
 insert get_key leq x t =

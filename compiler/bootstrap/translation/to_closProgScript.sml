@@ -32,9 +32,11 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -225,9 +227,11 @@ val r = translate clos_opTheory.SmartOp_def;
 
 val r = translate clos_knownTheory.merge_alt;
 
-val num_abs_intro = Q.prove(`
-  ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x`,
-  rw[]>>intLib.COOPER_TAC);
+Triviality num_abs_intro:
+  ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x
+Proof
+  rw[]>>intLib.COOPER_TAC
+QED
 
 val r = translate (clos_knownTheory.known_op_def
                    |> ONCE_REWRITE_RULE [num_abs_intro]

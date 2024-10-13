@@ -171,10 +171,12 @@ Proof
   Cases \\ rw[Word64Rep_def]
 QED
 
-val v_size_LEMMA = Q.prove(
-  `!vs v. MEM v vs ==> v_size v <= v1_size vs`,
+Triviality v_size_LEMMA:
+  !vs v. MEM v vs ==> v_size v <= v1_size vs
+Proof
   Induct \\ full_simp_tac (srw_ss()) [v_size_def]
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [] \\ DECIDE_TAC);
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [] \\ DECIDE_TAC
+QED
 
 (*
   code pointers (i.e. Locs) will end in ...0
@@ -433,9 +435,11 @@ val EVERY2_EQ_EL = LIST_REL_EL_EQN
 val EVERY2_IMP_EL = METIS_PROVE[EVERY2_EQ_EL]
   ``!xs ys P. EVERY2 P xs ys ==> !n. n < LENGTH ys ==> P (EL n xs) (EL n ys)``
 
-val EVERY2_MAP_FST_SND = Q.prove(
-  `!xs. EVERY2 P (MAP FST xs) (MAP SND xs) = EVERY (\(x,y). P x y) xs`,
-  Induct \\ srw_tac [] [LIST_REL_def] \\ Cases_on `h` \\ srw_tac [] []);
+Triviality EVERY2_MAP_FST_SND:
+  !xs. EVERY2 P (MAP FST xs) (MAP SND xs) = EVERY (\(x,y). P x y) xs
+Proof
+  Induct \\ srw_tac [] [LIST_REL_def] \\ Cases_on `h` \\ srw_tac [] []
+QED
 
 Theorem fapply_fupdate_update:
    $' (f |+ p) = (FST p =+ SND p) ($' f)
@@ -444,19 +448,23 @@ Proof
   simp[FUN_EQ_THM,FAPPLY_FUPDATE_THM,APPLY_UPDATE_THM] >> rw[]
 QED
 
-val heap_lookup_APPEND1 = Q.prove(
-  `∀h1 z h2.
+Triviality heap_lookup_APPEND1:
+  ∀h1 z h2.
     heap_length h1 ≤ z ⇒
-    (heap_lookup z (h1 ++ h2) = heap_lookup (z - heap_length h1) h2)`,
+    (heap_lookup z (h1 ++ h2) = heap_lookup (z - heap_length h1) h2)
+Proof
   Induct >>fs[heap_lookup_def,heap_length_def] >> rw[] >> simp[]
-  >> fsrw_tac[ARITH_ss][] >> Cases_on`h`>>fs[el_length_def])
+  >> fsrw_tac[ARITH_ss][] >> Cases_on`h`>>fs[el_length_def]
+QED
 
-val heap_lookup_APPEND2 = Q.prove(
-  `∀h1 z h2.
+Triviality heap_lookup_APPEND2:
+  ∀h1 z h2.
     z < heap_length h1 ⇒
-    (heap_lookup z (h1 ++ h2) = heap_lookup z h1)`,
+    (heap_lookup z (h1 ++ h2) = heap_lookup z h1)
+Proof
   Induct >> fs[heap_lookup_def,heap_length_def] >> rw[] >>
-  simp[])
+  simp[]
+QED
 
 Theorem heap_lookup_APPEND:
    heap_lookup a (h1 ++ h2) =
@@ -470,30 +478,37 @@ QED
 
 (* Prove refinement is maintained past GC calls *)
 
-val LENGTH_ADDR_MAP = Q.prove(
-  `!xs f. LENGTH (ADDR_MAP f xs) = LENGTH xs`,
-  Induct \\ TRY (Cases_on `h`) \\ srw_tac [] [ADDR_MAP_def]);
+Triviality LENGTH_ADDR_MAP:
+  !xs f. LENGTH (ADDR_MAP f xs) = LENGTH xs
+Proof
+  Induct \\ TRY (Cases_on `h`) \\ srw_tac [] [ADDR_MAP_def]
+QED
 
-val MEM_IMP_v_size = Q.prove(
-  `!l a. MEM a l ==> v_size a < 1 + v1_size l`,
+Triviality MEM_IMP_v_size:
+  !l a. MEM a l ==> v_size a < 1 + v1_size l
+Proof
   Induct \\ full_simp_tac std_ss [MEM,v_size_def]
-  \\ rpt strip_tac \\ full_simp_tac std_ss [] \\ res_tac \\ DECIDE_TAC);
+  \\ rpt strip_tac \\ full_simp_tac std_ss [] \\ res_tac \\ DECIDE_TAC
+QED
 
-val EL_ADDR_MAP = Q.prove(
-  `!xs n f.
-      n < LENGTH xs ==> (EL n (ADDR_MAP f xs) = ADDR_APPLY f (EL n xs))`,
+Triviality EL_ADDR_MAP:
+  !xs n f.
+      n < LENGTH xs ==> (EL n (ADDR_MAP f xs) = ADDR_APPLY f (EL n xs))
+Proof
   Induct \\ full_simp_tac (srw_ss()) [] \\ Cases_on `n` \\ Cases_on `h`
-  \\ full_simp_tac (srw_ss()) [ADDR_MAP_def,ADDR_APPLY_def]);
+  \\ full_simp_tac (srw_ss()) [ADDR_MAP_def,ADDR_APPLY_def]
+QED
 
 val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 
-val v_inv_related = Q.prove(
-  `!w x f tf.
+Triviality v_inv_related:
+  !w x f tf.
         gc_shared$gc_related g heap1 (heap2:'a ml_heap) /\
       (!ptr u. (x = Pointer ptr u) ==> ptr IN FDOM g) /\
       v_inv conf w (x,f,tf,heap1) ==>
       v_inv conf w (ADDR_APPLY (FAPPLY g) x,g f_o_f f,g f_o_f tf,heap2) /\
-      EVERY (\n. f ' n IN FDOM g) (get_refs w)`,
+      EVERY (\n. f ' n IN FDOM g) (get_refs w)
+Proof
   completeInduct_on `v_size w` \\ NTAC 6 strip_tac
   \\ fs[PULL_FORALL] \\ Cases_on `w` THEN1
    (fs[v_inv_def,get_refs_def,EVERY_DEF]
@@ -548,19 +563,23 @@ val v_inv_related = Q.prove(
   THEN1
     (full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def]
      \\ sg `n IN FDOM (g f_o_f f)` \\ asm_simp_tac std_ss []
-     \\ full_simp_tac (srw_ss()) [f_o_f_DEF,get_refs_def]));
+     \\ full_simp_tac (srw_ss()) [f_o_f_DEF,get_refs_def])
+QED
 
-val EVERY2_ADDR_MAP = Q.prove(
-  `!zs l. EVERY2 P (ADDR_MAP g zs) l <=>
-           EVERY2 (\x y. P (ADDR_APPLY g x) y) zs l`,
+Triviality EVERY2_ADDR_MAP:
+  !zs l. EVERY2 P (ADDR_MAP g zs) l <=>
+           EVERY2 (\x y. P (ADDR_APPLY g x) y) zs l
+Proof
   Induct \\ Cases_on `l`
   \\ full_simp_tac std_ss [LIST_REL_def,ADDR_MAP_def] \\ Cases
-  \\ full_simp_tac std_ss [LIST_REL_def,ADDR_MAP_def,ADDR_APPLY_def]);
+  \\ full_simp_tac std_ss [LIST_REL_def,ADDR_MAP_def,ADDR_APPLY_def]
+QED
 
-val bc_ref_inv_related = Q.prove(
-  `gc_shared$gc_related g heap1 heap2 /\
+Triviality bc_ref_inv_related:
+  gc_shared$gc_related g heap1 heap2 /\
     bc_ref_inv conf n refs (f,tf,heap1,be) /\ (f ' n) IN FDOM g ==>
-    bc_ref_inv conf n refs (g f_o_f f,g f_o_f tf,heap2,be)`,
+    bc_ref_inv conf n refs (g f_o_f f,g f_o_f tf,heap2,be)
+Proof
   full_simp_tac std_ss [bc_ref_inv_def] \\ strip_tac \\ full_simp_tac std_ss []
   \\ MP_TAC v_inv_related \\ asm_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [f_o_f_DEF,gc_related_def,RefBlock_def] \\ res_tac
@@ -574,13 +593,15 @@ val bc_ref_inv_related = Q.prove(
   \\ rpt strip_tac \\ qpat_x_assum `EVERY2 qqq zs l` MP_TAC
   \\ match_mp_tac EVERY2_IMP_EVERY2 \\ simp_tac std_ss [] \\ rpt strip_tac
   \\ Cases_on `x'` \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def]
-  \\ res_tac \\ fs [ADDR_APPLY_def]);
+  \\ res_tac \\ fs [ADDR_APPLY_def]
+QED
 
-val RTC_lemma = Q.prove(
-  `!r n. RTC (ref_edge refs) r n ==>
+Triviality RTC_lemma:
+  !r n. RTC (ref_edge refs) r n ==>
           (!m. RTC (ref_edge refs) r m ==> bc_ref_inv conf m refs (f,tf,heap,be)) /\
           gc_shared$gc_related g heap heap2 /\
-          f ' r IN FDOM g ==> f ' n IN FDOM g`,
+          f ' r IN FDOM g ==> f ' n IN FDOM g
+Proof
   ho_match_mp_tac RTC_INDUCT \\ full_simp_tac std_ss [] \\ rpt strip_tac
   \\ full_simp_tac std_ss []
   \\ qpat_x_assum `bb ==> bbb` match_mp_tac \\ full_simp_tac std_ss []
@@ -606,14 +627,16 @@ val RTC_lemma = Q.prove(
   \\ res_tac \\ CCONTR_TAC \\ full_simp_tac std_ss []
   \\ srw_tac [] [] \\ POP_ASSUM MP_TAC \\ simp_tac std_ss []
   \\ imp_res_tac MEM_EVERY2_IMP \\ fs []
-  \\ fs [] \\ metis_tac []);
+  \\ fs [] \\ metis_tac []
+QED
 
-val reachable_refs_lemma = Q.prove(
-  `gc_related g heap heap2 /\
+Triviality reachable_refs_lemma:
+  gc_related g heap heap2 /\
     EVERY2 (\v x. v_inv conf v (x,f,tf,heap)) stack roots /\
     (!n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,tf,heap,be)) /\
     (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
-    (!n. reachable_refs stack refs n ==> n IN FDOM f /\ (f ' n) IN FDOM g)`,
+    (!n. reachable_refs stack refs n ==> n IN FDOM f /\ (f ' n) IN FDOM g)
+Proof
   NTAC 3 strip_tac \\ full_simp_tac std_ss [reachable_refs_def,PULL_EXISTS]
   \\ `?xs1 xs2. stack = xs1 ++ x::xs2` by metis_tac [MEM_SPLIT]
   \\ full_simp_tac std_ss [] \\ imp_res_tac LIST_REL_SPLIT1
@@ -626,13 +649,15 @@ val reachable_refs_lemma = Q.prove(
   \\ full_simp_tac std_ss []
   \\ `bc_ref_inv conf r refs (f,tf,heap,be)` by metis_tac [RTC_REFL]
   \\ `(!m. RTC (ref_edge refs) r m ==>
-           bc_ref_inv conf m refs (f,tf,heap,be))` by metis_tac [] \\ imp_res_tac RTC_lemma);
+           bc_ref_inv conf m refs (f,tf,heap,be))` by metis_tac [] \\ imp_res_tac RTC_lemma
+QED
 
-val bc_stack_ref_inv_related = Q.prove(
-  `gc_related g heap1 heap2 /\
+Triviality bc_stack_ref_inv_related:
+  gc_related g heap1 heap2 /\
     bc_stack_ref_inv conf ts stack refs (roots,heap1,be) /\
     (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
-    bc_stack_ref_inv conf ts stack refs (ADDR_MAP (FAPPLY g) roots,heap2,be)`,
+    bc_stack_ref_inv conf ts stack refs (ADDR_MAP (FAPPLY g) roots,heap2,be)
+Proof
   rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ qexists_tac `g f_o_f f`
   \\ qexists_tac `g f_o_f tf`
@@ -651,7 +676,8 @@ val bc_stack_ref_inv_related = Q.prove(
     \\ imp_res_tac v_inv_related \\ imp_res_tac EL_ADDR_MAP
     \\ full_simp_tac std_ss [])
   \\ match_mp_tac bc_ref_inv_related \\ full_simp_tac std_ss []
-  \\ metis_tac [reachable_refs_lemma]);
+  \\ metis_tac [reachable_refs_lemma]
+QED
 
 Theorem data_up_to_APPEND[simp]:
    data_up_to (heap_length xs) (xs ++ ys) <=> EVERY isDataElement xs
@@ -789,33 +815,40 @@ Definition make_gc_conf_def:
         : (tag # 'a) gen_gc$gen_gc_conf
 End
 
-val gc_move_data_refs_split = Q.prove(`
+Triviality gc_move_data_refs_split:
   (gen_gc$gc_move cc s x = (x1,s1)) /\ (!t r. (cc.isRef (t,r) <=> t = RefTag))
    /\ EVERY isDataElement s.h2 /\(EVERY (λx. ¬isRef x)) s.h2 /\ EVERY isRef s.r4 ==>
    EVERY isDataElement s1.h2 /\
-   (EVERY (λx. ¬isRef x)) s1.h2 /\ EVERY isRef s1.r4`,
+   (EVERY (λx. ¬isRef x)) s1.h2 /\ EVERY isRef s1.r4
+Proof
   Cases_on `x` >> fs[gen_gcTheory.gc_move_def]
   >> rpt strip_tac >> rveq >> fs[]
   >> every_case_tac >> rveq >> fs[]
   >> TRY pairarg_tac >> fs[]
   >> qpat_x_assum `_ = s1` (assume_tac o GSYM) >> fs[isDataElement_def]
-  >> Cases_on `b` >> fs[isRef_def] >> metis_tac[]);
+  >> Cases_on `b` >> fs[isRef_def] >> metis_tac[]
+QED
 
-val gc_move_list_data_refs_split = Q.prove(`!x x1 s s1.
+Triviality gc_move_list_data_refs_split:
+  !x x1 s s1.
   (gen_gc$gc_move_list cc s x = (x1,s1)) /\ (!t r. (cc.isRef (t,r) <=> t = RefTag))
    /\ EVERY isDataElement s.h2 /\(EVERY (λx. ¬isRef x)) s.h2 /\ EVERY isRef s.r4 ==>
-   EVERY isDataElement s1.h2 /\(EVERY (λx. ¬isRef x)) s1.h2 /\ EVERY isRef s1.r4`,
+   EVERY isDataElement s1.h2 /\(EVERY (λx. ¬isRef x)) s1.h2 /\ EVERY isRef s1.r4
+Proof
   Induct >> fs[gen_gcTheory.gc_move_list_def]
   >> rpt strip_tac >> rpt(pairarg_tac >> fs[])
-  >> drule gc_move_data_refs_split >> metis_tac[]);
+  >> drule gc_move_data_refs_split >> metis_tac[]
+QED
 
-val gc_move_refs_data_refs_split = Q.prove(`!cc s s1.
+Triviality gc_move_refs_data_refs_split:
+  !cc s s1.
   (gen_gc$gc_move_refs cc s = s1) /\ (!t r. (cc.isRef (t,r) <=> t = RefTag))
    /\ EVERY isDataElement (s.h1++s.h2) /\ (EVERY (λx. ¬isRef x)) (s.h1++s.h2) /\
    EVERY isRef (s.r1 ++ s.r2 ++ s.r3 ++ s.r4) ==>
    EVERY isDataElement (s1.h1++s1.h2) /\
    (EVERY (λx. ¬isRef x)) (s1.h1++s1.h2) /\
-   EVERY isRef (s1.r1 ++ s1.r2 ++ s1.r3 ++ s1.r4)`,
+   EVERY isRef (s1.r1 ++ s1.r2 ++ s1.r3 ++ s1.r4)
+Proof
   recInduct (fetch "gen_gc" "gc_move_refs_ind")
   >> rpt strip_tac
   >> qpat_x_assum `gc_move_refs _ _ = _` mp_tac
@@ -826,16 +859,19 @@ val gc_move_refs_data_refs_split = Q.prove(`!cc s s1.
   >> drule gen_gcTheory.gc_move_list_IMP >> strip_tac >> fs[]
   >> drule gc_move_list_data_refs_split >> fs[] >> strip_tac
   >> first_x_assum drule >> fs[]
-  >> Cases_on `b` >> fs[isRef_def]);
+  >> Cases_on `b` >> fs[isRef_def]
+QED
 
-val gc_move_data_data_refs_split = Q.prove(`!cc s s1.
+Triviality gc_move_data_data_refs_split:
+  !cc s s1.
   (gen_gc$gc_move_data cc s = s1) /\ (!t r. (cc.isRef (t,r) <=> t = RefTag))
    /\ (EVERY (λx. ¬isRef x)) (s.h1++s.h2) /\
    EVERY isDataElement (s.h1++s.h2) /\
    EVERY isRef (s.r1 ++ s.r2 ++ s.r3 ++ s.r4) ==>
    EVERY isDataElement (s1.h1++s1.h2) /\
    (EVERY (λx. ¬isRef x)) (s1.h1++s1.h2) /\
-   EVERY isRef (s1.r1 ++ s1.r2 ++ s1.r3 ++ s1.r4)`,
+   EVERY isRef (s1.r1 ++ s1.r2 ++ s1.r3 ++ s1.r4)
+Proof
   recInduct (fetch "gen_gc" "gc_move_data_ind")
   >> rpt strip_tac >> qpat_x_assum `gc_move_data _ _ = _` mp_tac
   >> simp[Once gen_gcTheory.gc_move_data_def]
@@ -845,9 +881,11 @@ val gc_move_data_data_refs_split = Q.prove(`!cc s s1.
   >> drule gc_move_list_data_refs_split >> fs[] >> strip_tac
   >> first_x_assum drule >> fs[]
   >> Cases_on `b` >> fs[isRef_def]
-  >> Cases_on `state''.h2` >> fs[] >> rfs[isDataElement_def]);
+  >> Cases_on `state''.h2` >> fs[] >> rfs[isDataElement_def]
+QED
 
-val gc_move_loop_data_refs_split = Q.prove(`!clock cc s s1.
+Triviality gc_move_loop_data_refs_split:
+  !clock cc s s1.
   (gen_gc$gc_move_loop cc s clock = s1) /\
   (!t r. (cc.isRef (t,r) <=> t = RefTag)) /\
   EVERY isDataElement (s.h1++s.h2) /\
@@ -855,7 +893,8 @@ val gc_move_loop_data_refs_split = Q.prove(`!clock cc s s1.
   EVERY isRef (s.r1 ++ s.r2 ++ s.r3 ++ s.r4) ==>
   EVERY isDataElement (s1.h1++s1.h2) /\
   (EVERY (λx. ¬isRef x)) (s1.h1++s1.h2) /\
-  EVERY isRef (s1.r1 ++ s1.r2 ++ s1.r3 ++ s1.r4)`,
+  EVERY isRef (s1.r1 ++ s1.r2 ++ s1.r3 ++ s1.r4)
+Proof
   Induct >> rpt strip_tac >> qpat_x_assum `gc_move_loop _ _ _ = _` mp_tac
   >> PURE_ONCE_REWRITE_TAC [gen_gcTheory.gc_move_loop_def]
   >> every_case_tac >> fs[]
@@ -868,14 +907,17 @@ val gc_move_loop_data_refs_split = Q.prove(`!clock cc s s1.
   >> drule gc_move_refs_data_refs_split >> drule gc_move_data_data_refs_split
   >> fs[] >> rpt strip_tac
   >> qpat_x_assum `_ = s1` (assume_tac o GSYM) >> fs[]
-  >> rpt strip_tac >> fs[]);
+  >> rpt strip_tac >> fs[]
+QED
 
-val gen_gc_data_refs_split = Q.prove(`!cc roots heap.
+Triviality gen_gc_data_refs_split:
+  !cc roots heap.
   (gen_gc cc (roots,heap) = (roots1,s)) /\
   (!t r. (cc.isRef (t,r) <=> t = RefTag)) ==>
   (EVERY (λx. ¬isRef x)) (s.h1 ++ s.h2) /\
   EVERY isDataElement (s.h1 ++ s.h2) /\
-  EVERY isRef (s.r1 ++ s.r2 ++ s.r3 ++ s.r4)`,
+  EVERY isRef (s.r1 ++ s.r2 ++ s.r3 ++ s.r4)
+Proof
   rpt strip_tac >> fs[gen_gcTheory.gen_gc_def]
   >> rpt (pairarg_tac >> fs[])
   >> drule gc_move_list_data_refs_split >> fs[empty_state_def]
@@ -883,7 +925,8 @@ val gen_gc_data_refs_split = Q.prove(`!cc roots heap.
   >> drule gen_gcTheory.gc_move_list_IMP
   >> fs[] >> disch_then (assume_tac o GSYM) >> fs[]
   >> drule gc_move_loop_data_refs_split
-  >> fs []);
+  >> fs []
+QED
 
 Theorem heap_expand_not_isRef:
   EVERY (λx. ¬isRef x) (heap_expand n)
@@ -1319,30 +1362,36 @@ Definition heap_store_rel_def:
            (heap_lookup ptr heap2 = heap_lookup ptr heap))
 End
 
-val isSomeDataElement_heap_lookup_lemma1 = Q.prove(
-  `isSomeDataElement (heap_lookup n (Unused k :: xs)) <=>
-    k < n /\ isSomeDataElement (heap_lookup (n-(k+1)) xs)`,
+Triviality isSomeDataElement_heap_lookup_lemma1:
+  isSomeDataElement (heap_lookup n (Unused k :: xs)) <=>
+    k < n /\ isSomeDataElement (heap_lookup (n-(k+1)) xs)
+Proof
   srw_tac [] [heap_lookup_def,isSomeDataElement_def,el_length_def,NOT_LESS]
   THEN1 (DISJ1_TAC \\ DECIDE_TAC)
-  \\ `k < n` by DECIDE_TAC \\ full_simp_tac std_ss []);
+  \\ `k < n` by DECIDE_TAC \\ full_simp_tac std_ss []
+QED
 
-val isSomeDataElement_heap_lookup_lemma2 = Q.prove(
-  `isSomeDataElement (heap_lookup n (heap_expand k ++ xs)) <=>
-    k <= n /\ isSomeDataElement (heap_lookup (n-k) xs)`,
+Triviality isSomeDataElement_heap_lookup_lemma2:
+  isSomeDataElement (heap_lookup n (heap_expand k ++ xs)) <=>
+    k <= n /\ isSomeDataElement (heap_lookup (n-k) xs)
+Proof
   srw_tac [] [heap_expand_def,isSomeDataElement_heap_lookup_lemma1]
   \\ imp_res_tac (DECIDE ``sp <> 0 ==> (sp - 1 + 1 = sp:num)``)
   \\ full_simp_tac std_ss []
   \\ Cases_on `isSomeDataElement (heap_lookup (n - k) xs)`
-  \\ full_simp_tac std_ss [] \\ DECIDE_TAC);
+  \\ full_simp_tac std_ss [] \\ DECIDE_TAC
+QED
 
-val isSomeDataElement_heap_lookup_lemma3 = Q.prove(
-  `n <> 0 ==>
+Triviality isSomeDataElement_heap_lookup_lemma3:
+  n <> 0 ==>
     (isSomeDataElement (heap_lookup n (x::xs)) <=>
-     el_length x <= n /\ isSomeDataElement (heap_lookup (n - el_length x) xs))`,
+     el_length x <= n /\ isSomeDataElement (heap_lookup (n - el_length x) xs))
+Proof
   srw_tac [] [heap_expand_def,heap_lookup_def,isSomeDataElement_def]
   \\ Cases_on`n < el_length x` THEN srw_tac[][]
   THEN1 (DISJ1_TAC \\ DECIDE_TAC)
-  \\ `el_length x <= n` by DECIDE_TAC \\ full_simp_tac std_ss []);
+  \\ `el_length x <= n` by DECIDE_TAC \\ full_simp_tac std_ss []
+QED
 
 Theorem IMP_heap_store_unused[local]:
   unused_space_inv a sp (heap:('a,'b) heap_element list) /\
@@ -1465,8 +1514,8 @@ Proof
   \\ full_simp_tac std_ss [] \\ fs[]
 QED
 
-val IMP_heap_store_unused_alt = Q.prove(
-  `unused_space_inv a sp (heap:('a,'b) heap_element list) /\
+Triviality IMP_heap_store_unused_alt:
+  unused_space_inv a sp (heap:('a,'b) heap_element list) /\
     el_length x <= sp ==>
     ?heap2. (heap_store_unused_alt a sp x heap = (heap2,T)) /\
             (isDataElement x ==>
@@ -1483,7 +1532,8 @@ val IMP_heap_store_unused_alt = Q.prove(
             (isDataElement x ==>
              ({a | isSomeDataElement (heap_lookup a heap2)} =
                a INSERT {a | isSomeDataElement (heap_lookup a heap)})) /\
-            heap_store_rel heap heap2`,
+            heap_store_rel heap heap2
+Proof
   rpt strip_tac \\ asm_simp_tac std_ss [heap_store_unused_alt_def,heap_store_rel_def]
   \\ `sp <> 0` by (Cases_on `x` \\ full_simp_tac std_ss [el_length_def] \\ DECIDE_TAC)
   \\ full_simp_tac std_ss [unused_space_inv_def]
@@ -1560,21 +1610,25 @@ val IMP_heap_store_unused_alt = Q.prove(
   \\ fs [el_length_def]
   \\ imp_res_tac LESS_EQUAL_ANTISYM \\ fs []
   \\ rveq \\ fs []
-  \\ rfs [GSYM SUB_PLUS]);
+  \\ rfs [GSYM SUB_PLUS]
+QED
 
-val heap_store_rel_lemma = Q.prove(
-  `heap_store_rel h1 h2 /\ (heap_lookup n h1 = SOME (DataElement ys l d)) ==>
-    (heap_lookup n h2 = SOME (DataElement ys l d))`,
-  simp_tac std_ss [heap_store_rel_def,isSomeDataElement_def] \\ metis_tac []);
+Triviality heap_store_rel_lemma:
+  heap_store_rel h1 h2 /\ (heap_lookup n h1 = SOME (DataElement ys l d)) ==>
+    (heap_lookup n h2 = SOME (DataElement ys l d))
+Proof
+  simp_tac std_ss [heap_store_rel_def,isSomeDataElement_def] \\ metis_tac []
+QED
 
 (* cons *)
 
-val v_inv_SUBMAP = Q.prove(
-  `!w x.
+Triviality v_inv_SUBMAP:
+  !w x.
       f SUBMAP f1 /\ tf SUBMAP tf1 /\
       heap_store_rel heap heap1 /\
       v_inv conf w (x,f,tf,heap) ==>
-      v_inv conf w (x,f1,tf1,heap1) `,
+      v_inv conf w (x,f1,tf1,heap1)
+Proof
   completeInduct_on `v_size w` \\ NTAC 3 strip_tac
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
    (full_simp_tac std_ss [v_inv_def,Bignum_def] \\ srw_tac [] []
@@ -1601,7 +1655,8 @@ val v_inv_SUBMAP = Q.prove(
      (full_simp_tac std_ss [v_size_def]
       \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC) \\ res_tac)
   THEN1 (full_simp_tac std_ss [v_inv_def] \\ metis_tac [])
-  THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF] \\ rw []));
+  THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF] \\ rw [])
+QED
 
 Theorem heap_store_rel_v_inv:
   !w x.
@@ -1752,11 +1807,13 @@ Proof
   Induct \\ rw [list_to_BlockReps_def] \\ CASE_TAC \\ fs []
 QED
 
-val list_to_BlockReps_data_up_to_lem = Q.prove (
-  `xs <> [] /\
+Triviality list_to_BlockReps_data_up_to_lem:
+  xs <> [] /\
    h1 = list_to_BlockReps conf x len xs ==>
-   data_up_to (heap_length h1) (h1 ++ h2)`,
-  rw [data_up_to_def, list_to_BlockReps_isDataElement]);
+   data_up_to (heap_length h1) (h1 ++ h2)
+Proof
+  rw [data_up_to_def, list_to_BlockReps_isDataElement]
+QED
 
 val list_to_BlockReps_data_up_to = save_thm (
   "list_to_BlockReps_data_up_to",
@@ -1802,8 +1859,8 @@ Proof
   \\ Cases_on `t` \\ fs [list_to_BlockReps_def]
 QED
 
-val list_to_BlockReps_Pointer_lem = Q.prove (
-  `!xs len ys l d ptr u.
+Triviality list_to_BlockReps_Pointer_lem:
+  !xs len ys l d ptr u.
      let allocd = list_to_BlockReps conf x len xs in
        xs <> [] /\
        MEM (DataElement ys l d) allocd /\
@@ -1813,7 +1870,8 @@ val list_to_BlockReps_Pointer_lem = Q.prove (
          (ptr < len + heap_length allocd /\
           ptr > len /\
           isSomeDataElement
-            (heap_lookup (ptr - len) allocd))`,
+            (heap_lookup (ptr - len) allocd))
+Proof
   fs [LET_THM]
   \\ Induct \\ rw []
   \\ imp_res_tac list_to_BlockReps_MEM
@@ -1830,7 +1888,8 @@ val list_to_BlockReps_Pointer_lem = Q.prove (
   \\ CASE_TAC \\ fs [el_length_def, heap_lookup_def]
   \\ rw [isSomeDataElement_def]
   \\ fs [list_to_BlockReps_def, BlockRep_def]
-  \\ CASE_TAC \\ fs [el_length_def, isSomeDataElement_def, heap_lookup_def]);
+  \\ CASE_TAC \\ fs [el_length_def, isSomeDataElement_def, heap_lookup_def]
+QED
 
 val list_to_BlockReps_Pointer = save_thm ("list_to_BlockReps_Pointer",
   list_to_BlockReps_Pointer_lem
@@ -2733,17 +2792,20 @@ QED
 
 (* update ref *)
 
-val ref_edge_ValueArray = Q.prove(
-  `ref_edge (insert ptr (ValueArray xs) refs) x y =
-    if x = ptr then MEM y (get_refs (Block 0 ARB xs)) else ref_edge refs x y`,
+Triviality ref_edge_ValueArray:
+  ref_edge (insert ptr (ValueArray xs) refs) x y =
+    if x = ptr then MEM y (get_refs (Block 0 ARB xs)) else ref_edge refs x y
+Proof
   simp_tac std_ss [FUN_EQ_THM,ref_edge_def] \\ rpt strip_tac
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ Cases_on `x = ptr` \\ full_simp_tac (srw_ss()) []
-  \\ rw [lookup_insert]);
+  \\ rw [lookup_insert]
+QED
 
-val reachable_refs_UPDATE = Q.prove(
-  `reachable_refs (xs ++ RefPtr ptr::stack) (insert ptr (ValueArray xs) refs) n ==>
-    reachable_refs (xs ++ RefPtr ptr::stack) refs n`,
+Triviality reachable_refs_UPDATE:
+  reachable_refs (xs ++ RefPtr ptr::stack) (insert ptr (ValueArray xs) refs) n ==>
+    reachable_refs (xs ++ RefPtr ptr::stack) refs n
+Proof
   full_simp_tac std_ss [reachable_refs_def] \\ rpt strip_tac
   \\ Cases_on `?m. MEM m (get_refs (Block 0 ARB xs)) /\
         RTC (ref_edge refs) m n` THEN1
@@ -2761,12 +2823,14 @@ val reachable_refs_UPDATE = Q.prove(
   \\ qexists_tac `z` \\ full_simp_tac std_ss []
   \\ full_simp_tac std_ss [ref_edge_ValueArray]
   \\ reverse (Cases_on `r = ptr`)
-  \\ full_simp_tac std_ss [] \\ res_tac);
+  \\ full_simp_tac std_ss [] \\ res_tac
+QED
 
-val reachable_refs_UPDATE1 = Q.prove(
-  `reachable_refs (xs ++ RefPtr ptr::stack) (insert ptr (ValueArray xs1) refs) n ==>
+Triviality reachable_refs_UPDATE1:
+  reachable_refs (xs ++ RefPtr ptr::stack) (insert ptr (ValueArray xs1) refs) n ==>
     (!v. MEM v xs1 ==> ~MEM v xs ==> ?xs2. (lookup ptr refs = SOME (ValueArray xs2)) /\ MEM v xs2) ==>
-    reachable_refs (xs ++ RefPtr ptr::stack) refs n`,
+    reachable_refs (xs ++ RefPtr ptr::stack) refs n
+Proof
   full_simp_tac std_ss [reachable_refs_def] \\ rpt strip_tac
   \\ pop_assum mp_tac \\ last_x_assum mp_tac \\ last_x_assum mp_tac
   \\ map_every qid_spec_tac[`stack`,`xs`,`x`]
@@ -2801,7 +2865,8 @@ val reachable_refs_UPDATE1 = Q.prove(
   simp[get_refs_def] >>
   strip_tac >- metis_tac[] >- metis_tac[] >>
   BasicProvers.VAR_EQ_TAC >> fs[get_refs_def] >>
-  rw[] >> metis_tac[RTC_CASES1]);
+  rw[] >> metis_tac[RTC_CASES1]
+QED
 
 Definition isRefBlock_def:
   isRefBlock x = ?p. x = RefBlock p
@@ -2828,15 +2893,16 @@ Proof
   \\ full_simp_tac std_ss [LET_DEF]
 QED
 
-val heap_lookup_RefBlock_lemma = Q.prove(
-  `(heap_lookup n (ha ++ RefBlock y::hb) = SOME x) =
+Triviality heap_lookup_RefBlock_lemma:
+  (heap_lookup n (ha ++ RefBlock y::hb) = SOME x) =
       if n < heap_length ha then
         (heap_lookup n ha = SOME x)
       else if n = heap_length ha then
         (x = RefBlock y)
       else if heap_length ha + (LENGTH y + 1) <= n then
         (heap_lookup (n - heap_length ha - (LENGTH y + 1)) hb = SOME x)
-      else F`,
+      else F
+Proof
   Cases_on `n < heap_length ha` \\ full_simp_tac std_ss [LESS_IMP_heap_lookup]
   \\ full_simp_tac std_ss [NOT_LESS_IMP_heap_lookup]
   \\ full_simp_tac std_ss [heap_lookup_def]
@@ -2847,10 +2913,11 @@ val heap_lookup_RefBlock_lemma = Q.prove(
        by (full_simp_tac std_ss [el_length_def,RefBlock_def] >> decide_tac)
   \\ full_simp_tac std_ss [] \\ srw_tac [] []
   \\ full_simp_tac std_ss [el_length_def,RefBlock_def,NOT_LESS]
-  \\ DISJ1_TAC \\ DECIDE_TAC);
+  \\ DISJ1_TAC \\ DECIDE_TAC
+QED
 
-val heap_store_RefBlock = Q.prove(
-  `(LENGTH y = LENGTH h) /\
+Triviality heap_store_RefBlock:
+  (LENGTH y = LENGTH h) /\
     (heap_lookup n heap = SOME (RefBlock y)) ==>
     ?heap2. (heap_store n [RefBlock h] heap = (heap2,T)) /\
             RefBlock_inv heap heap2 /\
@@ -2863,7 +2930,8 @@ val heap_store_RefBlock = Q.prove(
             (!a. isSomeDataElement (heap_lookup a heap2) =
                  isSomeDataElement (heap_lookup a heap)) /\
             !m x. m <> n /\ (heap_lookup m heap = SOME x) ==>
-                  (heap_lookup m heap2 = SOME x)`,
+                  (heap_lookup m heap2 = SOME x)
+Proof
   rpt strip_tac \\ imp_res_tac heap_lookup_SPLIT
   \\ full_simp_tac std_ss [heap_store_RefBlock_thm]
   \\ strip_tac THEN1
@@ -2881,20 +2949,24 @@ val heap_store_RefBlock = Q.prove(
    (full_simp_tac std_ss [isSomeDataElement_def,heap_lookup_RefBlock_lemma]
     \\ full_simp_tac std_ss [RefBlock_def] \\ metis_tac [])
   \\ full_simp_tac std_ss [isSomeDataElement_def,heap_lookup_RefBlock_lemma]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-val NOT_isRefBlock = Q.prove(
-  `~(isRefBlock (Bignum x)) /\
+Triviality NOT_isRefBlock:
+  ~(isRefBlock (Bignum x)) /\
     ~(isRefBlock (Word64Rep a w)) /\
-    ~(isRefBlock (DataElement xs (LENGTH xs) (BlockTag n,[])))`,
+    ~(isRefBlock (DataElement xs (LENGTH xs) (BlockTag n,[])))
+Proof
   simp_tac (srw_ss()) [isRefBlock_def,RefBlock_def,Bignum_def]
   \\ Cases_on`a` \\ rw[]
   \\ TRY pairarg_tac \\ fs[]
-  \\ EVAL_TAC \\ rw[]);
+  \\ EVAL_TAC \\ rw[]
+QED
 
-val v_inv_Ref = Q.prove(
-  `RefBlock_inv heap heap2 ==>
-    !x h f tf. (v_inv conf x (h,f,tf,heap2) = v_inv conf x (h,f,tf,heap))`,
+Triviality v_inv_Ref:
+  RefBlock_inv heap heap2 ==>
+    !x h f tf. (v_inv conf x (h,f,tf,heap2) = v_inv conf x (h,f,tf,heap))
+Proof
   strip_tac \\ completeInduct_on `v_size x` \\ NTAC 3 strip_tac
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `x` THEN1
    (full_simp_tac std_ss [v_inv_def] \\ srw_tac [] []
@@ -2939,7 +3011,8 @@ val v_inv_Ref = Q.prove(
         \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC) \\ res_tac
       \\ full_simp_tac std_ss []))
   THEN1 (full_simp_tac std_ss [v_inv_def])
-  THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF]));
+  THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF])
+QED
 
 val heap_lookup_heap_split = prove(
   ``!heap a b h1 h2 x.
@@ -3313,20 +3386,25 @@ Proof
   Induct \\ fs [write_bytes_def]
 QED
 
-val LIST_REL_IMP_LIST_REL = Q.prove(
-  `!xs ys.
+Triviality LIST_REL_IMP_LIST_REL:
+  !xs ys.
       (!x y. MEM x xs ==> P x y ==> Q x y) ==>
-      LIST_REL P xs ys ==> LIST_REL Q xs ys`,
-  Induct \\ fs [PULL_EXISTS]);
+      LIST_REL P xs ys ==> LIST_REL Q xs ys
+Proof
+  Induct \\ fs [PULL_EXISTS]
+QED
 
-val v_size_LESS_EQ = Q.prove(
-  `!l x. MEM x l ==> v_size x <= v1_size l`,
-  Induct \\ fs [v_size_def] \\ rw [] \\ fs [] \\ res_tac \\ fs []);
+Triviality v_size_LESS_EQ:
+  !l x. MEM x l ==> v_size x <= v1_size l
+Proof
+  Induct \\ fs [v_size_def] \\ rw [] \\ fs [] \\ res_tac \\ fs []
+QED
 
-val v_inv_IMP = Q.prove(
-  `∀y x f tf ha.
+Triviality v_inv_IMP:
+  ∀y x f tf ha.
       v_inv conf y (x,f,tf,ha ++ [Bytes be fl xs ws] ++ hb) ⇒
-      v_inv conf y (x,f,tf,ha ++ [Bytes be fl ys ws] ++ hb)`,
+      v_inv conf y (x,f,tf,ha ++ [Bytes be fl ys ws] ++ hb)
+Proof
   completeInduct_on `v_size y` \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on `y` \\ fs [v_inv_def] \\ rw [] \\ fs []
   THEN1
@@ -3346,7 +3424,8 @@ val v_inv_IMP = Q.prove(
     \\ fs [v_size_def] \\ imp_res_tac v_size_LESS_EQ \\ fs [])
   \\ fs [Bytes_def,heap_lookup_APPEND,heap_lookup_def,BlockRep_def,
          heap_length_APPEND,heap_length_def,SUM_APPEND,el_length_def]
-  \\ rw [] \\ fs []);
+  \\ rw [] \\ fs []
+QED
 
 val gen_state_ok_update_byte = prove(
   ``gen_state_ok a k (ha ++ [Bytes be fl xs ws] ++ hb) gens ==>
@@ -5348,9 +5427,11 @@ Proof
   \\ fs [GSYM word_add_n2w,AC CONJ_COMM CONJ_ASSOC,PULL_EXISTS]
 QED
 
-val minus_lemma = Q.prove(
-  `-1w * (bytes_in_word * w) = bytes_in_word * -w`,
-  fs []);
+Triviality minus_lemma:
+  -1w * (bytes_in_word * w) = bytes_in_word * -w
+Proof
+  fs []
+QED
 
 Theorem n2w_lsr_eq_0:
    n DIV 2 ** k = 0 /\ n < dimword (:'a) ==> n2w n >>> k = 0w:'a word
@@ -5358,20 +5439,26 @@ Proof
   rw [] \\ simp_tac std_ss [GSYM w2n_11,w2n_lsr] \\ fs []
 QED
 
-val LESS_EXO_SUB = Q.prove(
-  `n < 2 ** (k - m) ==> n < 2n ** k`,
+Triviality LESS_EXO_SUB:
+  n < 2 ** (k - m) ==> n < 2n ** k
+Proof
   rw [] \\ match_mp_tac LESS_LESS_EQ_TRANS
-  \\ asm_exists_tac \\ fs []);
+  \\ asm_exists_tac \\ fs []
+QED
 
-val LESS_EXO_SUB_ALT = Q.prove(
-  `m <= k ==> n < 2 ** (k - m) ==> n * 2 ** m < 2n ** k`,
+Triviality LESS_EXO_SUB_ALT:
+  m <= k ==> n < 2 ** (k - m) ==> n * 2 ** m < 2n ** k
+Proof
   rw [] \\ match_mp_tac LESS_LESS_EQ_TRANS
   \\ qexists_tac `2 ** (k - m) * 2 ** m`
-  \\ fs [GSYM EXP_ADD]);
+  \\ fs [GSYM EXP_ADD]
+QED
 
-val less_pow_dimindex_sub_imp = Q.prove(
-  `n < 2 ** (dimindex (:'a) - k) ==> n < dimword (:'a)`,
-  fs [dimword_def] \\ metis_tac [LESS_EXO_SUB]);
+Triviality less_pow_dimindex_sub_imp:
+  n < 2 ** (dimindex (:'a) - k) ==> n < dimword (:'a)
+Proof
+  fs [dimword_def] \\ metis_tac [LESS_EXO_SUB]
+QED
 
 Theorem encode_header_NEQ_0:
    encode_header c n k = SOME w ==> w <> 0w
@@ -5382,11 +5469,12 @@ Proof
   \\ qexists_tac `0` \\ fs [] \\ EVAL_TAC
 QED
 
-val encode_header_IMP = Q.prove(
-  `encode_header c tag len = SOME (hd:'a word) /\
+Triviality encode_header_IMP:
+  encode_header c tag len = SOME (hd:'a word) /\
     c.len_size + 5 < dimindex (:'a) /\ good_dimindex (:'a) ==>
     len < 2 ** (dimindex (:'a) - 4) /\
-    decode_length c hd = n2w len`,
+    decode_length c hd = n2w len
+Proof
   fs [encode_header_def] \\ rw [make_header_def] \\ fs [decode_length_def]
   \\ `3w >>> (dimindex (:α) − c.len_size) = 0w:'a word` by
       (match_mp_tac n2w_lsr_eq_0
@@ -5412,7 +5500,8 @@ val encode_header_IMP = Q.prove(
   \\ imp_res_tac less_pow_dimindex_sub_imp \\ fs []
   \\ `dimword (:'a) = 2 ** c.len_size * 2 ** (dimindex (:α) − c.len_size)`
         suffices_by fs []
-  \\ fs [GSYM EXP_ADD,dimword_def]);
+  \\ fs [GSYM EXP_ADD,dimword_def]
+QED
 
 Theorem word_list_exists_thm:
    (word_list_exists a 0 = emp) /\
@@ -5533,9 +5622,11 @@ Proof
   \\ metis_tac [word_el_IMP_word_list_exists]
 QED
 
-val EVERY2_f_EQ = Q.prove(
-  `!rs ws f. EVERY2 (\v w. f v = w) rs ws <=> MAP f rs = ws`,
-  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []);
+Triviality EVERY2_f_EQ:
+  !rs ws f. EVERY2 (\v w. f v = w) rs ws <=> MAP f rs = ws
+Proof
+  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
 
 Theorem word_heap_heap_expand:
    word_heap a (heap_expand n) conf = word_list_exists a n
@@ -5545,9 +5636,11 @@ Proof
          SEP_EXISTS_THM,cond_STAR,word_list_def,word_el_def,SEP_CLAUSES]
 QED
 
-val get_lowerbits_or_1 = Q.prove(
-  `get_lowerbits c v = (get_lowerbits c v || 1w)`,
-  Cases_on `v` \\ fs [get_lowerbits_def]);
+Triviality get_lowerbits_or_1:
+  get_lowerbits c v = (get_lowerbits c v || 1w)
+Proof
+  Cases_on `v` \\ fs [get_lowerbits_def]
+QED
 
 Theorem memory_rel_Word64_alt:
    memory_rel c be ts refs sp st m dm (vs ++ vars) ∧ good_dimindex (:'a) ∧
@@ -5632,8 +5725,8 @@ val memory_rel_WordOp64_alt =
   |> CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[]))
   |> curry save_thm "memory_rel_WordOp64_alt"
 
-val IMP_memory_rel_bignum_alt = Q.prove(
-  `memory_rel c be ts refs sp st m dm (vs ++ vars) ∧
+Triviality IMP_memory_rel_bignum_alt:
+  memory_rel c be ts refs sp st m dm (vs ++ vars) ∧
    good_dimindex (:α) ∧ ¬small_int (:α) i ∧
    (Bignum i :α ml_el) = DataElement [] (LENGTH ws) (NumTag sign,MAP Word ws) ∧
    LENGTH ws < sp ∧
@@ -5645,7 +5738,8 @@ val IMP_memory_rel_bignum_alt = Q.prove(
      (store_list next (MAP Word (hd::ws)) m dm = SOME m1 ∧
       memory_rel c be ts refs (sp - (LENGTH ws + 1))
         (st |+ (NextFree,Word (next + bytes_in_word * n2w (LENGTH ws + 1))))
-        m1 dm ((Number i,make_ptr c (next - curr) (0w:α word) (LENGTH ws))::vars))`,
+        m1 dm ((Number i,make_ptr c (next - curr) (0w:α word) (LENGTH ws))::vars))
+Proof
   rw[memory_rel_def,word_ml_inv_def,PULL_EXISTS]
   \\ imp_res_tac EVERY2_SWAP
   \\ imp_res_tac EVERY2_APPEND_IMP_APPEND
@@ -5711,7 +5805,8 @@ val IMP_memory_rel_bignum_alt = Q.prove(
      \\ simp[AC STAR_ASSOC STAR_COMM])
   \\ simp[word_addr_def,make_ptr_def,get_addr_def,
           get_lowerbits_def,bytes_in_word_mul_eq_shift]
-  \\ imp_res_tac EVERY2_SWAP \\ fs[]);
+  \\ imp_res_tac EVERY2_SWAP \\ fs[]
+QED
 
 val IMP_memory_rel_bignum_alt = save_thm("IMP_memory_rel_bignum_alt",
   IMP_memory_rel_bignum_alt |> Q.INST [`vs`|->`[]`] |> SIMP_RULE std_ss [APPEND]);
@@ -6061,9 +6156,10 @@ val ADD_DIV_EQ = save_thm("ADD_DIV_EQ",LIST_CONJ
   [GSYM ADD_DIV_ADD_DIV,
    ONCE_REWRITE_RULE [ADD_COMM] (GSYM ADD_DIV_ADD_DIV)])
 
-val set_byte_word_of_byte = Q.prove(
-  `good_dimindex (:'a) ==>
-    set_byte a w (word_of_byte ((w2w w):'a word)) be = word_of_byte (w2w w)`,
+Triviality set_byte_word_of_byte:
+  good_dimindex (:'a) ==>
+    set_byte a w (word_of_byte ((w2w w):'a word)) be = word_of_byte (w2w w)
+Proof
   fs [set_byte_def,good_dimindex_def] \\ rw [] \\ fs []
   \\ fs [word_of_byte_def]
   \\ `?k. byte_index a be = 8 * k /\ k < (dimindex (:'a) DIV 8)` by
@@ -6073,7 +6169,8 @@ val set_byte_word_of_byte = Q.prove(
                               n = 4 \/ n = 5 \/ n = 6 \/ n = 7n``]
   \\ rveq \\ fs []
   \\ fs [fcpTheory.CART_EQ,word_or_def,word_lsl_def,fcpTheory.FCP_BETA,
-        word_slice_alt_def,w2w] \\ rw [] \\ EQ_TAC \\ rw [] \\ fs []);
+        word_slice_alt_def,w2w] \\ rw [] \\ EQ_TAC \\ rw [] \\ fs []
+QED
 
 Theorem w2w_word_of_byte_w2w:
    good_dimindex(:'a) ==>
@@ -6083,18 +6180,20 @@ Proof
   \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][]
 QED
 
-val write_bytes_REPLICATE = Q.prove(
-  `!n m.
+Triviality write_bytes_REPLICATE:
+  !n m.
       good_dimindex (:'a) ==>
       write_bytes (REPLICATE m w) (REPLICATE n (word_of_byte (w2w w))) be =
-      REPLICATE n (word_of_byte ((w2w w):'a word))`,
+      REPLICATE n (word_of_byte ((w2w w):'a word))
+Proof
   Induct \\ fs [write_bytes_def,REPLICATE,DROP_REPLICATE] \\ rw []
   \\ qspec_tac (`m`,`m`)
   \\ qspec_tac (`0w:'a word`,`a`)
   \\ qspec_tac (`dimindex (:α) DIV 8`,`n`)
   \\ Induct
   \\ simp [Once bytes_to_word_def,REPLICATE] \\ Cases_on `m`
-  \\ fs [REPLICATE,set_byte_word_of_byte]);
+  \\ fs [REPLICATE,set_byte_word_of_byte]
+QED
 
 Theorem IMP_EXP_LESS:
    m <= l ==> 2n ** m <= 2 ** l
@@ -6102,10 +6201,11 @@ Proof
   simp [Once LESS_EQ_EXISTS] \\ rw []
 QED
 
-val shift_shift_lemma = Q.prove(
-  `l = k + shift (:'a) /\ t < k /\ n DIV i < 2 ** t /\ l = dimindex (:'a) /\
+Triviality shift_shift_lemma:
+  l = k + shift (:'a) /\ t < k /\ n DIV i < 2 ** t /\ l = dimindex (:'a) /\
     i = 2 ** shift (:'a) /\ n < dimword (:'a) ==>
-    n2w n << (k - t) >>> (l - t) = (n2w (n DIV i)):'a word`,
+    n2w n << (k - t) >>> (l - t) = (n2w (n DIV i)):'a word
+Proof
   rw [] \\ `k + shift (:α) − t = (k - t) + shift (:'a)` by decide_tac
   \\ pop_assum (fn th => rewrite_tac [th,GSYM LSR_ADD])
   \\ qsuff_tac `w2n ((n2w n):'a word) * 2 ** (k - t) < dimword (:'a)`
@@ -6122,7 +6222,8 @@ val shift_shift_lemma = Q.prove(
   \\ fs [LESS_EQ_EXISTS] \\ rw []
   \\ fs [dimword_def,EXP_ADD]
   \\ simp_tac bool_ss [Once MULT_COMM]
-  \\ rewrite_tac [LT_MULT_LCANCEL,GSYM MULT_ASSOC] \\ fs []);
+  \\ rewrite_tac [LT_MULT_LCANCEL,GSYM MULT_ASSOC] \\ fs []
+QED
 
 Theorem write_bytes_APPEND:
    !xs ys vals be.
@@ -6952,9 +7053,10 @@ Proof
   \\ strip_tac \\ fs []
 QED
 
-val make_header_tag_mask = Q.prove(
-  `k < 2 ** (dimindex (:α) − (c.len_size + 2)) ==>
-    (tag_mask c && make_header c ((n2w k):'a word) n) = n2w (4 * k)`,
+Triviality make_header_tag_mask:
+  k < 2 ** (dimindex (:α) − (c.len_size + 2)) ==>
+    (tag_mask c && make_header c ((n2w k):'a word) n) = n2w (4 * k)
+Proof
   srw_tac [wordsLib.WORD_MUL_LSL_ss, boolSimps.LET_ss]
        [tag_mask_def, make_header_def, GSYM wordsTheory.word_mul_n2w]
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
@@ -6970,13 +7072,16 @@ val make_header_tag_mask = Q.prove(
   \\ fs []
   \\ `i - (q + 2) <= i - 2` by decide_tac
   \\ metis_tac [bitTheory.NOT_BIT_GT_TWOEXP, bitTheory.TWOEXP_MONO2,
-                arithmeticTheory.LESS_LESS_EQ_TRANS]);
+                arithmeticTheory.LESS_LESS_EQ_TRANS]
+QED
 
-val make_header_and_2 = Q.prove(
-  `(2w && make_header c w n) = 2w`,
+Triviality make_header_and_2:
+  (2w && make_header c w n) = 2w
+Proof
   fs [make_header_def]
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index]
-  \\ Cases_on `i=1` \\ fs []);
+  \\ Cases_on `i=1` \\ fs []
+QED
 
 Theorem encode_header_tag_mask:
    encode_header c (4 * tag) n = SOME (w:'a word) /\ good_dimindex (:'a) ==>
@@ -7005,13 +7110,17 @@ Proof
   \\ imp_res_tac encode_header_tag_mask \\ fs []
 QED
 
-val LESS_DIV_16_IMP = Q.prove(
-  `n < k DIV 16 ==> 16 * n + 2 < k:num`,
-  fs [X_LT_DIV]);
+Triviality LESS_DIV_16_IMP:
+  n < k DIV 16 ==> 16 * n + 2 < k:num
+Proof
+  fs [X_LT_DIV]
+QED
 
-val MULT_BIT0 = Q.prove(
-  `BIT 0 (m * n) <=> BIT 0 m /\ BIT 0 n`,
-  fs [bitTheory.BIT0_ODD,ODD_MULT]);
+Triviality MULT_BIT0:
+  BIT 0 (m * n) <=> BIT 0 m /\ BIT 0 n
+Proof
+  fs [bitTheory.BIT0_ODD,ODD_MULT]
+QED
 
 Theorem memory_rel_test_nil_eq:
    memory_rel c be ts refs sp st m dm ((Block ts' tag l,w:'a word_loc)::rest) /\
@@ -7035,10 +7144,12 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ rw [] \\ rfs [LENGTH_NIL,PULL_EXISTS]
 QED
 
-val not_bit_lt_2exp = Q.prove(
-  `!p x n. n < 2 ** (p + 1) ==> ~BIT (p + (x + 1)) n`,
+Triviality not_bit_lt_2exp:
+  !p x n. n < 2 ** (p + 1) ==> ~BIT (p + (x + 1)) n
+Proof
   metis_tac [DECIDE ``p + 1 <= p + (x + 1n)``, bitTheory.TWOEXP_MONO2,
-     arithmeticTheory.LESS_LESS_EQ_TRANS, bitTheory.NOT_BIT_GT_TWOEXP])
+     arithmeticTheory.LESS_LESS_EQ_TRANS, bitTheory.NOT_BIT_GT_TWOEXP]
+QED
 
 val not_bit_lt_2 = not_bit_lt_2exp |> Q.SPEC `0` |> SIMP_RULE (srw_ss()) []
 
@@ -7180,14 +7291,16 @@ Proof
   \\ rfs [good_dimindex_def]
 QED
 
-val MOD_MULT_MOD_LEMMA = Q.prove(
-  `k MOD n = 0 /\ x MOD n = t /\ 0 < k /\ 0 < n /\ n <= k ==>
-    x MOD k MOD n = t`,
+Triviality MOD_MULT_MOD_LEMMA:
+  k MOD n = 0 /\ x MOD n = t /\ 0 < k /\ 0 < n /\ n <= k ==>
+    x MOD k MOD n = t
+Proof
   rw [] \\ drule DIVISION
   \\ disch_then (qspec_then `k` mp_tac) \\ strip_tac
   \\ qpat_x_assum `_ = _` (fn th => once_rewrite_tac [th])
   \\ fs [] \\ Cases_on `0 < k DIV n` \\ fs [MOD_MULT_MOD]
-  \\ fs [DIV_EQ_X] \\ rfs [DIV_EQ_X]);
+  \\ fs [DIV_EQ_X] \\ rfs [DIV_EQ_X]
+QED
 
 Theorem w2n_add_byte_align_lemma:
    good_dimindex (:'a) ==>
@@ -8070,9 +8183,10 @@ Proof
   \\ Cases_on `i1` \\ fs [GSYM WORD_NOT_LESS,word_msb_neg]
 QED
 
-val memory_rel_RefPtr_EQ_lemma = Q.prove(
-  `n * 2 ** k < dimword (:'a) /\ m * 2 ** k < dimword (:'a) /\ 0 < k /\
-    (n2w n << k || 1w) = (n2w m << k || 1w:'a word) ==> n = m`,
+Triviality memory_rel_RefPtr_EQ_lemma:
+  n * 2 ** k < dimword (:'a) /\ m * 2 ** k < dimword (:'a) /\ 0 < k /\
+    (n2w n << k || 1w) = (n2w m << k || 1w:'a word) ==> n = m
+Proof
   `!n a b. 0n < n ==> (a * n = b * n) = (a = b)`
   by (Cases \\ simp [])
   \\ rw []
@@ -8084,7 +8198,7 @@ val memory_rel_RefPtr_EQ_lemma = Q.prove(
       \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
   \\ fs [addressTheory.word_LSL_n2w]
   \\ rfs []
-  )
+QED
 
 Theorem memory_rel_RefPtr_EQ:
    memory_rel c be ts refs sp st m dm
@@ -8159,10 +8273,11 @@ val lt8 =
   DECIDE ``(n < 8n) = (n = 0 \/ n = 1 \/ n = 2 \/ n = 3 \/
                        n = 4 \/ n = 5 \/ n = 6 \/ n = 7)``
 
-val Smallnum_test = Q.prove(
-  `((Smallnum i && -1w ≪ (dimindex (:'a) − 2)) = 0w:'a word) /\
+Triviality Smallnum_test:
+  ((Smallnum i && -1w ≪ (dimindex (:'a) − 2)) = 0w:'a word) /\
     good_dimindex (:'a) /\ small_int (:'a) i ==>
-    ~(i < 0) /\ i < 2 ** (dimindex (:'a) - 4)`,
+    ~(i < 0) /\ i < 2 ** (dimindex (:'a) - 4)
+Proof
   Tactical.REVERSE (Cases_on `i`)
   \\ srw_tac [wordsLib.WORD_MUL_LSL_ss]
       [Smallnum_def, small_int_def, good_dimindex_def,
@@ -8228,7 +8343,7 @@ val Smallnum_test = Q.prove(
       \\ simp [bitTheory.BIT_COMP_THM3
                |> Q.SPECL [`60`, `59`, `0`] |> numLib.REDUCE_RULE |> GSYM,
                bitTheory.BITSLT_THM2 |> Q.SPEC `59` |> numLib.REDUCE_RULE])
-  )
+QED
 
 val small_int_w2i_i2w = prove(
   ``small_int (:α) i /\ good_dimindex (:'a) ==>
@@ -8290,9 +8405,11 @@ Proof
   \\ intLib.COOPER_TAC
 QED
 
-val exists_num = Q.prove(
-  `~(i < 0i) <=> ?n. i = &n`,
-  Cases_on `i` \\ fs []);
+Triviality exists_num:
+  ~(i < 0i) <=> ?n. i = &n
+Proof
+  Cases_on `i` \\ fs []
+QED
 
 Theorem small_int_w2n[simp]:
    good_dimindex (:'a) ==> small_int (:'a) (& (w2n (w:word8)))
@@ -11049,7 +11166,7 @@ Definition list_copy_alias_def:
     else list_copy_bwd_alias n (xp+n-1) (yp+n-1) ys
 End
 
-val list_copy_fwd_eq = Q.prove(`
+Triviality list_copy_fwd_eq:
   ∀n xp xs yp ys.
   xp + n <= LENGTH xs ∧
   yp + n <= LENGTH ys ⇒
@@ -11057,7 +11174,8 @@ val list_copy_fwd_eq = Q.prove(`
     SOME
       (TAKE yp ys ++
       TAKE n (DROP xp xs) ++
-      DROP (n+yp) ys)`,
+      DROP (n+yp) ys)
+Proof
   ho_match_mp_tac (fetch "-""list_copy_fwd_ind")>>rw[]>>
   simp[Once list_copy_fwd_def]>>
   rpt(IF_CASES_TAC)>>fs[]>>
@@ -11066,9 +11184,10 @@ val list_copy_fwd_eq = Q.prove(`
   simp[EL_TAKE,EL_DROP])>>
   simp[EL_LUPDATE]>>
   rw[]>>
-  Cases_on`x=yp`>>fs[]);
+  Cases_on`x=yp`>>fs[]
+QED
 
-val list_copy_bwd_eq = Q.prove(`
+Triviality list_copy_bwd_eq:
   ∀n xp xs yp ys.
   n ≤ xp+1 ∧ xp < LENGTH xs ∧
   n ≤ yp+1 ∧ yp < LENGTH ys ⇒
@@ -11076,7 +11195,8 @@ val list_copy_bwd_eq = Q.prove(`
     SOME
       (TAKE (yp+1-n) ys ++
       TAKE n (DROP (xp+1-n) xs) ++
-      DROP (yp+1) ys)`,
+      DROP (yp+1) ys)
+Proof
   ho_match_mp_tac (fetch "-""list_copy_bwd_ind")>>rw[]>>
   simp[Once list_copy_bwd_def]>>
   fs[minus_def]>>
@@ -11108,7 +11228,8 @@ val list_copy_bwd_eq = Q.prove(`
   >>
   rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
   rpt(IF_CASES_TAC>>
-  simp[EL_TAKE,EL_DROP]));
+  simp[EL_TAKE,EL_DROP])
+QED
 
 Theorem list_copy_thm:
    !xs ys xp yp n ys1.
@@ -11132,7 +11253,7 @@ QED
 
 (* see more interesting theorem below *)
 
-val list_copy_fwd_alias_eq = Q.prove(`
+Triviality list_copy_fwd_alias_eq:
   ∀n xp yp ys.
   yp ≤ xp ∧
   xp + n <= LENGTH ys ∧
@@ -11141,7 +11262,8 @@ val list_copy_fwd_alias_eq = Q.prove(`
     SOME
       (TAKE yp ys ++
       TAKE n (DROP xp ys) ++
-      DROP (n+yp) ys)`,
+      DROP (n+yp) ys)
+Proof
   ho_match_mp_tac (fetch "-""list_copy_fwd_alias_ind")>>rw[]>>
   simp[Once list_copy_fwd_alias_def]>>
   rpt(IF_CASES_TAC)>>fs[]>>
@@ -11150,9 +11272,10 @@ val list_copy_fwd_alias_eq = Q.prove(`
   simp[EL_TAKE,EL_DROP])>>
   simp[EL_LUPDATE]>>
   rw[]>>
-  Cases_on`x=yp`>>fs[]);
+  Cases_on`x=yp`>>fs[]
+QED
 
-val list_copy_bwd_alias_eq = Q.prove(`
+Triviality list_copy_bwd_alias_eq:
   ∀n xp yp ys.
   xp <= yp ∧
   n ≤ xp +1 ∧ xp < LENGTH ys ∧
@@ -11161,7 +11284,8 @@ val list_copy_bwd_alias_eq = Q.prove(`
     SOME
       (TAKE (yp+1-n) ys ++
       TAKE n (DROP (xp+1-n) ys) ++
-      DROP (yp+1) ys)`,
+      DROP (yp+1) ys)
+Proof
   ho_match_mp_tac (fetch "-""list_copy_bwd_alias_ind")>>rw[]>>
   simp[Once list_copy_bwd_alias_def]>>
   fs[minus_def]>>
@@ -11193,7 +11317,8 @@ val list_copy_bwd_alias_eq = Q.prove(`
   >>
   rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
   rpt(IF_CASES_TAC>>
-  simp[EL_TAKE,EL_DROP]));
+  simp[EL_TAKE,EL_DROP])
+QED
 
 Theorem list_copy_alias_thm:
    !ys xp yp n ys1.

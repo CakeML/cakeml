@@ -307,16 +307,19 @@ Proof
   fs [LIST_RELi_EL_EQN,env_rel_def]
 QED
 
-val opt_lemma = Q.prove(
-  `x = y <=> (x = SOME () <=> y = SOME ())`,
-  Cases_on `x` \\ Cases_on `y` \\ fs []);
+Triviality opt_lemma:
+  x = y <=> (x = SOME () <=> y = SOME ())
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ fs []
+QED
 
-val OptionalLetLet_IMP = Q.prove(
-  `(ys,l,s',nr') = OptionalLetLet y (LENGTH env) lx s1 limit nr /\
+Triviality OptionalLetLet_IMP:
+  (ys,l,s',nr') = OptionalLetLet y (LENGTH env) lx s1 limit nr /\
     (∀env2 extra.
       env_rel l env env2 ⇒ evaluate ([y],env2 ++ extra,s) = res) /\
     env_rel l env env1 /\ b ==>
-    evaluate (ys,env1 ++ extra,s) = res /\ b`,
+    evaluate (ys,env1 ++ extra,s) = res /\ b
+Proof
   rw [OptionalLetLet_def,evaluate_def]
   \\ drule evaluate_LetLet \\ fs []
   \\ fs [GSYM db_varsTheory.vars_flatten_def,GSYM db_varsTheory.vars_to_list_def]
@@ -324,7 +327,8 @@ val OptionalLetLet_IMP = Q.prove(
   \\ fs [spt_eq_thm,db_varsTheory.wf_db_to_set]
   \\ rw [] \\ once_rewrite_tac [opt_lemma]
   \\ rewrite_tac [GSYM db_varsTheory.lookup_db_to_set]
-  \\ fs []);
+  \\ fs []
+QED
 
 Theorem OptionalLetLet_limit:
    (ys,l,s',nr') = OptionalLetLet e (LENGTH env) lx s1 limit nr /\

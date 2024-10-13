@@ -33,8 +33,9 @@ Definition toList_def:
   toList vec = toList_aux vec 0
 End
 
-val toList_aux_thm = Q.prove (
-  `!vec n. toList_aux vec n = case vec of Vector vs => DROP n vs`,
+Triviality toList_aux_thm:
+  !vec n. toList_aux vec n = case vec of Vector vs => DROP n vs
+Proof
   ho_match_mp_tac toList_aux_ind \\
   rw [] \\
   ONCE_REWRITE_TAC [toList_aux_def] \\
@@ -43,7 +44,7 @@ val toList_aux_thm = Q.prove (
   fs [] \\
   Cases_on `vec` \\
   fs [sub_def, length_def, DROP_EL_CONS]
-);
+QED
 
 Theorem toList_thm:
    !ls. toList (Vector ls) = ls
@@ -102,8 +103,9 @@ Definition mapi_def:
 End
 
 
-val less_than_length_thm = Q.prove (
-  `!xs n. (n < LENGTH xs) ==> (?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH ys = n))`,
+Triviality less_than_length_thm:
+  !xs n. (n < LENGTH xs) ==> (?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH ys = n))
+Proof
   rw[] \\
   qexists_tac`TAKE n xs` \\
   rw[] \\
@@ -111,7 +113,7 @@ val less_than_length_thm = Q.prove (
   qexists_tac`TL (DROP n xs)` \\
   Cases_on`DROP n xs` \\ fs[] \\
   metis_tac[TAKE_DROP,APPEND_ASSOC,CONS_APPEND]
-);
+QED
 
 Definition foldli_aux_def:
   (foldli_aux f e vec n 0 = e) /\
@@ -122,14 +124,15 @@ Definition foldli_def:
   foldli f e vec = foldli_aux f e vec 0 (length vec)
 End
 
-val foldli_aux_thm = Q.prove (
-  `!f e vec n len. (n + len = length vec) ==>
-    (foldli_aux f e vec n len = mllist$foldli_aux f e n (DROP n (toList vec)))`,
+Triviality foldli_aux_thm:
+  !f e vec n len. (n + len = length vec) ==>
+    (foldli_aux f e vec n len = mllist$foldli_aux f e n (DROP n (toList vec)))
+Proof
   Cases_on `vec` \\ Induct_on `len` \\
   rw [foldli_aux_def, toList_thm, length_def, sub_def]
   >-(rw [DROP_LENGTH_TOO_LONG, mllistTheory.foldli_aux_def])
   \\ rw [DROP_EL_CONS, mllistTheory.foldli_aux_def, ADD1]
-);
+QED
 
 Theorem foldli_thm:
    !f e vec. foldli f e vec = mllist$foldli f e (toList vec)
@@ -146,9 +149,10 @@ Definition foldl_def:
   foldl f e vec = foldl_aux f e vec 0 (length vec)
 End
 
-val foldl_aux_thm = Q.prove (
-  `!f e vec x len. (x + len = length vec) ==>
-    (foldl_aux f e vec x len = FOLDL f e (DROP x (toList vec)))`,
+Triviality foldl_aux_thm:
+  !f e vec x len. (x + len = length vec) ==>
+    (foldl_aux f e vec x len = FOLDL f e (DROP x (toList vec)))
+Proof
   Induct_on `len` \\ Cases_on `vec` \\
   rw [foldl_aux_def, DROP_LENGTH_TOO_LONG, length_def, toList_thm] \\
   rw [length_def, sub_def, toList_thm] \\
@@ -159,7 +163,7 @@ val foldl_aux_thm = Q.prove (
   `LENGTH ys + 1 = LENGTH (ys ++ [z])` by (fs [] \\ NO_TAC) \\ ASM_REWRITE_TAC [DROP_LENGTH_APPEND]\\
   simp_tac std_ss [GSYM APPEND_ASSOC, APPEND, EL_LENGTH_APPEND, NULL, HD,
         FOLDL,  DROP_LENGTH_APPEND]
-);
+QED
 
 Theorem foldl_thm:
    !f e vec. foldl f e vec = FOLDL f e (toList vec)
@@ -179,13 +183,14 @@ Definition foldri_def:
 End
 
 
-val foldri_aux_thm = Q.prove (
-  `!f e vec len. len <= length vec ==>
-    (foldri_aux f e vec len = FOLDRi f e (TAKE len (toList vec)))`,
+Triviality foldri_aux_thm:
+  !f e vec len. len <= length vec ==>
+    (foldri_aux f e vec len = FOLDRi f e (TAKE len (toList vec)))
+Proof
   Induct_on `len` \\ rw[foldri_aux_def] \\
   Cases_on `vec` \\ fs[length_def, toList_thm, sub_def] \\
   rw [ADD1, TAKE_SUM, TAKE1_DROP, FOLDRi_APPEND]
-);
+QED
 
 Theorem foldri_thm:
    !f e vec. foldri f e vec = FOLDRi f e (toList vec)
@@ -205,13 +210,14 @@ Definition foldr_def:
   foldr f e vec = foldr_aux f e vec (length vec)
 End
 
-val foldr_aux_thm = Q.prove (
-  `!f e vec len. len <= length vec ==>
-    (foldr_aux f e vec len = FOLDR f e (TAKE len (toList vec)))`,
+Triviality foldr_aux_thm:
+  !f e vec len. len <= length vec ==>
+    (foldr_aux f e vec len = FOLDR f e (TAKE len (toList vec)))
+Proof
   Induct_on `len` \\ rw[foldr_aux_def] \\
   Cases_on `vec` \\ fs[length_def, toList_thm, sub_def] \\
   rw [ADD1, TAKE_SUM, TAKE1_DROP, FOLDR_APPEND]
-);
+QED
 
 Theorem foldr_thm:
    !f e vec. foldr f e vec = FOLDR f e (toList vec)
@@ -247,14 +253,15 @@ Definition find_def:
   find f vec = find_aux f vec 0 (length vec)
 End
 
-val find_aux_thm = Q.prove (
-  `!f vec n len. (n + len = length vec) ==> (find_aux f vec n len = FIND f (DROP n (toList vec)))`,
+Triviality find_aux_thm:
+  !f vec n len. (n + len = length vec) ==> (find_aux f vec n len = FIND f (DROP n (toList vec)))
+Proof
   Induct_on `len` \\ Cases_on `vec` \\ rw [find_aux_def, sub_def, length_def,
   toList_thm, FIND_def, INDEX_FIND_def] \\
   rw[DROP_LENGTH_NIL, INDEX_FIND_def] THEN1
   (qexists_tac`(0, EL n l)` \\ rw [DROP_EL_CONS, INDEX_FIND_def]) \\
   rw [DROP_EL_CONS, INDEX_FIND_def, index_find_thm]
-);
+QED
 
 Theorem find_thm:
    !f vec. find f vec = FIND f (toList vec)

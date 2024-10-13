@@ -74,26 +74,32 @@ Induct_on `l1` >>
 srw_tac [BAG_ss] [list_to_bag_def, BAG_INSERT_UNION]
 QED
 
-val list_to_bag_to_perm = Q.prove (
-`!l1 l2. PERM l1 l2 ⇒ (list_to_bag l1 = list_to_bag l2)`,
-HO_MATCH_MP_TAC PERM_IND >>
-srw_tac [BAG_ss] [list_to_bag_def, BAG_INSERT_UNION]);
+Triviality list_to_bag_to_perm:
+  !l1 l2. PERM l1 l2 ⇒ (list_to_bag l1 = list_to_bag l2)
+Proof
+  HO_MATCH_MP_TAC PERM_IND >>
+srw_tac [BAG_ss] [list_to_bag_def, BAG_INSERT_UNION]
+QED
 
-val perm_to_list_to_bag_lem = Q.prove (
-`!l1 l2 x.
+Triviality perm_to_list_to_bag_lem:
+  !l1 l2 x.
   (list_to_bag (FILTER ($= x) l1) = list_to_bag (FILTER ($= x) l2))
   ⇒
-  (FILTER ($= x) l1 = FILTER ($= x) l2)`,
-induct_on `l1` >>
+  (FILTER ($= x) l1 = FILTER ($= x) l2)
+Proof
+  induct_on `l1` >>
 rw [] >>
 induct_on `l2` >>
 rw [] >>
-fs [list_to_bag_def]);
+fs [list_to_bag_def]
+QED
 
-val perm_to_list_to_bag = Q.prove (
-`!l1 l2. (list_to_bag l1 = list_to_bag l2) ⇒ PERM l1 l2`,
-rw [PERM_DEF] >>
-metis_tac [perm_to_list_to_bag_lem, list_to_bag_filter]);
+Triviality perm_to_list_to_bag:
+  !l1 l2. (list_to_bag l1 = list_to_bag l2) ⇒ PERM l1 l2
+Proof
+  rw [PERM_DEF] >>
+metis_tac [perm_to_list_to_bag_lem, list_to_bag_filter]
+QED
 
 Theorem list_to_bag_perm:
  !l1 l2. (list_to_bag l1 = list_to_bag l2) = PERM l1 l2
@@ -101,15 +107,17 @@ Proof
 metis_tac [perm_to_list_to_bag, list_to_bag_to_perm]
 QED
 
-val sorted_reverse_lem = Q.prove (
-`!R l. transitive R ∧ SORTED R l ⇒ SORTED (\x y. R y x) (REVERSE l)`,
-induct_on `l` >>
+Triviality sorted_reverse_lem:
+  !R l. transitive R ∧ SORTED R l ⇒ SORTED (\x y. R y x) (REVERSE l)
+Proof
+  induct_on `l` >>
 rw [SORTED_DEF] >>
 qmatch_goalsub_abbrev_tac ‘SORTED RR’ >>
 ‘transitive RR’ by (fs [transitive_def] >> metis_tac []) >>
 unabbrev_all_tac >>
 rw [SORTED_DEF,SORTED_APPEND] >>
-metis_tac [SORTED_EQ]);
+metis_tac [SORTED_EQ]
+QED
 
 Theorem sorted_reverse:
  !R l. transitive R ⇒ (SORTED R (REVERSE l) = SORTED (\x y. R y x) l)

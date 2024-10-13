@@ -7,17 +7,22 @@ val _ = new_theory"data_simpProof";
 
 val _ = set_grammar_ancestry ["data_simp", "dataSem", "dataProps"];
 
-val evaluate_Seq_Skip = Q.prove(
-  `!c s. evaluate (Seq c Skip,s) = evaluate (c,s)`,
+Triviality evaluate_Seq_Skip:
+  !c s. evaluate (Seq c Skip,s) = evaluate (c,s)
+Proof
   fs [evaluate_def,LET_DEF] \\ REPEAT STRIP_TAC
-  \\ Cases_on `evaluate (c,s)` \\ fs [] \\ SRW_TAC [] []);
+  \\ Cases_on `evaluate (c,s)` \\ fs [] \\ SRW_TAC [] []
+QED
 
-val evaluate_pSeq = Q.prove(
-  `evaluate (pSeq c1 c2, s) = evaluate (Seq c1 c2, s)`,
-  SRW_TAC [] [pSeq_def] \\ fs [evaluate_Seq_Skip]);
+Triviality evaluate_pSeq:
+  evaluate (pSeq c1 c2, s) = evaluate (Seq c1 c2, s)
+Proof
+  SRW_TAC [] [pSeq_def] \\ fs [evaluate_Seq_Skip]
+QED
 
-val evaluate_simp = Q.prove(
-  `!c1 s c2. evaluate (simp c1 c2,s) = evaluate (Seq c1 c2,s)`,
+Triviality evaluate_simp:
+  !c1 s c2. evaluate (simp c1 c2,s) = evaluate (Seq c1 c2,s)
+Proof
   recInduct evaluate_ind \\ reverse (REPEAT STRIP_TAC) THEN1
    (Cases_on `handler` \\ fs [simp_def,evaluate_pSeq]
     \\ Cases_on `x` \\ fs [simp_def,evaluate_pSeq]
@@ -33,7 +38,8 @@ val evaluate_simp = Q.prove(
   \\ Cases_on `evaluate (c2,set_var n a r)` \\ fs []
   \\ rw[] >> every_case_tac \\ fs [evaluate_def] \\ fs []
   \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
-  \\ every_case_tac >> fs[evaluate_def]);
+  \\ every_case_tac >> fs[evaluate_def]
+QED
 
 Theorem simp_correct:
    !c s. evaluate (simp c Skip,s) = evaluate (c,s)

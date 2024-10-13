@@ -1165,11 +1165,13 @@ Proof
   imp_res_tac pop_env_code_gc_fun_clock>>fs[]
 QED
 
-val inst_code_gc_fun_const = Q.prove(`
+Triviality inst_code_gc_fun_const:
   inst i s = SOME t ⇒
      s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.sh_mdomain = t.sh_mdomain /\ s.mdomain = t.mdomain /\ s.be = t.be
-     ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit`,
-  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def,set_fp_var_def]);
+     ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit
+Proof
+  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def,set_fp_var_def]
+QED
 
 Theorem evaluate_consts:
    !xs s1 vs s2.
@@ -1277,13 +1279,15 @@ Proof
 QED
 
 (*transitive*)
-val s_frame_key_eq_trans = Q.prove(
-  `!a b c. s_frame_key_eq a b /\ s_frame_key_eq b c ==>
-            s_frame_key_eq a c`,
+Triviality s_frame_key_eq_trans:
+  !a b c. s_frame_key_eq a b /\ s_frame_key_eq b c ==>
+            s_frame_key_eq a c
+Proof
   Cases_on`a`>>Cases_on`b`>>Cases_on`c`>>
   Cases_on`o'`>>Cases_on`o''`>>Cases_on`o'''`>>
   Cases_on`o0`>>Cases_on`o0'`>>Cases_on`o0''`>>
-  full_simp_tac(srw_ss())[s_frame_key_eq_def]);
+  full_simp_tac(srw_ss())[s_frame_key_eq_def]
+QED
 
 Theorem s_key_eq_trans:
    !a b c. s_key_eq a b /\ s_key_eq b c ==>
@@ -1294,26 +1298,32 @@ Proof
   srw_tac[][]>>metis_tac[s_frame_key_eq_trans]
 QED
 
-val s_frame_val_eq_trans = Q.prove(
-  `!a b c. s_frame_val_eq a b /\ s_frame_val_eq b c ==>
-            s_frame_val_eq a c`,
+Triviality s_frame_val_eq_trans:
+  !a b c. s_frame_val_eq a b /\ s_frame_val_eq b c ==>
+            s_frame_val_eq a c
+Proof
   Cases_on`a`>>Cases_on`b`>>Cases_on`c`>>
   Cases_on`o'`>>Cases_on`o''`>>Cases_on`o'''`>>
   Cases_on`o0`>>Cases_on`o0'`>>Cases_on`o0''`>>
-  full_simp_tac(srw_ss())[s_frame_val_eq_def]);
+  full_simp_tac(srw_ss())[s_frame_val_eq_def]
+QED
 
-val s_val_eq_trans = Q.prove(
-  `!a b c. s_val_eq a b /\ s_val_eq b c ==>
-            s_val_eq a c`,
+Triviality s_val_eq_trans:
+  !a b c. s_val_eq a b /\ s_val_eq b c ==>
+            s_val_eq a c
+Proof
   Induct>>
   Cases_on`b`>>Cases_on`c`>>full_simp_tac(srw_ss())[s_val_eq_def]>>
-  srw_tac[][]>>metis_tac[s_frame_val_eq_trans]);
+  srw_tac[][]>>metis_tac[s_frame_val_eq_trans]
+QED
 
 (*Symmetric*)
-val s_frame_key_eq_sym = Q.prove(
-  `!a b. s_frame_key_eq a b <=> s_frame_key_eq b a`,
+Triviality s_frame_key_eq_sym:
+  !a b. s_frame_key_eq a b <=> s_frame_key_eq b a
+Proof
   Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>
-  Cases_on`o0`>>Cases_on`o0'`>>full_simp_tac(srw_ss())[s_frame_key_eq_def,EQ_SYM_EQ]);
+  Cases_on`o0`>>Cases_on`o0'`>>full_simp_tac(srw_ss())[s_frame_key_eq_def,EQ_SYM_EQ]
+QED
 
 Theorem s_key_eq_sym:
    !a b. s_key_eq a b <=> s_key_eq b a
@@ -1322,10 +1332,12 @@ Proof
   strip_tac>>metis_tac[s_frame_key_eq_sym]
 QED
 
-val s_frame_val_eq_sym = Q.prove(
-   `!a b. s_frame_val_eq a b <=> s_frame_val_eq b a`,
+Triviality s_frame_val_eq_sym:
+  !a b. s_frame_val_eq a b <=> s_frame_val_eq b a
+Proof
   Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>
-  Cases_on`o0`>>Cases_on`o0'`>>full_simp_tac(srw_ss())[s_frame_val_eq_def,EQ_SYM_EQ]);
+  Cases_on`o0`>>Cases_on`o0'`>>full_simp_tac(srw_ss())[s_frame_val_eq_def,EQ_SYM_EQ]
+QED
 
 Theorem s_val_eq_sym:
    !a b. s_val_eq a b <=> s_val_eq b a
@@ -1334,10 +1346,12 @@ Proof
   strip_tac>>metis_tac[s_frame_val_eq_sym]
 QED
 
-val s_frame_val_and_key_eq = Q.prove(
-  `!s t. s_frame_val_eq s t /\ s_frame_key_eq s t ==> s = t`,
+Triviality s_frame_val_and_key_eq:
+  !s t. s_frame_val_eq s t /\ s_frame_key_eq s t ==> s = t
+Proof
   Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>Cases_on`o0`>>Cases_on`o0'`>>
-  full_simp_tac(srw_ss())[s_frame_val_eq_def,s_frame_key_eq_def,LIST_EQ_MAP_PAIR]);
+  full_simp_tac(srw_ss())[s_frame_val_eq_def,s_frame_key_eq_def,LIST_EQ_MAP_PAIR]
+QED
 
 Theorem s_val_and_key_eq:
    !s t. s_val_eq s t /\ s_key_eq s t ==> s =t
@@ -1348,13 +1362,15 @@ Proof
   Cases_on`t`>>full_simp_tac(srw_ss())[s_val_eq_def,s_key_eq_def,s_frame_val_and_key_eq]
 QED
 
-val dec_stack_stack_key_eq = Q.prove(
-  `!wl st st'. dec_stack wl st = SOME st' ==> s_key_eq st st'`,
+Triviality dec_stack_stack_key_eq:
+  !wl st st'. dec_stack wl st = SOME st' ==> s_key_eq st st'
+Proof
   ho_match_mp_tac dec_stack_ind>>srw_tac[][dec_stack_def]>>
   full_simp_tac(srw_ss())[s_key_eq_def]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[dec_stack_def]>>srw_tac[][]>>
   Cases_on `handler`>>
-  full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def,MAP_ZIP,NOT_LESS]);
+  full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def,MAP_ZIP,NOT_LESS]
+QED
 
 (*gc preserves the stack_key relation*)
 Theorem gc_s_key_eq:
@@ -1365,16 +1381,19 @@ Proof
   full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[]
 QED
 
-val s_val_eq_enc_stack = Q.prove(
-  `!st st'. s_val_eq st st' ==> enc_stack st = enc_stack st'`,
+Triviality s_val_eq_enc_stack:
+  !st st'. s_val_eq st st' ==> enc_stack st = enc_stack st'
+Proof
   Induct>>Cases_on`st'`>>full_simp_tac(srw_ss())[s_val_eq_def]>>
   Cases_on`h`>>Cases_on`h'`>>Cases_on`o''`>>Cases_on`o'`>>Cases_on`o0'`>>Cases_on`o0`>>
-  full_simp_tac(srw_ss())[s_frame_val_eq_def,enc_stack_def]);
+  full_simp_tac(srw_ss())[s_frame_val_eq_def,enc_stack_def]
+QED
 
-val s_val_eq_dec_stack = Q.prove(
-  `!q st st' x. s_val_eq st st' /\ dec_stack q st = SOME x ==>
-    ?y. dec_stack q st' = SOME y /\ s_val_eq x y`,
-   ho_match_mp_tac dec_stack_ind >> srw_tac[][] >>
+Triviality s_val_eq_dec_stack:
+  !q st st' x. s_val_eq st st' /\ dec_stack q st = SOME x ==>
+    ?y. dec_stack q st' = SOME y /\ s_val_eq x y
+Proof
+  ho_match_mp_tac dec_stack_ind >> srw_tac[][] >>
    Cases_on`st'`>>full_simp_tac(srw_ss())[s_val_eq_def,s_val_eq_refl]>>
    Cases_on`h`>>full_simp_tac(srw_ss())[dec_stack_def]>>
    pop_assum mp_tac>>CASE_TAC >>
@@ -1385,7 +1404,8 @@ val s_val_eq_dec_stack = Q.prove(
     (Cases_on `handler` \\ Cases_on `o'` \\ Cases_on `o0` \\ full_simp_tac(srw_ss())[s_frame_val_eq_def]
      \\ metis_tac[LENGTH_MAP]) \\ full_simp_tac(srw_ss())[NOT_LESS]
    \\ Cases_on `handler` \\ Cases_on `o'` \\ Cases_on `o0` \\ full_simp_tac(srw_ss())[s_frame_val_eq_def,s_val_eq_def]
-   \\ full_simp_tac(srw_ss())[MAP_ZIP,LENGTH_TAKE]);
+   \\ full_simp_tac(srw_ss())[MAP_ZIP,LENGTH_TAKE]
+QED
 
 (*gc succeeds on all stacks related by stack_val and there are relations
   in the result*)
@@ -1482,17 +1502,21 @@ Proof
     ,EXISTS_PROD,domain_lookup]
 QED
 
-val get_vars_stack_swap = Q.prove(
-  `!l s t. s.locals = t.locals ==>
-    get_vars l s = get_vars l t`,
+Triviality get_vars_stack_swap:
+  !l s t. s.locals = t.locals ==>
+    get_vars l s = get_vars l t
+Proof
   Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_def]>>
   srw_tac[][]>> every_case_tac>>
-  metis_tac[NOT_NONE_SOME,SOME_11]);
+  metis_tac[NOT_NONE_SOME,SOME_11]
+QED
 
-val get_vars_stack_swap_simp = Q.prove(
-  `!args. get_vars args (s with stack := xs) = get_vars args s`,
+Triviality get_vars_stack_swap_simp:
+  !args. get_vars args (s with stack := xs) = get_vars args s
+Proof
   `(s with stack:=xs).locals = s.locals` by full_simp_tac(srw_ss())[]>>
-  metis_tac[get_vars_stack_swap]);
+  metis_tac[get_vars_stack_swap]
+QED
 
 Theorem s_val_eq_length:
    !s t. s_val_eq s t ==> LENGTH s = LENGTH t
@@ -1508,57 +1532,73 @@ Proof
   Cases>>full_simp_tac(srw_ss())[s_key_eq_def]
 QED
 
-val s_val_eq_APPEND = Q.prove(
-  `!s t x y. (s_val_eq s t /\ s_val_eq x y)==> s_val_eq (s++x) (t++y)`,
+Triviality s_val_eq_APPEND:
+  !s t x y. (s_val_eq s t /\ s_val_eq x y)==> s_val_eq (s++x) (t++y)
+Proof
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def]);
+  srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def]
+QED
 
-val s_val_eq_REVERSE = Q.prove(
-  `!s t. s_val_eq s t ==> s_val_eq (REVERSE s) (REVERSE t)`,
+Triviality s_val_eq_REVERSE:
+  !s t. s_val_eq s t ==> s_val_eq (REVERSE s) (REVERSE t)
+Proof
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def,s_val_eq_APPEND]);
+  srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def,s_val_eq_APPEND]
+QED
 
-val s_val_eq_TAKE = Q.prove(
-  `!s t n. s_val_eq s t ==> s_val_eq (TAKE n s) (TAKE n t)`,
+Triviality s_val_eq_TAKE:
+  !s t n. s_val_eq s t ==> s_val_eq (TAKE n s) (TAKE n t)
+Proof
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>rw[]>>
-  Cases_on`n`>>fs[s_val_eq_def]);
+  Cases_on`n`>>fs[s_val_eq_def]
+QED
 
-val s_val_eq_LASTN = Q.prove(
-  `!s t n. s_val_eq s t
-    ==> s_val_eq (LASTN n s) (LASTN n t)`,
+Triviality s_val_eq_LASTN:
+  !s t n. s_val_eq s t
+    ==> s_val_eq (LASTN n s) (LASTN n t)
+Proof
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
   srw_tac[][LASTN_def]>>full_simp_tac(srw_ss())[s_val_eq_def]>>
   `s_val_eq [x] [y]` by full_simp_tac(srw_ss())[s_val_eq_def]>>
   `s_val_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
     full_simp_tac(srw_ss())[s_val_eq_APPEND,s_val_eq_REVERSE]>>
   IMP_RES_TAC s_val_eq_TAKE>>
-  metis_tac[s_val_eq_REVERSE]);
+  metis_tac[s_val_eq_REVERSE]
+QED
 
-val s_key_eq_APPEND = Q.prove(
-  `!s t x y. (s_key_eq s t /\ s_key_eq x y)==> s_key_eq (s++x) (t++y)`,
+Triviality s_key_eq_APPEND:
+  !s t x y. (s_key_eq s t /\ s_key_eq x y)==> s_key_eq (s++x) (t++y)
+Proof
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def]);
+  srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def]
+QED
 
-val s_key_eq_REVERSE = Q.prove(
-  `!s t. s_key_eq s t ==> s_key_eq (REVERSE s) (REVERSE t)`,
+Triviality s_key_eq_REVERSE:
+  !s t. s_key_eq s t ==> s_key_eq (REVERSE s) (REVERSE t)
+Proof
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def,s_key_eq_APPEND]);
+  srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def,s_key_eq_APPEND]
+QED
 
-val s_key_eq_TAKE = Q.prove(
-  `!s t n. s_key_eq s t ==> s_key_eq (TAKE n s) (TAKE n t)`,
+Triviality s_key_eq_TAKE:
+  !s t n. s_key_eq s t ==> s_key_eq (TAKE n s) (TAKE n t)
+Proof
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
-  rw[]>>Cases_on`n`>>fs[s_key_eq_def]);
+  rw[]>>Cases_on`n`>>fs[s_key_eq_def]
+QED
 
-val s_key_eq_LASTN = Q.prove(
-  `!s t n. s_key_eq s t
-    ==> s_key_eq (LASTN n s) (LASTN n t)`,
+Triviality s_key_eq_LASTN:
+  !s t n. s_key_eq s t
+    ==> s_key_eq (LASTN n s) (LASTN n t)
+Proof
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
   srw_tac[][LASTN_def]>>full_simp_tac(srw_ss())[s_key_eq_def]>>
   `s_key_eq [x] [y]` by full_simp_tac(srw_ss())[s_key_eq_def]>>
   `s_key_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
     full_simp_tac(srw_ss())[s_key_eq_APPEND,s_key_eq_REVERSE]>>
   IMP_RES_TAC s_key_eq_TAKE>>
-  metis_tac[s_key_eq_REVERSE]);
+  metis_tac[s_key_eq_REVERSE]
+QED
 
 Theorem s_key_eq_tail:
   !a b c d. s_key_eq (a::b) (c::d) ==> s_key_eq b d
@@ -1566,22 +1606,26 @@ Proof
   full_simp_tac(srw_ss())[s_key_eq_def]
 QED
 
-val s_val_eq_tail = Q.prove(
- `!a b c d. s_val_eq (a::b) (c::d) ==> s_val_eq b d`,
-  full_simp_tac(srw_ss())[s_val_eq_def]);
+Triviality s_val_eq_tail:
+  !a b c d. s_val_eq (a::b) (c::d) ==> s_val_eq b d
+Proof
+  full_simp_tac(srw_ss())[s_val_eq_def]
+QED
 
-val s_key_eq_LASTN_exists = Q.prove(
-  `!s t n m e y xs. s_key_eq s t /\
+Triviality s_key_eq_LASTN_exists:
+  !s t n m e y xs. s_key_eq s t /\
     LASTN n s = StackFrame m e (SOME y)::xs
     ==> ?e' ls. LASTN n t = StackFrame m e' (SOME y)::ls
         /\ MAP FST e' = MAP FST e
-        /\ s_key_eq xs ls`,
-   rpt strip_tac>>
+        /\ s_key_eq xs ls
+Proof
+  rpt strip_tac>>
    IMP_RES_TAC s_key_eq_LASTN>>
    first_x_assum (qspec_then `n` assume_tac)>> rev_full_simp_tac(srw_ss())[]>>
    Cases_on`LASTN n t`>>
    full_simp_tac(srw_ss())[s_key_eq_def]>>
-   Cases_on`h`>>Cases_on`o'`>>Cases_on`o0`>>full_simp_tac(srw_ss())[s_frame_key_eq_def]);
+   Cases_on`h`>>Cases_on`o'`>>Cases_on`o0`>>full_simp_tac(srw_ss())[s_frame_key_eq_def]
+QED
 
 Theorem s_val_eq_LASTN_exists:
    !s t n m e y xs. s_val_eq s t /\
@@ -1604,12 +1648,16 @@ Proof
   metis_tac[LASTN_LENGTH_ID]
 QED
 
-val handler_eq = Q.prove(
-  `x with handler := x.handler = x`, full_simp_tac(srw_ss())[state_component_equality]);
+Triviality handler_eq:
+  x with handler := x.handler = x
+Proof
+  full_simp_tac(srw_ss())[state_component_equality]
+QED
 
 (*Stack is irrelevant to word_exp*)
-val word_exp_stack_swap = Q.prove(
-  `!s e st. word_exp s e = word_exp (s with stack:=st) e`,
+Triviality word_exp_stack_swap:
+  !s e st. word_exp s e = word_exp (s with stack:=st) e
+Proof
   ho_match_mp_tac word_exp_ind>>
   srw_tac[][word_exp_def]
   >-
@@ -1621,7 +1669,8 @@ val word_exp_stack_swap = Q.prove(
     (`ls = ls'` by
       (unabbrev_all_tac>>fs[MEM_MAP,MAP_EQ_f]))>>
     fs[])>>
-  every_case_tac>>full_simp_tac(srw_ss())[]);
+  every_case_tac>>full_simp_tac(srw_ss())[]
+QED
 
 Theorem s_val_eq_stack_size:
   ∀xs ys.
@@ -2363,13 +2412,18 @@ QED
 
 (*--Permute Swap Lemma--*)
 
-val ignore_inc = Q.prove(`
+Triviality ignore_inc:
   ∀perm:num->num->num.
-  (λn. perm(n+0)) = perm`,srw_tac[][FUN_EQ_THM]);
+  (λn. perm(n+0)) = perm
+Proof
+  srw_tac[][FUN_EQ_THM]
+QED
 
-val ignore_perm = Q.prove(`
-  ∀st. st with permute := st.permute = st` ,
-  srw_tac[][]>>full_simp_tac(srw_ss())[state_component_equality]);
+Triviality ignore_perm:
+  ∀st. st with permute := st.permute = st
+Proof
+  srw_tac[][]>>full_simp_tac(srw_ss())[state_component_equality]
+QED
 
 Theorem get_vars_perm:
     ∀args.get_vars args (st with permute:=perm) = get_vars args st
@@ -2387,11 +2441,13 @@ Proof
   full_simp_tac(srw_ss())[state_component_equality]
 QED
 
-val gc_perm = Q.prove(`
+Triviality gc_perm:
   gc st = SOME x ⇒
-  gc (st with permute:=perm) = SOME (x with permute := perm)`,
+  gc (st with permute:=perm) = SOME (x with permute := perm)
+Proof
   full_simp_tac(srw_ss())[gc_def,LET_THM]>>every_case_tac>>
-  full_simp_tac(srw_ss())[state_component_equality]);
+  full_simp_tac(srw_ss())[state_component_equality]
+QED
 
 Theorem get_var_perm:
     get_var n (st with permute:=perm) =
@@ -2437,10 +2493,12 @@ Proof
   full_simp_tac(srw_ss())[set_fp_var_def]
 QED
 
-val get_vars_perm = Q.prove(`
+Triviality get_vars_perm:
   ∀ls. get_vars ls (st with permute:=perm) =
-  (get_vars ls st)`,
-  Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_perm]);
+  (get_vars ls st)
+Proof
+  Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_perm]
+QED
 
 Theorem set_vars_perm[simp]:
     ∀ls. set_vars ls x (st with permute := perm) =
@@ -2449,10 +2507,12 @@ Proof
   full_simp_tac(srw_ss())[set_vars_def]
 QED
 
-val word_state_rewrites = Q.prove(`
+Triviality word_state_rewrites:
   (st with clock:=A) with permute:=B =
-  (st with <|clock:=A ;permute:=B|>)`,
-  full_simp_tac(srw_ss())[]);
+  (st with <|clock:=A ;permute:=B|>)
+Proof
+  full_simp_tac(srw_ss())[]
+QED
 
 val perm_assum_tac = (first_x_assum(qspec_then`perm`assume_tac)>>
           full_simp_tac(srw_ss())[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
@@ -2475,22 +2535,26 @@ Proof
       (unabbrev_all_tac>>fs[MAP_EQ_f])>> fs[]
 QED
 
-val mem_store_perm = Q.prove(`
+Triviality mem_store_perm:
   mem_store a (w:'a word_loc) (s with permute:=perm) =
   case mem_store a w s of
     NONE => NONE
-  | SOME x => SOME(x with permute:=perm)`,
+  | SOME x => SOME(x with permute:=perm)
+Proof
   full_simp_tac(srw_ss())[mem_store_def]>>every_case_tac>>
-  full_simp_tac(srw_ss())[state_component_equality]);
+  full_simp_tac(srw_ss())[state_component_equality]
+QED
 
-val jump_exc_perm = Q.prove(`
+Triviality jump_exc_perm:
   jump_exc (st with permute:=perm) =
   case jump_exc st of
     NONE => NONE
-  | SOME (x,l1,l2) => SOME (x with permute:=perm,l1,l2)`,
+  | SOME (x,l1,l2) => SOME (x with permute:=perm,l1,l2)
+Proof
   full_simp_tac(srw_ss())[jump_exc_def]>>
   every_case_tac>>
-  full_simp_tac(srw_ss())[state_component_equality]);
+  full_simp_tac(srw_ss())[state_component_equality]
+QED
 
 (*For any target result permute, we can find an initial permute such that the
   final permute is equal to the target *)
@@ -2909,30 +2973,36 @@ Proof
   metis_tac[locals_rel_get_var]
 QED
 
-val locals_rel_set_var = Q.prove(`
+Triviality locals_rel_set_var:
   ∀n s t.
   locals_rel temp s t ⇒
-  locals_rel temp (insert n v s) (insert n v t)`,
-  srw_tac[][]>>full_simp_tac(srw_ss())[locals_rel_def,lookup_insert]);
+  locals_rel temp (insert n v s) (insert n v t)
+Proof
+  srw_tac[][]>>full_simp_tac(srw_ss())[locals_rel_def,lookup_insert]
+QED
 
-val locals_rel_delete = Q.prove(`
+Triviality locals_rel_delete:
   ∀n s t.
   locals_rel temp s t ⇒
-  locals_rel temp (delete n s) (delete n t)`,
-  rw[locals_rel_def,lookup_delete]);
+  locals_rel temp (delete n s) (delete n t)
+Proof
+  rw[locals_rel_def,lookup_delete]
+QED
 
-val locals_rel_cut_env = Q.prove(`
+Triviality locals_rel_cut_env:
   locals_rel temp loc loc' ∧
   every_name (λx. x < temp) names ∧
   cut_env names loc = SOME x ⇒
-  cut_env names loc' = SOME x`,
+  cut_env names loc' = SOME x
+Proof
   srw_tac[][locals_rel_def,cut_env_def,SUBSET_DEF,every_name_def]>>
   full_simp_tac(srw_ss())[EVERY_MEM,toAList_domain]
   >- metis_tac[domain_lookup]
   >>
   full_simp_tac(srw_ss())[lookup_inter]>>srw_tac[][]>>every_case_tac>>
   full_simp_tac(srw_ss())[domain_lookup]>>res_tac>>
-  metis_tac[option_CLAUSES]);
+  metis_tac[option_CLAUSES]
+QED
 
 (*Extra temporaries not mentioned in program
   do not affect evaluation*)
@@ -3535,14 +3605,16 @@ Proof
   metis_tac[env_to_list_ALL_DISTINCT,FST]
 QED
 
-val max_var_exp_IMP = Q.prove(`
+Triviality max_var_exp_IMP:
   ∀exp.
   P 0 ∧ every_var_exp P exp ⇒
-  P (max_var_exp exp)`,
+  P (max_var_exp exp)
+Proof
   ho_match_mp_tac max_var_exp_ind>>fs[max_var_exp_def,every_var_exp_def]>>
   srw_tac[][]>>
   match_mp_tac list_max_intro>>
-  fs[EVERY_MAP,EVERY_MEM]);
+  fs[EVERY_MAP,EVERY_MEM]
+QED
 
 Theorem max_var_intro:
     ∀prog.

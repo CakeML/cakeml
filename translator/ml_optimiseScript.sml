@@ -24,16 +24,20 @@ val _ = new_theory "ml_optimise";
 
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 
-val MEM_exp_size1 = Q.prove(
-  `!xs a. MEM a xs ==> exp_size a <= exp6_size xs`,
+Triviality MEM_exp_size1:
+  !xs a. MEM a xs ==> exp_size a <= exp6_size xs
+Proof
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
+  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC
+QED
 
-val MEM_exp_size2 = Q.prove(
-  `!ys p x. MEM (p,x) ys ==> exp_size x < exp3_size ys`,
+Triviality MEM_exp_size2:
+  !ys p x. MEM (p,x) ys ==> exp_size x < exp3_size ys
+Proof
   Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def] THEN Cases
   THEN FULL_SIMP_TAC std_ss [exp_size_def]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
+  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC
+QED
 
 val exp6_size_SNOC = prove(
   ``!xs y. exp6_size (xs ++ [y]) = exp6_size xs + exp6_size [y]``,
@@ -381,9 +385,10 @@ Definition abs2let_def:
              | rest => rest
 End
 
-val abs2let_thm = Q.prove(
-  `!env s exp t res. eval_rel s env exp t res ==>
-                     eval_rel s env (abs2let exp) t res`,
+Triviality abs2let_thm:
+  !env s exp t res. eval_rel s env exp t res ==>
+                     eval_rel s env (abs2let exp) t res
+Proof
   rpt strip_tac
   \\ Cases_on `abs2let exp = exp` \\ fs []
   \\ `?v e y. exp = App Opapp [Fun v e; y]` by
@@ -398,7 +403,8 @@ val abs2let_thm = Q.prove(
   \\ disch_then (qspec_then `1` mp_tac) \\ fs []
   \\ `(st' with clock := st'.clock) = st'` by fs [state_component_equality]
   \\ fs [namespaceTheory.nsOptBind_def]
-  \\ rw [] \\ fs [state_component_equality]);
+  \\ rw [] \\ fs [state_component_equality]
+QED
 
 (* rewrite optimisation: let x = y in x --> y *)
 
@@ -408,9 +414,10 @@ Definition let_id_def:
   (let_id rest = rest)
 End
 
-val let_id_thm = Q.prove(
-  `!env s exp t res. eval_rel s env exp t res ==>
-                     eval_rel s env (let_id exp) t res`,
+Triviality let_id_thm:
+  !env s exp t res. eval_rel s env exp t res ==>
+                     eval_rel s env (let_id exp) t res
+Proof
   rpt strip_tac
   \\ Cases_on `let_id exp = exp` \\ fs []
   \\ `?v x y. exp = Let (SOME v) x (Var (Short v))` by
@@ -421,7 +428,8 @@ val let_id_thm = Q.prove(
   \\ qexists_tac `ck1`
   \\ rveq \\ fs []
   \\ fs [state_component_equality,namespaceTheory.nsOptBind_def]
-  \\ imp_res_tac evaluate_sing \\ fs []);
+  \\ imp_res_tac evaluate_sing \\ fs []
+QED
 
 
 (* rewrite optimisations: x - n + n --> x and x + n - n --> x *)
@@ -445,14 +453,17 @@ Definition opt_sub_add_def:
          | _ => x
 End
 
-val dest_binop_thm = Q.prove(
-  `!x. (dest_binop x = SOME (x1,x2,x3)) <=> (x = App (Opn x1) [x2; x3])`,
+Triviality dest_binop_thm:
+  !x. (dest_binop x = SOME (x1,x2,x3)) <=> (x = App (Opn x1) [x2; x3])
+Proof
   HO_MATCH_MP_TAC (fetch "-" "dest_binop_ind")
-  \\ FULL_SIMP_TAC (srw_ss()) [dest_binop_def]);
+  \\ FULL_SIMP_TAC (srw_ss()) [dest_binop_def]
+QED
 
-val opt_sub_add_thm = Q.prove(
-  `!env s exp t res. eval_rel s env exp t res ==>
-                     eval_rel s env (opt_sub_add exp) t res`,
+Triviality opt_sub_add_thm:
+  !env s exp t res. eval_rel s env exp t res ==>
+                     eval_rel s env (opt_sub_add exp) t res
+Proof
   rpt strip_tac
   \\ Cases_on `opt_sub_add exp = exp` \\ fs []
   \\ fs [opt_sub_add_def]
@@ -477,7 +488,8 @@ val opt_sub_add_thm = Q.prove(
   \\ rveq \\ fs [] \\ rveq \\ fs []
   \\ fs [opn_lookup_def, dest_binop_def,
        intLib.COOPER_PROVE ``i + i2 - i2 = i:int``,
-       intLib.COOPER_PROVE ``i - i2 + i2 = i:int``]);
+       intLib.COOPER_PROVE ``i - i2 + i2 = i:int``]
+QED
 
 (* top-level optimiser *)
 

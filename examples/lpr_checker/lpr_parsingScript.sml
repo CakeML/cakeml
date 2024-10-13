@@ -972,14 +972,16 @@ Definition parse_vb_until_nn_def:
   )
 End
 
-val parse_vb_until_nn_length = Q.prove(`
+Triviality parse_vb_until_nn_length:
   ∀ls acc a b c.
   parse_vb_until_nn ls acc = (a,b,c) ∧ a ≠ 0 ⇒
-  LENGTH c < LENGTH ls`,
+  LENGTH c < LENGTH ls
+Proof
   Induct>>fs[parse_vb_until_nn_def]>>
   rw[]>>every_case_tac>>fs[]>>
   first_x_assum drule>>
-  fs[]);
+  fs[]
+QED
 
 Definition parse_vb_PR_hint_def:
   parse_vb_PR_hint id xs acc =

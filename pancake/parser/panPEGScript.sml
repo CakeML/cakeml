@@ -422,10 +422,12 @@ End
 
 (** Properties for proving well-formedness of the Pancake grammar. *)
 
-val frange_image = Q.prove(
-  ‘FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)’,
+Triviality frange_image:
+  FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)
+Proof
   simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION]
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
 val peg_range =
     SIMP_CONV (srw_ss())
@@ -693,9 +695,11 @@ val pancake_wfpeg_thm2 = save_thm(
   "pancake_wfpeg_FunNT_thm",
   LIST_CONJ (List.foldl (wfnt “pancake_peg with start := mknt FunNT”) [] (topo_nts @ [“ProgNT”])))
 
-val subexprs_mknt = Q.prove(
-  ‘subexprs (mknt n) = {mknt n}’,
-  simp[subexprs_def, mknt_def]);
+Triviality subexprs_mknt:
+  subexprs (mknt n) = {mknt n}
+Proof
+  simp[subexprs_def, mknt_def]
+QED
 
 Theorem PEG_wellformed[simp]:
   wfG pancake_peg

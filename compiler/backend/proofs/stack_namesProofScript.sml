@@ -170,9 +170,11 @@ Proof
   Cases_on ‘op’>>rw[sh_mem_op_def]
 QED
 
-val prog_comp_eta = Q.prove(
-  `prog_comp f = λ(x,y). (x,comp f y)`,
-  rw[prog_comp_def,FUN_EQ_THM,FORALL_PROD])
+Triviality prog_comp_eta:
+  prog_comp f = λ(x,y). (x,comp f y)
+Proof
+  rw[prog_comp_def,FUN_EQ_THM,FORALL_PROD]
+QED
 
 Theorem find_code_rename_state[simp]:
    BIJ (find_name f) UNIV UNIV ⇒
@@ -256,23 +258,29 @@ Proof
   rw[rename_state_def,domain_fromAList,toAList_domain,EXTENSION]
 QED
 
-val comp_STOP_While = Q.prove(
-  `comp f (STOP (While cmp r1 ri c1)) =
-    STOP (While cmp (find_name f r1) (ri_find_name f ri) (comp f c1))`,
-  simp [Once comp_def] \\ fs [STOP_def]);
+Triviality comp_STOP_While:
+  comp f (STOP (While cmp r1 ri c1)) =
+    STOP (While cmp (find_name f r1) (ri_find_name f ri) (comp f c1))
+Proof
+  simp [Once comp_def] \\ fs [STOP_def]
+QED
 
-val get_labels_comp = Q.prove(
-  `!f p. get_labels (comp f p) = get_labels p`,
+Triviality get_labels_comp:
+  !f p. get_labels (comp f p) = get_labels p
+Proof
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [comp_def] \\ fs []
-  \\ every_case_tac \\ fs [get_labels_def]);
+  \\ every_case_tac \\ fs [get_labels_def]
+QED
 
-val loc_check_rename_state = Q.prove(
-  `loc_check (rename_state c f s).code (l1,l2) =
-    loc_check s.code (l1,l2)`,
+Triviality loc_check_rename_state:
+  loc_check (rename_state c f s).code (l1,l2) =
+    loc_check s.code (l1,l2)
+Proof
   fs [loc_check_def,rename_state_def,lookup_fromAList,compile_def,prog_comp_def]
   \\ simp[lookup_fromAList,compile_def,prog_comp_eta,ALOOKUP_MAP,ALOOKUP_toAList]
-  \\ fs [PULL_EXISTS,get_labels_comp]);
+  \\ fs [PULL_EXISTS,get_labels_comp]
+QED
 
 Theorem comp_correct[local]:
   ∀p s r t.
@@ -528,13 +536,15 @@ Proof
   srw_tac[QUANT_INST_ss[pair_default_qp]][]
 QED
 
-val compile_semantics_alt = Q.prove(
-  `!s t.
+Triviality compile_semantics_alt:
+  !s t.
       BIJ (find_name f) UNIV UNIV /\ (rename_state t.compile f s = t) /\
       s.compile = (λc. t.compile c o (compile f)) /\
       ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack ==>
-      semantics start t = semantics start s`,
-  metis_tac [compile_semantics]);
+      semantics start t = semantics start s
+Proof
+  metis_tac [compile_semantics]
+QED
 
 Definition make_init_def:
   make_init f code oracle (s:('a,'c,'ffi) stackSem$state) =
@@ -577,25 +587,30 @@ Proof
   BasicProvers.EVERY_CASE_TAC>>fs[extract_labels_def]
 QED
 
-val names_ok_imp = Q.prove(`
+Triviality names_ok_imp:
   names_ok f c.reg_count c.avoid_regs ⇒
   ∀n. reg_name n c ⇒
-  reg_ok (find_name f n) c`,
-  fs[names_ok_def,EVERY_GENLIST,reg_name_def,asmTheory.reg_ok_def])
+  reg_ok (find_name f n) c
+Proof
+  fs[names_ok_def,EVERY_GENLIST,reg_name_def,asmTheory.reg_ok_def]
+QED
 
-val names_ok_imp2 = Q.prove(`
+Triviality names_ok_imp2:
   names_ok f c.reg_count c.avoid_regs ∧
   n ≠ n' ∧
   reg_name n c ∧ reg_name n' c ⇒
-  find_name f n ≠ find_name f n'`,
+  find_name f n ≠ find_name f n'
+Proof
   rw[names_ok_def]>>fs[ALL_DISTINCT_GENLIST,reg_name_def]>>
-  metis_tac[])
+  metis_tac[]
+QED
 
-val stack_names_comp_stack_asm_ok = Q.prove(`
+Triviality stack_names_comp_stack_asm_ok:
   ∀f p.
   stack_asm_name c p ∧ names_ok f c.reg_count c.avoid_regs ∧
   fixed_names f c ⇒
-  stack_asm_ok c (stack_names$comp f p)`,
+  stack_asm_ok c (stack_names$comp f p)
+Proof
   ho_match_mp_tac comp_ind>>
   Cases_on`p`>>rw[]>>
   simp[Once comp_def]>>fs[stack_asm_ok_def,stack_asm_name_def]
@@ -625,7 +640,8 @@ val stack_names_comp_stack_asm_ok = Q.prove(`
   >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]
   >- (CASE_TAC>>gs[stack_asm_ok_def]>>
       metis_tac[names_ok_imp,asmTheory.reg_ok_def,addr_ok_def,addr_name_def])
-  >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]);
+  >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]
+QED
 
 Theorem stack_names_stack_asm_ok:
     EVERY (λ(n,p). stack_asm_name c p) prog ∧

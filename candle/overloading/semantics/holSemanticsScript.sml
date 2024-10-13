@@ -121,11 +121,12 @@ Proof
   >> simp[Once builtin_closure_cases]
 QED
 
-val allTypes_no_tyvars_and_ok = Q.prove(
-  `!ty. (∀x. x ∈ q ⇒ tyvars x = [] /\ type_ok (tysof sig) x)
+Triviality allTypes_no_tyvars_and_ok:
+  !ty. (∀x. x ∈ q ⇒ tyvars x = [] /\ type_ok (tysof sig) x)
         /\ (∀x. MEM x (allTypes' ty) ⇒ x ∈ q)
         /\ is_std_sig sig
-        ==> tyvars ty = [] /\ type_ok (tysof sig) ty`,
+        ==> tyvars ty = [] /\ type_ok (tysof sig) ty
+Proof
   ho_match_mp_tac type_ind >> rpt strip_tac
   >> fs[allTypes'_defn]
   >- (BasicProvers.PURE_FULL_CASE_TAC >- fs[tyvars_def]
@@ -143,29 +144,36 @@ val allTypes_no_tyvars_and_ok = Q.prove(
   >> BasicProvers.PURE_FULL_CASE_TAC
   >- (fs[listTheory.LENGTH_EQ_NUM_compute,is_std_sig_def,type_ok_def]
       \\ fs[])
-  \\ fs[type_ok_def]);
+  \\ fs[type_ok_def]
+QED
 
-val allTypes_no_tyvars2 = Q.prove(
-  `!tm ty1 ty2. tm has_type ty1 /\
+Triviality allTypes_no_tyvars2:
+  !tm ty1 ty2. tm has_type ty1 /\
            MEM ty2 (allTypes' ty1)
-           ==> MEM ty2 (allTypes tm)`,
+           ==> MEM ty2 (allTypes tm)
+Proof
   simp[GSYM AND_IMP_INTRO,GSYM PULL_FORALL]
   >> ho_match_mp_tac has_type_strongind
-  >> rw[allTypes_def,allTypes'_defn] >> fs[]);
+  >> rw[allTypes_def,allTypes'_defn] >> fs[]
+QED
 
-val builtin_closure_tyvars = Q.prove(
-  `∀q x. x ∈ builtin_closure q /\ (∀x. x ∈ q ⇒ tyvars x = []) ==> tyvars x = []`,
+Triviality builtin_closure_tyvars:
+  ∀q x. x ∈ builtin_closure q /\ (∀x. x ∈ q ⇒ tyvars x = []) ==> tyvars x = []
+Proof
   simp [IN_DEF,GSYM AND_IMP_INTRO]
   >> ho_match_mp_tac builtin_closure_ind
-  >> rw[tyvars_def]);
+  >> rw[tyvars_def]
+QED
 
-val builtin_closure_type_ok = Q.prove(
-  `∀q x. x ∈ builtin_closure q /\ (∀x. x ∈ q ⇒ type_ok (tysof sig) x)
+Triviality builtin_closure_type_ok:
+  ∀q x. x ∈ builtin_closure q /\ (∀x. x ∈ q ⇒ type_ok (tysof sig) x)
    /\ is_std_sig sig
-   ==> type_ok (tysof sig) x`,
+   ==> type_ok (tysof sig) x
+Proof
   simp [IN_DEF,GSYM AND_IMP_INTRO]
   >> ho_match_mp_tac builtin_closure_ind
-  >> rw[is_std_sig_def,type_ok_def]);
+  >> rw[is_std_sig_def,type_ok_def]
+QED
 
 Theorem builtin_closure_allTypes:
   !ty q. (∀x. MEM x (allTypes' ty) ⇒ x ∈ q) ==> ty ∈ builtin_closure q
@@ -231,8 +239,9 @@ Proof
     >> metis_tac[builtin_closure_rules,boolTheory.IN_DEF])
 QED
 
-val allTypes'_builtin_closure = Q.prove(
-  `!q ty x. ty ∈ builtin_closure q /\ q ⊆ nonbuiltin_types /\ MEM x (allTypes' ty) ⇒ x ∈ q`,
+Triviality allTypes'_builtin_closure:
+  !q ty x. ty ∈ builtin_closure q /\ q ⊆ nonbuiltin_types /\ MEM x (allTypes' ty) ⇒ x ∈ q
+Proof
   simp[boolTheory.IN_DEF,GSYM AND_IMP_INTRO,GSYM PULL_FORALL]
   >> ho_match_mp_tac builtin_closure_ind
   >> rpt strip_tac
@@ -241,46 +250,57 @@ val allTypes'_builtin_closure = Q.prove(
       >> fs[is_builtin_type_def,is_builtin_name_def]
       >> fs[allTypes'_defn])
   >- fs[allTypes'_defn]
-  >- (fs[allTypes'_defn,boolTheory.IN_DEF] >> rpt(first_x_assum drule >> strip_tac)));
+  >- (fs[allTypes'_defn,boolTheory.IN_DEF] >> rpt(first_x_assum drule >> strip_tac))
+QED
 
-val consts_of_free_const = Q.prove(
-  `!tm x v. x ∈ consts_of_term v /\ VFREE_IN v tm
-            ==> v = Const (FST x) (SND x)`,
+Triviality consts_of_free_const:
+  !tm x v. x ∈ consts_of_term v /\ VFREE_IN v tm
+            ==> v = Const (FST x) (SND x)
+Proof
   Induct >> rpt strip_tac
   >> fs[consts_of_term_def,VFREE_IN_def]
   >> rpt(BasicProvers.VAR_EQ_TAC)
-  >> fs[consts_of_term_def]);
+  >> fs[consts_of_term_def]
+QED
 
-val VFREEs_IN_consts = Q.prove(
-  `!tm s ty. VFREE_IN (Const s ty) tm
-            ==> (s,ty) ∈ consts_of_term tm`,
+Triviality VFREEs_IN_consts:
+  !tm s ty. VFREE_IN (Const s ty) tm
+            ==> (s,ty) ∈ consts_of_term tm
+Proof
   Induct >> rpt strip_tac
   >> fs[consts_of_term_def,VFREE_IN_def]
   >> rpt(BasicProvers.VAR_EQ_TAC)
-  >> fs[consts_of_term_def]);
+  >> fs[consts_of_term_def]
+QED
 
-val var_type_in_types = Q.prove(
-  `!tm ty v. VFREE_IN v tm /\ MEM ty (allTypes v)
-            ==> MEM ty (allTypes tm)`,
+Triviality var_type_in_types:
+  !tm ty v. VFREE_IN v tm /\ MEM ty (allTypes v)
+            ==> MEM ty (allTypes tm)
+Proof
   Induct >> rpt strip_tac
   >> fs[VFREE_IN_def,allTypes_def]
   >> rpt(BasicProvers.VAR_EQ_TAC)
   >> fs[allTypes_def]
-  >> rpt(qpat_x_assum `!x. _` imp_res_tac) >> fs[]);
+  >> rpt(qpat_x_assum `!x. _` imp_res_tac) >> fs[]
+QED
 
-val VFREE_type = Q.prove(
-  `!tm v. VFREE_IN v tm ==> v has_type typeof v`,
+Triviality VFREE_type:
+  !tm v. VFREE_IN v tm ==> v has_type typeof v
+Proof
   Induct >> rpt strip_tac
   >> fs[VFREE_IN_def]
   >> rpt(BasicProvers.VAR_EQ_TAC)
-  >> fs[typeof_def,has_type_rules]);
+  >> fs[typeof_def,has_type_rules]
+QED
 
-val RTC_lifts_invariants_inv = Q.prove(
-  `(∀x y. P x ∧ R y x ⇒ P y) ⇒ ∀x y. P x ∧ R^* y x ⇒ P y`,
+Triviality RTC_lifts_invariants_inv:
+  (∀x y. P x ∧ R y x ⇒ P y) ⇒ ∀x y. P x ∧ R^* y x ⇒ P y
+Proof
   rpt strip_tac
   >> Q.ISPECL_THEN [`inv R`,`P`] assume_tac (GEN_ALL relationTheory.RTC_lifts_invariants)
   >> fs[relationTheory.inv_DEF,relationTheory.inv_MOVES_OUT]
-  >> metis_tac[])
+  >> metis_tac[]
+QED
 
 Theorem terms_of_frag_combE:
   !f a b sig. is_sig_fragment sig f /\ Comb a b ∈ terms_of_frag f ==>
@@ -380,23 +400,28 @@ Proof
 QED
 
 (* TODO: unify these two lemmas *)
-val consts_of_term_REV_ASSOCD = Q.prove(
-  `!x t ilist d. x ∈ consts_of_term (REV_ASSOCD t ilist d)
-   ==> x ∈ consts_of_term d \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)`,
+Triviality consts_of_term_REV_ASSOCD:
+  !x t ilist d. x ∈ consts_of_term (REV_ASSOCD t ilist d)
+   ==> x ∈ consts_of_term d \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)
+Proof
   Induct_on `ilist`
   >> rw[holSyntaxLibTheory.REV_ASSOCD_def]
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
-val allTypes_REV_ASSOCD = Q.prove(
-  `!x t ilist d. MEM x (allTypes (REV_ASSOCD t ilist d))
-   ==> MEM x (allTypes d) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)`,
+Triviality allTypes_REV_ASSOCD:
+  !x t ilist d. MEM x (allTypes (REV_ASSOCD t ilist d))
+   ==> MEM x (allTypes d) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)
+Proof
   Induct_on `ilist`
   >> rw[holSyntaxLibTheory.REV_ASSOCD_def]
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
-val consts_of_term_VSUBST = Q.prove(
-  `!x n ty tm1 ilist. x ∈ consts_of_term (VSUBST ilist tm1)
-   ==> x ∈ consts_of_term tm1 \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)`,
+Triviality consts_of_term_VSUBST:
+  !x n ty tm1 ilist. x ∈ consts_of_term (VSUBST ilist tm1)
+   ==> x ∈ consts_of_term tm1 \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)
+Proof
   Induct_on `tm1`
   >> rw[VSUBST_def]
   >- (imp_res_tac consts_of_term_REV_ASSOCD >> simp[])
@@ -412,12 +437,14 @@ val consts_of_term_VSUBST = Q.prove(
       >> strip_tac >> fs[consts_of_term_def]
       >> disj2_tac
       >> fs[listTheory.EXISTS_MEM,listTheory.MEM_MAP,listTheory.MEM_FILTER]
-      >> metis_tac[]));
+      >> metis_tac[])
+QED
 
-val allTypes_VSUBST = Q.prove(
-  `!x tm1 ilist. MEM x (allTypes (VSUBST ilist tm1))
+Triviality allTypes_VSUBST:
+  !x tm1 ilist. MEM x (allTypes (VSUBST ilist tm1))
                       /\ welltyped tm1
-                      ==> MEM x (allTypes tm1) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)`,
+                      ==> MEM x (allTypes tm1) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)
+Proof
   Induct_on `tm1`
   >> rw[VSUBST_def]
   >- (imp_res_tac allTypes_REV_ASSOCD >> simp[])
@@ -429,7 +456,8 @@ val allTypes_VSUBST = Q.prove(
   >- (fs[allTypes_def]
       >> first_x_assum drule >> strip_tac >> fs[allTypes_def]
       >> fs[listTheory.EXISTS_MEM,listTheory.MEM_MAP,listTheory.MEM_FILTER]
-      >> metis_tac[]));
+      >> metis_tac[])
+QED
 
 (* 8(1) *)
 Theorem types_of_frag_ground:
@@ -937,11 +965,13 @@ Definition fleq_def:
     /\ (!ty. ty ∈ tyfrag1 ==> δ1 ty = δ2 ty))
 End
 
-val builtin_closure_mono_lemma = Q.prove(
-  `!tys1 ty. builtin_closure tys1 ty ==> !tys2. tys1 ⊆ tys2 ==> builtin_closure tys2 ty`,
+Triviality builtin_closure_mono_lemma:
+  !tys1 ty. builtin_closure tys1 ty ==> !tys2. tys1 ⊆ tys2 ==> builtin_closure tys2 ty
+Proof
   ho_match_mp_tac builtin_closure_ind
   >> rpt strip_tac
-  >> metis_tac[builtin_closure_rules,pred_setTheory.SUBSET_DEF,boolTheory.IN_DEF]);
+  >> metis_tac[builtin_closure_rules,pred_setTheory.SUBSET_DEF,boolTheory.IN_DEF]
+QED
 
 Theorem builtin_closure_mono:
   !tys1 tys2. tys1 ⊆ tys2 ==> builtin_closure tys1 ⊆ builtin_closure tys2
@@ -952,12 +982,14 @@ QED
 (* Lemma 9 from Kunčar and Popescu's ITP2015 paper *)
 
 (* 9(1) *)
-val fleq_types_le = Q.prove(
-  `!frag1 i1 frag2 i2. fleq (frag1,i1) (frag2,i2)
-   ==> types_of_frag frag1 ⊆ types_of_frag frag2`,
+Triviality fleq_types_le:
+  !frag1 i1 frag2 i2. fleq (frag1,i1) (frag2,i2)
+   ==> types_of_frag frag1 ⊆ types_of_frag frag2
+Proof
   rpt Cases
   >> rw[fleq_def,types_of_frag_def]
-  >> imp_res_tac builtin_closure_mono);
+  >> imp_res_tac builtin_closure_mono
+QED
 
 (* 9(2) *)
 Theorem fleq_terms_le:

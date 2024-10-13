@@ -1305,11 +1305,12 @@ val run_quicksort_v_thm = m_translate_run run_quicksort_def;
 
 val qsort_v_thm = translate qsort_def;
 
-val qsort_v_precond = Q.prove(
-  `∀ cmp l . strict_weak_order cmp ⇒ qsort_side cmp l`,
+Triviality qsort_v_precond:
+  ∀ cmp l . strict_weak_order cmp ⇒ qsort_side cmp l
+Proof
   rw[fetch "-" "qsort_side_def"] >>
   metis_tac[run_quicksort_Success]
-)
+QED
 
 (* TODO update precondition doesn't seem to work here
 val _ = qsort_v_precond |> update_precondition
