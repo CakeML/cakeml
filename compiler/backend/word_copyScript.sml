@@ -231,8 +231,12 @@ Definition copy_prop_prog_def:
   (copy_prop_prog (Skip:'a wordLang$prog) cs =
     (Skip, cs)) ∧
   (copy_prop_prog (Move pri xs) cs =
-    let (xs',cs') = copy_prop_move xs cs in
-    (Move pri xs', cs')) ∧
+    let tt = MAP FST xs; ss = MAP SND xs in
+    if EVERY (λt. ¬ MEM t ss) tt then
+      (* set (MAP FST xs) ∩ set (MAP SND xs) = ∅ *)
+      let (xs',cs') = copy_prop_move xs cs in
+      (Move pri xs', cs')
+    else (Move pri xs, empty_eq)) ∧
   (copy_prop_prog (Inst i) cs =
     copy_prop_inst i cs) ∧
   (copy_prop_prog (Return v1 v2) cs =
