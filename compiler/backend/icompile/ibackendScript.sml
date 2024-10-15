@@ -124,7 +124,7 @@ Definition bvl_to_bvi_compile_update_config_def:
     (clos_conf, bvl_conf, p)
 End
 
-(* TODO: extend this step-by-step *)
+
 Definition compile_alt1_def:
   compile_alt1 source_conf clos_conf bvl_conf p =
  (* skip source to source for now *)
@@ -136,7 +136,8 @@ Definition compile_alt1_def:
     clos_to_bvl_compile_alt clos_conf compiled_p_clos in
   let (clos_conf', bvl_conf', compiled_p_bvi) =
     bvl_to_bvi_compile_update_config clos_conf' bvl_conf compiled_p_bvl in
-  (source_conf', clos_conf', bvl_conf', compiled_p_bvi)
+  let compiled_p_data = bvi_to_data$compile_prog compiled_p_bvi in
+    (source_conf', clos_conf', bvl_conf', compiled_p_data)
 End
 
 (******************************************************************************)
@@ -317,6 +318,8 @@ Definition icompile_bvl_to_bvi_def:
     (bvl_iconf, code)
 End
 
+
+
 Definition init_icompile_bvl_to_bvi_def:
   init_icompile_bvl_to_bvi (bvl_conf: bvl_to_bvi$config) bvl_init =
   let bvl_iconf = <| inline_size_limit := bvl_conf.inline_size_limit;
@@ -416,6 +419,7 @@ Definition init_icompile_clos_to_bvl_def:
                       compile_exps_aux := []|> in
   let init_stubs = toAList (init_code clos_iconf.max_app) in
   let (clos_iconf, bvl_stub) = icompile_clos_to_bvl clos_iconf clos_stub in
+
     (clos_iconf, init_stubs ++ bvl_stub)
 End
 
@@ -442,7 +446,8 @@ Definition init_icompile_def:
   let clos_stub = init_icompile_flat_to_clos flat_stub in
   let (clos_iconf, bvl_init) = init_icompile_clos_to_bvl clos_conf clos_stub in
   let (bvl_iconf, bvi_init) = init_icompile_bvl_to_bvi bvl_conf bvl_init in
-    (source_iconf, clos_iconf, bvl_iconf, bvi_init)
+  let data_init = bvi_to_data$compile_prog bvi_init in
+    (source_iconf, clos_iconf, bvl_iconf, data_init)
 End
 
 Definition end_icompile_def:
@@ -455,7 +460,8 @@ Definition end_icompile_def:
   let (clos_conf_after_ic, bvl_end) = end_icompile_clos_to_bvl clos_iconf clos_conf in
   let (clos_conf_after_ic_bvi, bvl_conf_after_ic, bvi_end) =
       end_icompile_bvl_to_bvi bvl_end bvl_iconf clos_conf_after_ic bvl_conf in
-    (source_conf_after_ic, clos_conf_after_ic_bvi, bvl_conf_after_ic, bvi_end)
+  let data_end = bvi_to_data$compile_prog bvi_end in
+    (source_conf_after_ic, clos_conf_after_ic_bvi, bvl_conf_after_ic, data_end)
 
 End
 
@@ -466,22 +472,11 @@ Definition icompile_def:
   let icompiled_p_clos = icompile_flat_to_clos icompiled_p_flat in
   let (clos_iconf', icompiled_p_bvl) = icompile_clos_to_bvl clos_iconf icompiled_p_clos in
   let (bvl_iconf', icompiled_p_bvi) = icompile_bvl_to_bvi bvl_iconf icompiled_p_bvl in
-    SOME (source_iconf', clos_iconf', bvl_iconf', icompiled_p_bvi)
+  let icompiled_p_data = bvi_to_data$compile_prog icompiled_p_bvi in
+    SOME (source_iconf', clos_iconf', bvl_iconf', icompiled_p_data)
 
 End
 
-(*
-Definition fold_icompile'_def:
-  fold_icompile' source_iconf clos_iconf []  = icompile source_iconf clos_iconf [] []
-  /\
-  fold_icompile' source_iconf clos_iconf  (p :: ps)  =
-  case icompile source_iconf clos_iconf [] p of NONE => NONE
-  | SOME (source_iconf', clos_iconf' , p') =>
-      (case fold_icompile' source_iconf' clos_iconf' ps of NONE => NONE
-      | SOME (source_iconf'', clos_iconf'', ps') =>
-        SOME (source_iconf'', clos_iconf'', ps' ++ p'))
-End
-*)
 
 Definition fold_icompile_def:
   fold_icompile source_iconf clos_iconf bvl_iconf [] =
@@ -1213,7 +1208,8 @@ Proof
   rev_drule_all icompile_icompile_clos_to_bvl >>
   rpt (strip_tac >> gvs[]) >>
   drule_all icompile_icompile_bvl_to_bvi >>
-  rpt (strip_tac >> gvs[])
+  rpt (strip_tac >> gvs[]) >>
+  rw[bvi_to_dataTheory.compile_prog_def]
 QED
 
 Definition config_prog_rel_def:
@@ -1239,12 +1235,12 @@ Definition init_config_rel_s2f_def:
 End
 
 
-Definition config_prog_rel_s2b_def:
-  config_prog_rel_s2b source_conf_after_ic source_conf_after_c
+Definition config_prog_rel_s2d_def:
+  config_prog_rel_s2d source_conf_after_ic source_conf_after_c
                       clos_conf_after_c clos_conf_after_ic
                       clos_conf_after_c_bvi clos_conf_after_ic_bvi
                       bvl_conf_after_ic bvl_conf_after_c
-                      icompiled_p_bvi_combined compiled_p_bvi
+                      icompiled_p_data_combined compiled_p_data
   =
   (source_conf_after_ic = source_conf_after_c
    ∧
@@ -1254,7 +1250,7 @@ Definition config_prog_rel_s2b_def:
    ∧
    bvl_conf_after_ic = bvl_conf_after_c
    ∧
-   icompiled_p_bvi_combined = compiled_p_bvi)
+   icompiled_p_data_combined = compiled_p_data)
 
 End
 
@@ -1381,7 +1377,7 @@ Proof
   rw[]
 QED
 
-(* clean up proof, lots of individual gvs *)
+
 Theorem init_icompile_icompile_end_icompile_b2b:
   init_icompile_bvl_to_bvi (bvl_conf: bvl_to_bvi$config) bvl_init = (bvl_iconf, bvi_init)
   ∧
@@ -1432,7 +1428,7 @@ Proof
 QED
 
 
-
+(* deprecate this
 Theorem init_icompile_icompile_end_icompile_s2b:
   init_icompile_source_to_flat source_conf = (source_iconf, flat_stub)
   ∧
@@ -1498,7 +1494,7 @@ Proof
   rw[config_prog_rel_b2b_def] >>
   rw[config_prog_rel_s2b_def]
 QED
-
+*)
 
 Theorem init_icompile_icompile_end_icompile_f2c_alt:
   init_icompile_source_to_flat source_conf = (source_iconf, flat_stub) ⇒
@@ -1512,14 +1508,14 @@ QED
 
 
 Theorem init_icompile_icompile_end_icompile:
-  init_icompile source_conf clos_conf bvl_conf = (source_iconf, clos_iconf, bvl_iconf,  bvi_init)
+  init_icompile source_conf clos_conf bvl_conf = (source_iconf, clos_iconf, bvl_iconf,  data_init)
   ∧
-  icompile source_iconf clos_iconf bvl_iconf p = SOME (source_iconf', clos_iconf', bvl_iconf', icompiled_p_bvi)
+  icompile source_iconf clos_iconf bvl_iconf p = SOME (source_iconf', clos_iconf', bvl_iconf', icompiled_p_data)
   ∧
   end_icompile source_iconf' source_conf
                clos_iconf' clos_conf
                bvl_iconf' bvl_conf
-  = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, bvi_end)
+  = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, data_end)
   ∧
   compile_alt1 source_conf clos_conf bvl_conf p = (source_conf_after_c, clos_conf_after_c, bvl_conf_after_c, compiled_p)
   ∧
@@ -1529,11 +1525,11 @@ Theorem init_icompile_icompile_end_icompile:
   ∧
   bvl_conf = bvl_to_bvi$default_config
   ⇒
-  config_prog_rel_s2b source_conf_after_ic source_conf_after_c
+  config_prog_rel_s2d source_conf_after_ic source_conf_after_c
                       clos_conf_after_c clos_conf_after_ic
                       clos_conf_after_c clos_conf_after_ic (* dont think i need to define a separate one but just for clarity *)
                       bvl_conf_after_ic bvl_conf_after_c
-                      (bvi_init ++ icompiled_p_bvi ++ bvi_end) compiled_p
+                      (data_init ++ icompiled_p_data ++ data_end) compiled_p
 Proof
   once_rewrite_tac[init_icompile_def, icompile_def, end_icompile_def, compile_alt1_def] >>
   simp[] >>
@@ -1562,7 +1558,8 @@ Proof
   gvs[] >> rpt strip_tac >>
   drule_all init_icompile_icompile_end_icompile_b2b >>
   simp[config_prog_rel_b2b_def] >>
-  strip_tac >> gvs[config_prog_rel_s2b_def]
+  strip_tac >> gvs[config_prog_rel_s2d_def] >> rw[config_prog_rel_s2d_def] >>
+  rw[bvi_to_dataTheory.compile_prog_def]
 QED
 
 
@@ -1603,7 +1600,6 @@ Theorem fold_icompile_collapse:
 Proof
   Induct >>
   rw[fold_icompile_def] >>
-
   Cases_on ‘icompile source_iconf clos_iconf bvl_iconf h’
   >- (simp[] >>
       drule icompile_none >> rw[])
@@ -1637,7 +1633,7 @@ Theorem icompile_eq:
   ∧
   bvl_conf = bvl_to_bvi$default_config
   ⇒
-  config_prog_rel_s2b source_conf_after_ic source_conf_after_c
+  config_prog_rel_s2d source_conf_after_ic source_conf_after_c
                       clos_conf_after_c clos_conf_after_ic
                       clos_conf_after_c clos_conf_after_ic (* dont think i need to define a separate one but just for clarity *)
                       bvl_conf_after_ic bvl_conf_after_c
