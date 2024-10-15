@@ -77,7 +77,7 @@ Theorem machine_code_sound:
         (LENGTH cl = 2 ∧
         ∃fml.
           parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
-          out = concat (print_prob (mk_prob (fml_to_pbf fml)))) ∨
+          out = concat (print_npbf (fml_to_pbf fml))) ∨
         (LENGTH cl = 3 ∧
         ∃fml.
           parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
