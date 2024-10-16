@@ -4184,7 +4184,7 @@ Proof
   \\ Cases_on`0 < n` \\ simp[]
   \\ simp[word_msb_n2w_numeric]
   \\ simp[NOT_LESS_EQUAL]
-  \\ simp[INT_MIN_def]
+  \\ simp[wordsTheory.INT_MIN_def]
   \\ simp[dimword_def]
   \\ Cases_on`dimindex(:'a)`\\simp[]
   \\ simp[EXP]
