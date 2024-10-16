@@ -1267,8 +1267,8 @@ Proof
   \\ imp_res_tac heap_lookup_LESS
 QED
 
-val f_old_ptrs_finite_open = save_thm("f_old_ptrs_finite_open[simp]",
-  f_old_ptrs_finite |> SIMP_RULE std_ss [f_old_ptrs_def]);
+Theorem f_old_ptrs_finite_open[simp] =
+  f_old_ptrs_finite |> SIMP_RULE std_ss [f_old_ptrs_def]
 
 Definition new_f_def:
   new_f f conf heap =
@@ -1318,8 +1318,8 @@ Proof
      \\ fs [isSomeDataElement_def])
 QED
 
-val isSomeDataElement_to_gen_heap_element = save_thm("isSomeDataElement_to_gen_heap_element",
-  isSomeDataElement_to_gen_heap_list |> SIMP_RULE std_ss [to_gen_heap_list_def]);
+Theorem isSomeDataElement_to_gen_heap_element =
+  isSomeDataElement_to_gen_heap_list |> SIMP_RULE std_ss [to_gen_heap_list_def]
 
 val MEM_refs_to_roots_IMP_MEM = prove(
   ``!heap_refs.
@@ -1403,8 +1403,8 @@ val roots_ok_simulation = prove(
   \\ fs []
   \\ simp [isSomeDataElement_to_gen_heap_element]);
 
-val heap_length_to_gen_heap_element = save_thm("heap_length_to_gen_heap_element[simp]",
-  heap_length_to_gen_heap_list |> SIMP_RULE std_ss [to_gen_heap_list_def]);
+Theorem heap_length_to_gen_heap_element[simp] =
+  heap_length_to_gen_heap_list |> SIMP_RULE std_ss [to_gen_heap_list_def]
 
 val MEM_to_gen_heap_IMP_MEM = prove(
   ``!heap_current xs l d ptr u.

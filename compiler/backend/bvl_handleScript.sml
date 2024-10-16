@@ -329,13 +329,13 @@ Proof
   \\ Cases_on `dx` \\ fs [LENGTH_NIL]
 QED
 
-val compile_seqs_compute = save_thm("compile_seqs_compute",
+Theorem compile_seqs_compute =
   LIST_CONJ [
     compile_seqs_def
     |> Q.SPECL [`e`,`c`,`NONE`]
     |> SIMP_RULE std_ss [LET_THM],
     compile_seqs_def
     |> Q.SPECL [`e`,`c`,`SOME y`]
-    |> SIMP_RULE std_ss [LET_THM]]);
+    |> SIMP_RULE std_ss [LET_THM]]
 
 val _ = export_theory();

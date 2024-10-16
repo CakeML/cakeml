@@ -60,7 +60,8 @@ val eval_tac = fs [wordSemTheory.evaluate_def,
   wordLangTheory.word_op_def, wordLangTheory.word_sh_def]
 
 (* This list must list all auxiliary definitions used in assign_def *)
-val assign_def_extras = save_thm("assign_def_extras",LIST_CONJ
+Theorem assign_def_extras =
+  LIST_CONJ
   [LoadWord64_def,WriteWord64_def,BignumHalt_def,LoadBignum_def,
    AnyArith_code_def,Add_code_def,Sub_code_def,Mul_code_def,
    Div_code_def,Mod_code_def, Compare1_code_def, Compare_code_def,
@@ -68,7 +69,7 @@ val assign_def_extras = save_thm("assign_def_extras",LIST_CONJ
    ShiftVar_def, generated_bignum_stubs_eq, DivCode_def,
    AddNumSize_def, AnyHeader_def, WriteWord64_on_32_def,
    WriteWord32_on_32_def, AllocVar_def, SilentFFI_def,
-   WordOp64_on_32_def, WordShift64_on_32_def, Make_ptr_bits_code_def]);
+   WordOp64_on_32_def, WordShift64_on_32_def, Make_ptr_bits_code_def]
 
 Theorem get_vars_SING:
    dataSem$get_vars args s = SOME [w] ==> ?y. args = [y]
@@ -12009,9 +12010,9 @@ Proof
   \\ fs[]
 QED
 
-val assign_ConsExtend = save_thm("assign_ConsExtend",
+Theorem assign_ConsExtend =
   ``assign c n l dest (ConsExtend tag) args names_opt``
-  |> SIMP_CONV (srw_ss()) [assign_def])
+  |> SIMP_CONV (srw_ss()) [assign_def]
 
 Theorem get_vars_IMP_domain:
    !xs s y.

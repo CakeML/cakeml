@@ -138,8 +138,8 @@ in
     save_thm("cmlG_applied", LIST_CONJ ths)
 end
 
-val cmlG_FDOM = save_thm("cmlG_FDOM",
-  SIMP_CONV (srw_ss()) [cmlG_def] ``FDOM cmlG.rules``)
+Theorem cmlG_FDOM =
+  SIMP_CONV (srw_ss()) [cmlG_def] ``FDOM cmlG.rules``
 
 Triviality paireq:
   (x,y) = z ⇔ x = FST z ∧ y = SND z
@@ -346,8 +346,7 @@ Proof
   simp[stringTheory.isUpper_def]
 QED
 
-val parsing_ind = save_thm(
-  "parsing_ind",
+Theorem parsing_ind =
   relationTheory.WF_INDUCTION_THM
     |> Q.ISPEC `inv_image
                   (measure (LENGTH:((token,MMLnonT)grammar$symbol # locs) list
@@ -357,6 +356,6 @@ val parsing_ind = save_thm(
                   (λpt. (real_fringe pt, ptree_head pt))`
     |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
     |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
-                             pairTheory.LEX_DEF]);
+                             pairTheory.LEX_DEF]
 
 val _ = export_theory()

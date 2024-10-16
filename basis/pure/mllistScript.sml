@@ -247,8 +247,8 @@ Theorem LENGTH_AUX_THM = Q.prove(`
   Induct THEN ASM_SIMP_TAC std_ss [LENGTH_AUX_def,LENGTH,ADD1,AC ADD_COMM ADD_ASSOC])
   |> Q.SPECL [`xs`,`0`] |> GSYM |> SIMP_RULE std_ss [];
 
-val _ = save_thm("list_compare_def",
-  ternaryComparisonsTheory.list_compare_def);
+Theorem list_compare_def =
+  ternaryComparisonsTheory.list_compare_def
 
 (* tail-recursive MAP *)
 

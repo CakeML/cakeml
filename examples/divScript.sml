@@ -532,7 +532,8 @@ Proof
   \\ irule REPLICATE_LIST_LREPEAT \\ fs []
 QED
 
-val yes_spec = save_thm("yes_spec", yes_spec_lemma |> SPEC_ALL |> UNDISCH_ALL);
+Theorem yes_spec =
+  yes_spec_lemma |> SPEC_ALL |> UNDISCH_ALL
 
 (* An IO-conditional loop with side effects *)
 

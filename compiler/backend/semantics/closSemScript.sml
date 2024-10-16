@@ -558,7 +558,8 @@ val case_eq_thms = LIST_CONJ (CaseEq"const_part" :: map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, ref_thms,
    result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
 
-val _ = save_thm ("case_eq_thms", case_eq_thms);
+Theorem case_eq_thms =
+  case_eq_thms
 
 Theorem do_install_clock:
    do_install vs s = (Rval e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1
@@ -698,9 +699,8 @@ Termination
   \\ decide_tac
 End
 
-val evaluate_app_NIL = save_thm(
-  "evaluate_app_NIL[simp]",
-  ``evaluate_app loc v [] s`` |> SIMP_CONV (srw_ss()) [evaluate_def])
+Theorem evaluate_app_NIL[simp] =
+  ``evaluate_app loc v [] s`` |> SIMP_CONV (srw_ss()) [evaluate_def]
 
 (* We prove that the clock never increases. *)
 

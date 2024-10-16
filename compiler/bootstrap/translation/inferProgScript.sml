@@ -250,7 +250,8 @@ Theorem ts_unify_side_def[allow_rebind] = Q.prove(`
 val r = translate alist_nub_def;
 val r = translate (ns_nub_def |> DefnBase.one_line_ify NONE);
 
-val _ = save_thm("anub_ind",REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind)
+Theorem anub_ind =
+  REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind
 val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
 
 val _ = (extra_preprocessing :=
@@ -506,12 +507,12 @@ val inter_p_lemma1 = prove(
 
 val x_var = inter_p_lemma1 |> CONJUNCT1 |> concl |> dest_eq |> fst |> rand
 
-val infer_p_ind = save_thm("infer_p_ind",
+Theorem infer_p_ind =
   inferTheory.infer_p_ind
   |> Q.SPEC `\v1 v2 v3. !^x_var. P0 v1 v2 v3 ^x_var`
   |> Q.SPEC `\v1 v2 v3. !^x_var. P1 v1 v2 v3 ^x_var`
   |> Q.GENL [`P0`,`P1`]
-  |> CONV_RULE (DEPTH_CONV BETA_CONV));
+  |> CONV_RULE (DEPTH_CONV BETA_CONV)
 
 val res = translate inter_p_lemma1;
 
@@ -550,14 +551,14 @@ val inter_e_lemma1 = prove(
   every_case_tac \\ fs [])
   |> REWRITE_RULE [infer_e_lemma];
 
-val infer_e_ind = save_thm("infer_e_ind",
+Theorem infer_e_ind =
   inferTheory.infer_e_ind
   |> Q.SPEC `\v1 v2 v3. !^x_var. P0 v1 v2 v3 ^x_var`
   |> Q.SPEC `\v1 v2 v3. !^x_var. P1 v1 v2 v3 ^x_var`
   |> Q.SPEC `\v1 v2 v3 v4 v5. !^x_var. P2 v1 v2 v3 v4 v5 ^x_var`
   |> Q.SPEC `\v1 v2 v3. !^x_var. P3 v1 v2 v3 ^x_var`
   |> Q.GENL [`P0`,`P1`,`P2`,`P3`]
-  |> CONV_RULE (DEPTH_CONV BETA_CONV));
+  |> CONV_RULE (DEPTH_CONV BETA_CONV)
 
 val res = translate inter_e_lemma1;
 
@@ -670,7 +671,7 @@ val MEM_anub = prove(``
   ∀e1M ls k v1.
   MEM (k,v1) (anub e1M ls) ⇒
   MEM (k,v1) e1M``,
-  ho_match_mp_tac anub_ind>>rw[anub_def]>>metis_tac[]);
+  ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>metis_tac[]);
 
 Definition nsSub_translate_def:
   nsSub_translate path R b1 b2 ⇔
@@ -696,7 +697,7 @@ val ALOOKUP_MEM_anub = prove(
   ``∀ls acc k v.
     MEM (k,v) (anub ls acc) ⇔
     (ALOOKUP ls k = SOME v ∧ ¬MEM k acc)``,
-    ho_match_mp_tac anub_ind>>rw[anub_def]>>IF_CASES_TAC>>fs[]>>
+    ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>IF_CASES_TAC>>fs[]>>
     metis_tac[]);
 
 val MEM_ALOOKUP = prove(``

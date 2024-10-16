@@ -2064,7 +2064,8 @@ qpat_x_assum `∀u. Q u ⇒ P u` ho_match_mp_tac >>
 rw [FLOOKUP_o_f, encode_infer_t_def]
 QED
 
-val t_vwalk_ind = save_thm("t_vwalk_ind", (UNDISCH o Q.SPEC `s`) t_vwalk_ind')
+Theorem t_vwalk_ind =
+  (UNDISCH o Q.SPEC `s`) t_vwalk_ind'
 
 Theorem t_vwalk_eqn:
  !s.
@@ -2777,7 +2778,8 @@ rw [] >>
 metis_tac [t_unify_unifier]
 QED
 
-val t_unify_strongind = save_thm("t_unify_strongind", SIMP_RULE (bool_ss) [] t_unify_strongind');
+Theorem t_unify_strongind =
+  SIMP_RULE (bool_ss) [] t_unify_strongind'
 
 Triviality encode_walkstar:
   !s t.

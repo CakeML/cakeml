@@ -22,11 +22,11 @@ val _ = m_translation_extends "reader_commonProg"
 val r = m_translate readLine_wrap_def
 val r = m_translate init_reader_wrap_def
 
-val init_reader_wrap_spec = save_thm ("init_reader_wrap_spec",
-  mk_app_of_ArrowP (theorem "init_reader_wrap_v_thm"));
+Theorem init_reader_wrap_spec =
+  mk_app_of_ArrowP (theorem "init_reader_wrap_v_thm")
 
-val readline_wrap_spec = save_thm ("readline_wrap_spec",
-  mk_app_of_ArrowP (theorem "readline_wrap_v_thm"));
+Theorem readline_wrap_spec =
+  mk_app_of_ArrowP (theorem "readline_wrap_v_thm")
 
 (* ------------------------------------------------------------------------- *)
 (* Set up translation to 'resume' from reader_commonProg                     *)
@@ -330,8 +330,8 @@ val readMain_side = Q.prove (
   \\ imp_res_tac EVERY_TL \\ rfs [clFFITheory.validArg_def])
   |> update_precondition;
 
-val readMain_spec = save_thm ("readMain_spec",
-  cfMonadLib.mk_app_of_ArrowP (theorem "readmain_v_thm"));
+Theorem readMain_spec =
+  cfMonadLib.mk_app_of_ArrowP (theorem "readmain_v_thm")
 
 Theorem readMain_spec_wp:
    wfcl st.cl /\

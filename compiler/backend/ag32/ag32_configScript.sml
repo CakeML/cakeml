@@ -9,8 +9,8 @@ Definition ag32_names_def:
   ag32_names = LN:num num_map
 End
 
-val ag32_names_def = save_thm("ag32_names_def[compute,allow_rebind]",
-  CONV_RULE (RAND_CONV EVAL) ag32_names_def);
+Theorem ag32_names_def[compute,allow_rebind] =
+  CONV_RULE (RAND_CONV EVAL) ag32_names_def
 
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)

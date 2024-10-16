@@ -214,9 +214,8 @@ Proof
   simp[file_contents_add_stdout] \\ xsimpl
 QED
 
-val cat_spec = save_thm(
-  "cat_spec",
-  cat_spec0 |> SIMP_RULE (srw_ss()) [])
+Theorem cat_spec =
+  cat_spec0 |> SIMP_RULE (srw_ss()) []
 
 val _ = process_topdecs `
   fun cat1 f =

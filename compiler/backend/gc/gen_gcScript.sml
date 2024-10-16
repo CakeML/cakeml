@@ -1568,11 +1568,11 @@ Proof
   \\ full_simp_tac std_ss []
 QED
 
-val heap_lookup_IMP_heap_addresses = save_thm("heap_lookup_IMP_heap_addresses",
-    heap_lookup_IMP_heap_addresses_GEN
+Theorem heap_lookup_IMP_heap_addresses =
+  heap_lookup_IMP_heap_addresses_GEN
       |> Q.SPECL [`xs`,`0`]
       |> SIMP_RULE std_ss []
-      |> GEN_ALL);
+      |> GEN_ALL
 
 val heap_lookup_AND_APPEND_IMP = prove(
   ``!xs n ys d d1.

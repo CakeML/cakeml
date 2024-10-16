@@ -554,13 +554,12 @@ in
     ths
 end
 
-val FDOM_cmlPEG = save_thm(
-  "FDOM_cmlPEG",
+Theorem FDOM_cmlPEG =
   SIMP_CONV (srw_ss()) [cmlPEG_def,
                         finite_mapTheory.FRANGE_FUPDATE_DOMSUB,
                         finite_mapTheory.DOMSUB_FUPDATE_THM,
                         finite_mapTheory.FUPDATE_LIST_THM]
-            ``FDOM cmlPEG.rules``);
+            ``FDOM cmlPEG.rules``
 
 val spec0 =
     peg_nt_thm |> Q.GEN `G`  |> Q.ISPEC `cmlPEG`
@@ -749,9 +748,8 @@ val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”,
                 “nTopLevelDecs”, “nNonETopLevelDecs”
                ]
 
-val cml_wfpeg_thm = save_thm(
-  "cml_wfpeg_thm",
-  LIST_CONJ (List.foldl wfnt [] topo_nts))
+Theorem cml_wfpeg_thm =
+  LIST_CONJ (List.foldl wfnt [] topo_nts)
 
 (*
 set_diff (TypeBase.constructors_of ``:MMLnonT``)
@@ -765,8 +763,7 @@ Proof
   simp[subexprs_def, pnt_def]
 QED
 
-val PEG_exprs = save_thm(
-  "PEG_exprs",
+Theorem PEG_exprs =
   ``Gexprs cmlPEG``
     |> SIMP_CONV (srw_ss())
          [Gexprs_def, subexprs_def,
@@ -775,7 +772,7 @@ val PEG_exprs = save_thm(
           peg_longV_def, peg_linfix_def, peg_StructName_def,
           peg_TypeDec_def, peg_UQConstructorName_def,
           pred_setTheory.INSERT_UNION_EQ
-         ])
+         ]
 
 Theorem PEG_wellformed[simp]:
    wfG cmlPEG
@@ -789,19 +786,16 @@ Proof
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
 
-val parse_TopLevelDecs_total = save_thm(
-  "parse_TopLevelDecs_total",
+Theorem parse_TopLevelDecs_total =
   MATCH_MP peg_exec_total PEG_wellformed
-           |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
+           |> REWRITE_RULE [peg_start] |> Q.GEN `i`
 
-val coreloop_TopLevelDecs_total = save_thm(
-  "coreloop_TopLevelDecs_total",
+Theorem coreloop_TopLevelDecs_total =
   MATCH_MP coreloop_total PEG_wellformed
-    |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
+    |> REWRITE_RULE [peg_start] |> Q.GEN `i`
 
-val owhile_TopLevelDecs_total = save_thm(
-  "owhile_TopLevelDecs_total",
-  SIMP_RULE (srw_ss()) [coreloop_def] coreloop_TopLevelDecs_total);
+Theorem owhile_TopLevelDecs_total =
+  SIMP_RULE (srw_ss()) [coreloop_def] coreloop_TopLevelDecs_total
 
 local
   val c = concl FDOM_cmlPEG
