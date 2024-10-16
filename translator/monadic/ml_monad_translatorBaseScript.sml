@@ -3,7 +3,7 @@
   are proved, including reasoning in separation logic.
 *)
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory semanticPrimitivesTheory evaluateTheory
+open astTheory semanticPrimitivesTheory evaluateTheory
 open evaluateTheory ml_progLib ml_progTheory
 open set_sepTheory Satisfy
 open cfHeapsBaseTheory (* basisFunctionsLib *) AC_Sort

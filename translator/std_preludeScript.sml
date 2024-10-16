@@ -3,7 +3,7 @@
   starting point for further translations.
 *)
 
-open preamble astTheory libTheory semanticPrimitivesTheory whileTheory;
+open preamble astTheory semanticPrimitivesTheory whileTheory;
 open evaluateTheory ml_translatorLib ml_translatorTheory ml_progLib;
 
 val _ = new_theory "std_prelude";

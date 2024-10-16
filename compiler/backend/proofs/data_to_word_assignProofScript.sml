@@ -3969,7 +3969,7 @@ Proof
       qmatch_goalsub_abbrev_tac`option_CASE sm1`>>
       strip_tac>>
       `option_le sm1 smx` by
-        (Cases_on`sm1`>>Cases_on`smx`>>fs[libTheory.the_def])>>
+        (Cases_on`sm1`>>Cases_on`smx`>>fs[miscTheory.the_def])>>
       `option_le t.stack_max sm1` by
         (fs[Abbr`sm1`]>>
         simp[option_le_max_right])>>
@@ -4429,7 +4429,7 @@ Proof
     strip_tac>>
     `option_le sm1 smx''` by
       (pop_assum mp_tac>>Cases_on`sm1`>>Cases_on`smx''`>>
-      simp[libTheory.the_def])>>
+      simp[miscTheory.the_def])>>
     qmatch_goalsub_abbrev_tac`option_le sm2 _`>>
     `option_le sm2 sm1` by
       (fs[Abbr`sm1`,Abbr`sm2`]>>
@@ -7071,7 +7071,7 @@ Proof
       \\ CCONTR_TAC \\ fs[]
       \\ qpat_x_assum `w2i _ ≠ _` mp_tac
       \\ fs[small_int_w2i_Smallnum_add])
-  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
+  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def]
   \\ unabbrev_all_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t4)`
   \\ `state_rel c l1 l2 x t4 [] locs` by fs [Abbr`t4`,state_rel_insert_3_1]
@@ -7188,7 +7188,7 @@ Proof
       \\ CCONTR_TAC \\ fs[]
       \\ qpat_x_assum `w2i _ ≠ _` mp_tac
       \\ fs[GSYM small_int_w2i_Smallnum_sub])
-  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
+  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def]
   \\ unabbrev_all_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t4)`
   \\ `state_rel c l1 l2 x t4 [] locs` by fs [Abbr`t4`,state_rel_insert_3_1]
@@ -7219,7 +7219,7 @@ Proof
   \\ fs [limits_inv_def] \\ rfs [] \\ fs []
   \\ fs [space_consumed_def] \\ rfs []
   \\ CCONTR_TAC \\ fs [] \\ fs []
-  \\ fs [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
+  \\ fs [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def]
 QED
 
 Theorem cut_state_opt_IMP_ffi:
@@ -7349,7 +7349,7 @@ Proof
     \\ simp [GSYM NOT_LESS]
     \\ fs [good_dimindex_def, dimword_def] \\ rfs []
     \\ fs [quad_times_div_half_double])
-  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
+  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def]
   \\ unabbrev_all_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t4)`
   \\ `state_rel c l1 l2 x t4 [] locs` by
@@ -7647,7 +7647,7 @@ Proof
     \\ fs [word_msb_n2w_numeric, small_int_def,
        INT_MIN_def, good_dimindex_def, dimword_def] \\ rveq \\ fs []
     \\ rfs [] \\ fs [])
-  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def,list_Seq_def]
+  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def,list_Seq_def]
   \\ unabbrev_all_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t4)`
   \\ `state_rel c l1 l2 x t4 [] locs` by
@@ -7916,7 +7916,7 @@ Proof
     \\ rveq
     \\ fs [word_msb_n2w_numeric, small_int_def,
        INT_MIN_def, good_dimindex_def, dimword_def] \\ rveq \\ fs [] \\ rfs [] \\ fs [])
-  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def,list_Seq_def]
+  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def,list_Seq_def]
   \\ unabbrev_all_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t4)`
   \\ `state_rel c l1 l2 x t4 [] locs` by
@@ -11770,9 +11770,9 @@ Proof
   \\ fs [assign_def]
   \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
   \\ fs [state_rel_def]
-  \\ fs [the_global_def,libTheory.the_def]
+  \\ fs [the_global_def,miscTheory.the_def]
   \\ fs [FLOOKUP_DEF,wordSemTheory.set_var_def,lookup_insert,
-         adjust_var_11,libTheory.the_def,set_var_def]
+         adjust_var_11,miscTheory.the_def,set_var_def]
   \\ rw [] \\ fs [option_le_max_right]
   \\ asm_exists_tac \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -11799,7 +11799,7 @@ Proof
           by fs [memory_rel_def,heap_in_memory_store_def,state_rel_def]
   \\ fs [glob_real_inv_def]
   \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm,option_le_max_right]
-  \\ gvs [the_global_def,libTheory.the_def]
+  \\ gvs [the_global_def,miscTheory.the_def]
   \\ qmatch_asmsub_abbrev_tac ‘(xs1 ++ [(RefPtr ptr,t.store ' Globals)] ++ xs2)’
   \\ ‘memory_rel c t.be (THE x.tstamps) x.refs x.space t.store t.memory
           t.mdomain ((RefPtr ptr,t.store ' Globals) :: (xs1 ++ xs2))’ by
@@ -11833,7 +11833,7 @@ Proof
   \\ fs [bvlSemTheory.Unit_def] \\ rveq
   \\ fs [GSYM bvlSemTheory.Unit_def] \\ rveq
   \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm]
-  \\ rfs [the_global_def,libTheory.the_def]
+  \\ rfs [the_global_def,miscTheory.the_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ disch_then drule0 \\ fs []
@@ -11890,7 +11890,7 @@ Proof
   \\ every_case_tac \\ fs [] \\ rpt var_eq_tac
   \\ ‘isWord h’ by
    (fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
-         adjust_var_11,libTheory.the_def,set_var_def,
+         adjust_var_11,miscTheory.the_def,set_var_def,
          wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ drule0 (GEN_ALL word_ml_inv_get_vars_IMP)
@@ -11919,11 +11919,11 @@ Proof
   \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
   \\ fs [wordSemTheory.set_store_def]
   \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
-         adjust_var_11,libTheory.the_def,set_var_def,word_sh_def,
+         adjust_var_11,miscTheory.the_def,set_var_def,word_sh_def,
          wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ rw [] \\ rw [] \\ fs []
   \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
-         adjust_var_11,libTheory.the_def,set_var_def,word_sh_def,
+         adjust_var_11,miscTheory.the_def,set_var_def,word_sh_def,
          wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE,
          wordSemTheory.the_words_def,word_op_def,memory_rel_def]
   \\ rw [] \\ fs [option_le_max_right]
@@ -11934,7 +11934,7 @@ Proof
   \\ qexists_tac ‘sp1’
   \\ qexists_tac ‘gens’
   \\ fs [heap_in_memory_store_def,FLOOKUP_UPDATE,glob_real_inv_def]
-  \\ fs [the_global_def,libTheory.the_def]
+  \\ fs [the_global_def,miscTheory.the_def]
   \\ gvs [get_real_simple_addr_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (GEN_ALL word_ml_inv_get_vars_IMP)

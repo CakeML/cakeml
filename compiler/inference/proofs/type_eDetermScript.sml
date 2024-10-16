@@ -2,7 +2,7 @@
   Prove determinism lemmas about the type inferencer.
 *)
 open preamble;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory evaluateTheory inferTheory unifyTheory;
+open typeSystemTheory astTheory semanticPrimitivesTheory evaluateTheory inferTheory unifyTheory;
 open astPropsTheory;
 open typeSysPropsTheory;
 open inferPropsTheory;

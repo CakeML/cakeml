@@ -4,7 +4,7 @@
 *)
 
 open preamble
-open astTheory libTheory semanticPrimitivesTheory evaluateTheory
+open astTheory semanticPrimitivesTheory evaluateTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;
 open mlstringTheory integerTheory;
 open namespaceTheory;

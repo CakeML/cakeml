@@ -156,12 +156,12 @@ Proof
   >- (
     pop_assum (assume_tac o SYM)>>
     strip_asg_n>>
-    simp[state_component_equality,libTheory.the_def]))>>
+    simp[state_component_equality,miscTheory.the_def]))>>
   simp[Once bind_def,data_monadTheory.if_var_def,lookup_insert]>>
   strip_asg_n>>
-  simp[state_component_equality,libTheory.the_def]>>
+  simp[state_component_equality,miscTheory.the_def]>>
   simp[GSYM size_of_stack_def]>>
-  simp[state_component_equality,libTheory.the_def]
+  simp[state_component_equality,miscTheory.the_def]
 QED
 
 val n2l_acc_body = ``lookup_n2l_acc (fromAList lcgLoop_data_prog)``
@@ -379,7 +379,7 @@ let
     subgoal ‘safe’
     THENL
     [(Q.UNABBREV_TAC ‘safe’
-       \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
+       \\ fs[coeff_bounds_def,miscTheory.the_def,size_of_Number_head,
              small_num_def,data_safe_def,size_of_heap_def,stack_to_vs_def,
              size_of_def,size_of_stack_def]
        \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -429,7 +429,7 @@ in
      , size_of_stack_frame_def] >>
     IF_CASES_TAC >- (
       simp[state_component_equality,PULL_EXISTS,GSYM size_of_stack_def]>>
-      simp[MAX_DEF,libTheory.the_def])>>
+      simp[MAX_DEF,miscTheory.the_def])>>
     qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
     `size_of_stack ss.stack = SOME (lsize+sstack)` by
       (simp[Abbr`ss`,size_of_stack_def,size_of_stack_frame_def]>>
@@ -533,7 +533,7 @@ in
    , size_of_stack_frame_def] >>
   IF_CASES_TAC >- (
     simp[state_component_equality,PULL_EXISTS,GSYM size_of_stack_def]>>
-    simp[MAX_DEF,libTheory.the_def])>>
+    simp[MAX_DEF,miscTheory.the_def])>>
   qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
   `size_of_stack ss.stack = SOME (lsize+sstack)` by
     (simp[Abbr`ss`,size_of_stack_def,size_of_stack_frame_def]>>
@@ -606,7 +606,7 @@ in
   \\ simp [code_lookup,lookup_def,frame_lookup] >>
   IF_CASES_TAC >- (
     simp[state_component_equality,PULL_EXISTS,GSYM size_of_stack_def]>>
-    simp[MAX_DEF,libTheory.the_def])>>
+    simp[MAX_DEF,miscTheory.the_def])>>
   `k ≥ 2` by
     (Cases_on`k`>>fs[ADD1]>>
     Cases_on`n'`>>fs[])>>
@@ -815,7 +815,7 @@ let
     subgoal ‘safe’
     THENL
     [(Q.UNABBREV_TAC ‘safe’
-       \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
+       \\ fs[coeff_bounds_def,miscTheory.the_def,size_of_Number_head,
              data_safe_def,size_of_heap_def,stack_to_vs_def,
              size_of_def,size_of_stack_def]
        \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -907,7 +907,7 @@ in
      , size_of_stack_frame_def] >>
     IF_CASES_TAC >- (
       simp[state_component_equality,PULL_EXISTS,GSYM size_of_stack_def]>>
-      simp[MAX_DEF,libTheory.the_def])>>
+      simp[MAX_DEF,miscTheory.the_def])>>
     qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
     `size_of_stack ss.stack = SOME (lsize+sstack)` by
       (simp[Abbr`ss`,size_of_stack_def,size_of_stack_frame_def]>>
@@ -945,7 +945,7 @@ in
     simp[])>>
   (*  8 :≡ (Const 10,[],NONE); *)
   strip_assign>>
-  simp[libTheory.the_def]>>
+  simp[miscTheory.the_def]>>
   (* preliminaries *)
   `small_num s.limits.arch_64_bit 10` by
     (fs[small_num_def])>>
@@ -962,7 +962,7 @@ in
     strip_tac>>rveq>>fs[]>>
     rw[]>>simp[]>>
     fs[small_num_def]>>
-    rw[]>>simp[libTheory.the_def]) >>
+    rw[]>>simp[miscTheory.the_def]) >>
   rename1`state_peak_heap_length_fupd (K pkheap1) _`>>
   (* call_hex (10,⦕ 0; 1 ⦖) [9] NONE; *)
   simp[Once bind_def]>>
@@ -976,7 +976,7 @@ in
    , size_of_stack_frame_def] >>
   IF_CASES_TAC >- (
     simp[state_component_equality,PULL_EXISTS,GSYM size_of_stack_def]>>
-    rw[]>>simp[libTheory.the_def]>>
+    rw[]>>simp[miscTheory.the_def]>>
     fs[MAX_DEF])>>
   qmatch_goalsub_abbrev_tac`(hex_body,ss)`>>
   `size_of_stack ss.stack = SOME (lsize+sstack)` by
@@ -994,7 +994,7 @@ in
   fs[size_of_stack_def,size_of_stack_frame_def]>>
   still_safe
   >- (
-    rw[]>>simp[libTheory.the_def]>>
+    rw[]>>simp[miscTheory.the_def]>>
     simp[MAX_DEF])>>
   (* makespace 3 ⦕ 0; 1; 10 ⦖; *)
   (* strip_makespace >> *)
@@ -1018,7 +1018,7 @@ in
     strip_tac>>rveq>>fs[]>>
     simp[space_consumed_def]>>
     reverse CONJ_TAC >-
-      (rw[]>>simp[libTheory.the_def])>>
+      (rw[]>>simp[miscTheory.the_def])>>
     rpt (pairarg_tac>>fs[])>>
     rveq>>fs[]>>
     CONJ_TAC >- (
@@ -1070,7 +1070,7 @@ in
   >- (
     strip_tac>>
     rw[]>> simp[]>>
-    simp[MAX_DEF,libTheory.the_def])>>
+    simp[MAX_DEF,miscTheory.the_def])>>
   qmatch_goalsub_abbrev_tac`(n2l_acc_body,ss)`>>
   first_x_assum(qspec_then`k-1` mp_tac)>>simp[]>>
   disch_then(qspecl_then[`n DIV 10`, `ss`] mp_tac)>>
@@ -1239,7 +1239,7 @@ let
     subgoal ‘safe’
     THENL
     [(Q.UNABBREV_TAC ‘safe’
-       \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
+       \\ fs[coeff_bounds_def,miscTheory.the_def,size_of_Number_head,
              small_num_def,data_safe_def,size_of_heap_def,stack_to_vs_def,
              size_of_def,size_of_stack_def]
        \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -1288,16 +1288,16 @@ in
   \\ IF_CASES_TAC
   >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
           call_env_def,push_env_def,dec_clock_def,
-          size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+          size_of_stack_frame_def,MAX_DEF,miscTheory.the_def]
       \\ rw [state_component_equality] )
   \\ simp [to_shallow_thm, to_shallow_def]
   \\ simp [call_env_def,push_env_def,dec_clock_def]
   \\ simp [frame_lookup]
   \\ still_safe
-  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+  >- (simp [size_of_stack_frame_def,miscTheory.the_def]
       \\ rw [MAX_DEF])
   \\ max_is ‘MAX sm (lsize + sstack + 5)’
-  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+  >- (simp [size_of_stack_frame_def,miscTheory.the_def]
       \\ rw [MAX_DEF])
   (* Inside ListLength *)
   (* 2 :≡ (TagLenEq 0 0,[0],NONE); *)
@@ -1326,17 +1326,17 @@ in
   \\ IF_CASES_TAC
   >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
           call_env_def,push_env_def,dec_clock_def,
-          size_of_stack_frame_def,MAX_DEF,libTheory.the_def,
+          size_of_stack_frame_def,MAX_DEF,miscTheory.the_def,
           flush_state_def]
       \\ rw [state_component_equality])
   \\ simp [to_shallow_thm, to_shallow_def]
   \\ simp [call_env_def,push_env_def,dec_clock_def]
   \\ simp [frame_lookup]
   \\ still_safe
-  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+  >- (simp [size_of_stack_frame_def,miscTheory.the_def]
       \\ rw [MAX_DEF])
   \\ max_is ‘MAX sm (lsize + sstack + 5)’
-  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+  >- (simp [size_of_stack_frame_def,miscTheory.the_def]
       \\ rw [MAX_DEF])
   (* Inside ListLength (X2)*)
   (* 2 :≡ (TagLenEq 0 0,[0],NONE); *)
@@ -1381,7 +1381,7 @@ in
   \\ IF_CASES_TAC
   >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
           call_env_def,push_env_def,dec_clock_def,
-          size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+          size_of_stack_frame_def,MAX_DEF,miscTheory.the_def]
       \\ ONCE_REWRITE_TAC [state_component_equality]
       \\ EVAL_TAC \\ rw []
       \\ rw[subspt_lookup,lookup_insert,Abbr ‘p1’]
@@ -1390,10 +1390,10 @@ in
   \\ simp [call_env_def,push_env_def,dec_clock_def]
   \\ simp [frame_lookup]
   \\ still_safe
-  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+  >- (simp [size_of_stack_frame_def,miscTheory.the_def]
       \\ rw [MAX_DEF])
   \\ max_is ‘MAX sm (lsize + sstack + 6)’
-  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+  >- (simp [size_of_stack_frame_def,miscTheory.the_def]
       \\ rw [MAX_DEF])
   (* Inside FromListByte *)
   (* 3 :≡ (TagLenEq 0 0,[0],NONE); *)
@@ -1441,7 +1441,7 @@ in
   \\ IF_CASES_TAC
   >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
           call_env_def,push_env_def,dec_clock_def,
-          size_of_stack_frame_def,MAX_DEF,libTheory.the_def,
+          size_of_stack_frame_def,MAX_DEF,miscTheory.the_def,
           flush_state_def]
       \\ rw [state_component_equality]
       \\ rw[subspt_lookup,lookup_insert,Abbr ‘p1’]
@@ -1451,10 +1451,10 @@ in
   \\ simp [call_env_def,push_env_def,dec_clock_def]
   \\ simp [frame_lookup]
   \\ still_safe
-  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+  >- (simp [size_of_stack_frame_def,miscTheory.the_def]
       \\ rw [MAX_DEF])
   \\ max_is ‘MAX sm (lsize + sstack + 6)’
-  >- (simp [size_of_stack_frame_def,libTheory.the_def]
+  >- (simp [size_of_stack_frame_def,miscTheory.the_def]
       \\ rw [MAX_DEF])
   (* Inside FromListByte (X2) *)
   (* 3 :≡ (TagLenEq 0 0,[0],NONE); *)
@@ -1526,7 +1526,7 @@ in
   \\ reverse (Cases_on `call_FFI s.ffi "put_char" x0 []` \\ fs [])
   >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
           call_env_def,push_env_def,dec_clock_def,
-          size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+          size_of_stack_frame_def,MAX_DEF,miscTheory.the_def]
       \\ rw [state_component_equality]
       \\ rw[subspt_lookup,lookup_insert]
       \\ rw[]
@@ -1799,7 +1799,7 @@ let
     subgoal ‘safe’
     THENL
     [(Q.UNABBREV_TAC ‘safe’
-       \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
+       \\ fs[coeff_bounds_def,miscTheory.the_def,size_of_Number_head,
              small_num_def,data_safe_def,size_of_heap_def,stack_to_vs_def,
              size_of_def,size_of_stack_def]
        \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -1852,20 +1852,20 @@ in
   \\ IF_CASES_TAC
   >- (fs [max_def,data_safe_def,frame_lookup,size_of_stack_def,
           call_env_def,push_env_def,dec_clock_def,
-          size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+          size_of_stack_frame_def,MAX_DEF,miscTheory.the_def]
       \\ rw [state_component_equality]
       \\ rw [])
   \\ simp[call_env_def,push_env_def,dec_clock_def]
   \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
   \\ ‘safe’ by
     (Q.UNABBREV_TAC ‘safe’
-     \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
+     \\ fs[coeff_bounds_def,miscTheory.the_def,size_of_Number_head,
            small_num_def,data_safe_def,size_of_heap_def,stack_to_vs_def,
            size_of_def,size_of_stack_def,frame_lookup,size_of_stack_frame_def]
      \\ rw [MAX_DEF])
   \\ max_is ‘MAX sm (lsize + sstack + 6)’
-  >- (simp [size_of_stack_frame_def,libTheory.the_def]
-      \\ rw [MAX_DEF,frame_lookup,libTheory.the_def])
+  >- (simp [size_of_stack_frame_def,miscTheory.the_def]
+      \\ rw [MAX_DEF,frame_lookup,miscTheory.the_def])
   \\ qmatch_goalsub_abbrev_tac ‘evaluate (_,s0)’
   \\ qspecl_then [‘s0’] mp_tac put_char_evaluate_max
   \\ fs [frame_lookup]
@@ -1909,7 +1909,7 @@ in
   \\ rw [GSYM put_char_body_def] \\ simp []
   >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
           call_env_def,push_env_def,dec_clock_def,
-          size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+          size_of_stack_frame_def,MAX_DEF,miscTheory.the_def]
       \\ rw [state_component_equality]
       \\ fs[max_def])
   \\ simp[call_env_def,push_env_def,dec_clock_def,pop_env_def,set_var_def]
@@ -1920,7 +1920,7 @@ in
   \\ IF_CASES_TAC
   >- (fs [data_safe_def,frame_lookup,size_of_stack_def,
           call_env_def,push_env_def,dec_clock_def,
-          size_of_stack_frame_def,MAX_DEF,libTheory.the_def,
+          size_of_stack_frame_def,MAX_DEF,miscTheory.the_def,
           flush_state_def]
       \\ rw [state_component_equality]
       \\ fs[max_def])
@@ -1998,7 +1998,7 @@ in
               \\ drule_all repchar_list_size_of_rm
               \\ disch_then (qspecl_then [‘s.limits’,‘_''''’] assume_tac)
               \\ rgs[]))
-      >- (fs[max_def]>>rw [libTheory.the_def,MAX_DEF])
+      >- (fs[max_def]>>rw [miscTheory.the_def,MAX_DEF])
       >- (irule repchar_list_more_tsb
           \\ first_x_assum (irule_at Any)
           \\ rgs[])
@@ -2019,7 +2019,7 @@ in
     CONJ_TAC>- (
       qpat_x_assum`sm0 ≤ _` mp_tac >>
       simp[size_of_stack_def,max_def]>>
-      rw[MAX_DEF,libTheory.the_def])>>
+      rw[MAX_DEF,miscTheory.the_def])>>
     CONJ_TAC>- metis_tac[subspt_trans]>>
     qpat_x_assum`sm0 ≤ _` mp_tac >>
     simp[size_of_stack_def,max_def]>>
@@ -2033,7 +2033,7 @@ in
   CONJ_TAC >- (
     qpat_x_assum`sm0 ≤ _` mp_tac >>
     simp[size_of_stack_def,max_def]>>
-    rw[MAX_DEF,libTheory.the_def])>>
+    rw[MAX_DEF,miscTheory.the_def])>>
   CONJ_ASM1_TAC>- metis_tac[subspt_trans]>>
   CONJ_TAC>-(
     qpat_x_assum`sm0 ≤ _` mp_tac >>
@@ -2148,7 +2148,7 @@ let
     (qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
     \\ ‘safe’ by
       (Q.UNABBREV_TAC ‘safe’
-       \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
+       \\ fs[coeff_bounds_def,miscTheory.the_def,size_of_Number_head,
              small_num_def,data_safe_def,size_of_heap_def,stack_to_vs_def,
              size_of_def,size_of_stack_def]
        \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -2161,7 +2161,7 @@ let
     subgoal ‘safe’
     THENL
     [(Q.UNABBREV_TAC ‘safe’
-       \\ fs[coeff_bounds_def,libTheory.the_def,size_of_Number_head,
+       \\ fs[coeff_bounds_def,miscTheory.the_def,size_of_Number_head,
              data_safe_def,size_of_heap_def,stack_to_vs_def,
              size_of_def,size_of_stack_def]
        \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -2241,7 +2241,7 @@ in
   \\ eval_goalsub_tac “dataSem$cut_env _ _” \\ fs []
   \\ IF_CASES_TAC >- fs [data_safe_def,frame_lookup,size_of_stack_def,
                          call_env_def,push_env_def,dec_clock_def,
-                         size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+                         size_of_stack_frame_def,MAX_DEF,miscTheory.the_def]
   \\ simp[call_env_def,push_env_def,dec_clock_def]
   \\ qmatch_goalsub_abbrev_tac ‘state_safe_for_space_fupd (K safe) _’
   \\ qmatch_goalsub_abbrev_tac ‘state_stack_max_fupd (K max0) _’
@@ -2249,14 +2249,14 @@ in
     (UNABBREV_ALL_TAC
      \\ fs [data_safe_def,frame_lookup,size_of_stack_def,
             call_env_def,push_env_def,dec_clock_def,
-            size_of_stack_frame_def,MAX_DEF,libTheory.the_def])
+            size_of_stack_frame_def,MAX_DEF,miscTheory.the_def])
   \\ ASM_REWRITE_TAC [] \\ ntac 4 (pop_assum kall_tac)
   \\ qmatch_goalsub_abbrev_tac ‘evaluate (_,s0)’
   \\ qspecl_then [‘19’,‘(a * x + c) MOD m’,‘s0’] mp_tac n2l_acc_evaluate
   \\ UNABBREV_ALL_TAC \\ simp []
   \\ fs [data_safe_def,frame_lookup,size_of_stack_def,
             call_env_def,push_env_def,dec_clock_def,
-            size_of_stack_frame_def,MAX_DEF,libTheory.the_def]
+            size_of_stack_frame_def,MAX_DEF,miscTheory.the_def]
   \\ disch_then (qspec_then ‘1’ mp_tac)
   \\ simp[repchar_to_tsl_def]
   \\ impl_tac
@@ -2326,7 +2326,7 @@ in
    , size_of_stack_frame_def] >>
   IF_CASES_TAC >- (
     simp[state_component_equality,PULL_EXISTS,GSYM size_of_stack_def]>>
-    rw[]>>simp[libTheory.the_def]>>
+    rw[]>>simp[miscTheory.the_def]>>
     fs[MAX_DEF]>>
     simp[data_safe_def] )>>
   simp[GSYM put_chars_body_def]>>
@@ -2389,7 +2389,7 @@ in
   \\ simp [code_lookup,lookup_def,frame_lookup] >>
   IF_CASES_TAC >- (
     simp[state_component_equality,PULL_EXISTS,GSYM size_of_stack_def]>>
-    simp[MAX_DEF,libTheory.the_def]>>
+    simp[MAX_DEF,miscTheory.the_def]>>
     rw[]>>simp[data_safe_def] )>>
   simp[GSYM lcgLoop_body_def]
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def ]

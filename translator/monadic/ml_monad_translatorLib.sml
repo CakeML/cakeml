@@ -7,7 +7,7 @@ structure ml_monad_translatorLib :> ml_monad_translatorLib = struct
 (******************************************************************************)
 
 open preamble
-     astTheory libTheory semanticPrimitivesTheory evaluateTheory
+     astTheory semanticPrimitivesTheory evaluateTheory
      ml_translatorTheory ml_progTheory ml_progLib
      ml_pmatchTheory ml_monadBaseTheory ml_monad_translatorBaseTheory
      ml_monad_translatorTheory evaluateTheory cfTacticsLib

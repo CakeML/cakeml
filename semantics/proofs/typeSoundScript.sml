@@ -2,7 +2,7 @@
   Proof of type soundness: a type-correct program does not crash.
 *)
 open preamble;
-open libTheory astTheory typeSystemTheory semanticPrimitivesTheory fpSemTheory
+open astTheory typeSystemTheory semanticPrimitivesTheory fpSemTheory
      evaluateTheory;
 open namespacePropsTheory fpSemPropsTheory;
 open semanticPrimitivesPropsTheory;

@@ -3,7 +3,7 @@
   is no longer used in the CakeML development.
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory namespaceTheory astTheory ffiTheory semanticPrimitivesTheory smallStepTheory;
+open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory smallStepTheory;
 
 val _ = numLib.temp_prefer_num();
 

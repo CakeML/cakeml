@@ -2,7 +2,7 @@
   Values used to model floating-points, in the style of Icing
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory;
+open miscTheory;
 
 val _ = numLib.temp_prefer_num();
 

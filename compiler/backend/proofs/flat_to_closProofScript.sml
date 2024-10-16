@@ -370,7 +370,7 @@ Proof
   \\ rename [`v_rel v1 v2`]
   \\ `env_rel (env with v updated_by opt_bind n v1) (n::m) (v2::db)` by
    (fs [env_rel_def]
-    \\ Cases_on `n` \\ fs [libTheory.opt_bind_def,findi_def,GSYM ADD1]
+    \\ Cases_on `n` \\ fs [miscTheory.opt_bind_def,findi_def,GSYM ADD1]
     \\ rw [] \\ fs [])
   \\ disch_then drule
   \\ strip_tac \\ fs []

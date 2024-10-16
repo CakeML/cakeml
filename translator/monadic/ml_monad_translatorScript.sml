@@ -3,7 +3,7 @@
   translator.
 *)
 open ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory semanticPrimitivesTheory evaluateTheory evaluatePropsTheory
+open astTheory semanticPrimitivesTheory evaluateTheory evaluatePropsTheory
 open evaluateTheory ml_progLib ml_progTheory
 open set_sepTheory Satisfy
 open cfHeapsBaseTheory AC_Sort

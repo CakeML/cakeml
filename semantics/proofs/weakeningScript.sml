@@ -3,8 +3,7 @@
 *)
 open preamble;
 open optionTheory rich_listTheory alistTheory;
-open miscTheory;
-open libTheory astTheory typeSystemTheory typeSysPropsTheory;
+open astTheory typeSystemTheory typeSysPropsTheory;
 open namespacePropsTheory;
 open semanticPrimitivesTheory;
 open astPropsTheory;

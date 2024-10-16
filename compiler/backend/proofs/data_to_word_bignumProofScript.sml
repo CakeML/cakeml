@@ -1794,7 +1794,7 @@ Proof
       fs [state_fn_updates, stack_size_eq2, wordSemTheory.stack_size_frame_def] >>
       TOP_CASE_TAC >> rw [backendPropsTheory.option_le_def] >>
       Cases_on `s1'.stack_max` >> fs [backendPropsTheory.the_eqn] >>
-      fs [libTheory.the_def] >> rveq >> fs [MAX_DEF]))
+      fs [miscTheory.the_def] >> rveq >> fs [MAX_DEF]))
     >- fs [state_rel_def, limits_inv_def]
     \\ rewrite_tac [GSYM (EVAL ``Smallnum 0``)]
     \\ match_mp_tac IMP_memory_rel_Number
