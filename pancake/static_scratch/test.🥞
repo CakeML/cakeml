@@ -549,10 +549,19 @@
 //     return 1;
 // }
 
-
-
-
-
+// // repeated param names
+// fun f (1 a, 1 a) {
+//     return 1;
+// }
+// fun f (1 a, 1 b, 1 a) {
+//     return 1;
+// }
+// fun f (1 b, 1 a, 1 a, 1 b) {
+//     return 1;
+// }
+// fun f (1 a, 1 a, 1 a, 1 a) {
+//     return 1;
+// }
 
 
 

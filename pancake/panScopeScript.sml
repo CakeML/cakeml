@@ -341,7 +341,12 @@ Definition scope_check_funs_def:
   scope_check_funs fnames [] = return () ∧
   scope_check_funs fnames ((fname, _:bool, vshapes, body)::funs) =
     do
-      ctxt <<- <| vars := FOLDL (\f (v,_). insert f v Trusted) (empty mlstring$compare) vshapes
+      pnames <<- MAP FST vshapes;
+      case first_repeat $ QSORT mlstring_lt pnames of
+        SOME p => error (GenErr $ concat
+          [strlit "parameter "; p; strlit " is redeclared in function "; fname; strlit "\n"])
+      | NONE => return ();
+      ctxt <<- <| vars := FOLDL (\m p. insert m p Trusted) (empty mlstring$compare) pnames
                 ; funcs := fnames
                 ; fname := fname
                 ; in_loop := F |>;
