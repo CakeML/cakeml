@@ -2323,7 +2323,7 @@ Proof
   EVAL_TAC>>rw[]
 QED
 
-val word_exp_set = Q.prove(`
+Triviality word_exp_set:
   (word_exp s (Op Add [Var n; Const c]) =
   case get_var n s of
     SOME (Word w) => SOME (Word (w+c))
@@ -2331,28 +2331,36 @@ val word_exp_set = Q.prove(`
   (word_exp s (Op Sub [Var n; Const c]) =
   case get_var n s of
     SOME (Word w) => SOME (Word (w-c))
-  | _ => NONE)`,
+  | _ => NONE)
+Proof
   EVAL_TAC>>rw[]>>
   every_case_tac>>rw[]>>
-  fs[]);
+  fs[]
+QED
 
-val good_dimindex_w2w_byte = Q.prove(`
+Triviality good_dimindex_w2w_byte:
   good_dimindex (:'a) ⇒
-  w2w (w2w (w:word8):'a word) = w`,
+  w2w (w2w (w:word8):'a word) = w
+Proof
   rw[good_dimindex_def]>>
   simp[w2w_w2w]>>
-  match_mp_tac WORD_ALL_BITS>>fs[]);
+  match_mp_tac WORD_ALL_BITS>>fs[]
+QED
 
-val set_var_consts = Q.prove(`
+Triviality set_var_consts:
   (set_var r v s).memory = s.memory ∧
   (set_var r v s).mdomain = s.mdomain ∧
   (set_var r v s).be = s.be ∧
-  (set_var r v s).code = s.code`,
-  fs[wordSemTheory.set_var_def]);
+  (set_var r v s).code = s.code
+Proof
+  fs[wordSemTheory.set_var_def]
+QED
 
-val get_var_consts = Q.prove(`
-  get_var r (s with memory:=m) = get_var r s`,
-  EVAL_TAC>>rw[]);
+Triviality get_var_consts:
+  get_var r (s with memory:=m) = get_var r s
+Proof
+  EVAL_TAC>>rw[]
+QED
 
 Theorem CopyByteAdd_thm:
    !be n a1 a2 m dm ret_val l1 l2 (s:('a,'c,'ffi) wordSem$state) m1.

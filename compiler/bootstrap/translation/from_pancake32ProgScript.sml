@@ -18,9 +18,11 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 Theorem option_map_thm[local]:
   OPTION_MAP f x = case x of NONE => NONE | SOME y => SOME(f y)
@@ -100,7 +102,11 @@ val _ = translate $ spec32 nested_decs_def;
 
 val _ = translate $ spec32 nested_seq_def;
 
-val lem = Q.prove(‘dimindex(:32) = 32’, EVAL_TAC);
+Triviality lem:
+  dimindex(:32) = 32
+Proof
+  EVAL_TAC
+QED
 
 val _ = translate $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] $ spec32 stores_def;
 

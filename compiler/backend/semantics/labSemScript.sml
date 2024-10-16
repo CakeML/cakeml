@@ -317,9 +317,10 @@ Definition asm_code_length_def:
      asm_code_length ((Section k ys)::xs) + if is_Label y then 0 else 1:num)
 End
 
-val asm_fetch_IMP = Q.prove(
-  `(asm_fetch s = SOME x) ==>
-    s.pc < asm_code_length s.code`,
+Triviality asm_fetch_IMP:
+  (asm_fetch s = SOME x) ==>
+    s.pc < asm_code_length s.code
+Proof
   fs [asm_fetch_def,asm_code_length_def]
   \\ Q.SPEC_TAC (`s.pc`,`pc`)
   \\ Q.SPEC_TAC (`s.code`,`xs`)
@@ -327,7 +328,8 @@ val asm_fetch_IMP = Q.prove(
   \\ rpt strip_tac \\ fs [asm_fetch_aux_def,asm_code_length_def]
   \\ Cases_on `is_Label y` \\ fs []
   \\ Cases_on `pc = 0` \\ fs []
-  \\ res_tac \\ decide_tac);
+  \\ res_tac \\ decide_tac
+QED
 
 Definition lab_to_loc_def:
   lab_to_loc (Lab n1 n2) = Loc n1 n2

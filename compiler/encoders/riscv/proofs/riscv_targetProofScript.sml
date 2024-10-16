@@ -10,8 +10,8 @@ val () = wordsLib.guess_lengths()
 
 (* some lemmas ---------------------------------------------------------- *)
 
-val bytes_in_memory_thm = Q.prove(
-   `!w s state a b c d.
+Triviality bytes_in_memory_thm:
+  !w s state a b c d.
       target_state_rel riscv_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
@@ -26,15 +26,16 @@ val bytes_in_memory_thm = Q.prove(
       state.c_PC state.procID + 3w IN s.mem_domain /\
       state.c_PC state.procID + 2w IN s.mem_domain /\
       state.c_PC state.procID + 1w IN s.mem_domain /\
-      state.c_PC state.procID IN s.mem_domain`,
-   rw [asmPropsTheory.target_state_rel_def, riscv_target_def, riscv_config_def,
+      state.c_PC state.procID IN s.mem_domain
+Proof
+  rw [asmPropsTheory.target_state_rel_def, riscv_target_def, riscv_config_def,
        riscv_ok_def, miscTheory.bytes_in_memory_def,
        alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq]
    \\ fs []
-   )
+QED
 
-val bytes_in_memory_thm2 = Q.prove(
-   `!w s state a b c d.
+Triviality bytes_in_memory_thm2:
+  !w s state a b c d.
       target_state_rel riscv_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
       (state.MEM8 (state.c_PC state.procID + w) = a) /\
@@ -44,12 +45,13 @@ val bytes_in_memory_thm2 = Q.prove(
       state.c_PC state.procID + w + 3w IN s.mem_domain /\
       state.c_PC state.procID + w + 2w IN s.mem_domain /\
       state.c_PC state.procID + w + 1w IN s.mem_domain /\
-      state.c_PC state.procID + w IN s.mem_domain`,
-   rw [asmPropsTheory.target_state_rel_def, riscv_target_def, riscv_config_def,
+      state.c_PC state.procID + w IN s.mem_domain
+Proof
+  rw [asmPropsTheory.target_state_rel_def, riscv_target_def, riscv_config_def,
        riscv_ok_def, miscTheory.bytes_in_memory_def,
        alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq]
    \\ fs []
-   )
+QED
 
 val lem1 = asmLib.v2w_BIT_n2w 5
 val lem2 = asmLib.v2w_BIT_n2w 6
@@ -61,11 +63,12 @@ val lem4 = blastLib.BBLAST_PROVE
             c ' 4; c ' 3; c ' 2; c ' 1; c ' 0] : word12) = c : word64)``
 
 
-val lem5 = Q.prove(
-  `aligned 2 (c: word64) ==> ~c ' 1`,
+Triviality lem5:
+  aligned 2 (c: word64) ==> ~c ' 1
+Proof
   simp [alignmentTheory.aligned_extract]
   \\ blastLib.BBLAST_TAC
-  )
+QED
 
 val lem6 = blastLib.BBLAST_PROVE
   ``(((31 >< 0) (c: word64) : word32) ' 11 = c ' 11) /\
@@ -75,21 +78,25 @@ val lem6 = blastLib.BBLAST_PROVE
 val lem7 = CONJ (bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``)
                 (bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``)
 
-val lem8 = Q.prove(
-  `((if b then 1w else 0w : word64) = (v2w [x] || v2w [y])) = (b = (x \/ y))`,
-  rw [] \\ blastLib.BBLAST_TAC)
+Triviality lem8:
+  ((if b then 1w else 0w : word64) = (v2w [x] || v2w [y])) = (b = (x \/ y))
+Proof
+  rw [] \\ blastLib.BBLAST_TAC
+QED
 
-val lem9 = Q.prove(
-  `!r2 : word64 r3 : word64.
+Triviality lem9:
+  !r2 : word64 r3 : word64.
     (18446744073709551616 <= w2n r2 + (w2n r3 + 1) <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 + 1w : 65 word) /\
     (18446744073709551616 <= w2n r2 + w2n r3 <=>
-     18446744073709551616w <=+ w2w r2 + w2w r3 : 65 word)`,
-   Cases
+     18446744073709551616w <=+ w2w r2 + w2w r3 : 65 word)
+Proof
+  Cases
    \\ Cases
    \\ imp_res_tac wordsTheory.BITS_ZEROL_DIMINDEX
    \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_add_n2w,
-          wordsTheory.word_ls_n2w])
+          wordsTheory.word_ls_n2w]
+QED
 
 val lem10 =
   blastLib.BBLAST_CONV
@@ -109,15 +116,16 @@ val lem12b =
               (0w : word12)) +
        sw2sw ((11 >< 0) c && ~2w) = c : word64)``
 
-val mul_long = Q.prove(
-  `!a : word64 b : word64.
+Triviality mul_long:
+  !a : word64 b : word64.
     n2w ((w2n a * w2n b) DIV 18446744073709551616) =
-    (127 >< 64) (w2w a * w2w b : word128) : word64`,
+    (127 >< 64) (w2w a * w2w b : word128) : word64
+Proof
   Cases
   \\ Cases
   \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_mul_n2w,
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
-  )
+QED
 
 val riscv_overflow =
   REWRITE_RULE
@@ -135,8 +143,9 @@ val riscv_sub_overflow =
          (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
     (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
 
-val ror = Q.prove(
-  `!w : word64 n. n < 64n ==> ((w << (64 - n) || w >>> n) = w #>> n)`,
+Triviality ror:
+  !w : word64 n. n < 64n ==> ((w << (64 - n) || w >>> n) = w #>> n)
+Proof
   srw_tac [fcpLib.FCP_ss]
     [wordsTheory.word_or_def, wordsTheory.word_ror, wordsTheory.word_bits_def,
      wordsTheory.word_lsl_def, wordsTheory.word_lsr_def,
@@ -145,7 +154,7 @@ val ror = Q.prove(
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] []
   \\ Cases_on `i + n < 64`
   \\ simp []
-  )
+QED
 
 (* appears to not be relevant
 
@@ -369,14 +378,16 @@ in
     end
 end
 
-val bytes_in_memory_IMP_all_pcs_MEM8 = Q.prove(
- `!env a xs m dm.
+Triviality bytes_in_memory_IMP_all_pcs_MEM8:
+  !env a xs m dm.
    bytes_in_memory a xs m dm /\
    (!(i:num) ms'. (∀a. a ∈ dm ⇒ (env i ms').MEM8 a = ms'.MEM8 a)) ==>
-   (!i ms'. (∀pc. pc ∈ all_pcs (LENGTH xs) a 0 ==> (env i ms').MEM8 pc = ms'.MEM8 pc))`,
- Induct_on `xs`
+   (!i ms'. (∀pc. pc ∈ all_pcs (LENGTH xs) a 0 ==> (env i ms').MEM8 pc = ms'.MEM8 pc))
+Proof
+  Induct_on `xs`
  \\ rw [asmPropsTheory.all_pcs_def, miscTheory.bytes_in_memory_def]
- \\ metis_tac []);
+ \\ metis_tac []
+QED
 
 local
    fun number_of_instructions asl =
@@ -437,13 +448,17 @@ end
    riscv target_ok
    ------------------------------------------------------------------------- *)
 
-val length_riscv_encode = Q.prove(
-  `!i. LENGTH (riscv_encode i) = 4`,
-  rw [riscv_encode_def])
+Triviality length_riscv_encode:
+  !i. LENGTH (riscv_encode i) = 4
+Proof
+  rw [riscv_encode_def]
+QED
 
-val riscv_encode_not_nil = Q.prove(
-  `!i. riscv_encode i <> []`,
-  simp_tac std_ss [length_riscv_encode, GSYM listTheory.LENGTH_NIL])
+Triviality riscv_encode_not_nil:
+  !i. riscv_encode i <> []
+Proof
+  simp_tac std_ss [length_riscv_encode, GSYM listTheory.LENGTH_NIL]
+QED
 
 val riscv_encoding = Q.prove (
    `!i. let l = riscv_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
@@ -456,9 +471,10 @@ val riscv_encoding = Q.prove (
    )
    |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [riscv_enc_def]
 
-val riscv_target_ok = Q.prove (
-   `target_ok riscv_target`,
-   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+Triviality riscv_target_ok:
+  target_ok riscv_target
+Proof
+  rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
         riscv_proj_def, riscv_target_def, riscv_config, riscv_ok_def,
         set_sepTheory.fun2set_eq, riscv_encoding] @ enc_ok_rwts)
    >| [Cases_on `-0x100000w <= w1 /\ w1 <= 0xFFFFFw`
@@ -475,7 +491,7 @@ val riscv_target_ok = Q.prove (
          (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
    \\ DISCH_THEN kall_tac
    \\ blastLib.FULL_BBLAST_TAC
-   )
+QED
 
 (* -------------------------------------------------------------------------
    riscv encoder_correct

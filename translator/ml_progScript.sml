@@ -422,10 +422,12 @@ Proof
   \\ fs [write_def,empty_env_def]
 QED
 
-val FOLDR_LEMMA = Q.prove(
-  `!xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
-           FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs`,
-  Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]);
+Triviality FOLDR_LEMMA:
+  !xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
+           FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs
+Proof
+  Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]
+QED
 
 (* Delays the write in build_rec_env *)
 Theorem Decls_Dletrec:
@@ -732,12 +734,14 @@ QED
 
 (* appending a Letrec *)
 
-val build_rec_env_APPEND = Q.prove(
-  `nsAppend (build_rec_env funs cl_env nsEmpty) add_to_env =
-   build_rec_env funs cl_env add_to_env`,
+Triviality build_rec_env_APPEND:
+  nsAppend (build_rec_env funs cl_env nsEmpty) add_to_env =
+   build_rec_env funs cl_env add_to_env
+Proof
   fs [build_rec_env_def] \\ qspec_tac (`Recclosure cl_env funs`,`xxx`)
   \\ qspec_tac (`add_to_env`,`xs`)
-  \\ Induct_on `funs` \\ fs [FORALL_PROD]);
+  \\ Induct_on `funs` \\ fs [FORALL_PROD]
+QED
 
 Theorem ML_code_Dletrec:
    !fns locs. ML_code env0 ((comm, s1, prog, env2) :: bls) s2 ==>
@@ -903,11 +907,13 @@ QED
 (* theorems about old lookup functions *)
 (* FIXME: everything below this line is unlikely to be needed. *)
 
-val nsLookupMod_nsBind = Q.prove(`
+Triviality nsLookupMod_nsBind:
   p ≠ [] ⇒
-  nsLookupMod (nsBind k v env) p = nsLookupMod env p`,
+  nsLookupMod (nsBind k v env) p = nsLookupMod env p
+Proof
   Cases_on`env`>>fs[nsBind_def]>> Induct_on`p`>>
-  fs[nsLookupMod_def]);
+  fs[nsLookupMod_def]
+QED
 
 Theorem nsLookup_write:
    (nsLookup (write n v env).v (Short name) =

@@ -15,10 +15,12 @@ Definition shift_interfer_def:
     s with next_interfer := shift_seq k s.next_interfer
 End
 
-val shift_interfer_intro = Q.prove(
-  `shift_interfer k1 (shift_interfer k2 c) =
-    shift_interfer (k1+k2) c`,
-  full_simp_tac(srw_ss())[shift_interfer_def,shift_seq_def,ADD_ASSOC]);
+Triviality shift_interfer_intro:
+  shift_interfer k1 (shift_interfer k2 c) =
+    shift_interfer (k1+k2) c
+Proof
+  full_simp_tac(srw_ss())[shift_interfer_def,shift_seq_def,ADD_ASSOC]
+QED
 
 Theorem bytes_in_memory_SUBSET:
   !p.
@@ -238,9 +240,11 @@ Proof
   \\ imp_res_tac asserts2_first \\ fs[]
 QED
 
-val enc_ok_not_empty = Q.prove(
-  `enc_ok c /\ asm_ok w c ==> (c.encode w <> [])`,
-  METIS_TAC [listTheory.LENGTH_NIL,enc_ok_def]);
+Triviality enc_ok_not_empty:
+  enc_ok c /\ asm_ok w c ==> (c.encode w <> [])
+Proof
+  METIS_TAC [listTheory.LENGTH_NIL,enc_ok_def]
+QED
 
 Theorem asm_step_IMP_evaluate_step = Q.prove(`
   !c s1 ms1 io i s2.

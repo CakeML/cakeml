@@ -21,9 +21,11 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm7Prog");
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -50,15 +52,19 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val v2w_rw = Q.prove(`
-  v2w [P] = if P then 1w else 0w`,
-  rw[]>>EVAL_TAC);
+Triviality v2w_rw:
+  v2w [P] = if P then 1w else 0w
+Proof
+  rw[]>>EVAL_TAC
+QED
 
-val notw = Q.prove(`
-  !a. ~a = (-1w ?? a)`,
-  srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
+Triviality notw:
+  !a. ~a = (-1w ?? a)
+Proof
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][]
+QED
 
-val if_ARM_BadCode = Q.prove(`
+Triviality if_ARM_BadCode:
   (case
   (if P then
      ARM c
@@ -70,8 +76,10 @@ val if_ARM_BadCode = Q.prove(`
   | Thumb2 w => i w
   | ThumbEE w => j w
   ) =
-  if P then f c else g d`,
-    rw[]);
+  if P then f c else g d
+Proof
+  rw[]
+QED
 
 (*val IS_SOME_rw = Q.prove(`
   (if IS_SOME A then B else C) =
@@ -82,8 +90,8 @@ val if_ARM_BadCode = Q.prove(`
 
 (* TODO? more Manual rewrites to get rid of MachineCode type, which probably isn't that expensive *)
 
-val exh_machine_code = Q.prove(`
-∀v f.
+Triviality exh_machine_code:
+  ∀v f.
 (case
   case v of
     (N,imms,immr) =>
@@ -92,22 +100,30 @@ of
   ARM8 w => g w
 | BadCode v3 => h) =
   case v of (N,imms,immr) =>
-  g( f N imms immr)`,
-  rw[]>>PairCases_on`v`>>rw[])
+  g( f N imms immr)
+Proof
+  rw[]>>PairCases_on`v`>>rw[]
+QED
 
-val LIST_BIND_option = Q.prove(`
+Triviality LIST_BIND_option:
   LIST_BIND (case P of NONE => A | SOME v => B v) f =
-  case P of NONE => LIST_BIND A f | SOME v => LIST_BIND (B v) f`,
-  Cases_on`P`>>rw[]);
+  case P of NONE => LIST_BIND A f | SOME v => LIST_BIND (B v) f
+Proof
+  Cases_on`P`>>rw[]
+QED
 
-val LIST_BIND_pair = Q.prove(`
+Triviality LIST_BIND_pair:
   LIST_BIND (case P of (l,r) => A l r) f =
-  case P of (l,r) => LIST_BIND (A l r) f`,
-  Cases_on`P`>>rw[]);
+  case P of (l,r) => LIST_BIND (A l r) f
+Proof
+  Cases_on`P`>>rw[]
+QED
 
-val notw = Q.prove(`
-  !a. ~a = (-1w ?? a)`,
-  srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
+Triviality notw:
+  !a. ~a = (-1w ?? a)
+Proof
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][]
+QED
 *)
 val defaults = [arm7_encode_def,arm7_encode1_def,encode_def,e_data_def,EncodeImmShift_def,v2w_rw,e_load_def,arm7_encode_fail_def,e_multiply_def,e_branch_def,Aligned_def,Align_def,e_store_def];
 

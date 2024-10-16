@@ -1032,13 +1032,17 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-val fix_clock_IMP = Q.prove(
-  `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
+Triviality fix_clock_IMP:
+  fix_clock s x = (res,s1) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
-val LESS_EQ_dec_clock = Q.prove(
-  `r.clock <= (dec_clock s).clock ==> r.clock <= s.clock`,
-  SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
+Triviality LESS_EQ_dec_clock:
+  r.clock <= (dec_clock s).clock ==> r.clock <= s.clock
+Proof
+  SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
+QED
 
 Definition flush_state_def:
    flush_state T ^s = s with <| locals := LN
@@ -1128,17 +1132,21 @@ Definition cut_state_opt_def:
     | SOME names => cut_state names s
 End
 
-val pop_env_clock = Q.prove(
-  `(pop_env s = SOME s1) ==> (s1.clock = s.clock)`,
+Triviality pop_env_clock:
+  (pop_env s = SOME s1) ==> (s1.clock = s.clock)
+Proof
   full_simp_tac(srw_ss())[pop_env_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
+  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+QED
 
-val push_env_clock = Q.prove(
-  `(push_env env b s).clock = s.clock`,
+Triviality push_env_clock:
+  (push_env env b s).clock = s.clock
+Proof
   Cases_on `b` \\ full_simp_tac(srw_ss())[push_env_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
+  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+QED
 
 Definition find_code_def:
   (find_code (SOME p) args code ssize =

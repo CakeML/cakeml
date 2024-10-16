@@ -64,12 +64,14 @@ Definition aux_code_installed_def:
      aux_code_installed rest t)
 End
 
-val aux_code_installed_APPEND = Q.prove(
-  `!xs ys.
+Triviality aux_code_installed_APPEND:
+  !xs ys.
       aux_code_installed (xs++ys) code ==>
       aux_code_installed xs code /\
-      aux_code_installed ys code`,
-  Induct \\ fs[APPEND,aux_code_installed_def,FORALL_PROD] \\ METIS_TAC []);
+      aux_code_installed ys code
+Proof
+  Induct \\ fs[APPEND,aux_code_installed_def,FORALL_PROD] \\ METIS_TAC []
+QED
 
 Theorem aux_code_installed_subspt:
    !x c1 c2. aux_code_installed x c1 /\ subspt c1 c2 ==>
@@ -152,11 +154,13 @@ End
 
 val bv_ok_ind = theorem"bv_ok_ind";
 
-val bv_ok_SUBSET_IMP = Q.prove(
-  `!refs x refs2.
-      bv_ok refs x /\ FDOM refs SUBSET FDOM refs2 ==> bv_ok refs2 x`,
+Triviality bv_ok_SUBSET_IMP:
+  !refs x refs2.
+      bv_ok refs x /\ FDOM refs SUBSET FDOM refs2 ==> bv_ok refs2 x
+Proof
   HO_MATCH_MP_TAC bv_ok_ind \\ full_simp_tac(srw_ss())[bv_ok_def]
-  \\ full_simp_tac(srw_ss())[SUBSET_DEF,EVERY_MEM]);
+  \\ full_simp_tac(srw_ss())[SUBSET_DEF,EVERY_MEM]
+QED
 
 Theorem bv_ok_Unit[simp]:
    bv_ok refs Unit
@@ -170,14 +174,16 @@ Proof
   EVAL_TAC
 QED
 
-val bv_ok_IMP_adjust_bv_eq = Q.prove(
-  `!b2 a1 b3.
+Triviality bv_ok_IMP_adjust_bv_eq:
+  !b2 a1 b3.
       bv_ok refs a1 /\
       (!a. a IN FDOM refs ==> b2 a = b3 a) ==>
-      (adjust_bv b2 a1 = adjust_bv b3 a1)`,
+      (adjust_bv b2 a1 = adjust_bv b3 a1)
+Proof
   HO_MATCH_MP_TAC adjust_bv_ind
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bv_ok_def]
-  \\ full_simp_tac(srw_ss())[MAP_EQ_f,EVERY_MEM]);
+  \\ full_simp_tac(srw_ss())[MAP_EQ_f,EVERY_MEM]
+QED
 
 Definition state_ok_def:
   state_ok (s:('c,'ffi) bvlSem$state) <=>
@@ -189,26 +195,32 @@ End
 
 (* evaluate preserves state_ok *)
 
-val evaluate_ok_lemma = Q.prove(
-  `(state_ok (dec_clock n s) = state_ok s) /\
-    ((dec_clock n s).refs = s.refs)`,
-  full_simp_tac(srw_ss())[state_ok_def,bvlSemTheory.dec_clock_def]);
+Triviality evaluate_ok_lemma:
+  (state_ok (dec_clock n s) = state_ok s) /\
+    ((dec_clock n s).refs = s.refs)
+Proof
+  full_simp_tac(srw_ss())[state_ok_def,bvlSemTheory.dec_clock_def]
+QED
 
-val evaluate_IMP_bv_ok = Q.prove(
-  `(bvlSem$evaluate (xs,env,s) = (res,t)) ==>
+Triviality evaluate_IMP_bv_ok:
+  (bvlSem$evaluate (xs,env,s) = (res,t)) ==>
     (bv_ok s.refs a1 ==> bv_ok t.refs a1) /\
-    (EVERY (bv_ok s.refs) as ==> EVERY (bv_ok t.refs) as)`,
+    (EVERY (bv_ok s.refs) as ==> EVERY (bv_ok t.refs) as)
+Proof
   REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[EVERY_MEM]
   \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ IMP_RES_TAC evaluate_refs_SUBSET \\ IMP_RES_TAC bv_ok_SUBSET_IMP);
+  \\ IMP_RES_TAC evaluate_refs_SUBSET \\ IMP_RES_TAC bv_ok_SUBSET_IMP
+QED
 
-val v_to_list_ok = Q.prove(
-  `∀v x. v_to_list v = SOME x ∧
+Triviality v_to_list_ok:
+  ∀v x. v_to_list v = SOME x ∧
          bv_ok refs v ⇒
-         EVERY (bv_ok refs) x`,
+         EVERY (bv_ok refs) x
+Proof
   ho_match_mp_tac v_to_list_ind >>
   simp[v_to_list_def,bv_ok_def] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]
+QED
 
 Theorem list_to_v_ok:
    !xs. EVERY (bv_ok refs) xs ==> bv_ok refs (list_to_v xs)
@@ -568,10 +580,11 @@ val evaluate_MAP_Var2 = Q.prove(
   \\ full_simp_tac(srw_ss())[rich_listTheory.EL_APPEND1]) |> SPEC_ALL
   |> INST_TYPE[beta|->``:'ffi``,alpha|->``:'c``];
 
-val bEval_bVarBound = Q.prove(
-  `!xs vs s env.
+Triviality bEval_bVarBound:
+  !xs vs s env.
       bVarBound (LENGTH vs) xs ==>
-      (bvlSem$evaluate (xs,vs ++ env,s) = evaluate (xs,vs,s))`,
+      (bvlSem$evaluate (xs,vs ++ env,s) = evaluate (xs,vs,s))
+Proof
   recInduct bvlSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   \\ full_simp_tac(srw_ss())[bvlSemTheory.evaluate_def,bVarBound_def]
   \\ TRY (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[ADD1] \\ NO_TAC)
@@ -580,7 +593,8 @@ val bEval_bVarBound = Q.prove(
   THEN1 (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
          \\ FIRST_X_ASSUM MATCH_MP_TAC
          \\ IMP_RES_TAC bvlPropsTheory.evaluate_IMP_LENGTH
-         \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]));
+         \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC])
+QED
 
 val iEval_def = bviSemTheory.evaluate_def;
 
@@ -947,12 +961,14 @@ QED
 val bEval_def = bvlSemTheory.evaluate_def;
 val iEval_append = bviPropsTheory.evaluate_APPEND;
 
-val compile_exps_Var_list = Q.prove(
-  `!l n. EVERY isVar l ==> (∃aux. compile_exps n l = (MAP (Var o destVar) l ,aux,n) ∧ append aux = [])`,
+Triviality compile_exps_Var_list:
+  !l n. EVERY isVar l ==> (∃aux. compile_exps n l = (MAP (Var o destVar) l ,aux,n) ∧ append aux = [])
+Proof
   Induct \\ fs[compile_exps_def] \\ Cases \\ rw[isVar_def] \\ fs[]
   \\ Cases_on`l` \\ fs[compile_exps_def,destVar_def]
   \\ qmatch_goalsub_rename_tac`compile_exps a`
-  \\ first_x_assum(qspec_then`a`strip_assume_tac) \\ fs[]);
+  \\ first_x_assum(qspec_then`a`strip_assume_tac) \\ fs[]
+QED
 
 Theorem compile_int_thm[local]:
   ∀i env s. evaluate ([compile_int i],env,s) = (Rval [Number i],s)
@@ -1164,14 +1180,16 @@ Proof
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[ADD1]
 QED
 
-val v_to_list_adjust = Q.prove(
-  `∀x. v_to_list (adjust_bv f x) = OPTION_MAP (MAP (adjust_bv f)) (v_to_list x)`,
+Triviality v_to_list_adjust:
+  ∀x. v_to_list (adjust_bv f x) = OPTION_MAP (MAP (adjust_bv f)) (v_to_list x)
+Proof
   ho_match_mp_tac v_to_list_ind >>
   simp[v_to_list_def,adjust_bv_def] >> srw_tac[][] >>
-  Cases_on`v_to_list x`>>full_simp_tac(srw_ss())[]);
+  Cases_on`v_to_list x`>>full_simp_tac(srw_ss())[]
+QED
 
-val do_eq_adjust_lemma = Q.prove(
-  `(!refs x1 x2 b.
+Triviality do_eq_adjust_lemma:
+  (!refs x1 x2 b.
               refs = r.refs /\
               do_eq refs x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
               bv_ok r.refs x1 /\ bv_ok r.refs x2 ==>
@@ -1180,7 +1198,8 @@ val do_eq_adjust_lemma = Q.prove(
               refs = r.refs /\
               do_eq_list refs x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
               EVERY (bv_ok r.refs) x1 /\ EVERY (bv_ok r.refs) x2 ==>
-              do_eq_list t2.refs (MAP (adjust_bv b2) x1) (MAP (adjust_bv b2) x2) = Eq_val b)`,
+              do_eq_list t2.refs (MAP (adjust_bv b2) x1) (MAP (adjust_bv b2) x2) = Eq_val b)
+Proof
   ho_match_mp_tac do_eq_ind \\ rw [] \\ fs [adjust_bv_def]
   THEN1 (
     fs[bv_ok_def]
@@ -1197,13 +1216,16 @@ val do_eq_adjust_lemma = Q.prove(
   \\ fs [bv_ok_def] \\ rfs []
   \\ rpt (pop_assum mp_tac)
   \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-  \\ rw [] \\ every_case_tac \\ fs []);
+  \\ rw [] \\ every_case_tac \\ fs []
+QED
 
-val do_eq_adjust = Q.prove(
-  `do_eq r.refs x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
+Triviality do_eq_adjust:
+  do_eq r.refs x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
    bv_ok r.refs x1 /\ bv_ok r.refs x2 ==>
-   do_eq t2.refs (adjust_bv b2 x1) (adjust_bv b2 x2) = Eq_val b`,
-  metis_tac [do_eq_adjust_lemma]);
+   do_eq t2.refs (adjust_bv b2 x1) (adjust_bv b2 x2) = Eq_val b
+Proof
+  metis_tac [do_eq_adjust_lemma]
+QED
 
 Theorem list_to_v_adjust:
    !xs.
@@ -1546,16 +1568,18 @@ Proof
   \\ fs [MEM_EL] \\ asm_exists_tac \\ fs []
 QED
 
-val do_app_Ref = Q.prove(
-  `do_app Ref vs s =
+Triviality do_app_Ref:
+  do_app Ref vs s =
      Rval
       (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
        bvl_to_bvi
         (bvi_to_bvl s with
          refs :=
-           s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs)) s)`,
+           s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs)) s)
+Proof
   fs [iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_THM]
-  \\ every_case_tac \\ fs []);
+  \\ every_case_tac \\ fs []
+QED
 
 Theorem state_rel_add_bytearray:
    state_rel b2 s5 (t2:('c,'ffi) bviSem$state) ∧
@@ -1735,14 +1759,15 @@ Proof
   impl_keep_tac >- EVAL_TAC \\ simp[]
 QED
 
-val compile_list_imp = Q.prove(
-  `∀n prog code n' name arity exp.
+Triviality compile_list_imp:
+  ∀n prog code n' name arity exp.
      compile_list n prog = (code,n') ∧
      ALOOKUP prog name = SOME (arity,exp) ⇒
      ∃n0 c aux n1.
      compile_exps n0 [exp] = ([c],aux,n1) ∧
      ALOOKUP (append code) (nss * name + num_stubs) = SOME (arity,bvi_let$compile_exp c) ∧
-     IS_SUBLIST (append code) (append aux)`,
+     IS_SUBLIST (append code) (append aux)
+Proof
   Induct_on`prog` >> simp[] >>
   qx_gen_tac`p`>>PairCases_on`p`>>
   simp[compile_list_def] >>
@@ -1775,7 +1800,8 @@ val compile_list_imp = Q.prove(
     `in_ns 0 (b * nss + 1)` by METIS_TAC[] \\
     fs[]) >>
   full_simp_tac(srw_ss())[IS_SUBLIST_APPEND] >>
-  metis_tac [APPEND,APPEND_ASSOC]);
+  metis_tac [APPEND,APPEND_ASSOC]
+QED
 
 val nss_lemma = prove(
   ``n * nss <> k * nss + 1``,
@@ -3625,13 +3651,15 @@ Proof
   Cases_on`e`>>simp[] >> METIS_TAC[]
 QED
 
-val evaluate_REPLICATE_0 = Q.prove(
-  `!n. evaluate (REPLICATE n (Op (Const 0) []),env,s) =
-          (Rval (REPLICATE n (Number 0)),s)`,
+Triviality evaluate_REPLICATE_0:
+  !n. evaluate (REPLICATE n (Op (Const 0) []),env,s) =
+          (Rval (REPLICATE n (Number 0)),s)
+Proof
   Induct \\ fs [evaluate_def,REPLICATE]
   \\ once_rewrite_tac [evaluate_CONS]
   \\ fs [evaluate_def,REPLICATE,do_app_def,do_app_aux_def]
-  \\ fs [EVAL ``small_enough_int 0``]);
+  \\ fs [EVAL ``small_enough_int 0``]
+QED
 
 Theorem bvi_stubs_evaluate:
    ∀kk start ffi0 code k.

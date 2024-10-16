@@ -106,9 +106,11 @@ End
 
 val res = translate TRANS_def;
 
-val PAIR_EQ_COLLAPSE = Q.prove (
-`(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))`,
-Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[])
+Triviality PAIR_EQ_COLLAPSE:
+  (((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))
+Proof
+  Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[]
+QED
 
 val pabs_elim_ss =
     simpLib.conv_ss
@@ -197,8 +199,8 @@ Definition raconv_def:
     | _ => F
 End
 
-val raconv_PMATCH = Q.prove(
-  `^(rhs(concl(SPEC_ALL raconv_def))) =
+Triviality raconv_PMATCH:
+  ^(rhs(concl(SPEC_ALL raconv_def))) =
     case (tm1,tm2) of
     | (Var _ _, Var _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
@@ -209,8 +211,10 @@ val raconv_PMATCH = Q.prove(
             | (Var n1 ty1,Var n2 ty2)
                 => (ty1 = ty2) ∧ raconv ((v1,v2)::env) t1 t2
             | _ => F)
-    | _ => F`,
-  rpt tac)
+    | _ => F
+Proof
+  rpt tac
+QED
 
 val raconv_def = fix raconv_def "raconv_def" raconv_PMATCH
 

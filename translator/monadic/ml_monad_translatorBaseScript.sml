@@ -149,9 +149,11 @@ Proof
   metis_tac[]
 QED
 
-val NEG_DISJ_TO_IMP = Q.prove(
-  `!A B. ~A \/ ~B <=> A /\ B ==> F`,
-  rw[]);
+Triviality NEG_DISJ_TO_IMP:
+  !A B. ~A \/ ~B <=> A /\ B ==> F
+Proof
+  rw[]
+QED
 
 Theorem store2heap_aux_DISJOINT:
    !n s1 s2. DISJOINT (store2heap_aux n s1) (store2heap_aux (n + LENGTH s1) s2)
@@ -697,13 +699,16 @@ Proof
   \\ rw[]
 QED
 
-val GC_ABSORB_L = Q.prove(`!A B s. (A * B * GC) s ==> (A * GC) s`,
-rw[]
+Triviality GC_ABSORB_L:
+  !A B s. (A * B * GC) s ==> (A * GC) s
+Proof
+  rw[]
 \\ fs[GSYM STAR_ASSOC]
 \\ fs[Once STAR_def]
 \\ qexists_tac `u`
 \\ qexists_tac `v`
-\\ fs[SAT_GC]);
+\\ fs[SAT_GC]
+QED
 
 Theorem st2heap_SPLIT:
   SPLIT (st2heap ffi (s with refs := s.refs ++ junk))

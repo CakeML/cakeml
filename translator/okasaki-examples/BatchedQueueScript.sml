@@ -53,29 +53,39 @@ Definition queue_inv_def:
     (q = xs ++ REVERSE ys) /\ ((xs = []) ==> (ys = []))
 End
 
-val empty_thm = Q.prove(
-  `!xs. queue_inv xs empty = (xs = [])`,
-  EVAL_TAC THEN SIMP_TAC std_ss []);
+Triviality empty_thm:
+  !xs. queue_inv xs empty = (xs = [])
+Proof
+  EVAL_TAC THEN SIMP_TAC std_ss []
+QED
 
-val is_empty_thm = Q.prove(
-  `!q xs. queue_inv xs q ==> (is_empty q = (xs = []))`,
-  Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] [REV_DEF]);
+Triviality is_empty_thm:
+  !q xs. queue_inv xs q ==> (is_empty q = (xs = []))
+Proof
+  Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] [REV_DEF]
+QED
 
-val snoc_thm = Q.prove(
-  `!q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)`,
+Triviality snoc_thm:
+  !q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)
+Proof
   Cases THEN Cases_on `l` THEN FULL_SIMP_TAC (srw_ss())
-    [queue_inv_def,snoc_def,REVERSE_DEF,checkf_def,APPEND]);
+    [queue_inv_def,snoc_def,REVERSE_DEF,checkf_def,APPEND]
+QED
 
-val head_thm = Q.prove(
-  `!q x xs. queue_inv (x::xs) q ==> (head q = x)`,
+Triviality head_thm:
+  !q x xs. queue_inv (x::xs) q ==> (head q = x)
+Proof
   Cases THEN Cases_on `l` THEN FULL_SIMP_TAC (srw_ss())
     [queue_inv_def,head_def,REVERSE_DEF,checkf_def,APPEND]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) []);
+  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) []
+QED
 
-val tail_thm = Q.prove(
-  `!q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)`,
+Triviality tail_thm:
+  !q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)
+Proof
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] []
   THEN TRY (Cases_on `t`) THEN EVAL_TAC
-  THEN FULL_SIMP_TAC (srw_ss()) [REVERSE_DEF,REV_DEF]);
+  THEN FULL_SIMP_TAC (srw_ss()) [REVERSE_DEF,REV_DEF]
+QED
 
 val _ = export_theory();

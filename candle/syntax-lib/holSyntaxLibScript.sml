@@ -210,8 +210,9 @@ Definition INORDER_INSERT_def:
    (APPEND [x] (FILTER (λy. string_lt x y) xs))
 End
 
-val LENGTH_INORDER_INSERT = Q.prove(
-  `!xs. ALL_DISTINCT (x::xs) ==> (LENGTH (INORDER_INSERT x xs) = SUC (LENGTH xs))`,
+Triviality LENGTH_INORDER_INSERT:
+  !xs. ALL_DISTINCT (x::xs) ==> (LENGTH (INORDER_INSERT x xs) = SUC (LENGTH xs))
+Proof
   FULL_SIMP_TAC std_ss [INORDER_INSERT_def,LENGTH_APPEND,LENGTH]
   \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [DECIDE ``1 + n = SUC n``]
@@ -221,20 +222,25 @@ val LENGTH_INORDER_INSERT = Q.prove(
   \\ Q.MATCH_ASSUM_RENAME_TAC `MEM y xs`
   \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `x = y` \\ FULL_SIMP_TAC std_ss []
-  \\ METIS_TAC [stringTheory.string_lt_cases,stringTheory.string_lt_antisym]);
+  \\ METIS_TAC [stringTheory.string_lt_cases,stringTheory.string_lt_antisym]
+QED
 
-val ALL_DISTINCT_INORDER_INSERT = Q.prove(
-  `!xs h. ALL_DISTINCT xs ==> ALL_DISTINCT (INORDER_INSERT h xs)`,
+Triviality ALL_DISTINCT_INORDER_INSERT:
+  !xs h. ALL_DISTINCT xs ==> ALL_DISTINCT (INORDER_INSERT h xs)
+Proof
   FULL_SIMP_TAC (srw_ss()) [ALL_DISTINCT,INORDER_INSERT_def,
     ALL_DISTINCT_APPEND,MEM_FILTER] \\ REPEAT STRIP_TAC
   \\ TRY (MATCH_MP_TAC FILTER_ALL_DISTINCT)
   \\ FULL_SIMP_TAC (srw_ss()) [stringTheory.string_lt_nonrefl]
-  \\ METIS_TAC [stringTheory.string_lt_antisym]);
+  \\ METIS_TAC [stringTheory.string_lt_antisym]
+QED
 
-val ALL_DISTINCT_FOLDR_INORDER_INSERT = Q.prove(
-  `!xs. ALL_DISTINCT (FOLDR INORDER_INSERT [] xs)`,
+Triviality ALL_DISTINCT_FOLDR_INORDER_INSERT:
+  !xs. ALL_DISTINCT (FOLDR INORDER_INSERT [] xs)
+Proof
   Induct \\ SIMP_TAC std_ss [ALL_DISTINCT,FOLDR] \\ REPEAT STRIP_TAC
-  \\ MATCH_MP_TAC ALL_DISTINCT_INORDER_INSERT \\ FULL_SIMP_TAC std_ss []);
+  \\ MATCH_MP_TAC ALL_DISTINCT_INORDER_INSERT \\ FULL_SIMP_TAC std_ss []
+QED
 
 Theorem MEM_FOLDR_INORDER_INSERT:
    !xs x. MEM x (FOLDR INORDER_INSERT [] xs) = MEM x xs

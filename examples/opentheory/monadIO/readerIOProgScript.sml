@@ -229,14 +229,15 @@ Proof
   metis_tac [holrefs_INTRO, EvalM_init_reader_wrap]
 QED
 
-val EvalM_readline_wrap = Q.prove (
- `Eval env xv (PAIR_TYPE STRING_TYPE READER_STATE_TYPE x) /\
+Triviality EvalM_readline_wrap:
+  Eval env xv (PAIR_TYPE STRING_TYPE READER_STATE_TYPE x) /\
   nsLookup env.v (Short "readline_wrap") = SOME readline_wrap_v
   ==>
   EvalM F env st
     (App Opapp [Var (Short "readline_wrap"); xv])
     (MONAD (SUM_TYPE STRING_TYPE READER_STATE_TYPE) HOL_EXN_TYPE
-       (readLine_wrap x)) (HOL_STORE, p:'ffi ffi_proj)`,
+       (readLine_wrap x)) (HOL_STORE, p:'ffi ffi_proj)
+Proof
   ho_match_mp_tac EvalM_from_app \\ rw []
   >-
    (PairCases_on `x`
@@ -248,17 +249,20 @@ val EvalM_readline_wrap = Q.prove (
   \\ asm_exists_tac \\ fs []
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac `s`
-  \\ xsimpl);
+  \\ xsimpl
+QED
 
-val EvalM_holrefs_readline_wrap = Q.prove (
- `Eval env xv (PAIR_TYPE STRING_TYPE READER_STATE_TYPE x) /\
+Triviality EvalM_holrefs_readline_wrap:
+  Eval env xv (PAIR_TYPE STRING_TYPE READER_STATE_TYPE x) /\
   nsLookup env.v (Short "readline_wrap") = SOME readline_wrap_v
   ==>
   EvalM F env st
     (App Opapp [Var (Short "readline_wrap"); xv])
     (MONAD (SUM_TYPE STRING_TYPE READER_STATE_TYPE) HOL_EXN_TYPE
-       (holrefs (readLine_wrap x))) (STATE_STORE, p:'ffi ffi_proj)`,
-  metis_tac [holrefs_INTRO, EvalM_readline_wrap]);
+       (holrefs (readLine_wrap x))) (STATE_STORE, p:'ffi ffi_proj)
+Proof
+  metis_tac [holrefs_INTRO, EvalM_readline_wrap]
+QED
 
 Theorem EvalM_context:
    Eval env uv (UNIT_TYPE u) /\

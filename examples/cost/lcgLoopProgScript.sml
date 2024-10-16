@@ -26,10 +26,12 @@ End
 val _ = translate HEX_def;
 val _ = translate n2l_acc_def;
 
-val hex_side_imp = Q.prove(`
-  n < 10 ⇒ hex_side n`,
+Triviality hex_side_imp:
+  n < 10 ⇒ hex_side n
+Proof
   EVAL_TAC>>
-  rw[]);
+  rw[]
+QED
 
 val n2l_acc_side = Q.prove(`
   ∀n acc. n2l_acc_side n acc ⇔ T`,

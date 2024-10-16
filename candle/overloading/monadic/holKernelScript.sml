@@ -576,22 +576,28 @@ End
   this a non-failing function to make it pure.
 *)
 
-val EXISTS_IMP = Q.prove(
-  `!xs p. EXISTS p xs ==> ?x. MEM x xs /\ p x`,
-  Induct THEN SIMP_TAC (srw_ss()) [EXISTS_DEF] THEN METIS_TAC []);
+Triviality EXISTS_IMP:
+  !xs p. EXISTS p xs ==> ?x. MEM x xs /\ p x
+Proof
+  Induct THEN SIMP_TAC (srw_ss()) [EXISTS_DEF] THEN METIS_TAC []
+QED
 
-val MEM_subtract = Q.prove(
-  `!y z x. MEM x (subtract y z) = (MEM x y /\ ~MEM x z)`,
-  FULL_SIMP_TAC std_ss [subtract_def,MEM_FILTER] THEN METIS_TAC []);
+Triviality MEM_subtract:
+  !y z x. MEM x (subtract y z) = (MEM x y /\ ~MEM x z)
+Proof
+  FULL_SIMP_TAC std_ss [subtract_def,MEM_FILTER] THEN METIS_TAC []
+QED
 
-val vfree_in_IMP = Q.prove(
-  `!(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)`,
+Triviality vfree_in_IMP:
+  !(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)
+Proof
   HO_MATCH_MP_TAC (SIMP_RULE std_ss [] (vfree_in_ind))
   THEN REPEAT STRIP_TAC THEN Cases_on `x` THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [vfree_in_def,frees_def]
   THEN FULL_SIMP_TAC (srw_ss()) []
   THEN FULL_SIMP_TAC (srw_ss()) [MEM_union,MEM_subtract]
-  THEN REPEAT STRIP_TAC THEN RES_TAC THEN ASM_SIMP_TAC std_ss []);
+  THEN REPEAT STRIP_TAC THEN RES_TAC THEN ASM_SIMP_TAC std_ss []
+QED
 
 (*
   let vsubst =
@@ -678,21 +684,25 @@ Definition my_term_size_def:
   (my_term_size (Abs s1 s2) = 1 + my_term_size s1 + my_term_size s2)
 End
 
-val my_term_size_variant = Q.prove(
-  `!avoid t. my_term_size (variant avoid t) = my_term_size t`,
+Triviality my_term_size_variant:
+  !avoid t. my_term_size (variant avoid t) = my_term_size t
+Proof
   HO_MATCH_MP_TAC (variant_ind) THEN REPEAT STRIP_TAC
   THEN ONCE_REWRITE_TAC [variant_def]
   THEN Cases_on `t` THEN FULL_SIMP_TAC (srw_ss()) []
   THEN SRW_TAC [] [] THEN RES_TAC
-  THEN FULL_SIMP_TAC std_ss [my_term_size_def]);
+  THEN FULL_SIMP_TAC std_ss [my_term_size_def]
+QED
 
-val is_var_variant = Q.prove(
-  `!avoid t. is_var (variant avoid t) = is_var t`,
+Triviality is_var_variant:
+  !avoid t. is_var (variant avoid t) = is_var t
+Proof
   HO_MATCH_MP_TAC (variant_ind) THEN REPEAT STRIP_TAC
   THEN ONCE_REWRITE_TAC [variant_def]
   THEN Cases_on `t` THEN FULL_SIMP_TAC (srw_ss()) []
   THEN SRW_TAC [] [] THEN RES_TAC
-  THEN FULL_SIMP_TAC (srw_ss()) [my_term_size_def,fetch "-" "is_var_def"]);
+  THEN FULL_SIMP_TAC (srw_ss()) [my_term_size_def,fetch "-" "is_var_def"]
+QED
 
 val my_term_size_vsubst_aux = Q.prove(
   `!t xs. EVERY (\x. is_var (FST x)) xs ==>
@@ -716,9 +726,11 @@ val my_term_size_vsubst_aux = Q.prove(
   |> Q.SPECL [`t`,`[(Var v ty,x)]`]
   |> SIMP_RULE (srw_ss()) [EVERY_DEF,fetch "-" "is_var_def"]
 
-val ZERO_LT_term_size = Q.prove(
-  `!t. 0 < my_term_size t`,
-  Cases THEN EVAL_TAC THEN DECIDE_TAC);
+Triviality ZERO_LT_term_size:
+  !t. 0 < my_term_size t
+Proof
+  Cases THEN EVAL_TAC THEN DECIDE_TAC
+QED
 
 Definition inst_aux_def:
   (inst_aux (env:(term # term) list) tyin tm) =

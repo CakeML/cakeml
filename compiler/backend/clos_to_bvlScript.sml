@@ -605,17 +605,21 @@ End
 
 Theorem compile_prog_eq = compile_prog_def |> SRULE [compile_exp_sing_eq];
 
-val pair_lem1 = Q.prove (
-  `!f x. (\(a,b). f a b) x = f (FST x) (SND x)`,
+Triviality pair_lem1:
+  !f x. (\(a,b). f a b) x = f (FST x) (SND x)
+Proof
   rw [] >>
   PairCases_on `x` >>
-  fs []);
+  fs []
+QED
 
-val pair_lem2 = Q.prove (
-  `!x y z. (x,y) = z ⇔ x = FST z ∧ y = SND z`,
+Triviality pair_lem2:
+  !x y z. (x,y) = z ⇔ x = FST z ∧ y = SND z
+Proof
   rw [] >>
   PairCases_on `z` >>
-  rw []);
+  rw []
+QED
 
 Theorem compile_exps_acc:
    !max_app xs aux.

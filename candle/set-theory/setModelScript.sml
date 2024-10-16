@@ -223,14 +223,16 @@ Proof
   metis_tac[V_bij]
 QED
 
-val V_choice_exists = Q.prove(
-  `∃ch. is_choice V_mem ch`,
+Triviality V_choice_exists:
+  ∃ch. is_choice V_mem ch
+Proof
   simp[is_choice_def,GSYM SKOLEM_THM] >>
   rw[] >> simp[V_mem_def] >>
   qspecl_then[`dest_V x`]mp_tac
     (List.nth(CONJUNCTS V_mem_rep_def,6)) >>
   simp[V_bij] >>
-  metis_tac[V_bij] )
+  metis_tac[V_bij]
+QED
 
 val V_choice_def =
   new_specification("V_choice_def",["V_choice"],V_choice_exists)

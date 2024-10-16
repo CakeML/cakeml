@@ -718,9 +718,11 @@ Definition is_builtin_type_def:
        (m = strlit "bool" /\ LENGTH ty = 0)))
 End
 
-val type1_size_append = Q.prove(
-  `∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2`,
-  Induct >> simp[fetch "-" "type_size_def"]);
+Triviality type1_size_append:
+  ∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2
+Proof
+  Induct >> simp[fetch "-" "type_size_def"]
+QED
 
 (* allTypes(\sigma) -- the smallest set of non-built-in types that can produce
  * \sigma by combinations of built-in types.

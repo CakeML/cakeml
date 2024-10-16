@@ -330,21 +330,25 @@ Proof
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
-val SND_read_mem_word_consts = Q.prove(
-  `!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
+Triviality SND_read_mem_word_consts:
+  !n a s. ((SND (read_mem_word a n s)).be = s.be) /\
             ((SND (read_mem_word a n s)).lr = s.lr) /\
             ((SND (read_mem_word a n s)).align = s.align) /\
-            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)`,
+            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)
+Proof
   Induct \\ full_simp_tac(srw_ss())[read_mem_word_def,LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ full_simp_tac(srw_ss())[assert_def])
+  \\ full_simp_tac(srw_ss())[assert_def]
+QED
 
-val write_mem_word_consts = Q.prove(
-  `!n a w s. ((write_mem_word a n w s).be = s.be) /\
+Triviality write_mem_word_consts:
+  !n a w s. ((write_mem_word a n w s).be = s.be) /\
               ((write_mem_word a n w s).lr = s.lr) /\
               ((write_mem_word a n w s).align = s.align) /\
-              ((write_mem_word a n w s).mem_domain = s.mem_domain)`,
-  Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
+              ((write_mem_word a n w s).mem_domain = s.mem_domain)
+Proof
+  Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def]
+QED
 
 Theorem binop_upd_consts[simp]:
    ((binop_upd a b c d x).mem_domain = x.mem_domain) ∧

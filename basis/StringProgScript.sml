@@ -51,9 +51,11 @@ val _ = next_ml_names := ["translate"];
 val result = translate translate_def;
 val translate_side_def = definition"translate_side_def";
 
-val translate_aux_side_thm = Q.prove (
-  `!f s n len. n + len = strlen s ==> translate_aux_side f s n len`,
-  Induct_on `len` \\ rw[Once translate_aux_side_def]);
+Triviality translate_aux_side_thm:
+  !f s n len. n + len = strlen s ==> translate_aux_side f s n len
+Proof
+  Induct_on `len` \\ rw[Once translate_aux_side_def]
+QED
 
 val translate_side_thm = Q.prove (
   `!f s. translate_side f s`,
@@ -78,11 +80,13 @@ val _ = next_ml_names := ["tokens"];
 val result = translate tokens_alt;
 val tokens_side_def = definition"tokens_side_def";
 
-val tokens_alt_aux_side_thm = Q.prove (
-  `!f s i j k. i ≤ j ∧ j ≤ k ∧ k ≤ strlen s ⇒ tokens_alt_aux_side f s i j k`,
+Triviality tokens_alt_aux_side_thm:
+  !f s i j k. i ≤ j ∧ j ≤ k ∧ k ≤ strlen s ⇒ tokens_alt_aux_side f s i j k
+Proof
   ho_match_mp_tac tokens_alt_aux_ind>>
   rw[]>>
-  rw [Once tokens_alt_aux_side_def]);
+  rw [Once tokens_alt_aux_side_def]
+QED
 
 val tokens_side_thm = Q.prove (
   `!f s. tokens_side f s`,
@@ -99,11 +103,13 @@ val _ = next_ml_names := ["fields"];
 val result = translate fields_alt;
 val fields_side_def = definition"fields_side_def";
 
-val fields_alt_aux_side_thm = Q.prove (
-  `!f s i j k. i ≤ j ∧ j ≤ k ∧ k ≤ strlen s ⇒ fields_alt_aux_side f s i j k`,
+Triviality fields_alt_aux_side_thm:
+  !f s i j k. i ≤ j ∧ j ≤ k ∧ k ≤ strlen s ⇒ fields_alt_aux_side f s i j k
+Proof
   ho_match_mp_tac fields_alt_aux_ind>>
   rw[]>>
-  rw [Once fields_alt_aux_side_def]);
+  rw [Once fields_alt_aux_side_def]
+QED
 
 val fields_side_thm = Q.prove (
   `!f s. fields_side f s`,
@@ -117,22 +123,26 @@ val result = translate isStringThere_aux_def;
 val isStringThere_aux_side_def = theorem"isstringthere_aux_side_def";
 val _ = ml_prog_update open_local_in_block;
 
-val isStringThere_aux_side_thm = Q.prove (
-  `!s1 s2 s1i s2i len.
+Triviality isStringThere_aux_side_thm:
+  !s1 s2 s1i s2i len.
      s1i + len ≤ strlen s1 ∧ s2i + len <= strlen s2 ==>
-     isstringthere_aux_side s1 s2 s1i s2i len`,
-  Induct_on `len` \\ rw [Once isStringThere_aux_side_def]);
+     isstringthere_aux_side s1 s2 s1i s2i len
+Proof
+  Induct_on `len` \\ rw [Once isStringThere_aux_side_def]
+QED
 
 val _ = next_ml_names := ["isSubstring"];
 val result = translate isSubstring_aux_def;
 val isSubstring_aux_side_def = theorem"issubstring_aux_side_def";
-val isSubstring_aux_side_thm = Q.prove (
-  `!s1 s2 lens1 n len.
+Triviality isSubstring_aux_side_thm:
+  !s1 s2 lens1 n len.
     (lens1 = strlen s1) ∧ n + len + lens1 ≤ strlen s2 + 1 ==>
-    issubstring_aux_side s1 s2 lens1 n len`,
+    issubstring_aux_side s1 s2 lens1 n len
+Proof
   Induct_on `len` >>
   rw [Once isSubstring_aux_side_def] >>
-  irule isStringThere_aux_side_thm >> simp[]);
+  irule isStringThere_aux_side_thm >> simp[]
+QED
 
 val _ = next_ml_names := ["isSubstring"];
 val result = translate isSubstring_def;
@@ -164,12 +174,14 @@ val _ = next_ml_names := ["compare"];
 val result = translate compare_def;
 val compare_side_def = definition"compare_1_side_def";
 
-val compare_aux_side_thm = Q.prove (
-  `!s1 s2 ord n len. (n + len =
+Triviality compare_aux_side_thm:
+  !s1 s2 ord n len. (n + len =
     if strlen s1 < strlen s2
       then strlen s1
-    else strlen s2) ==> compare_aux_side s1 s2 ord n len`,
-  Induct_on `len` \\ rw [Once compare_aux_side_def]);
+    else strlen s2) ==> compare_aux_side s1 s2 ord n len
+Proof
+  Induct_on `len` \\ rw [Once compare_aux_side_def]
+QED
 
 val compare_side_thm = Q.prove (
   `!s1 s2. compare_1_side s1 s2`,
@@ -193,12 +205,14 @@ val _ = next_ml_names := ["collate"];
 val result = translate collate_def;
 val collate_side_def = definition"collate_1_side_def";
 
-val collate_aux_side_thm = Q.prove (
-  `!f s1 s2 ord n len. (n + len =
+Triviality collate_aux_side_thm:
+  !f s1 s2 ord n len. (n + len =
     if strlen s1 < strlen s2
       then strlen s1
-    else strlen s2) ==> collate_aux_side f s1 s2 ord n len`,
-  Induct_on `len` \\ rw [Once collate_aux_side_def]);
+    else strlen s2) ==> collate_aux_side f s1 s2 ord n len
+Proof
+  Induct_on `len` \\ rw [Once collate_aux_side_def]
+QED
 
 val collate_side_thm = Q.prove (
   `!f s1 s2. collate_1_side f s1 s2`,

@@ -183,12 +183,13 @@ Definition good_table_32_def:
   LENGTH s.hash_tab_32 = n
 End
 
-val lookup_ins_table_32_correct = Q.prove(`
+Triviality lookup_ins_table_32_correct:
   good_table_32 enc n s ∧
   0 < n ⇒
   ∃s'.
   lookup_ins_table_32 enc n aa s = (M_success (enc aa), s') ∧
-  good_table_32 enc n s'`,
+  good_table_32 enc n s'
+Proof
   rw[]>>fs[lookup_ins_table_32_def]>>
   simp msimps>>
   reverse IF_CASES_TAC
@@ -209,43 +210,49 @@ val lookup_ins_table_32_correct = Q.prove(`
   fs[EVERY_MEM]>>
   rw[]>> first_x_assum drule>>
   disch_then drule>>
-  fs[]);
+  fs[]
+QED
 
-val enc_line_hash_32_correct = Q.prove(‘
+Triviality enc_line_hash_32_correct:
   ∀line.
     good_table_32 enc n s ∧ 0 < n ⇒
     ∃s'.
      enc_line_hash_32 enc skip_len n line s =
        (M_success (enc_line enc skip_len line),s') ∧
-     good_table_32 enc n s'’,
+     good_table_32 enc n s'
+Proof
   Cases>>fs[enc_line_hash_32_def,enc_line_def]>>
   fs msimps>>
   qmatch_goalsub_abbrev_tac`lookup_ins_table_32 _ _ aa`>>
   rw[]>>
-  old_drule lookup_ins_table_32_correct>>rw[]>>simp[]);
+  old_drule lookup_ins_table_32_correct>>rw[]>>simp[]
+QED
 
-val enc_line_hash_32_ls_correct = Q.prove(`
+Triviality enc_line_hash_32_ls_correct:
   ∀xs s.
   good_table_32 enc n s ∧ 0 < n ⇒
   ∃s'.
   enc_line_hash_32_ls enc skip_len n xs s =
   (M_success (MAP (enc_line enc skip_len) xs), s') ∧
-  good_table_32 enc n s'`,
+  good_table_32 enc n s'
+Proof
   Induct>>fs[enc_line_hash_32_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
   old_drule enc_line_hash_32_correct>>
   disch_then (qspec_then `h` assume_tac)>>rfs[]>>
   first_x_assum drule>>
-  rw[]>>simp[]);
+  rw[]>>simp[]
+QED
 
-val enc_sec_hash_32_ls_correct = Q.prove(`
+Triviality enc_sec_hash_32_ls_correct:
   ∀xs s.
   good_table_32 enc n s ∧ 0 < n ⇒
   ∃s'.
   enc_sec_hash_32_ls enc skip_len n xs s =
   (M_success (MAP (enc_sec enc skip_len) xs), s') ∧
-  good_table_32 enc n s'`,
+  good_table_32 enc n s'
+Proof
   Induct>>fs[enc_sec_hash_32_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
@@ -254,7 +261,8 @@ val enc_sec_hash_32_ls_correct = Q.prove(`
   simp[]>>
   disch_then(qspec_then`l` assume_tac)>>fs[]>>
   first_x_assum drule>>rw[]>>
-  simp[enc_sec_def]);
+  simp[enc_sec_def]
+QED
 
 Theorem enc_secs_32_correct:
   enc_secs_32 enc n xs =

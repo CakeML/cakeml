@@ -311,17 +311,21 @@ Proof
   metis_tac[]
 QED
 
-val encode_default_11 = Q.prove(`
+Triviality encode_default_11:
   ∀x y.
-  MAP encode_trm x = MAP encode_trm y ⇒ x = y`,
-  Induct>>fs[]>>Cases_on`y`>>fs[encode_trm_11]);
+  MAP encode_trm x = MAP encode_trm y ⇒ x = y
+Proof
+  Induct>>fs[]>>Cases_on`y`>>fs[encode_trm_11]
+QED
 
-val encode_mach_config_11 = Q.prove(`
+Triviality encode_mach_config_11:
   encode_mach_config x = encode_mach_config y ⇔
-  x = y`,
+  x = y
+Proof
   fs[encode_mach_config_def]>>
   rw[EQ_IMP_THM]>>fs comp_eq>>
-  fs[MAP_Str_11,encode_fml_11,encode_sum_list_11,encode_default_11]);
+  fs[MAP_Str_11,encode_fml_11,encode_sum_list_11,encode_default_11]
+QED
 
 Definition encode_word32_list_inner_def:
   encode_word32_list_inner = iList o (MAP (iStr o w2s 2 CHR))
@@ -342,24 +346,30 @@ Definition encode_mach_state_inner_def:
   (encode_word32_list_inner ws.sensor_vals))
 End
 
-val encode_mach_state_11 = Q.prove(`
+Triviality encode_mach_state_11:
   encode_mach_state x = encode_mach_state y ⇔
-  x = y`,
+  x = y
+Proof
   rw[encode_mach_state_def]>>fs comp_eq>>
-  metis_tac[encode_word32_list_11]);
+  metis_tac[encode_word32_list_11]
+QED
 
-val encode_word32_list_inner_11 = Q.prove(`
-  !x y. encode_word32_list_inner x = encode_word32_list_inner y <=> x = y`,
+Triviality encode_word32_list_inner_11:
+  !x y. encode_word32_list_inner x = encode_word32_list_inner y <=> x = y
+Proof
   Induct \\ Cases_on `y`
   \\ fs [encode_word32_list_inner_def]
-  \\ metis_tac[w2sCHR_11]);
+  \\ metis_tac[w2sCHR_11]
+QED
 
-val encode_mach_state_inner_11 = Q.prove(`
+Triviality encode_mach_state_inner_11:
   encode_mach_state_inner x =
   encode_mach_state_inner y <=>
-  x = y`,
+  x = y
+Proof
   rw[encode_mach_state_inner_def]>>fs comp_eq>>
-  metis_tac[encode_word32_list_inner_11]);
+  metis_tac[encode_word32_list_inner_11]
+QED
 
 val decode_encode_mach_state_inner = new_specification("decode_encode_mach_state_inner",["decode_mach_state_inner"],
   prove(``?decode. !cls. decode (encode_mach_state_inner cls) = SOME cls``,
@@ -388,12 +398,14 @@ Definition encode_stop_oracle_def:
       Num (if stop_oracle (get_num num) then 1 else 0))
 End
 
-val encode_stop_oracle_11 = Q.prove(`
+Triviality encode_stop_oracle_11:
   encode_stop_oracle x = encode_stop_oracle y ==>
-  x = y`,
+  x = y
+Proof
   rw[]>>fs[FUN_EQ_THM,encode_stop_oracle_def]>>rw[]>>
   pop_assum(qspec_then`iNum x'` assume_tac)>>fs[get_num_def]>>
-  every_case_tac>>fs[]);
+  every_case_tac>>fs[]
+QED
 
 Definition encode_ctrl_oracle_def:
   encode_ctrl_oracle ctrl_oracle =
@@ -433,9 +445,10 @@ Definition encode_transition_oracle_def:
     encode_word32_list (transition_oracle (get_num num) (get_st_ctrl_pair stpr))))
 End
 
-val encode_transition_oracle_11 = Q.prove(`
+Triviality encode_transition_oracle_11:
   encode_transition_oracle f = encode_transition_oracle f' ==>
-  f = f'`,
+  f = f'
+Proof
   rw[encode_transition_oracle_def]>>
   fs[FUN_EQ_THM]>>
   rw[]>>
@@ -446,7 +459,8 @@ val encode_transition_oracle_11 = Q.prove(`
   `∀x:word32. s2w 2 ORD (w2s 2 CHR x)= x` by
      (rw[]>>match_mp_tac s2w_w2s>>fs[])>>
   fs[]>>
-  metis_tac[encode_word32_list_11]);
+  metis_tac[encode_word32_list_11]
+QED
 
 Definition encode_mach_oracle_def:
   encode_mach_oracle wo =
@@ -455,12 +469,14 @@ Definition encode_mach_oracle_def:
   (encode_stop_oracle wo.stop_oracle))
 End
 
-val encode_mach_oracle_11 = Q.prove(`
+Triviality encode_mach_oracle_11:
   encode_mach_oracle x = encode_mach_oracle y ⇔
-  x = y`,
+  x = y
+Proof
   fs[encode_mach_oracle_def]>>rw[EQ_IMP_THM]>>
   fs comp_eq>>
-  metis_tac[encode_transition_oracle_11,encode_ctrl_oracle_11,encode_stop_oracle_11]);
+  metis_tac[encode_transition_oracle_11,encode_ctrl_oracle_11,encode_stop_oracle_11]
+QED
 
 Definition encode_def:
   encode w =

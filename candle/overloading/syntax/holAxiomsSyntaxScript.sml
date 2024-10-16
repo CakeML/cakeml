@@ -82,10 +82,12 @@ Definition mk_infinity_ctxt_def:
     ctxt
 End
 
-val tyvar_inst_exists = Q.prove(
-  `∃i. ty = REV_ASSOCD (Tyvar a) i b`,
+Triviality tyvar_inst_exists:
+  ∃i. ty = REV_ASSOCD (Tyvar a) i b
+Proof
   qexists_tac`[(ty,Tyvar a)]` >>
-  rw[REV_ASSOCD])
+  rw[REV_ASSOCD]
+QED
 
 Theorem infinity_extends:
    ∀ctxt. theory_ok (thyof ctxt) ∧

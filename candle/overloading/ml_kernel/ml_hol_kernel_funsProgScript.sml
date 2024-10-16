@@ -176,9 +176,11 @@ val res = translate check_tm_tm_def;
 (*
 val res = translate mlstringTheory.explode_aux_def;
 val res = translate mlstringTheory.explode_def;
-val explode_aux_side_thm = Q.prove(
-  `∀s n m. n + m = strlen s ==> explode_aux_side s n m `,
-  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]);
+Triviality explode_aux_side_thm:
+  ∀s n m. n + m = strlen s ==> explode_aux_side s n m
+Proof
+  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]
+QED
 val explode_side_thm = Q.prove(
   `explode_side x`,
   rw[definition"explode_side_def",explode_aux_side_thm])
@@ -386,15 +388,17 @@ Definition term_compare_def:
          | Greater => Greater
 End
 
-val term_cmp_thm = Q.prove(
-  `term_cmp = term_compare`,
+Triviality term_cmp_thm:
+  term_cmp = term_compare
+Proof
   fs [FUN_EQ_THM]
   \\ HO_MATCH_MP_TAC (fetch "-" "term_compare_ind")
   \\ REPEAT STRIP_TAC \\ fs []
   \\ ONCE_REWRITE_TAC [holSyntaxExtraTheory.term_cmp_thm]
   \\ ONCE_REWRITE_TAC [term_compare_def]
   \\ REPEAT BasicProvers.CASE_TAC
-  \\ fs [comparisonTheory.pair_cmp_def])
+  \\ fs [comparisonTheory.pair_cmp_def]
+QED
 
 val _ = add_preferred_thy "-";
 val _ = save_thm("term_cmp_ind",

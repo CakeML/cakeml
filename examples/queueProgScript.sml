@@ -207,11 +207,12 @@ Proof
   simp[EL_APPEND1, EL_APPEND2]
 QED
 
-val dequeue_spec_noexn = Q.prove(
-    `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
+Triviality dequeue_spec_noexn:
+  !qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv * &(vs ≠ []))
-          (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)`,
-    rpt strip_tac >>
+          (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)
+Proof
+  rpt strip_tac >>
     xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
     reverse(rw[]) >- EVAL_TAC >> xlet_auto >- xsimpl >> xif >>
     qexists_tac `F` >> simp[] >> xs_auto_tac
@@ -224,7 +225,8 @@ val dequeue_spec_noexn = Q.prove(
     strip_tac >>
     rpt (goal_assum (first_assum o mp_then Any mp_tac)) >>
     Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
-    metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]);
+    metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]
+QED
 
 Theorem dequeue_spec:
    ∀p qv xv vs x A mx.

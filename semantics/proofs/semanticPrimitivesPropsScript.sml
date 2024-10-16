@@ -233,14 +233,18 @@ val wz_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def}
 val eqs = LIST_CONJ (map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms, wz_thms])
 
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
+Triviality pair_case_eq:
+  pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
+Proof
+  Cases_on `x` >>
+ srw_tac[][]
+QED
 
-val pair_lam_lem = Q.prove (
-`!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
- srw_tac[][]);
+Triviality pair_lam_lem:
+  !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
+Proof
+  srw_tac[][]
+QED
 
 val do_app_cases = save_thm ("do_app_cases",
 ``do_app (s,t) op vs = SOME (st',v)`` |>
@@ -350,14 +354,16 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[]
 QED
 
-val build_rec_env_help_lem = Q.prove (
-  `∀funs env funs'.
+Triviality build_rec_env_help_lem:
+  ∀funs env funs'.
     FOLDR (λ(f,x,e) env'. nsBind f (Recclosure env funs' f) env') env' funs =
-    nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs' f)) funs)) env'`,
- Induct >>
+    nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs' f)) funs)) env'
+Proof
+  Induct >>
  srw_tac[][] >>
  PairCases_on `h` >>
- srw_tac[][]);
+ srw_tac[][]
+QED
 
 (* Alternate definition for build_rec_env *)
 Theorem build_rec_env_merge:

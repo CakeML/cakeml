@@ -7,44 +7,70 @@ val _ = new_theory "lcs";
 
 (* Miscellaneous lemmas that may belong elsewhere *)
 
-val sub_suc_0 = Q.prove(`x - SUC x = 0`,
-  Induct_on `x` >> fs[SUB]);
+Triviality sub_suc_0:
+  x - SUC x = 0
+Proof
+  Induct_on `x` >> fs[SUB]
+QED
 
-val take_suc_length = Q.prove(`TAKE (SUC (LENGTH l)) l = l`,
-  Induct_on `l` >> fs[])
+Triviality take_suc_length:
+  TAKE (SUC (LENGTH l)) l = l
+Proof
+  Induct_on `l` >> fs[]
+QED
 
-val is_suffix_length = Q.prove(`IS_SUFFIX l1 l2 ==> LENGTH l1 >= LENGTH l2`,
+Triviality is_suffix_length:
+  IS_SUFFIX l1 l2 ==> LENGTH l1 >= LENGTH l2
+Proof
   rpt strip_tac
   >> first_assum(assume_tac o MATCH_MP IS_SUFFIX_IS_SUBLIST)
-  >> fs[IS_SUBLIST_APPEND]);
+  >> fs[IS_SUBLIST_APPEND]
+QED
 
-val is_suffix_take = Q.prove(`
+Triviality is_suffix_take:
   IS_SUFFIX l (h::r) ==>
-  (TAKE (LENGTH l − LENGTH r) l = TAKE (LENGTH l − SUC(LENGTH r)) l ++ [h])`,
+  (TAKE (LENGTH l − LENGTH r) l = TAKE (LENGTH l − SUC(LENGTH r)) l ++ [h])
+Proof
   fs[IS_SUFFIX_APPEND]
   >> rpt strip_tac
   >> fs[]
-  >> fs[TAKE_APPEND, GSYM ADD1, take_suc_length, sub_suc_0]);
+  >> fs[TAKE_APPEND, GSYM ADD1, take_suc_length, sub_suc_0]
+QED
 
-val is_suffix_drop = Q.prove(`
-IS_SUFFIX l (h::r) ==> (DROP (LENGTH l − SUC(LENGTH r)) l = h::r)`,
+Triviality is_suffix_drop:
+  IS_SUFFIX l (h::r) ==> (DROP (LENGTH l − SUC(LENGTH r)) l = h::r)
+Proof
   fs[IS_SUFFIX_APPEND]
   >> rpt strip_tac
   >> fs[]
   >> fs[GSYM ADD1]
   >> PURE_REWRITE_TAC [GSYM APPEND_ASSOC, DROP_LENGTH_APPEND]
-  >> fs[]);
+  >> fs[]
+QED
 
-val suc_ge = Q.prove(`(SUC x >= SUC y) = (x >= y)`, fs[]);
+Triviality suc_ge:
+  (SUC x >= SUC y) = (x >= y)
+Proof
+  fs[]
+QED
 
-val take_singleton_one = Q.prove(`
-  (TAKE n r = [e]) ==> (TAKE 1 r = [e])`,
-  Cases_on `r` >> Cases_on `n` >> fs[]);
+Triviality take_singleton_one:
+  (TAKE n r = [e]) ==> (TAKE 1 r = [e])
+Proof
+  Cases_on `r` >> Cases_on `n` >> fs[]
+QED
 
-val sub_le_suc = Q.prove(`n ≥ SUC m ==> (n + SUC l − SUC m = n + l − m)`, fs[]);
+Triviality sub_le_suc:
+  n ≥ SUC m ==> (n + SUC l − SUC m = n + l − m)
+Proof
+  fs[]
+QED
 
-val if_length_lemma = Q.prove(`TAKE (if LENGTH r <= 1 then 1 else LENGTH r) r = r`,
-  Induct_on `r` >> rw[] >> Cases_on `r` >> fs[]);
+Triviality if_length_lemma:
+  TAKE (if LENGTH r <= 1 then 1 else LENGTH r) r = r
+Proof
+  Induct_on `r` >> rw[] >> Cases_on `r` >> fs[]
+QED
 
 (* The predicate
     lcs l1 l2 l3
@@ -258,15 +284,17 @@ Proof
   fs[lcs_def,common_subsequence_def,is_subsequence_refl,is_subsequence_length]
 QED
 
-val is_subsequence_greater = Q.prove(
-  `!l' l. is_subsequence l' l /\ LENGTH l ≤ LENGTH l'
-  ==> l = l'`,
+Triviality is_subsequence_greater:
+  !l' l. is_subsequence l' l /\ LENGTH l ≤ LENGTH l'
+  ==> l = l'
+Proof
   ho_match_mp_tac (theorem "is_subsequence_ind")
   >> rpt strip_tac
    >- fs[quantHeuristicsTheory.LIST_LENGTH_0]
    >> Cases_on `l`
     >> fs[is_subsequence_cons,is_subsequence_nil]
-    >> rfs[]);
+    >> rfs[]
+QED
 
 Theorem lcs_refl':
    lcs l' l l = (l = l')
@@ -283,8 +311,11 @@ Proof
   metis_tac[lcs_def,common_subsequence_sym]
 QED
 
-val lcs_empty = Q.prove(`lcs [] l [] /\ lcs [] [] l`,
-  fs[lcs_def,common_subsequence_def,is_subsequence_nil]);
+Triviality lcs_empty:
+  lcs [] l [] /\ lcs [] [] l
+Proof
+  fs[lcs_def,common_subsequence_def,is_subsequence_nil]
+QED
 
 Theorem lcs_empty':
    (lcs l l' [] = (l = [])) /\ (lcs l [] l' = (l = []))
@@ -631,8 +662,9 @@ Proof
   >> rw[naive_lcs_clauses, MIN_DEF, longest_def]
 QED
 
-val naive_lcs_length = Q.prove(
-  `!l l' h. LENGTH(naive_lcs l l') + 1 >= LENGTH(naive_lcs l (l' ++ [h]))`,
+Triviality naive_lcs_length:
+  !l l' h. LENGTH(naive_lcs l l') + 1 >= LENGTH(naive_lcs l (l' ++ [h]))
+Proof
   ho_match_mp_tac (theorem "naive_lcs_ind")
   >> rpt strip_tac
   >> fs[naive_lcs_clauses]
@@ -640,10 +672,12 @@ val naive_lcs_length = Q.prove(
       >> fs[])
   >> rw[longest_def] >> fs[GSYM ADD1, suc_ge]
   >> rpt(first_x_assum(assume_tac o Q.SPEC `h`))
-  >> fs[]);
+  >> fs[]
+QED
 
-val naive_lcs_length' = Q.prove(
-  `!l l' h. LENGTH(naive_lcs l l') + 1 >= LENGTH(naive_lcs (l ++ [h]) l')`,
+Triviality naive_lcs_length':
+  !l l' h. LENGTH(naive_lcs l l') + 1 >= LENGTH(naive_lcs (l ++ [h]) l')
+Proof
   ho_match_mp_tac (theorem "naive_lcs_ind")
   >> rpt strip_tac
   >> fs[naive_lcs_clauses]
@@ -652,7 +686,8 @@ val naive_lcs_length' = Q.prove(
       >> fs[longest_def])
   >> rw[longest_def] >> fs[GSYM ADD1, suc_ge]
   >> rpt(first_x_assum(assume_tac o Q.SPEC `h`))
-  >> fs[]);
+  >> fs[]
+QED
 
 (* Main correctness theorem for the naive lcs algorithm *)
 
@@ -679,9 +714,11 @@ Definition longest'_def:
   longest' (l,n) (l',n') = if n:num >= n' then (l,n) else (l',n')
 End
 
-val longest'_thm = Q.prove(
-  `!l l'. longest' l l' = if SND l >= SND l' then l else l'`,
-  Cases >> Cases >> fs[longest'_def]);
+Triviality longest'_thm:
+  !l l'. longest' l l' = if SND l >= SND l' then l else l'
+Proof
+  Cases >> Cases >> fs[longest'_def]
+QED
 
 Definition dynamic_lcs_row_def:
    (dynamic_lcs_row h [] previous_col previous_row ddl = [])

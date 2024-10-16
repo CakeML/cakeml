@@ -430,9 +430,11 @@ Proof
   >> fs[known_op_def]
 QED
 
-val EL_MEM_LEMMA = Q.prove(
-  `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
-  Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
+Triviality EL_MEM_LEMMA:
+  !xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs
+Proof
+  Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []
+QED
 
 Definition clos_approx_def:
   clos_approx max_size loc num_args body =

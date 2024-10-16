@@ -192,13 +192,17 @@ Proof
   full_simp_tac(srw_ss())[consume_space_def,add_space_def,state_component_equality] \\ DECIDE_TAC
 QED
 
-val consume_space_with_stack = Q.prove(
-  `consume_space x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (consume_space x y)`,
-  EVAL_TAC >> srw_tac[][]);
+Triviality consume_space_with_stack:
+  consume_space x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (consume_space x y)
+Proof
+  EVAL_TAC >> srw_tac[][]
+QED
 
-val consume_space_with_locals = Q.prove(
-  `consume_space x (y with locals := z) = OPTION_MAP (λs. s with locals := z) (consume_space x y)`,
-  EVAL_TAC >> srw_tac[][]);
+Triviality consume_space_with_locals:
+  consume_space x (y with locals := z) = OPTION_MAP (λs. s with locals := z) (consume_space x y)
+Proof
+  EVAL_TAC >> srw_tac[][]
+QED
 
 val do_app_with_stack = time Q.prove(
   `do_app op vs (s with stack := z) =
@@ -1318,19 +1322,21 @@ Proof
   \\ SRW_TAC [] []
 QED
 
-val evaluate_locals_LN_lemma = Q.prove(
-  `!c ^s.
+Triviality evaluate_locals_LN_lemma:
+  !c ^s.
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
       ((SND (evaluate (c,s))).locals = LN) \/
-      ?t. FST (evaluate (c,s)) = SOME (Rerr(Rraise t))`,
+      ?t. FST (evaluate (c,s)) = SOME (Rerr(Rraise t))
+Proof
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[call_env_def,flush_state_def,fromList_def]
   \\ imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
   \\ rpt(TOP_CASE_TAC >> fs[] >> rveq)
   \\ fs[markerTheory.Abbrev_def]
-  \\ rpt(TOP_CASE_TAC >> fs[] >> rveq));
+  \\ rpt(TOP_CASE_TAC >> fs[] >> rveq)
+QED
 
 Theorem evaluate_locals_LN:
    !c ^s res t.

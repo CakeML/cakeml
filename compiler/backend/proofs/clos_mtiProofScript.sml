@@ -1252,20 +1252,24 @@ Proof
   rpt strip_tac >> metis_tac[set_globals_empty_esgc_free]
 QED
 
-val every_Fn_vs_NONE_collect_apps = Q.prove(
-  `∀max_app es e x y. collect_apps max_app es e = (x,y) ⇒
+Triviality every_Fn_vs_NONE_collect_apps:
+  ∀max_app es e x y. collect_apps max_app es e = (x,y) ⇒
   (every_Fn_vs_NONE x ∧ every_Fn_vs_NONE [y] ⇔
-   every_Fn_vs_NONE es ∧ every_Fn_vs_NONE [e])`,
+   every_Fn_vs_NONE es ∧ every_Fn_vs_NONE [e])
+Proof
   ho_match_mp_tac collect_apps_ind >>
   srw_tac[][collect_apps_def] >> full_simp_tac(srw_ss())[] >>
   ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
-  srw_tac[][] >> metis_tac[]);
+  srw_tac[][] >> metis_tac[]
+QED
 
-val every_Fn_vs_NONE_collect_args = Q.prove(
-  `∀max_app es e x y. collect_args max_app es e = (x,y) ⇒
-    (every_Fn_vs_NONE [y] ⇔ every_Fn_vs_NONE [e])`,
+Triviality every_Fn_vs_NONE_collect_args:
+  ∀max_app es e x y. collect_args max_app es e = (x,y) ⇒
+    (every_Fn_vs_NONE [y] ⇔ every_Fn_vs_NONE [e])
+Proof
   ho_match_mp_tac collect_args_ind >>
-  srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[]);
+  srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[]
+QED
 
 Theorem every_Fn_vs_NONE_intro_multi[simp]:
    ∀max_app es. every_Fn_vs_NONE (intro_multi max_app es) = every_Fn_vs_NONE es
@@ -1303,9 +1307,11 @@ Proof
   Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def, clos_mtiTheory.intro_multi_length]
 QED
 
-val EVERY_HD = Q.prove(
-  `EVERY P l ∧ l ≠ [] ⇒ P (HD l)`,
-  Cases_on `l` >> simp[]);
+Triviality EVERY_HD:
+  EVERY P l ∧ l ≠ [] ⇒ P (HD l)
+Proof
+  Cases_on `l` >> simp[]
+QED
 
 Theorem collect_apps_preserves_set_globals:
    ∀max_app es e es' e'.

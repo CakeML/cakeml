@@ -1001,9 +1001,11 @@ Proof
   \\ fs [] \\ Cases_on ‘e’ \\ fs []
 QED
 
-val pair_lam_lem = Q.prove (
-`!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
- srw_tac[][]);
+Triviality pair_lam_lem:
+  !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
+Proof
+  srw_tac[][]
+QED
 
 val do_app_split_list = prove(
   ``do_app op vs s = res
@@ -1454,8 +1456,11 @@ Proof
    simp [])
 QED
 
-val revnil = Q.prove(`[] = REVERSE l ⇔ l = []`,
-  CONV_TAC (LAND_CONV (REWR_CONV EQ_SYM_EQ)) >> simp[])
+Triviality revnil:
+  [] = REVERSE l ⇔ l = []
+Proof
+  CONV_TAC (LAND_CONV (REWR_CONV EQ_SYM_EQ)) >> simp[]
+QED
 
 Theorem dest_closure_full_maxapp:
    dest_closure max_app NONE c vs = SOME (Full_app b env r) ∧ r ≠ [] ⇒
@@ -1703,16 +1708,18 @@ Proof
   \\ fs [initial_state_def]
 QED
 
-val do_app_io_events_mono = Q.prove(
-  `do_app op vs s = Rval(v,s') ⇒
-   s.ffi.io_events ≼ s'.ffi.io_events`,
+Triviality do_app_io_events_mono:
+  do_app op vs s = Rval(v,s') ⇒
+   s.ffi.io_events ≼ s'.ffi.io_events
+Proof
   srw_tac[][do_app_cases_val] >>
   full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]
+QED
 
 Theorem evaluate_io_events_mono:
    (∀p. ((SND(SND p)):('c,'ffi) closSem$state).ffi.io_events ≼ (SND (evaluate p)).ffi.io_events) ∧
@@ -1724,10 +1731,12 @@ Proof
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono,do_install_const]
 QED
 
-val evaluate_io_events_mono_imp = Q.prove(
-  `evaluate (es,env,s) = (r,s') ⇒
-    s.ffi.io_events ≼ s'.ffi.io_events`,
-  metis_tac[evaluate_io_events_mono,FST,SND,PAIR])
+Triviality evaluate_io_events_mono_imp:
+  evaluate (es,env,s) = (r,s') ⇒
+    s.ffi.io_events ≼ s'.ffi.io_events
+Proof
+  metis_tac[evaluate_io_events_mono,FST,SND,PAIR]
+QED
 
 val with_clock_ffi = Q.prove(
   `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
@@ -2975,16 +2984,18 @@ Proof
   \\ fsrw_tac [SATISFY_ss] []
 QED
 
-val do_app_lemma_simp = Q.prove(
-  `(exc_rel $= err1 err2 <=> err1 = err2) /\
+Triviality do_app_lemma_simp:
+  (exc_rel $= err1 err2 <=> err1 = err2) /\
     LIST_REL $= xs xs /\
     simple_state_rel $= (adj_orac_rel cc f) /\
-    simple_val_rel $=`,
+    simple_val_rel $=
+Proof
   rw [] \\ fs [simple_state_rel_def,adj_orac_rel_def] \\ rw []
   THEN1
    (Cases_on `err1` \\ fs [semanticPrimitivesPropsTheory.exc_rel_def]
     \\ eq_tac \\ rw [])
-  \\ fs [simple_val_rel_def] \\ fs []);
+  \\ fs [simple_val_rel_def] \\ fs []
+QED
 
 val do_app_lemma =
   simple_val_rel_do_app

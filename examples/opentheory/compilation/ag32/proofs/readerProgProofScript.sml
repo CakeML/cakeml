@@ -134,11 +134,13 @@ val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U-> bool``;
 Overload reader[local] = ``\inp r. readLines init_state inp r``
 
-val all_lines_stdin_fs = Q.prove (
-  `all_lines_inode (stdin_fs inp) (UStream «stdin»)
+Triviality all_lines_stdin_fs:
+  all_lines_inode (stdin_fs inp) (UStream «stdin»)
    =
-   lines_of (implode inp)`,
-  EVAL_TAC);
+   lines_of (implode inp)
+Proof
+  EVAL_TAC
+QED
 
 Theorem reader_extract_writes:
    wfcl cl ∧

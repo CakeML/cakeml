@@ -448,9 +448,11 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-val fix_clock_IMP = Q.prove(
-  `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
+Triviality fix_clock_IMP:
+  fix_clock s x = (res,s1) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
 (* The semantics of expression evaluation is defined next. For
    convenience of subsequent proofs, the evaluation function is
@@ -715,11 +717,12 @@ Proof
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
 QED
 
-val evaluate_clock_help = Q.prove (
-  `(!tup vs (s2:('c,'ffi) closSem$state).
+Triviality evaluate_clock_help:
+  (!tup vs (s2:('c,'ffi) closSem$state).
       (evaluate tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
     (!loc_opt f args (s1:('c,'ffi) closSem$state) vs s2.
-      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)`,
+      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)
+Proof
   ho_match_mp_tac evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ FULL_SIMP_TAC std_ss [LET_THM] \\ BasicProvers.EVERY_CASE_TAC
@@ -729,7 +732,8 @@ val evaluate_clock_help = Q.prove (
   \\ IMP_RES_TAC fix_clock_IMP
   \\ IMP_RES_TAC do_app_const
   \\ IMP_RES_TAC do_install_clock_less_eq
-  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC);
+  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC
+QED
 
 Theorem evaluate_clock:
  (!xs env s1 vs s2.

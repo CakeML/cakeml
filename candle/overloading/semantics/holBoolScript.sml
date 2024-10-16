@@ -296,11 +296,13 @@ Proof
 QED
 
 (* TODO: move *)
-val builtins_std_assignment = Q.prove(
-  `is_std_type_assignment(ext_type_frag_builtins δ)`,
+Triviality builtins_std_assignment:
+  is_std_type_assignment(ext_type_frag_builtins δ)
+Proof
   rw[is_std_type_assignment_def]
   >> CONV_TAC(RATOR_CONV(PURE_ONCE_REWRITE_CONV [ext_type_frag_builtins_def]))
-  >> rw[]);
+  >> rw[]
+QED
 
 (* TODO: move *)
 Theorem is_std_interpretation_total_fragment:

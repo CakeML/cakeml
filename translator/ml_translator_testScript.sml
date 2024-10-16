@@ -261,10 +261,12 @@ val _ = (print_asts := true);
 
 (* test no_ind *)
 
-val word64_msb_thm = Q.prove(
-  `!w. word_msb (w:word64) =
-         ((w && 0x8000000000000000w) = 0x8000000000000000w)`,
-  blastLib.BBLAST_TAC);
+Triviality word64_msb_thm:
+  !w. word_msb (w:word64) =
+         ((w && 0x8000000000000000w) = 0x8000000000000000w)
+Proof
+  blastLib.BBLAST_TAC
+QED
 
 val res = translate word64_msb_thm;
 

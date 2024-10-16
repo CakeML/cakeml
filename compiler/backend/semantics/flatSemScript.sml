@@ -631,9 +631,11 @@ Definition fix_clock_def:
   fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)
 End
 
-val fix_clock_IMP = Q.prove(
-  `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
+Triviality fix_clock_IMP:
+  fix_clock s x = (s1,res) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
 Theorem pmatch_rows_Match_exp_size:
   !pes s v env e.
@@ -828,14 +830,18 @@ val eqs = LIST_CONJ (map prove_case_eq_thm
 
 val case_eq_thms = save_thm ("case_eq_thms", eqs)
 
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
+Triviality pair_case_eq:
+  pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
+Proof
+  Cases_on `x` >>
+ srw_tac[][]
+QED
 
-val pair_lam_lem = Q.prove (
-`!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
- srw_tac[][]);
+Triviality pair_lam_lem:
+  !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
+Proof
+  srw_tac[][]
+QED
 
 val do_app_cases = save_thm ("do_app_cases",
 ``do_app st op vs = SOME (st',v)`` |>
