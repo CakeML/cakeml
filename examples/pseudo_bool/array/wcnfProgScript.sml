@@ -437,15 +437,23 @@ val conv_concl_side = Q.prove(
 val res = translate print_maxsat_str_def;
 val res = translate map_concl_to_string_def;
 
+Definition mk_prob_def:
+  mk_prob objf = (NONE,objf):mlstring list option #
+    ((int # mlstring lit) list # int) option #
+    (pbop # (int # mlstring lit) list # int) list
+End
+
+val res = translate mk_prob_def;
+
 val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr objf =>
-    let val objft = default_objf in
+    let val probt = default_prob in
       (case
         map_concl_to_string
-          (check_unsat_top_norm False objf objft f2) of
+        (check_unsat_top_norm False (mk_prob objf) probt f2) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
     end`
@@ -479,24 +487,20 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   xmatch>>
-  assume_tac default_objf_v_thm>>
+  assume_tac default_prob_v_thm>>
   xlet`POSTv v.
     STDIO fs *
-    &(PAIR_TYPE
-      (OPTION_TYPE (PAIR_TYPE
-        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-      INT))
-      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
-      ) default_objf v`
+    &prob_TYPE default_prob v`
   >-
     (xvar>>xsimpl)>>
+  xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
   >-
     (xcon>>xsimpl)>>
   drule npbc_parseProgTheory.check_unsat_top_norm_spec>>
-  qpat_x_assum`objf_TYPE y _`assume_tac>>
+  qpat_x_assum`prob_TYPE (mk_prob _) _`assume_tac>>
   disch_then drule>>
-  qpat_x_assum`objf_TYPE default_objf _`assume_tac>>
+  qpat_x_assum`prob_TYPE default_prob _`assume_tac>>
   disch_then drule>>
   strip_tac>>
   xlet_auto
@@ -543,7 +547,7 @@ Proof
     xsimpl>>
     rw[]>>
     qexists_tac`x`>>simp[maxsat_sem_def]>>
-    every_case_tac>>fs[]
+    every_case_tac>>fs[mk_prob_def]
     >- (
       (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
@@ -568,7 +572,7 @@ Definition check_unsat_1_sem_def:
   case get_fml fs f1 of
     NONE => out = strlit ""
   | SOME wfml =>
-    out = concat (print_pbf (full_encode wfml))
+    out = concat (print_prob (mk_prob (full_encode wfml)))
 End
 
 val check_unsat_1 = (append_prog o process_topdecs) `
@@ -576,7 +580,7 @@ val check_unsat_1 = (append_prog o process_topdecs) `
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr objf =>
-    TextIO.print_list (print_pbf objf)`
+    TextIO.print_list (print_prob (mk_prob objf))`
 
 Theorem check_unsat_1_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -604,6 +608,7 @@ Proof
     rw[]>>
     qexists_tac`x`>>xsimpl)>>
   xmatch>>
+  xlet_autop>>
   xlet_autop>>
   xapp_spec print_list_spec>>xsimpl>>
   asm_exists_tac>>xsimpl>>
@@ -665,7 +670,7 @@ val check_unsat_3 = (append_prog o process_topdecs) `
   | Inr objft =>
       (case
       map_out_concl_to_string
-        (check_unsat_top_norm True objf objft f2) of
+        (check_unsat_top_norm True (mk_prob objf) (mk_prob objft) f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s))`
 
@@ -712,6 +717,8 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   xmatch>>
+  xlet_autop>>
+  xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL T v`
   >-
     (xcon>>xsimpl)>>
@@ -776,7 +783,7 @@ Proof
   rw[]>>
   qexists_tac`x`>>qexists_tac`x'`>>simp[maxsat_output_sem_def]>>
   CONJ_TAC >- (
-    fs[maxsat_sem_def]>>
+    fs[maxsat_sem_def,mk_prob_def]>>
     every_case_tac>>fs[]
     >- (
       (drule_at Any) full_encode_sem_concl_opt_cost>>
@@ -795,9 +802,10 @@ Proof
       (drule_at Any) full_encode_sem_concl>>
       fs[]>>
       disch_then (drule_at Any)>>simp[]))>>
-  rw[]>>fs[]>>
+  rw[]>>fs[mk_prob_def]>>
   (drule_at Any) full_encode_sem_output_opt_cost>>
-  fs[]>>
+  disch_then irule>>
+  gvs[mk_prob_def,pbcTheory.pres_set_list_def]>>
   metis_tac[PAIR]
 QED
 

@@ -20,7 +20,7 @@ Parse and print for pbc, npb_check
 
 [pbcScript.sml](pbcScript.sml):
 Formalisation of a flexible surface syntax and semantics for
-pseudo-boolean constraint (un-normalised) with 'a var type
+pseudo-boolean problems with 'a var type
 
 [pbc_normaliseScript.sml](pbc_normaliseScript.sml):
 Normalizes pbc into npbc

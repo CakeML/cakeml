@@ -1092,11 +1092,26 @@ Definition name_to_num_obj_def:
     (SOME(f',c),t))
 End
 
-Definition name_to_num_obj_pbf_def:
-  name_to_num_obj_pbf (obj,fml) s =
-  let (obj',s') = name_to_num_obj obj s in
-  let (fml',s'') = name_to_num_pbf fml s' [] in
-    ((obj',fml'),s'')
+Definition name_to_num_list_def:
+  name_to_num_list [] s acc = (REVERSE acc,s) ∧
+  name_to_num_list (v::xs) s acc =
+    let (v1,s1) = name_to_num_var v s in
+      name_to_num_list xs s1 (v1::acc)
+End
+
+Definition name_to_num_pres_def:
+  (name_to_num_pres NONE s = (NONE,s)) ∧
+  (name_to_num_pres (SOME pres) s =
+    let (pres',s') = name_to_num_list pres s [] in
+    (SOME pres',s'))
+End
+
+Definition name_to_num_prob_def:
+  name_to_num_prob (pres,obj,fml) s =
+  let (pres',s') = name_to_num_pres pres s in
+  let (obj',s'') = name_to_num_obj obj s' in
+  let (fml',s''') = name_to_num_pbf fml s'' [] in
+    ((pres',obj',fml'),s''')
 End
 
 Theorem name_to_num_obj:
@@ -1122,6 +1137,69 @@ Proof
   strip_tac>>simp[obj_vars_def,map_obj_def,map_lin_term_def]
 QED
 
+Theorem name_to_num_list:
+  ∀xs (s:'a name_to_num_state) zs acc ys t.
+    name_to_num_list xs s acc = (ys,t) ∧
+    name_to_num_state_ok s ∧
+    acc = MAP (THE o lookup_index s) zs ∧
+    set zs ⊆ { i | lookup_index s i ≠ NONE }
+    ⇒
+    name_to_num_state_ok t  ∧
+    ys = REVERSE acc ++ MAP (THE o lookup_index t) xs ∧
+    (∀i n. lookup_index s i = SOME n ⇒
+      lookup_index t i = SOME n) ∧
+    set xs ⊆ { i | lookup_index t i ≠ NONE }
+Proof
+  Induct
+  \\ gvs [name_to_num_list_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule name_to_num_var_thm
+  \\ disch_then drule \\ simp[]
+  \\ strip_tac \\ gvs []
+  \\ last_x_assum $ qspecl_then [‘s1’,‘h::zs’] mp_tac
+  \\ fs []
+  \\ ‘MAP (THE ∘ lookup_index s) zs =
+      MAP (THE ∘ lookup_index s1) zs’ by (
+     gvs [MAP_EQ_f,FORALL_PROD,map_lit_def] \\ rw []
+     \\ gvs [SUBSET_DEF,MEM_MAP,PULL_EXISTS]
+     \\ first_x_assum drule
+     \\ rename [‘lookup_index s v’]
+     \\ Cases_on`lookup_index s v` \\ gvs[]
+     \\ metis_tac[THE_DEF] )
+  \\ fs []
+  \\ impl_tac >- (
+    irule SUBSET_TRANS
+    \\ first_x_assum $ irule_at Any
+    \\ fs [SUBSET_DEF]
+    \\ strip_tac
+    \\ Cases_on ‘lookup_index s x’
+    \\ gvs [] \\ res_tac \\ fs [])
+  \\ strip_tac \\ gvs []
+  \\ Cases_on ‘lookup_index s1 h’ \\ gvs []
+  \\ res_tac \\ fs []
+QED
+
+Theorem name_to_num_pres:
+  name_to_num_pres pres s = (pres',t) ∧
+  name_to_num_state_ok s
+  ⇒
+  name_to_num_state_ok t  ∧
+  pres' = OPTION_MAP (MAP (THE o lookup_index t)) pres ∧
+  (∀i n. lookup_index s i = SOME n ⇒ lookup_index t i = SOME n) ∧
+  pres_set_list pres ⊆ { i | lookup_index t i ≠ NONE }
+Proof
+  Cases_on`pres`
+  >- (
+    rw[]>>
+    gvs[name_to_num_pres_def,pres_set_list_def])>>
+  strip_tac>>
+  fs[name_to_num_pres_def]>>
+  pairarg_tac>>gvs[]>>
+  drule name_to_num_list>>
+  simp[pres_set_list_def]
+QED
+
 Definition normalise_obj_def:
   (normalise_obj NONE = NONE) ∧
   (normalise_obj (SOME (f,c)) =
@@ -1134,6 +1212,11 @@ Definition normalise_obj_pbf_def:
   normalise_obj_pbf (obj,fml) =
   (normalise_obj obj,
   normalise fml)
+End
+
+Definition normalise_prob_def:
+  normalise_prob (x,objf) =
+    (OPTION_MAP list_to_num_set x,normalise_obj_pbf objf)
 End
 
 Theorem eval_obj_normalise_obj:
@@ -1162,156 +1245,292 @@ Proof
   metis_tac[normalise_thm]
 QED
 
-Theorem normalise_obj_pbf_sem_concl:
-  normalise_obj_pbf (obj,fml) = (obj',fml') ⇒
+Theorem normalise_prob_sem_concl:
+  normalise_prob (pres,obj,fml) = (pres',obj',fml') ⇒
   sem_concl (set fml) obj concl = sem_concl (set fml') obj' concl
 Proof
   Cases_on`concl`>>
-  rw[normalise_obj_pbf_def,sem_concl_def,pbcTheory.sem_concl_def,satisfiable_normalise,pbcTheory.unsatisfiable_def,unsatisfiable_def,eval_obj_normalise_obj,normalise_thm]>>
+  rw[normalise_prob_def,normalise_obj_pbf_def,sem_concl_def,pbcTheory.sem_concl_def,satisfiable_normalise,pbcTheory.unsatisfiable_def,unsatisfiable_def,eval_obj_normalise_obj,normalise_thm]>>
   simp[satisfiable_normalise,eval_obj_normalise_obj,normalise_thm]
 QED
 
-Theorem normalise_obj_pbf_sem_output:
-  normalise_obj_pbf (obj1,fml1) = (obj1',fml1') ∧
-  normalise_obj_pbf (obj2,fml2) = (obj2',fml2') ⇒
-  (pbc$sem_output (set fml1) obj1 bound (set fml2) obj2 output ⇔
-  npbc$sem_output (set fml1') obj1' bound (set fml2') obj2' output)
+Theorem pres_set_spt_pres_set_list:
+  pres_set_spt (OPTION_MAP list_to_num_set pres) =
+  pres_set_list pres
+Proof
+  Cases_on`pres`>>simp[pres_set_list_def,pres_set_spt_def]>>
+  simp[EXTENSION,domain_list_to_num_set]
+QED
+
+Theorem normalise_prob_sem_output:
+  normalise_prob (pres1,obj1,fml1) = (pres1',obj1',fml1') ∧
+  normalise_prob (pres2,obj2,fml2) = (pres2',obj2',fml2') ⇒
+  (pbc$sem_output (set fml1) obj1 (pres_set_list pres1) bound (set fml2) obj2 (pres_set_list pres2) output ⇔
+  npbc$sem_output (set fml1') obj1' (pres_set_spt pres1') bound (set fml2') obj2' (pres_set_spt pres2') output)
 Proof
   Cases_on`output`>>
-  rw[npbcTheory.sem_output_def,pbcTheory.sem_output_def,normalise_obj_pbf_def]>>
-  simp[satisfiable_normalise,eval_obj_normalise_obj,normalise_thm]
+  rw[npbcTheory.sem_output_def,pbcTheory.sem_output_def,normalise_prob_def,normalise_obj_pbf_def]>>
+  simp[satisfiable_normalise,eval_obj_normalise_obj,normalise_thm,pres_set_spt_pres_set_list]
 QED
 
-Theorem name_to_num_obj_pbf_concl_thm:
+Theorem name_to_num_prob_concl_thm:
   ∀concl
     (fml: α pbc list) (fml': num pbc list)
     (obj : (α lin_term # int) option)
     (obj': (num lin_term # int) option)
+    (pres : α list option)
+    (pres' : num list option)
     s t.
-    name_to_num_obj_pbf (obj,fml) s = ((obj',fml'),t) ∧
+    name_to_num_prob (pres,obj,fml) s = ((pres',obj',fml'),t) ∧
     name_to_num_state_ok s ⇒
     sem_concl (set fml) obj concl = sem_concl (set fml') obj' concl
 Proof
-  rw[name_to_num_obj_pbf_def]>>
+  rw[name_to_num_prob_def]>>
   rpt(pairarg_tac>>gvs[])>>
-  drule name_to_num_obj>>rw[]>>
+  drule_all name_to_num_pres>> rw[]>>
+  drule_all name_to_num_obj>>rw[]>>
   drule_then drule name_to_num_pbf_rec \\ fs []
   \\ impl_tac
   >- fs [pbf_vars_def]>>
   rw[]>>
-  `obj_vars obj ⊆ {i | lookup_index s'' i ≠ NONE}` by
-    (Cases_on`obj`>>fs[obj_vars_def]>>
+  simp[LIST_TO_SET_MAP]>>
+  rename1`name_to_num_pres _ _ = (_, s1)`>>
+  rename1`name_to_num_obj _ _ = (_, s2)`>>
+  rename1`name_to_num_pbf _ _ _ = (_, s3)`>>
+  `obj_vars obj ⊆ {i | lookup_index s3 i ≠ NONE}` by (
+    Cases_on`obj`>>fs[obj_vars_def]>>
     Cases_on`x`>>fs[obj_vars_def,SUBSET_DEF]>>
     rw[]>>first_x_assum drule>>
     metis_tac[option_CLAUSES])>>
-  simp[LIST_TO_SET_MAP]>>
-  `map_obj (THE o lookup_index s') obj =
-   map_obj (THE o lookup_index s'') obj` by
-    (Cases_on`obj`>>
+  `map_obj (THE o lookup_index s2) obj =
+   map_obj (THE o lookup_index s3) obj` by (
+    Cases_on`obj`>>
     simp[map_obj_def]>>
     Cases_on`x`>>
     fs[map_obj_def,obj_vars_def]>>
     fs[MAP_EQ_f,FORALL_PROD,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
     rw[]>>first_x_assum drule>>
     Cases_on`p_2`>>simp[map_lit_def]>>
-    Cases_on`lookup_index s' a`>>rw[]>>
+    Cases_on`lookup_index s2 a`>>rw[]>>
     first_x_assum drule>>fs[])>>
   simp[]>>
   match_mp_tac concl_INJ_iff>>
   gvs [INJ_DEF] \\ rpt gen_tac
-  \\ Cases_on ‘lookup_index s'' x’ \\ gvs []
-  \\ Cases_on ‘lookup_index s'' y’ \\ gvs []
+  \\ Cases_on ‘lookup_index s3 x’ \\ gvs []
+  \\ Cases_on ‘lookup_index s3 y’ \\ gvs []
   \\ gvs[SUBSET_DEF] \\ metis_tac[lookup_index_inj]
 QED
 
-Theorem name_to_num_state_ok_name_to_num_obj_pbf:
-  name_to_num_state_ok s ∧
-  name_to_num_obj_pbf (obj,fml) s = ((obj',fml'),t) ⇒
+Theorem name_to_num_state_ok_name_to_num_prob:
+  name_to_num_state_ok (s:'a name_to_num_state) ∧
+  name_to_num_prob res s = (res',t) ⇒
   name_to_num_state_ok t
 Proof
-  rw[name_to_num_obj_pbf_def]>>
+  PairCases_on`res`>>rw[name_to_num_prob_def]>>
   rpt(pairarg_tac>>gvs[])>>
-  drule name_to_num_obj>>rw[]>>
+  drule_all name_to_num_pres>> rw[]>>
+  drule_all name_to_num_obj>>rw[]>>
   drule_then drule name_to_num_pbf_rec \\ fs []
   \\ impl_tac
   >- fs [pbf_vars_def]>>
   rw[]
 QED
 
+Theorem pres_set_list_OPTION_MAP:
+  pres_set_list (OPTION_MAP (MAP f) pres) =
+  IMAGE f (pres_set_list pres)
+Proof
+  Cases_on`pres`>>rw[pres_set_list_def,LIST_TO_SET_MAP]
+QED
+
+Theorem name_to_num_state_ok_lookup_index:
+  name_to_num_state_ok s ∧
+  lookup_index s x = SOME y ⇒
+  y < s.next_num
+Proof
+  rw[name_to_num_state_ok_def,lookup_index_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum drule>>
+  rw[]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
 (* Typically, take t = st *)
-Theorem name_to_num_obj_pbf_output_thm:
+Theorem name_to_num_prob_output_thm:
   ∀output
     (fml: α pbc list) (fml': num pbc list)
     (obj : (α lin_term # int) option)
     (obj': (num lin_term # int) option)
+    (pres : (α list) option)
+    (pres' : (num list) option)
     s t
     (fmlt: 'b pbc list) (fmlt': num pbc list)
     (objt : ('b lin_term # int) option)
     (objt': (num lin_term # int) option)
+    (prest : ('b list) option)
+    (prest' : (num list) option)
     st tt.
-    name_to_num_obj_pbf (obj,fml) s = ((obj',fml'),t) ∧
-    name_to_num_obj_pbf (objt,fmlt) st = ((objt',fmlt'),tt) ∧
+    name_to_num_prob (pres,obj,fml) s = ((pres',obj',fml'),t) ∧
+    name_to_num_prob (prest,objt,fmlt) st = ((prest',objt',fmlt'),tt) ∧
     name_to_num_state_ok s ∧
     name_to_num_state_ok st ⇒
-    sem_output (set fml) obj bound (set fmlt) objt output =
-    sem_output (set fml') obj' bound (set fmlt') objt' output
+    sem_output (set fml) obj (pres_set_list pres) bound
+               (set fmlt) objt (pres_set_list prest) output =
+    sem_output (set fml') obj' (pres_set_list pres') bound
+               (set fmlt') objt' (pres_set_list prest') output
 Proof
-  rw[name_to_num_obj_pbf_def]>>
+  rw[name_to_num_prob_def]>>
   rpt(pairarg_tac>>gvs[])>>
-  rename1`_ obj s = (_,s1)`>>
-  rename1`_ fml s1 _ = (_,s2)`>>
-  drule name_to_num_obj>>rw[]>>
+  rename1`_ pres s = (_,s1)`>>
+  rename1`_ obj s1 = (_,s2)`>>
+  rename1`_ fml s2 _ = (_,s3)`>>
+  drule_all name_to_num_pres>> rw[]>>
+  drule_all name_to_num_obj>>rw[]>>
   drule_then drule name_to_num_pbf_rec \\ fs []
   \\ impl_tac
   >- fs [pbf_vars_def]>>
   rw[]>>
-  `obj_vars obj ⊆ {i | lookup_index s2 i ≠ NONE}` by
-    (Cases_on`obj`>>fs[obj_vars_def]>>
+  qabbrev_tac`f = λx. (case lookup_index s3 x of NONE => s3.next_num | SOME v => v)`>>
+  `obj_vars obj ⊆ {i | lookup_index s3 i ≠ NONE}` by (
+    Cases_on`obj`>>fs[obj_vars_def]>>
     Cases_on`x`>>fs[obj_vars_def,SUBSET_DEF]>>
     rw[]>>first_x_assum drule>>
     metis_tac[option_CLAUSES])>>
-  simp[LIST_TO_SET_MAP]>>
-  `map_obj (THE o lookup_index s1) obj =
-   map_obj (THE o lookup_index s2) obj` by
-    (Cases_on`obj`>>
+  `map_obj (THE o lookup_index s2) obj =
+   map_obj f obj` by (
+    Cases_on`obj`>>
     simp[map_obj_def]>>
     Cases_on`x`>>
-    fs[map_obj_def,obj_vars_def]>>
+    fs[map_obj_def,obj_vars_def,Abbr`f`]>>
     fs[MAP_EQ_f,FORALL_PROD,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
     rw[]>>first_x_assum drule>>
     Cases_on`p_2`>>simp[map_lit_def]>>
-    Cases_on`lookup_index s1 a`>>rw[]>>
+    Cases_on`lookup_index s2 a`>>rw[]>>
     first_x_assum drule>>fs[])>>
+  `OPTION_MAP (MAP (THE ∘ lookup_index s1)) pres =
+   OPTION_MAP (MAP f) pres` by (
+    Cases_on`pres` >>
+    fs[Abbr`f`,pres_set_list_def,MAP_EQ_f,FORALL_PROD,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
+    rw[]>>first_x_assum drule>>
+    simp[GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>rw[]>>
+    res_tac>>
+    res_tac>>
+    simp[])>>
+  `MAP (map_pbc (THE ∘ lookup_index s3)) fml = MAP (map_pbc f) fml` by (
+    fs[Abbr`f`,MAP_EQ_f,SUBSET_DEF,pbf_vars_def,PULL_EXISTS,FORALL_PROD,pbc_vars_def,map_pbc_def,MEM_MAP]>>
+    rw[]>>first_x_assum drule>>
+    disch_then drule>>
+    simp[GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>rw[]>>
+    rename1`lit_var vv`>>
+    Cases_on`vv`>>gvs[lit_var_def,map_lit_def])>>
+  simp[]>>
   qpat_x_assum`_ fmlt _ _ = _` assume_tac>>
   qpat_x_assum`_ objt _ = _` assume_tac>>
-  rename1`_ objt st = (_,st1)`>>
-  rename1`_ fmlt st1 _ = (_,st2)`>>
-  drule name_to_num_obj>>rw[]>>
+  qpat_x_assum`_ prest _ = _` assume_tac>>
+  rename1`_ prest st = (_,st1)`>>
+  rename1`_ objt st1 = (_,st2)`>>
+  rename1`_ fmlt st2 _ = (_,st3)`>>
+  drule_all name_to_num_pres>>rw[]>>
+  drule_all name_to_num_obj>>rw[]>>
   drule_then drule name_to_num_pbf_rec \\ fs []
   \\ impl_tac
   >- fs [pbf_vars_def]>>
   rw[]>>
-  `obj_vars objt ⊆ {i | lookup_index st2 i ≠ NONE}` by
-    (Cases_on`objt`>>fs[obj_vars_def]>>
+  qabbrev_tac`ft = λx. (case lookup_index st3 x of NONE => st3.next_num | SOME v => v)`>>
+  `obj_vars objt ⊆ {i | lookup_index st3 i ≠ NONE}` by (
+    Cases_on`objt`>>fs[obj_vars_def]>>
     Cases_on`x`>>fs[obj_vars_def,SUBSET_DEF]>>
     rw[]>>first_x_assum drule>>
     metis_tac[option_CLAUSES])>>
-  simp[LIST_TO_SET_MAP]>>
-  `map_obj (THE o lookup_index st1) objt =
-   map_obj (THE o lookup_index st2) objt` by
-    (Cases_on`objt`>>
+  `map_obj (THE o lookup_index st2) objt =
+   map_obj ft objt` by (
+    Cases_on`objt`>>
     simp[map_obj_def]>>
     Cases_on`x`>>
-    fs[map_obj_def,obj_vars_def]>>
+    fs[map_obj_def,obj_vars_def,Abbr`ft`]>>
     fs[MAP_EQ_f,FORALL_PROD,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
     rw[]>>first_x_assum drule>>
     Cases_on`p_2`>>simp[map_lit_def]>>
-    Cases_on`lookup_index st1 a`>>rw[]>>
+    Cases_on`lookup_index st2 a`>>rw[]>>
     first_x_assum drule>>fs[])>>
+  `OPTION_MAP (MAP (THE ∘ lookup_index st1)) prest =
+   OPTION_MAP (MAP ft) prest` by (
+    Cases_on`prest` >>
+    fs[Abbr`ft`,pres_set_list_def,MAP_EQ_f,FORALL_PROD,SUBSET_DEF,MEM_MAP,PULL_EXISTS]>>
+    rw[]>>first_x_assum drule>>
+    simp[GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>rw[]>>
+    res_tac>>
+    res_tac>>
+    simp[])>>
+  `MAP (map_pbc (THE ∘ lookup_index st3)) fmlt = MAP (map_pbc ft) fmlt` by (
+    fs[Abbr`ft`,MAP_EQ_f,SUBSET_DEF,pbf_vars_def,PULL_EXISTS,FORALL_PROD,pbc_vars_def,map_pbc_def,MEM_MAP]>>
+    rw[]>>first_x_assum drule>>
+    disch_then drule>>
+    simp[GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>rw[]>>
+    rename1`lit_var vv`>>
+    Cases_on`vv`>>gvs[lit_var_def,map_lit_def])>>
   simp[]>>
+  gvs[LIST_TO_SET_MAP,pres_set_list_OPTION_MAP]>>
   match_mp_tac output_INJ_iff>>
-  gvs [INJ_DEF,SUBSET_DEF]>>
-  metis_tac[lookup_index_inj,option_CLAUSES]
+  qmatch_goalsub_abbrev_tac`INJ f vs`>>
+  `∀x. x ∈ vs ⇒
+    lookup_index s3 x ≠ NONE` by (
+    gvs[Abbr`vs`,SUBSET_DEF]>>
+    metis_tac[option_CLAUSES])>>
+  `∀x. lookup_index s3 x ≠ NONE ⇒ lookup_index s3 x = SOME (f x)` by (
+    rw[Abbr`f`]>>
+    TOP_CASE_TAC>>gvs[])>>
+  `∀x y. x ∈ vs ∧ lookup_index s3 y = NONE ⇒ f x ≠ f y` by (
+    rw[Abbr`f`]>>
+    TOP_CASE_TAC>>gvs[]>>
+    drule_all name_to_num_state_ok_lookup_index>>
+    simp[])>>
+  qmatch_goalsub_abbrev_tac`INJ ft vst`>>
+  `∀x. x ∈ vst ⇒
+    lookup_index st3 x ≠ NONE` by (
+    gvs[Abbr`vst`,SUBSET_DEF]>>
+    metis_tac[option_CLAUSES])>>
+  `∀x. lookup_index st3 x ≠ NONE ⇒ lookup_index st3 x = SOME (ft x)` by (
+    rw[Abbr`ft`]>>
+    TOP_CASE_TAC>>gvs[])>>
+  `∀x y. x ∈ vst ∧ lookup_index st3 y = NONE ⇒ ft x ≠ ft y` by (
+    rw[Abbr`ft`]>>
+    TOP_CASE_TAC>>gvs[]>>
+    drule_all name_to_num_state_ok_lookup_index>>
+    simp[])>>
+  gvs [INJ_DEF]>>
+  CONJ_TAC>- (
+    (* Manual proof since metis is slow *)
+    rw[]>>
+    irule lookup_index_inj>>
+    qexists_tac`f x`>>
+    qexists_tac`s3`>>
+    metis_tac[])>>
+  CONJ_TAC>- (
+    (* Manual proof since metis is slow *)
+    rw[]>>
+    irule lookup_index_inj>>
+    qexists_tac`ft x`>>
+    qexists_tac`st3`>>
+    metis_tac[])>>
+  CONJ_TAC >- (
+     (* Manual proof since metis is slow *)
+    rw[]>>
+    gvs[Abbr`vs`]>>
+    Cases_on`lookup_index s3 y = NONE `>>gvs[]>>
+    irule lookup_index_inj>>
+    qexists_tac`f x`>>
+    qexists_tac`s3`>>
+    gvs[])>>
+  (* Manual proof since metis is slow *)
+  rw[]>>
+  gvs[Abbr`vst`]>>
+  Cases_on`lookup_index st3 y = NONE `>>gvs[]>>
+  irule lookup_index_inj>>
+  qexists_tac`ft x`>>
+  qexists_tac`st3`>>
+  gvs[]
 QED
 
 val _ = export_theory();
