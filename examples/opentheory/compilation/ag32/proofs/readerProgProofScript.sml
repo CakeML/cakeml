@@ -124,11 +124,10 @@ Proof
   \\ fs[ffi_names]
 QED
 
-val reader_machine_sem =
+Theorem reader_machine_sem =
   compile_correct_applied
   |> C MATCH_MP (UNDISCH reader_installed)
   |> DISCH_ALL
-  |> curry save_thm "reader_machine_sem";
 
 val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U-> bool``;

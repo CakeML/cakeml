@@ -80,7 +80,7 @@ QED
 
 val is_arm7_machine_config_mc = arm7_init_ok |> concl |> dest_imp |> #1
 
-val arm7_compile_correct =
+Theorem arm7_compile_correct =
   compile_correct
   |> Q.GENL[`c`,`mc`]
   |> Q.ISPECL[`arm7_backend_config`, `^(rand is_arm7_machine_config_mc)`]
@@ -88,6 +88,5 @@ val arm7_compile_correct =
   |> SIMP_RULE (srw_ss()) [arm7_backend_config_ok,UNDISCH arm7_machine_config_ok,UNDISCH arm7_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
-  |> curry save_thm"arm7_compile_correct";
 
 val _ = export_theory();

@@ -279,11 +279,10 @@ Proof
   >> simp[MAP_ZIP,ZIP_MAP_FST_SND_EQ]
 QED
 
-val VSUBST_id =
+Theorem VSUBST_id =
   VSUBST_id_lemma
   |> CONV_RULE(SWAP_FORALL_CONV)
   |> Q.SPEC `[]` |> SIMP_RULE list_ss [VSUBST_NIL]
-  |> curry save_thm "VSUBST_id"
 
 Theorem NOT_VFREE_IN_VSUBST:
   !x ty v tm. ~VFREE_IN (Var x ty) tm /\ welltyped tm ==> VSUBST [(v,Var x ty)] tm = tm

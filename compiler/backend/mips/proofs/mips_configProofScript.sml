@@ -68,7 +68,7 @@ QED
 
 val is_mips_machine_config_mc = mips_init_ok |> concl |> dest_imp |> #1
 
-val mips_compile_correct =
+Theorem mips_compile_correct =
   compile_correct
   |> Q.GENL[`c`,`mc`]
   |> Q.ISPECL[`mips_backend_config`, `^(rand is_mips_machine_config_mc)`]
@@ -76,6 +76,5 @@ val mips_compile_correct =
   |> SIMP_RULE (srw_ss()) [mips_backend_config_ok,UNDISCH mips_machine_config_ok,UNDISCH mips_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
-  |> curry save_thm"mips_compile_correct";
 
 val _ = export_theory();

@@ -30,11 +30,10 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val main_compiled_thm =
+Theorem main_compiled_thm =
   CONJ compile_correct_applied main_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "main_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:

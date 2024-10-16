@@ -878,8 +878,8 @@ Termination
   \\ rw[bvlTheory.exp_size_def]
   \\ simp[] \\ res_tac \\ simp[]
 End
-val get_code_labels_def =
-  get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp,compute,allow_rebind]"
+Theorem get_code_labels_def[simp,compute,allow_rebind] =
+  get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[]
 
 Theorem mk_tick_code_labels[simp]:
    !n x. get_code_labels (mk_tick n x) = get_code_labels x

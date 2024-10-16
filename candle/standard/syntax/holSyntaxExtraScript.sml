@@ -332,7 +332,7 @@ val subterm_welltyped = save_thm("subterm_welltyped",
 
 (* term ordering *)
 
-val type_lt_thm = Q.prove(
+Theorem type_lt_thm = Q.prove(
   `(type_lt (Tyvar x1) (Tyvar x2) ⇔ mlstring_lt x1 x2) ∧
     (type_lt (Tyvar _) (Tyapp _ _) ⇔ T) ∧
     (type_lt (Tyapp _ _) (Tyvar _) ⇔ F) ∧
@@ -341,9 +341,8 @@ val type_lt_thm = Q.prove(
          (x1,args1) (x2,args2))`,
   rw[] >> rw[Once type_lt_cases])
   |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
-  |> curry save_thm "type_lt_thm"
 
-val term_lt_thm = Q.prove(`
+Theorem term_lt_thm = Q.prove(`
   (term_lt (Var x1 ty1) (Var x2 ty2) ⇔
      (mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2)) ∧
   (term_lt (Var _ _) (Const _ _) ⇔ T) ∧
@@ -366,7 +365,6 @@ val term_lt_thm = Q.prove(`
     (term_lt LEX term_lt) (s1,s2) (t1,t2))`,
   rw[] >> rw[Once term_lt_cases])
   |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
-  |> curry save_thm "term_lt_thm"
 
 Theorem type_cmp_refl[simp]:
    type_cmp t t = EQUAL

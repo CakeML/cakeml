@@ -79,9 +79,8 @@ Definition alt_fv1_def:
   alt_fv1 v e = alt_fv v [e]
 End
 val alt_fv1_intro = save_thm("alt_fv1_intro[simp]",GSYM alt_fv1_def)
-val alt_fv1_thm =
+Theorem alt_fv1_thm =
   alt_fv |> SIMP_RULE (srw_ss())[]
-  |> curry save_thm "alt_fv1_thm"
 
 Theorem alt_fv_cons[simp]:
    alt_fv v (x::xs) ⇔ alt_fv1 v x ∨ alt_fv v xs
@@ -145,23 +144,23 @@ Inductive v_rel:
    env_ok m l i env2 env2' n)
 End
 
-val v_rel_simp = let
-  val f = SIMP_CONV (srw_ss()) [Once v_rel_cases]
-  in map f [``v_rel (Number x) y``,
-            ``v_rel (Word64 n) y``,
-            ``v_rel (Block n l) y``,
-            ``v_rel (ByteVector ws) y``,
-            ``v_rel (RefPtr x) y``,
-            ``v_rel (Closure n l v x w) y``,
-            ``v_rel (Recclosure x1 x2 x3 x4 x5) y``,
-            ``v_rel y (Number x)``,
-            ``v_rel y (Block n l)``,
-            ``v_rel y (ByteVector ws)``,
-            ``v_rel y (RefPtr x)``,
-            ``v_rel y (Closure n l v x w)``,
-            ``v_rel y (Word64 n)``,
-            ``v_rel y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
-  |> curry save_thm "v_rel_simp";
+Theorem v_rel_simp =
+  map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
+      [``v_rel (Number x) y``,
+       ``v_rel (Word64 n) y``,
+       ``v_rel (Block n l) y``,
+       ``v_rel (ByteVector ws) y``,
+       ``v_rel (RefPtr x) y``,
+       ``v_rel (Closure n l v x w) y``,
+       ``v_rel (Recclosure x1 x2 x3 x4 x5) y``,
+       ``v_rel y (Number x)``,
+       ``v_rel y (Block n l)``,
+       ``v_rel y (ByteVector ws)``,
+       ``v_rel y (RefPtr x)``,
+       ``v_rel y (Closure n l v x w)``,
+       ``v_rel y (Word64 n)``,
+       ``v_rel y (Recclosure x1 x2 x3 x4 x5)``]
+    |> LIST_CONJ
 
 Theorem v_rel_Boolv[simp]:
    (v_rel x (Boolv b) ⇔ (x = Boolv b)) ∧

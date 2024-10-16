@@ -192,9 +192,8 @@ Definition cat_prog_def:
   cat_prog = ^prog_tm
 End
 
-val cat_semantics_thm =
+Theorem cat_semantics_thm =
   semantics_thm |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
   |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> curry save_thm "cat_semantics_thm";
 
 val _ = export_theory();
