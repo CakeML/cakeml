@@ -10,6 +10,7 @@ open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
      pairTheory sortingTheory relationTheory totoTheory comparisonTheory
      bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory BasicProvers
      indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
+     integer_wordTheory
 local open bagLib addressTheory blastLib in end
 
 (* Misc. lemmas (without any compiler constants) *)
