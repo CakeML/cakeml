@@ -52,7 +52,7 @@ Proof
                     ,`THE s'.stack_max`] mp_tac))
   \\ impl_tac
   >- (rw [Abbr `s'`,lookup_fromList,pureLoop_config_def,lookup_def]
-     \\ fs [lookup_def,libTheory.the_def,MAX_DEF])
+     \\ fs [lookup_def,miscTheory.the_def,MAX_DEF])
   \\ rw []
   \\ qmatch_asmsub_abbrev_tac `evaluate (_,s'')`
   \\ `s' = s''`

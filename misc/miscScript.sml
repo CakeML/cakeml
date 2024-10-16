@@ -3,18 +3,32 @@
    development.
 *)
 
-open HolKernel bossLib boolLib boolSimps Parse libTheory mp_then
+open HolKernel bossLib boolLib boolSimps Parse mp_then
 open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
      byteTheory combinTheory dep_rewrite containerTheory listTheory
      pred_setTheory finite_mapTheory rich_listTheory llistTheory optionTheory
      pairTheory sortingTheory relationTheory totoTheory comparisonTheory
      bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory BasicProvers
      indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
+     integer_wordTheory
 local open bagLib addressTheory blastLib in end
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 val _ = ParseExtras.tight_equality()
+
+(* Total version of THE *)
+Definition the_def:
+  the _ (SOME x) = x ∧
+  the x NONE =  x
+End
+
+Definition opt_bind_def:
+ opt_bind n v e =
+   case n of
+   | NONE => e
+   | SOME n' => (n',v)::e
+End
 
 (* Note: This globally hides constants over the reals that gets imported through machine_ieeeTheory *)
 
@@ -4183,7 +4197,7 @@ Proof
   \\ Cases_on`0 < n` \\ simp[]
   \\ simp[word_msb_n2w_numeric]
   \\ simp[NOT_LESS_EQUAL]
-  \\ simp[INT_MIN_def]
+  \\ simp[wordsTheory.INT_MIN_def]
   \\ simp[dimword_def]
   \\ Cases_on`dimindex(:'a)`\\simp[]
   \\ simp[EXP]

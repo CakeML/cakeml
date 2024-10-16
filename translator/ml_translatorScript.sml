@@ -4,7 +4,7 @@
     the source semantics and the translator's automation.
 *)
 open integerTheory ml_progTheory
-     astTheory libTheory semanticPrimitivesTheory
+     astTheory semanticPrimitivesTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory
      fpOptTheory fpValTreeTheory fpSemTheory fpSemPropsTheory;
 open mlvectorTheory mlstringTheory packLib;

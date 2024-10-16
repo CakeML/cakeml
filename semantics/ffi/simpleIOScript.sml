@@ -2,7 +2,7 @@
   A simple instantiation of the ffi type.
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory ffiTheory;
+open miscTheory ffiTheory;
 
 val _ = new_theory "simpleIO"
 

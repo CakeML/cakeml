@@ -2,7 +2,7 @@
   Specification of CakeML's type system.
 *)
 open HolKernel Parse boolLib bossLib;
-open (* libTheory *) fpValTreeTheory astTheory namespaceTheory semanticPrimitivesTheory;
+open fpValTreeTheory astTheory namespaceTheory semanticPrimitivesTheory;
 
 val _ = numLib.temp_prefer_num();
 
