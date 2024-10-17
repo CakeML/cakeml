@@ -369,6 +369,18 @@ Proof
   )>>
   metis_tac[CPstate_modelsD]
 QED
+(*
+Theorem remove_eq_model_insert'1:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  st' = st with locals := insert t val st.locals ⇒
+  CPstate_models (remove_eq cs t) st'
+Proof
+  rw[]
+  >>irule remove_eq_model_insert'
+  >>rw[]>>metis_tac[]
+QED
+*)
 
 Theorem remove_eq_model_insert:
   CPstate_inv cs ⇒
@@ -381,13 +393,42 @@ Proof
   >>metis_tac[]
 QED
 
-Theorem CPstate_models_same_locals:
+Theorem remove_eq_model_set_var:
   CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  CPstate_models (remove_eq cs t) (set_var t val st)
+Proof
+  rw[set_var_def]
+  >>irule remove_eq_model_insert'
+  >>rw[]
+  >>metis_tac[]
+QED
+
+Theorem CPstate_models_same_locals:
   CPstate_models cs st ⇒
   st'.locals = st.locals ⇒
   CPstate_models cs st'
 Proof
   rw[CPstate_models_def]
+QED
+
+Theorem set_fp_var_model:
+  CPstate_models cs st ⇒
+  CPstate_models cs (set_fp_var t val st)
+Proof
+  DISCH_TAC
+  >>irule CPstate_models_same_locals
+  >>rw[set_fp_var_def]
+  >>metis_tac[]
+QED
+
+Theorem memory_model:
+  CPstate_models cs st ⇒
+  CPstate_models cs (st with memory := m)
+Proof
+  DISCH_TAC
+  >>irule CPstate_models_same_locals
+  >>rw[]>>metis_tac[]
 QED
 
 Theorem lookup_eq_remove_eq_t:
@@ -793,9 +834,7 @@ Proof
   qid_spec_tac‘aa'’>>Induct_on‘aa’>>rw[word_exp_def,the_words_def]>>
   Cases_on‘aa'’>>gvs[]>>
   rw[the_words_def]>>
-  Cases_on‘word_exp st h’>>rw[]>>
-  rename[‘MAP _ aa' = MAP _ aa’,‘word_exp st h = SOME wl’]>>
-  Cases_on‘wl’>>fs[SF ETA_ss]
+  every_case_tac>>gvs[SF ETA_ss]
 QED
 
 Theorem word_exp_cong_Shift:
@@ -926,6 +965,12 @@ Proof
   )
 QED
 
+Theorem remove_eq_comm:
+  remove_eq (remove_eq cs x) y = remove_eq (remove_eq cs y) x
+Proof
+  rw[remove_eq_def]>>every_case_tac
+QED
+
 Theorem copy_prop_inst_correct:
   CPstate_inv cs ⇒
   CPstate_models cs st ⇒
@@ -939,162 +984,38 @@ Proof
   >-metis_tac[copy_prop_inst_inv]
   >-(
     (* CPstate_models *)
-    Cases_on‘ins’>>fs[copy_prop_inst_def,evaluate_def,inst_def]
+    Cases_on‘ins’>>fs[copy_prop_inst_def,evaluate_def,inst_def,assign_def]
     >-(
       (* Const *)
-      pop_assum mp_tac>>CASE_TAC
-      >>fs[assign_def]
-      >>pop_assum mp_tac>>CASE_TAC
-      >>rw[set_var_def]
-      >>metis_tac[remove_eq_model_insert]
+      every_case_tac
+      >>fs[copy_prop_inst_def]
+      >>metis_tac[remove_eq_model_set_var]
     )
     >-(
       (* Arith *)
-      pop_assum mp_tac>>CASE_TAC
-      >-(
-        pop_assum mp_tac>>TOP_CASE_TAC
-        >>fs[assign_def]
-        >>pop_assum mp_tac>>TOP_CASE_TAC
-        >>rw[set_var_def,copy_prop_inst_def]
-        >>metis_tac[remove_eq_model_insert]
-      )
-      >-(
-        TOP_CASE_TAC
-        >>fs[assign_def]
-        >>pop_assum mp_tac>>TOP_CASE_TAC
-        >>fs[set_var_def,copy_prop_inst_def]
-        >>metis_tac[remove_eq_model_insert]
-      )
+      full_case_tac
+      >~[‘LongDiv’]
       >-(
         every_case_tac
-        >>fs[set_var_def,copy_prop_inst_def]
-        >>metis_tac[remove_eq_model_insert]
+        >>fs[copy_prop_inst_def,remove_eqs_def]
+        >>rw[Once remove_eq_comm]
+        >>metis_tac[remove_eq_inv,remove_eq_model_set_var]
       )
-      >-(
-        every_case_tac
-        >>fs[set_var_def,copy_prop_inst_def,remove_eqs_def]
-        >>rw[]
-        >>irule remove_eq_model_insert'
-        >>rw[]
-        >-metis_tac[remove_eq_inv]
-        >>qexists_tac‘st with locals := insert n (Word (n2w (w2n c * w2n c' DIV dimword (:α)))) st.locals’
-        >>rw[]
-        >>metis_tac[remove_eq_model_insert]
-      )
-      >-(
-        every_case_tac
-        >>fs[set_var_def,copy_prop_inst_def,remove_eqs_def]
-        >>rw[]
-        >>irule remove_eq_model_insert'
-        >>rw[]
-        >-metis_tac[remove_eq_inv]
-        >>Cases_on‘n=n0’ (* XXX: generated names *)
-        >-(
-          rw[Once insert_insert]
-          >>metis_tac[remove_eq_model]
-        )
-        >-(
-          qexists_tac‘st with locals := insert n (Word (n2w ((w2n c' + dimword (:α) * w2n c) DIV w2n c''))) st.locals’
-          >>simp[SimpRHS, Once insert_insert]
-          >>metis_tac[remove_eq_model_insert]
-        )
-      )
-      >-(
-        TOP_CASE_TAC
-        >>pop_assum mp_tac>>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>fs[set_var_def,copy_prop_inst_def,remove_eqs_def]
-        >>rpt DISCH_TAC
-        >>irule remove_eq_model_insert'
-        >>conj_tac>-metis_tac[remove_eq_inv]
-        >>qexists_tac‘st with locals := insert n (Word (n2w (w2n c' + (w2n c'' + if c = 0w then 0 else 1)))) st.locals’
-        >>rw[]
-        >>metis_tac[remove_eq_model_insert]
-      )
-      >-(
-        TOP_CASE_TAC
-        >>pop_assum mp_tac>>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>fs[set_var_def,copy_prop_inst_def,remove_eqs_def]
-        >>rpt DISCH_TAC
-        >>irule remove_eq_model_insert'
-        >>conj_tac>-metis_tac[remove_eq_inv]
-        >>qexists_tac‘st with locals := insert n (Word (c + c')) st.locals’
-        >>rw[]
-        >>metis_tac[remove_eq_model_insert]
-      )
-      >-(
-        TOP_CASE_TAC
-        >>pop_assum mp_tac>>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>TOP_CASE_TAC
-        >>fs[set_var_def,copy_prop_inst_def,remove_eqs_def]
-        >>rpt DISCH_TAC
-        >>irule remove_eq_model_insert'
-        >>conj_tac>-metis_tac[remove_eq_inv]
-        >>qexists_tac‘st with locals := insert n (Word (-1w * c + c')) st.locals’
-        >>rw[]
-        >>metis_tac[remove_eq_model_insert]
-      )
+      >>every_case_tac
+      >>fs[copy_prop_inst_def,remove_eqs_def]
+      >>metis_tac[remove_eq_inv,remove_eq_model_set_var]
     )
     >-(
       (* Mem *)
-      pop_assum mp_tac>>TOP_CASE_TAC
-      >>pop_assum mp_tac>>TOP_CASE_TAC
-      >>TOP_CASE_TAC
-      >>TOP_CASE_TAC
-      >-(
-        every_case_tac
-        >>fs[set_var_def,copy_prop_inst_def]
-        >>rw[]
-        >>metis_tac[remove_eq_model_insert]
-      )
-      >-(
-        every_case_tac
-        >>fs[set_var_def,copy_prop_inst_def]
-        >>rw[]
-        >>metis_tac[remove_eq_model_insert]
-      )
-      >>(
-        every_case_tac
-        >>fs[set_var_def,copy_prop_inst_def,mem_store_def,mem_store_byte_aux_def]
-        >>rw[]
-        >>irule CPstate_models_same_locals
-        >>rw[state_component_equality]
-        >>metis_tac[]
-      )
+      every_case_tac
+      >>fs[copy_prop_inst_def,mem_store_def,mem_store_byte_aux_def]
+      >>metis_tac[remove_eq_model_set_var,memory_model]
     )
     >-(
       (* FP *)
       every_case_tac
-      >>fs[set_var_def,copy_prop_inst_def]
-      >>TRY(metis_tac[remove_eq_model_insert])
-      >>TRY(irule CPstate_models_same_locals>>gvs[set_fp_var_def]>>metis_tac[])
-      >>rw[remove_eqs_def]
-      >-(
-        irule remove_eq_model
-        >>metis_tac[remove_eq_model_insert]
-      )
-      >-(
-        irule remove_eq_model_insert'
-        >>conj_tac>-metis_tac[remove_eq_inv]
-        >>qexists_tac‘st with locals := insert n (Word ((31 >< 0) x)) st.locals’
-        >>rw[]
-        >>metis_tac[remove_eq_model_insert]
-      )
+      >>fs[copy_prop_inst_def,remove_eqs_def]
+      >>metis_tac[remove_eq_inv,remove_eq_model_set_var,remove_eq_model,set_fp_var_model]
     )
   )
 QED
