@@ -1049,7 +1049,7 @@ Overload "⇂" = “λf w. IMAGE (subst w) f”
 
 val _ = set_fixity "redundant_wrt" (Infixl 500);
 val _ = set_fixity "⊨" (Infixl 500);
-val _ = set_fixity "⇂" (Infixl 501);
+val _ = set_fixity "⇂" (Infixl 502);
 
 Definition redundant_wrt_def:
   c redundant_wrt f ⇔ (satisfiable f ⇔ satisfiable (f ∪ {c}))
