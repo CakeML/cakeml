@@ -1616,14 +1616,14 @@ QED
 
 
 Theorem icompile_eq:
-  init_icompile source_conf clos_conf bvl_conf = (source_iconf, clos_iconf, bvl_iconf, bvi_init)
+  init_icompile source_conf clos_conf bvl_conf = (source_iconf, clos_iconf, bvl_iconf, data_init)
   ∧
-  fold_icompile source_iconf clos_iconf bvl_iconf pss = SOME (source_iconf', clos_iconf', bvl_iconf', icompiled_p_bvi)
+  fold_icompile source_iconf clos_iconf bvl_iconf pss = SOME (source_iconf', clos_iconf', bvl_iconf', icompiled_p_data)
   ∧
   end_icompile source_iconf' source_conf
                clos_iconf' clos_conf
                bvl_iconf' bvl_conf
-  = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, bvi_end)
+  = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, data_end)
   ∧
   compile_alt1 source_conf clos_conf bvl_conf (FLAT pss) = (source_conf_after_c, clos_conf_after_c, bvl_conf_after_c, compiled_p)
   ∧
@@ -1637,7 +1637,7 @@ Theorem icompile_eq:
                       clos_conf_after_c clos_conf_after_ic
                       clos_conf_after_c clos_conf_after_ic (* dont think i need to define a separate one but just for clarity *)
                       bvl_conf_after_ic bvl_conf_after_c
-                      (bvi_init ++ icompiled_p_bvi ++ bvi_end) compiled_p
+                      (data_init ++ icompiled_p_data ++ data_end) compiled_p
 Proof
   once_rewrite_tac[fold_icompile_collapse] >>
   metis_tac[init_icompile_icompile_end_icompile]
