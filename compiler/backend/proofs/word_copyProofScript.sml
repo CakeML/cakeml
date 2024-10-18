@@ -431,6 +431,36 @@ Proof
   >>rw[]>>metis_tac[]
 QED
 
+Theorem merge_eqs_model1:
+  CPstate_models cs1 st ⇒
+  CPstate_models (merge_eqs cs1 cs2) st
+Proof
+  rw[merge_eqs_def,CPstate_models_def,lookup_inter_eq]
+  >>full_case_tac>>fs[]
+  >>full_case_tac>>fs[]
+QED
+
+Theorem merge_eqs_model2:
+  CPstate_models cs2 st ⇒
+  CPstate_models (merge_eqs cs1 cs2) st
+Proof
+  rw[merge_eqs_def,CPstate_models_def,lookup_inter_eq]
+  >>full_case_tac>>fs[]
+  >>full_case_tac>>fs[]
+QED
+
+(*
+Theorem inter_eq_comm:
+  inter_eq m1 m2 = inter_eq m2 m1
+Proof
+  rw[inter_eq_def]
+
+Theorem merge_eqs_comm:
+  merge_eqs cs1 cs2 = merge_eqs cs2 cs1
+Proof
+  rw[merge_eqs_def]>>metis_tac[inter_eq_comm,MAX_COMM]
+QED
+*)
 Theorem lookup_eq_remove_eq_t:
   CPstate_inv cs ⇒
   lookup_eq (remove_eq cs t) x = t ⇒ x=t
@@ -518,6 +548,15 @@ Proof
   metis_tac[CPstate_modelsD,lookup_eq_idempotent]
 QED
 
+Theorem CPstate_modelsD_get_var_imm:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  get_var_imm (lookup_eq_imm cs x) st = get_var_imm x st
+Proof
+  rw[lookup_eq_imm_def]>>CASE_TAC>>rw[get_var_imm_def]
+  >>metis_tac[CPstate_modelsD_get_var]
+QED
+
 Theorem CPstate_modelsD_Var:
   CPstate_inv cs ⇒
   CPstate_models cs st ⇒
@@ -569,6 +608,17 @@ Proof
   ‘lookup_eq cs (lookup_eq cs s) = lookup_eq cs s’
     by metis_tac[lookup_eq_idempotent]>>
   metis_tac[CPstate_modelsD]
+QED
+
+Theorem copy_prop_move_get_vars:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  copy_prop_move moves cs = (moves', cs') ⇒
+  get_vars (MAP SND moves') st = get_vars (MAP SND moves) st
+Proof
+  rw[]
+  >>dxrule_all copy_prop_move_eval_aux1
+  >>metis_tac[MAP_get_var_eqD]
 QED
 
 Theorem copy_prop_move_eval_aux2:
@@ -776,41 +826,38 @@ Theorem copy_prop_move_correct:
   copy_prop_prog (Move pri moves) cs = (prog', cs') ⇒
   evaluate (Move pri moves, st) = (err, st') ⇒
   evaluate (prog', st) = (err, st') ∧
-  (err = NONE ⇒ CPstate_inv cs' ∧ CPstate_models cs' st')
+  CPstate_inv cs' ∧
+  (err = NONE ⇒ CPstate_models cs' st')
 Proof
-  Cases_on‘ALL_DISTINCT (MAP FST moves)’
+  rw[copy_prop_prog_def]
   >-(
-    rw[copy_prop_prog_def]
+    pairarg_tac>>fs[]
+    >>fs[evaluate_def]
+    >>full_case_tac
+    >>‘get_vars (MAP SND xs') st = get_vars (MAP SND moves) st’ by metis_tac[copy_prop_move_get_vars]
     >-(
-      pairarg_tac>>fs[]
-      >>metis_tac[copy_prop_move_eval]
+      full_case_tac
+      >>rw[evaluate_def]
     )
     >-(
-      pairarg_tac>>fs[]
-      >>metis_tac[copy_prop_move_inv]
+      full_case_tac
+      >>rw[evaluate_def]>>fs[]
+      >>metis_tac[copy_prop_move_eval_aux3]
     )
-    >-(
-      pairarg_tac>>fs[]
-      >>qpat_x_assum‘evaluate _ = _’mp_tac>>simp[evaluate_def]
-      >>every_case_tac
-      >>dxrule EVERY_NOT_MEM_D
-      >>metis_tac[copy_prop_move_model]
-    )
-    >-irule empty_eq_inv
-    >-irule empty_eq_model
   )
   >-(
-    Cases_on‘EVERY (λt. ¬MEM t (MAP SND moves)) (MAP FST moves)’
-    >>simp[copy_prop_prog_def]
-    >>rpt disch_tac
-    >-(
-      pairarg_tac>>fs[]
-      >>conj_tac
-      >-metis_tac[copy_prop_move_eval]
-      >-gvs[evaluate_def]
-    )
-    >-gvs[evaluate_def]
+    pairarg_tac>>fs[]
+    >>metis_tac[copy_prop_move_inv]
   )
+  >-(
+    pairarg_tac>>fs[]
+    >>fs[evaluate_def]
+    >>full_case_tac>>full_case_tac>>fs[]
+    >>dxrule EVERY_NOT_MEM_D
+    >>metis_tac[copy_prop_move_model]
+  )
+  >-metis_tac[empty_eq_inv]
+  >-metis_tac[empty_eq_model]
 QED
 
 Theorem word_exp_cong_Var:
@@ -977,7 +1024,8 @@ Theorem copy_prop_inst_correct:
   (prog', cs') = copy_prop_inst ins cs ⇒
   evaluate (Inst ins, st) = (err, st') ⇒
   evaluate (prog', st) = (err, st') ∧
-  (err = NONE ⇒ CPstate_inv cs' ∧ CPstate_models cs' st')
+  CPstate_inv cs' ∧
+  (err = NONE ⇒ CPstate_models cs' st')
 Proof
   rw[]
   >-metis_tac[copy_prop_inst_eval]
@@ -1023,32 +1071,73 @@ QED
 
 
 Theorem copy_prop_correct:
+  ∀prog cs st prog' cs' err st'.
   CPstate_inv cs ⇒
   CPstate_models cs st ⇒
   (prog', cs') = copy_prop_prog prog cs ⇒
+  evaluate (prog, st) = (err, st') ⇒
+  evaluate (prog', st) = (err, st') ∧
   CPstate_inv cs' ∧
-  CPstate_models cs' (SND (evaluate (prog, st))) ∧
-  evaluate (prog', st) = evaluate (prog, st)
+  (err = NONE ⇒ CPstate_models cs' st')
 Proof
-  qid_spec_tac‘cs’>>qid_spec_tac‘st’>>
-  qid_spec_tac‘prog'’>>qid_spec_tac‘prog’>>
   Induct (* 23 subgoals *)
-  >-rw[evaluate_def,copy_prop_prog_def]
+  >-(*Skip*)(rw[evaluate_def,copy_prop_prog_def]>>pop_assum ACCEPT_TAC)
+  >-(*Move*)metis_tac[copy_prop_move_correct]
+  >-(*Inst*)(rw[copy_prop_prog_def]>>metis_tac[copy_prop_inst_correct])
+  >~[‘Seq’]
   >-(
-    qx_gen_tac‘pri’>>qx_gen_tac‘moves’>>rw[]
-    >-cheat(*inv*)
+    rpt GEN_TAC
+    >>rename[‘evaluate (Seq p1 p2, st) = (err,st')’]
+    >>simp[evaluate_def,copy_prop_prog_def]
+    >>rpt(pairarg_tac>>fs[])
+    >>Cases_on‘res’
+    >>simp[evaluate_def]
+    >>pairarg_tac>>fs[]
+    >>rpt DISCH_TAC
     >-(
-      fs[copy_prop_prog_def]>>
-      pairarg_tac>>gvs[]>>
-      rename[‘_=(moves',cs')’]>>
-      rw[evaluate_def]
+      ‘evaluate (q1,st) = (NONE,s1) ∧ CPstate_inv cs'' ∧ CPstate_models cs'' s1’ by metis_tac[]
+      >>gvs[]
+      >>metis_tac[]
     )
     >-(
-      fs[copy_prop_prog_def]>>
-      pairarg_tac>>gvs[]>>
-      metis_tac[copy_prop_move_correct]
+      ‘evaluate (q1,st) = (SOME x,s1) ∧ CPstate_inv cs''’ by metis_tac[]
+      >>gvs[]
+      >>metis_tac[copy_prop_prog_inv]
     )
   )
+  >~[‘If’]
+  >-(
+    rpt GEN_TAC
+    >>rename[‘evaluate (If c n r p1 p2, st) = (err,st')’]
+    >>Cases_on‘err’
+    >-(
+      simp[evaluate_def,copy_prop_prog_def]
+      >>rpt(pairarg_tac>>fs[])
+      >>every_case_tac(*2*)
+      >>(
+        rw[evaluate_def](*3*)
+        >>‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
+        >>‘get_var_imm (lookup_eq_imm cs r) st = get_var_imm r st’ by metis_tac[CPstate_modelsD_get_var_imm]
+        >>simp[]
+        >-metis_tac[]
+        >-metis_tac[merge_eqs_inv,copy_prop_prog_inv]
+        >-metis_tac[merge_eqs_model1,merge_eqs_model2]
+      )
+    )
+    >-(
+      simp[evaluate_def,copy_prop_prog_def]
+      >>rpt(pairarg_tac>>fs[])
+      >>simp[evaluate_def]
+      >>rpt DISCH_TAC
+      >>‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
+      >>‘get_var_imm (lookup_eq_imm cs r) st = get_var_imm r st’ by metis_tac[CPstate_modelsD_get_var_imm]
+      >>‘evaluate (q1,st) = evaluate (p1,st)’ by metis_tac[PAIR]
+      >>‘evaluate (q2,st) = evaluate (p2,st)’ by metis_tac[PAIR]
+      >>rw[]
+      >>metis_tac[merge_eqs_inv,PAIR]
+    )
+  )
+  >>cheat
 QED
 
 (* TODO: insert an induction over copy_prop_prog *)
