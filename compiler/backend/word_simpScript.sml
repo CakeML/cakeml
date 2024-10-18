@@ -247,6 +247,7 @@ Definition is_gc_const_def:
   is_gc_const c = ((c && 1w) = 0w)
 End
 
+(* We only drop constants that can potentially be in registers *)
 Definition drop_consts_def:
   drop_consts cs [] = Skip ∧
   drop_consts cs (n::ns) =
@@ -296,7 +297,7 @@ Definition const_fp_loop_def:
     (SmartSeq (drop_consts cs [x1;x2;x3;x4]) (FFI x0 x1 x2 x3 x4 names), inter cs names)) /\
   (const_fp_loop (LocValue v x3) cs = (LocValue v x3, delete v cs)) /\
   (const_fp_loop (Alloc n names) cs =
-    (SmartSeq (drop_consts cs []) (Alloc n names), filter_v is_gc_const (inter cs names))) /\
+    (SmartSeq (drop_consts cs [n]) (Alloc n names), filter_v is_gc_const (inter cs names))) /\
   (const_fp_loop (StoreConsts a b c d ws) cs = (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))) /\
   (const_fp_loop (Install r1 r2 r3 r4 names) cs =
     (SmartSeq (drop_consts cs [r1;r2;r3;r4])
