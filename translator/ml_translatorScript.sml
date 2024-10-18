@@ -1705,17 +1705,15 @@ Definition LIST_TYPE_def:
      v = Conv (SOME (TypeStamp "[]" 1)) [])
 End
 
-val LIST_TYPE_SIMP' = Q.prove(
+Theorem LIST_TYPE_SIMP' = Q.prove(
   `!xs b. CONTAINER LIST_TYPE
               (\x v. if b x \/ MEM x xs then p x v else ARB) xs =
            LIST_TYPE (p:('a -> v -> bool)) xs`,
   Induct THEN FULL_SIMP_TAC std_ss [FUN_EQ_THM,LIST_TYPE_def,MEM,
     DISJ_ASSOC,CONTAINER_def]) |> GSYM
-  |> curry save_thm "LIST_TYPE_SIMP'";
 
-val LIST_TYPE_SIMP = LIST_TYPE_SIMP'
+Theorem LIST_TYPE_SIMP = LIST_TYPE_SIMP'
   |> Q.SPECL [`xs`,`\x.F`] |> SIMP_RULE std_ss []
-  |> curry save_thm "LIST_TYPE_SIMP";
 
 Theorem LIST_TYPE_IF_ELIM:
  !v. LIST_TYPE (\x v. if MEM x l then P x v else Q x v) l v = LIST_TYPE P l v
@@ -1755,12 +1753,12 @@ Definition PAIR_TYPE_def:
     ?v1_1 v1_2. v = Conv NONE [v1_1; v1_2] /\ a x_2 v1_1 /\ b x_1 v1_2
 End
 
-val PAIR_TYPE_SIMP = Q.prove(
+Theorem PAIR_TYPE_SIMP = Q.prove(
   `!x. CONTAINER PAIR_TYPE (\y v. if y = FST x then a y v else ARB)
                            (\y v. if y = SND x then b y v else ARB) x =
         PAIR_TYPE (a:('a -> v -> bool)) (b:('b -> v -> bool)) x`,
   Cases \\ SIMP_TAC std_ss [PAIR_TYPE_def,CONTAINER_def,FUN_EQ_THM])
-  |> GSYM |> SPEC_ALL |> curry save_thm "PAIR_TYPE_SIMP";
+  |> GSYM |> SPEC_ALL
 
 Definition PAIR_v_def:
   PAIR_v a_v b_v (x, y) = Conv NONE [a_v x; b_v y]

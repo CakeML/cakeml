@@ -263,9 +263,13 @@ Proof
 QED
 
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
-val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
-  [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_cbw``,``:'a asm``,
-   ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
+Theorem case_eq_thms =
+  (pair_case_eq::
+   bool_case_eq::
+   map (prove_case_eq_thm o get_thms)
+       [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_cbw``,
+        ``:'a asm``, ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``])
+  |> LIST_CONJ
 
 Theorem evaluate_io_events_mono:
    ∀s1 r s2. evaluate s1 = (r,s2) ⇒ s1.ffi.io_events ≼ s2.ffi.io_events

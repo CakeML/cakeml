@@ -30,11 +30,10 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl arm8_asl_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val check_unsat_compiled_thm =
+Theorem check_unsat_compiled_thm =
   CONJ compile_correct_applied check_unsat_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "check_unsat_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_arm8_asl_def:

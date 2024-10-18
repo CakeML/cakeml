@@ -328,10 +328,9 @@ Definition wordfreq_prog_def:
   wordfreq_prog = ^prog_tm
 End
 
-val wordfreq_semantics =
+Theorem wordfreq_semantics =
   sem_thm |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]
   |> DISCH_ALL |> Q.GENL[`cl`,`contents`]
   |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> curry save_thm "wordfreq_semantics";
 
 val _ = export_theory();

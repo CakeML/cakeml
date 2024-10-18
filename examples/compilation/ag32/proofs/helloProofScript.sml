@@ -126,11 +126,10 @@ Proof
   \\ simp[]
 QED
 
-val hello_machine_sem =
+Theorem hello_machine_sem =
   compile_correct_applied
   |> C MATCH_MP (UNDISCH hello_installed)
   |> DISCH_ALL
-  |> curry save_thm "hello_machine_sem";
 
 Theorem hello_extract_writes_stdout:
    wfcl cl ⇒

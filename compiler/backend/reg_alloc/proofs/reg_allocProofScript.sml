@@ -96,9 +96,10 @@ val all_eqns = get_eqns @ set_eqns @ add_eqns @ msimps;
 
 (* M_success conditions *)
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty };
-val case_eq_thms = pair_case_eq::
-  List.map (prove_case_eq_thm o get_thms) [``:('a,'b) exc``,``:tag``,``:'a list``,``:'a option``]
-  |> LIST_CONJ |> curry save_thm "case_eq_thms"
+Theorem case_eq_thms = pair_case_eq::
+  List.map (prove_case_eq_thm o get_thms)
+           [``:('a,'b) exc``,``:tag``,``:'a list``,``:'a option``]
+         |> LIST_CONJ
 
 Theorem tag_case_st:
     !t.

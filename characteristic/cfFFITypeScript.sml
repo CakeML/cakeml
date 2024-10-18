@@ -157,13 +157,12 @@ QED
 
 (* distinctness *)
 
-val ffi_distinct = prove(
+Theorem ffi_distinct[simp] = prove(
   ``ALL_DISTINCT [Num n; Str s; Cons x y; List l; Stream ll; Fun f; Inner i]``,
   rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Stream_def,
                Fun_def,Inner_def,FUN_EQ_THM]
   \\ qexists_tac `iNum 0` \\ fs [])
   |> SIMP_RULE std_ss [ALL_DISTINCT,MEM,GSYM CONJ_ASSOC] |> GEN_ALL
-  |> curry save_thm "ffi_distinct[simp]";
 
 (* destructors *)
 

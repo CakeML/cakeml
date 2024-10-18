@@ -78,9 +78,13 @@ QED
 
 (*TODO: define globally somewhere? *)
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
-val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
-  [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``
-  ,``:'a arith``,``:'a addr``,``:memop``,``:'a wordSem$result``,``:'a ffi_result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
+Theorem case_eq_thms =
+  (pair_case_eq::
+   bool_case_eq::
+   map (prove_case_eq_thm o get_thms)
+       [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``,``:'a arith``,
+        ``:'a addr``,``:memop``,``:'a wordSem$result``,``:'a ffi_result``])
+    |> LIST_CONJ
 
 Theorem set_store_const[simp]:
    (set_store x y z).clock = z.clock ∧

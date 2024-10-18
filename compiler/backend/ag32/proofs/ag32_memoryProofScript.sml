@@ -185,10 +185,9 @@ Proof
   \\ blastLib.BBLAST_TAC
 QED
 
-val get_mem_word_get_byte =
+Theorem get_mem_word_get_byte =
   get_mem_word_get_byte_gen
   |> Q.GEN`r0` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``]
-  |> curry save_thm "get_mem_word_get_byte";
 
 Theorem ag32_enc_lengths:
    LENGTH (ag32_enc istr) ∈ {4;8;12;16}

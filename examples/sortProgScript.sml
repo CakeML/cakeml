@@ -571,10 +571,9 @@ Definition sort_prog_def:
   sort_prog = ^prog_tm
 End
 
-val sort_semantics =
+Theorem sort_semantics =
   sem_thm |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> curry save_thm "sort_semantics";
 
 val _ = export_theory ();

@@ -21,7 +21,7 @@ Proof
 QED
 (* -- *)
 
-val wordcount_stdin_semantics = Q.prove(
+Theorem wordcount_stdin_semantics = Q.prove(
   `∃io_events.
      semantics_prog (init_state (basis_ffi [strlit"wordcount"] (stdin_fs input))) init_env
        wordcount_prog (Terminate Success io_events) ∧
@@ -35,7 +35,6 @@ val wordcount_stdin_semantics = Q.prove(
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
   \\ simp[stdin_fs_def])
   |> SIMP_RULE std_ss[int_toString_num]
-  |> curry save_thm "wordcount_stdin_semantics";
 
 val wordcount_io_events_def =
   new_specification("wordcount_io_events_def",["wordcount_io_events"],
@@ -99,7 +98,7 @@ val wordcount_startup_clock_def =
   GEN_ALL (Q.SPEC`ms0`(Q.GEN`ms`target_state_rel_wordcount_start_asm_state))
   |> SIMP_RULE bool_ss [GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]);
 
-val wordcount_compile_correct_applied =
+Theorem wordcount_compile_correct_applied =
   MATCH_MP compile_correct (cj 1 wordcount_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
                          GSYM AND_IMP_INTRO]
@@ -112,7 +111,6 @@ val wordcount_compile_correct_applied =
   |> C MATCH_MP is_ag32_machine_config_ag32_machine_config
   |> Q.GEN`cbspace` |> Q.SPEC`0`
   |> Q.GEN`data_sp` |> Q.SPEC`0`
-  |> curry save_thm "wordcount_compile_correct_applied";
 
 Theorem wordcount_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
@@ -151,7 +149,7 @@ Proof
   \\ simp[]
 QED
 
-val wordcount_machine_sem =
+Theorem wordcount_machine_sem =
   wordcount_compile_correct_applied
   |> C MATCH_MP (
        wordcount_installed
@@ -160,7 +158,6 @@ val wordcount_machine_sem =
        |> SIMP_RULE(srw_ss())[cline_size_def]
        |> UNDISCH)
   |> DISCH_ALL
-  |> curry save_thm "wordcount_machine_sem";
 
 Theorem wordcount_extract_writes_stdout:
    (extract_writes 1 (MAP get_output_io_event (wordcount_io_events input)) =

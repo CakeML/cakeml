@@ -520,9 +520,8 @@ Definition fv1_def:
   fv1 v e = fv v [e]
 End
 val fv1_intro = save_thm("fv1_intro[simp]",GSYM fv1_def)
-val fv1_thm =
+Theorem fv1_thm =
   fv_def |> SIMP_RULE (srw_ss())[]
-  |> curry save_thm "fv1_thm"
 
 Theorem fv_cons[simp]:
    fv v (x::xs) ⇔ fv1 v x ∨ fv v xs
@@ -556,7 +555,7 @@ Proof
   simp[] >> metis_tac[]
 QED
 
-val v_ind =
+Theorem v_ind =
   TypeBase.induction_of``:closSem$v``
   |> Q.SPECL[`P`,`EVERY P`]
   |> SIMP_RULE(srw_ss())[]
@@ -564,7 +563,6 @@ val v_ind =
   |> CONJUNCT1
   |> DISCH_ALL
   |> Q.GEN`P`
-  |> curry save_thm "v_ind";
 
 Theorem do_app_err:
    ∀op ls s e.
@@ -912,15 +910,15 @@ Proof
   \\ Cases_on `lookup_vars vs env` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ RES_TAC
 QED
 
-val lookup_vars_MEM = Q.prove(
+Theorem lookup_vars_MEM = Q.prove(
   `!ys n x (env2:closSem$v list).
       (lookup_vars ys env2 = SOME x) /\ n < LENGTH ys ==>
       (EL n ys) < LENGTH env2 /\
       (EL n x = EL (EL n ys) env2)`,
   Induct \\ full_simp_tac(srw_ss())[lookup_vars_def] \\ NTAC 5 STRIP_TAC
   \\ Cases_on `lookup_vars ys env2` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]) |> SPEC_ALL
-  |> curry save_thm "lookup_vars_MEM";
+  \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
+  |> SPEC_ALL
 
 Theorem clock_lemmas:
  !s. (s with clock := s.clock) = s
@@ -3357,10 +3355,9 @@ Termination
  \\ simp [] \\ res_tac \\ simp []
 End
 
-val obeys_max_app_def =
+Theorem obeys_max_app_def[simp,compute,allow_rebind] =
   obeys_max_app_def
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
-  |> curry save_thm "obeys_max_app_def[simp,compute,allow_rebind]"
 
 Definition no_Labels_def:
   (no_Labels (Var _ _) ⇔ T) ∧
@@ -3383,10 +3380,9 @@ Termination
  \\ simp [] \\ res_tac \\ simp []
 End
 
-val no_Labels_def =
+Theorem no_Labels_def[simp,compute,allow_rebind] =
   no_Labels_def
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
-  |> curry save_thm "no_Labels_def[simp,compute,allow_rebind]"
 
 Definition app_call_dests_def:
   (app_call_dests opt [] = {}) /\
@@ -3536,10 +3532,9 @@ Termination
    \\ simp [] \\ res_tac \\ simp []
 End
 
-val get_code_labels_def =
+Theorem get_code_labels_def[simp,compute,allow_rebind] =
   get_code_labels_def
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
-  |> curry save_thm "get_code_labels_def[simp,compute,allow_rebind]"
 
 val code_locs_ind = theorem"code_locs_ind";
 
