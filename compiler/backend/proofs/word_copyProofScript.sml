@@ -1068,7 +1068,22 @@ Proof
   )
 QED
 
+Theorem set_store_model:
+  CPstate_models cs st ⇒
+  CPstate_models cs (set_store s w st)
+Proof
+  rw[set_store_def,CPstate_models_def]
+QED
 
+Theorem remove_eq_model_unset_var:
+  CPstate_inv cs ⇒
+  CPstate_models cs st ⇒
+  CPstate_models (remove_eq cs t) (unset_var t st)
+Proof
+  rw[unset_var_def,remove_eq_def,CPstate_models_def,lookup_delete,empty_eq_def]
+  >>every_case_tac>>fs[]
+  >>fs[CPstate_inv_def]>>metis_tac[NOT_NONE_SOME]
+QED
 
 Theorem copy_prop_correct:
   ∀prog cs st prog' cs' err st'.
@@ -1136,6 +1151,102 @@ Proof
       >>rw[]
       >>metis_tac[merge_eqs_inv,PAIR]
     )
+  )
+  >-(*Assign*)rw[copy_prop_prog_def,evaluate_def]>>metis_tac[empty_eq_inv,empty_eq_model]
+  >-(
+    (*Get*)
+    rw[copy_prop_prog_def,evaluate_def]>>every_case_tac>>fs[]
+    >>metis_tac[remove_eq_inv,remove_eq_model_set_var]
+  )
+  >-(
+    (*Set*)
+    rw[copy_prop_prog_def,evaluate_def]>>every_case_tac>>fs[]
+    >>rw[evaluate_def,set_store_model]
+    >>‘word_exp st (Var (lookup_eq cs n)) = word_exp st (Var n)’ by metis_tac[CPstate_modelsD_Var]
+    >>rw[]
+  )
+  >-(
+    (*Store*)
+    rw[copy_prop_prog_def,evaluate_def]>>every_case_tac>>fs[]
+    >>metis_tac[empty_eq_inv,empty_eq_model]
+  )
+  >-(
+    (*MustTerminate*)
+    rw[copy_prop_prog_def,evaluate_def]>>every_case_tac>>fs[]
+    >>rpt(pairarg_tac>>fs[])
+    >>rw[evaluate_def]
+    >-metis_tac[PAIR]
+    >-(
+      ‘CPstate_models cs (st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>)’ by (qpat_x_assum‘CPstate_models cs st’mp_tac>>rw[state_component_equality,CPstate_models_def])
+      >>‘evaluate (p1', st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>) = (res,s1)’ by metis_tac[]
+      >>rw[]
+    )
+    >-metis_tac[PAIR]
+    >-(
+      full_case_tac>>fs[]
+      >>‘CPstate_models cs (st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>)’ by (qpat_x_assum‘CPstate_models cs st’mp_tac>>rw[state_component_equality,CPstate_models_def])
+      >>‘CPstate_models cs' s1’ by metis_tac[]
+      >>pop_assum mp_tac>>rw[state_component_equality,CPstate_models_def]
+    )
+  )
+  >-(
+    (*Call*)
+    rw[copy_prop_prog_def,evaluate_def]
+    >>metis_tac[empty_eq_inv,empty_eq_model]
+  )
+  >-(
+    (*Alloc*)
+    rw[copy_prop_prog_def,evaluate_def]
+    >>metis_tac[empty_eq_inv,empty_eq_model]
+  )
+  >-(
+    (*StoreConsts*)
+    rw[copy_prop_prog_def,evaluate_def,remove_eqs_def]>>every_case_tac>>fs[]
+    >>TRY(metis_tac[remove_eq_inv])
+‘CPstate_models (remove_eq (remove_eq (remove_eq (remove_eq cs n0) n) n2) n1) st'’ suffices_by metis_tac[remove_eq_comm]
+    >>gvs[]
+    >>irule remove_eq_model_set_var>>conj_tac>-metis_tac[remove_eq_inv]
+    >>irule remove_eq_model_set_var>>conj_tac>-metis_tac[remove_eq_inv]
+    >>irule remove_eq_model_unset_var>>conj_tac>-metis_tac[remove_eq_inv]
+    >>irule remove_eq_model_unset_var>>conj_tac>-metis_tac[remove_eq_inv]
+    >>metis_tac[memory_model]
+  )
+  >-(
+    (*Raise*)
+    rw[copy_prop_prog_def,evaluate_def]
+    >-(‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]>>rw[])
+    >>every_case_tac>>fs[]
+  )
+  >-(
+    (*Return*)
+    rw[copy_prop_prog_def,evaluate_def]
+    >-(
+      ‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
+      >>‘get_var (lookup_eq cs n0) st = get_var n0 st’ by metis_tac[CPstate_modelsD_get_var]
+      >>rw[]
+    )
+    >>every_case_tac>>fs[]
+  )
+  >-(
+    (*Tick*)
+    rw[copy_prop_prog_def,evaluate_def]
+    >>pop_assum mp_tac>>rw[dec_clock_def,CPstate_models_def]
+  )
+  >-(
+    (*OpCurrHeap*)
+    rw[copy_prop_prog_def,evaluate_def]
+    >-(
+      ‘word_exp st (Op b [Var (lookup_eq cs n0); Lookup CurrHeap]) = word_exp st (Op b [Var n0; Lookup CurrHeap])’ by (irule word_exp_cong_Op>>rw[]>>metis_tac[word_exp_cong_Var,CPstate_modelsD_get_var])
+      >>rw[]
+    )
+    >-metis_tac[remove_eq_inv]
+    >>every_case_tac>>fs[]
+    >-metis_tac[remove_eq_model_set_var]
+  )
+  >-(
+    (*LocValue*)
+    rw[copy_prop_prog_def,evaluate_def]
+    >>cheat
   )
   >>cheat
 QED
