@@ -90,9 +90,9 @@ val depatch_line_side = Q.prove(
   `∀x. depatch_line_side x = T`,
   EVAL_TAC \\ rw[]) |> update_precondition;
 
-val r = save_thm("patch_aux_ind",
+Theorem patch_aux_ind =
   patch_aux_ind |> REWRITE_RULE (map GSYM [mllistTheory.take_def,
-                                           mllistTheory.drop_def]));
+                                           mllistTheory.drop_def])
 val _ = add_preferred_thy"-";
 val _ = translate(patch_aux_def |> REWRITE_RULE (map GSYM [mllistTheory.take_def,
                                                            mllistTheory.drop_def]));
@@ -243,9 +243,9 @@ Definition patch_prog_def:
   patch_prog = ^prog_tm
 End
 
-val patch_semantics = save_thm("patch_semantics",
+Theorem patch_semantics =
   sem_thm |> REWRITE_RULE[GSYM patch_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]);
+  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
 
 val _ = export_theory ();

@@ -328,8 +328,10 @@ val (arm8_config, arm8_asm_ok) =
     [DECIDE ``a < 32 /\ a <> 26 /\ a <> 31n <=> a <> 26 /\ a < 31``]
     ``arm8_config``
 
-val arm8_config = save_thm("arm8_config", arm8_config)
-val arm8_asm_ok = save_thm("arm8_asm_ok", arm8_asm_ok)
+Theorem arm8_config =
+  arm8_config
+Theorem arm8_asm_ok =
+  arm8_asm_ok
 
 (* lemmas used in bootstrap translation *)
 

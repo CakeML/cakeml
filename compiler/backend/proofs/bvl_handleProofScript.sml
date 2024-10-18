@@ -186,10 +186,10 @@ Termination
    \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
 End
 
-val evaluate_GENLIST = save_thm("evaluate_GENLIST",
+Theorem evaluate_GENLIST =
   evaluate_genlist_vars
   |> Q.SPECL[`0`,`env ++ ys`,`LENGTH (env:bvlSem$v list)`,`s`]
-  |> SIMP_RULE(srw_ss()++ETA_ss)[TAKE_APPEND1]);
+  |> SIMP_RULE(srw_ss()++ETA_ss)[TAKE_APPEND1]
 
 Definition env_rel_def:
   env_rel l env env1 =
@@ -458,7 +458,8 @@ Theorem compile_correct = Q.prove(`
   |> Q.SPECL [`xs`,`env`,`s1`,`ys`,`env`,`res`,`s2`,`[]`]
   |> SIMP_RULE std_ss [APPEND_NIL,env_rel_refl];
 
-val _ = save_thm("compile_correct[allow_rebind]",compile_correct);
+Theorem compile_correct[allow_rebind] =
+  compile_correct
 
 Theorem compile_correct[allow_rebind]:
    (evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\

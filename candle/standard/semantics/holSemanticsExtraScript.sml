@@ -775,9 +775,9 @@ QED
 (* special cases of interprets *)
 
 val rwt = MATCH_MP (PROVE[]``P x ⇒ ((∀x. P x ⇒ Q) ⇔ Q)``) is_type_valuation_exists
-val interprets_nil = save_thm("interprets_nil",
+Theorem interprets_nil =
   interprets_def |> SPEC_ALL |> Q.GEN`vs` |> Q.SPEC`[]`
-  |> SIMP_RULE (std_ss++listSimps.LIST_ss) [rwt] |> GEN_ALL)
+  |> SIMP_RULE (std_ss++listSimps.LIST_ss) [rwt] |> GEN_ALL
 
 Theorem interprets_one:
    i interprets name on [v] as f ⇔

@@ -617,7 +617,8 @@ val lemma = prove(th |> concl |> dest_imp |> fst,
 val th = MP th lemma |> SIMP_RULE std_ss []
          |> Q.SPECL [`h1`,`h2`,`a`,`n`,`heap`,`c`,`limit`,`h1'`,`a'`,`n'`,`heap'`]
 
-val gc_move_loop_ok = save_thm("gc_move_loop_ok",th);
+Theorem gc_move_loop_ok =
+  th
 
 Theorem gc_move_list_IMP_LENGTH:
    !l5 h a n heap c k xs ys a1 xs1 heap1 c1.

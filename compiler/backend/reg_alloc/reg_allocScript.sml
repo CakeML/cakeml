@@ -122,11 +122,16 @@ val degrees_manip = el 3 arr_manip;
 val coalesced_manip = el 4 arr_manip;
 val move_related_manip = el 5 arr_manip;
 
-val adj_ls_accessor = save_thm("adj_ls_accessor",accessor_thm adj_ls_manip);
-val node_tag_accessor = save_thm("node_tag_accessor",accessor_thm node_tag_manip);
-val degrees_accessor = save_thm("degrees_accessor",accessor_thm degrees_manip);
-val coalesced_accessor = save_thm("coalesced_accessor",accessor_thm coalesced_manip);
-val move_related_accessor = save_thm("move_related_accessor",accessor_thm move_related_manip);
+Theorem adj_ls_accessor =
+  accessor_thm adj_ls_manip
+Theorem node_tag_accessor =
+  accessor_thm node_tag_manip
+Theorem degrees_accessor =
+  accessor_thm degrees_manip
+Theorem coalesced_accessor =
+  accessor_thm coalesced_manip
+Theorem move_related_accessor =
+  accessor_thm move_related_manip
 
 (* Helper functions for defining the allocator *)
 

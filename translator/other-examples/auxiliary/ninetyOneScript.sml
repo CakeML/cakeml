@@ -128,8 +128,10 @@ val (N_def,N_ind) = Defn.tprove
     THEN POP_ASSUM MP_TAC
     THEN FULL_SIMP_TAC arith_ss [DECIDE ``x+y < p ==> ((p-y)+y = p)``]);
 
-val _ = save_thm ("N_def", N_def);
-val _ = save_thm ("N_ind", N_ind);
+Theorem N_def =
+  N_def
+Theorem N_ind =
+  N_ind
 
 Theorem N_correct:
  !x. N x = if x > 100 then x - 10 else 91

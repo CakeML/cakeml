@@ -31,12 +31,12 @@ val Decls_thm =
   |> REWRITE_RULE [ml_progTheory.ML_code_def];
 
 (* the qsort program successfully evaluates to an env, called auto_env3 *)
-val evaluate_prog_thm = save_thm("evaluate_prog_thm",
-  Decls_thm |> REWRITE_RULE [ml_progTheory.Decls_def]);
+Theorem evaluate_prog_thm =
+  Decls_thm |> REWRITE_RULE [ml_progTheory.Decls_def]
 
 (* looking up "qsort" in this env finds the qsort value (qsort_v) *)
-val lookup_qsort = save_thm("lookup_qsort",
-  EVAL ``nsLookup  ^(concl Decls_thm |> rator |> rand).v (Short "qsort")``);
+Theorem lookup_qsort =
+  EVAL ``nsLookup  ^(concl Decls_thm |> rator |> rand).v (Short "qsort")``
 
 (* --- a more concrete example, not much use --- *)
 

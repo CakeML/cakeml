@@ -209,8 +209,8 @@ Definition prim_config_def:
     FST (to_flat <| source_conf := empty_config |> (prim_types_program))
 End
 
-val prim_config_eq = save_thm("prim_config_eq",
-  EVAL ``prim_config`` |> SIMP_RULE std_ss [FUNION_FUPDATE_1,FUNION_FEMPTY_1]);
+Theorem prim_config_eq =
+  EVAL ``prim_config`` |> SIMP_RULE std_ss [FUNION_FUPDATE_1,FUNION_FEMPTY_1]
 
 Definition from_lab_def:
   from_lab c names p bm =

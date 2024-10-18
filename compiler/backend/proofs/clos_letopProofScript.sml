@@ -72,7 +72,8 @@ Inductive v_rel:
        v_rel (Recclosure loc args1 env1 funs1 k) (Recclosure loc args2 env2 funs2 k))
 End
 
-val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
+Theorem v_rel_simps[simp] =
+  LIST_CONJ [
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Number n) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Block n p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Word64 p) x``,
@@ -83,7 +84,7 @@ val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
   prove(``v_rel (Boolv b) x <=> x = Boolv b``,
         Cases_on `b` \\ fs [Boolv_def,Once v_rel_cases]),
   prove(``v_rel Unit x <=> x = Unit``,
-        fs [closSemTheory.Unit_def,Once v_rel_cases])])
+        fs [closSemTheory.Unit_def,Once v_rel_cases])]
 
 (* state relation *)
 
