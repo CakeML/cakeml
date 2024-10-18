@@ -38,7 +38,8 @@ fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
 
 fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val _ = (cv_memLib.verbosity_level := cv_memLib.Verbose)
-  fun report s = print ("eval_cake: " ^ s ^ "\n")
+  fun report s = print (String.concat ["eval_cake: ", s, " --- ",
+                    Date.toString (Date.fromTimeLocal (Time.now())),"\n"])
   val { prefix, conf_def, prog_def
       , output_filename , output_conf_filename } = input
   val { default_config_def, default_config_simp, to_livesets_def
