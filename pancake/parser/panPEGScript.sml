@@ -412,7 +412,7 @@ Definition parse_def:
     case peg_exec pancake_peg (mknt FunListNT) s [] NONE [] done failed of
     | Result (Success [] [e] _) => INL e
     | Result (Success toks _ _) =>
-        (case peg_exec pancake_peg (mknt FunNT) s [] NONE [] done failed of
+        (case peg_exec pancake_peg (mknt FunNT) toks [] NONE [] done failed of
           | Result (Failure loc msg) => INR [(implode msg, loc)]
           | _ => INR [])
     | Result (Failure loc msg) => INR [(implode msg, loc)]
