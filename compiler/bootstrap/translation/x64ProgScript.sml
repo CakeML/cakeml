@@ -20,9 +20,11 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "x64Prog");
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -46,26 +48,33 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val v2w_rw = Q.prove(`
-  v2w [P] = if P then 1w else 0w`,
-  rw[]>>EVAL_TAC);
+Triviality v2w_rw:
+  v2w [P] = if P then 1w else 0w
+Proof
+  rw[]>>EVAL_TAC
+QED
 
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
-val zreg2num_totalnum2zerg = Q.prove(`
-  Zreg2num (total_num2Zreg n) = if n < 16 then n else 0`,
-  EVAL_TAC>>IF_CASES_TAC>>fs[Zreg2num_num2Zreg]);
+Triviality zreg2num_totalnum2zerg:
+  Zreg2num (total_num2Zreg n) = if n < 16 then n else 0
+Proof
+  EVAL_TAC>>IF_CASES_TAC>>fs[Zreg2num_num2Zreg]
+QED
 
-val zreg2num_num2zerg_MOD8 = Q.prove(`
-  Zreg2num (num2Zreg (n MOD 8)) = n MOD 8`,
+Triviality zreg2num_num2zerg_MOD8:
+  Zreg2num (num2Zreg (n MOD 8)) = n MOD 8
+Proof
   `n MOD 8 < 8` by fs[] >>
   `n MOD 8 < 16` by DECIDE_TAC>>
-  fs[Zreg2num_num2Zreg]);
+  fs[Zreg2num_num2Zreg]
+QED
 
-val n2w_MOD8_simps = Q.prove(`
+Triviality n2w_MOD8_simps:
   n2w (n MOD 8) :word4 >>> 3 = 0w /\
   (n2w (n MOD 8) :word4 && 7w) = n2w (n MOD 8) ∧
-  BITS 3 0 (n MOD 8) =n MOD 8`,
+  BITS 3 0 (n MOD 8) =n MOD 8
+Proof
   FULL_BBLAST_TAC>>
   `n MOD 8 < 8` by fs[]>>
   `n MOD 8 = 0 \/
@@ -76,41 +85,56 @@ val n2w_MOD8_simps = Q.prove(`
   n MOD 8 = 5 \/
   n MOD 8 = 6 \/
   n MOD 8 = 7` by DECIDE_TAC>>
-  fs[]);
+  fs[]
+QED
 
-val Zbinop_name2num_x64_sh = Q.prove(`
+Triviality Zbinop_name2num_x64_sh:
   ∀s.Zbinop_name2num (x64_sh s) =
   case s of
     Lsl => 12
   | Lsr => 13
   | Asr => 15
-  | Ror => 9`,  Cases>>EVAL_TAC);
+  | Ror => 9
+Proof
+  Cases>>EVAL_TAC
+QED
 
-val x64_sh_notZtest = Q.prove(`
-  ∀s.(x64_sh s) ≠ Ztest `,Cases>>EVAL_TAC);
+Triviality x64_sh_notZtest:
+  ∀s.(x64_sh s) ≠ Ztest
+Proof
+  Cases>>EVAL_TAC
+QED
 
-val exh_if_collapse = Q.prove(`
-  ((if P then Ztest else Zcmp) = Ztest) ⇔ P `,rw[]);
+Triviality exh_if_collapse:
+  ((if P then Ztest else Zcmp) = Ztest) ⇔ P
+Proof
+  rw[]
+QED
 
-val is_rax_zr_thm = Q.prove(`
+Triviality is_rax_zr_thm:
   is_rax (Zr (total_num2Zreg n)) ⇔
-  n = 0 ∨ n ≥ 16`,
+  n = 0 ∨ n ≥ 16
+Proof
   rw[is_rax_def]>>
   EVAL_TAC>>rw[]>>
   rpt(Cases_on`n`>>EVAL_TAC>>fs[]>>
-  Cases_on`n'`>>EVAL_TAC>>fs[]))
+  Cases_on`n'`>>EVAL_TAC>>fs[])
+QED
 
 (* commute list case, option case and if *)
-val case_ifs = Q.prove(`
+Triviality case_ifs:
   ((case
     if P then
       l1
     else l2
   of
     [] => A
-  | ls => B ls) = if P then case l1 of [] => A | ls => B ls else case l2 of [] => A | ls => B ls)`,rw[])
+  | ls => B ls) = if P then case l1 of [] => A | ls => B ls else case l2 of [] => A | ls => B ls)
+Proof
+  rw[]
+QED
 
-val case_ifs2 = Q.prove(`
+Triviality case_ifs2:
   ((case
     if P then
       SOME (a,b,c)
@@ -118,12 +142,15 @@ val case_ifs2 = Q.prove(`
   of
     NONE => A
   | SOME (a,b,c) => B a b c) = if P then B a b c else A)
-  `,
-  rw[])
+Proof
+  rw[]
+QED
 
-val if_neq = Q.prove(`
-  (if P then [x] else []) ≠ [] ⇔ P`,
-  rw[])
+Triviality if_neq:
+  (if P then [x] else []) ≠ [] ⇔ P
+Proof
+  rw[]
+QED
 
 val fconv = SIMP_RULE (srw_ss()) [SHIFT_ZERO,case_ifs,case_ifs2,if_neq]
 
@@ -151,11 +178,13 @@ val x64_enc1s = x64_enc1 |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expan
 
 val x64_enc1_1 = el 1 x64_enc1s
 
-val simp_rw = Q.prove(`
+Triviality simp_rw:
   (if ((1w:word4 && n2w (if n < 16 then n else 0) ⋙ 3) = 1w) then 1w else 0w:word4) =
-  (1w && n2w (if n < 16 then n else 0) ⋙ 3)`,
+  (1w && n2w (if n < 16 then n else 0) ⋙ 3)
+Proof
   rw[]>>fs[]>>
-  blastLib.FULL_BBLAST_TAC);
+  blastLib.FULL_BBLAST_TAC
+QED
 
 val x64_enc1_2 = el 2 x64_enc1s |> wc_simp |> we_simp |> gconv |>
  bconv |> SIMP_RULE std_ss [SHIFT_ZERO,Q.ISPEC`Zsize_CASE`
@@ -270,9 +299,11 @@ else if is_conj t then
 else
   false
 
-val case_append = Q.prove(`
-  (case a ++ [b;c] ++ d of [] => x | ls => ls) = a++[b;c]++d`,
-  EVERY_CASE_TAC>>fs[]);
+Triviality case_append:
+  (case a ++ [b;c] ++ d of [] => x | ls => ls) = a++[b;c]++d
+Proof
+  EVERY_CASE_TAC>>fs[]
+QED
 
 val x64_enc3_2_th =
   x64_enc3_2 |> CONJUNCTS
@@ -286,9 +317,11 @@ val x64_simp3 =
 
 val x64_simp4 = x64_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 
-val case_append2 = Q.prove(`
-  (case a ++ [b;c] of [] => e | ls => ls) = a++[b;c]`,
-  EVERY_CASE_TAC>>fs[]);
+Triviality case_append2:
+  (case a ++ [b;c] of [] => e | ls => ls) = a++[b;c]
+Proof
+  EVERY_CASE_TAC>>fs[]
+QED
 
 val x64_simp5 = x64_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |>
 wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> bconv

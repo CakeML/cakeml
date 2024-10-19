@@ -285,8 +285,9 @@ Definition mips_ast_def:
            ArithI (ORI (temp_reg, 31w, 0w))])
 End        (* LR := tmp    *)
 
-val mips_enc_def = zDefine`
-  mips_enc = combin$C LIST_BIND mips_encode o mips_ast`
+Definition mips_enc_def[nocompute]:
+  mips_enc = combin$C LIST_BIND mips_encode o mips_ast
+End
 
 (* --- Configuration for MIPS --- *)
 

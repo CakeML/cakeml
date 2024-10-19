@@ -17,10 +17,11 @@ Definition STATE_PINV_def:
   STATE_PINV = \state. EVEN state.the_num /\ (state.the_string = "")
 End
 
-val STATE_PINV_VALID = Q.prove (
-  `(state.the_num = 0) /\ (state.the_string = "") ==> STATE_PINV state`,
+Triviality STATE_PINV_VALID:
+  (state.the_num = 0) /\ (state.the_string = "") ==> STATE_PINV state
+Proof
   rw[STATE_PINV_def]
-);
+QED
 
 (* Data type for the exceptions *)
 Datatype:
@@ -85,14 +86,16 @@ End
 val mf6_v_thm = m_translate mf6_def;
 
 val length_v_thm = translate listTheory.LENGTH;
-val ZIP_def2 = Q.prove(
-  `ZIP x = dtcase x of
+Triviality ZIP_def2:
+  ZIP x = dtcase x of
       (x::l1, y::l2) => (x, y) :: ( ZIP (l1,l2) )
     | ([], [])       => []
-    | _              => []`,
-PairCases_on ‘x’ \\ Cases_on `x0`
+    | _              => []
+Proof
+  PairCases_on ‘x’ \\ Cases_on `x0`
 \\ Cases_on `x1`
-\\ fs[ZIP_def]);
+\\ fs[ZIP_def]
+QED
 
 val zip_v_thm = translate ZIP_def2;
 

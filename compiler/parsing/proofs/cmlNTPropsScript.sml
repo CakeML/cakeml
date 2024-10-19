@@ -9,7 +9,11 @@ val _ = new_theory "cmlNTProps";
 
 val _ = set_grammar_ancestry ["gramProps"]
 
-val disjImpI = Q.prove(`~p \/ q ⇔ p ⇒ q`, DECIDE_TAC)
+Triviality disjImpI:
+  ~p \/ q ⇔ p ⇒ q
+Proof
+  DECIDE_TAC
+QED
 
 Theorem firstSet_nUQTyOp[simp]:
   firstSet cmlG (NN nUQTyOp::rest) =

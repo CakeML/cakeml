@@ -141,22 +141,31 @@ end
 val cmlG_FDOM = save_thm("cmlG_FDOM",
   SIMP_CONV (srw_ss()) [cmlG_def] ``FDOM cmlG.rules``)
 
-val paireq = Q.prove(
-  `(x,y) = z ⇔ x = FST z ∧ y = SND z`, Cases_on `z` >> simp[])
+Triviality paireq:
+  (x,y) = z ⇔ x = FST z ∧ y = SND z
+Proof
+  Cases_on `z` >> simp[]
+QED
 
-val GSPEC_INTER = Q.prove(
-  `GSPEC f ∩ Q =
-    GSPEC (S ($, o FST o f) (S ($/\ o SND o f) (Q o FST o f)))`,
+Triviality GSPEC_INTER:
+  GSPEC f ∩ Q =
+    GSPEC (S ($, o FST o f) (S ($/\ o SND o f) (Q o FST o f)))
+Proof
   simp[GSPECIFICATION, EXTENSION, SPECIFICATION] >> qx_gen_tac `e` >>
-  simp[paireq] >> metis_tac[])
+  simp[paireq] >> metis_tac[]
+QED
 
-val RIGHT_INTER_OVER_UNION = Q.prove(
-  `(a ∪ b) ∩ c = (a ∩ c) ∪ (b ∩ c)`,
-  simp[EXTENSION] >> metis_tac[]);
+Triviality RIGHT_INTER_OVER_UNION:
+  (a ∪ b) ∩ c = (a ∩ c) ∪ (b ∩ c)
+Proof
+  simp[EXTENSION] >> metis_tac[]
+QED
 
-val GSPEC_applied = Q.prove(
-  `GSPEC f x ⇔ x IN GSPEC f`,
-  simp[SPECIFICATION])
+Triviality GSPEC_applied:
+  GSPEC f x ⇔ x IN GSPEC f
+Proof
+  simp[SPECIFICATION]
+QED
 
 val c1 = Cong (DECIDE ``(p = p') ==> ((p /\ q) = (p' /\ q))``)
 val condc =
@@ -177,16 +186,20 @@ val safenml = LIST_CONJ (List.take(CONJUNCTS nullableML_def, 2))
 
 val nullML_t = prim_mk_const {Thy = "NTproperties", Name = "nullableML"}
 
-val nullloop_th = Q.prove(
-  `nullableML G (N INSERT sn) (NT N :: rest) = F`,
-  simp[Once nullableML_def]);
+Triviality nullloop_th:
+  nullableML G (N INSERT sn) (NT N :: rest) = F
+Proof
+  simp[Once nullableML_def]
+QED
 
-val null2 = Q.prove(
-  `nullableML G sn (x :: y :: z) <=>
+Triviality null2:
+  nullableML G sn (x :: y :: z) <=>
       nullableML G sn [x] ∧ nullableML G sn [y] ∧
-      nullableML G sn z`,
+      nullableML G sn z
+Proof
   simp[Once nullableML_by_singletons, SimpLHS] >>
-  dsimp[] >> simp[GSYM nullableML_by_singletons]);
+  dsimp[] >> simp[GSYM nullableML_by_singletons]
+QED
 
 
 fun prove_nullable domapp sn acc G_t t = let

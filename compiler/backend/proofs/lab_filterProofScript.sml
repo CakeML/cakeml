@@ -32,9 +32,11 @@ Definition all_skips_def:
     asm_fetch_aux (pc+i) code = SOME(Asm (Asmi(Inst Skip)) x y)
 End
 
-val is_Label_not_skip = Q.prove(`
-  is_Label y ⇒ not_skip y`,
-  Cases_on`y`>>full_simp_tac(srw_ss())[is_Label_def,not_skip_def])
+Triviality is_Label_not_skip:
+  is_Label y ⇒ not_skip y
+Proof
+  Cases_on`y`>>full_simp_tac(srw_ss())[is_Label_def,not_skip_def]
+QED
 
 (*
 Proof plan:
@@ -118,10 +120,11 @@ Proof
 QED
 (*For any adjusted fetch, the original fetch is either equal or is a skip
 This is probably the wrong direction*)
-val asm_fetch_not_skip_adjust_pc = Q.prove(
-  `∀pc code inst.
+Triviality asm_fetch_not_skip_adjust_pc:
+  ∀pc code inst.
   (∀x y.asm_fetch_aux pc code ≠ SOME (Asm (Asmi(Inst Skip)) x y)) ⇒
-  asm_fetch_aux pc code = asm_fetch_aux (adjust_pc pc code) (filter_skip code)`,
+  asm_fetch_aux pc code = asm_fetch_aux (adjust_pc pc code) (filter_skip code)
+Proof
   ho_match_mp_tac asm_fetch_aux_ind>>srw_tac[][]
   >-
     simp[asm_fetch_aux_def,filter_skip_def]
@@ -150,22 +153,26 @@ val asm_fetch_not_skip_adjust_pc = Q.prove(
     full_simp_tac(srw_ss())[Once asm_fetch_aux_def]>>
     simp[Once adjust_pc_def,SimpRHS]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[filter_skip_def]>>
-    simp[asm_fetch_aux_def]);
+    simp[asm_fetch_aux_def]
+QED
 
-val state_rw = Q.prove(`
+Triviality state_rw:
   s with clock := s.clock = s ∧
   s with pc := s.pc = s ∧
-  s with <|pc := s.pc; clock:= s.clock+k'|> = s with clock:=s.clock+k'`,
-  full_simp_tac(srw_ss())[state_component_equality])
+  s with <|pc := s.pc; clock:= s.clock+k'|> = s with clock:=s.clock+k'
+Proof
+  full_simp_tac(srw_ss())[state_component_equality]
+QED
 
 (* 2) all_skips allow swapping pc for clock*)
-val all_skips_evaluate = Q.prove(`
+Triviality all_skips_evaluate:
   ∀k s.
   all_skips s.pc s.code k ∧
   ¬s.failed ⇒
   ∀k'.
   evaluate (s with clock:= s.clock +k' + k) =
-  evaluate (s with <|pc := s.pc +k; clock:= s.clock +k'|>)`,
+  evaluate (s with <|pc := s.pc +k; clock:= s.clock +k'|>)
+Proof
   Induct>>full_simp_tac(srw_ss())[all_skips_def]
   >-
     metis_tac[state_rw]
@@ -184,7 +191,8 @@ val all_skips_evaluate = Q.prove(`
       (srw_tac[][]>>first_x_assum(qspec_then`i+1` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
       metis_tac[arithmeticTheory.ADD_COMM,ADD_ASSOC])>>
     srw_tac[][]>>first_x_assum(qspec_then`0` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    metis_tac[arithmeticTheory.ADD_COMM,ADD_ASSOC])
+    metis_tac[arithmeticTheory.ADD_COMM,ADD_ASSOC]
+QED
 
 Definition state_rel_def:
   state_rel (s1:('a,'c,'ffi) labSem$state) t1 ⇔
@@ -198,10 +206,11 @@ Definition state_rel_def:
     ¬t1.failed
 End
 
-val adjust_pc_all_skips = Q.prove(`
+Triviality adjust_pc_all_skips:
   ∀k pc code.
   all_skips pc code k ⇒
-  adjust_pc pc code +1 = adjust_pc (pc+k+1) code`,
+  adjust_pc pc code +1 = adjust_pc (pc+k+1) code
+Proof
   Induct>>full_simp_tac(srw_ss())[all_skips_def]>>simp[]>>
   ho_match_mp_tac asm_fetch_aux_ind
   >>
@@ -235,22 +244,26 @@ val adjust_pc_all_skips = Q.prove(`
     `!i. i+(pc-1) = i+pc -1` by DECIDE_TAC>>
     full_simp_tac(srw_ss())[]>>
     first_assum match_mp_tac>>full_simp_tac(srw_ss())[]>>
-    full_simp_tac(srw_ss())[]);
+    full_simp_tac(srw_ss())[]
+QED
 
-val asm_fetch_aux_eq2 = Q.prove(
-`asm_fetch_aux (adjust_pc pc code) (filter_skip code) = x ⇒
+Triviality asm_fetch_aux_eq2:
+  asm_fetch_aux (adjust_pc pc code) (filter_skip code) = x ⇒
   ∃k.
   asm_fetch_aux (pc+k) code = x ∧
-  all_skips pc code k`,
-  metis_tac[asm_fetch_aux_eq]);
+  all_skips pc code k
+Proof
+  metis_tac[asm_fetch_aux_eq]
+QED
 
 val all_skips_evaluate_0 = all_skips_evaluate |>SIMP_RULE std_ss [PULL_FORALL]|>(Q.SPECL[`k`,`s`,`0`])|>GEN_ALL|>SIMP_RULE std_ss[]
 
-val all_skips_evaluate_rw = Q.prove(`
+Triviality all_skips_evaluate_rw:
   all_skips s.pc s.code k ∧ ¬s.failed ∧
   s.clock = clk + k ∧
   t = s with <| pc:= s.pc +k ; clock := clk |> ⇒
-  evaluate s = evaluate t`,
+  evaluate s = evaluate t
+Proof
   srw_tac[][]>>
   qabbrev_tac`s' = s with clock := clk`>>
   `s = s' with clock := s'.clock +k` by
@@ -259,12 +272,14 @@ val all_skips_evaluate_rw = Q.prove(`
    s' with <| pc := s'.pc +k ; clock := s'.clock|>` by full_simp_tac(srw_ss())[state_component_equality]>>
    ntac 2 (pop_assum SUBST_ALL_TAC)>>
    match_mp_tac all_skips_evaluate_0>>
-   full_simp_tac(srw_ss())[state_component_equality])
+   full_simp_tac(srw_ss())[state_component_equality]
+QED
 
 (*For all initial code there is some all_skips*)
-val all_skips_initial_adjust = Q.prove(`
+Triviality all_skips_initial_adjust:
   ∀code.
-  ∃k. all_skips 0 code k ∧ adjust_pc k code = 0`,
+  ∃k. all_skips 0 code k ∧ adjust_pc k code = 0
+Proof
   Induct>>full_simp_tac(srw_ss())[all_skips_def]
   >-
     (qexists_tac`0`>>full_simp_tac(srw_ss())[adjust_pc_def,asm_fetch_aux_def])
@@ -286,13 +301,15 @@ val all_skips_initial_adjust = Q.prove(`
         `i-1 < k'` by DECIDE_TAC>>
         metis_tac[])
       >> (qexists_tac`0`>>full_simp_tac(srw_ss())[]))
-    >> (qexists_tac`0`>>full_simp_tac(srw_ss())[]));
+    >> (qexists_tac`0`>>full_simp_tac(srw_ss())[])
+QED
 
 (*May need strengthening*)
-val loc_to_pc_eq_NONE = Q.prove(`
+Triviality loc_to_pc_eq_NONE:
   ∀n1 n2 code.
   loc_to_pc n1 n2 (filter_skip code) = NONE ⇒
-  loc_to_pc n1 n2 code = NONE`,
+  loc_to_pc n1 n2 code = NONE
+Proof
   ho_match_mp_tac loc_to_pc_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[filter_skip_def]>>
   full_simp_tac(srw_ss())[Once loc_to_pc_def]>>IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
@@ -305,14 +322,16 @@ val loc_to_pc_eq_NONE = Q.prove(`
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     simp[Once loc_to_pc_def]>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>NO_TAC)>>
-  full_simp_tac(srw_ss())[not_skip_def])
+  full_simp_tac(srw_ss())[not_skip_def]
+QED
 
-val loc_to_pc_eq_SOME = Q.prove(`
+Triviality loc_to_pc_eq_SOME:
   ∀n1 n2 code pc.
   loc_to_pc n1 n2 (filter_skip code) = SOME pc ⇒
   ∃pc'.
   loc_to_pc n1 n2 code = SOME pc' ∧
-  adjust_pc pc' code = pc`,
+  adjust_pc pc' code = pc
+Proof
   ho_match_mp_tac loc_to_pc_ind>>srw_tac[][]
   >-
     (full_simp_tac(srw_ss())[filter_skip_def,adjust_pc_def]>>
@@ -374,20 +393,24 @@ val loc_to_pc_eq_SOME = Q.prove(`
           DECIDE_TAC)>>
         srw_tac[][]>>
         simp[Once loc_to_pc_def]>>
-        simp[Once adjust_pc_def])));
+        simp[Once adjust_pc_def]))
+QED
 
-val next_label_filter_skip = Q.prove(`
+Triviality next_label_filter_skip:
   ∀code.
-  next_label code = next_label (filter_skip code)`,
+  next_label code = next_label (filter_skip code)
+Proof
   ho_match_mp_tac next_label_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[next_label_def,filter_skip_def,not_skip_def]>>
-  EVERY_CASE_TAC>>full_simp_tac(srw_ss())[next_label_def])
+  EVERY_CASE_TAC>>full_simp_tac(srw_ss())[next_label_def]
+QED
 
-val all_skips_get_lab_after = Q.prove(`
+Triviality all_skips_get_lab_after:
   ∀code k.
   all_skips 0 code k ⇒
   get_lab_after k code =
-  get_lab_after 0 (filter_skip code)`,
+  get_lab_after 0 (filter_skip code)
+Proof
   Induct>>full_simp_tac(srw_ss())[get_lab_after_def,filter_skip_def]>>
   Induct>>Induct_on`l`>>srw_tac[][]>>full_simp_tac(srw_ss())[filter_skip_def,get_lab_after_def]
   >-
@@ -422,12 +445,14 @@ val all_skips_get_lab_after = Q.prove(`
     full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def]>>srw_tac[][]>>
     `i+1 < k` by DECIDE_TAC>>
     res_tac>>
-    full_simp_tac(srw_ss())[]);
+    full_simp_tac(srw_ss())[]
+QED
 
-val get_lab_after_adjust = Q.prove(`
+Triviality get_lab_after_adjust:
   ∀pc code k.
   all_skips pc code k ⇒
-  get_lab_after (pc+k) code = get_lab_after (adjust_pc pc code) (filter_skip code)`,
+  get_lab_after (pc+k) code = get_lab_after (adjust_pc pc code) (filter_skip code)
+Proof
   ho_match_mp_tac get_lab_after_ind>>
   srw_tac[][]
   >-
@@ -474,12 +499,14 @@ val get_lab_after_adjust = Q.prove(`
       full_simp_tac(srw_ss())[]>>
       first_assum match_mp_tac>>
       `∀x. pc + x -1 = pc -1 +x` by DECIDE_TAC>>
-      full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def]);
+      full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def]
+QED
 
-val loc_to_pc_adjust_pc_append = Q.prove(`
+Triviality loc_to_pc_adjust_pc_append:
   ∀n1 n2 code pc ls.
   loc_to_pc n1 n2 code = SOME pc ==>
-  adjust_pc pc code = adjust_pc pc (code++ls)`,
+  adjust_pc pc code = adjust_pc pc (code++ls)
+Proof
   ho_match_mp_tac loc_to_pc_ind>>rw[]>>
   pop_assum mp_tac>>
   simp[Once loc_to_pc_def]>>
@@ -506,7 +533,8 @@ val loc_to_pc_adjust_pc_append = Q.prove(`
   fs[]>>
   simp[Once adjust_pc_def]>>
   simp[Once adjust_pc_def,SimpRHS]>>
-  IF_CASES_TAC>>rw[]>>simp[])
+  IF_CASES_TAC>>rw[]>>simp[]
+QED
 
 val same_inst_tac =
   full_simp_tac(srw_ss())[asm_fetch_def,state_rel_def,state_component_equality]>>
@@ -984,8 +1012,9 @@ Proof
       same_inst_tac
 QED
 
-val state_rel_IMP_sem_EQ_sem = Q.prove(
-  `!s t. state_rel s t ==> semantics s = semantics t`,
+Triviality state_rel_IMP_sem_EQ_sem:
+  !s t. state_rel s t ==> semantics s = semantics t
+Proof
   srw_tac[][labSemTheory.semantics_def] >- (
     DEEP_INTRO_TAC some_intro >>
     full_simp_tac(srw_ss())[FST_EQ_EQUIV] >>
@@ -1095,7 +1124,8 @@ val state_rel_IMP_sem_EQ_sem = Q.prove(
       simp[] >> strip_tac >>
       full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >> full_simp_tac(srw_ss())[] >>
       qexists_tac`k+k'`>>simp[EL_APPEND1] ) >>
-    metis_tac[build_lprefix_lub_thm,unique_lprefix_lub,lprefix_lub_new_chain]));
+    metis_tac[build_lprefix_lub_thm,unique_lprefix_lub,lprefix_lub_new_chain])
+QED
 
 Theorem filter_skip_semantics:
    !s t. (t.pc = 0) ∧ ¬t.failed /\

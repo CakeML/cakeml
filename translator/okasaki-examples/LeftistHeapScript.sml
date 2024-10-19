@@ -15,8 +15,9 @@ val _ = translation_extends "ListProg";
 
 (* Okasaki page 20 *)
 
-val _ = Datatype`
-  heap = Empty | Tree num 'a heap heap`;
+Datatype:
+  heap = Empty | Tree num 'a heap heap
+End
 
 Definition heap_to_bag_def:
 (heap_to_bag Empty = {||}) ∧
@@ -182,20 +183,24 @@ QED
 val delete_min_side_def = fetch "-" "delete_min_side_def"
 val find_min_side_def = fetch "-" "find_min_side_def"
 
-val delete_min_side = Q.prove (
-`!get_key leq h. delete_min_side get_key leq h = (h ≠ Empty)`,
-rw [delete_min_side_def] >>
+Triviality delete_min_side:
+  !get_key leq h. delete_min_side get_key leq h = (h ≠ Empty)
+Proof
+  rw [delete_min_side_def] >>
 eq_tac >>
 rw [] >>
 cases_on `h` >>
-rw []);
+rw []
+QED
 
-val find_min_side = Q.prove (
-`!h. find_min_side h = (h ≠ Empty)`,
-rw [find_min_side_def] >>
+Triviality find_min_side:
+  !h. find_min_side h = (h ≠ Empty)
+Proof
+  rw [find_min_side_def] >>
 eq_tac >>
 rw [] >>
 cases_on `h` >>
-rw []);
+rw []
+QED
 
 val _ = export_theory ();

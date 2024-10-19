@@ -16,11 +16,12 @@ Overload return[local] = ``st_ex_return``
 
 val _ = hide "state";
 
-val _ = Datatype`
+Datatype:
   live_tree = Writes (num list)
             | Reads (num list)
             | Branch live_tree live_tree
-            | Seq live_tree live_tree`
+            | Seq live_tree live_tree
+End
 
 
 Definition numset_list_insert_def:
@@ -312,7 +313,7 @@ Definition get_intervals_ct_def:
         (n-1, numset_list_add_if_lt listlive n int_beg, numset_list_add_if_gt listlive n int_end)
 End
 
-val _ = Datatype `
+Datatype:
   linear_scan_state =
     <| active: (int # num) list (* interval end # reg *)
      ; colorpool: num list
@@ -320,16 +321,18 @@ val _ = Datatype `
      ; colornum: num
      ; colormax: num
      ; stacknum: num
-     |>`
+     |>
+End
 
-val _ = Datatype `
+Datatype:
   linear_scan_hidden_state =
     <| colors : num list
      ; int_beg : int list
      ; int_end : int list
      ; sorted_regs : num list
      ; sorted_moves : (num # (num # num)) list
-     |>`
+     |>
+End
 
 val accessors = define_monad_access_funs ``:linear_scan_hidden_state``;
 
@@ -488,7 +491,7 @@ Definition get_intervals_ct_monad_def:
       od
 End
 
-val remove_inactive_intervals_def = tDefine "remove_inactive_intervals" `
+Definition remove_inactive_intervals_def:
     remove_inactive_intervals beg st =
       case st.active of
       | [] => return st
@@ -505,10 +508,12 @@ val remove_inactive_intervals_def = tDefine "remove_inactive_intervals" `
         else
           return st
       )
-`(
+Termination
+
     WF_REL_TAC `measure (\(_,st). LENGTH (st.active))` >>
     rw []
-);
+
+End
 
 Definition add_active_interval_def:
   (
@@ -800,7 +805,7 @@ Definition swap_regs_def:
       od
 End
 
-val partition_regs_def = tDefine "partition_regs" `
+Definition partition_regs_def:
     partition_regs l rpiv begrpiv r =
       if r <= l then
         return l
@@ -816,11 +821,13 @@ val partition_regs_def = tDefine "partition_regs" `
               partition_regs l rpiv begrpiv (r-1);
             od
         od
-` (
-  WF_REL_TAC `measure (\l,rpiv,begrpiv,r. r-l)`
-);
+Termination
 
-val qsort_regs_def = tDefine "qsort_regs" `
+  WF_REL_TAC `measure (\l,rpiv,begrpiv,r. r-l)`
+
+End
+
+Definition qsort_regs_def:
     qsort_regs l r =
       if r <= l+1 then
         return ()
@@ -839,9 +846,11 @@ val qsort_regs_def = tDefine "qsort_regs" `
               qsort_regs m r;
             od
         od
-`(
+Termination
+
     WF_REL_TAC `measure (\l,r. r-l)`
-)
+
+End
 
 Definition list_to_sorted_regs_def:
   (
@@ -856,7 +865,7 @@ Definition list_to_sorted_regs_def:
   )
 End
 
-val sorted_regs_to_list_def = tDefine "sorted_regs_to_list" `
+Definition sorted_regs_to_list_def:
     sorted_regs_to_list n last =
       if last <= n then
         return []
@@ -866,9 +875,11 @@ val sorted_regs_to_list_def = tDefine "sorted_regs_to_list" `
           l <- sorted_regs_to_list (n+1) last;
           return (r::l);
         od
-` (
+Termination
+
   WF_REL_TAC `measure (\n,last. last-n)`
-);
+
+End
 
 Definition swap_moves_def:
     swap_moves i1 i2 =
@@ -880,7 +891,7 @@ Definition swap_moves_def:
       od
 End
 
-val partition_moves_def = tDefine "partition_moves" `
+Definition partition_moves_def:
     partition_moves l ppiv r =
       if r <= l then
         return l
@@ -895,11 +906,13 @@ val partition_moves_def = tDefine "partition_moves" `
               partition_moves l ppiv (r-1);
             od
         od
-` (
-  WF_REL_TAC `measure (\l,piv,r. r-l)`
-);
+Termination
 
-val qsort_moves_def = tDefine "qsort_moves" `
+  WF_REL_TAC `measure (\l,piv,r. r-l)`
+
+End
+
+Definition qsort_moves_def:
     qsort_moves l r =
       if r <= l+1 then
         return ()
@@ -917,9 +930,11 @@ val qsort_moves_def = tDefine "qsort_moves" `
               qsort_moves m r;
             od
         od
-`(
+Termination
+
     WF_REL_TAC `measure (\l,r. r-l)`
-)
+
+End
 
 
 Definition list_to_sorted_moves_def:
@@ -935,7 +950,7 @@ Definition list_to_sorted_moves_def:
   )
 End
 
-val sorted_moves_to_list_def = tDefine "sorted_moves_to_list" `
+Definition sorted_moves_to_list_def:
     sorted_moves_to_list n len =
       if len <= n then
         return []
@@ -945,9 +960,11 @@ val sorted_moves_to_list_def = tDefine "sorted_moves_to_list" `
           l <- sorted_moves_to_list (n+1) len;
           return (r::l);
         od
-` (
+Termination
+
   WF_REL_TAC `measure (\n,len. len-n)`
-);
+
+End
 
 Definition linear_reg_alloc_intervals_def:
     linear_reg_alloc_intervals k forced moves reglist_unsorted =
@@ -995,14 +1012,15 @@ Definition extract_coloration_def:
   )
 End
 
-val _ = Datatype `
+Datatype:
   bijection_state =
     <| bij : num num_map
      ; invbij : num num_map
      ; nmax : num
      ; nstack : num
      ; nalloc : num
-     |>`
+     |>
+End
 
 Definition find_bijection_init_def:
     find_bijection_init =

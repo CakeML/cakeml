@@ -143,10 +143,12 @@ Proof
        realTheory.real_sub]
 QED
 
-val inv_div = Q.prove(
-  ‘x ≠ 0r ∧ y ≠ 0 ⇒ (inv (x / y) = y / x)’,
+Triviality inv_div:
+  x ≠ 0r ∧ y ≠ 0 ⇒ (inv (x / y) = y / x)
+Proof
   simp[realTheory.real_div, realTheory.REAL_INV_MUL, realTheory.REAL_INV_EQ_0,
-       realTheory.REAL_INV_INV, realTheory.REAL_MUL_COMM]);
+       realTheory.REAL_INV_INV, realTheory.REAL_MUL_COMM]
+QED
 
 Theorem real_of_int_eq_num[simp]:
    ((real_of_int i = &n) <=> (i = &n)) /\

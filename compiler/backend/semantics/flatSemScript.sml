@@ -30,27 +30,30 @@ val _ = new_theory "flatSem";
 val _ = set_grammar_ancestry ["flatLang", "semanticPrimitivesProps", "fpSem"];
 val _ = temp_tight_equality();
 
-val _ = Datatype`
+Datatype:
   (* 'v *) environment = <|
     v : (varN, 'v) alist
-  |>`;
+  |>
+End
 
-val _ = Datatype`
+Datatype:
   v =
     | Litv lit
     | Conv ((ctor_id # type_id) option) (v list)
     | Closure (v environment) varN exp
     | Recclosure (v environment) ((varN # varN # exp) list) varN
     | Loc num
-    | Vectorv (v list)`;
+    | Vectorv (v list)
+End
 
-val _ = Datatype `
+Datatype:
   install_config =
    <| compile : 'c -> flatLang$dec list -> (word8 list # word64 list # 'c) option
     ; compile_oracle : num -> 'c # flatLang$dec list
-    |>`
+    |>
+End
 
-val _ = Datatype`
+Datatype:
   state = <|
     clock   : num;
     refs    : v store;
@@ -60,7 +63,8 @@ val _ = Datatype`
     c : ((ctor_id # type_id) # num) set;
     (* eval or install mode *)
     eval_config : 'c install_config
-  |>`;
+  |>
+End
 
 val s = ``s:('c,'ffi) flatSem$state``
 
@@ -627,9 +631,11 @@ Definition fix_clock_def:
   fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)
 End
 
-val fix_clock_IMP = Q.prove(
-  `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
+Triviality fix_clock_IMP:
+  fix_clock s x = (s1,res) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
 Theorem pmatch_rows_Match_exp_size:
   !pes s v env e.
@@ -824,14 +830,18 @@ val eqs = LIST_CONJ (map prove_case_eq_thm
 
 val case_eq_thms = save_thm ("case_eq_thms", eqs)
 
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
+Triviality pair_case_eq:
+  pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
+Proof
+  Cases_on `x` >>
+ srw_tac[][]
+QED
 
-val pair_lam_lem = Q.prove (
-`!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
- srw_tac[][]);
+Triviality pair_lam_lem:
+  !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
+Proof
+  srw_tac[][]
+QED
 
 val do_app_cases = save_thm ("do_app_cases",
 ``do_app st op vs = SOME (st',v)`` |>

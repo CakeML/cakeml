@@ -5,8 +5,6 @@ open preamble
 
 val _ = new_theory"mloption"
 
-(*val _ = Datatype `option = *)
-
 Definition getOpt_def:
   (getOpt (SOME v) a = v) /\
   (getOpt NONE a = a)

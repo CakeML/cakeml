@@ -207,13 +207,17 @@ Proof
   fs[FLOOKUP_UPDATE]
 QED
 
-val MEM_TAKE = Q.prove(
-  `!xs n x. MEM x (TAKE n xs) ==> MEM x xs`,
-  Induct \\ fs [TAKE_def] \\ rw [] \\ res_tac \\ fs []);
+Triviality MEM_TAKE:
+  !xs n x. MEM x (TAKE n xs) ==> MEM x xs
+Proof
+  Induct \\ fs [TAKE_def] \\ rw [] \\ res_tac \\ fs []
+QED
 
-val MEM_LASTN_ALT = Q.prove(
-  `!xs n x. MEM x (LASTN n xs) ==> MEM x xs`,
-  fs [LASTN_def] \\ rw [] \\ imp_res_tac MEM_TAKE \\ fs []);
+Triviality MEM_LASTN_ALT:
+  !xs n x. MEM x (LASTN n xs) ==> MEM x xs
+Proof
+  fs [LASTN_def] \\ rw [] \\ imp_res_tac MEM_TAKE \\ fs []
+QED
 
 Theorem clock_add_0[simp]:
    ((t with clock := t.clock + 0) = t:('a,'c,'ffi) stackSem$state) /\
@@ -229,19 +233,25 @@ Proof
   \\ rpt strip_tac \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac
 QED
 
-val TAKE_TAKE_MIN = Q.prove(
-    `!xs m n. TAKE n (TAKE m xs) = TAKE (MIN m n) xs`,
-    Induct \\ Cases_on `m` \\ Cases_on `n` \\ fs [MIN_DEF]
-    \\ rw [] \\ fs [] \\ Cases_on`n` \\ fs[]);
+Triviality TAKE_TAKE_MIN:
+  !xs m n. TAKE n (TAKE m xs) = TAKE (MIN m n) xs
+Proof
+  Induct \\ Cases_on `m` \\ Cases_on `n` \\ fs [MIN_DEF]
+    \\ rw [] \\ fs [] \\ Cases_on`n` \\ fs[]
+QED
 
-val TAKE_DROP_EQ = Q.prove(
-  `!xs n m. TAKE m (DROP n xs) = DROP n (TAKE (m + n) xs)`,
+Triviality TAKE_DROP_EQ:
+  !xs n m. TAKE m (DROP n xs) = DROP n (TAKE (m + n) xs)
+Proof
   Induct \\ fs [] \\ rw [] \\ fs [] \\ Cases_on`n` \\ fs[]
-  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac);
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac
+QED
 
-val DROP_TAKE_NIL = Q.prove(
-  `DROP n (TAKE n xs) = []`,
-  rw[DROP_NIL,LENGTH_TAKE_EQ]);
+Triviality DROP_TAKE_NIL:
+  DROP n (TAKE n xs) = []
+Proof
+  rw[DROP_NIL,LENGTH_TAKE_EQ]
+QED
 
 Theorem TAKE_LUPDATE[simp]:
    !xs n x i. TAKE n (LUPDATE x i xs) = LUPDATE x i (TAKE n xs)
@@ -277,9 +287,11 @@ Proof
 QED
 end
 
-val MIN_ADD = Q.prove(
-  `MIN m1 m2 + n = MIN (m1 + n) (m2 + n)`,
-  fs [MIN_DEF] \\ decide_tac);
+Triviality MIN_ADD:
+  MIN m1 m2 + n = MIN (m1 + n) (m2 + n)
+Proof
+  fs [MIN_DEF] \\ decide_tac
+QED
 
 Definition list_LUPDATE_def:
   (list_LUPDATE [] n ys = ys) /\
@@ -298,32 +310,38 @@ Proof
   Induct \\ fs [list_LUPDATE_def]
 QED
 
-val LLOOKUP_list_LUPDATE_IGNORE = Q.prove(
-  `!xs i n ys.
+Triviality LLOOKUP_list_LUPDATE_IGNORE:
+  !xs i n ys.
       i + LENGTH xs <= n ==>
-      LLOOKUP (list_LUPDATE xs i ys) n = LLOOKUP ys n`,
+      LLOOKUP (list_LUPDATE xs i ys) n = LLOOKUP ys n
+Proof
   Induct \\ fs [list_LUPDATE_def] \\ rpt strip_tac
   \\ `(i+1) + LENGTH xs <= n` by decide_tac \\ res_tac
-  \\ `i <> n` by decide_tac \\ fs [LLOOKUP_LUPDATE]);
+  \\ `i <> n` by decide_tac \\ fs [LLOOKUP_LUPDATE]
+QED
 
-val DROP_list_LUPDATE = Q.prove(
-  `!ys n m xs.
+Triviality DROP_list_LUPDATE:
+  !ys n m xs.
       n <= m ==>
       DROP n (list_LUPDATE ys m xs) =
-      list_LUPDATE ys (m - n) (DROP n xs)`,
+      list_LUPDATE ys (m - n) (DROP n xs)
+Proof
   Induct
   \\ fs [list_LUPDATE_def,LENGTH_NIL,PULL_FORALL]
   \\ rpt strip_tac \\ `n <= m + 1` by decide_tac
   \\ rw [] \\ `m + 1 - n = m - n + 1 /\ ~(m < n)` by decide_tac
-  \\ fs [DROP_LUPDATE]);
+  \\ fs [DROP_LUPDATE]
+QED
 
-val DROP_list_LUPDATE_IGNORE = Q.prove(
-  `!xs i ys n.
+Triviality DROP_list_LUPDATE_IGNORE:
+  !xs i ys n.
       LENGTH xs + i <= n ==>
-      DROP n (list_LUPDATE xs i ys) = DROP n ys`,
+      DROP n (list_LUPDATE xs i ys) = DROP n ys
+Proof
   Induct \\ fs [list_LUPDATE_def] \\ rpt strip_tac
   \\ `LENGTH xs + (i+1) <= n /\ i < n` by decide_tac
-  \\ fs [DROP_LUPDATE]);
+  \\ fs [DROP_LUPDATE]
+QED
 
 Theorem list_LUPDATE_NIL[simp]:
    !xs i. list_LUPDATE xs i [] = []
@@ -331,9 +349,11 @@ Proof
   Induct \\ fs [list_LUPDATE_def,LUPDATE_def]
 QED
 
-val LUPDATE_TAKE_LEMMA = Q.prove(
-  `!xs n w. LUPDATE w n xs = TAKE n xs ++ LUPDATE w 0 (DROP n xs)`,
-  Induct \\ Cases_on `n` \\ fs [LUPDATE_def]);
+Triviality LUPDATE_TAKE_LEMMA:
+  !xs n w. LUPDATE w n xs = TAKE n xs ++ LUPDATE w 0 (DROP n xs)
+Proof
+  Induct \\ Cases_on `n` \\ fs [LUPDATE_def]
+QED
 
 Theorem list_LUPDATE_TAKE_DROP:
    !xs (ys:'a list) n.
@@ -364,14 +384,17 @@ QED
 
 (* move to stackProps? *)
 
-val DIV_ADD_1 = Q.prove(
-  `0 < d ==> (m DIV d + 1 = (m + d) DIV d)`,
+Triviality DIV_ADD_1:
+  0 < d ==> (m DIV d + 1 = (m + d) DIV d)
+Proof
   rpt strip_tac
   \\ ASSUME_TAC (ADD_DIV_ADD_DIV |> Q.SPECL [`d`] |> UNDISCH
-      |> Q.SPECL [`1`,`m`] |> ONCE_REWRITE_RULE [ADD_COMM]) \\ fs []);
+      |> Q.SPECL [`1`,`m`] |> ONCE_REWRITE_RULE [ADD_COMM]) \\ fs []
+QED
 
-val LENGTH_word_list_lemma = Q.prove(
-  `!xs d. 0 < d ==> (LENGTH (word_list xs d) = (LENGTH xs - 1) DIV d + 1)`,
+Triviality LENGTH_word_list_lemma:
+  !xs d. 0 < d ==> (LENGTH (word_list xs d) = (LENGTH xs - 1) DIV d + 1)
+Proof
   recInduct word_list_ind
   \\ rpt strip_tac \\ fsrw_tac[] []
   \\ once_rewrite_tac [word_list_def] \\ fsrw_tac[] [] \\ rw []
@@ -382,7 +405,8 @@ val LENGTH_word_list_lemma = Q.prove(
   THEN1 (`LENGTH xs - 1 < d` by decide_tac
          \\ imp_res_tac LESS_DIV_EQ_ZERO \\ fsrw_tac[] [])
   \\ imp_res_tac DIV_ADD_1 \\ fsrw_tac[] []
-  \\ AP_THM_TAC \\ AP_TERM_TAC \\ decide_tac);
+  \\ AP_THM_TAC \\ AP_TERM_TAC \\ decide_tac
+QED
 
 Theorem LENGTH_word_list:
    !xs d. LENGTH (word_list xs d) =
@@ -394,10 +418,12 @@ QED
 
 (* move to wordProps? *)
 
-val list_rearrange_I = Q.prove(
-  `(list_rearrange I = I)`,
+Triviality list_rearrange_I:
+  (list_rearrange I = I)
+Proof
   fs [list_rearrange_def,FUN_EQ_THM]
-  \\ fs [BIJ_DEF,INJ_DEF,SURJ_DEF,GENLIST_ID]);
+  \\ fs [BIJ_DEF,INJ_DEF,SURJ_DEF,GENLIST_ID]
+QED
 
 (* state relation *)
 
@@ -631,13 +657,15 @@ End
 
 (* correctness proof *)
 
-val evaluate_SeqStackFree = Q.prove(
-  `t.use_stack /\ t.stack_space <= LENGTH t.stack ==>
+Triviality evaluate_SeqStackFree:
+  t.use_stack /\ t.stack_space <= LENGTH t.stack ==>
     evaluate (SeqStackFree f p,t) =
-    evaluate (Seq (StackFree f) p,t)`,
+    evaluate (Seq (StackFree f) p,t)
+Proof
   fsrw_tac[] [SeqStackFree_def] \\ srw_tac[] [stackSemTheory.evaluate_def]
   THEN1 (`F` by decide_tac) \\ AP_TERM_TAC
-  \\ fs [stackSemTheory.state_component_equality]);
+  \\ fs [stackSemTheory.state_component_equality]
+QED
 
 val convs_def = LIST_CONJ
   [wordPropsTheory.post_alloc_conventions_def,
@@ -651,74 +679,89 @@ val convs_def = LIST_CONJ
 val nn = ``(NONE:(num # 'a wordLang$prog # num # num) option)``
 
 (*
-val LENGTH_write_bitmap = Q.prove(
-  `state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f ==>
-    (LENGTH ((write_bitmap (names:num_set) k f'):'a word list) + f' = f)`,
+Triviality LENGTH_write_bitmap:
+  state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f ==>
+    (LENGTH ((write_bitmap (names:num_set) k f'):'a word list) + f' = f)
+Proof
   fs [state_rel_def,write_bitmap_def,LET_DEF]
   \\ fs [LENGTH_word_list] \\ rpt strip_tac
   \\ `~(dimindex (:'a) <= 1) /\ f <> 0` by decide_tac \\ fs []
-  \\ decide_tac);
+  \\ decide_tac
+QED
 *)
 
 val DROP_list_LUPDATE_lemma =
   MATCH_MP DROP_list_LUPDATE (SPEC_ALL LESS_EQ_REFL) |> SIMP_RULE std_ss []
 
-val bits_to_word_bit = Q.prove(
-  `!bs i.
+Triviality bits_to_word_bit:
+  !bs i.
       i < dimindex (:'a) /\ i < LENGTH bs ==>
-      ((bits_to_word bs:'a word) ' i = EL i bs)`,
+      ((bits_to_word bs:'a word) ' i = EL i bs)
+Proof
   Induct \\ fs [] \\ Cases_on `i` \\ fs []
   \\ Cases \\ fs [bits_to_word_def,word_or_def,fcpTheory.FCP_BETA,
        word_index,word_lsl_def,ADD1] \\ rpt strip_tac
-  \\ first_x_assum match_mp_tac \\ fs [] \\ decide_tac);
+  \\ first_x_assum match_mp_tac \\ fs [] \\ decide_tac
+QED
 
-val bits_to_word_miss = Q.prove(
-  `!bs i.
+Triviality bits_to_word_miss:
+  !bs i.
       i < dimindex (:'a) /\ LENGTH bs <= i ==>
-      ~((bits_to_word bs:'a word) ' i)`,
+      ~((bits_to_word bs:'a word) ' i)
+Proof
   Induct \\ fs [] THEN1 (EVAL_TAC \\ fs [word_0])
   \\ Cases_on `i` \\ fs [] \\ NTAC 2 strip_tac
   \\ `n < dimindex (:'a)` by decide_tac \\ res_tac
   \\ Cases_on `h` \\ fs [bits_to_word_def,word_or_def,fcpTheory.FCP_BETA,
-       word_index,word_lsl_def,ADD1]);
+       word_index,word_lsl_def,ADD1]
+QED
 
-val bits_to_word_NOT_0 = Q.prove(
-  `!bs. LENGTH bs <= dimindex (:'a) /\ EXISTS I bs ==>
-         (bits_to_word bs <> 0w:'a word)`,
+Triviality bits_to_word_NOT_0:
+  !bs. LENGTH bs <= dimindex (:'a) /\ EXISTS I bs ==>
+         (bits_to_word bs <> 0w:'a word)
+Proof
   fs [fcpTheory.CART_EQ] \\ rpt strip_tac
   \\ fs [EXISTS_MEM,MEM_EL]
   \\ Q.EXISTS_TAC `n`   \\ fs []
   \\ `n < dimindex (:'a)` by decide_tac \\ fs [word_0]
-  \\ fs [bits_to_word_bit]);
+  \\ fs [bits_to_word_bit]
+QED
 
-val list_LUPDATE_write_bitmap_NOT_NIL = Q.prove(
-  `8 <= dimindex (:'a) ==>
+Triviality list_LUPDATE_write_bitmap_NOT_NIL:
+  8 <= dimindex (:'a) ==>
     (list_LUPDATE (MAP Word (write_bitmap names k f')) 0 xs <>
-     [Word (0w:'a word)])`,
+     [Word (0w:'a word)])
+Proof
   Cases_on `xs` \\ fs [list_LUPDATE_NIL]
   \\ fs [write_bitmap_def,LET_DEF,Once word_list_def]
   \\ strip_tac \\ `~(dimindex (:'a) <= 1)` by decide_tac \\ fs []
   \\ rw [] \\ rpt disj1_tac
   \\ match_mp_tac bits_to_word_NOT_0 \\ fs [LENGTH_TAKE_EQ]
-  \\ fs [MIN_LE,MIN_ADD] \\ decide_tac);
+  \\ fs [MIN_LE,MIN_ADD] \\ decide_tac
+QED
 
-val word_or_eq_0 = Q.prove(
-  `((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)`,
+Triviality word_or_eq_0:
+  ((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)
+Proof
   srw_tac [wordsLib.WORD_BIT_EQ_ss] []
-  \\ metis_tac [])
+  \\ metis_tac []
+QED
 
-val shift_shift_lemma = Q.prove(
-  `~(word_msb w) ==> (w ≪ 1 ⋙ 1 = w)`,
+Triviality shift_shift_lemma:
+  ~(word_msb w) ==> (w ≪ 1 ⋙ 1 = w)
+Proof
   srw_tac [wordsLib.WORD_BIT_EQ_ss] []
   \\ Cases_on `i + 1 < dimindex (:α)`
   \\ full_simp_tac (srw_ss()++wordsLib.WORD_BIT_EQ_ss) [NOT_LESS]
   \\ `i = dimindex (:'a) - 1` by decide_tac
-  \\ simp [])
+  \\ simp []
+QED
 
-val bit_length_bits_to_word = Q.prove(
-  `!qs.
+Triviality bit_length_bits_to_word:
+  !qs.
       LENGTH qs + 1 < dimindex (:'a) ==>
-      bit_length (bits_to_word (qs ++ [T]):'a word) = LENGTH qs + 1`,
+      bit_length (bits_to_word (qs ++ [T]):'a word) = LENGTH qs + 1
+Proof
   Induct THEN1
    (fs [] \\ fs [Once bit_length_def] \\ fs [Once bit_length_def]
     \\ fs [bits_to_word_def] \\ EVAL_TAC)
@@ -738,28 +781,34 @@ val bit_length_bits_to_word = Q.prove(
       bits_to_word (qs ++ [T]):'a word` by
    (match_mp_tac shift_shift_lemma \\ fs [word_msb_def]
     \\ match_mp_tac bits_to_word_miss \\ fs [] \\ decide_tac)
-  \\ fs [ADD1,word_or_eq_0]);
+  \\ fs [ADD1,word_or_eq_0]
+QED
 
-val GENLIST_bits_to_word_alt = Q.prove(
-  `LENGTH (xs ++ ys) <= dimindex (:'a) ==>
-    GENLIST (\i. (bits_to_word (xs ++ ys):'a word) ' i) (LENGTH xs) = xs`,
+Triviality GENLIST_bits_to_word_alt:
+  LENGTH (xs ++ ys) <= dimindex (:'a) ==>
+    GENLIST (\i. (bits_to_word (xs ++ ys):'a word) ' i) (LENGTH xs) = xs
+Proof
   fs [LIST_EQ_REWRITE] \\ rpt strip_tac
   \\ `EL x xs = EL x (xs ++ ys)` by fs [EL_APPEND1]
   \\ pop_assum (fn th => once_rewrite_tac [th])
   \\ match_mp_tac bits_to_word_bit
-  \\ fs [] \\ decide_tac);
+  \\ fs [] \\ decide_tac
+QED
 
-val GENLIST_bits_to_word = Q.prove(
-  `LENGTH qs' + 1 < dimindex (:'a) ==>
-    GENLIST (\i. (bits_to_word (qs' ++ [T]):'a word) ' i) (LENGTH qs') = qs'`,
+Triviality GENLIST_bits_to_word:
+  LENGTH qs' + 1 < dimindex (:'a) ==>
+    GENLIST (\i. (bits_to_word (qs' ++ [T]):'a word) ' i) (LENGTH qs') = qs'
+Proof
   rpt strip_tac \\ match_mp_tac GENLIST_bits_to_word_alt
-  \\ fs [] \\ decide_tac);
+  \\ fs [] \\ decide_tac
+QED
 
-val read_bitmap_word_list = Q.prove(
-  `8 <= dimindex (:'a) ==>
+Triviality read_bitmap_word_list:
+  8 <= dimindex (:'a) ==>
     read_bitmap
       ((word_list (qs ++ [T]) (dimindex (:'a) - 1)) ++ (xs:'a word list)) =
-    SOME qs`,
+    SOME qs
+Proof
   completeInduct_on `LENGTH (qs:bool list)` \\ rpt strip_tac \\ fs [PULL_FORALL]
   \\ rw [] \\ once_rewrite_tac [word_list_def]
   \\ `dimindex (:'a) - 1 <> 0` by decide_tac \\ fs []
@@ -799,11 +848,13 @@ val read_bitmap_word_list = Q.prove(
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ Q.ABBREV_TAC `ts = TAKE (dimindex (:'a) - 1) qs` \\ fs []
   \\ match_mp_tac GENLIST_bits_to_word_alt \\ fs []
-  \\ decide_tac);
+  \\ decide_tac
+QED
 
-val APPEND_LEMMA = Q.prove(
-  `n1 + n2 + n3 <= LENGTH xs ==>
-    ?xs2 xs3. (DROP n1 xs = xs2 ++ xs3) /\ n2 = LENGTH xs2`,
+Triviality APPEND_LEMMA:
+  n1 + n2 + n3 <= LENGTH xs ==>
+    ?xs2 xs3. (DROP n1 xs = xs2 ++ xs3) /\ n2 = LENGTH xs2
+Proof
   rpt strip_tac
   \\ `n1 <= LENGTH xs` by decide_tac
   \\ Q.PAT_X_ASSUM `n1 + n2 + n3 <= LENGTH xs` MP_TAC
@@ -812,7 +863,8 @@ val APPEND_LEMMA = Q.prove(
   \\ rename [‘n2 + (n3 + LENGTH xs1) ≤ LENGTH xs1 + LENGTH xs2’]
   \\ `n2 <= LENGTH xs2` by decide_tac
   \\ imp_res_tac LESS_EQ_LENGTH
-  \\ rw [] \\ metis_tac []);
+  \\ rw [] \\ metis_tac []
+QED
 
 Theorem read_bitmap_write_bitmap:
    8 ≤ dimindex (:α) ⇒
@@ -877,28 +929,33 @@ val read_bitmap_write_bitmap = Q.prove(
 
 *)
 
-val abs_stack_IMP_LENGTH = Q.prove(
-  `∀bs wstack sstack lens stack.
-    abs_stack bs wstack sstack lens = SOME stack ⇒ LENGTH stack = LENGTH wstack ∧ LENGTH lens = LENGTH wstack`,
+Triviality abs_stack_IMP_LENGTH:
+  ∀bs wstack sstack lens stack.
+    abs_stack bs wstack sstack lens = SOME stack ⇒ LENGTH stack = LENGTH wstack ∧ LENGTH lens = LENGTH wstack
+Proof
   recInduct (theorem "abs_stack_ind")
   \\ fs [abs_stack_def,LET_THM] \\ rpt strip_tac
-  \\ EVERY_CASE_TAC \\ fs [] \\ rw [])
+  \\ EVERY_CASE_TAC \\ fs [] \\ rw []
+QED
 
-val SORTED_FST_LESS_IMP = Q.prove(
-  `!xs x.
+Triviality SORTED_FST_LESS_IMP:
+  !xs x.
       SORTED (\x y. FST x > FST y:num) (x::xs) ==>
       SORTED (\x y. FST x > FST y) xs /\ ~(MEM x xs) /\
-      (!y. MEM y xs ==> FST x > FST y)`,
+      (!y. MEM y xs ==> FST x > FST y)
+Proof
   Induct \\ fs [SORTED_DEF]
   \\ ntac 3 strip_tac \\ res_tac \\ rpt strip_tac
-  \\ rw [] \\ fs [] \\ res_tac \\ decide_tac);
+  \\ rw [] \\ fs [] \\ res_tac \\ decide_tac
+QED
 
-val SORTED_IMP_EQ_LISTS = Q.prove(
-  `!xs ys.
+Triviality SORTED_IMP_EQ_LISTS:
+  !xs ys.
       SORTED (\x y. FST x > FST y:num) ys /\
       SORTED (\x y. FST x > FST y) xs /\
       (!x. MEM x ys <=> MEM x xs) ==>
-      (xs = ys)`,
+      (xs = ys)
+Proof
   Induct \\ fs [] \\ Cases_on `ys` \\ fs [] THEN1 metis_tac []
   THEN1 (CCONTR_TAC THEN fs [] THEN metis_tac [])
   \\ ntac 2 strip_tac
@@ -915,7 +972,8 @@ val SORTED_IMP_EQ_LISTS = Q.prove(
   THEN1
    (first_assum (mp_tac o Q.SPEC `h'`)
     \\ imp_res_tac SORTED_FST_LESS_IMP
-    \\ rpt strip_tac \\ fs [] \\ fs []));
+    \\ rpt strip_tac \\ fs [] \\ fs [])
+QED
 
 Theorem transitive_key_val_compare:
    transitive key_val_compare
@@ -935,41 +993,50 @@ Proof
   \\ wordsLib.WORD_DECIDE_TAC
 QED
 
-val SORTS_QSORT_key_val_compare = Q.prove(
-  `SORTS QSORT key_val_compare`,
+Triviality SORTS_QSORT_key_val_compare:
+  SORTS QSORT key_val_compare
+Proof
   match_mp_tac QSORT_SORTS >>
-  MATCH_ACCEPT_TAC (CONJ transitive_key_val_compare total_key_val_compare))
+  MATCH_ACCEPT_TAC (CONJ transitive_key_val_compare total_key_val_compare)
+QED
 
 val MEM_QSORT = SORTS_QSORT_key_val_compare
   |> SIMP_RULE std_ss [SORTS_DEF]
   |> SPEC_ALL |> CONJUNCT1
   |> MATCH_MP MEM_PERM |> GSYM |> GEN_ALL
 
-val SORTED_weaken2 = Q.prove(`
+Triviality SORTED_weaken2:
   ∀ls. SORTED R ls ∧
   ALL_DISTINCT ls ∧
   (∀x y. MEM x ls ∧ MEM y ls ∧ x ≠ y ∧ R x y ⇒ R' x y) ⇒
-  SORTED R' ls`,
+  SORTED R' ls
+Proof
   Induct>>rw[]>>Cases_on`ls`>>fs[SORTED_DEF]>>
-  metis_tac[])
+  metis_tac[]
+QED
 
-val EVEN_GT = Q.prove(`
+Triviality EVEN_GT:
   ∀a b.
   EVEN a ∧ EVEN b ∧
   a > b ⇒
-  a DIV 2 > b DIV 2`,
+  a DIV 2 > b DIV 2
+Proof
   fs[EVEN_EXISTS]>>rw[]>>
   fsrw_tac[][MULT_DIV,MULT_COMM]>>
-  DECIDE_TAC)
+  DECIDE_TAC
+QED
 
-val transitive_GT = Q.prove(`
-  transitive ($> : (num->num->bool))`,
-  fs[transitive_def]>>DECIDE_TAC)
+Triviality transitive_GT:
+  transitive ($> : (num->num->bool))
+Proof
+  fs[transitive_def]>>DECIDE_TAC
+QED
 
-val env_to_list_K_I_IMP = Q.prove(
-  `!env l oracle.
+Triviality env_to_list_K_I_IMP:
+  !env l oracle.
       env_to_list env (K I) = (l,oracle) ==>
-      SORTED (\x y. FST x > FST y) l /\ oracle = K I /\ PERM (toAList env) l`,
+      SORTED (\x y. FST x > FST y) l /\ oracle = K I /\ PERM (toAList env) l
+Proof
   fs [env_to_list_def,LET_DEF,FUN_EQ_THM,list_rearrange_I] \\ rw []
   \\ pop_assum kall_tac
   \\ qspec_then `toAList env` mp_tac (SORTS_QSORT_key_val_compare
@@ -983,7 +1050,8 @@ val env_to_list_K_I_IMP = Q.prove(
   \\ Induct_on `l` \\ fs []
   \\ Cases_on `l` \\ fs [SORTED_DEF] \\ rw []
   \\ res_tac \\ fs [key_val_compare_def,LET_DEF]
-  \\ pairarg_tac \\ fs [] \\ pairarg_tac \\ fs [])
+  \\ pairarg_tac \\ fs [] \\ pairarg_tac \\ fs []
+QED
 
 Theorem isPREFIX_DROP:
   ∀s t i.
@@ -1213,9 +1281,10 @@ val push_env_set_store = Q.prove(
     set_store AllocSize (Word c) (push_env env ^nn s)`,
   fs [push_env_def,set_store_def,env_to_list_def,LET_DEF])|> INST_TYPE [beta|-> alpha, gamma|->beta];
 
-val state_rel_set_store_0 = Q.prove(
-  `state_rel k 0 0 s5 t5 len ==>
-    state_rel k 0 0 (set_store AllocSize w s5) (set_store AllocSize w t5) len`,
+Triviality state_rel_set_store_0:
+  state_rel k 0 0 s5 t5 len ==>
+    state_rel k 0 0 (set_store AllocSize w s5) (set_store AllocSize w t5) len
+Proof
   rpt strip_tac
   \\ fs [state_rel_def,set_store_def,stackSemTheory.set_store_def,LET_DEF,
          FLOOKUP_DEF] \\ REPEAT STRIP_TAC \\ rfs[]
@@ -1223,36 +1292,45 @@ val state_rel_set_store_0 = Q.prove(
   \\ fs [fmap_EXT,DRESTRICT_DEF,EXTENSION]
   \\ rpt strip_tac  THEN1 (Cases_on `x = Handler` \\ fs [])
   \\ fs [FAPPLY_FUPDATE_THM,DOMSUB_FAPPLY_THM]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-val MAP_SND_MAP_FST = Q.prove(
-  `!xs f. MAP SND (MAP_FST f xs) = MAP SND xs`,
-  Induct \\ fs [MAP,MAP_FST_def,FORALL_PROD]);
+Triviality MAP_SND_MAP_FST:
+  !xs f. MAP SND (MAP_FST f xs) = MAP SND xs
+Proof
+  Induct \\ fs [MAP,MAP_FST_def,FORALL_PROD]
+QED
 
-val read_bitmap_not_empty = Q.prove(`
+Triviality read_bitmap_not_empty:
   read_bitmap stack = SOME a ⇒
-  stack ≠ []`,
+  stack ≠ []
+Proof
   rw[]>>CCONTR_TAC>>
   fs[]>>
-  fs[read_bitmap_def])
+  fs[read_bitmap_def]
+QED
 
-val n2w_lsr_1 = Q.prove(
-  `n < dimword (:'a) ==> n2w n >>> 1 = (n2w (n DIV 2)):'a word`,
+Triviality n2w_lsr_1:
+  n < dimword (:'a) ==> n2w n >>> 1 = (n2w (n DIV 2)):'a word
+Proof
   once_rewrite_tac [GSYM w2n_11] \\ rewrite_tac [w2n_lsr] \\ fs []
-  \\ fs [DIV_LT_X] \\ decide_tac);
+  \\ fs [DIV_LT_X] \\ decide_tac
+QED
 
-val handler_bitmap_props = Q.prove(`
+Triviality handler_bitmap_props:
   good_dimindex(:'a) ⇒
-  read_bitmap ((4w:'a word)::stack) = SOME [F;F]`,
+  read_bitmap ((4w:'a word)::stack) = SOME [F;F]
+Proof
   fs [read_bitmap_def,good_dimindex_def] \\ strip_tac
   \\ `~(word_msb 4w)` by fs [word_msb_def,wordsTheory.word_index] \\ fs []
   \\ `4 < dimword (:'a) /\ 2 < dimword (:'a)` by fs [dimword_def]
   \\ `bit_length 4w = 3` by
    (NTAC 4 (fs [dimword_def,Once bit_length_def,n2w_lsr_1,EVAL ``1w ⋙ 1``]))
-  \\ fs [] \\ EVAL_TAC \\ rw [] \\ decide_tac)
+  \\ fs [] \\ EVAL_TAC \\ rw [] \\ decide_tac
+QED
 
-val enc_stack_lemma = Q.prove(
-  `∀bs (wstack:'a stack_frame list) sstack lens astack bs'.
+Triviality enc_stack_lemma:
+  ∀bs (wstack:'a stack_frame list) sstack lens astack bs'.
       good_dimindex(:'a) ∧
       LENGTH bs + 1 < dimword (:'a) ∧
       abs_stack bs wstack sstack lens = SOME astack ∧
@@ -1260,7 +1338,8 @@ val enc_stack_lemma = Q.prove(
       1 ≤ LENGTH bs ∧
       HD bs = 4w ∧
       stack_rel_aux k len wstack astack ⇒
-      enc_stack bs sstack = SOME (enc_stack wstack)`,
+      enc_stack bs sstack = SOME (enc_stack wstack)
+Proof
   ho_match_mp_tac (theorem "abs_stack_ind")>>
   fs[enc_stack_def]>>
   rw[]>>
@@ -1301,24 +1380,28 @@ val enc_stack_lemma = Q.prove(
   \\ simp[handler_bitmap_props] >>
   simp[filter_bitmap_def]>>
   simp[Once stackSemTheory.enc_stack_def]>>
-  simp[full_read_bitmap_def,MAP_SND_MAP_FST]);
+  simp[full_read_bitmap_def,MAP_SND_MAP_FST]
+QED
 
-val IMP_enc_stack = Q.prove(
-  `state_rel k 0 0 s1 t1 lens
+Triviality IMP_enc_stack:
+  state_rel k 0 0 s1 t1 lens
     ==>
     (enc_stack t1.bitmaps (DROP t1.stack_space t1.stack) =
-       SOME (enc_stack s1.stack))`,
+       SOME (enc_stack s1.stack))
+Proof
   fs [state_rel_def,LET_DEF] \\ rpt strip_tac
   \\ fs [stack_rel_def] \\ imp_res_tac enc_stack_lemma>>
-  simp[]);
+  simp[]
+QED
 
-val map_bitmap_success = Q.prove(`
+Triviality map_bitmap_success:
   ∀bs stack a b ls.
   filter_bitmap bs stack = SOME(a,b) ∧
   LENGTH ls = LENGTH a ⇒
   ∃x z.
   map_bitmap bs ls stack = SOME(x,[],DROP (LENGTH bs) stack) ∧
-  filter_bitmap bs x = SOME(ls,[])`,
+  filter_bitmap bs x = SOME(ls,[])
+Proof
   ho_match_mp_tac filter_bitmap_ind>>fs[filter_bitmap_def,map_bitmap_def]>>
   rw[LENGTH_NIL]
   >-
@@ -1326,26 +1409,32 @@ val map_bitmap_success = Q.prove(`
   >>
     EVERY_CASE_TAC>>fs[]>>
     rveq>>Cases_on`ls`>>fs[map_bitmap_def,filter_bitmap_def]>>
-    res_tac>>fs[filter_bitmap_def])
+    res_tac>>fs[filter_bitmap_def]
+QED
 
 (*Might need to extend c as well*)
-val map_bitmap_more = Q.prove(`
+Triviality map_bitmap_more:
   ∀bs ls stack n a c ls'.
   map_bitmap bs ls stack = SOME(a,[],c) ⇒
-  map_bitmap bs (ls++ls') stack = SOME(a,ls',c)`,
+  map_bitmap bs (ls++ls') stack = SOME(a,ls',c)
+Proof
   ho_match_mp_tac map_bitmap_ind>>fs[map_bitmap_def]>>rw[]>>
-  pop_assum mp_tac>>ntac 3 TOP_CASE_TAC>>fs[])
+  pop_assum mp_tac>>ntac 3 TOP_CASE_TAC>>fs[]
+QED
 
-val map_bitmap_more_simp = Q.prove(`
+Triviality map_bitmap_more_simp:
   map_bitmap bs (TAKE (LENGTH l) ls) stack = SOME (a,[],c) ⇒
-  map_bitmap bs ls stack = SOME (a,DROP (LENGTH l) ls,c)`,
-  metis_tac[TAKE_DROP,map_bitmap_more])
+  map_bitmap bs ls stack = SOME (a,DROP (LENGTH l) ls,c)
+Proof
+  metis_tac[TAKE_DROP,map_bitmap_more]
+QED
 
 (*These two are actually implied by s_key_eq*)
-val word_stack_dec_stack_shape = Q.prove(`
+Triviality word_stack_dec_stack_shape:
   ∀ls wstack res n.
   dec_stack ls wstack = SOME res ∧ n < LENGTH wstack ⇒
-  (is_handler_frame (EL n wstack) ⇔ is_handler_frame (EL n res))`,
+  (is_handler_frame (EL n wstack) ⇔ is_handler_frame (EL n res))
+Proof
   ho_match_mp_tac dec_stack_ind>>fs[dec_stack_def,is_handler_frame_def]>>
   rw[]>>
   EVERY_CASE_TAC>>fs[]>>
@@ -1354,13 +1443,15 @@ val word_stack_dec_stack_shape = Q.prove(`
   Cases_on`m`>-
     (Cases_on`handler`>>
     simp[is_handler_frame_def])>>
-  simp[]);
+  simp[]
+QED
 
-val sorted_env_zip = Q.prove(`
+Triviality sorted_env_zip:
   ∀l:(num,'a word_loc) alist ls:'a word_loc list x n.
   sorted_env (StackFrame n l x) ∧
   LENGTH ls = LENGTH l⇒
-  sorted_env (StackFrame n (ZIP (MAP FST l, ls)) x)`,
+  sorted_env (StackFrame n (ZIP (MAP FST l, ls)) x)
+Proof
   fs[sorted_env_def]>>
   Induct>>fs[LENGTH_NIL]>>rw[]>>
   Cases_on`ls`>>fs[]>>
@@ -1370,23 +1461,28 @@ val sorted_env_zip = Q.prove(`
     DECIDE_TAC)>>
   fs[SORTED_EQ,MEM_ZIP,PULL_EXISTS,MEM_EL]>>
   rw[]>>res_tac>>
-  fs[Abbr`R`,EL_MAP]);
+  fs[Abbr`R`,EL_MAP]
+QED
 
-val word_stack_dec_stack_sorted = Q.prove(`
+Triviality word_stack_dec_stack_sorted:
   ∀(ls:'a word_loc list) (wstack:'a stack_frame list) res.
   dec_stack ls wstack = SOME res ∧
   EVERY sorted_env wstack ⇒
-  EVERY sorted_env res`,
+  EVERY sorted_env res
+Proof
   ho_match_mp_tac dec_stack_ind>>fs[dec_stack_def]>>rw[]>>
   EVERY_CASE_TAC>>fs[]>>rveq>>
   rfs[]>>
   match_mp_tac sorted_env_zip>>
-  simp[])
+  simp[]
+QED
 
-val abs_stack_empty = Q.prove(`
+Triviality abs_stack_empty:
   ∀bs ls stack lens.
-  abs_stack bs [] ls lens = SOME stack ⇒ ls = [Word 0w] ∧ lens = []`,
-  rpt Cases>>fs[abs_stack_def])
+  abs_stack bs [] ls lens = SOME stack ⇒ ls = [Word 0w] ∧ lens = []
+Proof
+  rpt Cases>>fs[abs_stack_def]
+QED
 
 Definition abs_frame_eq_def:
   abs_frame_eq p q ⇔
@@ -1395,16 +1491,18 @@ Definition abs_frame_eq_def:
   LENGTH (SND (SND p)) = LENGTH (SND (SND q))
 End
 
-val LIST_REL_abs_frame_eq_handler_val = Q.prove(`
+Triviality LIST_REL_abs_frame_eq_handler_val:
   ∀xs ys.
   LIST_REL abs_frame_eq xs ys ⇒
-  handler_val xs = handler_val ys`,
+  handler_val xs = handler_val ys
+Proof
   ho_match_mp_tac LIST_REL_ind>>
   fs[handler_val_def,abs_frame_eq_def,FORALL_PROD]>>rw[]>>
-  Cases_on`p_1`>>fs[handler_val_def])
+  Cases_on`p_1`>>fs[handler_val_def]
+QED
 
 (*Prove the inductive bits first...*)
-val dec_stack_lemma1 = Q.prove(`
+Triviality dec_stack_lemma1:
   ∀bs (wstack:'a stack_frame list) sstack lens astack wdec ls.
   good_dimindex(:'a) ∧
   1 ≤ LENGTH bs ∧
@@ -1420,7 +1518,8 @@ val dec_stack_lemma1 = Q.prove(`
   abs_stack bs wdec sdec lens = SOME bstack ∧
   stack_rel_aux k len wdec bstack ∧
   (*They have exactly the same shape*)
-  LIST_REL abs_frame_eq astack bstack`,
+  LIST_REL abs_frame_eq astack bstack
+Proof
   ho_match_mp_tac (theorem "abs_stack_ind")>>
   fsrw_tac[][dec_stack_def,enc_stack_def]>>
   srw_tac[][]>>
@@ -1522,9 +1621,10 @@ val dec_stack_lemma1 = Q.prove(`
     >>
     fsrw_tac[][abs_frame_eq_def]>>
     simp[] >>
-    fs[LENGTH_TAKE]));
+    fs[LENGTH_TAKE])
+QED
 
-val dec_stack_lemma = Q.prove(`
+Triviality dec_stack_lemma:
   good_dimindex(:'a) ∧
   1 ≤ LENGTH t1.bitmaps ∧
   HD t1.bitmaps = 4w ∧
@@ -1538,7 +1638,8 @@ val dec_stack_lemma = Q.prove(`
     ?yy:'a word_loc list. dec_stack t1.bitmaps x0 (DROP t1.stack_space t1.stack) = SOME yy /\
          (t1.stack_space + LENGTH yy = LENGTH t1.stack) /\
          stack_rel k s1.handler x (SOME (t1.store ' Handler)) yy
-            (LENGTH t1.stack) t1.bitmaps lens`,
+            (LENGTH t1.stack) t1.bitmaps lens
+Proof
   rw[]>>
   fs[stack_rel_def]>>
   drule (GEN_ALL dec_stack_lemma1)>>
@@ -1562,7 +1663,7 @@ val dec_stack_lemma = Q.prove(`
     pop_assum(qspec_then`s1.handler+1` mp_tac)>>impl_tac>-
       DECIDE_TAC>>
     metis_tac[LIST_REL_abs_frame_eq_handler_val])
-  );
+QED
 
 Triviality dec_stack_stack_size:
   !xs st st'.
@@ -1576,11 +1677,11 @@ Proof
   res_tac >> simp[]
 QED
 
-val gc_state_rel = Q.prove(
-  `(gc (s1:('a,num # 'c,'ffi) wordSem$state) = SOME s2) /\ state_rel k 0 0 s1 (t1:('a,'c,'ffi) stackSem$state) lens /\ (s1.locals = LN) ==>
+Triviality gc_state_rel:
+  (gc (s1:('a,num # 'c,'ffi) wordSem$state) = SOME s2) /\ state_rel k 0 0 s1 (t1:('a,'c,'ffi) stackSem$state) lens /\ (s1.locals = LN) ==>
     ?(t2:('a,'c,'ffi) stackSem$state). gc t1 = SOME t2 /\ state_rel k 0 0 s2 t2 lens
     /\ LENGTH t2.stack = LENGTH t1.stack /\ t2.stack_space = t1.stack_space
-`,
+Proof
   fs [gc_def,LET_DEF]
   \\ Cases_on `s1.gc_fun (enc_stack s1.stack,s1.memory,s1.mdomain,s1.store)` \\ fs []
   \\ PairCases_on `x` \\ fs [] \\ Cases_on `dec_stack x0 s1.stack` \\ fs []
@@ -1602,10 +1703,10 @@ val gc_state_rel = Q.prove(
   \\ TRY(qmatch_goalsub_abbrev_tac `post_alloc_conventions _` >> metis_tac[])
   \\ TRY(qmatch_goalsub_abbrev_tac `flat_exp_conventions _` >> metis_tac[])
   \\ metis_tac[dec_stack_stack_size]
-    );
+QED
 
-val alloc_alt = Q.prove(
-  `FST (alloc c names (s:('a,num # 'c,'ffi) wordSem$state)) <>
+Triviality alloc_alt:
+  FST (alloc c names (s:('a,num # 'c,'ffi) wordSem$state)) <>
     SOME (Error:'a wordSem$result) ==>
     (alloc c names (s:('a,num # 'c,'ffi) wordSem$state) =
      case cut_env names s.locals of
@@ -1625,31 +1726,36 @@ val alloc_alt = Q.prove(
                        NONE => (SOME Error,s')
                      | SOME T => (NONE,s')
                      | SOME F =>
-                         (SOME NotEnoughSpace, flush_state T s'))`,
+                         (SOME NotEnoughSpace, flush_state T s'))
+Proof
   fs [alloc_def]
   \\ Cases_on `cut_env names s.locals` \\ fs []
   \\ fs [gc_def,set_store_def,push_env_def,LET_DEF,
          env_to_list_def,pop_env_def,flush_state_def]
   \\ BasicProvers.EVERY_CASE_TAC
    \\ fs [state_component_equality] \\ rw []
-   \\ fs [state_component_equality] \\ rw []);
+   \\ fs [state_component_equality] \\ rw []
+QED
 
 (*MEM to an EL characterization for index lists*)
-val MEM_index_list_LIM = Q.prove(`
+Triviality MEM_index_list_LIM:
   ∀ls n v k.
   MEM (n,v) (index_list ls k) ⇒
-  n-k < LENGTH ls`,
+  n-k < LENGTH ls
+Proof
   Induct>>fs[index_list_def]>>rw[]
   >-
     DECIDE_TAC
   >>
   res_tac>>
-  DECIDE_TAC)
+  DECIDE_TAC
+QED
 
-val MEM_index_list_EL = Q.prove(`
+Triviality MEM_index_list_EL:
   ∀ls n v.
   MEM (n,v) (index_list ls k) ⇒
-  EL (LENGTH ls - (n-k+1)) ls = v`,
+  EL (LENGTH ls - (n-k+1)) ls = v
+Proof
   Induct>>fs[index_list_def,FORALL_PROD]>>rw[]>>
   simp[ADD1]>>
   res_tac>>
@@ -1657,7 +1763,8 @@ val MEM_index_list_EL = Q.prove(`
   imp_res_tac MEM_index_list_LIM>>
   `LENGTH ls +1 - (n-k+1) = SUC(LENGTH ls - (n-k+1))` by DECIDE_TAC>>
   pop_assum SUBST_ALL_TAC>>
-  simp[])
+  simp[]
+QED
 
 Type result = ``:'a wordSem$result``
 
@@ -1685,8 +1792,8 @@ Proof
   Cases_on `opt2` >> fs[s_frame_key_eq_def,s_key_eq_stack_size]
 QED
 
-val alloc_IMP_alloc = Q.prove(
-  `(wordSem$alloc c names (s:('a,num # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) /\
+Triviality alloc_IMP_alloc:
+  (wordSem$alloc c names (s:('a,num # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) /\
     (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
     1 ≤ f /\
     state_rel k f f' s t5 lens /\
@@ -1700,7 +1807,8 @@ val alloc_IMP_alloc = Q.prove(
                                                    /\ t1.stack_space = t5.stack_space
       else
         res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w)) /\
-        s1.clock = t1.clock /\ s1.ffi = t1.ffi`,
+        s1.clock = t1.clock /\ s1.ffi = t1.ffi
+Proof
   Cases_on `FST (alloc c names (s:('a,num # 'c,'ffi) wordSem$state)) = SOME (Error:'a result)`
   THEN1 (rpt strip_tac \\ fsrw_tac[] [] \\ rfs [])
   \\ fsrw_tac[] [alloc_alt, stackSemTheory.alloc_def]
@@ -1836,20 +1944,22 @@ val alloc_IMP_alloc = Q.prove(
   \\ EVERY_CASE_TAC \\ fsrw_tac[] []
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fsrw_tac[] [] \\ srw_tac[] [] \\ fsrw_tac[] []
   \\ fsrw_tac[] [state_rel_def]
-    );
+QED
 
-val word_gc_empty_frame = Q.prove(`
+Triviality word_gc_empty_frame:
   gc (s with stack:= (StackFrame n [] NONE::s.stack)) = SOME x ∧
   pop_env x = SOME y ⇒
   y.locals = LN ∧
-  gc s = SOME (y with <|locals:=s.locals; locals_size:=s.locals_size|>)`,
+  gc s = SOME (y with <|locals:=s.locals; locals_size:=s.locals_size|>)
+Proof
   fs[gc_def,enc_stack_def,dec_stack_def,LET_THM]>>EVERY_CASE_TAC>>
   rw[]>>fs[pop_env_def]>>
   rveq>>fs[fromAList_def]>>
   rw[]>>rveq>>fs[pop_env_def]>>
-  fs[state_component_equality])
+  fs[state_component_equality]
+QED
 
-val alloc_IMP_alloc2 = Q.prove(`
+Triviality alloc_IMP_alloc2:
   (wordSem$alloc c names (s:('a,num # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) ∧
   state_rel k 0 0 s t lens ∧
   domain names = {} ∧
@@ -1861,7 +1971,8 @@ val alloc_IMP_alloc2 = Q.prove(`
       t1.stack_space = t.stack_space
     else
       res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w)) ∧
-      s1.clock = t1.clock /\ s1.ffi = t1.ffi`,
+      s1.clock = t1.clock /\ s1.ffi = t1.ffi
+Proof
   Cases_on `FST (alloc c names (s:('a,num # 'c,'ffi) wordSem$state)) = SOME (Error:'a result)`
   THEN1 (rpt strip_tac \\ fs [] \\ rfs [])
   \\ fs [alloc_alt, stackSemTheory.alloc_def]
@@ -1929,7 +2040,8 @@ val alloc_IMP_alloc2 = Q.prove(`
   \\ fs[dec_stack_def,CaseEq"option",CaseEq"prod",CaseEq"bool"]
   \\ fs[state_component_equality] >> rveq >> fs[]
   \\ imp_res_tac dec_stack_stack_size
-  \\ fs[]);
+  \\ fs[]
+QED
 
 Definition compile_result_def:
   (compile_result (Result w1 w2) = Result w1) ∧
@@ -1941,10 +2053,12 @@ Definition compile_result_def:
 End
 val _ = export_rewrites["compile_result_def"];
 
-val Halt_EQ_compile_result = Q.prove(
-  `(Halt (Word 1w) = compile_result z <=> z = NotEnoughSpace) /\
-    (good_dimindex (:'a) ==> Halt (Word (2w:'a word)) <> compile_result z)`,
-  Cases_on `z` \\ fs [] \\ fs [good_dimindex_def] \\ rw [] \\ fs [dimword_def]);
+Triviality Halt_EQ_compile_result:
+  (Halt (Word 1w) = compile_result z <=> z = NotEnoughSpace) /\
+    (good_dimindex (:'a) ==> Halt (Word (2w:'a word)) <> compile_result z)
+Proof
+  Cases_on `z` \\ fs [] \\ fs [good_dimindex_def] \\ rw [] \\ fs [dimword_def]
+QED
 
 val stack_evaluate_add_clock_NONE =
   stackPropsTheory.evaluate_add_clock
@@ -1955,36 +2069,43 @@ Definition push_locals_def:
     stack := StackFrame s.locals_size (FST (env_to_list s.locals (K I))) NONE :: s.stack |>
 End
 
-val LASTN_LENGTH_ID2 = Q.prove(`
+Triviality LASTN_LENGTH_ID2:
   ∀stack x.
   (x+1 = LENGTH stack) ⇒
   LASTN (x+1) stack =
-  HD stack::LASTN x stack`,
+  HD stack::LASTN x stack
+Proof
   fs[LASTN_LENGTH_ID]>>Induct>>rw[]>>
   `x = LENGTH stack` by DECIDE_TAC>>
-  fs[LASTN_CONS,LASTN_LENGTH_ID])
+  fs[LASTN_CONS,LASTN_LENGTH_ID]
+QED
 
-val stack_rel_aux_LENGTH = Q.prove(`
+Triviality stack_rel_aux_LENGTH:
   ∀k len xs ys.
   stack_rel_aux k len xs ys ⇒
-  LENGTH xs = LENGTH ys`,
-  ho_match_mp_tac (theorem "stack_rel_aux_ind")>>fs[stack_rel_aux_def])
+  LENGTH xs = LENGTH ys
+Proof
+  ho_match_mp_tac (theorem "stack_rel_aux_ind")>>fs[stack_rel_aux_def]
+QED
 
-val LASTN_MORE = Q.prove(`
+Triviality LASTN_MORE:
   ∀ls n.
-  ¬(n < LENGTH ls) ⇒ LASTN n ls = ls`,
+  ¬(n < LENGTH ls) ⇒ LASTN n ls = ls
+Proof
   fs[LASTN_def]>>Induct>>rw[]>>
   Cases_on`n < LENGTH ls`>>
   fs[TAKE_APPEND1,LENGTH_REVERSE] >>
     res_tac>>
     fs[TAKE_APPEND]>>
     IF_CASES_TAC>>fs[]>>
-    DECIDE_TAC)
+    DECIDE_TAC
+QED
 
-val stack_rel_aux_LASTN = Q.prove(`
+Triviality stack_rel_aux_LASTN:
   ∀k len xs ys n.
   stack_rel_aux k len xs ys ⇒
-  stack_rel_aux k len (LASTN n xs) (LASTN n ys)`,
+  stack_rel_aux k len (LASTN n xs) (LASTN n ys)
+Proof
   ho_match_mp_tac (theorem "stack_rel_aux_ind")>>
   fs[stack_rel_aux_def]>>rw[]>>
   imp_res_tac stack_rel_aux_LENGTH
@@ -1994,12 +2115,14 @@ val stack_rel_aux_LASTN = Q.prove(`
     rename1 `LASTN m`>>
     Cases_on`m ≤ LENGTH xs`>>rfs[LASTN_CONS]>>
     `¬(m < SUC(LENGTH ys))` by DECIDE_TAC>>
-    fs[LASTN_MORE,stack_rel_aux_def])
+    fs[LASTN_MORE,stack_rel_aux_def]
+QED
 
-val abs_stack_to_stack_LENGTH = Q.prove(`
+Triviality abs_stack_to_stack_LENGTH:
   ∀bs wstack sstack lens stack.
   abs_stack bs wstack sstack lens = SOME stack ⇒
-  handler_val stack = LENGTH sstack`,
+  handler_val stack = LENGTH sstack
+Proof
   ho_match_mp_tac (theorem "abs_stack_ind")>>rw[]>>
   fs[abs_stack_def,LET_THM]>>TRY(Cases_on`w`)>>
   fs[full_read_bitmap_def]
@@ -2013,36 +2136,43 @@ val abs_stack_to_stack_LENGTH = Q.prove(`
     (pop_assum mp_tac>>
     ntac 7 TOP_CASE_TAC>>fs[]>>
     rw[]>>
-    simp[handler_val_def]))
+    simp[handler_val_def])
+QED
 
 (*Equality theorems available if n ≤ LENGTH ls*)
-val LASTN_LENGTH_BOUNDS = Q.prove(`
+Triviality LASTN_LENGTH_BOUNDS:
   ∀n ls.
   let xs = LASTN n ls in
   LENGTH xs ≤ n ∧
-  LENGTH xs ≤ LENGTH ls`,
+  LENGTH xs ≤ LENGTH ls
+Proof
   fs[LASTN_def,LET_THM]>>Induct>>fs[LENGTH_TAKE_EQ]>>rw[]>>
-  decide_tac)
+  decide_tac
+QED
 
-val LASTN_CONS_ID = Q.prove(`
+Triviality LASTN_CONS_ID:
   n = LENGTH ls ⇒
-  LASTN (SUC n) (frame::ls) = (frame::ls)`,
-  rw[]>>EVAL_TAC>>fs[])
+  LASTN (SUC n) (frame::ls) = (frame::ls)
+Proof
+  rw[]>>EVAL_TAC>>fs[]
+QED
 
 (*Strengthened version of LASTN_DROP after change to make it total*)
-val LASTN_DROP2 = Q.prove(`
+Triviality LASTN_DROP2:
   ∀l n.
-  LASTN n l = DROP (LENGTH l -n) l`,
+  LASTN n l = DROP (LENGTH l -n) l
+Proof
   Induct>>fs[LASTN_def]>>
   rw[TAKE_APPEND]>>
   Cases_on`n > LENGTH l`>>fs[ADD1]>>
   `LENGTH l - n = 0` by fs[]>>
-  simp[DROP_def]);
+  simp[DROP_def]
+QED
 
 (* Allow prefixes of (frames of) stacks to be directly dropped
   using handler_val
 *)
-val abs_stack_prefix_drop = Q.prove(`
+Triviality abs_stack_prefix_drop:
   ∀bs wstack sstack lens stack h wrest k len.
   h ≤ LENGTH wstack ∧
   LASTN h wstack = wrest ∧
@@ -2052,7 +2182,8 @@ val abs_stack_prefix_drop = Q.prove(`
   let lrest = LASTN h lens in
   let srest = LASTN (handler_val rest) sstack in
   abs_stack bs wrest srest lrest = SOME rest ∧
-  stack_rel_aux k len wrest rest`,
+  stack_rel_aux k len wrest rest
+Proof
   ho_match_mp_tac (theorem "abs_stack_ind")>>
   rpt strip_tac>>fs[LET_THM,abs_stack_def]
   >-
@@ -2125,12 +2256,14 @@ val abs_stack_prefix_drop = Q.prove(`
         imp_res_tac abs_stack_to_stack_LENGTH>>
         fs[Abbr`ls`,Abbr`frame`,handler_val_def]>>
         simp[LENGTH_TAKE])>>
-      fs[Abbr`frame`,Abbr`ls`,abs_stack_def,LET_THM,full_read_bitmap_def]);
+      fs[Abbr`frame`,Abbr`ls`,abs_stack_def,LET_THM,full_read_bitmap_def]
+QED
 
-val abs_stack_len = Q.prove(`
+Triviality abs_stack_len:
   ∀bs wstack sstack lens stack handler.
   abs_stack bs wstack sstack lens = SOME stack ⇒
-  handler_val (LASTN handler stack) ≤ LENGTH sstack`,
+  handler_val (LASTN handler stack) ≤ LENGTH sstack
+Proof
   ho_match_mp_tac (theorem "abs_stack_ind")>>rw[]>>
   fs[abs_stack_def,LET_THM]
   >-
@@ -2151,18 +2284,22 @@ val abs_stack_len = Q.prove(`
       `¬(handler < LENGTH x')` by (fs[]>>DECIDE_TAC)>>
       fs[LASTN_MORE]>>rw[]>>
       fs[LENGTH_TAKE_EQ]>>IF_CASES_TAC>>
-      DECIDE_TAC));
+      DECIDE_TAC)
+QED
 
-val EL_REVERSE_REWRITE = Q.prove(`
+Triviality EL_REVERSE_REWRITE:
   ∀l n k. n < LENGTH l ∧ k < n ⇒
-  EL (LENGTH l - n + k) l = EL (n-k -1) (REVERSE l)`,
-  rw[]>> fs[EL_REVERSE,PRE_SUB1]);
+  EL (LENGTH l - n + k) l = EL (n-k -1) (REVERSE l)
+Proof
+  rw[]>> fs[EL_REVERSE,PRE_SUB1]
+QED
 
-val LASTN_LESS = Q.prove(`
+Triviality LASTN_LESS:
   ∀ls n x xs.
   n+1 ≤ LENGTH ls ∧
   LASTN (n+1) ls = x::xs ⇒
-  LASTN n ls = xs`,
+  LASTN n ls = xs
+Proof
   Induct>>rw[]>>
   Cases_on`n+1 ≤ LENGTH ls`>>fs[]
   >-
@@ -2174,39 +2311,49 @@ val LASTN_LESS = Q.prove(`
   `n = LENGTH ls` by DECIDE_TAC>>
   `n+1 = LENGTH (h::ls)` by (fs[]>>DECIDE_TAC)>>
   imp_res_tac LASTN_LENGTH_ID2>>
-  fs[LASTN_CONS]);
+  fs[LASTN_CONS]
+QED
 
-val ALOOKUP_IFF_MEM = Q.prove(
-  `ALL_DISTINCT (MAP FST l) ==>
-    (ALOOKUP l q = SOME r <=> MEM (q,r) l)`,
-  Induct_on `l` \\ fs [FORALL_PROD,MEM_MAP] \\ rw [] \\ metis_tac []);
+Triviality ALOOKUP_IFF_MEM:
+  ALL_DISTINCT (MAP FST l) ==>
+    (ALOOKUP l q = SOME r <=> MEM (q,r) l)
+Proof
+  Induct_on `l` \\ fs [FORALL_PROD,MEM_MAP] \\ rw [] \\ metis_tac []
+QED
 
-val SORTED_CONS_IMP = Q.prove(
-  `SORTED (\x y. FST x > (FST y):num) (h::t) ==>
+Triviality SORTED_CONS_IMP:
+  SORTED (\x y. FST x > (FST y):num) (h::t) ==>
     ~(MEM h t) /\ SORTED (\x y. FST x > FST y) t /\
-    !x. MEM x t ==> FST h > FST x`,
+    !x. MEM x t ==> FST h > FST x
+Proof
   Induct_on `t` \\ fs [SORTED_DEF] \\ rw []
   \\ `SORTED (\x y. FST x > FST y) (h::t)` by
     (Cases_on `t` \\ fs [SORTED_DEF] \\ decide_tac)
   \\ fs [] \\ Cases_on `h` \\ Cases_on `h'` \\ fs []
-  \\ disj1_tac \\ decide_tac);
+  \\ disj1_tac \\ decide_tac
+QED
 
-val SORTED_IMP_ALL_DISTINCT_LEMMA = Q.prove(
-  `!l. SORTED (\x y. FST x > (FST y):num) l ==> ALL_DISTINCT (MAP FST l)`,
+Triviality SORTED_IMP_ALL_DISTINCT_LEMMA:
+  !l. SORTED (\x y. FST x > (FST y):num) l ==> ALL_DISTINCT (MAP FST l)
+Proof
   Induct \\ fs [] \\ rw [MEM_MAP]
-  \\ metis_tac [DECIDE ``m>n ==> m<>n:num``,SORTED_CONS_IMP]);
+  \\ metis_tac [DECIDE ``m>n ==> m<>n:num``,SORTED_CONS_IMP]
+QED
 
-val MEM_toAList_fromAList = Q.prove(
-  `SORTED (\x y. FST x > (FST y):num) l ==>
-    MEM a (toAList (fromAList l)) = MEM a l`,
+Triviality MEM_toAList_fromAList:
+  SORTED (\x y. FST x > (FST y):num) l ==>
+    MEM a (toAList (fromAList l)) = MEM a l
+Proof
   Cases_on `a` \\ fs [MEM_toAList,lookup_fromAList] \\ rw []
-  \\ imp_res_tac SORTED_IMP_ALL_DISTINCT_LEMMA \\ fs [ALOOKUP_IFF_MEM]);
+  \\ imp_res_tac SORTED_IMP_ALL_DISTINCT_LEMMA \\ fs [ALOOKUP_IFF_MEM]
+QED
 
-val SORTED_FST_PERM_IMP_ALIST_EQ = Q.prove(
-  `SORTED (\x y. FST x > FST y) l /\
+Triviality SORTED_FST_PERM_IMP_ALIST_EQ:
+  SORTED (\x y. FST x > FST y) l /\
     SORTED (\x y. FST x > FST y) q /\
     PERM (toAList (fromAList l)) q ==>
-    q = l`,
+    q = l
+Proof
   rw [] \\ drule MEM_PERM \\ fs [MEM_toAList_fromAList]
   \\ pop_assum kall_tac \\ rpt (pop_assum mp_tac)
   \\ Q.SPEC_TAC (`l`,`l`) \\ Induct_on `q` \\ fs [MEM]
@@ -2215,10 +2362,11 @@ val SORTED_FST_PERM_IMP_ALIST_EQ = Q.prove(
   \\ fs [] \\ rw []
   \\ imp_res_tac SORTED_CONS_IMP
   \\ `!m n:num. m > n /\ n > m ==> F` by decide_tac
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-val stack_rel_raise = Q.prove(`
-    n ≤ LENGTH sstack /\
+Triviality stack_rel_raise:
+  n ≤ LENGTH sstack /\
     handler+1 ≤ LENGTH wstack /\ SORTED (\x y. FST x > FST y) l /\
     LASTN (handler + 1) wstack = StackFrame m l (SOME (h1,l3,l4))::rest /\
     abs_stack bs wstack (DROP n sstack) lens = SOME stack /\
@@ -2238,7 +2386,8 @@ val stack_rel_raise = Q.prove(`
             ((NONE,payload) :: LASTN handler stack) /\
       abs_stack bs (StackFrame m (FST (env_to_list (fromAList l) (K I))) NONE::rest)
         (DROP (LENGTH sstack - handler_val (LASTN (handler+1) stack) + 3)
-           sstack) (LASTN (handler+1) lens) = SOME ((NONE,payload) :: LASTN handler stack)`,
+           sstack) (LASTN (handler+1) lens) = SOME ((NONE,payload) :: LASTN handler stack)
+Proof
   rw[]>>
   imp_res_tac abs_stack_prefix_drop>>
   fs[LET_THM]>>
@@ -2316,17 +2465,21 @@ val stack_rel_raise = Q.prove(`
   Cases_on`t'''`>>simp[]>>
   ntac 5 TOP_CASE_TAC>>
   rw[]>>
-  fs[abs_stack_def,LET_THM]);
+  fs[abs_stack_def,LET_THM]
+QED
 
-val EVERY_IMP_EVERY_LASTN = Q.prove(
-  `!xs ys P. EVERY P xs /\ LASTN n xs = ys ==> EVERY P ys`,
-  fs [EVERY_MEM] \\ rw [] \\ imp_res_tac MEM_LASTN_ALT \\ res_tac \\ fs []);
+Triviality EVERY_IMP_EVERY_LASTN:
+  !xs ys P. EVERY P xs /\ LASTN n xs = ys ==> EVERY P ys
+Proof
+  fs [EVERY_MEM] \\ rw [] \\ imp_res_tac MEM_LASTN_ALT \\ res_tac \\ fs []
+QED
 
-val LASTN_HD = Q.prove(`
+Triviality LASTN_HD:
   ∀ls x.
   x ≤ LENGTH ls ⇒
   HD (LASTN x ls) =
-  EL (LENGTH ls - x) ls`,
+  EL (LENGTH ls - x) ls
+Proof
   fs[LASTN_def]>>
   Induct>>rw[]>>
   Cases_on`x = SUC(LENGTH ls)`
@@ -2335,7 +2488,8 @@ val LASTN_HD = Q.prove(`
   >>
     `x ≤ LENGTH ls` by DECIDE_TAC>>fs[TAKE_APPEND1]>>
     `SUC (LENGTH ls) -x = SUC(LENGTH ls - x)` by DECIDE_TAC>>
-    simp[])
+    simp[]
+QED
 
 Theorem insert_bitmap_isPREFIX:
    ∀bs bs' i.
@@ -2370,13 +2524,15 @@ Proof
   \\ metis_tac[IS_PREFIX_TRANS,wLive_isPREFIX,insert_bitmap_isPREFIX]
 QED
 
-val compile_prog_isPREFIX = Q.prove(
-  `compile_prog x y k bs = (prog,fs,bs1) ==>
-  append (FST bs) ≼ append (FST bs1)`,
+Triviality compile_prog_isPREFIX:
+  compile_prog x y k bs = (prog,fs,bs1) ==>
+  append (FST bs) ≼ append (FST bs1)
+Proof
   fs [compile_prog_def,LET_THM] \\ rw []
   \\ pairarg_tac \\ fs []
   \\ imp_res_tac comp_IMP_isPREFIX
-  \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
+  \\ imp_res_tac IS_PREFIX_TRANS \\ fs []
+QED
 
 Theorem compile_word_to_stack_isPREFIX:
   ∀code k bs progs1 fs1 bs1.
@@ -2953,11 +3109,13 @@ Proof
   metis_tac[]
 QED
 
-val compile_result_NOT_2 = Q.prove(
-  `good_dimindex (:'a) ==>
-    compile_result x ≠ Halt (Word (2w:'a word))`,
+Triviality compile_result_NOT_2:
+  good_dimindex (:'a) ==>
+    compile_result x ≠ Halt (Word (2w:'a word))
+Proof
   Cases_on `x` \\ fs [compile_result_def]
-  \\ rw [good_dimindex_def] \\ fs [dimword_def]);
+  \\ rw [good_dimindex_def] \\ fs [dimword_def]
+QED
 
 Theorem MAP_o_THE_FILTER_IS_SOME:
    MAP (f o THE) (FILTER IS_SOME ls) =
@@ -2979,12 +3137,13 @@ Proof
   simp[MAP_EQ_f,MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
 QED
 
-val TIMES2_DIV2_lemma = Q.prove(
-  `windmill moves ∧
+Triviality TIMES2_DIV2_lemma:
+  windmill moves ∧
    EVERY EVEN (MAP FST moves) ∧
    EVERY EVEN (MAP SND moves) ⇒
    MAP ($* 2 o THE) (FILTER IS_SOME (MAP FST (parmove (MAP (DIV2 ## DIV2) moves))))
-    = MAP THE (FILTER IS_SOME (MAP FST (parmove moves)))`,
+    = MAP THE (FILTER IS_SOME (MAP FST (parmove moves)))
+Proof
   strip_tac
   \\ simp[MAP_o_THE_FILTER_IS_SOME]
   \\ simp[GSYM MAP_MAP_o]
@@ -3008,7 +3167,8 @@ val TIMES2_DIV2_lemma = Q.prove(
   \\ `MEM x (MAP FST moves)` suffices_by metis_tac[EVERY_MEM]
   \\ match_mp_tac MEM_MAP_FST_parmove
   \\ simp[MEM_MAP,EXISTS_PROD]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 Theorem PAIR_MAP_SOME_SWAP:
    (SOME ## SOME) o (f ## g) = (OPTION_MAP f ## OPTION_MAP g) o (SOME ## SOME)
@@ -3022,14 +3182,15 @@ Proof
   simp[FUN_EQ_THM] \\ Cases \\ simp[]
 QED
 
-val parsem_parmove_DIV2_lemma = Q.prove(
-  `windmill moves ∧
+Triviality parsem_parmove_DIV2_lemma:
+  windmill moves ∧
    EVERY EVEN (MAP FST moves) ∧
    EVERY EVEN (MAP SND moves) ⇒
    MAP (parsem (MAP (SOME ## SOME) (MAP (DIV2 ## DIV2) moves)) r)
       (FILTER IS_SOME (MAP FST (parmove (MAP (DIV2 ## DIV2) moves)))) =
    (MAP (parsem (MAP (SOME ## SOME) moves) (r o OPTION_MAP DIV2))
-     (FILTER IS_SOME (MAP FST (parmove moves))))`,
+     (FILTER IS_SOME (MAP FST (parmove moves))))
+Proof
   rw[]
   \\ drule(Q.ISPEC`DIV2`(Q.GEN`f`(ONCE_REWRITE_RULE[CONJ_COMM]parmove_MAP_INJ)))
   \\ impl_tac
@@ -3070,7 +3231,8 @@ val parsem_parmove_DIV2_lemma = Q.prove(
   \\ fs[MEM_MAP]
   \\ disch_then drule
   \\ simp[] \\ disch_then kall_tac
-  \\ rveq \\ fs[]);
+  \\ rveq \\ fs[]
+QED
 
 Theorem ALOOKUP_MAP_any:
    ∀f k h ls a x.
@@ -3227,11 +3389,13 @@ Proof
   \\ IF_CASES_TAC \\ fs[]
 QED
 
-val wf_fromList2 = Q.prove(`
-  ∀ls. wf(fromList2 ls)`,
+Triviality wf_fromList2:
+  ∀ls. wf(fromList2 ls)
+Proof
   ho_match_mp_tac SNOC_INDUCT>>
   fs[fromList2_def,FOLDL_SNOC,wf_def]>>rw[]>>
-  pairarg_tac>>fs[wf_insert])
+  pairarg_tac>>fs[wf_insert]
+QED
 
 Theorem wStackLoad_append:
    wStackLoad (l1 ++ l2) = wStackLoad l1 o (wStackLoad l2)
@@ -3571,17 +3735,19 @@ Theorem wStackLoad_thm3 =
  |> Q.INST [`t`|->`set_var v1 v2 t`]
  |> PURE_REWRITE_RULE[set_var_const]
 
-val map_var_def = tDefine"map_var"`
+Definition map_var_def:
   (map_var f (Var num) = Var (f num)) ∧
   (map_var f (Load exp) = Load (map_var f exp)) ∧
   (map_var f (Op wop ls) = Op wop (MAP (map_var f) ls)) ∧
   (map_var f (Shift sh e1 e2) = Shift sh (map_var f e1) e2) ∧
   (map_var f (Const c) = Const c) ∧
-  (map_var f (Lookup v) = Lookup v)`
-(WF_REL_TAC`measure (exp_size ARB o SND)`
+  (map_var f (Lookup v) = Lookup v)
+Termination
+  WF_REL_TAC`measure (exp_size ARB o SND)`
  \\ simp[]
  \\ Induct \\ simp[] \\ rw[]
- \\ EVAL_TAC \\ simp[] \\ res_tac \\ simp[]);
+ \\ EVAL_TAC \\ simp[] \\ res_tac \\ simp[]
+End
 val _ = export_rewrites["map_var_def"];
 
 Theorem the_words_EVERY_IS_SOME_Word:
@@ -4693,11 +4859,12 @@ Proof
 QED
 
 (*For calls*)
-val get_vars_fromList2_eq = Q.prove(`
-    get_vars (GENLIST (λx. 2*x) (LENGTH args)) s = SOME x ∧
+Triviality get_vars_fromList2_eq:
+  get_vars (GENLIST (λx. 2*x) (LENGTH args)) s = SOME x ∧
     lookup n (fromList2 x) = SOME y ⇒
-    lookup n s.locals = SOME y`,
-    rw[]>>imp_res_tac get_vars_eq>>
+    lookup n s.locals = SOME y
+Proof
+  rw[]>>imp_res_tac get_vars_eq>>
     fs[lookup_fromList2,lookup_fromList,LET_THM]>>
     fs[EVERY_MAP,EVERY_GENLIST,MAP_GENLIST]>>rfs[EL_GENLIST]>>
     qpat_x_assum`A=y` sym_sub_tac>>
@@ -4707,13 +4874,15 @@ val get_vars_fromList2_eq = Q.prove(`
     Q.ISPECL_THEN [`2n`] assume_tac DIVISION>>fs[]>>
     pop_assum(qspec_then`n` assume_tac)>>
     fs[EVEN_MOD2]>>
-    simp[]);
+    simp[]
+QED
 
 (*For returning calls*)
-val get_vars_fromList2_eq_cons = Q.prove(`
-    get_vars (GENLIST (λx. 2*(x+1)) (LENGTH args)) s = SOME x ∧
+Triviality get_vars_fromList2_eq_cons:
+  get_vars (GENLIST (λx. 2*(x+1)) (LENGTH args)) s = SOME x ∧
     lookup n (fromList2 (Loc x3 x4::x)) = SOME y ∧ n ≠ 0 ⇒
-    lookup n s.locals = SOME y`,
+    lookup n s.locals = SOME y
+Proof
   rw[]>>imp_res_tac get_vars_eq>>
   fs[lookup_fromList2,lookup_fromList,LET_THM]>>
   Cases_on`n`>>fs[]>>
@@ -4728,17 +4897,20 @@ val get_vars_fromList2_eq_cons = Q.prove(`
   fs[ADD1]>>
   Q.ISPECL_THEN [`2n`] assume_tac DIVISION>>fs[]>>
   pop_assum(qspec_then`n` assume_tac)>>
-  fs[EVEN_MOD2]>>simp[])
+  fs[EVEN_MOD2]>>simp[]
+QED
 
-val lookup_fromList2_prefix = Q.prove(`
+Triviality lookup_fromList2_prefix:
   ∀x z y.
   IS_PREFIX z x ∧
   lookup n (fromList2 x) = SOME y ⇒
-  lookup n (fromList2 z) = SOME y`,
+  lookup n (fromList2 z) = SOME y
+Proof
   fs[lookup_fromList2,lookup_fromList]>>rw[]>>
   imp_res_tac IS_PREFIX_LENGTH >- DECIDE_TAC>>
   fs[IS_PREFIX_APPEND]>>
-  fs[EL_APPEND1])
+  fs[EL_APPEND1]
+QED
 
 Theorem list_max_APPEND:
     ∀a b.
@@ -4786,7 +4958,7 @@ Proof
   EVERY_CASE_TAC>>fs[]
 QED
 
-val evaluate_wStackLoad_wReg1 = Q.prove(`
+Triviality evaluate_wStackLoad_wReg1:
   wReg1 r (k,f,f') = (x ,r') ∧
   EVEN r ∧
   get_var r (s:('a,num # 'c,'ffi)state) = SOME (Word c) ∧
@@ -4797,7 +4969,8 @@ val evaluate_wStackLoad_wReg1 = Q.prove(`
   state_rel k f f' s t' lens ∧
   LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space /\
   r' ≠ k+1 ∧
-  get_var r' t' = SOME (Word c)`,
+  get_var r' t' = SOME (Word c)
+Proof
   rw[wReg1_def,LET_THM,EVEN_EXISTS]>>
   fs[wStackLoad_def,stackSemTheory.evaluate_def,LET_THM,stackSemTheory.get_var_def]>>simp[]>-
     (imp_res_tac state_rel_get_var_imp>>
@@ -4811,16 +4984,19 @@ val evaluate_wStackLoad_wReg1 = Q.prove(`
   imp_res_tac state_rel_get_var_imp2>>
   fs[]>>
   simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
-  fs[TWOxDIV2])
+  fs[TWOxDIV2]
+QED
 
-val evaluate_wStackLoad_clock = Q.prove(`
+Triviality evaluate_wStackLoad_clock:
   ∀x t.
   evaluate(wStackLoad x Skip,t with clock:= clk) =
   (FST (evaluate(wStackLoad x Skip,t)),
-   (SND (evaluate(wStackLoad x Skip,t))) with clock:=clk)`,
-  Induct>>fs[wStackLoad_def,FORALL_PROD,stackSemTheory.evaluate_def,LET_THM]>>rw[])
+   (SND (evaluate(wStackLoad x Skip,t))) with clock:=clk)
+Proof
+  Induct>>fs[wStackLoad_def,FORALL_PROD,stackSemTheory.evaluate_def,LET_THM]>>rw[]
+QED
 
-val evaluate_wStackLoad_wRegImm2 = Q.prove(`
+Triviality evaluate_wStackLoad_wRegImm2:
   wRegImm2 ri (k,f,f') = (x,r') ∧
   (case ri of Reg r => EVEN r | _ => T) ∧
   get_var_imm ri (s:('a,num # 'c,'ffi)state) = SOME (Word c) ∧
@@ -4831,7 +5007,8 @@ val evaluate_wStackLoad_wRegImm2 = Q.prove(`
   get_var_imm r' t' = SOME(Word c) ∧
   (∀r. r ≠ k+1 ⇒ get_var r t' = get_var r t) ∧
   state_rel k f f' s t' lens ∧
-  LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space`,
+  LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space
+Proof
   Cases_on`ri`>>rw[wRegImm2_def,LET_THM,wReg2_def,EVEN_EXISTS]>>
   fs[wStackLoad_def,stackSemTheory.evaluate_def,LET_THM,stackSemTheory.get_var_def,stackSemTheory.get_var_imm_def,get_var_imm_def]>>simp[]>-
     (imp_res_tac state_rel_get_var_imp>>
@@ -4845,38 +5022,45 @@ val evaluate_wStackLoad_wRegImm2 = Q.prove(`
   imp_res_tac state_rel_get_var_imp2>>
   fs[]>>
   simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
-  fs[TWOxDIV2])
+  fs[TWOxDIV2]
+QED
 
-val evaluate_call_dest_clock = Q.prove(`
+Triviality evaluate_call_dest_clock:
   call_dest dest args (k,f,f') = (q0,dest') ⇒
   evaluate(q0,t with clock := clk) =
   (FST(evaluate(q0,t:('a,'c,'ffi)stackSem$state)),
-   (SND(evaluate(q0,t))) with clock := clk)`,
+   (SND(evaluate(q0,t))) with clock := clk)
+Proof
   Cases_on`dest`>>fs[call_dest_def,LET_THM]>>rw[]>>
   simp[stackSemTheory.evaluate_def]>>
-  pairarg_tac>>fs[]>>rveq>>fs[evaluate_wStackLoad_clock])
+  pairarg_tac>>fs[]>>rveq>>fs[evaluate_wStackLoad_clock]
+QED
 
-val evaluate_wLive_clock = Q.prove(`
+Triviality evaluate_wLive_clock:
   ∀x t q bs bs'.
   wLive x bs kf = (q,bs') ⇒
   evaluate(q, t with clock:= clk) =
   (FST (evaluate(q,t:('a,'c,'ffi)stackSem$state)),
-   (SND (evaluate(q,t)) with clock:=clk))`,
+   (SND (evaluate(q,t)) with clock:=clk))
+Proof
   PairCases_on`kf`>>fs[wLive_def,LET_THM]>>rw[]
   >-
     simp[stackSemTheory.evaluate_def]
   >>
     pairarg_tac>>fs[]>>rveq>>
     simp[stackSemTheory.evaluate_def,FORALL_PROD,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.set_var_def,stackSemTheory.word_exp_def,empty_env_def,stackSemTheory.get_var_def]>>
-    EVERY_CASE_TAC>>fs[])
+    EVERY_CASE_TAC>>fs[]
+QED
 
-val state_rel_IMP_LENGTH = Q.prove(`
+Triviality state_rel_IMP_LENGTH:
   state_rel k f f' s t lens ⇒
-  LENGTH lens = LENGTH s.stack`,
+  LENGTH lens = LENGTH s.stack
+Proof
   fs[state_rel_def,stack_rel_def,LET_THM]>>rw[]>>
-  metis_tac[abs_stack_IMP_LENGTH])
+  metis_tac[abs_stack_IMP_LENGTH]
+QED
 
-val evaluate_stack_move = Q.prove(`
+Triviality evaluate_stack_move:
   ∀n tar t offset.
   t.use_stack ∧
   t.stack_space + tar + n + offset ≤ LENGTH t.stack ∧
@@ -4896,7 +5080,8 @@ val evaluate_stack_move = Q.prove(`
   (*Copying the first frame*)
   let stack = DROP (t'.stack_space+tar) t'.stack in
   ∀x. x < n ⇒
-  EL x stack = EL (x+offset) stack`,
+  EL x stack = EL (x+offset) stack
+Proof
   Induct>>fsrw_tac[][stack_move_def,stackSemTheory.evaluate_def]>-
     simp[stackSemTheory.state_component_equality]>>
   ntac 4 strip_tac>>
@@ -4922,12 +5107,14 @@ val evaluate_stack_move = Q.prove(`
       simp[]>>
     fs[LET_THM]>>
     first_x_assum(qspec_then`x-1` mp_tac)>>
-    simp[EL_DROP])
+    simp[EL_DROP]
+QED
 
-val evaluate_stack_move_seq = Q.prove(`
+Triviality evaluate_stack_move_seq:
   ∀a b c d prog (t:('a,'c,'ffi)stackSem$state).
   evaluate (stack_move a b c d prog,t) =
-  evaluate (Seq prog (stack_move a b c d Skip),t)`,
+  evaluate (Seq prog (stack_move a b c d Skip),t)
+Proof
   Induct>>rw[]>>fs[stack_move_def,LET_THM]
   >-
     (simp[stackSemTheory.evaluate_def]>>
@@ -4939,7 +5126,8 @@ val evaluate_stack_move_seq = Q.prove(`
     rpt(pairarg_tac>>fs[])>>
     rpt (pop_assum mp_tac)>>
     IF_CASES_TAC>>fs[]>>
-    rpt IF_CASES_TAC>>fs[]);
+    rpt IF_CASES_TAC>>fs[]
+QED
 
 val evaluate_stack_move_clock = Q.prove(`
   ∀a b c d (t:('a,'c,'ffi)stackSem$state).
@@ -4953,14 +5141,17 @@ val evaluate_stack_move_clock = Q.prove(`
   (*get_var_set_var?*)
   fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE])|>SIMP_RULE arith_ss [LET_THM];
 
-val pop_env_ffi = Q.prove(`
+Triviality pop_env_ffi:
   pop_env s = SOME s' ⇒
-  s.ffi = s'.ffi`,
-  fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality]);
+  s.ffi = s'.ffi
+Proof
+  fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality]
+QED
 
-val stack_rel_DROP_NONE = Q.prove(`
+Triviality stack_rel_DROP_NONE:
   stack_rel k whandler (StackFrame n l NONE::wstack) shandler sstack len bs (f'::lens) ⇒
-  stack_rel k whandler wstack shandler (DROP (f'+1) sstack) len bs lens`,
+  stack_rel k whandler wstack shandler (DROP (f'+1) sstack) len bs lens
+Proof
   simp[stack_rel_def]>>rw[]>>
   Cases_on`sstack`>>fs[abs_stack_def]>>qpat_x_assum`A=SOME stack` mp_tac>>
   rpt (TOP_CASE_TAC>>simp[])>>
@@ -4970,11 +5161,13 @@ val stack_rel_DROP_NONE = Q.prove(`
   `SUC (LENGTH wstack) - (whandler+1) = SUC(LENGTH wstack - (whandler +1))` by DECIDE_TAC>>
   simp[]>>rw[]>>
   imp_res_tac abs_stack_IMP_LENGTH>>
-  simp[LASTN_CONS]);
+  simp[LASTN_CONS]
+QED
 
-val stack_rel_DROP_SOME = Q.prove(`
+Triviality stack_rel_DROP_SOME:
   stack_rel k whandler (StackFrame n l (SOME (whandler',b,c))::wstack) shandler sstack len bs (f'::lens) ⇒
-  stack_rel k whandler' wstack (SOME(EL 2 sstack)) (DROP (f'+4) sstack) len bs lens`,
+  stack_rel k whandler' wstack (SOME(EL 2 sstack)) (DROP (f'+4) sstack) len bs lens
+Proof
   simp[stack_rel_def]>>rw[]>>
   Cases_on`sstack`>>fs[abs_stack_def]>>qpat_x_assum`A=SOME stack` mp_tac>>
   rpt (TOP_CASE_TAC>>simp[])>>
@@ -4982,28 +5175,35 @@ val stack_rel_DROP_SOME = Q.prove(`
   qpat_x_assum`P ⇒A=B` mp_tac>>
   simp[]>>
   imp_res_tac abs_stack_IMP_LENGTH>>
-  simp[]);
+  simp[]
+QED
 
-val LAST_GENLIST_evens = Q.prove(`
+Triviality LAST_GENLIST_evens:
   n ≠ 0 ⇒
   let reg = LAST (GENLIST (λx. 2 * (x+1)) n) in
-  reg ≠ 0 ∧ EVEN reg`,
+  reg ≠ 0 ∧ EVEN reg
+Proof
   Cases_on`n`>>
   simp[LAST_EL,GENLIST_CONS]>>
   `0 < 2n` by DECIDE_TAC>>
-  metis_tac[EVEN_MOD2,MULT_COMM,MOD_EQ_0]);
+  metis_tac[EVEN_MOD2,MULT_COMM,MOD_EQ_0]
+QED
 
-val stack_rel_cons_LEN_NONE = Q.prove(`
+Triviality stack_rel_cons_LEN_NONE:
   stack_rel k whandler (StackFrame n l NONE::wstack) shandler sstack len bs (f'::lens) ⇒
-  f'+1 ≤ LENGTH sstack`,
+  f'+1 ≤ LENGTH sstack
+Proof
   simp[stack_rel_def]>>Cases_on`sstack`>>simp[abs_stack_def]>>
-  rpt TOP_CASE_TAC>>simp[])
+  rpt TOP_CASE_TAC>>simp[]
+QED
 
-val stack_rel_cons_LEN_SOME = Q.prove(`
+Triviality stack_rel_cons_LEN_SOME:
   stack_rel k whandler (StackFrame n l (SOME(a,b,c))::wstack) shandler sstack len bs (f'::lens) ⇒
-  f'+4 ≤ LENGTH sstack`,
+  f'+4 ≤ LENGTH sstack
+Proof
   simp[stack_rel_def]>>Cases_on`sstack`>>simp[abs_stack_def]>>
-  rpt TOP_CASE_TAC>>simp[]);
+  rpt TOP_CASE_TAC>>simp[]
+QED
 
 Theorem stack_rel_cons_locals_size:
   stack_rel k whandler (StackFrame n l opt::t'')
@@ -5026,23 +5226,27 @@ Proof
  rw[OPTION_MAP2_DEF]
 QED
 
-val DROP_SUB = Q.prove(`
+Triviality DROP_SUB:
   a ≤ LENGTH ls ∧ b ≤ a ⇒
-  DROP (a-b) ls = (DROP(a-b) (TAKE a ls))++ DROP a ls`,
+  DROP (a-b) ls = (DROP(a-b) (TAKE a ls))++ DROP a ls
+Proof
   rw[]>>
   Q.ISPECL_THEN[`a`,`ls`] mp_tac(GSYM TAKE_DROP)>>
   disch_then SUBST_ALL_TAC>>
-  simp[GSYM DROP_APPEND1]);
+  simp[GSYM DROP_APPEND1]
+QED
 
-val DROP_SUB2 = Q.prove(`
+Triviality DROP_SUB2:
   ∀a ls b.
   b ≤ a ∧
   a = LENGTH ls ⇒
   ∃rest.
-  DROP (a-b) ls = rest ∧ LENGTH rest = b`,
+  DROP (a-b) ls = rest ∧ LENGTH rest = b
+Proof
   Induct>>
   fs[]>>rw[]>>
-  simp[]);
+  simp[]
+QED
 
 val evaluate_PushHandler = Q.prove(`
   3 ≤ t.stack_space ∧
@@ -5191,42 +5395,52 @@ val evaluate_PushHandler_clock = Q.prove(`
   TOP_CASE_TAC>>fs[empty_env_def,FLOOKUP_UPDATE]>>
   rpt(TOP_CASE_TAC>>fs[]))|>SIMP_RULE arith_ss [LET_THM];
 
-val evaluate_PopHandler_clock = Q.prove(`
+Triviality evaluate_PopHandler_clock:
   ∀(t:('a,'c,'ffi)stackSem$state).
   let prog = PopHandler (k,f:num,f':num) Skip in
   evaluate (prog,t with clock:=clk) =
   (FST (evaluate(prog,t:('a,'c,'ffi)stackSem$state)),
-   (SND (evaluate(prog,t)) with clock:=clk))`,
+   (SND (evaluate(prog,t)) with clock:=clk))
+Proof
   simp[stackSemTheory.evaluate_def,PopHandler_def,stackSemTheory.set_var_def,stackSemTheory.get_var_def,stackSemTheory.set_store_def,empty_env_def]>>rw[]>>
   EVERY_CASE_TAC>>fs[]>>
-  EVERY_CASE_TAC>>fs[]);
+  EVERY_CASE_TAC>>fs[]
+QED
 
-val evaluate_PopHandler_seq = Q.prove(`
+Triviality evaluate_PopHandler_seq:
   ∀prog (t:('a,'c,'ffi)stackSem$state).
   evaluate (PopHandler (k,f,f') prog,t) =
-  evaluate (Seq (PopHandler (k,f,f') Skip) prog,t)`,
+  evaluate (Seq (PopHandler (k,f,f') Skip) prog,t)
+Proof
   simp[stackSemTheory.evaluate_def,PopHandler_def]>>
   rw[]>>EVERY_CASE_TAC>>fs[]>>
-  EVERY_CASE_TAC>>fs[]);
+  EVERY_CASE_TAC>>fs[]
+QED
 
-val word_cmp_Word_Word = Q.prove(
-  `word_cmp cmp (Word c) (Word c') = SOME (word_cmp cmp c c')`,
+Triviality word_cmp_Word_Word:
+  word_cmp cmp (Word c) (Word c') = SOME (word_cmp cmp c c')
+Proof
   Cases_on `cmp`
-  \\ rw [labSemTheory.word_cmp_def,asmTheory.word_cmp_def]);
+  \\ rw [labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
+QED
 
-val ALL_DISTINCT_MEM_toAList_fromAList = Q.prove(`
+Triviality ALL_DISTINCT_MEM_toAList_fromAList:
   ALL_DISTINCT (MAP FST ls) ⇒
   (MEM x (toAList (fromAList ls)) ⇔
-  MEM x ls)`,
+  MEM x ls)
+Proof
   Cases_on`x`>>fs[MEM_toAList,lookup_fromAList]>>
   rw[]>>
-  metis_tac[ALOOKUP_MEM,ALOOKUP_ALL_DISTINCT_MEM]);
+  metis_tac[ALOOKUP_MEM,ALOOKUP_ALL_DISTINCT_MEM]
+QED
 
-val state_rel_code_domain = Q.prove(`
+Triviality state_rel_code_domain:
   state_rel k f f' s t lens ⇒
-  domain s.code ⊆ domain t.code`,
+  domain s.code ⊆ domain t.code
+Proof
   strip_tac>>fs[state_rel_def,SUBSET_DEF,domain_lookup,EXISTS_PROD]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 Theorem get_labels_wStackLoad:
    !xs p. get_labels (wStackLoad xs p) = get_labels p
@@ -5326,7 +5540,7 @@ Proof
   \\ fs[]
 QED
 
-val compile_word_to_stack_IMP_ALOOKUP = Q.prove(`
+Triviality compile_word_to_stack_IMP_ALOOKUP:
   !code k bs i progs fs bs' i' n arg_count word_prog x.
     compile_word_to_stack k code (bs,i) = (progs,fs,bs',i') /\
     ALOOKUP code n = SOME (arg_count,word_prog) /\
@@ -5336,7 +5550,8 @@ val compile_word_to_stack_IMP_ALOOKUP = Q.prove(`
       compile_prog word_prog arg_count k (bs,i) = (stack_prog,f,(bs2,i2)) ∧
       LENGTH (append bs) ≤ i ∧ i - LENGTH (append bs) ≤ LENGTH x ∧
       isPREFIX (append bs2) (DROP (i - LENGTH (append bs)) x) ∧
-      ALOOKUP progs n = SOME stack_prog`,
+      ALOOKUP progs n = SOME stack_prog
+Proof
   Induct \\ fs [] \\ strip_tac \\ PairCases_on `h`
   \\ fs [compile_word_to_stack_def] \\ rw [] \\ fs [LET_THM]
   \\ pairarg_tac \\ fs []
@@ -5350,7 +5565,7 @@ val compile_word_to_stack_IMP_ALOOKUP = Q.prove(`
   \\ asm_exists_tac \\ fs []
   \\ drule compile_prog_LENGTH
   \\ rw[] \\ fs[]
-  );
+QED
 
 val goal = ``
    λ(prog:'a wordLang$prog,s:('a,num # 'c,'ffi) wordSem$state).
@@ -9274,9 +9489,11 @@ Proof
     comp_FFI_correct, comp_OpCurrHeap_correct, comp_Call_correct,comp_ShareInst_correct]
 QED
 
-val evaluate_Seq_Skip = Q.prove(
-  `stackSem$evaluate (Seq Skip p,s) = evaluate (p,s)`,
-  fs [stackSemTheory.evaluate_def,LET_THM]);
+Triviality evaluate_Seq_Skip:
+  stackSem$evaluate (Seq Skip p,s) = evaluate (p,s)
+Proof
+  fs [stackSemTheory.evaluate_def,LET_THM]
+QED
 
 val comp_Call_lemma = comp_correct
   |> Q.SPEC `Call NONE (SOME start) [0] NONE`
@@ -9288,8 +9505,8 @@ val comp_Call_lemma = comp_correct
        EVAL  ``flat_exp_conventions (Call NONE (SOME start) [0] NONE)``,
        wordLangTheory.max_var_def,LET_DEF,MAX_DEF] |> GEN_ALL
 
-val comp_Call = Q.prove(
-  `∀start (s:('a,num # 'c,'ffi) wordSem$state) k res s1 t lens.
+Triviality comp_Call:
+  ∀start (s:('a,num # 'c,'ffi) wordSem$state) k res s1 t lens.
       evaluate (Call NONE (SOME start) [0] NONE,s) = (res,s1) /\
       res ≠ SOME Error /\ state_rel k 0 0 s t lens ⇒
       ∃ck t1:(α,'c,'ffi)stackSem$state res1.
@@ -9300,7 +9517,8 @@ val comp_Call = Q.prove(
         else
           res1 = SOME (Halt (Word 2w)) /\
           t1.ffi.io_events ≼ s1.ffi.io_events /\
-          the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit`,
+          the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit
+Proof
   rw [] \\ drule comp_Call_lemma \\ fs [get_labels_def]
   \\ disch_then drule
   \\ disch_then(qspecl_then[`LENGTH t.bitmaps`,`Nil`] mp_tac)
@@ -9310,7 +9528,8 @@ val comp_Call = Q.prove(
   \\ asm_exists_tac \\ fs []
   \\ conj_tac THEN1 (fs [state_rel_def,good_dimindex_def,dimword_def])
   \\ IF_CASES_TAC \\ fs []
-  \\ every_case_tac \\ fs [state_rel_def,push_locals_def,LET_DEF]);
+  \\ every_case_tac \\ fs [state_rel_def,push_locals_def,LET_DEF]
+QED
 
 Theorem state_rel_with_clock:
    state_rel a 0 0 s t lens ⇒ state_rel a 0 0 (s with clock := k) (t with clock := k) lens
@@ -9597,8 +9816,8 @@ Definition make_init_def:
      ; locals_size := SOME 0|>
 End ;
 
-val init_state_ok_IMP_state_rel = Q.prove(
-  `lookup raise_stub_location t.code = SOME (raise_stub k) /\
+Triviality init_state_ok_IMP_state_rel:
+  lookup raise_stub_location t.code = SOME (raise_stub k) /\
    lookup store_consts_stub_location t.code = SOME (store_consts_stub k) /\
     (!n word_prog arg_count.
        (lookup n code = SOME (arg_count,word_prog)) ==>
@@ -9612,8 +9831,9 @@ val init_state_ok_IMP_state_rel = Q.prove(
     domain t.code =
       raise_stub_location INSERT store_consts_stub_location INSERT domain code ∧
     init_state_ok k t coracle ==>
-    state_rel k 0 0 (make_init k t code coracle) (t:('a,'c,'ffi)stackSem$state) []`,
-   fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def]
+    state_rel k 0 0 (make_init k t code coracle) (t:('a,'c,'ffi)stackSem$state) []
+Proof
+  fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def]
    \\ strip_tac
    \\ conj_tac>-
      (rw[] >> res_tac >>
@@ -9631,7 +9851,8 @@ val init_state_ok_IMP_state_rel = Q.prove(
    \\ qmatch_asmsub_abbrev_tac `a1 = [a2]`
    \\ `LENGTH a1 = 1` by simp[]
    \\ unabbrev_all_tac
-   \\ fs[LENGTH_DROP]);
+   \\ fs[LENGTH_DROP]
+QED
 
 val init_state_ok_semantics =
   state_rel_IMP_semantics |> Q.INST [`s`|->`make_init k t code coracle`]
@@ -9921,12 +10142,14 @@ Proof
   \\ metis_tac[PAIR]
 QED
 
-val stack_move_no_labs = Q.prove(`
+Triviality stack_move_no_labs:
   ∀n a b c p.
   extract_labels p = [] ⇒
-  extract_labels (stack_move n a b c p) = []`,
+  extract_labels (stack_move n a b c p) = []
+Proof
   Induct>>rw[stack_move_def]>>
-  EVAL_TAC>>metis_tac[])
+  EVAL_TAC>>metis_tac[]
+QED
 
 Theorem word_to_stack_lab_pres:
   ∀p bs kf.
@@ -10054,40 +10277,46 @@ Proof
   \\ ntac 2 strip_tac \\ fs[]
 QED
 
-val EVEN_DIV_2_props = Q.prove(`
+Triviality EVEN_DIV_2_props:
   a MOD 2 = 0 ∧ b MOD 2 = 0 ⇒
-  (a ≠ b ⇒ a DIV 2 ≠ b DIV 2) ∧ (a ≠ 0 ⇒ a DIV 2 ≠ 0)`,
+  (a ≠ b ⇒ a DIV 2 ≠ b DIV 2) ∧ (a ≠ 0 ⇒ a DIV 2 ≠ 0)
+Proof
   strip_tac
   \\ qspec_then `a` strip_assume_tac (MATCH_MP DIVISION (DECIDE ``0<2n``))
   \\ qpat_x_assum `a = _` (fn th => once_rewrite_tac [th])
   \\ qspec_then `b` strip_assume_tac (MATCH_MP DIVISION (DECIDE ``0<2n``))
   \\ qpat_x_assum `b = _` (fn th => once_rewrite_tac [th])
-  \\ asm_simp_tac std_ss [DIV_MULT] \\ fs []);
+  \\ asm_simp_tac std_ss [DIV_MULT] \\ fs []
+QED
 
 val wconvs = [post_alloc_conventions_def,wordPropsTheory.full_inst_ok_less_def,call_arg_convention_def,wordLangTheory.every_var_def,wordLangTheory.every_stack_var_def]
 
-val call_dest_stack_asm_name = Q.prove(`
+Triviality call_dest_stack_asm_name:
   call_dest d a k = (q0,d') ⇒
   stack_asm_name c q0 ∧
   case d' of
     INR r => r ≤ (FST k)+1
-  | INL l => T`,
+  | INL l => T
+Proof
   Cases_on`d`>>EVAL_TAC>>rw[]>>
   EVAL_TAC>>
   pairarg_tac>>fs[]>>
   pop_assum mp_tac>>PairCases_on`k`>>
   EVAL_TAC>>rw[]>>
-  EVAL_TAC>>rw[])
+  EVAL_TAC>>rw[]
+QED
 
-val wLive_stack_asm_name = Q.prove(`
+Triviality wLive_stack_asm_name:
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧
   wLive q bs kf = (q1,bs') ⇒
-  stack_asm_name c q1`,
+  stack_asm_name c q1
+Proof
   PairCases_on`kf`>>
   fs[wLive_def]>>
   rw[]>-EVAL_TAC>>
   rpt(pairarg_tac>>fs[])>>
-  rveq>>EVAL_TAC>>fs[])
+  rveq>>EVAL_TAC>>fs[]
+QED
 
 Theorem word_to_stack_stack_asm_name_lem:
   ∀p bs kf c.
@@ -10676,22 +10905,28 @@ val get_code_labels_wReg = Q.prove(`
   `,
   PairCases_on`kf`>>rw[wRegWrite1_def,wRegWrite2_def]) |> SIMP_RULE std_ss [IMP_CONJ_THM];
 
-val get_code_handler_labels_wStackLoad = Q.prove(`
+Triviality get_code_handler_labels_wStackLoad:
   ∀ls.
   get_code_labels (wStackLoad ls x) = get_code_labels x ∧
-  stack_get_handler_labels n (wStackLoad ls x) = stack_get_handler_labels n x`,
-  Induct>>fs[wStackLoad_def,FORALL_PROD]);
+  stack_get_handler_labels n (wStackLoad ls x) = stack_get_handler_labels n x
+Proof
+  Induct>>fs[wStackLoad_def,FORALL_PROD]
+QED
 
-val wLive_code_labels = Q.prove(`
+Triviality wLive_code_labels:
   wLive q bs kf = (q',bs') ⇒
-  get_code_labels q' = {}`,
+  get_code_labels q' = {}
+Proof
   PairCases_on`kf`>>rw[wLive_def]>>fs[]>>
-  pairarg_tac>>fs[]>>rw[]);
+  pairarg_tac>>fs[]>>rw[]
+QED
 
-val stack_move_code_labels = Q.prove(`
+Triviality stack_move_code_labels:
   ∀a b c d e.
-  get_code_labels (stack_move a b c d e) = get_code_labels e`,
-  Induct>>rw[stack_move_def]);
+  get_code_labels (stack_move a b c d e) = get_code_labels e
+Proof
+  Induct>>rw[stack_move_def]
+QED
 
 Theorem word_to_stack_comp_code_labels:
   ∀prog bs kf n.

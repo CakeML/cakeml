@@ -266,9 +266,11 @@ Proof
   simp[GSYM MEMBER_NOT_EMPTY] >> rw[] >> metis_tac[]
 QED
 
-val LEAST_EXISTS = Q.prove(
-  `(∃n:num. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)`,
-  metis_tac[whileTheory.LEAST_EXISTS])
+Triviality LEAST_EXISTS:
+  (∃n:num. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)
+Proof
+  metis_tac[whileTheory.LEAST_EXISTS]
+QED
 
 val VARIANT_PRIMES_def = new_specification
   ("VARIANT_PRIMES_def"
@@ -290,11 +292,13 @@ QED
 
 (* Substitution for type variables in a type. *)
 
-val TYPE_SUBST_def = tDefine"TYPE_SUBST"`
+Definition TYPE_SUBST_def:
   (TYPE_SUBST i (Tyvar v) = REV_ASSOCD (Tyvar v) i (Tyvar v)) ∧
   (TYPE_SUBST i (Tyapp v tys) = Tyapp v (MAP (TYPE_SUBST i) tys)) ∧
-  (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))`
-(type_rec_tac "SND")
+  (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))
+Termination
+  type_rec_tac "SND"
+End
 val _ = export_rewrites["TYPE_SUBST_def"]
 Overload is_instance = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
 
@@ -348,7 +352,7 @@ QED
 
 (* Instantiation of type variables in terms *)
 
-val INST_CORE_def = tDefine"INST_CORE"`
+Definition INST_CORE_def:
   (INST_CORE env tyin (Var x ty) =
      let tm = Var x ty in
      let tm' = Var x (TYPE_SUBST tyin ty) in
@@ -376,8 +380,10 @@ val INST_CORE_def = tDefine"INST_CORE"`
     let ty' = TYPE_SUBST tyin ty in
     let env' = (Var x' ty,Var x' ty')::env in
     let tres = INST_CORE env' tyin t' in
-    if IS_RESULT tres then Result(Abs (Var x' ty') (RESULT tres)) else tres)`
-(WF_REL_TAC`measure (sizeof o SND o SND)` >> simp[SIZEOF_VSUBST])
+    if IS_RESULT tres then Result(Abs (Var x' ty') (RESULT tres)) else tres)
+Termination
+  WF_REL_TAC`measure (sizeof o SND o SND)` >> simp[SIZEOF_VSUBST]
+End
 
 Definition INST_def:
   INST tyin tm = RESULT(INST_CORE [] tyin tm)
@@ -385,10 +391,12 @@ End
 
 (* Type variables in a type. *)
 
-val tyvars_def = tDefine"tyvars"`
+Definition tyvars_def:
   tyvars (Tyvar v) = [v] ∧
-  tyvars (Tyapp v tys) = FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys`
-(type_rec_tac "I")
+  tyvars (Tyapp v tys) = FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys
+Termination
+  type_rec_tac "I"
+End
 
 (* Type variables in a term. *)
 
@@ -419,12 +427,14 @@ Overload tmsof = ``SND:sig->tmsig``
 
 (* Well-formedness of types/terms with respect to a signature *)
 
-val type_ok_def = tDefine "type_ok"`
+Definition type_ok_def:
    (type_ok tysig (Tyvar _) ⇔ T) ∧
    (type_ok tysig (Tyapp name args) ⇔
       FLOOKUP tysig name = SOME (LENGTH args) ∧
-      EVERY (type_ok tysig) args)`
-(type_rec_tac "SND")
+      EVERY (type_ok tysig) args)
+Termination
+  type_rec_tac "SND"
+End
 
 Definition term_ok_def:
   (term_ok sig (Var x ty) ⇔ type_ok (tysof sig) ty) ∧

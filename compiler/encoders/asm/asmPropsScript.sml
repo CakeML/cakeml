@@ -39,7 +39,7 @@ End
 
 (* -- correctness property to be proved for each backend -- *)
 
-val () = Datatype `
+Datatype:
   target =
     <| config : 'a asm_config
      ; next : 'b -> 'b
@@ -49,7 +49,8 @@ val () = Datatype `
      ; get_byte : 'b -> 'a word -> word8
      ; state_ok : 'b -> bool
      ; proj : 'a word set -> 'b -> 'c
-     |>`
+     |>
+End
 
 Definition target_state_rel_def:
   target_state_rel t s ms <=>
@@ -98,16 +99,18 @@ Proof
   \\ Cases_on`i` \\ fs[ADD1,LEFT_ADD_DISTRIB,RIGHT_ADD_DISTRIB]
 QED
 
-val asserts_def = zDefine `
+Definition asserts_def[nocompute]:
   (asserts 0 next ms _ Q <=> Q (next 0 ms)) /\
   (asserts (SUC n) next ms P Q <=>
-     let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)`
+     let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)
+End
 
-val asserts2_def = zDefine`
+Definition asserts2_def[nocompute]:
   (asserts2 n fi fc ms P =
    if n = 0n then T else
      P ms (fc ms) ∧
-     asserts2 (n-1) fi fc (fi n (fc ms)) P)`;
+     asserts2 (n-1) fi fc (fi n (fc ms)) P)
+End
 
 Definition encoder_correct_def:
   encoder_correct t <=>
@@ -327,21 +330,25 @@ Proof
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
-val SND_read_mem_word_consts = Q.prove(
-  `!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
+Triviality SND_read_mem_word_consts:
+  !n a s. ((SND (read_mem_word a n s)).be = s.be) /\
             ((SND (read_mem_word a n s)).lr = s.lr) /\
             ((SND (read_mem_word a n s)).align = s.align) /\
-            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)`,
+            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)
+Proof
   Induct \\ full_simp_tac(srw_ss())[read_mem_word_def,LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ full_simp_tac(srw_ss())[assert_def])
+  \\ full_simp_tac(srw_ss())[assert_def]
+QED
 
-val write_mem_word_consts = Q.prove(
-  `!n a w s. ((write_mem_word a n w s).be = s.be) /\
+Triviality write_mem_word_consts:
+  !n a w s. ((write_mem_word a n w s).be = s.be) /\
               ((write_mem_word a n w s).lr = s.lr) /\
               ((write_mem_word a n w s).align = s.align) /\
-              ((write_mem_word a n w s).mem_domain = s.mem_domain)`,
-  Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
+              ((write_mem_word a n w s).mem_domain = s.mem_domain)
+Proof
+  Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def]
+QED
 
 Theorem binop_upd_consts[simp]:
    ((binop_upd a b c d x).mem_domain = x.mem_domain) ∧

@@ -666,7 +666,7 @@ Definition conv_FunList_def:
   conv_FunList tree =
    case argsNT tree FunListNT of
      SOME [] => SOME []
-   | SOME fs => OPT_MMAP conv_Fun fs
+   | SOME fs => OPT_MMAP conv_Fun (FILTER (IS_NONE o dest_annot_tok) fs)
    | _ => NONE
 End
 

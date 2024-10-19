@@ -22,10 +22,11 @@ QED
 
 (* basic definitions *)
 
-val _ = Datatype `
+Datatype:
   ag32_el = aState ag32_state
           | aMem word32 word8
-          | aPc word32`;
+          | aPc word32
+End
 
 val ag32_el_11 = DB.fetch "-" "ag32_el_11";
 val ag32_el_distinct = DB.fetch "-" "ag32_el_distinct";

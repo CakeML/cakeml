@@ -174,7 +174,7 @@ Proof
         , EVERY_EL]
 QED
 
-val fromChars_unsafe_def = tDefine "fromChars_unsafe" `
+Definition fromChars_unsafe_def:
   fromChars_unsafe 0 str = 0n ∧ (* Shouldn't happend *)
   fromChars_unsafe n str =
     if n ≤ padLen_DEC
@@ -182,11 +182,13 @@ val fromChars_unsafe_def = tDefine "fromChars_unsafe" `
     else let n'    = n - padLen_DEC;
              front = fromChars_unsafe n' str * maxSmall_DEC;
              back  = fromChars_range_unsafe n' padLen_DEC str
-         in front + back`
-(wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]);
+         in front + back
+Termination
+  wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]
+End
 val fromChars_unsafe_ind = theorem"fromChars_unsafe_ind"
 
-val fromChars_def = tDefine "fromChars" `
+Definition fromChars_def:
   fromChars 0 str = NONE ∧ (* Shouldn't happend *)
   fromChars n str =
     if n ≤ padLen_DEC
@@ -194,8 +196,10 @@ val fromChars_def = tDefine "fromChars" `
     else let n'    = n - padLen_DEC;
              front = OPTION_MAP ($* maxSmall_DEC) (fromChars n' str);
              back  = fromChars_range n' padLen_DEC str
-         in OPTION_MAP2 $+ front back`
-(wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]);
+         in OPTION_MAP2 $+ front back
+Termination
+  wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]
+End
 val fromChars_ind = theorem"fromChars_ind"
 
 Theorem fromChars_eq_unsafe:

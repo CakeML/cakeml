@@ -66,9 +66,11 @@ val _ = (find_def_for_const := def_of_const);
 
 (* type inference: t_walkstar and t_unify *)
 
-val PRECONDITION_INTRO = Q.prove(
-  `(b ==> (x = y)) ==> (x = if PRECONDITION b then y else x)`,
-  Cases_on `b` THEN SIMP_TAC std_ss [PRECONDITION_def]);
+Triviality PRECONDITION_INTRO:
+  (b ==> (x = y)) ==> (x = if PRECONDITION b then y else x)
+Proof
+  Cases_on `b` THEN SIMP_TAC std_ss [PRECONDITION_def]
+QED
 
 Theorem t_vwalk_ind:
    !P.
@@ -114,9 +116,11 @@ Proof
   METIS_TAC [unifyTheory.t_walkstar_ind]
 QED
 
-val expand_lemma = Q.prove(
-  `t_walkstar s = \x. t_walkstar s x`,
-  SIMP_TAC std_ss [FUN_EQ_THM]);
+Triviality expand_lemma:
+  t_walkstar s = \x. t_walkstar s x
+Proof
+  SIMP_TAC std_ss [FUN_EQ_THM]
+QED
 
 val _ = translate
   (unifyTheory.t_walkstar_eqn
@@ -148,9 +152,11 @@ Proof
   THEN POP_ASSUM HO_MATCH_MP_TAC THEN METIS_TAC []
 QED
 
-val EXISTS_LEMMA = Q.prove(
-  `!xs P. EXISTS P xs = EXISTS I (MAP P xs)`,
-  Induct THEN SRW_TAC [] []);
+Triviality EXISTS_LEMMA:
+  !xs P. EXISTS P xs = EXISTS I (MAP P xs)
+Proof
+  Induct THEN SRW_TAC [] []
+QED
 
 val _ = translate
   (unifyTheory.t_oc_eqn
@@ -265,10 +271,12 @@ val _ = translate (def_of_const ``infer_type_subst``)
 val _ = translate rich_listTheory.COUNT_LIST_AUX_def
 val _ = translate rich_listTheory.COUNT_LIST_compute
 
-val pair_abs_hack = Q.prove(
-  `(\(v2:string,v1:infer_t). (v2,0,v1)) =
-    (\v3. case v3 of (v2,v1) => (v2,0:num,v1))`,
-  SIMP_TAC (srw_ss()) [FUN_EQ_THM,FORALL_PROD]);
+Triviality pair_abs_hack:
+  (\(v2:string,v1:infer_t). (v2,0,v1)) =
+    (\v3. case v3 of (v2,v1) => (v2,0:num,v1))
+Proof
+  SIMP_TAC (srw_ss()) [FUN_EQ_THM,FORALL_PROD]
+QED
 
 fun fix_infer_induction_thm def = let
   val const = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
@@ -299,17 +307,23 @@ fun fix_infer_induction_thm def = let
   val _ = save_thm(ind_name,ind)
   in () end handle HOL_ERR _ => ();
 
-val if_apply = Q.prove(
-  `!b. (if b then x1 else x2) x = if b then x1 x else x2 x`,
-  Cases THEN SRW_TAC [] []);
+Triviality if_apply:
+  !b. (if b then x1 else x2) x = if b then x1 x else x2 x
+Proof
+  Cases THEN SRW_TAC [] []
+QED
 
-val option_case_apply = Q.prove(
-  `!oo. option_CASE oo x1 x2 x = option_CASE oo (x1 x) (\y. x2 y x)`,
-  Cases THEN SRW_TAC [] []);
+Triviality option_case_apply:
+  !oo. option_CASE oo x1 x2 x = option_CASE oo (x1 x) (\y. x2 y x)
+Proof
+  Cases THEN SRW_TAC [] []
+QED
 
-val pr_CASE = Q.prove(
-  `pair_CASE (x,y) f = f x y`,
-  SRW_TAC [] []);
+Triviality pr_CASE:
+  pair_CASE (x,y) f = f x y
+Proof
+  SRW_TAC [] []
+QED
 
 val op_apply =
   let
@@ -321,10 +335,12 @@ val op_apply =
     val rthm3 = Q.ISPEC `\g. g (y : 'b)` rthm2
   in BETA_RULE rthm3 |> Q.GEN ‘x’ end;
 
-val list_apply = Q.prove(
-  `!op. (list_CASE op x1 x2) y =
-         (list_CASE op (x1 y) (\z1 z2. x2 z1 z2 y))`,
-  Cases THEN SRW_TAC [] []);
+Triviality list_apply:
+  !op. (list_CASE op x1 x2) y =
+         (list_CASE op (x1 y) (\z1 z2. x2 z1 z2 y))
+Proof
+  Cases THEN SRW_TAC [] []
+QED
 
 (* Converts PMATCH case expressions applied to an argument, e.g.
 
@@ -452,13 +468,17 @@ val _ = translate (typeSystemTheory.build_ctor_tenv_def
          |> REWRITE_RULE [MAP_type_name_subst]
                     |> SIMP_RULE std_ss [lemma]);
 
-val EVERY_INTRO = Q.prove(
-  `(!x::set s. P x) = EVERY P s`,
-  SIMP_TAC std_ss [res_quanTheory.RES_FORALL,EVERY_MEM]);
+Triviality EVERY_INTRO:
+  (!x::set s. P x) = EVERY P s
+Proof
+  SIMP_TAC std_ss [res_quanTheory.RES_FORALL,EVERY_MEM]
+QED
 
-val EVERY_EQ_EVERY = Q.prove(
-  `!xs. EVERY P xs = EVERY I (MAP P xs)`,
-  Induct THEN SRW_TAC [] []);
+Triviality EVERY_EQ_EVERY:
+  !xs. EVERY P xs = EVERY I (MAP P xs)
+Proof
+  Induct THEN SRW_TAC [] []
+QED
 
 val _ = translate (infer_def ``check_freevars``
                    |> RW1 [EVERY_EQ_EVERY])
@@ -602,22 +622,26 @@ val _ = print "Translated infer_d\n";
 
 val infer_d_side_def = fetch "-" "infer_d_side_def";
 
-val generalise_list_length = Q.prove (
-  `!min start s x.
-    LENGTH x = LENGTH (SND (SND (generalise_list min start s (MAP f (MAP SND x)))))`,
+Triviality generalise_list_length:
+  !min start s x.
+    LENGTH x = LENGTH (SND (SND (generalise_list min start s (MAP f (MAP SND x)))))
+Proof
   induct_on `x` >>
   srw_tac[] [generalise_def] >>
   srw_tac[] [] >>
-  metis_tac [SND]);
+  metis_tac [SND]
+QED
 
-val gen_d_ind_def = tDefine "gen_d_ind" `
+Definition gen_d_ind_def:
   (gen_d_ind (Dmod n ds) = gen_ds_ind ds) /\
   (gen_d_ind (Dlocal lds ds) = (gen_ds_ind lds /\ gen_ds_ind ds)) /\
   (gen_d_ind _ = T) /\
   (gen_ds_ind [] = T) /\
-  (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))`
-  (WF_REL_TAC `measure (\x. case x of INL d => dec_size d
-                                    | INR ds => dec1_size ds)`)
+  (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))
+Termination
+  WF_REL_TAC `measure (\x. case x of INL d => dec_size d
+                                    | INR ds => dec1_size ds)`
+End
 
 val infer_p_wfs_dest = infer_p_wfs |> BODY_CONJUNCTS
     |> map (CONV_RULE (ONCE_DEPTH_CONV (REWR_CONV CONJ_COMM)))
@@ -648,23 +672,25 @@ val MEM_anub = prove(``
   MEM (k,v1) e1M``,
   ho_match_mp_tac anub_ind>>rw[anub_def]>>metis_tac[]);
 
-val nsSub_translate_def = tDefine "nsSub_translate"
-  `nsSub_translate path R b1 b2 ⇔
-   case b1 of (Bind e1V e1M) => case b2 of (Bind e2V e2M) =>
-     EVERY (λ(k,v1).
-       case ALOOKUP e2V k of
-         NONE => F
-       | SOME v2 => R (mk_id (REVERSE path) k) v1 v2) (anub e1V []) ∧
-     EVERY (λ(k,v1).
-       case ALOOKUP e2M k of
-         NONE => F
-       | SOME v2 => nsSub_translate (k::path) R v1 v2) (anub e1M [])`
-  (wf_rel_tac `measure (\(p,r,env,_). namespace_size (\x.0) (\x.0) (\x.0) env)`
-   >> rw[]
-   >> imp_res_tac MEM_anub >> last_x_assum kall_tac
-   >> Induct_on `e1M`
-   >> rw [namespaceTheory.namespace_size_def]
-   >> fs [namespaceTheory.namespace_size_def]);
+Definition nsSub_translate_def:
+  nsSub_translate path R b1 b2 ⇔
+  case b1 of (Bind e1V e1M) => case b2 of (Bind e2V e2M) =>
+    EVERY (λ(k,v1).
+      case ALOOKUP e2V k of
+        NONE => F
+      | SOME v2 => R (mk_id (REVERSE path) k) v1 v2) (anub e1V []) ∧
+    EVERY (λ(k,v1).
+      case ALOOKUP e2M k of
+        NONE => F
+      | SOME v2 => nsSub_translate (k::path) R v1 v2) (anub e1M [])
+Termination
+  wf_rel_tac `measure (\(p,r,env,_). namespace_size (\x.0) (\x.0) (\x.0) env)`
+  >> rw[]
+  >> imp_res_tac MEM_anub >> last_x_assum kall_tac
+  >> Induct_on `e1M`
+  >> rw [namespaceTheory.namespace_size_def]
+  >> fs [namespaceTheory.namespace_size_def]
+End
 
 val ALOOKUP_MEM_anub = prove(
   ``∀ls acc k v.

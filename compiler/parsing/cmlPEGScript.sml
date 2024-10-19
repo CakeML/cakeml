@@ -582,9 +582,11 @@ val test1 = time EVAL
                         SymbolT ">"; AlphaT "x"] 0)
               [] NONE [] done failed”
 
-val frange_image = Q.prove(
-  `FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)`,
-  simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION] >> metis_tac[]);
+Triviality frange_image:
+  FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)
+Proof
+  simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION] >> metis_tac[]
+QED
 
 val peg_range =
     SIMP_CONV (srw_ss())
@@ -757,9 +759,11 @@ set_diff (TypeBase.constructors_of ``:MMLnonT``)
                       ``nDtypeCons``])
 *)
 
-val subexprs_pnt = Q.prove(
-  `subexprs (pnt n) = {pnt n}`,
-  simp[subexprs_def, pnt_def]);
+Triviality subexprs_pnt:
+  subexprs (pnt n) = {pnt n}
+Proof
+  simp[subexprs_def, pnt_def]
+QED
 
 val PEG_exprs = save_thm(
   "PEG_exprs",

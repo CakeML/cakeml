@@ -49,11 +49,13 @@ Overload is_type_valuation = ``is_type_valuation0 ^mem``
 
 (* Semantics of types. Simply applies the valuation and assignment. *)
 
-val typesem_def = tDefine "typesem"`
+Definition typesem_def:
   (typesem δ (τ:'U tyval) (Tyvar s) = τ s) ∧
   (typesem δ τ (Tyapp name args) =
-    (δ name) (MAP (typesem δ τ) args))`
-  (type_rec_tac "SND o SND")
+    (δ name) (MAP (typesem δ τ) args))
+Termination
+  type_rec_tac "SND o SND"
+End
 
 (* A term assignment is a map from a constant name and a list of values for the
    free type variables to a value for the constant. The assignment is with

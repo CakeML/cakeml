@@ -6,7 +6,7 @@ open preamble closLangTheory;
 val _ = new_theory "clos_fvs";
 val _ = set_grammar_ancestry ["closLang"];
 
-val remove_fvs_def = tDefine "remove_fvs" `
+Definition remove_fvs_def:
   (remove_fvs fvs [] = []) /\
   (remove_fvs fvs ((x:closLang$exp)::y::xs) =
      HD (remove_fvs fvs [x]) :: remove_fvs fvs (y::xs)) /\
@@ -41,12 +41,14 @@ val remove_fvs_def = tDefine "remove_fvs" `
      [Letrec t loc_opt vs new_fns (HD (remove_fvs (m + fvs) [x1]))]) /\
   (remove_fvs fvs [Fn t loc_opt vs num_args x1] =
     let fvs = case vs of NONE => fvs | SOME x => LENGTH x in
-    [Fn t loc_opt vs num_args (HD (remove_fvs (num_args+fvs) [x1]))])`
-  (WF_REL_TAC `measure (exp3_size o SND)`
+    [Fn t loc_opt vs num_args (HD (remove_fvs (num_args+fvs) [x1]))])
+Termination
+  WF_REL_TAC `measure (exp3_size o SND)`
    \\ simp []
    \\ rpt strip_tac
    \\ imp_res_tac exp1_size_lemma
-   \\ simp []);
+   \\ simp []
+End
 
 Definition remove_fvs_sing_def:
   (remove_fvs_sing fvs (Var t v) =

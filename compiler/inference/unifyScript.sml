@@ -2047,12 +2047,13 @@ Definition t_vwalk_def[nocompute]:
   t_vwalk s v = decode_infer_t (vwalk (encode_infer_t o_f s) v)
 End
 
-val t_vwalk_ind' = Q.prove (
-`!s'. t_wfs s' ⇒
+Triviality t_vwalk_ind':
+  !s'. t_wfs s' ⇒
    ∀P.
      (∀v. (∀v1 u. (FLOOKUP s' v = SOME v1) ∧ (v1 = Infer_Tuvar u) ⇒ P u) ⇒ P v) ⇒
-     ∀v. P v`,
-ntac 4 STRIP_TAC >>
+     ∀v. P v
+Proof
+  ntac 4 STRIP_TAC >>
 fs [t_wfs_def] >>
 imp_res_tac (DISCH_ALL vwalk_ind) >>
 pop_assum ho_match_mp_tac >>
@@ -2060,7 +2061,8 @@ rw [] >>
 qpat_x_assum `∀v. (∀u. (FLOOKUP s' v = SOME (Infer_Tuvar u)) ⇒ P u) ⇒ P v` ho_match_mp_tac >>
 rw [] >>
 qpat_x_assum `∀u. Q u ⇒ P u` ho_match_mp_tac >>
-rw [FLOOKUP_o_f, encode_infer_t_def]);
+rw [FLOOKUP_o_f, encode_infer_t_def]
+QED
 
 val t_vwalk_ind = save_thm("t_vwalk_ind", (UNDISCH o Q.SPEC `s`) t_vwalk_ind')
 
@@ -2090,8 +2092,9 @@ fs [t_wfs_def] >|
      rw [encode_infer_t_def, decode_infer_t_def, decode_left_inverse]]
 QED
 
-val t_walk_def = zDefine `
-t_walk s t = decode_infer_t (walk (encode_infer_t o_f s) (encode_infer_t t))`;
+Definition t_walk_def[nocompute]:
+t_walk s t = decode_infer_t (walk (encode_infer_t o_f s) (encode_infer_t t))
+End
 
 Theorem t_walk_eqn:
  (!s v. t_walk s (Infer_Tuvar v) = t_vwalk s v) ∧
@@ -2102,17 +2105,19 @@ rw [t_walk_def, walk_def, t_vwalk_def, encode_infer_t_def,
     decode_infer_t_def, decode_left_inverse]
 QED
 
-val t_oc_def = zDefine `
-t_oc s t v = oc (encode_infer_t o_f s) (encode_infer_t t) v`;
+Definition t_oc_def[nocompute]:
+t_oc s t v = oc (encode_infer_t o_f s) (encode_infer_t t) v
+End
 
 (*
-val t_oc_ind' = Q.prove (
-`∀s oc'.
+Triviality t_oc_ind':
+  ∀s oc'.
   t_wfs s ∧
   (∀t v. v ∈ t_vars t ∧ v ∉ FDOM s ⇒ oc' t v) ∧
   (∀t v u t'. u ∈ t_vars t ∧ (t_vwalk s u = t') ∧ oc' t' v ⇒ oc' t v) ⇒
-  (∀a0 a1. oc (FMAP_MAP2 (λ(n,t). encode_infer_t t) s) a0 a1 ⇒ !a0'. (a0 = encode_infer_t a0') ⇒ oc' a0' a1)`,
-NTAC 3 STRIP_TAC >>
+  (∀a0 a1. oc (FMAP_MAP2 (λ(n,t). encode_infer_t t) s) a0 a1 ⇒ !a0'. (a0 = encode_infer_t a0') ⇒ oc' a0' a1)
+Proof
+  NTAC 3 STRIP_TAC >>
 ho_match_mp_tac oc_ind >>
 rw [] >|
 [qpat_x_assum `∀t v. v ∈ t_vars t ∧ v ∉ FDOM s ⇒ oc' t v` ho_match_mp_tac >>
@@ -2122,7 +2127,8 @@ rw [] >|
      qexists_tac `u` >>
      rw [] >>
      pop_assum ho_match_mp_tac >>
-     rw [encode_vwalk]]);
+     rw [encode_vwalk]]
+QED
 
 Theorem t_oc_ind:
  ∀s oc'.
@@ -2136,9 +2142,10 @@ metis_tac [t_oc_ind', FMAP2_FMAP2, FMAP2_id, decode_left_inverse]
 QED
 *)
 
-val encode_vwalk = Q.prove (
-`!s. t_wfs s ⇒ !u. vwalk (encode_infer_t o_f s) u = encode_infer_t (t_vwalk s u)`,
-NTAC 2 STRIP_TAC >>
+Triviality encode_vwalk:
+  !s. t_wfs s ⇒ !u. vwalk (encode_infer_t o_f s) u = encode_infer_t (t_vwalk s u)
+Proof
+  NTAC 2 STRIP_TAC >>
 ho_match_mp_tac t_vwalk_ind >>
 rw [] >>
 `wfs (encode_infer_t o_f s)` by metis_tac [t_wfs_def] >>
@@ -2147,14 +2154,17 @@ rw [Once t_vwalk_eqn, FLOOKUP_o_f] >>
 cases_on `FLOOKUP s u` >>
 rw [encode_infer_t_def] >>
 cases_on `x` >>
-rw [encode_infer_t_def]);
+rw [encode_infer_t_def]
+QED
 
-val t_oc_eqn_help = Q.prove (
-`!l v s.
+Triviality t_oc_eqn_help:
+  !l v s.
   oc (encode_infer_t o_f s) (encode_infer_ts l) v ⇔
-  EXISTS (λt. oc (encode_infer_t o_f s) (encode_infer_t t) v) l`,
-induct_on `l` >>
-rw [encode_infer_t_def]);
+  EXISTS (λt. oc (encode_infer_t o_f s) (encode_infer_t t) v) l
+Proof
+  induct_on `l` >>
+rw [encode_infer_t_def]
+QED
 
 Theorem t_oc_eqn:
  !s. t_wfs s ⇒
@@ -2174,11 +2184,12 @@ cases_on `t_vwalk s n` >>
 rw [encode_infer_t_def, t_oc_eqn_help]
 QED
 
-val t_ext_s_check_def = zDefine `
+Definition t_ext_s_check_def[nocompute]:
 t_ext_s_check s v t =
   OPTION_MAP
     ((o_f) decode_infer_t)
-    (ext_s_check (encode_infer_t o_f s) v (encode_infer_t t))`;
+    (ext_s_check (encode_infer_t o_f s) v (encode_infer_t t))
+End
 
 Theorem t_ext_s_check_eqn:
  !s v t.
@@ -2189,11 +2200,12 @@ rw [t_ext_s_check_def, t_oc_def, decode_left_inverse_I,
 metis_tac [FUPDATE_PURGE]
 QED
 
-val t_unify_def = zDefine `
+Definition t_unify_def[nocompute]:
 t_unify s t1 t2 =
   OPTION_MAP
     ((o_f) decode_infer_t)
-    (unify (encode_infer_t o_f s) (encode_infer_t t1) (encode_infer_t t2))`;
+    (unify (encode_infer_t o_f s) (encode_infer_t t1) (encode_infer_t t2))
+End
 
 Definition ts_unify_def:
 (ts_unify s [] [] = SOME s) ∧
@@ -2204,26 +2216,30 @@ Definition ts_unify_def:
 (ts_unify s _ _ = NONE)
 End
 
-val encode_walk = Q.prove(
-  `∀s. t_wfs s ⇒
-      ∀t. walk (encode_infer_t o_f s) (encode_infer_t t) = encode_infer_t (t_walk s t)`,
+Triviality encode_walk:
+  ∀s. t_wfs s ⇒
+      ∀t. walk (encode_infer_t o_f s) (encode_infer_t t) = encode_infer_t (t_walk s t)
+Proof
   rw[walk_def] >>
   imp_res_tac encode_vwalk >>
   fs[] >>
   BasicProvers.EVERY_CASE_TAC >>
   rw[t_walk_def,decode_left_inverse] >>
-  metis_tac[decode_left_inverse])
+  metis_tac[decode_left_inverse]
+QED
 
-val encode_pair_cases = Q.prove(
-  `(∀t t1 t2.
+Triviality encode_pair_cases:
+  (∀t t1 t2.
     (encode_infer_t t = Pair t1 t2) ⇒
       ((t1 = Const Tapp_tag) ∧
-       (∃tc ts. t2 = Pair (Const (TC_tag tc)) (encode_infer_ts ts))))`,
+       (∃tc ts. t2 = Pair (Const (TC_tag tc)) (encode_infer_ts ts))))
+Proof
   Cases >> rw[encode_infer_t_def] >>
-  PROVE_TAC[])
+  PROVE_TAC[]
+QED
 
-val encode_unify_lemma = Q.prove (
-`!s t1 t2 s' t1' t2'.
+Triviality encode_unify_lemma:
+  !s t1 t2 s' t1' t2'.
   (s = (encode_infer_t o_f s')) ∧
   (((t1 = encode_infer_t t1') ∧ (t2 = encode_infer_t t2')) ∨
    (∃c. (t1 = Const c) ∧ (t2 = Const c) ∧ (t1' = t2')) ∨
@@ -2240,8 +2256,9 @@ val encode_unify_lemma = Q.prove (
   t_wfs s' ⇒
   (unify s t1 t2
    =
-   OPTION_MAP ((o_f) encode_infer_t) (t_unify s' t1' t2'))`,
-ho_match_mp_tac unify_ind >>
+   OPTION_MAP ((o_f) encode_infer_t) (t_unify s' t1' t2'))
+Proof
+  ho_match_mp_tac unify_ind >>
 simp[] >>
 rw [t_unify_def] >>
 fs[t_wfs_def, option_map_case, combinTheory.o_DEF] >>
@@ -2358,17 +2375,20 @@ TRY (
   simp[Once unify_def] >>
   rw[] >>
   metis_tac[o_f_o_f] ) >>
-metis_tac[o_f_FUPDATE,o_f_DOMSUB,FUPDATE_PURGE,encode_walk,t_wfs_def])
+metis_tac[o_f_FUPDATE,o_f_DOMSUB,FUPDATE_PURGE,encode_walk,t_wfs_def]
+QED
 
-val encode_unify = Q.prove (
-`!s t1 t2 s' t1' t2'.
+Triviality encode_unify:
+  !s t1 t2 s' t1' t2'.
   (s = encode_infer_t o_f s') ∧
   (t1 = encode_infer_t t1') ∧ (t2 = encode_infer_t t2') ∧
   t_wfs s' ⇒
   (unify s t1 t2
    =
-   OPTION_MAP ((o_f) encode_infer_t) (t_unify s' t1' t2'))`,
-metis_tac[encode_unify_lemma])
+   OPTION_MAP ((o_f) encode_infer_t) (t_unify s' t1' t2'))
+Proof
+  metis_tac[encode_unify_lemma]
+QED
 
 Theorem wfs_unify[local]:
   !s t1 t2 s'. wfs s ∧ (unify s t1 t2 = SOME s') ⇒ wfs s'
@@ -2600,8 +2620,9 @@ Proof
   fs[t_wfs_def]
 QED
 
-val apply_subst_t_def = zDefine `
-apply_subst_t s t = decode_infer_t (subst_APPLY (encode_infer_t o_f s) (encode_infer_t t))`;
+Definition apply_subst_t_def[nocompute]:
+apply_subst_t s t = decode_infer_t (subst_APPLY (encode_infer_t o_f s) (encode_infer_t t))
+End
 
 Theorem apply_subst_t_eqn:
  (!s n.
@@ -2624,9 +2645,10 @@ induct_on `ts` >>
 rw [apply_subst_t_def, encode_infer_t_def, decode_infer_t_def]
 QED
 
-val t_walkstar_def = zDefine `
+Definition t_walkstar_def[nocompute]:
 t_walkstar s t =
-  decode_infer_t (walkstar (encode_infer_t o_f s) (encode_infer_t t))`;
+  decode_infer_t (walkstar (encode_infer_t o_f s) (encode_infer_t t))
+End
 
 Theorem t_walkstar_cwalkstar:
   t_walkstar s t = cwalkstar (fm2sp s) t
@@ -2634,14 +2656,16 @@ Proof
   simp[t_walkstar_def, cwalkstar_def]
 QED
 
-val ts_walkstar_thm = Q.prove (
-`!l s.
+Triviality ts_walkstar_thm:
+  !l s.
   t_wfs s ⇒
   (decode_infer_ts ((encode_infer_t o_f s) ◁ encode_infer_ts l) =
-   MAP (t_walkstar s) l)`,
-induct_on `l` >>
+   MAP (t_walkstar s) l)
+Proof
+  induct_on `l` >>
 rw [t_wfs_def, encode_infer_t_def, Once walkstar_def, decode_infer_t_def] >>
-rw [t_walkstar_def]);
+rw [t_walkstar_def]
+QED
 
 Theorem t_walkstar_eqn:
  !s. t_wfs s ⇒
@@ -2692,9 +2716,10 @@ Proof
   metis_tac[]
 QED
 
-val t_collapse_def = zDefine `
+Definition t_collapse_def[nocompute]:
 t_collapse s =
-  decode_infer_t o_f collapse (encode_infer_t o_f s)`;
+  decode_infer_t o_f collapse (encode_infer_t o_f s)
+End
 
 Theorem t_collapse_eqn:
  !s. t_collapse s = FUN_FMAP (\v. t_walkstar s (Infer_Tuvar v)) (FDOM s)
@@ -2720,8 +2745,8 @@ Proof
   metis_tac[encode_infer_t_11,o_f_FAPPLY]
 QED
 
-val t_unify_strongind' = Q.prove(
-`!P0 P1.
+Triviality t_unify_strongind':
+  !P0 P1.
     (!s t1 t2.
        t_wfs s ∧
        (!ts1 ts2 tc2.
@@ -2739,8 +2764,9 @@ val t_unify_strongind' = Q.prove(
           ts1 = t1::ts1' /\ ts2 = t2::ts2' ==> P0 s t1 t2) ==>
        P1 s ts1 ts2) ==>
     (!s t1 t2. t_wfs s ==> (t_wfs s ==> P0 s t1 t2)) /\
-    (!s ts1 ts2. t_wfs s ==> (t_wfs s ⇒ P1 s ts1 ts2))`,
-NTAC 3 STRIP_TAC >>
+    (!s ts1 ts2. t_wfs s ==> (t_wfs s ⇒ P1 s ts1 ts2))
+Proof
+  NTAC 3 STRIP_TAC >>
 ho_match_mp_tac t_unify_ind >>
 rw [] >>
 cases_on `ts1` >>
@@ -2748,16 +2774,18 @@ cases_on `ts2` >>
 fs [] >>
 qpat_x_assum `!s ts1 ts2. Q s ts1 ts2 ⇒ P1 s ts1 ts2` match_mp_tac >>
 rw [] >>
-metis_tac [t_unify_unifier]);
+metis_tac [t_unify_unifier]
+QED
 
 val t_unify_strongind = save_thm("t_unify_strongind", SIMP_RULE (bool_ss) [] t_unify_strongind');
 
-val encode_walkstar = Q.prove (
-`!s t.
+Triviality encode_walkstar:
+  !s t.
   t_wfs s ⇒
   walkstar (encode_infer_t o_f s) (encode_infer_t t) =
-  encode_infer_t (t_walkstar s t)`,
-rw [] >>
+  encode_infer_t (t_walkstar s t)
+Proof
+  rw [] >>
 imp_res_tac t_walkstar_ind >>
 Q.SPEC_TAC (`t`,`t`) >>
 pop_assum ho_match_mp_tac >>
@@ -2772,7 +2800,8 @@ pop_assum mp_tac >>
 pop_assum (fn _ => all_tac) >>
 induct_on `l` >>
 rw [encode_infer_t_def] >>
-rw [Once walkstar_def]);
+rw [Once walkstar_def]
+QED
 
 Theorem t_walkstar_FEMPTY:
  !t.(t_walkstar FEMPTY t = t)

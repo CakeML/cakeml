@@ -13,14 +13,15 @@ val _ = new_theory "data_to_word";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val _ = Datatype `
+Datatype:
   (* this configuration is used in data_to_wordProof and stack_alloc *)
   gc_kind =
     None
   | Simple
-  | Generational (num list) (* sizes of generations, smallest first *)`
+  | Generational (num list) (* sizes of generations, smallest first *)
+End
 
-val _ = Datatype `
+Datatype:
   config = <| tag_bits : num (* in each pointer *)
             ; len_bits : num (* in each pointer *)
             ; pad_bits : num (* in each pointer *)
@@ -31,7 +32,8 @@ val _ = Datatype `
             ; has_fp_tern : bool (* can compile FMA *)
             ; be : bool (* bigendian *)
             ; call_empty_ffi : bool (* emit (T) / omit (F) calls to FFI "" *)
-            ; gc_kind : gc_kind (* GC settings *) |>`
+            ; gc_kind : gc_kind (* GC settings *) |>
+End
 
 Definition adjust_var_def:
   adjust_var n = 2 * n + 2:num
@@ -150,8 +152,9 @@ Definition real_byte_offset_def:
             Shift Lsr (Var r) 2]
 End
 
-val _ = Datatype`
-  word_op_type = Bitwise binop | Carried binop`;
+Datatype:
+  word_op_type = Bitwise binop | Carried binop
+End
 
 Definition lookup_word_op_def:
   (lookup_word_op Andw = Bitwise And) ∧

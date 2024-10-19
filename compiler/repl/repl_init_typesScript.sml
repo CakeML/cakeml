@@ -33,8 +33,11 @@ val print_types = let
   val _ = print "\n"
   in () end
 val result_tm = eval_res_thm |> concl |> rand |> rand
-val def = Define ‘repl_prog_types = ^result_tm’
-val result = eval_res_thm |> CONV_RULE (PATH_CONV "rr" (REWR_CONV (GSYM def)))
+Definition repl_prog_types_def:
+  repl_prog_types = ^result_tm
+End
+val result = eval_res_thm
+               |> CONV_RULE (PATH_CONV "rr" (REWR_CONV (GSYM repl_prog_types_def)));
 
 Theorem repl_prog_types_thm = result;
 

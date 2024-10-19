@@ -40,9 +40,11 @@ val lookup_qsort = save_thm("lookup_qsort",
 
 (* --- a more concrete example, not much use --- *)
 
-val Eval_Var_lemma = Q.prove(
-  `(lookup_var name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P`,
-  fs[Eval_Var]);
+Triviality Eval_Var_lemma:
+  (lookup_var name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P
+Proof
+  fs[Eval_Var]
+QED
 
 Theorem ML_QSORT_CORRECT:
    !env tys a ord R l xs refs.

@@ -32,14 +32,14 @@ End
 (* Projection from `dataSem$v` into `bvlSem$v` that basically gets rid of
    timestamp information (note this make the function non-injective)
 *)
-val data_to_bvi_v_def = tDefine"data_to_bvi_v_def"`
+Definition data_to_bvi_v_def:
   data_to_bvi_v (Number i)      = bvlSem$Number i
 ∧ data_to_bvi_v (Word64 w)      = bvlSem$Word64 w
 ∧ data_to_bvi_v (CodePtr p)     = bvlSem$CodePtr p
 ∧ data_to_bvi_v (RefPtr r)      = bvlSem$RefPtr r
 ∧ data_to_bvi_v (Block _ tag l) = bvlSem$Block tag (MAP data_to_bvi_v l)
-`
-(wf_rel_tac `measure v_size`
+Termination
+  wf_rel_tac `measure v_size`
 \\ `∀l. v1_size l = SUM (MAP (λx. v_size x + 1) l)`
    by (Induct >> rw [v_size_def])
 \\ rw []
@@ -49,7 +49,8 @@ val data_to_bvi_v_def = tDefine"data_to_bvi_v_def"`
 \\ rw []
 \\ ho_match_mp_tac LESS_EQ_TRANS
 \\ Q.EXISTS_TAC `v_size a + 1`
-\\ rw [])
+\\ rw []
+End
 
 (* Projection for Unit constant *)
 Theorem data_to_bvi_v_Unit:
@@ -88,13 +89,14 @@ End
 val find_code_def = bvlSemTheory.find_code_def;
 val _ = temp_bring_to_front_overload"find_code"{Name="find_code",Thy="bvlSem"};
 
-val find_code_lemma = Q.prove(
-  `state_rel r t2 ∧
+Triviality find_code_lemma:
+  state_rel r t2 ∧
     find_code dest (MAP data_to_bvi_v a) r.code = SOME (args,exp)
     ⇒ ∃args' ss.
        args = MAP data_to_bvi_v args' ∧
        dataSem$find_code dest a t2.code t2.stack_frame_sizes =
-         SOME (args',compile_exp (LENGTH args') exp,ss)`,
+         SOME (args',compile_exp (LENGTH args') exp,ss)
+Proof
   reverse (Cases_on `dest`) \\ SIMP_TAC std_ss [find_code_def,dataSemTheory.find_code_def]
   \\ FULL_SIMP_TAC (srw_ss()) [state_rel_def,code_rel_def]
   \\ REPEAT STRIP_TAC THEN1
@@ -110,7 +112,8 @@ val find_code_lemma = Q.prove(
      by (qpat_x_assum `FRONT _ = _` (assume_tac o GSYM) \\ rveq
         \\ Cases_on `a` \\ fs [])
   \\ `?t1 t2. a = SNOC t1 t2` by METIS_TAC [SNOC_CASES]
-  \\ FULL_SIMP_TAC std_ss [FRONT_SNOC,LENGTH_SNOC,ADD1,MAP_SNOC]);
+  \\ FULL_SIMP_TAC std_ss [FRONT_SNOC,LENGTH_SNOC,ADD1,MAP_SNOC]
+QED
 
 Theorem optimise_correct:
    !c s. FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) /\
@@ -130,10 +133,11 @@ Proof
   \\ rfs [] \\ MAP_EVERY qexists_tac [`safe'`,`peak'`,`smx`,`ls`] \\ rw [state_component_equality]
 QED
 
-val compile_RANGE_lemma = Q.prove(
-  `!n env tail live xs.
+Triviality compile_RANGE_lemma:
+  !n env tail live xs.
       EVERY (\v. v < (SND (SND (compile n env tail live xs))))
-        (FST (SND (compile n env tail live xs)))`,
+        (FST (SND (compile n env tail live xs)))
+Proof
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) []
@@ -142,11 +146,14 @@ val compile_RANGE_lemma = Q.prove(
   \\ rw[]
   \\ RES_TAC
   \\ IMP_RES_TAC compile_LESS_EQ
-  \\ TRY (Cases_on `tail`) \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC);
+  \\ TRY (Cases_on `tail`) \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC
+QED
 
-val compile_RANGE = Q.prove(
-  `(compile n env tail live xs = (ys,vs,k)) ==> EVERY (\v.  v < k) vs`,
-  REPEAT STRIP_TAC \\ MP_TAC (compile_RANGE_lemma |> SPEC_ALL) \\ full_simp_tac(srw_ss())[]);
+Triviality compile_RANGE:
+  (compile n env tail live xs = (ys,vs,k)) ==> EVERY (\v.  v < k) vs
+Proof
+  REPEAT STRIP_TAC \\ MP_TAC (compile_RANGE_lemma |> SPEC_ALL) \\ full_simp_tac(srw_ss())[]
+QED
 
 Overload res_list = ``map_result (λv. [v]) I``
 Overload isException = ``λx. ∃v. x = Rerr(Rraise v)``
@@ -156,9 +163,11 @@ val stack_case_eq_thm = prove_case_eq_thm { nchotomy = stack_nchotomy, case_def 
 
 val RW = REWRITE_RULE;
 
-val compile_part_thm = Q.prove(
-  `compile_part = λ(x,y). (x, (λ(a,b). (a, compile_exp a b)) y)`,
-  simp[FUN_EQ_THM,FORALL_PROD,compile_part_def])
+Triviality compile_part_thm:
+  compile_part = λ(x,y). (x, (λ(a,b). (a, compile_exp a b)) y)
+Proof
+  simp[FUN_EQ_THM,FORALL_PROD,compile_part_def]
+QED
 
 (* Projection for results, injective upto `dataSem$v` *)
 Definition data_to_bvi_result_def:
@@ -1892,9 +1901,11 @@ Proof
   \\ fs [state_rel_def]
 QED
 
-val state_rel_dec_clock = Q.prove(
-  `state_rel s1 t1 ⇒ state_rel (dec_clock 1 s1) (dec_clock t1)`,
-  srw_tac[][state_rel_def,bviSemTheory.dec_clock_def,dataSemTheory.dec_clock_def])
+Triviality state_rel_dec_clock:
+  state_rel s1 t1 ⇒ state_rel (dec_clock 1 s1) (dec_clock t1)
+Proof
+  srw_tac[][state_rel_def,bviSemTheory.dec_clock_def,dataSemTheory.dec_clock_def]
+QED
 
 Theorem compile_part_evaluate:
    evaluate ([Call 0 (SOME start) [] NONE],[],s1) = (res,s2) ∧

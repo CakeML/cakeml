@@ -398,7 +398,7 @@ Definition init_globals_def:
       (Call 0 (SOME start_loc) []))
 End
 
-val compile_exps_def = tDefine "compile_exps" `
+Definition compile_exps_def:
   (compile_exps max_app [] aux = ([],aux)) /\
   (compile_exps max_app ((x:closLang$exp)::y::xs) aux =
      let (c1,aux1) = compile_exps max_app [x] aux in
@@ -476,8 +476,9 @@ val compile_exps_def = tDefine "compile_exps" `
        ([Handle (HD c1) (HD c2)], aux2)) /\
   (compile_exps max_app [Call t ticks dest xs] aux =
      let (c1,aux1) = compile_exps max_app xs aux in
-       ([Call ticks (SOME (dest + (num_stubs max_app))) c1],aux1))`
-  (WF_REL_TAC `measure (exp3_size o FST o SND)` >>
+       ([Call ticks (SOME (dest + (num_stubs max_app))) c1],aux1))
+Termination
+  WF_REL_TAC `measure (exp3_size o FST o SND)` >>
    srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
    `!l. closLang$exp3_size (MAP SND l) <= exp1_size l`
             by (Induct_on `l` >>
@@ -485,7 +486,8 @@ val compile_exps_def = tDefine "compile_exps" `
                 PairCases_on `h` >>
                 full_simp_tac (srw_ss()++ARITH_ss) [closLangTheory.exp_size_def]) >>
   pop_assum (qspec_then `v7` assume_tac) >>
-  decide_tac);
+  decide_tac
+End
 
 val compile_exps_ind = theorem"compile_exps_ind";
 
@@ -603,17 +605,21 @@ End
 
 Theorem compile_prog_eq = compile_prog_def |> SRULE [compile_exp_sing_eq];
 
-val pair_lem1 = Q.prove (
-  `!f x. (\(a,b). f a b) x = f (FST x) (SND x)`,
+Triviality pair_lem1:
+  !f x. (\(a,b). f a b) x = f (FST x) (SND x)
+Proof
   rw [] >>
   PairCases_on `x` >>
-  fs []);
+  fs []
+QED
 
-val pair_lem2 = Q.prove (
-  `!x y z. (x,y) = z ⇔ x = FST z ∧ y = SND z`,
+Triviality pair_lem2:
+  !x y z. (x,y) = z ⇔ x = FST z ∧ y = SND z
+Proof
   rw [] >>
   PairCases_on `z` >>
-  rw []);
+  rw []
+QED
 
 Theorem compile_exps_acc:
    !max_app xs aux.
@@ -674,7 +680,7 @@ Proof
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
 QED
 
-val _ = Datatype`
+Datatype:
   config = <| next_loc : num
             ; start : num
             ; do_mti : bool
@@ -682,7 +688,8 @@ val _ = Datatype`
             ; do_call : bool
             ; call_state : num_set # (num, num # closLang$exp) alist
             ; max_app : num
-            |>`;
+            |>
+End
 
 Definition default_config_def:
   default_config = <|
@@ -700,7 +707,7 @@ Definition code_split_def:
   (code_split (z::zs) xs ys = code_split zs (z::ys) xs)
 End
 
-val code_merge_def = tDefine "code_merge" `
+Definition code_merge_def:
   code_merge xs ys =
     dtcase (xs,ys) of
     | ([],[]) => []
@@ -710,8 +717,10 @@ val code_merge_def = tDefine "code_merge" `
         if FST x1 < (FST y1):num then
           x1::code_merge xs1 ys
         else
-          y1::code_merge xs ys1`
-  (WF_REL_TAC `measure (\(xs,ys). LENGTH xs + LENGTH ys)` \\ rw []);
+          y1::code_merge xs ys1
+Termination
+  WF_REL_TAC `measure (\(xs,ys). LENGTH xs + LENGTH ys)` \\ rw []
+End
 
 Theorem code_split_NULL:
    !ts1 ts2 ts3 xs ys.
@@ -729,16 +738,18 @@ Proof
   Induct \\ fs [code_split_def] \\ rw [] \\ first_x_assum drule \\ fs []
 QED
 
-val code_sort_def = tDefine "code_sort" `
+Definition code_sort_def:
   (code_sort [] = []) /\
   (code_sort [x] = [x]) /\
   (code_sort (x::y::xs) =
      let (xs,ys) = code_split xs [x] [y] in
-       code_merge (code_sort xs) (code_sort ys))`
- (WF_REL_TAC `measure LENGTH` \\ rw []
+       code_merge (code_sort xs) (code_sort ys))
+Termination
+  WF_REL_TAC `measure LENGTH` \\ rw []
   \\ imp_res_tac code_split_LENGTH
   \\ drule code_split_NULL \\ fs [] \\ full_simp_tac std_ss [GSYM LENGTH_NIL] >>
-  decide_tac);
+  decide_tac
+End
 
 Definition chain_exps_def:
   (chain_exps i [] = [(i, 0n, Op None (Const 0) [])]) ∧

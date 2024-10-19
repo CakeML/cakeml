@@ -274,14 +274,15 @@ End
 
    ----------------------------------------------------------------- *)
 
-val _ = Datatype `
+Datatype:
   val_approx =
     ClosNoInline num num        (* location in code table, arity *)
   | Clos num num exp num        (* loc, arity, body, body size *)
   | Tuple num (val_approx list) (* conses or tuples *)
   | Int int                     (* used to index tuples *)
   | Other                       (* unknown *)
-  | Impossible`                 (* value 'returned' by Raise *)
+  | Impossible                  (* value 'returned' by Raise *)
+End
 val val_approx_size_def = definition "val_approx_size_def"
 
 Definition merge_def[nocompute]:
@@ -429,9 +430,11 @@ Proof
   >> fs[known_op_def]
 QED
 
-val EL_MEM_LEMMA = Q.prove(
-  `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
-  Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
+Triviality EL_MEM_LEMMA:
+  !xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs
+Proof
+  Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []
+QED
 
 Definition clos_approx_def:
   clos_approx max_size loc num_args body =
@@ -446,7 +449,9 @@ Definition clos_gen_noinline_def:
     ClosNoInline (n+2*i) a::clos_gen_noinline n (i+1) xs)
 End
 
-val _ = Datatype `globalOpt = gO_Int int | gO_NullTuple num | gO_None`
+Datatype:
+  globalOpt = gO_Int int | gO_NullTuple num | gO_None
+End
 
 Definition isGlobal_def:
   (isGlobal (Global _) ⇔ T) ∧
@@ -479,18 +484,19 @@ Termination
   wf_rel_tac `measure (FST o SND o SND)`
 End
 
-val _ = Datatype `
+Datatype:
   inliningDecision = inlD_Nothing
                    | inlD_Annotate num
                    | inlD_LetInline exp
-`;
+End
 
-val _ = Datatype`
+Datatype:
   config = <| inline_max_body_size : num
             ; inline_factor : num (* As in 'Inline expansion: when and how?' by Manuel Serrano *)
             ; initial_inline_factor : num
             ; val_approx_spt : val_approx spt (* TODO: this could replace the explicit g argument in known_def *)
-            |>`;
+            |>
+End
 
 Definition default_inline_factor_def:
   default_inline_factor = 8n

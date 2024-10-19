@@ -14,8 +14,9 @@ val _ = translation_extends "ListProg";
 (* Note, we're following Chargueraud and just cutting out the laziness since it
  * shouldn't affect functional correctness *)
 
-val _ = Datatype`
-  heap = Empty | Tree 'a heap heap`;
+Datatype:
+  heap = Empty | Tree 'a heap heap
+End
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
@@ -94,11 +95,12 @@ Definition merge_def:
                  Empty))
 End
 
-val merge_size = Q.prove (
-`!get_key leq h1 h2.
+Triviality merge_size:
+  !get_key leq h1 h2.
   heap_size (\x.0) (merge get_key leq h1 h2) =
-  heap_size (\x.0) h1 + heap_size (\x.0) h2`,
-recInduct (fetch "-" "merge_ind") >>
+  heap_size (\x.0) h1 + heap_size (\x.0) h2
+Proof
+  recInduct (fetch "-" "merge_ind") >>
 srw_tac [ARITH_ss] [merge_def, heap_size_def] >|
 [cases_on `h1`, cases_on `h1'`] >>
 full_simp_tac (srw_ss()++ARITH_ss) [] >>
@@ -109,13 +111,16 @@ cases_on `leq (get_key y) (get_key a)` >>
 full_simp_tac (srw_ss()++ARITH_ss) [] >>
 cases_on `leq (get_key x) (get_key a)` >>
 full_simp_tac (srw_ss()++numSimps.ARITH_AC_ss) [heap_size_def, merge_def] >>
-full_simp_tac (srw_ss()++ARITH_ss) []);
+full_simp_tac (srw_ss()++ARITH_ss) []
+QED
 
-val merge_size_lem = Q.prove (
-`(heap_size (\x.0) (merge get_key leq (Tree x h1 h2) h1') <
-  heap_size (\x.0) h1 + heap_size (\x.0) h2 + heap_size (\x.0) h1' + 2) = T`,
-rw [merge_size, heap_size_def] >>
-decide_tac);
+Triviality merge_size_lem:
+  (heap_size (\x.0) (merge get_key leq (Tree x h1 h2) h1') <
+  heap_size (\x.0) h1 + heap_size (\x.0) h2 + heap_size (\x.0) h1' + 2) = T
+Proof
+  rw [merge_size, heap_size_def] >>
+decide_tac
+QED
 
 (* Remove the size constraints *)
 
@@ -126,7 +131,7 @@ val merge_ind =
   SIMP_RULE (srw_ss()) [merge_size_lem, LET_THM] (fetch "-" "merge_ind");
 val _ = save_thm ("merge_ind[allow_rebind]",merge_ind);
 
-val merge_thm = Q.prove(`
+Triviality merge_thm:
   merge get_key leq a b =
     case (a,b) of
     | (a,Empty) => a
@@ -143,8 +148,10 @@ val merge_thm = Q.prove(`
           | Empty => Tree y (Tree x h1 h2) h2'
           | _ =>
             Tree y Empty (merge get_key leq
-                         (merge get_key leq (Tree x h1 h2) h1') h2')`,
-  Cases_on `a` THEN Cases_on `b` THEN SIMP_TAC (srw_ss()) [merge_def]);
+                         (merge get_key leq (Tree x h1 h2) h1') h2')
+Proof
+  Cases_on `a` THEN Cases_on `b` THEN SIMP_TAC (srw_ss()) [merge_def]
+QED
 
 val _ = translate merge_thm;
 
@@ -273,14 +280,18 @@ QED
 val delete_min_side_def = fetch "-" "delete_min_side_def"
 val find_min_side_def = fetch "-" "find_min_side_def"
 
-val delete_min_side = Q.prove (
-`!get_key leq h. delete_min_side get_key leq h = (h ≠ Empty)`,
-cases_on `h` >>
-rw [delete_min_side_def]);
+Triviality delete_min_side:
+  !get_key leq h. delete_min_side get_key leq h = (h ≠ Empty)
+Proof
+  cases_on `h` >>
+rw [delete_min_side_def]
+QED
 
-val find_min_side = Q.prove (
-`!h. find_min_side h = (h ≠ Empty)`,
-cases_on `h` >>
-rw [find_min_side_def]);
+Triviality find_min_side:
+  !h. find_min_side h = (h ≠ Empty)
+Proof
+  cases_on `h` >>
+rw [find_min_side_def]
+QED
 
 val _ = export_theory ();

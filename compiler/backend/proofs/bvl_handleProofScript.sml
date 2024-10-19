@@ -158,7 +158,7 @@ Definition let_ok_def:
   (let_ok _ = F)
 End
 
-val handle_ok_def = tDefine "handle_ok" `
+Definition handle_ok_def:
   (handle_ok [] <=> T) /\
   (handle_ok ((x:bvl$exp)::y::xs) <=>
      handle_ok [x] /\ handle_ok (y::xs)) /\
@@ -179,10 +179,12 @@ val handle_ok_def = tDefine "handle_ok" `
          EVERY isVar xs /\ bVarBound (LENGTH xs) [b] /\
          handle_ok [b] /\ handle_ok [x2]
      | _ => F) /\
-  (handle_ok [Call ticks dest xs] <=> handle_ok xs)`
-  (WF_REL_TAC `measure (exp1_size)`
+  (handle_ok [Call ticks dest xs] <=> handle_ok xs)
+Termination
+  WF_REL_TAC `measure (exp1_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+End
 
 val evaluate_GENLIST = save_thm("evaluate_GENLIST",
   evaluate_genlist_vars
@@ -305,16 +307,19 @@ Proof
   fs [LIST_RELi_EL_EQN,env_rel_def]
 QED
 
-val opt_lemma = Q.prove(
-  `x = y <=> (x = SOME () <=> y = SOME ())`,
-  Cases_on `x` \\ Cases_on `y` \\ fs []);
+Triviality opt_lemma:
+  x = y <=> (x = SOME () <=> y = SOME ())
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ fs []
+QED
 
-val OptionalLetLet_IMP = Q.prove(
-  `(ys,l,s',nr') = OptionalLetLet y (LENGTH env) lx s1 limit nr /\
+Triviality OptionalLetLet_IMP:
+  (ys,l,s',nr') = OptionalLetLet y (LENGTH env) lx s1 limit nr /\
     (∀env2 extra.
       env_rel l env env2 ⇒ evaluate ([y],env2 ++ extra,s) = res) /\
     env_rel l env env1 /\ b ==>
-    evaluate (ys,env1 ++ extra,s) = res /\ b`,
+    evaluate (ys,env1 ++ extra,s) = res /\ b
+Proof
   rw [OptionalLetLet_def,evaluate_def]
   \\ drule evaluate_LetLet \\ fs []
   \\ fs [GSYM db_varsTheory.vars_flatten_def,GSYM db_varsTheory.vars_to_list_def]
@@ -322,7 +327,8 @@ val OptionalLetLet_IMP = Q.prove(
   \\ fs [spt_eq_thm,db_varsTheory.wf_db_to_set]
   \\ rw [] \\ once_rewrite_tac [opt_lemma]
   \\ rewrite_tac [GSYM db_varsTheory.lookup_db_to_set]
-  \\ fs []);
+  \\ fs []
+QED
 
 Theorem OptionalLetLet_limit:
    (ys,l,s',nr') = OptionalLetLet e (LENGTH env) lx s1 limit nr /\

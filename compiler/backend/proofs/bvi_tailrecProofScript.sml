@@ -291,24 +291,27 @@ Definition code_rel_def:
             lookup n c2 = SOME (arity + 1, exp_opt))
 End
 
-val code_rel_find_code_SOME = Q.prove (
-  `∀c1 c2 (args: v list) a exp.
+Triviality code_rel_find_code_SOME:
+  ∀c1 c2 (args: v list) a exp.
      code_rel c1 c2 ∧
      find_code (SOME n) args c1 = SOME (a, exp) ⇒
-       find_code (SOME n) args c2 ≠ NONE`,
+       find_code (SOME n) args c2 ≠ NONE
+Proof
   rw [find_code_def, code_rel_def]
   \\ pop_assum mp_tac
   \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
   \\ first_x_assum drule
   \\ fs [compile_exp_def]
   \\ CASE_TAC \\ fs [] \\ rw []
-  \\ pairarg_tac \\ fs []);
+  \\ pairarg_tac \\ fs []
+QED
 
-val code_rel_find_code_NONE = Q.prove (
-  `∀c1 c2 (args: v list) a exp.
+Triviality code_rel_find_code_NONE:
+  ∀c1 c2 (args: v list) a exp.
      code_rel c1 c2 ∧
      find_code NONE args c1 = SOME (a, exp) ⇒
-       find_code NONE args c2 ≠ NONE`,
+       find_code NONE args c2 ≠ NONE
+Proof
   rw [find_code_def, code_rel_def]
   \\ pop_assum mp_tac
   \\ rpt (PURE_TOP_CASE_TAC \\ fs []) \\ rw []
@@ -320,7 +323,8 @@ val code_rel_find_code_NONE = Q.prove (
   \\ first_x_assum drule
   \\ fs [compile_exp_def]
   \\ CASE_TAC \\ fs [] \\ rw []
-  \\ pairarg_tac \\ fs []);
+  \\ pairarg_tac \\ fs []
+QED
 
 Theorem code_rel_domain:
    ∀c1 c2.
@@ -416,13 +420,15 @@ Proof
   \\ Cases_on `h`  \\ fs [] \\ Cases_on `h'` \\ simp [decide_ty_def]
 QED
 
-val ty_rel_APPEND = Q.prove (
-  `∀env ts ws vs.
-     ty_rel env ts ∧ ty_rel vs ws ⇒ ty_rel (vs ++ env) (ws ++ ts)`,
+Triviality ty_rel_APPEND:
+  ∀env ts ws vs.
+     ty_rel env ts ∧ ty_rel vs ws ⇒ ty_rel (vs ++ env) (ws ++ ts)
+Proof
   rw []
   \\ sg `LENGTH ws = LENGTH vs`
   >- (fs [ty_rel_def, LIST_REL_EL_EQN])
-  \\ fs [ty_rel_def, LIST_REL_APPEND_EQ]);
+  \\ fs [ty_rel_def, LIST_REL_APPEND_EQ]
+QED
 
 Theorem LAST1_thm:
    !xs. LAST1 xs = NONE <=> xs = []
@@ -687,23 +693,29 @@ Definition free_names_def:
   free_names n (name: num) ⇔ ∀k. n + bvl_to_bvi_namespaces*k ≠ name
 End
 
-val more_free_names = Q.prove (
-  `free_names n name ⇒ free_names (n + bvl_to_bvi_namespaces) name`,
+Triviality more_free_names:
+  free_names n name ⇒ free_names (n + bvl_to_bvi_namespaces) name
+Proof
   fs [free_names_def] \\ rpt strip_tac
   \\ first_x_assum (qspec_then `k + 1` mp_tac) \\ strip_tac
-  \\ rw []);
+  \\ rw []
+QED
 
-val is_free_name = Q.prove (
-  `free_names n name ⇒ n ≠ name`,
+Triviality is_free_name:
+  free_names n name ⇒ n ≠ name
+Proof
   fs [free_names_def] \\ strip_tac
-  \\ first_x_assum (qspec_then `0` mp_tac) \\ strip_tac \\ rw []);
+  \\ first_x_assum (qspec_then `0` mp_tac) \\ strip_tac \\ rw []
+QED
 
-val compile_exp_next_addr = Q.prove (
-  `compile_exp loc next args exp = NONE ⇒
-     compile_exp loc (next + bvl_to_bvi_namespaces) args exp = NONE`,
+Triviality compile_exp_next_addr:
+  compile_exp loc next args exp = NONE ⇒
+     compile_exp loc (next + bvl_to_bvi_namespaces) args exp = NONE
+Proof
   fs [compile_exp_def]
   \\ every_case_tac
-  \\ pairarg_tac \\ fs []);
+  \\ pairarg_tac \\ fs []
+QED
 
 Theorem compile_prog_untouched:
    ∀next prog prog2 loc exp arity.
@@ -740,14 +752,16 @@ Proof
   \\ rw [fromAList_def, lookup_insert, is_free_name]
 QED
 
-val EVERY_free_names_SUCSUC = Q.prove (
-  `∀xs.
+Triviality EVERY_free_names_SUCSUC:
+  ∀xs.
      EVERY (free_names n o FST) xs ⇒
-       EVERY (free_names (n + bvl_to_bvi_namespaces) o FST) xs`,
+       EVERY (free_names (n + bvl_to_bvi_namespaces) o FST) xs
+Proof
   Induct
   \\ strip_tac \\ fs []
   \\ strip_tac
-  \\ imp_res_tac more_free_names);
+  \\ imp_res_tac more_free_names
+QED
 
 Theorem compile_prog_touched:
    ∀next prog prog2 loc exp arity.
@@ -802,24 +816,30 @@ Proof
   \\ fs[backend_commonTheory.bvl_to_bvi_namespaces_def]
 QED
 
-val check_exp_NONE_compile_exp = Q.prove (
-  `check_exp loc arity exp = NONE ⇒ compile_exp loc next arity exp = NONE`,
-  fs [compile_exp_def]);
+Triviality check_exp_NONE_compile_exp:
+  check_exp loc arity exp = NONE ⇒ compile_exp loc next arity exp = NONE
+Proof
+  fs [compile_exp_def]
+QED
 
-val check_exp_SOME_compile_exp = Q.prove (
-  `check_exp loc arity exp = SOME p ⇒
-     ∃q. compile_exp loc next arity exp = SOME q`,
+Triviality check_exp_SOME_compile_exp:
+  check_exp loc arity exp = SOME p ⇒
+     ∃q. compile_exp loc next arity exp = SOME q
+Proof
   fs [compile_exp_def, check_exp_def]
   \\ rw [] \\ rw []
-  \\ pairarg_tac \\ fs []);
+  \\ pairarg_tac \\ fs []
+QED
 
-val EVERY_free_names_thm = Q.prove (
-  `EVERY (free_names next o FST) prog ∧
+Triviality EVERY_free_names_thm:
+  EVERY (free_names next o FST) prog ∧
    lookup loc (fromAList prog) = SOME x ⇒
-     free_names next loc`,
+     free_names next loc
+Proof
   rw [lookup_fromAList, EVERY_MEM]
   \\ imp_res_tac ALOOKUP_MEM
-  \\ first_x_assum (qspec_then `(loc, x)` mp_tac) \\ rw []);
+  \\ first_x_assum (qspec_then `(loc, x)` mp_tac) \\ rw []
+QED
 
 Theorem compile_prog_code_rel:
    compile_prog next prog = (next1, prog2) ∧
@@ -884,14 +904,14 @@ Proof
   \\ qexists_tac`k'' + 1` \\ simp[]
 QED
 
-val compile_prog_intro = Q.prove (
-  `∀xs n ys n1 name.
+Triviality compile_prog_intro:
+  ∀xs n ys n1 name.
     ¬MEM name (MAP FST xs) ∧
     free_names n name ∧
     compile_prog n xs = (n1, ys) ⇒
       ¬MEM name (MAP FST ys) ∧
       free_names n1 name
-      `,
+Proof
   Induct
   >- fs [compile_prog_def]
   \\ gen_tac
@@ -905,7 +925,8 @@ val compile_prog_intro = Q.prove (
     \\ metis_tac [])
   \\ PURE_CASE_TAC \\ fs []
   \\ rpt strip_tac \\ rveq \\ fs []
-  \\ metis_tac [is_free_name,more_free_names]);
+  \\ metis_tac [is_free_name,more_free_names]
+QED
 
 Theorem compile_prog_ALL_DISTINCT:
    compile_prog n xs = (n1,ys) /\ ALL_DISTINCT (MAP FST xs) /\

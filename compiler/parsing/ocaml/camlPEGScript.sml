@@ -1076,9 +1076,11 @@ val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
   LIST_CONJ (List.foldl wfnt [] topo_nts))
 
-val subexprs_pnt = Q.prove(
-  `subexprs (pnt n) = {pnt n}`,
-  simp [pegTheory.subexprs_def, pnt_def]);
+Triviality subexprs_pnt:
+  subexprs (pnt n) = {pnt n}
+Proof
+  simp [pegTheory.subexprs_def, pnt_def]
+QED
 
 Theorem PEG_exprs =
    “Gexprs camlPEG”

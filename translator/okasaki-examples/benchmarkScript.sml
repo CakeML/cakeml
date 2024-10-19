@@ -80,8 +80,9 @@ val r = translate run_queue_def;
 
 (* Copied from SplayHeapScript *)
 
-val _ = Datatype`
-  heap = Empty | Tree heap 'a heap`;
+Datatype:
+  heap = Empty | Tree heap 'a heap
+End
 
 Definition heap_to_bag_def:
 (heap_to_bag Empty = {||}) ∧
@@ -138,12 +139,13 @@ val r = translate partition_def;
 val partition_ind = fetch "-" "partition_ind"
 val heap_size_def = fetch "-" "heap_size_def"
 
-val partition_size = Q.prove (
-`!get_key leq p h1 h2 h3.
+Triviality partition_size:
+  !get_key leq p h1 h2 h3.
   ((h2,h3) = partition get_key leq p h1)
   ⇒
-  heap_size f h2 ≤ heap_size f h1 ∧ heap_size f h3 ≤ heap_size f h1`,
-recInduct partition_ind >>
+  heap_size f h2 ≤ heap_size f h1 ∧ heap_size f h3 ≤ heap_size f h1
+Proof
+  recInduct partition_ind >>
 rw [heap_size_def, partition_def] >>
 every_case_tac >>
 fs [] >>
@@ -152,7 +154,8 @@ cases_on `partition get_key leq pivot h0` >>
 cases_on `partition get_key leq pivot h` >>
 fs [LET_THM] >>
 rw [heap_size_def] >>
-decide_tac);
+decide_tac
+QED
 
 Definition insert_def:
 insert get_key leq x t =
@@ -161,17 +164,19 @@ insert get_key leq x t =
 End
 val r = translate insert_def;
 
-val merge_def = tDefine "merge" `
+Definition merge_def:
 (merge get_key leq Empty h2 = h2) ∧
 (merge get_key leq (Tree a x b) h2 =
   let (ta, tb) = partition get_key leq x h2 in
-    Tree (merge get_key leq ta a) x (merge get_key leq tb b))`
-(WF_REL_TAC `measure (\(_,x,y,z).  heap_size (\_.1) y + heap_size (\_.1) z)` >>
+    Tree (merge get_key leq ta a) x (merge get_key leq tb b))
+Termination
+  WF_REL_TAC `measure (\(_,x,y,z).  heap_size (\_.1) y + heap_size (\_.1) z)` >>
  rw [] >>
  imp_res_tac partition_size >>
  pop_assum (MP_TAC o Q.SPEC `(λ_.1)`) >>
  pop_assum (MP_TAC o Q.SPEC `(λ_.1)`) >>
- full_simp_tac (srw_ss() ++ ARITH_ss) [partition_size]);
+ full_simp_tac (srw_ss() ++ ARITH_ss) [partition_size]
+End
 
 val _ = translate merge_def
 

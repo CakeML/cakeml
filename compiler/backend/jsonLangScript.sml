@@ -9,14 +9,15 @@ open preamble mlintTheory mlstringTheory
 
 val _ = new_theory"jsonLang";
 
-val _ = Datatype`
+Datatype:
   obj =
      Object ((mlstring # obj ) list)
    | Array (obj list)
    | String mlstring
    | Int int
    | Bool bool
-   | Null`;
+   | Null
+End
 
 Overload "++"[local] = ``Append``
 

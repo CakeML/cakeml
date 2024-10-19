@@ -11,10 +11,12 @@ Type regsE = ``:num list list``
 Type regsM = ``:num num_map``
 Type instrsM = ``:(num list,num) balanced_map``
 
-val _ = Datatype `knowledge = <| eq:regsE;
+Datatype:
+  knowledge = <| eq:regsE;
                                  map:regsM;
                                  instrs:instrsM;
-                                 all_names:num_set |>`;
+                                 all_names:num_set |>
+End
 
 (* LIST COMPARISON *)
 

@@ -1609,22 +1609,28 @@ val flat_remove_semantics = save_thm ("flat_remove_semantics",
 
 (* syntactic results *)
 
-val elist_globals_filter = Q.prove (
-  `elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
+Triviality elist_globals_filter:
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
    ==>
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) = {||}`,
-  Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]);
+   elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) = {||}
+Proof
+  Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]
+QED
 
-val esgc_free_filter = Q.prove (
-  `EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+Triviality esgc_free_filter:
+  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds)))`,
-  Induct_on `ds` \\ rw []);
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds)))
+Proof
+  Induct_on `ds` \\ rw []
+QED
 
-val elist_globals_filter_SUB_BAG = Q.prove (
-  `elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) <=
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))`,
-  Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]);
+Triviality elist_globals_filter_SUB_BAG:
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) <=
+   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))
+Proof
+  Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]
+QED
 
 Theorem remove_flat_prog_elist_globals_eq_empty:
    elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}

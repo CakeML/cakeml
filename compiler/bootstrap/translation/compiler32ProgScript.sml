@@ -118,7 +118,11 @@ val r = pan_passesTheory.pan_to_target_all_def |> spec32
 val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.shape_to_str_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
-val lem = Q.prove(‘dimindex(:32) = 32’, EVAL_TAC);
+Triviality lem:
+  dimindex(:32) = 32
+Proof
+  EVAL_TAC
+QED
 val r = pan_passesTheory.pan_exp_to_display_def |> spec32 |> SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] |> translate;
 val r = pan_passesTheory.crep_exp_to_display_def |> spec32 |> translate;
 val r = pan_passesTheory.loop_exp_to_display_def |> spec32 |> translate;

@@ -50,18 +50,20 @@ Definition rel_gc_step_def:
       (i,j,m)
 End
 
-val rel_gc_loop_def = tDefine "rel_gc_loop" `
+Definition rel_gc_loop_def:
   rel_gc_loop z (i,j,m,b,e,b2,e2) =
     if i = j then (i,m) else
     if ~(i < j /\ j <= e) then (i,m) else
       let (i,j,m) = rel_gc_step z (i,j,m,b,e,b2,e2) in
       let (i,m) = rel_gc_loop z (i,j,m,b,e,b2,e2) in
-        (i,m)`
- (WF_REL_TAC `measure (\(z,i,j,m,b,e,b2,e2). e - i)`
+        (i,m)
+Termination
+  WF_REL_TAC `measure (\(z,i,j,m,b,e,b2,e2). e - i)`
   THEN SIMP_TAC std_ss [rel_gc_step_def,LET_DEF]
   THEN CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
   THEN ONCE_REWRITE_TAC [EQ_SYM_EQ]
-  THEN SIMP_TAC std_ss [] THEN REPEAT STRIP_TAC THEN DECIDE_TAC);
+  THEN SIMP_TAC std_ss [] THEN REPEAT STRIP_TAC THEN DECIDE_TAC
+End
 
 Definition RANGE_def:
   RANGE(i:num,j) k = i <= k /\ k < j

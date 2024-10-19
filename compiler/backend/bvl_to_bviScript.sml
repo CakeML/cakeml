@@ -450,11 +450,13 @@ Proof
   \\ gvs [compile_exps_def,compile_exps_sing_def,SmartAppend_Nil]
 QED
 
-val compile_exps_LENGTH_lemma = Q.prove(
-  `!n xs. (LENGTH (FST (compile_exps n xs)) = LENGTH xs)`,
+Triviality compile_exps_LENGTH_lemma:
+  !n xs. (LENGTH (FST (compile_exps n xs)) = LENGTH xs)
+Proof
   HO_MATCH_MP_TAC compile_exps_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_exps_def] \\ SRW_TAC [] []
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC
+QED
 
 Theorem compile_exps_LENGTH:
    (compile_exps n xs = (ys,aux,n1)) ==> (LENGTH ys = LENGTH xs)

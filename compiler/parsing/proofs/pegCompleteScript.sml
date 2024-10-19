@@ -20,10 +20,12 @@ val skths = [GSYM RIGHT_EXISTS_IMP_THM, SKOLEM_THM]
 val SKRULE = SRULE skths
 val SKTAC = gs skths
 
-val option_case_eq = Q.prove(
-  ‘(option_CASE optv n sf = v) ⇔
-     optv = NONE ∧ n = v ∨ ∃v0. optv = SOME v0 ∧ sf v0 = v’,
-  Cases_on `optv` >> simp[]);
+Triviality option_case_eq:
+  (option_CASE optv n sf = v) ⇔
+     optv = NONE ∧ n = v ∨ ∃v0. optv = SOME v0 ∧ sf v0 = v
+Proof
+  Cases_on `optv` >> simp[]
+QED
 Theorem MAP_EQ_CONS[local]:
   MAP f l = h::t <=> ∃h0 t0. l = h0::t0 ∧ f h0 = h ∧ MAP f t0 = t
 Proof metis_tac[MAP_EQ_CONS]
@@ -177,7 +179,11 @@ Proof
   rename [‘hdi = (_,_)’] >> Cases_on ‘hdi’ >> simp[] >> metis_tac[]
 QED
 
-val disjImpI = Q.prove(`~p \/ q ⇔ p ⇒ q`, DECIDE_TAC)
+Triviality disjImpI:
+  ~p \/ q ⇔ p ⇒ q
+Proof
+  DECIDE_TAC
+QED
 
 Theorem ptree_head_eq_tok0[local]:
   (ptree_head pt = TOK tk) ⇔ (?l. pt = Lf (TOK tk,l))
@@ -304,10 +310,12 @@ Proof
   drule_all not_peg0_LENGTH_decreases >> simp[]
 QED
 
-val list_case_lemma = Q.prove(
-  `([x] = case a of [] => [] | h::t => f h t) ⇔
-    (a ≠ [] ∧ [x] = f (HD a) (TL a))`,
-  Cases_on `a` >> simp[]);
+Triviality list_case_lemma:
+  ([x] = case a of [] => [] | h::t => f h t) ⇔
+    (a ≠ [] ∧ [x] = f (HD a) (TL a))
+Proof
+  Cases_on `a` >> simp[]
+QED
 
 (* only the subs = [x] and subs = [x;y] cases are relevant *)
 Definition left_insert1_def:
@@ -667,7 +675,11 @@ Proof
 QED
 
 val elim_disjineq = Q.prove( `p \/ x ≠ y ⇔ (x = y ⇒ p)`, DECIDE_TAC)
-val elim_det = Q.prove(`(!x. P x ⇔ (x = y)) ==> P y`, METIS_TAC[])
+Triviality elim_det:
+  (!x. P x ⇔ (x = y)) ==> P y
+Proof
+  METIS_TAC[]
+QED
 
 Theorem peg_seql_NONE_det:
    peg_eval G (i0, seql syms f) (Failure fl fe) ⇒

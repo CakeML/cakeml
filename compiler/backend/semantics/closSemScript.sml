@@ -52,7 +52,7 @@ Definition Boolv_def:
   (Boolv b = Block (if b then true_tag else false_tag) [])
 End
 
-val do_eq_def = tDefine "do_eq" `
+Definition do_eq_def:
   (do_eq x y =
      case x of
      | Number i =>
@@ -90,9 +90,11 @@ val do_eq_def = tDefine "do_eq" `
      case do_eq x y of
      | Eq_val T => do_eq_list xs ys
      | res => res) /\
-  (do_eq_list _ _ = Eq_val F)`
- (WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
-                                   | INR (vs,_) => v1_size vs)`)
+  (do_eq_list _ _ = Eq_val F)
+Termination
+  WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
+                                   | INR (vs,_) => v1_size vs)`
+End
 
 Definition v_to_list_def:
   (v_to_list (Block tag []) =
@@ -446,9 +448,11 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-val fix_clock_IMP = Q.prove(
-  `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
+Triviality fix_clock_IMP:
+  fix_clock s x = (res,s1) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
 (* The semantics of expression evaluation is defined next. For
    convenience of subsequent proofs, the evaluation function is
@@ -461,10 +465,11 @@ Definition check_loc_def:
     num_params = num_args ∧ so_far = (0:num) ∧ SOME p = loc)
 End
 
-val _ = Datatype `
+Datatype:
   app_kind =
     | Partial_app closSem$v
-    | Full_app closLang$exp (closSem$v list) (closSem$v list)`;
+    | Full_app closLang$exp (closSem$v list) (closSem$v list)
+End
 
 Definition dest_closure_def:
   dest_closure max_app loc_opt f args =
@@ -712,11 +717,12 @@ Proof
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
 QED
 
-val evaluate_clock_help = Q.prove (
-  `(!tup vs (s2:('c,'ffi) closSem$state).
+Triviality evaluate_clock_help:
+  (!tup vs (s2:('c,'ffi) closSem$state).
       (evaluate tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
     (!loc_opt f args (s1:('c,'ffi) closSem$state) vs s2.
-      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)`,
+      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)
+Proof
   ho_match_mp_tac evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ FULL_SIMP_TAC std_ss [LET_THM] \\ BasicProvers.EVERY_CASE_TAC
@@ -726,7 +732,8 @@ val evaluate_clock_help = Q.prove (
   \\ IMP_RES_TAC fix_clock_IMP
   \\ IMP_RES_TAC do_app_const
   \\ IMP_RES_TAC do_install_clock_less_eq
-  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC);
+  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC
+QED
 
 Theorem evaluate_clock:
  (!xs env s1 vs s2.

@@ -9,16 +9,18 @@ val _ = ParseExtras.temp_loose_equality();
 
 (* The ML heap is represented as a list of heap_elements. *)
 
-val _ = Datatype `
-  heap_address = Pointer num 'a | Data 'a`;
+Datatype:
+  heap_address = Pointer num 'a | Data 'a
+End
 
-val _ = Datatype `
+Datatype:
   heap_element = Unused num
                | ForwardPointer num 'a num
-               | DataElement (('a heap_address) list) num 'b`;
+               | DataElement (('a heap_address) list) num 'b
+End
 
 
-val _ = Datatype `
+Datatype:
   gc_state =
     <| old : ('a, 'b) heap_element list (* old generations *)
      ; h1 : ('a, 'b) heap_element list (* final left heap *)
@@ -32,7 +34,8 @@ val _ = Datatype `
      ; ok : bool                       (* OK *)
      ; heap : ('a, 'b) heap_element list (* old heap (w/ fwd pointers) *)
      ; heap0 : ('a, 'b) heap_element list (* old heap *)
-     |>`;
+     |>
+End
 
 Definition empty_state_def:
   empty_state =

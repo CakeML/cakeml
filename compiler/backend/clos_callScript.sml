@@ -223,9 +223,11 @@ Definition calls_list_def:
           calls_list t (i+1) (loc+2n) xs)
 End
 
-val exp3_size_MAP_SND = Q.prove(
-  `!fns. exp3_size (MAP SND fns) <= exp1_size fns`,
-  Induct \\ fs [exp_size_def,FORALL_PROD]);
+Triviality exp3_size_MAP_SND:
+  !fns. exp3_size (MAP SND fns) <= exp1_size fns
+Proof
+  Induct \\ fs [exp_size_def,FORALL_PROD]
+QED
 
 Definition calls_def:
   (calls [] g = ([],g)) /\
@@ -313,9 +315,6 @@ Termination
   \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)
   \\ DECIDE_TAC)
 End
-
-
-
 
 Definition calls_sing_def:
   (calls_sing (Var t v) g =
