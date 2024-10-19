@@ -871,6 +871,24 @@ Proof
   fs[get_var_def,set_fp_var_def]
 QED
 
+Theorem evaluate_drop_consts_1:
+  ∀vs rest s.
+  (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
+  evaluate (drop_consts cs vs,s) = (NONE, s)
+Proof
+  Induct>>rw[evaluate_def,drop_consts_def]>>
+  every_case_tac>>gvs[evaluate_SmartSeq,evaluate_def]>>
+  simp[word_exp_def,set_var_def,state_component_equality]>>
+  metis_tac[insert_unchanged,get_var_def]
+QED
+
+Theorem evaluate_drop_consts[simp]:
+  (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
+  evaluate (SmartSeq (drop_consts cs vs) p,s) = evaluate (p, s)
+Proof
+  rw[evaluate_SmartSeq,evaluate_def,evaluate_drop_consts_1]
+QED
+
 Theorem evaluate_const_fp_loop:
   !p cs p' cs' s res s'.
   evaluate (p, s) = (res, s') /\
@@ -964,30 +982,46 @@ Proof
     res_tac \\ fs [lookup_inter_eq] \\ every_case_tac \\ rw []))
 
   >- (** Call **)
-  (rpt (rpt gen_tac \\ DISCH_TAC) \\ fs [const_fp_loop_def, evaluate_def] \\
+  (
+  rpt (rpt gen_tac \\ DISCH_TAC) \\ fs [const_fp_loop_def, evaluate_def] \\
   qpat_x_assum `_ = (res, s')` mp_tac \\
-  ntac 3 (TOP_CASE_TAC >- (every_case_tac \\ TRY (pairarg_tac) \\ fs [] \\
-                           rw [evaluate_def] \\ rw [] \\ fs [add_ret_loc_def])) \\
+  ntac 3 (
+    TOP_CASE_TAC >- (
+      every_case_tac \\ TRY (pairarg_tac) \\
+      rw[] \\ gvs[evaluate_def] \\
+      fs [add_ret_loc_def])) \\
   TOP_CASE_TAC \\
   TOP_CASE_TAC \\
-  TOP_CASE_TAC >-
-  (every_case_tac \\ fs [] \\
-                   rw [evaluate_def] \\ rw [] \\ fs [add_ret_loc_def]) \\
+  TOP_CASE_TAC >- (
+    every_case_tac \\ fs [] \\
+    rw [] \\ gvs[evaluate_def] \\
+    fs [add_ret_loc_def]) \\
   PairCases_on `x'` \\ fs [] \\
-  ntac 3 (TOP_CASE_TAC >- (every_case_tac \\ TRY (pairarg_tac) \\ fs [] \\
-                           rw [evaluate_def] \\ rw [] \\ fs [add_ret_loc_def])) \\
+  ntac 3 (
+    TOP_CASE_TAC >- (
+      every_case_tac \\ TRY (pairarg_tac) \\
+      rw[] \\ gvs[evaluate_def] \\
+      fs [add_ret_loc_def])) \\
   TOP_CASE_TAC \\
-  TOP_CASE_TAC >- (every_case_tac \\ TRY (pairarg_tac) \\ fs [] \\
-                   rw [evaluate_def] \\ rw [] \\ fs [add_ret_loc_def]) \\
+  TOP_CASE_TAC >- (
+      every_case_tac \\ TRY (pairarg_tac) \\
+      rw[] \\ gvs[evaluate_def] \\
+      fs [add_ret_loc_def]) \\
   reverse (Cases_on `handler`) \\ fs []
-    >- (every_case_tac \\ rw [evaluate_def] \\ fs [lookup_def]) \\
+  >- (
+      every_case_tac \\ TRY (pairarg_tac) \\
+      rw[] \\ gvs[evaluate_def] \\
+      fs [add_ret_loc_def]) \\
   pairarg_tac \\ fs [] \\ TOP_CASE_TAC \\ fs [] \\
-  TRY (rw [evaluate_def] \\ fs [add_ret_loc_def] \\ NO_TAC) \\
-  rveq \\ fs [add_ret_loc_def] \\
-  TOP_CASE_TAC >- rw [evaluate_def, add_ret_loc_def, find_code_def] \\
-  rewrite_tac [evaluate_def, add_ret_loc_def, find_code_def] \\
+  TRY (rw [] \\ gvs[evaluate_def,add_ret_loc_def] \\ NO_TAC) \\
+  (* one subgoal left *)
+  gvs [add_ret_loc_def] \\
+  TOP_CASE_TAC >-
+    rw [evaluate_def,add_ret_loc_def, find_code_def] \\
+  rewrite_tac [evaluate_def,evaluate_drop_consts, add_ret_loc_def, find_code_def] \\
   imp_res_tac evaluate_sf_gc_consts \\ fs [call_env_def, flush_state_def, dec_clock_def] \\
-  TOP_CASE_TAC >- rw [] \\
+  TOP_CASE_TAC >-
+    rw [] \\
   reverse TOP_CASE_TAC >- rw [] \\
   DISCH_TAC \\ first_assum irule \\ rpt conj_tac
     >- (rw [get_var_set_var_thm, lookup_delete] \\
@@ -1077,6 +1111,19 @@ Proof
   Cases_on `evaluate (p, s)` \\ res_tac
 QED
 
+Triviality extract_labels_drop_consts_1:
+  extract_labels (drop_consts cs ls) = []
+Proof
+  Induct_on`ls`>>rw[drop_consts_def]>>
+  every_case_tac>>rw[extract_labels_SmartSeq,extract_labels_def]
+QED
+
+Triviality extract_labels_drop_consts[simp]:
+  extract_labels (SmartSeq (drop_consts cs ls) p) = extract_labels p
+Proof
+  rw[extract_labels_SmartSeq,extract_labels_def,extract_labels_drop_consts_1]
+QED
+
 Triviality extract_labels_const_fp_loop:
   !p cs p1 cs1.
   const_fp_loop p cs = (p1,cs1) ==>
@@ -1094,7 +1141,7 @@ Proof
   \\ TRY (fs [const_fp_loop_def] \\ rw [] \\ fs [extract_labels_def] \\ NO_TAC)
   THEN1 (* Call *)
    (rw [] \\ fs [const_fp_loop_def]
-    \\ every_case_tac \\ fs []
+    \\ gvs[AllCaseEqs()]
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ fs [extract_labels_def]
     \\ once_rewrite_tac [CONS_APPEND]
@@ -1115,6 +1162,24 @@ Proof
   \\ simp []
 QED
 
+Triviality every_inst_SmartSeq:
+  every_inst P (SmartSeq p q) =
+  (every_inst P p ∧ every_inst P q)
+Proof
+  rw[SmartSeq_def,every_inst_def]
+QED
+
+Triviality every_inst_inst_ok_less_drop_consts[simp]:
+  every_inst P (SmartSeq (drop_consts cs ls) p) =
+  every_inst P p
+Proof
+  rw[every_inst_SmartSeq]>>
+  `every_inst P (drop_consts cs ls)` by (
+    Induct_on`ls`>>rw[drop_consts_def]>>every_case_tac>>
+    rw[every_inst_def,every_inst_SmartSeq] )>>
+  rw[]
+QED
+
 Theorem every_inst_inst_ok_less_const_fp:
    ∀prog.
     every_inst (inst_ok_less ac) prog ⇒
@@ -1131,6 +1196,17 @@ Proof
   \\ every_case_tac \\ rw [] \\ fs [every_inst_def]
   \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def]
   \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def]
+QED
+
+Triviality not_created_subprogs_drop_consts[simp]:
+  not_created_subprogs P (SmartSeq (drop_consts cs ls) p) =
+  not_created_subprogs P p
+Proof
+  rw[not_created_subprogs_SmartSeq]>>
+  `not_created_subprogs P (drop_consts cs ls)` by (
+    Induct_on`ls`>>rw[drop_consts_def]>>every_case_tac>>
+    rw[not_created_subprogs_def,not_created_subprogs_SmartSeq])>>
+  rw[]
 QED
 
 Triviality not_created_subprogs_const_fp_loop:
