@@ -31,25 +31,29 @@ Proof
   \\ Cases \\ fs [env_rel_def]
 QED
 
-val env_rel_LLOOKUP_NONE = Q.prove(
-  `!ax env env2 n.
+Triviality env_rel_LLOOKUP_NONE:
+  !ax env env2 n.
       env_rel (:'c) (:'ffi) ax env env2 /\
       (LLOOKUP ax n = NONE \/ LLOOKUP ax n = SOME NONE) ==>
-      EL n env2 = EL n env`,
+      EL n env2 = EL n env
+Proof
   Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ Cases \\ fs [env_rel_def,LLOOKUP_def]
-  \\ rw [] \\ fs [] \\ Cases_on `n` \\ fs [EL]);
+  \\ rw [] \\ fs [] \\ Cases_on `n` \\ fs [EL]
+QED
 
-val env_rel_LOOKUP_SOME = Q.prove(
-  `!env env2 ax x n.
+Triviality env_rel_LOOKUP_SOME:
+  !env env2 ax x n.
       env_rel (:'c) (:'ffi) ax env env2 /\
       LLOOKUP ax n = SOME (SOME x) ==>
-      v_rel (:'c) (:'ffi) x (EL n env) (EL n env2) (DROP n env) (DROP n env2)`,
+      v_rel (:'c) (:'ffi) x (EL n env) (EL n env2) (DROP n env) (DROP n env2)
+Proof
   Induct \\ Cases_on `env2` \\ Cases_on `ax` \\ fs [env_rel_def,LLOOKUP_def]
   \\ rw [] \\ fs [env_rel_def] \\ res_tac \\ fs []
   \\ Cases_on `n` \\ fs [env_rel_def]
   \\ first_x_assum match_mp_tac
-  \\ Cases_on `h'` \\ fs [env_rel_def]);
+  \\ Cases_on `h'` \\ fs [env_rel_def]
+QED
 
 Theorem evaluate_delete_var_Rerr_SING:
    !x s r e env2.
@@ -62,11 +66,12 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ rw []
 QED
 
-val evaluate_delete_var_Rerr = Q.prove(
-  `!xs s r e env2.
+Triviality evaluate_delete_var_Rerr:
+  !xs s r e env2.
       evaluate (xs,env2,s) = (Rerr e,r) /\
       e <> Rabort Rtype_error ==>
-      evaluate (MAP bvl_const$delete_var xs,env2,s) = (Rerr e,r)`,
+      evaluate (MAP bvl_const$delete_var xs,env2,s) = (Rerr e,r)
+Proof
   Induct \\ fs [] \\ once_rewrite_tac [evaluate_CONS]
   \\ rw [] \\ every_case_tac \\ fs [] \\ rw []
   \\ TRY (drule evaluate_delete_var_Rerr_SING \\ fs [])
@@ -74,14 +79,16 @@ val evaluate_delete_var_Rerr = Q.prove(
   \\ Cases_on `h` \\ fs [delete_var_def]
   \\ rw [] \\ fs []
   \\ fs [evaluate_def,do_app_def] \\ rw []
-  \\ every_case_tac \\ fs [] \\ rw []);
+  \\ every_case_tac \\ fs [] \\ rw []
+QED
 
-val evaluate_delete_var_Rval = Q.prove(
-  `!xs env2 s a r ax env.
+Triviality evaluate_delete_var_Rval:
+  !xs env2 s a r ax env.
       evaluate (xs,env2,s:('c,'ffi) bvlSem$state) = (Rval a,r) /\
       env_rel (:'c) (:'ffi) ax env env2 ==>
       ?b. evaluate (MAP delete_var xs,env2,s) = (Rval b,r) /\
-          env_rel (:'c) (:'ffi) (extract_list xs ++ ax) (a ++ env) (b ++ env2)`,
+          env_rel (:'c) (:'ffi) (extract_list xs ++ ax) (a ++ env) (b ++ env2)
+Proof
   Induct \\ fs [env_rel_def,extract_list_def]
   \\ once_rewrite_tac [evaluate_CONS]
   \\ rw [] \\ Cases_on `evaluate ([h],env2,s)` \\ fs []
@@ -105,7 +112,8 @@ val evaluate_delete_var_Rval = Q.prove(
   \\ Cases_on `opp` \\ fs [extract_def] \\ rw []
   \\ every_case_tac \\ fs []
   \\ fs [v_rel_def,NULL_EQ,evaluate_def,do_app_def]
-  \\ every_case_tac \\ fs []);
+  \\ every_case_tac \\ fs []
+QED
 
 Theorem evaluate_EQ_NIL:
    bvlSem$evaluate (xs,env,s) = (Rval [],t) <=> xs = [] /\ s = t

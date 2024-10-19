@@ -11,7 +11,7 @@ val _ = new_theory"bviSem";
 
 Overload num_stubs[local] = ``bvl_num_stubs``
 
-val _ = Datatype `
+Datatype:
   state =
     <| refs    : num |-> bvlSem$v ref
      ; clock   : num
@@ -19,15 +19,18 @@ val _ = Datatype `
      ; compile : 'c -> (num # num # bvi$exp) list -> (word8 list # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvi$exp) list
      ; code    : (num # bvi$exp) num_map
-     ; ffi     : 'ffi ffi_state |> `
+     ; ffi     : 'ffi ffi_state |>
+End
 
 Definition dec_clock_def:
   dec_clock x s = s with clock := s.clock - x
 End
 
-val LESS_EQ_dec_clock = Q.prove(
-  `r.clock <= (dec_clock x s).clock ==> r.clock <= s.clock`,
-  SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
+Triviality LESS_EQ_dec_clock:
+  r.clock <= (dec_clock x s).clock ==> r.clock <= s.clock
+Proof
+  SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
+QED
 
 Definition bvi_to_bvl_def:
   (bvi_to_bvl:('c,'ffi) bviSem$state->('c,'ffi) bvlSem$state) s =
@@ -164,15 +167,17 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-val fix_clock_IMP = Q.prove(
-  `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
+Triviality fix_clock_IMP:
+  fix_clock s x = (res,s1) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
 (* The semantics of expression evaluation is defined next. For
    convenience of subsequent proofs, the evaluation function is
    defined to evaluate a list of bvi_exp expressions. *)
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def:
   (evaluate ([],env,s) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
      case fix_clock s (evaluate ([x],env,s)) of
@@ -221,14 +226,16 @@ val evaluate_def = tDefine "evaluate" `
                       | SOME x => evaluate ([x],v::env,s)
                       | NONE => (Rerr(Rraise v),s))
                 | res => res)
-     | res => res)`
-  (WF_REL_TAC `(inv_image (measure I LEX measure exp2_size)
+     | res => res)
+Termination
+  WF_REL_TAC `(inv_image (measure I LEX measure exp2_size)
                           (\(xs,env,s). (s.clock,xs)))`
   >> rpt strip_tac
   >> simp[dec_clock_def]
   >> imp_res_tac fix_clock_IMP
   >> imp_res_tac LESS_EQ_dec_clock
-  >> rw[]);
+  >> rw[]
+End
 
 val evaluate_ind = theorem"evaluate_ind";
 

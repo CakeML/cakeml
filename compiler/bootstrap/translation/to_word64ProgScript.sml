@@ -19,9 +19,11 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -121,16 +123,18 @@ val _ = translate (GiveUp_def |> wcomp_simp |> conv64)
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``]
 
-val assign_rw = Q.prove(`
+Triviality assign_rw:
   (i < 0 ⇒ n2w (Num (4 * (0 -i))) = n2w (Num (ABS (4*(0-i))))) ∧
-  (¬(i < 0) ⇒ n2w (Num (4 * i)) = n2w (Num (ABS (4*i))))`,
+  (¬(i < 0) ⇒ n2w (Num (4 * i)) = n2w (Num (ABS (4*i))))
+Proof
   rw[]
   >-
     (`0 ≤ 4* -i` by intLib.COOPER_TAC>>
     metis_tac[integerTheory.INT_ABS_EQ_ID])
   >>
     `0 ≤ 4*i` by intLib.COOPER_TAC>>
-    metis_tac[integerTheory.INT_ABS_EQ_ID])
+    metis_tac[integerTheory.INT_ABS_EQ_ID]
+QED
 
 (* TODO: word_mul should maybe target a real op ?
    TODO: econv might be going too far with case simplification
@@ -270,7 +274,11 @@ fun tweak_assign_def th =
 val res = all_assign_defs |> CONJUNCTS |> map tweak_assign_def |> map translate;
 val res = translate (assign_def |> tweak_assign_def);
 
-val lemma = Q.prove(`!A B. A = B ==> B ≠ A ==> F`,metis_tac[])
+Triviality lemma:
+  !A B. A = B ==> B ≠ A ==> F
+Proof
+  metis_tac[]
+QED
 
 (*
 val data_to_word_assign_side = Q.prove(`
@@ -317,21 +325,25 @@ val res = translate (word_cseTheory.word_common_subexp_elim_def |> spec64);
 
 val _ = translate (const_fp_inst_cs_def |> spec64 |> econv)
 
-val rws = Q.prove(`
+Triviality rws:
   ($+ = λx y. x + y) ∧
   ($&& = λx y. x && y) ∧
   ($|| = λx y. x || y) ∧
-  ($?? = λx y. x ?? y)`,
-  fs[FUN_EQ_THM])
+  ($?? = λx y. x ?? y)
+Proof
+  fs[FUN_EQ_THM]
+QED
 
 val _ = translate (wordLangTheory.word_op_def |> ONCE_REWRITE_RULE [rws,WORD_NOT_0] |> spec64 |> gconv)
 
-val word_msb_rw = Q.prove(
-  `word_msb (a:word64) ⇔ (a>>>63) <> 0w`,
+Triviality word_msb_rw:
+  word_msb (a:word64) ⇔ (a>>>63) <> 0w
+Proof
   rw[word_msb_def,fcpTheory.CART_EQ,word_index,word_lsr_def,fcpTheory.FCP_BETA]
   \\ rw[EQ_IMP_THM]
   >- ( qexists_tac`0` \\ simp[] )
-  \\ `i = 0` by decide_tac \\ fs[]);
+  \\ `i = 0` by decide_tac \\ fs[]
+QED
 
 val arith_shift_right_ind_orig = arith_shift_right_ind;
 
@@ -429,10 +441,12 @@ val _ = translate (conv64 remove_dead_inst_def)
 val _ = translate (conv64 get_live_inst_def)
 val _ = translate (spec64 remove_dead_def)
 
-val lem = Q.prove(`
+Triviality lem:
   dimindex(:64) = 64 ∧
-  dimindex(:32) = 32`,
-  EVAL_TAC);
+  dimindex(:32) = 32
+Proof
+  EVAL_TAC
+QED
 
 val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``] get_forced_pmatch
                   |> SIMP_RULE (bool_ss++ARITH_ss) [lem])

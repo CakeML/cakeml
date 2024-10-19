@@ -16,11 +16,12 @@ val shift_def = backend_commonTheory.word_shift_def
 
 (* semantics of the little language *)
 
-val _ = Datatype `
+Datatype:
   state = <| regs : num |-> 'a word
            ; arrays : address -> ('a word) list
            ; clock : num
-           |>`
+           |>
+End
 
 Definition eval_exp_def:
   eval_exp s (Const w) = w /\

@@ -102,7 +102,7 @@ End
 
 (* If this expression contains a constant it should
     be head of the output operation list *)
-val pull_exp_def = tDefine "pull_exp"`
+Definition pull_exp_def:
   (pull_exp (Op Sub ls) =
     let new_ls = MAP pull_exp ls in
     convert_sub new_ls) ∧
@@ -116,12 +116,14 @@ val pull_exp_def = tDefine "pull_exp"`
       optimize_consts op pull_ls) ∧
   (pull_exp (Load exp) = Load (pull_exp exp)) ∧
   (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) nexp) ∧
-  (pull_exp exp = exp)`
-  (WF_REL_TAC `measure (exp_size ARB)`
+  (pull_exp exp = exp)
+Termination
+  WF_REL_TAC `measure (exp_size ARB)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def,asmTheory.binop_size_def,astTheory.shift_size_def,store_name_size_def]
-   \\ TRY (DECIDE_TAC))
+   \\ TRY (DECIDE_TAC)
+End
 
 Theorem pull_exp_pmatch:
   !(exp:'a exp).
@@ -155,20 +157,21 @@ QED
  /\
 c d
 *)
-
-val flatten_exp_def = tDefine "flatten_exp" `
+Definition flatten_exp_def:
   (flatten_exp (Op Sub exps) = Op Sub (MAP flatten_exp exps)) ∧
   (flatten_exp (Op op []) = op_consts op) ∧
   (flatten_exp (Op op [x]) = flatten_exp x) ∧
   (flatten_exp (Op op (x::xs)) = Op op [flatten_exp (Op op xs);flatten_exp x]) ∧
   (flatten_exp (Load exp) = Load (flatten_exp exp)) ∧
   (flatten_exp (Shift shift exp nexp) = Shift shift (flatten_exp exp) nexp) ∧
-  (flatten_exp exp = exp)`
-  (WF_REL_TAC `measure (exp_size ARB)`
+  (flatten_exp exp = exp)
+Termination
+  WF_REL_TAC `measure (exp_size ARB)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def]
-   \\ TRY (DECIDE_TAC))
+   \\ TRY (DECIDE_TAC)
+End
 
 
   (*
@@ -224,7 +227,7 @@ QED
   in temp and the value of the whole expression must be saved in tar
 *)
 
-val inst_select_exp_def = tDefine "inst_select_exp" `
+Definition inst_select_exp_def:
   (inst_select_exp (c:'a asm_config) (tar:num) (temp:num) (Load exp) =
     dtcase exp of
     | Op Add [exp';Const w] =>
@@ -277,12 +280,14 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
     else
       Inst (Const tar 0w)) ∧
   (*Make it total*)
-  (inst_select_exp _ _ _ _ = Skip)`
-  (WF_REL_TAC `measure (exp_size ARB o SND o SND o SND)`
+  (inst_select_exp _ _ _ _ = Skip)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND o SND o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def]
-   \\ TRY (DECIDE_TAC)) ;
+   \\ TRY (DECIDE_TAC)
+End ;
 
 Theorem inst_select_exp_pmatch:
   !c tar temp exp.

@@ -594,7 +594,7 @@ Proof
   metis_tac[]
 QED
 
-val parse_PR_hint_def = tDefine "parse_PR_hint" `
+Definition parse_PR_hint_def:
   parse_PR_hint id xs acc =
   if id = 0 then
     if xs = [] then SOME acc
@@ -603,10 +603,12 @@ val parse_PR_hint_def = tDefine "parse_PR_hint" `
   case parse_until_nn xs [] of
     NONE => NONE
   | SOME (n,clause,rest) =>
-      parse_PR_hint n rest ((id,clause)::acc)`
-  (WF_REL_TAC `measure (LENGTH o (FST o SND))`>>
+      parse_PR_hint n rest ((id,clause)::acc)
+Termination
+  WF_REL_TAC `measure (LENGTH o (FST o SND))`>>
   rw[]>>
-  drule parse_until_nn_length>>fs[])
+  drule parse_until_nn_length>>fs[]
+End
 
 (* LPR parser *)
 Definition parse_lprstep_def:
@@ -970,14 +972,16 @@ Definition parse_vb_until_nn_def:
   )
 End
 
-val parse_vb_until_nn_length = Q.prove(`
+Triviality parse_vb_until_nn_length:
   ∀ls acc a b c.
   parse_vb_until_nn ls acc = (a,b,c) ∧ a ≠ 0 ⇒
-  LENGTH c < LENGTH ls`,
+  LENGTH c < LENGTH ls
+Proof
   Induct>>fs[parse_vb_until_nn_def]>>
   rw[]>>every_case_tac>>fs[]>>
   first_x_assum drule>>
-  fs[]);
+  fs[]
+QED
 
 Definition parse_vb_PR_hint_def:
   parse_vb_PR_hint id xs acc =

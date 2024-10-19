@@ -174,7 +174,7 @@ Definition num_from_hex_string_alt_def:
   num_from_hex_string_alt = s2n 16 unhex_alt
 End
 
-val next_sym_alt_def = tDefine "next_sym_alt" `
+Definition next_sym_alt_def:
   (next_sym_alt "" _ = NONE) /\
   (next_sym_alt (c::str) loc =
      if c = #"\n" then (* skip new line *)
@@ -270,53 +270,67 @@ val next_sym_alt_def = tDefine "next_sym_alt" `
                          rest)
      else if c = #"_" then SOME (OtherS "_", Locs loc loc, str)
      else (* input not recognised *)
-       SOME (ErrorS, Locs loc loc, str))`
- ( WF_REL_TAC `measure (LENGTH o FST) ` THEN REPEAT STRIP_TAC
+       SOME (ErrorS, Locs loc loc, str))
+Termination
+   WF_REL_TAC `measure (LENGTH o FST) ` THEN REPEAT STRIP_TAC
    THEN IMP_RES_TAC (GSYM read_while_thm)
    THEN IMP_RES_TAC (GSYM read_string_thm)
    THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
-   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC);
+   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC
+End
 
-val EVERY_isDigit_imp = Q.prove(`
+Triviality EVERY_isDigit_imp:
   EVERY isDigit x ⇒
-  MAP UNHEX x = MAP unhex_alt x`,
-  rw[]>>match_mp_tac LIST_EQ>>fs[EL_MAP,EVERY_EL,unhex_alt_def,isDigit_def,isHexDigit_def])
+  MAP UNHEX x = MAP unhex_alt x
+Proof
+  rw[]>>match_mp_tac LIST_EQ>>fs[EL_MAP,EVERY_EL,unhex_alt_def,isDigit_def,isHexDigit_def]
+QED
 
-val toNum_rw = Q.prove(`
+Triviality toNum_rw:
   ∀x. EVERY isDigit x ⇒
-  toNum x = num_from_dec_string_alt x`,
+  toNum x = num_from_dec_string_alt x
+Proof
   rw[ASCIInumbersTheory.s2n_def,ASCIInumbersTheory.num_from_dec_string_def,num_from_dec_string_alt_def]>>
   AP_TERM_TAC>>
   match_mp_tac EVERY_isDigit_imp>>
-  metis_tac[rich_listTheory.EVERY_REVERSE])
+  metis_tac[rich_listTheory.EVERY_REVERSE]
+QED
 
-val EVERY_isHexDigit_imp = Q.prove(`
+Triviality EVERY_isHexDigit_imp:
   EVERY isHexDigit x ⇒
-  MAP UNHEX x = MAP unhex_alt x`,
-  rw[]>>match_mp_tac LIST_EQ>>fs[EL_MAP,EVERY_EL,unhex_alt_def])
+  MAP UNHEX x = MAP unhex_alt x
+Proof
+  rw[]>>match_mp_tac LIST_EQ>>fs[EL_MAP,EVERY_EL,unhex_alt_def]
+QED
 
-val num_from_hex_string_rw = Q.prove(`
+Triviality num_from_hex_string_rw:
   ∀x. EVERY isHexDigit x ⇒
-  num_from_hex_string x = num_from_hex_string_alt x`,
+  num_from_hex_string x = num_from_hex_string_alt x
+Proof
   rw[ASCIInumbersTheory.s2n_def,ASCIInumbersTheory.num_from_hex_string_def,num_from_hex_string_alt_def]>>
   AP_TERM_TAC>>
   match_mp_tac EVERY_isHexDigit_imp>>
-  metis_tac[rich_listTheory.EVERY_REVERSE])
+  metis_tac[rich_listTheory.EVERY_REVERSE]
+QED
 
-val EVERY_IMPLODE = Q.prove(`
+Triviality EVERY_IMPLODE:
   ∀ls P.
-  EVERY P (IMPLODE ls) ⇔ EVERY P ls`,
-  Induct>>fs[])
+  EVERY P (IMPLODE ls) ⇔ EVERY P ls
+Proof
+  Induct>>fs[]
+QED
 
-val read_while_P_lem = Q.prove(`
+Triviality read_while_P_lem:
   ∀ls rest P x y.
   EVERY P rest ∧
   read_while P ls rest = (x,y) ⇒
-  EVERY P x`,
+  EVERY P x
+Proof
   Induct>>fs[read_while_def]>>rw[]>>
   fs[EVERY_IMPLODE,rich_listTheory.EVERY_REVERSE]>>
   first_assum match_mp_tac>>fs[]>>
-  qexists_tac`STRING h rest`>>fs[])
+  qexists_tac`STRING h rest`>>fs[]
+QED
 
 Theorem read_while_P[local]:
   ∀ls P x y. read_while P ls "" = (x,y) ⇒ EVERY P x
@@ -370,11 +384,12 @@ Definition lex_until_toplevel_semicolon_def:
   lex_until_toplevel_semicolon input = lex_aux [] 0 input
 End
 
-val lex_aux_LESS = Q.prove(
-  `!acc d input l.
+Triviality lex_aux_LESS:
+  !acc d input l.
       (lex_aux acc d input l = SOME (ts, l', rest)) ==>
       if acc = [] then LENGTH rest < LENGTH input
-                  else LENGTH rest <= LENGTH input`,
+                  else LENGTH rest <= LENGTH input
+Proof
   HO_MATCH_MP_TAC (fetch "-" "lex_aux_ind")
   THEN REPEAT STRIP_TAC THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [lex_aux_def]
@@ -388,7 +403,8 @@ val lex_aux_LESS = Q.prove(
   THEN FULL_SIMP_TAC (srw_ss()) []
   THEN RES_TAC THEN IMP_RES_TAC arithmeticTheory.LESS_EQ_LESS_TRANS
   THEN IMP_RES_TAC (DECIDE ``n < m ==> n <= m:num``)
-  THEN DECIDE_TAC);
+  THEN DECIDE_TAC
+QED
 
 Theorem lex_until_toplevel_semicolon_LESS:
    (lex_until_toplevel_semicolon input l = SOME (ts, l', rest)) ==>
@@ -428,11 +444,12 @@ Definition lex_until_top_semicolon_alt_def:
   lex_until_top_semicolon_alt input = lex_aux_alt [] 0 input
 End
 
-val lex_aux_alt_LESS = Q.prove(
-  `!acc d input l.
+Triviality lex_aux_alt_LESS:
+  !acc d input l.
       (lex_aux_alt acc d input l = SOME (ts, l', rest)) ==>
       if acc = [] then LENGTH rest < LENGTH input
-                  else LENGTH rest <= LENGTH input`,
+                  else LENGTH rest <= LENGTH input
+Proof
   HO_MATCH_MP_TAC (fetch "-" "lex_aux_alt_ind")
   THEN REPEAT STRIP_TAC THEN POP_ASSUM MP_TAC
   THEN ONCE_REWRITE_TAC [lex_aux_alt_def]
@@ -445,7 +462,8 @@ val lex_aux_alt_LESS = Q.prove(
   THEN TRY (Cases_on `h`) THEN FULL_SIMP_TAC (srw_ss()) []
   THEN RES_TAC THEN IMP_RES_TAC arithmeticTheory.LESS_EQ_LESS_TRANS
   THEN IMP_RES_TAC (DECIDE ``n < m ==> n <= m:num``)
-  THEN DECIDE_TAC);
+  THEN DECIDE_TAC
+QED
 
 Theorem lex_until_top_semicolon_alt_LESS:
    (lex_until_top_semicolon_alt input l = SOME (ts, l', rest)) ==>
@@ -503,14 +521,16 @@ QED
 
 (* lex_impl_all *)
 
-val lex_impl_all_def = tDefine "lex_impl_all" `
+Definition lex_impl_all_def:
   lex_impl_all input l =
     case lex_until_toplevel_semicolon input l of
       | NONE => []
-      | SOME (t, loc, input') => t ::lex_impl_all input' loc`
-  (WF_REL_TAC `measure (LENGTH o FST)` >>
+      | SOME (t, loc, input') => t ::lex_impl_all input' loc
+Termination
+  WF_REL_TAC `measure (LENGTH o FST)` >>
    rw [] >>
-   metis_tac [lex_until_toplevel_semicolon_LESS]);
+   metis_tac [lex_until_toplevel_semicolon_LESS]
+End
 
 Definition lex_aux_tokens_def:
   lex_aux_tokens acc (d:num) input =
@@ -540,11 +560,12 @@ Definition lex_until_toplevel_semicolon_tokens_def:
   lex_until_toplevel_semicolon_tokens input = lex_aux_tokens [] 0 input
 End
 
-val lex_aux_tokens_LESS = Q.prove(
-  `!acc d input.
+Triviality lex_aux_tokens_LESS:
+  !acc d input.
       (lex_aux_tokens acc d input = SOME (t,rest)) ==>
       (if acc = [] then LENGTH rest < LENGTH input
-                   else LENGTH rest <= LENGTH input)`,
+                   else LENGTH rest <= LENGTH input)
+Proof
   Induct_on `input`
   THEN1 (EVAL_TAC >> SRW_TAC [] [LENGTH] >> SRW_TAC [] [LENGTH])
   >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def,LET_DEF]
@@ -553,16 +574,19 @@ val lex_aux_tokens_LESS = Q.prove(
   >> TRY (Cases_on `h`) >> RES_TAC
   >> FULL_SIMP_TAC (srw_ss()) [] >> RES_TAC
   >> FULL_SIMP_TAC (srw_ss()) [] >> RES_TAC
-  >> Cases_on `q` >> Cases_on `d` >> fs[] >> res_tac >> fs[]);
+  >> Cases_on `q` >> Cases_on `d` >> fs[] >> res_tac >> fs[]
+QED
 
-val lex_impl_all_tokens_def = tDefine "lex_impl_all_tokens" `
+Definition lex_impl_all_tokens_def:
   lex_impl_all_tokens input =
      case lex_until_toplevel_semicolon_tokens input of
        NONE => []
-     | SOME (t,input) => t::lex_impl_all_tokens input`
-  (WF_REL_TAC `measure LENGTH`
+     | SOME (t,input) => t::lex_impl_all_tokens input
+Termination
+  WF_REL_TAC `measure LENGTH`
    >> SIMP_TAC std_ss [lex_until_toplevel_semicolon_tokens_def]
-   >> METIS_TAC [lex_aux_tokens_LESS])
+   >> METIS_TAC [lex_aux_tokens_LESS]
+End
 
 val lex_aux_tokens_thm = Q.prove(
   `!input l acc d res1 res2.
@@ -584,16 +608,18 @@ val lex_aux_tokens_thm = Q.prove(
   >> SRW_TAC [] [] >> SRW_TAC [] []
   >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_aux_def]) |> SIMP_RULE std_ss [];
 
-val lex_impl_all_tokens_thm = Q.prove(
-  `!input l. lex_impl_all input l =
-            lex_impl_all_tokens (lexer_fun_aux input l)`,
+Triviality lex_impl_all_tokens_thm:
+  !input l. lex_impl_all input l =
+            lex_impl_all_tokens (lexer_fun_aux input l)
+Proof
   HO_MATCH_MP_TAC (fetch "-" "lex_impl_all_ind") >> REPEAT STRIP_TAC
   >> SIMP_TAC std_ss [Once lex_impl_all_def,Once lex_impl_all_tokens_def]
   >> fs [lex_until_toplevel_semicolon_tokens_def]
   >> fs [lex_until_toplevel_semicolon_def]
   >> MP_TAC (lex_aux_tokens_thm |> Q.SPECL [`input`, `l`, `[]`,`0`])
   >> Cases_on `lex_aux [] 0 input l` >> fs[]
-  >> Cases_on `x` >> Cases_on `r` >> fs[]);
+  >> Cases_on `x` >> Cases_on `r` >> fs[]
+QED
 
 val lex_aux_tokens_thm = Q.prove(
   `!input d acc.
@@ -622,8 +648,9 @@ val lex_aux_tokens_thm = Q.prove(
   >> fs [Once toplevel_semi_dex_def,LENGTH,arithmeticTheory.ADD1])
   |> Q.SPECL [`input`,`0`,`[]`] |> Q.GEN `res` |> SIMP_RULE std_ss [LENGTH];
 
-val split_top_level_semi_thm = Q.prove(
-  `!input. split_top_level_semi input = lex_impl_all_tokens input`,
+Triviality split_top_level_semi_thm:
+  !input. split_top_level_semi input = lex_impl_all_tokens input
+Proof
   HO_MATCH_MP_TAC split_top_level_semi_ind >> REPEAT STRIP_TAC
   >> SIMP_TAC std_ss [Once split_top_level_semi_def,Once lex_impl_all_tokens_def,
       Once lex_until_toplevel_semicolon_tokens_def]
@@ -632,7 +659,8 @@ val split_top_level_semi_thm = Q.prove(
   >> Cases_on `x` >> FULL_SIMP_TAC (srw_ss()) []
   >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
   >> STRIP_TAC >> RES_TAC >> POP_ASSUM MP_TAC
-  >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]);
+  >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
+QED
 
 Theorem lexer_correct:
    !input. split_top_level_semi (lexer_fun_aux input l) = lex_impl_all input l

@@ -17,10 +17,12 @@ Definition pop_def:
   (pop (h::t) n = if (n = 0) then (h::t) else pop t (n-1))
 End
 
-val take1_def = tDefine "take1" `
+Definition take1_def:
   (take1 0 [] = []) /\
-  (take1 n (x::xs) = (if n=0 then [] else x::take1 (n - 1) xs))`
-  (WF_REL_TAC (`measure (\(n,l).LENGTH l)`) THEN SRW_TAC [] []);
+  (take1 n (x::xs) = (if n=0 then [] else x::take1 (n - 1) xs))
+Termination
+  WF_REL_TAC (`measure (\(n,l).LENGTH l)`) THEN SRW_TAC [] []
+End
 
 Definition take_def:
   (take n l = if (LENGTH l >= n) then SOME (take1 n l)
@@ -99,14 +101,16 @@ Definition findItemInRules_def:
   (findItemInRules _ _ = F)
 End
 
-val itemEqRuleList_defn = tDefine "itemEqRuleList" `
+Definition itemEqRuleList_def:
   (itemEqRuleList [] [] = T) /\
   (itemEqRuleList [] _ = T) /\
   (itemEqRuleList _ [] = F) /\
   (itemEqRuleList l1 l2 =
      if ~(LENGTH l1 = LENGTH l2) then F else
-       if (findItemInRules (HD l1) l2) then itemEqRuleList (TL l1) l2 else F)`
-  (WF_REL_TAC (`measure (\(l1,l2).LENGTH l1)`) THEN SRW_TAC [] [])
+       if (findItemInRules (HD l1) l2) then itemEqRuleList (TL l1) l2 else F)
+Termination
+  WF_REL_TAC (`measure (\(l1,l2).LENGTH l1)`) THEN SRW_TAC [] []
+End
 
 Definition getState_def:
    getState (sg,red) (itl:item list) sym =

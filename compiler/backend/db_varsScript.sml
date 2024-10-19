@@ -6,11 +6,12 @@ open preamble;
 
 val _ = new_theory "db_vars";
 
-val _ = Datatype `
+Datatype:
   db_var_set = Empty
              | Var num
              | Shift num db_var_set
-             | Union db_var_set db_var_set`;
+             | Union db_var_set db_var_set
+End
 
 Definition mk_Union_def:
   mk_Union t1 t2 =
@@ -126,10 +127,12 @@ Proof
   \\ fs [lookup_db_to_set]
 QED
 
-val has_var_FOLDL_Union = Q.prove(
-  `!vs n s. has_var n (FOLDL (\s1 v. Union (Var v) s1) s vs) <=>
-             MEM n vs \/ has_var n s`,
-  Induct \\ fs [] \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []);
+Triviality has_var_FOLDL_Union:
+  !vs n s. has_var n (FOLDL (\s1 v. Union (Var v) s1) s vs) <=>
+             MEM n vs \/ has_var n s
+Proof
+  Induct \\ fs [] \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
+QED
 
 Theorem MEM_vars_from_list:
    !vs n. has_var n (vars_from_list vs) <=> MEM n vs

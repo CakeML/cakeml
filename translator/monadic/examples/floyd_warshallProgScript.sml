@@ -66,7 +66,7 @@ Definition get_weight_def:
   od
 End
 
-val st_ex_FOR_def = tDefine "st_ex_FOR" `
+Definition st_ex_FOR_def:
   st_ex_FOR (i:num) j a =
   if i >= j then
     return ()
@@ -74,8 +74,10 @@ val st_ex_FOR_def = tDefine "st_ex_FOR" `
     do
       () <- a i;
       st_ex_FOR (i+1) j a
-    od`
-  (WF_REL_TAC `measure (\(i, j:num, a).  j-i)`);
+    od
+Termination
+  WF_REL_TAC `measure (\(i, j:num, a).  j-i)`
+End
 
 Definition st_ex_FOREACH_def:
   (st_ex_FOREACH [] a = return ()) ∧
@@ -259,14 +261,16 @@ Proof
   Cases_on`n`>>fs[]
 QED
 
-val adj_mat_sub_SUCCESS = Q.prove(`
+Triviality adj_mat_sub_SUCCESS:
   ∀s. i < s.dim ∧ j < s.dim ∧
   LENGTH s.adj_mat = s.dim * s.dim ⇒
   ∃v.
-  adj_mat_sub (i + j *s.dim) s = (M_success v, s)`,
+  adj_mat_sub (i + j *s.dim) s = (M_success v, s)
+Proof
   rw[]>> drule lemma>>
   disch_then (qspec_then `i` assume_tac)>>rfs[]>>
-  rw[adj_mat_sub_def,Marray_sub_def]);
+  rw[adj_mat_sub_def,Marray_sub_def]
+QED
 
 val update_adj_mat_def = fetch "-" "update_adj_mat_def"
 
@@ -285,20 +289,22 @@ Proof
   Cases_on`n`>>fs[LUPDATE_def]
 QED
 
-val update_adj_mat_SUCCESS = Q.prove(`
+Triviality update_adj_mat_SUCCESS:
   ∀s.
     i < s.dim ∧ j < s.dim ∧
     LENGTH s.adj_mat = s.dim * s.dim ⇒
   ∃res.
   update_adj_mat (j + i *s.dim) v s = (M_success (), res) ∧
   res.dim = s.dim ∧
-  LENGTH res.adj_mat = res.dim * res.dim`,
+  LENGTH res.adj_mat = res.dim * res.dim
+Proof
   rw[update_adj_mat_def]>>
   fs[Marray_update_def]>>
   qspecl_then [`i`,`j`] mp_tac lemma>>
-  rpt (disch_then drule)>>fs[]);
+  rpt (disch_then drule)>>fs[]
+QED
 
-val relax_SUCCESS = Q.prove(`
+Triviality relax_SUCCESS:
   i < s.dim ∧
   k < s.dim ∧
   j < s.dim ∧
@@ -306,15 +312,17 @@ val relax_SUCCESS = Q.prove(`
   ∃res.
   relax i k j s = (M_success (),res) ∧
   res.dim = s.dim ∧
-  LENGTH res.adj_mat = res.dim * res.dim`,
+  LENGTH res.adj_mat = res.dim * res.dim
+Proof
   rw[]>>
   fs[relax_def,st_ex_bind_def,get_weight_def,reind_def,get_dim_def,
      st_ex_return_def,set_weight_def]>>
   imp_res_tac adj_mat_sub_SUCCESS>>rfs[]>>
   every_case_tac>>fs[]>>
-  imp_res_tac update_adj_mat_SUCCESS>>rfs[]);
+  imp_res_tac update_adj_mat_SUCCESS>>rfs[]
+QED
 
-val floyd_warshall_SUCCESS_j = Q.prove(`
+Triviality floyd_warshall_SUCCESS_j:
   ∀j s.
   i < s.dim ∧
   k < s.dim ∧
@@ -323,7 +331,8 @@ val floyd_warshall_SUCCESS_j = Q.prove(`
   ∃res.
   st_ex_FOR j s.dim (\j. relax i k j) s = (M_success (),res) ∧
   res.dim = s.dim ∧
-  LENGTH res.adj_mat = res.dim * s.dim`,
+  LENGTH res.adj_mat = res.dim * s.dim
+Proof
   Induct_on`s.dim-j`
   >-
     rw[Once st_ex_FOR_def,st_ex_return_def]
@@ -331,9 +340,10 @@ val floyd_warshall_SUCCESS_j = Q.prove(`
     rw[Once st_ex_FOR_def,st_ex_bind_def]>>
     `j < s.dim` by fs[]>>
     assume_tac relax_SUCCESS>>rfs[]>>
-    first_x_assum(qspecl_then[`res`,`j+1`] assume_tac)>>rfs[]);
+    first_x_assum(qspecl_then[`res`,`j+1`] assume_tac)>>rfs[]
+QED
 
-val floyd_warshall_SUCCESS_i = Q.prove(`
+Triviality floyd_warshall_SUCCESS_i:
   ∀i s.
   k < s.dim ∧
   LENGTH s.adj_mat = s.dim * s.dim
@@ -342,7 +352,8 @@ val floyd_warshall_SUCCESS_i = Q.prove(`
   st_ex_FOR i s.dim (\i. st_ex_FOR 0 s.dim (\j. relax i k j)) s =
     (M_success (),res) ∧
   res.dim = s.dim ∧
-  LENGTH res.adj_mat = res.dim * s.dim`,
+  LENGTH res.adj_mat = res.dim * s.dim
+Proof
   Induct_on`s.dim-i`
   >-
     rw[Once st_ex_FOR_def,st_ex_return_def]
@@ -350,9 +361,10 @@ val floyd_warshall_SUCCESS_i = Q.prove(`
     rw[Once st_ex_FOR_def,st_ex_bind_def]>>
     `i < s.dim` by fs[]>>
     imp_res_tac (floyd_warshall_SUCCESS_j |> Q.SPEC `0n`) >>rfs[]>>
-    first_x_assum(qspecl_then[`res''`,`i+1`] assume_tac)>>rfs[]);
+    first_x_assum(qspecl_then[`res''`,`i+1`] assume_tac)>>rfs[]
+QED
 
-val floyd_warshall_SUCCESS_k = Q.prove(`
+Triviality floyd_warshall_SUCCESS_k:
   ∀k s.
   LENGTH s.adj_mat = s.dim * s.dim ⇒
   ∃res.
@@ -360,14 +372,16 @@ val floyd_warshall_SUCCESS_k = Q.prove(`
   (λk. st_ex_FOR 0 s.dim (λi. st_ex_FOR 0 s.dim (λj. relax i k j))) s =
   (M_success (),res) ∧
   res.dim = s.dim ∧
-  LENGTH res.adj_mat = res.dim * res.dim`,
+  LENGTH res.adj_mat = res.dim * res.dim
+Proof
   Induct_on`s.dim-k`>-
     rw[Once st_ex_FOR_def,st_ex_return_def]
   >>
     rw[Once st_ex_FOR_def,st_ex_bind_def]>>
     `k < s.dim` by fs[]>>
     imp_res_tac (floyd_warshall_SUCCESS_i |> Q.SPEC `0n`) >>rfs[]>>
-    first_x_assum(qspecl_then[`res`,`k+1`] assume_tac)>>rfs[]);
+    first_x_assum(qspecl_then[`res`,`k+1`] assume_tac)>>rfs[]
+QED
 
 (* Prove that the algorithm is always successful (?) *)
 Theorem do_floyd_SUCCESS:

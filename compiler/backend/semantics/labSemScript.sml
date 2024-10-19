@@ -6,10 +6,11 @@ local open alignmentTheory targetSemTheory in end;
 
 val _ = new_theory"labSem";
 
-val _ = Datatype `
-  word8_loc = Byte word8 | LocByte num num num`;
+Datatype:
+  word8_loc = Byte word8 | LocByte num num num
+End
 
-val _ = Datatype `
+Datatype:
   state =
     <| regs       : num -> 'a word_loc
      ; fp_regs    : num -> word64
@@ -33,7 +34,8 @@ val _ = Datatype `
      ; ptr2_reg    : num
      ; len2_reg    : num
      ; link_reg   : num
-     |>`
+     |>
+End
 
 Definition is_Label_def:
   (is_Label (Label _ _ _) = T) /\
@@ -315,9 +317,10 @@ Definition asm_code_length_def:
      asm_code_length ((Section k ys)::xs) + if is_Label y then 0 else 1:num)
 End
 
-val asm_fetch_IMP = Q.prove(
-  `(asm_fetch s = SOME x) ==>
-    s.pc < asm_code_length s.code`,
+Triviality asm_fetch_IMP:
+  (asm_fetch s = SOME x) ==>
+    s.pc < asm_code_length s.code
+Proof
   fs [asm_fetch_def,asm_code_length_def]
   \\ Q.SPEC_TAC (`s.pc`,`pc`)
   \\ Q.SPEC_TAC (`s.code`,`xs`)
@@ -325,7 +328,8 @@ val asm_fetch_IMP = Q.prove(
   \\ rpt strip_tac \\ fs [asm_fetch_aux_def,asm_code_length_def]
   \\ Cases_on `is_Label y` \\ fs []
   \\ Cases_on `pc = 0` \\ fs []
-  \\ res_tac \\ decide_tac);
+  \\ res_tac \\ decide_tac
+QED
 
 Definition lab_to_loc_def:
   lab_to_loc (Lab n1 n2) = Loc n1 n2
@@ -462,7 +466,7 @@ Definition share_mem_op_def:
   (share_mem_op Store32 r ad s = share_mem_store r ad s 4)
 End
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def:
   evaluate (s:('a,'c,'ffi) labSem$state) =
     if s.clock = 0 then (TimeOut,s) else
     case asm_fetch s of
@@ -574,13 +578,15 @@ val evaluate_def = tDefine "evaluate" `
                                    clock := s.clock - 1 |>))
           | _ => (Error,s))
        | _ => (Error,s))
-    | _ => (Error,s)`
- (WF_REL_TAC `measure (\s. s.clock)`
+    | _ => (Error,s)
+Termination
+  WF_REL_TAC `measure (\s. s.clock)`
   \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
   \\ fs[asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def,inc_pc_def]
   \\ Cases_on `m`
   \\ fs[share_mem_op_def,share_mem_load_def,share_mem_store_def]
-  \\ gvs[AllCaseEqs(),inc_pc_def,dec_clock_def])
+  \\ gvs[AllCaseEqs(),inc_pc_def,dec_clock_def]
+End
 
 Definition semantics_def:
   semantics s =

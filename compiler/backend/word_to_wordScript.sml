@@ -18,9 +18,11 @@ val _ = new_theory "word_to_word";
 
 
 (*reg_alg = choice of register allocator*)
-val _ = Datatype`config =
+Datatype:
+  config =
   <| reg_alg : num
-   ; col_oracle : (num num_map) option list |>`;
+   ; col_oracle : (num num_map) option list |>
+End
 
 Definition compile_single_def:
   compile_single two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =

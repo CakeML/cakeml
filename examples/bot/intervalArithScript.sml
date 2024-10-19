@@ -24,7 +24,7 @@ Definition POS_INF_def:
   POS_INF:word32 = ^POS_INF
 End
 
-val _ = Datatype`
+Datatype:
   trm = Const word32
       | Var string
       | Plus trm trm
@@ -33,23 +33,26 @@ val _ = Datatype`
       | Max trm trm
       | Min trm trm
       | Neg trm
-      | Abs trm`
+      | Abs trm
+End
 
-val _ = Datatype`
+Datatype:
   fml = Le trm trm
       | Leq trm trm
       | Equals trm trm
       | And fml fml
       | Or fml fml
-      | Not fml`
+      | Not fml
+End
 
-val _ = Datatype`
+Datatype:
    hp = Test fml
       | Assign string trm
       | AssignAny string
       | Seq hp hp
       | Choice hp hp
-      | Loop hp`
+      | Loop hp
+End
 
 (* First, define the helper functions following Isabelle formalization
   We will simplify these later *)

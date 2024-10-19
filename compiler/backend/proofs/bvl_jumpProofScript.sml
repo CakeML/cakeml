@@ -5,11 +5,12 @@ open preamble bvl_jumpTheory bvlSemTheory bvlPropsTheory;
 
 val _ = new_theory"bvl_jumpProof";
 
-val evaluate_JumpList = Q.prove(
-  `!n xs k.
+Triviality evaluate_JumpList:
+  !n xs k.
       k < LENGTH xs ==>
       (evaluate ([JumpList n xs],Number (&(n+k))::env,s) =
-       evaluate ([EL k xs],Number (&(n+k))::env,s))`,
+       evaluate ([EL k xs],Number (&(n+k))::env,s))
+Proof
   recInduct JumpList_ind \\ REPEAT STRIP_TAC \\ fs[]
   \\ SIMP_TAC std_ss [Once JumpList_def,LET_DEF]
   \\ fs [LENGTH_NIL]
@@ -27,7 +28,8 @@ val evaluate_JumpList = Q.prove(
   \\ `k - LENGTH ys < LENGTH zs` by DECIDE_TAC \\ RES_TAC
   \\ `n + LENGTH ys + (k - LENGTH ys) = n + k` by DECIDE_TAC
   \\ fs[] \\ fs[NOT_LESS]
-  \\ IMP_RES_TAC EL_APPEND2 \\ fs [EL_APPEND2]);
+  \\ IMP_RES_TAC EL_APPEND2 \\ fs [EL_APPEND2]
+QED
 
 Theorem evaluate_Jump:
    (evaluate ([x],env,s) = (Rval [Number (&n)],t)) /\

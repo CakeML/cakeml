@@ -25,8 +25,9 @@ val _ = new_theory "arith_exp_demo";
   This shows how to define an inductive datatype in HOL.
 *)
 
-val _ = Datatype`
-  exp = Num num | Add exp exp | Sub exp exp`;
+Datatype:
+  exp = Num num | Add exp exp | Sub exp exp
+End
 
 (*
 Try, for example

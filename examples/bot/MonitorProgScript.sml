@@ -34,19 +34,23 @@ val spec64= INST_TYPE[alpha|->``:64``]
 val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
-val word_msb_rw32 = Q.prove(
-  `word_msb (a:word32) ⇔ (a>>>31) <> 0w`,
+Triviality word_msb_rw32:
+  word_msb (a:word32) ⇔ (a>>>31) <> 0w
+Proof
   rw[word_msb_def,fcpTheory.CART_EQ,word_index,word_lsr_def,fcpTheory.FCP_BETA]
   \\ rw[EQ_IMP_THM]
   >- ( qexists_tac`0` \\ simp[] )
-  \\ `i = 0` by decide_tac \\ fs[]);
+  \\ `i = 0` by decide_tac \\ fs[]
+QED
 
-val word_msb_rw64 = Q.prove(
-  `word_msb (a:word64) ⇔ (a>>>63) <> 0w`,
+Triviality word_msb_rw64:
+  word_msb (a:word64) ⇔ (a>>>63) <> 0w
+Proof
   rw[word_msb_def,fcpTheory.CART_EQ,word_index,word_lsr_def,fcpTheory.FCP_BETA]
   \\ rw[EQ_IMP_THM]
   >- ( qexists_tac`0` \\ simp[] )
-  \\ `i = 0` by decide_tac \\ fs[]);
+  \\ `i = 0` by decide_tac \\ fs[]
+QED
 
 val inlines = SIMP_RULE std_ss [NEG_INF_def,POS_INF_def,sw2sw_w2w,word_msb_rw32,word_msb_rw64,word_mul_def,word_2comp_def, divfloor_def, divceil_def, word_smod_def, word_sdiv_def]
 
@@ -72,16 +76,17 @@ val res = translate (divl_def |> inlines |> econv);
 val res = translate (divu_def |> inlines |> econv);
 val res = translate (divPair_def |> inlines |> econv);
 
-val lem = Q.prove(`
+Triviality lem:
   (wle 0w c ⇒ c ≠ 0w) ∧
   (wle 0w c ∧ wleq c d ⇒ d ≠ 0w) ∧
   (¬wleq c 0w ∧ wleq c d ⇒ c ≠ 0w ∧ d ≠ 0w) ∧
   (¬wleq 0w d ⇒ d ≠ 0w) ∧
   (¬wleq 0w d ∧ wleq c d ⇒ c ≠ 0w)
-  `,
+Proof
   EVAL_TAC>>rw[]>>
   CCONTR_TAC>>fs[]>>
-  blastLib.FULL_BBLAST_TAC);
+  blastLib.FULL_BBLAST_TAC
+QED
 
 val divpair_side = Q.prove(`
   divpair_side a b c d ⇔ T`,

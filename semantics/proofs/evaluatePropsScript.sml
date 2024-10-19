@@ -127,13 +127,15 @@ Proof
   metis_tac[PAIR,FST,evaluate_call_FFI_rel]
 QED
 
-val evaluate_decs_call_FFI_rel = Q.prove(
-  `∀s e d.
-     RTC call_FFI_rel s.ffi (FST (evaluate_decs s e d)).ffi`,
+Triviality evaluate_decs_call_FFI_rel:
+  ∀s e d.
+     RTC call_FFI_rel s.ffi (FST (evaluate_decs s e d)).ffi
+Proof
   ho_match_mp_tac evaluate_decs_ind >>
   srw_tac[][evaluate_decs_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
-  metis_tac[RTC_TRANSITIVE,transitive_def,evaluate_call_FFI_rel,FST]);
+  metis_tac[RTC_TRANSITIVE,transitive_def,evaluate_call_FFI_rel,FST]
+QED
 
 Theorem evaluate_decs_call_FFI_rel_imp:
    ∀s e p s' r.
@@ -711,12 +713,17 @@ Proof
   simp_tac bool_ss evaluate_decs_lemmas
 QED
 
-val add_lemma = Q.prove (
- `!(k:num) k'. ?extra. k = k' + extra ∨ k' = k + extra`,
- intLib.ARITH_TAC);
+Triviality add_lemma:
+  !(k:num) k'. ?extra. k = k' + extra ∨ k' = k + extra
+Proof
+  intLib.ARITH_TAC
+QED
 
-val with_clock_ffi = Q.prove(
-  `(s with clock := k).ffi = s.ffi`,EVAL_TAC);
+Triviality with_clock_ffi:
+  (s with clock := k).ffi = s.ffi
+Proof
+  EVAL_TAC
+QED
 
 Theorem evaluate_decs_clock_determ:
  !s e p s1 r1 s2 r2 k1 k2.

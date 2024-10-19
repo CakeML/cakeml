@@ -77,27 +77,32 @@ Proof
   Cases >> Cases >> simp[]
 QED
 
-val path_imp_mem = Q.prove(
-  `path (x::y) ⇒
-   ¬NULL y ⇒ MEM (SND x) (MAP FST y)`,
+Triviality path_imp_mem:
+  path (x::y) ⇒
+   ¬NULL y ⇒ MEM (SND x) (MAP FST y)
+Proof
   Induct_on`y`>>simp[]>>
-  Cases_on`x`>>Cases>>fs[])
+  Cases_on`x`>>Cases>>fs[]
+QED
 
-val path_imp_mem2 = Q.prove(
-  `path x ⇒
+Triviality path_imp_mem2:
+  path x ⇒
    ∀y. MEM y (MAP SND x) ∧
        y ≠ SND(LAST x) ⇒
-       MEM y (MAP FST x)`,
+       MEM y (MAP FST x)
+Proof
   Induct_on`x` >> simp[]>>
   Cases_on`x`>>Cases>>simp[]>>
   Cases_on`h`>>fs[] >>
   strip_tac >> fs[] >>
-  rw[] >> metis_tac[])
+  rw[] >> metis_tac[]
+QED
 
-val NoRead_path = Q.prove(
-  `∀σ. path σ ∧ windmill σ ∧ LENGTH σ ≥ 2 ∧
+Triviality NoRead_path:
+  ∀σ. path σ ∧ windmill σ ∧ LENGTH σ ≥ 2 ∧
    FST (HD σ) ≠ SND (LAST σ) ⇒
-   NoRead (TL σ) (FST (HD σ))`,
+   NoRead (TL σ) (FST (HD σ))
+Proof
   Induct >> simp[] >> Cases >> simp[] >>
   Cases_on`σ`>>fs[]>> Cases_on`h`>>fs[]>>
   strip_tac >> var_eq_tac >> fs[] >>
@@ -108,7 +113,8 @@ val NoRead_path = Q.prove(
   conj_asm1_tac >- metis_tac[] >>
   strip_tac >>
   imp_res_tac path_imp_mem2 >>
-  fs[] >> metis_tac[] )
+  fs[] >> metis_tac[]
+QED
 
 Definition wf_def:
   wf (μ,σ,τ) ⇔
@@ -354,11 +360,15 @@ End
 val _ = set_fixity"\226\137\161"(Infix(NONASSOC,450));
 Overload "\226\137\161" = ``eqenv``
 
-val eqenv_sym = Q.prove(
-  `p1 ≡ p2 ⇒ p2 ≡ p1`, rw[eqenv_def]);
+Triviality eqenv_sym:
+  p1 ≡ p2 ⇒ p2 ≡ p1
+Proof
+  rw[eqenv_def]
+QED
 
-val step_sem = Q.prove(
-  `∀s1 s2. s1 ▷ s2 ⇒ ⊢ s1 ⇒ (∀ρ. sem s1 ρ ≡ sem s2 ρ)`,
+Triviality step_sem:
+  ∀s1 s2. s1 ▷ s2 ⇒ ⊢ s1 ⇒ (∀ρ. sem s1 ρ ≡ sem s2 ρ)
+Proof
   ho_match_mp_tac step_ind >>
   conj_tac >- (
     rw[sem_def,FUN_EQ_THM,wf_def,eqenv_def] >> rpt (AP_THM_TAC) >>
@@ -430,7 +440,8 @@ val step_sem = Q.prove(
   simp[seqsem_append,seqsem_def,APPLY_UPDATE_THM] >>
   AP_THM_TAC >>
   match_mp_tac parsem_NoRead >>
-  rw[]);
+  rw[]
+QED
 
 Theorem steps_sem:
    ∀s1 s2. s1 ▷* s2 ∧ ⊢ s1 ⇒ (∀ρ. sem s1 ρ ≡ sem s2 ρ)
@@ -488,8 +499,9 @@ Overload "\226\134\170*" = ``RTC $↪``
 (* ⊢ s1 condition not included in paper;
    not sure if necessary, but couldn't get
    their proof to work *)
-val dstep_step = Q.prove(
-  `∀s1 s2. s1 ↪ s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2`,
+Triviality dstep_step:
+  ∀s1 s2. s1 ↪ s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2
+Proof
   ho_match_mp_tac dstep_ind >> rw[] >>
   TRY(
     qpat_abbrev_tac`n = NONE` >>
@@ -498,7 +510,8 @@ val dstep_step = Q.prove(
     `r ≠ NONE` by (strip_tac >> fs[]) >>
     srw_tac[DNF_ss][step_cases]) >>
   match_mp_tac RTC_SUBSET >> rw[step_cases] >>
-  metis_tac[CONS_APPEND,APPEND] );
+  metis_tac[CONS_APPEND,APPEND]
+QED
 
 Theorem dsteps_steps:
    ∀s1 s2. s1 ↪* s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2
@@ -589,11 +602,12 @@ Proof
   >> tac
 QED
 
-val pmov_def = tDefine"pmov"`
+Definition pmov_def:
   pmov s = case s of
     | ([],[],_) => s
-    | _ => pmov (fstep s)`
-  (WF_REL_TAC`measure (λ(μ,σ,τ). 2 * LENGTH μ + LENGTH σ)` >>
+    | _ => pmov (fstep s)
+Termination
+  WF_REL_TAC`measure (λ(μ,σ,τ). 2 * LENGTH μ + LENGTH σ)` >>
    rw[fstep_def] >- (
      fs[NULL_LENGTH,LENGTH_NIL,splitAtPki_def] >>
      simp[UNCURRY] >> rw[] >>
@@ -619,7 +633,8 @@ val pmov_def = tDefine"pmov"`
      rw[] >> simp[LENGTH_TAKE,ADD1] >>
      rfs[DROP_CONS_EL] >> rw[] >>
      simp[ADD1] >>
-     metis_tac[]))
+     metis_tac[])
+End
 
 val pmov_ind = theorem"pmov_ind";
 
@@ -1161,15 +1176,17 @@ Proof
   \\ metis_tac[]
 QED
 
-val steps_MAP_INJ = Q.prove(
-  `∀s1 s2. s1 ▷* s2 ⇒
+Triviality steps_MAP_INJ:
+  ∀s1 s2. s1 ▷* s2 ⇒
     inj_on_state f s1 ⇒
-    map_state f s1 ▷* map_state f s2`,
+    map_state f s1 ▷* map_state f s2
+Proof
   ho_match_mp_tac RTC_INDUCT
   \\ rw[]
   \\ imp_res_tac step_inj_on_state
   \\ fs[]
-  \\ metis_tac[step_MAP_INJ,RTC_RULES]);
+  \\ metis_tac[step_MAP_INJ,RTC_RULES]
+QED
 
 Theorem fstep_MAP_INJ:
    ∀p. inj_on_state f p ⇒ fstep (map_state f p) = map_state f (fstep p)

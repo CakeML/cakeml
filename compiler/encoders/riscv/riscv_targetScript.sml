@@ -249,8 +249,9 @@ Definition riscv_ast_def:
        ArithI (ADDI (n2w r, n2w r, imm12))])
 End
 
-val riscv_enc_def = zDefine`
-  riscv_enc = combin$C LIST_BIND riscv_encode o riscv_ast`
+Definition riscv_enc_def[nocompute]:
+  riscv_enc = combin$C LIST_BIND riscv_encode o riscv_ast
+End
 
 (* --- Configuration for RISC-V --- *)
 

@@ -11,13 +11,14 @@ val _ = ParseExtras.temp_loose_equality();
 
 val gc_state_component_equality = DB.fetch "gc_shared" "gc_state_component_equality";
 
-val _ = Datatype `
+Datatype:
   gen_gc_partial_conf =
     <| limit : num              (* size of heap *)
      ; isRef : 'a -> bool
      ; gen_start : num          (* start of generation *)
      ; refs_start : num         (* start of references *)
-     |>`;
+     |>
+End
 
 Definition gc_move_def:
   (gc_move conf state (Data d) = (Data d, state)) /\
@@ -93,7 +94,7 @@ Proof
   \\ metis_tac []
 QED
 
-val gc_move_data_def = tDefine "gc_move_data"  `
+Definition gc_move_data_def:
   (gc_move_data conf state =
     case state.h2 of
     | [] => state
@@ -106,12 +107,14 @@ val gc_move_data_def = tDefine "gc_move_data"  `
          let h2 = TL state.h2 in
          let ok = state.ok /\ state.h2 <> [] /\ (HD state.h2 = h) in
            gc_move_data conf (state with <| h1 := h1; h2 := h2; ok := ok |>)
-       | _ => state with <| ok := F |>)`
-  (WF_REL_TAC `measure (\(conf,state). conf.limit - heap_length state.h1)`
+       | _ => state with <| ok := F |>)
+Termination
+  WF_REL_TAC `measure (\(conf,state). conf.limit - heap_length state.h1)`
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
   \\ imp_res_tac (GSYM gc_move_list_IMP)
   \\ fs []
-  \\ decide_tac)
+  \\ decide_tac
+End
 
 Theorem gc_move_data_IMP:
    !conf state state1.
@@ -235,9 +238,10 @@ Definition heap_gen_ok_def:
       (!xs l d. MEM (DataElement xs l d) refs ==> conf.isRef d)
 End
 
-val _ = Datatype `
+Datatype:
   data_sort = Protected 'a      (* pointer to old generations *)
-            | Real 'b`;         (* data or pointer to current generation *)
+            | Real 'b           (* data or pointer to current generation *)
+End
 
 Definition to_gen_heap_address_def:
   (to_gen_heap_address conf (Data a) = Data (Real a)) /\
@@ -887,11 +891,12 @@ val MAP_to_gen_heap_address_11 = prove(
   Induct \\ Cases_on `y` \\ fs []
   \\ rw [] \\ fs [] \\ metis_tac [to_gen_heap_address_11]);
 
-val gc_forward_ptr_data_pres = Q.prove(
-   `!x a ptr d ok x' ok'.
+Triviality gc_forward_ptr_data_pres:
+  !x a ptr d ok x' ok'.
    (gc_forward_ptr a x ptr d ok = (x',ok'))
    ==> (MEM (DataElement xs l dd) x
-        = (MEM (DataElement xs l dd) x' \/ (heap_lookup a x = SOME(DataElement xs l dd))))`,
+        = (MEM (DataElement xs l dd) x' \/ (heap_lookup a x = SOME(DataElement xs l dd))))
+Proof
   Induct
   >> rw[gc_forward_ptr_def] >> rpt strip_tac
   >> fs[heap_lookup_def]
@@ -899,39 +904,46 @@ val gc_forward_ptr_data_pres = Q.prove(
   >> pairarg_tac
   >> fs[]
   >> qpat_x_assum `_::_ = _` (assume_tac o GSYM)
-  >> fs[] >> metis_tac[]);
+  >> fs[] >> metis_tac[]
+QED
 
-val gc_move_data_pres = Q.prove(
-  `(gc_move conf state x = (x1,state1))
+Triviality gc_move_data_pres:
+  (gc_move conf state x = (x1,state1))
    ==> (MEM (DataElement xs l dd) (state1.heap++state1.h2)
-        = MEM (DataElement xs l dd) (state.heap++state.h2))`,
+        = MEM (DataElement xs l dd) (state.heap++state.h2))
+Proof
   Cases_on `x` >> rw[gc_move_def] >> rpt strip_tac
   >> fs[] >> every_case_tac >> fs[] >> TRY(pairarg_tac >> fs[]) >>
   qpat_x_assum `_ = (y:('a,'b) gc_state)` (assume_tac o GSYM) >> fs[]
-  >> drule gc_forward_ptr_data_pres >> strip_tac >> fs[] >> metis_tac[]);
+  >> drule gc_forward_ptr_data_pres >> strip_tac >> fs[] >> metis_tac[]
+QED
 
-val gc_move_list_data_pres = Q.prove(
-  `!x conf state x1 state1 xs l dd.
+Triviality gc_move_list_data_pres:
+  !x conf state x1 state1 xs l dd.
    (gc_move_list conf state x = (x1,state1))
    ==> (MEM (DataElement xs l dd) (state1.heap++state1.h2)
-        = MEM (DataElement xs l dd) (state.heap++state.h2))`,
+        = MEM (DataElement xs l dd) (state.heap++state.h2))
+Proof
   Induct_on `x` >> rw[gc_move_list_def] >> fs[]
   >> pairarg_tac >> fs[] >> pairarg_tac >> fs[]
   >> qpat_x_assum `_ = (y:('a,'b) gc_state)` (assume_tac o GSYM)
   >> fs[] >> drule gc_move_data_pres >> strip_tac >> fs[]
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
-val gc_move_ref_list_data_pres = Q.prove(
-  `!x conf state x1 state1 xs l dd.
+Triviality gc_move_ref_list_data_pres:
+  !x conf state x1 state1 xs l dd.
    (gc_move_ref_list conf state x = (x1,state1))
    ==> (MEM (DataElement xs l dd) (state1.heap++state1.h2)
-        = MEM (DataElement xs l dd) (state.heap++state.h2))`,
+        = MEM (DataElement xs l dd) (state.heap++state.h2))
+Proof
   Induct_on `x` >> rw[gc_move_ref_list_def] >> fs[]
   >> Induct_on `h` >> rw[gc_move_ref_list_def] >> rpt strip_tac
   >> fs[]
   >> pairarg_tac >> fs[] >> pairarg_tac >> fs[]
   >> fs[] >> drule gc_move_list_data_pres >> strip_tac >> fs[]
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
 val gc_move_data_simulation = prove(
   ``!conf state heap0 state' ptr1' state1'.
@@ -1065,8 +1077,9 @@ val gc_move_data_h2 = prove(
   \\ every_case_tac \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []);
 
-val gc_move_ref_list_heap_length = Q.prove(
-  `!h x state state'. (gc_move_ref_list conf state h = (x,state')) ==> (heap_length state.heap = heap_length state'.heap)`,
+Triviality gc_move_ref_list_heap_length:
+  !h x state state'. (gc_move_ref_list conf state h = (x,state')) ==> (heap_length state.heap = heap_length state'.heap)
+Proof
   Induct_on `h`
   >> rpt strip_tac
   >> first_x_assum (assume_tac o GSYM)
@@ -1075,10 +1088,14 @@ val gc_move_ref_list_heap_length = Q.prove(
   >> fs[gc_move_ref_list_def]
   >> pairarg_tac >> fs[]
   >> pairarg_tac >> fs[]
-  >> metis_tac[gc_move_list_heap_length]);
+  >> metis_tac[gc_move_list_heap_length]
+QED
 
-val gc_move_data_r1 = Q.prove(`(gc_move_data conf state).r1 = state.r1`,
-  metis_tac[gc_move_data_IMP]);
+Triviality gc_move_data_r1:
+  (gc_move_data conf state).r1 = state.r1
+Proof
+  metis_tac[gc_move_data_IMP]
+QED
 
 val partial_gc_simulation = prove(
   ``!conf roots heap0 roots1 state1 heap0_old heap0_current heap0_refs

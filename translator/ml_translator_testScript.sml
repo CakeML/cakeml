@@ -211,25 +211,32 @@ Definition foo2_def:
 End
 val res = translate foo2_def
 
-val _ = Datatype`
+Datatype:
   foo = <| next_loc : num
             ; start : num
             ; do_mti : bool
             ; do_known : bool
-            ; do_call : bool |>`
+            ; do_call : bool |>
+End
 val res = register_type``:foo``
 
-val foo_def = tDefine"foo"`
+Definition foo_def:
   foo (k:num) n =
   if n = 0 then []
   else if n ≤ 256n then [k]
-  else foo (k+1) (n-256)`
-  (WF_REL_TAC `measure SND`\\fs[])
+  else foo (k+1) (n-256)
+Termination
+  WF_REL_TAC `measure SND`\\fs[]
+End
 
 val res = translate foo_def
 
-val _ = Datatype `bar1 = ta | ti`
-val _ = Datatype `bar2 = Ta | TI`
+Datatype:
+  bar1 = ta | ti
+End
+Datatype:
+  bar2 = Ta | TI
+End
 val _ = register_type ``:bar1``
 val _ = register_type ``:bar2``
 
@@ -254,10 +261,12 @@ val _ = (print_asts := true);
 
 (* test no_ind *)
 
-val word64_msb_thm = Q.prove(
-  `!w. word_msb (w:word64) =
-         ((w && 0x8000000000000000w) = 0x8000000000000000w)`,
-  blastLib.BBLAST_TAC);
+Triviality word64_msb_thm:
+  !w. word_msb (w:word64) =
+         ((w && 0x8000000000000000w) = 0x8000000000000000w)
+Proof
+  blastLib.BBLAST_TAC
+QED
 
 val res = translate word64_msb_thm;
 
@@ -291,9 +300,13 @@ val res = translate shift_test_def;
 val _ = res |> hyp |> null orelse fail ();
 
 (* Translation failure with primes *)
-val _ = Datatype` idrec = <|v : num; f : 'a|>`;
+Datatype:
+  idrec = <|v : num; f : 'a|>
+End
 
-val _ = Datatype` t = V num | F 'a | D t t`;
+Datatype:
+  t = V num | F 'a | D t t
+End
 
 Definition test_def:
   test ids = D (F ids.f) (V ids.v)
@@ -322,12 +335,13 @@ val _ = register_type ``:'a option``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:('a # 'b)``;
 
-val _ = Datatype `
+Datatype:
   tt = A1
      | B1 tt
      | C1 (tt option)
      | D1 (tt list)
-     | E1 (tt # tt)`
+     | E1 (tt # tt)
+End
 
 val _ = register_type ``:tt``;
 
@@ -351,7 +365,9 @@ val r = translate_no_ind test3_def;
 
 (* registering types inside modules *)
 
-val _ = Datatype `my_type = my_case1 | my_case2 | my_case3`;
+Datatype:
+  my_type = my_case1 | my_case2 | my_case3
+End
 Definition my_fun_def:
   (my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
                          (my_fun my_case3 = 2n)
@@ -364,7 +380,9 @@ val r = register_type ``:my_type``;
 val _ = ml_prog_update (close_module NONE);
 val r = translate my_fun_def;
 
-val _ = Datatype `my_type3 = SomE num num | NonE`;
+Datatype:
+  my_type3 = SomE num num | NonE
+End
 
 val _ = ml_prog_update (open_module "My_other_module");
 val r = register_type ``:my_type3``;
@@ -388,14 +406,22 @@ val r = concretise [``map_again``, ``inc_list``];
 
 (* check EqualityType proves for some modestly complex datatypes *)
 
-val _ = Datatype `a_type = AT_Nil | AT_Rec (a_type list) ((a_type # num) list)`;
-val _ = Datatype `a_b_type = ABT_Nil
-  | ABT_Rec (bool list) ((a_b_type # num) list)`;
+Datatype:
+  a_type = AT_Nil | AT_Rec (a_type list) ((a_type # num) list)
+End
+Datatype:
+  a_b_type = ABT_Nil
+  | ABT_Rec (bool list) ((a_b_type # num) list)
+End
 Datatype:
   a_c_type = ACT_Nil | ACT_One 'a | ACT_Two 'b | ACT_Rec ((a_c_type # num) list)
 End
-val _ = Datatype `simple_type = STA | STB | STC | STX | STY | STZ`;
-val _ = Datatype `simple_type2 = ST2A | ST2B | ST2C | ST2X | ST2Y | ST2Z`;
+Datatype:
+  simple_type = STA | STB | STC | STX | STY | STZ
+End
+Datatype:
+  simple_type2 = ST2A | ST2B | ST2C | ST2X | ST2Y | ST2Z
+End
 
 val r = register_type ``:a_type``;
 val r = register_type ``:a_b_type``;
@@ -586,10 +612,12 @@ val _ = register_type ``:lit``
 
 (* step 2: translate a function that walks a char list producing datatype with strings *)
 val _ = use_string_type false;
-val chop_str_def = tDefine "chop_str" `
+Definition chop_str_def:
   chop_str [] = [] /\
-  chop_str xs = StrLit (TAKE 5 xs) :: chop_str (DROP 5 xs)`
-  (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_DROP]);
+  chop_str xs = StrLit (TAKE 5 xs) :: chop_str (DROP 5 xs)
+Termination
+  WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_DROP]
+End
 val res = translate TAKE_def;
 val res = translate DROP_def;
 val res = translate chop_str_def

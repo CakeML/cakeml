@@ -27,7 +27,9 @@ val _ = find_def_for_const := def_of_const;
 
 val _ = translate parse_patch_header_def;
 
-val tokens_less_eq = Q.prove(`!s f. EVERY (\x. strlen x <= strlen s) (tokens f s)`,
+Triviality tokens_less_eq:
+  !s f. EVERY (\x. strlen x <= strlen s) (tokens f s)
+Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_ONCE_REWRITE_TAC[TOKENS_eq_tokens_sym]
   >> recInduct TOKENS_ind >> rpt strip_tac
@@ -38,28 +40,38 @@ val tokens_less_eq = Q.prove(`!s f. EVERY (\x. strlen x <= strlen s) (tokens f s
        by(rpt strip_tac >> PURE_ONCE_REWRITE_TAC[GSYM SPLITP_LENGTH] >> fs[])
        >> drule EVERY_MONOTONIC >> pop_assum kall_tac >> disch_then match_mp_tac >> rw[])
   >> `!x. (λx. strlen x <= STRLEN t) x ==> (λx. strlen x <= SUC (STRLEN t)) x` by fs[]
-  >> drule EVERY_MONOTONIC >> pop_assum kall_tac >> disch_then match_mp_tac >> rw[]);
+  >> drule EVERY_MONOTONIC >> pop_assum kall_tac >> disch_then match_mp_tac >> rw[]
+QED
 
-val tokens_sum_less_eq = Q.prove(`!s f. SUM(MAP strlen (tokens f s)) <= strlen s`,
+Triviality tokens_sum_less_eq:
+  !s f. SUM(MAP strlen (tokens f s)) <= strlen s
+Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_REWRITE_TAC[TOKENS_eq_tokens_sym,explode_thm,MAP_MAP_o]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> fs[TOKENS_def] >> pairarg_tac >> fs[] >> Cases_on `l` >> rw[] >> rfs[]
   >> fs[SPLITP_NIL_FST] >> fs[SPLITP] >> every_case_tac
   >> fs[] >> rveq
-  >> CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[GSYM SPLITP_LENGTH])) >> fs[]);
+  >> CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[GSYM SPLITP_LENGTH])) >> fs[]
+QED
 
-val tokens_not_nil = Q.prove(`!s f. EVERY (\x. x <> strlit "") (tokens f s)`,
+Triviality tokens_not_nil:
+  !s f. EVERY (\x. x <> strlit "") (tokens f s)
+Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_REWRITE_TAC[TOKENS_eq_tokens_sym,explode_thm]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> rw[TOKENS_def] >> pairarg_tac >> fs[] >> reverse(Cases_on `l`)
-  >> fs[implode_def]);
+  >> fs[implode_def]
+QED
 
-val tokens_two_less = Q.prove(`!s f s1 s2. tokens f s = [s1;s2] ==> strlen s1 < strlen s /\ strlen s2 < strlen s`,
+Triviality tokens_two_less:
+  !s f s1 s2. tokens f s = [s1;s2] ==> strlen s1 < strlen s /\ strlen s2 < strlen s
+Proof
   ntac 2 strip_tac >> qspecl_then [`s`,`f`] assume_tac tokens_sum_less_eq
   >> qspecl_then [`s`,`f`] assume_tac tokens_not_nil
-  >> Induct >> Cases >> Induct >> Cases >> rpt strip_tac >> fs[]);
+  >> Induct >> Cases >> Induct >> Cases >> rpt strip_tac >> fs[]
+QED
 
 Theorem hexDigit_IMP_digit:
   !c. isDigit c ==> isHexDigit c

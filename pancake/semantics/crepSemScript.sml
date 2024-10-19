@@ -362,10 +362,12 @@ Proof
   rpt (res_tac >> fs [])
 QED
 
-val fix_clock_evaluate = Q.prove(
-  `fix_clock s (evaluate (prog,s)) = evaluate (prog,s)`,
+Triviality fix_clock_evaluate:
+  fix_clock s (evaluate (prog,s)) = evaluate (prog,s)
+Proof
   Cases_on `evaluate (prog,s)` \\ fs [fix_clock_def]
-  \\ imp_res_tac evaluate_clock \\ fs [GSYM NOT_LESS, state_component_equality]);
+  \\ imp_res_tac evaluate_clock \\ fs [GSYM NOT_LESS, state_component_equality]
+QED
 
 val evaluate_ind = save_thm("evaluate_ind[allow_rebind]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind);

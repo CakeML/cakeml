@@ -154,7 +154,7 @@ Proof
   rw[OptionalLetLet_def, OptionalLetLet_sing_def]
 QED
 
-val compile_def = tDefine "compile" `
+Definition compile_def:
   (compile l n [] = ([]:bvl$exp list,Empty,0n,T)) /\
   (compile l n (x::y::xs) =
      let (dx,lx,s1,nr1) = compile l n [x] in
@@ -197,8 +197,10 @@ val compile_def = tDefine "compile" `
        ([Tick (HD y)],lx,s1,nr1)) /\
   (compile l n [Call t dest xs] =
      let (ys,lx,s1,nr1) = compile l n xs in
-       OptionalLetLet (Call t dest ys) n lx (s1+1) l F)`
- (WF_REL_TAC `measure (bvl$exp1_size o SND o SND)`);
+       OptionalLetLet (Call t dest ys) n lx (s1+1) l F)
+Termination
+  WF_REL_TAC `measure (bvl$exp1_size o SND o SND)`
+End
 
 val compile_ind = theorem"compile_ind";
 
@@ -287,7 +289,7 @@ Proof
   >> fs[dest_Seq_def]
 QED
 
-val compile_seqs_def = tDefine "compile_seqs" `
+Definition compile_seqs_def:
   compile_seqs cut_size e acc =
     dtcase dest_Seq e of
     | NONE => (let new_e = compile_exp cut_size 0 e in
@@ -296,10 +298,12 @@ val compile_seqs_def = tDefine "compile_seqs" `
                  | SOME rest => Let [new_e] (Let [] (Let [] rest)))
     | SOME (e1,e2) =>
         compile_seqs cut_size e1
-          (SOME (compile_seqs cut_size e2 acc))`
-  ((WF_REL_TAC ` measure (\(c,e,a). exp_size e) `
+          (SOME (compile_seqs cut_size e2 acc))
+Termination
+  (WF_REL_TAC ` measure (\(c,e,a). exp_size e) `
     \\ strip_tac \\ HO_MATCH_MP_TAC (fetch "-" "dest_Seq_ind")
-    \\ fs [dest_Seq_def] \\ EVAL_TAC \\ fs []):tactic);
+    \\ fs [dest_Seq_def] \\ EVAL_TAC \\ fs []):tactic
+End
 
 Definition compile_any_def:
   compile_any split_seq cut_size arity e =

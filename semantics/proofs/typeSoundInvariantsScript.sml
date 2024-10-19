@@ -8,11 +8,12 @@ open namespacePropsTheory;
 
 val _ = new_theory "typeSoundInvariants"
 
-val _ = Datatype `
+Datatype:
  store_t =
  | Ref_t t
  | W8array_t
- | Varray_t t`;
+ | Varray_t t
+End
 
 (* Store typing *)
 Type tenv_store = ``:(num, store_t) fmap``

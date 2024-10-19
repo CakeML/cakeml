@@ -10,10 +10,11 @@ val _ = new_theory "word_bignum";
 
 (* syntax of a little language *)
 
-val _ = Datatype `
-  address = In1 | In2 | Out`
+Datatype:
+  address = In1 | In2 | Out
+End
 
-val _ = Datatype `
+Datatype:
   mini = Skip
        | Assign num ('a wordLang$exp)
        | Delete (num list)
@@ -30,7 +31,8 @@ val _ = Datatype `
        | Continue
        | Rec (num list) (num list)
        (* the following is only used by the semantics *)
-       | LoopBody mini `
+       | LoopBody mini
+End
 
 
 (* syntax helper funs *)

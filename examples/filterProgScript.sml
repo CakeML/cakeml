@@ -48,9 +48,12 @@ Definition language_def:
                  ^(matcher_certificate |> concl |> dest_forall |> snd |> rhs |> rator)
 End
 
-val match_string_eq = Q.prove(`match_string = language o explode`,
+Triviality match_string_eq:
+  match_string = language o explode
+Proof
   `!s. match_string s = (language o explode) s` suffices_by metis_tac[]
-  >> rw[match_string_def,language_def,matcher_def,matcher_certificate]);
+  >> rw[match_string_def,language_def,matcher_def,matcher_certificate]
+QED
 
 (*---------------------------------------------------------------------------*)
 (* Translator setup boilerplate                                              *)
@@ -85,30 +88,39 @@ val spec64 = INST_TYPE[alpha|->``:64``]
 
 val _ = translate matcher_def
 
-val mem_tolist = Q.prove(`MEM (toList l) (MAP toList ll) = MEM l ll`,
-  Induct_on `ll` >> fs[]);
+Triviality mem_tolist:
+  MEM (toList l) (MAP toList ll) = MEM l ll
+Proof
+  Induct_on `ll` >> fs[]
+QED
 
-val length_tolist_cancel = Q.prove(
-  `!n. n < LENGTH l ==> LENGTH (EL n (MAP mlvector$toList l)) = length (EL n l)`,
+Triviality length_tolist_cancel:
+  !n. n < LENGTH l ==> LENGTH (EL n (MAP mlvector$toList l)) = length (EL n l)
+Proof
   Induct_on `l`
   >> fs[]
   >> rpt strip_tac
   >> Cases_on `n`
-  >> fs[mlvectorTheory.length_toList]);
+  >> fs[mlvectorTheory.length_toList]
+QED
 
-val EL_map_toList = Q.prove(`!n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = sub (EL n l) n'`,
+Triviality EL_map_toList:
+  !n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = sub (EL n l) n'
+Proof
   Induct_on `l`
   >> fs[]
   >> rpt strip_tac
   >> Cases_on `n`
-  >> fs[mlvectorTheory.EL_toList]);
+  >> fs[mlvectorTheory.EL_toList]
+QED
 
-val exec_dfa_side_imp = Q.prove(
-  `!finals table n s.
+Triviality exec_dfa_side_imp:
+  !finals table n s.
    good_vec (MAP toList (toList table)) (toList finals)
     /\ EVERY (λc. MEM (ORD c) ALPHABET) (EXPLODE s)
     /\ n < length finals
-   ==> exec_dfa_side finals table n s`,
+   ==> exec_dfa_side finals table n s
+Proof
   Induct_on `s`
   >- fs[fetch "-" "exec_dfa_side_def"]
   >> PURE_ONCE_REWRITE_TAC [fetch "-" "exec_dfa_side_def"]
@@ -126,13 +138,16 @@ val exec_dfa_side_imp = Q.prove(
     >- metis_tac[]
     >> first_x_assum(ASSUME_TAC o Q.SPECL [`toList (EL n l)`,`ORD h`])
     >> first_x_assum(MATCH_MP_TAC o Q.SPECL [`n`,`ORD h`,`x1`])
-    >> rfs[mlvectorTheory.length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]);
+    >> rfs[mlvectorTheory.length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]
+QED
 
-val all_ord_string = Q.prove
-(`EVERY (\c. MEM (ORD c) ALPHABET) s
+Triviality all_ord_string:
+  EVERY (\c. MEM (ORD c) ALPHABET) s
    <=>
-  EVERY (\c. ORD c < alphabet_size) s`,
- simp_tac list_ss [mem_alphabet_iff]);
+  EVERY (\c. ORD c < alphabet_size) s
+Proof
+  simp_tac list_ss [mem_alphabet_iff]
+QED
 
 val good_vec_thm =
  SIMP_RULE std_ss [dom_Brz_alt_equal]
@@ -179,12 +194,14 @@ QED
 (* Auxiliary functions to deal with null termination.                        *)
 (*---------------------------------------------------------------------------*)
 
-val null_index_def = tDefine "null_index"
-  `null_index s n =
-    if n >= strlen s then NONE
-    else if strsub s n = CHR 0 then SOME n
-    else null_index s (SUC n)`
-  (wf_rel_tac `inv_image (measure (λ(a,b). SUC a - b)) (strlen ## I)`);
+Definition null_index_def:
+  null_index s n =
+   if n >= strlen s then NONE
+   else if strsub s n = CHR 0 then SOME n
+   else null_index s (SUC n)
+Termination
+  wf_rel_tac `inv_image (measure (λ(a,b). SUC a - b)) (strlen ## I)`
+End
 
 val null_index_ind = fetch "-" "null_index_ind";
 
@@ -291,12 +308,14 @@ val cut_at_null_side_lem = Q.prove(`!s. cut_at_null_side s <=> T`,
   >> imp_res_tac null_index_le_len >> fs[])
  |> update_precondition;
 
-val null_index_w_def = tDefine "null_index_w"
-  `null_index_w s n =
-    if n >= LENGTH s then NONE
-    else if EL n s = 0w then SOME n
-    else null_index_w s (SUC n)`
-  (wf_rel_tac `inv_image (measure (λ(a,b). SUC a - b)) (LENGTH ## I)`);
+Definition null_index_w_def:
+  null_index_w s n =
+   if n >= LENGTH s then NONE
+   else if EL n s = 0w then SOME n
+   else null_index_w s (SUC n)
+Termination
+  wf_rel_tac `inv_image (measure (λ(a,b). SUC a - b)) (LENGTH ## I)`
+End
 
 val null_index_w_ind = fetch "-" "null_index_w_ind";
 
@@ -512,10 +531,11 @@ val st = get_ml_prog_state();
 val maincall =
   ``Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short "forward_matching_lines"); Con NONE []])``
 
-val filter_ffi = Datatype `
+Datatype:
   filter_ffi =
   <| input : word8 list llist
-   |>`
+   |>
+End
 
 Definition filter_oracle:
   (filter_oracle:filter_ffi oracle) port st conf bytes =
@@ -601,9 +621,11 @@ Proof
   Induct >> Cases_on `ll1` >> rw[] >> rw[] >> metis_tac[]
 QED
 
-val LLENGTH_NONE_LTAKE = Q.prove(
-  `!n ll. LLENGTH ll = NONE ==> ?l. LTAKE n ll = SOME l`,
-  Induct >> Cases_on `ll` >> rw[]);
+Triviality LLENGTH_NONE_LTAKE:
+  !n ll. LLENGTH ll = NONE ==> ?l. LTAKE n ll = SOME l
+Proof
+  Induct >> Cases_on `ll` >> rw[]
+QED
 
 Definition is_emit_def:
   is_emit (IO_event s _ _) = (s = ExtCall "emit_string")
@@ -787,24 +809,29 @@ Proof
         qexists_tac `n0 - n` >> simp[] >> metis_tac[]))
 QED
 
-val cut_at_null_simplify = Q.prove(`(?n' e'.
+Triviality cut_at_null_simplify:
+  (?n' e'.
    SOME e' =
      LNTH n'
         (fromList
          (next_filter_events f
          iarr input)) ∧ is_emit e')
-  = f(cut_at_null_w input)`,
+  = f(cut_at_null_w input)
+Proof
   rw[EQ_IMP_THM,next_filter_events] >-
     (qexists_tac `SUC 0` >> fs[is_emit_def]) >-
     (rename1 `LNTH n` >> Cases_on `n` >> fs[] >> rveq >> fs[is_emit_def] >>
-     CCONTR_TAC >> fs[] >> rveq >> fs[is_emit_def]));
+     CCONTR_TAC >> fs[] >> rveq >> fs[is_emit_def])
+QED
 
 val LFLATTEN_fromList_GENLIST =
     LFLATTEN_fromList |> Q.SPEC `GENLIST f n` |> SIMP_RULE std_ss [MAP_GENLIST,o_DEF]
 
-val LFILTER_fromList = Q.prove(`
-  !l. LFILTER f (fromList l) = fromList(FILTER f l)`,
-  Induct >> rw[]);
+Triviality LFILTER_fromList:
+  !l. LFILTER f (fromList l) = fromList(FILTER f l)
+Proof
+  Induct >> rw[]
+QED
 
 Theorem forward_matching_lines_div_spec:
   !input output rv.

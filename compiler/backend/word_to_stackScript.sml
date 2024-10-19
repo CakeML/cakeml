@@ -12,8 +12,10 @@ open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
 val _ = new_theory "word_to_stack";
 
 (* bitmaps_length stores the current length of the bitmaps *)
-val _ = Datatype `config = <| bitmaps_length: num ;
-                              stack_frame_size : num spt |>`;
+Datatype:
+  config = <| bitmaps_length: num ;
+                              stack_frame_size : num spt |>
+End
 
 (* -- *)
 
@@ -207,12 +209,14 @@ Definition bits_to_word_def:
   (bits_to_word (F::xs) = (bits_to_word xs << 1))
 End
 
-val word_list_def = tDefine "word_list" `
+Definition word_list_def:
   word_list (xs:bool list) d =
     if LENGTH xs <= d \/ (d = 0) then [bits_to_word xs]
-    else bits_to_word (TAKE d xs ++ [T]) :: word_list (DROP d xs) d`
- (WF_REL_TAC `measure (LENGTH o FST)`
-  \\ fs [LENGTH_DROP] \\ DECIDE_TAC)
+    else bits_to_word (TAKE d xs ++ [T]) :: word_list (DROP d xs) d
+Termination
+  WF_REL_TAC `measure (LENGTH o FST)`
+  \\ fs [LENGTH_DROP] \\ DECIDE_TAC
+End
 
 Definition write_bitmap_def:
   (write_bitmap live k f'):'a word list =

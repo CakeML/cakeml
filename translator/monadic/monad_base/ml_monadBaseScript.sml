@@ -12,8 +12,9 @@ val _ = hide "state";
 (* 'a is the type of the state, 'b is the type of successful computations, and
  * 'c is the type of exceptions *)
 
-val _ = Datatype `
-  exc = M_success 'a | M_failure 'b`;
+Datatype:
+  exc = M_success 'a | M_failure 'b
+End
 
 Type M = ``:'a -> ('b, 'c) exc # 'a``
 
@@ -105,8 +106,9 @@ Definition can_def:
 End
 
 (* Dynamic allocation of references *)
-val _ = Datatype `
-  store_ref = StoreRef num`;
+Datatype:
+  store_ref = StoreRef num
+End
 
 (* Arrays *)
 
@@ -356,51 +358,59 @@ End
 val _ = ParseExtras.temp_tight_equality ();
 
 (* Rules to deal with the monads *)
-val st_ex_return_success = Q.prove(
-  `!v st r st'.
+Triviality st_ex_return_success:
+  !v st r st'.
      st_ex_return v st = (r, st')
      <=>
-     r = M_success v ∧ st' = st`,
-  rw [st_ex_return_def] \\ metis_tac[]);
+     r = M_success v ∧ st' = st
+Proof
+  rw [st_ex_return_def] \\ metis_tac[]
+QED
 
-val st_ex_bind_success = Q.prove (
-  `!f g st st' v.
+Triviality st_ex_bind_success:
+  !f g st st' v.
      st_ex_bind f g st = (M_success v, st')
      <=>
      ?v' st''.
        f st = (M_success v', st'') /\
-       g v' st'' = (M_success v, st')`,
+       g v' st'' = (M_success v, st')
+Proof
   rw [st_ex_bind_def] >>
   cases_on `f st` >>
   rw [] >>
   cases_on `q` >>
-  rw []);
+  rw []
+QED
 
-val otherwise_success = Q.prove(
-  `(x otherwise y) s = (M_success v, s')
+Triviality otherwise_success:
+  (x otherwise y) s = (M_success v, s')
    <=>
    x s = (M_success v, s') \/
-   ?e s''. x s = (M_failure e, s'') /\ y s'' = (M_success v, s')`,
+   ?e s''. x s = (M_failure e, s'') /\ y s'' = (M_success v, s')
+Proof
   fs[otherwise_def]
   \\ EQ_TAC
   >> DISCH_TAC
   >> Cases_on `x s`
   >> Cases_on `q`
-  >> fs[]);
+  >> fs[]
+QED
 
-val otherwise_failure = Q.prove(
-  `(x otherwise y) s = (M_failure e, s')
+Triviality otherwise_failure:
+  (x otherwise y) s = (M_failure e, s')
    <=>
-   ?e' s''. x s = (M_failure e', s'') /\ y s'' = (M_failure e, s')`,
+   ?e' s''. x s = (M_failure e', s'') /\ y s'' = (M_failure e, s')
+Proof
   fs[otherwise_def]
   \\ EQ_TAC
   >> DISCH_TAC
   >> Cases_on `x s`
   >> Cases_on `q`
-  >> fs[]);
+  >> fs[]
+QED
 
-val otherwise_eq = Q.prove(
-  `(x otherwise y) s = (r, s')
+Triviality otherwise_eq:
+  (x otherwise y) s = (r, s')
    <=>
    (?v. ((x s = (M_success v, s') /\ r = M_success v) \/
          (?e s''. x s = (M_failure e, s'') /\
@@ -408,114 +418,133 @@ val otherwise_eq = Q.prove(
                   r = M_success v))) \/
    (?e e' s''. x s = (M_failure e', s'') /\
                y s'' = (M_failure e, s') /\
-               r = M_failure e)`,
+               r = M_failure e)
+Proof
   Cases_on `x s`
   \\ Cases_on `r`
   \\ fs[otherwise_success, otherwise_failure]
   \\ rw[]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-val can_success = Q.prove(
-  `can f x s = (M_failure e, s') <=> F`,
+Triviality can_success:
+  can f x s = (M_failure e, s') <=> F
+Proof
   rw[can_def, otherwise_def, st_ex_ignore_bind_def]
   \\ Cases_on `f x s`
   \\ Cases_on `q`
   \\ fs[st_ex_return_def]
-);
+QED
 
-val Marray_length_success = Q.prove(
-  `!get_arr s r s'.
+Triviality Marray_length_success:
+  !get_arr s r s'.
      Marray_length get_arr s = (r, s')
      <=>
      r = M_success (LENGTH (get_arr s)) /\
-     s' = s`,
-  rw[Marray_length_def] \\ metis_tac[]);
+     s' = s
+Proof
+  rw[Marray_length_def] \\ metis_tac[]
+QED
 
-val Marray_sub_success = Q.prove(
-  `!get_arr e n s v s'.
+Triviality Marray_sub_success:
+  !get_arr e n s v s'.
      Marray_sub get_arr e n s = (M_success v, s')
      <=>
-     n < LENGTH (get_arr s) /\ v = EL n (get_arr s) /\ s' = s`,
+     n < LENGTH (get_arr s) /\ v = EL n (get_arr s) /\ s' = s
+Proof
   rw[Marray_sub_def]
   \\ EQ_TAC
   >> simp[GSYM AND_IMP_INTRO]
   >> rpt DISCH_TAC
   >> Cases_on `n < LENGTH (get_arr s)`
   >> rw[]
-  \\ fs [Msub_eq, Msub_exn_eq]);
+  \\ fs [Msub_eq, Msub_exn_eq]
+QED
 
-val Marray_sub_failure = Q.prove(
-  `!get_arr e n s e' s'.
+Triviality Marray_sub_failure:
+  !get_arr e n s e' s'.
      Marray_sub get_arr e n s = (M_failure e', s')
      <=>
-     n >= LENGTH (get_arr s) /\ e' = e /\ s' = s`,
+     n >= LENGTH (get_arr s) /\ e' = e /\ s' = s
+Proof
   rw[Marray_sub_def]
   \\ EQ_TAC
   >> simp[GSYM AND_IMP_INTRO]
   >> rpt DISCH_TAC
   >> Cases_on `n < LENGTH (get_arr s)`
   >> rw[]
-  \\ fs [Msub_eq, Msub_exn_eq]);
+  \\ fs [Msub_eq, Msub_exn_eq]
+QED
 
-val Marray_sub_eq = Q.prove(
-  `Marray_sub get_arr e n s = (r, s')
+Triviality Marray_sub_eq:
+  Marray_sub get_arr e n s = (r, s')
    <=>
    (n < LENGTH (get_arr s) /\ s' = s /\ r = M_success (EL n (get_arr s))) \/
-   (n >= LENGTH (get_arr s) /\ s' = s /\ r = M_failure e)`,
+   (n >= LENGTH (get_arr s) /\ s' = s /\ r = M_failure e)
+Proof
   Cases_on `r`
   >> fs[Marray_sub_success, Marray_sub_failure]
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
-val Marray_update_success = Q.prove(
-  `!get_arr set_arr e n x s s'.
+Triviality Marray_update_success:
+  !get_arr set_arr e n x s s'.
      Marray_update get_arr set_arr e n x s = (M_success v, s')
      <=>
      n < LENGTH (get_arr s) /\
      v = () /\
-     s' = set_arr (LUPDATE x n (get_arr s)) s`,
+     s' = set_arr (LUPDATE x n (get_arr s)) s
+Proof
   rw[Marray_update_def]
   \\ EQ_TAC
   >> simp[GSYM AND_IMP_INTRO]
   >> rpt DISCH_TAC
   >> Cases_on `n < LENGTH (get_arr s)`
-  \\ fs [Mupdate_eq, Mupdate_exn_eq]);
+  \\ fs [Mupdate_eq, Mupdate_exn_eq]
+QED
 
-val Marray_update_failure = Q.prove(
-  `!get_arr set_arr e e' n x s s'.
+Triviality Marray_update_failure:
+  !get_arr set_arr e e' n x s s'.
      Marray_update get_arr set_arr e n x s = (M_failure e', s')
      <=>
      n >= LENGTH (get_arr s) /\
      e' = e /\
-     s' = s`,
+     s' = s
+Proof
   rw[Marray_update_def]
   \\ EQ_TAC
   >> simp[GSYM AND_IMP_INTRO]
   >> rpt DISCH_TAC
   >> Cases_on `n < LENGTH (get_arr s)` \\ fs []
-  \\ fs [Mupdate_eq, Mupdate_exn_eq]);
+  \\ fs [Mupdate_eq, Mupdate_exn_eq]
+QED
 
-val Marray_update_eq = Q.prove(
-  `Marray_update get_arr set_arr e n x s = (r, s')
+Triviality Marray_update_eq:
+  Marray_update get_arr set_arr e n x s = (r, s')
    <=>
    (n < LENGTH (get_arr s) /\
     s' = set_arr (LUPDATE x n (get_arr s)) s /\
     r = M_success ()) \/
    (n >= LENGTH (get_arr s) /\
     s' = s /\
-    r = M_failure e)`,
+    r = M_failure e)
+Proof
   Cases_on `r`
   >> Cases_on `n < LENGTH (get_arr s)`
   >> fs[Marray_update_success, Marray_update_failure]
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
-val Marray_alloc_success = Q.prove(
-  `Marray_alloc set_arr n x s = (r, s')
+Triviality Marray_alloc_success:
+  Marray_alloc set_arr n x s = (r, s')
    <=>
    r = M_success () /\
-   s' = set_arr (REPLICATE n x) s`,
+   s' = set_arr (REPLICATE n x) s
+Proof
   rw[Marray_alloc_def]
   \\ EQ_TAC
-  >> simp[GSYM AND_IMP_INTRO]);
+  >> simp[GSYM AND_IMP_INTRO]
+QED
 
 val monad_eqs = LIST_CONJ
   [ st_ex_return_success, st_ex_bind_success, otherwise_eq, can_success,

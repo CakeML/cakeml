@@ -595,19 +595,22 @@ Definition clock_neutral_def:
   (clock_neutral r <=> F)
 End
 
-val inst_clock_neutral = Q.prove(
-  `(inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
-    (inst i s = NONE ==> inst i (s with clock := k) = NONE)`,
+Triviality inst_clock_neutral:
+  (inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
+    (inst i s = NONE ==> inst i (s with clock := k) = NONE)
+Proof
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF,set_fp_var_def]
   \\ srw_tac[][state_component_equality]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
   \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def,get_fp_var_def]
-  \\ srw_tac[][state_component_equality]);
+  \\ srw_tac[][state_component_equality]
+QED
 
-val inst_clock_neutral_ffi = Q.prove(
-  `(inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
-    (inst i s = NONE ==> inst i (s with ffi := k) = NONE)`,
+Triviality inst_clock_neutral_ffi:
+  (inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
+    (inst i s = NONE ==> inst i (s with ffi := k) = NONE)
+Proof
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF,state_component_equality,set_fp_var_def]>>
   reverse full_case_tac>>fs[]>>
   TRY
@@ -618,7 +621,8 @@ val inst_clock_neutral_ffi = Q.prove(
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
   \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def,get_fp_var_def]
-  \\ srw_tac[][state_component_equality]));
+  \\ srw_tac[][state_component_equality])
+QED
 
 Theorem evaluate_clock_neutral:
    !prog s res t.
@@ -950,16 +954,18 @@ End
 
 (* stack_remove requires that all register arguments are bounded by k *)
 
-val reg_bound_exp_def = tDefine"reg_bound_exp"`
+Definition reg_bound_exp_def:
   (reg_bound_exp (Var n) k ⇔ n < k) ∧
   (reg_bound_exp (Load e) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Shift _ e _) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Lookup _) _ ⇔ F) ∧
   (reg_bound_exp (Op _ es) k ⇔ EVERY (λe. reg_bound_exp e k) es) ∧
-  (reg_bound_exp _ _ ⇔ T)`
-  (WF_REL_TAC`measure ((exp_size ARB) o FST)` \\ simp[]
+  (reg_bound_exp _ _ ⇔ T)
+Termination
+  WF_REL_TAC`measure ((exp_size ARB) o FST)` \\ simp[]
    \\ Induct \\ simp[wordLangTheory.exp_size_def]
-   \\ srw_tac[][] \\ res_tac \\ simp[]);
+   \\ srw_tac[][] \\ res_tac \\ simp[]
+End
 val _ = export_rewrites["reg_bound_exp_def"];
 
 Definition reg_bound_inst_def:

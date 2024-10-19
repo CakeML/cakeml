@@ -6,8 +6,9 @@ open data_to_wordTheory;
 
 val _ = new_theory "gc_combined";
 
-val _ = Datatype `
-  gen_state = GenState num (num list)`;
+Datatype:
+  gen_state = GenState num (num list)
+End
 
 Definition make_partial_conf_def:
   make_partial_conf (conf:'a gen_gc_conf) (GenState _ gen_starts) rs =

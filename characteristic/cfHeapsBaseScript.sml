@@ -11,12 +11,13 @@ val _ = new_theory "cfHeapsBase"
 (** Heaps *)
 
 (* the following is now defined in cfFFITypeTheory
-val _ = Datatype `
+Datatype:
   ffi = Str string
       | Num num
       | Cons ffi ffi
       | List (ffi list)
-      | Stream (num llist)`
+      | Stream (num llist)
+End
 *)
 
 Definition encode_pair_def:
@@ -68,8 +69,9 @@ Proof
   Cases \\ Cases \\ rw[encode_int_def]
 QED
 
-val _ = Datatype `
-  ffi_result = FFIreturn (word8 list) 'ffi | FFIdiverge`
+Datatype:
+  ffi_result = FFIreturn (word8 list) 'ffi | FFIdiverge
+End
 
 (* make an ffi_next function from base functions and encode/decode *)
 Definition mk_ffi_next_def:
@@ -86,20 +88,22 @@ Type loc = ``:num``
 
 Type ffi_next = ``:string -> word8 list -> word8 list -> ffi -> ffi ffi_result option``
 
-val _ = Datatype `
+Datatype:
   heap_part = Mem loc (v semanticPrimitives$store_v)
             | FFI_split
             | FFI_part ffi ffi_next (string list) (io_event list)
-            | FFI_full (io_event list)`
+            | FFI_full (io_event list)
+End
 
 Type heap = ``:heap_part set``
 Type hprop = ``:heap -> bool``
 
-val _ = Datatype `
+Datatype:
   res = Val v
       | Exn v
       | FFIDiv string (word8 list) (word8 list)
-      | Div (io_event llist)`
+      | Div (io_event llist)
+End
 
 Type ffi_proj = ``: ('ffi -> (string |-> ffi)) #
                     ((string list # ffi_next) list)``

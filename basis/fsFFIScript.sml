@@ -11,11 +11,15 @@ val _ = option_monadsyntax.temp_add_option_monadsyntax();
 (* Logical model of filesystem and I/O streams *)
 
 (* regular files and unnamed streams *)
-val _ = Datatype` inode = UStream mlstring | File mlstring`
+Datatype:
+  inode = UStream mlstring | File mlstring
+End
 
 Overload isFile = ``λinode. ∃fnm. inode = File fnm``
 
-val _ = Datatype` mode = ReadMode | WriteMode`;
+Datatype:
+  mode = ReadMode | WriteMode
+End
 
 (* files: a list of file names and their content.
 *  infds: descriptor * (filename * mode * position)
@@ -27,13 +31,14 @@ val _ = Datatype` mode = ReadMode | WriteMode`;
 *  ulimit -n has a usual value of 1024
 *)
 
-val _ = Datatype`
+Datatype:
   IO_fs = <| inode_tbl : (inode # char list) list ;
              files : (mlstring # mlstring) list;
              infds : (num # (inode # mode # num)) list;
              numchars : num llist;
              maxFD : num
-           |>`
+           |>
+End
 
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
 
@@ -281,7 +286,8 @@ Definition ffi_close_def:
 End
 
 (* given a file descriptor and an offset, returns 0 and update fs or returns 1
-* if an error is met val ffi_seek = Define`
+ * if an error is met
+Definition ffi_seek_def:
   ffi_seek bytes fs =
     do
       assert(LENGTH bytes = 2);
@@ -290,7 +296,9 @@ End
         return(LUPDATE 0w 0 bytes, fs')
       od ++
       return (LUPDATE 1w 0 bytes, fs)
-    od`; *)
+    od
+End
+ *)
 (* -- *)
 
 (* Packaging up the model as an ffi_part *)
@@ -318,7 +326,7 @@ Definition encode_files_def:
   encode_files fs = encode_list (encode_pair (Str o explode) (Str o explode)) fs
 End
 
-val encode_def = zDefine`
+Definition encode_def[nocompute]:
   encode fs = Cons
                (Cons
                  (cfFFIType$Cons
@@ -327,7 +335,8 @@ val encode_def = zDefine`
                     (encode_fds fs.infds))
                   (Stream fs.numchars))
                  (encode_files fs.files))
-               (Num fs.maxFD)`
+               (Num fs.maxFD)
+End
 
 Theorem encode_inode_11[simp]:
    !x y. encode_inode x = encode_inode y <=> x = y

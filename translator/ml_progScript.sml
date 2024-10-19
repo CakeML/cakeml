@@ -18,37 +18,44 @@ val _ = new_theory "ml_prog";
 
 (* Functions write, write_cons, write_mod, empty_env, merge_env should
    never be expanded by EVAL and are therefore defined using
-   zDefine. These should never be exanded by EVAL because that would
+   nocompute. These should never be exanded by EVAL because that would
    cause very slow appends. *)
 
-val write_def = zDefine `
-  write name v (env:v sem_env) = env with v := nsBind name v env.v`;
+Definition write_def[nocompute]:
+  write name v (env:v sem_env) = env with v := nsBind name v env.v
+End
 
-val write_cons_def = zDefine `
+Definition write_cons_def[nocompute]:
   write_cons n d (env:v sem_env) =
-    (env with c := nsAppend (nsSing n d) env.c)`
+    (env with c := nsAppend (nsSing n d) env.c)
+End
 
-val empty_env_def = zDefine `
-  (empty_env:v sem_env) = <| v := nsEmpty ; c:= nsEmpty|>`;
+Definition empty_env_def[nocompute]:
+  (empty_env:v sem_env) = <| v := nsEmpty ; c:= nsEmpty|>
+End
 
-val write_mod_def = zDefine `
+Definition write_mod_def[nocompute]:
   write_mod mn (env:v sem_env) env2 =
     env2 with <|
       c := nsAppend (nsLift mn env.c) env2.c
-      ; v := nsAppend (nsLift mn env.v) env2.v |>`
+      ; v := nsAppend (nsLift mn env.v) env2.v |>
+End
 
-val merge_env_def = zDefine `
+Definition merge_env_def[nocompute]:
   merge_env (env2:v sem_env) env1 =
     <| v := nsAppend env2.v env1.v
-     ; c := nsAppend env2.c env1.c|>`
+     ; c := nsAppend env2.c env1.c|>
+End
 
 (* the components of nsLookup are 'nicer' partial functions *)
 
-val nsLookup_Short_def = zDefine `
-  nsLookup_Short ns nm = nsLookup ns (Short nm)`;
+Definition nsLookup_Short_def[nocompute]:
+  nsLookup_Short ns nm = nsLookup ns (Short nm)
+End
 
-val nsLookup_Mod1_def = zDefine `
-  nsLookup_Mod1 ns = (case ns of Bind _ ms => ALOOKUP ms)`;
+Definition nsLookup_Mod1_def[nocompute]:
+  nsLookup_Mod1 ns = (case ns of Bind _ ms => ALOOKUP ms)
+End
 
 Theorem nsLookup_eq:
    nsLookup ns (Short nm) = nsLookup_Short ns nm /\
@@ -415,10 +422,12 @@ Proof
   \\ fs [write_def,empty_env_def]
 QED
 
-val FOLDR_LEMMA = Q.prove(
-  `!xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
-           FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs`,
-  Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]);
+Triviality FOLDR_LEMMA:
+  !xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
+           FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs
+Proof
+  Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]
+QED
 
 (* Delays the write in build_rec_env *)
 Theorem Decls_Dletrec:
@@ -614,10 +623,13 @@ local
 in
   (* init_env_def should not be unpacked by EVAL. Queries will be handled
      by the nsLookup_conv apparatus, which will use the pfun_eqs thm below. *)
-  val init_env_def = zDefine `
-    init_env = ^init_env_tm`;
-  val init_state_def = Define `
-    init_state ffi = ^init_state_tm`;
+Definition init_env_def[nocompute]:
+  init_env = ^init_env_tm
+End
+
+Definition init_state_def:
+  init_state ffi = ^init_state_tm
+End
 end
 
 Theorem init_state_env_thm:
@@ -722,12 +734,14 @@ QED
 
 (* appending a Letrec *)
 
-val build_rec_env_APPEND = Q.prove(
-  `nsAppend (build_rec_env funs cl_env nsEmpty) add_to_env =
-   build_rec_env funs cl_env add_to_env`,
+Triviality build_rec_env_APPEND:
+  nsAppend (build_rec_env funs cl_env nsEmpty) add_to_env =
+   build_rec_env funs cl_env add_to_env
+Proof
   fs [build_rec_env_def] \\ qspec_tac (`Recclosure cl_env funs`,`xxx`)
   \\ qspec_tac (`add_to_env`,`xs`)
-  \\ Induct_on `funs` \\ fs [FORALL_PROD]);
+  \\ Induct_on `funs` \\ fs [FORALL_PROD]
+QED
 
 Theorem ML_code_Dletrec:
    !fns locs. ML_code env0 ((comm, s1, prog, env2) :: bls) s2 ==>
@@ -873,11 +887,12 @@ End
    and mod_defined is still used in various characteristic scripts
    so we supply an eval theorem that maps to the new approach. *)
 
-val mod_defined_def = zDefine `
+Definition mod_defined_def[nocompute]:
   mod_defined env n =
     ∃p1 p2 e3.
       p1 ≠ [] ∧ id_to_mods n = p1 ++ p2 ∧
-      nsLookupMod env p1 = SOME e3`;
+      nsLookupMod env p1 = SOME e3
+End
 
 Theorem mod_defined_nsLookup_Mod1[compute]:
    mod_defined env id = (case id of Short _ => F
@@ -892,11 +907,13 @@ QED
 (* theorems about old lookup functions *)
 (* FIXME: everything below this line is unlikely to be needed. *)
 
-val nsLookupMod_nsBind = Q.prove(`
+Triviality nsLookupMod_nsBind:
   p ≠ [] ⇒
-  nsLookupMod (nsBind k v env) p = nsLookupMod env p`,
+  nsLookupMod (nsBind k v env) p = nsLookupMod env p
+Proof
   Cases_on`env`>>fs[nsBind_def]>> Induct_on`p`>>
-  fs[nsLookupMod_def]);
+  fs[nsLookupMod_def]
+QED
 
 Theorem nsLookup_write:
    (nsLookup (write n v env).v (Short name) =

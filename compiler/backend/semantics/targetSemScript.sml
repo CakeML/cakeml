@@ -10,10 +10,11 @@ val _ = new_theory "targetSem";
 
 (* -- execute target machine with interference from environment -- *)
 
-val () = Datatype `
-  machine_result = Halt outcome | Error | TimeOut `;
+Datatype:
+  machine_result = Halt outcome | Error | TimeOut
+End
 
-val _ = Datatype `
+Datatype:
   machine_config =
    <| prog_addresses : ('a word) set
     ; shared_addresses : ('a word) set
@@ -39,7 +40,8 @@ val _ = Datatype `
     ; target : ('a,'b,'c) target
     (* ffi_index -> byte_size, address, register to be updated/ stored, new pc value *)
     ; mmio_info : (num # (word8 # 'a addr # num # 'a word)) list
-    |>`
+    |>
+End
 
 Definition apply_oracle_def:
   apply_oracle oracle x =

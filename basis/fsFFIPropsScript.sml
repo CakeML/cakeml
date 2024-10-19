@@ -1303,10 +1303,13 @@ Proof
  fs[STD_streams_def]
 QED
 
-val lemma = Q.prove(
-  `UStream (strlit "stdin") ≠ UStream (strlit "stdout") ∧
+Triviality lemma:
+  UStream (strlit "stdin") ≠ UStream (strlit "stdout") ∧
    UStream (strlit "stdin") ≠ UStream (strlit "stderr") ∧
-   UStream (strlit "stdout") ≠ UStream (strlit "stderr")`,rw[]);
+   UStream (strlit "stdout") ≠ UStream (strlit "stderr")
+Proof
+  rw[]
+QED
 
 Theorem STD_streams_forwardFD:
    fd ≠ 1 ∧ fd ≠ 2 ⇒

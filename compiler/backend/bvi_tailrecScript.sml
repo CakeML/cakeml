@@ -64,13 +64,16 @@ QED
 
 val _ = export_rewrites ["is_const_def"];
 
-val _ = Datatype `
+Datatype:
   assoc_op = Plus
            | Times
            | Append
-           | Noop`;
+           | Noop
+End
 
-val _ = Datatype `v_ty = Int | List | Any`;
+Datatype:
+  v_ty = Int | List | Any
+End
 
 Definition op_type_def:
   op_type Append = List /\
@@ -488,7 +491,7 @@ QED
        branch of origin for the operation in conditionals.
 *)
 
-val scan_expr_def = tDefine "scan_expr" `
+Definition scan_expr_def:
   (scan_expr ts loc [] = []) ∧
   (scan_expr ts loc (x::y::xs) =
     let (tx, ty, r, op) = HD (scan_expr ts loc [x]) in
@@ -544,8 +547,10 @@ val scan_expr_def = tDefine "scan_expr" `
             | SOME (x, y) =>
                 [(update_context opt ts x y, opt, F, NONE)]
           else
-            [(ts, Any, F, NONE)])`
-    (WF_REL_TAC `measure (exp2_size o SND o SND)`);
+            [(ts, Any, F, NONE)])
+Termination
+  WF_REL_TAC `measure (exp2_size o SND o SND)`
+End
 
 
 Definition scan_expr_sing_def:
@@ -689,7 +694,7 @@ Theorem rewrite_eq = rewrite_def |> SRULE [scan_expr_eq];
 
 (* --- Top-level expression check --- *)
 
-val has_rec_def = tDefine "has_rec" `
+Definition has_rec_def:
   (has_rec loc [] = F) /\
   (has_rec loc (x::y::xs) =
     if has_rec loc [x] then T
@@ -702,8 +707,10 @@ val has_rec_def = tDefine "has_rec" `
   (has_rec loc [Op op xs] =
     if EXISTS (is_rec loc) xs then T
     else has_rec loc xs) /\
-  (has_rec loc [x] = F)`
-  (WF_REL_TAC `measure (exp2_size o SND)`);
+  (has_rec loc [x] = F)
+Termination
+  WF_REL_TAC `measure (exp2_size o SND)`
+End
 
 Definition has_rec1_def:
   has_rec1 loc x = has_rec loc [x]

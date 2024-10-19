@@ -11,16 +11,17 @@ open preamble semanticPrimitivesTheory namespacePropsTheory
 
 val _ = new_theory "inferComplete";
 
-val generalise_no_uvars = Q.prove (
-`(!t m n s dbvars.
+Triviality generalise_no_uvars:
+  (!t m n s dbvars.
   check_t dbvars {} t
   ⇒
   generalise m n s t = (0,s,t)) ∧
  (!ts m n s dbvars.
   EVERY (check_t dbvars {}) ts
   ⇒
-  generalise_list m n s ts = (0,s,ts))`,
- ho_match_mp_tac infer_tTheory.infer_t_induction >>
+  generalise_list m n s ts = (0,s,ts))
+Proof
+  ho_match_mp_tac infer_tTheory.infer_t_induction >>
  srw_tac[] [generalise_def, check_t_def]
  >- metis_tac [PAIR_EQ] >>
  rw [PULL_FORALL] >>
@@ -31,7 +32,8 @@ val generalise_no_uvars = Q.prove (
  first_x_assum (qspecl_then [`s'`, `n`, `m`] mp_tac) >>
  rw [] >>
  rw [] >>
- metis_tac [PAIR_EQ]);
+ metis_tac [PAIR_EQ]
+QED
 
 val t_ind = t_induction
   |> Q.SPECL[`P`,`EVERY P`]
@@ -294,12 +296,14 @@ Proof
     metis_tac [check_freevars_more, nub_set, SUBSET_DEF])
 QED
 
-val env_rel_complete_bind = Q.prove(`
+Triviality env_rel_complete_bind:
   env_rel_complete FEMPTY ienv tenv Empty ⇒
-  env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)`,
+  env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)
+Proof
   fs[env_rel_complete_def,bind_tvar_def,lookup_var_def,lookup_varE_def,tveLookup_def]>>rw[]>>every_case_tac>>fs[]>>
   res_tac>>fs[]>> TRY(metis_tac[])>>
-  match_mp_tac tscheme_approx_weakening>>asm_exists_tac>>fs[t_wfs_def]);
+  match_mp_tac tscheme_approx_weakening>>asm_exists_tac>>fs[t_wfs_def]
+QED
 
 Theorem type_pe_determ_canon_infer_e:
  !loc ienv p e st st' t t' new_bindings s.
@@ -564,7 +568,11 @@ QED
 fun str_assums strs = ConseqConv.DISCH_ASM_CONSEQ_CONV_TAC
         (ConseqConv.CONSEQ_REWRITE_CONV ([], strs, []));
 
-val ap_lemma = Q.prove (`!f. x = y ==> f x = f y`, fs []);
+Triviality ap_lemma:
+  !f. x = y ==> f x = f y
+Proof
+  fs []
+QED
 
 Theorem inf_set_tids_extend_dec_ienv:
    inf_set_tids_ienv (count n) ienv2
@@ -1631,8 +1639,9 @@ Proof
       simp_tac std_ss [nsAppend_nsSing, GSYM nsAppend_assoc]))
 QED
 
-val n_fresh_uvar_rw = Q.prove(`
-  ∀n st.n_fresh_uvar n st = (Success (GENLIST (λi.Infer_Tuvar(i+st.next_uvar)) n), st with next_uvar := st.next_uvar + n)`,
+Triviality n_fresh_uvar_rw:
+  ∀n st.n_fresh_uvar n st = (Success (GENLIST (λi.Infer_Tuvar(i+st.next_uvar)) n), st with next_uvar := st.next_uvar + n)
+Proof
   Induct>>simp[Once n_fresh_uvar_def]
   >-
     (EVAL_TAC>>fs[infer_st_component_equality])
@@ -1640,10 +1649,11 @@ val n_fresh_uvar_rw = Q.prove(`
     rw[st_ex_bind_def,fresh_uvar_def,st_ex_return_def,ADD1]>>
     simp[GENLIST_CONS,GSYM ADD1]>>
     AP_THM_TAC>>AP_TERM_TAC>>fs[o_DEF]>>
-    fs[FUN_EQ_THM])
+    fs[FUN_EQ_THM]
+QED
 
-val t_walkstar_infer_deBruijn_subst = Q.prove(`
- t_wfs s ∧
+Triviality t_walkstar_infer_deBruijn_subst:
+  t_wfs s ∧
  LENGTH ls = tvs ∧
  EVERY (check_t y {}) ls ∧
  (∀n. n < tvs ⇒ t_walkstar s (Infer_Tuvar n) = EL n ls)
@@ -1657,16 +1667,18 @@ val t_walkstar_infer_deBruijn_subst = Q.prove(`
   EVERY (check_t tvs {}) ts
   ⇒
   MAP ((t_walkstar s) o (infer_deBruijn_subst ls)) ts =
-  MAP ((t_walkstar s) o (infer_deBruijn_subst (GENLIST Infer_Tuvar tvs))) ts))`,
+  MAP ((t_walkstar s) o (infer_deBruijn_subst (GENLIST Infer_Tuvar tvs))) ts))
+Proof
   strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,infer_deBruijn_subst_alt]>>
   fs[EVERY_MEM,MEM_EL]
   >-
     metis_tac[t_walkstar_no_vars]
   >>
-    fs[t_walkstar_eqn1,MAP_MAP_o,MAP_EQ_f]);
+    fs[t_walkstar_eqn1,MAP_MAP_o,MAP_EQ_f]
+QED
 
-val infer_deBruijn_subst_check_t = Q.prove(`
+Triviality infer_deBruijn_subst_check_t:
   EVERY (check_t tvs {}) ls
   ⇒
   (∀t.
@@ -1676,11 +1688,13 @@ val infer_deBruijn_subst_check_t = Q.prove(`
   (∀ts.
   EVERY (check_t (LENGTH ls) {}) ts
   ⇒
-  EVERY (check_t tvs {}) (MAP (infer_deBruijn_subst ls) ts))`,
+  EVERY (check_t tvs {}) (MAP (infer_deBruijn_subst ls) ts))
+Proof
   strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,infer_deBruijn_subst_alt]>>
   fs[EVERY_MEM,MEM_EL]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 Theorem check_tscheme_inst_complete:
    !tvs_spec t_spec tvs_impl t_impl id.

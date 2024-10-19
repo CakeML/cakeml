@@ -198,7 +198,9 @@ Definition x64_encode_def:
   (x64_encode i = x64$encode i)
 End
 
-val x64_dec_fail_def = zDefine `x64_dec_fail = [0w] : word8 list`
+Definition x64_dec_fail_def[nocompute]:
+  x64_dec_fail = [0w] : word8 list
+End
 
 Definition x64_enc_def:
   x64_enc i =

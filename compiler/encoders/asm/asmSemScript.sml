@@ -9,7 +9,7 @@ val () = new_theory "asmSem"
 
 (* -- semantics of ASM program -- *)
 
-val () = Datatype `
+Datatype:
   asm_state =
     <| regs       : num -> 'a word
      ; fp_regs    : num -> word64
@@ -20,7 +20,8 @@ val () = Datatype `
      ; align      : num
      ; be         : bool
      ; failed     : bool
-     |>`
+     |>
+End
 
 Definition upd_pc_def:
   upd_pc pc s = s with pc := pc

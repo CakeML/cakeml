@@ -38,8 +38,9 @@ val _ = hide "state";
   Atemp   : means that the node is allowed to be allocated to any register or stack pos
   Stemp   : only allowed to be mapped to k, k+1, ... (stack positions)
 *)
-val _ = Datatype`
-  tag = Fixed num | Atemp | Stemp`
+Datatype:
+  tag = Fixed num | Atemp | Stemp
+End
 
 (*
   Inputs are tagged with Fixed, Atemp , Stemp
@@ -1003,12 +1004,13 @@ End
   from the allocator
 *)
 
-val _ = Datatype`
+Datatype:
   clash_tree = Delta (num list) (num list) (* (Writes list, Reads list) *)
              | Set num_set (* Fixed set *)
              | Branch (num_set option) clash_tree clash_tree
-             | Seq clash_tree clash_tree`
+             | Seq clash_tree clash_tree
              (* Binary branch, with an optional liveset at the head*)
+End
 
 (* --- clash_tree oracle checks --- *)
 Definition numset_list_delete_def:
@@ -1327,8 +1329,9 @@ Definition resort_moves_def:
   map (λls. MAP SND (sort_moves ls)) acc
 End
 
-val _ = Datatype`
-  algorithm = Simple | IRC`
+Datatype:
+  algorithm = Simple | IRC
+End
 
 (* mtable is an sptree lookup for the moves *)
 Definition biased_pref_def:

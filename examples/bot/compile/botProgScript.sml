@@ -39,13 +39,15 @@ Definition parse_AssignAnyPar_def:
     else NONE)
 End
 
-val parse_AssignAnyPar_inv = Q.prove(`
+Triviality parse_AssignAnyPar_inv:
   ∀seq ls.
   parse_AssignAnyPar seq = SOME ls ⇒
-  AssignAnyPar ls = seq`,
+  AssignAnyPar ls = seq
+Proof
   ho_match_mp_tac (fetch "-" "parse_AssignAnyPar_ind")>>
   rw[]>>fs[parse_AssignAnyPar_def]>>
-  EVERY_CASE_TAC>>rw[]>>fs[AssignAnyPar_def,Skip_def]);
+  EVERY_CASE_TAC>>rw[]>>fs[AssignAnyPar_def,Skip_def]
+QED
 
 (* Invert AssignPar *)
 Definition parse_AssignPar_def:
@@ -58,13 +60,15 @@ Definition parse_AssignPar_def:
     else NONE)
 End
 
-val parse_AssignPar_inv = Q.prove(`
+Triviality parse_AssignPar_inv:
   ∀seq ls ts.
   parse_AssignPar seq = SOME (ls,ts) ⇒
-  AssignPar ls ts = seq`,
+  AssignPar ls ts = seq
+Proof
   ho_match_mp_tac (fetch "-" "parse_AssignPar_ind")>>
   rw[]>>fs[parse_AssignPar_def]>>
-  EVERY_CASE_TAC>>rw[]>>fs[AssignPar_def,Skip_def]);
+  EVERY_CASE_TAC>>rw[]>>fs[AssignPar_def,Skip_def]
+QED
 
 Definition parse_AssignVarPar_def:
   parse_AssignVarPar p =
@@ -75,10 +79,11 @@ Definition parse_AssignVarPar_def:
 End
 
 (* Invert AssignVarPar *)
-val parse_AssignVarPar_inv = Q.prove(`
+Triviality parse_AssignVarPar_inv:
   ∀seq ls ts.
   parse_AssignVarPar seq = SOME (ls,ts) ⇒
-  AssignVarPar ls ts = seq`,
+  AssignVarPar ls ts = seq
+Proof
   rw[AssignVarPar_def,parse_AssignVarPar_def]>>
   fs[OPTION_JOIN_EQ_SOME]>>
   pairarg_tac>>fs[]>>
@@ -89,7 +94,8 @@ val parse_AssignVarPar_inv = Q.prove(`
   qid_spec_tac`ts'`>>
   qid_spec_tac`ts`>>
   pop_assum kall_tac>>
-  Induct>>Cases_on`ts'`>>fs[]>>Cases_on`h`>>fs[OPT_MMAP_def]);
+  Induct>>Cases_on`ts'`>>fs[]>>Cases_on`h`>>fs[OPT_MMAP_def]
+QED
 
 (* Parses the initialization block
   consts := *;
@@ -191,13 +197,15 @@ Definition mk_config_def:
   |>
 End
 
-val parse_sandbox_inv = Q.prove(`
+Triviality parse_sandbox_inv:
   parse_sandbox p = SOME res ⇒
-  p = full_sandbox (mk_config res)`,
+  p = full_sandbox (mk_config res)
+Proof
   fs[parse_sandbox_def,parse_header_def,parse_body_def,parse_body1_def,parse_body2_def]>>
   EVERY_CASE_TAC>>rw[]>>
   fs[mk_config_def,full_sandbox_def,init_sandbox_def,body_sandbox_def,hide_def]>>
-  metis_tac[parse_AssignAnyPar_inv,parse_AssignPar_inv,parse_AssignVarPar_inv]);
+  metis_tac[parse_AssignAnyPar_inv,parse_AssignPar_inv,parse_AssignVarPar_inv]
+QED
 
 fun check_fv trm =
   let val fvs = free_vars trm  in
@@ -633,14 +641,16 @@ Definition init_state_def:
   eventually I w.wo.stop_oracle)
 End
 
-val init_state_imp_sandbox_hp = Q.prove(`
+Triviality init_state_imp_sandbox_hp:
   init_state w ⇒
-  sandbox_hp = full_sandbox w.wc`,
+  sandbox_hp = full_sandbox w.wc
+Proof
   rw[init_state_def]>>
   simp[init_wc_def]>>
   match_mp_tac parse_sandbox_inv>>
   fs[sandbox_hp_def,parse_th]>>
-  EVAL_TAC);
+  EVAL_TAC
+QED
 
 Theorem bot_main_spec:
   init_state w ∧
@@ -727,17 +737,19 @@ val SPLIT_SING = prove(
   ``SPLIT s ({x},t) <=> x IN s /\ t = s DELETE x``,
   fs [SPLIT_def,IN_DISJOINT,EXTENSION] \\ metis_tac []);
 
-val SPLIT_th = Q.prove(`
+Triviality SPLIT_th:
   wf_mach w ⇒
   (∃h1 h2.
       SPLIT (st2heap (bot_proj1,bot_proj2) (botProg_st_9 (bot_ffi w)))
-        (h1,h2) ∧ IOBOT w h1)`,
+        (h1,h2) ∧ IOBOT w h1)
+Proof
   fs [IOBOT_def,SEP_CLAUSES,IOx_def,bot_ffi_part_def,
       IO_def,SEP_EXISTS_THM,PULL_EXISTS,one_def] >>
   rw[]>>simp[fetch "-" "botProg_st_9_def",cfStoreTheory.st2heap_def]>>
   fs [SPLIT_SING,cfAppTheory.FFI_part_NOT_IN_store2heap]
   \\ rw [cfStoreTheory.ffi2heap_def] \\ EVAL_TAC
-  \\ fs [parts_ok_bot_ffi]);
+  \\ fs [parts_ok_bot_ffi]
+QED
 
 val semantics_thm = MATCH_MP th (UNDISCH SPLIT_th) |> DISCH_ALL
 val prog_tm = rhs(concl prog_rewrite)

@@ -795,15 +795,17 @@ Proof
   \\ fs [] \\ every_case_tac \\ fs [] \\ rw[] \\ fs []
 QED
 
-val state_rel_ext_with_clock = Q.prove(
-  `state_rel_ext a b c s1 s2 ==>
-    state_rel_ext a b c (s1 with clock := k) (s2 with clock := k)`,
+Triviality state_rel_ext_with_clock:
+  state_rel_ext a b c s1 s2 ==>
+    state_rel_ext a b c (s1 with clock := k) (s2 with clock := k)
+Proof
   full_simp_tac(srw_ss())[state_rel_ext_def] \\ srw_tac[][]
   \\ old_drule state_rel_with_clock
   \\ strip_tac \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ qexists_tac `l` \\ full_simp_tac(srw_ss())[]
   \\ fs [wordSemTheory.state_component_equality]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
 (* observational semantics preservation *)
 
@@ -1448,38 +1450,46 @@ Proof
 QED
 
 (* TODO: goes away on inlineenc branch *)
-val extract_labels_WordOp64_on_32 = Q.prove(`
-  extract_labels (WordOp64_on_32 f) = []`,
+Triviality extract_labels_WordOp64_on_32:
+  extract_labels (WordOp64_on_32 f) = []
+Proof
   simp[WordOp64_on_32_def]>>Cases_on`f`>>simp[]>>
-  EVAL_TAC);
+  EVAL_TAC
+QED
 
-val extract_labels_WordShift64_on_32 = Q.prove(`
-  extract_labels (WordShift64_on_32 f g) = []`,
+Triviality extract_labels_WordShift64_on_32:
+  extract_labels (WordShift64_on_32 f g) = []
+Proof
   simp[WordShift64_on_32_def]>>
   Cases_on`f`>>simp[]>>
-  IF_CASES_TAC>>EVAL_TAC);
+  IF_CASES_TAC>>EVAL_TAC
+QED
 
-val extract_labels_assignWordOp = Q.prove(`
+Triviality extract_labels_assignWordOp:
   assign a b c d (WordOp e f) g h = (i,j) ⇒
-  extract_labels i = [] ∧ c ≤ j`,
+  extract_labels i = [] ∧ c ≤ j
+Proof
   simp[assign_def]>>
   Cases_on`dimindex(:'a) = 64`>> simp[]
   >- (every_case_tac>>rw[]>> EVAL_TAC)
   >>
     every_case_tac>>rw[]>>
     simp[extract_labels_def,list_Seq_def,extract_labels_WordOp64_on_32]>>
-    EVAL_TAC);
+    EVAL_TAC
+QED
 
-val extract_labels_assignWordShift = Q.prove(`
+Triviality extract_labels_assignWordShift:
   assign a b c d (WordShift e f k) g h = (i,j) ⇒
-  extract_labels i = [] ∧ c ≤ j`,
+  extract_labels i = [] ∧ c ≤ j
+Proof
   simp[assign_def]>>
   Cases_on`dimindex(:'a) >= 64`>> simp[]
   >- (every_case_tac>>rw[]>> EVAL_TAC)
   >>
     every_case_tac>>rw[]>>
     simp[extract_labels_def,list_Seq_def,extract_labels_WordShift64_on_32]>>
-    EVAL_TAC);
+    EVAL_TAC
+QED
 
 Theorem data_to_word_lab_pres_lem:
   ∀c n l p.
@@ -1525,9 +1535,11 @@ Proof
        SilentFFI_def,list_Seq_def])
 QED
 
-val labels_rel_emp = Q.prove(`
-  labels_rel [] ls ⇒ ls = [] `,
-  fs[word_simpProofTheory.labels_rel_def]);
+Triviality labels_rel_emp:
+  labels_rel [] ls ⇒ ls = []
+Proof
+  fs[word_simpProofTheory.labels_rel_def]
+QED
 
 Theorem stub_labels:
     EVERY (λ(n,m,p).
@@ -1602,15 +1614,19 @@ Proof
   disch_then(qspec_then`n` assume_tac)>>rfs[]
 QED
 
-val StoreEach_no_inst = Q.prove(`
+Triviality StoreEach_no_inst:
   ∀a ls off.
-  every_inst (inst_ok_less ac) (StoreEach a ls off)`,
-  Induct_on`ls`>>rw[StoreEach_def,every_inst_def]);
+  every_inst (inst_ok_less ac) (StoreEach a ls off)
+Proof
+  Induct_on`ls`>>rw[StoreEach_def,every_inst_def]
+QED
 
-val MemEqList_no_inst = Q.prove(`
+Triviality MemEqList_no_inst:
   ∀a x.
-  every_inst (inst_ok_less ac) (MemEqList a x)`,
-  Induct_on `x` \\ fs [MemEqList_def,every_inst_def]);
+  every_inst (inst_ok_less ac) (MemEqList a x)
+Proof
+  Induct_on `x` \\ fs [MemEqList_def,every_inst_def]
+QED
 
 Theorem StoreAnyConsts_no_inst[local]:
   ∀r1 r2 r3 ws w. every_inst (inst_ok_less ac) (StoreAnyConsts r1 r2 r3 ws w)
@@ -1666,7 +1682,7 @@ Proof
   IF_CASES_TAC >> EVAL_TAC >> fs []
 QED
 
-val bounds_lem = Q.prove(`
+Triviality bounds_lem:
   (dimindex(:'a) = 32 ∨ dimindex(:'a) = 64) ∧
   (w:'a word = -3w ∨
   w = -2w ∨
@@ -1680,14 +1696,16 @@ val bounds_lem = Q.prove(`
   w = 6w ∨
   w = 7w)
   ⇒
-  -8w ≤ w ∧ w ≤ 8w`,
+  -8w ≤ w ∧ w ≤ 8w
+Proof
   rw[]>>
   EVAL_TAC>>
   simp[dimword_def]>>
   EVAL_TAC>>
   simp[dimword_def]>>
   EVAL_TAC>>
-  simp[numeral_bitTheory.iSUC,numeralTheory.numeral_evenodd,ODD]);
+  simp[numeral_bitTheory.iSUC,numeralTheory.numeral_evenodd,ODD]
+QED
 
 Theorem data_to_word_compile_conventions:
     good_dimindex(:'a) ==>
@@ -1797,94 +1815,114 @@ in
 (* TODO: most of the following lemmas ought to be moved *)
 
 (* remove_must_terminate*)
-val word_get_code_labels_remove_must_terminate = Q.prove(`
+Triviality word_get_code_labels_remove_must_terminate:
   ∀ps.
   word_get_code_labels (remove_must_terminate ps) =
-  word_get_code_labels ps`,
+  word_get_code_labels ps
+Proof
   ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
   fs[remove_must_terminate_def]>>
-  every_case_tac>>fs[]);
+  every_case_tac>>fs[]
+QED
 
-val word_good_handlers_remove_must_terminate = Q.prove(`
+Triviality word_good_handlers_remove_must_terminate:
   ∀ps.
   word_good_handlers n (remove_must_terminate ps) ⇔
-  word_good_handlers n ps`,
+  word_good_handlers n ps
+Proof
   ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
   fs[remove_must_terminate_def]>>
-  every_case_tac>>fs[]);
+  every_case_tac>>fs[]
+QED
 
 (* word_alloc *)
 
-val word_get_code_labels_apply_colour = Q.prove(`
+Triviality word_get_code_labels_apply_colour:
   ∀col ps.
   word_get_code_labels (apply_colour col ps) =
-  word_get_code_labels ps`,
+  word_get_code_labels ps
+Proof
   ho_match_mp_tac apply_colour_ind>>rw[]>>
   fs[apply_colour_def]>>
-  every_case_tac>>fs[]);
+  every_case_tac>>fs[]
+QED
 
-val word_good_handlers_apply_colour = Q.prove(`
+Triviality word_good_handlers_apply_colour:
   ∀col ps.
   word_good_handlers n (apply_colour col ps) ⇔
-  word_good_handlers n ps`,
+  word_good_handlers n ps
+Proof
   ho_match_mp_tac apply_colour_ind>>rw[]>>
   fs[apply_colour_def]>>
-  every_case_tac>>fs[]);
+  every_case_tac>>fs[]
+QED
 
-val word_get_code_labels_word_alloc = Q.prove(`
+Triviality word_get_code_labels_word_alloc:
   word_get_code_labels (word_alloc fc c alg k prog col_opt) =
-  word_get_code_labels prog`,
+  word_get_code_labels prog
+Proof
   fs[word_alloc_def,oracle_colour_ok_def]>>
   EVERY_CASE_TAC>>fs[]>>
   TRY(pairarg_tac)>>fs[]>>
   EVERY_CASE_TAC>>fs[]>>
-  metis_tac[word_get_code_labels_apply_colour])
+  metis_tac[word_get_code_labels_apply_colour]
+QED
 
-val word_good_handlers_word_alloc = Q.prove(`
+Triviality word_good_handlers_word_alloc:
   word_good_handlers n (word_alloc fc c alg k prog col_opt) ⇔
-  word_good_handlers n prog`,
+  word_good_handlers n prog
+Proof
   fs[word_alloc_def,oracle_colour_ok_def]>>
   EVERY_CASE_TAC>>fs[]>>
   TRY(pairarg_tac)>>fs[]>>
   EVERY_CASE_TAC>>fs[]>>
-  metis_tac[word_good_handlers_apply_colour]);
+  metis_tac[word_good_handlers_apply_colour]
+QED
 
 (* three to two *)
-val word_get_code_labels_three_to_two_reg = Q.prove(`
+Triviality word_get_code_labels_three_to_two_reg:
   ∀ps.
   word_get_code_labels (three_to_two_reg ps) =
-  word_get_code_labels ps`,
+  word_get_code_labels ps
+Proof
   ho_match_mp_tac three_to_two_reg_ind>>rw[]>>
   fs[three_to_two_reg_def]>>
-  every_case_tac>>fs[]);
+  every_case_tac>>fs[]
+QED
 
-val word_good_handlers_three_to_two_reg = Q.prove(`
+Triviality word_good_handlers_three_to_two_reg:
   ∀ps.
   word_good_handlers n (three_to_two_reg ps) ⇔
-  word_good_handlers n ps`,
+  word_good_handlers n ps
+Proof
   ho_match_mp_tac three_to_two_reg_ind>>rw[]>>
   fs[three_to_two_reg_def]>>
-  every_case_tac>>fs[]);
+  every_case_tac>>fs[]
+QED
 
 (* remove_dead *)
-val word_get_code_labels_remove_dead = Q.prove(`
+Triviality word_get_code_labels_remove_dead:
   ∀ps live.
   word_get_code_labels (FST (remove_dead ps live)) ⊆
-  word_get_code_labels ps`,
+  word_get_code_labels ps
+Proof
   ho_match_mp_tac remove_dead_ind>>rw[]>>
   fs[remove_dead_def]>>
   every_case_tac>>fs[]>>
   rpt(pairarg_tac>>fs[])>>rw[]>>
-  fs[SUBSET_DEF]);
+  fs[SUBSET_DEF]
+QED
 
-val word_good_handlers_remove_dead = Q.prove(`
+Triviality word_good_handlers_remove_dead:
   ∀ps live.
   word_good_handlers n ps ⇒
-  word_good_handlers n (FST (remove_dead ps live))`,
+  word_good_handlers n (FST (remove_dead ps live))
+Proof
   ho_match_mp_tac remove_dead_ind>>rw[]>>
   fs[remove_dead_def]>>
   every_case_tac>>fs[]>>
-  rpt(pairarg_tac>>fs[])>>rw[]);
+  rpt(pairarg_tac>>fs[])>>rw[]
+QED
 
 (* ssa *)
 
@@ -1948,10 +1986,11 @@ Proof
     \\ fs[])
 QED
 
-val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
+Triviality word_get_code_labels_full_ssa_cc_trans:
   ∀m p.
   word_get_code_labels (full_ssa_cc_trans m p) =
-  word_get_code_labels p`,
+  word_get_code_labels p
+Proof
   simp[full_ssa_cc_trans_def]
   \\ rpt gen_tac
   \\ pairarg_tac \\ fs[]
@@ -1960,7 +1999,8 @@ val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
   \\ old_drule word_get_code_labels_ssa_cc_trans
-  \\ rw[]);
+  \\ rw[]
+QED
 
 Theorem word_good_handlers_fake_moves:
    ∀a b c d e f g h i.
@@ -2022,10 +2062,11 @@ Proof
     \\ fs[])
 QED
 
-val word_good_handlers_full_ssa_cc_trans = Q.prove(`
+Triviality word_good_handlers_full_ssa_cc_trans:
   ∀m p.
   word_good_handlers n (full_ssa_cc_trans m p) ⇔
-  word_good_handlers n p`,
+  word_good_handlers n p
+Proof
   simp[full_ssa_cc_trans_def]
   \\ rpt gen_tac
   \\ pairarg_tac \\ fs[]
@@ -2034,73 +2075,90 @@ val word_good_handlers_full_ssa_cc_trans = Q.prove(`
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
   \\ old_drule word_good_handlers_ssa_cc_trans
-  \\ rw[]);
+  \\ rw[]
+QED
 
 (* inst *)
-val word_get_code_labels_inst_select_exp = Q.prove(`
+Triviality word_get_code_labels_inst_select_exp:
   ∀a b c exp.
-  word_get_code_labels (inst_select_exp a b c exp) = {}`,
+  word_get_code_labels (inst_select_exp a b c exp) = {}
+Proof
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>
   fs[inst_select_exp_def]>>
-  every_case_tac>>fs[inst_select_exp_def]);
+  every_case_tac>>fs[inst_select_exp_def]
+QED
 
-val word_get_code_labels_inst_select = Q.prove(`
+Triviality word_get_code_labels_inst_select:
   ∀ac v ps.
   word_get_code_labels (inst_select ac v ps) =
-  word_get_code_labels ps`,
+  word_get_code_labels ps
+Proof
   ho_match_mp_tac inst_select_ind>>rw[]>>
   fs[inst_select_def]>>
-  every_case_tac>>fs[word_get_code_labels_inst_select_exp]);
+  every_case_tac>>fs[word_get_code_labels_inst_select_exp]
+QED
 
-val word_good_handlers_inst_select_exp = Q.prove(`
+Triviality word_good_handlers_inst_select_exp:
   ∀a b c exp.
-  word_good_handlers n (inst_select_exp a b c exp)`,
+  word_good_handlers n (inst_select_exp a b c exp)
+Proof
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>
   fs[inst_select_exp_def]>>
-  every_case_tac>>fs[inst_select_exp_def]);
+  every_case_tac>>fs[inst_select_exp_def]
+QED
 
-val word_good_handlers_inst_select = Q.prove(`
+Triviality word_good_handlers_inst_select:
   ∀ac v ps.
   word_good_handlers n (inst_select ac v ps) ⇔
-  word_good_handlers n ps`,
+  word_good_handlers n ps
+Proof
   ho_match_mp_tac inst_select_ind>>rw[]>>
   fs[inst_select_def]>>
-  every_case_tac>>fs[word_good_handlers_inst_select_exp]);
+  every_case_tac>>fs[word_good_handlers_inst_select_exp]
+QED
 
 (* simp *)
-val word_get_code_labels_const_fp_loop = Q.prove(`
+Triviality word_get_code_labels_const_fp_loop:
   ∀p l.
-  word_get_code_labels (FST (const_fp_loop p l)) ⊆ word_get_code_labels p`,
+  word_get_code_labels (FST (const_fp_loop p l)) ⊆ word_get_code_labels p
+Proof
   ho_match_mp_tac const_fp_loop_ind \\ rw []
   \\ fs [const_fp_loop_def]
   \\ every_case_tac\\ fs[]
   \\ rpt (pairarg_tac \\ fs[])
-  \\ fs[SUBSET_DEF] \\ metis_tac[]);
+  \\ fs[SUBSET_DEF] \\ metis_tac[]
+QED
 
-val word_good_handlers_const_fp_loop = Q.prove(`
+Triviality word_good_handlers_const_fp_loop:
   ∀p l.
   word_good_handlers n p ⇒
-  word_good_handlers n (FST (const_fp_loop p l))`,
+  word_good_handlers n (FST (const_fp_loop p l))
+Proof
   ho_match_mp_tac const_fp_loop_ind \\ rw []
   \\ fs [const_fp_loop_def]
   \\ every_case_tac\\ fs[]
-  \\ rpt (pairarg_tac \\ fs[]));
+  \\ rpt (pairarg_tac \\ fs[])
+QED
 
-val word_get_code_labels_Seq_assoc = Q.prove(`
+Triviality word_get_code_labels_Seq_assoc:
   ∀p1 p2.
-  word_get_code_labels (Seq_assoc p1 p2) = word_get_code_labels p1 ∪ word_get_code_labels p2`,
+  word_get_code_labels (Seq_assoc p1 p2) = word_get_code_labels p1 ∪ word_get_code_labels p2
+Proof
   ho_match_mp_tac Seq_assoc_ind>>rw[]>>
   fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
   fs[UNION_ASSOC]>>
-  every_case_tac>>fs[]);
+  every_case_tac>>fs[]
+QED
 
-val word_good_handlers_Seq_assoc = Q.prove(`
+Triviality word_good_handlers_Seq_assoc:
   ∀p1 p2.
   word_good_handlers n (Seq_assoc p1 p2) ⇔
-  word_good_handlers n p1 ∧ word_good_handlers n p2`,
+  word_good_handlers n p1 ∧ word_good_handlers n p2
+Proof
   ho_match_mp_tac Seq_assoc_ind>>rw[]>>
   fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
-  every_case_tac>>fs[]>>metis_tac[]);
+  every_case_tac>>fs[]>>metis_tac[]
+QED
 
 Triviality word_good_handlers_try_if_hoist2:
   ! N p1 interm dummy p2 s.
@@ -2187,26 +2245,29 @@ Proof
   \\ metis_tac []
 QED
 
-val word_get_code_labels_word_simp = Q.prove(`
+Triviality word_get_code_labels_word_simp:
   ∀ps.
   word_get_code_labels (word_simp$compile_exp ps) ⊆
-  word_get_code_labels ps`,
+  word_get_code_labels ps
+Proof
   rw [compile_exp_def]>>
   irule SUBSET_TRANS >> irule_at Any word_get_code_labels_simp_duplicate_if >>
   simp [const_fp_def] >>
   irule SUBSET_TRANS >> irule_at Any word_get_code_labels_const_fp_loop >>
   simp [word_get_code_labels_Seq_assoc]
-);
+QED
 
-val word_good_handlers_word_simp = Q.prove(`
+Triviality word_good_handlers_word_simp:
   ∀ps.
   word_good_handlers n ps ⇒
-  word_good_handlers n (word_simp$compile_exp ps)`,
+  word_good_handlers n (word_simp$compile_exp ps)
+Proof
   rw[compile_exp_def]>>
   irule word_good_handlers_simp_duplicate_if >>
   simp [const_fp_def] >>
   match_mp_tac word_good_handlers_const_fp_loop>>
-  fs[word_good_handlers_Seq_assoc]);
+  fs[word_good_handlers_Seq_assoc]
+QED
 
 Theorem word_good_handlers_word_to_word_incr_helper:
   ∀oracles.
@@ -2314,15 +2375,19 @@ Proof
   rveq>>fs[]
 QED;
 
-val word_get_code_labels_StoreEach = Q.prove(`
+Triviality word_get_code_labels_StoreEach:
   ∀ls off.
-  word_get_code_labels (StoreEach v ls off) = {}`,
-  Induct>>fs[StoreEach_def]);
+  word_get_code_labels (StoreEach v ls off) = {}
+Proof
+  Induct>>fs[StoreEach_def]
+QED
 
-val word_get_code_labels_MemEqList = Q.prove(`
+Triviality word_get_code_labels_MemEqList:
   ∀x b.
-  word_get_code_labels (MemEqList b x) = {}`,
-  Induct>>fs[MemEqList_def]);
+  word_get_code_labels (MemEqList b x) = {}
+Proof
+  Induct>>fs[MemEqList_def]
+QED
 
 Triviality part_to_words_isWord:
   ∀h c m i w ws.
@@ -2447,15 +2512,19 @@ Proof
     EVAL_TAC>>rw[]>>fs[]
 QED
 
-val word_good_handlers_StoreEach = Q.prove(`
+Triviality word_good_handlers_StoreEach:
   ∀ls off.
-  word_good_handlers secn (StoreEach v ls off)`,
-  Induct>>fs[StoreEach_def]);
+  word_good_handlers secn (StoreEach v ls off)
+Proof
+  Induct>>fs[StoreEach_def]
+QED
 
-val word_good_handlers_MemEqList = Q.prove(`
+Triviality word_good_handlers_MemEqList:
   ∀x b.
-  word_good_handlers secn (MemEqList b x)`,
-  Induct>>fs[MemEqList_def]);
+  word_good_handlers secn (MemEqList b x)
+Proof
+  Induct>>fs[MemEqList_def]
+QED
 
 Theorem word_good_handlers_StoreAnyConsts[local]:
   ∀r1 r2 r3 ws w. word_good_handlers secn (StoreAnyConsts r1 r2 r3 ws w)
@@ -2478,9 +2547,10 @@ Proof
   rw[]>>EVAL_TAC)
 QED
 
-val data_to_word_comp_good_handlers = Q.prove(`
+Triviality data_to_word_comp_good_handlers:
   ∀c secn l p.
-  word_good_handlers secn ((FST (comp c secn l p)):'a wordLang$prog)`,
+  word_good_handlers secn ((FST (comp c secn l p)):'a wordLang$prog)
+Proof
   ho_match_mp_tac comp_ind>>
   rw[]>>Cases_on`p`>>fs[]>>
   simp[Once comp_def]>>
@@ -2493,14 +2563,17 @@ val data_to_word_comp_good_handlers = Q.prove(`
   >-
     fs[word_good_handlers_assign]
   >>
-    EVAL_TAC>>rw[]>>fs[]);
+    EVAL_TAC>>rw[]>>fs[]
+QED
 
-val stubs_labels = Q.prove(`
+Triviality stubs_labels:
   BIGUNION (set (MAP (λ(n,m,pp). word_get_code_labels pp)  (stubs (:'a) dc)))
-  ⊆ set (MAP FST (stubs (:'a) dc))`,
+  ⊆ set (MAP FST (stubs (:'a) dc))
+Proof
   rpt(EVAL_TAC>>
   IF_CASES_TAC>>
-  simp[]));
+  simp[])
+QED
 
 Theorem data_to_word_good_code_labels:
   (data_to_word$compile data_conf word_conf asm_conf prog) = (xx,prog') ∧

@@ -124,19 +124,23 @@ val tac =
     call_env_def,flush_state_def,set_var_def,get_var_def,dec_clock_def,jump_exc_def,set_vars_def,mem_store_def, stack_size_def,unset_var_def]>>
     every_case_tac>>fs[state_component_equality]
 
-val rm_perm = Q.prove(`
-  s with permute:= s.permute = s`,full_simp_tac(srw_ss())[state_component_equality])
+Triviality rm_perm:
+  s with permute:= s.permute = s
+Proof
+  full_simp_tac(srw_ss())[state_component_equality]
+QED
 
 val size_tac= (full_simp_tac(srw_ss())[wordLangTheory.prog_size_def]>>DECIDE_TAC);
 
-val find_code_thm = Q.prove(`
+Triviality find_code_thm:
   (!n v. lookup n st.code = SOME v ==>
          ∃t k a c col.
          lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ∧
   find_code o1 (add_ret_loc o' x) st.code st.stack_size = SOME (args,prog, locsize) ⇒
   ∃t k a c col n prog'.
   SND(compile_single t k a c ((n,LENGTH args,prog),col)) = (LENGTH args,prog') ∧
-  find_code o1 (add_ret_loc o' x) l st.stack_size = SOME(args,prog', locsize)`,
+  find_code o1 (add_ret_loc o' x) l st.stack_size = SOME(args,prog', locsize)
+Proof
   Cases_on`o1`>>simp[find_code_def]>>srw_tac[][]
   >-
     (ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
@@ -149,11 +153,14 @@ val find_code_thm = Q.prove(`
   >>
     Cases_on`lookup x' st.code`>>full_simp_tac(srw_ss())[]>>res_tac>>
     Cases_on`x''`>>full_simp_tac(srw_ss())[compile_single_def,LET_THM]>>
-    metis_tac[]);
+    metis_tac[]
+QED
 
-val pop_env_termdep = Q.prove(`
-  pop_env rst = SOME x ⇒ x.termdep = rst.termdep`,
-  full_simp_tac(srw_ss())[pop_env_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality])
+Triviality pop_env_termdep:
+  pop_env rst = SOME x ⇒ x.termdep = rst.termdep
+Proof
+  full_simp_tac(srw_ss())[pop_env_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality]
+QED
 
 (* The t k a c parameters don't need to be existentially quantified *)
 Definition code_rel_def:
@@ -163,18 +170,21 @@ Definition code_rel_def:
          lookup n ttc = SOME (SND (compile_single t k a c ((n,v),col))))
 End
 
-val compile_single_eta = Q.prove(`
+Triviality compile_single_eta:
   compile_single t k a c ((p,x),y) =
-  (p,SND (compile_single t k a c ((p,x),y)))`,
-  Cases_on`x`>>fs[compile_single_def]);
+  (p,SND (compile_single t k a c ((p,x),y)))
+Proof
+  Cases_on`x`>>fs[compile_single_def]
+QED
 
 
-val code_rel_union_fromAList = Q.prove(`
+Triviality code_rel_union_fromAList:
   ∀s l ls.
   code_rel s l ∧
   domain s = domain l
   ⇒
-  code_rel (union s (fromAList ls)) (union l (fromAList (MAP (λp. compile_single t k a c (p,NONE)) ls)))`,
+  code_rel (union s (fromAList ls)) (union l (fromAList (MAP (λp. compile_single t k a c (p,NONE)) ls)))
+Proof
   rw[code_rel_def]>>
   fs[lookup_union,case_eq_thms]
   >-
@@ -187,7 +197,8 @@ val code_rel_union_fromAList = Q.prove(`
     metis_tac[])
   >>
     first_x_assum drule>>rw[]>>
-    simp[]>>metis_tac[]);
+    simp[]>>metis_tac[]
+QED
 
 Theorem compile_single_correct[local]:
   ∀prog (st:('a,'c,'ffi) wordSem$state) l coracle cc.

@@ -46,6 +46,9 @@ val ILLEGAL_STRINGS =
    ("type_abbrev(\"", "The Type syntax is to be used instead of type_abbrev."),
    ("overload_on(\"", "Use Overload ... = ``...`` instead of overload_on."),
    ("Hol_datatype"^"`", "Use Datatype: ... End syntax instead of Hol_datatype."),
+   ("Datatype"^"`", "Use Datatype: ... End syntax instead of Datatype with `"),
+   (* \226\128\152 corresponds to ‘ *)
+   ("Datatype"^"\226\128\152", "Use Datatype: ... End syntax instead of Datatype\226\128\152."),
    ("Hol_rel"^"n`","Use Inductive ... End instead of old Hol_reln."),
    ("Hol_rel"^"n\"","Use Inductive ... End instead of old Hol_reln."),
    ("Hol_corel"^"n`","Use CoInductive ... End instead of old Hol_coreln.")]

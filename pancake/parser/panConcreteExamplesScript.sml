@@ -440,6 +440,7 @@ val entry_fun_parse =  check_success $ parse_pancake entry_fun;
 val annot_fun =
   `
   /* this is a function with an annot-comment in it */
+  /*@ and also an annot-comment before it @*/
   fun f () {
     var x = 1;
     var y = 2;
@@ -450,6 +451,7 @@ val annot_fun =
   `
 
 val annot_fun_parse = check_success $ parse_pancake annot_fun;
+val annot_fun_tree = check_success $ parse_tree_pancake annot_fun;
 val annot_fun_lex = lex_pancake annot_fun;
 val annots = annot_fun_lex |> concl |> rhs |> listSyntax.dest_list |> fst
   |> filter (can (find_term (can (match_term ``AnnotCommentT``))))

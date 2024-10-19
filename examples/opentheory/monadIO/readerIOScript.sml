@@ -17,12 +17,13 @@ Overload failwith[local] = ``raise_Fail``
 val _ = temp_add_monadsyntax()
 
 (* Necessary to compose different monads *)
-val _ = Datatype `
+Datatype:
   state_refs =
     <| holrefs : hol_refs      (* HOL kernel state *)
      ; stdio   : IO_fs         (* STDIO            *)
      ; cl      : mlstring list (* Commandline args *)
-     |>`
+     |>
+End
 
 (* TODO derive automatically *)
 Overload stdio = ``liftM state_refs_stdio stdio_fupd``

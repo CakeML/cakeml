@@ -347,17 +347,18 @@ Proof
 QED
 
 (* compile labels *)
-val _ = Datatype`
+Datatype:
   shmem_rec = <| entry_pc: 'a word
                ; nbytes: word8
                ; access_addr: 'a addr
                ; reg: num
                ; exit_pc: 'a word
-               |>`;
+               |>
+End
 
 Type shmem_info = ``:'a shmem_rec list``;
 
-val _ = Datatype`
+Datatype:
   config = <| labels : num num_map num_map
             ; sec_pos_len : (num # num # num) list
             ; pos : num
@@ -369,7 +370,8 @@ val _ = Datatype`
             * to be load/store and the end pc)s for each share memory access *)
             ; shmem_extra: 'a shmem_info
             ; hash_size : num
-            |>`;
+            |>
+End
 
 Definition list_add_if_fresh_def:
   (list_add_if_fresh e [] = [e]) /\

@@ -38,13 +38,14 @@ val _ = set_grammar_ancestry ["closLang" (* for op *)]
 
 (* --- Syntax of BVI --- *)
 
-val _ = Datatype `
+Datatype:
   exp = Var num
       | If exp exp exp
       | Let (exp list) exp
       | Raise exp
       | Tick exp
       | Call num (num option) (exp list) (exp option)
-      | Op op (exp list) `
+      | Op op (exp list)
+End
 
 val _ = export_theory();

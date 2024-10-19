@@ -12,13 +12,14 @@ val _ = set_grammar_ancestry
    "wordSem" (* for word_loc *)
   ];
 
-val _ = Datatype `
+Datatype:
   result = Result ('w word_loc)
          | Exception ('w word_loc)
          | Halt ('w word_loc)
          | TimeOut
          | FinalFFI final_event
-         | Error `
+         | Error
+End
 
 Definition bit_length_def:
   bit_length w = if w = 0w then (0:num) else bit_length (w >>> 1) + 1
@@ -81,7 +82,7 @@ Definition read_bitmap_def:
        SOME (GENLIST (\i. w ' i) (bit_length w - 1)))
 End
 
-val _ = Datatype `
+Datatype:
   state =
     <| regs    : num |-> 'a word_loc
      ; fp_regs : num |-> word64
@@ -104,7 +105,8 @@ val _ = Datatype `
      ; code    : ('a stackLang$prog) num_map
      ; ffi     : 'ffi ffi_state
      ; ffi_save_regs : num set
-     ; be      : bool (* is big-endian *) |> `
+     ; be      : bool (* is big-endian *) |>
+End
 
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_loc) (s:('a,'c,'ffi) stackSem$state) =
@@ -124,7 +126,7 @@ Definition dec_clock_def:
   dec_clock (s:('a,'c,'ffi) stackSem$state) = s with clock := s.clock - 1
 End
 
-val word_exp_def = tDefine "word_exp" `
+Definition word_exp_def:
   (word_exp s (Const w) = SOME w) /\
   (word_exp s (Var v) =
      case FLOOKUP s.regs v of
@@ -146,11 +148,13 @@ val word_exp_def = tDefine "word_exp" `
   (word_exp s (Shift sh wexp n) =
      case word_exp s wexp of
      | NONE => NONE
-     | SOME w => word_sh sh w n)`
-  (WF_REL_TAC `measure (exp_size ARB o SND)`
+     | SOME w => word_sh sh w n)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC);
+   \\ DECIDE_TAC
+End
 
 Definition get_var_def:
   get_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.regs v
@@ -283,7 +287,7 @@ Definition full_read_bitmap_def:
   (full_read_bitmap bitmaps _ = NONE)
 End
 
-val enc_stack_def = tDefine "enc_stack" `
+Definition enc_stack_def:
   (enc_stack bitmaps [] = NONE) /\
   (enc_stack bitmaps (w::ws) =
      if w = Word 0w then (if ws = [] then SOME [] else NONE) else
@@ -295,12 +299,14 @@ val enc_stack_def = tDefine "enc_stack" `
           | SOME (ts,ws') =>
               case enc_stack bitmaps ws' of
               | NONE => NONE
-              | SOME rs => SOME (ts ++ rs))`
- (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
+              | SOME rs => SOME (ts ++ rs))
+Termination
+  WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC filter_bitmap_LENGTH
-  \\ fs [] \\ decide_tac)
+  \\ fs [] \\ decide_tac
+End
 
-val dec_stack_def = tDefine "dec_stack" `
+Definition dec_stack_def:
   (dec_stack bitmaps _ [] = NONE) ∧
   (dec_stack bitmaps ts (w::ws) =
     if w = Word 0w then (if ts = [] ∧ ws = [] then SOME [Word 0w] else NONE) else
@@ -312,11 +318,13 @@ val dec_stack_def = tDefine "dec_stack" `
         | SOME (hd,ts',ws') =>
            case dec_stack bitmaps ts' ws' of
            | NONE => NONE
-           | SOME rest => SOME ([w] ++ hd ++ rest))`
-  (WF_REL_TAC `measure (LENGTH o SND o SND)` \\ rw []
+           | SOME rest => SOME ([w] ++ hd ++ rest))
+Termination
+  WF_REL_TAC `measure (LENGTH o SND o SND)` \\ rw []
    \\ IMP_RES_TAC map_bitmap_LENGTH
    \\ fs [LENGTH_NIL] \\ rw []
-   \\ fs [map_bitmap_def] \\ rw [] \\ decide_tac)
+   \\ fs [map_bitmap_def] \\ rw [] \\ decide_tac
+End
 
 Definition gc_def:
   gc s =
@@ -605,9 +613,11 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-val fix_clock_IMP = Q.prove(
-  `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
+Triviality fix_clock_IMP:
+  fix_clock s x = (res,s1) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
 Definition STOP_def:
   STOP x = x

@@ -10,25 +10,29 @@ val _ = new_theory "envRel";
 
 (* ---------- Converting infer types and envs to type system ones ---------- *)
 
-val convert_t_def = tDefine "convert_t" `
+Definition convert_t_def:
 (convert_t (Infer_Tvar_db n) = Tvar_db n) ∧
-(convert_t (Infer_Tapp ts tc) = Tapp (MAP convert_t ts) tc)`
-(WF_REL_TAC `measure infer_t_size` >>
+(convert_t (Infer_Tapp ts tc) = Tapp (MAP convert_t ts) tc)
+Termination
+  WF_REL_TAC `measure infer_t_size` >>
  rw [] >>
  induct_on `ts` >>
  rw [infer_tTheory.infer_t_size_def] >>
  res_tac >>
- decide_tac);
+ decide_tac
+End
 
 Definition convert_env_def:
 convert_env s env = MAP (\(x,t). (x, convert_t (t_walkstar s t))) env
 End
 
-(* val convert_decls_def = Define `
-convert_decls idecls =
+(*
+Definition convert_decls_def:
+  convert_decls idecls =
   <| defined_mods := set idecls.inf_defined_mods;
      defined_types :=  set idecls.inf_defined_types;
-     defined_exns := set idecls.inf_defined_exns|>`;
+     defined_exns := set idecls.inf_defined_exns|>
+End
 
 Theorem convert_append_decls:
  !decls1 decls2. convert_decls (append_decls decls1 decls2) = union_decls (convert_decls decls1) (convert_decls decls2)

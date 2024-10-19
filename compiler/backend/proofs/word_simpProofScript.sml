@@ -41,9 +41,11 @@ Proof
   \\ metis_tac [ALL_DISTINCT_PERM,MEM_PERM]
 QED
 
-val labels_rel_TRANS = Q.prove(
-  `labels_rel xs ys /\ labels_rel ys zs ==> labels_rel xs zs`,
-  fs [labels_rel_def] \\ rw [] \\ fs [SUBSET_DEF]);
+Triviality labels_rel_TRANS:
+  labels_rel xs ys /\ labels_rel ys zs ==> labels_rel xs zs
+Proof
+  fs [labels_rel_def] \\ rw [] \\ fs [SUBSET_DEF]
+QED
 
 (** verification of Seq_assoc **)
 
@@ -1499,20 +1501,24 @@ Proof
   simp [extract_labels_Seq_assoc]
 QED
 
-val dest_Seq_no_inst = Q.prove(`
+Triviality dest_Seq_no_inst:
   ∀prog.
   every_inst (inst_ok_less ac) prog ⇒
   every_inst (inst_ok_less ac) (FST (dest_Seq prog)) ∧
-  every_inst (inst_ok_less ac) (SND (dest_Seq prog))`,
-  ho_match_mp_tac dest_Seq_ind>>rw[dest_Seq_def]>>fs[every_inst_def])
+  every_inst (inst_ok_less ac) (SND (dest_Seq prog))
+Proof
+  ho_match_mp_tac dest_Seq_ind>>rw[dest_Seq_def]>>fs[every_inst_def]
+QED
 
-val Seq_assoc_no_inst = Q.prove(`
+Triviality Seq_assoc_no_inst:
   ∀p1 p2.
   every_inst (inst_ok_less ac) p1 ∧ every_inst (inst_ok_less ac) p2 ⇒
-  every_inst (inst_ok_less ac) (Seq_assoc p1 p2)`,
+  every_inst (inst_ok_less ac) (Seq_assoc p1 p2)
+Proof
   ho_match_mp_tac Seq_assoc_ind>>fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
   fs[every_inst_def]>>
-  every_case_tac>>fs[])
+  every_case_tac>>fs[]
+QED
 
 Triviality try_if_hoist2_no_inst:
   ! N p1 interm dummy p2 s.

@@ -96,13 +96,14 @@ Proof
   \\ metis_tac[]
 QED
 
-val call_FFI_rel_IMP = Q.prove(`
+Triviality call_FFI_rel_IMP:
   ∀st st'.
   call_FFI_rel^* st st' ==>
   st.oracle = bot_ffi_oracle ⇒
   ∃ls.
     st'.io_events = st.io_events ++ ls ∧
-    extract_mach st.ffi_state ls = SOME st'.ffi_state`,
+    extract_mach st.ffi_state ls = SOME st'.ffi_state
+Proof
   HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs [extract_mach_def]
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
@@ -110,7 +111,8 @@ val call_FFI_rel_IMP = Q.prove(`
   \\ fs[extract_mach_def,bot_ffi_oracle_def]
   \\ qpat_x_assum`_ = Oracle_return f l` mp_tac
   \\ fs[MAP_ZIP]
-  \\ rpt(IF_CASES_TAC \\fs[] >- ntac 2 (TOP_CASE_TAC\\simp[])));
+  \\ rpt(IF_CASES_TAC \\fs[] >- ntac 2 (TOP_CASE_TAC\\simp[]))
+QED
 
 val main_call = ``(Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short fname); Con NONE []]))``
 

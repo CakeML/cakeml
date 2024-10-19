@@ -9,7 +9,9 @@ val _ = new_theory "stackProg";
 
 val _ = translation_extends"basisProg";
 
-val _ = Datatype `exn_type = EmptyStack`;
+Datatype:
+  exn_type = EmptyStack
+End
 val _ = register_exn_type ``:exn_type``;
 
 val stack_decls = process_topdecs

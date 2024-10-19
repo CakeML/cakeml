@@ -26,7 +26,7 @@ val _ = set_grammar_ancestry [
    "closLang", (* for op *) "backend_common" (* for tags *)
 ]
 
-val _ = Datatype `
+Datatype:
   exp = Var num
       | If exp exp exp
       | Let (exp list) exp
@@ -34,7 +34,8 @@ val _ = Datatype `
       | Handle exp exp
       | Tick exp
       | Call num (num option) (exp list)
-      | Op closLang$op (exp list) `
+      | Op closLang$op (exp list)
+End
 
 Definition Bool_def:
   Bool b = Op (Cons (bool_to_tag b)) []
