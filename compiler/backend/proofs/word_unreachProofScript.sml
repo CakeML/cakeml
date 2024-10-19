@@ -148,10 +148,10 @@ Proof
 QED
 
 Theorem merge_moves_Skip:
-  ∀n l1 l2 s res s1.
-    evaluate (Seq (Move n l1) (Move n l2),s) = (res,s1) ∧
+  ∀l1 l2 s res s1.
+    evaluate (Seq (Move n1 l1) (Move n2 l2),s) = (res,s1) ∧
     res ≠ SOME Error ⇒
-    evaluate (Move n (merge_moves l1 l2),s) = (res,s1)
+    evaluate (Move m (merge_moves l1 l2),s) = (res,s1)
 Proof
   simp [Once evaluate_def,evaluate_Move] \\ rpt gen_tac
   \\ rpt gen_tac
@@ -199,17 +199,17 @@ Proof
 QED
 
 Theorem merge_moves_thm:
-  ∀p n l1 l2 s res s1.
-    evaluate (Seq (Move n l1) (Seq (Move n l2) p),s) = (res,s1) ∧
+  ∀p l1 l2 s res s1.
+    evaluate (Seq (Move n1 l1) (Seq (Move n2 l2) p),s) = (res,s1) ∧
     res ≠ SOME Error ⇒
-    evaluate (Seq (Move n (merge_moves l1 l2)) p,s) = (res,s1)
+    evaluate (Seq (Move m (merge_moves l1 l2)) p,s) = (res,s1)
 Proof
   rewrite_tac [evaluate_Seq_assoc]
   \\ once_rewrite_tac [evaluate_def]
   \\ gvs [] \\ rpt gen_tac
   \\ rpt (pairarg_tac \\ gvs [])
   \\ rpt strip_tac
-  \\ rename [‘evaluate (Seq (Move n l1) (Move n l2),s) = (res2,s2)’]
+  \\ rename [‘evaluate (Seq (Move n1 l1) (Move n2 l2),s) = (res2,s2)’]
   \\ Cases_on ‘res2 = SOME Error’ \\ gvs []
   \\ drule_all merge_moves_Skip
   \\ strip_tac \\ gvs []
@@ -224,11 +224,15 @@ Proof
   \\ gvs [AllCaseEqs(),evaluate_Seq_Skip]
   \\ rw [evaluate_Seq_Skip]
   \\ Cases_on ‘p1’ \\ gvs [evaluate_Skip_Seq]
-  >~ [‘dest_Seq_Move’] >-
-   (Cases_on ‘dest_Seq_Move p2’ \\ gvs []
+  >~ [‘dest_Seq_Move’] >- (
+    Cases_on ‘dest_Seq_Move p2’ \\ gvs []
     \\ PairCases_on ‘x’ \\ gvs []
     \\ gvs [oneline dest_Seq_Move_def,AllCaseEqs()] \\ rw []
-    >- (drule_all merge_moves_Skip \\ gvs [])
+    >- (
+      drule_all merge_moves_Skip \\ gvs [])
+    >- (
+      gvs [evaluate_Seq_assoc,evaluate_Seq_Skip,merge_moves_Skip]
+      \\ drule_all merge_moves_Skip \\ gvs [])
     \\ gvs [evaluate_Seq_assoc,evaluate_Seq_Skip,merge_moves_Skip]
     \\ gvs [GSYM evaluate_Seq_assoc]
     \\ drule_all merge_moves_thm \\ gvs [])
