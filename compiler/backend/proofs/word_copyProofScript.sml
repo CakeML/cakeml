@@ -20,9 +20,18 @@ Definition CPstate_inv_def:
      lookup v cs.to_eq = SOME c)
   )
 End
-(* As a corollary, different classes have different representatives:
-   (∀c c'. c < c' ⇒ c' < cs.next ⇒ lookup c cs.from_eq ≠ lookup c' cs.from_eq))
-*)
+
+(* As a corollary, different classes have different representatives *)
+(* unused *)
+Triviality unique_rep:
+  CPstate_inv cs ⇒
+  c ∈ domain cs.from_eq ∧
+  c'∈ domain cs.from_eq ∧
+  c ≠ c' ⇒
+  lookup c cs.from_eq ≠ lookup c' cs.from_eq
+Proof
+  rw[CPstate_inv_def]>>metis_tac[domain_lookup,SOME_11]
+QED
 
 Theorem empty_eq_inv:
   CPstate_inv empty_eq
@@ -52,7 +61,38 @@ Theorem set_eq_inv:
   lookup t cs.to_eq = NONE ⇒
   CPstate_inv (set_eq cs t s)
 Proof
-  rw[]>>
+  rw[set_eq_def]>>TOP_CASE_TAC
+  >-(
+    every_case_tac>>fs[CPstate_inv_def]
+    >>(
+      conj_tac
+      >-(
+        rw[lookup_insert]
+        >>qpat_x_assum‘∀v c. lookup v cs.to_eq = SOME c ⇒ c < cs.next’drule>>decide_tac
+      )
+      >>conj_tac
+      >-(
+        rw[]>-decide_tac
+        >-(qpat_x_assum‘∀c. c ∈ domain cs.from_eq ⇒ c < cs.next’drule>>decide_tac)
+      )
+      >-(rw[lookup_insert]>>metis_tac[NOT_NONE_SOME,SOME_11])
+    )
+  )
+  >-(
+    every_case_tac>>fs[CPstate_inv_def](*1*)
+    >>conj_tac
+    >-(
+      rw[lookup_insert]
+      >>qpat_x_assum‘∀v c. lookup v cs.to_eq = SOME c ⇒ c < cs.next’drule>>decide_tac
+    )
+    >>conj_tac
+    >-(rw[]>>metis_tac[])
+    >-(rw[lookup_insert]>>metis_tac[NOT_NONE_SOME])
+  )
+QED
+(*
+fs[]
+  )
   ‘∀c. lookup c cs.from_eq ≠ SOME t’ by (
     fs[CPstate_inv_def]>>
     metis_tac[NOT_NONE_SOME])>>
@@ -87,37 +127,6 @@ Proof
     fs[CPstate_inv_def]>>
     rw[lookup_insert]>>
     metis_tac[])
-QED
-
-(*
-Theorem set_eq_inv:
-  ∀cs t s.
-    CPstate_inv cs ∧
-    lookup t cs.to_eq = NONE ⇒
-    CPstate_inv (set_eq cs t s)
-Proof
-  rpt strip_tac>>
-  ‘∀c. c<cs.next ⇒ lookup c cs.from_eq ≠ SOME t’ by (
-    fs[CPstate_inv_def]>>
-    metis_tac[NOT_NONE_SOME])>>
-  rw[set_eq_def]>>
-  namedCases_on‘lookup s cs.to_eq’["","c_s"]>>
-  fs[]
-  >~[`lookup s cs.to_eq = NONE`]
-  >- (
-    fs[CPstate_inv_def]>>
-    rw[lookup_insert]
-    >- (
-      first_x_assum drule>>
-      simp[])>>
-    ‘c<cs.next’ by decide_tac>>
-    metis_tac[NOT_NONE_SOME])
-  >~[`lookup s cs.to_eq = SOME c_s`]
-  >- (
-    fs[CPstate_inv_def]>>
-    rw[lookup_insert]>>
-    metis_tac[])
-QED
 *)
 
 val ACE = AllCaseEqs();
@@ -142,37 +151,6 @@ Proof
   metis_tac[CPstate_inv_def]
 QED
 
-(* XXX: get rid of this *)
-Theorem same_classD_old:
-  CPstate_inv cs ∧
-  lookup_eq cs x = lookup_eq cs y ⇒
-  x = y ∨
-  (∃c.
-    lookup x cs.to_eq = SOME c ∧
-    lookup y cs.to_eq = SOME c)
-Proof
-  rw[lookup_eq_def,ACE]
-  >- (
-    fs[CPstate_inv_def]>>
-    metis_tac[NOT_NONE_SOME])
-  >- (
-    fs[CPstate_inv_def]>>
-    first_x_assum drule>>
-    rw[])>>
-  Cases_on`lookup y cs.to_eq`>>gvs[]
-  >- (
-    fs[CPstate_inv_def]>>
-    metis_tac[NOT_NONE_SOME])>>
-  rename1`lookup y _ = SOME cy`>>
-  Cases_on`lookup cy cs.from_eq`>>gvs[]
-  >- (
-    fs[CPstate_inv_def]>>
-    first_x_assum drule>>
-    rw[])>>
-  fs[CPstate_inv_def]>>
-  metis_tac[SOME_11]
-QED
-
 Theorem same_classD:
   CPstate_inv cs ∧
   lookup_eq cs x = lookup_eq cs y ⇒
@@ -182,15 +160,10 @@ Theorem same_classD:
     lookup y cs.to_eq = SOME c ∧
     lookup c cs.from_eq = SOME rep)
 Proof
-  rw[]>>
-  Cases_on‘x=y’>-(DISJ1_TAC>>pop_assum ACCEPT_TAC)>>
-  DISJ2_TAC>>
-  CONJ_TAC>-pop_assum ACCEPT_TAC>>
-  drule_all same_classD_old>>
-  rw[]>>
-  qexists_tac‘c’>>
-  gvs[lookup_eq_def]>>
-  Cases_on‘lookup c cs.from_eq’>>gvs[]
+  Cases_on‘x=y’>-metis_tac[]
+  >>fs[lookup_eq_def]
+  >>every_case_tac>>gvs[CPstate_inv_def]
+  >>metis_tac[NOT_NONE_SOME,SOME_11]
 QED
 
 Theorem lookup_eqI:
@@ -242,20 +215,23 @@ Theorem lookup_eq_set_eq_is_alloc_var2:
   lookup_eq cs s ≠ lookup_eq cs v ⇒
   lookup_eq (set_eq cs t s) v = lookup_eq cs v
 Proof
-  rw[set_eq_def,CPstate_inv_def,both_alloc_vars_def]>>
-  ‘v≠s’by metis_tac[]>>
-  namedCases_on‘lookup s cs.to_eq’["","c_s"]>>simp[lookup_eq_def,set_eq_def,lookup_insert]
+  rw[set_eq_def,CPstate_inv_def,both_alloc_vars_def]
+  >>TOP_CASE_TAC
   >-(
-    namedCases_on‘lookup v cs.to_eq’["","c"]>>simp[]>>
-    ‘c<cs.next’by metis_tac[]>>simp[]
+    rw[lookup_eq_def,lookup_insert]
+    >>TOP_CASE_TAC
+    >>qpat_x_assum‘∀v c. lookup v cs.to_eq = SOME c ⇒ c < cs.next’drule
+    >>rw[]
   )
   >-(
-    namedCases_on‘lookup c_s cs.from_eq’["","s_rep"]>>namedCases_on‘lookup v cs.to_eq’["","c"]>>simp[lookup_insert]
-    >-(
-      Cases_on‘c=cs.next’>>simp[]
-      >-(‘c<cs.next’by metis_tac[]>>decide_tac)
-    )
-    >-(Cases_on‘c=c_s’>>simp[]>>gvs[lookup_eq_def])
+    every_case_tac>>gvs[]
+    (*>>rename[‘lookup s cs.to_eq = SOME c_s’]*)
+    >>rw[lookup_eq_def,lookup_insert]
+    >>TOP_CASE_TAC
+    (*>>rename[‘lookup v cs.to_eq = SOME c_v’]*)
+    >>every_case_tac>>gvs[]
+    (*>>rename[‘lookup c_s cs.from_eq = SOME s_rep’]*)
+    >>fs[lookup_eq_def]>>every_case_tac>>fs[]
   )
 QED
 
@@ -389,10 +365,7 @@ Theorem remove_eq_model_insert:
   CPstate_models cs st ⇒
   CPstate_models (remove_eq cs t) (st with locals := insert t val st.locals)
 Proof
-  rw[]
-  >>irule remove_eq_model_insert'
-  >>rw[]
-  >>metis_tac[]
+  rw[]>>irule remove_eq_model_insert'>>rw[]>>metis_tac[]
 QED
 
 Theorem remove_eq_model_set_var:
@@ -437,32 +410,16 @@ Theorem merge_eqs_model1:
   CPstate_models cs1 st ⇒
   CPstate_models (merge_eqs cs1 cs2) st
 Proof
-  rw[merge_eqs_def,CPstate_models_def,lookup_inter_eq]
-  >>full_case_tac>>fs[]
-  >>full_case_tac>>fs[]
+  gvs[merge_eqs_def,CPstate_models_def,lookup_inter_eq,ACE]
 QED
 
 Theorem merge_eqs_model2:
   CPstate_models cs2 st ⇒
   CPstate_models (merge_eqs cs1 cs2) st
 Proof
-  rw[merge_eqs_def,CPstate_models_def,lookup_inter_eq]
-  >>full_case_tac>>fs[]
-  >>full_case_tac>>fs[]
+  gvs[merge_eqs_def,CPstate_models_def,lookup_inter_eq,ACE]
 QED
 
-(*
-Theorem inter_eq_comm:
-  inter_eq m1 m2 = inter_eq m2 m1
-Proof
-  rw[inter_eq_def]
-
-Theorem merge_eqs_comm:
-  merge_eqs cs1 cs2 = merge_eqs cs2 cs1
-Proof
-  rw[merge_eqs_def]>>metis_tac[inter_eq_comm,MAX_COMM]
-QED
-*)
 Theorem lookup_eq_remove_eq_t:
   CPstate_inv cs ⇒
   lookup_eq (remove_eq cs t) x = t ⇒ x=t
@@ -521,15 +478,6 @@ Proof
     )
   )
 QED
-
-(*
-theorem copy_prop_prog_correct:
-  assumes cs: "CPstate_inv cs" "CPstate_models cs st"
-  shows
-    "exec_prog (fst (copy_prop_prog p cs)) st = exec_prog p st ∧
-     CPstate_inv (snd (copy_prop_prog p cs)) ∧
-     CPstate_models (snd (copy_prop_prog p cs)) (exec_prog p st)"
-*)
 
 Theorem lookup_eq_idempotent:
   CPstate_inv cs ⇒
@@ -801,21 +749,6 @@ Proof
   )
 QED
 
-(*
-Theorem copy_prop_move_correct_aux4:
-  CPstate_inv cs ⇒
-  CPstate_models cs st ⇒
-  set (MAP FST moves) ∩ set (MAP SND moves) = {} ⇒
-  copy_prop_move moves cs = (moves', cs') ⇒
-  FST (evaluate (Move pri moves, st)) = NONE ⇒
-  CPstate_inv cs' ∧ CPstate_models cs' (SND (evaluate (Move pri moves, st)))
-Proof
-  Cases_on‘get_vars (MAP SND moves) st’>>rw[evaluate_def]>>fs[]
-  >-metis_tac[copy_prop_move_inv]
-  >-metis_tac[copy_prop_move_model]
-QED
-*)
-
 Theorem EVERY_NOT_MEM_D:
   EVERY (λt. ¬MEM t ss) tt ⇒ set tt ∩ set ss = {}
 Proof
@@ -893,82 +826,63 @@ Proof
   rw[word_exp_def]
 QED
 
+fun word_exp_cong_tac (asl,c) =
+  let
+    val (t,_) = dest_eq c
+    val (r, d) = strip_comb t
+    val (rname, _) = dest_const r
+    val tac = case rname of
+      "get_var" =>
+      metis_tac[CPstate_modelsD_get_var]
+    | "get_vars" =>
+      irule MAP_get_var_eqD>>simp[]
+      >>metis_tac[CPstate_modelsD_get_var]
+    | "word_exp" =>
+      let
+        val (exp_rator, _) = strip_comb $ el 2 d
+        val (exp_rator_name, exp_rator_ty) = dest_const exp_rator
+        fun use_cong cong = irule cong>>rw[]
+      in
+        case exp_rator_name of
+          "Op" => use_cong word_exp_cong_Op
+        | "Shift" => use_cong word_exp_cong_Shift
+        | "Load" => use_cong word_exp_cong_Load
+        | "Var" => use_cong word_exp_cong_Var
+        | "reg_imm_CASE" =>
+          metis_tac[CPstate_modelsD_lookup_eq_imm]
+(*
+          let
+            val (xty,_) = dom_rng exp_rator_ty
+            val case_rand = ISPEC (mk_comb (r, el 1 d)) $ TypeBase.case_rand_of xty
+          in
+            rw[case_rand]
+          end
+*)
+      end
+    | _ =>
+      if TypeBase.is_case t then
+        (* use appropriate case_cong *)
+        let
+          val cong = TypeBase.case_cong_of (#1(dom_rng(type_of r)))
+        in
+          irule cong>>rw[]
+        end
+      else NO_TAC
+  in
+    tac (asl,c)
+  end;
+
 (* "inst" is constant wordSem$inst *)
 Theorem copy_prop_inst_eval:
+  ∀ins cs st prog' cs'.
   CPstate_inv cs ⇒
   CPstate_models cs st ⇒
   (prog', cs') = copy_prop_inst ins cs ⇒
   evaluate (prog', st) = evaluate (Inst ins, st)
 Proof
-  gvs[evaluate_def,inst_def]>>
-  Cases_on‘ins’>>rw[]
-  >-(
-    (* Skip *)
-    fs[evaluate_def,inst_def,copy_prop_inst_def]
-  )
-  >-(
-    (* Const *)
-    fs[evaluate_def,inst_def,copy_prop_inst_def]
-  )
-  >-(
-    (* Arith *)
-    Cases_on‘a’>>
-    fs[evaluate_def,inst_def,copy_prop_inst_def]>>
-    rw[assign_def]>>
-    rpt(irule option_case_cong>>simp[])
-    (* 7 subgoals *)
-    >- (
-      irule word_exp_cong_Op>>
-      simp[]>>
-      metis_tac[CPstate_modelsD_Var,CPstate_modelsD_lookup_eq_imm])
-    >- metis_tac[CPstate_modelsD_Var,word_exp_cong_Shift]
-    >> (* remaining ones *)
-      irule MAP_get_var_eqD>>
-      simp[]>>
-      metis_tac[CPstate_modelsD_get_var])
-  >-(
-    (* Mem *)
-    Cases_on‘a’>>Cases_on‘m’>>
-    fs[evaluate_def,inst_def,copy_prop_inst_def]
-    >-(
-      ‘word_exp st (Op Add [Var (lookup_eq cs n'); Const c]) =
-       word_exp st (Op Add [Var n'; Const c])’ suffices_by simp[]>>
-      irule word_exp_cong_Op>>
-      simp[]>>
-      metis_tac[CPstate_modelsD_Var]
-    )
-    >-(
-      ‘word_exp st (Op Add [Var (lookup_eq cs n'); Const c]) =
-       word_exp st (Op Add [Var n'; Const c])’ suffices_by simp[]>>
-      irule word_exp_cong_Op>>
-      simp[]>>
-      metis_tac[CPstate_modelsD_Var]
-    )
-    >-(
-      ‘get_var (lookup_eq cs n) st = get_var n st’
-        by metis_tac[CPstate_modelsD_get_var]>>
-      ‘word_exp st (Op Add [Var (lookup_eq cs n'); Const c]) =
-       word_exp st (Op Add [Var n'; Const c])’ suffices_by simp[]>>
-      irule word_exp_cong_Op>>
-      simp[]>>
-      metis_tac[CPstate_modelsD_Var]
-    )
-    >-(
-      ‘get_var (lookup_eq cs n) st = get_var n st’
-        by metis_tac[CPstate_modelsD_get_var]>>
-      ‘word_exp st (Op Add [Var (lookup_eq cs n'); Const c]) =
-       word_exp st (Op Add [Var n'; Const c])’ suffices_by simp[]>>
-      irule word_exp_cong_Op>>
-      simp[]>>
-      metis_tac[CPstate_modelsD_Var]
-    )
-  )
-  >-(
-    (* FP *)
-    Cases_on‘f’>>
-    fs[evaluate_def,inst_def,copy_prop_inst_def]>>
-    drule_all CPstate_modelsD_get_var>>rw[]
-  )
+  recInduct copy_prop_inst_ind
+  >>rw[evaluate_def,inst_def,copy_prop_inst_def,assign_def]
+  >>rpt word_exp_cong_tac
 QED
 
 Theorem remove_eq_comm:
@@ -991,30 +905,10 @@ Proof
   >- metis_tac[copy_prop_inst_inv]
   >- (
     (* CPstate_models *)
-    Cases_on‘ins’>>
-    fs[copy_prop_inst_def,evaluate_def,inst_def,assign_def]
-    >- (
-      (* Const *)
-      gvs[ACE]>>
-      metis_tac[remove_eq_model_set_var]
-    )
-    >-(
-      (* Arith *)
-      gvs[ACE,copy_prop_inst_def,remove_eqs_def]>>
-      metis_tac[remove_eq_inv,remove_eq_model_set_var]
-    )
-    >-(
-      (* Mem *)
-      every_case_tac>>
-      fs[copy_prop_inst_def,mem_store_def,mem_store_byte_aux_def]>>
-      metis_tac[remove_eq_model_set_var,memory_model]
-    )
-    >-(
-      (* FP *)
-      every_case_tac>>
-      fs[copy_prop_inst_def,remove_eqs_def]>>
-      metis_tac[remove_eq_inv,remove_eq_model_set_var,remove_eq_model,set_fp_var_model]
-    )
+    Cases_on‘ins’
+    >>gvs[copy_prop_inst_def,evaluate_def,inst_def,assign_def,mem_store_def,remove_eqs_def,ACE]
+    >>rpt(pairarg_tac>>fs[])
+    >>metis_tac[remove_eq_inv,remove_eq_model_set_var,remove_eq_model,memory_model,set_fp_var_model]
   )
 QED
 
@@ -1084,6 +978,8 @@ Proof
   rw[CPstate_models_def,sh_mem_store_byte_def,flush_state_def]>>gvs[ACE]
 QED
 
+fun then_assume tac th = tac >> assume_tac th;
+
 Theorem copy_prop_correct:
   ∀prog cs st prog' cs' err st'.
   CPstate_inv cs ⇒
@@ -1107,54 +1003,58 @@ Proof
   >-(
     rpt GEN_TAC
     >> rename[‘evaluate (Seq p1 p2, st) = (err,st')’]
-    >> simp[evaluate_def,copy_prop_prog_def]
-    >> rpt(pairarg_tac>>fs[])
-    >> Cases_on‘res’
-    >> simp[evaluate_def]
-    >> pairarg_tac>>fs[]
-    >> rpt DISCH_TAC
-    >-(
-      ‘evaluate (q1,st) = (NONE,s1) ∧ CPstate_inv cs'' ∧ CPstate_models cs'' s1’ by metis_tac[]
-      >>gvs[]
-      >>metis_tac[]
-    )
-    >-(
-      ‘evaluate (q1,st) = (SOME x,s1) ∧ CPstate_inv cs''’ by metis_tac[]
-      >>gvs[]
-      >>metis_tac[copy_prop_prog_inv]
-    )
+    >> pop_assum (fn IH2 => pop_assum (fn IH1 =>
+      simp[evaluate_def,copy_prop_prog_def]
+      >> rpt(pairarg_tac>>fs[])
+      >> Cases_on‘res’
+      >> simp[evaluate_def]
+      >> pairarg_tac>>fs[]
+      >> rpt DISCH_TAC
+      >-(
+        ‘evaluate (q1,st) = (NONE,s1) ∧ CPstate_inv cs'' ∧ CPstate_models cs'' s1’ by metis_tac[IH1]
+        >>gvs[]
+        >>metis_tac[IH1,IH2]
+      )
+      >-(
+        ‘evaluate (q1,st) = (SOME x,s1) ∧ CPstate_inv cs''’ by metis_tac[IH1]
+        >>gvs[]
+        >>metis_tac[copy_prop_prog_inv]
+      )
+    ))
   )
   >~[‘If’]
   >-(
     rpt GEN_TAC
     >>rename[‘evaluate (If c n r p1 p2, st) = (err,st')’]
-    >>Cases_on‘err’
-    >-(
-      simp[evaluate_def,copy_prop_prog_def]
-      >>rpt(pairarg_tac>>fs[])
-      >>every_case_tac(*2*)
-      >>(
-        rw[evaluate_def](*3*)
+    >>pop_assum(fn IH2=> pop_assum(fn IH1=>
+      Cases_on‘err’
+      >-(
+        simp[evaluate_def,copy_prop_prog_def]
+        >>rpt(pairarg_tac>>fs[])
+        >>every_case_tac(*2*)
+        >>(
+          rw[evaluate_def](*3*)
+          >>‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
+          >>‘get_var_imm (lookup_eq_imm cs r) st = get_var_imm r st’ by metis_tac[CPstate_modelsD_get_var_imm]
+          >>simp[]
+          >-metis_tac[IH1,IH2]
+          >-metis_tac[merge_eqs_inv,copy_prop_prog_inv]
+          >-metis_tac[merge_eqs_model1,merge_eqs_model2,IH1,IH2]
+        )
+      )
+      >-(
+        simp[evaluate_def,copy_prop_prog_def]
+        >>rpt(pairarg_tac>>fs[])
+        >>simp[evaluate_def]
+        >>rpt DISCH_TAC
         >>‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
         >>‘get_var_imm (lookup_eq_imm cs r) st = get_var_imm r st’ by metis_tac[CPstate_modelsD_get_var_imm]
-        >>simp[]
-        >-metis_tac[]
-        >-metis_tac[merge_eqs_inv,copy_prop_prog_inv]
-        >-metis_tac[merge_eqs_model1,merge_eqs_model2]
+        >>‘evaluate (q1,st) = evaluate (p1,st)’ by metis_tac[IH1,PAIR]
+        >>‘evaluate (q2,st) = evaluate (p2,st)’ by metis_tac[IH2,PAIR]
+        >>rw[]
+        >>metis_tac[merge_eqs_inv,copy_prop_prog_inv,PAIR]
       )
-    )
-    >-(
-      simp[evaluate_def,copy_prop_prog_def]
-      >>rpt(pairarg_tac>>fs[])
-      >>simp[evaluate_def]
-      >>rpt DISCH_TAC
-      >>‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
-      >>‘get_var_imm (lookup_eq_imm cs r) st = get_var_imm r st’ by metis_tac[CPstate_modelsD_get_var_imm]
-      >>‘evaluate (q1,st) = evaluate (p1,st)’ by metis_tac[PAIR]
-      >>‘evaluate (q2,st) = evaluate (p2,st)’ by metis_tac[PAIR]
-      >>rw[]
-      >>metis_tac[merge_eqs_inv,PAIR]
-    )
+    ))
   )
   >-(*Assign*)(rw[copy_prop_prog_def,evaluate_def]>>metis_tac[empty_eq_inv,empty_eq_model])
   >-(
