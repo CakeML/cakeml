@@ -1082,14 +1082,18 @@ Proof
     >>rw[evaluate_def]
     >-metis_tac[PAIR]
     >-(
-      ‘CPstate_models cs (st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>)’ by (qpat_x_assum‘CPstate_models cs st’mp_tac>>rw[state_component_equality,CPstate_models_def])
+      ‘CPstate_models cs (st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>)’ by (
+        qpat_x_assum‘CPstate_models cs st’mp_tac>>
+        rw[state_component_equality,CPstate_models_def])
       >>‘evaluate (p1', st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>) = (res,s1)’ by metis_tac[]
       >>rw[]
     )
     >-metis_tac[PAIR]
     >-(
       full_case_tac>>fs[]
-      >>‘CPstate_models cs (st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>)’ by (qpat_x_assum‘CPstate_models cs st’mp_tac>>rw[state_component_equality,CPstate_models_def])
+      >>‘CPstate_models cs (st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>)’ by (
+        qpat_x_assum‘CPstate_models cs st’mp_tac>>
+        rw[state_component_equality,CPstate_models_def])
       >>‘CPstate_models cs' s1’ by metis_tac[]
       >>pop_assum mp_tac>>rw[state_component_equality,CPstate_models_def]
     )
