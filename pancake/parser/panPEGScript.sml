@@ -133,17 +133,20 @@ Definition pancake_peg_def[nocompute]:
     tokEOF := "Failed to see expected token; saw EOF instead";
     notFAIL := "Not combinator failed";
     rules := FEMPTY |++ [
-        (INL FunListNT, seql [rpt (choicel [mknt FunNT; keep_annot]) FLAT]
-                          (mksubtree FunListNT));
+        (INL FunListNT, choicel [not (any $ K $ mksubtree FunListNT []) $ mksubtree FunListNT [];
+                                 seql [mknt FunNT; mknt FunListNT] (mksubtree FunListNT);
+                                 seql [keep_annot; mknt FunListNT] (mksubtree FunListNT)]);
         (INL FunNT, seql [try_default (keep_kw ExportK) StaticT;
                           consume_kw FunK;
                           keep_ident;
                           consume_tok LParT;
-                          try (mknt ParamListNT);
+                          choicel
+                          [mknt ParamListNT;
+                           empty $ mksubtree ParamListNT []
+                          ];
                           consume_tok RParT;
                           consume_tok LCurT;
-                          mknt ProgNT;
-                          consume_tok RCurT]
+                          mknt ProgNT]
                           (mksubtree FunNT));
         (INL ParamListNT, seql [mknt ShapeNT; keep_ident;
                                 rpt (seql [consume_tok CommaT;
@@ -151,12 +154,15 @@ Definition pancake_peg_def[nocompute]:
                                            keep_ident] I)
                                            FLAT]
                                (mksubtree ParamListNT));
-        (INL ProgNT, rpt (choicel [mknt BlockNT;
-                                   keep_annot;
-                                   seql [mknt StmtNT;
-                                         consume_tok SemiT] I])
-                         (mksubtree ProgNT o FLAT));
-        (INL BlockNT, choicel [mknt DecCallNT; mknt DecNT; mknt IfNT; mknt WhileNT]);
+        (INL ProgNT, choicel [seql [mknt BlockNT; mknt ProgNT] (mksubtree ProgNT);
+                              seql [mknt DecCallNT; mknt ProgNT] (mksubtree DecCallNT);
+                              seql [mknt DecNT; mknt ProgNT] (mksubtree DecNT);
+                              seql [keep_annot; mknt ProgNT] (mksubtree ProgNT);
+                              seql [mknt StmtNT; consume_tok SemiT; mknt ProgNT] (mksubtree ProgNT);
+                              consume_tok RCurT
+                             ]);
+        (INL BlockNT, choicel [mknt IfNT;
+                               mknt WhileNT]);
         (INL StmtNT, choicel [keep_kw SkipK;
                               mknt CallNT;
                               mknt AssignNT; mknt StoreNT;
@@ -171,17 +177,17 @@ Definition pancake_peg_def[nocompute]:
                               mknt ExtCallNT;
                               mknt RaiseNT; mknt RetCallNT; mknt ReturnNT;
                               keep_kw TicK;
-                              seql [consume_tok LCurT; mknt ProgNT; consume_tok RCurT] I
+                              seql [consume_tok LCurT; mknt ProgNT] I
                               ]);
         (INL DecCallNT, seql [consume_kw VarK; mknt ShapeNT; keep_ident; consume_tok AssignT;
                               choicel [seql [consume_tok StarT; mknt ExpNT] I;
                                        mknt FLabelNT];
                               consume_tok LParT; try (mknt ArgListNT);
-                              consume_tok RParT;consume_tok SemiT;mknt ProgNT]
+                              consume_tok RParT;consume_tok SemiT]
                           (mksubtree DecCallNT));
         (INL DecNT,seql [consume_kw VarK; keep_ident;
                          consume_tok AssignT; mknt ExpNT;
-                         consume_tok SemiT;mknt ProgNT]
+                         consume_tok SemiT]
                          (mksubtree DecNT));
         (INL AssignNT, seql [keep_ident; consume_tok AssignT;
                              mknt ExpNT] (mksubtree AssignNT));
@@ -192,13 +198,12 @@ Definition pancake_peg_def[nocompute]:
                                 consume_tok CommaT; mknt ExpNT]
                                (mksubtree StoreByteNT));
         (INL IfNT, seql [consume_kw IfK; mknt ExpNT; consume_tok LCurT;
-                         mknt ProgNT; consume_tok RCurT;
-                         try (seql [consume_kw ElseK; consume_tok LCurT;
-                                    mknt ProgNT; consume_tok RCurT] I)]
+                         mknt ProgNT;
+                         try (seql [keep_kw ElseK; consume_tok LCurT;
+                                    mknt ProgNT] I)]
                         (mksubtree IfNT));
         (INL WhileNT, seql [consume_kw WhileK; mknt ExpNT;
-                            consume_tok LCurT; mknt ProgNT;
-                            consume_tok RCurT] (mksubtree WhileNT));
+                            consume_tok LCurT; mknt ProgNT] (mksubtree WhileNT));
         (INL CallNT, seql [try (choicel [keep_kw RetK; mknt RetNT]);
                            choicel [seql [consume_tok StarT; mknt ExpNT] I;
                                     mknt FLabelNT];
@@ -210,7 +215,7 @@ Definition pancake_peg_def[nocompute]:
                           (mksubtree RetNT));
         (INL HandleNT, seql [consume_kw WithK; keep_ident;
                              consume_kw InK; keep_ident;
-                             consume_tok DArrowT; mknt ProgNT;
+                             consume_tok DArrowT; consume_tok LCurT; mknt ProgNT;
                              consume_kw HandleK]
                             (mksubtree HandleNT));
         (INL ExtCallNT, seql [keep_ffi_ident;
@@ -411,10 +416,7 @@ Definition parse_def:
   parse s =
     case peg_exec pancake_peg (mknt FunListNT) s [] NONE [] done failed of
     | Result (Success [] [e] _) => INL e
-    | Result (Success toks _ _) =>
-        (case peg_exec pancake_peg (mknt FunNT) toks [] NONE [] done failed of
-          | Result (Failure loc msg) => INR [(implode msg, loc)]
-          | _ => INR [])
+    | Result (Success toks _ _) => INR [(«Parser could not consume all tokens», unknown_loc)]
     | Result (Failure loc msg) => INR [(implode msg, loc)]
     | Looped => INR [(«PEG execution looped during parsing», unknown_loc)]
     | _ => INR [(«Unknown error during parsing», unknown_loc)]
@@ -711,18 +713,6 @@ Proof
        keep_ident_def, keep_annot_def, keep_ffi_ident_def, try_def,
        try_default_def] >>
   simp(pancake_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
-QED
-
-Theorem PEG_FunNT_wellformed:
-  wfG (pancake_peg with start := mknt FunNT)
-Proof
-  simp[wfG_def, Gexprs_def, subexprs_def,
-       subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
-       choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
-       keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
-       keep_ident_def, keep_annot_def, keep_ffi_ident_def, try_def,
-       try_default_def] >>
-  simp(pancake_wfpeg_thm2 :: wfpeg_rwts' @ peg1_rwts @ npeg1_rwts)
 QED
 
 val _ = export_theory();

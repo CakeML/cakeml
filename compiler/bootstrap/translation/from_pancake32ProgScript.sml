@@ -706,6 +706,10 @@ val res = translate $ spec32 $ add_locs_annot_def;
 
 val res = translate butlast_def;
 
+val res = translate $ spec32 $ conv_Dec_def;
+
+val res = translate $ spec32 $ conv_DecCall_def;
+
 val res = preprocess $ spec32 conv_Prog_def |> translate_no_ind;
 
 Theorem conv_Prog_ind:
