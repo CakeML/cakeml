@@ -83,7 +83,7 @@ Proof
   Cases_on`ps`>>simp[Pmatch_def]
 QED
 
-val pmatch_imp_Pmatch = Q.prove(
+Theorem pmatch_imp_Pmatch = Q.prove(
   `(∀envC s p v env aenv.
       envC = aenv.c ⇒
       case pmatch envC s p v env of
@@ -137,7 +137,6 @@ val pmatch_imp_Pmatch = Q.prove(
     BasicProvers.CASE_TAC >> simp[Once Pmatch_cons] >>
     rw[] \\ rw[]))
   |> SIMP_RULE std_ss []
-  |> curry save_thm "pmatch_imp_Pmatch"
 
 Theorem Pmatch_SOME_const:
    ∀env refs ps vs env'.

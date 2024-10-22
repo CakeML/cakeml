@@ -2632,10 +2632,9 @@ Proof
   fs []
 QED
 
-val w2n_lt_256 =
+Theorem w2n_lt_256 =
   w2n_lt |> INST_TYPE [``:'a``|->``:8``]
          |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
-         |> curry save_thm "w2n_lt_256"
 
 Theorem CHR_w2n_n2w_ORD:
    (CHR o w2n o (n2w:num->word8) o ORD) = I
