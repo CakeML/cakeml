@@ -498,33 +498,37 @@ Definition add_locs_annot_def:
   add_locs_annot ptree prog = panLang$Seq (Annot (strlit "location") (locs_comment (parsetree_locs ptree))) prog
 End
 
+val Nd = “Nd : (pancakeNT + num) # locs -> (token, pancakeNT, locs) parsetree list -> (token, pancakeNT, locs) parsetree”;
+
 Definition conv_Dec_def:
-  conv_Dec (Nd nodeNT args) =
-  if isNT nodeNT DecNT then
-    case args of
-      [id; e] => do v <- conv_ident id;
-                    e' <- conv_Exp e;
-                    SOME (v,e')
-                 od
-    | _ => NONE
-  else
-    NONE
+  (conv_Dec (^Nd nodeNT args) =
+   if isNT nodeNT DecNT then
+     case args of
+       [id; e] => do v <- conv_ident id;
+                     e' <- conv_Exp e;
+                     SOME (v,e')
+                  od
+     | _ => NONE
+   else
+     NONE) ∧
+  conv_Dec _ = NONE
 End
 
 Definition conv_DecCall_def:
-  conv_DecCall (Nd nodeNT args) =
-  if isNT nodeNT DecCallNT then
-    case args of
-      s::i::e::ts =>
-        do s' <- conv_Shape s;
-           i' <- conv_ident i;
-           e' <- conv_Exp e;
-           args' <- (case ts of [] => SOME [] | args::_ => conv_ArgList args);
-           SOME (s',i',e',args')
-        od
-    | _ => NONE
-  else
-    NONE
+  (conv_DecCall (^Nd nodeNT args) =
+   if isNT nodeNT DecCallNT then
+     case args of
+       s::i::e::ts =>
+         do s' <- conv_Shape s;
+            i' <- conv_ident i;
+            e' <- conv_Exp e;
+            args' <- (case ts of [] => SOME [] | args::_ => conv_ArgList args);
+            SOME (s',i',e',args')
+         od
+     | _ => NONE
+   else
+     NONE) ∧
+  conv_DecCall _ = NONE
 End
 
 Definition conv_Prog_def:
