@@ -378,7 +378,8 @@ Definition ADDR_APPLY_def:
   (ADDR_APPLY f (Data y) = Data y)
 End
 
-val heap_lookup_FLOOKUP = save_thm("heap_lookup_FLOOKUP",Q.prove(
+Theorem heap_lookup_FLOOKUP =
+  Q.prove(
   `!heap n k.
       (heap_lookup n heap = SOME (ForwardPointer ptr u l)) ==>
       (FLOOKUP (heap_map k heap) (n+k) = SOME ptr)`,
@@ -389,7 +390,7 @@ val heap_lookup_FLOOKUP = save_thm("heap_lookup_FLOOKUP",Q.prove(
   \\ full_simp_tac std_ss []
   \\ Cases_on `h` \\ full_simp_tac std_ss [heap_map_def,el_length_def]
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,ADD_ASSOC,FAPPLY_FUPDATE_THM])
-  |> Q.SPECL [`heap`,`n`,`0`] |> SIMP_RULE std_ss []);
+  |> Q.SPECL [`heap`,`n`,`0`] |> SIMP_RULE std_ss []
 
 val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 
@@ -408,7 +409,8 @@ Proof
   \\ full_simp_tac (srw_ss()) [heap_length_def,el_length_def] \\ decide_tac
 QED
 
-val NOT_IN_heap_map = save_thm("NOT_IN_heap_map", Q.prove(
+Theorem NOT_IN_heap_map =
+  Q.prove(
   `!ha n. ~(n + heap_length ha IN FDOM (heap_map n (ha ++ DataElement ys l d::hb)))`,
   Induct \\ full_simp_tac (srw_ss()) [heap_map_def,APPEND,heap_length_def]
   \\ rpt strip_tac \\ imp_res_tac IN_heap_map_IMP
@@ -416,7 +418,7 @@ val NOT_IN_heap_map = save_thm("NOT_IN_heap_map", Q.prove(
   THEN1 (full_simp_tac std_ss [el_length_def] \\ decide_tac)
   \\ Cases_on `h` \\ full_simp_tac std_ss [heap_map_def]
   \\ res_tac \\ full_simp_tac (srw_ss()) [el_length_def,ADD_ASSOC] \\ res_tac
-  \\ decide_tac) |> Q.SPECL [`ha`,`0`] |> SIMP_RULE std_ss [])
+  \\ decide_tac) |> Q.SPECL [`ha`,`0`] |> SIMP_RULE std_ss []
 
 Theorem isSomeDataOrForward_lemma:
    !ha ptr.
@@ -486,13 +488,14 @@ Proof
   \\ full_simp_tac std_ss [FUNION_FUPDATE_1,el_length_def,ADD_ASSOC]
 QED
 
-val FDOM_heap_map = save_thm("FDOM_heap_map", Q.prove(
+Theorem FDOM_heap_map =
+  Q.prove(
   `!xs n. ~(n + heap_length xs IN FDOM (heap_map n xs))`,
   Induct \\ TRY (Cases_on `h`)
   \\ full_simp_tac (srw_ss()) [heap_map_def,heap_length_def,ADD_ASSOC]
   \\ rpt strip_tac \\ full_simp_tac std_ss [el_length_def,ADD_ASSOC]
   \\ TRY decide_tac \\ metis_tac [])
-  |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss []);
+  |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss []
 
 Theorem heap_addresses_APPEND:
    !xs ys n. heap_addresses n (xs ++ ys) =

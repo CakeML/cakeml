@@ -79,8 +79,8 @@ val r = translate clos_to_bvlTheory.compile_def;
  * Do not remove this! prove_EvalPatRel depends on it (though it should be
  * expanded there, not added to the simpset).
  *)
-val _ = save_thm ("same_type_def[simp]",
-  semanticPrimitivesTheory.same_type_def);
+Theorem same_type_def[simp] =
+  semanticPrimitivesTheory.same_type_def
 
 val bvl_jump_jumplist_side = Q.prove(`
   ∀a b. bvl_jump_jumplist_side a b ⇔ T`,

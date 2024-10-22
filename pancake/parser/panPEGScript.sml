@@ -337,13 +337,12 @@ Definition pancake_peg_def[nocompute]:
 End
 
 (** Compute pancake parser domain lookup function. *)
-val FDOM_pancake_peg = save_thm(
-  "FDOM_pancake_peg",
+Theorem FDOM_pancake_peg =
   SIMP_CONV (srw_ss()) [pancake_peg_def,
                         finite_mapTheory.FRANGE_FUPDATE_DOMSUB,
                         finite_mapTheory.DOMSUB_FUPDATE_THM,
                         finite_mapTheory.FUPDATE_LIST_THM]
-            ``FDOM pancake_peg.rules``);
+            ``FDOM pancake_peg.rules``
 
 
 val pancake_peg_nt_thm =
@@ -687,13 +686,11 @@ end;
 
 (** This time include the top-level program non-terminal which is
   * well-formed. *)
-val pancake_wfpeg_thm = save_thm(
-  "pancake_wfpeg_thm",
-  LIST_CONJ (List.foldl (wfnt “pancake_peg”) [] (topo_nts @ [“ProgNT”, “FunListNT”])))
+Theorem pancake_wfpeg_thm =
+  LIST_CONJ (List.foldl (wfnt “pancake_peg”) [] (topo_nts @ [“ProgNT”, “FunListNT”]))
 
-val pancake_wfpeg_thm2 = save_thm(
-  "pancake_wfpeg_FunNT_thm",
-  LIST_CONJ (List.foldl (wfnt “pancake_peg with start := mknt FunNT”) [] (topo_nts @ [“ProgNT”])))
+Theorem pancake_wfpeg_FunNT_thm =
+  LIST_CONJ (List.foldl (wfnt “pancake_peg with start := mknt FunNT”) [] (topo_nts @ [“ProgNT”]))
 
 Triviality subexprs_mknt:
   subexprs (mknt n) = {mknt n}
@@ -722,7 +719,7 @@ Proof
        keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
        keep_ident_def, keep_annot_def, keep_ffi_ident_def, try_def,
        try_default_def] >>
-  simp(pancake_wfpeg_thm2 :: wfpeg_rwts' @ peg1_rwts @ npeg1_rwts)
+  simp(pancake_wfpeg_FunNT_thm :: wfpeg_rwts' @ peg1_rwts @ npeg1_rwts)
 QED
 
 val _ = export_theory();

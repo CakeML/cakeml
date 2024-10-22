@@ -308,7 +308,9 @@ End
 
 val (riscv_config, riscv_asm_ok) = asmLib.target_asm_rwts [] ``riscv_config``
 
-val riscv_config = save_thm("riscv_config", riscv_config)
-val riscv_asm_ok = save_thm("riscv_asm_ok", riscv_asm_ok)
+Theorem riscv_config =
+  riscv_config
+Theorem riscv_asm_ok =
+  riscv_asm_ok
 
 val () = export_theory ()

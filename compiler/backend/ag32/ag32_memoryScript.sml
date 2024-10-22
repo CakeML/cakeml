@@ -3683,8 +3683,8 @@ Definition startup_asm_code_def:
      JumpReg 1]
 End
 
-val LENGTH_startup_asm_code = save_thm("LENGTH_startup_asm_code",
-  ``LENGTH (startup_asm_code n cl bl)`` |> EVAL);
+Theorem LENGTH_startup_asm_code =
+  ``LENGTH (startup_asm_code n cl bl)`` |> EVAL
 
 Definition startup_code_def:
   startup_code ffi_len code_len data_len =

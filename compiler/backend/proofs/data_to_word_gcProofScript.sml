@@ -4510,10 +4510,11 @@ Definition state_rel_thm:
        flat s.stack t.stack)
 End
 
-val state_rel_thm = save_thm("state_rel_thm[allow_rebind]",state_rel_thm);
+Theorem state_rel_thm[allow_rebind] =
+  state_rel_thm
 
-val state_rel_def = save_thm("state_rel_def[allow_rebind,compute]",
-  state_rel_thm |> REWRITE_RULE [memory_rel_def]);
+Theorem state_rel_def[allow_rebind,compute] =
+  state_rel_thm |> REWRITE_RULE [memory_rel_def]
 
 Theorem state_rel_with_clock:
    state_rel a b c s1 s2 d e ⇒
@@ -4779,8 +4780,9 @@ Proof
   \\ srw_tac[][] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[mk_loc_def]
 QED
 
-val LASTN_ADD1 = save_thm("LASTN_ADD1[allow_rebind]",LASTN_LENGTH_ID
-  |> Q.SPEC `x::xs` |> SIMP_RULE (srw_ss()) [ADD1]);
+Theorem LASTN_ADD1[allow_rebind] =
+  LASTN_LENGTH_ID
+  |> Q.SPEC `x::xs` |> SIMP_RULE (srw_ss()) [ADD1]
 
 Theorem jump_exc_push_env_NONE:
   mk_loc (jump_exc (dec_clock s)) =
@@ -5060,7 +5062,8 @@ Theorem data_get_vars_SNOC_IMP = Q.prove(`
   Induct \\ full_simp_tac(srw_ss())[dataSemTheory.get_vars_def]
   \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][])
   |> SPEC_ALL;
-val _ = save_thm("data_get_vars_SNOC_IMP[allow_rebind]",data_get_vars_SNOC_IMP);
+Theorem data_get_vars_SNOC_IMP[allow_rebind] =
+  data_get_vars_SNOC_IMP
 
 Theorem word_get_vars_SNOC_IMP = Q.prove(`
   !x2 x. wordSem$get_vars (SNOC x1 x2) s = SOME x ==>
@@ -5070,7 +5073,8 @@ Theorem word_get_vars_SNOC_IMP = Q.prove(`
   Induct \\ full_simp_tac(srw_ss())[wordSemTheory.get_vars_def]
   \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][])
   |> SPEC_ALL;
-val _ = save_thm("word_get_vars_SNOC_IMP[allow_rebind]",word_get_vars_SNOC_IMP);
+Theorem word_get_vars_SNOC_IMP[allow_rebind] =
+  word_get_vars_SNOC_IMP
 
 Theorem word_ml_inv_CodePtr:
    word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c s.refs ((CodePtr n,v)::xs) ==>
@@ -5139,7 +5143,8 @@ Theorem find_code_thm = Q.prove(`
   \\ `get_vars (0::MAP adjust_var x2) t = SOME (Loc l1 l2::y2')` by
         full_simp_tac(srw_ss())[wordSemTheory.get_vars_def]
   \\ imp_res_tac state_rel_call_env \\ full_simp_tac(srw_ss())[]) |> SPEC_ALL;
-val _ = save_thm("find_code_thm[allow_rebind]",find_code_thm);
+Theorem find_code_thm[allow_rebind] =
+  find_code_thm
 
 Theorem cut_env_adjust_set_lookup_0:
    wordSem$cut_env (adjust_set r) x = SOME y ==> lookup 0 y = lookup 0 x
@@ -5322,7 +5327,8 @@ Theorem find_code_thm_ret = Q.prove(`
   \\ match_mp_tac (state_rel_call_env_push_env |> Q.SPEC `NONE`
                    |> SIMP_RULE std_ss [] |> GEN_ALL)
   \\ full_simp_tac(srw_ss())[] \\ metis_tac []) |> SPEC_ALL;
-val _ = save_thm("find_code_thm_ret[allow_rebind]",find_code_thm_ret);
+Theorem find_code_thm_ret[allow_rebind] =
+  find_code_thm_ret
 
 Theorem find_code_thm_handler = Q.prove(`
   !s (t:('a,'c,'ffi)wordSem$state).
@@ -5361,7 +5367,8 @@ Theorem find_code_thm_handler = Q.prove(`
   \\ match_mp_tac (state_rel_call_env_push_env |> Q.SPEC `SOME xx`
                    |> SIMP_RULE std_ss [] |> GEN_ALL)
   \\ full_simp_tac(srw_ss())[] \\ metis_tac []) |> SPEC_ALL;
-val _ = save_thm("find_code_thm_handler[allow_rebind]",find_code_thm_handler);
+Theorem find_code_thm_handler[allow_rebind] =
+  find_code_thm_handler
 
 Theorem data_find_code:
    dataSem$find_code dest xs code fs = SOME(ys,prog,ss) ⇒ ¬bad_dest_args dest xs
@@ -7491,13 +7498,14 @@ Proof
   metis_tac [alloc_fail_lemma]
 QED
 
-val word_exp_rw = save_thm("word_exp_rw",LIST_CONJ
+Theorem word_exp_rw =
+  LIST_CONJ
   [wordSemTheory.word_exp_def,
    wordLangTheory.word_op_def,
    wordLangTheory.word_sh_def,
    wordSemTheory.get_var_imm_def,
    wordSemTheory.the_words_def,
-   lookup_insert]);
+   lookup_insert]
 
 Theorem get_var_set_var_thm:
    wordSem$get_var n (set_var m x y) = if n = m then SOME x else get_var n y
@@ -7949,10 +7957,10 @@ Proof
   metis_tac [memory_rel_get_vars_IMP_lemma]
 QED
 
-val memory_rel_get_var_IMP = save_thm("memory_rel_get_var_IMP",
+Theorem memory_rel_get_var_IMP =
   memory_rel_get_vars_IMP |> Q.INST [`n`|->`[u]`] |> GEN_ALL
     |> SIMP_RULE std_ss [MAP,get_vars_SOME_IFF_eq,get_vars_SOME_IFF_data_eq,
-         PULL_EXISTS,ZIP,APPEND]);
+         PULL_EXISTS,ZIP,APPEND]
 
 Theorem lookup_RefByte_location:
    state_rel c l1 l2 x t [] locs ==>
@@ -8131,10 +8139,10 @@ Proof
   fs [wordSemTheory.get_vars_def] \\ every_case_tac \\ fs [] \\ EQ_TAC \\ fs []
 QED
 
-val word_ml_inv_get_var_IMP = save_thm("word_ml_inv_get_var_IMP[allow_rebind]",
+Theorem word_ml_inv_get_var_IMP[allow_rebind] =
   word_ml_inv_get_vars_IMP
   |> Q.INST [`n`|->`[n1]`,`x`|->`[x1]`] |> GEN_ALL
   |> REWRITE_RULE [get_vars_SOME_IFF,get_vars_SOME_IFF_data,MAP]
-  |> SIMP_RULE std_ss [Once get_vars_sing,PULL_EXISTS,get_vars_SOME_IFF,ZIP,APPEND]);
+  |> SIMP_RULE std_ss [Once get_vars_sing,PULL_EXISTS,get_vars_SOME_IFF,ZIP,APPEND]
 
 val _ = export_theory();

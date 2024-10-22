@@ -916,11 +916,11 @@ val thms = [ op_thms, list_thms, t_thms, word_size_thms, id_thms ];
 val eqs = ([pair_case_eq,bool_case_eq]@(List.map prove_case_eq_thm thms));
 val elims = List.map prove_case_elim_thm thms;
 
-val type_op_cases = save_thm("type_op_cases",
+Theorem type_op_cases =
   ``type_op op ts t3``
   |> (SIMP_CONV(srw_ss())(type_op_def::eqs@elims) THENC
       SIMP_CONV (bool_ss++DNF_ss) [
-        PULL_EXISTS]));
+        PULL_EXISTS])
 
 (* ---------- type_p ---------- *)
 

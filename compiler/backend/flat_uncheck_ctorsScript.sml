@@ -55,7 +55,8 @@ Proof
   \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute]
 QED
 
-val compile_nil = save_thm ("compile_nil[simp]", EVAL ``compile []``);
+Theorem compile_nil[simp] =
+  EVAL ``compile []``
 
 Theorem compile_not_nil[simp]:
    compile [x] <> []

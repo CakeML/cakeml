@@ -1815,11 +1815,10 @@ Proof
   rw [data_up_to_def, list_to_BlockReps_isDataElement]
 QED
 
-val list_to_BlockReps_data_up_to = save_thm (
-  "list_to_BlockReps_data_up_to",
+Theorem list_to_BlockReps_data_up_to =
   list_to_BlockReps_data_up_to_lem
   |> Q.INST [`h1`|->`list_to_BlockReps conf x len xs`]
-  |> SIMP_RULE std_ss []);
+  |> SIMP_RULE std_ss []
 
 Theorem list_to_BlockReps_ForwardPointer:
    xs <> [] ==> FILTER isForwardPointer (list_to_BlockReps conf x len xs) = []
@@ -1891,9 +1890,9 @@ Proof
   \\ CASE_TAC \\ fs [el_length_def, isSomeDataElement_def, heap_lookup_def]
 QED
 
-val list_to_BlockReps_Pointer = save_thm ("list_to_BlockReps_Pointer",
+Theorem list_to_BlockReps_Pointer =
   list_to_BlockReps_Pointer_lem
-  |> SIMP_RULE (srw_ss()) [LET_THM]);
+  |> SIMP_RULE (srw_ss()) [LET_THM]
 
 Theorem list_to_v_get_refs:
    !xs t r ts.
@@ -2084,8 +2083,8 @@ Proof
                    Abbr`el`, BlockRep_def, heap_lookup_def]
 QED
 
-val v_inv_list_to_v = save_thm ("v_inv_list_to_v",
-  SIMP_RULE (srw_ss()) [LET_THM] v_inv_list_to_v_lem);
+Theorem v_inv_list_to_v =
+  SIMP_RULE (srw_ss()) [LET_THM] v_inv_list_to_v_lem
 
 (* A timestamp that is not in the  *)
 
@@ -3448,9 +3447,9 @@ val gen_state_ok_update_byte = prove(
   \\ rveq \\ fs []
   \\ metis_tac [MEM_APPEND]);
 
-val heap_length_Bytes = save_thm("heap_length_Bytes",
+Theorem heap_length_Bytes =
   EVAL``heap_length [Bytes be fl bs ws]``
-  |> SIMP_RULE std_ss [LENGTH_write_bytes]);
+  |> SIMP_RULE std_ss [LENGTH_write_bytes]
 
 val unused_space_inv_byte_update = prove(
   ``unused_space_inv a (sp + sp1)
@@ -4334,9 +4333,9 @@ Proof
   \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND] \\ metis_tac []
 QED
 
-val duplicate1_thm = save_thm("duplicate1_thm",
+Theorem duplicate1_thm =
   duplicate_thm |> Q.INST [`xs`|->`[x1]`,`rs`|->`[r1]`]
-                |> SIMP_RULE std_ss [LENGTH,APPEND]);
+                |> SIMP_RULE std_ss [LENGTH,APPEND]
 
 (* move *)
 
@@ -4908,8 +4907,8 @@ Proof
   \\ match_mp_tac word_ml_inv_num_lemma \\ fs []
 QED
 
-val word_ml_inv_zero = save_thm("word_ml_inv_zero",
-  word_ml_inv_num |> Q.INST [`n`|->`0`] |> SIMP_RULE (srw_ss()) [])
+Theorem word_ml_inv_zero =
+  word_ml_inv_num |> Q.INST [`n`|->`0`] |> SIMP_RULE (srw_ss()) []
 
 Theorem word_ml_inv_neg_num_lemma:
    good_dimindex (:'a) ==> (-2w && -4w * v) = -4w * v:'a word
@@ -5807,8 +5806,8 @@ Proof
   \\ imp_res_tac EVERY2_SWAP \\ fs[]
 QED
 
-val IMP_memory_rel_bignum_alt = save_thm("IMP_memory_rel_bignum_alt",
-  IMP_memory_rel_bignum_alt |> Q.INST [`vs`|->`[]`] |> SIMP_RULE std_ss [APPEND]);
+Theorem IMP_memory_rel_bignum_alt =
+  IMP_memory_rel_bignum_alt |> Q.INST [`vs`|->`[]`] |> SIMP_RULE std_ss [APPEND]
 
 Theorem memory_rel_Cons1:
    memory_rel c be ts refs sp st m dm (ZIP (vals,ws) ++ vars) /\
@@ -6136,13 +6135,13 @@ Proof
   \\ Induct_on `n` \\ fs [REPLICATE] \\ rw [] \\ fs []
 QED
 
-val memory_rel_RefArray = save_thm("memory_rel_RefArray",
+Theorem memory_rel_RefArray =
   memory_rel_Ref
   |> Q.INST [`vals`|->`REPLICATE n v`,`ws`|->`REPLICATE n w`]
   |> SIMP_RULE std_ss [ZIP_REPLICATE,LENGTH_REPLICATE]
   |> REWRITE_RULE [GSYM AND_IMP_INTRO]
   |> (fn th => MATCH_MP th (UNDISCH memory_rel_REPLICATE))
-  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 Definition word_of_byte_def:
   word_of_byte (w:'a word) =
@@ -6151,9 +6150,10 @@ Definition word_of_byte_def:
       if dimindex (:'a) = 32 then w else w << 32 || w
 End
 
-val ADD_DIV_EQ = save_thm("ADD_DIV_EQ",LIST_CONJ
+Theorem ADD_DIV_EQ =
+  LIST_CONJ
   [GSYM ADD_DIV_ADD_DIV,
-   ONCE_REWRITE_RULE [ADD_COMM] (GSYM ADD_DIV_ADD_DIV)])
+   ONCE_REWRITE_RULE [ADD_COMM] (GSYM ADD_DIV_ADD_DIV)]
 
 Triviality set_byte_word_of_byte:
   good_dimindex (:'a) ==>
@@ -9461,11 +9461,11 @@ val fix_clock_word_eq = prove(
   \\ PairCases_on `x` \\ fs [] \\ fs [fix_clock_def] \\ rw []
   \\ imp_res_tac word_eq_LESS_EQ \\ fs []);
 
-val word_eq_def = save_thm("word_eq_def[compute,allow_rebind]",
-  word_eq_def |> REWRITE_RULE [fix_clock_word_eq]);
+Theorem word_eq_def[compute,allow_rebind] =
+  word_eq_def |> REWRITE_RULE [fix_clock_word_eq]
 
-val word_eq_ind = save_thm("word_eq_ind[allow_rebind]",
-  word_eq_ind |> REWRITE_RULE [fix_clock_word_eq]);
+Theorem word_eq_ind[allow_rebind] =
+  word_eq_ind |> REWRITE_RULE [fix_clock_word_eq]
 
 Theorem bit_pattern_1100[simp]:
    good_dimindex (:'a) ==>

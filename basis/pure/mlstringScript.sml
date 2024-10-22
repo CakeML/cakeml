@@ -483,11 +483,11 @@ Theorem TOKENS_eq_tokens_sym
   \\ simp[MAP_MAP_o,INJ_DEF,explode_11,o_DEF,explode_implode,TOKENS_eq_tokens]
 *)
 
-val TOKENS_eq_tokens_sym = save_thm("TOKENS_eq_tokens_sym",
-        TOKENS_eq_tokens
+Theorem TOKENS_eq_tokens_sym =
+  TOKENS_eq_tokens
         |> SPEC_ALL
         |> Q.AP_TERM`MAP implode`
-        |> SIMP_RULE(srw_ss())[MAP_MAP_o,implode_explode,o_DEF]);
+        |> SIMP_RULE(srw_ss())[MAP_MAP_o,implode_explode,o_DEF]
 
 
 Theorem tokens_append:

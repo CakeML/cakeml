@@ -828,7 +828,8 @@ val eqs = LIST_CONJ (map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms,
    eq_v_thms, wz_thms, result_thms, ffi_result_thms, err_thms])
 
-val case_eq_thms = save_thm ("case_eq_thms", eqs)
+Theorem case_eq_thms =
+  eqs
 
 Triviality pair_case_eq:
   pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
@@ -843,11 +844,11 @@ Proof
   srw_tac[][]
 QED
 
-val do_app_cases = save_thm ("do_app_cases",
-``do_app st op vs = SOME (st',v)`` |>
+Theorem do_app_cases =
+  ``do_app st op vs = SOME (st',v)`` |>
   (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
-   ALL_CONV));
+   ALL_CONV)
 
 Theorem do_app_const:
    do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c

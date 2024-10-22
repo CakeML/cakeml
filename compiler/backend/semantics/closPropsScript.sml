@@ -519,7 +519,9 @@ QED
 Definition fv1_def:
   fv1 v e = fv v [e]
 End
-val fv1_intro = save_thm("fv1_intro[simp]",GSYM fv1_def)
+
+Theorem fv1_intro[simp] =
+  GSYM fv1_def
 Theorem fv1_thm =
   fv_def |> SIMP_RULE (srw_ss())[]
 
@@ -625,7 +627,8 @@ val evaluate_LENGTH = prove(evaluate_LENGTH_ind |> concl |> rand,
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
   |> SIMP_RULE std_ss [FORALL_PROD]
 
-val _ = save_thm("evaluate_LENGTH", evaluate_LENGTH);
+Theorem evaluate_LENGTH =
+  evaluate_LENGTH
 
 Theorem evaluate_IMP_LENGTH:
    (evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)
@@ -984,10 +987,9 @@ Theorem EVERY_pure_correct = Q.prove(`
   >- (every_case_tac >> full_simp_tac(srw_ss())[]))
   |> SIMP_RULE (srw_ss()) []
 
-val pure_correct = save_thm(
-  "pure_correct",
+Theorem pure_correct =
   EVERY_pure_correct |> Q.SPECL [`[e]`, `env`, `s`]
-                     |> SIMP_RULE (srw_ss()) [])
+                     |> SIMP_RULE (srw_ss()) []
 
 Theorem evaluate_pure:
   evaluate (xs,env,s) = (res,t:('c,'ffi) state) ∧ EVERY pure xs ⇒
@@ -1012,42 +1014,42 @@ val do_app_split_list = prove(
     ?v vs1. vs = v::vs1 /\ do_app op (v::vs1) s = res``,
   Cases_on `vs` \\ fs []);
 
-val do_app_cases_val = save_thm ("do_app_cases_val",
+Theorem do_app_cases_val =
   ``do_app op vs s = Rval (v,s')`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV));
+   ALL_CONV)
 
-val do_app_cases_err = save_thm ("do_app_cases_err",
-``do_app op vs s = Rerr (Rraise v)`` |>
+Theorem do_app_cases_err =
+  ``do_app op vs s = Rerr (Rraise v)`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV));
+   ALL_CONV)
 
-val do_app_cases_timeout = save_thm ("do_app_cases_timeout",
-``do_app op vs s = Rerr (Rabort Rtimeout_error)`` |>
+Theorem do_app_cases_timeout =
+  ``do_app op vs s = Rerr (Rabort Rtimeout_error)`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV));
+   ALL_CONV)
 
 (* works but huge, slow, and can't be skipped by --fast
-val do_app_cases_type_error = save_thm ("do_app_cases_type_error",
-``do_app op vs s = Rerr (Rabort Rtype_error)`` |>
+Theorem do_app_cases_type_error =
+  ``do_app op vs s = Rerr (Rabort Rtype_error)`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss++boolSimps.DNF_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV));
+   ALL_CONV)
 *)
 
-val do_app_cases_ffi_error = save_thm ("do_app_cases_ffi_error",
-``do_app op vs s = Rerr (Rabort(Rffi_error f))`` |>
+Theorem do_app_cases_ffi_error =
+  ``do_app op vs s = Rerr (Rabort(Rffi_error f))`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss++boolSimps.DNF_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV));
+   ALL_CONV)
 
 Theorem dest_closure_none_loc:
  !max_app l cl vs v e env rest.
@@ -1688,11 +1690,11 @@ Proof
   imp_res_tac do_install_type_error_add_to_clock \\ fs[]
 QED
 
-val evaluate_add_clock = save_thm("evaluate_add_clock",
+Theorem evaluate_add_clock =
   evaluate_add_to_clock
   |> CONJUNCT1 |> SIMP_RULE std_ss []
   |> SPEC_ALL |> UNDISCH |> Q.GEN `extra`
-  |> DISCH_ALL |> GEN_ALL);
+  |> DISCH_ALL |> GEN_ALL
 
 Theorem evaluate_add_clock_initial_state:
    evaluate (es,env,initial_state ffi ma code co cc k) = (r,s') ∧
@@ -1883,9 +1885,8 @@ Termination
    rpt strip_tac >> imp_res_tac v_size_lemma >> simp[]
 End
 
-val vsgc_free_def = save_thm(
-  "vsgc_free_def[simp,allow_rebind]",
-  SIMP_RULE (bool_ss ++ ETA_ss) [] vsgc_free_def)
+Theorem vsgc_free_def[simp,allow_rebind] =
+  SIMP_RULE (bool_ss ++ ETA_ss) [] vsgc_free_def
 
 Theorem vsgc_free_Unit[simp]:
    vsgc_free Unit
@@ -1924,8 +1925,8 @@ Termination
   WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
    imp_res_tac exp_size_MEM >> simp[]
 End
-val esgc_free_def = save_thm("esgc_free_def[simp,compute,allow_rebind]",
-  SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
+Theorem esgc_free_def[simp,compute,allow_rebind] =
+  SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def
 
 (* state is setglobal-closure free *)
 Definition ssgc_free_def:
@@ -3435,7 +3436,8 @@ Termination
    decide_tac
 End
 
-val _ = save_thm("app_call_dests_def[simp,compute,allow_rebind]",app_call_dests_def);
+Theorem app_call_dests_def[simp,compute,allow_rebind] =
+  app_call_dests_def
 
 Overload call_dests = ``app_call_dests (SOME T)``
 Overload app_dests = ``app_call_dests (SOME F)``
@@ -3450,12 +3452,12 @@ Proof
   Induct \\ rw[app_call_dests_def]
 QED
 
-val any_dest_cons = save_thm("any_dest_cons",
-  app_call_dests_cons |> Q.INST [`opt`|->`NONE`]);
-val call_dest_cons = save_thm("call_dest_cons",
-  app_call_dests_cons |> Q.INST [`opt`|->`SOME T`]);
-val app_dest_cons = save_thm("app_dest_cons",
-  app_call_dests_cons |> Q.INST [`opt`|->`SOME F`]);
+Theorem any_dest_cons =
+  app_call_dests_cons |> Q.INST [`opt`|->`NONE`]
+Theorem call_dest_cons =
+  app_call_dests_cons |> Q.INST [`opt`|->`SOME T`]
+Theorem app_dest_cons =
+  app_call_dests_cons |> Q.INST [`opt`|->`SOME F`]
 
 Theorem app_call_dests_append:
    ∀l1 l2. app_call_dests opt (l1 ++ l2) =
@@ -3466,12 +3468,12 @@ Proof
   \\ fs [AC UNION_COMM UNION_ASSOC]
 QED
 
-val any_dest_append = save_thm("any_dest_append",
-  app_call_dests_append |> Q.INST [`opt`|->`NONE`]);
-val call_dest_append = save_thm("call_dest_append",
-  app_call_dests_append |> Q.INST [`opt`|->`SOME T`]);
-val app_dest_append = save_thm("app_dest_append",
-  app_call_dests_append |> Q.INST [`opt`|->`SOME F`]);
+Theorem any_dest_append =
+  app_call_dests_append |> Q.INST [`opt`|->`NONE`]
+Theorem call_dest_append =
+  app_call_dests_append |> Q.INST [`opt`|->`SOME T`]
+Theorem app_dest_append =
+  app_call_dests_append |> Q.INST [`opt`|->`SOME F`]
 
 Theorem app_call_dests_map:
    ∀ls. app_call_dests opt (MAP f ls) =
