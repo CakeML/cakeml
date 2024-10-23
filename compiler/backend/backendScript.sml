@@ -327,10 +327,12 @@ Definition to_livesets_def:
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
     let cse_prog = word_common_subexp_elim ssa_prog in
-    let rm_prog = FST(remove_dead cse_prog LN) in
-    let prog = if two_reg_arith then three_to_two_reg rm_prog
-                                else rm_prog in
-     (name_num,arg_count,prog)) p in
+    let cp_prog = copy_prop cse_prog in
+    let two_prog = if two_reg_arith then three_to_two_reg cp_prog
+                                else cp_prog in
+    let unreach_prog = remove_unreach two_prog in
+    let rm_prog = FST(remove_dead unreach_prog LN) in
+     (name_num,arg_count,rm_prog)) p in
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
     (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
@@ -350,10 +352,12 @@ Definition to_livesets_0_def:
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
     let cse_prog = word_common_subexp_elim ssa_prog in
-    let rm_prog = FST(remove_dead cse_prog LN) in
-    let prog = if two_reg_arith then three_to_two_reg rm_prog
-                                else rm_prog in
-     (name_num,arg_count,prog)) p in
+    let cp_prog = copy_prop cse_prog in
+    let two_prog = if two_reg_arith then three_to_two_reg cp_prog
+                                else cp_prog in
+    let unreach_prog = remove_unreach two_prog in
+    let rm_prog = FST(remove_dead unreach_prog LN) in
+     (name_num,arg_count,rm_prog)) p in
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
     (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p

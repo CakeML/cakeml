@@ -213,12 +213,18 @@ Definition to_word_all_def:
                   ((name_num,arg_count,word_common_subexp_elim prog),col_opt)) p in
     let ps = ps ++ [(strlit "after word_cse",Word (MAP FST p) names)] in
     let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,FST (remove_dead prog LN)),col_opt)) p in
-    let ps = ps ++ [(strlit "after remove_dead in word_alloc",Word (MAP FST p) names)] in
+                  ((name_num,arg_count,copy_prop prog),col_opt)) p in
+    let ps = ps ++ [(strlit "after word_copy",Word (MAP FST p) names)] in
     let p = MAP (λ((name_num,arg_count,prog),col_opt).
                   ((name_num,arg_count,
                    if two_reg_arith then three_to_two_reg prog else prog),col_opt)) p in
     let ps = ps ++ [(strlit "after three_to_two_reg from word_inst",Word (MAP FST p) names)] in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,remove_unreach prog),col_opt)) p in
+    let ps = ps ++ [(strlit "after word_unreach",Word (MAP FST p) names)] in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,FST (remove_dead prog LN)),col_opt)) p in
+    let ps = ps ++ [(strlit "after remove_dead in word_alloc",Word (MAP FST p) names)] in
     let p = MAP (λ((name_num,arg_count,prog),col_opt).
                   ((name_num,arg_count,
                    remove_must_terminate
@@ -385,12 +391,18 @@ Definition from_word_0_all_def:
                   ((name_num,arg_count,word_common_subexp_elim prog),col_opt)) p in
     let ps = ps ++ [(strlit "after word_cse",Word (MAP FST p) names)] in
     let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,FST (remove_dead prog LN)),col_opt)) p in
-    let ps = ps ++ [(strlit "after remove_dead in word_alloc",Word (MAP FST p) names)] in
+                  ((name_num,arg_count,copy_prop prog),col_opt)) p in
+    let ps = ps ++ [(strlit "after word_copy",Word (MAP FST p) names)] in
     let p = MAP (λ((name_num,arg_count,prog),col_opt).
                   ((name_num,arg_count,
                    if two_reg_arith then three_to_two_reg prog else prog),col_opt)) p in
     let ps = ps ++ [(strlit "after three_to_two_reg from word_inst",Word (MAP FST p) names)] in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,remove_unreach prog),col_opt)) p in
+    let ps = ps ++ [(strlit "after word_unreach",Word (MAP FST p) names)] in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,FST (remove_dead prog LN)),col_opt)) p in
+    let ps = ps ++ [(strlit "after remove_dead in word_alloc",Word (MAP FST p) names)] in
     let p = MAP (λ((name_num,arg_count,prog),col_opt).
                   ((name_num,arg_count,
                    remove_must_terminate
@@ -457,7 +469,7 @@ Proof
 QED
 
 Theorem number_of_passes:
-  LENGTH (FST (to_target_all c p)) = 36
+  LENGTH (FST (to_target_all c p)) = 38
 Proof
   fs [to_target_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_lab_all_def] \\ rpt (pairarg_tac \\ gvs [])
