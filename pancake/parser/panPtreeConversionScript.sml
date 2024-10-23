@@ -523,7 +523,7 @@ Definition conv_DecCall_def:
             i' <- conv_ident i;
             e' <- conv_Exp e;
             args' <- (case ts of [] => SOME [] | args::_ => conv_ArgList args);
-            SOME (s',i',e',args')
+            SOME (s',i',e':'a exp,args': 'a exp list)
          od
      | _ => NONE
    else
