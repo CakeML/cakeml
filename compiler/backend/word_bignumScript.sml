@@ -410,7 +410,8 @@ val def = mc_iadd_def |> to_deep
 val def = mc_imul_def |> to_deep
 val def = mc_iop_def |> to_deep
 
-val all_code_defs = save_thm("all_code_defs", REWRITE_RULE [] (!code_defs));
+Theorem all_code_defs =
+  REWRITE_RULE [] (!code_defs)
 
 (* an example that produces Rec *)
 
@@ -571,7 +572,7 @@ Definition generated_bignum_stubs_def:
       (n,1n,Seq x1 (Return 0 0)) :: MAP (\(x,y,z). (y,1,Seq z (Return 0 0))) cs
 End
 
-val generated_bignum_stubs_eq = save_thm("generated_bignum_stubs_eq",
-  EVAL ``generated_bignum_stubs n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]);
+Theorem generated_bignum_stubs_eq =
+  EVAL ``generated_bignum_stubs n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]
 
 val _ = export_theory();

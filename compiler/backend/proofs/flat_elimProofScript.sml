@@ -1603,9 +1603,9 @@ Proof
   \\ rfs []
 QED
 
-val flat_remove_semantics = save_thm ("flat_remove_semantics",
+Theorem flat_remove_semantics =
   MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)
-           flat_remove_eval_sim |> SIMP_RULE (srw_ss()) []);
+           flat_remove_eval_sim |> SIMP_RULE (srw_ss()) []
 
 (* syntactic results *)
 

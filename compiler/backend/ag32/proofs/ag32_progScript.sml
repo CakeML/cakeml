@@ -297,10 +297,10 @@ Proof
   SRW_TAC [wordsLib.WORD_EXTRACT_ss] []
 QED
 
-val IMP_AG32_SPEC = save_thm("IMP_AG32_SPEC",
+Theorem IMP_AG32_SPEC =
   (ONCE_REWRITE_RULE [STAR_COMM] o REWRITE_RULE [AG32_SPEC_CODE] o
    SPECL [``CODE_POOL ag32_instr c * p'``,
-          ``CODE_POOL ag32_instr c * q'``]) IMP_AG32_SPEC_LEMMA);
+          ``CODE_POOL ag32_instr c * q'``]) IMP_AG32_SPEC_LEMMA
 
 Definition mem_unchanged_def:
   mem_unchanged md m1 m2 = (!a. ~(a IN md) ==> m1 a = m2 a)

@@ -302,8 +302,8 @@ val type_cmp_thm = Q.prove(
   |> CONJUNCT1;
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("type_cmp_ind",
-          (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]);
+Theorem type_cmp_ind =
+  (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]
 val res = translate (type_compare_def |> RW [GSYM type_cmp_thm]);
 
 Definition term_compare_def:
@@ -356,8 +356,8 @@ Proof
 QED
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("term_cmp_ind",
-          (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]);
+Theorem term_cmp_ind =
+  (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]
 val res = translate (term_compare_def |> RW [GSYM term_cmp_thm]);
 
 val res = translate (check [‘ty’] holKernelPmatchTheory.codomain_def);

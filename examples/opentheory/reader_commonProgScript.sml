@@ -96,8 +96,8 @@ val r = translate stringTheory.isDigit_def;
 
 val _ = (use_mem_intro := true);
 val _ = translate rev_assocd_def
-val tymatch_ind = save_thm ("tymatch_ind",
-  REWRITE_RULE [GSYM rev_assocd_thm] holSyntaxExtraTheory.tymatch_ind);
+Theorem tymatch_ind =
+  REWRITE_RULE [GSYM rev_assocd_thm] holSyntaxExtraTheory.tymatch_ind
 val _ = add_preferred_thy"-";
 val r = holSyntaxExtraTheory.tymatch_def
         |> REWRITE_RULE [GSYM rev_assocd_thm]

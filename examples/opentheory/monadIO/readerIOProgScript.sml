@@ -22,11 +22,11 @@ val _ = m_translation_extends "reader_commonProg"
 val r = m_translate readLine_wrap_def
 val r = m_translate init_reader_wrap_def
 
-val init_reader_wrap_spec = save_thm ("init_reader_wrap_spec",
-  mk_app_of_ArrowP (theorem "init_reader_wrap_v_thm"));
+Theorem init_reader_wrap_spec =
+  mk_app_of_ArrowP (theorem "init_reader_wrap_v_thm")
 
-val readline_wrap_spec = save_thm ("readline_wrap_spec",
-  mk_app_of_ArrowP (theorem "readline_wrap_v_thm"));
+Theorem readline_wrap_spec =
+  mk_app_of_ArrowP (theorem "readline_wrap_v_thm")
 
 (* ------------------------------------------------------------------------- *)
 (* Set up translation to 'resume' from reader_commonProg                     *)
@@ -330,8 +330,8 @@ val readMain_side = Q.prove (
   \\ imp_res_tac EVERY_TL \\ rfs [clFFITheory.validArg_def])
   |> update_precondition;
 
-val readMain_spec = save_thm ("readMain_spec",
-  cfMonadLib.mk_app_of_ArrowP (theorem "readmain_v_thm"));
+Theorem readMain_spec =
+  cfMonadLib.mk_app_of_ArrowP (theorem "readmain_v_thm")
 
 Theorem readMain_spec_wp:
    wfcl st.cl /\
@@ -405,7 +405,7 @@ Definition readerIO_prog_def:
   readerIO_prog = ^prog_tm
 End
 
-val semantics_readerIO_prog =
+Theorem semantics_readerIO_prog =
   sem_thm
   |> REWRITE_RULE[GSYM readerIO_prog_def]
   |> DISCH_ALL
@@ -415,6 +415,5 @@ val semantics_readerIO_prog =
      |> CONV_RULE (RHS_CONV (SIMP_CONV std_ss []))
      |> ONCE_REWRITE_RULE [CONJ_COMM] |> GSYM]
   |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
-  |> curry save_thm "semantics_readerIO_prog";
 
 val _ = export_theory ();

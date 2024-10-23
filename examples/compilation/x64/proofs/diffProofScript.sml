@@ -27,10 +27,9 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val diff_compiled_thm =
+Theorem diff_compiled_thm =
   CONJ compile_correct_applied diff_output
   |> DISCH_ALL
   |> check_thm
-  |> curry save_thm "diff_compiled_thm";
 
 val _ = export_theory();

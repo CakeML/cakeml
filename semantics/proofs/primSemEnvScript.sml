@@ -17,8 +17,8 @@ open typeSysPropsTheory;
 val _ = new_theory "primSemEnv";
 
 
-val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
-  EVAL ``prim_sem_env (ffi:'ffi ffi_state)``);
+Theorem prim_sem_env_eq =
+  EVAL ``prim_sem_env (ffi:'ffi ffi_state)``
 
 Theorem prim_type_sound_invariants:
   ∀type_ids sem_st prim_env.

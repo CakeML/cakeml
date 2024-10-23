@@ -2569,8 +2569,8 @@ Proof
   \\ rw[]
 QED
 
-val with_same_locals = save_thm("with_same_locals[simp]",
-  EQT_ELIM(SIMP_CONV(srw_ss())[state_component_equality]``s with locals := s.locals = (s:('a,'b,'c) wordSem$state)``));
+Theorem with_same_locals[simp] =
+  EQT_ELIM(SIMP_CONV(srw_ss())[state_component_equality]``s with locals := s.locals = (s:('a,'b,'c) wordSem$state)``)
 
 Theorem state_rel_get_var_imp:
    state_rel k f f' s t lens ∧ get_var (2 * x) s = SOME v ∧ x < k ⇒ FLOOKUP t.regs x = SOME v

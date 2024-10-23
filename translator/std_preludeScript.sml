@@ -94,7 +94,8 @@ Proof
   THEN METIS_TAC [FUNPOW]
 QED
 
-val OWHILE_ind = save_thm("OWHILE_ind",WHILE_ind);
+Theorem OWHILE_ind =
+  WHILE_ind
 
 val _ = add_preferred_thy "-";
 

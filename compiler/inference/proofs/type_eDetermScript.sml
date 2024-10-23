@@ -236,14 +236,13 @@ Proof
   metis_tac[]
 QED
 
-val env_rel_sound_weaken = Q.prove(
+Theorem env_rel_sound_weaken = Q.prove(
   `env_rel_sound FEMPTY ienv tenv tenvE ∧ t_wfs s ⇒
    env_rel_sound s ienv tenv tenvE`,
   fs[env_rel_sound_def]>>rw[]>>res_tac>>
   qexists_tac`tvs'`>>fs[]>>
   match_mp_tac tscheme_approx_weakening>>fs[]>>
   qexists_tac`num_tvs tenvE`>>qexists_tac`FEMPTY`>>fs[SUBMAP_FEMPTY])|>GEN_ALL
-  |> curry save_thm "env_rel_sound_weaken";
 
 Theorem type_pe_determ_infer_e:
  !loc ienv p e st st' t t' new_bindings s.

@@ -47,7 +47,8 @@ val arr_manip = define_MFarray_manip_funs
 
 val hash_tab_32_manip = el 1 arr_manip;
 
-val hash_tab_32_accessor = save_thm("hash_tab_32_accessor",accessor_thm hash_tab_32_manip);
+Theorem hash_tab_32_accessor =
+  accessor_thm hash_tab_32_manip
 
 Definition lookup_ins_table_32_def:
   lookup_ins_table_32 enc n a =

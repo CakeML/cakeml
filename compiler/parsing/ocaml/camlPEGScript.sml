@@ -842,13 +842,12 @@ in
     ths
 end
 
-val FDOM_camlPEG = save_thm(
-  "FDOM_camlPEG",
+Theorem FDOM_camlPEG =
   SIMP_CONV (srw_ss()) [camlPEG_def,
                         finite_mapTheory.FRANGE_FUPDATE_DOMSUB,
                         finite_mapTheory.DOMSUB_FUPDATE_THM,
                         finite_mapTheory.FUPDATE_LIST_THM]
-            ``FDOM camlPEG.rules``);
+            ``FDOM camlPEG.rules``
 
 val spec0 =
     peg_nt_thm |> Q.GEN `G`  |> Q.ISPEC `camlPEG`
@@ -1072,9 +1071,8 @@ val topo_nts =
         “nCakeMLPragma”, “nModuleTypeDef”, “nModExpr”, “nDefinition”,
         “nDefItem”, “nModuleItem”, “nModuleItems”, “nStart”];
 
-val cml_wfpeg_thm = save_thm(
-  "cml_wfpeg_thm",
-  LIST_CONJ (List.foldl wfnt [] topo_nts))
+Theorem cml_wfpeg_thm =
+  LIST_CONJ (List.foldl wfnt [] topo_nts)
 
 Triviality subexprs_pnt:
   subexprs (pnt n) = {pnt n}

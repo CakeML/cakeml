@@ -536,7 +536,8 @@ val constrain_op_success =
         PULL_EXISTS]
   )
 
-val _ = save_thm ("constrain_op_success", constrain_op_success);
+Theorem constrain_op_success =
+  constrain_op_success
 
 Triviality get_next_uvar_success:
   !st v st'.
@@ -716,7 +717,8 @@ val success_eqns =
              check_ctor_types_success,
              check_ctors_success];
 
-val _ = save_thm ("success_eqns", success_eqns);
+Theorem success_eqns =
+  success_eqns
 
 Theorem remove_pair_lem:
  (!f v. (\(x,y). f x y) v = f (FST v) (SND v)) ∧
@@ -2408,14 +2410,13 @@ PairCases_on `x` >>
 rw []
 QED
 
-val t_ind = t_induction
+Theorem t_ind = t_induction
   |> Q.SPECL[`P`,`EVERY P`]
   |> UNDISCH_ALL
   |> CONJUNCT1
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) []
   |> Q.GEN`P`
-  |> curry save_thm "t_ind";
 
 (* Rename (type_system) type identifiers with a function *)
 Definition ts_tid_rename_def:

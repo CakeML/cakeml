@@ -217,8 +217,10 @@ val (match_def, match_ind) = Defn.tprove
    PURE_ONCE_REWRITE_TAC [GSYM arithmeticTheory.LESS_OR_EQ] THEN
    RW_TAC list_ss [front_starHeight_def, starHeight_def]);
 
-val _ = save_thm ("match_def", match_def);
-val _ = save_thm ("match_ind", match_ind);
+Theorem match_def =
+  match_def
+Theorem match_ind =
+  match_ind
 
 (* ------------------------------------------------------------------------- *)
 (* Correctness Proof                                                         *)
