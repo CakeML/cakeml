@@ -105,22 +105,22 @@ End
 
 val res = translate (res_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def]);
 
-Definition mk_objf_def:
-  mk_objf fml =
-  (NONE, fml):((int # mlstring lit) list # int) option #
+Definition mk_prob_def:
+  mk_prob fml = (NONE,NONE,fml):mlstring list option #
+    ((int # mlstring lit) list # int) option #
     (pbop # (int # mlstring lit) list # int) list
 End
 
-val res = translate mk_objf_def;
+val res = translate mk_prob_def;
 
 val check_unsat_3 = (append_prog o process_topdecs) `
   fun check_unsat_3 f1 f2 f3 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr fml =>
-    let val objft = default_objf in
+    let val probt = default_prob in
     (case
-      res_to_string (check_unsat_top_norm False (mk_objf fml) objft f3) of
+      res_to_string (check_unsat_top_norm False (mk_prob fml) probt f3) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)
     end`
@@ -165,15 +165,10 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   xmatch>>
-  assume_tac npbc_parseProgTheory.default_objf_v_thm>>
+  assume_tac npbc_parseProgTheory.default_prob_v_thm>>
   xlet`POSTv v.
     STDIO fs *
-    &(PAIR_TYPE
-      (OPTION_TYPE (PAIR_TYPE
-        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-      INT))
-      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
-      ) default_objf v`
+    &prob_TYPE default_prob v`
   >-
     (xvar>>xsimpl)>>
   xlet_autop>>
@@ -182,7 +177,7 @@ Proof
     (xcon>>xsimpl)>>
   drule npbc_parseProgTheory.check_unsat_top_norm_spec>>
   disch_then drule>>
-  qpat_x_assum`objf_TYPE default_objf _`assume_tac>>
+  qpat_x_assum`prob_TYPE default_prob _`assume_tac>>
   disch_then drule>>
   strip_tac>>
   xlet_auto
@@ -191,7 +186,7 @@ Proof
     fs[validArg_def]>>
     metis_tac[])>>
   xlet_autop>>
-  fs[mk_objf_def]>>
+  fs[mk_prob_def]>>
   every_case_tac>>gvs[SUM_TYPE_def]
   >- (
     fs[res_to_string_def,SUM_TYPE_def]>>
@@ -267,7 +262,7 @@ Definition check_unsat_2_sem_def:
   case get_graph_lad fs f2 of
     NONE => out = strlit ""
   | SOME gtt =>
-    out = concat (print_pbf (NONE, full_encode gpp gtt))
+    out = concat (print_prob (mk_prob (full_encode gpp gtt)))
 End
 
 val check_unsat_2 = (append_prog o process_topdecs) `
@@ -275,7 +270,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr fml =>
-    TextIO.print_list (print_pbf (None,fml))`
+    TextIO.print_list (print_prob (mk_prob fml))`
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -315,11 +310,6 @@ Proof
   xmatch>>
   xlet_autop>>
   xlet_autop>>
-  xlet`POSTv v. STDIO fs *
-    &(LIST_TYPE STRING_TYPE (print_pbf (NONE,y)) v)`
-  >- (
-    xapp>>xsimpl>>
-    qexists_tac`(NONE,y)`>>simp[PAIR_TYPE_def,OPTION_TYPE_def])>>
   xapp_spec print_list_spec>>xsimpl>>
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
