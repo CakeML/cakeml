@@ -8,58 +8,41 @@ open preamble HolKernel Parse boolLib bossLib stringLib numLib intLib
 
 val _ = new_theory "quickSort";
 
-(* copied from panConcreteExampleScript *)
-
 val (ast, _) = parse_pancake_file "../examples/quick_sort.pnk"
+
+val ast_funs = listSyntax.dest_list ast |> fst
+  |> map (hd o pairSyntax.strip_pair)
 
 Definition the_code_def:
   the_code = FEMPTY |++ (MAP (I ## SND) (^ast))
 End
 
-Theorem lookup_do_sort = EVAL ``FLOOKUP (the_code) «do_sort»``
-
-val do_sort_loop =
-  lookup_do_sort |> concl |> find_term (can (match_term ``(panLang$While _ _)``))
+val lookups = LIST_CONJ (map (fn nm => EVAL ``FLOOKUP the_code ^nm``) ast_funs)
 
 Definition w_count_def:
-  w_count i x = (if ~ (i < x) then []
+  w_count i x = (if ~ (i <+ x) then []
     else GENLIST (\j. i + n2w j) (w2n (x - i)))
 End
 
-Theorem w_count_MEM:
-  MEM y (w_count i x) <=> i <= y /\ y < x
+Triviality word_plus_one_lower:
+  x <+ y ==> x + 1w <=+ y
 Proof
-  rw [w_count_def] \\ TRY EQ_TAC
-  >- (
-    metis_tac [ WORD_LESS_EQ_LESS_TRANS]
-  )
+  simp [WORD_LO, GSYM WORD_NOT_LOWER]
+  \\ qspec_then `x` mp_tac w2n_plus1
+  \\ rw []
+QED
+
+Triviality word_minus_one_lower:
+  x <+ y ==> x <=+ y - 1w
+Proof
+  simp [WORD_LO, GSYM WORD_NOT_LOWER]
+  \\ qspec_then `x` mp_tac w2n_plus1
+  \\ rw []
   \\ cheat
 QED
 
-Theorem word_plus_one_le:
-  x < y ==> x + 1w <= y
-Proof
-  qspec_then `w2n (x + 1w)` mp_tac (GEN_ALL wordsTheory.word_msb_n2w_numeric)
-  \\ qspec_then `w2n x` mp_tac (GEN_ALL wordsTheory.word_msb_n2w_numeric)
-  \\ simp [w2n_lt]
-  \\ qspec_then `x` mp_tac w2n_plus1
-  \\ qspec_then `y` mp_tac w2n_lt
-  \\ rw [] \\ fs [WORD_LE, WORD_LT, wordsTheory.w2n_minus1]
-  \\ fs []
-QED
-
-Theorem word_le_minus_one:
-  x < y ==> x <= y + (-1w)
-Proof
-  CCONTR_TAC \\ fs []
-  \\ full_simp_tac bool_ss [GSYM WORD_NOT_LESS]
-  \\ drule word_plus_one_le
-  \\ simp []
-  \\ full_simp_tac bool_ss [GSYM WORD_NOT_LESS]
-QED
-
 Theorem w_count_cons:
-  i < x ==> w_count i x = i :: w_count (i + 1w) x
+  i <+ x ==> w_count i x = i :: w_count (i + 1w) x
 Proof
   simp [w_count_def]
   \\ disch_tac
@@ -73,19 +56,19 @@ Proof
     \\ fs [wordsTheory.WORD_EQ_SUB_ZERO]
   )
   >- (
-    fs [WORD_NOT_LESS]
-    \\ drule_then mp_tac WORD_LESS_EQUAL_ANTISYM
-    \\ simp [word_plus_one_le] 
+    fs [WORD_NOT_LOWER]
+    \\ drule_then mp_tac WORD_LOWER_EQUAL_ANTISYM
+    \\ simp [word_plus_one_lower]
   )
 QED
 
 Theorem w_count_snoc:
-  i < x ==> w_count i x = w_count i (x - 1w) ++ [x - 1w]
+  i <+ x ==> w_count i x = w_count i (x - 1w) ++ [x - 1w]
 Proof
   simp [w_count_def]
   \\ disch_tac
   \\ DEP_ONCE_REWRITE_TAC [GSYM wordsTheory.SUC_WORD_PRED]
-  \\ simp [GENLIST]
+  \\ simp [listTheory.GENLIST]
   \\ rw []
   >- (
     strip_tac
@@ -93,36 +76,15 @@ Proof
     \\ fs [wordsTheory.WORD_EQ_SUB_ZERO]
   )
   >- (
-    fs [WORD_NOT_LESS]
-    \\ drule_then mp_tac WORD_LESS_EQUAL_ANTISYM
-    \\ simp [word_le_minus_one]
+    drule word_minus_one_lower
+    \\ fs [WORD_NOT_LOWER]
     \\ rw []
-    \\ REWRITE_TAC [WORD_SUB_INTRO, WORD_MULT_CLAUSES, WORD_SUB_SUB]
+    \\ imp_res_tac WORD_LOWER_EQUAL_ANTISYM
+    \\ fs [] \\ gvs []
+    \\ full_simp_tac bool_ss [wordsTheory.WORD_SUB_INTRO, wordsTheory.WORD_MULT_CLAUSES,
+            wordsTheory.WORD_SUB_SUB]
     \\ simp []
   )
-QED
-
-Theorem w_count_drop1:
-  i - 1w < x ==> w_count i x = DROP 1 (w_count (i - 1w) x)
-Proof
-  rw []
-  \\ drule w_count_cons
-  \\ simp []
-QED
-
-Definition while_then_def:
-  while_then C B X = Seq (While C B) X
-End
-
-Definition clock_after_def:
-  clock_after s1 s2 = (s2.clock < s1.clock)
-End
-
-Theorem FLOOKUP_res_var:
-  FLOOKUP (res_var fmap (nm1, r)) nm2 = if nm1 = nm2 then r
-    else FLOOKUP fmap nm2
-Proof
-  Cases_on `r` \\ simp [res_var_def, FLOOKUP_UPDATE, DOMSUB_FLOOKUP_THM]
 QED
 
 Theorem res_var_FUPDATE_LIST:
@@ -156,64 +118,6 @@ Proof
   \\ fs []
 QED
 
-Theorem evaluate_while_then_imp:
-  evaluate (while_then C B X, st1) = (res, st2) ==>
-  (? res1 step_st. evaluate (If C (Seq Tick B) Break, st1) = (res1, step_st) /\
-    (case res1 of
-        | NONE => (evaluate (while_then C B X, step_st) = (res, st2) /\
-            clock_after st1 step_st)
-        | SOME Continue => (evaluate (while_then C B X, step_st) = (res, st2) /\
-            clock_after st1 step_st)
-        | SOME Break => evaluate (X, step_st) = (res, st2)
-        | _ => (res1, step_st) = (res, st2)
-    ))
-Proof
-  simp [evaluate_def]
-  \\ simp [while_then_def]
-  \\ simp [Once evaluate_def]
-  \\ simp [Once evaluate_def]
-  \\ simp [GSYM while_then_def]
-  \\ pairarg_tac \\ fs []
-  \\ fs [CaseEq "option", CaseEq "v", CaseEq "word_lab"]
-  \\ fs [CaseEq "bool"]
-  \\ simp [evaluate_def]
-  \\ pairarg_tac \\ fs []
-  \\ rename [`evaluate (_, dec_clock _) = (_, step_st)`]
-  \\ reverse (qsuff_tac `clock_after st1 step_st`)
-  >- (
-    imp_res_tac evaluate_clock
-    \\ fs [clock_after_def, dec_clock_def]
-  )
-  \\ fs [CaseEq "option", CaseEq "result"] \\ rw []
-  \\ simp [while_then_def, EVAL ``evaluate (panLang$Seq _ _, _)``]
-QED
-
-Theorem evaluate_while_then_to_skip:
-  evaluate (while_then C B X, st1) = (res, st2) ==>
-  ? res1 step_st.
-  evaluate (while_then C B Skip, st1) = (res1, step_st) /\
-  (case res1 of
-    | NONE => evaluate (X, step_st) = (res, st2)
-    | _ => (res1, step_st) = (res, st2)
-  )
-Proof
-  simp [while_then_def, EVAL ``evaluate (panLang$Seq _ _, _)``]
-  \\ pairarg_tac \\ fs []
-  \\ simp [evaluate_def]
-  \\ rw []
-  \\ BasicProvers.every_case_tac
-  \\ fs []
-QED
-
-Theorem clock_after_induct:
-  (! s. (! step_st. clock_after s step_st ==> P step_st) ==> P s) ==>
-  ! s. P s
-Proof
-  rw []
-  \\ measureInduct_on `s.clock`
-  \\ fs [clock_after_def]
-QED
-
 Theorem UPDATE_LIST_UNCHANGED:
   EVERY (\(x, y). f x = y) xs ==>
   f =++ xs = f
@@ -221,80 +125,6 @@ Proof
   Induct_on `xs` \\ simp [UPDATE_LIST_THM]
   \\ simp [FORALL_PROD, combinTheory.UPDATE_APPLY_IMP_ID]
 QED
-
-Triviality w2n_rotate:
-  w2n (x + INT_MINw) = (if word_msb x then w2n x - INT_MIN (:'a) else w2n x + INT_MIN (:'a))
-Proof
-  cheat
-QED
-
-Triviality word_msb_numeric:
-  word_msb (x : 'a word) = (INT_MIN (:'a) <= w2n x)
-Proof
-  ONCE_REWRITE_TAC [GSYM n2w_w2n]
-  \\ REWRITE_TAC [word_msb_n2w_numeric]
-  \\ simp []
-QED
-
-Theorem word_lt_rotate:
-  x < y <=> w2n (x + INT_MINw) < w2n (y + INT_MINw)
-Proof
-  simp [WORD_LT, word_add_def, w2n_rotate]
-  \\ qspec_then `x` mp_tac w2n_lt
-  \\ qspec_then `y` mp_tac w2n_lt
-  \\ rw []
-  \\ fs [word_msb_numeric, GSYM dimword_IS_TWICE_INT_MIN]
-QED
-
-Theorem word_less_plus_one:
-  x <= y /\ y < z ==>
-  x < y + 1w
-Proof
-  rw []
-  \\ drule_then irule WORD_LESS_EQ_LESS_TRANS
-  \\ fs [word_lt_rotate]
-  \\ DEP_ONCE_REWRITE_TAC [GSYM wordsTheory.SUC_WORD_PRED |> Q.SPEC `_ + 1w`]
-  \\ simp []
-  \\ REWRITE_TAC [GSYM WORD_ADD_ASSOC] \\ REWRITE_TAC [WORD_SUM_ZERO]
-  \\ CCONTR_TAC \\ fs []
-  \\ full_simp_tac bool_ss [WORD_SUB_INTRO, WORD_MULT_CLAUSES, WORD_SUB_PLUS]
-  \\ fs []
-  \\ full_simp_tac bool_ss [w2n_minus1, arithmeticTheory.LESS_EQ]
-  \\ fs []
-  \\ dxrule LESS_EQ_LESS_TRANS
-  \\ simp []
-  \\ irule_at Any w2n_lt
-  \\ simp []
-QED
-
-Theorem word_minus_one_less:
-  x <= y /\ z < x ==>
-  x + (-1w) < y
-Proof
-  rw []
-  \\ drule_at_then Any irule WORD_LESS_LESS_EQ_TRANS
-  \\ fs [word_lt_rotate]
-  \\ DEP_ONCE_REWRITE_TAC [GSYM wordsTheory.SUC_WORD_PRED |> Q.SPEC `_ + INT_MINw`]
-  \\ simp []
-  \\ simp [WORD_SUM_ZERO]
-  \\ CCONTR_TAC \\ fs []
-QED
-
-Triviality w_count_add_one_snoc_cons:
-  x < y ==> y < z ==>
-  w_count x (y + 1w) = x :: w_count (x + 1w) y ++ [y]
-Proof
-  rw []
-  \\ DEP_ONCE_REWRITE_TAC [w_count_snoc]
-  \\ simp [w_count_cons]
-  \\ irule word_less_plus_one
-  \\ simp [WORD_LESS_IMP_LESS_OR_EQ]
-  \\ metis_tac []
-QED
-
-val do_sort_while_then =
-  list_mk_icomb (``\a b. while_then a b Skip``, snd (strip_comb do_sort_loop))
-    |> DEPTH_CONV BETA_CONV |> concl |> rhs
 
 Triviality PERM_MAP_update_flip:
   x_v = f y ==> y_v = f x ==> ALL_DISTINCT zs ==>
@@ -318,6 +148,28 @@ Triviality NOT_NONE_EQ_EX = IS_SOME_EQ_NOT_NONE |> GSYM |> REWRITE_RULE [IS_SOME
 
 Triviality case_opt_f = TypeBase.case_pred_imp_of ``: 'a option``
   |> Q.GEN `v` |> Q.ISPEC `F` |> Q.SPEC `\x. x` |> SIMP_RULE bool_ss []
+
+
+Theorem partition_hoare_correct:
+
+  !Q.
+  (!s ls. Q (SOME TimeOut) s ls) ==>
+  hoare_logic G 
+    (\s ls.
+        the_code ⊑ s.code /\
+        EVERY ((<>) NONE) (MAP (local_word s.locals) [«base_addr»; «piv»; «x»; «y»]) /\
+        let v = tlw s in
+        ?len.
+        0w <= v «x» /\ v «y» <= len /\
+        let addrs = MAP (\i. v «base_addr» + (i * 8w)) (w_count 0w len) in
+        set addrs SUBSET s.memaddrs /\
+        EVERY (((<>) NONE) o word_of o s.memory) addrs /\
+        (!shuffle. PERM shuffle (MAP s.memory addrs) ==>
+            !locs clock. Q (SOME (Return (ValWord 0w)))
+                (s with <| locals := locs; clock := clock; memory := s.memory =++ ZIP (addrs, shuffle) |>) ls)
+    )
+    (TailCall (Label «partition») [Var «base_addr»; Var «piv»; Var «x»; Var «y»])
+    Q
 
 
 
