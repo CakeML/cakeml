@@ -124,9 +124,19 @@ Definition bvl_to_bvi_compile_update_config_def:
     (clos_conf, bvl_conf, p)
 End
 
+(* no raw call *)
+Definition stack_to_lab_compile_alt_def:
+  stack_to_lab_compile_alt stack_conf data_conf max_heap sp offset prog =
+  let prog = stack_alloc$compile data_conf prog in
+  let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
+                                  max_heap sp InitGlobals_location prog in
+  let prog = stack_names$compile stack_conf.reg_names prog in
+     MAP prog_to_section prog
+End
+
 
 Definition compile_alt1_def:
-  compile_alt1 source_conf clos_conf bvl_conf data_conf word_conf asm_conf p =
+  compile_alt1 source_conf clos_conf bvl_conf data_conf word_conf asm_conf stack_conf (:'a) p =
   (* skip source to source for now *)
   let (source_conf', compiled_p_flat) =
     source_to_flat$compile source_conf p in
@@ -142,7 +152,11 @@ Definition compile_alt1_def:
     data_to_word$compile data_conf word_conf asm_conf compiled_p_data in
   let (bm, word_conf ,fs, compiled_p_stack) =
     word_to_stack$compile asm_conf compiled_p_word1 in
-    (source_conf', clos_conf', bvl_conf', word_conf, bm, compiled_p_stack)
+  let max_heap = (2 * data_to_word$max_heap_limit (:'a) data_conf - 1) in
+  let sp = (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3)) in
+  let offset = asm_conf.addr_offset in
+  let compiled_p_lab = stack_to_lab_compile_alt stack_conf data_conf max_heap sp offset compiled_p_stack in
+    (source_conf', clos_conf', bvl_conf', word_conf, bm, compiled_p_lab)
 End
 
 (******************************************************************************)
@@ -511,8 +525,27 @@ Definition end_icompile_word_to_stack_def:
 End
 
 
+Definition icompile_stack_to_lab_def:
+  icompile_stack_to_lab stack_conf offset k p =
+  let p = MAP stack_alloc$prog_comp p in
+  let p = MAP (stack_remove$prog_comp stack_conf.jump offset k) p in
+  let p = MAP (stack_names$prog_comp stack_conf.reg_names) p in
+    MAP stack_to_lab$prog_to_section p
+End
+
+Definition init_icompile_stack_to_lab_def:
+  init_icompile_stack_to_lab stack_conf data_conf max_heap sp offset stack_init =
+  let stubs = stack_alloc$compile data_conf [] in
+  let stubs = stack_remove$compile stack_conf.jump offset (stack_to_lab$is_gen_gc data_conf.gc_kind)
+                                   max_heap sp bvl_to_bvi$InitGlobals_location stubs in
+  let stubs = stack_names$compile stack_conf.reg_names stubs in
+  let stubs = MAP stack_to_lab$prog_to_section stubs in
+    stubs ++ icompile_stack_to_lab stack_conf offset sp stack_init
+End
+
+
 Definition init_icompile_def:
-  init_icompile source_conf clos_conf bvl_conf data_conf word_conf asm_conf =
+  init_icompile source_conf clos_conf bvl_conf data_conf word_conf asm_conf stack_conf (:'a) =
   let (source_iconf, flat_stub) = init_icompile_source_to_flat source_conf in
   let clos_stub = init_icompile_flat_to_clos flat_stub in
   let (clos_iconf, bvl_init) = init_icompile_clos_to_bvl clos_conf clos_stub in
@@ -521,7 +554,12 @@ Definition init_icompile_def:
   let (data_conf, word_init) = init_icompile_data_to_word data_conf asm_conf data_init in
   let (_, word_init1) = word_to_word$compile word_conf asm_conf word_init in
   let (word_iconf, stack_init) = init_icompile_word_to_stack asm_conf word_init1 in
-    (source_iconf, clos_iconf, bvl_iconf, data_conf, word_iconf, stack_init)
+  let max_heap = (2 * data_to_word$max_heap_limit (:'a) data_conf - 1) in
+  let lab_init = init_icompile_stack_to_lab stack_conf data_conf
+                                            max_heap
+                                            (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3))
+                                            asm_conf.addr_offset stack_init in
+    (source_iconf, clos_iconf, bvl_iconf, data_conf, word_iconf, lab_init)
 End
 
 Definition end_icompile_def:
@@ -529,7 +567,7 @@ Definition end_icompile_def:
                clos_iconf clos_conf
                bvl_iconf bvl_conf
                data_conf word_conf asm_conf
-               word_iconf
+               word_iconf stack_conf
   =
   let source_conf_after_ic = end_icompile_source_to_flat source_iconf source_conf in
   let (clos_conf_after_ic, bvl_end) = end_icompile_clos_to_bvl clos_iconf clos_conf in
@@ -539,11 +577,15 @@ Definition end_icompile_def:
   let word_end = icompile_data_to_word data_conf data_end in
   let (_, word_end1) = word_to_word$compile word_conf asm_conf word_end in
   let (bm, w2s_conf, fs, stack_end) = end_icompile_word_to_stack word_iconf word_end1 in
-    (source_conf_after_ic, clos_conf_after_ic_bvi, bvl_conf_after_ic, w2s_conf, bm, stack_end)
+  let offset = asm_conf.addr_offset in
+  let k = (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3)) in
+  let lab_end = icompile_stack_to_lab stack_conf offset k stack_end in
+
+    (source_conf_after_ic, clos_conf_after_ic_bvi, bvl_conf_after_ic, w2s_conf, bm, lab_end)
 End
 
 Definition icompile_def:
-  icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf p =
+  icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf stack_conf p =
   case icompile_source_to_flat source_iconf p of NONE => NONE
   | SOME (source_iconf', icompiled_p_flat) =>
   let icompiled_p_clos = icompile_flat_to_clos icompiled_p_flat in
@@ -553,19 +595,21 @@ Definition icompile_def:
   let icompiled_p_word = icompile_data_to_word data_conf icompiled_p_data in
   let (_, icompiled_p_word1) = word_to_word$compile word_conf asm_conf icompiled_p_word in
   let (word_iconf', icompiled_p_stack) = icompile_word_to_stack word_iconf icompiled_p_word1 in
-    SOME (source_iconf', clos_iconf', bvl_iconf', word_iconf', icompiled_p_stack)
-
+  let offset = asm_conf.addr_offset in
+  let k = (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3)) in
+  let icompiled_p_lab = icompile_stack_to_lab stack_conf offset k icompiled_p_stack in
+    SOME (source_iconf', clos_iconf', bvl_iconf', word_iconf', icompiled_p_lab)
 End
 
 
 Definition fold_icompile_def:
-  fold_icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf [] =
-    icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf []
+  fold_icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf stack_conf [] =
+    icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf stack_conf []
   ∧
-  fold_icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf (p :: ps)  =
-  case icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf p of NONE => NONE
+  fold_icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf stack_conf (p :: ps)  =
+  case icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf stack_conf p of NONE => NONE
   | SOME (source_iconf', clos_iconf' , bvl_iconf', word_iconf', p') =>
-    (case fold_icompile source_iconf' clos_iconf' bvl_iconf' data_conf word_conf asm_conf word_iconf' ps of NONE => NONE
+    (case fold_icompile source_iconf' clos_iconf' bvl_iconf' data_conf word_conf asm_conf word_iconf' stack_conf ps of NONE => NONE
     | SOME (source_iconf'', clos_iconf'', bvl_iconf'', word_iconf'', ps') =>
       SOME (source_iconf'', clos_iconf'', bvl_iconf'', word_iconf'', p' ++ ps'))
 End
@@ -1349,15 +1393,23 @@ Proof
   rw[]
 QED
 
+Theorem icompile_icompile_stack_to_lab:
+  icompile_stack_to_lab stack_conf offset k (p1 ++ p2) =
+  icompile_stack_to_lab stack_conf offset k p1 ++ icompile_stack_to_lab stack_conf offset k p2
+Proof
+  rw[icompile_stack_to_lab_def]
+QED
+
+
 Theorem icompile_icompile:
   icompile source_iconf clos_iconf bvl_iconf
-           data_conf (word_conf with col_oracle := []) asm_conf word_iconf prog1 =
+           data_conf (word_conf with col_oracle := []) asm_conf word_iconf stack_conf prog1 =
     SOME (source_iconf', clos_iconf', bvl_iconf', word_iconf', prog1') ∧
   icompile source_iconf' clos_iconf' bvl_iconf'
-           data_conf (word_conf with col_oracle := []) asm_conf word_iconf' prog2 =
+           data_conf (word_conf with col_oracle := []) asm_conf word_iconf' stack_conf prog2 =
     SOME (source_iconf'', clos_iconf'', bvl_iconf'', word_iconf'', prog2') ⇒
   icompile source_iconf clos_iconf bvl_iconf
-           data_conf (word_conf with col_oracle := []) asm_conf word_iconf(prog1 ++ prog2) =
+           data_conf (word_conf with col_oracle := []) asm_conf word_iconf stack_conf (prog1 ++ prog2) =
     SOME (source_iconf'', clos_iconf'', bvl_iconf'', word_iconf'', prog1' ++ prog2')
 Proof
   rw[] >>
@@ -1377,7 +1429,7 @@ Proof
   pairarg_tac >> simp[] >>
   pop_assum mp_tac >>
   drule icompile_icompile_word_to_stack >>
-  disch_then rev_drule  >> rw[]
+  disch_then rev_drule  >> rw[] >> rw[icompile_icompile_stack_to_lab]
 QED
 
 Definition config_prog_rel_def:
@@ -1403,8 +1455,8 @@ Definition init_config_rel_s2f_def:
 End
 
 
-Definition config_prog_rel_s2stack_def:
-  config_prog_rel_s2stack source_conf_after_ic source_conf_after_c
+Definition config_prog_rel_s2l_def:
+  config_prog_rel_s2l     source_conf_after_ic source_conf_after_c
                           clos_conf_after_c clos_conf_after_ic
                           bvl_conf_after_ic bvl_conf_after_c
                           w2s_conf_after_ic w2s_conf_after_c
@@ -1660,20 +1712,34 @@ Proof
 QED
 
 
+Theorem init_icompile_icompile_end_icompile_stack2l:
+  stack_to_lab_compile_alt stack_conf data_conf max_heap sp offset (stack_init ++ icompiled_p_stack ++ stack_end) =
+  init_icompile_stack_to_lab stack_conf data_conf max_heap sp offset stack_init ++
+  icompile_stack_to_lab stack_conf offset sp icompiled_p_stack ++
+  icompile_stack_to_lab stack_conf offset sp stack_end
+Proof
+  rw[stack_to_lab_compile_alt_def, init_icompile_stack_to_lab_def,
+     stack_allocTheory.compile_def, icompile_stack_to_lab_def,
+     stack_removeTheory.compile_def, stack_namesTheory.compile_def]
+QED
+
+
+
+
 Theorem init_icompile_icompile_end_icompile:
-  init_icompile source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf =
-    (source_iconf, clos_iconf, bvl_iconf, data_conf, word_iconf, stack_init)
+  init_icompile source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf stack_conf (:'a) =
+    (source_iconf, clos_iconf, bvl_iconf, data_conf, word_iconf, lab_init)
   ∧
-  icompile source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf word_iconf p =
-    SOME (source_iconf', clos_iconf', bvl_iconf', word_iconf', icompiled_p_stack)
+  icompile source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf word_iconf stack_conf p =
+    SOME (source_iconf', clos_iconf', bvl_iconf', word_iconf', icompiled_p_lab)
   ∧
   end_icompile source_iconf' source_conf
                clos_iconf' clos_conf
                bvl_iconf' bvl_conf
-               data_conf (word_conf with col_oracle := []) asm_conf word_iconf'
-  = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, w2s_conf_after_ic, bm_after_ic, stack_end)
+               data_conf (word_conf with col_oracle := []) asm_conf word_iconf' stack_conf
+  = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, w2s_conf_after_ic, bm_after_ic, lab_end)
   ∧
-  compile_alt1 source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf p =
+  compile_alt1 source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf stack_conf (:'a) p =
     (source_conf_after_c, clos_conf_after_c, bvl_conf_after_c, w2s_conf_after_c, bm_after_c, compiled_p)
   ∧
   source_conf = source_to_flat$empty_config
@@ -1682,12 +1748,12 @@ Theorem init_icompile_icompile_end_icompile:
   ∧
   bvl_conf = bvl_to_bvi$default_config
   ⇒
-  config_prog_rel_s2stack source_conf_after_ic source_conf_after_c
+  config_prog_rel_s2l     source_conf_after_ic source_conf_after_c
                           clos_conf_after_c clos_conf_after_ic
                           bvl_conf_after_ic bvl_conf_after_c
                           w2s_conf_after_ic w2s_conf_after_c
                           bm_after_ic bm_after_c
-                          (stack_init ++ icompiled_p_stack ++ stack_end) compiled_p
+                          (lab_init ++ icompiled_p_lab ++ lab_end) compiled_p
 Proof
   once_rewrite_tac[init_icompile_def, icompile_def, end_icompile_def, compile_alt1_def] >>
   simp[] >>
@@ -1729,14 +1795,15 @@ Proof
    bvi_to_data$compile_prog bvi_end
   ’ by rw[bvi_to_dataTheory.compile_prog_def] >> gvs[] >>
   drule_all init_icompile_icompile_end_icompile_w12s >>
-  rw[config_prog_rel_s2stack_def]
+  rw[config_prog_rel_s2l_def] >>
+  rw[GSYM init_icompile_icompile_end_icompile_stack2l]
 
 QED
 
 
 Theorem icompile_none:
-  icompile a b c d e f g p = NONE ⇒
-  icompile a b c d e f g (p ++ p') = NONE
+  icompile a b c d e f g h p = NONE ⇒
+  icompile a b c d e f g h (p ++ p') = NONE
 Proof
   rw[icompile_def] >>
   rw[icompile_icompile_source_to_flat] >>
@@ -1747,10 +1814,10 @@ Proof
 QED
 
 Theorem icompile_none1:
-  ∀ a b c a' b' c' p p' d e f g g'.
-  icompile a b c d e f g p = SOME (a', b', c', g', _) ∧
-  icompile a' b' c' d e f g' p' = NONE ⇒
-  icompile a b c d e f g (p ++ p') = NONE
+  ∀ a b c a' b' c' p p' d e f g g' h.
+  icompile a b c d e f g h p = SOME (a', b', c', g', _) ∧
+  icompile a' b' c' d e f g' h p' = NONE ⇒
+  icompile a b c d e f g h (p ++ p') = NONE
 Proof
   rw[icompile_def] >>
   Cases_on ‘icompile_source_to_flat a p’ >> gvs[] >>
@@ -1765,19 +1832,19 @@ QED
 
 
 Theorem fold_icompile_collapse:
-  ∀pss source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf.
-  fold_icompile source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf word_iconf pss =
-  icompile source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf word_iconf (FLAT pss)
+  ∀pss source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf stack_conf.
+  fold_icompile source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf word_iconf stack_conf pss =
+  icompile source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf word_iconf stack_conf (FLAT pss)
 Proof
   Induct >>
   rw[fold_icompile_def] >>
-  Cases_on ‘icompile source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf word_iconf h’
+  Cases_on ‘icompile source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf word_iconf stack_conf h’
   >- (simp[] >>
       drule icompile_none >> rw[])
   >- (namedCases_on ‘x’ ["source_iconf' clos_iconf' bvl_iconf' word_iconf' p'"] >>
       rw[] >>
       drule icompile_none1 >> strip_tac >>
-      Cases_on ‘icompile source_iconf' clos_iconf' bvl_iconf' data_conf (word_conf with col_oracle := []) asm_conf word_iconf' (FLAT pss)’ >>
+      Cases_on ‘icompile source_iconf' clos_iconf' bvl_iconf' data_conf (word_conf with col_oracle := []) asm_conf word_iconf' stack_conf (FLAT pss)’ >>
       simp[] >>
       namedCases_on ‘x’ ["source_iconf'' clos_iconf'' bvl_iconf'' word_iconf'' ps'"] >>
       simp[] >>
@@ -1785,19 +1852,19 @@ Proof
 QED
 
 Theorem icompile_eq:
- init_icompile source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf =
-    (source_iconf, clos_iconf, bvl_iconf, data_conf, word_iconf, stack_init)
+  init_icompile source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf stack_conf (:'a) =
+    (source_iconf, clos_iconf, bvl_iconf, data_conf, word_iconf, lab_init)
   ∧
-  fold_icompile source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf word_iconf p =
-    SOME (source_iconf', clos_iconf', bvl_iconf', word_iconf', icompiled_p_stack)
+  fold_icompile source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf word_iconf stack_conf p =
+    SOME (source_iconf', clos_iconf', bvl_iconf', word_iconf', icompiled_p_lab)
   ∧
   end_icompile source_iconf' source_conf
                clos_iconf' clos_conf
                bvl_iconf' bvl_conf
-               data_conf (word_conf with col_oracle := []) asm_conf word_iconf'
-  = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, w2s_conf_after_ic, bm_after_ic, stack_end)
+               data_conf (word_conf with col_oracle := []) asm_conf word_iconf' stack_conf
+  = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, w2s_conf_after_ic, bm_after_ic, lab_end)
   ∧
-  compile_alt1 source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf (FLAT p) =
+  compile_alt1 source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf stack_conf (:'a) (FLAT p) =
     (source_conf_after_c, clos_conf_after_c, bvl_conf_after_c, w2s_conf_after_c, bm_after_c, compiled_p)
   ∧
   source_conf = source_to_flat$empty_config
@@ -1806,12 +1873,12 @@ Theorem icompile_eq:
   ∧
   bvl_conf = bvl_to_bvi$default_config
   ⇒
-  config_prog_rel_s2stack source_conf_after_ic source_conf_after_c
+  config_prog_rel_s2l     source_conf_after_ic source_conf_after_c
                           clos_conf_after_c clos_conf_after_ic
                           bvl_conf_after_ic bvl_conf_after_c
                           w2s_conf_after_ic w2s_conf_after_c
                           bm_after_ic bm_after_c
-                          (stack_init ++ icompiled_p_stack ++ stack_end) compiled_p
+                          (lab_init ++ icompiled_p_lab ++ lab_end) compiled_p
 Proof
   once_rewrite_tac[fold_icompile_collapse] >>
   metis_tac[init_icompile_icompile_end_icompile]
