@@ -139,8 +139,7 @@ Definition scope_check_exp_def:
           [strlit "local load address is not calculated from base in function "; ctxt.fname; strlit "\n"])
       | NotTrusted => log (WarningErr $ concat
           [strlit "local load address may not be calculated from base in function "; ctxt.fname; strlit "\n"])
-      | Based      => return ()
-      | Trusted    => return ();
+      | _          => return ();
       return (Trusted)
     od ∧
   scope_check_exp ctxt (LoadByte e) =
@@ -252,8 +251,7 @@ Definition scope_check_prog_def:
           [strlit "local store address is not calculated from base in function "; ctxt.fname; strlit "\n"])
       | NotTrusted => log (WarningErr $ concat
           [strlit "local store address may not be calculated from base in function "; ctxt.fname; strlit "\n"])
-      | Based      => return ()
-      | Trusted    => return ();
+      | _          => return ();
       return (F, OtherLast, empty mlstring$compare)
     od ∧
   scope_check_prog ctxt (Seq p1 p2) =
@@ -358,12 +356,11 @@ Definition scope_check_prog_def:
       | SOME _ => return ();
       b <- scope_check_exp ctxt e;
       case b of
-      | Based   => log (WarningErr $ concat
+      | Based      => log (WarningErr $ concat
           [strlit "shared load address is calculated from base in function "; ctxt.fname; strlit "\n"])
       | NotTrusted => log (WarningErr $ concat
           [strlit "shared load address may be calculated from base in function "; ctxt.fname; strlit "\n"])
-      | NotBased   => return ()
-      | Trusted    => return ();
+      | _          => return ();
       return (F, OtherLast, singleton mlstring$compare v Trusted)
     od ∧
   scope_check_prog ctxt (ShMemStore mop e1 e2) =
@@ -375,8 +372,7 @@ Definition scope_check_prog_def:
           [strlit "shared store address is calculated from base in function "; ctxt.fname; strlit "\n"])
       | NotTrusted => log (WarningErr $ concat
           [strlit "shared store address may be calculated from base in function "; ctxt.fname; strlit "\n"])
-      | NotBased   => return ()
-      | Trusted    => return ();
+      | _          => return ();
       return (F, OtherLast, empty mlstring$compare)
     od ∧
   scope_check_prog ctxt Tick = return (F, InvisLast, empty mlstring$compare) ∧
