@@ -456,19 +456,19 @@ Theorem validFD_fastForwardFD[simp]:
    validFD fd (fastForwardFD fs fd) = validFD fd fs
 Proof
   rw[validFD_def,fastForwardFD_def,bumpFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
-  \\ rw[OPTION_GUARD_COND,libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[miscTheory.the_def]
+  \\ rw[OPTION_GUARD_COND,miscTheory.the_def]
 QED
 
 Theorem validFileFD_fastForwardFD[simp]:
    validFileFD fd (fastForwardFD fs x).infds ⇔ validFileFD fd fs.infds
 Proof
   rw[validFileFD_def, fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds x` \\ rw[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds x` \\ rw[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[miscTheory.the_def]
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ simp[]
   \\ rw[PAIR_MAP, FST_EQ_EQUIV, PULL_EXISTS, SND_EQ_EQUIV]
@@ -479,29 +479,29 @@ Theorem fastForwardFD_inode_tbl[simp]:
    (fastForwardFD fs fd).inode_tbl = fs.inode_tbl
 Proof
   EVAL_TAC
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
-  \\ rw[OPTION_GUARD_COND,libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[miscTheory.the_def]
+  \\ rw[OPTION_GUARD_COND,miscTheory.the_def]
 QED
 
 Theorem fastForwardFD_files[simp]:
    !fs fd. (fastForwardFD fs fd).files = fs.files
 Proof
  rw[fastForwardFD_def] >>
-  Cases_on`ALOOKUP fs.infds fd` >> fs[libTheory.the_def] >>
+  Cases_on`ALOOKUP fs.infds fd` >> fs[miscTheory.the_def] >>
   pairarg_tac >> fs[] >>
-  Cases_on`ALOOKUP fs.inode_tbl ino` >> fs[libTheory.the_def]
+  Cases_on`ALOOKUP fs.inode_tbl ino` >> fs[miscTheory.the_def]
 QED
 
 Theorem ADELKEY_fastForwardFD_elim[simp]:
    ADELKEY fd (fastForwardFD fs fd).infds = ADELKEY fd fs.infds
 Proof
   rw[fastForwardFD_def,bumpFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
-  \\ rw[OPTION_GUARD_COND,libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[miscTheory.the_def]
+  \\ rw[OPTION_GUARD_COND,miscTheory.the_def]
 QED
 
 Theorem fastForwardFD_ADELKEY_same[simp]:
@@ -509,9 +509,9 @@ Theorem fastForwardFD_ADELKEY_same[simp]:
    fs with infds updated_by ADELKEY fd
 Proof
   rw[fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
-  \\ pairarg_tac \\ fs[libTheory.the_def]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[miscTheory.the_def]
+  \\ pairarg_tac \\ fs[miscTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[miscTheory.the_def]
   \\ fs[IO_fs_component_equality,ADELKEY_unchanged]
 QED
 
@@ -520,9 +520,9 @@ Theorem fastForwardFD_0:
    fastForwardFD fs fd = fs
 Proof
   rw[fastForwardFD_def,get_file_content_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[miscTheory.the_def]
   \\ fs[IO_fs_component_equality]
   \\ match_mp_tac AFUPDKEY_unchanged
   \\ rw[] \\ rw[PAIR_MAP_THM]
@@ -533,36 +533,36 @@ Theorem fastForwardFD_with_numchars:
    fastForwardFD (fs with numchars := ns) fd = fastForwardFD fs fd with numchars := ns
 Proof
   rw[fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[miscTheory.the_def]
 QED
 
 Theorem fastForwardFD_numchars[simp]:
    (fastForwardFD fs fd).numchars = fs.numchars
 Proof
   rw[fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[miscTheory.the_def]
 QED
 
 Theorem fastForwardFD_maxFD[simp]:
    (fastForwardFD fs fd).maxFD = fs.maxFD
 Proof
   rw[fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[miscTheory.the_def]
 QED
 
 Theorem wfFS_fastForwardFD[simp]:
    !fs fd. validFD fd fs /\ wfFS fs ==> wfFS (fastForwardFD fs fd)
 Proof
  rw[wfFS_def,fastForwardFD_def,validFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[miscTheory.the_def]
   \\ rw[]
   >-(res_tac \\ simp[AFUPDKEY_ALOOKUP] \\ CASE_TAC \\ fs[])
   >-(fs[consistentFS_def] \\ rw[] \\ res_tac)
@@ -975,7 +975,7 @@ Proof
   rw[fastForwardFD_def,get_file_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ rw[]
   \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[miscTheory.the_def]
   \\ fs[IO_fs_component_equality,AFUPDKEY_o]
   \\ match_mp_tac AFUPDKEY_eq
   \\ simp[MAX_DEF]
@@ -1108,13 +1108,13 @@ Theorem fastForwardFD_lineForwardFD[simp]:
    fastForwardFD (lineForwardFD fs fd) fd = fastForwardFD fs fd
 Proof
   rw[fastForwardFD_def,lineForwardFD_def]
-  \\ TOP_CASE_TAC \\ fs[libTheory.the_def]
-  \\ TOP_CASE_TAC \\ fs[libTheory.the_def]
-  \\ TOP_CASE_TAC \\ fs[libTheory.the_def]
+  \\ TOP_CASE_TAC \\ fs[miscTheory.the_def]
+  \\ TOP_CASE_TAC \\ fs[miscTheory.the_def]
+  \\ TOP_CASE_TAC \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
   \\ fs[forwardFD_def,AFUPDKEY_ALOOKUP,get_file_content_def]
   \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[miscTheory.the_def]
   \\ fs[IO_fs_component_equality,AFUPDKEY_o]
   \\ match_mp_tac AFUPDKEY_eq
   \\ simp[] \\ rveq
@@ -1140,14 +1140,14 @@ Theorem lineFD_NONE_lineForwardFD_fastForwardFD:
    lineForwardFD fs fd = fastForwardFD fs fd
 Proof
   rw[lineFD_def,lineForwardFD_def,fastForwardFD_def,get_file_content_def]
-  \\ fs[libTheory.the_def]
-  \\ pairarg_tac \\ fs[libTheory.the_def]
-  \\ rveq \\ fs[libTheory.the_def]
+  \\ fs[miscTheory.the_def]
+  \\ pairarg_tac \\ fs[miscTheory.the_def]
+  \\ rveq \\ fs[miscTheory.the_def]
   \\ rw[] \\ TRY (
     simp[IO_fs_component_equality]
     \\ match_mp_tac (GSYM AFUPDKEY_unchanged)
     \\ simp[MAX_DEF] )
-  \\ rw[] \\ fs[forwardFD_def,libTheory.the_def]
+  \\ rw[] \\ fs[forwardFD_def,miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
 QED
 
@@ -1382,9 +1382,9 @@ Theorem STD_streams_fastForwardFD:
    (STD_streams (fastForwardFD fs fd) ⇔ STD_streams fs)
 Proof
   rw[fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[miscTheory.the_def]
   \\ EQ_TAC \\ rw[STD_streams_def,option_case_eq,AFUPDKEY_ALOOKUP,PAIR_MAP] \\ rw[]
   >- (
     qmatch_assum_rename_tac`ALOOKUP _ ino = SOME r` \\

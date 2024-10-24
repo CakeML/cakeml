@@ -4223,7 +4223,7 @@ Proof
   >- (
     TOP_CASE_TAC >>
     drule share_inst_const >>
-    gvs[libTheory.the_def] ) >>
+    gvs[miscTheory.the_def] ) >>
   TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
       TOP_CASE_TAC >>
       fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
@@ -4279,7 +4279,7 @@ Proof
   >~ [`share_inst`]
   >- (
     drule share_inst_const >>
-    gvs[libTheory.the_def] ) >>
+    gvs[miscTheory.the_def] ) >>
   TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
       fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
          CaseEq"inst",CaseEq"arith",CaseEq"word_loc",CaseEq"addr",CaseEq"memop",assign_def,

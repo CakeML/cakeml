@@ -3,7 +3,7 @@
   proofs of the type inferencer.
 *)
 open preamble;
-open libTheory namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
+open namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
 open astPropsTheory typeSysPropsTheory;
 
 val _ = new_theory "inferProps";

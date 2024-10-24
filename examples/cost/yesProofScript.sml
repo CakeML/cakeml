@@ -124,7 +124,7 @@ Proof
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
      \\ fs [size_of_heap_def,stack_to_vs_def,size_of_stack_def]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
-     \\ fs [MAX_DEF,GREATER_DEF,libTheory.the_def,small_num_def]
+     \\ fs [MAX_DEF,GREATER_DEF,miscTheory.the_def,small_num_def]
      \\ fs [Once insert_def,toList_def,toListA_def]
      \\ rveq \\ fs []
      \\ qmatch_asmsub_rename_tac `size_of _ _ _ _ = (_,refs'',seen'')`
@@ -178,7 +178,7 @@ Proof
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
      \\ fs [size_of_heap_def,stack_to_vs_def,size_of_stack_def]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
-     \\ fs [MAX_DEF,GREATER_DEF,libTheory.the_def]
+     \\ fs [MAX_DEF,GREATER_DEF,miscTheory.the_def]
      \\ fs [Once insert_def,toList_def,toListA_def]
      \\ drule size_of_insert
      \\ rpt (disch_then drule)
@@ -220,7 +220,7 @@ Proof
      \\ fs [size_of_heap_def,stack_to_vs_def]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
      (* \\ Cases_on `ts` *)
-     \\ fs [size_of_def,lookup_def,GREATER_DEF,libTheory.the_def
+     \\ fs [size_of_def,lookup_def,GREATER_DEF,miscTheory.the_def
            ,size_of_stack_def,insert_shadow]
      \\ fs [Once insert_def,toList_def,toListA_def]
      \\ drule size_of_insert
@@ -265,7 +265,7 @@ Proof
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
      \\ fs [size_of_heap_def,stack_to_vs_def]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
-     \\ fs [size_of_def,lookup_def,GREATER_DEF,libTheory.the_def
+     \\ fs [size_of_def,lookup_def,GREATER_DEF,miscTheory.the_def
            ,size_of_stack_def,insert_shadow])
   \\ simp [] \\ ntac 2 (pop_assum kall_tac)
   (* Make stack_max sane to look at *)
@@ -289,7 +289,7 @@ Proof
      \\ fs [size_of_heap_def,stack_to_vs_def]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
      (* \\ Cases_on `ts` *)
-     \\ fs [size_of_def,lookup_def,GREATER_DEF,libTheory.the_def
+     \\ fs [size_of_def,lookup_def,GREATER_DEF,miscTheory.the_def
            ,size_of_stack_def,insert_shadow]
      \\ fs [Once insert_def,toList_def,toListA_def]
      \\ drule size_of_insert
@@ -347,7 +347,7 @@ Proof
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
      \\ fs [size_of_def,lookup_def]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
-     \\ fs [size_of_Number_head,GREATER_DEF,libTheory.the_def
+     \\ fs [size_of_Number_head,GREATER_DEF,miscTheory.the_def
            ,size_of_stack_def,insert_shadow]
      \\ fs [Once insert_def,toList_def,toListA_def]
      \\ drule size_of_insert
@@ -416,7 +416,7 @@ Proof
   (* Prove we are safe for space up to this point *)
   \\ `safe` by
      (Q.UNABBREV_TAC `safe`
-     \\ fs [GREATER_DEF,libTheory.the_def,size_of_stack_def]
+     \\ fs [GREATER_DEF,miscTheory.the_def,size_of_stack_def]
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
      \\ fs [size_of_heap_def,stack_to_vs_def,size_of_Number_head]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -468,7 +468,7 @@ Proof
   (* Prove we are safe for space up to this point *)
   \\ `safe` by
      (Q.UNABBREV_TAC `safe`
-     \\ fs [GREATER_DEF,libTheory.the_def,size_of_stack_def]
+     \\ fs [GREATER_DEF,miscTheory.the_def,size_of_stack_def]
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
      \\ fs [size_of_heap_def,stack_to_vs_def,size_of_Number_head]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -585,7 +585,7 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K safe)  _`
   \\ `safe` by
      (Q.UNABBREV_TAC `safe`
-     \\ fs [GREATER_DEF,libTheory.the_def,size_of_stack_def]
+     \\ fs [GREATER_DEF,miscTheory.the_def,size_of_stack_def]
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
      \\ fs [size_of_heap_def,stack_to_vs_def,size_of_Number_head]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -629,7 +629,7 @@ Proof
   \\ simp[] \\ ntac 2 (pop_assum kall_tac) \\ fs []
   \\ reverse (Cases_on `call_FFI s.ffi "put_char" [121w; 10w] []`
              \\ fs [])
-  >- (fs [data_safe_def,GREATER_DEF,libTheory.the_def,size_of_stack_def]
+  >- (fs [data_safe_def,GREATER_DEF,miscTheory.the_def,size_of_stack_def]
      \\ simp [data_safe_def,size_of_def,size_of_Number_head]
      \\ fs [size_of_heap_def,stack_to_vs_def,size_of_Number_head]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -666,7 +666,7 @@ Proof
                      , flush_state_def ]
   \\ simp [code_lookup,lookup_def,lookup_insert,lookup_inter,frame_lookup]
   \\ IF_CASES_TAC
-  >- fs [data_safe_def,GREATER_DEF,libTheory.the_def,size_of_stack_def]
+  >- fs [data_safe_def,GREATER_DEF,miscTheory.the_def,size_of_stack_def]
   \\ REWRITE_TAC [ call_env_def   , dec_clock_def
                  , to_shallow_thm , to_shallow_def ]
   \\ simp [LET_DEF]
@@ -686,8 +686,8 @@ Proof
           , lookup_def,toList_def,toListA_def
           , wf_insert, wf_delete ]
   \\ rw []
-  >- fs [GREATER_DEF,libTheory.the_def,size_of_stack_def]
-  >- fs [GREATER_DEF,libTheory.the_def,size_of_stack_def]
+  >- fs [GREATER_DEF,miscTheory.the_def,size_of_stack_def]
+  >- fs [GREATER_DEF,miscTheory.the_def,size_of_stack_def]
   >- (pairarg_tac \\ fs []
      \\ fs [size_of_heap_def,stack_to_vs_def,size_of_Number_head]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
@@ -1051,7 +1051,7 @@ Proof
                      , flush_state_def ]
   \\ simp [code_lookup,lookup_def,lookup_insert,lookup_inter,frame_lookup]
   \\ IF_CASES_TAC
-  >- fs [data_safe_def,GREATER_DEF,libTheory.the_def,size_of_stack_def]
+  >- fs [data_safe_def,GREATER_DEF,miscTheory.the_def,size_of_stack_def]
   \\ simp[dec_clock_def]
   \\ eval_goalsub_tac ``dataSem$call_env _ _``
   \\ qmatch_goalsub_abbrev_tac `f0 (evaluate _)`

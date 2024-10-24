@@ -1818,7 +1818,7 @@ QED
 Triviality opt_bind_lem:
   opt_bind NONE = \x y.y
 Proof
-  rw [FUN_EQ_THM, libTheory.opt_bind_def]
+  rw [FUN_EQ_THM, miscTheory.opt_bind_def]
 QED
 
 Triviality env_updated_lem:
@@ -2608,7 +2608,7 @@ Proof
     metis_tac [FST])
   >- fs [EL_APPEND_EQN] >>
   `env with v updated_by opt_bind NONE v = env`
-  by rw [environment_component_equality, libTheory.opt_bind_def] >>
+  by rw [environment_component_equality, miscTheory.opt_bind_def] >>
   rw [] >>
  `LENGTH g ≤ LENGTH g` by rw [] >>
   imp_res_tac LUPDATE_APPEND2 >>
@@ -4008,7 +4008,7 @@ Proof
   \\ rfs []
   \\ Cases_on `s_i1.globals` \\ fs [eval_ref_inv_def]
   \\ simp [store_env_id_def, evaluate_def, do_app_def, env_id_tuple_def,
-    libTheory.opt_bind_def, store_assign_def]
+    miscTheory.opt_bind_def, store_assign_def]
   \\ rfs []
   \\ rveq \\ fs []
   \\ simp [store_v_same_type_def, LUPDATE_def]
@@ -4131,7 +4131,7 @@ Proof
     rw[]
     \\ fs [evaluateTheory.do_eval_res_def, astTheory.getOpClass_def]
     \\ fs [astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
-        evaluate_decs_append, libTheory.opt_bind_def]
+        evaluate_decs_append, miscTheory.opt_bind_def]
     \\ fs [list_case_eq, option_case_eq, pair_case_eq]
     \\ rveq \\ fs []
     \\ imp_res_tac result_rel_imp \\ fs [result_rel_cases]
@@ -4203,7 +4203,7 @@ Proof
       \\ simp []
     )
     \\ rw []
-    \\ simp [libTheory.opt_bind_def]
+    \\ simp [miscTheory.opt_bind_def]
     \\ asm_exists_tac
     \\ simp []
     \\ drule_then (qsubterm_then `invariant _ _ _ _ _ _ _` mp_tac)
@@ -4429,7 +4429,7 @@ Proof
     \\ disch_then (qspec_then ‘t’ mp_tac)
     \\ rw []
     \\ simp [Q.prove (`env with v updated_by opt_bind NONE x = env`,
-          simp [environment_component_equality,libTheory.opt_bind_def] )]
+          simp [environment_component_equality,miscTheory.opt_bind_def] )]
     \\ metis_tac trans_thms
   )
   \\ pop_assum (qspec_then ‘x::t’ strip_assume_tac)
@@ -4446,7 +4446,7 @@ Proof
   \\ disch_then drule
   \\ impl_tac >- (
     fs [env_all_rel_cases]
-    \\ fs [namespaceTheory.nsOptBind_def, libTheory.opt_bind_def]
+    \\ fs [namespaceTheory.nsOptBind_def, miscTheory.opt_bind_def]
     \\ simp [PULL_EXISTS, listTheory.MAP_EQ_CONS, EXISTS_PROD]
     \\ metis_tac [env_rel_bind_one, pred_setTheory.INSERT_SING_UNION,
       global_env_inv_add_locals]

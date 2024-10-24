@@ -7,7 +7,7 @@ struct
 
 open HolKernel boolLib bossLib BasicProvers;
 
-open astTheory libTheory semanticPrimitivesTheory namespaceTheory;
+open astTheory semanticPrimitivesTheory namespaceTheory;
 open evaluateTheory stringLib astSyntax semanticPrimitivesSyntax;
 open ml_translatorTheory ml_translatorSyntax intLib;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;

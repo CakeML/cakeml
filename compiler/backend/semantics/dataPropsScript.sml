@@ -2769,7 +2769,7 @@ Theorem the_le_IMP_option_le:
   ==>
   option_le m (SOME n)
 Proof
-  Cases_on `m` >> rw[libTheory.the_def]
+  Cases_on `m` >> rw[miscTheory.the_def]
 QED
 
 Theorem do_app_stack_max_le_stack_limit:

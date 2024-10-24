@@ -261,7 +261,7 @@ val _ = translate reg_alloc_def;
 
 (* === Translation of linear scan register allocator === *)
 
-open linear_scanTheory libTheory;
+open linear_scanTheory;
 
 (*
  *  Set up the monadic translator

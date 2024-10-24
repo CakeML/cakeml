@@ -3,7 +3,7 @@
   version of the CakeML source semantics.
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory namespaceTheory astTheory semanticPrimitivesTheory
+open namespaceTheory astTheory semanticPrimitivesTheory
      smallStepTheory bigStepTheory;
 
 val _ = numLib.temp_prefer_num();

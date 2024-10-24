@@ -4590,7 +4590,7 @@ Proof
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
   \\ fs [state_rel_thm,dataSemTheory.initial_state_def,
     join_env_def,lookup_def,the_global_def,
-    libTheory.the_def,flat_NIL,FLOOKUP_DEF] \\ strip_tac \\ fs []
+    miscTheory.the_def,flat_NIL,FLOOKUP_DEF] \\ strip_tac \\ fs []
   \\ qpat_abbrev_tac `fil = FILTER _ _`
   \\ `fil = []` by
    (fs [FILTER_EQ_NIL,Abbr `fil`] \\ fs [EVERY_MEM,MEM_toAList,FORALL_PROD]
@@ -5516,7 +5516,7 @@ Theorem state_rel_lookup_globals:
    FLOOKUP t.store Globals = SOME (Word (get_addr c x u))
 Proof
   rw[state_rel_def]
-  \\ fs[the_global_def,libTheory.the_def]
+  \\ fs[the_global_def,miscTheory.the_def]
   \\ qmatch_assum_abbrev_tac`word_ml_inv heapp limit stamps c refs _`
   \\ qmatch_asmsub_abbrev_tac`[gg]`
   \\ `∃rest. word_ml_inv heapp limit stamps c refs (gg::rest)`

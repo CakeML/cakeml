@@ -2,7 +2,7 @@
   Big step/small step equivalence
 *)
 open preamble;
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory smallStepTheory;
+open astTheory semanticPrimitivesTheory bigStepTheory smallStepTheory;
 open bigSmallInvariantsTheory semanticPrimitivesPropsTheory determTheory bigClockTheory;
 open smallStepPropsTheory bigStepPropsTheory evaluatePropsTheory interpTheory funBigStepEquivTheory;
 

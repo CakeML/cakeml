@@ -60,7 +60,7 @@ val add_basic_compset =
    , miscTheory.option_fold_def
    , miscTheory.list_subset_def
    , miscTheory.list_set_eq_def
-   , libTheory.the_def
+   , miscTheory.the_def
    (* TODO: move to HOL *)
    , listTheory.LIST_REL_def
    , byteTheory.bytes_in_word_def

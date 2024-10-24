@@ -2,7 +2,7 @@
   Proof about the primitive semantic environment
 *)
 open preamble;
-open libTheory astTheory evaluateTheory semanticPrimitivesTheory;
+open astTheory evaluateTheory semanticPrimitivesTheory;
 open semanticsTheory;
 open evaluateTheory;
 open semanticPrimitivesPropsTheory;

@@ -3,7 +3,7 @@
   pattern-matches occurring in HOL functions.
 *)
 open preamble
-     astTheory libTheory semanticPrimitivesTheory
+     astTheory semanticPrimitivesTheory
      patternMatchesTheory patternMatchesLib
      ml_progTheory ml_translatorTheory evaluateTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;

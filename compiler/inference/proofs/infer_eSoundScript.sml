@@ -2,7 +2,7 @@
   Prove soundness of the type inferencer for the expression-level.
 *)
 open preamble;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
+open typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
 open astPropsTheory;
 open inferPropsTheory envRelTheory;
 open typeSysPropsTheory;

@@ -1041,7 +1041,7 @@ Proof
     Cases_on `r` >> fs[] >>
     first_x_assum (qspecl_then [`reachable`, `new_removed_state`]
         match_mp_tac) >> fs[] >>
-    fs[find_env_globals_def, libTheory.opt_bind_def] >>
+    fs[find_env_globals_def, miscTheory.opt_bind_def] >>
     Cases_on `n` >> fs[] >>
     fs[find_v_globals_def, domain_union] >>
     fs[find_sem_prim_res_globals_def] >> imp_res_tac evaluate_sing >>
@@ -1446,7 +1446,7 @@ Proof
       fs[] >>
       impl_tac >> fs[] >>
       imp_res_tac evaluate_sing >>
-      fs[libTheory.opt_bind_def] >>
+      fs[miscTheory.opt_bind_def] >>
       every_case_tac >> simp []
       )
     >- (

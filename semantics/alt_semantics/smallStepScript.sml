@@ -3,7 +3,7 @@
   in the main CakeML development, but is used in PureCake and choreographies.
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory namespaceTheory astTheory ffiTheory semanticPrimitivesTheory;
+open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory;
 
 val _ = numLib.temp_prefer_num();
 

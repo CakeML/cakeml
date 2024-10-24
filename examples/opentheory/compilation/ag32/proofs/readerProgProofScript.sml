@@ -28,10 +28,10 @@ Theorem extcalls_ffi_names:
 Proof
   rewrite_tac [reader_compiled]
   \\ qspec_tac (‘info.lab_conf.ffi_names’,‘xs’) \\ Cases
-  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
   \\ Induct_on ‘x’
-  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
-  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
+  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
 QED
 
 val ffis = ffis_def |> CONV_RULE (RAND_CONV EVAL);
@@ -188,7 +188,7 @@ Proof
     \\ (conj_tac >- simp [stdin_fs_def])
     \\ conj_tac
     \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
-            libTheory.the_def, TextIOProofTheory.add_stdo_def,
+            miscTheory.the_def, TextIOProofTheory.add_stdo_def,
             TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
             fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
     \\ SELECT_ELIM_TAC
@@ -224,7 +224,7 @@ Proof
   \\ (conj_tac >- simp [stdin_fs_def])
   \\ conj_tac
   \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
-          libTheory.the_def, TextIOProofTheory.add_stdo_def,
+          miscTheory.the_def, TextIOProofTheory.add_stdo_def,
           TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
           fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
   \\ SELECT_ELIM_TAC

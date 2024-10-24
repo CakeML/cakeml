@@ -123,7 +123,7 @@ Theorem compile_imp_ffi_names:
   c1.lab_conf.ffi_names = SOME (MAP ExtCall f)
 Proof
   Cases_on ‘c1.lab_conf.ffi_names’
-  \\ gvs [libTheory.the_def,backendTheory.ffinames_to_string_list_def]
+  \\ gvs [miscTheory.the_def,backendTheory.ffinames_to_string_list_def]
   \\ gvs [backendTheory.compile_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [oneline backendTheory.attach_bitmaps_def, AllCaseEqs()]

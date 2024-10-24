@@ -1,7 +1,7 @@
 (*
   A linear-scan register allocator.
 *)
-open preamble sptreeTheory reg_allocTheory libTheory
+open preamble sptreeTheory reg_allocTheory
 open state_transformerTheory ml_monadBaseLib ml_monadBaseTheory
 
 val _ = new_theory "linear_scan"

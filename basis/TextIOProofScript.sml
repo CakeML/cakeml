@@ -527,22 +527,22 @@ Theorem up_stdout_fastForwardFD:
 Proof
   rw[fastForwardFD_def,up_stdo_def]
   \\ Cases_on`ALOOKUP fs.infds fd` >- (
-    fs[libTheory.the_def,fsupdate_def]
-    \\ CASE_TAC \\ fs[libTheory.the_def]
-    \\ CASE_TAC \\ fs[libTheory.the_def,AFUPDKEY_ALOOKUP] )
+    fs[miscTheory.the_def,fsupdate_def]
+    \\ CASE_TAC \\ fs[miscTheory.the_def]
+    \\ CASE_TAC \\ fs[miscTheory.the_def,AFUPDKEY_ALOOKUP] )
   \\ fs[] \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` >- (
-    fs[libTheory.the_def,fsupdate_def]
-    \\ CASE_TAC \\ fs[libTheory.the_def]
-    \\ CASE_TAC \\ fs[libTheory.the_def,AFUPDKEY_ALOOKUP]
-    \\ rw[libTheory.the_def] )
-  \\ fs[libTheory.the_def]
-  \\ fs[fsupdate_def,libTheory.the_def,AFUPDKEY_ALOOKUP]
-  \\ CASE_TAC \\ fs[libTheory.the_def,AFUPDKEY_ALOOKUP]
+    fs[miscTheory.the_def,fsupdate_def]
+    \\ CASE_TAC \\ fs[miscTheory.the_def]
+    \\ CASE_TAC \\ fs[miscTheory.the_def,AFUPDKEY_ALOOKUP]
+    \\ rw[miscTheory.the_def] )
+  \\ fs[miscTheory.the_def]
+  \\ fs[fsupdate_def,miscTheory.the_def,AFUPDKEY_ALOOKUP]
+  \\ CASE_TAC \\ fs[miscTheory.the_def,AFUPDKEY_ALOOKUP]
   >- ( rw[AFUPDKEY_o,o_DEF,PAIR_MAP] )
-  \\ CASE_TAC \\ fs[libTheory.the_def]
-  \\ CASE_TAC \\ fs[libTheory.the_def,AFUPDKEY_ALOOKUP]
-  \\ rw[libTheory.the_def,AFUPDKEY_comm]
+  \\ CASE_TAC \\ fs[miscTheory.the_def]
+  \\ CASE_TAC \\ fs[miscTheory.the_def,AFUPDKEY_ALOOKUP]
+  \\ rw[miscTheory.the_def,AFUPDKEY_comm]
   \\ metis_tac[STD_streams_def,SOME_11,PAIR,FST,SND]
 QED
 
@@ -552,22 +552,22 @@ Theorem up_stderr_fastForwardFD:
 Proof
   rw[fastForwardFD_def,up_stdo_def]
   \\ Cases_on`ALOOKUP fs.infds fd` >- (
-    fs[libTheory.the_def,fsupdate_def]
-    \\ CASE_TAC \\ fs[libTheory.the_def]
-    \\ CASE_TAC \\ fs[libTheory.the_def,AFUPDKEY_ALOOKUP] )
+    fs[miscTheory.the_def,fsupdate_def]
+    \\ CASE_TAC \\ fs[miscTheory.the_def]
+    \\ CASE_TAC \\ fs[miscTheory.the_def,AFUPDKEY_ALOOKUP] )
   \\ fs[] \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` >- (
-    fs[libTheory.the_def,fsupdate_def]
-    \\ CASE_TAC \\ fs[libTheory.the_def]
-    \\ CASE_TAC \\ fs[libTheory.the_def,AFUPDKEY_ALOOKUP]
-    \\ rw[libTheory.the_def] )
-  \\ fs[libTheory.the_def]
-  \\ fs[fsupdate_def,libTheory.the_def,AFUPDKEY_ALOOKUP]
-  \\ CASE_TAC \\ fs[libTheory.the_def,AFUPDKEY_ALOOKUP]
+    fs[miscTheory.the_def,fsupdate_def]
+    \\ CASE_TAC \\ fs[miscTheory.the_def]
+    \\ CASE_TAC \\ fs[miscTheory.the_def,AFUPDKEY_ALOOKUP]
+    \\ rw[miscTheory.the_def] )
+  \\ fs[miscTheory.the_def]
+  \\ fs[fsupdate_def,miscTheory.the_def,AFUPDKEY_ALOOKUP]
+  \\ CASE_TAC \\ fs[miscTheory.the_def,AFUPDKEY_ALOOKUP]
   >- ( rw[AFUPDKEY_o,o_DEF,PAIR_MAP] )
-  \\ CASE_TAC \\ fs[libTheory.the_def]
-  \\ CASE_TAC \\ fs[libTheory.the_def,AFUPDKEY_ALOOKUP]
-  \\ rw[libTheory.the_def,AFUPDKEY_comm]
+  \\ CASE_TAC \\ fs[miscTheory.the_def]
+  \\ CASE_TAC \\ fs[miscTheory.the_def,AFUPDKEY_ALOOKUP]
+  \\ rw[miscTheory.the_def,AFUPDKEY_comm]
   \\ metis_tac[STD_streams_def,SOME_11,PAIR,FST,SND]
 QED
 
@@ -582,9 +582,9 @@ Theorem stdo_fastForwardFD:
    fd ≠ fd' ⇒ (stdo fd' nm (fastForwardFD fs fd) out ⇔ stdo fd' nm fs out)
 Proof
   rw[stdo_def,fastForwardFD_def,AFUPDKEY_ALOOKUP]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[miscTheory.the_def]
   \\ fs[AFUPDKEY_ALOOKUP] \\ rw[]
   \\ CASE_TAC
 QED
@@ -5872,7 +5872,7 @@ Proof
   \\ `fs' = fs` suffices_by ( rw[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
   \\ unabbrev_all_tac
   \\ simp[fastForwardFD_def,ADELKEY_AFUPDKEY,o_DEF,
-          libTheory.the_def, openFileFS_numchars,openFileFS_files,
+          miscTheory.the_def, openFileFS_numchars,openFileFS_files,
           IO_fs_component_equality,openFileFS_inode_tbl]
 QED
 
@@ -6774,7 +6774,7 @@ Proof
   rw[forwardFD_def,fastForwardFD_def,get_file_content_def]
   \\ PairCases_on ‘x'’
   \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
-  \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF]
+  \\ gs[] \\ simp[miscTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF]
   \\ simp[IO_fs_component_equality] \\ irule AFUPDKEY_eq
   \\ rw[] \\ simp[MAX_DEF]
 QED
@@ -6784,10 +6784,10 @@ Theorem fastForwardFD_same_infds[local]:
 Proof
   rw[fastForwardFD_def]
   \\ Cases_on ‘ALOOKUP fs.infds n’
-  \\ simp[libTheory.the_def]
+  \\ simp[miscTheory.the_def]
   \\ PairCases_on ‘x’ \\ simp[]
   \\ Cases_on ‘ALOOKUP fs.inode_tbl x0’
-  \\ simp[libTheory.the_def]
+  \\ simp[miscTheory.the_def]
 QED
 
 Theorem INSTREAM_STR_fastForwardFD:
@@ -6805,13 +6805,13 @@ Proof
       \\ rename [‘ALOOKUP fs.infds fd = SOME zz’]
       \\ PairCases_on ‘zz’
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
-      \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF])
+      \\ gs[] \\ simp[miscTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF])
   \\ conj_tac
   >- (gs[get_mode_def,fastForwardFD_def,get_file_content_def]
       \\ rename [‘ALOOKUP fs.infds fd = SOME zz’]
       \\ PairCases_on ‘zz’
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
-      \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP])
+      \\ gs[] \\ simp[miscTheory.the_def,AFUPDKEY_ALOOKUP])
   \\ xsimpl \\ simp[fastForwardFD_eq_forwardFD] \\ xsimpl
 QED
 
@@ -7951,12 +7951,12 @@ Proof
   >- (qexists_tac ‘c’ \\ gs[get_file_content_def,fastForwardFD_def]
       \\ PairCases_on ‘x'’
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
-      \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF])
+      \\ gs[] \\ simp[miscTheory.the_def,AFUPDKEY_ALOOKUP,MAX_DEF])
   \\ conj_tac
   >- (gs[get_mode_def,fastForwardFD_def,get_file_content_def]
       \\ PairCases_on ‘x'’
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
-      \\ gs[] \\ simp[libTheory.the_def,AFUPDKEY_ALOOKUP])
+      \\ gs[] \\ simp[miscTheory.the_def,AFUPDKEY_ALOOKUP])
   \\ xsimpl \\ simp[fastForwardFD_eq_forwardFD] \\ xsimpl
 QED
 

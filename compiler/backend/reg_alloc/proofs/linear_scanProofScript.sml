@@ -1,7 +1,7 @@
 (*
   Proves correctness of the linear-scan register allocator.
 *)
-open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory libTheory
+open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory
 open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]

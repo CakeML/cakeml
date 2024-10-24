@@ -372,10 +372,10 @@ in
               \\ ntac 2 (disch_then (assume_tac o GSYM))
               \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen1')’
               \\ fs [])
-          \\ fs [MAX_DEF,libTheory.the_def])
+          \\ fs [MAX_DEF,miscTheory.the_def])
       \\ REWRITE_TAC[to_shallow_thm,to_shallow_def,foldl_body_def]
       \\ rw [] \\ qunabbrev_tac ‘s'’ \\ simp []
-      \\ simp [state_component_equality,GREATER_DEF,libTheory.the_def]
+      \\ simp [state_component_equality,GREATER_DEF,miscTheory.the_def]
       \\ fs [MAX_DEF]
       \\ fs [isBool_def] \\ Cases_on ‘b'''’
       \\ fs [backend_commonTheory.true_tag_def,
@@ -446,10 +446,10 @@ in
           \\ ntac 2 (disch_then (assume_tac o GSYM))
           \\ fs [] \\ Cases_on ‘IS_SOME (lookup ts_f seen1')’
           \\ fs [])
-      \\ fs [MAX_DEF,libTheory.the_def,size_of_stack_def])
+      \\ fs [MAX_DEF,miscTheory.the_def,size_of_stack_def])
   \\ REWRITE_TAC[to_shallow_thm,to_shallow_def,foldl_body_def]
   \\ rw [] \\ qunabbrev_tac ‘s'’ \\ simp [] \\ fs [size_of_stack_def]
-  \\ simp [state_component_equality,GREATER_DEF,libTheory.the_def]
+  \\ simp [state_component_equality,GREATER_DEF,miscTheory.the_def]
   \\ fs [MAX_DEF]
   \\ fs [isBool_def] \\ Cases_on ‘b'''’
   \\ fs [backend_commonTheory.true_tag_def,

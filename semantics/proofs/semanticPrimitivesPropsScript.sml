@@ -3,7 +3,7 @@
 *)
 
 open preamble;
-open libTheory astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
+open astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
 open namespacePropsTheory;
 open boolSimps;
 
