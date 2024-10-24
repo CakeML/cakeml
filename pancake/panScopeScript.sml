@@ -26,7 +26,8 @@ Datatype:
   context = <| vars : (varname, based) map
              ; funcs : funname list
              ; fname : funname
-             ; in_loop : bool |>
+             ; in_loop : bool
+             ; is_reachable : bool |>
 End
 
 Definition based_merge_def:
@@ -64,6 +65,13 @@ Definition branch_vbases_def:
                 | NONE => NotTrusted
               else v) y
     in unionWith based_cmp x' y'
+End
+
+Datatype:
+  last_stmt = RetLast | RaiseLast | TailLast (* function exit *)
+            | BreakLast | ContLast (* loop exit *)
+            | ExitLast (* ambiguous exit (for conditional branches) *)
+            | InvisLast | OtherLast (* non-exit *)
 End
 
 Definition first_repeat_def:
@@ -191,7 +199,7 @@ Definition scope_check_exp_def:
 End
 
 Definition scope_check_prog_def:
-  scope_check_prog ctxt Skip = return (F, empty mlstring$compare) ∧
+  scope_check_prog ctxt Skip = return (F, OtherLast, empty mlstring$compare) ∧
   scope_check_prog ctxt (Dec v e p) =
     do
       case lookup ctxt.vars v of
@@ -199,8 +207,8 @@ Definition scope_check_prog_def:
           [strlit "variable "; v; strlit " is redeclared in function "; ctxt.fname; strlit "\n"])
       | NONE => return ();
       b <- scope_check_exp ctxt e;
-      (r, vs) <- scope_check_prog (ctxt with vars := insert ctxt.vars v b) p;
-      return (r, delete vs v)
+      (r, l, vs) <- scope_check_prog (ctxt with vars := insert ctxt.vars v b) p;
+      return (r, l, delete vs v)
     od ∧
   scope_check_prog ctxt (DecCall v s e args p) =
     do
@@ -210,8 +218,8 @@ Definition scope_check_prog_def:
       | NONE => return ();
       scope_check_exp ctxt e;
       scope_check_exps ctxt args;
-      (r, vs) <- scope_check_prog (ctxt with vars := insert ctxt.vars v Trusted) p;
-      return (r, delete vs v)
+      (r, l, vs) <- scope_check_prog (ctxt with vars := insert ctxt.vars v Trusted) p;
+      return (r, l, delete vs v)
     od ∧
   scope_check_prog ctxt (Assign v e) =
     do
@@ -220,7 +228,7 @@ Definition scope_check_prog_def:
           [strlit "variable "; v; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
       | SOME _ => return ();
       b <- scope_check_exp ctxt e;
-      return (F, singleton mlstring$compare v b)
+      return (F, OtherLast, singleton mlstring$compare v b)
     od ∧
   scope_check_prog ctxt (Store dest src) =
     do
@@ -233,7 +241,7 @@ Definition scope_check_prog_def:
           [strlit "local store address may not be calculated from base in function "; ctxt.fname; strlit "\n"])
       | Based      => return ()
       | Trusted    => return ();
-      return (F, empty mlstring$compare)
+      return (F, OtherLast, empty mlstring$compare)
     od ∧
   scope_check_prog ctxt (StoreByte dest src) =
     do
@@ -246,10 +254,10 @@ Definition scope_check_prog_def:
           [strlit "local store address may not be calculated from base in function "; ctxt.fname; strlit "\n"])
       | Based      => return ()
       | Trusted    => return ();
-      return (F, empty mlstring$compare)
+      return (F, OtherLast, empty mlstring$compare)
     od ∧
   scope_check_prog ctxt (Seq p1 p2) =
-    do
+    do (* #!TODO *)
       case p1 of
         (Seq _ (Return _))     => log (WarningErr $ concat
           [strlit "statements after return in function ";    ctxt.fname; strlit "\n"])
@@ -258,22 +266,22 @@ Definition scope_check_prog_def:
       | (Seq _ (TailCall _ _)) => log (WarningErr $ concat
           [strlit "statements after tail call in function "; ctxt.fname; strlit "\n"])
       | _ => return ();
-      (rt1, vs1) <- scope_check_prog ctxt p1;
-      (rt2, vs2) <- scope_check_prog (ctxt with vars := seq_vbases ctxt.vars vs1) p2;
-      return ((rt1 \/ rt2), seq_vbases vs1 vs2)
+      (rt1, l1, vs1) <- scope_check_prog ctxt p1;
+      (rt2, l2, vs2) <- scope_check_prog (ctxt with vars := seq_vbases ctxt.vars vs1) p2;
+      return ((rt1 \/ rt2), OtherLast, seq_vbases vs1 vs2)
     od ∧
   scope_check_prog ctxt (If e p1 p2) =
-    do
+    do (* #!TODO *)
       scope_check_exp ctxt e;
-      (rt1, vs1) <- scope_check_prog ctxt p1;
-      (rt2, vs2) <- scope_check_prog ctxt p2;
-      return ((rt1 /\ rt2), branch_vbases ctxt.vars vs1 vs2)
+      (rt1, l1, vs1) <- scope_check_prog ctxt p1;
+      (rt2, l2, vs2) <- scope_check_prog ctxt p2;
+      return ((rt1 /\ rt2), OtherLast, branch_vbases ctxt.vars vs1 vs2)
     od ∧
   scope_check_prog ctxt (While e p) =
     do
       scope_check_exp ctxt e;
-      (rt, vs) <- scope_check_prog (ctxt with in_loop := T) p;
-      return (rt, branch_vbases ctxt.vars vs $ mlmap$empty mlstring$compare)
+      (rt, l, vs) <- scope_check_prog (ctxt with in_loop := T) p;
+      return (rt, l, branch_vbases ctxt.vars vs $ mlmap$empty mlstring$compare)
     od ∧
   scope_check_prog ctxt Break =
     do
@@ -281,7 +289,7 @@ Definition scope_check_prog_def:
         then error (GenErr $ concat
           [strlit "break statement outside loop in function "; ctxt.fname; strlit "\n"])
       else return ();
-      return (F, empty mlstring$compare)
+      return (F, BreakLast, empty mlstring$compare)
     od ∧
   scope_check_prog ctxt Continue =
     do
@@ -289,13 +297,13 @@ Definition scope_check_prog_def:
         then error (GenErr $ concat
           [strlit "continue statement outside loop in function "; ctxt.fname; strlit "\n"])
       else return ();
-      return (F, empty mlstring$compare)
+      return (F, ContLast, empty mlstring$compare)
     od ∧
   scope_check_prog ctxt (TailCall trgt args) =
     do
       scope_check_exp ctxt trgt;
       scope_check_exps ctxt args;
-      return (T, empty mlstring$compare)
+      return (T, TailLast, empty mlstring$compare)
     od ∧
   scope_check_prog ctxt (AssignCall rt hdl trgt args) =
     do
@@ -306,41 +314,41 @@ Definition scope_check_prog_def:
       scope_check_exp ctxt trgt;
       scope_check_exps ctxt args;
       case hdl of
-        NONE => return (F, empty mlstring$compare)
+        NONE => return (F, OtherLast, empty mlstring$compare)
       | SOME (eid, evar, p) =>
         case lookup ctxt.vars evar of
           NONE => error (ScopeErr $ concat
             [strlit "variable "; evar; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
         | SOME _ => scope_check_prog (ctxt with vars := insert ctxt.vars evar Trusted) p;
-      return (F, singleton mlstring$compare rt Trusted)
+      return (F, OtherLast, singleton mlstring$compare rt Trusted)
     od ∧
   scope_check_prog ctxt (StandAloneCall hdl trgt args) =
     do
       scope_check_exp ctxt trgt;
       scope_check_exps ctxt args;
       case hdl of
-        NONE => return (F, empty mlstring$compare)
+        NONE => return (F, OtherLast, empty mlstring$compare)
       | SOME (eid, evar, p) =>
         case lookup ctxt.vars evar of
           NONE => error (ScopeErr $ concat
             [strlit "variable "; evar; strlit " is not in scope in function "; ctxt.fname; strlit "\n"])
         | SOME _ => scope_check_prog (ctxt with vars := insert ctxt.vars evar Trusted) p;
-      return (F, empty mlstring$compare)
+      return (F, OtherLast, empty mlstring$compare)
     od ∧
   scope_check_prog ctxt (ExtCall fname ptr1 len1 ptr2 len2) =
     do
       scope_check_exps ctxt [ptr1;len1;ptr2;len2];
-      return (F, empty mlstring$compare)
+      return (F, OtherLast, empty mlstring$compare)
     od ∧
   scope_check_prog ctxt (Raise eid excp) =
     do
       scope_check_exp ctxt excp;
-      return (T, empty mlstring$compare)
+      return (T, RaiseLast, empty mlstring$compare)
     od ∧
   scope_check_prog ctxt (Return rt) =
     do
       scope_check_exp ctxt rt;
-      return (T, empty mlstring$compare)
+      return (T, RetLast, empty mlstring$compare)
     od ∧
   scope_check_prog ctxt (ShMemLoad mop v e) =
     do
@@ -356,7 +364,7 @@ Definition scope_check_prog_def:
           [strlit "shared load address may be calculated from base in function "; ctxt.fname; strlit "\n"])
       | NotBased   => return ()
       | Trusted    => return ();
-      return (F, singleton mlstring$compare v Trusted)
+      return (F, OtherLast, singleton mlstring$compare v Trusted)
     od ∧
   scope_check_prog ctxt (ShMemStore mop e1 e2) =
     do
@@ -369,10 +377,10 @@ Definition scope_check_prog_def:
           [strlit "shared store address may be calculated from base in function "; ctxt.fname; strlit "\n"])
       | NotBased   => return ()
       | Trusted    => return ();
-      return (F, empty mlstring$compare)
+      return (F, OtherLast, empty mlstring$compare)
     od ∧
-  scope_check_prog ctxt Tick = return (F, empty mlstring$compare) ∧
-  scope_check_prog ctxt (Annot _ _) = return (F, empty mlstring$compare)
+  scope_check_prog ctxt Tick = return (F, InvisLast, empty mlstring$compare) ∧
+  scope_check_prog ctxt (Annot _ _) = return (F, InvisLast, empty mlstring$compare)
 End
 
 Definition scope_check_funs_def:
@@ -387,7 +395,8 @@ Definition scope_check_funs_def:
       ctxt <<- <| vars := FOLDL (\m p. insert m p Trusted) (empty mlstring$compare) pnames
                 ; funcs := fnames
                 ; fname := fname
-                ; in_loop := F |>;
+                ; in_loop := F
+                ; is_reachable := T |>;
       (returned, _) <- scope_check_prog ctxt body;
       if ~returned
         then error (GenErr $ concat
