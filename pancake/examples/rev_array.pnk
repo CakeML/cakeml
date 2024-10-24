@@ -1,0 +1,23 @@
+
+/* Flip the contents of an array in-place. */
+
+fun reverse (1 base_addr, 1 len) {
+  if (len <=+ 1) {
+    return 0;
+  }
+  var xt = 0;
+  var yt = len - 1;
+  while (xt <+ yt) {
+    var xa = base_addr + (xt * 8);
+    var ya = base_addr + (yt * 8);
+    var xv = lds 1 xa;
+    var yv = lds 1 ya;
+    stw xa, yv;
+    stw ya, xv;
+    xt = xt + 1;
+    yt = yt - 1;
+  }
+  return 0;
+}
+
+
