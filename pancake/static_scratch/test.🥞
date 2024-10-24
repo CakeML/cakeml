@@ -563,6 +563,16 @@
 //     return 1;
 // }
 
+// // base for incorrect op arg ASTs
+// fun f () {
+//     return 1 ^ 1 ^ 1;
+// }
+// fun g () {
+//     return 1 * 1 * 1;
+// }
+// fun h () {
+//     return 1 - 1 - 1;
+// }
 
 
 

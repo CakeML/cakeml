@@ -89,4 +89,23 @@ val my_program3 = parse_pancake_from_file "test.🥞" |> concl |> rhs |> rand
 
 val my_check3 = EVAL “scope_check ^my_program3” |> concl |> rhs
 
+val bad_program =
+  “[(«f»,F,[],
+      Seq (Annot «location» «(568:11 568:18)»)
+        (Return (Op Xor [Const 1w])));
+     («g»,F,[],
+      Seq (Annot «location» «(571:11 571:18)»)
+        (Return (Panop Mul [Const 1w])));
+     («h»,F,[],
+      Seq (Annot «location» «(574:11 574:18)»)
+        (Return (Op Sub [Const 1w])));
+     («i»,F,[],
+      Seq (Annot «location» «(571:11 571:18)»)
+        (Return (Panop Mul [Const 1w; Const 1w; Const 1w])));
+     («j»,F,([]:(mlstring # shape) list),
+      Seq (Annot «location» «(574:11 574:18)»)
+        (Return (Op Sub [Const 1w; Const 1w; Const 1w])))]”
+
+val bad_check = EVAL “scope_check ^bad_program” |> concl |> rhs
+
 val _ = export_theory();

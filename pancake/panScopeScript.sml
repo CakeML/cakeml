@@ -2,7 +2,7 @@
   Scope checking for Pancake.
 *)
 
-open preamble errorLogMonadTheory panLangTheory mlmapTheory;
+open preamble errorLogMonadTheory panLangTheory mlmapTheory mlintTheory;
 
 val _ = new_theory "panScope";
 
@@ -76,6 +76,22 @@ Definition first_repeat_def:
     | _ => NONE
 End
 
+Definition binop_to_str_def:
+  binop_to_str op =
+    case op of
+    | Add => implode "Add"
+    | Sub => implode "Sub"
+    | And => implode "And"
+    | Or  => implode "Or"
+    | Xor => implode "Xor"
+End
+
+Definition panop_to_str_def:
+  panop_to_str op =
+    case op of
+    | Mul => implode "Mul"
+End
+
 (* Definition mapM_def:
   mapM f [] = return [] ∧
   mapM f (x::xs) = do
@@ -131,8 +147,30 @@ Definition scope_check_exp_def:
       | Trusted    => return ();
       return (Trusted)
     od ∧
-  scope_check_exp ctxt (Op bop es) = scope_check_exps ctxt es ∧
-  scope_check_exp ctxt (Panop pop es) = scope_check_exps ctxt es ∧
+  scope_check_exp ctxt (Op bop es) =
+    do
+      nargs <<- LENGTH es;
+      case bop of
+      | Sub  => if ~(nargs = 2)
+                  then error (GenErr $ concat
+                    [strlit "operation "; binop_to_str bop; strlit " only accepts 2 operands, "; num_to_str nargs; strlit " provided\n"])
+                else return ()
+      | _    => if nargs < 2
+                  then error (GenErr $ concat
+                    [strlit "operation "; binop_to_str bop; strlit " requires at least 2 operands, "; num_to_str nargs; strlit " provided\n"])
+                else return ();
+      scope_check_exps ctxt es
+    od ∧
+  scope_check_exp ctxt (Panop pop es) =
+    do
+      nargs <<- LENGTH es;
+      case pop of
+      | Mul  => if ~(nargs = 2)
+                  then error (GenErr $ concat
+                    [strlit "operation "; panop_to_str pop; strlit " only accepts 2 operands, "; num_to_str nargs; strlit " provided\n"])
+                else return ();
+      scope_check_exps ctxt es
+    od ∧
   scope_check_exp ctxt (Cmp cmp e1 e2) =
     do
       scope_check_exp ctxt e1;
