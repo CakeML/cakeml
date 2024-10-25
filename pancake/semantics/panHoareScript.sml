@@ -340,6 +340,21 @@ Inductive hoare_logic:
         (Call (SOME (ret, (SOME (eid, exc_var, hprog)))) (Label nm) args) R
   )
 
+[hoare_logic_DecCall_normalise:]
+  ( !Q.
+    hoare_logic G P (TailCall (Label nm) args)
+        (\res s ls. case result_return_val res of
+            | SOME retv => shape_of retv = shape /\
+                Q (set_var rv retv (s with locals := HD ls)) ls
+            | NONE => is_fcall_result res /\ R res s (DROP 1 ls)) /\
+    hoare_logic G Q prog
+        (\res s ls. R res (s with locals := res_var s.locals
+                (rv, (FLOOKUP (HD ls) rv))) (DROP 1 ls))
+    ==>
+    hoare_logic G (\s ls. P s (s.locals :: ls))
+        (DecCall rv shape (Label nm) args prog) R
+  )
+
 [hoare_logic_ExtCall:]
   ( ! Q.
     eval_logic G Q (Struct [ptr1_e; len1_e; ptr2_e; len2_e])
@@ -772,6 +787,21 @@ Proof
     )
   )
 
+  >~ [`DecCall`]
+  >- (
+    Cases_on `evaluate (TailCall (Label nm) args, s)`
+    \\ he_dest_simp_tac
+    \\ fs [evaluate_def]
+    \\ gs [CaseEq "option", CaseEq "v", CaseEq "word_lab", CaseEq "prod", CaseEq "bool"]
+    \\ gvs [CaseEq "result", CaseEq "option", empty_locals_def]
+    \\ disch_tac
+    \\ gvs [UNCURRY_eq_pair, set_var_def, dec_clock_def]
+    \\ he_dest_simp_tac
+    \\ impl_tac \\ fs []
+    \\ imp_res_tac evaluate_clock
+    \\ EVERY_mono_he_tac
+  )
+
   >~ [`TailCall (Label nm) (MAP Var arg_nms)`]
   >- (
     dxrule_then drule eval_logic_elim
@@ -947,7 +977,9 @@ Theorem hoare_logic_rev_rules = LIST_CONJ (map hoare_logic_rule_to_rev_form
     hoare_logic_Store, hoare_logic_StoreByte, hoare_logic_Dec,
     hoare_logic_Assign, hoare_logic_Seq, hoare_logic_If,
     hoare_logic_annot_While, hoare_logic_GenCall_normalise,
-    hoare_logic_GenCall_Handler_normalise, hoare_logic_ExtCall])
+    hoare_logic_GenCall_Handler_normalise,
+    hoare_logic_DecCall_normalise,
+    hoare_logic_ExtCall])
 
 Theorem hoare_logic_TailCall_code:
   ! code.
