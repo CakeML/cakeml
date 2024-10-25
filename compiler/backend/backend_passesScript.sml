@@ -264,7 +264,7 @@ Definition to_lab_all_def:
     let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
     let sp = c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3) in
     let offset = c.lab_conf.asm_conf.addr_offset in
-    let prog = stack_rawcall$compile p in
+    let (info,prog) = stack_rawcall$compile stack_conf.rawcall_fwd stack_conf.rawcall_info p in
     let ps = ps ++ [(strlit "after stack_rawcall",Stack prog names)] in
     let prog = stack_alloc$compile data_conf prog in
     let ps = ps ++ [(strlit "after stack_alloc",Stack prog names)] in
@@ -275,7 +275,9 @@ Definition to_lab_all_def:
     let ps = ps ++ [(strlit "after stack_names",Stack prog names)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(strlit "after stack_to_lab",Lab p names)] in
-      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:'a prog,names)
+    let stack_conf = stack_conf with rawcall_info := info in
+    let c = c with stack_conf := stack_conf in
+      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:'a labLang$prog,names)
 End
 
 Theorem to_lab_thm:
@@ -324,7 +326,7 @@ Definition from_stack_all_def:
     let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
     let sp = c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3) in
     let offset = c.lab_conf.asm_conf.addr_offset in
-    let prog = stack_rawcall$compile p in
+    let (info,prog) = stack_rawcall$compile stack_conf.rawcall_fwd stack_conf.rawcall_info p in
     let ps = ps ++ [(strlit "after stack_rawcall",Stack prog names)] in
     let prog = stack_alloc$compile data_conf prog in
     let ps = ps ++ [(strlit "after stack_alloc",Stack prog names)] in
@@ -335,14 +337,17 @@ Definition from_stack_all_def:
     let ps = ps ++ [(strlit "after stack_names",Stack prog names)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(strlit "after stack_to_lab",Lab p names)] in
-      from_lab_all ps c names p bm
+    let stack_conf = stack_conf with rawcall_info := info in
+    let c = c with stack_conf := stack_conf in
+       from_lab_all ps c names p bm
 End
 
 Theorem from_stack_thm:
   SND (from_stack_all ps c names p bm) = from_stack c names p bm
 Proof
-  gvs [from_stack_all_def,from_stack_def,stack_to_labTheory.compile_def,
-       from_lab_thm]
+  gvs [from_stack_all_def,from_stack_def,stack_to_labTheory.compile_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  gvs[from_lab_thm]
 QED
 
 Definition from_word_all_def:
