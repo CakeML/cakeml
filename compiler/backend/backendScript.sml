@@ -75,10 +75,11 @@ Definition compile_def:
     let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
     let _ = empty_ffi (strlit "finished: word_to_stack") in
-    let p = stack_to_lab$compile
+    let (c',p) = stack_to_lab$compile
       c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
       (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
       (c.lab_conf.asm_conf.addr_offset) p in
+    let c = c with stack_conf := c' in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
     let res = attach_bitmaps names c bm
       (lab_to_target$compile c.lab_conf (p:'a prog)) in
@@ -165,11 +166,11 @@ End
 Definition to_lab_def:
   to_lab c p =
   let (bm,c,p,names) = to_stack c p in
-  let p = stack_to_lab$compile
+  let (c',p) = stack_to_lab$compile
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
     (c.lab_conf.asm_conf.addr_offset) p in
-  (bm,c,p:'a prog,names)
+  (bm,c with stack_conf := c',p:'a prog,names)
 End
 
 Definition to_target_def:
@@ -219,11 +220,11 @@ End
 
 Definition from_stack_def:
   from_stack c names p bm =
-  let p = stack_to_lab$compile
+  let (c',p) = stack_to_lab$compile
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
     (c.lab_conf.asm_conf.addr_offset) p in
-  from_lab c names (p:'a prog) bm
+  from_lab (c with stack_conf:= c') names (p:'a prog) bm
 End
 
 Definition from_word_def:
@@ -456,16 +457,15 @@ Proof
   fs[from_livesets_def,from_word_def,from_stack_def,from_lab_def]>>
   unabbrev_all_tac>>fs[]>>
   rpt (pairarg_tac >> fs []) >>
-  rveq>>fs[]>>
-  ntac 2 (pop_assum mp_tac)>>
+  gvs[]>>
+  qpat_x_assum`compile c.lab_conf.asm_conf _ = _` mp_tac>>
   qpat_abbrev_tac`progs = MAP A B`>>
+  qpat_x_assum`compile c.lab_conf.asm_conf _ = _` mp_tac>>
   qpat_abbrev_tac`progs' = MAP A B`>>
   qsuff_tac `progs = progs'`>>rw[]>>
   unabbrev_all_tac>>
   fs[next_n_oracle_def]>>
-  pop_assum mp_tac >>
-  IF_CASES_TAC>>
-  strip_tac>>rveq>>fs[]>>
+  gvs[AllCaseEqs()]>>
   match_mp_tac LIST_EQ>>
   qmatch_goalsub_abbrev_tac`data_to_word$stubs _ _ ++ p2`
   \\ qmatch_goalsub_abbrev_tac`MAP f (data_to_word$stubs _ _)`
@@ -479,9 +479,7 @@ Proof
   \\ qunabbrev_tac`len` \\ fs[] >>
   rw[]>>fs[EL_MAP,EL_ZIP,full_compile_single_def,compile_single_def,Abbr`f`]>>
   rpt(pairarg_tac>>fs[])>>
-  fs[word_to_wordTheory.compile_single_def,word_allocTheory.word_alloc_def]>>
-  rveq>>fs[]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[]
+  gvs[word_to_wordTheory.compile_single_def,word_allocTheory.word_alloc_def,AllCaseEqs()]
 QED
 
 Theorem compile_oracle_word_0:
@@ -617,9 +615,12 @@ Definition compile_inc_progs_def:
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
     let ps = ps with <| stack_prog := keep_progs k p ; cur_bm := cur_bm |> in
     let reg_count2 = asm_c.reg_count - (3 + LENGTH asm_c.avoid_regs) in
-    let p = stack_to_lab$compile_no_stubs
+    let (info, p) = stack_to_lab$compile_no_stubs
+        c.stack_conf.rawcall_fwd c.stack_conf.rawcall_info
         c.stack_conf.reg_names c.stack_conf.jump asm_c.addr_offset
         reg_count2 p in
+    let c' = c.stack_conf with rawcall_info := info in
+    let c = c with stack_conf := c' in
     let ps = ps with <| lab_prog := keep_progs k p |> in
     let target = lab_to_target$compile c.lab_conf (p:'a prog) in
     let ps = ps with <| target_prog := OPTION_MAP
@@ -821,9 +822,12 @@ Theorem compile_inc_progs_for_eval_eq:
     let cur_bm = append (FST bm) in
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
     let reg_count2 = asm_c'.reg_count - (3 + LENGTH asm_c'.avoid_regs) in
-    let p = stack_to_lab$compile_no_stubs
+    let (info, p) = stack_to_lab$compile_no_stubs
+        c.stack_conf.rawcall_fwd c.stack_conf.rawcall_info
         c.stack_conf.reg_names c.stack_conf.jump asm_c'.addr_offset
         reg_count2 p in
+    let c' = c.stack_conf with rawcall_info := info in
+    let c = c with stack_conf := c' in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
     let target = lab_to_target$compile c.lab_conf (p:'a prog) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in

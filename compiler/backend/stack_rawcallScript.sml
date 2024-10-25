@@ -26,12 +26,16 @@ Proof
   \\ rw[Once seq_stack_alloc_def,pairTheory.ELIM_UNCURRY] \\ every_case_tac \\ fs[]
 QED
 
+Definition add_info_def:
+  add_info f (n,b) =
+    (dtcase seq_stack_alloc b of
+      | NONE => f
+      | SOME k => insert n k f)
+End
+
 Definition collect_info_def:
-  (collect_info [] f = f) /\
-  (collect_info ((n,b:'a stackLang$prog)::xs) f =
-     collect_info xs (dtcase seq_stack_alloc b of
-                      | NONE => f
-                      | SOME k => insert n k f))
+  (collect_info ls f =
+    FOLDL add_info f ls)
 End
 
 (* optimise based on stack allocation information *)
@@ -103,10 +107,19 @@ Proof
   \\ rw[Once comp_top_def,pairTheory.ELIM_UNCURRY] \\ every_case_tac \\ fs[]
 QED
 
+Definition compile_aux_def:
+  (compile_aux i [] = (i,[])) /\
+  (compile_aux i ((n,b)::nps) =
+    let i = add_info i (n,b) in
+    let (i1,rest) = compile_aux i nps in
+    (i1, (n,comp_top i b)::rest))
+End
+
 Definition compile_def:
-  compile prog =
-    let i = collect_info prog LN in
-      MAP (\(n,b:'a stackLang$prog). (n,comp_top i b)) prog
+  compile b i prog =
+    let i =
+      if b then collect_info prog i else i in
+    compile_aux i prog
 End
 
 val _ = export_theory();
