@@ -38,7 +38,7 @@ val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=2; col_oracle := [] |>``
 val mips_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=F; has_fp_tern := F; be:=T; call_empty_ffi:=F; gc_kind:=Simple|>``
 val mips_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
-val mips_stack_conf = ``<|jump:=F;reg_names:=mips_names|>``
+val mips_stack_conf = ``<|jump:=F;reg_names:=mips_names;rawcall_fwd:=T;rawcall_info:=LN|>``
 val mips_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=mips_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
 
 Definition mips_backend_config_def:
