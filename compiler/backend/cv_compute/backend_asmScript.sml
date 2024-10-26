@@ -236,11 +236,11 @@ End
 
 Definition from_stack_def:
   from_stack (asm_conf :'a asm_config) (c :inc_config) names p bm =
-    let p = stack_to_lab$compile
+    let (c',p) = stack_to_lab$compile
       c.inc_stack_conf c.inc_data_conf (2 * max_heap_limit (:'a) c.inc_data_conf - 1)
       (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs +3))
       (asm_conf.addr_offset) p in
-    from_lab asm_conf c names p bm
+    from_lab asm_conf (c with inc_stack_conf:=c') names p bm
 End
 
 Definition from_word_def:
@@ -352,6 +352,8 @@ Theorem from_stack_thm[local]:
     conf_str = encode_backend_config (config_to_inc_config c1)
 Proof
   gvs [from_stack_def,backendTheory.from_stack_def] \\ rw []
+  \\ pairarg_tac \\ gvs[]
+  \\ pairarg_tac \\ gvs[]
   \\ drule from_lab_thm \\ strip_tac
   \\ gvs [backendTheory.inc_config_to_config_def]
   \\ gvs [lab_to_targetTheory.inc_config_to_config_def]
