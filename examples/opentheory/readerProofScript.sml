@@ -1792,7 +1792,7 @@ Proof
          TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def,
          fsFFITheory.get_file_content_def,
          fsFFIPropsTheory.fastForwardFD_def, TextIOProofTheory.stdin_def]
-  \\ fs [libTheory.the_def, UNCURRY, AFUPDKEY_ALOOKUP, case_eq_thms,
+  \\ fs [miscTheory.the_def, UNCURRY, AFUPDKEY_ALOOKUP, case_eq_thms,
          bool_case_eq]
   \\ fs [mlstringTheory.concat_thm, msg_bad_name_def]
   \\ SELECT_ELIM_TAC \\ fs []

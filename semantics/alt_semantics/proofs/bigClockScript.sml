@@ -5,7 +5,7 @@
 *)
 
 open preamble;
-open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
+open astTheory bigStepTheory semanticPrimitivesTheory;
 open evaluateTheory determTheory;
 open semanticPrimitivesPropsTheory fpSemPropsTheory;
 open boolSimps;

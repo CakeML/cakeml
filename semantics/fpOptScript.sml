@@ -2,7 +2,7 @@
   Model of floating-point optimizations
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory fpValTreeTheory;
+open miscTheory fpValTreeTheory;
 
 val _ = numLib.temp_prefer_num();
 

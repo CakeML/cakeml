@@ -2507,7 +2507,7 @@ Theorem EL_get_ffi_index_MEM:
 Proof
   rw[get_ffi_index_def,find_index_LEAST_EL]
   \\ numLib.LEAST_ELIM_TAC
-  \\ fs[MEM_EL,libTheory.the_def]
+  \\ fs[MEM_EL,miscTheory.the_def]
   \\ metis_tac[]
 QED
 

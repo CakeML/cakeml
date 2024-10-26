@@ -5,7 +5,7 @@
   connection between the generated code and the input HOL functions.
 *)
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory evaluateTheory semanticPrimitivesTheory
+open astTheory evaluateTheory semanticPrimitivesTheory
 open ml_progLib ml_progTheory evaluateTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
 open cfHeapsBaseTheory basisFunctionsLib

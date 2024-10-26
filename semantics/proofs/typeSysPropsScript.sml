@@ -3,7 +3,7 @@
 *)
 
 open preamble
-open libTheory astTheory namespaceTheory typeSystemTheory typeSoundInvariantsTheory;
+open astTheory namespaceTheory typeSystemTheory typeSoundInvariantsTheory;
 open astPropsTheory;
 open namespacePropsTheory;
 local open semanticPrimitivesPropsTheory in end

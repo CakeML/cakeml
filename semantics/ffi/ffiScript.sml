@@ -2,7 +2,7 @@
   Definition of the FFI type
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory;
+open miscTheory;
 
 val _ = numLib.temp_prefer_num();
 

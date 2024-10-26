@@ -3,7 +3,7 @@
   primitive operations) used in the semantics.
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory astTheory namespaceTheory ffiTheory fpValTreeTheory fpSemTheory realOpsTheory;
+open miscTheory astTheory namespaceTheory ffiTheory fpValTreeTheory fpSemTheory realOpsTheory;
 
 val _ = numLib.temp_prefer_num();
 
