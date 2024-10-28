@@ -733,7 +733,23 @@ val _ = conv_Prog_ind  |> update_precondition;
 
 val res  = translate $ spec64 conv_Fun_def;
 
-val res = translate $ spec64 conv_FunList_def;
+val res = translate_no_ind $ spec64 conv_FunList_def;
+
+Triviality panptreeconversion_conv_funlist_ind:
+  panptreeconversion_conv_funlist_ind
+Proof
+  once_rewrite_tac [fetch "-" "panptreeconversion_conv_funlist_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac $ spec64 conv_FunList_ind
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+  \\ metis_tac[FST,SND,PAIR]
+QED
+
+val _ = panptreeconversion_conv_funlist_ind |> update_precondition;
 
 val res = translate $ spec64 panLexerTheory.dest_lexErrorT_def;
 

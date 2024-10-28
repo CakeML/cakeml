@@ -739,9 +739,9 @@ Definition conv_FunList_def:
          NONE =>
            (case conv_Fun f of
             | SOME f =>
-                case conv_FunList tree' of
+                (case conv_FunList tree' of
                   NONE => NONE
-                | SOME fs => SOME(f::fs)
+                 | SOME fs => SOME(f::fs))
             | NONE => NONE)
        | SOME _ => conv_FunList tree')
    | _ => NONE
