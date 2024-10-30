@@ -3,7 +3,7 @@
   starting point for further translations.
 *)
 
-open preamble astTheory libTheory semanticPrimitivesTheory whileTheory;
+open preamble astTheory semanticPrimitivesTheory whileTheory;
 open evaluateTheory ml_translatorLib ml_translatorTheory ml_progLib;
 
 val _ = new_theory "std_prelude";
@@ -94,7 +94,8 @@ Proof
   THEN METIS_TAC [FUNPOW]
 QED
 
-val OWHILE_ind = save_thm("OWHILE_ind",WHILE_ind);
+Theorem OWHILE_ind =
+  WHILE_ind
 
 val _ = add_preferred_thy "-";
 

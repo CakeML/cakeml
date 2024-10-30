@@ -4,7 +4,7 @@
     the source semantics and the translator's automation.
 *)
 open integerTheory ml_progTheory
-     astTheory libTheory semanticPrimitivesTheory
+     astTheory semanticPrimitivesTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory
      fpOptTheory fpValTreeTheory fpSemTheory fpSemPropsTheory;
 open mlvectorTheory mlstringTheory packLib;
@@ -862,8 +862,8 @@ val FUN_EXISTS_Eq = Q.prove(
   `(FUN_EXISTS x. Eq a x) = a`,
   SIMP_TAC std_ss [FUN_EQ_THM,FUN_EXISTS,Eq_def]) |> GEN_ALL;
 
-val FUN_QUANT_SIMP = save_thm("FUN_QUANT_SIMP",
-  LIST_CONJ [FUN_EXISTS_Eq,FUN_FORALL_PUSH1,FUN_FORALL_PUSH2]);
+Theorem FUN_QUANT_SIMP =
+  LIST_CONJ [FUN_EXISTS_Eq,FUN_FORALL_PUSH1,FUN_FORALL_PUSH2]
 
 Theorem Eval_Recclosure_ALT:
    !funs fname name body.
@@ -1033,8 +1033,8 @@ Proof
   fs [num_of_int_def] \\ intLib.COOPER_TAC
 QED
 
-val Eval_num_of_int = save_thm("Eval_num_of_int",
-  Eval_Num_ABS |> REWRITE_RULE [GSYM num_of_int_def]);
+Theorem Eval_num_of_int =
+  Eval_Num_ABS |> REWRITE_RULE [GSYM num_of_int_def]
 
 Theorem Eval_int_of_num:
    Eval env x1 (NUM n) ==>
@@ -1074,40 +1074,40 @@ Definition sub_nocheck_def:
   sub_nocheck (n:num) m = n - m
 End
 
-val Eval_NUM_SUB_nocheck = save_thm("Eval_NUM_SUB_nocheck",
+Theorem Eval_NUM_SUB_nocheck =
   Eval_INT_SUB |> Q.SPECL [`&n`,`&m`]
   |> UNDISCH_ALL |> DISCH ``PRECONDITION ((m:num) <= n)``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_SUB,PRECONDITION_def]
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
   |> DISCH ``Eval env x2 (INT (&m))``
   |> DISCH ``Eval env x1 (INT (&n))``
-  |> SIMP_RULE std_ss [GSYM NUM_def,GSYM sub_nocheck_def]);
+  |> SIMP_RULE std_ss [GSYM NUM_def,GSYM sub_nocheck_def]
 
-val Eval_NUM_ADD = save_thm("Eval_NUM_ADD",
+Theorem Eval_NUM_ADD =
   Eval_INT_ADD |> Q.SPECL [`&n1`,`&n2`]
-  |> REWRITE_RULE [GSYM NUM_def,INT_ADD]);
+  |> REWRITE_RULE [GSYM NUM_def,INT_ADD]
 
-val Eval_NUM_MULT = save_thm("Eval_NUM_MULT",
+Theorem Eval_NUM_MULT =
   Eval_INT_MULT |> Q.SPECL [`&n1`,`&n2`]
-  |> REWRITE_RULE [GSYM NUM_def,INT_MUL]);
+  |> REWRITE_RULE [GSYM NUM_def,INT_MUL]
 
-val Eval_NUM_DIV = save_thm("Eval_NUM_DIV",
+Theorem Eval_NUM_DIV =
   Eval_INT_DIV |> Q.SPECL [`&n1`,`&n2`]
   |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0:int)``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_DIV,PRECONDITION_def,INT_INJ]
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
   |> DISCH ``Eval env x2 (INT (&n2))``
   |> DISCH ``Eval env x1 (INT (&n1))``
-  |> SIMP_RULE std_ss [GSYM NUM_def,INT_DIV]);
+  |> SIMP_RULE std_ss [GSYM NUM_def,INT_DIV]
 
-val Eval_NUM_MOD = save_thm("Eval_NUM_MOD",
+Theorem Eval_NUM_MOD =
   Eval_INT_MOD |> Q.SPECL [`&n1`,`&n2`]
   |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0:int)``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_MOD,PRECONDITION_def,INT_INJ]
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
   |> DISCH ``Eval env x2 (INT (&n2))``
   |> DISCH ``Eval env x1 (INT (&n1))``
-  |> SIMP_RULE std_ss [GSYM NUM_def,INT_MOD]);
+  |> SIMP_RULE std_ss [GSYM NUM_def,INT_MOD]
 
 val Eval_NUM_MULT =
   Eval_INT_MULT |> Q.SPECL [`&n1`,`&n2`]
@@ -1148,23 +1148,23 @@ QED
 
 end;
 
-val Eval_NUM_LESS = save_thm("Eval_NUM_LESS",
+Theorem Eval_NUM_LESS =
   Eval_INT_LESS |> Q.SPECL [`&n1`,`&n2`]
-  |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt]);
+  |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt]
 
-val Eval_NUM_LESS_EQ = save_thm("Eval_NUM_LESS_EQ",
+Theorem Eval_NUM_LESS_EQ =
   Eval_INT_LESS_EQ |> Q.SPECL [`&n1`,`&n2`]
-  |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt]);
+  |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt]
 
-val Eval_NUM_GREATER = save_thm("Eval_NUM_GREATER",
+Theorem Eval_NUM_GREATER =
   Eval_INT_GREATER |> Q.SPECL [`&n1`,`&n2`]
   |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt]
-  |> REWRITE_RULE [GSYM GREATER_DEF, GSYM GREATER_EQ]);
+  |> REWRITE_RULE [GSYM GREATER_DEF, GSYM GREATER_EQ]
 
-val Eval_NUM_GREATER_EQ = save_thm("Eval_NUM_GREATER_EQ",
+Theorem Eval_NUM_GREATER_EQ =
   Eval_INT_GREATER_EQ |> Q.SPECL [`&n1`,`&n2`]
   |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt]
-  |> REWRITE_RULE [GSYM GREATER_DEF, GSYM GREATER_EQ]);
+  |> REWRITE_RULE [GSYM GREATER_DEF, GSYM GREATER_EQ]
 
 Theorem Eval_NUM_EQ_0:
    !n. Eval env x (NUM n) ==>
@@ -1705,17 +1705,15 @@ Definition LIST_TYPE_def:
      v = Conv (SOME (TypeStamp "[]" 1)) [])
 End
 
-val LIST_TYPE_SIMP' = Q.prove(
+Theorem LIST_TYPE_SIMP' = Q.prove(
   `!xs b. CONTAINER LIST_TYPE
               (\x v. if b x \/ MEM x xs then p x v else ARB) xs =
            LIST_TYPE (p:('a -> v -> bool)) xs`,
   Induct THEN FULL_SIMP_TAC std_ss [FUN_EQ_THM,LIST_TYPE_def,MEM,
     DISJ_ASSOC,CONTAINER_def]) |> GSYM
-  |> curry save_thm "LIST_TYPE_SIMP'";
 
-val LIST_TYPE_SIMP = LIST_TYPE_SIMP'
+Theorem LIST_TYPE_SIMP = LIST_TYPE_SIMP'
   |> Q.SPECL [`xs`,`\x.F`] |> SIMP_RULE std_ss []
-  |> curry save_thm "LIST_TYPE_SIMP";
 
 Theorem LIST_TYPE_IF_ELIM:
  !v. LIST_TYPE (\x v. if MEM x l then P x v else Q x v) l v = LIST_TYPE P l v
@@ -1755,12 +1753,12 @@ Definition PAIR_TYPE_def:
     ?v1_1 v1_2. v = Conv NONE [v1_1; v1_2] /\ a x_2 v1_1 /\ b x_1 v1_2
 End
 
-val PAIR_TYPE_SIMP = Q.prove(
+Theorem PAIR_TYPE_SIMP = Q.prove(
   `!x. CONTAINER PAIR_TYPE (\y v. if y = FST x then a y v else ARB)
                            (\y v. if y = SND x then b y v else ARB) x =
         PAIR_TYPE (a:('a -> v -> bool)) (b:('b -> v -> bool)) x`,
   Cases \\ SIMP_TAC std_ss [PAIR_TYPE_def,CONTAINER_def,FUN_EQ_THM])
-  |> GSYM |> SPEC_ALL |> curry save_thm "PAIR_TYPE_SIMP";
+  |> GSYM |> SPEC_ALL
 
 Definition PAIR_v_def:
   PAIR_v a_v b_v (x, y) = Conv NONE [a_v x; b_v y]
@@ -2368,8 +2366,8 @@ val UNCURRY3 = Q.prove(
   `pair_CASE (x,y) f = f x y`,
   EVAL_TAC) |> GEN_ALL;
 
-val UNCURRY_SIMP = save_thm("UNCURRY_SIMP",
-  LIST_CONJ [UNCURRY1,UNCURRY2,UNCURRY3]);
+Theorem UNCURRY_SIMP =
+  LIST_CONJ [UNCURRY1,UNCURRY2,UNCURRY3]
 
 Theorem num_case_thm:
    num_CASE = \n b f. if n = 0 then b else f (n-1)
@@ -2378,8 +2376,8 @@ Proof
   \\ EVAL_TAC \\ SIMP_TAC std_ss []
 QED
 
-val PUSH_FORALL_INTO_IMP = save_thm("PUSH_FORALL_INTO_IMP",
-  METIS_PROVE [] ``!P Q. (!x. P x ==> Q x) ==> (!x. P x) ==> (!x. Q x)``);
+Theorem PUSH_FORALL_INTO_IMP =
+  METIS_PROVE [] ``!P Q. (!x. P x ==> Q x) ==> (!x. P x) ==> (!x. Q x)``
 
 Definition FALSE_def:
   FALSE = F
@@ -2643,7 +2641,8 @@ Proof
   \\ EVAL_TAC
 QED
 
-val PRECONDITION_T = save_thm("PRECONDITION_T",EVAL ``PRECONDITION T``);
+Theorem PRECONDITION_T =
+  EVAL ``PRECONDITION T``
 
 Definition no_change_refs_def:
   no_change_refs (Lit _) = T /\
@@ -2771,8 +2770,8 @@ Proof
   SIMP_TAC std_ss []
 QED
 
-val EQ_COND_INTRO = save_thm("EQ_COND_INTRO",
-  METIS_PROVE[]``(b ==> c) ==> (c = if b then T else c)``);
+Theorem EQ_COND_INTRO =
+  METIS_PROVE[]``(b ==> c) ==> (c = if b then T else c)``
 
 Theorem LIST_TYPE_And:
    LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))
@@ -2871,8 +2870,8 @@ Proof
   fs [PreImp_def,PRECONDITION_def]
 QED
 
-val SUC_SUB1_LEMMA = save_thm("SUC_SUB1_LEMMA",
-  Q.SPECL [`n`,`1`] ADD_SUB |> REWRITE_RULE [GSYM ADD1]);
+Theorem SUC_SUB1_LEMMA =
+  Q.SPECL [`n`,`1`] ADD_SUB |> REWRITE_RULE [GSYM ADD1]
 
 Theorem LENGTH_EQ_SUC_IMP:
    LENGTH xs = SUC n ==> xs <> []

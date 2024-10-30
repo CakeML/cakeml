@@ -93,9 +93,9 @@ End
 Definition store_consts_stub_location_def:
   store_consts_stub_location = gc_stub_location-1
 End
-val gc_stub_location_eq = save_thm("gc_stub_location_eq",
-  gc_stub_location_def |> CONV_RULE(RAND_CONV EVAL));
-val store_consts_stub_location_eq = save_thm("store_consts_stub_location_eq",
-  store_consts_stub_location_def |> CONV_RULE(RAND_CONV EVAL));
+Theorem gc_stub_location_eq =
+  gc_stub_location_def |> CONV_RULE(RAND_CONV EVAL)
+Theorem store_consts_stub_location_eq =
+  store_consts_stub_location_def |> CONV_RULE(RAND_CONV EVAL)
 
 val _ = export_theory();

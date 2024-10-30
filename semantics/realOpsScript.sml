@@ -2,7 +2,7 @@
   Real-valued operations for source semantics
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory machine_ieeeTheory realTheory;
+open miscTheory machine_ieeeTheory realTheory;
 
 val _ = new_theory "realOps";
 

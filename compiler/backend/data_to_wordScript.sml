@@ -259,68 +259,68 @@ Definition Bignum_location_def:
   Bignum_location = AppendFastLoop_location+1
 End
 
-val FromList_location_eq = save_thm("FromList_location_eq",
-  ``FromList_location`` |> EVAL);
-val FromList1_location_eq = save_thm("FromList1_location_eq",
-  ``FromList1_location`` |> EVAL);
-val RefByte_location_eq = save_thm("RefByte_location_eq",
-  ``RefByte_location`` |> EVAL);
-val RefArray_location_eq = save_thm("RefArray_location_eq",
-  ``RefArray_location`` |> EVAL);
-val Replicate_location_eq = save_thm("Replicate_location_eq",
-  ``Replicate_location`` |> EVAL);
-val AnyArith_location_eq = save_thm("AnyArith_location_eq",
-  ``AnyArith_location`` |> EVAL);
-val Add_location_eq = save_thm("Add_location_eq",
-  ``Add_location`` |> EVAL);
-val Sub_location_eq = save_thm("Sub_location_eq",
-  ``Sub_location`` |> EVAL);
-val Mul_location_eq = save_thm("Mul_location_eq",
-  ``Mul_location`` |> EVAL);
-val Div_location_eq = save_thm("Div_location_eq",
-  ``Div_location`` |> EVAL);
-val Mod_location_eq = save_thm("Mod_location_eq",
-  ``Mod_location`` |> EVAL);
-val Compare1_location_eq = save_thm("Compare1_location_eq",
-  ``Compare1_location`` |> EVAL);
-val Compare_location_eq = save_thm("Compare_location_eq",
-  ``Compare_location`` |> EVAL);
-val Equal1_location_eq = save_thm("Equal1_location_eq",
-  ``Equal1_location`` |> EVAL);
-val Equal_location_eq = save_thm("Equal_location_eq",
-  ``Equal_location`` |> EVAL);
-val LongDiv1_location_eq = save_thm("LongDiv1_location_eq",
-  ``LongDiv1_location`` |> EVAL);
-val LongDiv_location_eq = save_thm("LongDiv_location_eq",
-  ``LongDiv_location`` |> EVAL);
-val MemCopy_location_eq = save_thm("MemCopy_location_eq",
-  ``MemCopy_location`` |> EVAL);
-val Bignum_location_eq = save_thm("Bignum_location_eq",
-  ``Bignum_location`` |> EVAL);
-val ByteCopy_location_eq = save_thm("ByteCopy_location_eq",
-  ``ByteCopy_location`` |> EVAL);
-val ByteCopyAdd_location_eq = save_thm("ByteCopyAdd_location_eq",
-  ``ByteCopyAdd_location`` |> EVAL);
-val ByteCopySub_location_eq = save_thm("ByteCopySub_location_eq",
-  ``ByteCopySub_location`` |> EVAL);
-val ByteCopyNew_location_eq = save_thm("ByteCopyNew_location_eq",
-  ``ByteCopyNew_location`` |> EVAL);
-val Install_location_eq = save_thm("Install_location_eq",
-  ``Install_location`` |> EVAL);
-val InstallCode_location_eq = save_thm("InstallCode_location_eq",
-  ``InstallCode_location`` |> EVAL);
-val InstallData_location_eq = save_thm("InstallData_location_eq",
-  ``InstallData_location`` |> EVAL);
-val Dummy_location_eq = save_thm("Dummy_location_eq",
-  ``Dummy_location`` |> EVAL);
-val Append_location_eq = save_thm("Append_location_eq",
-  ``Append_location`` |> EVAL);
-val AppendMainLoop_location_eq = save_thm("AppendMainLoop_location_eq",
-  ``AppendMainLoop_location`` |> EVAL);
-val AppendLenLoop_location_eq = save_thm("AppendLenLoop_location_eq",
-  ``AppendLenLoop_location`` |> EVAL);
-val AppendFastLoop_location_eq = save_thm("AppendFastLoop_location_eq",
-  ``AppendFastLoop_location`` |> EVAL);
+Theorem FromList_location_eq =
+  ``FromList_location`` |> EVAL
+Theorem FromList1_location_eq =
+  ``FromList1_location`` |> EVAL
+Theorem RefByte_location_eq =
+  ``RefByte_location`` |> EVAL
+Theorem RefArray_location_eq =
+  ``RefArray_location`` |> EVAL
+Theorem Replicate_location_eq =
+  ``Replicate_location`` |> EVAL
+Theorem AnyArith_location_eq =
+  ``AnyArith_location`` |> EVAL
+Theorem Add_location_eq =
+  ``Add_location`` |> EVAL
+Theorem Sub_location_eq =
+  ``Sub_location`` |> EVAL
+Theorem Mul_location_eq =
+  ``Mul_location`` |> EVAL
+Theorem Div_location_eq =
+  ``Div_location`` |> EVAL
+Theorem Mod_location_eq =
+  ``Mod_location`` |> EVAL
+Theorem Compare1_location_eq =
+  ``Compare1_location`` |> EVAL
+Theorem Compare_location_eq =
+  ``Compare_location`` |> EVAL
+Theorem Equal1_location_eq =
+  ``Equal1_location`` |> EVAL
+Theorem Equal_location_eq =
+  ``Equal_location`` |> EVAL
+Theorem LongDiv1_location_eq =
+  ``LongDiv1_location`` |> EVAL
+Theorem LongDiv_location_eq =
+  ``LongDiv_location`` |> EVAL
+Theorem MemCopy_location_eq =
+  ``MemCopy_location`` |> EVAL
+Theorem Bignum_location_eq =
+  ``Bignum_location`` |> EVAL
+Theorem ByteCopy_location_eq =
+  ``ByteCopy_location`` |> EVAL
+Theorem ByteCopyAdd_location_eq =
+  ``ByteCopyAdd_location`` |> EVAL
+Theorem ByteCopySub_location_eq =
+  ``ByteCopySub_location`` |> EVAL
+Theorem ByteCopyNew_location_eq =
+  ``ByteCopyNew_location`` |> EVAL
+Theorem Install_location_eq =
+  ``Install_location`` |> EVAL
+Theorem InstallCode_location_eq =
+  ``InstallCode_location`` |> EVAL
+Theorem InstallData_location_eq =
+  ``InstallData_location`` |> EVAL
+Theorem Dummy_location_eq =
+  ``Dummy_location`` |> EVAL
+Theorem Append_location_eq =
+  ``Append_location`` |> EVAL
+Theorem AppendMainLoop_location_eq =
+  ``AppendMainLoop_location`` |> EVAL
+Theorem AppendLenLoop_location_eq =
+  ``AppendLenLoop_location`` |> EVAL
+Theorem AppendFastLoop_location_eq =
+  ``AppendFastLoop_location`` |> EVAL
 
 Definition SilentFFI_def:
   SilentFFI c n names =
@@ -2265,7 +2265,8 @@ val def = assign_Define `
                WriteWord64_on_32 c header dest 5 3],l)))
       : 'a wordLang$prog # num`;
 
-val all_assign_defs = save_thm("all_assign_defs",LIST_CONJ (!assign_defs));
+Theorem all_assign_defs =
+  LIST_CONJ (!assign_defs)
 
 Definition assign_def:
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)

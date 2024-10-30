@@ -2507,7 +2507,7 @@ Theorem EL_get_ffi_index_MEM:
 Proof
   rw[get_ffi_index_def,find_index_LEAST_EL]
   \\ numLib.LEAST_ELIM_TAC
-  \\ fs[MEM_EL,libTheory.the_def]
+  \\ fs[MEM_EL,miscTheory.the_def]
   \\ metis_tac[]
 QED
 
@@ -9339,7 +9339,7 @@ Proof
   EVAL_TAC
 QED
 
-val semantics_make_init = save_thm("semantics_make_init",
+Theorem semantics_make_init =
   machine_sem_EQ_sem |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
   |> UNDISCH |> REWRITE_RULE []
   |> SIMP_RULE std_ss [init_ok_def,PULL_EXISTS,GSYM CONJ_ASSOC,GSYM AND_IMP_INTRO]
@@ -9352,7 +9352,7 @@ val semantics_make_init = save_thm("semantics_make_init",
        cbspace coracle`
   |> SIMP_RULE std_ss [make_init_simp]
   |> MATCH_MP (MATCH_MP IMP_LEMMA IMP_state_rel_make_init)
-  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 Theorem make_init_filter_skip:
    semantics

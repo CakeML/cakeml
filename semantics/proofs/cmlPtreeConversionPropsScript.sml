@@ -345,7 +345,8 @@ fun okify c q th =
        |> SIMP_RULE (srw_ss()) [] |> DISCH_ALL
        |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO, GSYM CONJ_ASSOC]
 
-val Type_OK = save_thm("Type_OK", okify CONJUNCT1 `nType` Type_OK0);
+Theorem Type_OK =
+  okify CONJUNCT1 `nType` Type_OK0
 
 Theorem V_OK:
    valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nV) ∧
@@ -468,7 +469,8 @@ Proof
   >- (irule V_OK \\ gs [SF SFY_ss])
 QED
 
-val Pattern_OK = save_thm("Pattern_OK", okify CONJUNCT1 `nPattern` Pattern_OK0);
+Theorem Pattern_OK =
+  okify CONJUNCT1 `nPattern` Pattern_OK0
 
 Theorem Eseq_encode_OK:
    ∀l. l <> [] ⇒ ∃e. Eseq_encode l = SOME e
@@ -584,10 +586,10 @@ Proof
       asm_match `0 < LENGTH pl` >> Cases_on `pl` >> fs[oHD_def] >> std)
 QED
 
-val E_OK = save_thm("E_OK", okify CONJUNCT1 `nE` E_OK0)
-val AndFDecls_OK = save_thm(
-  "AndFDecls_OK",
-  okify (last o #1 o front_last o CONJUNCTS) `v` E_OK0);
+Theorem E_OK =
+  okify CONJUNCT1 `nE` E_OK0
+Theorem AndFDecls_OK =
+  okify (last o #1 o front_last o CONJUNCTS) `v` E_OK0
 
 Theorem PTbase_OK:
    valid_ptree cmlG pt ∧ ptree_head pt = NN nPTbase ∧

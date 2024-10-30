@@ -865,8 +865,8 @@ Termination
   \\ imp_res_tac flatLangTheory.exp_size_MEM \\ fs []
 End
 
-val esgc_free_def = save_thm("esgc_free_def[simp,compute,allow_rebind]",
-  SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
+Theorem esgc_free_def[simp,compute,allow_rebind] =
+  SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def
 
 Theorem elist_globals_eq_empty:
    elist_globals l = {||} ⇔ ∀e. MEM e l ⇒ set_globals e = {||}

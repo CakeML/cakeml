@@ -1621,7 +1621,7 @@ Proof
   \\ fs[] \\ conj_tac >- ( rw[] )
   \\ simp[APPLY_UPDATE_THM]
   \\ qexists_tac`z` \\ simp[MAP_EQ_f]
-  \\ Cases \\ rw[libTheory.the_def]
+  \\ Cases \\ rw[miscTheory.the_def]
   \\ match_mp_tac (GEN_ALL bv_ok_IMP_adjust_bv_eq)
   \\ qexists_tac `s5.refs`
   \\ simp[APPLY_UPDATE_THM]
@@ -2920,7 +2920,7 @@ Proof
            simp[Once state_rel_def] >> strip_tac >>
            simp[LENGTH_REPLICATE,ADD1] >>
            simp[EL_CONS,PRE_SUB1,GSYM ADD1] >>
-           simp[EL_APPEND1,EL_MAP,libTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id] >>
+           simp[EL_APPEND1,EL_MAP,miscTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id] >>
            MATCH_MP_TAC (GEN_ALL bv_ok_IMP_adjust_bv_eq) >>
            qexists_tac`r.refs`>>simp[] >>
            full_simp_tac(srw_ss())[state_ok_def,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
@@ -2944,12 +2944,12 @@ Proof
          \\ gvs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
          \\ gvs [bvlSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
          \\ simp [AllCaseEqs()]
-         \\ simp[EL_APPEND1,EL_MAP,libTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id]
+         \\ simp[EL_APPEND1,EL_MAP,miscTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id]
          \\ ‘&j + 2 = &(j + 2):int’ by intLib.COOPER_TAC \\ fs []
          \\ simp [DECIDE “j+2 = SUC (j+1)”,EL]
          \\ reverse conj_tac
          >- simp [state_component_equality]
-         \\ simp [rich_listTheory.EL_APPEND1,EL_MAP,libTheory.the_def])
+         \\ simp [rich_listTheory.EL_APPEND1,EL_MAP,miscTheory.the_def])
     \\ Cases_on`∃n. op = SetGlobal n` \\ full_simp_tac(srw_ss())[] THEN1 (
          note_tac "Op: SetGlobal" >> simp[compile_op_def] >>
          full_simp_tac(srw_ss())[bEvalOp_def] >>
@@ -2978,7 +2978,7 @@ Proof
          conj_tac >- full_simp_tac(srw_ss())[INJ_DEF] >>
          srw_tac[][] >- ( full_simp_tac(srw_ss())[FLOOKUP_DEF] >> srw_tac[][] >> METIS_TAC[] ) >>
          qexists_tac`z` >> simp[ADD1,LUPDATE_MAP] >>
-         simp[libTheory.the_def])
+         simp[miscTheory.the_def])
     \\ Cases_on`op = AllocGlobal` \\ full_simp_tac(srw_ss())[] THEN1
         (note_tac "Op: AllocGlobal" \\ simp[compile_op_def]
          \\ gvs [bvlSemTheory.do_app_def,AllCaseEqs()]
@@ -3032,7 +3032,7 @@ Proof
            simp[])  >>
          conj_tac >- (
            full_simp_tac(srw_ss())[FLOOKUP_DEF] >> metis_tac[INJ_DEF]) >>
-         rewrite_tac [REPLICATE_APPEND,libTheory.the_def] >>
+         rewrite_tac [REPLICATE_APPEND,miscTheory.the_def] >>
          irule_at Any (METIS_PROVE [] “k = n ⇒ REPLICATE k x = REPLICATE n x”) >>
          fs [ADD1] >>
          qexists_tac ‘extra+z’ >> fs [])
@@ -3261,7 +3261,7 @@ Proof
       >> simp[o_DEF]
       \\ qexists_tac`z` \\ simp[]
       \\ simp[MAP_EQ_f]
-      \\ Cases \\ simp[libTheory.the_def]
+      \\ Cases \\ simp[miscTheory.the_def]
       \\ rw[]
       \\ match_mp_tac (GEN_ALL bv_ok_IMP_adjust_bv_eq) \\ qexists_tac `s5.refs`
       \\ simp[APPLY_UPDATE_THM]

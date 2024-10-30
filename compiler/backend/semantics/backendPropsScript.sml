@@ -47,7 +47,7 @@ QED
 Theorem the_eqn:
   the x y = case y of NONE => x | SOME z => z
 Proof
-  Cases_on `y`>>rw[libTheory.the_def]
+  Cases_on `y`>>rw[miscTheory.the_def]
 QED
 
 Theorem the_F_eq:

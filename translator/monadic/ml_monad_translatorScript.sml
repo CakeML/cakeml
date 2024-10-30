@@ -3,7 +3,7 @@
   translator.
 *)
 open ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory semanticPrimitivesTheory evaluateTheory evaluatePropsTheory
+open astTheory semanticPrimitivesTheory evaluateTheory evaluatePropsTheory
 open evaluateTheory ml_progLib ml_progTheory
 open set_sepTheory Satisfy
 open cfHeapsBaseTheory AC_Sort
@@ -748,8 +748,8 @@ val FUN_EXISTS_Eq = Q.prove(
   `(FUN_EXISTS x. Eq a x) = a`,
   SIMP_TAC std_ss [FUN_EQ_THM,FUN_EXISTS,Eq_def]) |> GEN_ALL;
 
-val M_FUN_QUANT_SIMP = save_thm("M_FUN_QUANT_SIMP",
-  LIST_CONJ [FUN_EXISTS_Eq,M_FUN_FORALL_PUSH1,M_FUN_FORALL_PUSH2,M_FUN_FORALL_PUSH3]);
+Theorem M_FUN_QUANT_SIMP =
+  LIST_CONJ [FUN_EXISTS_Eq,M_FUN_FORALL_PUSH1,M_FUN_FORALL_PUSH2,M_FUN_FORALL_PUSH3]
 
 Theorem EvalM_Eq:
    EvalM ro env st exp (PURE a x) H ==> EvalM ro env st exp (PURE (Eq a x) x) ^H
@@ -3521,17 +3521,17 @@ Proof
   fs[lookup_cons_def]
 QED
 
-val LOOKUP_ASSUM_SIMP = save_thm("LOOKUP_ASSUM_SIMP",
+Theorem LOOKUP_ASSUM_SIMP =
   LIST_CONJ[nsBind_to_write,Eval_Var_SIMP,Eval_lookup_var,
     nsLookup_write_simp,sem_env_same_components,lookup_cons_write_simp,
-    lookup_cons_build_rec_env_simp]);
+    lookup_cons_build_rec_env_simp]
 
-val EVAL_T_F = save_thm("EVAL_T_F",
+Theorem EVAL_T_F =
   LIST_CONJ [EVAL ``ml_translator$CONTAINER ml_translator$TRUE``,
-             EVAL ``ml_translator$CONTAINER ml_translator$FALSE``]);
+             EVAL ``ml_translator$CONTAINER ml_translator$FALSE``]
 
-val EVAL_PRECONDITION_T = save_thm("EVAL_PRECONDITION_T",
-  EVAL (``ml_translator$PRECONDITION T``));
+Theorem EVAL_PRECONDITION_T =
+  EVAL (``ml_translator$PRECONDITION T``)
 
 Theorem H_STAR_emp:
    H * emp = H

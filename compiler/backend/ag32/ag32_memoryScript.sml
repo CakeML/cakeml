@@ -3587,13 +3587,12 @@ Definition ag32_ffi_jumps_def:
     FLAT (MAP (mk_jump_ag32_code ffi_names) (REVERSE ffi_names)) ++ ccache_jump_ag32_code ++ halt_jump_ag32_code
 End
 
-val LENGTH_ag32_ffi_jumps =
+Theorem LENGTH_ag32_ffi_jumps =
   ``LENGTH (ag32_ffi_jumps nms)``
   |> SIMP_CONV(srw_ss()++LET_ss)
       [LENGTH_FLAT,MAP_MAP_o,o_DEF,mk_jump_ag32_code_def,ag32_ffi_jumps_def,
        Q.ISPEC`λx. 4n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
   |> CONV_RULE(RAND_CONV EVAL)
-  |> curry save_thm "LENGTH_ag32_ffi_jumps"
 
 Definition ag32_ffi_code_def:
   ag32_ffi_code =
@@ -3613,8 +3612,8 @@ Definition ag32_ffi_code_def:
       )
 End
 
-val LENGTH_ag32_ffi_code = ``LENGTH ag32_ffi_code`` |> EVAL
-  |> curry save_thm "LENGTH_ag32_ffi_code"
+Theorem LENGTH_ag32_ffi_code =
+  ``LENGTH ag32_ffi_code`` |> EVAL
 
 Theorem LENGTH_ag32_ffi_code_check:
    4 * LENGTH ag32_ffi_code = length_ag32_ffi_code
@@ -3684,8 +3683,8 @@ Definition startup_asm_code_def:
      JumpReg 1]
 End
 
-val LENGTH_startup_asm_code = save_thm("LENGTH_startup_asm_code",
-  ``LENGTH (startup_asm_code n cl bl)`` |> EVAL);
+Theorem LENGTH_startup_asm_code =
+  ``LENGTH (startup_asm_code n cl bl)`` |> EVAL
 
 Definition startup_code_def:
   startup_code ffi_len code_len data_len =

@@ -41,7 +41,7 @@ val eval_tac = fs [wordSemTheory.evaluate_def,
   wordSemTheory.mem_load_def,wordLangTheory.word_op_def,
   wordLangTheory.word_sh_def]
 
-val eq_eval = save_thm("eq_eval",
+Theorem eq_eval =
   LIST_CONJ [wordSemTheory.evaluate_def,wordSemTheory.get_var_def,
              lookup_insert,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,
              wordSemTheory.word_exp_def,wordSemTheory.set_var_def,
@@ -49,7 +49,7 @@ val eq_eval = save_thm("eq_eval",
              wordSemTheory.bad_dest_args_def,wordSemTheory.get_vars_def,
              wordSemTheory.find_code_def,wordSemTheory.add_ret_loc_def,
              list_insert_def,wordSemTheory.dec_clock_def,wordSemTheory.the_words_def,
-             wordLangTheory.word_op_def]);
+             wordLangTheory.word_op_def]
 
 Theorem word_list_IMP_store_list:
    !xs a frame m dm.
@@ -1794,7 +1794,7 @@ Proof
       fs [state_fn_updates, stack_size_eq2, wordSemTheory.stack_size_frame_def] >>
       TOP_CASE_TAC >> rw [backendPropsTheory.option_le_def] >>
       Cases_on `s1'.stack_max` >> fs [backendPropsTheory.the_eqn] >>
-      fs [libTheory.the_def] >> rveq >> fs [MAX_DEF]))
+      fs [miscTheory.the_def] >> rveq >> fs [MAX_DEF]))
     >- fs [state_rel_def, limits_inv_def]
     \\ rewrite_tac [GSYM (EVAL ``Smallnum 0``)]
     \\ match_mp_tac IMP_memory_rel_Number

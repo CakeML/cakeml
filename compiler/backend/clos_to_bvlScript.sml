@@ -57,12 +57,15 @@ val _ = set_grammar_ancestry [
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val _ = EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
-  |> curry save_thm"partial_app_tag_neq_closure_tag[simp]";
-val _ = EVAL``clos_tag_shift nil_tag = nil_tag`` |> EQT_ELIM
-  |> curry save_thm"clos_tag_shift_nil_tag[simp]";
-val _ = EVAL``clos_tag_shift cons_tag = cons_tag`` |> EQT_ELIM
-  |> curry save_thm"clos_tag_shift_cons_tag[simp]";
+Theorem partial_app_tag_neq_closure_tag[simp] =
+  EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
+
+Theorem clos_tag_shift_nil_tag[simp] =
+  EVAL``clos_tag_shift nil_tag = nil_tag`` |> EQT_ELIM
+
+Theorem clos_tag_shift_cons_tag[simp] =
+  EVAL``clos_tag_shift cons_tag = cons_tag`` |> EQT_ELIM
+
 Theorem clos_tag_shift_inj:
    clos_tag_shift n1 = clos_tag_shift n2 ⇒ n1 = n2
 Proof

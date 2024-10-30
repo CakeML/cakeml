@@ -257,7 +257,9 @@ End
 
 val (ag32_config, ag32_asm_ok) = asmLib.target_asm_rwts [] ``ag32_config``
 
-val ag32_config = save_thm("ag32_config", ag32_config)
-val ag32_asm_ok = save_thm("ag32_asm_ok", ag32_asm_ok)
+Theorem ag32_config =
+  ag32_config
+Theorem ag32_asm_ok =
+  ag32_asm_ok
 
 val () = export_theory ()

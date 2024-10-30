@@ -295,10 +295,10 @@ Proof
   \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs []
 QED
 
-val compile_thm = save_thm("compile_thm",
+Theorem compile_thm =
   evaluate_env_rel
   |> Q.SPECL [`xs`,`env`,`s1`,`[]`,`env`] |> GEN_ALL
-  |> SIMP_RULE std_ss [env_rel_def])
+  |> SIMP_RULE std_ss [env_rel_def]
 
 Theorem evaluate_compile_exp:
    evaluate ([d],env,s) = (r,t) /\

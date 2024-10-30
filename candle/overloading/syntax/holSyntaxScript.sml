@@ -36,8 +36,10 @@ Proof
   REPEAT STRIP_TAC \\ EVAL_TAC
 QED
 
-val _ = save_thm("domain_raw[allow_rebind]",domain_raw);
-val _ = save_thm("codomain_raw[allow_rebind]",codomain_raw);
+Theorem domain_raw[allow_rebind] =
+  domain_raw
+Theorem codomain_raw[allow_rebind] =
+  codomain_raw
 
 fun type_rec_tac proj =
 (WF_REL_TAC(`measure (type_size o `@[QUOTE proj]@`)`) >> simp[] >>

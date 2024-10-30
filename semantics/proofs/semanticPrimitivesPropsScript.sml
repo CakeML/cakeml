@@ -3,7 +3,7 @@
 *)
 
 open preamble;
-open libTheory astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
+open astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
 open namespacePropsTheory;
 open boolSimps;
 
@@ -246,11 +246,11 @@ Proof
   srw_tac[][]
 QED
 
-val do_app_cases = save_thm ("do_app_cases",
-``do_app (s,t) op vs = SOME (st',v)`` |>
+Theorem do_app_cases =
+  ``do_app (s,t) op vs = SOME (st',v)`` |>
   (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
-   ALL_CONV));
+   ALL_CONV)
 
 Theorem do_opapp_cases:
    ∀env' vs v.

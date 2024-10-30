@@ -29,11 +29,10 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val cake_pb_mccis_compiled_thm =
+Theorem cake_pb_mccis_compiled_thm =
   CONJ compile_correct_applied cake_pb_mccis_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "cake_pb_mccis_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:
@@ -77,7 +76,7 @@ Theorem machine_code_sound:
         get_graph_lad fs (EL 2 cl) = SOME gt ∧
         (
           (LENGTH cl = 3 ∧
-            out = concat (print_pbf (full_encode_mccis gp gt))) ∨
+            out = concat (print_prob (mk_prob (full_encode_mccis gp gt)))) ∨
           (LENGTH cl = 4 ∧
             (
               out = mccis_eq_str (max_ccis_size gp gt) ∨

@@ -4,7 +4,7 @@
 *)
 
 open preamble
-open astTheory libTheory semanticPrimitivesTheory evaluateTheory
+open astTheory semanticPrimitivesTheory evaluateTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;
 open mlstringTheory integerTheory;
 open namespaceTheory;
@@ -638,13 +638,13 @@ Proof
   rewrite_tac[prim_sem_env_eq,THE_DEF,init_state_def,init_env_def]
 QED
 
-val nsLookup_init_env_pfun_eqs = save_thm("nsLookup_init_env_pfun_eqs",
+Theorem nsLookup_init_env_pfun_eqs =
   [``nsLookup_Short init_env.c``, ``nsLookup_Short init_env.v``,
     ``nsLookup_Mod1 init_env.c``, ``nsLookup_Mod1 init_env.v``]
   |> map (SIMP_CONV bool_ss
         [init_env_def, nsLookup_Short_Bind, nsLookup_Mod1_def,
             namespace_case_def, sem_env_accfupds, K_DEF])
-  |> LIST_CONJ);
+  |> LIST_CONJ;
 
 end
 
@@ -1110,11 +1110,11 @@ Proof
   rw [namespacePropsTheory.nsLookup_nsBind]
 QED
 
-val nsLookup_nsAppend = save_thm("nsLookup_nsAppend[compute]",
+Theorem nsLookup_nsAppend[compute] =
   nsLookup_merge_env
   |> SIMP_RULE (srw_ss()) [merge_env_def]
   |> Q.INST [`e1`|->`<|c:=e1c;v:=e1v|>`,`e2`|->`<|c:=e2c;v:=e2v|>`]
-  |> SIMP_RULE (srw_ss()) []);
+  |> SIMP_RULE (srw_ss()) []
 
 (* Base case for mod_defined (?) *)
 Theorem mod_defined_base[compute]:

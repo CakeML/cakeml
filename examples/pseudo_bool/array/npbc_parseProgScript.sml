@@ -2098,6 +2098,7 @@ val res = translate parse_strengthen_def;
 
 val res = translate parse_b_obj_term_npbc_def;
 
+val res = translate parse_preserve_def;
 val res = translate parse_cstep_head_def;
 
 val PB_PARSE_PAR_TYPE_def = theorem"PB_PARSE_PAR_TYPE_def";
@@ -2127,9 +2128,18 @@ val parse_cstep = process_topdecs`
         (case parse_red_aux fns'' fd lno' [] of
           (res,(pf,(fns''',lno''))) =>
           (case res of Some u =>
-            raise Fail (format_failure (lno'+1) "obj change rule can not end with contradiction")
+            raise Fail (format_failure (lno'+1) "obj change rule cannot end with contradiction")
           | None =>
             (Inr (Changeobj b f pf), (fns''', lno''))
+          )
+        )
+    | Some (Changeprespar b x c, fns'') =>
+        (case parse_red_aux fns'' fd lno' [] of
+          (res,(pf,(fns''',lno''))) =>
+          (case res of Some u =>
+            raise Fail (format_failure (lno'+1) "projection set change rule cannot end with contradiction")
+          | None =>
+            (Inr (Changepres b x c pf), (fns''', lno''))
           )
         ))
   `|> append_prog;
@@ -2325,7 +2335,7 @@ Proof
     simp[SUM_TYPE_def,NPBC_CHECK_CSTEP_TYPE_def]>>
     unabbrev_all_tac>>simp[forwardFD_o]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
-  >- (
+  >> ( (* two subgoals *)
     rpt xlet_autop>>
     qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" _ _ lines1 fs1`>>
     xlet`(POSTve
@@ -2831,12 +2841,12 @@ val res = translate format_err_def;
 val check_output_hconcl_arr = process_topdecs`
   fun check_output_hconcl_arr
     fml obj
-    fml' inds' obj' bound' dbound' chk'
-    fmlt objt
+    fml' inds' pres' obj' bound' dbound' chk'
+    fmlt prest objt
     output hconcl =
   format_err
   (check_output_arr fml' inds'
-    obj' bound' dbound' chk' fmlt objt output)
+    pres' obj' bound' dbound' chk' fmlt prest objt output)
   (check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl)`
   |> append_prog;
 
@@ -2845,10 +2855,12 @@ Theorem check_output_hconcl_arr_spec:
   obj_TYPE obj objv ∧
   (LIST_TYPE NUM) inds1 inds1v ∧
   obj_TYPE obj1 obj1v ∧
+  pres_TYPE pres1 pres1v ∧
   OPTION_TYPE INT bound1 bound1v ∧
   OPTION_TYPE INT dbound1 dbound1v ∧
   BOOL chk1 chk1v ∧
   LIST_TYPE constraint_TYPE fmlt fmltv ∧
+  pres_TYPE prest prestv ∧
   obj_TYPE objt objtv ∧
   PBC_OUTPUT_TYPE output outputv ∧
   NPBC_CHECK_HCONCL_TYPE hconcl hconclv ∧
@@ -2857,8 +2869,8 @@ Theorem check_output_hconcl_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_output_hconcl_arr" (get_ml_prog_state()))
     [fmlv; objv;
-      fml1v; inds1v; obj1v; bound1v; dbound1v; chk1v;
-      fmltv; objtv;
+      fml1v; inds1v; pres1v; obj1v; bound1v; dbound1v; chk1v;
+      fmltv; prestv; objtv;
       outputv; hconclv]
     (ARRAY fml1v fmllsv)
     (POSTv v.
@@ -2866,8 +2878,8 @@ Theorem check_output_hconcl_arr_spec:
         &(
         ∃s.
         (OPTION_TYPE STRING_TYPE)
-        (if check_output_list fmlls inds1 obj1
-          bound1 dbound1 chk1 fmlt objt output ∧
+        (if check_output_list fmlls inds1 pres1 obj1
+          bound1 dbound1 chk1 fmlt prest objt output ∧
           check_hconcl_list fml obj fmlls obj1
           bound1 dbound1 hconcl
         then NONE else SOME s) v))
@@ -2889,8 +2901,8 @@ val r = translate tokenize_def;
 val run_concl_file = process_topdecs`
   fun run_concl_file fd f_ns lno s
     fml obj
-    fml' inds' obj' bound' dbound' chk'
-    fmlt objt =
+    fml' inds' pres' obj' bound' dbound' chk'
+    fmlt prest objt =
   let
     val ls = TextIO.b_inputAllTokens #"\n" fd blanks tokenize
   in
@@ -2900,8 +2912,8 @@ val run_concl_file = process_topdecs`
       case
         check_output_hconcl_arr
         fml obj
-        fml' inds' obj' bound' dbound' chk'
-        fmlt objt
+        fml' inds' pres' obj' bound' dbound' chk'
+        fmlt prest objt
         output hconcl of
         None => Inr (output,hconcl)
       | Some s => Inl (format_failure lno s)
@@ -2929,18 +2941,20 @@ Theorem run_concl_file_spec:
   (LIST_TYPE NUM) inds1 inds1v ∧
   obj_TYPE obj objv ∧
   obj_TYPE obj1 obj1v ∧
+  pres_TYPE pres1 pres1v ∧
   OPTION_TYPE INT bound1 bound1v ∧
   OPTION_TYPE INT dbound1 dbound1v ∧
   BOOL chk1 chk1v ∧
   LIST_TYPE constraint_TYPE fmlt fmltv ∧
   obj_TYPE objt objtv ∧
+  pres_TYPE prest prestv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "run_concl_file" (get_ml_prog_state()))
     [fdv; fnsv;lnov;sv;
-      fmlv; objv; fml1v; inds1v; obj1v; bound1v; dbound1v; chk1v;
-      fmltv; objtv]
+      fmlv; objv; fml1v; inds1v; pres1v; obj1v; bound1v; dbound1v; chk1v;
+      fmltv; prestv; objtv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * ARRAY fml1v fmllsv)
     (POSTv v.
        SEP_EXISTS res.
@@ -2955,7 +2969,7 @@ Theorem run_concl_file_spec:
              (MAP (MAP tokenize o tokens blanks) lines) =
             SOME (output,hconcl) ∧
           check_output_list fmlls inds1
-            obj1 bound1 dbound1 chk1 fmlt objt output ∧
+            pres1 obj1 bound1 dbound1 chk1 fmlt prest objt output ∧
           check_hconcl_list fml obj fmlls obj1
           bound1 dbound1 hconcl
         | INL l => T))
@@ -3060,7 +3074,7 @@ val res = translate mk_vimap_fml_def;
 
 (* NOTE: 100000 just a random number *)
 val check_unsat' = process_topdecs `
-  fun check_unsat' b fns fd lno fml obj fmlt objt =
+  fun check_unsat' b fns fd lno fml pres obj fmlt prest objt =
   let
     val id = List.length fml + 1
     val arr = Array.array (2*id) None
@@ -3069,7 +3083,7 @@ val check_unsat' = process_topdecs `
     val inds = rev_enum_full 1 fml
     val vimap = mk_vimap_fml b fml
     val vomap = mk_vomap_opt_arr obj
-    val pc = init_conf id True obj
+    val pc = init_conf id True pres obj
   in
     (case check_unsat'' fns fd lno arr zeros inds vimap vomap pc of
       (lno', (s, (fns',(
@@ -3078,8 +3092,8 @@ val check_unsat' = process_topdecs `
     (get_bound pc')
     (run_concl_file fd fns' lno' s
     fml obj fml' inds'
-    (get_obj pc') (get_bound pc') (get_dbound pc') (get_chk pc')
-    fmlt objt))
+    (get_pres pc') (get_obj pc') (get_bound pc') (get_dbound pc') (get_chk pc')
+    fmlt prest objt))
     handle Fail s => Inl s
   end` |> append_prog;
 
@@ -3127,12 +3141,14 @@ Theorem check_unsat'_spec:
   NUM lno lnov ∧
   LIST_TYPE constraint_TYPE fml fmlv ∧
   obj_TYPE obj objv ∧
+  pres_TYPE pres presv ∧
   LIST_TYPE constraint_TYPE fmlt fmltv ∧
-  obj_TYPE objt objtv
+  obj_TYPE objt objtv ∧
+  pres_TYPE prest prestv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat'" (get_ml_prog_state()))
-    [bv; fnsv; fdv; lnov; fmlv; objv; fmltv; objtv]
+    [bv; fnsv; fdv; lnov; fmlv; presv; objv; fmltv; prestv; objtv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
      SEP_EXISTS k lines' res.
@@ -3146,7 +3162,7 @@ Theorem check_unsat'_spec:
       case res of
         INR (output,bound,concl) =>
         sem_concl (set fml) obj concl ∧
-        sem_output (set fml) obj bound (set fmlt) objt output
+        sem_output (set fml) obj (pres_set_spt pres) bound (set fmlt) objt (pres_set_spt prest) output
       | INL l => T))
 Proof
   rw[]>>
@@ -3190,7 +3206,7 @@ Proof
   Cases_on`
     parse_and_run fns (MAP toks_fast lines) fmlls zeros inds vimap
       vomap
-      (init_conf (LENGTH fml + 1)  T obj)`
+      (init_conf (LENGTH fml + 1) T pres obj)`
   >- (
     (* fail to parse and run *)
     xhandle`POSTe e.
@@ -3234,7 +3250,7 @@ Proof
       case res of
         INR (output,bound,concl) =>
         sem_concl (set fml) obj concl ∧
-        sem_output (set fml) obj bound (set fmlt) objt output
+        sem_output (set fml) obj (pres_set_spt pres) bound (set fmlt) objt (pres_set_spt prest) output
       | INL l => T)`
   >- (
     xlet`POSTv v.
@@ -3244,7 +3260,7 @@ Proof
          ARRAY fmlv' fmllsv' *
          &(
           parse_and_run fns (MAP toks_fast lines)
-            fmlls zeros inds vimap vomap (init_conf (LENGTH fml + 1)  T obj) =
+            fmlls zeros inds vimap vomap (init_conf (LENGTH fml + 1) T pres obj) =
               SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -3284,7 +3300,7 @@ Proof
              (MAP (MAP tokenize o tokens blanks) lines') =
             SOME (output,hconcl) ∧
           check_output_list res3 res4
-          pc'.obj pc'.bound pc'.dbound pc'.chk fmlt objt output ∧
+          pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlt prest objt output ∧
           check_hconcl_list fml obj res3
               pc'.obj pc'.bound pc'.dbound hconcl
         | INL l => T))`
@@ -3301,7 +3317,7 @@ Proof
       qexists_tac`emp`>>
       xsimpl>>rw[]>>
       first_x_assum(irule_at Any)>>
-      fs[get_obj_def,get_bound_def,get_dbound_def,get_chk_def]>>
+      fs[get_pres_def,get_obj_def,get_bound_def,get_dbound_def,get_chk_def]>>
       `∃k'.
         fastForwardFD (forwardFD fs fd k) fd =
         forwardFD (forwardFD fs fd k) fd k'` by
@@ -3433,7 +3449,7 @@ End
 val r = translate notfound_string_def;
 
 val check_unsat_top = process_topdecs `
-  fun check_unsat_top b fns fml obj fmlt objt fname =
+  fun check_unsat_top b fns fml pres obj fmlt prest objt fname =
   let
     val fd = TextIO.b_openIn fname
   in
@@ -3443,7 +3459,7 @@ val check_unsat_top = process_topdecs `
       Inl (format_failure n "Unable to parse header"))
     | None =>
       let val res =
-        (check_unsat' b fns fd 3 fml obj fmlt objt)
+        (check_unsat' b fns fd 3 fml pres obj fmlt prest objt)
         val close = TextIO.b_closeIn fd;
       in
         res
@@ -3465,13 +3481,15 @@ Theorem check_unsat_top_spec:
   fns_TYPE a fns fnsv ∧
   LIST_TYPE constraint_TYPE fml fmlv ∧
   obj_TYPE obj objv ∧
+  pres_TYPE pres presv ∧
   LIST_TYPE constraint_TYPE fmlt fmltv ∧
   obj_TYPE objt objtv ∧
+  pres_TYPE prest prestv ∧
   FILENAME f fv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_top"(get_ml_prog_state()))
-  [bv; fnsv; fmlv; objv; fmltv; objtv; fv]
+  [bv; fnsv; fmlv; presv; objv; fmltv; prestv; objtv; fv]
   (STDIO fs)
   (POSTv v.
      STDIO fs *
@@ -3484,7 +3502,7 @@ Theorem check_unsat_top_spec:
       case res of
         INR (output,bound,concl) =>
         sem_concl (set fml) obj concl ∧
-        sem_output (set fml) obj bound (set fmlt) objt output
+        sem_output (set fml) obj (pres_set_spt pres) bound (set fmlt) objt (pres_set_spt prest) output
       | INL l => T))
 Proof
   rw[]>>
@@ -3567,7 +3585,7 @@ Proof
           case res of
             INR (output,bound,concl) =>
             sem_concl (set fml) obj concl ∧
-            sem_output (set fml) obj bound (set fmlt) objt output
+            sem_output (set fml) obj (pres_set_spt pres) bound (set fmlt) objt (pres_set_spt prest) output
           | INL l => T)`
   >- (
     xapp>>xsimpl>>
@@ -3614,6 +3632,8 @@ val res = translate flip_coeffs_def;
 val res = translate pbc_ge_def;
 val res = translate normalise_def;
 val res = translate normalise_obj_pbf_def;
+val res = translate list_to_num_set_def;
+val res = translate normalise_prob_def;
 
 val res = translate mk_map_def;
 val res = translate name_to_num_var_def;
@@ -3621,7 +3641,9 @@ val res = translate name_to_num_lit_def;
 val res = translate name_to_num_lin_term_def;
 val res = translate name_to_num_obj_def;
 val res = translate name_to_num_pbf_def;
-val res = translate name_to_num_obj_pbf_def;
+val res = translate name_to_num_list_def;
+val res = translate name_to_num_pres_def;
+val res = translate name_to_num_prob_def;
 
 Definition hash_str_def:
   hash_str (s:mlstring) =
@@ -3631,10 +3653,10 @@ Definition hash_str_def:
 End
 
 Definition normalise_full_def:
-  normalise_full objf =
+  normalise_full prob =
   let s = init_state hash_str compare in
-  let (objf',t) = name_to_num_obj_pbf objf s in
-  (normalise_obj_pbf objf', t)
+  let (prob',t) = name_to_num_prob prob s in
+  (normalise_prob prob', t)
 End
 
 val res = translate init_state_def;
@@ -3648,12 +3670,12 @@ val hash_str_side = Q.prove(
 val res = translate normalise_full_def;
 
 Definition normalise_full_2_def:
-  normalise_full_2 objf objft =
+  normalise_full_2 prob probt =
   let s = init_state hash_str compare in
-  let (objf',t) = name_to_num_obj_pbf objf s in
-  let (objft',u) = name_to_num_obj_pbf objft t in
-  (normalise_obj_pbf objf',
-  normalise_obj_pbf objft', u)
+  let (prob',t) = name_to_num_prob prob s in
+  let (probt',u) = name_to_num_prob probt t in
+  (normalise_prob prob',
+  normalise_prob probt', u)
 End
 
 val res = translate normalise_full_2_def;
@@ -3666,14 +3688,17 @@ End
 val res = translate name_to_num_var_nf_def;
 
 val check_unsat_top_norm = process_topdecs `
-  fun check_unsat_top_norm b objf objft fname =
-  case normalise_full_2 objf objft of
-    ((obj,fml),((objt,fmlt),t)) =>
-    check_unsat_top b (name_to_num_var_nf,t) fml obj fmlt objt fname
+  fun check_unsat_top_norm b prob probt fname =
+  case normalise_full_2 prob probt of
+    ((pres,(obj,fml)),((prest,(objt,fmlt)),t)) =>
+    check_unsat_top b (name_to_num_var_nf,t) fml pres obj fmlt prest objt fname
     `|> append_prog
 
-Overload "objf_TYPE" = ``
+Overload "prob_TYPE" = ``
   PAIR_TYPE
+  (OPTION_TYPE
+    (LIST_TYPE STRING_TYPE))
+  (PAIR_TYPE
   (OPTION_TYPE
     (PAIR_TYPE
     (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
@@ -3682,18 +3707,18 @@ Overload "objf_TYPE" = ``
     (PAIR_TYPE PBC_PBOP_TYPE
       (PAIR_TYPE
         (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-        INT)))``
+        INT))))``
 
 Theorem check_unsat_top_norm_spec:
   BOOL b bv ∧
-  objf_TYPE objf objfv ∧
-  objf_TYPE objft objftv ∧
+  prob_TYPE prob probv ∧
+  prob_TYPE probt probtv ∧
   FILENAME f fv ∧
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_top_norm"
     (get_ml_prog_state()))
-  [bv; objfv; objftv; fv]
+  [bv; probv; probtv; fv]
   (STDIO fs)
   (POSTv v.
      STDIO fs *
@@ -3705,16 +3730,16 @@ Theorem check_unsat_top_norm_spec:
          res v ∧
        case res of
          INR (output,bound,concl) =>
-         sem_concl (set (SND objf)) (FST objf) concl ∧
-         sem_output (set (SND objf)) (FST objf) bound
-          (set (SND objft)) (FST objft) output
+         sem_concl (set (SND (SND prob))) (FST (SND prob)) concl ∧
+         sem_output (set (SND (SND prob))) (FST (SND prob)) (pres_set_list (FST prob)) bound
+          (set (SND (SND probt))) (FST (SND probt)) (pres_set_list (FST probt)) output
        | INL l => T))
 Proof
   rw[]>>
   xcf"check_unsat_top_norm"(get_ml_prog_state()) >>
   xlet_autop>>
-  `∃obj fml objt fmlt t.
-    normalise_full_2 objf objft = ((obj,fml),(objt,fmlt),t)` by
+  `∃pres obj fml prest objt fmlt t.
+    normalise_full_2 prob probt = ((pres,obj,fml),(prest,objt,fmlt),t)` by
     metis_tac[PAIR]>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
@@ -3734,26 +3759,27 @@ Proof
   rw[]>>
   asm_exists_tac>>simp[]>>
   rpt(TOP_CASE_TAC>>fs[])>>
-  Cases_on`objf`>>
-  Cases_on`objft`>>fs[normalise_full_2_def]>>
+  PairCases_on`prob`>>
+  PairCases_on`probt`>>
+  fs[normalise_full_2_def]>>
   pairarg_tac>>gvs[]>>
   pairarg_tac>>gvs[]>>
-  rename1`sem_concl _ _ con ∧ sem_output _ _ _ _ _ out`>>
-  Cases_on`objf'`>>
-  drule name_to_num_obj_pbf_concl_thm>>
-  Cases_on`objft'`>>
-  dxrule_at_then (Pos (el 2)) drule name_to_num_obj_pbf_output_thm>>
+  rename1`sem_concl _ _ con ∧ sem_output _ _ _ _ _ _ _ out`>>
+  PairCases_on`prob'`>>
+  drule name_to_num_prob_concl_thm>>
+  PairCases_on`probt'`>>
+  dxrule_at_then (Pos (el 2)) drule name_to_num_prob_output_thm>>
   simp[]>>
-  rename1`sem_output _ _ bnd _ _ _`>>
+  rename1`sem_output _ _ _ bnd _ _ _ _`>>
   disch_then(qspecl_then[`bnd`,`out`] mp_tac)>>
   impl_keep_tac
   >- (
     CONJ_ASM1_TAC >- (
       match_mp_tac init_state_ok>>
       fs[TotOrd_compare])>>
-    metis_tac[name_to_num_state_ok_name_to_num_obj_pbf])>>
+    metis_tac[name_to_num_state_ok_name_to_num_prob])>>
   simp[]>>
-  metis_tac[normalise_obj_pbf_sem_concl,normalise_obj_pbf_sem_output]
+  metis_tac[normalise_prob_sem_concl,normalise_prob_sem_output]
 QED
 
 (* printing a string pbf *)
@@ -3766,11 +3792,18 @@ Definition obj_string_def:
   strlit"min: " ^ lhs_string f ^ c_string ^ strlit" ;\n"
 End
 
-Definition print_pbf_def:
-  print_pbf (obj,fml) =
-  case obj of NONE => MAP pbc_string fml
-  | SOME fc =>
-    obj_string fc :: MAP pbc_string fml
+Definition pres_string_def:
+  pres_string pres =
+  let c_string =
+    concatWith (strlit" ") pres in
+  strlit"preserve_init " ^ c_string ^ strlit" \n"
+End
+
+Definition print_prob_def:
+  print_prob (pres,obj,fml) =
+  let obstr = case obj of NONE => [] | SOME fc => [obj_string fc] in
+  let presstr = case pres of NONE => [] | SOME p => [pres_string p] in
+    obstr ++ presstr ++ MAP pbc_string fml
 End
 
 val res = translate pb_parseTheory.lit_string_def;
@@ -3778,15 +3811,18 @@ val res = translate pb_parseTheory.lhs_string_def;
 val res = translate pb_parseTheory.op_string_def;
 val res = translate pb_parseTheory.pbc_string_def;
 val res = translate obj_string_def;
-val res = translate print_pbf_def;
+val res = translate pres_string_def;
+val res = translate print_prob_def;
 
 (* An empty formula *)
-Definition default_objf_def:
-  default_objf = (NONE,[]):((int # mlstring lit) list # int) option #
+Definition default_prob_def:
+  default_prob = (NONE,NONE,[]):
+    mlstring list option #
+    ((int # mlstring lit) list # int) option #
     (pbop # (int # mlstring lit) list # int) list
 End
 
-val res = translate default_objf_def;
+val res = translate default_prob_def;
 
 Theorem all_lines_gen_all_lines[simp]:
   all_lines_gen #"\n" fs f =
