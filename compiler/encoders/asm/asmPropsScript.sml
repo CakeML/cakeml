@@ -192,7 +192,7 @@ QED
 
 val all_pcs = Theory.save_thm ("all_pcs", numLib.SUC_RULE all_pcs_def)
 
-val asserts_eval = save_thm("asserts_eval",let
+local
   fun genlist f 0 = []
     | genlist f n = genlist f (n-1) @ [f (n-1)]
   fun suc_num 0 = ``0:num``
@@ -200,7 +200,9 @@ val asserts_eval = save_thm("asserts_eval",let
   fun gen_rw n =
     ``asserts ^(suc_num n) next (s:'a) P Q``
     |> ONCE_REWRITE_CONV [asserts_def] |> SIMP_RULE std_ss []
-  in LIST_CONJ (genlist gen_rw 20) end)
+in
+Theorem asserts_eval = LIST_CONJ (genlist gen_rw 20);
+end
 
 Theorem asserts_IMP_FOLDR_COUNT_LIST:
    ∀n next ms P Q. asserts n next ms P Q ⇒
@@ -262,11 +264,13 @@ Proof
     \\ strip_tac \\ fs[] )
 QED
 
-val asserts2_eval = save_thm("asserts2_eval",let
+local
   fun gen_rw n =
     ``asserts2 ^(numSyntax.term_of_int n) fi fc (s:'a) P``
     |> ONCE_REWRITE_CONV [asserts2_def] |> SIMP_RULE std_ss []
-  in LIST_CONJ (List.tabulate(21,gen_rw)) end)
+in
+Theorem asserts2_eval = LIST_CONJ (List.tabulate(21,gen_rw));
+end
 
 Theorem asserts2_change_interfer:
    asserts2 n fi fc ms P  ∧

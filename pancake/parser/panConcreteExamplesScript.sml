@@ -436,6 +436,32 @@ val entry_fun =
 
 val entry_fun_parse =  check_success $ parse_pancake entry_fun;
 
+(* Empty function body *)
+val empty_body =
+ ‘
+  fun f() {}
+
+  fun g(1 x) {}
+  ’
+
+val empty_body_parse = check_success $ parse_pancake empty_body;
+
+(* Various kinds of empty blocks *)
+val empty_blocks =
+ ‘
+  fun f() { while(1) {} }
+
+  fun g() { if(1) {} else {} }
+
+  fun h() { if(1) {} else { x = 5; } }
+
+  fun i() { if(1) {} }
+
+  fun j() { if(1) { x = 5; } else { } }
+  ’
+
+val empty_body_parse = check_success $ parse_pancake empty_blocks;
+
 (* Using the annotation comment syntax. *)
 val annot_fun =
   `

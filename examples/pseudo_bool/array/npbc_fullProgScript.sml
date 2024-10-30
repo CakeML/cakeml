@@ -24,6 +24,11 @@ val r = translate parse_constraints_def;
 
 val r = translate parse_obj_def;
 val r = translate parse_obj_maybe_def;
+val r = translate parse_var_raw_def;
+val r = translate parse_vars_raw_def;
+val r = translate parse_pres_def;
+val r = translate parse_pres_maybe_def;
+val r = translate parse_obj_pres_maybe_def;
 val r = translate parse_pbf_toks_def;
 
 Definition noparse_string_def:
@@ -67,13 +72,7 @@ Theorem parse_pbf_full_spec:
     [fv]
     (STDIO fs)
     (POSTv v.
-    & (∃err. (SUM_TYPE STRING_TYPE
-      (PAIR_TYPE
-      (OPTION_TYPE (PAIR_TYPE
-        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-      INT))
-      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
-      ))
+    & (∃err. (SUM_TYPE STRING_TYPE prob_TYPE)
     (case get_fml fs f of
       NONE => INL err
     | SOME res => INR res) v) * STDIO fs)
@@ -140,8 +139,8 @@ End
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 out ⇔
   (out ≠ strlit"" ⇒
-  ∃obj fml.
-    get_fml fs f1 = SOME (obj,fml)
+  ∃pres obj fml.
+    get_fml fs f1 = SOME (pres,obj,fml)
     ∧
     ∃concl.
       out = concl_to_string concl ∧
@@ -162,11 +161,11 @@ val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
   case parse_pbf_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr objf =>
-    let val objft = default_objf in
+  | Inr prob =>
+    let val probt = default_prob in
       (case
         map_concl_to_string
-          (check_unsat_top_norm False objf objft f2) of
+          (check_unsat_top_norm False prob probt f2) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
     end`
@@ -202,17 +201,13 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   simp[SUM_TYPE_def]>>rw[]>>
-  Cases_on`x`>>fs[PAIR_TYPE_def]>>
+  rename1`get_fml _ _ = SOME prob`>>
+  PairCases_on`prob`>>fs[PAIR_TYPE_def]>>
   xmatch>>
-  assume_tac default_objf_v_thm>>
+  assume_tac default_prob_v_thm>>
   xlet`POSTv v.
     STDIO fs *
-    &(PAIR_TYPE
-      (OPTION_TYPE (PAIR_TYPE
-        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-      INT))
-      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
-      ) default_objf v`
+    &prob_TYPE default_prob v`
   >-
     (xvar>>xsimpl)>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
@@ -228,10 +223,8 @@ Proof
          res v ∧
        case res of
          INR (output,bound,concl) =>
-         sem_concl (set r) q concl ∧
-         sem_output (set r) q bound
-          (set (SND default_objf)) (FST default_objf) output
-       | INL l => T))`
+         sem_concl (set prob2) prob1 concl
+      | INL l => T))`
   >- (
     xapp>>xsimpl>>
     fs[validArg_def]>>
@@ -239,12 +232,13 @@ Proof
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
     simp[]>>
-    qexists_tac`(q,r)`>>simp[PAIR_TYPE_def]>>
+    qexists_tac`(prob0,prob1,prob2)`>>simp[PAIR_TYPE_def]>>
     qexists_tac`f2`>>simp[FILENAME_def,validArg_def]>>
     qexists_tac`emp`>>xsimpl>>
     rw[]>>
     first_x_assum (irule_at Any)>>
-    simp[])>>
+    simp[]>>
+    every_case_tac>>gvs[])>>
   xlet_autop>>
   Cases_on`res`>>fs[map_concl_to_string_def,SUM_TYPE_def]
   >- (
@@ -275,7 +269,7 @@ QED
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
   case get_fml fs f1 of
-    SOME objf => out = concat (print_pbf objf)
+    SOME prob => out = concat (print_prob prob)
   | NONE => out = strlit ""
 End
 
@@ -283,8 +277,8 @@ val check_unsat_1 = (append_prog o process_topdecs) `
   fun check_unsat_1 f1 =
   case parse_pbf_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr objf =>
-    TextIO.print_list (print_pbf objf)`
+  | Inr prob =>
+    TextIO.print_list (print_prob prob)`
 
 Theorem check_unsat_1_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -330,21 +324,24 @@ Definition output_to_string_def:
   (output_to_string bound Equisatisfiable =
     strlit "s VERIFIED OUTPUT EQUISATISFIABLE\n") ∧
   (output_to_string bound Equioptimal =
-    strlit "s VERIFIED OUTPUT EQUIOPTIMAL FOR obj < " ^ int_inf_to_string bound ^ strlit"\n")
+    strlit "s VERIFIED OUTPUT EQUIOPTIMAL FOR obj < " ^ int_inf_to_string bound ^ strlit"\n") ∧
+  (output_to_string bound Equisolvable =
+    strlit "s VERIFIED OUTPUT EQUISOLVABLE FOR obj < " ^ int_inf_to_string bound ^ strlit"\n")
 End
 
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f1 f3 out ⇔
   (out ≠ strlit"" ⇒
-  ∃obj fml objt fmlt.
-    get_fml fs f1 = SOME (obj,fml) ∧
-    get_fml fs f3 = SOME (objt,fmlt) ∧
+  ∃pres obj fml prest objt fmlt.
+    get_fml fs f1 = SOME (pres,obj,fml) ∧
+    get_fml fs f3 = SOME (prest,objt,fmlt) ∧
     ∃output bound concl.
       out =
         (concl_to_string concl ^
         output_to_string bound output) ∧
       pbc$sem_concl (set fml) obj concl ∧
-      pbc$sem_output (set fml) obj bound (set fmlt) objt output
+      pbc$sem_output (set fml) obj (pres_set_list pres) bound
+        (set fmlt) objt (pres_set_list prest) output
   )
 End
 
@@ -362,13 +359,13 @@ val check_unsat_3 = (append_prog o process_topdecs) `
   fun check_unsat_3 f1 f2 f3 =
   case parse_pbf_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr objf =>
+  | Inr prob =>
   (case parse_pbf_full f3 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr objft =>
+  | Inr probt =>
     (case
       map_out_concl_to_string
-        (check_unsat_top_norm True objf objft f2) of
+        (check_unsat_top_norm True prob probt f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s))`
 
@@ -404,7 +401,7 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   simp[SUM_TYPE_def]>>rw[]>>
-  `∃obj fml. x = (obj,fml)` by metis_tac[PAIR]>>
+  `∃pres obj fml. x = (pres,obj,fml)` by metis_tac[PAIR]>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
@@ -422,7 +419,7 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   simp[SUM_TYPE_def]>>rw[]>>
-  `∃objt fmlt. x' = (objt,fmlt)` by metis_tac[PAIR]>>
+  `∃prest objt fmlt. x' = (prest, objt,fmlt)` by metis_tac[PAIR]>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
   xlet`POSTv v. STDIO fs * &BOOL T v`
@@ -439,23 +436,24 @@ Proof
        case res of
          INR (output,bound,concl) =>
          sem_concl (set fml) obj concl ∧
-         sem_output (set fml) obj bound
-          (set fmlt) objt output
+         sem_output (set fml) obj (pres_set_list pres) bound
+          (set fmlt) objt (pres_set_list prest) output
        | INL l => T))`
   >- (
     xapp>>xsimpl>>
     fs[validArg_def]>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
-    qexists_tac`(objt,fmlt)`>>
-    qexists_tac`(obj,fml)`>>
+    qexists_tac`(prest,objt,fmlt)`>>
+    qexists_tac`(pres,obj,fml)`>>
     simp[PAIR_TYPE_def]>>
     qexists_tac`f2`>>simp[FILENAME_def,validArg_def]>>
     qexists_tac`emp`>>xsimpl>>
     rw[]>>
     first_x_assum (irule_at Any)>>
     simp[])>>
-  xlet_autop>>
+  xlet_auto
+  >- xsimpl>>
   Cases_on`res`>>fs[map_out_concl_to_string_def,SUM_TYPE_def]
   >- (
     xmatch>>

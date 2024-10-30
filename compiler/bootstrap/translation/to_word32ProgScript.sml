@@ -157,7 +157,8 @@ val Smallnum_alt = prove(
 val _ = translate (Smallnum_alt |> inline_simp |> conv32)
 val _ = translate (MemEqList_def |> inline_simp |> conv32)
 
-val _ = save_thm("n2mw_ind",multiwordTheory.n2mw_ind |> inline_simp |> conv32);
+Theorem n2mw_ind =
+  multiwordTheory.n2mw_ind |> inline_simp |> conv32
 val _ = translate (multiwordTheory.n2mw_def |> inline_simp |> conv32);
 val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv32);
 val _ = translate (get_Word_def |> inline_simp |> conv32);
@@ -305,7 +306,8 @@ val data_to_word_assign_side = Q.prove(`
   metis_tac[word_op_type_nchotomy,option_nchotomy,NOT_NONE_SOME,list_distinct]) |> update_precondition
 *)
 
-val _ = save_thm ("comp_ind",data_to_wordTheory.comp_ind|> conv32|> wcomp_simp)
+Theorem comp_ind =
+  data_to_wordTheory.comp_ind|> conv32|> wcomp_simp
 (* Inlines the let k = 8 manually *)
 val _ = translate (comp_def |> conv32 |> wcomp_simp |> conv32 |> SIMP_RULE std_ss[LET_THM |> INST_TYPE [alpha|->``:num``]]);
 
@@ -356,11 +358,10 @@ QED
 
 val arith_shift_right_ind_orig = arith_shift_right_ind;
 
-val arith_shift_right_ind = (
+Theorem arith_shift_right_ind =
   arith_shift_right_ind_orig |> spec32
   |> SIMP_RULE std_ss [word_msb_rw]
-  |> CONV_RULE (QUANT_CONV(LAND_CONV fcpLib.INDEX_CONV)) |> gconv)
-  |> curry save_thm "arith_shift_right_ind";
+  |> CONV_RULE (QUANT_CONV(LAND_CONV fcpLib.INDEX_CONV)) |> gconv
 
 val _ = translate (
   arith_shift_right_def |> spec32

@@ -8,11 +8,14 @@ val _ = new_theory"mlvector"
 
 val _ = set_grammar_ancestry ["mllist", "regexp_compiler"]
 
-val vector_nchotomy = save_thm("vector_nchotomy",regexp_compilerTheory.vector_nchotomy);
+Theorem vector_nchotomy =
+  regexp_compilerTheory.vector_nchotomy
 
-val sub_def = save_thm("sub_def",regexp_compilerTheory.sub_def);
+Theorem sub_def =
+  regexp_compilerTheory.sub_def
 
-val length_def = save_thm("length_def",regexp_compilerTheory.length_def);
+Theorem length_def =
+  regexp_compilerTheory.length_def
 
 Definition tabulate_def:
   tabulate n f = Vector (GENLIST f n)

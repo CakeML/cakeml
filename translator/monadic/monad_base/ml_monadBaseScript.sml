@@ -550,7 +550,8 @@ val monad_eqs = LIST_CONJ
   [ st_ex_return_success, st_ex_bind_success, otherwise_eq, can_success,
     Marray_length_success, Marray_sub_eq, Marray_update_eq,
     Marray_alloc_success ];
-val _ = save_thm ("monad_eqs", monad_eqs);
+Theorem monad_eqs =
+  monad_eqs
 
 (* Run *)
 Definition run_def:

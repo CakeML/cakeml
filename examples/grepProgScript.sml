@@ -126,7 +126,8 @@ val _ = translate balanced_mapTheory.fromList_def;
 val r = translate regexp_compareW_def;
 
 val _ = add_preferred_thy "-";
-val r = save_thm("mergesortN_ind", mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
+Theorem mergesortN_ind =
+  mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]
 val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
 
 val _ = use_mem_intro := true;
@@ -1027,8 +1028,8 @@ Definition grep_prog_def:
   grep_prog = ^prog_tm
 End
 
-val grep_semantics = save_thm("grep_semantics",
+Theorem grep_semantics =
   sem_thm |> REWRITE_RULE[GSYM grep_prog_def]
-  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 val _ = export_theory ();

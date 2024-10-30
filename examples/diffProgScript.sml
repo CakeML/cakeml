@@ -205,9 +205,9 @@ Definition diff_prog_def:
   diff_prog = ^prog_tm
 End
 
-val diff_semantics = save_thm("diff_semantics",
+Theorem diff_semantics =
   sem_thm |> REWRITE_RULE[GSYM diff_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]);
+  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
 
 val _ = export_theory ();

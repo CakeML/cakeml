@@ -340,13 +340,15 @@ Definition mips_reg_ok_def:
   mips_reg_ok n = ~MEM n mips_config.avoid_regs
 End
 
-val mips_reg_ok = save_thm("mips_reg_ok",
-  GSYM (SIMP_RULE (srw_ss()) [mips_config_def] mips_reg_ok_def))
+Theorem mips_reg_ok =
+  GSYM (SIMP_RULE (srw_ss()) [mips_config_def] mips_reg_ok_def)
 
 val (mips_config, mips_asm_ok) =
   asmLib.target_asm_rwts [mips_reg_ok] ``mips_config``
 
-val mips_config = save_thm("mips_config", mips_config)
-val mips_asm_ok = save_thm("mips_asm_ok", mips_asm_ok)
+Theorem mips_config =
+  mips_config
+Theorem mips_asm_ok =
+  mips_asm_ok
 
 val () = export_theory ()

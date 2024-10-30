@@ -6,7 +6,7 @@
   HOL functions.
 *)
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory evaluateTheory semanticPrimitivesTheory
+open astTheory evaluateTheory semanticPrimitivesTheory
 open ml_progLib ml_progTheory evaluateTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
 open cfHeapsBaseTheory basisFunctionsLib
@@ -347,8 +347,8 @@ val type_cmp_thm = Q.prove(
   |> CONJUNCT1;
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("type_cmp_ind",
-          (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]);
+Theorem type_cmp_ind =
+  (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]
 val res = translate (type_compare_def |> RW [GSYM type_cmp_thm]);
 
 Definition term_compare_def:
@@ -401,8 +401,8 @@ Proof
 QED
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("term_cmp_ind",
-          (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]);
+Theorem term_cmp_ind =
+  (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]
 val res = translate (term_compare_def |> RW [GSYM term_cmp_thm]);
 
 val res = translate (check [‘ty’] holKernelPmatchTheory.codomain_def);
@@ -458,7 +458,8 @@ val _ = ml_prog_update open_local_block;
 
 val fdM_def = new_definition("fdM_def",``fdM = first_dup``)
 val fdM_intro = SYM fdM_def
-val fdM_ind = save_thm("fdM_ind",REWRITE_RULE[MEMBER_INTRO]first_dup_ind)
+Theorem fdM_ind =
+  REWRITE_RULE[MEMBER_INTRO]first_dup_ind
 val fdM_eqs = REWRITE_RULE[MEMBER_INTRO,fdM_intro]first_dup_def
 val def = fdM_eqs |> translate
 val def = REWRITE_RULE[fdM_intro]add_constants_def |> m_translate

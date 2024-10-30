@@ -29,11 +29,10 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val cake_pb_clique_compiled_thm =
+Theorem cake_pb_clique_compiled_thm =
   CONJ compile_correct_applied cake_pb_clique_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "cake_pb_clique_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:
@@ -76,7 +75,7 @@ Theorem machine_code_sound:
         get_graph_dimacs fs (EL 1 cl) = SOME g ∧
         (
           (LENGTH cl = 2 ∧
-            out = concat (print_pbf (full_encode g))) ∨
+            out = concat (print_prob (mk_prob (full_encode g)))) ∨
           (LENGTH cl = 3 ∧
             (
               out = clique_eq_str (max_clique_size g) ∨

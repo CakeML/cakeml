@@ -270,9 +270,8 @@ Termination
   WF_REL_TAC `measure val_approx_size`
 End
 
-val val_approx_sgc_free_def = save_thm(
-  "val_approx_sgc_free_def[simp,allow_rebind]",
-  val_approx_sgc_free_def |> SIMP_RULE (srw_ss() ++ ETA_ss) []);
+Theorem val_approx_sgc_free_def[simp,allow_rebind] =
+  val_approx_sgc_free_def |> SIMP_RULE (srw_ss() ++ ETA_ss) []
 
 Theorem val_approx_sgc_free_merge:
    !a1 a2. val_approx_sgc_free a1 /\ val_approx_sgc_free a2 ==>
@@ -308,14 +307,15 @@ Inductive val_approx_val:
   (!m n b s env. val_approx_val (Clos m n b s) (Closure (SOME m) [] env n b))
 End
 
-val val_approx_val_simps = save_thm("val_approx_val_simps[simp]",LIST_CONJ [
+Theorem val_approx_val_simps[simp] =
+  LIST_CONJ [
   SIMP_CONV (srw_ss()) [val_approx_val_cases] ``val_approx_val Other v``,
   SIMP_CONV (srw_ss()) [val_approx_val_cases] ``val_approx_val (Int i) v``,
   SIMP_CONV (srw_ss()) [val_approx_val_cases] ``val_approx_val (Tuple tg vas) v``,
   SIMP_CONV (srw_ss()) [val_approx_val_cases] ``val_approx_val (ClosNoInline m n) v``,
   SIMP_CONV (srw_ss()) [val_approx_val_cases] ``val_approx_val (Clos m n b1 s) v``,
   prove(``val_approx_val Impossible v <=> F``, simp [val_approx_val_cases])
-]);
+]
 
 Theorem val_approx_val_merge_I_lemma:
    !a1 v. val_approx_val a1 v ==> !a2. val_approx_val (merge a1 a2) v
@@ -1154,13 +1154,11 @@ Proof
     \\ qexists_tac `n` \\ fs [])
 QED
 
-val evaluate_changed_globals = save_thm(
-   "evaluate_changed_globals",
-   CONJUNCT1 evaluate_changed_globals_0);
+Theorem evaluate_changed_globals =
+  CONJUNCT1 evaluate_changed_globals_0
 
-val evaluate_app_changed_globals = save_thm(
-   "evaluate_app_changed_globals",
-   CONJUNCT2 evaluate_changed_globals_0);
+Theorem evaluate_app_changed_globals =
+  CONJUNCT2 evaluate_changed_globals_0
 
 Theorem mk_Ticks_set_globals[simp]:
    !t tc n exp. set_globals (mk_Ticks t tc n exp) = set_globals exp
@@ -2461,8 +2459,8 @@ Termination
   \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []
 End
 
-val v_rel_def = save_thm("v_rel_def[simp,compute,allow_rebind]",
-  v_rel_def |> SIMP_RULE (bool_ss ++ ETA_ss) []);
+Theorem v_rel_def[simp,compute,allow_rebind] =
+  v_rel_def |> SIMP_RULE (bool_ss ++ ETA_ss) []
 
 val v_rel_ind = theorem "v_rel_ind";
 
@@ -2593,9 +2591,10 @@ Inductive ref_rel:
     ref_rel c g (ValueArray xs) (ValueArray ys))
 End
 
-val ref_rel_simps = save_thm("ref_rel_simps[simp]",LIST_CONJ [
+Theorem ref_rel_simps[simp] =
+  LIST_CONJ [
   SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ValueArray vs) x``,
-  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ByteArray bs) x``])
+  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ByteArray bs) x``]
 
 Theorem ref_rel_upd_inline_factor:
    ref_rel (c with inline_factor := k) = ref_rel c
@@ -2801,15 +2800,13 @@ val opt_caseT = case_eq_thms |> CONJUNCTS
                     |> Q.INST [`v'` |-> `T`]
                     |> SIMP_RULE (srw_ss()) []
 
-val loptrel_arg1_SOME = save_thm(
-  "loptrel_arg1_SOME",
+Theorem loptrel_arg1_SOME =
   loptrel_def |> SPEC_ALL |> Q.INST [`lopt1` |-> `SOME loc1`]
-              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT])
+              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT]
 
-val loptrel_arg1_NONE = save_thm(
-  "loptrel_arg1_NONE",
+Theorem loptrel_arg1_NONE =
   loptrel_def |> SPEC_ALL |> Q.INST [`lopt1` |-> `NONE`]
-              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT])
+              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT]
 
 Theorem dest_closure_SOME_IMP:
    dest_closure max_app loc_opt f2 xs = SOME x ==>

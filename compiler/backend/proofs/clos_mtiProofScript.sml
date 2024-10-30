@@ -444,7 +444,8 @@ val LIST_REL_f_rel_IMP = prove(
   \\ res_tac \\ fs []
   \\ Cases_on `x` \\ Cases_on `h` \\ fs [f_rel_def]);
 
-val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ ([
+Theorem v_rel_simps[simp] =
+  LIST_CONJ ([
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Number n)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Block n p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Word64 p)``,
@@ -456,7 +457,7 @@ val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ ([
         Cases_on `b` \\ fs [Boolv_def,Once v_rel_cases]),
   prove(``v_rel max_app x Unit <=> x = Unit``,
         fs [closSemTheory.Unit_def,Once v_rel_cases])]
-  |> map GEN_ALL))
+  |> map GEN_ALL)
 
 val v_rel_opt_thm = prove(
   ``v_rel_opt m = OPTREL (v_rel m)``,

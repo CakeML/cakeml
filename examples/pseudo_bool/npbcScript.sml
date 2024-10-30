@@ -1349,10 +1349,12 @@ Proof
 QED
 
 Definition conf_valid'_def:
-  conf_valid' C D po obj ⇔
+  conf_valid' C D pres po obj ⇔
     ∀p.
       satisfies p C ⇒
-      ∃p'. satisfies p' (C ∪ D) ∧
+      ∃p'.
+           (∀x. x ∈ pres ⇒ p x = p' x) ∧
+           satisfies p' (C ∪ D) ∧
            po p' p ∧
            eval_obj obj p' ≤ eval_obj obj p
 End
@@ -1360,13 +1362,14 @@ End
 Theorem dominance_conf_valid:
   transitive po ∧
   finite_support po z ∧ FINITE z ∧
+  (∀x. x ∈ pres ⇒ w x = NONE) ∧
   C ∪ D ∪ {not c} ⊨ C ⇂ w ∧
   sat_strict_ord (C ∪ D ∪ {not c}) po w ∧
   (case obj of
    | NONE => T
    | SOME obj => C ∪ D ∪ {not c} ⊨ {obj_constraint w obj}) ∧
-  conf_valid' C D po obj ⇒
-  conf_valid' C (D ∪ {c}) po obj
+  conf_valid' C D pres po obj ⇒
+  conf_valid' C (D ∪ {c}) pres po obj
 Proof
   rw[conf_valid'_def]>>
   CCONTR_TAC>>
@@ -1375,7 +1378,8 @@ Proof
   qabbrev_tac`s =
   {p |
    satisfies p C ∧
-   ∀p'. po p' p ∧ eval_obj obj p' ≤ eval_obj obj p ⇒
+   ∀p'. (∀x. x ∈ pres ⇒ p x = p' x) ∧
+        po p' p ∧ eval_obj obj p' ≤ eval_obj obj p ⇒
         ¬satisfies p' (C ∪ D ∪ {c})}`>>
   `s <> {}` by (
     rw[Abbr`s`,EXTENSION]>>
@@ -1388,6 +1392,7 @@ Proof
   qpat_x_assum`s ≠ _ ` kall_tac>>
   `satisfies p C ∧
   ∀p'.
+    (∀x. x ∈ pres ⇒ p x = p' x) ∧
     po p' p ∧ eval_obj obj p' ≤ eval_obj obj p ⇒
     (¬satisfies p' C ∨ ¬satisfies p' D)
       ∨ ¬satisfies_npbc p' c` by fs[Abbr`s`]>>
@@ -1415,6 +1420,8 @@ Proof
   rename1`satisfies_npbc pprime c`>>
   `po pprime p` by
     metis_tac[transitive_def]>>
+  `!x. x ∈ pres ⇒ (p' x = pprime x)` by
+    gvs[Abbr`p''`,assign_def]>>
   metis_tac[integerTheory.INT_LE_TRANS]
 QED
 
@@ -1806,18 +1813,19 @@ Proof
 QED
 
 Definition sat_obj_po_def:
-  sat_obj_po spoopt fopt s t ⇔
+  sat_obj_po pres spoopt fopt s t ⇔
   ∀w.
     satisfies w s ⇒
     ∃w'.
+      (∀x. x ∈ pres ⇒ w x = w' x) ∧
       satisfies w' t ∧
       OPTION_ALL (λspo. (po_of_spo spo) w' w) spoopt ∧
       eval_obj fopt w' ≤ eval_obj fopt w
 End
 
 Definition redundant_wrt_obj_po_def:
-  redundant_wrt_obj_po f ord obj c ⇔
-    sat_obj_po ord obj f (f ∪ {c})
+  redundant_wrt_obj_po f pres ord obj c ⇔
+    sat_obj_po pres ord obj f (f ∪ {c})
 End
 
 Definition list_list_insert_def:
@@ -1871,12 +1879,13 @@ QED
 
 Theorem substitution_redundancy_obj_po:
   OPTION_ALL good_spo ord ∧
+  (∀x. x ∈ pres ⇒ w x = NONE) ∧
   f ∪ {not c} ⊨ ((f ∪ {c}) ⇂ w ∪
     (case obj of NONE => {}
       | SOME obj => {obj_constraint w obj})) ∧
   f ∪ {not c} ⊨ set (dom_subst w ord)
   ⇒
-  redundant_wrt_obj_po f ord obj c
+  redundant_wrt_obj_po f pres ord obj c
 Proof
   simp[Once sat_implies_def]
   \\ rw[redundant_wrt_obj_po_def, sat_obj_po_def,not_thm]
@@ -1891,6 +1900,8 @@ Proof
   \\ rw [subst_thm]
   \\ first_x_assum $ irule_at Any
   \\ rw[]
+  >-
+    gvs[assign_def]
   >-
     fs[eval_obj_def,satisfies_def,PULL_EXISTS,subst_thm]
   >- (
@@ -1911,10 +1922,12 @@ QED
 
 Theorem good_spo_dominance:
   good_spo ((f,us,vs),xs) ∧
+  (∀x. x ∈ pres ⇒ w x = NONE) ∧
   C ⊆ fml ∧
   (∀w.
     satisfies w C ⇒
     ∃w'.
+      (∀x. x ∈ pres ⇒ w x = w' x) ∧
       satisfies w' fml ∧
       po_of_spo ((f,us,vs),xs) w' w ∧
       eval_obj obj w' ≤ eval_obj obj w) ∧
@@ -1941,13 +1954,14 @@ Theorem good_spo_dominance:
   (∀w.
     satisfies w C ⇒
     ∃w'.
+      (∀x. x ∈ pres ⇒ w x = w' x) ∧
       satisfies_npbc w' c ∧
       satisfies w' fml ∧
       po_of_spo ((f,us,vs),xs) w' w ∧
       eval_obj obj w' ≤ eval_obj obj w)
 Proof
   rw[]>>
-  `conf_valid' C (fml DIFF C) (po_of_spo ((f,us,vs),xs)) obj` by (
+  `conf_valid' C (fml DIFF C) pres (po_of_spo ((f,us,vs),xs)) obj` by (
     fs[conf_valid'_def]>>rw[]>>
     last_x_assum drule>>
     rw[]>>
@@ -1990,18 +2004,32 @@ Definition sem_concl_def:
       (∃w. satisfies w fml ∧ eval_obj obj w ≤ ub))))
 End
 
+Definition pres_set_spt_def:
+  pres_set_spt pres =
+    case pres of NONE => {} | SOME pres => domain pres
+End
+
 Definition sem_output_def:
-  (sem_output fml obj bound fml' obj' NoOutput = T) ∧
-  (sem_output fml obj bound fml' obj' Derivable =
-    (npbc$satisfiable fml ⇒ npbc$satisfiable fml')) ∧
-  (sem_output fml obj bound fml' obj' Equisatisfiable =
-    (npbc$satisfiable fml ⇔ satisfiable fml')) ∧
-  (sem_output fml obj bound fml' obj' Equioptimal =
+  (sem_output (fml: npbc set) obj pres bound fml' obj' pres' NoOutput = T) ∧
+  (sem_output fml obj pres bound fml' obj' pres' Derivable =
+    (satisfiable fml ⇒ npbc$satisfiable fml')) ∧
+  (sem_output fml obj pres bound fml' obj' pres' Equisatisfiable =
+    (satisfiable fml ⇔ satisfiable fml')) ∧
+  (sem_output fml obj pres bound fml' obj' pres' Equioptimal =
     ∀v.
     (case bound of NONE => T | SOME b => v < b) ⇒
     (
-      (∃w. npbc$satisfies w fml ∧ npbc$eval_obj obj w ≤ v) ⇔
+      (∃w. satisfies w fml ∧ npbc$eval_obj obj w ≤ v) ⇔
       (∃w'. satisfies w' fml' ∧ eval_obj obj' w' ≤ v)
+    ) ) ∧
+  (sem_output fml obj pres bound fml' obj' pres' Equisolvable =
+    ∀v.
+    (case bound of NONE => T | SOME b => v < b) ⇒
+    ∃f.
+    (
+        BIJ f
+        (proj_pres pres {w | satisfies w fml ∧ eval_obj obj w ≤ v})
+        (proj_pres pres' {w' | satisfies w' fml' ∧ eval_obj obj' w' ≤ v})
     )
   )
 End

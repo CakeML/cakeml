@@ -706,6 +706,10 @@ val res = translate $ spec32 $ add_locs_annot_def;
 
 val res = translate butlast_def;
 
+val res = translate $ spec32 $ conv_Dec_def;
+
+val res = translate $ spec32 $ conv_DecCall_def;
+
 val res = preprocess $ spec32 conv_Prog_def |> translate_no_ind;
 
 Theorem conv_Prog_ind:
@@ -724,7 +728,23 @@ val _ = conv_Prog_ind  |> update_precondition;
 
 val res  = translate $ spec32 conv_Fun_def;
 
-val res = translate $ spec32 conv_FunList_def;
+val res = translate_no_ind $ spec32 conv_FunList_def;
+
+Triviality panptreeconversion_conv_funlist_ind:
+  panptreeconversion_conv_funlist_ind
+Proof
+  once_rewrite_tac [fetch "-" "panptreeconversion_conv_funlist_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac $ spec32 conv_FunList_ind
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+  \\ metis_tac[FST,SND,PAIR]
+QED
+
+val _ = panptreeconversion_conv_funlist_ind |> update_precondition;
 
 val res = translate $ spec32 panLexerTheory.dest_lexErrorT_def;
 

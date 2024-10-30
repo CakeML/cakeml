@@ -110,17 +110,15 @@ val pair_case_elim = prove(
   ``pair_CASE p f ⇔ ∃x y. p = (x,y) ∧ f x y``,
   Cases_on`p` \\ rw[]);
 
-val elims = List.map prove_case_elim_thm [
-  list_thms, option_thms, result_thms, ffi_result_thms ]
-  |> cons pair_case_elim |> LIST_CONJ
-  |> curry save_thm "case_elim_thms";
-val case_elim_thms = elims;
+Theorem case_elim_thms =
+  List.map prove_case_elim_thm
+           [list_thms, option_thms, result_thms, ffi_result_thms]
+    |> cons pair_case_elim |> LIST_CONJ
 
-val case_eq_thms =
+Theorem case_eq_thms =
   CONJ
   (prove_case_eq_thm {nchotomy = bviTheory.exp_nchotomy, case_def = bviTheory.exp_case_def})
   bvlPropsTheory.case_eq_thms
-  |> curry save_thm "case_eq_thms";
 
 val evaluate_LENGTH = Q.prove(
   `!xs s env. (\(xs,s,env).
@@ -128,12 +126,13 @@ val evaluate_LENGTH = Q.prove(
             | _ => T))
       (xs,s,env)`,
   HO_MATCH_MP_TAC evaluate_ind \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [evaluate_def,elims]
+  \\ FULL_SIMP_TAC (srw_ss()) [evaluate_def,case_elim_thms]
   \\ rw[] \\ fs[]
   \\ every_case_tac \\ fs[])
   |> SIMP_RULE std_ss [];
 
-val _ = save_thm("evaluate_LENGTH", evaluate_LENGTH);
+Theorem evaluate_LENGTH =
+  evaluate_LENGTH
 
 Theorem evaluate_IMP_LENGTH:
    (evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)
@@ -738,8 +737,9 @@ Termination
   \\ rw[bviTheory.exp_size_def]
   \\ simp[] \\ res_tac \\ simp[]
 End
-val get_code_labels_def =
-  get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp,compute,allow_rebind]"
+
+Theorem get_code_labels_def[simp,compute,allow_rebind] =
+  get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[]
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔

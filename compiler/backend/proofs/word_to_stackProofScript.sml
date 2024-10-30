@@ -1848,7 +1848,7 @@ Proof
       rfs[]>>
       simp[the_eqn] >>
       CASE_TAC >> simp[] >>
-      fs[libTheory.the_def,IS_SOME_EXISTS]) >>
+      fs[miscTheory.the_def,IS_SOME_EXISTS]) >>
     CONJ_ASM1_TAC >-
       (strip_tac >> fs[IS_SOME_EXISTS,stack_size_eq]) >>
     CONJ_ASM1_TAC >-
@@ -1860,7 +1860,7 @@ Proof
        rw[the_eqn] >>
        imp_res_tac dec_stack_length>>
        fsrw_tac[][LENGTH_DROP,LENGTH_TAKE_EQ]>>
-       fs[libTheory.the_def] >>
+       fs[miscTheory.the_def] >>
        rveq >> fs[PULL_EXISTS,stack_size_eq] >>
        rfs[] >> fs[the_eqn]
       ) >>
@@ -2569,8 +2569,8 @@ Proof
   \\ rw[]
 QED
 
-val with_same_locals = save_thm("with_same_locals[simp]",
-  EQT_ELIM(SIMP_CONV(srw_ss())[state_component_equality]``s with locals := s.locals = (s:('a,'b,'c) wordSem$state)``));
+Theorem with_same_locals[simp] =
+  EQT_ELIM(SIMP_CONV(srw_ss())[state_component_equality]``s with locals := s.locals = (s:('a,'b,'c) wordSem$state)``)
 
 Theorem state_rel_get_var_imp:
    state_rel k f f' s t lens ∧ get_var (2 * x) s = SOME v ∧ x < k ⇒ FLOOKUP t.regs x = SOME v
@@ -5373,8 +5373,8 @@ Proof
      fs[the_eqn]) >>
   CONJ_TAC >-
     (strip_tac >> fs[IS_SOME_OPTION_MAP2_EQ,IS_SOME_MAP] >>
-     res_tac >> fs[IS_SOME_EXISTS,libTheory.the_def] >>
-     rfs[libTheory.the_def]) >>
+     res_tac >> fs[IS_SOME_EXISTS,miscTheory.the_def] >>
+     rfs[miscTheory.the_def]) >>
   imp_res_tac stack_rel_DROP_SOME >>
   rfs[DROP_DROP_T,EL_DROP] >>
   ntac 2 strip_tac >>
@@ -6522,13 +6522,13 @@ Proof
      imp_res_tac stack_rel_aux_stack_size >>
      rw[the_eqn] >> PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
      qpat_x_assum `IS_SOME _ ==> IS_SOME (stack_size _)` assume_tac >>
-     fsrw_tac[][IS_SOME_EXISTS,libTheory.the_def] >>
+     fsrw_tac[][IS_SOME_EXISTS,miscTheory.the_def] >>
      drule_then drule LASTN_stack_size_SOME >>
      impl_tac >- simp[] >>
      strip_tac >>
      fs[stack_size_eq2] >>
      Cases_on `payload` >> fs[handler_val_def,stack_size_frame_def] >>
-     rveq >> fs[libTheory.the_def]
+     rveq >> fs[miscTheory.the_def]
    )
   \\ conj_tac THEN1
      (
@@ -6545,7 +6545,7 @@ Proof
        rw[the_eqn] >>
        PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
        Cases_on `payload` >>
-       fsrw_tac[][libTheory.the_def,handler_val_def,stack_size_eq] >>
+       fsrw_tac[][miscTheory.the_def,handler_val_def,stack_size_eq] >>
        `LENGTH t.stack -
         (LENGTH r + (handler_val (LASTN s.handler stack) + 4)) <=
         LENGTH t.stack` by intLib.COOPER_TAC >>
@@ -7428,7 +7428,7 @@ Proof
       \\ fs[]
       \\ rveq
       \\ Cases_on `r.stack_max` >- simp[the_eqn]
-      \\ fs[libTheory.the_def]
+      \\ fs[miscTheory.the_def]
       \\ rveq
       \\ fs[stack_free_def]
       \\ rfs[]
@@ -7505,12 +7505,12 @@ Proof
             rw [] \\ decide_tac) >>
           fsrw_tac[][DROP_DROP_EQ]>>
           conj_tac >- (rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
-                       fs[libTheory.the_def] >> rw[MAX_DEF]) >>
+                       fs[miscTheory.the_def] >> rw[MAX_DEF]) >>
           conj_tac >- (rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
-                       fs[libTheory.the_def] >> rw[MAX_DEF]) >>
+                       fs[miscTheory.the_def] >> rw[MAX_DEF]) >>
           conj_tac >- (rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS]) >>
           conj_tac >- (rw[the_eqn] >> PURE_TOP_CASE_TAC >>
-                       fs[libTheory.the_def,IS_SOME_EXISTS] >> metis_tac[]
+                       fs[miscTheory.the_def,IS_SOME_EXISTS] >> metis_tac[]
                       ) >>
           CONJ_TAC THEN1 rfs[] >>
           ntac 3 strip_tac>>
@@ -7731,7 +7731,7 @@ Proof
             fs[push_env_def] >>
             rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
             rw[] >>
-            fs[ELIM_UNCURRY,libTheory.the_def] >>
+            fs[ELIM_UNCURRY,miscTheory.the_def] >>
             rveq >> fs[stack_size_eq,the_eqn] >>
             rfs[] >>
             (qsuff_tac `fs + LENGTH t4.stack - t4.stack_space > LENGTH t4.stack` >-
@@ -7758,7 +7758,7 @@ Proof
       fs[push_env_def] >>
       rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
       cruft_tac>>
-      fs[ELIM_UNCURRY,libTheory.the_def] >>
+      fs[ELIM_UNCURRY,miscTheory.the_def] >>
       rveq >> fs[stack_size_eq,the_eqn] >>
       rfs[] >>
       (qsuff_tac `fs + LENGTH t4.stack - t4.stack_space > LENGTH t4.stack` >-
@@ -7875,7 +7875,7 @@ Proof
           fsrw_tac[][push_env_def,LET_DEF,ELIM_UNCURRY] >>
           rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
           rw[] >>
-          fsrw_tac[][libTheory.the_def] >>
+          fsrw_tac[][miscTheory.the_def] >>
           rveq >> fsrw_tac[][stack_size_eq,the_eqn] >>
           rev_full_simp_tac std_ss [] >>
           (qsuff_tac `m' + LENGTH t4.stack - t.stack_space > LENGTH t4.stack` >-
@@ -7900,7 +7900,7 @@ Proof
       fsrw_tac[][push_env_def,LET_DEF,ELIM_UNCURRY] >>
       rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
       rw[] >>
-      fsrw_tac[][libTheory.the_def] >>
+      fsrw_tac[][miscTheory.the_def] >>
       rveq >> fsrw_tac[][stack_size_eq,the_eqn] >>
       rev_full_simp_tac std_ss [] >>
       (qsuff_tac `m' + LENGTH t4.stack - t.stack_space > LENGTH t4.stack` >-
@@ -7986,16 +7986,16 @@ Proof
       conj_tac >- (cruft_tac >>
                    rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS,push_env_def,ELIM_UNCURRY,
                       stack_size_eq] >>
-                   fs[libTheory.the_def] >> rw[MAX_DEF]) >>
+                   fs[miscTheory.the_def] >> rw[MAX_DEF]) >>
       conj_tac >- (cruft_tac >>
                    rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS] >>
-                   fs[libTheory.the_def] >> rw[MAX_DEF]) >>
+                   fs[miscTheory.the_def] >> rw[MAX_DEF]) >>
       conj_tac >- (cruft_tac >>
                    srw_tac[][the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS]) >>
       conj_tac >- (cruft_tac >>
                    rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS,push_env_def,ELIM_UNCURRY,
                       stack_size_eq] >>
-                   fs[libTheory.the_def] >> rw[MAX_DEF]) >>
+                   fs[miscTheory.the_def] >> rw[MAX_DEF]) >>
       fsrw_tac[][LET_THM]>>
       conj_tac >-
         (qpat_x_assum`stack_rel A B C D E G H (f'::lens)` mp_tac>>
@@ -8216,7 +8216,7 @@ Proof
            `lsize = f` suffices_by metis_tac[SUB_ADD_EQ] >>
            fsrw_tac[][LET_THM] >>
            imp_res_tac stack_rel_cons_locals_size >>
-           fsrw_tac[][libTheory.the_def] >>
+           fsrw_tac[][miscTheory.the_def] >>
            Cases_on `f' = 0` >- fsrw_tac[][]
            >- (qpat_x_assum `if f' = 0 then f = 0 else f = f' + 1` mp_tac >>
                pop_assum mp_tac >>
@@ -8411,7 +8411,7 @@ Proof
         fs[push_env_def] >>
         rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
         rw[] >>
-        fs[ELIM_UNCURRY,libTheory.the_def] >>
+        fs[ELIM_UNCURRY,miscTheory.the_def] >>
         rveq >> fs[stack_size_eq,the_eqn] >>
         rfs[] >>
         (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space > LENGTH t.stack` >-
@@ -8429,7 +8429,7 @@ Proof
         fs[push_env_def] >>
         rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
         rw[] >>
-        fs[ELIM_UNCURRY,libTheory.the_def] >>
+        fs[ELIM_UNCURRY,miscTheory.the_def] >>
         rveq >> fs[stack_size_eq,the_eqn] >>
         rfs[] >>
         (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space > LENGTH t.stack` >-
@@ -8443,7 +8443,7 @@ Proof
     fs[push_env_def] >>
     rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
     rw[] >>
-    fs[ELIM_UNCURRY,libTheory.the_def] >>
+    fs[ELIM_UNCURRY,miscTheory.the_def] >>
     rveq >> fs[stack_size_eq,the_eqn] >>
     rfs[] >>
     (qsuff_tac `fs + LENGTH t.stack + 3 - t.stack_space > LENGTH t.stack` >-
@@ -8524,7 +8524,7 @@ Proof
         fsrw_tac[][push_env_def] >>
         rw[LET_THM,OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
         rw[] >>
-        fsrw_tac[][ELIM_UNCURRY,libTheory.the_def] >>
+        fsrw_tac[][ELIM_UNCURRY,miscTheory.the_def] >>
         rveq >> fsrw_tac[][stack_size_eq,the_eqn] >>
         rfs[] >>
         (qsuff_tac `fs + LENGTH t4.stack + 3 - t.stack_space > LENGTH t4.stack` >-
@@ -8552,7 +8552,7 @@ Proof
         fsrw_tac[][push_env_def] >>
         rw[LET_THM,OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
         rw[] >>
-        fsrw_tac[][ELIM_UNCURRY,libTheory.the_def] >>
+        fsrw_tac[][ELIM_UNCURRY,miscTheory.the_def] >>
         rveq >> fsrw_tac[][stack_size_eq,the_eqn] >>
         rfs[] >>
         (qsuff_tac `fs + LENGTH t4.stack + 3 - t.stack_space > LENGTH t4.stack` >-
@@ -8575,7 +8575,7 @@ Proof
     fsrw_tac[][push_env_def] >>
     rw[LET_THM,OPTION_MAP2_DEF,IS_SOME_EXISTS,the_eqn,ELIM_UNCURRY,stack_size_eq] >>
     rw[] >>
-    fsrw_tac[][ELIM_UNCURRY,libTheory.the_def] >>
+    fsrw_tac[][ELIM_UNCURRY,miscTheory.the_def] >>
     rveq >> fsrw_tac[][stack_size_eq,the_eqn] >>
     rfs[] >>
     (qsuff_tac `fs + LENGTH t4.stack + 3 - t.stack_space > LENGTH t4.stack` >-
@@ -8702,7 +8702,7 @@ Proof
                    IS_SOME_OPTION_MAP2_EQ,IS_SOME_MAP] >>
         fsrw_tac[][the_eqn] >>
         TOP_CASE_TAC >> fsrw_tac[][OPTION_MAP2_SOME,OPTION_MAP2_NONE] >>
-        rveq >> fsrw_tac[][stack_size_eq,libTheory.the_def] >>
+        rveq >> fsrw_tac[][stack_size_eq,miscTheory.the_def] >>
         TRY(qmatch_goalsub_abbrev_tac `LENGTH a1 + 1 > LENGTH a1` >>
             rpt(WEAKEN_TAC (K true)) >> rw[] >> NO_TAC) >>
         rev_full_simp_tac std_ss [] >>
@@ -8736,7 +8736,7 @@ Proof
                    IS_SOME_OPTION_MAP2_EQ,IS_SOME_MAP] >>
         fsrw_tac[][the_eqn] >>
         TOP_CASE_TAC >> fsrw_tac[][OPTION_MAP2_SOME,OPTION_MAP2_NONE] >>
-        rveq >> fsrw_tac[][stack_size_eq,libTheory.the_def] >>
+        rveq >> fsrw_tac[][stack_size_eq,miscTheory.the_def] >>
         TRY(qmatch_goalsub_abbrev_tac `LENGTH a1 + 1 > LENGTH a1` >>
             rpt(WEAKEN_TAC (K true)) >> rw[] >> NO_TAC) >>
         rev_full_simp_tac std_ss [] >>
@@ -8765,7 +8765,7 @@ Proof
                IS_SOME_OPTION_MAP2_EQ,IS_SOME_MAP] >>
     fsrw_tac[][the_eqn] >>
     TOP_CASE_TAC >> fsrw_tac[][OPTION_MAP2_SOME,OPTION_MAP2_NONE] >>
-    rveq >> fsrw_tac[][stack_size_eq,libTheory.the_def] >>
+    rveq >> fsrw_tac[][stack_size_eq,miscTheory.the_def] >>
     TRY(qmatch_goalsub_abbrev_tac `LENGTH a1 + 1 > LENGTH a1` >>
         rpt(WEAKEN_TAC (K true)) >> rw[] >> NO_TAC) >>
     rev_full_simp_tac std_ss [] >>
@@ -8853,11 +8853,11 @@ Proof
     conj_tac >- (cruft_tac >>
                  rw[the_eqn,OPTION_MAP2_DEF,IS_SOME_EXISTS,push_env_def,ELIM_UNCURRY,
                     stack_size_eq] >>
-                 fsrw_tac[][libTheory.the_def] >>
+                 fsrw_tac[][miscTheory.the_def] >>
                  rveq >>
                  `f ≠ 0` by(CCONTR_TAC >> full_simp_tac std_ss []) >>
                  full_simp_tac std_ss [] >>
-                 fsrw_tac[][push_env_def,libTheory.the_def,LET_THM,ELIM_UNCURRY,
+                 fsrw_tac[][push_env_def,miscTheory.the_def,LET_THM,ELIM_UNCURRY,
                             IS_SOME_OPTION_MAP2_EQ,stack_size_eq] >>
                  rveq >>
                  qpat_x_assum `t4.stack_space = t.stack_space` (assume_tac o GSYM) >>
@@ -8877,11 +8877,11 @@ Proof
     conj_tac >- (cruft_tac >>
                  fsrw_tac[][push_env_def,LET_THM,ELIM_UNCURRY,stack_size_eq,
                           IS_SOME_OPTION_MAP2_EQ,IS_SOME_MAP] >>
-                 rpt strip_tac >> fsrw_tac[][IS_SOME_EXISTS,libTheory.the_def] >>
+                 rpt strip_tac >> fsrw_tac[][IS_SOME_EXISTS,miscTheory.the_def] >>
                  rveq >>
                  drule stack_rel_cons_locals_size >>
-                 srw_tac[][libTheory.the_def] >>
-                 fsrw_tac[][libTheory.the_def] >>
+                 srw_tac[][miscTheory.the_def] >>
+                 fsrw_tac[][miscTheory.the_def] >>
                  rveq >>
                  `f' <> 0` by(CCONTR_TAC >> fsrw_tac[][]) >>
                  qpat_x_assum `if f' = 0 then f = 0 else f = f' + 1` mp_tac >>
@@ -9271,10 +9271,10 @@ Proof
         fsrw_tac[][wf_insert,wf_fromAList]>>
       CONJ_TAC >-
         (imp_res_tac stack_rel_cons_locals_size >>
-         strip_tac >> fsrw_tac[][libTheory.the_def])>>
+         strip_tac >> fsrw_tac[][miscTheory.the_def])>>
       CONJ_TAC >-
         (Cases_on `r''.stack_max` >>
-         fsrw_tac[][libTheory.the_def] >-
+         fsrw_tac[][miscTheory.the_def] >-
            (ntac 2 (pop_assum mp_tac) >>
             qpat_x_assum `LENGTH t1.stack <= _` mp_tac >>
             rpt(WEAKEN_TAC (K true)) >>
@@ -9837,7 +9837,7 @@ Proof
    \\ strip_tac
    \\ conj_tac>-
      (rw[] >> res_tac >>
-      goal_assum drule >> rw[lookup_mapi,libTheory.the_def] >>
+      goal_assum drule >> rw[lookup_mapi,miscTheory.the_def] >>
       qpat_x_assum `compile_prog _ _ _ _ = _` mp_tac >>
       rpt(pop_assum kall_tac) >>
       rw[compile_prog_def,ELIM_UNCURRY])
@@ -9847,7 +9847,7 @@ Proof
    \\ fs[flookup_thm,wf_def] \\ every_case_tac \\ fs []
    \\ fs [lookup_insert,lookup_def] \\ rpt var_eq_tac
    \\ fs [sptreeTheory.wf_def,Once insert_def,lookup_insert]
-   \\ fs[stack_size_def,libTheory.the_def]
+   \\ fs[stack_size_def,miscTheory.the_def]
    \\ qmatch_asmsub_abbrev_tac `a1 = [a2]`
    \\ `LENGTH a1 = 1` by simp[]
    \\ unabbrev_all_tac
@@ -9935,7 +9935,7 @@ Proof
       Cases_on `x` >> fs [] >>
       rveq >>
       fs [word_lang_safe_for_space_def] >>
-      res_tac >> fs [libTheory.the_def]) >>
+      res_tac >> fs [miscTheory.the_def]) >>
     (* the diverging case of stack semantics *)
     rw[] >> fs[] >> CCONTR_TAC >> fs [] >>
     drule0 comp_Call >>
@@ -10017,7 +10017,7 @@ Proof
     every_case_tac >> fs[] >> rfs[]>>rw[]>>fs[] >>
     CCONTR_TAC >> fs [] >> rveq >>
     fs [word_lang_safe_for_space_def] >>
-    res_tac >> fs [libTheory.the_def]) >>
+    res_tac >> fs [miscTheory.the_def]) >>
   (* the diverging case of stack semantics *)
   rw [] >>
   qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>

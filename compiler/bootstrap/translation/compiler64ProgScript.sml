@@ -712,12 +712,11 @@ Definition compiler64_prog_def:
   compiler64_prog = ^prog_tm
 End
 
-val semantics_compiler64_prog =
-semantics_thm
-  |> PURE_ONCE_REWRITE_RULE[GSYM compiler64_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> curry save_thm "semantics_compiler64_prog";
+Theorem semantics_compiler64_prog =
+  semantics_thm
+    |> PURE_ONCE_REWRITE_RULE[GSYM compiler64_prog_def]
+    |> DISCH_ALL
+    |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 (* saving a tidied up final theorem *)
 

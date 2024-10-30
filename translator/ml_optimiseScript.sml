@@ -15,7 +15,7 @@
 *)
 
 open preamble
-     astTheory libTheory semanticPrimitivesTheory
+     astTheory semanticPrimitivesTheory
      ml_progTheory ml_translatorTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;
 open evaluateTheory ml_translatorTheory

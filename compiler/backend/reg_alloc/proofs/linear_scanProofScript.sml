@@ -1,7 +1,7 @@
 (*
   Proves correctness of the linear-scan register allocator.
 *)
-open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory libTheory
+open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory
 open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -2914,10 +2914,9 @@ Proof
     THEN1 (* 1 *) simp [EL_LUPDATE]
 QED
 
-val spill_register_FILTER_invariants =
+Theorem spill_register_FILTER_invariants =
   spill_register_FILTER_invariants_hidden
-  |> REWRITE_RULE [id_def]
-  |> curry save_thm "spill_register_FILTER_invariants"
+    |> REWRITE_RULE [id_def]
 
 Theorem FILTER_MEM_active:
      !(reg:num) l. (!(e:int). ~(MEM (e,reg) l)) ==> FILTER (\e,r. r <> reg) l = l

@@ -55,7 +55,7 @@ val add_namespace_compset = computeLib.extend_compset
 val add_ast_compset = computeLib.extend_compset
   [computeLib.Defs
     [gramTheory.nt_distinct_ths
-    ,libTheory.opt_bind_def
+    ,miscTheory.opt_bind_def
     ,typeSystemTheory.is_value_def
     ,astTheory.pat_bindings_def
     ,typeSystemTheory.check_ctor_tenv_def

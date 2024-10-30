@@ -2620,8 +2620,8 @@ Definition stubs_fst_def:
   stubs_fst = ^(rconc th)
 End
 
-val stubs_fst_eq =
-  save_thm("stubs_fst_eq",th |> REWRITE_RULE [GSYM stubs_fst_def])
+Theorem stubs_fst_eq =
+  th |> REWRITE_RULE [GSYM stubs_fst_def]
 
 (* The incremental version ONLY does data_to_word
   TODO: MAP FST stubs is independent of the data conf,
