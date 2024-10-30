@@ -4,6 +4,20 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+October 30th 2024
+-------------------
+
+The parser now gives more relevant locations in error messages.
+
+Furthermore, empty blocks are now supported in functions, `while`
+loops and `if` statements. So, e.g.,
+
+    while(1) {}
+
+is now well-formed, and equivalent to
+
+    while(1) { skip; }
+
 September 15th 2024
 -------------------
 
