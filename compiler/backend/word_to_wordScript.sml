@@ -8,10 +8,7 @@
       6) word_to_stack.
 *)
 open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory
-open word_simpTheory word_cseTheory word_unreachTheory word_copyTheory
-local
-  open word_instTheory
-in (* word-to-word transformations *) end
+open word_simpTheory word_cseTheory word_unreachTheory word_copyTheory word_instTheory
 open mlstringTheory
 
 val _ = new_theory "word_to_word";

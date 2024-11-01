@@ -3,7 +3,7 @@
 *)
 open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
      wordPropsTheory word_allocProofTheory word_instProofTheory word_unreachTheory
-     word_removeProofTheory word_cseProofTheory word_elimTheory word_elimProofTheory word_unreachProofTheory;
+     word_removeProofTheory word_cseProofTheory word_elimTheory word_elimProofTheory word_unreachProofTheory word_copyProofTheory;
 
 val _ = new_theory "word_to_wordProof";
 
@@ -12,7 +12,6 @@ val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = bring_to_front_overload "Call" {Thy="wordLang",Name="Call"};
-(*"*)
 
 val is_phy_var_tac =
     full_simp_tac(srw_ss())[reg_allocTheory.is_phy_var_def]>>
@@ -27,6 +26,21 @@ Theorem FST_compile_single[simp]:
    FST (compile_single a b c d e) = FST (FST e)
 Proof
   PairCases_on`e` \\ EVAL_TAC
+QED
+
+(* TODO: move to word_copy *)
+Theorem wf_cutsets_copy_prop:
+  wf_cutsets p ⇒ wf_cutsets (copy_prop p)
+Proof
+  rw[copy_prop_def]
+  cheat
+QED
+
+Theorem every_inst_distinct_tar_reg_copy_prop:
+  every_inst distinct_tar_reg p ⇒
+  every_inst distinct_tar_reg (copy_prop p)
+Proof
+  cheat
 QED
 
 (*Chains up compile_single theorems*)
@@ -46,75 +60,80 @@ Theorem compile_single_lem:
       SOME _ => rst.locals = rcst.locals
     | _ => T
 Proof
-  fs[compile_single_def,LET_DEF]>>rw[]>>
+  fs[compile_single_def,LET_DEF]>>
+  rpt strip_tac>>
   qpat_abbrev_tac`p1 = inst_select A B C`>>
   qpat_abbrev_tac`p2 = full_ssa_cc_trans n p1`>>
-  qpat_abbrev_tac`p2a = word_common_subexp_elim p2`>>
-  qpat_abbrev_tac`p2b = remove_unreach p2a`>>
-  TRY(
-    qpat_abbrev_tac`p3 = FST (remove_dead p2b LN)`>>
-    qpat_abbrev_tac`p4 = three_to_two_reg p3`)>>
-  TRY(qpat_abbrev_tac`p4 = FST (remove_dead p2b LN)`)>>
-  Q.ISPECL_THEN [`name`,`c`,`a`,`p4`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
-  (impl_tac>-
-      (full_simp_tac(srw_ss())[even_starting_locals_def]>>
-      srw_tac[][word_allocTheory.even_list_def,MEM_GENLIST,reg_allocTheory.is_phy_var_def]
-      >-
-        is_phy_var_tac
-      >>
-        unabbrev_all_tac>>fs[full_ssa_cc_trans_wf_cutsets]>>
-        TRY(ho_match_mp_tac three_to_two_reg_wf_cutsets)>>
-        match_mp_tac (el 5 rmd_thms)>>
-        irule wf_cutsets_remove_unreach >>
-        irule wf_cutsets_word_common_subexp_elim >>
-        fs[full_ssa_cc_trans_wf_cutsets]))>>
+  qpat_abbrev_tac`p3 = copy_prop (word_common_subexp_elim p2)`>>
+  qpat_abbrev_tac`p4 = if _ then _ p3 else p3`>>
+  qpat_abbrev_tac`p5 = remove_unreach p4`>>
+  qpat_abbrev_tac`p6 = FST (remove_dead p5 LN)`>>
+  Q.ISPECL_THEN [`name`,`c`,`a`,`p6`,`k`,`col`,`st`]
+    mp_tac word_alloc_correct>>
+  impl_tac>- (
+    fs[even_starting_locals_def]>>
+    rw[word_allocTheory.even_list_def,MEM_GENLIST,reg_allocTheory.is_phy_var_def]
+    >- is_phy_var_tac>>
+    unabbrev_all_tac>>fs[full_ssa_cc_trans_wf_cutsets]>>
+    match_mp_tac (el 5 rmd_thms)>>
+    irule wf_cutsets_remove_unreach >>
+    rw[]>>TRY(ho_match_mp_tac three_to_two_reg_wf_cutsets)>>
+    irule wf_cutsets_copy_prop>>
+    irule wf_cutsets_word_common_subexp_elim >>
+    fs[full_ssa_cc_trans_wf_cutsets])>>
   rw[]>>
+  (* SSA *)
   Q.ISPECL_THEN [`p1`,`st with permute:= perm'`,`n`] assume_tac full_ssa_cc_trans_correct>>
-  rev_full_simp_tac(srw_ss())[LET_THM]>>
+  gvs[]>>
   qexists_tac`perm''`>>
   pairarg_tac>>fs[]>>
-  Cases_on`res=SOME Error`>>full_simp_tac(srw_ss())[]>>
+  Cases_on`res=SOME Error`>>gs[]>>
+  (* inst select *)
   Q.ISPECL_THEN [`c`,`max_var (word_simp$compile_exp prog) +1`,`word_simp$compile_exp prog`,`st with permute:=perm''`,`res`,`rst`,`st.locals`] mp_tac inst_select_thm>>
-  (impl_tac >-
-    (drule (GEN_ALL word_simpProofTheory.compile_exp_thm) \\ fs [] \\ strip_tac \\
+  impl_tac >- (
+    drule (GEN_ALL word_simpProofTheory.compile_exp_thm) \\ fs [] \\ strip_tac \\
     simp[locals_rel_def]>>
     Q.SPEC_THEN `word_simp$compile_exp prog` assume_tac max_var_max>>
     match_mp_tac every_var_mono>>
     HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
     DECIDE_TAC) >>
-  srw_tac[][])>>
-  `∀perm. st with <|locals:=st.locals;permute:=perm|> = st with permute:=perm` by full_simp_tac(srw_ss())[state_component_equality]>>
-  full_simp_tac(srw_ss())[]>>
+  rw[]>>
+  `∀perm. st with <|locals:=st.locals;permute:=perm|> = st with permute:=perm` by fs[state_component_equality]>>
+  gvs[]>>
   qpat_x_assum`(λ(x,y). _) _`mp_tac >>
   pairarg_tac>>fs[]>>
   strip_tac>>
-  Cases_on`remove_dead p2b LN`>>fs[]>>
+  Cases_on`remove_dead p5 LN`>>fs[]>>
+  (* word cse *)
   drule word_common_subexp_elim_correct >>
-  (impl_tac >- (fs [] >>
+  impl_tac >- (
+    fs [] >>
     unabbrev_all_tac >>
     irule word_allocProofTheory.full_ssa_cc_trans_flat_exp_conventions >>
-    fs [word_instProofTheory.inst_select_flat_exp_conventions])) >>
-  gvs [] >> strip_tac >>
-  Q.ISPECL_THEN [`p2b`,`LN:num_set`,`q`,`r`,`st with permute := perm'`,`st.locals`,`res`,`rcst`] mp_tac evaluate_remove_dead>>
+    fs [word_instProofTheory.inst_select_flat_exp_conventions]) >>
+  gvs [] >>
+  (* word_copy *)
+  simp[Once (GSYM evaluate_copy_prop)]>>
+  strip_tac >>
+  `evaluate (p4,st with permute := perm') = (res,rcst)` by (
+    rw[Abbr`p4`]>>
+    match_mp_tac three_to_two_reg_correct>>
+    gvs[]>>
+    unabbrev_all_tac>>
+    irule every_inst_distinct_tar_reg_copy_prop>>
+    irule every_inst_distinct_tar_reg_word_common_subexp_elim >>
+    fs [full_ssa_cc_trans_distinct_tar_reg])>>
+  (* word_unreach *)
+  `evaluate (p5,st with permute := perm') = (res,rcst)` by (
+    rw[Abbr`p5`]>>
+    simp[evaluate_remove_unreach])>>
+  drule_at (Pos (el 3)) evaluate_remove_dead>>
+  disch_then (drule_at Any)>>
+  disch_then (qspec_then`st.locals` mp_tac)>>
   impl_tac>>fs[strong_locals_rel_def]>>
-  fs [Abbr‘p2b’,evaluate_remove_unreach] >>
-  strip_tac
-  >- (
-    Q.ISPECL_THEN[`p3`,`st with permute:=perm'`,`res`,`rcst with locals:=t'`] mp_tac three_to_two_reg_correct>>
-    impl_tac>- (
-      rfs[]>>
-      qspecl_then [‘remove_unreach p2a’,‘LN’] mp_tac (el 4 rmd_thms) >>
-      fs [] >> disch_then irule >>
-      match_mp_tac every_inst_distinct_tar_reg_remove_unreach>>
-      unabbrev_all_tac>>rpt var_eq_tac >> fs[] >>
-      irule every_inst_distinct_tar_reg_word_common_subexp_elim >>
-      fs [full_ssa_cc_trans_distinct_tar_reg]) >>
-    rw[]>>
-    fs[word_state_eq_rel_def]>>
-    Cases_on`res`>>fs[])
-  >>
-    pairarg_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,state_component_equality]>>
-    FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]
+  strip_tac>>
+  pairarg_tac>>gvs[word_state_eq_rel_def]>>
+  every_case_tac>>gvs[]
 QED
 
 val tac =
