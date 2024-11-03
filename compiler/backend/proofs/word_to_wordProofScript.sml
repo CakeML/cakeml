@@ -28,17 +28,81 @@ Proof
   PairCases_on`e` \\ EVAL_TAC
 QED
 
-(* TODO: move to word_copy *)
+(* TODO: move to word_copyProof *)
 Theorem wf_cutsets_copy_prop:
   wf_cutsets p ⇒ wf_cutsets (copy_prop p)
 Proof
-  rw[copy_prop_def]
   cheat
 QED
 
 Theorem every_inst_distinct_tar_reg_copy_prop:
   every_inst distinct_tar_reg p ⇒
   every_inst distinct_tar_reg (copy_prop p)
+Proof
+  cheat
+QED
+
+Theorem extract_labels_copy_prop:
+  extract_labels (copy_prop p) =
+  extract_labels p
+Proof
+  cheat
+QED
+
+Theorem flat_exp_conventions_copy_prop:
+  flat_exp_conventions p ⇒
+  flat_exp_conventions (copy_prop p)
+Proof
+  cheat
+QED
+
+Theorem pre_alloc_conventions_copy_prop:
+  pre_alloc_conventions p ⇒
+  pre_alloc_conventions (copy_prop p)
+Proof
+  cheat
+QED
+
+Theorem full_inst_ok_less_copy_prop:
+  full_inst_ok_less ac p ⇒
+  full_inst_ok_less ac (copy_prop p)
+Proof
+  cheat
+QED
+
+(* TODO move to word_unreachProof *)
+Theorem labels_rel_remove_unreach:
+  labels_rel (extract_labels p) (extract_labels q) ⇒
+  labels_rel (extract_labels p) (extract_labels (remove_unreach q))
+Proof
+  cheat
+QED
+
+Theorem pre_alloc_conventions_remove_unreach:
+  pre_alloc_conventions p ⇒
+  pre_alloc_conventions (remove_unreach p)
+Proof
+  cheat
+QED
+
+Theorem full_inst_ok_less_remove_unreach:
+  full_inst_ok_less ac p ⇒
+  full_inst_ok_less ac (remove_unreach p)
+Proof
+  cheat
+QED
+
+Theorem two_reg_inst_remove_unreach:
+  every_inst two_reg_inst p ⇒
+  every_inst two_reg_inst (remove_unreach p)
+Proof
+  cheat
+QED
+
+(* TODO move to word_removeProof *)
+Theorem two_reg_inst_remove_dead:
+  every_inst two_reg_inst p ⇒
+  every_inst two_reg_inst (FST (remove_dead p t))
 Proof
   cheat
 QED
@@ -262,9 +326,9 @@ Proof
   >- tac
   >- tac
   >- tac
-  >-
+  >- (
     (* Must_Terminate *)
-    (fs[evaluate_def,AND_IMP_INTRO]>>
+    fs[evaluate_def,AND_IMP_INTRO]>>
     IF_CASES_TAC>>
     fs[]>>
     last_x_assum(qspecl_then[`st with <|clock:=MustTerminate_limit(:'a);termdep:=st.termdep-1|>`,`p`,`l`,`cc`] mp_tac)>>
@@ -278,10 +342,10 @@ Proof
     rw[] >> rw[]>>
     fs[state_component_equality])
 
-  >- (*Call -- the hard case*)
-    (fs[evaluate_def]>>
-     TOP_CASE_TAC>> fs [] >>
-     TOP_CASE_TAC>> fs []>>
+  >- ( (*Call -- the hard case*)
+    fs[evaluate_def]>>
+    TOP_CASE_TAC>> fs [] >>
+    TOP_CASE_TAC>> fs []>>
     Cases_on`find_code o1 (add_ret_loc o' x) st.code st.stack_size`>>
     fs []>>
     Cases_on`o'`>>full_simp_tac(srw_ss())[]>>
@@ -294,8 +358,7 @@ Proof
       metis_tac[]))>>
     rw[]>>
     rfs[]
-    >- (*Tail calls*)
-      (
+    >- ( (*Tail calls*)
       ntac 2 (IF_CASES_TAC>>full_simp_tac(srw_ss())[])
       >- simp[call_env_def,flush_state_def,state_component_equality]>>
       qabbrev_tac`stt = call_env q r' (dec_clock st)`>>
@@ -337,8 +400,7 @@ Proof
       qexists_tac`perm'''`>>
       fs[Abbr`stt`,word_state_eq_rel_def,state_component_equality]>>
       fs[code_rel_def]>>
-      metis_tac[])
-    >>
+      metis_tac[]) >>
     rename [‘find_code _ (add_ret_loc (SOME xx) _)’] >>
     ‘∃xn xnames xrh xl1 xl2. xx = (xn, xnames, xrh, xl1, xl2)’
        by (PairCases_on`xx`>>simp[]) >> rveq >> full_simp_tac(srw_ss())[]>>
@@ -723,13 +785,14 @@ Theorem compile_to_word_conventions:
       full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs
 Proof
-  fs[compile_def]>>pairarg_tac>>fs[]>>
-  pairarg_tac>>fs[]>>rveq>>rw[]>>
+  fs[compile_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  gvs[]>>
   `LENGTH n_oracles = LENGTH p` by
     (fs[next_n_oracle_def]>>
     every_case_tac>>rw[]>>
-    simp[LENGTH_TAKE,LENGTH_REPLICATE])
-  >- (
+    simp[LENGTH_TAKE,LENGTH_REPLICATE])>>
+  CONJ_TAC >- (
     match_mp_tac LIST_EQ>>
     fs[EL_MAP,full_compile_single_def]>>
     rw[]>>
@@ -738,8 +801,8 @@ Proof
     pop_assum (assume_tac o SYM)>>
     fs[compile_single_def]>>
     pop_assum mp_tac>>
-    fs[EL_MAP,EL_ZIP])
-  >- (
+    fs[EL_MAP,EL_ZIP])>>
+  CONJ_TAC >- (
     simp[LIST_REL_EL_EQN,EL_MAP,full_compile_single_def]>>
     rw[]>>
     qpat_abbrev_tac`q = EL x A`>>
@@ -748,43 +811,49 @@ Proof
     fs[EL_MAP,EL_ZIP]>>
     fs[compile_single_def]>>
     fs[GSYM (el 5 rmt_thms),GSYM word_alloc_lab_pres]>>
-    IF_CASES_TAC>>
-    fs[GSYM three_to_two_reg_lab_pres,GSYM (el 6 rmd_thms)]>>
-    (* labels_rel *)
-    cheat>>
+    fs[GSYM (el 6 rmd_thms)]>>
+    strip_tac>>
+    irule labels_rel_remove_unreach>>
+    rw[GSYM three_to_two_reg_lab_pres]>>
     gvs[
-    GSYM full_ssa_cc_trans_lab_pres,
-       GSYM inst_select_lab_pres,GSYM (el 6 rmd_thms),
-       extract_labels_word_common_subexp_elim])>>
+      extract_labels_copy_prop,
+      GSYM full_ssa_cc_trans_lab_pres,
+         GSYM inst_select_lab_pres,GSYM (el 6 rmd_thms),
+         extract_labels_word_common_subexp_elim]
+    )>>
   fs[EVERY_MAP,EVERY_MEM,MEM_ZIP,FORALL_PROD]>>rw[]>>
   fs[full_compile_single_def,compile_single_def]>>
   CONJ_TAC>- (
     match_mp_tac (el 1 rmt_thms)>>
     match_mp_tac word_alloc_flat_exp_conventions>>
-    IF_CASES_TAC>>
-    TRY(match_mp_tac three_to_two_reg_flat_exp_conventions)>>
     match_mp_tac (el 1 rmd_thms)>>
     match_mp_tac flat_exp_conventions_remove_unreach>>
+    IF_CASES_TAC>>
+    TRY(match_mp_tac three_to_two_reg_flat_exp_conventions)>>
+    irule flat_exp_conventions_copy_prop>>
     irule flat_exp_conventions_word_common_subexp_elim >>
     match_mp_tac full_ssa_cc_trans_flat_exp_conventions>>
     fs[inst_select_flat_exp_conventions])>>
   CONJ_TAC>- (
     match_mp_tac (el 3 rmt_thms)>>
     match_mp_tac pre_post_conventions_word_alloc>>
+    match_mp_tac (el 3 rmd_thms)>>
+    match_mp_tac pre_alloc_conventions_remove_unreach>>
     IF_CASES_TAC>>
     TRY(match_mp_tac three_to_two_reg_pre_alloc_conventions)>>
-    match_mp_tac (el 3 rmd_thms)>>
     (* pre_alloc_conventions *)
-    cheat >>
+    irule pre_alloc_conventions_copy_prop>>
     irule pre_alloc_conventions_word_common_subexp_elim >>
     fs[full_ssa_cc_trans_pre_alloc_conventions])>>
   CONJ_TAC>- (
-    rw[]>>match_mp_tac (el 2 rmt_thms)>>
+    strip_tac>>
+    match_mp_tac (el 2 rmt_thms)>>
     match_mp_tac word_alloc_full_inst_ok_less>>
-    TRY(match_mp_tac three_to_two_reg_full_inst_ok_less)>>
     match_mp_tac (el 2 rmd_thms)>>
-    (* full_inst_ok_less *)
-    cheat>>
+    match_mp_tac full_inst_ok_less_remove_unreach>>
+    rw[]>>
+    TRY(match_mp_tac three_to_two_reg_full_inst_ok_less)>>
+    irule full_inst_ok_less_copy_prop>>
     irule full_inst_ok_less_word_common_subexp_elim >>
     match_mp_tac full_ssa_cc_trans_full_inst_ok_less>>
     match_mp_tac inst_select_full_inst_ok_less>>
@@ -793,6 +862,8 @@ Proof
   rw[]>>
   match_mp_tac (el 4 rmt_thms)>>
   match_mp_tac word_alloc_two_reg_inst>>
+  match_mp_tac two_reg_inst_remove_dead >>
+  match_mp_tac two_reg_inst_remove_unreach >>
   fs[three_to_two_reg_two_reg_inst]
 QED
 
@@ -843,13 +914,9 @@ QED
 Theorem fake_moves_no_install:
   fake_moves prio ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
   no_install prog1 ∧ no_install prog2
-||||||| 6eebd384c
-Theorem fake_moves_no_install:
-  fake_moves ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
-  no_install prog1 ∧ no_install prog2
 *)
 Theorem fake_moves_not_created:
-  fake_moves ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
+  fake_moves prio ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
   not_created_subprogs P prog1 ∧ not_created_subprogs P prog2
 Proof
   MAP_EVERY qid_spec_tac [‘ssa'’, ‘ssa’, ‘n'’, ‘prog2’, ‘prog1’, ‘n’, ‘nR’, ‘NL’, ‘ls’]>>
@@ -996,13 +1063,17 @@ Proof
   \\ simp [ELIM_UNCURRY, word_cse_not_created]
 QED
 
-<<<<<<< HEAD
 Theorem SimpSeq_no_install:
   no_install p1 ∧ no_install p2 ⇒
   no_install (SimpSeq p1 p2)
 Proof
   rw [SimpSeq_def,no_install_def]
-  \\ Cases_on ‘p1’ \\ rw [no_install_def]
+  \\ Cases_on ‘p1’
+  \\ rw [no_install_def]
+  \\ every_case_tac
+  \\ rw [no_install_def]
+  \\ Cases_on`p2` \\ gvs[dest_Seq_Move_def]
+  \\ Cases_on`p` \\ gvs[dest_Seq_Move_def,no_install_def]
 QED
 
 Theorem Seq_assoc_right_lemma_no_install:
@@ -1030,52 +1101,22 @@ Proof
   \\ gvs[no_install_def]
 QED
 
-Theorem compile_single_no_install:
-  no_install prog ∧
-  (q, r) = (SND (compile_single two_reg_arith reg_count alg c
-                 ((name_num,arg_count,prog),col_opt))) ⇒
-  no_install r
-||||||| 6eebd384c
-Theorem compile_single_no_install:
-  no_install prog ∧
-  (q, r) = (SND (compile_single two_reg_arith reg_count alg c
-                 ((name_num,arg_count,prog),col_opt))) ⇒
-  no_install r
-=======
 Theorem compile_single_not_created:
   not_created_subprogs P (SND (SND (FST prog_opt))) ==>
   not_created_subprogs P (SND (SND
     (compile_single two_reg_arith reg_count alg c prog_opt)))
->>>>>>> origin/master
 Proof
   PairCases_on `prog_opt`>>
-  rw[word_to_wordTheory.compile_single_def]>>
-<<<<<<< HEAD
-  irule word_alloc_no_install>>
-  TRY (irule three_to_two_reg_no_install)>>
-  irule remove_dead_no_install>>
-  irule remove_unreach_no_install>>
-  irule word_common_subexp_elim_no_install>>
-  irule full_ssa_cc_trans_no_install>>
-  irule inst_select_no_install>>
-  irule compile_exp_no_install>>rw[]
-||||||| 6eebd384c
-  irule word_alloc_no_install>>
-  TRY (irule three_to_two_reg_no_install)>>
-  irule remove_dead_no_install>>
-  irule word_common_subexp_elim_no_install>>
-  irule full_ssa_cc_trans_no_install>>
-  irule inst_select_no_install>>
-  irule compile_exp_no_install>>rw[]
-=======
+  strip_tac>>
+  simp[word_to_wordTheory.compile_single_def]>>
   irule word_alloc_not_created>>
-  TRY (irule three_to_two_reg_not_created)>>
   irule remove_dead_not_created>>
+  rw[]>>
+  TRY (irule three_to_two_reg_not_created)>>
   irule word_common_subexp_elim_not_created>>
   irule full_ssa_cc_trans_not_created>>
   irule inst_select_not_created>>
   irule compile_exp_not_created_subprogs>>rw[]
->>>>>>> origin/master
 QED
 
 Theorem code_rel_not_created:
