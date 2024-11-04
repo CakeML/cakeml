@@ -180,49 +180,41 @@ Proof
           bvi_to_dataTheory.compile_exp_def,bvi_to_dataTheory.optimise_def]
 QED
 
+(* NOTE: this definition is meant to minimize code duplication
+  in the explorer pretty printing. *)
 Definition word_internal_def:
-  word_internal ps word_conf asm_conf names p =
-    let (two_reg_arith,reg_count) =
-            (asm_conf.two_reg_arith,
-             asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs)) in
-    let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
-    let p = ZIP (p,n_oracles) in
-    let alg = word_conf.reg_alg in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,word_simp$compile_exp prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after word_simp",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+  word_internal asm_conf ps names p =
+    let two_reg_arith = asm_conf.two_reg_arith in
+    let p = MAP (λ((name_num,arg_count,prog)).
+                  ((name_num,arg_count,word_simp$compile_exp prog))) p in
+    let ps = ps ++ [(strlit "after word_simp",Word p names)] in
+    let p = MAP (λ((name_num,arg_count,prog)).
                   ((name_num,arg_count,
-                     inst_select asm_conf (max_var prog + 1) prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after word_inst",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,full_ssa_cc_trans arg_count prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after word_ssa",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,remove_dead_prog prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after remove_dead in word_ssa",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,word_common_subexp_elim prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after word_cse",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,copy_prop prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after word_copy",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                     inst_select asm_conf (max_var prog + 1) prog))) p in
+    let ps = ps ++ [(strlit "after word_inst",Word p names)] in
+    let p = MAP (λ((name_num,arg_count,prog)).
+                  ((name_num,arg_count,full_ssa_cc_trans arg_count prog))) p in
+    let ps = ps ++ [(strlit "after word_ssa",Word p names)] in
+    let p = MAP (λ((name_num,arg_count,prog)).
+                  ((name_num,arg_count,remove_dead_prog prog))) p in
+    let ps = ps ++ [(strlit "after remove_dead in word_ssa",Word p names)] in
+    let p = MAP (λ((name_num,arg_count,prog)).
+                  ((name_num,arg_count,word_common_subexp_elim prog))) p in
+    let ps = ps ++ [(strlit "after word_cse",Word p names)] in
+    let p = MAP (λ((name_num,arg_count,prog)).
+                  ((name_num,arg_count,copy_prop prog))) p in
+    let ps = ps ++ [(strlit "after word_copy",Word p names)] in
+    let p = MAP (λ((name_num,arg_count,prog)).
                   ((name_num,arg_count,
-                   three_to_two_reg_prog two_reg_arith prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after three_to_two_reg from word_inst",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,remove_unreach prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after word_unreach",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,remove_dead_prog prog)),col_opt) p in
-    let ps = ps ++ [(strlit "after remove_dead in word_alloc",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,
-                   remove_must_terminate
-                     (word_alloc name_num asm_conf alg reg_count prog col_opt)))) p in
-    let ps = ps ++ [(strlit "after word_alloc (and remove_must_terminate)",Word p names)] in
-    (p,ps,col)
+                   three_to_two_reg_prog two_reg_arith prog))) p in
+    let ps = ps ++ [(strlit "after three_to_two_reg from word_inst",Word p names)] in
+    let p = MAP (λ((name_num,arg_count,prog)).
+                  ((name_num,arg_count,remove_unreach prog))) p in
+    let ps = ps ++ [(strlit "after word_unreach",Word p names)] in
+    let p = MAP (λ((name_num,arg_count,prog)).
+                  ((name_num,arg_count,remove_dead_prog prog))) p in
+    let ps = ps ++ [(strlit "after remove_dead in word_alloc",Word p names)] in
+    (p,ps)
 End
 
 Definition to_word_all_def:
@@ -238,20 +230,47 @@ Definition to_word_all_def:
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(strlit "after data_to_word",Word p names)] in
-    let (p,ps,col) = word_internal ps word_conf asm_conf names p in
+    let (p,ps) = word_internal asm_conf ps names p in
+    let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
+    let alg = word_conf.reg_alg in
+    let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,
+                   remove_must_terminate
+                     (word_alloc name_num asm_conf alg reg_count prog col_opt)))) (ZIP (p,n_oracles)) in
+    let ps = ps ++ [(strlit "after word_alloc (and remove_must_terminate)",Word p names)] in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
       ((ps: (mlstring # 'a any_prog) list),c,p,names)
 End
+
+Theorem LENGTH_next_n_oracle:
+  next_n_oracle n col = (a,b) ⇒ LENGTH a = n
+Proof
+  rw[word_to_wordTheory.next_n_oracle_def]>>fs[LENGTH_TAKE]
+QED
+
+Triviality ZIP_MAP_1:
+  ∀l1 l2 f1 f2.
+    LENGTH l1 = LENGTH l2 ⇒
+    ZIP (MAP f1 l1,l2) = MAP (λp. (f1 (FST p),SND p)) (ZIP (l1,l2))
+Proof
+  metis_tac[ZIP_MAP]
+QED
 
 Theorem to_word_thm:
   SND (to_word_all (c:'a config) p) = to_word c p
 Proof
   assume_tac to_data_thm
-  \\ fs [to_word_all_def,word_internal_def,
+  \\ fs [to_word_all_def,
          to_word_def,data_to_wordTheory.compile_def,
          word_to_wordTheory.compile_def]
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
+  \\ gvs[word_internal_def, Excl "MAP_APPEND", MAP_MAP_o, o_DEF,LAMBDA_PROD]
+  \\ DEP_REWRITE_TAC[ZIP_MAP_1]
+  \\ imp_res_tac LENGTH_next_n_oracle
+  \\ CONJ_TAC >- (
+    simp[])
+  \\ simp[MAP_MAP_o,MAP_EQ_f,MEM_ZIP]
   \\ gvs [MAP_EQ_f,FORALL_PROD,word_to_wordTheory.full_compile_single_def,
           word_to_wordTheory.compile_single_def]
 QED
@@ -381,7 +400,15 @@ Definition from_word_0_all_def:
   from_word_0_all ps (c:'a config) names p =
     let word_conf = c.word_to_word_conf in
     let asm_conf = c.lab_conf.asm_conf in
-    let (p,ps,col) = word_internal ps word_conf asm_conf names p in
+    let (p,ps) = word_internal asm_conf ps names p in
+    let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
+    let alg = word_conf.reg_alg in
+    let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+                  ((name_num,arg_count,
+                   remove_must_terminate
+                     (word_alloc name_num asm_conf alg reg_count prog col_opt)))) (ZIP (p,n_oracles)) in
+    let ps = ps ++ [(strlit "after word_alloc (and remove_must_terminate)",Word p names)] in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
       from_word_all ps c names p
 End
@@ -389,13 +416,15 @@ End
 Theorem from_word_0_thm:
   SND (from_word_0_all ps c names p) = from_word_0 c names p
 Proof
-  gvs [from_word_0_all_def,word_internal_def,from_word_0_def]
-  \\ fs [to_word_all_def,to_word_def,data_to_wordTheory.compile_def,
+  gvs [from_word_0_all_def,from_word_0_def]
+  \\ fs [data_to_wordTheory.compile_def,
          word_to_wordTheory.compile_def]
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
-  \\ gvs [MAP_EQ_f,FORALL_PROD,word_to_wordTheory.full_compile_single_def,
-          word_to_wordTheory.compile_single_def,from_word_thm]
+  \\ gvs[word_internal_def, Excl "MAP_APPEND", MAP_MAP_o, o_DEF,LAMBDA_PROD]
+  \\ DEP_REWRITE_TAC[ZIP_MAP_1]
+  \\ imp_res_tac LENGTH_next_n_oracle
+  \\ CONJ_TAC >- simp[]
+  \\ simp[from_word_thm]
   \\ AP_TERM_TAC
   \\ gvs [MAP_MAP_o,o_DEF,LAMBDA_PROD]
   \\ gvs [MAP_EQ_f,FORALL_PROD,word_to_wordTheory.full_compile_single_def,
