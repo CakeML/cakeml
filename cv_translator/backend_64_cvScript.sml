@@ -346,6 +346,10 @@ Proof
   \\ gvs [wordLangTheory.exp_size_def, wordLangTheory.exp_size_eq]
 QED
 
+val _ = cv_trans word_instTheory.three_to_two_reg_def;
+
+val _ = cv_trans word_instTheory.three_to_two_reg_prog_def;
+
 val _ = word_cseTheory.add_to_data_aux_def |> arch_spec
          |> SRULE [GSYM lookup_listCmp_def, GSYM insert_listCmp_def] |> cv_auto_trans;
 val _ = word_cseTheory.wordToNum_def |> arch_spec |> cv_trans;
