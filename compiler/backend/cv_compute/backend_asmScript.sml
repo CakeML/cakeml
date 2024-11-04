@@ -637,7 +637,17 @@ Definition to_word_all_def:
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(strlit "after data_to_word",Word p names)] in
-    let (p,ps,col) = word_internal ps word_conf asm_conf names p in
+    let (p,ps) = word_internal asm_conf ps names p in
+    let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
+    let alg = word_conf.reg_alg in
+    let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
+    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+              ((name_num,arg_count,
+               remove_must_terminate
+                 (case word_alloc_inlogic asm_conf prog col_opt of
+                  | NONE => Skip
+                  | SOME x => x)))) (ZIP (p,n_oracles)) in
+    let ps = ps ++ [(strlit "after word_alloc (and remove_must_terminate)",Word p names)] in
     let c = c with inc_word_to_word_conf updated_by (λc. c with col_oracle := col) in
       ((ps: (mlstring # 'a any_prog) list),c,p,names)
 End
