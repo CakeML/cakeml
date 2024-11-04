@@ -299,6 +299,8 @@ Proof
   ho_match_mp_tac word_allocTheory.remove_dead_ind \\ rw [] \\ simp [Once pre]
 QED
 
+val _ = word_allocTheory.remove_dead_prog_def |> arch_spec |> cv_trans;
+
 val _ = word_instTheory.op_consts_def |> arch_spec |> cv_trans;
 
 val _ = word_instTheory.reduce_const_def |> arch_spec |> cv_auto_trans;

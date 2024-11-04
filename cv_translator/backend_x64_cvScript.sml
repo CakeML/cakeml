@@ -135,6 +135,8 @@ val _ = cv_auto_trans (x64_targetTheory.x64_enc_def |>
 
 val _ = cv_trans word_instTheory.three_to_two_reg_def;
 
+val _ = cv_trans word_instTheory.three_to_two_reg_prog_def;
+
 (*---------------------------------------------------------------------------*
   Remaining x64-specific functions
  *---------------------------------------------------------------------------*)
