@@ -574,4 +574,9 @@ Proof
     >> fs[three_to_two_reg_def])
 QED
 
+Definition three_to_two_reg_prog_def:
+  three_to_two_reg_prog b prog =
+    if b then three_to_two_reg prog else prog
+End
+
 val _ = export_theory();

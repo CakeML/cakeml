@@ -380,12 +380,9 @@ stack frame.
 
 [word_to_wordScript.sml](word_to_wordScript.sml):
 This compiler phase composes the phases internal to wordLang:
-    1) Inst select (with a few optimizations);
-    2) SSA;
-    3) Dead code elim (not written yet);
-    4) 3-to-2 regs for certain configs;
-    5) reg_alloc;
-    6) word_to_stack.
+    1) word_simp ; 2) inst_select ; 3) SSA ; 4) remove_dead
+    5) word_cse ; 6) copy_prop ; 7) three-to-two reg
+    8) remove_unreach ; 9) remove_dead ; 10) word_alloc
 
 [word_unreachScript.sml](word_unreachScript.sml):
 This compilation pass removes trivially unreachable code.

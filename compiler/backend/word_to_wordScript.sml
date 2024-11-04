@@ -1,11 +1,8 @@
 (*
   This compiler phase composes the phases internal to wordLang:
-      1) Inst select (with a few optimizations);
-      2) SSA;
-      3) Dead code elim (not written yet);
-      4) 3-to-2 regs for certain configs;
-      5) reg_alloc;
-      6) word_to_stack.
+      1) word_simp ; 2) inst_select ; 3) SSA ; 4) remove_dead
+      5) word_cse ; 6) copy_prop ; 7) three-to-two reg
+      8) remove_unreach ; 9) remove_dead ; 10) word_alloc
 *)
 open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory
 open word_simpTheory word_cseTheory word_unreachTheory word_copyTheory word_instTheory
@@ -27,12 +24,12 @@ Definition compile_single_def:
   let maxv = max_var prog + 1 in
   let inst_prog = inst_select c maxv prog in
   let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-  let cse_prog = word_common_subexp_elim ssa_prog in
+  let rm_ssa_prog = remove_dead_prog ssa_prog in
+  let cse_prog = word_common_subexp_elim rm_ssa_prog in
   let cp_prog = copy_prop cse_prog in
-  let two_prog = if two_reg_arith then three_to_two_reg cp_prog
-                              else cp_prog in
+  let two_prog = three_to_two_reg_prog two_reg_arith cp_prog in
   let unreach_prog = remove_unreach two_prog in
-  let rm_prog = FST(remove_dead unreach_prog LN) in
+  let rm_prog = remove_dead_prog unreach_prog in
   let reg_prog = word_alloc name_num c alg reg_count rm_prog col_opt in
     (name_num,arg_count,reg_prog)
 End
@@ -69,16 +66,17 @@ Definition full_compile_single_for_eval_def:
     let _ = empty_ffi (strlit "finished: word_inst") in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
     let _ = empty_ffi (strlit "finished: word_ssa") in
-    let cse_prog = word_common_subexp_elim ssa_prog in
+    let rm_ssa_prog = remove_dead_prog ssa_prog in
+    let _ = empty_ffi (strlit "finished: word_remove_dead after word_ssa") in
+    let cse_prog = word_common_subexp_elim rm_ssa_prog in
     let _ = empty_ffi (strlit "finished: word_cse") in
     let cp_prog = copy_prop cse_prog in
     let _ = empty_ffi (strlit "finished: word_copy") in
-    let two_prog = if two_reg_arith then three_to_two_reg cp_prog
-                                else cp_prog in
+    let two_prog = three_to_two_reg_prog two_reg_arith cp_prog in
     let _ = empty_ffi (strlit "finished: word_two_reg") in
     let unreach_prog = remove_unreach two_prog in
     let _ = empty_ffi (strlit "finished: word_unreach") in
-    let rm_prog = FST(remove_dead unreach_prog LN) in
+    let rm_prog = remove_dead_prog unreach_prog in
     let _ = empty_ffi (strlit "finished: word_remove_dead") in
     let reg_prog = word_alloc name_num c alg reg_count rm_prog col_opt in
     let _ = empty_ffi (strlit "finished: word_alloc") in
@@ -95,6 +93,7 @@ Proof
   \\ PairCases_on ‘p’ \\ simp [compile_single_def]
 QED
 
+(* TODO: never used?
 Theorem compile_alt:
     compile word_conf (asm_conf:'a asm_config) progs =
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
@@ -109,15 +108,17 @@ Theorem compile_alt:
     let _ = empty_ffi (strlit "finished: word_inst") in
     let ssa_ps = MAP2 (λa p. full_ssa_cc_trans a p) args inst_ps in
     let _ = empty_ffi (strlit "finished: word_ssa") in
-    let cse_ps = MAP word_common_subexp_elim ssa_ps in
+    let rm_ssa_ps = MAP remove_dead_prog ssa_ps in
+    let _ = empty_ffi (strlit "finished: word_remove_dead after word_ssa") in
+    let cse_ps = MAP word_common_subexp_elim rm_ssa_ps in
     let _ = empty_ffi (strlit "finished: word_cse") in
     let cp_ps = MAP copy_prop cse_ps in
     let _ = empty_ffi (strlit "finished: word_copy") in
-    let two_ps = if two_reg_arith then MAP three_to_two_reg cp_ps else cp_ps in
+    let two_ps = MAP (three_to_two_reg_prog two_reg_arith) cp_ps in
     let _ = empty_ffi (strlit "finished: word_two_reg") in
     let unreach_ps = MAP remove_unreach two_ps in
     let _ = empty_ffi (strlit "finished: word_unreach") in
-    let dead_ps = MAP (\p. FST (remove_dead p LN)) unreach_ps in
+    let dead_ps = MAP remove_dead_prog unreach_ps in
     let _ = empty_ffi (strlit "finished: word_remove_dead") in
     let reg_ps = MAP2 (λc (n,p). word_alloc n asm_conf alg reg_count p c) n_oracles (ZIP(names,dead_ps)) in
     let _ = empty_ffi (strlit "finished: word_alloc") in
@@ -132,5 +133,6 @@ Proof
   pairarg_tac>>fs[EL_TAKE]>>
   simp[compile_single_def]
 QED
+*)
 
 val _ = export_theory();

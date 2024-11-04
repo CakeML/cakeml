@@ -847,6 +847,10 @@ Definition remove_dead_def:
   (remove_dead prog live = (prog,get_live prog live))
 End
 
+Definition remove_dead_prog_def:
+  remove_dead_prog prog = FST (remove_dead prog LN)
+End
+
 (*Single step immediate writes by a prog*)
 Definition get_writes_def:
   (get_writes (Move pri ls) = numset_list_insert (MAP FST ls) LN)∧
