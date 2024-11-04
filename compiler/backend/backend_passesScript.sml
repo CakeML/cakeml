@@ -181,9 +181,7 @@ Proof
 QED
 
 Definition word_internal_def:
-  word_internal ps (c:'a config) names p =
-    let word_conf = c.word_to_word_conf in
-    let asm_conf = c.lab_conf.asm_conf in
+  word_internal ps word_conf asm_conf names p =
     let (two_reg_arith,reg_count) =
             (asm_conf.two_reg_arith,
              asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs)) in
@@ -224,13 +222,13 @@ Definition word_internal_def:
                    remove_must_terminate
                      (word_alloc name_num asm_conf alg reg_count prog col_opt)))) p in
     let ps = ps ++ [(strlit "after word_alloc (and remove_must_terminate)",Word p names)] in
-    let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-    (p,ps,c)
+    (p,ps,col)
 End
 
 Definition to_word_all_def:
   to_word_all (c:'a config) p =
     let (ps,c,p,names) = to_data_all c p in
+    let word_conf = c.word_to_word_conf in
     let data_conf = c.data_conf in
     let asm_conf = c.lab_conf.asm_conf in
     let data_conf =
@@ -240,7 +238,8 @@ Definition to_word_all_def:
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(strlit "after data_to_word",Word p names)] in
-    let (p,ps,c) = word_internal ps c names p in
+    let (p,ps,col) = word_internal ps word_conf asm_conf names p in
+    let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
       ((ps: (mlstring # 'a any_prog) list),c,p,names)
 End
 
@@ -380,7 +379,10 @@ QED
 
 Definition from_word_0_all_def:
   from_word_0_all ps (c:'a config) names p =
-    let (p,ps,c) = word_internal ps c names p in
+    let word_conf = c.word_to_word_conf in
+    let asm_conf = c.lab_conf.asm_conf in
+    let (p,ps,col) = word_internal ps word_conf asm_conf names p in
+    let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
       from_word_all ps c names p
 End
 
