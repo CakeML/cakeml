@@ -498,8 +498,15 @@ End
 
 Definition scope_check_funs_def:
   scope_check_funs fnames [] = return () ∧
-  scope_check_funs fnames ((fname, _:bool, vshapes, body)::funs) =
+  scope_check_funs fnames ((fname, export:bool, vshapes, body)::funs) =
     do
+      if (fname = main /\ export) then
+        error (GenErr $ strlit "main function is exported\n")
+      else return ();
+      if (LENGTH vshapes > 4 /\ export) then
+        error (GenErr $ concat
+          [strlit "exported function "; fname; strlit " has more than 4 arguments\n"])
+      else return ();
       pnames <<- MAP FST vshapes;
       case first_repeat $ QSORT mlstring_lt pnames of
         SOME p => error (GenErr $ concat
@@ -532,14 +539,14 @@ Definition scope_check_def:
         SOME f => error (GenErr $ concat
           [strlit "function "; f; strlit " is redeclared\n"])
       | NONE => return ();
-      case SPLITP (\(f,_,_,_). f = «main») funs of
+      (* case SPLITP (\(f,_,_,_). f = «main») funs of
         (xs,(_,T,_,_)::ys) => error (GenErr $
           strlit "main function is exported\n")
-      | _ => return ();
-      case SPLITP (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs of
+      | _ => return (); *)
+      (* case SPLITP (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs of
         (xs,(f,_,_,_)::ys) => error (GenErr $ concat
           [strlit "exported function "; f; strlit " has more than 4 arguments\n"])
-      | _ => return ();
+      | _ => return (); *)
       scope_check_funs fnames funs
     od
 End
