@@ -1,5 +1,29 @@
 (*
-  Scope checking for Pancake.
+  Static checking for Pancake.
+
+  Scope checks:
+  - Errors:
+    - Undefined/out-of-scope functions
+    - Undefined/out-of-scope variables
+    - Redefined functions
+  - Warnings:
+    - Redefined variables
+  
+  General checks:
+  - Errors:
+    - Exported main function
+    - Exported function with >4 arguments
+    - Missing function exit (return, tail call, etc)
+    - Loop exit outside loop (break, continue)
+    - Function parameter names not distinct
+    - Incorrect number of Op arguments (impossible from parser)
+  - Warnings:
+    - Unreachable statements (after function exit, after loop exit)
+    - Base-calculated address in shared memory operation
+    - Non-base -calculated address in local memory operation
+    - 
+
+  Shape checks: TODO
 *)
 
 open preamble errorLogMonadTheory panLangTheory mlmapTheory mlintTheory;
