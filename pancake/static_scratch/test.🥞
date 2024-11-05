@@ -45,20 +45,50 @@
 //     return 1;
 // }
 
-// // missing return statement + statements after return
+// // missing return statement
+// fun f () {
+//     skip;
+// }
+// fun f () {
+//     var x = 0;
+//     x = 1;
+// }
+// fun f () {
+//     var x = 0;
+//     if true {
+//         return 1;
+//     } else {
+//         x = 1;
+//     }
+// }
+// fun g () {
+//     if true {
+//         return 1;
+//     } else {
+//         return 1;
+//     }
+// }
+
+// // statements after return
 // fun a () {
 //     var x = 0;
 //     return 1;
 //     skip;
 // }
-// // fun b () {
-// //     skip;
-// // }
-// // fun c () {
-// //     var x = 0;
-// //     x = 1;
-// // }
+// fun b () {
+//     return b();
+//     skip;
+// }
+// fun c () {
+//     raise Err 1;
+//     skip;
+// }
 // fun d () {
+//     return 1;
+//     raise Err 0;
+//     skip;
+// }
+// fun e () {
 //     var x = 0;
 //     if true {
 //         return 1;
@@ -67,31 +97,104 @@
 //         return 1;
 //     }
 // }
-// // fun e () {
-// //     var x = 0;
-// //     if true {
-// //         return 1;
-// //     } else {
-// //         x = 1;
-// //     }
-// // }
 // fun f () {
-//     return f();
+//     var x = 0;
+//     if true {
+//         return 1;
+//     } else {
+//         return f();
+//     }
 //     skip;
 // }
 // fun g () {
-//     raise Err 1;
-//     skip;
-// }
-// !TODO:
-// fun h () {
 //     var x = 12;
 //     {
 //         x = 0;
 //         return x;
 //     };
 //     return 1;
+//     skip;
 // }
+// fun h () {
+//     return 1;
+//     /*@ annot @*/
+//     /*@ annot @*/
+//     /*@ annot @*/
+// }
+// fun i () {
+//     return 1;
+//     /*@ annot @*/
+//     /*@ annot @*/
+//     skip;
+//     /*@ annot @*/
+// }
+// fun j () {
+//     while (1) {
+//         break;
+//         skip;
+//     }
+//     return 1;
+// }
+// fun k () {
+//     while (1) {
+//         continue;
+//         skip;
+//     }
+//     return 1;
+// }
+// fun l () {
+//     while (1) {
+//         break;
+//         return 1;
+//     }
+//     skip;
+//     return 1;
+// }
+// fun m () {
+//     while (1) {
+//         var x = 0;
+//         if true {
+//             break;
+//             skip;
+//         } else {
+//             break;
+//         }
+//     }
+//     return 1;
+// }
+// fun n () {
+//     while (1) {
+//         var x = 0;
+//         if true {
+//             break;
+//         } else {
+//             continue;
+//         }
+//         skip;
+//     }
+//     return 1;
+// }
+// fun o () {
+//     while (1) {
+//         var x = 12;
+//         {
+//             x = 0;
+//             break;
+//         };
+//         continue;
+//         skip;
+//     }
+//     return 1;
+// }
+// fun z () {
+//     return 1;
+//     skip;
+//     skip;
+//     skip;
+//     skip;
+//     skip;
+// }
+
 
 // // rogue break/continue
 // fun f () {
