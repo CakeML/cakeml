@@ -199,7 +199,7 @@ Definition skip_block_comment_def:
   skip_block_comment "" _ _ = NONE ∧
   skip_block_comment [_] _ _ = NONE ∧
   skip_block_comment (x::y::xs) loc i =
-  if x = #"*" ∧ y = #"/" then
+  if (x = #"*" ∧ y = #"/") ∨ (x = #"@" ∧ y = #"/") then
     SOME (next_loc 2 loc, i, i + 2)
   else if x = #"\n" then
     skip_block_comment (y::xs) (next_line loc) (i + 1n)
@@ -236,7 +236,7 @@ Definition next_atom_def:
       (case (skip_comment (TL cs) (next_loc 2 loc) 0n) of
        | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 2 loc), "")
        | SOME (loc', len) => next_atom (DROP (len + 1) cs) loc')
-    else if isPREFIX "/*@" (c::cs) then (* annotation block comment *)
+    else if isPREFIX "/@" (c::cs) then (* annotation block comment *)
       (case (skip_block_comment (TL cs) (next_loc 3 loc) 0n) of
        | NONE => SOME (ErrA «Malformed comment», Locs loc (next_loc 3 loc), "")
        | SOME (loc', i, len) => SOME (AnnotCommentA (TAKE i (TL cs)),
