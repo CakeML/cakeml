@@ -2090,7 +2090,7 @@ val cf_strip_sound_tac =
 
 val cf_evaluate_step_tac =
   simp [evaluate_to_heap_def, evaluate_ck_def, evaluate_def] \\
-  fs [libTheory.opt_bind_def, PULL_EXISTS]
+  fs [miscTheory.opt_bind_def, PULL_EXISTS]
 
 val cf_strip_sound_full_tac = cf_strip_sound_tac \\ cf_evaluate_step_tac
 

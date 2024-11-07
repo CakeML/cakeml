@@ -6,7 +6,7 @@ open preamble astTheory flatLangTheory;
 val _ = numLib.temp_prefer_num();
 
 val _ = new_theory "flat_uncheck_ctors";
-val _ = set_grammar_ancestry ["flatLang", "lib"];
+val _ = set_grammar_ancestry ["flatLang", "misc"];
 val _ = temp_tight_equality ();
 
 Definition compile_pat_def:
