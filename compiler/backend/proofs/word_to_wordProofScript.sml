@@ -69,8 +69,8 @@ QED
 Theorem wf_cutsets_copy_prop_aux:
   ∀p cs. wf_cutsets p ⇒ wf_cutsets (FST (copy_prop_prog p cs))
 Proof
-  >>ho_match_mp_tac prog_ind_simple
-  >>rw[wf_cutsets_def,word_copyTheory.copy_prop_def,word_copyTheory.copy_prop_prog_def]
+  ho_match_mp_tac prog_ind_simple
+  >>rw[wf_cutsets_def,word_copyTheory.copy_prop_prog_def]
   >-(pairarg_tac>>fs[wf_cutsets_def])
   >-(
     Cases_on‘i’>>rw[word_copyTheory.copy_prop_inst_def,wf_cutsets_def]
@@ -120,6 +120,58 @@ Proof
   metis_tac[wf_cutsets_copy_prop_aux,word_copyTheory.copy_prop_def]
 QED
 
+
+(* Instructions have distinct targets and read vars -- set by SSA form *)
+(*
+Definition distinct_tar_reg_def:
+  (distinct_tar_reg (Arith (Binop bop r1 r2 ri))
+    ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧
+  (distinct_tar_reg  (Arith (Shift l r1 r2 n))
+    ⇔ r1 ≠ r2) ∧
+  (distinct_tar_reg (Arith (AddCarry r1 r2 r3 r4))
+    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
+  (distinct_tar_reg (Arith (AddOverflow r1 r2 r3 r4))
+    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
+  (distinct_tar_reg (Arith (SubOverflow r1 r2 r3 r4))
+    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
+  (distinct_tar_reg _ ⇔ T)
+End
+*)
+
+(* too strong; not true *)
+(*
+Theorem every_inst_distinct_tar_reg_copy_prop_aux:
+  ∀p cs.
+  every_inst distinct_tar_reg p ⇒
+  every_inst distinct_tar_reg (FST (copy_prop_prog p cs))
+Proof
+  ho_match_mp_tac prog_ind_simple
+  >>rw[every_inst_def,word_copyTheory.copy_prop_prog_def]
+  >>rpt(pairarg_tac>>fs[])
+  >>rw[every_inst_def]
+  (* Inst *)
+  >-(
+    Cases_on‘i’
+    >-rw[word_copyTheory.copy_prop_inst_def,every_inst_def]
+    >-rw[word_copyTheory.copy_prop_inst_def,every_inst_def]
+    >-(
+      Cases_on‘a’
+      >>rw[word_copyTheory.copy_prop_inst_def,every_inst_def]
+      >>fs[distinct_tar_reg_def]
+
+    cheat
+QED
+*)
+
+(* Not true. Consider:
+
+    a := b;
+    a := b+1;
+
+    a := b;
+    a := a+1;
+
+*)
 Theorem every_inst_distinct_tar_reg_copy_prop:
   every_inst distinct_tar_reg p ⇒
   every_inst distinct_tar_reg (copy_prop p)
