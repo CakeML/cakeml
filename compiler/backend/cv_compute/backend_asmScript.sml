@@ -67,12 +67,13 @@ Definition to_livesets_0_def:
   to_livesets_0 asm_conf (c:inc_config,p,names: mlstring num_map) =
   let word_conf = c.inc_word_to_word_conf in
   let alg = word_conf.reg_alg in
+  let is_x64 = (asm_conf.ISA = x86_64) in
   let p =
     MAP (λ(name_num,arg_count,prog).
     let prog = word_simp$compile_exp prog in
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
-    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
+    let ssa_prog = full_ssa_cc_trans is_x64 arg_count inst_prog in
     let rm_ssa_prog = remove_dead_prog ssa_prog in
     let cse_prog = word_common_subexp_elim rm_ssa_prog in
     let cp_prog = copy_prop cse_prog in
@@ -266,8 +267,9 @@ Definition each_inlogic_def:
   each_inlogic asm_conf (((name_num,arg_count,prog),col_opt)::rest) =
    let prog = compile_exp prog;
        maxv = max_var prog + 1;
+       is_x64 = (asm_conf.ISA = x86_64);
        inst_prog = inst_select asm_conf maxv prog;
-       ssa_prog = full_ssa_cc_trans arg_count inst_prog;
+       ssa_prog = full_ssa_cc_trans is_x64 arg_count inst_prog;
        rm_ssa_prog = remove_dead_prog ssa_prog;
        cse_prog = word_common_subexp_elim rm_ssa_prog;
        cp_prog = copy_prop cse_prog;
