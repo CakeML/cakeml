@@ -1048,41 +1048,28 @@ Theorem three_to_two_reg_correct:
     evaluate(three_to_two_reg prog,s) = (res,s')
 Proof
   ho_match_mp_tac three_to_two_reg_ind>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[three_to_two_reg_def,evaluate_def,state_component_equality]>>
-  TRY
-    (ntac 2 (pop_assum mp_tac)>>full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,get_vars_def,get_var_def,set_vars_def,alist_insert_def,the_words_def]>>
+  rw[]>>
+  fs[three_to_two_reg_def,evaluate_def,state_component_equality]>>
+  TRY (
+    gvs[AllCaseEqs(),inst_def,assign_def,word_exp_def,get_vars_def,get_var_def,set_vars_def,alist_insert_def,the_words_def,distinct_tar_reg_def,every_inst_def]>>
     EVERY_CASE_TAC >>
-    full_simp_tac(srw_ss())[LET_THM,alist_insert_def,every_inst_def,distinct_tar_reg_def,word_exp_def,lookup_insert,set_var_def,insert_shadow]>>NO_TAC)
-  >-
-    (ntac 2 (pop_assum mp_tac)>>LET_ELIM_TAC>>full_simp_tac(srw_ss())[every_inst_def]>>
-    Cases_on`res'' = SOME Error`>>full_simp_tac(srw_ss())[]>>res_tac>>
-    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-    metis_tac[])
-  >-
-    (IF_CASES_TAC>>full_simp_tac(srw_ss())[LET_THM,every_inst_def]>>
-    ntac 2(pairarg_tac>>full_simp_tac(srw_ss())[])>>
-    Cases_on`res'' = SOME TimeOut`>>full_simp_tac(srw_ss())[]>>rveq>>
-    res_tac>>
-    full_simp_tac(srw_ss())[]>>rveq>>
-    full_simp_tac(srw_ss())[])
-  >>
-    ntac 2 (pop_assum mp_tac)>>LET_ELIM_TAC>>full_simp_tac(srw_ss())[every_inst_def]>>
-    unabbrev_all_tac>>
-    Cases_on`ret`>>Cases_on`handler`>>full_simp_tac(srw_ss())[evaluate_def]
-    >-
-      (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
-    >-
-      (ntac 5 (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
-      res_tac>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
-      rev_full_simp_tac(srw_ss())[add_ret_loc_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[]))
-    >>
-      PairCases_on`x`>>PairCases_on`x'`>>full_simp_tac(srw_ss())[]>>
-      TOP_CASE_TAC>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
-      ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
-      full_simp_tac(srw_ss())[push_env_def,LET_THM]>>
-      EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-      res_tac>>full_simp_tac(srw_ss())[]>>
-      rev_full_simp_tac(srw_ss())[]
+    gvs[word_exp_def,lookup_insert,set_var_def,insert_shadow]>>rw[]>>
+    rw[]>>gvs[insert_shadow,integer_wordTheory.word_0_w2i]>>
+    NO_TAC)
+  >- (
+    rpt (pairarg_tac>>gvs[])>>
+    gvs[AllCaseEqs(),every_inst_def]>>
+    rpt(first_x_assum drule)>>gvs[])
+  >- (
+    rw[]>>gvs[]>>
+    rpt (pairarg_tac>>gvs[])>>
+    gvs[AllCaseEqs(),every_inst_def]>>
+    first_x_assum drule_all>>rw[])
+  >- (
+    gvs[AllCaseEqs(),every_inst_def]>>
+    fs[add_ret_loc_def]>>
+    every_case_tac>>
+    gvs[call_env_def,push_env_def])
 QED
 
 (* Syntactic three_to_two_reg *)
@@ -1100,7 +1087,9 @@ Proof
 QED
 
 Theorem three_to_two_reg_pre_alloc_conventions:
-  ∀prog. pre_alloc_conventions prog ⇒ pre_alloc_conventions (three_to_two_reg prog)
+  ∀prog.
+    pre_alloc_conventions is_x64 prog ⇒
+    pre_alloc_conventions is_x64 (three_to_two_reg prog)
 Proof
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,three_to_two_reg_def,LET_THM,call_arg_convention_def,inst_arg_convention_def]>>
