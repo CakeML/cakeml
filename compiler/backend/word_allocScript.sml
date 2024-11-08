@@ -120,15 +120,15 @@ Definition fix_inconsistencies_def:
     (Seq (Move (priority prio T) Lmov) Lseq,Seq (Move (priority prio F) Rmov) Rseq,na'',ssa_L'')
 End
 
-(*ssa_cc_trans_inst does not need to interact with stack*)
-(* Note: this needs to return a prog to support specific registers for AddCarry and other special insts
-*)
+(* ssa_cc_trans_inst does not need to interact with stack *)
+(* Note: this needs to return a prog to support specific registers for
+  AddCarry and other special insts *)
 Definition ssa_cc_trans_inst_def:
-  (ssa_cc_trans_inst Skip ssa na = (Skip,ssa,na)) ∧
-  (ssa_cc_trans_inst (Const reg w) ssa na =
+  (ssa_cc_trans_inst is_x64 Skip ssa na = (Skip,ssa,na)) ∧
+  (ssa_cc_trans_inst is_x64 (Const reg w) ssa na =
     let (reg',ssa',na') = next_var_rename reg ssa na in
       (Inst (Const reg' w),ssa',na')) ∧
-  (ssa_cc_trans_inst (Arith (Binop bop r1 r2 ri)) ssa na =
+  (ssa_cc_trans_inst is_x64 (Arith (Binop bop r1 r2 ri)) ssa na =
     dtcase ri of
       Reg r3 =>
       let r3' = option_lookup ssa r3 in
@@ -139,16 +139,16 @@ Definition ssa_cc_trans_inst_def:
       let r2' = option_lookup ssa r2 in
       let (r1',ssa',na') = next_var_rename r1 ssa na in
         (Inst (Arith (Binop bop r1' r2' ri)),ssa',na')) ∧
-  (ssa_cc_trans_inst (Arith (Shift shift r1 r2 n)) ssa na =
+  (ssa_cc_trans_inst is_x64 (Arith (Shift shift r1 r2 n)) ssa na =
     let r2' = option_lookup ssa r2 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
       (Inst (Arith (Shift shift r1' r2' n)),ssa',na')) ∧
-  (ssa_cc_trans_inst (Arith (Div r1 r2 r3)) ssa na =
+  (ssa_cc_trans_inst is_x64 (Arith (Div r1 r2 r3)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     (Inst (Arith (Div r1' r2' r3')),ssa',na')) ∧
-  (ssa_cc_trans_inst (Arith (AddCarry r1 r2 r3 r4)) ssa na =
+  (ssa_cc_trans_inst is_x64 (Arith (AddCarry r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
@@ -159,32 +159,34 @@ Definition ssa_cc_trans_inst_def:
       (Seq mov_in (Seq (Inst (Arith (AddCarry r1' r2' r3' 0))) mov_out), ssa'',na'')) ∧
   (* Note: for AddOverflow and SubOverflow, setting r4 to 0 is not necessary
      However, this helps with word_to_stack which currently only spills
-     one register on writes
-  *)
-  (ssa_cc_trans_inst (Arith (AddOverflow r1 r2 r3 r4)) ssa na =
+     one register on writes *)
+  (ssa_cc_trans_inst is_x64 (Arith (AddOverflow r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
-    (* TODO: This might need to be made a strong preference *)
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
     let mov_out = Move1 [(r4'',0)] in
       (Seq (Inst (Arith (AddOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
-  (ssa_cc_trans_inst (Arith (SubOverflow r1 r2 r3 r4)) ssa na =
+  (ssa_cc_trans_inst is_x64 (Arith (SubOverflow r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
     let mov_out = Move1 [(r4'',0)] in
       (Seq (Inst (Arith (SubOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
-  (ssa_cc_trans_inst (Arith (LongMul r1 r2 r3 r4)) ssa na =
+  (ssa_cc_trans_inst is_x64 (Arith (LongMul r1 r2 r3 r4)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
-    let mov_in = Move1 [(0,r3');(4,r4')] in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
-    let mov_out = Move1 [(r2',0);(r1',6)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongMul 6 0 0 4))) mov_out),ssa'',na'')) ∧
-  (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
+    if is_x64 then
+      let mov_in = Move1 [(0,r3');(4,r4')] in
+      let mov_out = Move1 [(r2',0);(r1',6)] in
+        (Seq mov_in  (Seq (Inst (Arith (LongMul 6 0 0 4))) mov_out),ssa'',na'')
+    else
+      (Inst (Arith (LongMul r1' r2' r3' r4')),ssa'',na'')
+      ) ∧
+  (ssa_cc_trans_inst is_x64 (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
@@ -193,32 +195,32 @@ Definition ssa_cc_trans_inst_def:
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
     let mov_out = Move1 [(r2',6);(r1',0)] in
       (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 6 6 0 r5'))) mov_out),ssa'',na'')) ∧
-  (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst is_x64 (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (Mem Load r' (Addr a' w)),ssa',na')) ∧
-  (ssa_cc_trans_inst (Mem Store r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst is_x64 (Mem Store r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
       (Inst (Mem Store r' (Addr a' w)),ssa,na)) ∧
-  (ssa_cc_trans_inst (Mem Load8 r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst is_x64 (Mem Load8 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (Mem Load8 r' (Addr a' w)),ssa',na')) ∧
-  (ssa_cc_trans_inst (Mem Store8 r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst is_x64 (Mem Store8 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
       (Inst (Mem Store8 r' (Addr a' w)),ssa,na)) ∧
-  (ssa_cc_trans_inst (FP (FPLess r f1 f2)) ssa na =
+  (ssa_cc_trans_inst is_x64 (FP (FPLess r f1 f2)) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (FP (FPLess r' f1 f2)),ssa',na')) ∧
-  (ssa_cc_trans_inst (FP (FPLessEqual r f1 f2)) ssa na =
+  (ssa_cc_trans_inst is_x64 (FP (FPLessEqual r f1 f2)) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (FP (FPLessEqual r' f1 f2)),ssa',na')) ∧
-  (ssa_cc_trans_inst (FP (FPEqual r f1 f2)) ssa na =
+  (ssa_cc_trans_inst is_x64 (FP (FPEqual r f1 f2)) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (FP (FPEqual r' f1 f2)),ssa',na')) ∧
-  (ssa_cc_trans_inst (FP (FPMovToReg r1 r2 d):'a inst) ssa na =
+  (ssa_cc_trans_inst is_x64 (FP (FPMovToReg r1 r2 d):'a inst) ssa na =
     if dimindex(:'a) = 64 then
       let (r1',ssa',na') = next_var_rename r1 ssa na in
         (Inst (FP (FPMovToReg r1' r2 d)),ssa',na')
@@ -226,7 +228,7 @@ Definition ssa_cc_trans_inst_def:
       let (r1',ssa',na') = next_var_rename r1 ssa na in
       let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
         (Inst (FP (FPMovToReg r1' r2' d)),ssa'',na'')) ∧
-  (ssa_cc_trans_inst (FP (FPMovFromReg d r1 r2)) ssa na =
+  (ssa_cc_trans_inst is_x64 (FP (FPMovFromReg d r1 r2)) ssa na =
     if dimindex(:'a) = 64 then
       let r1' = option_lookup ssa r1 in
         (Inst (FP (FPMovFromReg d r1' 0)),ssa,na)
@@ -243,7 +245,7 @@ Definition ssa_cc_trans_inst_def:
       else
         (Inst (FP (FPMovFromReg d r1' r2')),ssa,na)) ∧
         (*Catchall -- for future instructions to be added, and all other FP *)
-  (ssa_cc_trans_inst x ssa na = (Inst x,ssa,na))
+  (ssa_cc_trans_inst is_x64 x ssa na = (Inst x,ssa,na))
 End
 
 (*Expressions only ever need to lookup a variable's current ssa map
@@ -291,8 +293,8 @@ Definition mk_prio_def:
 End
 
 Definition ssa_cc_trans_def:
-  (ssa_cc_trans Skip ssa na = (Skip,ssa,na)) ∧
-  (ssa_cc_trans (Move pri ls) ssa na =
+  (ssa_cc_trans is_x64 Skip ssa na = (Skip,ssa,na)) ∧
+  (ssa_cc_trans is_x64 (Move pri ls) ssa na =
     let ls_1 = MAP FST ls in
     let ls_2 = MAP SND ls in
     let ren_ls2 = MAP (option_lookup ssa) ls_2 in
@@ -300,7 +302,7 @@ Definition ssa_cc_trans_def:
     let force =
       FILTER (λ(x,y). ¬ MEM x ls_1) (ZIP(ls_2,ren_ls1)) in
       (Move pri (ZIP(ren_ls1,ren_ls2)),force_rename force ssa',na')) ∧
-  (ssa_cc_trans (StoreConsts a b c d ws) ssa na =
+  (ssa_cc_trans is_x64 (StoreConsts a b c d ws) ssa na =
     let c1 = option_lookup ssa c in
     let d1 = option_lookup ssa d in
     let (d2,ssa',na') = next_var_rename d ssa na in
@@ -310,39 +312,39 @@ Definition ssa_cc_trans_def:
            (Move1 [(c2,4);(d2,6)])) in
     (prog, ssa'',na'')
   ) ∧
-  (ssa_cc_trans (Inst i) ssa na =
-    let (i',ssa',na') = ssa_cc_trans_inst i ssa na in
+  (ssa_cc_trans is_x64 (Inst i) ssa na =
+    let (i',ssa',na') = ssa_cc_trans_inst is_x64 i ssa na in
       (i',ssa',na')) ∧
-  (ssa_cc_trans (Assign num exp) ssa na=
+  (ssa_cc_trans is_x64 (Assign num exp) ssa na=
     let exp' = ssa_cc_trans_exp ssa exp in
     let (num',ssa',na') = next_var_rename num ssa na in
       (Assign num' exp',ssa',na')) ∧
-  (ssa_cc_trans (Get num store) ssa na=
+  (ssa_cc_trans is_x64 (Get num store) ssa na=
     let (num',ssa',na') = next_var_rename num ssa na in
       (Get num' store,ssa',na')) ∧
-  (ssa_cc_trans (Store exp num) ssa na=
+  (ssa_cc_trans is_x64 (Store exp num) ssa na=
     let exp' = ssa_cc_trans_exp ssa exp in
     let num' = option_lookup ssa num in
       (Store exp' num',ssa,na)) ∧
-  (ssa_cc_trans (Seq s1 s2) ssa na=
-    let (s1',ssa',na') = ssa_cc_trans s1 ssa na in
-    let (s2',ssa'',na'') = ssa_cc_trans s2 ssa' na' in
+  (ssa_cc_trans is_x64 (Seq s1 s2) ssa na=
+    let (s1',ssa',na') = ssa_cc_trans is_x64 s1 ssa na in
+    let (s2',ssa'',na'') = ssa_cc_trans is_x64 s2 ssa' na' in
       (Seq s1' s2',ssa'',na'')) ∧
-  (ssa_cc_trans (MustTerminate s1) ssa na =
-    let (s1',ssa',na') = ssa_cc_trans s1 ssa na in
+  (ssa_cc_trans is_x64 (MustTerminate s1) ssa na =
+    let (s1',ssa',na') = ssa_cc_trans is_x64 s1 ssa na in
       (MustTerminate s1',ssa',na')) ∧
   (*Tricky case 1: we need to merge the ssa results from both branches by
     unSSA-ing the phi functions
   *)
-  (ssa_cc_trans (If cmp r1 ri e2 e3) ssa na =
+  (ssa_cc_trans is_x64 (If cmp r1 ri e2 e3) ssa na =
     let r1' = option_lookup ssa r1 in
     let ri' = dtcase ri of Reg r => Reg (option_lookup ssa r)
                       |  Imm v => Imm v in
     (*ssa is the copy for both branches,
       however, we can use new na2 and ns2*)
-    let (e2',ssa2,na2) = ssa_cc_trans e2 ssa na in
+    let (e2',ssa2,na2) = ssa_cc_trans is_x64 e2 ssa na in
     (*ssa2 is the ssa map for the first branch*)
-    let (e3',ssa3,na3) = ssa_cc_trans e3 ssa na2 in
+    let (e3',ssa3,na3) = ssa_cc_trans is_x64 e3 ssa na2 in
     (*ssa3 is the ssa map for the second branch, notice we
       continued using na2 here though!*)
     (* prioritizing original skips *)
@@ -351,7 +353,7 @@ Definition ssa_cc_trans_def:
       fix_inconsistencies prio ssa2 ssa3 na3 in
     (If cmp r1' ri' (Seq e2' e2_cons) (Seq e3' e3_cons),ssa_fin,na_fin)) ∧
   (*For cutsets, we must restart the ssa mapping to maintain consistency*)
-  (ssa_cc_trans (Alloc num numset) ssa na =
+  (ssa_cc_trans is_x64 (Alloc num numset) ssa na =
     let ls = MAP FST (toAList numset) in
     (*This trick allows us to not keep the "next stack" variable by
       simply starting from the next available stack location
@@ -367,27 +369,27 @@ Definition ssa_cc_trans_def:
                (Seq (Move1 [(2,num')])
                (Seq (Alloc 2 stack_set) (ret_mov)))) in
     (prog,ssa'',na'')) ∧
-  (ssa_cc_trans (Raise num) ssa na =
+  (ssa_cc_trans is_x64 (Raise num) ssa na =
     let num' = option_lookup ssa num in
     let mov = Move1 [(2,num')] in
     (Seq mov (Raise 2),ssa,na)) ∧
-  (ssa_cc_trans (OpCurrHeap b dst src) ssa na=
+  (ssa_cc_trans is_x64 (OpCurrHeap b dst src) ssa na=
     let src' = option_lookup ssa src in
     let (dst',ssa',na') = next_var_rename dst ssa na in
       (OpCurrHeap b dst' src',ssa',na')) ∧
-  (ssa_cc_trans (Return num1 num2) ssa na=
+  (ssa_cc_trans is_x64 (Return num1 num2) ssa na=
     let num1' = option_lookup ssa num1 in
     let num2' = option_lookup ssa num2 in
     let mov = Move1 [(2,num2')] in
     (Seq mov (Return num1' 2),ssa,na)) ∧
-  (ssa_cc_trans Tick ssa na = (Tick,ssa,na)) ∧
-  (ssa_cc_trans (Set n exp) ssa na =
+  (ssa_cc_trans is_x64 Tick ssa na = (Tick,ssa,na)) ∧
+  (ssa_cc_trans is_x64 (Set n exp) ssa na =
     let exp' = ssa_cc_trans_exp ssa exp in
     (Set n exp',ssa,na)) ∧
-  (ssa_cc_trans (LocValue r l1) ssa na =
+  (ssa_cc_trans is_x64 (LocValue r l1) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (LocValue r' l1,ssa',na')) ∧
-  (ssa_cc_trans (Install ptr len dptr dlen numset) ssa na =
+  (ssa_cc_trans is_x64 (Install ptr len dptr dlen numset) ssa na =
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
     let stack_set = apply_nummap_key (option_lookup ssa') numset in
@@ -404,15 +406,15 @@ Definition ssa_cc_trans_def:
                (Seq (Install 2 4 dptr' dlen' stack_set)
                (Seq (Move1 [(ptr'',2)]) ret_mov)))) in
     (prog,ssa''',na''')) ∧
-  (ssa_cc_trans (CodeBufferWrite r1 r2) ssa na =
+  (ssa_cc_trans is_x64 (CodeBufferWrite r1 r2) ssa na =
     let r1' = option_lookup ssa r1 in
     let r2' = option_lookup ssa r2 in
     (CodeBufferWrite r1' r2',ssa,na)) ∧
-  (ssa_cc_trans (DataBufferWrite r1 r2) ssa na =
+  (ssa_cc_trans is_x64 (DataBufferWrite r1 r2) ssa na =
     let r1' = option_lookup ssa r1 in
     let r2' = option_lookup ssa r2 in
     (DataBufferWrite r1' r2',ssa,na)) ∧
-  (ssa_cc_trans (FFI ffi_index ptr1 len1 ptr2 len2 numset) ssa na =
+  (ssa_cc_trans is_x64 (FFI ffi_index ptr1 len1 ptr2 len2 numset) ssa na =
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
     let stack_set = apply_nummap_key (option_lookup ssa') numset in
@@ -427,13 +429,13 @@ Definition ssa_cc_trans_def:
                (Seq (Move1 [(2,cptr1);(4,clen1);(6,cptr2);(8,clen2)])
                (Seq (FFI ffi_index 2 4 6 8 stack_set) (ret_mov)))) in
     (prog,ssa'',na'')) ∧
-  (ssa_cc_trans (Call NONE dest args h) ssa na =
+  (ssa_cc_trans is_x64 (Call NONE dest args h) ssa na =
     let names = MAP (option_lookup ssa) args in
     let conv_args = GENLIST (\x.2*x) (LENGTH names) in
     let move_args = (Move1 (ZIP (conv_args,names))) in
     let prog = Seq move_args (Call NONE dest conv_args h) in
       (prog,ssa,na)) ∧
-  (ssa_cc_trans (Call (SOME(ret,numset,ret_handler,l1,l2)) dest args h) ssa na =
+  (ssa_cc_trans is_x64 (Call (SOME(ret,numset,ret_handler,l1,l2)) dest args h) ssa na =
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
     let stack_set = apply_nummap_key (option_lookup ssa') numset in
@@ -447,7 +449,7 @@ Definition ssa_cc_trans_def:
     (*This recurses on the returning handler*)
     let (ret',ssa_2_p,na_2_p) = next_var_rename ret ssa'' na'' in
     let (ren_ret_handler,ssa_2,na_2) =
-      ssa_cc_trans ret_handler ssa_2_p na_2_p in
+      ssa_cc_trans is_x64 ret_handler ssa_2_p na_2_p in
     let mov_ret_handler =
         (Seq ret_mov (Seq (Move1 [ret',2]) (ren_ret_handler))) in
     (dtcase h of
@@ -460,7 +462,7 @@ Definition ssa_cc_trans_def:
     | SOME(n,h,l1',l2') =>
         let (n',ssa_3_p,na_3_p) = next_var_rename n ssa'' na_2 in
         let (ren_exc_handler,ssa_3,na_3) =
-            (ssa_cc_trans h ssa_3_p na_3_p) in
+            (ssa_cc_trans is_x64 h ssa_3_p na_3_p) in
         let mov_exc_handler =
             (Seq ret_mov (Seq(Move1 [n',2]) (ren_exc_handler))) in
         let prio = mk_prio mov_ret_handler mov_exc_handler in
@@ -473,7 +475,7 @@ Definition ssa_cc_trans_def:
             (Call (SOME(2,stack_set,cons_ret_handler,l1,l2))
                dest conv_args (SOME(2,cons_exc_handler,l1',l2'))))) in
         (prog,ssa_fin,na_fin))) /\
-  (ssa_cc_trans (ShareInst op v exp) ssa na =
+  (ssa_cc_trans is_x64 (ShareInst op v exp) ssa na =
     let exp' = ssa_cc_trans_exp ssa exp in
       if op = Store ∨ op = Store8 ∨ op = Store32
       then
@@ -1549,10 +1551,10 @@ Definition limit_var_def:
 End
 
 Definition full_ssa_cc_trans_def:
-  full_ssa_cc_trans n prog =
+  full_ssa_cc_trans is_x64 n prog =
     let lim = limit_var prog in
     let (mov,ssa,na) = setup_ssa n lim prog in
-    let (prog',ssa',na') = ssa_cc_trans prog ssa na in
+    let (prog',ssa',na') = ssa_cc_trans is_x64 prog ssa na in
       Seq mov prog'
 End
 

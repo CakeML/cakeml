@@ -90,10 +90,15 @@ Definition copy_prop_inst_def:
   (copy_prop_inst (Const reg w) cs =
     (Inst (Const reg w), remove_eq cs reg)) ∧
   (copy_prop_inst (Arith (Binop bop r1 r2 ri)) cs =
-      let r2' = lookup_eq cs r2 in
-      let ri' = lookup_eq_imm cs ri in
-      (Inst (Arith (Binop bop r1 r2' ri')),
-        remove_eq cs r1)) ∧
+    let cs' = remove_eq cs r1 in
+    let i' =
+      if ri = Reg r1 then
+        Inst (Arith (Binop bop r1 r2 ri))
+      else
+        let r2' = lookup_eq cs r2 in
+        let ri' = lookup_eq_imm cs ri in
+        Inst (Arith (Binop bop r1 r2' ri')) in
+    (i', cs')) ∧
   (copy_prop_inst (Arith (Shift shift r1 r2 n)) cs =
     let r2' = lookup_eq cs r2 in
       (Inst (Arith (Shift shift r1 r2' n)),
@@ -104,21 +109,35 @@ Definition copy_prop_inst_def:
     (Inst (Arith (Div r1 r2' r3')),
         remove_eq cs r1)) ∧
   (copy_prop_inst (Arith (AddCarry r1 r2 r3 r4)) cs =
-    let r2' = lookup_eq cs r2 in
-    let r3' = lookup_eq cs r3 in
-    let r4' = lookup_eq cs r4 in
-    (Inst (Arith (AddCarry r1 r2' r3' r4)),
-        remove_eqs cs [r1;r4] )) ∧
+    let cs' = remove_eqs cs [r1;r4] in
+    let i' =
+      if r1 = r3 ∨ r1 = r4 then
+        Inst (Arith (AddCarry r1 r2 r3 r4))
+      else
+        let r2' = lookup_eq cs r2 in
+        let r3' = lookup_eq cs r3 in
+        Inst (Arith (AddCarry r1 r2' r3' r4)) in
+    (i', cs')) ∧
   (copy_prop_inst (Arith (AddOverflow r1 r2 r3 r4)) cs =
-    let r2' = lookup_eq cs r2 in
-    let r3' = lookup_eq cs r3 in
-     (Inst (Arith (AddOverflow r1 r2' r3' r4)),
-        remove_eqs cs [r1;r4] )) ∧
+    let cs' = remove_eqs cs [r1;r4] in
+    let i' =
+      if r1 = r3 then
+        Inst (Arith (AddOverflow r1 r2 r3 r4))
+      else
+        let r2' = lookup_eq cs r2 in
+        let r3' = lookup_eq cs r3 in
+        Inst (Arith (AddOverflow r1 r2' r3' r4)) in
+    (i', cs')) ∧
   (copy_prop_inst (Arith (SubOverflow r1 r2 r3 r4)) cs =
-    let r2' = lookup_eq cs r2 in
-    let r3' = lookup_eq cs r3 in
-    (Inst (Arith (SubOverflow r1 r2' r3' r4)),
-        remove_eqs cs [r1;r4] )) ∧
+    let cs' = remove_eqs cs [r1;r4] in
+    let i' =
+      if r1 = r3 then
+        Inst (Arith (SubOverflow r1 r2 r3 r4))
+      else
+        let r2' = lookup_eq cs r2 in
+        let r3' = lookup_eq cs r3 in
+        Inst (Arith (SubOverflow r1 r2' r3' r4)) in
+    (i', cs')) ∧
   (copy_prop_inst (Arith (LongMul r1 r2 r3 r4)) cs =
     let r3' = lookup_eq cs r3 in
     let r4' = lookup_eq cs r4 in

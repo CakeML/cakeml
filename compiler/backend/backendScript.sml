@@ -319,13 +319,16 @@ Definition to_livesets_def:
                                      has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count)|>) in
   let p = stubs(:α) data_conf ++ MAP (compile_part data_conf) p in
   let alg = word_conf.reg_alg in
-  let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
+  let (is_x64,two_reg_arith,reg_count) =
+    (asm_conf.ISA = x86_64,
+     asm_conf.two_reg_arith,
+     asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
   let p =
     MAP (λ(name_num,arg_count,prog).
     let prog = word_simp$compile_exp prog in
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
-    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
+    let ssa_prog = full_ssa_cc_trans is_x64 arg_count inst_prog in
     let rm_ssa_prog = remove_dead_prog ssa_prog in
     let cse_prog = word_common_subexp_elim rm_ssa_prog in
     let cp_prog = copy_prop cse_prog in
@@ -344,13 +347,16 @@ Definition to_livesets_0_def:
   to_livesets_0 (c:α backend$config,p,names: mlstring num_map) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
   let alg = word_conf.reg_alg in
-  let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
+  let (is_x64,two_reg_arith,reg_count) =
+    (asm_conf.ISA = x86_64,
+     asm_conf.two_reg_arith,
+     asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
   let p =
     MAP (λ(name_num,arg_count,prog).
     let prog = word_simp$compile_exp prog in
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
-    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
+    let ssa_prog = full_ssa_cc_trans is_x64 arg_count inst_prog in
     let rm_ssa_prog = remove_dead_prog ssa_prog in
     let cse_prog = word_common_subexp_elim rm_ssa_prog in
     let cp_prog = copy_prop cse_prog in
@@ -611,8 +617,9 @@ Definition compile_inc_progs_def:
     let asm_c = c.lab_conf.asm_conf in
     let dc = ensure_fp_conf_ok asm_c c.data_conf in
     let p = MAP (compile_part dc) p in
+    let is_x64 = (asm_c.ISA = x86_64) in
     let reg_count1 = asm_c.reg_count - (5 + LENGTH asm_c.avoid_regs) in
-    let p = MAP (\p. full_compile_single asm_c.two_reg_arith reg_count1
+    let p = MAP (\p. full_compile_single is_x64 asm_c.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_c (p, NONE)) p in
     let ps = ps with <| word_prog := keep_progs k p |> in
     let bm0 = c.word_conf.bitmaps_length in
@@ -815,8 +822,9 @@ Theorem compile_inc_progs_for_eval_eq:
     let _ = empty_ffi (strlit "finished: bvi_to_data") in
     let dc = ensure_fp_conf_ok asm_c' c.data_conf in
     let p = MAP (compile_part dc) p in
+    let is_x64 = (asm_c'.ISA=x86_64) in
     let reg_count1 = asm_c'.reg_count - (5 + LENGTH asm_c'.avoid_regs) in
-    let p = MAP (\p. full_compile_single_for_eval asm_c'.two_reg_arith reg_count1
+    let p = MAP (\p. full_compile_single_for_eval is_x64 asm_c'.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_c' (p, NONE)) p in
     let _ = empty_ffi (strlit "finished: data_to_word") in
     let bm0 = c.word_conf.bitmaps_length in

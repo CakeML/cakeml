@@ -6,7 +6,7 @@
 *)
 open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory
 open word_simpTheory word_cseTheory word_unreachTheory word_copyTheory word_instTheory
-open mlstringTheory
+open mlstringTheory;
 
 val _ = new_theory "word_to_word";
 
@@ -19,11 +19,11 @@ Datatype:
 End
 
 Definition compile_single_def:
-  compile_single two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =
+  compile_single is_x64 two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =
   let prog = word_simp$compile_exp prog in
   let maxv = max_var prog + 1 in
   let inst_prog = inst_select c maxv prog in
-  let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
+  let ssa_prog = full_ssa_cc_trans is_x64 arg_count inst_prog in
   let rm_ssa_prog = remove_dead_prog ssa_prog in
   let cse_prog = word_common_subexp_elim rm_ssa_prog in
   let cp_prog = copy_prop cse_prog in
@@ -35,8 +35,8 @@ Definition compile_single_def:
 End
 
 Definition full_compile_single_def:
-  full_compile_single two_reg_arith reg_count alg c p =
-  let (name_num,arg_count,reg_prog) = compile_single two_reg_arith reg_count alg c p in
+  full_compile_single is_x64 two_reg_arith reg_count alg c p =
+  let (name_num,arg_count,reg_prog) = compile_single is_x64 two_reg_arith reg_count alg c p in
     (name_num,arg_count,remove_must_terminate reg_prog)
 End
 
@@ -50,21 +50,21 @@ End
 
 Definition compile_def:
   compile word_conf (asm_conf:'a asm_config) progs =
-    let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
+    let (is_x64,two_reg_arith,reg_count) = (asm_conf.ISA = x86_64, asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let progs = ZIP (progs,n_oracles) in
-    (col,MAP (full_compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)
+    (col,MAP (full_compile_single is_x64 two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)
 End
 
 Definition full_compile_single_for_eval_def:
-  full_compile_single_for_eval two_reg_arith reg_count alg c p =
+  full_compile_single_for_eval is_x64 two_reg_arith reg_count alg c p =
     let ((name_num,arg_count,prog),col_opt) = p in
     let prog = word_simp$compile_exp prog in
     let _ = empty_ffi (strlit "finished: word_simp") in
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select c maxv prog in
     let _ = empty_ffi (strlit "finished: word_inst") in
-    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
+    let ssa_prog = full_ssa_cc_trans is_x64 arg_count inst_prog in
     let _ = empty_ffi (strlit "finished: word_ssa") in
     let rm_ssa_prog = remove_dead_prog ssa_prog in
     let _ = empty_ffi (strlit "finished: word_remove_dead after word_ssa") in
@@ -86,8 +86,8 @@ Definition full_compile_single_for_eval_def:
 End
 
 Theorem full_compile_single_for_eval_eq:
-  full_compile_single two_reg_arith reg_count alg c p =
-  full_compile_single_for_eval two_reg_arith reg_count alg c p
+  full_compile_single is_x64 two_reg_arith reg_count alg c p =
+  full_compile_single_for_eval is_x64 two_reg_arith reg_count alg c p
 Proof
   rw [full_compile_single_for_eval_def, full_compile_single_def]
   \\ PairCases_on ‘p’ \\ simp [compile_single_def]

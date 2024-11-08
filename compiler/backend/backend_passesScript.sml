@@ -184,6 +184,7 @@ QED
   in the explorer pretty printing. *)
 Definition word_internal_def:
   word_internal asm_conf ps names p =
+    let is_x64 = (asm_conf.ISA = x86_64) in
     let two_reg_arith = asm_conf.two_reg_arith in
     let p = MAP (λ((name_num,arg_count,prog)).
                   ((name_num,arg_count,word_simp$compile_exp prog))) p in
@@ -193,7 +194,7 @@ Definition word_internal_def:
                      inst_select asm_conf (max_var prog + 1) prog))) p in
     let ps = ps ++ [(strlit "after word_inst",Word p names)] in
     let p = MAP (λ((name_num,arg_count,prog)).
-                  ((name_num,arg_count,full_ssa_cc_trans arg_count prog))) p in
+                  ((name_num,arg_count,full_ssa_cc_trans is_x64 arg_count prog))) p in
     let ps = ps ++ [(strlit "after word_ssa",Word p names)] in
     let p = MAP (λ((name_num,arg_count,prog)).
                   ((name_num,arg_count,remove_dead_prog prog))) p in
@@ -311,7 +312,7 @@ Definition to_lab_all_def:
     let ps = ps ++ [(strlit "after stack_names",Stack prog names)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(strlit "after stack_to_lab",Lab p names)] in
-      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:'a prog,names)
+      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:'a labLang$prog,names)
 End
 
 Theorem to_lab_thm:
