@@ -20,6 +20,7 @@ val is_phy_var_tac =
     metis_tac[arithmeticTheory.MOD_EQ_0];
 
 val rmd_thms = (remove_dead_conventions |>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
+
 val drule = old_drule
 
 val prog_ind = TypeBase.induction_of“:α prog”;
@@ -67,50 +68,23 @@ Proof
 QED
 
 Theorem wf_cutsets_copy_prop_aux:
-  ∀p cs. wf_cutsets p ⇒ wf_cutsets (FST (copy_prop_prog p cs))
+  ∀p cs. wf_cutsets p ⇒
+    wf_cutsets (FST (copy_prop_prog p cs))
 Proof
-  ho_match_mp_tac prog_ind_simple
-  >>rw[wf_cutsets_def,word_copyTheory.copy_prop_prog_def]
-  >-(pairarg_tac>>fs[wf_cutsets_def])
-  >-(
-    Cases_on‘i’>>rw[word_copyTheory.copy_prop_inst_def,wf_cutsets_def]
-    >-(Cases_on‘a’>>rw[word_copyTheory.copy_prop_inst_def,wf_cutsets_def])
+  ho_match_mp_tac word_copyTheory.copy_prop_prog_ind>>
+  rw[word_copyTheory.copy_prop_prog_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  fs[wf_cutsets_def]
+  >- (
+    Cases_on‘i’>>
+    rw[word_copyTheory.copy_prop_inst_def,wf_cutsets_def]
+    >-(Cases_on‘a’>>
+      rw[word_copyTheory.copy_prop_inst_def,wf_cutsets_def])
     >-(Cases_on‘m’>>Cases_on‘a’>>rw[word_copyTheory.copy_prop_inst_def,wf_cutsets_def])
     >-(Cases_on‘f’>>rw[word_copyTheory.copy_prop_inst_def,wf_cutsets_def])
   )
-  >-(TOP_CASE_TAC>>rw[wf_cutsets_def])
-  (* MustTerminate *)
-  >-(
-    pairarg_tac>>fs[wf_cutsets_def]
-    >>last_x_assum$qspecl_then[‘cs’]assume_tac
-    >>gs[]
-  )
-  (* Seq *)
-  >-(
-    rpt(pairarg_tac>>fs[])
-    >>rw[wf_cutsets_def]
-    >-(
-      ‘q1 = FST (copy_prop_prog p cs)’ by rw[]
-      >>metis_tac[]
-    )
-    >-(
-      ‘q2 = FST (copy_prop_prog p' cs')’ by rw[]
-      >>metis_tac[]
-    )
-  )
-  (* If *)
-  >-(
-    rpt(pairarg_tac>>fs[])
-    >>rw[wf_cutsets_def]
-    >-(
-      ‘q1 = FST (copy_prop_prog p cs)’ by rw[]
-      >>metis_tac[]
-    )
-    >-(
-      ‘q2 = FST (copy_prop_prog p' cs)’ by rw[]
-      >>metis_tac[]
-    )
-  )
+  >-
+    (every_case_tac>>gvs[wf_cutsets_def])
 QED
 
 (* TODO: move to word_copyProof *)
