@@ -253,7 +253,7 @@ Theorem wordfreq_spec:
   (* EXERCISE: write the specification for the wordfreq program *)
   (* hint: it should be very similar to wordcount_spec (in wordcountProgScript.sml) *)
   (* hint: use wordfreq_output_spec to produce the desired output *)
-
+Proof
 (* The following proof sketch should work when you have roughly the right
    specification
 

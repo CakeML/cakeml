@@ -1322,7 +1322,8 @@ Theorem stop_spec:
     (IOBOT w)
     (POSTv bv.
     IOBOT w *
-    &BOOL (w.wo.stop_oracle 0) bv)`,
+    &BOOL (w.wo.stop_oracle 0) bv)
+Proof
   rw [IOBOT_def] \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [bot_ffi_part_def, IOx_def, IO_def]
   \\ xpull \\ qunabbrev_tac `Q` >>
@@ -1360,7 +1361,8 @@ Theorem stop_spec:
   qexists_tac`b`>>
   qexists_tac`WORD8`>>simp[Abbr`b`]>>rw[]>>
   simp[ml_translatorTheory.EqualityType_NUM_BOOL]>>
-  simp[IOBOT_def]>>xsimpl);
+  simp[IOBOT_def]>>xsimpl
+QED
 
 (* eventually on oracle sequences *)
 val eventually_def = Define`

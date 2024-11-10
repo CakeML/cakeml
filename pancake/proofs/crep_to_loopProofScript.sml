@@ -3017,7 +3017,7 @@ Proof
   >- (
     (* general call case *)
     rw []
-    \\ qmatch_goalsub_abbrev_tac ‘domain l SUBSET rhs`
+    \\ qmatch_goalsub_abbrev_tac ‘domain l SUBSET rhs’
     \\ reverse (qsuff_tac `domain l SUBSET rhs`)
     >- (
       fs [Abbr `rhs`]
