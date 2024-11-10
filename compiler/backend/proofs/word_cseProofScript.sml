@@ -3,7 +3,7 @@
 *)
 open preamble alistTheory totoTheory;
 open wordLangTheory wordSemTheory wordPropsTheory reg_allocTheory;
-open word_simpTheory word_cseTheory;
+open word_simpTheory word_cseTheory helperLib;
 
 val _ = new_theory "word_cseProof";
 
@@ -296,15 +296,7 @@ Theorem are_reads_seen_insert[simp]:
   ∀a data r. are_reads_seen a data ⇒
              are_reads_seen a (data with all_names := insert r () data.all_names)
 Proof
-  rpt gen_tac \\ strip_tac
-  \\ Cases_on ‘a’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-  >- (Cases_on ‘r'’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-      \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-      \\ Cases_on ‘lookup n' data.all_names’ \\ gvs []
-      \\ Cases_on ‘n0=r’ \\ gvs []
-      \\ Cases_on ‘n'=r’ \\ gvs [])
-  \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-  \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
+  ho_match_mp_tac are_reads_seen_ind \\ rw[are_reads_seen_def,is_seen_def,lookup_insert]
 QED
 
 Theorem are_reads_seen_insert_instrs[simp]:
@@ -1927,9 +1919,9 @@ Proof
 QED
 
 Theorem inst_arg_convention_canonicalArith:
-  ∀a data. data_conventions data ⇒
+  ∀a data is_x64. data_conventions data ⇒
            ¬is_complex a ⇒
-           inst_arg_convention (Arith (canonicalArith data a))
+           inst_arg_convention is_x64 (Arith (canonicalArith data a))
 Proof
   rpt strip_tac
   \\ Cases_on ‘a’ \\ gvs [is_complex_def]
@@ -1937,10 +1929,10 @@ Proof
 QED
 
 Theorem word_cse_pre_alloc_conventions:
-  ∀p data.
+  ∀p data is_x64.
     let p' = SND (word_cse data p) in
       data_conventions data ⇒
-      pre_alloc_conventions p ⇒ pre_alloc_conventions p'
+      pre_alloc_conventions is_x64 p ⇒ pre_alloc_conventions is_x64 p'
 Proof
   Induct \\ gvs [pre_alloc_conventions_def, word_cse_def, AllCaseEqs()]
   \\ rpt gen_tac \\ strip_tac
@@ -2148,12 +2140,12 @@ Proof
 QED
 
 Theorem word_cse_conventions2:
-  ∀p data c.
+  ∀p data c is_x64.
     data_conventions data ⇒
     let (data', p') = word_cse data p in
       (flat_exp_conventions p ⇒ flat_exp_conventions p') ∧
       (full_inst_ok_less c p ⇒ full_inst_ok_less c p') ∧
-      (pre_alloc_conventions p ⇒ pre_alloc_conventions p') ∧
+      (pre_alloc_conventions is_x64 p ⇒ pre_alloc_conventions is_x64 p') ∧
       (wf_cutsets p ⇒ wf_cutsets p') ∧
       (every_inst two_reg_inst p ⇒ every_inst two_reg_inst p') ∧
       (every_inst distinct_tar_reg p ⇒ every_inst distinct_tar_reg p') ∧
@@ -2220,8 +2212,8 @@ Proof
 QED
 
 Theorem pre_alloc_conventions_word_common_subexp_elim:
-  pre_alloc_conventions p ⇒
-  pre_alloc_conventions (word_common_subexp_elim p)
+  pre_alloc_conventions is_x64 p ⇒
+  pre_alloc_conventions is_x64 (word_common_subexp_elim p)
 Proof
   fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
   \\ qspecl_then [‘p’,‘empty_data’,‘acc’] mp_tac word_cse_conventions2 \\ fs []
