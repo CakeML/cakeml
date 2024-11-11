@@ -375,7 +375,7 @@ QED
 
 val pre = word_allocTheory.ssa_cc_trans_def |> arch_spec |> cv_auto_trans_pre;
 Theorem word_alloc_ssa_cc_trans_pre[cv_pre]:
-  ∀b v ssa na. word_alloc_ssa_cc_trans_pre b v ssa na
+  ∀v ssa na. word_alloc_ssa_cc_trans_pre v ssa na
 Proof
   ho_match_mp_tac word_allocTheory.ssa_cc_trans_ind \\ rw[] \\ simp [Once pre]
 QED
