@@ -4,6 +4,13 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+November 11th 2024
+-------------------
+
+The syntax for annotations is changed from `/*@ ... @*/` to
+`/@ ... @/`. This is to allow annotation strings to be processed
+by the C preprocessor, rather than being ignored as comments.
+
 October 30th 2024
 -------------------
 
