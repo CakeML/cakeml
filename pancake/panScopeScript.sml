@@ -8,7 +8,7 @@
     - Redefined functions
   - Warnings:
     - Redefined variables
-  
+
   General checks:
   - Errors:
     - Exported main function
@@ -21,7 +21,6 @@
     - Unreachable statements (after function exit, after loop exit)
     - Base-calculated address in shared memory operation
     - Non-base -calculated address in local memory operation
-    - 
 
   Shape checks: TODO
 *)
@@ -40,6 +39,7 @@ Datatype:
           | ShapeErr mlstring
 End
 
+(* (retval, proper error) error # warning list *)
 Type static_result = ``:('a, staterr) error # staterr list``
 
 Datatype:
@@ -199,7 +199,8 @@ Definition panop_to_str_def:
     | Mul => implode "Mul"
 End
 
-(* Definition mapM_def:
+(*
+Definition mapM_def:
   mapM f [] = return [] ∧
   mapM f (x::xs) = do
     e <- f x;
@@ -208,6 +209,10 @@ End
   od
 End *)
 
+(*
+  scope_check_exp[s] returns:
+    (basedness of expression (:based)) static_result
+*)
 Definition scope_check_exp_def:
   scope_check_exp ctxt (Const c) = return (NotBased) ∧
   scope_check_exp ctxt (Var vname) =
@@ -223,7 +228,8 @@ Definition scope_check_exp_def:
   scope_check_exp ctxt (Struct es) =
     do
       scope_check_exps ctxt es;
-      return (Trusted) (* doesn't matter too much, since shape checking will pick up a struct being used an address*)
+      return (Trusted)
+      (* retval doesn't matter too much, since shape checking will pick up a struct being used an address*)
     od ∧
   scope_check_exp ctxt (Field index e) =
     do
@@ -292,17 +298,19 @@ Definition scope_check_exp_def:
       b1 <- scope_check_exp ctxt e;
       b2 <- scope_check_exps ctxt es;
       return (based_merge b1 b2)
-      (* retval only applies to operations - use of check_exps for eg. args does not keep the return *)
+      (* retval only applies to operations - use of check_exps for eg. args ignores the return *)
     od
 End
 
+
 (*
-retval = (
-  whether prog returns for certain,
-  reachability just before prog,
-  last stmt of prog in terms of reachability,
-  change in variable mapping that occurred during prog
-)
+  scope_check_prog returns:
+    (
+      whether prog returns in all execution paths (:bool),
+      reachability of context before prog (:reachable),
+      last statement of prog wrt reachability (:last_stmt),
+      change in variable mapping as a result of prog (:(variable,based) map)
+    ) static_result
 *)
 Definition scope_check_prog_def:
   scope_check_prog ctxt Skip = return (F, ctxt.is_reachable, OtherLast, empty mlstring$compare) ∧
@@ -496,11 +504,15 @@ Definition scope_check_prog_def:
   scope_check_prog ctxt (Annot _ _) = return (F, ctxt.is_reachable, InvisLast, empty mlstring$compare)
 End
 
+(*
+  scope_check_funs returns:
+    (unit) static_result
+*)
 Definition scope_check_funs_def:
   scope_check_funs fnames [] = return () ∧
   scope_check_funs fnames ((fname, export:bool, vshapes, body)::funs) =
     do
-      if (fname = main /\ export) then
+      if (fname = «main» /\ export) then
         error (GenErr $ strlit "main function is exported\n")
       else return ();
       if (LENGTH vshapes > 4 /\ export) then
@@ -527,10 +539,14 @@ Definition scope_check_funs_def:
     od
 End
 
-(* The scope checker returns NONE to indicate that there is no scope error, and
-   SOME (name, fname) to indicate that name is not in scope in an expression
-   within the function fname. The first component name may be the name of a
-   variable or a function. *)
+(*
+  scope_check returns:
+    (unit) static_result
+
+  The static checker returns () if no error occurred, or the static error
+  encountered, along with a list of warnings encountered (if any). All warnings
+  and errors come with a message containing the issue [TODO: and its location]
+*)
 Definition scope_check_def:
   scope_check funs =
     do
@@ -539,14 +555,6 @@ Definition scope_check_def:
         SOME f => error (GenErr $ concat
           [strlit "function "; f; strlit " is redeclared\n"])
       | NONE => return ();
-      (* case SPLITP (\(f,_,_,_). f = «main») funs of
-        (xs,(_,T,_,_)::ys) => error (GenErr $
-          strlit "main function is exported\n")
-      | _ => return (); *)
-      (* case SPLITP (\(_,_,ps,_). LENGTH ps > 4) $ FILTER (FST o SND) funs of
-        (xs,(f,_,_,_)::ys) => error (GenErr $ concat
-          [strlit "exported function "; f; strlit " has more than 4 arguments\n"])
-      | _ => return (); *)
       scope_check_funs fnames funs
     od
 End
