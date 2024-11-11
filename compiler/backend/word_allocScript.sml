@@ -184,8 +184,9 @@ Definition ssa_cc_trans_inst_def:
       let mov_out = Move1 [(r2',0);(r1',6)] in
         (Seq mov_in  (Seq (Inst (Arith (LongMul 6 0 0 4))) mov_out),ssa'',na'')
     else
-      (Inst (Arith (LongMul r1' r2' r3' r4')),ssa'',na'')
-      ) ∧
+      let mov_out = Move1 [(r2',0)] in
+      (Seq (Inst (Arith (LongMul r1' 0 r3' r4'))) mov_out,ssa'',na'')
+  ) ∧
   (ssa_cc_trans_inst is_x64 (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in

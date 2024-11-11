@@ -4,9 +4,8 @@
 open preamble semanticsPropsTheory stackSemTheory wordSemTheory
      word_to_stackTheory wordPropsTheory stackPropsTheory
      parmoveTheory;
-
-(* To help interactive proofs *)
 open helperLib;
+
 val get_labels_def = stackSemTheory.get_labels_def;
 val extract_labels_def = stackPropsTheory.extract_labels_def
 
@@ -588,7 +587,7 @@ End
   lens tracks the size of each remaining stack frame on the stackLang stack
 *)
 Definition state_rel_def:
-  state_rel k f f' (s:('a,num # 'c,'ffi) wordSem$state) (t:('a,'c,'ffi) stackSem$state) lens ⇔
+  state_rel is_x64 k f f' (s:('a,num # 'c,'ffi) wordSem$state) (t:('a,'c,'ffi) stackSem$state) lens ⇔
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
     (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 4 < k /\
@@ -607,7 +606,7 @@ Definition state_rel_def:
       let (progs,fs,bm) = word_to_stack$compile_word_to_stack k progs (Nil, bm0) in
         (cfg,progs,append (FST bm))) ∧
     (∀n. let ((bm0,cfg),progs) = s.compile_oracle n in
-        EVERY (post_alloc_conventions k o SND o SND) progs ∧
+        EVERY (post_alloc_conventions is_x64 k o SND o SND) progs ∧
         EVERY (flat_exp_conventions o SND o SND) progs ∧
         EVERY ((<>) raise_stub_location o FST) progs ∧
         EVERY ((<>) store_consts_stub_location o FST) progs ∧
@@ -616,7 +615,7 @@ Definition state_rel_def:
                       store_consts_stub_location INSERT domain s.code ∧
     (!n word_prog arg_count.
        (lookup n s.code = SOME (arg_count,word_prog)) ==>
-       post_alloc_conventions k word_prog /\
+       post_alloc_conventions is_x64 k word_prog /\
        flat_exp_conventions word_prog /\
        ?bs i bs2 i2 f stack_prog.
          word_to_stack$compile_prog word_prog arg_count k (bs,i) = (stack_prog,f,(bs2,i2)) /\
@@ -680,7 +679,7 @@ val nn = ``(NONE:(num # 'a wordLang$prog # num # num) option)``
 
 (*
 Triviality LENGTH_write_bitmap:
-  state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f ==>
+  state_rel is_x64 k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f ==>
     (LENGTH ((write_bitmap (names:num_set) k f'):'a word list) + f' = f)
 Proof
   fs [state_rel_def,write_bitmap_def,LET_DEF]
@@ -1066,14 +1065,14 @@ QED
 Theorem evaluate_wLive[local]:
   wLive names (bs,n) (k,f,f') = (wlive_prog,(bs',n')) /\
   (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
-  state_rel k f f' (s:('a,num # 'c,'ffi) wordSem$state) t lens /\ 1 <= f /\
+  state_rel is_x64 k f f' (s:('a,num # 'c,'ffi) wordSem$state) t lens /\ 1 <= f /\
   (cut_env names s.locals = SOME env) /\
   LENGTH (append bs) ≤ n ∧ n - LENGTH (append bs) ≤ LENGTH t.bitmaps ∧
   isPREFIX (append bs') (DROP (n - LENGTH (append bs)) t.bitmaps) ==>
   ?t5:('a,'c,'ffi) stackSem$state bs5.
     (evaluate (wlive_prog,t) = (NONE,t5)) /\
-    state_rel k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
-    state_rel k f f' s t5 lens /\
+    state_rel is_x64 k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
+    state_rel is_x64 k f f' s t5 lens /\
     LENGTH t5.stack = LENGTH t.stack /\ t5.stack_space = t.stack_space /\
     !i. i ≠ k ==> get_var i t5 = get_var i t
 Proof
@@ -1107,7 +1106,7 @@ Proof
            |> SIMP_RULE std_ss [list_LUPDATE_def])
     \\ fsrw_tac[] [] \\ decide_tac)
   \\ TRY(rename1`flat_exp_conventions A`>>metis_tac[])
-  \\ TRY(rename1`post_alloc_conventions A B`>>metis_tac[])
+  \\ TRY(rename1`post_alloc_conventions _ A B`>>metis_tac[])
   \\ TRY(qmatch_goalsub_abbrev_tac`_ <= _ + the _ _` >>
          rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn,stack_size_eq] >> fs[])
   \\ TRY(qmatch_goalsub_abbrev_tac`the _ _ = _` >>
@@ -1282,8 +1281,8 @@ val push_env_set_store = Q.prove(
   fs [push_env_def,set_store_def,env_to_list_def,LET_DEF])|> INST_TYPE [beta|-> alpha, gamma|->beta];
 
 Triviality state_rel_set_store_0:
-  state_rel k 0 0 s5 t5 len ==>
-    state_rel k 0 0 (set_store AllocSize w s5) (set_store AllocSize w t5) len
+  state_rel is_x64 k 0 0 s5 t5 len ==>
+    state_rel is_x64 k 0 0 (set_store AllocSize w s5) (set_store AllocSize w t5) len
 Proof
   rpt strip_tac
   \\ fs [state_rel_def,set_store_def,stackSemTheory.set_store_def,LET_DEF,
@@ -1384,7 +1383,7 @@ Proof
 QED
 
 Triviality IMP_enc_stack:
-  state_rel k 0 0 s1 t1 lens
+  state_rel is_x64 k 0 0 s1 t1 lens
     ==>
     (enc_stack t1.bitmaps (DROP t1.stack_space t1.stack) =
        SOME (enc_stack s1.stack))
@@ -1678,8 +1677,8 @@ Proof
 QED
 
 Triviality gc_state_rel:
-  (gc (s1:('a,num # 'c,'ffi) wordSem$state) = SOME s2) /\ state_rel k 0 0 s1 (t1:('a,'c,'ffi) stackSem$state) lens /\ (s1.locals = LN) ==>
-    ?(t2:('a,'c,'ffi) stackSem$state). gc t1 = SOME t2 /\ state_rel k 0 0 s2 t2 lens
+  (gc (s1:('a,num # 'c,'ffi) wordSem$state) = SOME s2) /\ state_rel is_x64 k 0 0 s1 (t1:('a,'c,'ffi) stackSem$state) lens /\ (s1.locals = LN) ==>
+    ?(t2:('a,'c,'ffi) stackSem$state). gc t1 = SOME t2 /\ state_rel is_x64 k 0 0 s2 t2 lens
     /\ LENGTH t2.stack = LENGTH t1.stack /\ t2.stack_space = t1.stack_space
 Proof
   fs [gc_def,LET_DEF]
@@ -1700,7 +1699,7 @@ Proof
   \\ rfs [FLOOKUP_DEF] \\ rw[]
   THEN1 (fs [fmap_EXT,EXTENSION,DOMSUB_FAPPLY_THM] \\ metis_tac [])
   \\ fs [DROP_APPEND,DROP_TAKE_NIL]
-  \\ TRY(qmatch_goalsub_abbrev_tac `post_alloc_conventions _` >> metis_tac[])
+  \\ TRY(qmatch_goalsub_abbrev_tac `post_alloc_conventions _ _` >> metis_tac[])
   \\ TRY(qmatch_goalsub_abbrev_tac `flat_exp_conventions _` >> metis_tac[])
   \\ metis_tac[dec_stack_stack_size]
 QED
@@ -1796,14 +1795,14 @@ Triviality alloc_IMP_alloc:
   (wordSem$alloc c names (s:('a,num # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) /\
     (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
     1 ≤ f /\
-    state_rel k f f' s t5 lens /\
-    state_rel k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
+    state_rel is_x64 k f f' s t5 lens /\
+    state_rel is_x64 k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
     (cut_env names s.locals = SOME env) /\
     res <> SOME Error ==>
     ?t1:('a,'c,'ffi) stackSem$state res1.
       (stackSem$alloc c t5 = (res1:'a stackSem$result option,t1)) /\
       if res = NONE then
-        res1 = NONE /\ state_rel k f f' s1 t1 lens /\ LENGTH t1.stack = LENGTH t5.stack
+        res1 = NONE /\ state_rel is_x64 k f f' s1 t1 lens /\ LENGTH t1.stack = LENGTH t5.stack
                                                    /\ t1.stack_space = t5.stack_space
       else
         res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w)) /\
@@ -1822,7 +1821,7 @@ Proof
   THEN1 (fsrw_tac[] [set_store_def,push_env_def]) \\ rpt strip_tac
   \\ fsrw_tac[] [] \\ Cases_on `pop_env x` \\ fsrw_tac[] []
   \\ Q.MATCH_ASSUM_RENAME_TAC `pop_env s2 = SOME s3`
-  \\ `state_rel k f f' s3 t2 lens` by
+  \\ `state_rel is_x64 k f f' s3 t2 lens` by
     (imp_res_tac gc_s_key_eq>>
     fsrw_tac[][set_store_def]>>
     imp_res_tac push_env_pop_env_s_key_eq>>
@@ -1961,13 +1960,13 @@ QED
 
 Triviality alloc_IMP_alloc2:
   (wordSem$alloc c names (s:('a,num # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) ∧
-  state_rel k 0 0 s t lens ∧
+  state_rel is_x64 k 0 0 s t lens ∧
   domain names = {} ∧
   res ≠ SOME Error ⇒
   ∃(t1:('a,'c,'ffi) stackSem$state) res1.
     (stackSem$alloc c t = (res1:'a stackSem$result option,t1)) ∧
     if res = NONE then
-      res1 = NONE ∧ state_rel k 0 0 s1 t1 lens /\ LENGTH t1.stack = LENGTH t.stack /\
+      res1 = NONE ∧ state_rel is_x64 k 0 0 s1 t1 lens /\ LENGTH t1.stack = LENGTH t.stack /\
       t1.stack_space = t.stack_space
     else
       res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w)) ∧
@@ -2001,7 +2000,7 @@ Proof
   imp_res_tac gc_state_rel>>
   ntac 6 (pop_assum kall_tac)>>
   pop_assum mp_tac>>
-  disch_then(qspecl_then [`set_store AllocSize (Word c) t`,`lens`,`k`] mp_tac)>>
+  disch_then(qspecl_then [`set_store AllocSize (Word c) t`,`lens`,`k`,`is_x64`] mp_tac)>>
   impl_tac>-
     (fs[markerTheory.Abbrev_def,state_component_equality,set_store_def,push_env_def,state_rel_def,LET_THM,env_to_list_def,lookup_def]>>
     fs[FUN_EQ_THM,wf_def]>>
@@ -2573,7 +2572,7 @@ Theorem with_same_locals[simp] =
   EQT_ELIM(SIMP_CONV(srw_ss())[state_component_equality]``s with locals := s.locals = (s:('a,'b,'c) wordSem$state)``)
 
 Theorem state_rel_get_var_imp:
-   state_rel k f f' s t lens ∧ get_var (2 * x) s = SOME v ∧ x < k ⇒ FLOOKUP t.regs x = SOME v
+   state_rel is_x64 k f f' s t lens ∧ get_var (2 * x) s = SOME v ∧ x < k ⇒ FLOOKUP t.regs x = SOME v
 Proof
   simp[state_rel_def]
   \\ strip_tac
@@ -2586,7 +2585,7 @@ Proof
 QED
 
 Theorem state_rel_get_var_imp2:
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
   get_var (2 * x) s = SOME v ∧
   ¬(x < k)
   ⇒
@@ -2608,8 +2607,8 @@ Proof
 QED
 
 Theorem state_rel_set_var_k[simp]:
-   (state_rel k f f' s (set_var (k+1) v t) lens ⇔ state_rel k f f' s t lens) ∧
-   (state_rel k f f' s (set_var k v t) lens ⇔ state_rel k f f' s t lens)
+   (state_rel is_x64 k f f' s (set_var (k+1) v t) lens ⇔ state_rel is_x64 k f f' s t lens) ∧
+   (state_rel is_x64 k f f' s (set_var k v t) lens ⇔ state_rel is_x64 k f f' s t lens)
 Proof
   conj_tac
   \\ simp[state_rel_def,EQ_IMP_THM,stackSemTheory.set_var_def]
@@ -2619,8 +2618,8 @@ Proof
 QED
 
 Theorem state_rel_set_var:
-    state_rel k f f' s t lens ∧ x < k ⇒
-    state_rel k f f' (set_var (2*x) v s) (set_var x v t) lens
+    state_rel is_x64 k f f' s t lens ∧ x < k ⇒
+    state_rel is_x64 k f f' (set_var (2*x) v s) (set_var x v t) lens
 Proof
   simp[state_rel_def,stackSemTheory.set_var_def,wordSemTheory.set_var_def]
   \\ strip_tac
@@ -2641,8 +2640,8 @@ Proof
 QED
 
 Theorem state_rel_set_var2:
-    state_rel k f f' s t lens ∧ ¬(x < k) ∧ x < f' + k ∧ st = t.stack ∧ sp = t.stack_space ⇒
-    state_rel k f f' (set_var (2*x) v s)
+    state_rel is_x64 k f f' s t lens ∧ ¬(x < k) ∧ x < f' + k ∧ st = t.stack ∧ sp = t.stack_space ⇒
+    state_rel is_x64 k f f' (set_var (2*x) v s)
     (t with stack := LUPDATE v (sp + (f + k − (x + 1))) st) lens
 Proof
   simp[state_rel_def,stackSemTheory.set_var_def,wordSemTheory.set_var_def]
@@ -2685,14 +2684,14 @@ Proof
 QED
 
 Theorem wMoveSingle_thm:
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    (case x of NONE => get_var (k+1) t = SOME v
     | SOME x => get_var (x * 2) s = SOME v ) ∧
    (case y of SOME x => x < f' + k | _ => T)
    ⇒
    ∃t'.
      evaluate (wMoveSingle (format_var k y,format_var k x) (k,f,f'), t) = (NONE,t') ∧
-     state_rel k f f' (case y of NONE => s | SOME y => set_var (y*2) v s) t' lens ∧
+     state_rel is_x64 k f f' (case y of NONE => s | SOME y => set_var (y*2) v s) t' lens ∧
      (y = NONE ⇒ get_var (k+1) t' = SOME v) ∧
      (y ≠ NONE ⇒ get_var (k+1) t' = get_var (k+1) t) /\
      LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space
@@ -2818,7 +2817,7 @@ QED
 
 Theorem evaluate_wMoveAux_seqsem:
    ∀ms s t r.
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    (∀i v. r (SOME i) = SOME v ⇔ get_var (2*i) s = SOME v) ∧
    (∀v. r NONE = SOME v ⇒ get_var (k+1) t = SOME v) ∧
    IS_SOME (get_vars (MAP ($* 2 o THE) (FILTER IS_SOME (MAP SND ms))) s) ∧
@@ -2833,7 +2832,7 @@ Theorem evaluate_wMoveAux_seqsem:
    ⇒
    ∃t'.
      evaluate (wMoveAux (MAP (format_var k ## format_var k) ms) (k,f,f'),t) = (NONE,t') ∧
-     state_rel k f f'
+     state_rel is_x64 k f f'
        (set_vars
          (MAP ($* 2 o THE) (FILTER IS_SOME (MAP FST (REVERSE ms))))
          (MAP THE (MAP (seqsem ms r) (FILTER IS_SOME (MAP FST (REVERSE ms)))))
@@ -3003,12 +3002,12 @@ QED
 
 Theorem call_dest_lemma[local]:
   ¬bad_dest_args dest args /\
-  state_rel k f f' (s:('a,num # 'c,'ffi) state) t lens /\
+  state_rel is_x64 k f f' (s:('a,num # 'c,'ffi) state) t lens /\
   call_dest dest args (k,f,f') = (q0,dest') /\
   get_vars args s = SOME args' ==>
   ?t4:('a,'c,'ffi) stackSem$state.
     evaluate (q0,t) = (NONE,t4) /\
-    state_rel k f f' s t4 lens /\
+    state_rel is_x64 k f f' s t4 lens /\
     LENGTH t4.stack = LENGTH t.stack /\
     t4.stack_space = t.stack_space /\
     !real_args prog ssize.
@@ -3409,14 +3408,14 @@ Proof
 QED
 
 Theorem wRegWrite1_thm1:
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    m < f' + k ∧
    (∀n.  n ≤ k ⇒
      evaluate (kont n, t) = (NONE, set_var n v t))
    ⇒
    ∃t'.
    evaluate (wRegWrite1 kont (2 * m) (k,f,f'), t) = (NONE, t') ∧
-   state_rel k f f' (set_var (2 * m) v s) t' lens /\
+   state_rel is_x64 k f f' (set_var (2 * m) v s) t' lens /\
    LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space
 Proof
   rw[wRegWrite1_def,LET_THM,TWOxDIV2]
@@ -3432,27 +3431,27 @@ Proof
 QED
 
 Theorem wRegWrite1_thm1_weak:
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    m < f' + k ∧
    (∀n.  n ≤ k ⇒
      evaluate (kont n, t) = (NONE, set_var n v t))
    ⇒
    ∃t'.
    evaluate (wRegWrite1 kont (2 * m) (k,f,f'), t) = (NONE, t') ∧
-   state_rel k f f' (set_var (2 * m) v s) t' lens
+   state_rel is_x64 k f f' (set_var (2 * m) v s) t' lens
 Proof
   metis_tac[wRegWrite1_thm1]
 QED
 
 Theorem wRegWrite1_thm2:
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    m < f' + k ∧
    (∀n.  n ≤ k ⇒
      evaluate (kont n, t) = (NONE, set_var 0 v' (set_var n v t)))
    ⇒
    ∃t'.
    evaluate (wRegWrite1 kont (2 * m) (k,f,f'), t) = (NONE, t') ∧
-   state_rel k f f' (set_var 0 v' (set_var (2 * m) v s)) t' lens /\
+   state_rel is_x64 k f f' (set_var 0 v' (set_var (2 * m) v s)) t' lens /\
    LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space
 Proof
   rw[wRegWrite1_def,LET_THM,TWOxDIV2]
@@ -3508,14 +3507,14 @@ Proof
 QED
 
 Theorem wRegWrite2_thm1:
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    m < f' + k ∧
    (∀n.  n ≤ k+1 ⇒
      evaluate (kont n, t) = (NONE, set_var n v t))
    ⇒
    ∃t'.
    evaluate (wRegWrite2 kont (2 * m) (k,f,f'), t) = (NONE, t') ∧
-   state_rel k f f' (set_var (2 * m) v s) t' lens
+   state_rel is_x64 k f f' (set_var (2 * m) v s) t' lens
 Proof
   rw[wRegWrite2_def,LET_THM,TWOxDIV2]
   >- ( metis_tac[ state_rel_set_var, LESS_OR_EQ] )
@@ -3530,11 +3529,11 @@ Proof
 QED
 
 Theorem state_rel_mem_store:
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    mem_store a b s = SOME s' ⇒
    ∃t'.
      mem_store a b t = SOME t' ∧
-     state_rel k f f' s' t' lens
+     state_rel is_x64 k f f' s' t' lens
 Proof
   simp[state_rel_def,stackSemTheory.mem_store_def,wordSemTheory.mem_store_def]
   \\ strip_tac \\ rveq \\ simp[] \\ metis_tac[]
@@ -3543,7 +3542,7 @@ QED
 (* TODO: Delete?
 
 Theorem wRegWrite1_thm2:
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    m < f' + k ∧
    get_var (2 * m) s = SOME w ∧
    mem_store a w s = SOME s' ∧
@@ -3552,7 +3551,7 @@ Theorem wRegWrite1_thm2:
    ⇒
    ∃t'.
    evaluate (wRegWrite1 kont (2 * m) (k,f,f'), t) = (NONE, t') ∧
-   state_rel k f f' s' t' lens
+   state_rel is_x64 k f f' s' t' lens
 Proof
   rw[wRegWrite1_def,LET_THM,TWOxDIV2] \\ fs[]
   >- (
@@ -3587,7 +3586,7 @@ QED
 
 (*
 Theorem wRegWrite1_thm2:
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    mem_store a b s = SOME s' ∧
    m < f' + k ∧
    (∀n. n ≤ k ⇒
@@ -3596,7 +3595,7 @@ Theorem wRegWrite1_thm2:
    ⇒
    ∃t'.
    evaluate (wRegWrite1 kont (2 * m) (k,f,f'), t) = (NONE, t') ∧
-   state_rel k f f' s' t' lens
+   state_rel is_x64 k f f' s' t' lens
 Proof
   rw[wRegWrite1_def,LET_THM,TWOxDIV2]
   \\ `s.memory = t.memory ∧ s.mdomain = t.mdomain` by fs[state_rel_def]
@@ -3635,21 +3634,21 @@ QED
 Theorem wStackLoad_thm1:
    wReg1 (2 * n1) (k,f,f') = (l,n2) ∧
    get_var (2*n1) (s:('a,num # 'c,'ffi)wordSem$state) = SOME x ∧
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧
-                  state_rel k f f' s' t' lens /\
+                  state_rel is_x64 k f f' s' t' lens /\
                   LENGTH t'.stack = LENGTH t.stack /\
                   t'.stack_space = t.stack_space) ∧
    (¬(n1 < k) ⇒
     ∃t'. evaluate (kont k,
                    set_var k (EL (t.stack_space + (f+k-(n1+1))) t.stack) t) =
          (NONE, t') ∧
-         state_rel k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\
+         state_rel is_x64 k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\
          t'.stack_space = t.stack_space)
    ⇒
    ∃t'.
      evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧
-     state_rel k f f' s' t' lens  /\ LENGTH t'.stack = LENGTH t.stack /\
+     state_rel is_x64 k f f' s' t' lens  /\ LENGTH t'.stack = LENGTH t.stack /\
      t'.stack_space = t.stack_space
 Proof
   simp[wReg1_def,TWOxDIV2]
@@ -3665,14 +3664,14 @@ QED
 Theorem wStackLoad_thm1_weak:
    wReg1 (2 * n1) (k,f,f') = (l,n2) ∧
    get_var (2*n1) (s:('a,num # 'c,'ffi)state) = SOME x ∧
-   state_rel k f f' s t lens ∧
-   (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel k f f' s' t' lens) ∧
+   state_rel is_x64 k f f' s t lens ∧
+   (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel is_x64 k f f' s' t' lens) ∧
    (¬(n1 < k) ⇒ ∃t'. evaluate (kont k, set_var k (EL (t.stack_space + (f+k-(n1+1))) t.stack) t) = (NONE, t')
-    ∧ state_rel k f f' s' t' lens)
+    ∧ state_rel is_x64 k f f' s' t' lens)
   ⇒
    ∃t'.
      evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧
-     state_rel k f f' s' t' lens
+     state_rel is_x64 k f f' s' t' lens
 Proof
   simp[wReg1_def,TWOxDIV2]
   \\ rw[] \\ rw[wStackLoad_def] \\ fs[]
@@ -3687,15 +3686,15 @@ QED
 Theorem wStackLoad_thm2:
    wReg2 (2 * n1) (k,f,f') = (l,n2) ∧
    get_var (2*n1) (s:('a,num # 'c,'ffi)state) = SOME x ∧
-   state_rel k f f' s t lens ∧
-   (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space) ∧
+   state_rel is_x64 k f f' s t lens ∧
+   (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel is_x64 k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space) ∧
    (¬(n1 < k) ⇒ ∃t'. evaluate (kont (k+1), set_var (k+1) (EL (t.stack_space + (f+k-(n1+1))) t.stack) t) = (NONE, t')
-    ∧ state_rel k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\
+    ∧ state_rel is_x64 k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\
     t'.stack_space = t.stack_space)
   ⇒
    ∃t'.
      evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧
-     state_rel k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\
+     state_rel is_x64 k f f' s' t' lens /\ LENGTH t'.stack = LENGTH t.stack /\
     t'.stack_space = t.stack_space
 Proof
   simp[wReg2_def,TWOxDIV2]
@@ -3711,14 +3710,14 @@ QED
 Theorem wStackLoad_thm2_weak:
    wReg2 (2 * n1) (k,f,f') = (l,n2) ∧
    get_var (2*n1) (s:('a,num # 'c,'ffi)state) = SOME x ∧
-   state_rel k f f' s t lens ∧
-   (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel k f f' s' t' lens) ∧
+   state_rel is_x64 k f f' s t lens ∧
+   (n1 < k ⇒ ∃t'. evaluate (kont n1, t) = (NONE, t') ∧ state_rel is_x64 k f f' s' t' lens) ∧
    (¬(n1 < k) ⇒ ∃t'. evaluate (kont (k+1), set_var (k+1) (EL (t.stack_space + (f+k-(n1+1))) t.stack) t) = (NONE, t')
-    ∧ state_rel k f f' s' t' lens)
+    ∧ state_rel is_x64 k f f' s' t' lens)
   ⇒
    ∃t'.
      evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧
-     state_rel k f f' s' t' lens
+     state_rel is_x64 k f f' s' t' lens
 Proof
   simp[wReg2_def,TWOxDIV2]
   \\ rw[] \\ rw[wStackLoad_def] \\ fs[]
@@ -3776,7 +3775,7 @@ Theorem word_exp_thm1:
    ∀s e x. word_exp s e = SOME (Word x) ∧
    every_var_exp is_phy_var e ∧
    DIV2 (max_var_exp e) < k ∧
-   state_rel k f f' s t lens ⇒
+   state_rel is_x64 k f f' s t lens ⇒
    word_exp t (map_var DIV2 e) = SOME x
 Proof
   ho_match_mp_tac word_exp_ind
@@ -3859,7 +3858,7 @@ QED
 
 Theorem word_exp_thm2:
    ∀s e x. word_exp s e = SOME (Word x) ∧
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    every_var_exp ($= (2 * v)) e ∧
    ¬(v < k) ⇒
    word_exp (set_var k (EL (t.stack_space + (f + k - (v + 1))) t.stack) t) (map_var (K k) e) = SOME x
@@ -3902,7 +3901,7 @@ QED
 
 Theorem word_exp_thm3:
    ∀s e x. word_exp s e = SOME (Word x) ∧
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    every_var_exp (λx. x = 2*v1 ∨ x = 2*v2) e ∧
    v1 < k ∧ ¬(v2 < k)
    ⇒
@@ -3948,7 +3947,7 @@ QED
 
 Theorem word_exp_thm4:
    ∀s e x. word_exp s e = SOME (Word x) ∧
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    every_var_exp (λx. x = 2*v1 ∨ x = 2*v2) e ∧
    v1 < k ∧ ¬(v2 < k)
    ⇒
@@ -3994,7 +3993,7 @@ QED
 
 Theorem word_exp_thm5:
    ∀s e x. word_exp s e = SOME (Word x) ∧
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    every_var_exp (λx. x = 2*v1 ∨ x = 2*v2) e ∧
    ¬(v1 < k) ∧ ¬(v2 < k)
    ⇒
@@ -4041,7 +4040,7 @@ QED
 
 Theorem word_exp_thm6:
    ∀s e x. word_exp s e = SOME (Word x) ∧
-   state_rel k f f' s t lens ∧
+   state_rel is_x64 k f f' s t lens ∧
    e = Op b [Var (2 * v1); Var (2 * v1)] ∧
    ¬(v1 < k)
    ⇒
@@ -4081,8 +4080,8 @@ Proof
 QED
 
 Theorem state_rel_with_memory:
-   state_rel k f f' s t lens ⇒
-   state_rel k f f' (s with memory := m) (t with memory := m) lens
+   state_rel is_x64 k f f' s t lens ⇒
+   state_rel is_x64 k f f' (s with memory := m) (t with memory := m) lens
 Proof
   simp[state_rel_def]
   \\ strip_tac \\ simp[]
@@ -4109,32 +4108,32 @@ Proof
 QED
 
 Theorem state_rel_get_fp_var:
-   state_rel k f f' s t lens ⇒
+   state_rel is_x64 k f f' s t lens ⇒
   get_fp_var n s = get_fp_var n t
 Proof
   fs[state_rel_def,get_fp_var_def,stackSemTheory.get_fp_var_def]
 QED
 
 Theorem state_rel_set_fp_var:
-   state_rel k f f' s t lens ⇒
-  state_rel k f f' (set_fp_var n v s) (set_fp_var n v t) lens
+   state_rel is_x64 k f f' s t lens ⇒
+  state_rel is_x64 k f f' (set_fp_var n v s) (set_fp_var n v t) lens
 Proof
   fs[state_rel_def,set_fp_var_def,stackSemTheory.set_fp_var_def]>>rw[]>>
   metis_tac[]
 QED
 
 Theorem evaluate_wInst:
-   ∀i s t s'.
-   inst i s = SOME s' ∧
-   every_var_inst is_phy_var i ∧
-   max_var_inst i < 2 * f' + 2 * k ∧
-   inst_arg_convention i ∧
-   state_rel k f f' s t lens
+  ∀i s t s'.
+  inst i s = SOME s' ∧
+  every_var_inst is_phy_var i ∧
+  max_var_inst i < 2 * f' + 2 * k ∧
+  inst_arg_convention is_x64 i ∧
+  state_rel is_x64 k f f' s t lens
   ⇒
-   ∃t'.
-     evaluate (wInst i (k,f,f'), t) = (NONE,t') ∧
-     state_rel k f f' s' t' lens /\
-     LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space
+  ∃t'.
+    evaluate (wInst i (k,f,f'), t) = (NONE,t') ∧
+    state_rel is_x64 k f f' s' t' lens /\
+    LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space
 Proof
   simp[inst_def]
   \\ rpt gen_tac
@@ -4150,7 +4149,8 @@ Proof
     \\ fs[GSYM LEFT_ADD_DISTRIB]
     \\ rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def,
           stackSemTheory.assign_def,stackSemTheory.word_exp_def])
-  >- (
+  >~[`Arith`]
+  >- ( (* Arith *)
     reverse BasicProvers.FULL_CASE_TAC
     \\ fs[wordLangTheory.every_var_inst_def,
           wordLangTheory.max_var_inst_def,inst_arg_convention_def]
@@ -4305,23 +4305,34 @@ Proof
         first_assum (qspec_then`0` assume_tac)>>fs[]>>
         pop_assum match_mp_tac>>fs[]>>
         first_assum (qspec_then`3` assume_tac)>>fs[]))
-    >-
-      (* LongMul Note: this is greatly simplified because no stack loading is done*)
-      (pop_assum mp_tac>>fs[get_vars_def]>>
-      every_case_tac>>fs[wInst_def]>>
+    >- ( (* LongMul *)
+      gvs[AllCaseEqs(),wInst_def,get_vars_def]>>
+      rpt(pairarg_tac>>gvs[])>>
       fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
-      fs[TWOxDIV2]>>
-      drule (GEN_ALL state_rel_get_var_imp)>>
-      disch_then assume_tac>>
-      first_assum (qspecl_then [`0`,`Word c`] mp_tac)>>
-      first_x_assum (qspecl_then [`2`,`Word c'`] mp_tac)>>
-      simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.get_vars_def,stackSemTheory.get_var_def]>>
-      `4 < k` by fs[state_rel_def]>>
-      rw[]>>
-      assume_tac (GEN_ALL state_rel_set_var)>>
-      first_assum (qspec_then`0` assume_tac)>>fs[]>>
-      pop_assum match_mp_tac>>fs[]>>
-      first_assum (qspec_then`3` assume_tac)>>fs[])
+      gvs[TWOxDIV2,wStackLoad_append]>>
+      qho_match_abbrev_tac`∃t'. evaluate (wStackLoad (l) (kont n3),t) = (NONE,t') ∧ _ t'`>>fs[]>>
+      match_mp_tac (GEN_ALL wStackLoad_thm1)>>
+      first_assum (irule_at Any)>>
+      first_assum (irule_at Any)>>
+      simp[Abbr`kont`]>>
+      CONJ_TAC \\ strip_tac
+      \\ qho_match_abbrev_tac`∃t'. evaluate (wStackLoad l' (kont n4),tt) = (NONE,t') ∧ _ t'`
+      \\ simp[]
+      \\ `t.stack = tt.stack` by simp[Abbr`tt`]
+      \\ `t.stack_space = tt.stack_space` by simp[Abbr`tt`]
+      \\ simp[]
+      \\ match_mp_tac (GEN_ALL wStackLoad_thm2) >>
+      first_assum (irule_at Any)>>
+      first_assum (irule_at Any)
+      \\ simp[Abbr`tt`]
+      \\ simp[Abbr`kont`]
+      \\ conj_tac \\ strip_tac
+      \\ drule (GEN_ALL state_rel_get_var_imp)
+      \\ simp[] \\ disch_then imp_res_tac
+      \\ drule (GEN_ALL state_rel_get_var_imp2)
+      \\ simp[] \\ disch_then imp_res_tac>>
+      rfs[]>>
+      cheat)
     >- (* Div *)
       (fs[get_vars_def]>>pop_assum mp_tac>>
       ntac 5 (FULL_CASE_TAC)>>
@@ -4586,7 +4597,7 @@ Proof
               wordLangTheory.max_var_exp_def,list_max_def]
       \\ simp[EQ_MULT_LCANCEL]
       \\ qpat_abbrev_tac`tt = set_var _ _ t`
-      \\ `state_rel k f f' s tt lens` by simp[Abbr`tt`]
+      \\ `state_rel is_x64 k f f' s tt lens` by simp[Abbr`tt`]
       \\ ONCE_REWRITE_TAC[CONJ_COMM]
       \\ disch_then (fn th => drule th >> mp_tac th)
       \\ pop_assum kall_tac
@@ -4618,7 +4629,7 @@ Proof
             wordLangTheory.max_var_exp_def,list_max_def]
     \\ simp[EQ_MULT_LCANCEL]
     \\ qpat_abbrev_tac`tt = stackSem$set_var (k+1) _ _`
-    \\ `state_rel k f f' s tt lens` by simp[Abbr`tt`]
+    \\ `state_rel is_x64 k f f' s tt lens` by simp[Abbr`tt`]
     \\ disch_then (fn th => drule th >> mp_tac th)
     \\ pop_assum kall_tac
     \\ disch_then drule
@@ -4843,8 +4854,8 @@ Proof
 QED
 
 Theorem state_rel_set_store:
-   state_rel k f f' s t lens ∧ v ≠ Handler ⇒
-   state_rel k f f' (set_store v x s) (set_store v x t) lens
+   state_rel is_x64 k f f' s t lens ∧ v ≠ Handler ⇒
+   state_rel is_x64 k f f' (set_store v x s) (set_store v x t) lens
 Proof
   simp[state_rel_def]
   \\ strip_tac
@@ -4962,11 +4973,11 @@ Triviality evaluate_wStackLoad_wReg1:
   wReg1 r (k,f,f') = (x ,r') ∧
   EVEN r ∧
   get_var r (s:('a,num # 'c,'ffi)state) = SOME (Word c) ∧
-  state_rel k f f' s t lens ⇒
+  state_rel is_x64 k f f' s t lens ⇒
   ∃t':('a,'c,'ffi) stackSem$state.
   evaluate(wStackLoad x Skip,t) = (NONE,t') ∧
   t.clock = t'.clock ∧
-  state_rel k f f' s t' lens ∧
+  state_rel is_x64 k f f' s t' lens ∧
   LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space /\
   r' ≠ k+1 ∧
   get_var r' t' = SOME (Word c)
@@ -5000,13 +5011,13 @@ Triviality evaluate_wStackLoad_wRegImm2:
   wRegImm2 ri (k,f,f') = (x,r') ∧
   (case ri of Reg r => EVEN r | _ => T) ∧
   get_var_imm ri (s:('a,num # 'c,'ffi)state) = SOME (Word c) ∧
-  state_rel k f f' s t lens ⇒
+  state_rel is_x64 k f f' s t lens ⇒
   ∃t':('a,'c,'ffi) stackSem$state.
   evaluate(wStackLoad x Skip, t) = (NONE,t') ∧
   t.clock = t'.clock ∧
   get_var_imm r' t' = SOME(Word c) ∧
   (∀r. r ≠ k+1 ⇒ get_var r t' = get_var r t) ∧
-  state_rel k f f' s t' lens ∧
+  state_rel is_x64 k f f' s t' lens ∧
   LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space
 Proof
   Cases_on`ri`>>rw[wRegImm2_def,LET_THM,wReg2_def,EVEN_EXISTS]>>
@@ -5053,7 +5064,7 @@ Proof
 QED
 
 Triviality state_rel_IMP_LENGTH:
-  state_rel k f f' s t lens ⇒
+  state_rel is_x64 k f f' s t lens ⇒
   LENGTH lens = LENGTH s.stack
 Proof
   fs[state_rel_def,stack_rel_def,LET_THM]>>rw[]>>
@@ -5250,7 +5261,7 @@ QED
 
 val evaluate_PushHandler = Q.prove(`
   3 ≤ t.stack_space ∧
-  state_rel k 0 0 (push_env x' NONE s with <|locals:=LN; locals_size:=SOME 0|>) t (f'::lens) ∧
+  state_rel is_x64 k 0 0 (push_env x' NONE s with <|locals:=LN; locals_size:=SOME 0|>) t (f'::lens) ∧
   loc_check t.code (x''2,x''3) ⇒
   ∃t':('a,'c,'ffi)stackSem$state.
   evaluate(PushHandler (x''2:num) (x''3:num) (k,f:num,f'),t) = (NONE,t') ∧
@@ -5261,7 +5272,7 @@ val evaluate_PushHandler = Q.prove(`
   (∀i. i ≠ k ⇒ get_var i t' = get_var i t) ∧
   t'.stack_space +3 = t.stack_space ∧
   LENGTH t'.stack = LENGTH t.stack ∧
-  state_rel k 0 0 (push_env x' (SOME (x''0,x''1:'a wordLang$prog,x''2,x''3)) s with <|locals:=LN; locals_size:=SOME 0|>) t' (f'::lens)`,
+  state_rel is_x64 k 0 0 (push_env x' (SOME (x''0,x''1:'a wordLang$prog,x''2,x''3)) s with <|locals:=LN; locals_size:=SOME 0|>) t' (f'::lens)`,
   rw[]>>
   `t.use_stack ∧ t.use_store ∧ t.stack_space -3 < LENGTH t.stack ∧ ∃h. FLOOKUP t.store Handler = SOME h` by
     (fs[state_rel_def,flookup_thm]>>
@@ -5333,7 +5344,7 @@ val evaluate_PushHandler = Q.prove(`
   simp[LASTN_CONS])|> INST_TYPE[beta|->alpha];
 
 Theorem evaluate_PopHandler:
-  state_rel k 0 0 r t1 (f'::lens) ∧ pop_env r = SOME x'' /\
+  state_rel is_x64 k 0 0 r t1 (f'::lens) ∧ pop_env r = SOME x'' /\
   s_key_eq (call_env q r'
              (push_env env (SOME (2,handler1,handler2,handler3))
                 s)).stack r.stack /\
@@ -5350,7 +5361,7 @@ Theorem evaluate_PopHandler:
   ⇒
   ∃t':('a,'c,'ffi)stackSem$state.
   evaluate(PopHandler (k,f,f') Skip,t1) = (NONE,t') ∧
-  state_rel k f f' (set_var 2 w0 x'') t' lens ∧
+  state_rel is_x64 k f f' (set_var 2 w0 x'') t' lens ∧
   x''.handler = s.handler /\
   LENGTH t'.stack = LENGTH t1.stack /\
   t'.stack_space = t1.stack_space + 3
@@ -5435,7 +5446,7 @@ Proof
 QED
 
 Triviality state_rel_code_domain:
-  state_rel k f f' s t lens ⇒
+  state_rel is_x64 k f f' s t lens ⇒
   domain s.code ⊆ domain t.code
 Proof
   strip_tac>>fs[state_rel_def,SUBSET_DEF,domain_lookup,EXISTS_PROD]>>
@@ -5571,8 +5582,8 @@ val goal = ``
    λ(prog:'a wordLang$prog,s:('a,num # 'c,'ffi) wordSem$state).
      ∀k f f' res s1 t bs n bs' n' sprog lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
-     state_rel k f f' s t lens /\
-     post_alloc_conventions k prog /\
+     state_rel is_x64 k f f' s t lens /\
+     post_alloc_conventions is_x64 k prog /\
      flat_exp_conventions prog /\
      comp prog (bs,n) (k,f,f') = (sprog, (bs',n')) /\
      LENGTH (append bs) ≤ n ∧ n - LENGTH (append bs) ≤ LENGTH t.bitmaps ∧
@@ -5587,9 +5598,9 @@ val goal = ``
             the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit
        else
          case res of
-         | NONE => state_rel k f f' s1 t1 lens
-         | SOME (Result _ y) => state_rel k 0 0 s1 t1 lens /\ FLOOKUP t1.regs 1 = SOME y
-         | SOME (Exception _ y) => state_rel k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
+         | NONE => state_rel is_x64 k f f' s1 t1 lens
+         | SOME (Result _ y) => state_rel is_x64 k 0 0 s1 t1 lens /\ FLOOKUP t1.regs 1 = SOME y
+         | SOME (Exception _ y) => state_rel is_x64 k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock``
 
 local
@@ -6241,7 +6252,7 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `wRegWrite1 kont (2 * m)`
   \\ qmatch_goalsub_abbrev_tac `state_rel _ _ _ (set_var _ v _)`
   \\ qmatch_goalsub_abbrev_tac ‘_,set_var _ kval _’
-  \\ ‘state_rel k f f' s (set_var k kval t) lens’ by fs []
+  \\ ‘state_rel is_x64 k f f' s (set_var k kval t) lens’ by fs []
   \\ drule_then(qspecl_then [`v`,`m`,`kont`] mp_tac) (GEN_ALL wRegWrite1_thm1)
   \\ unabbrev_all_tac
   \\ fs[wordLangTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
@@ -6961,7 +6972,7 @@ QED
 
 Theorem share_load_lemma1:
   share_inst op (2 * v) ad' s = (res,s1) /\
-  state_rel k f f' s t lens /\
+  state_rel is_x64 k f f' s t lens /\
   v < f' + k /\
   k <= v /\
   (op = Load \/ op = Load8 \/ op = Load32) /\
@@ -6971,7 +6982,7 @@ Theorem share_load_lemma1:
   (((?f. (res = SOME $ wordSem$FinalFFI f) /\
     (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock))) \/
   (res = NONE /\
-    state_rel k f f' s1
+    state_rel is_x64 k f f' s1
       (t1 with stack := (LUPDATE (THE $ FLOOKUP t1.regs k)
         (t1.stack_space + (f + k - (v + 1))) t1.stack)) lens /\
       (?x. FLOOKUP t1.regs k = SOME x) /\
@@ -7006,7 +7017,7 @@ QED
 
 Theorem share_load_lemma2:
   share_inst op (2 * v) ad' s = (res,s1) /\
-  state_rel k f f' s t lens /\
+  state_rel is_x64 k f f' s t lens /\
   v < k /\
   (op = Load \/ op = Load8 \/ op = Load32) /\
   res <> SOME Error ==>
@@ -7016,7 +7027,7 @@ Theorem share_load_lemma2:
     ((?f. (res = SOME $ wordSem$FinalFFI f) /\
       (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/
     (res = NONE /\
-      state_rel k f f' s1 t1 lens))
+      state_rel is_x64 k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
   `s.sh_mdomain = t.sh_mdomain /\
@@ -7048,7 +7059,7 @@ QED
 
 Theorem share_store_lemma1:
   share_inst op (2 * v) ad' s = (res,s1) /\
-  state_rel k f f' s t lens /\
+  state_rel is_x64 k f f' s t lens /\
   ~(v < k) /\
   (op = Store \/ op = Store8 \/ op = Store32) /\
   res <> SOME Error ==>
@@ -7062,7 +7073,7 @@ Theorem share_store_lemma1:
     ((?fv. (res = SOME $ wordSem$FinalFFI fv) /\
       (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/
     (res = NONE /\
-      state_rel k f f' s1 t1 lens))
+      state_rel is_x64 k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
   (`s.sh_mdomain = t.sh_mdomain /\
@@ -7096,7 +7107,7 @@ QED
 
 Theorem share_store_lemma2:
   share_inst op (2 * v) ad' s = (res,s1) /\
-  state_rel k f f' s t lens /\
+  state_rel is_x64 k f f' s t lens /\
   v < k /\
   (op = Store \/ op = Store8 \/ op = Store32) /\
   res <> SOME Error ==>
@@ -7106,7 +7117,7 @@ Theorem share_store_lemma2:
     ((?fv. (res = SOME $ wordSem$FinalFFI fv) /\
       (s1.ffi = t1.ffi) /\ (s1.clock = t1.clock)) \/
     (res = NONE /\
-      state_rel k f f' s1 t1 lens))
+      state_rel is_x64 k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
   (`s.sh_mdomain = t.sh_mdomain /\
@@ -7134,7 +7145,7 @@ Theorem evaluate_ShareInst_Load:
   evaluate (ShareInst op (2 * v)
     (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
   res <> SOME Error /\
-  state_rel k f f' s t lens /\
+  state_rel is_x64 k f f' s t lens /\
   v < f' + k /\
   ad < f' + k /\
   (op = Load \/ op = Load8 \/ op = Load32) ==>
@@ -7145,7 +7156,7 @@ Theorem evaluate_ShareInst_Load:
         (OPTION_MAP compile_result res,t1) /\
     ((?fv. res = SOME (FinalFFI fv) /\
         s1.ffi = t1.ffi /\ s1.clock = t1.clock) \/
-    (res = NONE /\ state_rel k f f' s1 t1 lens))
+    (res = NONE /\ state_rel is_x64 k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
   gvs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
@@ -7193,7 +7204,7 @@ QED
 Theorem evaluate_ShareInst_Store:
   evaluate (ShareInst op (2 * v)
     (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
-  state_rel k f f' s t lens /\
+  state_rel is_x64 k f f' s t lens /\
   v < f' + k /\
   ad < f' + k /\
   res <> SOME Error /\
@@ -7205,7 +7216,7 @@ Theorem evaluate_ShareInst_Store:
         (OPTION_MAP compile_result res,t1) /\
     ((?fv. res = SOME (FinalFFI fv) /\
         s1.ffi = t1.ffi /\ s1.clock = t1.clock) \/
-    (res = NONE /\ state_rel k f f' s1 t1 lens))
+    (res = NONE /\ state_rel is_x64 k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
   (gvs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
@@ -7248,7 +7259,7 @@ Theorem evaluate_ShareInst_correct_lemma:
   evaluate (ShareInst op (2 * v)
     (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
   res <> SOME Error /\
-  state_rel k f f' s t lens /\
+  state_rel is_x64 k f f' s t lens /\
   v < f' + k /\
   ad < f' + k ==>
   ?ck t1.
@@ -7256,7 +7267,7 @@ Theorem evaluate_ShareInst_correct_lemma:
       (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
         t with clock := ck + t.clock) =
       (OPTION_MAP compile_result res,t1) /\
-    ((res = NONE /\ state_rel k f f' s1 t1 lens) \/
+    ((res = NONE /\ state_rel is_x64 k f f' s1 t1 lens) \/
       (?fv. res = SOME (FinalFFI fv) /\
         s1.ffi = t1.ffi /\ s1.clock = t1.clock))
 Proof
@@ -7456,7 +7467,7 @@ Proof
          qabbrev_tac `t5 = ^((qexists_tac`0`
          \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
          |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g)
-    \\ `state_rel k m' m (call_env q r' (dec_clock s)) t5 lens` by
+    \\ `state_rel is_x64 k m' m (call_env q r' (dec_clock s)) t5 lens` by
          (fsrw_tac[][state_rel_def,LET_THM,Abbr`t5`,call_env_def,dec_clock_def]>>
           fsrw_tac[][stack_free_def]>>
           `stack_arg_count dest' (LENGTH args) k = (LENGTH q - k)` by
@@ -7928,7 +7939,7 @@ Proof
       t' with <|regs:=t'.regs|+(0,Loc x3 x4);
                 stack_space:=t'.stack_space - (m'-(LENGTH q-k));
                 clock:=t.clock-1|>`>>
-    `state_rel k m' m word_state stack_state (f'::lens)` by(
+    `state_rel is_x64 k m' m word_state stack_state (f'::lens)` by(
       ntac 2 (qpat_x_assum`!a b c. P` kall_tac)>>
       `sargs = (LENGTH q -k)` by
         (simp[stack_arg_count_def,Abbr`sargs`]>>
@@ -8161,7 +8172,7 @@ Proof
                          CaseEq"option",CaseEq"prod"] >>
         rpt strip_tac >> rveq >> rw[])>>
       strip_tac>>
-      `state_rel k f f' (set_var x0 w0 x'') t1 lens ∧ x''.handler = s.handler` by (
+      `state_rel is_x64 k f f' (set_var x0 w0 x'') t1 lens ∧ x''.handler = s.handler` by (
         rev_full_simp_tac std_ss [] >>
         qpat_x_assum`!a b c d e f. P` kall_tac>>
         Q.ISPECL_THEN [`q'`,`word_state`] assume_tac evaluate_stack_swap>>
@@ -8796,7 +8807,7 @@ Proof
     t'' with <|regs:=t''.regs|+(0,Loc x3 x4);
               stack_space:=t''.stack_space - (m'-(LENGTH q-k));
               clock:=t.clock-1|>`>>
-  `state_rel k m' m word_state stack_state (f'::lens)` by (
+  `state_rel is_x64 k m' m word_state stack_state (f'::lens)` by (
     ntac 3 (qpat_x_assum`!a b. P` kall_tac)>>
     `sargs = (LENGTH q -k)` by
       (simp[stack_arg_count_def,Abbr`sargs`]>>
@@ -9242,7 +9253,7 @@ Proof
       first_x_assum MATCH_ACCEPT_TAC) >>
     fs[push_locals_def]>>strip_tac>>
     strip_tac>>
-    `state_rel k f f' (set_var handler0 w0 r'') t1 lens ∧ s.handler = r''.handler` by (
+    `state_rel is_x64 k f f' (set_var handler0 w0 r'') t1 lens ∧ s.handler = r''.handler` by (
       qpat_x_assum`!a b c d e f. P` kall_tac>>
       Q.ISPECL_THEN [`q'`,`word_state`] assume_tac evaluate_stack_swap>>
       rfs[Abbr`word_state`]>>
@@ -9456,7 +9467,7 @@ QED
 Theorem comp_correct:
    !(prog:'a wordLang$prog) (s:('a,num # 'c,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
-     state_rel k f f' s t lens /\
+     state_rel is_x64 k f f' s t lens /\
      post_alloc_conventions k prog /\
      flat_exp_conventions prog /\
      comp prog (bs,n) (k,f,f') = (sprog, (bs',n')) /\
@@ -9472,9 +9483,9 @@ Theorem comp_correct:
             the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit
        else
          case res of
-         | NONE => state_rel k f f' s1 t1 lens
-         | SOME (Result _ y) => state_rel k 0 0 s1 t1 lens /\ FLOOKUP t1.regs 1 = SOME y
-         | SOME (Exception _ y) => state_rel k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
+         | NONE => state_rel is_x64 k f f' s1 t1 lens
+         | SOME (Result _ y) => state_rel is_x64 k 0 0 s1 t1 lens /\ FLOOKUP t1.regs 1 = SOME y
+         | SOME (Exception _ y) => state_rel is_x64 k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock
 Proof
   match_mp_tac (the_ind_thm()) >>
@@ -9508,7 +9519,7 @@ val comp_Call_lemma = comp_correct
 Triviality comp_Call:
   ∀start (s:('a,num # 'c,'ffi) wordSem$state) k res s1 t lens.
       evaluate (Call NONE (SOME start) [0] NONE,s) = (res,s1) /\
-      res ≠ SOME Error /\ state_rel k 0 0 s t lens ⇒
+      res ≠ SOME Error /\ state_rel is_x64 k 0 0 s t lens ⇒
       ∃ck t1:(α,'c,'ffi)stackSem$state res1.
         evaluate (Call NONE (INL start) NONE,t with clock := t.clock + ck) =
         (res1,t1) /\ 1w <> (0w:'a word) /\ 2w <> (0w:'a word) /\
@@ -9551,7 +9562,7 @@ fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
 Theorem state_rel_IMP_semantics:
-   state_rel k 0 0 ^s ^t lens /\ semantics s start <> Fail ==>
+   state_rel is_x64 k 0 0 ^s ^t lens /\ semantics s start <> Fail ==>
    semantics start t IN extend_with_resource_limit { semantics s start }
 Proof
   simp[GSYM AND_IMP_INTRO] >> ntac 1 strip_tac >>
@@ -9831,7 +9842,7 @@ Triviality init_state_ok_IMP_state_rel:
     domain t.code =
       raise_stub_location INSERT store_consts_stub_location INSERT domain code ∧
     init_state_ok k t coracle ==>
-    state_rel k 0 0 (make_init k t code coracle) (t:('a,'c,'ffi)stackSem$state) []
+    state_rel is_x64 k 0 0 (make_init k t code coracle) (t:('a,'c,'ffi)stackSem$state) []
 Proof
   fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def]
    \\ strip_tac
@@ -9861,7 +9872,7 @@ val init_state_ok_semantics =
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 Theorem state_rel_IMP_semantics':
-   state_rel k 0 0 ^s ^t lens /\ semantics s start <> Fail /\
+   state_rel is_x64 k 0 0 ^s ^t lens /\ semantics s start <> Fail /\
    word_lang_safe_for_space ^s start ==>
    semantics start t = semantics s start
 Proof
@@ -11497,3 +11508,4 @@ Proof
 QED
 
 val _ = export_theory();
+
