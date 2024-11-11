@@ -1,5 +1,6 @@
 (*
   This compilation pass performs a copy propagation phase.
+  NOTE: Copy propagation may be incomplete if input is not in SSA form.
 *)
 open preamble wordLangTheory reg_allocTheory;
 

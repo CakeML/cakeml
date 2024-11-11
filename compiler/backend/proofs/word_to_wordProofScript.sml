@@ -23,44 +23,6 @@ val rmd_thms = (remove_dead_conventions |>SIMP_RULE std_ss [LET_THM,FORALL_AND_T
 
 val drule = old_drule
 
-val prog_ind = TypeBase.induction_of“:α prog”;
-
-Theorem prog_ind_simple:
-  ∀P0.
-  P0 Skip ∧ (∀n l. P0 (Move n l)) ∧ (∀i. P0 (Inst i)) ∧
-  (∀n e. P0 (Assign n e)) ∧ (∀n s. P0 (Get n s)) ∧
-  (∀s e. P0 (Set s e)) ∧ (∀e n. P0 (Store e n)) ∧
-
-  (∀p. P0 p ⇒ P0 (MustTerminate p)) ∧
-  (∀p1 p2 a1 a2 a3 a4.
-    (case a1 of NONE => T | SOME (_,_,p1,_) => P0 p1) ∧
-    (case a4 of NONE => T | SOME (_,p1,_) => P0 p1) ⇒
-    P0 (wordLang$Call a1 a2 a3 a4)) ∧
-  (∀p p0. P0 p ∧ P0 p0 ⇒ P0 (Seq p p0)) ∧
-  (∀p p0. P0 p ∧ P0 p0 ⇒ ∀r n c. P0 (If c n r p p0)) ∧
-  (∀n s. P0 (Alloc n s)) ∧
-  (∀n n0 n1 n2 l. P0 (StoreConsts n n0 n1 n2 l)) ∧ (∀n. P0 (Raise n)) ∧
-  (∀n n0. P0 (Return n n0)) ∧ P0 Tick ∧
-  (∀b n n0. P0 (OpCurrHeap b n n0)) ∧ (∀n n0. P0 (LocValue n n0)) ∧
-  (∀n n0 n1 n2 s. P0 (Install n n0 n1 n2 s)) ∧
-  (∀n n0. P0 (CodeBufferWrite n n0)) ∧
-  (∀n n0. P0 (DataBufferWrite n n0)) ∧
-  (∀s n n0 n1 n2 s0. P0 (FFI s n n0 n1 n2 s0)) ∧
-  (∀m n e. P0 (ShareInst m n e)) ⇒
-  ∀p. P0 p
-Proof
-  gen_tac
-  >>qspecl_then
-    [‘P0’,
-     ‘λa1. case a1 of NONE => T | SOME (_,_,p1,_) => P0 p1’,
-     ‘λx. case x of (_,_,p,_) => P0 p’,
-     ‘λa4. case a4 of NONE => T | SOME (_,p1,_) => P0 p1’,
-     ‘λx. case x of (_,p,_) => P0 p’,
-     ‘λx. case x of (_,p,_) => P0 p’,‘λx. case x of (p,_) => P0 p’]
-    assume_tac prog_ind
-  >>fs[]
-QED
-
 Theorem FST_compile_single[simp]:
    FST (compile_single a b c d e) = FST (FST e)
 Proof
@@ -94,24 +56,6 @@ Proof
   metis_tac[wf_cutsets_copy_prop_aux,word_copyTheory.copy_prop_def]
 QED
 
-
-(* Instructions have distinct targets and read vars -- set by SSA form *)
-(*
-Definition distinct_tar_reg_def:
-  (distinct_tar_reg (Arith (Binop bop r1 r2 ri))
-    ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧
-  (distinct_tar_reg  (Arith (Shift l r1 r2 n))
-    ⇔ r1 ≠ r2) ∧
-  (distinct_tar_reg (Arith (AddCarry r1 r2 r3 r4))
-    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
-  (distinct_tar_reg (Arith (AddOverflow r1 r2 r3 r4))
-    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
-  (distinct_tar_reg (Arith (SubOverflow r1 r2 r3 r4))
-    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
-  (distinct_tar_reg _ ⇔ T)
-End
-*)
-
 (* too strong; not true *)
 (*
 Theorem every_inst_distinct_tar_reg_copy_prop_aux:
@@ -119,7 +63,7 @@ Theorem every_inst_distinct_tar_reg_copy_prop_aux:
   every_inst distinct_tar_reg p ⇒
   every_inst distinct_tar_reg (FST (copy_prop_prog p cs))
 Proof
-  ho_match_mp_tac prog_ind_simple
+  ho_match_mp_tac word_copyTheory.copy_prop_prog_ind
   >>rw[every_inst_def,word_copyTheory.copy_prop_prog_def]
   >>rpt(pairarg_tac>>fs[])
   >>rw[every_inst_def]
@@ -138,13 +82,12 @@ QED
 *)
 
 (* Not true. Consider:
-
+(before copy prop)
     a := b;
     a := b+1;
-
+(after)
     a := b;
     a := a+1;
-
 *)
 Theorem every_inst_distinct_tar_reg_copy_prop:
   every_inst distinct_tar_reg p ⇒
@@ -153,18 +96,75 @@ Proof
   cheat
 QED
 
+(* may not prove goal fully *)
+fun boring_tac def =
+  ho_match_mp_tac word_copyTheory.copy_prop_prog_ind
+  >>rw[word_copyTheory.copy_prop_prog_def,def]
+  >>rpt(pairarg_tac>>fs[])
+  >>rw[def]
+  >-(
+    qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac word_copyTheory.copy_prop_inst_ind
+    >>rw[word_copyTheory.copy_prop_inst_def,_def]
+  )
+  >-(
+    TOP_CASE_TAC>>rw[def]
+  );
+
+Theorem extract_labels_copy_prop_aux:
+  ∀p cs.
+  extract_labels (FST (copy_prop_prog p cs)) =
+  extract_labels p
+Proof
+  boring_tac extract_labels_def
+QED
+
 Theorem extract_labels_copy_prop:
   extract_labels (copy_prop p) =
   extract_labels p
 Proof
-  cheat
+  metis_tac[extract_labels_copy_prop_aux,word_copyTheory.copy_prop_def]
+QED
+
+Theorem flat_exp_conventions_copy_prop_aux:
+  ∀p cs.
+  flat_exp_conventions p ⇒
+  flat_exp_conventions (FST (copy_prop_prog p cs))
+Proof
+  boring_tac flat_exp_conventions_def
+  >>Cases_on‘exp’
+  >>fs[word_copyTheory.copy_prop_share_def,flat_exp_conventions_def]
+  >>rpt(TOP_CASE_TAC>>rw[flat_exp_conventions_def])
 QED
 
 Theorem flat_exp_conventions_copy_prop:
   flat_exp_conventions p ⇒
   flat_exp_conventions (copy_prop p)
 Proof
-  cheat
+  metis_tac[flat_exp_conventions_copy_prop_aux,word_copyTheory.copy_prop_def]
+QED
+
+Theorem pre_alloc_conventions_copy_prop_aux:
+  ∀p cs.
+  pre_alloc_conventions is_x64 p ⇒
+  pre_alloc_conventions is_x64 (FST (copy_prop_prog p cs))
+Proof
+  ho_match_mp_tac word_copyTheory.copy_prop_prog_ind
+  >>rw[word_copyTheory.copy_prop_prog_def,pre_alloc_conventions_def]
+  >>rpt(pairarg_tac>>fs[])
+  >>fs[wordLangTheory.every_stack_var_def,call_arg_convention_def]
+  >-(
+    qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac word_copyTheory.copy_prop_inst_ind
+    >>rw[wordLangTheory.every_stack_var_def,word_copyTheory.copy_prop_inst_def]
+  )
+  >-(
+    pop_assum mp_tac
+    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac word_copyTheory.copy_prop_inst_ind
+    >>rw[call_arg_convention_def,inst_arg_convention_def,word_copyTheory.copy_prop_inst_def]
+    >>cheat(*OOPS*)
+  )
 QED
 
 Theorem pre_alloc_conventions_copy_prop:
