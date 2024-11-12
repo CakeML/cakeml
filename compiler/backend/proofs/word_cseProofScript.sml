@@ -1480,7 +1480,7 @@ Proof
      comp_StoreConsts_correct, comp_CodeBufferWrite_correct,
      comp_DataBufferWrite_correct, comp_FFI_correct,
      comp_OpCurrHeap_correct, comp_Call_correct,
-     comp_ShareInst_correct ]
+     comp_ShareInst_correct ] *)
 QED
 
 Theorem word_common_subexp_elim_correct:
