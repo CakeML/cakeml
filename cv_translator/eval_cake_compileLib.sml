@@ -58,9 +58,13 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
     |> SPEC (c |> concl |> rand) |> concl |> lhs |> mk_fst
   val oracles = let
     val _ = report "about to run cv_eval on to_livesets_def"
-    val graphs = cv_eval input_tm |> rconc
+    val graphs_raw = cv_eval_raw input_tm |> rconc
     val _ = report "cv_eval to_livesets finished"
+    in reg_allocComputeLib.get_oracle_raw reg_alloc.Irc graphs_raw end
+(*
+    val graphs = cv_eval input_tm |> rconc
     in reg_allocComputeLib.get_oracle reg_alloc.Irc graphs end
+*)
   val _ = report "external register allocation finished"
   val oracle_def = define_abbrev "temp_oracle" oracles;
   val _ = allowing_rebind (cv_trans_deep_embedding EVAL) oracle_def
