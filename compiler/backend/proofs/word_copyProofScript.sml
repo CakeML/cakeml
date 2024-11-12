@@ -1207,8 +1207,231 @@ Proof
   >>metis_tac[copy_prop_correct,empty_eq_inv,empty_eq_model,PAIR]
 QED
 
+(*========================================================================*)
 (* Bunch of syntactic results for integration into compiler *)
 
-(* Leave these things for now *)
+(* may not prove goal fully *)
+fun boring_tac def =
+  ho_match_mp_tac copy_prop_prog_ind
+  >>rw[copy_prop_prog_def,def]
+  >>rpt(pairarg_tac>>fs[])
+  >>rw[def]
+  >-(
+    qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[copy_prop_inst_def,def]
+  )
+  >-(
+    TOP_CASE_TAC>>rw[def]
+  );
+
+Theorem wf_cutsets_copy_prop_aux:
+  ∀p cs. wf_cutsets p ⇒
+    wf_cutsets (FST (copy_prop_prog p cs))
+Proof
+  boring_tac wf_cutsets_def
+QED
+
+Theorem wf_cutsets_copy_prop:
+  wf_cutsets p ⇒ wf_cutsets (copy_prop p)
+Proof
+  metis_tac[wf_cutsets_copy_prop_aux,copy_prop_def]
+QED
+
+(* too strong; not true *)
+(*
+Theorem every_inst_distinct_tar_reg_copy_prop_aux:
+  ∀p cs.
+  every_inst distinct_tar_reg p ⇒
+  every_inst distinct_tar_reg (FST (copy_prop_prog p cs))
+Proof
+  ho_match_mp_tac copy_prop_prog_ind
+  >>rw[every_inst_def,copy_prop_prog_def]
+  >>rpt(pairarg_tac>>fs[])
+  >>rw[every_inst_def]
+  (* Inst *)
+  >-(
+    Cases_on‘i’
+    >-rw[copy_prop_inst_def,every_inst_def]
+    >-rw[copy_prop_inst_def,every_inst_def]
+    >-(
+      Cases_on‘a’
+      >>rw[copy_prop_inst_def,every_inst_def]
+      >>fs[distinct_tar_reg_def]
+
+    cheat
+QED
+*)
+
+(* Not true. Consider:
+(before copy prop)
+    a := b;
+    a := b+1;
+(after)
+    a := b;
+    a := a+1;
+*)
+Theorem every_inst_distinct_tar_reg_copy_prop:
+  every_inst distinct_tar_reg p ⇒
+  every_inst distinct_tar_reg (copy_prop p)
+Proof
+  cheat
+QED
+
+Theorem extract_labels_copy_prop_aux:
+  ∀p cs.
+  extract_labels (FST (copy_prop_prog p cs)) =
+  extract_labels p
+Proof
+  boring_tac extract_labels_def
+QED
+
+Theorem extract_labels_copy_prop:
+  extract_labels (copy_prop p) =
+  extract_labels p
+Proof
+  metis_tac[extract_labels_copy_prop_aux,copy_prop_def]
+QED
+
+Theorem flat_exp_conventions_copy_prop_aux:
+  ∀p cs.
+  flat_exp_conventions p ⇒
+  flat_exp_conventions (FST (copy_prop_prog p cs))
+Proof
+  boring_tac flat_exp_conventions_def
+  >>Cases_on‘exp’
+  >>fs[copy_prop_share_def,flat_exp_conventions_def]
+  >>rpt(TOP_CASE_TAC>>rw[flat_exp_conventions_def])
+QED
+
+Theorem flat_exp_conventions_copy_prop:
+  flat_exp_conventions p ⇒
+  flat_exp_conventions (copy_prop p)
+Proof
+  metis_tac[flat_exp_conventions_copy_prop_aux,copy_prop_def]
+QED
+
+Theorem copy_prop_prog_not_alloc_var_aux1:
+  (∀x. ¬is_alloc_var x ⇒ lookup x cs.to_eq = NONE) ⇒
+  ¬is_alloc_var x ⇒
+  lookup x (remove_eq cs y).to_eq = NONE
+Proof
+  rw[remove_eq_def]>>TOP_CASE_TAC>>rw[empty_eq_def]
+QED
+
+Theorem copy_prop_prog_not_alloc_var_aux2:
+  ∀cs.
+  (∀x. ¬is_alloc_var x ⇒ lookup x cs.to_eq = NONE) ⇒
+  ¬is_alloc_var x ⇒
+  lookup x (remove_eqs cs yy).to_eq = NONE
+Proof
+  Induct_on‘yy’>>rw[remove_eqs_def]
+  >>metis_tac[copy_prop_prog_not_alloc_var_aux1]
+QED
+
+(* trivial and tedious *)
+Theorem copy_prop_prog_not_alloc_var:
+  ∀p cs.
+  (∀x. ¬(is_alloc_var x) ⇒ lookup x cs.to_eq = NONE) ⇒
+  (∀x. ¬(is_alloc_var x) ⇒ lookup x (SND (copy_prop_prog p cs)).to_eq = NONE)
+Proof
+  ho_match_mp_tac copy_prop_prog_ind
+  >>rw[copy_prop_prog_def]
+  >>rpt(pairarg_tac>>fs[])
+  >>rw[empty_eq_def,copy_prop_prog_not_alloc_var_aux1,copy_prop_prog_not_alloc_var_aux2]
+  >-(
+    pop_assum mp_tac
+    >>qpat_x_assum‘EVERY _ _’kall_tac
+    >>qid_spec_tac‘xs'’>>qid_spec_tac‘cs'’
+    >>Induct_on‘xs’
+    >-(fs[copy_prop_move_def]>>metis_tac[])
+    >>rw[copy_prop_move_def]
+    >>PairCases_on‘h’
+    >>fs[copy_prop_move_def]
+    >>(pairarg_tac>>fs[])
+    >>gvs[]
+    >>rw[set_eq_def](*2*)
+    >-(
+      TOP_CASE_TAC(*2*)
+      >-(
+        rw[lookup_insert]
+        >-metis_tac[]
+        >-metis_tac[]
+        >>rw[remove_eq_def]
+        >>TOP_CASE_TAC>>rw[empty_eq_def]
+      )
+      >-(
+        rw[lookup_insert]
+        >-metis_tac[]
+        >>rw[remove_eq_def]
+        >>TOP_CASE_TAC>>rw[empty_eq_def]
+      )
+    )
+    >>rw[remove_eq_def]
+    >>TOP_CASE_TAC>>rw[empty_eq_def]
+  )
+  >-(
+    rpt(pop_assum mp_tac)
+    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[copy_prop_inst_def]
+    >>metis_tac[copy_prop_prog_not_alloc_var_aux1,copy_prop_prog_not_alloc_var_aux2]
+  )
+  >-rw[merge_eqs_def,lookup_inter_eq]
+  >-(TOP_CASE_TAC>>rw[])
+QED
+
+Theorem pre_alloc_conventions_copy_prop_aux:
+  ∀p cs.
+  (∀x. ¬(is_alloc_var x) ⇒ lookup x cs.to_eq = NONE) ⇒
+  pre_alloc_conventions p ⇒
+  pre_alloc_conventions (FST (copy_prop_prog p cs))
+Proof
+  ho_match_mp_tac copy_prop_prog_ind
+  >>rw[copy_prop_prog_def,pre_alloc_conventions_def]
+  >>rpt(pairarg_tac>>fs[])
+  >>fs[wordLangTheory.every_stack_var_def,call_arg_convention_def]
+  >-(
+    qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[wordLangTheory.every_stack_var_def,copy_prop_inst_def]
+  )
+  >-(
+    rpt(pop_assum mp_tac)
+    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[call_arg_convention_def,inst_arg_convention_def,copy_prop_inst_def]
+    >>rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
+  )
+  >-rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
+  >-rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
+  >-(
+    ‘cs' = SND (copy_prop_prog p cs)’ by rw[]
+    >>rw[]
+    >>metis_tac[copy_prop_prog_not_alloc_var]
+  )
+  >-(
+    ‘cs' = SND (copy_prop_prog p cs)’ by rw[]
+    >>rw[]
+    >>metis_tac[copy_prop_prog_not_alloc_var]
+  )
+  >-(TOP_CASE_TAC>>rw[wordLangTheory.every_stack_var_def])
+  >-(TOP_CASE_TAC>>rw[call_arg_convention_def])
+QED
+
+Theorem pre_alloc_conventions_copy_prop:
+  pre_alloc_conventions p ⇒
+  pre_alloc_conventions (copy_prop p)
+Proof
+  ‘∀x. lookup x empty_eq.to_eq = NONE’ by rw[empty_eq_def]
+  >>metis_tac[pre_alloc_conventions_copy_prop_aux,copy_prop_def]
+QED
+
+Theorem full_inst_ok_less_copy_prop:
+  full_inst_ok_less ac p ⇒
+  full_inst_ok_less ac (copy_prop p)
+Proof
+  cheat
+QED
 
 val _ = export_theory();
