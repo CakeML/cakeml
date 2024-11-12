@@ -372,11 +372,11 @@ val convs = [flat_exp_conventions_def, full_inst_ok_less_def,
   extract_labels_def]
 
 Theorem remove_must_terminate_conventions:
-    ∀p c k is_x64.
+    ∀p c k.
   let comp = remove_must_terminate p in
   (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
   (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
-  (post_alloc_conventions is_x64 k p ⇒ post_alloc_conventions is_x64 k comp) ∧
+  (post_alloc_conventions k p ⇒ post_alloc_conventions k comp) ∧
   (every_inst two_reg_inst p ⇒ every_inst two_reg_inst comp) ∧
   (extract_labels p = extract_labels comp)
 Proof

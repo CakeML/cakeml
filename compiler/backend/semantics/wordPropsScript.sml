@@ -3467,7 +3467,7 @@ Definition inst_arg_convention_def:
   (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 6 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
   (* LongDiv follows conventions for x86 as it is the only possibility *)
   (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 6 ∧ r3 = 6 ∧ r4 = 0) ∧
-  (inst_arg_convention _ _ = T)
+  (inst_arg_convention _ = T)
 End
 
 (* Syntactic conventions for allocator *)

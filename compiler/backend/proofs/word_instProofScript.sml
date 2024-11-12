@@ -1088,8 +1088,8 @@ QED
 
 Theorem three_to_two_reg_pre_alloc_conventions:
   ∀prog.
-    pre_alloc_conventions is_x64 prog ⇒
-    pre_alloc_conventions is_x64 (three_to_two_reg prog)
+    pre_alloc_conventions prog ⇒
+    pre_alloc_conventions (three_to_two_reg prog)
 Proof
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,three_to_two_reg_def,LET_THM,call_arg_convention_def,inst_arg_convention_def]>>

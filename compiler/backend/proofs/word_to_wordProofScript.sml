@@ -146,8 +146,8 @@ QED
 
 Theorem pre_alloc_conventions_copy_prop_aux:
   ∀p cs.
-  pre_alloc_conventions is_x64 p ⇒
-  pre_alloc_conventions is_x64 (FST (copy_prop_prog p cs))
+  pre_alloc_conventions p ⇒
+  pre_alloc_conventions (FST (copy_prop_prog p cs))
 Proof
   ho_match_mp_tac word_copyTheory.copy_prop_prog_ind
   >>rw[word_copyTheory.copy_prop_prog_def,pre_alloc_conventions_def]
