@@ -7,7 +7,7 @@ struct
 
 open HolKernel boolLib bossLib BasicProvers;
 
-open astTheory libTheory semanticPrimitivesTheory namespaceTheory;
+open astTheory semanticPrimitivesTheory namespaceTheory;
 open evaluateTheory stringLib astSyntax semanticPrimitivesSyntax;
 open ml_translatorTheory ml_translatorSyntax intLib;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
@@ -4856,22 +4856,6 @@ fun clean_v_thms () = let
        print ("Removed " ^ int_to_string delete_count ^
               " unreachable v thms from translator's state.\n") end;
 val _ = add_finalise_function clean_v_thms;
-
-fun mlDefine q = let
-  val def = Define q
-  val th = translate def
-  val _ = print "\n"
-  val _ = print_thm (D th)
-  val _ = print "\n\n"
-  in def end;
-
-fun mltDefine name q tac = let
-  val def = tDefine name q tac
-  val th = translate def
-  val _ = print "\n"
-  val _ = print_thm (D th)
-  val _ = print "\n\n"
-  in def end;
 
 (*
 val name = "hello"

@@ -7,7 +7,7 @@ local open asmSemTheory targetSemTheory ag32_targetTheory in end
 
 val _ = new_theory"ag32_machine_config";
 
-val ag32_init_asm_state_def = Define`
+Definition ag32_init_asm_state_def:
   ag32_init_asm_state mem md = <|
     be := F;
     lr := 0 ;
@@ -17,25 +17,29 @@ val ag32_init_asm_state_def = Define`
     mem := mem;
     mem_domain := md ;
     regs := K 0w
-  |>`;
+  |>
+End
 
-val ag32_prog_addresses_def = Define`
+Definition ag32_prog_addresses_def:
   ag32_prog_addresses num_ffis LENGTH_code LENGTH_data =
     { w | n2w heap_start_offset <=+ w ∧ w <+ n2w (heap_start_offset + heap_size) } ∪
     { w | n2w (code_start_offset num_ffis) <=+ w ∧
-          w <+ n2w (code_start_offset num_ffis + LENGTH_code + 4 * LENGTH_data) } `;
+          w <+ n2w (code_start_offset num_ffis + LENGTH_code + 4 * LENGTH_data) }
+End
 
-val ag32_startup_addresses_def = Define`
+Definition ag32_startup_addresses_def:
   ag32_startup_addresses =
       { w | w <+ n2w startup_code_size } ∪
-      { w | n2w heap_start_offset <=+ w ∧ w <+ n2w (heap_start_offset + 4 * 5) }`;
+      { w | n2w heap_start_offset <=+ w ∧ w <+ n2w (heap_start_offset + 4 * 5) }
+End
 
-val ag32_ccache_interfer_def = Define`
+Definition ag32_ccache_interfer_def:
   ag32_ccache_interfer num_ffis (_,_,ms) =
     ms with <| PC := (ms.R 0w) ;
-               R := (0w =+ n2w (ffi_jumps_offset + num_ffis * ffi_offset + 4)) ms.R |>`;
+               R := (0w =+ n2w (ffi_jumps_offset + num_ffis * ffi_offset + 4)) ms.R |>
+End
 
-val ag32_ffi_mem_update_def = Define`
+Definition ag32_ffi_mem_update_def:
   ag32_ffi_mem_update name conf bytes new_bytes mem =
     if (name = "write") then
       if (HD new_bytes = 0w) then
@@ -55,9 +59,10 @@ val ag32_ffi_mem_update_def = Define`
             (get_mem_word mem (n2w stdin_offset) + n2w (w22n [k1; k0])) mem
         else mem
       | _ => mem
-    else mem`;
+    else mem
+End
 
-val ag32_ffi_interfer_def = Define`
+Definition ag32_ffi_interfer_def:
   ag32_ffi_interfer ffi_names md (index,new_bytes,ms) =
     let name = EL index ffi_names in
     let exitpc = THE (ALOOKUP ffi_exitpcs name) in
@@ -89,9 +94,10 @@ val ag32_ffi_interfer_def = Define`
            CarryFlag := F ;
            OverflowFlag := F ;
            io_events := ms.io_events ++ [new_mem] ;
-           MEM := new_mem |>`;
+           MEM := new_mem |>
+End
 
-val ag32_machine_config_def = Define`
+Definition ag32_machine_config_def:
   ag32_machine_config ffi_names LENGTH_code LENGTH_data =
   let num_ffis = LENGTH ffi_names in
   let md = ag32_prog_addresses num_ffis LENGTH_code LENGTH_data in
@@ -112,7 +118,8 @@ val ag32_machine_config_def = Define`
     next_interfer := K I ;
     ccache_interfer := K (ag32_ccache_interfer num_ffis) ;
     ffi_interfer := K (ag32_ffi_interfer ffi_names md)
-  |>`
+  |>
+End
 
 Theorem is_ag32_machine_config_ag32_machine_config:
    is_ag32_machine_config (ag32_machine_config a b c)
@@ -120,10 +127,11 @@ Proof
 EVAL_TAC
 QED
 
-val ag32_ffi_mem_domain_def = Define`
+Definition ag32_ffi_mem_domain_def:
   ag32_ffi_mem_domain =
     { w | n2w startup_code_size <=+ (w:word32) ∧
-          w <+ n2w ffi_code_start_offset }`;
+          w <+ n2w ffi_code_start_offset }
+End
 
 Theorem ag32_ffi_mem_domain_DISJOINT_prog_addresses:
    num_ffis ≤ LENGTH FFI_codes ∧

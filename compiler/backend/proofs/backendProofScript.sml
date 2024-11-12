@@ -15,7 +15,7 @@ open preamble primSemEnvTheory semanticsPropsTheory
      lab_to_targetProofTheory
      backend_commonTheory
      backendPropsTheory
-local open dataPropsTheory finite_mapSyntax in end
+local open dataPropsTheory finite_mapSyntax backend_passesTheory in end
 open word_to_stackTheory
 
 val _ = new_theory"backendProof";
@@ -64,7 +64,7 @@ Proof
   fs [backendTheory.upper_w2w_def, data_to_word_gcProofTheory.upper_w2w_def, FUN_EQ_THM]
 QED
 
-val backend_config_ok_def = Define`
+Definition backend_config_ok_def:
   backend_config_ok (c:'a config) ⇔
     c.source_conf = prim_src_config ∧
     0 < c.clos_conf.max_app ∧
@@ -95,7 +95,8 @@ val backend_config_ok_def = Define`
     (∀n.
          n ≤ max_stack_alloc ⇒
          c.lab_conf.asm_conf.valid_imm (INL Sub) (n2w (n * (dimindex (:α) DIV 8))) ∧
-         c.lab_conf.asm_conf.valid_imm (INL Add) (n2w (n * (dimindex (:α) DIV 8))))`;
+         c.lab_conf.asm_conf.valid_imm (INL Add) (n2w (n * (dimindex (:α) DIV 8))))
+End
 
 Theorem backend_config_ok_with_bvl_conf_updated[simp]:
    (f cc.bvl_conf).next_name2 = cc.bvl_conf.next_name2 ⇒
@@ -120,7 +121,7 @@ Proof
       data_to_wordTheory.max_heap_limit_def]
 QED
 
-val mc_init_ok_def = Define`
+Definition mc_init_ok_def:
   mc_init_ok c mc ⇔
   EVERY (λr. MEM (find_name c.stack_conf.reg_names (r + mc.target.config.reg_count -(LENGTH mc.target.config.avoid_regs+5))) mc.callee_saved_regs) [2;3;4] ∧
   find_name c.stack_conf.reg_names 4 = mc.len2_reg ∧
@@ -136,7 +137,8 @@ val mc_init_ok_def = Define`
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.len2_reg ∧
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.ptr2_reg ∧
   ¬MEM (case mc.target.config.link_reg of NONE => 0 | SOME n => n) mc.callee_saved_regs ∧
-   c.lab_conf.asm_conf = mc.target.config`
+   c.lab_conf.asm_conf = mc.target.config
+End
 
 Theorem mc_init_ok_with_bvl_conf_updated[simp]:
    mc_init_ok (cc with bvl_conf updated_by f) mc ⇔ mc_init_ok cc mc
@@ -173,9 +175,10 @@ Proof
       data_to_wordTheory.shift_length_def,FUN_EQ_THM]
 QED
 
-val heap_regs_def = Define`
+Definition heap_regs_def:
   heap_regs reg_names =
-    (find_name reg_names 2, find_name reg_names 4)`;
+    (find_name reg_names 2, find_name reg_names 4)
+End
 
 Overload bvl_inline_compile_prog[local] = ``bvl_inline$compile_prog``
 Overload bvi_tailrec_compile_prog[local] = ``bvi_tailrec$compile_prog``
@@ -317,23 +320,27 @@ val semantics_thms = [source_to_flatProofTheory.compile_semantics,
   word_to_stackProofTheory.compile_semantics,
   full_make_init_semantics]
 
-val cake_configs_def = Define`
-  cake_configs c source = state_orac_states (compile_inc_progs T) c source`;
+Definition cake_configs_def:
+  cake_configs c source = state_orac_states (compile_inc_progs T) c source
+End
 
-val cake_orac_def = Define`
+Definition cake_orac_def:
   cake_orac c source f g i =
     let c = cake_configs c source i in
     let (_, progs) = compile_inc_progs T c (source i) in
-    (f c, g progs)`;
+    (f c, g progs)
+End
 
-val config_tuple2_def = Define`
+Definition config_tuple2_def:
   config_tuple2 c = (c.bvl_conf.inlines, c.bvl_conf.next_name1,
-    c.bvl_conf.next_name2, c.word_conf.bitmaps_length, c.lab_conf)`;
+    c.bvl_conf.next_name2, c.word_conf.bitmaps_length, c.lab_conf)
+End
 
-val config_tuple1_def = Define`
+Definition config_tuple1_def:
   config_tuple1 c = (c.source_conf, c.clos_conf.next_loc,
     clos_known$option_val_approx_spt c.clos_conf.known_conf,
-    FST c.clos_conf.call_state, config_tuple2 c)`;
+    FST c.clos_conf.call_state, config_tuple2 c)
+End
 
 Theorem cake_configs_eq:
   !f. compile c prog = SOME (b,bm,c') /\
@@ -942,11 +949,12 @@ Theorem stack_to_lab_orac_eq_std_sym = stack_to_lab_orac_eq
   |> SIMP_RULE std_ss []
   |> SPEC_ALL |> UNDISCH_ALL |> GSYM |> DISCH_ALL
 
-val state_co_fun_def = Define `
+Definition state_co_fun_def:
   state_co_fun f_inc x =
     let ((cfg1, cfg2), p) = x in
     let (_, p') = f_inc cfg1 p in
-    (cfg2, p')`;
+    (cfg2, p')
+End
 
 Theorem state_co_eq_comp:
   state_co f_inc orac = state_co_fun f_inc o orac
@@ -3709,7 +3717,6 @@ Proof
           \\ fs [Abbr `stoff`, backend_config_ok_def, asmTheory.offset_ok_def]
           \\ asm_exists_tac
           \\ simp [])
-
         (* lab_to_targetProof$no_share_mem_inst (newly installed code)*)
         \\ drule_then (fn t => gvs[t]) stack_to_lab_orac_eq_std_sym
         \\ pop_assum mp_tac
@@ -3727,25 +3734,13 @@ Proof
         \\ qpat_x_assum `word_oracle = _` kall_tac
         \\ qpat_x_assum `pure_co _ _ = (_,prg)` mp_tac
         \\ simp[pure_co_def,combinTheory.o_DEF,PAIR_MAP]
-        \\ simp[word_to_wordTheory.full_compile_single_def]
-        \\ rw[]
-        \\ simp[EVERY_MAP,EVERY_MEM]
-        \\ rw[]
+        \\ rw []
+        \\ simp [EVERY_MAP]
+        \\ rw [EVERY_MEM]
         \\ simp[ELIM_UNCURRY]
-        \\ simp[word_to_wordProofTheory.remove_must_terminate_no_share_inst]
-        \\ qpat_abbrev_tac `csing = SND (_ _ _)`
-        \\ Cases_on `csing`
-        \\ simp[]
-        \\ pop_assum $ mp_tac o PURE_REWRITE_RULE[markerTheory.Abbrev_def]
-        \\ qpat_abbrev_tac `cpart = data_to_word$compile_part _ _`
-        \\ PairCases_on `cpart`
-        \\ strip_tac
-        \\ drule_at_then (Pos last) irule word_to_wordProofTheory.compile_single_no_share_inst
-        \\ qpat_x_assum `Abbrev _` $ mp_tac o GSYM o
-          PURE_REWRITE_RULE[markerTheory.Abbrev_def]
+        \\ irule word_to_wordProofTheory.full_compile_single_no_share_inst
         \\ simp[DefnBase.one_line_ify NONE data_to_wordTheory.compile_part_def]
         \\ rpt (TOP_CASE_TAC >> simp[])
-        \\ rw[]
         \\ irule comp_no_share_inst
         \\ metis_tac[FST_EQ_EQUIV])
       \\ fs [markerTheory.Abbrev_def]

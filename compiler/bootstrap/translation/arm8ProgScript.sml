@@ -22,9 +22,11 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm8Prog");
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -51,21 +53,25 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val IS_SOME_rw = Q.prove(`
+Triviality IS_SOME_rw:
   (if IS_SOME a then b else c) =
     case a of
     SOME v => b
-  | NONE => c`,
-  Cases_on`a`>>rw[IS_SOME_DEF]);
+  | NONE => c
+Proof
+  Cases_on`a`>>rw[IS_SOME_DEF]
+QED
 
-val v2w_rw = Q.prove(`
-  v2w [P] = if P then 1w else 0w`,
-  rw[]>>EVAL_TAC);
+Triviality v2w_rw:
+  v2w [P] = if P then 1w else 0w
+Proof
+  rw[]>>EVAL_TAC
+QED
 
 (* TODO? more Manual rewrites to get rid of MachineCode type, which probably isn't that expensive *)
 
-val exh_machine_code = Q.prove(`
-∀v f.
+Triviality exh_machine_code:
+  ∀v f.
 (case
   case v of
     (n,imms,immr) =>
@@ -74,29 +80,37 @@ of
   ARM8 w => g w
 | BadCode v3 => h) =
   case v of (n,imms,immr) =>
-  g( f n imms immr)`,
-  rw[]>>PairCases_on`v`>>rw[])
+  g( f n imms immr)
+Proof
+  rw[]>>PairCases_on`v`>>rw[]
+QED
 
-val LIST_BIND_option = Q.prove(`
+Triviality LIST_BIND_option:
   LIST_BIND (case P of NONE => a | SOME v => b v) f =
-  case P of NONE => LIST_BIND a f | SOME v => LIST_BIND (b v) f`,
-  Cases_on`P`>>rw[]);
+  case P of NONE => LIST_BIND a f | SOME v => LIST_BIND (b v) f
+Proof
+  Cases_on`P`>>rw[]
+QED
 
-val LIST_BIND_pair = Q.prove(`
+Triviality LIST_BIND_pair:
   LIST_BIND (case P of (l,r) => a l r) f =
-  case P of (l,r) => LIST_BIND (a l r) f`,
-  Cases_on`P`>>rw[]);
+  case P of (l,r) => LIST_BIND (a l r) f
+Proof
+  Cases_on`P`>>rw[]
+QED
 
-val notw = Q.prove(`
-  !a. ~a = (-1w ?? a)`,
-  srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
+Triviality notw:
+  !a. ~a = (-1w ?? a)
+Proof
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][]
+QED
 
 val defaults = [arm8_ast_def, arm8_encode_def, Encode_def,
   NoOperation_def, arm8_enc_mov_imm_def, e_data_def,
   EncodeLogicalOp_def, bop_enc_def, e_sf_def, v2w_rw,
   arm8_encode_fail_def, e_load_store_def, arm8_load_store_ast_def,
   e_LoadStoreImmediate_def, e_branch_def, asmSemTheory.is_test_def,
-  cmp_cond_def, dfn'Hint_def];
+  cmp_cond_def, dfn'Hint_def, arm8_load_store_ast32_def];
 
 val arm8_enc_thms =
   arm8_enc_def
@@ -234,21 +248,24 @@ val arm8_simp6 = arm8_enc6 |> SIMP_RULE (srw_ss() ++ LET_ss)
 val arm8_enc_thm = reconstruct_case ``arm8_enc i`` rand
 [arm8_simp1,arm8_simp2,arm8_simp3,arm8_simp4,arm8_simp5,arm8_simp6]
 
-val ct_curr_def = tDefine "ct_curr" `
+Definition ct_curr_def:
   ct_curr b (w:word64) =
      if
        ((1w && w) ≠ 0w ⇔ b) ∨
        if b then w = 0w else w = 0xFFFFFFFFFFFFFFFFw
      then
        0n
-     else 1 + ct_curr b (w ⋙ 1)`
-  (WF_REL_TAC`measure (w2n o SND)`
+     else 1 + ct_curr b (w ⋙ 1)
+Termination
+  WF_REL_TAC`measure (w2n o SND)`
   THEN SRW_TAC [] [wordsTheory.LSR_LESS]
   THEN Cases_on `w = 0w`
-  THEN FULL_SIMP_TAC (srw_ss()) [wordsTheory.word_0, wordsTheory.LSR_LESS]);
+  THEN FULL_SIMP_TAC (srw_ss()) [wordsTheory.word_0, wordsTheory.LSR_LESS]
+End
 
-val CountTrailing_eq = Q.prove(`
-  ∀b w. CountTrailing (b,w) = ct_curr b w`,
+Triviality CountTrailing_eq:
+  ∀b w. CountTrailing (b,w) = ct_curr b w
+Proof
   ho_match_mp_tac (fetch "-" "ct_curr_ind")>>
   rpt strip_tac>>
   PURE_REWRITE_TAC[Once ct_curr_def,word_bit_test]>>
@@ -259,7 +276,8 @@ val CountTrailing_eq = Q.prove(`
     simp[])
   >>
     simp[Once CountTrailing_def,word_bit_test]>>
-    metis_tac[]);
+    metis_tac[]
+QED
 
 val res = translate ct_curr_def
 
@@ -284,21 +302,25 @@ val v2n_side = Q.prove(`
   EVAL_TAC>>
   fs[l2n_side]) |> update_precondition;
 
-val notw = Q.prove(`
-  !a. ~a = (-1w ?? (a))`,
-  srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
+Triviality notw:
+  !a. ~a = (-1w ?? (a))
+Proof
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][]
+QED
 
 val res = translate (EVAL``w2v (w:word6)`` |> SIMP_RULE (srw_ss()) [word_bit_test,word_bit_def,word_bit])
 
-val Num_rw = Q.prove(`
+Triviality Num_rw:
   (if len < 1 then NONE
   else
     f (Num len)) =
   if len < 1 then NONE
-    else f (Num (ABS len))`,
+    else f (Num (ABS len))
+Proof
   rw[]>>
   `0 ≤ len` by intLib.COOPER_TAC>>
-  metis_tac[integerTheory.INT_ABS_EQ_ID])
+  metis_tac[integerTheory.INT_ABS_EQ_ID]
+QED
 
 val res = translate (specv64 ``:'M`` DecodeBitMasks_def |> SIMP_RULE
   (srw_ss()++ARITH_ss) [hsb_compute, v2w_Ones, Replicate_def,
@@ -396,11 +418,17 @@ val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store a b c =
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store8 a b c =
                     arm8_enc (Inst (Mem Store8 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store32 a b c =
+                    arm8_enc (Inst (Mem Store32 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load a b c =
                     arm8_enc (Inst (Mem Load a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load8 a b c =
                     arm8_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load32 a b c =
+                    arm8_enc (Inst (Mem Load32 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Arith_SubOverflow a b c d =
                     arm8_enc (Inst (Arith (SubOverflow a b c d)))’

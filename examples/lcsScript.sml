@@ -7,65 +7,94 @@ val _ = new_theory "lcs";
 
 (* Miscellaneous lemmas that may belong elsewhere *)
 
-val sub_suc_0 = Q.prove(`x - SUC x = 0`,
-  Induct_on `x` >> fs[SUB]);
+Triviality sub_suc_0:
+  x - SUC x = 0
+Proof
+  Induct_on `x` >> fs[SUB]
+QED
 
-val take_suc_length = Q.prove(`TAKE (SUC (LENGTH l)) l = l`,
-  Induct_on `l` >> fs[])
+Triviality take_suc_length:
+  TAKE (SUC (LENGTH l)) l = l
+Proof
+  Induct_on `l` >> fs[]
+QED
 
-val is_suffix_length = Q.prove(`IS_SUFFIX l1 l2 ==> LENGTH l1 >= LENGTH l2`,
+Triviality is_suffix_length:
+  IS_SUFFIX l1 l2 ==> LENGTH l1 >= LENGTH l2
+Proof
   rpt strip_tac
   >> first_assum(assume_tac o MATCH_MP IS_SUFFIX_IS_SUBLIST)
-  >> fs[IS_SUBLIST_APPEND]);
+  >> fs[IS_SUBLIST_APPEND]
+QED
 
-val is_suffix_take = Q.prove(`
+Triviality is_suffix_take:
   IS_SUFFIX l (h::r) ==>
-  (TAKE (LENGTH l − LENGTH r) l = TAKE (LENGTH l − SUC(LENGTH r)) l ++ [h])`,
+  (TAKE (LENGTH l − LENGTH r) l = TAKE (LENGTH l − SUC(LENGTH r)) l ++ [h])
+Proof
   fs[IS_SUFFIX_APPEND]
   >> rpt strip_tac
   >> fs[]
-  >> fs[TAKE_APPEND, GSYM ADD1, take_suc_length, sub_suc_0]);
+  >> fs[TAKE_APPEND, GSYM ADD1, take_suc_length, sub_suc_0]
+QED
 
-val is_suffix_drop = Q.prove(`
-IS_SUFFIX l (h::r) ==> (DROP (LENGTH l − SUC(LENGTH r)) l = h::r)`,
+Triviality is_suffix_drop:
+  IS_SUFFIX l (h::r) ==> (DROP (LENGTH l − SUC(LENGTH r)) l = h::r)
+Proof
   fs[IS_SUFFIX_APPEND]
   >> rpt strip_tac
   >> fs[]
   >> fs[GSYM ADD1]
   >> PURE_REWRITE_TAC [GSYM APPEND_ASSOC, DROP_LENGTH_APPEND]
-  >> fs[]);
+  >> fs[]
+QED
 
-val suc_ge = Q.prove(`(SUC x >= SUC y) = (x >= y)`, fs[]);
+Triviality suc_ge:
+  (SUC x >= SUC y) = (x >= y)
+Proof
+  fs[]
+QED
 
-val take_singleton_one = Q.prove(`
-  (TAKE n r = [e]) ==> (TAKE 1 r = [e])`,
-  Cases_on `r` >> Cases_on `n` >> fs[]);
+Triviality take_singleton_one:
+  (TAKE n r = [e]) ==> (TAKE 1 r = [e])
+Proof
+  Cases_on `r` >> Cases_on `n` >> fs[]
+QED
 
-val sub_le_suc = Q.prove(`n ≥ SUC m ==> (n + SUC l − SUC m = n + l − m)`, fs[]);
+Triviality sub_le_suc:
+  n ≥ SUC m ==> (n + SUC l − SUC m = n + l − m)
+Proof
+  fs[]
+QED
 
-val if_length_lemma = Q.prove(`TAKE (if LENGTH r <= 1 then 1 else LENGTH r) r = r`,
-  Induct_on `r` >> rw[] >> Cases_on `r` >> fs[]);
+Triviality if_length_lemma:
+  TAKE (if LENGTH r <= 1 then 1 else LENGTH r) r = r
+Proof
+  Induct_on `r` >> rw[] >> Cases_on `r` >> fs[]
+QED
 
 (* The predicate
     lcs l1 l2 l3
    is true iff l1 is the longest common subsequence of l2 and l3. *)
 
-val is_subsequence_def =
-Define `(is_subsequence [] l = T) ∧
+Definition is_subsequence_def:
+  (is_subsequence [] l = T) ∧
 (is_subsequence (f::r) l =
  case l of
     | [] => F
     | f'::r' =>
-      (((f = f') /\ is_subsequence r r') \/ is_subsequence (f::r) r'))`
+      (((f = f') /\ is_subsequence r r') \/ is_subsequence (f::r) r'))
+End
 
-val common_subsequence_def =
-Define `common_subsequence s t u =
-         (is_subsequence s t ∧ is_subsequence s u)`
+Definition common_subsequence_def:
+  common_subsequence s t u =
+         (is_subsequence s t ∧ is_subsequence s u)
+End
 
-val lcs_def =
-Define `lcs s t u =
+Definition lcs_def:
+  lcs s t u =
          (common_subsequence s t u ∧
-          (∀s'. common_subsequence s' t u ⇒ LENGTH s' <= LENGTH s))`
+          (∀s'. common_subsequence s' t u ⇒ LENGTH s' <= LENGTH s))
+End
 
 (* Properties of lcs and its auxiliary functions *)
 
@@ -255,15 +284,17 @@ Proof
   fs[lcs_def,common_subsequence_def,is_subsequence_refl,is_subsequence_length]
 QED
 
-val is_subsequence_greater = Q.prove(
-  `!l' l. is_subsequence l' l /\ LENGTH l ≤ LENGTH l'
-  ==> l = l'`,
+Triviality is_subsequence_greater:
+  !l' l. is_subsequence l' l /\ LENGTH l ≤ LENGTH l'
+  ==> l = l'
+Proof
   ho_match_mp_tac (theorem "is_subsequence_ind")
   >> rpt strip_tac
    >- fs[quantHeuristicsTheory.LIST_LENGTH_0]
    >> Cases_on `l`
     >> fs[is_subsequence_cons,is_subsequence_nil]
-    >> rfs[]);
+    >> rfs[]
+QED
 
 Theorem lcs_refl':
    lcs l' l l = (l = l')
@@ -280,8 +311,11 @@ Proof
   metis_tac[lcs_def,common_subsequence_sym]
 QED
 
-val lcs_empty = Q.prove(`lcs [] l [] /\ lcs [] [] l`,
-  fs[lcs_def,common_subsequence_def,is_subsequence_nil]);
+Triviality lcs_empty:
+  lcs [] l [] /\ lcs [] [] l
+Proof
+  fs[lcs_def,common_subsequence_def,is_subsequence_nil]
+QED
 
 Theorem lcs_empty':
    (lcs l l' [] = (l = [])) /\ (lcs l [] l' = (l = []))
@@ -566,18 +600,19 @@ QED
 
 (* A naive, exponential-time LCS algorithm that's easy to verify *)
 
-val longest_def =
-Define `longest l l' = if LENGTH l >= LENGTH l' then l else l'`
+Definition longest_def:
+  longest l l' = if LENGTH l >= LENGTH l' then l else l'
+End
 
-val naive_lcs_def =
-Define
-`(naive_lcs l [] = []) ∧
+Definition naive_lcs_def:
+  (naive_lcs l [] = []) ∧
 (naive_lcs [] l = []) ∧
 (naive_lcs (f::r) (f'::r') =
  if f = f' then
    f::naive_lcs r r'
  else
-   longest(naive_lcs (f::r) r') (naive_lcs r (f'::r')))`
+   longest(naive_lcs (f::r) r') (naive_lcs r (f'::r')))
+End
 
 (* Properties of the naive lcs algorithm *)
 
@@ -627,8 +662,9 @@ Proof
   >> rw[naive_lcs_clauses, MIN_DEF, longest_def]
 QED
 
-val naive_lcs_length = Q.prove(
-  `!l l' h. LENGTH(naive_lcs l l') + 1 >= LENGTH(naive_lcs l (l' ++ [h]))`,
+Triviality naive_lcs_length:
+  !l l' h. LENGTH(naive_lcs l l') + 1 >= LENGTH(naive_lcs l (l' ++ [h]))
+Proof
   ho_match_mp_tac (theorem "naive_lcs_ind")
   >> rpt strip_tac
   >> fs[naive_lcs_clauses]
@@ -636,10 +672,12 @@ val naive_lcs_length = Q.prove(
       >> fs[])
   >> rw[longest_def] >> fs[GSYM ADD1, suc_ge]
   >> rpt(first_x_assum(assume_tac o Q.SPEC `h`))
-  >> fs[]);
+  >> fs[]
+QED
 
-val naive_lcs_length' = Q.prove(
-  `!l l' h. LENGTH(naive_lcs l l') + 1 >= LENGTH(naive_lcs (l ++ [h]) l')`,
+Triviality naive_lcs_length':
+  !l l' h. LENGTH(naive_lcs l l') + 1 >= LENGTH(naive_lcs (l ++ [h]) l')
+Proof
   ho_match_mp_tac (theorem "naive_lcs_ind")
   >> rpt strip_tac
   >> fs[naive_lcs_clauses]
@@ -648,7 +686,8 @@ val naive_lcs_length' = Q.prove(
       >> fs[longest_def])
   >> rw[longest_def] >> fs[GSYM ADD1, suc_ge]
   >> rpt(first_x_assum(assume_tac o Q.SPEC `h`))
-  >> fs[]);
+  >> fs[]
+QED
 
 (* Main correctness theorem for the naive lcs algorithm *)
 
@@ -671,14 +710,17 @@ QED
 
 (* A quadratic-time LCS algorithm in dynamic programming style *)
 
-val longest'_def =
-Define `longest' (l,n) (l',n') = if n:num >= n' then (l,n) else (l',n')`
+Definition longest'_def:
+  longest' (l,n) (l',n') = if n:num >= n' then (l,n) else (l',n')
+End
 
-val longest'_thm = Q.prove(
-  `!l l'. longest' l l' = if SND l >= SND l' then l else l'`,
-  Cases >> Cases >> fs[longest'_def]);
+Triviality longest'_thm:
+  !l l'. longest' l l' = if SND l >= SND l' then l else l'
+Proof
+  Cases >> Cases >> fs[longest'_def]
+QED
 
-val dynamic_lcs_row_def = Define `
+Definition dynamic_lcs_row_def:
    (dynamic_lcs_row h [] previous_col previous_row ddl = [])
 ∧ (dynamic_lcs_row h (f::r) previous_col previous_row (diagonal,dl) =
     if f = h then
@@ -687,24 +729,27 @@ val dynamic_lcs_row_def = Define `
     else
       (let current = longest' (HD previous_row) previous_col in
         current::dynamic_lcs_row h r current (TL previous_row) (HD previous_row))
-   )`;
+   )
+End
 
-val dynamic_lcs_rows_def = Define `
+Definition dynamic_lcs_rows_def:
   (dynamic_lcs_rows [] r previous_row =
    if previous_row = [] then [] else FST(LAST previous_row)) ∧
   (dynamic_lcs_rows (h::l) r previous_row =
    dynamic_lcs_rows l r (dynamic_lcs_row h r ([],0) previous_row ([],0)))
-`;
+End
 
-val dynamic_lcs_def = Define `
-  dynamic_lcs l r = REVERSE(dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0)))`;
+Definition dynamic_lcs_def:
+  dynamic_lcs l r = REVERSE(dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0)))
+End
 
-val dynamic_lcs_no_rev_def = Define `
-  dynamic_lcs_no_rev l r = dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0))`;
+Definition dynamic_lcs_no_rev_def:
+  dynamic_lcs_no_rev l r = dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0))
+End
 
 (* Verification of dynamic LCS algorithm *)
 
-val dynamic_lcs_row_invariant_def = Define `
+Definition dynamic_lcs_row_invariant_def:
   dynamic_lcs_row_invariant h r previous_col previous_row diagonal prevh fullr =
   ((LENGTH r = LENGTH previous_row) ∧ (IS_SUFFIX fullr r) ∧
   (SND previous_col = LENGTH(FST previous_col)) ∧
@@ -712,13 +757,15 @@ val dynamic_lcs_row_invariant_def = Define `
   (!n. 0 <= n /\ n < LENGTH previous_row ==> (lcs (REVERSE(FST((EL n previous_row)))) prevh (TAKE (SUC n + (LENGTH fullr - LENGTH r)) fullr))) ∧
   (!n. 0 <= n /\ n < LENGTH previous_row ==> (SND(EL n previous_row) = LENGTH(FST(EL n previous_row)))) ∧
    (lcs (REVERSE(FST diagonal)) prevh (TAKE (LENGTH fullr - LENGTH r) fullr)) ∧
-   (lcs (REVERSE(FST previous_col)) (SNOC h prevh) (TAKE (LENGTH fullr - LENGTH r) fullr)))`;
+   (lcs (REVERSE(FST previous_col)) (SNOC h prevh) (TAKE (LENGTH fullr - LENGTH r) fullr)))
+End
 
-val dynamic_lcs_rows_invariant_def = Define `
+Definition dynamic_lcs_rows_invariant_def:
   dynamic_lcs_rows_invariant h r previous_row fullh =
   ((LENGTH r = LENGTH previous_row) ∧ (IS_SUFFIX fullh h) ∧
   (!n. 0 <= n /\ n < LENGTH previous_row ==> (lcs (REVERSE(FST(EL n previous_row))) (TAKE (LENGTH fullh - LENGTH h) fullh) (TAKE (SUC n) r))) ∧
-  (!n. 0 <= n /\ n < LENGTH previous_row ==> (SND(EL n previous_row) = LENGTH(FST(EL n previous_row)))))`;
+  (!n. 0 <= n /\ n < LENGTH previous_row ==> (SND(EL n previous_row) = LENGTH(FST(EL n previous_row)))))
+End
 
 Theorem dynamic_lcs_row_invariant_pres1:
     dynamic_lcs_row_invariant h (h::r) previous_col previous_row (diagonal,dl) prevh fullr
@@ -1028,11 +1075,12 @@ QED
 (* Further optimisation of the dynamic LCS algorithm: prune common
    prefixes and suffixes as a preprocessing step *)
 
-val longest_common_prefix_def = Define `
+Definition longest_common_prefix_def:
   (longest_common_prefix [] l = []) /\
   (longest_common_prefix l [] = []) /\
   (longest_common_prefix (f::r) (f'::r') =
-    if f = f' then f::longest_common_prefix r r' else [])`
+    if f = f' then f::longest_common_prefix r r' else [])
+End
 
 Theorem longest_common_prefix_clauses:
     (longest_common_prefix [] l = []) /\
@@ -1043,7 +1091,7 @@ Proof
   Cases_on `l` >> fs[longest_common_prefix_def]
 QED
 
-val optimised_lcs_def = Define `
+Definition optimised_lcs_def:
   optimised_lcs l r =
     let prefix = longest_common_prefix l r in
       let len = LENGTH prefix in
@@ -1053,11 +1101,12 @@ val optimised_lcs_def = Define `
               let len = LENGTH suffix in
                 let l = DROP len l in
                   let r = DROP len r in
-                    prefix++dynamic_lcs_no_rev l r++REVERSE suffix`;
+                    prefix++dynamic_lcs_no_rev l r++REVERSE suffix
+End
 
 (* Verification of optimised LCS *)
 
-val longest_common_suffix_def = Define `
+Definition longest_common_suffix_def:
   (longest_common_suffix [] l = []) /\
   (longest_common_suffix l [] = []) /\
   (longest_common_suffix (f::r) (f'::r') =
@@ -1068,7 +1117,8 @@ val longest_common_suffix_def = Define `
    else let l = longest_common_suffix r r' in
      if f = f' /\ LENGTH l = LENGTH r then
        f::l
-     else l)`
+     else l)
+End
 
 Theorem longest_common_suffix_clauses:
   !r r' f f'.
@@ -1106,13 +1156,14 @@ Proof
   >> rw[longest_common_suffix_def]
 QED
 
-val longest_common_suffix_length_def = Define `
+Definition longest_common_suffix_length_def:
   (longest_common_suffix_length [] [] n = n) /\
   (longest_common_suffix_length (f::r) (f'::r') n =
      if f = f' then
        longest_common_suffix_length r r' (SUC n)
      else
-       longest_common_suffix_length r r' 0)`
+       longest_common_suffix_length r r' 0)
+End
 
 Theorem longest_common_suffix_length_le_length:
    !l r. LENGTH(longest_common_suffix l r) <= LENGTH r

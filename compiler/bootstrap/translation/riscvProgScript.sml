@@ -20,9 +20,11 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "riscvProg");
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -54,9 +56,11 @@ val _ = translate (conv64_RHS integer_wordTheory.WORD_LTi)
 val spec_word_bit1 = word_bit |> ISPEC``foo:word32`` |> SPEC``11n``|> SIMP_RULE std_ss [word_bit_test] |> CONV_RULE (wordsLib.WORD_CONV)
 val spec_word_bit2 = word_bit |> ISPEC``foo:word64`` |> SPEC``31n``|> SIMP_RULE std_ss [word_bit_test] |> CONV_RULE (wordsLib.WORD_CONV)
 
-val v2w_rw = Q.prove(`
-  v2w [P] = if P then 1w else 0w`,
-  rw[]>>EVAL_TAC);
+Triviality v2w_rw:
+  v2w [P] = if P then 1w else 0w
+Proof
+  rw[]>>EVAL_TAC
+QED
 
 val defaults = [riscv_ast_def, riscv_encode_def, Encode_def,
   Itype_def, opc_def, riscv_const32_def, Utype_def, Rtype_def,
@@ -147,9 +151,11 @@ val riscv_enc1_4 = reconstruct_case ``riscv_enc (Inst (Mem m n a))``
   (Addr n' c)))`` (rand o rator o rator o rand o rand)
   riscv_enc1_4_aux];
 
-val notw2w = Q.prove(`
-  !a. ~w2w a = (-1w ?? (w2w a))`,
-  srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
+Triviality notw2w:
+  !a. ~w2w a = (-1w ?? (w2w a))
+Proof
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][]
+QED
 
 val riscv_enc1_5 = el 5 riscv_enc1s;
 
@@ -158,12 +164,14 @@ val riscv_simp1 = reconstruct_case ``riscv_enc (Inst i)`` (rand o
   riscv_enc1_5] |> SIMP_RULE std_ss[notw2w, word_2comp_def,
   dimword_32, dimword_20] |> gconv;
 
-val if_eq1w = Q.prove(`
+Triviality if_eq1w:
   ((if w2w (c ⋙ m && 1w:word64) = 1w:word20 then 1w:word1 else 0w) && 1w)
   =
-  w2w (c ⋙ m && 1w)`,
+  w2w (c ⋙ m && 1w)
+Proof
   rw[]>>fs[]>>
-  blastLib.FULL_BBLAST_TAC);
+  blastLib.FULL_BBLAST_TAC
+QED
 
 val riscv_simp2 = riscv_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) (Once
   COND_RAND::COND_RATOR::defaults) |> wc_simp |> we_simp |> gconv |>

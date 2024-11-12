@@ -31,38 +31,42 @@ val config =  global_state_config |>
 val _ = start_translation config;
 
 (* allocate an n x n matrix *)
-val mk_graph_def = Define`
+Definition mk_graph_def:
   mk_graph n =
   do
     () <- set_dim n;
     alloc_adj_mat (n * n) NONE
-  od`
+  od
+End
 
 (* Because we are using a 1D array to represent 2D*)
-val reind_def = Define`
+Definition reind_def:
   reind (i:num) j =
   do
     d <- get_dim;
     return (i*d+j)
-  od`
+  od
+End
 
 (* Make (i,j) adjacent with weight w *)
-val set_weight_def = Define`
+Definition set_weight_def:
   set_weight i j w =
   do
     pij <- reind i j;
     update_adj_mat pij (SOME w)
-  od`
+  od
+End
 
 (* Returns the weight of (i,j) *)
-val get_weight_def = Define`
+Definition get_weight_def:
   get_weight i j =
   do
     pij <- reind i j;
     adj_mat_sub pij
-  od`
+  od
+End
 
-val st_ex_FOR_def = tDefine "st_ex_FOR" `
+Definition st_ex_FOR_def:
   st_ex_FOR (i:num) j a =
   if i >= j then
     return ()
@@ -70,23 +74,27 @@ val st_ex_FOR_def = tDefine "st_ex_FOR" `
     do
       () <- a i;
       st_ex_FOR (i+1) j a
-    od`
-  (WF_REL_TAC `measure (\(i, j:num, a).  j-i)`);
+    od
+Termination
+  WF_REL_TAC `measure (\(i, j:num, a).  j-i)`
+End
 
-val st_ex_FOREACH_def = Define `
+Definition st_ex_FOREACH_def:
   (st_ex_FOREACH [] a = return ()) ∧
   (st_ex_FOREACH (x::xs) a =
   do
     () <- a x;
     st_ex_FOREACH xs a
-  od)`
+  od)
+End
 
 (* Initialize the diagonal to zero *)
-val init_diag_def = Define`
+Definition init_diag_def:
   init_diag d =
   do
     st_ex_FOR 0n d (λi. set_weight i i 0n)
-  od`
+  od
+End
 
 (* TODO: defining it as :
   init_diag =
@@ -103,7 +111,7 @@ val init_diag_def = Define`
 
 (* Floyd-Warshall algorithm *)
 
-val relax_def = Define`
+Definition relax_def:
   relax i k j =
   do
     wik <- get_weight i k;
@@ -117,10 +125,11 @@ val relax_def = Define`
       if wik + wkj < wij
       then set_weight i j (wik+wkj)
       else return ()
- od`
+ od
+End
 
 (* TODO: same as init_diag *)
-val floyd_warshall_def = Define`
+Definition floyd_warshall_def:
   floyd_warshall d =
   do
     st_ex_FOR 0n d (λk.
@@ -130,26 +139,30 @@ val floyd_warshall_def = Define`
     )
     )
     )
-  od`
+  od
+End
 
-val init_g_def = Define`
-  init_g =  <|dim := ref_init_dim ; adj_mat := rarray_init_adj_mat |>`
+Definition init_g_def:
+  init_g =  <|dim := ref_init_dim ; adj_mat := rarray_init_adj_mat |>
+End
 
-val init_from_ls_def = Define`
+Definition init_from_ls_def:
   init_from_ls ls =
   do
     d <- get_dim;
     () <- init_diag d;
     st_ex_FOREACH ls (\(i,j,w). set_weight i j w)
-  od`
+  od
+End
 
-val do_floyd_def = Define`
+Definition do_floyd_def:
   do_floyd d ls =
   do
     () <- mk_graph d;
     () <- init_from_ls ls;
     () <- floyd_warshall d;
-  od`
+  od
+End
 
 val alloc_adj_mat_def = definition "alloc_adj_mat_def";
 val get_dim_def = definition "get_dim_def";
@@ -248,14 +261,16 @@ Proof
   Cases_on`n`>>fs[]
 QED
 
-val adj_mat_sub_SUCCESS = Q.prove(`
+Triviality adj_mat_sub_SUCCESS:
   ∀s. i < s.dim ∧ j < s.dim ∧
   LENGTH s.adj_mat = s.dim * s.dim ⇒
   ∃v.
-  adj_mat_sub (i + j *s.dim) s = (M_success v, s)`,
+  adj_mat_sub (i + j *s.dim) s = (M_success v, s)
+Proof
   rw[]>> drule lemma>>
   disch_then (qspec_then `i` assume_tac)>>rfs[]>>
-  rw[adj_mat_sub_def,Marray_sub_def]);
+  rw[adj_mat_sub_def,Marray_sub_def]
+QED
 
 val update_adj_mat_def = fetch "-" "update_adj_mat_def"
 
@@ -274,20 +289,22 @@ Proof
   Cases_on`n`>>fs[LUPDATE_def]
 QED
 
-val update_adj_mat_SUCCESS = Q.prove(`
+Triviality update_adj_mat_SUCCESS:
   ∀s.
     i < s.dim ∧ j < s.dim ∧
     LENGTH s.adj_mat = s.dim * s.dim ⇒
   ∃res.
   update_adj_mat (j + i *s.dim) v s = (M_success (), res) ∧
   res.dim = s.dim ∧
-  LENGTH res.adj_mat = res.dim * res.dim`,
+  LENGTH res.adj_mat = res.dim * res.dim
+Proof
   rw[update_adj_mat_def]>>
   fs[Marray_update_def]>>
   qspecl_then [`i`,`j`] mp_tac lemma>>
-  rpt (disch_then drule)>>fs[]);
+  rpt (disch_then drule)>>fs[]
+QED
 
-val relax_SUCCESS = Q.prove(`
+Triviality relax_SUCCESS:
   i < s.dim ∧
   k < s.dim ∧
   j < s.dim ∧
@@ -295,15 +312,17 @@ val relax_SUCCESS = Q.prove(`
   ∃res.
   relax i k j s = (M_success (),res) ∧
   res.dim = s.dim ∧
-  LENGTH res.adj_mat = res.dim * res.dim`,
+  LENGTH res.adj_mat = res.dim * res.dim
+Proof
   rw[]>>
   fs[relax_def,st_ex_bind_def,get_weight_def,reind_def,get_dim_def,
      st_ex_return_def,set_weight_def]>>
   imp_res_tac adj_mat_sub_SUCCESS>>rfs[]>>
   every_case_tac>>fs[]>>
-  imp_res_tac update_adj_mat_SUCCESS>>rfs[]);
+  imp_res_tac update_adj_mat_SUCCESS>>rfs[]
+QED
 
-val floyd_warshall_SUCCESS_j = Q.prove(`
+Triviality floyd_warshall_SUCCESS_j:
   ∀j s.
   i < s.dim ∧
   k < s.dim ∧
@@ -312,7 +331,8 @@ val floyd_warshall_SUCCESS_j = Q.prove(`
   ∃res.
   st_ex_FOR j s.dim (\j. relax i k j) s = (M_success (),res) ∧
   res.dim = s.dim ∧
-  LENGTH res.adj_mat = res.dim * s.dim`,
+  LENGTH res.adj_mat = res.dim * s.dim
+Proof
   Induct_on`s.dim-j`
   >-
     rw[Once st_ex_FOR_def,st_ex_return_def]
@@ -320,9 +340,10 @@ val floyd_warshall_SUCCESS_j = Q.prove(`
     rw[Once st_ex_FOR_def,st_ex_bind_def]>>
     `j < s.dim` by fs[]>>
     assume_tac relax_SUCCESS>>rfs[]>>
-    first_x_assum(qspecl_then[`res`,`j+1`] assume_tac)>>rfs[]);
+    first_x_assum(qspecl_then[`res`,`j+1`] assume_tac)>>rfs[]
+QED
 
-val floyd_warshall_SUCCESS_i = Q.prove(`
+Triviality floyd_warshall_SUCCESS_i:
   ∀i s.
   k < s.dim ∧
   LENGTH s.adj_mat = s.dim * s.dim
@@ -331,7 +352,8 @@ val floyd_warshall_SUCCESS_i = Q.prove(`
   st_ex_FOR i s.dim (\i. st_ex_FOR 0 s.dim (\j. relax i k j)) s =
     (M_success (),res) ∧
   res.dim = s.dim ∧
-  LENGTH res.adj_mat = res.dim * s.dim`,
+  LENGTH res.adj_mat = res.dim * s.dim
+Proof
   Induct_on`s.dim-i`
   >-
     rw[Once st_ex_FOR_def,st_ex_return_def]
@@ -339,9 +361,10 @@ val floyd_warshall_SUCCESS_i = Q.prove(`
     rw[Once st_ex_FOR_def,st_ex_bind_def]>>
     `i < s.dim` by fs[]>>
     imp_res_tac (floyd_warshall_SUCCESS_j |> Q.SPEC `0n`) >>rfs[]>>
-    first_x_assum(qspecl_then[`res''`,`i+1`] assume_tac)>>rfs[]);
+    first_x_assum(qspecl_then[`res''`,`i+1`] assume_tac)>>rfs[]
+QED
 
-val floyd_warshall_SUCCESS_k = Q.prove(`
+Triviality floyd_warshall_SUCCESS_k:
   ∀k s.
   LENGTH s.adj_mat = s.dim * s.dim ⇒
   ∃res.
@@ -349,14 +372,16 @@ val floyd_warshall_SUCCESS_k = Q.prove(`
   (λk. st_ex_FOR 0 s.dim (λi. st_ex_FOR 0 s.dim (λj. relax i k j))) s =
   (M_success (),res) ∧
   res.dim = s.dim ∧
-  LENGTH res.adj_mat = res.dim * res.dim`,
+  LENGTH res.adj_mat = res.dim * res.dim
+Proof
   Induct_on`s.dim-k`>-
     rw[Once st_ex_FOR_def,st_ex_return_def]
   >>
     rw[Once st_ex_FOR_def,st_ex_bind_def]>>
     `k < s.dim` by fs[]>>
     imp_res_tac (floyd_warshall_SUCCESS_i |> Q.SPEC `0n`) >>rfs[]>>
-    first_x_assum(qspecl_then[`res`,`k+1`] assume_tac)>>rfs[]);
+    first_x_assum(qspecl_then[`res`,`k+1`] assume_tac)>>rfs[]
+QED
 
 (* Prove that the algorithm is always successful (?) *)
 Theorem do_floyd_SUCCESS:

@@ -1473,7 +1473,7 @@ Definition app_wordToInt_def:
 End
 
 (*
-val app_opn_def = Define `
+Definition app_opn_def:
   app_opn opn i1 i2 H Q =
     if (opn = Divide \/ opn = Modulo) /\ i2 = 0 then
       H ==>> Q (Exn (prim_exn "Div"))
@@ -2013,7 +2013,6 @@ Termination
       drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
     )
 End
-
 val cf_defs = [
   cf_def,
   cf_lit_def,
@@ -2091,7 +2090,7 @@ val cf_strip_sound_tac =
 
 val cf_evaluate_step_tac =
   simp [evaluate_to_heap_def, evaluate_ck_def, evaluate_def] \\
-  fs [libTheory.opt_bind_def, PULL_EXISTS]
+  fs [miscTheory.opt_bind_def, PULL_EXISTS]
 
 val cf_strip_sound_full_tac = cf_strip_sound_tac \\ cf_evaluate_step_tac
 

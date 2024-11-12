@@ -13,12 +13,13 @@ val _ = new_theory "MonitorProg";
 (*"*)
 
 (* Return to the bivalued logic *)
-val cwfsem_bi_val_def = Define`
+Definition cwfsem_bi_val_def:
   cwfsem_bi_val f s =
   case cwfsem f s of
     NONE => F
   | SOME F => F
-  | SOME T => T`
+  | SOME T => T
+End
 
 (*
   Translation of the monitors into CML
@@ -33,19 +34,23 @@ val spec64= INST_TYPE[alpha|->``:64``]
 val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
-val word_msb_rw32 = Q.prove(
-  `word_msb (a:word32) ⇔ (a>>>31) <> 0w`,
+Triviality word_msb_rw32:
+  word_msb (a:word32) ⇔ (a>>>31) <> 0w
+Proof
   rw[word_msb_def,fcpTheory.CART_EQ,word_index,word_lsr_def,fcpTheory.FCP_BETA]
   \\ rw[EQ_IMP_THM]
   >- ( qexists_tac`0` \\ simp[] )
-  \\ `i = 0` by decide_tac \\ fs[]);
+  \\ `i = 0` by decide_tac \\ fs[]
+QED
 
-val word_msb_rw64 = Q.prove(
-  `word_msb (a:word64) ⇔ (a>>>63) <> 0w`,
+Triviality word_msb_rw64:
+  word_msb (a:word64) ⇔ (a>>>63) <> 0w
+Proof
   rw[word_msb_def,fcpTheory.CART_EQ,word_index,word_lsr_def,fcpTheory.FCP_BETA]
   \\ rw[EQ_IMP_THM]
   >- ( qexists_tac`0` \\ simp[] )
-  \\ `i = 0` by decide_tac \\ fs[]);
+  \\ `i = 0` by decide_tac \\ fs[]
+QED
 
 val inlines = SIMP_RULE std_ss [NEG_INF_def,POS_INF_def,sw2sw_w2w,word_msb_rw32,word_msb_rw64,word_mul_def,word_2comp_def, divfloor_def, divceil_def, word_smod_def, word_sdiv_def]
 
@@ -71,16 +76,17 @@ val res = translate (divl_def |> inlines |> econv);
 val res = translate (divu_def |> inlines |> econv);
 val res = translate (divPair_def |> inlines |> econv);
 
-val lem = Q.prove(`
+Triviality lem:
   (wle 0w c ⇒ c ≠ 0w) ∧
   (wle 0w c ∧ wleq c d ⇒ d ≠ 0w) ∧
   (¬wleq c 0w ∧ wleq c d ⇒ c ≠ 0w ∧ d ≠ 0w) ∧
   (¬wleq 0w d ⇒ d ≠ 0w) ∧
   (¬wleq 0w d ∧ wleq c d ⇒ c ≠ 0w)
-  `,
+Proof
   EVAL_TAC>>rw[]>>
   CCONTR_TAC>>fs[]>>
-  blastLib.FULL_BBLAST_TAC);
+  blastLib.FULL_BBLAST_TAC
+QED
 
 val divpair_side = Q.prove(`
   divpair_side a b c d ⇔ T`,
@@ -95,14 +101,16 @@ val res = translate (cwfsem_bi_val_def|>inlines);
 (* The rest of these are wrappers around the monitors *)
 
 (* Converts 4 bytes in little endian order into a 32bit word *)
-val le_bytes_to_w32_def = Define`
+Definition le_bytes_to_w32_def:
   le_bytes_to_w32 (b0:word8) (b1:word8) (b2:word8) (b3:word8) =
-  (w2w b3):word32 << 24 + (w2w b2) << 16 + (w2w b1) << 8 + (w2w b0)`
+  (w2w b3):word32 << 24 + (w2w b2) << 16 + (w2w b1) << 8 + (w2w b0)
+End
 
 (* Converts 32bit word into 4 bytes in little endian order *)
-val w32_to_le_bytes_def = Define`
+Definition w32_to_le_bytes_def:
   w32_to_le_bytes (w:word32) =
-  ((7 >< 0) w, (15 >< 8) w, (23 >< 16) w, (31 >< 24) w):(word8# word8 # word8 #word8)`
+  ((7 >< 0) w, (15 >< 8) w, (23 >< 16) w, (31 >< 24) w):(word8# word8 # word8 #word8)
+End
 
 val res = translate (le_bytes_to_w32_def)
 val res = translate (w32_to_le_bytes_def |> SIMP_RULE std_ss [word_extract_w2w_mask] |> gconv)
@@ -150,14 +158,16 @@ val _ = append_prog unpack_w32_list
 (* Helper function to handoff a state to the monitor *)
 
 (*
-val vars_to_state_aux_def = Define`
+Definition vars_to_state_aux_def:
   (vars_to_state_aux [] [] = []:wstate) ∧
   (vars_to_state_aux (x::xs) (v:word32::vs) = ((x, (v,v))::vars_to_state_aux xs vs)) ∧
   (vars_to_state_aux [] _ = []) ∧
-  (vars_to_state_aux _ [] = [])`
+  (vars_to_state_aux _ [] = [])
+End
 
-val vars_to_state_def = Define`
-  vars_to_state xs ys = ZIP (xs,ys)`
+Definition vars_to_state_def:
+  vars_to_state xs ys = ZIP (xs,ys)
+End
 
 val res = translate vars_to_state_aux_def;
 val res = translate vars_to_state_def;
@@ -219,32 +229,35 @@ val _ = append_prog extCtrl;
 (* The fixed controller vars are
    a list of (INL) word constants or (INR) constant/sensor names *)
 (*
-val lookup_fixed_aux_def = Define`
+Definition lookup_fixed_aux_def:
   (lookup_fixed_aux nls [] = []:word32 list) ∧
   (lookup_fixed_aux nls (INL w::xs) = w::lookup_fixed_aux nls xs) ∧
   (lookup_fixed_aux nls (INR x::xs) =
     case ALOOKUP nls x of
       NONE => [] (* This should never occur *)
-    | SOME v => v :: lookup_fixed_aux nls xs)`;
+    | SOME v => v :: lookup_fixed_aux nls xs)
+End
 
 val res = translate lookup_fixed_aux_def;
 *)
 
-val lookup_fixed_def = Define`
+Definition lookup_fixed_def:
   lookup_fixed nls ls =
-  MAP (λn. case ALOOKUP nls n of NONE => 0w:word32 | SOME v => v) ls`
+  MAP (λn. case ALOOKUP nls n of NONE => 0w:word32 | SOME v => v) ls
+End
 
 val res = translate lookup_fixed_def;
 
 (* TODO: Do these need to be non-infinity? *)
-val is_point_def = Define`
+Definition is_point_def:
   is_point p ⇔
-  FST p = SND p`
+  FST p = SND p
+End
 
 val _ = translate is_point_def;
 
 (* only allow defaults that produce point intervals *)
-val evaluate_default_def = Define`
+Definition evaluate_default_def:
   evaluate_default names ls default =
   let defaults =
     MAP (λd. cwtsem d (ZIP (names,ZIP(ls,ls)))) default
@@ -253,7 +266,8 @@ val evaluate_default_def = Define`
     then
       SOME (MAP FST defaults)
     else
-      NONE`
+      NONE
+End
 
 val _ = translate evaluate_default_def;
 
@@ -261,7 +275,7 @@ val _ = translate evaluate_default_def;
    The additional string literal is used for external logging
 *)
 
-val ctrl_monitor_def = Define`
+Definition ctrl_monitor_def:
   ctrl_monitor ctrl_phi const_names ctrl_names sensor_names ctrlplus_names
                         const_ls    ctrl_ls sensor_ls    ctrlplus_ls
                         ctrlfixed_names ctrlfixed_rhs default =
@@ -280,7 +294,8 @@ val ctrl_monitor_def = Define`
   in
     case default_opt of
       NONE => NONE
-    | SOME default_ls => SOME (strlit"Control Violation",default_ls)`
+    | SOME default_ls => SOME (strlit"Control Violation",default_ls)
+End
 
 val res = translate ctrl_monitor_def;
 
@@ -312,21 +327,23 @@ val violation = process_topdecs`
 
 val _ = append_prog violation;
 
-val plant_monitor_def = Define`
+Definition plant_monitor_def:
   plant_monitor plant_phi const_names sensor_names ctrl_names sensorplus_names
                           const_ls    sensor_ls    ctrl_ls    sensorplus_ls =
   let names_ls = FLAT [sensorplus_names; ctrl_names; sensor_names; const_names] in
   let st_ls    = FLAT [sensorplus_ls   ; ctrl_ls   ; sensor_ls   ; const_ls] in
-    cwfsem_bi_val plant_phi (ZIP (names_ls,ZIP(st_ls,st_ls)))`
+    cwfsem_bi_val plant_phi (ZIP (names_ls,ZIP(st_ls,st_ls)))
+End
 
 val res = translate plant_monitor_def;
 
-val init_monitor_def = Define`
+Definition init_monitor_def:
   init_monitor init_phi const_names ctrl_names sensor_names
                         const_ls    ctrl_ls    sensor_ls   =
   let names_ls = FLAT [sensor_names; ctrl_names ; const_names] in
   let st_ls    = FLAT [sensor_ls   ; ctrl_ls ; const_ls] in
-    cwfsem_bi_val init_phi (ZIP (names_ls,ZIP(st_ls,st_ls)))`
+    cwfsem_bi_val init_phi (ZIP (names_ls,ZIP(st_ls,st_ls)))
+End
 
 val res = translate init_monitor_def;
 

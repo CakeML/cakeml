@@ -28,10 +28,10 @@ Theorem extcalls_ffi_names:
 Proof
   rewrite_tac [reader_compiled]
   \\ qspec_tac (‘info.lab_conf.ffi_names’,‘xs’) \\ Cases
-  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
   \\ Induct_on ‘x’
-  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
-  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
+  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
 QED
 
 val ffis = ffis_def |> CONV_RULE (RAND_CONV EVAL);
@@ -124,21 +124,22 @@ Proof
   \\ fs[ffi_names]
 QED
 
-val reader_machine_sem =
+Theorem reader_machine_sem =
   compile_correct_applied
   |> C MATCH_MP (UNDISCH reader_installed)
   |> DISCH_ALL
-  |> curry save_thm "reader_machine_sem";
 
 val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U-> bool``;
 Overload reader[local] = ``\inp r. readLines init_state inp r``
 
-val all_lines_stdin_fs = Q.prove (
-  `all_lines_inode (stdin_fs inp) (UStream «stdin»)
+Triviality all_lines_stdin_fs:
+  all_lines_inode (stdin_fs inp) (UStream «stdin»)
    =
-   lines_of (implode inp)`,
-  EVAL_TAC);
+   lines_of (implode inp)
+Proof
+  EVAL_TAC
+QED
 
 Theorem reader_extract_writes:
    wfcl cl ∧
@@ -187,7 +188,7 @@ Proof
     \\ (conj_tac >- simp [stdin_fs_def])
     \\ conj_tac
     \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
-            libTheory.the_def, TextIOProofTheory.add_stdo_def,
+            miscTheory.the_def, TextIOProofTheory.add_stdo_def,
             TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
             fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
     \\ SELECT_ELIM_TAC
@@ -223,7 +224,7 @@ Proof
   \\ (conj_tac >- simp [stdin_fs_def])
   \\ conj_tac
   \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
-          libTheory.the_def, TextIOProofTheory.add_stdo_def,
+          miscTheory.the_def, TextIOProofTheory.add_stdo_def,
           TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
           fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
   \\ SELECT_ELIM_TAC

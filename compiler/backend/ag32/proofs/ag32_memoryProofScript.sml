@@ -185,10 +185,9 @@ Proof
   \\ blastLib.BBLAST_TAC
 QED
 
-val get_mem_word_get_byte =
+Theorem get_mem_word_get_byte =
   get_mem_word_get_byte_gen
   |> Q.GEN`r0` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``]
-  |> curry save_thm "get_mem_word_get_byte";
 
 Theorem ag32_enc_lengths:
    LENGTH (ag32_enc istr) ∈ {4;8;12;16}
@@ -286,15 +285,17 @@ Proof
   \\ rw[]
 QED
 
-val get_byte_repl = Q.prove(`
+Triviality get_byte_repl:
   n+m < dimword(:32) ∧
   (m MOD 4 = 0n) ==>
   (get_byte ((n2w (n + m)):word32) w F =
-  get_byte (n2w n) w F)`,
+  get_byte (n2w n) w F)
+Proof
   EVAL_TAC>>
   fs[]>>rw[]>>
   ntac 2 AP_TERM_TAC>>
-  intLib.ARITH_TAC);
+  intLib.ARITH_TAC
+QED
 
 (* -- *)
 
@@ -392,9 +393,11 @@ Proof
   simp[Abbr`codel`]
 QED
 
-val lem = Q.prove(`
-  (m MOD 4 = 0) ∧ n < m ⇒ n DIV 4 < m DIV 4`,
-  intLib.ARITH_TAC);
+Triviality lem:
+  (m MOD 4 = 0) ∧ n < m ⇒ n DIV 4 < m DIV 4
+Proof
+  intLib.ARITH_TAC
+QED
 
 Theorem init_memory_startup:
    ∀code data ffis n.
@@ -879,7 +882,7 @@ Proof
   \\ fs[Abbr`sc`, LENGTH_startup_asm_code]
 QED
 
-val init_asm_state_def = Define`
+Definition init_asm_state_def:
   init_asm_state code data ffis input =
   let im =  init_memory code data ffis in
   let sac = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * LENGTH data)) in
@@ -887,7 +890,8 @@ val init_asm_state_def = Define`
       (ag32_init_asm_state
         (im input)
         (ag32_startup_addresses))
-        sac`;
+        sac
+End
 
 val (asm_tm, mk_asm, dest_asm, is_asm) = HolKernel.syntax_fns3 "asmSem" "asm"
 val (asm_ok_tm, mk_asm_ok, dest_asm_ok, is_asm_ok) = HolKernel.syntax_fns2 "asm" "asm_ok"
@@ -938,8 +942,8 @@ val mem_ok_tac =
      addressTheory.ALIGNED_n2w,
      bitTheory.BITS_ZERO3 ]
 
-val bounded_bits = Q.prove(`
-   ll < 4294967296 ⇒
+Triviality bounded_bits:
+  ll < 4294967296 ⇒
    ((BIT 0 (ll MOD 256) ⇔ BIT 0 ll) ∧ (BIT 1 (ll MOD 256) ⇔ BIT 1 ll) ∧
    (BIT 2 (ll MOD 256) ⇔ BIT 2 ll) ∧ (BIT 3 (ll MOD 256) ⇔ BIT 3 ll) ∧
    (BIT 4 (ll MOD 256) ⇔ BIT 4 ll) ∧ (BIT 5 (ll MOD 256) ⇔ BIT 5 ll) ∧
@@ -967,7 +971,8 @@ val bounded_bits = Q.prove(`
    (BIT 4 (BITS 31 8 (BITS 31 8 (BITS 31 8 ll)) MOD 256) ⇔ BIT 28 ll) ∧
    (BIT 5 (BITS 31 8 (BITS 31 8 (BITS 31 8 ll)) MOD 256) ⇔ BIT 29 ll) ∧
    (BIT 6 (BITS 31 8 (BITS 31 8 (BITS 31 8 ll)) MOD 256) ⇔ BIT 30 ll) ∧
-   (BIT 7 (BITS 31 8 (BITS 31 8 (BITS 31 8 ll)) MOD 256) ⇔ BIT 31 ll))`,
+   (BIT 7 (BITS 31 8 (BITS 31 8 (BITS 31 8 ll)) MOD 256) ⇔ BIT 31 ll))
+Proof
   strip_tac>>
   CONJ_TAC>- (
     `BITS 7 0 (ll MOD 256) = BITS 7 0 ll` by
@@ -986,7 +991,8 @@ val bounded_bits = Q.prove(`
   `BITS 31 8 (BITS 31 8 (BITS 31 8 ll)) MOD 256 = BITS 31 24 ll` by
     (simp[bitTheory.BITS_THM]>>
     intLib.ARITH_TAC)>>
-  simp[bitTheory.BIT_OF_BITS_THM]);
+  simp[bitTheory.BIT_OF_BITS_THM]
+QED
 
 val mem_word_tac =
     rw[word_of_bytes_def,
@@ -1005,12 +1011,14 @@ val mem_word_tac =
     blastLib.BBLAST_TAC>>
     simp[bounded_bits]
 
-val ag32_const_enc = Q.prove(`
+Triviality ag32_const_enc:
   (∃a b c d.
   ag32_enc (Inst (Const r w)) = [a;b;c;d]) ∨
-  ∃a b c d e f g h. ag32_enc (Inst (Const r w)) = [a;b;c;d;e;f;g;h]`,
+  ∃a b c d e f g h. ag32_enc (Inst (Const r w)) = [a;b;c;d;e;f;g;h]
+Proof
   rpt (EVAL_TAC>>
-  rw[]));
+  rw[])
+QED
 
 fun LENGTH_ag32_enc_cases_tac
   (g as (asl,w))
@@ -1027,9 +1035,11 @@ fun LENGTH_ag32_enc_cases_tac
     \\ simp[]
   end g
 
-val FLAT_CONS = Q.prove(`
-  FLAT (h::t) = h ++ FLAT t`,
-  fs[]);
+Triviality FLAT_CONS:
+  FLAT (h::t) = h ++ FLAT t
+Proof
+  fs[]
+QED
 
 val startup_asm_code_eq =
   startup_asm_code_def |> SPEC_ALL
@@ -1043,8 +1053,9 @@ val startup_code_eq =
   |> SIMP_RULE (srw_ss()) [FLAT_compute,FLAT]
 
 (*
-val hide_def = Define`
-  hide x = x`
+Definition hide_def:
+  hide x = x
+End
 *)
 
 Theorem init_asm_state_asm_step:

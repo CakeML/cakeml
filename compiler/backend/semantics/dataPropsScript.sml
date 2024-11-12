@@ -128,9 +128,10 @@ Proof
   full_simp_tac(srw_ss())[state_component_equality]
 QED
 
-val var_corr_def = Define `
+Definition var_corr_def:
   var_corr env corr t <=>
-    EVERY2 (\v x. get_var v t = SOME x) corr env`;
+    EVERY2 (\v x. get_var v t = SOME x) corr env
+End
 
 Theorem get_vars_thm:
    !vs a t2. var_corr a vs t2 ==> (get_vars vs t2 = SOME a)
@@ -191,13 +192,17 @@ Proof
   full_simp_tac(srw_ss())[consume_space_def,add_space_def,state_component_equality] \\ DECIDE_TAC
 QED
 
-val consume_space_with_stack = Q.prove(
-  `consume_space x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (consume_space x y)`,
-  EVAL_TAC >> srw_tac[][]);
+Triviality consume_space_with_stack:
+  consume_space x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (consume_space x y)
+Proof
+  EVAL_TAC >> srw_tac[][]
+QED
 
-val consume_space_with_locals = Q.prove(
-  `consume_space x (y with locals := z) = OPTION_MAP (λs. s with locals := z) (consume_space x y)`,
-  EVAL_TAC >> srw_tac[][]);
+Triviality consume_space_with_locals:
+  consume_space x (y with locals := z) = OPTION_MAP (λs. s with locals := z) (consume_space x y)
+Proof
+  EVAL_TAC >> srw_tac[][]
+QED
 
 val do_app_with_stack = time Q.prove(
   `do_app op vs (s with stack := z) =
@@ -1317,19 +1322,21 @@ Proof
   \\ SRW_TAC [] []
 QED
 
-val evaluate_locals_LN_lemma = Q.prove(
-  `!c ^s.
+Triviality evaluate_locals_LN_lemma:
+  !c ^s.
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
       ((SND (evaluate (c,s))).locals = LN) \/
-      ?t. FST (evaluate (c,s)) = SOME (Rerr(Rraise t))`,
+      ?t. FST (evaluate (c,s)) = SOME (Rerr(Rraise t))
+Proof
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[call_env_def,flush_state_def,fromList_def]
   \\ imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
   \\ rpt(TOP_CASE_TAC >> fs[] >> rveq)
   \\ fs[markerTheory.Abbrev_def]
-  \\ rpt(TOP_CASE_TAC >> fs[] >> rveq));
+  \\ rpt(TOP_CASE_TAC >> fs[] >> rveq)
+QED
 
 Theorem evaluate_locals_LN:
    !c ^s res t.
@@ -1339,9 +1346,10 @@ Proof
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_locals_LN_lemma) \\ full_simp_tac(srw_ss())[]
 QED
 
-val locals_ok_def = Define `
+Definition locals_ok_def:
   locals_ok l1 l2 =
-    !v x. (sptree$lookup v l1 = SOME x) ==> (sptree$lookup v l2 = SOME x)`;
+    !v x. (sptree$lookup v l1 = SOME x) ==> (sptree$lookup v l2 = SOME x)
+End
 
 Theorem locals_ok_IMP:
    locals_ok l1 l2 ==> domain l1 SUBSET domain l2
@@ -1952,20 +1960,22 @@ Proof
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []
 QED
 
-val get_code_labels_def = Define`
+Definition get_code_labels_def:
   (get_code_labels (Call r d a h) =
     (case d of SOME x => {x} | _ => {}) ∪
     (case h of SOME (n,p) => get_code_labels p | _ => {})) ∧
   (get_code_labels (Seq p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (If _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (Assign _ op _ _) = closLang$assign_get_code_label op) ∧
-  (get_code_labels _ = {})`;
+  (get_code_labels _ = {})
+End
 val _ = export_rewrites["get_code_labels_def"];
 
-val good_code_labels_def = Define`
+Definition good_code_labels_def:
   good_code_labels p elabs ⇔
     (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
-    (set (MAP FST p)) ∪ elabs`
+    (set (MAP FST p)) ∪ elabs
+End
 
 Theorem get_code_labels_mk_ticks:
    ∀n m. get_code_labels (mk_ticks n m) ⊆ get_code_labels m
@@ -2759,7 +2769,7 @@ Theorem the_le_IMP_option_le:
   ==>
   option_le m (SOME n)
 Proof
-  Cases_on `m` >> rw[libTheory.the_def]
+  Cases_on `m` >> rw[miscTheory.the_def]
 QED
 
 Theorem do_app_stack_max_le_stack_limit:

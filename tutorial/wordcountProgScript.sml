@@ -15,8 +15,9 @@ val _ = new_theory"wordcountProg";
 
 val _ = translation_extends"basisProg";
 
-val wc_lines_def = Define`
-  wc_lines lines = SUM (MAP (LENGTH o splitwords) lines)`;
+Definition wc_lines_def:
+  wc_lines lines = SUM (MAP (LENGTH o splitwords) lines)
+End
 
 val res = translate splitwords_def;
 val res = translate wc_lines_def;
@@ -94,7 +95,7 @@ val wordcount = process_topdecs`
          TextIO.print (Int.toString (List.length lines)); TextIO.output1 TextIO.stdOut #"\n")`;
 val _ = append_prog wordcount;
 
-val wordcount_precond_def = Define`
+Definition wordcount_precond_def:
   wordcount_precond cl fs contents fs' ⇔
     case cl of
       [_; fname] =>
@@ -105,7 +106,8 @@ val wordcount_precond_def = Define`
     | _ =>
       ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"),ReadMode,0) ∧
       ALOOKUP fs.inode_tbl (UStream (strlit"stdin")) = SOME contents ∧
-      fs' = fastForwardFD fs 0`;
+      fs' = fastForwardFD fs 0
+End
 
 Theorem wordcount_precond_numchars:
    wordcount_precond cl fs contens fs' ⇒ fs'.numchars = fs.numchars
@@ -265,10 +267,10 @@ val spec = wordcount_whole_prog_spec |> UNDISCH_ALL
 val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state()) "wordcount" spec
 val wordcount_prog_def = mk_abbrev"wordcount_prog" prog_tm;
 
-val wordcount_semantics = save_thm("wordcount_semantics",
+Theorem wordcount_semantics =
   sem_thm |> PURE_REWRITE_RULE[GSYM wordcount_prog_def]
   |> DISCH_ALL
   |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,LENGTH]
-  |> SIMP_RULE (srw_ss()) []);
+  |> SIMP_RULE (srw_ss()) []
 
 val _ = export_theory();

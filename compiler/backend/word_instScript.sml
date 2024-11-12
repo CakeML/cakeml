@@ -18,33 +18,37 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 *)
 
 (*Pull all nested arguments with the same op up*)
-val pull_ops_def = Define`
+Definition pull_ops_def:
   (pull_ops op [] acc = acc) ∧
   (pull_ops op (x::xs) acc =
     dtcase x of
     |  (Op op' ls) => if op = op' then pull_ops op xs (ls ++ acc) else pull_ops op xs (x::acc)
-    |  _  => pull_ops op xs (x::acc))`
+    |  _  => pull_ops op xs (x::acc))
+End
 
-val is_const_def = Define`
+Definition is_const_def:
   (is_const (Const w) = T) ∧
-  (is_const _ = F)`
+  (is_const _ = F)
+End
 
-val rm_const_def = Define`
+Definition rm_const_def:
   (rm_const (Const w) = w) ∧
   (*Make it total*)
-  (rm_const _ = 0w)`
+  (rm_const _ = 0w)
+End
 
-val convert_sub_def = Define`
+Definition convert_sub_def:
   (convert_sub [Const w1;Const w2] = Const (w1 -w2)) ∧
-  (convert_sub [x;Const w] = Op Add [x;Const (-w)]) ∧
-  (convert_sub ls = Op Sub ls)`
+  (convert_sub [x;Const w] = Op Add [Const (-w); x]) ∧
+  (convert_sub ls = Op Sub ls)
+End
 
 Theorem convert_sub_pmatch:
   !l.
   convert_sub l =
   case l of
     [Const w1;Const w2] => Const (w1 -w2)
-  | [x;Const w] => Op Add [x;Const (-w)]
+  | [x;Const w] => Op Add [Const (-w);x]
   | ls => Op Sub ls
 Proof
   rpt strip_tac
@@ -53,9 +57,10 @@ Proof
   >> fs[convert_sub_def]
 QED
 
-val op_consts_def = Define`
+Definition op_consts_def:
   (op_consts And = Const (~0w)) ∧
-  (op_consts _ = Const 0w)`
+  (op_consts _ = Const 0w)
+End
 
 Theorem op_consts_pmatch:
   !op.
@@ -70,18 +75,34 @@ Proof
   >> fs[op_consts_def]
 QED
 
-val optimize_consts_def = Define`
+(* Returns a definite value *)
+Definition reduce_const_def:
+  reduce_const op w rest =
+  if w = 0w then
+    if op = Add ∨ op = Or ∨ op = Xor then
+      dtcase rest of
+        []  => Const w
+      | [x] => x
+      | _ => Op op rest
+    else if op = And then
+      Const 0w
+    else Op op (Const w::rest)
+  else Op op (Const w::rest)
+End
+
+Definition optimize_consts_def:
   optimize_consts op ls =
   let (const_ls,nconst_ls) = PARTITION is_const ls in
     dtcase const_ls of
       [] => Op op nconst_ls
     | _ =>
       let w = THE (word_op op (MAP rm_const const_ls)) in
-      dtcase nconst_ls of
-        [] => Const w
-      | _ => Op op (Const w::nconst_ls)`
+      reduce_const op w nconst_ls
+End
 
-val pull_exp_def = tDefine "pull_exp"`
+(* If this expression contains a constant it should
+    be head of the output operation list *)
+Definition pull_exp_def:
   (pull_exp (Op Sub ls) =
     let new_ls = MAP pull_exp ls in
     convert_sub new_ls) ∧
@@ -95,12 +116,14 @@ val pull_exp_def = tDefine "pull_exp"`
       optimize_consts op pull_ls) ∧
   (pull_exp (Load exp) = Load (pull_exp exp)) ∧
   (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) nexp) ∧
-  (pull_exp exp = exp)`
-  (WF_REL_TAC `measure (exp_size ARB)`
+  (pull_exp exp = exp)
+Termination
+  WF_REL_TAC `measure (exp_size ARB)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def,asmTheory.binop_size_def,astTheory.shift_size_def,store_name_size_def]
-   \\ TRY (DECIDE_TAC))
+   \\ TRY (DECIDE_TAC)
+End
 
 Theorem pull_exp_pmatch:
   !(exp:'a exp).
@@ -134,19 +157,21 @@ QED
  /\
 c d
 *)
-val flatten_exp_def = tDefine "flatten_exp" `
+Definition flatten_exp_def:
   (flatten_exp (Op Sub exps) = Op Sub (MAP flatten_exp exps)) ∧
   (flatten_exp (Op op []) = op_consts op) ∧
   (flatten_exp (Op op [x]) = flatten_exp x) ∧
   (flatten_exp (Op op (x::xs)) = Op op [flatten_exp (Op op xs);flatten_exp x]) ∧
   (flatten_exp (Load exp) = Load (flatten_exp exp)) ∧
   (flatten_exp (Shift shift exp nexp) = Shift shift (flatten_exp exp) nexp) ∧
-  (flatten_exp exp = exp)`
-  (WF_REL_TAC `measure (exp_size ARB)`
+  (flatten_exp exp = exp)
+Termination
+  WF_REL_TAC `measure (exp_size ARB)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def]
-   \\ TRY (DECIDE_TAC))
+   \\ TRY (DECIDE_TAC)
+End
 
 
   (*
@@ -202,7 +227,7 @@ QED
   in temp and the value of the whole expression must be saved in tar
 *)
 
-val inst_select_exp_def = tDefine "inst_select_exp" `
+Definition inst_select_exp_def:
   (inst_select_exp (c:'a asm_config) (tar:num) (temp:num) (Load exp) =
     dtcase exp of
     | Op Add [exp';Const w] =>
@@ -255,12 +280,14 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
     else
       Inst (Const tar 0w)) ∧
   (*Make it total*)
-  (inst_select_exp _ _ _ _ = Skip)`
-  (WF_REL_TAC `measure (exp_size ARB o SND o SND o SND)`
+  (inst_select_exp _ _ _ _ = Skip)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND o SND o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def]
-   \\ TRY (DECIDE_TAC)) ;
+   \\ TRY (DECIDE_TAC)
+End ;
 
 Theorem inst_select_exp_pmatch:
   !c tar temp exp.
@@ -336,7 +363,7 @@ EVAL ``(pull_exp (Op And [Const (99w:64 word); Op Add [Op Add [];Op Or []]]))``
 *)
 
 (*Flattens all expressions in program, temp must a fresh var*)
-val inst_select_def = Define`
+Definition inst_select_def:
   (inst_select c temp (Assign v exp) =
     (inst_select_exp c v temp o flatten_exp o pull_exp) exp) ∧
   (inst_select c temp (Set store exp) =
@@ -395,7 +422,8 @@ val inst_select_def = Define`
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,inst_select c temp h,l1,l2) in
     Call retsel dest args handlersel) ∧
-  (inst_select c temp prog = prog)`
+  (inst_select c temp prog = prog)
+End
 
 Theorem inst_select_pmatch:
   !c temp prog.
@@ -471,7 +499,7 @@ QED
 (*
   Convert all 3 register instructions to 2 register instructions
 *)
-val three_to_two_reg_def = Define`
+Definition three_to_two_reg_def:
   (three_to_two_reg (Inst (Arith (Binop bop r1 r2 ri))) =
     Seq (Move 0 [r1,r2]) (Inst (Arith (Binop bop r1 r1 ri)))) ∧
   (three_to_two_reg (Inst (Arith (Shift l r1 r2 n))) =
@@ -501,7 +529,8 @@ val three_to_two_reg_def = Define`
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
     Call retsel dest args handlersel) ∧
-  (three_to_two_reg prog = prog)`
+  (three_to_two_reg prog = prog)
+End
 
 Theorem three_to_two_reg_pmatch:
   !prog.
@@ -544,5 +573,10 @@ Proof
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
     >> fs[three_to_two_reg_def])
 QED
+
+Definition three_to_two_reg_prog_def:
+  three_to_two_reg_prog b prog =
+    if b then three_to_two_reg prog else prog
+End
 
 val _ = export_theory();

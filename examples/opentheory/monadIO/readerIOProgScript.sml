@@ -22,11 +22,11 @@ val _ = m_translation_extends "reader_commonProg"
 val r = m_translate readLine_wrap_def
 val r = m_translate init_reader_wrap_def
 
-val init_reader_wrap_spec = save_thm ("init_reader_wrap_spec",
-  mk_app_of_ArrowP (theorem "init_reader_wrap_v_thm"));
+Theorem init_reader_wrap_spec =
+  mk_app_of_ArrowP (theorem "init_reader_wrap_v_thm")
 
-val readline_wrap_spec = save_thm ("readline_wrap_spec",
-  mk_app_of_ArrowP (theorem "readline_wrap_v_thm"));
+Theorem readline_wrap_spec =
+  mk_app_of_ArrowP (theorem "readline_wrap_v_thm")
 
 (* ------------------------------------------------------------------------- *)
 (* Set up translation to 'resume' from reader_commonProg                     *)
@@ -229,14 +229,15 @@ Proof
   metis_tac [holrefs_INTRO, EvalM_init_reader_wrap]
 QED
 
-val EvalM_readline_wrap = Q.prove (
- `Eval env xv (PAIR_TYPE STRING_TYPE READER_STATE_TYPE x) /\
+Triviality EvalM_readline_wrap:
+  Eval env xv (PAIR_TYPE STRING_TYPE READER_STATE_TYPE x) /\
   nsLookup env.v (Short "readline_wrap") = SOME readline_wrap_v
   ==>
   EvalM F env st
     (App Opapp [Var (Short "readline_wrap"); xv])
     (MONAD (SUM_TYPE STRING_TYPE READER_STATE_TYPE) HOL_EXN_TYPE
-       (readLine_wrap x)) (HOL_STORE, p:'ffi ffi_proj)`,
+       (readLine_wrap x)) (HOL_STORE, p:'ffi ffi_proj)
+Proof
   ho_match_mp_tac EvalM_from_app \\ rw []
   >-
    (PairCases_on `x`
@@ -248,17 +249,20 @@ val EvalM_readline_wrap = Q.prove (
   \\ asm_exists_tac \\ fs []
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac `s`
-  \\ xsimpl);
+  \\ xsimpl
+QED
 
-val EvalM_holrefs_readline_wrap = Q.prove (
- `Eval env xv (PAIR_TYPE STRING_TYPE READER_STATE_TYPE x) /\
+Triviality EvalM_holrefs_readline_wrap:
+  Eval env xv (PAIR_TYPE STRING_TYPE READER_STATE_TYPE x) /\
   nsLookup env.v (Short "readline_wrap") = SOME readline_wrap_v
   ==>
   EvalM F env st
     (App Opapp [Var (Short "readline_wrap"); xv])
     (MONAD (SUM_TYPE STRING_TYPE READER_STATE_TYPE) HOL_EXN_TYPE
-       (holrefs (readLine_wrap x))) (STATE_STORE, p:'ffi ffi_proj)`,
-  metis_tac [holrefs_INTRO, EvalM_readline_wrap]);
+       (holrefs (readLine_wrap x))) (STATE_STORE, p:'ffi ffi_proj)
+Proof
+  metis_tac [holrefs_INTRO, EvalM_readline_wrap]
+QED
 
 Theorem EvalM_context:
    Eval env uv (UNIT_TYPE u) /\
@@ -326,8 +330,8 @@ val readMain_side = Q.prove (
   \\ imp_res_tac EVERY_TL \\ rfs [clFFITheory.validArg_def])
   |> update_precondition;
 
-val readMain_spec = save_thm ("readMain_spec",
-  cfMonadLib.mk_app_of_ArrowP (theorem "readmain_v_thm"));
+Theorem readMain_spec =
+  cfMonadLib.mk_app_of_ArrowP (theorem "readmain_v_thm")
 
 Theorem readMain_spec_wp:
    wfcl st.cl /\
@@ -397,9 +401,11 @@ val st = get_ml_prog_state ();
 val name = "readmain";
 val spec = (UNDISCH monadreader_wps);
 val (sem_thm,prog_tm) = whole_prog_thm st name spec
-val readerIO_prog_def = Define `readerIO_prog = ^prog_tm`
+Definition readerIO_prog_def:
+  readerIO_prog = ^prog_tm
+End
 
-val semantics_readerIO_prog =
+Theorem semantics_readerIO_prog =
   sem_thm
   |> REWRITE_RULE[GSYM readerIO_prog_def]
   |> DISCH_ALL
@@ -409,6 +415,5 @@ val semantics_readerIO_prog =
      |> CONV_RULE (RHS_CONV (SIMP_CONV std_ss []))
      |> ONCE_REWRITE_RULE [CONJ_COMM] |> GSYM]
   |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
-  |> curry save_thm "semantics_readerIO_prog";
 
 val _ = export_theory ();

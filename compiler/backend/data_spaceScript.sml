@@ -61,11 +61,12 @@ Proof
 QED
 *)
 
-val pMakeSpace_def = Define `
+Definition pMakeSpace_def:
   (pMakeSpace (INL c) = c) /\
-  (pMakeSpace (INR (k,names,c)) = Seq (MakeSpace k names) c)`;
+  (pMakeSpace (INR (k,names,c)) = Seq (MakeSpace k names) c)
+End
 
-val space_def = Define `
+Definition space_def:
   (space (MakeSpace k names) = INR (k,names,Skip)) /\
   (space (Seq c1 c2) =
      let d1 = pMakeSpace (space c1) in
@@ -90,7 +91,8 @@ val space_def = Define `
            | _ => INL (Seq d1 (pMakeSpace x2)))) /\
   (space (If n c2 c3) =
      INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))) /\
-  (space c = INL c)`;
+  (space c = INL c)
+End
 
 Theorem space_pmatch:
   ∀c.
@@ -128,7 +130,8 @@ Proof
   >> fs[space_def]
 QED
 
-val compile_def = Define `
-  compile c = pMakeSpace (space c)`;
+Definition compile_def:
+  compile c = pMakeSpace (space c)
+End
 
 val _ = export_theory();

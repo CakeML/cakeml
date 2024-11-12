@@ -1,9 +1,9 @@
 (*
   Correctness proof for word_cse
 *)
-open preamble alistTheory totoTheory helperLib;
+open preamble alistTheory totoTheory;
 open wordLangTheory wordSemTheory wordPropsTheory reg_allocTheory;
-open word_simpTheory word_cseTheory;
+open word_simpTheory word_cseTheory helperLib;
 
 val _ = new_theory "word_cseProof";
 
@@ -89,6 +89,53 @@ Proof
   \\ gvs [canonicalImmReg'_def, word_exp_def, GSYM get_var_def]
 QED
 
+Theorem canonicalExp_correct[simp]:
+  ∀data s exp. data_inv data s ⇒ word_exp s (canonicalExp data exp) = word_exp s exp
+Proof
+  gen_tac \\ gen_tac
+  \\ Cases_on ‘exp’
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [canonicalExp_def, word_exp_def]
+QED
+
+Theorem is_seen_canonicalRegs:
+  data_inv data s ⇒
+  is_seen (canonicalRegs data n') data = is_seen n' data
+Proof
+  rw [canonicalRegs_def,is_seen_def,lookup_any_def]
+  \\ every_case_tac \\ fs []
+  \\ fs [data_inv_def]
+  \\ gvs [domain_lookup]
+  \\ res_tac \\ fs []
+QED
+
+Theorem is_seen_canonicalRegs':
+  data_inv data s ⇒
+  is_seen (canonicalRegs' n data n') data = is_seen n' data
+Proof
+  rw [canonicalRegs'_def]
+  \\ irule is_seen_canonicalRegs \\ fs [] \\ pop_assum $ irule_at Any
+QED
+
+Theorem are_reads_seen_canonical[simp]:
+  ∀a data s.
+    data_inv data s ⇒ ¬is_complex a ⇒
+    are_reads_seen (canonicalArith data a) data = are_reads_seen a data
+Proof
+  rpt strip_tac
+  \\ imp_res_tac is_seen_canonicalRegs' \\ fs []
+  \\ imp_res_tac is_seen_canonicalRegs \\ fs []
+  \\ Cases_on ‘a’ \\ gvs [canonicalArith_def, is_complex_def]
+  \\ gvs [are_reads_seen_def]
+  \\ Cases_on ‘r’ \\ fs [are_reads_seen_def,canonicalImmReg'_def]
+QED
+
+Theorem is_complex_canonical[simp]:
+  ∀data a. is_complex (canonicalArith data a) = is_complex a
+Proof
+  Cases_on ‘a’ \\ gvs [canonicalArith_def, is_complex_def]
+QED
+
 Theorem wordToNum_unique[simp]:
   ∀c1 c2. wordToNum c1 = wordToNum c2 ⇔ c1 = c2
 Proof
@@ -116,6 +163,14 @@ Proof
   gen_tac
   \\ gvs [mlmapTheory.lookup_def, balanced_mapTheory.lookup_def,
           mlmapTheory.empty_def, balanced_mapTheory.empty_def]
+QED
+
+Theorem not_in_all_names_impl:
+  ∀r data s. data_inv data s ⇒ ¬is_seen r data ⇒ lookup r data.map = NONE
+Proof
+  rpt strip_tac
+  \\ gvs [data_inv_def, is_seen_def] \\ Cases_on ‘lookup r data.all_names’ \\ gvs []
+  \\ Cases_on ‘lookup r data.map’ \\ gvs [] \\ first_x_assum drule_all \\ strip_tac \\ gvs [domain_lookup]
 QED
 
 Theorem data_inv_locals[simp]:
@@ -223,6 +278,38 @@ Theorem data_inv_set_var:
     data_inv data (set_var n v s) = data_inv data s
 Proof
   rpt gen_tac \\ strip_tac
+  \\ eq_tac
+  >- (strip_tac \\ gvs [data_inv_def]
+      \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ first_x_assum drule \\ strip_tac \\ gvs []
+      >- (Cases_on ‘r=n’ \\ Cases_on ‘v'=n’
+          \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+      >- (Cases_on ‘v'=n’
+          \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+      >- (drule_all evaluate_remove_insert_arith
+          \\ Cases_on ‘v'=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+      \\ Cases_on ‘v'=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
+      \\ gvs [word_exp_def, the_words_def, lookup_insert]
+      \\ Cases_on ‘src=n’ \\ gvs [])
+  \\ strip_tac \\ gvs [data_inv_def]
+  \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ first_x_assum drule \\ strip_tac \\ gvs []
+  >- (Cases_on ‘r=n’ \\ Cases_on ‘v'=n’
+      \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+  >- (Cases_on ‘v'=n’
+      \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+  >- (drule_all evaluate_arith_insert
+      \\ Cases_on ‘v'=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
+  \\ Cases_on ‘v'=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
+  \\ gvs [word_exp_def, the_words_def, lookup_insert]
+  \\ Cases_on ‘src=n’ \\ gvs []
+QED
+
+Theorem not_seen_data_inv_alist_insert[simp]:
+  ∀data s l r v.
+    ¬is_seen r data ⇒
+    data_inv data (s with locals := l) ⇒
+    data_inv data (s with locals := insert r v l)
+Proof
+  rpt strip_tac
   \\ gvs [data_inv_def]
   \\ eq_tac \\ strip_tac \\ gvs [SF SFY_ss]
   \\ rpt conj_tac \\ rpt gen_tac
@@ -1366,7 +1453,14 @@ Theorem comp_StoreConsts_correct:
 Proof
   gvs[word_cse_def, empty_data_def, lookup_def, data_inv_def]
 QED
-*)
+
+Theorem comp_ShareInst_correct:
+  ^(get_goal "wordLang$ShareInst")
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  gvs[word_cse_def,empty_data_def,data_inv_def]
+QED
 
 (* DATA EMPTY *)
 
@@ -1385,7 +1479,8 @@ Proof
      comp_LocValue_correct, comp_Install_correct,
      comp_StoreConsts_correct, comp_CodeBufferWrite_correct,
      comp_DataBufferWrite_correct, comp_FFI_correct,
-     comp_OpCurrHeap_correct, comp_Call_correct ] *)
+     comp_OpCurrHeap_correct, comp_Call_correct,
+     comp_ShareInst_correct ]
 QED
 
 Theorem word_common_subexp_elim_correct:

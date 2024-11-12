@@ -30,14 +30,13 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl arm8_asl_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val check_unsat_compiled_thm =
+Theorem check_unsat_compiled_thm =
   CONJ compile_correct_applied check_unsat_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "check_unsat_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_arm8_asl_def = Define `
+Definition installed_arm8_asl_def:
   installed_arm8_asl ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
     mc ms
@@ -50,17 +49,18 @@ val installed_arm8_asl_def = Define `
         cfg.lab_conf.ffi_names
         (heap_regs arm8_backend_config.stack_conf.reg_names) mc
         cfg.lab_conf.shmem_extra ms
-    `;
+End
 
-val check_unsat_code_def = Define `
+Definition check_unsat_code_def:
   check_unsat_code = (code, data, info)
-  `;
+End
 
 (* A standard run of cake_lpr satisfying all the default assumptions *)
-val cake_lpr_run_def = Define`
+Definition cake_lpr_run_def:
   cake_lpr_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_arm8_asl check_unsat_code mc ms`
+  installed_arm8_asl check_unsat_code mc ms
+End
 
 Theorem concat_success_str:
   ∀a b c. concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString (d:num); strlit "\n"] ≠ success_str a b c

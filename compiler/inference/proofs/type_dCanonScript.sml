@@ -10,11 +10,12 @@ val _ = new_theory "type_dCanon"
 
 (* TODO: move *)
 
-val tenv_equiv_def = Define
-  `tenv_equiv tenv1 tenv2 ⇔
+Definition tenv_equiv_def:
+  tenv_equiv tenv1 tenv2 ⇔
      nsAll2 (λi v1 v2. v1 = v2) tenv1.t tenv2.t ∧
      nsAll2 (λi v1 v2. v1 = v2) tenv1.c tenv2.c ∧
-     nsAll2 (λi v1 v2. v1 = v2) tenv1.v tenv2.v`;
+     nsAll2 (λi v1 v2. v1 = v2) tenv1.v tenv2.v
+End
 
 Theorem tenv_equiv_refl[simp]:
    tenv_equiv tenv tenv
@@ -142,20 +143,22 @@ QED
 (* -- *)
 
 (* all the tids used in a tenv *)
-val set_tids_tenv_def = Define`
+Definition set_tids_tenv_def:
   set_tids_tenv tids tenv ⇔
   nsAll (λi (ls,t). set_tids_subset tids t) tenv.t ∧
   nsAll (λi (ls,ts,tid). EVERY (λt. set_tids_subset tids t) ts ∧ tid ∈ tids) tenv.c ∧
-  nsAll (λi (n,t). set_tids_subset tids t) tenv.v`
+  nsAll (λi (n,t). set_tids_subset tids t) tenv.v
+End
 
-val type_pe_determ_canon_def = Define`
+Definition type_pe_determ_canon_def:
   type_pe_determ_canon n tenv tenvE p e ⇔
   ∀t1 tenv1 t2 tenv2.
     type_p 0 tenv p t1 tenv1 ∧ type_e tenv tenvE e t1 ∧
     EVERY (λ(k,t).  set_tids_subset (count n) t) tenv1 ∧
     type_p 0 tenv p t2 tenv2 ∧ type_e tenv tenvE e t2 ∧
     EVERY (λ(k,t).  set_tids_subset (count n) t) tenv2
-    ⇒ tenv1 = tenv2`;
+    ⇒ tenv1 = tenv2
+End
 
 Theorem type_pe_determ_canon_tenv_equiv:
    type_pe_determ_canon n t1 x y z ∧
@@ -263,28 +266,32 @@ Inductive type_d_canon:
 End
 
 (* The remapping must be identity on these numbers *)
-val good_remap_def = Define`
+Definition good_remap_def:
   good_remap f ⇔
   MAP f (Tlist_num :: (Tbool_num :: prim_type_nums)) =
-    Tlist_num :: (Tbool_num :: prim_type_nums)`
+    Tlist_num :: (Tbool_num :: prim_type_nums)
+End
 
-val ts_tid_rename_type_subst = Q.prove(`
+Triviality ts_tid_rename_type_subst:
   ∀s t f.
   ts_tid_rename f (type_subst s t) =
-  type_subst (ts_tid_rename f o_f s) (ts_tid_rename f t)`,
+  type_subst (ts_tid_rename f o_f s) (ts_tid_rename f t)
+Proof
   ho_match_mp_tac type_subst_ind>>
   rw[type_subst_def,ts_tid_rename_def]
   >- (
     TOP_CASE_TAC>>fs[FLOOKUP_o_f,ts_tid_rename_def])
   >>
-    fs[MAP_MAP_o,MAP_EQ_f]);
+    fs[MAP_MAP_o,MAP_EQ_f]
+QED
 
-val ts_tid_rename_type_name_subst = Q.prove(`
+Triviality ts_tid_rename_type_name_subst:
   ∀tenvt t f tenv.
   good_remap f ∧
   check_type_names tenvt t ⇒
   ts_tid_rename f (type_name_subst tenvt t) =
-  type_name_subst (nsMap (λ(ls,t). (ls,ts_tid_rename f t)) tenvt) t`,
+  type_name_subst (nsMap (λ(ls,t). (ls,ts_tid_rename f t)) tenvt) t
+Proof
   ho_match_mp_tac type_name_subst_ind>>rw[]>>
   fs[type_name_subst_def,ts_tid_rename_def,check_type_names_def,EVERY_MEM]
   >- (
@@ -301,33 +308,38 @@ val ts_tid_rename_type_name_subst = Q.prove(`
     fs[GSYM alist_to_fmap_MAP_values]>>
     AP_TERM_TAC>>
     match_mp_tac LIST_EQ>>fs[EL_MAP,EL_ZIP]>>
-    metis_tac[EL_MEM]));
+    metis_tac[EL_MEM])
+QED
 
-val check_type_names_ts_tid_rename = Q.prove(`
+Triviality check_type_names_ts_tid_rename:
   ∀tenvt t.
   check_type_names tenvt t <=>
-  check_type_names (nsMap (λ(ls,t). (ls,ts_tid_rename f t)) tenvt) t`,
+  check_type_names (nsMap (λ(ls,t). (ls,ts_tid_rename f t)) tenvt) t
+Proof
   ho_match_mp_tac check_type_names_ind>>rw[check_type_names_def]>>
   fs[EVERY_MEM,nsLookup_nsMap]>>
   Cases_on`nsLookup tenvt tn`>>fs[]>>
-  pairarg_tac>>fs[]);
+  pairarg_tac>>fs[]
+QED
 
-val extend_bij_def = Define`
+Definition extend_bij_def:
   extend_bij (f:type_ident->type_ident) g ids n v =
   if v ∈ ids then
     n + g v
   else
-    f v`
+    f v
+End
 
 (*
-val extend_bij_def = Define`
+Definition extend_bij_def:
   extend_bij (f:type_ident->type_ident) g tids ids n v =
   if v ∈ tids then
     f v
   else if v ∈ ids then
     n + g v
   else
-    v`
+    v
+End
 *)
 
 Theorem extend_bij_id[simp]:
@@ -346,12 +358,14 @@ Proof
 QED
 
 (* needs monotonicity of set_tids_tenv *)
-val set_tids_tenv_extend_dec_tenv = Q.prove(`
+Triviality set_tids_tenv_extend_dec_tenv:
   ∀s t s' t'.
   set_tids_tenv (s' ∪ s) t' ∧
   set_tids_tenv (s' ∪ s) t ⇒
-  set_tids_tenv (s' ∪ s) (extend_dec_tenv t' t)`,
-  rw[extend_dec_tenv_def,set_tids_tenv_def,nsAll_nsAppend]);
+  set_tids_tenv (s' ∪ s) (extend_dec_tenv t' t)
+Proof
+  rw[extend_dec_tenv_def,set_tids_tenv_def,nsAll_nsAppend]
+QED
 
 Theorem set_tids_tenv_remap:
    set_tids_tenv tids tenv ⇒
@@ -365,27 +379,35 @@ Proof
   \\ metis_tac[]
 QED
 
-val good_remap_extend_bij = Q.prove(`
+Triviality good_remap_extend_bij:
   good_remap f ∧ prim_tids F ids ⇒
-  good_remap (extend_bij f g ids n)`,
-  rw[good_remap_def, extend_bij_def, prim_tids_def,prim_type_nums_def]);
+  good_remap (extend_bij f g ids n)
+Proof
+  rw[good_remap_def, extend_bij_def, prim_tids_def,prim_type_nums_def]
+QED
 
 (*
-val good_remap_extend_bij = Q.prove(`
+Triviality good_remap_extend_bij:
   good_remap f ∧ prim_tids T tids ⇒
-  good_remap (extend_bij f g tids n)`,
-  rw[good_remap_def, extend_bij_def, prim_tids_def,prim_type_nums_def]);
+  good_remap (extend_bij f g tids n)
+Proof
+  rw[good_remap_def, extend_bij_def, prim_tids_def,prim_type_nums_def]
+QED
 
-val good_remap_extend_bij = Q.prove(`
+Triviality good_remap_extend_bij:
   good_remap f ∧ prim_tids T tids ⇒
-  good_remap (extend_bij f g tids ids n)`,
-  rw[good_remap_def, extend_bij_def, prim_tids_def,prim_type_nums_def]);
+  good_remap (extend_bij f g tids ids n)
+Proof
+  rw[good_remap_def, extend_bij_def, prim_tids_def,prim_type_nums_def]
+QED
 *)
 
-val remap_tenv_extend_dec_tenv = Q.prove(`
+Triviality remap_tenv_extend_dec_tenv:
   remap_tenv f (extend_dec_tenv t t') =
-  extend_dec_tenv (remap_tenv f t) (remap_tenv f t')`,
-  fs[remap_tenv_def,extend_dec_tenv_def,nsMap_nsAppend]);
+  extend_dec_tenv (remap_tenv f t) (remap_tenv f t')
+Proof
+  fs[remap_tenv_def,extend_dec_tenv_def,nsMap_nsAppend]
+QED
 
 Theorem BIJ_extend_bij:
     DISJOINT tids ids ∧
@@ -444,25 +466,30 @@ Proof
   rw[set_tids_subset_def, SUBSET_DEF]
 QED
 
-val set_tids_tenv_mono = Q.prove(`
+Triviality set_tids_tenv_mono:
   set_tids_tenv tids tenv ∧ tids ⊆ tids' ⇒
-  set_tids_tenv tids' tenv`,
+  set_tids_tenv tids' tenv
+Proof
   fs[set_tids_tenv_def]>>rw[]>>
   irule nsAll_mono
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ rw[]
   \\ pairarg_tac \\ fs[EVERY_MEM,SUBSET_DEF]
-  \\ metis_tac[set_tids_subset_mono,SUBSET_DEF]);
+  \\ metis_tac[set_tids_subset_mono,SUBSET_DEF]
+QED
 
-val check_freevars_ts_tid_rename = Q.prove(`
+Triviality check_freevars_ts_tid_rename:
   ∀ts ls t.
   check_freevars ts ls (ts_tid_rename f t) ⇔
-  check_freevars ts ls t`,
+  check_freevars ts ls t
+Proof
   ho_match_mp_tac check_freevars_ind>>
-  fs[ts_tid_rename_def,check_freevars_def,EVERY_MAP,EVERY_MEM]);
+  fs[ts_tid_rename_def,check_freevars_def,EVERY_MAP,EVERY_MEM]
+QED
 
-val sing_renum_def = Define`
-  sing_renum m n = λx. if x = m then n else x`
+Definition sing_renum_def:
+  sing_renum m n = λx. if x = m then n else x
+End
 
 val ast_t_ind = ast_t_induction
   |> Q.SPECL[`P`,`EVERY P`]
@@ -472,14 +499,15 @@ val ast_t_ind = ast_t_induction
   |> SIMP_RULE (srw_ss()) []
   |> Q.GEN`P`;
 
-val sing_renum_NOT_tscheme_inst = Q.prove(`
+Triviality sing_renum_NOT_tscheme_inst:
   ∀t.
   m ∈ set_tids t ∧
   m ≠ n ⇒
   ts_tid_rename (sing_renum m n) t ≠ t ∧
   ∀tvs tvs'.
   ¬tscheme_inst (tvs,ts_tid_rename (sing_renum m n) t) (tvs',t) ∧
-  ¬tscheme_inst (tvs',t) (tvs,ts_tid_rename (sing_renum m n) t)`,
+  ¬tscheme_inst (tvs',t) (tvs,ts_tid_rename (sing_renum m n) t)
+Proof
   ho_match_mp_tac t_ind>>rw[]>>
   fs[set_tids_def,ts_tid_rename_def,sing_renum_def]>>
   rw[]>>
@@ -505,7 +533,8 @@ val sing_renum_NOT_tscheme_inst = Q.prove(`
     \\ fsrw_tac[DNF_ss][tscheme_inst_def]
     \\ disj2_tac \\ disj2_tac
     \\ fs[check_freevars_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,MAP_MAP_o,MAP_EQ_ID]
-    \\ metis_tac[]));
+    \\ metis_tac[])
+QED
 
 Theorem sing_renum_NOTIN_ID:
    ∀t.
@@ -590,22 +619,27 @@ Proof
   fs[good_remap_def,prim_type_nums_def]
 QED
 
-val remap_tenvE_def = Define`
+Definition remap_tenvE_def:
   (remap_tenvE f Empty = Empty) ∧
   (remap_tenvE f (Bind_tvar n e) = Bind_tvar n (remap_tenvE f e)) ∧
-  (remap_tenvE f (Bind_name s n t e) = Bind_name s n (ts_tid_rename f t) (remap_tenvE f e))`
+  (remap_tenvE f (Bind_name s n t e) = Bind_name s n (ts_tid_rename f t) (remap_tenvE f e))
+End
 
-val num_tvs_remap_tenvE = Q.prove(`
-  ∀tenvE. num_tvs (remap_tenvE f tenvE) = num_tvs tenvE`,
-  Induct>>fs[remap_tenvE_def]);
+Triviality num_tvs_remap_tenvE:
+  ∀tenvE. num_tvs (remap_tenvE f tenvE) = num_tvs tenvE
+Proof
+  Induct>>fs[remap_tenvE_def]
+QED
 
-val remap_tenvE_bind_var_list = Q.prove(`
+Triviality remap_tenvE_bind_var_list:
   ∀n env tenvE.
   remap_tenvE f (bind_var_list n env tenvE) =
-  bind_var_list n (MAP (λ(n,t). (n, ts_tid_rename f t)) env) (remap_tenvE f tenvE)`,
+  bind_var_list n (MAP (λ(n,t). (n, ts_tid_rename f t)) env) (remap_tenvE f tenvE)
+Proof
   ho_match_mp_tac bind_var_list_ind>>
   fs[bind_var_list_def,remap_tenvE_def]>>
-  rw[]);
+  rw[]
+QED
 
 Theorem remap_tenvE_bind_tvar:
    remap_tenvE f (bind_tvar tvs e) = bind_tvar tvs (remap_tenvE f e)
@@ -613,32 +647,38 @@ Proof
   rw[bind_tvar_def, remap_tenvE_def]
 QED
 
-val deBruijn_inc_ts_tid_rename = Q.prove(`
+Triviality deBruijn_inc_ts_tid_rename:
   ∀skip n t.
   ts_tid_rename f (deBruijn_inc skip n t) =
-  deBruijn_inc skip n (ts_tid_rename f t)`,
+  deBruijn_inc skip n (ts_tid_rename f t)
+Proof
   ho_match_mp_tac deBruijn_inc_ind>>
   rw[deBruijn_inc_def,ts_tid_rename_def,MAP_MAP_o]>>
-  fs[MAP_EQ_f]);
+  fs[MAP_EQ_f]
+QED
 
-val lookup_varE_remap_tenvE = Q.prove(`
+Triviality lookup_varE_remap_tenvE:
   ∀n tenvE.
   lookup_varE n (remap_tenvE f tenvE)
-  = OPTION_MAP (λid,t. (id, ts_tid_rename f t)) (lookup_varE n tenvE)`,
+  = OPTION_MAP (λid,t. (id, ts_tid_rename f t)) (lookup_varE n tenvE)
+Proof
   fs[lookup_varE_def]>>Cases>>fs[]>>
   qabbrev_tac`n=0n`>>
   pop_assum kall_tac>>qid_spec_tac`n`>>
   Induct_on`tenvE`>>fs[remap_tenvE_def,tveLookup_def]>>rw[]>>
-  fs[deBruijn_inc_ts_tid_rename]);
+  fs[deBruijn_inc_ts_tid_rename]
+QED
 
-val ts_tid_rename_deBruijn_subst = Q.prove(`
+Triviality ts_tid_rename_deBruijn_subst:
   ∀n targs t.
   ts_tid_rename f (deBruijn_subst n targs t) =
-  deBruijn_subst n (MAP (ts_tid_rename f) targs) (ts_tid_rename f t)`,
+  deBruijn_subst n (MAP (ts_tid_rename f) targs) (ts_tid_rename f t)
+Proof
   ho_match_mp_tac deBruijn_subst_ind>>rw[]>>
   rw[ts_tid_rename_def,deBruijn_subst_def]>>
   fs[EL_MAP,MAP_MAP_o]>>
-  fs[MAP_EQ_f]);
+  fs[MAP_EQ_f]
+QED
 
 Theorem type_e_ts_tid_rename:
     good_remap f ⇒
@@ -902,13 +942,14 @@ Theorem remap_tenv_LINVI
      set_tids_tenv_def]
 *)
 
-val type_p_ts_tid_rename_sing_renum = Q.prove(`
+Triviality type_p_ts_tid_rename_sing_renum:
   m ∉ tids ∧ prim_tids T tids ∧
   type_p tvs tenv p t bindings ∧
   set_tids_tenv tids tenv
   ⇒
   type_p tvs tenv p (ts_tid_rename (sing_renum m n) t)
-  (MAP (λ(nn,t). (nn,ts_tid_rename (sing_renum m n) t)) bindings)`,
+  (MAP (λ(nn,t). (nn,ts_tid_rename (sing_renum m n) t)) bindings)
+Proof
   rw[]>>
   `good_remap (sing_renum m n)` by
     (fs[good_remap_def,sing_renum_def]>>
@@ -921,14 +962,16 @@ val type_p_ts_tid_rename_sing_renum = Q.prove(`
   strip_tac>> first_x_assum drule>>
   drule sing_renum_NOTIN_tenv_ID>>
   simp[]>>rw[]>>
-  metis_tac[type_p_tenv_equiv]);
+  metis_tac[type_p_tenv_equiv]
+QED
 
-val type_e_ts_tid_rename_sing_renum = Q.prove(`
+Triviality type_e_ts_tid_rename_sing_renum:
   m ∉ tids ∧ prim_tids T tids ∧
   type_e tenv tenvE e t ∧
   set_tids_tenv tids tenv
   ⇒
-  type_e tenv (remap_tenvE (sing_renum m n) tenvE) e (ts_tid_rename (sing_renum m n) t)`,
+  type_e tenv (remap_tenvE (sing_renum m n) tenvE) e (ts_tid_rename (sing_renum m n) t)
+Proof
   rw[]>>
   `good_remap (sing_renum m n)` by
     (fs[good_remap_def,sing_renum_def]>>
@@ -941,7 +984,8 @@ val type_e_ts_tid_rename_sing_renum = Q.prove(`
   strip_tac>> first_x_assum drule>>
   drule sing_renum_NOTIN_tenv_ID>>
   simp[]>>rw[]>>
-  metis_tac[type_e_tenv_equiv]);
+  metis_tac[type_e_tenv_equiv]
+QED
 
 Theorem type_funs_ts_tid_rename_sing_renum:
     m ∉ tids ∧ prim_tids T tids ∧
@@ -966,7 +1010,7 @@ Proof
   metis_tac[type_e_tenv_equiv]
 QED
 
-val type_pe_bindings_tids = Q.prove(`
+Triviality type_pe_bindings_tids:
   prim_tids T tids ∧
   set_tids_tenv tids tenv ∧
   type_p tvs tenv p t bindings ∧
@@ -977,7 +1021,8 @@ val type_pe_bindings_tids = Q.prove(`
       LIST_REL tscheme_inst
         (MAP SND (MAP (λ(n,t). (n,tvs',t)) bindings'))
         (MAP SND (MAP (λ(n,t). (n,tvs,t)) bindings))) ⇒
-  ∀p_1 p_2. MEM (p_1,p_2) bindings ⇒ set_tids_subset tids p_2`,
+  ∀p_1 p_2. MEM (p_1,p_2) bindings ⇒ set_tids_subset tids p_2
+Proof
   CCONTR_TAC>>fs[set_tids_subset_def,SUBSET_DEF]>>
   drule (GEN_ALL type_p_ts_tid_rename_sing_renum)>>
   rpt (disch_then drule)>>
@@ -997,7 +1042,8 @@ val type_pe_bindings_tids = Q.prove(`
   fs[EL_MAP]>>
   qpat_x_assum`(_,_)=_` sym_sub_tac>>fs[]>>
   `x ≠ x+1` by fs[]>>
-  metis_tac[sing_renum_NOT_tscheme_inst]);
+  metis_tac[sing_renum_NOT_tscheme_inst]
+QED
 
 Theorem type_funs_bindings_tids:
    type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs Empty)) funs bindings ∧

@@ -125,15 +125,25 @@ val res = translate clique_bound_str_def;
 val res = translate print_clique_str_def;
 val res = translate map_concl_to_string_def;
 
+Definition mk_prob_def:
+  mk_prob objf = (NONE,objf):mlstring list option #
+    ((int # mlstring lit) list # int) option #
+    (pbop # (int # mlstring lit) list # int) list
+End
+
+val res = translate mk_prob_def;
+
 val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    let val objft = default_objf in
+    let
+      val prob = mk_prob objf
+      val probt = default_prob in
       (case
         map_concl_to_string n
-          (check_unsat_top_norm False objf objft f2) of
+          (check_unsat_top_norm False prob probt f2) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
     end`
@@ -168,24 +178,20 @@ Proof
     xsimpl)>>
   Cases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
-  assume_tac npbc_parseProgTheory.default_objf_v_thm>>
+  xlet_autop>>
+  assume_tac npbc_parseProgTheory.default_prob_v_thm>>
   xlet`POSTv v.
     STDIO fs *
-    &(PAIR_TYPE
-      (OPTION_TYPE (PAIR_TYPE
-        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-      INT))
-      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
-      ) default_objf v`
+    &prob_TYPE default_prob v`
   >-
     (xvar>>xsimpl)>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
   >-
     (xcon>>xsimpl)>>
   drule npbc_parseProgTheory.check_unsat_top_norm_spec>>
-  qpat_x_assum`objf_TYPE r _`assume_tac>>
+  qpat_x_assum`prob_TYPE (mk_prob _) _`assume_tac>>
   disch_then drule>>
-  qpat_x_assum`objf_TYPE default_objf _`assume_tac>>
+  qpat_x_assum`prob_TYPE default_prob _`assume_tac>>
   disch_then drule>>
   strip_tac>>
   xlet_auto
@@ -238,12 +244,12 @@ Proof
       (drule_at Any) full_encode_sem_concl_check>>
       disch_then (drule_at Any)>>simp[]>>
       disch_then match_mp_tac>>
-      gvs[get_graph_dimacs_def,AllCaseEqs()]>>
+      gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def]>>
       metis_tac[parse_dimacs_good_graph])>>
     (drule_at Any) full_encode_sem_concl>>
     disch_then (drule_at Any)>>simp[]>>
     disch_then match_mp_tac>>
-    gvs[get_graph_dimacs_def,AllCaseEqs()]>>
+    gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def]>>
     metis_tac[parse_dimacs_good_graph])
 QED
 
@@ -277,13 +283,13 @@ val check_unsat_3 = (append_prog o process_topdecs) `
   fun check_unsat_3 f1 f2 s =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (n,objf) =>
+  | Inr (n,prob) =>
     case Int.fromNatString s of None =>
       TextIO.output TextIO.stdErr "c Invalid max clique size claim.\n"
     | Some mc =>
     (case
       check_concl_to_string mc n
-        (check_unsat_top_norm objf f2) of
+        (check_unsat_top_norm prob f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)`
 
@@ -404,7 +410,7 @@ Definition check_unsat_1_sem_def:
   case get_graph_dimacs fs f1 of
     NONE => out = strlit ""
   | SOME g =>
-    out = concat (print_pbf (full_encode g))
+    out = concat (print_prob (mk_prob (full_encode g)))
 End
 
 val check_unsat_1 = (append_prog o process_topdecs) `
@@ -412,7 +418,7 @@ val check_unsat_1 = (append_prog o process_topdecs) `
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    TextIO.print_list (print_pbf objf)`
+    TextIO.print_list (print_prob (mk_prob objf))`
 
 Theorem check_unsat_1_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -441,6 +447,7 @@ Proof
     qexists_tac`x`>>xsimpl)>>
   Cases_on`y`>>gvs[PAIR_TYPE_def]>>
   xmatch>>
+  xlet_autop>>
   xlet_autop>>
   xapp_spec print_list_spec>>xsimpl>>
   asm_exists_tac>>xsimpl>>
@@ -568,7 +575,9 @@ local
 val name = "main"
 val (sem_thm,prog_tm) =
   whole_prog_thm (get_ml_prog_state()) name (UNDISCH main_whole_prog_spec2)
-val main_prog_def = Define`main_prog = ^prog_tm`;
+Definition main_prog_def:
+  main_prog = ^prog_tm
+End
 
 in
 

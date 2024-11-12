@@ -16,21 +16,21 @@ val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
 (* first, capture those types that we expect to be in the range of the
    conversion *)
-val user_expressible_tyname_def = Define‘
+Definition user_expressible_tyname_def:
   (user_expressible_tyname (Short s) ⇔ T) ∧
   (user_expressible_tyname (Long m (Short s)) ⇔ T) ∧
   (user_expressible_tyname _ ⇔ F)
-’;
+End
 val _ = augment_srw_ss [rewrites [user_expressible_tyname_def]]
 
 Overload ND[local] = “λn. Nd (mkNT n, ARB)”
 Overload LF[local] = “λt. Lf (TOK t, ARB)”
 
-val tyname_to_AST_def = Define‘
+Definition tyname_to_AST_def:
   tyname_to_AST (Short n) = ND nTyOp [ND nUQTyOp [LF (AlphaT n)]] ∧
   tyname_to_AST (Long md (Short n)) = ND nTyOp [LF (LongidT md n)] ∧
   tyname_to_AST _ = ARB
-’;
+End
 
 Theorem tyname_inverted:
    ∀id. user_expressible_tyname id ⇒
@@ -53,7 +53,7 @@ Proof
 QED
 
 
-val user_expressible_type_def = tDefine "user_expressible_type" ‘
+Definition user_expressible_type_def:
   (user_expressible_type (Atvar _) ⇔ T) ∧
   (user_expressible_type (Atapp tys tycon) ⇔
      EVERY user_expressible_type tys ∧
@@ -62,13 +62,15 @@ val user_expressible_type_def = tDefine "user_expressible_type" ‘
      EVERY user_expressible_type tys ∧ 2 ≤ LENGTH tys) ∧
   (user_expressible_type (Atfun dty rty) ⇔
      user_expressible_type dty ∧ user_expressible_type rty)
-’ (WF_REL_TAC ‘measure ast$ast_t_size’ >> simp[] >> conj_tac >> rpt gen_tac >>
+Termination
+  WF_REL_TAC ‘measure ast$ast_t_size’ >> simp[] >> conj_tac >> rpt gen_tac >>
    Induct_on ‘tys’ >>
-   dsimp[astTheory.ast_t_size_def] >> rpt strip_tac >> res_tac  >> simp[]);
+   dsimp[astTheory.ast_t_size_def] >> rpt strip_tac >> res_tac  >> simp[]
+End
 val _ = augment_srw_ss [rewrites [
            SIMP_RULE (srw_ss() ++ ETA_ss) [] user_expressible_type_def]]
 
-val type_to_AST_def = tDefine "type_to_AST" ‘
+Definition type_to_AST_def:
   type_to_AST (Atvar s) (* : (token,MMLnonT,unit) parsetree *) =
     ND nType [ND nPType [ND nDType [ND nTbase [LF (TyvarT s)]]]] ∧
   (type_to_AST (Atfun dty rty) =
@@ -124,10 +126,12 @@ val type_to_AST_def = tDefine "type_to_AST" ‘
     ND nPType [ND nDType [ND nTbase [LF LparT; type_to_AST ty; LF RparT]];
                LF StarT;
                typel_to_AST_PType tys]
-’ (WF_REL_TAC
+Termination
+  WF_REL_TAC
      ‘measure (λs. case s of INL ty => ast_t_size ty
                            | INR (INL tyl) => ast_t1_size tyl
-                           | INR (INR tyl) => ast_t1_size tyl)’)
+                           | INR (INR tyl) => ast_t1_size tyl)’
+End
 
 Theorem destTyvarPT_tyname_to_AST:
    ∀i. user_expressible_tyname i ⇒ destTyvarPT (tyname_to_AST i) = NONE
@@ -341,7 +345,8 @@ fun okify c q th =
        |> SIMP_RULE (srw_ss()) [] |> DISCH_ALL
        |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO, GSYM CONJ_ASSOC]
 
-val Type_OK = save_thm("Type_OK", okify CONJUNCT1 `nType` Type_OK0);
+Theorem Type_OK =
+  okify CONJUNCT1 `nType` Type_OK0
 
 Theorem V_OK:
    valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nV) ∧
@@ -391,10 +396,12 @@ Proof
   simp[ptree_Op_def, tokcheck_def, tokcheckl_def, singleSymP_def]
 QED
 
-val MAP_TK11 = Q.prove(
-  `∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2`,
+Triviality MAP_TK11:
+  ∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2
+Proof
   Induct_on `l1` >> simp[] >> rpt gen_tac >>
-  Cases_on `l2` >> simp[]);
+  Cases_on `l2` >> simp[]
+QED
 val _ = augment_srw_ss [rewrites [MAP_TK11]]
 
 Theorem OpID_OK:
@@ -462,7 +469,8 @@ Proof
   >- (irule V_OK \\ gs [SF SFY_ss])
 QED
 
-val Pattern_OK = save_thm("Pattern_OK", okify CONJUNCT1 `nPattern` Pattern_OK0);
+Theorem Pattern_OK =
+  okify CONJUNCT1 `nPattern` Pattern_OK0
 
 Theorem Eseq_encode_OK:
    ∀l. l <> [] ⇒ ∃e. Eseq_encode l = SOME e
@@ -578,10 +586,10 @@ Proof
       asm_match `0 < LENGTH pl` >> Cases_on `pl` >> fs[oHD_def] >> std)
 QED
 
-val E_OK = save_thm("E_OK", okify CONJUNCT1 `nE` E_OK0)
-val AndFDecls_OK = save_thm(
-  "AndFDecls_OK",
-  okify (last o #1 o front_last o CONJUNCTS) `v` E_OK0);
+Theorem E_OK =
+  okify CONJUNCT1 `nE` E_OK0
+Theorem AndFDecls_OK =
+  okify (last o #1 o front_last o CONJUNCTS) `v` E_OK0
 
 Theorem PTbase_OK:
    valid_ptree cmlG pt ∧ ptree_head pt = NN nPTbase ∧

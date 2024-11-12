@@ -40,21 +40,22 @@ QED
 
 (**************************** DEFINITIONS *****************************)
 
-val dest_word_loc_def = Define `
+Definition dest_word_loc_def:
     (* 'a word_loc = Word ('a word) | Loc num num *)
     (dest_word_loc (Loc n _) = SOME n) ∧
     (dest_word_loc (_:'a word_loc) = NONE)
-`
+End
 
-val dest_result_loc_def = Define `
+Definition dest_result_loc_def:
     (dest_result_loc (SOME (Result w (Loc n n0))) = {n}) ∧
     (dest_result_loc (SOME (Exception w (Loc n n0))) = {n}) ∧
     (dest_result_loc _ = {})
-`
+End
 
 (* TODO could do alt def using toAList -
     not necessary though, may not be cleaner *)
-val get_locals_def = Define ` (* locals : ('a word_loc) num_map *)
+Definition get_locals_def:
+  (* locals : ('a word_loc) num_map *)
     (get_locals (LN : ('a word_loc) num_map) = LN) ∧
     (get_locals (LS a) = case (dest_word_loc a) of
         | SOME n => insert n () LN
@@ -65,7 +66,7 @@ val get_locals_def = Define ` (* locals : ('a word_loc) num_map *)
             case (dest_word_loc a) of
                 | SOME n => insert n () t
                 | NONE => t)
-`
+End
 
 Theorem domain_get_locals_lookup:
   ∀ n t . n ∈ domain (get_locals t) ⇔ ∃ k n1 . lookup k t = SOME (Loc n n1)
@@ -124,12 +125,13 @@ Proof
             qexists_tac `n1` >> fs[])
 QED
 
-val get_store_def = Define ` (* store : store_name |-> 'a word_loc *)
+Definition get_store_def:
+  (* store : store_name |-> 'a word_loc *)
     get_store (st:store_name |-> 'a word_loc) =
         let locSet = SET_TO_LIST (FRANGE st) in
         let locList = MAP THE (FILTER IS_SOME (MAP dest_word_loc locSet)) in
         FOLDL (λ acc loc . insert loc () acc) LN locList
-`
+End
 
 Theorem domain_get_store:
      ∀ n store . n ∈ domain (get_store store) ⇔
@@ -153,11 +155,11 @@ Proof
     >| [ALL_TAC, disj1_tac] >> qexists_tac `k'` >> qexists_tac `n1` >> fs[]
 QED
 
-val get_num_wordloc_alist_def = Define `
+Definition get_num_wordloc_alist_def:
     get_num_wordloc_alist (l: (num, 'a word_loc) alist) =
         let locs = MAP THE (FILTER IS_SOME (MAP (dest_word_loc o SND) l)) in
         FOLDL (λ acc loc . insert loc () acc) LN locs
-`
+End
 
 Theorem get_num_wordloc_alist_thm:
      ∀ n e l . (∃ n0 . MEM (Loc n n0) (MAP SND l)) ⇔
@@ -186,11 +188,12 @@ Proof
         fs[SUBSET_DEF] >> metis_tac[])
 QED
 
-val get_stack_def = Define ` (* stack : ('a stack_frame) list *)
+Definition get_stack_def:
+  (* stack : ('a stack_frame) list *)
     (get_stack [] = LN:num_set) ∧
     (get_stack ((StackFrame lsz e _)::xs) =
         union (get_num_wordloc_alist e) (get_stack xs))
-`
+End
 
 val get_stack_ind = theorem "get_stack_ind";
 
@@ -281,12 +284,13 @@ Proof
     fs[get_num_wordloc_alist_def]
 QED
 
-val get_memory_def = Define ` (* 'a word -> 'a word_loc *)
+Definition get_memory_def:
+  (* 'a word -> 'a word_loc *)
     get_memory (mem:'a word -> 'a word_loc) (mdom:'a word set) =
         let locSet = SET_TO_LIST(IMAGE mem mdom) in
         let locList = MAP THE (FILTER IS_SOME (MAP dest_word_loc locSet)) in
         FOLDL (λ acc loc . insert loc () acc) LN locList
-`
+End
 
 Theorem FINITE_mdom_mem:
      ∀ mdom . FINITE mdom ⇒ FINITE {mem x | x ∈ mdom}
@@ -326,14 +330,14 @@ Proof
         >| [ALL_TAC, disj1_tac] >> qexists_tac `k'` >> qexists_tac `n1` >> fs[]
 QED
 
-val find_loc_state_def = Define`
+Definition find_loc_state_def:
     find_loc_state s =
         let loc = (get_locals s.locals) in
         let sto = (get_store s.store) in
         let sta = (get_stack s.stack) in
         let mem = (get_memory s.memory s.mdomain) in
         union (union loc sto) (union sta mem)
-`
+End
 
 Theorem domain_find_loc_state:
      ∀ s . domain (find_loc_state s) =
@@ -343,30 +347,30 @@ Proof
     rw[find_loc_state_def, domain_union, UNION_ASSOC]
 QED
 
-val code_rel_def = Define`
+Definition code_rel_def:
     code_rel (reachable:num_set) s_code
         (t_code :(num # ('a wordLang$prog)) num_map) =
         ∀ n . n ∈ domain reachable ⇒
             lookup n s_code = lookup n t_code
-`
+End
 
-val code_closed_def = Define`
+Definition code_closed_def:
     code_closed reachable c1 ⇔ ∃ code1 . c1 = fromAList code1 ∧
         ∀ n m . n ∈ domain reachable ∧
         is_reachable (analyse_word_code code1) n m ⇒
         m ∈ domain reachable
-`
+End
 
-val gc_no_new_locs_def = Define`
+Definition gc_no_new_locs_def:
     gc_no_new_locs (g:'a gc_fun_type) ⇔  ∀ sta mem mdom sto wl mem1 sto1 sta1 .
         (g (enc_stack sta, mem, mdom, sto) = SOME (wl, mem1, sto1)) ∧
          dec_stack wl sta = SOME sta1 ⇒
         domain (get_stack sta1) ⊆ domain (get_stack sta) ∧
         domain (get_memory mem1 mdom) ⊆ domain (get_memory mem mdom) ∧
         domain (get_store sto1) ⊆ domain (get_store sto)
-`
+End
 
-val word_state_rel_def = Define `
+Definition word_state_rel_def:
     word_state_rel (reachable:num_set) t s ⇔
         s.locals         = t.locals ∧
         s.fp_regs        = t.fp_regs ∧
@@ -392,7 +396,7 @@ val word_state_rel_def = Define `
         s.stack_size     = t.stack_size  /\
         code_rel reachable (s.code) (t.code) ∧
         domain (find_loc_state t) ⊆ domain (reachable)
-`
+End
 
 
 (**************************** OTHER LEMMAS *****************************)
@@ -1133,8 +1137,6 @@ Proof
                             fs[dest_result_loc_def] >> fs[SUBSET_DEF] >>
                             metis_tac[])
                         >- metis_tac[get_stack_hd_thm]
-                        >- (Cases_on `handler` >> fs[] >>
-                            PairCases_on `x'` >> fs[])
                         >- (`s'.code = removed_state.code` by
                                 (imp_res_tac no_install_evaluate_const_code >>
                                  fs[]) >> rveq >> fs[])
@@ -1178,8 +1180,6 @@ Proof
                             fs[dest_result_loc_def] >> fs[SUBSET_DEF] >>
                             metis_tac[])
                         >- metis_tac[get_stack_hd_thm]
-                        >- (Cases_on `handler` >> fs[] >>
-                            PairCases_on `x'` >> fs[])
                         >- (`s'.code = removed_state.code` by
                                 (imp_res_tac no_install_evaluate_const_code >>
                                 fs[]) >>
@@ -1235,6 +1235,7 @@ Proof
       gvs[wordSemTheory.evaluate_def,AllCaseEqs(),
         DefnBase.one_line_ify NONE share_inst_def,
         sh_mem_load_def,sh_mem_load_byte_def,
+        sh_mem_load32_def,sh_mem_store32_def,
         sh_mem_store_def,sh_mem_store_byte_def,
         DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
       rw[set_var_def,dest_result_loc_def,flush_state_def] >>

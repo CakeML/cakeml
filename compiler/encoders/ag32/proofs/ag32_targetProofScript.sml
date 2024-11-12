@@ -10,8 +10,8 @@ val () = wordsLib.guess_lengths()
 
 (* some lemmas ---------------------------------------------------------- *)
 
-val bytes_in_memory_thm = Q.prove(
-   `!w s state a b c d.
+Triviality bytes_in_memory_thm:
+  !w s state a b c d.
       target_state_rel ag32_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       aligned 2 state.PC /\
@@ -22,16 +22,17 @@ val bytes_in_memory_thm = Q.prove(
       state.PC + 3w IN s.mem_domain /\
       state.PC + 2w IN s.mem_domain /\
       state.PC + 1w IN s.mem_domain /\
-      state.PC IN s.mem_domain`,
-   rw [asmPropsTheory.target_state_rel_def, ag32_target_def, ag32_config_def,
+      state.PC IN s.mem_domain
+Proof
+  rw [asmPropsTheory.target_state_rel_def, ag32_target_def, ag32_config_def,
        ag32_ok_def, miscTheory.bytes_in_memory_def,
        alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq,
        wordsTheory.WORD_LS_word_T]
    \\ fs []
-   )
+QED
 
-val bytes_in_memory_thm2 = Q.prove(
-   `!w s state a b c d.
+Triviality bytes_in_memory_thm2:
+  !w s state a b c d.
       target_state_rel ag32_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
       (state.MEM (state.PC + w) = a) /\
@@ -41,38 +42,44 @@ val bytes_in_memory_thm2 = Q.prove(
       state.PC + w + 3w IN s.mem_domain /\
       state.PC + w + 2w IN s.mem_domain /\
       state.PC + w + 1w IN s.mem_domain /\
-      state.PC + w IN s.mem_domain`,
-   rw [asmPropsTheory.target_state_rel_def, ag32_target_def, ag32_config_def,
+      state.PC + w IN s.mem_domain
+Proof
+  rw [asmPropsTheory.target_state_rel_def, ag32_target_def, ag32_config_def,
        ag32_ok_def, miscTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
-   )
+QED
 
-val add_carry_lem = Q.prove(
-  `!w: word32. 0x100000000 <= w2n w + 0xFFFFFFFF <=> w <> 0w`,
-  Cases \\ simp [])
+Triviality add_carry_lem:
+  !w: word32. 0x100000000 <= w2n w + 0xFFFFFFFF <=> w <> 0w
+Proof
+  Cases \\ simp []
+QED
 
-val add_carry_lem2 = Q.prove(
-  `!a b. n2w (w2n a + (w2n b + 1)) = a + b + 1w`,
+Triviality add_carry_lem2:
+  !a b. n2w (w2n a + (w2n b + 1)) = a + b + 1w
+Proof
   Cases
   \\ Cases
   \\ simp [wordsTheory.word_add_n2w]
-  )
+QED
 
-val shift_lem = Q.prove(
-  `!n. n < 32 ==> (w2n (sw2sw (n2w n : word6) : word32) = n)`,
+Triviality shift_lem:
+  !n. n < 32 ==> (w2n (sw2sw (n2w n : word6) : word32) = n)
+Proof
   rpt strip_tac
   \\ full_simp_tac std_ss [wordsTheory.NUMERAL_LESS_THM]
   \\ simp []
-  )
+QED
 
-val long_mul_lem = Q.prove(
-  `!a : word32 b : word32.
+Triviality long_mul_lem:
+  !a : word32 b : word32.
     n2w ((w2n a * w2n b) DIV 4294967296) =
-    (63 >< 32) (w2w a * w2w b : word64) : word32`,
+    (63 >< 32) (w2w a * w2w b : word64) : word32
+Proof
   Cases
   \\ Cases
   \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_mul_n2w,
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
-  )
+QED
 
 val jump_lem =
   blastLib.BBLAST_PROVE
@@ -96,11 +103,12 @@ val load_lem =
   blastLib.BBLAST_PROVE
    ``!c: word32.  0xFFFFFFE0w <= c /\ c <= 31w ==> (sw2sw (w2w c :word6) = c)``
 
-val load_lem2 = Q.prove(
-  `!c : word32. aligned 2 c ==> ((31 >< 2) c @@ (0w : word2) = c)`,
+Triviality load_lem2:
+  !c : word32. aligned 2 c ==> ((31 >< 2) c @@ (0w : word2) = c)
+Proof
   simp [alignmentTheory.aligned_extract]
   \\ blastLib.BBLAST_TAC
-  )
+QED
 
 val load_lem3 =
   blastLib.BBLAST_PROVE
@@ -146,9 +154,11 @@ val enc_ok_rwts =
    ag32 target_ok
    ------------------------------------------------------------------------- *)
 
-val length_ag32_encode = Q.prove(
-  `!i. (LENGTH (ag32_encode1 i) = 4) /\ (ag32_encode1 i <> [])`,
-  rw [ag32_encode1_def])
+Triviality length_ag32_encode:
+  !i. (LENGTH (ag32_encode1 i) = 4) /\ (ag32_encode1 i <> [])
+Proof
+  rw [ag32_encode1_def]
+QED
 
 val ag32_encoding = Q.prove (
    `!i. let l = ag32_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
@@ -161,9 +171,10 @@ val ag32_encoding = Q.prove (
    )
    |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [ag32_enc_def]
 
-val ag32_target_ok = Q.prove (
-   `target_ok ag32_target`,
-   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+Triviality ag32_target_ok:
+  target_ok ag32_target
+Proof
+  rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
         ag32_proj_def, ag32_target_def, ag32_config, ag32_ok_def,
         set_sepTheory.fun2set_eq, ag32_encoding] @ enc_ok_rwts)
    >| [ Cases_on `0w <= w1` \\ Cases_on `0w <= w2`,
@@ -175,13 +186,14 @@ val ag32_target_ok = Q.prove (
    \\ lfs (enc_rwts @ encode_extra_rwts)
    \\ rw [length_ag32_encode]
    \\ blastLib.FULL_BBLAST_TAC
-   )
+QED
 
-val aligned_pc = Q.prove(
-  `!a : word32. aligned 2 a ==> (((31 >< 2) a : word30) @@ (0w : word2) = a)`,
+Triviality aligned_pc:
+  !a : word32. aligned 2 a ==> (((31 >< 2) a : word30) @@ (0w : word2) = a)
+Proof
   simp [alignmentTheory.aligned_extract]
   \\ blastLib.BBLAST_TAC
-  )
+QED
 
 Theorem concat_bytes:
   !w: word32. (31 >< 24) w @@ (23 >< 16) w @@ (15 >< 8) w @@ (7 >< 0) w = w
@@ -189,22 +201,26 @@ Proof
   blastLib.BBLAST_TAC
 QED
 
-val funcT_thm = Q.prove(
-  `!func.
+Triviality funcT_thm:
+  !func.
      num2funcT
        (w2n (v2w
          [BIT 3 (funcT2num func); BIT 2 (funcT2num func);
-          BIT 1 (funcT2num func); BIT 0 (funcT2num func)] : word4)) = func`,
-  Cases \\ simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) [])
+          BIT 1 (funcT2num func); BIT 0 (funcT2num func)] : word4)) = func
+Proof
+  Cases \\ simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) []
+QED
 
-val shiftT_thm = Q.prove(
-  `!shiftOp.
+Triviality shiftT_thm:
+  !shiftOp.
      num2shiftT
        (w2n ((1 >< 0) (v2w
          [BIT 3 (shiftT2num shiftOp); BIT 2 (shiftT2num shiftOp);
           BIT 1 (shiftT2num shiftOp); BIT 0 (shiftT2num shiftOp)] : word4))) =
-     shiftOp`,
-  Cases \\ simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) [])
+     shiftOp
+Proof
+  Cases \\ simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) []
+QED
 
 fun tac q l = qmatch_goalsub_rename_tac q \\ MAP_EVERY Cases_on l
 
@@ -240,17 +256,18 @@ Proof
   \\ CONV_TAC blastLib.BBLAST_CONV
 QED
 
-val ag32_run = Q.prove(
-  `!i ms.
+Triviality ag32_run:
+  !i ms.
      (ms.MEM ms.PC = (7 >< 0) (Encode i)) /\
      (ms.MEM (ms.PC + 1w) = (15 >< 8) (Encode i)) /\
      (ms.MEM (ms.PC + 2w) = (23 >< 16) (Encode i)) /\
      (ms.MEM (ms.PC + 3w) = (31 >< 24) (Encode i)) /\
      aligned 2 ms.PC ==>
-     (Next ms = Run i ms)`,
+     (Next ms = Run i ms)
+Proof
   simp [ag32Theory.Next_def, aligned_pc, concat_bytes, Decode_Encode,
         wordsTheory.WORD_LS_word_T]
-  )
+QED
 
 local
   val ms = ``ms: ag32_state``
@@ -303,15 +320,17 @@ val state_tac =
   \\ full_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) [load_lem2, store_lem]
   \\ blastLib.FULL_BBLAST_TAC
 
-val bytes_in_memory_IMP_all_pcs_MEM = Q.prove(
- `!env a xs m dm.
+Triviality bytes_in_memory_IMP_all_pcs_MEM:
+  !env a xs m dm.
    bytes_in_memory a xs m dm /\
    (*(!(i:num) ms'. (∀a. a ∈ dm ⇒ (env i ms').MEM a = ms'.MEM a)) ==>*)
    (!(i:num) ms'. fun2set ((env i ms').MEM, dm) = fun2set (ms'.MEM, dm)) ==>
-   (!i ms'. (∀pc. pc ∈ all_pcs (LENGTH xs) a 0 ==> (env i ms').MEM pc = ms'.MEM pc))`,
- simp [set_sepTheory.fun2set_eq] \\ Induct_on `xs`
+   (!i ms'. (∀pc. pc ∈ all_pcs (LENGTH xs) a 0 ==> (env i ms').MEM pc = ms'.MEM pc))
+Proof
+  simp [set_sepTheory.fun2set_eq] \\ Induct_on `xs`
  \\ rw [asmPropsTheory.all_pcs_def, miscTheory.bytes_in_memory_def]
- \\ metis_tac []);
+ \\ metis_tac []
+QED
 
 local
    fun number_of_instructions asl =

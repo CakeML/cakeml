@@ -5,6 +5,8 @@ open preamble miscTheory mlstringTheory satSemTheory;
 
 val _ = new_theory "lpr";
 
+val _ = set_grammar_ancestry ["mlstring","satSem","sptree","integer","misc"];
+
 (*
   Bridging implementation and semantics
 
@@ -22,27 +24,32 @@ Type cclause = ``:lit list``;
 Type ccnf = ``:cclause list``;
 Type tccnf = ``:cclause spt``;
 
-val interp_lit_def = Define`
+Definition interp_lit_def:
   interp_lit (l:lit) =
   if l > 0 then INL (Num (ABS l))
-  else INR (Num (ABS l))`
+  else INR (Num (ABS l))
+End
 
-val interp_cclause_def = Define`
+Definition interp_cclause_def:
   interp_cclause (ls:cclause) =
-  IMAGE interp_lit (set ls DIFF {0})`
+  IMAGE interp_lit (set ls DIFF {0})
+End
 
-val interp_def = Define`
+Definition interp_def:
   interp (fml:ccnf) =
-  IMAGE interp_cclause (set fml)`
+  IMAGE interp_cclause (set fml)
+End
 
-val interp_spt_def = Define`
-  interp_spt (fml:tccnf) = IMAGE interp_cclause (range fml)`
+Definition interp_spt_def:
+  interp_spt (fml:tccnf) = IMAGE interp_cclause (range fml)
+End
 
 (* Implementation *)
-val _ = Datatype`
+Datatype:
   lprstep =
   | Delete (num list) (* Clauses to delete *)
-  | PR num cclause (cclause option) (num list) ((num,(num list)) alist)`
+  | PR num cclause (cclause option) (num list) ((num,(num list)) alist)
+End
     (* PR step:
       PR n C wopt i0 (ik id ~> ik)
       n is the new id of the clause C
@@ -54,9 +61,10 @@ val _ = Datatype`
 
 Type lpr = ``:lprstep list``
 
-val delete_literals_def = Define`
+Definition delete_literals_def:
   delete_literals (C:cclause) (D:cclause) =
-  FILTER (λx. ¬MEM x D) C`
+  FILTER (λx. ¬MEM x D) C
+End
 
 (*
   Checking for asymmetric tautology via unit propagation using the given hints.
@@ -65,38 +73,42 @@ val delete_literals_def = Define`
   SOME (INL ()) => C is an AT
   SOME (INR C) => hints were insufficient, but C is now extended with units
 *)
-val is_AT_def = Define`
+Definition is_AT_def:
   (is_AT fml [] (C:cclause) = SOME (INR C)) ∧
   (is_AT fml (i::is) C =
-  case lookup i fml of
+  case sptree$lookup i fml of
     NONE => NONE
   | SOME Ci =>
   case delete_literals Ci C of
     [] => SOME (INL ())
   | [l] => is_AT fml is (-l :: C)
-  | _ => NONE)`
+  | _ => NONE)
+End
 
 (* Check if Ci overlaps with a list of assignments *)
-val check_overlap_def = Define`
+Definition check_overlap_def:
   (check_overlap Ci [] = F) ∧
   (check_overlap Ci (a::as) =
-    (MEM a Ci ∨ check_overlap Ci as))`
+    (MEM a Ci ∨ check_overlap Ci as))
+End
 
 (* flips a clause/assignment.
   for a clause, this yields its blocked assignment *)
-val flip_def = Define`
-  flip (C:cclause) = MAP (λi. -i) C`
+Definition flip_def:
+  flip (C:cclause) = MAP (λi. -i) C
+End
 
 (* Construct the overlapping assignment
   { w ∪ negate (C) }
   where w overrides everything in negate(C)
 *)
-val overlap_assignment_def = Define`
+Definition overlap_assignment_def:
   overlap_assignment w C =
-    w ++ flip (delete_literals C w)`
+    w ++ flip (delete_literals C w)
+End
 
 (* The (L)RAT check (no witnesses) *)
-val check_RAT_def = Define`
+Definition check_RAT_def:
   check_RAT fml p C ik (i,Ci) =
   (* Step 5.1: if Ci contains -p do work, else skip *)
   if check_overlap Ci [-p] then
@@ -111,15 +123,17 @@ val check_RAT_def = Define`
       (* Step 5.3-5.5: Otherwise, use full hints *)
       is_AT fml is (C ++ (delete_literals Ci [-p])) = SOME (INL ())
   else
-    T`
+    T
+End
 
 (* Adding debug messages
 open mlintTheory
 
-val guard_def = Define`
+Definition guard_def:
   guard P s =
   if P then P else
-  (let _ = empty_ffi s in F)`
+  (let _ = empty_ffi s in F)
+End
 
 guard (check_overlap Ci w) (strlit "5.2.1 failed: " ^ mlint$toString (&i))
 guard (check_overlap Ci (overlap_assignment w C)) (strlit "5.2.2 failed: " ^ mlint$toString (&i))
@@ -127,7 +141,7 @@ guard (is_AT fml is (C ++ (delete_literals Ci (flip (overlap_assignment w C)))) 
 *)
 
 (* The (L)PR check (witness given) *)
-val check_PR_def = Define`
+Definition check_PR_def:
   check_PR fml w C ik (i,Ci) =
   (* Step 5.1: if Ci is touched by w do work, else skip *)
   if check_overlap Ci (flip w) then
@@ -145,9 +159,10 @@ val check_PR_def = Define`
       (* Step 5.3-5.5: Otherwise use full hints *)
       is_AT fml is (C ++ (delete_literals Ci (flip (overlap_assignment w C)))) = SOME (INL ())
   else
-    T`
+    T
+End
 
-val is_PR_def = Define`
+Definition is_PR_def:
   is_PR fml p (C:cclause) wopt i0 ik =
   (* First, do the asymmetric tautology check *)
   case is_AT fml i0 C of
@@ -160,14 +175,15 @@ val is_PR_def = Define`
       NONE => EVERY (check_RAT fml p D ik) iCs
     | SOME w => ¬(check_overlap w (flip w)) ∧ EVERY (check_PR fml w D ik) iCs
   else
-     F`
+     F
+End
 
 (*
   Deletions and updates can only happen above position index mindel
   By convention, setting mindel = 0 enables all deletions
   (clauses are 1-indexed by the parser)
 *)
-val check_lpr_step_def = Define`
+Definition check_lpr_step_def:
   check_lpr_step mindel step fml =
   case step of
     Delete cl =>
@@ -179,27 +195,31 @@ val check_lpr_step_def = Define`
     let p = case C of [] => 0 | (x::xs) => x in
     if is_PR fml p C w i0 ik ∧ mindel < n then
       SOME (insert n C fml)
-    else NONE`
+    else NONE
+End
 
 (* Run the LPR checker on fml, returning an option *)
-val check_lpr_def = Define`
+Definition check_lpr_def:
   (check_lpr mindel [] fml = SOME fml) ∧
   (check_lpr mindel (step::steps) fml =
     case check_lpr_step mindel step fml of
       NONE => NONE
-    | SOME fml' => check_lpr mindel steps fml')`
+    | SOME fml' => check_lpr mindel steps fml')
+End
 
 (* Checking that the final formula contains a list of clauses *)
 
 (* Canonical form for a clause, making transformation proofs easier to check *)
-val sorted_dup_def = Define`
+Definition sorted_dup_def:
   (sorted_dup (x::y::xs) =
   if x = (y:int) then sorted_dup (x::xs)
   else x::(sorted_dup (y::xs))) ∧
-  (sorted_dup ls = ls)`
+  (sorted_dup ls = ls)
+End
 
-val canon_clause_def = Define`
-  canon_clause cl = sorted_dup (QSORT (λi j. i ≤ (j:int)) cl)`
+Definition canon_clause_def:
+  canon_clause cl = sorted_dup (QSORT (λi j. i ≤ (j:int)) cl)
+End
 
 Theorem set_sorted_dup:
   ∀cl.
@@ -222,40 +242,46 @@ Proof
   simp[set_sorted_dup,set_QSORT]
 QED
 
-val contains_clauses_def = Define`
+Definition contains_clauses_def:
   contains_clauses fml cls =
   let ls = MAP (canon_clause o SND) (toAList fml) in
-  EVERY (λcl. MEM (canon_clause cl) ls) cls`
+  EVERY (λcl. MEM (canon_clause cl) ls) cls
+End
 
 (* Checking unsatisfiability *)
-val check_lpr_unsat_def = Define`
+Definition check_lpr_unsat_def:
   check_lpr_unsat lpr fml =
   case check_lpr 0 lpr fml of
     NONE => F
-  | SOME fml' => contains_clauses fml' [[]]`
+  | SOME fml' => contains_clauses fml' [[]]
+End
 
 (* Checking satisfiability equivalence after adding clauses *)
-val check_lpr_sat_equiv_def = Define`
+Definition check_lpr_sat_equiv_def:
   check_lpr_sat_equiv lpr fml mindel cls =
   case check_lpr mindel lpr fml of
     NONE => F
-  | SOME fml' => contains_clauses fml' cls`
+  | SOME fml' => contains_clauses fml' cls
+End
 
 (* Proofs *)
-val wf_clause_def = Define`
-  wf_clause (C:cclause) ⇔ ¬ MEM 0 C`
+Definition wf_clause_def:
+  wf_clause (C:cclause) ⇔ ¬ MEM 0 C
+End
 
-val wf_fml_def = Define`
+Definition wf_fml_def:
   wf_fml (fml:tccnf) ⇔
-  ∀C. C ∈ range fml ⇒ wf_clause C`
+  ∀C. C ∈ range fml ⇒ wf_clause C
+End
 
-val wf_lpr_def = Define`
+Definition wf_lpr_def:
   (wf_lpr (Delete _) = T) ∧
   (wf_lpr (PR n C wopt i0 ik) =
     (wf_clause C ∧
     case C of [] => T
     | h::t => case wopt of SOME w => MEM h w | _ => T)
-  )`
+  )
+End
 
 Theorem filter_unit_preserves_satisfies:
   ∀C.
@@ -1004,10 +1030,11 @@ Proof
 QED
 
 (* Build a tccnf from a ccnf *)
-val build_fml_def = Define`
+Definition build_fml_def:
   (build_fml (id:num) [] = LN:tccnf) ∧
   (build_fml id (cl::cls) =
-    insert id cl (build_fml (id+1) cls))`
+    insert id cl (build_fml (id+1) cls))
+End
 
 Theorem lookup_build_fml:
   ∀ls n acc i.
@@ -1136,46 +1163,53 @@ Proof
 QED
 
 (* Top-level DRAT-style proofs, i.e., every line is a clause that is either deleted or added *)
-val _ = Datatype`
+Datatype:
   step =
     Del cclause (* Clause to delete *)
-  | Add cclause` (* Clause to add *)
+  | Add cclause (* Clause to add *)
+End
 
 Type proof = ``:step list``
 
 (* Run the top-level proof operations on a formula *)
-val run_proof_step_def = Define`
+Definition run_proof_step_def:
   (run_proof_step fml (Del cl) = FILTER ($≠ cl) fml) ∧
-  (run_proof_step fml (Add cl) = fml ++ [cl])`
+  (run_proof_step fml (Add cl) = fml ++ [cl])
+End
 
-val run_proof_def = Define`
-  run_proof fml pf = FOLDL run_proof_step fml pf`
+Definition run_proof_def:
+  run_proof fml pf = FOLDL run_proof_step fml pf
+End
 
 (* Del case not technically necessary, but useful for parsing *)
-val wf_proof_def = Define`
+Definition wf_proof_def:
   (wf_proof (Del C) = wf_clause C) ∧
-  (wf_proof (Add C) = wf_clause C)`
+  (wf_proof (Add C) = wf_clause C)
+End
 
 (* As a first step towards verification, define a version operating over sptrees *)
-val run_proof_step_spt_def = Define`
+Definition run_proof_step_spt_def:
   (run_proof_step_spt (fml,n) (Del cl) =
     let kv = toAList fml in
     let l = MAP FST (FILTER (λ(k,v). cl = v) kv) in
       (FOLDL (\a b. delete b a) fml l, n)) ∧
   (run_proof_step_spt (fml,n:num) (Add cl) =
-    (insert n cl fml,n+1))`
+    (insert n cl fml,n+1))
+End
 
-val run_proof_spt_def = Define`
-  run_proof_spt fmln pf = FOLDL run_proof_step_spt fmln pf`
+Definition run_proof_spt_def:
+  run_proof_spt fmln pf = FOLDL run_proof_step_spt fmln pf
+End
 
-val check_lpr_range_def = Define`
+Definition check_lpr_range_def:
   check_lpr_range lpr fml n pf i j =
   if i ≤ j then
     let (fml1,n1) = run_proof_spt (fml,n) (TAKE i pf) in
     let (fml2,n2) = run_proof_spt (fml1,n1) (DROP i (TAKE j pf)) in
     let vals = MAP SND (toAList fml2) in
     check_lpr_sat_equiv lpr fml1 0 vals
-  else F`
+  else F
+End
 
 Theorem lookup_FOLDL_delete:
   ∀l k fml.

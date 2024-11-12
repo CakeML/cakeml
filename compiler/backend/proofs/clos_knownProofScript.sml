@@ -160,8 +160,9 @@ Proof
 QED
 
 (* Take the first n expression lists returned by the compile oracle. *)
-val first_n_exps_def = Define `
-  first_n_exps co n = GENLIST (FST o SND o co) n`;
+Definition first_n_exps_def:
+  first_n_exps co n = GENLIST (FST o SND o co) n
+End
 
 Theorem first_n_exps_shift_seq:
    !co n k. first_n_exps co (n + k) = first_n_exps co k ++ first_n_exps (shift_seq k co) n
@@ -182,9 +183,10 @@ QED
 
 (* All globals set in the program and in code returned by
    the compile oracle are unique. *)
-val unique_set_globals_def = Define `
+Definition unique_set_globals_def:
   unique_set_globals es co <=>
-    !n. BAG_ALL_DISTINCT (elist_globals (es ++ FLAT (first_n_exps co n)))`;
+    !n. BAG_ALL_DISTINCT (elist_globals (es ++ FLAT (first_n_exps co n)))
+End
 
 Theorem unique_set_globals_shift_seq:
    !es co. unique_set_globals es co ==> !k. unique_set_globals es (shift_seq k co)
@@ -268,9 +270,8 @@ Termination
   WF_REL_TAC `measure val_approx_size`
 End
 
-val val_approx_sgc_free_def = save_thm(
-  "val_approx_sgc_free_def[simp,allow_rebind]",
-  val_approx_sgc_free_def |> SIMP_RULE (srw_ss() ++ ETA_ss) []);
+Theorem val_approx_sgc_free_def[simp,allow_rebind] =
+  val_approx_sgc_free_def |> SIMP_RULE (srw_ss() ++ ETA_ss) []
 
 Theorem val_approx_sgc_free_merge:
    !a1 a2. val_approx_sgc_free a1 /\ val_approx_sgc_free a2 ==>
@@ -286,9 +287,10 @@ Proof
   \\ metis_tac []
 QED
 
-val globals_approx_sgc_free_def = Define `
+Definition globals_approx_sgc_free_def:
   globals_approx_sgc_free g <=>
-  !n a. lookup n g = SOME a ==> val_approx_sgc_free a`;
+  !n a. lookup n g = SOME a ==> val_approx_sgc_free a
+End
 
 (* alternative val_approx to value relation *)
 
@@ -305,14 +307,15 @@ Inductive val_approx_val:
   (!m n b s env. val_approx_val (Clos m n b s) (Closure (SOME m) [] env n b))
 End
 
-val val_approx_val_simps = save_thm("val_approx_val_simps[simp]",LIST_CONJ [
+Theorem val_approx_val_simps[simp] =
+  LIST_CONJ [
   SIMP_CONV (srw_ss()) [val_approx_val_cases] ``val_approx_val Other v``,
   SIMP_CONV (srw_ss()) [val_approx_val_cases] ``val_approx_val (Int i) v``,
   SIMP_CONV (srw_ss()) [val_approx_val_cases] ``val_approx_val (Tuple tg vas) v``,
   SIMP_CONV (srw_ss()) [val_approx_val_cases] ``val_approx_val (ClosNoInline m n) v``,
   SIMP_CONV (srw_ss()) [val_approx_val_cases] ``val_approx_val (Clos m n b1 s) v``,
   prove(``val_approx_val Impossible v <=> F``, simp [val_approx_val_cases])
-]);
+]
 
 Theorem val_approx_val_merge_I_lemma:
    !a1 v. val_approx_val a1 v ==> !a2. val_approx_val (merge a1 a2) v
@@ -373,11 +376,11 @@ Proof
   metis_tac [evaluate_app_code]
 QED
 
-val state_globals_approx_def = Define `
+Definition state_globals_approx_def:
   state_globals_approx s g <=>
     !k v a.
       get_global k s.globals = SOME (SOME v) /\ lookup k g = SOME a ==> val_approx_val a v
-`;
+End
 
 Theorem state_globals_approx_clock_fupd[simp]:
    state_globals_approx (s with clock updated_by f) g ⇔
@@ -422,18 +425,19 @@ QED
 
 (* Mapped globals *)
 
-val mapped_globals_def = Define`
+Definition mapped_globals_def:
   mapped_globals g =
     { i | ∃v. get_global i g = SOME (SOME v) }
-`;
+End
 
 (* Extending mapped globals *)
 
-val mglobals_extend_def = Define`
+Definition mglobals_extend_def:
   mglobals_extend g1 mgs g2 ⇔
      mapped_globals g2 ⊆ mapped_globals g1 ∪ mgs ∧
      ∀k v. get_global k g2 = SOME (SOME v) ∧ k ∉ mgs ⇒
-           get_global k g1 = SOME (SOME v)`
+           get_global k g1 = SOME (SOME v)
+End
 
 Theorem mglobals_extend_refl[simp]:
    mglobals_extend s gs s
@@ -509,7 +513,9 @@ QED
 
 (* fv_max *)
 
-val fv_max_def = Define `fv_max n xs = !v. fv v xs ==> v < n`;
+Definition fv_max_def:
+  fv_max n xs = !v. fv v xs ==> v < n
+End
 
 Theorem fv_max_SmartOp:
   fv_max n [Op t op xs] ⇒ fv_max n [SmartOp t op xs]
@@ -869,8 +875,8 @@ QED
 val say = say0 "evaluate_changed_globals_0";
 
 (* Evaluate  *)
-val evaluate_changed_globals_0 = Q.prove(
-  `(!es env (s0:('c,'ffi) closSem$state) res s.
+Triviality evaluate_changed_globals_0:
+  (!es env (s0:('c,'ffi) closSem$state) res s.
       evaluate (es, env, s0) = (res, s) /\
       ssgc_free s0 /\ EVERY esgc_free es /\
       EVERY vsgc_free env ==>
@@ -887,7 +893,8 @@ val evaluate_changed_globals_0 = Q.prove(
         ?n.
           s.compile_oracle = shift_seq n s0.compile_oracle /\
           mglobals_extend s0.globals
-            (SET_OF_BAG (elist_globals (FLAT (first_n_exps s0.compile_oracle n)))) s.globals)`,
+            (SET_OF_BAG (elist_globals (FLAT (first_n_exps s0.compile_oracle n)))) s.globals)
+Proof
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
@@ -1144,15 +1151,14 @@ val evaluate_changed_globals_0 = Q.prove(
            \\ `g3 = g1 ∪ g2` suffices_by metis_tac [mglobals_extend_trans]
            \\ fs [elist_globals_append, SET_OF_BAG_UNION]
            \\ metis_tac [UNION_ASSOC, UNION_COMM])
-    \\ qexists_tac `n` \\ fs []));
+    \\ qexists_tac `n` \\ fs [])
+QED
 
-val evaluate_changed_globals = save_thm(
-   "evaluate_changed_globals",
-   CONJUNCT1 evaluate_changed_globals_0);
+Theorem evaluate_changed_globals =
+  CONJUNCT1 evaluate_changed_globals_0
 
-val evaluate_app_changed_globals = save_thm(
-   "evaluate_app_changed_globals",
-   CONJUNCT2 evaluate_changed_globals_0);
+Theorem evaluate_app_changed_globals =
+  CONJUNCT2 evaluate_changed_globals_0
 
 Theorem mk_Ticks_set_globals[simp]:
    !t tc n exp. set_globals (mk_Ticks t tc n exp) = set_globals exp
@@ -1160,8 +1166,9 @@ Proof
   Induct_on `n` \\ simp [mk_Ticks_alt]
 QED
 
-val gapprox_disjoint_def = Define `
-  gapprox_disjoint g xs <=> DISJOINT (domain g) (SET_OF_BAG (elist_globals xs))`;
+Definition gapprox_disjoint_def:
+  gapprox_disjoint g xs <=> DISJOINT (domain g) (SET_OF_BAG (elist_globals xs))
+End
 
 Theorem gapprox_disjoint_rw:
   (gapprox_disjoint g (x::y::xs) <=>
@@ -1172,8 +1179,9 @@ Proof
  simp [gapprox_disjoint_def, SET_OF_BAG_UNION, DISJOINT_SYM, AC CONJ_ASSOC CONJ_COMM]
 QED
 
-val oracle_gapprox_disjoint_def = Define `
-  oracle_gapprox_disjoint g co <=> !n. gapprox_disjoint g (FST (SND (co n)))`;
+Definition oracle_gapprox_disjoint_def:
+  oracle_gapprox_disjoint g co <=> !n. gapprox_disjoint g (FST (SND (co n)))
+End
 
 Theorem oracle_gapprox_disjoint_shift_seq:
    oracle_gapprox_disjoint g co ==>
@@ -1250,7 +1258,7 @@ Proof
   \\ rw [] \\ fs [clos_gen_noinline_def]
 QED
 
-val loptrel_def = Define`
+Definition loptrel_def:
   loptrel fv numargs lopt1 lopt2 ⇔
      lopt2 = lopt1 ∨
      lopt1 = NONE ∧
@@ -1261,7 +1269,7 @@ val loptrel_def = Define`
          i < LENGTH fns ∧ loc2 = loc1 + 2 * i ∧ numargs = FST (EL i fns) ∧
          ae = []
        | _ => F
-`;
+End
 
 Theorem decide_inline_LetInline_IMP_Clos:
    !c fapx lopt arity body.
@@ -1414,21 +1422,23 @@ Proof
   simp[o_DEF,ADD1]
 QED
 
-val letrec_case_eq = Q.prove(`
+Triviality letrec_case_eq:
   !limit loc fns.
   (case loc of
     NONE => REPLICATE (LENGTH fns) Other
   | SOME n => clos_gen_noinline n 0 fns) =
   GENLIST (case loc of NONE => K Other |
-                       SOME n => λi. ClosNoInline (n + 2*i) (FST (EL i fns))) (LENGTH fns)`,
-  Cases_on`loc`>>fs[clos_gen_noinline_eq,REPLICATE_GENLIST])
+                       SOME n => λi. ClosNoInline (n + 2*i) (FST (EL i fns))) (LENGTH fns)
+Proof
+  Cases_on`loc`>>fs[clos_gen_noinline_eq,REPLICATE_GENLIST]
+QED
 
-val every_var_def = Define `
+Definition every_var_def:
   (every_var P Empty = T) /\
   (every_var P (Var v) <=> P v) /\
   (every_var P (Shift k d) <=> every_var (\v. k <= v ==> P (v - k)) d) /\
   (every_var P (Union d1 d2) <=> every_var P d1 /\ every_var P d2)
-`;
+End
 
 Theorem every_var_mk_Union[simp]:
    every_var P (mk_Union d1 d2) <=> every_var P d1 /\ every_var P d2
@@ -1497,10 +1507,10 @@ Proof
 QED
 
 (* oracle_gapprox_subspt *)
-val oracle_gapprox_subspt_def = Define `
+Definition oracle_gapprox_subspt_def:
   oracle_gapprox_subspt co <=>
     !n. subspt (FST (FST (co n))) (FST (FST (co (SUC n))))
-`;
+End
 
 Theorem oracle_gapprox_subspt_add:
    oracle_gapprox_subspt co <=>
@@ -1543,8 +1553,9 @@ Proof
 QED
 
 (* oracle_state_sgc_free *)
-val oracle_state_sgc_free_def = Define `
-  oracle_state_sgc_free co = !n. globals_approx_sgc_free (FST (FST (co n)))`;
+Definition oracle_state_sgc_free_def:
+  oracle_state_sgc_free co = !n. globals_approx_sgc_free (FST (FST (co n)))
+End
 
 Theorem oracle_state_sgc_free_shift_seq:
    !co. oracle_state_sgc_free co ==> !n. oracle_state_sgc_free (shift_seq n co)
@@ -1552,14 +1563,16 @@ Proof
   rpt strip_tac \\ fs [oracle_state_sgc_free_def, shift_seq_def]
 QED
 
-val next_g_def = Define `
+Definition next_g_def:
   next_g (s:(val_approx num_map#'c,'ffi) closSem$state) =
-    FST (FST (s.compile_oracle 0n))`;
+    FST (FST (s.compile_oracle 0n))
+End
 
 (**)
 
-val mglobals_disjoint_def = Define `
-  mglobals_disjoint s xs <=> DISJOINT (mapped_globals s) (SET_OF_BAG (elist_globals xs))`;
+Definition mglobals_disjoint_def:
+  mglobals_disjoint s xs <=> DISJOINT (mapped_globals s) (SET_OF_BAG (elist_globals xs))
+End
 
 Theorem mglobals_disjoint_rw:
   (mglobals_disjoint s (x::y::xs) <=>
@@ -1640,10 +1653,11 @@ Proof
 QED
 
 
-val gapprox_extend_def = Define `
+Definition gapprox_extend_def:
   gapprox_extend g1 gd g2 <=>
     !i. i ∈ domain g2 ∧ (i ∈ domain g1 ==> lookup i g2 ≠ lookup i g1) ==>
-        i ∈ gd`;
+        i ∈ gd
+End
 
 Theorem state_globals_approx_disjoint_extends:
    !s1 mgx s2 g1 gax g2.
@@ -2382,13 +2396,14 @@ QED
 
 (* code relation *)
 
-val exp_rel_def = Define `
+Definition exp_rel_def:
   exp_rel c aenv g' e1 e2 <=>
     ?g0 g apx k.
       subspt g g' /\
       EVERY val_approx_sgc_free aenv /\
       globals_approx_sgc_free g0 /\
-      known (c with inline_factor := k) [e1] aenv g0 = ([(e2, apx)], g)`;
+      known (c with inline_factor := k) [e1] aenv g0 = ([(e2, apx)], g)
+End
 
 Theorem exp_rel_dec_inline_factor[simp]:
    exp_rel (dec_inline_factor c) aenv g e1 e2 <=> exp_rel c aenv g e1 e2
@@ -2398,9 +2413,10 @@ QED
 
 (* value relation *)
 
-val f_rel_def = Define `
+Definition f_rel_def:
   f_rel c aenv g (n1, e1) (n2, e2) <=>
-     n1 = n2 /\ exp_rel c (REPLICATE n1 Other ++ aenv) g e1 e2`;
+     n1 = n2 /\ exp_rel c (REPLICATE n1 Other ++ aenv) g e1 e2
+End
 
 Theorem v1_size_append:
    !xs ys. closSem$v1_size (xs ++ ys) = v1_size xs + v1_size ys
@@ -2443,12 +2459,12 @@ Termination
   \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []
 End
 
-val v_rel_def = save_thm("v_rel_def[simp,compute,allow_rebind]",
-  v_rel_def |> SIMP_RULE (bool_ss ++ ETA_ss) []);
+Theorem v_rel_def[simp,compute,allow_rebind] =
+  v_rel_def |> SIMP_RULE (bool_ss ++ ETA_ss) []
 
 val v_rel_ind = theorem "v_rel_ind";
 
-val v_rel_app_def = Define `
+Definition v_rel_app_def:
   (v_rel_app c g (Number i) v args1 <=> v_rel c g (Number i) v) /\
   (v_rel_app c g (Word64 w) v args1 <=> v_rel c g (Word64 w) v) /\
   (v_rel_app c g (ByteVector ws) v args1 <=> v_rel c g (ByteVector ws) v) /\
@@ -2469,7 +2485,8 @@ val v_rel_app_def = Define `
        exp_rel c (aargs ++ aenv) g e1 e2 /\
        v = Closure loc_opt pargs2 (env2a ++ env2b) num_args e2) /\
   (v_rel_app c g (Recclosure loc_opt pargs1 env1 funs1 i) v args1 <=>
-     v_rel c g (Recclosure loc_opt pargs1 env1 funs1 i) v)`;
+     v_rel c g (Recclosure loc_opt pargs1 env1 funs1 i) v)
+End
 
 Theorem v_rel_app_NONE:
    v_rel_app c g v1 v2 NONE = v_rel c g v1 v2
@@ -2574,9 +2591,10 @@ Inductive ref_rel:
     ref_rel c g (ValueArray xs) (ValueArray ys))
 End
 
-val ref_rel_simps = save_thm("ref_rel_simps[simp]",LIST_CONJ [
+Theorem ref_rel_simps[simp] =
+  LIST_CONJ [
   SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ValueArray vs) x``,
-  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ByteArray bs) x``])
+  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel c g (ByteArray bs) x``]
 
 Theorem ref_rel_upd_inline_factor:
    ref_rel (c with inline_factor := k) = ref_rel c
@@ -2584,7 +2602,7 @@ Proof
   simp [FUN_EQ_THM, ref_rel_cases, v_rel_upd_inline_factor]
 QED
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel c g (s:(val_approx num_map#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = []) /\
     (!n. fv_max 0 (FST (SND (s.compile_oracle n)))) /\
@@ -2594,7 +2612,7 @@ val state_rel_def = Define `
     fmap_rel (ref_rel c g) s.refs t.refs /\
     s.compile = state_cc (compile_inc c) t.compile  /\
     t.compile_oracle = state_co (compile_inc c) s.compile_oracle
-`;
+End
 
 Triviality compile_inc_upd_inline_factor:
   compile_inc (c with inline_factor := k) = compile_inc c
@@ -2661,12 +2679,12 @@ Proof
   THEN1 (irule fmap_rel_mono \\ metis_tac [ref_rel_subspt])
 QED
 
-val co_every_Fn_vs_NONE_def = Define `
+Definition co_every_Fn_vs_NONE_def:
   co_every_Fn_vs_NONE co =
     !n exps aux. SND (co n) = (exps, aux) ==>
       every_Fn_vs_NONE exps /\
       every_Fn_vs_NONE (MAP (SND o SND) aux)
-`;
+End
 
 Theorem co_every_Fn_vs_NONE_shift_seq:
    !co. co_every_Fn_vs_NONE co ==> !n. co_every_Fn_vs_NONE (shift_seq n co)
@@ -2730,13 +2748,14 @@ Proof
   \\ metis_tac [OPTREL_SOME]
 QED
 
-val do_app_lemma = Q.prove(
-  `!c g s t xs ys opp. state_rel c g s t /\ LIST_REL (v_rel c g) xs ys ==>
+Triviality do_app_lemma:
+  !c g s t xs ys opp. state_rel c g s t /\ LIST_REL (v_rel c g) xs ys ==>
     case do_app opp xs s of
       | Rerr err1 => ?err2. do_app opp ys t = Rerr err2 /\
                             exc_rel (v_rel c g) err1 err2
       | Rval (x, s1) => ?y t1. v_rel c g x y /\ state_rel c g s1 t1 /\
-                               do_app opp ys t = Rval (y, t1)`,
+                               do_app opp ys t = Rval (y, t1)
+Proof
   rpt gen_tac
   \\ match_mp_tac simple_val_rel_do_app
   \\ conj_tac THEN1 (fs [simple_val_rel_def] \\ rw []
@@ -2748,7 +2767,8 @@ val do_app_lemma = Q.prove(
   \\ rfs []
   \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
   \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rw [] \\ fs [ref_rel_cases]);
+  \\ rw [] \\ fs [ref_rel_cases]
+QED
 
 Theorem evaluate_app_exact_rw:
    args <> [] /\ num_args = LENGTH args
@@ -2780,15 +2800,13 @@ val opt_caseT = case_eq_thms |> CONJUNCTS
                     |> Q.INST [`v'` |-> `T`]
                     |> SIMP_RULE (srw_ss()) []
 
-val loptrel_arg1_SOME = save_thm(
-  "loptrel_arg1_SOME",
+Theorem loptrel_arg1_SOME =
   loptrel_def |> SPEC_ALL |> Q.INST [`lopt1` |-> `SOME loc1`]
-              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT])
+              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT]
 
-val loptrel_arg1_NONE = save_thm(
-  "loptrel_arg1_NONE",
+Theorem loptrel_arg1_NONE =
   loptrel_def |> SPEC_ALL |> Q.INST [`lopt1` |-> `NONE`]
-              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT])
+              |> SIMP_RULE (srw_ss()) [opt_caseT, v_caseT]
 
 Theorem dest_closure_SOME_IMP:
    dest_closure max_app loc_opt f2 xs = SOME x ==>
@@ -2924,8 +2942,9 @@ QED
 
 
 (* Set globals in all future installs is disjoint from currently mapped globals. *)
-val state_oracle_mglobals_disjoint_def = Define `
-  state_oracle_mglobals_disjoint s <=> !n. mglobals_disjoint s.globals (FST (SND (s.compile_oracle n)))`;
+Definition state_oracle_mglobals_disjoint_def:
+  state_oracle_mglobals_disjoint s <=> !n. mglobals_disjoint s.globals (FST (SND (s.compile_oracle n)))
+End
 
 Theorem state_oracle_mglobals_disjoint_evaluate_suff:
    !xs env s0 res s. evaluate (xs, env, s0) = (res, s) /\
@@ -4622,26 +4641,28 @@ Proof
   \\ fs[clos_fvsProofTheory.LENGTH_remove_fvs]
 QED
 
-val syntax_ok_def = Define`
+Definition syntax_ok_def:
   syntax_ok xs ⇔
     every_Fn_vs_NONE xs /\
     BAG_ALL_DISTINCT (elist_globals xs) /\
-    EVERY esgc_free xs`;
+    EVERY esgc_free xs
+End
 
 Overload fvs_compile = ``clos_fvs$compile``
 
 val fvs_inc = ``clos_fvs$compile_inc : clos_prog -> clos_prog``;
 
-val syntax_oracle_ok_def = Define`
+Definition syntax_oracle_ok_def:
   syntax_oracle_ok c xs co conf ⇔
     syntax_ok xs /\
     is_state_oracle (compile_inc c) (pure_co ^fvs_inc o co) /\
     conf = FST (FST (co 0)) /\
     oracle_monotonic (SET_OF_BAG o elist_globals o FST o SND) (<)
       (SET_OF_BAG (elist_globals xs)) co /\
-    (!n. syntax_ok (FST (SND (co n))) /\ SND (SND (co n)) = [])`
+    (!n. syntax_ok (FST (SND (co n))) /\ SND (SND (co n)) = [])
+End
 
-val known_cc_def = Define `
+Definition known_cc_def:
   known_cc known_conf cc =
     (case known_conf of
      | SOME kcfg =>
@@ -4650,9 +4671,10 @@ val known_cc_def = Define `
            (pure_cc clos_ticks$compile_inc
              (pure_cc clos_letop$compile_inc
                (cc:'b clos_cc):'b clos_cc):'b clos_cc)))
-     | NONE      => state_cc (CURRY I) cc :(val_approx num_map # 'b) clos_cc)`;
+     | NONE      => state_cc (CURRY I) cc :(val_approx num_map # 'b) clos_cc)
+End
 
-val known_co_def = Define `
+Definition known_co_def:
   known_co known_conf (co : (val_approx num_map # 'b) clos_co) =
     (case known_conf of
      | SOME kcfg => (pure_co clos_letop$compile_inc o
@@ -4660,7 +4682,8 @@ val known_co_def = Define `
                           (state_co (compile_inc kcfg)
                             (pure_co clos_fvs$compile_inc o co)
                             : 'b clos_co)) : 'b clos_co))
-     | NONE      => (state_co (CURRY I) co) : 'b clos_co)`;
+     | NONE      => (state_co (CURRY I) co) : 'b clos_co)
+End
 
 Theorem known_co_eq_pure_state:
   known_co known_conf co =
@@ -4677,7 +4700,7 @@ Proof
   \\ fs [pure_co_I, pure_co_comb_pure_co]
 QED
 
-val known_mk_co_def = Define `
+Definition known_mk_co_def:
   known_mk_co kc kc' mk =
     add_state_co (if IS_SOME kc then clos_known$compile_inc (THE kc)
         else CURRY I)
@@ -4686,9 +4709,10 @@ val known_mk_co_def = Define `
           clos_letop$compile_inc
               ∘ (clos_ticks$compile_inc : clos_prog -> clos_prog)
         else I))
-    o pure_co_progs (if IS_SOME kc then clos_fvs$compile_inc else I)`
+    o pure_co_progs (if IS_SOME kc then clos_fvs$compile_inc else I)
+End
 
-val known_co_progs_def = Define `
+Definition known_co_progs_def:
   known_co_progs kc kc' =
     pure_co_progs (if IS_SOME kc then
           clos_letop$compile_inc
@@ -4696,7 +4720,8 @@ val known_co_progs_def = Define `
         else I)
     o state_co_progs (if IS_SOME kc then clos_known$compile_inc (THE kc)
         else CURRY I) (case kc' of NONE => LN | SOME kcfg => kcfg.val_approx_spt)
-    o pure_co_progs (if IS_SOME kc then clos_fvs$compile_inc else I)`
+    o pure_co_progs (if IS_SOME kc then clos_fvs$compile_inc else I)
+End
 
 Theorem known_co_known_mk_co:
   clos_knownProof$known_co kc
@@ -4873,13 +4898,15 @@ Proof
   \\ rw[Once mk_Ticks_def]
 QED
 
-val val_approx_every_Fn_SOME_def = tDefine"val_approx_every_Fn_SOME"`
+Definition val_approx_every_Fn_SOME_def:
   (val_approx_every_Fn_SOME (Tuple _ vs) ⇔ EVERY val_approx_every_Fn_SOME vs) ∧
   (val_approx_every_Fn_SOME (Clos _ _ b _) ⇔ every_Fn_SOME [b]) ∧
-  (val_approx_every_Fn_SOME _ ⇔ T)`
-(wf_rel_tac`measure val_approx_size`
+  (val_approx_every_Fn_SOME _ ⇔ T)
+Termination
+  wf_rel_tac`measure val_approx_size`
  \\ gen_tac \\ Induct \\ EVAL_TAC
- \\ rw[] \\ res_tac \\ rw[]);
+ \\ rw[] \\ res_tac \\ rw[]
+End
 val _ = export_rewrites["val_approx_every_Fn_SOME_def"];
 
 Theorem val_approx_every_Fn_SOME_merge:
@@ -4902,9 +4929,10 @@ Proof
   \\ fs[]
 QED
 
-val globals_approx_every_Fn_SOME_def = Define`
+Definition globals_approx_every_Fn_SOME_def:
   globals_approx_every_Fn_SOME g =
-    (∀c d. lookup c g = SOME d ⇒ val_approx_every_Fn_SOME d)`;
+    (∀c d. lookup c g = SOME d ⇒ val_approx_every_Fn_SOME d)
+End
 
 Theorem known_op_every_Fn_SOME:
    known_op op x y = (a,b) ∧
@@ -4990,13 +5018,15 @@ Proof
   \\ imp_res_tac known_sing_EQ_E \\ fs []
 QED
 
-val val_approx_every_Fn_vs_NONE_def = tDefine"val_approx_every_Fn_vs_NONE"`
+Definition val_approx_every_Fn_vs_NONE_def:
   (val_approx_every_Fn_vs_NONE (Tuple _ vs) ⇔ EVERY val_approx_every_Fn_vs_NONE vs) ∧
   (val_approx_every_Fn_vs_NONE (Clos _ _ b _) ⇔ every_Fn_vs_NONE [b]) ∧
-  (val_approx_every_Fn_vs_NONE _ ⇔ T)`
-(wf_rel_tac`measure val_approx_size`
+  (val_approx_every_Fn_vs_NONE _ ⇔ T)
+Termination
+  wf_rel_tac`measure val_approx_size`
  \\ gen_tac \\ Induct \\ EVAL_TAC
- \\ rw[] \\ res_tac \\ rw[]);
+ \\ rw[] \\ res_tac \\ rw[]
+End
 val _ = export_rewrites["val_approx_every_Fn_vs_NONE_def"];
 
 Theorem val_approx_every_Fn_vs_NONE_merge:
@@ -5019,9 +5049,10 @@ Proof
   \\ fs[]
 QED
 
-val globals_approx_every_Fn_vs_NONE_def = Define`
+Definition globals_approx_every_Fn_vs_NONE_def:
   globals_approx_every_Fn_vs_NONE g =
-    (∀c d. lookup c g = SOME d ⇒ val_approx_every_Fn_vs_NONE d)`;
+    (∀c d. lookup c g = SOME d ⇒ val_approx_every_Fn_vs_NONE d)
+End
 
 Theorem known_op_every_Fn_vs_NONE:
    known_op op x y = (a,b) ∧
@@ -5284,9 +5315,10 @@ Proof
   \\ fs[val_approx_obeys_max_app_def]
 QED
 
-val globals_approx_obeys_max_app_def = Define`
+Definition globals_approx_obeys_max_app_def:
   globals_approx_obeys_max_app k g =
-    (∀c d. lookup c g = SOME d ⇒ val_approx_obeys_max_app k d)`;
+    (∀c d. lookup c g = SOME d ⇒ val_approx_obeys_max_app k d)
+End
 
 Theorem val_approx_obeys_max_app_merge:
    ∀a b. val_approx_obeys_max_app k a ∧ val_approx_obeys_max_app k b ⇒

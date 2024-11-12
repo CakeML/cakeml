@@ -29,14 +29,13 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val cake_pb_clique_compiled_thm =
+Theorem cake_pb_clique_compiled_thm =
   CONJ compile_correct_applied cake_pb_clique_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "cake_pb_clique_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_x64_def = Define `
+Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
     mc ms
@@ -49,18 +48,19 @@ val installed_x64_def = Define `
         cfg.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names) mc
         cfg.lab_conf.shmem_extra ms
-    `;
+End
 
-val cake_pb_clique_code_def = Define `
+Definition cake_pb_clique_code_def:
   cake_pb_clique_code = (code, data, info)
-  `;
+End
 
 (* A standard run of cake_pb_clique
   satisfying all the default assumptions *)
-val cake_pb_clique_run_def = Define`
+Definition cake_pb_clique_run_def:
   cake_pb_clique_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 cake_pb_clique_code mc ms`
+  installed_x64 cake_pb_clique_code mc ms
+End
 
 Theorem machine_code_sound:
   cake_pb_clique_run cl fs mc ms ⇒
@@ -75,7 +75,7 @@ Theorem machine_code_sound:
         get_graph_dimacs fs (EL 1 cl) = SOME g ∧
         (
           (LENGTH cl = 2 ∧
-            out = concat (print_pbf (full_encode g))) ∨
+            out = concat (print_prob (mk_prob (full_encode g)))) ∨
           (LENGTH cl = 3 ∧
             (
               out = clique_eq_str (max_clique_size g) ∨

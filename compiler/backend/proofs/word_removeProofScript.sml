@@ -7,7 +7,7 @@ val _ = new_theory "word_removeProof";
 
 val _ = set_grammar_ancestry["word_remove","wordSem","wordProps"];
 
-val compile_state_def = Define`
+Definition compile_state_def:
   compile_state clk c s =
     s with <|
       clock := s.clock+clk;
@@ -15,7 +15,8 @@ val compile_state_def = Define`
       code := map (I ## remove_must_terminate) s.code;
       compile_oracle := (I ## (MAP (I ## I ## remove_must_terminate))) o s.compile_oracle;
       compile := c
-    |>`;
+    |>
+End
 
 Theorem compile_state_const[simp]:
    (compile_state clk c s).locals = s.locals ∧
@@ -272,10 +273,10 @@ Proof
     rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\ simp[FUN_EQ_THM,FORALL_PROD] \\ NO_TAC)
   >~ [`share_inst`]
   >- ( (* ShareInst *)
-    gvs[DefnBase.one_line_ify NONE share_inst_def,
-      sh_mem_store_def,sh_mem_store_byte_def,
-      sh_mem_load_def,sh_mem_load_byte_def,
-      DefnBase.one_line_ify NONE sh_mem_set_var_def,AllCaseEqs()] \\
+    gvs[oneline share_inst_def,
+      sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      oneline sh_mem_set_var_def,AllCaseEqs()] \\
    simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList,map_insert] ) \\
   TOP_CASE_TAC \\ fs[] \\
   TOP_CASE_TAC \\ fs[] \\

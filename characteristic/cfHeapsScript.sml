@@ -38,15 +38,17 @@ QED
 
 (* local = frame rule + consequence rule + garbage collection *)
 
-val local_def = Define `
+Definition local_def:
   local cf (H: hprop) (Q: res -> hprop) =
     !(h: heap). H h ==> ?H1 H2 Q1.
       (H1 * H2) h /\
       cf H1 Q1 /\
-      (Q1 *+ H2 ==+> Q *+ GC)`
+      (Q1 *+ H2 ==+> Q *+ GC)
+End
 
-val is_local_def = Define `
-  is_local cf = (cf = local cf)`
+Definition is_local_def:
+  is_local cf = (cf = local cf)
+End
 
 (* Properties of [local] *)
 

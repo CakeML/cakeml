@@ -5,7 +5,7 @@
   connection between the generated code and the input HOL functions.
 *)
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory evaluateTheory semanticPrimitivesTheory
+open astTheory evaluateTheory semanticPrimitivesTheory
 open ml_progLib ml_progTheory evaluateTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
 open cfHeapsBaseTheory basisFunctionsLib
@@ -54,19 +54,22 @@ val _ = ml_prog_update open_local_block;
 
 (* Initialize the translation *)
 
-val init_type_constants_def = Define `
-  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
+Definition init_type_constants_def:
+  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]
+End
 
-val init_term_constants_def = Define `
+Definition init_term_constants_def:
   init_term_constants = [(strlit"=",
     Tyapp (strlit"fun")
       [Tyvar (strlit"A");
        Tyapp (strlit"fun")
          [Tyvar (strlit"A");
-          Tyapp (strlit"bool") []]])]`;
+          Tyapp (strlit"bool") []]])]
+End
 
-val init_axioms_def = Define `
-  init_axioms = []:thm list`;
+Definition init_axioms_def:
+  init_axioms = []:thm list
+End
 
 Triviality init_axioms_alt:
   init_axioms = case [Sequent [] (Var (strlit "") (Tyvar (strlit "")))] of
@@ -76,8 +79,9 @@ Proof
   EVAL_TAC
 QED
 
-val init_context_def = Define `
-  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`;
+Definition init_context_def:
+  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))
+End
 
 val refs_init_list = [
   ("the_type_constants", init_type_constants_def, get_the_type_constants_def,
@@ -127,9 +131,11 @@ val res = translate check_tm_tm_def;
 (*
 val res = translate mlstringTheory.explode_aux_def;
 val res = translate mlstringTheory.explode_def;
-val explode_aux_side_thm = Q.prove(
-  `∀s n m. n + m = strlen s ==> explode_aux_side s n m `,
-  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]);
+Triviality explode_aux_side_thm:
+  ∀s n m. n + m = strlen s ==> explode_aux_side s n m
+Proof
+  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]
+QED
 val explode_side_thm = Q.prove(
   `explode_side x`,
   rw[definition"explode_side_def",explode_aux_side_thm])
@@ -258,7 +264,7 @@ val res = translate concl_def;
 
 val _ = ml_prog_update open_local_block;
 
-val type_compare_def = tDefine "type_compare" `
+Definition type_compare_def:
   (type_compare t1 t2 =
      case (t1,t2) of
      | (Tyvar x1,Tyvar x2) => mlstring$compare x1 x2
@@ -276,10 +282,12 @@ val type_compare_def = tDefine "type_compare" `
      | (t1::ts1,t2::ts2) =>
          (case type_compare t1 t2 of
           | Equal => type_list_compare ts1 ts2
-          | other => other))`
-  (WF_REL_TAC `measure (\x. case x of
+          | other => other))
+Termination
+  WF_REL_TAC `measure (\x. case x of
                   INR (x,_) => type1_size x
-                | INL (x,_) => type_size x)`)
+                | INL (x,_) => type_size x)`
+End
 
 val type_cmp_thm = Q.prove(
   `(type_cmp = type_compare) /\
@@ -294,11 +302,11 @@ val type_cmp_thm = Q.prove(
   |> CONJUNCT1;
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("type_cmp_ind",
-          (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]);
+Theorem type_cmp_ind =
+  (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]
 val res = translate (type_compare_def |> RW [GSYM type_cmp_thm]);
 
-val term_compare_def = Define `
+Definition term_compare_def:
   term_compare t1 t2 =
      case (t1,t2) of
        (Var x1 ty1,Var x2 ty2) =>
@@ -332,21 +340,24 @@ val term_compare_def = Define `
          case term_compare s1' s2' of
            Less => Less
          | Equal => term_compare t1' t2'
-         | Greater => Greater`;
+         | Greater => Greater
+End
 
-val term_cmp_thm = Q.prove(
-  `term_cmp = term_compare`,
+Triviality term_cmp_thm:
+  term_cmp = term_compare
+Proof
   fs [FUN_EQ_THM]
   \\ HO_MATCH_MP_TAC (fetch "-" "term_compare_ind")
   \\ REPEAT STRIP_TAC \\ fs []
   \\ ONCE_REWRITE_TAC [holSyntaxExtraTheory.term_cmp_thm]
   \\ ONCE_REWRITE_TAC [term_compare_def]
   \\ REPEAT BasicProvers.CASE_TAC
-  \\ fs [comparisonTheory.pair_cmp_def])
+  \\ fs [comparisonTheory.pair_cmp_def]
+QED
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("term_cmp_ind",
-          (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]);
+Theorem term_cmp_ind =
+  (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]
 val res = translate (term_compare_def |> RW [GSYM term_cmp_thm]);
 
 val res = translate (check [‘ty’] holKernelPmatchTheory.codomain_def);

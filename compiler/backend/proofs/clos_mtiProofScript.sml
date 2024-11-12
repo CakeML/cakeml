@@ -20,9 +20,10 @@ val _ = bring_fwd_ctors "closLang" ``:closLang$exp``
 Theorem no_mti_def = closPropsTheory.no_mti_def
     |> CONV_RULE (DEPTH_CONV ETA_CONV)
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel max_app e1 e2 <=>
-    EVERY no_mti e1 /\ (e2 = intro_multi max_app e1)`
+    EVERY no_mti e1 /\ (e2 = intro_multi max_app e1)
+End
 
 Theorem code_rel_IMP_LENGTH:
    code_rel max_app xs ys ==> LENGTH ys = LENGTH xs
@@ -57,15 +58,17 @@ QED
 
 (* value relation *)
 
-val mk_Fns_def = Define `
+Definition mk_Fns_def:
   mk_Fns [] e = e /\
-  mk_Fns (t::ts) e = Fn t NONE NONE 1 (mk_Fns ts e)`
+  mk_Fns (t::ts) e = Fn t NONE NONE 1 (mk_Fns ts e)
+End
 
-val f_rel_def = Define `
+Definition f_rel_def:
   f_rel max_app (a1,e1) (a2,e2) <=>
     ?b1 ts.
       code_rel max_app [b1] [e2] /\ a2 <= max_app /\ no_mti b1 /\
-      a1 = 1n /\ e1 = mk_Fns ts b1 /\ a2 = LENGTH ts + 1`
+      a1 = 1n /\ e1 = mk_Fns ts b1 /\ a2 = LENGTH ts + 1
+End
 
 Inductive v_rel:
   (!i. v_rel (max_app:num) (Number i) (closSem$Number i)) /\
@@ -104,10 +107,11 @@ Inductive v_rel:
        (Recclosure NONE args2 env2 funs2 n))
 End
 
-val v_rel_opt_def = Define `
+Definition v_rel_opt_def:
   (v_rel_opt max_app NONE NONE <=> T) /\
   (v_rel_opt max_app (SOME x) (SOME y) <=> v_rel max_app x y) /\
-  (v_rel_opt max_app _ _ = F)`;
+  (v_rel_opt max_app _ _ = F)
+End
 
 Inductive ref_rel:
   (!bs. ref_rel max_app (ByteArray bs) (ByteArray bs)) /\
@@ -116,11 +120,12 @@ Inductive ref_rel:
     ref_rel max_app (ValueArray xs) (ValueArray ys))
 End
 
-val FMAP_REL_def = Define `
+Definition FMAP_REL_def:
   FMAP_REL r f1 f2 <=>
     FDOM f1 = FDOM f2 /\
     !k v. FLOOKUP f1 k = SOME v ==>
-          ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2`;
+          ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2
+End
 
 (* state relation *)
 
@@ -130,7 +135,7 @@ Proof
   Cases_on`p` \\ EVAL_TAC
 QED
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = [] /\
          EVERY no_mti (FST (SND (s.compile_oracle n)))) /\
@@ -141,7 +146,8 @@ val state_rel_def = Define `
     LIST_REL (v_rel_opt s.max_app) s.globals t.globals /\
     FMAP_REL (ref_rel s.max_app) s.refs t.refs /\
     s.compile = pure_cc (clos_mti$compile_inc s.max_app) t.compile /\
-    t.compile_oracle = pure_co (clos_mti$compile_inc s.max_app) o s.compile_oracle`;
+    t.compile_oracle = pure_co (clos_mti$compile_inc s.max_app) o s.compile_oracle
+End
 
 (* evaluation theorem *)
 
@@ -220,9 +226,10 @@ val collect_apps_cons = prove(
        |> Q.SPECL [`e1`,`m`,`[x]`]
        |> SIMP_RULE std_ss [LENGTH,APPEND]] \\ rw []);
 
-val mk_Apps_def = Define `
+Definition mk_Apps_def:
   mk_Apps e [] = e /\
-  mk_Apps e ((t,other)::ts) = App t NONE (mk_Apps e ts) [other]`
+  mk_Apps e ((t,other)::ts) = App t NONE (mk_Apps e ts) [other]
+End
 
 Theorem collect_apps_IMP_mk_Apps:
   !e max_app (acc:closLang$exp list) other e3.
@@ -295,12 +302,13 @@ val evaluate_mk_Apps_err = prove(
   \\ simp [Once evaluate_CONS] \\ rw []
   \\ fs [case_eq_thms,pair_case_eq] \\ rveq);
 
-val evaluate_apps_def = Define `
+Definition evaluate_apps_def:
   evaluate_apps f [] s = (Rval [f], s) /\
   evaluate_apps f (x::xs) s =
     case evaluate_apps f xs s of
     | (Rval [v], s1) => evaluate_app NONE v [x] s1
-    | res => res`;
+    | res => res
+End
 
 val evaluate_mk_Apps_ok = prove(
   ``!other ts env1 s1 vs.
@@ -436,7 +444,8 @@ val LIST_REL_f_rel_IMP = prove(
   \\ res_tac \\ fs []
   \\ Cases_on `x` \\ Cases_on `h` \\ fs [f_rel_def]);
 
-val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ ([
+Theorem v_rel_simps[simp] =
+  LIST_CONJ ([
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Number n)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Block n p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Word64 p)``,
@@ -448,7 +457,7 @@ val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ ([
         Cases_on `b` \\ fs [Boolv_def,Once v_rel_cases]),
   prove(``v_rel max_app x Unit <=> x = Unit``,
         fs [closSemTheory.Unit_def,Once v_rel_cases])]
-  |> map GEN_ALL))
+  |> map GEN_ALL)
 
 val v_rel_opt_thm = prove(
   ``v_rel_opt m = OPTREL (v_rel m)``,
@@ -1244,20 +1253,24 @@ Proof
   rpt strip_tac >> metis_tac[set_globals_empty_esgc_free]
 QED
 
-val every_Fn_vs_NONE_collect_apps = Q.prove(
-  `∀max_app es e x y. collect_apps max_app es e = (x,y) ⇒
+Triviality every_Fn_vs_NONE_collect_apps:
+  ∀max_app es e x y. collect_apps max_app es e = (x,y) ⇒
   (every_Fn_vs_NONE x ∧ every_Fn_vs_NONE [y] ⇔
-   every_Fn_vs_NONE es ∧ every_Fn_vs_NONE [e])`,
+   every_Fn_vs_NONE es ∧ every_Fn_vs_NONE [e])
+Proof
   ho_match_mp_tac collect_apps_ind >>
   srw_tac[][collect_apps_def] >> full_simp_tac(srw_ss())[] >>
   ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
-  srw_tac[][] >> metis_tac[]);
+  srw_tac[][] >> metis_tac[]
+QED
 
-val every_Fn_vs_NONE_collect_args = Q.prove(
-  `∀max_app es e x y. collect_args max_app es e = (x,y) ⇒
-    (every_Fn_vs_NONE [y] ⇔ every_Fn_vs_NONE [e])`,
+Triviality every_Fn_vs_NONE_collect_args:
+  ∀max_app es e x y. collect_args max_app es e = (x,y) ⇒
+    (every_Fn_vs_NONE [y] ⇔ every_Fn_vs_NONE [e])
+Proof
   ho_match_mp_tac collect_args_ind >>
-  srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[]);
+  srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[]
+QED
 
 Theorem every_Fn_vs_NONE_intro_multi[simp]:
    ∀max_app es. every_Fn_vs_NONE (intro_multi max_app es) = every_Fn_vs_NONE es
@@ -1295,9 +1308,11 @@ Proof
   Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def, clos_mtiTheory.intro_multi_length]
 QED
 
-val EVERY_HD = Q.prove(
-  `EVERY P l ∧ l ≠ [] ⇒ P (HD l)`,
-  Cases_on `l` >> simp[]);
+Triviality EVERY_HD:
+  EVERY P l ∧ l ≠ [] ⇒ P (HD l)
+Proof
+  Cases_on `l` >> simp[]
+QED
 
 Theorem collect_apps_preserves_set_globals:
    ∀max_app es e es' e'.

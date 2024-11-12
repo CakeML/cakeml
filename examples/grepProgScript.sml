@@ -126,7 +126,8 @@ val _ = translate balanced_mapTheory.fromList_def;
 val r = translate regexp_compareW_def;
 
 val _ = add_preferred_thy "-";
-val r = save_thm("mergesortN_ind", mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
+Theorem mergesortN_ind =
+  mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]
 val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
 
 val _ = use_mem_intro := true;
@@ -143,9 +144,8 @@ val r = translate Brz_def;
 (* Version of compile_regexp that avoids dom_Brz and Brzozo.
    The latter functions are probably untranslatable. *)
 
-val compile_regexp_with_limit_def =
- Define
-   `compile_regexp_with_limit r =
+Definition compile_regexp_with_limit_def:
+  compile_regexp_with_limit r =
       let r' = normalize r in
       case Brz balanced_map$empty
                (balanced_map$singleton r' ())
@@ -157,7 +157,8 @@ val compile_regexp_with_limit_def =
       in
          SOME(state_numbering,
           delta_vecs,
-          accepts_vec))`;
+          accepts_vec))
+End
 
 Theorem Brz_sound_wrt_Brzozo:
    Brz seen worklist acc d = SOME result ==> Brzozo seen worklist acc = result
@@ -193,9 +194,8 @@ QED
 
 val r = translate compile_regexp_with_limit_def;
 
-val regexp_matcher_with_limit_def =
- Define
-  `regexp_matcher_with_limit r s =
+Definition regexp_matcher_with_limit_def:
+  regexp_matcher_with_limit r s =
     case compile_regexp_with_limit r of
            NONE => NONE
          | SOME (state_numbering,deltaL,accepts) =>
@@ -204,7 +204,8 @@ val regexp_matcher_with_limit_def =
     let acceptsV = fromList accepts in
     let deltaV = fromList (MAP fromList deltaL)
     in
-      SOME(exec_dfa acceptsV deltaV start_state s))`;
+      SOME(exec_dfa acceptsV deltaV start_state s))
+End
 
 Theorem regexp_matcher_with_limit_sound:
    regexp_matcher_with_limit r s = SOME result ==> regexp_matcher r s = result
@@ -217,30 +218,39 @@ QED
 
 val r = translate regexp_matcher_with_limit_def;
 
-val mem_tolist = Q.prove(`MEM (toList l) (MAP toList ll) = MEM l ll`,
-  Induct_on `ll` >> fs[]);
+Triviality mem_tolist:
+  MEM (toList l) (MAP toList ll) = MEM l ll
+Proof
+  Induct_on `ll` >> fs[]
+QED
 
-val EL_map_toList = Q.prove(`!n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = sub (EL n l) n'`,
+Triviality EL_map_toList:
+  !n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = sub (EL n l) n'
+Proof
   Induct_on `l`
   >> fs[]
   >> rpt strip_tac
   >> Cases_on `n`
-  >> fs[mlvectorTheory.EL_toList]);
+  >> fs[mlvectorTheory.EL_toList]
+QED
 
-val length_tolist_cancel = Q.prove(
-  `!n. n < LENGTH l ==> LENGTH (EL n (MAP mlvector$toList l)) = length (EL n l)`,
+Triviality length_tolist_cancel:
+  !n. n < LENGTH l ==> LENGTH (EL n (MAP mlvector$toList l)) = length (EL n l)
+Proof
   Induct_on `l`
   >> fs[]
   >> rpt strip_tac
   >> Cases_on `n`
-  >> fs[mlvectorTheory.length_toList]);
+  >> fs[mlvectorTheory.length_toList]
+QED
 
-val exec_dfa_side_imp = Q.prove(
-  `!finals table n s.
+Triviality exec_dfa_side_imp:
+  !finals table n s.
    good_vec (MAP toList (toList table)) (toList finals)
     /\ EVERY (λc. MEM (ORD c) ALPHABET) (EXPLODE s)
     /\ n < length finals
-   ==> exec_dfa_side finals table n s`,
+   ==> exec_dfa_side finals table n s
+Proof
   Induct_on `s`
   >- fs[fetch "-" "exec_dfa_side_def"]
   >> PURE_ONCE_REWRITE_TAC [fetch "-" "exec_dfa_side_def"]
@@ -258,27 +268,32 @@ val exec_dfa_side_imp = Q.prove(
     >- metis_tac[]
     >> first_x_assum(ASSUME_TAC o Q.SPECL [`toList (EL n l)`,`ORD h`])
     >> first_x_assum(MATCH_MP_TAC o Q.SPECL [`n`,`ORD h`,`x1`])
-    >> rfs[mlvectorTheory.length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]);
+    >> rfs[mlvectorTheory.length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]
+QED
 
-val compile_regexp_with_limit_dom_brz = Q.prove(
-  `!r result.
+Triviality compile_regexp_with_limit_dom_brz:
+  !r result.
     compile_regexp_with_limit r = SOME result
     ==> dom_Brz empty (singleton (normalize r) ())
-                (1,singleton (normalize r) 0, [])`,
+                (1,singleton (normalize r) 0, [])
+Proof
   rw[compile_regexp_with_limit_def, dom_Brz_def, MAXNUM_32_def]
   >> every_case_tac
-  >> metis_tac [IS_SOME_EXISTS]);
+  >> metis_tac [IS_SOME_EXISTS]
+QED
 
-val compile_regexp_with_limit_lookup = Q.prove(
-  `!r state_numbering delta accepts.
+Triviality compile_regexp_with_limit_lookup:
+  !r state_numbering delta accepts.
    compile_regexp_with_limit r = SOME(state_numbering,delta,accepts)
-   ==> IS_SOME(lookup regexp_compare (normalize r) state_numbering)`,
+   ==> IS_SOME(lookup regexp_compare (normalize r) state_numbering)
+Proof
   rpt strip_tac
   >> `normalize r ∈ fdom regexp_compare state_numbering`
        by(metis_tac[compile_regexp_with_limit_dom_brz,
                     compile_regexp_good_vec,
                     compile_regexp_with_limit_sound])
-  >> fs[regexp_mapTheory.fdom_def]);
+  >> fs[regexp_mapTheory.fdom_def]
+QED
 
 Theorem tolist_fromlist_map_cancel:
    MAP mlvector$toList (MAP fromList ll) = ll
@@ -290,17 +305,21 @@ QED
 val compile_regexp_with_limit_side_def =
     fetch"-" "compile_regexp_with_limit_side_def"
 
-val lem = Q.prove
-(`!bst. balanced_map$null bst <=> (bst = Tip)`,
- Cases >> rw[balanced_mapTheory.null_def]);
+Triviality lem:
+  !bst. balanced_map$null bst <=> (bst = Tip)
+Proof
+  Cases >> rw[balanced_mapTheory.null_def]
+QED
 
 val brz_side_def =
   fetch "-" "brz_side_def"
     |> simp_rule [deleteFindmin_side_thm,lem]
 
-val brz_side_thm = Q.prove
-(`!a b c d. brz_side a b c d`,
- Induct_on `d` >> rw[Once brz_side_def]);
+Triviality brz_side_thm:
+  !a b c d. brz_side a b c d
+Proof
+  Induct_on `d` >> rw[Once brz_side_def]
+QED
 
 val regexp_matcher_with_limit_side_def = Q.prove
 (`!r s. regexp_matcher_with_limit_side r s ⇔ T`,
@@ -366,8 +385,9 @@ val r = translate (pegexecTheory.peg_exec_def);
 
 (* -- *)
 
-val all_charsets_def = Define `
-  all_charsets = Vector (GENLIST (\n. charset_sing (CHR n)) 256)`;
+Definition all_charsets_def:
+  all_charsets = Vector (GENLIST (\n. charset_sing (CHR n)) 256)
+End
 
 val all_charsets_eq = EVAL ``all_charsets``;
 
@@ -524,8 +544,9 @@ Proof
   \\ rw[concat_cons]
 QED
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_grep: ";f;strlit": No such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[strlit"cake_grep: ";f;strlit": No such file or directory\n"]
+End
 
 val r = translate notfound_string_def;
 
@@ -614,37 +635,42 @@ Proof
   \\ xsimpl
 QED
 
-val usage_string_def = Define`
-  usage_string = strlit"Usage: grep <regex> <file> <file>...\n"`;
+Definition usage_string_def:
+  usage_string = strlit"Usage: grep <regex> <file> <file>...\n"
+End
 
 val r = translate usage_string_def;
 
 val usage_string_v_thm = theorem"usage_string_v_thm";
 
-val parse_failure_string_def = Define`
-  parse_failure_string r = concat[strlit"Could not parse regexp: ";r;strlit"\n"]`;
+Definition parse_failure_string_def:
+  parse_failure_string r = concat[strlit"Could not parse regexp: ";r;strlit"\n"]
+End
 
 val r = translate parse_failure_string_def;
 
 (* TODO: This approach (with matcher argument as a function) does not play nicely with CF
-val match_line_def = Define`
+Definition match_line_def:
   match_line matcher (line:string) =
-  case matcher line of | SOME T => T | _ => F`;
+  case matcher line of | SOME T => T | _ => F
+End
 
 val r = translate match_line_def;
 *)
-val match_line_def = Define`
+Definition match_line_def:
   match_line r s =
-    case regexp_matcher_with_limit r s of | SOME T => T | _ => F`;
+    case regexp_matcher_with_limit r s of | SOME T => T | _ => F
+End
 
 val r = translate match_line_def;
 
-val build_matcher_def = Define`
+Definition build_matcher_def:
   build_matcher r s =
     if strlen s = 0 then
       match_line r []
     else
-      match_line r (FRONT (explode s))`;
+      match_line r (FRONT (explode s))
+End
 
 val r = translate build_matcher_def;
 
@@ -693,7 +719,7 @@ val _ = append_prog grep;
 Overload addout = ``combin$C add_stdout``
 Overload adderr = ``combin$C add_stderr``
 
-val grep_sem_file_def = Define`
+Definition grep_sem_file_def:
   grep_sem_file L filename fs =
     case ALOOKUP fs.files filename of
     | NONE => adderr (notfound_string filename) fs
@@ -703,9 +729,10 @@ val grep_sem_file_def = Define`
         addout
           (concat
             (MAP (λmatching_line. concat [filename;strlit":";implode matching_line;strlit"\n"])
-               (FILTER (λline. line ∈ L) (splitlines contents)))) fs`;
+               (FILTER (λline. line ∈ L) (splitlines contents)))) fs
+End
 
-val grep_sem_def = Define`
+Definition grep_sem_def:
   (grep_sem (_::regexp::filenames) (fs : fsFFI$IO_fs) =
    if NULL filenames then adderr usage_string fs else
    case parse_regexp (explode regexp) of
@@ -716,7 +743,8 @@ val grep_sem_def = Define`
            grep_sem_file (regexp_lang r) filename
              o action)
          I filenames fs) ∧
-  (grep_sem _ fs = adderr usage_string fs)`;
+  (grep_sem _ fs = adderr usage_string fs)
+End
 
 val grep_sem_ind = theorem"grep_sem_ind";
 
@@ -818,14 +846,15 @@ Proof
   \\ rw[grep_sem_file_with_numchars,grep_sem_file_lemma']
 QED
 
-val grep_termination_assum_def = Define`
+Definition grep_termination_assum_def:
   (grep_termination_assum (_::regexp::filenames) ⇔
    if NULL filenames then T else
      case parse_regexp (explode regexp) of
      | NONE => T
      | SOME r => IS_SOME (Brz empty (singleton (normalize r) ())
                                     (1,singleton (normalize r) 0,[]) MAXNUM_32)) ∧
-  (grep_termination_assum _ ⇔ T)`;
+  (grep_termination_assum _ ⇔ T)
+End
 
 Theorem grep_spec:
    hasFreeFD fs ∧
@@ -995,10 +1024,12 @@ val name = "grep"
 val spec = grep_whole_prog_spec |> UNDISCH
 val (sem_thm,prog_tm) = whole_prog_thm st name spec
 
-val grep_prog_def = Define`grep_prog = ^prog_tm`;
+Definition grep_prog_def:
+  grep_prog = ^prog_tm
+End
 
-val grep_semantics = save_thm("grep_semantics",
+Theorem grep_semantics =
   sem_thm |> REWRITE_RULE[GSYM grep_prog_def]
-  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 val _ = export_theory ();

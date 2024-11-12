@@ -61,11 +61,13 @@ rw[SPLIT_def] >> fs[SUBSET_UNION]
 QED
 
 (* Predicate stating that a heap is valid *)
-val HEAP_FROM_STATE_def =
-    Define `HEAP_FROM_STATE s = ?(f : ffi ffi_proj) st. s = (st2heap f st)`;
+Definition HEAP_FROM_STATE_def:
+  HEAP_FROM_STATE s = ?(f : ffi ffi_proj) st. s = (st2heap f st)
+End
 
-val VALID_HEAP_def =
-    Define `VALID_HEAP s = ?(f : ffi ffi_proj) st. s SUBSET (st2heap f st)`;
+Definition VALID_HEAP_def:
+  VALID_HEAP s = ?(f : ffi ffi_proj) st. s SUBSET (st2heap f st)
+End
 
 Theorem VALID_HEAP_SUBSET:
  VALID_HEAP s1 ==> s2 SUBSET s1 ==> VALID_HEAP s2
@@ -83,12 +85,16 @@ fs[STAR_def, STAR_def, cond_def, SPLIT_def] >> EQ_TAC >-(rw [] >-(instantiate) >
 QED
 
 (* Definitions and theorems used to compare two heap conditions *)
-val HPROP_INJ_def = Define `HPROP_INJ H1 H2 PF <=>
-!s. VALID_HEAP s ==> !G1 G2. (H1 * G1) s ==> ((H2 * G2) s <=> (&PF * H1 * G2) s)`;
+Definition HPROP_INJ_def:
+  HPROP_INJ H1 H2 PF <=>
+!s. VALID_HEAP s ==> !G1 G2. (H1 * G1) s ==> ((H2 * G2) s <=> (&PF * H1 * G2) s)
+End
 
 (* TODO: use that *)
-(* val HPROP_FRAME_IMP_def = Define `HPROP_FRAME_IMP H1 H2 Frame <=>
-?s. VALID_HEAP s /\ H1 s /\ (H2 * Frame) s`;
+(*
+Definition HPROP_FRAME_IMP_def:
+  HPROP_FRAME_IMP H1 H2 Frame <=> ?s. VALID_HEAP s /\ H1 s /\ (H2 * Frame) s
+End
 
 Theorem HPROP_FRAME_HCOND:
  HPROP_FRAME_IMP H1 (&PF * H2) Frame <=> PF /\ HPROP_FRAME_IMP H1 H2 Frame
@@ -98,26 +104,34 @@ metis_tac[]
 QED *)
 
 (* The following lemmas aim to prove that a valid heap can not have one pointer pointing to two different values *)
-val PTR_MEM_LEM = Q.prove(`!s l xv H. (l ~~>> xv * H) s ==> Mem l xv IN s`,
-rw[STAR_def, SPLIT_def, cell_def, one_def] >> fs[]);
+Triviality PTR_MEM_LEM:
+  !s l xv H. (l ~~>> xv * H) s ==> Mem l xv IN s
+Proof
+  rw[STAR_def, SPLIT_def, cell_def, one_def] >> fs[]
+QED
 
 (* Intermediate lemma to reason on subsets of heaps *)
-val HEAP_SUBSET_GC = Q.prove(`!s s' H. s SUBSET s' ==> H s ==> (H * GC) s'`,
-rw[STAR_def] >>
+Triviality HEAP_SUBSET_GC:
+  !s s' H. s SUBSET s' ==> H s ==> (H * GC) s'
+Proof
+  rw[STAR_def] >>
 instantiate >>
 fs[SPLIT_EQ, GC_def, SEP_EXISTS] >>
 qexists_tac `\x. T` >>
-rw[]);
+rw[]
+QED
 
 (* UNIQUE_PTRS property for a heap converted from a state *)
-val UNIQUE_PTRS_HFS = Q.prove(
-`!s. HEAP_FROM_STATE s ==> !l xv xv' H H'. (l ~~>> xv * H) s /\ (l ~~>> xv' * H') s ==> xv' = xv`,
-rw[HEAP_FROM_STATE_def] >>
+Triviality UNIQUE_PTRS_HFS:
+  !s. HEAP_FROM_STATE s ==> !l xv xv' H H'. (l ~~>> xv * H) s /\ (l ~~>> xv' * H') s ==> xv' = xv
+Proof
+  rw[HEAP_FROM_STATE_def] >>
 fs[st2heap_def] >>
 IMP_RES_TAC PTR_MEM_LEM >>
 fs[UNION_DEF]
 >-(IMP_RES_TAC store2heap_IN_unique_key)>>
-IMP_RES_TAC Mem_NOT_IN_ffi2heap);
+IMP_RES_TAC Mem_NOT_IN_ffi2heap
+QED
 
 Theorem UNIQUE_PTRS:
  !s. VALID_HEAP s ==> !l xv xv' H H'. (l ~~>> xv * H) s /\ (l ~~>> xv' * H') s ==> xv' = xv
@@ -191,11 +205,12 @@ prove_hprop_inj_tac UNIQUE_W8ARRAYS
 QED
 
 (* A valid heap must have proper ffi partitions *)
-val NON_OVERLAP_FFI_PART_HFS = Q.prove(
-`!s. HEAP_FROM_STATE s ==>
+Triviality NON_OVERLAP_FFI_PART_HFS:
+  !s. HEAP_FROM_STATE s ==>
 !s1 u1 ns1 ts1 s2 u2 ns2 ts2. FFI_part s1 u1 ns1 ts1 IN s /\ FFI_part s2 u2 ns2 ts2 IN s /\ (?p. MEM p ns1 /\ MEM p ns2) ==>
-s2 = s1 /\ u2 = u1 /\ ns2 = ns1 /\ ts2 = ts1`,
-rpt (FIRST[GEN_TAC, DISCH_TAC]) >>
+s2 = s1 /\ u2 = u1 /\ ns2 = ns1 /\ ts2 = ts1
+Proof
+  rpt (FIRST[GEN_TAC, DISCH_TAC]) >>
 fs[HEAP_FROM_STATE_def, st2heap_def, UNION_DEF] >>
 `FFI_part s1 u1 ns1 ts1 ∈ ffi2heap f st.ffi` by (rw[] >> fs[FFI_part_NOT_IN_store2heap]) >>
 `FFI_part s2 u2 ns2 ts2 ∈ ffi2heap f st.ffi` by (rw[] >> fs[FFI_part_NOT_IN_store2heap]) >>
@@ -237,7 +252,8 @@ Cases_on `parts_ok st.ffi (proj, parts)`
     (* u2 = u1 *)
     IMP_RES_TAC ALL_DISTINCT_FLAT_FST_IMP
 ) >>
-fs[]);
+fs[]
+QED
 
 Theorem NON_OVERLAP_FFI_PART:
  !s. VALID_HEAP s ==>
@@ -253,9 +269,11 @@ rw[]
 QED
 
 (* A minor lemma *)
-val FFI_PORT_IN_HEAP_LEM = Q.prove(
-`!s u ns events H h. (one (FFI_part s u ns events) * H) h ==> FFI_part s u ns events IN h`,
-rw[one_def, STAR_def, SPLIT_def, IN_DEF, UNION_DEF] >> rw[]);
+Triviality FFI_PORT_IN_HEAP_LEM:
+  !s u ns events H h. (one (FFI_part s u ns events) * H) h ==> FFI_part s u ns events IN h
+Proof
+  rw[one_def, STAR_def, SPLIT_def, IN_DEF, UNION_DEF] >> rw[]
+QED
 
 (* Another important theorem *)
 Theorem FRAME_UNIQUE_IO:
@@ -289,22 +307,26 @@ Proof
 Induct >-(strip_tac >> rw[]) >> rw[]
 QED
 
-val REPLICATE_APPEND_RIGHT = Q.prove(
-`a++b = REPLICATE n x ==> b = REPLICATE (LENGTH b) x`,
-strip_tac >>
+Triviality REPLICATE_APPEND_RIGHT:
+  a++b = REPLICATE n x ==> b = REPLICATE (LENGTH b) x
+Proof
+  strip_tac >>
 `b = DROP (LENGTH a) (a++b)` by simp[GSYM DROP_LENGTH_APPEND] >>
 `b = DROP (LENGTH a) (REPLICATE n x)` by POP_ASSUM (fn thm => metis_tac[thm]) >>
 `b = REPLICATE (n - (LENGTH a)) x` by POP_ASSUM (fn thm => metis_tac[thm, DROP_REPLICATE]) >>
-fs[LENGTH_REPLICATE]);
+fs[LENGTH_REPLICATE]
+QED
 
-val REPLICATE_APPEND_LEFT = Q.prove(
-`a++b = REPLICATE n x ==> a = REPLICATE (LENGTH a) x`,
-strip_tac >> `b = REPLICATE (LENGTH b) x` by metis_tac[REPLICATE_APPEND_RIGHT] >>
+Triviality REPLICATE_APPEND_LEFT:
+  a++b = REPLICATE n x ==> a = REPLICATE (LENGTH a) x
+Proof
+  strip_tac >> `b = REPLICATE (LENGTH b) x` by metis_tac[REPLICATE_APPEND_RIGHT] >>
 `LENGTH b <= n` by metis_tac[APPEND_LENGTH_INEQ, LENGTH_REPLICATE] >>
 `REPLICATE n x = REPLICATE (n-(LENGTH b)) x ++ REPLICATE (LENGTH b) x` by simp[REPLICATE_APPEND] >>
 POP_ASSUM (fn x => fs[x]) >> POP_ASSUM (fn x => ALL_TAC) >>
 `a ++ REPLICATE (LENGTH b) x = REPLICATE (n − LENGTH b) x ++ REPLICATE (LENGTH b) x` by metis_tac[] >>
-fs[LENGTH_REPLICATE]);
+fs[LENGTH_REPLICATE]
+QED
 
 Theorem REPLICATE_APPEND_DECOMPOSE:
  a ++ b = REPLICATE n x <=>
@@ -313,8 +335,8 @@ Proof
 EQ_TAC >-(rw[] >-(metis_tac[REPLICATE_APPEND_LEFT]) >-(metis_tac[REPLICATE_APPEND_RIGHT]) >> metis_tac [LENGTH_REPLICATE, LENGTH_APPEND]) >> metis_tac[REPLICATE_APPEND]
 QED
 
-val REPLICATE_APPEND_DECOMPOSE_SYM = save_thm("REPLICATE_APPEND_DECOMPOSE_SYM",
-CONV_RULE(PATH_CONV "lr" SYM_CONV) REPLICATE_APPEND_DECOMPOSE);
+Theorem REPLICATE_APPEND_DECOMPOSE_SYM =
+  CONV_RULE(PATH_CONV "lr" SYM_CONV) REPLICATE_APPEND_DECOMPOSE
 
 Theorem REPLICATE_PLUS_ONE:
  REPLICATE (n + 1) x = x::REPLICATE n x
@@ -322,20 +344,24 @@ Proof
 `n+1 = SUC n` by rw[] >> rw[REPLICATE]
 QED
 
-val LIST_REL_DECOMPOSE_RIGHT_recip = Q.prove(
-`!R. LIST_REL R (a ++ b) x ==> LIST_REL R a (TAKE (LENGTH a) x) /\ LIST_REL R b (DROP (LENGTH a) x)`,
-strip_tac >> strip_tac >>
+Triviality LIST_REL_DECOMPOSE_RIGHT_recip:
+  !R. LIST_REL R (a ++ b) x ==> LIST_REL R a (TAKE (LENGTH a) x) /\ LIST_REL R b (DROP (LENGTH a) x)
+Proof
+  strip_tac >> strip_tac >>
 `x = TAKE (LENGTH a) x ++ DROP (LENGTH a) x` by rw[TAKE_DROP] >>
 `LENGTH (a ++ b) = LENGTH x` by (MATCH_MP_TAC LIST_REL_LENGTH >> rw[]) >>
 POP_ASSUM (fn x => CONV_RULE (SIMP_CONV list_ss []) x |> ASSUME_TAC) >>
 `LENGTH a <= LENGTH x` by bossLib.DECIDE_TAC >>
-metis_tac[LENGTH_TAKE, LIST_REL_APPEND_IMP]);
+metis_tac[LENGTH_TAKE, LIST_REL_APPEND_IMP]
+QED
 
-val LIST_REL_DECOMPOSE_RIGHT_imp = Q.prove(
-`!R. LIST_REL R a (TAKE (LENGTH a) x) /\ LIST_REL R b (DROP (LENGTH a) x) ==> LIST_REL R (a ++ b) x`,
-rpt strip_tac >>
+Triviality LIST_REL_DECOMPOSE_RIGHT_imp:
+  !R. LIST_REL R a (TAKE (LENGTH a) x) /\ LIST_REL R b (DROP (LENGTH a) x) ==> LIST_REL R (a ++ b) x
+Proof
+  rpt strip_tac >>
 `x = TAKE (LENGTH a) x ++ DROP (LENGTH a) x` by rw[TAKE_DROP] >>
-metis_tac[rich_listTheory.EVERY2_APPEND_suff]);
+metis_tac[rich_listTheory.EVERY2_APPEND_suff]
+QED
 
 Theorem LIST_REL_DECOMPOSE_RIGHT:
  !R. LIST_REL R (a ++ b) x <=> LIST_REL R a (TAKE (LENGTH a) x) /\ LIST_REL R b (DROP (LENGTH a) x)
@@ -343,20 +369,24 @@ Proof
 strip_tac >> metis_tac[LIST_REL_DECOMPOSE_RIGHT_recip, LIST_REL_DECOMPOSE_RIGHT_imp]
 QED
 
-val LIST_REL_DECOMPOSE_LEFT_recip = Q.prove(
-`!R. LIST_REL R x (a ++ b) ==> LIST_REL R (TAKE (LENGTH a) x) a /\ LIST_REL R (DROP (LENGTH a) x) b`,
-strip_tac >> strip_tac >>
+Triviality LIST_REL_DECOMPOSE_LEFT_recip:
+  !R. LIST_REL R x (a ++ b) ==> LIST_REL R (TAKE (LENGTH a) x) a /\ LIST_REL R (DROP (LENGTH a) x) b
+Proof
+  strip_tac >> strip_tac >>
 `x = TAKE (LENGTH a) x ++ DROP (LENGTH a) x` by rw[TAKE_DROP] >>
 `LENGTH x = LENGTH (a ++ b)` by (MATCH_MP_TAC LIST_REL_LENGTH >> rw[]) >>
 POP_ASSUM (fn x => CONV_RULE (SIMP_CONV list_ss []) x |> ASSUME_TAC) >>
 `LENGTH a <= LENGTH x` by bossLib.DECIDE_TAC >>
-metis_tac[LENGTH_TAKE, LIST_REL_APPEND_IMP]);
+metis_tac[LENGTH_TAKE, LIST_REL_APPEND_IMP]
+QED
 
-val LIST_REL_DECOMPOSE_LEFT_imp = Q.prove(
-`!R. LIST_REL R (TAKE (LENGTH a) x) a /\ LIST_REL R (DROP (LENGTH a) x) b ==> LIST_REL R x (a ++ b)`,
-rpt strip_tac >>
+Triviality LIST_REL_DECOMPOSE_LEFT_imp:
+  !R. LIST_REL R (TAKE (LENGTH a) x) a /\ LIST_REL R (DROP (LENGTH a) x) b ==> LIST_REL R x (a ++ b)
+Proof
+  rpt strip_tac >>
 `x = TAKE (LENGTH a) x ++ DROP (LENGTH a) x` by rw[TAKE_DROP] >>
-metis_tac[rich_listTheory.EVERY2_APPEND_suff]);
+metis_tac[rich_listTheory.EVERY2_APPEND_suff]
+QED
 
 Theorem LIST_REL_DECOMPOSE_LEFT:
  !R. LIST_REL R x (a ++ b) <=> LIST_REL R (TAKE (LENGTH a) x) a /\ LIST_REL R (DROP (LENGTH a) x) b
@@ -409,11 +439,15 @@ rpt strip_tac >> FIRST_ASSUM eqtype_unicity_thm_tac >> metis_tac[]
 QED
 
 (* Theorems to use LIST_REL A "as a" refinement invariant *)
-val InjectiveRel_def = Define `
-InjectiveRel A = !x1 y1 x2 y2. A x1 y1 /\ A x2 y2 ==> (x1 = x2 <=> y1 = y2)`;
+Definition InjectiveRel_def:
+InjectiveRel A = !x1 y1 x2 y2. A x1 y1 /\ A x2 y2 ==> (x1 = x2 <=> y1 = y2)
+End
 
-val EQTYPE_INJECTIVEREL = Q.prove(`EqualityType A ==> InjectiveRel A`,
-rw[InjectiveRel_def, EqualityType_def]);
+Triviality EQTYPE_INJECTIVEREL:
+  EqualityType A ==> InjectiveRel A
+Proof
+  rw[InjectiveRel_def, EqualityType_def]
+QED
 
 Theorem LIST_REL_INJECTIVE_REL:
  !A. InjectiveRel A ==> InjectiveRel (LIST_REL A)
@@ -467,19 +501,22 @@ fs[PAIR_TYPE_def, types_match_def, semanticPrimitivesTheory.ctor_same_type_def] 
 metis_tac[]
 QED
 
-val LIST_TYPE_no_closure = Q.prove(
-`!A x xv. EqualityType A ==> LIST_TYPE A x xv ==> no_closures xv`,
-Induct_on `x`
+Triviality LIST_TYPE_no_closure:
+  !A x xv. EqualityType A ==> LIST_TYPE A x xv ==> no_closures xv
+Proof
+  Induct_on `x`
 >-(fs[LIST_TYPE_def, no_closures_def]) >>
 rw[LIST_TYPE_def] >>
 rw[no_closures_def]
 >-(metis_tac[EqualityType_def]) >>
-last_assum IMP_RES_TAC);
+last_assum IMP_RES_TAC
+QED
 
-val LIST_TYPE_inj = Q.prove(
-`!A x1 x2 v1 v2. EqualityType A ==> LIST_TYPE A x1 v1 ==> LIST_TYPE A x2 v2 ==>
-(v1 = v2 <=> x1 = x2)`,
-Induct_on `x1`
+Triviality LIST_TYPE_inj:
+  !A x1 x2 v1 v2. EqualityType A ==> LIST_TYPE A x1 v1 ==> LIST_TYPE A x2 v2 ==>
+(v1 = v2 <=> x1 = x2)
+Proof
+  Induct_on `x1`
 >-(
     Cases_on `x2` >>
     rw[LIST_TYPE_def, EqualityType_def]
@@ -489,13 +526,15 @@ rw[LIST_TYPE_def] >>
 last_x_assum IMP_RES_TAC >>
 rw[] >>
 fs[EqualityType_def] >>
-metis_tac[]);
+metis_tac[]
+QED
 
 val types_match_tac = rpt (CHANGED_TAC (rw[LIST_TYPE_def, types_match_def, semanticPrimitivesTheory.ctor_same_type_def]));
-val LIST_TYPE_types_match = Q.prove(
-`!A x1 x2 v1 v2. EqualityType A ==> LIST_TYPE A x1 v1 ==> LIST_TYPE A x2 v2 ==>
-types_match v1 v2`,
-Induct_on `x1`
+Triviality LIST_TYPE_types_match:
+  !A x1 x2 v1 v2. EqualityType A ==> LIST_TYPE A x1 v1 ==> LIST_TYPE A x2 v2 ==>
+types_match v1 v2
+Proof
+  Induct_on `x1`
 >-(
     Cases_on `x2` >>
     types_match_tac >>
@@ -505,7 +544,8 @@ Cases_on `x2`
 >-(types_match_tac >> EVAL_TAC)>>
 types_match_tac
 >-(metis_tac[EqualityType_def])>>
-last_assum IMP_RES_TAC);
+last_assum IMP_RES_TAC
+QED
 
 Theorem EqualityType_LIST_TYPE:
  EqualityType A ==> EqualityType (LIST_TYPE A)
@@ -542,7 +582,11 @@ QED
 
 (* Some rules used to simplify arithmetic equations (not happy with that: write a conversion instead? *)
 
-val NUM_EQ_lem = Q.prove(`!(a1:num) (a2:num) (b:num). b <= a1 ==> b <= a2 ==> (a1 = a2 <=> a1 - b = a2 - b)`, rw[]);
+Triviality NUM_EQ_lem:
+  !(a1:num) (a2:num) (b:num). b <= a1 ==> b <= a2 ==> (a1 = a2 <=> a1 - b = a2 - b)
+Proof
+  rw[]
+QED
 
 Theorem NUM_EQ_SIMP1:
  a1 + (NUMERAL n1)*b = a2 + (NUMERAL n2)*b <=>

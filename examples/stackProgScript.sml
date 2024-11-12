@@ -9,7 +9,9 @@ val _ = new_theory "stackProg";
 
 val _ = translation_extends"basisProg";
 
-val _ = Datatype `exn_type = EmptyStack`;
+Datatype:
+  exn_type = EmptyStack
+End
 val _ = register_exn_type ``:exn_type``;
 
 val stack_decls = process_topdecs
@@ -35,21 +37,23 @@ val stack_decls = process_topdecs
 
 val _ = append_prog stack_decls;
 
-val EmptyStack_exn_def = Define`
-  EmptyStack_exn v = STACKPROG_EXN_TYPE_TYPE EmptyStack v`;
+Definition EmptyStack_exn_def:
+  EmptyStack_exn v = STACKPROG_EXN_TYPE_TYPE EmptyStack v
+End
 
 val EmptyStack_exn_def = EVAL ``EmptyStack_exn v``;
 
 (* Heap predicate for stacks:
    STACK A vs qv means qv is a reference to a stack of
    elements vs, with A the refinement invariant satsfied by the elements of the stack *)
-val STACK_def  = Define `
+Definition STACK_def:
   STACK A vs qv =
   SEP_EXISTS av iv vvs junk.
     REF qv (Conv NONE [av;iv]) *
     & NUM (LENGTH vs) iv *
     ARRAY av (vvs ++ junk) *
-    & LIST_REL A vs vvs`;
+    & LIST_REL A vs vvs
+End
 
 (* Some simple auto tactics *)
 val xsimpl_tac = rpt(FIRST [xcon, (CHANGED_TAC xsimpl), xif, xmatch, xapp]);

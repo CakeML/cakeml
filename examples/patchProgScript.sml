@@ -27,7 +27,9 @@ val _ = find_def_for_const := def_of_const;
 
 val _ = translate parse_patch_header_def;
 
-val tokens_less_eq = Q.prove(`!s f. EVERY (\x. strlen x <= strlen s) (tokens f s)`,
+Triviality tokens_less_eq:
+  !s f. EVERY (\x. strlen x <= strlen s) (tokens f s)
+Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_ONCE_REWRITE_TAC[TOKENS_eq_tokens_sym]
   >> recInduct TOKENS_ind >> rpt strip_tac
@@ -38,28 +40,38 @@ val tokens_less_eq = Q.prove(`!s f. EVERY (\x. strlen x <= strlen s) (tokens f s
        by(rpt strip_tac >> PURE_ONCE_REWRITE_TAC[GSYM SPLITP_LENGTH] >> fs[])
        >> drule EVERY_MONOTONIC >> pop_assum kall_tac >> disch_then match_mp_tac >> rw[])
   >> `!x. (λx. strlen x <= STRLEN t) x ==> (λx. strlen x <= SUC (STRLEN t)) x` by fs[]
-  >> drule EVERY_MONOTONIC >> pop_assum kall_tac >> disch_then match_mp_tac >> rw[]);
+  >> drule EVERY_MONOTONIC >> pop_assum kall_tac >> disch_then match_mp_tac >> rw[]
+QED
 
-val tokens_sum_less_eq = Q.prove(`!s f. SUM(MAP strlen (tokens f s)) <= strlen s`,
+Triviality tokens_sum_less_eq:
+  !s f. SUM(MAP strlen (tokens f s)) <= strlen s
+Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_REWRITE_TAC[TOKENS_eq_tokens_sym,explode_thm,MAP_MAP_o]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> fs[TOKENS_def] >> pairarg_tac >> fs[] >> Cases_on `l` >> rw[] >> rfs[]
   >> fs[SPLITP_NIL_FST] >> fs[SPLITP] >> every_case_tac
   >> fs[] >> rveq
-  >> CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[GSYM SPLITP_LENGTH])) >> fs[]);
+  >> CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[GSYM SPLITP_LENGTH])) >> fs[]
+QED
 
-val tokens_not_nil = Q.prove(`!s f. EVERY (\x. x <> strlit "") (tokens f s)`,
+Triviality tokens_not_nil:
+  !s f. EVERY (\x. x <> strlit "") (tokens f s)
+Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_REWRITE_TAC[TOKENS_eq_tokens_sym,explode_thm]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> rw[TOKENS_def] >> pairarg_tac >> fs[] >> reverse(Cases_on `l`)
-  >> fs[implode_def]);
+  >> fs[implode_def]
+QED
 
-val tokens_two_less = Q.prove(`!s f s1 s2. tokens f s = [s1;s2] ==> strlen s1 < strlen s /\ strlen s2 < strlen s`,
+Triviality tokens_two_less:
+  !s f s1 s2. tokens f s = [s1;s2] ==> strlen s1 < strlen s /\ strlen s2 < strlen s
+Proof
   ntac 2 strip_tac >> qspecl_then [`s`,`f`] assume_tac tokens_sum_less_eq
   >> qspecl_then [`s`,`f`] assume_tac tokens_not_nil
-  >> Induct >> Cases >> Induct >> Cases >> rpt strip_tac >> fs[]);
+  >> Induct >> Cases >> Induct >> Cases >> rpt strip_tac >> fs[]
+QED
 
 Theorem hexDigit_IMP_digit:
   !c. isDigit c ==> isHexDigit c
@@ -78,27 +90,30 @@ val depatch_line_side = Q.prove(
   `∀x. depatch_line_side x = T`,
   EVAL_TAC \\ rw[]) |> update_precondition;
 
-val r = save_thm("patch_aux_ind",
+Theorem patch_aux_ind =
   patch_aux_ind |> REWRITE_RULE (map GSYM [mllistTheory.take_def,
-                                           mllistTheory.drop_def]));
+                                           mllistTheory.drop_def])
 val _ = add_preferred_thy"-";
 val _ = translate(patch_aux_def |> REWRITE_RULE (map GSYM [mllistTheory.take_def,
                                                            mllistTheory.drop_def]));
 
 val _ = translate patch_alg_def;
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_patch: ";f;strlit": No such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[strlit"cake_patch: ";f;strlit": No such file or directory\n"]
+End
 
 val r = translate notfound_string_def;
 
-val usage_string_def = Define`
-  usage_string = strlit"Usage: patch <file> <patch>\n"`;
+Definition usage_string_def:
+  usage_string = strlit"Usage: patch <file> <patch>\n"
+End
 
 val r = translate usage_string_def;
 
-val rejected_patch_string_def = Define`
-  rejected_patch_string = strlit"cake_patch: Patch rejected\n"`;
+Definition rejected_patch_string_def:
+  rejected_patch_string = strlit"cake_patch: Patch rejected\n"
+End
 
 val r = translate rejected_patch_string_def;
 
@@ -154,7 +169,7 @@ val _ = (append_prog o process_topdecs) `
         (f1::f2::[]) => patch' f1 f2
       | _ => TextIO.output TextIO.stdErr usage_string`
 
-val patch_sem_def = Define`
+Definition patch_sem_def:
   patch_sem cl fs =
     if (LENGTH cl = 3) then
     if inFS_fname fs (EL 1 cl) then
@@ -165,7 +180,8 @@ val patch_sem_def = Define`
      | SOME s => add_stdout fs (concat s)
     else add_stderr fs (notfound_string (EL 2 cl))
     else add_stderr fs (notfound_string (EL 1 cl))
-    else add_stderr fs usage_string`;
+    else add_stderr fs usage_string
+End
 
 Theorem patch_spec:
    hasFreeFD fs
@@ -223,11 +239,13 @@ QED
 
 val name = "patch"
 val (sem_thm,prog_tm) = whole_prog_thm st name (UNDISCH patch_whole_prog_spec)
-val patch_prog_def = Define`patch_prog = ^prog_tm`;
+Definition patch_prog_def:
+  patch_prog = ^prog_tm
+End
 
-val patch_semantics = save_thm("patch_semantics",
+Theorem patch_semantics =
   sem_thm |> REWRITE_RULE[GSYM patch_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]);
+  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
 
 val _ = export_theory ();

@@ -2,7 +2,7 @@
   Relating inference and type system environments.
 *)
 open preamble;
-open libTheory namespacePropsTheory typeSystemTheory astTheory
+open namespacePropsTheory typeSystemTheory astTheory
 semanticPrimitivesTheory inferTheory infer_tTheory unifyTheory inferPropsTheory;
 open astPropsTheory typeSysPropsTheory;
 
@@ -10,24 +10,29 @@ val _ = new_theory "envRel";
 
 (* ---------- Converting infer types and envs to type system ones ---------- *)
 
-val convert_t_def = tDefine "convert_t" `
+Definition convert_t_def:
 (convert_t (Infer_Tvar_db n) = Tvar_db n) ∧
-(convert_t (Infer_Tapp ts tc) = Tapp (MAP convert_t ts) tc)`
-(WF_REL_TAC `measure infer_t_size` >>
+(convert_t (Infer_Tapp ts tc) = Tapp (MAP convert_t ts) tc)
+Termination
+  WF_REL_TAC `measure infer_t_size` >>
  rw [] >>
  induct_on `ts` >>
  rw [infer_tTheory.infer_t_size_def] >>
  res_tac >>
- decide_tac);
+ decide_tac
+End
 
-val convert_env_def = Define `
-convert_env s env = MAP (\(x,t). (x, convert_t (t_walkstar s t))) env`;
+Definition convert_env_def:
+convert_env s env = MAP (\(x,t). (x, convert_t (t_walkstar s t))) env
+End
 
-(* val convert_decls_def = Define `
-convert_decls idecls =
+(*
+Definition convert_decls_def:
+  convert_decls idecls =
   <| defined_mods := set idecls.inf_defined_mods;
      defined_types :=  set idecls.inf_defined_types;
-     defined_exns := set idecls.inf_defined_exns|>`;
+     defined_exns := set idecls.inf_defined_exns|>
+End
 
 Theorem convert_append_decls:
  !decls1 decls2. convert_decls (append_decls decls1 decls2) = union_decls (convert_decls decls1) (convert_decls decls2)
@@ -254,7 +259,7 @@ QED
  *
  * *)
 
-val tscheme_approx_def = Define `
+Definition tscheme_approx_def:
   tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇔
     ?subst'.
       LENGTH subst' = tvs' ∧
@@ -263,7 +268,8 @@ val tscheme_approx_def = Define `
        LENGTH subst = tvs
        ⇒
        t_walkstar s (infer_deBruijn_subst subst t) =
-       t_walkstar s (infer_deBruijn_subst (MAP (infer_deBruijn_subst subst) subst') t')`;
+       t_walkstar s (infer_deBruijn_subst (MAP (infer_deBruijn_subst subst) subst') t')
+End
 
 Theorem tscheme_approx_thm:
    ∀t' max_tvs s tvs tvs' t.
@@ -364,7 +370,7 @@ Proof
   rw [MAP_MAP_o, combinTheory.o_DEF]
 QED
 
-val env_rel_sound_def = Define `
+Definition env_rel_sound_def:
   env_rel_sound s ienv tenv tenvE ⇔
     ienv.inf_t = tenv.t ∧
     ienv.inf_c = tenv.c ∧
@@ -374,7 +380,8 @@ val env_rel_sound_def = Define `
       ?tvs' t'.
         check_freevars (tvs' + num_tvs tenvE) [] t' ∧
         lookup_var x tenvE tenv = SOME (tvs', t') ∧
-        tscheme_approx (num_tvs tenvE) s ts (tvs', unconvert_t t')`;
+        tscheme_approx (num_tvs tenvE) s ts (tvs', unconvert_t t')
+End
 
 Theorem env_rel_sound_lookup_none:
    !ienv tenv s tenvE id.
@@ -602,7 +609,7 @@ Proof
   >> metis_tac []
 QED
 
-val env_rel_complete_def = Define `
+Definition env_rel_complete_def:
   env_rel_complete s ienv tenv tenvE ⇔
     ienv.inf_t = tenv.t ∧
     ienv.inf_c = tenv.c ∧
@@ -615,7 +622,8 @@ val env_rel_complete_def = Define `
         nsLookup ienv.inf_v x = SOME (tvs', t') ∧
         (* A stronger version is guaranteed by ienv_ok
         check_t (tvs' + num_tvs tenvE) {} t' ∧*)
-        tscheme_approx (num_tvs tenvE) s (tvs, unconvert_t t) (tvs', t')`;
+        tscheme_approx (num_tvs tenvE) s (tvs, unconvert_t t) (tvs', t')
+End
 
 Theorem env_rel_complete_lookup_none:
    !ienv tenv s tenvE x.
@@ -653,14 +661,15 @@ Proof
 QED
 
 (* Environment relation at infer_d and above *)
-val env_rel_def = Define`
+Definition env_rel_def:
  env_rel tenv ienv ⇔
   ienv_ok {} ienv ∧
   tenv_ok tenv ∧
   (* To rule out 1 env with an empty module and the other without that module at all *)
   (!x. nsLookupMod ienv.inf_v x = NONE ⇔ nsLookupMod tenv.v x = NONE) ∧
   env_rel_sound FEMPTY ienv tenv Empty ∧
-  env_rel_complete FEMPTY ienv tenv Empty`;
+  env_rel_complete FEMPTY ienv tenv Empty
+End
 
 Theorem lookup_varE_empty[simp]:
    !x. lookup_varE x Empty = NONE
@@ -791,11 +800,12 @@ Proof
     rw [])
 QED
 
-val ienv_to_tenv_def = Define `
+Definition ienv_to_tenv_def:
   ienv_to_tenv ienv =
     <| v := nsMap (\(tvs, t). (tvs, convert_t t)) ienv.inf_v;
        c := ienv.inf_c;
-       t := ienv.inf_t |>`;
+       t := ienv.inf_t |>
+End
 
 Theorem ienv_to_tenv_extend:
    !ienv1 ienv2.
@@ -866,11 +876,12 @@ Proof
     rw [tscheme_approx_refl])
 QED
 
-val tenv_to_ienv_def = Define `
+Definition tenv_to_ienv_def:
   tenv_to_ienv tenv =
     <| inf_v := nsMap (\(tvs, t). (tvs, unconvert_t t)) tenv.v;
        inf_c := tenv.c;
-       inf_t := tenv.t |>`;
+       inf_t := tenv.t |>
+End
 
 Theorem tenv_to_ienv_extend:
    !tenv1 tenv2.

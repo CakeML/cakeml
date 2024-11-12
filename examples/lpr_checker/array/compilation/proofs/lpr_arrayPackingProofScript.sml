@@ -30,14 +30,13 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val main_compiled_thm =
+Theorem main_compiled_thm =
   CONJ compile_correct_applied main_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "main_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_x64_def = Define `
+Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
     mc ms
@@ -50,17 +49,18 @@ val installed_x64_def = Define `
         cfg.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names) mc
         cfg.lab_conf.shmem_extra ms
-    `;
+End
 
-val main_code_def = Define `
+Definition main_code_def:
   main_code = (code, data, info)
-  `;
+End
 
 (* A standard run of packing satisfying all the default assumptions *)
-val packing_run_def = Define`
+Definition packing_run_def:
   packing_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 main_code mc ms`
+  installed_x64 main_code mc ms
+End
 
 Theorem parse_numbers_imp:
   parse_numbers rs ks cs = SOME (r,k,c) ⇒

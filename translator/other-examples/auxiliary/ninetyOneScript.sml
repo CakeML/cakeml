@@ -28,26 +28,30 @@ val [E] = map DISCH_ALL (Defn.eqns_of N_aux_defn);
       works when the termination relation has not yet been supplied.
  ---------------------------------------------------------------------------*)
 
-val Npartly_correct = Q.prove
-(`WF R /\
+Triviality Npartly_correct:
+  WF R /\
   (!x. ~(x > 100) ==> R (N_aux R (x + 11)) x) /\
   (!x. ~(x > 100) ==> R (x + 11) x)
     ==>
-  !n. N(n) = if n>100 then n-10 else 91`,
- STRIP_TAC THEN recInduct Nind
+  !n. N(n) = if n>100 then n-10 else 91
+Proof
+  STRIP_TAC THEN recInduct Nind
    THEN RW_TAC arith_ss []
    THEN ONCE_REWRITE_TAC [Neqn]
-   THEN RW_TAC arith_ss []);
+   THEN RW_TAC arith_ss []
+QED
 
-val N_aux_partial_correctness = Q.prove
-(`WF R /\
+Triviality N_aux_partial_correctness:
+  WF R /\
   (!x. ~(x > 100) ==> R (N_aux R (x + 11)) x) /\
   (!x. ~(x > 100) ==> R (x + 11) x)
     ==>
-  !n. N_aux R n = if n>100 then n-10 else 91`,
- STRIP_TAC THEN recInduct N_aux_ind
+  !n. N_aux R n = if n>100 then n-10 else 91
+Proof
+  STRIP_TAC THEN recInduct N_aux_ind
    THEN RW_TAC arith_ss []
-   THEN RW_TAC arith_ss [E]);
+   THEN RW_TAC arith_ss [E]
+QED
 
 (*---------------------------------------------------------------------------*)
 (* Termination of 91 is a bit tricky.                                        *)
@@ -55,9 +59,11 @@ val N_aux_partial_correctness = Q.prove
 
 val lem = DECIDE ``~(x > 100) ==> (101-y < 101-x = x<y)``;
 
-val unexpand_measure = Q.prove
-(`(\x' x''. 101 < x' + (101 - x'') /\ x'' < 101) = measure \x. 101-x`,
- RW_TAC arith_ss [FUN_EQ_THM, measure_thm]);
+Triviality unexpand_measure:
+  (\x' x''. 101 < x' + (101 - x'') /\ x'' < 101) = measure \x. 101-x
+Proof
+  RW_TAC arith_ss [FUN_EQ_THM, measure_thm]
+QED
 
 (*---------------------------------------------------------------------------*)
 (* Get the auxiliary rec. eqns, instantiate with termination relation, and   *)
@@ -122,8 +128,10 @@ val (N_def,N_ind) = Defn.tprove
     THEN POP_ASSUM MP_TAC
     THEN FULL_SIMP_TAC arith_ss [DECIDE ``x+y < p ==> ((p-y)+y = p)``]);
 
-val _ = save_thm ("N_def", N_def);
-val _ = save_thm ("N_ind", N_ind);
+Theorem N_def =
+  N_def
+Theorem N_ind =
+  N_ind
 
 Theorem N_correct:
  !x. N x = if x > 100 then x - 10 else 91

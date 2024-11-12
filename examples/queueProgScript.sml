@@ -10,7 +10,9 @@ val _ = new_theory "queueProg";
 
 val _ = translation_extends"basisProg";
 
-val _ = Datatype `exn_type = FullQueue | EmptyQueue`;
+Datatype:
+  exn_type = FullQueue | EmptyQueue
+End
 val _ = register_exn_type ``:exn_type``;
 
 val queue_decls = process_topdecs
@@ -39,19 +41,21 @@ val queue_decls = process_topdecs
 
 val _ = append_prog queue_decls;
 
-val EmptyQueue_exn_def = Define`
-  EmptyQueue_exn v = QUEUEPROG_EXN_TYPE_TYPE EmptyQueue v`;
+Definition EmptyQueue_exn_def:
+  EmptyQueue_exn v = QUEUEPROG_EXN_TYPE_TYPE EmptyQueue v
+End
 
 val EmptyQueue_exn_def = EVAL ``EmptyQueue_exn v``;
 
-val lqueue_def = Define‘
+Definition lqueue_def:
   lqueue qels f r els ⇔
     f < LENGTH qels ∧ r < LENGTH qels ∧
     (f ≤ r ∧
      (∃pj rj. qels = pj ++ els ++ rj ∧ LENGTH pj = f ∧
               r + LENGTH rj = LENGTH qels) ∨
      r ≤ f ∧ (∃p s mj. qels = s ++ mj ++ p ∧ els = p ++ s ∧
-                       r = LENGTH s ∧ f = r + LENGTH mj))’;
+                       r = LENGTH s ∧ f = r + LENGTH mj))
+End
 
 Theorem lqueue_empty:
    i < LENGTH xs ⇒ lqueue xs i i []
@@ -111,14 +115,15 @@ QED
    operations can be expressed in terms of the abstract value
 *)
 
-val QUEUE_def = Define‘
+Definition QUEUE_def:
   QUEUE A sz els qv ⇔
     SEP_EXISTS av fv rv cv qelvs.
       REF qv (Conv NONE [av;fv;rv;cv]) *
       ARRAY av qelvs *
       & (0 < sz ∧ NUM (LENGTH els) cv ∧
          ∃qels f r. LIST_REL A qels qelvs ∧ NUM f fv ∧ NUM r rv ∧
-                    lqueue qels f r els ∧ LENGTH qels = sz)’;
+                    lqueue qels f r els ∧ LENGTH qels = sz)
+End
 (*
    type_of “QUEUE”;
 *)
@@ -202,11 +207,12 @@ Proof
   simp[EL_APPEND1, EL_APPEND2]
 QED
 
-val dequeue_spec_noexn = Q.prove(
-    `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
+Triviality dequeue_spec_noexn:
+  !qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv * &(vs ≠ []))
-          (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)`,
-    rpt strip_tac >>
+          (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)
+Proof
+  rpt strip_tac >>
     xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
     reverse(rw[]) >- EVAL_TAC >> xlet_auto >- xsimpl >> xif >>
     qexists_tac `F` >> simp[] >> xs_auto_tac
@@ -219,7 +225,8 @@ val dequeue_spec_noexn = Q.prove(
     strip_tac >>
     rpt (goal_assum (first_assum o mp_then Any mp_tac)) >>
     Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
-    metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]);
+    metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]
+QED
 
 Theorem dequeue_spec:
    ∀p qv xv vs x A mx.

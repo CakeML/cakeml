@@ -27,10 +27,10 @@ Theorem extcalls_ffi_names:
 Proof
   rewrite_tac [hello_compiled]
   \\ qspec_tac (‘info.lab_conf.ffi_names’,‘xs’) \\ Cases
-  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
   \\ Induct_on ‘x’
-  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
-  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
+  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
 QED
 
 val ffis = ffis_def |> CONV_RULE (RAND_CONV EVAL);
@@ -126,11 +126,10 @@ Proof
   \\ simp[]
 QED
 
-val hello_machine_sem =
+Theorem hello_machine_sem =
   compile_correct_applied
   |> C MATCH_MP (UNDISCH hello_installed)
   |> DISCH_ALL
-  |> curry save_thm "hello_machine_sem";
 
 Theorem hello_extract_writes_stdout:
    wfcl cl ⇒

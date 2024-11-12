@@ -8,12 +8,14 @@ val _ = new_theory"CommandLineProof";
 
 val _ = translation_extends"CommandLineProg";
 
-val wfcl_def = Define`
-  wfcl cl <=> EVERY validArg cl ∧ LENGTH cl < 256 * 256 /\ cl <> []`;
+Definition wfcl_def:
+  wfcl cl <=> EVERY validArg cl ∧ LENGTH cl < 256 * 256 /\ cl <> []
+End
 
-val COMMANDLINE_def = Define `
+Definition COMMANDLINE_def:
   COMMANDLINE cl =
-    IOx cl_ffi_part cl * &wfcl cl`
+    IOx cl_ffi_part cl * &wfcl cl
+End
 
 val set_thm =
   COMMANDLINE_def
@@ -25,10 +27,9 @@ val set_thm =
   |> Q.SPEC`cl`
 val set_tm = set_thm |> concl |> find_term(pred_setSyntax.is_insert)
 
-val COMMANDLINE_precond = Q.prove(
+Theorem COMMANDLINE_precond = Q.prove(
   `wfcl cl ⇒ (COMMANDLINE cl) ^set_tm`,
   rw[set_thm]) |> UNDISCH
-  |> curry save_thm "COMMANDLINE_precond";
 
 Theorem COMMANDLINE_FFI_part_hprop:
    FFI_part_hprop (COMMANDLINE x)
@@ -276,8 +277,9 @@ QED
 val tl_v_thm = fetch "ListProg" "tl_v_thm";
 val mlstring_tl_v_thm = tl_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
-val name_def = Define `
-  name () = (\cl. (M_success (HD cl), cl))`;
+Definition name_def:
+  name () = (\cl. (M_success (HD cl), cl))
+End
 
 Theorem EvalM_name:
    Eval env exp (UNIT_TYPE u) /\
@@ -307,8 +309,9 @@ Proof
   \\ Cases_on `cl` \\ rw[TL_DEF]
 QED
 
-val arguments_def = Define `
-  arguments () = (\cl. (M_success (TL cl), cl))`
+Definition arguments_def:
+  arguments () = (\cl. (M_success (TL cl), cl))
+End
 
 Theorem EvalM_arguments:
    Eval env exp (UNIT_TYPE u) /\

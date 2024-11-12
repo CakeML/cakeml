@@ -8,17 +8,20 @@ val () = new_theory "x64_eval_encode"
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
-val not_fail = Q.prove(
-   `(case a ++ b :: c of [] => x64_dec_fail | v2::v3 => v2::v3) =
-    a ++ b :: c`,
-   Cases_on `a`  \\ rw [])
+Triviality not_fail:
+  (case a ++ b :: c of [] => x64_dec_fail | v2::v3 => v2::v3) =
+    a ++ b :: c
+Proof
+  Cases_on `a`  \\ rw []
+QED
 
-val lem = Q.prove(
-  `!n. n MOD 8 < 16`,
+Triviality lem:
+  !n. n MOD 8 < 16
+Proof
   strip_tac
   \\ `n MOD 8 < 8` by simp []
   \\ simp []
-  )
+QED
 
 val Zreg2num_num2Zreg =
   x64Theory.Zreg2num_num2Zreg
@@ -28,18 +31,19 @@ val Zreg2num_num2Zreg =
 val xmm_reg =
   blastLib.BBLAST_PROVE ``((3 >< 3) (w2w (a : word3) : word4) = 0w : word1)``
 
-val xmm_reg2 = Q.prove(
-  `!n. (3 >< 3) (n2w (n MOD 8) : word4) = 0w : word1`,
+Triviality xmm_reg2:
+  !n. (3 >< 3) (n2w (n MOD 8) : word4) = 0w : word1
+Proof
   strip_tac
   \\ `n MOD 8 < 8` by simp []
   \\ qabbrev_tac `m = n MOD 8`
   \\ fs [wordsTheory.NUMERAL_LESS_THM]
-  )
+QED
 
 local
   val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",
            "long mul", "long div", "add carry", "add overflow", "sub overflow",
-           "load", (* "load32", *) "load8", "store", (* "store32", *) "store8",
+           "load", "load32", "load8", "store", "store32", "store8",
            "fp less", "fp less eq", "fp eq", "fp mov", "fp abs", "fp neg",
            "fp sqrt", "fp add", "fp sub", "fp mul", "fp div", "fp fma", "fp to reg",
            "fp from reg", "fp to int", "fp from int",
@@ -158,10 +162,10 @@ local
      mk_let_thm `(rex_prefix (7w && v),1w: word8)`]
 in
   val load_rwt = enc_thm "load" thms
-(*val load32_rwt = enc_thm "load32" thms *)
+  val load32_rwt = enc_thm "load32" thms
   val load8_rwt = enc_thm "load8" thms
   val store_rwt = enc_thm "store" thms
-(*val store32_rwt = enc_thm "store32" thms *)
+  val store32_rwt = enc_thm "store32" thms
   val store8_rwt = enc_thm "store8" thms
 end
 
@@ -213,8 +217,8 @@ val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
   Drule.LIST_CONJ
     [skip_rwt, div_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt,
      long_div_rwt, long_mul_rwt, add_carry_rwt, add_overflow_rwt,
-     sub_overflow_rwt, load_rwt, (* load32_rwt, *) load8_rwt, store_rwt,
-     (* store32_rwt, *) store8_rwt, jump_rwt, jump_cmp_rwt,
+     sub_overflow_rwt, load_rwt, load32_rwt, load8_rwt, store_rwt,
+     store32_rwt, store8_rwt, jump_rwt, jump_cmp_rwt,
      jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt,
      fp_less, fp_leq, fp_eq, fp_mov, fp_abs, fp_neg, fp_sqrt, fp_add, fp_sub,
      fp_mul, fp_div, fp_fma, fp_to_reg, fp_from_reg, fp_to_int, fp_from_int])

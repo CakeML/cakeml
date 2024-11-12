@@ -66,8 +66,10 @@ Proof
   rw[]
 QED
 
-val good_select_def = xDefine"good_select"`
-  good_select0 ^mem select = (∀ty p x. x <: ty ⇒ select ty p <: ty ∧ (p x ⇒ p (select ty p)))`
+Definition good_select_def:
+  good_select0 ^mem select = (∀ty p x. x <: ty ⇒ select ty p <: ty ∧ (p x ⇒ p (select ty p)))
+End
+
 Overload good_select = ``good_select0 ^mem``
 
 Theorem select_has_model_gen:
@@ -189,11 +191,13 @@ Proof
   simp[combinTheory.APPLY_UPDATE_THM]
 QED
 
-val base_select_def = xDefine "base_select"`
+Definition base_select_def:
   base_select0 ^mem ty p =
     if inhabited ty then
       (case some x. x <: ty ∧ p x of NONE => (@x. x <: ty) | SOME v => v)
-    else ARB`
+    else ARB
+End
+
 Overload base_select = ``base_select0 ^mem``
 
 Theorem good_select_base_select:

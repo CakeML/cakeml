@@ -299,7 +299,11 @@ Proof
   ho_match_mp_tac word_allocTheory.remove_dead_ind \\ rw [] \\ simp [Once pre]
 QED
 
+val _ = word_allocTheory.remove_dead_prog_def |> arch_spec |> cv_trans;
+
 val _ = word_instTheory.op_consts_def |> arch_spec |> cv_trans;
+
+val _ = word_instTheory.reduce_const_def |> arch_spec |> cv_auto_trans;
 
 val pre = word_instTheory.optimize_consts_def |> arch_spec |> cv_auto_trans_pre;
 Theorem optimize_consts_pre:
@@ -342,6 +346,11 @@ Proof
   \\ gvs [wordLangTheory.exp_size_def, wordLangTheory.exp_size_eq]
 QED
 
+val _ = cv_trans word_instTheory.three_to_two_reg_def;
+
+val _ = cv_trans word_instTheory.three_to_two_reg_prog_def;
+
+
 val _ = word_allocTheory.limit_var_def |> arch_spec |> cv_trans;
 val _ = word_allocTheory.setup_ssa_def |> arch_spec |> cv_trans;
 val _ = word_allocTheory.ssa_cc_trans_inst_def |> arch_spec |> cv_trans;
@@ -365,8 +374,6 @@ val _ = word_allocTheory.full_ssa_cc_trans_def |> arch_spec |> cv_trans;
 
 val _ = word_simpTheory.SmartSeq_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.Seq_assoc_def |> arch_spec |> cv_trans;
-val _ = word_simpTheory.apply_if_opt_def |> arch_spec |> cv_trans;
-val _ = word_simpTheory.simp_if_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.const_fp_inst_cs_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.strip_const_def |> arch_spec |> cv_trans;
 val _ = wordLangTheory.word_sh_def |> arch_spec
@@ -388,6 +395,12 @@ Proof
 QED
 
 val _ = word_simpTheory.const_fp_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.is_simple_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.dest_Raise_num_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.try_if_hoist2_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.rewrite_duplicate_if_max_reassoc_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.try_if_hoist1_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.simp_duplicate_if_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.compile_exp_def |> arch_spec |> cv_trans;
 
 val _ = data_to_wordTheory.real_addr_def |> arch_spec

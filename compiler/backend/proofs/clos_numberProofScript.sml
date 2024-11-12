@@ -150,16 +150,18 @@ Proof
   \\ qexists_tac `$<` \\ simp [relationTheory.irreflexive_def]
 QED
 
-val renumber_code_locs_list_els = Q.prove(
-  `∀ls ls' n n'. renumber_code_locs_list n ls = (n',ls') ⇒
+Triviality renumber_code_locs_list_els:
+  ∀ls ls' n n'. renumber_code_locs_list n ls = (n',ls') ⇒
       ∀x. x < LENGTH ls ⇒
-        ∃m. EL x ls' = SND (renumber_code_locs m (EL x ls))`,
+        ∃m. EL x ls' = SND (renumber_code_locs m (EL x ls))
+Proof
   Induct >> simp[renumber_code_locs_def] >>
   simp[UNCURRY] >> srw_tac[][] >>
   Cases_on`x`>>full_simp_tac(srw_ss())[] >- METIS_TAC[] >>
   first_x_assum (MATCH_MP_TAC o MP_CANON) >>
   simp[] >>
-  METIS_TAC[pair_CASES,SND])
+  METIS_TAC[pair_CASES,SND]
+QED
 
 (* value relation *)
 
@@ -189,7 +191,7 @@ Inductive v_rel:
    v_rel max_app (Recclosure p argenv env es k) (Recclosure p' argenv' env' es' k))
 End
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:(num#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\ (s.ffi = t.ffi) /\ (t.max_app = s.max_app) /\
     s.compile = state_cc (ignore_table compile_inc) t.compile /\
@@ -198,51 +200,64 @@ val state_rel_def = Define `
     EVERY2 (OPTREL (v_rel s.max_app)) s.globals t.globals /\
     (∀n. SND (SND (s.compile_oracle n )) = [] ∧
          ¬contains_App_SOME s.max_app (FST(SND(s.compile_oracle n)))) /\
-    s.code = FEMPTY ∧ t.code = FEMPTY`
+    s.code = FEMPTY ∧ t.code = FEMPTY
+End
 
-val state_rel_max_app = Q.prove (
-  `!s t. state_rel s t ⇒ s.max_app = t.max_app`,
-   srw_tac[][state_rel_def]);
+Triviality state_rel_max_app:
+  !s t. state_rel s t ⇒ s.max_app = t.max_app
+Proof
+  srw_tac[][state_rel_def]
+QED
 
-val state_rel_with_clock = Q.prove (
-  `!s t. state_rel s t ⇒ state_rel (s with clock := x) (t with clock := x)`,
-   srw_tac[][state_rel_def] \\ rfs[]);
+Triviality state_rel_with_clock:
+  !s t. state_rel s t ⇒ state_rel (s with clock := x) (t with clock := x)
+Proof
+  srw_tac[][state_rel_def] \\ rfs[]
+QED
 
-val state_rel_clock = Q.prove(
-  `state_rel s t ⇒ s.clock = t.clock`,
-  rw[state_rel_def]);
+Triviality state_rel_clock:
+  state_rel s t ⇒ s.clock = t.clock
+Proof
+  rw[state_rel_def]
+QED
 
-val state_rel_globals = Q.prove(
-  `state_rel s t ⇒
-    LIST_REL (OPTREL (v_rel s.max_app)) s.globals t.globals`,
-  srw_tac[][state_rel_def])
+Triviality state_rel_globals:
+  state_rel s t ⇒
+    LIST_REL (OPTREL (v_rel s.max_app)) s.globals t.globals
+Proof
+  srw_tac[][state_rel_def]
+QED
 
-val state_rel_refs = Q.prove(
-  `state_rel s t ⇒
-    fmap_rel (ref_rel (v_rel t.max_app)) s.refs t.refs`,
-  srw_tac[][state_rel_def])
+Triviality state_rel_refs:
+  state_rel s t ⇒
+    fmap_rel (ref_rel (v_rel t.max_app)) s.refs t.refs
+Proof
+  srw_tac[][state_rel_def]
+QED
 
-val state_rel_code = Q.prove(
-  `state_rel s t ⇒ s.code = FEMPTY ∧ t.code = FEMPTY`,
-  rw[state_rel_def]);
+Triviality state_rel_code:
+  state_rel s t ⇒ s.code = FEMPTY ∧ t.code = FEMPTY
+Proof
+  rw[state_rel_def]
+QED
 
-val v_rel_simp = let
-  val f = SIMP_CONV (srw_ss()) [Once v_rel_cases]
-  in map f [``v_rel max_app (Number x) y``,
-            ``v_rel max_app (Word64 n) y``,
-            ``v_rel max_app (Block n l) y``,
-            ``v_rel max_app (ByteVector ws) y``,
-            ``v_rel max_app (RefPtr x) y``,
-            ``v_rel max_app (Closure n a l narg x) y``,
-            ``v_rel max_app (Recclosure x1 x2 x3 x4 x5) y``,
-            ``v_rel max_app y (Number x)``,
-            ``v_rel max_app y (Word64 n)``,
-            ``v_rel max_app y (Block n l)``,
-            ``v_rel max_app y (ByteVector ws)``,
-            ``v_rel max_app y (RefPtr x)``,
-            ``v_rel max_app y (Closure n a l narg x)``,
-            ``v_rel max_app y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
-  |> curry save_thm"v_rel_simp"
+Theorem v_rel_simp =
+  map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
+      [``v_rel max_app (Number x) y``,
+       ``v_rel max_app (Word64 n) y``,
+       ``v_rel max_app (Block n l) y``,
+       ``v_rel max_app (ByteVector ws) y``,
+       ``v_rel max_app (RefPtr x) y``,
+       ``v_rel max_app (Closure n a l narg x) y``,
+       ``v_rel max_app (Recclosure x1 x2 x3 x4 x5) y``,
+       ``v_rel max_app y (Number x)``,
+       ``v_rel max_app y (Word64 n)``,
+       ``v_rel max_app y (Block n l)``,
+       ``v_rel max_app y (ByteVector ws)``,
+       ``v_rel max_app y (RefPtr x)``,
+       ``v_rel max_app y (Closure n a l narg x)``,
+       ``v_rel max_app y (Recclosure x1 x2 x3 x4 x5)``]
+    |> LIST_CONJ
 
 Theorem v_rel_Boolv[simp]:
    (v_rel max_app x (Boolv b) ⇔ (x = Boolv b)) ∧
@@ -261,13 +276,14 @@ QED
 
 (* semantic functions respect relation *)
 
-val dest_closure_v_rel_none = Q.prove (
-  `!f args f' args'.
+Triviality dest_closure_v_rel_none:
+  !f args f' args'.
     v_rel max_app f f' ∧
     LIST_REL (v_rel max_app) args args' ∧
     dest_closure max_app NONE f args = NONE
     ⇒
-    dest_closure max_app NONE f' args' = NONE`,
+    dest_closure max_app NONE f' args' = NONE
+Proof
   srw_tac[][] >>
   imp_res_tac EVERY2_LENGTH >>
   full_simp_tac(srw_ss())[dest_closure_def, v_rel_cases] >>
@@ -292,17 +308,19 @@ val dest_closure_v_rel_none = Q.prove (
   `LENGTH (MAP FST es) = LENGTH r'` by metis_tac [LENGTH_MAP] >>
   full_simp_tac(srw_ss())[EL_ZIP, EL_MAP] >>
   srw_tac[][] >>
-  rev_full_simp_tac(srw_ss())[]);
+  rev_full_simp_tac(srw_ss())[]
+QED
 
-val dest_closure_v_rel_partial = Q.prove (
-  `!c f args f' args'.
+Triviality dest_closure_v_rel_partial:
+  !c f args f' args'.
     v_rel max_app f f' ∧
     LIST_REL (v_rel max_app) args args' ∧
     dest_closure max_app NONE f args = SOME (Partial_app c)
     ⇒
     ?c'.
       dest_closure max_app NONE f' args' = SOME (Partial_app c') ∧
-      v_rel max_app c c'`,
+      v_rel max_app c c'
+Proof
   srw_tac[][] >>
   imp_res_tac EVERY2_LENGTH >>
   full_simp_tac(srw_ss())[dest_closure_def, v_rel_cases] >>
@@ -329,10 +347,11 @@ val dest_closure_v_rel_partial = Q.prove (
   full_simp_tac(srw_ss())[EL_ZIP, EL_MAP] >>
   srw_tac[][] >>
   rev_full_simp_tac(srw_ss())[] >>
-  metis_tac [SND, EVERY2_APPEND]);
+  metis_tac [SND, EVERY2_APPEND]
+QED
 
-val dest_closure_v_rel_full = Q.prove (
-  `!c f args f' args' args1 args2.
+Triviality dest_closure_v_rel_full:
+  !c f args f' args' args1 args2.
     v_rel max_app f f' ∧
     LIST_REL (v_rel max_app) args args' ∧
     dest_closure max_app NONE f args = SOME (Full_app exp args1 args2)
@@ -341,7 +360,8 @@ val dest_closure_v_rel_full = Q.prove (
       dest_closure max_app NONE f' args' = SOME (Full_app (SND (renumber_code_locs n exp)) args1' args2') ∧
       LIST_REL (v_rel max_app) args1 args1' ∧
       LIST_REL (v_rel max_app) args2 args2' ∧
-      ~contains_App_SOME max_app [exp]`,
+      ~contains_App_SOME max_app [exp]
+Proof
   srw_tac[][] >>
   imp_res_tac EVERY2_LENGTH >>
   full_simp_tac(srw_ss())[dest_closure_def, v_rel_cases] >>
@@ -389,24 +409,31 @@ val dest_closure_v_rel_full = Q.prove (
   simp [DROP_REVERSE, TAKE_REVERSE] >>
   `q' - LENGTH argenv' ≤ LENGTH args` by decide_tac >>
   srw_tac[][] >>
-  metis_tac [EVERY2_APPEND, list_rel_lastn, LENGTH_LASTN, LENGTH_GENLIST, EVERY2_LENGTH, list_rel_butlastn]);
+  metis_tac [EVERY2_APPEND, list_rel_lastn, LENGTH_LASTN, LENGTH_GENLIST, EVERY2_LENGTH, list_rel_butlastn]
+QED
 
-val helper = Q.prove (
-  `SND ((λ(n',x'). (n',[x'])) x) = [SND x]`,
-  Cases_on `x` >> full_simp_tac(srw_ss())[]);
+Triviality helper:
+  SND ((λ(n',x'). (n',[x'])) x) = [SND x]
+Proof
+  Cases_on `x` >> full_simp_tac(srw_ss())[]
+QED
 
-val v_rel_Boolv_mono = Q.prove(
-  `(x ⇔ y) ⇒ (v_rel max_app (Boolv x) (Boolv y))`,
-  Cases_on`x`>>simp[Boolv_def,v_rel_simp])
+Triviality v_rel_Boolv_mono:
+  (x ⇔ y) ⇒ (v_rel max_app (Boolv x) (Boolv y))
+Proof
+  Cases_on`x`>>simp[Boolv_def,v_rel_simp]
+QED
 
-val v_to_list = Q.prove(
-  `∀x y. v_rel max_app x y ⇒
-          OPTREL (LIST_REL (v_rel max_app)) (v_to_list x) (v_to_list y)`,
+Triviality v_to_list:
+  ∀x y. v_rel max_app x y ⇒
+          OPTREL (LIST_REL (v_rel max_app)) (v_to_list x) (v_to_list y)
+Proof
   ho_match_mp_tac v_to_list_ind >>
   simp[v_rel_simp,v_to_list_def,PULL_EXISTS] >>
   srw_tac[][] >> TRY(srw_tac[][optionTheory.OPTREL_def]>>NO_TAC) >>
   first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
-  full_simp_tac(srw_ss())[optionTheory.OPTREL_def])
+  full_simp_tac(srw_ss())[optionTheory.OPTREL_def]
+QED
 
 Theorem simple_val_rel:
   simple_val_rel (v_rel max_app_n)
@@ -465,15 +492,16 @@ Proof
   \\ rw [] \\ fs [v_rel_simp, list_to_v_def]
 QED
 
-val do_app = Q.prove(
-  `state_rel s1 s2 ∧
+Triviality do_app:
+  state_rel s1 s2 ∧
     LIST_REL (v_rel s1.max_app) x1 x2 ⇒
     (∀err.
       do_app op x1 s1 = (Rerr err) ⇒
       do_app op x2 s2 = (Rerr err)) ∧
     (∀v1 w1. do_app op x1 s1 = Rval(v1,w1) ⇒
              ∃v2 w2. do_app op x2 s2 = Rval(v2,w2) ∧
-                     v_rel s1.max_app v1 v2 ∧ state_rel w1 w2)`,
+                     v_rel s1.max_app v1 v2 ∧ state_rel w1 w2)
+Proof
   rpt strip_tac
   \\ drule (GEN_ALL do_app_lemma)
   \\ disch_then drule
@@ -483,15 +511,20 @@ val do_app = Q.prove(
   \\ qpat_x_assum `_ = Rerr (Rraise _)` mp_tac
   \\ simp [do_app_cases_err]
   \\ strip_tac \\ fs []
-  \\ every_case_tac \\ fs[]);
+  \\ every_case_tac \\ fs[]
+QED
 
-val v_to_bytes = Q.prove(
-  `v_rel m v w ⇒ v_to_bytes v = v_to_bytes w`,
-  metis_tac [simple_val_rel, simple_val_rel_v_to_bytes]);
+Triviality v_to_bytes:
+  v_rel m v w ⇒ v_to_bytes v = v_to_bytes w
+Proof
+  metis_tac [simple_val_rel, simple_val_rel_v_to_bytes]
+QED
 
-val v_to_words = Q.prove(
-  `v_rel m v w ⇒ v_to_words v = v_to_words w`,
-  metis_tac [simple_val_rel, simple_val_rel_v_to_words]);
+Triviality v_to_words:
+  v_rel m v w ⇒ v_to_words v = v_to_words w
+Proof
+  metis_tac [simple_val_rel, simple_val_rel_v_to_words]
+QED
 
 fun DFOCUS_PAT pat thm = let
     fun UN Ps thm = let
@@ -509,8 +542,8 @@ Proof
   \\ pairarg_tac \\ rw[] \\ rw[]
 QED
 
-val do_install = Q.prove(
-  `state_rel s1 s2 ∧
+Triviality do_install:
+  state_rel s1 s2 ∧
    LIST_REL (v_rel s1.max_app) x1 x2 ⇒
    (∀err t. do_install x1 s1 = (Rerr (Rabort Rtimeout_error),t) ⇒
             ?t'. do_install x2 s2 = (Rerr (Rabort Rtimeout_error),t') /\
@@ -519,7 +552,8 @@ val do_install = Q.prove(
      ∃e2 t2. do_install x2 s2 = (Rval e2,t2) ∧
              ¬contains_App_SOME t1.max_app (e1) ∧ t1.max_app = s1.max_app ∧
              e2 = SND (compile_inc (FST(FST(s1.compile_oracle 0))) e1) ∧
-             state_rel t1 t2)`,
+             state_rel t1 t2)
+Proof
   strip_tac
   \\ `∃res. do_install x1 s1 = res` by fs[]
   \\ fs[do_install_def,case_eq_thms] \\ rveq \\ fs[]
@@ -556,7 +590,7 @@ val do_install = Q.prove(
   \\ fs[state_rel_def,state_co_def,ignore_table_def]
   \\ fs[FUPDATE_LIST_THM]
   \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``,LENGTH_NIL]
-);
+QED
 
 (* compiler correctness *)
 

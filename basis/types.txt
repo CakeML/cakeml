@@ -242,11 +242,13 @@ Array.collate: ('a -> 'b -> ordering) -> 'a Array.array -> 'b Array.array -> ord
 Array.lookup: 'a Array.array -> 'a -> int -> 'a
 Array.updateResize: 'a Array.array -> 'a -> int -> 'a -> 'a Array.array
 Map.lookup: ('a, 'b) map -> 'a -> 'b option
+Map.member: 'a -> ('a, 'b) map -> bool
 Map.insert: ('a, 'b) map -> 'a -> 'b -> ('a, 'b) map
 Map.delete: ('a, 'b) map -> 'a -> ('a, 'b) map
 Map.null: ('a, 'b) map -> bool
 Map.size: ('a, 'b) map -> int
 Map.empty: ('a -> 'a -> ordering) -> ('a, 'b) map
+Map.singleton: ('a -> 'a -> ordering) -> 'a -> 'b -> ('a, 'b) map
 Map.union: ('a, 'b) map -> ('a, 'b) map -> ('a, 'b) map
 Map.unionWith: ('a -> 'a -> 'a) -> ('b, 'a) map -> ('b, 'a) map -> ('b, 'a) map
 Map.unionWithKey: ('a -> 'b -> 'b -> 'b) -> ('a, 'b) map -> ('a, 'b) map -> ('a, 'b) map
@@ -261,6 +263,25 @@ Map.all: ('a -> 'b -> bool) -> ('a, 'b) map -> bool
 Map.exists: ('a -> 'b -> bool) -> ('a, 'b) map -> bool
 Map.filterWithKey: ('a -> 'b -> bool) -> ('a, 'b) map -> ('a, 'b) map
 Map.filter: ('a -> bool) -> ('b, 'a) map -> ('b, 'a) map
+Map.compare: ('a -> 'b -> ordering) -> ('c, 'a) map -> ('c, 'b) map -> ordering
+Set.singleton: ('a -> 'a -> ordering) -> 'a -> 'a set
+Set.member: 'a -> 'a set -> bool
+Set.delete: 'a -> 'a set -> 'a set
+Set.union: 'a set -> 'a set -> 'a set
+Set.isSubset: 'a set -> 'a set -> bool
+Set.compare: 'a set -> 'a set -> ordering
+Set.all: ('a -> bool) -> 'a set -> bool
+Set.exists: ('a -> bool) -> 'a set -> bool
+Set.translate: ('a -> 'b) -> ('b -> 'b -> ordering) -> 'a set -> 'b set
+Set.map: ('a -> 'a) -> 'a set -> 'a set
+Set.filter: ('a -> bool) -> 'a set -> 'a set
+Set.fromList: ('a -> 'a -> ordering) -> 'a list -> 'a set
+Set.toList: 'a set -> 'a list
+Set.null: 'a set -> bool
+Set.size: 'a set -> int
+Set.fold: ('a -> 'b -> 'b) -> 'b -> 'a set -> 'b
+Set.empty: ('a -> 'a -> ordering) -> 'a set
+Set.insert: 'a -> 'a set -> 'a set
 Hashtable.delete: ('a, 'b) Hashtable.hashtable -> 'a -> unit
 Hashtable.lookup: ('a, 'b) Hashtable.hashtable -> 'a -> 'b option
 Hashtable.toAscList: ('a, 'b) Hashtable.hashtable -> ('a * 'b) list
@@ -273,8 +294,14 @@ CommandLine.name: unit -> string
 CommandLine.arguments: unit -> string list
 Double.fromWord: Word64.word -> Double.double
 Double.toWord: Double.double -> Word64.word
-Double.fromString: string -> Double.double
+Double.fromString: string -> Double.double option
 Double.toString: Double.double -> string
+Double.fromInt: int -> Double.double
+Double.toInt: Double.double -> int
+Double.pow: Double.double -> Double.double -> Double.double
+Double.ln: Double.double -> Double.double
+Double.exp: Double.double -> Double.double
+Double.floor: Double.double -> Double.double
 Double.fma: Double.double -> Double.double -> Double.double -> Double.double
 Double.+: Double.double -> Double.double -> Double.double
 Double.-: Double.double -> Double.double -> Double.double

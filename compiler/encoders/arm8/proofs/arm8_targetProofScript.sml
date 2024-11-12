@@ -45,51 +45,55 @@ fun and_max ty =
    |> Thm.INST_TYPE [Type.alpha |-> ty]
    |> REWRITE_RULE [EVAL (wordsSyntax.mk_word_T ty)]
 
-val lsl_lem1 = Q.prove(
-   `!w:word6.
+Triviality lsl_lem1:
+  !w:word6.
       (if v2n (field 5 0 (w2v w)) + 1 < 64 then
           64
-       else v2n (field 5 0 (w2v w)) + 1) = 64`,
-   lrw []
+       else v2n (field 5 0 (w2v w)) + 1) = 64
+Proof
+  lrw []
    \\ Cases_on `v2n (field 5 0 (w2v w)) = 63`
    >- simp []
    \\ qspec_then `field 5 0 (w2v w)` assume_tac bitstringTheory.v2n_lt
    \\ fs []
    \\ decide_tac
-   )
+QED
 
-val lsl_lem2 = Q.prove(
-   `!w:word6. (if w2n w + 1 < 64 then 64 else w2n w + 1) = 64`,
-   lrw []
+Triviality lsl_lem2:
+  !w:word6. (if w2n w + 1 < 64 then 64 else w2n w + 1) = 64
+Proof
+  lrw []
    \\ Cases_on `w2n w = 63`
    >- simp []
    \\ Q.ISPEC_THEN `w` assume_tac wordsTheory.w2n_lt
    \\ fs []
    \\ decide_tac
-   )
+QED
 
 val lsl_lem3 = ev
    ``v2w (PAD_LEFT F 64
             (PAD_LEFT T (v2n (field 5 0 (w2v (63w: word6))) + 1) [])): word64``
 
-val lsl_lem4 = Q.prove(
-   `!n. n < 64 ==> ((64 - n + 63) MOD 64 = 63 - n)`,
-   lrw []
+Triviality lsl_lem4:
+  !n. n < 64 ==> ((64 - n + 63) MOD 64 = 63 - n)
+Proof
+  lrw []
    \\ asm_simp_tac bool_ss
          [arithmeticTheory.ADD_MODULUS_RIGHT, DECIDE ``0n < 64``,
           DECIDE ``n < 64n ==> (127 - n = 64 + (63 - n)) /\ 63 - n < 64``,
           arithmeticTheory.LESS_MOD]
-   )
+QED
 
-val lsl_lem5 = Q.prove(
-   `!n. n < 64 ==>
-        (v2w (PAD_LEFT F 64 (PAD_LEFT T n [])) : word64 = (FCP i. i < n))`,
-   srw_tac [fcpLib.FCP_ss] []
+Triviality lsl_lem5:
+  !n. n < 64 ==>
+        (v2w (PAD_LEFT F 64 (PAD_LEFT T n [])) : word64 = (FCP i. i < n))
+Proof
+  srw_tac [fcpLib.FCP_ss] []
    \\ rewrite_tac [bitstringTheory.word_index_v2w]
    \\ simp [bitstringTheory.testbit, listTheory.PAD_LEFT]
    \\ Cases_on `63 - i < 64 - n`
    \\ simp [rich_listTheory.EL_APPEND1, rich_listTheory.EL_APPEND2]
-   )
+QED
 
 val lsl_lem6 = DECIDE ``n < 64n ==> (63 - n + 1 = 64 - n)``
 
@@ -133,9 +137,10 @@ Proof
    \\ simp [] \\ EVAL_TAC \\ wordsLib.WORD_DECIDE_TAC
 QED
 
-val lsr_lem1 = Q.prove(
-   `!n. v2n (field 5 0 (w2v (n2w n : word6))) = n MOD 64`,
-   REPEAT strip_tac
+Triviality lsr_lem1:
+  !n. v2n (field 5 0 (w2v (n2w n : word6))) = n MOD 64
+Proof
+  REPEAT strip_tac
    \\ strip_assume_tac
          (Q.ISPEC `n2w n: word6` bitstringTheory.ranged_bitstring_nchotomy)
    \\ simp [bitstringTheory.w2v_v2w, bitstringTheory.word_extract_v2w,
@@ -143,11 +148,12 @@ val lsr_lem1 = Q.prove(
    \\ rfs [markerTheory.Abbrev_def, bitstringTheory.field_id_imp,
            GSYM bitstringTheory.n2w_v2n, arithmeticTheory.LESS_MOD]
    \\ metis_tac [bitstringTheory.v2n_lt, EVAL ``2n ** 6n``]
-   )
+QED
 
-val lsr_lem2 = Q.prove(
-   `!n. v2w (rotate (PAD_LEFT F 64 (PAD_LEFT T 64 [])) n) = UINT_MAXw: word64`,
-   strip_tac
+Triviality lsr_lem2:
+  !n. v2w (rotate (PAD_LEFT F 64 (PAD_LEFT T 64 [])) n) = UINT_MAXw: word64
+Proof
+  strip_tac
    \\ `PAD_LEFT F 64 (PAD_LEFT T 64 []) =
        fixwidth (dimindex(:64)) (PAD_LEFT F 64 (PAD_LEFT T 64 []))`
    by EVAL_TAC
@@ -158,7 +164,7 @@ val lsr_lem2 = Q.prove(
    \\ simp [wordsTheory.ROR_UINT_MAX
             |> Thm.INST_TYPE [Type.alpha |-> ``:64``]
             |> CONV_RULE EVAL]
-   )
+QED
 
 Theorem lsr:
    !n x wmask: word64 tmask.
@@ -190,8 +196,11 @@ Theorem asr =
   |> REWRITE_RULE
        [blastLib.BBLAST_PROVE ``word_msb (w:word64) = word_bit 63 w``]
 
-val asr_lem1 = Q.prove(
-   `!m. m < 64 ==> (MIN m 64 = m)`, rw [arithmeticTheory.MIN_DEF])
+Triviality asr_lem1:
+  !m. m < 64 ==> (MIN m 64 = m)
+Proof
+  rw [arithmeticTheory.MIN_DEF]
+QED
 
 Theorem asr2:
    !n x wmask: word64 tmask.
@@ -261,23 +270,26 @@ val rfs = rev_full_simp_tac (srw_ss())
    arm8 target_ok
    ------------------------------------------------------------------------- *)
 
-val length_arm8_encode = Q.prove(
-  `!i. LENGTH (arm8_encode i) = 4`,
+Triviality length_arm8_encode:
+  !i. LENGTH (arm8_encode i) = 4
+Proof
   Cases
   \\ rw [arm8_encode_def]
   \\ CASE_TAC
   \\ simp []
-  )
+QED
 
-val length_arm8_enc = Q.prove(
-  `!l. LENGTH (LIST_BIND l arm8_encode) = 4 * LENGTH l`,
+Triviality length_arm8_enc:
+  !l. LENGTH (LIST_BIND l arm8_encode) = 4 * LENGTH l
+Proof
   Induct \\ rw [length_arm8_encode]
-  )
+QED
 
-val arm8_encode_not_nil = Q.prove(
-  `!i. arm8_encode i <> []`,
+Triviality arm8_encode_not_nil:
+  !i. arm8_encode i <> []
+Proof
   simp_tac std_ss [GSYM listTheory.LENGTH_NIL, length_arm8_encode]
-  )
+QED
 
 Theorem arm8_encoding[local]:
   !i. let l = arm8_enc i in (LENGTH l MOD 4 = 0) /\ l <> []
@@ -285,7 +297,8 @@ Proof
   strip_tac
   \\ asmLib.asm_cases_tac `i`
   \\ simp [arm8_enc_def, length_arm8_enc, length_arm8_encode,
-           arm8_encode_fail_def, arm8_ast, arm8_load_store_ast_def]
+           arm8_encode_fail_def, arm8_ast, arm8_load_store_ast_def,
+           arm8_load_store_ast32_def]
   \\ REPEAT CASE_TAC
   \\ rw [length_arm8_encode, arm8_encode_not_nil]
 QED
@@ -294,9 +307,10 @@ Theorem arm8_encoding = arm8_encoding |>
     SIMP_RULE (srw_ss()++boolSimps.LET_ss)
        [arm8_enc_def, listTheory.LIST_BIND_def]
 
-val arm8_target_ok = Q.prove (
-   `target_ok arm8_target`,
-   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+Triviality arm8_target_ok:
+  target_ok arm8_target
+Proof
+  rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
         arm8_proj_def, arm8_target_def, arm8_config, arm8_ok_def,
         set_sepTheory.fun2set_eq, arm8_encoding] @ enc_ok_rwts)
    >| [all_tac, Cases_on `ri` \\ Cases_on `cmp`, all_tac, all_tac]
@@ -304,7 +318,7 @@ val arm8_target_ok = Q.prove (
    \\ rw[]
    \\ lfs enc_rwts
    \\ blastLib.FULL_BBLAST_TAC
-   )
+QED
 
 (* -------------------------------------------------------------------------
    arm8 encoder_correct
@@ -527,6 +541,18 @@ Proof
                next_tac `0`
                \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
                ,
+               Cases_on `c = sw2sw ((8 >< 0) c)`
+               >| [next_tac `0`
+                   \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2’
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+               ,
                Cases_on `c = sw2sw ((8 >< 0) c : word9)`
                >| [next_tac `0`
                    \\ Cases_on
@@ -542,12 +568,26 @@ Proof
                ,
                next_tac `0`
                \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
+               ,
+               Cases_on `c = sw2sw ((8 >< 0) c)`
+               >| [next_tac `0`
+                   \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2’
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
             ]
             \\ enc_rwts_tac
             \\ rfs []
             \\ fs [lem7, lem7b, lem31, lem35]
             \\ TRY (`aligned 3 (c + ms.REG (n2w n'))`
                     by (imp_res_tac lem14 \\ NO_TAC))
+            \\ TRY (`aligned 2 (c + ms.REG (n2w n'))`
+                    by (imp_res_tac lem14b \\ NO_TAC))
             \\ split_bytes_in_memory_tac 4
             \\ next_state_tac01
             \\ TRY (asmLib.split_bytes_in_memory_tac 4

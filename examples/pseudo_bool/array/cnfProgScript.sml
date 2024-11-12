@@ -37,9 +37,10 @@ val _ = translate parse_clause_def;
 
 val _ = translate lpr_parsingTheory.nocomment_line_def;
 
-val format_dimacs_failure_def = Define`
+Definition format_dimacs_failure_def:
   format_dimacs_failure (lno:num) s =
-  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+End
 
 val _ = translate format_dimacs_failure_def;
 
@@ -576,12 +577,13 @@ val check_unsat_2 = (append_prog o process_topdecs) `
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (fml,(nv,nc)) =>
-    case default_nobjf of (nobjt,nfmlt) =>
+    let val n = None in
     (case
       ores_to_string (
-        check_unsat_top False (plainlim_ns nv) fml None nfmlt nobjt f2) of
+        check_unsat_top False (plainlim_ns nv) fml n n [] n n f2) of
       Inl err => TextIO.output TextIO.stdErr err
-    | Inr s => TextIO.print s)`
+    | Inr s => TextIO.print s)
+    end`
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 out ⇔
@@ -627,10 +629,7 @@ Proof
   PairCases_on`y`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
-  assume_tac (fetch "-" "default_nobjf_v_thm")>>
-  gvs[default_nobjf_def,PAIR_TYPE_def]>>
-  qpat_x_assum`_ = default_nobjf_v` (assume_tac o SYM)>>
-  xmatch>>
+  xlet_autop>>
   xlet_autop>>
   xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
@@ -656,8 +655,11 @@ Proof
     xsimpl>>
     fs[FILENAME_def,validArg_def,OPTION_TYPE_def]>>
     rpt (first_x_assum (irule_at Any))>>
-    qexists_tac`NONE`>>qexists_tac`NONE`>>xsimpl>>
-    simp[OPTION_TYPE_def]>>
+    qexists_tac`NONE`>>qexists_tac`NONE`>>
+    qexists_tac`NONE`>>qexists_tac`NONE`>>
+    qexists_tac`[]`>>
+    xsimpl>>
+    simp[OPTION_TYPE_def,LIST_TYPE_def]>>
     rw[]>> asm_exists_tac>>simp[]>>
     every_case_tac>>fs[])>>
   xlet_autop>>
@@ -892,7 +894,9 @@ local
 val name = "main"
 val (sem_thm,prog_tm) =
   whole_prog_thm (get_ml_prog_state()) name (UNDISCH main_whole_prog_spec2)
-val main_prog_def = Define`main_prog = ^prog_tm`;
+Definition main_prog_def:
+  main_prog = ^prog_tm
+End
 
 in
 

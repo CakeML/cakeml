@@ -578,9 +578,11 @@ val st = get_ml_prog_state ();
 val name = "reader_main";
 val spec = UNDISCH reader_whole_prog_spec;
 val (sem_thm,prog_tm) = whole_prog_thm st name spec
-val reader_prog_def = Define `reader_prog = ^prog_tm`
+Definition reader_prog_def:
+  reader_prog = ^prog_tm
+End
 
-val reader_semantics =
+Theorem reader_semantics =
   sem_thm
   |> REWRITE_RULE[GSYM reader_prog_def]
   |> DISCH_ALL
@@ -591,7 +593,5 @@ val reader_semantics =
      |> ONCE_REWRITE_RULE [CONJ_COMM] |> GSYM
      |> CONV_RULE (LHS_CONV (ONCE_REWRITE_CONV [CONJ_COMM]))]
   |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
-  |> curry save_thm "reader_semantics";
 
 val _ = export_theory ();
-

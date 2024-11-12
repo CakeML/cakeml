@@ -31,12 +31,13 @@ val res = translate $
   INST_TYPE[beta|->``:64``] panScopeTheory.scope_check_funs_def;
 val res = translate $ INST_TYPE[beta|->``:64``] panScopeTheory.scope_check_def;
 
-val max_heap_limit_64_def = Define`
+Definition max_heap_limit_64_def:
                                   max_heap_limit_64 c =
 ^(spec64 data_to_wordTheory.max_heap_limit_def
     |> SPEC_ALL
     |> SIMP_RULE (srw_ss())[backend_commonTheory.word_shift_def]
-    |> concl |> rhs)`;
+    |> concl |> rhs)
+End
 
 val res = translate max_heap_limit_64_def
 
@@ -118,10 +119,16 @@ val r = pan_passesTheory.pan_to_target_all_def |> spec64
 val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.shape_to_str_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
-val r = pan_passesTheory.pan_exp_to_display_def |> spec64 |> translate;
+Triviality lem:
+  dimindex(:64) = 64
+Proof
+  EVAL_TAC
+QED
+val r = pan_passesTheory.pan_exp_to_display_def |> spec64 |> SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] |> translate;
 val r = pan_passesTheory.crep_exp_to_display_def |> spec64 |> translate;
 val r = pan_passesTheory.loop_exp_to_display_def |> spec64 |> translate;
 
+val r = pan_passesTheory.dest_annot_def |> spec64 |> translate;
 val r = pan_passesTheory.pan_seqs_def |> spec64 |> translate;
 val r = pan_passesTheory.crep_seqs_def |> spec64 |> translate;
 val r = pan_passesTheory.loop_seqs_def |> spec64 |> translate;
@@ -348,12 +355,13 @@ val res = translate print_option_def
 val res = translate current_build_info_str_def
 val res = translate compilerTheory.help_string_def;
 
-val nonzero_exit_code_for_error_msg_def = Define `
+Definition nonzero_exit_code_for_error_msg_def:
                                                  nonzero_exit_code_for_error_msg e =
 if compiler$is_error_msg e then
   (let a = empty_ffi (strlit "nonzero_exit") in
      ml_translator$force_out_of_memory_error ())
-else ()`;
+else ()
+End
 
 val res = translate compilerTheory.is_error_msg_def;
 val res = translate nonzero_exit_code_for_error_msg_def;
@@ -700,14 +708,15 @@ QED
 val (semantics_thm,prog_tm) =
 whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
 
-val compiler64_prog_def = Define`compiler64_prog = ^prog_tm`;
+Definition compiler64_prog_def:
+  compiler64_prog = ^prog_tm
+End
 
-val semantics_compiler64_prog =
-semantics_thm
-  |> PURE_ONCE_REWRITE_RULE[GSYM compiler64_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> curry save_thm "semantics_compiler64_prog";
+Theorem semantics_compiler64_prog =
+  semantics_thm
+    |> PURE_ONCE_REWRITE_RULE[GSYM compiler64_prog_def]
+    |> DISCH_ALL
+    |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 (* saving a tidied up final theorem *)
 

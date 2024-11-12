@@ -135,6 +135,7 @@ val _ = cv_trans NoOperation_def;
 val _ = cv_trans arm8_enc_mov_imm_def;
 val _ = cv_trans arm8_encode_fail_def;
 val _ = cv_trans arm8_load_store_ast_def;
+val _ = cv_trans arm8_load_store_ast32_def;
 val _ = cv_trans cmp_cond_def;
 val _ = cv_trans asmSemTheory.is_test_def;
 val bop_enc_pre = cv_trans_pre bop_enc_def;

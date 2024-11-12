@@ -17,10 +17,14 @@ val _ = new_theory "intervalArith";
 val NEG_INF = (rconc o EVAL) ``((INT_MINw: 32 word) + 1w)``
 val POS_INF = (rconc o EVAL) ``((INT_MAXw: 32 word) )``
 
-val NEG_INF_def = Define`NEG_INF:word32 = ^NEG_INF`
-val POS_INF_def = Define`POS_INF:word32 = ^POS_INF`
+Definition NEG_INF_def:
+  NEG_INF:word32 = ^NEG_INF
+End
+Definition POS_INF_def:
+  POS_INF:word32 = ^POS_INF
+End
 
-val _ = Datatype`
+Datatype:
   trm = Const word32
       | Var string
       | Plus trm trm
@@ -29,27 +33,30 @@ val _ = Datatype`
       | Max trm trm
       | Min trm trm
       | Neg trm
-      | Abs trm`
+      | Abs trm
+End
 
-val _ = Datatype`
+Datatype:
   fml = Le trm trm
       | Leq trm trm
       | Equals trm trm
       | And fml fml
       | Or fml fml
-      | Not fml`
+      | Not fml
+End
 
-val _ = Datatype`
+Datatype:
    hp = Test fml
       | Assign string trm
       | AssignAny string
       | Seq hp hp
       | Choice hp hp
-      | Loop hp`
+      | Loop hp
+End
 
 (* First, define the helper functions following Isabelle formalization
   We will simplify these later *)
-val pu_def = Define`
+Definition pu_def:
   pu (w1:word32) (w2:word32) =
   if w1 = POS_INF then POS_INF
   else if w2 = POS_INF then POS_INF
@@ -67,9 +74,10 @@ val pu_def = Define`
     let sum:word64 = sw2sw w1 + sw2sw w2 in
     if sw2sw POS_INF ≤ sum then POS_INF
     else if sum ≤ sw2sw NEG_INF then NEG_INF
-    else sw2sw sum`
+    else sw2sw sum
+End
 
-val pl_def = Define`
+Definition pl_def:
   pl (w1:word32) (w2:word32) =
   if w1 = NEG_INF then NEG_INF
   else if w2 = NEG_INF then NEG_INF
@@ -87,9 +95,10 @@ val pl_def = Define`
     let sum:word64 = sw2sw w1 + sw2sw w2 in
     if sw2sw POS_INF ≤ sum then POS_INF
     else if sum ≤ sw2sw NEG_INF then NEG_INF
-    else sw2sw sum`
+    else sw2sw sum
+End
 
-val wtimes_def = Define`
+Definition wtimes_def:
   wtimes (w1:word32) (w2:word32) =
   if w1 = POS_INF ∧ w2 = POS_INF then POS_INF
   else if w1 = NEG_INF ∧ w2 = POS_INF then NEG_INF
@@ -113,68 +122,80 @@ val wtimes_def = Define`
   let prod:word64 = sw2sw w1 * sw2sw w2 in
   if prod ≤ sw2sw NEG_INF then NEG_INF
   else if sw2sw POS_INF ≤ prod then POS_INF
-  else sw2sw prod`
+  else sw2sw prod
+End
 
-val wmax_def = Define`
-  wmax (w1:word32) (w2:word32) = if w1 < w2 then w2 else w1`
+Definition wmax_def:
+  wmax (w1:word32) (w2:word32) = if w1 < w2 then w2 else w1
+End
 
-val wmin_def = Define`
-  wmin (w1:word32) (w2:word32) = if w1 < w2 then w1 else w2`
+Definition wmin_def:
+  wmin (w1:word32) (w2:word32) = if w1 < w2 then w1 else w2
+End
 
-val tu_def = Define`
+Definition tu_def:
   tu w1l w1u w2l w2u =
   wmax (wmax (wtimes w1l w2l) (wtimes w1u w2l))
-       (wmax (wtimes w1l w2u) (wtimes w1u w2u))`
+       (wmax (wtimes w1l w2u) (wtimes w1u w2u))
+End
 
-val tl_def = Define`
+Definition tl_def:
   tl w1l w1u w2l w2u =
   wmin (wmin (wtimes w1l w2l) (wtimes w1u w2l))
-       (wmin (wtimes w1l w2u) (wtimes w1u w2u))`
+       (wmin (wtimes w1l w2u) (wtimes w1u w2u))
+End
 
-val wneg_def = Define`
+Definition wneg_def:
   wneg w =
   if w = NEG_INF then POS_INF
   else if w = POS_INF then NEG_INF
-  else -w`;
+  else -w
+End
 
-val divfloor_def = Define`
+Definition divfloor_def:
   divfloor (w1:word32) (w2:word32) =
   if word_smod w1 w2 = 0w then
     word_sdiv w1 w2
   else
-    (word_sdiv w1 w2) + 1w`
+    (word_sdiv w1 w2) + 1w
+End
 
-val divceil_def = Define`
-  divceil (w1:word32) (w2:word32) = word_sdiv w1 w2`
+Definition divceil_def:
+  divceil (w1:word32) (w2:word32) = word_sdiv w1 w2
+End
 
-val wle_def = Define`
-  wle (w1:word32) w2 <=> w1 < w2`
+Definition wle_def:
+  wle (w1:word32) w2 <=> w1 < w2
+End
 
-val wleq_def = Define`
+Definition wleq_def:
   wleq (w1:word32) w2 <=>
   ¬ (w1 = NEG_INF ∧ w2 = NEG_INF) ∧
   ¬ (w2 = POS_INF ∧ w2 = POS_INF) ∧
-  w1 <= w2`
+  w1 <= w2
+End
 
-val divl_def = Define`
+Definition divl_def:
   divl w1 w2 =
   if wle NEG_INF w1 ∧ wle w1 POS_INF ∧ wle NEG_INF w2 ∧ wle w2 POS_INF then divfloor w1 w2
   else if wleq w1 0w ∧ w2 = NEG_INF ∨ wleq 0w w1 ∧ w2 = POS_INF then 0w
   else if w1 = NEG_INF ∧ wle w2 0w then divfloor NEG_INF w2
   else if w1 = NEG_INF ∧ wleq 0w w2 ∨ w2 = POS_INF ∧ wle w2 0w then NEG_INF
   else if w1 = POS_INF then divfloor POS_INF w2
-  else -1w`
+  else -1w
+End
 
-val divu_def = Define`
+Definition divu_def:
   divu w1 w2 =
   if wle NEG_INF w1 ∧ wle w1 POS_INF ∧ wle NEG_INF w2 ∧ wle w2 POS_INF then divceil w1 w2
   else if wleq 0w w1 ∧ w2 = NEG_INF ∨ wleq w1 0w ∧ w2 = POS_INF then 0w
   else if w1 = NEG_INF then
     (if wle w2 0w then POS_INF else divceil NEG_INF w2)
   else if w1 = POS_INF ∧ wle w2 POS_INF then divceil POS_INF w2
-  else 1w`
+  else 1w
+End
 
-val divPair_def = Define`
+Definition divPair_def:
   divPair l1 u1 l2 u2 =
   if wleq l2 u2 then (
     if wleq l2 0w ∧ wleq 0w u2
@@ -193,13 +214,14 @@ val divPair_def = Define`
         (divl u1 l2, divu l1 u2)
       else
         (divl u1 u2, divu l1 l2)))
-  else (NEG_INF, POS_INF)`
+  else (NEG_INF, POS_INF)
+End
 
 (* Following the Isabelle semantics, we first use abstract word states
    that map a sum to words *)
 Type wstate = ``:string+string -> word32``;
 
-val wtsem_def = Define`
+Definition wtsem_def:
   (wtsem (Const r) (s:wstate) = (r,r)) ∧
   (wtsem (Var x) s = (s (INL x), s (INR x))) ∧
   (wtsem (Plus t1 t2) s =
@@ -227,7 +249,8 @@ val wtsem_def = Define`
     (wneg u, wneg l)) ∧
   (wtsem (Abs t) s =
     let (l,u) = wtsem t s in
-    (wmax l (wneg u), wmax u (wneg l)))`
+    (wmax l (wneg u), wmax u (wneg l)))
+End
 
 Inductive wfsem:
   (∀t1 t2 s.
@@ -328,21 +351,23 @@ End
 *)
 Type cwstate =``:(string,word32 # word32) alist``;
 
-val lookup_var_def = Define`
+Definition lookup_var_def:
   lookup_var s n =
     case ALOOKUP s n of
       NONE => (NEG_INF,POS_INF)
-    | SOME i => i`
+    | SOME i => i
+End
 
 (* abstract concrete cwstate back into a wstate *)
-val abs_state_def = Define`
+Definition abs_state_def:
   abs_state (s:cwstate) =
   λy.
     case y of
       INL x => FST (lookup_var s x)
-    | INR x => SND (lookup_var s x)`
+    | INR x => SND (lookup_var s x)
+End
 
-val cwtsem_def = Define`
+Definition cwtsem_def:
   (cwtsem (Const w) (s:cwstate) = (w,w)) ∧
   (cwtsem (Var n) s = lookup_var s n) ∧
   (cwtsem (Plus t1 t2) s =
@@ -370,7 +395,8 @@ val cwtsem_def = Define`
     (wneg u, wneg l)) ∧
   (cwtsem (Abs t) s =
     let (l,u) = cwtsem t s in
-    (wmax l (wneg u), wmax u (wneg l)))`
+    (wmax l (wneg u), wmax u (wneg l)))
+End
 
 Theorem cwtsem_wtsem:
   ∀t cs s.
@@ -380,7 +406,7 @@ Proof
 QED
 
 (* We use a tri-valued logic for wfsem instead of an underspecified relation *)
-val cwfsem_def = Define`
+Definition cwfsem_def:
   (cwfsem (Le t1 t2) (s:cwstate) =
   let (l1,u1) = cwtsem t1 s in
   let (l2,u2) = cwtsem t2 s in
@@ -416,7 +442,8 @@ val cwfsem_def = Define`
   case cwfsem f s of
     SOME F => SOME T
   | SOME T => SOME F
-  | _ => NONE)`
+  | _ => NONE)
+End
 
 (* The reverse direction should also be true, but we do not need it *)
 Theorem cwfsem_wfsem:
@@ -480,13 +507,14 @@ Proof
 QED
 
 (* More efficient simplifications for the bounds checks *)
-val round_to_inf_def = Define`
+Definition round_to_inf_def:
   round_to_inf (w:word64) =
     if w ≤ sw2sw NEG_INF then NEG_INF
     else if
       sw2sw POS_INF ≤ w then POS_INF
     else
-      w2w w`
+      w2w w
+End
 
 Theorem pu_compute:
   pu (w1:word32) (w2:word32) =
@@ -529,7 +557,7 @@ Proof
 QED
 
 (* Free variables *)
-val fv_trm_def = Define`
+Definition fv_trm_def:
   (fv_trm (Const _) = []) ∧
   (fv_trm (Var x) = [x]) ∧
   (fv_trm (Plus t1 t2) = fv_trm t1 ++ fv_trm t2) ∧
@@ -538,15 +566,17 @@ val fv_trm_def = Define`
   (fv_trm (Max t1 t2) = fv_trm t1 ++ fv_trm t2) ∧
   (fv_trm (Min t1 t2) = fv_trm t1 ++ fv_trm t2) ∧
   (fv_trm (Neg t) = fv_trm t) ∧
-  (fv_trm (Abs t) = fv_trm t)`
+  (fv_trm (Abs t) = fv_trm t)
+End
 
-val fv_fml_def = Define`
+Definition fv_fml_def:
   (fv_fml (Le t1 t2) = fv_trm t1 ++ fv_trm t2) ∧
   (fv_fml (Leq t1 t2) = fv_trm t1 ++ fv_trm t2) ∧
   (fv_fml (Equals t1 t2) = fv_trm t1 ++ fv_trm t2) ∧
   (fv_fml (And f1 f2) = fv_fml f1 ++ fv_fml f2) ∧
   (fv_fml (Or f1 f2) = fv_fml f1 ++ fv_fml f2) ∧
-  (fv_fml (Not f) = fv_fml f)`
+  (fv_fml (Not f) = fv_fml f)
+End
 
 (* Term Coincidence *)
 Theorem fv_trm_coincide:
@@ -571,11 +601,13 @@ Proof
 QED
 
 (* Some abbreviations for convenience *)
-val True_def = Define`
-  True = Leq (Const 0w) (Const 0w)`
+Definition True_def:
+  True = Leq (Const 0w) (Const 0w)
+End
 
-val Skip_def = Define`
-  Skip = Test True`
+Definition Skip_def:
+  Skip = Test True
+End
 
 Theorem Skip_sem:
   cwpsem Skip w w' ⇔ w' = w
@@ -585,9 +617,10 @@ Proof
   EVAL_TAC
 QED
 
-val AssignAnyPar_def = Define`
+Definition AssignAnyPar_def:
   (AssignAnyPar [] = Skip) ∧
-  (AssignAnyPar (x::xs) = Seq (AssignAny x) (AssignAnyPar xs))`
+  (AssignAnyPar (x::xs) = Seq (AssignAny x) (AssignAnyPar xs))
+End
 
 Theorem AssignAnyPar_sem:
   ∀xs ws w w'.
@@ -610,15 +643,17 @@ Proof
   asm_exists_tac>>fs[]
 QED
 
-val AssignPar_def = Define`
+Definition AssignPar_def:
   (AssignPar (l::ls) (r::rs) =
     Seq (Assign l r) (AssignPar ls rs)) ∧
-  (AssignPar [] [] = Skip)`
+  (AssignPar [] [] = Skip)
+End
 
 (* EVAL-able non-overlap *)
-val no_overlap_def = Define`
+Definition no_overlap_def:
   (no_overlap [] ys ⇔ T) ∧
-  (no_overlap (x::xs) ys ⇔ ¬MEMBER x ys ∧ no_overlap xs ys)`
+  (no_overlap (x::xs) ys ⇔ ¬MEMBER x ys ∧ no_overlap xs ys)
+End
 
 Theorem no_overlap_thm:
   ∀xs ys.
@@ -667,8 +702,9 @@ Proof
   metis_tac[]
 QED
 
-val AssignVarPar_def = Define`
-  AssignVarPar lhs rhs = AssignPar lhs (MAP Var rhs)`
+Definition AssignVarPar_def:
+  AssignVarPar lhs rhs = AssignPar lhs (MAP Var rhs)
+End
 
 Theorem AssignVarPar_sem:
   ∀ls rs w w'.

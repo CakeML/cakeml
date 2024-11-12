@@ -12,8 +12,10 @@ open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
 val _ = new_theory "word_to_stack";
 
 (* bitmaps_length stores the current length of the bitmaps *)
-val _ = Datatype `config = <| bitmaps_length: num ;
-                              stack_frame_size : num spt |>`;
+Datatype:
+  config = <| bitmaps_length: num ;
+                              stack_frame_size : num spt |>
+End
 
 (* -- *)
 
@@ -22,61 +24,72 @@ val _ = Datatype `config = <| bitmaps_length: num ;
     and f' = number of slots in stack frame (= f - bitmap_size)
     and kf = (k,f,f') *)
 
-val wReg1_def = Define `
+Definition wReg1_def:
   wReg1 r (k,f,f':num) =
     let r = r DIV 2 in
-      if r < k then ([],r) else ([(k,f-1 - (r - k))],k:num)`
+      if r < k then ([],r) else ([(k,f-1 - (r - k))],k:num)
+End
 
-val wReg2_def = Define `
+Definition wReg2_def:
   wReg2 r (k,f,f':num) =
     let r = r DIV 2 in
-      if r < k then ([],r) else ([(k+1,f-1 - (r - k))],k+1:num)`
+      if r < k then ([],r) else ([(k+1,f-1 - (r - k))],k+1:num)
+End
 
-val wRegImm2_def = Define `
+Definition wRegImm2_def:
   (wRegImm2 (Reg r) kf = let (x,n) = wReg2 r kf in (x,Reg n)) /\
-  (wRegImm2 (Imm i) kf = ([],Imm i))`
+  (wRegImm2 (Imm i) kf = ([],Imm i))
+End
 
-val wRegWrite1_def = Define `
+Definition wRegWrite1_def:
   wRegWrite1 g r (k,f,f':num) =
     let r = r DIV 2 in
-      if r < k then g r else Seq (g k) (StackStore k (f-1 - (r - k)))`
+      if r < k then g r else Seq (g k) (StackStore k (f-1 - (r - k)))
+End
 
-val wRegWrite2_def = Define `
+Definition wRegWrite2_def:
   wRegWrite2 g r (k,f,f':num) =
     let r = r DIV 2 in
-      if r < k then g r else Seq (g (k+1)) (StackStore (k+1) (f-1 - (r - k)))`
+      if r < k then g r else Seq (g (k+1)) (StackStore (k+1) (f-1 - (r - k)))
+End
 
-val wStackLoad_def = Define `
+Definition wStackLoad_def:
   (wStackLoad [] x = x) /\
-  (wStackLoad ((r,i)::ps) x = Seq (StackLoad r i) (wStackLoad ps x))`
+  (wStackLoad ((r,i)::ps) x = Seq (StackLoad r i) (wStackLoad ps x))
+End
 
-val wStackStore_def = Define `
+Definition wStackStore_def:
   (wStackStore [] x = x) /\
-  (wStackStore ((r,i)::ps) x = Seq (wStackStore ps x) (StackStore r i))`
+  (wStackStore ((r,i)::ps) x = Seq (wStackStore ps x) (StackStore r i))
+End
 
-val wMoveSingle_def = Define `
+Definition wMoveSingle_def:
   wMoveSingle (x,y) (k,f,f':num) =
     case (x,y) of
     | (INL r1, INL r2) => Inst (Arith (Binop Or r1 r2 (Reg r2)))
     | (INL r1, INR r2) => StackLoad r1 (f-1 - (r2 - k))
     | (INR r1, INL r2) => StackStore r2 (f-1 - (r1 - k))
     | (INR r1, INR r2) => Seq (StackLoad k (f-1 - (r2 - k)))
-                              (StackStore k (f-1 - (r1 - k)))`
+                              (StackStore k (f-1 - (r1 - k)))
+End
 
-val wMoveAux_def = Define `
+Definition wMoveAux_def:
   (wMoveAux [] kf = Skip) /\
   (wMoveAux [xy] kf = wMoveSingle xy kf) /\
-  (wMoveAux (xy::xys) kf = Seq (wMoveSingle xy kf) (wMoveAux xys kf))`
+  (wMoveAux (xy::xys) kf = Seq (wMoveSingle xy kf) (wMoveAux xys kf))
+End
 
-val format_var_def = Define `
+Definition format_var_def:
   (format_var k NONE = INL (k+1)) /\
-  (format_var k (SOME x) = if x < k:num then INL x else INR x)`;
+  (format_var k (SOME x) = if x < k:num then INL x else INR x)
+End
 
-val wMove_def = Define `
+Definition wMove_def:
   wMove xs (k,f:num,f':num) =
-    wMoveAux (MAP (format_var k ## format_var k) (parmove (MAP (DIV2 ## DIV2) xs))) (k,f,f')`;
+    wMoveAux (MAP (format_var k ## format_var k) (parmove (MAP (DIV2 ## DIV2) xs))) (k,f,f')
+End
 
-val wInst_def = Define `
+Definition wInst_def:
   (wInst ((Const n c):'a inst) kf =
     wRegWrite1 (\n. Inst (Const n c)) n kf) /\
   (wInst (Arith (Binop bop n1 n2 (Imm imm))) kf =
@@ -157,7 +170,8 @@ val wInst_def = Define `
     wStackLoad (l++l')
       (Inst (FP (FPMovFromReg d n1 n2)))) /\
   (wInst (FP f) kf = Inst (FP f)) /\ (*pass through the ones that don't use int registers *)
-  (wInst _ kf = Inst Skip)`
+  (wInst _ kf = Inst Skip)
+End
 
 Definition wShareInst_def:
   (wShareInst Load v (Addr ad offset) kf =
@@ -168,6 +182,10 @@ Definition wShareInst_def:
     let (l,n2) = wReg1 ad kf in
     wStackLoad l
       (wRegWrite1 (\r. ShMemOp Load8 r (Addr n2 offset)) v kf)) /\
+  (wShareInst Load32 v (Addr ad offset) kf =
+    let (l,n2) = wReg1 ad kf in
+    wStackLoad l
+      (wRegWrite1 (\r. ShMemOp Load32 r (Addr n2 offset)) v kf)) /\
   (wShareInst Store v (Addr ad offset) kf =
     let (l1,n2) = wReg1 ad kf in
     let (l2,n1) = wReg2 v kf in
@@ -177,76 +195,94 @@ Definition wShareInst_def:
     let (l1,n2) = wReg1 ad kf in
     let (l2,n1) = wReg2 v kf in
     wStackLoad (l1 ++ l2)
-      (ShMemOp Store8 n1 (Addr n2 offset)))
+      (ShMemOp Store8 n1 (Addr n2 offset))) /\
+  (wShareInst Store32 v (Addr ad offset) kf =
+    let (l1,n2) = wReg1 ad kf in
+    let (l2,n1) = wReg2 v kf in
+    wStackLoad (l1 ++ l2)
+      (ShMemOp Store32 n1 (Addr n2 offset)))
 End
 
-val bits_to_word_def = Define `
+Definition bits_to_word_def:
   (bits_to_word [] = 0w) /\
   (bits_to_word (T::xs) = (bits_to_word xs << 1 || 1w)) /\
-  (bits_to_word (F::xs) = (bits_to_word xs << 1))`;
+  (bits_to_word (F::xs) = (bits_to_word xs << 1))
+End
 
-val word_list_def = tDefine "word_list" `
+Definition word_list_def:
   word_list (xs:bool list) d =
     if LENGTH xs <= d \/ (d = 0) then [bits_to_word xs]
-    else bits_to_word (TAKE d xs ++ [T]) :: word_list (DROP d xs) d`
- (WF_REL_TAC `measure (LENGTH o FST)`
-  \\ fs [LENGTH_DROP] \\ DECIDE_TAC)
+    else bits_to_word (TAKE d xs ++ [T]) :: word_list (DROP d xs) d
+Termination
+  WF_REL_TAC `measure (LENGTH o FST)`
+  \\ fs [LENGTH_DROP] \\ DECIDE_TAC
+End
 
-val write_bitmap_def = Define `
+Definition write_bitmap_def:
   (write_bitmap live k f'):'a word list =
     let names = MAP (\(r,y). (f' -1) - (r DIV 2 - k)) (toAList live) in
-      word_list (GENLIST (\x. MEM x names) f' ++ [T]) (dimindex(:'a) - 1)`
+      word_list (GENLIST (\x. MEM x names) f' ++ [T]) (dimindex(:'a) - 1)
+End
 
-val insert_bitmap_def = Define `
+Definition insert_bitmap_def:
   insert_bitmap ws (data,data_len) =
     let l = LENGTH ws in
-      ((Append data (List ws), data_len + l), data_len)`
+      ((Append data (List ws), data_len + l), data_len)
+End
 
-val wLive_def = Define `
+Definition wLive_def:
   wLive (live:num_set) (bitmaps:'a word app_list # num) (k,f:num,f':num) =
     if f = 0 then (Skip,bitmaps)
     else
       let (new_bitmaps,i) = insert_bitmap (write_bitmap live k f') bitmaps in
-        (Seq (Inst (Const k (n2w (i+1)))) (StackStore k 0):'a stackLang$prog,new_bitmaps)`
+        (Seq (Inst (Const k (n2w (i+1)))) (StackStore k 0):'a stackLang$prog,new_bitmaps)
+End
 
-val SeqStackFree_def = Define `
-  SeqStackFree n p = if n = 0 then p else Seq (StackFree n) p`
+Definition SeqStackFree_def:
+  SeqStackFree n p = if n = 0 then p else Seq (StackFree n) p
+End
 
-val call_dest_def = Define `
+Definition call_dest_def:
   (call_dest (SOME pos) args kf = (Skip, INL pos)) /\
   (call_dest NONE args kf =
      if LENGTH args = 0
        then (Skip, INL raise_stub_location) (* this case can never occur, raise_stub_location is convenient *)
        else
        let (x1,r) = wReg2 (LAST args) kf in
-         (wStackLoad x1 Skip, INR r))`
+         (wStackLoad x1 Skip, INR r))
+End
 
-val stack_arg_count_def = Define `
+Definition stack_arg_count_def:
   stack_arg_count dest arg_count k =
     case dest of
     | INL _ => (arg_count - k:num)
-    | INR _ => ((arg_count - 1) - k:num)`
+    | INR _ => ((arg_count - 1) - k:num)
+End
 
-val stack_free_def = Define `
+Definition stack_free_def:
   stack_free dest arg_count (k,f,f':num) =
-    f - stack_arg_count dest arg_count k`
+    f - stack_arg_count dest arg_count k
+End
 
-val stack_move_def = Define `
+Definition stack_move_def:
   (stack_move 0 start offset i p = p) /\
   (stack_move (SUC n) start offset i p =
      Seq (stack_move n (start+1) offset i p)
-         (Seq (StackLoad i (start+offset)) (StackStore i start)))`
+         (Seq (StackLoad i (start+offset)) (StackStore i start)))
+End
 
-val StackArgs_def = Define `
+Definition StackArgs_def:
   StackArgs dest arg_count (k,f,f':num) =
     let n = stack_arg_count dest arg_count k in
-      stack_move n 0 f k (StackAlloc n)`
+      stack_move n 0 f k (StackAlloc n)
+End
 
-val StackHandlerArgs_def = Define `
+Definition StackHandlerArgs_def:
   StackHandlerArgs dest arg_count (k,f,f':num) =
-    StackArgs dest arg_count (k,f+3,f'+3)`;
+    StackArgs dest arg_count (k,f+3,f'+3)
+End
 
-val PushHandler_def = Define `
+Definition PushHandler_def:
   PushHandler l1 l2 (k,f,f') =
     Seq (StackAlloc 3)
    (Seq (Inst (Const k 1w))
@@ -256,14 +292,16 @@ val PushHandler_def = Define `
    (Seq (Get k Handler)
    (Seq (StackStore k 2)
    (Seq (StackGetSize k)
-        (Set Handler k))))))))`
+        (Set Handler k))))))))
+End
 
-val PopHandler_def = Define`
+Definition PopHandler_def:
   PopHandler (k,f,f') prog =
    Seq (StackLoad k 2)
   (Seq (Set Handler k)
   (Seq (StackFree 3)
-  prog))`
+  prog))
+End
 
 Definition chunk_to_bits_def:
   chunk_to_bits ([]:(bool # α word) list) = 1w:'a word ∧
@@ -286,7 +324,7 @@ Definition const_words_to_bitmap_def:
         chunk_to_bitmap h ++ const_words_to_bitmap t (ws_len - (dimindex (:'a) - 1))
 End
 
-val comp_def = Define `
+Definition comp_def:
   (comp (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\
   (comp (Move _ xs) bs kf = (wMove xs kf,bs)) /\
   (comp (Inst i) bs kf = (wInst i kf,bs)) /\
@@ -365,7 +403,8 @@ val comp_def = Define `
    (case exp_to_addr exp of
       NONE => (Skip, bs)
     | SOME addr => wShareInst op v addr kf,bs)) /\
-  (comp _ bs kf = (Skip,bs) (* impossible *))`
+  (comp _ bs kf = (Skip,bs) (* impossible *))
+End
 
 Definition raise_stub_def:
   raise_stub k =

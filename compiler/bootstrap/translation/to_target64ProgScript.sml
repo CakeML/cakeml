@@ -19,9 +19,11 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -279,21 +281,25 @@ val _ = m_translate_run enc_secs_64_aux_def;
 
 val _ = translate enc_secs_64_def;
 
-val monadic_enc64_enc_line_hash_64_ls_side_def = Q.prove(`
+Triviality monadic_enc64_enc_line_hash_64_ls_side_def:
   ∀a b c d e.
   d ≠ 0 ⇒
-  monadic_enc64_enc_line_hash_64_ls_side a b c d e ⇔ T`,
+  monadic_enc64_enc_line_hash_64_ls_side a b c d e ⇔ T
+Proof
   Induct_on`e`>>
   simp[Once (fetch "-" "monadic_enc64_enc_line_hash_64_ls_side_def")]>>
-  EVAL_TAC>>rw[]>>fs[]);
+  EVAL_TAC>>rw[]>>fs[]
+QED
 
-val monadic_enc64_enc_sec_hash_64_ls_side_def = Q.prove(`
+Triviality monadic_enc64_enc_sec_hash_64_ls_side_def:
   ∀a b c d e.
   d ≠ 0 ⇒
-  monadic_enc64_enc_sec_hash_64_ls_side a b c d e ⇔ T`,
+  monadic_enc64_enc_sec_hash_64_ls_side a b c d e ⇔ T
+Proof
   Induct_on`e`>>
   simp[Once (fetch "-" "monadic_enc64_enc_sec_hash_64_ls_side_def")]>>
-  metis_tac[monadic_enc64_enc_line_hash_64_ls_side_def]);
+  metis_tac[monadic_enc64_enc_line_hash_64_ls_side_def]
+QED
 
 Theorem monadic_enc64_enc_secs_64_side_def[allow_rebind] = Q.prove(`
   monadic_enc64_enc_secs_64_side a b c ⇔ T`,
@@ -329,15 +335,18 @@ val res = translate (get_zero_labs_acc_def |> spec64)
 val res = translate (zero_labs_acc_exist_def |> INST_TYPE[alpha |-> ``:num``, beta |->``:64``])
 
 (* Add in hidden argument to compile_lab *)
-val remove_labels_hash_def = Define `
+Definition remove_labels_hash_def:
   remove_labels_hash init_clock c pos labs ffis hash_size sec_list =
-    remove_labels_loop init_clock c pos labs ffis (enc_secs_64 c.encode hash_size sec_list)`;
+    remove_labels_loop init_clock c pos labs ffis (enc_secs_64 c.encode hash_size sec_list)
+End
 
-val remove_labels_hash_correct = Q.prove(`
+Triviality remove_labels_hash_correct:
   remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list =
-  remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list`,
+  remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list
+Proof
   simp [FUN_EQ_THM, remove_labels_hash_def, remove_labels_def,
-        enc_secs_64_correct]);
+        enc_secs_64_correct]
+QED
 
 val res = translate (remove_labels_hash_def |> spec64);
 

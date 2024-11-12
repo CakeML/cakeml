@@ -29,33 +29,41 @@ val mem = ``mem:'U->'U->bool``
 val _ = Parse.add_infix("<:",425,Parse.NONASSOC)
 Overload "<:" = ``mem:'U->'U->bool``
 
-val extensional_def = Define`
-  extensional ^mem ⇔ ∀x y. x = y ⇔ ∀a. mem a x ⇔ mem a y`
+Definition extensional_def:
+  extensional ^mem ⇔ ∀x y. x = y ⇔ ∀a. mem a x ⇔ mem a y
+End
 
-val is_separation_def = Define`
-  is_separation ^mem sub ⇔ ∀x P. ∀a. mem a (sub x P) ⇔ mem a x ∧ P a`
+Definition is_separation_def:
+  is_separation ^mem sub ⇔ ∀x P. ∀a. mem a (sub x P) ⇔ mem a x ∧ P a
+End
 
-val is_power_def = Define`
-  is_power ^mem power ⇔ ∀x. ∀a. mem a (power x) ⇔ ∀b. mem b a ⇒ mem b x`
+Definition is_power_def:
+  is_power ^mem power ⇔ ∀x. ∀a. mem a (power x) ⇔ ∀b. mem b a ⇒ mem b x
+End
 
-val is_union_def = Define`
-  is_union ^mem union ⇔ ∀x. ∀a. mem a (union x) ⇔ ∃b. mem a b ∧ mem b x`
+Definition is_union_def:
+  is_union ^mem union ⇔ ∀x. ∀a. mem a (union x) ⇔ ∃b. mem a b ∧ mem b x
+End
 
-val is_upair_def = Define`
-  is_upair ^mem upair ⇔ ∀x y. ∀a. mem a (upair x y) ⇔ a = x ∨ a = y`
+Definition is_upair_def:
+  is_upair ^mem upair ⇔ ∀x y. ∀a. mem a (upair x y) ⇔ a = x ∨ a = y
+End
 
-val regular_def = Define`
-  regular ^mem ⇔ ∀x. (∃y. mem y x) ⇒ ∃y. mem y x ∧ ∀z. ~(mem z x ∧ mem z y)`
+Definition regular_def:
+  regular ^mem ⇔ ∀x. (∃y. mem y x) ⇒ ∃y. mem y x ∧ ∀z. ~(mem z x ∧ mem z y)
+End
 
-val is_functional_def = Define`
-  is_functional (R:'a -> 'b -> bool) ⇔ ∀x y z. R x y ∧ R x z ⇒ y = z`
+Definition is_functional_def:
+  is_functional (R:'a -> 'b -> bool) ⇔ ∀x y z. R x y ∧ R x z ⇒ y = z
+End
 
-val replacement_def = Define`
+Definition replacement_def:
   replacement ^mem ⇔
       ∀R. is_functional R ⇒
-          ∀d. ∃r. ∀y. mem y r ⇔ ∃x. mem x d ∧ R x y`
+          ∀d. ∃r. ∀y. mem y r ⇔ ∃x. mem x d ∧ R x y
+End
 
-val is_set_theory_def = Define`
+Definition is_set_theory_def:
   is_set_theory ^mem ⇔
     extensional mem ∧
     (∃sub. is_separation mem sub) ∧
@@ -63,7 +71,8 @@ val is_set_theory_def = Define`
     (∃union. is_union mem union) ∧
     (∃upair. is_upair mem upair) ∧
     regular mem ∧
-    replacement mem`
+    replacement mem
+End
 
 Theorem separation_unique:
    extensional ^mem ⇒
@@ -93,17 +102,21 @@ Proof
   rw[is_upair_def,extensional_def,FUN_EQ_THM]
 QED
 
-val sub_def = Define`
-  sub ^mem = @sub. is_separation mem sub`
+Definition sub_def:
+  sub ^mem = @sub. is_separation mem sub
+End
 
-val power_def = Define`
-  power ^mem = @power. is_power mem power`
+Definition power_def:
+  power ^mem = @power. is_power mem power
+End
 
-val union_def = Define`
-  union ^mem = @union. is_union mem union`
+Definition union_def:
+  union ^mem = @union. is_union mem union
+End
 
-val upair_def = Define`
-  upair ^mem = @upair. is_upair mem upair`
+Definition upair_def:
+  upair ^mem = @upair. is_upair mem upair
+End
 
 Theorem is_extensional:
    is_set_theory ^mem ⇒ extensional mem
@@ -173,8 +186,9 @@ Proof
   strip_tac >> imp_res_tac is_upair_upair >> fs[is_upair_def]
 QED
 
-val empty_def = Define`
-  empty ^mem = sub mem ARB (K F)`
+Definition empty_def:
+  empty ^mem = sub mem ARB (K F)
+End
 
 Overload "∅" = ``empty ^mem``
 
@@ -199,8 +213,9 @@ Proof
   fs[empty_def,extensional_def,mem_sub]
 QED
 
-val unit_def = Define`
-  unit ^mem x = x + x`
+Definition unit_def:
+  unit ^mem x = x + x
+End
 
 Overload Unit = ``unit ^mem``
 
@@ -222,8 +237,9 @@ Proof
   metis_tac[]
 QED
 
-val one_def = Define`
-  one ^mem = Unit ∅`
+Definition one_def:
+  one ^mem = Unit ∅
+End
 
 Overload One = ``one ^mem``
 
@@ -234,8 +250,9 @@ Proof
   strip_tac >> simp[mem_unit,one_def]
 QED
 
-val two_def = Define`
-  two ^mem = ∅ + One`
+Definition two_def:
+  two ^mem = ∅ + One
+End
 
 Overload Two = ``two ^mem``
 
@@ -246,8 +263,9 @@ Proof
   strip_tac >> simp[mem_upair,mem_one,two_def]
 QED
 
-val binary_inter_def = Define`
-  binary_inter ^mem x y = (x suchthat λz. z <: y)`
+Definition binary_inter_def:
+  binary_inter ^mem x y = (x suchthat λz. z <: y)
+End
 
 Overload INTER = ``binary_inter ^mem``
 
@@ -258,8 +276,9 @@ Proof
   strip_tac >> simp[binary_inter_def,mem_sub]
 QED
 
-val subset_def = Define`
-  subset ^mem x y = ∀z. z <: x ⇒ z <: y`
+Definition subset_def:
+  subset ^mem x y = ∀z. z <: x ⇒ z <: y
+End
 
 Overload SUBSET = ``subset ^mem``
 
@@ -277,13 +296,15 @@ Proof
   strip_tac >> simp[subset_def]
 QED
 
-val psubset_def = Define`
-  psubset ^mem x y = (x ⊆ y ∧ ~(x = y))`
+Definition psubset_def:
+  psubset ^mem x y = (x ⊆ y ∧ ~(x = y))
+End
 
 Overload PSUBSET = ``psubset ^mem``
 
-val pair_def = Define`
-  pair ^mem x y = (Unit x) + (x + y)`
+Definition pair_def:
+  pair ^mem x y = (Unit x) + (x + y)
+End
 
 Overload "," = ``pair ^mem``
 
@@ -324,8 +345,9 @@ Proof
   metis_tac[]
 QED
 
-val binary_union_def = Define`
-  binary_union ^mem x y = ⋃ (upair mem x y)`
+Definition binary_union_def:
+  binary_union ^mem x y = ⋃ (upair mem x y)
+End
 
 Overload UNION = ``binary_union ^mem``
 
@@ -337,10 +359,11 @@ Proof
   metis_tac[]
 QED
 
-val product_def = Define`
+Definition product_def:
   product ^mem x y =
     (Pow (Pow (x ∪ y)) suchthat
-     λa. ∃b c. b <: x ∧ c <: y ∧ a = (b,c))`
+     λa. ∃b c. b <: x ∧ c <: y ∧ a = (b,c))
+End
 
 Overload CROSS = ``product ^mem``
 
@@ -355,8 +378,9 @@ Proof
   rfs[mem_unit,mem_upair]
 QED
 
-val relspace_def = Define`
-  relspace ^mem x y = Pow (x × y)`
+Definition relspace_def:
+  relspace ^mem x y = Pow (x × y)
+End
 
 Overload Relspace = ``relspace ^mem``
 
@@ -387,10 +411,11 @@ Proof
   metis_tac[pair_inj]
 QED
 
-val funspace_def = Define`
+Definition funspace_def:
   funspace ^mem x y =
     (Relspace x y suchthat
-     λf. ∀a. a <: x ⇒ ∃!b. (a,b) <: f)`
+     λf. ∀a. a <: x ⇒ ∃!b. (a,b) <: f)
+End
 
 Overload Funspace = ``funspace ^mem``
 
@@ -411,13 +436,15 @@ Proof
   metis_tac[relspace_pairs]
 QED
 
-val apply_def = Define`
-  apply ^mem x y = @a. (y,a) <: x`
+Definition apply_def:
+  apply ^mem x y = @a. (y,a) <: x
+End
 
 Overload "'" = ``apply ^mem``
 
-val id_def = Define`
-  id ^mem d = (d × d suchthat λa. ∃b. a = (b,b))`
+Definition id_def:
+  id ^mem d = (d × d suchthat λa. ∃b. a = (b,b))
+End
 
 Overload Id = ``id ^mem``
 
@@ -443,8 +470,9 @@ Proof
   rw[]
 QED
 
-val image_def = Define`
-  image ^mem f d = @r. ∀y. y <: r ⇔ ∃x. x <: d ∧ f x = y`
+Definition image_def:
+  image ^mem f d = @r. ∀y. y <: r ⇔ ∃x. x <: d ∧ f x = y
+End
 
 val _ = Parse.hide "''"
 val _ = Parse.add_infix("''",2000,Parse.LEFT)
@@ -460,18 +488,21 @@ Proof
   rw[image_def] >> SELECT_ELIM_TAC >> rw[replacement]
 QED
 
-val is_one_one_def = Define`
-  is_one_one ^mem f d ⇔ ∀x y z. x <: d ∧ (x,z) <: f ∧ (y,z) <: f ⇒ x = y`
+Definition is_one_one_def:
+  is_one_one ^mem f d ⇔ ∀x y z. x <: d ∧ (x,z) <: f ∧ (y,z) <: f ⇒ x = y
+End
 
 Overload is_11 = ``is_one_one ^mem``
 
-val is_onto_def = Define`
-  is_onto ^mem f r ⇔ ∀y. y <: r ⇒ ∃x. (x,y) <: f`
+Definition is_onto_def:
+  is_onto ^mem f r ⇔ ∀y. y <: r ⇒ ∃x. (x,y) <: f
+End
 
 Overload is_Onto = ``is_onto ^mem``
 
-val inverse_def = Define`
-  inverse ^mem f ⇔ @f1. ∀a. a <: f1 ⇔ ∃x y. a = (x,y) ∧ (y,x) <: f`
+Definition inverse_def:
+  inverse ^mem f ⇔ @f1. ∀a. a <: f1 ⇔ ∃x y. a = (x,y) ∧ (y,x) <: f
+End
 
 Overload Inverse = ``inverse ^mem``
 
@@ -562,11 +593,13 @@ QED
 
 Overload boolset = ``Two``
 
-val true_def = Define`
-  true ^mem = ∅`
+Definition true_def:
+  true ^mem = ∅
+End
 
-val false_def = Define`
-  false ^mem = One`
+Definition false_def:
+  false ^mem = One
+End
 
 Overload True = ``true ^mem``
 Overload False = ``false ^mem``
@@ -588,8 +621,9 @@ Proof
   strip_tac >> fs[mem_two,true_def,false_def]
 QED
 
-val boolean_def = Define`
-  boolean ^mem b = if b then True else False`
+Definition boolean_def:
+  boolean ^mem b = if b then True else False
+End
 
 Overload Boolean = ``boolean ^mem``
 
@@ -607,13 +641,15 @@ Proof
   strip_tac >> rw[boolean_def,true_neq_false]
 QED
 
-val holds_def = Define`
-  holds ^mem s x ⇔ s ' x = True`
+Definition holds_def:
+  holds ^mem s x ⇔ s ' x = True
+End
 
 Overload Holds = ``holds ^mem``
 
-val suc_def = Define`
-  suc ^mem x = x ∪ Unit x`
+Definition suc_def:
+  suc ^mem x = x ∪ Unit x
+End
 
 Overload Suc = ``suc ^mem``
 
@@ -669,8 +705,9 @@ Proof
 QED
 
 
-val abstract_def = Define`
-  abstract ^mem dom rng f = (dom × rng suchthat λx. ∃a. x = (a,f a))`
+Definition abstract_def:
+  abstract ^mem dom rng f = (dom × rng suchthat λx. ∃a. x = (a,f a))
+End
 
 Overload Abstract = ``abstract ^mem``
 
@@ -800,10 +837,11 @@ Proof
     ]
 QED
 
-val dep_funspace_def = Define`
+Definition dep_funspace_def:
   dep_funspace ^mem d f =
     (Funspace d (⋃ (f '' d)) suchthat
-     λg. ∀x. x <: d ⇒ g ' x <: f x)`
+     λg. ∀x. x <: d ⇒ g ' x <: f x)
+End
 
 Overload Dep_funspace = ``dep_funspace ^mem``
 
@@ -817,10 +855,11 @@ Proof
   METIS_TAC[]
 QED
 
-val dep_prodspace_def = Define`
+Definition dep_prodspace_def:
   dep_prodspace ^mem d f =
     (d × ⋃ (f '' d) suchthat
-     λr. ∀x y. (x,y) <: r ⇒ x <: d ∧ y <: f x)`
+     λr. ∀x y. (x,y) <: r ⇒ x <: d ∧ y <: f x)
+End
 
 Overload Dep_prodspace = ``dep_prodspace ^mem``
 
@@ -833,7 +872,8 @@ Proof
   rw[dep_prodspace_def,mem_sub]
 QED
 
-val axiom_of_choice = save_thm("axiom_of_choice",UNDISCH(prove(
+Theorem axiom_of_choice =
+  UNDISCH(prove(
   ``is_set_theory ^mem ⇒
     ∀x. (∀a. mem a x ⇒ ∃b. mem b a) ⇒
        ∃f. ∀a. mem a x ⇒ mem (f ' a) a``,
@@ -847,7 +887,7 @@ val axiom_of_choice = save_thm("axiom_of_choice",UNDISCH(prove(
   match_mp_tac apply_abstract_matchable >>
   rw[mem_union] >>
   SELECT_ELIM_TAC >> rw[] >>
-  metis_tac[])))
+  metis_tac[]))
 
 val indset = ``indset:'U``
 val ch = ``ch:'U->'U``
@@ -855,11 +895,13 @@ val s = ``(^mem,^indset,^ch)``
 
 Overload M = ``(^mem,^indset,^ch)``
 
-val is_choice_def = Define`
-  is_choice ^mem ch = ∀x. (∃a. a <: x) ⇒ ch x <: x`
+Definition is_choice_def:
+  is_choice ^mem ch = ∀x. (∃a. a <: x) ⇒ ch x <: x
+End
 
-val is_infinite_def = Define`
-  is_infinite ^mem s = INFINITE {a | a <: s}`
+Definition is_infinite_def:
+  is_infinite ^mem s = INFINITE {a | a <: s}
+End
 
 (* The following version of the infinity axiom is taken from page 12 of
    "Set Theory, The Third Millennium Edition" by Thomas Jech, Springer, 2006,
@@ -867,15 +909,17 @@ val is_infinite_def = Define`
    "Introduction to Set Theory" by J. Donald Monk, McGraw Hill, 1969.
 *)
 
-val is_inductive_def = Define`
+Definition is_inductive_def:
   is_inductive ^mem s ⇔
-      ∅ <: s ∧ ∀x. x <: s ⇒ Suc x <: s`
+      ∅ <: s ∧ ∀x. x <: s ⇒ Suc x <: s
+End
 
-val is_model_def = Define`
+Definition is_model_def:
   is_model ^s ⇔
     is_set_theory mem ∧
     is_inductive mem indset ∧
-    is_choice mem ch`
+    is_choice mem ch
+End
 
 Theorem is_model_is_set_theory:
    is_model M ⇒ is_set_theory ^mem
@@ -896,9 +940,10 @@ Proof
   metis_tac[is_inductive_def]
 QED
 
-val num2indset_def = Define`
+Definition num2indset_def:
   (num2indset ^mem 0 = ∅) ∧
-  (num2indset ^mem (SUC n) = Suc (num2indset mem n))`;
+  (num2indset ^mem (SUC n) = Suc (num2indset mem n))
+End
 
 Overload Num2indset = ``num2indset ^mem``
 
@@ -1001,9 +1046,10 @@ Proof
   metis_tac[]
 QED
 
-val tuple_def = Define`
+Definition tuple_def:
   (tuple0 ^mem [] = ∅) ∧
-  (tuple0 ^mem (a::as) = (a, tuple0 ^mem as))`
+  (tuple0 ^mem (a::as) = (a, tuple0 ^mem as))
+End
 Overload tuple = ``tuple0 ^mem``
 
 Theorem pair_not_empty:
@@ -1034,9 +1080,10 @@ Proof
   simp[pair_inj]
 QED
 
-val bigcross_def = Define`
+Definition bigcross_def:
   (bigcross0 ^mem [] = One) ∧
-  (bigcross0 ^mem (a::as) = a × (bigcross0 ^mem as))`
+  (bigcross0 ^mem (a::as) = a × (bigcross0 ^mem as))
+End
 Overload bigcross = ``bigcross0 ^mem``
 
 Theorem mem_bigcross:

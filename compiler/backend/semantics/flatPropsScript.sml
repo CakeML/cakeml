@@ -259,14 +259,16 @@ Proof
   \\ rw [] \\ fs []
 QED
 
-val build_rec_env_help_lem = Q.prove (
-  `∀funs env funs'.
+Triviality build_rec_env_help_lem:
+  ∀funs env funs'.
   FOLDR (λ(f,x,e) env'. (f, flatSem$Recclosure env funs' f)::env') env' funs =
-  MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs ++ env'`,
+  MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs ++ env'
+Proof
   Induct >>
   srw_tac[][] >>
   PairCases_on `h` >>
-  srw_tac[][]);
+  srw_tac[][]
+QED
 
 (* Alternate definition for build_rec_env *)
 Theorem build_rec_env_merge:
@@ -350,17 +352,20 @@ Proof
   fs []
 QED
 
-val do_app_add_to_clock = Q.prove (
-  `do_app ^s op es = SOME (t, r)
+Triviality do_app_add_to_clock:
+  do_app ^s op es = SOME (t, r)
    ==>
    do_app (s with clock := s.clock + k) op es =
-     SOME (t with clock := t.clock + k, r)`,
-  rw [do_app_cases] \\ fs []);
+     SOME (t with clock := t.clock + k, r)
+Proof
+  rw [do_app_cases] \\ fs []
+QED
 
-val do_app_add_to_clock_NONE = Q.prove (
-  `do_app ^s op es = NONE
+Triviality do_app_add_to_clock_NONE:
+  do_app ^s op es = NONE
    ==>
-   do_app (s with clock := s.clock + k) op es = NONE`,
+   do_app (s with clock := s.clock + k) op es = NONE
+Proof
   Cases_on `op`
   \\ disch_then (mp_tac o SIMP_RULE (srw_ss()) [do_app_def, case_eq_thms])
   \\ rw []
@@ -368,7 +373,8 @@ val do_app_add_to_clock_NONE = Q.prove (
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [bool_case_eq, case_eq_thms]
-  \\ fs [IS_SOME_EXISTS,CaseEq"option",CaseEq"store_v"]);
+  \\ fs [IS_SOME_EXISTS,CaseEq"option",CaseEq"store_v"]
+QED
 
 Theorem evaluate_add_to_clock:
    (∀env ^s es s' r.
@@ -529,8 +535,9 @@ Proof
   \\ fs[] \\ metis_tac[]
 QED
 
-val bind_locals_list_def = Define`
-  bind_locals_list ts ks = list$MAP2 (λt x. (flatLang$Var_local t x)) ts ks`;
+Definition bind_locals_list_def:
+  bind_locals_list ts ks = list$MAP2 (λt x. (flatLang$Var_local t x)) ts ks
+End
 
 Theorem evaluate_vars:
    !env s kvs env' ks vs ts.
@@ -625,35 +632,41 @@ Proof
   \\ rw[Once pmatch_nil]
 QED
 
-val evaluate_decs_add_to_clock_initial_state = Q.prove(
-  `r ≠ SOME (Rabort Rtimeout_error) ∧
+Triviality evaluate_decs_add_to_clock_initial_state:
+  r ≠ SOME (Rabort Rtimeout_error) ∧
    evaluate_decs (initial_state ffi k ec) decs = (s',r) ⇒
    evaluate_decs (initial_state ffi (ck + k) ec) decs =
-   (s' with clock := s'.clock + ck,r)`,
+   (s' with clock := s'.clock + ck,r)
+Proof
   rw [initial_state_def]
-  \\ imp_res_tac evaluate_decs_add_to_clock \\ fs []);
+  \\ imp_res_tac evaluate_decs_add_to_clock \\ fs []
+QED
 
-val evaluate_decs_add_to_clock_initial_state_io_events_mono = Q.prove (
-  `evaluate_decs (initial_state ffi k ec) prog = (s',r) ==>
+Triviality evaluate_decs_add_to_clock_initial_state_io_events_mono:
+  evaluate_decs (initial_state ffi k ec) prog = (s',r) ==>
    s'.ffi.io_events ≼
-   (FST (evaluate_decs (initial_state ffi (k+ck) ec) prog)).ffi.io_events`,
+   (FST (evaluate_decs (initial_state ffi (k+ck) ec) prog)).ffi.io_events
+Proof
   rw [initial_state_def]
   \\ qmatch_assum_abbrev_tac `evaluate_decs s1 _ = _`
   \\ qispl_then
          [`prog`,`s1`,`ck`] mp_tac
          (evaluate_decs_add_to_clock_io_events_mono)
-  \\ fs [Abbr`s1`]);
+  \\ fs [Abbr`s1`]
+QED
 
-val initial_state_with_clock = Q.prove (
-  `(initial_state ffi k ec with clock := (initial_state ffi k ec).clock + ck) =
-   initial_state ffi (k + ck) ec`,
-  rw [initial_state_def]);
+Triviality initial_state_with_clock:
+  (initial_state ffi k ec with clock := (initial_state ffi k ec).clock + ck) =
+   initial_state ffi (k + ck) ec
+Proof
+  rw [initial_state_def]
+QED
 
 val SND_SND_lemma = prove(
   ``(SND x) = y <=> ?y1. x = (y1, y)``,
   PairCases_on `x` \\ fs []);
 
-val eval_sim_def = Define `
+Definition eval_sim_def:
   eval_sim ffi ds1 ds2 ec ec2 rel allow_fail =
     !k res1 s2.
       evaluate_decs (initial_state ffi k ec) ds1 =
@@ -667,7 +680,8 @@ val eval_sim_def = Define `
         s2.ffi = t2.ffi /\
         (res1 = NONE ==> res2 = NONE) /\
         (!v. res1 = SOME (Rraise v) ==> ?v1. res2 = SOME (Rraise v1)) /\
-        (!a. res1 = SOME (Rabort a) ==> res2 = SOME (Rabort a))`;
+        (!a. res1 = SOME (Rabort a) ==> res2 = SOME (Rabort a))
+End
 
 Theorem IMP_semantics_eq:
    eval_sim ffi ds1 ds2 ec ec2 rel F /\
@@ -796,11 +810,12 @@ Proof
          initial_state_with_clock, FST, ADD_SYM]
 QED
 
-val op_gbag_def = Define `
+Definition op_gbag_def:
   op_gbag (GlobalVarInit n) = BAG_INSERT n {||} /\
-  op_gbag _ = {||}`;
+  op_gbag _ = {||}
+End
 
-val set_globals_def = tDefine "set_globals" `
+Definition set_globals_def:
   (set_globals (Raise t e) = set_globals e) /\
   (set_globals (Handle t e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) /\
   (set_globals (Con t id es) = elist_globals es) /\
@@ -814,8 +829,9 @@ val set_globals_def = tDefine "set_globals" `
     set_globals e ⊎ elist_globals (MAP (SND o SND) fs)) /\
   (set_globals _ = {||}) /\
   (elist_globals [] = {||}) /\
-  (elist_globals (e::es) = set_globals e ⊎ elist_globals es)`
- (WF_REL_TAC
+  (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
+Termination
+  WF_REL_TAC
      `measure (\a. case a of INL e => exp_size e | INR es => exp6_size es)`
    \\ rw [flatLangTheory.exp_size_def]
    \\ fs [GSYM o_DEF]
@@ -823,11 +839,12 @@ val set_globals_def = tDefine "set_globals" `
     (`exp6_size (MAP (SND o SND) fs) < exp1_size fs + 1` suffices_by rw []
      \\ fs [flatLangTheory.exp_size_MAP])
    \\ `exp6_size (MAP SND pes) < exp3_size pes + 1` suffices_by rw []
-   \\ fs [flatLangTheory.exp_size_MAP]);
+   \\ fs [flatLangTheory.exp_size_MAP]
+End
 
 val _ = export_rewrites ["set_globals_def"];
 
-val esgc_free_def = tDefine "esgc_free" `
+Definition esgc_free_def:
   (esgc_free (Raise t e) <=> esgc_free e) /\
   (esgc_free (Handle t e pes) <=>
     esgc_free e /\ EVERY esgc_free (MAP SND pes)) /\
@@ -840,14 +857,16 @@ val esgc_free_def = tDefine "esgc_free" `
   (esgc_free (Let t v e1 e2) <=> esgc_free e1 /\ esgc_free e2) /\
   (esgc_free (Letrec t fs e) <=>
     esgc_free e /\ elist_globals (MAP (SND o SND) fs) = {||}) /\
-  (esgc_free _ <=> T)`
- (WF_REL_TAC `measure exp_size`
+  (esgc_free _ <=> T)
+Termination
+  WF_REL_TAC `measure exp_size`
   \\ rw []
   \\ fs [MEM_MAP] \\ rw []
-  \\ imp_res_tac flatLangTheory.exp_size_MEM \\ fs [])
+  \\ imp_res_tac flatLangTheory.exp_size_MEM \\ fs []
+End
 
-val esgc_free_def = save_thm("esgc_free_def[simp,compute,allow_rebind]",
-  SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
+Theorem esgc_free_def[simp,compute,allow_rebind] =
+  SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def
 
 Theorem elist_globals_eq_empty:
    elist_globals l = {||} ⇔ ∀e. MEM e l ⇒ set_globals e = {||}
@@ -873,11 +892,14 @@ Proof
   Induct_on `es` \\ simp [elist_globals_append, COMM_BAG_UNION]
 QED
 
-val is_Dlet_def = Define `
+Definition is_Dlet_def:
   (is_Dlet (Dlet _) <=> T) /\
-  (is_Dlet _ <=> F)`;
+  (is_Dlet _ <=> F)
+End
 
-val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
+Definition dest_Dlet_def:
+  dest_Dlet (Dlet e) = e
+End
 
 val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 

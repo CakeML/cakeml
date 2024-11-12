@@ -10,8 +10,9 @@ val _ = new_theory "array_searchProg"
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
 (* Create the data type to handle the array. *)
-val _ = Datatype `
-  state_array = <| arr : num list |>`; (* single resizeable array *)
+Datatype:
+  state_array = <| arr : num list |> (* single resizeable array *)
+End
 
 (* Data type for the exceptions *)
 Datatype:
@@ -53,11 +54,12 @@ val linear_search_aux_def = allowing_rebind (mtDefine "linear_search_aux" `
   WF_REL_TAC `measure (λ (value, start, state) . LENGTH state.arr - start)`
 );
 
-val linear_search_def = Define `
-  linear_search value = linear_search_aux value 0n`
+Definition linear_search_def:
+  linear_search value = linear_search_aux value 0n
+End
 
 
-val binary_search_aux_def = tDefine "binary_search_aux" `
+Definition binary_search_aux_def:
   binary_search_aux value start finish =
     do
       len <- arr_length;
@@ -72,19 +74,19 @@ val binary_search_aux_def = tDefine "binary_search_aux" `
                 binary_search_aux value (mid + 1n) finish
             od
   od
-`
-  (
+Termination
     WF_REL_TAC `measure (λ (_, start, finish) . finish - start)` >>
     rw[] >>
     fs[NOT_GREATER_EQ, NOT_GREATER, ADD1] >>
     `start <= (finish + start) DIV 2` by fs[X_LE_DIV]
     >- DECIDE_TAC
     >- fs[DIV_LT_X]
-  );
+End
 
-val binary_search_def = Define `
+Definition binary_search_def:
   binary_search value =
-    do len <- arr_length; binary_search_aux value 0 len od`;
+    do len <- arr_length; binary_search_aux value 0 len od
+End
 
 (* Monadic translation *)
 

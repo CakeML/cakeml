@@ -35,9 +35,10 @@ val _ = translate parse_line_def;
 
 val _ = translate nocomment_line_def;
 
-val format_dimacs_failure_def = Define`
+Definition format_dimacs_failure_def:
   format_dimacs_failure (lno:num) s =
-  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+End
 
 val _ = translate format_dimacs_failure_def;
 
@@ -640,7 +641,7 @@ val b_inputAllTokensFrom_spec_specialize =
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
   |> REWRITE_RULE [blanks_v_thm,tokenize_v_thm,blanks_def] ;
 
-val check_unsat_2_sem_def = Define`
+Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 f2 err =
   if inFS_fname fs f1 then
   (case parse_cnf_xor_toks (MAP toks (all_lines fs f1)) of
@@ -664,7 +665,8 @@ val check_unsat_2_sem_def = Define`
             add_stderr fs err
       | NONE => add_stderr fs err
     else add_stderr fs err)
-  else add_stderr fs err`
+  else add_stderr fs err
+End
 
 val err_tac = xapp_spec output_stderr_spec \\ xsimpl>>
     asm_exists_tac>>xsimpl>>
@@ -1008,7 +1010,9 @@ local
 val name = "check_unsat"
 val (sem_thm,prog_tm) =
   whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec2)
-val check_unsat_prog_def = Define`check_unsat_prog = ^prog_tm`;
+Definition check_unsat_prog_def:
+  check_unsat_prog = ^prog_tm
+End
 
 in
 

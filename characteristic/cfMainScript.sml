@@ -65,10 +65,11 @@ Proof
   \\ asm_exists_tac \\ fs []
 QED
 
-val prog_to_semantics_prog = Q.prove(
-  `!init_env inp prog st c r env2 s2.
+Triviality prog_to_semantics_prog:
+  !init_env inp prog st c r env2 s2.
      Decls init_env inp prog env2 s2 ==>
-     (semantics_prog inp init_env prog (Terminate Success s2.ffi.io_events))`,
+     (semantics_prog inp init_env prog (Terminate Success s2.ffi.io_events))
+Proof
   rw[ml_progTheory.Decls_def]
   \\ fs[semanticsTheory.semantics_prog_def,PULL_EXISTS]
   \\ fs[semanticsTheory.evaluate_prog_with_clock_def]
@@ -80,27 +81,33 @@ val prog_to_semantics_prog = Q.prove(
   \\ qpat_x_assum `_ = (_,Rval _)` assume_tac
   \\ drule evaluate_decs_add_to_clock
   \\ disch_then (qspec_then `k` mp_tac)
-  \\ rpt strip_tac \\ fs []);
+  \\ rpt strip_tac \\ fs []
+QED
 
-val clock_eq_lemma = Q.prove(
-  `!c. st with clock := a = st2 with clock := b ==>
-    st with clock := c = st2 with clock := c`,
-  simp[state_component_equality]);
+Triviality clock_eq_lemma:
+  !c. st with clock := a = st2 with clock := b ==>
+    st with clock := c = st2 with clock := c
+Proof
+  simp[state_component_equality]
+QED
 
-val state_eq_semantics_prog = Q.prove(
-  `st with clock := a = st2 with clock := b ==>
-   semantics_prog st env prog r = semantics_prog st2 env prog r`,
+Triviality state_eq_semantics_prog:
+  st with clock := a = st2 with clock := b ==>
+   semantics_prog st env prog r = semantics_prog st2 env prog r
+Proof
   strip_tac \\ Cases_on `r`
   \\ simp[semanticsTheory.semantics_prog_def,semanticsTheory.evaluate_prog_with_clock_def]
   \\ imp_res_tac clock_eq_lemma
-  \\ fs[]);
+  \\ fs[]
+QED
 
-val prog_APPEND_semantics_prog = Q.prove(
-  `!prog1 init_env prog2 st1 c outcome events env2 st2.
+Triviality prog_APPEND_semantics_prog:
+  !prog1 init_env prog2 st1 c outcome events env2 st2.
   Decls init_env st1 prog1 env2 st2
   /\ semantics_prog st2 (merge_env env2 init_env) prog2 (Terminate outcome events)
   ==>
-  semantics_prog st1 init_env (prog1++prog2) (Terminate outcome events)`,
+  semantics_prog st1 init_env (prog1++prog2) (Terminate outcome events)
+Proof
   Induct_on `prog1` \\ rw[]
   >- (fs[ml_progTheory.Decls_def] \\ rveq \\ fs[ml_progTheory.merge_env_def]
       \\ metis_tac[state_eq_semantics_prog])
@@ -120,19 +127,23 @@ val prog_APPEND_semantics_prog = Q.prove(
   \\ rpt(dxrule evaluate_decs_add_to_clock) \\ simp[]
   \\ rpt strip_tac
   \\ fs[combine_dec_result_def] \\ rveq
-  \\ fs[extend_dec_env_def,ml_progTheory.merge_env_def]);
+  \\ fs[extend_dec_env_def,ml_progTheory.merge_env_def]
+QED
 
-val prog_SNOC_semantics_prog = Q.prove(
-  `!prog1 init_env decl st1 c outcome events env2 st2.
+Triviality prog_SNOC_semantics_prog:
+  !prog1 init_env decl st1 c outcome events env2 st2.
   Decls init_env st1 prog1 env2 st2
   /\ semantics_prog st2 (merge_env env2 init_env) [decl] (Terminate outcome events)
   ==>
-  semantics_prog st1 init_env (SNOC decl prog1) (Terminate outcome events)`,
-  simp[SNOC_APPEND] \\ MATCH_ACCEPT_TAC prog_APPEND_semantics_prog);
+  semantics_prog st1 init_env (SNOC decl prog1) (Terminate outcome events)
+Proof
+  simp[SNOC_APPEND] \\ MATCH_ACCEPT_TAC prog_APPEND_semantics_prog
+QED
 
-val FFI_part_hprop_def = Define`
+Definition FFI_part_hprop_def:
   FFI_part_hprop Q =
-   (!h. Q h ==> (?s u ns us. FFI_part s u ns us IN h))`;
+   (!h. Q h ==> (?s u ns us. FFI_part s u ns us IN h))
+End
 
 Theorem FFI_part_hprop_STAR:
    FFI_part_hprop P \/ FFI_part_hprop Q ==> FFI_part_hprop (P * Q)

@@ -220,8 +220,10 @@ End
 Definition memOpToNum_def:
   memOpToNum Load = (21:num) ∧
   memOpToNum Load8 = 22 ∧
+  memOpToNum Load32 = 44 ∧
   memOpToNum Store = 23 ∧
-  memOpToNum Store8 = 24
+  memOpToNum Store8 = 24 ∧
+  memOpToNum Store34 = 45
 End
 
 Definition fpToNumList_def:

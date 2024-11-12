@@ -5,7 +5,7 @@ open preamble backendTheory arm8_targetTheory arm8_targetLib
 
 val _ = new_theory"arm8_config";
 
-val arm8_names_def = Define `
+Definition arm8_names_def:
   arm8_names =
     (* source can use 29 regs (0-28),
        target's r18 should be avoided (platform reserved),
@@ -24,10 +24,11 @@ val arm8_names_def = Define `
      insert 26 25 o
      (* Next ones are for well-formedness only *)
      insert 29 18 o
-     insert 30 26) LN:num num_map`
+     insert 30 26) LN:num num_map
+End
 
-val arm8_names_def = save_thm("arm8_names_def[compute,allow_rebind]",
-  CONV_RULE (RAND_CONV EVAL) arm8_names_def);
+Theorem arm8_names_def[compute,allow_rebind] =
+  CONV_RULE (RAND_CONV EVAL) arm8_names_def
 
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
@@ -38,7 +39,7 @@ val arm8_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val arm8_stack_conf = ``<|jump:=F;reg_names:=arm8_names|>``
 val arm8_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=arm8_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
 
-val arm8_backend_config_def = Define`
+Definition arm8_backend_config_def:
   arm8_backend_config =
              <|source_conf:=prim_src_config;
                clos_conf:=^(clos_conf);
@@ -51,6 +52,7 @@ val arm8_backend_config_def = Define`
                symbols:=[];
                tap_conf:=default_tap_config;
                exported:=[]
-               |>`;
+               |>
+End
 
 val _ = export_theory();

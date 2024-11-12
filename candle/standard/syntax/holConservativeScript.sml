@@ -9,18 +9,21 @@ val _ = new_theory "holConservative";
 
 (* Theorems that should probably be proved elsewhere (perhaps some already are) *)
 
-val CLOSED_INST = Q.prove (
-`!tm tysubst. CLOSED tm ∧ welltyped tm ⇒ CLOSED (INST tysubst tm)`,
+Triviality CLOSED_INST:
+  !tm tysubst. CLOSED tm ∧ welltyped tm ⇒ CLOSED (INST tysubst tm)
+Proof
   rw[INST_def] >>
   qspecl_then[`sizeof tm`,`tm`,`[]`,`tysubst`]mp_tac INST_CORE_HAS_TYPE >>
   simp[REV_ASSOCD] >> strip_tac >> simp[] >>
-  fs[CLOSED_def]);
+  fs[CLOSED_def]
+QED
 
-val type_ok_subst = Q.prove (
-`!tys i ty.
+Triviality type_ok_subst:
+  !tys i ty.
   type_ok tys (TYPE_SUBST i ty)
   ⇒
-  ?i'. EVERY (type_ok tys) (MAP FST i') ∧ TYPE_SUBST i' ty = TYPE_SUBST i ty`,
+  ?i'. EVERY (type_ok tys) (MAP FST i') ∧ TYPE_SUBST i' ty = TYPE_SUBST i ty
+Proof
   rpt strip_tac >>
   imp_res_tac type_ok_TYPE_SUBST_imp >>
   qexists_tac`MAP (λx. (TYPE_SUBST i (Tyvar x), Tyvar x)) (tyvars ty)` >>
@@ -28,7 +31,8 @@ val type_ok_subst = Q.prove (
   simp[TYPE_SUBST_tyvars] >>
   rpt(pop_assum kall_tac) >>
   qspec_tac(`tyvars ty`,`ls`) >>
-  Induct >> simp[REV_ASSOCD] >> rw[]);
+  Induct >> simp[REV_ASSOCD] >> rw[]
+QED
 
 Theorem term_image_term_union:
  !f h1 h2.
@@ -52,13 +56,14 @@ Proof
   ...
 QED
 
-val term_image_term_remove = Q.prove (
-`!x f tm tms.
+Triviality term_image_term_remove:
+  !x f tm tms.
   (!t1 t2. ACONV t1 t2 ⇒ ACONV (f t1) (f t2)) ∧
   hypset_ok tms ∧
   MEM x (term_remove (f tm) (term_image f tms)) ⇒
-  ?x'. MEM x' (term_image f (term_remove tm tms)) ∧ ACONV x x'`,
- rw [] >>
+  ?x'. MEM x' (term_image f (term_remove tm tms)) ∧ ACONV x x'
+Proof
+  rw [] >>
  imp_res_tac hypset_ok_term_image >>
  imp_res_tac MEM_term_remove_imp >>
  imp_res_tac MEM_term_image_imp >>
@@ -69,14 +74,16 @@ val term_image_term_remove = Q.prove (
      imp_res_tac MEM_term_image >>
      `hypset_ok (term_remove tm tms)` by metis_tac [hypset_ok_term_remove] >>
      fs [])
- >- metis_tac [MEM_term_remove]);
+ >- metis_tac [MEM_term_remove]
+QED
 
 (* End of theorems for elsewhere *)
 
-val const_subst_ok_def = Define `
-const_subst_ok s = EVERY (\(c,tm). welltyped tm ∧ CLOSED tm) s`;
+Definition const_subst_ok_def:
+const_subst_ok s = EVERY (\(c,tm). welltyped tm ∧ CLOSED tm) s
+End
 
-val remove_const_def = Define `
+Definition remove_const_def:
 (remove_const thy subst (Var v ty) = Var v ty) ∧
 (remove_const thy subst (Const c ty) =
   case ALOOKUP subst c of
@@ -88,20 +95,23 @@ val remove_const_def = Define `
 (remove_const thy subst (Comb tm1 tm2) =
   Comb (remove_const thy subst tm1) (remove_const thy subst tm2)) ∧
 (remove_const thy subst (Abs v tm) =
-  Abs v (remove_const thy subst tm))`;
+  Abs v (remove_const thy subst tm))
+End
 
-val upd_to_subst_def = Define `
+Definition upd_to_subst_def:
 (upd_to_subst (ConstSpec consts p) =
   consts) ∧
-(upd_to_subst _ = [])`;
+(upd_to_subst _ = [])
+End
 
-val updates_to_subst = Q.prove (
-`!upd ctxt.
+Triviality updates_to_subst:
+  !upd ctxt.
   upd updates ctxt
   ⇒
   const_subst_ok (upd_to_subst upd) ∧
-  ALOOKUP (upd_to_subst upd) (strlit "=") = NONE`,
- rw [updates_cases] >>
+  ALOOKUP (upd_to_subst upd) (strlit "=") = NONE
+Proof
+  rw [updates_cases] >>
  rw [upd_to_subst_def, const_subst_ok_def] >>
  imp_res_tac proves_theory_ok >>
  imp_res_tac theory_ok_sig
@@ -120,11 +130,13 @@ val updates_to_subst = Q.prove (
      imp_res_tac ALOOKUP_MEM >>
      res_tac >>
      fs [MEM_MAP] >>
-     metis_tac [pair_CASES, FST, SND]));
+     metis_tac [pair_CASES, FST, SND])
+QED
 
-val typeof_remove_const = Q.prove (
-`!tm thy s. const_subst_ok s ⇒ typeof (remove_const thy s tm) = typeof tm`,
- Induct_on `tm` >>
+Triviality typeof_remove_const:
+  !tm thy s. const_subst_ok s ⇒ typeof (remove_const thy s tm) = typeof tm
+Proof
+  Induct_on `tm` >>
  rw [remove_const_def] >>
  every_case_tac >>
  rw [] >>
@@ -140,16 +152,20 @@ val typeof_remove_const = Q.prove (
  Cases_on `?tysubst. TYPE_SUBST tysubst (typeof x) = t` >>
  fs [some_def] >>
  rw [] >>
- metis_tac [SELECT_THM]);
+ metis_tac [SELECT_THM]
+QED
 
-val remove_const_eq = Q.prove (
-`const_subst_ok s ∧ ALOOKUP s (strlit "=") = NONE ⇒
-  remove_const thy s (tm1 === tm2) = remove_const thy s tm1 === remove_const thy s tm2`,
- rw [equation_def, remove_const_def, typeof_remove_const]);
+Triviality remove_const_eq:
+  const_subst_ok s ∧ ALOOKUP s (strlit "=") = NONE ⇒
+  remove_const thy s (tm1 === tm2) = remove_const thy s tm1 === remove_const thy s tm2
+Proof
+  rw [equation_def, remove_const_def, typeof_remove_const]
+QED
 
-val has_type_remove_const = Q.prove (
-`!tm ty. tm has_type ty ⇒ !s. const_subst_ok s ⇒ remove_const thy s tm has_type ty`,
- ho_match_mp_tac has_type_ind >>
+Triviality has_type_remove_const:
+  !tm ty. tm has_type ty ⇒ !s. const_subst_ok s ⇒ remove_const thy s tm has_type ty
+Proof
+  ho_match_mp_tac has_type_ind >>
  rw [remove_const_def]
  >- rw [Once has_type_cases]
  >- (every_case_tac >>
@@ -168,11 +184,13 @@ val has_type_remove_const = Q.prove (
          rw [] >>
          metis_tac [SELECT_THM]))
  >- metis_tac [has_type_cases]
- >- rw [Once has_type_cases]);
+ >- rw [Once has_type_cases]
+QED
 
-val vfree_in_remove_const = Q.prove (
-`const_subst_ok s ∧ VFREE_IN (Var x ty) (remove_const thy s tm) ⇒ VFREE_IN (Var x ty) tm`,
- Induct_on `tm` >>
+Triviality vfree_in_remove_const:
+  const_subst_ok s ∧ VFREE_IN (Var x ty) (remove_const thy s tm) ⇒ VFREE_IN (Var x ty) tm
+Proof
+  Induct_on `tm` >>
  rw [VFREE_IN_def, remove_const_def] >>
  rw [VFREE_IN_def] >>
  every_case_tac >>
@@ -186,10 +204,11 @@ val vfree_in_remove_const = Q.prove (
            fs []) >>
  fs[const_subst_ok_def,EVERY_MEM] >>
  imp_res_tac ALOOKUP_MEM >> res_tac >> fs[] >>
- metis_tac [CLOSED_INST, CLOSED_def]);
+ metis_tac [CLOSED_INST, CLOSED_def]
+QED
 
-val type_ok_remove_upd = Q.prove (
-`!sig ty.
+Triviality type_ok_remove_upd:
+  !sig ty.
   type_ok sig ty
   ⇒
   !ctxt upd.
@@ -197,8 +216,9 @@ val type_ok_remove_upd = Q.prove (
     (!name pred v2 v3. upd ≠ TypeDefn name pred v2 v3) ∧
     sig = alist_to_fmap (types_of_upd upd) ⊌ tysof ctxt
     ⇒
-    type_ok (tysof ctxt) ty`,
- ho_match_mp_tac type_ok_ind >>
+    type_ok (tysof ctxt) ty
+Proof
+  ho_match_mp_tac type_ok_ind >>
  rw [type_ok_def]
  >- (Cases_on `upd` >>
      fs [FLOOKUP_UPDATE, FLOOKUP_FUNION] >>
@@ -206,16 +226,18 @@ val type_ok_remove_upd = Q.prove (
      fs []) >>
  fs [EVERY_MEM] >>
  rw [] >>
- metis_tac []);
+ metis_tac []
+QED
 
-val term_ok_remove_upd = Q.prove (
-`!upd ctxt tm thy.
+Triviality term_ok_remove_upd:
+  !upd ctxt tm thy.
   term_ok (alist_to_fmap (types_of_upd upd) ⊌ tysof ctxt, alist_to_fmap (consts_of_upd upd) ⊌ tmsof ctxt) tm ∧
   upd updates ctxt ∧
   (?consts p. upd = ConstSpec consts p)
   ⇒
-  term_ok (sigof ctxt) (remove_const (tysof ctxt) (upd_to_subst upd) tm)`,
- Induct_on `tm` >>
+  term_ok (sigof ctxt) (remove_const (tysof ctxt) (upd_to_subst upd) tm)
+Proof
+  Induct_on `tm` >>
  rw [term_ok_def, remove_const_def] >>
  rw [upd_to_subst_def]
  >- metis_tac [type_ok_remove_upd, update_distinct]
@@ -281,28 +303,34 @@ val term_ok_remove_upd = Q.prove (
  >- (imp_res_tac updates_to_subst >>
      fs [upd_to_subst_def] >>
      rw [typeof_remove_const])
- >- metis_tac [type_ok_remove_upd, update_distinct]);
+ >- metis_tac [type_ok_remove_upd, update_distinct]
+QED
 
-val theory_ok_remove_upd = Q.prove (
-`!sig ty.
+Triviality theory_ok_remove_upd:
+  !sig ty.
   (?consts p. upd = ConstSpec consts p) ∧
   upd updates ctxt
   ⇒
-  theory_ok (thyof ctxt)`,
- rw [updates_cases] >>
+  theory_ok (thyof ctxt)
+Proof
+  rw [updates_cases] >>
  imp_res_tac proves_theory_ok >>
- fs []);
+ fs []
+QED
 
-val remove_const_inst = Q.prove (
-`!tys consts tyin tm.
-  remove_const tys consts (INST tyin tm) = INST tyin (remove_const tys consts tm)`,
- Induct_on `tm` >>
+Triviality remove_const_inst:
+  !tys consts tyin tm.
+  remove_const tys consts (INST tyin tm) = INST tyin (remove_const tys consts tm)
+Proof
+  Induct_on `tm` >>
  rw [remove_const_def] >>
- ...);
+ ...
+QED
 
-val RACONV_REFL2 = Q.prove (
-`!tms tm. EVERY (\(x,y). (x ≠ y) ⇒ ~VFREE_IN x tm ∧ ~VFREE_IN y tm) tms ⇒ RACONV tms (tm,tm)`,
- Induct_on `tm` >>
+Triviality RACONV_REFL2:
+  !tms tm. EVERY (\(x,y). (x ≠ y) ⇒ ~VFREE_IN x tm ∧ ~VFREE_IN y tm) tms ⇒ RACONV tms (tm,tm)
+Proof
+  Induct_on `tm` >>
  rw [] >>
  rw [Once RACONV_cases]
  >- (pop_assum mp_tac >>
@@ -318,13 +346,15 @@ val RACONV_REFL2 = Q.prove (
      metis_tac [])
  >- (fs [EVERY_MEM, LAMBDA_PROD, FORALL_PROD] >>
      metis_tac [])
- >- ...);
+ >- ...
+QED
 
-val remove_const_raconv = Q.prove (
-`!tms tm. RACONV tms tm ⇒
+Triviality remove_const_raconv:
+  !tms tm. RACONV tms tm ⇒
   const_subst_ok consts ⇒
-  RACONV tms (remove_const tys consts (FST tm), remove_const tys consts (SND tm))`,
- ho_match_mp_tac RACONV_ind >>
+  RACONV tms (remove_const tys consts (FST tm), remove_const tys consts (SND tm))
+Proof
+  ho_match_mp_tac RACONV_ind >>
  rw [remove_const_def]
  >- rw [Once RACONV_cases]
  >- (Cases_on `ALOOKUP consts x` >>
@@ -345,42 +375,52 @@ val remove_const_raconv = Q.prove (
      `(?x y. p_1 = Var x y) ∧ (?x y. p_2 = Var x y)` by ... >>
      metis_tac [])
  >- rw [Once RACONV_cases]
- >- rw [Once RACONV_cases]);
+ >- rw [Once RACONV_cases]
+QED
 
-val remove_const_aconv = Q.prove (
-`!tm1 tm2. const_subst_ok consts ∧ ACONV tm1 tm2 ⇒ ACONV (remove_const tys consts tm1) (remove_const tys consts tm2)`,
- rw [ACONV_def] >>
+Triviality remove_const_aconv:
+  !tm1 tm2. const_subst_ok consts ∧ ACONV tm1 tm2 ⇒ ACONV (remove_const tys consts tm1) (remove_const tys consts tm2)
+Proof
+  rw [ACONV_def] >>
  imp_res_tac remove_const_raconv >>
- fs []);
+ fs []
+QED
 
-val remove_const_vsubst = Q.prove (
-`!tys consts tm.
+Triviality remove_const_vsubst:
+  !tys consts tm.
   remove_const tys consts (VSUBST ilist tm) =
-  VSUBST (MAP (λ(x,y). (remove_const tys consts x, y)) ilist) (remove_const tys consts tm)`,
- ...);
+  VSUBST (MAP (λ(x,y). (remove_const tys consts x, y)) ilist) (remove_const tys consts tm)
+Proof
+  ...
+QED
 
-val welltyped_remove_const = Q.prove (
-`!tys consts tm.
-  const_subst_ok consts ∧ welltyped tm ⇒ welltyped (remove_const tys consts tm)`,
- rw [WELLTYPED] >>
+Triviality welltyped_remove_const:
+  !tys consts tm.
+  const_subst_ok consts ∧ welltyped tm ⇒ welltyped (remove_const tys consts tm)
+Proof
+  rw [WELLTYPED] >>
  imp_res_tac has_type_remove_const >>
- rw [typeof_remove_const]);
+ rw [typeof_remove_const]
+QED
 
-val use_const_spec = Q.prove (
-`!ctxt consts p.
+Triviality use_const_spec:
+  !ctxt consts p.
   (thyof ctxt,MAP (λ(s,t). Var s (typeof t) === t) consts) |- p
   ⇒
   (thyof ctxt,[]) |-
-  remove_const (tysof ctxt) consts (VSUBST (MAP (λ(s,t). (Const s (typeof t),Var s (typeof t))) consts) p)`,
- ...);
+  remove_const (tysof ctxt) consts (VSUBST (MAP (λ(s,t). (Const s (typeof t),Var s (typeof t))) consts) p)
+Proof
+  ...
+QED
 
-val remove_const_old_axiom = Q.prove (
-`!ctxt consts tm.
+Triviality remove_const_old_axiom:
+  !ctxt consts tm.
   term_ok (sigof ctxt) tm ∧
   (∀s. MEM s (MAP FST consts) ⇒ ¬MEM s (MAP FST (const_list ctxt)))
   ⇒
-  remove_const (tysof ctxt) consts tm = tm`,
- Induct_on `tm` >>
+  remove_const (tysof ctxt) consts tm = tm
+Proof
+  Induct_on `tm` >>
  rw [remove_const_def] >>
  every_case_tac >>
  fs [] >>
@@ -389,16 +429,19 @@ val remove_const_old_axiom = Q.prove (
  res_tac >>
  fs [FORALL_PROD] >>
  imp_res_tac ALOOKUP_MEM >>
- metis_tac []);
+ metis_tac []
+QED
 
-val proves_hypset_ok = Q.prove (
-`!thy h c. (thy,h) |- c ⇒ hypset_ok h`,
- rw [] >>
+Triviality proves_hypset_ok:
+  !thy h c. (thy,h) |- c ⇒ hypset_ok h
+Proof
+  rw [] >>
  imp_res_tac proves_term_ok >>
- fs []);
+ fs []
+QED
 
-val update_conservative = Q.prove (
-`!lhs tm.
+Triviality update_conservative:
+  !lhs tm.
   lhs |- tm
   ⇒
   !ctxt tms upd.
@@ -406,8 +449,9 @@ val update_conservative = Q.prove (
     upd updates ctxt ∧
     (?consts p. upd = ConstSpec consts p)
     ⇒
-    (thyof ctxt,term_image (remove_const (tysof (upd::ctxt)) (upd_to_subst upd)) tms) |- remove_const (tysof (upd::ctxt)) (upd_to_subst upd) tm`,
- ho_match_mp_tac proves_strongind >>
+    (thyof ctxt,term_image (remove_const (tysof (upd::ctxt)) (upd_to_subst upd)) tms) |- remove_const (tysof (upd::ctxt)) (upd_to_subst upd) tm
+Proof
+  ho_match_mp_tac proves_strongind >>
  rw [] >>
  imp_res_tac proves_hypset_ok >>
  imp_res_tac updates_to_subst >>
@@ -571,7 +615,8 @@ val update_conservative = Q.prove (
          fs [theory_ok_def] >>
          res_tac >>
          rw [term_image_def] >>
-         metis_tac [remove_const_old_axiom])));
+         metis_tac [remove_const_old_axiom]))
+QED
 
 *)
 

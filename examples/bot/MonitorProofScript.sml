@@ -21,17 +21,22 @@ val _ = new_theory"MonitorProof";
   A step of the loop body can have 2 error cases and 1 success case
 *)
 
-val _ = Datatype`
-  status = Success | PlantViol | DefViol `
+Datatype:
+  status = Success | PlantViol | DefViol
+End
 
 (* prevent automatic rewrite *)
-val hide_def = Define`
-  hide f p r <=> if f then p else r`
+Definition hide_def:
+  hide f p r <=> if f then p else r
+End
 
-val hideF = Q.prove(`
-  hide F p r = r`, fs[hide_def])
+Triviality hideF:
+  hide F p r = r
+Proof
+  fs[hide_def]
+QED
 
-val body_step_def = Define`
+Definition body_step_def:
   body_step flg w w' <=>
   ∃ctrlplus_ls conf.
   LENGTH ctrlplus_ls = LENGTH w.wc.ctrlplus_names ∧
@@ -51,10 +56,11 @@ val body_step_def = Define`
     (* If control monitor succeeded, sandbox definitely actuates *)
     ffi_actuate conf (w32_to_w8 ctrl) wi = SOME (FFIreturn (w32_to_w8 ctrl) w')
   (* No actuation happens if a default violation is reported *)
-  | _ => (flg = DefViol ∧ w' = wi)`
+  | _ => (flg = DefViol ∧ w' = wi)
+End
 
 (* The sandbox body *)
-val body_sandbox_def = Define`
+Definition body_sandbox_def:
   body_sandbox flg wc =
    Seq (AssignAnyPar wc.ctrlplus_names)
   (Seq (AssignVarPar wc.ctrlfixed_names wc.ctrlfixed_rhs)
@@ -67,26 +73,28 @@ val body_sandbox_def = Define`
         (Seq (Test wc.plant_monitor)
              (AssignVarPar wc.sensor_names wc.sensorplus_names))
         Skip)
-    )))))`
+    )))))
+End
 
 (*
   The state relation between an FFI state and a HP state
   - maps point FFI state to a point interval
 *)
-val state_rel_def = Define`
+Definition state_rel_def:
   state_rel w (hp_w:cwstate) ⇔
   let names = w.wc.sensor_names ++  w.wc.ctrl_names ++ w.wc.const_names in
   let vals  = w.ws.sensor_vals  ++  w.ws.ctrl_vals  ++ w.ws.const_vals  in
   let ffi_st = ZIP(names, ZIP(vals,vals)) in
     ∀x.
     MEM x names ⇒
-    ALOOKUP ffi_st x = ALOOKUP hp_w x`
+    ALOOKUP ffi_st x = ALOOKUP hp_w x
+End
 
 (*
   These are syntactic well-formedness condition on mach_config
 
 *)
-val wf_config_def = Define`
+Definition wf_config_def:
   wf_config wc ⇔
   (* Length sanity checks *)
   LENGTH wc.sensor_names = LENGTH wc.sensorplus_names ∧
@@ -117,10 +125,11 @@ val wf_config_def = Define`
   let plant_deps = wc.const_names ++ wc.sensor_names ++ wc.ctrl_names ++ wc.sensorplus_names in
     EVERY (λx. MEM x plant_deps) (fv_fml wc.plant_monitor) ∧
   let ctrl_deps = wc.const_names ++ wc.ctrl_names ++ wc.sensor_names ++ wc.ctrlplus_names ++ wc.ctrlfixed_names in
-    EVERY (λx. MEM x ctrl_deps) (fv_fml wc.ctrl_monitor)`
+    EVERY (λx. MEM x ctrl_deps) (fv_fml wc.ctrl_monitor)
+End
 
 (* Well-formed machs obey their config's lengths *)
-val wf_mach_def = Define`
+Definition wf_mach_def:
   wf_mach w ⇔
   let constlen = LENGTH w.wc.const_names in
   let sensorlen = LENGTH w.wc.sensor_names in
@@ -133,75 +142,93 @@ val wf_mach_def = Define`
     LENGTH (w.wo.ctrl_oracle n inp) = ctrllen) ∧
   (∀n inp.
     (* See above on the length restriction *)
-    LENGTH (w.wo.transition_oracle n inp) = sensorlen)`
+    LENGTH (w.wo.transition_oracle n inp) = sensorlen)
+End
 
-val MAP_ZIP2 = Q.prove(`
+Triviality MAP_ZIP2:
   LENGTH xs = LENGTH ys ⇒
   MAP (λ(x,t). (x,f t)) (ZIP (xs,ys)) =
-  ZIP (xs, MAP f ys)`,
-  fs[LIST_EQ_REWRITE] >>rw[EL_MAP,EL_ZIP]);
+  ZIP (xs, MAP f ys)
+Proof
+  fs[LIST_EQ_REWRITE] >>rw[EL_MAP,EL_ZIP]
+QED
 
-val ZIP_ID = Q.prove(`
-  ZIP(ls,ls) = MAP (λx. x,x) ls`,
-  fs[LIST_EQ_REWRITE,EL_ZIP,EL_MAP]);
+Triviality ZIP_ID:
+  ZIP(ls,ls) = MAP (λx. x,x) ls
+Proof
+  fs[LIST_EQ_REWRITE,EL_ZIP,EL_MAP]
+QED
 
-val MEM_ALOOKUP_APPEND = Q.prove(`
+Triviality MEM_ALOOKUP_APPEND:
   MEM x (MAP FST ls) ⇒
-  ALOOKUP (ls++xs) x = ALOOKUP (ls++ys) x`,
+  ALOOKUP (ls++xs) x = ALOOKUP (ls++ys) x
+Proof
   rw[ALOOKUP_APPEND]>>
-  TOP_CASE_TAC>>fs[ALOOKUP_NONE]);
+  TOP_CASE_TAC>>fs[ALOOKUP_NONE]
+QED
 
-val MEM_ALOOKUP_APPEND_REV = Q.prove(`
+Triviality MEM_ALOOKUP_APPEND_REV:
   ALL_DISTINCT (MAP FST ls) ∧
   MEM x (MAP FST ls) ⇒
-  ALOOKUP (ls++xs) x = ALOOKUP (REVERSE ls++ys) x`,
+  ALOOKUP (ls++xs) x = ALOOKUP (REVERSE ls++ys) x
+Proof
   rw[ALOOKUP_APPEND]>>
   TOP_CASE_TAC>>fs[ALOOKUP_NONE]>>
-  simp[alookup_distinct_reverse]);
+  simp[alookup_distinct_reverse]
+QED
 
-val NOT_MEM_ALOOKUP_APPEND = Q.prove(`
+Triviality NOT_MEM_ALOOKUP_APPEND:
   ¬MEM x (MAP FST ls) ⇒
-  ALOOKUP (ls++xs) x = ALOOKUP xs x`,
+  ALOOKUP (ls++xs) x = ALOOKUP xs x
+Proof
   rw[ALOOKUP_APPEND]>>
   TOP_CASE_TAC>>fs[]>>
   imp_res_tac ALOOKUP_MEM>>fs[MEM_MAP,FORALL_PROD]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-val APPEND_ASSOC4 = Q.prove(`
+Triviality APPEND_ASSOC4:
   (a ++ b ++ c ++ d):'a list =
-  (a++b) ++ (c++d)`,
-  fs[]);
+  (a++b) ++ (c++d)
+Proof
+  fs[]
+QED
 
-val no_overlap_APPEND = Q.prove(`
+Triviality no_overlap_APPEND:
   no_overlap ls (xs++ys) ⇔
-  no_overlap ls xs ∧ no_overlap ls ys`,
+  no_overlap ls xs ∧ no_overlap ls ys
+Proof
   fs[no_overlap_thm]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-val state_rel_lookup_const = Q.prove(`
+Triviality state_rel_lookup_const:
   wf_config w.wc ∧
   wf_mach w /\
   MEM x w.wc.const_names ∧
   state_rel w st ⇒
   ALOOKUP st x =
   ALOOKUP
-  (ZIP (w.wc.const_names,MAP (λx. (x,x)) w.ws.const_vals)) x`,
+  (ZIP (w.wc.const_names,MAP (λx. (x,x)) w.ws.const_vals)) x
+Proof
   rw[]>>fs[state_rel_def,wf_config_def,wf_mach_def]>>
   pop_assum(qspec_then`x` assume_tac)>>
   rfs[]>>
   pop_assum sym_sub_tac>>
   simp[GSYM ZIP_APPEND]>>
   dep_rewrite.DEP_ONCE_REWRITE_TAC [NOT_MEM_ALOOKUP_APPEND]>>
-  fs[ZIP_ID,MAP_ZIP,no_overlap_thm]);
+  fs[ZIP_ID,MAP_ZIP,no_overlap_thm]
+QED
 
-val state_rel_lookup_sensor = Q.prove(`
+Triviality state_rel_lookup_sensor:
   wf_config w.wc ∧
   wf_mach w /\
   MEM x w.wc.sensor_names ∧
   state_rel w st ⇒
   ALOOKUP st x =
   ALOOKUP
-  (ZIP (w.wc.sensor_names,MAP (λx. (x,x)) w.ws.sensor_vals)++rest) x`,
+  (ZIP (w.wc.sensor_names,MAP (λx. (x,x)) w.ws.sensor_vals)++rest) x
+Proof
   rw[]>>fs[state_rel_def,wf_config_def,wf_mach_def]>>
   pop_assum(qspec_then`x` assume_tac)>>
   rfs[]>>
@@ -209,9 +236,10 @@ val state_rel_lookup_sensor = Q.prove(`
   simp[GSYM ZIP_APPEND,ZIP_ID]>>
   PURE_REWRITE_TAC [GSYM APPEND_ASSOC]>>
   match_mp_tac MEM_ALOOKUP_APPEND>>
-  fs[MAP_ZIP]);
+  fs[MAP_ZIP]
+QED
 
-val state_rel_lookup_full = Q.prove(`
+Triviality state_rel_lookup_full:
   wf_config w.wc ∧
   wf_mach w /\
   (MEM x w.wc.const_names ∨ MEM x w.wc.ctrl_names ∨ MEM x w.wc.sensor_names) ∧
@@ -220,7 +248,8 @@ val state_rel_lookup_full = Q.prove(`
   ALOOKUP
   (ZIP (w.wc.sensor_names,MAP (λx. (x,x)) w.ws.sensor_vals) ++
    ZIP (w.wc.ctrl_names,MAP (λx. (x,x)) w.ws.ctrl_vals) ++
-   ZIP (w.wc.const_names,MAP (λx. (x,x)) w.ws.const_vals)) x`,
+   ZIP (w.wc.const_names,MAP (λx. (x,x)) w.ws.const_vals)) x
+Proof
   rw[]>>fs[state_rel_def,wf_config_def,wf_mach_def]>>
   pop_assum(qspec_then`x` assume_tac)>>
   rfs[]>>
@@ -228,9 +257,10 @@ val state_rel_lookup_full = Q.prove(`
   simp[GSYM ZIP_APPEND,ZIP_ID]>>
   PURE_REWRITE_TAC [GSYM APPEND_ASSOC]>>
   match_mp_tac MEM_ALOOKUP_APPEND>>
-  fs[MAP_ZIP]);
+  fs[MAP_ZIP]
+QED
 
-val state_rel_lookup_const2 = Q.prove(`
+Triviality state_rel_lookup_const2:
   wf_config w.wc ∧
   wf_mach w /\
   MEM x w.wc.const_names ∧
@@ -239,7 +269,8 @@ val state_rel_lookup_const2 = Q.prove(`
   ALOOKUP
   (ZIP (w.wc.sensor_names, w.ws.sensor_vals) ++
    ZIP (w.wc.ctrl_names, w.ws.ctrl_vals) ++
-   ZIP (w.wc.const_names,w.ws.const_vals)) x = SOME v`,
+   ZIP (w.wc.const_names,w.ws.const_vals)) x = SOME v
+Proof
   rw[]>>fs[state_rel_def,wf_config_def,wf_mach_def]>>
   pop_assum(qspec_then`x` assume_tac)>>
   rfs[]>>
@@ -255,9 +286,10 @@ val state_rel_lookup_const2 = Q.prove(`
     metis_tac[EL_MEM])>>
   fs[ALOOKUP_ZIP_MAP_SND]>>
   simp[ALOOKUP_EXISTS_IFF,MEM_ZIP]>>
-  metis_tac[MEM_EL]);
+  metis_tac[MEM_EL]
+QED
 
-val state_rel_lookup_sensor2 = Q.prove(`
+Triviality state_rel_lookup_sensor2:
   wf_config w.wc ∧
   wf_mach w /\
   MEM x w.wc.sensor_names ∧
@@ -266,7 +298,8 @@ val state_rel_lookup_sensor2 = Q.prove(`
   ALOOKUP
   (ZIP (w.wc.sensor_names, w.ws.sensor_vals) ++
    ZIP (w.wc.ctrl_names, w.ws.ctrl_vals) ++
-   ZIP (w.wc.const_names,w.ws.const_vals)) x = SOME v`,
+   ZIP (w.wc.const_names,w.ws.const_vals)) x = SOME v
+Proof
   rw[]>>fs[state_rel_def,wf_config_def,wf_mach_def]>>
   pop_assum(qspec_then`x` assume_tac)>>
   rfs[]>>
@@ -281,9 +314,10 @@ val state_rel_lookup_sensor2 = Q.prove(`
   dep_rewrite.DEP_ONCE_REWRITE_TAC [Q.SPEC `[]` (GEN_ALL MEM_ALOOKUP_APPEND)]>>
   simp[MAP_ZIP]>>
   simp[ALOOKUP_EXISTS_IFF,MEM_ZIP]>>
-  metis_tac[MEM_EL]);
+  metis_tac[MEM_EL]
+QED
 
-val state_rel_lookup_ctrl2 = Q.prove(`
+Triviality state_rel_lookup_ctrl2:
   wf_config w.wc ∧
   wf_mach w /\
   MEM x w.wc.ctrl_names ∧
@@ -292,7 +326,8 @@ val state_rel_lookup_ctrl2 = Q.prove(`
   ALOOKUP
   (ZIP (w.wc.sensor_names, w.ws.sensor_vals) ++
    ZIP (w.wc.ctrl_names, w.ws.ctrl_vals) ++
-   ZIP (w.wc.const_names,w.ws.const_vals)) x = SOME v`,
+   ZIP (w.wc.const_names,w.ws.const_vals)) x = SOME v
+Proof
   rw[]>>fs[state_rel_def,wf_config_def,wf_mach_def]>>
   pop_assum(qspec_then`x` assume_tac)>>
   rfs[]>>
@@ -302,11 +337,13 @@ val state_rel_lookup_ctrl2 = Q.prove(`
   simp[ALOOKUP_ZIP_MAP_SND]>>
   simp[GSYM ZIP_APPEND]>>
   simp[ALOOKUP_EXISTS_IFF,MEM_ZIP]>>
-  metis_tac[MEM_EL]);
+  metis_tac[MEM_EL]
+QED
 
-val MAP_lookup_var = Q.prove(`
+Triviality MAP_lookup_var:
   ALL_DISTINCT vars ∧ LENGTH vars = LENGTH vals ⇒
-  MAP (lookup_var (REVERSE (ZIP(vars,vals)) ++ rest)) vars = vals`,
+  MAP (lookup_var (REVERSE (ZIP(vars,vals)) ++ rest)) vars = vals
+Proof
   rw[]>>
   fs[LIST_EQ_REWRITE]>>
   simp[EL_MAP,lookup_var_def]>>
@@ -315,25 +352,30 @@ val MAP_lookup_var = Q.prove(`
   dep_rewrite.DEP_REWRITE_TAC [alookup_distinct_reverse]>>
   simp[MAP_ZIP]>>
   Q.ISPECL_THEN [`ZIP(vars,vals)`,`x`] assume_tac ALOOKUP_ALL_DISTINCT_EL>>
-  rfs[MAP_ZIP,EL_ZIP]);
+  rfs[MAP_ZIP,EL_ZIP]
+QED
 
-val is_point_MAP_cancel = Q.prove(`
+Triviality is_point_MAP_cancel:
   EVERY is_point ls ⇒
   MAP (λx. (x,x))
-    (MAP FST ls) = ls`,
+    (MAP FST ls) = ls
+Proof
   rw[]>>simp[MAP_EQ_ID,MAP_MAP_o]>>fs[EVERY_MEM,is_point_def]>>
-  metis_tac[FST,SND,PAIR]);
+  metis_tac[FST,SND,PAIR]
+QED
 
-val ALOOKUP_REV_SAME_SKIP = Q.prove(`
+Triviality ALOOKUP_REV_SAME_SKIP:
   ALL_DISTINCT (MAP FST xs) ∧
   (¬MEM x (MAP FST xs) ⇒ ALOOKUP ls x = ALOOKUP rs x)
   ⇒
-  ALOOKUP (REVERSE xs ++ ls) x = ALOOKUP (xs ++ rs) x`,
+  ALOOKUP (REVERSE xs ++ ls) x = ALOOKUP (xs ++ rs) x
+Proof
   rw[ALOOKUP_APPEND]>>
   simp[alookup_distinct_reverse]>>
   TOP_CASE_TAC>>fs[]>>
   first_x_assum match_mp_tac>>
-  metis_tac[ALOOKUP_NONE]);
+  metis_tac[ALOOKUP_NONE]
+QED
 
 Theorem w8_to_w32_w32_to_w8:
   ∀l. w8_to_w32 (w32_to_w8 l) = l
@@ -811,8 +853,9 @@ Proof
       unabbrev_all_tac>>fs[MAP_ZIP]
 QED
 
-val body_loop_def = Define`
-  body_loop = (body_step Success)^*`
+Definition body_loop_def:
+  body_loop = (body_step Success)^*
+End
 
 (* The first refinement : prove that the RTC of body_step corresponds
    to a the sandbox control loop
@@ -854,33 +897,38 @@ Proof
   metis_tac[]
 QED
 
-val init_sandbox_def = Define`
+Definition init_sandbox_def:
   init_sandbox wc =
    Seq (AssignAnyPar wc.const_names)
   (Seq (AssignAnyPar wc.ctrl_names)
   (Seq (AssignAnyPar wc.sensor_names)
-       (Test (wc.init))))`
+       (Test (wc.init))))
+End
 
-val mk_state_def = Define`
+Definition mk_state_def:
   mk_state w =
   let names_ls = w.wc.sensor_names ++ w.wc.ctrl_names ++ w.wc.const_names in
   let st_ls = w.ws.sensor_vals ++ w.ws.ctrl_vals ++ w.ws.const_vals in
- (ZIP(names_ls,ZIP(st_ls,st_ls)))`
+ (ZIP(names_ls,ZIP(st_ls,st_ls)))
+End
 
 (* The initial world satisfies init *)
-val init_step_def = Define`
-  init_step w = cwfsem_bi_val w.wc.init (mk_state w)`
+Definition init_step_def:
+  init_step w = cwfsem_bi_val w.wc.init (mk_state w)
+End
 
-val ALL_DISTINCT_ALOOKUP_REV = Q.prove(`
+Triviality ALL_DISTINCT_ALOOKUP_REV:
   ALL_DISTINCT (MAP FST ls) ∧
   ALOOKUP xs x = ALOOKUP ys x ⇒
-  ALOOKUP (ls++xs) x = ALOOKUP ((REVERSE ls)++ys) x`,
+  ALOOKUP (ls++xs) x = ALOOKUP ((REVERSE ls)++ys) x
+Proof
   rw[]>>
   Cases_on`MEM x (MAP FST ls)`
   >-
     metis_tac[MEM_ALOOKUP_APPEND_REV]
   >>
-  dep_rewrite.DEP_REWRITE_TAC [NOT_MEM_ALOOKUP_APPEND]>>fs[MEM_MAP]);
+  dep_rewrite.DEP_REWRITE_TAC [NOT_MEM_ALOOKUP_APPEND]>>fs[MEM_MAP]
+QED
 
 Theorem init_step_init_sandbox:
   wf_config w.wc ∧
@@ -957,13 +1005,15 @@ val bot_st = get_ml_prog_state();
 Overload WORD32 =``WORD:word32 -> v -> bool``;
 
 (* Helper lemmas *)
-val MAP4_empty = Q.prove(`
+Triviality MAP4_empty:
   LENGTH ls < 4 ⇒
-  MAP4 f ls = []`,
+  MAP4 f ls = []
+Proof
   Cases_on`ls`>>fs[MAP4_def]>>
   Cases_on`t`>>fs[MAP4_def]>>
   Cases_on`t'`>>fs[MAP4_def]>>
-  Cases_on`t`>>fs[MAP4_def]);
+  Cases_on`t`>>fs[MAP4_def]
+QED
 
 Theorem w32_to_w8_APPEND:
   ∀a b. w32_to_w8 (a ++ b) = w32_to_w8 a ++ w32_to_w8 b
@@ -1073,8 +1123,9 @@ QED
 
 (* We now specify each of the functions *)
 
-val IOBOT_def = Define `
-  IOBOT w = IOx bot_ffi_part w * &(wf_mach w)`
+Definition IOBOT_def:
+  IOBOT w = IOx bot_ffi_part w * &(wf_mach w)
+End
 
 (* TODO: remove once STRING_TYPE is fixed *)
 Overload CLSTRING_TYPE =``LIST_TYPE CHAR``;
@@ -1363,10 +1414,11 @@ Theorem stop_spec:
   simp[IOBOT_def]>>xsimpl);
 
 (* eventually on oracle sequences *)
-val eventually_def = Define`
+Definition eventually_def:
   eventually P oracle ⇔
   ∃n.
-    P(oracle n)`
+    P(oracle n)
+End
 
 Theorem violation_spec:
   STRING_TYPE strng strngv
@@ -1618,17 +1670,19 @@ Proof
       metis_tac[]
 QED
 
-val full_sandbox_def = Define`
+Definition full_sandbox_def:
   full_sandbox wc =
-  Seq (init_sandbox wc) (Loop (body_sandbox Success wc))`
+  Seq (init_sandbox wc) (Loop (body_sandbox Success wc))
+End
 
 (* relating w to an abstract state via an intermediate
    concrete state *)
-val state_rel_abs_def = Define`
+Definition state_rel_abs_def:
   state_rel_abs w (st:wstate) ⇔
   ∃cst.
     state_rel w cst ∧
-    st = abs_state cst`
+    st = abs_state cst
+End
 
 (* Rewriting with the combined spec *)
 Theorem monitor_loop_full_spec:

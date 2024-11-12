@@ -43,14 +43,16 @@ End
 
 (* helper functions *)
 
-val get_global_def = Define `
+Definition get_global_def:
   get_global n globals =
-    if n < LENGTH globals then SOME (EL n globals) else NONE`
+    if n < LENGTH globals then SOME (EL n globals) else NONE
+End
 
-val Boolv_def = Define `
-  (Boolv b = Block (if b then true_tag else false_tag) [])`;
+Definition Boolv_def:
+  (Boolv b = Block (if b then true_tag else false_tag) [])
+End
 
-val do_eq_def = tDefine "do_eq" `
+Definition do_eq_def:
   (do_eq x y =
      case x of
      | Number i =>
@@ -88,11 +90,13 @@ val do_eq_def = tDefine "do_eq" `
      case do_eq x y of
      | Eq_val T => do_eq_list xs ys
      | res => res) /\
-  (do_eq_list _ _ = Eq_val F)`
- (WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
-                                   | INR (vs,_) => v1_size vs)`)
+  (do_eq_list _ _ = Eq_val F)
+Termination
+  WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
+                                   | INR (vs,_) => v1_size vs)`
+End
 
-val v_to_list_def = Define`
+Definition v_to_list_def:
   (v_to_list (Block tag []) =
      if tag = nil_tag then SOME [] else NONE) ∧
   (v_to_list (Block tag [h;bt]) =
@@ -101,25 +105,29 @@ val v_to_list_def = Define`
         | SOME t => SOME (h::t)
         | _ => NONE )
      else NONE) ∧
-  (v_to_list _ = NONE)`
+  (v_to_list _ = NONE)
+End
 
-val list_to_v_def = Define `
+Definition list_to_v_def:
   list_to_v [] = Block nil_tag [] /\
   list_to_v (x::xs) = Block cons_tag [x; list_to_v xs]
-  `;
+End
 
-val Unit_def = Define`
-  Unit = Block tuple_tag []`
+Definition Unit_def:
+  Unit = Block tuple_tag []
+End
 
 Overload Error[local] =
   ``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state), closSem$v)result``
 
-val v_to_bytes_def = Define `
+Definition v_to_bytes_def:
   v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)`;
+                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+End
 
-val v_to_words_def = Define `
-  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)`;
+Definition v_to_words_def:
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)
+End
 
 val s = ``s:('c,'ffi)closSem$state``;
 
@@ -436,29 +444,34 @@ End
    fix_clock. At the bottom of this file, we remove all occurrences
    of fix_clock. *)
 
-val fix_clock_def = Define `
-  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)`
+Definition fix_clock_def:
+  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
+End
 
-val fix_clock_IMP = Q.prove(
-  `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
+Triviality fix_clock_IMP:
+  fix_clock s x = (res,s1) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
 (* The semantics of expression evaluation is defined next. For
    convenience of subsequent proofs, the evaluation function is
    defined to evaluate a list of clos_exp expressions. *)
 
-val check_loc_opt_def = Define `
+Definition check_loc_def:
   (check_loc (max_app:num) NONE loc num_params num_args so_far ⇔
     num_args ≤ max_app) /\
   (check_loc max_app (SOME p) loc num_params num_args so_far ⇔
-    num_params = num_args ∧ so_far = (0:num) ∧ SOME p = loc)`;
+    num_params = num_args ∧ so_far = (0:num) ∧ SOME p = loc)
+End
 
-val _ = Datatype `
+Datatype:
   app_kind =
     | Partial_app closSem$v
-    | Full_app closLang$exp (closSem$v list) (closSem$v list)`;
+    | Full_app closLang$exp (closSem$v list) (closSem$v list)
+End
 
-val dest_closure_def = Define `
+Definition dest_closure_def:
   dest_closure max_app loc_opt f args =
     case f of
     | Closure loc arg_env clo_env num_args exp =>
@@ -491,7 +504,8 @@ val dest_closure_def = Define `
                                (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
               else
                 SOME (Partial_app (Recclosure loc (args++arg_env) clo_env fns i))
-    | _ => NONE`;
+    | _ => NONE
+End
 
 Theorem dest_closure_length:
   ∀max_app loc_opt f args exp args1 args2 so_far.
@@ -512,15 +526,17 @@ Proof
   decide_tac
 QED
 
-val clos_env_def = Define `
+Definition clos_env_def:
   clos_env restrict names env =
-    if restrict then lookup_vars names env else SOME env`
+    if restrict then lookup_vars names env else SOME env
+End
 
-val build_recc_def = Define `
+Definition build_recc_def:
   build_recc restrict loc env names fns =
     case clos_env restrict names env of
     | SOME env1 => SOME (GENLIST (Recclosure loc [] env1 fns) (LENGTH fns))
-    | NONE => NONE`
+    | NONE => NONE
+End
 
 val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def}
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
@@ -542,7 +558,8 @@ val case_eq_thms = LIST_CONJ (CaseEq"const_part" :: map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, ref_thms,
    result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
 
-val _ = save_thm ("case_eq_thms", case_eq_thms);
+Theorem case_eq_thms =
+  case_eq_thms
 
 Theorem do_install_clock:
    do_install vs s = (Rval e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1
@@ -682,9 +699,8 @@ Termination
   \\ decide_tac
 End
 
-val evaluate_app_NIL = save_thm(
-  "evaluate_app_NIL[simp]",
-  ``evaluate_app loc v [] s`` |> SIMP_CONV (srw_ss()) [evaluate_def])
+Theorem evaluate_app_NIL[simp] =
+  ``evaluate_app loc v [] s`` |> SIMP_CONV (srw_ss()) [evaluate_def]
 
 (* We prove that the clock never increases. *)
 
@@ -701,11 +717,12 @@ Proof
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
 QED
 
-val evaluate_clock_help = Q.prove (
-  `(!tup vs (s2:('c,'ffi) closSem$state).
+Triviality evaluate_clock_help:
+  (!tup vs (s2:('c,'ffi) closSem$state).
       (evaluate tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
     (!loc_opt f args (s1:('c,'ffi) closSem$state) vs s2.
-      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)`,
+      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)
+Proof
   ho_match_mp_tac evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ FULL_SIMP_TAC std_ss [LET_THM] \\ BasicProvers.EVERY_CASE_TAC
@@ -715,7 +732,8 @@ val evaluate_clock_help = Q.prove (
   \\ IMP_RES_TAC fix_clock_IMP
   \\ IMP_RES_TAC do_app_const
   \\ IMP_RES_TAC do_install_clock_less_eq
-  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC);
+  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC
+QED
 
 Theorem evaluate_clock:
  (!xs env s1 vs s2.
@@ -744,7 +762,7 @@ Theorem evaluate_ind[allow_rebind] =
 
 (* observational semantics *)
 
-val initial_state_def = Define`
+Definition initial_state_def:
   initial_state ffi ma code co cc k = <|
     max_app := ma;
     clock := k;
@@ -754,9 +772,10 @@ val initial_state_def = Define`
     compile_oracle := co;
     globals := [];
     refs := FEMPTY
-  |>`;
+  |>
+End
 
-val semantics_def = Define`
+Definition semantics_def:
   semantics ffi ma code co cc es =
     let st = initial_state ffi ma code co cc in
       if ∃k. FST (evaluate (es,[],st k)) = Rerr (Rabort Rtype_error)
@@ -775,6 +794,7 @@ val semantics_def = Define`
          Diverge
            (build_lprefix_lub
              (IMAGE (λk. fromList
-                (SND (evaluate (es,[],st k))).ffi.io_events) UNIV))`;
+                (SND (evaluate (es,[],st k))).ffi.io_events) UNIV))
+End
 
 val _ = export_theory()

@@ -341,6 +341,9 @@ The bignum library used by the CakeML compiler. Note that the
 implementation is automatically generated from a shallow embedding
 that is part of the HOL distribution in mc_multiwordTheory.
 
+[word_copyScript.sml](word_copyScript.sml):
+This compilation pass performs a copy propagation phase.
+
 [word_cseScript.sml](word_cseScript.sml):
 Defines a common sub-expression elimination pass on a wordLang program.
 This pass is to run immediately after the SSA-like renaming.
@@ -377,12 +380,9 @@ stack frame.
 
 [word_to_wordScript.sml](word_to_wordScript.sml):
 This compiler phase composes the phases internal to wordLang:
-    1) Inst select (with a few optimizations);
-    2) SSA;
-    3) Dead code elim (not written yet);
-    4) 3-to-2 regs for certain configs;
-    5) reg_alloc;
-    6) word_to_stack.
+    1) word_simp ; 2) inst_select ; 3) SSA ; 4) remove_dead
+    5) word_cse ; 6) copy_prop ; 7) three-to-two reg
+    8) remove_unreach ; 9) remove_dead ; 10) word_alloc
 
 [word_unreachScript.sml](word_unreachScript.sml):
 This compilation pass removes trivially unreachable code.

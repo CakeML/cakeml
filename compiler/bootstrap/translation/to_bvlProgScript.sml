@@ -31,9 +31,11 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -77,8 +79,8 @@ val r = translate clos_to_bvlTheory.compile_def;
  * Do not remove this! prove_EvalPatRel depends on it (though it should be
  * expanded there, not added to the simpset).
  *)
-val _ = save_thm ("same_type_def[simp]",
-  semanticPrimitivesTheory.same_type_def);
+Theorem same_type_def[simp] =
+  semanticPrimitivesTheory.same_type_def
 
 val bvl_jump_jumplist_side = Q.prove(`
   ∀a b. bvl_jump_jumplist_side a b ⇔ T`,

@@ -29,53 +29,61 @@ Overload "lift" = ``OPTION_MAP``
 val _ = new_theory "botProg"
 
 (* Invert AssignAnyPar *)
-val parse_AssignAnyPar_def = Define`
+Definition parse_AssignAnyPar_def:
   (parse_AssignAnyPar (Seq (AssignAny x) p2) =
     case parse_AssignAnyPar p2 of
       NONE => NONE
     | SOME xs => SOME (x::xs)) ∧
   (parse_AssignAnyPar p =
     if p = Test True then SOME []
-    else NONE)`
+    else NONE)
+End
 
-val parse_AssignAnyPar_inv = Q.prove(`
+Triviality parse_AssignAnyPar_inv:
   ∀seq ls.
   parse_AssignAnyPar seq = SOME ls ⇒
-  AssignAnyPar ls = seq`,
+  AssignAnyPar ls = seq
+Proof
   ho_match_mp_tac (fetch "-" "parse_AssignAnyPar_ind")>>
   rw[]>>fs[parse_AssignAnyPar_def]>>
-  EVERY_CASE_TAC>>rw[]>>fs[AssignAnyPar_def,Skip_def]);
+  EVERY_CASE_TAC>>rw[]>>fs[AssignAnyPar_def,Skip_def]
+QED
 
 (* Invert AssignPar *)
-val parse_AssignPar_def = Define`
+Definition parse_AssignPar_def:
   (parse_AssignPar (Seq (Assign x t) p2) =
     case parse_AssignPar p2 of
       NONE => NONE
     | SOME (xs,ts) => SOME (x::xs,t::ts)) ∧
   (parse_AssignPar p =
     if p = Test True then SOME ([],[])
-    else NONE)`
+    else NONE)
+End
 
-val parse_AssignPar_inv = Q.prove(`
+Triviality parse_AssignPar_inv:
   ∀seq ls ts.
   parse_AssignPar seq = SOME (ls,ts) ⇒
-  AssignPar ls ts = seq`,
+  AssignPar ls ts = seq
+Proof
   ho_match_mp_tac (fetch "-" "parse_AssignPar_ind")>>
   rw[]>>fs[parse_AssignPar_def]>>
-  EVERY_CASE_TAC>>rw[]>>fs[AssignPar_def,Skip_def]);
+  EVERY_CASE_TAC>>rw[]>>fs[AssignPar_def,Skip_def]
+QED
 
-val parse_AssignVarPar_def = Define`
+Definition parse_AssignVarPar_def:
   parse_AssignVarPar p =
   OPTION_JOIN (lift (λ(xs,ts).
     lift (\vs.(xs,vs)) (OPT_MMAP (λt. case t of Var n => SOME n | _ => NONE) ts)
   )
-  (parse_AssignPar p))`
+  (parse_AssignPar p))
+End
 
 (* Invert AssignVarPar *)
-val parse_AssignVarPar_inv = Q.prove(`
+Triviality parse_AssignVarPar_inv:
   ∀seq ls ts.
   parse_AssignVarPar seq = SOME (ls,ts) ⇒
-  AssignVarPar ls ts = seq`,
+  AssignVarPar ls ts = seq
+Proof
   rw[AssignVarPar_def,parse_AssignVarPar_def]>>
   fs[OPTION_JOIN_EQ_SOME]>>
   pairarg_tac>>fs[]>>
@@ -86,7 +94,8 @@ val parse_AssignVarPar_inv = Q.prove(`
   qid_spec_tac`ts'`>>
   qid_spec_tac`ts`>>
   pop_assum kall_tac>>
-  Induct>>Cases_on`ts'`>>fs[]>>Cases_on`h`>>fs[OPT_MMAP_def]);
+  Induct>>Cases_on`ts'`>>fs[]>>Cases_on`h`>>fs[OPT_MMAP_def]
+QED
 
 (* Parses the initialization block
   consts := *;
@@ -94,7 +103,7 @@ val parse_AssignVarPar_inv = Q.prove(`
   sensors := *;
   ?Init;
 *)
-val parse_header_def = Define`
+Definition parse_header_def:
   parse_header p =
   case p of
   (Seq consts (Seq ctrls (Seq sensors (Test init)))) =>
@@ -102,10 +111,11 @@ val parse_header_def = Define`
       (SOME consts, SOME ctrls, SOME sensors) =>
       SOME (consts,ctrls,sensors,init)
     | _ => NONE)
-  | _ => NONE`
+  | _ => NONE
+End
 
 (* The body parsing is rather large, so we break it into two halves*)
-val parse_body1_def = Define`
+Definition parse_body1_def:
   parse_body1 p =
   case p of
     (Seq c (Seq c2 (Seq (Choice (Test ctrlmon) c3) rest))) =>
@@ -115,9 +125,10 @@ val parse_body1_def = Define`
        SOME(ctrlplus,ctrlfixed,ctrlfixed_rhs,defaults,ctrlmon,rest)
      else NONE
      | _ => NONE)
-  | _ => NONE`
+  | _ => NONE
+End
 
-val parse_body2_def = Define`
+Definition parse_body2_def:
   parse_body2 p =
   case p of
     (Seq c (Seq c2 (Seq (Test plantmon) c3))) =>
@@ -127,9 +138,10 @@ val parse_body2_def = Define`
        SOME(ctrl,ctrlplus,sensorplus,sensors,plantmon)
      else NONE
      | _ => NONE)
-  | _ => NONE`
+  | _ => NONE
+End
 
-val parse_body_def = Define`
+Definition parse_body_def:
   parse_body p =
   case parse_body1 p of
     SOME(ctrlplus,ctrlfixed,ctrlfixed_rhs,defaults,ctrlmon,rest) =>
@@ -139,9 +151,10 @@ val parse_body_def = Define`
         SOME(ctrl,ctrlplus,ctrlfixed,ctrlfixed_rhs,sensors,sensorplus,ctrlmon,plantmon,defaults)
       else NONE
     | NONE => NONE)
-  | NONE => NONE`
+  | NONE => NONE
+End
 
-val parse_sandbox_def = Define`
+Definition parse_sandbox_def:
   (parse_sandbox p =
   case p of (Seq header (Loop body)) =>
   (case (parse_header header, parse_body body) of
@@ -150,7 +163,8 @@ val parse_sandbox_def = Define`
       SOME(consts,ctrls,sensors,sensorplus,ctrlplus,ctrlfixed,ctrlfixed_rhs,defaults,init,ctrlmon,plantmon)
     else NONE
     | _ => NONE)
-  | _ => NONE)`
+  | _ => NONE)
+End
 
 (*
 EVAL ``case ^trm of (Seq header (Loop body)) =>
@@ -167,7 +181,7 @@ EVAL `` case ^bod of (Seq c (Seq c2 (Seq (Choice (Test ctrlmon) c3) rest))) =>
 *)
 
 
-val mk_config_def = Define`
+Definition mk_config_def:
   mk_config (const_vars,ctrl_vars,sensor_vars,sensorplus_vars,ctrlplus_vars,ctrlfixed_vars,ctrlfixed_rhs,default,init_fml,ctrl_fml,plant_fml) =
   <|  const_names      := const_vars;
       sensor_names     := sensor_vars;
@@ -180,15 +194,18 @@ val mk_config_def = Define`
       ctrlfixed_names  := ctrlfixed_vars;
       ctrlfixed_rhs    := ctrlfixed_rhs;
       default          := default;
-  |>`
+  |>
+End
 
-val parse_sandbox_inv = Q.prove(`
+Triviality parse_sandbox_inv:
   parse_sandbox p = SOME res ⇒
-  p = full_sandbox (mk_config res)`,
+  p = full_sandbox (mk_config res)
+Proof
   fs[parse_sandbox_def,parse_header_def,parse_body_def,parse_body1_def,parse_body2_def]>>
   EVERY_CASE_TAC>>rw[]>>
   fs[mk_config_def,full_sandbox_def,init_sandbox_def,body_sandbox_def,hide_def]>>
-  metis_tac[parse_AssignAnyPar_inv,parse_AssignPar_inv,parse_AssignVarPar_inv]);
+  metis_tac[parse_AssignAnyPar_inv,parse_AssignPar_inv,parse_AssignVarPar_inv]
+QED
 
 fun check_fv trm =
   let val fvs = free_vars trm  in
@@ -437,32 +454,43 @@ val (const_vars,ctrl_vars,sensor_vars,sensorplus_vars,ctrlplus_vars,ctrlfixed_va
 val template_str = write_template (folder_str^"/bot_ffi.cpp") const_vars sensor_vars ctrl_vars;
 
 (* Define constant names for each of the required terms *)
-val const_vars_def = Define`
-  const_vars = ^const_vars`
-val sensor_vars_def = Define`
-  sensor_vars = ^sensor_vars`
-val sensorplus_vars_def = Define`
-  sensorplus_vars = ^sensorplus_vars`
-val ctrl_vars_def = Define`
-  ctrl_vars = ^ctrl_vars`
-val ctrlplus_vars_def = Define`
-  ctrlplus_vars = ^ctrlplus_vars`
-val ctrlfixed_vars_def = Define`
-  ctrlfixed_vars = ^ctrlfixed_vars`
-val ctrlfixed_rhs_def = Define`
-  ctrlfixed_rhs = ^ctrlfixed_rhs`
+Definition const_vars_def:
+  const_vars = ^const_vars
+End
+Definition sensor_vars_def:
+  sensor_vars = ^sensor_vars
+End
+Definition sensorplus_vars_def:
+  sensorplus_vars = ^sensorplus_vars
+End
+Definition ctrl_vars_def:
+  ctrl_vars = ^ctrl_vars
+End
+Definition ctrlplus_vars_def:
+  ctrlplus_vars = ^ctrlplus_vars
+End
+Definition ctrlfixed_vars_def:
+  ctrlfixed_vars = ^ctrlfixed_vars
+End
+Definition ctrlfixed_rhs_def:
+  ctrlfixed_rhs = ^ctrlfixed_rhs
+End
 
-val init_fml_def = Define`
-  init_fml = ^init_fml`
+Definition init_fml_def:
+  init_fml = ^init_fml
+End
 
-val ctrl_fml_def = Define`
-  ctrl_fml = ^ctrl_fml`
+Definition ctrl_fml_def:
+  ctrl_fml = ^ctrl_fml
+End
 
-val plant_fml_def = Define`
-  plant_fml = ^plant_fml`
+Definition plant_fml_def:
+  plant_fml = ^plant_fml
+End
 
-val default_def = Define`
-  default = ^default`
+Definition default_def:
+  default = ^default
+End
 
 (* Automatically turn the defs into CML implementations *)
 val cml_const_th = translate const_vars_def;
@@ -496,21 +524,23 @@ val comp_eq = [mach_component_equality,
               mach_oracle_component_equality];
 
 (* The sandbox configuration *)
-val init_wc_def = Define`
-  init_wc = mk_config (const_vars,ctrl_vars,sensor_vars,sensorplus_vars,ctrlplus_vars,ctrlfixed_vars,ctrlfixed_rhs,default,init_fml,ctrl_fml,plant_fml)`
+Definition init_wc_def:
+  init_wc = mk_config (const_vars,ctrl_vars,sensor_vars,sensorplus_vars,ctrlplus_vars,ctrlfixed_vars,ctrlfixed_rhs,default,init_fml,ctrl_fml,plant_fml)
+End
 
 (* Check that lengths of the configuration match up correctly *)
-val length_checks_def = Define`
+Definition length_checks_def:
   length_checks wc ⇔
   [
     LENGTH wc.sensor_names = LENGTH wc.sensorplus_names,
     LENGTH wc.ctrl_names = LENGTH wc.ctrlplus_names,
     LENGTH wc.ctrl_names = LENGTH wc.default,
     LENGTH wc.ctrlfixed_names = LENGTH wc.ctrlfixed_rhs
-  ]`
+  ]
+End
 
 (* Check that required distinctness conditions work *)
-val distinct_checks_def = Define`
+Definition distinct_checks_def:
   distinct_checks wc ⇔
   [
     ALL_DISTINCT wc.const_names,
@@ -519,9 +549,10 @@ val distinct_checks_def = Define`
     ALL_DISTINCT wc.sensor_names,
     ALL_DISTINCT wc.sensorplus_names,
     ALL_DISTINCT wc.ctrlfixed_names
-  ]`
+  ]
+End
 
-val overlap_checks_def = Define`
+Definition overlap_checks_def:
   overlap_checks wc ⇔
   [
     no_overlap wc.const_names
@@ -532,9 +563,10 @@ val overlap_checks_def = Define`
     no_overlap wc.ctrl_names (wc.sensorplus_names ++ wc.ctrlplus_names),
     no_overlap wc.sensor_names (wc.sensorplus_names ++ wc.ctrlplus_names ++ wc.ctrlfixed_names),
     no_overlap wc.ctrlplus_names wc.ctrlfixed_names
-  ]`
+  ]
+End
 
-val dep_checks_def = Define`
+Definition dep_checks_def:
   dep_checks wc ⇔
   let full_deps = wc.const_names ++ wc.ctrl_names ++ wc.sensor_names in
   let plant_deps = wc.const_names ++ wc.sensor_names ++ wc.ctrl_names ++ wc.sensorplus_names in
@@ -543,16 +575,19 @@ val dep_checks_def = Define`
     EVERY (λx. MEM x full_deps) (fv_fml wc.init),
     EVERY (λx. MEM x full_deps) wc.ctrlfixed_rhs,
     EVERY (λx. MEM x plant_deps) (fv_fml wc.plant_monitor),
-    EVERY (λx. MEM x ctrl_deps) (fv_fml wc.ctrl_monitor)]`
+    EVERY (λx. MEM x ctrl_deps) (fv_fml wc.ctrl_monitor)]
+End
 
-val sorted_nub_aux_def = Define`
+Definition sorted_nub_aux_def:
   (sorted_nub_aux x (y::ys) =
     if x = y then sorted_nub_aux x ys else x :: sorted_nub_aux y ys) ∧
-  (sorted_nub_aux x [] = [x])`
+  (sorted_nub_aux x [] = [x])
+End
 
-val sorted_nub_def = Define`
+Definition sorted_nub_def:
   (sorted_nub (x::xs) = sorted_nub_aux x xs) ∧
-  (sorted_nub [] = [])`
+  (sorted_nub [] = [])
+End
 
 (*
 EVAL``length_checks init_wc``
@@ -595,23 +630,27 @@ val check_init_wf =
   else ();
 
 (* The input sandbox program *)
-val sandbox_hp_def = Define`
-  sandbox_hp = ^sandbox_tm`
+Definition sandbox_hp_def:
+  sandbox_hp = ^sandbox_tm
+End
 
 (* Define the possible initial FFI states w.r.t. to our formulas *)
-val init_state_def = Define`
+Definition init_state_def:
   init_state w <=>
   (w.wc = init_wc ∧
-  eventually I w.wo.stop_oracle)`
+  eventually I w.wo.stop_oracle)
+End
 
-val init_state_imp_sandbox_hp = Q.prove(`
+Triviality init_state_imp_sandbox_hp:
   init_state w ⇒
-  sandbox_hp = full_sandbox w.wc`,
+  sandbox_hp = full_sandbox w.wc
+Proof
   rw[init_state_def]>>
   simp[init_wc_def]>>
   match_mp_tac parse_sandbox_inv>>
   fs[sandbox_hp_def,parse_th]>>
-  EVAL_TAC);
+  EVAL_TAC
+QED
 
 Theorem bot_main_spec:
   init_state w ∧
@@ -698,28 +737,31 @@ val SPLIT_SING = prove(
   ``SPLIT s ({x},t) <=> x IN s /\ t = s DELETE x``,
   fs [SPLIT_def,IN_DISJOINT,EXTENSION] \\ metis_tac []);
 
-val SPLIT_th = Q.prove(`
+Triviality SPLIT_th:
   wf_mach w ⇒
   (∃h1 h2.
       SPLIT (st2heap (bot_proj1,bot_proj2) (botProg_st_9 (bot_ffi w)))
-        (h1,h2) ∧ IOBOT w h1)`,
+        (h1,h2) ∧ IOBOT w h1)
+Proof
   fs [IOBOT_def,SEP_CLAUSES,IOx_def,bot_ffi_part_def,
       IO_def,SEP_EXISTS_THM,PULL_EXISTS,one_def] >>
   rw[]>>simp[fetch "-" "botProg_st_9_def",cfStoreTheory.st2heap_def]>>
   fs [SPLIT_SING,cfAppTheory.FFI_part_NOT_IN_store2heap]
   \\ rw [cfStoreTheory.ffi2heap_def] \\ EVAL_TAC
-  \\ fs [parts_ok_bot_ffi]);
+  \\ fs [parts_ok_bot_ffi]
+QED
 
 val semantics_thm = MATCH_MP th (UNDISCH SPLIT_th) |> DISCH_ALL
 val prog_tm = rhs(concl prog_rewrite)
 
-val bot_prog_def = Define`bot_prog = ^prog_tm`;
+Definition bot_prog_def:
+  bot_prog = ^prog_tm
+End
 
-val bot_semantics_thm =
+Theorem bot_semantics_thm =
   semantics_thm
   |> ONCE_REWRITE_RULE[GSYM bot_prog_def]
   |> DISCH_ALL
   |> SIMP_RULE std_ss [AND_IMP_INTRO]
-  |> curry save_thm "bot_semantics_thm";
 
 val _ = export_theory();

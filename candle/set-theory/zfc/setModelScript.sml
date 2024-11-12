@@ -6,7 +6,7 @@ open preamble bitTheory setSpecTheory dep_rewrite
 val _ = temp_tight_equality()
 val _ = new_theory"setModel"
 
-val is_set_theory_pred_def = Define`
+Definition is_set_theory_pred_def:
   is_set_theory_pred is_v_rep in_rep ⇔
    (∃x. is_v_rep x) ∧
    (∀x y. is_v_rep x ∧ is_v_rep y ⇒ ((x = y) ⇔ (∀a. is_v_rep a ⇒ (in_rep a x ⇔ in_rep a y)))) ∧
@@ -22,7 +22,8 @@ val is_set_theory_pred_def = Define`
             ∃r. is_v_rep r ∧
                 ∀y. is_v_rep y ⇒
                     (in_rep y r ⇔ ∃x. is_v_rep x ∧ in_rep x d ∧ R x y)) ∧
-   (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ∧ in_rep a x ⇒ in_rep y x))`
+   (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ∧ in_rep a x ⇒ in_rep y x))
+End
 
 val LESS_EXP = TAC_PROOF(([],
   ``!n:num. n < 2 ** n``),
@@ -344,7 +345,9 @@ val dest_V_11   = prove_rep_fn_one_one V_bij
 val V_mem_rep_def =
   new_specification("V_mem_rep_def",["V_mem_rep"],is_V_def)
 
-val V_mem_def = Define`V_mem x y = V_mem_rep (dest_V x) (dest_V y)`
+Definition V_mem_def:
+  V_mem x y = V_mem_rep (dest_V x) (dest_V y)
+End
 
 
 Theorem is_set_theory_V:
@@ -413,14 +416,16 @@ Proof
   metis_tac[V_bij]
 QED
 
-val V_choice_exists = Q.prove(
-  `∃ch. is_choice V_mem ch`,
+Triviality V_choice_exists:
+  ∃ch. is_choice V_mem ch
+Proof
   simp[is_choice_def,GSYM SKOLEM_THM] >>
   rw[] >> simp[V_mem_def] >>
   qspecl_then[`dest_V x`]mp_tac
     (List.nth(CONJUNCTS V_mem_rep_def,8)) >>
   simp[V_bij] >>
-  metis_tac[V_bij] )
+  metis_tac[V_bij]
+QED
 
 val V_choice_def =
   new_specification("V_choice_def",["V_choice"],V_choice_exists)

@@ -3,7 +3,7 @@
   are proved, including reasoning in separation logic.
 *)
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory semanticPrimitivesTheory evaluateTheory
+open astTheory semanticPrimitivesTheory evaluateTheory
 open evaluateTheory ml_progLib ml_progTheory
 open set_sepTheory Satisfy
 open cfHeapsBaseTheory (* basisFunctionsLib *) AC_Sort
@@ -42,25 +42,30 @@ Proof
 QED
 
 (* REF_REL *)
-val REF_REL_def = Define `REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v`;
+Definition REF_REL_def:
+  REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v
+End
 
 val H = mk_var("H",``:('a -> hprop) # 'ffi ffi_proj``);
 
 (* REFS_PRED *)
-val REFS_PRED_def = Define `
-  REFS_PRED (h,p:'ffi ffi_proj) refs s = (h refs * GC) (st2heap p s)`;
+Definition REFS_PRED_def:
+  REFS_PRED (h,p:'ffi ffi_proj) refs s = (h refs * GC) (st2heap p s)
+End
 
-val VALID_REFS_PRED_def = Define `
-  VALID_REFS_PRED ^H = ?(s : 'ffi state) refs. REFS_PRED H refs s`;
+Definition VALID_REFS_PRED_def:
+  VALID_REFS_PRED ^H = ?(s : 'ffi state) refs. REFS_PRED H refs s
+End
 
 (* Frame rule for EvalM *)
 
-val REFS_PRED_FRAME_def = Define `
+Definition REFS_PRED_FRAME_def:
   REFS_PRED_FRAME ro (h,p:'ffi ffi_proj) (refs1, s1) (refs2, s2) <=>
     (ro ==> ?refs. s2 = s1 with refs := refs) /\
     s2.next_type_stamp = s1.next_type_stamp /\
     s2.next_exn_stamp = s1.next_exn_stamp /\
-    !F. (h refs1 * F) (st2heap p s1) ==> (h refs2 * F * GC) (st2heap p s2)`;
+    !F. (h refs1 * F) (st2heap p s1) ==> (h refs2 * F * GC) (st2heap p s2)
+End
 
 Theorem EMP_STAR_GC:
    !H. emp * H = H
@@ -144,9 +149,11 @@ Proof
   metis_tac[]
 QED
 
-val NEG_DISJ_TO_IMP = Q.prove(
-  `!A B. ~A \/ ~B <=> A /\ B ==> F`,
-  rw[]);
+Triviality NEG_DISJ_TO_IMP:
+  !A B. ~A \/ ~B <=> A /\ B ==> F
+Proof
+  rw[]
+QED
 
 Theorem store2heap_aux_DISJOINT:
    !n s1 s2. DISJOINT (store2heap_aux n s1) (store2heap_aux (n + LENGTH s1) s2)
@@ -659,15 +666,18 @@ QED
 *)
 
 (* Fixed-size arrays *)
-val ARRAY_REL = Define `
-  ARRAY_REL TYPE rv l = SEP_EXISTS av. ARRAY rv av * &LIST_REL TYPE l av`;
+Definition ARRAY_REL_def:
+  ARRAY_REL TYPE rv l = SEP_EXISTS av. ARRAY rv av * &LIST_REL TYPE l av
+End
 
 (* Resizable arrays *)
-val RARRAY_def = Define `
-  RARRAY rv av = SEP_EXISTS arv. REF rv arv * ARRAY arv av`;
+Definition RARRAY_def:
+  RARRAY rv av = SEP_EXISTS arv. REF rv arv * ARRAY arv av
+End
 
-val RARRAY_REL_def = Define `
-  RARRAY_REL TYPE rv l = SEP_EXISTS av. RARRAY rv av * &LIST_REL TYPE l av`;
+Definition RARRAY_REL_def:
+  RARRAY_REL TYPE rv l = SEP_EXISTS av. RARRAY rv av * &LIST_REL TYPE l av
+End
 
 Theorem RARRAY_HPROP_SAT_EQ:
    RARRAY (Loc l) av s <=>
@@ -689,13 +699,16 @@ Proof
   \\ rw[]
 QED
 
-val GC_ABSORB_L = Q.prove(`!A B s. (A * B * GC) s ==> (A * GC) s`,
-rw[]
+Triviality GC_ABSORB_L:
+  !A B s. (A * B * GC) s ==> (A * GC) s
+Proof
+  rw[]
 \\ fs[GSYM STAR_ASSOC]
 \\ fs[Once STAR_def]
 \\ qexists_tac `u`
 \\ qexists_tac `v`
-\\ fs[SAT_GC]);
+\\ fs[SAT_GC]
+QED
 
 Theorem st2heap_SPLIT:
   SPLIT (st2heap ffi (s with refs := s.refs ++ junk))

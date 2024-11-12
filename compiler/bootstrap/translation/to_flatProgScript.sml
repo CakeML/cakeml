@@ -31,9 +31,11 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -128,10 +130,9 @@ val _ = translate pattern_compTheory.comp_def
 val res = translate flat_patternTheory.enc_num_to_name_def;
 
 val enc_side = Q.prove(
-  `!n s. flat_pattern_enc_num_to_name_side n s = T`,
-  gen_tac
-  \\ measureInduct_on `I n`
-  \\ simp [fetch "-" "flat_pattern_enc_num_to_name_side_def"]
+  ‘!n s. flat_pattern_enc_num_to_name_side n s = T’,
+  completeInduct_on ‘n’ >>
+  simp[Once $ fetch "-" "flat_pattern_enc_num_to_name_side_def"]
   ) |> update_precondition;
 
 val res = translate flat_patternTheory.dec_name_to_num_def;

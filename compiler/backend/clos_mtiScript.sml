@@ -8,13 +8,14 @@ open preamble closLangTheory;
 
 val _ = new_theory "clos_mti";
 
-val collect_args_def = Define `
+Definition collect_args_def:
   (collect_args max_app num_args (Fn t NONE NONE num_args' e) =
     if num_args + num_args' ≤ max_app then
       collect_args max_app (num_args + num_args') e
     else
       (num_args, Fn t NONE NONE num_args' e)) ∧
-  (collect_args max_app num_args e = (num_args, e))`;
+  (collect_args max_app num_args e = (num_args, e))
+End
 
 val collect_args_ind = theorem "collect_args_ind";
 
@@ -30,16 +31,18 @@ Proof
    decide_tac
 QED
 
-val collect_args_more = Q.prove (
-  `!max_app num_args e num_args' e'.
+Triviality collect_args_more:
+  !max_app num_args e num_args' e'.
     (num_args', e') = collect_args max_app num_args e
     ⇒
-    num_args ≤ num_args'`,
+    num_args ≤ num_args'
+Proof
   ho_match_mp_tac collect_args_ind >>
   srw_tac[][collect_args_def] >>
   srw_tac[][] >>
   res_tac >>
-  decide_tac);
+  decide_tac
+QED
 
 Theorem collect_args_zero:
    !max_app num_args e e'.
@@ -53,20 +56,23 @@ Proof
   full_simp_tac(srw_ss())[]
 QED
 
-val collect_apps_def = Define `
+Definition collect_apps_def:
   (collect_apps max_app args (App tra NONE e es) =
     if LENGTH args + LENGTH es ≤ max_app then
       collect_apps max_app (args ++ es) e
     else
       (args, App tra NONE e es)) ∧
-  (collect_apps max_app args e = (args, e))`;
+  (collect_apps max_app args e = (args, e))
+End
 
 val collect_apps_ind = theorem "collect_apps_ind";
 
-val exp3_size_append = Q.prove (
-`!es1 es2. exp3_size (es1 ++ es2) = exp3_size es1 + exp3_size es2`,
- Induct_on `es1` >>
- simp [exp_size_def]);
+Triviality exp3_size_append:
+  !es1 es2. exp3_size (es1 ++ es2) = exp3_size es1 + exp3_size es2
+Proof
+  Induct_on `es1` >>
+ simp [exp_size_def]
+QED
 
 Theorem collect_apps_size:
    !max_app args e args' e'.
@@ -82,18 +88,20 @@ Proof
    decide_tac
 QED
 
-val collect_apps_more = Q.prove (
-  `!max_app args e args' e'.
+Triviality collect_apps_more:
+  !max_app args e args' e'.
     (args', e') = collect_apps max_app args e
     ⇒
-    LENGTH args ≤ LENGTH args'`,
+    LENGTH args ≤ LENGTH args'
+Proof
   ho_match_mp_tac collect_apps_ind >>
   srw_tac[][collect_apps_def] >>
   srw_tac[][] >>
   res_tac >>
-  decide_tac);
+  decide_tac
+QED
 
-val intro_multi_def = tDefine "intro_multi" `
+Definition intro_multi_def:
   (intro_multi max_app [] = []) ∧
   (intro_multi max_app (e1::e2::es) =
     HD (intro_multi max_app [e1]) :: HD (intro_multi max_app [e2]) :: intro_multi max_app es) ∧
@@ -133,8 +141,9 @@ val intro_multi_def = tDefine "intro_multi" `
   (intro_multi max_app [Letrec t NONE (SOME fvs) funs e] =
      [Letrec t NONE (SOME fvs) funs (HD (intro_multi max_app [e]))]) ∧
   (intro_multi max_app [Op t op es] =
-    [Op t op (intro_multi max_app es)])`
-  (WF_REL_TAC `measure (exp3_size o SND)` >>
+    [Op t op (intro_multi max_app es)])
+Termination
+  WF_REL_TAC `measure (exp3_size o SND)` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    imp_res_tac collect_args_size >>
    imp_res_tac collect_apps_size >>
@@ -145,7 +154,8 @@ val intro_multi_def = tDefine "intro_multi" `
                srw_tac[][exp_size_def] >>
                res_tac >>
                decide_tac) >>
-   decide_tac);
+   decide_tac
+End
 
 val intro_multi_ind = theorem "intro_multi_ind";
 
@@ -261,17 +271,20 @@ Proof
   >- metis_tac [intro_multi_sing, HD]
 QED
 
-val compile_def = Define`
+Definition compile_def:
   compile F max_app exps = exps /\
-  compile T max_app exps = intro_multi max_app exps`
+  compile T max_app exps = intro_multi max_app exps
+End
 
-val compile_inc_def = Define `
+Definition compile_inc_def:
   compile_inc max_app (e,es) =
-    (intro_multi max_app e, [])`
+    (intro_multi max_app e, [])
+End
 
-val cond_mti_compile_inc_def = Define`
+Definition cond_mti_compile_inc_def:
   cond_mti_compile_inc do_it max_app =
-    if do_it then (compile_inc max_app) else I`;
+    if do_it then (compile_inc max_app) else I
+End
 
 Theorem compile_nil[simp]:
   compile do_mti max_app [] = []

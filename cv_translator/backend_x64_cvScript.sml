@@ -130,12 +130,6 @@ val _ = cv_auto_trans (x64_targetTheory.x64_enc_def |>
           SRULE [combinTheory.o_DEF, LIST_BIND_def, FUN_EQ_THM, x64_dec_fail_def]);
 
 (*---------------------------------------------------------------------------*
-  x64-specific compilation pass
- *---------------------------------------------------------------------------*)
-
-val _ = cv_trans word_instTheory.three_to_two_reg_def;
-
-(*---------------------------------------------------------------------------*
   Remaining x64-specific functions
  *---------------------------------------------------------------------------*)
 

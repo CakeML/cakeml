@@ -153,9 +153,11 @@ QED
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
 val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1)
 
-val num_eq_thm = Q.prove(
-  `!n nv x xv. NUM n nv /\ NUM x xv ==> (n = x <=> nv = xv)`,
-  metis_tac[EqualityType_NUM_BOOL, EqualityType_def]);
+Triviality num_eq_thm:
+  !n nv x xv. NUM n nv /\ NUM x xv ==> (n = x <=> nv = xv)
+Proof
+  metis_tac[EqualityType_NUM_BOOL, EqualityType_def]
+QED
 
 Theorem array_tabulate_spec:
    !n nv f fv (A: 'a -> v -> bool).
@@ -251,8 +253,9 @@ val res = max_print_depth := 100
 *)
 
 
-val less_than_length_thm = Q.prove (
-  `!xs n. (n < LENGTH xs) ==> (?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH ys = n))`,
+Triviality less_than_length_thm:
+  !xs n. (n < LENGTH xs) ==> (?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH ys = n))
+Proof
   rw[] \\
   qexists_tac`TAKE n xs` \\
   rw[] \\
@@ -260,18 +263,19 @@ val less_than_length_thm = Q.prove (
   qexists_tac`TL (DROP n xs)` \\
   Cases_on`DROP n xs` \\ fs[] \\
   metis_tac[TAKE_DROP,APPEND_ASSOC,CONS_APPEND]
-);
+QED
 
 
-val lupdate_breakdown_thm = Q.prove(
-  `!l val n. n < LENGTH l
-    ==> LUPDATE val n l = TAKE n l ++ [val] ++ DROP (n + 1) l`,
-    rw[] \\ drule less_than_length_thm
+Triviality lupdate_breakdown_thm:
+  !l val n. n < LENGTH l
+    ==> LUPDATE val n l = TAKE n l ++ [val] ++ DROP (n + 1) l
+Proof
+  rw[] \\ drule less_than_length_thm
     \\ rw[] \\ simp_tac std_ss [TAKE_LENGTH_APPEND, GSYM APPEND_ASSOC, GSYM CONS_APPEND]
     \\simp_tac std_ss [DROP_APPEND2]
     \\ simp_tac std_ss [GSYM CONS_APPEND]
     \\ EVAL_TAC \\ rw[lupdate_append2]
-);
+QED
 
 Theorem array_copy_aux_spec:
    !src n srcv dstv di div nv max maxv bfr mid afr.
@@ -462,20 +466,23 @@ Proof
   rw [NUM_def]
 QED
 
-val list_rel_take_thm = Q.prove(
-  `!A xs ys n.
-      LIST_REL A xs ys ==> LIST_REL A (TAKE n xs) (TAKE n ys)`,
-    Induct_on `xs` \\ Induct_on `ys` \\ rw[LIST_REL_def, TAKE_def]
-);
+Triviality list_rel_take_thm:
+  !A xs ys n.
+      LIST_REL A xs ys ==> LIST_REL A (TAKE n xs) (TAKE n ys)
+Proof
+  Induct_on `xs` \\ Induct_on `ys` \\ rw[LIST_REL_def, TAKE_def]
+QED
 
-val drop_pre_length_thm = Q.prove(
-  `!l. l <> [] ==> (DROP (LENGTH l - 1) l) = [(EL (LENGTH l - 1) l)]`,
+Triviality drop_pre_length_thm:
+  !l. l <> [] ==> (DROP (LENGTH l - 1) l) = [(EL (LENGTH l - 1) l)]
+Proof
   rw[] \\ Induct_on `l` \\ rw[DROP, LENGTH, DROP_EL_CONS, DROP_LENGTH_NIL]
-);
+QED
 
 (*
-val ARRAY_TYPE_def = Define`
-  ARRAY_TYPE A a av = SEP_EXISTS vs. ARRAY av vs * & LIST_REL A a vs`;
+Definition ARRAY_TYPE_def:
+  ARRAY_TYPE A a av = SEP_EXISTS vs. ARRAY av vs * & LIST_REL A a vs
+End
 *)
 
 Theorem array_modify_aux_spec:
