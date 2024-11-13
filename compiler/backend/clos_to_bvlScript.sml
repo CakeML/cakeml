@@ -599,16 +599,10 @@ Proof
   PairCases_on `h` >> gvs[] >> rpt (pairarg_tac >> gvs[])
 QED
 
+
+
 Definition compile_prog_def:
-  compile_prog max_app prog =
-    let (new_exps, aux) = compile_exps max_app (MAP (SND o SND) prog) [] in
-      MAP2 (λ(loc,args,_) exp. (loc + num_stubs max_app, args, exp))
-        prog new_exps ++ aux
-End
-
-
-Definition compile_prog_top_def:
-  compile_prog_top max_app (prog: (num # num # closLang$exp) list) =
+  compile_prog max_app (prog: (num # num # closLang$exp) list) =
   FLAT (MAP (\(loc, args, e).
          let (new_exp, aux) = compile_exp_sing max_app e [] in
          let new_exp = (loc + num_stubs max_app, args, new_exp) in
@@ -892,7 +886,7 @@ Definition compile_def:
     let (c, prog) = compile_common c0 es in
     let init_stubs = toAList (init_code c.max_app) in
     let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start))] in
-    let comp_progs = compile_prog_top c.max_app prog in
+    let comp_progs = compile_prog c.max_app prog in
     let prog' = init_stubs ++ init_globs ++ comp_progs in
     let func_names = make_name_alist (MAP FST prog') prog (num_stubs c.max_app)
                        c.start (LENGTH es) in
@@ -928,7 +922,7 @@ QED
 Definition compile_inc_def:
   compile_inc max_app (es,prog) =
     let (n,real_es) = extract_name es in
-        clos_to_bvl$compile_prog_top max_app
+        clos_to_bvl$compile_prog max_app
           (clos_to_bvl$chain_exps n real_es ++ prog)
     : (num, num # exp) alist
 End
