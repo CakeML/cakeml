@@ -18,7 +18,7 @@ open riscv_configTheory export_riscvTheory
 open mips_configTheory export_mipsTheory
 open arm7_configTheory export_arm7Theory
 open ag32_configTheory export_ag32Theory
-open panPtreeConversionTheory pan_to_targetTheory panScopeTheory pan_passesTheory
+open panPtreeConversionTheory pan_to_targetTheory panStaticTheory pan_passesTheory
 
 val _ = new_theory"compiler";
 
@@ -289,7 +289,7 @@ Definition compile_pancake_def:
                                 locs_to_string (implode input) (SOME loc); strlit "\n"])
            errs), Nil, [])
   | INL funs =>
-      case scope_check funs of
+      case static_check funs of
       | (error e, warns) => (Failure $ StaticError e, Nil, MAP StaticError warns)
       | (return (), warns) =>
           let _ = empty_ffi (strlit "finished: lexing and parsing") in
