@@ -80,24 +80,24 @@ Definition clos_to_bvl_compile_prog_top_def:
   MAP (\e.
          let (new_exp, aux) = compile_exp_sing max_app ((SND o SND) e) [] in
          let (loc, args, _) = e in
-         let new_exp = (loc + num_stubs max_app, args, new_exp) in        
+         let new_exp = (loc + num_stubs max_app, args, new_exp) in
            new_exp ::  aux
       ) prog
 End
-        
+
 Definition clos_to_bvl_compile_alt_def:
   clos_to_bvl_compile_alt c0 es =
     let (c, prog) = clos_to_bvl_compile_common_alt c0 es in
     let init_stubs = toAList (init_code c.max_app) in
     let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start))] in
     let comp_progs = clos_to_bvl_compile_prog_top c.max_app prog in
-    let comp_progs = FLAT comp_progs in      
+    let comp_progs = FLAT comp_progs in
     let prog' = init_stubs ++ comp_progs ++ init_globs in
     let c = c with start := num_stubs c.max_app - 1 in
       (c, prog')
 End
 
-        
+
 Definition bvi_stubs_without_init_globs_def:
   bvi_stubs_without_init_globs =
   [(AllocGlobal_location, AllocGlobal_code);
@@ -267,7 +267,7 @@ End
 
 
 
-        
+
 
 Definition icompile_source_to_flat_def:
   icompile_source_to_flat (source_iconf: source_iconfig) p =
@@ -331,7 +331,7 @@ Definition icompile_clos_to_bvl_prog_def:
     (new_config_aux, new_bvl_exps)
 End
 
-        
+
 Definition icompile_clos_to_bvl_def:
   icompile_clos_to_bvl (clos_iconf: clos_iconfig)  p =
   let (clos_iconf, p) = icompile_clos_to_bvl_common clos_iconf p in
@@ -350,7 +350,7 @@ End
 
 
 
-        
+
 Definition icompile_bvl_to_bvi_inline_def:
   icompile_bvl_to_bvi_inline limit split_seq cut_size cs p =
   bvl_inline$compile_inc limit split_seq cut_size cs p
@@ -557,11 +557,11 @@ End
 (* we just carry on with the stack_conf, since its incremental anyways*)
 Definition icompile_stack_to_lab_def:
   icompile_stack_to_lab stack_conf offset k p =
-  let (i, p) = stack_rawcall$compile_aux stack_conf.rawcall_info p in 
+  let (i, p) = stack_rawcall$compile_aux stack_conf.rawcall_info p in
   let p = MAP stack_alloc$prog_comp p in
   let p = MAP (stack_remove$prog_comp stack_conf.jump offset k) p in
   let p = MAP (stack_names$prog_comp stack_conf.reg_names) p in
-  let c = stack_conf with rawcall_info := i in    
+  let c = stack_conf with rawcall_info := i in
     (c, MAP stack_to_lab$prog_to_section p)
 End
 
@@ -572,7 +572,7 @@ Definition init_icompile_stack_to_lab_def:
                                    max_heap sp bvl_to_bvi$InitGlobals_location stubs in
   let stubs = stack_names$compile stack_conf.reg_names stubs in
   let stubs = MAP stack_to_lab$prog_to_section stubs in
-  let (stack_conf', p) = icompile_stack_to_lab stack_conf offset sp stack_init in    
+  let (stack_conf', p) = icompile_stack_to_lab stack_conf offset sp stack_init in
     (stack_conf', stubs ++ p)
 End
 
@@ -652,10 +652,10 @@ End
 Datatype:
   iconfig = <| source_iconf : source_iconfig |>
 End
-  *)      
+  *)
 
 
-        
+
 (******************************************************************************)
 (*                                                                            *)
 (* Syntactic correctness for icompile                                          *)
@@ -1096,8 +1096,8 @@ Theorem clos_to_bvl_compile_prog_top_append:
 Proof
   rw[clos_to_bvl_compile_prog_top_def]
 QED
-        
-                                                                                                
+
+
 
 Theorem icompile_icompile_clos_to_bvl_prog:
   icompile_clos_to_bvl_prog max_app aux p1 = (aux_p1, p1') ∧
@@ -1202,9 +1202,9 @@ Proof
   disch_then (fn t => last_x_assum assume_tac >> rev_drule t) >>
   rw[clos_to_bvl_compile_prog_top_def]
 QED
-        
 
-        
+
+
 
 Theorem bvl_tick_inline_all_aux_disch:
   ∀ cs p aux cs' p'.
@@ -1468,7 +1468,7 @@ Proof
   rw[]
 QED
 
-(*        
+(*
 Theorem icompile_icompile_stack_to_lab:
   icompile_stack_to_lab stack_conf offset k (p1 ++ p2) =
   icompile_stack_to_lab stack_conf offset k p1 ++ icompile_stack_to_lab stack_conf offset k p2
@@ -1499,19 +1499,19 @@ Proof
   last_x_assum assume_tac >>
   last_x_assum mp_tac >>
   once_rewrite_tac[stack_rawcall_compile_aux_cons] >>
-  simp[] >> rpt (pairarg_tac >> simp[]) >> 
+  simp[] >> rpt (pairarg_tac >> simp[]) >>
   strip_tac >> gvs[] >>
   pop_assum mp_tac >>
   pop_assum (fn t => strip_tac >> drule t) >>
   disch_then drule >>
   rw[]
 QED
-        
-  
+
+
 Theorem icompile_icompile_stack_to_lab:
   icompile_stack_to_lab c offset k p1 = (c1, p1') ∧
   icompile_stack_to_lab c1 offset k p2 = (c2, p2') ⇒
-  icompile_stack_to_lab c offset k (p1 ++ p2) = (c2, p1' ++ p2') 
+  icompile_stack_to_lab c offset k (p1 ++ p2) = (c2, p1' ++ p2')
 Proof
   rw[] >>
   gvs[icompile_stack_to_lab_def] >> rpt (pairarg_tac >> gvs[]) >>
@@ -1550,7 +1550,7 @@ Proof
   drule icompile_icompile_word_to_stack >>
   disch_then rev_drule  >> rw[] >>
   drule icompile_icompile_stack_to_lab >>
-  disch_then drule >> rw[] 
+  disch_then drule >> rw[]
 QED
 
 Definition config_prog_rel_def:
@@ -1683,27 +1683,27 @@ Theorem init_icompile_icompile_end_icompile_c2b:
   ∧
   clos_conf = clos_to_bvl$default_config ⇒
   config_prog_pair_rel clos_conf_after_ic (bvl_stub ++ p_bvl ++ p_bvl_end)
-                       clos_conf_after_c compiled_p 
+                       clos_conf_after_c compiled_p
 Proof
   rw[clos_to_bvlTheory.default_config_def,
      init_icompile_clos_to_bvl_def] >>
   drule icompile_clos_to_bvl_max_app_constant_alt >> simp[] >>
   rpt (pairarg_tac >> gvs[]) >>
   drule icompile_icompile_clos_to_bvl_alt >>
-  disch_then rev_drule >> 
+  disch_then rev_drule >>
   pop_assum kall_tac >>
   strip_tac >>
   strip_tac >>
   fs[clos_to_bvl_compile_alt_def,
      clos_to_bvl_compile_common_alt_def] >> rpt (pairarg_tac >> gvs[]) >>
   fs[icompile_clos_to_bvl_alt_def,  icompile_clos_to_bvl_common_def] >> rpt (pairarg_tac >> gvs[]) >>
-  fs[clos_knownTheory.compile_def, clos_callTheory.compile_def] >> 
+  fs[clos_knownTheory.compile_def, clos_callTheory.compile_def] >>
   rpt (pairarg_tac >> gvs[]) >>
-  gvs[end_icompile_clos_to_bvl_def] >> rpt (pairarg_tac >> gvs[]) >> 
+  gvs[end_icompile_clos_to_bvl_def] >> rpt (pairarg_tac >> gvs[]) >>
   rw[config_prog_pair_rel_def] >>
-  rw[clos_annotate_compile_append, clos_to_bvl_compile_prog_top_append]  
+  rw[clos_annotate_compile_append, clos_to_bvl_compile_prog_top_append]
 QED
-                               
+
 (*hd
 Theorem init_icompile_icompile_end_icompile_c2b_alt:
   init_icompile_clos_to_bvl clos_conf clos_stub = (clos_iconf, bvl_stub)
@@ -1872,8 +1872,8 @@ Definition stack_conf_init_def:
    (stack_conf.rawcall_info = LN ∧
    stack_conf.rawcall_fwd = F)
 End
-        
-                            
+
+
 Theorem init_icompile_icompile_end_icompile_stack2l:
   init_icompile_stack_to_lab stack_conf data_conf max_heap sp offset stack_init = (stack_conf1, lab_init) ∧
   icompile_stack_to_lab stack_conf1 offset sp icompiled_p_stack = (stack_conf2, icompiled_p_lab) ∧
@@ -1891,18 +1891,18 @@ Proof
   pop_assum kall_tac >>
   disch_then drule >>
   last_x_assum kall_tac >>
-  strip_tac >> 
+  strip_tac >>
   drule icompile_icompile_stack_to_lab >> disch_then rev_drule >>
   pop_assum kall_tac >> last_x_assum kall_tac >>
   strip_tac >>
-  fs[stack_to_labTheory.compile_def] >> 
+  fs[stack_to_labTheory.compile_def] >>
   pairarg_tac >> gvs[] >> fs[stack_conf_init_def] >>
   gvs[] >>
   fs[stack_rawcallTheory.compile_def] >>
   fs[icompile_stack_to_lab_def] >>
   pairarg_tac >> gvs[] >>
   rw[config_prog_pair_rel_def] >>
-  rw[stack_allocTheory.compile_def, stack_removeTheory.compile_def, stack_namesTheory.compile_def]  
+  rw[stack_allocTheory.compile_def, stack_removeTheory.compile_def, stack_namesTheory.compile_def]
 QED
 
 
