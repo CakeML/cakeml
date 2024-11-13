@@ -7850,8 +7850,6 @@ Proof
     rpt(pairarg_tac>>gvs[])>>
     strip_tac>>gvs[]>>
     fs[full_inst_ok_less_def,every_var_def]>>
-    CONJ_TAC >-
-      (EVERY_CASE_TAC>>rw[])>>
     CONJ_TAC >- metis_tac[fake_moves_conventions2]>>
     CONJ_TAC >- (
       first_x_assum match_mp_tac>>

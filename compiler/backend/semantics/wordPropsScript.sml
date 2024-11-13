@@ -3415,8 +3415,7 @@ Definition full_inst_ok_less_def:
   (full_inst_ok_less c (Seq p1 p2) ⇔
     (full_inst_ok_less c p1 ∧ full_inst_ok_less c p2)) ∧
   (full_inst_ok_less c (If cmp r1 ri c1 c2) ⇔
-    ((case ri of Imm w => c.valid_imm (INR cmp) w | _ => T) ∧
-    full_inst_ok_less c c1 ∧ full_inst_ok_less c c2)) ∧
+    (full_inst_ok_less c c1 ∧ full_inst_ok_less c c2)) ∧
   (full_inst_ok_less c (MustTerminate p) ⇔ full_inst_ok_less c p) ∧
   (full_inst_ok_less c (Call ret dest args handler)
     ⇔ (case ret of

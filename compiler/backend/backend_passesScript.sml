@@ -311,7 +311,7 @@ Definition to_lab_all_def:
     let ps = ps ++ [(strlit "after stack_names",Stack prog names)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(strlit "after stack_to_lab",Lab p names)] in
-      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:'a prog,names)
+      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:'a labLang$prog,names)
 End
 
 Theorem to_lab_thm:

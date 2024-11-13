@@ -401,16 +401,7 @@ Definition inst_select_def:
       let prog = inst_select_exp c temp temp exp in
       Seq prog (ShareInst op v (Var temp))) ∧
   (inst_select c temp (If cmp r1 ri c1 c2) =
-    dtcase ri of
-      Imm w =>
-      if c.valid_imm (INR cmp) w
-      then
-        If cmp r1 (Imm w) (inst_select c temp c1) (inst_select c temp c2)
-      else
-        Seq (Inst (Const temp w))
-        (If cmp r1 (Reg temp) (inst_select c temp c1) (inst_select c temp c2))
-    | Reg r =>
-      If cmp r1 (Reg r) (inst_select c temp c1) (inst_select c temp c2)) ∧
+    If cmp r1 ri (inst_select c temp c1) (inst_select c temp c2)) ∧
   (inst_select c temp (Call ret dest args handler) =
     let retsel =
       dtcase ret of
@@ -452,16 +443,7 @@ Theorem inst_select_pmatch:
   | MustTerminate p1 =>
     MustTerminate (inst_select c temp p1)
   | (If cmp r1 ri c1 c2) =>
-    (case ri of
-      Imm w =>
-      if c.valid_imm (INR cmp) w
-      then
-        If cmp r1 (Imm w) (inst_select c temp c1) (inst_select c temp c2)
-      else
-        Seq (Inst (Const temp w))
-        (If cmp r1 (Reg temp) (inst_select c temp c1) (inst_select c temp c2))
-    | Reg r =>
-      If cmp r1 (Reg r) (inst_select c temp c1) (inst_select c temp c2))
+      If cmp r1 ri (inst_select c temp c1) (inst_select c temp c2)
   | ShareInst op var exp =>
     (let exp = (flatten_exp o pull_exp) exp in
     case exp of

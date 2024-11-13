@@ -164,7 +164,6 @@ val _ = stack_to_labTheory.compile_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.format_var_def |> cv_trans;
 val _ = word_to_stackTheory.wReg1_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.wReg2_def |> arch_spec |> cv_trans;
-val _ = word_to_stackTheory.wRegImm2_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.wStackLoad_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.wStackStore_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.wMoveSingle_def |> arch_spec |> cv_trans;
@@ -221,13 +220,6 @@ val _ = cv_trans_rec (word_to_stackTheory.const_words_to_bitmap_def |> arch_spec
  (WF_REL_TAC ‘measure $ cv$c2n o SND’ \\ Cases \\ gvs []
   \\ gvs [cvTheory.c2b_def] \\ Cases_on ‘m’ \\ gvs []);
 
-val pre = word_to_stackTheory.comp_def |> arch_spec |> cv_auto_trans_pre;
-Theorem word_to_stack_comp_pre[cv_pre,local]:
-  ∀v bs kf. word_to_stack_comp_pre v bs kf
-Proof
-  ho_match_mp_tac word_to_stackTheory.comp_ind \\ rw [] \\ simp [Once pre]
-QED
-
 val _ = wordLangTheory.max_var_inst_def |> arch_spec |> cv_trans
 
 val pre = max_var_exp_eq |> arch_spec |> cv_trans_pre;
@@ -239,15 +231,6 @@ Proof
 QED
 
 val _ = wordLangTheory.max_var_def |> arch_spec |> cv_trans;
-val _ = word_to_stackTheory.compile_prog_def |> arch_spec |> cv_trans;
-
-val pre = word_to_stackTheory.compile_word_to_stack_def |> arch_spec_beta |> cv_trans_pre;
-Theorem word_to_stack_compile_word_to_stack_pre[cv_pre]:
-  ∀k v bitmaps. word_to_stack_compile_word_to_stack_pre k v bitmaps
-Proof
-  ho_match_mp_tac word_to_stackTheory.compile_word_to_stack_ind
-  \\ rw [] \\ simp [Once pre]
-QED
 
 val pre = every_stack_var'_eq |> arch_spec |> cv_trans_pre
 Theorem backend_cv_every_stack_var'_pre[cv_pre]:

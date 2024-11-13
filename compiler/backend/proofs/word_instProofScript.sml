@@ -830,8 +830,8 @@ Proof
     full_simp_tac(srw_ss())[]>> disch_then (qspec_then`loc` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     metis_tac[])
-  >-
-    (full_simp_tac(srw_ss())[evaluate_def,LET_THM,every_var_def]>>
+  >- ( (* MustTerminate *)
+    full_simp_tac(srw_ss())[evaluate_def,LET_THM,every_var_def]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     ntac 2 (pairarg_tac>>full_simp_tac(srw_ss())[])>>
     Cases_on`res'' = SOME TimeOut`>>full_simp_tac(srw_ss())[]>>
@@ -910,29 +910,12 @@ Proof
       set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def,
       get_var_def,state_component_equality,lookup_insert,flush_state_def] >>
     metis_tac[lookup_insert])
-  >-
-    (TOP_CASE_TAC>>TRY(IF_CASES_TAC)>>fs[evaluate_def]>>
-    qpat_x_assum`A=(res,rst)` mp_tac>>
-    fs[get_var_imm_def]
-    >-
-      (ntac 4(TOP_CASE_TAC>>fs[])>>
-      fs[every_var_def,every_var_imm_def]>>
-      srw_tac[][]>> imp_res_tac locals_rel_get_var>>
-      fs[GSYM AND_IMP_INTRO,every_var_def])
-    >-
-      (ntac 3(TOP_CASE_TAC>>fs[])>>
-      fs[every_var_def,every_var_imm_def]>>
-      srw_tac[][]>> imp_res_tac locals_rel_get_var>>
-      fs[GSYM AND_IMP_INTRO,every_var_def])
-    >-
-      (ntac 2(TOP_CASE_TAC>>fs[])>>
-      fs[inst_def,assign_def,word_exp_def]>>
-      imp_res_tac locals_rel_get_var>>fs[every_var_def,every_var_imm_def]>>
-      rfs[get_var_def,set_var_def,lookup_insert]>>
-      rw[]>>
-      fs[AND_IMP_INTRO,every_var_def]>>
-      first_assum match_mp_tac>>
-      fs[locals_rel_def,lookup_insert]))
+  >- ( (* If *)
+    gvs[AllCaseEqs(),evaluate_def]>>
+    Cases_on`ri`>>
+    fs[get_var_imm_def]>>
+    imp_res_tac locals_rel_get_var>>
+    fs[every_var_def,every_var_imm_def])
   >>
     imp_res_tac locals_rel_evaluate_thm>>
     ntac 14 (pop_assum kall_tac)>>
