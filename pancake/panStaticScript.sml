@@ -410,7 +410,8 @@ Definition static_check_prog_def:
     do
       static_check_exp ctxt e;
       (rt, rh, ls, vs, loc) <- static_check_prog (ctxt with in_loop := T) p;
-      return (rt, ctxt.is_reachable, ls, branch_vbases ctxt.vars vs $ mlmap$empty mlstring$compare, loc)
+      return (F, ctxt.is_reachable, OtherLast, branch_vbases ctxt.vars vs $ mlmap$empty mlstring$compare, loc)
+      (* While is statically similar to else-less If *)
     od ∧
   static_check_prog ctxt Break =
     do
@@ -521,6 +522,7 @@ Definition static_check_prog_def:
               else ctxt.loc in
     return (F, ctxt.is_reachable, InvisLast, empty mlstring$compare, loc)
 End
+
 
 (*
   static_check_funs returns:
