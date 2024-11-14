@@ -61,6 +61,11 @@
 //         x = 1;
 //     }
 // }
+// fun f () {
+//     while (1) {
+//         return 1;
+//     }
+// }
 // fun g () {
 //     if true {
 //         return 1;
@@ -101,12 +106,76 @@
 //     var x = 0;
 //     if true {
 //         return 1;
+//         skip; // warns here
+//     } else {
+//         return 1;
+//     }
+//     return 1; // warns here
+//     skip;
+// }
+// fun f2 () {
+//     var x = 0;
+//     if true {
+//         return 1;
+//         skip; // warns here
+//     } else {
+//         return 1;
+//     }
+//     skip; // warns here
+// }
+// fun f3 () {
+//     var x = 0;
+//     if true {
+//         return 1;
+//         skip; // warns here
+//     } else {
+//         return 1;
+//         skip; // warns here
+//     }
+//     return 1; // warns here
+//     skip;
+// }
+// fun g () {
+//     var x = 0;
+//     if true {
+//         return 1;
+//         skip; // warns here
+//     } else {
+//         skip;
+//     }
+//     return 1;
+//     skip; // warns here
+// }
+// fun g2 () {
+//     var x = 0;
+//     if true {
+//         return 1;
+//         skip; // warns here
+//     } else {
+//         skip;
+//     }
+//     skip;
+//     return 1;
+// }
+// fun f0 () {
+//     var x = 0;
+//     if true {
+//         return 1;
+//     } else {
+//         return 1;
+//     }
+//     skip; // warns here
+// }
+// fun h () {
+//     var x = 0;
+//     if true {
+//         return 1;
 //     } else {
 //         return f();
 //     }
 //     skip;
 // }
-// fun g () {
+// fun i () {
 //     var x = 12;
 //     {
 //         x = 0;
@@ -115,34 +184,34 @@
 //     return 1;
 //     skip;
 // }
-// fun h () {
+// fun j () {
 //     return 1;
 //     /*@ annot @*/
 //     /*@ annot @*/
 //     /*@ annot @*/
 // }
-// fun i () {
+// fun k () {
 //     return 1;
 //     /*@ annot @*/
 //     /*@ annot @*/
 //     skip;
 //     /*@ annot @*/
 // }
-// fun j () {
+// fun l () {
 //     while (1) {
 //         break;
 //         skip;
 //     }
 //     return 1;
 // }
-// fun k () {
+// fun m () {
 //     while (1) {
 //         continue;
 //         skip;
 //     }
 //     return 1;
 // }
-// fun l () {
+// fun n () {
 //     while (1) {
 //         break;
 //         return 1;
@@ -150,7 +219,7 @@
 //     skip;
 //     return 1;
 // }
-// fun m () {
+// fun o () {
 //     while (1) {
 //         var x = 0;
 //         if true {
@@ -162,7 +231,7 @@
 //     }
 //     return 1;
 // }
-// fun n () {
+// fun p () {
 //     while (1) {
 //         var x = 0;
 //         if true {
@@ -174,7 +243,7 @@
 //     }
 //     return 1;
 // }
-// fun o () {
+// fun q () {
 //     while (1) {
 //         var x = 12;
 //         {
@@ -224,7 +293,7 @@
 //     continue;
 // }
 
-// memory address basedness
+// // memory address basedness
 // fun a () {
 //     var y = lds 1 0;
 //     y = ld8 0;
