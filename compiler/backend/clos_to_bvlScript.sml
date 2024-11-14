@@ -605,8 +605,7 @@ Definition compile_prog_def:
   compile_prog max_app (prog: (num # num # closLang$exp) list) =
   FLAT (MAP (\(loc, args, e).
          let (new_exp, aux) = compile_exp_sing max_app e [] in
-         let new_exp = (loc + num_stubs max_app, args, new_exp) in
-           new_exp :: aux
+         (loc + num_stubs max_app, args, new_exp) :: aux
       ) prog)
 End
 
