@@ -1439,7 +1439,6 @@ Proof
     )
     >>metis_tac[]
   )
-  >-(Cases_on‘ri’>>rw[lookup_eq_imm_def])
   >-(TOP_CASE_TAC>>rw[full_inst_ok_less_def])
   >-(
     rw[copy_prop_share_def]>>every_case_tac
