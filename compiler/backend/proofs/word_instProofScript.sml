@@ -2,7 +2,7 @@
   Correctness proof for word_inst
 *)
 open preamble
-     wordLangTheory wordPropsTheory
+     wordLangTheory wordPropsTheory wordConvsTheory
      word_instTheory wordSemTheory
      asmTheory;
 

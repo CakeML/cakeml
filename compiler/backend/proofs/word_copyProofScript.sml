@@ -1,7 +1,7 @@
 (*
   Correctness proof for word_copy
 *)
-open preamble word_copyTheory wordPropsTheory wordSemTheory;
+open preamble word_copyTheory wordPropsTheory wordConvsTheory wordSemTheory;
 
 val _ = new_theory "word_copyProof";
 

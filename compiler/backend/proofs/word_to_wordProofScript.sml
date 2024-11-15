@@ -2,7 +2,7 @@
   Correctness proof for word_to_word
 *)
 open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
-     wordPropsTheory word_allocProofTheory word_instProofTheory word_unreachTheory
+     wordPropsTheory wordConvsTheory word_allocProofTheory word_instProofTheory word_unreachTheory
      word_removeProofTheory word_cseProofTheory word_elimTheory word_elimProofTheory word_unreachProofTheory word_copyProofTheory;
 
 val _ = new_theory "word_to_wordProof";

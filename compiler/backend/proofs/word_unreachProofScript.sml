@@ -1,7 +1,7 @@
 (*
   Correctness proof for word_unreach
 *)
-open preamble wordLangTheory wordSemTheory wordPropsTheory word_unreachTheory;
+open preamble wordLangTheory wordSemTheory wordPropsTheory wordConvsTheory word_unreachTheory;
 
 val _ = new_theory "word_unreachProof";
 

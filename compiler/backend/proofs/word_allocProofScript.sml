@@ -3,7 +3,7 @@
 *)
 open preamble
      reg_allocTheory reg_allocProofTheory linear_scanTheory linear_scanProofTheory
-     wordLangTheory wordSemTheory wordPropsTheory word_allocTheory;
+     wordLangTheory wordSemTheory wordPropsTheory wordConvsTheory word_allocTheory;
 
 val _ = new_theory "word_allocProof";
 
