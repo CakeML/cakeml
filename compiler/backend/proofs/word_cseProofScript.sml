@@ -4,7 +4,7 @@
 open preamble alistTheory totoTheory;
 open wordLangTheory wordSemTheory wordPropsTheory reg_allocTheory;
 open word_simpTheory word_cseTheory helperLib;
-
+open wordConvsTheory
 val _ = new_theory "word_cseProof";
 
 val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_cse"];
@@ -304,15 +304,7 @@ Theorem are_reads_seen_insert_instrs[simp]:
                are_reads_seen a (data with <| instrs:= l ;
                                               all_names:=insert n () data.all_names |>)
 Proof
-  rpt gen_tac \\ strip_tac
-  \\ Cases_on ‘a’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-  >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-      \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-      \\ Cases_on ‘n0=n’ \\ gvs []
-      \\ Cases_on ‘lookup n'' data.all_names’ \\ gvs []
-      \\ Cases_on ‘n''=r’ \\ gvs [])
-  \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-  \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
+  ho_match_mp_tac are_reads_seen_ind \\ rw[are_reads_seen_def, is_seen_def, lookup_insert]
 QED
 
 Theorem are_reads_seen_insert_map[simp]:
@@ -320,15 +312,7 @@ Theorem are_reads_seen_insert_map[simp]:
                are_reads_seen a (data with <| map:= l ;
                                               all_names:=insert n () data.all_names |>)
 Proof
-  rpt gen_tac \\ strip_tac
-  \\ Cases_on ‘a’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-  >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-      \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-      \\ Cases_on ‘n0=n’ \\ gvs []
-      \\ Cases_on ‘lookup n'' data.all_names’ \\ gvs []
-      \\ Cases_on ‘n''=r’ \\ gvs [])
-  \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-  \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
+  ho_match_mp_tac are_reads_seen_ind \\ rw[are_reads_seen_def, is_seen_def, lookup_insert]
 QED
 
 Theorem are_reads_seen_insert_eq_map[simp]:
@@ -336,15 +320,7 @@ Theorem are_reads_seen_insert_eq_map[simp]:
                  are_reads_seen a (data with <| eq:=e ; map:= l ;
                                                 all_names:=insert n () data.all_names |>)
 Proof
-  rpt gen_tac \\ strip_tac
-  \\ Cases_on ‘a’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-  >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-      \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-      \\ Cases_on ‘n0=n’ \\ gvs []
-      \\ Cases_on ‘lookup n'' data.all_names’ \\ gvs []
-      \\ Cases_on ‘n''=r’ \\ gvs [])
-  \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-  \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
+  ho_match_mp_tac are_reads_seen_ind \\ rw[are_reads_seen_def, is_seen_def, lookup_insert]
 QED
 
 Theorem is_seen_insert[simp]:
@@ -2227,8 +2203,8 @@ Proof
   \\ qspecl_then [‘p’,‘empty_data’,‘ac’] mp_tac word_cse_conventions2 \\ fs []
 QED
 
-Overload word_get_code_labels[local] = ``wordProps$get_code_labels``
-Overload word_good_handlers[local] = ``wordProps$good_handlers``
+Overload word_get_code_labels[local] = ``wordConvs$get_code_labels``
+Overload word_good_handlers[local] = ``wordConvs$good_handlers``
 
 Theorem word_good_handlers_word_common_subexp_elim:
   word_good_handlers q p ⇒
