@@ -92,14 +92,10 @@ Definition copy_prop_inst_def:
     (Inst (Const reg w), remove_eq cs reg)) ∧
   (copy_prop_inst (Arith (Binop bop r1 r2 ri)) cs =
     let cs' = remove_eq cs r1 in
-    let i' =
-      if ri = Reg r1 then
-        Inst (Arith (Binop bop r1 r2 ri))
-      else
-        let r2' = lookup_eq cs r2 in
-        let ri' = lookup_eq_imm cs ri in
-        Inst (Arith (Binop bop r1 r2' ri')) in
-    (i', cs')) ∧
+    let r2' = lookup_eq cs r2 in
+    let ri' = lookup_eq_imm cs ri in
+    let ri'' = if ri'=Reg r1 then ri else ri' in
+    (Inst (Arith (Binop bop r1 r2' ri'')), cs')) ∧
   (copy_prop_inst (Arith (Shift shift r1 r2 n)) cs =
     let r2' = lookup_eq cs r2 in
       (Inst (Arith (Shift shift r1 r2' n)),
@@ -110,35 +106,24 @@ Definition copy_prop_inst_def:
     (Inst (Arith (Div r1 r2' r3')),
         remove_eq cs r1)) ∧
   (copy_prop_inst (Arith (AddCarry r1 r2 r3 r4)) cs =
+    (* r4 is both read from and written to *)
     let cs' = remove_eqs cs [r1;r4] in
-    let i' =
-      if r1 = r3 ∨ r1 = r4 then
-        Inst (Arith (AddCarry r1 r2 r3 r4))
-      else
-        let r2' = lookup_eq cs r2 in
-        let r3' = lookup_eq cs r3 in
-        Inst (Arith (AddCarry r1 r2' r3' r4)) in
-    (i', cs')) ∧
+    let r2' = lookup_eq cs r2 in
+    let r3' = lookup_eq cs r3 in
+    let r3'' = if r3'=r1 then r3 else r3' in
+    (Inst (Arith (AddCarry r1 r2' r3'' r4)), cs')) ∧
   (copy_prop_inst (Arith (AddOverflow r1 r2 r3 r4)) cs =
     let cs' = remove_eqs cs [r1;r4] in
-    let i' =
-      if r1 = r3 then
-        Inst (Arith (AddOverflow r1 r2 r3 r4))
-      else
-        let r2' = lookup_eq cs r2 in
-        let r3' = lookup_eq cs r3 in
-        Inst (Arith (AddOverflow r1 r2' r3' r4)) in
-    (i', cs')) ∧
+    let r2' = lookup_eq cs r2 in
+    let r3' = lookup_eq cs r3 in
+    let r3'' = if r3'=r1 then r3 else r3' in
+    (Inst (Arith (AddOverflow r1 r2' r3'' r4)), cs')) ∧
   (copy_prop_inst (Arith (SubOverflow r1 r2 r3 r4)) cs =
     let cs' = remove_eqs cs [r1;r4] in
-    let i' =
-      if r1 = r3 then
-        Inst (Arith (SubOverflow r1 r2 r3 r4))
-      else
-        let r2' = lookup_eq cs r2 in
-        let r3' = lookup_eq cs r3 in
-        Inst (Arith (SubOverflow r1 r2' r3' r4)) in
-    (i', cs')) ∧
+    let r2' = lookup_eq cs r2 in
+    let r3' = lookup_eq cs r3 in
+    let r3'' = if r3'=r1 then r3 else r3' in
+    (Inst (Arith (SubOverflow r1 r2' r3'' r4)), cs')) ∧
   (copy_prop_inst (Arith (LongMul r1 r2 r3 r4)) cs =
     let r3' = lookup_eq cs r3 in
     let r4' = lookup_eq cs r4 in
@@ -189,7 +174,8 @@ Definition copy_prop_inst_def:
   (copy_prop_inst (FP (FPMovFromReg d r1 r2)) cs =
       let r1' = lookup_eq cs r1 in
       let r2' = lookup_eq cs r2 in
-        (Inst (FP (FPMovFromReg d r1' r2')), cs)) ∧
+      let (r1'',r2'') = if r1'=r2' then (r1,r2) else (r1',r2') in
+      (Inst (FP (FPMovFromReg d r1'' r2'')), cs)) ∧
   (* Catchall: all FP *)
   (copy_prop_inst (FP x) cs = (Inst (FP x),cs)) ∧
   (* Catchall: should not happen *)
@@ -268,7 +254,8 @@ Definition copy_prop_prog_def:
       (Raise v',cs)) ∧
   (copy_prop_prog (OpCurrHeap b dst src) cs =
     let src' = lookup_eq cs src in
-      (OpCurrHeap b dst src',
+    let src'' = if src'=dst then src else src' in
+      (OpCurrHeap b dst src'',
          remove_eq cs dst)) ∧
   (copy_prop_prog Tick cs = (Tick, cs)) ∧
   (copy_prop_prog (MustTerminate p1) cs =

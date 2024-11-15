@@ -978,8 +978,6 @@ Proof
   rw[CPstate_models_def,sh_mem_store_byte_def,flush_state_def]>>gvs[ACE]
 QED
 
-fun then_assume tac th = tac >> assume_tac th;
-
 Theorem copy_prop_correct:
   ∀prog cs st prog' cs' err st'.
   CPstate_inv cs ⇒
@@ -1149,14 +1147,16 @@ Proof
   >-(
     (*OpCurrHeap*)
     rw[copy_prop_prog_def,evaluate_def]
+    >-metis_tac[remove_eq_inv]
+    >-(gvs[ACE]>>metis_tac[remove_eq_model_set_var])
     >-(
       pop_assum sym_sub_tac>>
       irule option_case_cong>> simp[]>>
       irule word_exp_cong_Op>>
-      rw[]>>metis_tac[word_exp_cong_Var,CPstate_modelsD_get_var])
-    >- metis_tac[remove_eq_inv]>>
-    every_case_tac>>gvs[]>>
-    metis_tac[remove_eq_model_set_var]
+      rw[]>>metis_tac[word_exp_cong_Var,CPstate_modelsD_get_var]
+    )
+    >-metis_tac[remove_eq_inv]
+    >-(gvs[ACE]>>metis_tac[remove_eq_model_set_var])
   )
   >-(
     (*LocValue*)
@@ -1238,8 +1238,6 @@ Proof
   metis_tac[wf_cutsets_copy_prop_aux,copy_prop_def]
 QED
 
-(* too strong; not true *)
-(*
 Theorem every_inst_distinct_tar_reg_copy_prop_aux:
   ∀p cs.
   every_inst distinct_tar_reg p ⇒
@@ -1251,31 +1249,20 @@ Proof
   >>rw[every_inst_def]
   (* Inst *)
   >-(
-    Cases_on‘i’
-    >-rw[copy_prop_inst_def,every_inst_def]
-    >-rw[copy_prop_inst_def,every_inst_def]
-    >-(
-      Cases_on‘a’
-      >>rw[copy_prop_inst_def,every_inst_def]
-      >>fs[distinct_tar_reg_def]
-
-    cheat
+    pop_assum mp_tac
+    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[copy_prop_inst_def,every_inst_def,distinct_tar_reg_def]
+  )
+  >-fs[distinct_tar_reg_def]
+  >-(TOP_CASE_TAC>>rw[every_inst_def,distinct_tar_reg_def])
 QED
-*)
 
-(* Not true. Consider:
-(before copy prop)
-    a := b;
-    a := b+1;
-(after)
-    a := b;
-    a := a+1;
-*)
 Theorem every_inst_distinct_tar_reg_copy_prop:
   every_inst distinct_tar_reg p ⇒
   every_inst distinct_tar_reg (copy_prop p)
 Proof
-  cheat
+  metis_tac[every_inst_distinct_tar_reg_copy_prop_aux,copy_prop_def]
 QED
 
 Theorem extract_labels_copy_prop_aux:
@@ -1427,11 +1414,44 @@ Proof
   >>metis_tac[pre_alloc_conventions_copy_prop_aux,copy_prop_def]
 QED
 
+Theorem full_inst_ok_less_copy_prop_aux:
+  ∀p cs.
+  full_inst_ok_less ac p ⇒
+  full_inst_ok_less ac (FST (copy_prop_prog p cs))
+Proof
+  ho_match_mp_tac copy_prop_prog_ind
+  >>rw[copy_prop_prog_def,full_inst_ok_less_def]
+  >>rpt(pairarg_tac>>fs[])
+  >>rw[full_inst_ok_less_def]
+  >-(
+    pop_assum mp_tac
+    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[copy_prop_inst_def,full_inst_ok_less_def]
+    >>fs[inst_ok_less_def]
+    >-(
+      Cases_on‘ri’
+      >>fs[inst_ok_less_def,lookup_eq_imm_def]
+    )
+    >-(
+      Cases_on‘ri’
+      >>fs[inst_ok_less_def,lookup_eq_imm_def]
+    )
+    >>metis_tac[]
+  )
+  >-(Cases_on‘ri’>>rw[lookup_eq_imm_def])
+  >-(TOP_CASE_TAC>>rw[full_inst_ok_less_def])
+  >-(
+    rw[copy_prop_share_def]>>every_case_tac
+    >>gvs[wordLangTheory.exp_to_addr_def]
+  )
+QED
+
 Theorem full_inst_ok_less_copy_prop:
   full_inst_ok_less ac p ⇒
   full_inst_ok_less ac (copy_prop p)
 Proof
-  cheat
+  metis_tac[full_inst_ok_less_copy_prop_aux,copy_prop_def]
 QED
 
 val _ = export_theory();
