@@ -145,6 +145,9 @@ Correctness proof for stack_remove
 [stack_to_labProofScript.sml](stack_to_labProofScript.sml):
 Correctness proof for stack_to_lab
 
+[wordConvsProofScript.sml](wordConvsProofScript.sml):
+Syntactic properties proofs for word_to_word.
+
 [word_allocProofScript.sml](word_allocProofScript.sml):
 Correctness proof for word_alloc
 
