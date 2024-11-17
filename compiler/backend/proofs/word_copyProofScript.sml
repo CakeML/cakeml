@@ -977,6 +977,12 @@ Theorem sh_mem_store_byte_model:
 Proof
   rw[CPstate_models_def,sh_mem_store_byte_def,flush_state_def]>>gvs[ACE]
 QED
+(*MOVE*)
+Theorem CPstate_models_with_const[simp]:
+CPstate_models cs (st with memory := m) = CPstate_models cs st
+Proof
+  fs[CPstate_models_def]
+QED
 
 Theorem copy_prop_correct:
   ∀prog cs st prog' cs' err st'.
