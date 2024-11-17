@@ -1265,6 +1265,41 @@ Proof
   EVAL_TAC
 QED
 
+Theorem semantics_attach_interpreter':
+  semantics (ffi:'ffi ffi_state) max_app FEMPTY
+  co (pure_cc (insert_interp ## I) cc) (compile_init T :: xs) <> Fail ==>
+  (∀n. SND (SND (co n)) = []) ∧ 0 < max_app ==>
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+             (pure_co (insert_interp ## I) ∘ co) cc (compile_init T :: xs) =
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+             co (pure_cc (insert_interp ## I) cc) (compile_init T :: xs)
+Proof
+  strip_tac
+  \\ ho_match_mp_tac IMP_semantics_eq \\ rw []
+  \\ fs [] \\ fs [eval_sim_def] \\ rw []
+  \\ last_x_assum kall_tac
+  \\ last_x_assum mp_tac
+  \\ once_rewrite_tac [evaluate_CONS]
+  \\ fs [compile_init_def,evaluate_def,do_app_def,init_globals,get_global_def,
+           LUPDATE_def,EVAL “REPLICATE 1 x”]
+    \\ qmatch_goalsub_abbrev_tac ‘evaluate (_,_,iis)’
+    \\ CASE_TAC \\ strip_tac
+    \\ qspecl_then [‘xs’,‘[]’,‘iis’] mp_tac evaluate_interp_thm
+    \\ disch_then drule \\ fs []
+    \\ disch_then $ qspec_then ‘initial_state ffi max_app
+                                FEMPTY (pure_co (insert_interp ## I) ∘ co) cc k with
+                                globals := [SOME (Closure NONE [] [] 1 clos_interpreter)]’ mp_tac
+    \\ impl_tac
+    >- (simp [Abbr‘iis’,state_rel_def,initial_state_def]
+        \\ strip_tac \\ gvs [])
+    \\ strip_tac \\ fs [closPropsTheory.initial_state_clock]
+    \\ qexists_tac ‘ck’ \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ fs [state_rel_def]
+QED
+
+
+
 Theorem semantics_attach_interpreter:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc (insert_interp ## I) cc) (attach_interpreter xs) <> Fail ==>

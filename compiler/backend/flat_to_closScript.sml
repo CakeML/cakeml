@@ -298,7 +298,7 @@ End
 
 Definition compile_prog_def:
   compile_prog xs =
-    attach_interpreter (compile_decs xs)
+    (clos_interp$compile_init T) :: (compile_decs xs)
 End
 
 Definition inc_compile_decs_def:

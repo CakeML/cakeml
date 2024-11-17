@@ -179,19 +179,17 @@ Proof
 QED
 
 Definition initial_state'_def:
-  initial_state' b ffi ma code co cc k =
+  initial_state' ffi ma code co cc k =
     <| max_app := ma; clock := k; ffi := ffi; code := code; compile := cc;
        compile_oracle := co;
-       globals := [SOME (if b then
-                           Closure NONE [] [] 1 clos_interpreter
-                         else Unit)];
+       globals := [SOME (Closure NONE [] [] 1 clos_interpreter)];
        refs := FEMPTY|>
 End
 
 Theorem initate_state'_clock[simp,local]:
-  (initial_state' b ffi max_app FEMPTY co cc k' with clock := k) =
-  initial_state' b ffi max_app FEMPTY co cc k ∧
-  (initial_state' b ffi max_app FEMPTY co cc k).clock = k
+  (initial_state' ffi max_app FEMPTY co cc k' with clock := k) =
+  initial_state' ffi max_app FEMPTY co cc k ∧
+  (initial_state' ffi max_app FEMPTY co cc k).clock = k
 Proof
   fs [initial_state'_def]
 QED
@@ -199,7 +197,7 @@ QED
 Theorem state_rel_initial_state:
   0 < max_app /\ install_config_rel' ec co cc ==>
   state_rel (initial_state ffi k ec)
-            (initial_state' b ffi max_app FEMPTY co cc k)
+            (initial_state' ffi max_app FEMPTY co cc k)
 Proof
   fs [state_rel_def,flatSemTheory.initial_state_def,initial_state'_def,store_rel_def]
 QED
@@ -1627,17 +1625,17 @@ Proof
   simp [FUN_EQ_THM, FORALL_PROD]
 QED
 
+
 Theorem evaluate_compile_prog_initial_state:
   0 < max_app ⇒
   (evaluate (compile_prog ds,[], initial_state ffi max_app FEMPTY co cc k) =
    case evaluate (compile_decs ds,[],
-          initial_state' (has_install_list (compile_decs ds)) ffi max_app FEMPTY co cc k) of
+          initial_state' ffi max_app FEMPTY co cc k) of
    | (Rval vs1,s1) => (Rval (Unit::vs1),s1)
    | res => res)
 Proof
   fs [compile_prog_def,clos_interpTheory.attach_interpreter_def]
   \\ simp [Once closPropsTheory.evaluate_CONS]
-  \\ Cases_on ‘has_install_list (compile_decs ds)’ \\ fs []
   \\ fs [compile_prog_def,clos_interpTheory.compile_init_def]
   \\ fs [closSemTheory.evaluate_def]
   \\ fs [closSemTheory.do_app_def,initial_state_def,get_global_def,LUPDATE_def,
@@ -1648,12 +1646,11 @@ QED
 Theorem evaluate_compile_prog_initial_state_FST_Err:
   0 < max_app ⇒
   (FST (evaluate (compile_prog ds,[], initial_state ffi max_app FEMPTY co cc k)) = Rerr e ⇔
-   FST (evaluate (compile_decs ds,[], initial_state' (has_install_list (compile_decs ds))
+   FST (evaluate (compile_decs ds,[], initial_state'
                                                     ffi max_app FEMPTY co cc k)) = Rerr e)
 Proof
   fs [compile_prog_def,clos_interpTheory.attach_interpreter_def]
   \\ simp [Once closPropsTheory.evaluate_CONS]
-  \\ Cases_on ‘has_install_list (compile_decs ds)’ \\ fs []
   \\ fs [compile_prog_def,clos_interpTheory.compile_init_def]
   \\ fs [closSemTheory.evaluate_def]
   \\ fs [closSemTheory.do_app_def,initial_state_def,get_global_def,LUPDATE_def,
@@ -1790,6 +1787,7 @@ Definition install_config_rel_def:
     ic.compile = pure_cc inc_compile_decs cc
 End
 
+
 Theorem compile_semantics:
   0 < max_app ∧ no_Mat_decs ds ∧ install_config_rel ec co cc ⇒
   semantics ec ffi ds ≠ Fail ⇒
@@ -1805,7 +1803,7 @@ Proof
   \\ impl_tac >- fs []
   \\ strip_tac \\ fs []
   \\ fs [compile_prog_def]
-  \\ irule semantics_attach_interpreter
+  \\ irule semantics_attach_interpreter'
   \\ fs [] \\ rw []
   \\ fs [inc_compile_decs'_def]
 QED
