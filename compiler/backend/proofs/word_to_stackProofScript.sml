@@ -2,7 +2,7 @@
   Correctness proof for word_to_stack
 *)
 open preamble semanticsPropsTheory stackSemTheory wordSemTheory
-     word_to_stackTheory wordPropsTheory stackPropsTheory
+     word_to_stackTheory wordPropsTheory wordConvsTheory stackPropsTheory
      parmoveTheory helperLib;
 
 val get_labels_def = stackSemTheory.get_labels_def;
@@ -666,9 +666,9 @@ Proof
 QED
 
 val convs_def = LIST_CONJ
-  [wordPropsTheory.post_alloc_conventions_def,
-   wordPropsTheory.call_arg_convention_def,
-   wordPropsTheory.flat_exp_conventions_def,
+  [wordConvsTheory.post_alloc_conventions_def,
+   wordConvsTheory.call_arg_convention_def,
+   wordConvsTheory.flat_exp_conventions_def,
    wordLangTheory.every_var_def,
    wordLangTheory.every_var_imm_def,
    wordLangTheory.every_stack_var_def,
@@ -4994,6 +4994,35 @@ Proof
   Induct>>fs[wStackLoad_def,FORALL_PROD,stackSemTheory.evaluate_def,LET_THM]>>rw[]
 QED
 
+Triviality evaluate_wStackLoad_wReg2:
+  wReg2 r (k,f,f') = (x ,r') ∧
+  EVEN r ∧
+  get_var r (s:('a,num # 'c,'ffi)state) = SOME (Word c) ∧
+  state_rel ac k f f' s t lens ⇒
+  ∃t':('a,'c,'ffi) stackSem$state.
+  evaluate(wStackLoad x Skip,t) = (NONE,t') ∧
+  t.clock = t'.clock ∧
+  state_rel ac k f f' s t' lens ∧
+  LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space /\
+  (∀r. r ≠ k+1 ⇒ get_var r t' = get_var r t) ∧
+  get_var r' t' = SOME (Word c)
+Proof
+  rw[wReg2_def,LET_THM,EVEN_EXISTS]>>
+  fs[wStackLoad_def,stackSemTheory.evaluate_def,LET_THM,stackSemTheory.get_var_def]>>simp[]>-
+    (imp_res_tac state_rel_get_var_imp>>
+    first_assum match_mp_tac>>
+    simp[TWOxDIV2])>>
+  IF_CASES_TAC>-fs[state_rel_def]>>
+  reverse IF_CASES_TAC>-
+    (fs[state_rel_def,LET_THM,get_var_def]>>
+    res_tac>>fs[TWOxDIV2]>>rfs[]>>
+    Cases_on`f'`>>fs[])>>
+  imp_res_tac state_rel_get_var_imp2>>
+  fs[]>>
+  simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
+  fs[TWOxDIV2]
+QED
+
 (*
 Triviality evaluate_wStackLoad_wRegImm2:
   wRegImm2 ri (k,f,f') = (x,r') ∧
@@ -6581,62 +6610,78 @@ Proof
   simp[FLOOKUP_UPDATE]
 QED
 
+(* TODO: move? *)
+Theorem get_var_with_clock[simp]:
+  stackSem$get_var r (t with clock := clk) =
+  (stackSem$get_var r t)
+Proof
+  rw[stackSemTheory.get_var_def]
+QED
+
 Theorem comp_If_correct:
   ^(get_goal "wordLang$If")
 Proof
-  cheat
-  (*
-  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
-  fsrw_tac[][comp_def]>>
-  qpat_x_assum`_ = (_,_,n')` mp_tac>>
-  LET_ELIM_TAC>>
-  fs[evaluate_def]>>
-  rw[]>>
-  qpat_x_assum`A=(res,s1)`mp_tac>>
-  ntac 2 TOP_CASE_TAC>>fs[]>>
-  ntac 2 TOP_CASE_TAC>>fs[]>>
-  simp[evaluate_wStackLoad_seq,wStackLoad_append]>>
-  simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_seq]>>
-  ntac 3 (simp[Once stackSemTheory.evaluate_def])>>
-  `EVEN r1 ∧ (case ri of Reg r => EVEN r | _ => T)` by
-    (Cases_on`ri`>>
-    fs[convs_def,EVEN_MOD2,reg_allocTheory.is_phy_var_def])>>
-  simp[evaluate_wStackLoad_clock]>>
-  drule evaluate_wStackLoad_wReg1>>
-  fs[]>>strip_tac>>
-  simp[]>>
-  drule (GEN_ALL evaluate_wStackLoad_wRegImm2)>>
-  disch_then (Q.ISPECL_THEN[`t'`,`s`,`lens`,`c'`] assume_tac)>>
-  rfs[]>>
-  fs[stackSemTheory.get_var_def,word_cmp_Word_Word]>>
-  rw[]>>fs[get_labels_wStackLoad,get_labels_def]>>
-  Cases_on`bs''`
-  >- (
-    first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`bs`,`n`,`q`,`r`,`q1`,`lens`] mp_tac)>>
-    impl_tac>- (
-      fs[convs_def,wordLangTheory.max_var_def]>>
-      imp_res_tac evaluate_mono>>fs[]>>rw[]
-      >- (imp_res_tac IS_PREFIX_LENGTH>>fs[])
-      >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
-        metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
-      >>
-        fs[get_labels_def]>>
-        metis_tac[SUBSET_TRANS,loc_check_SUBSET])>>
-    strip_tac>>qexists_tac`ck`>>rfs[]
-    )>>
-  first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`q`,`r`,`bs'`,`n'`,`q2`,`lens`] mp_tac)>>
-  impl_tac>- (
-    fs[convs_def,wordLangTheory.max_var_def]>>
-    imp_res_tac comp_IMP_isPREFIX>>
-    imp_res_tac comp_IMP_LENGTH>>rfs[]>>
-    imp_res_tac evaluate_mono>>fs[]>>rw[]
-    >- (imp_res_tac IS_PREFIX_LENGTH>>fs[])
-    >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
-      metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
-    >>
-      fs[get_labels_def]>>
-      metis_tac[SUBSET_TRANS,loc_check_SUBSET])>>
-  strip_tac>>qexists_tac`ck`>>rfs[] *)
+  rw[] >> fs[comp_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  rename1`_ = (q1,bss)`>>
+  Cases_on`bss`>>
+  qpat_x_assum`evaluate _ =_` mp_tac >>
+  simp[evaluate_def, CaseEq "option", CaseEq"word_loc"]>>rw[]>>
+  (* prevent splitting *)
+  qmatch_asmsub_abbrev_tac`ifcase = (res,s1)`>>
+  `EVEN r1 ∧ (case ri of Reg r => EVEN r | _ => T)` by (
+    Cases_on`ri`>>
+    fs[convs_def,EVEN_MOD2,reg_allocTheory.is_phy_var_def]
+  )>>
+  gvs[AllCaseEqs()]
+  >~ [`If _ _ (Reg _) _ _`]
+  >- ( (* Reg case *)
+    rpt(pairarg_tac>>gvs[])>>
+    simp[wStackLoad_append]>>
+    simp[evaluate_wStackLoad_seq]>>
+    drule_all evaluate_wStackLoad_wReg1>>
+    rw[]>>
+    simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
+    simp[evaluate_wStackLoad_seq]>>
+    gvs[get_var_imm_def]>>
+    drule_all evaluate_wStackLoad_wReg2>>
+    rw[]>>
+    simp[stackSemTheory.evaluate_def,evaluate_wStackLoad_clock,stackSemTheory.get_var_imm_def]>>
+    gvs[markerTheory.Abbrev_def,word_cmp_Word_Word,convs_def,wordLangTheory.max_var_def]
+    >- (
+      last_x_assum (drule_at Any)>>
+      rpt(disch_then (drule_at Any))>>
+      impl_tac>- (
+        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_LENGTH>>rfs[]>>
+        imp_res_tac evaluate_mono>>fs[]>>rw[]
+        >- (imp_res_tac IS_PREFIX_LENGTH>>fs[])
+        >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
+          metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
+        >>
+          fs[get_labels_wStackLoad,get_labels_def]>>
+          metis_tac[SUBSET_TRANS,loc_check_SUBSET])>>
+      rw[])
+    >- (
+      last_x_assum (drule_at Any)>>
+      rpt(disch_then (drule_at Any))>>
+      impl_tac>- (
+        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_LENGTH>>rfs[]>>
+        imp_res_tac evaluate_mono>>fs[]>>rw[]
+        >- (imp_res_tac IS_PREFIX_LENGTH>>fs[])
+        >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
+          metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
+        >>
+          fs[get_labels_wStackLoad,get_labels_def]>>
+          metis_tac[SUBSET_TRANS,loc_check_SUBSET])>>
+      rw[]))
+  >- ( (* Imm but valid case, should be easy and similar to Reg *)
+    cheat
+  )
+  >- ( (* Imm but not valid case, slightly more challenging *)
+    cheat
+  )
 QED
 
 Theorem comp_LocValue_correct:
@@ -7518,7 +7563,7 @@ Proof
           ntac 3 strip_tac>>
           imp_res_tac (GSYM domain_lookup)>>
           imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
-          fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
+          fsrw_tac[][wordConvsTheory.post_alloc_conventions_def,wordConvsTheory.call_arg_convention_def]>>
           `lookup n' s.locals = SOME v` by (
             qpat_x_assum`args=A` SUBST_ALL_TAC>>
             imp_res_tac get_vars_fromList2_eq>>
@@ -8011,7 +8056,7 @@ Proof
       rpt(qpat_x_assum`!a b c. A ⇒ B` kall_tac)>>
       imp_res_tac (GSYM domain_lookup)>>
       imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
-      fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
+      fsrw_tac[][wordConvsTheory.post_alloc_conventions_def,wordConvsTheory.call_arg_convention_def]>>
       `isPREFIX q (Loc x3 x4::x)` by (
         qpat_x_assum`A=SOME(q,_)` mp_tac>>
         Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
@@ -8906,7 +8951,7 @@ Proof
     rpt(qpat_x_assum`!a b c. A ⇒ B` kall_tac)>>
     imp_res_tac (GSYM domain_lookup)>>
     imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
-    fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
+    fsrw_tac[][wordConvsTheory.post_alloc_conventions_def,wordConvsTheory.call_arg_convention_def]>>
     `isPREFIX q (Loc x3 x4::x)` by
        (qpat_x_assum`A=SOME(q,q',r')` mp_tac>>
        Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
@@ -10158,7 +10203,7 @@ Theorem word_to_stack_lab_pres:
     extract_labels p = extract_labels (FST (comp ac p bs kf))
 Proof
   ho_match_mp_tac comp_ind>>
-  rw[comp_def,extract_labels_def,wordPropsTheory.extract_labels_def]>>
+  rw[comp_def,extract_labels_def,wordConvsTheory.extract_labels_def]>>
   TRY(PairCases_on`kf`)>>TRY(PairCases_on`kf'`)>>
   fs[wReg1_def]
   >-
@@ -10291,7 +10336,7 @@ Proof
   \\ asm_simp_tac std_ss [DIV_MULT] \\ fs []
 QED
 
-val wconvs = [post_alloc_conventions_def,wordPropsTheory.full_inst_ok_less_def,call_arg_convention_def,wordLangTheory.every_var_def,wordLangTheory.every_stack_var_def]
+val wconvs = [post_alloc_conventions_def,wordConvsTheory.full_inst_ok_less_def,call_arg_convention_def,wordLangTheory.every_var_def,wordLangTheory.every_stack_var_def]
 
 Triviality call_dest_stack_asm_name:
   call_dest d a k = (q0,d') ⇒
@@ -11192,7 +11237,7 @@ QED
 
 Theorem comp_no_install:
   !ac prog bs kf prog' bs'.
-    wordProps$no_install prog /\
+    wordConvs$no_install prog /\
     comp ac prog bs kf = (prog',bs') ==>
     stackProps$no_install prog'
 Proof
@@ -11228,10 +11273,10 @@ Proof
     irule wRegWrite1_no_install_lem >>
     rw[no_install_def]
   )
-  >- gvs[wordPropsTheory.no_install_def] (* MustTerminate *)
+  >- gvs[wordConvsTheory.no_install_def] (* MustTerminate *)
   >- ( (* Seq *)
     pairarg_tac >>
-    gvs[wordPropsTheory.no_install_def,ELIM_UNCURRY,no_install_def] >>
+    gvs[wordConvsTheory.no_install_def,ELIM_UNCURRY,no_install_def] >>
     first_x_assum irule >>
     metis_tac[FST_EQ_EQUIV]
   )
@@ -11239,7 +11284,7 @@ Proof
     rpt (
       pairarg_tac >>
       gvs[no_install_def,wStackLoad_no_install_lem,
-        wordPropsTheory.no_install_def,AllCaseEqs()])
+        wordConvsTheory.no_install_def,AllCaseEqs()])
   >- simp[no_install_def] (* Set BitmapBase *)
   >- gvs[no_install_def,wStackLoad_no_install_lem,
     ELIM_UNCURRY,AllCaseEqs()] (* Set *)
@@ -11251,7 +11296,7 @@ Proof
     pairarg_tac >>
     PairCases_on `kf` >>
     gvs[AllCaseEqs(),no_install_def,
-      wordPropsTheory.no_install_def,
+      wordConvsTheory.no_install_def,
       DefnBase.one_line_ify NONE call_dest_def,
       SeqStackFree_def,ELIM_UNCURRY] >>
     rpt TOP_CASE_TAC >>
@@ -11270,7 +11315,7 @@ Proof
     irule wRegWrite1_no_install_lem >>
     rw[no_install_def]
   )
-  >- fs[wordPropsTheory.no_install_def] (* Install *)
+  >- fs[wordConvsTheory.no_install_def] (* Install *)
   >- gvs[no_install_def,wStackLoad_no_install_lem,ELIM_UNCURRY] (* CodeBufferWrite *)
   >- gvs[no_install_def,wStackLoad_no_install_lem,ELIM_UNCURRY] (* DataBufferWrite *)
   >- ( (* ShareInst *)
@@ -11286,7 +11331,7 @@ QED
 
 Theorem compile_word_to_stack_no_install:
   !ac k prog bs prog' fs' bs'.
-    EVERY (\(n,m,pp). wordProps$no_install pp) prog /\
+    EVERY (\(n,m,pp). wordConvs$no_install pp) prog /\
     compile_word_to_stack ac k prog bs = (prog',fs', bs') ⇒
     EVERY (\(a,p). no_install p) prog'
 Proof
