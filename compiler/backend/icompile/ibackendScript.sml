@@ -235,7 +235,7 @@ Definition glob_alloc_fixed_def:
           (GlobalVarAlloc init) [])
         (flatLang$Con om_tra NONE []))
 End
-        
+
 Definition init_icompile_source_to_flat_def:
   init_icompile_source_to_flat source_conf =
   let next = source_conf.next with <| vidx := source_conf.next.vidx + 1 |> in
@@ -268,7 +268,7 @@ Definition end_icompile_source_to_flat_def:
                    mod_env := source_iconf.env |>
 End
 
-        
+
 Definition icompile_flat_to_clos_def:
   icompile_flat_to_clos p =
   flat_to_clos$compile_decs p
@@ -279,7 +279,7 @@ Definition init_icompile_flat_to_clos_def:
   let clos_stub = (clos_interp$compile_init T) :: (flat_to_clos$compile_decs flat_stub) in
   clos_stub
 End
-        
+
 Definition icompile_clos_to_bvl_common_def:
   icompile_clos_to_bvl_common (clos_iconf: clos_iconfig) p =
   let p = clos_mti$compile clos_iconf.do_mti clos_iconf.max_app p in
@@ -433,7 +433,7 @@ Definition end_icompile_bvl_to_bvi_def:
   let clos_conf = clos_conf with start := InitGlobals_location in
     (clos_conf, bvl_conf: bvl_to_bvi$config, bvi_stubs ++ init_globs_stub)
 End
-        
+
 Definition icompile_data_to_word_def:
   icompile_data_to_word data_conf p =
   MAP (compile_part data_conf) p
