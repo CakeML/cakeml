@@ -46,10 +46,6 @@ val _ = new_theory"ibackend";
   TODO: the _alt parts of this definition will need to be moved into backend/ *)
 
 (* we always insert the clos_interpreter code, this should be put into config *)
-Definition flat_to_clos_compile_alt_def:
-  flat_to_clos_compile_alt p =
-  (clos_interp$compile_init T) :: flat_to_clos$compile_decs p
-End
 
 (* change the order of chain_exps *)
 Definition clos_to_bvl_compile_common_alt_def:
@@ -68,12 +64,6 @@ Definition clos_to_bvl_compile_common_alt_def:
                  call_state := (g,aux) |>,
        prog)
 End
-
-
-(* TODO: just to remove the names field, probably just use
-  original instead *)
-
-
 
 Definition clos_to_bvl_compile_prog_top_def:
   clos_to_bvl_compile_prog_top max_app (prog: (num # num # closLang$exp) list) =
@@ -94,7 +84,6 @@ Definition clos_to_bvl_compile_alt_def:
     let c = c with start := num_stubs c.max_app - 1 in
       (c, prog')
 End
-
 
 Definition bvi_stubs_without_init_globs_def:
   bvi_stubs_without_init_globs =
@@ -150,11 +139,11 @@ End
 
 Definition compile_alt1_def:
   compile_alt1 source_conf clos_conf bvl_conf data_conf word_conf asm_conf stack_conf (:'a) p =
-  (* skip source to source for now *)
+  let p = source_to_source$compile p in
   let (source_conf', compiled_p_flat) =
     source_to_flat$compile source_conf p in
   let compiled_p_clos =
-    flat_to_clos_compile_alt compiled_p_flat in
+    flat_to_clos$compile_prog compiled_p_flat in
   let (clos_conf', compiled_p_bvl) =
     clos_to_bvl_compile_alt clos_conf compiled_p_clos in
   let (clos_conf', bvl_conf', compiled_p_bvi) =
@@ -171,51 +160,6 @@ Definition compile_alt1_def:
   let (stack_conf', compiled_p_lab) = stack_to_lab$compile stack_conf data_conf max_heap sp offset compiled_p_stack in
     (source_conf', clos_conf', bvl_conf', word_conf, stack_conf', bm, compiled_p_lab)
 End
-
-(******************************************************************************)
-(*                                                                            *)
-(* Defining icompile                                                          *)
-(*                                                                            *)
-(******************************************************************************)
-
-(******************************************************************************)
-(*                                                                            *)
-(* Source to flat                                                             *)
-(*                                                                            *)
-(******************************************************************************)
-
-(* Some diagram to remind me *)
-
-(*
-      Given P as input
-
-      mono_compile
-
-      P --- source_to_source ---> P ---source_to_flat---> [source_to_flat_stub] ++ P ---flat_to_clos---> [flat_to_clos_stub] ++ P
-
-
-      icompile_init                                     icompile                icompile_end
-
-        conf                               +------->  (iconf, p: source)        +---> iconf
-          |                                |              |                     |       |
-          | s_to_f_init                    |              |                     |       |
-          |                                |              |                     |       |
-          ∨                                |              ∨                     |       ∨
-      (iconf, s_to_f_stub)                 |           (iconf, p: flat)         |     conf
-          |                                |              |                     |       |
-          | f_to_c init                    |              |                     |       |
-          |                                |              |                     |       |
-          ∨                                |              ∨                     |       ∨
-      (iconf, -----------------------------+            (iconf,-----------------+      conf
-       f_to_c_compile (s_to_f_stub)                      p: clos)
-       ++ f_to_c_stub)
-
--------> boundary
-
-
-
-
-*)
 
 Datatype:
   source_iconfig =
@@ -283,11 +227,59 @@ Definition icompile_source_to_flat_def:
   else NONE
 End
 
+Definition glob_alloc_fixed_def:
+  glob_alloc_fixed init =
+    Dlet
+      (Let om_tra NONE
+        (App om_tra
+          (GlobalVarAlloc init) [])
+        (flatLang$Con om_tra NONE []))
+End
+        
+Definition init_icompile_source_to_flat_def:
+  init_icompile_source_to_flat source_conf =
+  let next = source_conf.next with <| vidx := source_conf.next.vidx + 1 |> in
+  let env_gens = <| next := 0; generation := source_conf.envs.next; envs := LN |> in
+  let source_iconf =
+    <| n := 1n;
+       next := next;
+       env := source_conf.mod_env;
+       env_gens := env_gens;
+       pattern_cfg := source_conf.pattern_cfg;
+       init_vidx := source_conf.init_vidx |> in
+  let flat_stubs = MAP (flat_pattern$compile_dec source_conf.pattern_cfg) [glob_alloc_fixed source_conf.init_vidx; source_to_flat$alloc_env_ref] in
+  (source_iconf, flat_stubs)
+End
+
+Definition end_icompile_source_to_flat_def:
+  end_icompile_source_to_flat (source_iconf: source_iconfig) (source_conf: source_to_flat$config) =
+  let envs =
+      <| next := source_conf.envs.next + 1;
+         env_gens :=
+         insert source_conf.envs.next
+                source_iconf.env_gens.envs
+                source_conf.envs.env_gens;
+      |> in
+    source_conf with
+                <| next :=
+                    (source_iconf.next with
+                      vidx := source_iconf.init_vidx);
+                   envs := envs;
+                   mod_env := source_iconf.env |>
+End
+
+        
 Definition icompile_flat_to_clos_def:
   icompile_flat_to_clos p =
   flat_to_clos$compile_decs p
 End
 
+Definition init_icompile_flat_to_clos_def:
+  init_icompile_flat_to_clos flat_stub =
+  let clos_stub = (clos_interp$compile_init T) :: (flat_to_clos$compile_decs flat_stub) in
+  clos_stub
+End
+        
 Definition icompile_clos_to_bvl_common_def:
   icompile_clos_to_bvl_common (clos_iconf: clos_iconfig) p =
   let p = clos_mti$compile clos_iconf.do_mti clos_iconf.max_app p in
@@ -346,136 +338,6 @@ Definition icompile_clos_to_bvl_alt_def:
     (clos_iconf, p)
 End
 
-
-
-
-Definition icompile_bvl_to_bvi_inline_def:
-  icompile_bvl_to_bvi_inline limit split_seq cut_size cs p =
-  bvl_inline$compile_inc limit split_seq cut_size cs p
-End
-
-(* will this result in inefficiencies due to the append code*)
-Definition icompile_bvl_to_bvi_prog_def:
-  icompile_bvl_to_bvi_prog n p k_acc =
-  let k = bvl_to_bvi$alloc_glob_count (MAP (\(_,_,p). p) p) in
-  let (code, n1) = bvl_to_bvi$compile_list n p in
-    (append code, n1, k_acc + k)
-End
-
-Definition icompile_bvl_to_bvi_def:
-  icompile_bvl_to_bvi bvl_iconf p =
-  let (inlines, p) = icompile_bvl_to_bvi_inline bvl_iconf.inline_size_limit
-                                                bvl_iconf.split_main_at_seq
-                                                bvl_iconf.exp_cut
-                                                bvl_iconf.inlines p in
-  let (code, n1, k) = icompile_bvl_to_bvi_prog bvl_iconf.n1 p bvl_iconf.alloc_glob_count in
-  let (n2, code) = bvi_tailrec$compile_prog bvl_iconf.n2 code in
-  let bvl_iconf = bvl_iconf with <| n1 := n1; n2 := n2; inlines := inlines; alloc_glob_count := k|> in
-    (bvl_iconf, code)
-End
-
-
-Definition init_icompile_bvl_to_bvi_def:
-  init_icompile_bvl_to_bvi (bvl_conf: bvl_to_bvi$config) bvl_init =
-  let bvl_iconf = <| inline_size_limit := bvl_conf.inline_size_limit;
-                     exp_cut := bvl_conf.exp_cut;
-                     split_main_at_seq := bvl_conf.split_main_at_seq;
-                     n1 := 0 ;
-                     n2 := backend_common$bvl_num_stubs + 2;
-                     inlines := LN ;
-                     alloc_glob_count := 0|>
-  in
-  let (n2, bvi_stubs) = bvi_tailrec$compile_prog bvl_iconf.n2 bvi_stubs_without_init_globs in
-  let bvl_iconf = bvl_iconf with n2 := n2 in
-  let (bvl_iconf, bvi_stubs1) = icompile_bvl_to_bvi bvl_iconf bvl_init in
-  (bvl_iconf,  bvi_stubs ++ bvi_stubs1)
-End
-
-
-
-Definition end_icompile_bvl_to_bvi_def:
-  end_icompile_bvl_to_bvi bvl_end bvl_iconf clos_conf bvl_conf =
-  let (bvl_iconf, bvi_stubs) = icompile_bvl_to_bvi bvl_iconf bvl_end in
-  let init_globs_start = backend_common$bvl_num_stubs + bvl_to_bvi_namespaces * clos_conf.start in
-  let init_globs_stub = [(InitGlobals_location, InitGlobals_code init_globs_start bvl_iconf.alloc_glob_count)] in
-  let (n2, init_globs_stub) = bvi_tailrec$compile_prog bvl_iconf.n2 init_globs_stub in
-  let bvl_conf = bvl_conf with
-                          <| next_name1 := bvl_iconf.n1;
-                             next_name2 := n2;
-                             inlines := bvl_iconf.inlines |> in
-  let clos_conf = clos_conf with start := InitGlobals_location in
-    (clos_conf, bvl_conf: bvl_to_bvi$config, bvi_stubs ++ init_globs_stub)
-End
-
-
-Definition glob_alloc_fixed_def:
-  glob_alloc_fixed init =
-    Dlet
-      (Let om_tra NONE
-        (App om_tra
-          (GlobalVarAlloc init) [])
-        (flatLang$Con om_tra NONE []))
-End
-
-
-Definition icompile_data_to_word_def:
-  icompile_data_to_word data_conf p =
-  MAP (compile_part data_conf) p
-End
-
-Definition init_icompile_data_to_word_def:
-  init_icompile_data_to_word data_conf asm_conf data_init =
-  let stubs1 = icompile_data_to_word data_conf data_init in
-  let data_conf =
-      (data_conf with <| has_fp_ops := (1 < asm_conf.fp_reg_count);
-                         has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count) |>) in
-
-    (data_conf, stubs (:'a) data_conf ++ stubs1)
-End
-
-
-Definition init_icompile_source_to_flat_def:
-  init_icompile_source_to_flat source_conf =
-  let next = source_conf.next with <| vidx := source_conf.next.vidx + 1 |> in
-  let env_gens = <| next := 0; generation := source_conf.envs.next; envs := LN |> in
-  let source_iconf =
-    <| n := 1n;
-       next := next;
-       env := source_conf.mod_env;
-       env_gens := env_gens;
-       pattern_cfg := source_conf.pattern_cfg;
-       init_vidx := source_conf.init_vidx |> in
-  let flat_stubs = MAP (flat_pattern$compile_dec source_conf.pattern_cfg) [glob_alloc_fixed source_conf.init_vidx; source_to_flat$alloc_env_ref] in
-  (source_iconf, flat_stubs)
-End
-
-Definition end_icompile_source_to_flat_def:
-  end_icompile_source_to_flat (source_iconf: source_iconfig) (source_conf: source_to_flat$config) =
-  let envs =
-      <| next := source_conf.envs.next + 1;
-         env_gens :=
-         insert source_conf.envs.next
-                source_iconf.env_gens.envs
-                source_conf.envs.env_gens;
-      |> in
-    source_conf with
-                <| next :=
-                    (source_iconf.next with
-                      vidx := source_iconf.init_vidx);
-                   envs := envs;
-                   mod_env := source_iconf.env |>
-End
-
-Definition init_icompile_flat_to_clos_def:
-  init_icompile_flat_to_clos flat_stub =
-  let clos_stub = (clos_interp$compile_init T) :: (flat_to_clos$compile_decs flat_stub) in
-  clos_stub
-End
-
-Definition end_icompile_flat_to_clos_def:
-  end_icompile_flat_to_clos = ()
-End
-
 Definition init_icompile_clos_to_bvl_def:
   init_icompile_clos_to_bvl (clos_conf:clos_to_bvl$config) clos_stub =
   let clos_iconf = <| do_mti := clos_conf.do_mti;
@@ -513,6 +375,80 @@ Definition end_icompile_clos_to_bvl_def:
 End
 
 
+
+
+Definition icompile_bvl_to_bvi_inline_def:
+  icompile_bvl_to_bvi_inline limit split_seq cut_size cs p =
+  bvl_inline$compile_inc limit split_seq cut_size cs p
+End
+
+(* will this result in inefficiencies due to the append code*)
+Definition icompile_bvl_to_bvi_prog_def:
+  icompile_bvl_to_bvi_prog n p k_acc =
+  let k = bvl_to_bvi$alloc_glob_count (MAP (\(_,_,p). p) p) in
+  let (code, n1) = bvl_to_bvi$compile_list n p in
+    (append code, n1, k_acc + k)
+End
+
+Definition icompile_bvl_to_bvi_def:
+  icompile_bvl_to_bvi bvl_iconf p =
+  let (inlines, p) = icompile_bvl_to_bvi_inline bvl_iconf.inline_size_limit
+                                                bvl_iconf.split_main_at_seq
+                                                bvl_iconf.exp_cut
+                                                bvl_iconf.inlines p in
+  let (code, n1, k) = icompile_bvl_to_bvi_prog bvl_iconf.n1 p bvl_iconf.alloc_glob_count in
+  let (n2, code) = bvi_tailrec$compile_prog bvl_iconf.n2 code in
+  let bvl_iconf = bvl_iconf with <| n1 := n1; n2 := n2; inlines := inlines; alloc_glob_count := k|> in
+    (bvl_iconf, code)
+End
+
+Definition init_icompile_bvl_to_bvi_def:
+  init_icompile_bvl_to_bvi (bvl_conf: bvl_to_bvi$config) bvl_init =
+  let bvl_iconf = <| inline_size_limit := bvl_conf.inline_size_limit;
+                     exp_cut := bvl_conf.exp_cut;
+                     split_main_at_seq := bvl_conf.split_main_at_seq;
+                     n1 := 0 ;
+                     n2 := backend_common$bvl_num_stubs + 2;
+                     inlines := LN ;
+                     alloc_glob_count := 0|>
+  in
+  let (n2, bvi_stubs) = bvi_tailrec$compile_prog bvl_iconf.n2 bvi_stubs_without_init_globs in
+  let bvl_iconf = bvl_iconf with n2 := n2 in
+  let (bvl_iconf, bvi_stubs1) = icompile_bvl_to_bvi bvl_iconf bvl_init in
+  (bvl_iconf,  bvi_stubs ++ bvi_stubs1)
+End
+
+
+
+Definition end_icompile_bvl_to_bvi_def:
+  end_icompile_bvl_to_bvi bvl_end bvl_iconf clos_conf bvl_conf =
+  let (bvl_iconf, bvi_stubs) = icompile_bvl_to_bvi bvl_iconf bvl_end in
+  let init_globs_start = backend_common$bvl_num_stubs + bvl_to_bvi_namespaces * clos_conf.start in
+  let init_globs_stub = [(InitGlobals_location, InitGlobals_code init_globs_start bvl_iconf.alloc_glob_count)] in
+  let (n2, init_globs_stub) = bvi_tailrec$compile_prog bvl_iconf.n2 init_globs_stub in
+  let bvl_conf = bvl_conf with
+                          <| next_name1 := bvl_iconf.n1;
+                             next_name2 := n2;
+                             inlines := bvl_iconf.inlines |> in
+  let clos_conf = clos_conf with start := InitGlobals_location in
+    (clos_conf, bvl_conf: bvl_to_bvi$config, bvi_stubs ++ init_globs_stub)
+End
+        
+Definition icompile_data_to_word_def:
+  icompile_data_to_word data_conf p =
+  MAP (compile_part data_conf) p
+End
+
+Definition init_icompile_data_to_word_def:
+  init_icompile_data_to_word data_conf asm_conf data_init =
+  let stubs1 = icompile_data_to_word data_conf data_init in
+  let data_conf =
+      (data_conf with <| has_fp_ops := (1 < asm_conf.fp_reg_count);
+                         has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count) |>) in
+
+    (data_conf, stubs (:'a) data_conf ++ stubs1)
+End
+
 Definition icompile_word_to_stack_def:
   icompile_word_to_stack word_iconf p =
   let k = word_iconf.k in
@@ -524,7 +460,6 @@ Definition icompile_word_to_stack_def:
                                       fs:= word_iconf.fs ++ fs |> in
     (word_iconf, p)
 End
-
 
 Definition init_icompile_word_to_stack_def:
   init_icompile_word_to_stack asm_conf word1_init =
@@ -574,7 +509,6 @@ Definition init_icompile_stack_to_lab_def:
     (stack_conf', stubs ++ p)
 End
 
-
 Definition init_icompile_def:
   init_icompile source_conf clos_conf bvl_conf data_conf word_conf asm_conf stack_conf (:'a) =
   let (source_iconf, flat_stub) = init_icompile_source_to_flat source_conf in
@@ -618,6 +552,7 @@ End
 
 Definition icompile_def:
   icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf stack_conf p =
+  let p = source_to_source$compile p in
   case icompile_source_to_flat source_iconf p of NONE => NONE
   | SOME (source_iconf', icompiled_p_flat) =>
   let icompiled_p_clos = icompile_flat_to_clos icompiled_p_flat in
@@ -633,7 +568,6 @@ Definition icompile_def:
     SOME (source_iconf', clos_iconf', bvl_iconf', word_iconf', stack_conf', icompiled_p_lab)
 End
 
-
 Definition fold_icompile_def:
   fold_icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf stack_conf [] =
     icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf stack_conf []
@@ -645,12 +579,6 @@ Definition fold_icompile_def:
     | SOME (source_iconf'', clos_iconf'', bvl_iconf'', word_iconf'', stack_conf'', ps') =>
       SOME (source_iconf'', clos_iconf'', bvl_iconf'', word_iconf'', stack_conf'', p' ++ ps'))
 End
-
-(*
-Datatype:
-  iconfig = <| source_iconf : source_iconfig |>
-End
-  *)
 
 
 
@@ -671,7 +599,6 @@ Triviality extend_env_empty_env:
   extend_env env empty_env = env
 
 Proof
-
   rw[source_to_flatTheory.extend_env_def,
      namespacePropsTheory.nsAppend_assoc,
      source_to_flatTheory.empty_env_def,
@@ -988,9 +915,6 @@ Theorem clos_annotate_compile_append:
 Proof
   rw[clos_annotateTheory.compile_def]
 QED
-
-
-
 
 Theorem clos_call_calls_append_alt:
   ∀p1 p2 p1_calls p2_calls g g1 g2 acc1 acc2.
@@ -1530,7 +1454,7 @@ Theorem icompile_icompile:
     SOME (source_iconf'', clos_iconf'', bvl_iconf'', word_iconf'', stack_conf'', prog1' ++ prog2')
 Proof
   rw[] >>
-  gvs[icompile_def] >> rpt (pairarg_tac >> gvs[]) >>
+  gvs[icompile_def] >> rpt (pairarg_tac >> gvs[]) >> rw[source_to_source_compile_append] >>
   gvs[AllCaseEqs()] >> rpt (pairarg_tac >> gvs[]) >>
   drule_all icompile_icompile_source_to_flat >> strip_tac >> gvs[] >>
   fs[icompile_flat_to_clos_and_append_commute] >>
@@ -1649,13 +1573,13 @@ Theorem init_icompile_icompile_end_icompile_f2c:
   ∧
   (icompile_flat_to_clos flat_p = icompiled_p)
   ∧
-  (flat_to_clos_compile_alt (flat_stub ++ flat_p) = compiled_p)
+  (flat_to_clos$compile_prog (flat_stub ++ flat_p) = compiled_p)
   ⇒
   clos_stub ++ icompiled_p = compiled_p
 Proof
   rw[init_icompile_flat_to_clos_def,
      icompile_flat_to_clos_def,
-     flat_to_clos_compile_alt_def] >>
+     flat_to_closTheory.compile_prog_def] >>
   once_rewrite_tac[flat_to_clos_compile_decs_cons] >>
   qspecl_then [‘flat_p’, ‘flat_stub’] mp_tac (GEN_ALL flat_to_clos_compile_decs_and_append_commute) >>
   rw[]
@@ -1798,7 +1722,7 @@ QED
 
 Theorem init_icompile_icompile_end_icompile_f2c_alt:
   init_icompile_source_to_flat source_conf = (source_iconf, flat_stub) ⇒
-  flat_to_clos_compile_alt (flat_stub ++ icompiled_p_flat) =
+  flat_to_clos$compile_prog (flat_stub ++ icompiled_p_flat) =
   init_icompile_flat_to_clos flat_stub ++ icompile_flat_to_clos icompiled_p_flat
 Proof
   metis_tac[init_icompile_icompile_end_icompile_f2c]
@@ -1976,14 +1900,13 @@ Proof
   rw[config_prog_rel_s2l_def]
 QED
 
-
 Theorem icompile_none:
   icompile a b c d e f g h p = NONE ⇒
   icompile a b c d e f g h (p ++ p') = NONE
 Proof
-  rw[icompile_def] >>
+  rw[icompile_def, source_to_source_compile_append] >>
   rw[icompile_icompile_source_to_flat] >>
-  Cases_on ‘icompile_source_to_flat a p’
+  Cases_on ‘icompile_source_to_flat a (compile p)’
   >- (gvs[] >> drule icompile_icompile_source_to_flat_none >> rw[])
   >- (Cases_on ‘x’ >>
       gvs[] >> rpt (pairarg_tac >> gvs[]))
@@ -1995,12 +1918,13 @@ Theorem icompile_none1:
   icompile a' b' c' d e f g' h' p' = NONE ⇒
   icompile a b c d e f g h (p ++ p') = NONE
 Proof
-  rw[icompile_def] >>
-  Cases_on ‘icompile_source_to_flat a p’ >> gvs[] >>
+  rw[icompile_def, source_to_source_compile_append] >>
+  rw[icompile_icompile_source_to_flat] >>
+  Cases_on ‘icompile_source_to_flat a (compile p)’ >> gvs[] >>
   namedCases_on ‘x’ ["a' b'"] >>
   gvs[] >>
   rpt (pairarg_tac >> gvs[]) >>
-  Cases_on ‘icompile_source_to_flat a' p'’
+  Cases_on ‘icompile_source_to_flat a' (compile p')’
   >- (gvs[icompile_icompile_source_to_flat_none1])
   >- (namedCases_on ‘x’ ["a'' b''"] >> gvs[] >> rpt (pairarg_tac >> gvs[]))
 QED
