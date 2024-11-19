@@ -49,36 +49,36 @@ val res = cv_eval ``
 
 
 val _ = cv_auto_trans source_to_sourceTheory.compile_def;
-  
+
 val _ = cv_auto_trans init_icompile_source_to_flat_def;
 
-val res = cv_eval ``init_icompile_source_to_flat ^source_conf``;    
+val res = cv_eval ``init_icompile_source_to_flat ^source_conf``;
 
 val (source_iconf,flat_stub) = pairSyntax.dest_pair (rconc res);
 
 val _ = cv_auto_trans init_icompile_flat_to_clos_def;
 
-val clos_stub = cv_eval “init_icompile_flat_to_clos ^flat_stub” |> rconc; 
+val clos_stub = cv_eval “init_icompile_flat_to_clos ^flat_stub” |> rconc;
 
 val _ = cv_auto_trans init_icompile_clos_to_bvl_def;
 
 val res = cv_eval ``init_icompile_clos_to_bvl ^clos_conf ^clos_stub``;
-    
-val (clos_iconf, bvl_init) = pairSyntax.dest_pair (rconc res);  
+
+val (clos_iconf, bvl_init) = pairSyntax.dest_pair (rconc res);
 
 val eq = icompile_bvl_to_bvi_prog_def |> SRULE [GSYM bvl_to_bviTheory.alloc_glob_count_eq_global_count_list];
 
-val _ = cv_auto_trans eq;    
-    
-val _ = cv_auto_trans init_icompile_bvl_to_bvi_def; 
+val _ = cv_auto_trans eq;
+
+val _ = cv_auto_trans init_icompile_bvl_to_bvi_def;
 
 val res = cv_eval ``init_icompile_bvl_to_bvi ^bvl_conf ^bvl_init``;
 
-val (bvl_iconf, bvi_init) = pairSyntax.dest_pair (rconc res);                      
+val (bvl_iconf, bvi_init) = pairSyntax.dest_pair (rconc res);
 
 val _ = cv_trans bvi_to_dataTheory.compile_prog_def;
 
-val data_init = cv_eval ``bvi_to_data$compile_prog ^bvi_init`` |> rconc; 
+val data_init = cv_eval ``bvi_to_data$compile_prog ^bvi_init`` |> rconc;
 
 (* icompile *)
 
