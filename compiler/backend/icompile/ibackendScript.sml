@@ -77,11 +77,9 @@ End
 
 Definition clos_to_bvl_compile_prog_top_def:
   clos_to_bvl_compile_prog_top max_app (prog: (num # num # closLang$exp) list) =
-  MAP (\e.
-         let (new_exp, aux) = compile_exp_sing max_app ((SND o SND) e) [] in
-         let (loc, args, _) = e in
-         let new_exp = (loc + num_stubs max_app, args, new_exp) in
-           new_exp ::  aux
+  MAP (\(loc, args, e).
+         let (new_exp, aux) = compile_exp_sing max_app e [] in
+           (loc + num_stubs max_app, args, new_exp) ::  aux
       ) prog
 End
 
@@ -1567,14 +1565,6 @@ Definition init_config_rel_def:
   source_conf = source_to_flat$empty_config ∧
   clos_conf = clos_to_bvl$default_config)
 End
-
-Definition init_config_rel_s2f_def:
-  init_config_rel c source_conf =
-  (c.source_conf = source_conf
-  ∧
-  source_conf = source_to_flat$empty_config)
-End
-
 
 Definition config_prog_rel_s2l_def:
   config_prog_rel_s2l     source_conf_after_ic source_conf_after_c

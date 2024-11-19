@@ -3,18 +3,18 @@
 *)
 open preamble ibackendTheory
      backend_asmTheory
-     backend_arm8Theory
+     backend_x64Theory
      to_data_cvTheory
      cv_transLib
-     arm8_configTheory;
+     x64_configTheory;
 
 val _ = new_theory"ibackend_cv";
 
-(* using the default config for arm8 *)
-val c = arm8_backend_config_def |> concl |> lhs;
-val arm8_ic_term = backendTheory.config_to_inc_config_def
+(* using the default config for x64 *)
+val c = x64_backend_config_def |> concl |> lhs;
+val x64_ic_term = backendTheory.config_to_inc_config_def
        |> ISPEC c |> CONV_RULE (RAND_CONV EVAL) |> rconc;
-val arm8_c_term = EVAL c |> rconc;
+val x64_c_term = EVAL c |> rconc;
 
 val res = cv_eval ``source_to_source$compile []``
 
