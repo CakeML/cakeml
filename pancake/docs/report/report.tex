@@ -1,0 +1,91 @@
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{tikz}
+\usepackage{holtexbasic}
+
+\usepackage{biblatex}
+\addbibresource{refs.bib}
+
+\title{Pancake - ITree Semantics}
+\author{Ben Nott\\\small b.nott@student.unsw.edu.au}
+\date{November 2024}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+\label{sec:introduction}
+
+
+\section{Interaction Tree Primer}
+\label{sec:inter-tree-prim}
+
+\subsection{ITree combinators}
+\label{sec:itree-combinators}
+
+% TODO: is this in an awkward place?
+\section{Abstract syntax}
+\label{sec:abstract-syntax}
+
+\section{ITree Semantics}
+\label{sec:itree-semantics}
+
+The interaction tree semantics gives meaning to Pancake programs as possibly infinite trees of behaviour. The behaviour is viewed from the perspective of the program interacting with its environmenment. Every behaviour, system, component, etc, external to the program is a part of the environment.
+
+The environment is not explicitly represented, rather the nondeterminisim of its evolution is encoded in the type of the \emph{ktree}
+\begin{equation*}
+  k :\ 'a -> ('a,'e,'r)\ \texttt{itree}.
+\end{equation*}
+The environment evolves in response to the program's visible actions. The actions are represented in the semantics by visible events. At the time of writing, a Pancake program can interact with its environment by making an \emph{FFI call} or performing a \emph{shared memory} operation. This is made clear in the ITree event type
+
+
+
+
+\subsection{The mrec combinator}
+\label{sec:mrec-combinator}
+
+\subsection{Varieties of trees}
+\label{sec:varieties-trees}
+
+% discuss the variety of concrete tree types and their purpose.
+% this might lead into why there is an stree and ltree
+
+\subsection{Extracting branches}
+\label{sec:extracting-branches}
+
+% discusses the stree trace and similar functions, why they exist
+% and how they help.
+
+\subsection{Extracting leaves from branches}
+\label{sec:extr-leav-from}
+
+% discusses the ltree_lift, why they exist and how they help.
+% especially that ltree is a lifted monad and the monad laws make it easier
+% to prove non-trivial algebraic itree statements.
+
+\section{Soundness and completeness}
+\label{sec:soundn-compl}
+
+\subsection{Soundness theorem}
+\label{sec:soundness-theorem}
+
+% What is the theorem trying to say and how does it say that?
+
+\subsection{Completeness theorem}
+\label{sec:completeness-theorem}
+
+% As for soundness. Show conclusively that the theorem as stated
+% does in fact establish completeness and is not simply a restating of
+% the soundness theorem.
+
+\section{References}
+\label{sec:references}
+
+\printbibliography
+
+\end{document}

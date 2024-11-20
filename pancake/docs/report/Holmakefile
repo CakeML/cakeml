@@ -1,0 +1,26 @@
+##
+# ITree semantics report
+#
+# @file
+# @version 0.1
+#
+CAKEDIR = "$(HOME)/git/cakeml"
+INCLUDES = $(CAKEDIR/pancake/semantics)
+
+MASTER_THEORY = ../../semantics/panItreeSemTheory
+
+all: report.pdf
+
+report.pdf: report.tex
+	pdflatex $<
+
+report.tex: report.htex holtexbasic.sty munger
+	./munger $< > $@
+
+munger: $(dprot $(MASTER_THEORY)).uo $(dprot $(HOLDIR)/bin/mkmunge.exe)
+	$(protect $(HOLDIR)/bin/mkmunge.exe) -o $@ $(MASTER_THEORY)
+
+holtexbasic.sty: $(dprot $(HOLDIR)/src/TeX/holtexbasic.sty)
+	$(CP) $(protect $<) $@
+
+# end

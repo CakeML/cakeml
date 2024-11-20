@@ -1,0 +1,12 @@
+.DS_Store
+.idea
+*.log
+tmp/
+*.bcf
+*.pdf
+*.run.xml
+*.toc
+texput.log
+holtexbasic.sty
+*.aux
+*.log
