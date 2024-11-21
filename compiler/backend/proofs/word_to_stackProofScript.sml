@@ -4970,10 +4970,9 @@ Triviality evaluate_wStackLoad_wReg1:
   get_var r' t' = SOME (Word c)
 Proof
   rw[wReg1_def,LET_THM,EVEN_EXISTS]>>
-  fs[wStackLoad_def,stackSemTheory.evaluate_def,LET_THM,stackSemTheory.get_var_def]>>simp[]>-
-    (imp_res_tac state_rel_get_var_imp>>
-    first_assum match_mp_tac>>
-    simp[TWOxDIV2])>>
+  fs[wStackLoad_def,stackSemTheory.evaluate_def,LET_THM,stackSemTheory.get_var_def]>>simp[]
+    >-
+    (drule_all state_rel_get_var_imp>>simp[]) >>
   IF_CASES_TAC>-fs[state_rel_def]>>
   reverse IF_CASES_TAC>-
     (fs[state_rel_def,LET_THM,get_var_def]>>
@@ -6618,6 +6617,34 @@ Proof
   rw[stackSemTheory.get_var_def]
 QED
 
+Triviality evaluate_const_inst_wReg1:
+  wReg1 r (k,f,f') = (x ,r') ∧
+  EVEN r ∧
+  wordSem$get_var r (s:('a,num # 'c,'ffi)state) = SOME (Word c) ∧
+  state_rel ac k f f' s t lens ⇒
+  ∃t':('a,'c,'ffi) stackSem$state.
+  evaluate(const_inst (k + 1) i,t) = (NONE,t') ∧
+  t.clock = t'.clock ∧
+  state_rel ac k f f' s t' lens ∧
+  LENGTH t'.stack = LENGTH t.stack /\ t'.stack_space = t.stack_space /\
+  stackSem$get_var (k + 1) t' = (SOME (Word i))
+Proof
+    simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
+    simp[stackSemTheory.inst_def] >>
+    simp[stackSemTheory.assign_def] >>
+    simp[stackSemTheory.word_exp_def]
+QED
+
+Triviality evaluate_const_inst_clock:
+  evaluate(const_inst k i,t with clock:= clk) =
+  (FST (evaluate(const_inst k i,t)),
+   (SND (evaluate(const_inst k i,t))) with clock:=clk)
+Proof
+  fs[stackSemTheory.evaluate_def] >>
+  Cases_on `inst (Const k i) t` >>
+  fs[]
+QED
+
 Theorem comp_If_correct:
   ^(get_goal "wordLang$If")
 Proof
@@ -6633,7 +6660,8 @@ Proof
     Cases_on`ri`>>
     fs[convs_def,EVEN_MOD2,reg_allocTheory.is_phy_var_def]
   )>>
-  gvs[AllCaseEqs()]
+  gvs[AllCaseEqs()] >>
+  gvs[wordSemTheory.get_var_imm_def]
   >~ [`If _ _ (Reg _) _ _`]
   >- ( (* Reg case *)
     rpt(pairarg_tac>>gvs[])>>
@@ -6643,7 +6671,6 @@ Proof
     rw[]>>
     simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
     simp[evaluate_wStackLoad_seq]>>
-    gvs[get_var_imm_def]>>
     drule_all evaluate_wStackLoad_wReg2>>
     rw[]>>
     simp[stackSemTheory.evaluate_def,evaluate_wStackLoad_clock,stackSemTheory.get_var_imm_def]>>
@@ -6674,14 +6701,111 @@ Proof
           metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
         >>
           fs[get_labels_wStackLoad,get_labels_def]>>
-          metis_tac[SUBSET_TRANS,loc_check_SUBSET])>>
+          metis_tac[SUBSET_TRANS,loc_check_SUBSET]
+                  )>>
       rw[]))
-  >- ( (* Imm but valid case, should be easy and similar to Reg *)
-    cheat
-  )
-  >- ( (* Imm but not valid case, slightly more challenging *)
-    cheat
-  )
+  >~[`If _ _ (Imm _) _ _`]
+  >- (
+    simp[evaluate_wStackLoad_seq]>>
+    drule_all evaluate_wStackLoad_wReg1>>
+    rw[]>>
+    simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
+    simp[stackSemTheory.evaluate_def,evaluate_wStackLoad_clock,stackSemTheory.get_var_imm_def]>>
+    simp[word_cmp_Word_Word] >>
+    gvs[markerTheory.Abbrev_def,convs_def,wordLangTheory.max_var_def]
+    >- (
+      last_x_assum (drule_at Any)>>
+      rpt(disch_then (drule_at Any))>>
+      impl_tac>- (
+        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_LENGTH>>rfs[]>>
+        imp_res_tac evaluate_mono>>fs[]>>rw[]
+        >- (imp_res_tac IS_PREFIX_LENGTH>>fs[])
+        >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
+          metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
+        >>
+          fs[get_labels_wStackLoad,get_labels_def]>>
+          metis_tac[SUBSET_TRANS,loc_check_SUBSET])>>
+      rw[])
+    >- (
+      last_x_assum (drule_at Any)>>
+      rpt(disch_then (drule_at Any))>>
+      impl_tac>- (
+        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_LENGTH>>rfs[]>>
+        imp_res_tac evaluate_mono>>fs[]>>rw[]
+        >- (imp_res_tac IS_PREFIX_LENGTH>>fs[])
+        >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
+          metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
+        >>
+          fs[get_labels_wStackLoad,get_labels_def]>>
+          metis_tac[SUBSET_TRANS,loc_check_SUBSET]
+                  )>>
+      rw[])
+     )
+  >- (
+    drule_all evaluate_const_inst_wReg1 >>
+    rw[] >>
+    pop_assum (qspec_then `i` mp_tac) >>
+    rw[] >> gvs[] >>
+    simp[Once stackSemTheory.evaluate_def,evaluate_const_inst_clock]>>
+    simp[evaluate_wStackLoad_seq]>>
+    drule_all evaluate_wStackLoad_wReg1>>
+    rw[]>>
+    simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
+    `get_var (k + 1) t'' = SOME (Word i)`
+    by (
+      Induct_on `x1`
+        >- (gvs[wStackLoad_def,stackSemTheory.evaluate_def] >>
+            gvs[wReg1_def] >>
+            rw[] >> gvs[])
+        >- (strip_tac >> Cases_on `h` >>
+            gvs[wReg1_def,wStackLoad_def,stackSemTheory.evaluate_def] >>
+            Cases_on `t'.use_stack` >> gvs[] >>
+            Cases_on `r'' + t.stack_space < LENGTH t.stack` >> gvs[] >>
+            Cases_on `r1 DIV 2 < k` >> gvs[] >>
+            rw[] >> gvs[] >>
+            pop_assum mp_tac >>
+            simp[wStackLoad_def,Once stackSemTheory.evaluate_def] >>
+            simp[stackSemTheory.get_var_def, stackSemTheory.set_var_def] >>
+            rw[] >>
+            simp[FLOOKUP_UPDATE] >>
+            fs[stackSemTheory.get_var_def])
+        ) >>
+    simp[Once stackSemTheory.evaluate_def,evaluate_const_inst_clock]>>
+    gvs[stackSemTheory.get_var_imm_def] >>
+    simp[word_cmp_Word_Word] >>
+    gvs[markerTheory.Abbrev_def,convs_def,wordLangTheory.max_var_def]
+    >- (
+      last_x_assum (drule_at Any)>>
+      rpt(disch_then (drule_at Any))>>
+      impl_tac>- (
+        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_LENGTH>>rfs[]>>
+        imp_res_tac evaluate_mono>>fs[]>>rw[]
+        >- (imp_res_tac IS_PREFIX_LENGTH>>fs[])
+        >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
+          metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
+        >>
+          fs[get_labels_wStackLoad,get_labels_def]>>
+          metis_tac[SUBSET_TRANS,loc_check_SUBSET])>>
+      rw[])
+    >- (
+      last_x_assum (drule_at Any)>>
+      rpt(disch_then (drule_at Any))>>
+      impl_tac>- (
+        imp_res_tac comp_IMP_isPREFIX>>
+        imp_res_tac comp_IMP_LENGTH>>rfs[]>>
+        imp_res_tac evaluate_mono>>fs[]>>rw[]
+        >- (imp_res_tac IS_PREFIX_LENGTH>>fs[])
+        >- (imp_res_tac comp_IMP_isPREFIX>> fs[]>>
+          metis_tac[IS_PREFIX_TRANS,isPREFIX_DROP])
+        >>
+          fs[get_labels_wStackLoad,get_labels_def]>>
+          metis_tac[SUBSET_TRANS,loc_check_SUBSET]
+                  )>>
+      rw[])
+     )
 QED
 
 Theorem comp_LocValue_correct:
