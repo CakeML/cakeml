@@ -220,8 +220,7 @@ Definition icompile_source_to_flat_def:
   let envs = source_iconf.env_gens in
   let (n', next1, new_env1, env_gens1, p') =
     compile_decs [] n next env envs p in
-  let n1 = next1.vidx in
-  if n1 < init_vidx
+  if next1.vidx < init_vidx
   then
     let source_iconf = source_iconf with <| n := n'; next := next1; env := extend_env new_env1 env; env_gens := env_gens1|> in
     SOME (source_iconf, MAP (flat_pattern$compile_dec source_iconf.pattern_cfg) p')
