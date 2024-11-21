@@ -205,11 +205,11 @@ val _ = word_to_stackTheory.raise_stub_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.store_consts_stub_def |> arch_spec |> cv_trans;
 
 Theorem cv_rep_if_lt[cv_rep]:
-  cv_rep p1 c1a Num m /\
-  cv_rep p1 c1b Num n /\
+  cv_rep p1a c1a Num m /\
+  cv_rep p1b c1b Num n /\
   cv_rep p2 c2 f t /\
   cv_rep p3 c3 f e ==>
-  cv_rep (p1 /\ (m < n ==> p2) /\ (~(m < n) ==> p3))
+  cv_rep (p1a /\ p1b /\ (m < n ==> p2) /\ (~(m < n) ==> p3))
          (cv_if (cv_sub c1b c1a) c2 c3) f (if m < n then t else e)
 Proof
   fs [cv_repTheory.cv_rep_def] \\ rw [] \\ gvs []
