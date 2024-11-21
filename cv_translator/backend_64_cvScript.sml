@@ -154,7 +154,8 @@ val _ = stack_allocTheory.compile_def |> arch_spec |> SRULE [stack_allocTheory.s
                                                    |> cv_auto_trans;
 
 val _ = stack_rawcallTheory.seq_stack_alloc_def |> arch_spec |> cv_trans;
-val _ = stack_rawcallTheory.collect_info_def |> arch_spec |> cv_trans;
+val _ = stack_rawcallTheory.add_info_def |> arch_spec |> cv_trans;
+val _ = stack_rawcallTheory.collect_info_def |> arch_spec |> cv_auto_trans;
 val _ = stack_rawcallTheory.dest_case_def |> arch_spec |> cv_trans;
 val _ = stack_rawcallTheory.comp_seq_def |> arch_spec |> cv_trans;
 val _ = stack_rawcallTheory.comp_def |> arch_spec |> cv_trans;

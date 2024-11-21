@@ -5,6 +5,7 @@ open preamble ibackendTheory
      backend_asmTheory
      backend_x64Theory
      to_data_cvTheory
+     backend_x64_cvTheory
      cv_transLib
      x64_configTheory;
 
