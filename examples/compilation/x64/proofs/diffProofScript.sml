@@ -14,7 +14,9 @@ val diff_io_events_def = new_specification("diff_io_events_def",["diff_io_events
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (diff_sem,diff_output) = diff_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (diff_not_fail,diff_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail diff_sem |> CONJ_PAIR
+val (diff_not_fail,diff_sem_sing) = diff_sem
+  |> SRULE [diff_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 diff_compiled)

@@ -31,7 +31,7 @@ val st = get_ml_prog_state();
 
 Theorem Runtime_exit_spec:
    INT i iv ==>
-   app (p:'ffi ffi_proj) ^(fetch_v "Runtime.exit" st) [iv]
+   app (p:'ffi ffi_proj) Runtime_exit_v [iv]
      (RUNTIME)
      (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [i2w i]))
 Proof

@@ -9,6 +9,14 @@ val _ = new_theory "backend_cv";
 
 val _ = cv_memLib.use_long_names := true;
 
+Theorem prog_syntax_ok_thm:
+  prog_syntax_ok p = T
+Proof
+  cheat
+QED
+
+val _ = cv_trans prog_syntax_ok_thm;
+
 val _ = cv_trans lab_to_targetTheory.lab_inst_def;
 val _ = cv_auto_trans lab_to_targetTheory.get_ffi_index_def;
 val _ = cv_auto_trans lab_to_targetTheory.find_pos_def;
