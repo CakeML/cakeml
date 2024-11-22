@@ -1,6 +1,6 @@
 INCLUDES = developers examples/compilation/x64/proofs
 
-all: $(DEFAULT_TARGETS) README.md examples/compilation/x64/proofs/helloProofTheory
+all: $(DEFAULT_TARGETS) README.md examples/compilation/x64/proofs/helloProofTheory.sig
 .PHONY: all
 
 README_SOURCES = COPYING developers examples build-instructions.sh how-to.md
