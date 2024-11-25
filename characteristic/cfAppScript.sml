@@ -61,6 +61,34 @@ Definition app_basic_def:
         Q r h_f /\ evaluate_to_heap st env exp p heap r
 End
 
+Definition triple_def:
+  triple (p:'ffi ffi_proj) (H: hprop) env exp (Q: res -> hprop) =
+    ∀(h_i: heap) (h_k: heap) (st: 'ffi semanticPrimitives$state).
+      SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
+      ∃(r: res) (h_f: heap) (h_g: heap) heap.
+        SPLIT3 heap (h_f, h_k, h_g) /\
+        Q r h_f /\ evaluate_to_heap st env exp p heap r
+End
+
+Definition wp_def:
+  wp p env exp Q =
+    SEP_EXISTS P. P * cond (triple p P env exp Q)
+End
+
+Definition wp1_def:
+  wp1 p env exp Q =
+    λh. triple p ((=) h) env exp Q
+End
+
+Definition wp2_def:
+  wp2 p env exp Q = λh.
+    ∀(h_k: heap) (st: 'ffi semanticPrimitives$state).
+      SPLIT (st2heap p st) (h, h_k) ==>
+      ∃(r: res) (h_f: heap) (h_g: heap) heap.
+        SPLIT3 heap (h_f, h_k, h_g) /\
+        Q r h_f /\ evaluate_to_heap st env exp p heap r
+End
+
 Triviality app_basic_local:
   !f x. is_local (app_basic p f x)
 Proof
@@ -84,6 +112,23 @@ Proof
   disch_then (assume_tac o REWRITE_RULE [STAR_def]) \\ fs [] \\
   instantiate \\ rename1 `GC h_g'` \\ qexists_tac `h_g' UNION h_g` \\
   SPLIT_TAC
+QED
+
+Theorem triple_thm:
+  triple (p:'ffi ffi_proj) (H: hprop) env exp (Q: res -> hprop)
+  ⇔
+  SEP_IMP H (wp p env exp Q)
+Proof
+  gvs [SEP_IMP_def,wp_def]
+  \\ rw [] \\ eq_tac \\ rw []
+  \\ gvs [SEP_EXISTS_THM,cond_STAR]
+  >- (pop_assum $ irule_at Any \\ fs [])
+  \\ simp [triple_def]
+  \\ rw [] \\ first_x_assum drule
+  \\ strip_tac
+  \\ gvs [triple_def]
+  \\ first_x_assum irule
+  \\ last_x_assum $ irule_at Any \\ gvs []
 QED
 
 (* [app]: n-ary application *)
