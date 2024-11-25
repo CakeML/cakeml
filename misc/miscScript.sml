@@ -46,6 +46,18 @@ val match_exists_tac = part_match_exists_tac (hd o strip_conj)
 val asm_exists_tac = first_assum(match_exists_tac o concl)
 (* -- *)
 
+Definition WAND_def:
+  WAND p1 p2 h =
+    ∀h1. DISJOINT h1 h ∧ p1 h1 ⇒  p2 (h1 ∪ h)
+End
+
+Theorem WAND_THM:
+  SEP_IMP (P1 * WAND P1 P2) P2
+Proof
+  rw [SEP_IMP_def,STAR_def,WAND_def,SPLIT_def]
+  \\ res_tac
+QED
+
 (* TODO: move/categorize *)
 
 val _ = numLib.temp_prefer_num();
