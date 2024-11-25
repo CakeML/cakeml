@@ -466,11 +466,11 @@ val empty_body_parse = check_success $ parse_pancake empty_blocks;
 val annot_fun =
   `
   /* this is a function with an annot-comment in it */
-  /*@ and also an annot-comment before it @*/
+  /@ and also an annot-comment before it @/
   fun f () {
     var x = 1;
     var y = 2;
-    /*@ good place to check y - x == 1 @*/
+    /@ good place to check y - x == 1 @/
     var z = x + y;
     return z;
   }
