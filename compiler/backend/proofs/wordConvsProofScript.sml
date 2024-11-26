@@ -2,7 +2,8 @@
   Syntactic properties proofs for word_to_word.
 *)
 open preamble wordLangTheory word_to_wordTheory wordConvsTheory
-  word_simpTheory word_allocTheory word_instTheory word_unreachTheory word_removeTheory word_cseTheory word_elimTheory word_copyTheory;
+  word_simpTheory word_allocTheory word_instTheory word_unreachTheory
+  word_removeTheory word_cseTheory word_elimTheory word_copyTheory;
 
 val _ = new_theory "wordConvsProof";
 
@@ -34,9 +35,14 @@ val _ = new_theory "wordConvsProof";
   ===
     TODO
 
-  remove_dead (note this is ran again after remove_unreach)
+  remove_dead_prog (note this is ran again after remove_unreach)
   ===
-    TODO
+    1 preserves label_rel: remove_dead_prog_conventions (equality on labels)
+    preserves flat_exp_conventions: remove_dead_prog_conventions
+    preserves full_inst_ok_less: remove_dead_prog_conventions
+    preserves pre_alloc_conventions: remove_dead_prog_conventions
+    preserves every_inst: remove_dead_prog_conventions
+    preserves wf_cutsets: remove_dead_prog_conventions
 
   word_common_subexp_elim
   ===
@@ -50,6 +56,7 @@ val _ = new_theory "wordConvsProof";
   ===
     1 preserves label_rel: three_to_two_reg_prog_lab_pres (equality on labels)
 
+    3 preserves subprogs: three_to_two_reg_prog_not_created_subprogs
     creates two_reg_inst: three_to_two_reg_prog_two_reg_inst (under a flag)
 
     preserves wf_cutsets: three_to_two_reg_prog_wf_cutsets
@@ -569,6 +576,32 @@ Proof
   metis_tac[inst_select_exp_full_inst_ok_less]
 QED
 
+(*** remove_dead_prog ***)
+val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def];
+
+Theorem remove_dead_conventions:
+  ∀p live c k.
+    let comp = FST (remove_dead p live) in
+    (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
+    (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
+    (pre_alloc_conventions p ⇒
+      pre_alloc_conventions comp) ∧
+    (every_inst P p ⇒ every_inst P comp) ∧
+    (wf_cutsets p ⇒ wf_cutsets comp) ∧
+    (extract_labels p = extract_labels comp)
+Proof
+  ho_match_mp_tac remove_dead_ind>>rw[]>>
+  fs[remove_dead_def]>>
+  rpt IF_CASES_TAC>>fs convs>>
+  rpt(pairarg_tac>>fs[])>>
+  rw[]>> fs convs>>
+  EVERY_CASE_TAC>>fs convs
+QED
+
+Theorem remove_dead_prog_conventions =
+  (remove_dead_conventions |> Q.SPEC`p` |> Q.SPEC`LN` |> SPEC_ALL |>
+    SIMP_RULE std_ss [LET_THM,FORALL_AND_THM,GSYM remove_dead_prog_def]);
+
 (*** three_to_to_reg_prog ***)
 Theorem three_to_two_reg_prog_lab_pres:
   ∀prog.
@@ -577,6 +610,17 @@ Proof
   simp[three_to_two_reg_prog_def]>>
   ho_match_mp_tac three_to_two_reg_ind>>
   rw[three_to_two_reg_def,extract_labels_def]>>EVERY_CASE_TAC>>fs[]
+QED
+
+Theorem three_to_two_reg_prog_not_created_subprogs:
+  ∀prog.
+  not_created_subprogs P prog ⇒
+  not_created_subprogs P (three_to_two_reg_prog b prog)
+Proof
+  simp[three_to_two_reg_prog_def]>>
+  ho_match_mp_tac three_to_two_reg_ind>>
+  rw[three_to_two_reg_def,not_created_subprogs_def]>>
+  gs[]>>every_case_tac>>gs[]
 QED
 
 Theorem three_to_two_reg_prog_two_reg_inst:
@@ -637,7 +681,4 @@ Proof
   >>
     metis_tac[inst_ok_less_def]
 QED
-
-
-
 val _ = export_theory();

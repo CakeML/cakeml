@@ -3265,6 +3265,29 @@ Proof
   fs[strong_locals_rel_def,domain_union]
 QED
 
+Theorem evaluate_remove_dead_prog:
+  ∀prog st rst res.
+  evaluate (prog,st) = (res,rst) ∧
+  res ≠ SOME Error ⇒
+  ∃t'.
+    evaluate(remove_dead_prog prog,st) = (res,rst with locals:=t') ∧
+    (IS_SOME res ⇒ rst.locals = t')
+Proof
+  rw[remove_dead_prog_def]>>
+  Cases_on`remove_dead prog LN`>>
+  drule_at (Pos (el 2)) evaluate_remove_dead>>
+  disch_then (drule_at Any)>>
+  simp[]>>
+  disch_then(qspec_then`st.locals` mp_tac)>>
+  impl_tac >-
+    simp[strong_locals_rel_def]>>
+  rw[]>>
+  `st with locals := st.locals = st` by fs[state_component_equality]>>
+  gvs[]>>
+  every_case_tac>>gvs[]>>
+  metis_tac[]
+QED
+
 (*SSA Proof*)
 
 val size_tac = impl_tac>- (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC)
@@ -8398,28 +8421,6 @@ Proof
   TRY(pairarg_tac)>>fs[]>>
   EVERY_CASE_TAC>>fs[]>>
   metis_tac[apply_colour_lab_pres]
-QED
-
-(* every remove_dead syntactic theorem proved together *)
-val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def];
-
-Theorem remove_dead_conventions:
-  ∀p live c k.
-    let comp = FST (remove_dead p live) in
-    (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
-    (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
-    (pre_alloc_conventions p ⇒
-      pre_alloc_conventions comp) ∧
-    (every_inst distinct_tar_reg p ⇒ every_inst distinct_tar_reg comp) ∧
-    (wf_cutsets p ⇒ wf_cutsets comp) ∧
-    (extract_labels p = extract_labels comp)
-Proof
-  ho_match_mp_tac remove_dead_ind>>rw[]>>
-  fs[remove_dead_def]>>
-  rpt IF_CASES_TAC>>fs convs>>
-  rpt(pairarg_tac>>fs[])>>
-  rw[]>> fs convs>>
-  EVERY_CASE_TAC>>fs convs
 QED
 
 val _ = export_theory();

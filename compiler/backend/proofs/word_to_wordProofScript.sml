@@ -2,9 +2,10 @@
   Correctness proof for word_to_word
 *)
 open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
-     wordPropsTheory wordConvsTheory word_allocProofTheory word_instProofTheory word_unreachTheory
-     word_removeProofTheory word_cseProofTheory word_elimTheory word_elimProofTheory word_unreachProofTheory word_copyProofTheory
-     wordConvsProofTheory;
+     wordPropsTheory wordConvsTheory word_allocProofTheory word_instProofTheory
+     word_unreachTheory word_removeProofTheory word_cseProofTheory
+     word_elimTheory word_elimProofTheory word_unreachProofTheory
+     word_copyProofTheory wordConvsProofTheory;
 
 val _ = new_theory "word_to_wordProof";
 
@@ -20,8 +21,6 @@ val is_phy_var_tac =
     `∀k.(2:num)*k=k*2` by DECIDE_TAC>>
     metis_tac[arithmeticTheory.MOD_EQ_0];
 
-val rmd_thms = (remove_dead_conventions |>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
-
 val drule = old_drule
 
 Theorem FST_compile_single[simp]:
@@ -30,7 +29,7 @@ Proof
   PairCases_on`e` \\ EVAL_TAC
 QED
 
-(* TODO move to word_unreachProof *)
+(* TODO move to wordConvsProof *)
 Theorem labels_rel_remove_unreach:
   labels_rel (extract_labels p) (extract_labels q) ⇒
   labels_rel (extract_labels p) (extract_labels (remove_unreach q))
@@ -57,36 +56,6 @@ Theorem two_reg_inst_remove_unreach:
   every_inst two_reg_inst (remove_unreach p)
 Proof
   cheat
-QED
-
-(* TODO move to word_allocProof *)
-Theorem two_reg_inst_remove_dead:
-  every_inst two_reg_inst p ⇒
-  every_inst two_reg_inst (FST (remove_dead p t))
-Proof
-  cheat
-QED
-
-(* TODO move to word_allocProof *)
-Theorem evaluate_remove_dead_prog:
-  ∀prog st rst res.
-  evaluate (prog,st) = (res,rst) ∧
-  res ≠ SOME Error ⇒
-  ∃t'.
-    evaluate(remove_dead_prog prog,st) = (res,rst with locals:=t') ∧
-    (IS_SOME res ⇒ rst.locals = t')
-Proof
-  rw[word_allocTheory.remove_dead_prog_def]>>
-  Cases_on`remove_dead prog LN`>>
-  drule_at (Pos (el 2)) evaluate_remove_dead>>
-  disch_then (drule_at Any)>>
-  simp[]>>
-  disch_then(qspec_then`st.locals` mp_tac)>>
-  impl_tac >-
-    simp[strong_locals_rel_def]>>
-  rw[]>>
-  every_case_tac>>gvs[]>>
-  metis_tac[]
 QED
 
 (*Chains up compile_single theorems*)
@@ -122,17 +91,14 @@ Proof
     fs[even_starting_locals_def]>>
     rw[word_allocTheory.even_list_def,MEM_GENLIST,reg_allocTheory.is_phy_var_def]
     >- is_phy_var_tac>>
-    (* NOTE:
-      here, we need that the program before word_alloc is wf_cutsets *)
-    cheat
-    (*
     unabbrev_all_tac>>fs[full_ssa_cc_trans_wf_cutsets]>>
-    match_mp_tac (el 5 rmd_thms)>>
+    irule (remove_dead_prog_conventions |> CONJUNCTS |> el 5)>>
     irule wf_cutsets_remove_unreach >>
-    rw[]>>TRY(ho_match_mp_tac three_to_two_reg_wf_cutsets)>>
+    irule three_to_two_reg_prog_wf_cutsets>>
     irule wf_cutsets_copy_prop>>
     irule wf_cutsets_word_common_subexp_elim >>
-    fs[full_ssa_cc_trans_wf_cutsets]*))>>
+    irule (remove_dead_prog_conventions |> CONJUNCTS |> el 5)>>
+    fs[full_ssa_cc_trans_wf_cutsets])>>
   rw[]>>
   (* SSA *)
   Q.ISPECL_THEN [`p1`,`st with permute:= perm'`,`n`] assume_tac full_ssa_cc_trans_correct>>
@@ -166,9 +132,9 @@ Proof
     fs [] >>
     (* requires flat_exp_conventions up to p3 *)
     unabbrev_all_tac >>
-    cheat>>
+    irule (remove_dead_prog_conventions |> CONJUNCTS |> el 1)>>
     irule word_allocProofTheory.full_ssa_cc_trans_flat_exp_conventions >>
-    fs [word_instProofTheory.inst_select_flat_exp_conventions]) >>
+    fs [inst_select_flat_exp_conventions]) >>
   gvs [] >>
   (* word_copy *)
   simp[Once (GSYM evaluate_copy_prop)]>>
@@ -182,7 +148,7 @@ Proof
     unabbrev_all_tac>>
     irule every_inst_distinct_tar_reg_copy_prop>>
     irule every_inst_distinct_tar_reg_word_common_subexp_elim >>
-    cheat>>
+    irule (remove_dead_prog_conventions |> CONJUNCTS |> el 4)>>
     fs [full_ssa_cc_trans_distinct_tar_reg])>>
   rw[]>>
   (* word_unreach *)
@@ -965,17 +931,6 @@ Proof
   rw[not_created_subprogs_def]>>gs[]>>
   every_case_tac>>rpt (pairarg_tac>>gs[])>>rveq>>
   rw[not_created_subprogs_def]>>gs[]
-QED
-
-Theorem three_to_two_reg_not_created:
-  not_created_subprogs P prog ⇒
-  not_created_subprogs P (three_to_two_reg prog)
-Proof
-  qid_spec_tac ‘prog’>>
-  recInduct word_instTheory.three_to_two_reg_ind>>
-  rw[word_instTheory.three_to_two_reg_def,
-     not_created_subprogs_def]>>
-  gs[]>>every_case_tac>>gs[]
 QED
 
 Theorem apply_colour_not_created:
