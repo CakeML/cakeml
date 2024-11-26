@@ -2,7 +2,7 @@
   Properties about wordLang and its semantics
 *)
 open preamble BasicProvers
-     wordLangTheory wordSemTheory
+     wordLangTheory wordConvsTheory wordSemTheory
      asmTheory reg_allocTheory backendPropsTheory;
 
 (*
@@ -11,9 +11,7 @@ Main lemmas:
 1) Code table constancy across eval
 2) Swapping stack for one with identical values (but different keys)
 3) Thms to handle the permutation oracle
-4) mono and conj for every_var etc.
-5) Effect of extra locals (locals_rel)
-6) Other misc things and defs followed by syntactic things
+4) Effect of extra locals (locals_rel)
 *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
@@ -74,6 +72,10 @@ QED
 
 (* -- *)
 
+(*drulel takes a list and tries to apply drule
+*)
+fun drulel tl = FIRST (map (drule) tl)
+val CASE_ONE = (TOP_CASE_TAC ORELSE pairarg_tac )
 (* Clock lemmas *)
 
 (*TODO: define globally somewhere? *)
@@ -85,6 +87,40 @@ Theorem case_eq_thms =
        [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``,``:'a arith``,
         ``:'a addr``,``:memop``,``:'a wordSem$result``,``:'a ffi_result``])
     |> LIST_CONJ
+
+Theorem get_var_with_const[simp]:
+   get_var x (y with clock := k) = get_var x y /\
+   get_var x (y with permute := p) = get_var x y /\
+   get_var x (y with code_buffer := cb) = get_var x y /\
+   get_var x (y with data_buffer := db) = get_var x y /\
+   get_var x (y with code := cc) = get_var x y /\
+   get_var x (y with compile_oracle := co) = get_var x y /\
+   get_var x (y with compile := ccc) = get_var x y /\
+   get_var x (y with stack := xs) = get_var x y /\
+   get_var x (y with locals_size := ss) = get_var x y /\
+   get_var x (y with stack_limit := n) = get_var x y /\
+   get_var x (y with stack_max := ss) = get_var x y /\
+   get_var x (y with stack_size := ssize) = get_var x y
+Proof
+  EVAL_TAC
+QED
+
+Theorem get_vars_with_const[simp]:
+   get_vars x (y with clock := k) = get_vars x y /\
+   get_vars x (y with permute := p) = get_vars x y /\
+   get_vars x (y with code_buffer := cb) = get_vars x y /\
+   get_vars x (y with data_buffer := db) = get_vars x y /\
+   get_vars x (y with code := cc) = get_vars x y /\
+   get_vars x (y with compile_oracle := co) = get_vars x y /\
+   get_vars x (y with compile := ccc) = get_vars x y /\
+   get_vars x (y with stack := xs) = get_vars x y /\
+   get_vars x (y with locals_size := ss) = get_vars x y /\
+   get_vars x (y with stack_limit := n) = get_vars x y /\
+   get_vars x (y with stack_max := ss) = get_vars x y /\
+   get_vars x (y with stack_size := ssize) = get_vars x y
+Proof
+  Induct_on`x` >> fs[get_vars_def]
+QED
 
 Theorem set_store_const[simp]:
    (set_store x y z).clock = z.clock ∧
@@ -108,7 +144,7 @@ Theorem set_store_with_const[simp]:
 Proof
   EVAL_TAC
 QED
-
+(**)
 Theorem stack_size_eq:
   (stack_size(StackFrame n l NONE::stack) = OPTION_MAP2 $+ n (stack_size stack)) /\
   (stack_size(StackFrame n l (SOME handler)::stack) =
@@ -179,6 +215,27 @@ Theorem pop_env_with_const[simp]:
    pop_env (z with locals := l) = pop_env z
 Proof
   srw_tac[][pop_env_def] >> every_case_tac >> full_simp_tac(srw_ss())[]
+QED
+
+(*FIXME dupe*)
+(*code and gc_fun are unchanged across eval*)
+Theorem pop_env_code_gc_fun_clock:
+    pop_env r = SOME x ⇒
+  r.code = x.code ∧
+  r.code_buffer = x.code_buffer ∧
+  r.data_buffer = x.data_buffer ∧
+  r.gc_fun = x.gc_fun ∧
+  r.clock = x.clock ∧
+  r.be = x.be ∧
+  r.mdomain = x.mdomain ∧
+  r.sh_mdomain = x.sh_mdomain ∧
+  r.compile = x.compile ∧
+  r.compile_oracle = x.compile_oracle ∧
+  r.stack_limit = x.stack_limit ∧
+  r.stack_max = x.stack_max ∧
+  r.stack_size = x.stack_size
+Proof
+  fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality]
 QED
 
 Theorem call_env_const[simp]:
@@ -281,6 +338,27 @@ Proof
   imp_res_tac gc_const >> full_simp_tac(srw_ss())[]
 QED
 
+(*FIXME merge*)
+Theorem alloc_code_gc_fun_const:
+  alloc x names s = (res,t) ⇒
+  t.code = s.code /\
+  t.code_buffer = s.code_buffer /\
+  t.data_buffer = s.data_buffer /\
+  t.gc_fun = s.gc_fun /\
+  t.mdomain = s.mdomain /\
+  t.sh_mdomain = s.sh_mdomain /\
+  t.be = s.be ∧
+  t.compile = s.compile ∧
+  t.compile_oracle = s.compile_oracle ∧
+  t.stack_limit = s.stack_limit ∧
+  t.stack_size = s.stack_size
+Proof
+  fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
+  fs[call_env_def,push_env_def,LET_THM,env_to_list_def
+    ,set_store_def,state_component_equality,flush_state_def]>>
+  imp_res_tac pop_env_code_gc_fun_clock>>fs[]
+QED
+
 Theorem alloc_with_const[simp]:
    alloc c names (s with clock := k) =
    (λ(r,s). (r,s with clock := k)) (alloc c names s)
@@ -294,39 +372,7 @@ Proof
   CASE_TAC >> full_simp_tac(srw_ss())[]
 QED
 
-Theorem get_var_with_const[simp]:
-   get_var x (y with clock := k) = get_var x y /\
-   get_var x (y with permute := p) = get_var x y /\
-   get_var x (y with code_buffer := cb) = get_var x y /\
-   get_var x (y with data_buffer := db) = get_var x y /\
-   get_var x (y with code := cc) = get_var x y /\
-   get_var x (y with compile_oracle := co) = get_var x y /\
-   get_var x (y with compile := ccc) = get_var x y /\
-   get_var x (y with stack := xs) = get_var x y /\
-   get_var x (y with locals_size := ss) = get_var x y /\
-   get_var x (y with stack_limit := n) = get_var x y /\
-   get_var x (y with stack_max := ss) = get_var x y /\
-   get_var x (y with stack_size := ssize) = get_var x y
-Proof
-  EVAL_TAC
-QED
 
-Theorem get_vars_with_const[simp]:
-   get_vars x (y with clock := k) = get_vars x y /\
-   get_vars x (y with permute := p) = get_vars x y /\
-   get_vars x (y with code_buffer := cb) = get_vars x y /\
-   get_vars x (y with data_buffer := db) = get_vars x y /\
-   get_vars x (y with code := cc) = get_vars x y /\
-   get_vars x (y with compile_oracle := co) = get_vars x y /\
-   get_vars x (y with compile := ccc) = get_vars x y /\
-   get_vars x (y with stack := xs) = get_vars x y /\
-   get_vars x (y with locals_size := ss) = get_vars x y /\
-   get_vars x (y with stack_limit := n) = get_vars x y /\
-   get_vars x (y with stack_max := ss) = get_vars x y /\
-   get_vars x (y with stack_size := ssize) = get_vars x y
-Proof
-  Induct_on`x`>>srw_tac[][get_vars_def]
-QED
 
 Theorem get_fp_var_with_const[simp]:
    get_fp_var x (y with clock := k) = get_fp_var x y
@@ -351,6 +397,7 @@ Proof
   EVAL_TAC
 QED
 
+
 Theorem unset_var_const[simp]:
    (unset_var x z).clock = z.clock ∧
    (unset_var x z).be = z.be ∧
@@ -364,6 +411,14 @@ Theorem unset_var_const[simp]:
    (unset_var x z).stack_limit = z.stack_limit ∧
    (unset_var x z).stack_max = z.stack_max ∧
    (unset_var x z).stack_size = z.stack_size
+Proof
+  EVAL_TAC
+QED
+
+Theorem unset_var_with_const[simp]:
+   unset_var x (z with clock := k) = unset_var x z with clock := k /\
+   unset_var x (z with stack := s) = unset_var x z with stack := s /\
+   unset_var x (z with memory := m) = unset_var x z with memory := m
 Proof
   EVAL_TAC
 QED
@@ -382,7 +437,8 @@ QED
 
 Theorem set_var_with_const[simp]:
    set_var x y (z with clock := k) = set_var x y z with clock := k /\
-   set_var x y (z with permute := p) = set_var x y z with permute := p
+   set_var x y (z with permute := p) = set_var x y z with permute := p /\
+   set_var x y (z with memory := m) = set_var x y z with memory := m
 Proof
   EVAL_TAC
 QED
@@ -537,6 +593,14 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac assign_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac mem_store_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][]
+QED
+(*FIXME dupe*)
+Triviality inst_code_gc_fun_const:
+  inst i s = SOME t ⇒
+     s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.sh_mdomain = t.sh_mdomain /\ s.mdomain = t.mdomain /\ s.be = t.be
+     ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit
+Proof
+  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def,set_fp_var_def]
 QED
 
 Theorem inst_const:
@@ -723,199 +787,92 @@ Proof
   >> metis_tac[sh_mem_set_var_const,sh_mem_store_const,sh_mem_store_byte_const,sh_mem_store32_const]
 QED
 
-Theorem sh_mem_set_var_with_const:
-  sh_mem_set_var res v s = (r,s') ==>
-  sh_mem_set_var res v (s with clock := k) = (r,s' with clock := k)
+Theorem sh_mem_set_var_with_const[simp]:
+  sh_mem_set_var res v (s with clock := k) =
+  (λ(r,s). (r,s with clock := k)) (sh_mem_set_var res v s)
 Proof
   Cases_on `res` >>
-  gvs[sh_mem_set_var_def] >>
+  fs[sh_mem_set_var_def] >>
   rename1 `sh_mem_set_var (SOME res)` >>
   Cases_on `res` >>
-  gvs[sh_mem_set_var_def]
+  fs[sh_mem_set_var_def]
 QED
 
-Theorem sh_mem_load_with_const:
+Theorem sh_mem_load_with_const[simp]:
   sh_mem_load a (s with clock := k) = sh_mem_load a s
 Proof
   gvs[sh_mem_load_def]
 QED
 
-Theorem sh_mem_load_byte_with_const:
+Theorem sh_mem_load_byte_with_const[simp]:
   sh_mem_load_byte a (s with clock := k) = sh_mem_load_byte a s
 Proof
   gvs[sh_mem_load_byte_def]
 QED
 
-Theorem sh_mem_load32_with_const:
+Theorem sh_mem_load32_with_const[simp]:
   sh_mem_load32 a (s with clock := k) = sh_mem_load32 a s
 Proof
   gvs[sh_mem_load32_def]
 QED
 
-Theorem sh_mem_store_with_const:
-  sh_mem_store a w s = (r, s') ==>
-  sh_mem_store a w (s with clock := k) = (r, s' with clock := k)
+Theorem sh_mem_store_with_const[simp]:
+  sh_mem_store a w (s with clock := k) =
+  (λ(r,s). (r,s with clock := k)) (sh_mem_store a w s)
 Proof
-  gvs[sh_mem_store_def] >>
-  rpt strip_tac >>
-  rpt (TOP_CASE_TAC >> gvs[]) >>
-  gvs[]
+  fs[sh_mem_store_def] >> (rpt (CASE_ONE >> fs[]))
 QED
 
-Theorem sh_mem_store_byte_with_const:
-  sh_mem_store_byte a w s = (r, s') ==>
-  sh_mem_store_byte a w (s with clock := k) = (r, s' with clock := k)
+Theorem sh_mem_store_byte_with_const[simp]:
+  sh_mem_store_byte a w (s with clock := k) =
+  (λ(r,s). (r,s with clock := k)) (sh_mem_store_byte a w s)
 Proof
-  gvs[sh_mem_store_byte_def] >>
-  rpt strip_tac >>
-  rpt (TOP_CASE_TAC >> gvs[]) >>
-  gvs[]
+  fs[sh_mem_store_byte_def] >> (rpt (CASE_ONE >> fs[]))
 QED
 
-Theorem sh_mem_store32_with_const:
-  sh_mem_store32 a w s = (r, s') ==>
-  sh_mem_store32 a w (s with clock := k) = (r, s' with clock := k)
+Theorem sh_mem_store32_with_const[simp]:
+  sh_mem_store32 a w (s with clock := k) =
+  (λ(r,s). (r,s with clock := k)) (sh_mem_store32 a w s)
 Proof
-  gvs[sh_mem_store32_def] >>
-  rpt strip_tac >>
-  rpt (TOP_CASE_TAC >> gvs[]) >>
-  gvs[]
+  fs[sh_mem_store32_def] >> (rpt (CASE_ONE >> fs[]))
 QED
 
-Theorem share_inst_with_const:
-  share_inst op v c s = (r,s') ==>
-  share_inst op v c (s with clock := k) = (r, s' with clock := k)
+Theorem share_inst_with_const[simp]:
+   share_inst op v c (s with clock := k) =
+   (λ(r,s). (r,s with clock := k)) (share_inst op v c s)
 Proof
-  rpt strip_tac >>
-  Cases_on `op` >>
-  gvs[share_inst_def]
-  >- metis_tac[sh_mem_set_var_with_const,
-    sh_mem_load_with_const]
-  >- metis_tac[sh_mem_set_var_with_const,
-    sh_mem_load_byte_with_const]
-  >- metis_tac[sh_mem_set_var_with_const,
-    sh_mem_load32_with_const] >>
-  rpt (TOP_CASE_TAC >> gvs[])
-  >> metis_tac[sh_mem_store_with_const,sh_mem_store32_with_const,sh_mem_store_byte_with_const]
-QED
-
-(*code and gc_fun are unchanged across eval*)
-Theorem pop_env_code_gc_fun_clock:
-    pop_env r = SOME x ⇒
-  r.code = x.code ∧
-  r.code_buffer = x.code_buffer ∧
-  r.data_buffer = x.data_buffer ∧
-  r.gc_fun = x.gc_fun ∧
-  r.clock = x.clock ∧
-  r.be = x.be ∧
-  r.mdomain = x.mdomain ∧
-  r.sh_mdomain = x.sh_mdomain ∧
-  r.compile = x.compile ∧
-  r.compile_oracle = x.compile_oracle ∧
-  r.stack_limit = x.stack_limit ∧
-  r.stack_max = x.stack_max ∧
-  r.stack_size = x.stack_size
-Proof
-  fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality]
+  Cases_on `op` >> fs[share_inst_def] >> (rpt (CASE_ONE >> fs[]))
 QED
 
 (* Standard add clock lemma for FBS *)
-
+Triviality clock_cong[simp]:
+   (s with clock := t) = (s with clock := t') <=>  t = t'
+Proof
+   fs[state_component_equality]
+QED
 (* TODO: generated names *)
+(**)
+(* Not true but maybe we could strengthen this lemma so that the stuff below can be simplified automation?
+Theorem evaluate_with_const[simp]:
+   ∀p s k.
+    evaluate (p, s with clock := k) = (λ(r,s). (r,s with clock := k)) (evaluate (p, s))
+Proof
+  recInduct evaluate_ind
+QED
+*)
 Theorem evaluate_add_clock:
    ∀p s r s'.
     evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
     evaluate (p,s with clock := s.clock + extra) = (r,s' with clock := s'.clock + extra)
 Proof
-  recInduct evaluate_ind >>
-  srw_tac[][evaluate_def] >>
-  TRY CASE_TAC >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >>
-  TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  TRY CASE_TAC >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq
-  >~ [`share_inst`]
-  >- (
-    Cases_on `op` >>
-    gvs[share_inst_def,sh_mem_load_def,
-      sh_mem_load_byte_def,sh_mem_load32_def,
-      sh_mem_store_def,sh_mem_store_byte_def,
-      sh_mem_store32_def]
-    >- (
-      IF_CASES_TAC >>
-      gvs[sh_mem_set_var_def] >>
-      qpat_abbrev_tac`res = call_FFI _ _ _ _` >>
-      Cases_on `res` >>
-      gvs[sh_mem_set_var_def] )
-    >- (
-      IF_CASES_TAC >>
-      gvs[sh_mem_set_var_def] >>
-      qpat_abbrev_tac`res = call_FFI _ _ _ _` >>
-      Cases_on `res` >>
-      gvs[sh_mem_set_var_def] )
-    >- (
-      IF_CASES_TAC >>
-      gvs[sh_mem_set_var_def] >>
-      qpat_abbrev_tac`res = call_FFI _ _ _ _` >>
-      Cases_on `res` >>
-      gvs[sh_mem_set_var_def] )
-    >> rpt (TOP_CASE_TAC >> gvs[AllCaseEqs()] )
-  ) >>
-   TRY (
-    rename1`find_code _ (add_ret_loc _ _)` >>
-    Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`find_code dest (add_ret_loc (SOME x) x') s.code s.stack_size`>>full_simp_tac(srw_ss())[]>>
-    PairCases_on`x''`>>PairCases_on`x`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`cut_env x1 s.locals`>>full_simp_tac(srw_ss())[]>>
-    qpat_x_assum`A=(r,s')` mp_tac>>
-    rpt(IF_CASES_TAC>>full_simp_tac(srw_ss())[])>>
-    full_case_tac>>full_simp_tac(srw_ss())[]>>Cases_on`q`>>TRY(Cases_on `x''`)>>
-    fsrw_tac[ARITH_ss][dec_clock_def]>>
-    rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
-    rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac pop_env_const >> full_simp_tac(srw_ss())[] >>
-    rev_full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[])>>
-  TRY (
-    rename1`find_code _ (add_ret_loc _ _)` >>
-    Cases_on`get_vars args s`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`find_code dest (add_ret_loc ret x') s.code s.stack_size`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`ret`>>full_simp_tac(srw_ss())[]>>
-    PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
-    PairCases_on`x'''`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`cut_env x'''1 s.locals`>>full_simp_tac(srw_ss())[]>>
-    qpat_x_assum`A=(r,s')` mp_tac>>
-    rpt(IF_CASES_TAC>>full_simp_tac(srw_ss())[])>>
-    Cases_on`evaluate (x''1,call_env x''0 x''2 (push_env x'' (SOME x) (dec_clock s)))`>>Cases_on`q`>>TRY(Cases_on`x'''`)>>
-    fsrw_tac[ARITH_ss][dec_clock_def]>>
-    rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>srw_tac[][]>>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
-    rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac pop_env_const >> full_simp_tac(srw_ss())[] >>
-    rev_full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[])>>
-  TRY (
-    rename1`alloc _ _ _ = _` >>
-    fs[alloc_def,gc_def,LET_THM]>> every_case_tac >>
-    fs[call_env_def,push_env_def,LET_THM,env_to_list_def
-      ,set_store_def,state_component_equality,flush_state_def]>>
-    imp_res_tac pop_env_code_gc_fun_clock>>fs[]) >>
-  TRY (
-    TOP_CASE_TAC>>fs[]>>rw[]>>fs[state_component_equality,unset_var_def,set_var_def]>>
-    NO_TAC)>>
-  full_simp_tac(srw_ss())[LET_THM,dec_clock_def] >>
-  TRY pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac alloc_const >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
-  TRY(Cases_on`mem_store c x s`)>>
-  imp_res_tac mem_store_const >> fs[]>>
-  simp[state_component_equality,dec_clock_def] >>
-  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def,LET_THM] >>rfs[]>>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >>
-  simp[state_component_equality,dec_clock_def] >>
-  imp_res_tac jump_exc_const >> full_simp_tac(srw_ss())[] >>
-  rev_full_simp_tac(srw_ss())[] >>fsrw_tac[ARITH_ss][] >>
-  rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>rveq>>full_simp_tac(srw_ss())[]>>
-  fs[call_env_def,flush_state_def]>>metis_tac[]
+  recInduct evaluate_ind >> rpt strip_tac >>
+  qpat_x_assum `evaluate _ = _` mp_tac >>
+  fs[evaluate_def,dec_clock_def] >>
+  (rpt (CASE_ONE >> gvs[])) >>
+  rpt strip_tac
+  >> gvs[]
+  >> (drulel [alloc_const, inst_const, mem_store_const,jump_exc_const,share_inst_const,pop_env_const,evaluate_clock] >> gvs[])
+  >> metis_tac[]
 QED
 
 val tac = EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality]
@@ -932,11 +889,45 @@ val tac2 =
 
    The number of clock ticks is fixed for any program, and can be characterized by st.clock - rst.clock *)
 
+
+  (*Make this stronger
+  ∀prog st res rst.
+  evaluate(prog,st) = (res,rst) ∧ res ≠ SOME TimeOut ∧ rst.clock ≥ extra ⇒
+  evaluate(prog,st with clock:=st.clock-extra) = (res,rst with clock:=rst.clock-extra)
+  *)
 Theorem evaluate_dec_clock:
   ∀prog st res rst.
   evaluate(prog,st) = (res,rst) ⇒
   evaluate(prog,st with clock:=st.clock-rst.clock) = (res,rst with clock:=0)
 Proof
+  (*
+  recInduct evaluate_ind >> rpt strip_tac >>
+  drule evaluate_clock >> rpt strip_tac >>
+  qpat_x_assum `evaluate _ = _` mp_tac >>
+  fs[evaluate_def,dec_clock_def,flush_state_def] >>
+  (rpt (CASE_ONE >> gvs[]))
+  >> rpt strip_tac >> gvs []
+  >> TRY (drulel [alloc_const, inst_const, mem_store_const,jump_exc_const,share_inst_const,pop_env_const] >> gvs[])
+  >> imp_res_tac evaluate_clock >> gvs[] >>
+imp_res_tac evaluate_clock >> gvs[]
+  rpt strip_tac >> gvs[]
+  metis_tac[]
+  res_tac
+  cheat
+   rgvs[]
+pairarg_tac
+ >> gvs[] >>
+   rpt (CASE_ONE >> gvs[])
+CASE_ONE
+gvs[]
+pairarg_tac
+gvs[]
+evaluate_clock
+TOP_CASE_TAC
+ metis_tac[]
+  fs[flush_state_def]
+  >> TRY (drulel [alloc_const, inst_const, mem_store_const,jump_exc_const,share_inst_const,pop_env_const] >> fs[])
+  *)
   recInduct evaluate_ind >>srw_tac[][evaluate_def]>>full_simp_tac(srw_ss())[call_env_def,dec_clock_def]
   >- (tac>>imp_res_tac alloc_const>>full_simp_tac(srw_ss())[])
   >- (tac>>rw[]>>fs[state_component_equality,unset_var_def,set_var_def])
@@ -1033,9 +1024,7 @@ Theorem evaluate_io_events_mono:
    evaluate (exps,s1) = (res, s2) ⇒
    s1.ffi.io_events ≼ s2.ffi.io_events
 Proof
-  recInduct evaluate_ind >> ntac 5 strip_tac >>
-  rpt conj_tac >>
-  rpt gen_tac >>
+  recInduct evaluate_ind >> rpt strip_tac >>
   full_simp_tac(srw_ss())[evaluate_def] >>
   rpt gen_tac >>
   rpt (pop_assum mp_tac) >>
@@ -1066,7 +1055,7 @@ Theorem with_clock_ffi:
 Proof
   EVAL_TAC
 QED
-
+(*FIXME VERY SLOW*)
 Theorem evaluate_add_clock_io_events_mono:
    ∀exps s extra.
     (SND(evaluate(exps,s))).ffi.io_events ≼
@@ -1149,33 +1138,6 @@ Proof
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]
 QED
 
-Theorem alloc_code_gc_fun_const:
-  alloc x names s = (res,t) ⇒
-  t.code = s.code /\
-  t.code_buffer = s.code_buffer /\
-  t.data_buffer = s.data_buffer /\
-  t.gc_fun = s.gc_fun /\
-  t.mdomain = s.mdomain /\
-  t.sh_mdomain = s.sh_mdomain /\
-  t.be = s.be ∧
-  t.compile = s.compile ∧
-  t.compile_oracle = s.compile_oracle ∧
-  t.stack_limit = s.stack_limit ∧
-  t.stack_size = s.stack_size
-Proof
-  fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
-  fs[call_env_def,push_env_def,LET_THM,env_to_list_def
-    ,set_store_def,state_component_equality,flush_state_def]>>
-  imp_res_tac pop_env_code_gc_fun_clock>>fs[]
-QED
-
-Triviality inst_code_gc_fun_const:
-  inst i s = SOME t ⇒
-     s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.sh_mdomain = t.sh_mdomain /\ s.mdomain = t.mdomain /\ s.be = t.be
-     ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit
-Proof
-  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def,set_fp_var_def]
-QED
 
 Theorem evaluate_consts:
    !xs s1 vs s2.
@@ -2760,133 +2722,6 @@ Proof
       qpat_x_assum`A=res` (SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
 QED
 
-(*Monotonicity*)
-Theorem every_var_inst_mono:
-    ∀P inst Q.
-  (∀x. P x ⇒ Q x) ∧
-  every_var_inst P inst
-  ⇒
-  every_var_inst Q inst
-Proof
-  ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
-  Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def]
-QED
-
-Theorem every_var_exp_mono:
-    ∀P exp Q.
-  (∀x. P x ⇒ Q x) ∧
-  every_var_exp P exp
-  ⇒
-  every_var_exp Q exp
-Proof
-  ho_match_mp_tac every_var_exp_ind>>srw_tac[][every_var_exp_def]>>
-  full_simp_tac(srw_ss())[EVERY_MEM]
-QED
-
-Theorem every_name_mono:
-    ∀P names Q.
-  (∀x. P x ⇒ Q x) ∧
-  every_name P names ⇒ every_name Q names
-Proof
-  srw_tac[][every_name_def]>>
-  metis_tac[EVERY_MONOTONIC]
-QED
-
-Theorem every_var_mono:
-    ∀P prog Q.
-  (∀x. P x ⇒ Q x) ∧
-  every_var P prog
-  ⇒
-  every_var Q prog
-Proof
-  ho_match_mp_tac every_var_ind>>srw_tac[][every_var_def]>>
-  TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[]>>PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`x`)>>full_simp_tac(srw_ss())[])>>
-  TRY(Cases_on`r`>>full_simp_tac(srw_ss())[])>>
-  TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])>>
-  metis_tac[EVERY_MONOTONIC,every_var_inst_mono,every_var_exp_mono,every_name_mono]
-QED
-
-(*Conjunct*)
-Theorem every_var_inst_conj:
-    ∀P inst Q.
-  every_var_inst P inst ∧ every_var_inst Q inst ⇔
-  every_var_inst (λx. P x ∧ Q x) inst
-Proof
-  ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
-  TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])>>
-  metis_tac[]
-QED
-
-Theorem every_var_exp_conj:
-    ∀P exp Q.
-  every_var_exp P exp ∧ every_var_exp Q exp ⇔
-  every_var_exp (λx. P x ∧ Q x) exp
-Proof
-  ho_match_mp_tac every_var_exp_ind>>srw_tac[][every_var_exp_def]>>
-  full_simp_tac(srw_ss())[EVERY_MEM]>>
-  metis_tac[]
-QED
-
-Theorem every_name_conj:
-    ∀P names Q.
-  every_name P names ∧ every_name Q names ⇔
-  every_name (λx. P x ∧ Q x) names
-Proof
-  srw_tac[][every_name_def]>>
-  metis_tac[EVERY_CONJ]
-QED
-
-Theorem every_var_conj:
-    ∀P prog Q.
-  every_var P prog  ∧ every_var Q prog ⇔
-  every_var (λx. P x ∧ Q x) prog
-Proof
-  ho_match_mp_tac every_var_ind>>srw_tac[][every_var_def]>>
-  TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[])>>
-  TRY(PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[])>>
-  TRY(Cases_on`x`>>full_simp_tac(srw_ss())[])>>
-  TRY(Cases_on`r`>>full_simp_tac(srw_ss())[])>>
-  TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])>>
-  TRY(metis_tac[EVERY_CONJ,every_var_inst_conj,every_var_exp_conj,every_name_conj])
-QED
-
-(*Similar lemmas about every_stack_var*)
-Theorem every_var_imp_every_stack_var:
-    ∀P prog.
-  every_var P prog ⇒ every_stack_var P prog
-Proof
-  ho_match_mp_tac every_stack_var_ind>>
-  srw_tac[][every_stack_var_def,every_var_def]>>
-  Cases_on`ret`>>
-  Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-  PairCases_on`x`>>full_simp_tac(srw_ss())[]>>
-  Cases_on`x'`>>Cases_on`r`>>full_simp_tac(srw_ss())[]
-QED
-
-Theorem every_stack_var_mono:
-    ∀P prog Q.
-  (∀x. P x ⇒ Q x) ∧
-  every_stack_var P prog
-  ⇒
-  every_stack_var Q prog
-Proof
-  ho_match_mp_tac every_stack_var_ind>>srw_tac[][every_stack_var_def]>>
-  TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[]>>PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`x`>>Cases_on`r`>>full_simp_tac(srw_ss())[]))>>
-  metis_tac[every_name_mono]
-QED
-
-Theorem every_stack_var_conj:
-    ∀P prog Q.
-  every_stack_var P prog  ∧ every_stack_var Q prog ⇔
-  every_stack_var (λx. P x ∧ Q x) prog
-Proof
-  ho_match_mp_tac every_stack_var_ind>>srw_tac[][every_stack_var_def]>>
-  TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[])>>
-  TRY(PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[])>>
-  TRY(Cases_on`x`>>Cases_on`r`>>full_simp_tac(srw_ss())[])>>
-  TRY(metis_tac[EVERY_CONJ,every_name_conj])
-QED
-
 (* Locals extend lemma *)
 Definition locals_rel_def:
   locals_rel temp (s:'a word_loc num_map) t ⇔ (∀x. x < temp ⇒ lookup x s = lookup x t)
@@ -3273,393 +3108,6 @@ Definition gc_fun_ok_def:
       (LENGTH wl = LENGTH wl1) /\
       ~(Handler IN FDOM s1) /\
       (f (wl,m,d,s) = SOME (wl1,m1,s1 |+ (Handler,s ' Handler)))
-End
-
-(* The expressions in ShareInst must be Var or Op Add *)
-(* No other expressions occur except in Set, where it must be a Var expr *)
-Definition flat_exp_conventions_def:
-  (*These should be converted to Insts*)
-  (flat_exp_conventions (Assign v exp) ⇔ F) ∧
-  (flat_exp_conventions (Store exp num) ⇔ F) ∧
-  (*The only place where top level (expression) vars are allowed*)
-  (flat_exp_conventions (Set store_name (Var r)) ⇔ T) ∧
-  (flat_exp_conventions (Set store_name _) ⇔ F) ∧
-  (flat_exp_conventions (ShareInst op v (Var r)) ⇔ T) ∧
-  (flat_exp_conventions (ShareInst op v (Op Add [Var r;Const c])) ⇔ T) ∧
-  (flat_exp_conventions (ShareInst op v _) ⇔ F) ∧
-  (flat_exp_conventions (Seq p1 p2) ⇔
-    flat_exp_conventions p1 ∧ flat_exp_conventions p2) ∧
-  (flat_exp_conventions (If cmp r1 ri e2 e3) ⇔
-    flat_exp_conventions e2 ∧ flat_exp_conventions e3) ∧
-  (flat_exp_conventions (MustTerminate p) ⇔ flat_exp_conventions p) ∧
-  (flat_exp_conventions (Call ret dest args h) ⇔
-    ((case ret of
-      NONE => T
-    | SOME (v,cutset,ret_handler,l1,l2) =>
-        flat_exp_conventions ret_handler) ∧
-    (case h of
-      NONE => T
-    | SOME (v,prog,l1,l2) => flat_exp_conventions prog))) ∧
-  (flat_exp_conventions _ ⇔ T)
-End
-
-(* Well-formed instructions
-  This also includes the FP conditions since we do not allocate them
-*)
-Definition inst_ok_less_def:
-  (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w))) ⇔
-    c.valid_imm (INL b) w) ∧
-  (inst_ok_less c (Arith (Shift l r1 r2 n)) ⇔
-    (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
-  (inst_ok_less c (Arith (Shift l r1 r2 n)) ⇔
-    (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
-  (inst_ok_less c (Arith (Div r1 r2 r3)) ⇔
-    (c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
-  (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) ⇔
-    ((c.ISA = ARMv7 ⇒ r1 ≠ r2) ∧
-    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ∨ c.ISA = Ag32 ⇒ r1 ≠ r3 ∧ r1 ≠ r4))) ∧
-  (inst_ok_less c (Arith (LongDiv r1 r2 r3 r4 r5)) =
-    (c.ISA = x86_64)) ∧
-  (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) ⇔
-    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3  ∧ r1 ≠ r4)) ∧
-  (inst_ok_less c (Arith (AddOverflow r1 r2 r3 r4)) ⇔
-    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
-  (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) ⇔
-    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
-  (inst_ok_less c (Mem m r (Addr r' w)) ⇔
-    if m IN {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w) ∧
-  (inst_ok_less c (FP (FPLess r d1 d2)) ⇔  fp_reg_ok d1 c ∧ fp_reg_ok d2 c) ∧
-  (inst_ok_less c (FP (FPLessEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
-  (inst_ok_less c (FP (FPEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c)  ∧
-  (inst_ok_less c (FP (FPAbs d1 d2)) ⇔
-    (c.two_reg_arith ==> (d1 <> d2)) ∧ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
-  (inst_ok_less c (FP (FPNeg d1 d2)) ⇔
-    (c.two_reg_arith ==> (d1 <> d2)) ∧ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
-  (inst_ok_less c (FP (FPSqrt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
-  (inst_ok_less c (FP (FPAdd d1 d2 d3)) ⇔
-    (c.two_reg_arith ==> (d1 = d2)) ∧
-    fp_reg_ok d1 c  ∧ fp_reg_ok d2 c ∧ fp_reg_ok d3 c) ∧
-  (inst_ok_less c (FP (FPSub d1 d2 d3)) ⇔
-    (c.two_reg_arith ==> (d1 = d2)) ∧
-    fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
-  (inst_ok_less c (FP (FPMul d1 d2 d3)) ⇔
-    (c.two_reg_arith ==> (d1 = d2)) ∧
-    fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
-  (inst_ok_less c (FP (FPDiv d1 d2 d3)) ⇔
-    (c.two_reg_arith ==> (d1 = d2)) ∧
-    fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
-  (inst_ok_less c (FP (FPFma d1 d2 d3)) <=>
-    (c.ISA = ARMv7) /\
-    2 < c.fp_reg_count /\
-    fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
-  (inst_ok_less c (FP (FPMov d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
-  (inst_ok_less c (FP (FPMovToReg r1 r2 d)) ⇔
-      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
-  (inst_ok_less c (FP (FPMovFromReg d r1 r2)) ⇔
-      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
-  (inst_ok_less c (FP (FPToInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
-  (inst_ok_less c (FP (FPFromInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
-  (inst_ok_less _ _ = T)
-End
-
-(* Instructions have distinct targets and read vars -- set by SSA form *)
-Definition distinct_tar_reg_def:
-  (distinct_tar_reg (Arith (Binop bop r1 r2 ri))
-    ⇔ ri ≠ Reg r1) ∧
-  (distinct_tar_reg (Arith (AddCarry r1 r2 r3 r4))
-    ⇔ r1 ≠ r3 ∧ r1 ≠ r4) ∧
-  (distinct_tar_reg (Arith (AddOverflow r1 r2 r3 r4))
-    ⇔ r1 ≠ r3) ∧
-  (distinct_tar_reg (Arith (SubOverflow r1 r2 r3 r4))
-    ⇔ r1 ≠ r3) ∧
-  (distinct_tar_reg _ ⇔ T)
-End
-
-(*Instructions are 2 register code for arith ok
-  Currently no two_reg for Mul and Div
-*)
-Definition two_reg_inst_def:
-  (two_reg_inst (Arith (Binop bop r1 r2 ri))
-    ⇔ (r1 = r2)) ∧
-  (two_reg_inst (Arith (Shift l r1 r2 n))
-    ⇔ (r1 = r2)) ∧
-  (two_reg_inst (Arith (AddCarry r1 r2 r3 r4))
-    ⇔ (r1 = r2)) ∧
-  (two_reg_inst (Arith (AddOverflow r1 r2 r3 r4))
-    ⇔ (r1 = r2)) ∧
-  (two_reg_inst (Arith (SubOverflow r1 r2 r3 r4))
-    ⇔ (r1 = r2)) ∧
-  (two_reg_inst _ ⇔ T)
-End
-
-(* Recursor over instructions *)
-Definition every_inst_def:
-  (every_inst P (Inst i) ⇔ P i) ∧
-  (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
-  (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
-  (every_inst P (OpCurrHeap bop r1 r2) ⇔ P (Arith (Binop bop r1 r2 (Reg r2)))) ∧
-  (every_inst P (MustTerminate p) ⇔ every_inst P p) ∧
-  (every_inst P (Call ret dest args handler)
-    ⇔ (case ret of
-        NONE => T
-      | SOME (n,names,ret_handler,l1,l2) => every_inst P ret_handler ∧
-      (case handler of
-        NONE => T
-      | SOME (n,h,l1,l2) => every_inst P h))) ∧
-  (every_inst P prog ⇔ T)
-End
-
-(* Every instruction is well-formed, including the jump hidden in If *)
-Definition full_inst_ok_less_def:
-  (full_inst_ok_less c (Inst i) ⇔ inst_ok_less c i) ∧
-  (full_inst_ok_less c (Seq p1 p2) ⇔
-    (full_inst_ok_less c p1 ∧ full_inst_ok_less c p2)) ∧
-  (full_inst_ok_less c (If cmp r1 ri c1 c2) ⇔
-    ((case ri of Imm w => c.valid_imm (INR cmp) w | _ => T) ∧
-    full_inst_ok_less c c1 ∧ full_inst_ok_less c c2)) ∧
-  (full_inst_ok_less c (MustTerminate p) ⇔ full_inst_ok_less c p) ∧
-  (full_inst_ok_less c (Call ret dest args handler)
-    ⇔ (case ret of
-        NONE => T
-      | SOME (n,names,ret_handler,l1,l2) => full_inst_ok_less c ret_handler ∧
-      (case handler of
-        NONE => T
-      | SOME (n,h,l1,l2) => full_inst_ok_less c h))) ∧
-  (full_inst_ok_less c (ShareInst op r ad) =
-    case exp_to_addr ad of
-    | SOME (Addr _ w) =>
-      if op IN {Load; Store; Load32; Store32}
-        then addr_offset_ok c w
-        else byte_offset_ok c w
-    | NONE => F) ∧
-  (full_inst_ok_less c prog ⇔ T)
-End
-
-(* All cutsets are well-formed *)
-Definition wf_cutsets_def:
-  (wf_cutsets (Alloc n s) = wf s) ∧
-  (wf_cutsets (Install _ _ _ _ s) = wf s) ∧
-  (wf_cutsets (Call ret dest args h) =
-    (case ret of
-      NONE => T
-    | SOME (v,cutset,ret_handler,l1,l2) =>
-      wf cutset ∧
-      wf_cutsets ret_handler ∧
-      (case h of
-        NONE => T
-      | SOME (v,prog,l1,l2) =>
-        wf_cutsets prog))) ∧
-  (wf_cutsets (FFI x1 y1 x2 y2 z args) = wf args) ∧
-  (wf_cutsets (MustTerminate s) = wf_cutsets s) ∧
-  (wf_cutsets (Seq s1 s2) =
-    (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
-  (wf_cutsets (If cmp r1 ri e2 e3) =
-    (wf_cutsets e2 ∧
-     wf_cutsets e3)) ∧
-  (wf_cutsets _ = T)
-End
-
-Definition inst_arg_convention_def:
-  (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
-  (* Note: these are not necessary *)
-  (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
-  (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
-  (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 6 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
-  (* LongDiv follows conventions for x86 as it is the only possibility *)
-  (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 6 ∧ r3 = 6 ∧ r4 = 0) ∧
-  (inst_arg_convention _ = T)
-End
-
-(* Syntactic conventions for allocator *)
-Definition call_arg_convention_def:
-  (call_arg_convention (Inst i) =
-    inst_arg_convention i) ∧
-  (call_arg_convention (Return x y) = (y=2)) ∧
-  (call_arg_convention (Raise y) = (y=2)) ∧
-  (call_arg_convention (Install ptr len _ _ _) = (ptr = 2 ∧ len = 4)) ∧
-  (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
-                                                         ptr2 = 6 ∧ len2 = 8)) ∧
-  (call_arg_convention (Alloc n s) = (n=2)) ∧
-  (call_arg_convention (StoreConsts a b c d ws) =
-    ((a=0) ∧ (b=2) ∧ (c=4) ∧ (d=6))) ∧
-  (call_arg_convention (Call ret dest args h) =
-    (case ret of
-      NONE => args = GENLIST (\x.2*x) (LENGTH args)
-    | SOME (v,cutset,ret_handler,l1,l2) =>
-      args = GENLIST (\x.2*(x+1)) (LENGTH args) ∧
-      (v = 2) ∧ call_arg_convention ret_handler ∧
-    (case h of  (*Does not check the case where Calls are ill-formed*)
-      NONE => T
-    | SOME (v,prog,l1,l2) =>
-      (v = 2) ∧ call_arg_convention prog))) ∧
-  (call_arg_convention (MustTerminate s1) =
-    call_arg_convention s1) ∧
-  (call_arg_convention (Seq s1 s2) =
-    (call_arg_convention s1 ∧ call_arg_convention s2)) ∧
-  (call_arg_convention (If cmp r1 ri e2 e3) =
-    (call_arg_convention e2 ∧
-     call_arg_convention e3)) ∧
-  (call_arg_convention p = T)
-End
-
-(*Before allocation, generated by SSA CC*)
-Definition pre_alloc_conventions_def:
-  pre_alloc_conventions p =
-    (every_stack_var is_stack_var p ∧
-    call_arg_convention p)
-End
-
-(*After allocation, generated by allocator and/or the oracles*)
-Definition post_alloc_conventions_def:
-  post_alloc_conventions k prog =
-    (every_var is_phy_var prog ∧
-    every_stack_var (λx. x ≥ 2*k) prog ∧
-    call_arg_convention prog)
-End
-
-(* This is for label preservation -- wordLang shouldn't need to inspect the labels explicitly
-  We will need theorems of the form:
-  extract_labels prog = extract_labels (transform prog)
-*)
-
-Definition extract_labels_def:
-  (extract_labels (Call ret dest args h) =
-    (case ret of
-      NONE => []
-    | SOME (v,cutset,ret_handler,l1,l2) =>
-      let ret_rest = extract_labels ret_handler in
-    (case h of
-      NONE => [(l1,l2)] ++ ret_rest
-    | SOME (v,prog,l1',l2') =>
-      let h_rest = extract_labels prog in
-      [(l1,l2);(l1',l2')]++ret_rest++h_rest))) ∧
-  (extract_labels (MustTerminate s1) = extract_labels s1) ∧
-  (extract_labels (Seq s1 s2) =
-    extract_labels s1 ++ extract_labels s2) ∧
-  (extract_labels (If cmp r1 ri e2 e3) =
-    (extract_labels e2 ++ extract_labels e3)) ∧
-  (extract_labels _ = [])
-End
-
-Theorem env_to_list_lookup_equiv:
-   env_to_list y f = (q,r) ==>
-    (!n. ALOOKUP q n = lookup n y) /\
-    (!x1 x2. MEM (x1,x2) q ==> lookup x1 y = SOME x2)
-Proof
-  fs[wordSemTheory.env_to_list_def,LET_DEF] \\ srw_tac[][]
-  \\ `ALL_DISTINCT (MAP FST (toAList y))` by fs[ALL_DISTINCT_MAP_FST_toAList]
-  \\ imp_res_tac (MATCH_MP PERM_ALL_DISTINCT_MAP
-        (QSORT_PERM |> Q.ISPEC `key_val_compare` |> SPEC_ALL))
-  \\ `ALL_DISTINCT (QSORT key_val_compare (toAList y))`
-        by imp_res_tac ALL_DISTINCT_MAP
-  \\ pop_assum (assume_tac o Q.SPEC `f (0:num)` o MATCH_MP PERM_list_rearrange)
-  \\ imp_res_tac PERM_ALL_DISTINCT_MAP
-  \\ rpt (qpat_x_assum `!x. pp ==> qq` (K all_tac))
-  \\ rpt (qpat_x_assum `!x y. pp ==> qq` (K all_tac)) \\ rfs[]
-  \\ rpt (pop_assum (mp_tac o Q.GEN `x` o SPEC_ALL))
-  \\ rpt (pop_assum (mp_tac o SPEC ``f:num->num->num``))
-  \\ Q.ABBREV_TAC `xs =
-       (list_rearrange (f 0) (QSORT key_val_compare (toAList y)))`
-  \\ rpt strip_tac \\ rfs[MEM_toAList]
-  \\ Cases_on `?i. MEM (n,i) xs` \\ fs[] THEN1
-     (imp_res_tac ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME \\ fs[]
-      \\ UNABBREV_ALL_TAC \\ fs[] \\ rfs[MEM_toAList])
-  \\ `~MEM n (MAP FST xs)` by rfs[MEM_MAP,FORALL_PROD]
-  \\ fs[GSYM ALOOKUP_NONE]
-  \\ UNABBREV_ALL_TAC \\ fs[] \\ rfs[MEM_toAList]
-  \\ Cases_on `lookup n y` \\ fs[]
-QED
-
-Theorem env_to_list_ALL_DISTINCT:
-  env_to_list y perm = (vs,other) ==> ALL_DISTINCT (MAP FST vs)
-Proof
-  fs [wordSemTheory.env_to_list_def] \\ rw []
-  \\ qmatch_goalsub_abbrev_tac `list_rearrange _ l`
-  \\ `PERM (toAList y) l` by fs [Abbr`l`,sortingTheory.QSORT_PERM]
-  \\ qsuff_tac `PERM l (list_rearrange (perm 0) l)`
-  THEN1
-   (strip_tac
-    \\ `PERM (toAList y) (list_rearrange (perm 0) l)` by imp_res_tac PERM_TRANS
-    \\ drule (Q.ISPEC `FST` sortingTheory.PERM_MAP) \\ strip_tac
-    \\ drule (GSYM ALL_DISTINCT_PERM) \\ fs [ALL_DISTINCT_MAP_FST_toAList])
-  \\ match_mp_tac PERM_list_rearrange
-  \\ drule (GSYM ALL_DISTINCT_PERM) \\ fs [] \\ rw []
-  \\ match_mp_tac (Q.ISPEC `FST` listTheory.ALL_DISTINCT_MAP)
-  \\ fs [ALL_DISTINCT_MAP_FST_toAList]
-QED
-
-Theorem env_to_list_ALL_DISTINCT_FST:
-   ALL_DISTINCT (MAP FST (FST(env_to_list y perm)))
-Proof
-  Cases_on ‘env_to_list y perm’ >>
-  metis_tac[env_to_list_ALL_DISTINCT,FST]
-QED
-
-Triviality max_var_exp_IMP:
-  ∀exp.
-  P 0 ∧ every_var_exp P exp ⇒
-  P (max_var_exp exp)
-Proof
-  ho_match_mp_tac max_var_exp_ind>>fs[max_var_exp_def,every_var_exp_def]>>
-  srw_tac[][]>>
-  match_mp_tac list_max_intro>>
-  fs[EVERY_MAP,EVERY_MEM]
-QED
-
-Theorem max_var_intro:
-    ∀prog.
-  P 0 ∧ every_var P prog ⇒
-  P (max_var prog)
-Proof
-  ho_match_mp_tac max_var_ind>>
-  fs[every_var_def,max_var_def,max_var_exp_IMP,MAX_DEF]>>srw_tac[][]>>
-  TRY(metis_tac[max_var_exp_IMP])>>
-  TRY (match_mp_tac list_max_intro>>fs[EVERY_APPEND,every_name_def])
-  >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
-    TRY(Cases_on`f`)>>
-    fs[max_var_inst_def,every_var_inst_def,every_var_imm_def,MAX_DEF]>>
-    EVERY_CASE_TAC>>fs[every_var_imm_def])
-  >-
-    (TOP_CASE_TAC>>unabbrev_all_tac>>fs[list_max_intro]>>
-    EVERY_CASE_TAC>>fs[LET_THM]>>srw_tac[][]>>
-    match_mp_tac list_max_intro>>fs[EVERY_APPEND,every_name_def])
-  >> (unabbrev_all_tac>>EVERY_CASE_TAC>>fs[every_var_imm_def])
-QED
-
-Definition get_code_labels_def[simp]:
-  (get_code_labels (Call r d a h) =
-    (case d of SOME x => {x} | _ => {}) ∪
-    (case r of SOME (_,_,x,_,_) => get_code_labels x | _ => {}) ∪
-    (case h of SOME (_,x,l1,l2) => get_code_labels x | _ => {})) ∧
-  (get_code_labels (Seq p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
-  (get_code_labels (If _ _ _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
-  (get_code_labels (MustTerminate p) = get_code_labels p) ∧
-  (get_code_labels (LocValue _ l1) = {l1}) ∧
-  (get_code_labels _ = {})
-End
-
-(* TODO: This seems like it must have been established before
-  handler labels point only within the current table entry
-*)
-Definition good_handlers_def:
-  (good_handlers n (Call r d a h) <=>
-    case r of
-      NONE => T
-    | SOME (_,_,x,_,_) => good_handlers n x ∧
-    (case h of SOME (_,x,l1,_) => l1 = n ∧ good_handlers n x | _ => T)) ∧
-  (good_handlers n (Seq p1 p2) <=> good_handlers n p1 ∧ good_handlers n p2) ∧
-  (good_handlers n (If _ _ _ p1 p2) <=> good_handlers n p1 ∧ good_handlers n p2) ∧
-  (good_handlers n (MustTerminate p) <=> good_handlers n p) ∧
-  (good_handlers n _ <=> T)
-End
-val _ = export_rewrites["good_handlers_def"];
-
-Definition good_code_labels_def:
-  good_code_labels p elabs ⇔
-  EVERY (λ(n,m,pp). good_handlers n pp) p ∧
-  (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
-  (set (MAP FST p) ∪ elabs)
 End
 
 Theorem push_env_dec_clock_stack:
@@ -4349,6 +3797,7 @@ Proof
      THE_DEF,stack_size_eq2, stack_frame_size_def] >> rveq >> fs [])
 QED
 
+
 Theorem evaluate_stack_max_only_grows:
   !p s r t ck r' t'.
      evaluate (p,s) = (r,t) /\
@@ -4425,11 +3874,7 @@ Proof
      CaseEq"option",CaseEq"word_loc",CaseEq"bool",
      CaseEq"prod",CaseEq"list",CaseEq"ffi_result",
      ELIM_UNCURRY,flush_state_def] >>
-  rveq >> fs[] >> rveq >> fs[] >> res_tac
-  >- ( (* ShareInst *)
-    rev_drule_then assume_tac share_inst_with_const >>
-    gvs[]
-  ) >>
+  rveq >> fs[] >> rveq >> fs[] >> res_tac >>
   (* The remainder deals with subcases originating from Seq *)
   fs[FST_EQ_EQUIV] >>
   rfs[] >> res_tac >>
@@ -4570,48 +4015,59 @@ Proof
   \\ imp_res_tac s_key_eq_stack_size \\ fs []
 QED
 
-(****** not_created_subprogs ******)
+Theorem env_to_list_lookup_equiv:
+   env_to_list y f = (q,r) ==>
+    (!n. ALOOKUP q n = lookup n y) /\
+    (!x1 x2. MEM (x1,x2) q ==> lookup x1 y = SOME x2)
+Proof
+  fs[wordSemTheory.env_to_list_def,LET_DEF] \\ srw_tac[][]
+  \\ `ALL_DISTINCT (MAP FST (toAList y))` by fs[ALL_DISTINCT_MAP_FST_toAList]
+  \\ imp_res_tac (MATCH_MP PERM_ALL_DISTINCT_MAP
+        (QSORT_PERM |> Q.ISPEC `key_val_compare` |> SPEC_ALL))
+  \\ `ALL_DISTINCT (QSORT key_val_compare (toAList y))`
+        by imp_res_tac ALL_DISTINCT_MAP
+  \\ pop_assum (assume_tac o Q.SPEC `f (0:num)` o MATCH_MP PERM_list_rearrange)
+  \\ imp_res_tac PERM_ALL_DISTINCT_MAP
+  \\ rpt (qpat_x_assum `!x. pp ==> qq` (K all_tac))
+  \\ rpt (qpat_x_assum `!x y. pp ==> qq` (K all_tac)) \\ rfs[]
+  \\ rpt (pop_assum (mp_tac o Q.GEN `x` o SPEC_ALL))
+  \\ rpt (pop_assum (mp_tac o SPEC ``f:num->num->num``))
+  \\ Q.ABBREV_TAC `xs =
+       (list_rearrange (f 0) (QSORT key_val_compare (toAList y)))`
+  \\ rpt strip_tac \\ rfs[MEM_toAList]
+  \\ Cases_on `?i. MEM (n,i) xs` \\ fs[] THEN1
+     (imp_res_tac ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME \\ fs[]
+      \\ UNABBREV_ALL_TAC \\ fs[] \\ rfs[MEM_toAList])
+  \\ `~MEM n (MAP FST xs)` by rfs[MEM_MAP,FORALL_PROD]
+  \\ fs[GSYM ALOOKUP_NONE]
+  \\ UNABBREV_ALL_TAC \\ fs[] \\ rfs[MEM_toAList]
+  \\ Cases_on `lookup n y` \\ fs[]
+QED
 
-(* Examines various syntactic elements within programs that some phases are
-   expected to possibly remove but not create. *)
+Theorem env_to_list_ALL_DISTINCT:
+  env_to_list y perm = (vs,other) ==> ALL_DISTINCT (MAP FST vs)
+Proof
+  fs [wordSemTheory.env_to_list_def] \\ rw []
+  \\ qmatch_goalsub_abbrev_tac `list_rearrange _ l`
+  \\ `PERM (toAList y) l` by fs [Abbr`l`,sortingTheory.QSORT_PERM]
+  \\ qsuff_tac `PERM l (list_rearrange (perm 0) l)`
+  THEN1
+   (strip_tac
+    \\ `PERM (toAList y) (list_rearrange (perm 0) l)` by imp_res_tac PERM_TRANS
+    \\ drule (Q.ISPEC `FST` sortingTheory.PERM_MAP) \\ strip_tac
+    \\ drule (GSYM ALL_DISTINCT_PERM) \\ fs [ALL_DISTINCT_MAP_FST_toAList])
+  \\ match_mp_tac PERM_list_rearrange
+  \\ drule (GSYM ALL_DISTINCT_PERM) \\ fs [] \\ rw []
+  \\ match_mp_tac (Q.ISPEC `FST` listTheory.ALL_DISTINCT_MAP)
+  \\ fs [ALL_DISTINCT_MAP_FST_toAList]
+QED
 
-Definition not_created_subprogs_def:
-  not_created_subprogs P (MustTerminate p : 'a prog) =
-    (P (MustTerminate (Skip : 'a prog)) /\ not_created_subprogs P p) /\
-  not_created_subprogs P (Seq p1 p2) = (not_created_subprogs P p1 /\
-    not_created_subprogs P p2) /\
-  not_created_subprogs P (If _ _ _ p1 p2) = (not_created_subprogs P p1 /\
-    not_created_subprogs P p2) /\
-  not_created_subprogs P (wordLang$Call r dest args h) =
-    (P (wordLang$Call NONE dest [] NONE) /\
-    (case r of NONE => T | SOME (_, _, p, _) => not_created_subprogs P p) /\
-    (case h of NONE => T | SOME (_, p, h1, _) =>
-        P (wordLang$Call NONE NONE [] (SOME (0, Skip, h1, 0))) /\
-        not_created_subprogs P p)) /\
-  not_created_subprogs P (Alloc _ _) = P (Alloc 0 LN) /\
-  not_created_subprogs P (LocValue _ l) = P (LocValue 0 l) /\
-  not_created_subprogs P (ShareInst _ _ _) = P (ShareInst ARB 0 (Var 0)) /\
-  not_created_subprogs P (Install _ _ _ _ _) = P (Install 0 0 0 0 LN) /\
-  not_created_subprogs _ _ = T
-End
-
-Theorem not_created_subprogs_P_def = not_created_subprogs_def
-  |> BODY_CONJUNCTS
-  |> map (fn t => GEN (hd (snd (strip_comb (lhs (concl t))))) t)
-  |> map (Q.SPEC `P`) |> LIST_CONJ
-  |> Q.GEN `P`
-
-(* no_alloc specialisation *)
-
-val no_alloc_P = ``((<>) (Alloc 0 LN))``
-
-Definition no_alloc_subprogs_def:
-  no_alloc p = not_created_subprogs ^no_alloc_P p
-End
-
-Theorem no_alloc_def = not_created_subprogs_P_def
-  |> ISPEC no_alloc_P
-  |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
+Theorem env_to_list_ALL_DISTINCT_FST:
+   ALL_DISTINCT (MAP FST (FST(env_to_list y perm)))
+Proof
+  Cases_on ‘env_to_list y perm’ >>
+  metis_tac[env_to_list_ALL_DISTINCT,FST]
+QED
 
 Definition no_alloc_code_def:
   no_alloc_code (code : (num # ('a wordLang$prog)) num_map) ⇔
@@ -4630,15 +4086,6 @@ Proof
   metis_tac[]
 QED
 
-val no_install_P = ``((<>) (Install 0 0 0 0 LN))``
-
-Definition no_install_subprogs_def:
-  no_install p = not_created_subprogs ^no_install_P p
-End
-
-Theorem no_install_def = not_created_subprogs_P_def
-  |> ISPEC no_install_P
-  |> REWRITE_RULE [GSYM no_install_subprogs_def]
 
 Definition no_install_code_def:
     no_install_code (code : (num # ('a wordLang$prog)) num_map) ⇔
@@ -4708,6 +4155,24 @@ Proof
   \\ every_case_tac \\ fs []
   \\ EQ_TAC \\ rw [] \\ fs []
 QED
+
+Definition no_mt_code_def:
+  no_mt_code (code : (num # ('a wordLang$prog)) num_map) <=>
+  ! k n p . lookup k code = SOME (n, p) ==> no_mt p
+End
+
+Theorem no_mt_find_code:
+  ! code dest args lsize args1 expr ps.
+    wordSem$find_code dest args code lsize = SOME (args1, expr, ps) /\
+    no_mt_code code ==>
+    no_mt expr
+Proof
+  rw[no_mt_code_def] >> Cases_on `dest` >>
+  fs[wordSemTheory.find_code_def] >>
+  EVERY_CASE_TAC >> fs [] >> rveq >>
+  metis_tac[]
+QED
+
 
 (*** permute_swap for no_install & no_alloc ***)
 
@@ -5110,46 +4575,5 @@ Proof
   gvs[] >>
   simp[state_component_equality]
 QED
-
-(****** no_mt : no MustTerminate ******)
-
-val no_mt_P = ``((<>) (MustTerminate Skip))``
-
-Definition no_mt_subprogs_def:
-  no_mt p = not_created_subprogs ^no_mt_P p
-End
-
-Theorem no_mt_def = not_created_subprogs_P_def
-  |> ISPEC no_mt_P
-  |> REWRITE_RULE [GSYM no_mt_subprogs_def]
-
-Definition no_mt_code_def:
-  no_mt_code (code : (num # ('a wordLang$prog)) num_map) <=>
-  ! k n p . lookup k code = SOME (n, p) ==> no_mt p
-End
-
-Theorem no_mt_find_code:
-  ! code dest args lsize args1 expr ps.
-    wordSem$find_code dest args code lsize = SOME (args1, expr, ps) /\
-    no_mt_code code ==>
-    no_mt expr
-Proof
-  rw[no_mt_code_def] >> Cases_on `dest` >>
-  fs[wordSemTheory.find_code_def] >>
-  EVERY_CASE_TAC >> fs [] >> rveq >>
-  metis_tac[]
-QED
-
-(* no_share_inst: no ShareInst *)
-
-val no_share_inst_P = ``((<>) (ShareInst ARB 0 (Var 0)))``
-
-Definition no_share_inst_subprogs_def:
-  no_share_inst p = not_created_subprogs ^no_share_inst_P p
-End
-
-Theorem no_share_inst_def = not_created_subprogs_P_def
-  |> ISPEC no_share_inst_P
-  |> REWRITE_RULE [GSYM no_share_inst_subprogs_def]
 
 val _ = export_theory();

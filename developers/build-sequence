@@ -117,6 +117,7 @@ examples/lpr_checker/array
 examples/lpr_checker/array/compilation
 examples/lpr_checker/array/compilation/proofs
 examples/lpr_checker/array/compilation/proofsARM8
+.
 
 examples/xlrup_checker
 examples/xlrup_checker/array

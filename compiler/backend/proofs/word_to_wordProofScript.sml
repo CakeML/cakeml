@@ -2,8 +2,10 @@
   Correctness proof for word_to_word
 *)
 open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
-     wordPropsTheory word_allocProofTheory word_instProofTheory word_unreachTheory
-     word_removeProofTheory word_cseProofTheory word_elimTheory word_elimProofTheory word_unreachProofTheory word_copyProofTheory;
+     wordPropsTheory wordConvsTheory word_allocProofTheory word_instProofTheory
+     word_unreachTheory word_removeProofTheory word_cseProofTheory
+     word_elimTheory word_elimProofTheory word_unreachProofTheory
+     word_copyProofTheory wordConvsProofTheory;
 
 val _ = new_theory "word_to_wordProof";
 
@@ -19,8 +21,6 @@ val is_phy_var_tac =
     `∀k.(2:num)*k=k*2` by DECIDE_TAC>>
     metis_tac[arithmeticTheory.MOD_EQ_0];
 
-val rmd_thms = (remove_dead_conventions |>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
-
 val drule = old_drule
 
 Theorem FST_compile_single[simp]:
@@ -29,7 +29,7 @@ Proof
   PairCases_on`e` \\ EVAL_TAC
 QED
 
-(* TODO move to word_unreachProof *)
+(* TODO move to wordConvsProof *)
 Theorem labels_rel_remove_unreach:
   labels_rel (extract_labels p) (extract_labels q) ⇒
   labels_rel (extract_labels p) (extract_labels (remove_unreach q))
@@ -58,14 +58,6 @@ Proof
   cheat
 QED
 
-(* TODO move to word_removeProof *)
-Theorem two_reg_inst_remove_dead:
-  every_inst two_reg_inst p ⇒
-  every_inst two_reg_inst (FST (remove_dead p t))
-Proof
-  cheat
-QED
-
 (*Chains up compile_single theorems*)
 Theorem compile_single_lem:
   ∀prog n st.
@@ -85,24 +77,27 @@ Theorem compile_single_lem:
 Proof
   fs[compile_single_def,LET_DEF]>>
   rpt strip_tac>>
+  qpat_abbrev_tac`p0 = word_simp$compile_exp prog`>>
   qpat_abbrev_tac`p1 = inst_select A B C`>>
   qpat_abbrev_tac`p2 = full_ssa_cc_trans n p1`>>
-  qpat_abbrev_tac`p3 = copy_prop (word_common_subexp_elim p2)`>>
-  qpat_abbrev_tac`p4 = if _ then _ p3 else p3`>>
-  qpat_abbrev_tac`p5 = remove_unreach p4`>>
-  qpat_abbrev_tac`p6 = FST (remove_dead p5 LN)`>>
-  Q.ISPECL_THEN [`name`,`c`,`a`,`p6`,`k`,`col`,`st`]
+  qpat_abbrev_tac`p3 = remove_dead_prog p2`>>
+  qpat_abbrev_tac`p4 = copy_prop (word_common_subexp_elim p3)`>>
+  qpat_abbrev_tac`p5 = three_to_two_reg_prog _ p4`>>
+  qpat_abbrev_tac`p6 = remove_unreach p5`>>
+  qpat_abbrev_tac`p7 = remove_dead_prog p6`>>
+  Q.ISPECL_THEN [`name`,`c`,`a`,`p7`,`k`,`col`,`st`]
     mp_tac word_alloc_correct>>
-  impl_tac>- (
+  impl_tac >- (
     fs[even_starting_locals_def]>>
     rw[word_allocTheory.even_list_def,MEM_GENLIST,reg_allocTheory.is_phy_var_def]
     >- is_phy_var_tac>>
     unabbrev_all_tac>>fs[full_ssa_cc_trans_wf_cutsets]>>
-    match_mp_tac (el 5 rmd_thms)>>
+    irule (remove_dead_prog_conventions |> CONJUNCTS |> el 5)>>
     irule wf_cutsets_remove_unreach >>
-    rw[]>>TRY(ho_match_mp_tac three_to_two_reg_wf_cutsets)>>
+    irule three_to_two_reg_prog_wf_cutsets>>
     irule wf_cutsets_copy_prop>>
     irule wf_cutsets_word_common_subexp_elim >>
+    irule (remove_dead_prog_conventions |> CONJUNCTS |> el 5)>>
     fs[full_ssa_cc_trans_wf_cutsets])>>
   rw[]>>
   (* SSA *)
@@ -112,48 +107,57 @@ Proof
   pairarg_tac>>fs[]>>
   Cases_on`res=SOME Error`>>gs[]>>
   (* inst select *)
-  Q.ISPECL_THEN [`c`,`max_var (word_simp$compile_exp prog) +1`,`word_simp$compile_exp prog`,`st with permute:=perm''`,`res`,`rst`,`st.locals`] mp_tac inst_select_thm>>
+  Q.ISPECL_THEN [`c`,`max_var p0 +1`,`p0`,`st with permute:=perm''`,`res`,`rst`,`st.locals`] mp_tac inst_select_thm>>
   impl_tac >- (
     drule (GEN_ALL word_simpProofTheory.compile_exp_thm) \\ fs [] \\ strip_tac \\
     simp[locals_rel_def]>>
-    Q.SPEC_THEN `word_simp$compile_exp prog` assume_tac max_var_max>>
-    match_mp_tac every_var_mono>>
-    HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
-    DECIDE_TAC) >>
+    Q.SPEC_THEN `p0` assume_tac max_var_max>>
+    irule every_var_mono>>
+    first_x_assum (irule_at Any)>>
+    fs[])>>
   rw[]>>
-  `∀perm. st with <|locals:=st.locals;permute:=perm|> = st with permute:=perm` by fs[state_component_equality]>>
+  `∀perm. st with <|locals:=st.locals;permute:=perm|> = st with permute:=perm`
+    by fs[state_component_equality]>>
   gvs[]>>
   qpat_x_assum`(λ(x,y). _) _`mp_tac >>
   pairarg_tac>>fs[]>>
   strip_tac>>
-  Cases_on`remove_dead p5 LN`>>fs[]>>
+  rw[]>>
+  (* first remove_dead *)
+  drule_all evaluate_remove_dead_prog>>
+  rw[]>>
   (* word cse *)
   drule word_common_subexp_elim_correct >>
   impl_tac >- (
     fs [] >>
+    (* requires flat_exp_conventions up to p3 *)
     unabbrev_all_tac >>
+    irule (remove_dead_prog_conventions |> CONJUNCTS |> el 1)>>
     irule word_allocProofTheory.full_ssa_cc_trans_flat_exp_conventions >>
-    fs [word_instProofTheory.inst_select_flat_exp_conventions]) >>
+    fs [inst_select_flat_exp_conventions]) >>
   gvs [] >>
   (* word_copy *)
   simp[Once (GSYM evaluate_copy_prop)]>>
   strip_tac >>
-  `evaluate (p4,st with permute := perm') = (res,rcst)` by (
-    rw[Abbr`p4`]>>
-    match_mp_tac three_to_two_reg_correct>>
+  (* three_to_two_reg_prog *)
+  drule evaluate_three_to_two_reg_prog>>
+  simp[]>>
+  impl_tac >- (
+    (* requires every_inst distinct_tar_reg up to p4 *)
     gvs[]>>
     unabbrev_all_tac>>
     irule every_inst_distinct_tar_reg_copy_prop>>
     irule every_inst_distinct_tar_reg_word_common_subexp_elim >>
+    irule (remove_dead_prog_conventions |> CONJUNCTS |> el 4)>>
     fs [full_ssa_cc_trans_distinct_tar_reg])>>
+  rw[]>>
   (* word_unreach *)
-  `evaluate (p5,st with permute := perm') = (res,rcst)` by (
-    rw[Abbr`p5`]>>
+  `evaluate (p6,st with permute := perm') = (res,rcst with locals:=t')` by (
+    rw[Abbr`p6`]>>
     simp[evaluate_remove_unreach])>>
-  drule_at (Pos (el 3)) evaluate_remove_dead>>
+  drule_at (Pos (el 2)) evaluate_remove_dead_prog>>
   disch_then (drule_at Any)>>
-  disch_then (qspec_then`st.locals` mp_tac)>>
-  impl_tac>>fs[strong_locals_rel_def]>>
+  simp[]>>
   strip_tac>>
   pairarg_tac>>gvs[word_state_eq_rel_def]>>
   every_case_tac>>gvs[]
@@ -770,6 +774,7 @@ Proof
     fs[EL_MAP,EL_ZIP]>>
     fs[compile_single_def]>>
     fs[GSYM (el 5 rmt_thms),GSYM word_alloc_lab_pres]>>
+    cheat>>
     fs[GSYM (el 6 rmd_thms)]>>
     strip_tac>>
     irule labels_rel_remove_unreach>>
@@ -827,31 +832,6 @@ Proof
 QED
 
 (**** more on syntactic form restrictions ****)
-
-Theorem inst_select_exp_not_created:
-  not_created_subprogs P (inst_select_exp c c' n exp)
-Proof
-  MAP_EVERY qid_spec_tac [‘exp’, ‘n’, ‘c'’, ‘c’]>>
-  ho_match_mp_tac word_instTheory.inst_select_exp_ind>>
-  rw[word_instTheory.inst_select_exp_def, not_created_subprogs_def]>>
-  every_case_tac>>
-  gs[not_created_subprogs_def, word_instTheory.inst_select_exp_def]
-QED
-
-Theorem inst_select_not_created:
-  not_created_subprogs P prog ⇒
-  not_created_subprogs P (inst_select c n prog)
-Proof
-  MAP_EVERY qid_spec_tac [‘prog’, ‘n’, ‘c’]>>
-  ho_match_mp_tac word_instTheory.inst_select_ind>>
-  rw[not_created_subprogs_def]>>
-  every_case_tac>>
-  gs[inst_select_exp_not_created, word_instTheory.inst_select_def,
-     not_created_subprogs_def]>>
-  every_case_tac>>
-  gs[inst_select_exp_not_created, word_instTheory.inst_select_def,
-     not_created_subprogs_def]
-QED
 
 Theorem ssa_cc_trans_inst_not_created:
   ssa_cc_trans_inst i ssa na = (i',ssa',na') ⇒
@@ -951,17 +931,6 @@ Proof
   rw[not_created_subprogs_def]>>gs[]>>
   every_case_tac>>rpt (pairarg_tac>>gs[])>>rveq>>
   rw[not_created_subprogs_def]>>gs[]
-QED
-
-Theorem three_to_two_reg_not_created:
-  not_created_subprogs P prog ⇒
-  not_created_subprogs P (three_to_two_reg prog)
-Proof
-  qid_spec_tac ‘prog’>>
-  recInduct word_instTheory.three_to_two_reg_ind>>
-  rw[word_instTheory.three_to_two_reg_def,
-     not_created_subprogs_def]>>
-  gs[]>>every_case_tac>>gs[]
 QED
 
 Theorem apply_colour_not_created:
@@ -1098,7 +1067,9 @@ Triviality code_rel_P = Q.GEN `P` code_rel_not_created
 Triviality code_rel_no_alloc = code_rel_P |> Q.SPEC `(<>) (Alloc 0 LN)`
     |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
 
-<<<<<<< HEAD
+Triviality code_rel_no_install = code_rel_P |> Q.SPEC `(<>) (Install 0 0 0 0 LN)`
+    |> REWRITE_RULE [GSYM no_install_subprogs_def]
+
 Theorem const_fp_no_alloc:
   r = const_fp prog ∧ no_alloc prog ⇒
   no_alloc r

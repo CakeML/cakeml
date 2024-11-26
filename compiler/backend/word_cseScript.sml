@@ -223,7 +223,7 @@ Definition memOpToNum_def:
   memOpToNum Load32 = 44 ∧
   memOpToNum Store = 23 ∧
   memOpToNum Store8 = 24 ∧
-  memOpToNum Store34 = 45
+  memOpToNum Store32 = 45
 End
 
 Definition fpToNumList_def:

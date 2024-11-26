@@ -85,6 +85,9 @@ fun define_target_specific_backend asm_config_def = let
   (* rest *)
   val th = from_lab_def |> asm_spec
   val th = from_stack_def |> asm_spec
+  val th = word_to_stackTheory.comp_def |> asm_spec
+  val th = word_to_stackTheory.compile_prog_def |> asm_spec
+  val th = word_to_stackTheory.compile_word_to_stack_def |> asm_spec
   val th = from_word_def |> REWRITE_RULE [word_to_stackTheory.compile_def] |> asm_spec
   val th = word_alloc_inlogic_def |> asm_spec
   val th = each_inlogic_def |> asm_spec

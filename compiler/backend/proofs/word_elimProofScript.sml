@@ -3,7 +3,7 @@
 *)
 
 open preamble wordLangTheory
-     word_elimTheory wordSemTheory wordPropsTheory spt_closureTheory
+     word_elimTheory wordSemTheory wordPropsTheory wordConvsTheory spt_closureTheory
 
 val _ = new_theory "word_elimProof";
 val _ = set_grammar_ancestry
