@@ -1030,7 +1030,7 @@ Definition ptree_Expr_def:
               SOME(If a1 a2 a3)
             od
           | _ => NONE
-      else if nt = mkNT nE' then
+      (* else if nt = mkNT nPE then
         dtcase subs of
           | [t] => ptree_Expr nElogicOR t
           | [raiset; ept] =>
@@ -1053,7 +1053,7 @@ Definition ptree_Expr_def:
               a3 <- ptree_Expr nE' ee;
               SOME(If a1 a2 a3)
             od
-          | _ => NONE
+          | _ => NONE *)
       else NONE
     else NONE);
     SOME(bind_loc e loc)
@@ -1169,7 +1169,7 @@ Definition ptree_Expr_def:
           do
             assert(tokcheck bartok BarT);
             pes <- ptree_PEs pes_pt;
-            pe <- ptree_PE' pe'_pt;
+            pe <- NONE (* ptree_PE' pe'_pt *);
             SOME(pe::pes)
           od
         | _ => NONE) ∧
@@ -1186,8 +1186,9 @@ Definition ptree_Expr_def:
              SOME(p,e)
            od
          | _ => NONE) ∧
+(*
   (ptree_PE' (Lf _) = NONE) ∧
-  (ptree_PE' (Nd (nt,_) args) =
+  (ptree_PE' (Nd (nt,_) args) = NONE) ∧
      if nt <> mkNT nPE' then NONE
      else
        dtcase args of
@@ -1198,7 +1199,7 @@ Definition ptree_Expr_def:
              e <- ptree_Expr nE' e'_pt;
              SOME(p,e)
            od
-         | _ => NONE) ∧
+         | _ => NONE) ∧ *)
   (ptree_Eseq (Lf _) = NONE) ∧
   (ptree_Eseq (Nd (nt,_) args) =
     if nt <> mkNT nEseq then NONE
