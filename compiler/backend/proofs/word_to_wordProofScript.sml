@@ -3,7 +3,8 @@
 *)
 open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
      wordPropsTheory wordConvsTheory word_allocProofTheory word_instProofTheory word_unreachTheory
-     word_removeProofTheory word_cseProofTheory word_elimTheory word_elimProofTheory word_unreachProofTheory word_copyProofTheory;
+     word_removeProofTheory word_cseProofTheory word_elimTheory word_elimProofTheory word_unreachProofTheory word_copyProofTheory
+     wordConvsProofTheory;
 
 val _ = new_theory "word_to_wordProof";
 
@@ -86,18 +87,6 @@ Proof
   rw[]>>
   every_case_tac>>gvs[]>>
   metis_tac[]
-QED
-
-(* TODO move to word_instProof *)
-Theorem evaluate_three_to_two_reg_prog:
-  evaluate (prog,s) = (res,s') ∧ res ≠ SOME Error ∧
-  every_inst distinct_tar_reg prog
-  ⇒
-  evaluate(three_to_two_reg_prog t prog,s) = (res,s')
-Proof
-  rw[word_instTheory.three_to_two_reg_prog_def]>>
-  drule_all three_to_two_reg_correct>>
-  simp[]
 QED
 
 (*Chains up compile_single theorems*)
@@ -878,31 +867,6 @@ QED
 
 (**** more on syntactic form restrictions ****)
 
-Theorem inst_select_exp_not_created:
-  not_created_subprogs P (inst_select_exp c c' n exp)
-Proof
-  MAP_EVERY qid_spec_tac [‘exp’, ‘n’, ‘c'’, ‘c’]>>
-  ho_match_mp_tac word_instTheory.inst_select_exp_ind>>
-  rw[word_instTheory.inst_select_exp_def, not_created_subprogs_def]>>
-  every_case_tac>>
-  gs[not_created_subprogs_def, word_instTheory.inst_select_exp_def]
-QED
-
-Theorem inst_select_not_created:
-  not_created_subprogs P prog ⇒
-  not_created_subprogs P (inst_select c n prog)
-Proof
-  MAP_EVERY qid_spec_tac [‘prog’, ‘n’, ‘c’]>>
-  ho_match_mp_tac word_instTheory.inst_select_ind>>
-  rw[not_created_subprogs_def]>>
-  every_case_tac>>
-  gs[inst_select_exp_not_created, word_instTheory.inst_select_def,
-     not_created_subprogs_def]>>
-  every_case_tac>>
-  gs[inst_select_exp_not_created, word_instTheory.inst_select_def,
-     not_created_subprogs_def]
-QED
-
 Theorem ssa_cc_trans_inst_not_created:
   ssa_cc_trans_inst i ssa na = (i',ssa',na') ⇒
   not_created_subprogs P i'
@@ -1148,7 +1112,9 @@ Triviality code_rel_P = Q.GEN `P` code_rel_not_created
 Triviality code_rel_no_alloc = code_rel_P |> Q.SPEC `(<>) (Alloc 0 LN)`
     |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
 
-<<<<<<< HEAD
+Triviality code_rel_no_install = code_rel_P |> Q.SPEC `(<>) (Install 0 0 0 0 LN)`
+    |> REWRITE_RULE [GSYM no_install_subprogs_def]
+
 Theorem const_fp_no_alloc:
   r = const_fp prog ∧ no_alloc prog ⇒
   no_alloc r

@@ -1,7 +1,7 @@
 (*
   Syntactic properties proofs for word_to_word.
 *)
-open preamble word_to_wordTheory wordConvsTheory
+open preamble wordLangTheory word_to_wordTheory wordConvsTheory
   word_simpTheory word_allocTheory word_instTheory word_unreachTheory word_removeTheory word_cseTheory word_elimTheory word_copyTheory;
 
 val _ = new_theory "wordConvsProof";
@@ -23,6 +23,11 @@ val _ = new_theory "wordConvsProof";
 
   inst_select
   ===
+    1 preserves label_rel: inst_select_lab_pres (equality on labels)
+    3 preserves subprogs: inst_select_not_created_subprogs
+
+    creates flat_exp_conventions: inst_select_flat_exp_conventions
+    creates full_inst_ok_less: inst_select_full_inst_ok_less
     TODO
 
   full_ssa_cc_trans
@@ -43,7 +48,15 @@ val _ = new_theory "wordConvsProof";
 
   three_to_two_reg_prog
   ===
+    1 preserves label_rel: three_to_two_reg_prog_lab_pres (equality on labels)
+
+    creates two_reg_inst: three_to_two_reg_prog_two_reg_inst (under a flag)
+
+    preserves wf_cutsets: three_to_two_reg_prog_wf_cutsets
+
+    preserves pre_alloc_conventions: three_to_two_reg_prog_pre_alloc_conventions
     TODO
+
 
   remove_unreach
   ===
@@ -464,6 +477,167 @@ Proof
 QED
 
 (*** inst_select ***)
+
+(* label preservation stuff *)
+Triviality inst_select_exp_no_lab:
+  ∀c temp temp' exp.
+  extract_labels (inst_select_exp c temp temp' exp) = []
+Proof
+  ho_match_mp_tac inst_select_exp_ind>>
+  rw[inst_select_exp_def]>>fs[extract_labels_def]>>
+  rpt(TOP_CASE_TAC>>fs[extract_labels_def,inst_select_exp_def])
+QED
+
+Theorem inst_select_lab_pres:
+  ∀c temp prog.
+    extract_labels prog = extract_labels (inst_select c temp prog)
+Proof
+  ho_match_mp_tac inst_select_ind>>rw[inst_select_def,extract_labels_def]>>
+  TRY(metis_tac[inst_select_exp_no_lab])>>
+  EVERY_CASE_TAC>>fs[extract_labels_def]>>
+  TRY(metis_tac[inst_select_exp_no_lab])
+QED
+
+(* inst_select syntax *)
+Triviality inst_select_exp_flat_exp_conventions:
+  ∀c tar temp exp.
+  flat_exp_conventions (inst_select_exp c tar temp exp)
+Proof
+  ho_match_mp_tac inst_select_exp_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[inst_select_exp_def,flat_exp_conventions_def,LET_THM]>>
+  EVERY_CASE_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_exp_def,LET_THM]
+QED
+
+Theorem inst_select_flat_exp_conventions:
+  ∀c temp prog.
+    flat_exp_conventions (inst_select c temp prog)
+Proof
+  ho_match_mp_tac inst_select_ind >>srw_tac[][]>>
+  full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_def,LET_THM]>>
+  EVERY_CASE_TAC>>
+  full_simp_tac(srw_ss())[flat_exp_conventions_def]>>
+  metis_tac[inst_select_exp_flat_exp_conventions]
+QED
+
+Theorem inst_select_exp_not_created_subprogs:
+  not_created_subprogs P (inst_select_exp c c' n exp)
+Proof
+  MAP_EVERY qid_spec_tac [‘exp’, ‘n’, ‘c'’, ‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_exp_ind>>
+  rw[word_instTheory.inst_select_exp_def, not_created_subprogs_def]>>
+  every_case_tac>>
+  gs[not_created_subprogs_def, word_instTheory.inst_select_exp_def]
+QED
+
+Theorem inst_select_not_created_subprogs:
+  not_created_subprogs P prog ⇒
+  not_created_subprogs P (inst_select c n prog)
+Proof
+  MAP_EVERY qid_spec_tac [‘prog’, ‘n’, ‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_ind>>
+  rw[not_created_subprogs_def]>>
+  every_case_tac>>
+  gs[inst_select_exp_not_created_subprogs, word_instTheory.inst_select_def,
+     not_created_subprogs_def]>>
+  every_case_tac>>
+  gs[inst_select_exp_not_created_subprogs, word_instTheory.inst_select_def,
+     not_created_subprogs_def]
+QED
+
+(*Less restrictive version of inst_ok guaranteed by inst_select*)
+Triviality inst_select_exp_full_inst_ok_less:
+  ∀c tar temp exp.
+  addr_offset_ok c 0w ⇒
+  full_inst_ok_less c (inst_select_exp c tar temp exp)
+Proof
+  ho_match_mp_tac inst_select_exp_ind>>rw[]>>
+  fs[inst_select_exp_def,LET_THM,inst_ok_less_def,full_inst_ok_less_def]>>
+  every_case_tac>>fs[full_inst_ok_less_def,inst_ok_less_def,inst_select_exp_def,LET_THM]
+QED
+
+Theorem inst_select_full_inst_ok_less:
+  ∀c temp prog.
+    addr_offset_ok c 0w ∧
+    byte_offset_ok c 0w ∧
+    every_inst (inst_ok_less c) prog
+    ⇒
+    full_inst_ok_less c (inst_select c temp prog)
+Proof
+  ho_match_mp_tac inst_select_ind >>
+  rw[inst_select_def,full_inst_ok_less_def,every_inst_def] >>
+  EVERY_CASE_TAC >>
+  fs[inst_select_def,full_inst_ok_less_def,inst_ok_less_def,every_inst_def,exp_to_addr_def]>>
+  metis_tac[inst_select_exp_full_inst_ok_less]
+QED
+
+(*** three_to_to_reg_prog ***)
+Theorem three_to_two_reg_prog_lab_pres:
+  ∀prog.
+  extract_labels prog = extract_labels (three_to_two_reg_prog b prog)
+Proof
+  simp[three_to_two_reg_prog_def]>>
+  ho_match_mp_tac three_to_two_reg_ind>>
+  rw[three_to_two_reg_def,extract_labels_def]>>EVERY_CASE_TAC>>fs[]
+QED
+
+Theorem three_to_two_reg_prog_two_reg_inst:
+  ∀prog.
+  b ⇒
+  every_inst two_reg_inst (three_to_two_reg_prog b prog)
+Proof
+  simp[three_to_two_reg_prog_def]>>
+  ho_match_mp_tac three_to_two_reg_ind>>
+  rw[]>>fs[every_inst_def,two_reg_inst_def,three_to_two_reg_def,LET_THM]>>
+  EVERY_CASE_TAC>>
+  fs[]
+QED
+
+Theorem three_to_two_reg_prog_wf_cutsets:
+  ∀prog.
+  wf_cutsets prog ⇒ wf_cutsets (three_to_two_reg_prog b prog)
+Proof
+  simp[three_to_two_reg_prog_def]>>
+  ho_match_mp_tac three_to_two_reg_ind>>
+  rw[]>>
+  fs[wf_cutsets_def,three_to_two_reg_def]>>
+  EVERY_CASE_TAC>>fs[]
+QED
+
+Theorem three_to_two_reg_prog_pre_alloc_conventions:
+  ∀prog.
+  pre_alloc_conventions prog ⇒
+  pre_alloc_conventions (three_to_two_reg_prog b prog)
+Proof
+  simp[three_to_two_reg_prog_def]>>
+  ho_match_mp_tac three_to_two_reg_ind>>
+  rw[]>>
+  fs[every_stack_var_def,pre_alloc_conventions_def,every_inst_def,three_to_two_reg_def,call_arg_convention_def,inst_arg_convention_def,two_reg_inst_def]>>
+  FULL_CASE_TAC>>fs[]>>
+  PairCases_on`x`>>fs[]>>
+  FULL_CASE_TAC>>fs[]>>
+  PairCases_on`x`>>fs[]
+QED
+
+Theorem three_to_two_reg_flat_exp_conventions:
+  ∀prog. flat_exp_conventions prog ⇒ flat_exp_conventions (three_to_two_reg prog)
+Proof
+  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
+  full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
+QED
+
+Theorem three_to_two_reg_full_inst_ok_less:
+  ∀prog. full_inst_ok_less c prog ⇒
+         full_inst_ok_less c (three_to_two_reg prog)
+Proof
+  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
+  full_simp_tac(srw_ss())[three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>fs[full_inst_ok_less_def]
+  >-
+    (Cases_on`bop`>>Cases_on`ri`>>fs[full_inst_ok_less_def,inst_ok_less_def,every_inst_def])
+  >-
+    (Cases_on`n`>>fs[inst_ok_less_def])
+  >>
+    metis_tac[inst_ok_less_def]
+QED
+
 
 
 val _ = export_theory();
