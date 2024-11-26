@@ -10,6 +10,7 @@ local open ASCIInumbersLib stringSyntax in end
 
 val _ = new_theory "cmlTests"
 
+Overload ND = “λn l. Nd (mkNT n, l)”
 Overload NN = ``λn. Nd (mkNT n,unknown_loc)``
 Overload Tf = ``λt. Lf (TK t,unknown_loc)``
 Overload Tfa = ``λs. Lf (TK (AlphaT s),unknown_loc)``
@@ -461,6 +462,7 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                                      [(Pcon (SOME(Short "IntError"))
                                                 [Pvar"f"],
                                        Lit (IntLit 23))])``);
+
 val _ = parsetest ``nE`` ``ptree_Expr nE``
                   "f x handle IntError n => case n of 0 => raise Div\n\
                   \                        | 1 => raise Bind\n\
@@ -663,5 +665,30 @@ val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val C x y = f a"
     (SOME “Dlet locs
                 (Pcon (SOME (Short "C")) [Pvar "x"; Pvar "y"])
                 (App Opapp [V "f"; V "a"])”)
+
+(* two efficiency tests; see github issue #1075 *)
+val _ = parsetest0 “nE” “ptree_Expr nE”
+"case (n = 1) of True => 1 | False => (\
+\case (n = 2) of True => 2 | False =>(\
+\case (n = 3) of True => 3 | False =>(\
+\case (n = 4) of True => 5 | False =>(\
+\case (n = 5) of True => 8 | False =>(\
+\case (n = 6) of True => 13 | False =>(\
+\case (n = 7) of True => 21 | False =>(\
+\case (n = 8) of True => 34 | False =>(\
+\case (n = 9) of True => 55 | False => \
+\fib (n - 1) + fib (n - 2)))))))))" NONE
+
+val _ = parsetest0 “nE” “ptree_Expr nE”
+"case (n = 1) of True => 1 | False => \
+\case (n = 2) of True => 2 | False =>\
+\case (n = 3) of True => 3 | False =>\
+\case (n = 4) of True => 5 | False =>\
+\case (n = 5) of True => 8 | False =>\
+\case (n = 6) of True => 13 | False =>\
+\case (n = 7) of True => 21 | False =>\
+\case (n = 8) of True => 34 | False =>\
+\case (n = 9) of True => 55 | False => \
+\fib (n - 1) + fib (n - 2)" NONE
 
 val _ = export_theory()

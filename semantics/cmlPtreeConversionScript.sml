@@ -1030,30 +1030,6 @@ Definition ptree_Expr_def:
               SOME(If a1 a2 a3)
             od
           | _ => NONE
-      (* else if nt = mkNT nPE then
-        dtcase subs of
-          | [t] => ptree_Expr nElogicOR t
-          | [raiset; ept] =>
-            do
-              assert(tokcheck raiset RaiseT);
-              e <- ptree_Expr nE' ept;
-              SOME(Raise e)
-            od
-          | [fnt; vnt; arrowt; ent] =>
-            do
-              assert (tokcheckl [fnt; arrowt] [FnT; DarrowT]);
-              v <- ptree_V vnt;
-              e <- ptree_Expr nE' ent;
-              SOME(Fun v e)
-            od
-          | [ift;g;thent;te;elset;ee] => do
-              assert(tokcheckl [ift; thent; elset] [IfT; ThenT; ElseT]);
-              a1 <- ptree_Expr nE g;
-              a2 <- ptree_Expr nE te;
-              a3 <- ptree_Expr nE' ee;
-              SOME(If a1 a2 a3)
-            od
-          | _ => NONE *)
       else NONE
     else NONE);
     SOME(bind_loc e loc)
@@ -1155,22 +1131,17 @@ Definition ptree_Expr_def:
                 SOME (INL(p,e))
               od
             | _ => NONE) ∧
-  (ptree_PEs (Lf _) = NONE) ∧
+  (ptree_PEs (Lf _) = NONE : (pat # exp) list option) ∧
   (ptree_PEs (Nd (nt,_) args) =
     if nt <> mkNT nPEs then NONE
     else
       dtcase args of
-          [single] =>
+          [pattern_pt; arrow_pt; pe_pt] =>
           do
-            pe <- ptree_PE single;
-            SOME [pe]
-          od
-        | [pe'_pt; bartok; pes_pt] =>
-          do
-            assert(tokcheck bartok BarT);
-            pes <- ptree_PEs pes_pt;
-            pe <- NONE (* ptree_PE' pe'_pt *);
-            SOME(pe::pes)
+            assert(tokcheck arrow_pt DarrowT);
+            pat <- ptree_Pattern nPattern pattern_pt;
+            (e, pes) <- ptree_PE pe_pt ;
+            SOME((pat,e)::pes)
           od
         | _ => NONE) ∧
   (ptree_PE (Lf _) = NONE) ∧
@@ -1178,28 +1149,58 @@ Definition ptree_Expr_def:
      if nt <> mkNT nPE then NONE
      else
        dtcase args of
-           [p_pt; arrow; e_pt] =>
+           [eorraise_pt; pesfx_pt] =>
            do
-             assert(tokcheck arrow DarrowT);
-             p <- ptree_Pattern nPattern p_pt;
-             e <- ptree_Expr nE e_pt;
-             SOME(p,e)
+             assert (tokcheck eorraise_pt RaiseT);
+             (e, pes) <- ptree_PE pesfx_pt;
+             SOME (Raise e, pes)
+           od ++
+           do
+             e <- ptree_Expr nElogicOR eorraise_pt;
+             (handlep, pes) <- ptree_PEsfx pesfx_pt;
+             SOME (if handlep then (Handle e pes, [])
+                   else (e, pes))
+           od
+         | [fncase_tok; epat_pt; arrowof_tok; last_pt] =>
+           do
+             assert (tokcheckl [fncase_tok; arrowof_tok] [FnT; DarrowT]);
+             pat <- ptree_Pattern nPattern epat_pt;
+             e <- ptree_Expr nE last_pt;
+             SOME (mkFun pat e, [])
+           od ++
+           do
+             assert (tokcheckl [fncase_tok; arrowof_tok] [CaseT; OfT]);
+             e <- ptree_Expr nE epat_pt;
+             pes <- ptree_PEs last_pt;
+             SOME (Mat e pes, [])
+           od
+         | [iftok; ge_pt; thentok; then_pt; elsetok; else_pt] =>
+           do
+             assert (tokcheckl [iftok; thentok; elsetok] [IfT; ThenT; ElseT]);
+             ge <- ptree_Expr nE ge_pt;
+             te <- ptree_Expr nE then_pt;
+             (ee,rest) <- ptree_PE else_pt;
+             SOME (If ge te ee, rest)
            od
          | _ => NONE) ∧
-(*
-  (ptree_PE' (Lf _) = NONE) ∧
-  (ptree_PE' (Nd (nt,_) args) = NONE) ∧
-     if nt <> mkNT nPE' then NONE
+  (ptree_PEsfx (Lf _) : (bool # (pat # exp) list) option = NONE) ∧
+  (ptree_PEsfx (Nd (nt,_) args) =
+     if nt <> mkNT nPEsfx then NONE
      else
        dtcase args of
-           [p_pt; arrow; e'_pt] =>
+           [] => SOME (F, [])
+         | [handlebar_tok; pes_pt] =>
            do
-             assert(tokcheck arrow DarrowT);
-             p <- ptree_Pattern nPattern p_pt;
-             e <- ptree_Expr nE' e'_pt;
-             SOME(p,e)
+             assert (tokcheck handlebar_tok HandleT);
+             pes <- ptree_PEs pes_pt;
+             SOME (T, pes)
+           od ++
+           do
+             assert (tokcheck handlebar_tok BarT);
+             pes <- ptree_PEs pes_pt;
+             SOME (F, pes)
            od
-         | _ => NONE) ∧ *)
+         | _ => NONE) ∧
   (ptree_Eseq (Lf _) = NONE) ∧
   (ptree_Eseq (Nd (nt,_) args) =
     if nt <> mkNT nEseq then NONE

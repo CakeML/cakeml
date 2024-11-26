@@ -204,6 +204,7 @@ val cmlG_def = mk_grammar_def ginfo
  PE ::= "case" E "of" PEs
      |  "if" E "then" E "else" PE
      |  "fn" Pattern "=>" E
+     |  "raise" PE
      |  ElogicOR PEsfx ;
  PEsfx ::= | "handle" PEs | "|" PEs;
  PEs ::= Pattern "=>" PE;
