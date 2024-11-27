@@ -107,6 +107,7 @@ Definition mk_binop_def:
 End
 
 Overload "'"[local] = ``λf a. OPTION_BIND a f``
+val _ = temp_overload_on("", “λf a. OPTION_BIND a f”)
 
 Definition tokcheck_def:
   tokcheck pt tok <=> (destTOK ' (destLf pt) = SOME tok)
@@ -594,7 +595,7 @@ val maybe_handleRef_def = PmatchHeuristics.with_classic_heuristic Define ‘
   maybe_handleRef (Pcon (SOME (Short "Ref")) [pat]) = Pref pat ∧
   maybe_handleRef p = p’
 
-Definition ptree_Pattern_def:
+Definition ptree_Pattern_def[nocompute]:
   (ptree_Pattern nt (Lf _) = NONE) ∧
   (ptree_Pattern nt (Nd nm args) =
     if mkNT nt <> FST nm then NONE
@@ -724,6 +725,23 @@ Definition ptree_Pattern_def:
          | _ => NONE)
 End
 
+Type ptree[local] = “:(token,MMLnonT,locs) parsetree”
+fun partial_eval baseth c nodepat nt =
+  let val tlf = list_mk_icomb(c, [nt, “Lf l : ptree”])
+      val tnd = list_mk_icomb(c, [nt, nodepat])
+      val c = ONCE_REWRITE_CONV [baseth] THENC SCONV []
+  in
+    CONJ (c tlf) (c tnd)
+  end
+
+Theorem ptree_Pattern_pevaled[compute] =
+   LIST_CONJ $
+      map (partial_eval ptree_Pattern_def “ptree_Pattern” “Nd nm args : ptree”)
+      [“nPattern”, “nPapp”, “nPcons”, “nPas”, “nPbase”, “nPConApp”, “nPtuple”]
+
+Theorem ptree_Plist_thm[compute] =
+        LIST_CONJ $ List.take (List.rev $ CONJUNCTS ptree_Pattern_def, 2)
+
 Definition ptree_PbaseList1_def:
   (ptree_PbaseList1 (Lf _) = NONE) ∧
   (ptree_PbaseList1 (Nd nm args) =
@@ -831,7 +849,7 @@ Definition letFromPat_def:
     | _ => Mat rhs [(p,body)]
 End
 
-Definition ptree_Expr_def:
+Definition ptree_Expr_def[nocompute]:
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd (nt,loc) subs) =
   do
@@ -839,18 +857,20 @@ Definition ptree_Expr_def:
       if nt = mkNT nEbase then
         dtcase subs of
             [lpart; pt; rpart] =>
-            do
-              assert(tokcheckl [lpart; rpart] [LparT; RparT]);
-              eseq <- ptree_Eseq pt;
-              Eseq_encode eseq
-            od ++
-            do
-              assert(tokcheckl [lpart;rpart][LbrackT; RbrackT]);
-              elist <- ptree_Exprlist nElist1 pt;
-              SOME(FOLDR (λe acc. Con (SOME (Short "::")) [e; acc])
-                         (Con (SOME (Short "[]")) [])
+              if tokcheck lpart LparT then
+                do
+                  assert (tokcheck rpart RparT);
+                  eseq <- ptree_Eseq pt;
+                  Eseq_encode eseq
+                od
+              else
+                do
+                  assert(tokcheckl [lpart;rpart][LbrackT; RbrackT]);
+                  elist <- ptree_Exprlist nElist1 pt;
+                  SOME(FOLDR (λe acc. Con (SOME (Short "::")) [e; acc])
+                             (Con (SOME (Short "[]")) [])
                          elist)
-            od
+                od
           | [single] =>
               ptree_Eliteral single ++
               do
@@ -1220,6 +1240,33 @@ Definition ptree_Expr_def:
           od
         | _ => NONE)
 End
+
+Triviality dumb1:
+  COND (p = q) t e = COND (q = p) t e
+Proof
+  rw[]
+QED
+Triviality dumb2:
+  COND gd t NONE = OPTION_IGNORE_BIND (assert gd) t
+Proof
+  Cases_on ‘gd’ >> simp[]
+QED
+Triviality ptree_Expr_def' =
+  ptree_Expr_def |> ONCE_REWRITE_RULE [dumb1]
+                 |> SRULE []
+                 |> REWRITE_RULE[dumb2]
+
+Theorem ptree_Expr_pevaled[compute] =
+        LIST_CONJ $
+           map (partial_eval ptree_Expr_def'
+                             “ptree_Expr” “Nd (nt,l) args:ptree”)
+           [“nEbase”, “nEtuple”,
+            “nElist2”, “nElist1”, “nEapp”, “nEmult”, “nEadd”, “nElistop”,
+            “nErel”, “nEcomp”, “nEbefore”, “nEtyped”, “nElogicAND”, “nElogicOR”,
+            “nEhandle”, “nE”]
+
+Theorem ptree_Expr_others[compute] =
+        LIST_CONJ (List.drop (CONJUNCTS ptree_Expr_def, 2))
 
 Definition ptree_StructName_def:
   ptree_StructName (Lf _) = NONE ∧

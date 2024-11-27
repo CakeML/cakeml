@@ -52,6 +52,18 @@ fun aconv_mod_locs t1 t2 =
        List.all (equal locs_ty o #2 o dest_var o #redex) s
   |  _ => false
 
+val _ = (
+  computeLib.del_consts [“list_CASE”];
+  computeLib.add_funs [listTheory.list_case_def];
+  computeLib.set_skip computeLib.the_compset “OPTION_CHOICE” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “OPTION_BIND” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “OPTION_IGNORE_BIND” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “option_CASE” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “list_CASE” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “pair_CASE” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “COND” (SOME 1)
+);
+
 val result_t = ``Result``
 val success_t = “Success”
 fun parsetest0 nt sem s opt = let
