@@ -326,10 +326,12 @@ Definition can_mem_arith_def:
 End
 
 Definition is_store_def:
-  is_store Load = F ∧
-  is_store Load8 = F ∧
-  is_store Store = T ∧
-  is_store Store8 = T
+  (is_store Load = F) ∧
+  (is_store Load8 = F) ∧
+  (is_store Load32 = F) ∧
+  (is_store Store = T) ∧
+  (is_store Store8 = T) ∧
+  (is_store Store32 = T)
 End
 
 Definition word_cseInst_def:
