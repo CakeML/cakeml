@@ -19,6 +19,7 @@ base_dir = args.base_dir
 directory_file = args.directory_file
 
 max_retries = 3  # Maximum number of retry attempts
+failed_directories = []
 
 with open(directory_file, 'r') as file:
     for line in file:

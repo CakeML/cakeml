@@ -9,13 +9,190 @@ val _ = new_theory "backend_cv";
 
 val _ = cv_memLib.use_long_names := true;
 
-Theorem prog_syntax_ok_thm:
-  prog_syntax_ok p = T
+Definition collect_conses_def:
+  (collect_conses p (Raise e) = collect_conses p e) ∧
+  (collect_conses p (Handle e pes) =
+     collect_conses_list2 (collect_conses p e) pes) ∧
+  (collect_conses p (Mat e pes) =
+     collect_conses_list2 (collect_conses p e) pes) ∧
+  (collect_conses p (ast$Lit l) = p) ∧
+  (collect_conses p (Con cn es) =
+     case cn of
+     | NONE => collect_conses_list p es
+     | SOME c =>
+         let x = (c,LENGTH es) in
+           collect_conses_list (if MEM x p then p else x::p) es) ∧
+  (collect_conses p (Var v) = p) ∧
+  (collect_conses p (Fun x e) = collect_conses p e) ∧
+  (collect_conses p (App op es) = collect_conses_list p es) ∧
+  (collect_conses p (Log lop e1 e2) =
+     collect_conses (collect_conses p e2) e1) ∧
+  (collect_conses p (If e1 e2 e3) =
+     collect_conses (collect_conses (collect_conses p e3) e2) e1) ∧
+  (collect_conses p (Let x e1 e2) =
+     collect_conses (collect_conses p e2) e1) ∧
+  (collect_conses p (Tannot e a) = collect_conses p e) ∧
+  (collect_conses p (Lannot e a) = collect_conses p e) ∧
+  (collect_conses p (FpOptimise sc e) = collect_conses p e) ∧
+  (collect_conses p (Letrec funs e) =
+     collect_conses_list3 (collect_conses p e) funs) ∧
+  (collect_conses_list p [] = p) ∧
+  (collect_conses_list p (e::es) =
+     collect_conses_list (collect_conses p e) es) ∧
+  (collect_conses_list2 p [] = p) ∧
+  (collect_conses_list2 p ((v,e)::es) =
+     collect_conses_list2 (collect_conses p e) es) ∧
+  (collect_conses_list3 p [] = p) ∧
+  (collect_conses_list3 p ((v,x,e)::es) =
+     collect_conses_list3 (collect_conses p e) es)
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+                | INL (p,e) => exp_size e
+                | INR (INL (p,e)) => list_size exp_size e
+                | INR (INR (INL (p,e))) => list_size (exp_size o SND) e
+                | INR (INR (INR (p,e))) => list_size (exp_size o SND o SND) e’
+  \\ gvs [astTheory.exp_size_eq]
+  \\ conj_tac
+  \\ Induct \\ gvs [list_size_def,FORALL_PROD] \\ rw []
+  \\ first_x_assum $ qspec_then ‘e’ assume_tac
+  \\ gvs [basicSizeTheory.pair_size_def]
+End
+
+val pre = cv_trans_pre collect_conses_def;
+
+Theorem collect_conses_pre[cv_pre]:
+  (∀p v. collect_conses_pre p v) ∧
+  (∀p v. collect_conses_list_pre p v) ∧
+  (∀p v. collect_conses_list2_pre p v) ∧
+  (∀p v. collect_conses_list3_pre p v)
 Proof
-  cheat
+  ho_match_mp_tac collect_conses_ind \\ rpt strip_tac
+  \\ once_rewrite_tac [pre] \\ simp []
 QED
 
-val _ = cv_trans prog_syntax_ok_thm;
+Definition do_con_checks_def:
+  do_con_checks cenv [] = T ∧
+  do_con_checks cenv ((c,n)::rest) =
+    case nsLookup cenv c of
+    | NONE => F
+    | SOME (l,_) => l = n ∧ do_con_checks cenv rest
+End
+
+val pre = cv_trans_pre do_con_checks_def;
+Theorem do_con_checks_pre[cv_pre]:
+  ∀cenv v. do_con_checks_pre cenv v
+Proof
+  Induct_on ‘v’ \\ simp [Once pre]
+QED
+
+Triviality collect_conses_acc_lemma:
+  (∀(p:((string, string) id # num) list) v q p.
+     collect_conses p v = q ⇒
+     set p ∪ set (collect_conses [] v) = set q) ∧
+  (∀(p:((string, string) id # num) list) v q p.
+     collect_conses_list p v = q ⇒
+     set p ∪ set (collect_conses_list [] v) = set q) ∧
+  (∀(p:((string, string) id # num) list) v q p.
+     collect_conses_list2 p v = q ⇒
+     set p ∪ set (collect_conses_list2 [] v) = set q) ∧
+  (∀(p:((string, string) id # num) list) v q p.
+     collect_conses_list3 p v = q ⇒
+     set p ∪ set (collect_conses_list3 [] v) = set q)
+Proof
+  ho_match_mp_tac collect_conses_ind \\ rpt strip_tac
+  \\ gvs [collect_conses_def]
+  \\ rpt $ pop_assum $ mp_tac o SRULE [Once EQ_SYM_EQ]
+  \\ rpt strip_tac
+  >~ [‘NONE = _’] >-
+   (CASE_TAC \\ gvs []
+    \\ gvs [collect_conses_def] \\ rw []
+    \\ rpt $ pop_assum $ mp_tac o SRULE [Once EQ_SYM_EQ]
+    \\ rpt strip_tac
+    \\ once_asm_rewrite_tac []
+    \\ simp_tac (srw_ss()) [AC UNION_ASSOC UNION_COMM,EXTENSION]
+    \\  metis_tac [])
+  \\ once_asm_rewrite_tac []
+  \\ once_asm_rewrite_tac []
+  \\ once_asm_rewrite_tac []
+  \\ simp_tac (srw_ss()) [AC UNION_ASSOC UNION_COMM]
+QED
+
+Triviality collect_conses_acc =
+  collect_conses_acc_lemma |> SRULE [] |> GSYM;
+
+Theorem do_con_checks_set:
+  ∀xs. do_con_checks cenv xs =
+       ∀c n. MEM (c,n) xs ⇒ ∃y. nsLookup cenv c = SOME (n,y)
+Proof
+  Induct \\ gvs [FORALL_PROD,do_con_checks_def,SF DNF_ss]
+  \\ rw [] \\ Cases_on ‘nsLookup cenv p_1’ \\ gvs []
+  \\ PairCases_on ‘x’ \\ gvs []
+QED
+
+Theorem do_con_checks_collect_conses_thm:
+  (∀(p:((string, string) id # num) list) v.
+     do_con_checks env_c (collect_conses [] v) =
+     every_exp (one_con_check env_c) v) ∧
+  (∀(p:((string, string) id # num) list) v.
+     do_con_checks env_c (collect_conses_list [] v) =
+     EVERY (every_exp (one_con_check env_c)) v) ∧
+  (∀(p:((string, string) id # num) list) v.
+     do_con_checks env_c (collect_conses_list2 [] v) =
+     EVERY (λ(x,e). every_exp (one_con_check env_c) e) v) ∧
+  (∀(p:((string, string) id # num) list) v.
+     do_con_checks env_c (collect_conses_list3 [] v) =
+     EVERY (λ(x,y,e). every_exp (one_con_check env_c) e) v)
+Proof
+  ho_match_mp_tac collect_conses_ind \\ rpt strip_tac
+  >~ [‘Con’] >-
+   (Cases_on ‘cn’ \\ gvs []
+    \\ simp [collect_conses_def,do_con_checks_def,SF ETA_ss,
+             semanticPrimitivesTheory.do_con_check_def]
+    \\ rpt $ pop_assum mp_tac
+    \\ once_rewrite_tac [do_con_checks_set]
+    \\ once_rewrite_tac [collect_conses_acc]
+    \\ gvs [SF DNF_ss]
+    \\ Cases_on ‘nsLookup env_c x’ \\ gvs []
+    \\ Cases_on ‘x'’ \\ gvs [] \\ rw [] \\ eq_tac \\ rw [])
+  \\ simp [collect_conses_def]
+  \\ rpt $ pop_assum mp_tac
+  \\ once_rewrite_tac [do_con_checks_set]
+  \\ once_rewrite_tac [collect_conses_acc]
+  \\ once_rewrite_tac [collect_conses_acc]
+  \\ gvs [SF DNF_ss] \\ gvs [SF ETA_ss]
+  \\ rw [] \\ eq_tac \\ rw []
+QED
+
+Theorem to_do_con_checks_list3:
+  EVERY (λ(f,n,e). every_exp (one_con_check env_c) e) funs =
+  do_con_checks env_c (collect_conses_list3 [] funs)
+Proof
+  gvs [do_con_checks_collect_conses_thm]
+QED
+
+Theorem to_do_con_checks:
+  every_exp (one_con_check env_c) e =
+  do_con_checks env_c (collect_conses [] e)
+Proof
+  gvs [do_con_checks_collect_conses_thm]
+QED
+
+val _ = cv_auto_trans semanticPrimitivesTheory.build_tdefs_def;
+
+val pre = cv_trans_pre (evaluate_decTheory.check_cons_dec_list_def
+                          |> REWRITE_RULE [to_do_con_checks_list3]
+                          |> REWRITE_RULE [to_do_con_checks]);
+
+Theorem evaluate_dec_check_cons_dec_list_pre[cv_pre]:
+  (∀env_c v. evaluate_dec_check_cons_dec_list_pre env_c v) ∧
+  (∀env_c v. evaluate_dec_check_cons_dec_pre env_c v)
+Proof
+  ho_match_mp_tac evaluate_decTheory.check_cons_dec_list_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_trans (ml_progTheory.prog_syntax_ok_def
+                    |> SRULE [ml_progTheory.init_env_def]);
 
 val _ = cv_trans lab_to_targetTheory.lab_inst_def;
 val _ = cv_auto_trans lab_to_targetTheory.get_ffi_index_def;

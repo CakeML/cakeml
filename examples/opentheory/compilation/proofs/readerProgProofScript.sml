@@ -17,8 +17,9 @@ val reader_io_events_def = new_specification (
 val (reader_sem, reader_output) =
   reader_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR;
 
-val (reader_not_fail, reader_sem_sing) =
-  MATCH_MP semantics_prog_Terminate_not_Fail reader_sem |> CONJ_PAIR;
+val (reader_not_fail,reader_sem_sing) = reader_sem
+  |> SRULE [reader_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR;
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 reader_compiled)

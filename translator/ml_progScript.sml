@@ -1196,6 +1196,13 @@ Definition prog_syntax_ok_def:
   prog_syntax_ok prog = IS_SOME (check_cons_dec_list init_env.c prog)
 End
 
+Theorem prog_syntax_ok_isPREFIX:
+  ∀p1 p2. prog_syntax_ok p1 ∧ isPREFIX p2 p1 ⇒ prog_syntax_ok p2
+Proof
+  rw [prog_syntax_ok_def,IS_SOME_EXISTS]
+  \\ drule_then irule check_cons_dec_list_isPREFIX \\ fs []
+QED
+
 Theorem Decls_IMP_Prog:
   Decls init_env s1 ds env2 s2 ⇒
   prog_syntax_ok ds ⇒

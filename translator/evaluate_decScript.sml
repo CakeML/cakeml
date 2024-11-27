@@ -130,44 +130,62 @@ val env_c = “env_c: (string, string, num # stamp) namespace”
 Definition check_cons_dec_list_def:
   check_cons_dec_list ^env_c [] = SOME nsEmpty
   ∧
-  check_cons_dec_list env_c (d1::d2::ds) =
-    (case check_cons_dec_list env_c [d1] of
+  check_cons_dec_list env_c (d1::ds) =
+    (case check_cons_dec env_c d1 of
      | NONE => NONE
      | SOME env_c0 =>
-       case check_cons_dec_list (nsAppend env_c0 env_c) (d2::ds) of
+       case check_cons_dec_list (nsAppend env_c0 env_c) ds of
        | NONE => NONE
        | SOME env_c1 => SOME (nsAppend env_c1 env_c0))
   ∧
-  check_cons_dec_list env_c [Dlet locs p e] =
+  check_cons_dec env_c (Dlet locs p e) =
     (if every_exp (one_con_check env_c) e
      then SOME nsEmpty else NONE)
   ∧
-  check_cons_dec_list env_c [Dletrec locs funs] =
+  check_cons_dec env_c (Dletrec locs funs) =
     (if EVERY (λ(f,n,e). every_exp (one_con_check env_c) e) funs
      then SOME nsEmpty else NONE)
   ∧
-  check_cons_dec_list env_c [Dtype locs tds] =
+  check_cons_dec env_c (Dtype locs tds) =
     (SOME (build_tdefs 0 tds))
   ∧
-  check_cons_dec_list env_c [Dtabbrev locs tvs tn t] = SOME nsEmpty
+  check_cons_dec env_c (Dtabbrev locs tvs tn t) = SOME nsEmpty
   ∧
-  check_cons_dec_list env_c [Denv _] = SOME nsEmpty
+  check_cons_dec env_c (Denv _) = SOME nsEmpty
   ∧
-  check_cons_dec_list env [Dexn locs cn ts] =
+  check_cons_dec env_c (Dexn locs cn ts) =
     SOME (nsSing cn (LENGTH ts,ExnStamp 0))
   ∧
-  check_cons_dec_list env_c [Dmod mn ds] =
+  check_cons_dec env_c (Dmod mn ds) =
     (case check_cons_dec_list env_c ds of
      | NONE => NONE
      | SOME env_c0 => SOME (nsLift mn env_c0))
   ∧
-  check_cons_dec_list env_c [Dlocal lds ds] =
+  check_cons_dec env_c (Dlocal lds ds) =
     case check_cons_dec_list env_c lds of
     | NONE => NONE
     | SOME env_c0 => check_cons_dec_list (nsAppend env_c0 env_c) ds
 Termination
-  WF_REL_TAC ‘measure $ list_size dec_size o SND’
+  WF_REL_TAC ‘measure $ λx. case x of INL (_,ds) => list_size dec_size ds
+                                    | INR (_,d) => dec_size d’
 End
+
+Theorem check_cons_dec_list_isPREFIX:
+  ∀env_c xs ys x.
+    check_cons_dec_list env_c xs = SOME x ∧ isPREFIX ys xs ⇒
+    ∃y. check_cons_dec_list env_c ys = SOME y
+Proof
+  Induct_on ‘xs’
+  \\ gvs [check_cons_dec_list_def,AllCaseEqs()]
+  \\ Cases_on ‘ys’ \\ gvs [check_cons_dec_list_def]
+  \\ rw [] \\ gvs [AllCaseEqs()]
+QED
+
+Triviality check_cons_dec_list_sing[simp]:
+  check_cons_dec_list env_c [d] = check_cons_dec env_c d
+Proof
+  simp [check_cons_dec_list_def] \\ CASE_TAC \\ gvs []
+QED
 
 (* --- theorems --- *)
 
@@ -273,8 +291,9 @@ Proof
   >- gvs [evaluate_def,evaluate_dec_list_def,
           check_cons_dec_list_def]
   >-
-   (gvs [evaluate_def,evaluate_dec_list_def,check_cons_dec_list_def]
-    \\ rpt gen_tac \\ strip_tac
+   (rpt gen_tac \\ strip_tac
+    \\ simp [Once check_cons_dec_list_def]
+    \\ gvs [evaluate_def,evaluate_dec_list_def]
     \\ rpt gen_tac \\ strip_tac
     \\ simp [evaluate_decs_def]
     \\ Cases_on ‘evaluate_dec_list st env [d1]’
