@@ -1431,12 +1431,12 @@ End
 (* Putting everything together in one call *)
 Definition do_reg_alloc_def:
   do_reg_alloc alg sc k moves ct forced fs (ta,fa,n) =
-  let mvs = resort_moves (moves_to_sp moves LN) in
   do
     init_ra_state ct forced fs (ta,fa,n);
-    moves <- return (MAP (update_move (sp_default ta)) moves);
-    moves <- st_ex_FILTER (λ(_,(x,y)).full_consistency_ok k x y) moves [];
+    moves0 <- return (MAP (update_move (sp_default ta)) moves);
+    moves <- st_ex_FILTER (λ(_,(x,y)).full_consistency_ok k x y) moves0 [];
     ls <- do_alloc1 (if alg = Simple then [] else moves) sc k;
+    mvs <- return (resort_moves (moves_to_sp moves0 LN));
     assign_Atemps k ls (biased_pref mvs);
     assign_Stemps k (neg_biased_pref k mvs);
     spcol <- extract_color ta;
