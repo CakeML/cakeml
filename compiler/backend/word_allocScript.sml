@@ -1499,11 +1499,70 @@ Definition get_heuristics_def:
 End
 
 Definition select_reg_alloc_def:
-  select_reg_alloc alg spillcosts k heu_moves tree forced =
+  select_reg_alloc alg spillcosts k heu_moves tree forced fs =
     if 4 <= alg then
       linear_scan$linear_scan_reg_alloc k heu_moves tree forced
     else
-      reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced
+      reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced fs
+End
+
+(* For a move x <- y
+  if x is a register, then y should not be forced stack
+  else,
+    if y is a stack variable or forced stack,
+    then we mark x as forced stack as well
+*)
+Definition merge_stack_only_def:
+  merge_stack_only fs (x,y) =
+  if is_phy_var x
+  then
+    delete y fs
+  else
+  if is_stack_var y ∨ lookup y fs = SOME ()
+  then
+    (if is_alloc_var x then insert x () fs else fs)
+  else fs
+End
+
+Definition merge_stack_sets_def:
+  merge_stack_sets fs fsL fsR =
+    let keep1 = inter fsR (inter fsL fs) in
+    let keep2 = union (difference fsL fs) (difference fsR fs) in
+    union keep1 keep2
+End
+
+(* Alloc variables that are already stack or
+  only ever involved in stack moves *)
+Definition get_stack_only_def:
+  (get_stack_only fs (Move pri ls) =
+    FOLDL merge_stack_only fs ls) ∧
+  (get_stack_only fs (Seq s1 s2) =
+    get_stack_only (get_stack_only fs s1) s2) ∧
+  (get_stack_only fs (If cmp r1 ri e2 e3) =
+    let fs' =
+      dtcase ri of
+        Reg r2 => delete r1 (delete r2 fs)
+      | _ => delete r1 fs in
+    let fsL = get_stack_only fs e2 in
+    let fsR = get_stack_only fs e3 in
+    merge_stack_sets fs fsL fsR) ∧
+  (get_stack_only fs (MustTerminate s) =
+    get_stack_only fs s) ∧
+  (get_stack_only fs (Call ret dest args h) =
+    (dtcase ret of
+      NONE => fs
+    | SOME (v,cutset,ret_handler,_,_) =>
+      let retfs = get_stack_only fs ret_handler in
+      dtcase h of
+        NONE => retfs
+      | SOME (v',handler,_,_) =>
+        let handlerfs =
+          get_stack_only fs handler in
+        merge_stack_sets fs retfs handlerfs)) ∧
+  (get_stack_only fs prog =
+    dtcase get_clash_tree prog of
+      Delta ws rs => FOLDR delete fs (ws++rs)
+    | _ => fs)
 End
 
 (*
@@ -1521,12 +1580,13 @@ End
 Definition word_alloc_def:
   word_alloc fc c alg k prog col_opt =
   let tree = get_clash_tree prog in
+  let fs = get_stack_only LN prog in
   (*let moves = get_prefs_sp prog [] in*)
   let forced = get_forced c prog [] in
   dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
       let (heu_moves,spillcosts) = get_heuristics alg fc prog in
-      (dtcase select_reg_alloc alg spillcosts k heu_moves tree forced of
+      (dtcase select_reg_alloc alg spillcosts k heu_moves tree forced fs of
         M_success col =>
           apply_colour (total_colour col) prog
       | M_failure _ => prog (*cannot happen*))

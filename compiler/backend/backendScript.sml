@@ -335,7 +335,8 @@ Definition to_livesets_def:
      (name_num,arg_count,rm_prog)) p in
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
+    (get_clash_tree prog,heu_moves,spillcosts,
+      get_forced c.lab_conf.asm_conf prog [],get_stack_only LN prog)) p
   in
     ((reg_count,data),c',names,p)
 End
@@ -360,7 +361,8 @@ Definition to_livesets_0_def:
      (name_num,arg_count,rm_prog)) p in
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
+    (get_clash_tree prog,heu_moves,spillcosts,
+      get_forced c.lab_conf.asm_conf prog [],get_stack_only LN prog)) p
   in
     ((reg_count,data),c,names,p)
 End
@@ -397,11 +399,11 @@ Definition from_livesets_def:
   let alg = word_conf.reg_alg in
   let prog_with_oracles = ZIP (n_oracles,ZIP(data,p)) in
   let p =
-    MAP (λ(col_opt,((tree,heu_moves,spillcosts,forced),name_num,arg_count,prog)).
+    MAP (λ(col_opt,((tree,heu_moves,spillcosts,forced,fs),name_num,arg_count,prog)).
       case oracle_colour_ok k col_opt tree prog forced of
         NONE =>
           let cp =
-            (case select_reg_alloc alg spillcosts k heu_moves tree forced of
+            (case select_reg_alloc alg spillcosts k heu_moves tree forced fs of
               M_success col =>
                 (apply_colour (total_colour col) prog)
             | M_failure _ => prog (*cannot happen*)) in
