@@ -10,6 +10,8 @@ local open ASCIInumbersLib stringSyntax in end
 
 val _ = new_theory "cmlTests"
 
+val _ = if !Globals.interactive then Globals.max_print_depth := 10 else ();
+
 Overload ND = “λn l. Nd (mkNT n, l)”
 Overload NN = ``λn. Nd (mkNT n,unknown_loc)``
 Overload Tf = ``λt. Lf (TK t,unknown_loc)``
@@ -566,10 +568,29 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "!x"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 2 in f x; g (x + 1); 3 end"
 val _ = parsetest ``nE`` ``ptree_Expr nE``
                   "case x of Nil => 0 | Cons(h,t) => 1 + len t"
-val _ = parsetest ``nE`` ``ptree_Expr nE``
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                   "case x of Nil => 0\n\
                   \        | Cons(h,t) => case h of 0 => 0\n\
                   \                               | x => x*2 + len t"
+                 (SOME “Mat (V "x")
+                       [(Pcon (SOME (Short "Nil")) [],
+                         Lit (IntLit 0));
+                        (Pcon (SOME (Short "Cons"))
+                              [Pcon NONE [Pvar "h"; Pvar "t"]],
+                        Mat (V "h") [(Plit (IntLit 0), Lit (IntLit 0));
+                                     (Pvar "x",
+                                      vbinop (Short "+")
+                                             (vbinop (Short "*")
+                                                     (V "x")
+                                                     (Lit (IntLit 2)))
+                                             (App Opapp [V "len"; V "t"]))])]”)
+val _ = parsetest0 “nE” “ptree_Expr nE”
+                   "case x of N => e handle C => 0 | D => 1"
+                   (SOME “Mat (V "x")
+                         [(Pc "N" [],
+                           Handle (V "e")
+                                  [(Pc "C" [], Lit (IntLit 0));
+                                   (Pc "D" [], Lit (IntLit 1));])]”)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let in 3 end"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let ; in 3 end"
 val _ = parsetest ``nE`` ``ptree_Expr nE``

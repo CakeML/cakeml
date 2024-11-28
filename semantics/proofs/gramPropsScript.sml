@@ -48,11 +48,10 @@ Definition NT_rank_def:
         if n = nElist1                 then 16
         else if n = nEseq              then 16
         else if n = nTopLevelDecs      then 16
-(*      else if n = nREPLTop           then 16 *)
         else if n = nElist2            then 16
         else if n = nE                 then 15
-        else if n = nE'                then 15
         else if n = nEhandle           then 14
+        else if n = nPE                then 14
         else if n = nElogicOR          then 13
         else if n = nElogicAND         then 12
         else if n = nEtyped            then 11
@@ -97,8 +96,6 @@ Definition NT_rank_def:
         else if n = nPattern           then  7
         else if n = nPatternList       then  8
         else if n = nPEs               then  9
-        else if n = nPE                then  8
-        else if n = nPE'               then  8
         else if n = nLetDecs           then  2
         else if n = nLetDec            then  1
         else if n = nDtypeDecl         then  3
@@ -260,9 +257,9 @@ val nullacc =
     foldl fold_nullprove []
           [“nE”, “nPTbase”, “nTbaseList”, “nType”, “nTyvarN”, “nSpecLine”,
            “nPtuple”, “nPConApp”, “nPbase”, “nLetDec”,
-           “nTyVarList”, “nDtypeDecl”, “nDecl”, “nE'”,
+           “nTyVarList”, “nDtypeDecl”, “nDecl”, “nPE”,
            “nElist1”, “nCompOps”, “nListOps”,
-           “nPapp”, “nPattern”, “nRelOps”, “nMultOps”,
+           “nPapp”, “nPattern”, “nPEs” , “nRelOps”, “nMultOps”,
            “nAddOps”, “nDconstructor”, “nFDecl”,
            “nPatternList”, “nPbaseList1”, “nElist2”,
            “nEseq”, “nEtuple”, “nTopLevelDecs”]

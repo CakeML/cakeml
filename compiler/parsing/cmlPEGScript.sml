@@ -331,7 +331,7 @@ Definition cmlPEG_def[nocompute]:
                         seql [tokeq RaiseT; pnt nPE] (bindNT nPE);
                         seql [pnt nElogicOR; pnt nPEsfx] (bindNT nPE)]);
               (mkNT nPEsfx,
-               choicel [seql [tokeq HandleT; pnt nE] (bindNT nPEsfx);
+               choicel [seql [tokeq HandleT; pnt nPEs] (bindNT nPEsfx);
                         seql [tokeq BarT; pnt nPEs] (bindNT nPEsfx);
                         pegf (empty []) (bindNT nPEsfx)]);
               (mkNT nAndFDecls,

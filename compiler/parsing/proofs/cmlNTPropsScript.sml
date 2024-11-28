@@ -561,29 +561,6 @@ Proof
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
 QED
 
-Theorem firstSet_nE':
-  firstSet cmlG (NT(mkNT nE')::rest) =
-  firstSet cmlG [NT (mkNT nEbase)] ∪ {IfT; RaiseT}
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSetML_nE'[simp]:
-  mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-  mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-  mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-  mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
-  mkNT nElogicOR ∉ sn ∧ mkNT nE' ∉ sn ∧ mkNT nElistop ∉ sn ∧
-  mkNT nEliteral ∉ sn
-  ⇒
-  firstSetML cmlG sn (NT (mkNT nE')::rest) = firstSet cmlG [NN nE']
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE']) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
 Theorem firstSet_nElist1[simp]:
   firstSet cmlG (NT (mkNT nElist1)::rest) = firstSet cmlG [NT (mkNT nE)]
 Proof
