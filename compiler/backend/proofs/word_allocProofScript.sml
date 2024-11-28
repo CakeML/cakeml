@@ -2533,16 +2533,6 @@ End
 
 fun rm_let tm = tm|> SIMP_RULE std_ss [LET_THM];
 
-(* Not needed
-val check_colouring_ok_alt_INJ = Q.prove(`
-  ∀ls.
-  check_colouring_ok_alt f ls ⇒
-  EVERY (λx. INJ f (domain x) UNIV) ls`,
-  Induct>>full_simp_tac(srw_ss())[check_colouring_ok_alt_def,LET_THM]>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[GSYM MAP_MAP_o]>>
-  imp_res_tac INJ_ALL_DISTINCT_MAP>>
-  full_simp_tac(srw_ss())[set_toAList_keys])
-*)
 Triviality get_forced_tail_split:
   ∀c p ls ls'.
   get_forced c p (ls++ls') =
@@ -2569,10 +2559,10 @@ Proof
   EVERY_CASE_TAC>>fs[]
 QED
 
-val get_forced_in_get_clash_tree = Q.prove(`
+Triviality get_forced_in_get_clash_tree:
   ∀prog c.
-  let tree = get_clash_tree prog in
-  EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) (get_forced c prog [])`,
+  EVERY (λx,y.in_clash_tree (get_clash_tree prog) x ∧ in_clash_tree (get_clash_tree prog) y) (get_forced c prog [])
+Proof
   ho_match_mp_tac get_clash_tree_ind>>
   fs[]>>rw[get_clash_tree_def,get_forced_def,in_clash_tree_def]
   >-
@@ -2598,7 +2588,8 @@ val get_forced_in_get_clash_tree = Q.prove(`
       (fs[EVERY_MEM,FORALL_PROD]>>metis_tac[])
     >>
       (simp[Once EVERY_get_forced]>>
-      fs[EVERY_MEM,FORALL_PROD]>>metis_tac[])))|>SIMP_RULE (srw_ss()) [LET_THM];
+      fs[EVERY_MEM,FORALL_PROD]>>metis_tac[]))
+QED
 
 Triviality total_colour_rw:
   total_colour col = (\x. 2 * x) o (sp_default col)
@@ -2610,10 +2601,10 @@ Proof
 QED
 
 Theorem select_reg_alloc_correct:
-      !alg spillcosts k heu_moves tree forced.
+    !alg spillcosts k heu_moves tree forced fs.
     EVERY (\r1,r2. in_clash_tree tree r1 /\ in_clash_tree tree r2) forced ==>
     ?spcol livein flivein.
-    select_reg_alloc alg spillcosts k heu_moves tree forced = M_success spcol /\
+    select_reg_alloc alg spillcosts k heu_moves tree forced fs = M_success spcol /\
     check_clash_tree (sp_default spcol) tree LN LN = SOME (livein, flivein) /\
     (!r. in_clash_tree tree r ==>
       r IN domain spcol /\
@@ -2638,7 +2629,7 @@ QED
 
 (*Prove the full correctness theorem for word_alloc*)
 Theorem word_alloc_correct:
-    ∀fc c alg prog k col_opt st.
+  ∀fc c alg prog k col_opt st.
   even_starting_locals st.locals ∧
   wf_cutsets prog
   ⇒
@@ -2684,7 +2675,7 @@ Proof
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   drule select_reg_alloc_correct>>
-  disch_then(qspecl_then [`alg`,`spillcosts`,`k`,`heu_moves`] assume_tac)>>rfs[]>>fs[]>>
+  disch_then(qspecl_then [`alg`,`spillcosts`,`k`,`heu_moves`,`fs`] assume_tac)>>rfs[]>>fs[]>>
   Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour spcol`,`LN:num_set`] mp_tac evaluate_apply_colour>>
   impl_tac>-
     (rpt strip_tac
@@ -2715,12 +2706,17 @@ Proof
   FULL_CASE_TAC>>fs[]
 QED
 
-val apply_colour_exp_I = Q.prove(`
-  ∀f exp.
+Triviality apply_colour_exp_I:
+  apply_colour_exp I exp = exp
+Proof
+ `∀f exp.
   f = I ⇒
-  apply_colour_exp f exp = exp`,
-  ho_match_mp_tac apply_colour_exp_ind>>rw[]>>
-  fs[MAP_EQ_ID]) |> SIMP_RULE std_ss[];
+  apply_colour_exp f exp = exp` by (
+  ho_match_mp_tac apply_colour_exp_ind>>
+  rw[]>>
+  fs[MAP_EQ_ID])>>
+  simp[]
+QED
 
 (* Dead code removal *)
 Triviality strong_locals_rel_I_word_exp:
@@ -7989,42 +7985,6 @@ Proof
 QED
 
 (* word_alloc syntactic stuff *)
-
-(* No longer needed
-val colouring_satisfactory_colouring_ok_alt = Q.prove(`
-  ∀prog f live hd tl spg.
-  get_clash_sets prog live = (hd,tl) ∧
-  spg = clash_sets_to_sp_g (hd::tl) ∧
-  colouring_satisfactory (f:num->num) spg
-  ⇒
-  colouring_ok_alt f prog live`,
-  rpt strip_tac>>
-  full_simp_tac(srw_ss())[LET_THM,colouring_ok_alt_def,colouring_satisfactory_def]>>
-  qabbrev_tac `ls = hd::tl`>>
-  qsuff_tac `EVERY (λs. INJ f (domain s) UNIV) ls`
-  >-
-    full_simp_tac(srw_ss())[Abbr`ls`]
-  >>
-  srw_tac[][EVERY_MEM]>>
-  imp_res_tac clash_sets_clique>>
-  imp_res_tac colouring_satisfactory_cliques>>
-  pop_assum(qspec_then`f`mp_tac)>>
-  impl_tac
-  >- full_simp_tac(srw_ss())[colouring_satisfactory_def,LET_THM]>>
-  impl_tac
-  >- full_simp_tac(srw_ss())[ALL_DISTINCT_MAP_FST_toAList]>>
-  full_simp_tac(srw_ss())[INJ_DEF]>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[domain_lookup]>>
-  `MEM x (MAP FST (toAList s)) ∧
-   MEM y (MAP FST (toAList s))` by
-    (full_simp_tac(srw_ss())[MEM_MAP,EXISTS_PROD]>>
-    metis_tac[domain_lookup,MEM_MAP,EXISTS_PROD,MEM_toAList])>>
-  `ALL_DISTINCT (MAP FST (toAList s))` by
-    metis_tac[ALL_DISTINCT_MAP_FST_toAList]>>
-  full_simp_tac(srw_ss())[EL_ALL_DISTINCT_EL_EQ]>>
-  full_simp_tac(srw_ss())[MEM_EL]>>rev_full_simp_tac(srw_ss())[EL_MAP]>>
-  metis_tac[])
-*)
 
 val is_phy_var_tac =
     full_simp_tac(srw_ss())[is_phy_var_def]>>

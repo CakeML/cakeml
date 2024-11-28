@@ -83,7 +83,8 @@ Definition to_livesets_0_def:
       p in
     let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,get_forced asm_conf prog [])) p
+    (get_clash_tree prog,heu_moves,spillcosts,
+      get_forced asm_conf prog [],get_stack_only LN prog)) p
   in
     ((asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs),data),c,names,p)
 End
