@@ -1434,7 +1434,7 @@ structure reg_alloc = struct
                                   do_alloc1 (if  (v27 = Simple)
                                   then  []
                                    else  v10) v26 v24
-                                    val mvs = resort_moves (moves_to_sp v10 Ln)
+                                    val mvs = resort_moves (moves_to_sp v11 Ln)
                                     val  v8 =
                                   assign_atemps v24 v9 (biased_pref mvs)
                                     val  () = assign_stemps v24 (neg_biased_pref v24 mvs)
