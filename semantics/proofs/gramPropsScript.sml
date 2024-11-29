@@ -258,7 +258,7 @@ val nullacc =
           [“nE”, “nPTbase”, “nTbaseList”, “nType”, “nTyvarN”, “nSpecLine”,
            “nPtuple”, “nPConApp”, “nPbase”, “nLetDec”,
            “nTyVarList”, “nDtypeDecl”, “nDecl”, “nPE”,
-           “nElist1”, “nCompOps”, “nListOps”,
+           “nElist1”, “nCompOps”, “nListOps”, “nPEsfx”,
            “nPapp”, “nPattern”, “nPEs” , “nRelOps”, “nMultOps”,
            “nAddOps”, “nDconstructor”, “nFDecl”,
            “nPatternList”, “nPbaseList1”, “nElist2”,

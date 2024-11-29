@@ -698,6 +698,14 @@ Proof
   simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]
 QED
 
+Theorem firstSet_nPEsfx[simp]:
+  firstSet cmlG (NN nPEsfx :: rest) =
+  BarT INSERT HandleT INSERT firstSet cmlG rest
+Proof
+  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied,
+       nullable_PEsfx] >> SET_TAC[]
+QED
+
 Theorem NOTIN_firstSet_nV[simp]:
   CommaT ∉ firstSet cmlG [NN nV] ∧ LparT ∉ firstSet cmlG [NN nV] ∧
   RparT ∉ firstSet cmlG [NN nV] ∧ UnderbarT ∉ firstSet cmlG [NN nV] ∧
@@ -727,7 +735,8 @@ Theorem NOTIN_firstSet_nV[simp]:
   TypeT ∉ firstSet cmlG [NN nV] ∧
   SemicolonT ∉ firstSet cmlG [NN nV] ∧ ColonT ∉ firstSet cmlG [NN nV] ∧
   StructureT ∉ firstSet cmlG [NN nV] ∧ WordT w ∉ firstSet cmlG [NN nV] ∧
-  SymbolT "::" ∉ firstSet cmlG [NN nV]
+  SymbolT "::" ∉ firstSet cmlG [NN nV] ∧
+  HandleT ∉ firstSet cmlG [NN nV]
 Proof
   simp[firstSet_nV] >> simp[validPrefixSym_def]
 QED
@@ -767,7 +776,8 @@ Theorem NOTIN_firstSet_nFQV[simp]:
   TypeT ∉ firstSet cmlG [NN nFQV] ∧
   UnderbarT ∉ firstSet cmlG [NN nFQV] ∧
   ValT ∉ firstSet cmlG [NN nFQV] ∧
-  WordT w ∉ firstSet cmlG [NN nFQV]
+  WordT w ∉ firstSet cmlG [NN nFQV] ∧
+  HandleT ∉ firstSet cmlG [NN nV]
 Proof
   simp[firstSet_nFQV]
 QED
