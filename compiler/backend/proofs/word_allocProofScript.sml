@@ -8182,7 +8182,7 @@ Proof
   >>
   qpat_abbrev_tac`forced = get_forced _ _ _`>>
   qpat_abbrev_tac`tree = get_clash_tree _`>>
-  qpat_abbrev_tac`fs = get_stack_only LN _`>>
+  qpat_abbrev_tac`fs = get_stack_only _`>>
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   pairarg_tac>>fs[]>>
@@ -8317,7 +8317,7 @@ Proof
   pairarg_tac>>fs[]>>
   qpat_abbrev_tac`forced = get_forced _ _ _`>>
   qpat_abbrev_tac`tree = get_clash_tree prog`>>
-  qpat_abbrev_tac`fs = get_stack_only LN _`>>
+  qpat_abbrev_tac`fs = get_stack_only _`>>
   EVERY_CASE_TAC>>fs[]>>
   rw[]>>rveq>>
   match_mp_tac word_alloc_full_inst_ok_less_lem>>fs[]>>

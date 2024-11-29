@@ -1513,56 +1513,66 @@ End
     then we mark x as forced stack as well
 *)
 Definition merge_stack_only_def:
-  merge_stack_only fs (x,y) =
-  if is_phy_var x
+  merge_stack_only (ts,fs) (x,y) =
+  if lookup x ts = SOME ()
   then
-    delete y fs
+    let ts = if is_alloc_var y then insert y () ts else ts in
+    (ts, insert x () fs)
   else
-  if is_stack_var y ∨ lookup y fs = SOME ()
-  then
-    (if is_alloc_var x then insert x () fs else fs)
-  else fs
+    if is_stack_var x
+    then
+      let ts = if is_alloc_var y then insert y () ts else ts in
+      (ts, fs)
+    else
+      (delete y ts, fs)
 End
 
 Definition merge_stack_sets_def:
-  merge_stack_sets fs fsL fsR =
-    let keep1 = inter fsR (inter fsL fs) in
-    let keep2 = union (difference fsL fs) (difference fsR fs) in
-    union keep1 keep2
+  merge_stack_sets (tsL,fsL) (tsR,fsR) =
+    (inter tsL tsR, union fsL fsR)
+End
+
+Definition remove_temp_stack_def:
+  remove_temp_stack ls (ts,fs) =
+    (FOLDR delete ts ls,fs)
 End
 
 (* Alloc variables that are already stack or
   only ever involved in stack moves *)
-Definition get_stack_only_def:
-  (get_stack_only fs (Move pri ls) =
-    FOLDL merge_stack_only fs ls) ∧
-  (get_stack_only fs (Seq s1 s2) =
-    get_stack_only (get_stack_only fs s1) s2) ∧
-  (get_stack_only fs (If cmp r1 ri e2 e3) =
-    let fs' =
+Definition get_stack_only_aux_def:
+  (get_stack_only_aux tfs (Move pri ls) =
+    FOLDL merge_stack_only tfs ls) ∧
+  (get_stack_only_aux tfs (Seq s1 s2) =
+    get_stack_only_aux (get_stack_only_aux tfs s2) s1) ∧
+  (get_stack_only_aux tfs (If cmp r1 ri e2 e3) =
+    let tfsL = get_stack_only_aux tfs e2 in
+    let tfsR = get_stack_only_aux tfs e3 in
+    let tfsM = merge_stack_sets tfsL tfsR in
       dtcase ri of
-        Reg r2 => delete r1 (delete r2 fs)
-      | _ => delete r1 fs in
-    let fsL = get_stack_only fs e2 in
-    let fsR = get_stack_only fs e3 in
-    merge_stack_sets fs fsL fsR) ∧
-  (get_stack_only fs (MustTerminate s) =
-    get_stack_only fs s) ∧
-  (get_stack_only fs (Call ret dest args h) =
+        Reg r2 => remove_temp_stack [r1;r2] tfsM
+      | _ => remove_temp_stack [r1] tfsM
+  ) ∧
+  (get_stack_only_aux tfs (MustTerminate s) =
+    get_stack_only_aux tfs s) ∧
+  (get_stack_only_aux tfs (Call ret dest args h) =
     (dtcase ret of
-      NONE => fs
+      NONE => tfs
     | SOME (v,cutset,ret_handler,_,_) =>
-      let retfs = get_stack_only fs ret_handler in
+      let rettfs = get_stack_only_aux tfs ret_handler in
       dtcase h of
-        NONE => retfs
+        NONE => rettfs
       | SOME (v',handler,_,_) =>
-        let handlerfs =
-          get_stack_only fs handler in
-        merge_stack_sets fs retfs handlerfs)) ∧
-  (get_stack_only fs prog =
+        let handlertfs =
+          get_stack_only_aux tfs handler in
+        merge_stack_sets rettfs handlertfs)) ∧
+  (get_stack_only_aux tfs prog =
     dtcase get_clash_tree prog of
-      Delta ws rs => FOLDR delete fs (ws++rs)
-    | _ => fs)
+      Delta ws rs => remove_temp_stack (ws++rs) tfs
+    | _ => tfs)
+End
+
+Definition get_stack_only_def:
+  get_stack_only prog = FST (get_stack_only_aux (LN,LN) prog)
 End
 
 (*
@@ -1580,7 +1590,7 @@ End
 Definition word_alloc_def:
   word_alloc fc c alg k prog col_opt =
   let tree = get_clash_tree prog in
-  let fs = get_stack_only LN prog in
+  let fs = get_stack_only prog in
   (*let moves = get_prefs_sp prog [] in*)
   let forced = get_forced c prog [] in
   dtcase oracle_colour_ok k col_opt tree prog forced of

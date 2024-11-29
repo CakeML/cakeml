@@ -336,7 +336,7 @@ Definition to_livesets_def:
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
     (get_clash_tree prog,heu_moves,spillcosts,
-      get_forced c.lab_conf.asm_conf prog [],get_stack_only LN prog)) p
+      get_forced c.lab_conf.asm_conf prog [],get_stack_only prog)) p
   in
     ((reg_count,data),c',names,p)
 End
@@ -362,7 +362,7 @@ Definition to_livesets_0_def:
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
     (get_clash_tree prog,heu_moves,spillcosts,
-      get_forced c.lab_conf.asm_conf prog [],get_stack_only LN prog)) p
+      get_forced c.lab_conf.asm_conf prog [],get_stack_only prog)) p
   in
     ((reg_count,data),c,names,p)
 End
