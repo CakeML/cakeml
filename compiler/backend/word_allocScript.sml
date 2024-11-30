@@ -1506,103 +1506,73 @@ Definition select_reg_alloc_def:
       reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced fs
 End
 
-(* x <- y; mark x stack if y is stack or marked *)
-Definition move_stack_fwd_def:
-  move_stack_fwd fs (x,y) =
-  if is_stack_var y ∨ lookup y fs = SOME ()
+(* For a move x <- y
+  if x is a register, then y should not be forced stack
+  else,
+    if y is a stack variable or forced stack,
+    then we mark x as forced stack as well
+*)
+Definition merge_stack_only_def:
+  merge_stack_only (ts,fs) (x,y) =
+  if lookup x ts = SOME ()
   then
-    if is_alloc_var x then insert x () fs
-    else fs
-  else fs
+    let ts = if is_alloc_var y then insert y () ts else ts in
+    (ts, insert x () fs)
+  else
+    if is_stack_var x
+    then
+      let ts = if is_alloc_var y then insert y () ts else ts in
+      (ts, fs)
+    else
+      (delete y ts, fs)
 End
 
-Definition merge_stack_def:
-  merge_stack fs fsL fsR =
-  let keep1 = inter fsR (inter fsL fs) in
-  let keep2 = union (difference fsL fs) (difference fsR fs) in
-    union keep1 keep2
+Definition merge_stack_sets_def:
+  merge_stack_sets (tsL,fsL) (tsR,fsR) =
+    (inter tsL tsR, union fsL fsR)
 End
 
-Definition remove_stack_def:
-  remove_stack ls fs =
-    (FOLDR delete fs ls)
+Definition remove_temp_stack_def:
+  remove_temp_stack ls (ts,fs) =
+    (FOLDR delete ts ls,fs)
 End
 
-(* forward propagation of x <- stack *)
-Definition get_stack_only_fwd_def:
-  (get_stack_only_fwd fs (Move pri ls) =
-    FOLDL move_stack_fwd fs ls) ∧
-  (get_stack_only_fwd fs (Seq s1 s2) =
-    get_stack_only_fwd (get_stack_only_fwd fs s1) s2) ∧
-  (get_stack_only_fwd fs (If cmp r1 ri e2 e3) =
-    let fs =
+(* Alloc variables that are already stack or
+  only ever involved in stack moves *)
+Definition get_stack_only_aux_def:
+  (get_stack_only_aux tfs (Move pri ls) =
+    FOLDL merge_stack_only tfs ls) ∧
+  (get_stack_only_aux tfs (Seq s1 s2) =
+    get_stack_only_aux (get_stack_only_aux tfs s2) s1) ∧
+  (get_stack_only_aux tfs (If cmp r1 ri e2 e3) =
+    let tfsL = get_stack_only_aux tfs e2 in
+    let tfsR = get_stack_only_aux tfs e3 in
+    let tfsM = merge_stack_sets tfsL tfsR in
       dtcase ri of
-        Reg r2 => delete r1 (delete r2 fs)
-      | _ => delete r1 fs in
-    let fsL = get_stack_only_fwd fs e2 in
-    let fsR = get_stack_only_fwd fs e3 in
-    merge_stack fs fsL fsR) ∧
-  (get_stack_only_fwd fs (MustTerminate s) =
-    get_stack_only_fwd fs s) ∧
-  (get_stack_only_fwd fs (Call ret dest args h) =
-    (dtcase ret of
-      NONE => fs
-    | SOME (v,cutset,ret_handler,_,_) =>
-      let retfs = get_stack_only_fwd fs ret_handler in
-      dtcase h of
-        NONE => retfs
-      | SOME (v',handler,_,_) =>
-        let handlerfs =
-          get_stack_only_fwd fs handler in
-        merge_stack fs retfs handlerfs)) ∧
-  (get_stack_only_fwd fs prog =
-    dtcase get_clash_tree prog of
-      Delta ws rs => remove_stack (ws++rs) fs
-    | _ => fs)
-End
-
-(* x <- y; mark y stack if x is stack or marked *)
-Definition move_stack_bwd_def:
-  move_stack_bwd fs (x,y) =
-  move_stack_fwd fs (y,x)
-End
-
-(* forward propagation of x <- stack *)
-Definition get_stack_only_bwd_def:
-  (get_stack_only_bwd fs (Move pri ls) =
-    FOLDL move_stack_bwd fs ls) ∧
-  (get_stack_only_bwd fs (Seq s1 s2) =
-    get_stack_only_bwd (get_stack_only_bwd fs s2) s1) ∧
-  (get_stack_only_bwd fs (If cmp r1 ri e2 e3) =
-    let fsL = get_stack_only_bwd fs e2 in
-    let fsR = get_stack_only_bwd fs e3 in
-    let fsM = merge_stack fs fsL fsR in
-      dtcase ri of
-        Reg r2 => delete r1 (delete r2 fsM)
-      | _ => delete r1 fsM
+        Reg r2 => remove_temp_stack [r1;r2] tfsM
+      | _ => remove_temp_stack [r1] tfsM
   ) ∧
-  (get_stack_only_bwd fs (MustTerminate s) =
-    get_stack_only_bwd fs s) ∧
-  (get_stack_only_bwd fs (Call ret dest args h) =
+  (get_stack_only_aux tfs (MustTerminate s) =
+    get_stack_only_aux tfs s) ∧
+  (get_stack_only_aux tfs (Call ret dest args h) =
     (dtcase ret of
-      NONE => fs
+      NONE => tfs
     | SOME (v,cutset,ret_handler,_,_) =>
-      let retfs = get_stack_only_bwd fs ret_handler in
+      let rettfs = get_stack_only_aux tfs ret_handler in
       dtcase h of
-        NONE => retfs
+        NONE => rettfs
       | SOME (v',handler,_,_) =>
-        let handlerfs =
-          get_stack_only_bwd fs handler in
-        merge_stack fs retfs handlerfs)) ∧
-  (get_stack_only_bwd fs prog =
+        let handlertfs =
+          get_stack_only_aux tfs handler in
+        merge_stack_sets rettfs handlertfs)) ∧
+  (get_stack_only_aux tfs prog =
     dtcase get_clash_tree prog of
-      Delta ws rs => remove_stack (ws++rs) fs
-    | _ => fs)
+      Delta ws rs => remove_temp_stack (ws++rs) tfs
+    | _ => tfs)
 End
 
 Definition get_stack_only_def:
-  get_stack_only prog =
-    union (get_stack_only_fwd LN prog) (get_stack_only_bwd LN prog)
+  get_stack_only prog = FST (get_stack_only_aux (LN,LN) prog)
 End
 
 (*
