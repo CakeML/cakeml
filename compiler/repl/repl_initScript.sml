@@ -14,7 +14,7 @@ val _ = (max_print_depth := 12);
 val th2 = Decls_repl_prog |> REWRITE_RULE [GSYM repl_prog_def,SNOC]
           |> CONV_RULE (RAND_CONV EVAL)
           |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’
-          |> REWRITE_RULE (APPEND::(DB.find "refs_def" |> map (fst o snd)))
+          |> REWRITE_RULE (APPEND::(DB.find "refs_def" |> map (#1 o #2)))
 
 Overload repl_prog_env = (th2 |> concl |> rator |> rand);
 
@@ -165,7 +165,7 @@ Theorem parts_ok_basis_ffi:
   parts_ok (basis_ffi cls fs) (basis_proj1,basis_proj2)
 Proof
   mp_tac basis_ffiTheory.parts_ok_basis_st
-  \\ fs (DB.find "TextIOProg_st" |> map (fst o snd))
+  \\ fs (DB.find "TextIOProg_st" |> map (#1 o #2))
 QED
 
 Theorem st2heap_basis:
@@ -186,7 +186,7 @@ Proof
   \\ fs [set_sepTheory.STAR_def,PULL_EXISTS]
   \\ drule_at Any (DISCH_ALL STDIO_precond |> REWRITE_RULE [AND_IMP_INTRO])
   \\ disch_then (drule_at Any)
-  \\ fs (DB.find "refs_def" |> map (fst o snd))
+  \\ fs (DB.find "refs_def" |> map (#1 o #2))
   \\ disch_then $ irule_at Any
   \\ fs [CommandLineProofTheory.COMMANDLINE_def,set_sepTheory.cond_STAR]
   \\ fs [clFFITheory.cl_ffi_part_def]
