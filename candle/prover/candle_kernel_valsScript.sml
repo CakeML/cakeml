@@ -96,7 +96,7 @@ Theorem kernel_funs_v_def =
   |> map (fn defn =>
       DB.find defn
       |> Lib.pluck (fn ((_,nm),_) => nm = defn)
-      |> fst |> snd |> fst)
+      |> #1 |> #2 |> #1)
   |> curry (op @) [constants_v_def,abs_v_def]
   |> LIST_CONJ;
 
