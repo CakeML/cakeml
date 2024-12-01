@@ -1513,11 +1513,12 @@ End
     then we mark x as forced stack as well
 *)
 Definition merge_stack_only_def:
-  merge_stack_only (ts,fs) (x,y) =
+  merge_stack_only (x,y) (ts,fs) =
   if lookup x ts = SOME ()
   then
     let ts = if is_alloc_var y then insert y () ts else ts in
-    (ts, insert x () fs)
+    let fs = if is_phy_var y then fs else insert x () fs in
+    (ts, fs)
   else
     if is_stack_var x
     then
@@ -1528,8 +1529,10 @@ Definition merge_stack_only_def:
 End
 
 Definition merge_stack_sets_def:
-  merge_stack_sets (tsL,fsL) (tsR,fsR) =
-    (inter tsL tsR, union fsL fsR)
+  merge_stack_sets (ts,fs) (tsL,fsL) (tsR,fsR) =
+  let keep1 = inter tsR (inter tsL ts) in
+  let keep2 = union (difference tsL ts) (difference tsR ts) in
+    (union keep1 keep2, union fsL fsR)
 End
 
 Definition remove_temp_stack_def:
@@ -1541,13 +1544,13 @@ End
   only ever involved in stack moves *)
 Definition get_stack_only_aux_def:
   (get_stack_only_aux tfs (Move pri ls) =
-    FOLDL merge_stack_only tfs ls) ∧
+    FOLDR merge_stack_only tfs ls) ∧
   (get_stack_only_aux tfs (Seq s1 s2) =
     get_stack_only_aux (get_stack_only_aux tfs s2) s1) ∧
   (get_stack_only_aux tfs (If cmp r1 ri e2 e3) =
     let tfsL = get_stack_only_aux tfs e2 in
     let tfsR = get_stack_only_aux tfs e3 in
-    let tfsM = merge_stack_sets tfsL tfsR in
+    let tfsM = merge_stack_sets tfs tfsL tfsR in
       dtcase ri of
         Reg r2 => remove_temp_stack [r1;r2] tfsM
       | _ => remove_temp_stack [r1] tfsM
@@ -1564,7 +1567,7 @@ Definition get_stack_only_aux_def:
       | SOME (v',handler,_,_) =>
         let handlertfs =
           get_stack_only_aux tfs handler in
-        merge_stack_sets rettfs handlertfs)) ∧
+        merge_stack_sets tfs rettfs handlertfs)) ∧
   (get_stack_only_aux tfs prog =
     dtcase get_clash_tree prog of
       Delta ws rs => remove_temp_stack (ws++rs) tfs
@@ -1572,7 +1575,7 @@ Definition get_stack_only_aux_def:
 End
 
 Definition get_stack_only_def:
-  get_stack_only prog = FST (get_stack_only_aux (LN,LN) prog)
+  get_stack_only prog = SND (get_stack_only_aux (LN,LN) prog)
 End
 
 (*
