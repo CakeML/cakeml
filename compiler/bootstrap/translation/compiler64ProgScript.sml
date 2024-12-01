@@ -738,7 +738,7 @@ QED
 val th1 = th
             |> CONV_RULE (PATH_CONV "llr" (REWR_CONV BUTLAST_compiler64_prog))
             |> CONV_RULE (RAND_CONV (EVAL THENC REWRITE_CONV
-                                     (DB.find "_refs_def" |> map (fst o snd)) THENC
+                                     (DB.find "_refs_def" |> map (#1 o #2)) THENC
                                      SIMP_CONV std_ss [APPEND_NIL,APPEND]))
 
 Theorem Decls_FRONT_compiler64_prog = th1
