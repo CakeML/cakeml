@@ -525,7 +525,7 @@ struct
 fun get_names_for thy_name =
   let
     fun find_def name = DB.find name |> filter (fn ((x,_),_) => x = thy_name)
-                        |> map snd |> first (fn (x,y) => y = Def) |> fst
+                        |> map #2 |> first (fn (x,y,_) => y = Def) |> #1
     val bvi_def = find_def "bvi_names_def"
     val bvl_def = find_def "bvl_names_def"
     val raw_names = bvi_def
@@ -655,7 +655,7 @@ end;
 
   fun define_benchmark theAST_def theAST_pre_def checkError =
   let
-    val all_opts = map (fn ((a,(b,c,d))) => (a,(b,c))) (DB.thy "icing_optimisations")
+    val all_opts = map DB_dtype.drop_private (DB.thy "icing_optimisations")
     val checkError = false
     val theAST = theAST_def |> concl |> rhs
     val theAST_pre = theAST_pre_def |> concl |> rhs

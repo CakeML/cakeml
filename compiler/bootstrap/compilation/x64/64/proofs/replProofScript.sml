@@ -1141,8 +1141,8 @@ Proof
   \\ disch_then drule
   \\ disch_then (qspec_then ‘encode_backend_config conf’ mp_tac)
   \\ impl_tac >-
-   (fs [] \\ simp (find "repl_moduleProg_st" |> map (fst o snd))
-    \\ simp (repl_prog_isPREFIX :: (find "refs_def" |> map (fst o snd)))
+   (fs [] \\ simp (DB.find "repl_moduleProg_st" |> map (#1 o #2))
+    \\ simp (repl_prog_isPREFIX :: (DB.find "refs_def" |> map (#1 o #2)))
     \\ fs [repl_prog_st_def, ml_progTheory.init_state_def])
   \\ fs [repl_prog_st_def]
   \\ qpat_abbrev_tac ‘ppp = W8array _ :: _’ \\ pop_assum kall_tac
