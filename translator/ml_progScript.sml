@@ -819,7 +819,7 @@ Theorem ML_code_Dlet_Var_Ref_Var:
     let cenv = ML_code_env env0 ((comm, s1, prog, env1) :: bls) in
     ∀x. nsLookup cenv.v vname = SOME x ==>
     let len = LENGTH s2.refs in
-    let loc = Loc len in
+    let loc = Loc T len in
     let env2 = write n loc env1 in
     let s2_abbrev = s2 with refs := s2.refs ++ [Refv x] in
     ML_code env0 ((comm, s1, SNOC (Dlet locs (Pvar n) (App Opref [Var vname])) prog, env2)
