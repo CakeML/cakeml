@@ -9,7 +9,7 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Function declaration | `fun FNAME ( ARGS ) { BODY }` | `ARGS` may be empty; each argument must have both shape and identifier, eg `1 x, {1,2} y`. `BODY` must include a function return in all execution branches. Optionally, add `export` keyword before `fun` for multiple entry points feature |
 | Block scope | `{ BODY };` | Must have semicolon after right brace. For "empty" `BODY`, use `skip;` |
 | Conditional statement | `if CONDITION { BODY } else { BODY }` | `else` and second body optional. For "empty" `BODY`, use `skip;` |
-| Loop | `while CONDITION { BODY }` | For "empty" `BODY`, use `skip;` |
+| Loop | `while CONDITION { BODY }` | `BODY` may be empty |
 
 ## Statements
 
@@ -52,5 +52,5 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Bytes in word | `@biw` | Number of bytes in a word; 8 for 64bit targets, 4 for 32bit targets |
 | Single line comments | `// COMMENT` | |
 | Block comments | `/* COMMENT */` | Non-recursive |
-| Annotation comments | `/*@ COMMENT @*/` | For adding tool-specific annotations in the underlying code representation; the same as block comments otherwise. Non-recursive |
+| Annotation comments | `/@ COMMENT @/` | Non-recursive. For adding tool-specific annotations in the underlying code representation; the same as block comments otherwise. Will not be ignored by CPP |
 | Booleans | `true`/`false`| Equivalent to `1`/`0`, respectively |

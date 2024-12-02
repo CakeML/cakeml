@@ -35,17 +35,19 @@ TODO: linking and running `.S` file, including sample minimum c file
 
 ## Writing the Pancake file
 
+TODO: explain file extension at some point
+
+### Syntax
+
+TODO: key structures and quirks eg. exp vs statements (esp with function calls), link to separate syntax ref sheet
+
 ### Shapes
 
 TODO: existing shape stuff, maybe the shape annotation stuff later?
 
 ### Heap usage
 
-TODO: @base, local vs shared mem, etc + bitmap store issue
-
-### Syntax
-
-TODO: key structures and quirks eg. exp vs statements (esp with function calls), link to separate syntax ref sheet
+TODO: @base, local vs shared mem, etc
 
 ## Using the C file
 
@@ -59,7 +61,7 @@ TODO: putchar example or something
 
 ### Calling Pancake from C code
 
-TODO: mep example + argument number limit
+TODO: mep example + argument number limit + return value limit
 
 ## Limitations
 
@@ -67,17 +69,21 @@ TODO: where does single file compilation go? is "known issues" better as "uninte
 
 ### Intentional limitations
 
-TODO: globals, dynamic alloc
+TODO: dynamic alloc
 
 ### Known issues
 
-TODO: empty loops
+TODO: idk, parser comments being lacklustre maybe
 
 ### Planned features
 
-TODO: shape annotations
+TODO: shape annotations, globals? arrays?
 
 ## Bonus content
+
+### Editors
+
+TODO: emacs - C major mode, vscode - partial syntax highlighting
 
 ### The C preprocessor and Pancake
 
@@ -93,5 +99,6 @@ TODO: cml_main and friends
 
 # (other tasks)
 
-TODO: example programs
+TODO: example programs, including a super simple sddf one with the function names and mep
+
 TODO: update /pancake README with new .md files
