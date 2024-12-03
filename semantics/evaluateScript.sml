@@ -55,6 +55,29 @@ Definition do_real_check_def:
          | _ => SOME r))
 End
 
+Definition dest_thunk_def:
+  dest_thunk [Loc _ n] st =
+    (case store_lookup n st of
+     | SOME (Thunk T v) => SOME (INL v)
+     | SOME (Thunk F v) => SOME (INR v)
+     | _ => NONE) ∧
+  dest_thunk vs st = NONE
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc _ n] st [v] = store_assign n (Thunk T v) st ∧
+  update_thunk _ st _ = NONE
+End
+
+Definition sing_env_def:
+  sing_env n v =
+    <| v := nsBind n v nsEmpty; c := nsEmpty |> : v sem_env
+End
+
+Definition AppUnit_def:
+  AppUnit e = App Opapp [e; Con NONE []]
+End
+
 Definition evaluate_def[nocompute]:
   evaluate st env [] = ((st:'ffi state),Rval [])
   ∧
@@ -106,13 +129,28 @@ Definition evaluate_def[nocompute]:
       FunApp =>
         (case do_opapp (REVERSE vs) of
           SOME (env',e) =>
-            if st'.clock =( 0 : num) then
+            if st'.clock = 0 then
               (st', Rerr (Rabort Rtimeout_error))
             else
               evaluate (dec_clock st') env'  [e]
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
-     |EvalOp =>
+     | Force =>
+        (case dest_thunk vs st'.refs of
+         | NONE => (st', Rerr (Rabort Rtype_error))
+         | SOME (INL v) => (st', Rval [v])
+         | SOME (INR f) =>
+            if st'.clock = 0 then
+              (st', Rerr (Rabort Rtimeout_error))
+            else
+              case evaluate (dec_clock st') (sing_env "f" f)
+                    [AppUnit (Var (Short "f"))] of
+              | (st2, Rval vs2) =>
+                  (case update_thunk vs st2.refs vs2 of
+                   | NONE => (st2, Rerr (Rabort Rtype_error))
+                   | SOME refs => (st2 with refs := refs, Rval vs2))
+              | (st2, Rerr e) => (st2, Rerr e))
+     | EvalOp =>
         (case fix_clock st' (do_eval_res (REVERSE vs) st') of
           (st1, Rval (env1, decs)) =>
             if st1.clock = 0 then

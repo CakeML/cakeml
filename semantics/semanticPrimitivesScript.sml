@@ -196,14 +196,17 @@ Datatype:
   | W8array (word8 list)
   (* An array of values *)
   | Varray ('a list)
+  (* Thunk *)
+  | Thunk bool 'a
 End
 
 Definition store_v_same_type_def:
   store_v_same_type v1 v2 =
     case (v1:'a store_v, v2:'a store_v) of
-    | (Refv _, Refv _) => T
-    | (W8array _,W8array _) => T
-    | (Varray _,Varray _) => T
+    | (Refv _,    Refv _   ) => T
+    | (W8array _, W8array _) => T
+    | (Varray _,  Varray _ ) => T
+    | (Thunk _ _, Thunk _ _) => T
     | _ => F
 End
 
@@ -879,6 +882,17 @@ Termination
   WF_REL_TAC `measure (\ (_, l). v1_size l)` \\ fs[]
 End
 
+Definition thunk_op_def:
+  thunk_op (s: v store_v list, t: 'ffi ffi_state) (AllocThunk b) [v] =
+    (let (s',n) = store_alloc (Thunk b v) s in
+       SOME ((s',t), Rval (Loc F n))) ∧
+  thunk_op (s, t) (UpdateThunk b) [Loc _ lnum; v] =
+    (case store_assign lnum (Thunk b v) s of
+       SOME s' => SOME ((s',t), Rval (Conv NONE []))
+     | NONE => NONE) ∧
+  thunk_op _ _ _ = NONE
+End
+
 Definition do_app_def:
   do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
     case (op, vs) of
@@ -1254,6 +1268,7 @@ Definition do_app_def:
             Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
     | (Env_id, [Conv NONE [gen; id]]) => SOME ((s, t),
             Rval (Conv NONE [gen; id]))
+    | (ThunkOp th_op, vs) => thunk_op (s,t) th_op vs
     | _ => NONE
 End
 
