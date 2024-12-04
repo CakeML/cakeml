@@ -143,7 +143,7 @@ metis_tac[HEAP_FROM_STATE_def, UNIQUE_PTRS_HFS]
 QED
 
 Theorem PTR_IN_HEAP:
- !l xv H s. (REF (Loc l) xv * H) s ==> Mem l (Refv xv) IN s
+ !l xv H s. (REF (Loc T l) xv * H) s ==> Mem l (Refv xv) IN s
 Proof
 fs[STAR_def, SPLIT_def] >>
 fs[REF_def, SEP_EXISTS] >>

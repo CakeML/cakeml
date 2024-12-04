@@ -233,19 +233,19 @@ End
 (* A reference cell, as a convenience wrapper over cell and Refv *)
 Definition REF_def:
   REF rv xv =
-    SEP_EXISTS loc. cond (rv = Loc loc) * cell loc (Refv xv)
+    SEP_EXISTS loc. cond (rv = Loc T loc) * cell loc (Refv xv)
 End
 
 (* An array cell, as a wrapper over cell and Varray *)
 Definition ARRAY_def:
   ARRAY av vl =
-    SEP_EXISTS loc. cond (av = Loc loc) * cell loc (Varray vl)
+    SEP_EXISTS loc. cond (av = Loc T loc) * cell loc (Varray vl)
 End
 
 (* A bytearray cell, as a wrapper over cell and W8array *)
 Definition W8ARRAY_def:
   W8ARRAY av wl =
-    SEP_EXISTS loc. cond (av = Loc loc) * cell loc (W8array wl)
+    SEP_EXISTS loc. cond (av = Loc T loc) * cell loc (W8array wl)
 End
 
 Definition IO_def:
