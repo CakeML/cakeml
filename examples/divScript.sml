@@ -796,11 +796,11 @@ QED
 (* Infinite lists encoded as cyclic pointer structures in the heap *)
 
 Definition REF_LIST_def:
- (REF_LIST rv [] A [] = SEP_EXISTS loc. cond(rv=Loc loc))
+ (REF_LIST rv [] A [] = SEP_EXISTS loc. cond(rv=Loc T loc))
  /\
  (REF_LIST rv (rv2::rvs) A (x::l) =
   (SEP_EXISTS loc v1.
-    cond(rv = Loc loc)
+    cond(rv = Loc T loc)
     * cell loc (Refv(Conv NONE [v1;rv2]))
     * cond(A x v1)
     * REF_LIST rv2 rvs A l
@@ -813,9 +813,9 @@ Theorem REF_LIST_extend:
   !rv rvs A l x v1.
    (REF_LIST rv rvs A l *
     SEP_EXISTS v1 loc loc'.
-     cond(LAST(rv::rvs) = Loc loc)
+     cond(LAST(rv::rvs) = Loc T loc)
      * cell loc (Refv(Conv NONE [v1;rv2]))
-     * cond(rv2 = Loc loc')
+     * cond(rv2 = Loc T loc')
      * cond(A x v1))
    = (REF_LIST rv (SNOC rv2 rvs) A (SNOC x l))
 Proof
@@ -895,7 +895,7 @@ Proof
 QED
 
 Theorem REF_cell_eq:
-  loc ~~>> Refv v = Loc loc ~~> v
+  loc ~~>> Refv v = Loc T loc ~~> v
 Proof
   rw[FUN_EQ_THM,cell_def,REF_def,SEP_EXISTS,cond_STAR]
 QED
@@ -971,7 +971,7 @@ Proof
 QED
 
 Theorem REF_LIST_is_loc:
-  !rv rvs A l h. REF_LIST rv rvs A l h ==> ?loc. rv = Loc loc
+  !rv rvs A l h. REF_LIST rv rvs A l h ==> ?loc. rv = Loc T loc
 Proof
   ho_match_mp_tac (fetch "-" "REF_LIST_ind") >>
   rw[REF_LIST_def,SEP_CLAUSES,SEP_F_def,STAR_def,SEP_EXISTS,cond_def]
@@ -1032,7 +1032,7 @@ Proof
 QED
 
 Theorem REF_LIST_rv_loc:
-  REF_LIST rv rvs n l h ==> ?loc. rv = Loc loc
+  REF_LIST rv rvs n l h ==> ?loc. rv = Loc T loc
 Proof
   rpt strip_tac >>
   imp_res_tac REF_LIST_LENGTH >>
