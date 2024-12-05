@@ -553,7 +553,7 @@ QED
 
 (* Correctness for the second step *)
 Theorem unbound_colour_correct:
-    ∀ls k k'.
+  ∀ls k k'.
   SORTED (λx y.x ≤ y) ls  ==>
   k ≤ unbound_colour k ls ∧
   ~MEM (unbound_colour k ls) ls
@@ -572,12 +572,28 @@ Proof
     first_x_assum(qspec_then`k` assume_tac)>>fs[]
 QED
 
+(*
+  Good negated preference oracle may only inspect, but not touch the state
+  Moreover, it must always select an element ≥ k not in the input list
+*)
+Definition good_neg_pref_def:
+  good_neg_pref (k:num) pref ⇔
+  ∀n bads s.
+    good_ra_state s ⇒
+    ∃res.
+    pref n bads s = (M_success res,s) ∧
+    case res of
+      NONE => T
+    | SOME c => ¬MEM c bads ∧ k <= c
+End
+
 Theorem assign_Stemp_tag_correct:
-    good_ra_state s ∧
+  good_ra_state s ∧
   no_clash s.adj_ls s.node_tag ∧
-  n < s.dim ⇒
+  n < s.dim ∧
+  good_neg_pref k prefs ⇒
   ∃s'.
-  assign_Stemp_tag k n s = (M_success (),s') ∧
+  assign_Stemp_tag k prefs n s = (M_success (),s') ∧
   (∀m.
     if n = m ∧ EL n s.node_tag = Stemp
       then ∃k'. EL n s'.node_tag = Fixed k' ∧ k ≤ k'
@@ -597,24 +613,39 @@ Proof
     fs[good_ra_state_def,EVERY_MEM,MEM_EL,PULL_EXISTS]>>
   imp_res_tac st_ex_MAP_node_tag_sub>>
   simp[]>>
-  qmatch_goalsub_abbrev_tac`unbound_colour k ls`>>
-  simp[EL_LUPDATE]>>
-  fs[good_ra_state_def]>>
-  `SORTED (\ x y. x ≤ y) ls` by
-    (fs[Abbr`ls`]>>
-    match_mp_tac QSORT_SORTED>>
-    fs[relationTheory.transitive_def,relationTheory.total_def])>>
-  drule unbound_colour_correct>>
-  strip_tac>>fs[]>>
-  match_mp_tac no_clash_LUPDATE_Fixed>>
-  simp[MEM_EL,PULL_EXISTS]>>
-  rw[]>>
-  first_x_assum(qspec_then`k` assume_tac)>>
-  qabbrev_tac`k' = unbound_colour k ls`>>
-  fs[Abbr`ls`,QSORT_MEM,MEM_MAP]>>
-  first_x_assum(qspec_then`Fixed k'` assume_tac)>>fs[tag_col_def]>>
-  pop_assum(qspec_then`EL n' (EL n s.adj_ls)` assume_tac)>>fs[]>>
-  metis_tac[MEM_EL]
+  gvs[good_neg_pref_def]>>
+  first_x_assum drule>>
+  qmatch_goalsub_abbrev_tac`prefs n bads`>>
+  `SORTED (\ x y. x ≤ y) bads` by
+      (fs[Abbr`bads`]>>
+      match_mp_tac QSORT_SORTED>>
+      fs[relationTheory.transitive_def,relationTheory.total_def])>>
+  disch_then(qspecl_then[`n`,`bads`] assume_tac)>>gvs[]>>
+  TOP_CASE_TAC >> simp[]
+  >- (
+    simp[EL_LUPDATE]>>
+    fs[good_ra_state_def]>>
+    drule unbound_colour_correct>>
+    strip_tac>>fs[]>>
+    match_mp_tac no_clash_LUPDATE_Fixed>>
+    simp[MEM_EL,PULL_EXISTS]>>
+    rw[]>>
+    first_x_assum(qspec_then`k` assume_tac)>>
+    qabbrev_tac`k' = unbound_colour k bads`>>
+    fs[Abbr`bads`,QSORT_MEM,MEM_MAP]>>
+    first_x_assum(qspec_then`Fixed k'` assume_tac)>>fs[tag_col_def]>>
+    pop_assum(qspec_then`EL n' (EL n s.adj_ls)` assume_tac)>>fs[]>>
+    metis_tac[MEM_EL])
+  >- (
+    gvs[EL_LUPDATE,good_ra_state_def]>>
+    match_mp_tac no_clash_LUPDATE_Fixed>>
+    simp[MEM_EL,PULL_EXISTS]>>
+    rw[]>>
+    fs[Abbr`bads`,QSORT_MEM,MEM_MAP]>>
+    first_x_assum(qspec_then`Fixed x` assume_tac)>>fs[tag_col_def]>>
+    pop_assum(qspec_then`EL n' (EL n s.adj_ls)` assume_tac)>>fs[]>>
+    metis_tac[MEM_EL]
+  )
 QED
 
 (* Almost exactly the same as the FOREACH for Atemps *)
@@ -622,9 +653,10 @@ Triviality assign_Stemps_FOREACH_lem:
   ∀ls s k.
   good_ra_state s ∧
   no_clash s.adj_ls s.node_tag ∧
-  EVERY (\v. v < s.dim) ls ==>
+  EVERY (\v. v < s.dim) ls ∧
+  good_neg_pref k prefs ⇒
   ∃s'.
-    st_ex_FOREACH ls (assign_Stemp_tag k) s = (M_success (),s') ∧
+    st_ex_FOREACH ls (assign_Stemp_tag k prefs) s = (M_success (),s') ∧
     no_clash s'.adj_ls s'.node_tag ∧
     good_ra_state s' ∧
     (∀m.
@@ -637,7 +669,7 @@ Proof
   fs msimps>- simp[ra_state_component_equality]>>
   drule (GEN_ALL assign_Stemp_tag_correct)>>
   rpt(disch_then drule)>>
-  disch_then(qspec_then`k` assume_tac)>>fs[]>>
+  rw[]>>gvs[]>>
   first_x_assum drule>>
   rpt (disch_then drule)>>
   fs[]>>simp[]>>
@@ -648,21 +680,20 @@ Proof
     (rpt(first_x_assum (qspec_then`h` mp_tac))>>
     simp[]>>
     strip_tac>>IF_CASES_TAC>>fs[])
-  >-
-    metis_tac[]
-  >>
-    fs[]>>(
-    rpt(first_x_assum (qspec_then`m` mp_tac))>>
-    simp[]>>
-    strip_tac>>IF_CASES_TAC>>fs[]>>
-    metis_tac[])
+  >- metis_tac[]>>
+  fs[]>>(
+  rpt(first_x_assum (qspec_then`m` mp_tac))>>
+  simp[]>>
+  strip_tac>>IF_CASES_TAC>>fs[]>>
+  metis_tac[])
 QED
 
 Theorem assign_Stemps_correct:
-    good_ra_state s ∧
-  no_clash s.adj_ls s.node_tag ⇒
+  good_ra_state s ∧
+  no_clash s.adj_ls s.node_tag ∧
+  good_neg_pref k prefs ⇒
   ∃s'.
-    assign_Stemps k s = (M_success (),s') ∧
+    assign_Stemps k prefs s = (M_success (),s') ∧
     no_clash s'.adj_ls s'.node_tag ∧
     good_ra_state s' ∧
     s' = s with node_tag := s'.node_tag ∧
@@ -679,7 +710,7 @@ Proof
   drule assign_Stemps_FOREACH_lem>>
   simp[]>>
   qmatch_goalsub_abbrev_tac`st_ex_FOREACH ls _`>>
-  disch_then (qspecl_then [`ls`,`k`] mp_tac)>>
+  disch_then (qspecl_then [`prefs`,`ls`,`k`] mp_tac)>>
   impl_tac>-
     fs[Abbr`ls`,EVERY_GENLIST]>>
   strip_tac>>
@@ -1910,7 +1941,9 @@ Triviality mk_tags_st_ex_FOREACH_lem:
   ∃s'.
     st_ex_FOREACH ls
        (λi.
-       if fa i MOD 4 = 1 then update_node_tag i Atemp
+       if fa i MOD 4 = 1 then
+        (case lookup (fa i) fs of NONE => update_node_tag i Atemp
+        | SOME () => update_node_tag i Stemp)
        else if fa i MOD 4 = 3 then update_node_tag i Stemp
        else update_node_tag i (Fixed (fa i DIV 2))) s = (M_success (),s') ∧
     good_ra_state s' ∧
@@ -1920,7 +1953,7 @@ Triviality mk_tags_st_ex_FOREACH_lem:
     if MEM x ls then
       (if is_phy_var (fa x) then EL x s'.node_tag = Fixed ((fa x) DIV 2)
       else if is_stack_var (fa x) then EL x s'.node_tag = Stemp
-      else EL x s'.node_tag = Atemp)
+      else EL x s'.node_tag = Atemp ∨ EL x s'.node_tag = Stemp)
     else
        EL x s'.node_tag = EL x s.node_tag)
 Proof
@@ -1928,6 +1961,7 @@ Proof
   >-
     simp[ra_state_component_equality]>>
   rw[]>>
+  TRY(rename1`lookup (fa h) fs`>>Cases_on`lookup (fa h) fs`>> gvs[])>>
   (reverse IF_CASES_TAC >- fs[good_ra_state_def])>>
   simp[]>>
   qmatch_goalsub_abbrev_tac`st_ex_FOREACH _ _ ss` >>
@@ -1938,7 +1972,13 @@ Proof
   ntac 2 strip_tac>>
   first_x_assum drule>>
   IF_CASES_TAC>> simp[]>>
-  fs[EL_LUPDATE]
+  rw[EL_LUPDATE]
+  >-
+    (`is_alloc_var (fa h)` by fs[is_alloc_var_def]>>
+    rw[]>>fs[Once convention_partitions])
+  >-
+    (`is_alloc_var (fa h)` by fs[is_alloc_var_def]>>
+    rw[]>>fs[Once convention_partitions])
   >-
     (`is_alloc_var (fa h)` by fs[is_alloc_var_def]>>
     rw[]>>fs[Once convention_partitions])
@@ -1951,22 +1991,22 @@ Proof
 QED
 
 Theorem mk_tags_succeeds:
-    good_ra_state s ∧
+  good_ra_state s ∧
   n = s.dim ⇒
   ∃s'.
-    mk_tags n fa s = (M_success (),s') ∧
+    mk_tags n fs fa s = (M_success (),s') ∧
     good_ra_state s' ∧
     s' = s with node_tag := s'.node_tag ∧
     ∀x y.
     x < n ∧ y = fa x ⇒
     if is_phy_var y then EL x s'.node_tag = Fixed (y DIV 2)
     else if is_stack_var y then EL x s'.node_tag = Stemp
-    else EL x s'.node_tag = Atemp
+    else EL x s'.node_tag = Atemp ∨ EL x s'.node_tag = Stemp
 Proof
   rw[mk_tags_def]>>fs msimps>>
   drule mk_tags_st_ex_FOREACH_lem>>
   qpat_abbrev_tac`ls = GENLIST _ _`>>
-  disch_then(qspecl_then[`ls`,`fa`] mp_tac)>>impl_tac>>
+  disch_then(qspecl_then[`fs`,`ls`,`fa`] mp_tac)>>impl_tac>>
   unabbrev_all_tac>>fs[EVERY_GENLIST]>>rw[]>>simp[]>>
   fs[MEM_GENLIST]
 QED
@@ -3137,39 +3177,67 @@ Proof
     TOP_CASE_TAC>>simp[]
 QED
 
+Triviality neg_first_match_col_correct:
+  ∀x ks s.
+  ∃res. neg_first_match_col k ks x s = (res,s) ∧
+  case res of
+    M_failure v => v = Subscript
+  | M_success (SOME c) => ¬MEM c ks ∧ k ≤ c
+  | _ => T
+Proof
+  Induct>>fs[neg_first_match_col_def]>>fs msimps>>
+  rw[]>>
+  TOP_CASE_TAC>>fs[]>>
+  IF_CASES_TAC>>fs[]
+QED
+
+Theorem good_neg_pref_neg_biased_pref:
+  good_neg_pref k (neg_biased_pref k t)
+Proof
+  rw[good_neg_pref_def,neg_biased_pref_def]>>
+  fs[get_dim_def]>>simp msimps>>
+  IF_CASES_TAC>>fs[good_ra_state_def]>>
+  TOP_CASE_TAC>>fs[handle_Subscript_def]>>
+  Cases_on`lookup n t`>>fs[]>>
+  qmatch_goalsub_abbrev_tac`neg_first_match_col _ _ ls _`>>
+  Q.ISPECL_THEN [`ls`,`bads`,`s`] assume_tac neg_first_match_col_correct>>fs[]>>
+  EVERY_CASE_TAC>>fs[]
+QED
+
 (* The top-most correctness theorem *)
 Theorem do_reg_alloc_correct:
-  ∀alg sc k moves ct forced st ta fa n.
-    mk_bij ct = (ta,fa,n)==>
-    st.adj_ls = REPLICATE n [] ==>
-    st.node_tag = REPLICATE n Atemp ==>
-    st.degrees = REPLICATE n 0 ==>
-    st.dim = n ==>
-    st.simp_wl = [] ==>
-    st.spill_wl = [] ==>
-    st.freeze_wl = [] ==>
-    st.avail_moves_wl = [] ==>
-    st.unavail_moves_wl = [] ==>
-    st.coalesced = REPLICATE n 0 ==>
-    st.move_related = REPLICATE n F ==>
-    (* Needs to be proved in wordLang *)
-    EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
-    ∃spcol st' livein flivein.
-      do_reg_alloc alg sc k moves ct forced (ta,fa,n) st = (M_success spcol,st') ∧
-      check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
-      (∀x. in_clash_tree ct x ⇒
-      x ∈ domain spcol ∧
-      if is_phy_var x then
-        sp_default spcol x = x DIV 2
-      else if is_stack_var x then
-        k ≤ (sp_default spcol x)
-      else
-        T) ∧
-      (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
-      EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced
+  ∀alg sc k moves ct forced fs st ta fa n.
+  mk_bij ct = (ta,fa,n)==>
+  st.adj_ls = REPLICATE n [] ==>
+  st.node_tag = REPLICATE n Atemp ==>
+  st.degrees = REPLICATE n 0 ==>
+  st.dim = n ==>
+  st.simp_wl = [] ==>
+  st.spill_wl = [] ==>
+  st.freeze_wl = [] ==>
+  st.avail_moves_wl = [] ==>
+  st.unavail_moves_wl = [] ==>
+  st.coalesced = REPLICATE n 0 ==>
+  st.move_related = REPLICATE n F ==>
+  (* Needs to be proved in wordLang *)
+  EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
+  ∃spcol st' livein flivein.
+    do_reg_alloc alg sc k moves ct forced fs (ta,fa,n) st = (M_success spcol,st') ∧
+    check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
+    (∀x. in_clash_tree ct x ⇒
+    x ∈ domain spcol ∧
+    if is_phy_var x then
+      sp_default spcol x = x DIV 2
+    else if is_stack_var x then
+      k ≤ (sp_default spcol x)
+    else
+      T) ∧
+    (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
+    EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced
 Proof
   rw[do_reg_alloc_def,init_ra_state_def,mk_bij_def]>>fs msimps>>
-  `(λ(ta,fa,n). (ta,fa,n)) (mk_bij_aux ct (LN,LN,0)) = (mk_bij_aux ct (LN,LN,0))` by (Cases_on `mk_bij_aux ct (LN,LN,0)`>>Cases_on `r`>>fs[])>>
+  `(λ(ta,fa,n). (ta,fa,n)) (mk_bij_aux ct (LN,LN,0)) = (mk_bij_aux ct (LN,LN,0))` by
+    (Cases_on `mk_bij_aux ct (LN,LN,0)`>>Cases_on `r`>>fs[])>>
   first_x_assum(fn x => fs[x])>>
   drule mk_bij_aux_domain>>rw[]>>
   drule mk_bij_aux_bij>> impl_tac>-
@@ -3213,7 +3281,7 @@ Proof
   qpat_x_assum`!a b. _`mp_tac>>
   qmatch_goalsub_abbrev_tac`hide2 ⇒ _`>>
   drule (GEN_ALL mk_tags_succeeds)>>
-  disch_then(qspecl_then[`st.dim`,`sp_default fa`] mp_tac)>>
+  disch_then(qspecl_then[`st.dim`,`fs`,`sp_default fa`] mp_tac)>>
   impl_tac>-
     fs[ra_state_component_equality]>>
   rw[]>>simp[]>>
@@ -3249,7 +3317,10 @@ Proof
   qmatch_goalsub_abbrev_tac`assign_Atemps _ _ (biased_pref mov)`>>
   disch_then (qspecl_then[`k`,`ls`,`biased_pref mov`] assume_tac)>>
   fs[good_pref_biased_pref]>>
-  drule (Q.GEN ‘s’ assign_Stemps_correct)>>rw[]>>simp[]>>
+  drule (GEN_ALL assign_Stemps_correct)>>
+  disch_then(qspecl_then[`neg_biased_pref k mov`,`k`] mp_tac)>>
+  impl_tac >- simp[good_neg_pref_neg_biased_pref]>>
+  rw[]>>simp[]>>
   drule (GEN_ALL extract_color_succeeds)>>
   disch_then(qspec_then`ta` mp_tac)>>
   impl_tac>-
@@ -3360,11 +3431,11 @@ fun first_prove_imp thms =
 
 (* The top-most correctness theorem *)
 Theorem reg_alloc_correct:
-    ∀alg sc k moves ct forced.
+  ∀alg sc k moves ct forced fs.
   (* Needs to be proved in wordLang *)
   EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
   ∃spcol livein flivein.
-    reg_alloc alg sc k moves ct forced = M_success spcol ∧
+    reg_alloc alg sc k moves ct forced fs = M_success spcol ∧
     check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
     (∀x. in_clash_tree ct x ⇒
     x ∈ domain spcol ∧
@@ -3380,9 +3451,9 @@ Proof
   rw[reg_alloc_def]>>
   Cases_on `mk_bij ct`>>Cases_on`r`>>rw[]>>
   rw[reg_alloc_aux_def,run_ira_state_def,run_def]>>
-  qmatch_goalsub_abbrev_tac `do_reg_alloc _ _ _ _ _ _ _ st` >>
+  qmatch_goalsub_abbrev_tac `do_reg_alloc _ _ _ _ _ _ _ _ st` >>
   qmatch_goalsub_abbrev_tac `(ta,fa,n)` >>
-  ASSUME_TAC (Q.SPECL [`alg`,`sc`,`k`,`moves`,`ct`,`forced`,`st`,`ta`,`fa`,`n`] do_reg_alloc_correct)>>
+  ASSUME_TAC (Q.SPECL [`alg`,`sc`,`k`,`moves`,`ct`,`forced`,`fs`,`st`,`ta`,`fa`,`n`] do_reg_alloc_correct)>>
   first_x_assum drule >> rw[] >>
   first_prove_imp [Abbr `st`,ra_state_component_equality] >>
   first_prove_imp [Abbr `st`,ra_state_component_equality] >>
