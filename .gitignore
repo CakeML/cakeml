@@ -8,6 +8,7 @@
 *.o
 .HOLMK
 .hollogs
+.holobjs
 
 # TacticToe
 *Script_ttt.sml

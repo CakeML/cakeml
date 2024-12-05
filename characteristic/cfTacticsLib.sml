@@ -1,7 +1,7 @@
 (*
   Various tactics for reasoning about CF-based goals in HOL.
 *)
-structure cfTacticsLib (*:> cfTacticsLib*) =
+structure cfTacticsLib :> cfTacticsLib =
 struct
 
 open preamble

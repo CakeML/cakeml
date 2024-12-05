@@ -930,7 +930,6 @@ Proof
   rw [] >> qpat_abbrev_tac `Q = POSTve _ _` >>
   simp [IOFS_def, fs_ffi_part_def, IOx_def, IO_def] >>
   xpull >> qunabbrev_tac `Q` >>
-  rpt strip_tac >>
   xcf_with_def TextIO_openIn_v_def >>
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >>
   REVERSE (Cases_on`consistentFS fs`) >-(xpull >> fs[wfFS_def]) >>

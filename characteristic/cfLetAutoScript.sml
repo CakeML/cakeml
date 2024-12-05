@@ -3,6 +3,7 @@
   xlet_auto tactic.
 *)
 open preamble ml_translatorTheory cfTacticsLib set_sepTheory cfHeapsBaseTheory cfStoreTheory Satisfy
+open helperLib cfTheory
 
 val _ = new_theory "cfLetAuto";
 

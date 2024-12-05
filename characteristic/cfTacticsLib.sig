@@ -1,6 +1,6 @@
 signature cfTacticsLib =
 sig
-  include Abbrev
+  include cfTacticsBaseLib
 
   (* Parse and normalise a program consisting of one or several toplevel
      declarations *)
@@ -14,7 +14,7 @@ sig
      into a characteristic formula.
   *)
   val xcf : string -> ml_progLib.ml_prog_state -> tactic
-  val xcf_with_def : string -> thm -> tactic
+  val xcf_with_def : thm -> tactic
 
   (* [xpull] must be called whenever the goal is a cf which
      precondition contains pure facts ([& H]); [xpull] then
