@@ -275,7 +275,7 @@ Theorem do_app_NONE_ffi:
    do_app (refs,ffi) op args = NONE ⇒
    do_app (refs,ffi') op args = NONE
 Proof
-  Cases_on `op` \\ fs [do_app_def]
+  Cases_on `op` \\ fs [do_app_def,thunk_op_def]
   \\ gvs [AllCaseEqs()] \\ rpt strip_tac \\ gvs []
   \\ rpt (pairarg_tac \\ gvs[])
   \\ every_case_tac \\ fs[]
@@ -288,7 +288,7 @@ Theorem do_app_SOME_ffi_same:
    do_app (refs,ffi') op args = SOME ((refs',ffi'),r)
 Proof
   rw[]
-  \\ gvs [do_app_def,AllCaseEqs()]
+  \\ gvs [do_app_def,AllCaseEqs(),thunk_op_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ fs[ffiTheory.call_FFI_def]
   \\ gvs [do_app_def,AllCaseEqs()]
@@ -302,7 +302,7 @@ Theorem do_app_ffi_unchanged:
     do_app (st, ffi) op vs = SOME ((st', ffi'), res)
   ⇒ ffi = ffi'
 Proof
-  rpt gen_tac >> simp[do_app_def] >>
+  rpt gen_tac >> simp[do_app_def,thunk_op_def] >>
   every_case_tac >> gvs[store_alloc_def]
 QED
 
@@ -329,7 +329,8 @@ Theorem do_app_ffi_changed:
         [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
                   (ZIP (ws,ws'))]
 Proof
-  simp[do_app_def] >> every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
+  simp[do_app_def,thunk_op_def] >>
+  every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
   strip_tac >> gvs[call_FFI_def] >>
   every_case_tac >> gvs[combinTheory.o_DEF, IMPLODE_EXPLODE_I]
 QED
@@ -340,16 +341,15 @@ Theorem do_app_not_timeout:
   a ≠ Rtimeout_error
 Proof
   Cases_on `s` >>
-  srw_tac[][do_app_cases] >>
-  every_case_tac >>
-  srw_tac[][]
+  srw_tac[][do_app_cases,thunk_op_def,AllCaseEqs(),store_alloc_def] >>
+  gvs []
 QED
 
 Theorem do_app_type_error:
   do_app s op es = SOME (x,Rerr (Rabort a)) ⇒ x = s
 Proof
   PairCases_on `s` >>
-  srw_tac[][do_app_def] >>
+  srw_tac[][do_app_def,thunk_op_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM,UNCURRY] >>
   every_case_tac >> full_simp_tac(srw_ss())[]
 QED
@@ -517,7 +517,8 @@ val _ = export_rewrites["every_result_def"]
 Definition map_sv_def:
   map_sv f (Refv v) = Refv (f v) ∧
   map_sv _ (W8array w) = (W8array w) ∧
-  map_sv f (Varray vs) = (Varray (MAP f vs))
+  map_sv f (Varray vs) = (Varray (MAP f vs)) ∧
+  map_sv f (Thunk b v) = (Thunk b (f v))
 End
 val _ = export_rewrites["map_sv_def"]
 
@@ -533,6 +534,7 @@ val _ = export_rewrites["dest_Refv_def","is_Refv_def"]
 Definition sv_every_def:
   sv_every P (Refv v) = P v ∧
   sv_every P (Varray vs) = EVERY P vs ∧
+  sv_every P (Thunk b v) = P v ∧
   sv_every P _ = T
 End
 val _ = export_rewrites["sv_every_def"]
@@ -541,6 +543,7 @@ Definition sv_rel_def:
   sv_rel R (Refv v1) (Refv v2) = R v1 v2 ∧
   sv_rel R (W8array w1) (W8array w2) = (w1 = w2) ∧
   sv_rel R (Varray vs1) (Varray vs2) = LIST_REL R vs1 vs2 ∧
+  sv_rel R (Thunk b1 v1) (Thunk b2 v2) = (b1 = b2 ∧ R v1 v2) ∧
   sv_rel R _ _ = F
 End
 val _ = export_rewrites["sv_rel_def"]
@@ -565,9 +568,10 @@ Theorem sv_rel_cases:
     sv_rel R x y ⇔
     (∃v1 v2. x = Refv v1 ∧ y = Refv v2 ∧ R v1 v2) ∨
     (∃w. x = W8array w ∧ y = W8array w) ∨
+    (∃b v1 v2. x = Thunk b v1 ∧ y = Thunk b v2 ∧ R v1 v2) ∨
     (?vs1 vs2. x = Varray vs1 ∧ y = Varray vs2 ∧ LIST_REL R vs1 vs2)
 Proof
-  Cases >> Cases >> simp[sv_rel_def,EQ_IMP_THM]
+  Cases >> Cases >> simp[sv_rel_def,EQ_IMP_THM] >> metis_tac []
 QED
 
 Theorem sv_rel_O:
@@ -586,7 +590,8 @@ QED
 Definition store_v_vs_def:
   store_v_vs (Refv v) = [v] ∧
   store_v_vs (Varray vs) = vs ∧
-  store_v_vs (W8array _) = []
+  store_v_vs (W8array _) = [] ∧
+  store_v_vs (Thunk _ v) = [v]
 End
 val _ = export_rewrites["store_v_vs_def"]
 

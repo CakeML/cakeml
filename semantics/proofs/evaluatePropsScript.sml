@@ -88,8 +88,8 @@ Theorem do_app_call_FFI_rel:
    do_app (r,ffi) op vs = SOME ((r',ffi'),res) ⇒
    call_FFI_rel^* ffi ffi'
 Proof
-  srw_tac[][do_app_cases] >> rw[] >>
-  FULL_CASE_TAC >>
+  srw_tac[][do_app_cases,thunk_op_def,AllCaseEqs(),store_alloc_def] >> rw[] >>
+  TRY FULL_CASE_TAC >>
   fs[option_case_eq] >>
   rpt (FULL_CASE_TAC \\ fs[]) >>
   match_mp_tac RTC_SUBSET >> rw[call_FFI_rel_def] >> fs[] >> every_case_tac
@@ -283,8 +283,8 @@ Theorem do_app_refs_length:
    do_app refs_ffi op vs = SOME res ==>
    LENGTH (FST refs_ffi) <= LENGTH (FST (FST res))
 Proof
-  rw [] \\ Cases_on `refs_ffi` \\ Cases_on `op` \\ fs [do_app_def]
-  \\ every_case_tac \\ fs []
+  rw [] \\ Cases_on `refs_ffi` \\ Cases_on `op`
+  \\ gvs [do_app_def,thunk_op_def,AllCaseEqs(),store_assign_def]
   \\ fs [store_assign_def,store_alloc_def]
   \\ rveq \\ fs [] \\ rveq \\ fs[]
 QED
@@ -418,7 +418,7 @@ val step_tac =
     @ map ho_match_mp_tac [is_clock_io_mono_bind, is_clock_io_mono_check]
     @ [CHANGED_TAC (fs [Cong is_clock_io_mono_cong,
                         is_clock_io_mono_return, is_clock_io_mono_err,
-                        do_eval_res_def, dec_inc_clock]), TOP_CASE_TAC]))
+                        do_eval_res_def, dec_inc_clock]), TOP_CASE_TAC]));
 
 Theorem is_clock_io_mono_evaluate:
    (!(s : 'ffi state) env es. is_clock_io_mono (\s. evaluate s env es) s) /\
@@ -449,6 +449,7 @@ Proof
                                    is_clock_io_mono_do_app_simple]), CASE_TAC])
     \\ ho_match_mp_tac is_clock_io_mono_check \\ gs[] \\ rpt strip_tac
     \\ res_tac \\ gs[dec_inc_clock])
+  >- cheat (* Force *)
   >- (assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_simple) \\ fs[])
   >- (assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_icing) \\ gs[])
   \\ assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_real) \\ fs[])
@@ -892,7 +893,21 @@ Proof
   \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
   \\ strip_tac
   \\ fs [evaluate_case_eqs, dec_clock_def, do_eval_res_def, shift_fp_opts_def]
-  \\ TRY (Cases_on ‘getOpClass op’)
+  >~ [‘op:op’] >-
+   (Cases_on ‘getOpClass op = Force’ >- cheat
+    \\ Cases_on ‘getOpClass op’ \\ fs []
+    \\ fs [evaluate_case_eqs, dec_clock_def, do_eval_res_def]
+    \\ rveq \\ fs []
+    \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
+    \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_next_type_stamp_mono
+    \\ imp_res_tac evaluate_next_exn_stamp_mono
+    \\ rw []
+    \\ fs [build_tdefs_def]
+    \\ qpat_x_assum `fix_clock _ _ = _` mp_tac
+    \\ rpt (TOP_CASE_TAC \\ gs[fix_clock_def])
+    \\ rpt strip_tac \\ rveq
+    \\ gs[fix_clock_def])
   \\ fs [evaluate_case_eqs, dec_clock_def, do_eval_res_def]
   \\ rveq \\ fs []
   \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
@@ -924,8 +939,9 @@ Theorem do_app_ffi_unchanged:
   !ffi2. do_app (refs, ffi2) op vs = SOME ((refs',ffi2), r)
 Proof
   disch_then (strip_assume_tac o REWRITE_RULE [do_app_cases])
-  \\ rw [do_app_def] \\ rveq \\ fs []
-  \\ every_case_tac \\ rveq \\ fs [] \\ rveq \\ fs []
+  \\ gvs [do_app_def,oneline thunk_op_def,AllCaseEqs()]
+  \\ CCONTR_TAC \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [call_FFI_return_unchanged,
          Q.SPECL [`x`, `ExtCall ""`] ffiTheory.call_FFI_def]
   \\ rveq \\ fs []
@@ -1047,6 +1063,7 @@ Proof
                      `evaluate (dec_clock s2) _ _ = (s3, _)`]
           \\ fs[dec_clock_def]
           \\ by_eq)
+      >- cheat (* Force *)
       >- (
         ntac 2 (TOP_CASE_TAC \\ fs[]) >- (trivial)
         \\ ntac 2 (TOP_CASE_TAC \\ fs[])
@@ -1187,6 +1204,7 @@ Proof
                   `evaluate (dec_clock s2) _ _ = (s3, _)`]
        \\ fs[dec_clock_def]
        \\ by_eq)
+   >- cheat (* Force *)
    >- (
     ntac 2 (TOP_CASE_TAC \\ fs[]) >- (trivial)
     \\ ntac 2 (TOP_CASE_TAC \\ fs[])
@@ -1345,6 +1363,7 @@ Proof
                      `evaluate (dec_clock s2) _ _ = (s3, _)`]
           \\ fs[dec_clock_def]
           \\ by_eq)
+    >- cheat (* Force *)
       >- (
         ntac 2 (TOP_CASE_TAC \\ fs[]) >- (trivial)
         \\ ntac 2 (TOP_CASE_TAC \\ fs[])
@@ -1479,6 +1498,8 @@ Proof
   \\ TRY (rename1 ‘_ = Icing’
           \\ qpat_x_assum ‘∀ outcome. _ ≠ Rerr (Rabort _)’ mp_tac
           \\ ntac 4 TOP_CASE_TAC \\ gs[shift_fp_opts_def])
+  \\ TRY (rename1 ‘_ = Force’
+          \\ cheat)
   \\ TRY (imp_res_tac do_app_io_events_mono
     \\ imp_res_tac io_events_mono_trans
     \\ CHANGED_TAC (rpt
@@ -1675,6 +1696,7 @@ Proof
   \\ TRY (rename [`Case ([App _ _])`] ORELSE cheat)
   *)
   \\ TRY (rename [`Case ([App _ _])`]
+    \\ Cases_on ‘getOpClass op = Force’ >- cheat
     \\ Cases_on ‘getOpClass op’ \\ gs[]
     \\ rpt (MAP_FIRST (dxrule_then (strip_assume_tac o SIMP_RULE bool_ss []))
       [hd (RES_CANON pair_case_eq), hd (RES_CANON result_case_eq), hd (RES_CANON bool_case_eq)]
@@ -1782,8 +1804,8 @@ Theorem do_app_ffi_mono:
    ?l. ffi'.io_events = ffi.io_events ++ l
 Proof
   rw[]
-  \\ fs[semanticPrimitivesPropsTheory.do_app_cases]
-  \\ rw[] \\ fs[]
+  \\ gvs [semanticPrimitivesPropsTheory.do_app_cases,oneline thunk_op_def,
+          AllCaseEqs(),store_alloc_def]
   \\ fs[ffiTheory.call_FFI_def]
   \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
   \\ rveq \\ fs[ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
@@ -1798,7 +1820,8 @@ Theorem do_app_SOME_ffi_same_oracle_state:
 Proof
   simp [Once semanticPrimitivesPropsTheory.do_app_cases]
   \\ rw []
-  \\ fs [do_app_def]
+  \\ gvs [do_app_def,oneline thunk_op_def,AllCaseEqs(),store_alloc_def]
+  >- (CCONTR_TAC \\ gvs [])
   \\ simp [DROP_LENGTH_NIL]
   \\ fs[ffiTheory.call_FFI_def]
   \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
@@ -1827,10 +1850,9 @@ Theorem evaluate_history_irrelevance:
 Proof
   ho_match_mp_tac full_evaluate_ind
   \\ rw[full_evaluate_def]
-  \\ TRY (Cases_on ‘getOpClass op’ \\ gs[])
   \\ fs [do_eval_res_def,error_result_case_eq,option_case_eq,
          exp_or_val_case_eq,list_case_eq,match_result_case_eq,
-         pair_case_eq,result_case_eq,bool_case_eq]
+         pair_case_eq,result_case_eq,bool_case_eq,AllCaseEqs()]
   \\ rveq \\ fs []
   \\ simp [rich_listTheory.DROP_LENGTH_NIL_rwt]
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, dec_clock_def]

@@ -1406,8 +1406,8 @@ Theorem fpOp_no_err:
 Proof
   rpt strip_tac
   \\ qpat_x_assum `do_app _ _ _ = _` mp_tac
-  \\ Cases_on `isFpBool op` \\ Cases_on `op` \\ fs[getOpClass_def, isFpBool_def, do_app_def]
-  \\ rpt (TOP_CASE_TAC \\ fs[])
+  \\ Cases_on `isFpBool op` \\ Cases_on `op`
+  \\ fs[getOpClass_def, isFpBool_def, do_app_def, oneline thunk_op_def, AllCaseEqs()]
   \\ rpt strip_tac \\ rveq \\ fs[]
 QED
 
@@ -1758,7 +1758,7 @@ Proof
      >> rw []
      >> metis_tac [store_type_extension_trans])
    >> `getOpClass op ≠ FunApp`
-     by (Cases_on `op` >> fs[getOpClass_def])
+     by (Cases_on `op` >> fs[getOpClass_def,AllCaseEqs()])
    >> Cases_on `getOpClass op = Icing` >> fs[]
    >- ( (* FP ops *)
     Cases_on `s1.fp_state.canOpt = FPScope Opt`
@@ -1801,6 +1801,10 @@ Proof
    >- (
      Cases_on `op` >> fs[getOpClass_def]
      >> Cases_on `ts` >> fs[type_op_def])
+   >> Cases_on `getOpClass op = Force`
+   >- (
+     Cases_on `op` >> gvs[getOpClass_def,AllCaseEqs()]
+     >> Cases_on `ts` >> fs[type_op_def])
    >> Cases_on ‘getOpClass op = EvalOp’
    >- (
      Cases_on ‘op’ >> gs[getOpClass_def]
@@ -1810,7 +1814,7 @@ Proof
    >> drule op_type_sound
    >> rpt (disch_then drule)
    >> disch_then (qspec_then `s1.ffi` mp_tac)
-   >> `getOpClass op = Simple` by (Cases_on `op` >> fs[getOpClass_def])
+   >> `getOpClass op = Simple` by (Cases_on `op` >> fs[getOpClass_def,AllCaseEqs()])
    >> rw []
    >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
    >> Cases_on `r1`

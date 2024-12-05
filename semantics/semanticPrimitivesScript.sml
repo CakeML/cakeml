@@ -426,8 +426,7 @@ Definition pmatch_def:
   (case store_lookup lnum s of
      NONE => Match_type_error
    | SOME (Refv v) => pmatch envC s p v env
-   | SOME (W8array v6) => Match_type_error
-   | SOME (Varray v7) => Match_type_error) ∧
+   | SOME _ => Match_type_error) ∧
   pmatch envC s (Pas p i) v env = pmatch envC s p v ((i,v)::env) ∧
   pmatch envC s (Ptannot p t) v env = pmatch envC s p v env ∧
   pmatch envC s _ _ env = Match_type_error ∧
@@ -883,14 +882,16 @@ Termination
 End
 
 Definition thunk_op_def:
-  thunk_op (s: v store_v list, t: 'ffi ffi_state) (AllocThunk b) [v] =
-    (let (s',n) = store_alloc (Thunk b v) s in
-       SOME ((s',t), Rval (Loc F n))) ∧
-  thunk_op (s, t) (UpdateThunk b) [Loc _ lnum; v] =
-    (case store_assign lnum (Thunk b v) s of
-       SOME s' => SOME ((s',t), Rval (Conv NONE []))
-     | NONE => NONE) ∧
-  thunk_op _ _ _ = NONE
+  thunk_op (s: v store_v list, t: 'ffi ffi_state) th_op vs =
+    case (th_op,vs) of
+    | (AllocThunk b, [v]) =>
+        (let (s',n) = store_alloc (Thunk b v) s in
+           SOME ((s',t), Rval (Loc F n)))
+    | (UpdateThunk b, [Loc _ lnum; v]) =>
+        (case store_assign lnum (Thunk b v) s of
+         | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+         | NONE => NONE)
+    | _ => NONE
 End
 
 Definition do_app_def:

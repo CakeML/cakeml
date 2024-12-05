@@ -118,7 +118,7 @@ Theorem fpOp_determ:
 Proof
   rpt strip_tac \\ Cases_on `op` \\ fs[astTheory.getOpClass_def]
   \\ rpt (qpat_x_assum `do_app _ _ _ = _` mp_tac)
-  \\ fs[do_app_def]
+  \\ fs[do_app_def,thunk_op_def]
   \\ rpt (TOP_CASE_TAC \\ fs[])
 QED
 
@@ -130,10 +130,9 @@ Theorem realOp_determ:
 Proof
   rpt strip_tac \\ Cases_on `op` \\ fs[astTheory.getOpClass_def]
   \\ rpt (qpat_x_assum `do_app _ _ _ = _` mp_tac)
-  \\ fs[do_app_def]
+  \\ fs[do_app_def,thunk_op_def]
   \\ rpt (TOP_CASE_TAC \\ fs[])
 QED
-
 
 Theorem evaluate_fp_stable:
   ! (s1 s2) env exps r.
@@ -258,7 +257,7 @@ Theorem evaluate_fp_opt_add_bind:
   (∀ (st1:'a state) env v pl err_v.
     ^eval_match_goal st1 env v pl err_v) ∧
   (∀ (st1:'a state) env decls.
-     ^eval_decs_goal st1 env decls)
+    ^eval_decs_goal st1 env decls)
 Proof
   match_mp_tac indThm
   \\ rpt strip_tac \\ fs[evaluate_def, evaluate_decs_def]
@@ -318,6 +317,7 @@ Proof
         \\ ntac 2 (TOP_CASE_TAC \\ fs[])
         >- solve_simple
         \\ solve_complex)
+    >- cheat
     >- (
      TOP_CASE_TAC \\ fs[]
      >- solve_simple
@@ -673,6 +673,8 @@ Proof
         \\ ntac 2 (TOP_CASE_TAC \\ fs[]) >- solve_simple
         \\ strip_tac \\ fs[dec_clock_def]
         \\ solve_complex)
+    (* Force *)
+    >- cheat
     (* Simple *)
     >- (
       TOP_CASE_TAC \\ fs[] >- solve_simple
