@@ -1118,7 +1118,7 @@ val ffi_inst = type_of “basis_ffi _ _” |> dest_type |> snd |> hd
 Theorem evaluate_decs_compiler64_prog:
   s.compiler = compiler_inst x64_config ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
-  s.env_id_counter = (0,0,1) ∧
+  s.env_id_counter = (0,0,1) ∧ prog_syntax_ok compiler64_prog ∧
   has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
   s.compiler_state = BACKEND_INC_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ∧
@@ -1137,6 +1137,16 @@ Proof
        |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
        |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’
        |> Q.INST [‘eval_state_var’|->‘s’])
+  \\ dxrule ml_progTheory.Decls_IMP_Prog
+  \\ ‘prog_syntax_ok (FRONT compiler64_prog)’ by
+    (irule ml_progTheory.prog_syntax_ok_isPREFIX
+     \\ first_x_assum $ irule_at Any
+     \\ Cases_on ‘compiler64_prog’ using SNOC_CASES
+     \\ gvs [])
+  \\ ‘prog_syntax_ok repl_prog’ by
+    (irule ml_progTheory.prog_syntax_ok_isPREFIX
+     \\ irule_at Any repl_prog_isPREFIX \\ fs [])
+  \\ impl_tac >- fs [] \\ strip_tac
   \\ drule repl_types_repl_prog
   \\ disch_then drule
   \\ disch_then (qspec_then ‘encode_backend_config conf’ mp_tac)
@@ -1146,8 +1156,8 @@ Proof
     \\ fs [repl_prog_st_def, ml_progTheory.init_state_def])
   \\ fs [repl_prog_st_def]
   \\ qpat_abbrev_tac ‘ppp = W8array _ :: _’ \\ pop_assum kall_tac
-  \\ pop_assum kall_tac
-  \\ pop_assum kall_tac
+  \\ qpat_x_assum ‘Prog _ _ _ _ _’ kall_tac
+  \\ qpat_x_assum ‘evaluate_decs _ _ _ = _’ kall_tac
   \\ strip_tac \\ fs [LAST_compiler64_prog]
   \\ qpat_x_assum ‘evaluate_decs _ _ _ = _’ mp_tac
   (* calling main *)
@@ -1271,7 +1281,7 @@ Theorem semantics_prog_compiler64_prog:
   s.compiler = compiler_inst x64_config ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
   s.env_id_counter = (0,0,1) ∧ has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧
-  STD_streams fs ∧ hasFreeFD fs ∧
+  STD_streams fs ∧ hasFreeFD fs ∧ prog_syntax_ok compiler64_prog ∧
   s.compiler_state = BACKEND_INC_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ⇒
   Fail ∉ semantics_prog

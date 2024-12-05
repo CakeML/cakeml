@@ -18,7 +18,9 @@ val hello_io_events_def =
   |> SIMP_RULE std_ss [SKOLEM_THM]);
 
 val (hello_sem,hello_output) = hello_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (hello_not_fail,hello_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail hello_sem |> CONJ_PAIR
+val (hello_not_fail,hello_sem_sing) = hello_sem
+  |> SRULE [hello_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val ffinames_to_string_list_def = backendTheory.ffinames_to_string_list_def;
 

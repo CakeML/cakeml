@@ -6,7 +6,7 @@
 open preamble
 open astTheory semanticPrimitivesTheory evaluateTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory;
-open mlstringTheory integerTheory;
+open mlstringTheory integerTheory evaluate_decTheory;
 open namespaceTheory;
 open alist_treeTheory;
 
@@ -317,13 +317,17 @@ Proof
 QED
 (* the components of nsLookup are 'nicer' partial functions *)
 
-
-
-
 (* --- declarations --- *)
 
 Definition Decls_def:
   Decls env s1 ds env2 s2 <=>
+    s1.clock = s2.clock /\
+    ?ck1 ck2. evaluate_dec_list (s1 with clock := ck1) env ds =
+                                (s2 with clock := ck2, Rval env2)
+End
+
+Definition Prog_def:
+  Prog env s1 ds env2 s2 <=>
     s1.clock = s2.clock /\
     ?ck1 ck2. evaluate_decs (s1 with clock := ck1) env ds =
                             (s2 with clock := ck2, Rval env2)
@@ -336,7 +340,7 @@ Theorem Decls_Dtype:
       s2 = s with <| next_type_stamp := (s.next_type_stamp + LENGTH tds) |> /\
       env2 = write_tdefs s.next_type_stamp tds empty_env
 Proof
-  SIMP_TAC std_ss [Decls_def,evaluate_decs_def]
+  SIMP_TAC std_ss [Decls_def,evaluate_dec_list_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [bool_case_eq]
   \\ rveq \\ fs [state_component_equality,write_tdefs_thm]
 QED
@@ -347,7 +351,7 @@ Theorem Decls_Dexn:
       s2 = s with <| next_exn_stamp := (s.next_exn_stamp + 1) |> /\
       env2 = write_cons n (LENGTH l, ExnStamp s.next_exn_stamp) empty_env
 Proof
-  SIMP_TAC std_ss [Decls_def,evaluate_decs_def,write_cons_def]
+  SIMP_TAC std_ss [Decls_def,evaluate_dec_list_def,write_cons_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [bool_case_eq]
   \\ rveq \\ fs [state_component_equality,write_tdefs_thm]
   \\ fs [nsBind_def,nsEmpty_def,nsSing_def,empty_env_def]
@@ -358,7 +362,7 @@ Theorem Decls_Dtabbrev:
       Decls env s [Dtabbrev locs x y z] env2 s2 <=>
       s2 = s ∧ env2 = empty_env
 Proof
-  fs [Decls_def,evaluate_decs_def]
+  fs [Decls_def,evaluate_dec_list_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [bool_case_eq]
   \\ rveq \\ fs [state_component_equality,empty_env_def]
 QED
@@ -405,10 +409,9 @@ End
 Theorem Decls_Dlet:
    !env s1 v e s2 env2 locs.
       Decls env s1 [Dlet locs (Pvar v) e] env2 s2 <=>
-      ?x. eval_rel s1 env e s2 x /\ (env2 = write v x empty_env) /\
-          every_exp (one_con_check env.c) e
+      ?x. eval_rel s1 env e s2 x /\ (env2 = write v x empty_env)
 Proof
-  simp [Decls_def,evaluate_decs_def,eval_rel_def]
+  simp [Decls_def,evaluate_dec_list_def,eval_rel_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [bool_case_eq]
   THEN1
    (FULL_CASE_TAC
@@ -423,22 +426,21 @@ Proof
 QED
 
 Triviality FOLDR_LEMMA:
-  !xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
-           FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs
+  ∀xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
+          FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs
 Proof
   Induct \\ FULL_SIMP_TAC (srw_ss()) [FORALL_PROD]
 QED
 
 (* Delays the write in build_rec_env *)
 Theorem Decls_Dletrec:
-   !env s1 funs s2 env2 locs.
+   ∀env s1 funs s2 env2 locs.
       Decls env s1 [Dletrec locs funs] env2 s2 <=>
       (s2 = s1) /\
       ALL_DISTINCT (MAP (\(x,y,z). x) funs) /\
-      EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) funs /\
       (env2 = write_rec funs env empty_env)
 Proof
-  simp [Decls_def,evaluate_decs_def,bool_case_eq,PULL_EXISTS]
+  simp [Decls_def,evaluate_dec_list_def,bool_case_eq,PULL_EXISTS]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs []
   \\ fs [state_component_equality,write_rec_def]
   \\ fs[write_def,write_rec_thm,empty_env_def,build_rec_env_def]
@@ -455,7 +457,7 @@ Theorem Decls_Dmod:
       Decls env1 s1 ds env s /\ s2 = s /\
       env2 = write_mod mn env empty_env
 Proof
-  fs [Decls_def,Decls_def,evaluate_decs_def,PULL_EXISTS,
+  fs [Decls_def,Decls_def,evaluate_dec_list_def,PULL_EXISTS,
       combine_dec_result_def,write_mod_def,empty_env_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [pair_case_eq,result_case_eq]
   \\ rveq \\ fs [] \\ asm_exists_tac \\ fs []
@@ -466,9 +468,9 @@ Theorem Decls_Dlocal:
     ==> Decls (merge_env env2 env) st2 ds env3 st3
     ==> Decls env st [Dlocal lds ds] env3 st3
 Proof
-  fs [Decls_def,evaluate_decs_def,extend_dec_env_def,merge_env_def]
+  fs [Decls_def,evaluate_dec_list_def,extend_dec_env_def,merge_env_def]
   \\ rw [pair_case_eq, result_case_eq]
-  \\ imp_res_tac evaluate_decs_set_clock
+  \\ imp_res_tac evaluate_dec_list_set_clock
   \\ fs [] \\ metis_tac []
 QED
 
@@ -480,7 +482,7 @@ Theorem Decls_Denv:
       s2 = s1 with eval_state := es ∧
       env2 = write v env1 empty_env
 Proof
-  rw[Decls_def, evaluate_decs_def]
+  rw[Decls_def, evaluate_dec_list_def]
   \\ TOP_CASE_TAC
   \\ PairCases_on`x`
   \\ simp[write_def,empty_env_def,state_component_equality]
@@ -493,7 +495,7 @@ Theorem Decls_NIL:
       Decls env s [] env2 s2 <=>
       s2 = s ∧ env2 = empty_env
 Proof
-  fs [Decls_def,evaluate_decs_def,state_component_equality,empty_env_def]
+  fs [Decls_def,evaluate_dec_list_def,state_component_equality,empty_env_def]
   \\ rw [] \\ eq_tac \\ rw []
 QED
 
@@ -505,18 +507,19 @@ Theorem Decls_CONS:
          Decls (merge_env envA env1) s2 ds2 envB s3 /\
          env3 = merge_env envB envA
 Proof
-  rw[Decls_def,PULL_EXISTS,evaluate_decs_def]
+  rw[Decls_def,PULL_EXISTS,evaluate_dec_list_def]
   \\ reverse (rw[EQ_IMP_THM]) \\ fs []
   THEN1
-   (once_rewrite_tac [evaluate_decs_cons]
-    \\ imp_res_tac evaluate_decs_add_to_clock \\ fs []
+   (once_rewrite_tac [evaluate_dec_list_cons]
+    \\ imp_res_tac evaluate_dec_list_add_to_clock \\ fs []
     \\ first_x_assum (qspec_then `ck1'` assume_tac)
     \\ qexists_tac `ck1+ck1'` \\ fs []
     \\ fs [merge_env_def,extend_dec_env_def,combine_dec_result_def]
     \\ fs [state_component_equality])
   \\ pop_assum mp_tac
-  \\ once_rewrite_tac [evaluate_decs_cons]
+  \\ once_rewrite_tac [evaluate_dec_list_cons]
   \\ fs [pair_case_eq,result_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+  \\ gvs [evaluate_dec_list_def]
   \\ Cases_on `r` \\ fs [combine_dec_result_def]
   \\ rveq \\ fs []
   \\ qexists_tac `env1'` \\ fs []
@@ -573,7 +576,7 @@ Theorem Decls_set_eval_state:
                (s2 with eval_state := es)
 Proof
   rw [Decls_def]
-  \\ drule_then (qspec_then ‘es’ assume_tac) (CONJUNCTS eval_no_eval_simulation |> last)
+  \\ drule_then (qspec_then ‘es’ assume_tac) eval_dec_list_no_eval_simulation
   \\ gvs []
   \\ pop_assum $ irule_at Any
 QED
@@ -746,9 +749,6 @@ QED
 Theorem ML_code_Dletrec:
    !fns locs. ML_code env0 ((comm, s1, prog, env2) :: bls) s2 ==>
       ALL_DISTINCT (MAP (λ(x,y,z). x) fns) ==>
-      EVERY
-        (λ(f,n,e).
-           every_exp (one_con_check (merge_env env2 (ML_code_env env0 bls)).c) e) fns ==>
       let code_env = ML_code_env env0 ((comm, s1, prog, env2) :: bls) in
       let env3 = write_rec fns code_env env2 in
       ML_code env0 ((comm, s1, SNOC (Dletrec locs fns) prog, env3) :: bls) s2
@@ -765,7 +765,6 @@ Theorem ML_code_Dlet_var:
   ∀cenv e s3 x n locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
     eval_rel s2 cenv e s3 x ==>
     cenv = ML_code_env env0 ((comm, s1, prog, env1) :: bls) ==>
-    every_exp (one_con_check (merge_env env1 (ML_code_env env0 bls)).c) e ==>
     let env2 = write n x env1 in let s3_abbrev = s3 in
     ML_code env0 ((comm, s1, SNOC (Dlet locs (Pvar n) e) prog, env2)
         :: bls) s3_abbrev
@@ -789,7 +788,6 @@ QED
 
 Theorem ML_code_Dlet_Fun:
   ∀n v e locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
-    every_exp (one_con_check (merge_env env1 (ML_code_env env0 bls)).c) e ==>
     let code_env = ML_code_env env0 ((comm, s1, prog, env1) :: bls) in
     let v_abbrev = Closure code_env v e in
     let env2 = write n v_abbrev env1 in
@@ -1193,5 +1191,37 @@ Proof
   \\ ... (* TODO *)
 QED);
 *)
+
+Definition prog_syntax_ok_def:
+  prog_syntax_ok prog = IS_SOME (check_cons_dec_list init_env.c prog)
+End
+
+Theorem prog_syntax_ok_isPREFIX:
+  ∀p1 p2. prog_syntax_ok p1 ∧ isPREFIX p2 p1 ⇒ prog_syntax_ok p2
+Proof
+  rw [prog_syntax_ok_def,IS_SOME_EXISTS]
+  \\ drule_then irule check_cons_dec_list_isPREFIX \\ fs []
+QED
+
+Theorem Decls_IMP_Prog:
+  Decls init_env s1 ds env2 s2 ⇒
+  prog_syntax_ok ds ⇒
+  Prog init_env s1 ds env2 s2
+Proof
+  rw []
+  \\ gvs [Decls_def,Prog_def,evaluate_dec_list_eq_evaluate_decs,prog_syntax_ok_def]
+  \\ last_x_assum $ irule_at Any
+QED
+
+Theorem prog_syntax_ok_semantics:
+  prog_syntax_ok prog ⇒
+  semantics_dec_list st init_env prog = semantics_prog st init_env prog
+Proof
+  simp [FUN_EQ_THM] \\ strip_tac \\ Cases
+  \\ gvs [semanticsTheory.semantics_prog_def, semantics_dec_list_def]
+  \\ gvs [prog_syntax_ok_def, evaluate_dec_list_eq_evaluate_decs,
+          semanticsTheory.evaluate_prog_with_clock_def,
+          evaluate_decTheory.evaluate_dec_list_with_clock_def]
+QED
 
 val _ = export_theory();

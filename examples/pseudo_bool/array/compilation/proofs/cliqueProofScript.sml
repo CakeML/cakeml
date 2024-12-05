@@ -16,7 +16,9 @@ val cake_pb_clique_io_events_def = new_specification("cake_pb_clique_io_events_d
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_pb_clique_sem,cake_pb_clique_output) = cake_pb_clique_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (cake_pb_clique_not_fail,cake_pb_clique_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_pb_clique_sem |> CONJ_PAIR
+val (cake_pb_clique_not_fail,cake_pb_clique_sem_sing) = cake_pb_clique_sem
+  |> SRULE [clique_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 clique_compiled)

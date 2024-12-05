@@ -28,7 +28,7 @@ val Decls_thm =
   |> ml_progLib.clean_state
   |> ml_progLib.remove_snocs
   |> ml_progLib.get_thm
-  |> REWRITE_RULE [ml_progTheory.ML_code_def];
+  |> REWRITE_RULE [ml_progTheory.ML_code_def,ml_progTheory.ML_code_env_def];
 
 (* the qsort program successfully evaluates to an env, called auto_env3 *)
 Theorem evaluate_prog_thm =
