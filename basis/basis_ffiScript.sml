@@ -451,7 +451,7 @@ Proof
      IOx_def,SEP_EXISTS_THM,SEP_CLAUSES,IO_def,one_def]
 QED
 
-(*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
+(*call_main_thm_basis uses call_main_thm2 to get semantics_dec_list, and then uses the previous two
   theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
   showing that post-condition which gives effects your programs output is an FFI_part and
   assuming that parts_ok is satisfied, an assumption about proj1 and the ffi_state should be
@@ -500,7 +500,7 @@ Theorem whole_prog_spec2_semantics_prog:
      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
    ==>
    ∃io_events fs'.
-     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
+     semantics_dec_list (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog) (Terminate Success io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q fs'
 Proof
@@ -553,12 +553,12 @@ Theorem whole_prog_spec_semantics_prog:
      (COMMANDLINE cl * STDIO fs * case sprop of NONE => &T | SOME Q => Q) h1)
    ==>
    ∃io_events fs'.
-     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
+     semantics_dec_list (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog) (Terminate Success io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q fs'
 Proof
   rw[]>>
-  match_mp_tac (whole_prog_spec2_semantics_prog|> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
+  match_mp_tac (whole_prog_spec2_semantics_prog |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
   asm_exists_tac>>
   simp[]>>
   qexists_tac`sprop`>>rw[]
@@ -581,7 +581,7 @@ Theorem whole_prog_spec_semantics_prog_ffidiv:
      (COMMANDLINE cl * STDIO fs * RUNTIME) h1)
    ==>
    ∃io_events fs' n c b.
-     semantics_prog (init_state (basis_ffi cl fs) with eval_state := es) env1
+     semantics_dec_list (init_state (basis_ffi cl fs) with eval_state := es) env1
        (SNOC ^main_call prog)
        (Terminate (FFI_outcome(Final_event (ExtCall n) c b FFI_diverged)) io_events) /\
      extract_fs fs io_events = SOME fs' ∧ Q n c b fs'

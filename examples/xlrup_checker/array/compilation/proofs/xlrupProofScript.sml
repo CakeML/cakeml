@@ -16,7 +16,9 @@ val cake_xlrup_io_events_def = new_specification("cake_xlrup_io_events_def",["ca
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_xlrup_sem,cake_xlrup_output) = cake_xlrup_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (cake_xlrup_not_fail,cake_xlrup_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_xlrup_sem |> CONJ_PAIR
+val (cake_xlrup_not_fail,cake_xlrup_sem_sing) = cake_xlrup_sem
+  |> SRULE [xlrup_array_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 xlrup_array_compiled)
