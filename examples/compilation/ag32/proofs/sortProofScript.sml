@@ -20,6 +20,7 @@ Theorem sort_stdin_semantics:
       SOME (add_stdout (fastForwardFD (stdin_fs input) 0) (concat output))))
 Proof
   qspecl_then[`stdin_fs input`,`[strlit"sort"]`]mp_tac (GEN_ALL sort_semantics)
+  \\ simp [sort_compiled,ml_progTheory.prog_syntax_ok_semantics]
   \\ `stdin (stdin_fs input) input 0` by EVAL_TAC
   \\ drule TextIOProofTheory.stdin_get_file_content
   \\ rw[wfFS_stdin_fs, STD_streams_stdin_fs, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
@@ -36,7 +37,9 @@ val sort_io_events_def =
   |> SIMP_RULE std_ss [SKOLEM_THM]);
 
 val (sort_sem,sort_output) = sort_io_events_def |> SPEC_ALL |> CONJ_PAIR
-val (sort_not_fail,sort_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail sort_sem |> CONJ_PAIR
+val (sort_not_fail,sort_sem_sing) = sort_sem
+  |> SRULE [sort_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val ffinames_to_string_list_def = backendTheory.ffinames_to_string_list_def;
 
