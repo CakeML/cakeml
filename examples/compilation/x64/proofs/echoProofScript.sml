@@ -15,7 +15,9 @@ val echo_io_events_def = new_specification("echo_io_events_def",["echo_io_events
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
 val (echo_sem,echo_output) = echo_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (echo_not_fail,echo_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail echo_sem |> CONJ_PAIR
+val (echo_not_fail,echo_sem_sing) = echo_sem
+  |> SRULE [echo_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 echo_compiled)

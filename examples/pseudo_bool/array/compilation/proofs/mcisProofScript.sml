@@ -16,7 +16,9 @@ val cake_pb_mcis_io_events_def = new_specification("cake_pb_mcis_io_events_def",
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_pb_mcis_sem,cake_pb_mcis_output) = cake_pb_mcis_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (cake_pb_mcis_not_fail,cake_pb_mcis_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_pb_mcis_sem |> CONJ_PAIR
+val (cake_pb_mcis_not_fail,cake_pb_mcis_sem_sing) = cake_pb_mcis_sem
+  |> SRULE [mcis_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 mcis_compiled)

@@ -119,7 +119,7 @@ val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
 
 val tidy_up =
-  SIMP_RULE (srw_ss()) (LENGTH :: (DB.find "refs_def" |> map (fst o snd)));
+  SIMP_RULE (srw_ss()) (LENGTH :: (DB.find "refs_def" |> map (#1 o #2)));
 
 val _ = ml_prog_update (open_module "Repl");
 

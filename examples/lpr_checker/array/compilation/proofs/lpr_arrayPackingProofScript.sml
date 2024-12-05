@@ -17,7 +17,9 @@ val main_io_events_def = new_specification("main_io_events_def",["main_io_events
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (main_sem,main_output) = main_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (main_not_fail,main_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail main_sem |> CONJ_PAIR
+val (main_not_fail,main_sem_sing) = main_sem
+  |> SRULE [lpr_packing_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 lpr_packing_compiled)

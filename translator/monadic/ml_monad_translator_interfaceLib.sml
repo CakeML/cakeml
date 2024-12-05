@@ -409,7 +409,7 @@ in
       else Term [QUOTE state_exn_name, QUOTE "_TYPE"]
 
     val access_thm_list = mapfilter
-      (fn ((_, name), (thm, Thm)) => (name^"_"^field_name, thm)
+      (fn ((_, name), (thm, Thm, _)) => (name^"_"^field_name, thm)
         | _ => raise Fail "")
       (apropos ``EvalM _ _ _ _ _ (^hprop_comb,_)``)
 
