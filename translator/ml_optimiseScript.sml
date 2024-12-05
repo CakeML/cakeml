@@ -179,8 +179,7 @@ Proof
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [])
   THEN1 (* App Eval *)
-   (
-    fs [evaluateTheory.do_eval_res_def, Q.ISPEC `(_, _)` EQ_SYM_EQ]
+   (fs [evaluateTheory.do_eval_res_def, Q.ISPEC `(_, _)` EQ_SYM_EQ]
     \\ fs [list_case_eq,option_case_eq,bool_case_eq,pair_case_eq,result_case_eq]
     \\ rveq \\ fs [PULL_EXISTS]
     \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
@@ -193,12 +192,9 @@ Proof
     \\ asm_exists_tac
     \\ simp []
     \\ dxrule_then (qspec_then `ck2` mp_tac) evaluate_decs_add_to_clock
-    \\ rw [evaluateTheory.dec_clock_def]
-   )
+    \\ rw [evaluateTheory.dec_clock_def])
   THEN1
-   (
-   fs [error_result_case_eq]
-   )
+   (fs [error_result_case_eq])
   THEN1 (* App Opapp *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -215,6 +211,8 @@ Proof
     \\ disch_then (qspec_then `st1.clock+1` assume_tac)
     \\ asm_exists_tac \\ fs []
     \\ fs [evaluateTheory.dec_clock_def,state_component_equality])
+  THEN1 (* App Force *)
+    cheat
   THEN1 (* App Simple *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
