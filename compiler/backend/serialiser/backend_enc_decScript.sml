@@ -359,9 +359,9 @@ val builtin = [bool_enc_dec_ok, unit_enc_dec_ok, num_enc_dec_ok,
                mlstring_enc_dec_ok, namespace_enc_dec_ok] |> map UNDISCH_ALL;
 
 val extra = DB.find "enc_dec_ok"
-  |> filter (fn ((thy,_),(th,_)) => thy = current_theory()
+  |> filter (fn ((thy,_),(th,_,_)) => thy = current_theory()
        andalso not (can (find_term is_forall) (concl th)))
-  |> map (fst o snd);
+  |> map (#1 o snd);
 
 val get_enc_dec_ok_mem = ref (builtin @ extra);
 

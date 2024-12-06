@@ -629,7 +629,7 @@ val _ = (next_ml_names := ["/"])
 val Eval_RAT_DIV = translate ratTheory.RAT_DIV_MULMINV;
 
 val rat_div_side_def = Eval_RAT_DIV
-  |> hyp |> hd |> rand |> repeat rator |> DB.match [] |> hd |> snd |> fst
+  |> hyp |> hd |> rand |> repeat rator |> DB.match [] |> hd |> snd |> #1
   |> update_precondition;
 
 Theorem real_of_rat_eq_0:

@@ -48,6 +48,7 @@ QED
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
   semantics_compiler64_prog
+  |> SRULE [ml_progTheory.prog_syntax_ok_semantics, compiler64_compiled]
   |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
   |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def

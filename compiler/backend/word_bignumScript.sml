@@ -382,7 +382,7 @@ fun to_deep def = let
   fun loop () =
     get_full_prog inp tm
     handle UnableToTranslate str =>
-      (to_deep (find (str ^ "_def") |> hd |> snd |> fst);
+      (to_deep (find (str ^ "_def") |> hd |> snd |> #1);
        loop ())
   val (dels,deep) = loop ()
   val rec_flag = if can (find_term is_Rec) deep then T else F

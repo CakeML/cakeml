@@ -4071,8 +4071,8 @@ fun guess_def_name original_def = let
   val const_thy = const_tm |> dest_thy_const |> #Thy
   fun try_find_in thys = let
     val xs = DB.match thys def_tm
-    val xs = filter (aconv def_tm o concl o fst o snd) xs
-    val ((thy,name),_) = first (fn x => Def = (x |> snd |> snd)) xs
+    val xs = filter (aconv def_tm o concl o #1 o snd) xs
+    val ((thy,name),_) = first (fn x => Def = (x |> snd |> #2)) xs
                          handle HOL_ERR _ => hd xs handle Empty => fail ()
     in (thy,name) end
   val (thy,name) = try_find_in [const_thy]
