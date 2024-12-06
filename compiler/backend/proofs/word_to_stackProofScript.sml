@@ -8137,9 +8137,6 @@ Proof
         simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
       conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
         simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
-      conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
-        simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
-      conj_tac >- simp[dec_clock_def] >>
       conj_tac >- metis_tac [] >>
       conj_tac >- (cruft_tac >> rveq >>
                    `m' <= LENGTH t4.stack` by intLib.COOPER_TAC >>
@@ -8995,10 +8992,6 @@ Proof
     PURE_ONCE_REWRITE_TAC[dec_clock_def,call_env_def,push_env_def,env_to_list_def]>>
     fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
     fsrw_tac[][state_rel_def]>>
-    conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
-                 simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
-    conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
-                 simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
                  simp[env_to_list_def] >> simp[FUN_EQ_THM]) >>
     conj_tac >- (simp[dec_clock_def, call_env_def, push_env_def]>>
