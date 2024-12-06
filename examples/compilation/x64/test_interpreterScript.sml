@@ -1,7 +1,7 @@
 (*
   Test insertion of interpreter
 *)
-open preamble helloProgTheory compilationLib basis
+open preamble helloProgTheory basis
 
 val _ = new_theory "test_interpreter"
 
