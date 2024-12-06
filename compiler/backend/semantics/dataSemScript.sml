@@ -10,10 +10,10 @@ val _ = new_theory"dataSem";
 
 Datatype:
   v = Number int              (* integer *)
-    | Word64 word64
+    | Word64 word64           (* 64-bit word *)
     | Block num num (v list)  (* cons block: timestamp, tag and payload *)
     | CodePtr num             (* code pointer *)
-    | RefPtr num              (* pointer to ref cell *)
+    | RefPtr bool num         (* pointer to ref cell *)
 End
 
 Definition Boolv_def:
@@ -116,7 +116,7 @@ Definition size_of_def:
   (size_of lims [Number i] refs seen =
     (if small_num lims.arch_64_bit i then 0 else bignum_size lims.arch_64_bit i, refs, seen)) /\
   (size_of lims [CodePtr _] refs seen = (0, refs, seen)) /\
-  (size_of lims [RefPtr r] refs seen =
+  (size_of lims [RefPtr _ r] refs seen =
      case sptree$lookup r refs of
      | NONE => (0, refs, seen)
      | SOME (ByteArray _ bs) => (LENGTH bs DIV (arch_size lims DIV 8) + 2, delete r refs, seen)
@@ -158,7 +158,7 @@ End
 
 Definition global_to_vs_def:
   global_to_vs NONE = [] /\
-  global_to_vs (SOME n) = [RefPtr n]
+  global_to_vs (SOME n) = [RefPtr T n]
 End
 
 Definition stack_to_vs_def:
@@ -438,15 +438,17 @@ Definition do_eq_def:
   (do_eq _ (Word64 w1) (Word64 w2) = (Eq_val (w1 = w2))) ∧
   (do_eq _ (Word64 _) _ = Eq_type_error) ∧
   (do_eq _ _ (Word64 _) = Eq_type_error) ∧
-  (do_eq refs (RefPtr n1) (RefPtr n2) =
-    case (sptree$lookup n1 refs, sptree$lookup n2 refs) of
-      (SOME (ByteArray T bs1), SOME (ByteArray T bs2))
-        => Eq_val (bs1 = bs2)
-    | (SOME (ByteArray T bs1), _) => Eq_type_error
-    | (_, SOME (ByteArray T bs2)) => Eq_type_error
-    | _ => Eq_val (n1 = n2)) ∧
-  (do_eq _ (RefPtr _) _ = Eq_type_error) ∧
-  (do_eq _ _ (RefPtr _) = Eq_type_error) ∧
+  (do_eq refs (RefPtr b1 n1) (RefPtr b2 n2) =
+    if b1 ∧ b2 then
+     (case (sptree$lookup n1 refs, sptree$lookup n2 refs) of
+        (SOME (ByteArray T bs1), SOME (ByteArray T bs2))
+          => Eq_val (bs1 = bs2)
+      | (SOME (ByteArray T bs1), _) => Eq_type_error
+      | (_, SOME (ByteArray T bs2)) => Eq_type_error
+      | _ => Eq_val (n1 = n2))
+    else Eq_type_error) ∧
+  (do_eq _ (RefPtr _ _) _ = Eq_type_error) ∧
+  (do_eq _ _ (RefPtr _ _) = Eq_type_error) ∧
   (* TODO: How time-stamps impact equality between blocks? *)
   (do_eq refs (Block _ t1 l1) (Block _ t2 l2) =
    if isClos t1 l1 \/ isClos t2 l2
@@ -681,7 +683,7 @@ Definition do_part_def:
   do_part m (Str t) s ts =
     let ptr = (LEAST ptr. ¬(ptr IN domain s)) in
     let bytes = MAP (n2w o ORD) (mlstring$explode t) in
-      (RefPtr ptr, insert ptr (ByteArray T bytes) s, ts)
+      (RefPtr T ptr, insert ptr (ByteArray T bytes) s, ts)
 End
 
 Definition do_build_def:
@@ -710,7 +712,7 @@ Definition do_app_aux_def:
     | (GlobalsPtr,xs) =>
         (case xs of
          | [] => (case s.global of
-                  | SOME p => Rval (RefPtr p, s)
+                  | SOME p => Rval (RefPtr T p, s)
                   | NONE => Error)
          | _ => Error)
     | (Global n,xs) =>
@@ -740,7 +742,7 @@ Definition do_app_aux_def:
          | _ => Error)
     | (SetGlobalsPtr,xs) =>
         (case xs of
-         | [RefPtr p] => Rval (Unit, s with global := SOME p)
+         | [RefPtr _ p] => Rval (Unit, s with global := SOME p)
          | _ => Error)
     | (FromList n, xs) =>
         (case xs of
@@ -761,7 +763,7 @@ Definition do_app_aux_def:
           | [Number i; Number b] =>
             if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
               let ptr = (LEAST ptr. ¬(ptr IN domain s.refs)) in
-                Rval (RefPtr ptr, s with <|refs := insert ptr
+                Rval (RefPtr T ptr, s with <|refs := insert ptr
                   (ByteArray f (REPLICATE (Num i) (i2w b))) s.refs|>)
             else Rerr (Rabort Rtype_error)
           | _ => Rerr (Rabort Rtype_error))
@@ -790,7 +792,7 @@ Definition do_app_aux_def:
     | (ConsExtend tag,_) => Error
     | (El,[Block _ tag xs; Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
-    | (El,[RefPtr ptr; Number i]) =>
+    | (El,[RefPtr _ ptr; Number i]) =>
         (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
@@ -799,7 +801,7 @@ Definition do_app_aux_def:
          | _ => Error)
     | (ElemAt n,[Block _ tag xs]) =>
         if n < LENGTH xs then Rval (EL n xs, s) else Error
-    | (ElemAt n,[RefPtr ptr]) =>
+    | (ElemAt n,[RefPtr _ ptr]) =>
         (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>
             (if n < LENGTH xs
@@ -815,12 +817,12 @@ Definition do_app_aux_def:
          | _ => Error)
     | (LengthBlock,[Block _ tag xs]) =>
         Rval (Number (&LENGTH xs), s)
-    | (Length,[RefPtr ptr]) =>
+    | (Length,[RefPtr _ ptr]) =>
         (case lookup ptr s.refs of
           | SOME (ValueArray xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
-    | (LengthByte,[RefPtr ptr]) =>
+    | (LengthByte,[RefPtr _ ptr]) =>
         (case lookup ptr s.refs of
           | SOME (ByteArray _ xs) =>
               Rval (Number (&LENGTH xs), s)
@@ -828,18 +830,18 @@ Definition do_app_aux_def:
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
           let ptr = (LEAST ptr. ¬(ptr IN domain s.refs)) in
-            Rval (RefPtr ptr,
+            Rval (RefPtr T ptr,
                   s with <|refs := insert ptr
                                           (ValueArray (REPLICATE (Num i) v)) s.refs|>)
          else Error
-    | (DerefByte,[RefPtr ptr; Number i]) =>
+    | (DerefByte,[RefPtr _ ptr; Number i]) =>
         (case lookup ptr s.refs of
          | SOME (ByteArray _ ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
-    | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
+    | (UpdateByte,[RefPtr _ ptr; Number i; Number b]) =>
         (case lookup ptr s.refs of
          | SOME (ByteArray f bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
@@ -848,7 +850,7 @@ Definition do_app_aux_def:
                  (ByteArray f (LUPDATE (i2w b) (Num i) bs)) s.refs)
              else Error)
          | _ => Error)
-    | (CopyByte F,[RefPtr src; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
+    | (CopyByte F,[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (lookup src s.refs, lookup dst s.refs) of
          | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
@@ -866,7 +868,7 @@ Definition do_app_aux_def:
         (case p of
          | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
          | W64 i => (case x1 of Word64 j => Rval (Boolv (i = j), s) | _ => Error)
-         | Str i => (case x1 of RefPtr p =>
+         | Str i => (case x1 of RefPtr _ p =>
                        (case lookup p s.refs of SOME (ByteArray T j) =>
                           Rval (Boolv (j = MAP (n2w ∘ ORD) (explode i)), s)
                         | _ => Error)
@@ -878,8 +880,8 @@ Definition do_app_aux_def:
          | _ => Error)
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
-          Rval (RefPtr ptr, s with <| refs := insert ptr (ValueArray xs) s.refs|>)
-    | (Update,[RefPtr ptr; Number i; x]) =>
+          Rval (RefPtr T ptr, s with <| refs := insert ptr (ValueArray xs) s.refs|>)
+    | (Update,[RefPtr _ ptr; Number i; x]) =>
         (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
@@ -924,7 +926,7 @@ Definition do_app_aux_def:
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
-    | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
+    | (FFI n, [RefPtr _ cptr; RefPtr _ ptr]) =>
         (case (lookup cptr s.refs, lookup ptr s.refs) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
            (case call_FFI s.ffi (ExtCall n) cws ws of
@@ -959,7 +961,7 @@ Definition do_app_aux_def:
          | _ => Error)
     | (BoundsCheckByte loose,xs) =>
         (case xs of
-         | [RefPtr ptr; Number i] =>
+         | [RefPtr _ ptr; Number i] =>
           (case lookup ptr s.refs of
            | SOME (ByteArray _ ws) =>
                Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
@@ -967,7 +969,7 @@ Definition do_app_aux_def:
          | _ => Error)
     | (BoundsCheckArray,xs) =>
         (case xs of
-         | [RefPtr ptr; Number i] =>
+         | [RefPtr _ ptr; Number i] =>
           (case lookup ptr s.refs of
            | SOME (ValueArray ws) =>
                Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)

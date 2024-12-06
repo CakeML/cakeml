@@ -1049,7 +1049,7 @@ Definition v_ok_def[simp]:
   (v_ok (Word64 w) ⇔ T) ∧
   (v_ok (Block n vs) ⇔ EVERY v_ok vs) ∧
   (v_ok (ByteVector ws) ⇔ T) ∧
-  (v_ok (RefPtr n) ⇔ T) ∧
+  (v_ok (RefPtr b n) ⇔ T) ∧
   (v_ok (Closure loco vs1 env1 n bod1) ⇔
     ~ has_install bod1 ∧ EVERY v_ok env1 ∧ EVERY v_ok vs1) ∧
   (v_ok (Recclosure loco vs1 env1 fns1 i) ⇔

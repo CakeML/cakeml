@@ -63,12 +63,12 @@ Definition do_app_aux_def:
     | (GlobalsPtr,xs) =>
         (case xs of
          | [] => (case s.global of
-                  | SOME p => SOME (SOME (RefPtr p, s))
+                  | SOME p => SOME (SOME (RefPtr T p, s))
                   | NONE => NONE)
          | _ => NONE)
     | (SetGlobalsPtr,xs) =>
         (case xs of
-         | [RefPtr p] => SOME (SOME (Unit, s with global := SOME p))
+         | [RefPtr _ p] => SOME (SOME (Unit, s with global := SOME p))
          | _ => NONE)
     | (Global n, xs) =>
         (case xs of
@@ -109,7 +109,7 @@ Definition do_app_aux_def:
           | [Number i; Number b] =>
             if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
               let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-                SOME (SOME (RefPtr ptr, s with refs := s.refs |+
+                SOME (SOME (RefPtr T ptr, s with refs := s.refs |+
                   (ptr, ByteArray f (REPLICATE (Num i) (i2w b)))))
             else NONE
           | _ => NONE)
