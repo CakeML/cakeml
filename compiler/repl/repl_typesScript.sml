@@ -23,7 +23,7 @@ End
 Definition check_ref_types_def:
   check_ref_types types (env :semanticPrimitives$v sem_env) (name,ty,loc) ⇔
     nsLookup types.inf_v name = SOME (0,Infer_Tapp [to_type ty] Tref_num) ∧
-    nsLookup env.v name = SOME (Loc loc)
+    nsLookup env.v name = SOME (Loc T loc)
 End
 
 Definition roll_back_def:
@@ -97,7 +97,7 @@ End
 Definition check_ref_types_TS_def:
   check_ref_types_TS types (env :semanticPrimitives$v sem_env) (name,ty,loc) ⇔
     nsLookup types.v name = SOME (0,Tapp [to_type_TS ty] Tref_num) ∧
-    nsLookup env.v name = SOME (Loc loc)
+    nsLookup env.v name = SOME (Loc T loc)
 End
 
 Inductive repl_types_TS:

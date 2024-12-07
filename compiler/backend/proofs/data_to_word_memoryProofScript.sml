@@ -8229,6 +8229,17 @@ Proof
   \\ imp_res_tac memory_rel_RefPtr_EQ_lemma \\ rfs[]
 QED
 
+Theorem memory_rel_RefPtr_EQ_IMP:
+  memory_rel c be ts refs sp st m (dm:'a word set)
+    ((RefPtr b1 i1, Word w1)::(RefPtr b2 i1, Word w2)::vars) ∧ good_dimindex (:α) ∧
+  lookup i1 refs = SOME (ByteArray ys_fl ys) ⇒
+  w1 = w2
+Proof
+  strip_tac
+  \\ gvs [memory_rel_def,word_ml_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def]
+  \\ gvs [v_inv_def]
+QED
+
 Theorem memory_rel_Boolv_T:
    memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:'a)
    ⇒ memory_rel c be ts refs sp st m dm ((Boolv T,Word (18w:'a word))::vars)
@@ -10950,7 +10961,7 @@ val list_copy_bwd_alias_def = list_copy_bwd_alias_def
 Theorem word_copy_bwd_thm:
    !n xp yp ys ys1 m.
       memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs)
-        sp st m dm ((RefPtr bl p1,v1)::(RefPtr bl p2,v2)::vars) /\
+        sp st m dm ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars) /\
       lookup p1 refs = SOME (ByteArray fl_xs xs) /\
       list_copy_bwd n xp xs yp ys = SOME ys1 /\
       good_dimindex (:'a) /\ n < dimword (:'a) /\ p1 <> p2 ==>
@@ -10961,7 +10972,7 @@ Theorem word_copy_bwd_thm:
         word_copy_bwd be (n2w n) (a1 + bytes_in_word + n2w xp)
           (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
         memory_rel c be ts  (insert p2 (ByteArray fl_ys ys1) refs)
-          sp st m1 dm ((RefPtr bl p1,v1)::(RefPtr bl p2,v2)::vars)
+          sp st m1 dm ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars)
 Proof
   completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ once_rewrite_tac [list_copy_bwd_def]
@@ -11388,7 +11399,7 @@ val word_copy_bwd_0 = prove(
 
 Theorem word_copy_array_thm:
    !n xp yp xs ys ys1 m.
-      memory_rel c be ts refs sp st m dm ((RefPtr bl p1,v1)::(RefPtr bl p2,v2)::vars) /\
+      memory_rel c be ts refs sp st m dm ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars) /\
       lookup p1 refs = SOME (ByteArray fl_xs xs) /\
       lookup p2 refs = SOME (ByteArray fl_ys ys) /\
       copy_array (xs, &xp) (& n) (SOME (ys, &yp)) = SOME ys1 /\
@@ -11400,7 +11411,7 @@ Theorem word_copy_array_thm:
         word_copy_array be (n2w n) (a1 + bytes_in_word) (n2w xp)
           (a2 + bytes_in_word) (n2w yp) m dm = SOME m1 /\
         memory_rel c be ts (insert p2 (ByteArray fl_ys ys1) refs)
-          sp st m1 dm ((RefPtr bl p1,v1)::(RefPtr bl p2,v2)::vars)
+          sp st m1 dm ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars)
 Proof
   rw [] \\ drule list_copy_thm
   \\ fs [list_copy_def]
@@ -11413,7 +11424,7 @@ Proof
     \\ rpt_drule memory_rel_ByteArray_IMP \\ strip_tac
     \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ `memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs) sp st m dm
-        ((RefPtr bl p1,v1)::(RefPtr bl p2,v2)::vars)` by
+        ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars)` by
    (qsuff_tac `insert p2 (ByteArray fl_ys ys) refs = refs` \\ fs []
     \\ fs [fmap_EXT,EXTENSION,lookup_def,insert_unchanged])
   \\ IF_CASES_TAC

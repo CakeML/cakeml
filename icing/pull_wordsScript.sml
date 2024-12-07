@@ -247,7 +247,7 @@ Inductive v_rel:
   ∧
   (∀r. v_rel (FP_BoolTree r) (FP_BoolTree r))
   ∧
-  (∀r. v_rel (Loc r) (Loc r))
+  (∀r b. v_rel (Loc b r) (Loc b r))
   ∧
   (∀ env id. v_rel (Env env id) (Env env id))
   ∧
@@ -291,7 +291,7 @@ Theorem v_rel_simp[simp] =
    “v_rel (Real r) w”,
    “v_rel (FP_WordTree r) w”,
    “v_rel (FP_BoolTree r) w”,
-   “v_rel (Loc r) w”,
+   “v_rel (Loc b r) w”,
    “v_rel (Env env id) w”,
    “v_rel (Conv s vs) w”,
    “v_rel (Vectorv vs) w”,
@@ -301,7 +301,7 @@ Theorem v_rel_simp[simp] =
    “v_rel w (Real r)”,
    “v_rel w (FP_WordTree r)”,
    “v_rel w (FP_BoolTree r)”,
-   “v_rel w (Loc r)”,
+   “v_rel w (Loc b r)”,
    “v_rel w (Env env id)”,
    “v_rel w (Conv s vs)”,
    “v_rel w (Vectorv vs)”,

@@ -742,7 +742,7 @@ Definition do_app_aux_def:
          | _ => Error)
     | (SetGlobalsPtr,xs) =>
         (case xs of
-         | [RefPtr _ p] => Rval (Unit, s with global := SOME p)
+         | [RefPtr T p] => Rval (Unit, s with global := SOME p)
          | _ => Error)
     | (FromList n, xs) =>
         (case xs of

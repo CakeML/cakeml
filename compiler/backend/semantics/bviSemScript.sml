@@ -68,7 +68,7 @@ Definition do_app_aux_def:
          | _ => NONE)
     | (SetGlobalsPtr,xs) =>
         (case xs of
-         | [RefPtr _ p] => SOME (SOME (Unit, s with global := SOME p))
+         | [RefPtr T p] => SOME (SOME (Unit, s with global := SOME p))
          | _ => NONE)
     | (Global n, xs) =>
         (case xs of
