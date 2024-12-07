@@ -341,13 +341,6 @@ Proof
   simp[]
 QED
 
-Theorem iSUM_APPEND:
-  iSUM(x++y) = iSUM x + iSUM y
-Proof
-  Induct_on`x`>>rw[iSUM_def]>>
-  intLib.ARITH_TAC
-QED
-
 Theorem MEM_enumerate_index:
   MEM (i,e) (enumerate k ls) ⇒
   i ≥ k

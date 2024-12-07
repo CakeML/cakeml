@@ -220,38 +220,6 @@ Proof
   simp[]
 QED
 
-Theorem iSUM_zero:
-  (∀x. MEM x ls ⇒ x ≥ 0) ⇒
-  iSUM ls ≥ 0
-Proof
-  Induct_on`ls`>> rw[iSUM_def]>>
-  fs[]>>
-  first_x_assum(qspec_then`h` assume_tac)>>
-  fs[]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem iSUM_geq:
-  ∀ls.
-  (∀x. MEM x ls ⇒ x ≥ 0) ∧
-  (∃x. MEM x ls ∧ x ≥ n)
-  ⇒
-  iSUM ls ≥ n
-Proof
-  Induct>>rw[iSUM_def]
-  >- (
-    `iSUM ls ≥ 0` by
-      (irule iSUM_zero>>
-      metis_tac[])>>
-    intLib.ARITH_TAC)>>
-  gs[]>>
-  last_x_assum mp_tac>>
-  impl_tac >- metis_tac[]>>
-  first_x_assum(qspec_then`h` assume_tac)>>
-  fs[]>>
-  intLib.ARITH_TAC
-QED
-
 Theorem b2i_iSUM_eq_0:
   (∀x. MEM x ls ⇒ ∃y. x = b2i y) ⇒
   (iSUM ls = 0 ⇔
@@ -262,7 +230,7 @@ Proof
   Cases_on`y`>>fs[]
   >- (
     `iSUM ls ≥ 0` by (
-      match_mp_tac iSUM_zero>>
+      match_mp_tac iSUM_ge_zero>>
       rw[]>>res_tac>>
       rw[])>>
     rw[EQ_IMP_THM]
@@ -391,13 +359,6 @@ Theorem iSUM_GENLIST_const:
   iSUM (GENLIST (λv. c) vt) = c * &vt
 Proof
   Induct>>simp[iSUM_def,GENLIST_CONS,o_DEF]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem iSUM_MAP_const:
-  ∀ls c. iSUM (MAP (λv. c) ls) = c * &(LENGTH ls)
-Proof
-  Induct>>simp[iSUM_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -555,7 +516,7 @@ Proof
           simp[])>>
         Cases_on`a ∈ vs`>>fs[]
         >- (
-          match_mp_tac iSUM_geq>>
+          match_mp_tac iSUM_ge>>
           rw[]
           >-
             (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
@@ -584,7 +545,7 @@ Proof
           simp[])>>
         Cases_on`a ∈ vs`>>fs[]
         >- (
-          match_mp_tac iSUM_geq>>
+          match_mp_tac iSUM_ge>>
           rw[]
           >-
             (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
