@@ -702,7 +702,7 @@ Proof
       FULL_SIMP_TAC bool_ss [INJ_DEF]>>
       first_x_assum(qspecl_then[`x`,`y`] assume_tac)>>
       simp[])>>
-    full_simp_tac(srw_ss())[MAP_MAP_o,get_vars_perm] >>
+    full_simp_tac(srw_ss())[MAP_MAP_o] >>
     Cases_on`get_vars (MAP SND l) st`>>full_simp_tac(srw_ss())[]>>
     `get_vars (MAP f (MAP SND l)) cst = SOME x` by
       (imp_res_tac strong_locals_rel_get_vars>>
@@ -782,7 +782,7 @@ Proof
       metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT])
     >>
     TRY (
-      fs[get_vars_perm]>>
+      fs[]>>
       qmatch_goalsub_abbrev_tac `get_vars ls st`>>
       Cases_on`get_vars ls st`>>fs[Abbr`ls`]>>
       imp_res_tac strong_locals_rel_get_vars>>fs[]>>
@@ -862,7 +862,7 @@ Proof
       FULL_CASE_TAC>>fs[strong_locals_rel_def])
     >-
       (* All the FP cases *)
-      (Cases_on`f'`>>fs[get_fp_var_def,get_var_perm]>>
+      (Cases_on`f'`>>fs[get_fp_var_def]>>
       every_case_tac>>simp[set_var_def]>>
       imp_res_tac strong_locals_rel_get_var>>
       fs[get_live_inst_def,get_writes_inst_def,get_writes_def,set_fp_var_def]>>
@@ -1493,7 +1493,7 @@ Proof
   >- (* FFI *)
      (exists_tac>>Cases_on`get_var n st`>>Cases_on`get_var n0 st`>>
       Cases_on`get_var n1 st`>>Cases_on`get_var n2 st`>>
-      full_simp_tac(srw_ss())[get_writes_def,LET_THM,get_var_perm]>>
+      full_simp_tac(srw_ss())[get_writes_def,LET_THM]>>
       Cases_on`x`>>full_simp_tac(srw_ss())[]>>Cases_on`x'`>>full_simp_tac(srw_ss())[]>>
       Cases_on`x''`>>full_simp_tac(srw_ss())[]>>Cases_on`x'''`>>full_simp_tac(srw_ss())[]>>
       imp_res_tac strong_locals_rel_get_var>>full_simp_tac(srw_ss())[]>>
@@ -5397,7 +5397,7 @@ Proof
     >~[`Mem Store _ (Addr _ _)`]
     >- (
       qpat_abbrev_tac`expr=Op Add [Var n';A]`>>
-      full_simp_tac(srw_ss())[get_var_perm]>>
+      full_simp_tac(srw_ss())[]>>
       setup_tac>>
       Cases_on`x`>>fs[]>>
       Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>imp_res_tac ssa_locals_rel_get_var>>
@@ -5408,7 +5408,7 @@ Proof
     >~[`Mem Store8 _ (Addr _ _)`]
     >- (
       qpat_abbrev_tac`expr=Op Add [Var n';A]`>>
-      fs[get_var_perm]>>
+      fs[]>>
       setup_tac>>
       Cases_on`x`>>fs[]>>
       Cases_on`get_var n st`>>
@@ -5418,7 +5418,7 @@ Proof
     >~[`FP`]
     >- ( (* FP *)
       Cases_on`f`>>
-      fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def,get_var_perm]
+      fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]
       >~[ `FPMovFromReg`]
       >- (
         rw[]
@@ -5438,14 +5438,14 @@ Proof
           rw[domain_lookup]>>
           gvs[ssa_map_ok_def]>>
           first_x_assum drule>>fs[])>>
-        fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def,get_var_perm]>>
+        fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]>>
         every_case_tac>>
-        fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def,get_var_perm]>>
+        fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]>>
         imp_res_tac ssa_locals_rel_get_var>>
         fs[ssa_locals_rel_set_var]>>
         rveq>>fs[state_component_equality])>>
       every_case_tac>>
-      fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def,get_var_perm]>>
+      fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]>>
       imp_res_tac ssa_locals_rel_get_var>>
       fs[ssa_locals_rel_set_var]>>
       rveq>>fs[state_component_equality]>>
@@ -5509,7 +5509,7 @@ Proof
       `ALL_DISTINCT ls` by
         (full_simp_tac(srw_ss())[Abbr`ls`,ALL_DISTINCT_GENLIST]>>
         srw_tac[][]>>DECIDE_TAC)>>
-      full_simp_tac(srw_ss())[get_vars_perm]>>
+      full_simp_tac(srw_ss())[]>>
       Cases_on`get_vars l st`>>full_simp_tac(srw_ss())[]>>
       imp_res_tac ssa_locals_rel_get_vars>>
       IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
@@ -5536,7 +5536,7 @@ Proof
     pop_assum(mp_tac o SYM o SIMP_RULE std_ss[markerTheory.Abbrev_def]) >>
     simp_tac std_ss [ssa_cc_trans_def]>>
     LET_ELIM_TAC>>
-    full_simp_tac(srw_ss())[evaluate_def,get_vars_perm,add_ret_loc_def]>>
+    full_simp_tac(srw_ss())[evaluate_def,add_ret_loc_def]>>
     ntac 7 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
     `domain stack_set ≠ {}` by
       full_simp_tac(srw_ss())[Abbr`stack_set`,domain_fromAList,toAList_not_empty]>>
