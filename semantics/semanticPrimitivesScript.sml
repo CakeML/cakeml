@@ -206,7 +206,7 @@ Definition store_v_same_type_def:
     | (Refv _,    Refv _   ) => T
     | (W8array _, W8array _) => T
     | (Varray _,  Varray _ ) => T
-    | (Thunk _ _, Thunk _ _) => T
+    | (Thunk T _, Thunk _ _) => T  (* the thunk being updated must have T set *)
     | _ => F
 End
 
