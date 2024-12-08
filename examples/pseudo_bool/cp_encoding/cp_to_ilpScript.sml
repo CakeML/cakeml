@@ -448,4 +448,60 @@ Proof
     metis_tac[encode_element_const_sem]
 QED
 
+(* Maybe this is better? *)
+Definition reify_bits_def:
+  reify_bits wi eb ⇔
+  case eb of
+    Ge X i => wi X ≥ i
+  | Eq X i => wi X = i
+End
+
+Theorem encode_element_sem_1:
+  valid_assignment bnd wi ∧
+  element_sem R X As wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_bits wi)) (encode_element bnd R X As)
+Proof
+  rw[encode_element_def]>>
+  TOP_CASE_TAC>>gvs[]
+  >- (
+    DEP_REWRITE_TAC [encode_element_var_sem]>>
+    simp[reify_bits_def])
+  >>
+    metis_tac[encode_element_const_sem]
+QED
+
+Theorem encode_element_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element bnd R X As) ⇒
+  element_sem R X As wi
+Proof
+  rw[encode_element_def]>>
+  every_case_tac>>gvs[]
+  >- (
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[encode_element_var_sem]>>
+    simp[])
+  >>
+    metis_tac[encode_element_const_sem]
+QED
+
+
+=
+  (
+  (case X of INR _ => T | INL X =>
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH As + 1 ⇒
+    (wb (Ge X &i) ⇔ wi X ≥ &i)) ∧
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH As ⇒
+    (wb (Eq X &i) ⇔ wi X = &i))) ∧
+  element_sem R X As wi)
+Proof
+  rw[encode_element_def]>>
+  TOP_CASE_TAC>>gvs[]
+  >-
+    metis_tac[encode_element_var_sem]
+  >>
+    metis_tac[encode_element_const_sem]
+QED
+
+
 val _ = export_theory();
