@@ -1676,8 +1676,8 @@ Proof
 QED
 
 Triviality gc_state_rel:
-  (gc (s1:('a,num # 'c,'ffi) wordSem$state) = SOME s2) /\ state_rel ac k 0 0 s1 (t1:('a,'c,'ffi) stackSem$state) lens /\ (s1.locals = LN) ==>
-    ?(t2:('a,'c,'ffi) stackSem$state). gc t1 = SOME t2 /\ state_rel ac k 0 0 s2 t2 lens
+  (gc (s1:('a,num # 'c,'ffi) wordSem$state) = SOME s2) /\ state_rel ac k 0 0 s1 (t1:('a,'c,'ffi) stackSem$state) lens  ==>
+    ?(t2:('a,'c,'ffi) stackSem$state). gc t1 = SOME t2 /\ state_rel ac k 0 0 (s2 with locals:= LN) t2 lens
     /\ LENGTH t2.stack = LENGTH t1.stack /\ t2.stack_space = t1.stack_space
 Proof
   fs [gc_def,LET_DEF]
@@ -1731,8 +1731,8 @@ Proof
   \\ fs [gc_def,set_store_def,push_env_def,LET_DEF,
          env_to_list_def,pop_env_def,flush_state_def]
   \\ BasicProvers.EVERY_CASE_TAC
-   \\ fs [state_component_equality] \\ rw []
-   \\ fs [state_component_equality] \\ rw []
+  \\ fs [state_component_equality] \\ rw []
+  \\ gvs[has_space_def]
 QED
 
 (*MEM to an EL characterization for index lists*)
@@ -1815,10 +1815,11 @@ Proof
   \\ pop_assum (mp_tac o Q.SPEC `Word c`) \\ REPEAT STRIP_TAC
   \\ Cases_on `gc (set_store AllocSize (Word c)
                      (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>))`
-  \\ fsrw_tac[] [] \\ imp_res_tac gc_state_rel \\ NTAC 3 (POP_ASSUM (K ALL_TAC)) \\ fsrw_tac[] []
-  \\ pop_assum mp_tac \\ match_mp_tac IMP_IMP \\ strip_tac
-  THEN1 (fsrw_tac[] [set_store_def,push_env_def]) \\ rpt strip_tac
-  \\ fsrw_tac[] [] \\ Cases_on `pop_env x` \\ fsrw_tac[] []
+  \\ gvs[]
+  \\ drule_at (Pos last) gc_state_rel
+  \\ rw[] \\ gvs[]
+  \\ rename1`pop_env x`
+  \\ Cases_on `pop_env x` \\ fsrw_tac[] []
   \\ Q.MATCH_ASSUM_RENAME_TAC `pop_env s2 = SOME s3`
   \\ `state_rel ac k f f' s3 t2 lens` by
     (imp_res_tac gc_s_key_eq>>
@@ -1933,10 +1934,10 @@ Proof
       SUC ( k+ LENGTH x'' - (n DIV 2 +1))` by
         DECIDE_TAC>>
     simp[])
-  \\ Cases_on `FLOOKUP s3.store AllocSize` \\ fsrw_tac[] []
-  \\ Cases_on `has_space x s3` \\ fsrw_tac[] []
   \\ `s3.store SUBMAP t2.store` by
     (fsrw_tac[] [state_rel_def,SUBMAP_DEF,DOMSUB_FAPPLY_THM] \\ NO_TAC)
+  \\ gvs[AllCaseEqs()]
+  \\ drule_all FLOOKUP_SUBMAP \\ simp[]
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fsrw_tac[] []
   \\ fsrw_tac[] [has_space_def,stackSemTheory.has_space_def]
   \\ EVERY_CASE_TAC \\ fsrw_tac[] []
@@ -1981,7 +1982,7 @@ Proof
   qpat_x_assum`A=(res,s1)` mp_tac>>
   ntac 2 TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[]>>
-  qmatch_assum_abbrev_tac`gc A = SOME x'`>>
+  qmatch_asmsub_abbrev_tac`gc A = SOME _`>>
   qabbrev_tac`B = A with stack:= s.stack`>>
   `A = B with <|stack:=StackFrame (s.locals_size) [] NONE::B.stack|>` by
     (unabbrev_all_tac>>fs[state_component_equality,set_store_def]>>
@@ -1995,31 +1996,26 @@ Proof
     fs[]>>
     EVAL_TAC
     )>>
-  fs[]>>imp_res_tac word_gc_empty_frame>>
-  imp_res_tac gc_state_rel>>
-  ntac 6 (pop_assum kall_tac)>>
-  pop_assum mp_tac>>
+  fs[]>>
+  drule_all word_gc_empty_frame>> strip_tac>>
+  drule (GEN_ALL gc_state_rel)>>
   disch_then(qspecl_then [`set_store AllocSize (Word c) t`,`lens`,`k`,`ac`] mp_tac)>>
-  impl_tac>-
-    (fs[markerTheory.Abbrev_def,state_component_equality,set_store_def,push_env_def,state_rel_def,LET_THM,env_to_list_def,lookup_def]>>
+  impl_tac>- (
+    fs[markerTheory.Abbrev_def,state_component_equality,set_store_def,push_env_def,state_rel_def,LET_THM,env_to_list_def,lookup_def]>>
     fs[FUN_EQ_THM,wf_def]>>
     conj_tac >- metis_tac[] >>
     rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn] >>
     fs[stack_size_eq])>>
-  impl_keep_tac>-
-    (fs[markerTheory.Abbrev_def,state_component_equality,set_store_def,push_env_def])>>
   rw[]>>
   fs[]>>
+  rename1`isEmpty xx.locals`>>
   pop_assum mp_tac>>
   ntac 2 TOP_CASE_TAC>>fs[]
-  \\ `x''.store SUBMAP t2.store` by
+  \\ `xx.store SUBMAP t2.store` by
     fs [state_rel_def,SUBMAP_DEF,DOMSUB_FAPPLY_THM]
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
   \\ fs [has_space_def,stackSemTheory.has_space_def]
-  \\ qpat_x_assum`Z=SOME x''''` mp_tac
-  \\ ntac 2 TOP_CASE_TAC>>fs[]
-  \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
-  \\ ntac 2 TOP_CASE_TAC \\ fs[]
+  \\ gvs[AllCaseEqs()]
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
   \\ TOP_CASE_TAC>>fs[]
   \\ rw []
@@ -2567,11 +2563,8 @@ Proof
   \\ rw[]
 QED
 
-Theorem with_same_locals[simp] =
-  EQT_ELIM(SIMP_CONV(srw_ss())[state_component_equality]``s with locals := s.locals = (s:('a,'b,'c) wordSem$state)``)
-
 Theorem state_rel_get_var_imp:
-   state_rel ac k f f' s t lens ∧ get_var (2 * x) s = SOME v ∧ x < k ⇒ FLOOKUP t.regs x = SOME v
+  state_rel ac k f f' s t lens ∧ get_var (2 * x) s = SOME v ∧ x < k ⇒ FLOOKUP t.regs x = SOME v
 Proof
   simp[state_rel_def]
   \\ strip_tac
@@ -2584,7 +2577,7 @@ Proof
 QED
 
 Theorem state_rel_get_var_imp2:
-   state_rel ac k f f' s t lens ∧
+  state_rel ac k f f' s t lens ∧
   get_var (2 * x) s = SOME v ∧
   ¬(x < k)
   ⇒
@@ -2813,6 +2806,9 @@ Proof
   \\ rw[] \\ every_case_tac \\ fs[EVERY_MEM]
   \\ metis_tac[IS_SOME_EXISTS,NOT_SOME_NONE,option_CASES]
 QED
+
+Theorem with_same_locals[simp] =
+  EQT_ELIM(SIMP_CONV(srw_ss())[state_component_equality]``s with locals := s.locals = (s:('a,'b,'c) wordSem$state)``)
 
 Theorem evaluate_wMoveAux_seqsem:
    ∀ms s t r.
