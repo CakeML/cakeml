@@ -798,6 +798,7 @@ constrain_op l op ts s =
    | (AallocFixed, _) => failwith l (implode "Unsafe ops do not have a type")  s(* not actually unsafe *)
    | (Eval, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type") s
+   | (ThunkOp _, _) => failwith l (implode "Thunk ops do not have a type") s
    | _ => failwith l (op_n_args_msg op (LENGTH ts)) s
 End
 
@@ -821,12 +822,13 @@ Theorem constrain_op_error_msg_sanity:
   LENGTH args = SND (op_to_string op) ∧
   constrain_op l op args s = (Failure (l',msg), s')
   ⇒
-  IS_PREFIX (explode msg) "Type mismatch" \/
-  IS_PREFIX (explode msg) "Unsafe" \/
+  IS_PREFIX (explode msg) "Type mismatch" ∨
+  IS_PREFIX (explode msg) "Unsafe" ∨
+  IS_PREFIX (explode msg) "Thunk" ∨
   IS_PREFIX (explode msg) "Real"
 Proof
  rpt strip_tac >>
- qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3` >>
+ qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3 \/ IS_PREFIX _ m4` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
  gvs [LENGTH_EQ_NUM_compute] >>
