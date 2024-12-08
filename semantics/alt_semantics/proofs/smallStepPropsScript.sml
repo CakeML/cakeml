@@ -1730,9 +1730,9 @@ Theorem e_step_ffi_changed:
   ∀env st ffi fp ev cs ffi' env' st' fp' ev' cs'.
   e_step (env, (st, ffi), fp, ev, cs) = Estep (env', (st', ffi'), fp', ev', cs') ∧
   ffi ≠ ffi' ⇒
-  ∃ s conf lnum ccs ws ffi_st ws'.
+  ∃ s conf lnum ccs ws ffi_st ws' b.
     ev = Val (Litv (StrLit conf)) ∧
-    cs = (Capp (FFI s) [Loc lnum] () [], env') :: ccs ∧
+    cs = (Capp (FFI s) [Loc b lnum] () [], env') :: ccs ∧
     store_lookup lnum st = SOME (W8array ws) ∧
     s ≠ "" ∧
     ffi.oracle
@@ -1771,9 +1771,9 @@ QED
 
 Theorem decl_step_ffi_changed:
   decl_step benv (st, dev, dcs) = Dstep (st', dev', dcs') ∧ st.ffi ≠ st'.ffi ⇒
-  ∃env conf s lnum env' ccs locs pat ws ffi_st ws'.
+  ∃env conf s lnum env' ccs locs pat ws ffi_st ws' b.
     dev = ExpVal env (Val (Litv (StrLit conf)))
-            ((Capp (FFI s) [Loc lnum] () [], env')::ccs) locs pat ∧
+            ((Capp (FFI s) [Loc b lnum] () [], env')::ccs) locs pat ∧
     store_lookup lnum st.refs = SOME (W8array ws) ∧
     s ≠ "" ∧
     st.ffi.oracle (ExtCall s) st.ffi.ffi_state

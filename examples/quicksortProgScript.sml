@@ -520,7 +520,7 @@ Proof
   `(SEP_EXISTS loc.
      (λs.
         ∃v.
-          v ⊆ s ∧ s ⊆ v ∧ arr_v = Loc loc ∧
+          v ⊆ s ∧ s ⊆ v ∧ arr_v = Loc T loc ∧
           v ⊆ {Mem loc (Varray (elem_vs1 ++ elem_vs2 ++ elem_vs3))} ∧
           Mem loc (Varray (elem_vs1 ++ elem_vs2 ++ elem_vs3)) ∈ v))
     =

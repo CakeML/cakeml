@@ -330,7 +330,7 @@ Theorem is_clock_io_mono_do_app_icing:
                                     Rval (Closure v24 v25 v26)
                                 | Rval (Recclosure v27 v28 v29) =>
                                     Rval (Recclosure v27 v28 v29)
-                                | Rval (Loc v30) => Rval (Loc v30)
+                                | Rval (Loc b v30) => Rval (Loc b v30)
                                 | Rval (Vectorv v31) => Rval (Vectorv v31)
                                 | Rval (FP_WordTree v32) => Rval (FP_WordTree v32)
                                 | Rval (FP_BoolTree fv) =>

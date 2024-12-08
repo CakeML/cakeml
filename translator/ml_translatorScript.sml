@@ -415,7 +415,7 @@ End
 
 Definition types_match_def:
   (types_match (Litv l1) (Litv l2) = lit_same_type l1 l2) /\
-  (types_match (Loc l1) (Loc l2) = T) /\
+  (types_match (Loc b1 l1) (Loc b2 l2) = (b1 ∧ b2)) /\
   (types_match (Conv cn1 vs1) (Conv cn2 vs2) =
     (ctor_same_type cn1 cn2 /\ ((cn1 = cn2) ⇒ types_match_list vs1 vs2))) /\
   (types_match (FP_WordTree (Fp_const w1)) (FP_WordTree (Fp_const w2)) = T) /\
@@ -3116,7 +3116,7 @@ Theorem new_ref_thm:
     ∃init_v loc_v.
       eval_rel (empty_state with refs := refs) env (App Opref [e])
                (empty_state with refs := refs ++ [Refv init_v]) loc_v ∧
-      a x init_v ∧ loc_v = Loc (LENGTH refs)
+      a x init_v ∧ loc_v = Loc T (LENGTH refs)
 Proof
   fs [Eval_def] \\ rw []
   \\ first_x_assum (qspec_then ‘refs’ strip_assume_tac)

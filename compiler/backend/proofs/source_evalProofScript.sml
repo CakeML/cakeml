@@ -226,7 +226,7 @@ Inductive v_rel:
   (env_rel (v_rel es) env env' ==>
     v_rel es (Recclosure env funs nm) (Recclosure env' funs nm)) /\
   (v_rel es (Litv l) (Litv l)) /\
-  (v_rel es (Loc n) (Loc n)) ∧
+  (v_rel es (Loc br n) (Loc br n)) ∧
   (v_rel es (FP_BoolTree b) (FP_BoolTree b)) ∧
   (v_rel es (FP_WordTree w) (FP_WordTree w)) ∧
   (v_rel es (Real r) (Real r))
@@ -234,7 +234,7 @@ End
 
 Theorem v_rel_l_simps =
   [``v_rel es (Litv l) v``, ``v_rel es (Conv cn vs) v``,
-    ``v_rel es (Loc l) v``, ``v_rel es (Vectorv vs) v``,
+    ``v_rel es (Loc b l) v``, ``v_rel es (Vectorv vs) v``,
     ``v_rel es (Env e id) v``, ``v_rel es (Recclosure env funs nm) v``,
     ``v_rel es (Closure env nm x) v``,
     “v_rel es (FP_BoolTree b) v”, “v_rel es (FP_WordTree w) v”,

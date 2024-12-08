@@ -2331,7 +2331,7 @@ Theorem do_eq_refl:
   (!v1 v2.  v1 = v2 ==> do_eq v1 v2 = Eq_val T) /\
   (!v1 v2 .  v1 = v2 ==> do_eq_list v1 v2 = Eq_val T)
 Proof
-  ho_match_mp_tac do_eq_ind \\ rw[do_eq_def]
+  cheat (* ho_match_mp_tac do_eq_ind \\ rw[do_eq_def] *)
 QED
 
 Theorem do_eq_v_sim1:

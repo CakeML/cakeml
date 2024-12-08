@@ -52,7 +52,7 @@ Definition Pmatch_def:
      if LENGTH ps = LENGTH vs then
        Pmatch env refs ps vs
      else NONE) ∧
-  (Pmatch env refs [Pref p] [Loc lnum] =
+  (Pmatch env refs [Pref p] [Loc b lnum] =
    case store_lookup lnum refs of
    | SOME (Refv v) => Pmatch env refs [p] [v]
    | _ => NONE) ∧

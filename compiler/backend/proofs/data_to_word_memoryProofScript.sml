@@ -201,7 +201,7 @@ Definition v_inv_def[schematic]:
           (heap_lookup ptr heap = SOME (Word64Rep (:'a) w))) /\
   (v_inv (CodePtr n) (x,f,tf,heap) <=>
      (x = Data (Loc n 0))) /\
-  (v_inv (RefPtr n) (x,f,tf,heap) <=>
+  (v_inv (RefPtr _ n) (x,f,tf,heap) <=>
      (x = Pointer (f ' n) (Word 0w)) /\ n IN FDOM f) /\
   (v_inv (Block ts n vs) (x,f,tf,heap) <=>
      if vs = []
@@ -223,7 +223,7 @@ Definition get_refs_def:
   (get_refs (Number _) = []) /\
   (get_refs (Word64 _) = []) /\
   (get_refs (CodePtr _) = []) /\
-  (get_refs (RefPtr p) = [p]) /\
+  (get_refs (RefPtr _ p) = [p]) /\
   (get_refs (Block _ _ vs) = FLAT (MAP get_refs vs))
 Termination
   WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `vs`
@@ -2802,8 +2802,8 @@ Proof
 QED
 
 Triviality reachable_refs_UPDATE:
-  reachable_refs (xs ++ RefPtr ptr::stack) (insert ptr (ValueArray xs) refs) n ==>
-    reachable_refs (xs ++ RefPtr ptr::stack) refs n
+  reachable_refs (xs ++ RefPtr b ptr::stack) (insert ptr (ValueArray xs) refs) n ==>
+    reachable_refs (xs ++ RefPtr b ptr::stack) refs n
 Proof
   full_simp_tac std_ss [reachable_refs_def] \\ rpt strip_tac
   \\ Cases_on `?m. MEM m (get_refs (Block 0 ARB xs)) /\
@@ -2826,9 +2826,9 @@ Proof
 QED
 
 Triviality reachable_refs_UPDATE1:
-  reachable_refs (xs ++ RefPtr ptr::stack) (insert ptr (ValueArray xs1) refs) n ==>
+  reachable_refs (xs ++ RefPtr b ptr::stack) (insert ptr (ValueArray xs1) refs) n ==>
     (!v. MEM v xs1 ==> ~MEM v xs ==> ?xs2. (lookup ptr refs = SOME (ValueArray xs2)) /\ MEM v xs2) ==>
-    reachable_refs (xs ++ RefPtr ptr::stack) refs n
+    reachable_refs (xs ++ RefPtr b ptr::stack) refs n
 Proof
   full_simp_tac std_ss [reachable_refs_def] \\ rpt strip_tac
   \\ pop_assum mp_tac \\ last_x_assum mp_tac \\ last_x_assum mp_tac
@@ -2851,7 +2851,7 @@ Proof
       disch_then(qspec_then`x'`mp_tac) >>
       simp[] >>
       Cases_on`MEM x' xs`>-metis_tac[]>>simp[]>>strip_tac>>
-      qexists_tac`RefPtr ptr`>>simp[get_refs_def]>>
+      qexists_tac`RefPtr b ptr`>>simp[get_refs_def]>>
       simp[Once RTC_CASES1]>>simp[ref_edge_def,get_refs_def]>>
       simp[MEM_MAP,MEM_FLAT,PULL_EXISTS]>>metis_tac[]) >>
     BasicProvers.VAR_EQ_TAC >>
@@ -2860,7 +2860,7 @@ Proof
   rpt gen_tac >> strip_tac >>
   match_mp_tac (METIS_PROVE[]``(P ==> (Q ==> R)) ==> (Q ==> P ==> R)``) >>
   strip_tac >>
-  first_x_assum(qspecl_then[`RefPtr r'`,`xs`,`[RefPtr r']`]mp_tac) >>
+  first_x_assum(qspecl_then[`RefPtr b r'`,`xs`,`[RefPtr b r']`]mp_tac) >>
   simp[get_refs_def] >>
   strip_tac >- metis_tac[] >- metis_tac[] >>
   BasicProvers.VAR_EQ_TAC >> fs[get_refs_def] >>
@@ -3092,13 +3092,13 @@ Proof
 QED
 
 Theorem update_ref_thm:
-   abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) refs
+   abs_ml_inv conf (xs ++ (RefPtr b ptr)::stack) refs
     (roots,heap,be,a,sp,sp1,gens) limit ts /\
     (lookup ptr refs = SOME (ValueArray xs1)) /\ (LENGTH xs = LENGTH xs1) ==>
     ?p rs roots2 heap2 u.
       (roots = rs ++ Pointer p u :: roots2) /\
       (heap_store p [RefBlock rs] heap = (heap2,T)) /\
-      abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) (insert ptr (ValueArray xs) refs)
+      abs_ml_inv conf (xs ++ (RefPtr b ptr)::stack) (insert ptr (ValueArray xs) refs)
         (roots,heap2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
@@ -3107,8 +3107,8 @@ Proof
   \\ full_simp_tac std_ss [v_inv_def]
   \\ Q.LIST_EXISTS_TAC [`f ' ptr`,`t1`,`t2`]
   \\ full_simp_tac std_ss []
-  \\ `reachable_refs (xs ++ RefPtr ptr::stack) refs ptr` by
-   (full_simp_tac std_ss [reachable_refs_def] \\ qexists_tac `RefPtr ptr`
+  \\ `reachable_refs (xs ++ RefPtr b ptr::stack) refs ptr` by
+   (full_simp_tac std_ss [reachable_refs_def] \\ qexists_tac `RefPtr b ptr`
     \\ full_simp_tac (srw_ss()) [get_refs_def])
   \\ res_tac \\ POP_ASSUM MP_TAC \\ simp_tac std_ss [Once bc_ref_inv_def]
   \\ Cases_on `lookup ptr refs` \\ full_simp_tac (srw_ss()) []
@@ -3161,7 +3161,7 @@ Proof
     \\ res_tac \\ full_simp_tac (srw_ss()) [isRefBlock_def,RefBlock_def]
     \\ imp_res_tac data_up_to_heap_store \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ValueArray xs) refs) (xs ++ RefPtr ptr::stack))`
+  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ValueArray xs) refs) (xs ++ RefPtr b ptr::stack))`
   \\ full_simp_tac std_ss []
   \\ MP_TAC v_inv_Ref
   \\ full_simp_tac std_ss [] \\ rpt strip_tac
@@ -3181,7 +3181,7 @@ Proof
      \\ qmatch_asmsub_abbrev_tac `MEM (_,_) (ZIP (l,_))`
      \\ drule MEM_ZIP2 \\ rw []
      \\ rw [EL_MEM])
-  \\ `reachable_refs (xs ++ RefPtr ptr::stack) refs n` by imp_res_tac reachable_refs_UPDATE
+  \\ `reachable_refs (xs ++ RefPtr b ptr::stack) refs n` by imp_res_tac reachable_refs_UPDATE
   \\ Cases_on `n = ptr` \\ full_simp_tac (srw_ss()) [bc_ref_inv_def] THEN1
    (srw_tac [] [] \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,RefBlock_def]
     \\ imp_res_tac EVERY2_SWAP \\ full_simp_tac std_ss []
@@ -3228,7 +3228,7 @@ Definition heap_deref_def:
 End
 
 Theorem update_ref_thm1:
-   abs_ml_inv conf (xs ++ RefPtr ptr::stack) refs
+   abs_ml_inv conf (xs ++ RefPtr b ptr::stack) refs
     (roots,heap,be,a,sp,sp1,gens) limit ts /\
     (lookup ptr refs = SOME (ValueArray xs1)) /\ i < LENGTH xs1 /\ 0 < LENGTH xs
     ==>
@@ -3236,7 +3236,7 @@ Theorem update_ref_thm1:
       (roots = rs ++ Pointer p u :: roots2) /\ (LENGTH rs = LENGTH xs) /\
       (heap_deref p heap = SOME vs1) /\ LENGTH vs1 = LENGTH xs1 /\
       (heap_store p [RefBlock (LUPDATE (HD rs) i vs1)] heap = (heap2,T)) /\
-      abs_ml_inv conf (xs ++ (RefPtr ptr)::stack)
+      abs_ml_inv conf (xs ++ (RefPtr b ptr)::stack)
         (insert ptr (ValueArray (LUPDATE (HD xs) i xs1)) refs)
         (roots,heap2,be,a,sp,sp1,gens) limit ts
 Proof
@@ -3246,8 +3246,8 @@ Proof
   \\ full_simp_tac std_ss [v_inv_def]
   \\ Q.LIST_EXISTS_TAC [`f ' ptr`,`t1`,`t2`]
   \\ full_simp_tac std_ss []
-  \\ `reachable_refs (xs ++ RefPtr ptr::stack) refs ptr` by
-   (full_simp_tac std_ss [reachable_refs_def] \\ qexists_tac `RefPtr ptr`
+  \\ `reachable_refs (xs ++ RefPtr b ptr::stack) refs ptr` by
+   (full_simp_tac std_ss [reachable_refs_def] \\ qexists_tac `RefPtr b ptr`
     \\ full_simp_tac (srw_ss()) [get_refs_def])
   \\ res_tac \\ POP_ASSUM MP_TAC \\ simp_tac std_ss [Once bc_ref_inv_def]
   \\ Cases_on `lookup ptr refs` \\ full_simp_tac (srw_ss()) []
@@ -3305,7 +3305,7 @@ Proof
     \\ res_tac \\ full_simp_tac (srw_ss()) [isRefBlock_def,RefBlock_def]
     \\ imp_res_tac data_up_to_heap_store \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ValueArray (LUPDATE (HD xs) i xs1)) refs) (xs ++ RefPtr ptr::stack))`
+  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ValueArray (LUPDATE (HD xs) i xs1)) refs) (xs ++ RefPtr b ptr::stack))`
   \\ full_simp_tac std_ss []
   \\ MP_TAC v_inv_Ref
   \\ full_simp_tac std_ss [] \\ rpt strip_tac
@@ -3346,7 +3346,7 @@ Proof
        \\ ho_match_mp_tac MEM_v_all_vs
        \\ drule MEM_ZIP2 \\ rw []
        \\ rw [EL_MEM]))
-  \\ `reachable_refs (xs ++ RefPtr ptr::stack) refs n` by (
+  \\ `reachable_refs (xs ++ RefPtr b ptr::stack) refs n` by (
     match_mp_tac (GEN_ALL (MP_CANON reachable_refs_UPDATE1)) >>
     qexists_tac`LUPDATE (HD xs) i xs1` >> rw[] >>
     Cases_on`xs`>>fs[]>>
@@ -3466,20 +3466,20 @@ val unused_space_inv_byte_update = prove(
   \\ rpt gen_tac \\ Cases_on `a = 0` \\ fs []);
 
 Theorem update_byte_ref_thm:
-   abs_ml_inv conf ((RefPtr ptr)::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
+   abs_ml_inv conf ((RefPtr b ptr)::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
     (lookup ptr refs = SOME (ByteArray fl xs)) /\ (LENGTH xs = LENGTH ys) ==>
     ?roots2 h1 h2 ws.
       (roots = Pointer (heap_length h1) ((Word 0w):'a word_loc) :: roots2) /\
       heap = h1 ++ [Bytes be fl xs ws] ++ h2 /\
       LENGTH ws = LENGTH xs DIV (dimindex (:α) DIV 8) + 1 /\
-      abs_ml_inv conf ((RefPtr ptr)::stack) (insert ptr (ByteArray fl ys) refs)
+      abs_ml_inv conf ((RefPtr b ptr)::stack) (insert ptr (ByteArray fl ys) refs)
         (roots,h1 ++ [Bytes be fl ys ws] ++ h2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ Cases_on `roots` \\ fs [v_inv_def] \\ rpt var_eq_tac \\ fs []
-  \\ `reachable_refs (RefPtr ptr::stack) refs ptr` by
-   (full_simp_tac std_ss [reachable_refs_def] \\ qexists_tac `RefPtr ptr`
+  \\ `reachable_refs (RefPtr b ptr::stack) refs ptr` by
+   (full_simp_tac std_ss [reachable_refs_def] \\ qexists_tac `RefPtr b ptr`
     \\ full_simp_tac (srw_ss()) [get_refs_def] \\ NO_TAC)
   \\ res_tac \\ fs []
   \\ pop_assum mp_tac \\ simp_tac std_ss [Once bc_ref_inv_def]
@@ -3489,7 +3489,7 @@ Proof
   \\ qexists_tac `ha` \\ fs []
   \\ qexists_tac `REPLICATE ws 0w` \\ fs [PULL_EXISTS]
   \\ qexists_tac `f` \\ fs []
-  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ByteArray fl ys) refs) (RefPtr ptr::stack))`
+  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ByteArray fl ys) refs) (RefPtr b ptr::stack))`
   \\ `!a. isSomeDataElement (heap_lookup a (ha ++ [Bytes be fl ys (REPLICATE ws 0w)] ++ hb)) =
           isSomeDataElement (heap_lookup a (ha ++ [Bytes be fl xs (REPLICATE ws 0w)] ++ hb))` by
    (rw [] \\ fs [isSomeDataElement_def] \\ rw []
@@ -3551,7 +3551,7 @@ Proof
     \\ ho_match_mp_tac MEM_v_all_vs
     \\ drule MEM_ZIP2 \\ rw []
     \\ rw [EL_MEM])
-  \\ `reachable_refs (RefPtr ptr::stack) refs n` by
+  \\ `reachable_refs (RefPtr b ptr::stack) refs n` by
    (pop_assum mp_tac
     \\ sg `ref_edge (insert ptr (ByteArray fl ys) refs) = ref_edge refs`
     \\ simp [reachable_refs_def]
@@ -3666,7 +3666,7 @@ Theorem new_ref_thm:
     ?p rs roots2 heap2.
       (roots = rs ++ roots2) /\ LENGTH rs = LENGTH xs /\
       (heap_store_unused a (sp+sp1) (RefBlock rs) heap = (heap2,T)) /\
-      abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) (insert ptr (ValueArray xs) refs)
+      abs_ml_inv conf (xs ++ (RefPtr T ptr)::stack) (insert ptr (ValueArray xs) refs)
                  (rs ++ Pointer (a+sp+sp1-(LENGTH xs + 1)) (Word 0w)::roots2,heap2,be,a,
                   sp - (LENGTH xs + 1),sp1,gens) limit ts
 Proof
@@ -3717,7 +3717,7 @@ Proof
   \\ `~(ptr IN FDOM f)` by (full_simp_tac (srw_ss()) [SUBSET_DEF] \\ metis_tac [])
   \\ conj_tac THEN1 fs []
   \\ qexists_tac `f |+ (ptr,a+sp+sp1-(LENGTH ys1 + 1))`
-  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ValueArray xs) refs) (xs ++ RefPtr ptr::stack))`
+  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (ValueArray xs) refs) (xs ++ RefPtr T ptr::stack))`
   \\ strip_tac THEN1
    (full_simp_tac (srw_ss()) [FDOM_FUPDATE]
     \\ `(FAPPLY (f |+ (ptr,a + sp + sp1 - (LENGTH ys1 + 1)))) =
@@ -3786,13 +3786,12 @@ Proof
     \\ rw [all_vs_def] \\ disj2_tac
     \\ ho_match_mp_tac MEM_v_all_vs
     \\ rw [MEM_APPEND,EL_MEM])
-  \\ `reachable_refs (xs ++ RefPtr ptr::stack) refs n` by imp_res_tac reachable_refs_UPDATE
-  \\ qpat_x_assum `reachable_refs (xs ++ RefPtr ptr::stack)
+  \\ `reachable_refs (xs ++ RefPtr T ptr::stack) refs n` by imp_res_tac reachable_refs_UPDATE
+  \\ qpat_x_assum `reachable_refs (xs ++ RefPtr T ptr::stack)
         (insert ptr x refs) n` (K ALL_TAC)
-
   \\ `reachable_refs (xs ++ stack) refs n` by
     (full_simp_tac std_ss [reachable_refs_def]
-     \\ reverse (Cases_on `x = RefPtr ptr`)
+     \\ reverse (Cases_on `x = RefPtr T ptr`)
      THEN1 (full_simp_tac std_ss [MEM,MEM_APPEND] \\ metis_tac [])
      \\ full_simp_tac std_ss [get_refs_def,MEM]
      \\ srw_tac [] []
@@ -3847,7 +3846,7 @@ Definition heap_el_def:
 End
 
 Theorem deref_thm:
-   abs_ml_inv conf (RefPtr ptr::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts ==>
+   abs_ml_inv conf (RefPtr b ptr::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts ==>
     ?r roots2.
       (roots = r::roots2) /\ ptr IN (domain refs) /\
       case THE (lookup ptr refs) of
@@ -3855,14 +3854,14 @@ Theorem deref_thm:
       | ValueArray vs =>
       !n. n < LENGTH vs ==>
           ?y. (heap_el r n heap = (y,T)) /\
-                abs_ml_inv conf (EL n vs::RefPtr ptr::stack) refs
+                abs_ml_inv conf (EL n vs::RefPtr b ptr::stack) refs
                   (y::roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ rpt strip_tac \\ Cases_on `roots` \\ full_simp_tac (srw_ss()) [LIST_REL_def]
   \\ full_simp_tac std_ss [v_inv_def]
-  \\ `reachable_refs (RefPtr ptr::stack) refs ptr` by
-   (full_simp_tac std_ss [reachable_refs_def,MEM] \\ qexists_tac `RefPtr ptr`
+  \\ `reachable_refs (RefPtr b ptr::stack) refs ptr` by
+   (full_simp_tac std_ss [reachable_refs_def,MEM] \\ qexists_tac `RefPtr b ptr`
     \\ asm_simp_tac (srw_ss()) [get_refs_def])
   \\ res_tac \\ POP_ASSUM MP_TAC
   \\ simp_tac std_ss [Once bc_ref_inv_def]
@@ -3885,7 +3884,7 @@ Proof
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ qexists_tac `tf` \\ full_simp_tac std_ss []
   \\ conj_tac
-  >- (`all_ts refs (RefPtr ptr::stack) = all_ts refs (EL n l::RefPtr ptr::stack)`
+  >- (`all_ts refs (RefPtr b ptr::stack) = all_ts refs (EL n l::RefPtr b ptr::stack)`
       suffices_by metis_tac []
       \\ rw [FUN_EQ_THM,all_ts_def]
       \\ EQ_TAC
@@ -3899,11 +3898,11 @@ Proof
   \\ full_simp_tac std_ss []
   \\ rpt strip_tac
   \\ FIRST_X_ASSUM match_mp_tac
-  \\ qpat_x_assum `reachable_refs (RefPtr ptr::stack) refs ptr` (K ALL_TAC)
+  \\ qpat_x_assum `reachable_refs (RefPtr b ptr::stack) refs ptr` (K ALL_TAC)
   \\ full_simp_tac std_ss [reachable_refs_def]
   \\ reverse (Cases_on `x = EL n l`)
   THEN1 (full_simp_tac std_ss [MEM] \\ metis_tac [])
-  \\ qexists_tac `RefPtr ptr` \\ simp_tac std_ss [MEM,get_refs_def]
+  \\ qexists_tac `RefPtr b ptr` \\ simp_tac std_ss [MEM,get_refs_def]
   \\ once_rewrite_tac [RTC_CASES1] \\ DISJ2_TAC
   \\ qexists_tac `r` \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [ref_edge_def,FLOOKUP_DEF,get_refs_def]
@@ -3980,7 +3979,7 @@ Theorem new_byte_alt_thm:
     ?heap2.
       (heap_store_unused_alt a (sp+sp1)
         (Bytes be fl bs (REPLICATE ws (0w:'a word))) heap = (heap2,T)) /\
-      abs_ml_inv conf ((RefPtr ptr)::stack) (insert ptr (ByteArray fl bs) refs)
+      abs_ml_inv conf ((RefPtr b ptr)::stack) (insert ptr (ByteArray fl bs) refs)
                  (Pointer a (Word 0w)::roots,heap2,be,a + ws + 1,
                   sp - (ws + 1),sp1,gens) limit ts
 Proof
@@ -4166,7 +4165,7 @@ QED
 (* equality *)
 
 Theorem ref_eq_thm:
-   abs_ml_inv conf (RefPtr p1::RefPtr p2::stack) refs
+   abs_ml_inv conf (RefPtr T p1::RefPtr T p2::stack) refs
       (r1::r2::roots,heap,be,a,sp,sp1,gens) limit ts ==>
     ((p1 = p2) <=> (r1 = r2)) /\
     ?p1 p2. r1 = Pointer p1 (Word 0w) /\ r2 = Pointer p2 (Word 0w)
@@ -5092,7 +5091,7 @@ Proof
 QED
 
 Theorem memory_rel_Deref':
-   memory_rel c be ts refs sp st m dm ((RefPtr nn,ptr)::vars) /\
+   memory_rel c be ts refs sp st m dm ((RefPtr bl nn,ptr)::vars) /\
     lookup nn refs = SOME (ValueArray vals) /\
     good_dimindex (:'a) /\
     index < LENGTH vals ==>
@@ -5102,7 +5101,7 @@ Theorem memory_rel_Deref':
       (x + bytes_in_word + bytes_in_word * n2w index) IN dm /\
       memory_rel c be ts refs sp st m dm
         ((EL index vals,m (x + bytes_in_word + bytes_in_word * n2w index))::
-         (RefPtr nn,ptr)::vars)
+         (RefPtr bl nn,ptr)::vars)
 Proof
   rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
@@ -5132,7 +5131,7 @@ QED
 
 Theorem memory_rel_Deref:
    memory_rel c be ts refs sp st m dm
-     ((RefPtr nn,ptr)::(Number (&index),i)::vars) /\
+     ((RefPtr bl nn,ptr)::(Number (&index),i)::vars) /\
     lookup nn refs = SOME (ValueArray vals) /\
     good_dimindex (:'a) /\
     index < LENGTH vals ==>
@@ -5143,7 +5142,7 @@ Theorem memory_rel_Deref:
       (x + y) IN dm /\
       memory_rel c be ts refs sp st m dm
         ((EL index vals,m (x + y))::
-         (RefPtr nn,ptr)::(Number (&index),i)::vars)
+         (RefPtr bl nn,ptr)::(Number (&index),i)::vars)
 Proof
   rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
@@ -5164,8 +5163,8 @@ Proof
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
-    \\ `reachable_refs (RefPtr nn::Number (&index)::MAP FST vars) refs nn` by
-     (fs [reachable_refs_def] \\ qexists_tac `RefPtr nn` \\ fs []
+    \\ `reachable_refs (RefPtr bl nn::Number (&index)::MAP FST vars) refs nn` by
+     (fs [reachable_refs_def] \\ qexists_tac `RefPtr bl nn` \\ fs []
       \\ fs [get_refs_def] \\ NO_TAC) \\ res_tac
     \\ pop_assum mp_tac
     \\ simp_tac std_ss [bc_ref_inv_def]
@@ -5272,7 +5271,7 @@ QED
 
 Theorem memory_rel_Update':
    memory_rel c be ts refs sp st m dm
-     ((h,w)::(RefPtr nn,ptr)::vars) /\
+     ((h,w)::(RefPtr bl nn,ptr)::vars) /\
     lookup nn refs = SOME (ValueArray vals) /\
     good_dimindex (:'a) /\
     index < LENGTH vals ==>
@@ -5282,7 +5281,7 @@ Theorem memory_rel_Update':
       (x + bytes_in_word + bytes_in_word * n2w index) IN dm /\
       memory_rel c be ts (insert nn (ValueArray (LUPDATE h index vals)) refs) sp st
         ((x + bytes_in_word + bytes_in_word * n2w index =+ w) m) dm
-        ((h,w)::(RefPtr nn,ptr)::vars)
+        ((h,w)::(RefPtr bl nn,ptr)::vars)
 Proof
   rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
@@ -5304,8 +5303,8 @@ Proof
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
-    \\ `reachable_refs (h::RefPtr nn::Number (&index)::MAP FST vars) refs nn` by
-     (fs [reachable_refs_def] \\ qexists_tac `RefPtr nn` \\ fs []
+    \\ `reachable_refs (h::RefPtr bl nn::Number (&index)::MAP FST vars) refs nn` by
+     (fs [reachable_refs_def] \\ qexists_tac `RefPtr bl nn` \\ fs []
       \\ fs [get_refs_def] \\ NO_TAC) \\ res_tac
     \\ pop_assum mp_tac
     \\ simp_tac std_ss [bc_ref_inv_def]
@@ -5337,7 +5336,7 @@ QED
 
 Theorem memory_rel_Update:
    memory_rel c be ts refs sp st m dm
-     ((h,w)::(RefPtr nn,ptr)::(Number (&index),i)::vars) /\
+     ((h,w)::(RefPtr bl nn,ptr)::(Number (&index),i)::vars) /\
     lookup nn refs = SOME (ValueArray vals) /\
     good_dimindex (:'a) /\
     index < LENGTH vals ==>
@@ -5348,7 +5347,7 @@ Theorem memory_rel_Update:
       (x + y) IN dm /\
       memory_rel c be ts (insert nn (ValueArray (LUPDATE h index vals)) refs) sp st
         ((x + y =+ w) m) dm
-        ((h,w)::(RefPtr nn,ptr)::(Number (&index),i)::vars)
+        ((h,w)::(RefPtr bl nn,ptr)::(Number (&index),i)::vars)
 Proof
   rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
@@ -5370,8 +5369,8 @@ Proof
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
-    \\ `reachable_refs (h::RefPtr nn::Number (&index)::MAP FST vars) refs nn` by
-     (fs [reachable_refs_def] \\ qexists_tac `RefPtr nn` \\ fs []
+    \\ `reachable_refs (h::RefPtr bl nn::Number (&index)::MAP FST vars) refs nn` by
+     (fs [reachable_refs_def] \\ qexists_tac `RefPtr bl nn` \\ fs []
       \\ fs [get_refs_def] \\ NO_TAC) \\ res_tac
     \\ pop_assum mp_tac
     \\ simp_tac std_ss [bc_ref_inv_def]
@@ -5922,7 +5921,7 @@ Theorem memory_rel_Ref:
         store_list w (Word hd::ws) m dm = SOME m1 /\
         memory_rel c be ts (insert new (ValueArray vals) refs) (sp - (LENGTH ws + 1))
           (st |+ (EndOfHeap,Word w) |+ (TriggerGC,Word w1)) m1 dm
-          ((RefPtr new,make_ptr c (w - curr) 0w (LENGTH ws))::vars)
+          ((RefPtr T new,make_ptr c (w - curr) 0w (LENGTH ws))::vars)
 Proof
   simp_tac std_ss [LET_THM]
   \\ rewrite_tac [CONJ_ASSOC]
@@ -6542,7 +6541,7 @@ Theorem memory_rel_RefByte_content:
         store_list free (Word (make_byte_header c fl n)::MAP Word ws) m dm = SOME m1 ∧
         memory_rel c be ts (insert new (ByteArray fl bytes) refs)
           (sp − (byte_len (:'a) n + 1)) (st |+ (NextFree,Word (free + w'))) m1 dm
-          ((RefPtr new,make_ptr c (free − curr) (0w:'a word) (byte_len (:'a) n))::vars))
+          ((RefPtr T new,make_ptr c (free − curr) (0w:'a word) (byte_len (:'a) n))::vars))
 Proof
   simp_tac std_ss [LET_THM]
   \\ rewrite_tac [CONJ_ASSOC]
@@ -6552,7 +6551,7 @@ Proof
   \\ rw []
   \\ qabbrev_tac ‘n = LENGTH bytes’
   \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
-  \\ drule (GEN_ALL new_byte_alt_thm)
+  \\ drule (GEN_ALL (new_byte_alt_thm |> Q.INST [‘b’|->‘T’]))
   \\ disch_then (qspecl_then [`(byte_len (:'a) n)`,
         `new`,`fl`,`bytes`] mp_tac)
   \\ fs [LENGTH_REPLICATE]
@@ -6638,7 +6637,7 @@ Theorem memory_rel_RefByte_alt:
         store_list free (Word (make_byte_header c fl n)::ws) m dm = SOME m1 ∧
         memory_rel c be ts (insert new (ByteArray fl (REPLICATE n w)) refs)
           (sp − (byte_len (:'a) n + 1)) (st |+ (NextFree,Word (free + w'))) m1 dm
-          ((RefPtr new,make_ptr c (free − curr) 0w (byte_len (:'a) n))::vars))
+          ((RefPtr T new,make_ptr c (free − curr) 0w (byte_len (:'a) n))::vars))
 Proof
   simp_tac std_ss [LET_THM]
   \\ rewrite_tac [CONJ_ASSOC]
@@ -6647,7 +6646,7 @@ Proof
   \\ qmatch_goalsub_abbrev_tac`Word _ :: ws`
   \\ rw []
   \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
-  \\ drule (GEN_ALL new_byte_alt_thm)
+  \\ drule (GEN_ALL (new_byte_alt_thm |> Q.INST [‘b’|->‘T’]))
   \\ disch_then (qspecl_then [`(byte_len (:'a) n)`,
         `new`,`fl`,`REPLICATE n w`] mp_tac)
   \\ fs [LENGTH_REPLICATE]
@@ -7211,7 +7210,7 @@ Proof
 QED
 
 Theorem memory_rel_ValueArray_IMP:
-   memory_rel c be ts refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
+   memory_rel c be ts refs sp st m dm ((RefPtr bl p,v:'a word_loc)::vars) /\
     lookup p refs = SOME (ValueArray vals) /\ good_dimindex (:'a) ==>
     ?w a x.
       v = Word w /\ w ' 0 /\ word_bit 3 x /\ ~word_bit 2 x /\ ~word_bit 4 x /\
@@ -7225,7 +7224,7 @@ Proof
       bc_stack_ref_inv_def,v_inv_def,word_addr_def] \\ rw [get_addr_0]
   \\ `bc_ref_inv c p refs (f,tf,heap,be)` by
     (first_x_assum match_mp_tac \\ fs [reachable_refs_def]
-     \\ qexists_tac `RefPtr p` \\ fs [get_refs_def])
+     \\ qexists_tac `RefPtr bl p` \\ fs [get_refs_def])
   \\ pop_assum mp_tac \\ simp [bc_ref_inv_def]
   \\ fs [FLOOKUP_DEF] \\ rw []
   \\ fs [word_addr_def,heap_in_memory_store_def]
@@ -7574,7 +7573,7 @@ Definition hide_heap_in_memory_store_def:
 End
 
 Theorem memory_rel_ByteArray_IMP:
-   memory_rel c be ts refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
+   memory_rel c be ts refs sp st m dm ((RefPtr bl p,v:'a word_loc)::vars) /\
    lookup p refs = SOME (ByteArray fl vals) /\ good_dimindex (:'a) ==>
    ?w a x l.
      v = Word w /\ w ' 0 /\
@@ -7591,7 +7590,7 @@ Theorem memory_rel_ByteArray_IMP:
        memory_rel c be ts (insert p (ByteArray fl (LUPDATE w i vals)) refs) sp st
          ((byte_align addr =+
            Word (set_byte addr w (theWord (m (byte_align addr))) be)) m) dm
-           ((RefPtr p,v)::vars)) ∧
+           ((RefPtr bl p,v)::vars)) ∧
      if dimindex (:'a) = 32 then
        LENGTH vals + 4 < 2 ** (dimindex (:'a) - 3) /\
        (x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 4))
@@ -7611,7 +7610,7 @@ Proof
   \\ rw [get_addr_0]
   \\ `bc_ref_inv c p refs (f,tf,heap,be)` by
     (first_x_assum match_mp_tac \\ fs [reachable_refs_def]
-     \\ qexists_tac `RefPtr p` \\ fs [get_refs_def])
+     \\ qexists_tac `RefPtr bl p` \\ fs [get_refs_def])
   \\ pop_assum mp_tac \\ simp [bc_ref_inv_def]
   \\ fs [FLOOKUP_DEF] \\ rw []
   \\ drule (GEN_ALL heap_in_memory_store_UpdateByte)
@@ -7851,19 +7850,19 @@ Proof
 QED
 
 Theorem memory_rel_RefPtr_IMP_lemma:
-   memory_rel c be ts refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) ==>
+   memory_rel c be ts refs sp st m dm ((RefPtr bl p,v:'a word_loc)::vars) ==>
     ?res. lookup p refs = SOME res
 Proof
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def,word_addr_def] \\ rw []
   \\ `bc_ref_inv c p refs (f,tf,heap,be)` by
     (first_x_assum match_mp_tac \\ fs [reachable_refs_def]
-     \\ qexists_tac `RefPtr p` \\ fs [get_refs_def])
+     \\ qexists_tac `RefPtr bl p` \\ fs [get_refs_def])
   \\ fs [SUBSET_DEF,domain_lookup]
 QED
 
 Theorem memory_rel_RefPtr_IMP':
-  memory_rel c be ts refs sp st m dm ((RefPtr p,v)::vars) ∧
+  memory_rel c be ts refs sp st m dm ((RefPtr bl p,v)::vars) ∧
   good_dimindex (:α) ⇒
   ∃w a x.
     v = Word w ∧ w ' 0 ∧ (word_bit 4 x ⇒ word_bit 2 x) ∧
@@ -7879,7 +7878,7 @@ Proof
 QED
 
 Theorem memory_rel_RefPtr_IMP:
-   memory_rel c be ts refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
+   memory_rel c be ts refs sp st m dm ((RefPtr bl p,v:'a word_loc)::vars) /\
     good_dimindex (:'a) ==>
     ?w a x.
       v = Word w /\ w ' 0 /\ (word_bit 4 x ==> word_bit 2 x) /\
@@ -8200,7 +8199,7 @@ QED
 
 Theorem memory_rel_RefPtr_EQ:
    memory_rel c be ts refs sp st m dm
-      ((RefPtr i1,w1)::(RefPtr i2,w2)::vars) /\ good_dimindex (:'a) ==>
+      ((RefPtr T i1,w1)::(RefPtr T i2,w2)::vars) /\ good_dimindex (:'a) ==>
       ?v1 v2. w1 = Word v1 /\ w2 = Word (v2:'a word) /\ (v1 = v2 <=> i1 = i2)
 Proof
   fs [memory_rel_def] \\ rw [] \\ fs [word_ml_inv_def] \\ clean_tac
@@ -8228,6 +8227,17 @@ Proof
     (fs [X_LT_DIV,RIGHT_ADD_DISTRIB]
      \\ Cases_on `2 ** shift_length c` \\ fs []) \\ fs []
   \\ imp_res_tac memory_rel_RefPtr_EQ_lemma \\ rfs[]
+QED
+
+Theorem memory_rel_RefPtr_EQ_IMP:
+  memory_rel c be ts refs sp st m (dm:'a word set)
+    ((RefPtr b1 i1, Word w1)::(RefPtr b2 i1, Word w2)::vars) ∧ good_dimindex (:α) ∧
+  lookup i1 refs = SOME (ByteArray ys_fl ys) ⇒
+  w1 = w2
+Proof
+  strip_tac
+  \\ gvs [memory_rel_def,word_ml_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def]
+  \\ gvs [v_inv_def]
 QED
 
 Theorem memory_rel_Boolv_T:
@@ -8740,14 +8750,14 @@ Theorem word_cmp_loop_refl = Q.prove(
   \\ simp[])
   |> SIMP_RULE(srw_ss())[]
 
-val good_dimindex_def = good_dimindex_def
+val good_dimindex_def = good_dimindex_def;
 
 Definition v_same_type_def:
   (v_same_type (Number _) (Number _) = T) ∧
   (v_same_type (Word64 _) (Word64 _) = T) ∧
   (v_same_type (Block _ t1 l1) (Block _ t2 l2) = (t1 = t2 ∧ LENGTH l1 = LENGTH l2 ⇒ LIST_REL v_same_type l1 l2)) ∧
   (v_same_type (CodePtr _) (CodePtr _) = T) ∧
-  (v_same_type (RefPtr _) (RefPtr _) = T) ∧
+  (v_same_type (RefPtr _ _) (RefPtr _ _) = T) ∧
   (v_same_type _ _ = F)
 Termination
   wf_rel_tac`measure (v_size o FST)`
@@ -8934,7 +8944,8 @@ Theorem memory_rel_pointer_eq = Q.prove(`
    memory_rel c be ts refs sp st m dm ((v1,(w:'a word_loc))::(v2,w)::vars) ==> b`,
   ho_match_mp_tac v_ind \\ rw[] \\ Cases_on`v2` \\ fs[] \\ rveq
   \\ TRY (
-    rpt_drule memory_rel_RefPtr_EQ \\ strip_tac \\ fs []
+    gvs [CaseEq"bool"]
+    \\ rpt_drule memory_rel_RefPtr_EQ \\ strip_tac \\ fs []
     \\ every_case_tac \\ fs[] \\ rfs[] \\ NO_TAC)
   >- (
     rpt_drule memory_rel_Number_cmp \\ rw[]
@@ -9316,7 +9327,8 @@ Theorem memory_rel_simple_eq:
 Proof
   Cases_on `v1` \\ Cases_on `v2` \\ fs [do_eq_def] \\ rpt strip_tac
   \\ TRY (
-    drule memory_rel_RefPtr_EQ \\ fs [] \\ rw []
+    gvs [CaseEq"bool"]
+    \\ drule memory_rel_RefPtr_EQ \\ fs [] \\ rw []
     \\ imp_res_tac memory_rel_RefPtr_IMP
     \\ imp_res_tac memory_rel_tl
     \\ imp_res_tac memory_rel_RefPtr_IMP
@@ -9628,7 +9640,7 @@ Proof
 QED
 
 Theorem memory_rel_ByteArray_words_IMP:
-   memory_rel c be ts refs sp st m dm ((RefPtr p,Word (w:'a word))::vars) ∧
+   memory_rel c be ts refs sp st m dm ((RefPtr bl p,Word (w:'a word))::vars) ∧
    lookup p refs = SOME (ByteArray fl vals) ∧
    good_dimindex(:'a) ∧
    get_real_addr c st w = SOME a ⇒
@@ -9645,7 +9657,7 @@ Proof
   \\ first_x_assum(qspec_then`p`mp_tac)
   \\ impl_tac >-  (
     simp[reachable_refs_def]
-    \\ qexists_tac`RefPtr p` \\ simp[get_refs_def] )
+    \\ qexists_tac`RefPtr bl p` \\ simp[get_refs_def] )
   \\ rw[bc_ref_inv_def]
   \\ Cases_on`FLOOKUP f p` \\ fs[FLOOKUP_DEF]
   \\ fs[heap_in_memory_store_def]
@@ -9891,8 +9903,9 @@ Proof
      (rw [] \\ fs [] \\ fs [dimword_def]
       \\ ntac 4 (pop_assum mp_tac)
       \\ srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] []))
-  THEN1 (* do_eq RefPtr *)
-   (rw [] \\ drule memory_rel_RefPtr_EQ \\ fs []
+  THEN1 (* do_eq RefPtr bl *)
+   (rpt strip_tac
+    \\ gvs [CaseEq"bool"] \\ drule memory_rel_RefPtr_EQ \\ fs []
     \\ strip_tac
     \\ once_rewrite_tac [word_eq_def]
     \\ IF_CASES_TAC \\ fs []
@@ -10039,8 +10052,9 @@ Proof
     \\ fs [] \\ rveq \\ strip_tac \\ fs []
     \\ rpt_drule memory_rel_Block_explode
     \\ strip_tac
+    \\ rename [‘(eq_explode _ m dm v1 ++ (Block v_v t1 v2,Word w2)::vars)’]
     \\ `memory_rel c be ts refs sp st m dm
-         ((Block v29 t1 v2,Word w2)::(eq_explode (a' + bytes_in_word) m dm v1 ++
+         ((Block v_v t1 v2,Word w2)::(eq_explode (a' + bytes_in_word) m dm v1 ++
           vars))` by
      (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
       \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)
@@ -10122,7 +10136,8 @@ Theorem word_eq_thm:
       ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) /\
     do_eq refs v1 v2 = Eq_val b /\ good_dimindex (:'a) ==>
     ?res l1 ck1.
-       word_eq c st dm m (MustTerminate_limit (:'a) - 1) (MIN (vs_depth v1) (vs_depth v2)) w1 w2 = SOME (res,l1,ck1) /\
+       word_eq c st dm m (MustTerminate_limit (:'a) - 1)
+         (MIN (vs_depth v1) (vs_depth v2)) w1 w2 = SOME (res,l1,ck1) /\
        (b <=> (res = 1w))
 Proof
   rw [] \\ imp_res_tac memory_rel_limit
@@ -10314,7 +10329,7 @@ Proof
 QED
 
 Theorem memory_rel_String_const_test:
-  memory_rel c be ts refs sp st m dm ((RefPtr i,v)::vars) /\
+  memory_rel c be ts refs sp st m dm ((RefPtr bl i,v)::vars) /\
   lookup i refs = SOME (ByteArray T other) /\
   good_dimindex (:'a) ==>
   let t = implode (MAP (CHR o w2n) other) in
@@ -10337,9 +10352,9 @@ Proof
     \\ gvs [DIV_LT_X,make_byte_header_def]
     \\ gvs [memory_rel_def,word_ml_inv_def,abs_ml_inv_def,
          bc_stack_ref_inv_def,v_inv_def]
-    \\ ‘reachable_refs (RefPtr i::MAP FST vars) refs i’ by
+    \\ ‘reachable_refs (RefPtr bl i::MAP FST vars) refs i’ by
        (fs [reachable_refs_def]
-        \\ qexists_tac ‘RefPtr i’ \\ fs [get_refs_def])
+        \\ qexists_tac ‘RefPtr bl i’ \\ fs [get_refs_def])
     \\ first_x_assum drule
     \\ simp[bc_ref_inv_def]
     \\ Cases_on ‘FLOOKUP f i’ \\ fs [Bytes_def]
@@ -10360,9 +10375,9 @@ Proof
     \\ fs [DIV_LT_X]
     \\ gvs [memory_rel_def,word_ml_inv_def,abs_ml_inv_def,
          bc_stack_ref_inv_def,v_inv_def]
-    \\ ‘reachable_refs (RefPtr i::MAP FST vars) refs i’ by
+    \\ ‘reachable_refs (RefPtr bl i::MAP FST vars) refs i’ by
        (fs [reachable_refs_def]
-        \\ qexists_tac ‘RefPtr i’ \\ fs [get_refs_def])
+        \\ qexists_tac ‘RefPtr bl i’ \\ fs [get_refs_def])
     \\ first_x_assum drule
     \\ simp[bc_ref_inv_def]
     \\ Cases_on ‘FLOOKUP f i’ \\ fs [Bytes_def]
@@ -10378,9 +10393,9 @@ Proof
   THEN1 (CCONTR_TAC \\ fs [] \\ qpat_x_assum ‘_ ≠ strlen _’ mp_tac \\ fs [])
   \\ gvs [memory_rel_def,word_ml_inv_def,abs_ml_inv_def,
           bc_stack_ref_inv_def,v_inv_def]
-  \\ ‘reachable_refs (RefPtr i::MAP FST vars) refs i’ by
+  \\ ‘reachable_refs (RefPtr bl i::MAP FST vars) refs i’ by
     (fs [reachable_refs_def]
-     \\ qexists_tac ‘RefPtr i’ \\ fs [get_refs_def])
+     \\ qexists_tac ‘RefPtr bl i’ \\ fs [get_refs_def])
   \\ first_x_assum drule
   \\ simp[bc_ref_inv_def]
   \\ Cases_on ‘FLOOKUP f i’ \\ fs [Bytes_def]
@@ -10604,12 +10619,12 @@ Proof
 QED
 
 Theorem memory_rel_ByteArray_IMP_store:
-   memory_rel c be ts refs sp st m dm ((RefPtr p,Word (w:'a word))::vars) ∧
+   memory_rel c be ts refs sp st m dm ((RefPtr bl p,Word (w:'a word))::vars) ∧
     lookup p refs = SOME (ByteArray fl vals) ∧ good_dimindex (:α) /\
     get_real_addr c st w = SOME a /\ i < LENGTH vals ==>
     ?m1. mem_store_byte_aux m dm be (a + bytes_in_word + n2w i) b = SOME m1 /\
          memory_rel c be ts (insert p (ByteArray fl (LUPDATE b i vals)) refs) sp st m1 dm
-           ((RefPtr p,Word (w:'a word))::vars)
+           ((RefPtr bl p,Word (w:'a word))::vars)
 Proof
   rw [] \\ rpt_drule memory_rel_ByteArray_IMP
   \\ fs [mem_load_byte_aux_def,mem_store_byte_aux_def]
@@ -10694,7 +10709,7 @@ End
 Theorem word_copy_fwd_thm:
    !n xp yp ys ys1 m.
       memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs)
-        sp st m dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars) /\
+        sp st m dm ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars) /\
       lookup p1 refs = SOME (ByteArray fl_xs xs) /\
       list_copy_fwd n xp xs yp ys = SOME ys1 /\
       good_dimindex (:'a) /\ n < dimword (:'a) /\ p1 <> p2 ==>
@@ -10705,7 +10720,7 @@ Theorem word_copy_fwd_thm:
         word_copy_fwd be (n2w n) (a1 + bytes_in_word + n2w xp)
           (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
         memory_rel c be ts (insert p2 (ByteArray fl_ys ys1) refs)
-          sp st m1 dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)
+          sp st m1 dm ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars)
 Proof
   completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ once_rewrite_tac [list_copy_fwd_def]
@@ -10787,7 +10802,7 @@ QED
 Theorem word_copy_fwd_alias_thm:
    !n xp yp ys ys1 m.
       memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs)
-        sp st m dm ((RefPtr p2,v2)::vars) /\
+        sp st m dm ((RefPtr bl p2,v2)::vars) /\
       list_copy_fwd_alias n xp yp ys = SOME ys1 /\
       good_dimindex (:'a) /\ n < dimword (:'a) ==>
       ?(w2:'a word) a2 m1.
@@ -10796,7 +10811,7 @@ Theorem word_copy_fwd_alias_thm:
         word_copy_fwd be (n2w n) (a2 + bytes_in_word + n2w xp)
           (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
         memory_rel c be ts (insert p2 (ByteArray fl_ys ys1) refs)
-          sp st m1 dm ((RefPtr p2,v2)::vars)
+          sp st m1 dm ((RefPtr bl p2,v2)::vars)
 Proof
   completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ once_rewrite_tac [list_copy_fwd_alias_def]
@@ -10946,7 +10961,7 @@ val list_copy_bwd_alias_def = list_copy_bwd_alias_def
 Theorem word_copy_bwd_thm:
    !n xp yp ys ys1 m.
       memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs)
-        sp st m dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars) /\
+        sp st m dm ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars) /\
       lookup p1 refs = SOME (ByteArray fl_xs xs) /\
       list_copy_bwd n xp xs yp ys = SOME ys1 /\
       good_dimindex (:'a) /\ n < dimword (:'a) /\ p1 <> p2 ==>
@@ -10957,7 +10972,7 @@ Theorem word_copy_bwd_thm:
         word_copy_bwd be (n2w n) (a1 + bytes_in_word + n2w xp)
           (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
         memory_rel c be ts  (insert p2 (ByteArray fl_ys ys1) refs)
-          sp st m1 dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)
+          sp st m1 dm ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars)
 Proof
   completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ once_rewrite_tac [list_copy_bwd_def]
@@ -11055,7 +11070,7 @@ QED
 Theorem word_copy_bwd_alias_thm:
    !n xp yp ys ys1 m.
       memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs)
-        sp st m dm ((RefPtr p2,v2)::vars) /\
+        sp st m dm ((RefPtr bl p2,v2)::vars) /\
       list_copy_bwd_alias n xp yp ys = SOME ys1 /\
       good_dimindex (:'a) /\ n < dimword (:'a) ==>
       ?(w2:'a word) a2 m1.
@@ -11064,7 +11079,7 @@ Theorem word_copy_bwd_alias_thm:
         word_copy_bwd be (n2w n) (a2 + bytes_in_word + n2w xp)
           (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
         memory_rel c be ts (insert p2 (ByteArray fl_ys ys1) refs)
-          sp st m1 dm ((RefPtr p2,v2)::vars)
+          sp st m1 dm ((RefPtr bl p2,v2)::vars)
 Proof
   completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ once_rewrite_tac [list_copy_bwd_alias_def]
@@ -11384,7 +11399,7 @@ val word_copy_bwd_0 = prove(
 
 Theorem word_copy_array_thm:
    !n xp yp xs ys ys1 m.
-      memory_rel c be ts refs sp st m dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars) /\
+      memory_rel c be ts refs sp st m dm ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars) /\
       lookup p1 refs = SOME (ByteArray fl_xs xs) /\
       lookup p2 refs = SOME (ByteArray fl_ys ys) /\
       copy_array (xs, &xp) (& n) (SOME (ys, &yp)) = SOME ys1 /\
@@ -11396,7 +11411,7 @@ Theorem word_copy_array_thm:
         word_copy_array be (n2w n) (a1 + bytes_in_word) (n2w xp)
           (a2 + bytes_in_word) (n2w yp) m dm = SOME m1 /\
         memory_rel c be ts (insert p2 (ByteArray fl_ys ys1) refs)
-          sp st m1 dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)
+          sp st m1 dm ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars)
 Proof
   rw [] \\ drule list_copy_thm
   \\ fs [list_copy_def]
@@ -11409,7 +11424,7 @@ Proof
     \\ rpt_drule memory_rel_ByteArray_IMP \\ strip_tac
     \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ `memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs) sp st m dm
-        ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)` by
+        ((RefPtr bl1 p1,v1)::(RefPtr bl2 p2,v2)::vars)` by
    (qsuff_tac `insert p2 (ByteArray fl_ys ys) refs = refs` \\ fs []
     \\ fs [fmap_EXT,EXTENSION,lookup_def,insert_unchanged])
   \\ IF_CASES_TAC
@@ -11433,7 +11448,7 @@ QED
 
 Theorem word_copy_array_alias_thm:
    !n xp yp ys ys1 m.
-      memory_rel c be ts refs sp st m dm ((RefPtr p2,v2)::vars) /\
+      memory_rel c be ts refs sp st m dm ((RefPtr bl p2,v2)::vars) /\
       lookup p2 refs = SOME (ByteArray fl_ys ys) /\
       copy_array (ys, &xp) (& n) (SOME (ys, &yp)) = SOME ys1 /\
       good_dimindex (:'a) ==>
@@ -11443,7 +11458,7 @@ Theorem word_copy_array_alias_thm:
         word_copy_array be (n2w n) (a2 + bytes_in_word) (n2w xp)
           (a2 + bytes_in_word) (n2w yp) m dm = SOME m1 /\
         memory_rel c be ts (insert p2 (ByteArray fl_ys ys1) refs)
-          sp st m1 dm ((RefPtr p2,v2)::vars)
+          sp st m1 dm ((RefPtr bl p2,v2)::vars)
 Proof
   rw [] \\ drule list_copy_alias_thm
   \\ fs [list_copy_alias_def]
@@ -11454,7 +11469,7 @@ Proof
    (rpt_drule memory_rel_ByteArray_IMP \\ strip_tac
     \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ `memory_rel c be ts (insert p2 (ByteArray fl_ys ys) refs) sp st m dm
-        ((RefPtr p2,v2)::vars)` by
+        ((RefPtr bl p2,v2)::vars)` by
    (qsuff_tac `insert p2 (ByteArray fl_ys ys) refs = refs` \\ fs []
     \\ fs [fmap_EXT,EXTENSION,lookup_insert,insert_unchanged]
     \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [])
@@ -11507,7 +11522,7 @@ val memory_rel_copy_array_NONE_lemma =
        LET_THM,LUPDATE_REPLICATE]
 
 Theorem memory_rel_copy_array_NONE:
-   memory_rel c be ts refs sp st m dm ((RefPtr p1,v1:'a word_loc)::vars) ∧
+   memory_rel c be ts refs sp st m dm ((RefPtr bl p1,v1:'a word_loc)::vars) ∧
     new ∉ (domain refs) ∧
     lookup p1 refs = SOME (ByteArray fl_xs xs) /\
     copy_array (xs, &xp) (& n) NONE = SOME ys /\
@@ -11529,7 +11544,7 @@ Theorem memory_rel_copy_array_NONE:
        (sp − (byte_len (:α) n + 1))
        (st |+ (NextFree,
                Word (free + bytes_in_word * n2w (byte_len (:α) n + 1)))) m2 dm
-       ((RefPtr new,Word w2)::vars)
+       ((RefPtr T new,Word w2)::vars)
 Proof
   rw [] \\ rpt_drule memory_rel_copy_array_NONE_lemma
   \\ disch_then (qspec_then `fl` mp_tac) \\ strip_tac

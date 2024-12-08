@@ -137,16 +137,16 @@ Proof
 QED
 
 Theorem LLOOKUPs[local]:
-  (Loc loc = the_type_constants ⇒
+  (Loc T loc = the_type_constants ⇒
      LLOOKUP (candle_init_state ffi).refs loc =
      SOME (Refv init_type_constants_v)) ∧
-  (Loc loc = the_term_constants ⇒
+  (Loc T loc = the_term_constants ⇒
      LLOOKUP (candle_init_state ffi).refs loc =
      SOME (Refv init_term_constants_v)) ∧
-  (Loc loc = the_axioms ⇒
+  (Loc T loc = the_axioms ⇒
      LLOOKUP (candle_init_state ffi).refs loc =
      SOME (Refv init_axioms_v)) ∧
-  (Loc loc = the_context ⇒
+  (Loc T loc = the_context ⇒
      LLOOKUP (candle_init_state ffi).refs loc =
      SOME (Refv init_context_v))
 Proof

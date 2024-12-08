@@ -121,9 +121,9 @@ Inductive v_ok:
   (∀ ctxt r.
      v_ok ctxt (Real r))
 [~Loc:]
-  (∀ctxt loc.
+  (∀ctxt loc b.
      loc ∉ kernel_locs ⇒
-       v_ok ctxt (Loc loc))
+       v_ok ctxt (Loc b loc))
 [~Env:]
   (∀ctxt env ns.
      env_ok ctxt env ⇒
@@ -167,7 +167,7 @@ Proof
 QED
 
 Theorem kernel_vals_Loc[simp]:
-  ¬kernel_vals ctxt (Loc loc)
+  ¬kernel_vals ctxt (Loc b loc)
 Proof
   rw [Once v_ok_cases] \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
 QED
@@ -181,7 +181,7 @@ Theorem v_ok_def =
    “v_ok ctxt (FP_WordTree fp)”,
    “v_ok ctxt (FP_BoolTree fp)”,
    “v_ok ctxt (Real r)”,
-   “v_ok ctxt (Loc loc)”,
+   “v_ok ctxt (Loc b loc)”,
    “v_ok ctxt (Env env ns)”]
   |> map (SIMP_CONV (srw_ss()) [Once v_ok_cases])
   |> LIST_CONJ;
@@ -227,13 +227,13 @@ End
 Definition kernel_loc_ok_def:
   kernel_loc_ok s loc refs ⇔
     ∃v. LLOOKUP refs loc = SOME (Refv v) ∧
-        (the_type_constants = Loc loc ⇒
+        (the_type_constants = Loc T loc ⇒
            LIST_TYPE (PAIR_TYPE STRING_TYPE NUM) s.the_type_constants v) ∧
-        (the_term_constants = Loc loc ⇒
+        (the_term_constants = Loc T loc ⇒
            LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE) s.the_term_constants v) ∧
-        (the_axioms = Loc loc ⇒
+        (the_axioms = Loc T loc ⇒
            LIST_TYPE THM_TYPE s.the_axioms v) ∧
-        (the_context = Loc loc ⇒
+        (the_context = Loc T loc ⇒
            LIST_TYPE UPDATE_TYPE s.the_context v)
 End
 

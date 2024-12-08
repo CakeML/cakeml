@@ -104,18 +104,18 @@ Theorem abs_v_def[compute] = abs_v_def;
 
 Definition kernel_locs_def:
   kernel_locs =
-    { l | Loc l ∈ { the_type_constants
-                  ; the_term_constants
-                  ; the_axioms
-                  ; the_context}}
+    { l | Loc T l ∈ { the_type_constants
+                    ; the_term_constants
+                    ; the_axioms
+                    ; the_context}}
 End
 
 Theorem IN_kernel_locs:
   n ∈ kernel_locs ⇔
-  Loc n = the_type_constants ∨
-  Loc n = the_term_constants ∨
-  Loc n = the_axioms ∨
-  Loc n = the_context
+  Loc T n = the_type_constants ∨
+  Loc T n = the_term_constants ∨
+  Loc T n = the_axioms ∨
+  Loc T n = the_context
 Proof
   fs [kernel_locs_def]
 QED
@@ -1680,7 +1680,7 @@ Proof
 QED
 
 Theorem inferred_Loc[simp]:
-  ¬inferred ctxt (Loc loc)
+  ¬inferred ctxt (Loc b loc)
 Proof
   rw [Once inferred_cases, kernel_funs_def]
   \\ once_rewrite_tac [kernel_funs_v_def] \\ gs []

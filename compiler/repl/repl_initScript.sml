@@ -31,7 +31,7 @@ Proof
 QED
 
 Definition the_Loc_def:
-  the_Loc (semanticPrimitives$Loc n) = n
+  the_Loc (semanticPrimitives$Loc _ n) = n
 End
 
 Definition repl_rs_def:

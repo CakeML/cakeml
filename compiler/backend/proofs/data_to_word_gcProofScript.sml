@@ -4420,7 +4420,7 @@ Definition stack_rel_def:
 End
 
 Definition the_global_def:
-  the_global g = the (Number 0) (OPTION_MAP RefPtr g)
+  the_global g = the (Number 0) (OPTION_MAP (RefPtr T) g)
 End
 
 Definition contains_loc_def:
@@ -5570,7 +5570,7 @@ QED
 
 Theorem state_rel_get_var_RefPtr:
    state_rel c l1 l2 s t v1 locs ∧
-   get_var n s.locals = SOME (RefPtr p) ⇒
+   get_var n s.locals = SOME (RefPtr b p) ⇒
    ∃f u. get_var (adjust_var n) t = SOME (Word (get_addr c (FAPPLY f p) u))
 Proof
   rw[]
@@ -6832,8 +6832,8 @@ Proof
     \\ (impl_tac THEN1 fs [reachable_refs_def,get_refs_def])
     \\ rewrite_tac [bc_ref_inv_def]
     \\ fs [subspt_lookup]
-    \\ res_tac \\ fs []
-    \\ first_assum drule \\ strip_tac \\ fs [FLOOKUP_DEF,RefBlock_def]
+    \\ first_assum drule \\ strip_tac \\ fs []
+    \\ fs [FLOOKUP_DEF,RefBlock_def]
     \\ strip_tac
     \\ rename [`LIST_REL _ l1 l2`]
     \\ first_x_assum (qspecl_then [`l2`,`l1`,`f ' r :: p1`,`refs`] mp_tac)
@@ -6856,8 +6856,9 @@ Proof
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ qexists_tac `p1` \\ fs [])
   (* rest is non-empty Block *)
+  \\ rename [‘size_of lims [Block ts tag (z0::zs0)]’]
   \\ qmatch_asmsub_abbrev_tac `Block _ _ payload`
-  \\ `v20 INSERT set v21 = set payload /\ payload <> []` by fs [Abbr`payload`]
+  \\ `z0 INSERT set zs0 = set payload /\ payload <> []` by fs [Abbr`payload`]
   \\ fs []
   \\ qpat_x_assum `size_of _ _ _ _ = _` mp_tac
   \\ fs [size_of_Block]

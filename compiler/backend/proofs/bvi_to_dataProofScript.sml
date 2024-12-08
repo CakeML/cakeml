@@ -37,7 +37,7 @@ Definition data_to_bvi_v_def:
   data_to_bvi_v (Number i)      = bvlSem$Number i
 ∧ data_to_bvi_v (Word64 w)      = bvlSem$Word64 w
 ∧ data_to_bvi_v (CodePtr p)     = bvlSem$CodePtr p
-∧ data_to_bvi_v (RefPtr r)      = bvlSem$RefPtr r
+∧ data_to_bvi_v (RefPtr b r)    = bvlSem$RefPtr b r
 ∧ data_to_bvi_v (Block _ tag l) = bvlSem$Block tag (MAP data_to_bvi_v l)
 Termination
   wf_rel_tac `measure v_size`
@@ -340,11 +340,11 @@ QED
    wich in all cases except `Block` is bijective
  *)
 Theorem data_to_bvi_v_eq:
-   (∀v n i. data_to_bvi_v v = Number i  ⇒ v = Number i)  ∧
-   (∀v n w. data_to_bvi_v v = Word64 w  ⇒ v = Word64 w)  ∧
-   (∀v n p. data_to_bvi_v v = CodePtr p ⇒ v = CodePtr p) ∧
-   (∀v n r. data_to_bvi_v v = RefPtr r  ⇒ v = RefPtr r)  ∧
-   (∀v n l. data_to_bvi_v v = Block n l
+   (∀v n i.   data_to_bvi_v v = Number i   ⇒ v = Number i)  ∧
+   (∀v n w.   data_to_bvi_v v = Word64 w   ⇒ v = Word64 w)  ∧
+   (∀v n p.   data_to_bvi_v v = CodePtr p  ⇒ v = CodePtr p) ∧
+   (∀v n r b. data_to_bvi_v v = RefPtr b r ⇒ v = RefPtr b r)  ∧
+   (∀v n l.   data_to_bvi_v v = Block n l
      ⇒ ∃ts l'. v = Block ts n l' ∧ l = MAP data_to_bvi_v l')
 Proof
   rw [] \\ Cases_on `v` \\ fs [data_to_bvi_v_def] \\ METIS_TAC []

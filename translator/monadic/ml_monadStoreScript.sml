@@ -22,7 +22,7 @@ Theorem ALLOCATE_ARRAY_evaluate:
     (nsLookup env.v (Short xname) = SOME xv) ==>
     eval_rel s env (App Aalloc [Lit (IntLit &n); Var (Short xname)])
       (s with refs := s.refs ++ [Varray (REPLICATE n xv)])
-      (Loc (LENGTH s.refs))
+      (Loc T (LENGTH s.refs))
 Proof
   rw[evaluate_def, do_app_def, store_alloc_def, ml_progTheory.eval_rel_def]
   \\ rw[state_component_equality]
@@ -31,8 +31,8 @@ QED
 Theorem ALLOCATE_EMPTY_RARRAY_evaluate:
    !env s.
      eval_rel s env (App Opref [App AallocEmpty [Con NONE []]])
-       (s with refs := s.refs ++ [Varray []] ++ [Refv (Loc (LENGTH s.refs))])
-       (Loc (LENGTH s.refs + 1))
+       (s with refs := s.refs ++ [Varray []] ++ [Refv (Loc T (LENGTH s.refs))])
+       (Loc T (LENGTH s.refs + 1))
 Proof
   rw[evaluate_def, do_app_def, do_opapp_def, do_con_check_def, build_conv_def,
      store_alloc_def,state_component_equality, ml_progTheory.eval_rel_def]
@@ -122,7 +122,7 @@ Proof
 QED
 
 Theorem store2heap_REF_SAT:
-  ((Loc l) ~~> v) (store2heap_aux l [Refv v])
+  ((Loc T l) ~~> v) (store2heap_aux l [Refv v])
 Proof
   fs[store2heap_aux_def]
   >> fs[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def]
@@ -143,14 +143,14 @@ QED
 
 Theorem rarray_exact_thm:
   ((l = l' + 1) /\ (n = l')) ==>
-  RARRAY (Loc l) av (store2heap_aux n [Varray av; Refv (Loc l')])
+  RARRAY (Loc T l) av (store2heap_aux n [Varray av; Refv (Loc T l')])
 Proof
   rw[]
   \\ rw[RARRAY_def]
   \\ rw[SEP_EXISTS_THM]
-  \\ qexists_tac `Loc l'`
+  \\ qexists_tac `Loc T l'`
   \\ PURE_REWRITE_TAC[Once STAR_COMM]
-  \\ `[Varray av; Refv (Loc l')] = [Varray av] ++ [Refv (Loc l')]` by fs[]
+  \\ `[Varray av; Refv (Loc T l')] = [Varray av] ++ [Refv (Loc T l')]` by fs[]
   \\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
   \\ irule store2heap_aux_decompose_store1
   \\ conj_tac
@@ -160,7 +160,7 @@ QED
 
 Theorem farray_exact_thm:
   (n = l) ==>
-  ARRAY (Loc l) av (store2heap_aux n [Varray av])
+  ARRAY (Loc T l) av (store2heap_aux n [Varray av])
 Proof
  rw[ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]
 QED

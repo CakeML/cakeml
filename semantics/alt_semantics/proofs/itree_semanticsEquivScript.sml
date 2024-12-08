@@ -459,10 +459,10 @@ QED
 
 Theorem estep_to_Effi:
   estep ea = Effi (ExtCall s) conf ws lnum env st cs ⇔
-  ∃env' conf' fp'.
+  ∃env' conf' fp' b.
     conf = MAP (λc. n2w (ORD c)) (EXPLODE conf') ∧
     ea = (env',st,fp',Val (Litv (StrLit conf')),
-            (Capp (FFI s) [Loc lnum] [],env)::cs) ∧
+            (Capp (FFI s) [Loc b lnum] [],env)::cs) ∧
     store_lookup lnum st = SOME (W8array ws) ∧ s ≠ ""
 Proof
   PairCases_on `ea` >> Cases_on `ea3` >> gvs[SF itree_ss]
@@ -487,10 +487,10 @@ QED
 Theorem dstep_to_Dffi:
   dstep env dst dev dcs =
   Dffi dst' (ExtCall s,ws1,ws2,lnum,env',cs) locs pat dcs' ⇔
-  ∃env'' conf.
+  ∃env'' conf b.
     dst = dst' ∧ dcs = dcs' ∧
     dev = ExpVal env'' (Val (Litv (StrLit conf)))
-            ((Capp (FFI s) [Loc lnum] [],env')::cs) locs pat ∧
+            ((Capp (FFI s) [Loc b lnum] [],env')::cs) locs pat ∧
     ws1 = MAP (λc. n2w (ORD c)) (EXPLODE conf) ∧
     store_lookup lnum dst.refs = SOME (W8array ws2) ∧ s ≠ ""
 Proof
@@ -513,9 +513,9 @@ Theorem decl_step_ffi_changed_dstep_to_Dffi:
   decl_step env (dst2, dev2, dcs) = Dstep (dst2', dev2', dcs') ∧
   dst2.ffi ≠ dst2'.ffi ∧
   dstate_rel dst1 dst2 ∧ deval_rel dev1 dev2 ⇒
-  ∃env' env'' conf s lnum ccs locs pat ws.
+  ∃env' env'' conf s lnum ccs locs pat ws b.
     dev1 = ExpVal env' (Val $ Litv $ StrLit conf)
-            ((Capp (FFI s) [Loc lnum] [], env'') :: ccs) locs pat ∧
+            ((Capp (FFI s) [Loc b lnum] [], env'') :: ccs) locs pat ∧
     store_lookup lnum dst1.refs = SOME (W8array ws) ∧
     dstep env dst1 dev1 dcs = Dffi dst1
       (ExtCall s,MAP (λc. n2w $ ORD c) (EXPLODE conf),ws,lnum,env'',ccs)
@@ -578,12 +578,12 @@ Theorem dstep_result_rel_single_FFI_strong:
     dstep_result_rel (Dstep dsta deva dcsa) (Dstep (dstb, devb, dcsb)) ∧
     dstep env dsta deva dcsa =
     Dffi dsta' (ExtCall s,conf,ws,lnum,eenv,cs1) locs pat dcsa'
-  ⇒ ∃env' ffi conf' cs2 fp.
+  ⇒ ∃env' ffi conf' cs2 fp b.
       conf = MAP (λc. n2w (ORD c)) (EXPLODE conf') ∧
       deva = ExpVal env' (Val (Litv $ StrLit conf'))
-              ((Capp (FFI s) [Loc lnum] [], eenv)::cs1) locs pat ∧
+              ((Capp (FFI s) [Loc b lnum] [], eenv)::cs1) locs pat ∧
       devb = ExpVal env' (Val (Litv $ StrLit conf'))
-              ((Capp (FFI s) [Loc lnum] () [], eenv)::cs2) locs pat ∧
+              ((Capp (FFI s) [Loc b lnum] () [], eenv)::cs2) locs pat ∧
       store_lookup lnum dsta.refs = SOME (W8array ws) ∧ s ≠ "" ∧
       dget_ffi (Dstep (dstb, devb, dcsb)) = SOME ffi ∧
       decl_step env (dstb, devb, dcsb) =

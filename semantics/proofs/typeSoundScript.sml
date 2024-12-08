@@ -113,13 +113,13 @@ Theorem prim_canonical_values_thm:
      (∃env n e. v = Closure env n e) ∨
      (∃env funs n. v = Recclosure env funs n)) ∧
    (type_v tvs ctMap tenvS v (Tref t1) ∧ ctMap_ok ctMap ∧ type_s ctMap envS tenvS ⇒
-     (∃n v2. v = Loc n ∧ store_lookup n envS = SOME (Refv v2) ∧
+     (∃n v2. v = Loc T n ∧ store_lookup n envS = SOME (Refv v2) ∧
        type_v 0 ctMap tenvS v2 t1)) ∧
    (type_v tvs ctMap tenvS v Tword8array ∧ ctMap_ok ctMap ∧ type_s ctMap envS tenvS ⇒
-     (∃n ws. v = Loc n ∧ store_lookup n envS = SOME (W8array ws) ∧
+     (∃n ws. v = Loc T n ∧ store_lookup n envS = SOME (W8array ws) ∧
        FLOOKUP tenvS n = SOME W8array_t)) ∧
    (type_v tvs ctMap tenvS v (Tarray t) ∧ ctMap_ok ctMap ∧ type_s ctMap envS tenvS ⇒
-     (∃n vs. v = Loc n ∧ store_lookup n envS = SOME (Varray vs) ∧
+     (∃n vs. v = Loc T n ∧ store_lookup n envS = SOME (Varray vs) ∧
        EVERY (\v. type_v 0 ctMap tenvS v t) vs ∧
        FLOOKUP tenvS n = SOME (Varray_t t))) ∧
    (type_v tvs ctMap tenvS v (Tvector t) ∧ ctMap_ok ctMap ⇒
@@ -795,7 +795,7 @@ Proof
    res_tac >>
    rw [do_app_cases, PULL_EXISTS] >>
    simp [Once type_v_cases]
-   >> qpat_x_assum `type_v _ _ _ (Loc _) _` mp_tac
+   >> qpat_x_assum `type_v _ _ _ (Loc _ _) _` mp_tac
    >> simp [Once type_v_cases]
    >> rw [type_num_defs]
    >> metis_tac [type_sv_def, store_type_extension_refl, store_assign_type_sound])
@@ -856,7 +856,7 @@ Proof
    first_x_assum drule >>
    rw [] >>
    rename1 `type_v _ _ _ (Litv (IntLit z)) _` >>
-   rename1 `type_v _ _ _ (Loc l) _`
+   rename1 `type_v _ _ _ (Loc _ l) _`
    >> Cases_on `z < 0`
    >> fs [type_v_exn, sub_exn_v_def]
    >- metis_tac [store_type_extension_refl]

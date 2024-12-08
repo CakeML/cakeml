@@ -2009,7 +2009,7 @@ Definition simple_val_rel_def:
       ∃xs. x = Block n xs ∧ LIST_REL vr xs p) ∧
    (∀x p. vr x (Word64 p) ⇔ x = Word64 p) ∧
    (∀x p. vr x (ByteVector p) ⇔ x = ByteVector p) ∧
-   (∀x p. vr x (RefPtr p) ⇔ x = RefPtr p) ∧
+   (∀x p b. vr x (RefPtr b p) ⇔ x = RefPtr b p) ∧
    (∀x5 x4 x3 x2 x1 x.
       vr x (Closure x1 x2 x3 x4 x5) ==> isClos x) ∧
    (∀y5 y4 y3 y2 y1 x.
@@ -2024,7 +2024,7 @@ val simple_val_rel_alt = prove(
         ∃xs. x = Block n xs ∧ LIST_REL vr xs p) ∧
      (∀x p. vr x (Word64 p) ⇔ x = Word64 p) ∧
      (∀x p. vr x (ByteVector p) ⇔ x = ByteVector p) ∧
-     (∀x p. vr x (RefPtr p) ⇔ x = RefPtr p) ∧
+     (∀x p b. vr x (RefPtr b p) ⇔ x = RefPtr b p) ∧
      (∀x5 x4 x3 x2 x1 x.
         vr x (Closure x1 x2 x3 x4 x5) ==> isClos x) ∧
      (∀y5 y4 y3 y2 y1 x.

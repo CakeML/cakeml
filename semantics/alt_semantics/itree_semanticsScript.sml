@@ -87,15 +87,15 @@ Definition do_app_def:
             Eq_type_error => NONE
           | Eq_val b => SOME (s, Rval (Boolv b))
         )
-    | (Opassign, [Loc lnum; v]) =>
+    | (Opassign, [Loc _ lnum; v]) =>
         (case store_assign lnum (Refv v) s of
             SOME s' => SOME (s', Rval (Conv NONE []))
           | NONE => NONE
         )
     | (Opref, [v]) =>
         let (s',n) = (store_alloc (Refv v) s) in
-          SOME (s', Rval (Loc n))
-    | (Opderef, [Loc n]) =>
+          SOME (s', Rval (Loc T n))
+    | (Opderef, [Loc _ n]) =>
         (case store_lookup n s of
             SOME (Refv v) => SOME (s,Rval v)
           | _ => NONE
@@ -107,8 +107,8 @@ Definition do_app_def:
           let (s',lnum) =
             (store_alloc (W8array (REPLICATE (Num (ABS (I n))) w)) s)
           in
-            SOME (s', Rval (Loc lnum))
-    | (Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
+            SOME (s', Rval (Loc T lnum))
+    | (Aw8sub, [Loc _ lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (W8array ws) =>
               if i <( 0 : int) then
@@ -121,7 +121,7 @@ Definition do_app_def:
                     SOME (s, Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
-    | (Aw8sub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+    | (Aw8sub_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (W8array ws) =>
               if i <( 0 : int) then
@@ -134,13 +134,13 @@ Definition do_app_def:
                     SOME (s, Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
-    | (Aw8length, [Loc n]) =>
+    | (Aw8length, [Loc _ n]) =>
         (case store_lookup n s of
             SOME (W8array ws) =>
               SOME (s,Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
           | _ => NONE
          )
-    | (Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+    | (Aw8update, [Loc _ lnum; Litv(IntLit i); Litv(Word8 w)]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             if i <( 0 : int) then
@@ -156,7 +156,7 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
-    | (Aw8update_unsafe, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+    | (Aw8update_unsafe, [Loc _ lnum; Litv(IntLit i); Litv(Word8 w)]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             if i <( 0 : int) then
@@ -189,7 +189,7 @@ Definition do_app_def:
         | SOME cs => Rval (Litv(StrLit(IMPLODE(cs))))
         ))
     | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
-                    Loc dst;Litv(IntLit dstoff)]) =>
+                    Loc _ dst;Litv(IntLit dstoff)]) =>
         (case store_lookup dst s of
           SOME (W8array ws) =>
             (case copy_array (EXPLODE str,off) len (SOME(ws_to_chars ws,dstoff)) of
@@ -202,7 +202,7 @@ Definition do_app_def:
             )
         | _ => NONE
         )
-    | (CopyAw8Str, [Loc src;Litv(IntLit off);Litv(IntLit len)]) =>
+    | (CopyAw8Str, [Loc _ src;Litv(IntLit off);Litv(IntLit len)]) =>
       (case store_lookup src s of
         SOME (W8array ws) =>
         SOME (s,
@@ -212,8 +212,8 @@ Definition do_app_def:
           ))
       | _ => NONE
       )
-    | (CopyAw8Aw8, [Loc src;Litv(IntLit off);Litv(IntLit len);
-                    Loc dst;Litv(IntLit dstoff)]) =>
+    | (CopyAw8Aw8, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
+                    Loc _ dst;Litv(IntLit dstoff)]) =>
       (case (store_lookup src s, store_lookup dst s) of
         (SOME (W8array ws), SOME (W8array ds)) =>
           (case copy_array (ws,off) len (SOME(ds,dstoff)) of
@@ -293,16 +293,16 @@ Definition do_app_def:
           let (s',lnum) =
             (store_alloc (Varray (REPLICATE (Num (ABS (I n))) v)) s)
           in
-            SOME (s', Rval (Loc lnum))
+            SOME (s', Rval (Loc T lnum))
     | (AallocEmpty, [Conv NONE []]) =>
         let (s',lnum) = (store_alloc (Varray []) s) in
-          SOME (s', Rval (Loc lnum))
+          SOME (s', Rval (Loc T lnum))
     | (AallocFixed, vs) =>
         let (s',lnum) =
           (store_alloc (Varray vs) s)
         in
-          SOME (s', Rval (Loc lnum))
-    | (Asub, [Loc lnum; Litv (IntLit i)]) =>
+          SOME (s', Rval (Loc T lnum))
+    | (Asub, [Loc _ lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (Varray vs) =>
               if i <( 0 : int) then
@@ -315,7 +315,7 @@ Definition do_app_def:
                     SOME (s, Rval (EL n vs))
           | _ => NONE
         )
-    | (Asub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+    | (Asub_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (Varray vs) =>
               if i <( 0 : int) then
@@ -328,13 +328,13 @@ Definition do_app_def:
                     SOME (s, Rval (EL n vs))
           | _ => NONE
         )
-    | (Alength, [Loc n]) =>
+    | (Alength, [Loc _ n]) =>
         (case store_lookup n s of
             SOME (Varray ws) =>
               SOME (s,Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
           | _ => NONE
          )
-    | (Aupdate, [Loc lnum; Litv (IntLit i); v]) =>
+    | (Aupdate, [Loc _ lnum; Litv (IntLit i); v]) =>
         (case store_lookup lnum s of
           SOME (Varray vs) =>
             if i <( 0 : int) then
@@ -350,7 +350,7 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
-    | (Aupdate_unsafe, [Loc lnum; Litv (IntLit i); v]) =>
+    | (Aupdate_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
         (case store_lookup lnum s of
           SOME (Varray vs) =>
             if i <( 0 : int) then
@@ -477,7 +477,7 @@ Definition application_def:
          case op of
          | FFI n => (
            case vs of
-             [Litv (StrLit conf); Loc lnum] => (
+             [Litv (StrLit conf); Loc _ lnum] => (
              case store_lookup lnum s of
                SOME (W8array ws) =>
                  if n = "" then Estep (env, s, fp, Val $ Conv NONE [], c)

@@ -55,9 +55,9 @@ Inductive v_rel:
      LIST_REL (v_rel fr ft fe) xs ys ⇒
      v_rel fr ft fe (Vectorv xs) (Vectorv ys))
   ∧
-  (∀fr ft fe l1 l2.
+  (∀fr ft fe l1 l2 b.
      FLOOKUP fr l1 = SOME l2 ⇒
-     v_rel fr ft fe (Loc l1) (Loc l2))
+     v_rel fr ft fe (Loc b l1) (Loc b l2))
   ∧
   (∀fr ft fe env1 env2 n e.
      env_rel fr ft fe env1 env2 ⇒
@@ -86,7 +86,7 @@ Theorem v_rel_def =
    “v_rel fr ft fe (FP_WordTree fp) v”,
    “v_rel fr ft fe (FP_BoolTree fp) v”,
    “v_rel fr ft fe (Real r) v”,
-   “v_rel fr ft fe (Loc loc) v”,
+   “v_rel fr ft fe (Loc b loc) v”,
    “v_rel fr ft fe (Env env ns) v”,
    “v_rel fr ft fe v (Conv opt vs)”,
    “v_rel fr ft fe v (Closure env n x)”,
@@ -96,7 +96,7 @@ Theorem v_rel_def =
    “v_rel fr ft fe v (FP_WordTree fp)”,
    “v_rel fr ft fe v (FP_BoolTree fp)”,
    “v_rel fr ft fe v (Real r)”,
-   “v_rel fr ft fe v (Loc loc)”,
+   “v_rel fr ft fe v (Loc b loc)”,
    “v_rel fr ft fe v (Env env ns)”]
   |> map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
   |> LIST_CONJ;

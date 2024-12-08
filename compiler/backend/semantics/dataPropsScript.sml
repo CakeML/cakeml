@@ -17,7 +17,7 @@ Definition approx_of_def:
   (approx_of lims [Number i] refs =
     (if small_num lims.arch_64_bit i then 0 else bignum_size lims.arch_64_bit i)) /\
   (approx_of lims [CodePtr _] refs = 0) /\
-  (approx_of lims [RefPtr r] refs =
+  (approx_of lims [RefPtr _ r] refs =
      case lookup r refs of
      | NONE => 0
      | SOME (ByteArray _ bs) => LENGTH bs DIV (arch_size lims DIV 8) + 2
@@ -49,8 +49,7 @@ Proof
   \\ imp_res_tac subspt_trans \\ res_tac \\ simp []
   \\ ntac 2 (pop_assum kall_tac)
   \\ TRY (
-    Cases_on ‘lookup r refs’ \\ fs []
-    \\ Cases_on ‘x’ \\ fs []
+    gvs [AllCaseEqs()]
     \\ rveq \\ fs []
     \\ fs [subspt_lookup] \\ res_tac \\ fs []
     \\ rpt (pairarg_tac \\ fs [])

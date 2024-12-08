@@ -981,7 +981,7 @@ Definition encode_val_def:
   encode_val (Conv stmp xs) = Term
     (case stmp of NONE => NONE | SOME (i, _) => SOME i)
     (MAP encode_val xs) /\
-  encode_val (Loc n) = RefPtr n /\
+  encode_val (Loc _ n) = RefPtr n /\
   encode_val others = Other
 Termination
   WF_REL_TAC `measure v_size`

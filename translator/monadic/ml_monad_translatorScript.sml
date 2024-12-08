@@ -67,13 +67,13 @@ QED
 val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT;
 
 Triviality REF_EXISTS_LOC:
-  (rv ~~> v * H) s ==> ?l. rv = Loc l
+  (rv ~~> v * H) s ==> ?l. rv = Loc T l
 Proof
   rw[REF_def, SEP_CLAUSES, SEP_EXISTS_THM, GSYM STAR_ASSOC, HCOND_EXTRACT]
 QED
 
 Triviality ARRAY_EXISTS_LOC:
-  (ARRAY rv v * H) s ==> ?l. rv = Loc l
+  (ARRAY rv v * H) s ==> ?l. rv = Loc T l
 Proof
   rw[STAR_def, SEP_EXISTS_THM, SEP_CLAUSES, REF_def, ARRAY_def, cond_def]
 QED
@@ -1329,7 +1329,7 @@ Proof
   \\ ASSUME_TAC (Thm.INST_TYPE [``:'a``|->``:'b``,``:'b``|->``:'a``]Eval_IMP_PURE)
   \\ pop_assum imp_res_tac
   \\ fs[EvalM_def] \\ rw[]
-  \\ `?loc'. loc = Loc loc'` by
+  \\ `?loc'. loc = Loc T loc'` by
         (fs[REFS_PRED_def, SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC] >>
                                    imp_res_tac REF_EXISTS_LOC >> rw[])
   \\ rw[evaluate_def,PULL_EXISTS, astTheory.getOpClass_def]
@@ -1407,7 +1407,7 @@ End
 Triviality valid_state_refs_frame_extension:
   !H junk. A (cons x) res ==>
             (STATE_REFS A ptrs state * H) (st2heap (p:'ffi ffi_proj) s) ==>
-    (STATE_REFS A (Loc (LENGTH (s.refs ++ junk))::ptrs)
+    (STATE_REFS A (Loc T (LENGTH (s.refs ++ junk))::ptrs)
      (cons x::state) * H * GC) (st2heap p
         (s with refs := s.refs ++ junk ++ [Refv res]))
 Proof
@@ -1442,7 +1442,7 @@ Triviality valid_state_refs_extension:
    ==>
    REFS_PRED (STATE_REFS A ptrs,p:'ffi ffi_proj) refs s
    ==>
-   REFS_PRED (STATE_REFS A (Loc (LENGTH (s.refs ++ junk))::ptrs), p)
+   REFS_PRED (STATE_REFS A (Loc T (LENGTH (s.refs ++ junk))::ptrs), p)
              (cons x ::refs)
              (s with refs := s.refs ++ junk ++ [Refv res])
 Proof
@@ -1516,7 +1516,7 @@ Proof
   \\ rw[store_alloc_def]
   \\ rw[namespaceTheory.nsOptBind_def]
   \\ fs[write_def]
-  \\ last_x_assum(qspec_then `Loc (LENGTH refs' + LENGTH s.refs)` ASSUME_TAC)
+  \\ last_x_assum(qspec_then `Loc T (LENGTH refs' + LENGTH s.refs)` ASSUME_TAC)
   \\ first_x_assum(qspec_then `StoreRef (LENGTH st)` ASSUME_TAC)
   \\ fs[with_same_ffi]
   \\ fs[EvalM_def]
@@ -1752,7 +1752,7 @@ Proof
 QED
 
 Theorem store_lookup_REF_st2heap:
-   (Loc l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l s.refs = SOME (Refv v)
+   (Loc T l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l s.refs = SOME (Refv v)
 Proof
   rw[]
   \\ imp_res_tac STATE_EXTRACT_FROM_HPROP_REF
@@ -1763,7 +1763,7 @@ Proof
 QED
 
 Theorem store_lookup_REF_st2heap_junk:
-   (Loc l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l (s.refs ++ junk) = SOME (Refv v)
+   (Loc T l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l (s.refs ++ junk) = SOME (Refv v)
 Proof
   rw[]
   \\ imp_res_tac STATE_EXTRACT_FROM_HPROP_REF
@@ -1773,7 +1773,7 @@ Proof
 QED
 
 Theorem store_lookup_ARRAY_st2heap:
-   (ARRAY (Loc l) av * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l s.refs = SOME (Varray av)
+   (ARRAY (Loc T l) av * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l s.refs = SOME (Varray av)
 Proof
   rw[]
   \\ imp_res_tac STATE_EXTRACT_FROM_HPROP_ARRAY
@@ -1823,7 +1823,7 @@ QED
 
 (* Validity of an assigment operation *)
 Theorem store_assign_REF_st2heap:
-   (Loc l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==>
+   (Loc T l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==>
   store_assign l (Refv res) (s.refs ++ junk) = SOME (LUPDATE (Refv res) l (s.refs ++ junk))
 Proof
   rw[]
@@ -1838,7 +1838,7 @@ QED
 Triviality UPDATE_STATE_REFS:
   !ptrs2 l ptrs1 x res TYPE junk refs p s.
   TYPE x res ==>
-  REFS_PRED_FRAME ro (STATE_REFS TYPE (ptrs1 ++ [Loc l] ++ ptrs2),p:'ffi ffi_proj) (refs, s)
+  REFS_PRED_FRAME ro (STATE_REFS TYPE (ptrs1 ++ [Loc T l] ++ ptrs2),p:'ffi ffi_proj) (refs, s)
   (ref_assign (LENGTH ptrs2) x refs, s with refs := LUPDATE (Refv res) l (s.refs ++ junk))
 Proof
   rw[]
@@ -1916,7 +1916,7 @@ QED
 Theorem STATE_REFS_EXTEND:
    !H s refs. (STATE_REFS A ptrs refs * H) (st2heap (p:'ffi ffi_proj) s) ==>
   !x xv. A x xv ==>
-  (STATE_REFS A (Loc (LENGTH s.refs)::ptrs) (x::refs) * H)(st2heap p (s with refs := s.refs ++ [Refv xv]))
+  (STATE_REFS A (Loc T (LENGTH s.refs)::ptrs) (x::refs) * H)(st2heap p (s with refs := s.refs ++ [Refv xv]))
 Proof
   rw[]
   \\ rw[STATE_REFS_def]
@@ -1944,8 +1944,8 @@ Proof
 QED
 
 Triviality do_app_Opderef_REF:
-  (REF (Loc loc) v * H refs) (st2heap (p:'ffi ffi_proj) s) ==>
-  !junk. do_app (s.refs ++ junk, s.ffi) Opderef [Loc loc] =
+  (REF (Loc T loc) v * H refs) (st2heap (p:'ffi ffi_proj) s) ==>
+  !junk. do_app (s.refs ++ junk, s.ffi) Opderef [Loc T loc] =
     SOME ((s.refs ++ junk, s.ffi), Rval v)
 Proof
   rw[do_app_def]
@@ -2224,7 +2224,7 @@ Proof
       >> fs[EVERY2_LUPDATE_same]
       >> fs[GSYM STAR_ASSOC]
       >> fs[Once STAR_COMM]
-      >> sg `arv  = Loc loc`
+      >> sg `arv  = Loc T loc`
       >-(fs[STAR_ASSOC]
          >> pop_assum(fn x => PURE_REWRITE_RULE[Once STAR_COMM] x |> ASSUME_TAC)
          >> fs[GSYM STAR_ASSOC]
@@ -2341,7 +2341,7 @@ Proof
       >> fs[EVERY2_LUPDATE_same]
       >> fs[GSYM STAR_ASSOC]
       >> fs[Once STAR_COMM]
-      >> sg `arv  = Loc loc`
+      >> sg `arv  = Loc T loc`
       >-(fs[STAR_ASSOC]
          >> pop_assum(fn x => PURE_REWRITE_RULE[Once STAR_COMM] x |> ASSUME_TAC)
          >> fs[GSYM STAR_ASSOC]
@@ -2443,7 +2443,7 @@ Proof
   \\ rw[REFS_PRED_FRAME_def, state_component_equality]
   \\ fs[RARRAY_def, RARRAY_REL_def, SEP_EXISTS_THM, SEP_CLAUSES]
   \\ qexists_tac `REPLICATE n res`
-  \\ qexists_tac `Loc loc`
+  \\ qexists_tac `Loc T loc`
   \\ qpat_x_assum `Abbrev X` (fn x => fs[PURE_REWRITE_RULE[markerTheory.Abbrev_def] x])
   \\ imp_res_tac st2heap_REF_MEM
   \\ imp_res_tac store2heap_IN_LENGTH
@@ -2454,16 +2454,16 @@ Proof
   \\ rw[Once STAR_COMM]
   \\ rw[GSYM STAR_ASSOC]
   \\ rw[Once STAR_def]
-  \\ qexists_tac `store2heap_aux (LENGTH(LUPDATE (Refv (Loc loc)) l s.refs ++ refs' ++ refs'')) [Varray (REPLICATE n res)]`
+  \\ qexists_tac `store2heap_aux (LENGTH(LUPDATE (Refv (Loc T loc)) l s.refs ++ refs' ++ refs'')) [Varray (REPLICATE n res)]`
   \\ qexists_tac `st2heap p (s with
-        refs := LUPDATE (Refv (Loc loc)) l s.refs ++ refs' ++ refs'')`
+        refs := LUPDATE (Refv (Loc T loc)) l s.refs ++ refs' ++ refs'')`
   \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
   \\ fs[STATE_SPLIT_REFS]
   \\ simp[ARRAY_def, store2heap_aux_def, SEP_EXISTS_THM, GSYM STAR_ASSOC, HCOND_EXTRACT, cell_def, one_def]
   \\ simp[LIST_REL_REPLICATE_same]
   \\ simp[STAR_ASSOC, Once STAR_COMM]
   \\ EXTRACT_PURE_FACTS_TAC
-  \\ sg `(Loc l ~~> arv' * H st * F' * GC) (st2heap p s)`
+  \\ sg `(Loc T l ~~> arv' * H st * F' * GC) (st2heap p s)`
   >-(fs[GSYM STAR_ASSOC]
      \\ fs[Once STAR_COMM]
      \\ fs[GSYM STAR_ASSOC]
@@ -2472,7 +2472,7 @@ Proof
      \\ metis_tac[STAR_ASSOC, STAR_COMM])
   \\ fs[GSYM STAR_ASSOC]
   \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_UPDATE_HPROP_REF) x |> ASSUME_TAC)
-  \\ first_x_assum(qspec_then `Loc loc` ASSUME_TAC)
+  \\ first_x_assum(qspec_then `Loc T loc` ASSUME_TAC)
   \\ fs[Once (GSYM with_same_refs)]
   \\ first_x_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
   \\ pop_assum(qspec_then `refs' ++ refs''` ASSUME_TAC)
@@ -3264,7 +3264,7 @@ Proof
   \\ disch_then (qspec_then `s.clock` strip_assume_tac) \\ fs []
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
   \\ rw[state_component_equality,with_same_ffi]
-  \\ last_x_assum(qspecl_then [`Loc (LENGTH (s.refs ++ refs'))`, `s with refs := s.refs ++ refs' ++ [Refv res]`] ASSUME_TAC)
+  \\ last_x_assum(qspecl_then [`Loc T (LENGTH (s.refs ++ refs'))`, `s with refs := s.refs ++ refs' ++ [Refv res]`] ASSUME_TAC)
   \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
   >-(
       pop_assum (fn x => ALL_TAC)
@@ -3343,14 +3343,14 @@ Proof
   \\ fs[do_con_check_def, build_conv_def]
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
   \\ simp[with_same_ffi]
-  \\ last_x_assum(qspecl_then [`Loc (LENGTH (s.refs ++ [Varray []]))`, `s with refs := s.refs ++ [Varray []; Refv (Loc (LENGTH s.refs))]`] ASSUME_TAC)
+  \\ last_x_assum(qspecl_then [`Loc T (LENGTH (s.refs ++ [Varray []]))`, `s with refs := s.refs ++ [Varray []; Refv (Loc T (LENGTH s.refs))]`] ASSUME_TAC)
   \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
   >-(
       pop_assum (fn x => ALL_TAC)
       \\ SIMP_TAC bool_ss [REFS_PRED_def]
       \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
       \\ SIMP_TAC bool_ss [Once STAR_def]
-      \\ qexists_tac `store2heap_aux (LENGTH s.refs) [Varray []; Refv (Loc (LENGTH s.refs))]`
+      \\ qexists_tac `store2heap_aux (LENGTH s.refs) [Varray []; Refv (Loc T (LENGTH s.refs))]`
       \\ qexists_tac `st2heap p (s with refs := s.refs)`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
@@ -3374,7 +3374,7 @@ Proof
   >-(
       rw[GSYM STAR_ASSOC]
       \\ rw[Once STAR_def]
-      \\ qexists_tac `store2heap_aux (LENGTH s.refs) [Varray []; Refv (Loc (LENGTH s.refs))]`
+      \\ qexists_tac `store2heap_aux (LENGTH s.refs) [Varray []; Refv (Loc T (LENGTH s.refs))]`
       \\ qexists_tac `st2heap p (s with refs := s.refs)`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ fs[STATE_SPLIT_REFS]
@@ -3416,7 +3416,7 @@ Proof
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
   \\ fs[with_same_ffi]
-  \\ first_x_assum(qspecl_then [`Loc (LENGTH (s.refs ++ refs' ++ refs''))`, `s with refs := s.refs ++ refs' ++ refs'' ++ [Varray (REPLICATE n res)]`] STRIP_ASSUME_TAC)
+  \\ first_x_assum(qspecl_then [`Loc T (LENGTH (s.refs ++ refs' ++ refs''))`, `s with refs := s.refs ++ refs' ++ refs'' ++ [Varray (REPLICATE n res)]`] STRIP_ASSUME_TAC)
   \\ fs[]
   \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
   >-(

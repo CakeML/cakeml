@@ -532,7 +532,7 @@ Theorem application_thm:
     else if ∃n. op = FFI n then (
       case op of FFI n => (
         case vs of
-          [Litv (StrLit conf); Loc lnum] => (
+          [Litv (StrLit conf); Loc b lnum] => (
             case store_lookup lnum s of
               SOME (W8array ws) =>
                 if n = "" then Estep (env, s, fp, Val $ Conv NONE [], c)
@@ -604,8 +604,8 @@ QED
 Theorem application_eq_Effi_fields:
   application op env st fp vs cs = Effi (ExtCall s) conf ws lnum env' st' cs' ⇒
   op = FFI s ∧ env = env' ∧ st = st' ∧ cs' = cs ∧
-  ∃conf'.
-    vs = [Litv $ StrLit conf'; Loc lnum] ∧
+  ∃conf' b.
+    vs = [Litv $ StrLit conf'; Loc b lnum] ∧
     conf = MAP (λc. n2w $ ORD c) (EXPLODE conf')
 Proof
   Cases_on `op` >> simp[application_def, SF itree_ss] >>

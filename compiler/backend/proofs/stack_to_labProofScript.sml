@@ -28,6 +28,8 @@ val get_reg_value_def = targetSemTheory.get_reg_value_def;
 
 (* val _ = set_prover (fn (tm,_) => mk_thm([],tm)); remove *)
 
+Overload Loc = “wordLang$Loc”
+
 (* TODO: move *)
 
 Theorem word_sh_word_shift:
