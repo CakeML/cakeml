@@ -255,8 +255,7 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* X_{=i} ⇒ Ai = R where Ai, R can be Varc
-  TODO: what happens when X is const? *)
+(* X_{=i} ⇒ Ai = R where Ai, R can be Varc *)
 Definition encode_element_eq_def:
   encode_element_eq bnd R X (i:num,Ai) =
   [
@@ -278,13 +277,15 @@ Proof
 QED
 
 (* Adds X ≥ 1, - X ≥ -|As| where needed *)
-Definition encode_element_def:
-  encode_element (bnd:'a bounds) R X As =
+Definition encode_element_var_def:
+  encode_element_var (bnd:'a bounds) R X As =
   let (lb:int,ub:int) = bnd X in
   let (len:int) = &(LENGTH As) in
+  let ges = FLAT (GENLIST (λi. encode_ge bnd X &(i+1)) (LENGTH As + 1)) in
+  let eqs = FLAT (GENLIST (λi. encode_eq bnd X &(i+1)) (LENGTH As)) in
   let xlb = if lb < 1 then [([(1i,X)],[],1i)] else [] in
   let xub = if len < ub then [([(-1i,X)],[],-len)] else [] in
-    xlb ++ xub ++
+    ges ++ eqs ++ xlb ++ xub ++
     FLAT (MAP (encode_element_eq bnd R X) (enumerate 0n As))
 End
 
@@ -314,23 +315,60 @@ Proof
   rw[]
 QED
 
-Theorem encode_element_sem:
-  valid_assignment bnd wi ∧
-  (∀i. 1 ≤ i ∧ i ≤ LENGTH As ⇒
-    (wb (Eq X &i) ⇔ wi X = &i))
+(* TODO: is this style better? *)
+Theorem encode_element_var_sem:
+  valid_assignment bnd wi
   ⇒
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element bnd R X As)
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element_var bnd R X As)
   =
-  element_sem R (INL X) As wi
+  (
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH As + 1 ⇒
+    (wb (Ge X &i) ⇔ wi X ≥ &i)) ∧
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH As ⇒
+    (wb (Eq X &i) ⇔ wi X = &i)) ∧
+  element_sem R (INL X) As wi)
 Proof
-  rw[encode_element_def]>>
+  rw[encode_element_var_def]>>
   pairarg_tac>>simp[element_sem_def]>>
-  simp[CONJ_ASSOC]>>
-  match_mp_tac AND_CONG>>
+  simp[GSYM CONJ_ASSOC]>>
+  match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC >- (
+    simp[EVERY_FLAT,EVERY_GENLIST,encode_ge_sem]>>
+    eq_tac>>rw[]>>
+    first_x_assum(qspec_then`i-1` mp_tac)>>simp[])>>
+  strip_tac>>
+  match_mp_tac LEFT_AND_CONG>>
+  (* annoying ... *)
+  CONJ_TAC >- (
+    simp[EVERY_FLAT,EVERY_GENLIST]>>
+    eq_tac>>rw[]
+    >- (
+      DEP_REWRITE_TAC[GSYM encode_eq_sem]>>
+      simp[]>>
+      first_x_assum(qspec_then`i-1`mp_tac)>>
+      simp[]>>
+      first_x_assum(qspec_then`i + 1 `mp_tac)>>
+      simp[]>>
+      `&(i+1) = &i + 1i` by intLib.ARITH_TAC>>
+      simp[])>>
+    DEP_REWRITE_TAC[encode_eq_sem]>>
+    simp[]>>
+    last_x_assum(qspec_then`i + 1 + 1`mp_tac)>>
+      `&(i+2) = &(i + 1) + 1i` by intLib.ARITH_TAC>>
+    simp[])>>
+  strip_tac>>
+  match_mp_tac LEFT_AND_CONG>>
   CONJ_TAC >- (
     gvs[varc_def,valid_assignment_def]>>
     first_x_assum drule>>rw[eval_raw]>>
     intLib.ARITH_TAC)>>
+  strip_tac>>
+  match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC >- (
+    gvs[varc_def,valid_assignment_def]>>
+    first_x_assum drule>>rw[eval_raw]>>
+    intLib.ARITH_TAC)>>
+  strip_tac>>
   rw[EVERY_FLAT,EVERY_MAP]>>
   `∀x. MEM x (enumerate 0 As) ⇒
        (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element_eq bnd R X x) ⇔
@@ -354,6 +392,60 @@ Proof
     gvs[varc_def]>>
     intLib.ARITH_TAC)>>
   simp[varc_def]
+QED
+
+Definition encode_element_const_def:
+  encode_element_const R (X:int) As =
+  if 1 ≤ X ∧ X ≤ &(LENGTH As)
+  then
+    let Ai = EL (Num X -1) As in
+    [mk_constraint_ge Ai R;
+     mk_constraint_ge R Ai]
+  else
+    [([],[],1)]
+End
+
+Theorem encode_element_const_sem:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element_const R X As)
+  =
+  element_sem R (INR X) As wi
+Proof
+  rw[encode_element_const_def,eval_raw,mk_constraint_ge_sem,element_sem_def]
+  >- (
+    simp[varc_def]>>
+    eq_tac>>rw[]>>
+    intLib.ARITH_TAC)>>
+  fs[varc_def]>>
+  intLib.ARITH_TAC
+QED
+
+Definition encode_element_def:
+  encode_element bnd R X As =
+  case X of
+    INL vX => encode_element_var bnd R vX As
+  | INR cX => encode_element_const R cX As
+End
+
+(* TODO: This seem too precise *)
+Theorem encode_element_sem:
+  valid_assignment bnd wi
+  ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element bnd R X As)
+  =
+  (
+  (case X of INR _ => T | INL X =>
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH As + 1 ⇒
+    (wb (Ge X &i) ⇔ wi X ≥ &i)) ∧
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH As ⇒
+    (wb (Eq X &i) ⇔ wi X = &i))) ∧
+  element_sem R X As wi)
+Proof
+  rw[encode_element_def]>>
+  TOP_CASE_TAC>>gvs[]
+  >-
+    metis_tac[encode_element_var_sem]
+  >>
+    metis_tac[encode_element_const_sem]
 QED
 
 val _ = export_theory();
