@@ -72,6 +72,7 @@ QED
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
   semantics_compiler64_prog
+  |> SRULE [ml_progTheory.prog_syntax_ok_semantics, compiler64_compiled]
   |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
   |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
@@ -122,8 +123,9 @@ Overload init_eval_state_for =
         eval_state := SOME (mk_init_eval_state compiler_instance))”
 
 Theorem candle_soundness:
-  res ∈ semantics_prog (init_eval_state_for cl fs) init_env
-    (candle_code ++ prog) ∧ EVERY safe_dec prog ∧ res ≠ Fail ⇒
+  res ∈ semantics_prog (init_eval_state_for cl fs) init_env (candle_code ++ prog) ∧
+  EVERY safe_dec prog ∧ prog_syntax_ok candle_code ∧ res ≠ Fail
+  ⇒
   ∀e. e ∈ events_of res ⇒ ok_event e
 Proof
   rw [IN_DEF]
@@ -295,6 +297,16 @@ Proof
            IN_INSERT,NOT_IN_EMPTY,EVAL “kernel_ffi”] @ char_eq_lemmas)
 QED
 
+Triviality prog_syntax_ok_candle_code:
+  prog_syntax_ok candle_code
+Proof
+  ‘prog_syntax_ok compiler64_prog’ by fs [compiler64_compiled]
+  \\ irule ml_progTheory.prog_syntax_ok_isPREFIX
+  \\ first_x_assum $ irule_at Any
+  \\ strip_assume_tac compiler64_prog_eq_candle_code_append
+  \\ gvs []
+QED
+
 Theorem events_of_extend_with_resource_limit:
   e ∈ events_of res1 ∧ res1 ∈ sem1 ∧
   sem1 ⊆ extend_with_resource_limit sem2 ⇒
@@ -324,7 +336,7 @@ Proof
   \\ drule_all events_of_extend_with_resource_limit \\ rw []
   \\ strip_assume_tac compiler64_prog_eq_candle_code_append \\ gvs []
   \\ drule_then irule candle_soundness
-  \\ fs [] \\ CCONTR_TAC \\ fs []
+  \\ fs [prog_syntax_ok_candle_code] \\ CCONTR_TAC \\ fs []
 QED
 
 val _ = print "Checking that no cheats were used in the proofs.\n";

@@ -1299,7 +1299,7 @@ local
                          (!(#type_theories translator_state))
           handle  HOL_ERR _ =>
             let
-              val thms = DB.find (name ^ "_def") |> List.map (fst o snd)
+              val thms = DB.find (name ^ "_def") |> List.map (#1 o snd)
               val inv_ty = mk_type("fun", [ty, v_bool_ty])
               fun is_valid th = let
                   val th_body = CONJUNCTS th |> List.hd |> concl |> strip_forall
@@ -2430,8 +2430,8 @@ local (* ported from ml_translatorLib *)
     val const_thy = const_tm |> dest_thy_const |> #Thy
     fun try_find_in thys = let
       val xs = DB.match thys def_tm
-      val xs = filter (aconv def_tm o concl o fst o snd) xs
-      val ((thy,name),_) = first (fn x => Def = (x |> snd |> snd)) xs
+      val xs = filter (aconv def_tm o concl o #1 o snd) xs
+      val ((thy,name),_) = first (fn x => Def = (x |> snd |> #2)) xs
                            handle HOL_ERR _ => hd xs handle Empty => fail ()
       in (thy,name) end
     val (thy,name) = try_find_in [const_thy]
@@ -3700,7 +3700,7 @@ fun m_translate_run def =
 
     val run_def = if using_monadBase_run then ml_monadBaseTheory.run_def else
       let val run_name = dest_const run_tm |> fst
-          val pos_defs = DB.find (run_name ^ "_def") |> List.map (fst o snd)
+          val pos_defs = DB.find (run_name ^ "_def") |> List.map (#1 o snd)
           fun is_def th =
             let val constant = CONJUNCTS th |> List.hd |> concl |>
                                strip_forall |> snd |> lhs |> strip_comb |> fst
@@ -3793,7 +3793,7 @@ fun m_translate_run def =
                         DB.find "ML_MONADBASE_EXC_TYPE_def"
                        else
                         DB.find "EXC_TYPE_def")
-                       |> List.hd |> snd |> fst
+                       |> List.hd |> #2 |> #1
                        handle Empty =>
                         raise (ERR "m_translate_run" "The `exc` type needs to \
                                \be registered in the current program")
