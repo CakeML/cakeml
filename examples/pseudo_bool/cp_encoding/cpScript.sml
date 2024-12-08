@@ -53,8 +53,9 @@ Type bounds = ``:'a -> int # int``;
 
 Definition valid_assignment_def:
   valid_assignment (bnd: 'a bounds) w ⇔
-  ∀x.
-    (FST (bnd x)) ≤ w x ∧ w x ≤ (SND (bnd x))
+  ∀x lb ub.
+    bnd x = (lb,ub) ⇒
+    lb ≤ w x ∧ w x ≤ ub
 End
 
 Type constraints = ``: 'a constraint set``;

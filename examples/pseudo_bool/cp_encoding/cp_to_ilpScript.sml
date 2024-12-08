@@ -1,11 +1,13 @@
 (*
-  Formalization of the CP encoder
+  Formalization of the CP to ILP phase
 *)
 open preamble cpTheory ilpTheory pbcTheory pbc_encodeTheory;
 
-val _ = new_theory "cp_encode";
+val _ = new_theory "cp_to_ilp";
 
-(* The big datatype to represent encoded Boolean variables *)
+val eval_raw = LIST_CONJ [iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_def];
+
+(* The datatype for auxiliaries variables *)
 Datatype:
   ebool =
   | Ge 'a int (* Reifies X ≥ i *)
@@ -25,8 +27,8 @@ Theorem min_iterm_le:
 Proof
   Cases_on`t`>>
   rw[valid_assignment_def,eval_iterm_def,min_iterm_def]>>
-  pairarg_tac>>gvs[]>>rw[]>>
-  first_x_assum(qspec_then`r` mp_tac)>>gvs[]>>
+  pairarg_tac>>gvs[]>>
+  first_x_assum drule>>gvs[]>>
   rw[]
   >- (
     DEP_REWRITE_TAC[INT_LE_ANTIMONO]>>
@@ -201,7 +203,7 @@ Theorem encode_ge_sem:
   (wb (Ge X i) ⇔ wi X ≥ i)
 Proof
   rw[encode_ge_def]>>
-  simp[bimply_bits_sem,iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_def]>>
+  simp[bimply_bits_sem,eval_raw]>>
   metis_tac[]
 QED
 
@@ -211,22 +213,147 @@ QED
 Definition encode_eq_def:
   encode_eq bnd X i =
   bimply_bits bnd [Eq X i]
-    ([],[(1,Pos(Ge X i));(1, Neg (Ge X (i+1)))],2) ++
-  encode_ge bnd X i ++
-  encode_ge bnd X (i+1)
+    ([],[(1,Pos(Ge X i));(1, Neg (Ge X (i+1)))],2)
 End
 
-(* TODO: needs to be iff? *)
 Theorem encode_eq_sem:
-  valid_assignment bnd wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_eq bnd X i)
+  valid_assignment bnd wi ∧
+  (wb (Ge X i) ⇔ wi X ≥ i) ∧
+  (wb (Ge X (i+1)) ⇔ wi X ≥ i+1)
   ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_eq bnd X i)
+  =
   (wb (Eq X i) ⇔ wi X = i)
 Proof
   rw[encode_eq_def]>>
-  gs[bimply_bits_sem,iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_def,encode_ge_sem,b2i_alt]>>
-  every_case_tac>>gvs[]>>
+  gs[bimply_bits_sem,eval_raw,b2i_alt]>>
+  rw[]>>
+  eq_tac>>rw[]>>
   intLib.ARITH_TAC
+QED
+
+(* Encodes Ai ≥ R where both terms are varc *)
+Definition mk_constraint_ge_def:
+  mk_constraint_ge Ai R =
+  case (Ai,R) of
+    (INL vAi, INL vR) =>
+      ([(1i,vAi);(-1i,vR)],[],0i)
+  | (INL vAi, INR cR) =>
+      ([(1i,vAi)],[],cR)
+  | (INR cAi, INL vR) =>
+      ([(-1i,vR)],[],-cAi)
+  | (INR cAi, INR cR) =>
+      ([],[],cR-cAi)
+End
+
+Theorem mk_constraint_ge_sem:
+  iconstraint_sem (mk_constraint_ge Ai R) (wi,wb) ⇔
+  varc wi Ai ≥ varc wi R
+Proof
+  rw[mk_constraint_ge_def]>>every_case_tac>>
+  gvs[varc_def,eval_raw]>>
+  intLib.ARITH_TAC
+QED
+
+(* X_{=i} ⇒ Ai = R where Ai, R can be Varc
+  TODO: what happens when X is const? *)
+Definition encode_element_eq_def:
+  encode_element_eq bnd R X (i:num,Ai) =
+  [
+    bits_imply bnd [Eq X (&(i+1))] (mk_constraint_ge Ai R);
+    bits_imply bnd [Eq X (&(i+1))] (mk_constraint_ge R Ai)
+  ]
+End
+
+Theorem encode_element_eq_sem:
+  valid_assignment bnd wi ∧
+  (wb (Eq X &(i+1)) ⇔ wi X = &(i+1))
+  ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element_eq bnd R X (i,Ai))
+  =
+  (wi X = &(i+1) ⇒ varc wi R = varc wi Ai)
+Proof
+  rw[encode_element_eq_def,eval_raw,bits_imply_sem,mk_constraint_ge_sem]>>
+  intLib.ARITH_TAC
+QED
+
+(* Adds X ≥ 1, - X ≥ -|As| where needed *)
+Definition encode_element_def:
+  encode_element (bnd:'a bounds) R X As =
+  let (lb:int,ub:int) = bnd X in
+  let (len:int) = &(LENGTH As) in
+  let xlb = if lb < 1 then [([(1i,X)],[],1i)] else [] in
+  let xub = if len < ub then [([(-1i,X)],[],-len)] else [] in
+    xlb ++ xub ++
+    FLAT (MAP (encode_element_eq bnd R X) (enumerate 0n As))
+End
+
+(* TODO: copied from npbc_check, move into misc... *)
+Theorem MEM_enumerate_index:
+  ∀k xs.
+  MEM (i,e) (enumerate k xs) ⇒
+  ∃j. j < LENGTH xs ∧ i = k + j
+Proof
+  Induct_on`xs`>>rw[miscTheory.enumerate_def]
+  >- intLib.ARITH_TAC>>
+  first_x_assum drule>>
+  rw[]
+  >- intLib.ARITH_TAC
+QED
+
+Theorem MEM_enumerate_iff:
+  MEM ie (enumerate 0 xs) ⇔
+  ∃i e. ie = (i,e) ∧ i < LENGTH xs ∧ EL i xs = e
+Proof
+  Cases_on`ie`>>
+  rename1`MEM (i,e) _ `>>
+  Cases_on`i < LENGTH xs`>>fs[MEM_enumerate]
+  >- metis_tac[]>>
+  CCONTR_TAC>>fs[]>>
+  drule MEM_enumerate_index>>
+  rw[]
+QED
+
+Theorem encode_element_sem:
+  valid_assignment bnd wi ∧
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH As ⇒
+    (wb (Eq X &i) ⇔ wi X = &i))
+  ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element bnd R X As)
+  =
+  element_sem R (INL X) As wi
+Proof
+  rw[encode_element_def]>>
+  pairarg_tac>>simp[element_sem_def]>>
+  simp[CONJ_ASSOC]>>
+  match_mp_tac AND_CONG>>
+  CONJ_TAC >- (
+    gvs[varc_def,valid_assignment_def]>>
+    first_x_assum drule>>rw[eval_raw]>>
+    intLib.ARITH_TAC)>>
+  rw[EVERY_FLAT,EVERY_MAP]>>
+  `∀x. MEM x (enumerate 0 As) ⇒
+       (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element_eq bnd R X x) ⇔
+       (wi X = &(FST x + 1) ⇒ varc wi R = varc wi (SND x)))` by (
+    Cases>>rw[]>>
+    match_mp_tac encode_element_eq_sem>>
+    simp[]>>
+    first_x_assum match_mp_tac>>
+    gvs[MEM_enumerate_iff])>>
+  `EVERY (λx.
+      EVERY (λx. iconstraint_sem x (wi,wb))
+      (encode_element_eq bnd R X x)) (enumerate 0 As) ⇔
+   EVERY (λx.
+      (wi X = &(FST x + 1) ⇒ varc wi R = varc wi (SND x))) (enumerate 0 As)` by
+   (match_mp_tac EVERY_CONG>>
+   simp[])>>
+  simp[EVERY_MEM,MEM_enumerate_iff,PULL_EXISTS] >>
+  eq_tac>>rw[]
+  >- (
+    first_x_assum irule>>
+    gvs[varc_def]>>
+    intLib.ARITH_TAC)>>
+  simp[varc_def]
 QED
 
 val _ = export_theory();
