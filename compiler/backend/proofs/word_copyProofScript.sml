@@ -295,6 +295,34 @@ Definition CPstate_models_def:
     lookup c cs.from_eq = SOME vrep ⇒
     lookup v S.locals = lookup vrep S.locals
 End
+(*FIXME need to add for cs side also*)
+
+Theorem CPstate_models_with_const[simp]:
+  CPstate_models cs (s with locals_size := ls) = (CPstate_models cs s) /\
+  CPstate_models cs (s with fp_regs := fp) = CPstate_models cs s /\
+  CPstate_models cs (s with store := store) = CPstate_models cs s /\
+  CPstate_models cs (s with stack := xs) = CPstate_models cs s /\
+  CPstate_models cs (s with stack_limit := sl) = CPstate_models cs s /\
+  CPstate_models cs (s with stack_max := sm) = CPstate_models cs s /\
+  CPstate_models cs (s with stack_size := ssize) = CPstate_models cs s /\
+  CPstate_models cs (s with memory := m) = CPstate_models cs s /\
+  CPstate_models cs (s with mdomain := md) = CPstate_models cs s /\
+  CPstate_models cs (s with sh_mdomain := smd) = CPstate_models cs s /\
+  CPstate_models cs (s with permute := p) = CPstate_models cs s /\
+  CPstate_models cs (s with compile := c) = CPstate_models cs s /\
+  CPstate_models cs (s with compile_oracle := co) = CPstate_models cs s /\
+  CPstate_models cs (s with code_buffer := cb) = CPstate_models cs s /\
+  CPstate_models cs (s with data_buffer := db) = CPstate_models cs s /\
+  CPstate_models cs (s with gc_fun := g) = CPstate_models cs s /\
+  CPstate_models cs (s with handler := hd) = CPstate_models cs s /\
+  CPstate_models cs (s with clock := clk) = CPstate_models cs s /\
+  CPstate_models cs (s with termdep := tdep) = CPstate_models cs s /\
+  CPstate_models cs (s with code := cd) = CPstate_models cs s /\
+  CPstate_models cs (s with be := b) = CPstate_models cs s /\
+  CPstate_models cs (s with ffi := ffi) = CPstate_models cs s
+Proof
+  fs[CPstate_models_def]
+QED
 
 Theorem CPstate_model:
   CPstate_models cs st ⇒
@@ -935,13 +963,13 @@ Theorem remove_eq_model_sh_mem_set_var:
   sh_mem_set_var x t st = (err, st') ⇒
   CPstate_models (remove_eq cs t) st'
 Proof
-  namedCases_on‘x’["","fr"]>-(rw[sh_mem_set_var_def]>>metis_tac[remove_eq_model])
-  >>Cases_on‘fr’>>rw[sh_mem_set_var_def]
-  >-(
-    ‘CPstate_models cs (st with ffi:=f)’ by fs[CPstate_models_def]
-    >>metis_tac[remove_eq_model_set_var]
-  )
-  >-(pop_assum mp_tac>>rw[CPstate_models_def,remove_eq_def,flush_state_def])
+  namedCases_on‘x’["","fr"]>-
+  (rw[sh_mem_set_var_def]>>
+  irule remove_eq_model >>
+  first_x_assum (irule_at Any))
+  >> Cases_on‘fr’ >> rw[sh_mem_set_var_def] 
+  >-(fs[] >> metis_tac[remove_eq_model_set_var])
+  >-(fs[flush_state_def] >> fs[] >> fs[CPstate_models_def])
 QED
 
 Theorem CPstate_modelsD_copy_prop_share:
@@ -976,12 +1004,6 @@ Theorem sh_mem_store_byte_model:
   CPstate_models cs st'
 Proof
   rw[CPstate_models_def,sh_mem_store_byte_def,flush_state_def]>>gvs[ACE]
-QED
-(*MOVE*)
-Theorem CPstate_models_with_const[simp]:
-CPstate_models cs (st with memory := m) = CPstate_models cs st
-Proof
-  fs[CPstate_models_def]
 QED
 
 Theorem copy_prop_correct:

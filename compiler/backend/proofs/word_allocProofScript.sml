@@ -882,7 +882,7 @@ Proof
       ))
   >- (*Assign*)
     (exists_tac>>exists_tac_2>>
-    srw_tac[][word_state_eq_rel_def,set_var_perm,set_var_def]>>
+    fs[word_state_eq_rel_def,set_var_def]>>
     fs[domain_union,get_writes_def,get_writes_inst_def]>>
     metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT
              ,strong_locals_rel_insert,SUBSET_UNION])
@@ -1109,7 +1109,7 @@ Proof
       (unabbrev_all_tac>>
       simp[push_env_def,LET_THM,env_to_list_def,
            state_component_equality,ETA_AX, stack_size_def, stack_size_frame_def]) >>
-    full_simp_tac(srw_ss())[pop_env_perm,set_var_perm]>>
+    full_simp_tac(srw_ss())[pop_env_perm]>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
     >-
     (*Exceptions*)
@@ -1234,7 +1234,7 @@ Proof
       `(λn. perm'' n) = perm''` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
       `domain (fromAList lss) = domain x'1` by
         metis_tac[domain_fromAList]>>
-      full_simp_tac(srw_ss())[set_var_perm, stack_size_def, stack_size_frame_def])
+      full_simp_tac(srw_ss())[stack_size_def, stack_size_frame_def])
     >>
     (*The rest*)
     srw_tac[][]>>qexists_tac`perm`>>full_simp_tac(srw_ss())[]>>
@@ -5822,7 +5822,7 @@ Proof
       (unabbrev_all_tac>>
       simp[push_env_def,LET_THM,env_to_list_def ,state_component_equality,FUN_EQ_THM,
            stack_size_def, stack_size_frame_def])>>
-      full_simp_tac(srw_ss())[pop_env_perm,set_var_perm]>>
+      full_simp_tac(srw_ss())[pop_env_perm]>>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
     >- (
       (*Excepting without handler*)
@@ -6131,7 +6131,7 @@ Proof
       (unabbrev_all_tac>>
       simp[push_env_def,LET_THM,env_to_list_def,
            state_component_equality,FUN_EQ_THM, stack_size_def, stack_size_frame_def])>>
-      full_simp_tac(srw_ss())[pop_env_perm,set_var_perm]>>
+      full_simp_tac(srw_ss())[pop_env_perm]>>
       Cases_on`evaluate(x2,res_st with permute:=perm')`>>
       Cases_on`evaluate(ren_ret_handler,res_rcst)`>>
       full_simp_tac(srw_ss())[]>>
@@ -6312,7 +6312,7 @@ Proof
       (unabbrev_all_tac>>
       rpt(pop_assum kall_tac)>>
       simp[state_component_equality,FUN_EQ_THM, stack_size_def, stack_size_frame_def])>>
-      full_simp_tac(srw_ss())[pop_env_perm,set_var_perm]>>
+      full_simp_tac(srw_ss())[pop_env_perm]>>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       Cases_on`evaluate(x''1,res_st with permute:=perm')`>>
       Cases_on`evaluate(ren_exc_handler,res_rcst)`>>full_simp_tac(srw_ss())[]>>
