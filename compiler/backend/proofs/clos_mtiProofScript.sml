@@ -74,7 +74,7 @@ Inductive v_rel:
   (!i. v_rel (max_app:num) (Number i) (closSem$Number i)) /\
   (!w. v_rel max_app (Word64 w) (Word64 w)) /\
   (!w. v_rel max_app (ByteVector w) (ByteVector w)) /\
-  (!n. v_rel max_app (RefPtr n) (RefPtr n)) /\
+  (!n b. v_rel max_app (RefPtr b n) (RefPtr b n)) /\
   (!tag xs ys.
      LIST_REL (v_rel max_app) xs ys ==>
      v_rel max_app (Block tag xs) (Block tag ys)) /\
@@ -450,7 +450,7 @@ Theorem v_rel_simps[simp] =
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Block n p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Word64 p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (ByteVector p)``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (RefPtr p)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (RefPtr b p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Closure x1 x2 x3 x4 x5)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Recclosure y1 y2 y3 y4 y5)``,
   prove(``v_rel max_app x (Boolv b) <=> x = Boolv b``,

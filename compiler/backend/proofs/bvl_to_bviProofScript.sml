@@ -34,7 +34,7 @@ Overload nss[local] = ``bvl_to_bvi_namespaces``
 Definition adjust_bv_def:
   (adjust_bv b (Number i) = Number i) /\
   (adjust_bv b (Word64 w) = Word64 w) /\
-  (adjust_bv b (RefPtr r) = RefPtr (b r)) /\
+  (adjust_bv b (RefPtr l r) = RefPtr l (b r)) /\
   (adjust_bv b (CodePtr c) = CodePtr (num_stubs + nss * c)) /\
   (adjust_bv b (Block tag vs) = Block tag (MAP (adjust_bv b) vs))
 Termination
@@ -143,7 +143,7 @@ Proof
 QED
 
 Definition bv_ok_def:
-  (bv_ok (refs: num |-> v ref) (RefPtr r) <=> r IN FDOM refs) /\
+  (bv_ok (refs: num |-> v ref) (RefPtr l r) <=> r IN FDOM refs) /\
   (bv_ok refs (Block tag vs) <=> EVERY (bv_ok refs) vs) /\
   (bv_ok refs _ <=> T)
 Termination
@@ -378,7 +378,7 @@ Proof
     \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
     \\ res_tac
     \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
-    \\ qmatch_goalsub_abbrev_tac`bv_ok _ (RefPtr ptr)`
+    \\ qmatch_goalsub_abbrev_tac`bv_ok _ (RefPtr _ ptr)`
     \\ qexists_tac`r.refs |+ (ptr,X)`
     \\ simp[bv_ok_def] )
   THEN1 (
@@ -391,7 +391,7 @@ Proof
     \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
     \\ res_tac
     \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
-    \\ qmatch_goalsub_abbrev_tac`bv_ok _ (RefPtr ptr)`
+    \\ qmatch_goalsub_abbrev_tac`bv_ok _ (RefPtr _ ptr)`
     \\ qexists_tac`r.refs |+ (ptr,X)`
     \\ simp[bv_ok_def] )
   THEN1 (
@@ -613,7 +613,7 @@ val evaluate_CopyGlobals_code = Q.prove(
    ⇒
    ∃c.
      evaluate ([SND CopyGlobals_code],
-               [RefPtr p1; RefPtr p; Number &n],
+               [RefPtr b1 p1; RefPtr b p; Number &n],
                inc_clock c s) =
      (Rval [Unit], s with refs := s.refs |+ (p1, ValueArray (TAKE (SUC n) ls ++ DROP (SUC n) l1)))`,
   Induct >> srw_tac[][] >> srw_tac[][CopyGlobals_code_def] >>
@@ -681,7 +681,7 @@ Proof
   \\ simp [Once iEval_def,iEvalOp_def,inc_clock_def,do_app_aux_def,bvlSemTheory.do_app_def]
   \\ rename [‘evaluate
                 ([Op Add [Var 0; Var 2]],
-                 [Number (&SUC n); RefPtr p; Number (&k)],_)’]
+                 [Number (&SUC n); RefPtr T p; Number (&k)],_)’]
   \\ simp [Once iEval_def]
   \\ simp [Once iEval_def]
   \\ simp [Once iEval_def]
@@ -731,7 +731,7 @@ Proof
      \\ drule whileTheory.LEAST_INTRO \\ fs [])
   \\ fs []
   \\ simp [Abbr‘s1’,FLOOKUP_UPDATE,Abbr‘new_refs’,inc_clock_def]
-  \\ disch_then $ qspec_then ‘LENGTH ls’ mp_tac
+  \\ disch_then $ qspecl_then [‘T’,‘T’,‘LENGTH ls’] mp_tac
   \\ impl_tac >- gvs []
   \\ strip_tac \\ gvs [LUPDATE_def]
   \\ qexists_tac ‘c’ \\ fs []
@@ -780,8 +780,8 @@ Theorem evaluate_FromListByte_code:
     FLOOKUP s.refs p = SOME (ByteArray fl bs) ∧ n = LENGTH bs - LENGTH vs
     ⇒
     ∃c.
-      evaluate ([SND FromListByte_code],[lv;Number (&n);RefPtr p],inc_clock c s) =
-        (Rval [RefPtr p], s with refs := s.refs |+ (p,ByteArray fl (TAKE n bs ++ (MAP n2w vs))))
+      evaluate ([SND FromListByte_code],[lv;Number (&n);RefPtr b p],inc_clock c s) =
+        (Rval [RefPtr b p], s with refs := s.refs |+ (p,ByteArray fl (TAKE n bs ++ (MAP n2w vs))))
 Proof
   ho_match_mp_tac v_to_list_ind \\ rw[] \\ fs[v_to_list_def] \\ rveq
   \\ rfs[FromListByte_code_def]
@@ -826,7 +826,7 @@ Theorem evaluate_ToListByte_code:
     ∃c.
       evaluate ([SND ToListByte_code],
         [list_to_v (MAP (\b. Number (& (w2n b))) rest);
-         Number (& (LENGTH bs)); RefPtr p],inc_clock c s) =
+         Number (& (LENGTH bs)); RefPtr b p],inc_clock c s) =
         (Rval [list_to_v (MAP (\b. Number (& (w2n b))) bs ++
                           MAP (\b. Number (& (w2n b))) rest)],
          s with refs := s.refs |+ (p,ByteArray fl (bs ++ rest)))
@@ -866,7 +866,7 @@ QED
 Theorem evaluate_SumListLength_code:
    ∀lv ps wss n.
    lookup SumListLength_location s.code = SOME (2,SND SumListLength_code) ∧
-   v_to_list lv = SOME (MAP RefPtr ps) ∧
+   v_to_list lv = SOME (MAP (RefPtr T) ps) ∧
    MAP (FLOOKUP s.refs) ps = MAP (SOME o ByteArray T) wss
    ⇒
    ∃c.
@@ -907,15 +907,15 @@ Theorem evaluate_ConcatByte_code:
    ∀lv ps wss (s:('c,'ffi) bviSem$state) ds1 ds2 n.
    lookup SumListLength_location s.code = SOME (2,SND SumListLength_code) ∧
    lookup ConcatByte_location s.code = SOME (3,SND ConcatByte_code) ∧
-   v_to_list lv = SOME (MAP RefPtr ps) ∧ dst ∉ set ps ∧
+   v_to_list lv = SOME (MAP (RefPtr T) ps) ∧ dst ∉ set ps ∧
    MAP (FLOOKUP s.refs) ps = MAP (SOME o ByteArray T) wss ∧
    FLOOKUP s.refs dst = SOME (ByteArray T (ds1++ds2)) ∧
    n = LENGTH ds1 ∧ LENGTH (FLAT wss) = LENGTH ds2
    ⇒
    ∃c.
      evaluate
-       ([SND ConcatByte_code],[lv;Number(&n);RefPtr dst],inc_clock c s) =
-       (Rval [RefPtr dst], s with refs := s.refs |+ (dst, ByteArray T (ds1++FLAT wss)))
+       ([SND ConcatByte_code],[lv;Number(&n);RefPtr b dst],inc_clock c s) =
+       (Rval [RefPtr b dst], s with refs := s.refs |+ (dst, ByteArray T (ds1++FLAT wss)))
 Proof
   recInduct v_to_list_ind
   \\ rw[v_to_list_def]
@@ -981,7 +981,7 @@ val compile_string_thm = Q.prove(
   `∀str s ls vs.
    FLOOKUP s.refs ptr = SOME (ByteArray T ls) ∧ LENGTH vs + LENGTH str = LENGTH ls ⇒
    evaluate (MAPi (λn c. Op UpdateByte [Op (Const (&ORD c)) []; compile_int (&(n + LENGTH vs)); Var 0]) str,
-    RefPtr ptr::env, s) = (Rval (REPLICATE (LENGTH str) Unit),
+    RefPtr b ptr::env, s) = (Rval (REPLICATE (LENGTH str) Unit),
       s with refs := s.refs |+ (ptr, ByteArray T (TAKE (LENGTH vs) ls ++ (MAP (n2w o ORD) str))))`,
   Induct \\ rw[evaluate_def,REPLICATE]
   >- (rw[state_component_equality]
@@ -1319,8 +1319,8 @@ Proof
   \\ Cases_on `op = DerefByte` \\ fs [] THEN1
    (Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`h'`>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`h'`>>full_simp_tac(srw_ss())[]>>
     Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
     simp[bEvalOp_def,adjust_bv_def] >>
     simp[] >> srw_tac[][] >>
@@ -1359,9 +1359,9 @@ Proof
     Cases_on`t'`>>full_simp_tac(srw_ss())[SWAP_REVERSE_SYM]>>
     simp[bEvalOp_def,adjust_bv_def] >>
     srw_tac[][] >>
-    qmatch_assum_rename_tac`bv_ok s5.refs (RefPtr k)` >>
-    qpat_x_assum `bv_ok s5.refs (RefPtr k)` mp_tac >>
-    qmatch_assum_rename_tac`bv_ok s5.refs (RefPtr k')` >>
+    qmatch_assum_rename_tac`bv_ok s5.refs (RefPtr _ k)` >>
+    qpat_x_assum `bv_ok s5.refs (RefPtr _ k)` mp_tac >>
+    qmatch_assum_rename_tac`bv_ok s5.refs (RefPtr _ k')` >>
     DISCH_TAC >>
     Cases_on`FLOOKUP s5.refs k'`>>full_simp_tac(srw_ss())[]>>
     Cases_on`FLOOKUP s5.refs k`>>full_simp_tac(srw_ss())[]>>
@@ -1391,7 +1391,7 @@ Proof
     METIS_TAC[INJ_DEF])
   \\ Cases_on `op = UpdateByte` \\ fs [] THEN1
    (strip_tac
-    \\ `?n i i'. REVERSE a = [RefPtr n; Number i; Number i']` by
+    \\ `?n i i' b. REVERSE a = [RefPtr b n; Number i; Number i']` by
           (every_case_tac \\ fs [] \\ NO_TAC) \\ fs [] >>
     simp[bEvalOp_def,adjust_bv_def] >>
     simp[] >> srw_tac[][] >>
@@ -1571,7 +1571,7 @@ QED
 Triviality do_app_Ref:
   do_app Ref vs s =
      Rval
-      (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
+      (RefPtr T (LEAST ptr. ptr ∉ FDOM s.refs),
        bvl_to_bvi
         (bvi_to_bvl s with
          refs :=
@@ -2577,11 +2577,11 @@ Proof
       \\ `lookup ToListByte_location t2.code = SOME (3,SND ToListByte_code)` by
               (fs [state_rel_def] \\ EVAL_TAC) \\ fs []
       \\ drule (GEN_ALL evaluate_ToListByte_code)
-      \\ `FLOOKUP t2.refs (b2 n') = SOME (ByteArray b l)` by
+      \\ `FLOOKUP t2.refs (b2 n') = SOME (ByteArray b' l)` by
           (fs [state_rel_def]
           \\ ntac 3 (qpat_x_assum `!x. _` kall_tac)
           \\ first_x_assum (qspec_then `n'` mp_tac) \\ fs [])
-      \\ disch_then (qspecl_then [`b`,`l`,`[]`,`b2 n'`] mp_tac) \\ fs [] \\ strip_tac
+      \\ disch_then (qspecl_then [`b'`,`b`,`l`,`[]`,`b2 n'`] mp_tac) \\ fs [] \\ strip_tac
       \\ fs [adjust_bv_def] \\ pop_assum mp_tac
       \\ drule evaluate_add_clock \\ simp []
       \\ disch_then (qspec_then `c'+1` assume_tac) \\ strip_tac
@@ -3179,7 +3179,7 @@ Proof
       \\ drule evaluate_ListLength_code
       \\ disch_then drule \\ simp[]
       \\ disch_then(qspec_then`0`(qx_choose_then`cl`strip_assume_tac))
-      \\ drule (Q.GENL[`p`,`fl`]evaluate_FromListByte_code)
+      \\ drule (Q.GENL[`p`,`fl`]evaluate_FromListByte_code |> Q.INST [‘b’|->‘T’])
       \\ qabbrev_tac`bs = REPLICATE (LENGTH x) (0w:word8)`
       \\ disch_then(qspecl_then[`p`,`T`,`0`,`bs`,`t2 with refs := t2.refs |+ (p,ByteArray T bs)`]mp_tac)
       \\ simp[LENGTH_REPLICATE,Abbr`bs`,FLOOKUP_UPDATE]
@@ -3299,7 +3299,7 @@ Proof
       \\ qabbrev_tac`t3 = t2 with refs := t2.refs |+ (dst, ByteArray T (REPLICATE (LENGTH (FLAT wss)) 0w))`
       \\ `lookup SumListLength_location t3.code = SOME (2,SND SumListLength_code)`
       by ( fs[state_rel_def,SumListLength_code_def,Abbr`t3`])
-      \\ drule evaluate_ConcatByte_code
+      \\ drule (evaluate_ConcatByte_code |> Q.INST [‘b’ |-> ‘T’])
       \\ simp[Once(GSYM AND_IMP_INTRO),RIGHT_FORALL_IMP_THM]
       \\ impl_keep_tac >- fs[Abbr`t3`,state_rel_def,ConcatByte_code_def]
       \\ disch_then(qspec_then`adjust_bv b2 lv`mp_tac)
@@ -3358,7 +3358,7 @@ Proof
       >- ( `F` by METIS_TAC[EVAL``w2n (0w:word8)``] )
       \\ simp[integer_wordTheory.i2w_def]
       \\ simp[APPLY_UPDATE_THM]
-      \\ imp_res_tac evaluate_ok
+     \\ imp_res_tac evaluate_ok
       \\ imp_res_tac evaluate_refs_SUBSET
       \\ rpt(qhdtm_x_assum`evaluate`kall_tac)
       \\ rpt(qhdtm_x_assum`lookup`kall_tac)
