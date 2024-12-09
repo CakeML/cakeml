@@ -2892,7 +2892,7 @@ val builtin_terops =
 val builtin_binops =
   [Eval_NUM_ADD,
    Eval_NUM_SUB,
-   Eval_NUM_SUB_nocheck,
+   Eval_NUM_SUB_check,
    Eval_NUM_MULT,
    Eval_NUM_DIV,
    Eval_NUM_MOD,

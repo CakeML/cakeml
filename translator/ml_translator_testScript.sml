@@ -4,11 +4,10 @@
 *)
 
 open HolKernel Parse boolLib bossLib;
+open listTheory pairTheory ml_translatorLib ml_translatorTheory;
+open ml_progLib blastLib;
 
 val _ = new_theory "ml_translator_test";
-
-open listTheory pairTheory ml_translatorLib ml_translatorTheory;
-open ml_progLib;
 
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
@@ -290,6 +289,19 @@ Proof
 QED
 
 val _ = arith_shift_right_ind |> update_precondition;
+
+Triviality arith_shift_right_side:
+  ∀a n. arith_shift_right_side a n
+Proof
+  ho_match_mp_tac miscTheory.arith_shift_right_ind>>
+  rw[]>>
+  rw[Once (fetch "-" "arith_shift_right_side_def")]>>
+  first_x_assum match_mp_tac>>
+  gvs[]>>
+  blastLib.FULL_BBLAST_TAC
+QED
+
+val _ = arith_shift_right_side |> update_precondition;
 
 Definition shift_test_def:
   shift_test (x:word64) y = arith_shift_right x y
