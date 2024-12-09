@@ -10,6 +10,9 @@ local open ASCIInumbersLib stringSyntax in end
 
 val _ = new_theory "cmlTests"
 
+val _ = if !Globals.interactive then Globals.max_print_depth := 10 else ();
+
+Overload ND = “λn l. Nd (mkNT n, l)”
 Overload NN = ``λn. Nd (mkNT n,unknown_loc)``
 Overload Tf = ``λt. Lf (TK t,unknown_loc)``
 Overload Tfa = ``λs. Lf (TK (AlphaT s),unknown_loc)``
@@ -50,6 +53,18 @@ fun aconv_mod_locs t1 t2 =
   of SOME (s,[]) =>
        List.all (equal locs_ty o #2 o dest_var o #redex) s
   |  _ => false
+
+val _ = (
+  computeLib.del_consts [“list_CASE”];
+  computeLib.add_funs [listTheory.list_case_def];
+  computeLib.set_skip computeLib.the_compset “OPTION_CHOICE” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “OPTION_BIND” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “OPTION_IGNORE_BIND” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “option_CASE” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “list_CASE” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “pair_CASE” (SOME 1);
+  computeLib.set_skip computeLib.the_compset “COND” (SOME 1)
+);
 
 val result_t = ``Result``
 val success_t = “Success”
@@ -461,6 +476,7 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                                      [(Pcon (SOME(Short "IntError"))
                                                 [Pvar"f"],
                                        Lit (IntLit 23))])``);
+
 val _ = parsetest ``nE`` ``ptree_Expr nE``
                   "f x handle IntError n => case n of 0 => raise Div\n\
                   \                        | 1 => raise Bind\n\
@@ -552,10 +568,29 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "!x"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 2 in f x; g (x + 1); 3 end"
 val _ = parsetest ``nE`` ``ptree_Expr nE``
                   "case x of Nil => 0 | Cons(h,t) => 1 + len t"
-val _ = parsetest ``nE`` ``ptree_Expr nE``
+val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                   "case x of Nil => 0\n\
                   \        | Cons(h,t) => case h of 0 => 0\n\
                   \                               | x => x*2 + len t"
+                 (SOME “Mat (V "x")
+                       [(Pcon (SOME (Short "Nil")) [],
+                         Lit (IntLit 0));
+                        (Pcon (SOME (Short "Cons"))
+                              [Pcon NONE [Pvar "h"; Pvar "t"]],
+                        Mat (V "h") [(Plit (IntLit 0), Lit (IntLit 0));
+                                     (Pvar "x",
+                                      vbinop (Short "+")
+                                             (vbinop (Short "*")
+                                                     (V "x")
+                                                     (Lit (IntLit 2)))
+                                             (App Opapp [V "len"; V "t"]))])]”)
+val _ = parsetest0 “nE” “ptree_Expr nE”
+                   "case x of N => e handle C => 0 | D => 1"
+                   (SOME “Mat (V "x")
+                         [(Pc "N" [],
+                           Handle (V "e")
+                                  [(Pc "C" [], Lit (IntLit 0));
+                                   (Pc "D" [], Lit (IntLit 1));])]”)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let in 3 end"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let ; in 3 end"
 val _ = parsetest ``nE`` ``ptree_Expr nE``
@@ -663,5 +698,30 @@ val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val C x y = f a"
     (SOME “Dlet locs
                 (Pcon (SOME (Short "C")) [Pvar "x"; Pvar "y"])
                 (App Opapp [V "f"; V "a"])”)
+
+(* two efficiency tests; see github issue #1075 *)
+val _ = parsetest0 “nE” “ptree_Expr nE”
+"case (n = 1) of True => 1 | False => (\
+\case (n = 2) of True => 2 | False =>(\
+\case (n = 3) of True => 3 | False =>(\
+\case (n = 4) of True => 5 | False =>(\
+\case (n = 5) of True => 8 | False =>(\
+\case (n = 6) of True => 13 | False =>(\
+\case (n = 7) of True => 21 | False =>(\
+\case (n = 8) of True => 34 | False =>(\
+\case (n = 9) of True => 55 | False => \
+\fib (n - 1) + fib (n - 2)))))))))" NONE
+
+val _ = parsetest0 “nE” “ptree_Expr nE”
+"case (n = 1) of True => 1 | False => \
+\case (n = 2) of True => 2 | False =>\
+\case (n = 3) of True => 3 | False =>\
+\case (n = 4) of True => 5 | False =>\
+\case (n = 5) of True => 8 | False =>\
+\case (n = 6) of True => 13 | False =>\
+\case (n = 7) of True => 21 | False =>\
+\case (n = 8) of True => 34 | False =>\
+\case (n = 9) of True => 55 | False => \
+\fib (n - 1) + fib (n - 2)" NONE
 
 val _ = export_theory()
