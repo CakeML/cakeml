@@ -39,7 +39,21 @@ Theorem eval_lit_alt:
     Pos v => b2i (w v)
   | Neg v => 1 - b2i (w v)
 Proof
-  Cases_on`r`>>gvs[]
+  Cases_on`r`>>gvs[b2i_alt]>>rw[]>>
+  metis_tac[]
+QED
+
+Theorem lit_negate[simp]:
+  lit w (negate x) = ¬lit w x
+Proof
+  Cases_on`x`>>simp[]
+QED
+
+Theorem eval_lit_negate[simp]:
+  eval_lit w (negate x) = 1 - eval_lit w x
+Proof
+  Cases_on`x`>>simp[b2i_alt]>>rw[]>>
+  metis_tac[]
 QED
 
 Theorem iSUM_MAP_le:
@@ -107,9 +121,9 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem eval_lin_term_MAP_Neg_0:
-  EVERY w xs ⇒
-  eval_lin_term w (MAP (λx. (c, Neg x)) xs) = 0
+Theorem eval_lin_term_MAP_negate_0:
+  EVERY (lit w) xs ⇒
+  eval_lin_term w (MAP (λx. (c, negate x)) xs) = 0
 Proof
   rw[eval_lin_term_def,MAP_MAP_o,o_DEF]>>
   qmatch_goalsub_abbrev_tac`MAP f xs`>>
@@ -118,9 +132,9 @@ Proof
   simp[]
 QED
 
-Theorem eval_lin_term_MAP_Neg_ge:
-  ¬ EVERY w xs ∧ c ≥ 0 ⇒
-  eval_lin_term w (MAP (λx. (c, Neg x)) xs) >= c
+Theorem eval_lin_term_MAP_negate_ge:
+  ¬ EVERY (lit w) xs ∧ c ≥ 0 ⇒
+  eval_lin_term w (MAP (λx. (c, negate x)) xs) >= c
 Proof
   rw[eval_lin_term_def,MAP_MAP_o,o_DEF]>>
   irule iSUM_ge_gen>>

@@ -12,6 +12,7 @@ Datatype:
   ebool =
   | Ge 'a int (* Reifies X ≥ i *)
   | Eq 'a int (* Reifies X = i *)
+  | Ne ('a + int) ('a + int)  (* Used to force X ≠ Y *)
 End
 
 Definition min_iterm_def:
@@ -53,25 +54,25 @@ Proof
   metis_tac[min_iterm_le]
 QED
 
-(* List of booleans imply iconstraint under bounds *)
+(* List of literals imply iconstraint under bounds *)
 Definition bits_imply_def:
   bits_imply bnd xs cc =
   case cc of (is,bs,c) =>
     let r = c - min_ilin_term bnd is - min_lin_term bs in
     let rr = int_max r 0 in
-    (is, MAP (λx. (rr, Neg x)) xs ++ bs, c)
+    (is, MAP (λx. (rr, negate x)) xs ++ bs, c)
 End
 
 Theorem bits_imply_sem:
   valid_assignment bnd wi ⇒
   iconstraint_sem (bits_imply bnd xs c) (wi,wb) =
-    (EVERY wb xs ⇒ iconstraint_sem c (wi,wb))
+    (EVERY (lit wb) xs ⇒ iconstraint_sem c (wi,wb))
 Proof
   rw[bits_imply_def]>>
   every_case_tac>>gvs[iconstraint_sem_def]>>
-  Cases_on`EVERY wb xs`
-  >-
-    (drule eval_lin_term_MAP_Neg_0>> rw[])>>
+  Cases_on`EVERY (lit wb) xs`
+  >- (
+    drule eval_lin_term_MAP_negate_0>> rw[])>>
   simp[]>>
   rename1`eval_ilin_term wi is + (_ + eval_lin_term wb bs) ≥ rr`>>
   drule eval_ilin_term_min_ilin_term>>
@@ -79,7 +80,7 @@ Proof
   `min_lin_term bs ≤ eval_lin_term wb bs` by
     metis_tac[eval_lin_term_min_lin_term]>>
   qmatch_goalsub_abbrev_tac`int_max r 0`>>
-  drule eval_lin_term_MAP_Neg_ge>>
+  drule eval_lin_term_MAP_negate_ge>>
   disch_then(qspec_then`int_max r 0` mp_tac)>>
   impl_tac >- intLib.ARITH_TAC>>
   rw[Abbr`r`]>>
@@ -134,7 +135,7 @@ Proof
   metis_tac[max_iterm_le]
 QED
 
-(* constraint implies list of booleans *)
+(* constraint implies list of literals *)
 Definition imply_bits_def:
   imply_bits bnd xs cc =
   case cc of (is,bs,c) =>
@@ -143,14 +144,14 @@ Definition imply_bits_def:
     let nc = 1 - c in
     let r = nc + max_ilin_term bnd is + max_lin_term bs in
     let rr = int_max r 0 in
-    MAP (λx. (nis, (rr, Pos x) :: nbs, nc)) xs
+    MAP (λx. (nis, (rr, x) :: nbs, nc)) xs
 End
 
 Theorem imply_bits_sem:
   valid_assignment bnd wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb)) (imply_bits bnd xs c)
   =
-  (iconstraint_sem c (wi,wb) ⇒ EVERY wb xs)
+  (iconstraint_sem c (wi,wb) ⇒ EVERY (lit wb) xs)
 Proof
   rw[imply_bits_def]>>
   every_case_tac>>
@@ -161,8 +162,8 @@ Proof
       (∀x. (P x ⇒ (Q x ⇔ (A x ⇒ R x)))) ⇒
       ((!x. (P x ⇒ Q x)) ⇔ (!x. (A x ⇒ P x ⇒ R x)))``)>>
   rw[]>>
-  rename1`wb x`>>
-  Cases_on`wb x`>>simp[]
+  rename1`lit wb x`>>
+  Cases_on`lit wb x`>>simp[]
   >- (
     rename1`-eval_ilin_term wi is + (_ + -eval_lin_term wb bs) ≥ 1 - rr`>>
     drule eval_ilin_term_max_ilin_term>>
@@ -184,7 +185,7 @@ Theorem bimply_bits_sem:
   valid_assignment bnd wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb)) (bimply_bits bnd xs c)
   =
-  (iconstraint_sem c (wi,wb) ⇔ EVERY wb xs)
+  (iconstraint_sem c (wi,wb) ⇔ EVERY (lit wb) xs)
 Proof
   rw[bimply_bits_def]>>
   metis_tac[imply_bits_sem,bits_imply_sem]
@@ -193,7 +194,7 @@ QED
 (* Encoding a single variable X ≥ i *)
 Definition encode_ge_def:
   encode_ge bnd X i =
-  bimply_bits bnd [Ge X i] ([(1,X)],[],i)
+  bimply_bits bnd [Pos (Ge X i)] ([(1,X)],[],i)
 End
 
 Theorem encode_ge_sem:
@@ -212,7 +213,7 @@ QED
 *)
 Definition encode_eq_def:
   encode_eq bnd X i =
-  bimply_bits bnd [Eq X i]
+  bimply_bits bnd [Pos (Eq X i)]
     ([],[(1,Pos(Ge X i));(1, Neg (Ge X (i+1)))],2)
 End
 
@@ -232,23 +233,23 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* Encodes Ai ≥ R where both terms are varc *)
+(* Encodes Ai - R ≥ c where both terms are varc *)
 Definition mk_constraint_ge_def:
-  mk_constraint_ge Ai R =
-  case (Ai,R) of
-    (INL vAi, INL vR) =>
-      ([(1i,vAi);(-1i,vR)],[],0i)
-  | (INL vAi, INR cR) =>
-      ([(1i,vAi)],[],cR)
-  | (INR cAi, INL vR) =>
-      ([(-1i,vR)],[],-cAi)
-  | (INR cAi, INR cR) =>
-      ([],[],cR-cAi)
+  mk_constraint_ge X Y (c:int) =
+  case (X,Y) of
+    (INL vX, INL vY) =>
+      ([(1i,vX);(-1i,vY)],[],c)
+  | (INL vX, INR cY) =>
+      ([(1i,vX)],[],c + cY)
+  | (INR cX, INL vY) =>
+      ([(-1i,vY)],[],c - cX)
+  | (INR cX, INR cY) =>
+      ([],[],c + cY-cX)
 End
 
 Theorem mk_constraint_ge_sem:
-  iconstraint_sem (mk_constraint_ge Ai R) (wi,wb) ⇔
-  varc wi Ai ≥ varc wi R
+  iconstraint_sem (mk_constraint_ge X Y c) (wi,wb) ⇔
+  varc wi X - varc wi Y ≥ c
 Proof
   rw[mk_constraint_ge_def]>>every_case_tac>>
   gvs[varc_def,eval_raw]>>
@@ -259,8 +260,8 @@ QED
 Definition encode_element_eq_def:
   encode_element_eq bnd R X (i:num,Ai) =
   [
-    bits_imply bnd [Eq X (&(i+1))] (mk_constraint_ge Ai R);
-    bits_imply bnd [Eq X (&(i+1))] (mk_constraint_ge R Ai)
+    bits_imply bnd [Pos (Eq X (&(i+1)))] (mk_constraint_ge Ai R 0);
+    bits_imply bnd [Pos (Eq X (&(i+1)))] (mk_constraint_ge R Ai 0)
   ]
 End
 
@@ -399,8 +400,8 @@ Definition encode_element_const_def:
   if 1 ≤ X ∧ X ≤ &(LENGTH As)
   then
     let Ai = EL (Num X -1) As in
-    [mk_constraint_ge Ai R;
-     mk_constraint_ge R Ai]
+    [mk_constraint_ge Ai R 0;
+     mk_constraint_ge R Ai 0]
   else
     [([],[],1)]
 End
@@ -454,6 +455,7 @@ Definition reify_bits_def:
   case eb of
     Ge X i => wi X ≥ i
   | Eq X i => wi X = i
+  | Ne X Y => varc wi X > varc wi Y
 End
 
 Theorem encode_element_sem_1:
@@ -485,23 +487,165 @@ Proof
     metis_tac[encode_element_const_sem]
 QED
 
+Definition encode_not_equals_def:
+  encode_not_equals bnd X Y =
+  [
+    bits_imply bnd [Pos (Ne X Y)] (mk_constraint_ge X Y 1);
+    bits_imply bnd [Neg (Ne X Y)] (mk_constraint_ge Y X 1)
+  ]
+End
 
-=
-  (
-  (case X of INR _ => T | INL X =>
-  (∀i. 1 ≤ i ∧ i ≤ LENGTH As + 1 ⇒
-    (wb (Ge X &i) ⇔ wi X ≥ &i)) ∧
-  (∀i. 1 ≤ i ∧ i ≤ LENGTH As ⇒
-    (wb (Eq X &i) ⇔ wi X = &i))) ∧
-  element_sem R X As wi)
+(* Prove together? Or separate? *)
+Theorem not_equals_sem_aux:
+  (if wb (Ne X Y)
+   then varc wi X > varc wi Y
+   else varc wi Y > varc wi X) ⇒
+  not_equals_sem X Y wi
 Proof
-  rw[encode_element_def]>>
-  TOP_CASE_TAC>>gvs[]
-  >-
-    metis_tac[encode_element_var_sem]
-  >>
-    metis_tac[encode_element_const_sem]
+  simp[not_equals_sem_def]>>
+  rw[]>>
+  intLib.ARITH_TAC
 QED
 
+Theorem IMP_AND_LEFT:
+  (P ⇒ Q) ⇒
+  (P ∧ Q ⇔ P)
+Proof
+  metis_tac[]
+QED
+
+Theorem encode_not_equals_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_not_equals bnd X Y)
+  =
+  (
+  (if wb (Ne X Y)
+   then varc wi X > varc wi Y
+   else varc wi Y > varc wi X) ∧
+  not_equals_sem X Y wi)
+Proof
+  strip_tac>>
+  simp[MATCH_MP IMP_AND_LEFT not_equals_sem_aux]>>
+  simp[encode_not_equals_def,bits_imply_sem,mk_constraint_ge_sem]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Definition encode_all_different_def:
+  encode_all_different bnd As =
+  let len = LENGTH As in
+  FLAT
+  (GENLIST (λi.
+    FLAT (GENLIST (λj. if i < j then encode_not_equals bnd (EL i As) (EL j As) else []) len)) len)
+End
+
+Theorem all_different_sem_aux:
+  (∀i j. i < j ∧ j < LENGTH As ⇒
+    let X = EL i As in
+    let Y = EL j As in
+    if wb (Ne X Y)
+    then varc wi X > varc wi Y
+    else varc wi Y > varc wi X) ⇒
+  all_different_sem As wi
+Proof
+  rw[all_different_sem_def,EL_ALL_DISTINCT_EL_EQ]>>
+  Cases_on`n1 = n2`>>simp[]>>
+  wlog_tac `n1 < n2` [`n1`,`n2`]
+  >- (
+    `n2 < n1` by fs[]>>
+    first_x_assum drule_all>>
+    simp[])>>
+  first_x_assum drule>>
+  rw[EL_MAP]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem encode_all_different_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_all_different bnd As)
+  =
+  (
+  (∀i j. i < j ∧ j < LENGTH As ⇒
+    let X = EL i As in
+    let Y = EL j As in
+    if wb (Ne X Y)
+    then varc wi X > varc wi Y
+    else varc wi Y > varc wi X) ∧
+  all_different_sem As wi)
+Proof
+  simp[MATCH_MP IMP_AND_LEFT all_different_sem_aux]>>
+  rw[encode_all_different_def, EVERY_FLAT, EVERY_GENLIST]>>
+  eq_tac>>rw[]>>
+  gvs[PULL_FORALL]
+  >- (
+    first_x_assum(qspecl_then[`i`,`j`] mp_tac)>>
+    simp[encode_not_equals_sem])>>
+  rw[]>>
+  first_x_assum drule_all>>
+  metis_tac[encode_not_equals_sem,not_equals_sem_aux]
+QED
+
+(* An actual implementation will avoid duplicates here *)
+Definition encode_one_def:
+  encode_one bnd c =
+  case c of
+    NotEquals X Y => encode_not_equals bnd X Y
+  | AllDifferent As => encode_all_different bnd As
+  | Element R X As => encode_element bnd R X As
+End
+
+Theorem encode_one_sem_1:
+  valid_assignment bnd wi ∧
+  constraint_sem c wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_bits wi)) (encode_one bnd c)
+Proof
+  Cases_on`c`>>
+  rw[encode_one_def,constraint_sem_def]
+  >- (
+    simp[encode_not_equals_sem,reify_bits_def]>>
+    gvs[not_equals_sem_def]>>
+    intLib.ARITH_TAC)
+  >- (
+    simp[encode_all_different_sem,reify_bits_def]>>
+    gvs[all_different_sem_def,EL_ALL_DISTINCT_EL_EQ]>>
+    rw[]>>
+    first_x_assum(qspecl_then[`i`,`j`] mp_tac)>>
+    simp[EL_MAP]>>
+    intLib.ARITH_TAC)
+  >- (
+    simp[encode_element_sem,reify_bits_def]>>
+    every_case_tac>>simp[])
+QED
+
+Theorem encode_one_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,reify_bits wi)) (encode_one bnd c) ⇒
+  constraint_sem c wi
+Proof
+  Cases_on`c`>>
+  rw[encode_one_def,constraint_sem_def]
+  >-
+    gvs[encode_not_equals_sem]
+  >-
+    gvs[encode_all_different_sem]
+  >-
+    gvs[encode_element_sem]
+QED
+
+(* === Examples ===
+
+not-equals
+  EVAL``encode_not_equals (λX. (-10,10)) (INL X) (INL Y)``
+  EVAL``encode_not_equals (λX. (-10,10)) (INL X) (INR 4)``
+
+all-different
+  EVAL``encode_all_different (λX. (-10,10)) [INL X; INL Y; INL Z; INR 0i]``
+
+element
+  EVAL``encode_element (λX. (1,1)) (INL R) (INL X) [INL A]``
+  ; INL B; INL C; INR 0i]``
+
+
+*)
 
 val _ = export_theory();

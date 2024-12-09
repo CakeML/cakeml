@@ -39,9 +39,13 @@ Definition b2i_def[simp]:
   b2i F = 0i
 End
 
+Definition lit_def[simp]:
+  (lit w (Pos v) = w v) ∧
+  (lit w (Neg v) = ¬(w v))
+End
+
 Definition eval_lit_def[simp]:
-  eval_lit w (Pos v) =     b2i (w v) ∧
-  eval_lit w (Neg v) = 1 - b2i (w v)
+  eval_lit w l = b2i (lit w l)
 End
 
 Definition negate_def[simp]:

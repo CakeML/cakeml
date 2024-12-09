@@ -734,12 +734,6 @@ Definition iff_and_def:
       (GreaterEqual, [(1, Neg x); (1,y)], 1)) ys
 End
 
-Theorem eval_lit_negate:
-  eval_lit w (negate x) = 1 - eval_lit w x
-Proof
-  Cases_on`x`>>simp[]
-QED
-
 Theorem iff_and:
   satisfies w (set (iff_and x ys)) ⇒
   (w x ⇔ EVERY (λy. eval_lit w y = 1) ys)
@@ -760,7 +754,7 @@ Proof
     metis_tac[])>>
   rw[]>>Cases_on`i`>>
   gs[MAP_MAP_o,EL_MAP]>>
-  fs[EVERY_EL,eval_lit_negate]>>
+  fs[EVERY_EL]>>
   first_x_assum drule>>
   rw[]>>gvs[]
 QED
@@ -794,7 +788,7 @@ Proof
     simp[EXISTS_MEM,MEM_EL]>>
     metis_tac[EL_MEM])>>
   fs[EXISTS_MEM]>>
-  first_x_assum drule>>simp[iSUM_def,eval_lit_negate]>>
+  first_x_assum drule>>simp[iSUM_def]>>
   Cases_on`w x`>>simp[]
 QED
 

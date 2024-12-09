@@ -7,7 +7,7 @@ Improving the pseudoboolean proof checker with arrays (manually)
 Encoders for various CNF-based problems
 
 [cp_encoding](cp_encoding):
-Encoders for various graph problems
+CP semantics and encoders
 
 [graph_encoding](graph_encoding):
 Encoders for various graph problems
@@ -26,7 +26,7 @@ Formalisation of a flexible surface syntax and semantics for
 pseudo-boolean problems with 'a var type
 
 [pbc_encodeScript.sml](pbc_encodeScript.sml):
-Helper lemmas for encodings
+Helper lemmas for developing PB encodings
 
 [pbc_normaliseScript.sml](pbc_normaliseScript.sml):
 Normalizes pbc into npbc
