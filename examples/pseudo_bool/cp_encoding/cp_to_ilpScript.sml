@@ -191,7 +191,7 @@ Proof
   metis_tac[imply_bits_sem,bits_imply_sem]
 QED
 
-(* Encoding a single variable X ≥ i *)
+(* Encoding a single variable X_{>=i} ⇔ X ≥ i *)
 Definition encode_ge_def:
   encode_ge bnd X i =
   bimply_bits bnd [Pos (Ge X i)] ([(1,X)],[],i)
@@ -585,7 +585,6 @@ Proof
   metis_tac[encode_not_equals_sem,not_equals_sem_aux]
 QED
 
-(* An actual implementation will avoid duplicates here *)
 Definition encode_one_def:
   encode_one bnd c =
   case c of
@@ -619,7 +618,7 @@ QED
 
 Theorem encode_one_sem_2:
   valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,reify_bits wi)) (encode_one bnd c) ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_one bnd c) ⇒
   constraint_sem c wi
 Proof
   Cases_on`c`>>
@@ -632,6 +631,34 @@ Proof
     gvs[encode_element_sem]
 QED
 
+(* An actual implementation will avoid duplicates here *)
+Definition encode_all_def:
+  encode_all bnd cs =
+  FLAT (MAP (encode_one bnd) cs)
+End
+
+Theorem encode_all_sem_1:
+  valid_assignment bnd wi ∧
+  EVERY (λc. constraint_sem c wi) cs ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_bits wi)) (encode_all bnd cs)
+Proof
+  simp[encode_all_def,EVERY_FLAT]>>
+  simp[Once EVERY_MEM]>>
+  rw[Once EVERY_MEM,MEM_MAP]>>
+  metis_tac[encode_one_sem_1]
+QED
+
+Theorem encode_all_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_all bnd cs) ⇒
+  EVERY (λc. constraint_sem c wi) cs
+Proof
+  simp[encode_all_def,EVERY_FLAT]>>
+  rw[Once EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+  simp[Once EVERY_MEM]>>
+  metis_tac[encode_one_sem_2]
+QED
+
 (* === Examples ===
 
 not-equals
@@ -642,8 +669,7 @@ all-different
   EVAL``encode_all_different (λX. (-10,10)) [INL X; INL Y; INL Z; INR 0i]``
 
 element
-  EVAL``encode_element (λX. (1,1)) (INL R) (INL X) [INL A]``
-  ; INL B; INL C; INR 0i]``
+  EVAL``encode_element (λX. (-10,10)) (INL R) (INL X) [INL A; INL B; INL C; INL D; INL E]``
 
 
 *)
