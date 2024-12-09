@@ -1813,9 +1813,9 @@ Proof
   \\ REPEAT STRIP_TAC \\ fsrw_tac[] [push_env_set_store]
   \\ imp_res_tac state_rel_set_store_0
   \\ pop_assum (mp_tac o Q.SPEC `Word c`) \\ REPEAT STRIP_TAC
-  \\ Cases_on `gc (set_store AllocSize (Word c)
-                     (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>))`
-  \\ gvs[]
+  \\ qmatch_asmsub_abbrev_tac `gc a`
+  \\ Cases_on `gc a`
+  \\ gvs[] \\ unabbrev_all_tac
   \\ drule_at (Pos last) gc_state_rel
   \\ rw[] \\ gvs[]
   \\ rename1`pop_env x`
