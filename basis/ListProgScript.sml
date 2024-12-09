@@ -318,7 +318,7 @@ val last_side_def = Q.prove(
 val nth_side_def = Q.prove(
   `!n xs. nth_side xs n = (n < LENGTH xs)`,
   Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "nth_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
+  THEN fs[CONTAINER_def])
   |> update_precondition;
 
 Theorem LUPDATE_ind:

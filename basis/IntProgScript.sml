@@ -71,7 +71,7 @@ val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update open_local_block;
 
 val th = EVAL``ORD #"0"``;
-val result = translate (fromChar_unsafe_def |> SIMP_RULE std_ss [th]);
+val result = translate (fromChar_unsafe_def |> SIMP_RULE std_ss [th, GSYM ml_translatorTheory.sub_check_def]);
 val result = translate fromChars_range_unsafe_def;
 
 val result = translate padLen_DEC_eq;
