@@ -106,8 +106,7 @@ Definition mk_binop_def:
     else App Opapp [App Opapp [Var a_op; a1]; a2]
 End
 
-Overload "'"[local] = ``λf a. OPTION_BIND a f``
-val _ = temp_overload_on("", “λf a. OPTION_BIND a f”)
+Overload "'"[local] = ``λf a. OPTION_BIND a f``;
 
 Definition tokcheck_def:
   tokcheck pt tok <=> (destTOK ' (destLf pt) = SOME tok)
