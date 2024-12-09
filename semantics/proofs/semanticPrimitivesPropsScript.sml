@@ -309,9 +309,9 @@ QED
 Theorem do_app_ffi_changed:
   do_app (st, ffi) op vs = SOME ((st', ffi'), res) ∧
   ffi ≠ ffi' ⇒
-  ∃s conf lnum ws ffi_st ws'.
+  ∃s conf lnum ws ffi_st ws' b.
     op = FFI s ∧
-    vs = [Litv (StrLit conf); Loc lnum] ∧
+    vs = [Litv (StrLit conf); Loc b lnum] ∧
     store_lookup lnum st = SOME (W8array ws) ∧
     s ≠ "" ∧
     ffi.oracle
@@ -756,7 +756,7 @@ QED
 
 Theorem concrete_v_simps[simp]:
   (concrete_v (Litv l) = T) /\
-  (concrete_v (Loc n) = T) /\
+  (concrete_v (Loc b n) = T) /\
   (concrete_v (Conv stmp xs) = EVERY concrete_v xs) /\
   (concrete_v (Vectorv xs) = EVERY concrete_v xs) /\
   (concrete_v (Env id e) = F) /\

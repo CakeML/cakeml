@@ -841,7 +841,7 @@ Proof
   \\ simp [mlbasicsProgTheory.deref_v_def,do_opapp_def]
   \\ IF_CASES_TAC \\ fs [dec_clock_def]
   \\ simp [Once evaluate_def,evaluate_Var,do_app_def]
-  \\ ‘∃eof_n bv. isEOF_loc = Loc eof_n ∧
+  \\ ‘∃eof_n oef_b bv. isEOF_loc = Loc oef_b eof_n ∧
        store_lookup eof_n st7.refs = SOME (Refv (Boolv bv))’ by
    (drule repl_types_thm \\ strip_tac \\ fs [repl_rs_def]
     \\ fs [repl_moduleProgTheory.isEOF_def,the_Loc_def,ref_lookup_ok_def])
@@ -859,7 +859,7 @@ Proof
   \\ simp [mlbasicsProgTheory.deref_v_def,do_opapp_def]
   \\ IF_CASES_TAC \\ fs [dec_clock_def]
   \\ simp [Once evaluate_def,evaluate_Var,do_app_def]
-  \\ ‘∃next_n inp. nextString_loc = Loc next_n ∧
+  \\ ‘∃next_n next_b inp. nextString_loc = Loc next_b next_n ∧
        store_lookup next_n st7.refs = SOME (Refv (Litv (StrLit inp)))’ by
    (drule repl_types_thm \\ strip_tac \\ fs [repl_rs_def]
     \\ fs [repl_moduleProgTheory.nextString_def,the_Loc_def,ref_lookup_ok_def])
@@ -1058,7 +1058,7 @@ Proof
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit,Abbr‘env7’]
   \\ fs [do_app_def]
-  \\ ‘∃next_n inp. nextString_loc = Loc next_n ∧
+  \\ ‘∃next_n next_b inp. nextString_loc = Loc next_b next_n ∧
        store_lookup next_n st7.refs = SOME (Refv (Litv (StrLit inp)))’ by
    (drule repl_types_thm \\ strip_tac \\ fs [repl_rs_def]
     \\ fs [repl_moduleProgTheory.nextString_def,the_Loc_def,ref_lookup_ok_def])
