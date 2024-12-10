@@ -6,17 +6,11 @@ found in their own top-level directories.
 [array_searchProgScript.sml](array_searchProgScript.sml):
 An example based on searching an array.
 
-[bot](bot):
-Formalization of the FFI and proofs for the VeriPhy pipeline.
-
 [catProgScript.sml](catProgScript.sml):
 cat program example: concatenate and print lines from files.
 
 [compilation](compilation):
 Compilation of the CakeML examples to different architectures.
-
-[cost](cost):
-Preliminary data-cost examples
 
 [deflate](deflate):
 Scripts relevant to the formalisation of the DEFLATE algorithm
@@ -35,10 +29,6 @@ Examples on the topic of doubling a number.
 
 [echoProgScript.sml](echoProgScript.sml):
 echo program example: print the command line arguments.
-
-[eval](eval):
-A simple example of using eval, to help work out the development of the
-bootstrapped compiler supporting eval.
 
 [filterProgScript.sml](filterProgScript.sml):
 Filter case study from CASE.
