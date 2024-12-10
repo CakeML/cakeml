@@ -13,6 +13,3 @@ Specification of (roughly) Zermelo's set theory.
 Two main definitions:
   is_set_theory (mem : 'U -> 'U -> bool), and
   is_model (mem, indset, ch)
-
-[zfc](zfc):
-An old formalisation of set theory
