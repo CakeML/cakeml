@@ -78,6 +78,26 @@ val nth_side_def = theorem"nth_side_def";
 val result = translate (TAKE_def |> REWRITE_RULE[GSYM take_def]);
 val result = translate (DROP_def |> REWRITE_RULE[GSYM drop_def]);
 
+val take_side_def = theorem"take_side_def";
+
+Theorem take_side:
+   ∀n ls. take_side n ls
+Proof
+  Induct_on`ls`>>rw[Once take_side_def]
+QED
+
+val _ = take_side |> update_precondition;
+
+val drop_side_def = theorem"drop_side_def";
+
+Theorem drop_side:
+   ∀n ls. drop_side n ls
+Proof
+  Induct_on`ls`>>rw[Once drop_side_def]
+QED
+
+val _ = drop_side |> update_precondition;
+
 val _ = next_ml_names := ["takeUntil","dropUntil"];
 val result = translate takeUntil_def;
 val result = translate dropUntil_def;
@@ -153,7 +173,19 @@ val result = translate EVERY_DEF;
 val result = translate SNOC;
 
 val _ = ml_prog_update open_local_block;
+
 val result = translate GENLIST_AUX;
+
+val genlist_aux_side_def = theorem"genlist_aux_side_def";
+
+Theorem genlist_aux_side:
+   ∀n f ls. genlist_aux_side f n ls
+Proof
+  Induct>>rw[Once genlist_aux_side_def]
+QED
+
+val _ = genlist_aux_side |> update_precondition;
+
 val _ = ml_prog_update open_local_in_block;
 
 val result = next_ml_names := ["genlist"];
@@ -288,6 +320,7 @@ val result = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = next_ml_names := ["isPrefix"];
 val result = translate isPREFIX;
 val result = translate FRONT_DEF;
+
 val _ = next_ml_names := ["splitAtPki"];
 val result = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
 
@@ -338,6 +371,16 @@ QED
 
 val _ = next_ml_names := ["update"];
 val result = translate LUPDATE_eq;
+
+val lupdate_side_def = theorem"lupdate_side_def";
+
+Theorem lupdate_side:
+   ∀xs e n. lupdate_side e n xs
+Proof
+  Induct>>rw[Once lupdate_side_def]
+QED
+
+val _ = lupdate_side |> update_precondition;
 
 val _ = (next_ml_names := ["compare"]);
 val _ = translate mllistTheory.list_compare_def;
