@@ -655,7 +655,10 @@ Definition op_to_string_def:
   (op_to_string Eval = (implode "Eval", 6)) ∧
   (op_to_string Env_id = (implode "Env_id", 1)) ∧
   (op_to_string ListAppend = (implode "ListAppend", 2)) ∧
-  (op_to_string (FFI _) = (implode "FFI", 2))
+  (op_to_string (FFI _) = (implode "FFI", 2)) ∧
+  (op_to_string (ThunkOp ForceThunk) = (implode "ForceThunk", 1)) ∧
+  (op_to_string (ThunkOp (AllocThunk _)) = (implode "AllocThunk", 1)) ∧
+  (op_to_string (ThunkOp (UpdateThunk _)) = (implode "UpdateThunk", 2))
 End
 
 Overload Tem[local,inferior] = ``Infer_Tapp []``

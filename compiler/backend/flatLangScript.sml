@@ -102,6 +102,8 @@ Datatype:
   | El num
   (* No-op step for a single value *)
   | Id
+  (* Thunk *)
+  | ThunkOp ast$thunk_op
 End
 
 Type ctor_id = ``:num``

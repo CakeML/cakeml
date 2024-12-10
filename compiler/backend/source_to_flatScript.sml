@@ -130,6 +130,7 @@ Definition astOp_to_flatOp_def:
   | ConfigGC => flatLang$ConfigGC
   | FFI string => flatLang$FFI string
   | Eval => Eval
+  | ThunkOp t => ThunkOp t
   (* default element *)
   | _ => flatLang$ConfigGC
 End

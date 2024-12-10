@@ -366,13 +366,10 @@ Triviality do_app_add_to_clock_NONE:
    ==>
    do_app (s with clock := s.clock + k) op es = NONE
 Proof
-  Cases_on `op`
-  \\ disch_then (mp_tac o SIMP_RULE (srw_ss()) [do_app_def, case_eq_thms])
-  \\ rw []
-  \\ rw [do_app_def]
-  \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ fs [bool_case_eq, case_eq_thms]
+  strip_tac
+  \\ Cases_on ‘op’
+  \\ gvs [do_app_def,AllCaseEqs(),semanticPrimitivesTheory.store_alloc_def]
+  \\ rw [] \\ gvs []
   \\ fs [IS_SOME_EXISTS,CaseEq"option",CaseEq"store_v"]
 QED
 
@@ -398,6 +395,11 @@ Proof
   \\ rw [] \\ fs [pmatch_ignore_clock]
   \\ fs [case_eq_thms, pair_case_eq, bool_case_eq, CaseEq"match_result"] \\ rw []
   \\ fs [dec_clock_def]
+  >-
+   (gvs [CaseEq "sum",CaseEq"bool"]
+    \\ gvs [CaseEq"prod"]
+    \\ Cases_on ‘v1 = Rerr (Rabort Rtimeout_error)’ \\ gvs []
+    \\ gvs [AllCaseEqs()])
   \\ map_every imp_res_tac
       [do_app_add_to_clock_NONE,
        do_app_add_to_clock] \\ fs []
@@ -418,13 +420,10 @@ Theorem do_app_io_events_mono:
    do_app ^s op vs = SOME (t, r) ⇒
    s.ffi.io_events ≼ t.ffi.io_events
 Proof
-  rw [do_app_def] \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]
-  \\ rw [] \\ fs []
-  \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  \\ fs [semanticPrimitivesTheory.store_assign_def,
-         semanticPrimitivesTheory.store_lookup_def,
-         ffiTheory.call_FFI_def]
-  \\ rw [] \\ every_case_tac \\ fs [] \\ rw []
+  rw [do_app_def] \\ gvs [AllCaseEqs()]
+  \\ gvs [semanticPrimitivesTheory.store_alloc_def,
+          ffiTheory.call_FFI_def]
+  \\ gvs [AllCaseEqs()]
 QED
 
 Theorem evaluate_io_events_mono:
@@ -1158,7 +1157,6 @@ Proof
   \\ rfs [EL_MAP]
 QED
 
-
 val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases
 
 Theorem simple_do_app_thm:
@@ -1176,6 +1174,18 @@ Proof
   \\ simp [Once do_app_def]
   \\ simp [case_eq_thms, bool_case_eq, pair_case_eq]
   \\ simp_tac bool_ss [PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on ‘∃t. op = ThunkOp t’
+  >-
+   (gvs [] \\ gvs [AllCaseEqs()] \\ rw [] \\ gvs [do_app_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    >-
+     (drule_then (drule_then drule) simple_state_rel_store_alloc
+      \\ simp [Once sv_rel_cases,PULL_EXISTS]
+      \\ disch_then drule \\ strip_tac \\ gvs [])
+    >-
+     (drule_then (drule_then drule) simple_state_rel_store_assign
+      \\ simp [Once sv_rel_cases,PULL_EXISTS]
+      \\ disch_then drule \\ strip_tac \\ gvs []))
   \\ Cases_on `?x. op = FFI x`
   >- (
     fs [GSYM AND_IMP_INTRO]
@@ -1374,6 +1384,7 @@ Theorem flat_evaluate_def = flat_evaluate_def
 Definition store_v_vs_def[simp]:
   store_v_vs (Varray vs) = vs /\
   store_v_vs (Refv v) = [v] /\
+  store_v_vs (Thunk b v) = [v] /\
   store_v_vs (W8array xs) = []
 End
 

@@ -649,6 +649,15 @@ Proof
   rw[FUN_EQ_THM,sexppat_alt_intro]
 QED
 
+Definition decode_bool_def:
+  decode_bool s = if s = "T" then SOME T else
+                  if s = "F" then SOME F else NONE
+End
+
+Definition encode_bool_def:
+  encode_bool b = if b then "T" else "F"
+End
+
 Definition sexpop_def:
   (sexpop (SX_SYM s) =
   if s = "OpnPlus" then SOME (Opn Plus) else
@@ -740,11 +749,19 @@ Definition sexpop_def:
   if s = "Aupdate" then SOME Aupdate else
   if s = "Asubunsafe" then SOME Asub_unsafe else
   if s = "Aupdateunsafe" then SOME Aupdate_unsafe else
+  if s = "ForceThunk" then SOME (ThunkOp ForceThunk) else
   if s = "ConfigGC" then SOME ConfigGC else
   if s = "Eval" then SOME Eval else
   if s = "Envid" then SOME Env_id else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_STR s')) =
      if s = "FFI" then OPTION_MAP FFI (decode_control s') else NONE
+   ) ∧
+  (sexpop (SX_CONS (SX_SYM s) (SX_SYM t)) =
+     case decode_bool t of
+     | NONE => NONE
+     | SOME b =>
+         if s = "AllocThunk" then SOME (ThunkOp (AllocThunk b)) else
+         if s = "UpdateThunk" then SOME (ThunkOp (UpdateThunk b)) else NONE
    ) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_NUM n)) =
     if s = "Shift8Lsl" then SOME (Shift W8 Lsl n) else
@@ -1406,13 +1423,22 @@ Definition opsexp_def:
   (opsexp ConfigGC = SX_SYM "ConfigGC") ∧
   (opsexp Eval = SX_SYM "Eval") ∧
   (opsexp Env_id = SX_SYM "Envid") ∧
-  (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s))
+  (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s)) ∧
+  (opsexp (ThunkOp ForceThunk) = SX_SYM "ForceThunk")  ∧
+  (opsexp (ThunkOp (AllocThunk b)) =
+    SX_CONS (SX_SYM "AllocThunk") (SX_SYM (encode_bool b))) ∧
+  (opsexp (ThunkOp (UpdateThunk b)) =
+    SX_CONS (SX_SYM "UpdateThunk") (SX_SYM (encode_bool b)))
 End
 
 Theorem sexpop_opsexp[simp]:
    sexpop (opsexp op) = SOME op
 Proof
-  Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
+  Cases_on ‘∃t. op = ThunkOp t’
+  >- (gvs [] \\ Cases_on ‘t’
+      \\ gvs [sexpop_def,opsexp_def,encode_bool_def,decode_bool_def]
+      \\ rw [] \\ gvs [AllCaseEqs()]) >>
+  Cases_on`op`>>fs []>>rw[sexpop_def,opsexp_def] >>
   TRY(MAP_FIRST rename1 [
         ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Chopb c1’, ‘Shift c1 c2 _’,
         ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, ‘FP_top c1’,
@@ -1966,6 +1992,7 @@ Proof
   \\ Cases_on ‘s1’ \\ gvs[sexpop_def]
   \\ Cases_on ‘s2’
   \\ gvs[sexpop_def, AllCaseEqs(), opsexp_def, encode_decode_control]
+  \\ gvs [encode_bool_def,decode_bool_def,AllCaseEqs()]
 QED
 
 Theorem lopsexp_sexplop:
@@ -2155,6 +2182,8 @@ Proof
   \\ TRY(Cases_on`s`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`f`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`r`) \\ simp[opsexp_def]
+  \\ TRY(Cases_on`t`) \\ simp[opsexp_def]
+  \\ TRY(Cases_on`b`) \\ simp[opsexp_def]
   \\ EVAL_TAC
 QED
 

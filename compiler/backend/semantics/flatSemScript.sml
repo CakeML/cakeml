@@ -534,6 +534,16 @@ Definition do_app_def:
        | _ => NONE)
   | (Id, [v1]) =>
     SOME (s, Rval v1)
+  | (ThunkOp th_op, vs) =>
+     (case (th_op,vs) of
+      | (AllocThunk b, [v]) =>
+          (let (r,n) = store_alloc (Thunk b v) s.refs in
+             SOME (s with refs := r, Rval (Loc F n)))
+      | (UpdateThunk b, [Loc _ lnum; v]) =>
+          (case store_assign lnum (Thunk b v) s.refs of
+           | SOME r => SOME (s with refs := r, Rval (Conv NONE []))
+           | NONE => NONE)
+      | _ => NONE)
   | _ => NONE
 End
 
@@ -676,6 +686,24 @@ Definition do_eval_def:
     | _ => NONE)
 End
 
+Definition dest_thunk_def:
+  dest_thunk [Loc _ n] st =
+    (case store_lookup n st of
+     | SOME (Thunk T v) => SOME (INL v)
+     | SOME (Thunk F v) => SOME (INR v)
+     | _ => NONE) ∧
+  dest_thunk vs st = NONE
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc _ n] st [v] = store_assign n (Thunk T v) st ∧
+  update_thunk _ st _ = NONE
+End
+
+Definition AppUnit_def:
+  AppUnit x = flatLang$App None Opapp [x; Con None NONE []]
+End
+
 Definition evaluate_def:
   (evaluate (env:v flatSem$environment) ^s ([]:flatLang$exp list) =
     (s,Rval [])) ∧
@@ -740,10 +768,25 @@ Definition evaluate_def:
                | (s, NONE) => (s, Rval [retv])
                | (s, SOME e) => (s, Rerr e))
           | NONE => (s, Rerr (Rabort Rtype_error)))
+       else if op = ThunkOp ForceThunk then
+         (case dest_thunk vs s.refs of
+          | NONE => (s, Rerr (Rabort Rtype_error))
+          | SOME (INL v) => (s, Rval [v])
+          | SOME (INR f) =>
+             if s.clock = 0 then
+               (s, Rerr (Rabort Rtimeout_error))
+             else
+               case evaluate <| v := [("f",f)] |> (dec_clock s)
+                      [AppUnit (Var_local None "f")] of
+               | (s, Rval vs2) =>
+                   (case update_thunk vs s.refs vs2 of
+                    | NONE => (s, Rerr (Rabort Rtype_error))
+                    | SOME refs => (s with refs := refs, Rval vs2))
+               | (s, Rerr e) => (s, Rerr e))
        else
-       (case (do_app s op (REVERSE vs)) of
-        | NONE => (s, Rerr (Rabort Rtype_error))
-        | SOME (s',r) => (s', evaluate$list_result r))
+        (case (do_app s op (REVERSE vs)) of
+         | NONE => (s, Rerr (Rabort Rtype_error))
+         | SOME (s',r) => (s', evaluate$list_result r))
    | res => res) ∧
   (evaluate env s [If _ e1 e2 e3] =
    case fix_clock s (evaluate env s [e1]) of
@@ -847,9 +890,8 @@ QED
 
 Theorem do_app_cases =
   ``do_app st op vs = SOME (st',v)`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
-   ALL_CONV)
+  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem, CaseEq "thunk_op"] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs])
 
 Theorem do_app_const:
    do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c

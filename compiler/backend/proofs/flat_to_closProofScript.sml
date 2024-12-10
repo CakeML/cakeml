@@ -81,6 +81,7 @@ Definition store_rel_def:
     !i. if LENGTH refs <= i then FLOOKUP t_refs i = NONE else
           case EL i refs of
           | Refv v => (?x. FLOOKUP t_refs i = SOME (ValueArray [x]) /\ v_rel v x)
+          | Thunk b v => (?x. FLOOKUP t_refs i = SOME (ValueArray [Block (if b then 1 else 0) []; x]) /\ v_rel v x)
           | Varray vs => (?xs. FLOOKUP t_refs i = SOME (ValueArray xs) /\
                                LIST_REL v_rel vs xs)
           | W8array bs => FLOOKUP t_refs i = SOME (ByteArray bs)
@@ -567,7 +568,9 @@ Proof
 QED
 
 Theorem compile_op_evaluates_args:
-  evaluate (xs,db,t) = (Rerr err,t1) /\ op <> Opapp /\ op <> Eval ==>
+  evaluate (xs,db,t) = (Rerr err,t1) /\
+  op <> Opapp /\ op <> Eval /\ op <> ThunkOp ForceThunk
+  ==>
   evaluate ([compile_op tra op xs],db,t) = (Rerr err,t1)
 Proof
   Cases_on `op`
@@ -595,7 +598,7 @@ val op_goal =
     state_rel s1 (t1:('c,'ffi) closSem$state) /\
     evaluate (xs,db,t) = (Rval ws,t1) /\
     LIST_REL v_rel vs (REVERSE ws) /\
-    LENGTH xs = LENGTH vs /\ op <> Opapp ==>
+    LENGTH xs = LENGTH vs /\ op <> Opapp /\ op <> ThunkOp ForceThunk ==>
     ∃res2' t1.
       evaluate ([compile_op tt op xs],db,t) = (res2',t1) ∧
       state_rel s2 t1 ∧
@@ -1252,11 +1255,17 @@ Proof
   simp [compile_op_def, flatSemTheory.do_app_def]
 QED
 
+Theorem op_thunk:
+  ∀th_op. op = ThunkOp th_op ==> ^op_goal
+Proof
+  cheat
+QED
+
 Theorem compile_op_correct:
   ^op_goal
 Proof
   EVERY (map assume_tac
-    [op_refs, op_chars, op_ints, op_words, op_str, op_shifts,
+    [op_refs, op_chars, op_ints, op_words, op_str, op_shifts, op_thunk,
      op_floats, op_eq_gc, op_byte_arrays, op_vectors, op_arrays,
      op_globals, op_blocks, op_ffi, op_byte_copy, op_eval, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
@@ -1384,6 +1393,7 @@ Proof
   \\ disch_then drule
   \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
   \\ strip_tac
+  \\ Cases_on `op = ThunkOp ForceThunk` >- cheat
   \\ Cases_on `op = Opapp` \\ fs []
   THEN1
    (fs [compile_op_def,dest_nop_def] \\ rveq

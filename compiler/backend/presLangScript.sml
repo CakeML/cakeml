@@ -256,6 +256,11 @@ Definition op_to_display_def:
   | FFI v35 => empty_item (strlit "FFI v35")
   | Eval => empty_item (strlit "Eval")
   | Env_id => empty_item (strlit "Eval")
+  | ThunkOp t =>
+       (case t of
+        | AllocThunk b => Item NONE (strlit "AllocThunk") [bool_to_display b]
+        | UpdateThunk b => Item NONE (strlit "UpdateThunk") [bool_to_display b]
+        | ForceThunk => empty_item (strlit "ForceThunk"))
 End
 
 Definition lop_to_display_def:
@@ -452,6 +457,11 @@ Definition flat_op_to_display_def:
     | ConfigGC => empty_item (strlit "ConfigGC")
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
     | Eval => empty_item (strlit "Eval")
+    | ThunkOp t =>
+       (case t of
+        | AllocThunk b => Item NONE (strlit "AllocThunk") [bool_to_display b]
+        | UpdateThunk b => Item NONE (strlit "UpdateThunk") [bool_to_display b]
+        | ForceThunk => empty_item (strlit "ForceThunk"))
     | GlobalVarAlloc n => item_with_num (strlit "GlobalVarAlloc") n
     | GlobalVarInit n => item_with_num (strlit "GlobalVarInit") n
     | GlobalVarLookup n => item_with_num (strlit "GlobalVarLookup") n
