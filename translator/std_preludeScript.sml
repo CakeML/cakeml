@@ -53,6 +53,17 @@ val EXP_AUX_THM = Q.prove(
 
 val _ = next_ml_names := ["exp"];
 val res = translate EXP_AUX_def;
+
+val exp_aux_side_def = theorem "exp_aux_side_def";
+
+Triviality exp_aux_side:
+  ∀m n k. exp_aux_side m n k
+Proof
+  Induct_on`n`>>rw[Once exp_aux_side_def]
+QED
+
+val _ = exp_aux_side |> update_precondition;
+
 val _ = next_ml_names := ["exp"];
 val res = translate EXP_AUX_THM; (* tailrec version of EXP *)
 
@@ -61,8 +72,30 @@ val res = translate MAX_DEF;
 val res = translate arithmeticTheory.EVEN_MOD2;
 val res = translate (REWRITE_RULE [EVEN_MOD2,DECIDE ``~(n = 0) = (0 < n:num)``] ODD_EVEN);
 val res = translate FUNPOW;
+
+val funpow_side_def = theorem "funpow_side_def";
+
+Triviality funpow_side:
+  ∀m n k. funpow_side m n k
+Proof
+  Induct_on`n`>>rw[Once funpow_side_def]
+QED
+
+val _ = funpow_side |> update_precondition;
+
 val res = translate ABS_DIFF_def;
-val res = translate (DECIDE ``PRE n = n-1``);
+
+val abs_diff_side_def = fetch "-" "abs_diff_side_def";
+
+Triviality abs_diff_side:
+  ∀m n. abs_diff_side m n
+Proof
+  rw[Once abs_diff_side_def]
+QED
+
+val _ = abs_diff_side |> update_precondition;
+
+val res = translate (DECIDE ``PRE n = n-1`` |> REWRITE_RULE [GSYM sub_check_def]);
 
 (* while, owhile and least *)
 
