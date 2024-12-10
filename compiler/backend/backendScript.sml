@@ -781,23 +781,6 @@ Proof
   rpt(rfs[]>>fs[])
 QED
 
-(* used in compilationLib *)
-Theorem MAP_ZIP_ZIP:
-  ∀n xs ys zs.
-    LENGTH xs = n ∧ LENGTH ys = n ∧ LENGTH zs = n ⇒
-    MAP f (ZIP (xs, ZIP (ys, zs))) =
-    MAP3 (λx (y1,y2,y3,y4) (z1,z2,z3). f (x,(y1,y2,y3,y4),(z1,z2,z3))) xs ys zs
-Proof
-  Induct \\ fs [LENGTH_NIL,LENGTH_CONS,PULL_EXISTS,FORALL_PROD]
-QED
-
-(* used in compilationLib *)
-Theorem TAKE_DROP_PAIR_LEMMA:
-  LENGTH xs = n ⇒ (TAKE n xs, DROP n xs) = (xs, [])
-Proof
-  rw []
-QED
-
 Theorem compile_inc_progs_for_eval_eq:
   compile_inc_progs_for_eval asm_c' (env_id,inc_c,p) =
     let c = inc_config_to_config asm_c' inc_c in

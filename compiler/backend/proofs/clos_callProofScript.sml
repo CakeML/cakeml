@@ -311,7 +311,7 @@ Definition v_rel_def:
   (v_rel g l code (Block n vs) v ⇔
     ∃vs'. v = Block n vs' ∧ LIST_REL (v_rel g l code) vs vs') ∧
   (v_rel g l code (ByteVector ws) v ⇔ v = ByteVector ws) ∧
-  (v_rel g l code (RefPtr n) v ⇔ v = RefPtr n) ∧
+  (v_rel g l code (RefPtr b n) v ⇔ v = RefPtr b n) ∧
   (v_rel g l code (Closure loco vs1 env1 n bod1) v ⇔
      ∃loc vs2 env2 bod2.
        recclosure_rel g l code loc [(n,bod1)] [(n,bod2)] ∧

@@ -116,7 +116,7 @@ Theorem v_ok_thm:
   (∀ fp. v_ok s (FP_WordTree fp)) ∧
   (∀ fp. v_ok s (FP_BoolTree fp)) ∧
   (∀ r. v_ok s (Real r)) ∧
-  (∀loc. v_ok s (Loc loc) ⇔ loc < LENGTH s.refs) ∧
+  (∀loc b. v_ok s (Loc b loc) ⇔ loc < LENGTH s.refs) ∧
   (∀env ns. v_ok s (Env env ns) ⇔ env_ok s env)
 Proof
   rw [v_ok_def, v_rel_def, OPTREL_def, env_ok_def, FLOOKUP_FUN_FMAP,

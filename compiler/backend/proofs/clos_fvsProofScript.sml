@@ -61,7 +61,7 @@ Inductive v_rel:
   (!i. v_rel (Number i) (Number i)) /\
   (!w. v_rel (Word64 w) (Word64 w)) /\
   (!w. v_rel (ByteVector w) (ByteVector w)) /\
-  (!n. v_rel (RefPtr n) (RefPtr n)) /\
+  (!n b. v_rel (RefPtr b n) (RefPtr b n)) /\
   (!tag xs ys.
      LIST_REL v_rel xs ys ==>
        v_rel (Block tag xs) (Block tag ys)) /\
@@ -83,7 +83,7 @@ Theorem v_rel_simps[simp] =
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Block n p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Word64 p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (ByteVector p) x``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (RefPtr p) x``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (RefPtr b p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Closure x1 x2 x3 x4 x5) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Recclosure y1 y2 y3 y4 y5) x``,
   prove(``v_rel (Boolv b) x <=> x = Boolv b``,
