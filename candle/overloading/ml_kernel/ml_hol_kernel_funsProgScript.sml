@@ -608,6 +608,16 @@ val def = allCInsts_eqn |> translate
 
 val def = REPLICATE |> translate
 
+val replicate_side_def = theorem "replicate_side_def";
+
+Triviality replicate_side:
+  ∀n x. replicate_side n x
+Proof
+  Induct_on`n`>>rw[Once replicate_side_def]
+QED
+
+val _ = replicate_side |> update_precondition;
+
 val def = holSyntaxTheory.dependency_compute_def
           |> PURE_REWRITE_RULE[GSYM QSORT_type_vars_in_term,GSYM allTypes_ty_def]
           |> translate
