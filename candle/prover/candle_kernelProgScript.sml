@@ -150,7 +150,9 @@ val r = translate compute_execTheory.to_num_def
 val r = translate compute_execTheory.cv_T_def
 val r = translate compute_execTheory.cv_F_def
 val r = translate compute_execTheory.binop_add_def
-val r = translate compute_execTheory.binop_sub_def
+
+val r = translate (compute_execTheory.binop_sub_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
+
 val r = translate compute_execTheory.binop_mul_def
 val r = translate compute_execTheory.binop_div_def
 val r = translate compute_execTheory.binop_mod_def
@@ -162,8 +164,30 @@ val r = translate compute_execTheory.compile_to_ce_def
 val r = translate compute_execTheory.build_funs_def
 val r = translate compute_execTheory.env_lookup_def
 
+Theorem env_lookup_side[local]:
+  ∀x y. env_lookup_side x y
+Proof
+  Induct_on`x` \\ rw []
+  \\ once_rewrite_tac [fetch "-" "env_lookup_side_def"] \\ rw []
+QED
+
+val _ = update_precondition env_lookup_side;
+
 val r = m_translate compute_execTheory.get_code_def
 val r = m_translate compute_execTheory.exec_def
+
+Theorem exec_side[local]:
+  (∀b c d e a. exec_side a b c d e) ∧
+  (∀b c d e f a. exec_list_side a b c d e f)
+Proof
+  ho_match_mp_tac compute_execTheory.exec_ind
+  \\ rw[]
+  \\ simp[Once (fetch "-" "exec_side_def")]
+  \\ rw[]
+  \\ simp[Once (fetch "-" "exec_side_def")]
+QED
+
+val _ = update_precondition exec_side;
 
 val _ = ml_prog_update open_local_in_block;
 
