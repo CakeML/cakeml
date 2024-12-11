@@ -37,6 +37,12 @@ val _ = ml_translatorLib.pick_name :=
 val spec64 = INST_TYPE[alpha|->``:64``]
 val _ = translate(word_bit_test |> spec64);
 
+val _ = translate words4_bit_def;
+
+val words4_bit_side_thm = Q.prove (
+  `words4_bit_side x y`,
+  simp[fetch "-" "words4_bit_side_def"]) |> update_precondition;
+
 val _ = translate (charsetTheory.charset_full_def |> CONV_RULE (RHS_CONV EVAL));
 val _ = translate charset_mem_def;
 
@@ -128,7 +134,26 @@ val r = translate regexp_compareW_def;
 val _ = add_preferred_thy "-";
 Theorem mergesortN_ind =
   mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]
-val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
+val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def, GSYM mllistTheory.take_def]);
+
+Triviality mergesortn_side:
+  ∀x y z.
+  mergesortn_side x y z
+Proof
+  completeInduct_on`y`>>
+  rw[Once (fetch "-" "mergesortn_side_def")]>>
+  simp[arithmeticTheory.DIV2_def]
+  >- (
+    first_x_assum match_mp_tac>>
+    simp[]>>
+    match_mp_tac dividesTheory.DIV_POS>>
+    simp[])
+  >>
+    match_mp_tac DIV_LESS_EQ>>
+    simp[]
+QED
+
+val _ = mergesortn_side |> update_precondition;
 
 val _ = use_mem_intro := true;
 val r = translate build_or_def;
@@ -138,6 +163,10 @@ val r = translate normalize_def;
 
 val r = translate mem_regexp_def;
 val r = translate exec_dfa_def;
+
+val r = translate smart_deriv_def;
+
+val r = translate transitions_def;
 
 val r = translate Brz_def;
 
