@@ -182,7 +182,7 @@ Definition to_livesets_0_alt_def:
   in
     ((reg_count,data), p)
 End
-        
+
 Definition to_livesets_alt_def:
   to_livesets_alt source_conf clos_conf bvl_conf data_conf word_conf asm_conf stack_conf (:'a) p =
   let p = source_to_source$compile p in
@@ -201,7 +201,7 @@ Definition to_livesets_alt_def:
     (source_conf', clos_conf', bvl_conf', (reg_count, data), p)
 End
 
-        
+
 
 Datatype:
   source_iconfig =
@@ -609,7 +609,7 @@ Definition icompile_def:
   let (stack_conf', icompiled_p_lab) = icompile_stack_to_lab stack_conf offset k icompiled_p_stack in
     SOME (source_iconf', clos_iconf', bvl_iconf', word_iconf', stack_conf', icompiled_p_lab)
 End
-        
+
 Definition fold_icompile_def:
   fold_icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf stack_conf [] =
     icompile source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf word_iconf stack_conf []
@@ -636,6 +636,20 @@ Definition icompile_to_livesets_def:
     SOME (source_iconf', clos_iconf', bvl_iconf', livesets_data ++ data, icompiled_p_livesets)
 End
 
+Definition fold_icompile_to_livesets_def:
+  fold_icompile_to_livesets source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf [] (:'a) livesets_data =
+  icompile_to_livesets source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf [] (:'a) livesets_data
+  ∧
+  fold_icompile_to_livesets source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf (p :: ps) (:'a) livesets_data =
+  case icompile_to_livesets source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf p (:'a) livesets_data of NONE => NONE
+  | SOME (source_iconf', clos_iconf', bvl_iconf', livesets_data', p') =>
+    (case fold_icompile_to_livesets source_iconf' clos_iconf' bvl_iconf' data_conf word_conf asm_conf ps (:'a) livesets_data' of NONE => NONE
+    | SOME (source_iconf'', clos_iconf'', bvl_iconf'', livesets_data'', ps') =>
+      SOME (source_iconf'', clos_iconf'', bvl_iconf'', livesets_data'', p' ++ ps'))
+End
+
+
+
 Definition init_icompile_to_livesets_def:
   init_icompile_to_livesets source_conf clos_conf bvl_conf data_conf word_conf asm_conf stack_conf (:'a) =
   let (source_iconf, flat_stub) = init_icompile_source_to_flat source_conf in
@@ -645,7 +659,7 @@ Definition init_icompile_to_livesets_def:
   let data_init = bvi_to_data$compile_prog bvi_init in
   let (data_conf, word_init) = init_icompile_data_to_word data_conf asm_conf data_init in
   let ((reg_count, data), livesets_init) = to_livesets_0_alt asm_conf word_conf (:'a) word_init in
-  
+
     (source_iconf, clos_iconf, bvl_iconf, data_conf, (reg_count, data), livesets_init)
 End
 
@@ -664,7 +678,7 @@ Definition end_icompile_to_livesets_def:
   let ((reg_count, data), livesets_end) = to_livesets_0_alt asm_conf word_conf (:'a) word_end in
     (source_conf_after_ic, clos_conf_after_ic_bvi, bvl_conf_after_ic, data, livesets_end)
 End
-        
+
 
 (******************************************************************************)
 (*                                                                            *)
@@ -1562,12 +1576,12 @@ QED
 Theorem to_livesets_0_alt_append:
   to_livesets_0_alt asm_conf word_conf (:'a) p1 = ((a, data1), p1') ∧
   to_livesets_0_alt asm_conf word_conf (:'a) p2 = ((_, data2), p2') ⇒
-  to_livesets_0_alt asm_conf word_conf (:'a) (p1 ++ p2) = ((a, data1 ++ data2), p1' ++ p2')  
+  to_livesets_0_alt asm_conf word_conf (:'a) (p1 ++ p2) = ((a, data1 ++ data2), p1' ++ p2')
 Proof
   rw[to_livesets_0_alt_def]
 QED
-  
-        
+
+
 Theorem icompile_icompile_to_livesets:
   icompile_to_livesets source_iconf clos_iconf bvl_iconf
                        data_conf (word_conf with col_oracle := []) asm_conf p1 (:'a) data =
@@ -1594,11 +1608,11 @@ Proof
   pop_assum mp_tac >>
   simp[icompile_icompile_data_to_word] >>
   drule to_livesets_0_alt_append >> disch_then rev_drule >>
-  simp[bvi_to_dataTheory.compile_prog_def] 
+  simp[bvi_to_dataTheory.compile_prog_def]
 QED
 
 
-        
+
 Definition config_prog_rel_def:
   config_prog_rel source_conf' clos_conf' cat_prog c' compiled_prog ⇔
     source_conf' = c'.source_conf ∧
@@ -2126,8 +2140,8 @@ Definition config_prog_rel_livesets:
   e = e' ∧ f = f')
 
 End
-        
-        
+
+
 Theorem init_icompile_icompile_end_icompile_to_livesets:
   init_icompile_to_livesets source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf stack_conf (:'a) =
     (source_iconf, clos_iconf, bvl_iconf, data_conf, (reg_count, livesets_data_init), livesets_init)
@@ -2192,7 +2206,7 @@ Proof
    bvi_to_data$compile_prog bvi_init ++
    bvi_to_data$compile_prog icompiled_p_bvi ++
    bvi_to_data$compile_prog bvi_end
-  ’ by rw[bvi_to_dataTheory.compile_prog_def] >> gvs[] >> 
+  ’ by rw[bvi_to_dataTheory.compile_prog_def] >> gvs[] >>
   fs[data_to_wordTheory.compile_0_def] >>
   fs[init_icompile_data_to_word_def, icompile_data_to_word_def] >>
   gvs[] >>
@@ -2208,8 +2222,88 @@ Proof
               drule th) >>
   rw[config_prog_rel_livesets]
 QED
-        
- 
+
+
+(* Repeated, maybe can find a way to reuse ? *)
+Theorem icompile_to_livesets_none:
+  icompile_to_livesets a b c d e f p (:'a) g = NONE ⇒
+  icompile_to_livesets a b c d e f (p ++ p') (:'a) g = NONE
+Proof
+  rw[icompile_to_livesets_def, source_to_source_compile_append] >>
+  rw[icompile_icompile_source_to_flat] >>
+  Cases_on ‘icompile_source_to_flat a (compile p)’
+  >- (gvs[] >> drule icompile_icompile_source_to_flat_none >> rw[])
+  >- (Cases_on ‘x’ >>
+      gvs[] >> rpt (pairarg_tac >> gvs[]))
+QED
+
+Theorem icompile_to_livesets_none1:
+  icompile_to_livesets a b c d e f p (:'a) g = SOME (a', b', c', g', _) ∧
+  icompile_to_livesets a' b' c' d' e f p' (:'a) g'  = NONE ⇒
+  icompile_to_livesets a b c d e f (p ++ p') (:'a) g = NONE
+Proof
+  rw[icompile_to_livesets_def, source_to_source_compile_append] >>
+  Cases_on ‘icompile_source_to_flat a (compile p)’ >> gvs[] >>
+  namedCases_on ‘x’ ["a' b'"] >> gvs[] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  Cases_on ‘icompile_source_to_flat a' (compile p')’
+  >- (gvs[icompile_icompile_source_to_flat_none1])
+  >- (namedCases_on ‘x’ ["a'' b''"] >> gvs[] >> rpt (pairarg_tac >> gvs[]))
+QED
+
+Theorem fold_icompile_to_livesets_collapse:
+  ∀pss source_iconf clos_iconf bvl_iconf data_conf word_conf asm_conf livesets_data.
+  fold_icompile_to_livesets source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf pss (:'a) livesets_data =
+  icompile_to_livesets source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf (FLAT pss) (:'a) livesets_data
+Proof
+  Induct >> rw[fold_icompile_to_livesets_def] >>
+  Cases_on ‘icompile_to_livesets source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf h (:α) livesets_data’
+  >- (simp[] >> drule icompile_to_livesets_none >> rw[])
+  >- (namedCases_on ‘x’ ["source_iconf' clos_iconf' bvl_iconf' livesets_data' p'"] >>
+      rw[] >>
+      (Cases_on ‘icompile_to_livesets source_iconf' clos_iconf' bvl_iconf' data_conf (word_conf with col_oracle := []) asm_conf (FLAT pss) (:α) livesets_data'’
+       >- (simp[] >> drule icompile_to_livesets_none1 >> disch_then drule >> rw[])
+       >- (namedCases_on ‘x’ ["source_iconf'' clos_iconf'' bvl_iconf'' livesets_data'' ps'"] >>
+           simp[] >> rev_drule_all icompile_icompile_to_livesets >> rw[])))
+QED
+
+
+
+
+Theorem icompile_to_livesets_eq:
+  init_icompile_to_livesets source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf stack_conf (:'a) =
+    (source_iconf, clos_iconf, bvl_iconf, data_conf, (reg_count, livesets_data_init), livesets_init)
+  ∧
+  fold_icompile_to_livesets source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf pss (:'a) [] =
+    SOME (source_iconf', clos_iconf', bvl_iconf', livesets_data_ic, icompiled_p_livesets)
+  ∧
+  end_icompile_to_livesets source_iconf' source_conf
+                           clos_iconf' clos_conf
+                           bvl_iconf' bvl_conf
+                           data_conf (word_conf with col_oracle := []) asm_conf (:'a)
+  = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, livesets_data_end, livesets_end)
+  ∧
+  to_livesets_alt source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf stack_conf (:'a) (FLAT pss) =
+    (source_conf_after_c, clos_conf_after_c, bvl_conf_after_c, (reg_count_c, livesets_data_c), compiled_p)
+  ∧
+  source_conf = source_to_flat$empty_config
+  ∧
+  clos_conf = clos_to_bvl$default_config
+  ∧
+  bvl_conf = bvl_to_bvi$default_config
+  ∧
+  stack_conf_init stack_conf
+  ⇒
+  config_prog_rel_livesets     source_conf_after_ic source_conf_after_c
+                               clos_conf_after_c clos_conf_after_ic
+                               bvl_conf_after_ic bvl_conf_after_c
+                               reg_count reg_count_c
+                               (livesets_data_init ++ livesets_data_ic ++ livesets_data_end) livesets_data_c
+                               (livesets_init ++ icompiled_p_livesets ++ livesets_end) compiled_p
+Proof
+  once_rewrite_tac[fold_icompile_to_livesets_collapse] >>
+  metis_tac[init_icompile_icompile_end_icompile_to_livesets]
+QED
 
 
 val _ = export_theory();
