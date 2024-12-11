@@ -318,18 +318,22 @@ Definition cmlPEG_def[nocompute]:
                              (bindNT nE);
                         seql [tokeq CaseT; pnt nE; tokeq OfT; pnt nPEs]
                              (bindNT nE)]);
-              (mkNT nE',
-               choicel [seql [tokeq RaiseT; pnt nE'] (bindNT nE');
-                        pegf (pnt nElogicOR) (bindNT nE');
-                        seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
-                              tokeq ElseT; pnt nE'] (bindNT nE')]);
               (mkNT nPEs,
-               choicel [seql [pnt nPE'; tokeq BarT; pnt nPEs] (bindNT nPEs);
-                        pegf (pnt nPE) (bindNT nPEs)]);
-              (mkNT nPE, seql [pnt nPattern; tokeq DarrowT; pnt nE]
-                              (bindNT nPE));
-              (mkNT nPE', seql [pnt nPattern; tokeq DarrowT; pnt nE']
-                               (bindNT nPE'));
+               seql [pnt nPattern; tokeq DarrowT; pnt nPE] (bindNT nPEs));
+              (mkNT nPE,
+               choicel [seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
+                              tokeq ElseT; pnt nPE]
+                             (bindNT nPE);
+                        seql [tokeq CaseT; pnt nE; tokeq OfT; pnt nPEs]
+                             (bindNT nPE);
+                        seql [tokeq FnT; pnt nPattern; tokeq DarrowT; pnt nE]
+                             (bindNT nPE);
+                        seql [tokeq RaiseT; pnt nPE] (bindNT nPE);
+                        seql [pnt nElogicOR; pnt nPEsfx] (bindNT nPE)]);
+              (mkNT nPEsfx,
+               choicel [seql [tokeq HandleT; pnt nPEs] (bindNT nPEsfx);
+                        seql [tokeq BarT; pnt nPEs] (bindNT nPEsfx);
+                        pegf (empty []) (bindNT nPEsfx)]);
               (mkNT nAndFDecls,
                peg_linfix (mkNT nAndFDecls) (pnt nFDecl) (tokeq AndT));
               (mkNT nFDecl,
@@ -704,7 +708,7 @@ val npeg0_rwts =
                 “nEmult”, “nEadd”, “nElistop”, “nErel”, “nEcomp”,
                 “nEbefore”,
                 “nEtyped”, “nElogicAND”, “nElogicOR”, “nEhandle”,
-                “nE”, “nE'”, “nElist1”,
+                “nE”, “nPE”, “nPEs”, “nElist1”,
                 “nSpecLine”
                ]
 
@@ -732,14 +736,14 @@ val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”,
                 “nTbase”, “nPTbase”, “nTbaseList”, “nDType”, “nPType”,
                 “nListOps”, “nRelOps”, “nPtuple”, “nPbase”, “nPapp”,
                 “nPcons”, “nPas”, “nPattern”,
-                “nPatternList”, “nPbaseList1”, “nPE”,
-                “nPE'”, “nPEs”, “nMultOps”, “nLetDec”, “nLetDecs”,
+                “nPatternList”, “nPbaseList1”,
+                “nPEs”, “nMultOps”, “nLetDec”, “nLetDecs”,
                 “nFQV”,
                 “nFDecl”, “nAddOps”, “nCompOps”, “nOpID”,
                 “nEliteral”, “nEbase”, “nEapp”,
                 “nEmult”, “nEadd”, “nElistop”, “nErel”,
                 “nEcomp”, “nEbefore”, “nEtyped”, “nElogicAND”,
-                “nElogicOR”, “nEhandle”, “nE”, “nE'”,
+                “nElogicOR”, “nPE”, “nPEsfx”, “nEhandle”, “nE”,
                 “nType”, “nTypeList1”, “nTypeList2”,
                 “nEseq”, “nElist1”, “nDtypeDecl”,
                 “nOptTypEqn”,
