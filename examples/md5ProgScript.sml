@@ -44,12 +44,12 @@ val mul8add_thm = mul8add_def
   |> SIMP_RULE std_ss [LET_THM,WORD_MUL_LSL,word_mul_n2w,
        WORD_ADD_0,WORD_LO,w2n_n2w,EVAL “dimword (:32)”];
 
-val res = translate (update1_def |> REWRITE_RULE [mul8add_simp]);
+val res = translate (update1_def |> REWRITE_RULE [mul8add_simp, GSYM ml_translatorTheory.sub_check_def]);
 
 val res = translate mul8add_thm;
 val res = translate genlist_rev_def;
-val res = translate update_def;
-val final_v = translate final_def;
+val res = translate (update_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
+val final_v = translate (final_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 val res = translate hxd_def;
 val res = translate EL;
 
