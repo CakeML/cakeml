@@ -78,7 +78,7 @@ val res = translate EL;
 val list_el_side = Q.prove(
   `!n xs. list_el_side n xs = (n < LENGTH xs)`,
   Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "list_el_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
+  THEN fs[CONTAINER_def])
   |> update_precondition;
 
 (* -- *)
@@ -94,7 +94,7 @@ val res = translate source_to_flatTheory.alloc_tags1_def;
 val res = translate (DefnBase.one_line_ify NONE namespaceTheory.nsMap_def);
 val res = translate source_to_flatTheory.alloc_tags_def;
 val res = translate source_to_flatTheory.alloc_env_ref_def;
-val res = translate source_to_flatTheory.glob_alloc_def;
+val res = translate (source_to_flatTheory.glob_alloc_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 val res = translate source_to_flatTheory.compile_decs_def;
 val res = translate source_to_flatTheory.compile_prog_def;
