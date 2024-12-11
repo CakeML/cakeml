@@ -157,13 +157,6 @@ val res = translate num_gcd_def;
 
 val _ = ml_prog_update open_local_in_block;
 
-val num_gcd_side = prove(
-  ``!a b. num_gcd_side a b = T``,
-  recInduct num_gcd_ind \\ rw []
-  \\ once_rewrite_tac [theorem "num_gcd_side_def"]
-  \\ fs [ADD1] \\ rw [] \\ fs [])
-  |> update_precondition;
-
 val _ = (next_ml_names := ["gcd"]);
 val int_gcd_v_thm = translate int_gcd_def;
 

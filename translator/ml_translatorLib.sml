@@ -3733,7 +3733,7 @@ fun extract_precondition_non_rec th pre_var =
   if not (is_imp (concl th)) then (th,NONE) else let
     val c = (REWRITE_CONV [CONTAINER_def,PRECONDITION_def] THENC
              ONCE_REWRITE_CONV [GSYM PRECONDITION_def] THENC
-             SIMP_CONV (srw_ss()) [FALSE_def,TRUE_def])
+             SIMP_CONV (srw_ss()++ARITH_ss) [FALSE_def,TRUE_def])
     val c = (RATOR_CONV o RAND_CONV) c
     val th = CONV_RULE c th
     val rhs = th |> concl |> dest_imp |> fst |> rand
@@ -3772,6 +3772,9 @@ fun derive_split tm =
   SPEC tm DEFAULT_IMP
 
 fun extract_precondition_rec thms = let
+(*
+  val (fname,ml_fname,def,th) = hd thms
+*)
   fun rephrase_pre (fname,ml_fname,def,th) = let
     val (lhs,_) = dest_eq (concl def)
     val pre_var = get_pre_var lhs fname
@@ -3801,18 +3804,20 @@ val (fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
   fun is_true_pre (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) =
     (Teq
      (tm2 |> subst ss
-          |> QCONV (REWRITE_CONV [rw2,PreImp_def,PRECONDITION_def,CONTAINER_def])
+          |> QCONV (REWRITE_CONV [rw2,PreImp_def,PRECONDITION_def,CONTAINER_def] THENC SIMP_CONV (srw_ss()++ARITH_ss) [FALSE_def,TRUE_def])
           |> concl |> rand))
   val no_pre = every (map is_true_pre thms)
 
   (* if no pre then remove pre_var from thms *)
   in if no_pre then let
-    fun remove_pre_var (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = let
+    fun remove_pre_var (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) =
+    let
       val th5 = INST ss th
                 |> SIMP_RULE bool_ss [PRECONDITION_EQ_CONTAINER]
                 |> PURE_REWRITE_RULE [PreImp_def,PRECONDITION_def]
                 |> CONV_RULE (DEPTH_CONV BETA_CONV THENC
                                 (RATOR_CONV o RAND_CONV) (REWRITE_CONV []))
+
       in (fname,ml_fname,def,th5,NONE) end
     in map remove_pre_var thms end else let
 
