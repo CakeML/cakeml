@@ -25,14 +25,6 @@ fun def_of_const tm = let
 
 val _ = find_def_for_const := def_of_const;
 
-val _ = translate REPLICATE;
-
-val replicate_side_def = Q.prove(
-  `∀n ls. replicate_side n ls`,
-  Induct_on `n`
-  >> rw[Once(fetch "-" "replicate_side_def")]
-  ) |> update_precondition;
-
 val _ = translate dynamic_lcs_def
 
 (*val _ = translate (optimised_lcs_def |> REWRITE_RULE [GSYM mllistTheory.drop_def]);*)
@@ -60,8 +52,7 @@ val dynamic_lcs_side_def = Q.prove(
   rw[fetch "-" "dynamic_lcs_side_def",dynamic_lcs_rows_side_def,LENGTH_REPLICATE])
   |> update_precondition;
 
-(* NOTE: one should be able to avoid the sub_check *)
-val _ = translate(diff_alg2_def |> REWRITE_RULE [GSYM mllistTheory.drop_def,GSYM mllistTheory.take_def, GSYM ml_translatorTheory.sub_check_def]);
+val _ = translate(diff_alg2_def |> REWRITE_RULE [GSYM mllistTheory.drop_def]);
 
 val longest_common_suffix_length_side = Q.prove(
   `!l l' n. longest_common_suffix_length_side l l' n = (LENGTH l = LENGTH l')`,
@@ -77,7 +68,7 @@ val diff_alg2_side_def = Q.prove(`
   !l r. diff_alg2_side l r  ⇔ T`,
   rw[fetch "-" "diff_alg2_side_def"]
   >> rw[longest_common_suffix_length_side]
-  >> fs[mllistTheory.drop_def,mllistTheory.take_def,ml_translatorTheory.sub_check_def]) |> update_precondition;
+  >> fs[mllistTheory.drop_def]) |> update_precondition;
 
 Definition notfound_string_def:
   notfound_string f = concat[strlit"cake_diff: ";f;strlit": No such file or directory\n"]
