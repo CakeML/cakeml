@@ -26,6 +26,9 @@ val r = translate simpleSexpParseTheory.strip_dot_def;
 val r = translate simpleSexpParseTheory.escape_string_def;
 val r = translate simpleSexpParseTheory.print_sexp_def;
 
+val r = translate fromSexpTheory.encode_bool_def;
+val r = translate fromSexpTheory.decode_bool_def;
+
 val r = translate fromSexpTheory.listsexp_def;
 val r = translate fromSexpTheory.locnsexp_def;
 val r = translate fromSexpTheory.locssexp_def;

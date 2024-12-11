@@ -291,6 +291,9 @@ val sexppat_alt_side = Q.prove(
   rw[Once(theorem"sexppat_alt_side_def")])
   |> update_precondition;
 
+val r = translate decode_bool_def;
+val r = translate encode_bool_def;
+
 val r = translate (fromSexpTheory.sexpop_def
                    |> REWRITE_RULE [decode_control_eq]);
 

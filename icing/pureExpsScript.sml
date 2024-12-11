@@ -32,6 +32,7 @@ Definition isPureOp_def:
     | CopyAw8Str => F
     | Eval => F
     | FFI _ => F
+    | ThunkOp _ => F
     | Opassign => F
     | Opapp => F
     | Opderef => F
