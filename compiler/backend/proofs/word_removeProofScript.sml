@@ -1,7 +1,7 @@
 (*
   Correctness proof for word_remove
 *)
-open preamble word_removeTheory wordSemTheory wordPropsTheory;
+open preamble word_removeTheory wordSemTheory wordPropsTheory wordConvsTheory;
 
 val _ = new_theory "word_removeProof";
 
@@ -87,9 +87,9 @@ Proof
 QED
 
 Theorem get_vars_compile_state[simp]:
-   ∀xs s. get_vars xs (compile_state clk c s) = get_vars xs s
+   get_vars xs (compile_state clk c s) = get_vars xs s
 Proof
-  Induct \\ rw[get_vars_def]
+  fs[compile_state_def]
 QED
 
 Theorem set_var_compile_state[simp]:
