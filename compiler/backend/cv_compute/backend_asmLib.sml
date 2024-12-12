@@ -6,12 +6,10 @@ struct
 
 open HolKernel boolLib bossLib;
 open backendTheory backend_asmTheory;
-
 (*
 val asm_config_def = x64_targetTheory.x64_config_def
 *)
-
-fun define_target_specific_backend asm_config_def = let
+fun asm_spec_raw init asm_config_def = let
   val def = asm_config_def
   val asm_conf = def |> concl |> dest_eq |> fst;
   val tokens = String.tokens (fn c => c = #"_")
@@ -21,7 +19,7 @@ fun define_target_specific_backend asm_config_def = let
     |> map (fn tm => mk_icomb(tm,asm_conf))
     |> map (fn tm => SIMP_CONV (srw_ss()) [def] tm)
     |> LIST_CONJ
-  val mem = ref ([]:thm list)
+  val memory = ref init
   fun asm_spec th0 = let
     val th1 = th0 |> DefnBase.one_line_ify NONE |> SPEC_ALL
     val (c,args) = th1 |> concl |> dest_eq |> fst |> strip_comb
@@ -42,16 +40,25 @@ fun define_target_specific_backend asm_config_def = let
     val d = new_definition(full_name_def,mk_eq(v,tm2))
               |> SIMP_RULE std_ss [FUN_EQ_THM] |> GSYM
               |> REWRITE_RULE [GSYM FUN_EQ_THM] |> SPEC_ALL
-    val _ = (mem := (d::(!mem)))
-    val th3 = th2 |> REWRITE_RULE (!mem)
+    val _ = (memory := (d::(!memory)))
+    val th3 = th2 |> REWRITE_RULE (!memory)
                   |> SIMP_RULE (srw_ss()) [lemma,combinTheory.o_DEF]
-                  |> REWRITE_RULE (!mem)
+                  |> REWRITE_RULE (!memory)
                   |> SPEC_ALL
     val _ = List.null (find_terms (aconv asm_conf) (concl th3))
                 orelse (print_thm th3;
                         failwith "resulting term contains asm_conf reference")
     val _ = save_thm(full_name_def ^ "[userdef,allow_rebind]",th3)
     in d end
+  fun get_memory () = LIST_CONJ (!memory)
+  in (asm_spec,get_memory) end
+
+fun define_target_specific_backend asm_config_def = let
+  val def = asm_config_def
+  val asm_conf = def |> concl |> dest_eq |> fst;
+  val tokens = String.tokens (fn c => c = #"_")
+  val name = asm_conf |> dest_const |> fst |> tokens |> hd;
+  val (asm_spec,get_memory) = asm_spec_raw [] asm_config_def
   (* to_livesets *)
   val th = data_to_wordTheory.compile_0_def |> asm_spec
   val th = to_word_0_def |> asm_spec
@@ -93,6 +100,6 @@ fun define_target_specific_backend asm_config_def = let
   val th = compile_cake_def |> asm_spec
   val th = ISPEC asm_conf compile_cake_thm |> REWRITE_RULE [th]
   val res = save_thm ("compile_cake_" ^ name ^ "_thm", th)
-  in th end
+  in get_memory() end
 
 end
