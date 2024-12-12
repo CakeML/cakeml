@@ -2122,19 +2122,7 @@ val parse_delc_header_side = Q.prove(
 
 val r = translate strip_terminator_def;
 
-val strip_terminator_side_def = definition"strip_terminator_side_def";
-val strip_terminator_side = Q.prove(
-  `∀x. strip_terminator_side x <=> T`,
-  rw[strip_terminator_side_def])
-  |> update_precondition;
-
 val r = translate strip_term_def;
-
-val strip_term_side_def = definition"strip_term_side_def";
-val strip_term_side = Q.prove(
-  `∀x. strip_term_side x <=> T`,
-  rw[strip_term_side_def])
-  |> update_precondition;
 
 val res = translate insert_lit_def;
 val res = translate parse_assg_def;
@@ -3711,11 +3699,6 @@ End
 
 val res = translate init_state_def;
 val res = translate hash_str_def;
-
-val hash_str_side = Q.prove(
-  `∀x. hash_str_side x <=> T`,
-  EVAL_TAC>>
-  intLib.ARITH_TAC) |> update_precondition;
 
 val res = translate normalise_full_def;
 
