@@ -62,6 +62,7 @@ val _ = new_theory "wordConvsProof";
     preserves wf_cutsets: three_to_two_reg_prog_wf_cutsets
 
     preserves pre_alloc_conventions: three_to_two_reg_prog_pre_alloc_conventions
+    preserves flat_exp_conventions: three_to_two_reg_prog_flat_exp_conventions
     TODO
 
 
@@ -661,13 +662,24 @@ Proof
   PairCases_on`x`>>fs[]
 QED
 
+Theorem three_to_two_reg_prog_flat_exp_conventions:
+  ∀prog.
+  flat_exp_conventions prog ⇒
+  flat_exp_conventions (three_to_two_reg_prog b prog)
+Proof
+  simp[three_to_two_reg_prog_def]>>
+  ho_match_mp_tac three_to_two_reg_ind>>
+  rw[]>>
+  full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
+QED
+(*
 Theorem three_to_two_reg_flat_exp_conventions:
   ∀prog. flat_exp_conventions prog ⇒ flat_exp_conventions (three_to_two_reg prog)
 Proof
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
 QED
-
+*)
 Theorem three_to_two_reg_full_inst_ok_less:
   ∀prog. full_inst_ok_less c prog ⇒
          full_inst_ok_less c (three_to_two_reg prog)

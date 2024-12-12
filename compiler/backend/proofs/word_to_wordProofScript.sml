@@ -734,6 +734,7 @@ QED
 
 val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS;
 
+val rmd_thms = (remove_dead_prog_conventions|>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS;
 (* syntax going into stackLang *)
 Theorem compile_to_word_conventions:
   let (_,progs) = compile wc ac p in
@@ -774,16 +775,17 @@ Proof
     fs[EL_MAP,EL_ZIP]>>
     fs[compile_single_def]>>
     fs[GSYM (el 5 rmt_thms),GSYM word_alloc_lab_pres]>>
-    cheat>>
     fs[GSYM (el 6 rmd_thms)]>>
     strip_tac>>
     irule labels_rel_remove_unreach>>
-    rw[GSYM three_to_two_reg_lab_pres]>>
-    gvs[
-      extract_labels_copy_prop,
-      GSYM full_ssa_cc_trans_lab_pres,
-         GSYM inst_select_lab_pres,GSYM (el 6 rmd_thms),
-         extract_labels_word_common_subexp_elim]
+    simp[GSYM three_to_two_reg_prog_lab_pres]>>
+    simp[extract_labels_copy_prop] >>
+    simp[extract_labels_word_common_subexp_elim] >>
+    simp[GSYM remove_dead_prog_conventions]>>
+    simp[extract_labels_word_common_subexp_elim] >>
+    simp[GSYM full_ssa_cc_trans_lab_pres] >>
+    simp[GSYM inst_select_lab_pres] >>
+    simp[extract_labels_compile_exp]
     )>>
   fs[EVERY_MAP,EVERY_MEM,MEM_ZIP,FORALL_PROD]>>rw[]>>
   fs[full_compile_single_def,compile_single_def]>>
@@ -792,10 +794,10 @@ Proof
     match_mp_tac word_alloc_flat_exp_conventions>>
     match_mp_tac (el 1 rmd_thms)>>
     match_mp_tac flat_exp_conventions_remove_unreach>>
-    IF_CASES_TAC>>
-    TRY(match_mp_tac three_to_two_reg_flat_exp_conventions)>>
+    match_mp_tac three_to_two_reg_prog_flat_exp_conventions>>
     irule flat_exp_conventions_copy_prop>>
     irule flat_exp_conventions_word_common_subexp_elim >>
+    match_mp_tac (el 1 rmd_thms)>>
     match_mp_tac full_ssa_cc_trans_flat_exp_conventions>>
     fs[inst_select_flat_exp_conventions])>>
   CONJ_TAC>- (
@@ -803,11 +805,11 @@ Proof
     match_mp_tac pre_post_conventions_word_alloc>>
     match_mp_tac (el 3 rmd_thms)>>
     match_mp_tac pre_alloc_conventions_remove_unreach>>
-    IF_CASES_TAC>>
-    TRY(match_mp_tac three_to_two_reg_pre_alloc_conventions)>>
+    match_mp_tac three_to_two_reg_prog_pre_alloc_conventions >>
     (* pre_alloc_conventions *)
     irule pre_alloc_conventions_copy_prop>>
     irule pre_alloc_conventions_word_common_subexp_elim >>
+    match_mp_tac (el 3 rmd_thms)>>
     fs[full_ssa_cc_trans_pre_alloc_conventions])>>
   CONJ_TAC>- (
     strip_tac>>
@@ -815,7 +817,7 @@ Proof
     match_mp_tac word_alloc_full_inst_ok_less>>
     match_mp_tac (el 2 rmd_thms)>>
     match_mp_tac full_inst_ok_less_remove_unreach>>
-    rw[]>>
+    cheat >>
     TRY(match_mp_tac three_to_two_reg_full_inst_ok_less)>>
     irule full_inst_ok_less_copy_prop>>
     irule full_inst_ok_less_word_common_subexp_elim >>
@@ -826,9 +828,10 @@ Proof
   rw[]>>
   match_mp_tac (el 4 rmt_thms)>>
   match_mp_tac word_alloc_two_reg_inst>>
-  match_mp_tac two_reg_inst_remove_dead >>
+  match_mp_tac (el 4 rmd_thms)>>
   match_mp_tac two_reg_inst_remove_unreach >>
-  fs[three_to_two_reg_two_reg_inst]
+  match_mp_tac three_to_two_reg_prog_two_reg_inst >>
+  fs[]
 QED
 
 (**** more on syntactic form restrictions ****)
