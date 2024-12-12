@@ -3,7 +3,7 @@
 *)
 open preamble ml_translatorLib ml_translatorTheory decProgTheory
 
-local open source_to_flatTheory in end;
+local open source_to_flatTheory source_to_sourceTheory in end;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -129,18 +129,8 @@ val _ = translate pattern_compTheory.comp_def
 
 val res = translate flat_patternTheory.enc_num_to_name_def;
 
-val enc_side = Q.prove(
-  ‘!n s. flat_pattern_enc_num_to_name_side n s = T’,
-  completeInduct_on ‘n’ >>
-  simp[Once $ fetch "-" "flat_pattern_enc_num_to_name_side_def"]
-  ) |> update_precondition;
-
+val res = translate (flat_patternTheory.sum_string_ords_def |> RW [GSYM sub_check_def]);
 val res = translate flat_patternTheory.dec_name_to_num_def;
-
-val dec_side = Q.prove(
-  `!s. flat_pattern_dec_name_to_num_side s = T`,
-  simp [fetch "-" "flat_pattern_dec_name_to_num_side_def"]
-  ) |> update_precondition;
 
 val res = translate rich_listTheory.COUNT_LIST_compute;
 
@@ -154,7 +144,13 @@ val res = translate source_to_flatTheory.compile_flat_def;
 
 val res = translate source_to_flatTheory.compile_def;
 
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_flat_compile";
+
 val res = translate source_to_flatTheory.inc_compile_def;
+
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_flat_inc_compile";
 
 (* ------------------------------------------------------------------------- *)
 
