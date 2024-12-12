@@ -111,7 +111,7 @@ Inductive v_rel:
   /\
   (v_rel (ByteVector ws) (ByteVector ws))
   /\
-  (v_rel (RefPtr r1) (RefPtr r1))
+  (v_rel (RefPtr b r1) (RefPtr b r1))
   /\
   ((shift (FST (alt_free [c])) m num_args i = [c']) /\
    (!n. alt_fv_set [c] n /\ num_args <= n ==>
@@ -152,13 +152,13 @@ Theorem v_rel_simp =
        ``v_rel (Word64 n) y``,
        ``v_rel (Block n l) y``,
        ``v_rel (ByteVector ws) y``,
-       ``v_rel (RefPtr x) y``,
+       ``v_rel (RefPtr b x) y``,
        ``v_rel (Closure n l v x w) y``,
        ``v_rel (Recclosure x1 x2 x3 x4 x5) y``,
        ``v_rel y (Number x)``,
        ``v_rel y (Block n l)``,
        ``v_rel y (ByteVector ws)``,
-       ``v_rel y (RefPtr x)``,
+       ``v_rel y (RefPtr b x)``,
        ``v_rel y (Closure n l v x w)``,
        ``v_rel y (Word64 n)``,
        ``v_rel y (Recclosure x1 x2 x3 x4 x5)``]

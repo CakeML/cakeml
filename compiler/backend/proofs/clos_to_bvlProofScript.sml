@@ -900,7 +900,7 @@ Inductive cl_rel:
     /\
     ((exps = MAP FST exps_ps) /\
      (ps = MAP SND exps_ps) /\ (ps = GENLIST (\n. loc + (num_stubs max_app) + 2*n) (LENGTH exps_ps)) /\
-     (rs = MAP (\((n,e),p). Block closure_tag [CodePtr p; Number (&(n-1)); RefPtr r]) exps_ps) /\
+     (rs = MAP (\((n,e),p). Block closure_tag [CodePtr p; Number (&(n-1)); RefPtr T r]) exps_ps) /\
      ~(r IN fs) /\
      (FLOOKUP refs r = SOME (ValueArray (rs ++ ys))) /\
      1 < LENGTH exps /\ k < LENGTH exps /\
@@ -945,10 +945,10 @@ Inductive v_rel:
    v_rel max_app f refs code (Block t xs) (Block (clos_tag_shift t) ys))
   /\
   (FLOOKUP refs p = SOME (ByteArray T bs) /\ p ∉ FRANGE f ==>
-   v_rel max_app f refs code (ByteVector bs) (RefPtr p))
+   v_rel max_app f refs code (ByteVector bs) (RefPtr T p))
   /\
   ((FLOOKUP f r1 = SOME r2) ==>
-   v_rel max_app f refs code (RefPtr r1) (RefPtr r2))
+   v_rel max_app f refs code (RefPtr b r1) (RefPtr b r2))
   /\
   (EVERY2 (v_rel max_app f refs code) env fvs ∧
    cl_rel max_app (FRANGE f) refs code (env,fvs) cl (Block closure_tag (CodePtr p :: Number n :: ys))
@@ -974,7 +974,7 @@ End
 Triviality cl_rel_F:
   ~cl_rel max_app f refs code (env,ys) (Number i) cl ∧
    ~cl_rel max_app f refs code (env,ys) (Word64 w) cl ∧
-   ~cl_rel max_app f refs code (env,ys) (RefPtr p) cl ∧
+   ~cl_rel max_app f refs code (env,ys) (RefPtr b p) cl ∧
    ~cl_rel max_app f refs code (env,ys) (Block tag xs) cl ∧
    ~cl_rel max_app f refs code (env,ys) (ByteVector bs) cl
 Proof
@@ -983,7 +983,7 @@ QED
 
 Triviality add_args_F:
   !cl args p i tag xs.
-   add_args cl args ≠ SOME (RefPtr p) ∧
+   add_args cl args ≠ SOME (RefPtr b p) ∧
    add_args cl args ≠ SOME (Number i) ∧
    add_args cl args ≠ SOME (Word64 w) ∧
    add_args cl args ≠ SOME (Block tag xs) ∧
@@ -1013,7 +1013,7 @@ QED
 
 Theorem v_rel_SIMP =
   map (SIMP_CONV (srw_ss()) [v_rel_cases, cl_rel_F, add_args_F])
-      [``v_rel max_app f refs code (RefPtr p) y``,
+      [``v_rel max_app f refs code (RefPtr b p) y``,
        ``v_rel max_app f refs code (Block tag xs) y``,
        ``v_rel max_app f refs code (ByteVector bs) y``,
        ``v_rel max_app f refs code (Number i) y``,
@@ -2003,18 +2003,18 @@ Triviality evaluate_recc_Lets:
      EVERY (\n. n7 + ns + 2* n IN domain t1.code) (GENLIST I (LENGTH ll)) ==>
      (evaluate
        ([recc_Lets (n7 + ns) (REVERSE (MAP FST ll)) (LENGTH ll) (HD c8)],
-        Block closure_tag [CodePtr (n7 + (ns + 2 * LENGTH ll)); Number (&(FST x-1)); RefPtr rr]::env',
+        Block closure_tag [CodePtr (n7 + (ns + 2 * LENGTH ll)); Number (&(FST x-1)); RefPtr T rr]::env',
         t1 with <| refs := t1.refs |+ (rr,
                ValueArray
                (MAP (K (Number 0)) (MAP FST ll) ++
-                [Block closure_tag [CodePtr (n7 + (ns + 2* LENGTH ll)); Number (&(FST x'-1)); RefPtr rr]]++ys));clock := ck |>) =
+                [Block closure_tag [CodePtr (n7 + (ns + 2* LENGTH ll)); Number (&(FST x'-1)); RefPtr T rr]]++ys));clock := ck |>) =
       evaluate
        ([HD c8],
-        MAP2 (\n args. Block closure_tag [CodePtr (n7 + ns + 2* n); Number &(args-1); RefPtr rr])
+        MAP2 (\n args. Block closure_tag [CodePtr (n7 + ns + 2* n); Number &(args-1); RefPtr T rr])
                   (GENLIST I (LENGTH ll + 1)) (MAP FST ll ++ [FST x]) ++ env',
         t1 with <| refs := t1.refs |+ (rr,
                ValueArray
-               (MAP2 (\n args. Block closure_tag [CodePtr (n7 + ns + 2* n); Number &(args-1); RefPtr rr])
+               (MAP2 (\n args. Block closure_tag [CodePtr (n7 + ns + 2* n); Number &(args-1); RefPtr T rr])
                   (GENLIST I (LENGTH ll + 1)) (MAP FST ll ++ [FST x']) ++ ys)); clock := ck |>))
 Proof
   recInduct SNOC_INDUCT \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
@@ -2033,9 +2033,9 @@ Proof
   \\ simp []
   \\ rw_tac std_ss [PROVE [APPEND_ASSOC] ``!(a:'a list) b c d. a ++ b ++ c ++ d = a ++ b ++ (c ++ d)``] >>
   first_x_assum (qspecl_then [`n7`, `rr`,
-                   `Block closure_tag [CodePtr (n7 + (ns + 2 * SUC (LENGTH l))); Number (&(FST x'-1)); RefPtr rr]::env'`,
+                   `Block closure_tag [CodePtr (n7 + (ns + 2 * SUC (LENGTH l))); Number (&(FST x'-1)); RefPtr T rr]::env'`,
                    `t1`,
-                   `[Block closure_tag [CodePtr (n7 + (ns + 2 * SUC (LENGTH l))); Number (&(FST x''-1)); RefPtr rr]] ++ ys`,
+                   `[Block closure_tag [CodePtr (n7 + (ns + 2 * SUC (LENGTH l))); Number (&(FST x''-1)); RefPtr T rr]] ++ ys`,
                    `c8`,
                     `x`,
                     `x`,
@@ -2481,7 +2481,7 @@ Triviality genlist_el:
     skip = LENGTH ys
     ⇒
     bvlSem$evaluate (GENLIST (λi. Op El [Op (Const (&(i + skip))) []; Var 0]) (LENGTH xs),
-           RefPtr r:: (args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env),
+           RefPtr T r:: (args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr T r]::env),
            st)
     =
     (Rval xs, st)
@@ -2502,16 +2502,16 @@ Triviality evaluate_code_for_recc_case:
     FLOOKUP st.refs r = SOME (ValueArray xs)
     ⇒
     evaluate ([SND (code_for_recc_case (LENGTH xs) (LENGTH args) c)],
-              args ++ Block closure_tag [CodePtr p;Number &n;RefPtr r]::env,
+              args ++ Block closure_tag [CodePtr p;Number &n;RefPtr T r]::env,
               st) =
     evaluate ([c],
-              args ++ xs ++ [RefPtr r] ++ args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env,
+              args ++ xs ++ [RefPtr T r] ++ args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr T r]::env,
               st)
 Proof
   simp [code_for_recc_case_def, evaluate_def, do_app_def] >>
   simp [evaluate_APPEND, EL_LENGTH_APPEND] >>
   rpt strip_tac >>
-  `LENGTH args + 1 ≤ LENGTH (RefPtr r::(args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env))`
+  `LENGTH args + 1 ≤ LENGTH (RefPtr T r::(args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr T r]::env))`
               by (srw_tac[][] >> intLib.ARITH_TAC) >>
   imp_res_tac evaluate_genlist_vars >>
   full_simp_tac(srw_ss())[] >>
@@ -2563,12 +2563,12 @@ Proof
   simp [] >>
   MAP_EVERY qexists_tac [`c`, `aux`, `aux1`,
         `DROP (LENGTH args' − (n + 1)) args' ++
-         MAP (λ((n,e),p). Block closure_tag [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr r])
+         MAP (λ((n,e),p). Block closure_tag [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr T r])
              exps_ps ++
          fvs ++
-         [RefPtr r] ++
+         [RefPtr T r] ++
          DROP (LENGTH args' − (n + 1)) args' ++
-         [Block closure_tag [CodePtr p; Number (&n); RefPtr r]]`] >>
+         [Block closure_tag [CodePtr p; Number (&n); RefPtr T r]]`] >>
   srw_tac[][]
   >- ARITH_TAC
   >- (simp [TAKE_REVERSE, LASTN_DROP] >>
@@ -2580,7 +2580,7 @@ Proof
       `LIST_REL (v_rel max_app f1 refs code)
                 (GENLIST (Recclosure (SOME loc') [] env (MAP FST exps_ps)) (LENGTH exps_ps))
                 (MAP (λ((n,e),p).
-                       Block closure_tag [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr r])
+                       Block closure_tag [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr T r])
                      exps_ps)`
             by (srw_tac[][LIST_REL_EL_EQN] >>
                 simp [v_rel_cases] >>
@@ -4451,7 +4451,7 @@ Proof
       \\ imp_res_tac v_to_list \\ fs[v_rel_SIMP,FLOOKUP_UPDATE]
       \\ DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\ rw[]
       \\ qmatch_assum_rename_tac`LIST_REL _ (MAP ByteVector _) ls`
-      \\ `∃ps. ls = MAP RefPtr ps`
+      \\ `∃ps. ls = MAP (RefPtr T) ps`
       by (
         simp[LIST_EQ_REWRITE]
         \\ fs[LIST_REL_EL_EQN,v_rel_SIMP,EL_MAP]
@@ -4460,7 +4460,7 @@ Proof
         \\ simp[EL_MAP] )
       \\ map_every qexists_tac[`wss`,`ps`]
       \\ simp[]
-      \\ `∀x. MAP RefPtr ps = MAP RefPtr x ⇔ x = ps`
+      \\ `∀x. MAP (RefPtr T) ps = MAP (RefPtr T) x ⇔ x = ps`
       by ( rw[EQ_IMP_THM] \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] ) \\ simp[]
       \\ reverse conj_asm2_tac
       >- ( fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_SIMP] )
@@ -4699,7 +4699,7 @@ Proof
     \\ `[HD c8] = c8` by (IMP_RES_TAC compile_exps_SING \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
     \\ qpat_abbrev_tac`t1refs = t1.refs |+ (rr,vv)`
     \\ FIRST_X_ASSUM (qspecl_then [`t1 with <| refs := t1refs; clock := ck+s.clock|>`,
-       `MAP2 (\n args. Block closure_tag [CodePtr (x + num_stubs s.max_app + 2*n); Number &(args-1); RefPtr rr])
+       `MAP2 (\n args. Block closure_tag [CodePtr (x + num_stubs s.max_app + 2*n); Number &(args-1); RefPtr T rr])
           (GENLIST I (LENGTH (ll:(num#closLang$exp) list) + 1)) (MAP FST ll ++ [FST (x'':(num#closLang$exp))]) ++ env''`,`f1`] mp_tac)
     \\ `~(rr IN FDOM t1.refs)` by
      (UNABBREV_ALL_TAC

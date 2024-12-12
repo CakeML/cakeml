@@ -14,7 +14,9 @@ val grep_io_events_def = new_specification("grep_io_events_def",["grep_io_events
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (grep_sem,grep_output) = grep_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (grep_not_fail,grep_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail grep_sem |> CONJ_PAIR
+val (grep_not_fail,grep_sem_sing) = grep_sem
+  |> SRULE [grep_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 grep_compiled)

@@ -15,8 +15,9 @@ val helloErr_io_events_def =
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (helloErr_sem,helloErr_output) = helloErr_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (helloErr_not_fail,helloErr_sem_sing) = MATCH_MP
-        semantics_prog_Terminate_not_Fail helloErr_sem |> CONJ_PAIR
+val (helloErr_not_fail,helloErr_sem_sing) = helloErr_sem
+  |> SRULE [helloErr_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 helloErr_compiled)

@@ -30,7 +30,8 @@ Theorem wordcount_stdin_semantics = Q.prove(
              (concat
                [mlint$toString (&LENGTH (TOKENS isSpace input)); strlit " ";
                 mlint$toString (&LENGTH (splitlines input)); strlit "\n"])))`,
-  match_mp_tac (GEN_ALL wordcount_semantics)
+  simp [wordcount_compiled, GSYM ml_progTheory.prog_syntax_ok_semantics]
+  \\ match_mp_tac (GEN_ALL wordcount_semantics)
   \\ simp[wordcount_precond_def, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
   \\ simp[stdin_fs_def])
@@ -44,7 +45,9 @@ val wordcount_io_events_def =
   |> SIMP_RULE std_ss [SKOLEM_THM]);
 
 val (wordcount_sem,wordcount_output) = wordcount_io_events_def |> SPEC_ALL |> CONJ_PAIR
-val (wordcount_not_fail,wordcount_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail wordcount_sem |> CONJ_PAIR
+val (wordcount_not_fail,wordcount_sem_sing) = wordcount_sem
+  |> SRULE [wordcount_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val ffinames_to_string_list_def = backendTheory.ffinames_to_string_list_def;
 

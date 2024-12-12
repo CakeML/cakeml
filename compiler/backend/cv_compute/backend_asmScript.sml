@@ -3,7 +3,8 @@
   be a separate argument and where inc_config is used instead of config.
 *)
 
-open preamble backendTheory lab_to_targetTheory backend_enc_decTheory;
+open preamble backendTheory lab_to_targetTheory backend_enc_decTheory
+     evaluate_decTheory;
 
 val _ = new_theory "backend_asm";
 
@@ -304,7 +305,9 @@ End
 
 Definition compile_cake_def:
   compile_cake (asm_conf :'a asm_config) (c :inc_config) p =
-    from_word_0 asm_conf (to_word_0 asm_conf c p)
+    if ml_prog$prog_syntax_ok p then
+      from_word_0 asm_conf (to_word_0 asm_conf c p)
+    else NONE
 End
 
 (*----------------------------------------------------------------*
@@ -331,7 +334,7 @@ Proof
           inc_config_to_config_def,backendTheory.inc_config_to_config_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ pop_assum kall_tac
-  \\ ntac 2 (TOP_CASE_TAC \\ gvs [])
+  \\ gvs [AllCaseEqs()]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [backendTheory.attach_bitmaps_def,backendTheory.config_to_inc_config_def,
           lab_to_targetTheory.config_to_inc_config_def]
@@ -500,6 +503,7 @@ Theorem compile_cake_thm:
       LENGTH bytes = bytes_len ∧
       LENGTH bm = bm_len ∧
       LENGTH c1.lab_conf.shmem_extra = shmem_len ∧
+      ml_prog$prog_syntax_ok p ∧
       conf_str = encode_backend_config (config_to_inc_config c1)
 Proof
   rw [compile_cake_def]

@@ -175,7 +175,7 @@ Inductive v_rel:
   /\
   (v_rel max_app (ByteVector ws) (ByteVector ws))
   /\
-  (v_rel max_app (RefPtr r1) (RefPtr r1))
+  (v_rel max_app (RefPtr b r1) (RefPtr b r1))
   /\
   (LIST_REL (v_rel max_app) env env' ∧
    LIST_REL (v_rel max_app) argenv argenv' ∧
@@ -247,14 +247,14 @@ Theorem v_rel_simp =
        ``v_rel max_app (Word64 n) y``,
        ``v_rel max_app (Block n l) y``,
        ``v_rel max_app (ByteVector ws) y``,
-       ``v_rel max_app (RefPtr x) y``,
+       ``v_rel max_app (RefPtr b x) y``,
        ``v_rel max_app (Closure n a l narg x) y``,
        ``v_rel max_app (Recclosure x1 x2 x3 x4 x5) y``,
        ``v_rel max_app y (Number x)``,
        ``v_rel max_app y (Word64 n)``,
        ``v_rel max_app y (Block n l)``,
        ``v_rel max_app y (ByteVector ws)``,
-       ``v_rel max_app y (RefPtr x)``,
+       ``v_rel max_app y (RefPtr b x)``,
        ``v_rel max_app y (Closure n a l narg x)``,
        ``v_rel max_app y (Recclosure x1 x2 x3 x4 x5)``]
     |> LIST_CONJ

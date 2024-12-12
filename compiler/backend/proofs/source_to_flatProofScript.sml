@@ -240,8 +240,8 @@ Inductive v_rel:
         (compile_exp t1
           (comp_map with v := nsBindList ((y, Local t2 y)::new_vars) comp_map.v)
           e))) ∧
-  (!genv loc.
-    v_rel genv (Loc loc) (Loc (loc + 1))) ∧
+  (!genv loc b.
+    v_rel genv (Loc b loc) (Loc b (loc + 1))) ∧
   (!genv vs vs'.
     LIST_REL (v_rel genv) vs vs'
     ⇒
@@ -297,9 +297,9 @@ Theorem v_rel_eqns:
         | NONE => cn' = NONE
         | SOME cn =>
           ?cn2. cn' = SOME cn2 ∧ FLOOKUP genv.c (cn2, LENGTH vs) = SOME cn) ∧
-   (!genv l v.
-    v_rel genv (Loc l) v ⇔
-      (v = Loc l)) ∧
+   (!genv l v b.
+    v_rel genv (Loc b l) v ⇔
+      (v = Loc b l)) ∧
    (!genv vs v.
     v_rel genv (Vectorv vs) v ⇔
       ?vs'. LIST_REL (v_rel genv) vs vs' ∧ (v = Vectorv vs')) ∧
@@ -346,7 +346,7 @@ Proof
 
 Triviality v_rel_eqns =
   [``v_rel genv (Litv l) v``, ``v_rel genv (Conv cn vs) v``,
-    ``v_rel genv (Loc l) v``, ``v_rel genv (Vectorv vs) v``,
+    ``v_rel genv (Loc b l) v``, ``v_rel genv (Vectorv vs) v``,
     ``env_rel genv nsEmpty env'``, ``env_rel genv (nsBind x v env) env'``,
     ``v_rel genv (Env e id) v``,
     “v_rel genv (FP_WordTree fp) v”,
@@ -2219,7 +2219,7 @@ End
 
 Definition eval_ref_inv_def:
   eval_ref_inv first_global first_ref <=>
-  first_global = [SOME (Loc 0)] /\
+  first_global = [SOME (Loc T 0)] /\
   ?v. first_ref = [Refv v]
 End
 
@@ -3998,7 +3998,7 @@ Theorem declare_env_store_env_id:
   invariant interp g (gen with next := gen.next + 1) genv idxs
     (st with eval_state := es2) s_i1
   /\
-  (?xs. s_i1.globals = SOME (Loc 0) :: xs) /\
+  (?xs. s_i1.globals = SOME (Loc T 0) :: xs) /\
   v_rel genv x y /\
   orac_forward_rel interp st.eval_state es2
 Proof
@@ -5239,7 +5239,7 @@ QED
 Theorem invariant_begin_alloc_blanks:
   precondition1 interp g s1 env1 cfg eval_conf prog /\
   cfg' = FST (compile_prog cfg prog) /\
-  init_globs = SOME (Loc 0) :: REPLICATE (cfg'.next.vidx - 1) NONE ==>
+  init_globs = SOME (Loc T 0) :: REPLICATE (cfg'.next.vidx - 1) NONE ==>
   invariant interp g
     <|next := 0; generation := cfg.envs.next; envs := LN|>
     (init_genv with v := init_globs)

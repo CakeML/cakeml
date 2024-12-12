@@ -33,6 +33,3 @@ composing semantics correctness from pan to target
 
 [pan_to_wordProofScript.sml](pan_to_wordProofScript.sml):
 Correctness proof for combined pan_to_word compilation.
-
-[time](time):
-Proof files for compiling TimeLang.
