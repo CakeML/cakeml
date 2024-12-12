@@ -12,6 +12,7 @@ val _ = translation_extends "decodeProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val monad_unitbind_assert = parserProgTheory.monad_unitbind_assert;
 

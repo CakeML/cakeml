@@ -15,6 +15,7 @@ val _ = new_theory"compiler32Prog";
 
 val _ = translation_extends "ag32Prog";
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler32Prog");
 

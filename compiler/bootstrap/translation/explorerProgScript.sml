@@ -13,6 +13,7 @@ val _ = translation_extends "inferProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "explorerProg");
 val _ = ml_translatorLib.use_string_type false;
+val _ = ml_translatorLib.use_sub_check true;
 
 (* TODO: this is copied in many bootstrap translation files - should be in a lib? *)
 fun def_of_const tm = let

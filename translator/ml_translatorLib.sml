@@ -102,6 +102,7 @@ exception NotFoundVThm of term;
 
 local
   val use_string_type_ref = ref false;
+  val use_sub_check_ref = ref false; (* whether to default to checked num - *)
   val finalise_function = ref (I:unit -> unit);
 in
   fun use_string_type b =
@@ -109,11 +110,17 @@ in
      if b then print "Translator now treats `char list` as a CakeML string.\n"
      else print "Translator now treats `char list` as a list of characters in CakeML.\n");
   fun use_hol_string_type () = !use_string_type_ref
+  fun use_sub_check b =
+    (use_sub_check_ref := b;
+     if b then print "Translator now uses checked subtraction on num.\n"
+     else print "Translator now generates side conditions for subtraction on num.\n");
+  fun sub_check () = !use_sub_check_ref
   fun add_finalise_function f = let
     val old_f = !finalise_function
     in (finalise_function := (fn () => (old_f (); f ()))) end
   fun run_finalise_function () = (!finalise_function) ()
 end
+
 
 (* / non-persistent state *)
 
@@ -2929,7 +2936,7 @@ val builtin_binops =
    Eval_sub,
    Eval_Implies,
    Eval_pure_seq]
-  |> map (fn th =>
+ |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
 
 val builtin_monops =
@@ -2971,10 +2978,16 @@ val builtin_hol_string_monops =
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th))
 
+val builtin_sub_check =
+  [Eval_NUM_SUB_check']
+ |> map (fn th =>
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
+
 val AUTO_ETA_EXPAND_CONV = let (* K ($=) --> K (\x y. x = y) *)
   val must_eta_expand_ops =
     map fst builtin_terops @
     map fst builtin_binops @
+    map fst builtin_sub_check @
     map fst builtin_monops @
     map fst builtin_hol_string_binops @
     map fst builtin_hol_string_monops
@@ -3059,8 +3072,9 @@ fun dest_builtin_terop tm = let
 fun dest_builtin_binop tm = let
   val (px,r2) = dest_comb tm
   val (p,r1) = dest_comb px
-  val thms = (if use_hol_string_type () then builtin_hol_string_binops else [])
-             @ builtin_binops
+  val thms =
+    (if sub_check () then builtin_sub_check else []) @
+    (if use_hol_string_type () then builtin_hol_string_binops else []) @ builtin_binops
   val (x,th) = first (fn (x,_) => can (match_term x) p) thms
   val (ss,ii) = match_term x p
   val th = INST ss (INST_TYPE ii th)

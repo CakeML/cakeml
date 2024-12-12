@@ -11,7 +11,6 @@ be selected than simple prefixes of the current ordering.
 
 basis
 to_flat
-to_pat
 to_clos
 to_bvl
 to_bvi
@@ -20,6 +19,8 @@ lexer
 parser
 caml_lexer
 caml_parser
+pancake_lex
+pancake_parse
 reg_alloc
 infer
 explorer
@@ -28,6 +29,7 @@ basis_def
 --- (the translation splits into two paths for 32- and 64-bit targets)
 to_word32
 to_target32
+from_pancake32
 arm7
 ag32
 compiler32

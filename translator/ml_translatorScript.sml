@@ -1146,6 +1146,14 @@ Proof
   \\ FULL_SIMP_TAC std_ss [Eval_Var_SIMP]
 QED
 
+Theorem Eval_NUM_SUB_check':
+  Eval env x1 (NUM m) ==>
+  Eval env x2 (NUM n) ==>
+  Eval env ^code (NUM (m - n))
+Proof
+  simp[GSYM sub_check_def,Eval_NUM_SUB_check]
+QED
+
 end;
 
 Theorem Eval_NUM_LESS =

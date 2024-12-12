@@ -621,4 +621,16 @@ val res = translate TAKE_def;
 val res = translate DROP_def;
 val res = translate chop_str_def
 
+Definition foo_sub_def:
+  foo_sub (x:num) y = x - y
+End
+
+(* default: generates a precondition *)
+val res = translate foo_sub_def;
+
+val _ = use_sub_check true;
+
+(* no precondition *)
+val res = translate foo_sub_def;
+
 val _ = export_theory();

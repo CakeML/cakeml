@@ -15,6 +15,7 @@ val _ = translation_extends "mipsProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler64Prog");
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val _ = (ml_translatorLib.trace_timing_to
          := SOME "compiler64Prog_translate_timing.txt")
