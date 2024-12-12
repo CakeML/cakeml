@@ -26,9 +26,25 @@ val _ = use_full_type_names := true;
 val r = translate newline_def;
 val r = translate breakdist_def;
 val r = translate REPLICATE;
-val r = translate blanks_def;
+val r = translate (blanks_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate SmartAppend_def;
-val r = translate print_list_def;
+val r = translate (print_list_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+Triviality print_list_ind:
+  print_list_ind
+Proof
+  once_rewrite_tac [fetch "-" "print_list_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = print_list_ind |> update_precondition;
+
 val r = translate pr_def;
 val r = translate tlength_def;
 val r = translate mk_blo_def;
@@ -171,7 +187,8 @@ Proof
 QED
 val _ = update_precondition s2c_side;
 
-val r = translate str_prefix_def;
+val r = translate (str_prefix_def |> REWRITE_RULE [GSYM sub_check_def]);
+
 val r = translate tokenize_def;
 
 val r = m_translate readLines_def;
@@ -213,7 +230,6 @@ val r = translate upd2str_applist_def;
 val r = translate msg_success_def;
 val r = translate msg_usage_def;
 val r = translate msg_bad_name_def;
-val r = translate str_prefix_def;
 
 (* ------------------------------------------------------------------------- *)
 (* Things needed by whole_prog_spec                                          *)
