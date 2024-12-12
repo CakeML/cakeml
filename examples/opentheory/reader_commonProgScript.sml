@@ -159,23 +159,15 @@ val r = translate next_line_def;
 val r = translate line_Fail_def;
 val r = translate strh_aux_def;
 
-Theorem strh_aux_side[local]:
-  ∀a b c. strh_aux_side a b c
-Proof
-  ho_match_mp_tac strh_aux_ind \\ rw []
-  \\ simp [Once (fetch "-" "strh_aux_side_def")]
-QED
-val _ = update_precondition strh_aux_side;
-
 val r = translate strh_def;
-val r = translate s2c_def;
+val r = translate (s2c_def |> REWRITE_RULE [GSYM sub_check_def]);
 
 Theorem s2c_side[local]:
   ∀s. s2c_side s
 Proof
   namedCases ["x"]
   \\ rw [fetch "-" "s2c_side_def"]
-  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs [sub_check_def]
 QED
 val _ = update_precondition s2c_side;
 

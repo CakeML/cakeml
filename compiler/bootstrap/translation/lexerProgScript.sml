@@ -65,6 +65,8 @@ val _ = (find_def_for_const := def_of_const);
 
 val _ = translate get_token_eqn
 
+val _ = translate (read_char_as_3digits_def |> REWRITE_RULE [GSYM sub_check_def]);
+
 val _ = translate (next_token_def |> SIMP_RULE std_ss [next_sym_eq])
 
 val _ = translate lexer_fun_def
@@ -101,15 +103,6 @@ val num_from_hex_string_alt_side = Q.prove(`
     fs[ORD_CHR]>>
     strip_tac>>
     fs[]) |> update_precondition;
-
-Triviality read_string_side:
-  ∀x y l.
-  read_string_side x y l ⇔ T
-Proof
-  ho_match_mp_tac read_string_ind>>
-  rw[]>>
-  simp[Once (fetch"-""read_string_side_def")]
-QED
 
 Triviality next_sym_alt_side:
   ∀x l. next_sym_alt_side x l ⇔ T
