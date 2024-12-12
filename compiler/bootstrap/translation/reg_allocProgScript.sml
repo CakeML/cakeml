@@ -124,7 +124,7 @@ val _ = translate sp_default_def;
 val _ = translate extract_tag_def;
 val _ = translate fromAList_def;
 
-val _ = m_translate dec_deg_def;
+val _ = m_translate (dec_deg_def |> REWRITE_RULE [GSYM sub_check_def]);
 val _ = m_translate dec_degree_def;
 val _ = m_translate add_simp_wl_def;
 val _ = m_translate add_spill_wl_def;
@@ -170,7 +170,7 @@ val _ = m_translate is_Fixed_k_def;
 val _ = m_translate deg_or_inf_def;
 val _ = m_translate considered_var_def;
 
-val _ = m_translate  (bg_ok_def |> REWRITE_RULE [MEMBER_INTRO,rewrite_subs])
+val _ = m_translate  (bg_ok_def |> REWRITE_RULE [MEMBER_INTRO,rewrite_subs, GSYM sub_check_def])
 
 (* TODO: something in the monadic translator automatically rewrites
   the ¬ (a ∧ b) check
