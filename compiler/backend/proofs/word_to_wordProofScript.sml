@@ -130,11 +130,60 @@ Proof
   irule_at Any extract_labels_remove_unreach>> simp[]
 QED
 
+Theorem call_arg_convention_Seq_assoc_right_lemma:
+  ∀p1 p2. call_arg_convention p1 ∧ call_arg_convention p2 ⇒
+          call_arg_convention (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,call_arg_convention_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[call_arg_convention_def] >> NO_TAC)
+  >- (rpt (PURE_CASE_TAC >> fs[]) >> fs[call_arg_convention_def]) >>
+  rpt (PURE_CASE_TAC >> fs[]) >> fs[call_arg_convention_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,call_arg_convention_def]
+QED
+
+Theorem call_arg_convention_remove_unreach:
+  call_arg_convention p ⇒
+  call_arg_convention (remove_unreach p)
+Proof
+  rw[remove_unreach_def] >>
+  irule call_arg_convention_Seq_assoc_right_lemma >>
+  simp[call_arg_convention_def]
+QED
+
+Theorem every_stack_var_is_stack_var_Seq_assoc_right_lemma:
+  ∀p1 p2. every_stack_var is_stack_var p1 ∧
+          every_stack_var is_stack_var p2 ⇒
+          every_stack_var is_stack_var (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,
+         wordLangTheory.every_stack_var_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[wordLangTheory.every_stack_var_def] >> NO_TAC)
+  >- (rpt (PURE_CASE_TAC >> fs[]) >>
+      fs[wordLangTheory.every_stack_var_def]) >>
+  rpt (PURE_CASE_TAC >> fs[]) >> fs[wordLangTheory.every_stack_var_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,wordLangTheory.every_stack_var_def]
+QED
+
+Theorem every_stack_var_is_stack_var_remove_unreach:
+  every_stack_var is_stack_var p ⇒
+  every_stack_var is_stack_var (remove_unreach p)
+Proof
+  rw[remove_unreach_def] >>
+  irule every_stack_var_is_stack_var_Seq_assoc_right_lemma >>
+  simp[wordLangTheory.every_stack_var_def]
+QED
+
 Theorem pre_alloc_conventions_remove_unreach:
   pre_alloc_conventions p ⇒
   pre_alloc_conventions (remove_unreach p)
 Proof
-  cheat
+  rw[pre_alloc_conventions_def]
+  >- fs[every_stack_var_is_stack_var_remove_unreach] >>
+  simp[call_arg_convention_remove_unreach]
 QED
 
 Theorem full_inst_ok_less_remove_unreach:
