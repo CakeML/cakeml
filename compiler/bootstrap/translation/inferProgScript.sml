@@ -407,11 +407,6 @@ QED
 
 val _ = translate ty_var_name_eq;
 
-val ty_var_name_side =
-  ``ty_var_name_side x``
-  |> SIMP_CONV arith_ss [fetch "-" "ty_var_name_side_def"]
-  |> update_precondition;
-
 val _ = translate infer_tTheory.commas_def;
 val _ = translate infer_tTheory.add_parens_def;
 val _ = translate infer_tTheory.inf_type_to_string_rec_def;
