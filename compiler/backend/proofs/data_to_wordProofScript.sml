@@ -5,7 +5,7 @@ open preamble dataSemTheory dataPropsTheory
      copying_gcTheory int_bitwiseTheory finite_mapTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
      data_to_word_bignumProofTheory data_to_word_assignProofTheory
-     data_to_wordTheory wordPropsTheory whileTheory
+     data_to_wordTheory wordPropsTheory wordConvsTheory whileTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
      helperLib alignmentTheory blastLib word_bignumTheory
      wordLangTheory word_bignumProofTheory gen_gc_partialTheory
@@ -1423,7 +1423,7 @@ QED
 
 val _ = (max_print_depth := 15);
 
-val extract_labels_def = wordPropsTheory.extract_labels_def;
+val extract_labels_def = wordConvsTheory.extract_labels_def;
 
 Theorem extract_labels_MemEqList[simp]:
   ∀a x. extract_labels (MemEqList a x) = []
@@ -1538,7 +1538,7 @@ QED
 Triviality labels_rel_emp:
   labels_rel [] ls ⇒ ls = []
 Proof
-  fs[word_simpProofTheory.labels_rel_def]
+  fs[wordConvsTheory.labels_rel_def]
 QED
 
 Theorem stub_labels:
@@ -1606,7 +1606,7 @@ Proof
   rfs[EL_MAP]>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
-  rw[] >>fs[word_simpProofTheory.labels_rel_def,SUBSET_DEF,MEM_EL,PULL_EXISTS]>>
+  rw[] >>fs[wordConvsTheory.labels_rel_def,SUBSET_DEF,MEM_EL,PULL_EXISTS]>>
   first_x_assum(qspec_then`n'''` assume_tac)>>rfs[]>>
   res_tac>>fs[]>>
   pairarg_tac>>fs[]>>
@@ -1802,9 +1802,9 @@ QED
 
 Overload data_get_code_labels = ``dataProps$get_code_labels``
 Overload data_good_code_labels = ``dataProps$good_code_labels``
-Overload word_get_code_labels = ``wordProps$get_code_labels``
-Overload word_good_handlers = ``wordProps$good_handlers``
-Overload word_good_code_labels = ``wordProps$good_code_labels``
+Overload word_get_code_labels = ``wordConvs$get_code_labels``
+Overload word_good_handlers = ``wordConvs$good_handlers``
+Overload word_good_code_labels = ``wordConvs$good_code_labels``
 
 (* word_to_word never introduces any labels, so the statements are easy *)
 local
@@ -2301,7 +2301,7 @@ Theorem word_get_code_labels_word_to_word_incr_helper:
   (MAP (full_compile_single tra reg_count1
         ralg asm_c) (ZIP (progs,oracles))) elabs
 Proof
-  fs[wordPropsTheory.good_code_labels_def]>>
+  fs[wordConvsTheory.good_code_labels_def]>>
   rw[]
   >-
     metis_tac[word_good_handlers_word_to_word_incr_helper]
@@ -2588,7 +2588,7 @@ Proof
   pop_assum SUBST_ALL_TAC>>
   fs[Abbr`LHS`]>>
   match_mp_tac word_get_code_labels_word_to_word>>
-  fs[wordPropsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
+  fs[wordConvsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
   >-
     (EVAL_TAC>>rw[])
   >-
@@ -2632,7 +2632,7 @@ Theorem data_to_word_good_code_labels_incr:
   data_good_code_labels progs elabs ⇒
   word_good_code_labels (MAP (compile_part dc) progs) elabs
 Proof
-  fs[wordPropsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
+  fs[wordConvsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
   >-
     (simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
     fs[EVERY_MEM,FORALL_PROD])
@@ -2661,7 +2661,7 @@ Proof
   pop_assum SUBST_ALL_TAC>>
   fs[Abbr`LHS`]>>
   match_mp_tac word_good_handlers_word_to_word>>
-  fs[wordPropsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
+  fs[wordConvsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
   >-
     (EVAL_TAC>>rw[])
   >-
@@ -2793,7 +2793,7 @@ Proof
   conj_tac
   >- (
     simp [FORALL_PROD, no_share_inst_subprogs_def]
-    \\ simp [compile_single_not_created |> GEN_ALL |> SIMP_RULE std_ss [PAIR_FST_SND_EQ]]
+    \\ simp [compile_single_not_created_subprogs |> GEN_ALL |> SIMP_RULE std_ss [PAIR_FST_SND_EQ]]
   )
   >>
   REWRITE_TAC [combinTheory.o_ASSOC] >>
