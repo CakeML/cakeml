@@ -103,7 +103,6 @@ exception NotFoundVThm of term;
 local
   val use_string_type_ref = ref false;
   val use_sub_check_ref = ref false; (* whether to default to checked num - *)
-  val use_precond_arith_ref = ref true; (* whether to use ARITH_ss in precondition check *)
   val finalise_function = ref (I:unit -> unit);
 in
   fun use_string_type b =
@@ -116,12 +115,6 @@ in
      if b then print "Translator now uses checked subtraction on num.\n"
      else print "Translator now generates side conditions for subtraction on num.\n");
   fun sub_check () = !use_sub_check_ref
-  fun use_precond_arith b =
-    (use_precond_arith_ref := b;
-     if b then print "Translator now uses arithmetic simplification when checking preconditions.\n"
-     else print "Translator now does not use arithmetic simplification when checking preconditions.\n");
-  fun precond_arith () = !use_precond_arith_ref
-
   fun add_finalise_function f = let
     val old_f = !finalise_function
     in (finalise_function := (fn () => (old_f (); f ()))) end
@@ -3754,11 +3747,7 @@ fun extract_precondition_non_rec th pre_var =
   if not (is_imp (concl th)) then (th,NONE) else let
     val c = (REWRITE_CONV [CONTAINER_def,PRECONDITION_def] THENC
              ONCE_REWRITE_CONV [GSYM PRECONDITION_def] THENC
-             (if precond_arith () then
-               SIMP_CONV (srw_ss()++ARITH_ss) [FALSE_def,TRUE_def]
-             else
-               SIMP_CONV (srw_ss()) [FALSE_def,TRUE_def])
-           )
+             SIMP_CONV (srw_ss()++ARITH_ss) [FALSE_def,TRUE_def])
     val c = (RATOR_CONV o RAND_CONV) c
     val th = CONV_RULE c th
     val rhs = th |> concl |> dest_imp |> fst |> rand
@@ -3829,11 +3818,7 @@ val (fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
   fun is_true_pre (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) =
     (Teq
      (tm2 |> subst ss
-          |> QCONV (REWRITE_CONV [rw2,PreImp_def,PRECONDITION_def,CONTAINER_def] THENC
-             (if precond_arith () then
-               SIMP_CONV (srw_ss()++ARITH_ss) [FALSE_def,TRUE_def]
-             else
-               SIMP_CONV (srw_ss()) [FALSE_def,TRUE_def]))
+          |> QCONV (REWRITE_CONV [rw2,PreImp_def,PRECONDITION_def,CONTAINER_def] THENC SIMP_CONV (srw_ss()++ARITH_ss) [FALSE_def,TRUE_def])
           |> concl |> rand))
   val no_pre = every (map is_true_pre thms)
 

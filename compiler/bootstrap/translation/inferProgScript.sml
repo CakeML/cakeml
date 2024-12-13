@@ -13,7 +13,6 @@ val _ = new_theory "inferProg"
 val _ = translation_extends "reg_allocProg";
 val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
-val _ = ml_translatorLib.use_precond_arith false;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "inferProg");
 
@@ -406,11 +405,6 @@ Proof
 QED
 
 val _ = translate ty_var_name_eq;
-
-val ty_var_name_side =
-  ``ty_var_name_side x``
-  |> SIMP_CONV arith_ss [fetch "-" "ty_var_name_side_def"]
-  |> update_precondition;
 
 val _ = translate infer_tTheory.commas_def;
 val _ = translate infer_tTheory.add_parens_def;
