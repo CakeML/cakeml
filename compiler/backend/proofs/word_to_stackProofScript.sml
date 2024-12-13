@@ -29,6 +29,27 @@ Type state[pp] = “:(α,β,γ)wordSem$state”
 Overload word_cmp[local] = “labSem$word_cmp”;
 val _ = Parse.hide "B"
 
+(* TODO: Move to stackProps*)
+Theorem set_var_with_memory:
+   stackSem$set_var a b c with memory := m = set_var a b (c with memory := m)
+Proof
+  EVAL_TAC
+QED
+
+Theorem set_var_memory[simp]:
+   (stackSem$set_var a b c).memory = c.memory
+Proof
+  EVAL_TAC
+QED
+
+Theorem get_var_with_clock[simp]:
+  stackSem$get_var r (t with clock := clk) =
+  (stackSem$get_var r t)
+Proof
+  rw[stackSemTheory.get_var_def]
+QED
+
+
 (* TODO: many things in this file need moving *)
 
 val the_eqn = backendPropsTheory.the_eqn
@@ -4062,18 +4083,6 @@ Proof
   \\ simp[ADD_COMM]
 QED
 
-Theorem set_var_with_memory:
-   stackSem$set_var a b c with memory := m = set_var a b (c with memory := m)
-Proof
-  EVAL_TAC
-QED
-
-Theorem set_var_memory[simp]:
-   (stackSem$set_var a b c).memory = c.memory
-Proof
-  EVAL_TAC
-QED
-
 Theorem state_rel_with_memory:
    state_rel ac k f f' s t lens ⇒
    state_rel ac k f f' (s with memory := m) (t with memory := m) lens
@@ -6605,13 +6614,6 @@ Proof
   simp[FLOOKUP_UPDATE]
 QED
 
-(* TODO: move? *)
-Theorem get_var_with_clock[simp]:
-  stackSem$get_var r (t with clock := clk) =
-  (stackSem$get_var r t)
-Proof
-  rw[stackSemTheory.get_var_def]
-QED
 
 Triviality evaluate_const_inst_wReg1:
   wReg1 r (k,f,f') = (x ,r') ∧
