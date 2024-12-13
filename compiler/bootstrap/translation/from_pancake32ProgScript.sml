@@ -218,14 +218,6 @@ open loop_callTheory;
 
 val _ = translate $ spec32 comp_def;
 
-val loop_call_comp_side = Q.prove(
-  ‘∀spt prog. (loop_call_comp_side spt prog) ⇔ T’,
-  ho_match_mp_tac comp_ind
-  \\ rw[]
-  \\ simp[Once (fetch "-" "loop_call_comp_side_def")]
-  \\ TRY (metis_tac []))
-  |> update_precondition;
-
 open loop_liveTheory;
 
 val _ = translate $ spec32 vars_of_exp_def;
