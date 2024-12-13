@@ -33,19 +33,23 @@ val _ = new_theory "wordConvsProof";
 
   full_ssa_cc_trans
   ===
+    3 preserves subprogs: full_ssa_cc_trans_not_created_subprogs
     TODO
 
   remove_dead_prog (note this is ran again after remove_unreach)
   ===
     1 preserves label_rel: remove_dead_prog_conventions (equality on labels)
+    3 preserves subprogs: remove_dead_prog_not_created_subprogs
     preserves flat_exp_conventions: remove_dead_prog_conventions
     preserves full_inst_ok_less: remove_dead_prog_conventions
     preserves pre_alloc_conventions: remove_dead_prog_conventions
     preserves every_inst: remove_dead_prog_conventions
     preserves wf_cutsets: remove_dead_prog_conventions
+    TODO
 
   word_common_subexp_elim
   ===
+    3 preserves subprogs: word_common_subexp_elim_not_created_subprogs
     TODO
 
   copy_prop
@@ -66,9 +70,13 @@ val _ = new_theory "wordConvsProof";
     preservers full_inst_ok_less :three_to_two_reg_prog_full_inst_ok_less:
     TODO
 
-
   remove_unreach
   ===
+    TODO
+
+  word_alloc
+  ===
+    3 preserves subprogs: word_alloc_not_created_subprogs
     TODO
 
   word_to_word (overall)
@@ -405,7 +413,6 @@ Proof
   \\ fs [UNION_ASSOC]
 QED
 
-
 Triviality not_created_subprogs_drop_consts[simp]:
   not_created_subprogs P (SmartSeq (drop_consts cs ls) p) =
   not_created_subprogs P p
@@ -578,8 +585,113 @@ Proof
   metis_tac[inst_select_exp_full_inst_ok_less]
 QED
 
+(*** full_ssa_cc_trans ***)
+
+Theorem ssa_cc_trans_inst_not_created_subprogs:
+  ssa_cc_trans_inst i ssa na = (i',ssa',na') ⇒
+  not_created_subprogs P i'
+Proof
+  MAP_EVERY qid_spec_tac [‘i'’, ‘ssa'’, ‘na'’, ‘na’, ‘ssa’, ‘i’]>>
+  recInduct word_allocTheory.ssa_cc_trans_inst_ind>>
+  rw[word_allocTheory.ssa_cc_trans_inst_def,
+     not_created_subprogs_def]>>
+  rpt (pairarg_tac>>gs[])>>
+  rw[word_allocTheory.ssa_cc_trans_inst_def,
+     not_created_subprogs_def]>>
+  every_case_tac>>rw[]>>rveq>>
+  gs[word_allocTheory.next_var_rename_def,
+     not_created_subprogs_def]
+QED
+
+Theorem fake_moves_not_created_subprogs:
+  fake_moves prio ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
+  not_created_subprogs P prog1 ∧ not_created_subprogs P prog2
+Proof
+  MAP_EVERY qid_spec_tac [‘ssa'’, ‘ssa’, ‘n'’, ‘prog2’, ‘prog1’, ‘n’, ‘nR’, ‘NL’, ‘ls’]>>
+  Induct_on ‘ls’>>
+  gs[word_allocTheory.fake_moves_def,
+     not_created_subprogs_def]>>rw[]>>
+  pairarg_tac>>gs[]>>FULL_CASE_TAC>>gs[]>>
+  every_case_tac>>
+  rveq>>gs[not_created_subprogs_def]>>
+  rveq>>gs[not_created_subprogs_def,
+           word_allocTheory.fake_move_def]>>metis_tac[]
+QED
+
+Theorem ssa_cc_trans_not_created_subprogs:
+  not_created_subprogs P prog ∧
+  ssa_cc_trans prog ssa n = (prog', ssa', na)⇒
+  not_created_subprogs P prog'
+Proof
+  MAP_EVERY qid_spec_tac [‘prog'’, ‘ssa'’, ‘na’, ‘n’, ‘ssa’, ‘prog’]>>
+  recInduct word_allocTheory.ssa_cc_trans_ind>>
+  rw[word_allocTheory.ssa_cc_trans_def,
+     word_allocTheory.fix_inconsistencies_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     not_created_subprogs_def]>>gs[]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>
+  gs[word_allocTheory.ssa_cc_trans_def,
+     word_allocTheory.fix_inconsistencies_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     not_created_subprogs_def]
+  >- (drule ssa_cc_trans_inst_not_created_subprogs>>rw[])
+  >- (drule fake_moves_not_created_subprogs>>rw[])
+  >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[not_created_subprogs_def]>>
+    rpt (pairarg_tac>>gs[])>>rveq>>gs[not_created_subprogs_def]>>
+    drule fake_moves_not_created_subprogs>>rw[])
+QED
+
+Theorem setup_ssa_not_created_subprogs:
+  not_created_subprogs P prog ∧
+  setup_ssa n v prog = (mov, ssa, na)⇒
+  not_created_subprogs P mov
+Proof
+  rw[word_allocTheory.setup_ssa_def]>>
+  pairarg_tac>>gs[]>>
+  rw[word_allocTheory.setup_ssa_def,
+     word_allocTheory.list_next_var_rename_move_def,
+     not_created_subprogs_def]
+QED
+
+Theorem full_ssa_cc_trans_not_created_subprogs:
+  not_created_subprogs P prog ⇒
+  not_created_subprogs P (full_ssa_cc_trans n prog)
+Proof
+  rw[word_allocTheory.full_ssa_cc_trans_def]>>
+  pairarg_tac>>gs[]>>
+  pairarg_tac>>
+  drule_all setup_ssa_not_created_subprogs>>
+  rw[not_created_subprogs_def]>>
+  drule_all ssa_cc_trans_not_created_subprogs>>
+  rw[not_created_subprogs_def]
+QED
+
 (*** remove_dead_prog ***)
 val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def];
+
+Theorem remove_dead_not_created_subprogs:
+  not_created_subprogs P prog ⇒
+  not_created_subprogs P (FST (remove_dead prog q))
+Proof
+  MAP_EVERY qid_spec_tac [‘q’, ‘prog’]>>
+  recInduct word_allocTheory.remove_dead_ind>>
+  rw[word_allocTheory.remove_dead_def,
+     not_created_subprogs_def]>>gs[]>>
+  rw[word_allocTheory.remove_dead_def,
+     not_created_subprogs_def]>>gs[]>>
+  rpt (pairarg_tac>>gs[])>>rveq>>
+  rw[not_created_subprogs_def]>>gs[]>>
+  every_case_tac>>rpt (pairarg_tac>>gs[])>>rveq>>
+  rw[not_created_subprogs_def]>>gs[]
+QED
+
+Theorem remove_dead_prog_not_created_subprogs:
+  not_created_subprogs P prog ⇒
+  not_created_subprogs P (remove_dead_prog prog)
+Proof
+  simp[word_allocTheory.remove_dead_prog_def]>>
+  metis_tac[remove_dead_not_created_subprogs]
+QED
 
 Theorem remove_dead_conventions:
   ∀p live c k.
@@ -603,6 +715,41 @@ QED
 Theorem remove_dead_prog_conventions =
   (remove_dead_conventions |> Q.SPEC`p` |> Q.SPEC`LN` |> SPEC_ALL |>
     SIMP_RULE std_ss [LET_THM,FORALL_AND_THM,GSYM remove_dead_prog_def]);
+
+(*** word_common_subexp_elim ***)
+
+Triviality word_cseInst_not_created_subprogs:
+  !env i. not_created_subprogs P (SND (word_cseInst env i))
+Proof
+  ho_match_mp_tac word_cseTheory.word_cseInst_ind
+  \\ rw [word_cseTheory.word_cseInst_def]
+  \\ fs [not_created_subprogs_def]
+  \\ fs [word_cseTheory.add_to_data_def, word_cseTheory.add_to_data_aux_def]
+  \\ every_case_tac
+  \\ fs [not_created_subprogs_def]
+QED
+
+Triviality word_cse_not_created_subprogs:
+   !p env. not_created_subprogs P p ==>
+   not_created_subprogs P (SND (word_cse env p))
+Proof
+  Induct \\ rw [word_cseTheory.word_cse_def]
+  \\ fs [not_created_subprogs_def, word_cseInst_not_created_subprogs]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [not_created_subprogs_def]
+  \\ gvs [PAIR_FST_SND_EQ]
+  \\ fs [word_cseTheory.add_to_data_aux_def]
+  \\ every_case_tac
+  \\ fs [not_created_subprogs_def, word_cseInst_not_created_subprogs]
+QED
+
+Theorem word_common_subexp_elim_not_created_subprogs:
+  not_created_subprogs P prog ⇒
+  not_created_subprogs P (word_common_subexp_elim prog)
+Proof
+  fs [word_cseTheory.word_common_subexp_elim_def]
+  \\ simp [ELIM_UNCURRY, word_cse_not_created_subprogs]
+QED
 
 (*** three_to_to_reg_prog ***)
 Theorem three_to_two_reg_prog_lab_pres:
@@ -710,4 +857,34 @@ Proof
     metis_tac[inst_ok_less_def]
 QED
 *)
+
+(*** word_alloc ***)
+
+Theorem apply_colour_not_created_subprogs:
+  not_created_subprogs P prog ⇒
+  not_created_subprogs P (apply_colour f prog)
+Proof
+  qid_spec_tac ‘prog’>>qid_spec_tac ‘f’>>
+  recInduct word_allocTheory.apply_colour_ind>>
+  rw[word_allocTheory.apply_colour_def,
+     not_created_subprogs_def]>>gs[]>>
+  every_case_tac>>gs[]
+QED
+
+Theorem word_alloc_not_created_subprogs:
+  not_created_subprogs P prog ⇒
+  not_created_subprogs P (word_alloc n c a r prog cl)
+Proof
+  rw[word_allocTheory.word_alloc_def]>>
+  every_case_tac>>gs[not_created_subprogs_def]
+  >- (pairarg_tac>>gs[]>>
+      every_case_tac>>gs[not_created_subprogs_def]>>
+      irule apply_colour_not_created_subprogs>>rw[])>>
+  gs[word_allocTheory.oracle_colour_ok_def]>>
+  every_case_tac>>gs[not_created_subprogs_def]>>
+  rveq>>irule apply_colour_not_created_subprogs>>rw[]
+QED
+
+
+
 val _ = export_theory();
