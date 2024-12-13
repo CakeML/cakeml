@@ -30,11 +30,107 @@ Proof
 QED
 
 (* TODO move to wordConvsProof *)
+Theorem MEM_extract_labels_Seq_assoc_right_lemma:
+  ∀p1 p2 x.
+    MEM x (extract_labels (Seq_assoc_right p1 p2)) ⇒
+    MEM x (extract_labels p1) ∨ MEM x (extract_labels p2)
+Proof
+  rpt strip_tac >>
+  assume_tac extract_labels_Seq_assoc_right_lemma >>
+  first_x_assum $ qspecl_then [‘p1’,‘p2’] assume_tac>>
+  imp_res_tac SUBSET_THM >> fs[]
+QED
+
+Theorem helper = MEM_extract_labels_Seq_assoc_right_lemma
+                 |> REWRITE_RULE [Once (GSYM CONTRAPOS_THM)]
+
+Theorem ALL_DISTINCT_extract_labels_Seq_assoc_right_lemma:
+  ∀p1 p2. ALL_DISTINCT ((extract_labels p1) ++ (extract_labels p2)) ⇒
+          ALL_DISTINCT (extract_labels (Seq_assoc_right p1 p2))
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,extract_labels_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[extract_labels_def] >> NO_TAC)
+  >- (first_x_assum irule >>
+      fs[ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      irule_at Any SUBSET_REFL >>
+      simp[DISJOINT_UNION'])
+  >- (CASE_TAC >> fs[extract_labels_def] >>
+      fs [ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      last_assum $ irule_at Any >>
+      irule_at Any SUBSET_TRANS >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any SUBSET_TRANS >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any SUBSET_REFL >> simp[] >>
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any SUBSET_REFL >> simp[])
+  >- (CASE_TAC >> fs[extract_labels_def] >>
+      fs [ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      last_assum $ irule_at Any >>
+      irule_at Any SUBSET_TRANS >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def])
+  >- (rpt (CASE_TAC >> fs[]) >> fs[extract_labels_def]
+      >- (irule helper >> simp[extract_labels_def])
+      >- (fs[ALL_DISTINCT_APPEND'] >>
+          irule_at Any SUBSET_DISJOINT >>
+          irule_at Any extract_labels_Seq_assoc_right_lemma >>
+          simp[extract_labels_def] >>
+          irule_at Any SUBSET_REFL >> simp[] >>
+          irule helper >> simp[extract_labels_def])
+      >- (fs[ALL_DISTINCT_APPEND'] >>
+          irule_at Any SUBSET_DISJOINT >>
+          irule_at Any extract_labels_Seq_assoc_right_lemma >>
+          irule_at Any extract_labels_Seq_assoc_right_lemma >>
+          simp[extract_labels_def] >>
+          irule_at Any (iffRL DISJOINT_SYM) >> fs[] >>
+          ntac 4 (irule_at Any helper >> simp[extract_labels_def])) >>
+      fs[ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any (iffRL DISJOINT_SYM) >> fs[] >>
+      ntac 4 (irule_at Any helper >> simp[extract_labels_def]) >>
+      ntac 2 (irule_at Any SUBSET_DISJOINT >>
+              irule_at Any extract_labels_Seq_assoc_right_lemma >>
+              simp[extract_labels_def] >>
+              irule_at Any SUBSET_REFL >> simp[])) >>
+  rpt (CASE_TAC >> fs[]) >> fs[extract_labels_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,extract_labels_def]
+QED
+
+Theorem ALL_DISTINCT_extract_labels_remove_unreach:
+   ALL_DISTINCT (extract_labels p) ⇒
+   ALL_DISTINCT (extract_labels (remove_unreach p))
+Proof
+  rw[remove_unreach_def] >>
+  irule ALL_DISTINCT_extract_labels_Seq_assoc_right_lemma >>
+  simp[extract_labels_def]
+QED
+
 Theorem labels_rel_remove_unreach:
   labels_rel (extract_labels p) (extract_labels q) ⇒
   labels_rel (extract_labels p) (extract_labels (remove_unreach q))
 Proof
-  cheat
+  rw[labels_rel_def]
+  >- fs[ALL_DISTINCT_extract_labels_remove_unreach] >>
+  irule SUBSET_TRANS >>
+  irule_at Any extract_labels_remove_unreach>> simp[]
 QED
 
 Theorem pre_alloc_conventions_remove_unreach:
