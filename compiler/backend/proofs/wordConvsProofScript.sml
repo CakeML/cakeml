@@ -63,6 +63,7 @@ val _ = new_theory "wordConvsProof";
 
     preserves pre_alloc_conventions: three_to_two_reg_prog_pre_alloc_conventions
     preserves flat_exp_conventions: three_to_two_reg_prog_flat_exp_conventions
+    preservers full_inst_ok_less :three_to_two_reg_prog_full_inst_ok_less:
     TODO
 
 
@@ -680,6 +681,21 @@ Proof
   full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
 QED
 *)
+Theorem three_to_two_reg_prog_full_inst_ok_less:
+  ∀prog. full_inst_ok_less c prog ⇒
+         full_inst_ok_less c (three_to_two_reg_prog b prog)
+Proof
+  simp[three_to_two_reg_prog_def] >>
+  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
+  full_simp_tac(srw_ss())[three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>fs[full_inst_ok_less_def]
+  >-
+    (Cases_on`bop`>>Cases_on`ri`>>fs[full_inst_ok_less_def,inst_ok_less_def,every_inst_def])
+  >-
+    (Cases_on`n`>>fs[inst_ok_less_def])
+  >>
+    metis_tac[inst_ok_less_def]
+QED
+(*
 Theorem three_to_two_reg_full_inst_ok_less:
   ∀prog. full_inst_ok_less c prog ⇒
          full_inst_ok_less c (three_to_two_reg prog)
@@ -693,4 +709,5 @@ Proof
   >>
     metis_tac[inst_ok_less_def]
 QED
+*)
 val _ = export_theory();

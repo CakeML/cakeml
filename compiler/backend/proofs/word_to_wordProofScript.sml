@@ -913,10 +913,10 @@ Proof
     match_mp_tac word_alloc_full_inst_ok_less>>
     match_mp_tac (el 2 rmd_thms)>>
     match_mp_tac full_inst_ok_less_remove_unreach>>
-    cheat >>
-    TRY(match_mp_tac three_to_two_reg_full_inst_ok_less)>>
+    match_mp_tac three_to_two_reg_prog_full_inst_ok_less >>
     irule full_inst_ok_less_copy_prop>>
     irule full_inst_ok_less_word_common_subexp_elim >>
+    match_mp_tac (el 2 rmd_thms)>>
     match_mp_tac full_ssa_cc_trans_full_inst_ok_less>>
     match_mp_tac inst_select_full_inst_ok_less>>
     fs[]>>
@@ -1137,6 +1137,7 @@ Proof
   strip_tac>>
   simp[word_to_wordTheory.compile_single_def]>>
   irule word_alloc_not_created>>
+
   irule remove_dead_not_created>>
   rw[]>>
   TRY (irule three_to_two_reg_not_created)>>
