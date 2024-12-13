@@ -17,6 +17,7 @@ val _ = new_theory "arm8Prog"
 val _ = translation_extends "x64Prog";
 val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
+val _ = ml_translatorLib.use_precond_arith false;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm8Prog");
 

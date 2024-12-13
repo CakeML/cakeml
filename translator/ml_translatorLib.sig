@@ -163,4 +163,7 @@ sig
     (* configure whether sub_check is default for num subtraction *)
     val use_sub_check : bool -> unit
 
+    (* configure whether precond_arith is used for preconditions *)
+    val use_precond_arith : bool -> unit
+
 end
