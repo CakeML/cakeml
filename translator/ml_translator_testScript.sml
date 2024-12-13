@@ -633,6 +633,8 @@ val _ = use_sub_check true;
 (* no precondition *)
 val res = translate foo_sub_def;
 
+val _ = use_sub_check false;
+
 Definition foo_guarded_sub_def:
   foo_guarded_sub (x:num) y = if x > y then x - y else 0
 End

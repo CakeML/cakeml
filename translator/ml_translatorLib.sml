@@ -3833,7 +3833,7 @@ val (fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
              (if precond_arith () then
                SIMP_CONV (srw_ss()++ARITH_ss) [FALSE_def,TRUE_def]
              else
-               PRINT_CONV THENC SIMP_CONV (srw_ss()) [FALSE_def,TRUE_def]))
+               SIMP_CONV (srw_ss()) [FALSE_def,TRUE_def]))
           |> concl |> rand))
   val no_pre = every (map is_true_pre thms)
 
