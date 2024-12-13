@@ -208,18 +208,7 @@ val res = translate (spec64 word_to_string_def);
 
 val res = translate compilerTheory.find_next_newline_def;
 
-Theorem find_next_newline_side = prove(
-          “∀n s. compiler_find_next_newline_side n s”,
-          ho_match_mp_tac compilerTheory.find_next_newline_ind \\ rw []
-          \\ once_rewrite_tac [fetch "-" "compiler_find_next_newline_side_def"]
-          \\ fs []) |> update_precondition;
-
 val res = translate compilerTheory.safe_substring_def;
-
-Theorem safe_substring_side = prove(
-          “compiler_safe_substring_side s n l”,
-          fs [fetch "-" "compiler_safe_substring_side_def"])
-                                |> update_precondition;
 
 val _ = translate compilerTheory.get_nth_line_def;
 val _ = translate compilerTheory.locs_to_string_def;
@@ -239,11 +228,6 @@ val res = translate inferTheory.init_config_def;
   TODO: some of these should be moved up, see comment above on exportScript
  *)
 val res = translate error_to_str_def;
-
-val compiler_error_to_str_side_thm = prove(
-  ``compiler_error_to_str_side x = T``,
-                                    fs [fetch "-" "compiler_error_to_str_side_def"])
-                                       |> update_precondition;
 
 val res = translate parse_bool_def;
 val res = translate parse_num_def;
