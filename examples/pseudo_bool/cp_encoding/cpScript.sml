@@ -34,11 +34,17 @@ Definition element_sem_def:
     )
 End
 
+Definition abs_sem_def:
+  abs_sem X Y (w: 'a assignment) ⇔
+    varc w X = ABS (varc w Y)
+End
+
 Datatype:
   constraint =
     NotEquals ('a varc) ('a varc)
   | AllDifferent ('a varc list)
   | Element ('a varc) ('a varc) ('a varc list)
+  | Abs ('a varc) ('a varc)
 End
 
 Definition constraint_sem_def:
@@ -47,6 +53,7 @@ Definition constraint_sem_def:
     NotEquals X Y => not_equals_sem X Y w
   | AllDifferent As => all_different_sem As w
   | Element R X As => element_sem R X As w
+  | Abs X Y => abs_sem X Y w
 End
 
 Type bounds = ``:'a -> int # int``;

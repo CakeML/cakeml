@@ -233,23 +233,23 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* Encodes Ai - R ≥ c where both terms are varc *)
+(* Encodes a * X + b * Y ≥ c where both terms are varc *)
 Definition mk_constraint_ge_def:
-  mk_constraint_ge X Y (c:int) =
+  mk_constraint_ge (a:int) X (b:int) Y (c:int) =
   case (X,Y) of
     (INL vX, INL vY) =>
-      ([(1i,vX);(-1i,vY)],[],c)
+      ([(a,vX);(b,vY)],[],c)
   | (INL vX, INR cY) =>
-      ([(1i,vX)],[],c + cY)
+      ([(a,vX)],[],c - b * cY)
   | (INR cX, INL vY) =>
-      ([(-1i,vY)],[],c - cX)
+      ([(b,vY)],[],c - a * cX)
   | (INR cX, INR cY) =>
-      ([],[],c + cY-cX)
+      ([],[],c - a * cX - b * cY)
 End
 
 Theorem mk_constraint_ge_sem:
-  iconstraint_sem (mk_constraint_ge X Y c) (wi,wb) ⇔
-  varc wi X - varc wi Y ≥ c
+  iconstraint_sem (mk_constraint_ge a X b Y c) (wi,wb) ⇔
+  a * (varc wi X) + b * (varc wi Y) ≥ c
 Proof
   rw[mk_constraint_ge_def]>>every_case_tac>>
   gvs[varc_def,eval_raw]>>
@@ -260,8 +260,8 @@ QED
 Definition encode_element_eq_def:
   encode_element_eq bnd R X (i:num,Ai) =
   [
-    bits_imply bnd [Pos (Eq X (&(i+1)))] (mk_constraint_ge Ai R 0);
-    bits_imply bnd [Pos (Eq X (&(i+1)))] (mk_constraint_ge R Ai 0)
+    bits_imply bnd [Pos (Eq X (&(i+1)))] (mk_constraint_ge 1 Ai (-1) R 0);
+    bits_imply bnd [Pos (Eq X (&(i+1)))] (mk_constraint_ge 1 R (-1) Ai 0)
   ]
 End
 
@@ -274,6 +274,7 @@ Theorem encode_element_eq_sem:
   (wi X = &(i+1) ⇒ varc wi R = varc wi Ai)
 Proof
   rw[encode_element_eq_def,eval_raw,bits_imply_sem,mk_constraint_ge_sem]>>
+  rw[]>>
   intLib.ARITH_TAC
 QED
 
@@ -400,8 +401,8 @@ Definition encode_element_const_def:
   if 1 ≤ X ∧ X ≤ &(LENGTH As)
   then
     let Ai = EL (Num X -1) As in
-    [mk_constraint_ge Ai R 0;
-     mk_constraint_ge R Ai 0]
+    [mk_constraint_ge 1 Ai (-1) R 0;
+     mk_constraint_ge 1 R (-1) Ai 0]
   else
     [([],[],1)]
 End
@@ -490,8 +491,8 @@ QED
 Definition encode_not_equals_def:
   encode_not_equals bnd X Y =
   [
-    bits_imply bnd [Pos (Ne X Y)] (mk_constraint_ge X Y 1);
-    bits_imply bnd [Neg (Ne X Y)] (mk_constraint_ge Y X 1)
+    bits_imply bnd [Pos (Ne X Y)] (mk_constraint_ge 1 X (-1) Y 1);
+    bits_imply bnd [Neg (Ne X Y)] (mk_constraint_ge 1 Y (-1) X 1)
   ]
 End
 
@@ -585,12 +586,98 @@ Proof
   metis_tac[encode_not_equals_sem,not_equals_sem_aux]
 QED
 
+(* Encoding for Y a variable *)
+Definition encode_abs_var_def:
+  encode_abs_var bnd X Y =
+  let vY = INL Y in
+  encode_ge bnd Y 0 ++
+  [
+    bits_imply bnd [Pos (Ge Y 0)] (mk_constraint_ge 1 X (-1) vY 0);
+    bits_imply bnd [Pos (Ge Y 0)] (mk_constraint_ge 1 vY (-1) X 0);
+    bits_imply bnd [Neg (Ge Y 0)] (mk_constraint_ge 1 X 1 vY 0);
+    bits_imply bnd [Neg (Ge Y 0)] (mk_constraint_ge (-1) X (-1) vY 0);
+  ]
+End
+
+Theorem encode_abs_var_sem:
+  valid_assignment bnd wi
+  ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_abs_var bnd X Y)
+  =
+  (
+    (wb (Ge Y 0) ⇔ wi Y ≥ 0) ∧
+    abs_sem X (INL Y) wi
+  )
+Proof
+  rw[encode_abs_var_def]>>
+  match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC >- simp[encode_ge_sem]>>
+  strip_tac>>
+  simp[bits_imply_sem,mk_constraint_ge_sem,abs_sem_def]>>
+  `varc wi (INL Y) = wi Y` by simp[varc_def]>>
+  intLib.ARITH_TAC
+QED
+
+Definition encode_abs_const_def:
+  encode_abs_const X Y =
+  if Y ≥ 0 then
+  [
+    mk_constraint_ge 1 X (-1) (INR Y) 0;
+    mk_constraint_ge (-1) X 1 (INR Y) 0;
+  ]
+  else
+  [
+    mk_constraint_ge 1 X 1 (INR Y) 0;
+    mk_constraint_ge (-1) X (-1) (INR Y) 0;
+  ]
+End
+
+Theorem encode_abs_const_sem:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_abs_const X Y)
+  =
+  abs_sem X (INR Y) wi
+Proof
+  rw[encode_abs_const_def]>>
+  simp[abs_sem_def,mk_constraint_ge_sem]>>
+  `varc wi (INR Y) = Y` by simp[varc_def]>>
+  simp[]>>
+  intLib.ARITH_TAC
+QED
+
+Definition encode_abs_def:
+  encode_abs bnd X Y =
+  case Y of
+    INL vY => encode_abs_var bnd X vY
+  | INR cY => encode_abs_const X cY
+End
+
+(* TODO: This seem too precise *)
+Theorem encode_abs_sem:
+  valid_assignment bnd wi
+  ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_abs bnd X Y)
+  =
+  (
+  (case Y of INR _ => T | INL Y =>
+  (wb (Ge Y 0) ⇔ wi Y ≥ 0)) ∧
+  abs_sem X Y wi)
+Proof
+  rw[encode_abs_def]>>
+  TOP_CASE_TAC>>gvs[]
+  >-
+    metis_tac[encode_abs_var_sem]
+  >>
+    metis_tac[encode_abs_const_sem]
+QED
+
+(* The top-level encodings *)
 Definition encode_one_def:
   encode_one bnd c =
   case c of
     NotEquals X Y => encode_not_equals bnd X Y
   | AllDifferent As => encode_all_different bnd As
   | Element R X As => encode_element bnd R X As
+  | Abs X Y => encode_abs bnd X Y
 End
 
 Theorem encode_one_sem_1:
@@ -614,6 +701,9 @@ Proof
   >- (
     simp[encode_element_sem,reify_bits_def]>>
     every_case_tac>>simp[])
+  >- (
+    simp[encode_abs_sem,reify_bits_def]>>
+    every_case_tac>>simp[])
 QED
 
 Theorem encode_one_sem_2:
@@ -629,6 +719,8 @@ Proof
     gvs[encode_all_different_sem]
   >-
     gvs[encode_element_sem]
+  >-
+    gvs[encode_abs_sem]
 QED
 
 (* An actual implementation will avoid duplicates here *)
@@ -671,6 +763,8 @@ all-different
 element
   EVAL``encode_element (λX. (-10,10)) (INL R) (INL X) [INL A; INL B; INL C; INL D; INL E]``
 
+abs
+  EVAL``encode_abs (λX. (-10,10)) (INL X) (INL Y)``
 
 *)
 
