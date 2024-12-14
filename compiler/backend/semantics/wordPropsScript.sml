@@ -396,6 +396,7 @@ QED
 
 Theorem pop_env_with_const[simp]:
    pop_env (z with clock := k) = OPTION_MAP (λs. s with clock := k) (pop_env z) ∧
+   pop_env (z with permute:= perm) = OPTION_MAP (λs. s with permute := perm) (pop_env z) ∧
    pop_env (z with locals := l) = pop_env z /\
    pop_env (z with locals_size := ls) = pop_env z
 Proof
@@ -442,7 +443,9 @@ Proof
 QED
 
 Theorem call_env_with_const[simp]:
-   call_env x ss (y with clock := k) = call_env x ss y with clock := k
+   call_env x ss (y with clock := k) = call_env x ss y with clock := k /\
+   call_env x ss (y with handler := k) = call_env x ss y with handler := k /\
+   call_env x ss (y with permute := perm) = call_env x ss y with permute := perm
 Proof
   EVAL_TAC
 QED
@@ -501,6 +504,7 @@ QED
 
 Theorem gc_with_const[simp]:
    gc (x with clock := k) = OPTION_MAP (λs. s with clock := k) (gc x) ∧
+   gc (x with permute := perm) = OPTION_MAP (λs. s with permute := perm) (gc x) ∧
    gc (x with locals := l) = OPTION_MAP (λs. s with locals := l) (gc x) /\
    gc (x with locals_size := ls) = OPTION_MAP (λs. s with locals_size := ls) (gc x)
 Proof
@@ -566,9 +570,9 @@ Proof
 QED
 
 
-
 Theorem get_fp_var_with_const[simp]:
    get_fp_var x (y with clock := k) = get_fp_var x y /\
+   get_fp_var x (y with permute := perm) = get_fp_var x y /\
    get_fp_var x (y with stack := xs) = get_fp_var x y
 Proof
   EVAL_TAC
@@ -599,6 +603,7 @@ QED
 Theorem unset_var_with_const[simp]:
    unset_var x (z with clock := k) = unset_var x z with clock := k /\
    unset_var x (z with stack := s) = unset_var x z with stack := s /\
+   unset_var x (z with permute := perm) = unset_var x z with permute := perm /\
    unset_var x (z with memory := m) = unset_var x z with memory := m
 Proof
   EVAL_TAC
@@ -620,6 +625,7 @@ QED
 
 Theorem set_fp_var_with_const[simp]:
    set_fp_var x y (z with clock := k) = set_fp_var x y z with clock := k /\
+   set_fp_var x y (z with permute := perm) = set_fp_var x y z with permute := perm /\
    set_fp_var x y (z with stack := xs) = set_fp_var x y z with stack := xs
 Proof
   EVAL_TAC
@@ -629,6 +635,7 @@ QED
 Theorem mem_load_with_const[simp]:
    mem_load x (y with clock := k) = mem_load x y ∧
    mem_load x (y with stack := xs) = mem_load x y ∧
+   mem_load x (y with permute := perm) = mem_load x y ∧
    mem_load x (y with code := c) = mem_load x y ∧
    mem_load x (y with compile_oracle := co) = mem_load x y ∧
    mem_load x (y with compile := cc) = mem_load x y
@@ -662,6 +669,7 @@ QED
 
 Theorem mem_store_with_const[simp]:
    mem_store x z (y with clock := k) = OPTION_MAP (λs. s with clock := k) (mem_store x z y) /\
+   mem_store x z (y with permute := perm) = OPTION_MAP (λs. s with permute := perm) (mem_store x z y) /\
    mem_store x z (y with stack := xs) = OPTION_MAP (λs. s with stack := xs) (mem_store x z y)
 Proof
   EVAL_TAC >> every_case_tac >> simp[]
@@ -671,6 +679,7 @@ Theorem word_exp_with_const[simp]:
    ∀x y.
   word_exp (x with clock := k) y = word_exp x y ∧
   word_exp (x with stack := xs) y = word_exp x y ∧
+  word_exp (x with permute := perm) y = word_exp x y ∧
   word_exp (x with code := c) y = word_exp x y ∧
   word_exp (x with compile_oracle := co) y = word_exp x y ∧
   word_exp (x with compile := cc) y = word_exp x y
@@ -731,6 +740,7 @@ QED
 
 Theorem assign_with_const[simp]:
    assign x y (z with clock := k) = OPTION_MAP (λs. s with clock := k) (assign x y z) /\
+   assign x y (z with permute := perm) = OPTION_MAP (λs. s with permute := perm) (assign x y z) /\
    assign x y (z with stack := xs) = OPTION_MAP (λs. s with stack := xs) (assign x y z)
 Proof
   EVAL_TAC >> every_case_tac >>  EVAL_TAC >> full_simp_tac(srw_ss())[]
@@ -738,6 +748,7 @@ QED
 
 Theorem inst_with_const[simp]:
    inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s) /\
+   inst i (s with permute := perm) = OPTION_MAP (λs. s with permute := perm) (inst i s) /\
    inst i (s with stack := xs) = OPTION_MAP (λs. s with stack := xs) (inst i s)
 Proof
   rw[inst_def] >> every_case_tac >> fs[]
@@ -802,13 +813,16 @@ Proof
 QED
 
 Theorem jump_exc_with_const[simp]:
-   jump_exc (s with clock := k) = OPTION_MAP (λ(s,t). (s with clock := k, t)) (jump_exc s)
+   jump_exc (s with clock := k) = OPTION_MAP (λ(s,t). (s with clock := k, t)) (jump_exc s) /\
+   jump_exc (s with permute := perm) = OPTION_MAP (λ(s,t). (s with permute := perm, t)) (jump_exc s)
 Proof
   EVAL_TAC >> every_case_tac >> EVAL_TAC
 QED
 
 Theorem get_var_imm_with_const[simp]:
-   get_var_imm x (y with clock := k) = get_var_imm x y
+   get_var_imm x (y with clock := k) = get_var_imm x y /\
+   get_var_imm x (y with stack := xs) = get_var_imm x y /\
+   get_var_imm x (y with permute := perm) = get_var_imm x y
 Proof
   Cases_on`x`>>EVAL_TAC
 QED
@@ -2786,111 +2800,6 @@ QED
 (*--Stack Swap Lemma DONE--*)
 
 (*--Permute Swap Lemma--*)
-
-Triviality ignore_inc:
-  ∀perm:num->num->num.
-  (λn. perm(n+0)) = perm
-Proof
-  srw_tac[][FUN_EQ_THM]
-QED
-
-(*FIXME all this should be removed by const lemmas*)
-Triviality ignore_perm:
-  ∀st. st with permute := st.permute = st
-Proof
-  srw_tac[][]>>full_simp_tac(srw_ss())[state_component_equality]
-QED
-
-Theorem pop_env_perm:
-    pop_env (rst with permute:=perm) =
-  (case pop_env rst of
-    NONE => NONE
-  | SOME rst' => SOME (rst' with permute:=perm))
-Proof
-  full_simp_tac(srw_ss())[pop_env_def]>>every_case_tac>>
-  full_simp_tac(srw_ss())[state_component_equality]
-QED
-
-Triviality gc_perm:
-  gc st = SOME x ⇒
-  gc (st with permute:=perm) = SOME (x with permute := perm)
-Proof
-  full_simp_tac(srw_ss())[gc_def,LET_THM]>>every_case_tac>>
-  full_simp_tac(srw_ss())[state_component_equality]
-QED
-
-Theorem get_fp_var_perm:
-    get_fp_var n (st with permute:=perm) =
-  (get_fp_var n st)
-Proof
-full_simp_tac(srw_ss())[get_fp_var_def]
-QED
-
-Theorem get_var_imm_perm:
-    get_var_imm n (st with permute:=perm) =
-  (get_var_imm n st)
-Proof
-  Cases_on`n`>>
-  fs[get_var_imm_def]
-QED
-
-Theorem get_var_imm_stack:
-    get_var_imm n (st with stack:=stack) =
-  (get_var_imm n st)
-Proof
-  Cases_on`n`>>
-  fs[get_var_imm_def]
-QED
-
-Theorem set_fp_var_perm:
-    set_fp_var v x (s with permute:=perm) =
-  (set_fp_var v x s) with permute:=perm
-Proof
-  full_simp_tac(srw_ss())[set_fp_var_def]
-QED
-
-val perm_assum_tac = (first_x_assum(qspec_then`perm`assume_tac)>>
-          full_simp_tac(srw_ss())[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
-          qexists_tac`λx. if x = 0 then st.permute 0 else perm' (x-1)`>>
-          full_simp_tac(srw_ss())[call_env_def]>>
-          `(λn. perm' n) = perm'` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
-          simp[]);
-
-Theorem word_exp_perm[simp]:
-    ∀s exp. word_exp (s with permute:=perm) exp =
-          word_exp s exp
-Proof
-  ho_match_mp_tac word_exp_ind>>srw_tac[][word_exp_def]
-  >-
-    (every_case_tac>>full_simp_tac(srw_ss())[mem_load_def])
-  >>
-    qpat_abbrev_tac`ls = MAP A B`>>
-    qpat_abbrev_tac`ls' = MAP A B`>>
-    `ls = ls'` by
-      (unabbrev_all_tac>>fs[MAP_EQ_f])>> fs[]
-QED
-
-Triviality mem_store_perm:
-  mem_store a (w:'a word_loc) (s with permute:=perm) =
-  case mem_store a w s of
-    NONE => NONE
-  | SOME x => SOME(x with permute:=perm)
-Proof
-  full_simp_tac(srw_ss())[mem_store_def]>>every_case_tac>>
-  full_simp_tac(srw_ss())[state_component_equality]
-QED
-
-Triviality jump_exc_perm:
-  jump_exc (st with permute:=perm) =
-  case jump_exc st of
-    NONE => NONE
-  | SOME (x,l1,l2) => SOME (x with permute:=perm,l1,l2)
-Proof
-  full_simp_tac(srw_ss())[jump_exc_def]>>
-  every_case_tac>>
-  full_simp_tac(srw_ss())[state_component_equality]
-QED
-
 (*For any target result permute, we can find an initial permute such that the
   final permute is equal to the target *)
 Theorem permute_swap_lemma:
@@ -2901,56 +2810,28 @@ Theorem permute_swap_lemma:
     ∃perm'. evaluate(prog,st with permute := perm') =
     (res,rst with permute:=perm)
 Proof
-  ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> srw_tac[][]>>full_simp_tac(srw_ss())[evaluate_def]
+  ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> srw_tac[][]
+  >- (fs[evaluate_def] >> fs[state_component_equality])
   >-
-    metis_tac[ignore_perm]
-  >-
-    (full_simp_tac(srw_ss())[alloc_def]>>
-    qexists_tac`λx. if x = 0 then st.permute 0 else perm (x-1)`>>
-    fs[]>>
-    full_case_tac>>full_case_tac>>full_simp_tac(srw_ss())[]
-    >-
-      (Cases_on`x`>>full_simp_tac(srw_ss())[])
-    >>
-    full_case_tac>>full_simp_tac(srw_ss())[]>>
-    Cases_on`gc (push_env x NONE (set_store AllocSize (Word c) st))`>>
-    fs[push_env_def,env_to_list_def,LET_THM,set_store_def]>>
-    imp_res_tac gc_perm>>full_simp_tac(srw_ss())[pop_env_perm]>>
-    ntac 3 (full_case_tac>>full_simp_tac(srw_ss())[])>>
-    full_simp_tac(srw_ss())[has_space_def]>>
-    IF_CASES_TAC>>
-    full_simp_tac(srw_ss())[state_component_equality,FUN_EQ_THM,call_env_def,flush_state_def] >>
-    metis_tac [])
-  >- (
-    qexists_tac`perm`>>every_case_tac>>rw[]>>fs[set_var_def,unset_var_def,state_component_equality])
-  >-
-    (qexists_tac`perm`>>fs[]>>
-    ntac 2 (full_case_tac>>full_simp_tac(srw_ss())[])>>
-    fs[])
-  >-
-    (qexists_tac`perm`>>
-    fs[inst_def,assign_def,LET_THM]>>every_case_tac>>
-    fs[mem_store_perm,mem_load_def]>>
-    full_simp_tac(srw_ss())[word_exp_perm,mem_store_perm,mem_load_def,get_fp_var_perm,set_fp_var_perm]>>
-    rfs[]>>fs[]>>rveq>>
-    fs[state_component_equality])
-  >-
-    (fs[]>>
-    every_case_tac>>fs[state_component_equality])
-  >-
-    (every_case_tac>>fs[state_component_equality])
-  >-
-    (fs[]>>every_case_tac>>fs[set_store_def,state_component_equality])
-  >-
-    (fs[]>>every_case_tac>>fs[set_store_def,state_component_equality])
-  >-
-    (fs[]>>every_case_tac>>fs[set_store_def,state_component_equality,mem_store_perm])
-  >-
-    (qexists_tac`perm`>>
-    every_case_tac>>full_simp_tac(srw_ss())[dec_clock_def,call_env_def,flush_state_def]>>
-    full_simp_tac(srw_ss())[state_component_equality])
+   (qexists_tac`λx. if x = 0 then st.permute 0 else perm (x-1)`>>
+    qpat_x_assum `_ = (res,rst)` mp_tac >>
+    fs[evaluate_def,alloc_def,push_env_def,env_to_list_def] >>
+    pure_rewrite_tac[GSYM state_fupdcanon] >> fs[] >>
+    gvs[AllCaseEqs()] >>
+    rw[] >> fs[] >>
+    fs[has_space_def,flush_state_def] >>
+    fs[state_component_equality,FUN_EQ_THM])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def,flush_state_def,dec_clock_def] >> every_case_tac >> fs[state_component_equality])
   >- (*MustTerminate*)
-    (full_simp_tac(srw_ss())[LET_THM]>>
+    (full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
     qpat_x_assum`A=(res,rst)` mp_tac>>
     TOP_CASE_TAC>>simp[]>>
     pairarg_tac>>simp[]>>
@@ -2971,35 +2852,17 @@ Proof
       Cases_on`x`>>full_simp_tac(srw_ss())[]>>
       qexists_tac`perm'`>>full_simp_tac(srw_ss())[]>>
       qpat_x_assum`A=res`(SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
-  >-
-    (fs[]>>every_case_tac>>
-    full_simp_tac(srw_ss())[call_env_def,flush_state_def,state_component_equality] >>
-    metis_tac [])
-  >-
-    (fs[]>>every_case_tac>>
-    full_simp_tac(srw_ss())[jump_exc_perm]>>metis_tac[state_component_equality])
-  >-
-    (Cases_on`ri`>>
-    full_simp_tac(srw_ss())[get_var_imm_def]>>every_case_tac>>full_simp_tac(srw_ss())[]
-    >>
-      full_simp_tac(srw_ss())[LET_THM])
-  >- (*LocValue*)
-    (qexists_tac`perm`>>rw[]>>fs[set_var_def,state_component_equality])
+  >- (fs[evaluate_def,flush_state_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
   >- (*Install*)
-    (qexists_tac`perm`>>fs[case_eq_thms,UNCURRY])
-  >- (* CBW *)
-    fs[case_eq_thms,state_component_equality]
-  >- (* DBW *)
-    fs[case_eq_thms,state_component_equality]
-  >- (*FFI*)
-    (qexists_tac`perm`>>
-    full_simp_tac(srw_ss())[call_env_def,flush_state_def]>>
-    every_case_tac>>
-    TRY(rename[`call_FFI st.ffi ffi_index conf bytes`] >>
-        Cases_on`call_FFI st.ffi ffi_index conf bytes`) >>
-    full_simp_tac(srw_ss())[LET_THM,state_component_equality])
+    (fs[evaluate_def] >> qexists_tac`perm`>>fs[case_eq_thms,UNCURRY])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def,flush_state_def] >> every_case_tac >> fs[state_component_equality])
   >- (*ShareInst*)
-    (fs[AllCaseEqs()] >>
+    (fs[evaluate_def,AllCaseEqs()] >>
     qexists_tac `perm` >>
     Cases_on `op` >>
     gvs[share_inst_def,sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
@@ -3011,84 +2874,74 @@ Proof
     gvs[sh_mem_set_var_def,flush_state_def]) >>
     gvs[sh_mem_set_var_def,flush_state_def])
   >- (*Call*)
-    (fs[evaluate_def]>>
+    (fs[evaluate_def,flush_state_def,dec_clock_def]>>
     ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
     >- (*Tail Call*)
-      (every_case_tac>>
-      TRY(qexists_tac`perm`>>
-        full_simp_tac(srw_ss())[state_component_equality,call_env_def,flush_state_def]>>NO_TAC)
-      (* >- (qexists_tac `perm` >> *)
-      (*    fs [call_env_def,flush_state_def,state_component_equality] >> metis_tac []) *) >>
-      Cases_on`x'`>> fs [dec_clock_def] >>
+      (
+       ntac 2 (TOP_CASE_TAC >> fs[])
+       >-(gvs[] >> fs[state_component_equality]) >>
+      every_case_tac >> fs[] >>
+      gvs[] >>
       first_x_assum(qspec_then `perm` assume_tac)>> fs [] >>
-      qexists_tac `perm'` >> fs [state_component_equality,call_env_def,flush_state_def] >>
-      TOP_CASE_TAC >> fs [state_component_equality])
+      qexists_tac `perm'` >> fs[])
     >>
-      ntac 5 TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-      ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
+      PairCases_on `x'` >> fs[] >>
+      ntac 3 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
       >-
-        (full_simp_tac(srw_ss())[call_env_def,flush_state_def]>>
-        qexists_tac`perm`>>full_simp_tac(srw_ss())[state_component_equality]>>
-        qpat_x_assum `0 = _` (assume_tac o GSYM) >>
-        qpat_x_assum `SOME 0 = _` (assume_tac o GSYM) >>
-        qpat_x_assum `[] = _` (assume_tac o GSYM) >>
-        Cases_on `handler` >> fs[push_env_def,ELIM_UNCURRY,stack_size_eq] >>
-        rename1 `push_env _ (SOME handler)` >>
-        PairCases_on `handler` >>
-        fs[push_env_def,ELIM_UNCURRY,stack_size_eq]
-        )
+        (
+        gvs[] >> fs[state_component_equality] >>
+        Cases_on `handler` >> TRY (PairCases_on  `x''`) >>
+        fs[push_env_def,env_to_list_def] >>
+        full_simp_tac bool_ss [GSYM state_fupdcanon] >> fs[] >>
+        fs[call_env_def,stack_size_eq])
       >>
-      Cases_on `evaluate (q',call_env q r' (push_env x' handler (dec_clock st)))` >>
-      rename1 `evaluate _ = (rtemp, r)` >>
-      Cases_on`rtemp`>>full_simp_tac(srw_ss())[]>>
-      rename1 `evaluate _ = (SOME rtemp, r)` >>
-      Cases_on`rtemp`>>full_simp_tac(srw_ss())[]
-      >-
-       (qpat_x_assum`A=(res,rst)` mp_tac>>
-        IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-        full_case_tac>>full_simp_tac(srw_ss())[]>>
-        IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-        rename1 `evaluate (prog,set_var ntmp vtmp stmp)` >>
-        Cases_on `evaluate (prog,set_var ntmp vtmp stmp)` >>
-        rename1 `(prog', prgst )= (res,rst)` >>
-        Cases_on`prog'` >>
-        TRY(rename1 `(SOME restmp,prgst) = (res,rst)` >> Cases_on`restmp`)>>
-        full_simp_tac(srw_ss())[]>>srw_tac[][]>>
+      qpat_x_assum `_ = (res,rst)` mp_tac >>
+      ntac 3 (TOP_CASE_TAC >> fs[])
+      >-(
+        IF_CASES_TAC >> fs[] >>
+        TOP_CASE_TAC >> fs[] >>
+        IF_CASES_TAC >> fs[] >>
+        rw[] >> fs[] >> gvs[] >>
         first_x_assum(qspec_then`perm`assume_tac)>>full_simp_tac(srw_ss())[]>>
         first_x_assum(qspec_then`perm'`assume_tac)>>full_simp_tac(srw_ss())[]>>
         qexists_tac`λx. if x = 0 then st.permute 0 else perm'' (x-1)`>>
-        Cases_on`handler`>>
-        TRY(rename1 `call_env _ _ (push_env _ (SOME stkf) (dec_clock _)) with
-            permute := _` >> PairCases_on`stkf`)>>
-        full_simp_tac(srw_ss())[dec_clock_def,push_env_def,env_to_list_def,LET_THM,call_env_def,flush_state_def]>>
+        Cases_on `handler` >> TRY (PairCases_on  `x'''`) >>
+        fs[push_env_def,env_to_list_def] >>
+        fs[] >>
         `(λn. perm'' n) = perm''` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
-        full_simp_tac(srw_ss())[state_component_equality,call_env_def,flush_state_def]>>
-        full_simp_tac(srw_ss())[pop_env_perm]>>full_simp_tac(srw_ss())[])
-      >-
-        (full_case_tac>>full_simp_tac(srw_ss())[]
-        >-
-          (perm_assum_tac>>
-          qpat_x_assum`A=res` (SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[]) >>
-        rename1 `evaluate (_,call_env _ _ (push_env _ (SOME stkf) (dec_clock _))) =
-        (SOME (Exception _ _),_)` >>
-        PairCases_on`stkf` >> full_simp_tac(srw_ss())[] >>
-        qpat_x_assum `A=(res,rst)` mp_tac>>
-        ntac 2 (IF_CASES_TAC>>full_simp_tac(srw_ss())[])>>
-        srw_tac[][]>>
-        Cases_on`res = SOME Error`>>full_simp_tac(srw_ss())[]>>
+        fs[] >>
+        full_simp_tac bool_ss [GSYM state_fupdcanon] >> fs[]
+        )
+      >-(
+        Cases_on `handler` >> TRY (PairCases_on  `x''`) >>
+        fs[push_env_def,env_to_list_def] >>
+        rw[] >> gvs[]
+        >- (
+            first_x_assum(qspec_then`perm`assume_tac)>>full_simp_tac(srw_ss())[]>>
+            qexists_tac`λx. if x = 0 then st.permute 0 else perm' (x-1)`>>
+            fs[] >>
+            `(λn. perm' n) = perm'` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
+            full_simp_tac bool_ss [GSYM state_fupdcanon] >> fs[])
+        >- (
+            first_x_assum(qspec_then`perm`assume_tac)>>full_simp_tac(srw_ss())[]>>
+            first_x_assum(qspec_then`perm'`assume_tac)>>full_simp_tac(srw_ss())[]>>
+            qexists_tac`λx. if x = 0 then st.permute 0 else perm'' (x-1)`>>
+            fs[] >>
+            `(λn. perm'' n) = perm''` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
+            fs[] >>
+            full_simp_tac bool_ss [GSYM state_fupdcanon] >> fs[]
+            ))
+      >>
+        rw[] >> gvs[] >>
         first_x_assum(qspec_then`perm`assume_tac)>>full_simp_tac(srw_ss())[]>>
-        first_x_assum(qspec_then`perm'`assume_tac) >> full_simp_tac(srw_ss())[]>>
-        qexists_tac`λx. if x = 0 then st.permute 0 else perm'' (x-1)`>>
-        full_simp_tac(srw_ss())[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
-        `(λn. perm'' n) = perm''` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
-        full_simp_tac(srw_ss())[state_component_equality,call_env_def,flush_state_def]>>
-        full_simp_tac(srw_ss())[]) >>
-      perm_assum_tac >>
-      Cases_on`handler` >>
-      TRY (rename1 `evaluate (_, push_env _ (SOME stkf) _ with
-           <|locals := _; locals_size := _; stack_max:= _; permute := _; clock := _|>)` >> PairCases_on`stkf`) >>
-      full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def]>>
-      qpat_x_assum`A=res` (SUBST1_TAC o SYM)>>full_simp_tac(srw_ss())[])
+        qexists_tac`λx. if x = 0 then st.permute 0 else perm' (x-1)`>>
+        Cases_on `handler` >> TRY (PairCases_on  `x''`) >>
+        fs[push_env_def,env_to_list_def] >>
+        fs[] >>
+        `(λn. perm' n) = perm'` by full_simp_tac(srw_ss())[FUN_EQ_THM]>>
+        fs[] >>
+        full_simp_tac bool_ss [GSYM state_fupdcanon] >> fs[]
+    )
 QED
 
 (* Locals extend lemma *)
@@ -4610,14 +4463,13 @@ Theorem permute_swap_lemma2:
 Proof
    ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >>
    rw[] >> pairarg_tac >> rw[]
-   >~ [‘Alloc’] >- gvs[no_alloc_def]
+   >~ [‘Alloc’]
+   >- gvs[no_alloc_def]
    >~ [‘Move’]
-   >- gvs[evaluate_def,set_vars_def,s_key_eq_refl,AllCaseEqs(),state_component_equality]
+   >- gvs[evaluate_def,AllCaseEqs(),state_component_equality]
    >~ [‘Inst’]
-   >- (gvs[evaluate_def,AllCaseEqs(),inst_def,assign_def,word_exp_def,set_var_def,the_words_def,mem_load_def,mem_store_def,get_fp_var_def,set_fp_var_def] >>
-       simp[state_component_equality,PULL_EXISTS] >>
-       gvs[ELIM_UNCURRY] >>
-       simp[state_component_equality])
+   >- (gvs[evaluate_def,AllCaseEqs(),inst_def,assign_def,mem_store_def,get_fp_var_def,set_fp_var_def,state_component_equality]
+      >> pairarg_tac >> gvs[])
    >~ [‘MustTerminate’]
    >- (gvs[evaluate_def, AllCaseEqs()] >>
        ntac 2 (pairarg_tac >> gvs[]) >>
@@ -4656,13 +4508,19 @@ Proof
        simp[state_component_equality] >>
        metis_tac[PERM_fromAList])
    >~ [‘If’]
-   >- (gvs[evaluate_def, AllCaseEqs(),get_var_imm_perm,get_var_imm_stack,
+   >- (gvs[evaluate_def, AllCaseEqs(),
            no_alloc_def,no_install_def] >>
        first_x_assum drule >>
        disch_then(qspec_then ‘perm’ mp_tac) >>
        rw[] >> simp[state_component_equality])
    >~ [‘Install’]
    >- gvs[no_install_def]
+   >~ [`ShareInst`]
+   >- (
+     gvs[evaluate_def,oneline share_inst_def,AllCaseEqs(),
+      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
+      sh_mem_load32_def,sh_mem_store32_def,oneline sh_mem_set_var_def] >>
+     simp[state_component_equality,set_var_def,flush_state_def] )
    >~ [‘Call’]
    >- (gvs[evaluate_def] >>
        PURE_TOP_CASE_TAC >> gvs[] >>
@@ -4891,15 +4749,10 @@ Proof
            simp[] >>
            gvs[no_alloc_def,no_install_def])
       )
-   >~ [`ShareInst`]
-   >- (
-     gvs[evaluate_def,oneline share_inst_def,AllCaseEqs(),
-      sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
-      sh_mem_load32_def,sh_mem_store32_def,oneline sh_mem_set_var_def] >>
-     simp[state_component_equality,set_var_def,flush_state_def] ) >>
    (* else *)
-   gvs[evaluate_def,AllCaseEqs(),set_var_def,set_store_def,mem_store_def,flush_state_def,
+   >> gvs[evaluate_def,AllCaseEqs(),mem_store_def,flush_state_def,
        dec_clock_def,unset_var_def] >>
+   full_simp_tac bool_ss [GSYM state_fupdcanon] >> fs[] >>
    simp[state_component_equality]
 QED
 

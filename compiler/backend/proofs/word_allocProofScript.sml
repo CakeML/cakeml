@@ -617,12 +617,6 @@ Proof
     fs[]
 QED
 
-Theorem get_fp_var_perm[simp]:
-   get_fp_var r (st with permute:= p) = get_fp_var r st
-Proof
-  EVAL_TAC
-QED
-
 Theorem strong_locals_rel_insert:
      INJ f (n INSERT l) UNIV /\
   strong_locals_rel f (l DELETE n) st cst ⇒
@@ -641,7 +635,7 @@ val exists_tac = qexists_tac`cst.permute`>>
       ,get_live_def,colouring_ok_def];
 
 val exists_tac_2 =
-    Cases_on`word_exp st e`>>full_simp_tac(srw_ss())[word_exp_perm]>>
+    Cases_on`word_exp st e`>>full_simp_tac(srw_ss())[]>>
     imp_res_tac apply_colour_exp_lemma>>
     pop_assum (qspecl_then[`f`,`cst`] mp_tac)>>
     impl_tac
@@ -707,11 +701,12 @@ Proof
     `get_vars (MAP f (MAP SND l)) cst = SOME x` by
       (imp_res_tac strong_locals_rel_get_vars>>
       first_x_assum(qspec_then `MAP SND ls` mp_tac)>>full_simp_tac(srw_ss())[])>>
-    full_simp_tac(srw_ss())[set_vars_def,MAP_MAP_o]>>
+    full_simp_tac(srw_ss())[MAP_MAP_o]>>
     full_simp_tac(srw_ss())[strong_locals_rel_def]>>srw_tac[][]>>
     `LENGTH l = LENGTH x` by
-      metis_tac[LENGTH_MAP,get_vars_length_lemma]>>
-    full_simp_tac(srw_ss())[lookup_alist_insert]>>
+      (imp_res_tac get_vars_length_lemma >>
+      fs[LENGTH_MAP]) >>
+    full_simp_tac(srw_ss())[set_vars_def,lookup_alist_insert]>>
     Cases_on`ALOOKUP (ZIP (MAP FST l,x)) n'`>>full_simp_tac(srw_ss())[]
     >-
     (*NONE:
@@ -745,8 +740,7 @@ Proof
   >- (*Inst*)
     (exists_tac>>
     Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
-    full_simp_tac(srw_ss())[get_live_def,get_live_inst_def,inst_def,assign_def
-      ,word_exp_perm]
+    full_simp_tac(srw_ss())[get_live_def,get_live_inst_def,inst_def,assign_def]
     >-
       (Cases_on`word_exp st (Const c)`>>
       fs[word_exp_def,set_var_def,domain_union,get_writes_def,get_writes_inst_def]>>
@@ -1109,7 +1103,7 @@ Proof
       (unabbrev_all_tac>>
       simp[push_env_def,LET_THM,env_to_list_def,
            state_component_equality,ETA_AX, stack_size_def, stack_size_frame_def]) >>
-    full_simp_tac(srw_ss())[pop_env_perm]>>
+    full_simp_tac(srw_ss())[]>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
     >-
     (*Exceptions*)
@@ -1270,7 +1264,7 @@ Proof
     >>
     srw_tac[][]>>
     Cases_on`x`>>full_simp_tac(srw_ss())[]>>
-    full_simp_tac(srw_ss())[get_var_imm_perm]>>
+    full_simp_tac(srw_ss())[]>>
     Cases_on`get_var_imm r st`>>full_simp_tac(srw_ss())[]>>
     imp_res_tac strong_locals_rel_get_var_imm>>
     pop_assum kall_tac>>pop_assum mp_tac>>impl_tac>-
@@ -1416,7 +1410,7 @@ Proof
     (exists_tac>>
     Cases_on`get_var n st`>> fs[]>>
     imp_res_tac strong_locals_rel_get_var>>full_simp_tac(srw_ss())[jump_exc_def]>>
-    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
+    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[] >> gvs[])
   >- (* Return *)
     (exists_tac>>
     Cases_on`get_var n st`>>
@@ -4879,10 +4873,10 @@ QED
 val exp_tac =
     (last_x_assum kall_tac>>
     exists_tac>>
-    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[next_var_rename_def,word_exp_perm]>>
+    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[next_var_rename_def]>>
     imp_res_tac ssa_locals_rel_get_var>>
     imp_res_tac ssa_cc_trans_exp_correct>>full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
-    rev_full_simp_tac(srw_ss())[word_exp_perm,evaluate_def]>>
+    rev_full_simp_tac(srw_ss())[evaluate_def]>>
     fs[set_var_def,set_store_def]>>
     match_mp_tac ssa_locals_rel_set_var>>
     full_simp_tac(srw_ss())[every_var_def]);
@@ -5159,7 +5153,7 @@ Proof
     last_x_assum kall_tac>>
     exists_tac>>
     Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
-    fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,LET_THM]
+    fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,evaluate_def,LET_THM]
     >~[`Const`]
     >- (
       Cases_on`word_exp st (Const c)`>>
@@ -5209,7 +5203,7 @@ Proof
       pop_assum mp_tac>>
       ntac 2 FULL_CASE_TAC >>fs[]>>
       disch_then sym_sub_tac>>fs[]>>
-      fs[get_vars_def,next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,LET_THM]>>
+      fs[get_vars_def,next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,evaluate_def,LET_THM]>>
       imp_res_tac ssa_locals_rel_get_var>>
       fs[set_vars_def,get_var_def,lookup_alist_insert]>>
       rename1`lookup (_ n1) cst.locals = SOME xx1`>>
@@ -5418,7 +5412,7 @@ Proof
     >~[`FP`]
     >- ( (* FP *)
       Cases_on`f`>>
-      fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]
+      fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]
       >~[ `FPMovFromReg`]
       >- (
         rw[]
@@ -5438,14 +5432,14 @@ Proof
           rw[domain_lookup]>>
           gvs[ssa_map_ok_def]>>
           first_x_assum drule>>fs[])>>
-        fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]>>
+        fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]>>
         every_case_tac>>
-        fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]>>
+        fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]>>
         imp_res_tac ssa_locals_rel_get_var>>
         fs[ssa_locals_rel_set_var]>>
         rveq>>fs[state_component_equality])>>
       every_case_tac>>
-      fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]>>
+      fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def]>>
       imp_res_tac ssa_locals_rel_get_var>>
       fs[ssa_locals_rel_set_var]>>
       rveq>>fs[state_component_equality]>>
@@ -5472,7 +5466,7 @@ Proof
     exp_tac
   >-(*Store*)
     (exists_tac>>
-    full_simp_tac(srw_ss())[word_exp_perm]>>
+    full_simp_tac(srw_ss())[]>>
     Cases_on`word_exp st e`>>full_simp_tac(srw_ss())[]>>
     Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>
     imp_res_tac ssa_locals_rel_get_var>>
@@ -5822,7 +5816,7 @@ Proof
       (unabbrev_all_tac>>
       simp[push_env_def,LET_THM,env_to_list_def ,state_component_equality,FUN_EQ_THM,
            stack_size_def, stack_size_frame_def])>>
-      full_simp_tac(srw_ss())[pop_env_perm]>>
+      full_simp_tac(srw_ss())[]>>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
     >- (
       (*Excepting without handler*)
@@ -6131,7 +6125,7 @@ Proof
       (unabbrev_all_tac>>
       simp[push_env_def,LET_THM,env_to_list_def,
            state_component_equality,FUN_EQ_THM, stack_size_def, stack_size_frame_def])>>
-      full_simp_tac(srw_ss())[pop_env_perm]>>
+      full_simp_tac(srw_ss())[]>>
       Cases_on`evaluate(x2,res_st with permute:=perm')`>>
       Cases_on`evaluate(ren_ret_handler,res_rcst)`>>
       full_simp_tac(srw_ss())[]>>
@@ -6312,7 +6306,7 @@ Proof
       (unabbrev_all_tac>>
       rpt(pop_assum kall_tac)>>
       simp[state_component_equality,FUN_EQ_THM, stack_size_def, stack_size_frame_def])>>
-      full_simp_tac(srw_ss())[pop_env_perm]>>
+      full_simp_tac(srw_ss())[]>>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       Cases_on`evaluate(x''1,res_st with permute:=perm')`>>
       Cases_on`evaluate(ren_exc_handler,res_rcst)`>>full_simp_tac(srw_ss())[]>>
@@ -6365,7 +6359,7 @@ Proof
     PairCases_on`A`>>simp[]>>
     pop_assum(mp_tac o SYM o SIMP_RULE std_ss[markerTheory.Abbrev_def]) >>
     full_simp_tac(srw_ss())[evaluate_def,ssa_cc_trans_def]>>
-    LET_ELIM_TAC>>fs[get_var_imm_perm]>>
+    LET_ELIM_TAC>>fs[]>>
     qpat_x_assum`B = A0` sym_sub_tac>>full_simp_tac(srw_ss())[evaluate_def]>>
     Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x`>>full_simp_tac(srw_ss())[]>>
@@ -6375,6 +6369,7 @@ Proof
     `get_var_imm ri' cst = SOME(Word c'')` by
       (Cases_on`r`>>full_simp_tac(srw_ss())[Abbr`ri'`,get_var_imm_def]>>
       metis_tac[ssa_locals_rel_get_var])>>
+    fs[] >>
     Cases_on`word_cmp c c' c''`>>full_simp_tac(srw_ss())[]
     >-
       (first_assum(qspecl_then[`p`,`st`,`cst`,`ssa`,`na`] mp_tac)>>
@@ -6669,7 +6664,7 @@ Proof
     (exists_tac>>fs[]>>
     Cases_on`get_var n st`>>imp_res_tac ssa_locals_rel_get_var>>
     full_simp_tac(srw_ss())[get_vars_def,get_var_def,set_vars_def,lookup_alist_insert]>>
-    full_simp_tac(srw_ss())[jump_exc_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
+    full_simp_tac(srw_ss())[jump_exc_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>> gvs[])
   >-
     (*Return*)
     (exists_tac>>fs[]>>
@@ -6699,7 +6694,7 @@ Proof
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[next_var_rename_def]>>
     imp_res_tac ssa_locals_rel_get_var>>
     imp_res_tac ssa_cc_trans_exp_correct>>full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
-    rev_full_simp_tac(srw_ss())[word_exp_perm,evaluate_def]>>
+    rev_full_simp_tac(srw_ss())[evaluate_def]>>
     fs[set_var_def,set_store_def,ssa_cc_trans_exp_def]>>
     match_mp_tac ssa_locals_rel_set_var>>
     full_simp_tac(srw_ss())[every_var_def])

@@ -422,8 +422,8 @@ Proof
   >- tac
   >- tac
   >- (Cases_on`i`>>
-     fs[evaluate_def,inst_def,state_component_equality,assign_def,
-       word_exp_perm,mem_load_def,mem_store_def,get_var_def,LET_THM,get_fp_var_def]>>
+     fs[evaluate_def,inst_def,state_component_equality,assign_def
+     ,mem_load_def,mem_store_def,get_var_def,LET_THM,get_fp_var_def]>>
      EVERY_CASE_TAC>>
      fs[set_var_def,set_fp_var_def]>>
      rw[])
@@ -602,7 +602,7 @@ Proof
       rfs[]>>
       qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
       Cases_on`o0`>>TRY(PairCases_on `x'''`)>>
-      (fs[call_env_def,flush_state_def,push_env_def,dec_clock_def,env_to_list_def,ETA_AX,pop_env_perm]>>
+      (fs[call_env_def,flush_state_def,push_env_def,dec_clock_def,env_to_list_def,ETA_AX]>>
       qpat_x_assum`((λ(res',rcst). P) A)` mp_tac>>
       pairarg_tac>>rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[]>>
       `pop_env rst1 =
@@ -673,7 +673,7 @@ Proof
       Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' (SOME (p0,p1,p2,p3)) (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
       rfs[]>>
       qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
-      fs[call_env_def,flush_state_def,push_env_def,dec_clock_def,env_to_list_def,ETA_AX,pop_env_perm]>>
+      fs[call_env_def,flush_state_def,push_env_def,dec_clock_def,env_to_list_def,ETA_AX]>>
       `domain rst1.locals = domain x'` by
         (qpat_x_assum`rst1=_` SUBST_ALL_TAC>>rw[])>>
       simp[]>>
@@ -1071,7 +1071,7 @@ Proof
   >- (Cases_on`i`>>
       fs[evaluate_def,inst_def,
          state_component_equality,assign_def,
-         wordPropsTheory.word_exp_perm,mem_load_def,
+         mem_load_def,
          mem_store_def, get_var_def,LET_THM,
          get_fp_var_def]>>
       EVERY_CASE_TAC>>
@@ -1297,7 +1297,7 @@ Proof
                                                                   Cases_on`o0`>>TRY(PairCases_on `x'''`)>>
      (fs[call_env_def,flush_state_def,
          push_env_def,dec_clock_def,
-         env_to_list_def,ETA_AX,wordPropsTheory.pop_env_perm
+         env_to_list_def,ETA_AX
          ]>>
       qpat_x_assum`((λ(res',rcst). P) A)` mp_tac>>
       pairarg_tac>>rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[]>>
@@ -1376,7 +1376,7 @@ Proof
      rfs[]>>
      qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)` >>
      fs[call_env_def,flush_state_def,push_env_def,dec_clock_def,
-        env_to_list_def,ETA_AX,wordPropsTheory.pop_env_perm
+        env_to_list_def,ETA_AX
         ]>>
      `domain rst1.locals = domain x'` by
        (qpat_x_assum`rst1=_` SUBST_ALL_TAC>>rw[])>>
