@@ -41,7 +41,7 @@ Proof
   imp_res_tac SUBSET_THM >> fs[]
 QED
 
-Theorem helper = MEM_extract_labels_Seq_assoc_right_lemma
+Triviality helper = MEM_extract_labels_Seq_assoc_right_lemma
                  |> REWRITE_RULE [Once (GSYM CONTRAPOS_THM)]
 
 Theorem ALL_DISTINCT_extract_labels_Seq_assoc_right_lemma:
@@ -186,11 +186,26 @@ Proof
   simp[call_arg_convention_remove_unreach]
 QED
 
+Theorem full_inst_ok_less_Seq_assoc_right_lemma:
+  ∀p1 p2. full_inst_ok_less ac p1 ∧ full_inst_ok_less ac p2 ⇒
+          full_inst_ok_less ac (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,full_inst_ok_less_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[full_inst_ok_less_def] >> NO_TAC)
+  >- (rpt (PURE_CASE_TAC >> fs[]) >> fs[full_inst_ok_less_def]) >>
+  rpt (PURE_CASE_TAC >> fs[]) >> fs[full_inst_ok_less_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,full_inst_ok_less_def]
+QED
+
 Theorem full_inst_ok_less_remove_unreach:
   full_inst_ok_less ac p ⇒
   full_inst_ok_less ac (remove_unreach p)
 Proof
-  cheat
+  rw[remove_unreach_def] >>
+  irule full_inst_ok_less_Seq_assoc_right_lemma >>
+  simp[full_inst_ok_less_def]
 QED
 
 Theorem two_reg_inst_remove_unreach:
