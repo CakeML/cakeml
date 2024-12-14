@@ -111,16 +111,16 @@ fun parse_build_sequence cml_root =
     val paths = List.map (fn p => OS.Path.concat (cml_root, p)) paths
     val invalid_paths = List.filter is_not_directory paths
     val _ = assert (invalid_paths = [])
-                   ("The following lines are not valid directories:\n" ^
+                   ("The following lines in build-sequence are not valid directories:\n" ^
                     (paths_to_string cml_root invalid_paths))
     val duplicate_paths = find_duplicates paths
     val _ = assert (duplicate_paths = [])
-                   ("Please remove the following duplicates:\n" ^
+                   ("Please remove the following duplicates from build-sequence:\n" ^
                     (paths_to_string cml_root duplicate_paths))
     val no_holmakefile_paths =
       List.filter (fn p => not (contains_holmakefile p)) paths
     val _ = assert (no_holmakefile_paths = [])
-                   ("The following paths do not contain a Holmakefile:\n" ^
+                   ("The following paths in build-sequence do not contain a Holmakefile:\n" ^
                     (paths_to_string cml_root no_holmakefile_paths))
   in List.map OS.FileSys.realPath paths end
 
@@ -132,16 +132,16 @@ fun parse_build_excludes cml_root =
     val paths = List.map (fn p => OS.Path.concat (cml_root, p)) paths
     val invalid_paths = List.filter is_not_directory paths
     val _ = assert (invalid_paths = [])
-                   ("The following lines are not valid directories:\n" ^
+                   ("The following lines in build-excludes are not valid directories:\n" ^
                     (paths_to_string cml_root invalid_paths))
     val duplicate_paths = find_duplicates paths
     val _ = assert (duplicate_paths = [])
-                   ("Please remove the following duplicates:\n" ^
+                   ("Please remove the following duplicates from build-excludes:\n" ^
                     (paths_to_string cml_root duplicate_paths))
     val no_holmakefile_paths =
       List.filter (fn p => not (contains_holmakefile p)) paths
     val _ = assert (no_holmakefile_paths = [])
-                   ("The following paths do not contain a Holmakefile:\n" ^
+                   ("The following paths in build-excludes do not contain a Holmakefile:\n" ^
                     (paths_to_string cml_root no_holmakefile_paths))
   in List.map OS.FileSys.realPath paths end
 
