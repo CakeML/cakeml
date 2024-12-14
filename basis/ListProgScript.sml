@@ -284,8 +284,8 @@ QED
 
 val result = translate UNZIP_eq;
 
-val result = translate PAD_RIGHT;
-val result = translate PAD_LEFT;
+val result = translate (PAD_RIGHT |> REWRITE_RULE [GSYM sub_check_def]);
+val result = translate (PAD_LEFT |> REWRITE_RULE [GSYM sub_check_def]);
 val result = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = next_ml_names := ["isPrefix"];
 val result = translate isPREFIX;
