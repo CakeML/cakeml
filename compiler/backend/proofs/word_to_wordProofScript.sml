@@ -208,11 +208,26 @@ Proof
   simp[full_inst_ok_less_def]
 QED
 
+Theorem two_reg_inst_Seq_assoc_right_lemma:
+  ∀p1 p2. every_inst two_reg_inst p1 ∧ every_inst two_reg_inst p2 ⇒
+          every_inst two_reg_inst (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,every_inst_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[every_inst_def] >> NO_TAC)
+  >- (rpt (PURE_CASE_TAC >> fs[]) >>fs[every_inst_def]) >>
+  rpt (PURE_CASE_TAC >> fs[]) >> fs[every_inst_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,every_inst_def]
+QED
+
 Theorem two_reg_inst_remove_unreach:
   every_inst two_reg_inst p ⇒
   every_inst two_reg_inst (remove_unreach p)
 Proof
-  cheat
+  rw[remove_unreach_def] >>
+  irule two_reg_inst_Seq_assoc_right_lemma >>
+  fs[every_inst_def]
 QED
 
 (*Chains up compile_single theorems*)
