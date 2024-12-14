@@ -577,4 +577,8 @@ Theorem no_share_inst_def = not_created_subprogs_P_def
   |> ISPEC no_share_inst_P
   |> REWRITE_RULE [GSYM no_share_inst_subprogs_def]
 
+Overload word_get_code_labels = ``wordConvs$get_code_labels``
+Overload word_good_handlers = ``wordConvs$good_handlers``
+Overload word_good_code_labels = ``wordConvs$good_code_labels``
+
 val _ = export_theory();

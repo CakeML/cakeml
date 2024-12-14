@@ -967,7 +967,7 @@ Proof
   (rw[sh_mem_set_var_def]>>
   irule remove_eq_model >>
   first_x_assum (irule_at Any))
-  >> Cases_on‘fr’ >> rw[sh_mem_set_var_def] 
+  >> Cases_on‘fr’ >> rw[sh_mem_set_var_def]
   >-(fs[] >> metis_tac[remove_eq_model_set_var])
   >-(fs[flush_state_def] >> fs[] >> fs[CPstate_models_def])
 QED

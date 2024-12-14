@@ -10,7 +10,7 @@ val _ = new_theory "wordConvsProof";
 (***
   This theory should serve also as documentation for
   the syntactic properties of wordLang that gets preserved
-  across passes.
+  across wordLang passes.
   It must NOT depend on the semantics or word_Xproof files.
 
   OVERVIEW (TO BE FILLED):
@@ -22,6 +22,9 @@ val _ = new_theory "wordConvsProof";
     3 preserves subprogs: compile_exp_not_created_subprogs
     4 TODO
 
+    preserves code_labels:   word_get_code_labels_word_simp
+    preserves good_handlers: word_good_handlers_word_simp
+
   inst_select
   ===
     1 preserves label_rel: inst_select_lab_pres (equality on labels)
@@ -31,9 +34,14 @@ val _ = new_theory "wordConvsProof";
     creates full_inst_ok_less: inst_select_full_inst_ok_less
     TODO
 
+    preserves code_labels:   word_get_code_labels_inst_select
+    preserves good_handlers: word_good_handlers_inst_select
+
   full_ssa_cc_trans
   ===
     3 preserves subprogs: full_ssa_cc_trans_not_created_subprogs
+    preserves code_labels:   word_get_code_labels_full_ssa_cc_trans
+    preserves good_handlers: word_good_handlers_full_ssa_cc_trans
     TODO
 
   remove_dead_prog (note this is ran again after remove_unreach)
@@ -45,15 +53,25 @@ val _ = new_theory "wordConvsProof";
     preserves pre_alloc_conventions: remove_dead_prog_conventions
     preserves every_inst: remove_dead_prog_conventions
     preserves wf_cutsets: remove_dead_prog_conventions
+    preserves code_labels:   word_get_code_labels_remove_dead_prog
+    preserves good_handlers: word_good_handlers_remove_dead_prog
+
     TODO
 
   word_common_subexp_elim
   ===
     3 preserves subprogs: word_common_subexp_elim_not_created_subprogs
+    preserves code_labels:   word_get_code_labels_word_common_subexp_elim
+    preserves good_handlers: word_good_handlers_word_common_subexp_elim
+
     TODO
 
   copy_prop
   ===
+
+    preserves code_labels:   word_get_code_labels_copy_prop
+    preserves good_handlers: word_good_handlers_copy_prop
+
     TODO
 
   three_to_two_reg_prog
@@ -68,20 +86,38 @@ val _ = new_theory "wordConvsProof";
     preserves pre_alloc_conventions: three_to_two_reg_prog_pre_alloc_conventions
     preserves flat_exp_conventions: three_to_two_reg_prog_flat_exp_conventions
     preservers full_inst_ok_less :three_to_two_reg_prog_full_inst_ok_less:
+    preserves code_labels: word_get_code_labels_three_to_two_reg_prog
+    preserves good_handlers: word_good_handlers_three_to_two_reg_prog
+
     TODO
 
   remove_unreach
   ===
+
+    preserves code_labels:   word_get_code_labels_remove_unreach
+    preserves good_handlers: word_good_handlers_remove_unreach
     TODO
 
   word_alloc
   ===
     3 preserves subprogs: word_alloc_not_created_subprogs
+
+    preserves code_labels:   word_get_code_labels_word_alloc
+    preserves good_handlers: word_good_handlers_word_alloc
+
     TODO
 
-  word_to_word (overall)
+  remove_must_terminate
   ===
+    preserves code_labels: word_get_code_labels_remove_must_terminate
+    preserves good_handlers: word_good_handlers_remove_must_terminate
     TODO
+
+  word_to_word (compile_single and full_compile_single thms)
+  ===
+    preserves good_handlers: word_good_handlers_word_to_word, word_good_handlers_word_to_word_incr
+
+    preserves good_code_labels: word_good_code_labels_word_to_word_incr, word_good_code_labels_word_to_word
 ***)
 
 (*** word_simp$compile_exp ***)
@@ -492,6 +528,188 @@ Proof
     not_created_subprogs_def]
 QED
 
+Triviality word_get_code_labels_SmartSeq[simp]:
+  word_get_code_labels (SmartSeq p q) =
+  word_get_code_labels p ∪ word_get_code_labels q
+Proof
+  rw[SmartSeq_def]
+QED
+
+Triviality word_get_code_labels_drop_consts[simp]:
+  ∀args.
+  word_get_code_labels (drop_consts l args) = {}
+Proof
+  Induct>>rw[drop_consts_def]>>
+  every_case_tac>>simp[]
+QED
+
+Triviality word_get_code_labels_const_fp_loop:
+  ∀p l.
+  word_get_code_labels (FST (const_fp_loop p l)) ⊆ word_get_code_labels p
+Proof
+  ho_match_mp_tac const_fp_loop_ind \\ rw []
+  \\ fs [const_fp_loop_def]
+  \\ every_case_tac\\ fs[]
+  \\ rpt (pairarg_tac \\ fs[])
+  \\ fs[SUBSET_DEF] \\ metis_tac[]
+QED
+
+Triviality word_good_handlers_SmartSeq[simp]:
+  word_good_handlers n (SmartSeq p q) ⇔
+  word_good_handlers n p ∧
+  word_good_handlers n q
+Proof
+  rw[SmartSeq_def]
+QED
+
+Triviality word_good_handlers_drop_consts[simp]:
+  ∀args.
+  word_good_handlers n (drop_consts l args)
+Proof
+  Induct>>rw[drop_consts_def]>>
+  every_case_tac>>simp[]
+QED
+
+Triviality word_good_handlers_const_fp_loop:
+  ∀p l.
+  word_good_handlers n p ⇒
+  word_good_handlers n (FST (const_fp_loop p l))
+Proof
+  ho_match_mp_tac const_fp_loop_ind \\ rw []
+  \\ fs [const_fp_loop_def]
+  \\ every_case_tac\\ fs[]
+  \\ rpt (pairarg_tac \\ fs[])
+QED
+
+Triviality word_get_code_labels_Seq_assoc:
+  ∀p1 p2.
+  word_get_code_labels (Seq_assoc p1 p2) = word_get_code_labels p1 ∪ word_get_code_labels p2
+Proof
+  ho_match_mp_tac Seq_assoc_ind>>rw[]>>
+  fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
+  fs[UNION_ASSOC]>>
+  every_case_tac>>fs[]
+QED
+
+Triviality word_good_handlers_Seq_assoc:
+  ∀p1 p2.
+  word_good_handlers n (Seq_assoc p1 p2) ⇔
+  word_good_handlers n p1 ∧ word_good_handlers n p2
+Proof
+  ho_match_mp_tac Seq_assoc_ind>>rw[]>>
+  fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
+  every_case_tac>>fs[]>>metis_tac[]
+QED
+
+Triviality word_good_handlers_try_if_hoist2:
+  ! N p1 interm dummy p2 s.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  word_good_handlers n p1 /\ word_good_handlers n p2 /\ word_good_handlers n interm ==>
+  word_good_handlers n p3
+Proof
+  ho_match_mp_tac try_if_hoist2_ind
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ REWRITE_TAC [Once try_if_hoist2_def]
+  \\ rpt disch_tac
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ gs [dest_If_thm]
+  \\ simp [const_fp_def]
+  \\ irule word_good_handlers_const_fp_loop
+  \\ simp []
+QED
+
+Triviality word_good_handlers_simp_duplicate_if:
+  !p. word_good_handlers n p ==> word_good_handlers n (simp_duplicate_if p)
+Proof
+  ho_match_mp_tac simp_duplicate_if_ind
+  \\ rw []
+  \\ simp [Once simp_duplicate_if_def]
+  \\ Cases_on `p` \\ fs []
+  \\ simp []
+  \\ every_case_tac
+  \\ fs []
+  \\ fs [try_if_hoist1_def, CaseEq "option", CaseEq "prod", EXISTS_PROD]
+  \\ drule word_good_handlers_try_if_hoist2
+  \\ fs [word_good_handlers_Seq_assoc]
+QED
+
+Triviality word_get_code_labels_try_if_hoist2:
+  ! N p1 interm dummy p2 s.
+  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
+  word_get_code_labels p3 SUBSET
+  (word_get_code_labels p1 UNION word_get_code_labels interm UNION word_get_code_labels p2)
+Proof
+  ho_match_mp_tac try_if_hoist2_ind
+  \\ rpt gen_tac
+  \\ rpt disch_tac
+  \\ REWRITE_TAC [Once try_if_hoist2_def]
+  \\ rpt disch_tac
+  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
+        CaseEq "option", CaseEq "prod"]
+  \\ gvs []
+  \\ gs [dest_If_thm]
+  >- (
+    drule_then irule SUBSET_TRANS
+    \\ simp [SUBSET_DEF]
+  )
+  >- (
+    irule_at (Pat `word_get_code_labels (const_fp _) SUBSET _`) SUBSET_TRANS
+    \\ simp [const_fp_def]
+    \\ irule_at Any word_get_code_labels_const_fp_loop
+    \\ simp [SUBSET_DEF, DISJ_IMP_THM]
+  )
+  >- (
+    irule_at (Pat `word_get_code_labels (const_fp _) SUBSET _`) SUBSET_TRANS
+    \\ simp [const_fp_def]
+    \\ irule_at Any word_get_code_labels_const_fp_loop
+    \\ simp [SUBSET_DEF, DISJ_IMP_THM]
+  )
+QED
+
+Triviality word_get_code_labels_simp_duplicate_if:
+  !p. word_get_code_labels (simp_duplicate_if p) SUBSET word_get_code_labels p
+Proof
+  ho_match_mp_tac simp_duplicate_if_ind
+  \\ rw []
+  \\ simp [Once simp_duplicate_if_def]
+  \\ Cases_on `p` \\ fs []
+  \\ simp []
+  \\ every_case_tac
+  \\ fs []
+  \\ fs [SUBSET_DEF]
+  \\ fs [try_if_hoist1_def, CaseEq "option", CaseEq "prod", EXISTS_PROD]
+  \\ drule word_get_code_labels_try_if_hoist2
+  \\ fs [word_get_code_labels_Seq_assoc, SUBSET_DEF]
+  \\ metis_tac []
+QED
+
+Theorem word_get_code_labels_word_simp:
+  ∀ps.
+  word_get_code_labels (word_simp$compile_exp ps) ⊆
+  word_get_code_labels ps
+Proof
+  rw [compile_exp_def]>>
+  irule SUBSET_TRANS >> irule_at Any word_get_code_labels_simp_duplicate_if >>
+  simp [const_fp_def] >>
+  irule SUBSET_TRANS >> irule_at Any word_get_code_labels_const_fp_loop >>
+  simp [word_get_code_labels_Seq_assoc]
+QED
+
+Theorem word_good_handlers_word_simp:
+  ∀ps.
+  word_good_handlers n ps ⇒
+  word_good_handlers n (word_simp$compile_exp ps)
+Proof
+  rw[compile_exp_def]>>
+  irule word_good_handlers_simp_duplicate_if >>
+  simp [const_fp_def] >>
+  match_mp_tac word_good_handlers_const_fp_loop>>
+  fs[word_good_handlers_Seq_assoc]
+QED
+
 (*** inst_select ***)
 
 (* label preservation stuff *)
@@ -585,6 +803,44 @@ Proof
   metis_tac[inst_select_exp_full_inst_ok_less]
 QED
 
+Triviality word_get_code_labels_inst_select_exp:
+  ∀a b c exp.
+  word_get_code_labels (inst_select_exp a b c exp) = {}
+Proof
+  ho_match_mp_tac inst_select_exp_ind>>rw[]>>
+  fs[inst_select_exp_def]>>
+  every_case_tac>>fs[inst_select_exp_def]
+QED
+
+Theorem word_get_code_labels_inst_select:
+  ∀ac v ps.
+  word_get_code_labels (inst_select ac v ps) =
+  word_get_code_labels ps
+Proof
+  ho_match_mp_tac inst_select_ind>>rw[]>>
+  fs[inst_select_def]>>
+  every_case_tac>>fs[word_get_code_labels_inst_select_exp]
+QED
+
+Triviality word_good_handlers_inst_select_exp:
+  ∀a b c exp.
+  word_good_handlers n (inst_select_exp a b c exp)
+Proof
+  ho_match_mp_tac inst_select_exp_ind>>rw[]>>
+  fs[inst_select_exp_def]>>
+  every_case_tac>>fs[inst_select_exp_def]
+QED
+
+Theorem word_good_handlers_inst_select:
+  ∀ac v ps.
+  word_good_handlers n (inst_select ac v ps) ⇔
+  word_good_handlers n ps
+Proof
+  ho_match_mp_tac inst_select_ind>>rw[]>>
+  fs[inst_select_def]>>
+  every_case_tac>>fs[word_good_handlers_inst_select_exp]
+QED
+
 (*** full_ssa_cc_trans ***)
 
 Theorem ssa_cc_trans_inst_not_created_subprogs:
@@ -666,6 +922,158 @@ Proof
   rw[not_created_subprogs_def]
 QED
 
+Triviality word_get_code_labels_fake_moves:
+   ∀a b c d e f g h i.
+   fake_moves prio a b c d = (e,f,g,h,i) ⇒
+   word_get_code_labels e = {} ∧
+   word_get_code_labels f = {}
+Proof
+  Induct \\ rw[fake_moves_def] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[CaseEq"option"] \\ rw[]
+  \\ first_x_assum old_drule \\ rw[]
+  \\ rw[fake_move_def]
+QED
+
+Triviality word_get_code_labels_ssa_cc_trans:
+   ∀x y z a b c.
+   ssa_cc_trans x y z = (a,b,c) ⇒
+   word_get_code_labels a = word_get_code_labels x
+Proof
+  recInduct ssa_cc_trans_ind
+  \\ rw[ssa_cc_trans_def] \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  >- (
+    Cases_on`i` \\ fs[ssa_cc_trans_inst_def]
+    \\ rveq \\ fs[]
+    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+    \\ TRY(rename1`Arith arith` \\ Cases_on`arith`)
+    \\ TRY(rename1`Mem memop _ dst` \\ Cases_on`memop` \\ Cases_on`dst`)
+    \\ TRY(rename1`FP flop` \\ Cases_on`flop`)
+    \\ fs[ssa_cc_trans_inst_def,CaseEq"reg_imm",CaseEq"bool"]
+    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[] )
+  >- (
+    fs[fix_inconsistencies_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ imp_res_tac word_get_code_labels_fake_moves
+    \\ rw[])
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[CaseEq"option"] \\ rveq \\ fs[]
+    \\ fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ fs[CaseEq"prod", fix_inconsistencies_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ imp_res_tac word_get_code_labels_fake_moves
+    \\ fs[])
+QED
+
+Theorem word_get_code_labels_full_ssa_cc_trans:
+  ∀m p.
+  word_get_code_labels (full_ssa_cc_trans m p) =
+  word_get_code_labels p
+Proof
+  simp[full_ssa_cc_trans_def]
+  \\ rpt gen_tac
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[setup_ssa_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ old_drule word_get_code_labels_ssa_cc_trans
+  \\ rw[]
+QED
+
+Triviality word_good_handlers_fake_moves:
+   ∀a b c d e f g h i.
+   fake_moves prio a b c d = (e,f,g,h,i) ⇒
+   word_good_handlers n e ∧
+   word_good_handlers n f
+Proof
+  Induct \\ rw[fake_moves_def] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[CaseEq"option"] \\ rw[]
+  \\ first_x_assum old_drule \\ rw[]
+  \\ rw[fake_move_def]
+QED
+
+Triviality word_good_handlers_ssa_cc_trans:
+   ∀x y z a b c.
+   ssa_cc_trans x y z = (a,b,c) ⇒
+   word_good_handlers n a = word_good_handlers n x
+Proof
+  recInduct ssa_cc_trans_ind
+  \\ rw[ssa_cc_trans_def] \\ fs[]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  >- (
+    Cases_on`i` \\ fs[ssa_cc_trans_inst_def]
+    \\ rveq \\ fs[]
+    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+    \\ TRY(rename1`Arith arith` \\ Cases_on`arith`)
+    \\ TRY(rename1`Mem memop _ dst` \\ Cases_on`memop` \\ Cases_on`dst`)
+    \\ TRY(rename1`FP flop` \\ Cases_on`flop`)
+    \\ fs[ssa_cc_trans_inst_def,CaseEq"reg_imm",CaseEq"bool"]
+    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[] )
+  >- (
+    fs[fix_inconsistencies_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ imp_res_tac word_good_handlers_fake_moves
+    \\ rw[])
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[] )
+  >- (
+    fs[CaseEq"option"] \\ rveq \\ fs[]
+    \\ fs[list_next_var_rename_move_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ fs[CaseEq"prod", fix_inconsistencies_def]
+    \\ rpt(pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ imp_res_tac word_good_handlers_fake_moves
+    \\ fs[])
+QED
+
+Theorem word_good_handlers_full_ssa_cc_trans:
+  ∀m p.
+  word_good_handlers n (full_ssa_cc_trans m p) ⇔
+  word_good_handlers n p
+Proof
+  simp[full_ssa_cc_trans_def]
+  \\ rpt gen_tac
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[setup_ssa_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ old_drule word_good_handlers_ssa_cc_trans
+  \\ rw[]
+QED
+
 (*** remove_dead_prog ***)
 val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def];
 
@@ -716,6 +1124,44 @@ Theorem remove_dead_prog_conventions =
   (remove_dead_conventions |> Q.SPEC`p` |> Q.SPEC`LN` |> SPEC_ALL |>
     SIMP_RULE std_ss [LET_THM,FORALL_AND_THM,GSYM remove_dead_prog_def]);
 
+Triviality word_get_code_labels_remove_dead:
+  ∀ps live.
+  word_get_code_labels (FST (remove_dead ps live)) ⊆
+  word_get_code_labels ps
+Proof
+  ho_match_mp_tac remove_dead_ind>>rw[]>>
+  fs[remove_dead_def]>>
+  every_case_tac>>fs[]>>
+  rpt(pairarg_tac>>fs[])>>rw[]>>
+  fs[SUBSET_DEF]
+QED
+
+Theorem word_get_code_labels_remove_dead_prog:
+  word_get_code_labels (remove_dead_prog ps) ⊆
+  word_get_code_labels ps
+Proof
+  simp[remove_dead_prog_def,word_get_code_labels_remove_dead]
+QED
+
+Triviality word_good_handlers_remove_dead:
+  ∀ps live.
+  word_good_handlers n (FST (remove_dead ps live)) ⇔
+  word_good_handlers n ps
+Proof
+  ho_match_mp_tac remove_dead_ind>>rw[]>>
+  fs[remove_dead_def]>>
+  every_case_tac>>fs[]>>
+  rpt(pairarg_tac>>fs[])>>rw[]>>
+  rw[]>>gvs[]
+QED
+
+Theorem word_good_handlers_remove_dead_prog:
+  word_good_handlers n (remove_dead_prog ps) ⇔
+  word_good_handlers n ps
+Proof
+  simp[remove_dead_prog_def,word_good_handlers_remove_dead]
+QED
+
 (*** word_common_subexp_elim ***)
 
 Triviality word_cseInst_not_created_subprogs:
@@ -749,6 +1195,69 @@ Theorem word_common_subexp_elim_not_created_subprogs:
 Proof
   fs [word_cseTheory.word_common_subexp_elim_def]
   \\ simp [ELIM_UNCURRY, word_cse_not_created_subprogs]
+QED
+
+Theorem word_good_handlers_word_common_subexp_elim:
+  word_good_handlers q (word_common_subexp_elim p) ⇔
+  word_good_handlers q p
+Proof
+  fs [word_common_subexp_elim_def]
+  \\ pairarg_tac \\ fs []
+  \\ rename [‘_ k _ = (a,np)’]
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘k’
+  \\ qid_spec_tac ‘a’
+  \\ qid_spec_tac ‘np’
+  \\ qid_spec_tac ‘q’
+  \\ qid_spec_tac ‘p’
+  \\ Induct \\ fs [word_cse_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
+  \\ res_tac \\ fs []
+  \\ gvs [add_to_data_aux_def,AllCaseEqs()]
+  \\ gvs [word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+  \\ gvs [add_to_data_def,add_to_data_aux_def,AllCaseEqs()]
+  \\ rename1`xx = (_,_)`
+  \\ Cases_on`xx` \\ simp[]
+QED
+
+Theorem word_get_code_labels_word_common_subexp_elim:
+  word_get_code_labels (word_common_subexp_elim p) =
+  word_get_code_labels p
+Proof
+  fs [word_common_subexp_elim_def]
+  \\ pairarg_tac \\ fs []
+  \\ rename [‘_ k _ = (a,np)’]
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘k’
+  \\ qid_spec_tac ‘a’
+  \\ qid_spec_tac ‘np’
+  \\ qid_spec_tac ‘q’
+  \\ qid_spec_tac ‘p’
+  \\ Induct \\ fs [word_cse_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
+  \\ res_tac \\ fs []
+  \\ gvs [add_to_data_aux_def,AllCaseEqs()]
+  \\ gvs [word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
+  \\ gvs [add_to_data_def,add_to_data_aux_def,AllCaseEqs()]
+QED
+
+(*** copy_prop ***)
+
+Theorem word_get_code_labels_copy_prop:
+  word_get_code_labels (copy_prop ps) =
+  word_get_code_labels ps
+Proof
+  simp[copy_prop_def]>>
+  cheat
+QED
+
+Theorem word_good_handlers_copy_prop:
+  word_good_handlers n (copy_prop ps) ⇔
+  word_good_handlers n ps
+Proof
+  cheat
 QED
 
 (*** three_to_to_reg_prog ***)
@@ -820,14 +1329,7 @@ Proof
   rw[]>>
   full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
 QED
-(*
-Theorem three_to_two_reg_flat_exp_conventions:
-  ∀prog. flat_exp_conventions prog ⇒ flat_exp_conventions (three_to_two_reg prog)
-Proof
-  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
-QED
-*)
+
 Theorem three_to_two_reg_prog_full_inst_ok_less:
   ∀prog. full_inst_ok_less c prog ⇒
          full_inst_ok_less c (three_to_two_reg_prog b prog)
@@ -842,21 +1344,76 @@ Proof
   >>
     metis_tac[inst_ok_less_def]
 QED
-(*
-Theorem three_to_two_reg_full_inst_ok_less:
-  ∀prog. full_inst_ok_less c prog ⇒
-         full_inst_ok_less c (three_to_two_reg prog)
+
+Theorem word_get_code_labels_three_to_two_reg_prog:
+  ∀ps.
+  word_get_code_labels (three_to_two_reg_prog b ps) =
+  word_get_code_labels ps
 Proof
-  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>fs[full_inst_ok_less_def]
-  >-
-    (Cases_on`bop`>>Cases_on`ri`>>fs[full_inst_ok_less_def,inst_ok_less_def,every_inst_def])
-  >-
-    (Cases_on`n`>>fs[inst_ok_less_def])
-  >>
-    metis_tac[inst_ok_less_def]
+  simp[three_to_two_reg_prog_def]>>
+  ho_match_mp_tac three_to_two_reg_ind>>rw[]>>
+  fs[three_to_two_reg_def]>>
+  every_case_tac>>fs[]
 QED
-*)
+
+Theorem word_good_handlers_three_to_two_reg_prog:
+  ∀ps.
+  word_good_handlers n (three_to_two_reg_prog b ps) ⇔
+  word_good_handlers n ps
+Proof
+  simp[three_to_two_reg_prog_def]>>
+  ho_match_mp_tac three_to_two_reg_ind>>rw[]>>
+  fs[three_to_two_reg_def]>>
+  every_case_tac>>fs[]
+QED
+
+(*** remove_unreach ***)
+Triviality word_get_code_labels_dest_Seq_Move:
+  ∀p.
+  dest_Seq_Move p = SOME (x,y,z) ⇒
+  word_get_code_labels z = word_get_code_labels p
+Proof
+  ho_match_mp_tac dest_Seq_Move_ind>>rw[]>>
+  gvs[dest_Seq_Move_def]
+QED
+
+Triviality word_get_code_labels_SimpSeq:
+  word_get_code_labels (SimpSeq p q) ⊆
+  word_get_code_labels p ∪ word_get_code_labels q
+Proof
+  rw[SimpSeq_def]>>
+  every_case_tac>>simp[]>>
+  every_case_tac>>simp[SUBSET_DEF]>>
+  drule word_get_code_labels_dest_Seq_Move>>
+  simp[SUBSET_DEF]
+QED
+
+Triviality word_get_code_labels_Seq_assoc_right:
+  ∀ps qs.
+  word_get_code_labels (Seq_assoc_right ps qs) ⊆
+  word_get_code_labels ps ∪ word_get_code_labels qs
+Proof
+  ho_match_mp_tac Seq_assoc_right_ind>>
+  rw[]>>
+  cheat
+QED
+
+Theorem word_get_code_labels_remove_unreach:
+  word_get_code_labels (remove_unreach ps) ⊆
+  word_get_code_labels ps
+Proof
+  simp[remove_unreach_def]>>
+  irule SUBSET_TRANS>>
+  irule_at Any word_get_code_labels_Seq_assoc_right>>
+  simp[]
+QED
+
+Theorem word_good_handlers_remove_unreach:
+  word_good_handlers n ps ⇒
+  word_good_handlers n (remove_unreach ps)
+Proof
+  cheat
+QED
 
 (*** word_alloc ***)
 
@@ -885,6 +1442,184 @@ Proof
   rveq>>irule apply_colour_not_created_subprogs>>rw[]
 QED
 
+Triviality word_get_code_labels_apply_colour:
+  ∀col ps.
+  word_get_code_labels (apply_colour col ps) =
+  word_get_code_labels ps
+Proof
+  ho_match_mp_tac apply_colour_ind>>rw[]>>
+  fs[apply_colour_def]>>
+  every_case_tac>>fs[]
+QED
 
+Triviality word_good_handlers_apply_colour:
+  ∀col ps.
+  word_good_handlers n (apply_colour col ps) ⇔
+  word_good_handlers n ps
+Proof
+  ho_match_mp_tac apply_colour_ind>>rw[]>>
+  fs[apply_colour_def]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem word_get_code_labels_word_alloc:
+  word_get_code_labels (word_alloc fc c alg k prog col_opt) =
+  word_get_code_labels prog
+Proof
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  TRY(pairarg_tac)>>fs[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[word_get_code_labels_apply_colour]
+QED
+
+Theorem word_good_handlers_word_alloc:
+  word_good_handlers n (word_alloc fc c alg k prog col_opt) ⇔
+  word_good_handlers n prog
+Proof
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  TRY(pairarg_tac)>>fs[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[word_good_handlers_apply_colour]
+QED
+
+(*** remove_must_terminate ***)
+
+Theorem word_get_code_labels_remove_must_terminate:
+  ∀ps.
+  word_get_code_labels (remove_must_terminate ps) =
+  word_get_code_labels ps
+Proof
+  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
+  fs[remove_must_terminate_def]>>
+  every_case_tac>>fs[]
+QED
+
+Theorem word_good_handlers_remove_must_terminate:
+  ∀ps.
+  word_good_handlers n (remove_must_terminate ps) ⇔
+  word_good_handlers n ps
+Proof
+  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
+  fs[remove_must_terminate_def]>>
+  every_case_tac>>fs[]
+QED
+
+(*** word_to_word ***)
+
+Triviality word_good_handlers_word_to_word_incr_helper:
+  ∀oracles.
+  LENGTH progs = LENGTH oracles ⇒
+  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
+  EVERY (λ(n,m,pp). word_good_handlers n pp)
+  (MAP (full_compile_single tra reg_count1
+        ralg asm_c) (ZIP (progs,oracles)))
+Proof
+  rw[]>>
+  rfs[EVERY_MAP,LENGTH_GENLIST,EVERY_MEM,MEM_ZIP,PULL_EXISTS]>>
+  rw[full_compile_single_def]>>
+  Cases_on`EL n progs`>>Cases_on`r`>>
+  fs[compile_single_def]>>
+  fs[word_good_handlers_remove_must_terminate,word_good_handlers_word_alloc]>>
+  simp[word_good_handlers_remove_dead_prog]>>
+  match_mp_tac word_good_handlers_remove_unreach>>
+  simp[word_good_handlers_three_to_two_reg_prog]>>
+  simp[word_good_handlers_copy_prop,word_good_handlers_word_common_subexp_elim,word_good_handlers_remove_dead_prog,word_good_handlers_full_ssa_cc_trans,word_good_handlers_inst_select]>>
+  match_mp_tac word_good_handlers_word_simp>>
+  fs[FORALL_PROD]>>
+  metis_tac[EL_MEM]
+QED
+
+Theorem word_good_handlers_word_to_word_incr:
+  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
+  EVERY (λ(n,m,pp). word_good_handlers n pp)
+    (MAP (\p. full_compile_single tra reg_count1 ralg asm_c (p, NONE)) progs)
+Proof
+  strip_tac>>
+  qspec_then `MAP (\p. NONE) progs` assume_tac word_good_handlers_word_to_word_incr_helper>>
+  fs[ZIP_MAP,MAP_MAP_o,o_DEF]
+QED;
+
+Theorem word_good_handlers_word_to_word:
+  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
+  EVERY (λ(n,m,pp). word_good_handlers n pp) (SND (compile wc ac progs))
+Proof
+  fs[word_to_wordTheory.compile_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  match_mp_tac word_good_handlers_word_to_word_incr_helper >>
+  fs[next_n_oracle_def]>>
+  every_case_tac>>fs[]>>
+  rveq>>fs[]
+QED;
+
+Triviality word_good_code_labels_word_to_word_incr_helper:
+  ∀oracles.
+  LENGTH progs = LENGTH oracles ⇒
+  word_good_code_labels progs elabs ⇒
+  word_good_code_labels
+  (MAP (full_compile_single tra reg_count1
+        ralg asm_c) (ZIP (progs,oracles))) elabs
+Proof
+  fs[wordConvsTheory.good_code_labels_def]>>
+  rw[]
+  >-
+    metis_tac[word_good_handlers_word_to_word_incr_helper]
+  >>
+    fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP,MEM_ZIP]>>
+    rw[full_compile_single_def]>>
+    rpt(pairarg_tac>>gvs[])>>
+    Cases_on`EL n progs`>>Cases_on`r`>>
+    gvs[compile_single_def]>>
+    fs[word_get_code_labels_remove_must_terminate,word_get_code_labels_word_alloc]>>
+    dxrule (word_get_code_labels_remove_dead_prog|>SIMP_RULE std_ss [SUBSET_DEF])>>
+    strip_tac>>
+    dxrule (word_get_code_labels_remove_unreach|>SIMP_RULE std_ss [SUBSET_DEF])>>
+    simp[
+      word_get_code_labels_three_to_two_reg_prog,
+      word_get_code_labels_copy_prop,
+      word_get_code_labels_word_common_subexp_elim]>>
+    strip_tac>>
+    dxrule (word_get_code_labels_remove_dead_prog|>SIMP_RULE std_ss [SUBSET_DEF])>>
+    simp[word_get_code_labels_full_ssa_cc_trans,word_get_code_labels_inst_select]>>
+    strip_tac>>
+    dxrule (word_get_code_labels_word_simp|>SIMP_RULE std_ss [SUBSET_DEF])>>
+    fs[FORALL_PROD,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]>>
+    strip_tac>>
+    first_x_assum drule>>
+    simp[MEM_EL,PULL_EXISTS]>>
+    strip_tac>>first_x_assum (drule_at Any)>>
+    simp[]>>rw[]
+    >- (
+      rename1`nn < LENGTH _`>>
+      DISJ1_TAC>>
+      qexists_tac`nn`>>simp[]>>
+      Cases_on`EL nn progs`>>Cases_on`r`>>
+      fs[compile_single_def])>>
+    simp[]
+QED
+
+(* The actual incremental theorem to use in the backend *)
+Theorem word_good_code_labels_word_to_word_incr:
+  word_good_code_labels progs elabs ⇒
+  word_good_code_labels
+    (MAP (\p. full_compile_single tra reg_count1 ralg asm_c (p, NONE)) progs) elabs
+Proof
+  strip_tac>>
+  qspec_then `MAP (\p. NONE) progs` assume_tac word_good_code_labels_word_to_word_incr_helper>>
+  fs[ZIP_MAP,MAP_MAP_o,o_DEF]
+QED;
+
+Theorem word_good_code_labels_word_to_word:
+  word_good_code_labels progs elabs ⇒
+  word_good_code_labels (SND (compile wc ac progs)) elabs
+Proof
+  fs[word_to_wordTheory.compile_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  match_mp_tac word_good_code_labels_word_to_word_incr_helper>>
+  fs[next_n_oracle_def]>>
+  every_case_tac>>fs[]>>
+  rveq>>fs[]
+QED;
 
 val _ = export_theory();
