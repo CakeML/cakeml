@@ -9,7 +9,7 @@ different modules can be made more independent and different combinations can
 be selected than simple prefixes of the current ordering.
 *)
 
-basis
+decProg
 to_flat
 to_clos
 to_bvl
@@ -24,6 +24,7 @@ pancake_parse
 reg_alloc
 infer
 explorer
+decode
 sexp_parser
 basis_def
 --- (the translation splits into two paths for 32- and 64-bit targets)
