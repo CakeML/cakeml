@@ -243,6 +243,60 @@ Proof
   EVAL_TAC
 QED
 
+Theorem unset_var_with_const[simp]:
+  unset_var x (z with locals_size := ls) = unset_var x z with locals_size := ls /\
+  unset_var x (z with fp_regs := fp) = unset_var x z with fp_regs := fp /\
+  unset_var x (z with store := store) = unset_var x z with store := store /\
+  unset_var x (z with stack := xs) = unset_var x z with stack := xs /\
+  unset_var x (z with stack_limit := sl) = unset_var x z with stack_limit := sl /\
+  unset_var x (z with stack_max := sm) = unset_var x z with stack_max := sm /\
+  unset_var x (z with stack_size := ssize) = unset_var x z with stack_size := ssize /\
+  unset_var x (z with memory := m) = unset_var x z with memory := m /\
+  unset_var x (z with mdomain := md) = unset_var x z with mdomain := md /\
+  unset_var x (z with sh_mdomain := smd) = unset_var x z with sh_mdomain := smd /\
+  unset_var x (z with permute := p) = unset_var x z with permute := p /\
+  unset_var x (z with compile := c) = unset_var x z with compile := c /\
+  unset_var x (z with compile_oracle := co) = unset_var x z with compile_oracle := co /\
+  unset_var x (z with code_buffer := cb) = unset_var x z with code_buffer := cb /\
+  unset_var x (z with data_buffer := db) = unset_var x z with data_buffer := db /\
+  unset_var x (z with gc_fun := g) = unset_var x z with gc_fun := g /\
+  unset_var x (z with handler := hd) = unset_var x z with handler := hd /\
+  unset_var x (z with clock := clk) = unset_var x z with clock := clk /\
+  unset_var x (z with termdep := tdep) = unset_var x z with termdep := tdep /\
+  unset_var x (z with code := cd) = unset_var x z with code := cd /\
+  unset_var x (z with be := b) = unset_var x z with be := b /\
+  unset_var x (z with ffi := ffi) = unset_var x z with ffi := ffi
+Proof
+  EVAL_TAC
+QED
+
+Theorem unset_var_const[simp]:
+   (unset_var x z).locals_size = z.locals_size ∧
+   (unset_var x z).fp_regs = z.fp_regs ∧
+   (unset_var x z).store = z.store ∧
+   (unset_var x z).stack = z.stack ∧
+   (unset_var x z).stack_limit = z.stack_limit ∧
+   (unset_var x z).stack_max = z.stack_max ∧
+   (unset_var x z).stack_size = z.stack_size ∧
+   (unset_var x z).memory = z.memory ∧
+   (unset_var x z).mdomain = z.mdomain ∧
+   (unset_var x z).sh_mdomain = z.sh_mdomain ∧
+   (unset_var x z).permute = z.permute ∧
+   (unset_var x z).compile = z.compile ∧
+   (unset_var x z).compile_oracle = z.compile_oracle ∧
+   (unset_var x z).code_buffer = z.code_buffer ∧
+   (unset_var x z).data_buffer = z.data_buffer ∧
+   (unset_var x z).gc_fun = z.gc_fun ∧
+   (unset_var x z).handler = z.handler ∧
+   (unset_var x z).clock = z.clock ∧
+   (unset_var x z).termdep = z.termdep ∧
+   (unset_var x z).code = z.code ∧
+   (unset_var x z).be = z.be ∧
+   (unset_var x z).ffi = z.ffi
+Proof
+  EVAL_TAC
+QED
+
 Theorem set_vars_with_const[simp]:
   set_vars x y (z with locals_size := ls) = set_vars x y z with locals_size := ls /\
   set_vars x y (z with fp_regs := fp) = set_vars x y z with fp_regs := fp /\
@@ -578,36 +632,6 @@ Proof
   EVAL_TAC
 QED
 
-
-
-Theorem unset_var_const[simp]:
-   (unset_var x z).clock = z.clock ∧
-   (unset_var x z).be = z.be ∧
-   (unset_var x z).ffi = z.ffi ∧
-   (unset_var x z).compile = z.compile ∧
-   (unset_var x z).compile_oracle = z.compile_oracle ∧
-   (unset_var x z).code_buffer = z.code_buffer ∧
-   (unset_var x z).data_buffer = z.data_buffer ∧
-   (unset_var x z).gc_fun = z.gc_fun ∧
-   (unset_var x z).mdomain  = z.mdomain ∧
-   (unset_var x z).sh_mdomain = z.sh_mdomain ∧
-   (unset_var x z).stack = z.stack ∧
-   (unset_var x z).locals_size = z.locals_size ∧
-   (unset_var x z).stack_limit = z.stack_limit ∧
-   (unset_var x z).stack_max = z.stack_max ∧
-   (unset_var x z).stack_size = z.stack_size
-Proof
-  EVAL_TAC
-QED
-
-Theorem unset_var_with_const[simp]:
-   unset_var x (z with clock := k) = unset_var x z with clock := k /\
-   unset_var x (z with stack := s) = unset_var x z with stack := s /\
-   unset_var x (z with permute := perm) = unset_var x z with permute := perm /\
-   unset_var x (z with memory := m) = unset_var x z with memory := m
-Proof
-  EVAL_TAC
-QED
 
 Theorem set_fp_var_const[simp]:
    (set_fp_var x y z).clock = z.clock ∧
@@ -2215,7 +2239,7 @@ Proof
     ))
   >- ( (*StoreConsts*)
     fs[evaluate_def]>>every_case_tac>>
-    simp[unset_var_def]>>
+    simp[]>>
     fs[s_key_eq_refl])
   >-(*Move*)
     (fs[evaluate_def]>>every_case_tac>>
@@ -3338,9 +3362,7 @@ Theorem push_env_dec_clock_stack:
   (push_env y opt (wordSem$dec_clock t)).stack =
   (push_env y opt t).stack
 Proof
-  Cases_on `opt` \\ TRY (PairCases_on `x`)
-  \\ fs [wordSemTheory.push_env_def]
-  \\ pairarg_tac \\ fs [wordSemTheory.dec_clock_def]
+  fs[dec_clock_def]
 QED
 
 Theorem set_store_stack_max_greater_bound:
@@ -3532,20 +3554,20 @@ Proof
      fs [OPTION_MAP2_DEF] >>
      drule stack_size_some_at_least_one >> DECIDE_TAC)
   >- (
-    every_case_tac>>fs[set_var_def,unset_var_def] >> rveq>> fs[state_fn_updates])
+    every_case_tac>>fs[]>> rveq>> fs[state_fn_updates])
   >- (
-    every_case_tac >> fs [set_vars_def] >> rveq >> fs [state_fn_updates])
+    every_case_tac >> fs[] >> rveq >> fs [state_fn_updates])
   >- (
-    every_case_tac >> fs [] >> rveq >> drule inst_const_full >>
+    every_case_tac >> fs[] >> rveq >> drule inst_const_full >>
     fs [])
   >- (
-   every_case_tac >> fs [set_vars_def] >> rveq >> fs [state_fn_updates])
+   every_case_tac >> fs[] >> rveq >> fs [state_fn_updates])
   >- (
-   every_case_tac >> fs [set_vars_def] >> rveq >> fs [state_fn_updates])
+   every_case_tac >> fs[] >> rveq >> fs [state_fn_updates])
   >- (
-   every_case_tac >> fs [set_store_def] >> rveq >> fs [state_fn_updates])
+   every_case_tac >> fs[] >> rveq >> fs [state_fn_updates])
   >- (
-   every_case_tac >> fs [set_store_def] >> rveq >> fs [state_fn_updates])
+   every_case_tac >> fs[] >> rveq >> fs [state_fn_updates])
   >- (
    every_case_tac >> fs [mem_store_def] >> rveq >> fs [state_fn_updates])
   >- (
@@ -4120,11 +4142,9 @@ Proof
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
     \\ imp_res_tac alloc_const \\ fs [])
   THEN1 (* StoreConsts *)
-    (fs[evaluate_def] \\ every_case_tac \\ fs[] \\ rveq
-    \\ simp[set_var_def,unset_var_def])
+    (fs[evaluate_def] \\ every_case_tac \\ fs[] \\ rveq \\ fs[])
   THEN1 (* Move *)
-   (fs [wordSemTheory.evaluate_def] \\ rveq
-    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs [])
+    (fs[evaluate_def] \\ every_case_tac \\ fs[] \\ rveq \\ fs[])
   THEN1 (* Inst *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
@@ -4132,23 +4152,23 @@ Proof
   THEN1 (* Assign *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
-    \\ imp_res_tac assign_const \\ fs [set_var_def])
+    \\ imp_res_tac assign_const \\ fs [])
   THEN1 (* Get *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
-    \\ imp_res_tac assign_const \\ fs [set_var_def])
+    \\ imp_res_tac assign_const \\ fs [])
   THEN1 (* Set *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
-    \\ fs [set_var_def])
+    \\ fs [])
   THEN1 (* OpCurrHeap *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
-    \\ fs [set_var_def])
+    \\ fs [])
   THEN1 (* Store *)
    (fs [wordSemTheory.evaluate_def,mem_store_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
-    \\ fs [set_var_def])
+    \\ fs [])
   THEN1 (* Tick *)
    (fs [wordSemTheory.evaluate_def,mem_store_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
@@ -4184,7 +4204,7 @@ Proof
   THEN1 (* LocValue *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq]
-    \\ rveq \\ fs [flush_state_def,set_var_def])
+    \\ rveq \\ fs [flush_state_def])
   THEN1 (* Install *)
    (fs [evaluate_def,pair_case_eq,pair_case_eq,CaseEq"option",CaseEq"word_loc"]
     \\ pairarg_tac \\ fs []
@@ -4194,11 +4214,11 @@ Proof
   THEN1 (* CodeBufferWrite *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq]
-    \\ rveq \\ fs [set_var_def])
+    \\ rveq \\ fs [])
   THEN1 (* DataBufferWrite *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq]
-    \\ rveq \\ fs [set_var_def])
+    \\ rveq \\ fs [])
   THEN1 (* FFI *)
    (fs [wordSemTheory.evaluate_def] \\ rveq
     \\ fs [CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"ffi_result"]
@@ -4213,7 +4233,7 @@ Proof
   \\ fs [CaseEq"option",CaseEq"word_loc",CaseEq"bool",CaseEq"list",
          CaseEq"stack_frame",pair_case_eq,PULL_EXISTS,CaseEq"wordSem$result"]
   \\ rpt strip_tac \\ rveq \\ fs []
-  \\ fs [set_var_def]
+  \\ fs []
   \\ imp_res_tac subspt_trans \\ fs []
   \\ imp_res_tac pop_env_const \\ fs []
 QED
@@ -4332,16 +4352,15 @@ Theorem no_install_evaluate_const_code:
 Proof
     recInduct evaluate_ind >> rw[] >> qpat_x_assum `evaluate _ = _` mp_tac >>
     fs[evaluate_def]
-    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> imp_res_tac alloc_const >> fs[set_var_def])
-    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> fs[set_var_def,unset_var_def])
-    >- (fs[get_vars_def, set_vars_def] >> EVERY_CASE_TAC >>
-        fs[] >> rw[] >> fs[get_vars_def])
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> imp_res_tac alloc_const >> fs[])
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> fs[])
     >- (rw[] >> EVERY_CASE_TAC >> imp_res_tac inst_const_full >>
         fs[] >> rveq >> fs[])
-    >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
-    >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
-    >- (EVERY_CASE_TAC >> fs[set_store_def] >> rw[] >> fs[])
-    >- (EVERY_CASE_TAC >> fs[set_var_def] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> fs[])
+    >- (EVERY_CASE_TAC >> fs[] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[mem_store_def] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[call_env_def, flush_state_def, dec_clock_def] >> rw[] >> fs[])
     >- (EVERY_CASE_TAC >> fs[] >> rename1 `evaluate (p, st)` >>
@@ -4362,7 +4381,7 @@ Proof
       drule share_inst_const >>
       simp[] )
     >- (fs[no_install_def, dec_clock_def, call_env_def, flush_state_def, push_env_def,
-        cut_env_def, pop_env_def, set_var_def] >>
+        cut_env_def, pop_env_def] >>
         EVERY_CASE_TAC >> rw[] >> fs[] >> metis_tac[no_install_find_code])
 QED
 
@@ -4751,7 +4770,7 @@ Proof
       )
    (* else *)
    >> gvs[evaluate_def,AllCaseEqs(),mem_store_def,flush_state_def,
-       dec_clock_def,unset_var_def] >>
+       dec_clock_def]>>
    full_simp_tac bool_ss [GSYM state_fupdcanon] >> fs[] >>
    simp[state_component_equality]
 QED

@@ -749,7 +749,7 @@ Proof
     metis_tac[sf_gc_consts_refl] )
   \\ (** Easy cases **)
   TRY (rw [evaluate_def] \\ every_case_tac \\
-  fs [call_env_def, flush_state_def, dec_clock_def, mem_store_def, set_var_def, set_vars_def, set_store_def] \\
+  fs [call_env_def, flush_state_def, dec_clock_def, mem_store_def] \\
   TRY (pairarg_tac \\ fs []) \\
   imp_res_tac inst_const_full \\
   rw [] \\
@@ -764,7 +764,6 @@ Proof
   imp_res_tac LASTN_TL_res \\ rw [get_above_handler_def]
     >- (irule EVERY2_refl \\ rw [sf_gc_consts_refl])
     >- fs [GSYM HD_LASTN])
-
   >- (** Seq **)
   (rw [evaluate_def] \\ pairarg_tac \\ fs [] \\ every_case_tac \\ fs [] \\
   imp_res_tac evaluate_gc_fun_const_ok \\ res_tac \\
@@ -773,16 +772,11 @@ Proof
   DISCH_TAC \\ imp_res_tac LIST_REL_LENGTH \\ fs [] \\ conj_tac
     >- (irule EVERY2_trans_LASTN_sf_gc_consts \\ rw [] \\ asm_exists_tac \\ rw [])
     >- rw [sf_gc_consts_get_above_handler])
-
   >- (** MustTerminate **)
   (rw [evaluate_def] \\ pairarg_tac \\ fs [] \\ every_case_tac \\ rw [] \\ rw [get_above_handler_def])
-
-  >- ( (* StoreConsts *)
-    rw[evaluate_def] \\ every_case_tac \\ fs[set_var_def,unset_var_def,state_component_equality]
-    \\ irule EVERY2_refl \\ rw [sf_gc_consts_refl])
   >- (** Alloc **)
   (rw [evaluate_def, alloc_def] \\ every_case_tac \\ fs [] \\
-  imp_res_tac gc_sf_gc_consts \\ fs [push_env_def, set_store_def, pop_env_def] \\
+  imp_res_tac gc_sf_gc_consts \\ fs [push_env_def, pop_env_def] \\
   pairarg_tac \\ fs [] \\ res_tac \\ Cases_on `y` \\ fs [sf_gc_consts_def] \\
   rveq \\ fs [] \\ imp_res_tac gc_handler \\ rw [])
 QED
