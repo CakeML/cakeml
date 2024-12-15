@@ -425,15 +425,6 @@ Proof
   >>metis_tac[]
 QED
 
-Theorem memory_model:
-  CPstate_models cs st ⇒
-  CPstate_models cs (st with memory := m)
-Proof
-  DISCH_TAC
-  >>irule CPstate_models_same_locals
-  >>rw[]>>metis_tac[]
-QED
-
 Theorem merge_eqs_model1:
   CPstate_models cs1 st ⇒
   CPstate_models (merge_eqs cs1 cs2) st
@@ -936,7 +927,7 @@ Proof
     Cases_on‘ins’
     >>gvs[copy_prop_inst_def,evaluate_def,inst_def,assign_def,mem_store_def,remove_eqs_def,ACE]
     >>rpt(pairarg_tac>>fs[])
-    >>metis_tac[remove_eq_inv,remove_eq_model_set_var,remove_eq_model,memory_model,set_fp_var_model]
+    >>metis_tac[remove_eq_inv,remove_eq_model_set_var,remove_eq_model,set_fp_var_model]
   )
 QED
 
@@ -1149,7 +1140,7 @@ Proof
     conj_tac>-metis_tac[remove_eq_inv]>>
     irule remove_eq_model_unset_var>>
     conj_tac>-metis_tac[remove_eq_inv]>>
-    metis_tac[memory_model]
+    fs[]
   )
   >-(
     (*Raise*)
