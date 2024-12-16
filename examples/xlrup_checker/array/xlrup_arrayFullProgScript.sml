@@ -25,11 +25,6 @@ val _ = translate parse_lits_aux_def;
 val _ = translate parse_clause_def;
 val _ = translate parse_xvar_def;
 
-val parse_xvar_side = Q.prove(`
-   ∀x. parse_xvar_side x= T`,
-  rw[definition"parse_xvar_side_def"])
-  |> update_precondition;
-
 val _ = translate parse_xor_def;
 val _ = translate parse_line_def;
 

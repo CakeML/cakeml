@@ -25,8 +25,8 @@ val res = translate FLAT;
 val res = translate SNOC;
 val res = translate GENLIST;
 val res = translate IS_PREFIX;
-val res = translate PAD_RIGHT;
-val res = translate PAD_LEFT;
+val res = translate (PAD_RIGHT |> REWRITE_RULE [GSYM sub_check_def]);
+val res = translate (PAD_LEFT |> REWRITE_RULE [GSYM sub_check_def]);
 val res = translate ALOOKUP_def;
 val res = translate AFUPDKEY_def;
 val res = translate LUPDATE_DEF;
@@ -74,19 +74,51 @@ val res = translate unique_huff_tree_def;
 (* Run Length Encoding *)
 val res = translate rle_table_def;
 val res = translate rle0_table_def;
-val res = translate (add_repetition_def |> REWRITE_RULE [EVAL “HD rle0_table”]);
+val res = translate (add_repetition_def |> REWRITE_RULE [EVAL “HD rle0_table”, GSYM sub_check_def]);
 val res = translate find_repeat_def;
-val res = translate encode_rle_aux_def;
+val res = translate (encode_rle_aux_def |> REWRITE_RULE [GSYM sub_check_def]);
 val res = translate encode_rle_def;
 val res = translate decode_repeating_def;
-val res = translate decode_rle_aux_def;
+val res = translate (decode_rle_aux_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+Triviality decode_rle_aux_ind:
+  decode_rle_aux_ind
+Proof
+  once_rewrite_tac [fetch "-" "decode_rle_aux_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = decode_rle_aux_ind |> update_precondition;
+
 val res = translate decode_rle_def;
 
 (* LZSS *)
 val res = translate matchLength_def;
 val res = translate getMatch_def;
-val res = translate LZmatch_def;
-val res = translate LZcomp_def;
+val res = translate (LZmatch_def |> REWRITE_RULE [GSYM sub_check_def]);
+val res = translate (LZcomp_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+Triviality lzcomp_ind:
+  lzcomp_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "lzcomp_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = lzcomp_ind |> update_precondition;
+
 val res = translate LZSS_compress_def;
 val res = translate resolveLenDist_def;
 val res = translate LZdecompress_def;
@@ -101,12 +133,12 @@ val res = translate trim_zeroes_end_def;
 val res = translate encode_clen_alph_def;
 val res = translate find_LZSS_val_def;
 val res = translate split_len_dist_def;
-val res = translate encode_LZSS_table_def;
+val res = translate (encode_LZSS_table_def |> REWRITE_RULE [GSYM sub_check_def]);
 val res = translate encode_LZSS_def;
 val res = translate deflate_encoding_def;
 val res = translate encode_uncompressed_def;
 val res = translate encode_fixed_def;
-val res = translate encode_dynamic_def;
+val res = translate (encode_dynamic_def |> REWRITE_RULE [GSYM sub_check_def]);
 val res = translate encode_block_def;
 val res = translate decode_LZSS_table_def;
 val res = translate decode_LZSS_lendist_def;
@@ -122,9 +154,7 @@ val res = translate decode_uncompressed_def;
 val res = translate decode_fixed_def;
 val res = translate decode_dynamic_def;
 val res = translate decode_block_def;
-
 val res = translate bl2s_def;
-
 val res = translate s2bl_def;
 val res = translate deflate_encode_def;
 val res = translate deflate_decode_def;
@@ -134,7 +164,6 @@ val res = translate deflate_decode_main_def;
 Definition main_function_def:
   main_function (s:mlstring) = List [implode (deflate_encode_main (explode s))]
 End
-
 
 val res = translate main_function_def;
 

@@ -12,12 +12,6 @@ val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 (* Translation for parsing an OPB file *)
 val r = translate nocomment_line_def;
 
-val nocomment_line_side_def = definition"nocomment_line_side_def";
-val nocomment_line_side = Q.prove(
-  `∀x. nocomment_line_side x <=> T`,
-  rw[nocomment_line_side_def])
-  |> update_precondition;
-
 val r = translate parse_op_def;
 val r = translate parse_constraint_def;
 val r = translate parse_constraints_def;

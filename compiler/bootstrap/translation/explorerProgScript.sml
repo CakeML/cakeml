@@ -13,6 +13,7 @@ val _ = translation_extends "inferProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "explorerProg");
 val _ = ml_translatorLib.use_string_type false;
+val _ = ml_translatorLib.use_sub_check true;
 
 (* TODO: this is copied in many bootstrap translation files - should be in a lib? *)
 fun def_of_const tm = let
@@ -33,11 +34,6 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 val res = translate jsonLangTheory.num_to_hex_digit_def;
-
-val num_to_hex_digit_side = prove(
-  ``num_to_hex_digit_side n = T``,
-  EVAL_TAC \\ fs [])
-  |> update_precondition;
 
 val res = translate jsonLangTheory.encode_str_def;
 val res = translate jsonLangTheory.concat_with_def;
@@ -100,24 +96,6 @@ val r = translate presLangTheory.bvi_to_display_def;
 val r = translate presLangTheory.bvi_fun_to_display_def;
 val r = translate presLangTheory.bvi_to_strs_def;
 
-val r = translate clos_to_bvlTheory.init_code_def;
-
-Triviality bvl_jump_jumplist_side:
-  ∀x y. bvl_jump_jumplist_side x y
-Proof
-  ho_match_mp_tac bvl_jumpTheory.JumpList_ind
-  \\ rw [] \\ simp [Once to_bvlProgTheory.bvl_jump_jumplist_side_def]
-  \\ Cases_on ‘xs’ \\ fs []
-QED
-
-Triviality init_code_side:
-  init_code_side x
-Proof
-  fs [fetch "-" "init_code_side_def",
-      to_bvlProgTheory.clos_to_bvl_generate_generic_app_side_def,
-      to_bvlProgTheory.bvl_jump_jump_side_def,bvl_jump_jumplist_side]
-QED
-
 Triviality string_imp_thm:
   string_imp = λs. String (implode s)
 Proof
@@ -131,8 +109,6 @@ val r = presLangTheory.clos_to_display_def
 
 val r = translate presLangTheory.clos_dec_to_display_def;
 val r = translate presLangTheory.clos_to_strs_def;
-
-val _ = update_precondition init_code_side;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

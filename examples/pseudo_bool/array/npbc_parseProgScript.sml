@@ -45,12 +45,6 @@ val goodstring_side = Q.prove(
 
 val r = translate parse_lit_def;
 
-val parse_lit_side_def = definition"parse_lit_side_def";
-val parse_lit_side = Q.prove(
-  `∀x. parse_lit_side x <=> T`,
-  rw[parse_lit_side_def])
-  |> update_precondition;
-
 val r = translate apply_lit_def;
 val r = translate parse_lit_num_def;
 val r = translate parse_cutting_def;
@@ -94,6 +88,24 @@ QED
 
 val _ = mergesortn_ind |> update_precondition;
 
+Triviality mergesortn_side:
+  ∀x y z.
+  mergesortn_side x y z
+Proof
+  completeInduct_on`y`>>
+  rw[Once (fetch "-" "mergesortn_side_def")]>>
+  simp[arithmeticTheory.DIV2_def]
+  >- (
+    first_x_assum match_mp_tac>>
+    simp[]>>
+    match_mp_tac dividesTheory.DIV_POS>>
+    simp[])
+  >>
+    match_mp_tac DIV_LESS_EQ>>
+    simp[]
+QED
+val _ = mergesortn_side |> update_precondition;
+
 val r = translate mergesortTheory.mergesort_def;
 
 val r = translate mergesortTheory.sort2_tail_def;
@@ -115,6 +127,24 @@ Proof
 QED
 
 val _ = mergesortn_tail_ind |> update_precondition;
+
+Triviality mergesortn_tail_side:
+  ∀w x y z.
+  mergesortn_tail_side w x y z
+Proof
+  completeInduct_on`y`>>
+  rw[Once (fetch "-" "mergesortn_tail_side_def")]>>
+  simp[arithmeticTheory.DIV2_def]
+  >- (
+    first_x_assum match_mp_tac>>
+    simp[]>>
+    match_mp_tac dividesTheory.DIV_POS>>
+    simp[])
+  >>
+    match_mp_tac DIV_LESS_EQ>>
+    simp[]
+QED
+val _ = mergesortn_tail_side |> update_precondition;
 
 val r = translate mergesortTheory.mergesort_tail_def;
 
@@ -162,38 +192,64 @@ val r = translate blanks_def;
 open mlintTheory;
 
 (* TODO: Mostly copied from mlintTheory *)
-val result = translate fromChar_unsafe_def;
+val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 Definition fromChars_range_unsafe_tail_def:
-  fromChars_range_unsafe_tail l n       str mul acc =
-  if n ≤ l then acc
+  fromChars_range_unsafe_tail b n str mul acc =
+  if n ≤ b then acc
   else
-    let n1 = n - 1 in
-    fromChars_range_unsafe_tail l n1 str (mul * 10)  (acc + fromChar_unsafe (strsub str n1) * mul)
+    let m = n - 1 in
+    fromChars_range_unsafe_tail b m str (mul * 10)
+      (acc + fromChar_unsafe (strsub str m) * mul)
+Termination
+  WF_REL_TAC`measure (λ(b,n,_). n)`>>
+  rw[]
 End
 
 Theorem fromChars_range_unsafe_tail_eq:
   ∀n l s mul acc.
-  fromChars_range_unsafe_tail l (n+l) s mul acc = (fromChars_range_unsafe l n s) * mul + acc
+  fromChars_range_unsafe_tail l (n+l) s mul acc =
+  (fromChars_range_unsafe l n s) * mul + acc
 Proof
-  Induct>>rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
-  gvs[ADD1]
+  Induct
+  >-
+    rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
+  rw[]>>
+  simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def]>>
+  fs[ADD1]
 QED
 
 Theorem fromChars_range_unsafe_alt:
-  fromChars_range_unsafe l n s = fromChars_range_unsafe_tail l (n + l) s 1 0
+  fromChars_range_unsafe l n s =
+  fromChars_range_unsafe_tail l (n+l) s 1 0
 Proof
   rw[fromChars_range_unsafe_tail_eq]
 QED
 
 val result = translate fromChars_range_unsafe_tail_def;
 
+val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
+
+Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
+  ∀a1 a0 a2 a3 a4.
+  fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
+   ¬(a1 ≤ a0) ⇒
+   (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
+   fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
+     (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
+Proof
+  Induct>>
+  rw[Once fromchars_range_unsafe_tail_side_def]>>
+  simp[]>>eq_tac>>rw[ADD1]>>
+  gvs[]
+QED
+
 val result = translate fromChars_range_unsafe_alt;
 
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
-Triviality fromchars_unsafe_ind:
+Triviality fromChars_unsafe_ind:
   fromchars_unsafe_ind
 Proof
   rewrite_tac [fetch "-" "fromchars_unsafe_ind_def"]
@@ -204,16 +260,15 @@ Proof
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
   \\ fs [FORALL_PROD]
-  \\ fs[padLen_DEC_eq,ADD1]
+  \\ fs [padLen_DEC_eq,ADD1]
 QED
 
-val _ = fromchars_unsafe_ind |> update_precondition;
+val _ = fromChars_unsafe_ind |> update_precondition;
 
 val result = translate pb_parseTheory.fromString_unsafe_def;
 
 val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
-val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
 val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
 
 Theorem fromchars_unsafe_side_thm:
@@ -235,11 +290,6 @@ val fromString_unsafe_side = Q.prove(
 val _ = translate is_numeric_def;
 val _ = translate is_num_prefix_def;
 val _ = translate int_start_def;
-
-val int_start_side = Q.prove(
-  `∀x. int_start_side x = T`,
-  EVAL_TAC >> fs[]
-  ) |> update_precondition;
 
 val _ = translate tokenize_fast_def;
 
@@ -542,13 +592,13 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED
 
-val r = translate parse_hash_num_def;
+val r = translate (parse_hash_num_def |> ONCE_REWRITE_RULE [GSYM sub_check_def]);
 
 val parse_hash_num_side_def = fetch "-" "parse_hash_num_side_def";
 val parse_hash_num_side = Q.prove(
   `∀x . parse_hash_num_side x <=> T`,
-  Induct>>rw[Once parse_hash_num_side_def]>>
-  intLib.ARITH_TAC) |> update_precondition;
+  Induct>>rw[Once parse_hash_num_side_def,sub_check_def]
+  ) |> update_precondition;
 
 val r = translate parse_subgoal_num_def;
 
@@ -2072,19 +2122,7 @@ val parse_delc_header_side = Q.prove(
 
 val r = translate strip_terminator_def;
 
-val strip_terminator_side_def = definition"strip_terminator_side_def";
-val strip_terminator_side = Q.prove(
-  `∀x. strip_terminator_side x <=> T`,
-  rw[strip_terminator_side_def])
-  |> update_precondition;
-
 val r = translate strip_term_def;
-
-val strip_term_side_def = definition"strip_term_side_def";
-val strip_term_side = Q.prove(
-  `∀x. strip_term_side x <=> T`,
-  rw[strip_term_side_def])
-  |> update_precondition;
 
 val res = translate insert_lit_def;
 val res = translate parse_assg_def;
@@ -3661,11 +3699,6 @@ End
 
 val res = translate init_state_def;
 val res = translate hash_str_def;
-
-val hash_str_side = Q.prove(
-  `∀x. hash_str_side x <=> T`,
-  EVAL_TAC>>
-  intLib.ARITH_TAC) |> update_precondition;
 
 val res = translate normalise_full_def;
 
