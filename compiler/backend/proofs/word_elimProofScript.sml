@@ -693,7 +693,7 @@ Proof
       (*11 subgoals*)
       >> fs[word_state_rel_def] >>
       (rpt strip_tac) >>
-      TRY (fs[set_var_def] >> NO_TAC) (*This line should be removed and it should be done by set_var_const*)
+      TRY (fs[set_var_def] >> NO_TAC)
         >> (fs[domain_find_loc_state]
            >> fs[set_var_def]
            >> irule SUBSET_TRANS
@@ -713,9 +713,8 @@ Proof
          rw[] >> gvs[])
       (*4 subgoals*)
       >-(
-        fs[word_state_rel_def] >>
-        (rpt strip_tac) >>
-        TRY (fs[set_var_def] >> NO_TAC) (*This line should be removed and it should be done by set_var_const*)
+        fs[word_state_rel_def] >> gvs[] >>
+        CONJ_TAC >- (fs[set_var_def])
           >- (fs[domain_find_loc_state]
             >> fs[set_var_def]
             >> irule SUBSET_TRANS
@@ -733,13 +732,8 @@ Proof
             )
         )
       >-(
-        fs[word_state_rel_def] >>
-        (rpt strip_tac) >>
-        TRY (fs[set_var_def] >> NO_TAC) (*This line should be removed and it should be done by set_var_const*)
-        >- (fs[set_var_def]
-        >> fs[mem_load_byte_aux_def]
-        >> every_case_tac >> fs[]
-        >> gvs[])
+        fs[word_state_rel_def] >> gvs[] >>
+        CONJ_TAC >- (fs[set_var_def])
           >- (fs[domain_find_loc_state]
             >> fs[set_var_def]
             >> irule SUBSET_TRANS
@@ -770,8 +764,8 @@ Proof
       >-(
         fs[word_state_rel_def] >>
         (rpt strip_tac) >>
-        TRY (fs[set_var_def] >> NO_TAC) (*This line should be removed and it should be done by set_var_const*)
-        >- (gvs[])
+        TRY (fs[set_var_def] >> NO_TAC)
+       >- (gvs[])
           >- (fs[domain_find_loc_state]
             >> fs[mem_store_byte_aux_def]
             >> every_case_tac >> fs[] >> gvs[]
@@ -785,14 +779,14 @@ Proof
       rw[] >> gvs []
       >> fs[word_state_rel_def] >>
       (rpt strip_tac) >>
-      TRY (fs[set_fp_var_def,set_var_def] >> NO_TAC) (*This line should be removed and it should be done by set_var_const*)
-        >> (fs[domain_find_loc_state]
-           >> fs[set_fp_var_def,set_var_def]
+      TRY (fs[set_fp_var_def,set_var_def] >> NO_TAC)
+           >> (fs[domain_find_loc_state]
+           >> fs[set_var_def]
            >> irule SUBSET_TRANS
            >> irule_at Any get_locals_insert
            >> fs[UNION_SUBSET]
            >> fs[dest_word_loc_def]
-           >> fs[set_fp_var_def,set_var_def]
+           >> fs[set_var_def]
            >> irule SUBSET_TRANS
            >> irule_at Any get_locals_insert
            >> fs[UNION_SUBSET]

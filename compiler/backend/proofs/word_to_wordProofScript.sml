@@ -335,13 +335,6 @@ Proof
   every_case_tac>>gvs[]
 QED
 
-val tac =
-    fs[evaluate_def,state_component_equality]>>
-    qexists_tac`st.permute`>>
-    fs[alloc_def,get_var_def,gc_def,push_env_def,set_store_def,env_to_list_def,pop_env_def,has_space_def,
-    call_env_def,flush_state_def,set_var_def,get_var_def,dec_clock_def,jump_exc_def,set_vars_def,mem_store_def, stack_size_def,unset_var_def]>>
-    every_case_tac>>fs[state_component_equality]
-
 Triviality rm_perm:
   s with permute:= s.permute = s
 Proof
@@ -449,18 +442,18 @@ Proof
   rpt strip_tac>>
   fs[PULL_FORALL,evaluate_def]>>
   Cases_on`prog`
-  >- tac
-  >- tac
+  >- fs[evaluate_def,state_component_equality]
+  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
   >- (Cases_on`i`>>
      fs[evaluate_def,inst_def,state_component_equality,assign_def
-     ,mem_load_def,mem_store_def,get_var_def,LET_THM,get_fp_var_def]>>
+     ,mem_load_def,mem_store_def,LET_THM]>>
      EVERY_CASE_TAC>>
-     fs[set_var_def,set_fp_var_def]>>
+     fs[]>>
      rw[])
-  >- tac
-  >- tac
-  >- tac
-  >- tac
+  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (fs[evaluate_def,state_component_equality,mem_store_def] >> every_case_tac >> fs[])
   >- (
     (* Must_Terminate *)
     fs[evaluate_def,AND_IMP_INTRO]>>
@@ -810,12 +803,18 @@ Proof
     Cases_on`x'`>>fs[]>>Cases_on`h`>>fs[]>>
     EVERY_CASE_TAC>>fs[has_space_def]>>
     rfs[call_env_def,flush_state_def])
-  >- (rename [‘StoreConsts’] \\ tac)
-  >- (rename [‘Raise’] \\ tac)
-  >- (rename [‘Return’] \\ tac)
-  >- (rename [‘Tick’] \\ tac)
-  >- (rename [‘OpCurrHeap’] \\ tac)
-  >- (rename [‘LocValue’] \\ tac \\ fs[domain_lookup] \\ metis_tac[])
+  >- (*Store_Consts*)
+     (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (*Raise*)
+     (fs[evaluate_def,jump_exc_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (*Return*)
+     (fs[evaluate_def,flush_state_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (*Tick*)
+     (fs[evaluate_def,flush_state_def,dec_clock_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (*OpCurrHeap*)
+     (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (*LocValue*)
+     (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
   >- (* Install *)
     (qexists_tac`st.permute`>>fs[rm_perm]>>
     ntac 3 (last_x_assum kall_tac)>>
@@ -837,9 +836,12 @@ Proof
       simp[domain_fromAList]>>AP_TERM_TAC>>
       simp[EXTENSION,MAP_MAP_o,compile_single_def,MEM_MAP,EXISTS_PROD])>>
     simp[state_component_equality,o_DEF])
-  >- (rename [‘CodeBufferWrite’] \\ tac)
-  >- (rename [‘DataBufferWrite’] \\ tac)
-  >- (rename [‘FFI’] \\ tac \\ Cases_on`call_FFI st.ffi s x'' x'` \\ simp[])
+  >- (*CodeBufferWrite*)
+     (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (*DataBufferWrite*)
+     (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (*FFI*)
+     (fs[evaluate_def,flush_state_def,state_component_equality] >> every_case_tac >> fs[])
   >~ [`ShareInst`]
   >-
     (fs[evaluate_def,state_component_equality]>>
@@ -1096,21 +1098,20 @@ Proof
                    rpt strip_tac>>
   fs[PULL_FORALL,evaluate_def]>>
   Cases_on`prog`
-  >- tac
-  >- tac
+  >- fs[evaluate_def,state_component_equality]
+  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
   >- (Cases_on`i`>>
       fs[evaluate_def,inst_def,
          state_component_equality,assign_def,
          mem_load_def,
-         mem_store_def, get_var_def,LET_THM,
-         get_fp_var_def]>>
+         mem_store_def, LET_THM]>>
       EVERY_CASE_TAC>>
-      fs[set_var_def,set_fp_var_def]>>
+      fs[]>>
       rw[])
-  >- tac
-  >- tac
-  >- tac
-  >- tac
+  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
+  >- (fs[evaluate_def,mem_store_def,state_component_equality] >> every_case_tac >> fs[])
   >-
    (* Must_Terminate *)
    (fs[evaluate_def,AND_IMP_INTRO,
@@ -1531,7 +1532,9 @@ Proof
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def] >>
     rpt (TOP_CASE_TAC >>
       fs[state_component_equality,set_var_def,flush_state_def]))>>
-  gs[no_alloc_def, no_install_def]>>tac
+  gs[no_alloc_def, no_install_def]>> (
+  fs[evaluate_def,jump_exc_def,flush_state_def,dec_clock_def,state_component_equality] >> 
+  every_case_tac >> fs[])
 QED
 
 (******** more on no_mt **********)
