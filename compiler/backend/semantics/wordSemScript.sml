@@ -194,29 +194,6 @@ Definition the_words_def:
      | _ => NONE)
 End
 
-Definition word_exp_def:
-  (word_exp ^s (Const w) = SOME (Word w)) /\
-  (word_exp s (Var v) = lookup v s.locals) /\
-  (word_exp s (Lookup name) = FLOOKUP s.store name) /\
-  (word_exp s (Load addr) =
-     case word_exp s addr of
-     | SOME (Word w) => mem_load w s
-     | _ => NONE) /\
-  (word_exp s (Op op wexps) =
-     case the_words (MAP (word_exp s) wexps) of
-     | SOME ws => (OPTION_MAP Word (word_op op ws))
-     | _ => NONE) /\
-  (word_exp s (Shift sh wexp n) =
-     case word_exp s wexp of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
-     | _ => NONE)
-Termination
-  WF_REL_TAC `measure (exp_size ARB o SND)`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC
-End
-
 Definition get_var_def:
   get_var v ^s = sptree$lookup v s.locals
 End
@@ -245,8 +222,35 @@ Definition set_vars_def:
     (s with locals := (alist_insert vs xs s.locals))
 End
 
+Definition get_store_def:
+  get_store v ^s = FLOOKUP s.store v
+End
+
 Definition set_store_def:
   set_store v x ^s = (s with store := s.store |+ (v,x))
+End
+
+Definition word_exp_def:
+  (word_exp ^s (Const w) = SOME (Word w)) /\
+  (word_exp s (Var v) = get_var v s) /\
+  (word_exp s (Lookup name) = get_store name s) /\
+  (word_exp s (Load addr) =
+     case word_exp s addr of
+     | SOME (Word w) => mem_load w s
+     | _ => NONE) /\
+  (word_exp s (Op op wexps) =
+     case the_words (MAP (word_exp s) wexps) of
+     | SOME ws => (OPTION_MAP Word (word_op op ws))
+     | _ => NONE) /\
+  (word_exp s (Shift sh wexp n) =
+     case word_exp s wexp of
+     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
+     | _ => NONE)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND)`
+   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
+   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+   \\ DECIDE_TAC
 End
 
 (* Flushes the locals and (optionally) the stack *)
