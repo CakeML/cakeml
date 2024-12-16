@@ -74,11 +74,27 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem iSUM_MAP_eq:
+  (∀x. MEM x xs ⇒ f x = g x) ⇒
+  iSUM(MAP f xs) = iSUM (MAP g xs)
+Proof
+  Induct_on`xs`>>rw[iSUM_def]>>
+  gvs[SF DNF_ss]>>
+  intLib.ARITH_TAC
+QED
+
 Theorem iSUM_APPEND[simp]:
   iSUM(x++y) = iSUM x + iSUM y
 Proof
   Induct_on`x`>>rw[iSUM_def]>>
   intLib.ARITH_TAC
+QED
+
+Theorem iSUM_FLAT:
+  ∀ls.
+  iSUM (FLAT ls) = iSUM (MAP iSUM ls)
+Proof
+  Induct>>rw[iSUM_def]
 QED
 
 Theorem iSUM_ge_0:
