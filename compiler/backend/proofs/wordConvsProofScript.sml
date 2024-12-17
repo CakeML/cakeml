@@ -55,7 +55,7 @@ val _ = new_theory "wordConvsProof";
     preserves wf_cutsets: remove_dead_prog_conventions
     preserves code_labels:   word_get_code_labels_remove_dead_prog
     preserves good_handlers: word_good_handlers_remove_dead_prog
-
+    preserves not_created_subprogs: remove_unreach_not_created_subprogs
     TODO
 
   word_common_subexp_elim
@@ -71,7 +71,7 @@ val _ = new_theory "wordConvsProof";
 
     preserves code_labels:   word_get_code_labels_copy_prop
     preserves good_handlers: word_good_handlers_copy_prop
-
+    preserves not_created_subprogs: copy_prop_not_created_subprogs
     TODO
 
   three_to_two_reg_prog
@@ -1281,6 +1281,23 @@ Proof
   >-(every_case_tac \\ fs[])
 QED
 
+Theorem copy_prop_not_created_subprogs:
+  not_created_subprogs P prog ⇒
+  not_created_subprogs P (copy_prop prog)
+Proof
+  simp[copy_prop_def]
+  \\ qmatch_goalsub_abbrev_tac  `copy_prop_prog ps s`
+  \\ qid_spec_tac `s`
+  \\ qid_spec_tac `ps`
+  \\ ho_match_mp_tac copy_prop_prog_ind
+  \\ unabbrev_all_tac \\ simp[copy_prop_prog_def,not_created_subprogs_def]
+  \\ rw[] \\ rpt (pairarg_tac \\ gvs[])
+  \\ fs[not_created_subprogs_def]
+  >- (simp[oneline copy_prop_inst_def] \\ every_case_tac \\
+    fs[not_created_subprogs_def])
+  >-(every_case_tac \\ fs[not_created_subprogs_def])
+QED
+
 (*** three_to_to_reg_prog ***)
 Theorem three_to_two_reg_prog_lab_pres:
   ∀prog.
@@ -1488,6 +1505,41 @@ Proof
   \\ rw[]
  \\ every_case_tac \\ fs[]
 QED
+
+Triviality SimpSeq_not_created_subprogs:
+  not_created_subprogs P ps /\ not_created_subprogs P qs ⇒
+  not_created_subprogs P (SimpSeq ps qs)
+Proof
+ qid_spec_tac `ps` \\
+ Induct \\ simp[SimpSeq_def,not_created_subprogs_def] \\
+ Cases_on `qs = Skip` \\ fs[not_created_subprogs_def] \\
+ fs[oneline dest_Seq_Move_def] \\
+ every_case_tac \\  fs[not_created_subprogs_def]
+QED
+
+Triviality Seq_assoc_right_not_created_subprogs:
+  not_created_subprogs P ps /\ not_created_subprogs P qs ⇒
+  not_created_subprogs P (Seq_assoc_right ps qs)
+Proof
+ qid_spec_tac `qs`
+ \\ qid_spec_tac `ps`
+ \\ ho_match_mp_tac Seq_assoc_right_ind
+ \\ simp[Seq_assoc_right_def]
+ \\ rw[] \\ every_case_tac \\ fs[]
+ >- (first_x_assum (irule_at Any) \\ fs[not_created_subprogs_def])
+ \\ irule SimpSeq_not_created_subprogs
+ \\ fs[not_created_subprogs_def]
+QED
+
+Theorem remove_unreach_not_created_subprogs:
+  not_created_subprogs P prog ⇒
+  not_created_subprogs P (remove_unreach prog)
+Proof
+  simp[remove_unreach_def] \\ disch_tac \\
+  irule Seq_assoc_right_not_created_subprogs \\
+  fs[not_created_subprogs_def]
+QED
+
 
 (*** word_alloc ***)
 

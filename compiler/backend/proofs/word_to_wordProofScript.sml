@@ -1012,20 +1012,6 @@ QED
 (**** more on syntactic form restrictions ****)
 
 (* TODO: prove if true and move to wordConvs? *)
-Theorem remove_unreach_not_created_subprogs:
-  not_created_subprogs P prog ⇒
-  not_created_subprogs P (remove_unreach prog)
-Proof
-  cheat
-QED
-
-Theorem copy_prop_not_created_subprogs:
-  not_created_subprogs P prog ⇒
-  not_created_subprogs P (copy_prop prog)
-Proof
-  cheat
-QED
-
 Theorem compile_single_not_created_subprogs:
   not_created_subprogs P (SND (SND (FST prog_opt))) ==>
   not_created_subprogs P (SND (SND
