@@ -16,6 +16,7 @@ val _ = new_theory "reg_allocProg";
 
 val _ = translation_extends "pancake_parseProg";
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 (*
 val _ = translation_extends "basisProg";
 *)

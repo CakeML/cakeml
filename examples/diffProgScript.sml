@@ -52,7 +52,7 @@ val dynamic_lcs_side_def = Q.prove(
   rw[fetch "-" "dynamic_lcs_side_def",dynamic_lcs_rows_side_def,LENGTH_REPLICATE])
   |> update_precondition;
 
-val _ = translate(diff_alg2_def |> REWRITE_RULE [GSYM mllistTheory.drop_def]);
+val _ = translate(diff_alg2_def |> REWRITE_RULE [GSYM mllistTheory.drop_def,GSYM mllistTheory.take_def, GSYM ml_translatorTheory.sub_check_def]);
 
 val longest_common_suffix_length_side = Q.prove(
   `!l l' n. longest_common_suffix_length_side l l' n = (LENGTH l = LENGTH l')`,
@@ -68,7 +68,7 @@ val diff_alg2_side_def = Q.prove(`
   !l r. diff_alg2_side l r  ⇔ T`,
   rw[fetch "-" "diff_alg2_side_def"]
   >> rw[longest_common_suffix_length_side]
-  >> fs[mllistTheory.drop_def]) |> update_precondition;
+  >> fs[mllistTheory.drop_def,mllistTheory.take_def,ml_translatorTheory.sub_check_def]) |> update_precondition;
 
 Definition notfound_string_def:
   notfound_string f = concat[strlit"cake_diff: ";f;strlit": No such file or directory\n"]

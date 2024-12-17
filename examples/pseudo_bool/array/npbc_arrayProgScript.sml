@@ -61,7 +61,7 @@ val res = translate toAList_def;
 val r = translate add_terms_def;
 val r = translate add_listsLR_def;
 val r = translate add_listsLR_thm;
-val r = translate add_def;
+val r = translate (add_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 val r = translate multiply_def;
 
@@ -81,7 +81,7 @@ val divide_side = Q.prove(
 val r = translate abs_min_def;
 val r = translate saturate_def;
 
-val r = translate weaken_aux_def;
+val r = translate (weaken_aux_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 val r = translate weaken_def;
 
 Definition lookup_err_string_def:
@@ -509,7 +509,7 @@ Proof
   metis_tac[mk_ids_MAP_COUNT_LIST]
 QED
 
-val res = translate not_def;
+val res = translate (not_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 val res = translate sorted_insert_def;
 
 (* Possibly raise error here directly *)
@@ -1784,9 +1784,9 @@ val res = translate subst_aux_def;
 val res = translate partition_def;
 val res = translate clean_up_def;
 val res = translate subst_lhs_def;
-val res = translate subst_def;
+val res = translate (subst_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
-val res = translate obj_constraint_def;
+val res = translate (obj_constraint_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 Theorem subst_fun_alt:
   subst_fun (s:subst) =
@@ -1917,7 +1917,7 @@ QED
 
 val res = translate subst_opt_aux_acc_def;
 val res = translate imp_def;
-val res = translate subst_opt_def;
+val res = translate (subst_opt_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 val res = translate subst_opt_subst_fun_def;
 
 val subst_indexes_arr = process_topdecs`
@@ -2167,6 +2167,15 @@ val res = translate npbc_checkTheory.mem_constraint_def;
 val hash_simps = [h_base_def, h_base_sq_def, h_mod_def, splim_def];
 
 val res = translate (hash_pair_def |> REWRITE_RULE hash_simps);
+
+Triviality hash_pair_side:
+  hash_pair_side n
+Proof
+  rw[Once (fetch "-" "hash_pair_side_def")]>>
+  intLib.ARITH_TAC
+QED
+val _ = hash_pair_side |> update_precondition
+
 val res = translate (hash_list_def |> REWRITE_RULE hash_simps);
 val res = translate (hash_constraint_def |> REWRITE_RULE hash_simps);
 
@@ -2641,7 +2650,22 @@ Proof
 QED
 
 val r = translate spt_to_vecTheory.prepend_def;
-val r = translate spt_to_vecTheory.to_flat_def;
+val r = translate (spt_to_vecTheory.to_flat_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
+
+Triviality to_flat_ind:
+  to_flat_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "to_flat_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = to_flat_ind |> update_precondition;
 
 val r = translate spt_to_vecTheory.spt_to_vec_def;
 val res = translate fromAList_def;
@@ -3181,6 +3205,13 @@ val res = translate check_storeorder_def;
 
 val res = translate npbcTheory.b2n_def;
 val res = translate npbcTheory.eval_lit_def;
+
+val eval_lit_side = Q.prove(
+  `eval_lit_side x y z`,
+  EVAL_TAC>>
+  Cases_on`x z`>>simp[b2n_def]
+  ) |> update_precondition
+
 val res = translate npbcTheory.eval_term_def;
 val res = translate npbcTheory.eval_obj_def;
 val res = translate npbc_checkTheory.opt_lt_def;

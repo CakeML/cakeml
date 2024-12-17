@@ -124,15 +124,6 @@ QED
 val r = translate dest_nop_pmatch;
 val r = translate flat_to_closTheory.compile_def;
 
-val flat_to_clos_compile_side = Q.prove(
-  `∀m xs. flat_to_clos_compile_side m xs ⇔ T`,
-  recInduct flat_to_closTheory.compile_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "flat_to_clos_compile_side_def")]>>
-  rw[]>>
-  res_tac
-  ) |> update_precondition
-
 val r = translate flat_to_closTheory.compile_decs_def;
 
 val r = translate (EVAL “clos_interpreter”)
@@ -140,7 +131,10 @@ val r = translate (EVAL “clos_interpreter”)
 val r = translate optionTheory.IS_NONE_DEF;
 
 val r = translate clos_interpTheory.can_interpret_op_pmatch;
-val r = translate clos_interpTheory.check_size_op_pmatch;
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
+val r = translate (clos_interpTheory.check_size_op_pmatch |> RW [GSYM sub_check_def]);
+
 val r = translate clos_interpTheory.to_constant_op_pmatch;
 
 fun one_line_ify_mutrec def = let
@@ -158,7 +152,7 @@ Theorem can_interpret_ind = (DefnBase.lookup_indn “can_interpret” |> valOf |
 Theorem check_size_ind = (DefnBase.lookup_indn “check_size” |> valOf |> fst);
 
 val r = translate $ one_line_ify_mutrec clos_interpTheory.can_interpret_def;
-val r = translate $ one_line_ify_mutrec clos_interpTheory.check_size_def;
+val r = translate $ one_line_ify_mutrec (clos_interpTheory.check_size_def |> RW [GSYM sub_check_def]);
 
 val r = translate clos_interpTheory.insert_interp_def;
 
@@ -169,6 +163,9 @@ val r = translate clos_interpTheory.compile_init_def;
 val r = translate closLangTheory.has_install_def;
 val r = translate clos_interpTheory.attach_interpreter_def;
 val r = translate flat_to_closTheory.compile_prog_def;
+
+val _ = (length (hyp r) = 0)
+        orelse failwith "Unproved side condition: flat_to_clos_compile_prog";
 
 (* ------------------------------------------------------------------------- *)
 (* clos_mti                                                                  *)
@@ -256,6 +253,25 @@ Theorem clos_known_free_side = Q.prove(
   \\ `!x l. clos_known$free [x] <> ([], l)` by (CCONTR_TAC \\ fs [] \\ last_x_assum drule \\ fs [])
   \\ once_rewrite_tac [fetch "-" "clos_known_free_side_def"] \\ fs []
   \\ rw [] \\ fs [] \\ metis_tac []) |> update_precondition;
+
+val r = translate (clos_knownTheory.get_size_sc_aux_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+Triviality clos_known_get_size_sc_aux_ind:
+  clos_known_get_size_sc_aux_ind
+Proof
+  once_rewrite_tac [fetch "-" "clos_known_get_size_sc_aux_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = clos_known_get_size_sc_aux_ind |> update_precondition;
+
+val r = translate (clos_knownTheory.get_size_sc_def |> REWRITE_RULE [GSYM sub_check_def]);
 
 val r = translate clos_knownTheory.known_def;
 

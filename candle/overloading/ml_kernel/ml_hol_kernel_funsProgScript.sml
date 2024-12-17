@@ -13,7 +13,7 @@ open cfHeapsBaseTheory basisFunctionsLib
 open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
 open holKernelTheory holKernelProofTheory
 open basisProgTheory
-open holAxiomsSyntaxTheory (* for setting up the context *)
+open holAxiomsSyntaxTheory
 local open holKernelPmatchTheory in end
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
@@ -224,12 +224,6 @@ val _ = ml_prog_update open_local_block;
 
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
-
-Theorem raconv_side = Q.prove(`
-  !x y z. raconv_side x y z`,
-  ho_match_mp_tac holKernelTheory.raconv_ind
-  \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
-  |> update_precondition;
 
 val res = translate (check [‘tm1’,‘tm2’] aconv_def);
 
@@ -554,17 +548,6 @@ Overload return[local] = ``st_ex_return``
 Overload failwith[local] = ``raise_Fail``
 
 val def = holSyntaxTheory.wellformed_compute_def |> translate
-
-Theorem wellformed_compute_side_thm[local]:
-  wellformed_compute_side x
-Proof
-  qid_spec_tac ‘x’ >>
-  ho_match_mp_tac holSyntaxTheory.wellformed_compute_ind >>
-  rpt strip_tac >>
-  rw[Once(fetch "-" "wellformed_compute_side_def")]
-QED
-
-val _ = update_precondition wellformed_compute_side_thm
 
 Definition allTypes_ty_def:
   allTypes_ty = allTypes'
