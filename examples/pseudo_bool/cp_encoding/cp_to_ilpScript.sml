@@ -5,11 +5,12 @@ open preamble cpTheory ilpTheory pbcTheory pbc_encodeTheory;
 
 val _ = new_theory "cp_to_ilp";
 
-val eval_raw = LIST_CONJ [iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_def];
+val eval_raw = LIST_CONJ
+  [iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_def];
 
-(* The datatype for auxiliaries variables *)
+(* The datatype for auxiliaries variables in the ILP encoding *)
 Datatype:
-  ebool =
+  eilp =
   | Ge 'a int (* Reifies X ≥ i *)
   | Eq 'a int (* Reifies X = i *)
   | Ne ('a + int) ('a + int)  (* Used to force X ≠ Y *)
@@ -450,9 +451,8 @@ Proof
     metis_tac[encode_element_const_sem]
 QED
 
-(* Maybe this is better? *)
-Definition reify_ebool_def:
-  reify_ebool wi eb ⇔
+Definition reify_eilp_def:
+  reify_eilp wi eb ⇔
   case eb of
     Ge X i => wi X ≥ i
   | Eq X i => wi X = i
@@ -462,13 +462,13 @@ End
 Theorem encode_element_sem_1:
   valid_assignment bnd wi ∧
   element_sem R X As wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_ebool wi)) (encode_element bnd R X As)
+  EVERY (λx. iconstraint_sem x (wi,reify_eilp wi)) (encode_element bnd R X As)
 Proof
   rw[encode_element_def]>>
   TOP_CASE_TAC>>gvs[]
   >- (
     DEP_REWRITE_TAC [encode_element_var_sem]>>
-    simp[reify_ebool_def])
+    simp[reify_eilp_def])
   >>
     metis_tac[encode_element_const_sem]
 QED
@@ -683,26 +683,26 @@ End
 Theorem encode_one_sem_1:
   valid_assignment bnd wi ∧
   constraint_sem c wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_ebool wi)) (encode_one bnd c)
+  EVERY (λx. iconstraint_sem x (wi,reify_eilp wi)) (encode_one bnd c)
 Proof
   Cases_on`c`>>
   rw[encode_one_def,constraint_sem_def]
   >- (
-    simp[encode_not_equals_sem,reify_ebool_def]>>
+    simp[encode_not_equals_sem,reify_eilp_def]>>
     gvs[not_equals_sem_def]>>
     intLib.ARITH_TAC)
   >- (
-    simp[encode_all_different_sem,reify_ebool_def]>>
+    simp[encode_all_different_sem,reify_eilp_def]>>
     gvs[all_different_sem_def,EL_ALL_DISTINCT_EL_EQ]>>
     rw[]>>
     first_x_assum(qspecl_then[`i`,`j`] mp_tac)>>
     simp[EL_MAP]>>
     intLib.ARITH_TAC)
   >- (
-    simp[encode_element_sem,reify_ebool_def]>>
+    simp[encode_element_sem,reify_eilp_def]>>
     every_case_tac>>simp[])
   >- (
-    simp[encode_abs_sem,reify_ebool_def]>>
+    simp[encode_abs_sem,reify_eilp_def]>>
     every_case_tac>>simp[])
 QED
 
@@ -732,7 +732,7 @@ End
 Theorem encode_all_sem_1:
   valid_assignment bnd wi ∧
   EVERY (λc. constraint_sem c wi) cs ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_ebool wi)) (encode_all bnd cs)
+  EVERY (λx. iconstraint_sem x (wi,reify_eilp wi)) (encode_all bnd cs)
 Proof
   simp[encode_all_def,EVERY_FLAT]>>
   simp[Once EVERY_MEM]>>

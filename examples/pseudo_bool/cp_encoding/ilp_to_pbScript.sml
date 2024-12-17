@@ -5,32 +5,17 @@ open preamble ilpTheory pbcTheory pbc_encodeTheory int_bitwiseTheory cpTheory;
 
 val _ = new_theory "ilp_to_pb";
 
-(*
-  X: (lb,ub)
-
-  We start from iconstraints:
-
-  ``:'a ilin_term # 'b lin_term # int``
-
-  a X + b Y + c Z + (PB) ≥ d
-
-  a {X0 + 2X1 + 4 X2+ ... } +
-  b {-2^n Yc + Y0 + ... } +
-  c {...} + (PB) ≥ d
-*)
-
 Datatype:
   epb =
-  | Tc 'a
-  | Bit 'a num
-  (* Bit X i is the i-th bit of X *)
-  | Var 'b
+  | Sign 'a    (* Two's complement sign-bit for X *)
+  | Bit 'a num (* Bit X i is the i-th bit of X *)
+  | Var 'b     (* An input Boolean variable *)
 End
 
 Definition reify_epb_def:
   reify_epb (wi:'a -> int,wb: 'b -> bool) epb ⇔
   case epb of
-    Tc X => wi X < 0
+    Sign X => wi X < 0
   | Bit X n => int_bit n (wi X)
   | Var B => wb B
 End
@@ -40,7 +25,7 @@ Definition bit_width_def:
     let (lb,ub) = bnd X in
      (lb < 0,
       if lb < 0 then
-        MAX (LENGTH (FST (bits_of_int (lb - 1))))
+        MAX (LENGTH (FST (bits_of_int lb)))
             (LENGTH (FST (bits_of_int ub)))
       else LENGTH (FST (bits_of_int ub)))
 End
@@ -50,7 +35,7 @@ Definition encode_ivar_def:
   let (comp,h) = bit_width bnd X in
   let bits = GENLIST (λi. (2**i,Pos (Bit X i))) h in
   if comp then
-      (-(2**h),Pos(Tc X)):: bits
+      (-(2**h),Pos(Sign X)):: bits
   else (bits:('a,'b) epb lin_term)
 End
 
@@ -85,6 +70,16 @@ Proof
   \\ gvs []
 QED
 
+Triviality LESS_EQ_EXP_MAX:
+  (k:num) ≤ 2 ** MAX m n ⇔ k ≤ 2 ** m ∨ k ≤ 2 ** n
+Proof
+  rw [MAX_DEF]
+  \\ eq_tac \\ rw []
+  \\ irule LESS_EQ_TRANS
+  \\ pop_assum $ irule_at Any
+  \\ gvs []
+QED
+
 Theorem LESS_LENGTH_bits_of_num:
   ∀k. k < 2 ** LENGTH (bits_of_num k)
 Proof
@@ -107,7 +102,9 @@ Proof
 QED
 
 Triviality bit_width_lemma2:
-  bit_width bnd X = (T,h) ∧ bnd X = (q,r) ∧ q ≤ -&n ⇒ n < 2 ** h
+  bit_width bnd X = (T,h) ∧ bnd X = (q,r) ∧ q ≤ -&n ⇒
+    n < 2**h ∨
+    (n = 2**h ∧ q = -&n)
 Proof
   strip_tac
   \\ gvs [bit_width_def]
@@ -117,10 +114,21 @@ Proof
   \\ gvs [bits_of_int_def]
   \\ gvs [int_not_def]
   \\ ‘&(k + 1) − 1 = & k : int’ by intLib.COOPER_TAC \\ gvs []
-  \\ gvs [LESS_EXP_MAX]
-  \\ disj1_tac
-  \\ irule LESS_EQ_LESS_TRANS
-  \\ irule_at Any LESS_LENGTH_bits_of_num \\ gvs []
+  \\ qmatch_goalsub_abbrev_tac`MAX lbb ubb`
+  \\ qspec_then `Num (&k -1)` assume_tac LESS_LENGTH_bits_of_num
+  \\ gvs[]
+  \\ `k ≤ 2** lbb` by intLib.ARITH_TAC
+  \\ reverse (Cases_on`n = k`)
+  >- (
+    DISJ1_TAC
+    \\ gvs [LESS_EXP_MAX]
+    \\ intLib.ARITH_TAC)
+  >- (
+    rw[MAX_DEF]
+    \\ `2 ** lbb < 2** ubb` by
+      (match_mp_tac bitTheory.TWOEXP_MONO>>
+      simp[])
+    \\ simp[])
 QED
 
 Triviality SUM_GENLIST_LE:
@@ -144,8 +152,8 @@ Proof
   \\ gvs [valid_assignment_def]
   \\ last_x_assum $ qspec_then ‘X’ assume_tac
   \\ Cases_on ‘bnd X’ \\ gvs []
-  >-
-   (‘~(q < 0)’ by gvs [bit_width_def]
+  >- (
+    ‘~(q < 0)’ by gvs [bit_width_def]
     \\ `?n. wi X = &n` by intLib.ARITH_TAC
     \\ gvs [] \\ gvs [int_bit_def]
     \\ gvs [iSUM_GENLIST_eq_SUM_GENLIST]
@@ -153,8 +161,8 @@ Proof
     \\ gvs [SUM_GENLIST_BIT])
   \\ Cases_on ‘~(wi X < 0)’ \\ gvs [int_bit_def]
   \\ gvs [iSUM_GENLIST_eq_SUM_GENLIST]
-  >-
-   (`?n. wi X = &n` by intLib.ARITH_TAC
+  >- (
+    `?n. wi X = &n` by intLib.ARITH_TAC
     \\ gvs [] \\ gvs [int_bit_def]
     \\ gvs [iSUM_GENLIST_eq_SUM_GENLIST]
     \\ drule_all bit_width_lemma1
@@ -166,15 +174,23 @@ Proof
   \\ conj_tac >- gvs [SUM_GENLIST_LE]
   \\ gvs []
   \\ drule_all bit_width_lemma2 \\ strip_tac
-  \\ ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) =
-      2 ** h - n’ suffices_by fs []
-  \\ ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) =
-      SUM (GENLIST (λi. if BIT i (2 ** h - n) then 2 ** i else 0) h)’
-         suffices_by gvs [SUM_GENLIST_BIT]
-  \\ AP_TERM_TAC
-  \\ simp [GENLIST_FUN_EQ] \\ rpt strip_tac
-  \\ qspecl_then [‘h’,‘i’,‘n’] mp_tac bitTheory.BIT_COMPLEMENT
-  \\ gvs []
+  >- (
+    ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) =
+        2 ** h - n’ suffices_by fs []
+    \\ ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) =
+        SUM (GENLIST (λi. if BIT i (2 ** h - n) then 2 ** i else 0) h)’
+           suffices_by gvs [SUM_GENLIST_BIT]
+    \\ AP_TERM_TAC
+    \\ simp [GENLIST_FUN_EQ] \\ rpt strip_tac
+    \\ qspecl_then [‘h’,‘i’,‘n’] mp_tac bitTheory.BIT_COMPLEMENT
+    \\ gvs [] )
+  >- (
+    ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) = 0’ by (
+      simp[SUM_eq_0,MEM_GENLIST,PULL_EXISTS]
+      \\ rpt strip_tac
+      \\ qspecl_then [‘h’,‘i’,‘1’] mp_tac bitTheory.BIT_COMPLEMENT
+      \\ simp[ONE_MOD])
+    \\ simp[] )
 QED
 
 Definition mul_lin_term_def:

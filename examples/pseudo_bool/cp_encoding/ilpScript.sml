@@ -5,6 +5,13 @@ open preamble mlintTheory pbcTheory cpTheory;
 
 val _ = new_theory "ilp";
 
+(*
+  This "ILP"-style intermediate language is designed for convenience of
+  verified encodings from CP (and then to PB).
+
+  It is NOT intended for use as a standalone and NOT a pure ILP formalization.
+*)
+
 Type ilin_term = ``:(int # 'a) list ``
 
 (* A constraint consists of two lists (c_i, X_i), (d_i, l_i) and a RHS *)

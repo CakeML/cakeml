@@ -9,6 +9,8 @@ Type assignment = ``:('a -> int)``;
 
 Type varc = ``: 'a + int``;
 
+Type bounds = ``:'a -> int # int``;
+
 Definition varc_def:
   varc (w:'a assignment) (vc:'a varc) =
   case vc of
@@ -56,8 +58,6 @@ Definition constraint_sem_def:
   | Abs X Y => abs_sem X Y w
 End
 
-Type bounds = ``:'a -> int # int``;
-
 Definition valid_assignment_def:
   valid_assignment (bnd: 'a bounds) w ⇔
   ∀x lb ub.
@@ -73,11 +73,13 @@ Definition cp_sat :
     ∀c. c ∈ cs ⇒ constraint_sem c w
 End
 
+(* Satisfiability for a CP decision instance *)
 Definition cp_satisfiable_def:
   cp_satisfiable bnd cs ⇔
   ∃w. cp_sat bnd cs w
 End
 
+(* Minimality for a CP optimization instance *)
 Definition cp_minimal_def:
   cp_minimal bnd cs (V:'a varc) (w: 'a assignment) ⇔
   cp_sat bnd cs w ∧
@@ -86,6 +88,7 @@ Definition cp_minimal_def:
     varc w V ≤ varc w' V
 End
 
+(* Maximality for a CP optimization instance *)
 Definition cp_maximal_def:
   cp_maximal bnd cs (V:'a varc) (w: 'a assignment) ⇔
   cp_sat bnd cs w ∧
@@ -93,15 +96,5 @@ Definition cp_maximal_def:
     cp_sat bnd cs w' ⇒
     varc w' V ≤ varc w V
 End
-
-(* If we change bnd to be total, then this never happens
-Definition cp_min_unbounded_def:
-  cp_min_unbounded bnd cs (V:'a varc) ⇔
-  (∃w. cp_sat bnd cs w) ∧
-  (∀w.
-    cp_sat bnd cs w ⇒
-    ∃w'. cp_sat bnd cs w' ∧ varc w' V ≤ varc w V)
-End
-*)
 
 val _ = export_theory();
