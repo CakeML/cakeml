@@ -671,8 +671,8 @@ Proof
 QED
 
 (* The top-level encodings *)
-Definition encode_one_def:
-  encode_one bnd c =
+Definition encode_cp_one_def:
+  encode_cp_one bnd c =
   case c of
     NotEquals X Y => encode_not_equals bnd X Y
   | AllDifferent As => encode_all_different bnd As
@@ -680,13 +680,13 @@ Definition encode_one_def:
   | Abs X Y => encode_abs bnd X Y
 End
 
-Theorem encode_one_sem_1:
+Theorem encode_cp_one_sem_1:
   valid_assignment bnd wi ∧
   constraint_sem c wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_eilp wi)) (encode_one bnd c)
+  EVERY (λx. iconstraint_sem x (wi,reify_eilp wi)) (encode_cp_one bnd c)
 Proof
   Cases_on`c`>>
-  rw[encode_one_def,constraint_sem_def]
+  rw[encode_cp_one_def,constraint_sem_def]
   >- (
     simp[encode_not_equals_sem,reify_eilp_def]>>
     gvs[not_equals_sem_def]>>
@@ -706,13 +706,13 @@ Proof
     every_case_tac>>simp[])
 QED
 
-Theorem encode_one_sem_2:
+Theorem encode_cp_one_sem_2:
   valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_one bnd c) ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_cp_one bnd c) ⇒
   constraint_sem c wi
 Proof
   Cases_on`c`>>
-  rw[encode_one_def,constraint_sem_def]
+  rw[encode_cp_one_def,constraint_sem_def]
   >-
     gvs[encode_not_equals_sem]
   >-
@@ -724,31 +724,31 @@ Proof
 QED
 
 (* An actual implementation will avoid duplicates here *)
-Definition encode_all_def:
-  encode_all bnd cs =
-  FLAT (MAP (encode_one bnd) cs)
+Definition encode_cp_all_def:
+  encode_cp_all bnd cs =
+  FLAT (MAP (encode_cp_one bnd) cs)
 End
 
-Theorem encode_all_sem_1:
+Theorem encode_cp_all_sem_1:
   valid_assignment bnd wi ∧
   EVERY (λc. constraint_sem c wi) cs ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_eilp wi)) (encode_all bnd cs)
+  EVERY (λx. iconstraint_sem x (wi,reify_eilp wi)) (encode_cp_all bnd cs)
 Proof
-  simp[encode_all_def,EVERY_FLAT]>>
+  simp[encode_cp_all_def,EVERY_FLAT]>>
   simp[Once EVERY_MEM]>>
   rw[Once EVERY_MEM,MEM_MAP]>>
-  metis_tac[encode_one_sem_1]
+  metis_tac[encode_cp_one_sem_1]
 QED
 
-Theorem encode_all_sem_2:
+Theorem encode_cp_all_sem_2:
   valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_all bnd cs) ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_cp_all bnd cs) ⇒
   EVERY (λc. constraint_sem c wi) cs
 Proof
-  simp[encode_all_def,EVERY_FLAT]>>
+  simp[encode_cp_all_def,EVERY_FLAT]>>
   rw[Once EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
   simp[Once EVERY_MEM]>>
-  metis_tac[encode_one_sem_2]
+  metis_tac[encode_cp_one_sem_2]
 QED
 
 (* === Examples ===

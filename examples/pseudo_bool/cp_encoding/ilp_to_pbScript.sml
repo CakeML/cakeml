@@ -1,7 +1,8 @@
 (*
-  Formalization of the ILP to PB phase
+  Formalization of the ILP to PB phase and the full encoder CP to PB
 *)
-open preamble ilpTheory pbcTheory pbc_encodeTheory int_bitwiseTheory cpTheory;
+open preamble ilpTheory pbcTheory pbc_encodeTheory
+  int_bitwiseTheory cpTheory cp_to_ilpTheory;
 
 val _ = new_theory "ilp_to_pb";
 
@@ -103,8 +104,7 @@ QED
 
 Triviality bit_width_lemma2:
   bit_width bnd X = (T,h) ∧ bnd X = (q,r) ∧ q ≤ -&n ⇒
-    n < 2**h ∨
-    (n = 2**h ∧ q = -&n)
+    n ≤ 2**h
 Proof
   strip_tac
   \\ gvs [bit_width_def]
@@ -118,17 +118,7 @@ Proof
   \\ qspec_then `Num (&k -1)` assume_tac LESS_LENGTH_bits_of_num
   \\ gvs[]
   \\ `k ≤ 2** lbb` by intLib.ARITH_TAC
-  \\ reverse (Cases_on`n = k`)
-  >- (
-    DISJ1_TAC
-    \\ gvs [LESS_EXP_MAX]
-    \\ intLib.ARITH_TAC)
-  >- (
-    rw[MAX_DEF]
-    \\ `2 ** lbb < 2** ubb` by
-      (match_mp_tac bitTheory.TWOEXP_MONO>>
-      simp[])
-    \\ simp[])
+  \\ gvs [LESS_EQ_EXP_MAX]
 QED
 
 Triviality SUM_GENLIST_LE:
@@ -174,23 +164,17 @@ Proof
   \\ conj_tac >- gvs [SUM_GENLIST_LE]
   \\ gvs []
   \\ drule_all bit_width_lemma2 \\ strip_tac
-  >- (
-    ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) =
-        2 ** h - n’ suffices_by fs []
-    \\ ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) =
-        SUM (GENLIST (λi. if BIT i (2 ** h - n) then 2 ** i else 0) h)’
-           suffices_by gvs [SUM_GENLIST_BIT]
-    \\ AP_TERM_TAC
-    \\ simp [GENLIST_FUN_EQ] \\ rpt strip_tac
-    \\ qspecl_then [‘h’,‘i’,‘n’] mp_tac bitTheory.BIT_COMPLEMENT
-    \\ gvs [] )
-  >- (
-    ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) = 0’ by (
-      simp[SUM_eq_0,MEM_GENLIST,PULL_EXISTS]
-      \\ rpt strip_tac
-      \\ qspecl_then [‘h’,‘i’,‘1’] mp_tac bitTheory.BIT_COMPLEMENT
-      \\ simp[ONE_MOD])
-    \\ simp[] )
+  \\ ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) =
+      2 ** h - n’ suffices_by fs []
+  \\ ‘SUM (GENLIST (λi. if ¬BIT i (n − 1) then 2 ** i else 0) h) =
+      SUM (GENLIST (λi. if BIT i (2 ** h - n) then 2 ** i else 0) h)’
+         suffices_by gvs [SUM_GENLIST_BIT]
+  \\ AP_TERM_TAC
+  \\ simp [GENLIST_FUN_EQ] \\ rpt strip_tac
+  \\ qspecl_then [‘h’,‘i’,‘n’] mp_tac bitTheory.BIT_COMPLEMENT
+  \\ Cases_on`n = 2 **h` \\ gvs[]
+  \\ qspecl_then [‘h’,‘i’,‘1’] mp_tac bitTheory.BIT_COMPLEMENT
+  \\ simp[ONE_MOD]
 QED
 
 Definition mul_lin_term_def:
@@ -198,8 +182,8 @@ Definition mul_lin_term_def:
     MAP (λ(c:int,x). (c*d,x)) ls
 End
 
-Definition encode_iconstraint_def:
-  encode_iconstraint bnd (is,bs,c) =
+Definition encode_iconstraint_one_def:
+  encode_iconstraint_one bnd (is,bs,c) =
     (
     GreaterEqual,
     FLAT
@@ -220,15 +204,15 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem encode_iconstraint_sem:
+Theorem encode_iconstraint_one_sem:
   valid_assignment bnd wi ⇒
   iconstraint_sem iconstr (wi,wb) =
   satisfies_pbc (reify_epb (wi,wb))
-   (encode_iconstraint bnd iconstr)
+   (encode_iconstraint_one bnd iconstr)
 Proof
   `∃is bs c. iconstr = (is,bs,c)`
     by metis_tac[PAIR] >>
-  rw[encode_iconstraint_def,satisfies_pbc_def,iconstraint_sem_def,eval_lin_term_def,eval_ilin_term_def]>>
+  rw[encode_iconstraint_one_def,satisfies_pbc_def,iconstraint_sem_def,eval_lin_term_def,eval_ilin_term_def]>>
   qmatch_goalsub_abbrev_tac`A + B ≥ _ ⇔ X + Y ≥ _`>>
   `A = X ∧ B = Y` suffices_by simp[]>>
   unabbrev_all_tac>>rw[]
@@ -247,6 +231,21 @@ Proof
     rename1`MEM (_,l) _`>>
     Cases_on`l`>>
     gvs[lit_def,map_lit_def,reify_epb_def])
+QED
+
+Definition encode_iconstraint_all_def:
+  encode_iconstraint_all bnd cs =
+    MAP (encode_iconstraint_one bnd) cs
+End
+
+Theorem encode_iconstraint_all_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (\c. iconstraint_sem c (wi,wb)) ics =
+  satisfies (reify_epb (wi,wb))
+   (set (encode_iconstraint_all bnd ics))
+Proof
+  rw[satisfies_def,EVERY_MEM,encode_iconstraint_all_def,MEM_MAP,PULL_EXISTS]>>
+  metis_tac[encode_iconstraint_one_sem]
 QED
 
 val _ = export_theory();
