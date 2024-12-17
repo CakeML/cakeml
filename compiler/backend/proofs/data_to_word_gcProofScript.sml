@@ -7230,12 +7230,12 @@ Theorem gc_add_call_env:
    (case gc (wordSem$push_env y NONE t5) of
      | NONE => (SOME wordSem$Error,x)
      | SOME s' => case pop_env s' of
-                  | NONE => (SOME Error, flush_state T s')
+                  | NONE => (SOME Error, flush_state T s'')
                   | SOME s' => f s') = (res,t) ==>
     (case gc (wordSem$call_env [Loc l1 l2] (SOME 0) (push_env y NONE t5)) of
      | NONE => (SOME Error,x)
      | SOME s' => case pop_env s' of
-                  | NONE => (SOME Error, flush_state T s')
+                  | NONE => (SOME Error, flush_state T s'')
                   | SOME s' => f s') = (res,t)
 Proof
   full_simp_tac(srw_ss())[wordSemTheory.gc_def,wordSemTheory.call_env_def,LET_DEF,

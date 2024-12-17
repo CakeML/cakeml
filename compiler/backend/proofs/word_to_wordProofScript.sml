@@ -1533,7 +1533,7 @@ Proof
     rpt (TOP_CASE_TAC >>
       fs[state_component_equality,set_var_def,flush_state_def]))>>
   gs[no_alloc_def, no_install_def]>> (
-  fs[evaluate_def,jump_exc_def,flush_state_def,dec_clock_def,state_component_equality] >> 
+  fs[evaluate_def,jump_exc_def,flush_state_def,dec_clock_def,state_component_equality] >>
   every_case_tac >> fs[])
 QED
 
