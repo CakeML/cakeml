@@ -1,0 +1,34 @@
+INCLUDES = $(CAKEMLDIR)/compiler/scheme/translation $(CAKEMLDIR)/compiler $(CAKEMLDIR)/cv_translator $(CAKEMLDIR)/developers/bin
+
+all: $(DEFAULT_TARGETS) README.md scheme_compiler hi.cake
+.PHONY: all
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif
+
+scheme_compiler: scheme_compilerCompileTheory.uo
+	gcc -o scheme_compiler scheme_compiler.S $(CAKEMLDIR)/basis/basis_ffi.c -lm
+
+hi.cake.S: cake scheme_compiler
+	echo "(print hi)" | ./scheme_compiler | ./cake --sexp=true > hi.cake.S
+
+hi.cake: hi.cake.S cake
+	make hi.cake
+	./hi.cake
+
+ARCH=x64
+WORD_SIZE=64
+
+cake-$(ARCH)-$(WORD_SIZE).tar.gz:
+	curl -LO https://github.com/CakeML/cakeml/releases/latest/download/cake-$(ARCH)-$(WORD_SIZE).tar.gz
+
+cake.S: cake-$(ARCH)-$(WORD_SIZE).tar.gz
+	tar -xvzf cake-$(ARCH)-$(WORD_SIZE).tar.gz --strip-components 1
+
+cake: cake.S
+	make -f Makefile

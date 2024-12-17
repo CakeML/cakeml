@@ -2,8 +2,9 @@
   Parser for Scheme
 *)
 open preamble;
-open arithmeticTheory listTheory pairTheory finite_mapTheory stringTheory;
+open mlstringTheory;
 open scheme_valuesTheory;
+open scheme_astTheory;
 
 val _ = new_theory "scheme_parsing";
 
@@ -83,6 +84,25 @@ Definition parse_def:
   parse (DOT :: rest) x s = parse rest (head x) s
 End
 
+(*
+EVAL “head (parse (lexer "(print hi)") (Num 0) [])”
+*)
 
+
+(* conversion to AST *)
+
+Definition parse_to_ast_def:
+  parse_to_ast s =
+    let e = head (parse (lexer s) (Num 0) []) in
+      if e = Pair (Name "print") (Pair (Name "hi") (Num 0)) then
+        INR (Print (strlit "hi\n"))
+      else
+        INL ("This version can only parse '(print hi)'.")
+End
+
+(*
+EVAL “parse_to_ast "(print hi)"”
+EVAL “parse_to_ast "(print hello)"”
+*)
 
 val _ = export_theory();
