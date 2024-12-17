@@ -1249,15 +1249,36 @@ Theorem word_get_code_labels_copy_prop:
   word_get_code_labels (copy_prop ps) =
   word_get_code_labels ps
 Proof
-  simp[copy_prop_def]>>
-  cheat
+  simp[copy_prop_def]
+  \\ qmatch_goalsub_abbrev_tac  `copy_prop_prog ps s`
+  \\ qid_spec_tac ‘s’
+  \\ qid_spec_tac ‘ps’
+  \\ ho_match_mp_tac copy_prop_prog_ind
+  \\ unabbrev_all_tac \\ simp[copy_prop_prog_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
+  \\ res_tac \\ fs []
+  >-
+  (simp[oneline copy_prop_inst_def] \\ every_case_tac \\ fs[])
+  >-(every_case_tac \\ fs[])
 QED
 
 Theorem word_good_handlers_copy_prop:
   word_good_handlers n (copy_prop ps) ⇔
   word_good_handlers n ps
 Proof
-  cheat
+  simp[copy_prop_def]
+  \\ qmatch_goalsub_abbrev_tac  `copy_prop_prog ps s`
+  \\ qid_spec_tac ‘s’
+  \\ qid_spec_tac ‘ps’
+  \\ ho_match_mp_tac copy_prop_prog_ind
+  \\ unabbrev_all_tac \\ simp[copy_prop_prog_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
+  \\ res_tac \\ fs []
+  >-
+  (simp[oneline copy_prop_inst_def] \\ every_case_tac \\ fs[])
+  >-(every_case_tac \\ fs[])
 QED
 
 (*** three_to_to_reg_prog ***)
@@ -1393,9 +1414,28 @@ Triviality word_get_code_labels_Seq_assoc_right:
   word_get_code_labels (Seq_assoc_right ps qs) ⊆
   word_get_code_labels ps ∪ word_get_code_labels qs
 Proof
-  ho_match_mp_tac Seq_assoc_right_ind>>
-  rw[]>>
-  cheat
+  ho_match_mp_tac Seq_assoc_right_ind >>
+  simp[Seq_assoc_right_def] >>
+  rw[] >> every_case_tac >> fs[]
+  >- (irule SUBSET_TRANS >>
+  first_x_assum (irule_at Any) >>
+  fs[UNION_SUBSET] >>
+  CONJ_TAC >- fs[GSYM UNION_ASSOC] >>
+  irule SUBSET_TRANS >>
+  first_x_assum (irule_at Any) >>
+  fs[UNION_SUBSET] >>
+  fs[Once UNION_COMM] >>
+  fs[UNION_ASSOC])
+  >> TRY  (
+  irule SUBSET_TRANS >>
+  irule_at Any word_get_code_labels_SimpSeq >>
+  rw[] >>
+  irule SUBSET_TRANS >>
+  first_x_assum (irule_at Any) >>
+   metis_tac[UNION_ASSOC,SUBSET_UNION,SUBSET_TRANS]
+  )
+  >>
+  metis_tac[UNION_ASSOC,SUBSET_UNION,SUBSET_TRANS]
 QED
 
 Theorem word_get_code_labels_remove_unreach:
@@ -1408,11 +1448,45 @@ Proof
   simp[]
 QED
 
+Triviality word_good_handlers_SimpSeq:
+  word_good_handlers n ps /\ word_good_handlers n qs ⇒
+  word_good_handlers n (SimpSeq ps qs)
+Proof
+  qid_spec_tac ‘ps’ \\
+  Induct \\ simp[SimpSeq_def] \\
+  Cases_on `qs = Skip` \\ fs[] \\
+  fs[oneline dest_Seq_Move_def] \\
+  every_case_tac \\ fs[]
+QED
+
+Triviality word_good_handlers_Seq_assoc_right:
+  word_good_handlers n ps /\ word_good_handlers n qs ⇒
+  word_good_handlers n (Seq_assoc_right ps qs)
+Proof
+  qid_spec_tac ‘qs’
+  \\ qid_spec_tac ‘ps’
+  \\ ho_match_mp_tac Seq_assoc_right_ind
+  \\ simp[Seq_assoc_right_def]
+  \\ rw[] \\ every_case_tac \\ fs[]
+  \\ irule word_good_handlers_SimpSeq
+  \\ fs[]
+QED
+
 Theorem word_good_handlers_remove_unreach:
   word_good_handlers n ps ⇒
   word_good_handlers n (remove_unreach ps)
 Proof
-  cheat
+  simp[remove_unreach_def] \\ disch_tac \\
+  irule word_good_handlers_Seq_assoc_right \\
+  fs[]
+  \\ qmatch_goalsub_abbrev_tac `Seq_assoc_right ps s`
+  \\ qid_spec_tac ‘s’
+  \\ qid_spec_tac ‘ps’
+  \\ ho_match_mp_tac Seq_assoc_right_ind
+  \\ unabbrev_all_tac \\ simp[Seq_assoc_right_def]
+  \\ simp[SimpSeq_def]
+  \\ rw[]
+ \\ every_case_tac \\ fs[]
 QED
 
 (*** word_alloc ***)
