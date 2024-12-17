@@ -7230,12 +7230,12 @@ Theorem gc_add_call_env:
    (case gc (wordSem$push_env y NONE t5) of
      | NONE => (SOME wordSem$Error,x)
      | SOME s' => case pop_env s' of
-                  | NONE => (SOME Error, flush_state T s'')
+                  | NONE => (SOME Error, flush_state T s')
                   | SOME s' => f s') = (res,t) ==>
     (case gc (wordSem$call_env [Loc l1 l2] (SOME 0) (push_env y NONE t5)) of
      | NONE => (SOME Error,x)
      | SOME s' => case pop_env s' of
-                  | NONE => (SOME Error, flush_state T s'')
+                  | NONE => (SOME Error, flush_state T s')
                   | SOME s' => f s') = (res,t)
 Proof
   full_simp_tac(srw_ss())[wordSemTheory.gc_def,wordSemTheory.call_env_def,LET_DEF,
@@ -7355,8 +7355,6 @@ Theorem alloc_lemma:
      r.compile_oracle = t.compile_oracle /\
      q = NONE)
 Proof
-  cheat
- (*
   strip_tac
   \\ full_simp_tac(srw_ss())[wordSemTheory.alloc_def,
        LET_DEF,addressTheory.CONTAINER_def]
@@ -7427,7 +7425,6 @@ Proof
   \\ rfs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w,w2n_minus_1_LESS_EQ]
   \\ rfs [bytes_in_word_ADD_1_NOT_ZERO]
   \\ fs [OPTION_MAP2_ADD_SOME_0,OPTION_MAP2_MAX_CANCEL] \\ rfs []
-  *)
 QED
 
 Theorem evaluate_GiveUp:

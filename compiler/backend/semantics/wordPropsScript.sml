@@ -528,6 +528,8 @@ Proof
 QED
 
 Theorem flush_state_with_const[simp]:
+   flush_state b (y with locals := l) = flush_state b y /\
+   flush_state b (y with locals_size := ls) = flush_state b y /\
    flush_state b (y with clock := k) = flush_state b y with clock := k
 Proof
  Cases_on `b` \\ EVAL_TAC
