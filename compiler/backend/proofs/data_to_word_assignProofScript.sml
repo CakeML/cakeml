@@ -10551,8 +10551,6 @@ QED
 Theorem assign_WordShiftW64:
   (?sh n. op = WordShift W64 sh n) ==> ^assign_thm_goal
 Proof
-  cheat
-  (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
@@ -10576,7 +10574,7 @@ Proof
      rveq >> rfs[])
   \\ TOP_CASE_TAC \\ fs[]
   THEN1 (* dimindex (:'a) = 64 *)
-   (`dimindex (:'a) = 64` by fs [state_rel_def,good_dimindex_def]
+   (cheat (*`dimindex (:'a) = 64` by fs [state_rel_def,good_dimindex_def]
     \\ fs [] \\ clean_tac
     \\ fs[state_rel_thm] \\ eval_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -10641,7 +10639,7 @@ Proof
       \\ simp[word_extract_def,word_bits_def,w2w,word_ror_def,fcpTheory.FCP_BETA]
       \\ rpt strip_tac
       \\ eq_tac \\ fs []
-      \\ `(i + n') MOD 64 < 64` by fs [] \\ simp []))
+      \\ `(i + n') MOD 64 < 64` by fs [] \\ simp [])*))
   \\ `dimindex (:'a) = 32` by fs [state_rel_def,good_dimindex_def]
   \\ fs [] \\ clean_tac
   \\ fs[state_rel_thm] \\ eval_tac
@@ -10681,7 +10679,6 @@ Proof
   \\ fs [consume_space_def]
   \\ rveq \\ fs [] \\ rw [] \\ fs []
   \\ fs[limits_inv_def, FLOOKUP_UPDATE]
-  *)
 QED
 
 val assign_FP_cmp = SIMP_CONV (srw_ss()) [assign_def]

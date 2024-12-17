@@ -1161,8 +1161,6 @@ Theorem AnyArith_thm:
                            clock := new_c; space := 0; stack_max := NONE |>) r
                 [(Number v,rv)] locs
 Proof
-  cheat
-  (*
   rpt strip_tac \\ fs [AnyArith_code_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
@@ -1182,7 +1180,7 @@ Proof
   \\ fs [eq_eval]
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
-  \\ fs [GSYM wordSemTheory.set_var_def]
+  \\ full_simp_tac bool_ss [GSYM set_store_with_const, GSYM wordSemTheory.set_var_def]
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `set_var 1 (Word w1)` \\ rveq
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (AllocVar _ _ _,t4)` \\ rveq
   \\ `state_rel c l1 l2 s t4 [] locs` by
@@ -1241,9 +1239,11 @@ Proof
     \\ fs [fromList_def,get_var_def,lookup_insert])
   \\ fs [adjust_var_def] \\ strip_tac \\ fs []
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ full_simp_tac bool_ss [GSYM set_store_with_const, GSYM wordSemTheory.set_var_def]
   \\ qpat_abbrev_tac `s8 = set_store _ _ _`
   \\ `state_rel c l1 l2 s0 s8 [] locs` by
-      (unabbrev_all_tac \\ fs [state_rel_set_store_Temp,state_rel_insert_7] \\ NO_TAC)
+      (unabbrev_all_tac \\ fs [state_rel_set_store_Temp,state_rel_insert_7,
+  wordSemTheory.set_var_def] \\ NO_TAC)
   \\ rpt_drule AnyHeader_thm
   \\ disch_then (qspecl_then [`j`,`T`,`1w`,`30w`,`11w`,`1`] mp_tac)
   \\ impl_tac THEN1
@@ -1252,7 +1252,7 @@ Proof
   \\ fs [adjust_var_def] \\ strip_tac \\ fs []
   \\ qpat_abbrev_tac `s9 = set_store _ _ _`
   \\ `state_rel c l1 l2 s0 s9 [] locs` by
-      (unabbrev_all_tac \\ fs [state_rel_set_store_Temp,
+      (qunabbrev_tac `s9` \\ fs [state_rel_set_store_Temp,
          wordSemTheory.set_var_def,state_rel_insert_7] \\ NO_TAC)
   \\ qunabbrev_tac `s8`
   \\ pop_assum mp_tac
@@ -2086,7 +2086,6 @@ Proof
   \\ drule memory_rel_zero_space
   \\ match_mp_tac memory_rel_rearrange
   \\ fs [join_env_def] \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
-  *)
 QED
 
 Theorem MAP_FST_EQ_IMP_IS_SOME_ALOOKUP:
