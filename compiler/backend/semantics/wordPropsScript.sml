@@ -2487,7 +2487,6 @@ Proof
     gvs[state_component_equality,s_key_eq_refl,set_var_def,
       GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),flush_state_def] ) >>
   (*Call*)
-  cheat (*
   full_simp_tac(srw_ss())[evaluate_def]>>
   Cases_on`get_vars args s`>> full_simp_tac(srw_ss())[]>>
   IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
@@ -2791,7 +2790,7 @@ Proof
            full_simp_tac(srw_ss())[])>>
            IMP_RES_TAC s_key_eq_LASTN_exists>>
            Q.EXISTS_TAC`e''`>>
-           Q.EXISTS_TAC`n`>>
+           Q.EXISTS_TAC`n''`>>
            Q.EXISTS_TAC`ls''`>>
            full_simp_tac(srw_ss())[]>>
            Q.EXISTS_TAC`lss'`>>
@@ -2874,7 +2873,6 @@ Proof
      drule s_val_eq_stack_size >> strip_tac >> fs [] >>
      rfs [call_env_def,flush_state_def] >>
      `LENGTH xs = LENGTH s.stack` by full_simp_tac(srw_ss())[s_val_eq_length]>> full_simp_tac(srw_ss())[]
-     *)
 QED
 
 (*--Stack Swap Lemma DONE--*)
