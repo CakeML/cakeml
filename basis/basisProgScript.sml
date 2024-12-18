@@ -8,6 +8,8 @@ val _ = new_theory "basisProg"
 
 val _ = translation_extends"TextIOProg";
 
+val cakeml = append_prog o process_topdecs;
+
 val print_e = ``Var(Long"TextIO"(Short"print"))``
 val eval_thm = let
   val env = get_ml_prog_state () |> ml_progLib.get_env
@@ -32,17 +34,19 @@ val _ = (next_ml_names := ["str_app_list_opt"]);
 val r = translate mlstringTheory.str_app_list_opt_def;
 val _ = (use_full_type_names := true);
 
-val _ = (append_prog o process_topdecs) `
+Quote cakeml:
   fun print_app_list_aux ls =
     (case ls of
        Nil => ()
      | List ls => TextIO.print_list ls
-     | Append l1 l2 => (print_app_list_aux l1; print_app_list_aux l2))`;
+     | Append l1 l2 => (print_app_list_aux l1; print_app_list_aux l2))
+End
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = (append_prog o process_topdecs) `
-  fun print_app_list ls = print_app_list_aux (str_app_list_opt ls)`;
+Quote cakeml:
+  fun print_app_list ls = print_app_list_aux (str_app_list_opt ls)
+End
 
 val _ = ml_prog_update close_local_blocks;
 
@@ -89,8 +93,9 @@ Proof
   \\ xapp_spec print_app_list_aux_spec \\ fs []
 QED
 
-val _ = (append_prog o process_topdecs)
-  `fun print_int i = TextIO.print (Int.toString i)`;
+Quote cakeml:
+  fun print_int i = TextIO.print (Int.toString i)
+End
 
 Theorem print_int_spec:
    INT i iv ⇒
@@ -103,8 +108,9 @@ Proof
   \\ xapp \\ xsimpl
 QED
 
-val _ = (append_prog o process_topdecs)
-  `fun print_pp pp = print_app_list (PrettyPrinter.toAppList pp)`;
+Quote cakeml:
+  fun print_pp pp = print_app_list (PrettyPrinter.toAppList pp)
+End
 
 Theorem print_pp_spec:
    ∀pp lv out. PP_DATA_TYPE pp lv ⇒
@@ -122,7 +128,9 @@ val basis_st = get_ml_prog_state ();
 
 val basis_prog = basis_st |> remove_snocs |> ml_progLib.get_prog;
 
-val basis_def = Define `basis = ^basis_prog`;
+Definition basis_def:
+  basis = ^basis_prog
+End
 
 Theorem basis_Decls_thm =
   ml_progLib.get_Decls_thm basis_st

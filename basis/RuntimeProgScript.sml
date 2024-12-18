@@ -8,23 +8,27 @@ open preamble ml_translatorLib ml_progLib cfDivTheory
 val _ = new_theory "RuntimeProg";
 
 val _ = translation_extends "cfDiv";
+val cakeml = append_prog o process_topdecs;
 
 val _ = ml_prog_update (open_module "Runtime");
 
-val fullGC_def = Define `
-  fullGC (u:unit) = force_unit_type u (force_gc_to_run 0 0)`;
+Definition fullGC_def:
+  fullGC (u:unit) = force_unit_type u (force_gc_to_run 0 0)
+End
 
 val () = next_ml_names := ["fullGC"];
 val result = translate fullGC_def;
 
-val fail_def = Define `
-  fail (u:unit) = force_unit_type u (force_out_of_memory_error u)`;
+Definition fail_def:
+  fail (u:unit) = force_unit_type u (force_out_of_memory_error u)
+End
 
 val () = next_ml_names := ["fail"];
 val result = translate fail_def;
 
-val debugMsg_def = Define `
-  debugMsg s = empty_ffi s`;
+Definition debugMsg_def:
+  debugMsg s = empty_ffi s
+End
 
 val () = next_ml_names := ["debugMsg"];
 val result = translate debugMsg_def;
@@ -39,17 +43,17 @@ val exit =
 
 val _ = append_prog exit
 
-val abort = process_topdecs `fun abort u = case u of () => exit 1`
+Quote cakeml:
+  fun abort u = case u of () => exit 1
+End
 
-val _ = append_prog abort
-
-val _ = process_topdecs `
+Quote cakeml:
   fun assert cond msg =
-  if cond
-  then ()
-  else (debugMsg msg;
-        abort());`
-  |> append_prog;
+    if cond
+    then ()
+    else (debugMsg msg;
+          abort());
+End
 
 val _ = ml_prog_update (close_module NONE);
 

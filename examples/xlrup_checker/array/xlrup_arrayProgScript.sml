@@ -85,11 +85,13 @@ fun get_exn_conv name =
 
 val fail = get_exn_conv ``"Fail"``
 
-val Fail_exn_def = Define `
-  Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)`
+Definition Fail_exn_def:
+  Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
+End
 
-val eq_w8o_def = Define`
-  eq_w8o v ⇔ v = w8o`
+Definition eq_w8o_def:
+  eq_w8o v ⇔ v = w8o
+End
 
 val _ = translate (eq_w8o_def |> SIMP_RULE std_ss [w8o_def]);
 
@@ -100,15 +102,17 @@ val every_one_arr = process_topdecs`
     if eq_w8o (Unsafe.w8sub carr (index c)) then every_one_arr carr cs
     else False` |> append_prog
 
-val format_failure_def = Define`
+Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"`
+  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+End
 
 val _ = translate format_failure_def;
 
-val unwrap_TYPE_def = Define`
+Definition unwrap_TYPE_def:
   unwrap_TYPE P x y =
-  ∃z. x = SOME z ∧ P z y`
+  ∃z. x = SOME z ∧ P z y
+End
 
 val delete_literals_sing_arr_def = process_topdecs`
   fun delete_literals_sing_arr lno i carr cs =
@@ -238,13 +242,14 @@ val is_rup_arr_aux = process_topdecs`
 
 (* For every literal in every clause and their negations,
   the index is bounded above by n *)
-val bounded_cfml_def = Define`
+Definition bounded_cfml_def:
   bounded_cfml n fmlls ⇔
   EVERY (λCopt.
     case Copt of
       NONE => T
     | SOME C => EVERY ($> n o index) C ∧ EVERY ($> n o index o $~) C
-    ) fmlls`
+    ) fmlls
+End
 
 Theorem delete_literals_sing_list_MEM:
   ∀C.
@@ -670,8 +675,9 @@ Proof
   metis_tac[]
 QED
 
-val eq_w8z_def = Define`
-  eq_w8z v ⇔ v = w8z`
+Definition eq_w8z_def:
+  eq_w8z v ⇔ v = w8z
+End
 
 val _ = translate (eq_w8z_def |> SIMP_RULE std_ss [w8z_def]);
 
@@ -2114,18 +2120,18 @@ QED
 open mlintTheory;
 
 (* TODO: Mostly copied from mlintTheory *)
-val result = translate fromChar_unsafe_def;
+val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 Definition fromChars_range_unsafe_tail_def:
   fromChars_range_unsafe_tail b n str mul acc =
   if n ≤ b then acc
   else
-    let m = sub_nocheck n 1 in
+    let m = n - 1 in
     fromChars_range_unsafe_tail b m str (mul * 10)
       (acc + fromChar_unsafe (strsub str m) * mul)
 Termination
   WF_REL_TAC`measure (λ(b,n,_). n)`>>
-  rw[sub_nocheck_def]
+  rw[]
 End
 
 Theorem fromChars_range_unsafe_tail_eq:
@@ -2137,7 +2143,7 @@ Proof
   >-
     rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
   rw[]>>
-  simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def,sub_nocheck_def]>>
+  simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def]>>
   fs[ADD1]
 QED
 
@@ -2149,6 +2155,23 @@ Proof
 QED
 
 val result = translate fromChars_range_unsafe_tail_def;
+
+val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
+
+Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
+  ∀a1 a0 a2 a3 a4.
+  fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
+   ¬(a1 ≤ a0) ⇒
+   (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
+   fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
+     (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
+Proof
+  Induct>>
+  rw[Once fromchars_range_unsafe_tail_side_def]>>
+  simp[]>>eq_tac>>rw[ADD1]>>
+  gvs[]
+QED
+
 val result = translate fromChars_range_unsafe_alt;
 
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
@@ -2174,22 +2197,6 @@ val result = translate xlrup_parsingTheory.fromString_unsafe_def;
 
 val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
-val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
-
-Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
-  ∀a1 a0 a2 a3 a4.
-  fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
-   ¬(a1 ≤ a0) ⇒
-   (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
-   fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
-     (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
-Proof
-  Induct>>
-  rw[Once fromchars_range_unsafe_tail_side_def]>>
-  simp[sub_nocheck_def]>>eq_tac>>rw[ADD1]>>
-  gvs[]
-QED
-
 val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
 
 Theorem fromchars_unsafe_side_thm:
@@ -2213,10 +2220,6 @@ val _ = translate cnf_xorTheory.tokenize_def;
 
 val _ = translate is_lowercase_def;
 val _ = translate tokenize_fast_def;
-
-val tokenize_fast_side = Q.prove(
-  `∀x. tokenize_fast_side x = T`,
-  EVAL_TAC >> fs[]) |> update_precondition;
 
 val _ = translate parse_until_zero_def;
 val _ = translate parse_until_zero_nn_def;
@@ -2332,14 +2335,16 @@ Proof
   metis_tac[]
 QED
 
-val noparse_string_def = Define`
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]`;
+Definition noparse_string_def:
+  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
+End
 
 val r = translate noparse_string_def;
 
 (*
-val nocheck_string_def = Define`
-  nocheck_string = strlit "cake_xlrup: XLRUP checking failed.\n"`;
+Definition nocheck_string_def:
+  nocheck_string = strlit "cake_xlrup: XLRUP checking failed.\n"
+End
 
 val r = translate nocheck_string_def;
 *)
@@ -2356,7 +2361,7 @@ val check_unsat'' = process_topdecs `
       |> append_prog;
 
 (* This says what happens to the STDIO *)
-val check_unsat''_def = Define`
+Definition check_unsat''_def:
   (check_unsat'' fd xorig cfml xfml tn def Clist fs [] =
     STDIO (fastForwardFD fs fd)) ∧
   (check_unsat'' fd xorig cfml xfml tn def Clist fs (ln::ls) =
@@ -2364,17 +2369,19 @@ val check_unsat''_def = Define`
       NONE => STDIO (lineForwardFD fs fd)
     | SOME (cfml', xfml', tn', def', Clist') =>
       check_unsat'' fd xorig cfml' xfml' tn' def' Clist'
-        (lineForwardFD fs fd) ls)`
+        (lineForwardFD fs fd) ls)
+End
 
 (* This says what happens to cfml, xfml *)
-val parse_and_run_file_list_def = Define`
+Definition parse_and_run_file_list_def:
   (parse_and_run_file_list [] xorig cfml xfml tn def Clist =
     SOME (cfml, xfml)) ∧
   (parse_and_run_file_list (x::xs) xorig cfml xfml tn def Clist =
     case parse_and_run_list xorig cfml xfml tn def Clist (toks_fast x) of
       NONE => NONE
     | SOME (cfml', xfml', tn', def',Clist') =>
-    parse_and_run_file_list xs xorig cfml' xfml' tn' def' Clist')`
+    parse_and_run_file_list xs xorig cfml' xfml' tn' def' Clist')
+End
 
 Theorem parse_and_run_file_list_eq:
   ∀ls xorig cfml xfml tn def Clist.
@@ -2563,8 +2570,9 @@ QED
   Returns: Inl (error string)
   Otherwise: Inr (true/false result of checking clause inclusion)
 *)
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
+End
 
 val r = translate notfound_string_def;
 

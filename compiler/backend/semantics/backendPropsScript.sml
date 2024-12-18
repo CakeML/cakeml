@@ -6,28 +6,31 @@ open preamble
 
 val _ = new_theory"backendProps";
 
-val state_cc_def = Define `
+Definition state_cc_def:
   state_cc f cc =
     (\(state,cfg) prog.
        let (state1,prog1) = f state prog in
          case cc cfg prog1 of
          | NONE => NONE
-         | SOME (code,data,cfg1) => SOME (code,data,state1,cfg1))`;
+         | SOME (code,data,cfg1) => SOME (code,data,state1,cfg1))
+End
 
-val pure_cc_def = Define `
+Definition pure_cc_def:
   pure_cc f cc =
     (\cfg prog.
        let prog1 = f prog in
-         cc cfg prog1)`;
+         cc cfg prog1)
+End
 
-val state_co_def = Define `
+Definition state_co_def:
   state_co f co =
      (λn.
         (let
            ((state,cfg),progs) = co n ;
            (state1,progs) = f state progs
          in
-           (cfg,progs)))`;
+           (cfg,progs)))
+End
 
 Theorem FST_state_co:
    FST (state_co f co n) = SND(FST(co n))
@@ -44,7 +47,7 @@ QED
 Theorem the_eqn:
   the x y = case y of NONE => x | SOME z => z
 Proof
-  Cases_on `y`>>rw[libTheory.the_def]
+  Cases_on `y`>>rw[miscTheory.the_def]
 QED
 
 Theorem the_F_eq:
@@ -53,8 +56,9 @@ Proof
   Cases_on `opt` >> rw[the_eqn]
 QED
 
-val pure_co_def = Define `
-  pure_co f = I ## f`;
+Definition pure_co_def:
+  pure_co f = I ## f
+End
 
 Theorem SND_pure_co[simp]:
    SND (pure_co co x) = co (SND x)
@@ -92,11 +96,12 @@ QED
 
 (* identifiers that appear in the initial state and in oracle steps
    increase monotonically in some sense. *)
-val oracle_monotonic_def = Define`
+Definition oracle_monotonic_def:
   oracle_monotonic (f : 'a -> 'b set) (R : 'b -> 'b -> bool) (S : 'b set)
     (orac : num -> 'a) =
     ((!i j x y. i < j /\ x IN f (orac i) /\ y IN f (orac j) ==> R x y)
-        /\ (! i x y. x IN S /\ y IN f (orac i) ==> R x y))`;
+        /\ (! i x y. x IN S /\ y IN f (orac i) ==> R x y))
+End
 
 val conjs = MATCH_MP quotientTheory.EQ_IMPLIES (SPEC_ALL oracle_monotonic_def)
   |> UNDISCH_ALL |> CONJUNCTS |> map DISCH_ALL
@@ -163,10 +168,11 @@ QED
 
 (* check that an oracle with config values lists the config values that
    would be produced by the incremental compiler. *)
-val is_state_oracle_def = Define`
+Definition is_state_oracle_def:
   is_state_oracle compile_inc_f co =
     (!n. FST (FST (co (SUC n)))
-        = FST (compile_inc_f (FST (FST (co n))) (SND (co n))))`;
+        = FST (compile_inc_f (FST (FST (co n))) (SND (co n))))
+End
 
 Theorem is_state_oracle_shift:
   is_state_oracle compile_inc_f co =
@@ -202,25 +208,29 @@ QED
 
 (* constructive combinators for building up the config part of an oracle *)
 
-val syntax_to_full_oracle_def = Define `
-  syntax_to_full_oracle mk progs i = (mk progs i,progs i)`;
+Definition syntax_to_full_oracle_def:
+  syntax_to_full_oracle mk progs i = (mk progs i,progs i)
+End
 
-val state_orac_states_def = Define `
+Definition state_orac_states_def:
   state_orac_states f st progs 0 = st /\
   state_orac_states f st progs (SUC n) =
-    FST (f (state_orac_states f st progs n) (progs n))`;
+    FST (f (state_orac_states f st progs n) (progs n))
+End
 
-val state_co_progs_def = Define `
+Definition state_co_progs_def:
   state_co_progs f st orac = let
     states = state_orac_states f st orac;
-  in \i. SND (f (states i) (orac i))`;
+  in \i. SND (f (states i) (orac i))
+End
 
-val add_state_co_def = Define `
+Definition add_state_co_def:
   add_state_co f st mk progs = let
     states = state_orac_states f st progs;
     next_progs = state_co_progs f st progs;
     next_orac = mk next_progs in
-    (\i. (states i, next_orac i))`;
+    (\i. (states i, next_orac i))
+End
 
 Theorem state_co_add_state_co:
   state_co f (syntax_to_full_oracle (add_state_co f st mk) progs)
@@ -233,8 +243,9 @@ Proof
   \\ simp [state_co_progs_def]
 QED
 
-val pure_co_progs_def = Define `
-  pure_co_progs f (orac : num -> 'a) = f o orac`;
+Definition pure_co_progs_def:
+  pure_co_progs f (orac : num -> 'a) = f o orac
+End
 
 Theorem pure_co_syntax_to_full_oracle:
   pure_co f o (syntax_to_full_oracle (mk o pure_co_progs f) progs) =
@@ -338,13 +349,15 @@ Theorem oracle_monotonic_state = oracle_monotonic_state_with_inv
 Theorem oracle_monotonic_state_init = oracle_monotonic_state_with_inv_init
   |> Q.SPEC `\x. T` |> SIMP_RULE bool_ss []
 
-val restrict_zero_def = Define`
+Definition restrict_zero_def:
   restrict_zero (labels : num # num -> bool) =
-    {l | l ∈ labels ∧ SND l = 0}`
+    {l | l ∈ labels ∧ SND l = 0}
+End
 
-val restrict_nonzero_def = Define`
+Definition restrict_nonzero_def:
   restrict_nonzero (labels : num # num -> bool) =
-    {l | l ∈ labels ∧ SND l ≠ 0}`
+    {l | l ∈ labels ∧ SND l ≠ 0}
+End
 
 Theorem restrict_nonzero_SUBSET:
   restrict_nonzero l ⊆ l
@@ -444,7 +457,11 @@ QED
 Theorem option_le_eq_eqns:
   (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ n p)
    <=> (n = NONE \/ option_le m p)) /\
+  (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ p n)
+   <=> (n = NONE \/ option_le m p)) /\
   (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ p m)
+   <=> (m = NONE \/ option_le n p)) /\
+  (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ m p)
    <=> (m = NONE \/ option_le n p))
 Proof
   Cases_on `n` >> Cases_on `m` >> Cases_on `p` >> rw[]

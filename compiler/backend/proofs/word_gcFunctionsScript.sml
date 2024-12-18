@@ -39,26 +39,30 @@ QED
     definition and verification of GC functions
    ------------------------------------------------------- *)
 
-val ptr_to_addr_def = Define `
+Definition ptr_to_addr_def:
   ptr_to_addr conf base (w:'a word) =
-    base + ((w >>> (shift_length conf)) * bytes_in_word)`
+    base + ((w >>> (shift_length conf)) * bytes_in_word)
+End
 
-val update_addr_def = Define `
+Definition update_addr_def:
   update_addr conf fwd_ptr (old_addr:'a word) =
     ((fwd_ptr << (shift_length conf)) ||
-     ((small_shift_length conf - 1) -- 0) old_addr)`
+     ((small_shift_length conf - 1) -- 0) old_addr)
+End
 
-val memcpy_def = Define `
+Definition memcpy_def:
   memcpy w a b m dm =
     if w = 0w then (b,m,T) else
       let (b1,m1,c1) = memcpy (w-1w) (a + bytes_in_word) (b + bytes_in_word)
                       ((b =+ m a) m) dm in
-        (b1,m1,c1 /\ a IN dm /\ b IN dm)`
+        (b1,m1,c1 /\ a IN dm /\ b IN dm)
+End
 
-val decode_length_def = Define `
-  decode_length conf (w:'a word) = w >>> (dimindex (:'a) - conf.len_size)`;
+Definition decode_length_def:
+  decode_length conf (w:'a word) = w >>> (dimindex (:'a) - conf.len_size)
+End
 
-val word_gc_move_def = Define `
+Definition word_gc_move_def:
   (word_gc_move conf (Loc l1 l2,i,pa,old,m,dm) = (Loc l1 l2,i,pa,m,T)) /\
   (word_gc_move conf (Word w,i,pa,old,m,dm) =
      if (w && 1w) = 0w then (Word w,i,pa,m,T) else
@@ -74,9 +78,10 @@ val word_gc_move_def = Define `
            let (pa1,m1,c1) = memcpy (len+1w) header_addr pa m dm in
            let c = (c /\ header_addr IN dm /\ c1) in
            let m1 = (header_addr =+ Word (i << 2)) m1 in
-             (Word (update_addr conf i w),v,pa1,m1,c))`
+             (Word (update_addr conf i w),v,pa1,m1,c))
+End
 
-val word_gen_gc_partial_move_def = Define `
+Definition word_gen_gc_partial_move_def:
   (word_gen_gc_partial_move conf (Loc l1 l2,i,pa,old,m,dm,gs,rs) = (Loc l1 l2,i,pa,m,T)) /\
   (word_gen_gc_partial_move conf (Word w,i,pa,old,m,dm,gs,rs) =
    if (w && 1w) = 0w then (Word w,i,pa,m,T) else
@@ -96,39 +101,44 @@ val word_gen_gc_partial_move_def = Define `
              let (pa1,m1,c1) = memcpy (len+1w) header_addr pa m dm in
              let c = (c /\ header_addr IN dm /\ c1) in
              let m1 = (header_addr =+ Word (i << 2)) m1 in
-               (Word (update_addr conf i w),v,pa1,m1,c))`
+               (Word (update_addr conf i w),v,pa1,m1,c))
+End
 
-val word_gc_move_roots_def = Define `
+Definition word_gc_move_roots_def:
   (word_gc_move_roots conf ([],i,pa,old,m,dm) = ([],i,pa,m,T)) /\
   (word_gc_move_roots conf (w::ws,i,pa,old,m,dm) =
      let (w1,i1,pa1,m1,c1) = word_gc_move conf (w,i,pa,old,m,dm) in
      let (ws2,i2,pa2,m2,c2) = word_gc_move_roots conf (ws,i1,pa1,old,m1,dm) in
-       (w1::ws2,i2,pa2,m2,c1 /\ c2))`
+       (w1::ws2,i2,pa2,m2,c1 /\ c2))
+End
 
-val word_gc_move_list_def = Define `
+Definition word_gc_move_list_def:
   word_gc_move_list conf (a:'a word,l:'a word,i,pa:'a word,old,m,dm) =
    if l = 0w then (a,i,pa,m,T) else
      let w = (m a):'a word_loc in
      let (w1,i1,pa1,m1,c1) = word_gc_move conf (w,i,pa,old,m,dm) in
      let m1 = (a =+ w1) m1 in
      let (a2,i2,pa2,m2,c2) = word_gc_move_list conf (a+bytes_in_word,l-1w,i1,pa1,old,m1,dm) in
-       (a2,i2,pa2,m2,a IN dm /\ c1 /\ c2)`
+       (a2,i2,pa2,m2,a IN dm /\ c1 /\ c2)
+End
 
-val word_gen_gc_partial_move_roots_def = Define `
+Definition word_gen_gc_partial_move_roots_def:
   (word_gen_gc_partial_move_roots conf ([],i,pa,old,m,dm,gs,rs) = ([],i,pa,m,T)) /\
   (word_gen_gc_partial_move_roots conf (w::ws,i,pa,old,m,dm,gs,rs) =
      let (w1,i1,pa1,m1,c1) = word_gen_gc_partial_move conf (w,i,pa,old,m,dm,gs,rs) in
      let (ws2,i2,pa2,m2,c2) = word_gen_gc_partial_move_roots conf (ws,i1,pa1,old,m1,dm,gs,rs) in
-       (w1::ws2,i2,pa2,m2,c1 /\ c2))`
+       (w1::ws2,i2,pa2,m2,c1 /\ c2))
+End
 
-val word_gen_gc_partial_move_list_def = Define `
+Definition word_gen_gc_partial_move_list_def:
   word_gen_gc_partial_move_list conf (a:'a word,l:'a word,i,pa:'a word,old,m,dm,gs,rs) =
    if l = 0w then (a,i,pa,m,T) else
      let w = (m a):'a word_loc in
      let (w1,i1,pa1,m1,c1) = word_gen_gc_partial_move conf (w,i,pa,old,m,dm,gs,rs) in
      let m1 = (a =+ w1) m1 in
      let (a2,i2,pa2,m2,c2) = word_gen_gc_partial_move_list conf (a+bytes_in_word,l-1w,i1,pa1,old,m1,dm,gs,rs) in
-       (a2,i2,pa2,m2,a IN dm /\ c1 /\ c2)`
+       (a2,i2,pa2,m2,a IN dm /\ c1 /\ c2)
+End
 
 Theorem word_gen_gc_partial_move_list_zero:
     word_gen_gc_partial_move_list conf (a,0w,i,pa,old,m,dm,gs,rs) = (a,i,pa,m,T)
@@ -167,7 +177,7 @@ Proof
   >> rfs[] >> metis_tac[]
 QED
 
-val word_gc_move_loop_def = Define `
+Definition word_gc_move_loop_def:
   word_gc_move_loop k conf (pb,i,pa,old,m,dm,c) =
     if pb = pa then (i,pa,m,c) else
     if k = 0 then (i,pa,m,F) else
@@ -180,16 +190,18 @@ val word_gc_move_loop_def = Define `
         else
           let pb = pb + bytes_in_word in
           let (pb,i1,pa1,m1,c1) = word_gc_move_list conf (pb,len,i,pa,old,m,dm) in
-            word_gc_move_loop (k-1n) conf (pb,i1,pa1,old,m1,dm,c /\ c1)`
+            word_gc_move_loop (k-1n) conf (pb,i1,pa1,old,m1,dm,c /\ c1)
+End
 
-val word_full_gc_def = Define `
+Definition word_full_gc_def:
   word_full_gc conf (all_roots,new,old:'a word,m,dm) =
     let (rs,i1,pa1,m1,c1) = word_gc_move_roots conf (all_roots,0w,new,old,m,dm) in
     let (i1,pa1,m1,c2) =
           word_gc_move_loop (dimword(:'a)) conf (new,i1,pa1,old,m1,dm,c1)
-    in (rs,i1,pa1,m1,c2)`
+    in (rs,i1,pa1,m1,c2)
+End
 
-val word_gc_fun_assum_def = Define `
+Definition word_gc_fun_assum_def:
   word_gc_fun_assum (conf:data_to_word$config) (s:store_name |-> 'a word_loc) <=>
     {Globals; CurrHeap; OtherHeap; HeapLength;
      TriggerGC; GenStart; EndOfHeap} SUBSET FDOM s /\
@@ -203,9 +215,10 @@ val word_gc_fun_assum_def = Define `
     good_dimindex (:'a) /\
     conf.len_size <> 0 /\
     conf.len_size + 2 < dimindex (:'a) /\
-    shift_length conf < dimindex (:'a)`
+    shift_length conf < dimindex (:'a)
+End
 
-val word_gen_gc_can_do_partial_def = Define `
+Definition word_gen_gc_can_do_partial_def:
   word_gen_gc_can_do_partial gen_sizes (s:store_name |-> 'a word_loc) <=>
     gen_sizes <> [] /\
     let allo = theWord (s ' AllocSize) in
@@ -215,9 +228,10 @@ val word_gen_gc_can_do_partial_def = Define `
          true. This condition guarantees that even if nothing is
          collected by the partial collection, the the requested space
          still exists. *)
-      allo <=+ endh - trig`;
+      allo <=+ endh - trig
+End
 
-val new_trig_def = Define `
+Definition new_trig_def:
   new_trig (heap_space:'a word) (alloc_pref:'a word) gs =
     let a = w2n alloc_pref in
     let g = w2n ((get_gen_size gs):'a word) in
@@ -225,15 +239,17 @@ val new_trig_def = Define `
       if a <= g (* allocation smaller than gen *) then n2w (MIN h g) else
       if h < a (* allocation too big *) then n2w h else
       if byte_aligned alloc_pref (* should always be the case *)
-      then alloc_pref else (* very unlikely and a bad choice *) n2w h`
+      then alloc_pref else (* very unlikely and a bad choice *) n2w h
+End
 
-val refs_to_addresses_def = Define `
+Definition refs_to_addresses_def:
   (refs_to_addresses [] = []) /\
   (refs_to_addresses (DataElement ptrs _ _::refs) =
     ptrs ++ refs_to_addresses refs) /\
-  (refs_to_addresses (_::refs) = refs_to_addresses refs)`;
+  (refs_to_addresses (_::refs) = refs_to_addresses refs)
+End
 
-val word_gen_gc_partial_move_ref_list_def = Define `
+Definition word_gen_gc_partial_move_ref_list_def:
   word_gen_gc_partial_move_ref_list k conf (pb,i,pa,old,m,dm,c,gs,rs,re) =
     if pb = re then (i,pa,m,c) else
     if k = 0 then (i,pa,m,F) else
@@ -242,10 +258,11 @@ val word_gen_gc_partial_move_ref_list_def = Define `
       let len = decode_length conf (theWord w) in
       let pb = pb + bytes_in_word in
       let (pb,i1,pa1,m1,c1) = word_gen_gc_partial_move_list conf (pb,len,i,pa,old,m,dm,gs,rs) in
-        word_gen_gc_partial_move_ref_list (k-1n) conf (pb,i1,pa1,old,m1,dm,c /\ c1,gs,rs,re)`;
+        word_gen_gc_partial_move_ref_list (k-1n) conf (pb,i1,pa1,old,m1,dm,c /\ c1,gs,rs,re)
+End
 
 
-val word_gen_gc_partial_move_data_def = Define `
+Definition word_gen_gc_partial_move_data_def:
   word_gen_gc_partial_move_data conf k
    (h2a:'a word,i,pa:'a word,old,m,dm,gs,rs) =
     if h2a = pa then (i,pa,m,T) else
@@ -264,10 +281,11 @@ val word_gen_gc_partial_move_data_def = Define `
                         (h2a+bytes_in_word,l,i,pa,old,m,dm,gs,rs) in
           let (i,pa,m,c2) = word_gen_gc_partial_move_data conf (k-1)
                         (h2a,i,pa,old,m,dm,gs,rs) in
-            (i,pa,m,c /\ c1 /\ c2)`
+            (i,pa,m,c /\ c1 /\ c2)
+End
 
 
-val word_gen_gc_partial_def = Define `
+Definition word_gen_gc_partial_def:
   word_gen_gc_partial conf (roots,(curr:'a word),new,len,m,dm,gs,rs) =
     let refs_end = curr + len in
     let gen_start = gs ⋙ shift (:α) in
@@ -277,19 +295,22 @@ val word_gen_gc_partial_def = Define `
                                  (curr+rs,i,pa,curr,m,dm,c1,gs,rs,refs_end) in
     let (i,pa,m,c3) = word_gen_gc_partial_move_data conf (dimword (:'a))
                                  (new,i,pa,curr,m,dm,gs,rs) in
-      (roots,i,pa,m,c2 /\ c3)`;
+      (roots,i,pa,m,c2 /\ c3)
+End
 
-val word_gen_gc_partial_full_def = Define `
+Definition word_gen_gc_partial_full_def:
   word_gen_gc_partial_full conf (roots,(curr:'a word),new,len,m,dm,gs,rs) =
     let (roots,i,pa,m,c1) = word_gen_gc_partial conf (roots,curr,new,len,m,dm,gs,rs) in
     let cpy_length = (pa - new) >>> shift(:'a) in
     let (b1,m,c2) = memcpy cpy_length new (curr + gs) m dm in
-     (roots,i,b1,m,c1 /\ c2)`;
+     (roots,i,b1,m,c1 /\ c2)
+End
 
-val is_ref_header_def = Define `
-  is_ref_header (v:'a word) <=> ((v && 0b11100w) = 0b01000w)`;
+Definition is_ref_header_def:
+  is_ref_header (v:'a word) <=> ((v && 0b11100w) = 0b01000w)
+End
 
-val word_gen_gc_move_def = Define `
+Definition word_gen_gc_move_def:
   (word_gen_gc_move conf (Loc l1 l2,i,pa,ib,pb,old,m,dm) =
      (Loc l1 l2,i,pa,ib,pb,m,T)) /\
   (word_gen_gc_move conf (Word w,i,pa,ib,pb,old,m,dm) =
@@ -315,25 +336,28 @@ val word_gen_gc_move_def = Define `
               let (pa1,m1,c1) = memcpy (len+1w) header_addr pa m dm in
               let c = (c /\ header_addr IN dm /\ c1) in
               let m1 = (header_addr =+ Word (i << 2)) m1 in
-                (Word (update_addr conf i w),v,pa1,ib,pb,m1,c))`
+                (Word (update_addr conf i w),v,pa1,ib,pb,m1,c))
+End
 
-val word_gen_gc_move_roots_def = Define `
+Definition word_gen_gc_move_roots_def:
   (word_gen_gc_move_roots conf ([],i,pa,ib,pb,old,m,dm) = ([],i,pa,ib,pb,m,T)) /\
   (word_gen_gc_move_roots conf (w::ws,i,pa,ib,pb,old,m,dm) =
      let (w1,i1,pa1,ib,pb,m1,c1) = word_gen_gc_move conf (w,i,pa,ib,pb,old,m,dm) in
      let (ws2,i2,pa2,ib,pb,m2,c2) = word_gen_gc_move_roots conf (ws,i1,pa1,ib,pb,old,m1,dm) in
-       (w1::ws2,i2,pa2,ib,pb,m2,c1 /\ c2))`
+       (w1::ws2,i2,pa2,ib,pb,m2,c1 /\ c2))
+End
 
-val word_gen_gc_move_list_def = Define `
+Definition word_gen_gc_move_list_def:
   word_gen_gc_move_list conf (a:'a word,l:'a word,i,pa:'a word,ib,pb,old,m,dm) =
    if l = 0w then (a,i,pa,ib,pb,m,T) else
      let w = (m a):'a word_loc in
      let (w1,i1,pa1,ib,pb,m1,c1) = word_gen_gc_move conf (w,i,pa,ib,pb,old,m,dm) in
      let m1 = (a =+ w1) m1 in
      let (a2,i2,pa2,ib,pb,m2,c2) = word_gen_gc_move_list conf (a+bytes_in_word,l-1w,i1,pa1,ib,pb,old,m1,dm) in
-       (a2,i2,pa2,ib,pb,m2,a IN dm /\ c1 /\ c2)`
+       (a2,i2,pa2,ib,pb,m2,a IN dm /\ c1 /\ c2)
+End
 
-val word_gen_gc_move_data_def = Define `
+Definition word_gen_gc_move_data_def:
   word_gen_gc_move_data conf k
    (h2a:'a word,i,pa:'a word,ib,pb,old,m,dm) =
     if h2a = pa then (i,pa,ib,pb,m,T) else
@@ -352,9 +376,10 @@ val word_gen_gc_move_data_def = Define `
                         (h2a+bytes_in_word,l,i,pa,ib,pb,old,m,dm) in
           let (i,pa,ib,pb,m,c2) = word_gen_gc_move_data conf (k-1)
                         (h2a,i,pa,ib,pb,old,m,dm) in
-            (i,pa,ib,pb,m,c /\ c1 /\ c2)`;
+            (i,pa,ib,pb,m,c /\ c1 /\ c2)
+End
 
-val word_gen_gc_move_refs_def = Define `
+Definition word_gen_gc_move_refs_def:
   word_gen_gc_move_refs conf k
    (r2a:'a word,r1a:'a word,i,pa:'a word,ib,pb,old,m:'a word -> 'a word_loc,dm) =
     if r2a = r1a then (r2a,i,pa,ib,pb,m,T) else
@@ -367,9 +392,10 @@ val word_gen_gc_move_refs_def = Define `
                                     (r2a+bytes_in_word,l,i,pa,ib,pb,old,m,dm) in
       let (r2a,i,pa,ib,pb,m,c2) = word_gen_gc_move_refs conf (k-1)
                                     (r2a,r1a,i,pa,ib,pb,old,m,dm) in
-        (r2a,i,pa,ib,pb,m,c /\ c1 /\ c2)`;
+        (r2a,i,pa,ib,pb,m,c /\ c1 /\ c2)
+End
 
-val word_gen_gc_move_loop_def = Define `
+Definition word_gen_gc_move_loop_def:
   word_gen_gc_move_loop conf k
    (pax:'a word,i,pa:'a word,ib,pb,pbx,old,m,dm) =
     if pbx = pb then
@@ -388,9 +414,10 @@ val word_gen_gc_move_loop_def = Define `
           if k = 0n then (i,pa,ib,pb,m,F) else
             let (i,pa,ib,pb,m,c2) = word_gen_gc_move_loop conf (k-1)
                            (pax,i,pa,ib,pb',pb,old,m,dm) in
-              (i,pa,ib,pb,m,c1 /\ c2)`
+              (i,pa,ib,pb,m,c1 /\ c2)
+End
 
-val word_gen_gc_def = Define `
+Definition word_gen_gc_def:
   word_gen_gc conf (roots,curr,new,len:'a word,m,dm) =
     let new_end = new + len in
     let len = len >>> shift (:'a) in
@@ -398,14 +425,16 @@ val word_gen_gc_def = Define `
                     (roots,0w,new,len,new_end,curr,m,dm) in
     let (i,pa,ib,pb,m,c2) = word_gen_gc_move_loop conf (w2n len)
                                  (new,i,pa,ib,pb,new_end,curr,m,dm) in
-      (roots,i,pa,ib,pb,m,c1 /\ c2)`;
+      (roots,i,pa,ib,pb,m,c1 /\ c2)
+End
 
-val glob_real_def = Define `
+Definition glob_real_def:
   (glob_real c curr (Word (w:'a word)) =
      Word (curr + (w >>> (shift_length c) << shift (:α)))) ∧
-  (glob_real c curr w = w)`;
+  (glob_real c curr w = w)
+End
 
-val word_gc_fun_def = Define `
+Definition word_gc_fun_def:
   (word_gc_fun (conf:data_to_word$config)):'a gc_fun_type = \(roots,m,dm,s).
      let c1 = word_gc_fun_assum conf s in
      let new = theWord (s ' OtherHeap) in
@@ -469,7 +498,8 @@ val word_gc_fun_def = Define `
                            (Temp 4w, Word 0w);
                            (Temp 5w, Word 0w);
                            (Temp 6w, Word 0w)] in
-             if c2 then SOME (TL roots1,m1,s1) else NONE)`
+             if c2 then SOME (TL roots1,m1,s1) else NONE)
+End
 
 Theorem word_gc_move_roots_IMP_EVERY2:
    !xs ys pa m i c1 m1 pa1 i1 old dm c.

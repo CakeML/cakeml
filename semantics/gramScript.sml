@@ -183,7 +183,6 @@ val cmlG_def = mk_grammar_def ginfo
  Ehandle ::= ElogicOR | ElogicOR "handle" PEs ;
  E ::= "if" E "then" E "else" E | "case" E "of" PEs | "fn" Pattern "=>" E
     | "raise" E |  Ehandle;
- E' ::= "if" E "then" E "else" E' | "raise" E' | ElogicOR ;
 
  (* function and value declarations *)
  FDecl ::= V PbaseList1 "=" E ;
@@ -202,9 +201,13 @@ val cmlG_def = mk_grammar_def ginfo
  Ptuple ::= "(" ")" | "(" PatternList ")";
  PatternList ::= Pattern | Pattern "," PatternList ;
  PbaseList1 ::= Pbase | Pbase PbaseList1 ;
- PE ::= Pattern "=>" E;
- PE' ::= Pattern "=>" E';
- PEs ::= PE | PE' "|" PEs;
+ PE ::= "case" E "of" PEs
+     |  "if" E "then" E "else" PE
+     |  "fn" Pattern "=>" E
+     |  "raise" PE
+     |  ElogicOR PEsfx ;
+ PEsfx ::= | "handle" PEs | "|" PEs;
+ PEs ::= Pattern "=>" PE;
 
  (* modules *)
  StructName ::= ^(``{AlphaT s | s ≠ ""}``) ;
@@ -251,11 +254,13 @@ in
   save_thm("nt_distinct_ths",  LIST_CONJ (recurse ntlist))
 end
 
-val Ndl_def = Define`
-  (Ndl n l = Nd (n, unknown_loc) l)`
+Definition Ndl_def:
+  (Ndl n l = Nd (n, unknown_loc) l)
+End
 
-val Lfl_def = Define`
-  (Lfl t = Lf (t, unknown_loc))`
+Definition Lfl_def:
+  (Lfl t = Lf (t, unknown_loc))
+End
 
 val _ = computeLib.add_persistent_funs ["nt_distinct_ths"]
 

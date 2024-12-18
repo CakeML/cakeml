@@ -3,7 +3,7 @@
   primitive operations) used in the semantics.
 *)
 open HolKernel Parse boolLib bossLib;
-open libTheory astTheory namespaceTheory ffiTheory fpValTreeTheory fpSemTheory realOpsTheory;
+open miscTheory astTheory namespaceTheory ffiTheory fpValTreeTheory fpSemTheory realOpsTheory;
 
 val _ = numLib.temp_prefer_num();
 
@@ -40,7 +40,7 @@ Datatype:
    * The last variable name indicates which function from the mutually
    * recursive bundle this closure value represents *)
   | Recclosure (v sem_env) ((varN # varN # exp) list) varN
-  | Loc num
+  | Loc bool (* = is allowed *) num (* address *)
   | Vectorv (v list)
   | FP_WordTree fp_word_val
   | FP_BoolTree fp_bool_val
@@ -62,42 +62,110 @@ End
 Type env_ctor = ``: (modN, conN, (num # stamp)) namespace``
 Type env_val = ``: (modN, varN, v) namespace``
 
-val _ = Define ‘bind_stamp = ExnStamp 0’
-val _ = Define ‘chr_stamp = ExnStamp 1’
-val _ = Define ‘div_stamp = ExnStamp 2’
-val _ = Define ‘subscript_stamp = ExnStamp 3’
+Definition bind_stamp_def:
+  bind_stamp = ExnStamp 0
+End
+Definition chr_stamp_def:
+  chr_stamp = ExnStamp 1
+End
+Definition div_stamp_def:
+  div_stamp = ExnStamp 2
+End
+Definition subscript_stamp_def:
+  subscript_stamp = ExnStamp 3
+End
 
-val _ = Define ‘bind_exn_v = Conv (SOME bind_stamp) []’
-val _ = Define ‘chr_exn_v = Conv (SOME chr_stamp) []’
-val _ = Define ‘div_exn_v = Conv (SOME div_stamp) []’
-val _ = Define ‘sub_exn_v = Conv (SOME subscript_stamp) []’
+Definition bind_exn_v_def:
+  bind_exn_v = Conv (SOME bind_stamp) []
+End
+Definition chr_exn_v_def:
+  chr_exn_v = Conv (SOME chr_stamp) []
+End
+Definition div_exn_v_def:
+  div_exn_v = Conv (SOME div_stamp) []
+End
+Definition sub_exn_v_def:
+  sub_exn_v = Conv (SOME subscript_stamp) []
+End
 
-val _ = Define ‘bool_type_num   = 0’
-val _ = Define ‘list_type_num   = 1’
-val _ = Define ‘option_type_num = 2’
-val _ = Define ‘lit_type_num    = 3’
-val _ = Define ‘id_type_num     = 4’
-val _ = Define ‘ast_t_type_num  = 5’
-val _ = Define ‘pat_type_num    = 6’
-val _ = Define ‘lop_type_num    = 7’
-val _ = Define ‘opn_type_num    = 8’
-val _ = Define ‘opb_type_num    = 9’
-val _ = Define ‘opw_type_num    = 10’
-val _ = Define ‘shift_type_num  = 11’
-val _ = Define ‘word_size_type_num = 12’
-val _ = Define ‘fp_uop_type_num = 13’
-val _ = Define ‘fp_bop_type_num = 14’
-val _ = Define ‘fp_top_type_num = 15’
-val _ = Define ‘fp_cmp_type_num = 16’
-val _ = Define ‘real_uop_type_num = 17’
-val _ = Define ‘real_bop_type_num = 18’
-val _ = Define ‘real_cmp_type_num = 19’
-val _ = Define ‘op_type_num     = 20’
-val _ = Define ‘locn_type_num   = 21’
-val _ = Define ‘locs_type_num   = 22’
-val _ = Define ‘fp_opt_num      = 23’
-val _ = Define ‘exp_type_num    = 24’
-val _ = Define ‘dec_type_num    = 25’
+Definition bool_type_num_def:
+  bool_type_num   = 0
+End
+Definition list_type_num_def:
+  list_type_num   = 1
+End
+Definition option_type_num_def:
+  option_type_num = 2
+End
+Definition lit_type_num_def:
+  lit_type_num    = 3
+End
+Definition id_type_num_def:
+  id_type_num     = 4
+End
+Definition ast_t_type_num_def:
+  ast_t_type_num  = 5
+End
+Definition pat_type_num_def:
+  pat_type_num    = 6
+End
+Definition lop_type_num_def:
+  lop_type_num    = 7
+End
+Definition opn_type_num_def:
+  opn_type_num    = 8
+End
+Definition opb_type_num_def:
+  opb_type_num    = 9
+End
+Definition opw_type_num_def:
+  opw_type_num    = 10
+End
+Definition shift_type_num_def:
+  shift_type_num  = 11
+End
+Definition word_size_type_num_def:
+  word_size_type_num = 12
+End
+Definition fp_uop_type_num_def:
+  fp_uop_type_num = 13
+End
+Definition fp_bop_type_num_def:
+  fp_bop_type_num = 14
+End
+Definition fp_top_type_num_def:
+  fp_top_type_num = 15
+End
+Definition fp_cmp_type_num_def:
+  fp_cmp_type_num = 16
+End
+Definition real_uop_type_num_def:
+  real_uop_type_num = 17
+End
+Definition real_bop_type_num_def:
+  real_bop_type_num = 18
+End
+Definition real_cmp_type_num_def:
+  real_cmp_type_num = 19
+End
+Definition op_type_num_def:
+  op_type_num     = 20
+End
+Definition locn_type_num_def:
+  locn_type_num   = 21
+End
+Definition locs_type_num_def:
+  locs_type_num   = 22
+End
+Definition fp_opt_num_def:
+  fp_opt_num      = 23
+End
+Definition exp_type_num_def:
+  exp_type_num    = 24
+End
+Definition dec_type_num_def:
+  dec_type_num    = 25
+End
 
 (* The result of evaluation *)
 Datatype:
@@ -142,7 +210,9 @@ End
 (* The nth item in the list is the value at location n *)
 Type store = “:('a store_v) list”
 
-val _ = Define ‘empty_store = []:α store_v list’
+Definition empty_store_def:
+  empty_store = []:α store_v list
+End
 
 Definition store_lookup_def:
   store_lookup l (st:('a store_v) list) =
@@ -315,7 +385,7 @@ Definition compress_def:
  compress (Closure env x e) = (Closure env x e) ∧
  compress (Env env n) =  (Env env n) ∧
  compress (Recclosure env es x) = (Recclosure env es x) ∧
- compress (Loc n) =  (Loc n) ∧
+ compress (Loc b n) =  (Loc b n) ∧
  compress (Vectorv vs) = (Vectorv (compress_list vs)) ∧
  compress_list [] = [] ∧
  compress_list (v::vs) = (compress v)::(compress_list vs)
@@ -349,7 +419,7 @@ Definition pmatch_def:
   pmatch envC s (Pcon NONE ps) (Conv NONE vs) env =
   (if LENGTH ps = LENGTH vs then pmatch_list envC s ps vs env
    else Match_type_error) ∧
-  pmatch envC s (Pref p) (Loc lnum) env =
+  pmatch envC s (Pref p) (Loc _ lnum) env =
   (case store_lookup lnum s of
      NONE => Match_type_error
    | SOME (Refv v) => pmatch envC s p v env
@@ -407,7 +477,8 @@ End
 Definition do_eq_def:
   do_eq (Litv l1) (Litv l2) =
     (if lit_same_type l1 l2 then Eq_val (l1 = l2) else Eq_type_error) ∧
-  do_eq (Loc l1) (Loc l2) = Eq_val (l1 = l2) ∧
+  do_eq (Loc b1 l1) (Loc b2 l2) =
+    (if b1 ∧ b2 then Eq_val (l1 = l2) else Eq_type_error) ∧
   do_eq (Conv cn1 vs1) (Conv cn2 vs2) =
     (if cn1 = cn2 ∧ LENGTH vs1 = LENGTH vs2 then do_eq_list vs1 vs2
      else if ctor_same_type cn1 cn2 then Eq_val F
@@ -612,7 +683,7 @@ End
 Definition concrete_v_def:
   (concrete_v v ⇔
      case v of
-     | Loc _ => T
+     | Loc _ _ => T
      | Litv _ => T
      | Conv v_ vs => concrete_v_list vs
      | Vectorv vs => concrete_v_list vs
@@ -797,7 +868,7 @@ Definition do_fpoptimise_def:
  do_fpoptimise sc [Conv st vs] = [Conv st (do_fpoptimise sc vs)] ∧
  do_fpoptimise sc [Closure env x e] = [Closure env x e] ∧
  do_fpoptimise sc [Recclosure env ls x] = [Recclosure env ls x] ∧
- do_fpoptimise sc [Loc n] = [Loc n] ∧
+ do_fpoptimise sc [Loc b n] = [Loc b n] ∧
  do_fpoptimise sc [Vectorv vs] = [Vectorv (do_fpoptimise sc vs)] ∧
  do_fpoptimise sc [Real r]=  [Real r]  ∧
  do_fpoptimise sc [FP_WordTree fp] = [FP_WordTree (Fp_wopt sc fp)] ∧
@@ -883,15 +954,15 @@ Definition do_app_def:
             Eq_type_error => NONE
           | Eq_val b => SOME ((s,t), Rval (Boolv b))
         )
-    | (Opassign, [Loc lnum; v]) =>
+    | (Opassign, [Loc b lnum; v]) =>
         (case store_assign lnum (Refv v) s of
             SOME s' => SOME ((s',t), Rval (Conv NONE []))
           | NONE => NONE
         )
     | (Opref, [v]) =>
         let (s',n) = (store_alloc (Refv v) s) in
-          SOME ((s',t), Rval (Loc n))
-    | (Opderef, [Loc n]) =>
+          SOME ((s',t), Rval (Loc T n))
+    | (Opderef, [Loc b n]) =>
         (case store_lookup n s of
             SOME (Refv v) => SOME ((s,t),Rval v)
           | _ => NONE
@@ -903,8 +974,8 @@ Definition do_app_def:
           let (s',lnum) =
             (store_alloc (W8array (REPLICATE (Num (ABS (I n))) w)) s)
           in
-            SOME ((s',t), Rval (Loc lnum))
-    | (Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
+            SOME ((s',t), Rval (Loc T lnum))
+    | (Aw8sub, [Loc _ lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (W8array ws) =>
               if i <( 0 : int) then
@@ -917,7 +988,7 @@ Definition do_app_def:
                     SOME ((s,t), Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
-    | (Aw8sub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+    | (Aw8sub_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (W8array ws) =>
               if i <( 0 : int) then
@@ -930,13 +1001,13 @@ Definition do_app_def:
                     SOME ((s,t), Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
-    | (Aw8length, [Loc n]) =>
+    | (Aw8length, [Loc _ n]) =>
         (case store_lookup n s of
             SOME (W8array ws) =>
               SOME ((s,t),Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
           | _ => NONE
          )
-    | (Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+    | (Aw8update, [Loc _ lnum; Litv(IntLit i); Litv(Word8 w)]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             if i <( 0 : int) then
@@ -952,7 +1023,7 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
-    | (Aw8update_unsafe, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+    | (Aw8update_unsafe, [Loc _ lnum; Litv(IntLit i); Litv(Word8 w)]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             if i <( 0 : int) then
@@ -986,7 +1057,7 @@ Definition do_app_def:
         | SOME cs => Rval (Litv(StrLit(IMPLODE(cs))))
         ))
     | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
-                    Loc dst;Litv(IntLit dstoff)]) =>
+                    Loc _ dst;Litv(IntLit dstoff)]) =>
         (case store_lookup dst s of
           SOME (W8array ws) =>
             (case copy_array (EXPLODE str,off) len (SOME(ws_to_chars ws,dstoff)) of
@@ -999,7 +1070,7 @@ Definition do_app_def:
             )
         | _ => NONE
         )
-    | (CopyAw8Str, [Loc src;Litv(IntLit off);Litv(IntLit len)]) =>
+    | (CopyAw8Str, [Loc _ src;Litv(IntLit off);Litv(IntLit len)]) =>
       (case store_lookup src s of
         SOME (W8array ws) =>
         SOME ((s,t),
@@ -1009,8 +1080,8 @@ Definition do_app_def:
           ))
       | _ => NONE
       )
-    | (CopyAw8Aw8, [Loc src;Litv(IntLit off);Litv(IntLit len);
-                    Loc dst;Litv(IntLit dstoff)]) =>
+    | (CopyAw8Aw8, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
+                    Loc _ dst;Litv(IntLit dstoff)]) =>
       (case (store_lookup src s, store_lookup dst s) of
         (SOME (W8array ws), SOME (W8array ds)) =>
           (case copy_array (ws,off) len (SOME(ds,dstoff)) of
@@ -1090,16 +1161,16 @@ Definition do_app_def:
           let (s',lnum) =
             (store_alloc (Varray (REPLICATE (Num (ABS (I n))) v)) s)
           in
-            SOME ((s',t), Rval (Loc lnum))
+            SOME ((s',t), Rval (Loc T lnum))
     | (AallocEmpty, [Conv NONE []]) =>
         let (s',lnum) = (store_alloc (Varray []) s) in
-          SOME ((s',t), Rval (Loc lnum))
+          SOME ((s',t), Rval (Loc T lnum))
     | (AallocFixed, vs) =>
         let (s',lnum) =
           (store_alloc (Varray vs) s)
         in
-          SOME ((s',t), Rval (Loc lnum))
-    | (Asub, [Loc lnum; Litv (IntLit i)]) =>
+          SOME ((s',t), Rval (Loc T lnum))
+    | (Asub, [Loc _ lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (Varray vs) =>
               if i <( 0 : int) then
@@ -1112,7 +1183,7 @@ Definition do_app_def:
                     SOME ((s,t), Rval (EL n vs))
           | _ => NONE
         )
-    | (Asub_unsafe, [Loc lnum; Litv (IntLit i)]) =>
+    | (Asub_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (Varray vs) =>
               if i <( 0 : int) then
@@ -1125,13 +1196,13 @@ Definition do_app_def:
                     SOME ((s,t), Rval (EL n vs))
           | _ => NONE
         )
-    | (Alength, [Loc n]) =>
+    | (Alength, [Loc _ n]) =>
         (case store_lookup n s of
             SOME (Varray ws) =>
               SOME ((s,t),Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
           | _ => NONE
          )
-    | (Aupdate, [Loc lnum; Litv (IntLit i); v]) =>
+    | (Aupdate, [Loc _ lnum; Litv (IntLit i); v]) =>
         (case store_lookup lnum s of
           SOME (Varray vs) =>
             if i <( 0 : int) then
@@ -1147,7 +1218,7 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
-    | (Aupdate_unsafe, [Loc lnum; Litv (IntLit i); v]) =>
+    | (Aupdate_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
         (case store_lookup lnum s of
           SOME (Varray vs) =>
             if i <( 0 : int) then
@@ -1165,7 +1236,7 @@ Definition do_app_def:
       )
     | (ConfigGC, [Litv (IntLit i); Litv (IntLit j)]) =>
         SOME ((s,t), Rval (Conv NONE []))
-    | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
+    | (FFI n, [Litv(StrLit conf); Loc _ lnum]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             (case call_FFI t (ExtCall n) (MAP (n2w o ORD) conf) ws of

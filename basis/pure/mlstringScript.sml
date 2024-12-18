@@ -14,27 +14,34 @@ val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
 (* Defines strings as a separate type from char list. This theory should be
    moved into HOL, either as its own theory, or as an addendum to stringTheory *)
 
-val _ = Datatype`mlstring = strlit string`
+Datatype:
+  mlstring = strlit string
+End
 val _ = add_strliteral_form{inj=``strlit``, ldelim = "«"};
 
-val implode_def = Define`
-  implode = strlit`
+Definition implode_def:
+  implode = strlit
+End
 
-val strlen_def = Define`
-  strlen (strlit s) = LENGTH s`
+Definition strlen_def:
+  strlen (strlit s) = LENGTH s
+End
 
-val strsub_def = Define`
-  strsub (strlit s) n = EL n s`;
+Definition strsub_def:
+  strsub (strlit s) n = EL n s
+End
 
 (* the test here is because underspecification is annoying (and SEG is underspecified) *)
 (* the underlying primitive (CopyStrStr) raises an exception if the test is false *)
-val substring_def = Define`
+Definition substring_def:
   substring (strlit s) off len = strlit (if off + len ≤ LENGTH s then SEG len off s
                                          else if off <= LENGTH s then DROP off s
-                                         else "")`;
+                                         else "")
+End
 
-val concat_def = Define`
-  concat l = strlit (FLAT (MAP (λs. case s of strlit x => x) l))`;
+Definition concat_def:
+  concat l = strlit (FLAT (MAP (λs. case s of strlit x => x) l))
+End
 
 Theorem concat_nil[simp]:
    concat [] = strlit ""
@@ -44,10 +51,11 @@ QED
 
 val _ = export_rewrites["strlen_def","strsub_def"];
 
-val explode_aux_def = Define`
+Definition explode_aux_def:
   (explode_aux s n 0 = []) ∧
   (explode_aux s n (SUC len) =
-    strsub s n :: (explode_aux s (n + 1) len))`;
+    strsub s n :: (explode_aux s (n + 1) len))
+End
 val _ = export_rewrites["explode_aux_def"];
 
 Theorem explode_aux_thm:
@@ -60,8 +68,9 @@ Proof
   \\ simp[]
 QED
 
-val explode_def = Define`
-  explode s = explode_aux s 0 (strlen s)`;
+Definition explode_def:
+  explode s = explode_aux s 0 (strlen s)
+End
 
 Theorem explode_thm[simp]:
    explode (strlit ls) = ls
@@ -133,13 +142,14 @@ Proof
   Cases_on`s` \\ rw[substring_def,LENGTH_SEG]
 QED
 
-val extract_def = Define`
+Definition extract_def:
   extract s i opt =
     if strlen s <= i
       then implode []
     else case opt of
         SOME x => substring s i (MIN (strlen s - i) x)
-      | NONE => substring s i (strlen s - i)`;
+      | NONE => substring s i (strlen s - i)
+End
 
 Theorem strlen_extract_le:
  !s x y. strlen (extract s x y) <= strlen s - x
@@ -167,7 +177,9 @@ Proof
   `j = 0` by decide_tac \\ fs[SEG]
 QED
 
-val strcat_def = Define`strcat s1 s2 = concat [s1; s2]`
+Definition strcat_def:
+  strcat s1 s2 = concat [s1; s2]
+End
 val _ = Parse.add_infix("^",480,Parse.LEFT)
 Overload "^" = ``λx y. strcat x y``
 
@@ -223,23 +235,27 @@ Proof
   rw[strcat_thm]
 QED
 
-val concatWith_aux_def = tDefine "concatWith_aux"`
+Definition concatWith_aux_def:
   (concatWith_aux s [] bool = implode []) /\
   (concatWith_aux s (h::t) T = strcat h (concatWith_aux s t F)) /\
-  (concatWith_aux s (h::t) F = strcat s (concatWith_aux s (h::t) T))`
-  (wf_rel_tac `inv_image ($< LEX $<) (\(s,l,b). (LENGTH l, if b then 0n else 1))` \\
-  rw[]);
+  (concatWith_aux s (h::t) F = strcat s (concatWith_aux s (h::t) T))
+Termination
+  wf_rel_tac `inv_image ($< LEX $<) (\(s,l,b). (LENGTH l, if b then 0n else 1))` \\
+  rw[]
+End
 
-val concatWith_def = Define`
-  concatWith s l = concatWith_aux s l T`;
+Definition concatWith_def:
+  concatWith s l = concatWith_aux s l T
+End
 
-val concatWith_CONCAT_WITH_aux = Q.prove (
-  `!s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))`,
+Triviality concatWith_CONCAT_WITH_aux:
+  !s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))
+Proof
   ho_match_mp_tac CONCAT_WITH_aux_ind
   \\ rw[CONCAT_WITH_aux_def, concatWith_def, implode_def, concatWith_aux_def, strcat_thm]
   >-(Induct_on `l` \\ rw[MAP, implode_def, concatWith_aux_def, strcat_thm]
   \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_thm, implode_def])
-);
+QED
 
 Theorem concatWith_CONCAT_WITH:
    !s l. CONCAT_WITH s l = explode (concatWith (implode s) (MAP implode l))
@@ -247,8 +263,9 @@ Proof
     rw[concatWith_def, CONCAT_WITH_def, concatWith_CONCAT_WITH_aux]
 QED
 
-val str_def = Define`
-  str (c: char) = implode [c]`;
+Definition str_def:
+  str (c: char) = implode [c]
+End
 
 Theorem explode_str[simp]:
    explode (str c) = [c]
@@ -262,19 +279,22 @@ Proof
 rw[str_def]
 QED
 
-val translate_aux_def = Define`
+Definition translate_aux_def:
   (translate_aux f s n 0 = []) /\
-  (translate_aux f s n (SUC len) = f (strsub s n)::translate_aux f s (n + 1) len)`;
+  (translate_aux f s n (SUC len) = f (strsub s n)::translate_aux f s (n + 1) len)
+End
 
-val translate_def = Define`
-  translate f s = implode (translate_aux f s 0 (strlen s))`;
+Definition translate_def:
+  translate f s = implode (translate_aux f s 0 (strlen s))
+End
 
-val translate_aux_thm = Q.prove (
-  `!f s n len. (n + len = strlen s) ==> (translate_aux f s n len = MAP f (DROP n (explode s)))`,
+Triviality translate_aux_thm:
+  !f s n len. (n + len = strlen s) ==> (translate_aux f s n len = MAP f (DROP n (explode s)))
+Proof
   Cases_on `s` \\ Induct_on `len` \\ rw [translate_aux_def, strlen_def, explode_def] \\
   rw [DROP_LENGTH_NIL] \\
   rw [strsub_def, DROP_EL_CONS]
-);
+QED
 
 Theorem translate_thm:
    !f s. translate f s = implode (MAP f (explode s))
@@ -282,17 +302,20 @@ Proof
   rw [translate_def, translate_aux_thm]
 QED
 
-val splitl_aux_def = tDefine"splitl_aux"`
+Definition splitl_aux_def:
   splitl_aux P s i =
     if i < strlen s ∧ P (strsub s i) then
         splitl_aux P s (i+1)
-    else (extract s 0 (SOME i), extract s i NONE)`
-(WF_REL_TAC`inv_image $< (λ(x,s,i). strlen s - i)`);
+    else (extract s 0 (SOME i), extract s i NONE)
+Termination
+  WF_REL_TAC`inv_image $< (λ(x,s,i). strlen s - i)`
+End
 
 val splitl_aux_ind = theorem"splitl_aux_ind";
 
-val splitl_def = Define`
-  splitl P s = splitl_aux P s 0`;
+Definition splitl_def:
+  splitl P s = splitl_aux P s 0
+End
 
 Theorem splitl_aux_SPLITP:
    ∀P s i.
@@ -344,7 +367,7 @@ Proof
   \\ Cases_on`SPLITP((~)o P)(explode s)` \\ fs[]
 QED
 
-val tokens_aux_def = Define`
+Definition tokens_aux_def:
   (tokens_aux f s [] n 0 = []) /\
   (tokens_aux f s (h::t) n 0 = [implode (REVERSE (h::t))]) /\
   (tokens_aux f s [] n (SUC len) =
@@ -354,21 +377,24 @@ val tokens_aux_def = Define`
   (tokens_aux f s (h::t) n (SUC len) =
     if f (strsub s n)
       then (implode (REVERSE (h::t)))::(tokens_aux f s [] (n + 1) len)
-    else tokens_aux f s (strsub s n::(h::t)) (n + 1) len)`;
+    else tokens_aux f s (strsub s n::(h::t)) (n + 1) len)
+End
 
 val tokens_aux_ind = theorem"tokens_aux_ind";
 
-val tokens_def = Define `
- tokens f s = tokens_aux f s [] 0 (strlen s)`;
+Definition tokens_def:
+ tokens f s = tokens_aux f s [] 0 (strlen s)
+End
 
 
-val tokens_aux_filter = Q.prove (
-  `!f s ss n len. (n + len = strlen s) ==> (concat (tokens_aux f s ss n len) =
-      implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))`,
+Triviality tokens_aux_filter:
+  !f s ss n len. (n + len = strlen s) ==> (concat (tokens_aux f s ss n len) =
+      implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))
+Proof
   Cases_on `s` \\ Induct_on `len` \\
   rw [strlen_def, tokens_aux_def, concat_cons, DROP_LENGTH_NIL, strcat_thm, implode_def] \\
   Cases_on `ss` \\ rw [tokens_aux_def, DROP_EL_CONS, concat_cons, strcat_thm, implode_def]
-);
+QED
 
 Theorem tokens_filter:
    !f s. concat (tokens f s) = implode (FILTER ($~ o f) (explode s))
@@ -457,11 +483,11 @@ Theorem TOKENS_eq_tokens_sym
   \\ simp[MAP_MAP_o,INJ_DEF,explode_11,o_DEF,explode_implode,TOKENS_eq_tokens]
 *)
 
-val TOKENS_eq_tokens_sym = save_thm("TOKENS_eq_tokens_sym",
-        TOKENS_eq_tokens
+Theorem TOKENS_eq_tokens_sym =
+  TOKENS_eq_tokens
         |> SPEC_ALL
         |> Q.AP_TERM`MAP implode`
-        |> SIMP_RULE(srw_ss())[MAP_MAP_o,implode_explode,o_DEF]);
+        |> SIMP_RULE(srw_ss())[MAP_MAP_o,implode_explode,o_DEF]
 
 
 Theorem tokens_append:
@@ -591,27 +617,30 @@ Proof
   simp[]
 QED
 
-val fields_aux_def = Define `
+Definition fields_aux_def:
   (fields_aux f s ss n 0 = [implode (REVERSE ss)]) /\
   (fields_aux f s ss n (SUC len) =
     if f (strsub s n)
       then implode (REVERSE ss)::(fields_aux f s [] (n + 1) len)
-    else fields_aux f s (strsub s n::ss) (n + 1) len)`;
+    else fields_aux f s (strsub s n::ss) (n + 1) len)
+End
 
 
 
-val fields_def = Define`
-  fields f s = fields_aux f s [] 0 (strlen s)`;
+Definition fields_def:
+  fields f s = fields_aux f s [] 0 (strlen s)
+End
 
 
 
-val fields_aux_filter = Q.prove (
-  `!f s ss n len. (n + len = strlen s) ==> (concat (fields_aux f s ss n len) =
-      implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))`,
+Triviality fields_aux_filter:
+  !f s ss n len. (n + len = strlen s) ==> (concat (fields_aux f s ss n len) =
+      implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))
+Proof
   Cases_on `s` \\ Induct_on `len` \\ rw [strlen_def, fields_aux_def, concat_cons,
     implode_def, explode_thm, DROP_LENGTH_NIL, strcat_thm] \\
   rw [DROP_EL_CONS]
-);
+QED
 
 Theorem fields_filter:
    !f s. concat (fields f s) = implode (FILTER ($~ o f) (explode s))
@@ -619,12 +648,13 @@ Proof
   rw [fields_def, fields_aux_filter]
 QED
 
-val fields_aux_length = Q.prove (
-  `!f s ss n len. (n + len = strlen s) ==>
-    (LENGTH (fields_aux f s ss n len) = LENGTH (FILTER f (DROP n (explode s))) + 1)`,
+Triviality fields_aux_length:
+  !f s ss n len. (n + len = strlen s) ==>
+    (LENGTH (fields_aux f s ss n len) = LENGTH (FILTER f (DROP n (explode s))) + 1)
+Proof
   Cases_on `s` \\ Induct_on `len` \\
   rw [strlen_def, fields_aux_def, explode_thm, DROP_LENGTH_NIL, ADD1, DROP_EL_CONS]
-);
+QED
 
 
 Theorem fields_length:
@@ -729,12 +759,13 @@ Proof
   \\ fs []
 QED
 
-val isStringThere_aux_def = Define`
+Definition isStringThere_aux_def:
   (isStringThere_aux s1 s2 s1i s2i 0 = T) /\
   (isStringThere_aux s1 s2 s1i s2i (SUC len) =
     if strsub s1 s1i = strsub s2 s2i
       then isStringThere_aux s1 s2 (s1i + 1) (s2i + 1) len
-    else F)`;
+    else F)
+End
 
 
 (*
@@ -749,30 +780,34 @@ val isStringThere_thm = Q.prove (
 );
 *)
 
-val isPrefix_def = Define`
+Definition isPrefix_def:
   isPrefix s1 s2 =
     if strlen s1 <= strlen s2
       then isStringThere_aux s1 s2 0 0 (strlen s1)
-    else F`;
+    else F
+End
 
-val isSuffix_def = Define`
+Definition isSuffix_def:
   isSuffix s1 s2 =
     if strlen s1 <= strlen s2
       then isStringThere_aux s1 s2 0 (strlen s2 - strlen s1) (strlen s1)
-    else F`;
+    else F
+End
 
-val isSubstring_aux_def = Define`
+Definition isSubstring_aux_def:
   (isSubstring_aux s1 s2 lens1 n 0 = F) /\
   (isSubstring_aux s1 s2 lens1 n (SUC len) =
     if (isStringThere_aux s1 s2 0 n lens1)
       then T
-    else isSubstring_aux s1 s2 lens1 (n + 1) len)`;
+    else isSubstring_aux s1 s2 lens1 (n + 1) len)
+End
 
-val isSubstring_def = Define`
+Definition isSubstring_def:
   isSubstring s1 s2 =
   if strlen s1 <= strlen s2
     then isSubstring_aux s1 s2 (strlen s1) 0 ((strlen s2) - (strlen s1) + 1)
-  else F`;
+  else F
+End
 
 (* proof that isSubstring has the right sort of properties *)
 Theorem isStringThere_SEG:
@@ -838,7 +873,7 @@ Proof
 QED
 
 (* String orderings *)
-val compare_aux_def = Define`
+Definition compare_aux_def:
   compare_aux (s1: mlstring) s2 ord start len =
     if len = 0n then
       ord
@@ -846,26 +881,32 @@ val compare_aux_def = Define`
       then GREATER
     else if strsub s1 start < strsub s2 start
       then LESS
-    else compare_aux s1 s2 ord (start + 1) (len - 1)`;
+    else compare_aux s1 s2 ord (start + 1) (len - 1)
+End
 
-val compare_def = Define`
+Definition compare_def:
   compare s1 s2 = if (strlen s1) < (strlen s2)
     then compare_aux s1 s2 LESS 0 (strlen s1)
   else if (strlen s2) < (strlen s1)
     then compare_aux s1 s2 GREATER 0 (strlen s2)
-  else compare_aux s1 s2 EQUAL 0 (strlen s2)`;
+  else compare_aux s1 s2 EQUAL 0 (strlen s2)
+End
 
-val mlstring_lt_def = Define `
-  mlstring_lt s1 s2 ⇔ (compare s1 s2 = LESS)`;
+Definition mlstring_lt_def:
+  mlstring_lt s1 s2 ⇔ (compare s1 s2 = LESS)
+End
 
-val mlstring_le_def = Define `
-  mlstring_le s1 s2 ⇔ (compare s1 s2 ≠ GREATER)`;
+Definition mlstring_le_def:
+  mlstring_le s1 s2 ⇔ (compare s1 s2 ≠ GREATER)
+End
 
-val mlstring_gt_def = Define `
-  mlstring_gt s1 s2 ⇔ (compare s1 s2 = GREATER)`;
+Definition mlstring_gt_def:
+  mlstring_gt s1 s2 ⇔ (compare s1 s2 = GREATER)
+End
 
-val mlstring_ge_def = Define `
-  mlstring_ge s1 s2 ⇔ (compare s1 s2 <> LESS)`;
+Definition mlstring_ge_def:
+  mlstring_ge s1 s2 ⇔ (compare s1 s2 <> LESS)
+End
 
 Overload "<" = ``λx y. mlstring_lt x y``
 Overload "<=" = ``λx y. mlstring_le x y``
@@ -877,8 +918,8 @@ Overload ">=" = ``λx y. mlstring_ge x y``
 val flip_ord_def = ternaryComparisonsTheory.invert_comparison_def
 Overload flip_ord = ``invert_comparison``
 
-val compare_aux_spec = Q.prove (
-  `!s1 s2 ord_in start len.
+Triviality compare_aux_spec:
+  !s1 s2 ord_in start len.
     len + start ≤ strlen s1 ∧ len + start ≤ strlen s2 ⇒
     (compare_aux s1 s2 ord_in start len =
       if TAKE len (DROP start (explode s1)) = TAKE len (DROP start (explode s2)) then
@@ -886,7 +927,8 @@ val compare_aux_spec = Q.prove (
       else if string_lt (TAKE len (DROP start (explode s1))) (TAKE len (DROP start (explode s2))) then
         LESS
       else
-        GREATER)`,
+        GREATER)
+Proof
   Induct_on `len` >>
   rw [] >>
   ONCE_REWRITE_TAC [compare_aux_def] >>
@@ -899,20 +941,24 @@ val compare_aux_spec = Q.prove (
   fs [string_lt_def] >>
   simp [] >>
   rw [] >>
-  fs [char_lt_def, CHAR_EQ_THM]);
+  fs [char_lt_def, CHAR_EQ_THM]
+QED
 
-val compare_aux_refl = Q.prove (
-  `!s1 s2 start len.
+Triviality compare_aux_refl:
+  !s1 s2 start len.
     start + len ≤ strlen s1 ∧ start + len ≤ strlen s2
     ⇒
     ((compare_aux s1 s2 EQUAL start len = EQUAL)
      ⇔
-     (TAKE len (DROP start (explode s1)) = TAKE len (DROP start (explode s2))))`,
-  rw [compare_aux_spec]);
+     (TAKE len (DROP start (explode s1)) = TAKE len (DROP start (explode s2))))
+Proof
+  rw [compare_aux_spec]
+QED
 
-val compare_aux_equal = Q.prove (
-  `!s1 s2 ord_in start len.
-    (compare_aux s1 s2 ord_in start len = EQUAL) ⇒ (ord_in = EQUAL)`,
+Triviality compare_aux_equal:
+  !s1 s2 ord_in start len.
+    (compare_aux s1 s2 ord_in start len = EQUAL) ⇒ (ord_in = EQUAL)
+Proof
   Induct_on `len` >>
   rw []
   >- fs [Once compare_aux_def] >>
@@ -920,13 +966,15 @@ val compare_aux_equal = Q.prove (
   ONCE_REWRITE_TAC [compare_aux_def] >>
   simp_tac (std_ss++ARITH_ss) [] >>
   rw [] >>
-  metis_tac []);
+  metis_tac []
+QED
 
-val compare_aux_sym = Q.prove (
-  `!s1 s2 ord_in start len ord_out.
+Triviality compare_aux_sym:
+  !s1 s2 ord_in start len ord_out.
     (compare_aux s1 s2 ord_in start len = ord_out)
     ⇔
-    (compare_aux s2 s1 (flip_ord ord_in) start len = flip_ord ord_out)`,
+    (compare_aux s2 s1 (flip_ord ord_in) start len = flip_ord ord_out)
+Proof
   Induct_on `len` >>
   rw [] >>
   ONCE_REWRITE_TAC [compare_aux_def] >>
@@ -949,38 +997,47 @@ val compare_aux_sym = Q.prove (
     simp [flip_ord_def]) >>
   ASM_REWRITE_TAC [] >>
   simp_tac (std_ss++ARITH_ss) [] >>
-  metis_tac []);
+  metis_tac []
+QED
 
-val string_lt_take_mono = Q.prove (
-  `!s1 s2 x.
-    s1 < s2 ⇒ TAKE x s1 < TAKE x s2 ∨ (TAKE x s1 = TAKE x s2)`,
+Triviality string_lt_take_mono:
+  !s1 s2 x.
+    s1 < s2 ⇒ TAKE x s1 < TAKE x s2 ∨ (TAKE x s1 = TAKE x s2)
+Proof
   ho_match_mp_tac string_lt_ind >>
   rw [string_lt_def] >>
   Cases_on `x` >>
   fs [string_lt_def] >>
-  metis_tac []);
+  metis_tac []
+QED
 
-val string_lt_remove_take = Q.prove (
-  `!s1 s2 x. TAKE x s1 < TAKE x s2 ⇒ s1 < s2`,
+Triviality string_lt_remove_take:
+  !s1 s2 x. TAKE x s1 < TAKE x s2 ⇒ s1 < s2
+Proof
   ho_match_mp_tac string_lt_ind >>
   rw [string_lt_def] >>
   Cases_on `x` >>
   fs [string_lt_def] >>
-  metis_tac []);
+  metis_tac []
+QED
 
-val string_prefix_le = Q.prove (
-  `!s1 s2. s1 ≼ s2 ⇒ s1 ≤ s2`,
+Triviality string_prefix_le:
+  !s1 s2. s1 ≼ s2 ⇒ s1 ≤ s2
+Proof
   ho_match_mp_tac string_lt_ind >>
   rw [string_lt_def, string_le_def, isPREFIX_STRCAT] >>
   Cases_on `s3` >>
-  fs []);
+  fs []
+QED
 
-val take_prefix = Q.prove (
-  `!l s. TAKE l s ≼ s`,
+Triviality take_prefix:
+  !l s. TAKE l s ≼ s
+Proof
   Induct_on `s` >>
   rw [] >>
   Cases_on `l` >>
-  fs []);
+  fs []
+QED
 
 Theorem mlstring_lt_inv_image:
    mlstring_lt = inv_image string_lt explode
@@ -1129,11 +1186,13 @@ Proof
   \\ imp_res_tac string_lt_total \\ fs []
 QED
 
-val transitive_mlstring_lt = Q.prove(
-  `transitive mlstring_lt`,
+Triviality transitive_mlstring_lt:
+  transitive mlstring_lt
+Proof
   simp[mlstring_lt_inv_image] >>
   match_mp_tac transitive_inv_image >>
-  metis_tac[transitive_def,string_lt_trans])
+  metis_tac[transitive_def,string_lt_trans]
+QED
 
 Theorem strlit_le_strlit:
    strlit s1 ≤ strlit s2 <=> s1 <= s2
@@ -1142,18 +1201,22 @@ Proof
   \\ fs [string_le_def,mlstring_lt_inv_image]
 QED
 
-val irreflexive_mlstring_lt = Q.prove(
-  `irreflexive mlstring_lt`,
+Triviality irreflexive_mlstring_lt:
+  irreflexive mlstring_lt
+Proof
   simp[mlstring_lt_inv_image] >>
   match_mp_tac irreflexive_inv_image >>
-  simp[irreflexive_def,string_lt_nonrefl])
+  simp[irreflexive_def,string_lt_nonrefl]
+QED
 
-val trichotomous_mlstring_lt = Q.prove(
-  `trichotomous mlstring_lt`,
+Triviality trichotomous_mlstring_lt:
+  trichotomous mlstring_lt
+Proof
   simp[mlstring_lt_inv_image] >>
   match_mp_tac trichotomous_inv_image >>
   reverse conj_tac >- metis_tac[explode_BIJ,BIJ_DEF] >>
-  metis_tac[trichotomous,string_lt_cases])
+  metis_tac[trichotomous,string_lt_cases]
+QED
 
 Theorem StrongLinearOrder_mlstring_lt:
    StrongLinearOrder mlstring_lt
@@ -1162,20 +1225,22 @@ Proof
      StrongOrder,irreflexive_mlstring_lt,transitive_mlstring_lt]
 QED
 
-val collate_aux_def = Define`
+Definition collate_aux_def:
   (collate_aux f (s1: mlstring) s2 ord n 0 = ord) /\
   (collate_aux f s1 s2 ord n (SUC len) =
     if f (strsub s1 n) (strsub s2 n) = EQUAL
       then collate_aux f s1 s2 ord (n + 1) len
-    else f (strsub s1 n) (strsub s2 n))`;
+    else f (strsub s1 n) (strsub s2 n))
+End
 
-val collate_def = Define`
+Definition collate_def:
   collate f s1 s2 =
   if (strlen s1) < (strlen s2)
     then collate_aux f s1 s2 LESS 0 (strlen s1)
   else if (strlen s2) < (strlen s1)
     then collate_aux f s1 s2 GREATER 0 (strlen s2)
-  else collate_aux f s1 s2 EQUAL 0 (strlen s2)`;
+  else collate_aux f s1 s2 EQUAL 0 (strlen s2)
+End
 
 
 Theorem collate_aux_less_thm[local]:
@@ -1343,6 +1408,8 @@ QED
 (* The translator turns each `empty_ffi s` into a call to the FFI with
    an empty name and passing `s` as the argument. The empty FFI is
    used for logging/timing purposes. *)
-val empty_ffi_def = Define `empty_ffi (s:mlstring) = ()`
+Definition empty_ffi_def:
+  empty_ffi (s:mlstring) = ()
+End
 
 val _ = export_theory()

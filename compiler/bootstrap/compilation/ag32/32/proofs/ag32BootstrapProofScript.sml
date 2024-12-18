@@ -53,6 +53,7 @@ QED
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
   semantics_compiler32_prog
+  |> SRULE [ml_progTheory.prog_syntax_ok_semantics, compiler32_compiled]
   |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
   |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
@@ -69,13 +70,13 @@ Proof
   rewrite_tac [compiler32_compiled]
   \\ qspec_tac (‘cake_config.lab_conf.ffi_names’,‘xs’) \\ Cases
   \\ gvs [extcalls_def,backendTheory.ffinames_to_string_list_def,
-          libTheory.the_def]
+          miscTheory.the_def]
   \\ Induct_on ‘x’ \\ gvs []
   \\ gvs [extcalls_def,backendTheory.ffinames_to_string_list_def,
-          libTheory.the_def]
+          miscTheory.the_def]
   \\ Cases
   \\ gvs [extcalls_def,backendTheory.ffinames_to_string_list_def,
-          libTheory.the_def]
+          miscTheory.the_def]
 QED
 
 val ffis = ffis_def |> CONV_RULE (RAND_CONV EVAL);
@@ -215,9 +216,9 @@ Theorem ALOOKUP_fastForwardFD_infds_neq:
    fd ≠ fd' ⇒ (ALOOKUP (fastForwardFD fs fd).infds fd' = ALOOKUP fs.infds fd')
 Proof
   rw[fsFFIPropsTheory.fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[miscTheory.the_def]
   \\ pairarg_tac \\ simp[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[miscTheory.the_def]
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ CASE_TAC
 QED
@@ -227,9 +228,9 @@ Theorem FST_ALOOKUP_fastForwardFD_infds:
    OPTION_MAP FST (ALOOKUP fs.infds fd')
 Proof
   rw[fsFFIPropsTheory.fastForwardFD_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[miscTheory.the_def]
   \\ pairarg_tac \\ simp[]
-  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[miscTheory.the_def]
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ simp[]
   \\ CASE_TAC \\ simp[]

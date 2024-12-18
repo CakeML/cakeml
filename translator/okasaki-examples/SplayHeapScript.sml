@@ -14,30 +14,37 @@ val _ = translation_extends "ListProg";
 
 (* Okasaki page 50 *)
 
-val _ = Datatype`
-  heap = Empty | Tree heap 'a heap`;
+Datatype:
+  heap = Empty | Tree heap 'a heap
+End
 
-val heap_to_bag_def = Define `
+Definition heap_to_bag_def:
 (heap_to_bag Empty = {||}) ∧
 (heap_to_bag (Tree h1 x h2) =
-  BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))`;
+  BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))
+End
 
-val is_heap_ordered_def = Define `
+Definition is_heap_ordered_def:
 (is_heap_ordered get_key leq Empty <=> T) ∧
 (is_heap_ordered get_key leq (Tree h1 x h2) <=>
   is_heap_ordered get_key leq h1 ∧
   is_heap_ordered get_key leq h2 ∧
   BAG_EVERY (\y. leq (get_key y) (get_key x)) (heap_to_bag h1) ∧
-  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2))`;
+  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2))
+End
 
-val _ = mlDefine `
-empty = Empty`;
+Definition empty_def:
+  empty = Empty
+End
+val r = translate empty_def;
 
-val is_empty_def = mlDefine `
+Definition is_empty_def:
 (is_empty Empty = T) ∧
-(is_empty _ = F)`;
+(is_empty _ = F)
+End
+val r = translate is_empty_def;
 
-val partition_def = mlDefine `
+Definition partition_def:
 (partition get_key leq pivot Empty = (Empty, Empty)) ∧
 (partition get_key leq pivot (Tree a x b) =
   if leq (get_key x) (get_key pivot) then
@@ -59,17 +66,20 @@ val partition_def = mlDefine `
               (Tree a1 y small, Tree big x b)
           else
             let (small, big) = partition get_key leq pivot a1 in
-              (small, Tree big y (Tree a2 x b))))`;
+              (small, Tree big y (Tree a2 x b))))
+End
+val r = translate partition_def;
 
 val partition_ind = fetch "-" "partition_ind"
 val heap_size_def = fetch "-" "heap_size_def"
 
-val partition_size = Q.prove (
-`!get_key leq p h1 h2 h3.
+Triviality partition_size:
+  !get_key leq p h1 h2 h3.
   ((h2,h3) = partition get_key leq p h1)
   ⇒
-  heap_size f h2 ≤ heap_size f h1 ∧ heap_size f h3 ≤ heap_size f h1`,
-recInduct partition_ind >>
+  heap_size f h2 ≤ heap_size f h1 ∧ heap_size f h3 ≤ heap_size f h1
+Proof
+  recInduct partition_ind >>
 rw [heap_size_def, partition_def] >>
 every_case_tac >>
 fs [] >>
@@ -78,51 +88,61 @@ cases_on `partition get_key leq pivot h0` >>
 cases_on `partition get_key leq pivot h` >>
 fs [LET_THM] >>
 rw [heap_size_def] >>
-decide_tac);
+decide_tac
+QED
 
-val insert_def = mlDefine `
+Definition insert_def:
 insert get_key leq x t =
   let (a, b) = partition get_key leq x t in
-    Tree a x b`;
+    Tree a x b
+End
+val r = translate insert_def;
 
-val merge_def = tDefine "merge" `
+Definition merge_def:
 (merge get_key leq Empty h2 = h2) ∧
 (merge get_key leq (Tree a x b) h2 =
   let (ta, tb) = partition get_key leq x h2 in
-    Tree (merge get_key leq ta a) x (merge get_key leq tb b))`
-(WF_REL_TAC `measure (\(_,x,y,z).  heap_size (\_.1) y + heap_size (\_.1) z)` >>
+    Tree (merge get_key leq ta a) x (merge get_key leq tb b))
+Termination
+  WF_REL_TAC `measure (\(_,x,y,z).  heap_size (\_.1) y + heap_size (\_.1) z)` >>
  rw [] >>
  imp_res_tac partition_size >>
  pop_assum (MP_TAC o Q.SPEC `(λ_.1)`) >>
  pop_assum (MP_TAC o Q.SPEC `(λ_.1)`) >>
- full_simp_tac (srw_ss() ++ ARITH_ss) [partition_size]);
+ full_simp_tac (srw_ss() ++ ARITH_ss) [partition_size]
+End
 
 val _ = translate merge_def
 
 val merge_ind = fetch "-" "merge_ind"
 
-val find_min_def = mlDefine `
+Definition find_min_def:
 (find_min (Tree Empty x b) = x) ∧
-(find_min (Tree a x b) = find_min a)`;
+(find_min (Tree a x b) = find_min a)
+End
+val r = translate find_min_def;
 
 val find_min_ind = fetch "-" "find_min_ind"
 
-val delete_min_def = mlDefine `
+Definition delete_min_def:
 (delete_min (Tree Empty x b) = b) ∧
 (delete_min (Tree (Tree Empty x b) y c) = Tree b y c) ∧
-(delete_min (Tree (Tree a x b) y c) = Tree (delete_min a) x (Tree b y c))`;
+(delete_min (Tree (Tree a x b) y c) = Tree (delete_min a) x (Tree b y c))
+End
+val r = translate delete_min_def;
 
 val delete_min_ind = fetch "-" "delete_min_ind"
 
 
 (* Functional correctnes proof *)
 
-val partition_bags = Q.prove (
-`!get_key leq p h1 h2 h3.
+Triviality partition_bags:
+  !get_key leq p h1 h2 h3.
   ((h2,h3) = partition get_key leq p h1)
   ⇒
-  (heap_to_bag h1 = BAG_UNION (heap_to_bag h2) (heap_to_bag h3))`,
-recInduct partition_ind >>
+  (heap_to_bag h1 = BAG_UNION (heap_to_bag h2) (heap_to_bag h3))
+Proof
+  recInduct partition_ind >>
 rw [partition_def, heap_to_bag_def] >>
 every_case_tac >>
 fs [] >>
@@ -131,18 +151,20 @@ cases_on `partition get_key leq pivot h0` >>
 cases_on `partition get_key leq pivot h` >>
 fs [LET_THM] >>
 rw [heap_to_bag_def, BAG_UNION_INSERT] >>
-metis_tac [ASSOC_BAG_UNION, COMM_BAG_UNION, BAG_INSERT_commutes]);
+metis_tac [ASSOC_BAG_UNION, COMM_BAG_UNION, BAG_INSERT_commutes]
+QED
 
-val partition_split = Q.prove (
-`!get_key leq p h1 h2 h3.
+Triviality partition_split:
+  !get_key leq p h1 h2 h3.
   transitive leq ∧
   trichotomous leq ∧
   ((h2,h3) = partition get_key leq p h1) ∧
   is_heap_ordered get_key leq h1
   ⇒
   BAG_EVERY (\y. leq (get_key y) (get_key p)) (heap_to_bag h2) ∧
-  BAG_EVERY (\y. ¬leq (get_key y) (get_key p)) (heap_to_bag h3)`,
-recInduct partition_ind >>
+  BAG_EVERY (\y. ¬leq (get_key y) (get_key p)) (heap_to_bag h3)
+Proof
+  recInduct partition_ind >>
 rw [partition_def, heap_to_bag_def, is_heap_ordered_def] >>
 every_case_tac >>
 fs [] >>
@@ -153,29 +175,33 @@ cases_on `partition get_key leq pivot h` >>
 fs [LET_THM, heap_to_bag_def] >>
 rw [] >>
 fs [BAG_EVERY, transitive_def, trichotomous] >>
-metis_tac []);
+metis_tac []
+QED
 
-val partition_heap_ordered_lem = Q.prove (
-`!get_key leq p h1 h2 h3.
+Triviality partition_heap_ordered_lem:
+  !get_key leq p h1 h2 h3.
   (partition get_key leq p h1 = (h2, h3)) ⇒
   BAG_EVERY P (heap_to_bag h1) ⇒
-  BAG_EVERY P (heap_to_bag h2) ∧ BAG_EVERY P (heap_to_bag h3)`,
-rw [] >>
+  BAG_EVERY P (heap_to_bag h2) ∧ BAG_EVERY P (heap_to_bag h3)
+Proof
+  rw [] >>
 `heap_to_bag h1 =
  BAG_UNION (heap_to_bag h2) (heap_to_bag h3)`
           by metis_tac [partition_bags] >>
 rw [] >>
 fs [BAG_EVERY_UNION] >>
-rw []);
+rw []
+QED
 
-val partition_heap_ordered = Q.prove (
-`!get_key leq p h1 h2 h3.
+Triviality partition_heap_ordered:
+  !get_key leq p h1 h2 h3.
   WeakLinearOrder leq ∧
   ((h2,h3) = partition get_key leq p h1) ∧
   is_heap_ordered get_key leq h1
   ⇒
-  is_heap_ordered get_key leq h2 ∧ is_heap_ordered get_key leq h3`,
-recInduct partition_ind >>
+  is_heap_ordered get_key leq h2 ∧ is_heap_ordered get_key leq h3
+Proof
+  recInduct partition_ind >>
 RW_TAC pure_ss [] >-
 fs [partition_def, is_heap_ordered_def] >-
 fs [partition_def, is_heap_ordered_def] >>
@@ -197,7 +223,8 @@ metis_tac [partition_heap_ordered_lem] >-
 metis_tac [partition_heap_ordered_lem] >-
 metis_tac [partition_heap_ordered_lem] >-
 (fs [BAG_EVERY] >>
- metis_tac [transitive_def, WeakLinearOrder, WeakOrder]));
+ metis_tac [transitive_def, WeakLinearOrder, WeakOrder])
+QED
 
 Theorem insert_bag:
  !h get_key leq x.
@@ -316,14 +343,18 @@ QED
 val delete_min_side_def = fetch "-" "delete_min_side_def"
 val find_min_side_def = fetch "-" "find_min_side_def"
 
-val delete_min_side = Q.prove (
-`!h. delete_min_side h = (h ≠ Empty)`,
-recInduct delete_min_ind THEN REPEAT STRIP_TAC
-THEN ONCE_REWRITE_TAC [delete_min_side_def] THEN SRW_TAC [] []);
+Triviality delete_min_side:
+  !h. delete_min_side h = (h ≠ Empty)
+Proof
+  recInduct delete_min_ind THEN REPEAT STRIP_TAC
+THEN ONCE_REWRITE_TAC [delete_min_side_def] THEN SRW_TAC [] []
+QED
 
-val find_min_side = Q.prove (
-`!h. find_min_side h = (h ≠ Empty)`,
-recInduct find_min_ind THEN REPEAT STRIP_TAC
-THEN ONCE_REWRITE_TAC [find_min_side_def] THEN SRW_TAC [] []);
+Triviality find_min_side:
+  !h. find_min_side h = (h ≠ Empty)
+Proof
+  recInduct find_min_ind THEN REPEAT STRIP_TAC
+THEN ONCE_REWRITE_TAC [find_min_side_def] THEN SRW_TAC [] []
+QED
 
 val _ = export_theory()

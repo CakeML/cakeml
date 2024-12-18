@@ -57,7 +57,7 @@ local
       end;
 
 val all_optimisation_proofs =
-  map (fn ((a,(b,c,d))) => (a,(b,c))) (DB.thy "icing_optimisationProofs");
+  map DB_dtype.drop_private (DB.thy "icing_optimisationProofs");
 
 (* Automatically prove a is_perform_rewrites_correct theorem for the given plan *)
 fun mk_plan_correct_thm plan_list :(term * thm)=
@@ -192,7 +192,7 @@ local
     end;
 
 val all_realid_proofs =
-  map (fn ((a,(b,c,d))) => (a,(b,c))) (DB.thy "icing_realIdProofs");
+  map DB_dtype.drop_private (DB.thy "icing_realIdProofs");
 
 (* Automatically prove a is_perform_rewrites_correct theorem for the given plan *)
 fun mk_plan_correct_thm plan_list :(term * thm)=

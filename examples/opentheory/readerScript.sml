@@ -157,21 +157,24 @@ End
 
 Type name = ``mlstring list # mlstring``
 
-val name_to_string_def = Define`
+Definition name_to_string_def:
   (name_to_string ([],s) = s) ∧
   (name_to_string (n::ns,s) =
-   strcat (strcat n («.»)) (name_to_string ns s))`;
+   strcat (strcat n («.»)) (name_to_string ns s))
+End
 
-val charlist_to_name_def = Define`
+Definition charlist_to_name_def:
   (charlist_to_name ns a [#"""] = (REVERSE ns,implode(REVERSE a))) ∧
   (charlist_to_name ns a (#"\"::#"."::cs) = charlist_to_name ns (#"."::a) cs) ∧
   (charlist_to_name ns a (#"\"::#"""::cs) = charlist_to_name ns (#"""::a) cs) ∧
   (charlist_to_name ns a (#"\"::#"\"::cs) = charlist_to_name ns (#"\"::a) cs) ∧
   (charlist_to_name ns a (#"."::cs) = charlist_to_name (implode(REVERSE a)::ns) [] cs) ∧
-  (charlist_to_name ns a (c::cs) = charlist_to_name ns (c::a) cs)`;
+  (charlist_to_name ns a (c::cs) = charlist_to_name ns (c::a) cs)
+End
 
-val qstring_to_name_def = Define`
-  qstring_to_name s = charlist_to_name [] [] (TL(explode s))`;
+Definition qstring_to_name_def:
+  qstring_to_name s = charlist_to_name [] [] (TL(explode s))
+End
 *)
 
 Datatype:

@@ -164,7 +164,6 @@ val _ = stack_to_labTheory.compile_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.format_var_def |> cv_trans;
 val _ = word_to_stackTheory.wReg1_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.wReg2_def |> arch_spec |> cv_trans;
-val _ = word_to_stackTheory.wRegImm2_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.wStackLoad_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.wStackStore_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.wMoveSingle_def |> arch_spec |> cv_trans;
@@ -206,11 +205,11 @@ val _ = word_to_stackTheory.raise_stub_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.store_consts_stub_def |> arch_spec |> cv_trans;
 
 Theorem cv_rep_if_lt[cv_rep]:
-  cv_rep p1 c1a Num m /\
-  cv_rep p1 c1b Num n /\
+  cv_rep p1a c1a Num m /\
+  cv_rep p1b c1b Num n /\
   cv_rep p2 c2 f t /\
   cv_rep p3 c3 f e ==>
-  cv_rep (p1 /\ (m < n ==> p2) /\ (~(m < n) ==> p3))
+  cv_rep (p1a /\ p1b /\ (m < n ==> p2) /\ (~(m < n) ==> p3))
          (cv_if (cv_sub c1b c1a) c2 c3) f (if m < n then t else e)
 Proof
   fs [cv_repTheory.cv_rep_def] \\ rw [] \\ gvs []
@@ -220,13 +219,6 @@ QED
 val _ = cv_trans_rec (word_to_stackTheory.const_words_to_bitmap_def |> arch_spec |> SRULE [])
  (WF_REL_TAC ‘measure $ cv$c2n o SND’ \\ Cases \\ gvs []
   \\ gvs [cvTheory.c2b_def] \\ Cases_on ‘m’ \\ gvs []);
-
-val pre = word_to_stackTheory.comp_def |> arch_spec |> cv_auto_trans_pre;
-Theorem word_to_stack_comp_pre[cv_pre,local]:
-  ∀v bs kf. word_to_stack_comp_pre v bs kf
-Proof
-  ho_match_mp_tac word_to_stackTheory.comp_ind \\ rw [] \\ simp [Once pre]
-QED
 
 val _ = wordLangTheory.max_var_inst_def |> arch_spec |> cv_trans
 
@@ -239,15 +231,6 @@ Proof
 QED
 
 val _ = wordLangTheory.max_var_def |> arch_spec |> cv_trans;
-val _ = word_to_stackTheory.compile_prog_def |> arch_spec |> cv_trans;
-
-val pre = word_to_stackTheory.compile_word_to_stack_def |> arch_spec_beta |> cv_trans_pre;
-Theorem word_to_stack_compile_word_to_stack_pre[cv_pre]:
-  ∀k v bitmaps. word_to_stack_compile_word_to_stack_pre k v bitmaps
-Proof
-  ho_match_mp_tac word_to_stackTheory.compile_word_to_stack_ind
-  \\ rw [] \\ simp [Once pre]
-QED
 
 val pre = every_stack_var'_eq |> arch_spec |> cv_trans_pre
 Theorem backend_cv_every_stack_var'_pre[cv_pre]:
@@ -299,7 +282,11 @@ Proof
   ho_match_mp_tac word_allocTheory.remove_dead_ind \\ rw [] \\ simp [Once pre]
 QED
 
+val _ = word_allocTheory.remove_dead_prog_def |> arch_spec |> cv_trans;
+
 val _ = word_instTheory.op_consts_def |> arch_spec |> cv_trans;
+
+val _ = word_instTheory.reduce_const_def |> arch_spec |> cv_auto_trans;
 
 val pre = word_instTheory.optimize_consts_def |> arch_spec |> cv_auto_trans_pre;
 Theorem optimize_consts_pre:
@@ -342,6 +329,10 @@ Proof
   \\ gvs [wordLangTheory.exp_size_def, wordLangTheory.exp_size_eq]
 QED
 
+val _ = cv_trans word_instTheory.three_to_two_reg_def;
+
+val _ = cv_trans word_instTheory.three_to_two_reg_prog_def;
+
 val _ = word_cseTheory.add_to_data_aux_def |> arch_spec
          |> SRULE [GSYM lookup_listCmp_def, GSYM insert_listCmp_def] |> cv_auto_trans;
 val _ = word_cseTheory.wordToNum_def |> arch_spec |> cv_trans;
@@ -376,8 +367,6 @@ val _ = word_allocTheory.full_ssa_cc_trans_def |> arch_spec |> cv_trans;
 
 val _ = word_simpTheory.SmartSeq_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.Seq_assoc_def |> arch_spec |> cv_trans;
-val _ = word_simpTheory.apply_if_opt_def |> arch_spec |> cv_trans;
-val _ = word_simpTheory.simp_if_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.const_fp_inst_cs_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.strip_const_def |> arch_spec |> cv_trans;
 val _ = wordLangTheory.word_sh_def |> arch_spec
@@ -399,6 +388,12 @@ Proof
 QED
 
 val _ = word_simpTheory.const_fp_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.is_simple_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.dest_Raise_num_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.try_if_hoist2_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.rewrite_duplicate_if_max_reassoc_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.try_if_hoist1_def |> arch_spec |> cv_trans;
+val _ = word_simpTheory.simp_duplicate_if_def |> arch_spec |> cv_trans;
 val _ = word_simpTheory.compile_exp_def |> arch_spec |> cv_trans;
 
 val _ = data_to_wordTheory.real_addr_def |> arch_spec

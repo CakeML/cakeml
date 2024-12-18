@@ -16,11 +16,13 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
-val sound_update_def = xDefine"sound_update"`
+Definition sound_update_def:
   sound_update0 ^mem ctxt upd ⇔
     ∀i. i models (thyof ctxt) ⇒
       ∃i'. equal_on (sigof ctxt) i i' ∧
-           i' models (thyof (upd::ctxt))`
+           i' models (thyof (upd::ctxt))
+End
+
 
 Overload sound_update = ``sound_update0 ^mem``
 

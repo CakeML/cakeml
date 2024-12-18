@@ -47,9 +47,10 @@ val arr_manip = define_MFarray_manip_funs
 
 val hash_tab_64_manip = el 1 arr_manip;
 
-val hash_tab_64_accessor = save_thm("hash_tab_64_accessor",accessor_thm hash_tab_64_manip);
+Theorem hash_tab_64_accessor =
+  accessor_thm hash_tab_64_manip
 
-val lookup_ins_table_64_def = Define`
+Definition lookup_ins_table_64_def:
   lookup_ins_table_64 enc n a =
   let v = hash_asm n a MOD n in
   do
@@ -63,9 +64,10 @@ val lookup_ins_table_64_def = Define`
       od
     | SOME res =>
       return res
-  od`
+  od
+End
 
-val enc_line_hash_64_def = Define `
+Definition enc_line_hash_64_def:
   (enc_line_hash_64 enc skip_len n (Label n1 n2 n3) =
     return (Label n1 n2 skip_len)) ∧
   (enc_line_hash_64 enc skip_len n (Asm a _ _) =
@@ -77,18 +79,20 @@ val enc_line_hash_64_def = Define `
      do
        bs <- lookup_ins_table_64 enc n (lab_inst 0w l);
        return (LabAsm l 0w bs (LENGTH bs))
-     od)`
+     od)
+End
 
-val enc_line_hash_64_ls_def = Define`
+Definition enc_line_hash_64_ls_def:
   (enc_line_hash_64_ls enc skip_len n [] = return []) ∧
   (enc_line_hash_64_ls enc skip_len n (x::xs) =
   do
     fx <- enc_line_hash_64 enc skip_len n x;
     fxs <- enc_line_hash_64_ls enc skip_len n xs;
     return (fx::fxs)
-  od)`
+  od)
+End
 
-val enc_sec_hash_64_ls_def = Define`
+Definition enc_sec_hash_64_ls_def:
   (enc_sec_hash_64_ls enc skip_len n [] = return []) ∧
   (enc_sec_hash_64_ls enc skip_len n (x::xs) =
   case x of Section k ys =>
@@ -96,11 +100,13 @@ val enc_sec_hash_64_ls_def = Define`
     ls <- enc_line_hash_64_ls enc skip_len n ys;
     rest <- enc_sec_hash_64_ls enc skip_len n xs;
     return (Section k ls::rest)
-  od)`
+  od)
+End
 
-val enc_sec_hash_64_ls_full_def = Define`
+Definition enc_sec_hash_64_ls_full_def:
   enc_sec_hash_64_ls_full enc n xs =
-  enc_sec_hash_64_ls enc (LENGTH (enc (Inst Skip))) n xs`
+  enc_sec_hash_64_ls enc (LENGTH (enc (Inst Skip))) n xs
+End
 
 (* As we are using fixed-size array, we need to define a different record type for the initialization *)
 val array_fields_names = ["hash_tab_64"];
@@ -108,15 +114,17 @@ val run_ienc_state_64_def = define_run ``:enc_state_64``
                                       array_fields_names
                                       "ienc_state_64";
 
-val enc_secs_64_aux_def = Define`
+Definition enc_secs_64_aux_def:
   enc_secs_64_aux enc n xs =
-    run_ienc_state_64 (enc_sec_hash_64_ls_full enc n xs) <| hash_tab_64 := (n, []) |>`
+    run_ienc_state_64 (enc_sec_hash_64_ls_full enc n xs) <| hash_tab_64 := (n, []) |>
+End
 
-val enc_secs_64_def = Define`
+Definition enc_secs_64_def:
   enc_secs_64 enc n xs =
     case enc_secs_64_aux enc (if n = 0 then 1 else n) xs of
       M_success xs => xs
-    | M_failure _ => []`
+    | M_failure _ => []
+End
 
 val msimps = [st_ex_bind_def,st_ex_return_def];
 
@@ -170,17 +178,19 @@ Proof
   fs[Marray_update_def]
 QED
 
-val good_table_64_def = Define`
+Definition good_table_64_def:
   good_table_64 enc n s ⇔
   EVERY (λls. EVERY (λ(x,y). enc x = y) ls) s.hash_tab_64 ∧
-  LENGTH s.hash_tab_64 = n`;
+  LENGTH s.hash_tab_64 = n
+End
 
-val lookup_ins_table_64_correct = Q.prove(`
+Triviality lookup_ins_table_64_correct:
   good_table_64 enc n s ∧
   0 < n ⇒
   ∃s'.
   lookup_ins_table_64 enc n aa s = (M_success (enc aa), s') ∧
-  good_table_64 enc n s'`,
+  good_table_64 enc n s'
+Proof
   rw[]>>fs[lookup_ins_table_64_def]>>
   simp msimps>>
   reverse IF_CASES_TAC
@@ -201,43 +211,49 @@ val lookup_ins_table_64_correct = Q.prove(`
   fs[EVERY_MEM]>>
   rw[]>> first_x_assum old_drule>>
   disch_then old_drule>>
-  fs[]);
+  fs[]
+QED
 
-val enc_line_hash_64_correct = Q.prove(`
+Triviality enc_line_hash_64_correct:
   ∀line.
   good_table_64 enc n s ∧ 0 < n ⇒
   ∃s'.
   enc_line_hash_64 enc skip_len n line s =
   (M_success (enc_line enc skip_len line),s') ∧
-  good_table_64 enc n s'`,
+  good_table_64 enc n s'
+Proof
   Cases>>fs[enc_line_hash_64_def,enc_line_def]>>
   fs msimps>>
   qmatch_goalsub_abbrev_tac`lookup_ins_table_64 _ _ aa`>>
   rw[]>>
-  old_drule lookup_ins_table_64_correct>>rw[]>>simp[]);
+  old_drule lookup_ins_table_64_correct>>rw[]>>simp[]
+QED
 
-val enc_line_hash_64_ls_correct = Q.prove(`
+Triviality enc_line_hash_64_ls_correct:
   ∀xs s.
   good_table_64 enc n s ∧ 0 < n ⇒
   ∃s'.
   enc_line_hash_64_ls enc skip_len n xs s =
   (M_success (MAP (enc_line enc skip_len) xs), s') ∧
-  good_table_64 enc n s'`,
+  good_table_64 enc n s'
+Proof
   Induct>>fs[enc_line_hash_64_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
   old_drule enc_line_hash_64_correct>>
   disch_then (qspec_then `h` assume_tac)>>rfs[]>>
   first_x_assum old_drule>>
-  rw[]>>simp[]);
+  rw[]>>simp[]
+QED
 
-val enc_sec_hash_64_ls_correct = Q.prove(`
+Triviality enc_sec_hash_64_ls_correct:
   ∀xs s.
   good_table_64 enc n s ∧ 0 < n ⇒
   ∃s'.
   enc_sec_hash_64_ls enc skip_len n xs s =
   (M_success (MAP (enc_sec enc skip_len) xs), s') ∧
-  good_table_64 enc n s'`,
+  good_table_64 enc n s'
+Proof
   Induct>>fs[enc_sec_hash_64_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
@@ -246,7 +262,8 @@ val enc_sec_hash_64_ls_correct = Q.prove(`
   simp[]>>
   disch_then(qspec_then`l` assume_tac)>>fs[]>>
   first_x_assum old_drule>>rw[]>>
-  simp[enc_sec_def]);
+  simp[enc_sec_def]
+QED
 
 Theorem enc_secs_64_correct:
   enc_secs_64 enc n xs =

@@ -5,9 +5,10 @@ open preamble mlstringTheory gcdTheory
 
 val _ = new_theory"mlint";
 
-val toChar_def = Define`
+Definition toChar_def:
   toChar digit = if digit < 10 then CHR (ORD #"0" + digit)
-  else CHR (ORD #"A" + digit - 10)`;
+  else CHR (ORD #"A" + digit - 10)
+End
 
 Theorem toChar_HEX:
    d < 16 ⇒ (toChar d = HEX d)
@@ -105,7 +106,9 @@ Proof
   simp [toString_def1, int_to_string_thm]
 QED
 
-val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;
+Definition num_to_str_def:
+  num_to_str (n:num) = toString (&n)
+End
 
 Overload toString = ``num_to_str``
 
@@ -116,10 +119,11 @@ Proof
 QED
 
 (* fromString Definitions *)
-val fromChar_unsafe_def = Define`
-  fromChar_unsafe char = ORD char - ORD #"0"`;
+Definition fromChar_unsafe_def:
+  fromChar_unsafe char = ORD char - ORD #"0"
+End
 
-val fromChar_def = Define`
+Definition fromChar_def:
   fromChar char =
     case char of
       | #"0" => SOME 0n
@@ -132,7 +136,8 @@ val fromChar_def = Define`
       | #"7" => SOME 7n
       | #"8" => SOME 8n
       | #"9" => SOME 9n
-      | _    => NONE`;
+      | _    => NONE
+End
 
 (* Equivalence between the safe and unsafe versions of fromChar *)
 Theorem fromChar_eq_unsafe:
@@ -143,17 +148,19 @@ Proof
   \\ fs [LE])
 QED
 
-val fromChars_range_unsafe_def = Define`
+Definition fromChars_range_unsafe_def:
   fromChars_range_unsafe l 0       str = 0 ∧
   fromChars_range_unsafe l (SUC n) str =
-    fromChars_range_unsafe l n str * 10 + fromChar_unsafe (strsub str (l + n))`;
+    fromChars_range_unsafe l n str * 10 + fromChar_unsafe (strsub str (l + n))
+End
 
-val fromChars_range_def = Define`
+Definition fromChars_range_def:
   fromChars_range l 0       str = SOME 0 ∧
   fromChars_range l (SUC n) str =
     let rest = OPTION_MAP ($* 10n) (fromChars_range l n str) and
         head = fromChar (strsub str (l + n))
-    in OPTION_MAP2 $+ rest head`;
+    in OPTION_MAP2 $+ rest head
+End
 
 Theorem fromChars_range_eq_unsafe:
    ∀str l r. EVERY isDigit str ∧ l + r <= STRLEN str ⇒
@@ -167,7 +174,7 @@ Proof
         , EVERY_EL]
 QED
 
-val fromChars_unsafe_def = tDefine "fromChars_unsafe" `
+Definition fromChars_unsafe_def:
   fromChars_unsafe 0 str = 0n ∧ (* Shouldn't happend *)
   fromChars_unsafe n str =
     if n ≤ padLen_DEC
@@ -175,11 +182,13 @@ val fromChars_unsafe_def = tDefine "fromChars_unsafe" `
     else let n'    = n - padLen_DEC;
              front = fromChars_unsafe n' str * maxSmall_DEC;
              back  = fromChars_range_unsafe n' padLen_DEC str
-         in front + back`
-(wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]);
+         in front + back
+Termination
+  wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]
+End
 val fromChars_unsafe_ind = theorem"fromChars_unsafe_ind"
 
-val fromChars_def = tDefine "fromChars" `
+Definition fromChars_def:
   fromChars 0 str = NONE ∧ (* Shouldn't happend *)
   fromChars n str =
     if n ≤ padLen_DEC
@@ -187,8 +196,10 @@ val fromChars_def = tDefine "fromChars" `
     else let n'    = n - padLen_DEC;
              front = OPTION_MAP ($* maxSmall_DEC) (fromChars n' str);
              back  = fromChars_range n' padLen_DEC str
-         in OPTION_MAP2 $+ front back`
-(wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]);
+         in OPTION_MAP2 $+ front back
+Termination
+  wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]
+End
 val fromChars_ind = theorem"fromChars_ind"
 
 Theorem fromChars_eq_unsafe:
@@ -208,16 +219,17 @@ Proof
   end
 QED
 
-val fromString_unsafe_def = Define`
+Definition fromString_unsafe_def:
   fromString_unsafe str =
     if strlen str = 0
     then 0i
     else if strsub str 0 = #"~"
       then ~&fromChars_unsafe (strlen str - 1)
                               (substring str 1 (strlen str - 1))
-      else &fromChars_unsafe (strlen str) str`;
+      else &fromChars_unsafe (strlen str) str
+End
 
-val fromString_def = Define`
+Definition fromString_def:
   fromString str =
     if strlen str = 0
     then (NONE : int option)
@@ -230,13 +242,15 @@ val fromString_def = Define`
       then OPTION_MAP $&
              (fromChars (strlen str - 1)
                         (substring str 1 (strlen str - 1)))
-      else OPTION_MAP $& (fromChars (strlen str) str)`;
+      else OPTION_MAP $& (fromChars (strlen str) str)
+End
 
-val fromNatString_def = Define `
+Definition fromNatString_def:
   fromNatString str =
     case fromString str of
       NONE => NONE
-    | SOME i => if 0 <= i then SOME (Num i) else NONE`;
+    | SOME i => if 0 <= i then SOME (Num i) else NONE
+End
 
 (* fromString auxiliar lemmas *)
 Theorem fromChars_range_unsafe_0_substring_thm:
@@ -366,8 +380,8 @@ Proof
   \\ metis_tac[fromChars_range_lemma,EVERY_DEF]
 QED
 
-val fromString_eq_unsafe = save_thm("fromString_eq_unsafe",
-  fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]);
+Theorem fromString_eq_unsafe =
+  fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]
 
 Theorem fromString_toString_Num:
    0 ≤ n ⇒ fromString (strlit (num_to_dec_string (Num n))) = SOME n
@@ -524,9 +538,10 @@ Proof
 QED
 
 (* this formulation avoids a comparsion using = for better performance *)
-val int_cmp_def = Define `
+Definition int_cmp_def:
   int_cmp i (j:int) = if i < j then LESS else
-                      if j < i then GREATER else EQUAL`
+                      if j < i then GREATER else EQUAL
+End
 
 Definition num_gcd_def:
   num_gcd a b = if a = 0n then b else num_gcd (b MOD a) a

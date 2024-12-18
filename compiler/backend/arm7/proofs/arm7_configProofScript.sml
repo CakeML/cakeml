@@ -8,14 +8,15 @@ open blastLib;
 
 val _ = new_theory"arm7_configProof";
 
-val is_arm7_machine_config_def = Define`
+Definition is_arm7_machine_config_def:
   is_arm7_machine_config mc ⇔
   mc.target = arm7_target ∧
   mc.len_reg = 1  ∧
   mc.ptr_reg = 0 ∧
   mc.len2_reg = 3  ∧
   mc.ptr2_reg = 2 ∧
-  mc.callee_saved_regs = [8;10;11]`;
+  mc.callee_saved_regs = [8;10;11]
+End
 
 val _ = computeLib.add_funs [arm7_names_def];
 
@@ -79,7 +80,7 @@ QED
 
 val is_arm7_machine_config_mc = arm7_init_ok |> concl |> dest_imp |> #1
 
-val arm7_compile_correct =
+Theorem arm7_compile_correct =
   compile_correct
   |> Q.GENL[`c`,`mc`]
   |> Q.ISPECL[`arm7_backend_config`, `^(rand is_arm7_machine_config_mc)`]
@@ -87,6 +88,5 @@ val arm7_compile_correct =
   |> SIMP_RULE (srw_ss()) [arm7_backend_config_ok,UNDISCH arm7_machine_config_ok,UNDISCH arm7_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
-  |> curry save_thm"arm7_compile_correct";
 
 val _ = export_theory();

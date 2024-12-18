@@ -116,10 +116,11 @@ Termination
   \\ fs [dest_handle_Let_def,handle_size_non_zero]
 End
 
-val SmartLet_def = Define `
-  SmartLet xs x = if NULL xs then x else Let xs x`
+Definition SmartLet_def:
+  SmartLet xs x = if NULL xs then x else Let xs x
+End
 
-val LetLet_def = Define `
+Definition LetLet_def:
   LetLet env_length fvs (body:bvl$exp) =
     let xs = GENLIST I env_length in
     let zs = FILTER (\n. IS_SOME (lookup n fvs)) xs in
@@ -127,14 +128,16 @@ val LetLet_def = Define `
     let long_list = GENLIST (\n. dtcase ALOOKUP ys n of
                                  | NONE => Op (Const 0) []
                                  | SOME k => Var k) env_length in
-      Let (MAP Var zs) (SmartLet long_list body)`;
+      Let (MAP Var zs) (SmartLet long_list body)
+End
 
-val OptionalLetLet_def = Define `
+Definition OptionalLetLet_def:
   OptionalLetLet e env_size live s (limit:num) (nr:bool) =
     if s < limit then ([e],live,s,nr) else
       let fvs = db_to_set live in
       let flat_live = vars_from_list (MAP FST (toAList fvs)) in
-        ([(Let [] (LetLet env_size fvs e))],flat_live,0n,nr)`;
+        ([(Let [] (LetLet env_size fvs e))],flat_live,0n,nr)
+End
 
 Definition OptionalLetLet_sing_def:
   OptionalLetLet_sing e env_size live s (limit:num) (nr:bool) =
@@ -151,7 +154,7 @@ Proof
   rw[OptionalLetLet_def, OptionalLetLet_sing_def]
 QED
 
-val compile_def = tDefine "compile" `
+Definition compile_def:
   (compile l n [] = ([]:bvl$exp list,Empty,0n,T)) /\
   (compile l n (x::y::xs) =
      let (dx,lx,s1,nr1) = compile l n [x] in
@@ -194,8 +197,10 @@ val compile_def = tDefine "compile" `
        ([Tick (HD y)],lx,s1,nr1)) /\
   (compile l n [Call t dest xs] =
      let (ys,lx,s1,nr1) = compile l n xs in
-       OptionalLetLet (Call t dest ys) n lx (s1+1) l F)`
- (WF_REL_TAC `measure (bvl$exp1_size o SND o SND)`);
+       OptionalLetLet (Call t dest ys) n lx (s1+1) l F)
+Termination
+  WF_REL_TAC `measure (bvl$exp1_size o SND o SND)`
+End
 
 val compile_ind = theorem"compile_ind";
 
@@ -256,9 +261,10 @@ Proof
   Cases_on `es` >> gvs[compile_def]
 QED
 
-val compile_exp_def = Define `
+Definition compile_exp_def:
   compile_exp cut_size arity e =
-    HD (FST (compile cut_size arity [handle_simp (bvl_const$compile_exp e)]))`;
+    HD (FST (compile cut_size arity [handle_simp (bvl_const$compile_exp e)]))
+End
 
 Theorem compile_exp_eq:
   compile_exp cut_size arity e =
@@ -283,7 +289,7 @@ Proof
   >> fs[dest_Seq_def]
 QED
 
-val compile_seqs_def = tDefine "compile_seqs" `
+Definition compile_seqs_def:
   compile_seqs cut_size e acc =
     dtcase dest_Seq e of
     | NONE => (let new_e = compile_exp cut_size 0 e in
@@ -292,17 +298,20 @@ val compile_seqs_def = tDefine "compile_seqs" `
                  | SOME rest => Let [new_e] (Let [] (Let [] rest)))
     | SOME (e1,e2) =>
         compile_seqs cut_size e1
-          (SOME (compile_seqs cut_size e2 acc))`
-  ((WF_REL_TAC ` measure (\(c,e,a). exp_size e) `
+          (SOME (compile_seqs cut_size e2 acc))
+Termination
+  (WF_REL_TAC ` measure (\(c,e,a). exp_size e) `
     \\ strip_tac \\ HO_MATCH_MP_TAC (fetch "-" "dest_Seq_ind")
-    \\ fs [dest_Seq_def] \\ EVAL_TAC \\ fs []):tactic);
+    \\ fs [dest_Seq_def] \\ EVAL_TAC \\ fs []):tactic
+End
 
-val compile_any_def = Define `
+Definition compile_any_def:
   compile_any split_seq cut_size arity e =
     if (arity = 0) /\ split_seq then
       compile_seqs cut_size e NONE
     else
-      compile_exp cut_size arity e`;
+      compile_exp cut_size arity e
+End
 
 Theorem compile_length[simp]:
    !l n xs. LENGTH (FST (compile l n xs)) = LENGTH xs
@@ -320,13 +329,13 @@ Proof
   \\ Cases_on `dx` \\ fs [LENGTH_NIL]
 QED
 
-val compile_seqs_compute = save_thm("compile_seqs_compute",
+Theorem compile_seqs_compute =
   LIST_CONJ [
     compile_seqs_def
     |> Q.SPECL [`e`,`c`,`NONE`]
     |> SIMP_RULE std_ss [LET_THM],
     compile_seqs_def
     |> Q.SPECL [`e`,`c`,`SOME y`]
-    |> SIMP_RULE std_ss [LET_THM]]);
+    |> SIMP_RULE std_ss [LET_THM]]
 
 val _ = export_theory();

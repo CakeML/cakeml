@@ -47,34 +47,46 @@ val _ = start_translation config;
 
 (* Monadic translations *)
 
-val test1_def = Define `test1 x =
+Definition test1_def:
+  test1 x =
   do
       y <- get_ref1;
       return (x + y)
-  od`;
+  od
+End
 val test1_v_thm = test1_def |> m_translate;
 
-val test2_def = Define `test2 n =
+Definition test2_def:
+  test2 n =
   do
       x <- rarray1_sub n;
       return x
-  od`;
+  od
+End
 val test2_v_thm = test2_def |> m_translate;
 
-val test3_def = Define `test3 n =
+Definition test3_def:
+  test3 n =
   do
       x <- farray1_sub n;
       return x
-  od`;
+  od
+End
 val test3_v_thm = test3_def |> m_translate;
 
-val test4_def = Define `test4 n x = update_rarray1 n x`;
+Definition test4_def:
+  test4 n x = update_rarray1 n x
+End
 val test4_v_thm = test4_def |> m_translate;
 
-val test5_def = Define `test5 n x = update_farray1 n x`;
+Definition test5_def:
+  test5 n x = update_farray1 n x
+End
 val test5_v_thm = test5_def |> m_translate;
 
-val test6_def = Define `test6 n x = alloc_rarray1 n x`;
+Definition test6_def:
+  test6 n x = alloc_rarray1 n x
+End
 val test6_v_thm = test6_def |> m_translate;
 
 (* ... *)

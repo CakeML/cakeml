@@ -64,7 +64,7 @@ Proof
   fs[op_requires_names_eqn]
 QED
 
-val iAssign_def = Define `
+Definition iAssign_def:
   iAssign n1 op vs live env =
     if op_requires_names op then
       let xs = SOME (list_to_num_set (vs++live++env)) in
@@ -78,7 +78,8 @@ val iAssign_def = Define `
       let k = op_space_req op (LENGTH vs) in
         if k = 0 then Assign n1 op vs NONE
           else Seq (MakeSpace k (list_to_num_set (vs++live++env)))
-                   (Assign n1 op vs NONE)`;
+                   (Assign n1 op vs NONE)
+End
 
 val _ = Parse.hide"tail";
 
@@ -207,12 +208,14 @@ Proof
   \\ gvs [compile_def]
 QED
 
-val compile_LESS_EQ_lemma = Q.prove(
-  `!n env tail live xs.
-      n <= SND (SND (compile n env tail live xs))`,
+Triviality compile_LESS_EQ_lemma:
+  !n env tail live xs.
+      n <= SND (SND (compile n env tail live xs))
+Proof
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC
+QED
 
 Theorem compile_LESS_EQ:
    !n env tail live xs c vs new_var.
@@ -222,12 +225,14 @@ Proof
   \\ FULL_SIMP_TAC std_ss []
 QED
 
-val compile_LENGTH_lemma = Q.prove(
-  `!n env tail live xs.
-      (LENGTH (FST (SND (compile n env tail live xs))) = LENGTH xs)`,
+Triviality compile_LENGTH_lemma:
+  !n env tail live xs.
+      (LENGTH (FST (SND (compile n env tail live xs))) = LENGTH xs)
+Proof
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []);
+  \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []
+QED
 
 Theorem compile_LENGTH:
    !n env tail live xs c vs new_var.
@@ -247,8 +252,9 @@ QED
 
 (* combine dataLang optimisations *)
 
-val optimise_def = Define `
-  optimise prog = data_space$compile (simp (FST (data_live$compile prog LN)) Skip)`;
+Definition optimise_def:
+  optimise prog = data_space$compile (simp (FST (data_live$compile prog LN)) Skip)
+End
 
 (* the top-level compiler includes the optimisations, because the correctness
    proofs are combined *)

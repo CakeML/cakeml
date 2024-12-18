@@ -16,13 +16,14 @@ val gc_state_component_equality = DB.fetch "gc_shared" "gc_state_component_equal
 (* Copying GC which moves references to the end of the heap. This
    implementation is a pre-stage to the generational GC. *)
 
-val _ = Datatype `
+Datatype:
   gen_gc_conf =
     <| limit : num
      ; isRef : 'a -> bool
-     |>`;
+     |>
+End
 
-val gc_move_def = Define `
+Definition gc_move_def:
   (gc_move conf state (Data d) = (Data d, state)) /\
   (gc_move conf state (Pointer ptr d) =
      case heap_lookup ptr state.heap of
@@ -43,7 +44,8 @@ val gc_move_def = Define `
           let a = state.a + l + 1 in
             (Pointer state.a d
             ,state with <| h2 := h2; n := n; a := a; heap := heap; ok := ok |>)
-     | _ => (Pointer ptr d, state with <| ok := F |>))`;
+     | _ => (Pointer ptr d, state with <| ok := F |>))
+End
 
 
 val gc_move_IMP = prove(
@@ -68,12 +70,13 @@ val gc_move_IMP = prove(
   \\ fs []
   \\ rw [IS_SUFFIX_compute]);
 
-val gc_move_list_def = Define `
+Definition gc_move_list_def:
   (gc_move_list conf state [] = ([], state)) /\
   (gc_move_list conf state (x::xs) =
     let (x,state) = gc_move conf state x in
     let (xs,state) = gc_move_list conf state xs in
-      (x::xs,state))`;
+      (x::xs,state))
+End
 
 Theorem gc_move_list_IMP:
    !xs xs' state state'.
@@ -99,7 +102,7 @@ Proof
   \\ metis_tac [IS_PREFIX_TRANS]
 QED
 
-val gc_move_data_def = tDefine "gc_move_data"  `
+Definition gc_move_data_def:
   (gc_move_data conf state =
     case state.h2 of
     | [] => state
@@ -112,14 +115,16 @@ val gc_move_data_def = tDefine "gc_move_data"  `
          let h2 = TL state.h2 in
          let ok = state.ok /\ state.h2 <> [] /\ (HD state.h2 = h) in
            gc_move_data conf (state with <| h1 := h1; h2 := h2; ok := ok |>)
-       | _ => state with <| ok := F |>)`
-  (WF_REL_TAC `measure (\(conf,state). conf.limit - heap_length state.h1)`
+       | _ => state with <| ok := F |>)
+Termination
+  WF_REL_TAC `measure (\(conf,state). conf.limit - heap_length state.h1)`
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
   \\ imp_res_tac (GSYM gc_move_list_IMP)
   \\ fs []
-  \\ decide_tac)
+  \\ decide_tac
+End
 
-val gc_move_refs_def = tDefine "gc_move_refs" `
+Definition gc_move_refs_def:
   (* maybe more refs (r4 could have more) *)
   gc_move_refs conf state =
     case state.r2 of
@@ -130,14 +135,16 @@ val gc_move_refs_def = tDefine "gc_move_refs" `
         let (xs,state) = gc_move_list conf state xs in
         let r3 = state.r3 ++ [DataElement xs l d] in
           gc_move_refs conf (state with <| r2 := r2; r3 := r3 |>)
-      | _ => state with <| ok := F |>`
-  (WF_REL_TAC `measure (\(conf,state). heap_length state.r2)`
+      | _ => state with <| ok := F |>
+Termination
+  WF_REL_TAC `measure (\(conf,state). heap_length state.r2)`
   \\ rw [heap_length_def,el_length_def,SUM_APPEND]
-  \\ decide_tac);
+  \\ decide_tac
+End
 
 (* The main gc loop *)
 (* Runs a clock to simplify the termination argument *)
-val gc_move_loop_def = Define `
+Definition gc_move_loop_def:
   gc_move_loop conf state (clock :num) =
     case state.r4 of
     | [] =>
@@ -150,9 +157,10 @@ val gc_move_loop_def = Define `
     | (h::r4) =>
       let state = gc_move_refs conf (state with <| r2 := state.r4; r4 := [] |>) in
       if clock = 0 then state with <| ok := F |>
-      else gc_move_loop conf state (clock-1)`;
+      else gc_move_loop conf state (clock-1)
+End
 
-val gen_gc_def = Define `
+Definition gen_gc_def:
   gen_gc conf (roots,heap) =
     let state = empty_state
         with <| heap := heap
@@ -160,11 +168,12 @@ val gen_gc_def = Define `
               ; ok := (heap_length heap = conf.limit) |> in
     let (roots,state) = gc_move_list conf state roots in
     let state = gc_move_loop conf state conf.limit in
-      (roots,state)`;
+      (roots,state)
+End
 
 (* Do we point to something that is fully processed? I.e. all children
 are also copied. *)
-val is_final_def = Define `
+Definition is_final_def:
   is_final conf state ptr =
     let h1end = heap_length (state.h1) in
     let r3start = state.a + state.n + heap_length state.r4 in
@@ -172,9 +181,10 @@ val is_final_def = Define `
     let r1start = r3end + heap_length state.r2 in
     ptr < h1end \/
     r1start <= ptr \/
-    (r3start <= ptr /\ ptr < r3end)`;
+    (r3start <= ptr /\ ptr < r3end)
+End
 
-val gc_inv_def = Define `
+Definition gc_inv_def:
   gc_inv conf state (heap0:('a, 'b) heap_element list)
                     (roots0:'a heap_address list) =
     let heap' = state.h1 ++ state.h2 ++
@@ -215,7 +225,8 @@ val gc_inv_def = Define `
         reachable_addresses roots0 heap0 i /\
         !ptr d.
           MEM (Pointer ptr d) xs /\ is_final conf state j ==>
-          ptr IN FDOM (heap_map 0 state.heap)`;
+          ptr IN FDOM (heap_map 0 state.heap)
+End
 
 val full_simp = full_simp_tac std_ss
 
@@ -1557,11 +1568,11 @@ Proof
   \\ full_simp_tac std_ss []
 QED
 
-val heap_lookup_IMP_heap_addresses = save_thm("heap_lookup_IMP_heap_addresses",
-    heap_lookup_IMP_heap_addresses_GEN
+Theorem heap_lookup_IMP_heap_addresses =
+  heap_lookup_IMP_heap_addresses_GEN
       |> Q.SPECL [`xs`,`0`]
       |> SIMP_RULE std_ss []
-      |> GEN_ALL);
+      |> GEN_ALL
 
 val heap_lookup_AND_APPEND_IMP = prove(
   ``!xs n ys d d1.

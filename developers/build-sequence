@@ -94,6 +94,12 @@ pancake/semantics
 pancake/parser
 pancake/proofs
 
+# dafny compiler
+compiler/dafny
+compiler/dafny/translation
+compiler/dafny/compilation
+compiler/dafny/semantics
+
 # examples and tests
 characteristic/examples
 tutorial/solutions
@@ -104,13 +110,12 @@ examples/compilation/x64
 examples/compilation/x64/proofs
 examples/compilation/ag32
 examples/compilation/ag32/proofs
-examples/compilation/to_word
-# examples/cost
 examples/lpr_checker
 examples/lpr_checker/array
 examples/lpr_checker/array/compilation
 examples/lpr_checker/array/compilation/proofs
 examples/lpr_checker/array/compilation/proofsARM8
+.
 
 examples/xlrup_checker
 examples/xlrup_checker/array

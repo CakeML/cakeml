@@ -27,11 +27,6 @@ Defines basic arithmetic operations like +,-,*,/, and FMA,
 logical operations <, <=, >, >=, and =
 and to-/fromString functions for parsing and pretty-printing constants
 
-[DoubleProofScript.sml](DoubleProofScript.sml):
-Proofs that the to-/fromString functions in the Double
-module correctly produce a string representation from a double,
-and vice versa assuming that the FFI is implemented correctly.
-
 [HashtableProgScript.sml](HashtableProgScript.sml):
 A module about hash tables for the CakeML standard basis library.
 

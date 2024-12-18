@@ -3,7 +3,7 @@
   starting point for further translations.
 *)
 
-open preamble astTheory libTheory semanticPrimitivesTheory whileTheory;
+open preamble astTheory semanticPrimitivesTheory whileTheory;
 open evaluateTheory ml_translatorLib ml_translatorTheory ml_progLib;
 
 val _ = new_theory "std_prelude";
@@ -40,8 +40,9 @@ val res = translate UPDATE_def;
 
 (* arithmetic *)
 
-val EXP_AUX_def = Define `
-  EXP_AUX m n k = if n = 0 then k else EXP_AUX m (n-1:num) (m * k:num)`;
+Definition EXP_AUX_def:
+  EXP_AUX m n k = if n = 0 then k else EXP_AUX m (n-1:num) (m * k:num)
+End
 
 val EXP_AUX_THM = Q.prove(
   `!n k. EXP_AUX m n (m**k) = m**(k+n)`,
@@ -52,6 +53,7 @@ val EXP_AUX_THM = Q.prove(
 
 val _ = next_ml_names := ["exp"];
 val res = translate EXP_AUX_def;
+
 val _ = next_ml_names := ["exp"];
 val res = translate EXP_AUX_THM; (* tailrec version of EXP *)
 
@@ -60,14 +62,17 @@ val res = translate MAX_DEF;
 val res = translate arithmeticTheory.EVEN_MOD2;
 val res = translate (REWRITE_RULE [EVEN_MOD2,DECIDE ``~(n = 0) = (0 < n:num)``] ODD_EVEN);
 val res = translate FUNPOW;
+
 val res = translate ABS_DIFF_def;
-val res = translate (DECIDE ``PRE n = n-1``);
+
+val res = translate (DECIDE ``PRE n = n-1`` |> REWRITE_RULE [GSYM sub_check_def]);
 
 (* while, owhile and least *)
 
-val IS_SOME_OWHILE_THM = Q.prove(
-  `!g f x. (IS_SOME (OWHILE g f x)) =
-            ?n. ~ g (FUNPOW f n x) /\ !m. m < n ==> g (FUNPOW f m x)`,
+Triviality IS_SOME_OWHILE_THM:
+  !g f x. (IS_SOME (OWHILE g f x)) =
+            ?n. ~ g (FUNPOW f n x) /\ !m. m < n ==> g (FUNPOW f m x)
+Proof
   REPEAT STRIP_TAC THEN Cases_on `OWHILE g f x`
   THEN FULL_SIMP_TAC (srw_ss()) [OWHILE_EQ_NONE]
   THEN FULL_SIMP_TAC std_ss [OWHILE_def]
@@ -75,7 +80,8 @@ val IS_SOME_OWHILE_THM = Q.prove(
   THEN (Q.INST [`P`|->`\n. ~g (FUNPOW f n x)`] FULL_LEAST_INTRO
       |> SIMP_RULE std_ss [] |> IMP_RES_TAC)
   THEN ASM_SIMP_TAC std_ss [] THEN REPEAT STRIP_TAC
-  THEN IMP_RES_TAC LESS_LEAST THEN FULL_SIMP_TAC std_ss []);
+  THEN IMP_RES_TAC LESS_LEAST THEN FULL_SIMP_TAC std_ss []
+QED
 
 Theorem WHILE_ind:
    !P. (!p g x. (p x ==> P p g (g x)) ==> P p g x) ==>
@@ -91,7 +97,8 @@ Proof
   THEN METIS_TAC [FUNPOW]
 QED
 
-val OWHILE_ind = save_thm("OWHILE_ind",WHILE_ind);
+Theorem OWHILE_ind =
+  WHILE_ind
 
 val _ = add_preferred_thy "-";
 
@@ -105,15 +112,19 @@ Proof
 SIMP_TAC std_ss [FUN_EQ_THM,ADD1]
 QED
 
-val LEAST_LEMMA = Q.prove(
-  `$LEAST P = WHILE (\x. ~(P x)) (\x. x + 1) 0`,
-  SIMP_TAC std_ss [LEAST_DEF,o_DEF,SUC_LEMMA]);
+Triviality LEAST_LEMMA:
+  $LEAST P = WHILE (\x. ~(P x)) (\x. x + 1) 0
+Proof
+  SIMP_TAC std_ss [LEAST_DEF,o_DEF,SUC_LEMMA]
+QED
 
 val res = translate LEAST_LEMMA;
 
-val FUNPOW_LEMMA = Q.prove(
-  `!n m. FUNPOW (\x. x + 1) n m = n + m`,
-  Induct THEN FULL_SIMP_TAC std_ss [FUNPOW,ADD1,AC ADD_COMM ADD_ASSOC]);
+Triviality FUNPOW_LEMMA:
+  !n m. FUNPOW (\x. x + 1) n m = n + m
+Proof
+  Induct THEN FULL_SIMP_TAC std_ss [FUNPOW,ADD1,AC ADD_COMM ADD_ASSOC]
+QED
 
 val least_side_thm = Q.prove(
   `!s. least_side s = ~(s = {})`,

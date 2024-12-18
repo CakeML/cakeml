@@ -11,7 +11,7 @@ val _ = new_theory "clos_ticks";
 
 val _ = set_grammar_ancestry ["closLang"]
 
-val remove_ticks_def = tDefine "remove_ticks" `
+Definition remove_ticks_def:
   (remove_ticks [] = []) /\
   (remove_ticks ((x:closLang$exp)::y::xs) =
      HD (remove_ticks [x]) :: remove_ticks (y::xs)) /\
@@ -38,12 +38,14 @@ val remove_ticks_def = tDefine "remove_ticks" `
      let new_fns = MAP (\(num_args, x). (num_args, HD (remove_ticks [x]))) fns in
      [Letrec t loc_opt vs new_fns (HD (remove_ticks [x1]))]) /\
   (remove_ticks [Fn t loc_opt vs num_args x1] =
-     [Fn t loc_opt vs num_args (HD (remove_ticks [x1]))])`
- (WF_REL_TAC `measure exp3_size`
+     [Fn t loc_opt vs num_args (HD (remove_ticks [x1]))])
+Termination
+  WF_REL_TAC `measure exp3_size`
   \\ simp []
   \\ rpt strip_tac
   \\ imp_res_tac exp1_size_lemma
-  \\ simp []);
+  \\ simp []
+End
 
 Definition remove_ticks_sing_def:
   (remove_ticks_sing (Var t v) = (Var t v)) /\
@@ -104,7 +106,8 @@ Proof
   Cases_on `es` >> gvs[remove_ticks_def, remove_ticks_sing_def]
 QED
 
-val compile_inc_def = Define `
-  compile_inc (e, xs) = (remove_ticks e, [])`;
+Definition compile_inc_def:
+  compile_inc (e, xs) = (remove_ticks e, [])
+End
 
 val _ = export_theory();

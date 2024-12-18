@@ -15,7 +15,7 @@ all: cake-$(ARCH)-$(WORD_SIZE).tar.gz cake.S cake
 
 #was: http://www.cse.chalmers.se/~myreen/cake-$(ARCH)-$(WORD_SIZE).tar.gz
 cake-$(ARCH)-$(WORD_SIZE).tar.gz:
-	curl -O https://people.mpi-sws.org/~hbecker/files/cake-$(ARCH)-$(WORD_SIZE).tar.gz
+	curl -LO https://github.com/CakeML/cakeml/releases/latest/download/cake-$(ARCH)-$(WORD_SIZE).tar.gz
 
 cake.S: cake-$(ARCH)-$(WORD_SIZE).tar.gz
 	tar -xvzf cake-$(ARCH)-$(WORD_SIZE).tar.gz --strip-components 1

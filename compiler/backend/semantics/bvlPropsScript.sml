@@ -39,7 +39,8 @@ val case_eq_thms = LIST_CONJ
    ``:closLang$op``,``:'a ffi_result``])
 val case_eq_thms = CONJ bool_case_eq (CONJ pair_case_eq case_eq_thms)
 
-val _ = save_thm ("case_eq_thms", case_eq_thms);
+Theorem case_eq_thms =
+  case_eq_thms
 
 val do_app_split_list = prove(
   ``do_app op vs s = res
@@ -48,23 +49,25 @@ val do_app_split_list = prove(
     ?v vs1. vs = v::vs1 /\ do_app op (v::vs1) s = res``,
   Cases_on `vs` \\ fs []);
 
-val pair_lam_lem = Q.prove (
-`!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
- srw_tac[][]);
+Triviality pair_lam_lem:
+  !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
+Proof
+  srw_tac[][]
+QED
 
-val do_app_cases_val = save_thm ("do_app_cases_val",
+Theorem do_app_cases_val =
   ``do_app op vs s = Rval (v,s')`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV));
+   ALL_CONV)
 
-val do_app_cases_err = save_thm ("do_app_cases_err",
-``do_app op vs s = Rerr err`` |>
+Theorem do_app_cases_err =
+  ``do_app op vs s = Rerr err`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV));
+   ALL_CONV)
 
 Theorem do_app_Rval_swap:
    do_app op a (s1:('a,'b) bvlSem$state) = Rval (x0,x1) /\ op <> Install /\
@@ -214,7 +217,8 @@ val evaluate_LENGTH = Q.prove(
   \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) [])
   |> SIMP_RULE std_ss [];
 
-val _ = save_thm("evaluate_LENGTH", evaluate_LENGTH);
+Theorem evaluate_LENGTH =
+  evaluate_LENGTH
 
 Theorem evaluate_IMP_LENGTH:
    (evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)
@@ -419,8 +423,9 @@ Proof
   THEN1 (split_tac `evaluate (xs,env,s1)`)
 QED
 
-val inc_clock_def = Define `
-  inc_clock ck s = s with clock := s.clock + ck`;
+Definition inc_clock_def:
+  inc_clock ck s = s with clock := s.clock + ck
+End
 
 Theorem inc_clock_code:
    !n ^s. (inc_clock n s).code = s.code
@@ -597,25 +602,33 @@ Proof
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]
 QED
 
-val do_app_inc_clock = Q.prove(
-  `do_app op vs (inc_clock x y) =
-   map_result (λ(v,s). (v,s with clock := x + y.clock)) I (do_app op vs y)`,
+Triviality do_app_inc_clock:
+  do_app op vs (inc_clock x y) =
+   map_result (λ(v,s). (v,s with clock := x + y.clock)) I (do_app op vs y)
+Proof
   Cases_on`do_app op vs y` >>
   imp_res_tac do_app_change_clock_err >>
   TRY(Cases_on`a`>>imp_res_tac do_app_change_clock) >>
-  full_simp_tac(srw_ss())[inc_clock_def] >> simp[])
+  full_simp_tac(srw_ss())[inc_clock_def] >> simp[]
+QED
 
-val dec_clock_1_inc_clock = Q.prove(
-  `x ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock (x-1) s`,
-  simp[state_component_equality,inc_clock_def,dec_clock_def])
+Triviality dec_clock_1_inc_clock:
+  x ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock (x-1) s
+Proof
+  simp[state_component_equality,inc_clock_def,dec_clock_def]
+QED
 
-val dec_clock_1_inc_clock2 = Q.prove(
-  `s.clock ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock x (dec_clock 1 s)`,
-  simp[state_component_equality,inc_clock_def,dec_clock_def])
+Triviality dec_clock_1_inc_clock2:
+  s.clock ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock x (dec_clock 1 s)
+Proof
+  simp[state_component_equality,inc_clock_def,dec_clock_def]
+QED
 
-val dec_clock_inc_clock = Q.prove(
-  `¬(s.clock < n) ⇒ dec_clock n (inc_clock x s) = inc_clock x (dec_clock n s)`,
-  simp[state_component_equality,inc_clock_def,dec_clock_def])
+Triviality dec_clock_inc_clock:
+  ¬(s.clock < n) ⇒ dec_clock n (inc_clock x s) = inc_clock x (dec_clock n s)
+Proof
+  simp[state_component_equality,inc_clock_def,dec_clock_def]
+QED
 
 Theorem evaluate_add_to_clock_io_events_mono:
    ∀exps env s extra.
@@ -641,12 +654,13 @@ Proof
             inc_clock_ffi,dec_clock_ffi]
 QED
 
-val take_drop_lem = Q.prove (
-  `!skip env.
+Triviality take_drop_lem:
+  !skip env.
     skip < LENGTH env ∧
     skip + SUC n ≤ LENGTH env ∧
     DROP skip env ≠ [] ⇒
-    EL skip env::TAKE n (DROP (1 + skip) env) = TAKE (n + 1) (DROP skip env)`,
+    EL skip env::TAKE n (DROP (1 + skip) env) = TAKE (n + 1) (DROP skip env)
+Proof
   Induct_on `n` >>
   srw_tac[][TAKE1, HD_DROP] >>
   `skip + SUC n ≤ LENGTH env` by decide_tac >>
@@ -659,7 +673,8 @@ val take_drop_lem = Q.prove (
   `n + (1 + skip) < LENGTH env` by decide_tac >>
   `(n+1) + skip < LENGTH env` by decide_tac >>
   srw_tac[][EL_DROP] >>
-  srw_tac [ARITH_ss] []);
+  srw_tac [ARITH_ss] []
+QED
 
 Theorem evaluate_genlist_vars:
    !skip env n st.
@@ -742,14 +757,16 @@ Proof
   \\ imp_res_tac do_build_SUBSET \\ fs [SUBSET_DEF]
 QED
 
-val evaluate_refs_SUBSET_lemma = Q.prove(
-  `!xs env s. FDOM s.refs SUBSET FDOM (SND (evaluate (xs,env,s))).refs`,
+Triviality evaluate_refs_SUBSET_lemma:
+  !xs env s. FDOM s.refs SUBSET FDOM (SND (evaluate (xs,env,s))).refs
+Proof
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ REV_FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC SUBSET_TRANS
   \\ full_simp_tac(srw_ss())[dec_clock_def] \\ full_simp_tac(srw_ss())[]
-  \\ IMP_RES_TAC do_app_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF]);
+  \\ IMP_RES_TAC do_app_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF]
+QED
 
 Theorem evaluate_refs_SUBSET:
    (evaluate (xs,env,s) = (res,t)) ==> FDOM s.refs SUBSET FDOM t.refs
@@ -757,20 +774,23 @@ Proof
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_refs_SUBSET_lemma) \\ full_simp_tac(srw_ss())[]
 QED
 
-val get_vars_def = Define `
+Definition get_vars_def:
   (get_vars [] env = SOME []) /\
   (get_vars (n::ns) env =
      if n < LENGTH env then
        (case get_vars ns env of
         | NONE => NONE
         | SOME vs => SOME (EL n env :: vs))
-     else NONE)`
+     else NONE)
+End
 
-val isVar_def = Define `
-  (isVar ((Var n):bvl$exp) = T) /\ (isVar _ = F)`;
+Definition isVar_def:
+  (isVar ((Var n):bvl$exp) = T) /\ (isVar _ = F)
+End
 
-val destVar_def = Define `
-  (destVar ((Var n):bvl$exp) = n)`;
+Definition destVar_def:
+  (destVar ((Var n):bvl$exp) = n)
+End
 
 Theorem evaluate_Var_list:
    !l. EVERY isVar l ==>
@@ -785,7 +805,7 @@ Proof
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[destVar_def]
 QED
 
-val bVarBound_def = tDefine "bVarBound" `
+Definition bVarBound_def:
   (bVarBound n [] <=> T) /\
   (bVarBound n ((x:bvl$exp)::y::xs) <=>
      bVarBound n [x] /\ bVarBound n (y::xs)) /\
@@ -799,12 +819,14 @@ val bVarBound_def = tDefine "bVarBound" `
   (bVarBound n [Op op xs] <=> bVarBound n xs) /\
   (bVarBound n [Handle x1 x2] <=>
      bVarBound n [x1] /\ bVarBound (n + 1) [x2]) /\
-  (bVarBound n [Call ticks dest xs] <=> bVarBound n xs)`
-  (WF_REL_TAC `measure (exp1_size o SND)`
+  (bVarBound n [Call ticks dest xs] <=> bVarBound n xs)
+Termination
+  WF_REL_TAC `measure (exp1_size o SND)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+End
 
-val bEvery_def = tDefine "bEvery" `
+Definition bEvery_def:
   (bEvery P [] <=> T) /\
   (bEvery P ((x:bvl$exp)::y::xs) <=>
      bEvery P [x] /\ bEvery P (y::xs)) /\
@@ -818,10 +840,12 @@ val bEvery_def = tDefine "bEvery" `
   (bEvery P [Op op xs] <=> P (Op op xs) /\ bEvery P xs) /\
   (bEvery P [Handle x1 x2] <=> P (Handle x1 x2) /\
      bEvery P [x1] /\ bEvery P [x2]) /\
-  (bEvery P [Call ticks dest xs] <=> P (Call ticks dest xs) /\ bEvery P xs)`
-  (WF_REL_TAC `measure (exp1_size o SND)`
+  (bEvery P [Call ticks dest xs] <=> P (Call ticks dest xs) /\ bEvery P xs)
+Termination
+  WF_REL_TAC `measure (exp1_size o SND)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+End
 
 val _ = export_rewrites["bEvery_def","bVarBound_def"];
 
@@ -839,23 +863,25 @@ Proof
   Cases_on`ls`>>simp[]
 QED
 
-val get_code_labels_def = tDefine"get_code_labels"
-  `(get_code_labels (bvl$Var _) = {}) ∧
-   (get_code_labels (If e1 e2 e3) = get_code_labels e1 ∪ get_code_labels e2 ∪ get_code_labels e3) ∧
-   (get_code_labels (Let es e) = BIGUNION (set (MAP get_code_labels es)) ∪ get_code_labels e) ∧
-   (get_code_labels (Raise e) = get_code_labels e) ∧
-   (get_code_labels (Handle e1 e2) = get_code_labels e1 ∪ get_code_labels e2) ∧
-   (get_code_labels (Tick e) = get_code_labels e) ∧
-   (get_code_labels (Call _ d es) = (case d of NONE => {} | SOME n => {n}) ∪ BIGUNION (set (MAP get_code_labels es))) ∧
-   (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))`
-  (wf_rel_tac`measure exp_size`
-   \\ simp[bvlTheory.exp_size_def]
-   \\ rpt conj_tac \\ rpt gen_tac
-   \\ Induct_on`es`
-   \\ rw[bvlTheory.exp_size_def]
-   \\ simp[] \\ res_tac \\ simp[]);
-val get_code_labels_def =
-  get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp,compute,allow_rebind]"
+Definition get_code_labels_def:
+  (get_code_labels (bvl$Var _) = {}) ∧
+  (get_code_labels (If e1 e2 e3) = get_code_labels e1 ∪ get_code_labels e2 ∪ get_code_labels e3) ∧
+  (get_code_labels (Let es e) = BIGUNION (set (MAP get_code_labels es)) ∪ get_code_labels e) ∧
+  (get_code_labels (Raise e) = get_code_labels e) ∧
+  (get_code_labels (Handle e1 e2) = get_code_labels e1 ∪ get_code_labels e2) ∧
+  (get_code_labels (Tick e) = get_code_labels e) ∧
+  (get_code_labels (Call _ d es) = (case d of NONE => {} | SOME n => {n}) ∪ BIGUNION (set (MAP get_code_labels es))) ∧
+  (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))
+Termination
+  wf_rel_tac`measure exp_size`
+  \\ simp[bvlTheory.exp_size_def]
+  \\ rpt conj_tac \\ rpt gen_tac
+  \\ Induct_on`es`
+  \\ rw[bvlTheory.exp_size_def]
+  \\ simp[] \\ res_tac \\ simp[]
+End
+Theorem get_code_labels_def[simp,compute,allow_rebind] =
+  get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[]
 
 Theorem mk_tick_code_labels[simp]:
    !n x. get_code_labels (mk_tick n x) = get_code_labels x

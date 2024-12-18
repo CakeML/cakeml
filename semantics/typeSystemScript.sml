@@ -2,7 +2,7 @@
   Specification of CakeML's type system.
 *)
 open HolKernel Parse boolLib bossLib;
-open (* libTheory *) fpValTreeTheory astTheory namespaceTheory semanticPrimitivesTheory;
+open fpValTreeTheory astTheory namespaceTheory semanticPrimitivesTheory;
 
 val _ = numLib.temp_prefer_num();
 
@@ -25,109 +25,142 @@ End
 
 
 (* Some abbreviations *)
-val _ = Define `
- ((Tarray_num:num) : type_ident= (( 0 : num)))`;
+Definition Tarray_num_def:
+ ((Tarray_num:num) : type_ident= (( 0 : num)))
+End
 
-val _ = Define `
- ((Tbool_num:num) : type_ident= (( 1 : num)))`;
+Definition Tbool_num_def:
+ ((Tbool_num:num) : type_ident= (( 1 : num)))
+End
 
-val _ = Define `
- ((Tchar_num:num) : type_ident= (( 2 : num)))`;
+Definition Tchar_num_def:
+ ((Tchar_num:num) : type_ident= (( 2 : num)))
+End
 
-val _ = Define `
- ((Texn_num:num) : type_ident= (( 3 : num)))`;
+Definition Texn_num_def:
+ ((Texn_num:num) : type_ident= (( 3 : num)))
+End
 
-val _ = Define `
- ((Tfn_num:num) : type_ident= (( 4 : num)))`;
+Definition Tfn_num_def:
+ ((Tfn_num:num) : type_ident= (( 4 : num)))
+End
 
-val _ = Define `
- ((Tint_num:num) : type_ident= (( 5 : num)))`;
+Definition Tint_num_def:
+ ((Tint_num:num) : type_ident= (( 5 : num)))
+End
 
-val _ = Define `
- ((Tlist_num:num) : type_ident= (( 6 : num)))`;
+Definition Tlist_num_def:
+ ((Tlist_num:num) : type_ident= (( 6 : num)))
+End
 
-val _ = Define `
- ((Tref_num:num) : type_ident= (( 7 : num)))`;
+Definition Tref_num_def:
+ ((Tref_num:num) : type_ident= (( 7 : num)))
+End
 
-val _ = Define `
- ((Tstring_num:num) : type_ident= (( 8 : num)))`;
+Definition Tstring_num_def:
+ ((Tstring_num:num) : type_ident= (( 8 : num)))
+End
 
-val _ = Define `
- ((Ttup_num:num) : type_ident= (( 9 : num)))`;
+Definition Ttup_num_def:
+ ((Ttup_num:num) : type_ident= (( 9 : num)))
+End
 
-val _ = Define `
- ((Tvector_num:num) : type_ident= (( 10 : num)))`;
+Definition Tvector_num_def:
+ ((Tvector_num:num) : type_ident= (( 10 : num)))
+End
 
-val _ = Define `
- ((Tword64_num:num) : type_ident= (( 11 : num)))`;
+Definition Tword64_num_def:
+ ((Tword64_num:num) : type_ident= (( 11 : num)))
+End
 
-val _ = Define `
- ((Tword8_num:num) : type_ident= (( 12 : num)))`;
+Definition Tword8_num_def:
+ ((Tword8_num:num) : type_ident= (( 12 : num)))
+End
 
-val _ = Define `
- ((Tword8array_num:num) : type_ident= (( 13 : num)))`;
+Definition Tword8array_num_def:
+ ((Tword8array_num:num) : type_ident= (( 13 : num)))
+End
 
-val _ = Define `
- ((Tdouble_num:num) : type_ident= (( 14 : num)))`;
+Definition Tdouble_num_def:
+ ((Tdouble_num:num) : type_ident= (( 14 : num)))
+End
 
-val _ = Define `
- ((Treal_num:num) : type_ident= (( 15 : num)))`;
+Definition Treal_num_def:
+ ((Treal_num:num) : type_ident= (( 15 : num)))
+End
 
 
 (* The numbers for the primitive types *)
-val _ = Define `
+Definition prim_type_nums_def:
  ((prim_type_nums:(num)list)=
    ([Tarray_num; Tchar_num; Texn_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
-   Tvector_num; Tword64_num; Tword8_num; Tword8array_num; Tdouble_num; Treal_num]))`;
+   Tvector_num; Tword64_num; Tword8_num; Tword8array_num; Tdouble_num; Treal_num]))
+End
 
 
-val _ = Define `
- ((Tarray:t -> t) t=  (Tapp [t] Tarray_num))`;
+Definition Tarray_def:
+ ((Tarray:t -> t) t=  (Tapp [t] Tarray_num))
+End
 
-val _ = Define `
- ((Tbool:t)=  (Tapp [] Tbool_num))`;
+Definition Tbool_def:
+ ((Tbool:t)=  (Tapp [] Tbool_num))
+End
 
-val _ = Define `
- ((Tchar:t)=  (Tapp [] Tchar_num))`;
+Definition Tchar_def:
+ ((Tchar:t)=  (Tapp [] Tchar_num))
+End
 
-val _ = Define `
- ((Texn:t)=  (Tapp [] Texn_num))`;
+Definition Texn_def:
+ ((Texn:t)=  (Tapp [] Texn_num))
+End
 
-val _ = Define `
- ((Tfn:t -> t -> t) t1 t2=  (Tapp [t1;t2] Tfn_num))`;
+Definition Tfn_def:
+ ((Tfn:t -> t -> t) t1 t2=  (Tapp [t1;t2] Tfn_num))
+End
 
-val _ = Define `
- ((Tint:t)=  (Tapp [] Tint_num))`;
+Definition Tint_def:
+ ((Tint:t)=  (Tapp [] Tint_num))
+End
 
-val _ = Define `
- ((Tlist:t -> t) t=  (Tapp [t] Tlist_num))`;
+Definition Tlist_def:
+ ((Tlist:t -> t) t=  (Tapp [t] Tlist_num))
+End
 
-val _ = Define `
- ((Tref:t -> t) t=  (Tapp [t] Tref_num))`;
+Definition Tref_def:
+ ((Tref:t -> t) t=  (Tapp [t] Tref_num))
+End
 
-val _ = Define `
- ((Tstring:t)=  (Tapp [] Tstring_num))`;
+Definition Tstring_def:
+ ((Tstring:t)=  (Tapp [] Tstring_num))
+End
 
-val _ = Define `
- ((Ttup:(t)list -> t) ts=  (Tapp ts Ttup_num))`;
+Definition Ttup_def:
+ ((Ttup:(t)list -> t) ts=  (Tapp ts Ttup_num))
+End
 
-val _ = Define `
- ((Tvector:t -> t) t=  (Tapp [t] Tvector_num))`;
+Definition Tvector_def:
+ ((Tvector:t -> t) t=  (Tapp [t] Tvector_num))
+End
 
-val _ = Define `
- ((Tword64:t)=  (Tapp [] Tword64_num))`;
+Definition Tword64_def:
+ ((Tword64:t)=  (Tapp [] Tword64_num))
+End
 
-val _ = Define `
- ((Tword8:t)=  (Tapp [] Tword8_num))`;
+Definition Tword8_def:
+ ((Tword8:t)=  (Tapp [] Tword8_num))
+End
 
-val _ = Define `
- ((Tword8array:t)=  (Tapp [] Tword8array_num))`;
+Definition Tword8array_def:
+ ((Tword8array:t)=  (Tapp [] Tword8array_num))
+End
 
-val _ = Define `
- ((Tdouble:t)=  (Tapp [] Tdouble_num))`;
+Definition Tdouble_def:
+ ((Tdouble:t)=  (Tapp [] Tdouble_num))
+End
 
-val _ = Define `
- ((Treal:t)=  (Tapp [] Treal_num))`;
+Definition Treal_def:
+ ((Treal:t)=  (Tapp [] Treal_num))
+End
 
 
 (* Check that the free type variables are in the given list. Every deBruijn
@@ -223,22 +256,23 @@ End
 
 
 (*val bind_tvar : nat -> tenv_val_exp -> tenv_val_exp*)
-val _ = Define `
- ((bind_tvar:num -> tenv_val_exp -> tenv_val_exp) tvs tenvE=  (if tvs =( 0 : num) then tenvE else Bind_tvar tvs tenvE))`;
+Definition bind_tvar_def:
+ ((bind_tvar:num -> tenv_val_exp -> tenv_val_exp) tvs tenvE=  (if tvs =( 0 : num) then tenvE else Bind_tvar tvs tenvE))
+End
 
 
 (*val opt_bind_name : maybe varN -> nat -> t -> tenv_val_exp -> tenv_val_exp*)
-val _ = Define `
+Definition opt_bind_name_def:
  ((opt_bind_name:(string)option -> num -> t -> tenv_val_exp -> tenv_val_exp) n tvs t tenvE=
    ((case n of
       NONE => tenvE
     | SOME n' => Bind_name n' tvs t tenvE
-  )))`;
+  )))
+End
 
 
 (*val tveLookup : varN -> nat -> tenv_val_exp -> maybe (nat * t)*)
- val _ = Define `
-
+Definition tveLookup_def:
 ((tveLookup:string -> num -> tenv_val_exp ->(num#t)option) n inc Empty=  NONE)
 /\
 ((tveLookup:string -> num -> tenv_val_exp ->(num#t)option) n inc (Bind_tvar tvs tenvE)=  (tveLookup n (inc + tvs) tenvE))
@@ -247,7 +281,8 @@ val _ = Define `
    (if n' = n then
     SOME (tvs, deBruijn_inc tvs inc t)
   else
-    tveLookup n inc tenvE))`;
+    tveLookup n inc tenvE))
+End
 
 
 Type tenv_abbrev = ``: (modN, typeN, ( tvarN list # t)) namespace``
@@ -264,48 +299,51 @@ End
 
 
 (*val extend_dec_tenv : type_env -> type_env -> type_env*)
-val _ = Define `
+Definition extend_dec_tenv_def:
  ((extend_dec_tenv:type_env -> type_env -> type_env) tenv' tenv=
    (<| v := (nsAppend tenv'.v tenv.v);
      c := (nsAppend tenv'.c tenv.c);
-     t := (nsAppend tenv'.t tenv.t) |>))`;
+     t := (nsAppend tenv'.t tenv.t) |>))
+End
 
 
 (*val lookup_varE : id modN varN -> tenv_val_exp -> maybe (nat * t)*)
-val _ = Define `
+Definition lookup_varE_def:
  ((lookup_varE:((string),(string))id -> tenv_val_exp ->(num#t)option) id tenvE=
    ((case id of
     Short x => tveLookup x(( 0 : num)) tenvE
   | _ => NONE
-  )))`;
+  )))
+End
 
 
 (*val lookup_var : id modN varN -> tenv_val_exp -> type_env -> maybe (nat * t)*)
-val _ = Define `
+Definition lookup_var_def:
  ((lookup_var:((modN),(varN))id -> tenv_val_exp -> type_env ->(num#t)option) id tenvE tenv=
    ((case lookup_varE id tenvE of
     SOME x => SOME x
   | NONE => nsLookup tenv.v id
-  )))`;
+  )))
+End
 
 
 (*val num_tvs : tenv_val_exp -> nat*)
- val _ = Define `
-
+Definition num_tvs_def:
 ((num_tvs:tenv_val_exp -> num) Empty= (( 0 : num)))
 /\
 ((num_tvs:tenv_val_exp -> num) (Bind_tvar tvs tenvE)=  (tvs + num_tvs tenvE))
 /\
-((num_tvs:tenv_val_exp -> num) (Bind_name n tvs t tenvE)=  (num_tvs tenvE))`;
+((num_tvs:tenv_val_exp -> num) (Bind_name n tvs t tenvE)=  (num_tvs tenvE))
+End
 
 
 (*val bind_var_list : nat -> list (varN * t) -> tenv_val_exp -> tenv_val_exp*)
- val _ = Define `
-
+Definition bind_var_list_def:
 ((bind_var_list:num ->(string#t)list -> tenv_val_exp -> tenv_val_exp) tvs [] tenvE=  tenvE)
 /\
 ((bind_var_list:num ->(string#t)list -> tenv_val_exp -> tenv_val_exp) tvs ((n,t)::binds) tenvE=
-   (Bind_name n tvs t (bind_var_list tvs binds tenvE)))`;
+ (Bind_name n tvs t (bind_var_list tvs binds tenvE)))
+End
 
 
 (* A pattern matches values of a certain type and extends the type environment
@@ -337,7 +375,7 @@ val _ = Define `
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 (*val type_op : op -> list t -> t -> bool*)
-val _ = Define `
+Definition type_op_def:
  ((type_op:op ->(t)list -> t -> bool) op ts t=
    ((case (op,ts) of
       (Opapp, [t1; t2]) => t1 = Tfn t2 t
@@ -395,7 +433,8 @@ val _ = Define `
     | (FFI n, [t1;t2]) => (t1 = Tstring) /\ (t2 = Tword8array) /\ (t = Ttup [])
     | (ListAppend, [Tapp [t1] ctor; t2]) => (ctor = Tlist_num) /\ (t2 = Tapp [t1] ctor) /\ (t = t2)
     | _ => F
-  )))`;
+  )))
+End
 
 
 Definition check_type_names_def:
@@ -443,7 +482,7 @@ End
  * type are included in the type's type parameters. Also check that all of the
  * types mentioned are in scope. *)
 (*val check_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> bool*)
- val _ = Define `
+Definition check_ctor_tenv_def:
  ((check_ctor_tenv:((modN),(typeN),((tvarN)list#t))namespace ->((tvarN)list#string#(conN#(ast_t)list)list)list -> bool) tenvT []=  T)
 /\ ((check_ctor_tenv:((modN),(typeN),((tvarN)list#t))namespace ->((tvarN)list#string#(conN#(ast_t)list)list)list -> bool) tenvT ((tvs,tn,ctors)::tds)=
    (check_dup_ctors (tvs,tn,ctors) /\
@@ -453,11 +492,12 @@ End
     ctors /\
   ~ (MEM tn (MAP (\p .
   (case (p ) of ( (_,tn,_) ) => tn )) tds)) /\
-  check_ctor_tenv tenvT tds))`;
+  check_ctor_tenv tenvT tds))
+End
 
 
 (*val build_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> list nat -> tenv_ctor*)
- val _ = Define `
+Definition build_ctor_tenv_def:
  (build_ctor_tenv tenvT [] []=  (alist_to_ns []))
 /\ (build_ctor_tenv tenvT ((tvs,tn,ctors)::tds) (id::ids)=
    (nsAppend
@@ -467,7 +507,8 @@ End
         (MAP
           (\ (cn,ts) .  (cn,(tvs,MAP (type_name_subst tenvT) ts, id)))
           ctors)))))
-/\ (build_ctor_tenv tenvT _ _=  (alist_to_ns []))`;
+/\ (build_ctor_tenv tenvT _ _=  (alist_to_ns []))
+End
 
 
 (* For the value restriction on let-based polymorphism *)
@@ -729,34 +770,38 @@ type_funs tenv tenvE ((fn, n, e)::funs) ((fn, Tfn t1 t2)::bindings))
 End
 
 (*val tenv_add_tvs : nat -> alist varN t -> alist varN (nat * t)*)
-val _ = Define `
+Definition tenv_add_tvs_def:
  ((tenv_add_tvs:num ->(string#t)list ->(string#(num#t))list) tvs bindings=
-   (MAP (\ (n,t) .  (n,(tvs,t))) bindings))`;
+   (MAP (\ (n,t) .  (n,(tvs,t))) bindings))
+End
 
 
 (*val type_pe_determ : type_env -> tenv_val_exp -> pat -> exp -> bool*)
-val _ = Define `
+Definition type_pe_determ_def:
  ((type_pe_determ:type_env -> tenv_val_exp -> pat -> exp -> bool) tenv tenvE p e=
    (! t1 tenv1 t2 tenv2.
     (type_p(( 0 : num)) tenv p t1 tenv1 /\ type_e tenv tenvE e t1 /\
     type_p(( 0 : num)) tenv p t2 tenv2 /\ type_e tenv tenvE e t2)
     ==>
-    (tenv1 = tenv2)))`;
+    (tenv1 = tenv2)))
+End
 
 
 (*val tscheme_inst : (nat * t) -> (nat * t) -> bool*)
-val _ = Define `
+Definition tscheme_inst_def:
  ((tscheme_inst:num#t -> num#t -> bool) (tvs_spec, t_spec) (tvs_impl, t_impl)=
    (? subst.
     (LENGTH subst = tvs_impl) /\
     check_freevars tvs_impl [] t_impl /\
     EVERY (check_freevars tvs_spec []) subst /\
-    (deBruijn_subst(( 0 : num)) subst t_impl = t_spec)))`;
+    (deBruijn_subst(( 0 : num)) subst t_impl = t_spec)))
+End
 
 
-val _ = Define `
+Definition tenvLift_def:
  ((tenvLift:string -> type_env -> type_env) mn tenv=
-   (<| v := (nsLift mn tenv.v); c := (nsLift mn tenv.c); t := (nsLift mn tenv.t)  |>))`;
+   (<| v := (nsLift mn tenv.v); c := (nsLift mn tenv.c); t := (nsLift mn tenv.t)  |>))
+End
 
 
 Inductive type_d:
@@ -956,15 +1001,17 @@ let weak_tenvT n (tvs_spec, t_spec) (tvs_impl, t_impl) =
    t_spec = Tapp (List.map Tvar tvs_spec) (TC_name n))
    *)
 
-val _ = Define `
- ((tscheme_inst2:'a -> num#t -> num#t -> bool) _ ts1 ts2=  (tscheme_inst ts1 ts2))`;
+Definition tscheme_inst2_def:
+ ((tscheme_inst2:'a -> num#t -> num#t -> bool) _ ts1 ts2=  (tscheme_inst ts1 ts2))
+End
 
 
 (*val weak_tenv : type_env -> type_env -> bool*)
-val _ = Define `
+Definition weak_tenv_def:
  ((weak_tenv:type_env -> type_env -> bool) tenv_impl tenv_spec=
    (nsSub tscheme_inst2 tenv_spec.v tenv_impl.v /\
-  nsSub (\i x y .  (case (i ,x ,y ) of ( _ , x , y ) => x = y )) tenv_spec.c tenv_impl.c))`;
+  nsSub (\i x y .  (case (i ,x ,y ) of ( _ , x , y ) => x = y )) tenv_spec.c tenv_impl.c))
+End
 (* &&
   nsSub weak_tenvT tenv_spec.t tenv_impl.t*)
 

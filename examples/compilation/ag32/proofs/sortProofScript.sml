@@ -11,22 +11,24 @@ open preamble
 
 val _ = new_theory"sortProof";
 
-val sort_stdin_semantics = Q.prove(
-  `∃io_events.
-     semantics_prog (init_state (basis_ffi [strlit"sort"] (stdin_fs input))) init_env
-       sort_prog (Terminate Success io_events) ∧
-     (∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
-      (extract_fs (stdin_fs input) io_events =
-       SOME (add_stdout (fastForwardFD (stdin_fs input) 0) (concat output))))`,
+Theorem sort_stdin_semantics:
+  ∃io_events.
+    semantics_prog (init_state (basis_ffi [strlit"sort"] (stdin_fs input))) init_env
+      sort_prog (Terminate Success io_events) ∧
+    (∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
+     (extract_fs (stdin_fs input) io_events =
+      SOME (add_stdout (fastForwardFD (stdin_fs input) 0) (concat output))))
+Proof
   qspecl_then[`stdin_fs input`,`[strlit"sort"]`]mp_tac (GEN_ALL sort_semantics)
+  \\ simp [sort_compiled,ml_progTheory.prog_syntax_ok_semantics]
   \\ `stdin (stdin_fs input) input 0` by EVAL_TAC
   \\ drule TextIOProofTheory.stdin_get_file_content
   \\ rw[wfFS_stdin_fs, STD_streams_stdin_fs, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
   \\ asm_exists_tac \\ rw[]
   \\ fs[valid_sort_result_def, fsFFIPropsTheory.all_lines_def]
   \\ rfs[TextIOProofTheory.stdin_def]
-  \\ asm_exists_tac \\ simp[])
-  |> curry save_thm "sort_stdin_semantics";
+  \\ asm_exists_tac \\ simp[]
+QED
 
 val sort_io_events_def =
   new_specification("sort_io_events_def",["sort_io_events"],
@@ -35,7 +37,9 @@ val sort_io_events_def =
   |> SIMP_RULE std_ss [SKOLEM_THM]);
 
 val (sort_sem,sort_output) = sort_io_events_def |> SPEC_ALL |> CONJ_PAIR
-val (sort_not_fail,sort_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail sort_sem |> CONJ_PAIR
+val (sort_not_fail,sort_sem_sing) = sort_sem
+  |> SRULE [sort_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val ffinames_to_string_list_def = backendTheory.ffinames_to_string_list_def;
 
@@ -44,10 +48,10 @@ Theorem extcalls_ffi_names:
 Proof
   rewrite_tac [sort_compiled]
   \\ qspec_tac (‘info.lab_conf.ffi_names’,‘xs’) \\ Cases
-  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
   \\ Induct_on ‘x’
-  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
-  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
+  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
 QED
 
 val ffis = ffis_def |> CONV_RULE (RAND_CONV EVAL);
@@ -140,7 +144,7 @@ Proof
   \\ simp[]
 QED
 
-val sort_machine_sem =
+Theorem sort_machine_sem =
   compile_correct_applied
   |> C MATCH_MP (
       sort_installed
@@ -149,7 +153,6 @@ val sort_machine_sem =
        |> SIMP_RULE(srw_ss())[cline_size_def]
        |> UNDISCH)
   |> DISCH_ALL
-  |> curry save_thm "sort_machine_sem";
 
 (* TODO: theorems currently in ag32Bootstrap can make this shorter *)
 Theorem sort_extract_writes_stdout:
@@ -175,7 +178,7 @@ Proof
   \\ pop_assum mp_tac
   \\ simp[TextIOProofTheory.up_stdo_def]
   \\ simp[fsFFITheory.fsupdate_def, fsFFIPropsTheory.fastForwardFD_def]
-  \\ simp[stdin_fs_def, AFUPDKEY_ALOOKUP, libTheory.the_def]
+  \\ simp[stdin_fs_def, AFUPDKEY_ALOOKUP, miscTheory.the_def]
   \\ rw[]
   \\ drule (GEN_ALL extract_fs_extract_writes)
   \\ simp[AFUPDKEY_ALOOKUP]

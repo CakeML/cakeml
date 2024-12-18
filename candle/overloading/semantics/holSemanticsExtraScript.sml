@@ -17,15 +17,17 @@ val mem = ``mem:'U->'U->bool``
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
-val consts_of_term_RACONV = Q.prove(
-  `!env tt.
+Triviality consts_of_term_RACONV:
+  !env tt.
      RACONV env tt /\ welltyped(FST tt) /\ welltyped(SND tt)
      /\ (!x y. MEM (x,y) env ==> ?n ty n' ty'. x = Var n ty /\ y = Var n' ty')
-     ==> consts_of_term (FST tt) = consts_of_term (SND tt)`,
+     ==> consts_of_term (FST tt) = consts_of_term (SND tt)
+Proof
   simp[GSYM AND_IMP_INTRO]
   >> ho_match_mp_tac RACONV_strongind >> rpt strip_tac
   >> fs[consts_of_term_def,DISJ_IMP_THM]
-  >> fs[DISJ_IMP_THM]);
+  >> fs[DISJ_IMP_THM]
+QED
 
 Theorem consts_of_term_ACONV:
   ACONV a1 a2 /\ welltyped a1 /\ welltyped a2 ==> consts_of_term a1 = consts_of_term a2
@@ -33,16 +35,18 @@ Proof
   rw[ACONV_def] >> drule consts_of_term_RACONV >> simp[]
 QED
 
-val allTypes_RACONV = Q.prove(
-  `!env tt.
+Triviality allTypes_RACONV:
+  !env tt.
      RACONV env tt /\ welltyped(FST tt) /\ welltyped(SND tt)
      /\ (!x y. MEM (x,y) env ==> ?n ty n'. x = Var n ty /\ y = Var n' ty)
-     ==> allTypes (FST tt) = allTypes (SND tt)`,
+     ==> allTypes (FST tt) = allTypes (SND tt)
+Proof
   simp[GSYM AND_IMP_INTRO]
   >> ho_match_mp_tac RACONV_strongind >> rpt strip_tac
   >> fs[allTypes_def]
   >- (imp_res_tac ALPHAVARS_MEM >> fs[] >> first_x_assum drule >> simp[])
-  >- fs[DISJ_IMP_THM]);
+  >- fs[DISJ_IMP_THM]
+QED
 
 Theorem allTypes_ACONV:
   !t1 t2.
@@ -162,17 +166,21 @@ Proof
   >> metis_tac[]
 QED
 
-val typeof_VSUBST = Q.prove(
-  `!l a. EVERY (\(x,y). typeof x = typeof y) l /\ welltyped a
-    ==> typeof (VSUBST l a) = typeof a`,
+Triviality typeof_VSUBST:
+  !l a. EVERY (\(x,y). typeof x = typeof y) l /\ welltyped a
+    ==> typeof (VSUBST l a) = typeof a
+Proof
   Induct_on `a` >> rw[VSUBST_def]
   >- (rw[REV_ASSOCD_ALOOKUP] >> EVERY_CASE_TAC >> fs[] >> imp_res_tac ALOOKUP_MEM
       >> fs[EVERY_MEM,MEM_MAP] >> first_x_assum drule >> pairarg_tac >> fs[]
       >> rveq >> fs[])
   >> fs[dest_var_def]
-  >> first_x_assum match_mp_tac >> fs[EVERY_FILTER_IMP])
+  >> first_x_assum match_mp_tac >> fs[EVERY_FILTER_IMP]
+QED
 
-val TYPE_SUBST_tyvars = Q.prove(`!sigma ty. tyvars ty = [] ==> TYPE_SUBST sigma ty = ty`,
+Triviality TYPE_SUBST_tyvars:
+  !sigma ty. tyvars ty = [] ==> TYPE_SUBST sigma ty = ty
+Proof
   ho_match_mp_tac TYPE_SUBST_ind >> rpt strip_tac
   >> fs[tyvars_def]
   >> match_mp_tac LIST_EQ >> rw[]
@@ -188,11 +196,13 @@ val TYPE_SUBST_tyvars = Q.prove(`!sigma ty. tyvars ty = [] ==> TYPE_SUBST sigma 
   >> disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV List.rev))
   >> disch_then(mp_tac o CONV_RULE(SWAP_FORALL_CONV))
   >> disch_then(qspec_then `[]` mp_tac)
-  >> simp[] >> metis_tac[list_CASES,EL_MAP]);
+  >> simp[] >> metis_tac[list_CASES,EL_MAP]
+QED
 
-val TYPE_SUBST_2 = Q.prove(
-  `!sigma ty. EVERY (λty. tyvars ty = []) (MAP FST sigma)
-    ==> TYPE_SUBST sigma (TYPE_SUBST sigma ty) = TYPE_SUBST sigma ty`,
+Triviality TYPE_SUBST_2:
+  !sigma ty. EVERY (λty. tyvars ty = []) (MAP FST sigma)
+    ==> TYPE_SUBST sigma (TYPE_SUBST sigma ty) = TYPE_SUBST sigma ty
+Proof
   ho_match_mp_tac TYPE_SUBST_ind >> rpt strip_tac
   >- (fs[TYPE_SUBST_def] >> fs[REV_ASSOCD_ALOOKUP]
       >> PURE_TOP_CASE_TAC >> fs[]
@@ -205,7 +215,8 @@ val TYPE_SUBST_2 = Q.prove(
       >> Q.REFINE_EXISTS_TAC `(_,_)` >> simp[] >> metis_tac[])
   >> fs[TYPE_SUBST_def] >> match_mp_tac LIST_EQ
   >> rw[EL_MAP] >> drule EL_MEM
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
 Theorem fresh_vsubst:
   !t x ty tm. ~VFREE_IN (Var x ty) t ==> VSUBST [(tm,Var x ty)] t = t
@@ -228,15 +239,17 @@ Proof
       >> HINT_EXISTS_TAC >> simp[])
 QED
 
-val VSUBST_id_lemma = Q.prove(
-  `!tm ilist v. welltyped tm ==> VSUBST (ilist ++ [(Var x ty,Var x ty)]) tm = VSUBST ilist tm`,
+Triviality VSUBST_id_lemma:
+  !tm ilist v. welltyped tm ==> VSUBST (ilist ++ [(Var x ty,Var x ty)]) tm = VSUBST ilist tm
+Proof
   Induct >> rpt strip_tac
   >> fs[VSUBST_def,REV_ASSOCD_ALOOKUP]
   >- (rpt(PURE_TOP_CASE_TAC >> fs[]) >> fs[ALOOKUP_APPEND] >> rveq)
   >> Cases_on `Var x ty = Var n ty'`
   >> fs[FILTER_APPEND]
   >> PURE_ONCE_REWRITE_TAC [CONS_APPEND] >> PURE_ONCE_REWRITE_TAC [APPEND_ASSOC]
-  >> fs[]);
+  >> fs[]
+QED
 
 Theorem RACONV_TRANS_matchable:
   !env env2 env3 t1 t2 t3. RACONV env2 (t1,t2) /\ RACONV env3 (t2,t3) /\
@@ -266,11 +279,10 @@ Proof
   >> simp[MAP_ZIP,ZIP_MAP_FST_SND_EQ]
 QED
 
-val VSUBST_id =
+Theorem VSUBST_id =
   VSUBST_id_lemma
   |> CONV_RULE(SWAP_FORALL_CONV)
   |> Q.SPEC `[]` |> SIMP_RULE list_ss [VSUBST_NIL]
-  |> curry save_thm "VSUBST_id"
 
 Theorem NOT_VFREE_IN_VSUBST:
   !x ty v tm. ~VFREE_IN (Var x ty) tm /\ welltyped tm ==> VSUBST [(v,Var x ty)] tm = tm
@@ -467,15 +479,17 @@ Proof
   >> metis_tac[term_ok_def]
 QED
 
-val TYPE_SUBSTf_lemma = Q.prove(
-  `!ty sigma sigma'. (!tv. MEM tv (tyvars ty) ==> REV_ASSOCD (Tyvar tv) sigma' (Tyvar tv) = sigma tv) ==>
-  TYPE_SUBSTf sigma ty = TYPE_SUBST sigma' ty`,
+Triviality TYPE_SUBSTf_lemma:
+  !ty sigma sigma'. (!tv. MEM tv (tyvars ty) ==> REV_ASSOCD (Tyvar tv) sigma' (Tyvar tv) = sigma tv) ==>
+  TYPE_SUBSTf sigma ty = TYPE_SUBST sigma' ty
+Proof
   ho_match_mp_tac type_ind >> rpt strip_tac
   >- fs[tyvars_def]
   >> fs[tyvars_def,MEM_FOLDR_LIST_UNION,PULL_EXISTS]
   >> rw[MAP_EQ_f]
   >> fs[EVERY_MEM] >> rpt(first_x_assum drule) >> rpt strip_tac
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
 Theorem TYPE_SUBSTf_TYPE_SUBST:
   !ty sigma. ?sigma'. TYPE_SUBSTf sigma ty = TYPE_SUBST sigma' ty
@@ -883,8 +897,9 @@ Proof
   >> metis_tac[SUBSET_DEF]
 QED
 
-val equal_on_def = Define`
+Definition equal_on_def:
   equal_on (sig:sig) i i' ⇔
-  fleq (total_fragment sig,i) (total_fragment sig, i')`
+  fleq (total_fragment sig,i) (total_fragment sig, i')
+End
 
 val _ = export_theory()

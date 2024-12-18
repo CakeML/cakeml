@@ -9,6 +9,8 @@ val _ = new_theory"ListProg"
 
 val _ = translation_extends "OptionProg"
 
+val cakeml = append_prog o process_topdecs;
+
 val _ = ml_prog_update (open_module "List");
 
 val () = generate_sigs := true;
@@ -43,11 +45,12 @@ val res = translate flat_rev_def;
 
 (* New list-append translation *)
 val append_v_thm = trans "@" listSyntax.append_tm;
-val _ = save_thm("append_v_thm[allow_rebind]",append_v_thm);
+Theorem append_v_thm[allow_rebind] =
+  append_v_thm
 
 (* Old list-append translation *)
-(*val append_v_thm = translate APPEND;*)
-(*val _ = save_thm("append_v_thm",append_v_thm);*)
+(* val append_v_thm = translate APPEND; *)
+(* Theorem append_v_thm = append_v_thm *)
 
 val result = translate HD;
 val hd_side_def = Q.prove(
@@ -60,9 +63,16 @@ val result = translate TL_DEF;
 val result = translate LAST_DEF;
 
 val _ = next_ml_names := ["getItem"];
-val result = translate getItem_def;
+val result = translate mllistTheory.getItem_def;
 
-val result = translate (EL |> REWRITE_RULE[GSYM nth_def]);
+Triviality nth_thm:
+  mllist$nth l 0 = HD l ∧
+  mllist$nth l (SUC n) = mllist$nth (TL l) n
+Proof
+  gvs [mllistTheory.nth_def,listTheory.EL]
+QED
+
+val result = translate nth_thm;
 val nth_side_def = theorem"nth_side_def";
 
 val result = translate (TAKE_def |> REWRITE_RULE[GSYM take_def]);
@@ -106,10 +116,10 @@ val result = next_ml_names := ["mapi","mapPartial"];
 val result = translate MAPI_thm;
 val result = translate mapPartial_def;
 
-val app = process_topdecs`
+Quote cakeml:
   fun app f ls = case ls of [] => ()
-    | (x::xs) => (f x; app f xs)`;
-val _ = ml_prog_update(ml_progLib.add_prog app pick_name)
+    | (x::xs) => (f x; app f xs)
+End
 
 val result = translate FIND_thm;
 
@@ -143,7 +153,9 @@ val result = translate EVERY_DEF;
 val result = translate SNOC;
 
 val _ = ml_prog_update open_local_block;
+
 val result = translate GENLIST_AUX;
+
 val _ = ml_prog_update open_local_in_block;
 
 val result = next_ml_names := ["genlist"];
@@ -272,12 +284,13 @@ QED
 
 val result = translate UNZIP_eq;
 
-val result = translate PAD_RIGHT;
-val result = translate PAD_LEFT;
+val result = translate (PAD_RIGHT |> REWRITE_RULE [GSYM sub_check_def]);
+val result = translate (PAD_LEFT |> REWRITE_RULE [GSYM sub_check_def]);
 val result = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = next_ml_names := ["isPrefix"];
 val result = translate isPREFIX;
 val result = translate FRONT_DEF;
+
 val _ = next_ml_names := ["splitAtPki"];
 val result = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
 
@@ -308,7 +321,7 @@ val last_side_def = Q.prove(
 val nth_side_def = Q.prove(
   `!n xs. nth_side xs n = (n < LENGTH xs)`,
   Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "nth_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
+  THEN fs[CONTAINER_def])
   |> update_precondition;
 
 Theorem LUPDATE_ind:
@@ -399,12 +412,14 @@ val _ =  ml_prog_update (close_module NONE);
 
 val _ = ml_prog_update (open_module "Alist");
 
-val FMAP_EQ_ALIST_def = Define `
-  FMAP_EQ_ALIST f l <=> (ALOOKUP l = FLOOKUP f)`;
+Definition FMAP_EQ_ALIST_def:
+  FMAP_EQ_ALIST f l <=> (ALOOKUP l = FLOOKUP f)
+End
 
-val FMAP_TYPE_def = Define `
+Definition FMAP_TYPE_def:
   FMAP_TYPE (a:'a -> v -> bool) (b:'b -> v -> bool) (f:'a|->'b) =
-    \v. ?l. LIST_TYPE (PAIR_TYPE a b) l v /\ FMAP_EQ_ALIST f l`;
+    \v. ?l. LIST_TYPE (PAIR_TYPE a b) l v /\ FMAP_EQ_ALIST f l
+End
 
 val _ = add_type_inv ``FMAP_TYPE (a:'a -> v -> bool) (b:'b -> v -> bool)``
                      ``:('a # 'b) list``;
@@ -422,14 +437,18 @@ val Eval_FLOOKUP = Q.prove(
   |> add_user_proved_v_thm;
 
 val _ = next_ml_names := ["update"];
-val AUPDATE_def = Define `AUPDATE l (x:'a,y:'b) = (x,y)::l`;
+Definition AUPDATE_def:
+  AUPDATE l (x:'a,y:'b) = (x,y)::l
+End
 val AUPDATE_eval = translate AUPDATE_def;
 
-val FMAP_EQ_ALIST_UPDATE = Q.prove(
-  `FMAP_EQ_ALIST f l ==> FMAP_EQ_ALIST (FUPDATE f (x,y)) (AUPDATE l (x,y))`,
+Triviality FMAP_EQ_ALIST_UPDATE:
+  FMAP_EQ_ALIST f l ==> FMAP_EQ_ALIST (FUPDATE f (x,y)) (AUPDATE l (x,y))
+Proof
   SIMP_TAC (srw_ss()) [FMAP_EQ_ALIST_def,AUPDATE_def,ALOOKUP_def,FUN_EQ_THM,
     finite_mapTheory.FLOOKUP_DEF,finite_mapTheory.FAPPLY_FUPDATE_THM]
-  THEN METIS_TAC []);
+  THEN METIS_TAC []
+QED
 
 val Eval_FUPDATE = Q.prove(
   `!v. ((LIST_TYPE (PAIR_TYPE a b) -->
@@ -454,32 +473,41 @@ val Eval_FEMPTY = Q.prove(
   |> MATCH_MP (MATCH_MP Eval_WEAKEN NIL_eval)
   |> add_eval_thm;
 
-val AEVERY_AUX_def = Define `
+Definition AEVERY_AUX_def:
   (AEVERY_AUX aux P [] = T) /\
   (AEVERY_AUX aux P ((x:'a,y:'b)::xs) =
      if MEMBER x aux then AEVERY_AUX aux P xs else
-       P (x,y) /\ AEVERY_AUX (x::aux) P xs)`;
-val AEVERY_def = Define `AEVERY = AEVERY_AUX []`;
+       P (x,y) /\ AEVERY_AUX (x::aux) P xs)
+End
+Definition AEVERY_def:
+  AEVERY = AEVERY_AUX []
+End
 val _ = next_ml_names := ["every","every"];
 val _ = translate AEVERY_AUX_def;
 val AEVERY_eval = translate AEVERY_def;
 
-val AEVERY_AUX_THM = Q.prove(
-  `!l aux P. AEVERY_AUX aux P l <=>
-              !x y. (ALOOKUP l x = SOME y) /\ ~(MEM x aux) ==> P (x,y)`,
+Triviality AEVERY_AUX_THM:
+  !l aux P. AEVERY_AUX aux P l <=>
+              !x y. (ALOOKUP l x = SOME y) /\ ~(MEM x aux) ==> P (x,y)
+Proof
   Induct
   THEN FULL_SIMP_TAC std_ss [ALOOKUP_def,AEVERY_AUX_def,FORALL_PROD,
     MEM,GSYM MEMBER_INTRO] THEN REPEAT STRIP_TAC
-  THEN SRW_TAC [] [] THEN METIS_TAC [SOME_11]);
+  THEN SRW_TAC [] [] THEN METIS_TAC [SOME_11]
+QED
 
-val AEVERY_THM = Q.prove(
-  `AEVERY P l <=> !x y. (ALOOKUP l x = SOME y) ==> P (x,y)`,
-  SIMP_TAC (srw_ss()) [AEVERY_def,AEVERY_AUX_THM]);
+Triviality AEVERY_THM:
+  AEVERY P l <=> !x y. (ALOOKUP l x = SOME y) ==> P (x,y)
+Proof
+  SIMP_TAC (srw_ss()) [AEVERY_def,AEVERY_AUX_THM]
+QED
 
-val AEVERY_EQ_FEVERY = Q.prove(
-  `FMAP_EQ_ALIST f l ==> (AEVERY P l <=> FEVERY P f)`,
+Triviality AEVERY_EQ_FEVERY:
+  FMAP_EQ_ALIST f l ==> (AEVERY P l <=> FEVERY P f)
+Proof
   FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_def,FEVERY_DEF,AEVERY_THM]
-  THEN FULL_SIMP_TAC std_ss [FLOOKUP_DEF]);
+  THEN FULL_SIMP_TAC std_ss [FLOOKUP_DEF]
+QED
 
 val Eval_FEVERY = Q.prove(
   `!v. (((PAIR_TYPE (a:'a->v->bool) (b:'b->v->bool) --> BOOL) -->
@@ -494,21 +522,26 @@ val Eval_FEVERY = Q.prove(
   |> add_user_proved_v_thm;
 
 val _ = next_ml_names := ["map"];
-val AMAP_def = Define `
+Definition AMAP_def:
   (AMAP f [] = []) /\
-  (AMAP f ((x:'a,y:'b)::xs) = (x,(f y):'c) :: AMAP f xs)`;
+  (AMAP f ((x:'a,y:'b)::xs) = (x,(f y):'c) :: AMAP f xs)
+End
 val AMAP_eval = translate AMAP_def;
 
-val ALOOKUP_AMAP = Q.prove(
-  `!l. ALOOKUP (AMAP f l) a =
-        case ALOOKUP l a of NONE => NONE | SOME x => SOME (f x)`,
+Triviality ALOOKUP_AMAP:
+  !l. ALOOKUP (AMAP f l) a =
+        case ALOOKUP l a of NONE => NONE | SOME x => SOME (f x)
+Proof
   Induct THEN SIMP_TAC std_ss [AMAP_def,ALOOKUP_def,FORALL_PROD]
-  THEN SRW_TAC [] []);
+  THEN SRW_TAC [] []
+QED
 
-val FMAP_EQ_ALIST_o_f = Q.prove(
-  `FMAP_EQ_ALIST m l ==> FMAP_EQ_ALIST (x o_f m) (AMAP x l)`,
+Triviality FMAP_EQ_ALIST_o_f:
+  FMAP_EQ_ALIST m l ==> FMAP_EQ_ALIST (x o_f m) (AMAP x l)
+Proof
   SIMP_TAC std_ss [FMAP_EQ_ALIST_def,FUN_EQ_THM,FLOOKUP_DEF,
-    o_f_DEF,ALOOKUP_AMAP] THEN REPEAT STRIP_TAC THEN SRW_TAC [] []);
+    o_f_DEF,ALOOKUP_AMAP] THEN REPEAT STRIP_TAC THEN SRW_TAC [] []
+QED
 
 val Eval_o_f = Q.prove(
   `!v. (((b --> c) --> LIST_TYPE (PAIR_TYPE (a:'a->v->bool) (b:'b->v->bool)) -->
@@ -551,22 +584,27 @@ val Eval_FUNION = Q.prove(
   |> add_user_proved_v_thm;
 
 val _ = next_ml_names := ["delete"];
-val ADEL_def = Define `
+Definition ADEL_def:
   (ADEL [] z = []) /\
-  (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)`
+  (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)
+End
 val ADEL_eval = translate ADEL_def;
 
-val ALOOKUP_ADEL = Q.prove(
-  `!l a x. ALOOKUP (ADEL l a) x = if x = a then NONE else ALOOKUP l x`,
+Triviality ALOOKUP_ADEL:
+  !l a x. ALOOKUP (ADEL l a) x = if x = a then NONE else ALOOKUP l x
+Proof
   Induct THEN SRW_TAC [] [ALOOKUP_def,ADEL_def] THEN Cases_on `h`
-  THEN SRW_TAC [] [ALOOKUP_def,ADEL_def]);
+  THEN SRW_TAC [] [ALOOKUP_def,ADEL_def]
+QED
 
-val FMAP_EQ_ALIST_ADEL = Q.prove(
-  `!x l. FMAP_EQ_ALIST x l ==>
-          FMAP_EQ_ALIST (x \\ a) (ADEL l a)`,
+Triviality FMAP_EQ_ALIST_ADEL:
+  !x l. FMAP_EQ_ALIST x l ==>
+          FMAP_EQ_ALIST (x \\ a) (ADEL l a)
+Proof
   FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_def,ALOOKUP_def,fmap_domsub,FUN_EQ_THM]
   THEN REPEAT STRIP_TAC THEN SRW_TAC [] [ALOOKUP_ADEL,FLOOKUP_DEF,DRESTRICT_DEF]
-  THEN FULL_SIMP_TAC std_ss []);
+  THEN FULL_SIMP_TAC std_ss []
+QED
 
 val Eval_fmap_domsub = Q.prove(
   `!v. ((LIST_TYPE (PAIR_TYPE a b) --> a -->

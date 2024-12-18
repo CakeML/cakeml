@@ -21,7 +21,7 @@ Datatype:
   | Word64 word64
   | Block num (v list)
   | ByteVector (word8 list)
-  | RefPtr num
+  | RefPtr bool num
   | Closure (num option) (v list) (v list) num closLang$exp
   | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num
 End
@@ -43,14 +43,16 @@ End
 
 (* helper functions *)
 
-val get_global_def = Define `
+Definition get_global_def:
   get_global n globals =
-    if n < LENGTH globals then SOME (EL n globals) else NONE`
+    if n < LENGTH globals then SOME (EL n globals) else NONE
+End
 
-val Boolv_def = Define `
-  (Boolv b = Block (if b then true_tag else false_tag) [])`;
+Definition Boolv_def:
+  (Boolv b = Block (if b then true_tag else false_tag) [])
+End
 
-val do_eq_def = tDefine "do_eq" `
+Definition do_eq_def:
   (do_eq x y =
      case x of
      | Number i =>
@@ -71,9 +73,9 @@ val do_eq_def = tDefine "do_eq" `
          (case y of
           | ByteVector ds => Eq_val (cs = ds)
           | _ => Eq_type_error)
-     | RefPtr i =>
+     | RefPtr bi i =>
          (case y of
-          | RefPtr j => Eq_val (i = j)
+          | RefPtr bj j => (if bi ∧ bj then Eq_val (i = j) else Eq_type_error)
           | _ => Eq_type_error)
      | _ =>
          (case y of
@@ -81,18 +83,20 @@ val do_eq_def = tDefine "do_eq" `
           | Word64 _ => Eq_type_error
           | Block _ _ => Eq_type_error
           | ByteVector _ => Eq_type_error
-          | RefPtr _ => Eq_type_error
+          | RefPtr _ _ => Eq_type_error
           | _ => Eq_val T)) /\
   (do_eq_list [] [] = Eq_val T) /\
   (do_eq_list (x::xs) (y::ys) =
      case do_eq x y of
      | Eq_val T => do_eq_list xs ys
      | res => res) /\
-  (do_eq_list _ _ = Eq_val F)`
- (WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
-                                   | INR (vs,_) => v1_size vs)`)
+  (do_eq_list _ _ = Eq_val F)
+Termination
+  WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
+                                   | INR (vs,_) => v1_size vs)`
+End
 
-val v_to_list_def = Define`
+Definition v_to_list_def:
   (v_to_list (Block tag []) =
      if tag = nil_tag then SOME [] else NONE) ∧
   (v_to_list (Block tag [h;bt]) =
@@ -101,25 +105,29 @@ val v_to_list_def = Define`
         | SOME t => SOME (h::t)
         | _ => NONE )
      else NONE) ∧
-  (v_to_list _ = NONE)`
+  (v_to_list _ = NONE)
+End
 
-val list_to_v_def = Define `
+Definition list_to_v_def:
   list_to_v [] = Block nil_tag [] /\
   list_to_v (x::xs) = Block cons_tag [x; list_to_v xs]
-  `;
+End
 
-val Unit_def = Define`
-  Unit = Block tuple_tag []`
+Definition Unit_def:
+  Unit = Block tuple_tag []
+End
 
 Overload Error[local] =
   ``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state), closSem$v)result``
 
-val v_to_bytes_def = Define `
+Definition v_to_bytes_def:
   v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)`;
+                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+End
 
-val v_to_words_def = Define `
-  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)`;
+Definition v_to_words_def:
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)
+End
 
 val s = ``s:('c,'ffi)closSem$state``;
 
@@ -198,7 +206,7 @@ Definition do_app_def:
     | (ConsExtend tag,_) => Error
     | (El,[Block tag xs; Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
-    | (El,[RefPtr ptr; Number i]) =>
+    | (El,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
@@ -213,12 +221,12 @@ Definition do_app_def:
         | _ => Error)
     | (LengthBlock,[Block tag xs]) =>
         Rval (Number (&LENGTH xs), s)
-    | (Length,[RefPtr ptr]) =>
+    | (Length,[RefPtr _ ptr]) =>
         (case FLOOKUP s.refs ptr of
           | SOME (ValueArray xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
-    | (LengthByte,[RefPtr ptr]) =>
+    | (LengthByte,[RefPtr _ ptr]) =>
         (case FLOOKUP s.refs ptr of
           | SOME (ByteArray xs) =>
               Rval (Number (&LENGTH xs), s)
@@ -226,23 +234,23 @@ Definition do_app_def:
     | (RefByte F,[Number i;Number b]) =>
          if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-             Rval (RefPtr ptr, s with refs := s.refs |+
+             Rval (RefPtr T ptr, s with refs := s.refs |+
                (ptr,ByteArray (REPLICATE (Num i) (i2w b))))
          else Error
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
           let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-            Rval (RefPtr ptr, s with refs := s.refs |+
+            Rval (RefPtr T ptr, s with refs := s.refs |+
               (ptr,ValueArray (REPLICATE (Num i) v)))
          else Error
-    | (DerefByte,[RefPtr ptr; Number i]) =>
+    | (DerefByte,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
-    | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
+    | (UpdateByte,[RefPtr _ ptr; Number i; Number b]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
@@ -271,14 +279,14 @@ Definition do_app_def:
         (if 0 ≤ i ∧ i < &LENGTH bs then
            Rval (Number (&(w2n(EL (Num i) bs))), s)
          else Error)
-    | (CopyByte F,[ByteVector ws; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
+    | (CopyByte F,[ByteVector ws; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case FLOOKUP s.refs dst of
          | SOME (ByteArray ds) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
             | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds))
             | NONE => Error)
          | _ => Error)
-    | (CopyByte F,[RefPtr src; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
+    | (CopyByte F,[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
          | (SOME (ByteArray ws), SOME (ByteArray ds)) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
@@ -289,7 +297,7 @@ Definition do_app_def:
        (case copy_array (ws,srcoff) len NONE of
         | SOME ds => Rval (ByteVector ds, s)
         | _ => Error)
-    | (CopyByte T,[RefPtr src; Number srcoff; Number len]) =>
+    | (CopyByte T,[RefPtr _ src; Number srcoff; Number len]) =>
        (case FLOOKUP s.refs src of
         | SOME (ByteArray ws) =>
           (case copy_array (ws,srcoff) len NONE of
@@ -316,8 +324,8 @@ Definition do_app_def:
          | _ => Error)
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
-          Rval (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
-    | (Update,[RefPtr ptr; Number i; x]) =>
+          Rval (RefPtr T ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
+    | (Update,[RefPtr _ ptr; Number i; x]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
@@ -362,7 +370,7 @@ Definition do_app_def:
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
-    | (FFI n, [ByteVector conf; RefPtr ptr]) =>
+    | (FFI n, [ByteVector conf; RefPtr _ ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
            (case call_FFI s.ffi (ExtCall n) conf ws of
@@ -394,12 +402,12 @@ Definition do_app_def:
         Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
     | (BoundsCheckByte loose,[ByteVector bs; Number i]) =>
         Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH bs)),s)
-    | (BoundsCheckByte loose,[RefPtr ptr; Number i]) =>
+    | (BoundsCheckByte loose,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
              Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
          | _ => Error)
-    | (BoundsCheckArray,[RefPtr ptr; Number i]) =>
+    | (BoundsCheckArray,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray ws) =>
              Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
@@ -436,29 +444,34 @@ End
    fix_clock. At the bottom of this file, we remove all occurrences
    of fix_clock. *)
 
-val fix_clock_def = Define `
-  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)`
+Definition fix_clock_def:
+  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
+End
 
-val fix_clock_IMP = Q.prove(
-  `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
+Triviality fix_clock_IMP:
+  fix_clock s x = (res,s1) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
 (* The semantics of expression evaluation is defined next. For
    convenience of subsequent proofs, the evaluation function is
    defined to evaluate a list of clos_exp expressions. *)
 
-val check_loc_opt_def = Define `
+Definition check_loc_def:
   (check_loc (max_app:num) NONE loc num_params num_args so_far ⇔
     num_args ≤ max_app) /\
   (check_loc max_app (SOME p) loc num_params num_args so_far ⇔
-    num_params = num_args ∧ so_far = (0:num) ∧ SOME p = loc)`;
+    num_params = num_args ∧ so_far = (0:num) ∧ SOME p = loc)
+End
 
-val _ = Datatype `
+Datatype:
   app_kind =
     | Partial_app closSem$v
-    | Full_app closLang$exp (closSem$v list) (closSem$v list)`;
+    | Full_app closLang$exp (closSem$v list) (closSem$v list)
+End
 
-val dest_closure_def = Define `
+Definition dest_closure_def:
   dest_closure max_app loc_opt f args =
     case f of
     | Closure loc arg_env clo_env num_args exp =>
@@ -491,7 +504,8 @@ val dest_closure_def = Define `
                                (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
               else
                 SOME (Partial_app (Recclosure loc (args++arg_env) clo_env fns i))
-    | _ => NONE`;
+    | _ => NONE
+End
 
 Theorem dest_closure_length:
   ∀max_app loc_opt f args exp args1 args2 so_far.
@@ -512,15 +526,17 @@ Proof
   decide_tac
 QED
 
-val clos_env_def = Define `
+Definition clos_env_def:
   clos_env restrict names env =
-    if restrict then lookup_vars names env else SOME env`
+    if restrict then lookup_vars names env else SOME env
+End
 
-val build_recc_def = Define `
+Definition build_recc_def:
   build_recc restrict loc env names fns =
     case clos_env restrict names env of
     | SOME env1 => SOME (GENLIST (Recclosure loc [] env1 fns) (LENGTH fns))
-    | NONE => NONE`
+    | NONE => NONE
+End
 
 val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def}
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
@@ -542,7 +558,8 @@ val case_eq_thms = LIST_CONJ (CaseEq"const_part" :: map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, ref_thms,
    result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
 
-val _ = save_thm ("case_eq_thms", case_eq_thms);
+Theorem case_eq_thms =
+  case_eq_thms
 
 Theorem do_install_clock:
    do_install vs s = (Rval e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1
@@ -682,9 +699,8 @@ Termination
   \\ decide_tac
 End
 
-val evaluate_app_NIL = save_thm(
-  "evaluate_app_NIL[simp]",
-  ``evaluate_app loc v [] s`` |> SIMP_CONV (srw_ss()) [evaluate_def])
+Theorem evaluate_app_NIL[simp] =
+  ``evaluate_app loc v [] s`` |> SIMP_CONV (srw_ss()) [evaluate_def]
 
 (* We prove that the clock never increases. *)
 
@@ -701,11 +717,12 @@ Proof
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
 QED
 
-val evaluate_clock_help = Q.prove (
-  `(!tup vs (s2:('c,'ffi) closSem$state).
+Triviality evaluate_clock_help:
+  (!tup vs (s2:('c,'ffi) closSem$state).
       (evaluate tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
     (!loc_opt f args (s1:('c,'ffi) closSem$state) vs s2.
-      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)`,
+      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)
+Proof
   ho_match_mp_tac evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ FULL_SIMP_TAC std_ss [LET_THM] \\ BasicProvers.EVERY_CASE_TAC
@@ -715,7 +732,8 @@ val evaluate_clock_help = Q.prove (
   \\ IMP_RES_TAC fix_clock_IMP
   \\ IMP_RES_TAC do_app_const
   \\ IMP_RES_TAC do_install_clock_less_eq
-  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC);
+  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC
+QED
 
 Theorem evaluate_clock:
  (!xs env s1 vs s2.
@@ -744,7 +762,7 @@ Theorem evaluate_ind[allow_rebind] =
 
 (* observational semantics *)
 
-val initial_state_def = Define`
+Definition initial_state_def:
   initial_state ffi ma code co cc k = <|
     max_app := ma;
     clock := k;
@@ -754,9 +772,10 @@ val initial_state_def = Define`
     compile_oracle := co;
     globals := [];
     refs := FEMPTY
-  |>`;
+  |>
+End
 
-val semantics_def = Define`
+Definition semantics_def:
   semantics ffi ma code co cc es =
     let st = initial_state ffi ma code co cc in
       if ∃k. FST (evaluate (es,[],st k)) = Rerr (Rabort Rtype_error)
@@ -775,6 +794,7 @@ val semantics_def = Define`
          Diverge
            (build_lprefix_lub
              (IMAGE (λk. fromList
-                (SND (evaluate (es,[],st k))).ffi.io_events) UNIV))`;
+                (SND (evaluate (es,[],st k))).ffi.io_events) UNIV))
+End
 
 val _ = export_theory()

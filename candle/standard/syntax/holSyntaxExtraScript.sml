@@ -14,14 +14,14 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
 
-val type_ind = save_thm("type_ind",
+Theorem type_ind =
   TypeBase.induction_of``:holSyntax$type``
   |> Q.SPECL[`P`,`EVERY P`]
   |> SIMP_RULE std_ss [EVERY_DEF]
   |> UNDISCH_ALL
   |> CONJUNCT1
   |> DISCH_ALL
-  |> Q.GEN`P`)
+  |> Q.GEN`P`
 
 Theorem type1_size_append:
    ∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2
@@ -265,15 +265,15 @@ End
 
 val _ = Parse.add_infix("subtype",401,Parse.NONASSOC)
 Overload subtype =``RTC subtype1``
-val subtype_Tyvar = save_thm("subtype_Tyvar",
+Theorem subtype_Tyvar =
   ``ty subtype (Tyvar x)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subtype1_cases])
+      [Once relationTheory.RTC_CASES2,subtype1_cases]
 val _ = export_rewrites["subtype_Tyvar"]
-val subtype_Tyapp = save_thm("subtype_Tyapp",
+Theorem subtype_Tyapp =
   ``ty subtype (Tyapp name args)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subtype1_cases])
+      [Once relationTheory.RTC_CASES2,subtype1_cases]
 
 Theorem subtype_type_ok:
    ∀tysig ty1 ty2. type_ok tysig ty2 ∧ ty1 subtype ty2 ⇒ type_ok tysig ty1
@@ -302,37 +302,39 @@ End
 
 val _ = Parse.add_infix("subterm",401,Parse.NONASSOC)
 Overload subterm = ``RTC subterm1``
-val subterm_Var = save_thm("subterm_Var",
+Theorem subterm_Var =
   ``tm subterm (Var x ty)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subterm1_cases])
-val subterm_Const = save_thm("subterm_Const",
+      [Once relationTheory.RTC_CASES2,subterm1_cases]
+Theorem subterm_Const =
   ``tm subterm (Const x ty)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subterm1_cases])
+      [Once relationTheory.RTC_CASES2,subterm1_cases]
 val _ = export_rewrites["subterm_Var","subterm_Const"]
-val subterm_Comb = save_thm("subterm_Comb",
+Theorem subterm_Comb =
   ``tm subterm (Comb t1 t2)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subterm1_cases])
-val subterm_Abs = save_thm("subterm_Abs",
+      [Once relationTheory.RTC_CASES2,subterm1_cases]
+Theorem subterm_Abs =
   ``tm subterm (Abs v t)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
-      [Once relationTheory.RTC_CASES2,subterm1_cases])
+      [Once relationTheory.RTC_CASES2,subterm1_cases]
 
-val subterm_welltyped = save_thm("subterm_welltyped",
-  let val th =
-    Q.prove(`∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t`,
-      ho_match_mp_tac has_type_strongind >>
-      simp[subterm_Comb,subterm_Abs] >> rw[] >>
-      rw[] >> imp_res_tac WELLTYPED_LEMMA >> simp[])
-  in METIS_PROVE[th,welltyped_def]
+Triviality subterm_welltyped_helper:
+  ∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t
+Proof
+  ho_match_mp_tac has_type_strongind >>
+  simp[subterm_Comb,subterm_Abs] >> rw[] >>
+  rw[] >> imp_res_tac WELLTYPED_LEMMA >> simp[]
+QED
+
+Theorem subterm_welltyped =
+  METIS_PROVE[subterm_welltyped_helper,welltyped_def]
     ``∀t tm. welltyped tm ∧ t subterm tm ⇒ welltyped t``
-  end)
 
 (* term ordering *)
 
-val type_lt_thm = Q.prove(
+Theorem type_lt_thm = Q.prove(
   `(type_lt (Tyvar x1) (Tyvar x2) ⇔ mlstring_lt x1 x2) ∧
     (type_lt (Tyvar _) (Tyapp _ _) ⇔ T) ∧
     (type_lt (Tyapp _ _) (Tyvar _) ⇔ F) ∧
@@ -341,9 +343,8 @@ val type_lt_thm = Q.prove(
          (x1,args1) (x2,args2))`,
   rw[] >> rw[Once type_lt_cases])
   |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
-  |> curry save_thm "type_lt_thm"
 
-val term_lt_thm = Q.prove(`
+Theorem term_lt_thm = Q.prove(`
   (term_lt (Var x1 ty1) (Var x2 ty2) ⇔
      (mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2)) ∧
   (term_lt (Var _ _) (Const _ _) ⇔ T) ∧
@@ -366,7 +367,6 @@ val term_lt_thm = Q.prove(`
     (term_lt LEX term_lt) (s1,s2) (t1,t2))`,
   rw[] >> rw[Once term_lt_cases])
   |> CONJUNCTS |> map GEN_ALL |> LIST_CONJ
-  |> curry save_thm "term_lt_thm"
 
 Theorem type_cmp_refl[simp]:
    type_cmp t t = EQUAL
@@ -380,16 +380,19 @@ Proof
   rw[term_cmp_def,TO_of_LinearOrder]
 QED
 
-val irreflexive_type_lt = Q.prove(
-  `irreflexive type_lt`,
+Triviality irreflexive_type_lt:
+  irreflexive type_lt
+Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
   simp[StrongLinearOrder,StrongOrder,irreflexive_def] >>
   strip_tac >> ho_match_mp_tac type_ind >>
   simp[type_lt_thm,LEX_DEF] >>
-  Induct >> simp[])
+  Induct >> simp[]
+QED
 
-val trichotomous_type_lt = Q.prove(
-  `trichotomous type_lt`,
+Triviality trichotomous_type_lt:
+  trichotomous type_lt
+Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
   simp[StrongLinearOrder,trichotomous] >> strip_tac >>
   ho_match_mp_tac type_ind >>
@@ -403,10 +406,12 @@ val trichotomous_type_lt = Q.prove(
   Induct_on`l` >>
   Cases_on`l2`>>simp[]>>
   rw[] >> fs[] >>
-  metis_tac[])
+  metis_tac[]
+QED
 
-val transitive_type_lt = Q.prove(
-  `∀x y. type_lt x y ⇒ ∀z. type_lt y z ⇒ type_lt x z`,
+Triviality transitive_type_lt:
+  ∀x y. type_lt x y ⇒ ∀z. type_lt y z ⇒ type_lt x z
+Proof
   ho_match_mp_tac type_lt_strongind >>
   rpt conj_tac >> rpt gen_tac >> simp[PULL_FORALL] >>
   Cases_on`z` >> simp[type_lt_thm,LEX_DEF_THM] >-
@@ -468,7 +473,8 @@ val transitive_type_lt = Q.prove(
   fs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >>
   rfs[LIST_EQ_REWRITE,rich_listTheory.EL_TAKE] >>
   `LENGTH args1 ≤ LENGTH l` by DECIDE_TAC >> simp[] >>
-  simp[rich_listTheory.EL_TAKE])
+  simp[rich_listTheory.EL_TAKE]
+QED
 
 Theorem StrongLinearOrder_type_lt:
    StrongLinearOrder type_lt
@@ -485,31 +491,37 @@ Proof
   ACCEPT_TAC StrongLinearOrder_type_lt
 QED
 
-val irreflexive_term_lt = Q.prove(
-  `irreflexive term_lt`,
+Triviality irreflexive_term_lt:
+  irreflexive term_lt
+Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
   mp_tac StrongLinearOrder_type_lt >>
   simp[StrongLinearOrder,StrongOrder,irreflexive_def] >>
   ntac 2 strip_tac >> ho_match_mp_tac term_induction >>
-  simp[term_lt_thm,LEX_DEF])
+  simp[term_lt_thm,LEX_DEF]
+QED
 
-val trichotomous_term_lt = Q.prove(
-  `trichotomous term_lt`,
+Triviality trichotomous_term_lt:
+  trichotomous term_lt
+Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
   mp_tac StrongLinearOrder_type_lt >>
   simp[StrongLinearOrder,trichotomous] >> ntac 2 strip_tac >>
   ho_match_mp_tac term_induction >>
   rpt conj_tac >> rpt gen_tac >> TRY(strip_tac) >>
   Cases_on`b` >> simp[term_lt_thm,LEX_DEF_THM] >>
-  metis_tac[])
+  metis_tac[]
+QED
 
-val transitive_term_lt = Q.prove(
-  `∀x y. term_lt x y ⇒ ∀z. term_lt y z ⇒ term_lt x z`,
+Triviality transitive_term_lt:
+  ∀x y. term_lt x y ⇒ ∀z. term_lt y z ⇒ term_lt x z
+Proof
   ho_match_mp_tac term_lt_strongind >>
   rpt conj_tac >> rpt gen_tac >> simp[PULL_FORALL] >>
   Cases_on`z` >> simp[term_lt_thm,LEX_DEF_THM] >>
   metis_tac[StrongLinearOrder_mlstring_lt,StrongLinearOrder_type_lt,StrongLinearOrder,
-            StrongOrder,transitive_def])
+            StrongOrder,transitive_def]
+QED
 
 Theorem StrongLinearOrder_term_lt:
    StrongLinearOrder term_lt
@@ -526,15 +538,19 @@ Proof
   ACCEPT_TAC StrongLinearOrder_term_lt
 QED
 
-val StrongLinearOrder_irreflexive = Q.prove(
-  `StrongLinearOrder R ⇒ irreflexive R`,
-  rw[StrongLinearOrder,StrongOrder])
+Triviality StrongLinearOrder_irreflexive:
+  StrongLinearOrder R ⇒ irreflexive R
+Proof
+  rw[StrongLinearOrder,StrongOrder]
+QED
 
 val irreflexive_mlstring_lt = MATCH_MP StrongLinearOrder_irreflexive StrongLinearOrder_mlstring_lt
 
-val LLEX_irreflexive = Q.prove(
-  `∀R. irreflexive R ⇒ irreflexive (LLEX R)`,
-  rw[irreflexive_def] >> Induct_on`x`>>rw[])
+Triviality LLEX_irreflexive:
+  ∀R. irreflexive R ⇒ irreflexive (LLEX R)
+Proof
+  rw[irreflexive_def] >> Induct_on`x`>>rw[]
+QED
 
 val irreflexive_LLEX_type_lt = MATCH_MP LLEX_irreflexive (irreflexive_type_lt)
 
@@ -675,19 +691,23 @@ QED
 
 (* alpha ordering *)
 
-val ALPHAVARS_ordav = Q.prove(
-  `∀env tp. ALPHAVARS env tp ⇒ ordav env (FST tp) (SND tp) = EQUAL`,
+Triviality ALPHAVARS_ordav:
+  ∀env tp. ALPHAVARS env tp ⇒ ordav env (FST tp) (SND tp) = EQUAL
+Proof
   Induct >> rw[ALPHAVARS_def,ordav_def] >>
   Cases_on`h`>>rw[ordav_def] >> fs[] >>
   rfs[term_cmp_def,TO_of_LinearOrder] >>
-  ntac 2 (pop_assum mp_tac) >> rw[])
+  ntac 2 (pop_assum mp_tac) >> rw[]
+QED
 
-val ordav_ALPHAVARS = Q.prove(
-  `∀env t1 t2. ordav env t1 t2 = EQUAL ⇒ ALPHAVARS env (t1,t2)`,
+Triviality ordav_ALPHAVARS:
+  ∀env t1 t2. ordav env t1 t2 = EQUAL ⇒ ALPHAVARS env (t1,t2)
+Proof
   ho_match_mp_tac ordav_ind >>
   rw[ALPHAVARS_def,ordav_def] >>
   fs[term_cmp_def,TO_of_LinearOrder] >>
-  rpt(pop_assum mp_tac) >> rw[])
+  rpt(pop_assum mp_tac) >> rw[]
+QED
 
 Theorem ALPHAVARS_eq_ordav:
    ∀env t1 t2. ALPHAVARS env (t1,t2) ⇔ ordav env t1 t2 = EQUAL
@@ -695,14 +715,17 @@ Proof
   metis_tac[ALPHAVARS_ordav,ordav_ALPHAVARS,pair_CASES,FST,SND]
 QED
 
-val RACONV_orda = Q.prove(
-  `∀env tp. RACONV env tp ⇒ orda env (FST tp) (SND tp) = EQUAL`,
+Triviality RACONV_orda:
+  ∀env tp. RACONV env tp ⇒ orda env (FST tp) (SND tp) = EQUAL
+Proof
   ho_match_mp_tac RACONV_ind >> rw[ALPHAVARS_eq_ordav]
   >- rw[orda_def] >- rw[orda_def] >- rw[Once orda_def] >>
-  rw[Once orda_def])
+  rw[Once orda_def]
+QED
 
-val orda_RACONV = Q.prove(
-  `∀env t1 t2. orda env t1 t2 = EQUAL ⇒ RACONV env (t1,t2)`,
+Triviality orda_RACONV:
+  ∀env t1 t2. orda env t1 t2 = EQUAL ⇒ RACONV env (t1,t2)
+Proof
   ho_match_mp_tac orda_ind >> rw[] >>
   reverse(Cases_on`t1 ≠ t2 ∨ env ≠ []`) >- (
     fs[RACONV_REFL] ) >>
@@ -719,7 +742,8 @@ val orda_RACONV = Q.prove(
     rw[term_cmp_def,TO_of_LinearOrder] >>
     NO_TAC) >> fs[] >>
   qhdtm_x_assum`type_cmp`mp_tac >>
-  rw[type_cmp_def,TO_of_LinearOrder])
+  rw[type_cmp_def,TO_of_LinearOrder]
+QED
 
 Theorem RACONV_eq_orda:
    ∀env t1 t2. RACONV env (t1,t2) ⇔ orda env t1 t2 = EQUAL
@@ -776,22 +800,25 @@ Proof
   simp[]
 QED
 
-val orda_thm = Q.prove(
-  `∀env t1 t2. orda env t1 t2 = ^(#3(dest_cond(rhs(concl(SPEC_ALL orda_def)))))`,
+Triviality orda_thm:
+  ∀env t1 t2. orda env t1 t2 = ^(#3(dest_cond(rhs(concl(SPEC_ALL orda_def)))))
+Proof
   rpt gen_tac >>
   CONV_TAC(LAND_CONV(REWR_CONV orda_def)) >>
   reverse IF_CASES_TAC >- rw[] >> rw[] >>
   BasicProvers.CASE_TAC >> rw[ordav_def] >>
-  fs[GSYM RACONV_eq_orda,RACONV_REFL])
+  fs[GSYM RACONV_eq_orda,RACONV_REFL]
+QED
 
-val ordav_lx_trans = Q.prove(
-  `∀t1 t2 t3 env1 env2.
+Triviality ordav_lx_trans:
+  ∀t1 t2 t3 env1 env2.
     ordav env1 t1 t2 ≠ GREATER ∧
     ordav env2 t2 t3 ≠ GREATER ∧
     MAP SND env1 = MAP FST env2
     ⇒ ordav (ZIP (MAP FST env1, MAP SND env2)) t1 t3 ≠ GREATER ∧
       (ordav env1 t1 t2 = LESS ∨ ordav env2 t2 t3 = LESS ⇒
-       ordav (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = LESS)`,
+       ordav (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = LESS)
+Proof
   mp_tac TotOrd_term_cmp >> simp[TotOrd] >> strip_tac >>
   ntac 3 gen_tac >> Induct >> simp[ordav_def] >- (
     metis_tac[cpn_nchotomy,cpn_distinct] ) >>
@@ -799,21 +826,25 @@ val ordav_lx_trans = Q.prove(
   Cases >> simp[] >>
   Cases_on`h` >>
   rw[ordav_def] >>
-  metis_tac[cpn_nchotomy,cpn_distinct] )
+  metis_tac[cpn_nchotomy,cpn_distinct]
+QED
 
-val undo_zip_map_fst = Q.prove(
-  `p::ZIP(MAP FST l1,MAP SND l2) =
-    ZIP (MAP FST ((FST p,v2)::l1), MAP SND ((v2,SND p)::l2))`,
-  Cases_on`p`>>rw[])
+Triviality undo_zip_map_fst:
+  p::ZIP(MAP FST l1,MAP SND l2) =
+    ZIP (MAP FST ((FST p,v2)::l1), MAP SND ((v2,SND p)::l2))
+Proof
+  Cases_on`p`>>rw[]
+QED
 
-val orda_lx_trans = Q.prove(
-  `∀env1 t1 t2 env2 t3.
+Triviality orda_lx_trans:
+  ∀env1 t1 t2 env2 t3.
     orda env1 t1 t2 ≠ GREATER ∧
     orda env2 t2 t3 ≠ GREATER ∧
     MAP SND env1 = MAP FST env2
     ⇒ orda (ZIP (MAP FST env1, MAP SND env2)) t1 t3 ≠ GREATER ∧
       (orda env1 t1 t2 = LESS ∨ orda env2 t2 t3 = LESS ⇒
-       orda (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = LESS)`,
+       orda (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = LESS)
+Proof
   completeInduct_on`term_size t1 + term_size t2 + term_size t3` >>
   rpt gen_tac >> strip_tac >>
   BasicProvers.VAR_EQ_TAC >>
@@ -906,7 +937,8 @@ val orda_lx_trans = Q.prove(
         (fn g as (asl,w) => (Cases_on`^(lhs w)`>>fs[]) g) >>
         NO_TAC)
       [`t1`,`t2`,`t3`,`t4`,`t5`,`t6`]))) >>
-  metis_tac[cpn_nchotomy,cpn_distinct])
+  metis_tac[cpn_nchotomy,cpn_distinct]
+QED
 
 Theorem transitive_alpha_lt:
    transitive alpha_lt
@@ -1001,13 +1033,13 @@ Proof
     transitive_alpha_lt, antisymmetric_alpha_lt]
 QED
 
-val hypset_ok_append = save_thm("hypset_ok_append",
+Theorem hypset_ok_append =
   Q.ISPEC`alpha_lt` sortingTheory.SORTED_APPEND_GEN
-  |> REWRITE_RULE[GSYM hypset_ok_def])
+  |> REWRITE_RULE[GSYM hypset_ok_def]
 
-val hypset_ok_el_less = save_thm("hypset_ok_el_less",
+Theorem hypset_ok_el_less =
   MATCH_MP sortingTheory.SORTED_EL_LESS transitive_alpha_lt
-  |> REWRITE_RULE[GSYM hypset_ok_def])
+  |> REWRITE_RULE[GSYM hypset_ok_def]
 
 (* term_union lemmas *)
 
@@ -1100,10 +1132,12 @@ Proof
   metis_tac[MEM,ACONV_REFL,ACONV_SYM,hypset_ok_cons]
 QED
 
-val term_union_sing_lt = Q.prove(
-  `∀ys x. EVERY (λy. alpha_lt x y) ys ⇒ (term_union [x] ys = x::ys)`,
+Triviality term_union_sing_lt:
+  ∀ys x. EVERY (λy. alpha_lt x y) ys ⇒ (term_union [x] ys = x::ys)
+Proof
   Induct >> simp[term_union_thm] >> rw[] >> fs[] >>
-  fs[alpha_lt_def])
+  fs[alpha_lt_def]
+QED
 
 Theorem term_union_insert:
    ∀ys x zs.
@@ -1822,39 +1856,43 @@ End
 
 (* bind a variable above a de Bruijn term *)
 
-val bind_def = Define`
+Definition bind_def:
   (bind v n (dbVar x ty) = if v = (x,ty) then dbBound n else dbVar x ty) ∧
   bind v n (dbBound m) = dbBound m ∧
   bind v n (dbConst x ty) = dbConst x ty ∧
   bind v n (dbComb t1 t2) = dbComb (bind v n t1) (bind v n t2) ∧
-  bind v n (dbAbs ty tm) = dbAbs ty (bind v (n+1) tm)`
+  bind v n (dbAbs ty tm) = dbAbs ty (bind v (n+1) tm)
+End
 val _ = export_rewrites["bind_def"]
 
 (* conversion into de Bruijn *)
 
-val db_def = Define`
+Definition db_def:
   db (Var x ty) = dbVar x ty ∧
   db (Const x ty) = dbConst x ty ∧
   db (Comb t1 t2) = dbComb (db t1) (db t2) ∧
-  db (Abs v tm) = dbAbs (typeof v) (bind (dest_var v) 0 (db tm))`
+  db (Abs v tm) = dbAbs (typeof v) (bind (dest_var v) 0 (db tm))
+End
 val _ = export_rewrites["db_def"]
 
 (* de Bruijn versions of VSUBST and VFREE_IN *)
 
-val dbVSUBST_def = Define`
+Definition dbVSUBST_def:
   dbVSUBST ilist (dbVar x ty) = REV_ASSOCD (dbVar x ty) ilist (dbVar x ty) ∧
   dbVSUBST ilist (dbBound m) = dbBound m ∧
   dbVSUBST ilist (dbConst x ty) = dbConst x ty ∧
   dbVSUBST ilist (dbComb t1 t2) = dbComb (dbVSUBST ilist t1) (dbVSUBST ilist t2) ∧
-  dbVSUBST ilist (dbAbs ty t) = dbAbs ty (dbVSUBST ilist t)`
+  dbVSUBST ilist (dbAbs ty t) = dbAbs ty (dbVSUBST ilist t)
+End
 val _ = export_rewrites["dbVSUBST_def"]
 
-val dbVFREE_IN_def = Define`
+Definition dbVFREE_IN_def:
   (dbVFREE_IN v (dbVar x ty) ⇔ dbVar x ty = v) ∧
   (dbVFREE_IN v (dbBound n) ⇔ F) ∧
   (dbVFREE_IN v (dbConst x ty) ⇔ dbConst x ty = v) ∧
   (dbVFREE_IN v (dbComb t1 t2) ⇔ (dbVFREE_IN v t1 ∨ dbVFREE_IN v t2)) ∧
-  (dbVFREE_IN v (dbAbs ty t) ⇔ dbVFREE_IN v t)`
+  (dbVFREE_IN v (dbAbs ty t) ⇔ dbVFREE_IN v t)
+End
 val _ = export_rewrites["dbVFREE_IN_def"]
 
 Theorem bind_not_free:
@@ -2076,12 +2114,13 @@ QED
 
 (* de Bruijn version of INST *)
 
-val dbINST_def = Define`
+Definition dbINST_def:
   dbINST tyin (dbVar x ty) = dbVar x (TYPE_SUBST tyin ty) ∧
   dbINST tyin (dbBound n) = dbBound n ∧
   dbINST tyin (dbConst x ty) = dbConst x (TYPE_SUBST tyin ty) ∧
   dbINST tyin (dbComb t1 t2) = dbComb (dbINST tyin t1) (dbINST tyin t2) ∧
-  dbINST tyin (dbAbs ty t) = dbAbs (TYPE_SUBST tyin ty) (dbINST tyin t)`
+  dbINST tyin (dbAbs ty t) = dbAbs (TYPE_SUBST tyin ty) (dbINST tyin t)
+End
 val _ = export_rewrites["dbINST_def"]
 
 Theorem dbINST_bind:
@@ -2238,17 +2277,19 @@ QED
 
 (* conversion into de Bruijn given an environment of already bound variables *)
 
-val dbterm_def = Define`
+Definition dbterm_def:
   (dbterm env (Var s ty) =
      case find_index (s,ty) env 0 of SOME n => dbBound n | NONE => dbVar s ty) ∧
   (dbterm env (Const s ty) = dbConst s ty) ∧
   (dbterm env (Comb t1 t2) = dbComb (dbterm env t1) (dbterm env t2)) ∧
-  (dbterm env (Abs v t) = dbAbs (typeof v) (dbterm ((dest_var v)::env) t))`
+  (dbterm env (Abs v t) = dbAbs (typeof v) (dbterm ((dest_var v)::env) t))
+End
 val _ = export_rewrites["dbterm_def"]
 
-val bind_list_aux_def = Define`
+Definition bind_list_aux_def:
   bind_list_aux n [] tm = tm ∧
-  bind_list_aux n (v::vs) tm = bind_list_aux (n+1) vs (bind v n tm)`
+  bind_list_aux n (v::vs) tm = bind_list_aux (n+1) vs (bind v n tm)
+End
 val _ = export_rewrites["bind_list_aux_def"]
 
 Theorem bind_list_aux_clauses:
@@ -2372,11 +2413,12 @@ QED
 
 (* list of bound variable names in a term *)
 
-val bv_names_def = Define`
+Definition bv_names_def:
   bv_names (Var _ _) = [] ∧
   bv_names (Const _ _) = [] ∧
   bv_names (Comb s t) = bv_names s ++ bv_names t ∧
-  bv_names (Abs v t) = (FST(dest_var v))::bv_names t`
+  bv_names (Abs v t) = (FST(dest_var v))::bv_names t
+End
 val _ = export_rewrites["bv_names_def"]
 
 (* Simpler versions (non-capture-avoiding) of substitution and instantiation.
@@ -2384,19 +2426,21 @@ val _ = export_rewrites["bv_names_def"]
    alpha-equivalence respecting, and suitable equivalent term always exists
    (see below). *)
 
-val simple_subst_def = Define`
+Definition simple_subst_def:
   (simple_subst ilist (Var x ty) = REV_ASSOCD (Var x ty) ilist (Var x ty)) ∧
   (simple_subst ilist (Const x ty) = Const x ty) ∧
   (simple_subst ilist (Comb t1 t2) = Comb (simple_subst ilist t1) (simple_subst ilist t2)) ∧
   (simple_subst ilist (Abs v tm) =
-    Abs v (simple_subst (FILTER (λ(s',s). (s ≠ v)) ilist) tm))`
+    Abs v (simple_subst (FILTER (λ(s',s). (s ≠ v)) ilist) tm))
+End
 val _ = export_rewrites["simple_subst_def"]
 
-val simple_inst_def = Define`
+Definition simple_inst_def:
   simple_inst tyin (Var x ty) = Var x (TYPE_SUBST tyin ty) ∧
   simple_inst tyin (Const x ty) = Const x (TYPE_SUBST tyin ty) ∧
   simple_inst tyin (Comb s t) = Comb (simple_inst tyin s) (simple_inst tyin t) ∧
-  simple_inst tyin (Abs v t) = Abs (simple_inst tyin v) (simple_inst tyin t)`
+  simple_inst tyin (Abs v t) = Abs (simple_inst tyin v) (simple_inst tyin t)
+End
 val _ = export_rewrites["simple_inst_def"]
 
 Theorem VSUBST_simple_subst:
@@ -2518,7 +2562,7 @@ QED
 
 (* rename bound variables from a source of names *)
 
-val rename_bvars_def = Define`
+Definition rename_bvars_def:
   rename_bvars names env (Var s ty) = (names, Var (REV_ASSOCD (s,ty) env s) ty) ∧
   rename_bvars names env (Const s ty) = (names, Const s ty) ∧
   (rename_bvars names env (Comb t1 t2) =
@@ -2530,7 +2574,8 @@ val rename_bvars_def = Define`
      (names, Abs v tm)) ∧
   (rename_bvars (s'::names) env (Abs v tm) =
      let (names,tm) = rename_bvars names ((s',dest_var v)::env) tm in
-     (names, Abs (Var s' (typeof v)) tm))`
+     (names, Abs (Var s' (typeof v)) tm))
+End
 
 Theorem FST_rename_bvars:
    ∀names env tm. LENGTH (bv_names tm) ≤ LENGTH names ⇒ (FST (rename_bvars names env tm) = DROP (LENGTH (bv_names tm)) names)
@@ -2784,12 +2829,13 @@ val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
 (* Alternative characterisation of VARIANT, and thereby of VSUBST and INST_CORE.
    Better for evaluation. *)
 
-val vfree_in_def = Define `
+Definition vfree_in_def:
   vfree_in v tm =
     case tm of
       Abs bv bod => v <> bv /\ vfree_in v bod
     | Comb s t => vfree_in v s \/ vfree_in v t
-    | _ => (tm = v)`;
+    | _ => (tm = v)
+End
 
 Theorem vfree_in_thm:
    !name ty y. (VFREE_IN (Var name ty) y = vfree_in (Var name ty) y)
@@ -2804,13 +2850,14 @@ Proof
   METIS_TAC[]
 QED
 
-val variant_def = tDefine "variant" `
+Definition variant_def:
   variant avoid v =
     if EXISTS (vfree_in v) avoid then
     case v of
        Var s ty => variant avoid (Var(s ^ (strlit "'")) ty)
-    | _ => v else v`
-  (WF_REL_TAC `measure (\(avoid,v).
+    | _ => v else v
+Termination
+  WF_REL_TAC `measure (\(avoid,v).
      let n = SUM_SET (BIGUNION (set (MAP (λa. {strlen x + 1 | ∃ty. VFREE_IN (Var x ty) a}) avoid))) in
        n - (case v of Var x ty => strlen x | _ => 0))` >>
    gen_tac >> Cases >> srw_tac[][strlen_def,strcat_thm,implode_def] >>
@@ -2824,11 +2871,13 @@ val variant_def = tDefine "variant" `
      simp[Abbr`s`,pred_setTheory.EXTENSION,PULL_EXISTS,strlen_def] ) >>
    pop_assum SUBST1_TAC >>
    match_mp_tac pred_setTheory.IMAGE_FINITE >>
-   simp[])
+   simp[]
+End
 
 val variant_ind = fetch "-" "variant_ind"
 
-val variant_vsubst_thm = save_thm("variant_vsubst_thm",prove(
+Theorem variant_vsubst_thm =
+  prove(
   ``!xs v x name.
       (xs = [x]) /\ (v = (Var name ty)) ==>
       (variant xs (Var name ty) =
@@ -2862,25 +2911,29 @@ val variant_vsubst_thm = save_thm("variant_vsubst_thm",prove(
   \\ `VARIANT_PRIMES x (STRCAT (explode name) "'") ty < n \/
       n < VARIANT_PRIMES x (STRCAT (explode name) "'") ty` by DECIDE_TAC
   \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
-  |> SIMP_RULE std_ss [] |> SPEC_ALL);
+  |> SIMP_RULE std_ss [] |> SPEC_ALL
 
-val VSUBST_thm = save_thm("VSUBST_thm",
-  REWRITE_RULE[SYM variant_vsubst_thm] VSUBST_def)
+Theorem VSUBST_thm =
+  REWRITE_RULE[SYM variant_vsubst_thm] VSUBST_def
 
-val subtract_def = Define `
-  subtract l1 l2 = FILTER (\t. ~(MEM t l2)) l1`;
+Definition subtract_def:
+  subtract l1 l2 = FILTER (\t. ~(MEM t l2)) l1
+End
 
-val insert_def = Define `
-  insert x l = if MEM x l then l else x::l`;
+Definition insert_def:
+  insert x l = if MEM x l then l else x::l
+End
 
-val itlist_def = Define `
+Definition itlist_def:
   itlist f l b =
     case l of
       [] => b
-    | (h::t) => f h (itlist f t b)`;
+    | (h::t) => f h (itlist f t b)
+End
 
-val union_def = Define `
-  union l1 l2 = itlist insert l1 l2`;
+Definition union_def:
+  union l1 l2 = itlist insert l1 l2
+End
 
 Theorem MEM_union:
    !xs ys x. MEM x (union xs ys) <=> MEM x xs \/ MEM x ys
@@ -2896,13 +2949,14 @@ Proof
   SIMP_TAC std_ss [EXISTS_MEM,MEM_MAP,MEM_union] \\ METIS_TAC []
 QED
 
-val frees_def = Define `
+Definition frees_def:
   frees tm =
     case tm of
       Var _ _ => [tm]
     | Const _ _ => []
     | Abs bv bod => subtract (frees bod) [bv]
-    | Comb s t => union (frees s) (frees t)`
+    | Comb s t => union (frees s) (frees t)
+End
 
 Theorem MEM_frees_EQ:
    !a x. MEM x (frees a) = ?n ty. (x = Var n ty) /\ MEM (Var n ty) (frees a)
@@ -2916,7 +2970,8 @@ Proof
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ METIS_TAC []
 QED
 
-val variant_inst_thm = save_thm("variant_inst_thm",prove(
+Theorem variant_inst_thm =
+  prove(
   ``!xs v x name a.
       welltyped a ∧
       (xs = frees a) /\
@@ -2963,7 +3018,7 @@ val variant_inst_thm = save_thm("variant_inst_thm",prove(
   \\ REPEAT STRIP_TAC
   \\ `k < n \/ n < k` by DECIDE_TAC
   \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
-  |> SIMP_RULE std_ss [] |> SPEC_ALL);
+  |> SIMP_RULE std_ss [] |> SPEC_ALL
 
 Theorem INST_CORE_Abs_thm:
    ∀v t env tyin. welltyped (Abs v t) ⇒
@@ -3073,16 +3128,16 @@ QED
 (* some derived rules *)
 
 val assume = proves_rules |> CONJUNCTS |> el 2
-val deductAntisym_equation = save_thm("deductAntisym_equation",
-  proves_rules |> CONJUNCTS |> el 4)
-val eqMp_equation = save_thm("eqMp_equation",
+Theorem deductAntisym_equation =
+  proves_rules |> CONJUNCTS |> el 4
+Theorem eqMp_equation =
   proves_rules |> CONJUNCTS |> el 5
-  |> REWRITE_RULE[GSYM AND_IMP_INTRO])
-val refl_equation =  save_thm("refl_equation",
-  proves_rules |> CONJUNCTS |> el 9)
-val appThm_equation = save_thm("appThm_equation",
+  |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+Theorem refl_equation =
+  proves_rules |> CONJUNCTS |> el 9
+Theorem appThm_equation =
   proves_rules |> CONJUNCTS |> el 8
-  |> REWRITE_RULE[GSYM AND_IMP_INTRO])
+  |> REWRITE_RULE[GSYM AND_IMP_INTRO]
 
 Theorem addAssum:
    ∀thy h c a. (thy,h) |- c ∧ term_ok (sigof thy) a ∧ (a has_type Bool) ⇒
@@ -3121,23 +3176,26 @@ val rws = [
   rich_listTheory.EL_DROP,
   rich_listTheory.EL_CONS]
 
-val proves_concl_ACONV = Q.prove(
-  `∀thyh c c'. thyh |- c ∧ ACONV c c' ∧ welltyped c' ⇒ thyh |- c'`,
+Triviality proves_concl_ACONV:
+  ∀thyh c c'. thyh |- c ∧ ACONV c c' ∧ welltyped c' ⇒ thyh |- c'
+Proof
   rw[] >>
   qspecl_then[`c'`,`FST thyh`]mp_tac refl_equation >>
   imp_res_tac proves_theory_ok >>
   imp_res_tac proves_term_ok >> fs[] >>
   imp_res_tac term_ok_aconv >> pop_assum kall_tac >> simp[] >>
   Cases_on`thyh`>>fs[]>>
-  metis_tac[eqMp_equation,term_union_thm,ACONV_SYM] )
+  metis_tac[eqMp_equation,term_union_thm,ACONV_SYM]
+QED
 
-val proves_ACONV_lemma = Q.prove(
-  `∀thy c h' h1 h.
+Triviality proves_ACONV_lemma:
+  ∀thy c h' h1 h.
     (thy,h1++h) |- c ∧
     hypset_ok (h1++h') ∧
     EVERY (λx. EXISTS (ACONV x) h') h ∧
     EVERY (λx. term_ok (sigof thy) x ∧ x has_type Bool) h'
-    ⇒ (thy,h1++h') |- c`,
+    ⇒ (thy,h1++h') |- c
+Proof
   ntac 2 gen_tac >> Induct >> rw[] >> rw[] >>
   imp_res_tac proves_term_ok >> fs[hypset_ok_cons] >>
   Cases_on`EXISTS (ACONV h) h''` >- (
@@ -3215,7 +3273,8 @@ val proves_ACONV_lemma = Q.prove(
     qpat_x_assum`EVERY P1 X`kall_tac >>
     fs[EVERY_MEM,EXISTS_MEM] >>
     metis_tac[ACONV_SYM] ) >>
-  metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC])
+  metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC]
+QED
 
 Theorem proves_ACONV:
    ∀thy h' c' h c.
@@ -3711,15 +3770,16 @@ QED
 
 (* proofs still work in extended contexts *)
 
-val update_extension = Q.prove (
-    `!lhs tm.
+Triviality update_extension:
+  !lhs tm.
       lhs |- tm
       ⇒
       !ctxt tms upd.
         lhs = (thyof ctxt,tms) ∧
         upd updates ctxt
         ⇒
-        (thyof (upd::ctxt),tms) |- tm`,
+        (thyof (upd::ctxt),tms) |- tm
+Proof
   ho_match_mp_tac proves_ind >>
   rw []
   >- (rw [Once proves_cases] >>
@@ -3837,7 +3897,8 @@ val update_extension = Q.prove (
       >- (imp_res_tac updates_theory_ok >>
           fs [])
       >- (Cases_on `ctxt` >>
-          fs [])));
+          fs []))
+QED
 
 Theorem updates_proves:
    ∀upd ctxt.  upd updates ctxt ⇒
@@ -3866,11 +3927,12 @@ QED
 
 (* types occurring in a term *)
 
-val types_in_def = Define`
+Definition types_in_def:
   types_in (Var x ty) = {ty} ∧
   types_in (Const c ty) = {ty} ∧
   types_in (Comb t1 t2) = types_in t1 ∪ types_in t2 ∧
-  types_in (Abs v t) = types_in v ∪ types_in t`
+  types_in (Abs v t) = types_in v ∪ types_in t
+End
 val _ = export_rewrites["types_in_def"]
 
 Theorem type_ok_types_in:
@@ -3886,15 +3948,19 @@ Proof
   ho_match_mp_tac term_induction >> rw[] >> rw[]
 QED
 
-val Var_subterm_types_in = Q.prove(
-  `∀t x ty. Var x ty subterm t ⇒ ty ∈ types_in t`,
+Triviality Var_subterm_types_in:
+  ∀t x ty. Var x ty subterm t ⇒ ty ∈ types_in t
+Proof
   ho_match_mp_tac term_induction >> rw[subterm_Comb,subterm_Abs] >>
-  metis_tac[])
+  metis_tac[]
+QED
 
-val Const_subterm_types_in = Q.prove(
-  `∀t x ty. Const x ty subterm t ⇒ ty ∈ types_in t`,
+Triviality Const_subterm_types_in:
+  ∀t x ty. Const x ty subterm t ⇒ ty ∈ types_in t
+Proof
   ho_match_mp_tac term_induction >> rw[subterm_Comb,subterm_Abs] >>
-  metis_tac[])
+  metis_tac[]
+QED
 
 Theorem subterm_typeof_types_in:
    ∀t1 t2 name args. (Tyapp name args) subtype (typeof t1) ∧ t1 subterm t2 ∧ welltyped t2 ∧ name ≠ (strlit"fun") ⇒
@@ -3938,7 +4004,7 @@ QED
 
 (* a type matching algorithm, based on the implementation in HOL4 *)
 
-val tymatch_def = tDefine"tymatch"`
+Definition tymatch_def:
   (tymatch [] [] sids = SOME sids) ∧
   (tymatch [] _ _ = NONE) ∧
   (tymatch _ [] _ = NONE) ∧
@@ -3952,19 +4018,23 @@ val tymatch_def = tDefine"tymatch"`
     | SOME ty1 => if ty1=ty then tymatch ps obs sids else NONE) ∧
   (tymatch (Tyapp c1 a1::ps) (Tyapp c2 a2::obs) sids =
    if c1=c2 then tymatch (a1++ps) (a2++obs) sids else NONE) ∧
-  (tymatch _ _ _ = NONE)`
-  (WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (FST(SND x)))` >>
-   simp[type1_size_append])
+  (tymatch _ _ _ = NONE)
+Termination
+  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (FST(SND x)))` >>
+   simp[type1_size_append]
+End
 val tymatch_ind = theorem "tymatch_ind";
 
-val arities_match_def = tDefine"arities_match"`
+Definition arities_match_def:
   (arities_match [] [] ⇔ T) ∧
   (arities_match [] _ ⇔ F) ∧
   (arities_match _ [] ⇔ F) ∧
   (arities_match (Tyapp c1 a1::xs) (Tyapp c2 a2::ys) ⇔
    ((c1 = c2) ⇒ arities_match a1 a2) ∧ arities_match xs ys) ∧
-  (arities_match (_::xs) (_::ys) ⇔ arities_match xs ys)`
-  (WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (SND x))`)
+  (arities_match (_::xs) (_::ys) ⇔ arities_match xs ys)
+Termination
+  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (SND x))`
+End
 val arities_match_ind = theorem "arities_match_ind"
 
 Theorem arities_match_length:
@@ -4085,8 +4155,9 @@ Proof
   fs[LENGTH_NIL]
 QED
 
-val match_type_def = Define`
-  match_type ty1 ty2 = OPTION_MAP FST (tymatch [ty1] [ty2] ([],[]))`
+Definition match_type_def:
+  match_type ty1 ty2 = OPTION_MAP FST (tymatch [ty1] [ty2] ([],[]))
+End
 
 Theorem type_ok_arities_match:
    ∀tys ty1 ty2.

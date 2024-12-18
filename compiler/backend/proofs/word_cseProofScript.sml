@@ -3,8 +3,8 @@
 *)
 open preamble alistTheory totoTheory;
 open wordLangTheory wordSemTheory wordPropsTheory reg_allocTheory;
-open word_simpTheory word_cseTheory;
-
+open word_simpTheory word_cseTheory helperLib;
+open wordConvsTheory
 val _ = new_theory "word_cseProof";
 
 val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_cse"];
@@ -296,15 +296,7 @@ Theorem are_reads_seen_insert[simp]:
   ∀a data r. are_reads_seen a data ⇒
              are_reads_seen a (data with all_names := insert r () data.all_names)
 Proof
-  rpt gen_tac \\ strip_tac
-  \\ Cases_on ‘a’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-  >- (Cases_on ‘r'’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-      \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-      \\ Cases_on ‘lookup n' data.all_names’ \\ gvs []
-      \\ Cases_on ‘n0=r’ \\ gvs []
-      \\ Cases_on ‘n'=r’ \\ gvs [])
-  \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-  \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
+  ho_match_mp_tac are_reads_seen_ind \\ rw[are_reads_seen_def,is_seen_def,lookup_insert]
 QED
 
 Theorem are_reads_seen_insert_instrs[simp]:
@@ -312,15 +304,7 @@ Theorem are_reads_seen_insert_instrs[simp]:
                are_reads_seen a (data with <| instrs:= l ;
                                               all_names:=insert n () data.all_names |>)
 Proof
-  rpt gen_tac \\ strip_tac
-  \\ Cases_on ‘a’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-  >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-      \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-      \\ Cases_on ‘n0=n’ \\ gvs []
-      \\ Cases_on ‘lookup n'' data.all_names’ \\ gvs []
-      \\ Cases_on ‘n''=r’ \\ gvs [])
-  \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-  \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
+  ho_match_mp_tac are_reads_seen_ind \\ rw[are_reads_seen_def, is_seen_def, lookup_insert]
 QED
 
 Theorem are_reads_seen_insert_map[simp]:
@@ -328,15 +312,7 @@ Theorem are_reads_seen_insert_map[simp]:
                are_reads_seen a (data with <| map:= l ;
                                               all_names:=insert n () data.all_names |>)
 Proof
-  rpt gen_tac \\ strip_tac
-  \\ Cases_on ‘a’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-  >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-      \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-      \\ Cases_on ‘n0=n’ \\ gvs []
-      \\ Cases_on ‘lookup n'' data.all_names’ \\ gvs []
-      \\ Cases_on ‘n''=r’ \\ gvs [])
-  \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-  \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
+  ho_match_mp_tac are_reads_seen_ind \\ rw[are_reads_seen_def, is_seen_def, lookup_insert]
 QED
 
 Theorem are_reads_seen_insert_eq_map[simp]:
@@ -344,15 +320,7 @@ Theorem are_reads_seen_insert_eq_map[simp]:
                  are_reads_seen a (data with <| eq:=e ; map:= l ;
                                                 all_names:=insert n () data.all_names |>)
 Proof
-  rpt gen_tac \\ strip_tac
-  \\ Cases_on ‘a’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-  >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def, lookup_insert]
-      \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-      \\ Cases_on ‘n0=n’ \\ gvs []
-      \\ Cases_on ‘lookup n'' data.all_names’ \\ gvs []
-      \\ Cases_on ‘n''=r’ \\ gvs [])
-  \\ Cases_on ‘lookup n0 data.all_names’ \\ gvs []
-  \\ Cases_on ‘lookup n1 data.all_names’ \\ gvs []
+  ho_match_mp_tac are_reads_seen_ind \\ rw[are_reads_seen_def, is_seen_def, lookup_insert]
 QED
 
 Theorem is_seen_insert[simp]:
@@ -2233,52 +2201,6 @@ Theorem full_inst_ok_less_word_common_subexp_elim:
 Proof
   fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
   \\ qspecl_then [‘p’,‘empty_data’,‘ac’] mp_tac word_cse_conventions2 \\ fs []
-QED
-
-Overload word_get_code_labels[local] = ``wordProps$get_code_labels``
-Overload word_good_handlers[local] = ``wordProps$good_handlers``
-
-Theorem word_good_handlers_word_common_subexp_elim:
-  word_good_handlers q p ⇒
-  word_good_handlers q (word_common_subexp_elim p)
-Proof
-  fs [word_common_subexp_elim_def]
-  \\ pairarg_tac \\ fs []
-  \\ rename [‘_ k _ = (a,np)’]
-  \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘k’
-  \\ qid_spec_tac ‘a’
-  \\ qid_spec_tac ‘np’
-  \\ qid_spec_tac ‘q’
-  \\ qid_spec_tac ‘p’
-  \\ Induct \\ fs [word_cse_def]
-  \\ rw [] \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [AllCaseEqs()]
-  \\ res_tac \\ fs []
-  \\ gvs [add_to_data_aux_def,AllCaseEqs()]
-  \\ gvs [word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
-  \\ gvs [add_to_data_def,add_to_data_aux_def,AllCaseEqs()]
-QED
-
-Theorem word_get_code_labels_word_common_subexp_elim:
-  word_get_code_labels (word_common_subexp_elim p) = word_get_code_labels p
-Proof
-  fs [word_common_subexp_elim_def]
-  \\ pairarg_tac \\ fs []
-  \\ rename [‘_ k _ = (a,np)’]
-  \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘k’
-  \\ qid_spec_tac ‘a’
-  \\ qid_spec_tac ‘np’
-  \\ qid_spec_tac ‘q’
-  \\ qid_spec_tac ‘p’
-  \\ Induct \\ fs [word_cse_def]
-  \\ rw [] \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [AllCaseEqs()]
-  \\ res_tac \\ fs []
-  \\ gvs [add_to_data_aux_def,AllCaseEqs()]
-  \\ gvs [word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
-  \\ gvs [add_to_data_def,add_to_data_aux_def,AllCaseEqs()]
 QED
 
 val _ = export_theory();

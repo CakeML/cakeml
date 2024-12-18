@@ -7,14 +7,16 @@ val _ = new_theory"bvi_letProof";
 
 val _ = bring_to_front_overload "compile" {Name = "compile", Thy = "bvi_let"}
 
-val v_rel_def = Define `
-  v_rel a x y xs ys <=> LLOOKUP ys a = SOME x`;
+Definition v_rel_def:
+  v_rel a x y xs ys <=> LLOOKUP ys a = SOME x
+End
 
-val env_rel_def = Define `
+Definition env_rel_def:
   (env_rel [] d e1 e2 = (e1 = DROP d e2)) /\
   (env_rel (a::rest) d (x::e1) (y::e2) <=>
      v_rel a x y (x::e1) (y::e2) /\ env_rel rest d e1 e2) /\
-  (env_rel _ _ _ _ = F)`
+  (env_rel _ _ _ _ = F)
+End
 
 Theorem env_rel_length:
    !ax env env2. env_rel ax d env env2 ==> LENGTH env <= LENGTH env2
@@ -24,28 +26,32 @@ Proof
   \\ imp_res_tac (METIS_PROVE [] ``x=y ==> LENGTH x = LENGTH y``) \\ fs []
 QED
 
-val env_rel_LLOOKUP_NONE = Q.prove(
-  `!ax env env2 n d.
+Triviality env_rel_LLOOKUP_NONE:
+  !ax env env2 n d.
       env_rel ax d env env2 /\
       LLOOKUP ax n = NONE /\
       n < LENGTH env ==>
       n+d < LENGTH env2 /\
-      EL (n+d) env2 = EL n env`,
+      EL (n+d) env2 = EL n env
+Proof
   Induct THEN1 (fs [env_rel_def,LLOOKUP_def,EL_DROP])
   \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ rw [] \\ Cases_on `n` \\ fs []
-  \\ res_tac \\ fs [LLOOKUP_def] \\ rfs [] \\ fs[ADD_CLAUSES]);
+  \\ res_tac \\ fs [LLOOKUP_def] \\ rfs [] \\ fs[ADD_CLAUSES]
+QED
 
-val env_rel_LOOKUP_SOME = Q.prove(
-  `!env env2 ax x n d.
+Triviality env_rel_LOOKUP_SOME:
+  !env env2 ax x n d.
       env_rel ax d env env2 /\
       LLOOKUP ax n = SOME x ==>
-      v_rel x (EL n env) (EL n env2) (DROP n env) (DROP n env2)`,
+      v_rel x (EL n env) (EL n env2) (DROP n env) (DROP n env2)
+Proof
   Induct \\ Cases_on `env2` \\ Cases_on `ax` \\ fs [env_rel_def,LLOOKUP_def]
   \\ rw [] \\ fs [env_rel_def] \\ res_tac \\ fs []
   \\ Cases_on `n` \\ fs [env_rel_def]
   \\ first_x_assum match_mp_tac
-  \\ Cases_on `h'` \\ fs [env_rel_def]);
+  \\ Cases_on `h'` \\ fs [env_rel_def]
+QED
 
 Theorem evaluate_delete_var_Rerr_SING:
    !x s r e env2.
@@ -58,11 +64,12 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ rw []
 QED
 
-val evaluate_delete_var_Rerr = Q.prove(
-  `!xs s r e env2.
+Triviality evaluate_delete_var_Rerr:
+  !xs s r e env2.
       evaluate (xs,env2,s) = (Rerr e,r) /\
       e <> Rabort Rtype_error ==>
-      evaluate (MAP delete_var xs,env2,s) = (Rerr e,r)`,
+      evaluate (MAP delete_var xs,env2,s) = (Rerr e,r)
+Proof
   Induct \\ fs [] \\ once_rewrite_tac [evaluate_CONS]
   \\ rw [] \\ every_case_tac \\ fs [] \\ rw []
   \\ TRY (drule evaluate_delete_var_Rerr_SING \\ fs [])
@@ -70,14 +77,16 @@ val evaluate_delete_var_Rerr = Q.prove(
   \\ Cases_on `h` \\ fs [delete_var_def]
   \\ rw [] \\ fs [] \\ fs [evaluate_def,do_app_def,do_app_aux_def] \\ rw []
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs [] \\ rw []
-  \\ pop_assum mp_tac \\ EVAL_TAC);
+  \\ pop_assum mp_tac \\ EVAL_TAC
+QED
 
-val evaluate_delete_var_Rval = Q.prove(
-  `!xs env2 s a r ax env d.
+Triviality evaluate_delete_var_Rval:
+  !xs env2 s a r ax env d.
       evaluate (xs,env2,s:('c,'ffi) bviSem$state) = (Rval a,r) /\
       env_rel ax d env env2 ==>
       ?b. evaluate (MAP delete_var xs,env2,s) = (Rval b,r) /\
-          env_rel (extract_list xs ++ ax) d (a ++ env) (b ++ env2)`,
+          env_rel (extract_list xs ++ ax) d (a ++ env) (b ++ env2)
+Proof
   Induct \\ fs [env_rel_def,extract_list_def]
   \\ once_rewrite_tac [evaluate_CONS]
   \\ rw [] \\ Cases_on `evaluate ([h],env2,s)` \\ fs []
@@ -97,7 +106,8 @@ val evaluate_delete_var_Rval = Q.prove(
   \\ res_tac \\ fs [] \\ rw []
   \\ `extract h xs = 0` by (Cases_on `h` \\ fs [extract_def]) \\ fs []
   \\ imp_res_tac evaluate_SING_IMP \\ rw [] \\ fs []
-  \\ fs [v_rel_def,env_rel_def,LLOOKUP_def]);
+  \\ fs [v_rel_def,env_rel_def,LLOOKUP_def]
+QED
 
 Theorem evaluate_SNOC_Rval:
    evaluate (SNOC x y,env,s) = (Rval a,r) ==>
@@ -292,10 +302,10 @@ Proof
   \\ asm_exists_tac \\ fs []
 QED
 
-val compile_thm = save_thm("compile_thm",
+Theorem compile_thm =
   evaluate_env_rel
   |> Q.SPECL [`xs`,`env`,`s1`,`[]`,`env`,`res`,`s2`,`ys`,`0`] |> GEN_ALL
-  |> SIMP_RULE (srw_ss()) [env_rel_def])
+  |> SIMP_RULE (srw_ss()) [env_rel_def]
 
 Theorem evaluate_compile_exp:
    evaluate ([d],env,s) = (r,t) /\

@@ -921,7 +921,8 @@ Definition every_exp_def:
   (every_exp P (Panop op es) = (P(Panop op es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Cmp c e1 e2) = (P(Cmp c e1 e2) ∧ every_exp P e1 ∧ every_exp P e2)) ∧
   (every_exp P (Shift sh e num) = (P(Shift sh e num) ∧ every_exp P e)) ∧
-  (every_exp P BaseAddr = P BaseAddr)
+  (every_exp P BaseAddr = P BaseAddr) ∧
+  (every_exp P BytesInWord = P BytesInWord)
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)` >>
   rpt strip_tac >>

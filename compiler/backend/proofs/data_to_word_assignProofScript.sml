@@ -60,7 +60,8 @@ val eval_tac = fs [wordSemTheory.evaluate_def,
   wordLangTheory.word_op_def, wordLangTheory.word_sh_def]
 
 (* This list must list all auxiliary definitions used in assign_def *)
-val assign_def_extras = save_thm("assign_def_extras",LIST_CONJ
+Theorem assign_def_extras =
+  LIST_CONJ
   [LoadWord64_def,WriteWord64_def,BignumHalt_def,LoadBignum_def,
    AnyArith_code_def,Add_code_def,Sub_code_def,Mul_code_def,
    Div_code_def,Mod_code_def, Compare1_code_def, Compare_code_def,
@@ -68,7 +69,7 @@ val assign_def_extras = save_thm("assign_def_extras",LIST_CONJ
    ShiftVar_def, generated_bignum_stubs_eq, DivCode_def,
    AddNumSize_def, AnyHeader_def, WriteWord64_on_32_def,
    WriteWord32_on_32_def, AllocVar_def, SilentFFI_def,
-   WordOp64_on_32_def, WordShift64_on_32_def, Make_ptr_bits_code_def]);
+   WordOp64_on_32_def, WordShift64_on_32_def, Make_ptr_bits_code_def]
 
 Theorem get_vars_SING:
    dataSem$get_vars args s = SOME [w] ==> ?y. args = [y]
@@ -1780,9 +1781,10 @@ Proof
   \\ fs[]
 QED
 
-val w2w_upper_def = Define `
+Definition w2w_upper_def:
   w2w_upper (w:word64) =
-    if dimindex (:'a) = 32 then ((63 >< 32) w):'a word else w2w w`
+    if dimindex (:'a) = 32 then ((63 >< 32) w):'a word else w2w w
+End
 
 Theorem InstallData_code_thm:
    !(t:('a,'c,'ffi) wordSem$state) c hv2 v1 q2 a1 a2 ret_val s1 vars sp refs ts.
@@ -2322,7 +2324,7 @@ Proof
   EVAL_TAC>>rw[]
 QED
 
-val word_exp_set = Q.prove(`
+Triviality word_exp_set:
   (word_exp s (Op Add [Var n; Const c]) =
   case get_var n s of
     SOME (Word w) => SOME (Word (w+c))
@@ -2330,28 +2332,36 @@ val word_exp_set = Q.prove(`
   (word_exp s (Op Sub [Var n; Const c]) =
   case get_var n s of
     SOME (Word w) => SOME (Word (w-c))
-  | _ => NONE)`,
+  | _ => NONE)
+Proof
   EVAL_TAC>>rw[]>>
   every_case_tac>>rw[]>>
-  fs[]);
+  fs[]
+QED
 
-val good_dimindex_w2w_byte = Q.prove(`
+Triviality good_dimindex_w2w_byte:
   good_dimindex (:'a) ⇒
-  w2w (w2w (w:word8):'a word) = w`,
+  w2w (w2w (w:word8):'a word) = w
+Proof
   rw[good_dimindex_def]>>
   simp[w2w_w2w]>>
-  match_mp_tac WORD_ALL_BITS>>fs[]);
+  match_mp_tac WORD_ALL_BITS>>fs[]
+QED
 
-val set_var_consts = Q.prove(`
+Triviality set_var_consts:
   (set_var r v s).memory = s.memory ∧
   (set_var r v s).mdomain = s.mdomain ∧
   (set_var r v s).be = s.be ∧
-  (set_var r v s).code = s.code`,
-  fs[wordSemTheory.set_var_def]);
+  (set_var r v s).code = s.code
+Proof
+  fs[wordSemTheory.set_var_def]
+QED
 
-val get_var_consts = Q.prove(`
-  get_var r (s with memory:=m) = get_var r s`,
-  EVAL_TAC>>rw[]);
+Triviality get_var_consts:
+  get_var r (s with memory:=m) = get_var r s
+Proof
+  EVAL_TAC>>rw[]
+QED
 
 Theorem CopyByteAdd_thm:
    !be n a1 a2 m dm ret_val l1 l2 (s:('a,'c,'ffi) wordSem$state) m1.
@@ -2745,23 +2755,9 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw []
   \\ fs [do_app,allowed_op_def]
-  \\ `?src srcoff le dst dstoff. vals =
-             [RefPtr src; Number srcoff; Number le; RefPtr dst;
-              Number dstoff]` by
-   (Cases_on `vals` \\ fs []
-    \\ rename1 `LENGTH args = SUC (LENGTH rest)` \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SUC(SUC (LENGTH rest))` \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SUC(SUC(SUC (LENGTH rest)))` \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SUC(SUC(SUC(SUC (LENGTH rest))))`
-    \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SUC(SUC(SUC(SUC(SUC (LENGTH rest)))))`
-    \\ Cases_on `rest` \\ fs []
-    \\ rename1 `_ = SOME (h1::h2::h3::h4::h5::_)`
-    \\ Cases_on `h5` \\ fs []
-    \\ Cases_on `h4` \\ fs []
-    \\ Cases_on `h3` \\ fs []
-    \\ Cases_on `h2` \\ fs []
-    \\ Cases_on `h1` \\ fs [])
+  \\ `?src srcoff le dst dstoff src_b dst_b. vals =
+             [RefPtr src_b src; Number srcoff; Number le; RefPtr dst_b dst;
+              Number dstoff]` by gvs [AllCaseEqs()]
   \\ fs [] \\ every_case_tac \\ fs [] \\ rveq
   \\ rename1 `lookup dst x.refs = SOME (ByteArray ys_fl ys)`
   \\ rename1 `lookup src x.refs = SOME (ByteArray xs_fl xs)`
@@ -2857,10 +2853,11 @@ Proof
       \\ drule0 memory_rel_tl \\ strip_tac
       \\ drule0 memory_rel_swap \\ strip_tac
       \\ drule0 memory_rel_tl \\ strip_tac
-      \\ drule0 memory_rel_RefPtr_EQ \\ fs [])
+      \\ drule memory_rel_RefPtr_EQ_IMP
+      \\ gvs [])
     \\ fs [] \\ rveq
     \\ `memory_rel c t.be (THE s1.tstamps) s1.refs s1.space t.store t.memory t.mdomain
-         ((RefPtr dst,Word wa1)::
+         ((RefPtr dst_b dst,Word wa1)::
             (join_env s1.locals
                (toAList (inter t.locals (adjust_set s1.locals))) ++
              [(the_global s1.global,t.store ' Globals)] ++
@@ -3028,7 +3025,7 @@ Proof
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]))
   THEN1
    (`memory_rel c t.be (THE s1.tstamps) s1.refs s1.space t.store t.memory t.mdomain
-         ((RefPtr src,Word wa1)::(RefPtr dst,Word wa2)::
+         ((RefPtr src_b src,Word wa1)::(RefPtr dst_b dst,Word wa2)::
             (join_env s1.locals
                (toAList (inter t.locals (adjust_set s1.locals))) ++
              [(the_global s1.global,t.store ' Globals)] ++
@@ -3405,7 +3402,9 @@ val evaluate_AppendMainLoop_code = prove(
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
   \\ fs [] \\ rw [] \\ fs []);
 
-val STOP_def = Define `STOP x = x`;
+Definition STOP_def:
+  STOP x = x
+End
 
 val evaluate_AppendMainLoop_code_alt = prove(
   ``!xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free ts v.
@@ -3966,7 +3965,7 @@ Proof
       qmatch_goalsub_abbrev_tac`option_CASE sm1`>>
       strip_tac>>
       `option_le sm1 smx` by
-        (Cases_on`sm1`>>Cases_on`smx`>>fs[libTheory.the_def])>>
+        (Cases_on`sm1`>>Cases_on`smx`>>fs[miscTheory.the_def])>>
       `option_le t.stack_max sm1` by
         (fs[Abbr`sm1`]>>
         simp[option_le_max_right])>>
@@ -4426,7 +4425,7 @@ Proof
     strip_tac>>
     `option_le sm1 smx''` by
       (pop_assum mp_tac>>Cases_on`sm1`>>Cases_on`smx''`>>
-      simp[libTheory.the_def])>>
+      simp[miscTheory.the_def])>>
     qmatch_goalsub_abbrev_tac`option_le sm2 _`>>
     `option_le sm2 sm1` by
       (fs[Abbr`sm1`,Abbr`sm2`]>>
@@ -5534,9 +5533,9 @@ Proof
 QED
 
 Theorem lookup_set_var:
- lookup x ((set_var x y z).locals) = SOME y
+  lookup x ((set_var x y z).locals) = SOME y
 Proof
- rw[wordSemTheory.set_var_def,lookup_insert]
+  rw[wordSemTheory.set_var_def,lookup_insert]
 QED
 
 Theorem assign_RefArray:
@@ -5644,15 +5643,8 @@ Proof
   \\ drule0 lookup_RefByte_location \\ fs [get_names_def]
   \\ disch_then kall_tac
   \\ fs [cut_state_opt_def,cut_state_def]
-  (* TODO: this is slow and silly, should be given by lemmas *)
-  \\ `r''.termdep = t.termdep`
-     by(Cases_on `c.call_empty_ffi` >>
-        fs[wordSemTheory.evaluate_def,AllocVar_def,list_Seq_def,
-           SilentFFI_def,wordSemTheory.alloc_def] >>
-        rpt(PURE_FULL_CASE_TAC >> fs[wordSemTheory.set_var_def] >> rveq) >>
-        fs[wordSemTheory.pop_env_def,CaseEq"option",CaseEq"stack_frame",CaseEq"prod",CaseEq"list"] >> rveq >>
-        fs[wordSemTheory.gc_def,CaseEq "option",CaseEq"prod"] >> rveq >>
-        fs[push_env_def,wordSemTheory.set_store_def])
+  \\ `r''.termdep = t.termdep` by
+   (imp_res_tac wordSemTheory.evaluate_clock \\ fs [wordSemTheory.set_var_def])
   \\ fs[]
   \\ fs[wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
   \\ drule state_rel_get_var_IMP
@@ -7068,7 +7060,7 @@ Proof
       \\ CCONTR_TAC \\ fs[]
       \\ qpat_x_assum `w2i _ ≠ _` mp_tac
       \\ fs[small_int_w2i_Smallnum_add])
-  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
+  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def]
   \\ unabbrev_all_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t4)`
   \\ `state_rel c l1 l2 x t4 [] locs` by fs [Abbr`t4`,state_rel_insert_3_1]
@@ -7185,7 +7177,7 @@ Proof
       \\ CCONTR_TAC \\ fs[]
       \\ qpat_x_assum `w2i _ ≠ _` mp_tac
       \\ fs[GSYM small_int_w2i_Smallnum_sub])
-  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
+  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def]
   \\ unabbrev_all_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t4)`
   \\ `state_rel c l1 l2 x t4 [] locs` by fs [Abbr`t4`,state_rel_insert_3_1]
@@ -7216,7 +7208,7 @@ Proof
   \\ fs [limits_inv_def] \\ rfs [] \\ fs []
   \\ fs [space_consumed_def] \\ rfs []
   \\ CCONTR_TAC \\ fs [] \\ fs []
-  \\ fs [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
+  \\ fs [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def]
 QED
 
 Theorem cut_state_opt_IMP_ffi:
@@ -7346,7 +7338,7 @@ Proof
     \\ simp [GSYM NOT_LESS]
     \\ fs [good_dimindex_def, dimword_def] \\ rfs []
     \\ fs [quad_times_div_half_double])
-  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def]
+  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def]
   \\ unabbrev_all_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t4)`
   \\ `state_rel c l1 l2 x t4 [] locs` by
@@ -7644,7 +7636,7 @@ Proof
     \\ fs [word_msb_n2w_numeric, small_int_def,
        INT_MIN_def, good_dimindex_def, dimword_def] \\ rveq \\ fs []
     \\ rfs [] \\ fs [])
-  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def,list_Seq_def]
+  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def,list_Seq_def]
   \\ unabbrev_all_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t4)`
   \\ `state_rel c l1 l2 x t4 [] locs` by
@@ -7913,7 +7905,7 @@ Proof
     \\ rveq
     \\ fs [word_msb_n2w_numeric, small_int_def,
        INT_MIN_def, good_dimindex_def, dimword_def] \\ rveq \\ fs [] \\ rfs [] \\ fs [])
-  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,libTheory.the_def,list_Seq_def]
+  \\ simp [stack_consumed_def,OPTION_MAP2_NONE,miscTheory.the_def,list_Seq_def]
   \\ unabbrev_all_tac
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t4)`
   \\ `state_rel c l1 l2 x t4 [] locs` by
@@ -9092,7 +9084,7 @@ Proof
     \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []))
   THEN1
    (rename [‘Str ss’]
-    \\ qmatch_asmsub_rename_tac `(RefPtr pp,a7)`
+    \\ qmatch_asmsub_rename_tac `(RefPtr _ pp,a7)`
     \\ rpt_drule0 memory_rel_String_const_test
     \\ disch_then (qspec_then `ss` mp_tac) \\ strip_tac \\ clean_tac
     \\ ‘l' = MAP (n2w ∘ ORD) (explode ss) ⇔ ss = implode (MAP (CHR ∘ w2n) l')’
@@ -10582,7 +10574,7 @@ Proof
      rveq >> rfs[])
   \\ TOP_CASE_TAC \\ fs[]
   THEN1 (* dimindex (:'a) = 64 *)
-   (`dimindex (:'a) = 64` by fs [state_rel_def,good_dimindex_def]
+   (cheat (*`dimindex (:'a) = 64` by fs [state_rel_def,good_dimindex_def]
     \\ fs [] \\ clean_tac
     \\ fs[state_rel_thm] \\ eval_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -10647,7 +10639,7 @@ Proof
       \\ simp[word_extract_def,word_bits_def,w2w,word_ror_def,fcpTheory.FCP_BETA]
       \\ rpt strip_tac
       \\ eq_tac \\ fs []
-      \\ `(i + n') MOD 64 < 64` by fs [] \\ simp []))
+      \\ `(i + n') MOD 64 < 64` by fs [] \\ simp [])*))
   \\ `dimindex (:'a) = 32` by fs [state_rel_def,good_dimindex_def]
   \\ fs [] \\ clean_tac
   \\ fs[state_rel_thm] \\ eval_tac
@@ -11275,7 +11267,7 @@ Theorem do_app_Ref:
       NONE => Rerr (Rabort Rtype_error)
     | SOME s1 =>
       Rval
-      (RefPtr (LEAST ptr. ptr ∉ domain s1.refs),
+      (RefPtr T (LEAST ptr. ptr ∉ domain s1.refs),
          s1 with
            <| refs := insert (LEAST ptr. ptr ∉ domain s1.refs) (ValueArray vals) s1.refs;
            safe_for_space := (do_stack Ref vals (do_lim_safe s1 Ref vals)).safe_for_space;
@@ -11767,9 +11759,9 @@ Proof
   \\ fs [assign_def]
   \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
   \\ fs [state_rel_def]
-  \\ fs [the_global_def,libTheory.the_def]
+  \\ fs [the_global_def,miscTheory.the_def]
   \\ fs [FLOOKUP_DEF,wordSemTheory.set_var_def,lookup_insert,
-         adjust_var_11,libTheory.the_def,set_var_def]
+         adjust_var_11,miscTheory.the_def,set_var_def]
   \\ rw [] \\ fs [option_le_max_right]
   \\ asm_exists_tac \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -11796,10 +11788,10 @@ Proof
           by fs [memory_rel_def,heap_in_memory_store_def,state_rel_def]
   \\ fs [glob_real_inv_def]
   \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm,option_le_max_right]
-  \\ gvs [the_global_def,libTheory.the_def]
-  \\ qmatch_asmsub_abbrev_tac ‘(xs1 ++ [(RefPtr ptr,t.store ' Globals)] ++ xs2)’
+  \\ gvs [the_global_def,miscTheory.the_def]
+  \\ qmatch_asmsub_abbrev_tac ‘(xs1 ++ [(RefPtr T ptr,t.store ' Globals)] ++ xs2)’
   \\ ‘memory_rel c t.be (THE x.tstamps) x.refs x.space t.store t.memory
-          t.mdomain ((RefPtr ptr,t.store ' Globals) :: (xs1 ++ xs2))’ by
+          t.mdomain ((RefPtr T ptr,t.store ' Globals) :: (xs1 ++ xs2))’ by
       (first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
        \\ fs [] \\ rw [] \\ fs [])
   \\ drule0 (memory_rel_Deref' |> GEN_ALL) \\ fs []
@@ -11830,16 +11822,16 @@ Proof
   \\ fs [bvlSemTheory.Unit_def] \\ rveq
   \\ fs [GSYM bvlSemTheory.Unit_def] \\ rveq
   \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm]
-  \\ rfs [the_global_def,libTheory.the_def]
+  \\ rfs [the_global_def,miscTheory.the_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ disch_then drule0 \\ fs []
   \\ imp_res_tac get_vars_1_IMP \\ fs []
   \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_1] \\ clean_tac
-  \\ qmatch_goalsub_abbrev_tac ‘(_,_)::(xs1++[(RefPtr ref_ptr,_)]++xs2)’
+  \\ qmatch_goalsub_abbrev_tac ‘(_,_)::(xs1++[(RefPtr br ref_ptr,_)]++xs2)’
   \\ strip_tac
   \\ ‘memory_rel c t.be (THE x.tstamps) x.refs x.space t.store t.memory t.mdomain
-        ((RefPtr ref_ptr,t.store ' Globals)::(h,a1')::(xs1 ++ xs2))’ by
+        ((RefPtr br ref_ptr,t.store ' Globals)::(h,a1')::(xs1 ++ xs2))’ by
       (first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
        \\ fs [] \\ rw [] \\ fs [])
   \\ ‘∃curr.
@@ -11850,7 +11842,7 @@ Proof
   \\ fs [glob_real_inv_def]
   \\ fs [wordSemTheory.get_vars_def,AllCaseEqs()]
   \\ ‘memory_rel c t.be (THE x.tstamps) x.refs x.space t.store t.memory t.mdomain
-        ((h,a1')::(RefPtr ref_ptr,t.store ' Globals)::(xs1 ++ xs2))’ by
+        ((h,a1')::(RefPtr br ref_ptr,t.store ' Globals)::(xs1 ++ xs2))’ by
       (first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
        \\ fs [] \\ rw [] \\ fs [])
   \\ drule0 (memory_rel_Update' |> GEN_ALL) \\ fs []
@@ -11887,7 +11879,7 @@ Proof
   \\ every_case_tac \\ fs [] \\ rpt var_eq_tac
   \\ ‘isWord h’ by
    (fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
-         adjust_var_11,libTheory.the_def,set_var_def,
+         adjust_var_11,miscTheory.the_def,set_var_def,
          wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ drule0 (GEN_ALL word_ml_inv_get_vars_IMP)
@@ -11916,11 +11908,11 @@ Proof
   \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
   \\ fs [wordSemTheory.set_store_def]
   \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
-         adjust_var_11,libTheory.the_def,set_var_def,word_sh_def,
+         adjust_var_11,miscTheory.the_def,set_var_def,word_sh_def,
          wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ rw [] \\ rw [] \\ fs []
   \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
-         adjust_var_11,libTheory.the_def,set_var_def,word_sh_def,
+         adjust_var_11,miscTheory.the_def,set_var_def,word_sh_def,
          wordSemTheory.set_store_def,code_oracle_rel_def,FLOOKUP_UPDATE,
          wordSemTheory.the_words_def,word_op_def,memory_rel_def]
   \\ rw [] \\ fs [option_le_max_right]
@@ -11931,7 +11923,7 @@ Proof
   \\ qexists_tac ‘sp1’
   \\ qexists_tac ‘gens’
   \\ fs [heap_in_memory_store_def,FLOOKUP_UPDATE,glob_real_inv_def]
-  \\ fs [the_global_def,libTheory.the_def]
+  \\ fs [the_global_def,miscTheory.the_def]
   \\ gvs [get_real_simple_addr_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (GEN_ALL word_ml_inv_get_vars_IMP)
@@ -11952,12 +11944,13 @@ Proof
   Cases_on `b1` \\ Cases_on `b2` \\ fs []
 QED
 
-val memcopy_def = Define `
+Definition memcopy_def:
   memcopy k a1 a2 m dm =
     if k = 0n then SOME m else
       if a1 IN dm /\ a2 IN dm then
         memcopy (k-1) (a1+bytes_in_word) (a2+bytes_in_word) ((a2 =+ m a1) m) dm
-      else NONE`
+      else NONE
+End
 
 Theorem MemCopy_thm:
    !ret_val l1 l2 k a1 a2 (s:('a,'c,'ffi) wordSem$state) m dm m1.
@@ -11997,9 +11990,9 @@ Proof
   \\ fs[]
 QED
 
-val assign_ConsExtend = save_thm("assign_ConsExtend",
+Theorem assign_ConsExtend =
   ``assign c n l dest (ConsExtend tag) args names_opt``
-  |> SIMP_CONV (srw_ss()) [assign_def])
+  |> SIMP_CONV (srw_ss()) [assign_def]
 
 Theorem get_vars_IMP_domain:
    !xs s y.
@@ -12822,8 +12815,7 @@ Proof
 QED
 
 Theorem assign_FFI:
-   (?n. op = FFI n) ==>
-   ^assign_thm_goal
+   (?n. op = FFI n) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -13026,9 +13018,9 @@ Proof
     \\ simp[dimword_def] )
   \\ fs[] \\ strip_tac
   \\ qmatch_goalsub_abbrev_tac`read_bytearray aa2 len2 _`
-  \\ qispl_then[`l''`,`LENGTH l''`,`aa2`]mp_tac IMP_read_bytearray_GENLIST
+  \\ qispl_then[`l'`,`LENGTH l'`,`aa2`]mp_tac IMP_read_bytearray_GENLIST
   \\ impl_tac >- simp[]
-  \\ `len2 = LENGTH l''`
+  \\ `len2 = LENGTH l'`
   by (
     simp[Abbr`len2`]
     \\ rfs[good_dimindex_def] \\ rfs[shift_def]
@@ -13041,87 +13033,117 @@ Proof
   \\ simp[lookup_insert]
   \\ fs[wordSemTheory.cut_env_def] \\ clean_tac
   \\ simp[lookup_inter,lookup_insert,lookup_adjust_var_adjust_set]
-  \\ IF_CASES_TAC
-     >- (fs[adjust_set_def,lookup_fromAList,cut_state_opt_def,cut_state_def,cut_env_def]
-         >> Cases_on `domain x' ⊆ domain s.locals` >> fs[]
-         >> fs[domain_fromAList,MAP_MAP_o,o_DEF,pairTheory.ELIM_UNCURRY,adjust_var_def,
-               lookup_insert,lookup_inter,lookup_fromAList]
-         >> fs[Q.prove(`!(n:num). 2 * n + 2 ≠ 7`, intLib.COOPER_TAC),
-               Q.prove(`!(n:num). 2 * n + 2 ≠ 5`, intLib.COOPER_TAC),
-               Q.prove(`!(n:num). 2 * n + 2 ≠ 3`, intLib.COOPER_TAC),
-               Q.prove(`!(n:num). 2 * n + 2 ≠ 1`, intLib.COOPER_TAC)]
-         >> `!(n:num). 2 * n + 2 ≠ 7` by intLib.COOPER_TAC
-         >> fs[]
-         >> conj_tac
-            >- (rpt strip_tac
-                >> IF_CASES_TAC >> fs[IS_SOME_EXISTS]
-                >> qmatch_asmsub_abbrev_tac `set st ⊆ _`
-                >> `7 ∉ set st`
-                   by(fs[Abbr `st`,MEM_MAP] >> rpt strip_tac >> DISJ1_TAC >> intLib.COOPER_TAC)
-                   >> drule0 SUBSET_INSERT_EQ_SUBSET >> disch_then (fn thm => fs[thm])
-                >> pop_assum kall_tac
-                >> `5 ∉ set st`
-                   by(fs[Abbr `st`,MEM_MAP] >> rpt strip_tac >> DISJ1_TAC >> intLib.COOPER_TAC)
-                >> drule0 SUBSET_INSERT_EQ_SUBSET >> disch_then (fn thm => fs[thm])
-                >> pop_assum kall_tac
-                >> `3 ∉ set st`
-                   by(fs[Abbr `st`,MEM_MAP] >> rpt strip_tac >> DISJ1_TAC >> intLib.COOPER_TAC)
-                >> drule0 SUBSET_INSERT_EQ_SUBSET >> disch_then (fn thm => fs[thm])
-                >> pop_assum kall_tac
-                >> `1 ∉ set st`
-                   by(fs[Abbr `st`,MEM_MAP] >> rpt strip_tac >> DISJ1_TAC >> intLib.COOPER_TAC)
-                >> drule0 SUBSET_INSERT_EQ_SUBSET >> disch_then (fn thm => fs[thm])
-                >> pop_assum kall_tac
-                >> rveq >> fs[state_component_equality,lookup_inter]
-                >> Cases_on `lookup n s.locals` >> fs[]
-                >> Cases_on `lookup n x'` >> fs[]
-                >> `2 * n + 2 ∈ set st`
-                   by(fs[Abbr `st`,MEM_MAP]
-                      >> qexists_tac `(n,())`
-                      >> fs[MEM_toAList])
-                >> `(2 * n + 2) ∈ domain t.locals` by metis_tac[SUBSET_DEF]
-                >> fs[domain_lookup]
-                >> TOP_CASE_TAC >> fs[ALOOKUP_NONE,MAP_MAP_o,o_DEF] >> fs[MEM_MAP]
-                >> pop_assum(qspec_then `(n,())` assume_tac) >> fs[MEM_toAList])
-            >> fs[option_le_max_right,
+  \\ reverse IF_CASES_TAC
+  >-
+   (`F` suffices_by rw[]
+    >> pop_assum mp_tac
+    >> fs[cut_state_opt_def]
+    >> drule0 (#1(EQ_IMP_RULE cut_state_eq_some))
+    >> strip_tac
+    >> clean_tac
+    >> simp[wordSemTheory.cut_env_def]
+    >> rw[SUBSET_DEF,domain_lookup]
+    >> fs[dataSemTheory.cut_env_def]
+    >> clean_tac >> fs[]
+    >> Cases_on`x=0` >- metis_tac[]
+    >> qmatch_assum_abbrev_tac`lookup x ss = SOME _`
+    >> `x ∈ domain ss` by metis_tac[domain_lookup]
+    >> qunabbrev_tac`ss`
+    >> imp_res_tac domain_adjust_set_EVEN
+    \\ `∃z. x = adjust_var z` by
+          (simp[adjust_var_def]
+           \\ fs[EVEN_EXISTS]
+           \\ Cases_on`m` \\ fs[ADD1,LEFT_ADD_DISTRIB])
+    \\ rveq
+    \\ fs[lookup_adjust_var_adjust_set_SOME_UNIT]
+    \\ last_x_assum(qspec_then`z`mp_tac)
+    \\ simp[lookup_inter]
+    \\ fs[IS_SOME_EXISTS]
+    \\ disch_then match_mp_tac
+    \\ BasicProvers.CASE_TAC
+    \\ fs[SUBSET_DEF,domain_lookup]
+    \\ res_tac \\ fs[])
+  \\ fs[adjust_set_def,lookup_fromAList,cut_state_opt_def,cut_state_def,cut_env_def]
+  >> Cases_on `domain x' ⊆ domain s.locals` >> fs[]
+  >> fs[domain_fromAList,MAP_MAP_o,o_DEF,pairTheory.ELIM_UNCURRY,adjust_var_def,
+        lookup_insert,lookup_inter,lookup_fromAList]
+  >> fs[Q.prove(`!(n:num). 2 * n + 2 ≠ 7`, intLib.COOPER_TAC),
+        Q.prove(`!(n:num). 2 * n + 2 ≠ 5`, intLib.COOPER_TAC),
+        Q.prove(`!(n:num). 2 * n + 2 ≠ 3`, intLib.COOPER_TAC),
+        Q.prove(`!(n:num). 2 * n + 2 ≠ 1`, intLib.COOPER_TAC)]
+  >> `!(n:num). 2 * n + 2 ≠ 7` by intLib.COOPER_TAC
+  >> fs[]
+  >> conj_tac
+  >- (rpt strip_tac
+      >> IF_CASES_TAC >> fs[IS_SOME_EXISTS]
+      >> qmatch_asmsub_abbrev_tac `set st ⊆ _`
+      >> `7 ∉ set st`
+        by(fs[Abbr `st`,MEM_MAP] >> rpt strip_tac >> DISJ1_TAC >> intLib.COOPER_TAC)
+      >> drule0 SUBSET_INSERT_EQ_SUBSET >> disch_then (fn thm => fs[thm])
+      >> pop_assum kall_tac
+      >> `5 ∉ set st`
+        by(fs[Abbr `st`,MEM_MAP] >> rpt strip_tac >> DISJ1_TAC >> intLib.COOPER_TAC)
+      >> drule0 SUBSET_INSERT_EQ_SUBSET >> disch_then (fn thm => fs[thm])
+      >> pop_assum kall_tac
+      >> `3 ∉ set st`
+        by(fs[Abbr `st`,MEM_MAP] >> rpt strip_tac >> DISJ1_TAC >> intLib.COOPER_TAC)
+      >> drule0 SUBSET_INSERT_EQ_SUBSET >> disch_then (fn thm => fs[thm])
+      >> pop_assum kall_tac
+      >> `1 ∉ set st`
+        by(fs[Abbr `st`,MEM_MAP] >> rpt strip_tac >> DISJ1_TAC >> intLib.COOPER_TAC)
+      >> drule0 SUBSET_INSERT_EQ_SUBSET >> disch_then (fn thm => fs[thm])
+      >> pop_assum kall_tac
+      >> rveq >> fs[state_component_equality,lookup_inter]
+      >> Cases_on `lookup n s.locals` >> fs[]
+      >> Cases_on `lookup n x'` >> fs[]
+      >> `2 * n + 2 ∈ set st`
+        by(fs[Abbr `st`,MEM_MAP]
+           >> qexists_tac `(n,())`
+           >> fs[MEM_toAList])
+      >> `(2 * n + 2) ∈ domain t.locals` by metis_tac[SUBSET_DEF]
+      >> fs[domain_lookup]
+      >> TOP_CASE_TAC >> fs[ALOOKUP_NONE,MAP_MAP_o,o_DEF] >> fs[MEM_MAP]
+      >> pop_assum(qspec_then `(n,())` assume_tac) >> fs[MEM_toAList])
+  >> fs[option_le_max_right,
                   SIMP_RULE std_ss
                             [adjust_set_def,adjust_var_def,pairTheory.ELIM_UNCURRY]
                             inter_insert_ODD_adjust_set_alt]
-            >> full_simp_tac std_ss [GSYM APPEND_ASSOC]
-            >> match_mp_tac (SIMP_RULE std_ss [adjust_set_def,adjust_var_def,
-                                               pairTheory.ELIM_UNCURRY]
-                                       memory_rel_insert)
-            >> fs[]
-            >> match_mp_tac (SIMP_RULE std_ss [adjust_set_def,adjust_var_def,
-                                               pairTheory.ELIM_UNCURRY]
+  >> full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  >> match_mp_tac (SIMP_RULE std_ss [adjust_set_def,adjust_var_def,
+                                     pairTheory.ELIM_UNCURRY]
+                             memory_rel_insert)
+  >> fs[]
+  >> match_mp_tac (SIMP_RULE std_ss [adjust_set_def,adjust_var_def,
+                                     pairTheory.ELIM_UNCURRY]
                                        memory_rel_Unit)
-            >> fs[]
-            >> rename1 `call_FFI _ _ _ l'' = FFI_return _ r'`
-            >> `LENGTH r' = LENGTH l''`
-            by (
-             qhdtm_x_assum`call_FFI`mp_tac
-             \\ simp[ffiTheory.call_FFI_def]
-             \\ rpt(pop_assum kall_tac)
-             \\ every_case_tac \\ rpt strip_tac \\ fs[])
-            >> qmatch_asmsub_abbrev_tac`((RefPtr n''',Word w)::vars)`
-            (* TODO: refactor this horrendous proof! *)
-            >> `∀n. n ≤ LENGTH l'' ⇒
+  >> fs[]
+  >> rename1 `call_FFI _ _ _ l'' = FFI_return _ r'`
+  >> `LENGTH r' = LENGTH l''`
+    by (
+    qhdtm_x_assum`call_FFI`mp_tac
+    \\ simp[ffiTheory.call_FFI_def]
+    \\ rpt(pop_assum kall_tac)
+    \\ every_case_tac \\ rpt strip_tac \\ fs[])
+  >> qmatch_asmsub_abbrev_tac`((RefPtr n__b n'',Word w)::vars)`
+  >> pop_assum kall_tac
+  (* TODO: refactor this horrendous proof! *)
+  >> qsuff_tac `∀n. n ≤ LENGTH l'' ⇒
               let new_m = write_bytearray (aa2 + n2w (LENGTH l'' - n))
                                           (DROP (LENGTH l'' - n) r')
                                           t.memory t.mdomain t.be
               in memory_rel c t.be
                    (THE x.tstamps)
-                   (insert n'''
+                   (insert n''
                       (ByteArray F (TAKE (LENGTH l'' - n) l''
                                     ++
                                     DROP (LENGTH l'' - n) r'))
                       x.refs)
                    x.space t.store
-                   new_m t.mdomain ((RefPtr n''',Word w)::vars) ∧
+                   new_m t.mdomain ((RefPtr n__b n'',Word w)::vars) ∧
                 (∀i v. i < LENGTH l'' ⇒
                   memory_rel c t.be
                     (THE x.tstamps)
-                    (insert n'''
+                    (insert n''
                        (ByteArray F (LUPDATE v i (TAKE (LENGTH l'' - n) l''
                                                   ++
                                                   DROP (LENGTH l'' - n) r')))
@@ -13130,111 +13152,82 @@ Proof
                     ((byte_align (aa2 + n2w i) =+
                       Word (set_byte (aa2 + n2w i) v
                              (theWord (new_m (byte_align (aa2 + n2w i)))) t.be)) new_m)
-                    t.mdomain ((RefPtr n''',Word w)::vars))`
-          by (
-            Induct \\ simp[]
-            >- (
-              first_x_assum (mp_tac o GSYM)
-              \\ simp[DROP_LENGTH_NIL_rwt,wordSemTheory.write_bytearray_def]
-              \\ qpat_abbrev_tac`refs = sptree$insert _ _ x.refs`
-              \\ `refs = x.refs` by simp[Abbr`refs`,insert_unchanged]
-              \\ rw[]
-              >- (qpat_x_assum `memory_rel _ _ _ _ _ _ _ _ (_ :: _ :: _)` mp_tac
-                 \\ rw[] \\ drule0 memory_rel_tl \\ simp[])
-              \\ first_x_assum drule0
-              \\ simp[])
-            \\ strip_tac \\ fs[]
-            \\ qpat_abbrev_tac`ls2 = TAKE _ _ ++ _`
-            \\ qmatch_asmsub_abbrev_tac`ByteArray F ls1`
-            \\ `ls2 = LUPDATE (EL (LENGTH l'' - SUC n) r') (LENGTH l'' - SUC n) ls1`
-               by (simp[Abbr`ls1`,Abbr`ls2`
-                       ,LIST_EQ_REWRITE,EL_APPEND_EQN
-                       ,EL_LUPDATE,DROP_def,TAKE_def]
-                  \\ rw[] \\ fs[]
-                  \\ simp[EL_TAKE,HD_DROP,EL_DROP])
-            \\ qunabbrev_tac`ls2` \\ fs[]
-            \\ qmatch_goalsub_abbrev_tac`EL i r'`
-            \\ `i < LENGTH l''` by simp[Abbr`i`]
-            \\ first_x_assum(qspecl_then[`i`,`EL i r'`]mp_tac)
-            \\ impl_tac >- rw[]
-            \\ `DROP i r' = EL i r'::DROP(LENGTH l'' - n)r'`
-               by (Cases_on`r'` \\ fs[Abbr`i`]
-                   \\ simp[LIST_EQ_REWRITE,ADD1,EL_DROP,EL_CONS,PRE_SUB1]
-                   >- rfs[]
-                   \\ Induct \\ rw[ADD1]
-                   \\ simp[EL_DROP]
-                   \\ `x'' + LENGTH l'' - n = SUC(x'' + LENGTH l'' - (n+1))` by decide_tac
-                   \\ pop_assum (CHANGED_TAC o SUBST1_TAC)
-                   \\ simp[EL] \\ NO_TAC)
-            \\ first_assum SUBST1_TAC
-            \\ qpat_abbrev_tac`wb = write_bytearray _ (_ :: _) _ _ _`
-            \\ qpat_abbrev_tac `wb1 = write_bytearray _ _ _ _ _`
-            \\ qpat_abbrev_tac`wb2 = _ wb1`
-            \\ `wb2 = wb`
-               by (simp[Abbr`wb2`,Abbr`wb`,wordSemTheory.write_bytearray_def]
-                   \\ `aa2 + n2w i + 1w = aa2 + n2w (LENGTH l'' - n)`
-                      by(simp[Abbr`i`,ADD1]
-                         \\ REWRITE_TAC[GSYM WORD_ADD_ASSOC]
-                         \\ AP_TERM_TAC
-                         \\ simp[word_add_n2w])
-                   \\ pop_assum SUBST_ALL_TAC \\ simp[]
-                   \\ simp[wordSemTheory.mem_store_byte_aux_def]
-                   \\ last_x_assum drule0
-                   \\ simp[Abbr`g`,wordSemTheory.mem_load_byte_aux_def]
-                   \\ BasicProvers.TOP_CASE_TAC \\ simp[] \\ strip_tac
-                   \\ qmatch_assum_rename_tac`t.memory _ = Word v`
-                   \\ `∃v. wb1 (byte_align (aa2 + n2w i)) = Word v`
-                      by (`isWord (wb1 (byte_align (aa2 + n2w i)))`
-                          suffices_by (metis_tac[isWord_def,wordLangTheory.word_loc_nchotomy])
-                          \\ simp[Abbr`wb1`]
-                          \\ match_mp_tac write_bytearray_isWord
-                          \\ simp[isWord_def])
-                   \\ simp[theWord_def])
-            \\ qunabbrev_tac`wb2`
-            \\ pop_assum SUBST_ALL_TAC
-            \\ strip_tac
-            \\ conj_tac >- first_assum ACCEPT_TAC
-            \\ drule0 (GEN_ALL memory_rel_ByteArray_IMP)
-            \\ simp[FLOOKUP_UPDATE,lookup_insert]
-            \\ strip_tac
-            \\ `LENGTH l'' = LENGTH ls1` by (qunabbrev_tac `ls1` \\ fs[])
-            \\ rfs [Once insert_insert])
-          \\ first_x_assum(qspec_then`LENGTH l''`mp_tac)
-          \\ simp[Abbr `vars`] \\ strip_tac
-          \\ match_mp_tac(GEN_ALL memory_rel_zero_space)
-          \\ qexists_tac `x.space`
-          \\ drule0 memory_rel_tl \\ match_mp_tac memory_rel_rearrange
-          \\ simp[join_env_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_toAList,EXISTS_PROD,lookup_inter_alt]
-          \\ rw[] \\ rw[] \\ metis_tac[])
-   >> `F` suffices_by rw[]
-   >> pop_assum mp_tac
-   >> fs[cut_state_opt_def]
-   >> drule0 (#1(EQ_IMP_RULE cut_state_eq_some))
-   >> strip_tac
-   >> clean_tac
-   >> simp[wordSemTheory.cut_env_def]
-   >> rw[SUBSET_DEF,domain_lookup]
-   >> fs[dataSemTheory.cut_env_def]
-   >> clean_tac >> fs[]
-   >> Cases_on`x=0` >- metis_tac[]
-   >> qmatch_assum_abbrev_tac`lookup x ss = SOME _`
-   >> `x ∈ domain ss` by metis_tac[domain_lookup]
-   >> qunabbrev_tac`ss`
-   >> imp_res_tac domain_adjust_set_EVEN
-   >> `∃z. x = adjust_var z`
-   by (
-       simp[adjust_var_def]
-       \\ fs[EVEN_EXISTS]
-       \\ Cases_on`m` \\ fs[ADD1,LEFT_ADD_DISTRIB] )
-   >> rveq
-   >> fs[lookup_adjust_var_adjust_set_SOME_UNIT]
-   >> last_x_assum(qspec_then`z`mp_tac)
-   >> simp[lookup_inter]
-   >> fs[IS_SOME_EXISTS]
-   >> disch_then match_mp_tac
-   >> BasicProvers.CASE_TAC
-   >> fs[SUBSET_DEF,domain_lookup]
-   >> res_tac >> fs[]
+                    t.mdomain ((RefPtr n__b n'',Word w)::vars))`
+  >- (strip_tac \\ first_x_assum(qspec_then`LENGTH l''`mp_tac)
+      \\ simp[Abbr `vars`] \\ strip_tac
+      \\ match_mp_tac(GEN_ALL memory_rel_zero_space)
+      \\ qexists_tac `x.space`
+      \\ drule0 memory_rel_tl \\ match_mp_tac memory_rel_rearrange
+      \\ simp[join_env_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,
+              MEM_toAList,EXISTS_PROD,lookup_inter_alt]
+      \\ rw[] \\ rw[] \\ metis_tac[])
+  \\ Induct \\ simp[]
+  >- (
+    first_x_assum (mp_tac o GSYM)
+    \\ simp[DROP_LENGTH_NIL_rwt,wordSemTheory.write_bytearray_def]
+    \\ qpat_abbrev_tac`refs = sptree$insert _ _ x.refs`
+    \\ `refs = x.refs` by simp[Abbr`refs`,insert_unchanged]
+    \\ rw[]
+    >- (qpat_x_assum `memory_rel _ _ _ _ _ _ _ _ (_ :: _ :: _)` mp_tac
+       \\ rw[] \\ drule0 memory_rel_tl \\ simp[])
+    \\ first_x_assum drule0
+    \\ simp[])
+  \\ strip_tac \\ fs[]
+  \\ qpat_abbrev_tac`ls2 = TAKE _ _ ++ _`
+  \\ qmatch_asmsub_abbrev_tac`ByteArray F ls1`
+  \\ `ls2 = LUPDATE (EL (LENGTH l'' - SUC n) r') (LENGTH l'' - SUC n) ls1`
+     by (simp[Abbr`ls1`,Abbr`ls2`
+             ,LIST_EQ_REWRITE,EL_APPEND_EQN
+             ,EL_LUPDATE,DROP_def,TAKE_def]
+        \\ rw[] \\ fs[]
+        \\ simp[EL_TAKE,HD_DROP,EL_DROP])
+  \\ qunabbrev_tac`ls2` \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`EL i r'`
+  \\ `i < LENGTH l''` by simp[Abbr`i`]
+  \\ first_x_assum(qspecl_then[`i`,`EL i r'`]mp_tac)
+  \\ impl_tac >- rw[]
+  \\ `DROP i r' = EL i r'::DROP(LENGTH l'' - n)r'`
+     by (Cases_on`r'` \\ fs[Abbr`i`]
+         \\ simp[LIST_EQ_REWRITE,ADD1,EL_DROP,EL_CONS,PRE_SUB1]
+         >- rfs[]
+         \\ Induct \\ rw[ADD1]
+         \\ simp[EL_DROP]
+         \\ `x'' + LENGTH l'' - n = SUC(x'' + LENGTH l'' - (n+1))` by decide_tac
+         \\ pop_assum (CHANGED_TAC o SUBST1_TAC)
+         \\ simp[EL] \\ NO_TAC)
+  \\ first_assum SUBST1_TAC
+  \\ qpat_abbrev_tac`wb = write_bytearray _ (_ :: _) _ _ _`
+  \\ qpat_abbrev_tac `wb1 = write_bytearray _ _ _ _ _`
+  \\ qpat_abbrev_tac`wb2 = _ wb1`
+  \\ `wb2 = wb`
+     by (simp[Abbr`wb2`,Abbr`wb`,wordSemTheory.write_bytearray_def]
+         \\ `aa2 + n2w i + 1w = aa2 + n2w (LENGTH l'' - n)`
+            by(simp[Abbr`i`,ADD1]
+               \\ REWRITE_TAC[GSYM WORD_ADD_ASSOC]
+               \\ AP_TERM_TAC
+               \\ simp[word_add_n2w])
+         \\ pop_assum SUBST_ALL_TAC \\ simp[]
+         \\ simp[wordSemTheory.mem_store_byte_aux_def]
+         \\ last_x_assum drule0
+         \\ simp[Abbr`g`,wordSemTheory.mem_load_byte_aux_def]
+         \\ BasicProvers.TOP_CASE_TAC \\ simp[] \\ strip_tac
+         \\ qmatch_assum_rename_tac`t.memory _ = Word v`
+         \\ `∃v. wb1 (byte_align (aa2 + n2w i)) = Word v`
+            by (`isWord (wb1 (byte_align (aa2 + n2w i)))`
+                suffices_by (metis_tac[isWord_def,wordLangTheory.word_loc_nchotomy])
+                \\ simp[Abbr`wb1`]
+                \\ match_mp_tac write_bytearray_isWord
+                \\ simp[isWord_def])
+         \\ simp[theWord_def])
+  \\ qunabbrev_tac`wb2`
+  \\ pop_assum SUBST_ALL_TAC
+  \\ strip_tac
+  \\ conj_tac >- first_assum ACCEPT_TAC
+  \\ drule0 (GEN_ALL memory_rel_ByteArray_IMP)
+  \\ simp[FLOOKUP_UPDATE,lookup_insert]
+  \\ strip_tac
+  \\ `LENGTH l'' = LENGTH ls1` by (qunabbrev_tac `ls1` \\ fs[])
+  \\ rfs [Once insert_insert]
 QED
 
 Theorem assign_FFI_final:
@@ -13359,9 +13352,9 @@ Proof
     \\ simp[dimword_def] )
   \\ fs[] \\ strip_tac
   \\ qmatch_goalsub_abbrev_tac`read_bytearray aa2 len2 _`
-  \\ qispl_then[`l''`,`LENGTH l''`,`aa2`]mp_tac IMP_read_bytearray_GENLIST
+  \\ qispl_then[`l'`,`LENGTH l'`,`aa2`]mp_tac IMP_read_bytearray_GENLIST
   \\ impl_tac >- simp[]
-  \\ `len2 = LENGTH l''`
+  \\ `len2 = LENGTH l'`
   by (
     simp[Abbr`len2`]
     \\ rfs[good_dimindex_def] \\ rfs[shift_def]

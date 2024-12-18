@@ -17,7 +17,9 @@ val main_io_events_def = new_specification("main_io_events_def",["main_io_events
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (main_sem,main_output) = main_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (main_not_fail,main_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail main_sem |> CONJ_PAIR
+val (main_not_fail,main_sem_sing) = main_sem
+  |> SRULE [lpr_packing_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 lpr_packing_compiled)
@@ -30,14 +32,13 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val main_compiled_thm =
+Theorem main_compiled_thm =
   CONJ compile_correct_applied main_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "main_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_x64_def = Define `
+Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
     mc ms
@@ -50,17 +51,18 @@ val installed_x64_def = Define `
         cfg.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names) mc
         cfg.lab_conf.shmem_extra ms
-    `;
+End
 
-val main_code_def = Define `
+Definition main_code_def:
   main_code = (code, data, info)
-  `;
+End
 
 (* A standard run of packing satisfying all the default assumptions *)
-val packing_run_def = Define`
+Definition packing_run_def:
   packing_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 main_code mc ms`
+  installed_x64 main_code mc ms
+End
 
 Theorem parse_numbers_imp:
   parse_numbers rs ks cs = SOME (r,k,c) ⇒

@@ -8,14 +8,15 @@ open blastLib;
 
 val _ = new_theory"mips_configProof";
 
-val is_mips_machine_config_def = Define`
+Definition is_mips_machine_config_def:
   is_mips_machine_config mc ⇔
   mc.target = mips_target ∧
   mc.len_reg =5  ∧
   mc.ptr_reg = 4 ∧
   mc.len2_reg =7  ∧
   mc.ptr2_reg = 6 ∧
-  mc.callee_saved_regs = [21;22;23]`;
+  mc.callee_saved_regs = [21;22;23]
+End
 
 val names_tac =
   simp[tlookup_bij_iff] \\ EVAL_TAC
@@ -67,7 +68,7 @@ QED
 
 val is_mips_machine_config_mc = mips_init_ok |> concl |> dest_imp |> #1
 
-val mips_compile_correct =
+Theorem mips_compile_correct =
   compile_correct
   |> Q.GENL[`c`,`mc`]
   |> Q.ISPECL[`mips_backend_config`, `^(rand is_mips_machine_config_mc)`]
@@ -75,6 +76,5 @@ val mips_compile_correct =
   |> SIMP_RULE (srw_ss()) [mips_backend_config_ok,UNDISCH mips_machine_config_ok,UNDISCH mips_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
-  |> curry save_thm"mips_compile_correct";
 
 val _ = export_theory();

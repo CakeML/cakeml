@@ -26,7 +26,7 @@ Proof
 QED
 
 Inductive v_rel:
-  (!n. v_rel (Loc n) (RefPtr n)) /\
+  (!n b. v_rel (Loc b n) (RefPtr b n)) /\
   (!i. v_rel (Litv (IntLit i)) (Number i)) /\
   (!c. v_rel (Litv (Char c)) (Number (& (ORD c)))) /\
   (!s. v_rel (Litv (StrLit s)) (ByteVector (MAP (n2w o ORD) s))) /\
@@ -55,7 +55,7 @@ Inductive v_rel:
 End
 
 Theorem v_rel_def =
-  [``v_rel (Loc n) x1``,
+  [``v_rel (Loc b n) x1``,
    ``v_rel (Litv (IntLit l1)) x1``,
    ``v_rel (Litv (StrLit s)) x1``,
    ``v_rel (Litv (Char c)) x1``,
@@ -370,7 +370,7 @@ Proof
   \\ rename [`v_rel v1 v2`]
   \\ `env_rel (env with v updated_by opt_bind n v1) (n::m) (v2::db)` by
    (fs [env_rel_def]
-    \\ Cases_on `n` \\ fs [libTheory.opt_bind_def,findi_def,GSYM ADD1]
+    \\ Cases_on `n` \\ fs [miscTheory.opt_bind_def,findi_def,GSYM ADD1]
     \\ rw [] \\ fs [])
   \\ disch_then drule
   \\ strip_tac \\ fs []
@@ -631,7 +631,7 @@ Proof
       \\ fs [compile_op_def,evaluate_def,do_app_def,arg1_def]
       \\ imp_res_tac LIST_REL_LENGTH \\ fs []
       \\ fs [LIST_REL_EL])
-    \\ qpat_x_assum `v_rel (Loc _) _` mp_tac
+    \\ qpat_x_assum `v_rel (Loc _ _) _` mp_tac
     \\ simp [Once v_rel_cases]
     \\ Cases_on `v2` \\ fs []
     \\ fs [SWAP_REVERSE_SYM] \\ rw [] \\ fs [PULL_EXISTS]
@@ -649,7 +649,7 @@ Proof
    (fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
            CaseEq "ast$lit",store_assign_def,option_case_eq]
     \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
-    \\ qpat_x_assum `v_rel (Loc _) _` mp_tac
+    \\ qpat_x_assum `v_rel (Loc _ _) _` mp_tac
     \\ simp [Once v_rel_cases]
     \\ fs [SWAP_REVERSE_SYM] \\ rw [] \\ fs [PULL_EXISTS]
     \\ fs [compile_op_def,evaluate_def,do_app_def]

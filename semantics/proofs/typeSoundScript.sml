@@ -2,7 +2,7 @@
   Proof of type soundness: a type-correct program does not crash.
 *)
 open preamble;
-open libTheory astTheory typeSystemTheory semanticPrimitivesTheory fpSemTheory
+open astTheory typeSystemTheory semanticPrimitivesTheory fpSemTheory
      evaluateTheory;
 open namespacePropsTheory fpSemPropsTheory;
 open semanticPrimitivesPropsTheory;
@@ -45,11 +45,13 @@ Proof
  >> rw []
 QED
 
-val fst_triple = Q.prove (
-`(\ (x,y,z). x) = FST`,
- rw [FUN_EQ_THM]
+Triviality fst_triple:
+  (\ (x,y,z). x) = FST
+Proof
+  rw [FUN_EQ_THM]
  >> pairarg_tac
- >> rw []);
+ >> rw []
+QED
 
 Theorem disjoint_image:
   !s1 s2 f. DISJOINT (IMAGE f s1) (IMAGE f s2) ⇒ DISJOINT s1 s2
@@ -58,17 +60,21 @@ Proof
  >> metis_tac []
 QED
 
-val sing_list = Q.prove (
-`!l. LENGTH l = 1 ⇔ ?x. l = [x]`,
- Cases
+Triviality sing_list:
+  !l. LENGTH l = 1 ⇔ ?x. l = [x]
+Proof
+  Cases
  >> rw []
  >> Cases_on `t`
- >> rw []);
+ >> rw []
+QED
 
-val EVERY_LIST_REL = Q.prove (
-`EVERY (\x. f x y) l = LIST_REL (\x y. f x y) l (REPLICATE (LENGTH l) y)`,
- induct_on `l` >>
- srw_tac[][REPLICATE]);
+Triviality EVERY_LIST_REL:
+  EVERY (\x. f x y) l = LIST_REL (\x y. f x y) l (REPLICATE (LENGTH l) y)
+Proof
+  induct_on `l` >>
+ srw_tac[][REPLICATE]
+QED
 
 Theorem v_unchanged[simp]:
  !tenv x. tenv with v := tenv.v = tenv
@@ -107,13 +113,13 @@ Theorem prim_canonical_values_thm:
      (∃env n e. v = Closure env n e) ∨
      (∃env funs n. v = Recclosure env funs n)) ∧
    (type_v tvs ctMap tenvS v (Tref t1) ∧ ctMap_ok ctMap ∧ type_s ctMap envS tenvS ⇒
-     (∃n v2. v = Loc n ∧ store_lookup n envS = SOME (Refv v2) ∧
+     (∃n v2. v = Loc T n ∧ store_lookup n envS = SOME (Refv v2) ∧
        type_v 0 ctMap tenvS v2 t1)) ∧
    (type_v tvs ctMap tenvS v Tword8array ∧ ctMap_ok ctMap ∧ type_s ctMap envS tenvS ⇒
-     (∃n ws. v = Loc n ∧ store_lookup n envS = SOME (W8array ws) ∧
+     (∃n ws. v = Loc T n ∧ store_lookup n envS = SOME (W8array ws) ∧
        FLOOKUP tenvS n = SOME W8array_t)) ∧
    (type_v tvs ctMap tenvS v (Tarray t) ∧ ctMap_ok ctMap ∧ type_s ctMap envS tenvS ⇒
-     (∃n vs. v = Loc n ∧ store_lookup n envS = SOME (Varray vs) ∧
+     (∃n vs. v = Loc T n ∧ store_lookup n envS = SOME (Varray vs) ∧
        EVERY (\v. type_v 0 ctMap tenvS v t) vs ∧
        FLOOKUP tenvS n = SOME (Varray_t t))) ∧
    (type_v tvs ctMap tenvS v (Tvector t) ∧ ctMap_ok ctMap ⇒
@@ -134,8 +140,8 @@ Proof
   fs [type_sv_def]
 QED
 
-val has_lists_v_to_list = Q.prove (
-`!ctMap tvs tenvS t3.
+Triviality has_lists_v_to_list:
+  !ctMap tvs tenvS t3.
   ctMap_ok ctMap ∧
   ctMap_has_lists ctMap ∧
   type_v tvs ctMap tenvS v (Tlist t3)
@@ -143,8 +149,9 @@ val has_lists_v_to_list = Q.prove (
   ?vs. v_to_list v = SOME vs ∧
   EVERY (\v. type_v tvs ctMap tenvS v t3) vs ∧
   (t3 = Tchar ⇒ ?vs. v_to_char_list v = SOME vs) ∧
-  (t3 = Tstring ⇒ ∃str. vs_to_string vs = SOME str)`,
- measureInduct_on `v_size v` >>
+  (t3 = Tstring ⇒ ∃str. vs_to_string vs = SOME str)
+Proof
+  measureInduct_on `v_size v` >>
  srw_tac[][] >>
  pop_assum mp_tac >>
  srw_tac[][Once type_v_cases] >>
@@ -176,7 +183,8 @@ val has_lists_v_to_list = Q.prove (
  rw [] >>
  rw [] >>
  imp_res_tac (SIMP_RULE (srw_ss()) [] prim_canonical_values_thm) >>
- rw [v_to_char_list_def, vs_to_string_def]);
+ rw [v_to_char_list_def, vs_to_string_def]
+QED
 
 Theorem ctor_canonical_values_thm:
    (type_v tvs ctMap tenvS v Tbool ∧ ctMap_ok ctMap ∧ ctMap_has_bools ctMap ⇒
@@ -226,13 +234,15 @@ Proof
     fs [])
 QED
 
-val same_type_refl = Q.prove (
-  `!t. same_type t t`,
+Triviality same_type_refl:
+  !t. same_type t t
+Proof
   Cases_on `t` >>
-  rw [same_type_def]);
+  rw [same_type_def]
+QED
 
-val eq_same_type = Q.prove (
-`(!v1 v2 tvs ctMap cns tenvS t.
+Triviality eq_same_type:
+  (!v1 v2 tvs ctMap cns tenvS t.
   ctMap_ok ctMap ∧
   type_v tvs ctMap tenvS v1 t ∧
   type_v tvs ctMap tenvS v2 t
@@ -243,7 +253,8 @@ val eq_same_type = Q.prove (
   LIST_REL (type_v tvs ctMap tenvS) vs1 ts ∧
   LIST_REL (type_v tvs ctMap tenvS) vs2 ts
   ⇒
-  do_eq_list vs1 vs2 ≠ Eq_type_error)`,
+  do_eq_list vs1 vs2 ≠ Eq_type_error)
+Proof
   ho_match_mp_tac do_eq_ind >>
   rw [do_eq_def] >>
   TRY (
@@ -302,38 +313,43 @@ val eq_same_type = Q.prove (
     metis_tac [])
   >- (FULL_CASE_TAC \\
      full_simp_tac(srw_ss())[bool_case_eq]
-     \\ metis_tac[]));
+     \\ metis_tac[])
+QED
 
-val type_env_conv_thm = Q.prove (
-  `∀ctMap envC tenvC.
+Triviality type_env_conv_thm:
+  ∀ctMap envC tenvC.
      nsAll2 (type_ctor ctMap) envC tenvC ⇒
      ∀cn tvs ts tn ti.
        (nsLookup tenvC cn = SOME (tvs,ts,ti) ⇒
         ?cn' stamp.
           nsLookup envC cn = SOME (LENGTH ts,stamp) ∧
           FLOOKUP ctMap stamp = SOME (tvs, ts, ti)) ∧
-       (nsLookup tenvC cn = NONE ⇒ nsLookup envC cn = NONE)`,
- rw []
+       (nsLookup tenvC cn = NONE ⇒ nsLookup envC cn = NONE)
+Proof
+  rw []
  >> imp_res_tac nsAll2_nsLookup2
  >> TRY (PairCases_on `v1`)
  >> fs [type_ctor_def] >>
  rw [] >>
- metis_tac [nsAll2_nsLookup_none]);
+ metis_tac [nsAll2_nsLookup_none]
+QED
 
-val type_funs_fst = Q.prove (
-`!tenv tenvE funs tenv'.
+Triviality type_funs_fst:
+  !tenv tenvE funs tenv'.
   type_funs tenv tenvE funs tenv'
   ⇒
-  MAP FST funs = MAP FST tenv'`,
- induct_on `funs` >>
+  MAP FST funs = MAP FST tenv'
+Proof
+  induct_on `funs` >>
  srw_tac[][] >>
  pop_assum (mp_tac o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
  srw_tac[][] >>
  srw_tac[][] >>
- metis_tac []);
+ metis_tac []
+QED
 
-val type_recfun_env_help = Q.prove (
-`∀fn funs funs' ctMap tenv bindings tenvE env tenvS tvs bindings'.
+Triviality type_recfun_env_help:
+  ∀fn funs funs' ctMap tenv bindings tenvE env tenvS tvs bindings'.
   ALL_DISTINCT (MAP FST funs') ∧
   tenv_ok tenv ∧
   type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
@@ -345,8 +361,9 @@ val type_recfun_env_help = Q.prove (
   ⇒
   LIST_REL (λ(x,y) (x',y'). x = x' ∧ (λ(tvs,t). type_v tvs ctMap tenvS y t) y')
     (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs)
-    (MAP (λ(x,t). (x,tvs,t)) bindings)`,
- induct_on `funs`
+    (MAP (λ(x,t). (x,tvs,t)) bindings)
+Proof
+  induct_on `funs`
  >> srw_tac[][]
  >> pop_assum mp_tac
  >> simp [Once type_e_cases]
@@ -377,10 +394,11 @@ val type_recfun_env_help = Q.prove (
    >> simp []
    >> rw []
    >> fs []
-   >> metis_tac [SOME_11, NOT_SOME_NONE]));
+   >> metis_tac [SOME_11, NOT_SOME_NONE])
+QED
 
-val type_recfun_env = Q.prove (
-`∀funs ctMap tenvS tvs tenv tenvE env bindings.
+Triviality type_recfun_env:
+  ∀funs ctMap tenvS tvs tenv tenvE env bindings.
   tenv_ok tenv ∧
   type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
   tenv_val_exp_ok tenvE ∧
@@ -390,8 +408,10 @@ val type_recfun_env = Q.prove (
   ⇒
   LIST_REL (λ(x,y) (x',y'). x = x' ∧ (λ(tvs,t). type_v tvs ctMap tenvS y t) y')
     (MAP (λ(fn,n,e). (fn,Recclosure env funs fn)) funs)
-    (MAP (λ(x,t). (x,tvs,t)) bindings)`,
-metis_tac [type_recfun_env_help]);
+    (MAP (λ(x,t). (x,tvs,t)) bindings)
+Proof
+  metis_tac [type_recfun_env_help]
+QED
 
 val type_v_exn = SIMP_RULE (srw_ss()) [] (Q.prove (
 `!tvs cenv senv.
@@ -405,15 +425,16 @@ val type_v_exn = SIMP_RULE (srw_ss()) [] (Q.prove (
  metis_tac [type_v_rules]));
 
  (*
-val v_to_list_type = Q.prove (
-`!v vs.
+Triviality v_to_list_type:
+  !v vs.
   ctMap_ok ctMap ∧
   ctMap_has_lists ctMap ∧
   v_to_list v = SOME vs ∧
   type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
   ⇒
-  type_v tvs ctMap tenvS (Vectorv vs) (Tapp [t] TC_vector)`,
- ho_match_mp_tac v_to_list_ind >>
+  type_v tvs ctMap tenvS (Vectorv vs) (Tapp [t] TC_vector)
+Proof
+  ho_match_mp_tac v_to_list_ind >>
  srw_tac[][v_to_list_def]
  >- full_simp_tac(srw_ss())[Once type_v_cases] >>
  every_case_tac >>
@@ -431,16 +452,18 @@ val v_to_list_type = Q.prove (
  full_simp_tac(srw_ss())[tid_exn_to_tc_def] >>
  res_tac >>
  FIRST_X_ASSUM (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
- srw_tac[][]);
+ srw_tac[][]
+QED
 
-val v_to_char_list_type = Q.prove (
-`!v vs.
+Triviality v_to_char_list_type:
+  !v vs.
   ctMap_has_lists ctMap ∧
   v_to_char_list v = SOME vs ∧
   type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
   ⇒
-  type_v tvs ctMap tenvS (Litv (StrLit (IMPLODE vs))) (Tstring)`,
- ho_match_mp_tac v_to_char_list_ind >>
+  type_v tvs ctMap tenvS (Litv (StrLit (IMPLODE vs))) (Tstring)
+Proof
+  ho_match_mp_tac v_to_char_list_ind >>
  srw_tac[][v_to_char_list_def]
  >- full_simp_tac(srw_ss())[Once type_v_cases] >>
  every_case_tac >>
@@ -448,22 +471,27 @@ val v_to_char_list_type = Q.prove (
  srw_tac[][] >>
  qpat_x_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
  srw_tac[][] >>
- srw_tac[][Once type_v_cases]);
+ srw_tac[][Once type_v_cases]
+QED
 
  *)
 
-val type_v_Boolv = Q.prove(
-  `ctMap_has_bools ctMap ⇒ type_v tvs ctMap tenvS (Boolv b) Tbool`,
+Triviality type_v_Boolv:
+  ctMap_has_bools ctMap ⇒ type_v tvs ctMap tenvS (Boolv b) Tbool
+Proof
   srw_tac[][Boolv_def] >>
   srw_tac[][Once type_v_cases,LENGTH_NIL] >>
   full_simp_tac(srw_ss())[ctMap_has_bools_def] >>
-  srw_tac[][Once type_v_cases]);
+  srw_tac[][Once type_v_cases]
+QED
 
-val remove_lambda_prod = Q.prove (
-`(\ (x,y). P x y) = (\xy. P (FST xy) (SND xy))`,
- rw [FUN_EQ_THM]
+Triviality remove_lambda_prod:
+  (\ (x,y). P x y) = (\xy. P (FST xy) (SND xy))
+Proof
+  rw [FUN_EQ_THM]
  >> pairarg_tac
- >> rw []);
+ >> rw []
+QED
 
 Theorem opapp_type_sound:
  !ctMap tenvS vs ts t.
@@ -531,10 +559,11 @@ Proof
      >> metis_tac []))
 QED
 
-val store_type_extension_def = Define `
+Definition store_type_extension_def:
 store_type_extension tenvS1 tenvS2 =
   ?tenvS'. (tenvS2 = FUNION tenvS' tenvS1) ∧
-           (!l. (FLOOKUP tenvS' l = NONE) ∨ (FLOOKUP tenvS1 l = NONE))`;
+           (!l. (FLOOKUP tenvS' l = NONE) ∨ (FLOOKUP tenvS1 l = NONE))
+End
 
 Theorem store_type_extension_weakS:
  !tenvS1 tenvS2.
@@ -766,7 +795,7 @@ Proof
    res_tac >>
    rw [do_app_cases, PULL_EXISTS] >>
    simp [Once type_v_cases]
-   >> qpat_x_assum `type_v _ _ _ (Loc _) _` mp_tac
+   >> qpat_x_assum `type_v _ _ _ (Loc _ _) _` mp_tac
    >> simp [Once type_v_cases]
    >> rw [type_num_defs]
    >> metis_tac [type_sv_def, store_type_extension_refl, store_assign_type_sound])
@@ -827,7 +856,7 @@ Proof
    first_x_assum drule >>
    rw [] >>
    rename1 `type_v _ _ _ (Litv (IntLit z)) _` >>
-   rename1 `type_v _ _ _ (Loc l) _`
+   rename1 `type_v _ _ _ (Loc _ l) _`
    >> Cases_on `z < 0`
    >> fs [type_v_exn, sub_exn_v_def]
    >- metis_tac [store_type_extension_refl]
@@ -2167,14 +2196,15 @@ val let_tac =
       >> metis_tac [weakCT_refl, type_v_weakening, store_type_extension_weakS])
     >- metis_tac [DIFF_EQ_EMPTY, weakCT_refl]);
 
-val build_tdefs_build_tenv = Q.prove (
-  `!tenvT (tds : type_def) (tids : type_ident list) next (ctMap : ctMap).
+Triviality build_tdefs_build_tenv:
+  !tenvT (tds : type_def) (tids : type_ident list) next (ctMap : ctMap).
     EVERY (λ(_, _, ctors). ALL_DISTINCT (MAP FST ctors)) tds ∧
     LENGTH tds = LENGTH tids ⇒
     nsAll2
       (type_ctor (ctMap |++ REVERSE (type_def_to_ctMap tenvT next tds tids)))
       (build_tdefs next tds : env_ctor)
-      (build_ctor_tenv tenvT tds tids)`,
+      (build_ctor_tenv tenvT tds tids)
+Proof
   ho_match_mp_tac build_ctor_tenv_ind >>
   rw [build_tdefs_def, build_ctor_tenv_def, type_def_to_ctMap_def] >>
   fs [] >>
@@ -2237,19 +2267,24 @@ val build_tdefs_build_tenv = Q.prove (
       drule ALOOKUP_MEM >>
       rw [] >>
       drule mem_type_def_to_ctMap >>
-      rw [])));
+      rw []))
+QED
 
-val type_sound_invariant_union = Q.prove (
-  `type_sound_invariant st env ctMap tenvS (tids1 ∪ tids2) tenv
+Triviality type_sound_invariant_union:
+  type_sound_invariant st env ctMap tenvS (tids1 ∪ tids2) tenv
    ⇒
-   type_sound_invariant st env ctMap tenvS tids1 tenv`,
+   type_sound_invariant st env ctMap tenvS tids1 tenv
+Proof
   rw [type_sound_invariant_def, consistent_ctMap_def] >>
-  metis_tac []);
+  metis_tac []
+QED
 
-val check_ctor_tenv_dups = Q.prove (
-  `!tenvT tds. check_ctor_tenv tenvT tds ⇒ EVERY check_dup_ctors tds`,
+Triviality check_ctor_tenv_dups:
+  !tenvT tds. check_ctor_tenv tenvT tds ⇒ EVERY check_dup_ctors tds
+Proof
   ho_match_mp_tac check_ctor_tenv_ind >>
-  rw [check_ctor_tenv_def]);
+  rw [check_ctor_tenv_def]
+QED
 
 Theorem type_all_env_extend:
    type_all_env ctMap tenvS env1 tenv1
@@ -2853,7 +2888,7 @@ Proof
 QED
 
      (*
-val type_sound_invariant_def = Define `
+Definition type_sound_invariant_def:
 type_sound_invariant st env tdecs ctMap tenvS tenv ⇔
   ?tdecs_no_sig tenv_no_sig.
     decls_ok tdecs_no_sig ∧
@@ -2867,14 +2902,17 @@ type_sound_invariant st env tdecs ctMap tenvS tenv ⇔
     weak_decls_only_mods tdecs_no_sig tdecs ∧
     consistent_decls st.defined_types tdecs_no_sig ∧
     consistent_ctMap tdecs_no_sig ctMap ∧
-    st.defined_mods ⊆ tdecs_no_sig.defined_mods`;
+    st.defined_mods ⊆ tdecs_no_sig.defined_mods
+End
 
-val tscheme_inst2_lemma = Q.prove (
-  `(λid. tscheme_inst2 (Long mn id)) = tscheme_inst2`,
- rw [FUN_EQ_THM]
+Triviality tscheme_inst2_lemma:
+  (λid. tscheme_inst2 (Long mn id)) = tscheme_inst2
+Proof
+  rw [FUN_EQ_THM]
  >> PairCases_on `x`
  >> PairCases_on `x'`
- >> rw [tscheme_inst2_def]);
+ >> rw [tscheme_inst2_def]
+QED
 
 Theorem tops_type_sound_no_extra_checks:
   ∀(st:'ffi semanticPrimitives$state) env tops st' env' r tdecs1 ctMap tenvS tenv tdecs1' tenv'.

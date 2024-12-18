@@ -9,6 +9,7 @@ val _ = new_theory "basis_defProg";
 
 val _ = translation_extends "sexp_parserProg";
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "basis_defProg");
 

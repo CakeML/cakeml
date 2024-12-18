@@ -8,14 +8,15 @@ open blastLib;
 
 val _ = new_theory"x64_configProof";
 
-val is_x64_machine_config_def = Define`
+Definition is_x64_machine_config_def:
   is_x64_machine_config mc ⇔
     mc.target = x64_target ∧
     mc.len_reg = 6 ∧
     mc.ptr_reg = 7 ∧
     mc.len2_reg = 1 ∧
     mc.ptr2_reg = 2 ∧
-    mc.callee_saved_regs = [12;13;14]`;
+    mc.callee_saved_regs = [12;13;14]
+End
 
 val names_tac =
   simp[tlookup_bij_iff] \\ EVAL_TAC
@@ -67,7 +68,7 @@ QED
 
 val is_x64_machine_config_mc = x64_init_ok |> concl |> dest_imp |> #1
 
-val x64_compile_correct =
+Theorem x64_compile_correct =
   compile_correct
   |> Q.GENL[`c`,`mc`]
   |> Q.ISPECL[`x64_backend_config`, `^(rand is_x64_machine_config_mc)`]
@@ -75,6 +76,5 @@ val x64_compile_correct =
   |> SIMP_RULE (srw_ss()) [x64_backend_config_ok,UNDISCH x64_machine_config_ok,UNDISCH x64_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
-  |> curry save_thm"x64_compile_correct";
 
 val _ = export_theory();

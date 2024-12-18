@@ -3,7 +3,7 @@
   proofs of the type inferencer.
 *)
 open preamble;
-open libTheory namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
+open namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
 open astPropsTheory typeSysPropsTheory;
 
 val _ = new_theory "inferProps";
@@ -359,29 +359,35 @@ Proof
   rw [infer_st_component_equality]
 QED
 
-val st_ex_return_success = Q.prove (
-`!v st v' st'.
+Triviality st_ex_return_success:
+  !v st v' st'.
   (st_ex_return v st = (Success v', st')) =
-  ((v = v') ∧ (st = st'))`,
-rw [st_ex_return_def]);
+  ((v = v') ∧ (st = st'))
+Proof
+  rw [st_ex_return_def]
+QED
 
-val st_ex_bind_success = Q.prove (
-`!f g st st' v.
+Triviality st_ex_bind_success:
+  !f g st st' v.
  (st_ex_bind f g st = (Success v, st')) =
- ?v' st''. (f st = (Success v', st'')) /\ (g v' st'' = (Success v, st'))`,
-rw [st_ex_bind_def] >>
+ ?v' st''. (f st = (Success v', st'')) /\ (g v' st'' = (Success v, st'))
+Proof
+  rw [st_ex_bind_def] >>
 cases_on `f st` >>
 rw [] >>
 cases_on `q` >>
-rw []);
+rw []
+QED
 
-val fresh_uvar_success = Q.prove (
-`!st t st'.
+Triviality fresh_uvar_success:
+  !st t st'.
   (fresh_uvar st = (Success t, st')) =
   ((t = Infer_Tuvar st.next_uvar) ∧
-   (st' = st with next_uvar := st.next_uvar + 1))`,
-rw [fresh_uvar_def] >>
-metis_tac []);
+   (st' = st with next_uvar := st.next_uvar + 1))
+Proof
+  rw [fresh_uvar_def] >>
+metis_tac []
+QED
 
 Theorem n_fresh_uvar_success:
  !n st ts st'.
@@ -401,15 +407,17 @@ eq_tac >>
 srw_tac [ARITH_ss] [arithmeticTheory.ADD1]
 QED
 
-val apply_subst_success = Q.prove (
-`!t1 st1 t2 st2.
+Triviality apply_subst_success:
+  !t1 st1 t2 st2.
   (apply_subst t1 st1 = (Success t2, st2))
   =
   ((st2 = st1) ∧
-   (t2 = t_walkstar st1.subst t1))`,
-rw [st_ex_return_def, st_ex_bind_def, LET_THM, apply_subst_def, read_def] >>
+   (t2 = t_walkstar st1.subst t1))
+Proof
+  rw [st_ex_return_def, st_ex_bind_def, LET_THM, apply_subst_def, read_def] >>
 eq_tac >>
-rw []);
+rw []
+QED
 
 Theorem add_constraint_success:
  !l t1 t2 st st' x.
@@ -422,16 +430,17 @@ full_case_tac >>
 metis_tac []
 QED
 
-val add_constraints_success = Q.prove (
-`!l ts1 ts2 st st' x.
+Triviality add_constraints_success:
+  !l ts1 ts2 st st' x.
   (add_constraints l ts1 ts2 st = (Success x, st'))
   =
   ((LENGTH ts1 = LENGTH ts2) ∧
    ((x = ()) ∧
    (st.next_uvar = st'.next_uvar) ∧
    (st.next_id = st'.next_id) ∧
-   pure_add_constraints st.subst (ZIP (ts1,ts2)) st'.subst))`,
-ho_match_mp_tac add_constraints_ind >>
+   pure_add_constraints st.subst (ZIP (ts1,ts2)) st'.subst))
+Proof
+  ho_match_mp_tac add_constraints_ind >>
 rw [add_constraints_def, pure_add_constraints_def, st_ex_return_success,
     failwith_def, st_ex_bind_success, add_constraint_success] >>
 TRY (cases_on `x`) >>
@@ -440,35 +449,42 @@ metis_tac [infer_st_component_equality] >>
 eq_tac >>
 rw [] >>
 cases_on `t_unify st.subst t1 t2` >>
-fs []);
+fs []
+QED
 
-val add_constraints_nil2_success = Q.prove (
-`(add_constraints l ts1 [] st = (Success x, st'))
-  = (ts1 = [] /\ st = st')`,
+Triviality add_constraints_nil2_success:
+  (add_constraints l ts1 [] st = (Success x, st'))
+  = (ts1 = [] /\ st = st')
+Proof
   Cases_on `ts1` \\ simp [add_constraints_def]
   \\ simp [failwith_def, st_ex_bind_success, st_ex_return_success]
-);
+QED
 
-val add_constraints_cons2_success = Q.prove (
-`(add_constraints l ts1 (t2 :: ts2) st = (Success x, st'))
+Triviality add_constraints_cons2_success:
+  (add_constraints l ts1 (t2 :: ts2) st = (Success x, st'))
   = (?t1 tl1 st''. ts1 = t1 :: tl1 /\
     add_constraint l t1 t2 st = (Success (), st'') /\
-    add_constraints l tl1 ts2 st'' = (Success x, st'))`,
+    add_constraints l tl1 ts2 st'' = (Success x, st'))
+Proof
   Cases_on `ts1` \\ simp [add_constraints_def]
   \\ simp [failwith_def, st_ex_bind_success, st_ex_return_success]
-);
+QED
 
-val failwith_success = Q.prove (
-`!l m st v st'. (failwith l m st = (Success v, st')) = F`,
-rw [failwith_def]);
+Triviality failwith_success:
+  !l m st v st'. (failwith l m st = (Success v, st')) = F
+Proof
+  rw [failwith_def]
+QED
 
-val lookup_st_ex_success = Q.prove (
-`!loc x err l st v st'.
+Triviality lookup_st_ex_success:
+  !loc x err l st v st'.
   (lookup_st_ex loc err x l st = (Success v, st'))
   =
-  ((nsLookup l x = SOME v) ∧ (st = st'))`,
- rw [lookup_st_ex_def, failwith_def, st_ex_return_success]
- >> every_case_tac);
+  ((nsLookup l x = SOME v) ∧ (st = st'))
+Proof
+  rw [lookup_st_ex_def, failwith_def, st_ex_return_success]
+ >> every_case_tac
+QED
 
 val op_data = {nchotomy = op_nchotomy, case_def = op_case_def};
 val op_case_eq = prove_case_eq_thm op_data;
@@ -520,27 +536,32 @@ val constrain_op_success =
         PULL_EXISTS]
   )
 
-val _ = save_thm ("constrain_op_success", constrain_op_success);
+Theorem constrain_op_success =
+  constrain_op_success
 
-val get_next_uvar_success = Q.prove (
-`!st v st'.
+Triviality get_next_uvar_success:
+  !st v st'.
   (get_next_uvar st = (Success v, st'))
   =
-  ((v = st.next_uvar) ∧ (st = st'))`,
-rw [get_next_uvar_def] >>
-metis_tac []);
+  ((v = st.next_uvar) ∧ (st = st'))
+Proof
+  rw [get_next_uvar_def] >>
+metis_tac []
+QED
 
 val apply_subst_list_success =
   SIMP_CONV (srw_ss()) [apply_subst_list_def, LET_THM]
   ``(apply_subst_list ts st = (Success v, st'))``
 
-val guard_success = Q.prove (
-`∀P l m st v st'.
+Triviality guard_success:
+  ∀P l m st v st'.
   (guard P l m st = (Success v, st'))
   =
-  (P ∧ (v = ()) ∧ (st = st'))`,
-rw [guard_def, st_ex_return_def, failwith_def] >>
-metis_tac []);
+  (P ∧ (v = ()) ∧ (st = st'))
+Proof
+  rw [guard_def, st_ex_return_def, failwith_def] >>
+metis_tac []
+QED
 
 Theorem check_dups_success:
    !l f ls s r s'.
@@ -675,13 +696,15 @@ Proof
  fs [LAMBDA_PROD, combinTheory.o_DEF]
 QED
 
-val option_case_eq = Q.prove (
-`!opt f g v st st'.
+Triviality option_case_eq:
+  !opt f g v st st'.
   ((case opt of NONE => f | SOME x => g x) st = (Success v, st')) =
-  (((opt = NONE) ∧ (f st = (Success v, st'))) ∨ (?x. (opt = SOME x) ∧ (g x st = (Success v, st'))))`,
-rw [] >>
+  (((opt = NONE) ∧ (f st = (Success v, st'))) ∨ (?x. (opt = SOME x) ∧ (g x st = (Success v, st'))))
+Proof
+  rw [] >>
 cases_on `opt` >>
-fs []);
+fs []
+QED
 
 val success_eqns =
   LIST_CONJ [st_ex_return_success, st_ex_bind_success, fresh_uvar_success,
@@ -694,7 +717,8 @@ val success_eqns =
              check_ctor_types_success,
              check_ctors_success];
 
-val _ = save_thm ("success_eqns", success_eqns);
+Theorem success_eqns =
+  success_eqns
 
 Theorem remove_pair_lem:
  (!f v. (\(x,y). f x y) v = f (FST v) (SND v)) ∧
@@ -772,19 +796,21 @@ QED
 
 (* ---------- Dealing with the constraint set ---------- *)
 
-val pure_add_constraints_append2 = Q.prove (
-`!s1 ts s2 t1 t2.
+Triviality pure_add_constraints_append2:
+  !s1 ts s2 t1 t2.
   t_wfs s1 ∧
   pure_add_constraints s1 ts s2 ∧
   (t_walkstar s1 t1 = t_walkstar s1 t2)
   ⇒
-  (t_walkstar s2 t1 = t_walkstar s2 t2)`,
-induct_on `ts` >>
+  (t_walkstar s2 t1 = t_walkstar s2 t2)
+Proof
+  induct_on `ts` >>
 rw [pure_add_constraints_def] >>
 rw [] >>
 PairCases_on `h` >>
 fs [pure_add_constraints_def] >>
-metis_tac [t_unify_wfs, t_unify_apply2]);
+metis_tac [t_unify_wfs, t_unify_apply2]
+QED
 
 Theorem pure_add_constraints_apply:
  !s1 ts s2.
@@ -1053,10 +1079,12 @@ rw [t_vars_eqn, check_t_def, EVERY_MEM, SUBSET_DEF, MEM_MAP] >>
 metis_tac []
 QED
 
-val check_s_more = Q.prove (
-`!s tvs uvs. check_s tvs (count uvs) s ⇒ check_s tvs (count (uvs + 1)) s`,
-rw [check_s_def] >>
-metis_tac [check_t_more3]);
+Triviality check_s_more:
+  !s tvs uvs. check_s tvs (count uvs) s ⇒ check_s tvs (count (uvs + 1)) s
+Proof
+  rw [check_s_def] >>
+metis_tac [check_t_more3]
+QED
 
 Theorem check_s_more2:
  !s uvs. check_s tvs (count uvs) s ⇒ !uvs'. uvs ≤ uvs' ⇒ check_s tvs (count uvs') s
@@ -1148,13 +1176,14 @@ fs [check_s_def, FLOOKUP_DEF] >>
 metis_tac [check_t_def, IN_UNION]
 QED
 
-val t_walkstar_check' = Q.prove (
-`!s. t_wfs s ⇒
+Triviality t_walkstar_check':
+  !s. t_wfs s ⇒
   !t tvs uvs.
     check_s tvs (uvs ∪ FDOM s) s ∧
     check_t tvs (uvs ∪ FDOM s) t
     ⇒
-    check_t tvs uvs (t_walkstar s t)`,
+    check_t tvs uvs (t_walkstar s t)
+Proof
   NTAC 2 STRIP_TAC >>
   imp_res_tac t_walkstar_ind >>
   pop_assum ho_match_mp_tac >>
@@ -1183,7 +1212,8 @@ val t_walkstar_check' = Q.prove (
     cases_on `t_vwalk s n` >>
     fs [check_t_def, EVERY_MAP] >>
     fs [EVERY_MEM] >>
-    metis_tac [t_vwalk_to_var]);
+    metis_tac [t_vwalk_to_var]
+QED
 
 Theorem t_walkstar_check:
  !s t tvs uvs.
@@ -1196,12 +1226,13 @@ Proof
 metis_tac [t_walkstar_check']
 QED
 
-val t_walkstar_uncheck_lem = Q.prove (
-  `!s. t_wfs s ⇒
+Triviality t_walkstar_uncheck_lem:
+  !s. t_wfs s ⇒
     ∀t max_tvs uvs.
     check_t max_tvs uvs (t_walkstar s t) ⇒
-    check_t max_tvs (uvs ∪ FDOM s) t`,
- ntac 2 strip_tac
+    check_t max_tvs (uvs ∪ FDOM s) t
+Proof
+  ntac 2 strip_tac
  >> old_drule t_walkstar_ind
  >> fs [GSYM PULL_FORALL]
  >> disch_then ho_match_mp_tac
@@ -1215,7 +1246,8 @@ val t_walkstar_uncheck_lem = Q.prove (
  >> pop_assum kall_tac
  >> every_case_tac
  >> simp [check_t_def]
- >> fs [check_s_def, FLOOKUP_DEF]);
+ >> fs [check_s_def, FLOOKUP_DEF]
+QED
 
 Theorem t_walkstar_uncheck:
    !s t max_tvs uvs.
@@ -1226,8 +1258,8 @@ Proof
  metis_tac [t_walkstar_uncheck_lem]
 QED
 
-val t_unify_check_s_help = Q.prove (
-`(!s t1 t2. t_wfs s ⇒
+Triviality t_unify_check_s_help:
+  (!s t1 t2. t_wfs s ⇒
     !tvs uvs s'. check_s tvs uvs s ∧
            check_t tvs uvs t1 ∧
            check_t tvs uvs t2 ∧
@@ -1240,7 +1272,8 @@ val t_unify_check_s_help = Q.prove (
            EVERY (check_t tvs uvs) ts2 ∧
            (ts_unify s ts1 ts2 = SOME s')
            ⇒
-           check_s tvs uvs s')`,
+           check_s tvs uvs s')
+Proof
   ho_match_mp_tac t_unify_strongind >>
   rw []
   >- (
@@ -1274,7 +1307,8 @@ val t_unify_check_s_help = Q.prove (
    fs [ts_unify_def] >>
    rw [] >- metis_tac [] >>
    cases_on `t_unify s h h'` >>
-   fs []);
+   fs []
+QED
 
 Theorem check_t_walkstar:
  (!t tvs s.
@@ -1295,19 +1329,21 @@ Proof
   metis_tac []
 QED
 
-val t_walkstar_no_vars = Q.prove (
-`!tvs uvs t s.
+Triviality t_walkstar_no_vars:
+  !tvs uvs t s.
   t_wfs s ∧
   uvs = {} ∧
   check_t tvs uvs t
   ⇒
-  t_walkstar s t = t`,
+  t_walkstar s t = t
+Proof
   ho_match_mp_tac check_t_ind >>
   srw_tac [ARITH_ss] [check_t_def, apply_subst_t_eqn] >>
   fs [t_walkstar_eqn1] >>
   induct_on `ts` >>
   rw [] >>
-  metis_tac []);
+  metis_tac []
+QED
 
 Theorem t_walkstar_no_vars:
  !tvs t s.
@@ -1435,15 +1471,16 @@ Proof
       metis_tac [infer_p_wfs, check_t_more3])
 QED
 
-val check_infer_type_subst = Q.prove (
-`(!t tvs uvs.
+Triviality check_infer_type_subst:
+  (!t tvs uvs.
   check_freevars 0 tvs t
   ⇒
   check_t 0 (count (LENGTH tvs + uvs)) (infer_type_subst (ZIP (tvs, MAP (λn. Infer_Tuvar (uvs + n)) (COUNT_LIST (LENGTH tvs)))) t)) ∧
  (!ts tvs uvs.
   EVERY (check_freevars 0 tvs) ts
   ⇒
-  EVERY (\t. check_t 0 (count (LENGTH tvs + uvs)) (infer_type_subst (ZIP (tvs, MAP (λn. Infer_Tuvar (uvs + n)) (COUNT_LIST (LENGTH tvs)))) t)) ts)`,
+  EVERY (\t. check_t 0 (count (LENGTH tvs + uvs)) (infer_type_subst (ZIP (tvs, MAP (λn. Infer_Tuvar (uvs + n)) (COUNT_LIST (LENGTH tvs)))) t)) ts)
+Proof
   ho_match_mp_tac t_induction >>
   rw [check_freevars_def, check_t_def, infer_type_subst_alt]
   >- (
@@ -1457,7 +1494,8 @@ val check_infer_type_subst = Q.prove (
     qmatch_goalsub_abbrev_tac`MAP f2 _` >>
     `f1 = f2` by (unabbrev_all_tac \\ simp[FUN_EQ_THM]) >>
     fs[ADD1])
-  >> metis_tac [EVERY_MAP]);
+  >> metis_tac [EVERY_MAP]
+QED
 
 (* moved this one around a bit *)
 Theorem infer_type_subst_empty_check:
@@ -1624,19 +1662,21 @@ Proof
  >> fs [EL_MAP, LENGTH_COUNT_LIST, check_t_def, EL_COUNT_LIST]
 QED
 
-val check_t_infer_db_subst = Q.prove (
-`(!t uvs tvs.
+Triviality check_t_infer_db_subst:
+  (!t uvs tvs.
    check_t 0 (count (uvs + tvs)) (infer_deBruijn_subst (MAP (\n. Infer_Tuvar (uvs + n)) (COUNT_LIST tvs)) t)
    =
    check_t tvs (count (uvs + tvs)) t) ∧
  (!ts uvs tvs.
    EVERY (check_t 0 (count (uvs + tvs)) o infer_deBruijn_subst (MAP (\n. Infer_Tuvar (uvs + n)) (COUNT_LIST tvs))) ts
    =
-   EVERY (check_t tvs (count (uvs + tvs))) ts)`,
-ho_match_mp_tac infer_t_induction >>
+   EVERY (check_t tvs (count (uvs + tvs))) ts)
+Proof
+  ho_match_mp_tac infer_t_induction >>
 rw [check_t_def, infer_deBruijn_subst_alt, LENGTH_COUNT_LIST,
     EL_MAP, EL_COUNT_LIST, EVERY_MAP] >>
-metis_tac []);
+metis_tac []
+QED
 
 Theorem check_t_infer_db_subst2:
  (!t tvs1 tvs2.
@@ -1839,11 +1879,12 @@ Proof
    \\ match_mp_tac check_t_more_0 \\ simp[] \\ NO_TAC
 QED
 
-val ienv_ok_def = Define `
+Definition ienv_ok_def:
   ienv_ok uvars ienv ⇔
     ienv_val_ok uvars ienv.inf_v ∧
     tenv_ctor_ok ienv.inf_c ∧
-    tenv_abbrev_ok ienv.inf_t`;
+    tenv_abbrev_ok ienv.inf_t
+End
 
 Theorem ienv_ok_more:
    !uv uv' ienv. ienv_ok (count uv) ienv ∧ uv ≤ uv' ⇒ ienv_ok (count uv') ienv
@@ -2241,26 +2282,29 @@ Proof
    >> simp [check_s_more])
 QED
 
-val generalise_complete_lemma = Q.prove (
-`!tvs ts.
+Triviality generalise_complete_lemma:
+  !tvs ts.
   (∀uv. uv ∈ FDOM (FEMPTY |++ ts) ⇒ ∃tv. (FEMPTY |++ ts) ' uv = tv ∧ tv < tvs)
   ⇒
-  (∀uv. uv ∈ FDOM (FEMPTY |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts) ⇒ ∃tv. (FEMPTY |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts) ' uv = Infer_Tvar_db tv ∧ tv < tvs)`,
+  (∀uv. uv ∈ FDOM (FEMPTY |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts) ⇒ ∃tv. (FEMPTY |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) ts) ' uv = Infer_Tvar_db tv ∧ tv < tvs)
+Proof
   rw [FDOM_FUPDATE_LIST, MEM_MAP] >>
   PairCases_on `y'` >>
   fs [] >>
   `y'0 ∈ FDOM (FEMPTY |++ ts)`
           by (rw [FDOM_FUPDATE_LIST, MEM_MAP] >> metis_tac [FST]) >>
-  metis_tac [FST, fupdate_list_map]);
+  metis_tac [FST, fupdate_list_map]
+QED
 
-val generalise_complete_lemma2 = Q.prove (
-`!s ts.
+Triviality generalise_complete_lemma2:
+  !s ts.
   t_wfs s ∧
   ALL_DISTINCT (MAP FST ts) ∧
   EVERY (\t. t = Infer_Tapp [] TC_unit ∨ ?tvs. t = Infer_Tvar_db tvs) (MAP SND ts) ∧
   DISJOINT (FDOM s) (FDOM (FEMPTY |++ ts))
   ⇒
-  pure_add_constraints s (MAP (\(uv,t). (Infer_Tuvar uv, t)) ts) (s |++ ts)`,
+  pure_add_constraints s (MAP (\(uv,t). (Infer_Tuvar uv, t)) ts) (s |++ ts)
+Proof
   induct_on `ts` >>
   rw [pure_add_constraints_def, FUPDATE_LIST_THM] >>
   PairCases_on `h` >>
@@ -2281,22 +2325,25 @@ val generalise_complete_lemma2 = Q.prove (
   `DISJOINT (FDOM (s |+ (h0,h1))) (FDOM (FEMPTY |++ ts))` by
     (fs [DISJOINT_DEF, EXTENSION, FDOM_FUPDATE_LIST] >>
     metis_tac []) >>
-  metis_tac []);
+  metis_tac []
+QED
 
-val infer_subst_var_def = Define `
+Definition infer_subst_var_def:
 (infer_subst_var s (Infer_Tuvar n) =
   case FLOOKUP s n of
     | NONE => Infer_Tuvar n
     | SOME tv => Infer_Tvar_db tv) ∧
-(infer_subst_var s t = t)`;
+(infer_subst_var s t = t)
+End
 
-val generalise_complete_lemma4 = Q.prove (
-`!s. t_wfs s ⇒
+Triviality generalise_complete_lemma4:
+  !s. t_wfs s ⇒
   !t s'. t_wfs (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s') ∧
          ALL_DISTINCT (MAP FST s') ∧
          DISJOINT (FDOM s) (FDOM (FEMPTY |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s')) ⇒
-         infer_subst_var (FEMPTY |++ s') (t_vwalk s t) = t_vwalk (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s') t`,
- strip_tac >>
+         infer_subst_var (FEMPTY |++ s') (t_vwalk s t) = t_vwalk (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s') t
+Proof
+  strip_tac >>
  strip_tac >>
  imp_res_tac (DISCH_ALL t_vwalk_ind) >>
  pop_assum ho_match_mp_tac >>
@@ -2323,15 +2370,17 @@ val generalise_complete_lemma4 = Q.prove (
      metis_tac [])
  >- (fs [flookup_thm, DISJOINT_DEF, EXTENSION, FDOM_FUPDATE_LIST, MAP_MAP_o,
          combinTheory.o_DEF, LAMBDA_PROD, MEM_MAP, EXISTS_PROD] >>
-     metis_tac []));
+     metis_tac [])
+QED
 
-val generalise_complete_lemma5 = Q.prove (
-`!s. t_wfs s ⇒
+Triviality generalise_complete_lemma5:
+  !s. t_wfs s ⇒
   !t s'. t_wfs (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s') ⇒
          ALL_DISTINCT (MAP FST s') ∧
          DISJOINT (FDOM s) (FDOM (FEMPTY |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s')) ⇒
-         infer_subst (FEMPTY |++ s') (t_walkstar s t) = t_walkstar (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s') t`,
- strip_tac >>
+         infer_subst (FEMPTY |++ s') (t_walkstar s t) = t_walkstar (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s') t
+Proof
+  strip_tac >>
  strip_tac >>
  imp_res_tac t_walkstar_ind >>
  pop_assum ho_match_mp_tac >>
@@ -2350,33 +2399,37 @@ val generalise_complete_lemma5 = Q.prove (
  fs [infer_subst_def, infer_subst_var_def] >>
  rw [MAP_MAP_o, MAP_EQ_f] >>
  cases_on `FLOOKUP (FEMPTY |++ s') n'` >>
- fs []);
+ fs []
+QED
 
-val fst_lem = Q.prove (
-`FST = (\(x,y).x)`,
-rw [FUN_EQ_THM] >>
+Triviality fst_lem:
+  FST = (\(x,y).x)
+Proof
+  rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
-rw []);
+rw []
+QED
 
-val t_ind = t_induction
+Theorem t_ind = t_induction
   |> Q.SPECL[`P`,`EVERY P`]
   |> UNDISCH_ALL
   |> CONJUNCT1
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) []
   |> Q.GEN`P`
-  |> curry save_thm "t_ind";
 
 (* Rename (type_system) type identifiers with a function *)
-val ts_tid_rename_def = tDefine"ts_tid_rename"`
+Definition ts_tid_rename_def:
   (ts_tid_rename f (Tapp ts tn) = Tapp (MAP (ts_tid_rename f) ts) (f tn)) ∧
-  (ts_tid_rename f t = t)`
-  (WF_REL_TAC `measure (λ(_,y). t_size y)` >>
+  (ts_tid_rename f t = t)
+Termination
+  WF_REL_TAC `measure (λ(_,y). t_size y)` >>
   rw [] >>
   induct_on `ts` >>
   rw [t_size_def] >>
   res_tac >>
-  decide_tac);
+  decide_tac
+End
 
 val ts_tid_rename_ind = theorem"ts_tid_rename_ind";
 
@@ -2389,15 +2442,17 @@ Proof
 QED
 
 (* All type ids in a type belonging to a set *)
-val set_tids_def = tDefine "set_tids"`
+Definition set_tids_def:
   (set_tids (Tapp ts tn) = tn INSERT (BIGUNION (set (MAP set_tids ts)))) ∧
-  (set_tids _ = {})`
-  (WF_REL_TAC `measure t_size` >>
+  (set_tids _ = {})
+Termination
+  WF_REL_TAC `measure t_size` >>
   rw [] >>
   induct_on `ts` >>
   rw [t_size_def] >>
   res_tac >>
-  decide_tac)
+  decide_tac
+End
 
 val set_tids_ind = theorem"set_tids_ind";
 
@@ -2410,8 +2465,9 @@ Proof
   \\ metis_tac[IN_IMAGE]
 QED
 
-val set_tids_subset_def = Define`
-  set_tids_subset tids t <=> set_tids t ⊆ tids`
+Definition set_tids_subset_def:
+  set_tids_subset tids t <=> set_tids t ⊆ tids
+End
 
 Theorem set_tids_subset_type_subst:
     ∀s t tids.
@@ -2435,16 +2491,17 @@ Proof
     metis_tac[])
 QED
 
-val unconvert_t_def = tDefine "unconvert_t" `
+Definition unconvert_t_def:
 (unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
 (unconvert_t (Tapp ts tc) = Infer_Tapp (MAP unconvert_t ts) tc) ∧
 (unconvert_t (Tvar v) = Infer_Tuvar ARB)
-`
-(wf_rel_tac `measure t_size` >>
+Termination
+  wf_rel_tac `measure t_size` >>
  rw [] >>
  induct_on `ts` >>
  rw [t_size_def] >>
- full_simp_tac (srw_ss()++ARITH_ss) []);
+ full_simp_tac (srw_ss()++ARITH_ss) []
+End
 
 val unconvert_t_ind = theorem"unconvert_t_ind"
 
@@ -2760,10 +2817,12 @@ Proof
      \\ metis_tac[])
 QED
 
-val init_infer_state_wfs = Q.prove (
-  `t_wfs (init_infer_state st).subst ∧
-   check_s 0 ∅ (init_infer_state st).subst`,
- rw [check_s_def, init_infer_state_def, t_wfs_def]);
+Triviality init_infer_state_wfs:
+  t_wfs (init_infer_state st).subst ∧
+   check_s 0 ∅ (init_infer_state st).subst
+Proof
+  rw [check_s_def, init_infer_state_def, t_wfs_def]
+QED
 
 Theorem init_infer_state_next_uvar[simp]:
    (init_infer_state st).next_uvar = 0
@@ -2831,18 +2890,23 @@ val let_tac =
    >> fs [sub_completion_def, EVERY_MEM, MEM_MAP, PULL_EXISTS]
    >> metis_tac [check_t_more2, check_t_more5, MEM_EL, DECIDE ``x + 0n = x``];
 
-val eta2_thm = Q.prove (
-`(\x. f a b x) = f a b`, metis_tac []);
+Triviality eta2_thm:
+  (\x. f a b x) = f a b
+Proof
+  metis_tac []
+QED
 
-val check_env_letrec_lem2 = Q.prove (
-  `∀funs.
+Triviality check_env_letrec_lem2:
+  ∀funs.
     nsAll (λx (tvs,t). check_t tvs (count (LENGTH funs)) t)
       (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar))
                       funs
-                      (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH funs)))))`,
- rw []
+                      (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH funs)))))
+Proof
+  rw []
  >> Q.SPECL_THEN [`LENGTH funs`, `funs`, `0n`] mp_tac check_env_letrec_lem
- >> simp []);
+ >> simp []
+QED
 
 Theorem ienv_ok_extend_dec_ienv:
    !e1 e2 n. ienv_ok n e1 ∧ ienv_ok n e2 ⇒ ienv_ok n (extend_dec_ienv e1 e2)
@@ -3048,22 +3112,26 @@ Proof
   metis_tac[LESS_EQ_TRANS]
 QED
 
-val count_list_one = Q.prove (
-`COUNT_LIST 1 = [0]`,
-metis_tac [COUNT_LIST_def, MAP, DECIDE ``1 = SUC 0``]);
+Triviality count_list_one:
+  COUNT_LIST 1 = [0]
+Proof
+  metis_tac [COUNT_LIST_def, MAP, DECIDE ``1 = SUC 0``]
+QED
 
-val check_freevars_more_append = Q.prove (
-`(!t x fvs1 fvs2.
+Triviality check_freevars_more_append:
+  (!t x fvs1 fvs2.
   check_freevars x fvs1 t ⇒
   check_freevars x (fvs2++fvs1) t ∧
   check_freevars x (fvs1++fvs2) t) ∧
  (!ts x fvs1 fvs2.
   EVERY (check_freevars x fvs1) ts ⇒
   EVERY (check_freevars x (fvs2++fvs1)) ts ∧
-  EVERY (check_freevars x (fvs1++fvs2)) ts)`,
-Induct >>
+  EVERY (check_freevars x (fvs1++fvs2)) ts)
+Proof
+  Induct >>
 rw [check_freevars_def] >>
-metis_tac []);
+metis_tac []
+QED
 
 (*
 Theorem t_to_freevars_check:
@@ -3533,13 +3601,14 @@ Proof
   >> REFL_TAC)
 QED
 
-val remap_tenv_def = Define`
+Definition remap_tenv_def:
   remap_tenv f tenv =
   <|
     t := nsMap (λ(ls,t). (ls, ts_tid_rename f t)) tenv.t;
     c := nsMap (λ(ls,ts,tid). (ls, MAP (ts_tid_rename f) ts, f tid)) tenv.c;
     v := nsMap (λ(n,t). (n,ts_tid_rename f t)) tenv.v
-   |>`
+   |>
+End
 
 Theorem remap_tenv_I[simp]:
    remap_tenv I = I
@@ -3646,7 +3715,9 @@ Proof
   \\ metis_tac[t_unify_set_tids, t_unify_wfs]
 QED
 
-val hide_def = Define`hide x = x`;
+Definition hide_def:
+  hide x = x
+End
 
 Theorem infer_p_inf_set_tids:
   (!l cenv p st t env st'.

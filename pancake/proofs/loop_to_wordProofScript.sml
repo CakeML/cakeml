@@ -981,8 +981,10 @@ Proof
       PULL_EXISTS,
       sh_mem_load_def,
       sh_mem_load_byte_def,
+      sh_mem_load32_def,
       sh_mem_store_def,
       sh_mem_store_byte_def,
+      sh_mem_store32_def,
       sh_mem_set_var_def,
       find_var_def,
       state_rel_def,
@@ -1513,178 +1515,92 @@ QED
 
 (*** no_install/no_alloc/no_mt lemmas ***)
 
-Theorem loop_to_word_comp_no_install:
-  wprog = comp ctxt prog l ⇒
-  no_install (FST wprog)
+Theorem loop_to_word_comp_not_created:
+  (!x. (case x of ShareInst _ _ _ => T | Call _ _ _ _ => T
+        | LocValue _ _ => T | _ => F) ==>
+    P x) ==>
+  !ctxt prog l wprog l2.
+  comp ctxt prog l = (wprog, l2) ==>
+  not_created_subprogs P wprog
 Proof
-  MAP_EVERY qid_spec_tac [‘wprog’, ‘l’, ‘prog’, ‘ctxt’]>>
-  recInduct comp_ind>>
-  gs[comp_def, wordPropsTheory.no_install_def]>>
-  rw[]>>
-  TRY (pairarg_tac>>gs[]>>
-       pairarg_tac>>gs[]>>
-       gs[wordPropsTheory.no_install_def])>>
-  rpt (CASE_TAC>>gs[wordPropsTheory.no_install_def])>>
-  rpt (pairarg_tac>>gs[wordPropsTheory.no_install_def])
+  disch_tac
+  \\ recInduct comp_ind
+  \\ rw [comp_def]
+  \\ gs [wordPropsTheory.not_created_subprogs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gs [AllCaseEqs (), UNCURRY_eq_pair]
+  \\ gvs [wordPropsTheory.not_created_subprogs_def]
+  \\ every_case_tac \\ fs []
 QED
 
-Theorem loop_to_word_comp_func_no_install:
-  no_install (comp_func name params body)
+Theorem loop_to_word_comp_func_not_created:
+  (!x. (case x of ShareInst _ _ _ => T | Call _ _ _ _ => T
+        | LocValue _ _ => T | _ => F) ==>
+    P x) ==>
+  !body name params. not_created_subprogs P (comp_func name params body)
 Proof
-  MAP_EVERY qid_spec_tac [‘wprog’, ‘name’, ‘params’, ‘body’]>>Induct>>
-  gs[comp_func_def]>>
-  gs[comp_def, wordPropsTheory.no_install_def]>>
-  rw[loop_to_word_comp_no_install]>>
-  rpt (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
-       gs[loopLangTheory.acc_vars_def])>>
-  rpt (CASE_TAC>>gs[wordPropsTheory.no_install_def])>>
-  pairarg_tac>>gs[]>>
-  pairarg_tac>>
-  gs[wordPropsTheory.no_install_def]>>
-  rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
-  drule loop_to_word_comp_no_install>>gs[]>>
-  qpat_x_assum ‘(p1, _) = _’ kall_tac>>
-  drule loop_to_word_comp_no_install>>gs[]
+  rw[comp_func_def]
+  \\ simp [Q.prove (`!x. FST x = (\(y, z). y) x`, simp [FORALL_PROD])]
+  \\ pairarg_tac \\ fs []
+  \\ metis_tac [loop_to_word_comp_not_created]
 QED
 
-Theorem loop_to_word_compile_no_install:
-  wprog = compile_prog pan_prog ⇒
-  EVERY no_install (MAP (SND o SND) wprog)
+Theorem loop_to_word_compile_not_created:
+  !pan_prog.
+  (!x. (case x of ShareInst _ _ _ => T | Call _ _ _ _ => T
+        | LocValue _ _ => T | _ => F) ==>
+    P x) ==>
+  EVERY (not_created_subprogs P) (MAP (SND o SND) (compile_prog pan_prog))
 Proof
-  qid_spec_tac ‘wprog’>>
-  Induct_on ‘pan_prog’>>
+  Induct>>
   gs[compile_def, compile_prog_def]>>
-  strip_tac>>pairarg_tac>>gs[loop_to_word_comp_func_no_install]
+  strip_tac>>pairarg_tac>>gs[loop_to_word_comp_func_not_created]
+QED
+
+Triviality loop_to_word_compile_not_created_MEM:
+  MEM (a, b, p) (compile_prog pan_prog) ==>
+  (!x. (case x of ShareInst _ _ _ => T | Call _ _ _ _ => T
+        | LocValue _ _ => T | _ => F) ==>
+    P x) ==>
+  not_created_subprogs P p
+Proof
+  qspec_then `pan_prog` mp_tac loop_to_word_compile_not_created
+  \\ rw [] \\ fs [EVERY_MAP]
+  \\ fs [EVERY_MEM, FORALL_PROD]
+  \\ metis_tac []
 QED
 
 Theorem loop_compile_no_install_code:
-  compile prog = prog' ⇒
-  no_install_code (fromAList prog')
+  no_install_code (fromAList (compile prog))
 Proof
-  disch_then (assume_tac o GSYM)>>
   gs[compile_def]>>
-  drule loop_to_word_compile_no_install>>
-  rw[wordPropsTheory.no_install_code_def]>>
+  rw[wordPropsTheory.no_install_code_def, wordPropsTheory.no_install_subprogs_def]>>
   gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
-  first_x_assum (qspec_then ‘p’ assume_tac)>>
-  res_tac>>gs[]
-QED
-
-Theorem loop_to_word_comp_no_alloc:
-  wprog = comp ctxt prog l ⇒
-  no_alloc (FST wprog)
-Proof
-  MAP_EVERY qid_spec_tac [‘wprog’, ‘l’, ‘prog’, ‘ctxt’]>>
-  recInduct comp_ind>>
-  gs[comp_def, wordPropsTheory.no_alloc_def]>>
-  rw[]>>
-  TRY (pairarg_tac>>gs[]>>
-       pairarg_tac>>gs[]>>
-       gs[wordPropsTheory.no_alloc_def])>>
-  rpt (CASE_TAC>>gs[wordPropsTheory.no_alloc_def])>>
-  rpt (pairarg_tac>>gs[wordPropsTheory.no_alloc_def])
-QED
-
-Theorem loop_to_word_comp_func_no_alloc:
-  no_alloc (comp_func name params body)
-Proof
-  MAP_EVERY qid_spec_tac [‘wprog’, ‘name’, ‘params’, ‘body’]>>Induct>>
-  gs[comp_func_def]>>
-  gs[comp_def, wordPropsTheory.no_alloc_def]>>
-  rw[loop_to_word_comp_no_alloc]>>
-  rpt (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
-       gs[loopLangTheory.acc_vars_def])>>
-  rpt (CASE_TAC>>gs[wordPropsTheory.no_alloc_def])>>
-  pairarg_tac>>gs[]>>
-  pairarg_tac>>
-  gs[wordPropsTheory.no_alloc_def]>>
-  rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
-  drule loop_to_word_comp_no_alloc>>gs[]>>
-  qpat_x_assum ‘(p1, _) = _’ kall_tac>>
-  drule loop_to_word_comp_no_alloc>>gs[]
-QED
-
-Theorem loop_to_word_compile_no_alloc:
-  wprog = compile_prog pan_prog ⇒
-  EVERY no_alloc (MAP (SND o SND) wprog)
-Proof
-  qid_spec_tac ‘wprog’>>
-  Induct_on ‘pan_prog’>>
-  gs[compile_def, compile_prog_def]>>
-  strip_tac>>pairarg_tac>>gs[loop_to_word_comp_func_no_alloc]
+  drule_then irule loop_to_word_compile_not_created_MEM>>
+  simp []
 QED
 
 Theorem loop_compile_no_alloc_code:
-  compile prog = prog' ⇒
-  no_alloc_code (fromAList prog')
+  no_alloc_code (fromAList (compile prog))
 Proof
-  disch_then (assume_tac o GSYM)>>
   gs[compile_def]>>
-  drule loop_to_word_compile_no_alloc>>
-  rw[wordPropsTheory.no_alloc_code_def]>>
+  rw[wordPropsTheory.no_alloc_code_def, wordPropsTheory.no_alloc_subprogs_def]>>
   gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
-  first_x_assum (qspec_then ‘p’ assume_tac)>>
-  res_tac>>gs[]
-QED
-
-Theorem loop_to_word_comp_no_mt:
-  wprog = comp ctxt prog l ⇒
-  no_mt (FST wprog)
-Proof
-  MAP_EVERY qid_spec_tac [‘wprog’, ‘l’, ‘prog’, ‘ctxt’]>>
-  recInduct comp_ind>>
-  gs[comp_def, wordPropsTheory.no_mt_def]>>
-  rw[]>>
-  TRY (pairarg_tac>>gs[]>>
-       pairarg_tac>>gs[]>>
-       gs[wordPropsTheory.no_mt_def])>>
-  rpt (CASE_TAC>>gs[wordPropsTheory.no_mt_def])>>
-  rpt (pairarg_tac>>gs[wordPropsTheory.no_mt_def])
-QED
-
-Theorem loop_to_word_comp_func_no_mt:
-  no_mt (comp_func name params body)
-Proof
-  MAP_EVERY qid_spec_tac [‘wprog’, ‘name’, ‘params’, ‘body’]>>Induct>>
-  gs[comp_func_def]>>
-  gs[comp_def, wordPropsTheory.no_mt_def]>>
-  rw[loop_to_word_comp_no_mt]>>
-  rpt (last_x_assum (qspecl_then [‘params’, ‘name’] assume_tac)>>
-       gs[loopLangTheory.acc_vars_def])>>
-  rpt (CASE_TAC>>gs[wordPropsTheory.no_mt_def])>>
-  pairarg_tac>>gs[]>>
-  pairarg_tac>>
-  gs[wordPropsTheory.no_mt_def]>>
-  rpt (qpat_x_assum ‘comp _ _ _ = _’ (assume_tac o GSYM))>>
-  drule loop_to_word_comp_no_mt>>gs[]>>
-  qpat_x_assum ‘(p1, _) = _’ kall_tac>>
-  drule loop_to_word_comp_no_mt>>gs[]
-QED
-
-Theorem loop_to_word_compile_no_mt:
-  wprog = compile_prog pan_prog ⇒
-  EVERY no_mt (MAP (SND o SND) wprog)
-Proof
-  qid_spec_tac ‘wprog’>>
-  Induct_on ‘pan_prog’>>
-  gs[compile_def, compile_prog_def]>>
-  strip_tac>>pairarg_tac>>gs[loop_to_word_comp_func_no_mt]
+  drule_then irule loop_to_word_compile_not_created_MEM>>
+  simp []
 QED
 
 Theorem loop_compile_no_mt_code:
-  compile prog = prog' ⇒
-  no_mt_code (fromAList prog')
+  no_mt_code (fromAList (compile prog))
 Proof
-  disch_then (assume_tac o GSYM)>>
   gs[compile_def]>>
-  drule loop_to_word_compile_no_mt>>
-  rw[wordPropsTheory.no_mt_code_def]>>
+  rw[wordPropsTheory.no_mt_code_def, wordPropsTheory.no_mt_subprogs_def]>>
   gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
-  first_x_assum (qspec_then ‘p’ assume_tac)>>
-  res_tac>>gs[]
+  drule_then irule loop_to_word_compile_not_created_MEM>>
+  simp []
 QED
 
 (*** loop_to_word good_handlers ***)
@@ -2080,6 +1996,11 @@ Proof
   PairCases_on ‘x’ \\ gvs[]
 QED
 
+fun separate_simp_tac ss = POP_ASSUM_LIST (fn assms =>
+  simp ss
+  \\ MAP_EVERY (fn t => assume_tac (SIMP_RULE (srw_ss ()) ss t)) assms
+  );
+
 Theorem every_loop_inst_ok_comp_lemma:
   ∀p prog cont s body n funs.
     comp_with_loop p prog cont s = (body,n,funs) ∧
@@ -2091,38 +2012,20 @@ Theorem every_loop_inst_ok_comp_lemma:
     (every_prog (loop_inst_ok c) body ∧
      EVERY (λ(n,params,body). every_prog (loop_inst_ok c) body) funs)
 Proof
-  (* slow *)
-  ho_match_mp_tac comp_with_loop_alt_ind \\
-  rw[loop_removeTheory.comp_with_loop_def,every_prog_def,loop_inst_ok_def] \\
-  rpt(pairarg_tac \\ fs[] \\ rveq)
-  >~ [‘option_CASE’] (* handler case*) >-
-   (PRED_ASSUM is_forall (fn thm =>
-      PRED_ASSUM is_forall (fn thm' =>
-                               fs[AllCaseEqs(),every_prog_def,loop_inst_ok_def] \\
-                               rpt(pairarg_tac \\ fs[]) \\
-                               gs[every_prog_def,loop_inst_ok_def,AllCaseEqs(),
-                                  DefnBase.one_line_ify NONE loop_removeTheory.store_cont_def] \\
-                               mp_tac thm \\ mp_tac thm')) \\
-    rveq \\ gvs[DefnBase.one_line_ify NONE loop_removeTheory.store_cont_def,
-                every_prog_def,loop_inst_ok_def] \\
-    metis_tac[FST,SND,PAIR])
-  >~ [‘option_CASE’] (* handler case, snd conjunct*) >-
-   (PRED_ASSUM is_forall (fn thm =>
-      PRED_ASSUM is_forall (fn thm' =>
-                               fs[AllCaseEqs(),every_prog_def,loop_inst_ok_def] \\
-                               rpt(pairarg_tac \\ fs[]) \\
-                               gs[every_prog_def,loop_inst_ok_def,AllCaseEqs(),
-                                  DefnBase.one_line_ify NONE loop_removeTheory.store_cont_def] \\
-                               mp_tac thm \\ mp_tac thm')) \\
-    rveq \\ gvs[DefnBase.one_line_ify NONE loop_removeTheory.store_cont_def,
-                every_prog_def,loop_inst_ok_def] \\
-    metis_tac[FST,SND,PAIR]) \\
-  rpt $ PRED_ASSUM is_forall mp_tac \\
-  gvs[AllCaseEqs(),every_prog_def,loop_inst_ok_def] \\
-  rpt(pairarg_tac \\ gvs[]) \\
-  gvs[every_prog_def,loop_inst_ok_def,AllCaseEqs(),
-      DefnBase.one_line_ify NONE loop_removeTheory.store_cont_def] \\
-  metis_tac[FST,SND,PAIR,every_loop_inst_ok_comp_no_loop]
+  ho_match_mp_tac (name_ind_cases [] comp_with_loop_alt_ind) \\
+  rpt strip_tac \\
+  separate_simp_tac [LET_THM, loop_removeTheory.comp_with_loop_def] \\
+  rpt (pairarg_tac \\ POP_ASSUM (fn t => separate_simp_tac [t] \\ assume_tac t)) \\
+  separate_simp_tac [Q.SPECL [`p`, `(x, y)`] PAIR_FST_SND_EQ] \\
+  POP_ASSUM_LIST (MAP_EVERY strip_assume_tac) \\
+  rveq \\
+  separate_simp_tac [] \\
+  gs [every_prog_def,loop_inst_ok_def] \\
+  gs [DefnBase.one_line_ify NONE loop_removeTheory.store_cont_def] \\
+  every_case_tac \\ fs [] \\
+  gs [every_prog_def,loop_inst_ok_def] \\
+  rpt (pairarg_tac \\ fs []) \\
+  gs [every_prog_def,loop_inst_ok_def,every_loop_inst_ok_comp_no_loop]
 QED
 
 Theorem every_loop_inst_ok_comp:

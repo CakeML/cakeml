@@ -157,10 +157,12 @@ fun prove_assum_by_conv conv th = let
 
 val prove_assum_by_eval = prove_assum_by_conv reduce_conv
 
+(*
 val eval_every_exp_one_con_check =
   SIMP_CONV (srw_ss()) [semanticPrimitivesTheory.do_con_check_def,ML_code_env_def]
   THENC DEPTH_CONV nsLookup_conv
   THENC reduce_conv;
+*)
 
 fun is_const_str str = can prim_mk_const {Thy=current_theory(), Name=str};
 
@@ -402,7 +404,6 @@ fun add_Dlet eval_thm var_str = let
     [solve_ml_imp_mp eval_thm,
      solve_ml_imp_conv (SIMP_CONV bool_ss []
                         THENC SIMP_CONV bool_ss [ML_code_env_def]),
-     solve_ml_imp_conv eval_every_exp_one_con_check,
      let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
   end
 
@@ -431,8 +432,7 @@ val (n,v,exp) = (v_tm,w,body)
 
 fun add_Dlet_Fun loc n v exp v_name = ML_code_upd "add_Dlet_Fun"
     (SPECL [n, v, exp, loc] ML_code_Dlet_Fun)
-    [solve_ml_imp_conv eval_every_exp_one_con_check,
-     let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
+    [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
      let_v_abbrev v_name ALL_CONV,
      let_env_abbrev ALL_CONV]
 
@@ -472,7 +472,6 @@ fun add_Dletrec loc funs v_names = let
   in ML_code_upd "add_Dletrec"
     (SPECL [funs, loc] ML_code_Dletrec)
     [solve_ml_imp_conv EVAL,
-     solve_ml_imp_conv eval_every_exp_one_con_check,
      let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
      proc]
   end

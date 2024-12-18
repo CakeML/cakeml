@@ -242,17 +242,17 @@ Definition pp_default_type_def:
     pp_token (strlit "<val of default type: this should be impossible>")
 End
 
-val fromRat_def = Define`
+Definition fromRat_def:
   fromRat (n:int, d:num) =
   if d = 1 then List [mlint$toString n]
   else List [mlint$toString n; strlit "/"; mlint$toString (& d)]
-`
+End
 
-val fromOption_def = Define`
+Definition fromOption_def:
   fromOption f opt =
   case opt of
       NONE => List [strlit "NONE"]
     | SOME x => Append (List [strlit "SOME "]) (f x)
-`
+End
 
 val _ = export_theory ()

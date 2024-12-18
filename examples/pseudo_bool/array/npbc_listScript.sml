@@ -1142,7 +1142,7 @@ End
 
 Definition hash_pair_def:
   hash_pair (i:int,n:num) =
-  if i < 0 then
+  if i ≤ 0 then
     (2 * (Num(ABS i)) + h_base * n) MOD h_mod
   else
     (2 * (Num (ABS i)) - 1 + h_base * n) MOD h_mod
@@ -1578,8 +1578,9 @@ Definition fast_red_subgoals_def:
 End
 
 Definition check_red_list_def:
-  check_red_list ord obj b tcb fml inds id c s pfs idopt
+  check_red_list pres ord obj b tcb fml inds id c s pfs idopt
     vimap vomap zeros =
+  if check_pres pres s then
   let s = mk_subst s in
   case red_fast s idopt pfs of
     NONE => (
@@ -1602,6 +1603,7 @@ Definition check_red_list_def:
         else NONE))
   | SOME (pf,cid) =>
     check_red_list_fast b fml inds id c pf cid vimap zeros
+  else NONE
 End
 
 (*
@@ -1655,7 +1657,7 @@ Definition opt_update_inds_def[simp]:
 End
 
 Definition check_sstep_list_def:
-  (check_sstep_list (sstep:sstep) ord obj tcb
+  (check_sstep_list (sstep:sstep) pres ord obj tcb
     (fml: (npbc # bool) option list) (inds:num list) (id:num)
     vimap vomap zeros =
   case sstep of
@@ -1665,7 +1667,7 @@ Definition check_sstep_list_def:
     | SOME (rfml,c,id',zeros') =>
       SOME (opt_update_inds rfml c id' inds vimap zeros'))
   | Red c s pfs idopt =>
-    case check_red_list ord obj F tcb fml inds id c s pfs
+    case check_red_list pres ord obj F tcb fml inds id c s pfs
       idopt vimap vomap zeros of
       SOME (rfml,rinds,vimap',id',zeros') =>
       SOME (
@@ -2460,10 +2462,10 @@ Theorem fml_rel_check_red_list:
   vomap_rel obj vomap ∧
   (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
   EVERY (λw. w = 0w) zeros ∧
-  check_red_list ord obj b tcb fmlls inds id c s pfs
+  check_red_list pres ord obj b tcb fmlls inds id c s pfs
     idopt vimap vomap zeros =
     SOME (fmlls', inds', vimap', id', zeros') ⇒
-    check_red ord obj b tcb fml id c s pfs idopt = SOME id' ∧
+    check_red pres ord obj b tcb fml id c s pfs idopt = SOME id' ∧
     fml_rel fml fmlls' ∧
     ind_rel fmlls' inds' ∧
     vimap_rel fmlls' vimap' ∧
@@ -2897,17 +2899,17 @@ Proof
 QED
 
 Theorem fml_rel_check_sstep_list:
-  ∀sstep ord obj fmlls inds id zeros fmlls' id' inds' zeros' fml.
+  ∀sstep pres ord obj fmlls inds id zeros fmlls' id' inds' zeros' fml.
     fml_rel fml fmlls ∧
     ind_rel fmlls inds ∧
     vimap_rel fmlls vimap ∧
     vomap_rel obj vomap ∧
     (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
     EVERY (λw. w = 0w) zeros ∧
-    check_sstep_list sstep ord obj tcb fmlls inds id vimap vomap zeros =
+    check_sstep_list sstep pres ord obj tcb fmlls inds id vimap vomap zeros =
       SOME (fmlls',inds',vimap',id',zeros') ⇒
     ∃fml'.
-      check_sstep sstep ord obj tcb fml id = SOME(fml',id') ∧
+      check_sstep sstep pres ord obj tcb fml id = SOME(fml',id') ∧
       fml_rel fml' fmlls' ∧
       ind_rel fmlls' inds' ∧
       vimap_rel fmlls' vimap' ∧
@@ -3044,8 +3046,8 @@ Definition emp_vec_def:
   emp_vec = INR (Vector [])
 End
 
-Definition do_change_obj_check_def:
-  do_change_obj_check pfs csubs =
+Definition do_change_check_def:
+  do_change_check pfs csubs =
   let (l,r) = extract_pids pfs LN LN in
     EVERY (λ(id,cs).
       lookup id r ≠ NONE ∨
@@ -3066,7 +3068,7 @@ Definition check_change_obj_list_def:
         NONE => NONE
       | SOME (fml',id',zeros') =>
         let rfml = rollback fml' id id' in
-        if do_change_obj_check pfs csubs then
+        if do_change_check pfs csubs then
           let fc'' = mk_diff_obj b fc fc' in
           SOME (rfml,fc'',id',zeros')
         else NONE)
@@ -3101,6 +3103,25 @@ Proof
   metis_tac[EL_REPLICATE]
 QED
 
+Definition check_change_pres_list_def:
+  check_change_pres_list b fml id pres v c pfs zeros ⇔
+  case pres of NONE => NONE
+  | SOME pres =>
+    if pres_only c pres v then
+    ( let csubs = change_pres_subgoals v c in
+      case extract_clauses_list emp_vec T fml csubs pfs [] of
+        NONE => NONE
+      | SOME cpfs =>
+      (case check_subproofs_list cpfs T fml id id zeros of
+        NONE => NONE
+      | SOME (fml',id',zeros') =>
+        let rfml = rollback fml' id id' in
+        if do_change_check pfs csubs then
+          SOME (rfml,update_pres b v pres,id',zeros')
+        else NONE))
+    else NONE
+End
+
 Definition check_cstep_list_def:
   check_cstep_list cstep fml zeros inds vimap vomap pc =
   case cstep of
@@ -3108,6 +3129,7 @@ Definition check_cstep_list_def:
     (case pc.ord of
       NONE => NONE
     | SOME spo =>
+    if check_pres pc.pres s then
     ( let nc = not c in
       let id = pc.id in
       let rinds = reindex fml inds in
@@ -3132,9 +3154,10 @@ Definition check_cstep_list_def:
               update_vimap vimap id' (FST c),
               vomap,
               pc with id := id'+1)
-          else NONE)))
+          else NONE))
+    else NONE)
   | Sstep sstep =>
-    (case check_sstep_list sstep pc.ord pc.obj pc.tcb
+    (case check_sstep_list sstep pc.pres pc.ord pc.obj pc.tcb
       fml inds pc.id vimap vomap zeros of
       SOME(fml',inds',vimap',id',zeros') =>
         SOME(fml',zeros', inds', vimap', vomap, pc with id := id')
@@ -3145,7 +3168,7 @@ Definition check_cstep_list_def:
         NONE => NONE
       | SOME c =>
           (let nfml = delete_list n fml in
-          case check_red_list pc.ord pc.obj T pc.tcb
+          case check_red_list pc.pres pc.ord pc.obj T pc.tcb
             nfml inds pc.id c s pfs idopt vimap vomap zeros of
             SOME (ncf',inds',vimap',id',zeros') =>
             SOME (ncf',zeros', inds',
@@ -3241,6 +3264,15 @@ Definition check_cstep_list_def:
     if check_eq_obj pc.obj fc'
     then SOME (fml, zeros, inds, vimap, vomap, pc)
     else NONE
+  | ChangePres b v c pfs =>
+    (case check_change_pres_list b fml pc.id pc.pres
+        v c pfs zeros of
+      NONE => NONE
+    | SOME (fml',pres',id',zeros') =>
+      SOME (
+        fml', zeros', inds,
+        vimap, vomap,
+        pc with <| id:=id'; pres:=SOME pres' |>))
 End
 
 Theorem MEM_core_fmlls:
@@ -3592,7 +3624,7 @@ Proof
     rfs[]>>
     `pc.id ≤ pc.id` by fs[]>>
     drule_all fml_rel_check_subproofs_list>>
-    fs[do_change_obj_check_def]>>
+    fs[do_change_check_def]>>
     pairarg_tac>>fs[]>>
     strip_tac>>simp[]>>
     drule check_subproofs_list_id>>
@@ -3614,6 +3646,36 @@ Proof
   >- ( (* CheckObj *)
     fs[check_cstep_def,check_cstep_list_def]
   )
+  >- ( (* ChangePres *)
+    fs[check_cstep_def,check_cstep_list_def]>>
+    gvs[AllCaseEqs(),check_change_pres_list_def,check_change_pres_def]>>
+    qpat_x_assum`_ = SOME cpfs` mp_tac>>
+    DEP_REWRITE_TAC [GSYM fml_rel_extract_clauses_list]>>
+    simp[]>>
+    `subst_fun emp_vec = (λx:num. NONE)` by
+      (simp[FUN_EQ_THM,subst_fun_def,emp_vec_def]>>
+      EVAL_TAC>>rw[])>>
+    strip_tac>>
+    rfs[]>>
+    `pc.id ≤ pc.id` by fs[]>>
+    drule_all fml_rel_check_subproofs_list>>
+    fs[do_change_check_def]>>
+    pairarg_tac>>fs[]>>
+    strip_tac>>simp[]>>
+    drule check_subproofs_list_id>>
+    drule check_subproofs_list_id_upper>>
+    drule check_subproofs_list_mindel>>
+    ntac 3 strip_tac>>
+    CONJ_ASM1_TAC >- (
+      match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
+    CONJ_TAC >- (
+      match_mp_tac ind_rel_rollback_2>>
+      simp[]>>
+      metis_tac[ind_rel_reindex])>>
+    CONJ_TAC >-
+      metis_tac[fml_rel_fml_rel_vimap_rel]>>
+    simp[any_el_rollback]>>
+    metis_tac[check_subproofs_list_zeros])
 QED
 
 Definition check_csteps_list_def:
@@ -3894,7 +3956,7 @@ Theorem check_csteps_list_concl:
     (REVERSE (MAP FST (enumerate 1 fml)))
     (mk_vimap_opt b (enumerate 1 fml))
     (mk_vomap_opt obj)
-    (init_conf (LENGTH fml + 1) chk obj) =
+    (init_conf (LENGTH fml + 1) chk pres obj) =
     SOME(fmlls',zeros',inds',vimap',vomap',pc') ∧
   check_hconcl_list fml obj fmlls'
     pc'.obj pc'.bound pc'.dbound hconcl ⇒
@@ -3964,25 +4026,33 @@ QED
 
 Definition check_output_list_def:
   (check_output_list fml inds
-    obj bound dbound chk fml' obj' NoOutput = T) ∧
+    pres obj bound dbound chk fml' pres' obj' NoOutput = T) ∧
   (check_output_list fml inds
-    obj bound dbound chk fml' obj' Derivable =
+    pres obj bound dbound chk fml' pres' obj' Derivable =
     let cls = MAP SND (core_fmlls fml inds) in
       dbound = NONE ∧ fml_include_list cls fml') ∧
   (check_output_list fml inds
-    obj bound dbound chk fml' obj' Equisatisfiable =
+    pres obj bound dbound chk fml' pres' obj' Equisatisfiable =
     let cls = MAP SND (core_fmlls fml inds) in
       dbound = NONE ∧ bound = NONE ∧
       chk ∧
       fml_include_list cls fml' ∧
       fml_include_list fml' cls) ∧
   (check_output_list fml inds
-    obj bound dbound chk fml' obj' Equioptimal =
+    pres obj bound dbound chk fml' pres' obj' Equioptimal =
     let cls = MAP SND (core_fmlls fml inds) in
       chk ∧ opt_le bound dbound ∧
       fml_include_list cls fml' ∧
       fml_include_list fml' cls ∧
-      opt_eq_obj obj obj')
+      opt_eq_obj obj obj') ∧
+  (check_output_list fml inds
+    pres obj bound dbound chk fml' pres' obj' Equisolvable =
+    let cls = MAP SND (core_fmlls fml inds) in
+      chk ∧ opt_le bound dbound ∧
+      fml_include_list cls fml' ∧
+      fml_include_list fml' cls ∧
+      opt_eq_obj_opt obj obj' ∧
+      opt_eq_pres pres pres')
 End
 
 Theorem fml_include_set:
@@ -3997,8 +4067,8 @@ QED
 Theorem fml_rel_check_output_list:
   fml_rel fml' fmlls' ∧
   ind_rel fmlls' inds' ∧
-  check_output_list fmlls' inds' obj bound dbound chk fmlt objt output ⇒
-  check_output fml' obj bound dbound chk fmlt objt output
+  check_output_list fmlls' inds' pres obj bound dbound chk fmlt prest objt output ⇒
+  check_output fml' pres obj bound dbound chk fmlt prest objt output
 Proof
   rw[]>>
   `set (MAP SND (core_fmlls fmlls' inds')) =
@@ -4020,11 +4090,11 @@ Theorem check_csteps_list_output:
     (REVERSE (MAP FST (enumerate 1 fml)))
     (mk_vimap_opt b (enumerate 1 fml))
     (mk_vomap_opt obj)
-    (init_conf (LENGTH fml + 1) chk obj) =
+    (init_conf (LENGTH fml + 1) chk pres obj) =
     SOME(fmlls',zeros',inds',vimap',vomap',pc') ∧
   check_output_list fmlls' inds'
-    pc'.obj pc'.bound pc'.dbound pc'.chk fmlt objt output ⇒
-  sem_output (set fml) obj pc'.bound (set fmlt) objt output
+    pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlt prest objt output ⇒
+  sem_output (set fml) obj (pres_set_spt pres) pc'.bound (set fmlt) objt (pres_set_spt prest) output
 Proof
   rw[]>>
   qmatch_asmsub_abbrev_tac`check_csteps_list cs fmlls zeros

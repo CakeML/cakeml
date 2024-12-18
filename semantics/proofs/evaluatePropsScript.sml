@@ -18,8 +18,9 @@ Proof
   fs[ffiTheory.call_FFI_def] \\ every_case_tac \\ rw[] \\ fs[LENGTH_MAP]
 QED
 
-val call_FFI_rel_def = Define `
-  call_FFI_rel s1 s2 <=> ?n conf bytes t. call_FFI s1 n conf bytes = FFI_return s2 t`;
+Definition call_FFI_rel_def:
+  call_FFI_rel s1 s2 <=> ?n conf bytes t. call_FFI s1 n conf bytes = FFI_return s2 t
+End
 
 Theorem call_FFI_rel_consts:
    call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)
@@ -38,14 +39,16 @@ Proof
   \\ rw[call_FFI_rel_consts]
 QED
 
-val dest_IO_event_def = Define`
-  dest_IO_event (IO_event s c b) = (s,c,b)`;
+Definition dest_IO_event_def:
+  dest_IO_event (IO_event s c b) = (s,c,b)
+End
 val _ = export_rewrites["dest_IO_event_def"];
 
-val io_events_mono_def = Define`
+Definition io_events_mono_def:
   io_events_mono s1 s2 ⇔
     s1.io_events ≼ s2.io_events ∧
-    (s2.io_events = s1.io_events ⇒ s2 = s1)`;
+    (s2.io_events = s1.io_events ⇒ s2 = s1)
+End
 
 Theorem io_events_mono_refl[simp]:
    io_events_mono ffi ffi
@@ -124,13 +127,15 @@ Proof
   metis_tac[PAIR,FST,evaluate_call_FFI_rel]
 QED
 
-val evaluate_decs_call_FFI_rel = Q.prove(
-  `∀s e d.
-     RTC call_FFI_rel s.ffi (FST (evaluate_decs s e d)).ffi`,
+Triviality evaluate_decs_call_FFI_rel:
+  ∀s e d.
+     RTC call_FFI_rel s.ffi (FST (evaluate_decs s e d)).ffi
+Proof
   ho_match_mp_tac evaluate_decs_ind >>
   srw_tac[][evaluate_decs_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
-  metis_tac[RTC_TRANSITIVE,transitive_def,evaluate_call_FFI_rel,FST]);
+  metis_tac[RTC_TRANSITIVE,transitive_def,evaluate_call_FFI_rel,FST]
+QED
 
 Theorem evaluate_decs_call_FFI_rel_imp:
    ∀s e p s' r.
@@ -171,8 +176,8 @@ Proof
   metis_tac[PAIR,FST,evaluate_io_events_mono]
 QED
 
-val is_clock_io_mono_def = Define
-  `is_clock_io_mono f s = (case f s of (s', r) =>
+Definition is_clock_io_mono_def:
+  is_clock_io_mono f s = (case f s of (s', r) =>
         io_events_mono s.ffi s'.ffi
         /\ s'.clock <= s.clock
         /\ s.next_type_stamp <= s'.next_type_stamp
@@ -190,7 +195,8 @@ val is_clock_io_mono_def = Define
                 ==> clk <= s.clock
                 ==> ~ (r = Rerr (Rabort Rtimeout_error)))
             /\ (clk <= s.clock ==> io_events_mono s''.ffi s'.ffi)
-        ))`;
+        ))
+End
 
 Theorem is_clock_io_mono_cong:
   s = t ==>
@@ -324,7 +330,7 @@ Theorem is_clock_io_mono_do_app_icing:
                                     Rval (Closure v24 v25 v26)
                                 | Rval (Recclosure v27 v28 v29) =>
                                     Rval (Recclosure v27 v28 v29)
-                                | Rval (Loc v30) => Rval (Loc v30)
+                                | Rval (Loc b v30) => Rval (Loc b v30)
                                 | Rval (Vectorv v31) => Rval (Vectorv v31)
                                 | Rval (FP_WordTree v32) => Rval (FP_WordTree v32)
                                 | Rval (FP_BoolTree fv) =>
@@ -707,12 +713,17 @@ Proof
   simp_tac bool_ss evaluate_decs_lemmas
 QED
 
-val add_lemma = Q.prove (
- `!(k:num) k'. ?extra. k = k' + extra ∨ k' = k + extra`,
- intLib.ARITH_TAC);
+Triviality add_lemma:
+  !(k:num) k'. ?extra. k = k' + extra ∨ k' = k + extra
+Proof
+  intLib.ARITH_TAC
+QED
 
-val with_clock_ffi = Q.prove(
-  `(s with clock := k).ffi = s.ffi`,EVAL_TAC);
+Triviality with_clock_ffi:
+  (s with clock := k).ffi = s.ffi
+Proof
+  EVAL_TAC
+QED
 
 Theorem evaluate_decs_clock_determ:
  !s e p s1 r1 s2 r2 k1 k2.

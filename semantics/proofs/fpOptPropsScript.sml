@@ -97,9 +97,10 @@ Proof
   \\ imp_res_tac matchWordTree_preserving \\ res_tac
 QED
 
-val substMonotone_def = Define `
+Definition substMonotone_def:
   substMonotone s1 s2 =
-    ! n val. substLookup s1 n = SOME val ==> substLookup s2 n = SOME val`;
+    ! n val. substLookup s1 n = SOME val ==> substLookup s2 n = SOME val
+End
 
 (* We can add dummy substitutions *)
 Theorem instWordTree_weakening:

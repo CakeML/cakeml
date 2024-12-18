@@ -154,9 +154,10 @@ Proof
   simp[validFileFD_def]
 QED
 
-val file_contents_def = Define `
+Definition file_contents_def:
   file_contents fnm fs =
-    implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fnm)))))`
+    implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fnm)))))
+End
 
 Theorem file_contents_add_stdout:
    STD_streams fs ⇒
@@ -169,13 +170,13 @@ Proof
   \\ metis_tac[STD_streams_def,SOME_11,PAIR,FST,fsFFITheory.inode_distinct]
 QED
 
-val catfiles_string_def = Define`
+Definition catfiles_string_def:
   catfiles_string fs fns =
     concat (MAP (λfnm. file_contents fnm fs) fns)
-`;
+End
 
-val cat_spec0 = Q.prove(
-  `∀fns fnsv fs.
+Triviality cat_spec0:
+  ∀fns fnsv fs.
      LIST_TYPE FILENAME fns fnsv ∧
      EVERY (inFS_fname fs) fns ∧
      hasFreeFD fs
@@ -184,7 +185,8 @@ val cat_spec0 = Q.prove(
        (STDIO fs)
        (POSTv u.
           &UNIT_TYPE () u *
-          STDIO (add_stdout fs (catfiles_string fs fns)))`,
+          STDIO (add_stdout fs (catfiles_string fs fns)))
+Proof
   Induct >>
   rpt strip_tac >> xcf "cat" (get_ml_prog_state()) >>
   fs[LIST_TYPE_def] >>
@@ -209,11 +211,11 @@ val cat_spec0 = Q.prove(
   imp_res_tac add_stdo_o \\
   simp[Abbr`fs0`] \\
   simp[Once file_contents_def,SimpR``(==>>)``,concat_cons] \\
-  simp[file_contents_add_stdout] \\ xsimpl);
+  simp[file_contents_add_stdout] \\ xsimpl
+QED
 
-val cat_spec = save_thm(
-  "cat_spec",
-  cat_spec0 |> SIMP_RULE (srw_ss()) [])
+Theorem cat_spec =
+  cat_spec0 |> SIMP_RULE (srw_ss()) []
 
 val _ = process_topdecs `
   fun cat1 f =
@@ -221,10 +223,11 @@ val _ = process_topdecs `
     handle TextIO.BadFileName => ()
 ` |> append_prog
 
-val catfile_string_def = Define `
+Definition catfile_string_def:
   catfile_string fs fnm =
     if inFS_fname fs fnm then file_contents fnm fs
-    else (strlit"")`
+    else (strlit"")
+End
 
 Theorem cat1_spec:
    !fnm fnmv.
@@ -306,11 +309,12 @@ QED
 
 val name = "cat_main"
 val (semantics_thm,prog_tm) = whole_prog_thm st name (UNDISCH cat_whole_prog_spec)
-val cat_prog_def = Define`cat_prog = ^prog_tm`;
+Definition cat_prog_def:
+  cat_prog = ^prog_tm
+End
 
-val cat_semantics_thm =
+Theorem cat_semantics_thm =
   semantics_thm |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
   |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> curry save_thm "cat_semantics_thm";
 
 val _ = export_theory();

@@ -1924,8 +1924,7 @@ val one_one_conext = EVAL ``conexts_of_upd(EL 3 (mk_infinity_ctxt ARB))`` |> con
 
 (* construction of the model extension basing on the independent fragment *)
 
-val type_interpretation_ext_of_def =
-  tDefine "type_interpretation_ext_of0" `
+Definition type_interpretation_ext_of0_def:
   (type_interpretation_ext_of0
    ^mem ind upd ctxt Δ (Γ :mlstring # type -> 'U) ty =
    if ~terminating(subst_clos (dependency (upd::ctxt))) then
@@ -2070,8 +2069,8 @@ val type_interpretation_ext_of_def =
                        sigma'
                        trm0
          | NONE => One (* cannot happen *)
-  )`
-(
+  )
+Termination
   wf_rel_tac `subst_clos_term_ext_rel`
   >- (
     rw[wellorderTheory.WF_IND,subst_clos_term_ext_rel_def,WF_TC_EQN] >>
@@ -2602,11 +2601,12 @@ val type_interpretation_ext_of_def =
           fs[extends_init_def]
          )
       )
-  )
+End
 
 Overload type_interpretation_ext_of = ``type_interpretation_ext_of0 ^mem``
 Overload term_interpretation_ext_of = ``term_interpretation_ext_of0 ^mem``
 
+val type_interpretation_ext_of_def = type_interpretation_ext_of0_def;
 val type_interpretation_ext_of_ind = fetch "-" "type_interpretation_ext_of0_ind";
 
 (* symbols from the independent fragment keeps their earlier interpretation *)
@@ -3868,7 +3868,7 @@ QED
 
 (* models that can be extended require that each constant is interpreted as
  * equal to its witness *)
-val models_ConstSpec_witnesses_def = xDefine "models_ConstSpec_witnesses"`
+Definition models_ConstSpec_witnesses_def:
   models_ConstSpec_witnesses0 ^mem (Δ:type->'U) (Γ :mlstring # type -> 'U) ctxt =
     ∀ov cl prop c cdefn ty sigma. MEM (ConstSpec ov cl prop) ctxt
     ∧ MEM (c,cdefn) cl
@@ -3879,7 +3879,8 @@ val models_ConstSpec_witnesses_def = xDefine "models_ConstSpec_witnesses"`
       = termsem (ext_type_frag_builtins Δ)
                 (ext_term_frag_builtins (ext_type_frag_builtins Δ) Γ)
                 empty_valuation (λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x)) cdefn
-`
+End
+
 Overload models_ConstSpec_witnesses = ``models_ConstSpec_witnesses0 ^mem``
 
 Theorem terms_of_frag_uninst_ConstSpec_indep_frag_upd:

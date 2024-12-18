@@ -15,6 +15,154 @@ open basicComputeLib
 
 in
 
+val ERR = mk_HOL_ERR"reg_allocComputeLib";
+
+(* --- cv --- *)
+
+datatype cv = Num of int | Pair of cv * cv;
+
+fun cv_of_term tm =
+  if cvSyntax.is_cv_num tm then
+    Num (numSyntax.int_of_term (rand tm))
+  else if cvSyntax.is_cv_pair tm then
+    let
+      val (t1,t2) = cvSyntax.dest_cv_pair tm
+    in
+      Pair (cv_of_term t1, cv_of_term t2)
+    end
+  else (print_term tm; fail());
+
+fun cv_fst (Pair (p, q)) = p | cv_fst (Num m) = Num 0;
+fun cv_snd (Pair (p, q)) = q | cv_snd (Num m) = Num 0;
+
+fun cv_has_shape v w =
+  case (v,w) of
+    ([],c) => true
+  | (NONE::xs, Pair (x,y)) => cv_has_shape xs y
+  | ((SOME n)::xs, Pair (x,y)) => x = Num n andalso cv_has_shape xs y
+  | _ => false;
+
+fun to_unit x = ();
+
+fun to_pair t1 t2 (Pair (x, y)) = (t1 x,t2 y)
+  | to_pair t1 t2 (Num v4) = fail();
+
+fun to_list f (Num n) = []
+  | to_list f (Pair (x, y)) = f x :: to_list f y;
+
+fun c2n (Num n) = n
+  | c2n _ = fail();
+
+fun to_option t (Num n) = NONE
+  | to_option t (Pair (x, y)) = SOME (t y);
+
+fun to_sptree_spt t0 v =
+  if cv_has_shape [SOME 2, NONE] v then
+    Bn (to_sptree_spt t0 (cv_fst (cv_snd v)),
+        to_sptree_spt t0 (cv_snd (cv_snd v)))
+  else if cv_has_shape [SOME 3, NONE, NONE] v then
+    Bs (to_sptree_spt t0 (cv_fst (cv_snd v)),
+        t0 (cv_fst (cv_snd (cv_snd v))),
+        to_sptree_spt t0 (cv_snd (cv_snd (cv_snd v))))
+  else if v = Num 0 then Ln
+  else Ls (t0 (cv_snd v));
+
+fun to_reg_alloc_clash_tree v =
+  if cv_has_shape [SOME 2, NONE, NONE] v then
+    Branch (to_option (to_sptree_spt to_unit) (cv_fst (cv_snd v)),
+            to_reg_alloc_clash_tree (cv_fst (cv_snd (cv_snd v))),
+            to_reg_alloc_clash_tree (cv_snd (cv_snd (cv_snd v))))
+  else if cv_has_shape [SOME 3, NONE] v then
+    Seq (to_reg_alloc_clash_tree (cv_fst (cv_snd v)),
+         to_reg_alloc_clash_tree (cv_snd (cv_snd v)))
+  else if cv_has_shape [SOME 0, NONE] v then
+    Delta (to_list c2n (cv_fst (cv_snd v)),
+           to_list c2n (cv_snd (cv_snd v)))
+  else Set (to_sptree_spt to_unit (cv_snd v));
+
+val to_fun =
+  to_pair c2n
+    (to_list
+       (to_pair to_reg_alloc_clash_tree
+          (to_pair (to_list (to_pair c2n (to_pair c2n c2n)))
+             (to_pair (to_option (to_sptree_spt c2n))
+                (to_pair (to_list (to_pair c2n c2n))
+                  (to_sptree_spt to_unit)
+                  )))));
+
+(* --- direct version --- *)
+
+fun alloc_aux alg k [] n = (print"\n"; [])
+  | alloc_aux alg k ((clash_tree,(moves,(sc,(force,fs))))::xs) n =
+      let
+        val _ = print (strcat (Int.toString n) " ")
+        val clash_tree_poly = clash_tree
+        val moves_poly = moves
+        val force_poly = force
+        val fs_poly = fs
+        val sc_poly = sc
+        val res = reg_alloc alg sc_poly k moves_poly clash_tree_poly force_poly fs_poly
+      in
+        case res of
+          Success s => s :: alloc_aux alg k xs (n + 1)
+        | Failure e => raise ERR "reg_alloc" "failure"
+      end
+  | alloc_aux _ _ _ _ = raise General.Bind;
+
+(*
+  Main thing to call for external allocator
+  Should be passed a term of the form (k,(clashsetlist,moves) list)
+*)
+
+fun alg_to_str Simple = "Simple"
+  | alg_to_str Irc = "IRC";
+
+fun alloc_all_raw alg graphs_raw =
+  let
+    val (k,datals) = cv_of_term (rand graphs_raw) |> to_fun;
+    val _ = print ("Num regs: "^Int.toString k ^" Alg: "^alg_to_str alg^ "\n")
+  in
+    alloc_aux alg k datals 0
+  end
+
+(*Int ML sptree to HOL num sptree*)
+fun mk_num_sptree t =
+ case t of
+    Ln => mk_ln ``:num``
+  | Ls a => mk_ls (term_of_int a)
+  | Bn (Ln, t2) =>
+       let
+          val tm = mk_num_sptree t2
+       in
+          mk_bn (mk_ln ``:num``, tm)
+       end
+  | Bn (t1, Ln) =>
+       let
+          val tm = mk_num_sptree t1
+       in
+          mk_bn (tm, mk_ln (sptree_ty_of tm))
+       end
+  | Bn (t1, t2) => mk_bn (mk_num_sptree t1, mk_num_sptree t2)
+  | Bs (t1, a, t2) =>
+       let
+          val ln = mk_ln ``:num``
+          val tm1 = if t1 = Ln then ln else mk_num_sptree t1
+          val tm2 = if t2 = Ln then ln else mk_num_sptree t2
+       in
+          mk_bs (tm1, (term_of_int a), tm2)
+       end;
+
+fun get_oracle_raw alg t =
+  let
+    val cols = alloc_all_raw alg t
+  in
+    listSyntax.mk_list
+      (map (optionSyntax.mk_some o mk_num_sptree) cols,
+       ``:num num_map option``)
+  end;
+
+(* --- old version --- *)
+
 val add_reg_alloc_compset = extend_compset
   [Tys [``:ra_state``, ``:tag``, ``:clash_tree``, ``:ira_state``],
    Defs
@@ -103,8 +251,6 @@ val add_reg_alloc_compset = extend_compset
     parmoveTheory.fstep_def
     ]]
 
-val ERR = mk_HOL_ERR"reg_allocComputeLib";
-
 
 (* unit sptree to ML unit sptree_spt*)
 fun dest_unit_sptree tm =
@@ -123,33 +269,6 @@ fun dest_int_sptree tm =
   | SOME ("sptree$BN", [t1, t2]) => Bn (dest_int_sptree t1, dest_int_sptree t2)
   | SOME ("sptree$BS", [t1, v, t2]) => Bs (dest_int_sptree t1, int_of_term v, dest_int_sptree t2)
   | _ => raise ERR "dest_int_sptree" "";
-
-(*Int ML sptree to HOL num sptree*)
-fun mk_num_sptree t =
- case t of
-    Ln => mk_ln ``:num``
-  | Ls a => mk_ls (term_of_int a)
-  | Bn (Ln, t2) =>
-       let
-          val tm = mk_num_sptree t2
-       in
-          mk_bn (mk_ln ``:num``, tm)
-       end
-  | Bn (t1, Ln) =>
-       let
-          val tm = mk_num_sptree t1
-       in
-          mk_bn (tm, mk_ln (sptree_ty_of tm))
-       end
-  | Bn (t1, t2) => mk_bn (mk_num_sptree t1, mk_num_sptree t2)
-  | Bs (t1, a, t2) =>
-       let
-          val ln = mk_ln ``:num``
-          val tm1 = if t1 = Ln then ln else mk_num_sptree t1
-          val tm2 = if t2 = Ln then ln else mk_num_sptree t2
-       in
-          mk_bs (tm1, (term_of_int a), tm2)
-       end;
 
 (*List of clash in HOL to unit sptree*)
 fun dest_clash_tree tm =
@@ -179,16 +298,19 @@ fun dest_forced tm =
   map
   (fn p => tup2 (map int_of_term p)) split end
 
+fun dest_fs tm = dest_unit_sptree tm
+
 fun alloc_aux alg k [] n = (print"\n";[])
-|   alloc_aux alg k ([clash_tree,moves,sc,force]::xs) n =
+|   alloc_aux alg k ([clash_tree,moves,sc,force,fs]::xs) n =
   let val _ = print (strcat (Int.toString n) " ")
       val clash_tree_poly = dest_clash_tree clash_tree
       val moves_poly = dest_moves moves
       val force_poly = dest_forced force
+      val fs_poly = dest_fs fs
       val sc_poly =
         if optionSyntax.is_some sc then
           SOME (dest_int_sptree (optionSyntax.dest_some sc)) else NONE
-      val res = reg_alloc alg sc_poly k moves_poly clash_tree_poly force_poly in
+      val res = reg_alloc alg sc_poly k moves_poly clash_tree_poly force_poly fs_poly in
     case res of
       Success s => s:: alloc_aux alg k xs (n+1)
     | Failure e => raise ERR "reg_alloc" "failure"
@@ -218,7 +340,7 @@ fun get_oracle alg t =
   end
 
 (*
-get_oracle 3 ``(5n,[(Seq (Delta [1;2;3][]) (Set LN),[],[(1n,2n)]);Set LN,[(1n,1n,2n)],[]])``
+  get_oracle 3 ``(5n,[(Seq (Delta [1;2;3][]) (Set LN),[],[(1n,2n)]);Set LN,[(1n,1n,2n)],[]])``
 *)
 
 end

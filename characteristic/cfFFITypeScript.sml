@@ -29,59 +29,69 @@ important injectivity (suffix: "_11") are here.
 
 *)
 
-val _ = Datatype `
+Datatype:
   ffi_inner = iStr string
             | iNum num
             | iCons ffi_inner ffi_inner
             | iList (ffi_inner list)
-            | iStream (num llist)`
+            | iStream (num llist)
+End
 
-val _ = Datatype `
-  ffi = FFI_TYPE (ffi_inner -> ffi_inner)`
+Datatype:
+  ffi = FFI_TYPE (ffi_inner -> ffi_inner)
+End
 
-val ffi_app_def = Define `
-  ffi_app x n = case x of FFI_TYPE f => f n`;
+Definition ffi_app_def:
+  ffi_app x n = case x of FFI_TYPE f => f n
+End
 
 (* constructors *)
 
-val Num_def = zDefine `
+Definition Num_def[nocompute]:
   ((Num i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 0 else iNum i)`
+    FFI_TYPE (\n. if n = iNum 0 then iNum 0 else iNum i)
+End
 
-val Str_def = zDefine `
+Definition Str_def[nocompute]:
   ((Str i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 1 else iStr i)`
+    FFI_TYPE (\n. if n = iNum 0 then iNum 1 else iStr i)
+End
 
-val Cons_def = zDefine `
+Definition Cons_def[nocompute]:
   ((Cons (x:ffi) (y:ffi)):ffi) =
     FFI_TYPE (\n. if n = iNum 0 then iNum 2 else
                     case n of
                     | iCons (iNum 0) m => ffi_app x m
                     | iCons (iNum 1) m => ffi_app y m
-                    | _ => iNum 0)`
+                    | _ => iNum 0)
+End
 
-val List_def = zDefine `
+Definition List_def[nocompute]:
   ((List (xs:ffi list)):ffi) =
     FFI_TYPE (\n. if n = iNum 0 then iNum 3 else
                   if n = iNum 1 then iNum (LENGTH xs) else
                     case n of
                     | iCons (iNum k) m => ffi_app (EL k xs) m
-                    | _ => iNum 0)`
+                    | _ => iNum 0)
+End
 
-val Stream_def = zDefine `
+Definition Stream_def[nocompute]:
   ((Stream i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 4 else iStream i)`
+    FFI_TYPE (\n. if n = iNum 0 then iNum 4 else iStream i)
+End
 
-val Fun_def = zDefine `
+Definition Fun_def[nocompute]:
   ((Fun (f:ffi_inner -> ffi)):ffi) =
     FFI_TYPE (\n. if n = iNum 0 then iNum 5 else
                     case n of
                     | iCons x y => ffi_app (f x) y
-                    | _ => iNum 0)`;
+                    | _ => iNum 0)
+End
 
-val Inner_def = zDefine `
+Definition Inner_def[nocompute]:
   ((Inner i):ffi) =
-    FFI_TYPE (\n. if n = iNum 0 then iNum 6 else i)`;
+    FFI_TYPE (\n. if n = iNum 0 then iNum 6 else i)
+End
 
 (* injectivity *)
 
@@ -147,13 +157,12 @@ QED
 
 (* distinctness *)
 
-val ffi_distinct = prove(
+Theorem ffi_distinct[simp] = prove(
   ``ALL_DISTINCT [Num n; Str s; Cons x y; List l; Stream ll; Fun f; Inner i]``,
   rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Stream_def,
                Fun_def,Inner_def,FUN_EQ_THM]
   \\ qexists_tac `iNum 0` \\ fs [])
   |> SIMP_RULE std_ss [ALL_DISTINCT,MEM,GSYM CONJ_ASSOC] |> GEN_ALL
-  |> curry save_thm "ffi_distinct[simp]";
 
 (* destructors *)
 
@@ -270,8 +279,9 @@ val destInner_def = new_specification("destInner_def",["destInner"],prove(``
                   Stream_def,Fun_def,ffi_app_def]));
 val _ = export_rewrites ["destInner_def"];
 
-val dest_iStr_def = Define`
-  dest_iStr (iStr s) = s`;
+Definition dest_iStr_def:
+  dest_iStr (iStr s) = s
+End
 val _ = export_rewrites ["dest_iStr_def"];
 
 (* clean up *)

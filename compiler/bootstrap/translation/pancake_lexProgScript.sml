@@ -59,6 +59,8 @@ val _ = register_type “:panLexer$token”;
 
 val _ = ml_translatorLib.use_string_type false;
 
+val _ = translate (next_atom_def |> REWRITE_RULE [GSYM sub_check_def]);
+
 val _ = translate pancake_lex_def;
 
 Theorem unhex_alt_1_side[local]:
@@ -103,27 +105,10 @@ QED
 
 val _ = update_precondition next_atom_side;
 
-Theorem get_keyword_side[local]:
-  ∀x. get_keyword_side x
-Proof
-  simp[fetch "-" "get_keyword_side_def"]
-QED
-
-val _ = update_precondition get_keyword_side;
-
-Theorem token_of_atom_side[local]:
-  ∀x. token_of_atom_side x
-Proof
-  simp[fetch "-" "token_of_atom_side_def",get_keyword_side]
-QED
-
-val _ = update_precondition token_of_atom_side;
-
 Theorem next_token_2_side[local]:
   ∀x y. next_token_2_side x y
 Proof
-  simp [Once (fetch "-" "next_token_2_side_def"),
-    next_atom_side, token_of_atom_side]
+  simp [Once (fetch "-" "next_token_2_side_def"), next_atom_side]
 QED
 
 val _ = update_precondition next_token_2_side;
