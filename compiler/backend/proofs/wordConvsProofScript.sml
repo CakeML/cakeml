@@ -13,8 +13,6 @@ val _ = new_theory "wordConvsProof";
   across wordLang passes.
   It must NOT depend on the semantics or word_Xproof files.
 
-  OVERVIEW (TO BE FILLED):
-
   word_simp$compile_exp
   ===
     preserves label_rel: extract_labels_compile_exp
@@ -38,12 +36,13 @@ val _ = new_theory "wordConvsProof";
   ===
     preserves label_rel: full_ssa_cc_trans_lab_pres (equality on labels)
 
+    preserves flat_exp_conventions: full_ssa_cc_trans_flat_exp_conventions
+    creates wf_cutsets: full_ssa_cc_trans_wf_cutsets
+
     TODO: move these out of word_allocProof somehow
-      preserves flat_exp_conventions: full_ssa_cc_trans_flat_exp_conventions
       preserves full_inst_ok_less: full_ssa_cc_trans_full_inst_ok_less
       creates pre_alloc_conventions: full_ssa_cc_trans_pre_alloc_conventions
       creates distinct_tar_reg: full_ssa_cc_trans_distinct_tar_reg
-      creates wf_cutsets: full_ssa_cc_trans_wf_cutsets
     TODO ends here
 
     preserves subprogs (no export): full_ssa_cc_trans_not_created_subprogs
@@ -68,13 +67,14 @@ val _ = new_theory "wordConvsProof";
   ===
     preserves label_rel: extract_labels_word_common_subexp_elim (equality on labels)
 
+    preserves flat_exp_conventions: flat_exp_conventions_word_common_subexp_elim
+    preserves wf_cutsets: wf_cutsets_word_common_subexp_elim
+
     TODO: move these out of word_cseProof somehow
-      preserves flat_exp_conventions: flat_exp_conventions_word_common_subexp_elim
       preserves full_inst_ok_less: full_inst_ok_less_word_common_subexp_elim
       preserves pre_alloc_conventions: pre_alloc_conventions_word_common_subexp_elim
       preserves every_inst_distinct_tar_reg: every_inst_distinct_tar_reg_word_common_subexp_elim
-      preserves every_inst_two_reg_inst (unused): word_cse_conventions2 (unused)
-      preserves wf_cutsets: wf_cutsets_word_common_subexp_elim
+      preserves every_inst_two_reg_inst (unused): word_cse_conventions (unused)
     TODO ends here
 
     preserves subprogs (no export): word_common_subexp_elim_not_created_subprogs
@@ -1147,6 +1147,138 @@ Proof
   \\ rw[]
 QED
 
+Triviality fake_moves_conventions2:
+  ∀ls ssal ssar na l r a b c conf.
+  fake_moves prio ls ssal ssar na = (l,r,a,b,c) ⇒
+  flat_exp_conventions l ∧
+  flat_exp_conventions r ∧
+  full_inst_ok_less conf l ∧
+  full_inst_ok_less conf r ∧
+  every_inst distinct_tar_reg l ∧
+  every_inst distinct_tar_reg r
+Proof
+  Induct>>full_simp_tac(srw_ss())[fake_moves_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def]>>
+  pop_assum mp_tac>> LET_ELIM_TAC>> EVERY_CASE_TAC>> full_simp_tac(srw_ss())[LET_THM]>>
+  unabbrev_all_tac>>
+  rveq>>fs[flat_exp_conventions_def,fake_move_def,full_inst_ok_less_def,inst_ok_less_def,every_inst_def,distinct_tar_reg_def]>>
+  metis_tac[]
+QED
+
+Triviality flat_exp_conventions_ShareInst:
+  flat_exp_conventions (ShareInst op v exp) <=>
+    ((?v c. exp = Op Add [Var v;Const c]) \/ (?v. exp = Var v))
+Proof
+  eq_tac
+  >- (
+    gvs[DefnBase.one_line_ify NONE flat_exp_conventions_def] >>
+    rpt (TOP_CASE_TAC >> simp[])) >>
+  rw[] >>
+  simp[flat_exp_conventions_def]
+QED
+
+Triviality ssa_cc_trans_flat_exp_conventions:
+  ∀prog ssa na.
+  flat_exp_conventions prog ⇒
+  flat_exp_conventions (FST (ssa_cc_trans prog ssa na))
+Proof
+  ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
+  unabbrev_all_tac>>
+  full_simp_tac(srw_ss())[flat_exp_conventions_def]
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    TRY(Cases_on`f`)>>
+    full_simp_tac(srw_ss())[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def]>>
+    every_case_tac>>rw[]>>
+    fs[flat_exp_conventions_def])
+  >-
+    (pop_assum mp_tac>>full_simp_tac(srw_ss())[fix_inconsistencies_def,fake_moves_def]>>LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def]>>
+    metis_tac[fake_moves_conventions2,flat_exp_conventions_def])
+  >-
+    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
+    LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ])
+  >-
+    (Cases_on`exp`>>full_simp_tac(srw_ss())[ssa_cc_trans_exp_def,flat_exp_conventions_def])
+  >-
+    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
+    LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ])
+  >-
+    (fs[list_next_var_rename_move_def]>>rpt (pairarg_tac>>fs[])>>rw[]>>
+    fs[flat_exp_conventions_def])
+  >-
+   (EVERY_CASE_TAC>>unabbrev_all_tac>>
+     full_simp_tac(srw_ss())[flat_exp_conventions_def]
+    >-
+      (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
+      LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ])
+    >>
+      LET_ELIM_TAC>>unabbrev_all_tac>>
+      full_simp_tac(srw_ss())[list_next_var_rename_move_def,flat_exp_conventions_def]>>
+      full_simp_tac(srw_ss())[fix_inconsistencies_def]>>
+      rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
+      metis_tac[fake_moves_conventions2,flat_exp_conventions_def])
+  >> (*ShareInst*)
+    IF_CASES_TAC >>
+    fs[flat_exp_conventions_ShareInst] >>
+    simp[ssa_cc_trans_exp_def]
+QED
+
+Theorem full_ssa_cc_trans_flat_exp_conventions:
+  ∀prog n.
+  flat_exp_conventions prog ⇒
+  flat_exp_conventions (full_ssa_cc_trans n prog)
+Proof
+  full_simp_tac(srw_ss())[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
+  LET_ELIM_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ]>>
+  metis_tac[ssa_cc_trans_flat_exp_conventions,FST]
+QED
+
+Triviality fake_moves_wf_cutsets:
+  ∀ls A B C L R D E G.
+  fake_moves prio ls A B C = (L,R,D,E,G) ⇒
+  wf_cutsets L ∧ wf_cutsets R
+Proof
+  Induct>>fs[fake_moves_def,wf_cutsets_def]>>rw[]>>
+  pairarg_tac>>fs[]>>EVERY_CASE_TAC>>fs[]>>
+  rveq>>fs[wf_cutsets_def,fake_move_def]>>
+  metis_tac[]
+QED
+
+Triviality ssa_cc_trans_wf_cutsets:
+  ∀prog ssa na.
+  let (prog',ssa',na') = ssa_cc_trans prog ssa na in
+  wf_cutsets prog'
+Proof
+  ho_match_mp_tac ssa_cc_trans_ind>>fs[wf_cutsets_def,ssa_cc_trans_def,fix_inconsistencies_def,list_next_var_rename_move_def]>>
+  rw[]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>fs[wf_cutsets_def]>>
+  fs[wf_fromAList,fake_moves_wf_cutsets]
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    TRY(Cases_on`f`)>>
+    fs[ssa_cc_trans_inst_def,next_var_rename_def]>>
+    every_case_tac>>
+    rw[]>>fs[wf_cutsets_def])
+  >-
+    metis_tac[fake_moves_wf_cutsets]
+  >>
+  EVERY_CASE_TAC>>fs[]>>rveq>>fs[wf_cutsets_def,wf_fromAList]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>fs[wf_cutsets_def,wf_fromAList]>>
+  metis_tac[fake_moves_wf_cutsets]
+QED
+
+Theorem full_ssa_cc_trans_wf_cutsets:
+  ∀n prog.
+  wf_cutsets (full_ssa_cc_trans n prog)
+Proof
+  fs[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
+  rw[]>>pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  rveq>>fs[wf_cutsets_def]>>
+  Q.ISPECL_THEN [`prog`,`ssa`,`n'`] assume_tac ssa_cc_trans_wf_cutsets>>
+  rfs[]
+QED
+
 (*** remove_dead_prog ***)
 val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def];
 
@@ -1341,6 +1473,103 @@ Proof
   \\ gvs [word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
   \\ gvs [add_to_data_def,add_to_data_aux_def,AllCaseEqs()]
 QED
+
+Triviality word_cse_flat_exp_conventions:
+  ∀p data.
+    let p' = SND (word_cse data p) in
+      flat_exp_conventions p ⇒ flat_exp_conventions p'
+Proof
+  Induct \\ gvs [flat_exp_conventions_def, word_cse_def, AllCaseEqs()]
+  >- (Cases_on ‘canonicalMoveRegs3 data l’ \\ gvs [flat_exp_conventions_def])
+  >- (rpt gen_tac
+      \\ pairarg_tac \\ gvs []
+      \\ Cases_on ‘i’ \\ gvs [word_cseInst_def, flat_exp_conventions_def,
+                              add_to_data_def, add_to_data_aux_def, AllCaseEqs()]
+      \\ Cases_on ‘a’ \\ gvs [word_cseInst_def, flat_exp_conventions_def, AllCaseEqs()])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’ \\ gvs [flat_exp_conventions_def, canonicalExp_def])
+  >- (gen_tac \\ first_x_assum (qspec_then ‘data’ assume_tac)
+      \\ Cases_on ‘word_cse data p’ \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘o'’ \\ gvs [flat_exp_conventions_def]
+      \\ Cases_on ‘x’ \\ gvs []
+      \\ Cases_on ‘r’ \\ gvs [flat_exp_conventions_def])
+  >- (gen_tac \\ strip_tac
+      \\ rpt (first_x_assum drule \\ strip_tac)
+      \\ Cases_on ‘word_cse data p’ \\ gvs []
+      \\ first_x_assum (qspec_then ‘data’ assume_tac) \\ gvs []
+      \\ Cases_on ‘word_cse q p'’ \\ gvs []
+      \\ first_x_assum (qspec_then ‘q’ assume_tac) \\ gvs [flat_exp_conventions_def])
+  >- (rpt gen_tac
+      \\ Cases_on ‘word_cse data p’ \\ gvs []
+      \\ Cases_on ‘word_cse data p'’ \\ gvs []
+      \\ strip_tac \\ gvs []
+      \\ last_x_assum (qspec_then ‘data’ assume_tac) \\ gvs []
+      \\ last_x_assum (qspec_then ‘data’ assume_tac) \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘is_seen n data ∨ ¬is_seen n0 data’ \\ gvs [flat_exp_conventions_def]
+      \\ gvs [add_to_data_aux_def]  \\ rpt gen_tac
+      \\ rpt CASE_TAC \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [flat_exp_conventions_def])
+QED
+
+Theorem flat_exp_conventions_word_common_subexp_elim:
+  flat_exp_conventions p ⇒
+  flat_exp_conventions (word_common_subexp_elim p)
+Proof
+  fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
+  \\ qspecl_then [‘p’,‘empty_data’] mp_tac word_cse_flat_exp_conventions
+  \\ fs []
+QED
+
+Triviality word_cse_wf_cutsets:
+  ∀p data.
+    let p' = SND (word_cse data p) in
+      wf_cutsets p ⇒ wf_cutsets p'
+Proof
+  Induct \\ gvs [wf_cutsets_def, word_cse_def, AllCaseEqs()]
+  \\ rpt gen_tac
+  >- (pairarg_tac \\ gvs [wf_cutsets_def])
+  >- (pairarg_tac \\ gvs []
+      \\ Cases_on ‘i’
+      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+              wf_cutsets_def, AllCaseEqs()]
+      \\ Cases_on ‘a’
+      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+              wf_cutsets_def, AllCaseEqs()])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def])
+  >- (Cases_on ‘s’ \\ gvs [wf_cutsets_def])
+  >- (
+    pairarg_tac \\ strip_tac \\ gvs []
+    \\ simp[wf_cutsets_def]
+    \\ metis_tac[SND])
+  >- (Cases_on ‘o'’ \\ gvs [wf_cutsets_def]
+      \\ Cases_on ‘x’ \\ gvs [wf_cutsets_def]
+      \\ Cases_on ‘r’ \\ gvs [wf_cutsets_def])
+  >- (pairarg_tac \\ gvs [] \\ strip_tac
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ pairarg_tac \\ gvs [wf_cutsets_def]
+      \\ metis_tac[SND])
+  >- (strip_tac
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ rpt (last_x_assum drule \\ strip_tac)
+      \\ gvs [wf_cutsets_def]
+      \\ metis_tac[SND])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
+      \\ Cases_on ‘¬is_seen n0 data’ \\ gvs [wf_cutsets_def]
+      \\ gvs [add_to_data_aux_def]
+      \\ Cases_on ‘lookup listCmp (OpCurrHeapToNumList b (canonicalRegs' n data n0)) data.instrs’ \\ gvs []
+      \\ Cases_on ‘EVEN n’ \\ gvs [wf_cutsets_def])
+  \\ Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
+QED
+
+Theorem wf_cutsets_word_common_subexp_elim:
+  wf_cutsets p ⇒ wf_cutsets (word_common_subexp_elim p)
+Proof
+  fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
+  \\ qspecl_then [‘p’,‘empty_data’] mp_tac word_cse_wf_cutsets
+  \\ fs []
+QED
+
 
 (*** copy_prop ***)
 

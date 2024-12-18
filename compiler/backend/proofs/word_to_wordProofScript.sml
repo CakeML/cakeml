@@ -803,7 +803,7 @@ Proof
   match_mp_tac (el 4 rmt_thms)>>
   match_mp_tac word_alloc_two_reg_inst>>
   match_mp_tac (el 4 rmd_thms)>>
-  match_mp_tac two_reg_inst_remove_unreach >>
+  match_mp_tac every_inst_remove_unreach >>
   match_mp_tac three_to_two_reg_prog_two_reg_inst >>
   fs[]
 QED
