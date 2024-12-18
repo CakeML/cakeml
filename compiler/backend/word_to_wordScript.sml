@@ -93,7 +93,7 @@ Proof
   \\ PairCases_on ‘p’ \\ simp [compile_single_def]
 QED
 
-(* TODO: never used?
+(* used for bootstrap translation *)
 Theorem compile_alt:
     compile word_conf (asm_conf:'a asm_config) progs =
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
@@ -133,6 +133,5 @@ Proof
   pairarg_tac>>fs[EL_TAKE]>>
   simp[compile_single_def]
 QED
-*)
 
 val _ = export_theory();
