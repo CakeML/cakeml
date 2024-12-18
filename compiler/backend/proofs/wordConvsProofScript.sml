@@ -96,6 +96,10 @@ val _ = new_theory "wordConvsProof";
 
     preserves code_labels:   word_get_code_labels_remove_unreach
     preserves good_handlers: word_good_handlers_remove_unreach
+    creates labels_rel: labels_rel_remove_unreach
+    preserves pre_alloc_conventions: pre_alloc_conventions_remove_unreach
+    preserves full_inst_ok_less: full_inst_ok_less_remove_unreach
+    preserves two_reg_inst: two_reg_inst_remove_unreach
     TODO
 
   word_alloc
@@ -1540,6 +1544,249 @@ Proof
   fs[not_created_subprogs_def]
 QED
 
+Theorem extract_labels_SimpSeq:
+  set (extract_labels (SimpSeq p1 p2)) ⊆  set (extract_labels (Seq p1 p2))
+Proof
+  rw [SimpSeq_def,extract_labels_def]
+  \\ Cases_on ‘p1’ \\ rw [extract_labels_def] \\ gvs [SUBSET_DEF]
+  \\ Cases_on ‘dest_Seq_Move p2’ \\ gvs []
+  \\ rw [extract_labels_def] \\ gvs [SUBSET_DEF]
+  \\ PairCases_on ‘x’ \\ gvs []
+  \\ pop_assum mp_tac \\ rw []
+  \\ gvs [oneline dest_Seq_Move_def, AllCaseEqs(), extract_labels_def]
+QED
+
+Theorem extract_labels_Seq_assoc_right_lemma:
+  ∀p1 p2. set (extract_labels (Seq_assoc_right p1 p2)) ⊆
+          set (extract_labels p1) ∪ set (extract_labels p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
+  >- (
+    gvs[SUBSET_DEF]
+    \\ metis_tac[])
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[extract_labels_def]
+    \\ irule SUBSET_TRANS
+    \\ irule_at Any extract_labels_SimpSeq
+    \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
+    \\ gvs[SUBSET_DEF]
+  )
+  \\ irule SUBSET_TRANS
+  \\ irule_at Any extract_labels_SimpSeq
+  \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
+  \\ gvs[SUBSET_DEF]
+QED
+
+Theorem extract_labels_remove_unreach:
+   set (extract_labels (remove_unreach p)) ⊆ set (extract_labels p)
+Proof
+  simp[remove_unreach_def]
+  \\ irule SUBSET_TRANS
+  \\ irule_at (Pos hd) extract_labels_Seq_assoc_right_lemma
+  \\ gvs [extract_labels_def]
+QED
+
+Theorem MEM_extract_labels_Seq_assoc_right_lemma:
+  ∀p1 p2 x.
+    MEM x (extract_labels (Seq_assoc_right p1 p2)) ⇒
+    MEM x (extract_labels p1) ∨ MEM x (extract_labels p2)
+Proof
+  rpt strip_tac >>
+  assume_tac extract_labels_Seq_assoc_right_lemma >>
+  first_x_assum $ qspecl_then [‘p1’,‘p2’] assume_tac>>
+  imp_res_tac SUBSET_THM >> fs[]
+QED
+
+Triviality helper = MEM_extract_labels_Seq_assoc_right_lemma
+                 |> REWRITE_RULE [Once (GSYM CONTRAPOS_THM)]
+
+Theorem ALL_DISTINCT_extract_labels_Seq_assoc_right_lemma:
+  ∀p1 p2. ALL_DISTINCT ((extract_labels p1) ++ (extract_labels p2)) ⇒
+          ALL_DISTINCT (extract_labels (Seq_assoc_right p1 p2))
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,extract_labels_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[extract_labels_def] >> NO_TAC)
+  >- (first_x_assum irule >>
+      fs[ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      irule_at Any SUBSET_REFL >>
+      simp[DISJOINT_UNION'])
+  >- (CASE_TAC >> fs[extract_labels_def] >>
+      fs [ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      last_assum $ irule_at Any >>
+      irule_at Any SUBSET_TRANS >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any SUBSET_TRANS >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any SUBSET_REFL >> simp[] >>
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any SUBSET_REFL >> simp[])
+  >- (CASE_TAC >> fs[extract_labels_def] >>
+      fs [ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      last_assum $ irule_at Any >>
+      irule_at Any SUBSET_TRANS >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def])
+  >- (rpt (CASE_TAC >> fs[]) >> fs[extract_labels_def]
+      >- (irule helper >> simp[extract_labels_def])
+      >- (fs[ALL_DISTINCT_APPEND'] >>
+          irule_at Any SUBSET_DISJOINT >>
+          irule_at Any extract_labels_Seq_assoc_right_lemma >>
+          simp[extract_labels_def] >>
+          irule_at Any SUBSET_REFL >> simp[] >>
+          irule helper >> simp[extract_labels_def])
+      >- (fs[ALL_DISTINCT_APPEND'] >>
+          irule_at Any SUBSET_DISJOINT >>
+          irule_at Any extract_labels_Seq_assoc_right_lemma >>
+          irule_at Any extract_labels_Seq_assoc_right_lemma >>
+          simp[extract_labels_def] >>
+          irule_at Any (iffRL DISJOINT_SYM) >> fs[] >>
+          ntac 4 (irule_at Any helper >> simp[extract_labels_def])) >>
+      fs[ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any (iffRL DISJOINT_SYM) >> fs[] >>
+      ntac 4 (irule_at Any helper >> simp[extract_labels_def]) >>
+      ntac 2 (irule_at Any SUBSET_DISJOINT >>
+              irule_at Any extract_labels_Seq_assoc_right_lemma >>
+              simp[extract_labels_def] >>
+              irule_at Any SUBSET_REFL >> simp[])) >>
+  rpt (CASE_TAC >> fs[]) >> fs[extract_labels_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,extract_labels_def]
+QED
+
+Theorem ALL_DISTINCT_extract_labels_remove_unreach:
+   ALL_DISTINCT (extract_labels p) ⇒
+   ALL_DISTINCT (extract_labels (remove_unreach p))
+Proof
+  rw[remove_unreach_def] >>
+  irule ALL_DISTINCT_extract_labels_Seq_assoc_right_lemma >>
+  simp[extract_labels_def]
+QED
+
+Theorem labels_rel_remove_unreach:
+  labels_rel (extract_labels q) (extract_labels (remove_unreach q))
+Proof
+  rw[labels_rel_def]
+  >- fs[ALL_DISTINCT_extract_labels_remove_unreach] >>
+  irule_at Any extract_labels_remove_unreach>> simp[]
+QED
+
+Theorem call_arg_convention_Seq_assoc_right_lemma:
+  ∀p1 p2. call_arg_convention p1 ∧ call_arg_convention p2 ⇒
+          call_arg_convention (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,call_arg_convention_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[call_arg_convention_def] >> NO_TAC)
+  >- (rpt (PURE_CASE_TAC >> fs[]) >> fs[call_arg_convention_def]) >>
+  rpt (PURE_CASE_TAC >> fs[]) >> fs[call_arg_convention_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,call_arg_convention_def]
+QED
+
+Theorem call_arg_convention_remove_unreach:
+  call_arg_convention p ⇒
+  call_arg_convention (remove_unreach p)
+Proof
+  rw[remove_unreach_def] >>
+  irule call_arg_convention_Seq_assoc_right_lemma >>
+  simp[call_arg_convention_def]
+QED
+
+Theorem every_stack_var_is_stack_var_Seq_assoc_right_lemma:
+  ∀p1 p2. every_stack_var is_stack_var p1 ∧
+          every_stack_var is_stack_var p2 ⇒
+          every_stack_var is_stack_var (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,
+         wordLangTheory.every_stack_var_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[wordLangTheory.every_stack_var_def] >> NO_TAC)
+  >- (rpt (PURE_CASE_TAC >> fs[]) >>
+      fs[wordLangTheory.every_stack_var_def]) >>
+  rpt (PURE_CASE_TAC >> fs[]) >> fs[wordLangTheory.every_stack_var_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,wordLangTheory.every_stack_var_def]
+QED
+
+Theorem every_stack_var_is_stack_var_remove_unreach:
+  every_stack_var is_stack_var p ⇒
+  every_stack_var is_stack_var (remove_unreach p)
+Proof
+  rw[remove_unreach_def] >>
+  irule every_stack_var_is_stack_var_Seq_assoc_right_lemma >>
+  simp[wordLangTheory.every_stack_var_def]
+QED
+
+Theorem pre_alloc_conventions_remove_unreach:
+  pre_alloc_conventions p ⇒
+  pre_alloc_conventions (remove_unreach p)
+Proof
+  rw[pre_alloc_conventions_def]
+  >- fs[every_stack_var_is_stack_var_remove_unreach] >>
+  simp[call_arg_convention_remove_unreach]
+QED
+
+Theorem full_inst_ok_less_Seq_assoc_right_lemma:
+  ∀p1 p2. full_inst_ok_less ac p1 ∧ full_inst_ok_less ac p2 ⇒
+          full_inst_ok_less ac (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,full_inst_ok_less_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[full_inst_ok_less_def] >> NO_TAC)
+  >- (rpt (PURE_CASE_TAC >> fs[]) >> fs[full_inst_ok_less_def]) >>
+  rpt (PURE_CASE_TAC >> fs[]) >> fs[full_inst_ok_less_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,full_inst_ok_less_def]
+QED
+
+Theorem full_inst_ok_less_remove_unreach:
+  full_inst_ok_less ac p ⇒
+  full_inst_ok_less ac (remove_unreach p)
+Proof
+  rw[remove_unreach_def] >>
+  irule full_inst_ok_less_Seq_assoc_right_lemma >>
+  simp[full_inst_ok_less_def]
+QED
+
+Theorem two_reg_inst_Seq_assoc_right_lemma:
+  ∀p1 p2. every_inst two_reg_inst p1 ∧ every_inst two_reg_inst p2 ⇒
+          every_inst two_reg_inst (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,every_inst_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[every_inst_def] >> NO_TAC)
+  >- (rpt (PURE_CASE_TAC >> fs[]) >>fs[every_inst_def]) >>
+  rpt (PURE_CASE_TAC >> fs[]) >> fs[every_inst_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,every_inst_def]
+QED
+
+Theorem two_reg_inst_remove_unreach:
+  every_inst two_reg_inst p ⇒
+  every_inst two_reg_inst (remove_unreach p)
+Proof
+  rw[remove_unreach_def] >>
+  irule two_reg_inst_Seq_assoc_right_lemma >>
+  fs[every_inst_def]
+QED
 
 (*** word_alloc ***)
 
