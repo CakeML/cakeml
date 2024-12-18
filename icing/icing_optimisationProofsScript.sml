@@ -83,7 +83,7 @@ Proof
   \\ res_tac
   \\ first_x_assum (qspecl_then [`v2`, `b`] assume_tac)
   \\ fs[]
-  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_map_def]
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def]
 QED
 
 Theorem rwAllWordTree_comp_right:
@@ -98,7 +98,7 @@ Proof
   \\ res_tac
   \\ first_x_assum (qspecl_then [`v1`, `b`] assume_tac)
   \\ fs[]
-  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_map_def]
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def]
 QED
 
 (**
