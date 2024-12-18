@@ -331,50 +331,6 @@ QED
 
 (* -- proofs about syntax -- *)
 
-Theorem extract_labels_SimpSeq:
-  set (extract_labels (SimpSeq p1 p2)) ⊆  set (extract_labels (Seq p1 p2))
-Proof
-  rw [SimpSeq_def,extract_labels_def]
-  \\ Cases_on ‘p1’ \\ rw [extract_labels_def] \\ gvs [SUBSET_DEF]
-  \\ Cases_on ‘dest_Seq_Move p2’ \\ gvs []
-  \\ rw [extract_labels_def] \\ gvs [SUBSET_DEF]
-  \\ PairCases_on ‘x’ \\ gvs []
-  \\ pop_assum mp_tac \\ rw []
-  \\ gvs [oneline dest_Seq_Move_def, AllCaseEqs(), extract_labels_def]
-QED
-
-Theorem extract_labels_Seq_assoc_right_lemma:
-  ∀p1 p2. set (extract_labels (Seq_assoc_right p1 p2)) ⊆
-          set (extract_labels p1) ∪ set (extract_labels p2)
-Proof
-  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
-  \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
-  >- (
-    gvs[SUBSET_DEF]
-    \\ metis_tac[])
-  >~ [`Call`]
-  >- (
-    every_case_tac \\ gvs[extract_labels_def]
-    \\ irule SUBSET_TRANS
-    \\ irule_at Any extract_labels_SimpSeq
-    \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
-    \\ gvs[SUBSET_DEF]
-  )
-  \\ irule SUBSET_TRANS
-  \\ irule_at Any extract_labels_SimpSeq
-  \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
-  \\ gvs[SUBSET_DEF]
-QED
-
-Theorem extract_labels_remove_unreach:
-   set (extract_labels (remove_unreach p)) ⊆ set (extract_labels p)
-Proof
-  simp[remove_unreach_def]
-  \\ irule SUBSET_TRANS
-  \\ irule_at (Pos hd) extract_labels_Seq_assoc_right_lemma
-  \\ gvs [extract_labels_def]
-QED
-
 Theorem wf_cutsets_SimpSeq:
   wf_cutsets p1 ∧ wf_cutsets p2 ⇒
   wf_cutsets (SimpSeq p1 p2)
