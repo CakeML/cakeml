@@ -1407,6 +1407,15 @@ Definition total_colour_def:
     dtcase lookup x col of NONE => if is_phy_var x then x else 2*x | SOME x => 2*x
 End
 
+Theorem total_colour_alt:
+  total_colour col = (\x. 2 * x) o (sp_default col)
+Proof
+  rw[FUN_EQ_THM]>>fs[total_colour_def,sp_default_def,lookup_any_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  IF_CASES_TAC>>simp[]>>
+  metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2]
+QED
+
 (*Check that the oracle provided colour (if it exists) is okay*)
 Definition oracle_colour_ok_def:
   oracle_colour_ok k col_opt tree prog ls ⇔

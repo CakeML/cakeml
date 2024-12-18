@@ -810,29 +810,6 @@ QED
 
 (**** more on syntactic form restrictions ****)
 
-(* TODO: prove if true and move to wordConvs? *)
-Theorem compile_single_not_created_subprogs:
-  not_created_subprogs P (SND (SND (FST prog_opt))) ==>
-  not_created_subprogs P (SND (SND
-    (compile_single two_reg_arith reg_count alg c prog_opt)))
-Proof
-  PairCases_on `prog_opt`>>
-  strip_tac>>
-  fs[word_to_wordTheory.compile_single_def]>>
-  irule word_alloc_not_created_subprogs>>
-  irule remove_dead_prog_not_created_subprogs>>
-  irule remove_unreach_not_created_subprogs>>
-  irule three_to_two_reg_prog_not_created_subprogs>>
-  irule copy_prop_not_created_subprogs>>
-  irule word_common_subexp_elim_not_created_subprogs>>
-  irule remove_dead_prog_not_created_subprogs>>
-  irule full_ssa_cc_trans_not_created_subprogs>>
-  irule inst_select_not_created_subprogs>>
-  irule compile_exp_not_created_subprogs>>rw[]
-QED
-
-(* TODO: end moves here *)
-
 Theorem code_rel_not_created_subprogs:
   find_code op args c1 sz = SOME v ∧
   code_rel c1 c2 ∧

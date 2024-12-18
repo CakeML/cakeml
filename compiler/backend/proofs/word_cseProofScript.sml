@@ -2137,25 +2137,6 @@ Proof
   \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_data_conventions \\ gvs []
 QED
 
-Theorem word_cse_extract_labels:
-  ∀p d d1 p1. word_cse d p = (d1,p1) ⇒ extract_labels p1 = extract_labels p
-Proof
-  Induct \\ fs [word_cse_def,extract_labels_def] \\ rw []
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ fs [extract_labels_def]
-  \\ res_tac \\ gvs [AllCaseEqs()]
-  \\ fs [extract_labels_def,PULL_EXISTS]
-  \\ every_case_tac \\ fs []
-  \\ gvs [add_to_data_aux_def,AllCaseEqs(),extract_labels_def]
-  \\ rename [‘word_cseInst d i = (d1,p)’]
-  \\ Cases_on ‘i’
-  \\ gvs [word_cseInst_def,extract_labels_def,AllCaseEqs(),add_to_data_def,
-         add_to_data_aux_def]
-  \\ Cases_on ‘a’
-  \\ gvs [word_cseInst_def,extract_labels_def,AllCaseEqs(),add_to_data_def,
-         add_to_data_aux_def]
-QED
-
 Theorem wf_cutsets_word_common_subexp_elim:
   wf_cutsets p ⇒ wf_cutsets (word_common_subexp_elim p)
 Proof
@@ -2170,13 +2151,6 @@ Proof
   fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
   \\ qspecl_then [‘p’,‘empty_data’,‘acc’] mp_tac word_cse_conventions2
   \\ fs []
-QED
-
-Theorem extract_labels_word_common_subexp_elim:
-  extract_labels (word_common_subexp_elim p) = extract_labels p
-Proof
-  fs [word_common_subexp_elim_def] \\ pairarg_tac \\ rw []
-  \\ drule word_cse_extract_labels \\ fs []
 QED
 
 Theorem flat_exp_conventions_word_common_subexp_elim:
