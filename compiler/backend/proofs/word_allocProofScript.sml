@@ -7679,6 +7679,21 @@ Proof
   simp[exp_to_addr_def]
 QED
 
+Triviality fake_moves_conventions2:
+  ∀ls ssal ssar na l r a b c conf.
+  fake_moves prio ls ssal ssar na = (l,r,a,b,c) ⇒
+  full_inst_ok_less conf l ∧
+  full_inst_ok_less conf r ∧
+  every_inst distinct_tar_reg l ∧
+  every_inst distinct_tar_reg r
+Proof
+  Induct>>full_simp_tac(srw_ss())[fake_moves_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def]>>
+  pop_assum mp_tac>> LET_ELIM_TAC>> EVERY_CASE_TAC>> full_simp_tac(srw_ss())[LET_THM]>>
+  unabbrev_all_tac>>
+  rveq>>fs[flat_exp_conventions_def,fake_move_def,full_inst_ok_less_def,inst_ok_less_def,every_inst_def,distinct_tar_reg_def]>>
+  metis_tac[]
+QED
+
 Theorem ssa_cc_trans_full_inst_ok_less[local]:
   ∀prog ssa na c.
     every_var (λx. x < na) prog ∧

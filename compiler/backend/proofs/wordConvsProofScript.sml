@@ -1147,23 +1147,6 @@ Proof
   \\ rw[]
 QED
 
-Triviality fake_moves_conventions2:
-  ∀ls ssal ssar na l r a b c conf.
-  fake_moves prio ls ssal ssar na = (l,r,a,b,c) ⇒
-  flat_exp_conventions l ∧
-  flat_exp_conventions r ∧
-  full_inst_ok_less conf l ∧
-  full_inst_ok_less conf r ∧
-  every_inst distinct_tar_reg l ∧
-  every_inst distinct_tar_reg r
-Proof
-  Induct>>full_simp_tac(srw_ss())[fake_moves_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def]>>
-  pop_assum mp_tac>> LET_ELIM_TAC>> EVERY_CASE_TAC>> full_simp_tac(srw_ss())[LET_THM]>>
-  unabbrev_all_tac>>
-  rveq>>fs[flat_exp_conventions_def,fake_move_def,full_inst_ok_less_def,inst_ok_less_def,every_inst_def,distinct_tar_reg_def]>>
-  metis_tac[]
-QED
-
 Triviality flat_exp_conventions_ShareInst:
   flat_exp_conventions (ShareInst op v exp) <=>
     ((?v c. exp = Op Add [Var v;Const c]) \/ (?v. exp = Var v))
@@ -1174,6 +1157,21 @@ Proof
     rpt (TOP_CASE_TAC >> simp[])) >>
   rw[] >>
   simp[flat_exp_conventions_def]
+QED
+
+Triviality flat_exp_conventions_fake_moves:
+  ∀ls ssal ssar na l r a b c conf.
+  fake_moves prio ls ssal ssar na = (l,r,a,b,c) ⇒
+  flat_exp_conventions l ∧
+  flat_exp_conventions r
+Proof
+  Induct>>
+  fs[fake_moves_def]>>rw[]>>
+  fs[flat_exp_conventions_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum drule_all>>
+  simp[flat_exp_conventions_def,fake_move_def]
 QED
 
 Triviality ssa_cc_trans_flat_exp_conventions:
@@ -1192,7 +1190,7 @@ Proof
     fs[flat_exp_conventions_def])
   >-
     (pop_assum mp_tac>>full_simp_tac(srw_ss())[fix_inconsistencies_def,fake_moves_def]>>LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def]>>
-    metis_tac[fake_moves_conventions2,flat_exp_conventions_def])
+    metis_tac[flat_exp_conventions_fake_moves,flat_exp_conventions_def])
   >-
     (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
     LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ])
@@ -1215,7 +1213,7 @@ Proof
       full_simp_tac(srw_ss())[list_next_var_rename_move_def,flat_exp_conventions_def]>>
       full_simp_tac(srw_ss())[fix_inconsistencies_def]>>
       rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
-      metis_tac[fake_moves_conventions2,flat_exp_conventions_def])
+      metis_tac[flat_exp_conventions_fake_moves,flat_exp_conventions_def])
   >> (*ShareInst*)
     IF_CASES_TAC >>
     fs[flat_exp_conventions_ShareInst] >>
