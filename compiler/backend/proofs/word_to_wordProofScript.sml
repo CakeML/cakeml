@@ -104,7 +104,7 @@ Proof
     (* requires flat_exp_conventions up to p3 *)
     unabbrev_all_tac >>
     irule (remove_dead_prog_conventions |> CONJUNCTS |> el 1)>>
-    irule word_allocProofTheory.full_ssa_cc_trans_flat_exp_conventions >>
+    irule full_ssa_cc_trans_flat_exp_conventions >>
     fs [inst_select_flat_exp_conventions]) >>
   gvs [] >>
   (* word_copy *)
