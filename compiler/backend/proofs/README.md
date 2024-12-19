@@ -145,11 +145,17 @@ Correctness proof for stack_remove
 [stack_to_labProofScript.sml](stack_to_labProofScript.sml):
 Correctness proof for stack_to_lab
 
+[wordConvsProofScript.sml](wordConvsProofScript.sml):
+Syntactic properties proofs for word_to_word.
+
 [word_allocProofScript.sml](word_allocProofScript.sml):
 Correctness proof for word_alloc
 
 [word_bignumProofScript.sml](word_bignumProofScript.sml):
 Correctness proof for word_bignum
+
+[word_copyProofScript.sml](word_copyProofScript.sml):
+Correctness proof for word_copy
 
 [word_cseProofScript.sml](word_cseProofScript.sml):
 Correctness proof for word_cse
@@ -178,3 +184,6 @@ Correctness proof for word_to_stack
 
 [word_to_wordProofScript.sml](word_to_wordProofScript.sml):
 Correctness proof for word_to_word
+
+[word_unreachProofScript.sml](word_unreachProofScript.sml):
+Correctness proof for word_unreach

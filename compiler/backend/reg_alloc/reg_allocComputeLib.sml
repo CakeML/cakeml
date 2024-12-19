@@ -86,19 +86,22 @@ val to_fun =
        (to_pair to_reg_alloc_clash_tree
           (to_pair (to_list (to_pair c2n (to_pair c2n c2n)))
              (to_pair (to_option (to_sptree_spt c2n))
-                (to_list (to_pair c2n c2n))))));
+                (to_pair (to_list (to_pair c2n c2n))
+                  (to_sptree_spt to_unit)
+                  )))));
 
 (* --- direct version --- *)
 
 fun alloc_aux alg k [] n = (print"\n"; [])
-  | alloc_aux alg k ((clash_tree,(moves,(sc,force)))::xs) n =
+  | alloc_aux alg k ((clash_tree,(moves,(sc,(force,fs))))::xs) n =
       let
         val _ = print (strcat (Int.toString n) " ")
         val clash_tree_poly = clash_tree
         val moves_poly = moves
         val force_poly = force
+        val fs_poly = fs
         val sc_poly = sc
-        val res = reg_alloc alg sc_poly k moves_poly clash_tree_poly force_poly
+        val res = reg_alloc alg sc_poly k moves_poly clash_tree_poly force_poly fs_poly
       in
         case res of
           Success s => s :: alloc_aux alg k xs (n + 1)
@@ -295,16 +298,19 @@ fun dest_forced tm =
   map
   (fn p => tup2 (map int_of_term p)) split end
 
+fun dest_fs tm = dest_unit_sptree tm
+
 fun alloc_aux alg k [] n = (print"\n";[])
-|   alloc_aux alg k ([clash_tree,moves,sc,force]::xs) n =
+|   alloc_aux alg k ([clash_tree,moves,sc,force,fs]::xs) n =
   let val _ = print (strcat (Int.toString n) " ")
       val clash_tree_poly = dest_clash_tree clash_tree
       val moves_poly = dest_moves moves
       val force_poly = dest_forced force
+      val fs_poly = dest_fs fs
       val sc_poly =
         if optionSyntax.is_some sc then
           SOME (dest_int_sptree (optionSyntax.dest_some sc)) else NONE
-      val res = reg_alloc alg sc_poly k moves_poly clash_tree_poly force_poly in
+      val res = reg_alloc alg sc_poly k moves_poly clash_tree_poly force_poly fs_poly in
     case res of
       Success s => s:: alloc_aux alg k xs (n+1)
     | Failure e => raise ERR "reg_alloc" "failure"

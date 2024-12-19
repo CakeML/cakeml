@@ -210,6 +210,8 @@ val _ = m_translate (assign_Stemp_tag_def |> REWRITE_RULE [rewrite_subs]);
 val _ = m_translate assign_Stemps_def;
 val _ = m_translate (first_match_col_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate biased_pref_def;
+val _ = m_translate neg_first_match_col_def;
+val _ = m_translate neg_biased_pref_def;
 val _ = m_translate clique_insert_edge_def;
 val _ = m_translate (extend_clique_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate (mk_graph_def |> REWRITE_RULE [MEMBER_INTRO]);
@@ -234,9 +236,9 @@ val _ = m_translate do_reg_alloc_def;
 (* Finish the monadic translation *)
 (* Rewrite reg_alloc_aux before giving it to the monadic translator *)
 Triviality reg_alloc_aux_trans_def:
-  ∀k mtable ct forced x.
-     reg_alloc_aux alg sc k mtable ct forced x =
-     run_ira_state (do_reg_alloc alg sc k mtable ct forced x)
+  ∀k mtable ct forced fs x.
+     reg_alloc_aux alg sc k mtable ct forced fs x =
+     run_ira_state (do_reg_alloc alg sc k mtable ct forced fs x)
        <|adj_ls := (SND(SND x),[]);
          node_tag := (SND(SND x),Atemp);
          degrees := (SND(SND x),0);
