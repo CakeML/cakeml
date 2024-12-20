@@ -67,7 +67,7 @@ End
 
 Type constraints = ``: 'a constraint set``;
 
-Definition cp_sat :
+Definition cp_sat_def:
   cp_sat bnd cs w ⇔
     valid_assignment bnd w ∧
     ∀c. c ∈ cs ⇒ constraint_sem c w
@@ -81,20 +81,20 @@ End
 
 (* Minimality for a CP optimization instance *)
 Definition cp_minimal_def:
-  cp_minimal bnd cs (V:'a varc) (w: 'a assignment) ⇔
+  cp_minimal bnd cs V (w: 'a assignment) ⇔
   cp_sat bnd cs w ∧
   ∀w'.
     cp_sat bnd cs w' ⇒
-    varc w V ≤ varc w' V
+    w V ≤ w' V
 End
 
 (* Maximality for a CP optimization instance *)
 Definition cp_maximal_def:
-  cp_maximal bnd cs (V:'a varc) (w: 'a assignment) ⇔
+  cp_maximal bnd cs V (w: 'a assignment) ⇔
   cp_sat bnd cs w ∧
   ∀w'.
     cp_sat bnd cs w' ⇒
-    varc w' V ≤ varc w V
+    w' V ≤ w V
 End
 
 val _ = export_theory();

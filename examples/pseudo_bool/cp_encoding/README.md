@@ -10,4 +10,4 @@ Formalization of the CP to ILP phase
 An ILP-style language designed as an intermediate layer for CP encodings
 
 [ilp_to_pbScript.sml](ilp_to_pbScript.sml):
-Formalization of the ILP to PB phase and the full encoder
+Formalization of the ILP to PB phase and the full encoder CP to PB
