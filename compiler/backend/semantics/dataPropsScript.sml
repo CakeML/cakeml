@@ -203,7 +203,7 @@ Proof
   EVAL_TAC >> srw_tac[][]
 QED
 
-val do_app_with_stack = time Q.prove(
+Theorem do_app_with_stack = time Q.prove(
   `do_app op vs (s with stack := z) =
    map_result (λ(x,y). (x,y with <| stack := z
                                   ; safe_for_space   := do_app_safe op vs (s with stack := z)
@@ -225,7 +225,7 @@ val do_app_with_stack = time Q.prove(
           rw [state_component_equality] \\ simp [Once CONJ_COMM] \\
           rw[EQ_IMP_THM] >> fs[stack_consumed_def,allowed_op_def,PULL_EXISTS]);
 
-val do_app_with_stack_and_locals = time Q.prove(
+Theorem do_app_with_stack_and_locals = time Q.prove(
   `do_app op vs (s with <|locals_size := lsz; stack := z|>) =
    map_result (λ(x,y). (x,y with <| stack := z
                                   ; locals_size := lsz
@@ -280,7 +280,7 @@ Proof
           rveq >> fs [] >> rw [])
 QED
 
-val do_app_with_locals = time Q.prove(
+Theorem do_app_with_locals = time Q.prove(
   `do_app op vs (s with locals := z) =
    map_result (λ(x,y). (x,y with <| locals := z
                                   ; safe_for_space   := do_app_safe op vs (s with locals := z)

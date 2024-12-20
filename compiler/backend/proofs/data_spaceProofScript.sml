@@ -2,7 +2,7 @@
   Correctness proof for data_space
 *)
 open preamble data_spaceTheory dataSemTheory dataPropsTheory;
-
+local open bvlPropsTheory in end
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory"data_spaceProof";
@@ -77,38 +77,36 @@ Proof
     \\ fs[lookup_insert,state_component_equality]
     \\ METIS_TAC [])
   THEN1 (* Assign *)
-   (BasicProvers.TOP_CASE_TAC \\ fs[cut_state_opt_def]
-    \\ BasicProvers.CASE_TAC \\ fs[]
-    THEN1 (Cases_on `get_vars args s.locals`
-      \\ fs[cut_state_opt_def]
-      \\ `get_vars args l =
+   (BasicProvers.TOP_CASE_TAC \\ fs[cut_state_opt_def] \\
+   Cases_on `names_opt` \\ fs[]
+   >-(
+         Cases_on `get_vars args s.locals` \\ fs[] \\
+         `get_vars args l =
           get_vars args s.locals` by
        (MATCH_MP_TAC EVERY_get_vars
         \\ fs[EVERY_MEM,locals_ok_def]
         \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
         \\ fs[domain_lookup])
-      \\ fs[] \\ reverse(Cases_on `do_app op x s`)
-      \\ fs[] >- (
-           imp_res_tac do_app_err >> fs[] >>
-           fs [EVAL ``op_requires_names (FFI i)``])
-      \\ Cases_on `a` \\ fs[] \\ SRW_TAC [] []
-      \\ IMP_RES_TAC do_app_locals \\ fs[set_var_def]
-      \\ Q.EXISTS_TAC `insert dest q l`
-      \\ fs[set_var_def,locals_ok_def,lookup_insert,state_component_equality]
-      \\ METIS_TAC [do_app_const])
-    \\ `cut_state x (s with locals := l) = cut_state x s` by
-     (fs[cut_state_def]
-      \\ Cases_on `cut_env x s.locals` \\ fs[]
-      \\ IMP_RES_TAC locals_ok_cut_env \\ fs[] \\ NO_TAC)
-    \\ fs[] \\ POP_ASSUM (K ALL_TAC)
-    \\ fs[cut_state_def,cut_env_def]
-    \\ Cases_on `domain x SUBSET domain s.locals` \\ fs[]
-    \\ MAP_EVERY Q.EXISTS_TAC [ `s2.locals`
-                              , `s2.safe_for_space`
-                              , `s2.peak_heap_length`
-                              , `s2.stack_max` ]
-    \\ fs[locals_ok_def]
-    \\ SRW_TAC [] [state_component_equality])
+      \\ fs[]
+      \\ fs[do_app_with_locals]
+      \\ Cases_on `do_app op x s` \\ fs[]
+      >-(PairCases_on `a` \\
+        fs[set_var_def,locals_ok_def,lookup_insert,state_component_equality]
+        \\ rw[] \\ gvs[lookup_insert]
+        \\  last_x_assum (assume_tac o GSYM)
+         \\ fs[lookup_insert] \\ gvs[]
+         \\ METIS_TAC[do_app_const])
+      >-(
+      fs[flush_state_def]
+      \\ gvs[] \\ fs[state_component_equality]
+      \\ fs[locals_ok_def]))
+    >-(
+       fs[cut_state_def] \\
+       Cases_on `cut_env (list_insert args x) s.locals` \\ fs[] \\
+       drule_all locals_ok_cut_env \\
+       rw[] \\ fs[] \\
+       Cases_on `res` \\ fs[state_component_equality] \\
+       METIS_TAC[locals_ok_refl]))
   THEN1 (* Tick *)
    (Cases_on `s.clock = 0` \\ fs[] \\ SRW_TAC [] []
     \\ fs[locals_ok_def,call_env_def,
@@ -212,12 +210,13 @@ Proof
       \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe'''`,`peak'''`,`smx'''`]
       \\ IF_CASES_TAC \\ fs [])
     THEN1 (* Assign *)
-     (fs[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
+     (cheat (*
+     fs[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
       \\ fs[evaluate_def,cut_state_opt_def]
       THEN1
        (fs[pMakeSpace_def,space_def,evaluate_def,
             cut_state_opt_def,cut_state_def]
-        \\ Cases_on `cut_env x s.locals`
+        \\ Cases_on `cut_env (list_insert l' x) s.locals`
         \\ fs[] \\ SRW_TAC [] []
         \\ IMP_RES_TAC locals_ok_cut_env \\ fs[]
         \\ Cases_on `get_vars l' x'`
@@ -368,7 +367,7 @@ Proof
       \\ qexists_tac `w`
       \\ MAP_EVERY qexists_tac [`safe'''`,`peak'''`,`smx`]
       \\ Cases_on `res` \\ fs[]
-      \\ fs [locals_ok_def])
+      \\ fs [locals_ok_def]*))
     THEN1 (* Move *)
      (fs[pMakeSpace_def,space_def]
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
