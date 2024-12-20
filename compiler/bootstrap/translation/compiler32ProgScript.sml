@@ -80,6 +80,8 @@ val _ = update_precondition backend_passes_to_bvi_all_side
 
 val r = backend_passesTheory.to_data_all_def |> spec32 |> translate;
 
+val r = backend_passesTheory.word_internal_def |> spec32 |> translate;
+
 val r = backend_passesTheory.to_word_all_def |> spec32
           |> REWRITE_RULE [data_to_wordTheory.stubs_def,APPEND] |> translate;
 

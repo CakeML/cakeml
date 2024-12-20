@@ -13,123 +13,162 @@ val _ = new_theory "wordConvsProof";
   across wordLang passes.
   It must NOT depend on the semantics or word_Xproof files.
 
-  OVERVIEW (TO BE FILLED):
-
   word_simp$compile_exp
   ===
-    1 preserves label_rel: extract_labels_compile_exp
-    2 preserves every_inst: compile_exp_no_inst
-    3 preserves subprogs: compile_exp_not_created_subprogs
-    4 TODO
+    preserves label_rel: extract_labels_compile_exp
+    preserves every_inst: compile_exp_no_inst
 
-    preserves code_labels:   word_get_code_labels_word_simp
-    preserves good_handlers: word_good_handlers_word_simp
+    preserves subprogs (no export): compile_exp_not_created_subprogs
+    preserves code_labels (no export):   word_get_code_labels_word_simp
+    preserves good_handlers (no export): word_good_handlers_word_simp
 
   inst_select
   ===
-    1 preserves label_rel: inst_select_lab_pres (equality on labels)
-    3 preserves subprogs: inst_select_not_created_subprogs
-
+    preserves label_rel: inst_select_lab_pres (equality on labels)
     creates flat_exp_conventions: inst_select_flat_exp_conventions
-    creates full_inst_ok_less: inst_select_full_inst_ok_less
-    TODO
+    creates full_inst_ok_less (uses every_inst): inst_select_full_inst_ok_less
 
-    preserves code_labels:   word_get_code_labels_inst_select
-    preserves good_handlers: word_good_handlers_inst_select
+    preserves subprogs (no export): inst_select_not_created_subprogs
+    preserves code_labels (no export):   word_get_code_labels_inst_select
+    preserves good_handlers (no export): word_good_handlers_inst_select
 
   full_ssa_cc_trans
   ===
-    3 preserves subprogs: full_ssa_cc_trans_not_created_subprogs
-    preserves code_labels:   word_get_code_labels_full_ssa_cc_trans
-    preserves good_handlers: word_good_handlers_full_ssa_cc_trans
-    TODO
+    preserves label_rel: full_ssa_cc_trans_lab_pres (equality on labels)
+
+    preserves flat_exp_conventions: full_ssa_cc_trans_flat_exp_conventions
+    creates wf_cutsets: full_ssa_cc_trans_wf_cutsets
+
+    TODO: move these out of word_allocProof somehow
+      preserves full_inst_ok_less: full_ssa_cc_trans_full_inst_ok_less
+      creates pre_alloc_conventions: full_ssa_cc_trans_pre_alloc_conventions
+      creates distinct_tar_reg: full_ssa_cc_trans_distinct_tar_reg
+    TODO ends here
+
+    preserves subprogs (no export): full_ssa_cc_trans_not_created_subprogs
+    preserves code_labels (no_export):   word_get_code_labels_full_ssa_cc_trans
+    preserves good_handlers (no_export): word_good_handlers_full_ssa_cc_trans
 
   remove_dead_prog (note this is ran again after remove_unreach)
   ===
-    1 preserves label_rel: remove_dead_prog_conventions (equality on labels)
-    3 preserves subprogs: remove_dead_prog_not_created_subprogs
+    preserves label_rel: remove_dead_prog_conventions (equality on labels)
+
     preserves flat_exp_conventions: remove_dead_prog_conventions
     preserves full_inst_ok_less: remove_dead_prog_conventions
     preserves pre_alloc_conventions: remove_dead_prog_conventions
     preserves every_inst: remove_dead_prog_conventions
     preserves wf_cutsets: remove_dead_prog_conventions
-    preserves code_labels:   word_get_code_labels_remove_dead_prog
-    preserves good_handlers: word_good_handlers_remove_dead_prog
-    preserves not_created_subprogs: remove_unreach_not_created_subprogs
-    TODO
+
+    preserves subprogs (no export): remove_dead_prog_not_created_subprogs
+    preserves code_labels (no export): word_get_code_labels_remove_dead_prog
+    preserves good_handlers (no export): word_good_handlers_remove_dead_prog
 
   word_common_subexp_elim
   ===
-    3 preserves subprogs: word_common_subexp_elim_not_created_subprogs
-    preserves code_labels:   word_get_code_labels_word_common_subexp_elim
-    preserves good_handlers: word_good_handlers_word_common_subexp_elim
+    preserves label_rel: extract_labels_word_common_subexp_elim (equality on labels)
 
-    TODO
+    preserves flat_exp_conventions: flat_exp_conventions_word_common_subexp_elim
+    preserves wf_cutsets: wf_cutsets_word_common_subexp_elim
+
+    TODO: move these out of word_cseProof somehow
+      preserves full_inst_ok_less: full_inst_ok_less_word_common_subexp_elim
+      preserves pre_alloc_conventions: pre_alloc_conventions_word_common_subexp_elim
+      preserves every_inst_distinct_tar_reg: every_inst_distinct_tar_reg_word_common_subexp_elim
+      preserves every_inst_two_reg_inst (unused): word_cse_conventions (unused)
+    TODO ends here
+
+    preserves subprogs (no export): word_common_subexp_elim_not_created_subprogs
+    preserves code_labels (no export):   word_get_code_labels_word_common_subexp_elim
+    preserves good_handlers (no export): word_good_handlers_word_common_subexp_elim
 
   copy_prop
   ===
+    preserves label_rel: extract_labels_copy_prop (equality on labels)
 
-    preserves code_labels:   word_get_code_labels_copy_prop
-    preserves good_handlers: word_good_handlers_copy_prop
-    preserves not_created_subprogs: copy_prop_not_created_subprogs
-    TODO
+    preserves flat_exp_conventions: flat_exp_conventions_copy_prop
+    preserves full_inst_ok_less: full_inst_ok_less_copy_prop
+    preserves pre_alloc_conventions: pre_alloc_conventions_copy_prop
+    preserves every_inst_distinct_tar_reg: every_inst_distinct_tar_reg_copy_prop
+    preserves wf_cutsets: wf_cutsets_copy_prop
+
+    preserves subprogs (no export): copy_prop_not_created_subprogs
+    preserves code_labels (no export):   word_get_code_labels_copy_prop
+    preserves good_handlers (no export): word_good_handlers_copy_prop
 
   three_to_two_reg_prog
   ===
-    1 preserves label_rel: three_to_two_reg_prog_lab_pres (equality on labels)
+    preserves label_rel: three_to_two_reg_prog_lab_pres (equality on labels)
 
-    3 preserves subprogs: three_to_two_reg_prog_not_created_subprogs
-    creates two_reg_inst: three_to_two_reg_prog_two_reg_inst (under a flag)
-
+    preserves flat_exp_conventions: three_to_two_reg_prog_flat_exp_conventions
+    preserves full_inst_ok_less :three_to_two_reg_prog_full_inst_ok_less:
+    preserves pre_alloc_conventions: three_to_two_reg_prog_pre_alloc_conventions
+    creates two_reg_inst (from distinct_tar_reg): three_to_two_reg_prog_two_reg_inst
     preserves wf_cutsets: three_to_two_reg_prog_wf_cutsets
 
-    preserves pre_alloc_conventions: three_to_two_reg_prog_pre_alloc_conventions
-    preserves flat_exp_conventions: three_to_two_reg_prog_flat_exp_conventions
-    preservers full_inst_ok_less :three_to_two_reg_prog_full_inst_ok_less:
-    preserves code_labels: word_get_code_labels_three_to_two_reg_prog
-    preserves good_handlers: word_good_handlers_three_to_two_reg_prog
-
-    TODO
+    preserves subprogs (no export): three_to_two_reg_prog_not_created_subprogs
+    preserves code_labels (no export): word_get_code_labels_three_to_two_reg_prog
+    preserves good_handlers (no export): word_good_handlers_three_to_two_reg_prog
 
   remove_unreach
   ===
+    preserves labels_rel: labels_rel_remove_unreach
 
-    preserves code_labels:   word_get_code_labels_remove_unreach
-    preserves good_handlers: word_good_handlers_remove_unreach
-    TODO
+    preserves flat_exp_conventions: flat_exp_conventions_remove_unreach
+    preserves full_inst_ok_less: full_inst_ok_less_remove_unreach
+    preserves pre_alloc_conventions: pre_alloc_conventions_remove_unreach
+    preserves every_inst: every_inst_remove_unreach
+    preserves wf_cutsets: wf_cutsets_remove_unreach
+
+    preserves subprogs (no export): remove_unreach_not_created_subprogs
+    preserves code_labels (no export):   word_get_code_labels_remove_unreach
+    preserves good_handlers (no export): word_good_handlers_remove_unreach
 
   word_alloc
   ===
-    3 preserves subprogs: word_alloc_not_created_subprogs
+    preserves label_rel: word_alloc_lab_pres (equality on labels)
 
-    preserves code_labels:   word_get_code_labels_word_alloc
-    preserves good_handlers: word_good_handlers_word_alloc
+    preserves flat_exp_conventions: word_alloc_flat_exp_conventions
+    preserves two_reg_inst: word_alloc_two_reg_inst
 
-    TODO
+    TODO: move these out of word_allocProof somehow
+      preserves full_inst_ok_less: word_alloc_full_inst_ok_less
+      creates post_alloc_conventions (from pre_alloc_conventions): pre_post_conventions_word_alloc
+    TODO ends here
+
+    preserves subprogs (no export): word_alloc_not_created_subprogs
+    preserves code_labels (no export): word_get_code_labels_word_alloc
+    preserves good_handlers (no export): word_good_handlers_word_alloc
 
   remove_must_terminate
   ===
-    preserves code_labels: word_get_code_labels_remove_must_terminate
-    preserves good_handlers: word_good_handlers_remove_must_terminate
-    TODO
+    preserves label_rel: remove_must_terminate_conventions (equality on labels)
+
+    preserves flat_exp_conventions: remove_must_terminate_conventions
+    preserves full_inst_ok_less: remove_must_terminate_conventions
+    preserves post_alloc_conventions: remove_must_terminate_conventions
+    preserves every_inst: remove_must_terminate_conventions
+
+    (subprogs is dealt with separately)
+    preserves code_labels (no export): word_get_code_labels_remove_must_terminate
+    preserves good_handlers (no export): word_good_handlers_remove_must_terminate
 
   word_to_word (compile_single and full_compile_single thms)
   ===
+    preserves subprogs: compile_single_not_created_subprogs
     preserves good_handlers: word_good_handlers_word_to_word, word_good_handlers_word_to_word_incr
-
     preserves good_code_labels: word_good_code_labels_word_to_word_incr, word_good_code_labels_word_to_word
 ***)
 
 (*** word_simp$compile_exp ***)
 
 (* labels_rel *)
-Theorem extract_labels_SmartSeq:
+Triviality extract_labels_SmartSeq:
    extract_labels (SmartSeq p1 p2) = extract_labels (Seq p1 p2)
 Proof
   rw [SmartSeq_def,extract_labels_def]
 QED
 
-Theorem extract_labels_Seq_assoc_lemma:
+Triviality extract_labels_Seq_assoc_lemma:
    !p1 p2. extract_labels (Seq_assoc p1 p2) =
             extract_labels p1 ++ extract_labels p2
 Proof
@@ -140,7 +179,7 @@ Proof
   \\ PairCases_on `x'` \\ fs []
 QED
 
-Theorem extract_labels_Seq_assoc:
+Triviality extract_labels_Seq_assoc:
    extract_labels (Seq_assoc Skip p) = extract_labels p
 Proof
   fs [extract_labels_Seq_assoc_lemma,extract_labels_def]
@@ -190,7 +229,7 @@ Proof
   \\ fs [labels_rel_def,ALL_DISTINCT_APPEND,SUBSET_DEF]
 QED
 
-Theorem extract_labels_const_fp:
+Triviality extract_labels_const_fp:
    labels_rel (extract_labels p) (extract_labels (const_fp p))
 Proof
   fs [const_fp_def] \\ Cases_on `const_fp_loop p LN`
@@ -235,7 +274,7 @@ Proof
   \\ gvs [CaseEq "option", CaseEq "bool"]
 QED
 
-Theorem dest_If_thm:
+Triviality dest_If_thm:
    dest_If x2 = SOME (g1,g2,g3,g4,g5) <=> x2 = If g1 g2 g3 g4 g5
 Proof
   Cases_on `x2` \\ fs [dest_If_def]
@@ -297,7 +336,7 @@ Proof
   )
 QED
 
-Theorem labels_rel_simp_duplicate_if:
+Triviality labels_rel_simp_duplicate_if:
   !p. labels_rel (extract_labels p) (extract_labels (simp_duplicate_if p))
 Proof
   ho_match_mp_tac simp_duplicate_if_ind
@@ -356,7 +395,7 @@ Proof
   rw[SmartSeq_def,every_inst_def]
 QED
 
-Triviality every_inst_inst_ok_less_drop_consts[simp]:
+Triviality every_inst_drop_consts[simp]:
   every_inst P (SmartSeq (drop_consts cs ls) p) =
   every_inst P p
 Proof
@@ -367,7 +406,7 @@ Proof
   rw[]
 QED
 
-Theorem every_inst_inst_ok_less_const_fp:
+Triviality every_inst_const_fp:
    ∀prog.
     every_inst P prog ⇒
     every_inst P (const_fp prog)
@@ -401,7 +440,7 @@ Proof
   \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
         CaseEq "option", CaseEq "prod"]
   \\ gvs [dest_If_thm]
-  \\ fs [every_inst_def, every_inst_inst_ok_less_const_fp]
+  \\ fs [every_inst_def, every_inst_const_fp]
 QED
 
 Triviality simp_duplicate_if_no_inst:
@@ -417,7 +456,7 @@ Proof
   \\ fs [try_if_hoist1_def, CaseEq "option", CaseEq "prod"]
   \\ imp_res_tac try_if_hoist2_no_inst
   \\ gs [dest_If_thm]
-  \\ fs [every_inst_def, Seq_assoc_no_inst, every_inst_inst_ok_less_const_fp]
+  \\ fs [every_inst_def, Seq_assoc_no_inst, every_inst_const_fp]
 QED
 
 Theorem compile_exp_no_inst:
@@ -427,7 +466,7 @@ Theorem compile_exp_no_inst:
 Proof
   fs[compile_exp_def]>>
   metis_tac[Seq_assoc_no_inst,every_inst_def,
-            every_inst_inst_ok_less_const_fp,simp_duplicate_if_no_inst]
+            every_inst_const_fp,simp_duplicate_if_no_inst]
 QED
 
 Triviality not_created_subprogs_SmartSeq:
@@ -437,7 +476,7 @@ Proof
   rw [SmartSeq_def,not_created_subprogs_def]
 QED
 
-Theorem not_created_subprogs_Seq_assoc:
+Triviality not_created_subprogs_Seq_assoc:
   !p1 p2. not_created_subprogs P (Seq_assoc p1 p2) =
   (not_created_subprogs P p1 /\ not_created_subprogs P p2)
 Proof
@@ -475,7 +514,7 @@ Proof
   \\ gvs [not_created_subprogs_def]
 QED
 
-Theorem not_created_subprogs_const_fp:
+Triviality not_created_subprogs_const_fp:
   not_created_subprogs P p ==>
   not_created_subprogs P (const_fp p)
 Proof
@@ -519,7 +558,7 @@ Proof
   \\ fs [not_created_subprogs_def]
 QED
 
-Theorem compile_exp_not_created_subprogs:
+Triviality compile_exp_not_created_subprogs:
   not_created_subprogs P p ==>
   not_created_subprogs P (compile_exp p)
 Proof
@@ -686,7 +725,7 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem word_get_code_labels_word_simp:
+Triviality word_get_code_labels_word_simp:
   ∀ps.
   word_get_code_labels (word_simp$compile_exp ps) ⊆
   word_get_code_labels ps
@@ -698,7 +737,7 @@ Proof
   simp [word_get_code_labels_Seq_assoc]
 QED
 
-Theorem word_good_handlers_word_simp:
+Triviality word_good_handlers_word_simp:
   ∀ps.
   word_good_handlers n ps ⇒
   word_good_handlers n (word_simp$compile_exp ps)
@@ -752,7 +791,7 @@ Proof
   metis_tac[inst_select_exp_flat_exp_conventions]
 QED
 
-Theorem inst_select_exp_not_created_subprogs:
+Triviality inst_select_exp_not_created_subprogs:
   not_created_subprogs P (inst_select_exp c c' n exp)
 Proof
   MAP_EVERY qid_spec_tac [‘exp’, ‘n’, ‘c'’, ‘c’]>>
@@ -762,7 +801,7 @@ Proof
   gs[not_created_subprogs_def, word_instTheory.inst_select_exp_def]
 QED
 
-Theorem inst_select_not_created_subprogs:
+Triviality inst_select_not_created_subprogs:
   not_created_subprogs P prog ⇒
   not_created_subprogs P (inst_select c n prog)
 Proof
@@ -812,7 +851,7 @@ Proof
   every_case_tac>>fs[inst_select_exp_def]
 QED
 
-Theorem word_get_code_labels_inst_select:
+Triviality word_get_code_labels_inst_select:
   ∀ac v ps.
   word_get_code_labels (inst_select ac v ps) =
   word_get_code_labels ps
@@ -831,7 +870,7 @@ Proof
   every_case_tac>>fs[inst_select_exp_def]
 QED
 
-Theorem word_good_handlers_inst_select:
+Triviality word_good_handlers_inst_select:
   ∀ac v ps.
   word_good_handlers n (inst_select ac v ps) ⇔
   word_good_handlers n ps
@@ -842,8 +881,42 @@ Proof
 QED
 
 (*** full_ssa_cc_trans ***)
+Triviality fake_moves_no_labs:
+  ∀ls a b c d e f g h.
+  fake_moves prio ls a b c = (d,e,f,g,h) ⇒
+  extract_labels d = [] ∧ extract_labels e = []
+Proof
+  Induct>>
+  fs[fake_moves_def,extract_labels_def,fake_move_def]>>rw[]>>
+  rpt(pairarg_tac>>fs[])>>
+  EVERY_CASE_TAC>>fs[]>>rveq>>fs[extract_labels_def]>>
+  metis_tac[]
+QED
 
-Theorem ssa_cc_trans_inst_not_created_subprogs:
+Theorem full_ssa_cc_trans_lab_pres:
+  ∀prog n.
+  extract_labels prog =
+  extract_labels (full_ssa_cc_trans n prog)
+Proof
+  rw[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
+  ntac 3 (pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
+  pop_assum kall_tac >> pop_assum mp_tac>>
+  map_every qid_spec_tac (rev[`prog`,`ssa`,`n'`,`prog'`,`ssa'`,`na'`])>>
+  ho_match_mp_tac ssa_cc_trans_ind>>rw[extract_labels_def,ssa_cc_trans_def,list_next_var_rename_move_def,fix_inconsistencies_def]>>
+  rveq>>fs[extract_labels_def]>>EVERY_CASE_TAC>>
+  rpt(pairarg_tac>>fs[]>>rveq>>fs[extract_labels_def])
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    TRY(Cases_on`f`)>>
+    fs[ssa_cc_trans_inst_def,next_var_rename_def]>>
+    every_case_tac>>rw[]>>
+    fs[extract_labels_def])
+  >>
+  imp_res_tac fake_moves_no_labs>>
+  fs[]
+QED
+
+Triviality ssa_cc_trans_inst_not_created_subprogs:
   ssa_cc_trans_inst i ssa na = (i',ssa',na') ⇒
   not_created_subprogs P i'
 Proof
@@ -859,7 +932,7 @@ Proof
      not_created_subprogs_def]
 QED
 
-Theorem fake_moves_not_created_subprogs:
+Triviality fake_moves_not_created_subprogs:
   fake_moves prio ls nL nR n = (prog1, prog2, n' ,ssa, ssa') ⇒
   not_created_subprogs P prog1 ∧ not_created_subprogs P prog2
 Proof
@@ -874,7 +947,7 @@ Proof
            word_allocTheory.fake_move_def]>>metis_tac[]
 QED
 
-Theorem ssa_cc_trans_not_created_subprogs:
+Triviality ssa_cc_trans_not_created_subprogs:
   not_created_subprogs P prog ∧
   ssa_cc_trans prog ssa n = (prog', ssa', na)⇒
   not_created_subprogs P prog'
@@ -897,7 +970,7 @@ Proof
     drule fake_moves_not_created_subprogs>>rw[])
 QED
 
-Theorem setup_ssa_not_created_subprogs:
+Triviality setup_ssa_not_created_subprogs:
   not_created_subprogs P prog ∧
   setup_ssa n v prog = (mov, ssa, na)⇒
   not_created_subprogs P mov
@@ -909,7 +982,7 @@ Proof
      not_created_subprogs_def]
 QED
 
-Theorem full_ssa_cc_trans_not_created_subprogs:
+Triviality full_ssa_cc_trans_not_created_subprogs:
   not_created_subprogs P prog ⇒
   not_created_subprogs P (full_ssa_cc_trans n prog)
 Proof
@@ -982,7 +1055,7 @@ Proof
     \\ fs[])
 QED
 
-Theorem word_get_code_labels_full_ssa_cc_trans:
+Triviality word_get_code_labels_full_ssa_cc_trans:
   ∀m p.
   word_get_code_labels (full_ssa_cc_trans m p) =
   word_get_code_labels p
@@ -1058,7 +1131,7 @@ Proof
     \\ fs[])
 QED
 
-Theorem word_good_handlers_full_ssa_cc_trans:
+Triviality word_good_handlers_full_ssa_cc_trans:
   ∀m p.
   word_good_handlers n (full_ssa_cc_trans m p) ⇔
   word_good_handlers n p
@@ -1074,10 +1147,140 @@ Proof
   \\ rw[]
 QED
 
+Triviality flat_exp_conventions_ShareInst:
+  flat_exp_conventions (ShareInst op v exp) <=>
+    ((?v c. exp = Op Add [Var v;Const c]) \/ (?v. exp = Var v))
+Proof
+  eq_tac
+  >- (
+    gvs[DefnBase.one_line_ify NONE flat_exp_conventions_def] >>
+    rpt (TOP_CASE_TAC >> simp[])) >>
+  rw[] >>
+  simp[flat_exp_conventions_def]
+QED
+
+Triviality flat_exp_conventions_fake_moves:
+  ∀ls ssal ssar na l r a b c conf.
+  fake_moves prio ls ssal ssar na = (l,r,a,b,c) ⇒
+  flat_exp_conventions l ∧
+  flat_exp_conventions r
+Proof
+  Induct>>
+  fs[fake_moves_def]>>rw[]>>
+  fs[flat_exp_conventions_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum drule_all>>
+  simp[flat_exp_conventions_def,fake_move_def]
+QED
+
+Triviality ssa_cc_trans_flat_exp_conventions:
+  ∀prog ssa na.
+  flat_exp_conventions prog ⇒
+  flat_exp_conventions (FST (ssa_cc_trans prog ssa na))
+Proof
+  ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
+  unabbrev_all_tac>>
+  full_simp_tac(srw_ss())[flat_exp_conventions_def]
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    TRY(Cases_on`f`)>>
+    full_simp_tac(srw_ss())[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def]>>
+    every_case_tac>>rw[]>>
+    fs[flat_exp_conventions_def])
+  >-
+    (pop_assum mp_tac>>full_simp_tac(srw_ss())[fix_inconsistencies_def,fake_moves_def]>>LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def]>>
+    metis_tac[flat_exp_conventions_fake_moves,flat_exp_conventions_def])
+  >-
+    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
+    LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ])
+  >-
+    (Cases_on`exp`>>full_simp_tac(srw_ss())[ssa_cc_trans_exp_def,flat_exp_conventions_def])
+  >-
+    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
+    LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ])
+  >-
+    (fs[list_next_var_rename_move_def]>>rpt (pairarg_tac>>fs[])>>rw[]>>
+    fs[flat_exp_conventions_def])
+  >-
+   (EVERY_CASE_TAC>>unabbrev_all_tac>>
+     full_simp_tac(srw_ss())[flat_exp_conventions_def]
+    >-
+      (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
+      LET_ELIM_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ])
+    >>
+      LET_ELIM_TAC>>unabbrev_all_tac>>
+      full_simp_tac(srw_ss())[list_next_var_rename_move_def,flat_exp_conventions_def]>>
+      full_simp_tac(srw_ss())[fix_inconsistencies_def]>>
+      rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
+      metis_tac[flat_exp_conventions_fake_moves,flat_exp_conventions_def])
+  >> (*ShareInst*)
+    IF_CASES_TAC >>
+    fs[flat_exp_conventions_ShareInst] >>
+    simp[ssa_cc_trans_exp_def]
+QED
+
+Theorem full_ssa_cc_trans_flat_exp_conventions:
+  ∀prog n.
+  flat_exp_conventions prog ⇒
+  flat_exp_conventions (full_ssa_cc_trans n prog)
+Proof
+  full_simp_tac(srw_ss())[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
+  LET_ELIM_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ]>>
+  metis_tac[ssa_cc_trans_flat_exp_conventions,FST]
+QED
+
+Triviality fake_moves_wf_cutsets:
+  ∀ls A B C L R D E G.
+  fake_moves prio ls A B C = (L,R,D,E,G) ⇒
+  wf_cutsets L ∧ wf_cutsets R
+Proof
+  Induct>>fs[fake_moves_def,wf_cutsets_def]>>rw[]>>
+  pairarg_tac>>fs[]>>EVERY_CASE_TAC>>fs[]>>
+  rveq>>fs[wf_cutsets_def,fake_move_def]>>
+  metis_tac[]
+QED
+
+Triviality ssa_cc_trans_wf_cutsets:
+  ∀prog ssa na.
+  let (prog',ssa',na') = ssa_cc_trans prog ssa na in
+  wf_cutsets prog'
+Proof
+  ho_match_mp_tac ssa_cc_trans_ind>>fs[wf_cutsets_def,ssa_cc_trans_def,fix_inconsistencies_def,list_next_var_rename_move_def]>>
+  rw[]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>fs[wf_cutsets_def]>>
+  fs[wf_fromAList,fake_moves_wf_cutsets]
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    TRY(Cases_on`f`)>>
+    fs[ssa_cc_trans_inst_def,next_var_rename_def]>>
+    every_case_tac>>
+    rw[]>>fs[wf_cutsets_def])
+  >-
+    metis_tac[fake_moves_wf_cutsets]
+  >>
+  EVERY_CASE_TAC>>fs[]>>rveq>>fs[wf_cutsets_def,wf_fromAList]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>fs[wf_cutsets_def,wf_fromAList]>>
+  metis_tac[fake_moves_wf_cutsets]
+QED
+
+Theorem full_ssa_cc_trans_wf_cutsets:
+  ∀n prog.
+  wf_cutsets (full_ssa_cc_trans n prog)
+Proof
+  fs[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
+  rw[]>>pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  rveq>>fs[wf_cutsets_def]>>
+  Q.ISPECL_THEN [`prog`,`ssa`,`n'`] assume_tac ssa_cc_trans_wf_cutsets>>
+  rfs[]
+QED
+
 (*** remove_dead_prog ***)
 val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def];
 
-Theorem remove_dead_not_created_subprogs:
+Triviality remove_dead_not_created_subprogs:
   not_created_subprogs P prog ⇒
   not_created_subprogs P (FST (remove_dead prog q))
 Proof
@@ -1093,7 +1296,7 @@ Proof
   rw[not_created_subprogs_def]>>gs[]
 QED
 
-Theorem remove_dead_prog_not_created_subprogs:
+Triviality remove_dead_prog_not_created_subprogs:
   not_created_subprogs P prog ⇒
   not_created_subprogs P (remove_dead_prog prog)
 Proof
@@ -1101,13 +1304,12 @@ Proof
   metis_tac[remove_dead_not_created_subprogs]
 QED
 
-Theorem remove_dead_conventions:
+Triviality remove_dead_conventions:
   ∀p live c k.
     let comp = FST (remove_dead p live) in
     (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
     (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
-    (pre_alloc_conventions p ⇒
-      pre_alloc_conventions comp) ∧
+    (pre_alloc_conventions p ⇒ pre_alloc_conventions comp) ∧
     (every_inst P p ⇒ every_inst P comp) ∧
     (wf_cutsets p ⇒ wf_cutsets comp) ∧
     (extract_labels p = extract_labels comp)
@@ -1136,7 +1338,7 @@ Proof
   fs[SUBSET_DEF]
 QED
 
-Theorem word_get_code_labels_remove_dead_prog:
+Triviality word_get_code_labels_remove_dead_prog:
   word_get_code_labels (remove_dead_prog ps) ⊆
   word_get_code_labels ps
 Proof
@@ -1155,7 +1357,7 @@ Proof
   rw[]>>gvs[]
 QED
 
-Theorem word_good_handlers_remove_dead_prog:
+Triviality word_good_handlers_remove_dead_prog:
   word_good_handlers n (remove_dead_prog ps) ⇔
   word_good_handlers n ps
 Proof
@@ -1163,6 +1365,33 @@ Proof
 QED
 
 (*** word_common_subexp_elim ***)
+Triviality word_cse_extract_labels:
+  ∀p d d1 p1.
+  word_cse d p = (d1,p1) ⇒
+  extract_labels p1 = extract_labels p
+Proof
+  Induct \\ fs [word_cse_def,extract_labels_def] \\ rw []
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [extract_labels_def]
+  \\ res_tac \\ gvs [AllCaseEqs()]
+  \\ fs [extract_labels_def,PULL_EXISTS]
+  \\ every_case_tac \\ fs []
+  \\ gvs [add_to_data_aux_def,AllCaseEqs(),extract_labels_def]
+  \\ rename [‘word_cseInst d i = (d1,p)’]
+  \\ Cases_on ‘i’
+  \\ gvs [word_cseInst_def,extract_labels_def,AllCaseEqs(),add_to_data_def,
+         add_to_data_aux_def]
+  \\ Cases_on ‘a’
+  \\ gvs [word_cseInst_def,extract_labels_def,AllCaseEqs(),add_to_data_def,
+         add_to_data_aux_def]
+QED
+
+Theorem extract_labels_word_common_subexp_elim:
+  extract_labels (word_common_subexp_elim p) = extract_labels p
+Proof
+  fs [word_common_subexp_elim_def] \\ pairarg_tac \\ rw []
+  \\ drule word_cse_extract_labels \\ fs []
+QED
 
 Triviality word_cseInst_not_created_subprogs:
   !env i. not_created_subprogs P (SND (word_cseInst env i))
@@ -1189,7 +1418,7 @@ Proof
   \\ fs [not_created_subprogs_def, word_cseInst_not_created_subprogs]
 QED
 
-Theorem word_common_subexp_elim_not_created_subprogs:
+Triviality word_common_subexp_elim_not_created_subprogs:
   not_created_subprogs P prog ⇒
   not_created_subprogs P (word_common_subexp_elim prog)
 Proof
@@ -1197,7 +1426,7 @@ Proof
   \\ simp [ELIM_UNCURRY, word_cse_not_created_subprogs]
 QED
 
-Theorem word_good_handlers_word_common_subexp_elim:
+Triviality word_good_handlers_word_common_subexp_elim:
   word_good_handlers q (word_common_subexp_elim p) ⇔
   word_good_handlers q p
 Proof
@@ -1221,7 +1450,7 @@ Proof
   \\ Cases_on`xx` \\ simp[]
 QED
 
-Theorem word_get_code_labels_word_common_subexp_elim:
+Triviality word_get_code_labels_word_common_subexp_elim:
   word_get_code_labels (word_common_subexp_elim p) =
   word_get_code_labels p
 Proof
@@ -1243,9 +1472,349 @@ Proof
   \\ gvs [add_to_data_def,add_to_data_aux_def,AllCaseEqs()]
 QED
 
+Triviality word_cse_flat_exp_conventions:
+  ∀p data.
+    let p' = SND (word_cse data p) in
+      flat_exp_conventions p ⇒ flat_exp_conventions p'
+Proof
+  Induct \\ gvs [flat_exp_conventions_def, word_cse_def, AllCaseEqs()]
+  >- (Cases_on ‘canonicalMoveRegs3 data l’ \\ gvs [flat_exp_conventions_def])
+  >- (rpt gen_tac
+      \\ pairarg_tac \\ gvs []
+      \\ Cases_on ‘i’ \\ gvs [word_cseInst_def, flat_exp_conventions_def,
+                              add_to_data_def, add_to_data_aux_def, AllCaseEqs()]
+      \\ Cases_on ‘a’ \\ gvs [word_cseInst_def, flat_exp_conventions_def, AllCaseEqs()])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’ \\ gvs [flat_exp_conventions_def, canonicalExp_def])
+  >- (gen_tac \\ first_x_assum (qspec_then ‘data’ assume_tac)
+      \\ Cases_on ‘word_cse data p’ \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘o'’ \\ gvs [flat_exp_conventions_def]
+      \\ Cases_on ‘x’ \\ gvs []
+      \\ Cases_on ‘r’ \\ gvs [flat_exp_conventions_def])
+  >- (gen_tac \\ strip_tac
+      \\ rpt (first_x_assum drule \\ strip_tac)
+      \\ Cases_on ‘word_cse data p’ \\ gvs []
+      \\ first_x_assum (qspec_then ‘data’ assume_tac) \\ gvs []
+      \\ Cases_on ‘word_cse q p'’ \\ gvs []
+      \\ first_x_assum (qspec_then ‘q’ assume_tac) \\ gvs [flat_exp_conventions_def])
+  >- (rpt gen_tac
+      \\ Cases_on ‘word_cse data p’ \\ gvs []
+      \\ Cases_on ‘word_cse data p'’ \\ gvs []
+      \\ strip_tac \\ gvs []
+      \\ last_x_assum (qspec_then ‘data’ assume_tac) \\ gvs []
+      \\ last_x_assum (qspec_then ‘data’ assume_tac) \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘is_seen n data ∨ ¬is_seen n0 data’ \\ gvs [flat_exp_conventions_def]
+      \\ gvs [add_to_data_aux_def]  \\ rpt gen_tac
+      \\ rpt CASE_TAC \\ gvs [flat_exp_conventions_def])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [flat_exp_conventions_def])
+QED
+
+Theorem flat_exp_conventions_word_common_subexp_elim:
+  flat_exp_conventions p ⇒
+  flat_exp_conventions (word_common_subexp_elim p)
+Proof
+  fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
+  \\ qspecl_then [‘p’,‘empty_data’] mp_tac word_cse_flat_exp_conventions
+  \\ fs []
+QED
+
+Triviality word_cse_wf_cutsets:
+  ∀p data.
+    let p' = SND (word_cse data p) in
+      wf_cutsets p ⇒ wf_cutsets p'
+Proof
+  Induct \\ gvs [wf_cutsets_def, word_cse_def, AllCaseEqs()]
+  \\ rpt gen_tac
+  >- (pairarg_tac \\ gvs [wf_cutsets_def])
+  >- (pairarg_tac \\ gvs []
+      \\ Cases_on ‘i’
+      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+              wf_cutsets_def, AllCaseEqs()]
+      \\ Cases_on ‘a’
+      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+              wf_cutsets_def, AllCaseEqs()])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def])
+  >- (Cases_on ‘s’ \\ gvs [wf_cutsets_def])
+  >- (
+    pairarg_tac \\ strip_tac \\ gvs []
+    \\ simp[wf_cutsets_def]
+    \\ metis_tac[SND])
+  >- (Cases_on ‘o'’ \\ gvs [wf_cutsets_def]
+      \\ Cases_on ‘x’ \\ gvs [wf_cutsets_def]
+      \\ Cases_on ‘r’ \\ gvs [wf_cutsets_def])
+  >- (pairarg_tac \\ gvs [] \\ strip_tac
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ pairarg_tac \\ gvs [wf_cutsets_def]
+      \\ metis_tac[SND])
+  >- (strip_tac
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ rpt (last_x_assum drule \\ strip_tac)
+      \\ gvs [wf_cutsets_def]
+      \\ metis_tac[SND])
+  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
+      \\ Cases_on ‘¬is_seen n0 data’ \\ gvs [wf_cutsets_def]
+      \\ gvs [add_to_data_aux_def]
+      \\ Cases_on ‘lookup listCmp (OpCurrHeapToNumList b (canonicalRegs' n data n0)) data.instrs’ \\ gvs []
+      \\ Cases_on ‘EVEN n’ \\ gvs [wf_cutsets_def])
+  \\ Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
+QED
+
+Theorem wf_cutsets_word_common_subexp_elim:
+  wf_cutsets p ⇒ wf_cutsets (word_common_subexp_elim p)
+Proof
+  fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
+  \\ qspecl_then [‘p’,‘empty_data’] mp_tac word_cse_wf_cutsets
+  \\ fs []
+QED
+
+
 (*** copy_prop ***)
 
-Theorem word_get_code_labels_copy_prop:
+(* may not prove goal fully *)
+fun boring_tac def =
+  ho_match_mp_tac copy_prop_prog_ind
+  >>rw[copy_prop_prog_def,def]
+  >>rpt(pairarg_tac>>fs[])
+  >>rw[def]
+  >-(
+    qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[copy_prop_inst_def,def]
+  )
+  >-(
+    TOP_CASE_TAC>>rw[def]
+  );
+
+Triviality wf_cutsets_copy_prop_aux:
+  ∀p cs. wf_cutsets p ⇒
+    wf_cutsets (FST (copy_prop_prog p cs))
+Proof
+  boring_tac wf_cutsets_def
+QED
+
+Theorem wf_cutsets_copy_prop:
+  wf_cutsets p ⇒ wf_cutsets (copy_prop p)
+Proof
+  metis_tac[wf_cutsets_copy_prop_aux,copy_prop_def]
+QED
+
+Triviality every_inst_distinct_tar_reg_copy_prop_aux:
+  ∀p cs.
+  every_inst distinct_tar_reg p ⇒
+  every_inst distinct_tar_reg (FST (copy_prop_prog p cs))
+Proof
+  ho_match_mp_tac copy_prop_prog_ind
+  >>rw[every_inst_def,copy_prop_prog_def]
+  >>rpt(pairarg_tac>>fs[])
+  >>rw[every_inst_def]
+  (* Inst *)
+  >-(
+    pop_assum mp_tac
+    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[copy_prop_inst_def,every_inst_def,distinct_tar_reg_def]
+  )
+  >-fs[distinct_tar_reg_def]
+  >-(TOP_CASE_TAC>>rw[every_inst_def,distinct_tar_reg_def])
+QED
+
+Theorem every_inst_distinct_tar_reg_copy_prop:
+  every_inst distinct_tar_reg p ⇒
+  every_inst distinct_tar_reg (copy_prop p)
+Proof
+  metis_tac[every_inst_distinct_tar_reg_copy_prop_aux,copy_prop_def]
+QED
+
+Triviality extract_labels_copy_prop_aux:
+  ∀p cs.
+  extract_labels (FST (copy_prop_prog p cs)) =
+  extract_labels p
+Proof
+  boring_tac extract_labels_def
+QED
+
+Theorem extract_labels_copy_prop:
+  extract_labels (copy_prop p) =
+  extract_labels p
+Proof
+  metis_tac[extract_labels_copy_prop_aux,copy_prop_def]
+QED
+
+Triviality flat_exp_conventions_copy_prop_aux:
+  ∀p cs.
+  flat_exp_conventions p ⇒
+  flat_exp_conventions (FST (copy_prop_prog p cs))
+Proof
+  boring_tac flat_exp_conventions_def
+  >>Cases_on‘exp’
+  >>fs[copy_prop_share_def,flat_exp_conventions_def]
+  >>rpt(TOP_CASE_TAC>>rw[flat_exp_conventions_def])
+QED
+
+Theorem flat_exp_conventions_copy_prop:
+  flat_exp_conventions p ⇒
+  flat_exp_conventions (copy_prop p)
+Proof
+  metis_tac[flat_exp_conventions_copy_prop_aux,copy_prop_def]
+QED
+
+Triviality copy_prop_prog_not_alloc_var_aux1:
+  (∀x. ¬is_alloc_var x ⇒ lookup x cs.to_eq = NONE) ⇒
+  ¬is_alloc_var x ⇒
+  lookup x (remove_eq cs y).to_eq = NONE
+Proof
+  rw[remove_eq_def]>>TOP_CASE_TAC>>rw[empty_eq_def]
+QED
+
+Triviality copy_prop_prog_not_alloc_var_aux2:
+  ∀cs.
+  (∀x. ¬is_alloc_var x ⇒ lookup x cs.to_eq = NONE) ⇒
+  ¬is_alloc_var x ⇒
+  lookup x (remove_eqs cs yy).to_eq = NONE
+Proof
+  Induct_on‘yy’>>rw[remove_eqs_def]
+  >>metis_tac[copy_prop_prog_not_alloc_var_aux1]
+QED
+
+(* trivial and tedious *)
+Triviality copy_prop_prog_not_alloc_var:
+  ∀p cs.
+  (∀x. ¬(is_alloc_var x) ⇒ lookup x cs.to_eq = NONE) ⇒
+  (∀x. ¬(is_alloc_var x) ⇒ lookup x (SND (copy_prop_prog p cs)).to_eq = NONE)
+Proof
+  ho_match_mp_tac copy_prop_prog_ind
+  >>rw[copy_prop_prog_def]
+  >>rpt(pairarg_tac>>fs[])
+  >>rw[empty_eq_def,copy_prop_prog_not_alloc_var_aux1,copy_prop_prog_not_alloc_var_aux2]
+  >-(
+    pop_assum mp_tac
+    >>qpat_x_assum‘EVERY _ _’kall_tac
+    >>qid_spec_tac‘xs'’>>qid_spec_tac‘cs'’
+    >>Induct_on‘xs’
+    >-(fs[copy_prop_move_def]>>metis_tac[])
+    >>rw[copy_prop_move_def]
+    >>PairCases_on‘h’
+    >>fs[copy_prop_move_def]
+    >>(pairarg_tac>>fs[])
+    >>gvs[]
+    >>rw[set_eq_def](*2*)
+    >-(
+      TOP_CASE_TAC(*2*)
+      >-(
+        rw[lookup_insert]
+        >-metis_tac[]
+        >-metis_tac[]
+        >>rw[remove_eq_def]
+        >>TOP_CASE_TAC>>rw[empty_eq_def]
+      )
+      >-(
+        rw[lookup_insert]
+        >-metis_tac[]
+        >>rw[remove_eq_def]
+        >>TOP_CASE_TAC>>rw[empty_eq_def]
+      )
+    )
+    >>rw[remove_eq_def]
+    >>TOP_CASE_TAC>>rw[empty_eq_def]
+  )
+  >-(
+    rpt(pop_assum mp_tac)
+    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[copy_prop_inst_def]
+    >>metis_tac[copy_prop_prog_not_alloc_var_aux1,copy_prop_prog_not_alloc_var_aux2]
+  )
+  >-rw[merge_eqs_def,lookup_inter_eq]
+  >-(TOP_CASE_TAC>>rw[])
+QED
+
+Triviality pre_alloc_conventions_copy_prop_aux:
+  ∀p cs.
+  (∀x. ¬(is_alloc_var x) ⇒ lookup x cs.to_eq = NONE) ⇒
+  pre_alloc_conventions p ⇒
+  pre_alloc_conventions (FST (copy_prop_prog p cs))
+Proof
+  ho_match_mp_tac copy_prop_prog_ind
+  >>rw[copy_prop_prog_def,pre_alloc_conventions_def]
+  >>rpt(pairarg_tac>>fs[])
+  >>fs[wordLangTheory.every_stack_var_def,call_arg_convention_def]
+  >-(
+    qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[wordLangTheory.every_stack_var_def,copy_prop_inst_def]
+  )
+  >-(
+    rpt(pop_assum mp_tac)
+    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[call_arg_convention_def,inst_arg_convention_def,copy_prop_inst_def]
+    >>rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
+  )
+  >-rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
+  >-rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
+  >-(
+    ‘cs' = SND (copy_prop_prog p cs)’ by rw[]
+    >>rw[]
+    >>metis_tac[copy_prop_prog_not_alloc_var]
+  )
+  >-(
+    ‘cs' = SND (copy_prop_prog p cs)’ by rw[]
+    >>rw[]
+    >>metis_tac[copy_prop_prog_not_alloc_var]
+  )
+  >-(TOP_CASE_TAC>>rw[wordLangTheory.every_stack_var_def])
+  >-(TOP_CASE_TAC>>rw[call_arg_convention_def])
+QED
+
+Theorem pre_alloc_conventions_copy_prop:
+  pre_alloc_conventions p ⇒
+  pre_alloc_conventions (copy_prop p)
+Proof
+  ‘∀x. lookup x empty_eq.to_eq = NONE’ by rw[empty_eq_def]
+  >>metis_tac[pre_alloc_conventions_copy_prop_aux,copy_prop_def]
+QED
+
+Triviality full_inst_ok_less_copy_prop_aux:
+  ∀p cs.
+  full_inst_ok_less ac p ⇒
+  full_inst_ok_less ac (FST (copy_prop_prog p cs))
+Proof
+  ho_match_mp_tac copy_prop_prog_ind
+  >>rw[copy_prop_prog_def,full_inst_ok_less_def]
+  >>rpt(pairarg_tac>>fs[])
+  >>rw[full_inst_ok_less_def]
+  >-(
+    pop_assum mp_tac
+    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
+    >>ho_match_mp_tac copy_prop_inst_ind
+    >>rw[copy_prop_inst_def,full_inst_ok_less_def]
+    >>fs[inst_ok_less_def]
+    >-(
+      Cases_on‘ri’
+      >>fs[inst_ok_less_def,lookup_eq_imm_def]
+    )
+    >-(
+      Cases_on‘ri’
+      >>fs[inst_ok_less_def,lookup_eq_imm_def]
+    )
+    >>metis_tac[]
+  )
+  >-(TOP_CASE_TAC>>rw[full_inst_ok_less_def])
+  >-(
+    rw[copy_prop_share_def]>>every_case_tac
+    >>gvs[wordLangTheory.exp_to_addr_def]
+  )
+QED
+
+Theorem full_inst_ok_less_copy_prop:
+  full_inst_ok_less ac p ⇒
+  full_inst_ok_less ac (copy_prop p)
+Proof
+  metis_tac[full_inst_ok_less_copy_prop_aux,copy_prop_def]
+QED
+
+Triviality word_get_code_labels_copy_prop:
   word_get_code_labels (copy_prop ps) =
   word_get_code_labels ps
 Proof
@@ -1263,7 +1832,7 @@ Proof
   >-(every_case_tac \\ fs[])
 QED
 
-Theorem word_good_handlers_copy_prop:
+Triviality word_good_handlers_copy_prop:
   word_good_handlers n (copy_prop ps) ⇔
   word_good_handlers n ps
 Proof
@@ -1281,7 +1850,7 @@ Proof
   >-(every_case_tac \\ fs[])
 QED
 
-Theorem copy_prop_not_created_subprogs:
+Triviality copy_prop_not_created_subprogs:
   not_created_subprogs P prog ⇒
   not_created_subprogs P (copy_prop prog)
 Proof
@@ -1308,7 +1877,7 @@ Proof
   rw[three_to_two_reg_def,extract_labels_def]>>EVERY_CASE_TAC>>fs[]
 QED
 
-Theorem three_to_two_reg_prog_not_created_subprogs:
+Triviality three_to_two_reg_prog_not_created_subprogs:
   ∀prog.
   not_created_subprogs P prog ⇒
   not_created_subprogs P (three_to_two_reg_prog b prog)
@@ -1383,7 +1952,7 @@ Proof
     metis_tac[inst_ok_less_def]
 QED
 
-Theorem word_get_code_labels_three_to_two_reg_prog:
+Triviality word_get_code_labels_three_to_two_reg_prog:
   ∀ps.
   word_get_code_labels (three_to_two_reg_prog b ps) =
   word_get_code_labels ps
@@ -1394,7 +1963,7 @@ Proof
   every_case_tac>>fs[]
 QED
 
-Theorem word_good_handlers_three_to_two_reg_prog:
+Triviality word_good_handlers_three_to_two_reg_prog:
   ∀ps.
   word_good_handlers n (three_to_two_reg_prog b ps) ⇔
   word_good_handlers n ps
@@ -1455,7 +2024,7 @@ Proof
   metis_tac[UNION_ASSOC,SUBSET_UNION,SUBSET_TRANS]
 QED
 
-Theorem word_get_code_labels_remove_unreach:
+Triviality word_get_code_labels_remove_unreach:
   word_get_code_labels (remove_unreach ps) ⊆
   word_get_code_labels ps
 Proof
@@ -1489,7 +2058,7 @@ Proof
   \\ fs[]
 QED
 
-Theorem word_good_handlers_remove_unreach:
+Triviality word_good_handlers_remove_unreach:
   word_good_handlers n ps ⇒
   word_good_handlers n (remove_unreach ps)
 Proof
@@ -1531,7 +2100,7 @@ Proof
  \\ fs[not_created_subprogs_def]
 QED
 
-Theorem remove_unreach_not_created_subprogs:
+Triviality remove_unreach_not_created_subprogs:
   not_created_subprogs P prog ⇒
   not_created_subprogs P (remove_unreach prog)
 Proof
@@ -1540,10 +2109,416 @@ Proof
   fs[not_created_subprogs_def]
 QED
 
+Triviality extract_labels_SimpSeq:
+  set (extract_labels (SimpSeq p1 p2)) ⊆  set (extract_labels (Seq p1 p2))
+Proof
+  rw [SimpSeq_def,extract_labels_def]
+  \\ Cases_on ‘p1’ \\ rw [extract_labels_def] \\ gvs [SUBSET_DEF]
+  \\ Cases_on ‘dest_Seq_Move p2’ \\ gvs []
+  \\ rw [extract_labels_def] \\ gvs [SUBSET_DEF]
+  \\ PairCases_on ‘x’ \\ gvs []
+  \\ pop_assum mp_tac \\ rw []
+  \\ gvs [oneline dest_Seq_Move_def, AllCaseEqs(), extract_labels_def]
+QED
+
+Triviality  extract_labels_Seq_assoc_right_lemma:
+  ∀p1 p2. set (extract_labels (Seq_assoc_right p1 p2)) ⊆
+          set (extract_labels p1) ∪ set (extract_labels p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
+  >- (
+    gvs[SUBSET_DEF]
+    \\ metis_tac[])
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[extract_labels_def]
+    \\ irule SUBSET_TRANS
+    \\ irule_at Any extract_labels_SimpSeq
+    \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
+    \\ gvs[SUBSET_DEF]
+  )
+  \\ irule SUBSET_TRANS
+  \\ irule_at Any extract_labels_SimpSeq
+  \\ fs [Seq_assoc_right_def,extract_labels_def,extract_labels_SimpSeq]
+  \\ gvs[SUBSET_DEF]
+QED
+
+Triviality extract_labels_remove_unreach:
+   set (extract_labels (remove_unreach p)) ⊆ set (extract_labels p)
+Proof
+  simp[remove_unreach_def]
+  \\ irule SUBSET_TRANS
+  \\ irule_at (Pos hd) extract_labels_Seq_assoc_right_lemma
+  \\ gvs [extract_labels_def]
+QED
+
+Triviality MEM_extract_labels_Seq_assoc_right_lemma:
+  ∀p1 p2 x.
+    MEM x (extract_labels (Seq_assoc_right p1 p2)) ⇒
+    MEM x (extract_labels p1) ∨ MEM x (extract_labels p2)
+Proof
+  rpt strip_tac >>
+  assume_tac extract_labels_Seq_assoc_right_lemma >>
+  first_x_assum $ qspecl_then [‘p1’,‘p2’] assume_tac>>
+  imp_res_tac SUBSET_THM >> fs[]
+QED
+
+Triviality helper = MEM_extract_labels_Seq_assoc_right_lemma
+                 |> REWRITE_RULE [Once (GSYM CONTRAPOS_THM)]
+
+Triviality ALL_DISTINCT_extract_labels_Seq_assoc_right_lemma:
+  ∀p1 p2. ALL_DISTINCT ((extract_labels p1) ++ (extract_labels p2)) ⇒
+          ALL_DISTINCT (extract_labels (Seq_assoc_right p1 p2))
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,extract_labels_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[extract_labels_def] >> NO_TAC)
+  >- (first_x_assum irule >>
+      fs[ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      irule_at Any SUBSET_REFL >>
+      simp[DISJOINT_UNION'])
+  >- (CASE_TAC >> fs[extract_labels_def] >>
+      fs [ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      last_assum $ irule_at Any >>
+      irule_at Any SUBSET_TRANS >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any SUBSET_TRANS >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any SUBSET_REFL >> simp[] >>
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any SUBSET_REFL >> simp[])
+  >- (CASE_TAC >> fs[extract_labels_def] >>
+      fs [ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      last_assum $ irule_at Any >>
+      irule_at Any SUBSET_TRANS >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def])
+  >- (rpt (CASE_TAC >> fs[]) >> fs[extract_labels_def]
+      >- (irule helper >> simp[extract_labels_def])
+      >- (fs[ALL_DISTINCT_APPEND'] >>
+          irule_at Any SUBSET_DISJOINT >>
+          irule_at Any extract_labels_Seq_assoc_right_lemma >>
+          simp[extract_labels_def] >>
+          irule_at Any SUBSET_REFL >> simp[] >>
+          irule helper >> simp[extract_labels_def])
+      >- (fs[ALL_DISTINCT_APPEND'] >>
+          irule_at Any SUBSET_DISJOINT >>
+          irule_at Any extract_labels_Seq_assoc_right_lemma >>
+          irule_at Any extract_labels_Seq_assoc_right_lemma >>
+          simp[extract_labels_def] >>
+          irule_at Any (iffRL DISJOINT_SYM) >> fs[] >>
+          ntac 4 (irule_at Any helper >> simp[extract_labels_def])) >>
+      fs[ALL_DISTINCT_APPEND'] >>
+      irule_at Any SUBSET_DISJOINT >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      irule_at Any extract_labels_Seq_assoc_right_lemma >>
+      simp[extract_labels_def] >>
+      irule_at Any (iffRL DISJOINT_SYM) >> fs[] >>
+      ntac 4 (irule_at Any helper >> simp[extract_labels_def]) >>
+      ntac 2 (irule_at Any SUBSET_DISJOINT >>
+              irule_at Any extract_labels_Seq_assoc_right_lemma >>
+              simp[extract_labels_def] >>
+              irule_at Any SUBSET_REFL >> simp[])) >>
+  rpt (CASE_TAC >> fs[]) >> fs[extract_labels_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,extract_labels_def]
+QED
+
+Triviality ALL_DISTINCT_extract_labels_remove_unreach:
+   ALL_DISTINCT (extract_labels p) ⇒
+   ALL_DISTINCT (extract_labels (remove_unreach p))
+Proof
+  rw[remove_unreach_def] >>
+  irule ALL_DISTINCT_extract_labels_Seq_assoc_right_lemma >>
+  simp[extract_labels_def]
+QED
+
+Theorem labels_rel_remove_unreach:
+  labels_rel (extract_labels q) (extract_labels (remove_unreach q))
+Proof
+  rw[labels_rel_def]
+  >- fs[ALL_DISTINCT_extract_labels_remove_unreach] >>
+  irule_at Any extract_labels_remove_unreach>> simp[]
+QED
+
+Triviality call_arg_convention_Seq_assoc_right_lemma:
+  ∀p1 p2. call_arg_convention p1 ∧ call_arg_convention p2 ⇒
+          call_arg_convention (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,call_arg_convention_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[call_arg_convention_def] >> NO_TAC)
+  >- (rpt (PURE_CASE_TAC >> fs[]) >> fs[call_arg_convention_def]) >>
+  rpt (PURE_CASE_TAC >> fs[]) >> fs[call_arg_convention_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,call_arg_convention_def]
+QED
+
+Triviality call_arg_convention_remove_unreach:
+  call_arg_convention p ⇒
+  call_arg_convention (remove_unreach p)
+Proof
+  rw[remove_unreach_def] >>
+  irule call_arg_convention_Seq_assoc_right_lemma >>
+  simp[call_arg_convention_def]
+QED
+
+Triviality every_stack_var_is_stack_var_Seq_assoc_right_lemma:
+  ∀p1 p2. every_stack_var is_stack_var p1 ∧
+          every_stack_var is_stack_var p2 ⇒
+          every_stack_var is_stack_var (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,
+         wordLangTheory.every_stack_var_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[wordLangTheory.every_stack_var_def] >> NO_TAC)
+  >- (rpt (PURE_CASE_TAC >> fs[]) >>
+      fs[wordLangTheory.every_stack_var_def]) >>
+  rpt (PURE_CASE_TAC >> fs[]) >> fs[wordLangTheory.every_stack_var_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,wordLangTheory.every_stack_var_def]
+QED
+
+Triviality every_stack_var_is_stack_var_remove_unreach:
+  every_stack_var is_stack_var p ⇒
+  every_stack_var is_stack_var (remove_unreach p)
+Proof
+  rw[remove_unreach_def] >>
+  irule every_stack_var_is_stack_var_Seq_assoc_right_lemma >>
+  simp[wordLangTheory.every_stack_var_def]
+QED
+
+Theorem pre_alloc_conventions_remove_unreach:
+  pre_alloc_conventions p ⇒
+  pre_alloc_conventions (remove_unreach p)
+Proof
+  rw[pre_alloc_conventions_def]
+  >- fs[every_stack_var_is_stack_var_remove_unreach] >>
+  simp[call_arg_convention_remove_unreach]
+QED
+
+Triviality full_inst_ok_less_Seq_assoc_right_lemma:
+  ∀p1 p2. full_inst_ok_less ac p1 ∧ full_inst_ok_less ac p2 ⇒
+          full_inst_ok_less ac (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,full_inst_ok_less_def,SimpSeq_def] >>
+  TRY (CASE_TAC >> fs[full_inst_ok_less_def] >> NO_TAC)
+  >- (rpt (PURE_CASE_TAC >> fs[]) >> fs[full_inst_ok_less_def]) >>
+  rpt (PURE_CASE_TAC >> fs[]) >> fs[full_inst_ok_less_def] >>
+  Cases_on ‘p2’ >> fs[dest_Seq_Move_def] >> rename1 ‘Seq p p0’ >>
+  Cases_on ‘p’ >> fs[dest_Seq_Move_def,full_inst_ok_less_def]
+QED
+
+Theorem full_inst_ok_less_remove_unreach:
+  full_inst_ok_less ac p ⇒
+  full_inst_ok_less ac (remove_unreach p)
+Proof
+  rw[remove_unreach_def] >>
+  irule full_inst_ok_less_Seq_assoc_right_lemma >>
+  simp[full_inst_ok_less_def]
+QED
+
+Triviality wf_cutsets_SimpSeq:
+  wf_cutsets p1 ∧ wf_cutsets p2 ⇒
+  wf_cutsets (SimpSeq p1 p2)
+Proof
+  rw [SimpSeq_def,wf_cutsets_def]
+  \\ Cases_on ‘p1’ \\ rw [wf_cutsets_def]
+  \\ Cases_on ‘dest_Seq_Move p2’ \\ gvs []
+  \\ rw [wf_cutsets_def] \\ gvs [SUBSET_DEF]
+  \\ PairCases_on ‘x’ \\ gvs []
+  \\ pop_assum mp_tac \\ rw []
+  \\ gvs [oneline dest_Seq_Move_def, AllCaseEqs(), wf_cutsets_def]
+QED
+
+Triviality wf_cutsets_Seq_assoc_right_lemma:
+  ∀p1 p2.
+  wf_cutsets p1 ∧ wf_cutsets p2 ⇒
+  wf_cutsets (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,wf_cutsets_def]
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[wf_cutsets_def]
+    \\ match_mp_tac wf_cutsets_SimpSeq
+    \\ gvs[wf_cutsets_def])
+  \\ match_mp_tac wf_cutsets_SimpSeq
+  \\ gvs[wf_cutsets_def]
+QED
+
+Theorem wf_cutsets_remove_unreach:
+  wf_cutsets p ⇒ wf_cutsets (remove_unreach p)
+Proof
+  rw[remove_unreach_def]
+  \\ irule wf_cutsets_Seq_assoc_right_lemma
+  \\ gvs[wf_cutsets_def]
+QED
+
+Triviality every_inst_SimpSeq:
+  every_inst P p1 ∧ every_inst P p2 ⇒
+  every_inst P (SimpSeq p1 p2)
+Proof
+  rw [SimpSeq_def,every_inst_def]
+  \\ Cases_on ‘p1’ \\ rw [every_inst_def]
+  \\ Cases_on ‘dest_Seq_Move p2’ \\ gvs []
+  \\ rw [every_inst_def] \\ gvs [SUBSET_DEF]
+  \\ PairCases_on ‘x’ \\ gvs []
+  \\ pop_assum mp_tac \\ rw []
+  \\ gvs [oneline dest_Seq_Move_def, AllCaseEqs(), every_inst_def]
+QED
+
+Triviality every_inst_Seq_assoc_right_lemma:
+  ∀p1 p2.
+  every_inst P p1 ∧ every_inst P p2 ⇒
+  every_inst P (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,every_inst_def]
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[every_inst_def]
+    \\ match_mp_tac every_inst_SimpSeq
+    \\ gvs[every_inst_def])
+  \\ match_mp_tac every_inst_SimpSeq
+  \\ gvs[every_inst_def]
+QED
+
+Theorem every_inst_remove_unreach:
+  every_inst P p ⇒
+  every_inst P (remove_unreach p)
+Proof
+  rw[remove_unreach_def]
+  \\ irule every_inst_Seq_assoc_right_lemma
+  \\ gvs[every_inst_def]
+QED
+
+Triviality flat_exp_conventions_SimpSeq:
+  flat_exp_conventions p1 ∧ flat_exp_conventions p2 ⇒
+  flat_exp_conventions (SimpSeq p1 p2)
+Proof
+  rw [SimpSeq_def,flat_exp_conventions_def]
+  \\ Cases_on ‘p1’ \\ rw [flat_exp_conventions_def]
+  \\ Cases_on ‘dest_Seq_Move p2’ \\ gvs []
+  \\ rw [flat_exp_conventions_def] \\ gvs [SUBSET_DEF]
+  \\ PairCases_on ‘x’ \\ gvs []
+  \\ pop_assum mp_tac \\ rw []
+  \\ gvs [oneline dest_Seq_Move_def, AllCaseEqs(), flat_exp_conventions_def]
+QED
+
+Triviality flat_exp_conventions_Seq_assoc_right_lemma:
+  ∀p1 p2.
+  flat_exp_conventions p1 ∧ flat_exp_conventions p2 ⇒
+  flat_exp_conventions (Seq_assoc_right p1 p2)
+Proof
+  HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
+  \\ fs [Seq_assoc_right_def,flat_exp_conventions_def]
+  >~ [`Call`]
+  >- (
+    every_case_tac \\ gvs[flat_exp_conventions_def]
+    \\ match_mp_tac flat_exp_conventions_SimpSeq
+    \\ gvs[flat_exp_conventions_def])
+  \\ match_mp_tac flat_exp_conventions_SimpSeq
+  \\ gvs[flat_exp_conventions_def]
+QED
+
+Theorem flat_exp_conventions_remove_unreach:
+  flat_exp_conventions p ⇒
+  flat_exp_conventions (remove_unreach p)
+Proof
+  rw[remove_unreach_def]
+  \\ irule flat_exp_conventions_Seq_assoc_right_lemma
+  \\ gvs[flat_exp_conventions_def]
+QED
 
 (*** word_alloc ***)
+Triviality apply_colour_lab_pres:
+  ∀col prog.
+  extract_labels prog = extract_labels (apply_colour col prog)
+Proof
+  ho_match_mp_tac apply_colour_ind>>
+  fs[extract_labels_def]>>rw[]>>
+  EVERY_CASE_TAC>>fs[]
+QED
 
-Theorem apply_colour_not_created_subprogs:
+Theorem word_alloc_lab_pres:
+  extract_labels prog = extract_labels (word_alloc fc c alg k prog col_opt)
+Proof
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  TRY(pairarg_tac)>>fs[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[apply_colour_lab_pres]
+QED
+
+Triviality word_alloc_flat_exp_conventions_lem:
+  ∀f prog.
+  flat_exp_conventions prog ⇒
+  flat_exp_conventions (apply_colour f prog)
+Proof
+  ho_match_mp_tac apply_colour_ind>>full_simp_tac(srw_ss())[flat_exp_conventions_def]>>srw_tac[][]
+  >-
+    (EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def])
+  >-
+    (Cases_on`exp`>>full_simp_tac(srw_ss())[flat_exp_conventions_def])
+  >>
+    gvs[DefnBase.one_line_ify NONE flat_exp_conventions_def] >>
+    first_x_assum mp_tac >>
+    rpt (TOP_CASE_TAC >> simp[])
+QED
+
+Theorem word_alloc_flat_exp_conventions:
+  ∀fc c alg k prog col_opt.
+  flat_exp_conventions prog ⇒
+  flat_exp_conventions (word_alloc fc c alg k prog col_opt)
+Proof
+  full_simp_tac(srw_ss())[word_alloc_def,oracle_colour_ok_def]>>
+  srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>
+  metis_tac[word_alloc_flat_exp_conventions_lem]
+QED
+
+Triviality word_alloc_two_reg_inst_lem:
+  ∀f prog.
+  every_inst two_reg_inst prog ⇒
+  every_inst two_reg_inst (apply_colour f prog)
+Proof
+  ho_match_mp_tac apply_colour_ind>>
+  fs[every_inst_def]>>rw[]
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`f'`)>>
+    fs[apply_colour_inst_def,two_reg_inst_def])
+  >>
+    EVERY_CASE_TAC>>unabbrev_all_tac>>
+    fs[every_inst_def,apply_colour_inst_def,two_reg_inst_def]
+QED
+
+Theorem word_alloc_two_reg_inst:
+  ∀fc c alg k prog col_opt.
+  every_inst two_reg_inst prog ⇒
+  every_inst two_reg_inst (word_alloc fc c alg k prog col_opt)
+Proof
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  rw[]>>
+  EVERY_CASE_TAC>>
+  rpt (pairarg_tac>>fs[])>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[word_alloc_two_reg_inst_lem]
+QED
+
+Triviality apply_colour_not_created_subprogs:
   not_created_subprogs P prog ⇒
   not_created_subprogs P (apply_colour f prog)
 Proof
@@ -1554,7 +2529,7 @@ Proof
   every_case_tac>>gs[]
 QED
 
-Theorem word_alloc_not_created_subprogs:
+Triviality word_alloc_not_created_subprogs:
   not_created_subprogs P prog ⇒
   not_created_subprogs P (word_alloc n c a r prog cl)
 Proof
@@ -1588,7 +2563,7 @@ Proof
   every_case_tac>>fs[]
 QED
 
-Theorem word_get_code_labels_word_alloc:
+Triviality word_get_code_labels_word_alloc:
   word_get_code_labels (word_alloc fc c alg k prog col_opt) =
   word_get_code_labels prog
 Proof
@@ -1599,7 +2574,7 @@ Proof
   metis_tac[word_get_code_labels_apply_colour]
 QED
 
-Theorem word_good_handlers_word_alloc:
+Triviality word_good_handlers_word_alloc:
   word_good_handlers n (word_alloc fc c alg k prog col_opt) ⇔
   word_good_handlers n prog
 Proof
@@ -1612,7 +2587,34 @@ QED
 
 (*** remove_must_terminate ***)
 
-Theorem word_get_code_labels_remove_must_terminate:
+val rmt_convs = [flat_exp_conventions_def, full_inst_ok_less_def,
+  every_inst_def, post_alloc_conventions_def, call_arg_convention_def,
+  wordLangTheory.every_stack_var_def, wordLangTheory.every_var_def,
+  extract_labels_def]
+
+Theorem remove_must_terminate_conventions:
+  ∀p c k.
+  let comp = remove_must_terminate p in
+  (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
+  (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
+  (post_alloc_conventions k p ⇒ post_alloc_conventions k comp) ∧
+  (every_inst P p ⇒ every_inst P comp) ∧
+  (extract_labels p = extract_labels comp)
+Proof
+  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
+  fs[remove_must_terminate_def]>>fs rmt_convs>>
+  TRY
+  (rename1`args = A`>>
+  Cases_on`ret`>>fs[]>>
+  PairCases_on`x`>>fs[]>>
+  Cases_on`h`>>fs[]>- metis_tac[]>>
+  PairCases_on`x`>>fs[]>>
+  metis_tac[])>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[]
+QED
+
+Triviality word_get_code_labels_remove_must_terminate:
   ∀ps.
   word_get_code_labels (remove_must_terminate ps) =
   word_get_code_labels ps
@@ -1622,7 +2624,7 @@ Proof
   every_case_tac>>fs[]
 QED
 
-Theorem word_good_handlers_remove_must_terminate:
+Triviality word_good_handlers_remove_must_terminate:
   ∀ps.
   word_good_handlers n (remove_must_terminate ps) ⇔
   word_good_handlers n ps
@@ -1633,6 +2635,25 @@ Proof
 QED
 
 (*** word_to_word ***)
+Theorem compile_single_not_created_subprogs:
+  not_created_subprogs P (SND (SND (FST prog_opt))) ==>
+  not_created_subprogs P (SND (SND
+    (compile_single two_reg_arith reg_count alg c prog_opt)))
+Proof
+  PairCases_on `prog_opt`>>
+  strip_tac>>
+  fs[word_to_wordTheory.compile_single_def]>>
+  irule word_alloc_not_created_subprogs>>
+  irule remove_dead_prog_not_created_subprogs>>
+  irule remove_unreach_not_created_subprogs>>
+  irule three_to_two_reg_prog_not_created_subprogs>>
+  irule copy_prop_not_created_subprogs>>
+  irule word_common_subexp_elim_not_created_subprogs>>
+  irule remove_dead_prog_not_created_subprogs>>
+  irule full_ssa_cc_trans_not_created_subprogs>>
+  irule inst_select_not_created_subprogs>>
+  irule compile_exp_not_created_subprogs>>rw[]
+QED
 
 Triviality word_good_handlers_word_to_word_incr_helper:
   ∀oracles.

@@ -1767,43 +1767,6 @@ Proof
   \\ Cases_on ‘is_seen n data’ \\ gvs []
 QED
 
-Theorem word_cse_flat_exp_conventions:
-  ∀p data.
-    let p' = SND (word_cse data p) in
-      flat_exp_conventions p ⇒ flat_exp_conventions p'
-Proof
-  Induct \\ gvs [flat_exp_conventions_def, word_cse_def, AllCaseEqs()]
-  >- (Cases_on ‘canonicalMoveRegs3 data l’ \\ gvs [flat_exp_conventions_def])
-  >- (rpt gen_tac
-      \\ pairarg_tac \\ gvs []
-      \\ Cases_on ‘i’ \\ gvs [word_cseInst_def, flat_exp_conventions_def,
-                              add_to_data_def, add_to_data_aux_def, AllCaseEqs()]
-      \\ Cases_on ‘a’ \\ gvs [word_cseInst_def, flat_exp_conventions_def, AllCaseEqs()])
-  >- (Cases_on ‘is_seen n data’ \\ gvs [flat_exp_conventions_def])
-  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’ \\ gvs [flat_exp_conventions_def, canonicalExp_def])
-  >- (gen_tac \\ first_x_assum (qspec_then ‘data’ assume_tac)
-      \\ Cases_on ‘word_cse data p’ \\ gvs [flat_exp_conventions_def])
-  >- (Cases_on ‘o'’ \\ gvs [flat_exp_conventions_def]
-      \\ Cases_on ‘x’ \\ gvs []
-      \\ Cases_on ‘r’ \\ gvs [flat_exp_conventions_def])
-  >- (gen_tac \\ strip_tac
-      \\ rpt (first_x_assum drule \\ strip_tac)
-      \\ Cases_on ‘word_cse data p’ \\ gvs []
-      \\ first_x_assum (qspec_then ‘data’ assume_tac) \\ gvs []
-      \\ Cases_on ‘word_cse q p'’ \\ gvs []
-      \\ first_x_assum (qspec_then ‘q’ assume_tac) \\ gvs [flat_exp_conventions_def])
-  >- (rpt gen_tac
-      \\ Cases_on ‘word_cse data p’ \\ gvs []
-      \\ Cases_on ‘word_cse data p'’ \\ gvs []
-      \\ strip_tac \\ gvs []
-      \\ last_x_assum (qspec_then ‘data’ assume_tac) \\ gvs []
-      \\ last_x_assum (qspec_then ‘data’ assume_tac) \\ gvs [flat_exp_conventions_def])
-  >- (Cases_on ‘is_seen n data ∨ ¬is_seen n0 data’ \\ gvs [flat_exp_conventions_def]
-      \\ gvs [add_to_data_aux_def]  \\ rpt gen_tac
-      \\ rpt CASE_TAC \\ gvs [flat_exp_conventions_def])
-  >- (Cases_on ‘is_seen n data’ \\ gvs [flat_exp_conventions_def])
-QED
-
 Theorem inst_ok_canonicalArith_lemma:
   ∀a data c.
     data_conventions data ⇒
@@ -1958,47 +1921,6 @@ Proof
   \\ Cases_on ‘is_seen n data’ \\ gvs []
 QED
 
-Theorem word_cse_wf_cutsets:
-  ∀p data.
-    let p' = SND (word_cse data p) in
-      data_conventions data ⇒
-      wf_cutsets p ⇒ wf_cutsets p'
-Proof
-  Induct \\ gvs [wf_cutsets_def, word_cse_def, AllCaseEqs()]
-  \\ rpt gen_tac \\ strip_tac
-  >- (pairarg_tac \\ gvs [wf_cutsets_def])
-  >- (pairarg_tac \\ gvs []
-      \\ Cases_on ‘i’
-      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
-              wf_cutsets_def, AllCaseEqs()]
-      \\ Cases_on ‘a’
-      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
-              wf_cutsets_def, AllCaseEqs()])
-  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def])
-  >- (Cases_on ‘s’ \\ gvs [wf_cutsets_def])
-  >- (pairarg_tac \\ strip_tac \\ gvs [] \\ last_x_assum drule_all \\ gvs [wf_cutsets_def])
-  >- (Cases_on ‘o'’ \\ gvs [wf_cutsets_def]
-      \\ Cases_on ‘x’ \\ gvs [wf_cutsets_def]
-      \\ Cases_on ‘r’ \\ gvs [wf_cutsets_def])
-  >- (pairarg_tac \\ gvs [] \\ strip_tac
-      \\ last_x_assum drule_all \\ strip_tac
-      \\ ‘data_conventions data1’
-        by (assume_tac word_cse_data_conventions
-            \\ first_x_assum (qspecl_then [‘p’, ‘data’] assume_tac) \\ gvs [])
-      \\ last_x_assum drule_all \\ strip_tac
-      \\ pairarg_tac \\ gvs [wf_cutsets_def])
-  >- (strip_tac
-      \\ rpt (pairarg_tac \\ gvs [])
-      \\ rpt (last_x_assum drule \\ strip_tac)
-      \\ gvs [wf_cutsets_def])
-  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
-      \\ Cases_on ‘¬is_seen n0 data’ \\ gvs [wf_cutsets_def]
-      \\ gvs [add_to_data_aux_def]
-      \\ Cases_on ‘lookup listCmp (OpCurrHeapToNumList b (canonicalRegs' n data n0)) data.instrs’ \\ gvs []
-      \\ Cases_on ‘EVEN n’ \\ gvs [wf_cutsets_def])
-  \\ Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
-QED
-
 Theorem is_seen_canonical:
   ∀n data. data_conventions data ⇒ is_seen (canonicalRegs data n) data ⇒ is_seen n data
 Proof
@@ -2100,67 +2022,21 @@ Proof
 QED
 
 Theorem word_cse_conventions:
-  ∀p data c k.
-    data_conventions data ⇒
-    let (data', p') = word_cse data p in
-      (flat_exp_conventions p ⇒ flat_exp_conventions p') ∧
-      (full_inst_ok_less c p ⇒ full_inst_ok_less c p') ∧
-  (*  (post_alloc_conventions k p ⇒ post_alloc_conventions k p') ∧ *)
-      (data_conventions data')
-Proof
-  rpt gen_tac \\ gvs [] \\ pairarg_tac
-  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_flat_exp_conventions \\ gvs []
-  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_full_inst_ok_less \\ gvs []
-(*\\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_post_alloc_conventions \\ gvs []*)
-  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_data_conventions \\ gvs []
-QED
-
-Theorem word_cse_conventions2:
   ∀p data c.
     data_conventions data ⇒
     let (data', p') = word_cse data p in
-      (flat_exp_conventions p ⇒ flat_exp_conventions p') ∧
       (full_inst_ok_less c p ⇒ full_inst_ok_less c p') ∧
       (pre_alloc_conventions p ⇒ pre_alloc_conventions p') ∧
-      (wf_cutsets p ⇒ wf_cutsets p') ∧
       (every_inst two_reg_inst p ⇒ every_inst two_reg_inst p') ∧
       (every_inst distinct_tar_reg p ⇒ every_inst distinct_tar_reg p') ∧
       (data_conventions data')
 Proof
   rpt gen_tac \\ gvs [] \\ pairarg_tac \\ gvs []
-  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_flat_exp_conventions \\ gvs []
   \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_full_inst_ok_less \\ gvs []
   \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_pre_alloc_conventions \\ gvs []
-  \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_wf_cutsets \\ gvs []
   \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_every_inst_two_reg \\ gvs []
   \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_every_inst_distinct_tar_reg \\ gvs []
   \\ qspecl_then [‘p’, ‘data’] assume_tac word_cse_data_conventions \\ gvs []
-QED
-
-Theorem word_cse_extract_labels:
-  ∀p d d1 p1. word_cse d p = (d1,p1) ⇒ extract_labels p1 = extract_labels p
-Proof
-  Induct \\ fs [word_cse_def,extract_labels_def] \\ rw []
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ fs [extract_labels_def]
-  \\ res_tac \\ gvs [AllCaseEqs()]
-  \\ fs [extract_labels_def,PULL_EXISTS]
-  \\ every_case_tac \\ fs []
-  \\ gvs [add_to_data_aux_def,AllCaseEqs(),extract_labels_def]
-  \\ rename [‘word_cseInst d i = (d1,p)’]
-  \\ Cases_on ‘i’
-  \\ gvs [word_cseInst_def,extract_labels_def,AllCaseEqs(),add_to_data_def,
-         add_to_data_aux_def]
-  \\ Cases_on ‘a’
-  \\ gvs [word_cseInst_def,extract_labels_def,AllCaseEqs(),add_to_data_def,
-         add_to_data_aux_def]
-QED
-
-Theorem wf_cutsets_word_common_subexp_elim:
-  wf_cutsets p ⇒ wf_cutsets (word_common_subexp_elim p)
-Proof
-  fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
-  \\ qspecl_then [‘p’,‘empty_data’,‘acc’] mp_tac word_cse_conventions2 \\ fs []
 QED
 
 Theorem every_inst_distinct_tar_reg_word_common_subexp_elim:
@@ -2168,23 +2044,8 @@ Theorem every_inst_distinct_tar_reg_word_common_subexp_elim:
   every_inst distinct_tar_reg (word_common_subexp_elim p)
 Proof
   fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
-  \\ qspecl_then [‘p’,‘empty_data’,‘acc’] mp_tac word_cse_conventions2
+  \\ qspecl_then [‘p’,‘empty_data’,‘acc’] mp_tac word_cse_conventions
   \\ fs []
-QED
-
-Theorem extract_labels_word_common_subexp_elim:
-  extract_labels (word_common_subexp_elim p) = extract_labels p
-Proof
-  fs [word_common_subexp_elim_def] \\ pairarg_tac \\ rw []
-  \\ drule word_cse_extract_labels \\ fs []
-QED
-
-Theorem flat_exp_conventions_word_common_subexp_elim:
-  flat_exp_conventions p ⇒
-  flat_exp_conventions (word_common_subexp_elim p)
-Proof
-  fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
-  \\ qspecl_then [‘p’,‘empty_data’,‘acc’] mp_tac word_cse_conventions2 \\ fs []
 QED
 
 Theorem pre_alloc_conventions_word_common_subexp_elim:
@@ -2192,7 +2053,7 @@ Theorem pre_alloc_conventions_word_common_subexp_elim:
   pre_alloc_conventions (word_common_subexp_elim p)
 Proof
   fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
-  \\ qspecl_then [‘p’,‘empty_data’,‘acc’] mp_tac word_cse_conventions2 \\ fs []
+  \\ qspecl_then [‘p’,‘empty_data’,‘acc’] mp_tac word_cse_conventions \\ fs []
 QED
 
 Theorem full_inst_ok_less_word_common_subexp_elim:
@@ -2200,7 +2061,7 @@ Theorem full_inst_ok_less_word_common_subexp_elim:
   full_inst_ok_less ac (word_common_subexp_elim p)
 Proof
   fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
-  \\ qspecl_then [‘p’,‘empty_data’,‘ac’] mp_tac word_cse_conventions2 \\ fs []
+  \\ qspecl_then [‘p’,‘empty_data’,‘ac’] mp_tac word_cse_conventions \\ fs []
 QED
 
 val _ = export_theory();
