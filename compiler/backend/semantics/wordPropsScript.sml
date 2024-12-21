@@ -18,8 +18,9 @@ val _ = temp_delsimps ["NORMEQ_CONV"];
 
 val _ = new_theory "wordProps";
 
-(* TODO: move *)
 val _ = set_grammar_ancestry ["backendProps","wordConvs","wordLang", "wordSem"]
+
+(* TODO: move *)
 Theorem mem_list_rearrange:
     ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls
 Proof
@@ -302,7 +303,6 @@ Proof
   EVAL_TAC
 QED
 
-
 Theorem set_vars_with_const[simp]:
   set_vars x y (z with locals_size := ls) = set_vars x y z with locals_size := ls /\
   set_vars x y (z with fp_regs := fp) = set_vars x y z with fp_regs := fp /\
@@ -326,6 +326,33 @@ Theorem set_vars_with_const[simp]:
   set_vars x y (z with code := cd) = set_vars x y z with code := cd /\
   set_vars x y (z with be := b) = set_vars x y z with be := b /\
   set_vars x y (z with ffi := ffi) = set_vars x y z with ffi := ffi
+Proof
+  EVAL_TAC
+QED
+
+Theorem get_store_with_const[simp]:
+   get_store x (y with locals := l) = get_store x y /\
+   get_store x (y with locals_size := ls) = get_store x y /\
+   get_store x (y with fp_regs:= fp) = get_store x y /\
+   get_store x (y with stack := xs) = get_store x y /\
+   get_store x (y with stack_limit := sl) = get_store x y /\
+   get_store x (y with stack_max := sm) = get_store x y /\
+   get_store x (y with stack_size := ssize) = get_store x y /\
+   get_store x (y with memory := m) = get_store x y /\
+   get_store x (y with mdomain := md) = get_store x y /\
+   get_store x (y with sh_mdomain := smd) = get_store x y /\
+   get_store x (y with permute := p) = get_store x y /\
+   get_store x (y with compile := c) = get_store x y /\
+   get_store x (y with compile_oracle := co) = get_store x y /\
+   get_store x (y with code_buffer := cb) = get_store x y /\
+   get_store x (y with data_buffer := db) = get_store x y /\
+   get_store x (y with gc_fun := g) = get_store x y /\
+   get_store x (y with handler := hd) = get_store x y /\
+   get_store x (y with clock := clk) = get_store x y /\
+   get_store x (y with termdep := tdep) = get_store x y /\
+   get_store x (y with code := cd) = get_store x y /\
+   get_store x (y with be := b) = get_store x y /\
+   get_store x (y with ffi := ffi) = get_store x y
 Proof
   EVAL_TAC
 QED
