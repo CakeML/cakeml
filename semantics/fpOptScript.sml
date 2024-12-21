@@ -148,11 +148,6 @@ Datatype:
   fp_path = Left fp_path | Right fp_path | Center fp_path | Here
 End
 
-Definition option_map_def:
- option_map f NONE =  NONE ∧
- option_map f (SOME res) = SOME (f res)
-End
-
 (* Function rwFp_pathValTree b rw p v recurses through value tree v using fp_path p
   until p = Here or no further recursion is possible because of a mismatch.
   In case of a mismatch the function simply returns Nothing. *)
@@ -163,19 +158,19 @@ Definition rwFp_pathWordTree_def:
          NONE => NONE
        | SOME s => instWordTree rhs s)) ∧
  rwFp_pathWordTree rw (Left p) (Fp_bop op v1 v2) =
-   (option_map (\ v1 .  Fp_bop op v1 v2) (rwFp_pathWordTree rw p v1)) ∧
+   (OPTION_MAP (\ v1 .  Fp_bop op v1 v2) (rwFp_pathWordTree rw p v1)) ∧
  rwFp_pathWordTree rw (Right p) (Fp_bop op v1 v2) =
-   (option_map (\ v2 .  Fp_bop op v1 v2) (rwFp_pathWordTree rw p v2)) ∧
+   (OPTION_MAP (\ v2 .  Fp_bop op v1 v2) (rwFp_pathWordTree rw p v2)) ∧
  rwFp_pathWordTree rw (Center p) (Fp_uop op v1) =
-   (option_map (\ v .  Fp_uop op v) (rwFp_pathWordTree rw p v1)) ∧
+   (OPTION_MAP (\ v .  Fp_uop op v) (rwFp_pathWordTree rw p v1)) ∧
  rwFp_pathWordTree rw (Left p) (Fp_top op v1 v2 v3) =
-   (option_map (\ v1 .  Fp_top op v1 v2 v3) (rwFp_pathWordTree rw p v1)) ∧
+   (OPTION_MAP (\ v1 .  Fp_top op v1 v2 v3) (rwFp_pathWordTree rw p v1)) ∧
  rwFp_pathWordTree rw (Center p) (Fp_top op v1 v2 v3) =
-   (option_map (\ v2 .  Fp_top op v1 v2 v3) (rwFp_pathWordTree rw p v2)) ∧
+   (OPTION_MAP (\ v2 .  Fp_top op v1 v2 v3) (rwFp_pathWordTree rw p v2)) ∧
  rwFp_pathWordTree rw (Right p) (Fp_top op v1 v2 v3) =
-   (option_map (\ v3 .  Fp_top op v1 v2 v3) (rwFp_pathWordTree rw p v3)) ∧
+   (OPTION_MAP (\ v3 .  Fp_top op v1 v2 v3) (rwFp_pathWordTree rw p v3)) ∧
  rwFp_pathWordTree rw (Center p) (Fp_wopt fp_opt v) =
-   (option_map (\ v .  Fp_wopt fp_opt v) (rwFp_pathWordTree rw p v)) ∧
+   (OPTION_MAP (\ v .  Fp_wopt fp_opt v) (rwFp_pathWordTree rw p v)) ∧
  rwFp_pathWordTree _ _ _=  NONE
 End
 
@@ -186,11 +181,11 @@ Definition rwFp_pathBoolTree_def:
           NONE => NONE
         | SOME s => instBoolTree rhs s)) ∧
   rwFp_pathBoolTree rw (Center p) (Fp_bopt fp_opt v) =
-    (option_map (\ v .  Fp_bopt fp_opt v) (rwFp_pathBoolTree rw p v)) ∧
+    (OPTION_MAP (\ v .  Fp_bopt fp_opt v) (rwFp_pathBoolTree rw p v)) ∧
   rwFp_pathBoolTree rw (Left p) (Fp_cmp cmp v1 v2) =
-    (option_map (\ v1 .  Fp_cmp cmp v1 v2) (rwFp_pathWordTree rw p v1)) ∧
+    (OPTION_MAP (\ v1 .  Fp_cmp cmp v1 v2) (rwFp_pathWordTree rw p v1)) ∧
   rwFp_pathBoolTree rw (Right p) (Fp_cmp cmp v1 v2) =
-    (option_map (\ v2 .  Fp_cmp cmp v1 v2) (rwFp_pathWordTree rw p v2)) ∧
+    (OPTION_MAP (\ v2 .  Fp_cmp cmp v1 v2) (rwFp_pathWordTree rw p v2)) ∧
   rwFp_pathBoolTree _ _ _=  NONE
 End
 
