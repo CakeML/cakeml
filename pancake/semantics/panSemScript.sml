@@ -176,7 +176,9 @@ Definition eval_def:
      | SOME (ValWord w) => OPTION_MAP ValWord (word_sh sh w n)
      | _ => NONE) /\
   (eval s BaseAddr =
-        SOME (ValWord s.base_addr))
+        SOME (ValWord s.base_addr)) /\
+  (eval s BytesInWord =
+        SOME (ValWord bytes_in_word))
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
   \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
@@ -334,7 +336,8 @@ End
 
 Definition nb_op_def:
   nb_op Op8 = 1:num ∧
-  nb_op OpW = 0
+  nb_op OpW = 0 ∧
+  nb_op Op32 = 4
 End
 
 Definition evaluate_def:
@@ -418,6 +421,7 @@ Definition evaluate_def:
   (evaluate (Tick,s) =
     if s.clock = 0 then (SOME TimeOut,empty_locals s)
     else (NONE,dec_clock s)) /\
+  (evaluate (Annot _ _,s) = (NONE, s)) /\
   (evaluate (Call caltyp trgt argexps,s) =
     case (eval s trgt, OPT_MMAP (eval s) argexps) of
      | (SOME (ValLabel fname), SOME args) =>
@@ -547,11 +551,11 @@ Proof
 QED
 
 (* we save evaluate theorems without fix_clock *)
-val evaluate_ind = save_thm("evaluate_ind[allow_rebind]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+Theorem evaluate_ind[allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind
 
-val evaluate_def = save_thm("evaluate_def[allow_rebind,compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_def[allow_rebind,compute] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def
 
 (* observational semantics *)
 

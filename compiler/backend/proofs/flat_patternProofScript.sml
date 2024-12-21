@@ -370,7 +370,7 @@ Proof
   \\ simp [evaluate_def]
   \\ fs [DISJ_IMP_THM, FORALL_AND_THM, IMP_CONJ_THM, IS_SOME_EXISTS]
   \\ rfs []
-  \\ simp [libTheory.opt_bind_def, ALOOKUP_rel_cons_false]
+  \\ simp [miscTheory.opt_bind_def, ALOOKUP_rel_cons_false]
   \\ simp_tac bool_ss [GSYM APPEND_ASSOC, APPEND]
 QED
 
@@ -457,9 +457,9 @@ Proof
     \\ rw []
     \\ fs [pat_bindings_def]
     \\ last_x_assum (drule_then drule)
-    \\ simp [libTheory.opt_bind_def]
+    \\ simp [miscTheory.opt_bind_def]
     \\ disch_then irule
-    \\ simp [libTheory.opt_bind_def]
+    \\ simp [miscTheory.opt_bind_def]
     \\ simp [ALOOKUP_rel_cons]
     \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac LIST_REL_mono)
     \\ simp [FORALL_PROD, ALOOKUP_rel_cons_false]
@@ -571,7 +571,7 @@ Proof
     \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` mp_tac
     \\ disch_then (qspec_then `env` mp_tac)
     \\ rw [evaluate_def, pure_eval_to_def, ALOOKUP_rel_refl]
-    \\ gs [evaluate_def, PULL_EXISTS, libTheory.opt_bind_def]
+    \\ gs [evaluate_def, PULL_EXISTS, miscTheory.opt_bind_def]
     \\ last_x_assum (first_assum o mp_then (Pat `evaluate _ _ _ = _`) mp_tac)
     \\ simp []
     \\ disch_then irule
@@ -581,7 +581,7 @@ Proof
       \\ first_x_assum (drule_then assume_tac) \\ gs [])
     \\ qpat_assum ‘pmatch s p _ _ = Match _’ (irule_at Any) \\ simp []
     \\ first_assum (irule_at Any)
-    \\ gs [libTheory.opt_bind_def]
+    \\ gs [miscTheory.opt_bind_def]
     \\ ‘¬((λk. k < j) o dec_name_to_num) (enc_num_to_name (i + 1) "")’
       by simp [dec_enc]
     \\ simp [ALOOKUP_rel_cons_false]
@@ -617,7 +617,7 @@ Proof
     \\ disch_then match_mp_tac
     \\ simp [CaseEq "match_result", PULL_EXISTS]
     \\ rpt (CHANGED_TAC (asm_exists_tac \\ simp []))
-    \\ fs [libTheory.opt_bind_def, pat_bindings_def]
+    \\ fs [miscTheory.opt_bind_def, pat_bindings_def]
     \\ simp [ALOOKUP_rel_cons_false, dec_enc]
     \\ fs [store_lookup_def]
     \\ rw []
@@ -981,7 +981,7 @@ Definition encode_val_def:
   encode_val (Conv stmp xs) = Term
     (case stmp of NONE => NONE | SOME (i, _) => SOME i)
     (MAP encode_val xs) /\
-  encode_val (Loc n) = RefPtr n /\
+  encode_val (Loc _ n) = RefPtr n /\
   encode_val others = Other
 Termination
   WF_REL_TAC `measure v_size`
@@ -1788,7 +1788,7 @@ Proof
     \\ rw []
     \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ DEP_REWRITE_TAC [Q.GEN `v` evaluate_compile_pats |> Q.SPEC `HD v'`]
-    \\ simp [pure_eval_to_def, evaluate_def, libTheory.opt_bind_def]
+    \\ simp [pure_eval_to_def, evaluate_def, miscTheory.opt_bind_def]
     \\ imp_res_tac flatPropsTheory.evaluate_sing
     \\ rveq \\ fs []
     \\ rename [`compile_match _ _ = (k, _)`]
@@ -1816,7 +1816,7 @@ Proof
     \\ fs [markerTheory.Abbrev_def, Q.ISPEC `(a, b)` EQ_SYM_EQ]
     \\ drule_then drule evaluate_compile_pat_rhs
     \\ rpt (disch_then drule)
-    \\ simp [LESS_MAX_ADD, libTheory.opt_bind_def]
+    \\ simp [LESS_MAX_ADD, miscTheory.opt_bind_def]
     \\ disch_tac \\ fs []
     \\ last_x_assum (drule_then (drule_then drule))
     \\ simp [LESS_MAX_ADD]
@@ -1833,7 +1833,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac `evaluate upd_env _ _ = _`
     \\ disch_then (qspecl_then [`N`, `upd_env`] mp_tac)
     \\ reverse impl_tac >- (rw [] \\ simp [] \\ fs [SUBSET_DEF])
-    \\ fs [env_rel_def, libTheory.opt_bind_def, markerTheory.Abbrev_def]
+    \\ fs [env_rel_def, miscTheory.opt_bind_def, markerTheory.Abbrev_def]
     \\ CASE_TAC \\ simp []
     \\ simp [ALOOKUP_rel_cons]
   )

@@ -49,6 +49,9 @@ fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
 exception EarlyReturn;
 
 fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
+  val _ = (cv_memLib.verbosity_level := cv_memLib.Verbose)
+  fun report s = print (String.concat ["eval_cake: ", s, " --- ",
+                    Date.toString (Date.fromTimeLocal (Time.now())),"\n"])
   val { prefix, conf_def, prog_def, run_as_explorer
       , output_filename , output_conf_filename } = input
   val { default_config_def, default_config_simp, to_livesets_def, compile_cake_explore_def
@@ -59,15 +62,25 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val conf = conf_def |> concl |> lhs
   val c = backendTheory.config_to_inc_config_def
             |> ISPEC conf |> CONV_RULE (RAND_CONV EVAL)
+  val _ = report "config EVAL-ed"
   val _ = allowing_rebind (cv_trans_deep_embedding EVAL) prog_def
+  val _ = report "cv_trans_deep_embedding prog_def finished"
   val input_tm = to_livesets_def |> GEN_ALL
     |> SPEC (prog_def |> concl |> lhs)
     |> SPEC (c |> concl |> rand) |> concl |> lhs |> mk_fst
   val oracles = let
+    val _ = report "about to run cv_eval on to_livesets_def"
+    val graphs_raw = cv_eval_raw input_tm |> rconc
+    val _ = report "cv_eval to_livesets finished"
+    in reg_allocComputeLib.get_oracle_raw reg_alloc.Irc graphs_raw end
+(*
     val graphs = cv_eval input_tm |> rconc
     in reg_allocComputeLib.get_oracle reg_alloc.Irc graphs end
+*)
+  val _ = report "external register allocation finished"
   val oracle_def = define_abbrev "temp_oracle" oracles;
   val _ = allowing_rebind (cv_trans_deep_embedding EVAL) oracle_def
+  val _ = report "cv_trans_deep_embedding oracle_def finished"
   val oracle_tm = oracle_def |> concl |> lhs
   val c_tm = c |> concl |> lhs
   val c_oracle_tm = backendTheory.inc_set_oracle_def
@@ -79,6 +92,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
     |> SPEC c_oracle_tm |> concl |> lhs
   val to_option_some = cv_typeTheory.to_option_def |> cj 2
   val to_pair = cv_typeTheory.to_pair_def |> cj 1
+  val _ = report "about to run cv_eval_raw on complie_cake_def"
   val th1 = cv_eval_raw input_tm
             |> CONV_RULE (PATH_CONV "lr" (REWRITE_CONV [GSYM c]))
   val _ =
@@ -86,6 +100,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
       val tm = th1 |> concl |> rhs |> rand |> rand
       val _ = write_cv_char_list_to_file output_filename tm
       in raise EarlyReturn end
+  val _ = report "cv_eval_raw complie_cake_def finished"
   val th2 = th1 |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some))
             handle HOL_ERR _ => failwith "compiler returned NONE"
   val c2n_Num = cvTheory.c2n_def |> cj 1
@@ -99,6 +114,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
                         THENC PATH_CONV "rrrlr" (REWR_CONV c2n_Num)
                         THENC PATH_CONV "rrrrrlr" (REWR_CONV c2n_Num)
                         THENC PATH_CONV "rrrrrrrlr" (REWR_CONV c2n_Num))
+  val _ = report "to_pair evaluation finished"
   fun abbrev_inside name path th = let
     val tm = dest_path path (concl th)
     val def = define_abbrev name tm
@@ -108,6 +124,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val (ffis_def,th) = abbrev_inside "ffis" "rrrrrrlr" th
   val (syms_def,th) = abbrev_inside "syms" "rrrrrrrrlr" th
   val (conf_def,th) = abbrev_inside "conf" "rrrrrrrrr" th
+  val _ = report "abbrevations for result defined"
   fun new_spec th =
     new_specification(prefix ^ "compiled",
                       [prefix ^ "oracle", prefix ^ "info"], th)
@@ -119,6 +136,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
     |> MATCH_MP backend_asmTheory.exists_oracle
     |> CONV_RULE (PATH_CONV "b" BETA_CONV)
     |> new_spec
+  val _ = report "new_spec run on result"
   (* --- *)
   val e = cv_export_def |> concl |> strip_forall |> snd |> lhs
   val cv_ty = cvSyntax.cv
@@ -142,8 +160,10 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
     cv_repLib.cv_rep_for []
     “explode $ concat $ misc$append (x64_export x64_ffis x64_code x64_data x64_syms)”
   *)
+  val _ = report "about to run cv_compute on export"
   val l = cv_computeLib.cv_compute (cv_transLib.cv_eqs_for export_tm) export_tm
           |> concl |> rhs
+  val _ = report "cv_compute on export finished"
   val _ = write_cv_char_list_to_file output_filename l
   val _ = case output_conf_filename of NONE => ()
           | SOME fname => write_cv_char_list_to_file fname
@@ -153,6 +173,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val _ = Theory.delete_binding (prefix ^ "temp_oracle_cv_def")
   val _ = Theory.delete_binding (prefix ^ "temp_oracle_def")
   val _ = Theory.delete_binding (prefix ^ "syms_def")
+  val _ = report "theory tidy up finished"
   in result_th end handle EarlyReturn => TRUTH;
 
 fun eval_cake_compile_with_conf arch prefix conf_def prog_def filename =

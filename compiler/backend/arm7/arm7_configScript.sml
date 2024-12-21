@@ -5,7 +5,7 @@ open preamble backendTheory arm7_targetTheory arm7_targetLib
 
 val _ = new_theory"arm7_config";
 
-val arm7_names_def = Define `
+Definition arm7_names_def:
   arm7_names =
     (* source can use 14 regs,
        target's r15 must be avoided (pc),
@@ -24,10 +24,11 @@ val arm7_names_def = Define `
      (* the rest just ensures that the mapping is well-formed *)
      insert 8 4 o
      insert 10 12 o
-     insert 14 13) LN:num num_map`
+     insert 14 13) LN:num num_map
+End
 
-val arm7_names_def = save_thm("arm7_names_def[allow_rebind]",
-  CONV_RULE (RAND_CONV EVAL) arm7_names_def);
+Theorem arm7_names_def[allow_rebind] =
+  CONV_RULE (RAND_CONV EVAL) arm7_names_def
 
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
@@ -37,7 +38,7 @@ val arm7_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val arm7_stack_conf = ``<|jump:=T;reg_names:=arm7_names|>``
 val arm7_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=arm7_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
 
-val arm7_backend_config_def = Define`
+Definition arm7_backend_config_def:
   arm7_backend_config =
              <|source_conf:=prim_src_config;
                clos_conf:=^(clos_conf);
@@ -50,6 +51,7 @@ val arm7_backend_config_def = Define`
                symbols:=[];
                tap_conf:=default_tap_config;
                exported:=[]
-               |>`;
+               |>
+End
 
 val _ = export_theory();

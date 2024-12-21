@@ -1,5 +1,5 @@
 (*
-  Compilation from panLang to crepLang.
+  Simplification of panLang.
 *)
 
 open preamble panLangTheory
@@ -35,6 +35,7 @@ Definition seq_assoc_def:
                  name args)) /\
   (seq_assoc p (DecCall v s e es q) =
     SmartSeq p (DecCall v s e es (seq_assoc Skip q))) /\
+  (seq_assoc p (Annot _ _) = p) /\
   (seq_assoc p q = SmartSeq p q)
 End
 
@@ -99,6 +100,7 @@ Theorem seq_assoc_pmatch:
                        SOME (rv , (SOME (eid , ev , (seq_assoc Skip ep)))))
                   name args)
   | (DecCall v s e es q) => SmartSeq p (DecCall v s e es (seq_assoc Skip q))
+  | (Annot _ _) => p
   | q => SmartSeq p q
 Proof
   rpt strip_tac >>

@@ -14,7 +14,9 @@ val cat_io_events_def = new_specification("cat_io_events_def",["cat_io_events"],
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cat_sem,cat_output) = cat_io_events_def |> SPEC_ALL |> UNDISCH_ALL |> CONJ_PAIR
-val (cat_not_fail,cat_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cat_sem |> CONJ_PAIR
+val (cat_not_fail,cat_sem_sing) = cat_sem
+  |> SRULE [cat_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 cat_compiled)
@@ -27,10 +29,9 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val cat_compiled_thm =
+Theorem cat_compiled_thm =
   CONJ compile_correct_applied cat_output
   |> DISCH_ALL
   |> check_thm
-  |> curry save_thm "cat_compiled_thm";
 
 val _ = export_theory();

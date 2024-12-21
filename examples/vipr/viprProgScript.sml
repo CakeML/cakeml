@@ -37,7 +37,7 @@ val r = translate check_lcs_def;
 val r = translate check_sol_def;
 val r = translate absurdity_def;
 val r = translate dominates_def;
-val r = translate check_last_def;
+val r = translate (check_last_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate get_obj_def;
 val r = translate le_inf_def;
 val r = translate inf_le_def;
@@ -110,7 +110,7 @@ val r = translate read_vipr_def;
 val r = translate read_der_line_def;
 
 val init_state_v_thm = translate init_state_def;
-val checker_step_v_thm = translate checker_step_def;
+val checker_step_v_thm = translate (checker_step_def |> REWRITE_RULE [GSYM sub_check_def]);
 val print_outcome_v_thm = translate print_outcome_def;
 
 (* ---- *)

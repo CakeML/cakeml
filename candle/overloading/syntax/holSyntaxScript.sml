@@ -36,8 +36,10 @@ Proof
   REPEAT STRIP_TAC \\ EVAL_TAC
 QED
 
-val _ = save_thm("domain_raw[allow_rebind]",domain_raw);
-val _ = save_thm("codomain_raw[allow_rebind]",codomain_raw);
+Theorem domain_raw[allow_rebind] =
+  domain_raw
+Theorem codomain_raw[allow_rebind] =
+  codomain_raw
 
 fun type_rec_tac proj =
 (WF_REL_TAC(`measure (type_size o `@[QUOTE proj]@`)`) >> simp[] >>
@@ -436,8 +438,10 @@ End
 
 val _ = Parse.add_infix("===",460,Parse.RIGHT)
 
-val equation_def = xDefine "equation"`
-  (s === t) = Comb (Comb (Equal(typeof s)) s) t`
+Definition equation_def:
+  (s === t) = Comb (Comb (Equal(typeof s)) s) t
+End
+
 
 (* Signature of a theory: indicates the defined type operators, with arities,
    and defined constants, with types. *)
@@ -628,10 +632,10 @@ Definition is_reserved_name_def:
 End
 
 
-val overloadable_in_def = Define `
+Definition overloadable_in_def:
   overloadable_in name ctxt =
     (~is_builtin_name name /\ ?ty. MEM (NewConst name ty) ctxt)
-  `
+End
 
   (* From this we can recover a signature *)
 Overload sigof = ``λctxt:update list. (tysof ctxt, tmsof ctxt)``
@@ -716,9 +720,11 @@ Definition is_builtin_type_def:
        (m = strlit "bool" /\ LENGTH ty = 0)))
 End
 
-val type1_size_append = Q.prove(
-  `∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2`,
-  Induct >> simp[fetch "-" "type_size_def"]);
+Triviality type1_size_append:
+  ∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2
+Proof
+  Induct >> simp[fetch "-" "type_size_def"]
+QED
 
 (* allTypes(\sigma) -- the smallest set of non-built-in types that can produce
  * \sigma by combinations of built-in types.

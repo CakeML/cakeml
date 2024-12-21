@@ -4,7 +4,7 @@
 *)
 
 open preamble backendTheory lab_to_targetTheory backend_enc_decTheory;
-open backend_passesTheory;
+open backend_passesTheory evaluate_decTheory;
 
 val _ = new_theory "backend_asm";
 
@@ -73,16 +73,18 @@ Definition to_livesets_0_def:
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let cse_prog = word_common_subexp_elim ssa_prog in
-    let unreach_prog = remove_unreach cse_prog in
-    let rm_prog = FST(remove_dead unreach_prog LN) in
-      if asm_conf.two_reg_arith then
-        let prog = three_to_two_reg rm_prog in
-          (name_num,arg_count,prog)
-      else (name_num,arg_count,rm_prog)) p in
-  let data = MAP (\(name_num,arg_count,prog).
+    let rm_ssa_prog = remove_dead_prog ssa_prog in
+    let cse_prog = word_common_subexp_elim rm_ssa_prog in
+    let cp_prog = copy_prop cse_prog in
+    let two_prog = three_to_two_reg_prog asm_conf.two_reg_arith cp_prog in
+    let unreach_prog = remove_unreach two_prog in
+    let rm_prog = remove_dead_prog unreach_prog in
+        (name_num,arg_count,rm_prog))
+      p in
+    let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,get_forced asm_conf prog [])) p
+    (get_clash_tree prog,heu_moves,spillcosts,
+      get_forced asm_conf prog [],get_stack_only prog)) p
   in
     ((asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs),data),c,names,p)
 End
@@ -267,13 +269,14 @@ Definition each_inlogic_def:
        maxv = max_var prog + 1;
        inst_prog = inst_select asm_conf maxv prog;
        ssa_prog = full_ssa_cc_trans arg_count inst_prog;
-       cse_prog = word_common_subexp_elim ssa_prog;
-       unreach_prog = remove_unreach cse_prog;
-       rm_prog = FST (remove_dead unreach_prog LN);
+       rm_ssa_prog = remove_dead_prog ssa_prog;
+       cse_prog = word_common_subexp_elim rm_ssa_prog;
+       cp_prog = copy_prop cse_prog;
+       two_prog = three_to_two_reg_prog asm_conf.two_reg_arith cp_prog;
+       unreach_prog = remove_unreach two_prog;
+       rm_prog = remove_dead_prog unreach_prog;
    in
-     case word_alloc_inlogic asm_conf
-            (if asm_conf.two_reg_arith then three_to_two_reg rm_prog else rm_prog)
-            col_opt
+     case word_alloc_inlogic asm_conf rm_prog col_opt
      of NONE => NONE
       | SOME reg_prog =>
         case each_inlogic asm_conf rest of
@@ -306,7 +309,9 @@ End
 
 Definition compile_cake_def:
   compile_cake (asm_conf :'a asm_config) (c :inc_config) p =
-    from_word_0 asm_conf (to_word_0 asm_conf c p)
+    if ml_prog$prog_syntax_ok p then
+      from_word_0 asm_conf (to_word_0 asm_conf c p)
+    else NONE
 End
 
 (*----------------------------------------------------------------*
@@ -333,7 +338,7 @@ Proof
           inc_config_to_config_def,backendTheory.inc_config_to_config_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ pop_assum kall_tac
-  \\ ntac 2 (TOP_CASE_TAC \\ gvs [])
+  \\ gvs [AllCaseEqs()]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [backendTheory.attach_bitmaps_def,backendTheory.config_to_inc_config_def,
           lab_to_targetTheory.config_to_inc_config_def]
@@ -501,6 +506,7 @@ Theorem compile_cake_thm:
       LENGTH bytes = bytes_len ∧
       LENGTH bm = bm_len ∧
       LENGTH c1.lab_conf.shmem_extra = shmem_len ∧
+      ml_prog$prog_syntax_ok p ∧
       conf_str = encode_backend_config (config_to_inc_config c1)
 Proof
   rw [compile_cake_def]
@@ -635,41 +641,16 @@ Definition to_word_all_def:
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(strlit "after data_to_word",Word p names)] in
-    let (two_reg_arith,reg_count) =
-            (asm_conf.two_reg_arith,
-             asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs)) in
-    let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
-    let p = ZIP (p,n_oracles) in
+    let (p,ps) = word_internal asm_conf ps names p in
+    let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
+    let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
     let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,word_simp$compile_exp prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after word_simp",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,
-                     inst_select asm_conf (max_var prog + 1) prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after word_inst",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,full_ssa_cc_trans arg_count prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after word_ssa",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,word_common_subexp_elim prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after word_cse",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,remove_unreach prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after word_unreach",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,FST (remove_dead prog LN)),col_opt)) p in
-    let ps = ps ++ [(strlit "after remove_dead in word_alloc",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,
-                   if two_reg_arith then three_to_two_reg prog else prog),col_opt)) p in
-    let ps = ps ++ [(strlit "after three_to_two_reg from word_inst",Word (MAP FST p) names)] in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
-                  ((name_num,arg_count,
-                   remove_must_terminate
-                     (case word_alloc_inlogic asm_conf prog col_opt of
-                      | NONE => Skip
-                      | SOME x => x)))) p in
+              ((name_num,arg_count,
+               remove_must_terminate
+                 (case word_alloc_inlogic asm_conf prog col_opt of
+                  | NONE => Skip
+                  | SOME x => x)))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(strlit "after word_alloc (and remove_must_terminate)",Word p names)] in
     let c = c with inc_word_to_word_conf updated_by (λc. c with col_oracle := col) in
       ((ps: (mlstring # 'a any_prog) list),c,p,names)

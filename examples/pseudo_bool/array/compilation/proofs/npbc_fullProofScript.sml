@@ -16,7 +16,9 @@ val cake_pb_io_events_def = new_specification("cake_pb_io_events_def",["cake_pb_
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_pb_sem,cake_pb_output) = cake_pb_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (cake_pb_not_fail,cake_pb_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_pb_sem |> CONJ_PAIR
+val (cake_pb_not_fail,cake_pb_sem_sing) = cake_pb_sem
+  |> SRULE [npbc_full_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 npbc_full_compiled)
@@ -29,14 +31,13 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val cake_pb_compiled_thm =
+Theorem cake_pb_compiled_thm =
   CONJ compile_correct_applied cake_pb_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "cake_pb_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_x64_def = Define `
+Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
     mc ms
@@ -49,18 +50,19 @@ val installed_x64_def = Define `
         cfg.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names) mc
         cfg.lab_conf.shmem_extra ms
-    `;
+End
 
-val cake_pb_code_def = Define `
+Definition cake_pb_code_def:
   cake_pb_code = (code, data, info)
-  `;
+End
 
 (* A standard run of cake_pb
   satisfying all the default assumptions *)
-val cake_pb_run_def = Define`
+Definition cake_pb_run_def:
   cake_pb_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 cake_pb_code mc ms`
+  installed_x64 cake_pb_code mc ms
+End
 
 Theorem machine_code_sound:
   cake_pb_run cl fs mc ms ⇒
@@ -74,23 +76,29 @@ Theorem machine_code_sound:
       inFS_fname fs (EL 1 cl) ∧
       (
         (LENGTH cl = 2 ∧
-        ∃objf.
-          parse_pbf (all_lines fs (EL 1 cl)) = SOME objf ∧
-          out = concat (print_pbf objf)) ∨
+        ∃prob.
+          parse_pbf (all_lines fs (EL 1 cl)) = SOME prob ∧
+          out = concat (print_prob prob)) ∨
         (LENGTH cl = 3 ∧
-        ∃obj fml concl.
-          parse_pbf (all_lines fs (EL 1 cl)) = SOME (obj, fml) ∧
+        ∃pres obj fml concl.
+          parse_pbf (all_lines fs (EL 1 cl)) =
+            SOME (pres, obj, fml) ∧
           out = concl_to_string concl ∧
           pbc$sem_concl (set fml) obj concl) ∨
         (LENGTH cl = 4 ∧
-        ∃obj fml objt fmlt output bound concl.
-          parse_pbf (all_lines fs (EL 1 cl)) = SOME (obj, fml) ∧
-          parse_pbf (all_lines fs (EL 3 cl)) = SOME (objt, fmlt) ∧
+        ∃pres obj fml prest objt fmlt output bound concl.
+          parse_pbf (all_lines fs (EL 1 cl)) =
+            SOME (pres, obj, fml) ∧
+          parse_pbf (all_lines fs (EL 3 cl)) =
+            SOME (prest, objt, fmlt) ∧
           out =
             (concl_to_string concl ^
             output_to_string bound output) ∧
           pbc$sem_concl (set fml) obj concl ∧
-          pbc$sem_output (set fml) obj bound (set fmlt) objt output)
+          pbc$sem_output
+            (set fml) obj (pres_set_list pres)
+            bound
+            (set fmlt) objt (pres_set_list prest) output)
       )
     )
 Proof

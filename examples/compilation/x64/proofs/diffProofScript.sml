@@ -14,7 +14,9 @@ val diff_io_events_def = new_specification("diff_io_events_def",["diff_io_events
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (diff_sem,diff_output) = diff_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (diff_not_fail,diff_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail diff_sem |> CONJ_PAIR
+val (diff_not_fail,diff_sem_sing) = diff_sem
+  |> SRULE [diff_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 diff_compiled)
@@ -27,10 +29,9 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val diff_compiled_thm =
+Theorem diff_compiled_thm =
   CONJ compile_correct_applied diff_output
   |> DISCH_ALL
   |> check_thm
-  |> curry save_thm "diff_compiled_thm";
 
 val _ = export_theory();

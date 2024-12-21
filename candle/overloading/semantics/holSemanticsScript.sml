@@ -32,69 +32,78 @@ val [builtin_closure_inj,builtin_closure_bool,builtin_closure_fun] =
          ["builtin_closure_inj","builtin_closure_bool","builtin_closure_fun"]
          (CONJUNCTS builtin_closure_rules);
 
-val ground_types_def = Define `
+Definition ground_types_def:
   ground_types (sig:sig) =
   {ty | tyvars ty = [] /\ type_ok (tysof sig) ty}
-  `
+End
 
-val ground_consts_def = Define `
+Definition ground_consts_def:
   ground_consts sig =
   {(n,ty) | ty ∈ ground_types sig /\ term_ok sig (Const n ty)}
-  `
+End
 
-val nonbuiltin_types_def = Define `nonbuiltin_types = {ty | ¬is_builtin_type ty}`
+Definition nonbuiltin_types_def:
+  nonbuiltin_types = {ty | ¬is_builtin_type ty}
+End
 
-val builtin_consts =
-  Define `builtin_consts = {(s,ty) | s = strlit "=" /\ ?ty'. ty = Fun ty' (Fun ty' Bool)}`
+Definition builtin_consts_def:
+  builtin_consts = {(s,ty) | s = strlit "=" /\ ?ty'. ty = Fun ty' (Fun ty' Bool)}
+End
 
-val nonbuiltin_constinsts_def =
-  Define `nonbuiltin_constinsts = {c | c ∉ builtin_consts}`
+Definition nonbuiltin_constinsts_def:
+  nonbuiltin_constinsts = {c | c ∉ builtin_consts}
+End
 
-val consts_of_term_def = Define
-  `(consts_of_term(Abs x y) = consts_of_term x ∪ consts_of_term y) /\
+Definition consts_of_term_def:
+  (consts_of_term(Abs x y) = consts_of_term x ∪ consts_of_term y) /\
    (consts_of_term(Comb x y) = consts_of_term x ∪ consts_of_term y) /\
    (consts_of_term(Const n ty) = {(n,ty)}) /\
-   (consts_of_term _ = {})`
+   (consts_of_term _ = {})
+End
 
-val is_sig_fragment_def = Define
-  `is_sig_fragment sig (tys,consts) =
+Definition is_sig_fragment_def:
+  is_sig_fragment sig (tys,consts) =
    (tys ⊆ ground_types sig ∧ tys ⊆ nonbuiltin_types
     ∧ consts ⊆ ground_consts sig ∧ consts ⊆ nonbuiltin_constinsts
     ∧ (!s c. (s,c) ∈ consts ==> c ∈ builtin_closure tys)
    )
-  `
+End
 
-val terms_of_frag_def = Define
-  `terms_of_frag (tys,consts) =
+Definition terms_of_frag_def:
+  terms_of_frag (tys,consts) =
    {t | consts_of_term t ∩ nonbuiltin_constinsts ⊆ consts
         /\ set(allTypes t) ⊆ tys /\ welltyped t}
-  `
+End
 
-val TYPE_SUBSTf_def = tDefine "TYPE_SUBSTf" `
+Definition TYPE_SUBSTf_def:
   (TYPE_SUBSTf i (Tyvar v) = i v) ∧
   (TYPE_SUBSTf i (Tyapp v tys) =
     Tyapp v (MAP (λa. TYPE_SUBSTf i a) tys))
-  `
-  (WF_REL_TAC(`measure (type_size o SND)`) >> simp[] >>
+Termination
+  WF_REL_TAC(`measure (type_size o SND)`) >> simp[] >>
    gen_tac >> Induct >> simp[type_size_def] >> rw[] >>
-   simp[] >> res_tac >> simp[]);
+   simp[] >> res_tac >> simp[]
+End
 
 val _ = export_rewrites["TYPE_SUBSTf_def"]
 
-val terms_of_frag_uninst_def = Define
-  `terms_of_frag_uninst (tys,consts) sigma =
+Definition terms_of_frag_uninst_def:
+  terms_of_frag_uninst (tys,consts) sigma =
    {t | (IMAGE (I ## TYPE_SUBSTf sigma) (consts_of_term t) ∩ nonbuiltin_constinsts) ⊆ consts
         /\ set(FLAT (MAP allTypes'(MAP (TYPE_SUBSTf sigma) (allTypes t)))) ⊆ tys /\ welltyped t}
-  `
+End
 
-val ground_terms_def = Define
-  `ground_terms sig = {t | ?ty. t has_type ty /\ ty ∈ ground_types sig}`
+Definition ground_terms_def:
+  ground_terms sig = {t | ?ty. t has_type ty /\ ty ∈ ground_types sig}
+End
 
-val ground_terms_uninst_def = Define
-  `ground_terms_uninst sig sigma = {t | ?ty. t has_type ty /\ TYPE_SUBSTf sigma ty ∈ ground_types sig}`
+Definition ground_terms_uninst_def:
+  ground_terms_uninst sig sigma = {t | ?ty. t has_type ty /\ TYPE_SUBSTf sigma ty ∈ ground_types sig}
+End
 
-val types_of_frag_def = Define
-  `types_of_frag (tys,consts) = builtin_closure tys`
+Definition types_of_frag_def:
+  types_of_frag (tys,consts) = builtin_closure tys
+End
 
 (* Lemma 8 from Kunčar and Popescu's ITP2015 paper *)
 
@@ -112,11 +121,12 @@ Proof
   >> simp[Once builtin_closure_cases]
 QED
 
-val allTypes_no_tyvars_and_ok = Q.prove(
-  `!ty. (∀x. x ∈ q ⇒ tyvars x = [] /\ type_ok (tysof sig) x)
+Triviality allTypes_no_tyvars_and_ok:
+  !ty. (∀x. x ∈ q ⇒ tyvars x = [] /\ type_ok (tysof sig) x)
         /\ (∀x. MEM x (allTypes' ty) ⇒ x ∈ q)
         /\ is_std_sig sig
-        ==> tyvars ty = [] /\ type_ok (tysof sig) ty`,
+        ==> tyvars ty = [] /\ type_ok (tysof sig) ty
+Proof
   ho_match_mp_tac type_ind >> rpt strip_tac
   >> fs[allTypes'_defn]
   >- (BasicProvers.PURE_FULL_CASE_TAC >- fs[tyvars_def]
@@ -134,29 +144,36 @@ val allTypes_no_tyvars_and_ok = Q.prove(
   >> BasicProvers.PURE_FULL_CASE_TAC
   >- (fs[listTheory.LENGTH_EQ_NUM_compute,is_std_sig_def,type_ok_def]
       \\ fs[])
-  \\ fs[type_ok_def]);
+  \\ fs[type_ok_def]
+QED
 
-val allTypes_no_tyvars2 = Q.prove(
-  `!tm ty1 ty2. tm has_type ty1 /\
+Triviality allTypes_no_tyvars2:
+  !tm ty1 ty2. tm has_type ty1 /\
            MEM ty2 (allTypes' ty1)
-           ==> MEM ty2 (allTypes tm)`,
+           ==> MEM ty2 (allTypes tm)
+Proof
   simp[GSYM AND_IMP_INTRO,GSYM PULL_FORALL]
   >> ho_match_mp_tac has_type_strongind
-  >> rw[allTypes_def,allTypes'_defn] >> fs[]);
+  >> rw[allTypes_def,allTypes'_defn] >> fs[]
+QED
 
-val builtin_closure_tyvars = Q.prove(
-  `∀q x. x ∈ builtin_closure q /\ (∀x. x ∈ q ⇒ tyvars x = []) ==> tyvars x = []`,
+Triviality builtin_closure_tyvars:
+  ∀q x. x ∈ builtin_closure q /\ (∀x. x ∈ q ⇒ tyvars x = []) ==> tyvars x = []
+Proof
   simp [IN_DEF,GSYM AND_IMP_INTRO]
   >> ho_match_mp_tac builtin_closure_ind
-  >> rw[tyvars_def]);
+  >> rw[tyvars_def]
+QED
 
-val builtin_closure_type_ok = Q.prove(
-  `∀q x. x ∈ builtin_closure q /\ (∀x. x ∈ q ⇒ type_ok (tysof sig) x)
+Triviality builtin_closure_type_ok:
+  ∀q x. x ∈ builtin_closure q /\ (∀x. x ∈ q ⇒ type_ok (tysof sig) x)
    /\ is_std_sig sig
-   ==> type_ok (tysof sig) x`,
+   ==> type_ok (tysof sig) x
+Proof
   simp [IN_DEF,GSYM AND_IMP_INTRO]
   >> ho_match_mp_tac builtin_closure_ind
-  >> rw[is_std_sig_def,type_ok_def]);
+  >> rw[is_std_sig_def,type_ok_def]
+QED
 
 Theorem builtin_closure_allTypes:
   !ty q. (∀x. MEM x (allTypes' ty) ⇒ x ∈ q) ==> ty ∈ builtin_closure q
@@ -222,8 +239,9 @@ Proof
     >> metis_tac[builtin_closure_rules,boolTheory.IN_DEF])
 QED
 
-val allTypes'_builtin_closure = Q.prove(
-  `!q ty x. ty ∈ builtin_closure q /\ q ⊆ nonbuiltin_types /\ MEM x (allTypes' ty) ⇒ x ∈ q`,
+Triviality allTypes'_builtin_closure:
+  !q ty x. ty ∈ builtin_closure q /\ q ⊆ nonbuiltin_types /\ MEM x (allTypes' ty) ⇒ x ∈ q
+Proof
   simp[boolTheory.IN_DEF,GSYM AND_IMP_INTRO,GSYM PULL_FORALL]
   >> ho_match_mp_tac builtin_closure_ind
   >> rpt strip_tac
@@ -232,46 +250,57 @@ val allTypes'_builtin_closure = Q.prove(
       >> fs[is_builtin_type_def,is_builtin_name_def]
       >> fs[allTypes'_defn])
   >- fs[allTypes'_defn]
-  >- (fs[allTypes'_defn,boolTheory.IN_DEF] >> rpt(first_x_assum drule >> strip_tac)));
+  >- (fs[allTypes'_defn,boolTheory.IN_DEF] >> rpt(first_x_assum drule >> strip_tac))
+QED
 
-val consts_of_free_const = Q.prove(
-  `!tm x v. x ∈ consts_of_term v /\ VFREE_IN v tm
-            ==> v = Const (FST x) (SND x)`,
+Triviality consts_of_free_const:
+  !tm x v. x ∈ consts_of_term v /\ VFREE_IN v tm
+            ==> v = Const (FST x) (SND x)
+Proof
   Induct >> rpt strip_tac
   >> fs[consts_of_term_def,VFREE_IN_def]
   >> rpt(BasicProvers.VAR_EQ_TAC)
-  >> fs[consts_of_term_def]);
+  >> fs[consts_of_term_def]
+QED
 
-val VFREEs_IN_consts = Q.prove(
-  `!tm s ty. VFREE_IN (Const s ty) tm
-            ==> (s,ty) ∈ consts_of_term tm`,
+Triviality VFREEs_IN_consts:
+  !tm s ty. VFREE_IN (Const s ty) tm
+            ==> (s,ty) ∈ consts_of_term tm
+Proof
   Induct >> rpt strip_tac
   >> fs[consts_of_term_def,VFREE_IN_def]
   >> rpt(BasicProvers.VAR_EQ_TAC)
-  >> fs[consts_of_term_def]);
+  >> fs[consts_of_term_def]
+QED
 
-val var_type_in_types = Q.prove(
-  `!tm ty v. VFREE_IN v tm /\ MEM ty (allTypes v)
-            ==> MEM ty (allTypes tm)`,
+Triviality var_type_in_types:
+  !tm ty v. VFREE_IN v tm /\ MEM ty (allTypes v)
+            ==> MEM ty (allTypes tm)
+Proof
   Induct >> rpt strip_tac
   >> fs[VFREE_IN_def,allTypes_def]
   >> rpt(BasicProvers.VAR_EQ_TAC)
   >> fs[allTypes_def]
-  >> rpt(qpat_x_assum `!x. _` imp_res_tac) >> fs[]);
+  >> rpt(qpat_x_assum `!x. _` imp_res_tac) >> fs[]
+QED
 
-val VFREE_type = Q.prove(
-  `!tm v. VFREE_IN v tm ==> v has_type typeof v`,
+Triviality VFREE_type:
+  !tm v. VFREE_IN v tm ==> v has_type typeof v
+Proof
   Induct >> rpt strip_tac
   >> fs[VFREE_IN_def]
   >> rpt(BasicProvers.VAR_EQ_TAC)
-  >> fs[typeof_def,has_type_rules]);
+  >> fs[typeof_def,has_type_rules]
+QED
 
-val RTC_lifts_invariants_inv = Q.prove(
-  `(∀x y. P x ∧ R y x ⇒ P y) ⇒ ∀x y. P x ∧ R^* y x ⇒ P y`,
+Triviality RTC_lifts_invariants_inv:
+  (∀x y. P x ∧ R y x ⇒ P y) ⇒ ∀x y. P x ∧ R^* y x ⇒ P y
+Proof
   rpt strip_tac
   >> Q.ISPECL_THEN [`inv R`,`P`] assume_tac (GEN_ALL relationTheory.RTC_lifts_invariants)
   >> fs[relationTheory.inv_DEF,relationTheory.inv_MOVES_OUT]
-  >> metis_tac[])
+  >> metis_tac[]
+QED
 
 Theorem terms_of_frag_combE:
   !f a b sig. is_sig_fragment sig f /\ Comb a b ∈ terms_of_frag f ==>
@@ -371,23 +400,28 @@ Proof
 QED
 
 (* TODO: unify these two lemmas *)
-val consts_of_term_REV_ASSOCD = Q.prove(
-  `!x t ilist d. x ∈ consts_of_term (REV_ASSOCD t ilist d)
-   ==> x ∈ consts_of_term d \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)`,
+Triviality consts_of_term_REV_ASSOCD:
+  !x t ilist d. x ∈ consts_of_term (REV_ASSOCD t ilist d)
+   ==> x ∈ consts_of_term d \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)
+Proof
   Induct_on `ilist`
   >> rw[holSyntaxLibTheory.REV_ASSOCD_def]
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
-val allTypes_REV_ASSOCD = Q.prove(
-  `!x t ilist d. MEM x (allTypes (REV_ASSOCD t ilist d))
-   ==> MEM x (allTypes d) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)`,
+Triviality allTypes_REV_ASSOCD:
+  !x t ilist d. MEM x (allTypes (REV_ASSOCD t ilist d))
+   ==> MEM x (allTypes d) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)
+Proof
   Induct_on `ilist`
   >> rw[holSyntaxLibTheory.REV_ASSOCD_def]
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
-val consts_of_term_VSUBST = Q.prove(
-  `!x n ty tm1 ilist. x ∈ consts_of_term (VSUBST ilist tm1)
-   ==> x ∈ consts_of_term tm1 \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)`,
+Triviality consts_of_term_VSUBST:
+  !x n ty tm1 ilist. x ∈ consts_of_term (VSUBST ilist tm1)
+   ==> x ∈ consts_of_term tm1 \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)
+Proof
   Induct_on `tm1`
   >> rw[VSUBST_def]
   >- (imp_res_tac consts_of_term_REV_ASSOCD >> simp[])
@@ -403,12 +437,14 @@ val consts_of_term_VSUBST = Q.prove(
       >> strip_tac >> fs[consts_of_term_def]
       >> disj2_tac
       >> fs[listTheory.EXISTS_MEM,listTheory.MEM_MAP,listTheory.MEM_FILTER]
-      >> metis_tac[]));
+      >> metis_tac[])
+QED
 
-val allTypes_VSUBST = Q.prove(
-  `!x tm1 ilist. MEM x (allTypes (VSUBST ilist tm1))
+Triviality allTypes_VSUBST:
+  !x tm1 ilist. MEM x (allTypes (VSUBST ilist tm1))
                       /\ welltyped tm1
-                      ==> MEM x (allTypes tm1) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)`,
+                      ==> MEM x (allTypes tm1) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)
+Proof
   Induct_on `tm1`
   >> rw[VSUBST_def]
   >- (imp_res_tac allTypes_REV_ASSOCD >> simp[])
@@ -420,7 +456,8 @@ val allTypes_VSUBST = Q.prove(
   >- (fs[allTypes_def]
       >> first_x_assum drule >> strip_tac >> fs[allTypes_def]
       >> fs[listTheory.EXISTS_MEM,listTheory.MEM_MAP,listTheory.MEM_FILTER]
-      >> metis_tac[]));
+      >> metis_tac[])
+QED
 
 (* 8(1) *)
 Theorem types_of_frag_ground:
@@ -598,19 +635,23 @@ Proof
       >> rw[] >> MAP_FIRST MATCH_ACCEPT_TAC (CONJUNCTS has_type_rules))
 QED
 
-val is_type_frag_interpretation_def = xDefine "is_type_frag_interpretation"`
+Definition is_type_frag_interpretation_def:
   is_type_frag_interpretation0 ^mem (tyfrag: type -> bool) (δ: type -> 'U) ⇔
-    (∀ty. ty ∈ tyfrag ⇒ inhabited(δ ty))`
+    (∀ty. ty ∈ tyfrag ⇒ inhabited(δ ty))
+End
+
 
 Overload is_type_frag_interpretation = ``is_type_frag_interpretation0 ^mem``
 
 (* Todo: grotesque patterns *)
-val ext_type_frag_builtins_def = xDefine "ext_type_frag_builtins"`
+Definition ext_type_frag_builtins_def:
   ext_type_frag_builtins0 ^mem (δ: type -> 'U) ty ⇔
   case ty of Bool => boolset
     |  Fun dom rng => Funspace (ext_type_frag_builtins0 ^mem δ dom)
                                (ext_type_frag_builtins0 ^mem δ rng)
-    | _ => δ ty`
+    | _ => δ ty
+End
+
 
 Overload "ext_type_frag_builtins" = ``ext_type_frag_builtins0 ^mem``
 
@@ -642,17 +683,18 @@ Proof
       >> disch_then assume_tac >> simp[Once ext_type_frag_builtins_def])
 QED
 
-val is_frag_interpretation_def = xDefine "is_frag_interpretation"`
+Definition is_frag_interpretation_def:
   is_frag_interpretation0 ^mem (tyfrag,tmfrag)
                                (δ: type -> 'U) (γ: mlstring # type -> 'U) ⇔
   (is_type_frag_interpretation tyfrag δ /\
    ∀(c,ty). (c,ty) ∈ tmfrag ⇒ γ(c,ty) ⋲ ext_type_frag_builtins δ ty)
-  `
+End
+
 
 Overload is_frag_interpretation = ``is_frag_interpretation0 ^mem``
 
 (* TODO: grotesque patterns *)
-val ext_term_frag_builtins_def = xDefine "ext_term_frag_builtins"`
+Definition ext_term_frag_builtins_def:
   ext_term_frag_builtins0 ^mem (δ: type -> 'U) (γ: mlstring # type -> 'U) tm =
   if ?ty. tm = (strlit "=",Fun ty (Fun ty Bool)) then
     case tm of (_, Fun ty _) =>
@@ -660,12 +702,14 @@ val ext_term_frag_builtins_def = xDefine "ext_term_frag_builtins"`
         (λx. Abstract (δ ty) boolset (λy. Boolean (x = y)))
     | _ => γ tm
   else γ tm
-  `
+End
+
 
 Overload ext_term_frag_builtins = ``ext_term_frag_builtins0 ^mem``
 
-val builtin_terms_def = Define
-  `builtin_terms tyfrag = builtin_consts ∩ {const | SND const ∈ tyfrag}`
+Definition builtin_terms_def:
+  builtin_terms tyfrag = builtin_consts ∩ {const | SND const ∈ tyfrag}
+End
 
 Theorem ext_type_frag_idem:
   !ty δ.
@@ -734,7 +778,7 @@ Proof
   >> fs[pairTheory.ELIM_UNCURRY,is_sig_fragment_def] >> rw[]
   >> Cases_on `x` (* TODO: generated name *)
   >> rw[ext_term_frag_builtins_def] >> fs[]
-  >- (fs[nonbuiltin_constinsts_def,builtin_consts,pred_setTheory.SUBSET_DEF]
+  >- (fs[nonbuiltin_constinsts_def,builtin_consts_def,pred_setTheory.SUBSET_DEF]
       >> rpt(first_x_assum drule) >> simp[])
   >- (first_x_assum drule >> fs[]
       >> CONV_TAC(RAND_CONV(SIMP_CONV (srw_ss()) [Once ext_type_frag_builtins_def]))
@@ -749,12 +793,12 @@ Proof
       >> rw[]
       >> drule abstract_in_funspace >> disch_then match_mp_tac
       >> rw[] >> metis_tac[boolean_in_boolset])
-  >- (rfs[builtin_terms_def,builtin_consts] >> metis_tac[])
+  >- (rfs[builtin_terms_def,builtin_consts_def] >> metis_tac[])
 QED
 
 Type valuation = ``:mlstring # type -> 'U``
 
-val termsem_def = xDefine "termsem"`
+Definition termsem_def:
   (termsem0 ^mem (δ: type -> 'U) (γ: mlstring # type -> 'U) (v:'U valuation) sigma (Var x ty)
    = v (x,ty)) ∧
   (termsem0 ^mem δ γ v sigma (Const name ty) = γ(name,TYPE_SUBSTf sigma ty)) ∧
@@ -762,14 +806,18 @@ val termsem_def = xDefine "termsem"`
    termsem0 ^mem δ γ v sigma t1 ' (termsem0 ^mem δ γ v sigma t2)) ∧
   (termsem0 ^mem δ γ v sigma (Abs (Var x ty) b) =
    Abstract (δ (TYPE_SUBSTf sigma ty)) (δ (TYPE_SUBSTf sigma (typeof b)))
-     (λm. termsem0 ^mem δ γ (((x,ty)=+m)v) sigma b))`
+     (λm. termsem0 ^mem δ γ (((x,ty)=+m)v) sigma b))
+End
+
 
 Overload termsem = ``termsem0 ^mem``
 
-val is_std_type_assignment_def = xDefine "is_std_type_assignment"`
+Definition is_std_type_assignment_def:
   is_std_type_assignment0 ^mem (δ: type -> 'U) ⇔
     (∀dom rng. δ(Fun dom rng) = Funspace (δ dom) (δ rng)) ∧
-    (δ(Bool) = boolset)`
+    (δ(Bool) = boolset)
+End
+
 Overload is_std_type_assignment = ``is_std_type_assignment0 ^mem``
 
 Theorem ext_std_type_assignment:
@@ -782,13 +830,15 @@ Proof
       >> fs[is_std_type_assignment_def])
 QED
 
-val is_std_interpretation_def = xDefine "is_std_interpretation"`
+Definition is_std_interpretation_def:
   is_std_interpretation0 ^mem tyfrag δ γ ⇔
     is_std_type_assignment δ ∧
     builtin_closure tyfrag = tyfrag ∧
     (!ty1 ty2. Fun ty1 ty2 ∈ tyfrag ==> ty1 ∈ tyfrag /\ ty2 ∈ tyfrag) ∧
     !ty. ty ∈ tyfrag ==> γ(strlit "=", Fun ty (Fun ty Bool)) = Abstract (δ ty) (Funspace (δ ty) boolset)
-          (λx. Abstract (δ ty) boolset (λy. Boolean (x = y)))`
+          (λx. Abstract (δ ty) boolset (λy. Boolean (x = y)))
+End
+
 
 Overload is_std_interpretation = ``is_std_interpretation0 ^mem``
 
@@ -805,7 +855,7 @@ Proof
   >- (fs[VFREE_IN_def,termsem_def])
   >- (fs[termsem_def,is_frag_interpretation_def,terms_of_frag_uninst_def,consts_of_term_def]
       >> rfs[is_std_interpretation_def,ext_std_type_assignment]
-      >> fs[nonbuiltin_constinsts_def,builtin_consts,pred_setTheory.SUBSET_DEF]
+      >> fs[nonbuiltin_constinsts_def,builtin_consts_def,pred_setTheory.SUBSET_DEF]
       >> fs[allTypes_def]
       >> reverse(Cases_on `?ty. Const m (TYPE_SUBSTf sigma t) = Equal ty`)
       >- (fs[pairTheory.ELIM_UNCURRY]
@@ -902,22 +952,26 @@ QED
 *)
 
 (* todo: useless? *)
-val empty_valuation = xDefine "empty_valuation"
-  `empty_valuation0 ^mem = (K One):(mlstring # type -> 'U)`;
+Definition empty_valuation_def:
+  empty_valuation0 ^mem = (K One):(mlstring # type -> 'U)
+End
 
 Overload empty_valuation = ``empty_valuation0 ^mem``
 
-val fleq_def = Define
-  `fleq ((tyfrag1,tmfrag1),(δ1: type -> 'U,γ1: mlstring # type -> 'U)) ((tyfrag2,tmfrag2),(δ2,γ2)) =
+Definition fleq_def:
+  fleq ((tyfrag1,tmfrag1),(δ1: type -> 'U,γ1: mlstring # type -> 'U)) ((tyfrag2,tmfrag2),(δ2,γ2)) =
    (tmfrag1 ⊆ tmfrag2 /\ tyfrag1 ⊆ tyfrag2
     /\ (!c ty. (c,ty) ∈ tmfrag1 ==> γ1(c,ty) = γ2(c,ty))
-    /\ (!ty. ty ∈ tyfrag1 ==> δ1 ty = δ2 ty))`
+    /\ (!ty. ty ∈ tyfrag1 ==> δ1 ty = δ2 ty))
+End
 
-val builtin_closure_mono_lemma = Q.prove(
-  `!tys1 ty. builtin_closure tys1 ty ==> !tys2. tys1 ⊆ tys2 ==> builtin_closure tys2 ty`,
+Triviality builtin_closure_mono_lemma:
+  !tys1 ty. builtin_closure tys1 ty ==> !tys2. tys1 ⊆ tys2 ==> builtin_closure tys2 ty
+Proof
   ho_match_mp_tac builtin_closure_ind
   >> rpt strip_tac
-  >> metis_tac[builtin_closure_rules,pred_setTheory.SUBSET_DEF,boolTheory.IN_DEF]);
+  >> metis_tac[builtin_closure_rules,pred_setTheory.SUBSET_DEF,boolTheory.IN_DEF]
+QED
 
 Theorem builtin_closure_mono:
   !tys1 tys2. tys1 ⊆ tys2 ==> builtin_closure tys1 ⊆ builtin_closure tys2
@@ -928,12 +982,14 @@ QED
 (* Lemma 9 from Kunčar and Popescu's ITP2015 paper *)
 
 (* 9(1) *)
-val fleq_types_le = Q.prove(
-  `!frag1 i1 frag2 i2. fleq (frag1,i1) (frag2,i2)
-   ==> types_of_frag frag1 ⊆ types_of_frag frag2`,
+Triviality fleq_types_le:
+  !frag1 i1 frag2 i2. fleq (frag1,i1) (frag2,i2)
+   ==> types_of_frag frag1 ⊆ types_of_frag frag2
+Proof
   rpt Cases
   >> rw[fleq_def,types_of_frag_def]
-  >> imp_res_tac builtin_closure_mono);
+  >> imp_res_tac builtin_closure_mono
+QED
 
 (* 9(2) *)
 Theorem fleq_terms_le:
@@ -987,7 +1043,7 @@ Proof
   >- (MAP_EVERY Cases_on [`frag1`,`frag2`]
       >> fs[termsem_def,fleq_def]
       >> fs[terms_of_frag_uninst_def,consts_of_term_def,allTypes_def]
-      >> fs[nonbuiltin_constinsts_def,builtin_consts]
+      >> fs[nonbuiltin_constinsts_def,builtin_consts_def]
       >> fs[pred_setTheory.SUBSET_DEF]
       >> rw[ext_term_frag_builtins_def]
       >> fs[]
@@ -1077,15 +1133,19 @@ Proof
   >> fs[CLOSED_def]
 QED
 
-val valuates_frag_def = xDefine "valuates_frag"`
-  valuates_frag0 ^mem frag δ v sigma = (!x ty. TYPE_SUBSTf sigma ty ∈ types_of_frag frag ==> v(x,ty) ⋲ (ext_type_frag_builtins δ (TYPE_SUBSTf sigma ty)))`;
+Definition valuates_frag_def:
+  valuates_frag0 ^mem frag δ v sigma = (!x ty. TYPE_SUBSTf sigma ty ∈ types_of_frag frag ==> v(x,ty) ⋲ (ext_type_frag_builtins δ (TYPE_SUBSTf sigma ty)))
+End
+
 Overload valuates_frag = ``valuates_frag0 ^mem``
 
-val satisfies_def = xDefine"satisfies"`
+Definition satisfies_def:
   satisfies0 ^mem frag δ γ sigma (h,c) ⇔
     ∀v. valuates_frag frag δ v sigma ∧ c ∈ terms_of_frag_uninst frag sigma ∧ EVERY (λt. t ∈ terms_of_frag_uninst frag sigma) h ∧
       EVERY (λt. termsem δ γ v sigma t = True) h
-      ⇒ termsem δ γ v sigma c = True`
+      ⇒ termsem δ γ v sigma c = True
+End
+
 Overload satisfies = ``satisfies0 ^mem``
 
 (* TODO: move to syntax *)
@@ -1097,8 +1157,9 @@ Proof
   \\ fs[]
 QED
 
-val total_fragment_def = Define `
-  total_fragment sig = (ground_types sig ∩ nonbuiltin_types, ground_consts sig ∩ nonbuiltin_constinsts)`
+Definition total_fragment_def:
+  total_fragment sig = (ground_types sig ∩ nonbuiltin_types, ground_consts sig ∩ nonbuiltin_constinsts)
+End
 
 Theorem ground_types_builtin_closure:
   !c sig. c ∈ ground_types sig ==> c ∈ builtin_closure (ground_types sig ∩ nonbuiltin_types)
@@ -1131,29 +1192,32 @@ Proof
   CONV_TAC(SWAP_FORALL_CONV) \\ Cases \\ rw[total_fragment_def,is_sig_fragment_def]
 QED
 
-val satisfies_t_def = xDefine"satisfies_t"`
+Definition satisfies_t_def:
   satisfies_t0 ^mem sig δ γ (h,c) ⇔
   !sigma.
     (!ty. tyvars(sigma ty) = []) /\
     (!ty. type_ok (tysof sig) (sigma ty)) /\
     EVERY (λtm. tm ∈ ground_terms_uninst sig sigma) h /\ c ∈ ground_terms_uninst sig sigma
     ==> satisfies (total_fragment sig) δ γ sigma (h,c)
-  `
+End
+
 
 Overload satisfies_t = ``satisfies_t0 ^mem``
 (*val _ = Parse.add_infix("satisfies",450,Parse.NONASSOC)*)
 
-val models_def = xDefine"models"`
+Definition models_def:
   models0 ^mem δ γ (thy:thy) ⇔
     is_frag_interpretation (total_fragment (sigof thy)) δ γ ∧
     ∀p. p ∈ (axsof thy) ⇒
     satisfies_t (sigof thy)
                 (ext_type_frag_builtins δ)
                 (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)
-                ([],p)`
+                ([],p)
+End
+
 Overload models = ``models0 ^mem``
 
-val entails_def = xDefine"entails"`
+Definition entails_def:
   entails0 ^mem (thy,h) c ⇔
     theory_ok thy ∧
     EVERY (term_ok (sigof thy)) (c::h) ∧
@@ -1163,19 +1227,25 @@ val entails_def = xDefine"entails"`
       ⇒ satisfies_t (sigof thy)
                     (ext_type_frag_builtins δ)
                     (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)
-                    (h,c)`
+                    (h,c)
+End
+
 val _ = Parse.add_infix("|=",450,Parse.NONASSOC)
 Overload "|=" = ``entails0 ^mem``
 
 (* TODO: use in many places above *)
-val termsem_ext_def = xDefine"termsem_ext"`
+Definition termsem_ext_def:
   termsem_ext0 ^mem δ γ v t = termsem (ext_type_frag_builtins δ)
-                                      (ext_term_frag_builtins (ext_type_frag_builtins δ) γ) v t`
+                                      (ext_term_frag_builtins (ext_type_frag_builtins δ) γ) v t
+End
+
 Overload termsem_ext = ``termsem_ext0 ^mem``
 
-val is_structure_def = xDefine"is_structure"`
+Definition is_structure_def:
   is_structure0 ^mem sig δ γ v ⇔
-    is_frag_interpretation (total_fragment sig) δ γ`
+    is_frag_interpretation (total_fragment sig) δ γ
+End
+
 Overload is_structure = ``is_structure0 ^mem``
 
 val _ = export_theory()

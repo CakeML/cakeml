@@ -3,7 +3,7 @@
 *)
 
 open preamble;
-open libTheory astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
+open astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
 open namespacePropsTheory;
 open boolSimps;
 
@@ -43,42 +43,48 @@ Proof
  rw [extend_dec_env_def]
 QED
 
-val opw_lookup_def = Define`
+Definition opw_lookup_def:
   (opw_lookup Andw = word_and) ∧
   (opw_lookup Orw = word_or) ∧
   (opw_lookup Xor = word_xor) ∧
   (opw_lookup Add = word_add) ∧
-  (opw_lookup Sub = word_sub)`;
+  (opw_lookup Sub = word_sub)
+End
 val _ = export_rewrites["opw_lookup_def"];
 
-val shift_lookup_def = Define`
+Definition shift_lookup_def:
   (shift_lookup Lsl = word_lsl) ∧
   (shift_lookup Lsr = word_lsr) ∧
   (shift_lookup Asr = word_asr) ∧
-  (shift_lookup Ror = word_ror)`;
+  (shift_lookup Ror = word_ror)
+End
 val _ = export_rewrites["shift_lookup_def"];
 
-val do_word_op_def = Define`
+Definition do_word_op_def:
   (do_word_op op W8 (Word8 w1) (Word8 w2) = SOME (Word8 (opw_lookup op w1 w2))) ∧
   (do_word_op op W64 (Word64 w1) (Word64 w2) = SOME (Word64 (opw_lookup op w1 w2))) ∧
-  (do_word_op op _ _ _ = NONE)`;
+  (do_word_op op _ _ _ = NONE)
+End
 val _ = export_rewrites["do_word_op_def"];
 
-val do_shift_def = Define`
+Definition do_shift_def:
   (do_shift sh n W8 (Word8 w) = SOME (Word8 (shift_lookup sh w n))) ∧
   (do_shift sh n W64 (Word64 w) = SOME (Word64 (shift_lookup sh w n))) ∧
-  (do_shift _ _ _ _ = NONE)`;
+  (do_shift _ _ _ _ = NONE)
+End
 val _ = export_rewrites["do_shift_def"];
 
-val do_word_to_int_def = Define`
+Definition do_word_to_int_def:
   (do_word_to_int W8 (Word8 w) = SOME(int_of_num(w2n w))) ∧
   (do_word_to_int W64 (Word64 w) = SOME(int_of_num(w2n w))) ∧
-  (do_word_to_int _ _ = NONE)`;
+  (do_word_to_int _ _ = NONE)
+End
 val _ = export_rewrites["do_word_to_int_def"];
 
-val do_word_from_int_def = Define`
+Definition do_word_from_int_def:
   (do_word_from_int W8 i = Word8 (i2w i)) ∧
-  (do_word_from_int W64 i = Word64 (i2w i))`;
+  (do_word_from_int W64 i = Word64 (i2w i))
+End
 val _ = export_rewrites["do_word_from_int_def"];
 
 Theorem lit_same_type_refl:
@@ -227,20 +233,24 @@ val wz_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def}
 val eqs = LIST_CONJ (map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms, wz_thms])
 
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- srw_tac[][]);
+Triviality pair_case_eq:
+  pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
+Proof
+  Cases_on `x` >>
+ srw_tac[][]
+QED
 
-val pair_lam_lem = Q.prove (
-`!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
- srw_tac[][]);
+Triviality pair_lam_lem:
+  !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
+Proof
+  srw_tac[][]
+QED
 
-val do_app_cases = save_thm ("do_app_cases",
-``do_app (s,t) op vs = SOME (st',v)`` |>
+Theorem do_app_cases =
+  ``do_app (s,t) op vs = SOME (st',v)`` |>
   (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
-   ALL_CONV));
+   ALL_CONV)
 
 Theorem do_opapp_cases:
    ∀env' vs v.
@@ -299,9 +309,9 @@ QED
 Theorem do_app_ffi_changed:
   do_app (st, ffi) op vs = SOME ((st', ffi'), res) ∧
   ffi ≠ ffi' ⇒
-  ∃s conf lnum ws ffi_st ws'.
+  ∃s conf lnum ws ffi_st ws' b.
     op = FFI s ∧
-    vs = [Litv (StrLit conf); Loc lnum] ∧
+    vs = [Litv (StrLit conf); Loc b lnum] ∧
     store_lookup lnum st = SOME (W8array ws) ∧
     s ≠ "" ∧
     ffi.oracle
@@ -344,14 +354,16 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[]
 QED
 
-val build_rec_env_help_lem = Q.prove (
-  `∀funs env funs'.
+Triviality build_rec_env_help_lem:
+  ∀funs env funs'.
     FOLDR (λ(f,x,e) env'. nsBind f (Recclosure env funs' f) env') env' funs =
-    nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs' f)) funs)) env'`,
- Induct >>
+    nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs' f)) funs)) env'
+Proof
+  Induct >>
  srw_tac[][] >>
  PairCases_on `h` >>
- srw_tac[][]);
+ srw_tac[][]
+QED
 
 (* Alternate definition for build_rec_env *)
 Theorem build_rec_env_merge:
@@ -371,9 +383,10 @@ every_case_tac >>
 full_simp_tac(srw_ss())[]
 QED
 
-val map_error_result_def = Define`
+Definition map_error_result_def:
   (map_error_result f (Rraise e) = Rraise (f e)) ∧
-  (map_error_result f (Rabort a) = Rabort a)`
+  (map_error_result f (Rabort a) = Rabort a)
+End
 val _ = export_rewrites["map_error_result_def"]
 
 Theorem map_error_result_Rtype_error:
@@ -389,9 +402,10 @@ Proof
   Cases_on`e`>>EVAL_TAC
 QED
 
-val map_result_def = Define`
+Definition map_result_def:
   (map_result f1 f2 (Rval v) = Rval (f1 v)) ∧
-  (map_result f1 f2 (Rerr e) = Rerr (map_error_result f2 e))`
+  (map_result f1 f2 (Rerr e) = Rerr (map_error_result f2 e))
+End
 val _ = export_rewrites["map_result_def"]
 
 Theorem map_result_Rval[simp]:
@@ -407,10 +421,11 @@ Proof
 QED
 val _ = export_rewrites["map_result_Rerr"]
 
-val exc_rel_def = Define`
+Definition exc_rel_def:
   (exc_rel R (Rraise v1) (Rraise v2) = R v1 v2) ∧
   (exc_rel _ (Rabort a1) (Rabort a2) ⇔ a1 = a2) ∧
-  (exc_rel _ _ _ = F)`
+  (exc_rel _ _ _ = F)
+End
 val _ = export_rewrites["exc_rel_def"]
 
 Theorem exc_rel_raise1:
@@ -449,10 +464,11 @@ srw_tac[][] >>
 Cases_on `x` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> PROVE_TAC[]
 QED
 
-val result_rel_def = Define`
+Definition result_rel_def:
 (result_rel R1 _ (Rval v1) (Rval v2) = R1 v1 v2) ∧
 (result_rel _ R2 (Rerr e1) (Rerr e2) = exc_rel R2 e1 e2) ∧
-(result_rel _ _ _ _ = F)`
+(result_rel _ _ _ _ = F)
+End
 val _ = export_rewrites["result_rel_def"]
 
 Theorem result_rel_Rval:
@@ -486,40 +502,47 @@ srw_tac[][] >>
 Cases_on `x` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> PROVE_TAC[exc_rel_trans]
 QED
 
-val every_error_result_def = Define`
+Definition every_error_result_def:
   (every_error_result P (Rraise e) = P e) ∧
-  (every_error_result P (Rabort a) = T)`;
+  (every_error_result P (Rabort a) = T)
+End
 val _ = export_rewrites["every_error_result_def"]
 
-val every_result_def = Define`
+Definition every_result_def:
   (every_result P1 P2 (Rval v) = (P1 v)) ∧
-  (every_result P1 P2 (Rerr e) = (every_error_result P2 e))`
+  (every_result P1 P2 (Rerr e) = (every_error_result P2 e))
+End
 val _ = export_rewrites["every_result_def"]
 
-val map_sv_def = Define`
+Definition map_sv_def:
   map_sv f (Refv v) = Refv (f v) ∧
   map_sv _ (W8array w) = (W8array w) ∧
-  map_sv f (Varray vs) = (Varray (MAP f vs))`
+  map_sv f (Varray vs) = (Varray (MAP f vs))
+End
 val _ = export_rewrites["map_sv_def"]
 
-val dest_Refv_def = Define`
-  dest_Refv (Refv v) = v`
-val is_Refv_def = Define`
+Definition dest_Refv_def:
+  dest_Refv (Refv v) = v
+End
+Definition is_Refv_def:
   is_Refv (Refv _) = T ∧
-  is_Refv _ = F`
+  is_Refv _ = F
+End
 val _ = export_rewrites["dest_Refv_def","is_Refv_def"]
 
-val sv_every_def = Define`
+Definition sv_every_def:
   sv_every P (Refv v) = P v ∧
   sv_every P (Varray vs) = EVERY P vs ∧
-  sv_every P _ = T`
+  sv_every P _ = T
+End
 val _ = export_rewrites["sv_every_def"]
 
-val sv_rel_def = Define`
+Definition sv_rel_def:
   sv_rel R (Refv v1) (Refv v2) = R v1 v2 ∧
   sv_rel R (W8array w1) (W8array w2) = (w1 = w2) ∧
   sv_rel R (Varray vs1) (Varray vs2) = LIST_REL R vs1 vs2 ∧
-  sv_rel R _ _ = F`
+  sv_rel R _ _ = F
+End
 val _ = export_rewrites["sv_rel_def"]
 
 Theorem sv_rel_refl:
@@ -560,14 +583,16 @@ Proof
   srw_tac[][sv_rel_cases] >> metis_tac [LIST_REL_mono]
 QED
 
-val store_v_vs_def = Define`
+Definition store_v_vs_def:
   store_v_vs (Refv v) = [v] ∧
   store_v_vs (Varray vs) = vs ∧
-  store_v_vs (W8array _) = []`
+  store_v_vs (W8array _) = []
+End
 val _ = export_rewrites["store_v_vs_def"]
 
-val store_vs_def = Define`
-  store_vs s = FLAT (MAP store_v_vs s)`
+Definition store_vs_def:
+  store_vs s = FLAT (MAP store_v_vs s)
+End
 
 Theorem EVERY_sv_every_MAP_map_sv:
    ∀P f ls. EVERY P (MAP f (store_vs ls)) ⇒ EVERY (sv_every P) (MAP (map_sv f) ls)
@@ -610,9 +635,10 @@ Proof
   Cases_on`x`>>simp[MAP_MAP_o]
 QED
 
-val map_match_def = Define`
+Definition map_match_def:
   (map_match f (Match env) = Match (f env)) ∧
-  (map_match f x = x)`
+  (map_match f x = x)
+End
 val _ = export_rewrites["map_match_def"]
 
 Theorem find_recfun_ALOOKUP:
@@ -645,19 +671,21 @@ Proof
   metis_tac []
 QED
 
-val ctors_of_tdef_def = Define`
-  ctors_of_tdef (_,_,condefs) = MAP FST condefs`
+Definition ctors_of_tdef_def:
+  ctors_of_tdef (_,_,condefs) = MAP FST condefs
+End
 val _ = export_rewrites["ctors_of_tdef_def"]
 
-val ctors_of_dec_def = Define`
+Definition ctors_of_dec_def:
   ctors_of_dec (Dtype locs tds) = FLAT (MAP ctors_of_tdef tds) ∧
   ctors_of_dec (Dexn locs s _) = [s] ∧
-  ctors_of_dec _ = []`
+  ctors_of_dec _ = []
+End
 val _ = export_rewrites["ctors_of_dec_def"]
 
 (* free vars *)
 
-val FV_def = tDefine "FV"`
+Definition FV_def:
   (FV (Raise e) = FV e) ∧
   (FV (Handle e pes) = FV e ∪ FV_pes pes) ∧
   (FV (Lit _) = {}) ∧
@@ -680,12 +708,14 @@ val FV_def = tDefine "FV"`
      (FV e DIFF (IMAGE Short (set (pat_bindings p [])))) ∪ FV_pes pes) ∧
   (FV_defs [] = {}) ∧
   (FV_defs ((_,x,e)::defs) =
-     (FV e DIFF {Short x}) ∪ FV_defs defs)`
-  (WF_REL_TAC `inv_image $< (λx. case x of
+     (FV e DIFF {Short x}) ∪ FV_defs defs)
+Termination
+  WF_REL_TAC `inv_image $< (λx. case x of
      | INL e => exp_size e
      | INR (INL es) => exp6_size es
      | INR (INR (INL pes)) => exp3_size pes
-     | INR (INR (INR (defs))) => exp1_size defs)`);
+     | INR (INR (INR (defs))) => exp1_size defs)`
+End
 val _ = export_rewrites["FV_def"]
 
 Overload SFV = ``λe. {x | Short x ∈ FV e}``
@@ -703,12 +733,13 @@ Proof
   Induct_on`ls`>>simp[FORALL_PROD]
 QED
 
-val FV_dec_def = Define`
+Definition FV_dec_def:
   (FV_dec (Dlet locs p e) = FV (Mat e [(p,Lit ARB)])) ∧
   (FV_dec (Dletrec locs defs) = FV (Letrec defs (Lit ARB)))∧
   (FV_dec (Dtype _ _) = {}) ∧
   (FV_dec (Dtabbrev _ _ _ _) = {}) ∧
-  (FV_dec (Dexn _ _ _) = {})`
+  (FV_dec (Dexn _ _ _) = {})
+End
 val _ = export_rewrites["FV_dec_def"]
 
 Theorem nat_to_v_11[simp]:
@@ -725,7 +756,7 @@ QED
 
 Theorem concrete_v_simps[simp]:
   (concrete_v (Litv l) = T) /\
-  (concrete_v (Loc n) = T) /\
+  (concrete_v (Loc b n) = T) /\
   (concrete_v (Conv stmp xs) = EVERY concrete_v xs) /\
   (concrete_v (Vectorv xs) = EVERY concrete_v xs) /\
   (concrete_v (Env id e) = F) /\

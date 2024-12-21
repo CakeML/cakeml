@@ -12,9 +12,10 @@ val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
 (* heap predicate for the (trivial) runtime state *)
 
-val RUNTIME_def = Define `
+Definition RUNTIME_def:
   RUNTIME =
-    IOx runtime_ffi_part ()`
+    IOx runtime_ffi_part ()
+End
 
 Theorem RUNTIME_FFI_part_hprop:
  FFI_part_hprop RUNTIME
@@ -30,7 +31,7 @@ val st = get_ml_prog_state();
 
 Theorem Runtime_exit_spec:
    INT i iv ==>
-   app (p:'ffi ffi_proj) ^(fetch_v "Runtime.exit" st) [iv]
+   app (p:'ffi ffi_proj) Runtime_exit_v [iv]
      (RUNTIME)
      (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [i2w i]))
 Proof

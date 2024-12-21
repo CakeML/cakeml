@@ -94,8 +94,9 @@ Proof
   rw [LIST_TYPE_def, validArg_filename]
 QED
 
-val v_to_string_def = Define `
-  v_to_string (Litv (StrLit s)) = s`;
+Definition v_to_string_def:
+  v_to_string (Litv (StrLit s)) = s
+End
 
 Theorem LIST_REL_STRING_TYPE:
    LIST_REL STRING_TYPE ls vs ⇒ ls = MAP (implode o v_to_string) vs
@@ -105,8 +106,9 @@ Proof
 QED
 (* -- *)
 
-val usage_string_def = Define`
-  usage_string = strlit"Usage: sort <file> <file>...\n"`;
+Definition usage_string_def:
+  usage_string = strlit"Usage: sort <file> <file>...\n"
+End
 
 val r = translate usage_string_def;
 
@@ -265,7 +267,7 @@ val _ = (append_prog o process_topdecs) `
     end
     handle TextIO.BadFileName => TextIO.output TextIO.stdErr "Cannot open file"`;
 
-val valid_sort_result_def = Define`
+Definition valid_sort_result_def:
   valid_sort_result cl init_fs result_fs ⇔
     if LENGTH cl ≤ 1 ∨ EVERY (inFS_fname init_fs) (TL cl) then
       let (lines, fs) =
@@ -279,7 +281,8 @@ val valid_sort_result_def = Define`
         PERM output lines ∧
         SORTED mlstring_le output ∧
         result_fs = add_stdout fs (concat output)
-    else result_fs = add_stderr init_fs (strlit "Cannot open file")`;
+    else result_fs = add_stderr init_fs (strlit "Cannot open file")
+End
 
 Theorem valid_sort_result_unique:
    valid_sort_result cl fs fs1 ∧
@@ -564,12 +567,13 @@ Proof
 QED
 
 val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "sort" (UNDISCH sort_whole_prog_spec)
-val sort_prog_def = Define `sort_prog = ^prog_tm`;
+Definition sort_prog_def:
+  sort_prog = ^prog_tm
+End
 
-val sort_semantics =
+Theorem sort_semantics =
   sem_thm |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> curry save_thm "sort_semantics";
 
 val _ = export_theory ();

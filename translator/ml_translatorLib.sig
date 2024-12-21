@@ -22,11 +22,6 @@ sig
 
     val declare_new_ref : string -> term -> thm
 
-    (* wrapper functions *)
-
-    val mlDefine   : term quotation -> thm
-    val mltDefine  : string -> term quotation -> tactic -> thm
-
     (* interface for teaching the translator about new types *)
 
     val add_type_inv   : term -> hol_type -> unit
@@ -164,5 +159,8 @@ sig
 
     (* configure whether HOL_STRING_TYPE is to be used *)
     val use_string_type : bool -> unit
+
+    (* configure whether sub_check is default for num subtraction *)
+    val use_sub_check : bool -> unit
 
 end

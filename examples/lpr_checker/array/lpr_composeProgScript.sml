@@ -110,19 +110,13 @@ End
 
 val _ = translate parse_rng_def;
 
-val parse_rng_side_def = fetch "-" "parse_rng_side_def"
-
-val parse_rng_side = Q.prove(`
-  !x. parse_rng_side x ⇔ T`,
-  simp[parse_rng_side_def]) |> update_precondition;
-
-val res = translate get_range_def;
+val res = translate (get_range_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 Theorem get_range_side:
   get_range_side x y = T
 Proof
   fs [fetch "-" "get_range_side_def"]>>
-  fs [isPrefix_def]
+  fs [isPrefix_def,ml_translatorTheory.sub_check_def]
 QED
 
 val _ = update_precondition get_range_side;
@@ -237,8 +231,9 @@ Proof
   \\ Induct \\ fs [mllistTheory.foldl_def,add_one_def,ADD1]
 QED
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
+End
 
 val r = translate notfound_string_def;
 

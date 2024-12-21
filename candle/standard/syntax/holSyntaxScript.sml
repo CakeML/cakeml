@@ -16,26 +16,25 @@ End
 Overload Fun = ``λs t. Tyapp (strlit "fun") [s;t]``
 Overload Bool = ``Tyapp (strlit "bool") []``
 
-val domain_raw = Define `
-  domain ty = case ty of Tyapp n (x::xs) => x | _ => ty`;
+Definition domain_raw:
+  domain ty = case ty of Tyapp n (x::xs) => x | _ => ty
+End
 
-Theorem domain_def[compute,simp,allow_rebind]:
+Theorem domain_def[compute,simp]:
    !t s. domain (Fun s t) = s
 Proof
   REPEAT STRIP_TAC \\ EVAL_TAC
 QED
 
-val codomain_raw = Define `
-  codomain ty = case ty of Tyapp n (y::x::xs) => x | _ => ty`;
+Definition codomain_raw:
+  codomain ty = case ty of Tyapp n (y::x::xs) => x | _ => ty
+End
 
-Theorem codomain_def[compute,simp,allow_rebind]:
+Theorem codomain_def[compute,simp]:
    !t s. codomain (Fun s t) = t
 Proof
   REPEAT STRIP_TAC \\ EVAL_TAC
 QED
-
-val _ = save_thm("domain_raw",domain_raw);
-val _ = save_thm("codomain_raw",codomain_raw);
 
 fun type_rec_tac proj =
 (WF_REL_TAC(`measure (type_size o `@[QUOTE proj]@`)`) >> simp[] >>
@@ -53,7 +52,9 @@ End
 
 Overload Equal = ``λty. Const (strlit "=") (Fun ty (Fun ty Bool))``
 
-val dest_var_def = Define`dest_var (Var x ty) = (x,ty)`
+Definition dest_var_def:
+  dest_var (Var x ty) = (x,ty)
+End
 val _ = export_rewrites["dest_var_def"]
 
 (* Assignment of types to terms (where possible) *)
@@ -73,14 +74,16 @@ End
 
 (* A term is welltyped if it has a type. typeof calculates it. *)
 
-val welltyped_def = Define`
-  welltyped tm = ∃ty. tm has_type ty`
+Definition welltyped_def:
+  welltyped tm = ∃ty. tm has_type ty
+End
 
-val typeof_def = Define`
+Definition typeof_def:
   (typeof (Var n   ty) = ty) ∧
   (typeof (Const n ty) = ty) ∧
   (typeof (Comb s t)   = codomain (typeof s)) ∧
-  (typeof (Abs v t) = Fun (typeof v) (typeof t))`
+  (typeof (Abs v t) = Fun (typeof v) (typeof t))
+End
 val _ = export_rewrites["typeof_def"]
 
 (* Auxiliary relation used to define alpha-equivalence. This relation is
@@ -98,8 +101,9 @@ End
 
 (* Alpha-equivalence. *)
 
-val ACONV_def = Define`
-  ACONV t1 t2 ⇔ RACONV [] (t1,t2)`
+Definition ACONV_def:
+  ACONV t1 t2 ⇔ RACONV [] (t1,t2)
+End
 
 (* Term ordering, respecting alpha-equivalence *)
 (* TODO: use this in the inference system instead of
@@ -130,13 +134,15 @@ Inductive term_lt:
    term_lt (Abs s1 s2) (Abs t1 t2))
 End
 
-val term_cmp_def = Define`
-  term_cmp = TO_of_LinearOrder term_lt`
+Definition term_cmp_def:
+  term_cmp = TO_of_LinearOrder term_lt
+End
 
-val type_cmp_def = Define`
-  type_cmp = TO_of_LinearOrder type_lt`
+Definition type_cmp_def:
+  type_cmp = TO_of_LinearOrder type_lt
+End
 
-val ordav_def = Define`
+Definition ordav_def:
   (ordav [] x1 x2 ⇔ term_cmp x1 x2) ∧
   (ordav ((t1,t2)::env) x1 x2 ⇔
     if term_cmp x1 t1 = EQUAL then
@@ -145,9 +151,10 @@ val ordav_def = Define`
       else LESS
     else if term_cmp x2 t2 = EQUAL then
       GREATER
-    else ordav env x1 x2)`
+    else ordav env x1 x2)
+End
 
-val orda_def = Define`
+Definition orda_def:
   orda env t1 t2 =
     if t1 = t2 ∧ env = [] then EQUAL else
       case (t1,t2) of
@@ -164,9 +171,10 @@ val orda_def = Define`
       | (Const _ _, _) => LESS
       | (_, Const _ _) => GREATER
       | (Comb _ _, _) => LESS
-      | (_, Comb _ _) => GREATER`
+      | (_, Comb _ _) => GREATER
+End
 
-val term_union_def = Define`
+Definition term_union_def:
   term_union l1 l2 =
     if l1 = l2 then l1 else
     case (l1,l2) of
@@ -176,9 +184,10 @@ val term_union_def = Define`
       let c = orda [] h1 h2 in
       if c = EQUAL then h1::(term_union t1 t2)
       else if c = LESS then h1::(term_union t1 l2)
-      else h2::(term_union (h1::t1) t2)`
+      else h2::(term_union (h1::t1) t2)
+End
 
-val term_remove_def = Define`
+Definition term_remove_def:
   term_remove t l =
   case l of
   | [] => l
@@ -187,9 +196,10 @@ val term_remove_def = Define`
     if c = GREATER then
       let ss' = term_remove t ss in
       if ss' = ss then l else s::ss'
-    else if c = EQUAL then ss else l`
+    else if c = EQUAL then ss else l
+End
 
-val term_image_def = Define`
+Definition term_image_def:
   term_image f l =
   case l of
   | [] => l
@@ -197,21 +207,24 @@ val term_image_def = Define`
     let h' = f h in
     let t' = term_image f t in
     if h' = h ∧ t' = t then l
-    else term_union [h'] t'`
+    else term_union [h'] t'
+End
 
 (* Whether a variables (or constant) occurs free in a term. *)
 
-val VFREE_IN_def = Define`
+Definition VFREE_IN_def:
   (VFREE_IN v (Var x ty) ⇔ (Var x ty = v)) ∧
   (VFREE_IN v (Const x ty) ⇔ (Const x ty = v)) ∧
   (VFREE_IN v (Comb s t) ⇔ VFREE_IN v s ∨ VFREE_IN v t) ∧
-  (VFREE_IN v (Abs w t) ⇔ (w ≠ v) ∧ VFREE_IN v t)`
+  (VFREE_IN v (Abs w t) ⇔ (w ≠ v) ∧ VFREE_IN v t)
+End
 val _ = export_rewrites["VFREE_IN_def"]
 
 (* Closed terms: those with no free variables. *)
 
-val CLOSED_def = Define`
-  CLOSED tm = ∀x ty. ¬(VFREE_IN (Var x ty) tm)`
+Definition CLOSED_def:
+  CLOSED tm = ∀x ty. ¬(VFREE_IN (Var x ty) tm)
+End
 
 (* Producing a variant of a variable, guaranteed
    to not be free in a given term. *)
@@ -253,9 +266,11 @@ Proof
   simp[GSYM MEMBER_NOT_EMPTY] >> rw[] >> metis_tac[]
 QED
 
-val LEAST_EXISTS = Q.prove(
-  `(∃n:num. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)`,
-  metis_tac[whileTheory.LEAST_EXISTS])
+Triviality LEAST_EXISTS:
+  (∃n:num. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)
+Proof
+  metis_tac[whileTheory.LEAST_EXISTS]
+QED
 
 val VARIANT_PRIMES_def = new_specification
   ("VARIANT_PRIMES_def"
@@ -265,8 +280,9 @@ val VARIANT_PRIMES_def = new_specification
    |> Q.GENL[`t`,`x`,`ty`]
    |> SIMP_RULE std_ss [SKOLEM_THM]))
 
-val VARIANT_def = Define`
-  VARIANT t x ty = implode (APPEND x (GENLIST (K #"'") (VARIANT_PRIMES t x ty)))`
+Definition VARIANT_def:
+  VARIANT t x ty = implode (APPEND x (GENLIST (K #"'") (VARIANT_PRIMES t x ty)))
+End
 
 Theorem VARIANT_THM:
    ∀t x ty. ¬VFREE_IN (Var (VARIANT t x ty) ty) t
@@ -276,17 +292,19 @@ QED
 
 (* Substitution for type variables in a type. *)
 
-val TYPE_SUBST_def = tDefine"TYPE_SUBST"`
+Definition TYPE_SUBST_def:
   (TYPE_SUBST i (Tyvar v) = REV_ASSOCD (Tyvar v) i (Tyvar v)) ∧
   (TYPE_SUBST i (Tyapp v tys) = Tyapp v (MAP (TYPE_SUBST i) tys)) ∧
-  (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))`
-(type_rec_tac "SND")
+  (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))
+Termination
+  type_rec_tac "SND"
+End
 val _ = export_rewrites["TYPE_SUBST_def"]
 Overload is_instance = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
 
 (* Substitution for term variables in a term. *)
 
-val VSUBST_def = Define`
+Definition VSUBST_def:
   (VSUBST ilist (Var x ty) = REV_ASSOCD (Var x ty) ilist (Var x ty)) ∧
   (VSUBST ilist (Const x ty) = Const x ty) ∧
   (VSUBST ilist (Comb s t) = Comb (VSUBST ilist s) (VSUBST ilist t)) ∧
@@ -298,16 +316,18 @@ val VSUBST_def = Define`
          let z = Var (VARIANT t' (explode x) ty) ty in
          let ilist'' = CONS (z,v) ilist' in
          Abs z (VSUBST ilist'' t)
-    else Abs v t')`
+    else Abs v t')
+End
 
 (* A measure on terms, used in proving
    termination of type instantiation. *)
 
-val sizeof_def = Define`
+Definition sizeof_def:
   sizeof (Var x ty) = 1n ∧
   sizeof (Const x ty) = 1 ∧
   sizeof (Comb s t) = 1 + sizeof s + sizeof t ∧
-  sizeof (Abs v t) = 2 + sizeof t`
+  sizeof (Abs v t) = 2 + sizeof t
+End
 val _ = export_rewrites["sizeof_def"]
 
 Theorem SIZEOF_VSUBST:
@@ -332,7 +352,7 @@ QED
 
 (* Instantiation of type variables in terms *)
 
-val INST_CORE_def = tDefine"INST_CORE"`
+Definition INST_CORE_def:
   (INST_CORE env tyin (Var x ty) =
      let tm = Var x ty in
      let tm' = Var x (TYPE_SUBST tyin ty) in
@@ -360,32 +380,41 @@ val INST_CORE_def = tDefine"INST_CORE"`
     let ty' = TYPE_SUBST tyin ty in
     let env' = (Var x' ty,Var x' ty')::env in
     let tres = INST_CORE env' tyin t' in
-    if IS_RESULT tres then Result(Abs (Var x' ty') (RESULT tres)) else tres)`
-(WF_REL_TAC`measure (sizeof o SND o SND)` >> simp[SIZEOF_VSUBST])
+    if IS_RESULT tres then Result(Abs (Var x' ty') (RESULT tres)) else tres)
+Termination
+  WF_REL_TAC`measure (sizeof o SND o SND)` >> simp[SIZEOF_VSUBST]
+End
 
-val INST_def = Define`INST tyin tm = RESULT(INST_CORE [] tyin tm)`
+Definition INST_def:
+  INST tyin tm = RESULT(INST_CORE [] tyin tm)
+End
 
 (* Type variables in a type. *)
 
-val tyvars_def = tDefine"tyvars"`
+Definition tyvars_def:
   tyvars (Tyvar v) = [v] ∧
-  tyvars (Tyapp v tys) = FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys`
-(type_rec_tac "I")
+  tyvars (Tyapp v tys) = FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys
+Termination
+  type_rec_tac "I"
+End
 
 (* Type variables in a term. *)
 
-val tvars_def = Define`
+Definition tvars_def:
   (tvars (Var n ty) = tyvars ty) ∧
   (tvars (Const n ty) = tyvars ty) ∧
   (tvars (Comb s t) = LIST_UNION (tvars s) (tvars t)) ∧
-  (tvars (Abs v t) = LIST_UNION (tvars v) (tvars t))`
+  (tvars (Abs v t) = LIST_UNION (tvars v) (tvars t))
+End
 
 (* Syntax for equations *)
 
 val _ = Parse.add_infix("===",460,Parse.RIGHT)
 
-val equation_def = xDefine "equation"`
-  (s === t) = Comb (Comb (Equal(typeof s)) s) t`
+Definition equation_def:
+  (s === t) = Comb (Comb (Equal(typeof s)) s) t
+End
+
 
 (* Signature of a theory: indicates the defined type operators, with arities,
    and defined constants, with types. *)
@@ -398,14 +427,16 @@ Overload tmsof = ``SND:sig->tmsig``
 
 (* Well-formedness of types/terms with respect to a signature *)
 
-val type_ok_def = tDefine "type_ok"`
+Definition type_ok_def:
    (type_ok tysig (Tyvar _) ⇔ T) ∧
    (type_ok tysig (Tyapp name args) ⇔
       FLOOKUP tysig name = SOME (LENGTH args) ∧
-      EVERY (type_ok tysig) args)`
-(type_rec_tac "SND")
+      EVERY (type_ok tysig) args)
+Termination
+  type_rec_tac "SND"
+End
 
-val term_ok_def = Define`
+Definition term_ok_def:
   (term_ok sig (Var x ty) ⇔ type_ok (tysof sig) ty) ∧
   (term_ok sig (Const name ty) ⇔
      ∃ty0. FLOOKUP (tmsof sig) name = SOME ty0 ∧
@@ -419,16 +450,19 @@ val term_ok_def = Define`
      ∃x ty.
        v = Var x ty ∧
        type_ok (tysof sig) ty ∧
-       term_ok sig tm)`
+       term_ok sig tm)
+End
 
 (* Well-formed sets of hypotheses, represented as lists,
    are strictly sorted up to alpha-equivalence *)
 
-val alpha_lt_def = Define`
-  alpha_lt t1 t2 ⇔ orda [] t1 t2 = LESS`
+Definition alpha_lt_def:
+  alpha_lt t1 t2 ⇔ orda [] t1 t2 = LESS
+End
 
-val hypset_ok_def = Define`
-  hypset_ok ls ⇔ SORTED alpha_lt ls`
+Definition hypset_ok_def:
+  hypset_ok ls ⇔ SORTED alpha_lt ls
+End
 
 (* A theory is a signature together with a set of axioms. It is well-formed if
    the types of the constants are all ok, the axioms are all ok terms of type
@@ -442,17 +476,19 @@ Overload tmsof = ``tmsof o sigof``
 
   (* Standard signature includes the minimal type operators and constants *)
 
-val is_std_sig_def = Define`
+Definition is_std_sig_def:
   is_std_sig (sig:sig) ⇔
     FLOOKUP (tysof sig) (strlit "fun") = SOME 2 ∧
     FLOOKUP (tysof sig) (strlit "bool") = SOME 0 ∧
-    FLOOKUP (tmsof sig) (strlit "=") = SOME (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))`
+    FLOOKUP (tmsof sig) (strlit "=") = SOME (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
+End
 
-val theory_ok_def = Define`
+Definition theory_ok_def:
   theory_ok (thy:thy) ⇔
     (∀ty. ty ∈ FRANGE (tmsof thy) ⇒ type_ok (tysof thy) ty) ∧
     (∀p. p ∈ (axsof thy) ⇒ term_ok (sigof thy) p ∧ p has_type Bool) ∧
-    is_std_sig (sigof thy)`
+    is_std_sig (sigof thy)
+End
 
 (* Sequents provable from a theory *)
 
@@ -531,14 +567,15 @@ End
 (* Projecting out pieces of the context *)
 
   (* Types and constants introduced by an update *)
-val types_of_upd_def = Define`
+Definition types_of_upd_def:
   (types_of_upd (ConstSpec _ _) = []) ∧
   (types_of_upd (TypeDefn name pred _ _) = [(name,LENGTH (tvars pred))]) ∧
   (types_of_upd (NewType name arity) = [(name,arity)]) ∧
   (types_of_upd (NewConst _ _) = []) ∧
-  (types_of_upd (NewAxiom _) = [])`
+  (types_of_upd (NewAxiom _) = [])
+End
 
-val consts_of_upd_def = Define`
+Definition consts_of_upd_def:
   (consts_of_upd (ConstSpec eqs prop) = MAP (λ(s,t). (s, typeof t)) eqs) ∧
   (consts_of_upd (TypeDefn name pred abs rep) =
      let rep_type = domain (typeof pred) in
@@ -547,7 +584,8 @@ val consts_of_upd_def = Define`
         (rep, Fun abs_type rep_type)]) ∧
   (consts_of_upd (NewType _ _) = []) ∧
   (consts_of_upd (NewConst name type) = [(name,type)]) ∧
-  (consts_of_upd (NewAxiom _) = [])`
+  (consts_of_upd (NewAxiom _) = [])
+End
 
 Overload type_list = ``λctxt. FLAT (MAP types_of_upd ctxt)``
 Overload tysof = ``λctxt. alist_to_fmap (type_list ctxt)``
@@ -559,11 +597,12 @@ Overload sigof = ``λctxt:update list. (tysof ctxt, tmsof ctxt)``
 
   (* Axioms: we divide them into axiomatic extensions and conservative
      extensions, we will prove that the latter preserve consistency *)
-val axexts_of_upd_def = Define`
+Definition axexts_of_upd_def:
   axexts_of_upd (NewAxiom prop) = [prop] ∧
-  axexts_of_upd _ = []`
+  axexts_of_upd _ = []
+End
 
-val conexts_of_upd_def = Define`
+Definition conexts_of_upd_def:
   (conexts_of_upd (ConstSpec eqs prop) =
     let ilist = MAP (λ(s,t). let ty = typeof t in (Const s ty,Var s ty)) eqs in
       [VSUBST ilist prop]) ∧
@@ -576,7 +615,8 @@ val conexts_of_upd_def = Define`
     let r = Var (strlit "r") rep_type in
       [Comb abs (Comb rep a) === a;
        Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
-  (conexts_of_upd _ = [])`
+  (conexts_of_upd _ = [])
+End
 
 Overload axexts = ``λctxt. FLAT (MAP axexts_of_upd ctxt)``
 Overload conexts = ``λctxt. FLAT (MAP conexts_of_upd ctxt)``
@@ -633,15 +673,17 @@ Inductive updates:
    ⇒ (TypeDefn name pred abs rep) updates ctxt)
 End
 
-val extends_def = Define`
-  extends ⇔ RTC (λctxt2 ctxt1. ∃upd. ctxt2 = upd::ctxt1 ∧ upd updates ctxt1)`
+Definition extends_def:
+  extends ⇔ RTC (λctxt2 ctxt1. ∃upd. ctxt2 = upd::ctxt1 ∧ upd updates ctxt1)
+End
 val _ = Parse.add_infix("extends",450,Parse.NONASSOC)
 
 (* Initial theory context *)
 
-val init_ctxt_def = Define`
+Definition init_ctxt_def:
   init_ctxt = [NewConst (strlit "=") (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
               ;NewType (strlit "bool") 0
-              ;NewType (strlit "fun") 2]`
+              ;NewType (strlit "fun") 2]
+End
 
 val _ = export_theory()

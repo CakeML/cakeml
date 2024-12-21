@@ -14,58 +14,82 @@ Datatype:
   queue = QUEUE ('a list) num ('a list) num ('a list)
 End
 
-val empty_def = mlDefine `
-  empty = QUEUE [] 0 [] 0 []`;
+Definition empty_def:
+  empty = QUEUE [] 0 [] 0 []
+End
+val r = translate empty_def;
 
-val is_empty_def = mlDefine `
-  is_empty (QUEUE _ lenf _ _ _) = (lenf = 0)`;
+Definition is_empty_def:
+  is_empty (QUEUE _ lenf _ _ _) = (lenf = 0)
+End
+val r = translate is_empty_def;
 
-val checkw_def = mlDefine `
+Definition checkw_def:
   (checkw (QUEUE [] lenf f lenr r) = QUEUE f lenf f lenr r) /\
-  (checkw q = q)`;
+  (checkw q = q)
+End
+val r = translate checkw_def;
 
-val check_def = mlDefine `
+Definition check_def:
   check (QUEUE w lenf f lenr r) =
     if lenr <= lenf
       then checkw (QUEUE w lenf f lenr r)
-      else checkw (QUEUE f (lenf + lenr) (f ++ REVERSE r) 0 [])`;
+      else checkw (QUEUE f (lenf + lenr) (f ++ REVERSE r) 0 [])
+End
+val r = translate check_def;
 
-val snoc_def = mlDefine `
+Definition snoc_def:
   snoc (QUEUE w lenf f lenr r) x =
-    check (QUEUE w lenf f (lenr+1) (x::r))`;
+    check (QUEUE w lenf f (lenr+1) (x::r))
+End
+val r = translate snoc_def;
 
-val head_def = mlDefine `
-  head (QUEUE (x::xs) lenf f lenr r) = x`;
+Definition head_def:
+  head (QUEUE (x::xs) lenf f lenr r) = x
+End
+val r = translate head_def;
 
-val tail_def = mlDefine `
-  tail (QUEUE (x::xs) lenf f lenr r) = check (QUEUE xs (lenf-1) (TL f) lenr r)`;
+Definition tail_def:
+  tail (QUEUE (x::xs) lenf f lenr r) = check (QUEUE xs (lenf-1) (TL f) lenr r)
+End
+val r = translate tail_def;
 
 (* verification proof *)
 
-val queue_inv_def = Define `
+Definition queue_inv_def:
   queue_inv q (QUEUE w lenf f lenr r) <=>
     (q = f ++ REVERSE r) /\ (lenr = LENGTH r) /\ (lenf = LENGTH f) /\
-    lenr <= lenf /\ ((w = []) ==> (q = [])) /\ isPREFIX w f`;
+    lenr <= lenf /\ ((w = []) ==> (q = [])) /\ isPREFIX w f
+End
 
-val empty_thm = Q.prove(
-  `!xs. queue_inv xs empty = (xs = [])`,
-  EVAL_TAC THEN SIMP_TAC std_ss []);
+Triviality empty_thm:
+  !xs. queue_inv xs empty = (xs = [])
+Proof
+  EVAL_TAC THEN SIMP_TAC std_ss []
+QED
 
-val is_empty_thm = Q.prove(
-  `!q xs. queue_inv xs q ==> (is_empty q = (xs = []))`,
+Triviality is_empty_thm:
+  !q xs. queue_inv xs q ==> (is_empty q = (xs = []))
+Proof
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] []
-  THEN Cases_on `l0` THEN FULL_SIMP_TAC (srw_ss()) [APPEND_eq_NIL,LENGTH_NIL]);
+  THEN Cases_on `l0` THEN FULL_SIMP_TAC (srw_ss()) [APPEND_eq_NIL,LENGTH_NIL]
+QED
 
-val isPREFIX_APPEND = Q.prove(
-  `!xs ys. isPREFIX xs (xs ++ ys)`,
-  Induct THEN FULL_SIMP_TAC (srw_ss()) [isPREFIX]);
+Triviality isPREFIX_APPEND:
+  !xs ys. isPREFIX xs (xs ++ ys)
+Proof
+  Induct THEN FULL_SIMP_TAC (srw_ss()) [isPREFIX]
+QED
 
-val isPREFIX_REFL = Q.prove(
-  `!xs ys. isPREFIX xs xs`,
-  Induct THEN FULL_SIMP_TAC (srw_ss()) [isPREFIX]);
+Triviality isPREFIX_REFL:
+  !xs ys. isPREFIX xs xs
+Proof
+  Induct THEN FULL_SIMP_TAC (srw_ss()) [isPREFIX]
+QED
 
-val snoc_thm = Q.prove(
-  `!q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)`,
+Triviality snoc_thm:
+  !q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)
+Proof
   Cases THEN Cases_on `l`
   THEN FULL_SIMP_TAC (srw_ss()) [queue_inv_def,snoc_def,check_def,checkw_def]
   THEN SRW_TAC [] [] THEN FULL_SIMP_TAC (srw_ss())
@@ -73,15 +97,19 @@ val snoc_thm = Q.prove(
   THEN Cases_on `l0` THEN FULL_SIMP_TAC (srw_ss())
     [queue_inv_def,snoc_def,check_def,checkw_def,ADD1]
   THEN FULL_SIMP_TAC std_ss [isPREFIX_APPEND,GSYM APPEND_ASSOC]
-  THEN DECIDE_TAC);
+  THEN DECIDE_TAC
+QED
 
-val head_thm = Q.prove(
-  `!q x xs. queue_inv (x::xs) q ==> (head q = x)`,
+Triviality head_thm:
+  !q x xs. queue_inv (x::xs) q ==> (head q = x)
+Proof
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] []
-  THEN Cases_on `l0` THEN FULL_SIMP_TAC (srw_ss()) [REVERSE_DEF,LENGTH_NIL]);
+  THEN Cases_on `l0` THEN FULL_SIMP_TAC (srw_ss()) [REVERSE_DEF,LENGTH_NIL]
+QED
 
-val tail_thm = Q.prove(
-  `!q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)`,
+Triviality tail_thm:
+  !q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)
+Proof
   Cases THEN Cases_on `l`
   THEN FULL_SIMP_TAC (srw_ss()) [queue_inv_def,tail_def,check_def,checkw_def]
   THEN SRW_TAC [] [] THEN FULL_SIMP_TAC (srw_ss())
@@ -94,6 +122,7 @@ val tail_thm = Q.prove(
   THEN1 (Cases_on `t'` THEN FULL_SIMP_TAC (srw_ss()) [LENGTH_NIL,checkw_def,queue_inv_def]
     THEN FULL_SIMP_TAC std_ss [queue_inv_def]
     THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss())
-      [LENGTH_NIL,checkw_def,isPREFIX_REFL,isPREFIX_APPEND] THEN DECIDE_TAC));
+      [LENGTH_NIL,checkw_def,isPREFIX_REFL,isPREFIX_APPEND] THEN DECIDE_TAC)
+QED
 
 val _ = export_theory();

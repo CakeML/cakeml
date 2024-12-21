@@ -6,10 +6,11 @@ local open alignmentTheory targetSemTheory in end;
 
 val _ = new_theory"labSem";
 
-val _ = Datatype `
-  word8_loc = Byte word8 | LocByte num num num`;
+Datatype:
+  word8_loc = Byte word8 | LocByte num num num
+End
 
-val _ = Datatype `
+Datatype:
   state =
     <| regs       : num -> 'a word_loc
      ; fp_regs    : num -> word64
@@ -33,14 +34,16 @@ val _ = Datatype `
      ; ptr2_reg    : num
      ; len2_reg    : num
      ; link_reg   : num
-     |>`
+     |>
+End
 
-val is_Label_def = Define `
+Definition is_Label_def:
   (is_Label (Label _ _ _) = T) /\
-  (is_Label _ = F)`;
+  (is_Label _ = F)
+End
 val _ = export_rewrites["is_Label_def"];
 
-val asm_fetch_aux_def = Define `
+Definition asm_fetch_aux_def:
   (asm_fetch_aux pos [] = NONE) /\
   (asm_fetch_aux pos ((Section k [])::xs) = asm_fetch_aux pos xs) /\
   (asm_fetch_aux pos ((Section k (y::ys))::xs) =
@@ -48,32 +51,44 @@ val asm_fetch_aux_def = Define `
      then asm_fetch_aux pos ((Section k ys)::xs)
      else if pos = 0:num
           then SOME y
-          else asm_fetch_aux (pos-1) ((Section k ys)::xs))`
+          else asm_fetch_aux (pos-1) ((Section k ys)::xs))
+End
 
-val asm_fetch_def = Define `
-  asm_fetch s = asm_fetch_aux s.pc s.code`
+Definition asm_fetch_def:
+  asm_fetch s = asm_fetch_aux s.pc s.code
+End
 
-val upd_pc_def   = Define `upd_pc pc s = s with pc := pc`
-val upd_reg_def  = Define `upd_reg r w s = s with regs := (r =+ w) s.regs`
-val upd_mem_def  = Define `upd_mem a w s = s with mem := (a =+ w) s.mem`
+Definition upd_pc_def:
+  upd_pc pc s = s with pc := pc
+End
+Definition upd_reg_def:
+  upd_reg r w s = s with regs := (r =+ w) s.regs
+End
+Definition upd_mem_def:
+  upd_mem a w s = s with mem := (a =+ w) s.mem
+End
 
 Overload read_reg = ``λr s. s.regs r``
 
-val assert_def = Define `assert b s = s with failed := (~b \/ s.failed)`
+Definition assert_def:
+  assert b s = s with failed := (~b \/ s.failed)
+End
 
-val reg_imm_def = Define `
+Definition reg_imm_def:
   (reg_imm (Reg r) s = read_reg r s) /\
-  (reg_imm (Imm w) s = Word w)`
+  (reg_imm (Imm w) s = Word w)
+End
 val _ = export_rewrites["reg_imm_def"];
 
-val binop_upd_def = Define `
+Definition binop_upd_def:
   (binop_upd r Add w1 w2 = upd_reg r (Word (w1 + w2))) /\
   (binop_upd r Sub w1 w2 = upd_reg r (Word (w1 - w2))) /\
   (binop_upd r And w1 w2 = upd_reg r (Word (word_and w1 w2))) /\
   (binop_upd r Or  w1 w2 = upd_reg r (Word (word_or w1 w2))) /\
-  (binop_upd r Xor w1 w2 = upd_reg r (Word (word_xor w1 w2)))`
+  (binop_upd r Xor w1 w2 = upd_reg r (Word (word_xor w1 w2)))
+End
 
-val word_cmp_def = Define `
+Definition word_cmp_def:
   (word_cmp Equal    (Word w1) (Word w2) = SOME (w1 = w2)) /\
   (word_cmp Less     (Word w1) (Word w2) = SOME (w1 < w2)) /\
   (word_cmp Lower    (Word w1) (Word w2) = SOME (w1 <+ w2)) /\
@@ -84,9 +99,10 @@ val word_cmp_def = Define `
   (word_cmp NotLower (Word w1) (Word w2) = SOME (~(w1 <+ w2))) /\
   (word_cmp NotTest  (Word w1) (Word w2) = SOME ((w1 && w2) <> 0w)) /\
   (word_cmp NotTest  (Loc _ n) (Word w2) = (* if n ≠ 0 then NONE else *) if w2 = 1w then SOME F else NONE) /\
-  (word_cmp _ _ _ = NONE)`
+  (word_cmp _ _ _ = NONE)
+End
 
-val arith_upd_def = Define `
+Definition arith_upd_def:
   (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
      case (read_reg r2 s, reg_imm ri s) of
      | (Word w1, Word w2) => binop_upd r1 b w1 w2 s
@@ -137,13 +153,18 @@ val arith_upd_def = Define `
      | (Word w2, Word w3) =>
          upd_reg r4 (Word (if w2i (w2 - w3) ≠ w2i w2 - w2i w3 then 1w else 0w))
             (upd_reg r1 (Word (w2 - w3)) s)
-     | _ => assert F s)`
+     | _ => assert F s)
+End
 
 
-val upd_fp_reg_def  = Define `upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs`
-val read_fp_reg_def = Define `read_fp_reg r s = s.fp_regs r`
+Definition upd_fp_reg_def:
+  upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs
+End
+Definition read_fp_reg_def:
+  read_fp_reg r s = s.fp_regs r
+End
 
-val fp_upd_def = Define `
+Definition fp_upd_def:
   (fp_upd (FPLess r d1 d2) (s:('a,'c,'ffi) state) =
      upd_reg r (Word (if fp64_lessThan (read_fp_reg d1 s) (read_fp_reg d2 s)
                       then 1w
@@ -207,42 +228,49 @@ val fp_upd_def = Define `
              else let v = read_fp_reg (d2 DIV 2) s in
                w2i (if ODD d2 then (63 >< 32) v else (31 >< 0) v : 'a word)
      in
-       upd_fp_reg d1 (int_to_fp64 roundTiesToEven i) s)`
+       upd_fp_reg d1 (int_to_fp64 roundTiesToEven i) s)
+End
 
-val addr_def = Define `
+Definition addr_def:
   addr (Addr r offset) s =
     case read_reg r s of
     | Word w => SOME (w + offset)
-    | _ => NONE`
+    | _ => NONE
+End
 
-val is_Loc_def = Define `(is_Loc (Loc _ _) = T) /\ (is_Loc _ = F)`;
+Definition is_Loc_def:
+  (is_Loc (Loc _ _) = T) /\ (is_Loc _ = F)
+End
 
-val mem_store_def = Define `
+Definition mem_store_def:
   mem_store r a (s:('a,'c,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
     | SOME w => assert ((w2n w MOD (dimindex (:'a) DIV 8) = 0) /\
                         w IN s.mem_domain)
-                  (upd_mem w (read_reg r s) s)`
+                  (upd_mem w (read_reg r s) s)
+End
 
-val mem_load_def = Define `
+Definition mem_load_def:
   mem_load r a (s:('a,'c,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
     | SOME w => assert ((w2n w MOD (dimindex (:'a) DIV 8) = 0) /\
                         w IN s.mem_domain)
-                  (upd_reg r (s.mem w) s)`
+                  (upd_reg r (s.mem w) s)
+End
 
-val mem_load_byte_def = Define `
+Definition mem_load_byte_def:
   mem_load_byte r a (s:('a,'c,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
     | SOME w =>
         case mem_load_byte_aux s.mem s.mem_domain s.be w of
         | SOME v => upd_reg r (Word (w2w v)) s
-        | NONE => assert F s`
+        | NONE => assert F s
+End
 
-val mem_store_byte_def = Define `
+Definition mem_store_byte_def:
   mem_store_byte r a (s:('a,'c,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
@@ -252,40 +280,47 @@ val mem_store_byte_def = Define `
            (case mem_store_byte_aux s.mem s.mem_domain s.be w (w2w b) of
             | SOME m => (s with mem := m)
             | NONE => assert F s)
-        | _ => assert F s`
+        | _ => assert F s
+End
 
-val mem_op_def = Define `
+Definition mem_op_def:
   (mem_op Load r a = mem_load r a) /\
   (mem_op Store r a = mem_store r a) /\
   (mem_op Load8 r a = mem_load_byte r a) /\
   (mem_op Store8 r a = mem_store_byte r a) /\
   (mem_op Load32 r (a:'a addr) = assert F) /\
-  (mem_op Store32 r (a:'a addr) = assert F)`;
+  (mem_op Store32 r (a:'a addr) = assert F)
+End
 
-val asm_inst_def = Define `
+Definition asm_inst_def:
   (asm_inst Skip s = (s:('a,'c,'ffi) labSem$state)) /\
   (asm_inst (Const r imm) s = upd_reg r (Word imm) s) /\
   (asm_inst (Arith x) s = arith_upd x s) /\
   (asm_inst (Mem m r a) s = mem_op m r a s) /\
-  (asm_inst (FP fp) s = fp_upd fp s)`;
+  (asm_inst (FP fp) s = fp_upd fp s)
+End
 
 val _ = export_rewrites["mem_op_def","asm_inst_def","arith_upd_def","fp_upd_def"]
 
-val dec_clock_def = Define `
-  dec_clock s = s with clock := s.clock - 1`
+Definition dec_clock_def:
+  dec_clock s = s with clock := s.clock - 1
+End
 
-val inc_pc_def = Define `
-  inc_pc s = s with pc := s.pc + 1`
+Definition inc_pc_def:
+  inc_pc s = s with pc := s.pc + 1
+End
 
-val asm_code_length_def = Define `
+Definition asm_code_length_def:
   (asm_code_length [] = 0) /\
   (asm_code_length ((Section k [])::xs) = asm_code_length xs) /\
   (asm_code_length ((Section k (y::ys))::xs) =
-     asm_code_length ((Section k ys)::xs) + if is_Label y then 0 else 1:num)`
+     asm_code_length ((Section k ys)::xs) + if is_Label y then 0 else 1:num)
+End
 
-val asm_fetch_IMP = Q.prove(
-  `(asm_fetch s = SOME x) ==>
-    s.pc < asm_code_length s.code`,
+Triviality asm_fetch_IMP:
+  (asm_fetch s = SOME x) ==>
+    s.pc < asm_code_length s.code
+Proof
   fs [asm_fetch_def,asm_code_length_def]
   \\ Q.SPEC_TAC (`s.pc`,`pc`)
   \\ Q.SPEC_TAC (`s.code`,`xs`)
@@ -293,12 +328,14 @@ val asm_fetch_IMP = Q.prove(
   \\ rpt strip_tac \\ fs [asm_fetch_aux_def,asm_code_length_def]
   \\ Cases_on `is_Label y` \\ fs []
   \\ Cases_on `pc = 0` \\ fs []
-  \\ res_tac \\ decide_tac);
+  \\ res_tac \\ decide_tac
+QED
 
-val lab_to_loc_def = Define `
-  lab_to_loc (Lab n1 n2) = Loc n1 n2`
+Definition lab_to_loc_def:
+  lab_to_loc (Lab n1 n2) = Loc n1 n2
+End
 
-val loc_to_pc_def = Define `
+Definition loc_to_pc_def:
   (loc_to_pc n1 n2 [] = NONE) /\
   (loc_to_pc n1 n2 ((Section k xs)::ys) =
      if (k = n1) /\ (n2 = 0n) then SOME (0:num) else
@@ -310,7 +347,8 @@ val loc_to_pc_def = Define `
            else
              case loc_to_pc n1 n2 ((Section k zs)::ys) of
              | NONE => NONE
-             | SOME pos => SOME (pos + 1:num))`;
+             | SOME pos => SOME (pos + 1:num))
+End
 
 Theorem asm_inst_consts:
    ((asm_inst i s).pc = s.pc) /\
@@ -341,18 +379,20 @@ Proof
     \\ BasicProvers.EVERY_CASE_TAC \\ fs[upd_fp_reg_def]
 QED ;
 
-val get_pc_value_def = Define `
+Definition get_pc_value_def:
   get_pc_value lab (s:('a,'c,'ffi) labSem$state) =
     case lab of
-    | Lab n1 n2 => loc_to_pc n1 n2 s.code`;
+    | Lab n1 n2 => loc_to_pc n1 n2 s.code
+End
 
-val next_label_def = Define `
+Definition next_label_def:
   (next_label [] = NONE) /\
   (next_label ((Section k [])::xs) = next_label xs) /\
   (next_label ((Section k (Label n1 n2 _::ys))::xs) = SOME (Loc n1 n2)) /\
-  (next_label ((Section k (y::ys))::xs) = next_label (Section k ys::xs))`
+  (next_label ((Section k (y::ys))::xs) = next_label (Section k ys::xs))
+End
 
-val get_lab_after_pos_def = Define `
+Definition get_lab_after_def:
   (get_lab_after pos [] = NONE) /\
   (get_lab_after pos ((Section k [])::xs) = get_lab_after pos xs) /\
   (get_lab_after pos ((Section k (y::ys))::xs) =
@@ -360,10 +400,12 @@ val get_lab_after_pos_def = Define `
      then get_lab_after pos ((Section k ys)::xs)
      else if pos = 0:num
           then next_label ((Section k ys)::xs)
-          else get_lab_after (pos-1) ((Section k ys)::xs))`
+          else get_lab_after (pos-1) ((Section k ys)::xs))
+End
 
-val get_ret_Loc_def = Define `
-  get_ret_Loc s = get_lab_after s.pc s.code`;
+Definition get_ret_Loc_def:
+  get_ret_Loc s = get_lab_after s.pc s.code
+End
 
 Definition share_mem_load_def:
   share_mem_load r ad (s: ('a,'c,'ffi) labSem$state) n =
@@ -405,7 +447,7 @@ Definition share_mem_store_def:
                [n2w n]
                ((if n = 0
                  then word_to_bytes w F
-                 else [get_byte 0w w F]) ++ (word_to_bytes v F)) of
+                 else TAKE n (word_to_bytes w F)) ++ (word_to_bytes v F)) of
               | FFI_final outcome => SOME (FFI_final outcome,s)
               | FFI_return new_ffi new_bytes =>
                  SOME ((FFI_return new_ffi new_bytes),
@@ -419,12 +461,12 @@ Definition share_mem_op_def:
     share_mem_load r ad s 0) /\
   (share_mem_op Load8 r ad s = share_mem_load r ad s 1) /\
   (share_mem_op Store r ad s = share_mem_store r ad s 0) /\
-  (share_mem_op Store8 r ad s = share_mem_store r ad s 1)
-  (*(share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
-  (share_mem_op Store32 r ad s = share_mem_store r ad s 4) *)
+  (share_mem_op Store8 r ad s = share_mem_store r ad s 1) /\
+  (share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
+  (share_mem_op Store32 r ad s = share_mem_store r ad s 4)
 End
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def:
   evaluate (s:('a,'c,'ffi) labSem$state) =
     if s.clock = 0 then (TimeOut,s) else
     case asm_fetch s of
@@ -536,15 +578,17 @@ val evaluate_def = tDefine "evaluate" `
                                    clock := s.clock - 1 |>))
           | _ => (Error,s))
        | _ => (Error,s))
-    | _ => (Error,s)`
- (WF_REL_TAC `measure (\s. s.clock)`
+    | _ => (Error,s)
+Termination
+  WF_REL_TAC `measure (\s. s.clock)`
   \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
   \\ fs[asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def,inc_pc_def]
   \\ Cases_on `m`
   \\ fs[share_mem_op_def,share_mem_load_def,share_mem_store_def]
-  \\ gvs[AllCaseEqs(),inc_pc_def,dec_clock_def])
+  \\ gvs[AllCaseEqs(),inc_pc_def,dec_clock_def]
+End
 
-val semantics_def = Define `
+Definition semantics_def:
   semantics s =
   if ∃k. FST(evaluate (s with clock := k)) = Error then Fail
   else
@@ -557,6 +601,7 @@ val semantics_def = Define `
     | NONE =>
       Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (SND (evaluate (s with clock := k))).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList (SND (evaluate (s with clock := k))).ffi.io_events) UNIV))
+End
 
 val _ = export_theory();

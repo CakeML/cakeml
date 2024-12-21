@@ -1,4 +1,10 @@
-INCLUDES = $(CAKEMLDIR)/examples/deflate  $(CAKEMLDIR)/examples/deflate/translation $(CAKEMLDIR)/compiler $(CAKEMLDIR)/cv_translator
+INCLUDES=$(CAKEMLDIR)/examples/deflate\
+		 $(CAKEMLDIR)/examples/deflate/translation\
+		 $(CAKEMLDIR)/compiler\
+		 $(CAKEMLDIR)/cv_translator
+
+CFLAGS+=-O2
+LDLIBS+=-lm
 
 all: $(DEFAULT_TARGETS) README.md
 
@@ -19,16 +25,16 @@ deflateEncode.S: deflateEncodeCompileScript.sml
 deflateDecode.S: deflateDecodeCompileScript.sml
 
 compression: compression.S
-	gcc -o compression compression.S $(CAKEMLDIR)/basis/basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $< $(CAKEMLDIR)/basis/basis_ffi.c $(LDLIBS)
 
 decompression: decompression.S
-	gcc -o decompression decompression.S $(CAKEMLDIR)/basis/basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $< $(CAKEMLDIR)/basis/basis_ffi.c $(LDLIBS)
 
 deflateEncode: deflateEncode.S
-	gcc -o deflateEncode deflateEncode.S $(CAKEMLDIR)/basis/basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $< $(CAKEMLDIR)/basis/basis_ffi.c $(LDLIBS)
 
 deflateDecode: deflateDecode.S
-	gcc -o deflateDecode deflateDecode.S $(CAKEMLDIR)/basis/basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $< $(CAKEMLDIR)/basis/basis_ffi.c $(LDLIBS)
 
 cleanBin:
 	rm -f compression.S decompression.S deflateDecode.S deflateEncode.S compression decompression deflateDecode deflateEncode

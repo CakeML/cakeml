@@ -130,14 +130,32 @@ val _ = cv_auto_trans (x64_targetTheory.x64_enc_def |>
           SRULE [combinTheory.o_DEF, LIST_BIND_def, FUN_EQ_THM, x64_dec_fail_def]);
 
 (*---------------------------------------------------------------------------*
-  x64-specific compilation pass
- *---------------------------------------------------------------------------*)
-
-val _ = cv_trans word_instTheory.three_to_two_reg_def;
-
-(*---------------------------------------------------------------------------*
   Remaining x64-specific functions
  *---------------------------------------------------------------------------*)
+
+val pre = cv_auto_trans_pre comp_x64_def;
+
+Theorem comp_x64_pre[cv_pre,local]:
+  ∀v bs kf. comp_x64_pre v bs kf
+Proof
+  gen_tac \\ completeInduct_on ‘prog_size (K 0) v’
+  \\ rw [] \\ gvs [PULL_FORALL]
+  \\ rw [] \\ simp [Once pre]
+  \\ rw [] \\ gvs []
+  \\ last_x_assum irule
+  \\ gvs [wordLangTheory.prog_size_def]
+QED
+
+val _ = cv_auto_trans compile_prog_x64_def;
+
+val pre = cv_auto_trans_pre compile_word_to_stack_x64_def;
+
+Theorem compile_word_to_stack_x64_pre[cv_pre]:
+  ∀k v bitmaps. compile_word_to_stack_x64_pre k v bitmaps
+Proof
+  Induct_on`v`
+  \\ rw [] \\ simp [Once pre]
+QED
 
 Triviality fp_reg_ok_x64_def[cv_inline] = fp_reg_ok_x64_def;
 

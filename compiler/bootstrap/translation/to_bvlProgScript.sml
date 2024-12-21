@@ -31,9 +31,11 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -70,15 +72,23 @@ val r = translate clos_to_bvlTheory.add_parts_def;
 val r = translate (clos_to_bvlTheory.compile_const_def |> DefnBase.one_line_ify NONE);
 val r = translate clos_to_bvlTheory.compile_op_pmatch;
 
-val r = translate clos_to_bvlTheory.compile_common_def;
-val r = translate clos_to_bvlTheory.compile_def;
+val r = translate (bvl_jumpTheory.JumpList_def |> REWRITE_RULE [GSYM mllistTheory.take_def,GSYM mllistTheory.drop_def]);
 
-(* N.B.
- * Do not remove this! prove_EvalPatRel depends on it (though it should be
- * expanded there, not added to the simpset).
- *)
-val _ = save_thm ("same_type_def[simp]",
-  semanticPrimitivesTheory.same_type_def);
+Triviality bvl_jump_jumplist_ind:
+  bvl_jump_jumplist_ind
+Proof
+  once_rewrite_tac [fetch "-" "bvl_jump_jumplist_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,mllistTheory.take_def,mllistTheory.drop_def]
+  \\ Cases_on`xs` \\ gvs[]
+QED
+
+val _ = bvl_jump_jumplist_ind |> update_precondition;
 
 val bvl_jump_jumplist_side = Q.prove(`
   ∀a b. bvl_jump_jumplist_side a b ⇔ T`,
@@ -91,11 +101,21 @@ val bvl_jump_jumplist_side = Q.prove(`
   first_assum match_mp_tac>>
   fs[]
   >-
-    (Cases_on`x1`>>fs[ADD_DIV_RWT,ADD1])
+    (Cases_on`x1`>>fs[ADD_DIV_RWT,ADD1,mllistTheory.take_def,mllistTheory.drop_def])
   >>
     `SUC x1 DIV 2 < SUC x1` by
       fs[]>>
-    simp[]) |> update_precondition;
+    simp[mllistTheory.take_def]) |> update_precondition;
+
+val r = translate (clos_to_bvlTheory.mk_cl_call_def |> REWRITE_RULE [GSYM sub_check_def])
+val r = translate (clos_to_bvlTheory.generate_generic_app_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+val r = translate (clos_to_bvlTheory.generate_partial_app_closure_fn_def |> REWRITE_RULE [GSYM sub_check_def]);
+val r = translate (clos_to_bvlTheory.recc_Let_def |> REWRITE_RULE [GSYM sub_check_def]);
+val r = translate (clos_to_bvlTheory.recc_Let0_def |> REWRITE_RULE [GSYM sub_check_def]);
+val r = translate (clos_to_bvlTheory.num_stubs_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+val r = translate (clos_to_bvlTheory.compile_exps_def |> REWRITE_RULE [GSYM sub_check_def]);
 
 val clos_to_bvl_recc_lets_side = Q.prove(`
   ∀a b c d.
@@ -125,21 +145,24 @@ val clos_to_bvl_compile_exps_side = Q.prove(`
   first_x_assum(qspecl_then[`max_app`,`x1`,`x43`,`x41`] assume_tac)>>
   CCONTR_TAC>>fs[]) |> update_precondition;
 
-val clos_to_bvl_compile_prog_side = Q.prove(`
-  clos_to_bvl_compile_prog_side v10 v11 = T`,
-  fs [fetch "-" "clos_to_bvl_compile_prog_side_def"]
-  \\ fs [clos_to_bvl_compile_exps_side])
- |> update_precondition;
+val r = translate clos_to_bvlTheory.compile_common_def;
+
+val r = translate (clos_to_bvlTheory.init_code_def |> REWRITE_RULE [GSYM sub_check_def]);
+val r = translate (clos_to_bvlTheory.partial_app_fn_location_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+val r = translate clos_to_bvlTheory.compile_def;
+
+(* N.B.
+ * Do not remove this! prove_EvalPatRel depends on it (though it should be
+ * expanded there, not added to the simpset).
+ *)
+Theorem same_type_def[simp] =
+  semanticPrimitivesTheory.same_type_def
 
 val clos_to_bvl_compile_side = Q.prove(`
   clos_to_bvl_compile_side v10 v11 = T`,
   fs [fetch "-" "clos_to_bvl_compile_side_def"]
-  \\ fs [clos_to_bvl_compile_exps_side,
-         clos_to_bvl_compile_prog_side,
-         fetch "-" "clos_to_bvl_init_code_side_def",
-         fetch "-" "clos_to_bvl_generate_generic_app_side_def",
-         fetch "-" "bvl_jump_jump_side_def",
-         bvl_jump_jumplist_side])
+  \\ rw[clos_to_bvlTheory.num_stubs_def])
   |> update_precondition;
 
 val r = translate clos_to_bvlTheory.extract_name_pmatch;
@@ -236,6 +259,23 @@ val bvl_inline_tick_inline_side = Q.prove (
   \\ rw [] \\ once_rewrite_tac [fetch "-" "bvl_inline_tick_inline_side_def"]
   \\ fs [])
   |> update_precondition;
+
+val r = translate (bvl_inlineTheory.is_small_aux_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+Triviality bvl_inline_is_small_aux_ind:
+  bvl_inline_is_small_aux_ind
+Proof
+  once_rewrite_tac [fetch "-" "bvl_inline_is_small_aux_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = bvl_inline_is_small_aux_ind |> update_precondition;
 
 val r = translate bvl_inlineTheory.tick_inline_all_def;
 

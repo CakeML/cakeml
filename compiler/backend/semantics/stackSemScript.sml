@@ -108,22 +108,25 @@ Datatype:
      ; be      : bool (* is big-endian *) |>
 End
 
-val mem_store_def = Define `
+Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_loc) (s:('a,'c,'ffi) stackSem$state) =
     if addr IN s.mdomain then
       SOME (s with memory := (addr =+ w) s.memory)
-    else NONE`
+    else NONE
+End
 
-val mem_load_def = Define `
+Definition mem_load_def:
   mem_load (addr:'a word) (s:('a,'c,'ffi) stackSem$state) =
     if addr IN s.mdomain then
       SOME (s.memory addr)
-    else NONE`
+    else NONE
+End
 
-val dec_clock_def = Define `
-  dec_clock (s:('a,'c,'ffi) stackSem$state) = s with clock := s.clock - 1`;
+Definition dec_clock_def:
+  dec_clock (s:('a,'c,'ffi) stackSem$state) = s with clock := s.clock - 1
+End
 
-val word_exp_def = tDefine "word_exp" `
+Definition word_exp_def:
   (word_exp s (Const w) = SOME w) /\
   (word_exp s (Var v) =
      case FLOOKUP s.regs v of
@@ -145,40 +148,49 @@ val word_exp_def = tDefine "word_exp" `
   (word_exp s (Shift sh wexp n) =
      case word_exp s wexp of
      | NONE => NONE
-     | SOME w => word_sh sh w n)`
-  (WF_REL_TAC `measure (exp_size ARB o SND)`
+     | SOME w => word_sh sh w n)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC);
+   \\ DECIDE_TAC
+End
 
-val get_var_def = Define `
-  get_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.regs v`;
+Definition get_var_def:
+  get_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.regs v
+End
 
-val get_vars_def = Define `
+Definition get_vars_def:
   (get_vars [] s = SOME []) /\
   (get_vars (v::vs) s =
      case get_var v s of
      | NONE => NONE
      | SOME x => (case get_vars vs s of
                   | NONE => NONE
-                  | SOME xs => SOME (x::xs)))`;
+                  | SOME xs => SOME (x::xs)))
+End
 
-val get_fp_var_def = Define`
-  get_fp_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.fp_regs v`
+Definition get_fp_var_def:
+  get_fp_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.fp_regs v
+End
 
-val set_var_def = Define `
+Definition set_var_def:
   set_var v x (s:('a,'c,'ffi) stackSem$state) =
-    (s with regs := (s.regs |+ (v,x)))`;
+    (s with regs := (s.regs |+ (v,x)))
+End
 
-val set_fp_var_def = Define `
+Definition set_fp_var_def:
   set_fp_var v x (s:('a,'c,'ffi) stackSem$state) =
-    (s with fp_regs := (s.fp_regs |+ (v,x)))`;
+    (s with fp_regs := (s.fp_regs |+ (v,x)))
+End
 
-val set_store_def = Define `
-  set_store v x (s:('a,'c,'ffi) stackSem$state) = (s with store := s.store |+ (v,x))`;
+Definition set_store_def:
+  set_store v x (s:('a,'c,'ffi) stackSem$state) = (s with store := s.store |+ (v,x))
+End
 
-val empty_env_def = Define `
-  empty_env (s:('a,'c,'ffi) stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
+Definition empty_env_def:
+  empty_env (s:('a,'c,'ffi) stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>
+End
 
 Definition sh_mem_store_def:
   sh_mem_store r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
@@ -220,6 +232,19 @@ Definition sh_mem_store_byte_def:
    | _ => (SOME Error, s))
 End
 
+Definition sh_mem_store32_def:
+  sh_mem_store32 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  (case get_var r s of
+     SOME (Word w) =>
+       if byte_align a IN s.sh_mdomain then
+         (case call_FFI s.ffi (SharedMem MappedWrite) [4w:word8]
+                        (TAKE 4 (word_to_bytes w F) ++ word_to_bytes a F) of
+            FFI_final outcome => (SOME (FinalFFI outcome), s)
+          | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi))
+       else (SOME Error, s)
+   | _ => (SOME Error, s))
+End
+
 Definition sh_mem_load_byte_def:
   sh_mem_load_byte r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
   if byte_align a IN s.sh_mdomain then
@@ -233,22 +258,36 @@ Definition sh_mem_load_byte_def:
   else (SOME Error, s)
 End
 
+Definition sh_mem_load32_def:
+  sh_mem_load32 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  if byte_align a IN s.sh_mdomain then
+    (case call_FFI s.ffi (SharedMem MappedRead) [4w:word8] (word_to_bytes a F) of
+       FFI_final outcome => (SOME (FinalFFI outcome), s)
+     | FFI_return new_ffi new_bytes =>
+         (NONE,
+          s with <|
+              regs := s.regs |+ (r, Word (word_of_bytes F 0w new_bytes)) ;
+              ffi := new_ffi |>))
+  else (SOME Error, s)
+End
+
 Definition sh_mem_op_def:
   (sh_mem_op Load r ad (s:('a,'c,'ffi) stackSem$state) = sh_mem_load r ad s) ∧
   (sh_mem_op Store r ad s = sh_mem_store r ad s) ∧
   (sh_mem_op Load8 r ad s = sh_mem_load_byte r ad s) ∧
-  (sh_mem_op Store8 r ad s = sh_mem_store_byte r ad s)(* ∧
-  (sh_mem_op Load32 r ad s = sh_mem_load r ad s 4) ∧
-  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)*)
+  (sh_mem_op Store8 r ad s = sh_mem_store_byte r ad s) ∧
+  (sh_mem_op Load32 r ad s = sh_mem_load32 r ad s) ∧
+  (sh_mem_op Store32 r ad s = sh_mem_store32 r ad s)
 End
 
-val full_read_bitmap_def = Define `
+Definition full_read_bitmap_def:
   (full_read_bitmap bitmaps (Word w) =
      if w = 0w then NONE
      else read_bitmap (DROP (w2n (w - 1w)) bitmaps)) /\
-  (full_read_bitmap bitmaps _ = NONE)`
+  (full_read_bitmap bitmaps _ = NONE)
+End
 
-val enc_stack_def = tDefine "enc_stack" `
+Definition enc_stack_def:
   (enc_stack bitmaps [] = NONE) /\
   (enc_stack bitmaps (w::ws) =
      if w = Word 0w then (if ws = [] then SOME [] else NONE) else
@@ -260,12 +299,14 @@ val enc_stack_def = tDefine "enc_stack" `
           | SOME (ts,ws') =>
               case enc_stack bitmaps ws' of
               | NONE => NONE
-              | SOME rs => SOME (ts ++ rs))`
- (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
+              | SOME rs => SOME (ts ++ rs))
+Termination
+  WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC filter_bitmap_LENGTH
-  \\ fs [] \\ decide_tac)
+  \\ fs [] \\ decide_tac
+End
 
-val dec_stack_def = tDefine "dec_stack" `
+Definition dec_stack_def:
   (dec_stack bitmaps _ [] = NONE) ∧
   (dec_stack bitmaps ts (w::ws) =
     if w = Word 0w then (if ts = [] ∧ ws = [] then SOME [Word 0w] else NONE) else
@@ -277,13 +318,15 @@ val dec_stack_def = tDefine "dec_stack" `
         | SOME (hd,ts',ws') =>
            case dec_stack bitmaps ts' ws' of
            | NONE => NONE
-           | SOME rest => SOME ([w] ++ hd ++ rest))`
-  (WF_REL_TAC `measure (LENGTH o SND o SND)` \\ rw []
+           | SOME rest => SOME ([w] ++ hd ++ rest))
+Termination
+  WF_REL_TAC `measure (LENGTH o SND o SND)` \\ rw []
    \\ IMP_RES_TAC map_bitmap_LENGTH
    \\ fs [LENGTH_NIL] \\ rw []
-   \\ fs [map_bitmap_def] \\ rw [] \\ decide_tac)
+   \\ fs [map_bitmap_def] \\ rw [] \\ decide_tac
+End
 
-val gc_def = Define `
+Definition gc_def:
   gc s =
     if LENGTH s.stack < s.stack_space then NONE else
       let unused = TAKE s.stack_space s.stack in
@@ -300,15 +343,17 @@ val gc_def = Define `
                 SOME (s with <| stack := unused ++ stack
                               ; store := st
                               ; regs := FEMPTY
-                              ; memory := m |>))`
+                              ; memory := m |>))
+End
 
-val has_space_def = Define `
+Definition has_space_def:
   has_space wl store =
     case (wl, FLOOKUP store NextFree, FLOOKUP store TriggerGC) of
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
-    | _ => NONE`
+    | _ => NONE
+End
 
-val alloc_def = Define `
+Definition alloc_def:
   alloc (w:'a word) (s:('a,'c,'ffi) stackSem$state) =
     (* perform garbage collection *)
       case gc (set_store AllocSize (Word w) s) of
@@ -324,7 +369,8 @@ val alloc_def = Define `
             | SOME T => (* success there is that much space *)
                         (NONE,s)
             | SOME F => (* fail, GC didn't free up enough space *)
-                        (SOME (Halt (Word (1w:'a word))),empty_env s)))`
+                        (SOME (Halt (Word (1w:'a word))),empty_env s)))
+End
 
 Definition assign_def:
   assign reg exp s =
@@ -412,6 +458,7 @@ Definition inst_def:
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
+    | Mem Load32 _ _ => NONE
     | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME w) =>
@@ -426,6 +473,7 @@ Definition inst_def:
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
+    | Mem Store32 _ _ => NONE
     | FP (FPLess r d1 d2) =>
       (case (get_fp_var d1 s,get_fp_var d2 s) of
       | (SOME f1 ,SOME f2) =>
@@ -564,9 +612,11 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-val fix_clock_IMP = Q.prove(
-  `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
+Triviality fix_clock_IMP:
+  fix_clock s x = (res,s1) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
 Definition STOP_def:
   STOP x = x
@@ -959,7 +1009,7 @@ Theorem sh_mem_op_clock[local]:
   sh_mem_op op r a s = (res, s') ⇒ s'. clock ≤ s.clock
 Proof
   strip_tac>>Cases_on ‘op’>>
-  fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,
+  fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store32_def,sh_mem_load32_def,
      sh_mem_store_byte_def,sh_mem_load_byte_def,ffiTheory.call_FFI_def]>>
   every_case_tac>>gvs[]
 QED

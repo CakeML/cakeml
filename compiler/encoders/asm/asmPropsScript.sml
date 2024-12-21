@@ -15,13 +15,14 @@ QED
 
 (* -- well-formedness of encoding -- *)
 
-val offset_monotonic_def = Define `
+Definition offset_monotonic_def:
   offset_monotonic enc c a1 a2 i1 i2 <=>
   asm_ok i1 c /\ asm_ok i2 c ==>
   (0w <= a1 /\ 0w <= a2 /\ a1 <= a2 ==> LENGTH (enc i1) <= LENGTH (enc i2)) /\
-  (a1 < 0w /\ a2 < 0w /\ a2 <= a1 ==> LENGTH (enc i1) <= LENGTH (enc i2))`
+  (a1 < 0w /\ a2 < 0w /\ a2 <= a1 ==> LENGTH (enc i1) <= LENGTH (enc i2))
+End
 
-val enc_ok_def = Define `
+Definition enc_ok_def:
   enc_ok (c : 'a asm_config) <=>
     (* code alignment and length *)
     (2 EXP c.code_alignment = LENGTH (c.encode (Inst Skip))) /\
@@ -33,11 +34,12 @@ val enc_ok_def = Define `
        offset_monotonic c.encode c w1 w2
           (JumpCmp cmp r ri w1) (JumpCmp cmp r ri w2)) /\
     (!w1 w2. offset_monotonic c.encode c w1 w2 (Call w1) (Call w2)) /\
-    (!w1 w2 r. offset_monotonic c.encode c w1 w2 (Loc r w1) (Loc r w2))`
+    (!w1 w2 r. offset_monotonic c.encode c w1 w2 (Loc r w1) (Loc r w2))
+End
 
 (* -- correctness property to be proved for each backend -- *)
 
-val () = Datatype `
+Datatype:
   target =
     <| config : 'a asm_config
      ; next : 'b -> 'b
@@ -47,17 +49,19 @@ val () = Datatype `
      ; get_byte : 'b -> 'a word -> word8
      ; state_ok : 'b -> bool
      ; proj : 'a word set -> 'b -> 'c
-     |>`
+     |>
+End
 
-val target_state_rel_def = Define`
+Definition target_state_rel_def:
   target_state_rel t s ms <=>
   t.state_ok ms /\ (t.get_pc ms = s.pc) /\
   (!a. a IN s.mem_domain ==> (t.get_byte ms a = s.mem a)) /\
   (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
        (t.get_reg ms i = s.regs i)) /\
-  (!i. i < t.config.fp_reg_count ==> (t.get_fp_reg ms i = s.fp_regs i))`
+  (!i. i < t.config.fp_reg_count ==> (t.get_fp_reg ms i = s.fp_regs i))
+End
 
-val target_ok_def = Define`
+Definition target_ok_def:
   target_ok t <=>
   enc_ok t.config /\
   !ms1 ms2 s.
@@ -65,10 +69,12 @@ val target_ok_def = Define`
     (target_state_rel t s ms1 = target_state_rel t s ms2) /\
     (t.state_ok ms1 = t.state_ok ms2) /\
     (t.get_pc ms1 = t.get_pc ms2) /\
-    (!a. a IN s.mem_domain ==> t.get_byte ms1 a = t.get_byte ms2 a)`
+    (!a. a IN s.mem_domain ==> t.get_byte ms1 a = t.get_byte ms2 a)
+End
 
-val interference_ok_def = Define `
-  interference_ok env proj <=> !i:num ms. proj (env i ms) = proj ms`;
+Definition interference_ok_def:
+  interference_ok env proj <=> !i:num ms. proj (env i ms) = proj ms
+End
 
 val _ = TotalDefn.temp_export_termsimp "arithmetic.ZERO_LT_EXP"
 Definition all_pcs_def:
@@ -93,18 +99,20 @@ Proof
   \\ Cases_on`i` \\ fs[ADD1,LEFT_ADD_DISTRIB,RIGHT_ADD_DISTRIB]
 QED
 
-val asserts_def = zDefine `
+Definition asserts_def[nocompute]:
   (asserts 0 next ms _ Q <=> Q (next 0 ms)) /\
   (asserts (SUC n) next ms P Q <=>
-     let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)`
+     let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)
+End
 
-val asserts2_def = zDefine`
+Definition asserts2_def[nocompute]:
   (asserts2 n fi fc ms P =
    if n = 0n then T else
      P ms (fc ms) ∧
-     asserts2 (n-1) fi fc (fi n (fc ms)) P)`;
+     asserts2 (n-1) fi fc (fi n (fc ms)) P)
+End
 
-val encoder_correct_def = Define `
+Definition encoder_correct_def:
   encoder_correct t <=>
     target_ok t /\
     !s1 i s2 ms.
@@ -118,7 +126,8 @@ val encoder_correct_def = Define `
                      t.get_pc ms' IN pcs t.config.code_alignment)
               (\ms'. target_state_rel t s2 ms') ∧
             asserts2 (n + 1) (λk. env (n + 1 - k)) t.next ms
-              (λms1 ms2. ∀x. x ∉ s1.mem_domain ⇒ t.get_byte ms1 x = t.get_byte ms2 x)`
+              (λms1 ms2. ∀x. x ∉ s1.mem_domain ⇒ t.get_byte ms1 x = t.get_byte ms2 x)
+End
 
 (* lemma for proofs *)
 
@@ -183,7 +192,7 @@ QED
 
 val all_pcs = Theory.save_thm ("all_pcs", numLib.SUC_RULE all_pcs_def)
 
-val asserts_eval = save_thm("asserts_eval",let
+local
   fun genlist f 0 = []
     | genlist f n = genlist f (n-1) @ [f (n-1)]
   fun suc_num 0 = ``0:num``
@@ -191,7 +200,9 @@ val asserts_eval = save_thm("asserts_eval",let
   fun gen_rw n =
     ``asserts ^(suc_num n) next (s:'a) P Q``
     |> ONCE_REWRITE_CONV [asserts_def] |> SIMP_RULE std_ss []
-  in LIST_CONJ (genlist gen_rw 20) end)
+in
+Theorem asserts_eval = LIST_CONJ (genlist gen_rw 20);
+end
 
 Theorem asserts_IMP_FOLDR_COUNT_LIST:
    ∀n next ms P Q. asserts n next ms P Q ⇒
@@ -253,11 +264,13 @@ Proof
     \\ strip_tac \\ fs[] )
 QED
 
-val asserts2_eval = save_thm("asserts2_eval",let
+local
   fun gen_rw n =
     ``asserts2 ^(numSyntax.term_of_int n) fi fc (s:'a) P``
     |> ONCE_REWRITE_CONV [asserts2_def] |> SIMP_RULE std_ss []
-  in LIST_CONJ (List.tabulate(21,gen_rw)) end)
+in
+Theorem asserts2_eval = LIST_CONJ (List.tabulate(21,gen_rw));
+end
 
 Theorem asserts2_change_interfer:
    asserts2 n fi fc ms P  ∧
@@ -321,21 +334,25 @@ Proof
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
-val SND_read_mem_word_consts = Q.prove(
-  `!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
+Triviality SND_read_mem_word_consts:
+  !n a s. ((SND (read_mem_word a n s)).be = s.be) /\
             ((SND (read_mem_word a n s)).lr = s.lr) /\
             ((SND (read_mem_word a n s)).align = s.align) /\
-            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)`,
+            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)
+Proof
   Induct \\ full_simp_tac(srw_ss())[read_mem_word_def,LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ full_simp_tac(srw_ss())[assert_def])
+  \\ full_simp_tac(srw_ss())[assert_def]
+QED
 
-val write_mem_word_consts = Q.prove(
-  `!n a w s. ((write_mem_word a n w s).be = s.be) /\
+Triviality write_mem_word_consts:
+  !n a w s. ((write_mem_word a n w s).be = s.be) /\
               ((write_mem_word a n w s).lr = s.lr) /\
               ((write_mem_word a n w s).align = s.align) /\
-              ((write_mem_word a n w s).mem_domain = s.mem_domain)`,
-  Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
+              ((write_mem_word a n w s).mem_domain = s.mem_domain)
+Proof
+  Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def]
+QED
 
 Theorem binop_upd_consts[simp]:
    ((binop_upd a b c d x).mem_domain = x.mem_domain) ∧

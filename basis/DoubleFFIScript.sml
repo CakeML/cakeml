@@ -2,77 +2,141 @@
   Logical model of the FFI calls for functions to-/fromString in
   the Double module.
 *)
-open preamble
-    cfFFITypeTheory
-     cfHeapsBaseTheory DoubleProgTheory;
 
-val _ = new_theory"DoubleFFI";
+open preamble cfFFITypeTheory cfHeapsBaseTheory DoubleProgTheory;
 
-val _ = Datatype `
-  doubleFuns = <| fromString:string -> word64;
-                  toString : word64 -> string |>`;
+val _ = new_theory "DoubleFFI";
+
+Datatype:
+  doubleFuns = <|
+    fromString : string -> word64 option;
+    toString : word64 -> string;
+    fromInt : num -> word64;
+    toInt : word64 -> num;
+    power : word64 -> word64 -> word64;
+    ln : word64 -> word64;
+    exp : word64 -> word64;
+    floor : word64 -> word64;
+  |>
+End
 
 (* a valid argument is a non-empty string with no null bytes *)
 
-val validArg_def = Define`
-    validArg s <=> strlen s > 0 /\ ~MEM (CHR 0) (explode s)`;
+Definition validArg_def:
+  validArg s <=> strlen s > 0 /\ ~MEM (CHR 0) (explode s)
+End
 
-val into_bytes_def = Define `
+Definition into_bytes_def:
   (into_bytes 0 w = []) /\
-  (into_bytes (SUC n) w = ((w2w w):word8) :: into_bytes n (w >>> 8))`;
+  (into_bytes (SUC n) w = ((w2w w):word8) :: into_bytes n (w >>> 8))
+End
 
-(* there are 2 FFI functions over the commandline state: *)
-val ffi_fromString_def = Define `
-  ffi_fromString (conf:word8 list) (bytes: word8 list) doubleFns =
+Definition ffi_fromString_def:
+  ffi_fromString (conf: word8 list) (bytes: word8 list) doubleFns =
     if LENGTH bytes = 8 then
-      SOME (FFIreturn
-        (into_bytes 8 (doubleFns.fromString (MAP (CHR o w2n) conf)))
-        doubleFns)
-    else NONE`;
+      case doubleFns.fromString (MAP (CHR o w2n) conf) of
+      | NONE => NONE
+      | SOME bs => SOME (FFIreturn (into_bytes 8 bs) doubleFns)
+    else NONE
+End
 
-val ffi_toString_def = Define `
-  ffi_toString (conf:word8 list) (bytes: word8 list) doubleFns =
+Definition ffi_toString_def:
+  ffi_toString (conf: word8 list) (bytes: word8 list) doubleFns =
     if LENGTH bytes = 256 then
-      let
-        str = (doubleFns.toString
-            (concat_all (EL 0 bytes) (EL 1 bytes) (EL 2 bytes) (EL 3 bytes)
-                        (EL 4 bytes) (EL 5 bytes) (EL 6 bytes) (EL 7 bytes)))
-            ++ [CHR 0];
-      in
-        SOME (FFIreturn
-                (MAP (n2w o ORD) str ++ DROP (LENGTH str) bytes)
-                doubleFns)
-    else NONE`;
+      let str = doubleFns.toString (concat_word_list (TAKE 8 bytes)) ++
+                [CHR 0] in
+      SOME (FFIreturn (MAP (n2w o ORD) str ++
+                       DROP (LENGTH str) bytes) doubleFns)
+    else NONE
+End
 
-(* TODO: Move *)
-val dest_iNum_def = Define `
-  dest_iNum (iNum n) = n `;
+Definition ffi_toInt_def:
+  ffi_toInt (conf: word8 list) (bytes: word8 list) doubleFns =
+    NONE: doubleFuns ffi_result option
+End
 
-(* FFI part for the commandline *)
-val encode_def = Define `encode doubleFns =
-  Cons
-    (Fun (\ x:ffi_inner. Num (w2n (doubleFns.fromString (dest_iStr x)))))
-    (Fun (\ x:ffi_inner. Str (doubleFns.toString (n2w (dest_iNum x)))))`;
+Definition ffi_fromInt_def:
+  ffi_fromInt (conf: word8 list) (bytes: word8 list) doubleFns =
+    NONE: doubleFuns ffi_result option
+End
 
-val encode_11 = prove(
-  ``!x y. encode x = encode y <=> x = y``,
+Definition ffi_pow_def:
+  ffi_pow (conf: word8 list) (bytes: word8 list) doubleFns =
+    NONE: doubleFuns ffi_result option
+End
+
+Definition ffi_ln_def:
+  ffi_ln (conf: word8 list) (bytes: word8 list) doubleFns =
+    NONE: doubleFuns ffi_result option
+End
+
+Definition ffi_exp_def:
+  ffi_exp (conf: word8 list) (bytes: word8 list) doubleFns =
+    NONE: doubleFuns ffi_result option
+End
+
+Definition ffi_floor_def:
+  ffi_floor (conf: word8 list) (bytes: word8 list) doubleFns =
+    NONE: doubleFuns ffi_result option
+End
+
+Definition dest_iNum_def:
+  dest_iNum (iNum n) = n
+End
+
+(* FFI part for Double *)
+Definition encode_def:
+  encode doubleFns =
+    FOLDL Cons
+          (Fun (\x.
+            case doubleFns.fromString (dest_iStr x) of
+            | NONE => Cons (Num 0) (Num 0)
+            | SOME x => Cons (Num 1) (Num (w2n x + 1))))
+          [Fun (\x. Str (doubleFns.toString (n2w (dest_iNum x))));
+           Fun (\x. Num (w2n (doubleFns.fromInt (dest_iNum x))));
+           Fun (\x. Num (doubleFns.toInt (n2w (dest_iNum x))));
+           Fun (\x. Fun (\y. Num (w2n (doubleFns.power (n2w (dest_iNum x))
+                                                       (n2w (dest_iNum y))))));
+           Fun (\x. Num (w2n (doubleFns.ln (n2w (dest_iNum x)))));
+           Fun (\x. Num (w2n (doubleFns.exp (n2w (dest_iNum x)))));
+           Fun (\x. Num (w2n (doubleFns.floor (n2w (dest_iNum x)))))]
+End
+
+Theorem encode_11[local]:
+  !x y. encode x = encode y <=> x = y
+Proof
   rw [] \\ eq_tac \\ fs [encode_def] \\ rw []
-  \\ fs[FUN_EQ_THM, fetch "-" "doubleFuns_component_equality"] \\ conj_tac
-  >- (fs[FUN_EQ_THM] \\ rpt strip_tac
-      \\ last_x_assum (qspec_then `iStr x'` mp_tac)
-      \\ fs[dest_iStr_def])
-  \\ fs[FUN_EQ_THM] \\ rpt strip_tac
-  \\ first_x_assum (qspec_then `iNum (w2n x')` mp_tac)
-  \\ fs[dest_iNum_def]);
+  \\ fs[FUN_EQ_THM, fetch "-" "doubleFuns_component_equality"]
+  \\ rw []
+  >- (
+    last_x_assum (qspec_then `iStr x'` mp_tac)
+    \\ gs [CaseEq "option", dest_iStr_def]
+    \\ rw [] \\ gs [])
+  \\ metis_tac [dest_iNum_def, dest_iStr_def, n2w_w2n]
+QED
 
-val decode_encode = new_specification("decode_encode",["decode"],
-  prove(``?decode. !cls. decode (encode cls) = SOME cls``,
-        qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]));
+Theorem encode_decode_exists[local]:
+  ?decode. !cls. decode (encode cls) = SOME cls
+Proof
+  qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]
+QED
+
+val decode_encode = new_specification(
+  "decode_encode",
+  ["decode"],
+  encode_decode_exists);
 val _ = export_rewrites ["decode_encode"];
 
-val double_ffi_part_def = Define`
+Definition double_ffi_part_def:
   double_ffi_part = (encode,decode,
     [("double_fromString",ffi_fromString);
-     ("double_toString",ffi_toString)])`;
+     ("double_toString",ffi_toString);
+     ("double_fromInt",ffi_fromInt);
+     ("double_toInt",ffi_toInt);
+     ("double_pow",ffi_pow);
+     ("double_exp",ffi_exp);
+     ("double_ln",ffi_ln);
+     ("double_floor",ffi_floor)])
+End
 
-val _ = export_theory();
+val _ = export_theory ();

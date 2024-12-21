@@ -23,12 +23,12 @@ val _ = translate pbcTheory.negate_def;
 val _ = translate iff_and_def;
 val _ = translate iff_or_def;
 val _ = translate walk_base_def;
-val _ = translate walk_aux_def;
-val _ = translate walk_ind_def;
+val _ = translate (walk_aux_def |> REWRITE_RULE[GSYM sub_check_def]);
+val _ = translate (walk_ind_def |> REWRITE_RULE[GSYM sub_check_def]);
 
 val res = translate walk_k_eq;
 
-val res = translate full_encode_mccis_eq;
+val res = translate (full_encode_mccis_eq |> REWRITE_RULE[GSYM sub_check_def])
 
 (* parse input from f1 f2 and run encoder into pbc *)
 val parse_and_enc = (append_prog o process_topdecs) `
@@ -139,7 +139,7 @@ Definition map_concl_to_string_def:
     | NONE => INL (strlit "c Unexpected conclusion for MCIS problem.\n"))
 End
 
-val res = translate conv_concl_def;
+val res = translate (conv_concl_def |> REWRITE_RULE [GSYM sub_check_def]) ;
 
 val conv_concl_side = Q.prove(
   `∀x y. conv_concl_side x y <=> T`,
@@ -152,15 +152,23 @@ val res = translate mccis_bound_str_def;
 val res = translate print_mccis_str_def;
 val res = translate map_concl_to_string_def;
 
+Definition mk_prob_def:
+  mk_prob objf = (NONE,objf):mlstring list option #
+    ((int # mlstring lit) list # int) option #
+    (pbop # (int # mlstring lit) list # int) list
+End
+
+val res = translate mk_prob_def;
+
 val check_unsat_3 = (append_prog o process_topdecs) `
   fun check_unsat_3 f1 f2 f3 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    let val objft = default_objf in
+    let val probt = default_prob in
       (case
         map_concl_to_string n
-          (check_unsat_top_norm False objf objft f3) of
+        (check_unsat_top_norm False (mk_prob objf) probt f3) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
     end`
@@ -206,24 +214,20 @@ Proof
     xsimpl)>>
   Cases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
-  assume_tac npbc_parseProgTheory.default_objf_v_thm>>
+  assume_tac npbc_parseProgTheory.default_prob_v_thm>>
   xlet`POSTv v.
     STDIO fs *
-    &(PAIR_TYPE
-      (OPTION_TYPE (PAIR_TYPE
-        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-      INT))
-      (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
-      ) default_objf v`
+    &prob_TYPE default_prob v`
   >-
     (xvar>>xsimpl)>>
+  xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
   >-
     (xcon>>xsimpl)>>
   drule npbc_parseProgTheory.check_unsat_top_norm_spec>>
-  qpat_x_assum`objf_TYPE r _`assume_tac>>
+  qpat_x_assum`prob_TYPE (mk_prob _) _`assume_tac>>
   disch_then drule>>
-  qpat_x_assum`objf_TYPE default_objf _`assume_tac>>
+  qpat_x_assum`prob_TYPE default_prob _`assume_tac>>
   disch_then drule>>
   strip_tac>>
   xlet_auto
@@ -273,7 +277,7 @@ Proof
     Cases_on`x`>> disch_then (drule_at Any)>>
     disch_then(qspec_then`gt'` mp_tac)>>
     impl_tac>-
-      fs[get_graph_lad_def,AllCaseEqs()]>>
+      fs[get_graph_lad_def,AllCaseEqs(),mk_prob_def]>>
     rw[]>>
     qexists_tac`(q,r)`>>
     simp[mccis_sem_def]>>
@@ -288,7 +292,8 @@ Definition check_unsat_2_sem_def:
   case get_graph_lad fs f2 of
     NONE => out = strlit ""
   | SOME gtt =>
-    out = concat (print_pbf (full_encode_mccis gpp gtt))
+    out = concat (print_prob
+      (mk_prob (full_encode_mccis gpp gtt)))
 End
 
 val check_unsat_2 = (append_prog o process_topdecs) `
@@ -296,7 +301,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    TextIO.print_list (print_pbf objf)`
+    TextIO.print_list (print_prob (mk_prob objf))`
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -335,6 +340,7 @@ Proof
     qexists_tac`x`>>xsimpl)>>
   Cases_on`y`>>gvs[PAIR_TYPE_def]>>
   xmatch>>
+  xlet_autop>>
   xlet_autop>>
   xapp_spec print_list_spec>>xsimpl>>
   asm_exists_tac>>xsimpl>>
@@ -466,7 +472,9 @@ local
 val name = "main"
 val (sem_thm,prog_tm) =
   whole_prog_thm (get_ml_prog_state()) name (UNDISCH main_whole_prog_spec2)
-val main_prog_def = Define`main_prog = ^prog_tm`;
+Definition main_prog_def:
+  main_prog = ^prog_tm
+End
 
 in
 

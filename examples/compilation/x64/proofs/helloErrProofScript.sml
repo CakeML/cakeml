@@ -15,8 +15,9 @@ val helloErr_io_events_def =
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (helloErr_sem,helloErr_output) = helloErr_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (helloErr_not_fail,helloErr_sem_sing) = MATCH_MP
-        semantics_prog_Terminate_not_Fail helloErr_sem |> CONJ_PAIR
+val (helloErr_not_fail,helloErr_sem_sing) = helloErr_sem
+  |> SRULE [helloErr_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 helloErr_compiled)
@@ -29,10 +30,9 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val helloErr_compiled_thm =
+Theorem helloErr_compiled_thm =
   CONJ compile_correct_applied helloErr_output
   |> DISCH_ALL
   |> check_thm
-  |> curry save_thm "hello_compiled_thm";
 
 val _ = export_theory();

@@ -110,17 +110,15 @@ val pair_case_elim = prove(
   ``pair_CASE p f ⇔ ∃x y. p = (x,y) ∧ f x y``,
   Cases_on`p` \\ rw[]);
 
-val elims = List.map prove_case_elim_thm [
-  list_thms, option_thms, result_thms, ffi_result_thms ]
-  |> cons pair_case_elim |> LIST_CONJ
-  |> curry save_thm "case_elim_thms";
-val case_elim_thms = elims;
+Theorem case_elim_thms =
+  List.map prove_case_elim_thm
+           [list_thms, option_thms, result_thms, ffi_result_thms]
+    |> cons pair_case_elim |> LIST_CONJ
 
-val case_eq_thms =
+Theorem case_eq_thms =
   CONJ
   (prove_case_eq_thm {nchotomy = bviTheory.exp_nchotomy, case_def = bviTheory.exp_case_def})
   bvlPropsTheory.case_eq_thms
-  |> curry save_thm "case_eq_thms";
 
 val evaluate_LENGTH = Q.prove(
   `!xs s env. (\(xs,s,env).
@@ -128,12 +126,13 @@ val evaluate_LENGTH = Q.prove(
             | _ => T))
       (xs,s,env)`,
   HO_MATCH_MP_TAC evaluate_ind \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [evaluate_def,elims]
+  \\ FULL_SIMP_TAC (srw_ss()) [evaluate_def,case_elim_thms]
   \\ rw[] \\ fs[]
   \\ every_case_tac \\ fs[])
   |> SIMP_RULE std_ss [];
 
-val _ = save_thm("evaluate_LENGTH", evaluate_LENGTH);
+Theorem evaluate_LENGTH =
+  evaluate_LENGTH
 
 Theorem evaluate_IMP_LENGTH:
    (evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)
@@ -206,8 +205,9 @@ Proof
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
 QED
 
-val inc_clock_def = Define `
-  inc_clock n (s:('c,'ffi) bviSem$state) = s with clock := s.clock + n`;
+Definition inc_clock_def:
+  inc_clock n (s:('c,'ffi) bviSem$state) = s with clock := s.clock + n
+End
 
 Theorem inc_clock_ZERO:
    !s. inc_clock 0 s = s
@@ -301,10 +301,11 @@ Proof
   simp [dec_clock_def, state_component_equality]
 QED
 
-val do_app_inv_clock = Q.prove(
-  `case do_app op (REVERSE a) s of
+Triviality do_app_inv_clock:
+  case do_app op (REVERSE a) s of
     | Rerr e => (do_app op (REVERSE a) (inc_clock n s) = Rerr e)
-    | Rval (v,s1) => (do_app op (REVERSE a) (inc_clock n s) = Rval (v,inc_clock n s1))`,
+    | Rval (v,s1) => (do_app op (REVERSE a) (inc_clock n s) = Rval (v,inc_clock n s1))
+Proof
   Cases_on `op = Install` THEN1
    (Q.SPEC_TAC(`REVERSE a`,`a`) \\ gen_tac \\ CASE_TAC
     \\ fs [do_app_def,do_install_def,UNCURRY,inc_clock_def] \\ rfs []
@@ -317,7 +318,8 @@ val do_app_inv_clock = Q.prove(
   \\ imp_res_tac bvlPropsTheory.do_app_change_clock
   \\ imp_res_tac bvlPropsTheory.do_app_change_clock_err
   \\ rfs [] \\ fs[state_component_equality] \\ fs[] \\ rw[] \\ fs[]
-  \\ fs[bvlSemTheory.state_component_equality] \\ fs[] \\ rw[] \\ fs[]);
+  \\ fs[bvlSemTheory.state_component_equality] \\ fs[] \\ rw[] \\ fs[]
+QED
 
 Theorem evaluate_inv_clock:
    !xs env t1 res t2 n.
@@ -428,8 +430,9 @@ Proof
   \\ rw[] \\ metis_tac[subspt_FOLDL_union]
 QED
 
-val evaluate_global_mono_lemma = Q.prove(
-  `∀xs env s. IS_SOME s.global ⇒ IS_SOME((SND (evaluate (xs,env,s))).global)`,
+Triviality evaluate_global_mono_lemma:
+  ∀xs env s. IS_SOME s.global ⇒ IS_SOME((SND (evaluate (xs,env,s))).global)
+Proof
   recInduct evaluate_ind \\ rw[evaluate_def,case_eq_thms,pair_case_eq]
   \\ every_case_tac \\ fs[] \\ rfs[] \\ fs[]
   \\ Cases_on `op = Install`
@@ -437,7 +440,8 @@ val evaluate_global_mono_lemma = Q.prove(
   \\ fs[do_app_aux_def,case_eq_thms] \\ rw[]
   \\ every_case_tac \\ fs [do_install_def,UNCURRY]
   \\ every_case_tac \\ fs [do_install_def]
-  \\ rw [] \\ fs []);
+  \\ rw [] \\ fs []
+QED
 
 Theorem evaluate_global_mono:
    ∀xs env s res t. (evaluate (xs,env,s) = (res,t)) ⇒ IS_SOME s.global ⇒ IS_SOME t.global
@@ -602,25 +606,33 @@ Proof
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]
 QED
 
-val do_app_inc_clock = Q.prove(
-  `do_app op vs (inc_clock x y) =
-   map_result (λ(v,s). (v,s with clock := x + y.clock)) I (do_app op vs y)`,
+Triviality do_app_inc_clock:
+  do_app op vs (inc_clock x y) =
+   map_result (λ(v,s). (v,s with clock := x + y.clock)) I (do_app op vs y)
+Proof
   Cases_on`do_app op vs y` >>
   imp_res_tac do_app_change_clock_err >>
   TRY(Cases_on`a`>>imp_res_tac do_app_change_clock) >>
-  full_simp_tac(srw_ss())[inc_clock_def] >> simp[])
+  full_simp_tac(srw_ss())[inc_clock_def] >> simp[]
+QED
 
-val dec_clock_1_inc_clock = Q.prove(
-  `x ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock (x-1) s`,
-  simp[state_component_equality,inc_clock_def,dec_clock_def])
+Triviality dec_clock_1_inc_clock:
+  x ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock (x-1) s
+Proof
+  simp[state_component_equality,inc_clock_def,dec_clock_def]
+QED
 
-val dec_clock_1_inc_clock2 = Q.prove(
-  `s.clock ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock x (dec_clock 1 s)`,
-  simp[state_component_equality,inc_clock_def,dec_clock_def])
+Triviality dec_clock_1_inc_clock2:
+  s.clock ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock x (dec_clock 1 s)
+Proof
+  simp[state_component_equality,inc_clock_def,dec_clock_def]
+QED
 
-val dec_clock_inc_clock = Q.prove(
-  `¬(s.clock < n) ⇒ dec_clock n (inc_clock x s) = inc_clock x (dec_clock n s)`,
-  simp[state_component_equality,inc_clock_def,dec_clock_def])
+Triviality dec_clock_inc_clock:
+  ¬(s.clock < n) ⇒ dec_clock n (inc_clock x s) = inc_clock x (dec_clock n s)
+Proof
+  simp[state_component_equality,inc_clock_def,dec_clock_def]
+QED
 
 Theorem inc_clock_eq_0[simp]:
    (inc_clock extra s).clock = 0 ⇔ s.clock = 0 ∧ extra = 0
@@ -656,12 +668,13 @@ Proof
             inc_clock_ffi,dec_clock_ffi]
 QED
 
-val take_drop_lem = Q.prove (
-  `!skip env.
+Triviality take_drop_lem:
+  !skip env.
     skip < LENGTH env ∧
     skip + SUC n ≤ LENGTH env ∧
     DROP skip env ≠ [] ⇒
-    EL skip env::TAKE n (DROP (1 + skip) env) = TAKE (n + 1) (DROP skip env)`,
+    EL skip env::TAKE n (DROP (1 + skip) env) = TAKE (n + 1) (DROP skip env)
+Proof
   Induct_on `n` >>
   srw_tac[][TAKE1, HD_DROP] >>
   `skip + SUC n ≤ LENGTH env` by decide_tac >>
@@ -674,7 +687,8 @@ val take_drop_lem = Q.prove (
   `n + (1 + skip) < LENGTH env` by decide_tac >>
   `(n+1) + skip < LENGTH env` by decide_tac >>
   srw_tac[][EL_DROP] >>
-  srw_tac [ARITH_ss] []);
+  srw_tac [ARITH_ss] []
+QED
 
 Theorem evaluate_genlist_vars:
    !skip env n (st:('c,'ffi) bviSem$state).
@@ -704,28 +718,32 @@ Proof
   metis_tac [take_drop_lem]
 QED
 
-val get_code_labels_def = tDefine"get_code_labels"
-  `(get_code_labels (Var _) = {}) ∧
-   (get_code_labels (If e1 e2 e3) = get_code_labels e1 ∪ get_code_labels e2 ∪ get_code_labels e3) ∧
-   (get_code_labels (Let es e) = BIGUNION (set (MAP get_code_labels es)) ∪ get_code_labels e) ∧
-   (get_code_labels (Raise e) = get_code_labels e) ∧
-   (get_code_labels (Tick e) = get_code_labels e) ∧
-   (get_code_labels (Call _ d es h) =
-     (case d of NONE => {} | SOME n => {n}) ∪
-     (case h of NONE => {} | SOME e => get_code_labels e) ∪
-     BIGUNION (set (MAP get_code_labels es))) ∧
-   (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))`
-  (wf_rel_tac`measure exp_size`
-   \\ simp[bviTheory.exp_size_def]
-   \\ rpt conj_tac \\ rpt gen_tac
-   \\ Induct_on`es`
-   \\ rw[bviTheory.exp_size_def]
-   \\ simp[] \\ res_tac \\ simp[]);
-val get_code_labels_def =
-  get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp,compute,allow_rebind]"
+Definition get_code_labels_def:
+  (get_code_labels (Var _) = {}) ∧
+  (get_code_labels (If e1 e2 e3) = get_code_labels e1 ∪ get_code_labels e2 ∪ get_code_labels e3) ∧
+  (get_code_labels (Let es e) = BIGUNION (set (MAP get_code_labels es)) ∪ get_code_labels e) ∧
+  (get_code_labels (Raise e) = get_code_labels e) ∧
+  (get_code_labels (Tick e) = get_code_labels e) ∧
+  (get_code_labels (Call _ d es h) =
+    (case d of NONE => {} | SOME n => {n}) ∪
+    (case h of NONE => {} | SOME e => get_code_labels e) ∪
+    BIGUNION (set (MAP get_code_labels es))) ∧
+  (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))
+Termination
+  wf_rel_tac`measure exp_size`
+  \\ simp[bviTheory.exp_size_def]
+  \\ rpt conj_tac \\ rpt gen_tac
+  \\ Induct_on`es`
+  \\ rw[bviTheory.exp_size_def]
+  \\ simp[] \\ res_tac \\ simp[]
+End
 
-val good_code_labels_def = Define`
+Theorem get_code_labels_def[simp,compute,allow_rebind] =
+  get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[]
+
+Definition good_code_labels_def:
   good_code_labels p elabs ⇔
-    BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs`;
+    BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs
+End
 
 val _ = export_theory();

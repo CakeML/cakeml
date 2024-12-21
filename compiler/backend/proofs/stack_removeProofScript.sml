@@ -120,36 +120,42 @@ Proof
   full_simp_tac(srw_ss())[word_offset_def,word_mul_n2w,bytes_in_word_def]
 QED
 
-val memory_def = Define `
-  memory m dm = \s. s = fun2set (m, dm)`;
+Definition memory_def:
+  memory m dm = \s. s = fun2set (m, dm)
+End
 
-val word_list_rev_def = Define `
+Definition word_list_rev_def:
   (word_list_rev a [] = emp) /\
   (word_list_rev a (x::xs) =
-     one (a - bytes_in_word, x) * word_list_rev (a - bytes_in_word) xs)`;
+     one (a - bytes_in_word, x) * word_list_rev (a - bytes_in_word) xs)
+End
 
-val word_store_def = Define `
+Definition word_store_def:
   word_store base store =
     word_list_rev base
       (MAP (\name. case FLOOKUP store name of
-                   | NONE => Word 0w | SOME x => x) store_list)`
+                   | NONE => Word 0w | SOME x => x) store_list)
+End
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel jump off k code1 code2 <=>
     (!n prog.
       lookup n code1 = SOME prog ==>
       reg_bound prog k /\
       lookup n code2 = SOME (comp jump off k prog)) ∧
-    domain code2 = domain code1 ∪ {0;1;2}` (* exact characterization for Install *)
+    domain code2 = domain code1 ∪ {0;1;2}
+End (* exact characterization for Install *)
 
-val is_SOME_Word_def = Define `
+Definition is_SOME_Word_def:
   (is_SOME_Word (SOME (Word w)) = T) /\
-  (is_SOME_Word _ = F)`;
+  (is_SOME_Word _ = F)
+End
 
-val the_SOME_Word_def = Define `
-  (the_SOME_Word (SOME (Word w)) = w)`;
+Definition the_SOME_Word_def:
+  (the_SOME_Word (SOME (Word w)) = w)
+End
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel jump off k (s1:('a,'c,'ffi) stackSem$state) s2 <=>
     s1.use_stack /\ s1.use_store /\
     ~s2.use_stack /\ ~s2.use_store /\
@@ -191,23 +197,30 @@ val state_rel_def = Define `
        word_store base s1.store *
        word_list base s1.stack)
         (fun2set (s2.memory,s2.mdomain))
-    | _ => F`
+    | _ => F
+End
 
-val state_rel_get_var = Q.prove(
-  `state_rel jump off k s t /\ n < k ==> (get_var n s = get_var n t)`,
-  full_simp_tac(srw_ss())[state_rel_def,get_var_def]);
+Triviality state_rel_get_var:
+  state_rel jump off k s t /\ n < k ==> (get_var n s = get_var n t)
+Proof
+  full_simp_tac(srw_ss())[state_rel_def,get_var_def]
+QED
 
-val state_rel_IMP = Q.prove(
-  `state_rel jump off k s t1 ==>
-    state_rel jump off k (dec_clock s) (dec_clock t1)`,
+Triviality state_rel_IMP:
+  state_rel jump off k s t1 ==>
+    state_rel jump off k (dec_clock s) (dec_clock t1)
+Proof
   srw_tac[][] \\ full_simp_tac(srw_ss())[state_rel_def,dec_clock_def,empty_env_def] \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[])
+  \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[]
+QED
 
-val state_rel_with_clock = Q.prove(
-  `state_rel jump off k s t1 ==>
-    state_rel jump off k (s with clock := c) (t1 with clock := c)`,
+Triviality state_rel_with_clock:
+  state_rel jump off k s t1 ==>
+    state_rel jump off k (s with clock := c) (t1 with clock := c)
+Proof
   srw_tac[][] \\ full_simp_tac(srw_ss())[state_rel_def,dec_clock_def,empty_env_def] \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[])
+  \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[]
+QED
 
 Theorem state_rel_const:
    state_rel jump off k s t ⇒
@@ -220,27 +233,31 @@ Proof
   fs[state_rel_def]
 QED
 
-val find_code_lemma = Q.prove(
-  `state_rel jump off k s t1 /\
+Triviality find_code_lemma:
+  state_rel jump off k s t1 /\
     (case dest of INL v2 => T | INR i => i < k) /\
     find_code dest s.regs s.code = SOME x ==>
-    find_code dest t1.regs t1.code = SOME (comp jump off k x) /\ reg_bound x k`,
+    find_code dest t1.regs t1.code = SOME (comp jump off k x) /\ reg_bound x k
+Proof
   CASE_TAC \\ full_simp_tac(srw_ss())[find_code_def,state_rel_def,code_rel_def]
   \\ strip_tac \\ res_tac
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac);
+  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac
+QED
 
-val find_code_lemma2 = Q.prove(
-  `state_rel jump off k s t1 /\
+Triviality find_code_lemma2:
+  state_rel jump off k s t1 /\
     (case dest of INL v2 => T | INR i => i < k) /\
     find_code dest (s.regs \\ x1) s.code = SOME x ==>
-    find_code dest (t1.regs \\ x1) t1.code = SOME (comp jump off k x) /\ reg_bound x k`,
+    find_code dest (t1.regs \\ x1) t1.code = SOME (comp jump off k x) /\ reg_bound x k
+Proof
   CASE_TAC \\ full_simp_tac(srw_ss())[find_code_def,state_rel_def,code_rel_def]
   \\ strip_tac \\ res_tac
   \\ fs[DOMSUB_FLOOKUP_THM]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac
-  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac);
+  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac
+QED
 
 Theorem state_rel_set_var[simp]:
    state_rel jump off k s t1 /\ v < k ==>
@@ -251,68 +268,83 @@ Proof
   metis_tac[]
 QED
 
-val word_store_CurrHeap = Q.prove(
-  `word_store base (s.store |+ (CurrHeap,x)) = word_store base s.store`,
-  full_simp_tac(srw_ss())[word_store_def,store_list_def,FLOOKUP_UPDATE]);
+Triviality word_store_CurrHeap:
+  word_store base (s.store |+ (CurrHeap,x)) = word_store base s.store
+Proof
+  full_simp_tac(srw_ss())[word_store_def,store_list_def,FLOOKUP_UPDATE]
+QED
 
-val memory_fun2set_IMP_read = Q.prove(
-  `(memory m d * p) (fun2set (m1,d1)) /\ a IN d ==>
-    a IN d1 /\ m1 a = m a`,
+Triviality memory_fun2set_IMP_read:
+  (memory m d * p) (fun2set (m1,d1)) /\ a IN d ==>
+    a IN d1 /\ m1 a = m a
+Proof
   simp [Once STAR_def,set_sepTheory.SPLIT_EQ,memory_def]
-  \\ full_simp_tac(srw_ss())[fun2set_def,SUBSET_DEF,PULL_EXISTS]);
+  \\ full_simp_tac(srw_ss())[fun2set_def,SUBSET_DEF,PULL_EXISTS]
+QED
 
-val state_rel_read = Q.prove(
-  `state_rel jump off k s t /\ a IN s.mdomain ==>
-    a IN t.mdomain /\ (t.memory a = s.memory a)`,
+Triviality state_rel_read:
+  state_rel jump off k s t /\ a IN s.mdomain ==>
+    a IN t.mdomain /\ (t.memory a = s.memory a)
+Proof
   full_simp_tac(srw_ss())[state_rel_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ strip_tac
-  \\ full_simp_tac(srw_ss())[GSYM STAR_ASSOC] \\ metis_tac [memory_fun2set_IMP_read]);
+  \\ full_simp_tac(srw_ss())[GSYM STAR_ASSOC] \\ metis_tac [memory_fun2set_IMP_read]
+QED
 
-val mem_load_byte_aux_IMP = Q.prove(
-  `state_rel jump off k s t /\
+Triviality mem_load_byte_aux_IMP:
+  state_rel jump off k s t /\
     mem_load_byte_aux s.memory s.mdomain s.be a = SOME x ==>
-    mem_load_byte_aux t.memory t.mdomain t.be a = SOME x`,
+    mem_load_byte_aux t.memory t.mdomain t.be a = SOME x
+Proof
   full_simp_tac(srw_ss())[wordSemTheory.mem_load_byte_aux_def] \\ srw_tac[][]
   \\ `s.be = t.be` by full_simp_tac(srw_ss())[state_rel_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ imp_res_tac state_rel_read
-  \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
+  \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+QED
 
-val read_bytearray_IMP_read_bytearray = Q.prove(
-  `!n a k s t x.
+Triviality read_bytearray_IMP_read_bytearray:
+  !n a k s t x.
       state_rel jump off k s t /\
       read_bytearray a n (mem_load_byte_aux s.memory s.mdomain s.be) = SOME x ==>
-      read_bytearray a n (mem_load_byte_aux t.memory t.mdomain t.be) = SOME x`,
+      read_bytearray a n (mem_load_byte_aux t.memory t.mdomain t.be) = SOME x
+Proof
   Induct \\ full_simp_tac(srw_ss())[read_bytearray_def]
   \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ res_tac \\ srw_tac[][]
-  \\ imp_res_tac mem_load_byte_aux_IMP \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
+  \\ imp_res_tac mem_load_byte_aux_IMP \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+QED
 
-val write_bytearray_IGNORE_non_aligned = Q.prove(
-  `!new_bytes a.
+Triviality write_bytearray_IGNORE_non_aligned:
+  !new_bytes a.
       (!x. b <> byte_align x) ==>
-      write_bytearray a new_bytes m d be b = m b`,
+      write_bytearray a new_bytes m d be b = m b
+Proof
   Induct \\ full_simp_tac(srw_ss())[wordSemTheory.write_bytearray_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[wordSemTheory.mem_store_byte_aux_def]
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]);
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
+QED
 
-val write_bytearray_IGNORE = Q.prove(
-  `!new_bytes a x xx.
+Triviality write_bytearray_IGNORE:
+  !new_bytes a x xx.
       d1 SUBSET d /\
       read_bytearray a (LENGTH new_bytes) (mem_load_byte_aux m1 d1 be) = SOME x /\ xx ∉ d1 ==>
-      write_bytearray a new_bytes m d be xx = m xx`,
+      write_bytearray a new_bytes m d be xx = m xx
+Proof
   Induct_on `new_bytes`
   \\ full_simp_tac(srw_ss())[wordSemTheory.write_bytearray_def,read_bytearray_def]
   \\ full_simp_tac(srw_ss())[wordSemTheory.mem_load_byte_aux_def]
   \\ full_simp_tac(srw_ss())[wordSemTheory.mem_store_byte_aux_def]
   \\ rpt gen_tac \\ every_case_tac
   \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
+  \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+QED
 
-val write_bytearray_EQ = Q.prove(
-  `!new_bytes a m1 m y x.
+Triviality write_bytearray_EQ:
+  !new_bytes a m1 m y x.
       d1 SUBSET d /\ (!a. a IN d1 ==> m1 a = m a /\ a IN d) /\
       read_bytearray a (LENGTH new_bytes) (mem_load_byte_aux m1 d1 be) = SOME y /\ m1 x = m x ==>
       write_bytearray a new_bytes m1 d1 be x =
-      write_bytearray a new_bytes m d be x`,
+      write_bytearray a new_bytes m d be x
+Proof
   Induct_on `new_bytes`
   \\ full_simp_tac(srw_ss())[wordSemTheory.write_bytearray_def,read_bytearray_def]
   \\ rpt gen_tac \\ ntac 2 BasicProvers.TOP_CASE_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
@@ -326,14 +358,16 @@ val write_bytearray_EQ = Q.prove(
   \\ `write_bytearray (a + 1w) new_bytes m1 d1 be (byte_align a) =
       write_bytearray (a + 1w) new_bytes m d be (byte_align a)` by
     (first_x_assum match_mp_tac \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[])
-  \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM] \\ srw_tac[][]);
+  \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM] \\ srw_tac[][]
+QED
 
-val write_bytearray_lemma = Q.prove(
-  `!new_bytes a m1 d1 be x p m d.
+Triviality write_bytearray_lemma:
+  !new_bytes a m1 d1 be x p m d.
       (memory m1 d1 * p) (fun2set (m,d)) /\
       read_bytearray a (LENGTH new_bytes) (mem_load_byte_aux m1 d1 be) = SOME x ==>
       (memory (write_bytearray a new_bytes m1 d1 be) d1 * p)
-        (fun2set (write_bytearray a new_bytes m d be,d))`,
+        (fun2set (write_bytearray a new_bytes m d be,d))
+Proof
   simp [STAR_def,set_sepTheory.SPLIT_EQ,memory_def]
   \\ full_simp_tac(srw_ss())[fun2set_def,SUBSET_DEF,PULL_EXISTS] \\ srw_tac[][]
   \\ `d1 SUBSET d` by full_simp_tac(srw_ss())[SUBSET_DEF]
@@ -347,7 +381,8 @@ val write_bytearray_lemma = Q.prove(
   \\ rename1 `xx IN d`
   \\ Cases_on `xx IN d1` \\ res_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac write_bytearray_IGNORE \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac write_bytearray_EQ \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ metis_tac []);
+  \\ imp_res_tac write_bytearray_EQ \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ metis_tac []
+QED
 
 Theorem state_rel_get_var_k:
    state_rel jump off k s t ⇒
@@ -679,16 +714,20 @@ Proof
   \\ simp[]
 QED
 
-val state_rel_get_fp_var = Q.prove(`
+Triviality state_rel_get_fp_var:
   state_rel jump off k s t ⇒
-  get_fp_var n s = get_fp_var n t`,
-  fs[state_rel_def,get_fp_var_def]);
+  get_fp_var n s = get_fp_var n t
+Proof
+  fs[state_rel_def,get_fp_var_def]
+QED
 
-val state_rel_set_fp_var = Q.prove(`
+Triviality state_rel_set_fp_var:
   state_rel jump off k s t ⇒
-  state_rel jump off k (set_fp_var n v s) (set_fp_var n v t)`,
+  state_rel jump off k (set_fp_var n v s) (set_fp_var n v t)
+Proof
   rw[state_rel_def,set_fp_var_def]>>rfs[]>>
-  res_tac >> fs[]);
+  res_tac >> fs[]
+QED
 
 Theorem state_rel_inst:
    state_rel jump off k s t ∧
@@ -834,30 +873,38 @@ Proof
       good_dimindex_def]
 QED
 
-val get_labels_stack_free = Q.prove(
-  `!k n. get_labels (stack_free k n) = {}`,
+Triviality get_labels_stack_free:
+  !k n. get_labels (stack_free k n) = {}
+Proof
   recInduct stack_free_ind \\ rw []
   \\ once_rewrite_tac [stack_free_def] \\ rw []
-  \\ fs [get_labels_def,single_stack_free_def]);
+  \\ fs [get_labels_def,single_stack_free_def]
+QED
 
-val get_labels_stack_alloc = Q.prove(
-  `!jump k n. get_labels (stack_alloc jump k n) = {}`,
+Triviality get_labels_stack_alloc:
+  !jump k n. get_labels (stack_alloc jump k n) = {}
+Proof
   recInduct stack_alloc_ind \\ rw []
   \\ once_rewrite_tac [stack_alloc_def] \\ rw []
   \\ fs [get_labels_def,single_stack_alloc_def]
-  \\ IF_CASES_TAC \\ fs[get_labels_def,halt_inst_def]);
+  \\ IF_CASES_TAC \\ fs[get_labels_def,halt_inst_def]
+QED
 
-val get_labels_upshift = Q.prove(
-  `!n n0. get_labels (upshift n n0) = {}`,
+Triviality get_labels_upshift:
+  !n n0. get_labels (upshift n n0) = {}
+Proof
   recInduct upshift_ind \\ rw []
   \\ once_rewrite_tac [upshift_def] \\ rw []
-  \\ fs [get_labels_def]);
+  \\ fs [get_labels_def]
+QED
 
-val get_labels_downshift = Q.prove(
-  `!n n0. get_labels (downshift n n0) = {}`,
+Triviality get_labels_downshift:
+  !n n0. get_labels (downshift n n0) = {}
+Proof
   recInduct downshift_ind \\ rw []
   \\ once_rewrite_tac [downshift_def] \\ rw []
-  \\ fs [get_labels_def]);
+  \\ fs [get_labels_def]
+QED
 
 Theorem get_labels_comp:
    !jump off k e. get_labels (comp jump off k e) = get_labels e
@@ -947,10 +994,11 @@ Proof
   \\ qexists_tac`ck+ck'`\\simp[]
 QED
 
-val evaluate_upshift = Q.prove(`
+Triviality evaluate_upshift:
   ∀r n st w.
   FLOOKUP st.regs r = SOME (Word w) ⇒
-  evaluate(upshift r n,st) = (NONE, st with regs := st.regs |+ (r,Word (w + word_offset n)))`,
+  evaluate(upshift r n,st) = (NONE, st with regs := st.regs |+ (r,Word (w + word_offset n)))
+Proof
   ho_match_mp_tac upshift_ind>>rw[]>>
   simp[Once upshift_def]>>IF_CASES_TAC>>
   simp[evaluate_def,inst_def,assign_def,word_exp_def,wordLangTheory.word_op_def,set_var_def]>>
@@ -961,12 +1009,14 @@ val evaluate_upshift = Q.prove(`
   simp[state_component_equality,FUPD11_SAME_KEY_AND_BASE,word_offset_def]>>
   FULL_SIMP_TAC std_ss [Once (GSYM WORD_ADD_ASSOC),word_add_n2w]>>
   FULL_SIMP_TAC std_ss [GSYM RIGHT_ADD_DISTRIB]>>
-  simp[]);
+  simp[]
+QED
 
-val evaluate_downshift = Q.prove(`
+Triviality evaluate_downshift:
   ∀r n st w.
   FLOOKUP st.regs r = SOME (Word w) ⇒
-  evaluate(downshift r n,st) = (NONE, st with regs := st.regs |+ (r,Word (w - word_offset n)))`,
+  evaluate(downshift r n,st) = (NONE, st with regs := st.regs |+ (r,Word (w - word_offset n)))
+Proof
   ho_match_mp_tac downshift_ind>>rw[]>>
   simp[Once downshift_def]>>IF_CASES_TAC>>
   simp[evaluate_def,inst_def,assign_def,word_exp_def,wordLangTheory.word_op_def,set_var_def]>>
@@ -980,7 +1030,8 @@ val evaluate_downshift = Q.prove(`
   FULL_SIMP_TAC std_ss [GSYM WORD_LEFT_ADD_DISTRIB]>>
   FULL_SIMP_TAC std_ss [Once (GSYM WORD_ADD_ASSOC),word_add_n2w]>>
   FULL_SIMP_TAC std_ss [GSYM RIGHT_ADD_DISTRIB]>>
-  simp[]);
+  simp[]
+QED
 
 val name_cases = prove(
   ``!name. name <> CurrHeap ==> MEM name store_list``,
@@ -992,7 +1043,7 @@ val name_cases = prove(
   \\ pop_assum mp_tac \\ rpt (pop_assum kall_tac) \\ decide_tac);
 
 (* Significantly faster than SEP_R_TAC *)
-val mem_load_lemma = Q.prove(`
+Triviality mem_load_lemma:
   MEM name store_list ∧
   FLOOKUP (s:('a,'c,'b)stackSem$state).store name = SOME x ∧
   (memory s.memory s.mdomain *
@@ -1006,7 +1057,8 @@ val mem_load_lemma = Q.prove(`
            n2w (LENGTH s.data_buffer.buffer + LENGTH s.bitmaps))
           s.data_buffer.space_left * word_store c s.store *
         word_list c s.stack) (fun2set (t1.memory,(t1:('a,'c,'b) stackSem$state).mdomain)) ⇒
-  mem_load (c+store_offset name) t1 = SOME x`,
+  mem_load (c+store_offset name) t1 = SOME x
+Proof
   strip_tac >>
   drule fun2set_STAR_IMP>>
   pop_assum kall_tac >> strip_tac >> pop_assum kall_tac >>
@@ -1030,10 +1082,11 @@ val mem_load_lemma = Q.prove(`
   qpat_x_assum`Abbrev (Q ⇔ _)` kall_tac>>
   fs[Abbr`R`]>>
   pop_assum mp_tac)>>
-  fs[store_list_def]);
+  fs[store_list_def]
+QED
 
 (* basically the same thing, but without the read assumption *)
-val mem_load_lemma2 = Q.prove(`
+Triviality mem_load_lemma2:
   MEM name store_list ∧
   (memory s.memory s.mdomain *
         word_list
@@ -1046,7 +1099,8 @@ val mem_load_lemma2 = Q.prove(`
            n2w (LENGTH s.data_buffer.buffer + LENGTH s.bitmaps))
           s.data_buffer.space_left * word_store c s.store *
         word_list c s.stack) (fun2set (t1.memory,(t1:('a,'c,'b) stackSem$state).mdomain)) ⇒
-  c+store_offset name ∈ t1.mdomain`,
+  c+store_offset name ∈ t1.mdomain
+Proof
   strip_tac >>
   drule fun2set_STAR_IMP>>
   pop_assum kall_tac >> strip_tac >> pop_assum kall_tac >>
@@ -1066,16 +1120,19 @@ val mem_load_lemma2 = Q.prove(`
   qpat_x_assum`Abbrev (Q ⇔ _)` kall_tac>>
   fs[Abbr`R`]>>
   pop_assum mp_tac)>>
-  fs[store_list_def]);
+  fs[store_list_def]
+QED
 
-val assoc_lem = Q.prove(`
+Triviality assoc_lem:
   (A:(('a -> bool) -> bool) * B) * C =
-  (B * C) * A`,
-  metis_tac[STAR_ASSOC,STAR_COMM])
+  (B * C) * A
+Proof
+  metis_tac[STAR_ASSOC,STAR_COMM]
+QED
 
 val write_fun2set2 = write_fun2set |> SIMP_RULE std_ss [GSYM STAR_COMM]
 
-val store_write_lemma = Q.prove(`
+Triviality store_write_lemma:
   MEM name store_list ∧
   (memory s.memory s.mdomain *
         word_list
@@ -1097,7 +1154,8 @@ val store_write_lemma = Q.prove(`
          bytes_in_word *
          n2w (LENGTH s.data_buffer.buffer + LENGTH s.bitmaps))
         s.data_buffer.space_left * word_store c (s.store |+ (name,x)) *
-      word_list c s.stack) (fun2set ((c + store_offset name =+ x) m,d))`,
+      word_list c s.stack) (fun2set ((c + store_offset name =+ x) m,d))
+Proof
   strip_tac>>
   pop_assum mp_tac>>
   qmatch_goalsub_abbrev_tac`A * B * C`>>
@@ -1138,7 +1196,8 @@ val store_write_lemma = Q.prove(`
     qmatch_asmsub_abbrev_tac`(_* one(_,vv)) _`>>
     qexists_tac`vv`>>
     first_x_assum ACCEPT_TAC))>>
-  fs[store_list_def]);
+  fs[store_list_def]
+QED
 
 Theorem prog_comp_eta:
    prog_comp = \jump off k (n,p). (n,comp jump off k p)
@@ -1909,6 +1968,7 @@ Proof
     imp_res_tac state_rel_IMP
     \\ Cases_on ‘op’
     \\ fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+          sh_mem_load32_def,sh_mem_store32_def,
           sh_mem_load_byte_def,sh_mem_store_byte_def,get_var_def]
     \\ imp_res_tac state_rel_get_var >> fs[get_var_def]
     \\ ntac 2 (TOP_CASE_TAC>>fs[]) >>TRY (ntac 2 (CASE_TAC>>fs[]))>>
@@ -2517,9 +2577,10 @@ val tac1 = simp [Once list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_de
        labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,halt_inst_def]
 
-val mem_val_def = Define `
+Definition mem_val_def:
   (mem_val regs (INL w) = Word w) /\
-  (mem_val (regs:num |-> 'a word_loc) (INR n) = regs ' n)`
+  (mem_val (regs:num |-> 'a word_loc) (INR n) = regs ' n)
+End
 
 Theorem store_list_code_thm:
    !xs s w frame ys m dm.
@@ -2612,22 +2673,28 @@ val halt_tac =
   tac \\ fs [good_dimindex_def]
   \\ rw [] \\ fs [dimword_def]
 
-val MOD_EQ_IMP_MULT = Q.prove(
-  `!n d. n MOD d = 0 /\ d <> 0 ==> ?k. n = d * k`,
-  rw [] \\ fs [MOD_EQ_0_DIVISOR] \\ metis_tac []);
+Triviality MOD_EQ_IMP_MULT:
+  !n d. n MOD d = 0 /\ d <> 0 ==> ?k. n = d * k
+Proof
+  rw [] \\ fs [MOD_EQ_0_DIVISOR] \\ metis_tac []
+QED
 
-val star_move_lemma = Q.prove(
-  `p0 * p1 * p1' * p2 * p3 * p4 = p2 * (p1 * p1' * STAR p3 (p4 * p0))`,
-  fs [AC STAR_COMM STAR_ASSOC]);
+Triviality star_move_lemma:
+  p0 * p1 * p1' * p2 * p3 * p4 = p2 * (p1 * p1' * STAR p3 (p4 * p0))
+Proof
+  fs [AC STAR_COMM STAR_ASSOC]
+QED
 
-val read_mem_def = Define `
+Definition read_mem_def:
   (read_mem a m 0 = []) /\
   (read_mem a m (SUC n) =
-     m a :: read_mem (a + bytes_in_word) m n)`
+     m a :: read_mem (a + bytes_in_word) m n)
+End
 
-val addresses_def = Define `
+Definition addresses_def:
   (addresses a 0 = {}) /\
-  (addresses a (SUC n) = a INSERT addresses (a + bytes_in_word) n)`
+  (addresses a (SUC n) = a INSERT addresses (a + bytes_in_word) n)
+End
 
 Theorem LENGTH_read_mem:
   !n a m. LENGTH (read_mem a m n) = n
@@ -2635,9 +2702,10 @@ Proof
   Induct \\ fs [read_mem_def]
 QED
 
-val IN_addresses = Q.prove(
-  `!n a x. x IN addresses a n <=>
-            ?i. i < n /\ x = a + n2w i * bytes_in_word`,
+Triviality IN_addresses:
+  !n a x. x IN addresses a n <=>
+            ?i. i < n /\ x = a + n2w i * bytes_in_word
+Proof
   Induct \\ fs [addresses_def]
   \\ rw [] \\ eq_tac \\ rw []
   THEN1 (qexists_tac `0` \\ fs [])
@@ -2645,7 +2713,8 @@ val IN_addresses = Q.prove(
          \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
   \\ Cases_on `i` \\ fs []
   \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
 Theorem addresses_thm:
    !n a. addresses a n = { a + n2w i * bytes_in_word | i < n }
@@ -2653,10 +2722,11 @@ Proof
   rw[EXTENSION, IN_addresses] \\ metis_tac[]
 QED
 
-val memory_addresses = Q.prove(
-  `!n (a:'a word) (m:'a word -> 'a word_loc).
+Triviality memory_addresses:
+  !n (a:'a word) (m:'a word -> 'a word_loc).
       n * (dimindex (:'a) DIV 8) < dimword (:'a) /\ good_dimindex (:'a) ==>
-      memory m (addresses a n) = word_list a (read_mem a m n)`,
+      memory m (addresses a n) = word_list a (read_mem a m n)
+Proof
   once_rewrite_tac [EQ_SYM_EQ]
   \\ Induct \\ fs [addresses_def,read_mem_def,word_list_def]
   THEN1 (fs [memory_def,FUN_EQ_THM,fun2set_def,emp_def])
@@ -2678,15 +2748,20 @@ val memory_addresses = Q.prove(
   \\ sg `i * (dimindex (:α) DIV 8) + dimindex (:α) DIV 8 < dimword (:α)`
   \\ fs[]
   \\ fs [good_dimindex_def,dimword_def]
-  \\ fs [good_dimindex_def,dimword_def]);
+  \\ fs [good_dimindex_def,dimword_def]
+QED
 
-val MOD_LESS_EQ_MOD_IMP = Q.prove(
-  `m MOD k <= n /\ m < k ==> m <= n`,
-  rw [] \\ fs [])
+Triviality MOD_LESS_EQ_MOD_IMP:
+  m MOD k <= n /\ m < k ==> m <= n
+Proof
+  rw [] \\ fs []
+QED
 
-val MAP_mem_val_MAP_INL = Q.prove(
-  `!ws f. MAP (mem_val f) (MAP INL ws) = MAP Word ws`,
-  Induct \\ fs [mem_val_def]);
+Triviality MAP_mem_val_MAP_INL:
+  !ws f. MAP (mem_val f) (MAP INL ws) = MAP Word ws
+Proof
+  Induct \\ fs [mem_val_def]
+QED
 
 Theorem word_list_EQ_rev:
    !xs a. word_list a xs =
@@ -2698,24 +2773,30 @@ Proof
   \\ fs [AC STAR_COMM STAR_ASSOC]
 QED
 
-val word_list_and_rev_join_lemma = Q.prove(
-  `(b = a + n2w (LENGTH xs + LENGTH ys) * bytes_in_word) /\
+Triviality word_list_and_rev_join_lemma:
+  (b = a + n2w (LENGTH xs + LENGTH ys) * bytes_in_word) /\
     (p * word_list a (xs ++ REVERSE ys) * q) ss /\ b1 ==>
-    (p * word_list a xs * word_list_rev b ys * q) ss /\ b1`,
+    (p * word_list a xs * word_list_rev b ys * q) ss /\ b1
+Proof
   fs [word_list_APPEND,WORD_LEFT_ADD_DISTRIB]
   \\ fs [word_list_EQ_rev] \\ rw []
-  \\ fs [AC STAR_COMM STAR_ASSOC,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
+  \\ fs [AC STAR_COMM STAR_ASSOC,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+QED
 
-val word_list_IMP_read_mem = Q.prove(
-  `!xs a p.
+Triviality word_list_IMP_read_mem:
+  !xs a p.
       (p * word_list a xs) (fun2set (m,dm)) ==>
-      read_mem a m (LENGTH xs) = xs`,
+      read_mem a m (LENGTH xs) = xs
+Proof
   Induct \\ fs [read_mem_def,word_list_def,STAR_ASSOC]
-  \\ rw [] \\ res_tac \\ SEP_R_TAC);
+  \\ rw [] \\ res_tac \\ SEP_R_TAC
+QED
 
-val INSERT_DELETE_EQ_DELETE = Q.prove(
-  `(x INSERT s) DELETE x = s DELETE x`,
-  fs [EXTENSION] \\ metis_tac []);
+Triviality INSERT_DELETE_EQ_DELETE:
+  (x INSERT s) DELETE x = s DELETE x
+Proof
+  fs [EXTENSION] \\ metis_tac []
+QED
 
 Theorem word_list_exists_addresses:
    !n a. (dimindex(:'a) DIV 8) * n < dimword (:'a) /\
@@ -2738,7 +2819,7 @@ Proof
   \\ fs [good_dimindex_def,dimword_def] \\ rfs [] \\ fs []
 QED
 
-val init_reduce_def = Define `
+Definition init_reduce_def:
   init_reduce gen_gc jump off k code bitmaps data_sp coracle (s:('a,'c,'ffi)stackSem$state) =
     let heap_ptr = theWord (s.regs ' (k + 2)) in
     let bitmap_ptr = theWord (s.regs ' 3) << word_shift (:'a) in
@@ -2761,12 +2842,15 @@ val init_reduce_def = Define `
          store := FEMPTY |++ (MAP (\n. case store_init gen_gc k n of
                                        | INL w => (n,Word w)
                                        | INR i => (n,s.regs ' i))
-                               (CurrHeap::store_list)) |>`
+                               (CurrHeap::store_list)) |>
+End
 
-val init_reduce_stack_space = Q.prove(
-  `(init_reduce gen_gc jump off k code bitmaps data_sp coracle s8).stack_space <=
-    LENGTH (init_reduce gen_gc jump off k code bitmaps data_sp coracle s8).stack`,
-  fs [init_reduce_def,LENGTH_read_mem]);
+Triviality init_reduce_stack_space:
+  (init_reduce gen_gc jump off k code bitmaps data_sp coracle s8).stack_space <=
+    LENGTH (init_reduce gen_gc jump off k code bitmaps data_sp coracle s8).stack
+Proof
+  fs [init_reduce_def,LENGTH_read_mem]
+QED
 
 Definition stack_heap_limit_ok_def:
   stack_heap_limit_ok t (stack_lim, heap_lim) <=>
@@ -2775,7 +2859,7 @@ Definition stack_heap_limit_ok_def:
     stack_lim = LENGTH t.stack
 End
 
-val init_prop_def = Define `
+Definition init_prop_def:
   init_prop gen_gc max_heap data_sp stack_heap_lim (s:('a,'c,'ffi)stackSem$state) =
     ?curr other bitmap_base len.
        FLOOKUP s.store CurrHeap = SOME (Word curr) /\
@@ -2812,9 +2896,10 @@ val init_prop_def = Define `
        LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) /\
        len + len <= max_heap /\
        (word_list_exists curr len * word_list_exists other len)
-          (fun2set (s.memory,s.mdomain))`
+          (fun2set (s.memory,s.mdomain))
+End
 
-val init_code_pre_def = Define `
+Definition init_code_pre_def:
   init_code_pre k bitmaps data_sp s <=>
     ?ptr2 ptr3 ptr4 bitmap_ptr.
       good_dimindex (:'a) /\ 8 <= k /\ 1 ∈ domain s.code /\
@@ -2841,16 +2926,19 @@ val init_code_pre_def = Define `
       (word_list bitmap_ptr (MAP Word bitmaps) *
        word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
        word_list_exists ptr2 (w2n (ptr4 - ptr2) DIV w2n (bytes_in_word:'a word)))
-        (fun2set (s.memory,s.mdomain))`
+        (fun2set (s.memory,s.mdomain))
+End
 
-val byte_aligned_bytes_in_word_MULT = Q.prove(
-  `good_dimindex (:'a) ==>
-    byte_aligned (bytes_in_word * w:'a word)`,
+Triviality byte_aligned_bytes_in_word_MULT:
+  good_dimindex (:'a) ==>
+    byte_aligned (bytes_in_word * w:'a word)
+Proof
   fs [good_dimindex_def] \\ rw []
   \\ fs [alignmentTheory.byte_aligned_def,bytes_in_word_def]
   \\ qspecl_then [`2`,`w`] mp_tac alignmentTheory.aligned_mul_shift_1
   \\ qspecl_then [`3`,`w`] mp_tac alignmentTheory.aligned_mul_shift_1
-  \\ fs [WORD_MUL_LSL]);
+  \\ fs [WORD_MUL_LSL]
+QED
 
 (* The extra b equality makes this work better with SEP_NEQ_TAC *)
 Theorem word_list_wrap:
@@ -2875,18 +2963,22 @@ Proof
   metis_tac[]
 QED
 
-val sub_rewrite = Q.prove(`
+Triviality sub_rewrite:
   ptr <= ptr' ⇒
-  -1w * n2w ptr + n2w ptr' = n2w (ptr'-ptr)`,
+  -1w * n2w ptr + n2w ptr' = n2w (ptr'-ptr)
+Proof
   rw[]>>simp[Once WORD_SUB_INTRO]>>
-  simp[WORD_LITERAL_ADD]);
+  simp[WORD_LITERAL_ADD]
+QED
 
-val div_rewrite = Q.prove(`
+Triviality div_rewrite:
   n <= x ∧ 1 < n
   ⇒
-  x DIV n ≠ 0`,
+  x DIV n ≠ 0
+Proof
   rw[]>>
-  fs[DIV_EQ_0]);
+  fs[DIV_EQ_0]
+QED
 
 Theorem push_if:
    (if b then f x else f y) = f (if b then x else y) /\
@@ -3670,20 +3762,22 @@ Proof
   gs[]
 QED
 
-val make_init_opt_def = Define `
+Definition make_init_opt_def:
   make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code (s:('a,'c,'ffi)stackSem$state) =
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME _,t) => NONE
     | (NONE,t) => if init_prop gen_gc max_heap data_sp
                        (get_stack_heap_limit max_heap (read_pointers s))
                        (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)
-                  then SOME (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) else NONE`
+                  then SOME (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) else NONE
+End
 
-val init_pre_def = Define `
+Definition init_pre_def:
   init_pre gen_gc max_heap bitmaps data_sp k start s <=>
     lookup 0 s.code = SOME (Seq (init_code gen_gc max_heap k)
                                 (Call NONE (INL start) NONE)) /\
-    init_code_pre k bitmaps data_sp s /\ max_stack_alloc ≤ max_heap`
+    init_code_pre k bitmaps data_sp s /\ max_stack_alloc ≤ max_heap
+End
 
 Theorem evaluate_init_code:
    init_pre gen_gc max_heap bitmaps data_sp k start s /\
@@ -3711,14 +3805,16 @@ Proof
   \\ Cases \\ fs [clock_neutral_def,store_list_code_def,list_Seq_def]
 QED
 
-val evaluate_init_code_clock = Q.prove(
-  `evaluate (init_code gen_gc max_heap k,s) = (res,t) ==>
+Triviality evaluate_init_code_clock:
+  evaluate (init_code gen_gc max_heap k,s) = (res,t) ==>
     evaluate (init_code gen_gc max_heap k,s with clock := c) =
-      (res,t with clock := c)`,
+      (res,t with clock := c)
+Proof
   srw_tac[][] \\ match_mp_tac evaluate_clock_neutral \\ fs []
   \\ fs [clock_neutral_def,init_code_def] \\ rw []
   \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
-         list_Seq_def,init_memory_def,clock_neutral_store_list_code]);
+         list_Seq_def,init_memory_def,clock_neutral_store_list_code]
+QED
 
 Theorem evaluate_init_code_ffi:
    evaluate (init_code gen_gc max_heap k,(s:('a,'c,'ffi) stackSem$state)) = (res,t) ==>
@@ -3812,10 +3908,11 @@ Proof
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ metis_tac []
 QED
 
-val IMP_code_rel = Q.prove(
-  `EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code1 /\
+Triviality IMP_code_rel:
+  EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code1 /\
    code2 = fromAList (compile jump off gen_gc max_heap k start code1) ==>
-   code_rel jump off k (fromAList code1) code2`,
+   code_rel jump off k (fromAList code1) code2
+Proof
   rw[]>>
   fs[code_rel_def,lookup_fromAList]>>
   CONJ_TAC>- (
@@ -3827,9 +3924,10 @@ val IMP_code_rel = Q.prove(
     \\ pop_assum mp_tac \\ EVAL_TAC)>>
   simp[domain_fromAList,compile_def,init_stubs_def,prog_comp_eta,MAP_MAP_o,UNCURRY,o_DEF,ETA_AX]>>
   simp[EXTENSION]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-val make_init_any_def = Define `
+Definition make_init_any_def:
   make_init_any gen_gc max_heap bitmaps data_sp coracle jump off k code s =
     case make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s of
     | SOME t => t
@@ -3848,9 +3946,10 @@ val make_init_any_def = Define `
                       ; code_buffer := <|buffer := []; position := 0w; space_left := 0|>
                       ; code := code
                       ; store := FEMPTY |++ (MAP (\x. (x,Word 0w))
-                                   (CurrHeap::store_list)) |>`
+                                   (CurrHeap::store_list)) |>
+End
 
-val discharge_these_def = Define`
+Definition discharge_these_def:
   discharge_these jump off gen_gc max_heap k start coracle code s2 ⇔
       EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code /\
       (∀n i p.
@@ -3859,9 +3958,10 @@ val discharge_these_def = Define`
       s2.code = fromAList (compile jump off gen_gc max_heap k start code) ∧
       8 ≤ k ∧ 1 ∈ domain s2.code ∧
       {k; k + 1; k + 2} ⊆ s2.ffi_save_regs ∧ ¬s2.use_stack ∧
-      ¬s2.use_store ∧ ¬s2.use_alloc ∧ max_stack_alloc <= max_heap`;
+      ¬s2.use_store ∧ ¬s2.use_alloc ∧ max_stack_alloc <= max_heap
+End
 
-val propagate_these_def = Define`
+Definition propagate_these_def:
   propagate_these s (bitmaps:'a word list) data_sp ⇔
   good_dimindex(:'a) /\
   ∃ptr2 ptr3 ptr4 bitmap_ptr.
@@ -3886,7 +3986,8 @@ val propagate_these_def = Define`
         word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
         word_list_exists ptr2
             (w2n (-1w * ptr2 + ptr4) DIV w2n (bytes_in_word:'a word)))
-         (fun2set (s.memory,s.mdomain))`;
+         (fun2set (s.memory,s.mdomain))
+End
 
 Theorem make_init_semantics:
    discharge_these jump off gen_gc max_heap k start coracle code s2 /\

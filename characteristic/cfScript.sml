@@ -1473,7 +1473,7 @@ Definition app_wordToInt_def:
 End
 
 (*
-val app_opn_def = Define `
+Definition app_opn_def:
   app_opn opn i1 i2 H Q =
     if (opn = Divide \/ opn = Modulo) /\ i2 = 0 then
       H ==>> Q (Exn (prim_exn "Div"))
@@ -2013,7 +2013,6 @@ Termination
       drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
     )
 End
-
 val cf_defs = [
   cf_def,
   cf_lit_def,
@@ -2091,7 +2090,7 @@ val cf_strip_sound_tac =
 
 val cf_evaluate_step_tac =
   simp [evaluate_to_heap_def, evaluate_ck_def, evaluate_def] \\
-  fs [libTheory.opt_bind_def, PULL_EXISTS]
+  fs [miscTheory.opt_bind_def, PULL_EXISTS]
 
 val cf_strip_sound_full_tac = cf_strip_sound_tac \\ cf_evaluate_step_tac
 
@@ -3054,7 +3053,7 @@ Proof
       cf_exp2v_evaluate_tac `st` \\ first_assum progress \\
       rename1 `SPLIT h_i (h_i', _)` \\ rename1 `FF h_i'` \\
       fs [do_app_def, store_assign_def] \\
-      rename1 `rv = Loc r` \\ rw [] \\
+      rename1 `rv = Loc T r` \\ rw [] \\
       `Mem r (Refv x') IN (st2heap p st)` by SPLIT_TAC \\
       `Mem r (Refv x') IN (store2heap st.refs)` by
           fs [st2heap_def,Mem_NOT_IN_ffi2heap] \\
@@ -3081,7 +3080,7 @@ Proof
       fs [st2heap_def, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\
-      first_x_assum (qspec_then `Loc (LENGTH st.refs)` strip_assume_tac) \\
+      first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
       first_x_assum (qspec_then `Mem (LENGTH st.refs) (Refv xv) INSERT h_i` mp_tac) \\
       assume_tac store2heap_alloc_disjoint \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
@@ -3103,7 +3102,7 @@ Proof
       rpt (first_x_assum progress) \\
       fs [do_app_def, store_lookup_def] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      rename1 `rv = Loc r` \\ rw [] \\
+      rename1 `rv = Loc T r` \\ rw [] \\
       `Mem r (Refv x) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
       fs [state_component_equality]
@@ -3116,7 +3115,7 @@ Proof
       fs [do_app_def, store_alloc_def, st2heap_def] \\
       fs [app_aalloc_def, app_aw8alloc_def, W8ARRAY_def, ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def, one_def] \\
-      first_x_assum (qspec_then `Loc (LENGTH st.refs)` strip_assume_tac) \\
+      first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
       qmatch_asmsub_rename_tac(`REPLICATE (Num n) vv`) \\
       ((rename1 `W8array _` \\ (fn l => first_x_assum (qspecl_then l mp_tac))
           [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num n) vv)) INSERT h_i`])
@@ -3142,7 +3141,7 @@ Proof
       fs [do_app_def, store_alloc_def, st2heap_def] \\
       fs [app_aalloc_def, app_aw8alloc_def, W8ARRAY_def, ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def, one_def] \\
-      first_x_assum (qspec_then `Loc (LENGTH st.refs)` strip_assume_tac) \\
+      first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
       ((rename1 `W8array _` \\ (fn l => first_x_assum (qspecl_then l mp_tac))
           [`Mem (LENGTH st.refs) (W8array []) INSERT h_i`])
         ORELSE (fn l => first_x_assum (qspecl_then l mp_tac))
@@ -3167,7 +3166,7 @@ Proof
       fs [st2heap_def, app_aw8sub_def, app_asub_def, W8ARRAY_def, ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc T l` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       fs [do_app_def, store_lookup_def] \\
       ((`Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
@@ -3187,7 +3186,7 @@ Proof
       fs [SEP_EXISTS, SEP_IMP_def, STAR_def, one_def, cell_def, cond_def] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc T l` \\ rw [] \\
       fs [do_app_def, store_lookup_def] \\
       ((`Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
        (`Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC)) \\
@@ -3202,7 +3201,7 @@ Proof
       fs [st2heap_def, app_aw8update_def, app_aupdate_def] \\
       fs [W8ARRAY_def, ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      first_x_assum progress \\ rename1 `a = Loc l` \\ rw [] \\
+      first_x_assum progress \\ rename1 `a = Loc T l` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       ((rename1 `W8array _` \\
         `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
@@ -3238,7 +3237,7 @@ Proof
       fs [W8ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       first_x_assum progress
-      \\ rename1 `d = Loc ld` \\ rw [] \\
+      \\ rename1 `d = Loc T ld` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       (rename1 `W8array _` \\
         `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC) \\
@@ -3272,7 +3271,7 @@ Proof
       fs [W8ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       first_x_assum progress
-      \\ rename1 `s = Loc ls` \\ rw [] \\
+      \\ rename1 `s = Loc T ls` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       (rename1 `W8array _` \\
         `Mem ls (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) \\
@@ -3298,7 +3297,7 @@ Proof
       fs [W8ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       first_x_assum progress
-      \\ rename1 `s = Loc ls` \\ rename1 `d = Loc ld` \\ rw [] \\
+      \\ rename1 `s = Loc T ls` \\ rename1 `d = Loc T ld` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       rename1`Mem ls (W8array ws)` \\
       (rename1 `W8array _` \\

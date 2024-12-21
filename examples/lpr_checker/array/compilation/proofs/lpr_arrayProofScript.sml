@@ -16,7 +16,9 @@ val check_unsat_io_events_def = new_specification("check_unsat_io_events_def",["
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (check_unsat_sem,check_unsat_output) = check_unsat_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (check_unsat_not_fail,check_unsat_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail check_unsat_sem |> CONJ_PAIR
+val (check_unsat_not_fail,check_unsat_sem_sing) = check_unsat_sem
+  |> SRULE [lpr_array_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 lpr_array_compiled)
@@ -29,14 +31,13 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val check_unsat_compiled_thm =
+Theorem check_unsat_compiled_thm =
   CONJ compile_correct_applied check_unsat_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "check_unsat_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_x64_def = Define `
+Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
     mc ms
@@ -49,17 +50,18 @@ val installed_x64_def = Define `
         cfg.lab_conf.ffi_names
         (heap_regs x64_backend_config.stack_conf.reg_names) mc
         cfg.lab_conf.shmem_extra ms
-    `;
+End
 
-val check_unsat_code_def = Define `
+Definition check_unsat_code_def:
   check_unsat_code = (code, data, info)
-  `;
+End
 
 (* A standard run of cake_lpr satisfying all the default assumptions *)
-val cake_lpr_run_def = Define`
+Definition cake_lpr_run_def:
   cake_lpr_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 check_unsat_code mc ms`
+  installed_x64 check_unsat_code mc ms
+End
 
 Theorem concat_success_str:
   ∀a b c. concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString (d:num); strlit "\n"] ≠ success_str a b c

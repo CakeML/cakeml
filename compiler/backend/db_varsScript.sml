@@ -6,17 +6,19 @@ open preamble;
 
 val _ = new_theory "db_vars";
 
-val _ = Datatype `
+Datatype:
   db_var_set = Empty
              | Var num
              | Shift num db_var_set
-             | Union db_var_set db_var_set`;
+             | Union db_var_set db_var_set
+End
 
-val mk_Union_def = Define `
+Definition mk_Union_def:
   mk_Union t1 t2 =
     if t1 = Empty then t2 else
     if t2 = Empty then t1 else
-      Union t1 t2`;
+      Union t1 t2
+End
 
 Theorem mk_Union_Empty[simp]:
    mk_Union Empty A = A ∧ mk_Union A Empty = A
@@ -24,9 +26,10 @@ Proof
   rw[mk_Union_def]
 QED
 
-val list_mk_Union_def = Define `
+Definition list_mk_Union_def:
   (list_mk_Union [] = Empty) /\
-  (list_mk_Union (x::xs) = mk_Union x (list_mk_Union xs))`;
+  (list_mk_Union (x::xs) = mk_Union x (list_mk_Union xs))
+End
 
 Theorem FOLDR_mk_Union_UNZIP:
    FOLDR (λ(x,l) (ts,frees). (x::ts, mk_Union l frees)) ([], A) l =
@@ -37,13 +40,14 @@ Proof
   rename1 `UNZIP ll` >> Cases_on `UNZIP ll` >> full_simp_tac(srw_ss())[FORALL_PROD]
 QED
 
-val db_to_set_acc_def = Define `
+Definition db_to_set_acc_def:
   (db_to_set_acc (n:num) (Empty:db_var_set) s = s) /\
   (db_to_set_acc n (Var v) s =
      if v < n then s else insert (v - n) () s) /\
   (db_to_set_acc n (Shift k d) s = db_to_set_acc (n+k) d s) /\
   (db_to_set_acc n (Union v1 v2) s =
-     db_to_set_acc n v1 (db_to_set_acc n v2 s))`;
+     db_to_set_acc n v1 (db_to_set_acc n v2 s))
+End
 
 Theorem wf_db_to_set_acc:
    ∀s n a. wf a ⇒ wf (db_to_set_acc n s a)
@@ -51,8 +55,9 @@ Proof
   Induct \\ EVAL_TAC \\ rw[wf_insert]
 QED
 
-val db_to_set_def = Define `
-  db_to_set db = db_to_set_acc 0 db LN`;
+Definition db_to_set_def:
+  db_to_set db = db_to_set_acc 0 db LN
+End
 
 Theorem wf_db_to_set:
    ∀db. wf (db_to_set db)
@@ -60,20 +65,24 @@ Proof
   rw[db_to_set_def,wf_db_to_set_acc,wf_def]
 QED
 
-val vars_to_list_def = Define `
-  vars_to_list db = MAP FST (toAList (db_to_set db))`
+Definition vars_to_list_def:
+  vars_to_list db = MAP FST (toAList (db_to_set db))
+End
 
-val vars_from_list_def = Define `
-  vars_from_list vs = FOLDL (\s1 v. Union (Var v) s1) Empty vs`;
+Definition vars_from_list_def:
+  vars_from_list vs = FOLDL (\s1 v. Union (Var v) s1) Empty vs
+End
 
-val vars_flatten_def = Define `
-  vars_flatten db = vars_from_list (vars_to_list db)`;
+Definition vars_flatten_def:
+  vars_flatten db = vars_from_list (vars_to_list db)
+End
 
-val has_var_def = Define `
+Definition has_var_def:
   (has_var n Empty <=> F) /\
   (has_var n (Var v) <=> (n = v)) /\
   (has_var n (Shift k d) <=> has_var (n + k) d) /\
-  (has_var n (Union d1 d2) <=> has_var n d1 \/ has_var n d2)`;
+  (has_var n (Union d1 d2) <=> has_var n d1 \/ has_var n d2)
+End
 val _ = export_rewrites["has_var_def"];
 
 Theorem has_var_mk_Union[simp]:
@@ -118,10 +127,12 @@ Proof
   \\ fs [lookup_db_to_set]
 QED
 
-val has_var_FOLDL_Union = Q.prove(
-  `!vs n s. has_var n (FOLDL (\s1 v. Union (Var v) s1) s vs) <=>
-             MEM n vs \/ has_var n s`,
-  Induct \\ fs [] \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []);
+Triviality has_var_FOLDL_Union:
+  !vs n s. has_var n (FOLDL (\s1 v. Union (Var v) s1) s vs) <=>
+             MEM n vs \/ has_var n s
+Proof
+  Induct \\ fs [] \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
+QED
 
 Theorem MEM_vars_from_list:
    !vs n. has_var n (vars_from_list vs) <=> MEM n vs

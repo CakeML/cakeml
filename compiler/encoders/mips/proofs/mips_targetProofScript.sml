@@ -12,8 +12,8 @@ val ERR = mk_HOL_ERR "mips_targetProofTheory";
 
 (* some lemmas ---------------------------------------------------------- *)
 
-val bytes_in_memory_thm = Q.prove(
-   `!w s state a b c d.
+Triviality bytes_in_memory_thm:
+  !w s state a b c d.
       target_state_rel mips_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
@@ -35,15 +35,16 @@ val bytes_in_memory_thm = Q.prove(
       state.PC + 3w IN s.mem_domain /\
       state.PC + 2w IN s.mem_domain /\
       state.PC + 1w IN s.mem_domain /\
-      state.PC IN s.mem_domain`,
-   rw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
+      state.PC IN s.mem_domain
+Proof
+  rw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
        mips_ok_def, miscTheory.bytes_in_memory_def,
        alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq]
    \\ blastLib.FULL_BBLAST_TAC
-   )
+QED
 
-val bytes_in_memory_thm2 = Q.prove(
-   `!w s state a b c d.
+Triviality bytes_in_memory_thm2:
+  !w s state a b c d.
       target_state_rel mips_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
       (state.MEM (state.PC + w) = a) /\
@@ -53,10 +54,11 @@ val bytes_in_memory_thm2 = Q.prove(
       state.PC + w + 3w IN s.mem_domain /\
       state.PC + w + 2w IN s.mem_domain /\
       state.PC + w + 1w IN s.mem_domain /\
-      state.PC + w IN s.mem_domain`,
-   rw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
+      state.PC + w IN s.mem_domain
+Proof
+  rw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
        mips_ok_def, miscTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
-   )
+QED
 
 val lem1 = asmLib.v2w_BIT_n2w 5
 
@@ -64,14 +66,15 @@ val lem4 =
    blastLib.BBLAST_CONV ``(1 >< 0) (x: word64) = 0w: word2``
    |> Thm.EQ_IMP_RULE |> fst
 
-val lem5 = Q.prove(
-   `!s state.
+Triviality lem5:
+  !s state.
      target_state_rel mips_target s state ==>
      !n. n < 32 /\ mips_reg_ok n ==>
-         (s.regs n = state.gpr (n2w n)) /\ n <> 0 /\ n2w n <> 1w : word5`,
-   lrw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
+         (s.regs n = state.gpr (n2w n)) /\ n <> 0 /\ n2w n <> 1w : word5
+Proof
+  lrw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
         mips_reg_ok_def]
-   )
+QED
 
 val lem6 =
    blastLib.BBLAST_PROVE
@@ -82,12 +85,13 @@ val lem6 =
                 c ' 10; c ' 9; c ' 8; c ' 7; c ' 6; c ' 5;
                 c ' 4; c ' 3; c ' 2; c ' 1; c ' 0]: word16) = c)``
 
-val lem7 = Q.prove(
-   `(!c: word64. aligned 3 c ==> ((2 >< 0) c = 0w: word3)) /\
-    (!c: word64. aligned 2 c ==> ((1 >< 0) c = 0w: word2))`,
-   simp [alignmentTheory.aligned_extract]
+Triviality lem7:
+  (!c: word64. aligned 3 c ==> ((2 >< 0) c = 0w: word3)) /\
+    (!c: word64. aligned 2 c ==> ((1 >< 0) c = 0w: word2))
+Proof
+  simp [alignmentTheory.aligned_extract]
    \\ blastLib.BBLAST_TAC
-   )
+QED
 
 val lem8 =
    blastLib.BBLAST_PROVE
@@ -120,39 +124,47 @@ val lem10 =
 
 val lem12 = utilsLib.mk_cond_rand_thms [optionSyntax.is_some_tm]
 
-val adc_lem1 = Q.prove(
-  `((if b then 1w else 0w) = (v2w [x] || v2w [y] : word64)) <=> (b = (x \/ y))`,
-  rw [] \\ blastLib.BBLAST_TAC)
+Triviality adc_lem1:
+  ((if b then 1w else 0w) = (v2w [x] || v2w [y] : word64)) <=> (b = (x \/ y))
+Proof
+  rw [] \\ blastLib.BBLAST_TAC
+QED
 
-val adc_lem2 = Q.prove(
-  `!r2 : word64 r3 : word64.
+Triviality adc_lem2:
+  !r2 : word64 r3 : word64.
     (18446744073709551616 <= w2n r2 + w2n r3 + 1 <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 + 1w : 65 word) /\
     (18446744073709551616 <= w2n r2 + w2n r3 <=>
-     18446744073709551616w <=+ w2w r2 + w2w r3 : 65 word)`,
-   Cases
+     18446744073709551616w <=+ w2w r2 + w2w r3 : 65 word)
+Proof
+  Cases
    \\ Cases
    \\ imp_res_tac wordsTheory.BITS_ZEROL_DIMINDEX
    \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_add_n2w,
-          wordsTheory.word_ls_n2w])
+          wordsTheory.word_ls_n2w]
+QED
 
-val mul_long1 = Q.prove(
-  `!a : word64 b. (63 >< 0) (w2w a * w2w b : word128) = a * b`,
+Triviality mul_long1:
+  !a : word64 b. (63 >< 0) (w2w a * w2w b : word128) = a * b
+Proof
   srw_tac [wordsLib.WORD_EXTRACT_ss]
-    [Once wordsTheory.WORD_EXTRACT_OVER_MUL])
+    [Once wordsTheory.WORD_EXTRACT_OVER_MUL]
+QED
 
-val mul_long2 = Q.prove(
-  `!a : word64 b : word64.
+Triviality mul_long2:
+  !a : word64 b : word64.
     n2w ((w2n a * w2n b) DIV 18446744073709551616) =
-    (127 >< 64) (w2w a * w2w b : word128) : word64`,
+    (127 >< 64) (w2w a * w2w b : word128) : word64
+Proof
   Cases
   \\ Cases
   \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_mul_n2w,
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
-  )
+QED
 
-val ror = Q.prove(
-  `!w : word64 n. n < 64n ==> ((w << (64 - n) || w >>> n) = w #>> n)`,
+Triviality ror:
+  !w : word64 n. n < 64n ==> ((w << (64 - n) || w >>> n) = w #>> n)
+Proof
   srw_tac [fcpLib.FCP_ss]
     [wordsTheory.word_or_def, wordsTheory.word_ror, wordsTheory.word_bits_def,
      wordsTheory.word_lsl_def, wordsTheory.word_lsr_def,
@@ -161,7 +173,7 @@ val ror = Q.prove(
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] []
   \\ Cases_on `i + n < 64`
   \\ simp []
-  )
+QED
 
 val mips_overflow =
   REWRITE_RULE
@@ -179,9 +191,10 @@ val mips_sub_overflow =
          (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
     (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
 
-val fp_to_int_lem = Q.prove(
-  `!i w : word64.
-      (w2i w = i) ==> -0x8000000000000000 <= i /\ i <= 0x7FFFFFFFFFFFFFFF`,
+Triviality fp_to_int_lem:
+  !i w : word64.
+      (w2i w = i) ==> -0x8000000000000000 <= i /\ i <= 0x7FFFFFFFFFFFFFFF
+Proof
   ntac 3 strip_tac
   \\ assume_tac
        (integer_wordTheory.w2i_le
@@ -192,7 +205,7 @@ val fp_to_int_lem = Q.prove(
         |> Q.ISPEC `w : word64`
         |> SIMP_RULE (srw_ss()) [])
   \\ rfs []
-  )
+QED
 
 val gt_not_leq =
    CONJ (intLib.ARITH_PROVE ``(i > j : int) = ~(i <= j)``)
@@ -431,14 +444,17 @@ end
    mips target_ok
    ------------------------------------------------------------------------- *)
 
-val length_mips_encode = Q.prove(
-  `!i. LENGTH (mips_encode i) = 4`,
-  rw [mips_encode_def])
+Triviality length_mips_encode:
+  !i. LENGTH (mips_encode i) = 4
+Proof
+  rw [mips_encode_def]
+QED
 
-val length_mips_enc = Q.prove(
-  `!l. LENGTH (LIST_BIND l mips_encode) = 4 * LENGTH l`,
+Triviality length_mips_enc:
+  !l. LENGTH (LIST_BIND l mips_encode) = 4 * LENGTH l
+Proof
   Induct \\ rw [length_mips_encode]
-  )
+QED
 
 val mips_encoding = Q.prove (
    `!i. let n = LENGTH (mips_enc i) in (n MOD 4 = 0) /\ n <> 0`,
@@ -451,9 +467,10 @@ val mips_encoding = Q.prove (
    )
    |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [mips_enc_def]
 
-val mips_target_ok = Q.prove (
-   `target_ok mips_target`,
-   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
+Triviality mips_target_ok:
+  target_ok mips_target
+Proof
+  rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
         mips_proj_def, mips_target_def, mips_config, mips_ok_def,
         set_sepTheory.fun2set_eq, mips_encoding] @ enc_ok_rwts)
    >| [Cases_on `0xFFFFFFFFFFFE0004w <= w1 /\ w1 <= 0x20003w`
@@ -472,7 +489,7 @@ val mips_target_ok = Q.prove (
    \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
         (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
    \\ blastLib.FULL_BBLAST_TAC
-   )
+QED
 
 (* -------------------------------------------------------------------------
    mips encoder_correct

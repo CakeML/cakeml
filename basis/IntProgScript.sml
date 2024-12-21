@@ -71,15 +71,15 @@ val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update open_local_block;
 
 val th = EVAL``ORD #"0"``;
-val result = translate (fromChar_unsafe_def |> SIMP_RULE std_ss [th]);
+val result = translate (fromChar_unsafe_def |> SIMP_RULE std_ss [th, GSYM ml_translatorTheory.sub_check_def]);
 val result = translate fromChars_range_unsafe_def;
 
 val result = translate padLen_DEC_eq;
 val result = translate maxSmall_DEC_def;
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("fromChars_unsafe_ind",
-  fromChars_unsafe_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+Theorem fromChars_unsafe_ind =
+  fromChars_unsafe_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]
 val result = translate (fromChars_unsafe_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
@@ -117,8 +117,8 @@ QED
 val result = translate fromChar_thm;
 val result = translate fromChars_range_def;
 
-val _ = save_thm("fromChars_ind",
-  fromChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+Theorem fromChars_ind =
+  fromChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]
 val result = translate (fromChars_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
@@ -156,13 +156,6 @@ val _ = ml_prog_update open_local_block;
 val res = translate num_gcd_def;
 
 val _ = ml_prog_update open_local_in_block;
-
-val num_gcd_side = prove(
-  ``!a b. num_gcd_side a b = T``,
-  recInduct num_gcd_ind \\ rw []
-  \\ once_rewrite_tac [theorem "num_gcd_side_def"]
-  \\ fs [ADD1] \\ rw [] \\ fs [])
-  |> update_precondition;
 
 val _ = (next_ml_names := ["gcd"]);
 val int_gcd_v_thm = translate int_gcd_def;

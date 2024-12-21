@@ -15,16 +15,18 @@ val _ = translation_extends"basisProg";
 
 (* TODO: move *)
 
-val list_rel_perm_help = Q.prove (
-  `!l1 l2.
+Triviality list_rel_perm_help:
+  !l1 l2.
     PERM l1 l2
     ⇒
     !l3 l4.
       LIST_REL r (MAP FST l1) (MAP SND l1)
       ⇒
-      LIST_REL r (MAP FST l2) (MAP SND l2)`,
+      LIST_REL r (MAP FST l2) (MAP SND l2)
+Proof
   ho_match_mp_tac PERM_IND >>
-  rw []);
+  rw []
+QED
 
 Theorem list_rel_perm:
    !r l1 l2 l3 l4.
@@ -40,30 +42,35 @@ Proof
   rw [MAP_ZIP]
 QED
 
-val split_list = Q.prove (
-  `!l x. x < LENGTH l ⇒ ?l1 l2. x = LENGTH l1 ∧ l = l1++[EL x l]++l2`,
+Triviality split_list:
+  !l x. x < LENGTH l ⇒ ?l1 l2. x = LENGTH l1 ∧ l = l1++[EL x l]++l2
+Proof
   induct_on `l` >>
   rw [] >>
   Cases_on `x` >>
   fs [] >>
-  metis_tac [APPEND, LENGTH]);
+  metis_tac [APPEND, LENGTH]
+QED
 
-val split_list2 = Q.prove (
-  `!l1 l2 l3 l4.
+Triviality split_list2:
+  !l1 l2 l3 l4.
     LENGTH l1 < LENGTH l3 ∧ l1++l2 = l3++l4
     ⇒
-    ?l1'. l3 = l1++l1'`,
+    ?l1'. l3 = l1++l1'
+Proof
   induct_on `l1` >>
   rw [] >>
   Cases_on `l3` >>
   fs [] >>
-  metis_tac []);
+  metis_tac []
+QED
 
-val perm_swap_help = Q.prove (
-  `!l x y.
+Triviality perm_swap_help:
+  !l x y.
     x < LENGTH l ∧ y < LENGTH l ∧ y < x
     ⇒
-    PERM l (LUPDATE (EL x l) y (LUPDATE (EL y l) x l))`,
+    PERM l (LUPDATE (EL x l) y (LUPDATE (EL y l) x l))
+Proof
   rw [] >>
   `?l1 l2. LENGTH l1 = x ∧ l = l1++[EL x l]++l2`
   by metis_tac [split_list] >>
@@ -85,7 +92,8 @@ val perm_swap_help = Q.prove (
   fs [FILTER_APPEND, EL_APPEND_EQN] >>
   Cases_on `l1''` >>
   fs [] >>
-  rw [FILTER_APPEND]);
+  rw [FILTER_APPEND]
+QED
 
 Theorem perm_swap:
    !l x y.
@@ -112,12 +120,14 @@ Proof
   fs [LUPDATE_def]
 QED
 
-val el_append_length1 = Q.prove (
-  `!n l1 l2. EL (n + LENGTH l1) (l1 ++ l2) = EL n l2`,
+Triviality el_append_length1:
+  !n l1 l2. EL (n + LENGTH l1) (l1 ++ l2) = EL n l2
+Proof
   Induct_on `l1` >>
   rw [EL_CONS] >>
   `PRE (n + SUC (LENGTH l1)) = n + LENGTH l1` by decide_tac >>
-  metis_tac []);
+  metis_tac []
+QED
 
 Theorem front_zip:
    !l1 l2.
@@ -135,11 +145,12 @@ Proof
   rw []
 QED
 
-val strict_weak_order_def = Define `
+Definition strict_weak_order_def:
   strict_weak_order r ⇔
     transitive r ∧
     (!x y. r x y ⇒ ~r y x) ∧
-    transitive (\x y. ~r x y ∧ ¬r y x)`;
+    transitive (\x y. ~r x y ∧ ¬r y x)
+End
 
 Theorem strict_weak_order_alt:
    strict_weak_order r ⇔
@@ -215,7 +226,7 @@ end;
 `;
 val _ = append_prog partition;
 
-val partition_pred_def = Define `
+Definition partition_pred_def:
   partition_pred cmp offset p_v pivot elems elem_vs part1 part2 ⇔
     (* Neither part is empty *)
     part1 ≠ [] ∧ part2 ≠ [] ∧
@@ -231,11 +242,14 @@ val partition_pred_def = Define `
       (* The elements of the first part aren't greater than the pivot *)
       EVERY (\e. ¬cmp pivot e) elems1 ∧
       (* The elements of the second part aren't less than the pivot *)
-      EVERY (\e. ¬cmp e pivot) elems2`;
+      EVERY (\e. ¬cmp e pivot) elems2
+End
 
-val perm_helper = Q.prove(
-  `!a b c. PERM b c ∧ PERM a b ⇒ PERM a c`,
-  metis_tac [PERM_SYM, PERM_TRANS]);
+Triviality perm_helper:
+  !a b c. PERM b c ∧ PERM a b ⇒ PERM a c
+Proof
+  metis_tac [PERM_SYM, PERM_TRANS]
+QED
 
 Theorem partition_spec:
    !a ffi_p cmp cmp_v arr_v pivot pivot_v lower_v upper_v elem_vs1 elem_vs2 elem_vs3 elems2.
@@ -506,7 +520,7 @@ Proof
   `(SEP_EXISTS loc.
      (λs.
         ∃v.
-          v ⊆ s ∧ s ⊆ v ∧ arr_v = Loc loc ∧
+          v ⊆ s ∧ s ⊆ v ∧ arr_v = Loc T loc ∧
           v ⊆ {Mem loc (Varray (elem_vs1 ++ elem_vs2 ++ elem_vs3))} ∧
           Mem loc (Varray (elem_vs1 ++ elem_vs2 ++ elem_vs3)) ∈ v))
     =

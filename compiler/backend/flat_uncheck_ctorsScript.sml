@@ -6,7 +6,7 @@ open preamble astTheory flatLangTheory;
 val _ = numLib.temp_prefer_num();
 
 val _ = new_theory "flat_uncheck_ctors";
-val _ = set_grammar_ancestry ["flatLang", "lib"];
+val _ = set_grammar_ancestry ["flatLang", "misc"];
 val _ = temp_tight_equality ();
 
 Definition compile_pat_def:
@@ -55,7 +55,8 @@ Proof
   \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute]
 QED
 
-val compile_nil = save_thm ("compile_nil[simp]", EVAL ``compile []``);
+Theorem compile_nil[simp] =
+  EVAL ``compile []``
 
 Theorem compile_not_nil[simp]:
    compile [x] <> []

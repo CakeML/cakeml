@@ -841,7 +841,7 @@ Proof
   \\ simp [mlbasicsProgTheory.deref_v_def,do_opapp_def]
   \\ IF_CASES_TAC \\ fs [dec_clock_def]
   \\ simp [Once evaluate_def,evaluate_Var,do_app_def]
-  \\ ‘∃eof_n bv. isEOF_loc = Loc eof_n ∧
+  \\ ‘∃eof_n oef_b bv. isEOF_loc = Loc oef_b eof_n ∧
        store_lookup eof_n st7.refs = SOME (Refv (Boolv bv))’ by
    (drule repl_types_thm \\ strip_tac \\ fs [repl_rs_def]
     \\ fs [repl_moduleProgTheory.isEOF_def,the_Loc_def,ref_lookup_ok_def])
@@ -859,7 +859,7 @@ Proof
   \\ simp [mlbasicsProgTheory.deref_v_def,do_opapp_def]
   \\ IF_CASES_TAC \\ fs [dec_clock_def]
   \\ simp [Once evaluate_def,evaluate_Var,do_app_def]
-  \\ ‘∃next_n inp. nextString_loc = Loc next_n ∧
+  \\ ‘∃next_n next_b inp. nextString_loc = Loc next_b next_n ∧
        store_lookup next_n st7.refs = SOME (Refv (Litv (StrLit inp)))’ by
    (drule repl_types_thm \\ strip_tac \\ fs [repl_rs_def]
     \\ fs [repl_moduleProgTheory.nextString_def,the_Loc_def,ref_lookup_ok_def])
@@ -1058,7 +1058,7 @@ Proof
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit,Abbr‘env7’]
   \\ fs [do_app_def]
-  \\ ‘∃next_n inp. nextString_loc = Loc next_n ∧
+  \\ ‘∃next_n next_b inp. nextString_loc = Loc next_b next_n ∧
        store_lookup next_n st7.refs = SOME (Refv (Litv (StrLit inp)))’ by
    (drule repl_types_thm \\ strip_tac \\ fs [repl_rs_def]
     \\ fs [repl_moduleProgTheory.nextString_def,the_Loc_def,ref_lookup_ok_def])
@@ -1118,7 +1118,7 @@ val ffi_inst = type_of “basis_ffi _ _” |> dest_type |> snd |> hd
 Theorem evaluate_decs_compiler64_prog:
   s.compiler = compiler_inst x64_config ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
-  s.env_id_counter = (0,0,1) ∧
+  s.env_id_counter = (0,0,1) ∧ prog_syntax_ok compiler64_prog ∧
   has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
   s.compiler_state = BACKEND_INC_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ∧
@@ -1137,17 +1137,27 @@ Proof
        |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
        |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi cl fs’
        |> Q.INST [‘eval_state_var’|->‘s’])
+  \\ dxrule ml_progTheory.Decls_IMP_Prog
+  \\ ‘prog_syntax_ok (FRONT compiler64_prog)’ by
+    (irule ml_progTheory.prog_syntax_ok_isPREFIX
+     \\ first_x_assum $ irule_at Any
+     \\ Cases_on ‘compiler64_prog’ using SNOC_CASES
+     \\ gvs [])
+  \\ ‘prog_syntax_ok repl_prog’ by
+    (irule ml_progTheory.prog_syntax_ok_isPREFIX
+     \\ irule_at Any repl_prog_isPREFIX \\ fs [])
+  \\ impl_tac >- fs [] \\ strip_tac
   \\ drule repl_types_repl_prog
   \\ disch_then drule
   \\ disch_then (qspec_then ‘encode_backend_config conf’ mp_tac)
   \\ impl_tac >-
-   (fs [] \\ simp (find "repl_moduleProg_st" |> map (fst o snd))
-    \\ simp (repl_prog_isPREFIX :: (find "refs_def" |> map (fst o snd)))
+   (fs [] \\ simp (DB.find "repl_moduleProg_st" |> map (#1 o #2))
+    \\ simp (repl_prog_isPREFIX :: (DB.find "refs_def" |> map (#1 o #2)))
     \\ fs [repl_prog_st_def, ml_progTheory.init_state_def])
   \\ fs [repl_prog_st_def]
   \\ qpat_abbrev_tac ‘ppp = W8array _ :: _’ \\ pop_assum kall_tac
-  \\ pop_assum kall_tac
-  \\ pop_assum kall_tac
+  \\ qpat_x_assum ‘Prog _ _ _ _ _’ kall_tac
+  \\ qpat_x_assum ‘evaluate_decs _ _ _ = _’ kall_tac
   \\ strip_tac \\ fs [LAST_compiler64_prog]
   \\ qpat_x_assum ‘evaluate_decs _ _ _ = _’ mp_tac
   (* calling main *)
@@ -1271,7 +1281,7 @@ Theorem semantics_prog_compiler64_prog:
   s.compiler = compiler_inst x64_config ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
   s.env_id_counter = (0,0,1) ∧ has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧
-  STD_streams fs ∧ hasFreeFD fs ∧
+  STD_streams fs ∧ hasFreeFD fs ∧ prog_syntax_ok compiler64_prog ∧
   s.compiler_state = BACKEND_INC_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ⇒
   Fail ∉ semantics_prog

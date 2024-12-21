@@ -17,7 +17,7 @@ In addition, the first address on the heap should store the address of cake_bitm
 
 Note: this set up does NOT account for restoring clobbered registers
 *)
-val startup_def = Define `
+Definition startup_def:
   startup ret pk =
     SmartAppend (List
       [strlit"\n";
@@ -51,16 +51,18 @@ val startup_def = Define `
         [strlit"     b      cake_main\n"]))
     (List
       [strlit"     .ltorg\n";
-       strlit"\n"]))))`
+       strlit"\n"]))))
+End
 
-val ffi_asm_def = Define `
+Definition ffi_asm_def:
   (ffi_asm [] = Nil) /\
   (ffi_asm (ffi::ffis) =
       SmartAppend (List [
        strlit"cake_ffi"; implode ffi; strlit":\n";
        strlit"     b     cdecl(ffi"; implode ffi; strlit")\n";
        strlit"     .p2align 4\n";
-       strlit"\n"]) (ffi_asm ffis))`
+       strlit"\n"]) (ffi_asm ffis))
+End
 
 val ffi_code' =
   ``λret. SmartAppend
@@ -103,20 +105,6 @@ val entry_point_code =
      "     b      cake_main";
      "     .p2align 4";
      ""; "";
-     "cml_return:";
-     "     ldr    r5,=can_enter";
-     "     mov    r6, #1";
-     "     str    r6, [r5]";
-     "     ldr    r5,=ret_base";
-     "     str    r10, [r5]";
-     "     ldr    r5,=ret_stack";
-     "     str    r11, [r5]";
-     "     ldr    r5,=ret_stackend";
-     "     str    r8, [r5]";
-     "     pop    {r5,r6,r8,r10,r11,lr}";
-     "     bx     lr";
-     "     .p2align 4";
-     ""; "";
      "cake_enter:";
      "     push   {r5,r6,r8,r10,r11,lr}";
      "     ldr    r5,=can_enter";
@@ -135,10 +123,18 @@ val entry_point_code =
      "     bx     r4";
      "     .p2align 4";
      ""; "";
+     "cml_return:";
+     "     ldr    r5,=ret_base";
+     "     str    r10, [r5]";
+     "     ldr    r5,=ret_stack";
+     "     str    r11, [r5]";
+     "     ldr    r5,=ret_stackend";
+     "     str    r8, [r5]";
+     "";
      "cake_return:";
      "     ldr    r5,=can_enter";
      "     mov    r6, #1";
-     "     str    r6,  [r5]";
+     "     str    r6, [r5]";
      "     pop    {r5,r6,r8,r10,r11,lr}";
      "     pop    {r4}";
      "     bx     lr";
@@ -150,7 +146,7 @@ val entry_point_code =
      "     .p2align 4";
      ""]))`` |> EVAL |> concl |> rand;
 
-val export_func_def = Define `
+Definition export_func_def:
   export_func appl (name,label,start,len) =
     SmartAppend appl (List
     [strlit"\n     .globl  cdecl("; name; strlit")\n";
@@ -161,13 +157,15 @@ val export_func_def = Define `
      strlit"     b       cake_enter\n";
             name; strlit"_jmp:\n";
      strlit"     b       "; label; strlit"\n"
-    ])`;
+    ])
+End
 
-val export_funcs_def = Define `
+Definition export_funcs_def:
   export_funcs lsyms exp =
-    FOLDL export_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)`;
+    FOLDL export_func misc$Nil (FILTER ((flip MEM exp) o FST) lsyms)
+End
 
-val arm7_export_def = Define `
+Definition arm7_export_def:
   arm7_export ffi_names bytes (data:word32 list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
@@ -181,6 +179,7 @@ val arm7_export_def = Define `
       (SmartAppend (emit_symbols lsyms)
       (if ret then
         (SmartAppend ^entry_point_code (export_funcs lsyms exp))
-      else List []))))`;
+      else List []))))
+End
 
 val _ = export_theory ();

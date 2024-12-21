@@ -7,14 +7,15 @@ open preamble backendProofTheory ag32_configTheory
 
 val _ = new_theory"ag32_configProof";
 
-val is_ag32_machine_config_def = Define`
+Definition is_ag32_machine_config_def:
   is_ag32_machine_config mc ⇔
   mc.target = ag32_target ∧
   mc.ptr_reg = 1 ∧
   mc.len_reg = 2  ∧
   mc.ptr2_reg = 3 ∧
   mc.len2_reg = 4  ∧
-  mc.callee_saved_regs = [60;61;62]`;
+  mc.callee_saved_regs = [60;61;62]
+End
 
 val names_tac =
   simp[tlookup_bij_iff] \\ EVAL_TAC
@@ -69,7 +70,7 @@ QED
 
 val is_ag32_machine_config_mc = ag32_init_ok |> concl |> dest_imp |> #1
 
-val ag32_compile_correct =
+Theorem ag32_compile_correct =
   compile_correct
   |> Q.GENL[`c`,`mc`]
   |> Q.ISPECL[`ag32_backend_config`, `^(rand is_ag32_machine_config_mc)`]
@@ -77,7 +78,6 @@ val ag32_compile_correct =
   |> SIMP_RULE (srw_ss()) [ag32_backend_config_ok,UNDISCH ag32_machine_config_ok,UNDISCH ag32_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
-  |> curry save_thm"ag32_compile_correct";
 
 Theorem get_shmem_info_LENGTH:
   ∀xs c l1 l2.
@@ -123,7 +123,7 @@ Theorem compile_imp_ffi_names:
   c1.lab_conf.ffi_names = SOME (MAP ExtCall f)
 Proof
   Cases_on ‘c1.lab_conf.ffi_names’
-  \\ gvs [libTheory.the_def,backendTheory.ffinames_to_string_list_def]
+  \\ gvs [miscTheory.the_def,backendTheory.ffinames_to_string_list_def]
   \\ gvs [backendTheory.compile_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [oneline backendTheory.attach_bitmaps_def, AllCaseEqs()]

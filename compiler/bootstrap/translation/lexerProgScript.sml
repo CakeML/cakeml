@@ -65,8 +65,13 @@ val _ = (find_def_for_const := def_of_const);
 
 val _ = translate get_token_eqn
 
+val _ = translate (read_char_as_3digits_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+val _ = translate (next_sym_alt_def |> REWRITE_RULE [GSYM sub_check_def]);
+
 val _ = translate (next_token_def |> SIMP_RULE std_ss [next_sym_eq])
 
+val _ = translate lexer_fun_aux_def
 val _ = translate lexer_fun_def
 
 Theorem l2n_side:
@@ -102,25 +107,21 @@ val num_from_hex_string_alt_side = Q.prove(`
     strip_tac>>
     fs[]) |> update_precondition;
 
-val read_string_side = Q.prove(`
-  ∀x y l.
-  read_string_side x y l ⇔ T`,
-  ho_match_mp_tac read_string_ind>>
-  rw[]>>
-  simp[Once (fetch"-""read_string_side_def")]);
-
-val next_sym_alt_side = Q.prove(`
-  ∀x l. next_sym_alt_side x l ⇔ T`,
+Triviality next_sym_alt_side:
+  ∀x l. next_sym_alt_side x l ⇔ T
+Proof
   ho_match_mp_tac next_sym_alt_ind>>rw[]>>
-  simp[Once (fetch"-""next_sym_alt_side_def"),num_from_dec_string_alt_side,read_string_side,num_from_hex_string_alt_side]>>
+  simp[Once (fetch"-""next_sym_alt_side_def"),num_from_dec_string_alt_side,num_from_hex_string_alt_side]>>
   rw[]>>
-  fs[FALSE_def]);
+  fs[FALSE_def,sub_check_def]
+QED
 
 val lexer_fun_aux_side = Q.prove(`
   ∀x l. lexer_fun_aux_side x l ⇔ T`,
   ho_match_mp_tac lexer_fun_aux_ind>>rw[]>>
   simp[Once (fetch"-""lexer_fun_aux_side_def"),
-       Once (fetch"-""next_token_side_def"),next_sym_alt_side]) |> update_precondition
+       Once (fetch"-""next_token_side_def"),next_sym_alt_side])
+  |> update_precondition
 
 val lexer_fun_side = Q.prove(`
   ∀x. lexer_fun_side x ⇔ T`,

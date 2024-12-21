@@ -527,7 +527,6 @@ Definition camlPEG_def[nocompute]:
       (INL nLiteral,
        choicel [
          tok isInt    (bindNT nLiteral o mktokLf);
-         tok isFloat  (bindNT nLiteral o mktokLf);
          tok isString (bindNT nLiteral o mktokLf);
          tok isChar   (bindNT nLiteral o mktokLf);
          tok (λx. MEM x [TrueT; FalseT]) (bindNT nLiteral o mktokLf)]);
@@ -843,13 +842,12 @@ in
     ths
 end
 
-val FDOM_camlPEG = save_thm(
-  "FDOM_camlPEG",
+Theorem FDOM_camlPEG =
   SIMP_CONV (srw_ss()) [camlPEG_def,
                         finite_mapTheory.FRANGE_FUPDATE_DOMSUB,
                         finite_mapTheory.DOMSUB_FUPDATE_THM,
                         finite_mapTheory.FUPDATE_LIST_THM]
-            ``FDOM camlPEG.rules``);
+            ``FDOM camlPEG.rules``
 
 val spec0 =
     peg_nt_thm |> Q.GEN `G`  |> Q.ISPEC `camlPEG`
@@ -1073,13 +1071,14 @@ val topo_nts =
         “nCakeMLPragma”, “nModuleTypeDef”, “nModExpr”, “nDefinition”,
         “nDefItem”, “nModuleItem”, “nModuleItems”, “nStart”];
 
-val cml_wfpeg_thm = save_thm(
-  "cml_wfpeg_thm",
-  LIST_CONJ (List.foldl wfnt [] topo_nts))
+Theorem cml_wfpeg_thm =
+  LIST_CONJ (List.foldl wfnt [] topo_nts)
 
-val subexprs_pnt = Q.prove(
-  `subexprs (pnt n) = {pnt n}`,
-  simp [pegTheory.subexprs_def, pnt_def]);
+Triviality subexprs_pnt:
+  subexprs (pnt n) = {pnt n}
+Proof
+  simp [pegTheory.subexprs_def, pnt_def]
+QED
 
 Theorem PEG_exprs =
    “Gexprs camlPEG”

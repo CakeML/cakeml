@@ -15,8 +15,10 @@ val _ = new_theory "flat_pattern";
 val _ = set_grammar_ancestry ["misc","flatLang","sptree",
     "pattern_semantics"];
 
-val _ = Datatype `config =
-  <| pat_heuristic : (* pattern_matching$branch list *) (* unit -> *) num |>`;
+Datatype:
+  config =
+  <| pat_heuristic : (* pattern_matching$branch list *) (* unit -> *) num |>
+End
 
 Definition init_config_def:
   init_config ph = <| pat_heuristic := ph |>

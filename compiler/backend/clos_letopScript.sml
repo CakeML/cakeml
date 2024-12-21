@@ -12,16 +12,18 @@ val _ = set_grammar_ancestry ["closLang"]
 
 (* let_op -- a function that optimises Let [...] (Op op [Var ...]) *)
 
-val var_list_def = Define `
+Definition var_list_def:
   (var_list n [] [] = T) /\
   (var_list n (Var t m :: xs) (y::ys) = ((m = n) /\ var_list (n+1) xs ys)) /\
-  (var_list _ _ _ = F)`
+  (var_list _ _ _ = F)
+End
 
-val dest_op_def = Define `
+Definition dest_op_def:
   (dest_op (Op t op xs) args = (if var_list 0 xs args then SOME op else NONE)) /\
-  (dest_op _ _ = NONE)`
+  (dest_op _ _ = NONE)
+End
 
-val let_op_def = tDefine "let_op" `
+Definition let_op_def:
   (let_op [] = []) /\
   (let_op ((x:closLang$exp)::y::xs) =
      HD (let_op [x]) :: let_op (y::xs)) /\
@@ -49,12 +51,14 @@ val let_op_def = tDefine "let_op" `
   (let_op [Letrec t loc_opt vs fns x1] =
      let new_fns = MAP (\(num_args, x). (num_args, HD (let_op [x]))) fns in
      [Letrec t loc_opt vs new_fns (HD (let_op [x1]))]) /\
-  (let_op [Fn t loc_opt vs num_args x1] = [Fn t loc_opt vs num_args (HD (let_op [x1]))])`
-  (WF_REL_TAC `measure exp3_size`
+  (let_op [Fn t loc_opt vs num_args x1] = [Fn t loc_opt vs num_args (HD (let_op [x1]))])
+Termination
+  WF_REL_TAC `measure exp3_size`
    \\ simp []
    \\ rpt strip_tac
    \\ imp_res_tac exp1_size_lemma
-   \\ simp []);
+   \\ simp []
+End
 
 val let_op_ind = theorem "let_op_ind";
 
@@ -118,7 +122,8 @@ Proof
   rpt(PURE_TOP_CASE_TAC >> gvs[])
 QED
 
-val compile_inc_def = Define `
-  compile_inc (e, xs) = (let_op e, [])`;
+Definition compile_inc_def:
+  compile_inc (e, xs) = (let_op e, [])
+End
 
 val _ = export_theory();

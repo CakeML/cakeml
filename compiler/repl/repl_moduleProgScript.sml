@@ -119,7 +119,7 @@ val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
 
 val tidy_up =
-  SIMP_RULE (srw_ss()) (LENGTH :: (DB.find "refs_def" |> map (fst o snd)));
+  SIMP_RULE (srw_ss()) (LENGTH :: (DB.find "refs_def" |> map (#1 o #2)));
 
 val _ = ml_prog_update (open_module "Repl");
 
@@ -189,7 +189,9 @@ val _ = ml_prog_update (close_module NONE);
 
 val repl_prog = get_ml_prog_state () |> remove_snocs |> ml_progLib.get_prog;
 
-val repl_prog_def = Define `repl_prog = ^repl_prog`;
+Definition repl_prog_def:
+  repl_prog = ^repl_prog
+End
 
 Theorem Decls_repl_prog =
   ml_progLib.get_Decls_thm (get_ml_prog_state ())

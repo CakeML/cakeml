@@ -9,7 +9,11 @@ val _ = new_theory "cmlNTProps";
 
 val _ = set_grammar_ancestry ["gramProps"]
 
-val disjImpI = Q.prove(`~p \/ q ⇔ p ⇒ q`, DECIDE_TAC)
+Triviality disjImpI:
+  ~p \/ q ⇔ p ⇒ q
+Proof
+  DECIDE_TAC
+QED
 
 Theorem firstSet_nUQTyOp[simp]:
   firstSet cmlG (NN nUQTyOp::rest) =
@@ -557,29 +561,6 @@ Proof
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
 QED
 
-Theorem firstSet_nE':
-  firstSet cmlG (NT(mkNT nE')::rest) =
-  firstSet cmlG [NT (mkNT nEbase)] ∪ {IfT; RaiseT}
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSetML_nE'[simp]:
-  mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-  mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-  mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-  mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
-  mkNT nElogicOR ∉ sn ∧ mkNT nE' ∉ sn ∧ mkNT nElistop ∉ sn ∧
-  mkNT nEliteral ∉ sn
-  ⇒
-  firstSetML cmlG sn (NT (mkNT nE')::rest) = firstSet cmlG [NN nE']
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE']) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
 Theorem firstSet_nElist1[simp]:
   firstSet cmlG (NT (mkNT nElist1)::rest) = firstSet cmlG [NT (mkNT nE)]
 Proof
@@ -717,6 +698,14 @@ Proof
   simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]
 QED
 
+Theorem firstSet_nPEsfx[simp]:
+  firstSet cmlG (NN nPEsfx :: rest) =
+  BarT INSERT HandleT INSERT firstSet cmlG rest
+Proof
+  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied,
+       nullable_PEsfx] >> SET_TAC[]
+QED
+
 Theorem NOTIN_firstSet_nV[simp]:
   CommaT ∉ firstSet cmlG [NN nV] ∧ LparT ∉ firstSet cmlG [NN nV] ∧
   RparT ∉ firstSet cmlG [NN nV] ∧ UnderbarT ∉ firstSet cmlG [NN nV] ∧
@@ -746,7 +735,8 @@ Theorem NOTIN_firstSet_nV[simp]:
   TypeT ∉ firstSet cmlG [NN nV] ∧
   SemicolonT ∉ firstSet cmlG [NN nV] ∧ ColonT ∉ firstSet cmlG [NN nV] ∧
   StructureT ∉ firstSet cmlG [NN nV] ∧ WordT w ∉ firstSet cmlG [NN nV] ∧
-  SymbolT "::" ∉ firstSet cmlG [NN nV]
+  SymbolT "::" ∉ firstSet cmlG [NN nV] ∧
+  HandleT ∉ firstSet cmlG [NN nV]
 Proof
   simp[firstSet_nV] >> simp[validPrefixSym_def]
 QED
@@ -786,7 +776,8 @@ Theorem NOTIN_firstSet_nFQV[simp]:
   TypeT ∉ firstSet cmlG [NN nFQV] ∧
   UnderbarT ∉ firstSet cmlG [NN nFQV] ∧
   ValT ∉ firstSet cmlG [NN nFQV] ∧
-  WordT w ∉ firstSet cmlG [NN nFQV]
+  WordT w ∉ firstSet cmlG [NN nFQV] ∧
+  HandleT ∉ firstSet cmlG [NN nV]
 Proof
   simp[firstSet_nFQV]
 QED

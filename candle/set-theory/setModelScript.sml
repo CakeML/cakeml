@@ -10,7 +10,7 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-val is_set_theory_pred_def = Define`
+Definition is_set_theory_pred_def:
   is_set_theory_pred is_v_rep in_rep ⇔
    (∃x. is_v_rep x) ∧
    (∀x y. is_v_rep x ∧ is_v_rep y ⇒ ((x = y) ⇔ (∀a. is_v_rep a ⇒ (in_rep a x ⇔ in_rep a y)))) ∧
@@ -18,7 +18,8 @@ val is_set_theory_pred_def = Define`
    (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ⇒ (in_rep a y ⇔ (∀b. is_v_rep b ⇒ in_rep b a ⇒ in_rep b x)))) ∧
    (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ⇒ (in_rep a y ⇔ (∃b. is_v_rep b ∧ in_rep a b ∧ in_rep b x)))) ∧
    (∀x y. is_v_rep x ∧ is_v_rep y ⇒ ∃z. is_v_rep z ∧ (∀a. is_v_rep a ⇒ (in_rep a z ⇔ (a = x ∨ a = y)))) ∧
-   (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ∧ in_rep a x ⇒ in_rep y x))`
+   (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ∧ in_rep a x ⇒ in_rep y x))
+End
 
 Theorem l_model_exists:
    ∃(P : α+num -> bool) (mem : α+num -> α+num -> bool). is_set_theory_pred P mem
@@ -173,7 +174,9 @@ val dest_V_11   = prove_rep_fn_one_one V_bij
 val V_mem_rep_def =
   new_specification("V_mem_rep_def",["V_mem_rep"],is_V_def)
 
-val V_mem_def = Define`V_mem x y = V_mem_rep (dest_V x) (dest_V y)`
+Definition V_mem_def:
+  V_mem x y = V_mem_rep (dest_V x) (dest_V y)
+End
 
 Theorem is_set_theory_V:
    is_set_theory V_mem
@@ -220,14 +223,16 @@ Proof
   metis_tac[V_bij]
 QED
 
-val V_choice_exists = Q.prove(
-  `∃ch. is_choice V_mem ch`,
+Triviality V_choice_exists:
+  ∃ch. is_choice V_mem ch
+Proof
   simp[is_choice_def,GSYM SKOLEM_THM] >>
   rw[] >> simp[V_mem_def] >>
   qspecl_then[`dest_V x`]mp_tac
     (List.nth(CONJUNCTS V_mem_rep_def,6)) >>
   simp[V_bij] >>
-  metis_tac[V_bij] )
+  metis_tac[V_bij]
+QED
 
 val V_choice_def =
   new_specification("V_choice_def",["V_choice"],V_choice_exists)

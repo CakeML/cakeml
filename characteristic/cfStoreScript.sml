@@ -13,18 +13,22 @@ val _ = new_theory "cfStore"
 
 (* Definitions *)
 
-val store2heap_aux_def = Define `
+Definition store2heap_aux_def:
   store2heap_aux n [] = ({}: heap) /\
-  store2heap_aux n (v :: t) = (Mem n v) INSERT (store2heap_aux (n+1: num) t)`
+  store2heap_aux n (v :: t) = (Mem n v) INSERT (store2heap_aux (n+1: num) t)
+End
 
 (* store2heap: v store -> heap *)
-val store2heap_def = Define `store2heap l = store2heap_aux (0: num) l`
+Definition store2heap_def:
+  store2heap l = store2heap_aux (0: num) l
+End
 
-val ffi_has_index_in_def = Define `
+Definition ffi_has_index_in_def:
   ffi_has_index_in ns (IO_event (ExtCall i) conf ws) = (MEM i ns) /\
-  ffi_has_index_in _ _ = F`;
+  ffi_has_index_in _ _ = F
+End
 
-val parts_ok_def = Define `
+Definition parts_ok_def:
   parts_ok st ((proj,parts):'ffi ffi_proj) <=>
     ALL_DISTINCT (FLAT (MAP FST parts)) /\
     EVERY (ffi_has_index_in (FLAT (MAP FST parts))) st.io_events /\
@@ -41,9 +45,10 @@ val parts_ok_def = Define `
       LENGTH new_bytes = LENGTH bytes /\
       ?y.
         st.oracle (ExtCall m) x conf bytes = Oracle_return y new_bytes /\
-        proj x |++ (MAP (\n. (n,w)) ns) = proj y`
+        proj x |++ (MAP (\n. (n,w)) ns) = proj y
+End
 
-val ffi2heap_def = Define `
+Definition ffi2heap_def:
   ffi2heap ((proj,parts):'ffi ffi_proj) st =
     if parts_ok st (proj,parts) then
       FFI_split INSERT
@@ -52,12 +57,14 @@ val ffi2heap_def = Define `
         ts = FILTER (ffi_has_index_in ns) st.io_events /\
         !n. MEM n ns ==> FLOOKUP (proj st.ffi_state) n = SOME s }
     else
-      { FFI_full st.io_events }`;
+      { FFI_full st.io_events }
+End
 
 (* st2heap: 'ffi state -> heap *)
-val st2heap_def = Define `
+Definition st2heap_def:
   st2heap (f:'ffi ffi_proj) (st: 'ffi semanticPrimitives$state) =
-    store2heap st.refs UNION ffi2heap f st.ffi`
+    store2heap st.refs UNION ffi2heap f st.ffi
+End
 
 (* Lemmas *)
 

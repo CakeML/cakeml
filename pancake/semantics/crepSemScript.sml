@@ -207,9 +207,9 @@ Definition sh_mem_op_def:
   (sh_mem_op Load r (ad:'a word) (s:('a,'ffi) crepSem$state) = sh_mem_load r ad 0 s) ∧
   (sh_mem_op Store r ad s = sh_mem_store r ad 0 s) ∧
   (sh_mem_op Load8 r ad s = sh_mem_load r ad 1 s) ∧
-  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s)(* ∧
-  (sh_mem_op Load32 r ad s = sh_mem_load r ad s 4) ∧
-  (sh_mem_op Store32 r ad s = sh_mem_store r ad s 4)*)
+  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s) ∧
+  (sh_mem_op Load32 r ad s = sh_mem_load r ad 4 s) ∧
+  (sh_mem_op Store32 r ad s = sh_mem_store r ad 4 s)
 End
 
 Definition evaluate_def:
@@ -362,16 +362,18 @@ Proof
   rpt (res_tac >> fs [])
 QED
 
-val fix_clock_evaluate = Q.prove(
-  `fix_clock s (evaluate (prog,s)) = evaluate (prog,s)`,
+Triviality fix_clock_evaluate:
+  fix_clock s (evaluate (prog,s)) = evaluate (prog,s)
+Proof
   Cases_on `evaluate (prog,s)` \\ fs [fix_clock_def]
-  \\ imp_res_tac evaluate_clock \\ fs [GSYM NOT_LESS, state_component_equality]);
+  \\ imp_res_tac evaluate_clock \\ fs [GSYM NOT_LESS, state_component_equality]
+QED
 
-val evaluate_ind = save_thm("evaluate_ind[allow_rebind]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+Theorem evaluate_ind[allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind
 
-val evaluate_def = save_thm("evaluate_def[allow_rebind,compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_def[allow_rebind,compute] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def
 
 (* observational semantics *)
 

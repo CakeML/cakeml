@@ -118,9 +118,9 @@ Inductive perms_ok:
   (∀ r.
      perms_ok ps (Real r))
 [~Loc:]
-  (∀ps loc.
+  (∀ps b loc.
      RefMention loc ∈ ps ⇒
-       perms_ok ps (Loc loc))
+       perms_ok ps (Loc b loc))
 [~Env:]
   (∀ps env ns.
      perms_ok_env ps UNIV env  ⇒
@@ -139,7 +139,7 @@ Theorem perms_ok_def =
    “perms_ok ps (Conv opt vs)”,
    “perms_ok ps (Closure env n x)”,
    “perms_ok ps (Recclosure env f n)”,
-   “perms_ok ps (Loc loc)”,
+   “perms_ok ps (Loc b loc)”,
    “perms_ok ps (Vectorv vs)”,
    “perms_ok ps (Env env ns)”,
    “perms_ok ps (FP_WordTree fp)”,

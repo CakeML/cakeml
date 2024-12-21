@@ -18,7 +18,9 @@ val hello_io_events_def =
   |> SIMP_RULE std_ss [SKOLEM_THM]);
 
 val (hello_sem,hello_output) = hello_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (hello_not_fail,hello_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail hello_sem |> CONJ_PAIR
+val (hello_not_fail,hello_sem_sing) = hello_sem
+  |> SRULE [hello_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val ffinames_to_string_list_def = backendTheory.ffinames_to_string_list_def;
 
@@ -27,10 +29,10 @@ Theorem extcalls_ffi_names:
 Proof
   rewrite_tac [hello_compiled]
   \\ qspec_tac (‘info.lab_conf.ffi_names’,‘xs’) \\ Cases
-  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
   \\ Induct_on ‘x’
-  \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
-  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,libTheory.the_def]
+  \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
+  \\ Cases \\ gvs [extcalls_def,ffinames_to_string_list_def,miscTheory.the_def]
 QED
 
 val ffis = ffis_def |> CONV_RULE (RAND_CONV EVAL);
@@ -126,11 +128,10 @@ Proof
   \\ simp[]
 QED
 
-val hello_machine_sem =
+Theorem hello_machine_sem =
   compile_correct_applied
   |> C MATCH_MP (UNDISCH hello_installed)
   |> DISCH_ALL
-  |> curry save_thm "hello_machine_sem";
 
 Theorem hello_extract_writes_stdout:
    wfcl cl ⇒

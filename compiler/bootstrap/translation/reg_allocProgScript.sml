@@ -16,6 +16,7 @@ val _ = new_theory "reg_allocProg";
 
 val _ = translation_extends "pancake_parseProg";
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 (*
 val _ = translation_extends "basisProg";
 *)
@@ -137,14 +138,16 @@ val _ = m_translate split_degree_def;
 val _ = translate sort_moves_def;
 val _ = translate smerge_def;
 
-val rewrite_subs = Q.prove(`
+Triviality rewrite_subs:
   (st_ex_MAP adj_ls_sub = st_ex_MAP (\v. adj_ls_sub v)) ∧
   (st_ex_MAP node_tag_sub = st_ex_MAP (\v. node_tag_sub v)) ∧
   (st_ex_PARTITION move_related_sub = st_ex_PARTITION (\v. move_related_sub v)) ∧
   (st_ex_MAP degrees_sub = st_ex_MAP (\v. degrees_sub v)) ∧
   (st_ex_FILTER (considered_var k) xs ys = st_ex_FILTER (\v. considered_var k v) xs ys) ∧
-  (st_ex_MAP (deg_or_inf kk) xs = st_ex_MAP (\x. deg_or_inf kk x) xs)`,
-  metis_tac[ETA_AX]);
+  (st_ex_MAP (deg_or_inf kk) xs = st_ex_MAP (\x. deg_or_inf kk x) xs)
+Proof
+  metis_tac[ETA_AX]
+QED
 
 val _ = translate sorted_mem_def;
 
@@ -207,6 +210,8 @@ val _ = m_translate (assign_Stemp_tag_def |> REWRITE_RULE [rewrite_subs]);
 val _ = m_translate assign_Stemps_def;
 val _ = m_translate (first_match_col_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate biased_pref_def;
+val _ = m_translate neg_first_match_col_def;
+val _ = m_translate neg_biased_pref_def;
 val _ = m_translate clique_insert_edge_def;
 val _ = m_translate (extend_clique_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate (mk_graph_def |> REWRITE_RULE [MEMBER_INTRO]);
@@ -230,10 +235,10 @@ val _ = m_translate do_reg_alloc_def;
 
 (* Finish the monadic translation *)
 (* Rewrite reg_alloc_aux before giving it to the monadic translator *)
-val reg_alloc_aux_trans_def = Q.prove(
- `∀k mtable ct forced x.
-     reg_alloc_aux alg sc k mtable ct forced x =
-     run_ira_state (do_reg_alloc alg sc k mtable ct forced x)
+Triviality reg_alloc_aux_trans_def:
+  ∀k mtable ct forced fs x.
+     reg_alloc_aux alg sc k mtable ct forced fs x =
+     run_ira_state (do_reg_alloc alg sc k mtable ct forced fs x)
        <|adj_ls := (SND(SND x),[]);
          node_tag := (SND(SND x),Atemp);
          degrees := (SND(SND x),0);
@@ -245,8 +250,10 @@ val reg_alloc_aux_trans_def = Q.prove(
          unavail_moves_wl := [];
          coalesced := (SND(SND x),0);
          move_related := (SND(SND x),F);
-         stack := []|>`,
- Cases_on `x` >> Cases_on `r` >> fs[reg_alloc_aux_def]);
+         stack := []|>
+Proof
+  Cases_on `x` >> Cases_on `r` >> fs[reg_alloc_aux_def]
+QED
 
 val def = reg_alloc_aux_trans_def
 val _ = m_translate_run reg_alloc_aux_trans_def;
@@ -257,7 +264,7 @@ val _ = translate reg_alloc_def;
 
 (* === Translation of linear scan register allocator === *)
 
-open linear_scanTheory libTheory;
+open linear_scanTheory;
 
 (*
  *  Set up the monadic translator
@@ -318,12 +325,13 @@ val res = translate pairTheory.LEX_DEF;
 
 (* Translate linear scan register allocator *)
 
-val map_colors_sub_def = Define `
+Definition map_colors_sub_def:
   (map_colors_sub [] = st_ex_return []) ∧
   (map_colors_sub (x::xs) =
      st_ex_bind (colors_sub x)
        (\fx. st_ex_bind (map_colors_sub xs)
-               (\fxs. st_ex_return (fx::fxs))))`
+               (\fxs. st_ex_return (fx::fxs))))
+End
 
 Theorem map_colors_sub_eq:
    map_colors_sub = st_ex_MAP colors_sub

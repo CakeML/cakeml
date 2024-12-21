@@ -125,11 +125,12 @@ val hol_version_tm = mlstring_from_proc "git" ["-C", Globals.HOLDIR, "rev-parse"
 val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
 val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
 
-val print_option_def = Define `
+Definition print_option_def:
   print_option h x =
     case x of
       NONE => strlit""
-    | SOME y => h ^ strlit" " ^ y ^ strlit"\n"`
+    | SOME y => h ^ strlit" " ^ y ^ strlit"\n"
+End
 
 val current_build_info_str_tm = EVAL ``
     let commit = print_option (strlit"CakeML:") ^current_version_tm in
@@ -142,8 +143,9 @@ val current_build_info_str_tm = EVAL ``
         ; commit; hol; poly ]``
   |> concl |> rhs
 
-val current_build_info_str_def = Define `
-  current_build_info_str = ^current_build_info_str_tm`;
+Definition current_build_info_str_def:
+  current_build_info_str = ^current_build_info_str_tm
+End
 
 (* ========================================================================= *)
 
@@ -297,7 +299,7 @@ Definition compile_pancake_def:
 End
 
 (* The top-level compiler *)
-val error_to_str_def = Define`
+Definition error_to_str_def:
   (error_to_str (ParseError s) =
      concat [strlit "### ERROR: parse error\n"; s; strlit "\n"]) /\
   (error_to_str (TypeError s) =
@@ -309,75 +311,84 @@ val error_to_str_def = Define`
   (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
   (error_to_str AssembleError = strlit "### ERROR: assembly error\n") /\
   (error_to_str (ScopeError name fname) =
-    concat [strlit "### ERROR: scope error\n"; name; strlit " is not in scope in "; fname; strlit "\n"])`;
+    concat [strlit "### ERROR: scope error\n"; name; strlit " is not in scope in "; fname; strlit "\n"])
+End
 
-val is_error_msg_def = Define `
-  is_error_msg x = mlstring$isPrefix (strlit "###") x`;
+Definition is_error_msg_def:
+  is_error_msg x = mlstring$isPrefix (strlit "###") x
+End
 
 (* TODO: translator fails inside mlstringLib.mlstring_case_conv
   when the following definition just matches against (strlit str) directly *)
-val parse_num_def = Define`
+Definition parse_num_def:
   parse_num str =
   let str = explode str in
   if EVERY isDigit str
   then
     SOME (num_from_dec_string_alt str)
-  else NONE `
+  else NONE
+End
 
-val parse_bool_def = Define`
+Definition parse_bool_def:
   parse_bool str =
   if str = strlit "true" then SOME T
   else if str = strlit "false" then SOME F
-  else NONE`
+  else NONE
+End
 
 (* Finds the first occurence of the flag and
   returns the rest of the string after it *)
-val find_str_def = Define`
+Definition find_str_def:
   (find_str flag [] = NONE) ∧
   (find_str flag (x::xs) =
     if isPrefix flag x then
       SOME (extract x (strlen flag) NONE)
     else
-      find_str flag xs)`
+      find_str flag xs)
+End
 
 (* Finds all occurences of the flag as a prefix, returning
    the remainder in each occurence. *)
-val find_strs_def = Define`
+Definition find_strs_def:
   (find_strs flag [] = []) /\
   (find_strs flag (x::xs) =
     if isPrefix flag x then
       (extract x (strlen flag) NONE) :: find_strs flag xs
     else
-      find_strs flag xs)`
+      find_strs flag xs)
+End
 
 (* If flag is not present then F, else if it is present then
    we should not get any config string afterwards *)
-val find_bool_def = Define`
+Definition find_bool_def:
   find_bool flag ls default =
   case find_str flag ls of
     NONE => INL default
   | SOME rest =>
     case parse_bool rest of
       SOME b => INL b
-    | NONE => INR (concat [strlit"Unable to parse as bool: ";rest;strlit " for flag: ";flag])`
+    | NONE => INR (concat [strlit"Unable to parse as bool: ";rest;strlit " for flag: ";flag])
+End
 
 (* If flag is not present then INL default, else if it is present then
    the rest of the config string should be a number *)
-val find_num_def = Define`
+Definition find_num_def:
   find_num flag ls default =
   case find_str flag ls of
     NONE => INL default
   | SOME rest =>
   case parse_num rest of
     SOME n => INL n
-  | NONE => INR (concat [strlit"Unable to parse as num: ";rest;strlit " for flag: ";flag])`
+  | NONE => INR (concat [strlit"Unable to parse as num: ";rest;strlit " for flag: ";flag])
+End
 
-val get_err_str = Define`
+Definition get_err_str_def:
   (get_err_str (INL n) = strlit"") ∧
-  (get_err_str (INR n) = concat[n;strlit"\n"])`
+  (get_err_str (INR n) = concat[n;strlit"\n"])
+End
 
 (* All the numbers must parse *)
-val parse_num_list_def = Define`
+Definition parse_num_list_def:
   (parse_num_list [] = INL []) /\
   (parse_num_list (x::xs) =
      case parse_num x of
@@ -385,19 +396,22 @@ val parse_num_list_def = Define`
      | SOME n =>
        case parse_num_list xs of
          INR s => INR s
-       | INL ns => INL (n::ns))`
+       | INL ns => INL (n::ns))
+End
 
-val comma_tokens_def = Define `
+Definition comma_tokens_def:
   (comma_tokens acc xs [] = if NULL xs then acc else acc ++ [implode xs]) /\
   (comma_tokens acc (xs:string) (c::(cs:string)) =
     if c = #"," then
       comma_tokens (acc ++ if NULL xs then [] else [implode xs]) [] cs
     else
-      comma_tokens acc (STRCAT xs [c]) cs)`
+      comma_tokens acc (STRCAT xs [c]) cs)
+End
 
 
-val parse_nums_def = Define `
-  parse_nums str = (parse_num_list (comma_tokens [] [] (explode str)))`
+Definition parse_nums_def:
+  parse_nums str = (parse_num_list (comma_tokens [] [] (explode str)))
+End
 
 (*
   EVAL``find_bool (strlit "--mul=") [strlit "asf";strlit"--mul=fse"] F``
@@ -412,7 +426,7 @@ val parse_nums_def = Define `
 *)
 
 (* clos_conf *)
-val parse_clos_conf_def = Define`
+Definition parse_clos_conf_def:
   parse_clos_conf ls clos =
   let multi = find_bool (strlit"--multi=") ls clos.do_mti in
   let known = find_bool (strlit"--known=") ls (IS_SOME clos.known_conf) in
@@ -446,10 +460,11 @@ val parse_clos_conf_def = Define`
                  get_err_str known;
                  get_err_str inline_factor;
                  get_err_str call;
-                 get_err_str maxapp])`;
+                 get_err_str maxapp])
+End
 
 (* bvl *)
-val parse_bvl_conf_def = Define`
+Definition parse_bvl_conf_def:
   parse_bvl_conf ls bvl =
   let inlinesz = find_num (strlit "--inline_size=") ls bvl.inline_size_limit in
   let expcut = find_num (strlit "--exp_cut=") ls bvl.exp_cut in
@@ -465,17 +480,19 @@ val parse_bvl_conf_def = Define`
   | _ =>
     INR (concat [get_err_str inlinesz;
                  get_err_str expcut;
-                 get_err_str splitmain])`
+                 get_err_str splitmain])
+End
 
 (* wtw *)
-val parse_wtw_conf_def = Define`
+Definition parse_wtw_conf_def:
   parse_wtw_conf ls wtw =
     let regalg = find_num (strlit "--reg_alg=") ls wtw.reg_alg in
       case regalg of
         INL r => INL (wtw with <|reg_alg:= r |>)
-      | INR s => INR (get_err_str regalg)`
+      | INR s => INR (get_err_str regalg)
+End
 
-val parse_gc_def = Define`
+Definition parse_gc_def:
   parse_gc ls default =
   case find_str (strlit"--gc=") ls of
     NONE => INL default
@@ -487,21 +504,23 @@ val parse_gc_def = Define`
         INL ls => INL (Generational ls)
       | INR s =>
         INR (concat [strlit"Error parsing GenGC argument: ";s])
-    else INR (concat [strlit"Unrecognized GC option: ";rest])`
+    else INR (concat [strlit"Unrecognized GC option: ";rest])
+End
 
 (*
 EVAL ``parse_gc [strlit "--gc=gen1234,1234,1234"] def``
 *)
 
 (* Copy of conf_ok from data_to_word *)
-val conf_ok_check_def = Define`
+Definition conf_ok_check_def:
   conf_ok_check (:'a) c <=>
     shift_length c < dimindex (:α) ∧
     shift (:α) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
-    c.len_size + 7 < dimindex (:α)`
+    c.len_size + 7 < dimindex (:α)
+End
 
 (* data *)
-val parse_data_conf_def = Define`
+Definition parse_data_conf_def:
   parse_data_conf ls data =
   let tag_bits = find_num (strlit "--tag_bits=") ls data.tag_bits in
   let len_bits = find_num (strlit "--len_bits=") ls data.len_bits in
@@ -525,30 +544,34 @@ val parse_data_conf_def = Define`
                   get_err_str pad_bits;
                   get_err_str len_size;
                   get_err_str gc;
-                  get_err_str empty_FFI])`
+                  get_err_str empty_FFI])
+End
 
 (* stack *)
-val parse_stack_conf_def = Define`
+Definition parse_stack_conf_def:
   parse_stack_conf ls stack =
   let jump = find_bool (strlit"--jump=") ls stack.jump in
   case jump of
     INL j => INL (stack with jump:=j)
-  | INR s => INR s`
+  | INR s => INR s
+End
 
 (* tap *)
-val parse_tap_conf_def = Define`
+Definition parse_tap_conf_def:
   parse_tap_conf ls stack =
-    INL (<| explore_flag := MEMBER (strlit"--explore") ls |>)`
+    INL (<| explore_flag := MEMBER (strlit"--explore") ls |>)
+End
 
 (* lab *)
-val parse_lab_conf_def = Define`
+Definition parse_lab_conf_def:
   parse_lab_conf ls lab =
     let hs = find_num (strlit "--hash_size=") ls lab.hash_size in
       case hs of
         INL r => INL (lab with <|hash_size := r |>)
-      | INR s => INR s`
+      | INR s => INR s
+End
 
-val extend_conf_def = Define`
+Definition extend_conf_def:
   extend_conf ls conf =
   let clos = parse_clos_conf ls conf.clos_conf in
   let bvl = parse_bvl_conf ls conf.bvl_conf in
@@ -574,10 +597,11 @@ val extend_conf_def = Define`
                get_err_str data;
                get_err_str stack;
                get_err_str tap;
-               get_err_str lab]) `
+               get_err_str lab])
+End
 
 (* Defaults to x64 if no target given *)
-val parse_target_64_def = Define`
+Definition parse_target_64_def:
   parse_target_64 ls =
   case find_str (strlit"--target=") ls of
     NONE => INL (x64_backend_config,x64_export)
@@ -586,19 +610,21 @@ val parse_target_64_def = Define`
     else if rest = strlit"arm8" then INL (arm8_backend_config,arm8_export)
     else if rest = strlit"mips" then INL (mips_backend_config,mips_export)
     else if rest = strlit"riscv" then INL (riscv_backend_config,riscv_export)
-    else INR (concat [strlit"Unrecognized 64-bit target option: ";rest])`
+    else INR (concat [strlit"Unrecognized 64-bit target option: ";rest])
+End
 
 (* Defaults to arm7 if no target given *)
-val parse_target_32_def = Define`
+Definition parse_target_32_def:
   parse_target_32 ls =
   case find_str (strlit"--target=") ls of
     NONE => INL (arm7_backend_config,arm7_export)
   | SOME rest =>
     if rest = strlit"arm7" then INL (arm7_backend_config,arm7_export)
     else if rest = strlit"ag32" then INL (ag32_backend_config,ag32_export)
-    else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
+    else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])
+End
 
-val parse_top_config_def = Define`
+Definition parse_top_config_def:
   parse_top_config ls =
   let sexp = find_bool (strlit"--sexp=") ls F in
   let prelude = find_bool (strlit"--exclude_prelude=") ls F in
@@ -613,33 +639,38 @@ val parse_top_config_def = Define`
                get_err_str sexp;
                get_err_str prelude;
                get_err_str typeinference;
-               get_err_str mainreturn])`
+               get_err_str mainreturn])
+End
 
 (* Check for version flag *)
-val has_version_flag_def = Define `
-  has_version_flag ls = MEM (strlit"--version") ls`
+Definition has_version_flag_def:
+  has_version_flag ls = MEM (strlit"--version") ls
+End
 
 (* Check for version help *)
-val has_help_flag_def = Define `
-  has_help_flag ls = MEM (strlit"--help") ls`
+Definition has_help_flag_def:
+  has_help_flag ls = MEM (strlit"--help") ls
+End
 
 (* Check for pancake flag *)
 Definition has_pancake_flag_def:
   has_pancake_flag ls = MEM (strlit"--pancake") ls
 End
 
-val format_compiler_result_def = Define`
+Definition format_compiler_result_def:
   format_compiler_result bytes_export (Failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
   format_compiler_result bytes_export
     (Success ((bytes:word8 list),(data:'a word list),(c:'a backend$config))) =
-    (bytes_export (the [] c.lab_conf.ffi_names) bytes data, implode "")`;
+    (bytes_export (the [] c.lab_conf.ffi_names) bytes data, implode "")
+End
 
 (* FIXME TODO: this is an awful workaround to avoid implementing a file writer
    right now. *)
-val add_tap_output_def = Define`
+Definition add_tap_output_def:
   add_tap_output td out =
-    if td = Nil then out else td :mlstring app_list`;
+    if td = Nil then out else td :mlstring app_list
+End
 
 (* The top-level compiler with everything instantiated except it doesn't do exporting *)
 

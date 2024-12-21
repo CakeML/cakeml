@@ -20,15 +20,16 @@ val _ = process_topdecs `
 ` |> append_prog
 
 (* TODO: move *)
-val file_contents_def = Define `
+Definition file_contents_def:
   file_contents fnm fs =
-    implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fnm)))))`
+    implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fnm)))))
+End
 (* -- *)
 
-val catfiles_string_def = Define`
+Definition catfiles_string_def:
   catfiles_string fs fns =
     concat (MAP (λfnm. file_contents fnm fs) fns)
-`;
+End
 
 Triviality cat_spec0:
  ∀fns fnsv fs.
@@ -187,11 +188,12 @@ QED
 
 val name = "cat_main"
 val (semantics_thm,prog_tm) = whole_prog_thm st name (UNDISCH cat_whole_prog_spec)
-val cat_prog_def = Define`cat_prog = ^prog_tm`;
+Definition cat_prog_def:
+  cat_prog = ^prog_tm
+End
 
-val cat_semantics_thm =
+Theorem cat_semantics_thm =
   semantics_thm |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
   |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> curry save_thm "cat_semantics_thm";
 
 val _ = export_theory();

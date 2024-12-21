@@ -38,8 +38,9 @@ val _ = hide "state";
   Atemp   : means that the node is allowed to be allocated to any register or stack pos
   Stemp   : only allowed to be mapped to k, k+1, ... (stack positions)
 *)
-val _ = Datatype`
-  tag = Fixed num | Atemp | Stemp`
+Datatype:
+  tag = Fixed num | Atemp | Stemp
+End
 
 (*
   Inputs are tagged with Fixed, Atemp , Stemp
@@ -121,33 +122,40 @@ val degrees_manip = el 3 arr_manip;
 val coalesced_manip = el 4 arr_manip;
 val move_related_manip = el 5 arr_manip;
 
-val adj_ls_accessor = save_thm("adj_ls_accessor",accessor_thm adj_ls_manip);
-val node_tag_accessor = save_thm("node_tag_accessor",accessor_thm node_tag_manip);
-val degrees_accessor = save_thm("degrees_accessor",accessor_thm degrees_manip);
-val coalesced_accessor = save_thm("coalesced_accessor",accessor_thm coalesced_manip);
-val move_related_accessor = save_thm("move_related_accessor",accessor_thm move_related_manip);
+Theorem adj_ls_accessor =
+  accessor_thm adj_ls_manip
+Theorem node_tag_accessor =
+  accessor_thm node_tag_manip
+Theorem degrees_accessor =
+  accessor_thm degrees_manip
+Theorem coalesced_accessor =
+  accessor_thm coalesced_manip
+Theorem move_related_accessor =
+  accessor_thm move_related_manip
 
 (* Helper functions for defining the allocator *)
 
 (* Monadic list functions -- doesn't care about order *)
-val st_ex_FOREACH_def = Define `
+Definition st_ex_FOREACH_def:
   (st_ex_FOREACH [] a = return ()) ∧
   (st_ex_FOREACH (x::xs) a =
   do
     a x;
     st_ex_FOREACH xs a
-  od)`
+  od)
+End
 
-val st_ex_MAP_def = Define `
+Definition st_ex_MAP_def:
   (st_ex_MAP f [] = return []) ∧
   (st_ex_MAP f (x::xs) =
   do
     fx <- f x;
     fxs <- st_ex_MAP f xs;
     return (fx::fxs)
-  od)`
+  od)
+End
 
-val st_ex_PARTITION_def = Define`
+Definition st_ex_PARTITION_def:
   (st_ex_PARTITION P [] tt ff = return (tt,ff)) ∧
   (st_ex_PARTITION P (x::xs) tt ff =
   do
@@ -156,9 +164,10 @@ val st_ex_PARTITION_def = Define`
       st_ex_PARTITION P xs (x::tt) ff
     else
       st_ex_PARTITION P xs tt (x::ff)
-  od)`
+  od)
+End
 
-val st_ex_FILTER_def = Define`
+Definition st_ex_FILTER_def:
   (st_ex_FILTER P [] acc = return acc) ∧
   (st_ex_FILTER P (x::xs) acc =
   do
@@ -167,26 +176,29 @@ val st_ex_FILTER_def = Define`
       st_ex_FILTER P xs (x::acc)
     else
       st_ex_FILTER P xs acc
-  od)`
+  od)
+End
 
 (* Keep adjacency lists sorted by > *)
 
 (* Insert an undirect edge into the adj list representation *)
-val sorted_insert_def = Define`
+Definition sorted_insert_def:
   (sorted_insert (x:num) acc [] = REVERSE (x::acc)) ∧
   (sorted_insert x acc (y::ys) =
     if x = y then REVERSE acc ++ y::ys
     else if x > y then REVERSE acc ++ x::y::ys
-    else sorted_insert x (y::acc) ys)`
+    else sorted_insert x (y::acc) ys)
+End
 
-val sorted_mem_def = Define`
+Definition sorted_mem_def:
   (sorted_mem (x:num) [] = F) ∧
   (sorted_mem x (y::ys) =
     if x = y then T
     else if x > y then F
-    else sorted_mem x ys)`
+    else sorted_mem x ys)
+End
 
-val insert_edge_def = Define`
+Definition insert_edge_def:
   insert_edge x y =
   do
     adjx <- adj_ls_sub x;
@@ -195,29 +207,32 @@ val insert_edge_def = Define`
       update_adj_ls x (sorted_insert y [] adjx);
       update_adj_ls y (sorted_insert x [] adjy)
     od
-  od`;
+  od
+End
 
 (* insert a list of edges all adjacent to one node *)
-val list_insert_edge_def = Define`
+Definition list_insert_edge_def:
   (list_insert_edge x [] = return ()) ∧
   (list_insert_edge x (y::ys) =
     do
       insert_edge x y;
       list_insert_edge x ys
-    od)`;
+    od)
+End
 
-val clique_insert_edge_def = Define`
+Definition clique_insert_edge_def:
   (clique_insert_edge [] = return ()) ∧
   (clique_insert_edge (x::xs) =
   do
     list_insert_edge x xs;
     clique_insert_edge xs
-  od)`;
+  od)
+End
 
 (* assuming vertices in cli already forms a clique,
    extend it with new members
 *)
-val extend_clique_def = Define`
+Definition extend_clique_def:
   (extend_clique [] cli = return cli) ∧
   (extend_clique (x::xs) cli =
     if MEM x cli
@@ -227,20 +242,22 @@ val extend_clique_def = Define`
     do
       list_insert_edge x cli;
       extend_clique xs (x::cli)
-    od)`;
+    od)
+End
 
 (* The allocator heuristics, designed to minimize proof at the
    cost of some extra computation *)
 
 (* (Safely) decrement the degree of all vertices adjacent to n by 1 *)
-val dec_deg_def = Define`
+Definition dec_deg_def:
   dec_deg n =
   do
     cd <- degrees_sub n;
     update_degrees n (cd-1)
-  od`
+  od
+End
 
-val dec_degree_def = Define`
+Definition dec_degree_def:
   dec_degree n =
   do
     d <- get_dim; (* TODO: check unnecessary *)
@@ -251,59 +268,66 @@ val dec_degree_def = Define`
     od
     else
       return ()
-  od`
+  od
+End
 
-val add_simp_wl_def = Define`
+Definition add_simp_wl_def:
   add_simp_wl ls =
   do
     swl <- get_simp_wl;
     set_simp_wl (ls ++ swl)
-  od`
+  od
+End
 
-val add_spill_wl_def = Define`
+Definition add_spill_wl_def:
   add_spill_wl ls =
   do
     swl <- get_spill_wl;
     set_spill_wl (ls ++ swl)
-  od`
+  od
+End
 
-val add_freeze_wl_def = Define`
+Definition add_freeze_wl_def:
   add_freeze_wl ls =
   do
     fwl <- get_freeze_wl;
     set_freeze_wl (ls ++ fwl)
-  od`
+  od
+End
 
 (* push x onto the stack, deleting it from "existence" *)
-val push_stack_def = Define`
+Definition push_stack_def:
   push_stack x =
   do
     swl <- get_stack;
     update_degrees x 0;
     update_move_related x F;
     set_stack (x::swl)
-  od`
+  od
+End
 
-val add_unavail_moves_wl_def = Define`
+Definition add_unavail_moves_wl_def:
   add_unavail_moves_wl ls =
   do
     swl <- get_unavail_moves_wl;
     set_unavail_moves_wl (ls ++ swl)
-  od`
+  od
+End
 
 (* unspill:
    Move any vertices in the spill list that has
    degree < k into the simplify or freeze worklist
    Revive all neighboring moves of these nodes
 *)
-val is_not_coalesced_def = Define`
+Definition is_not_coalesced_def:
   is_not_coalesced d =
   do
     dt <- coalesced_sub d;
     return (d <= dt)
-  od`
+  od
+End
 
-val split_degree_def = Define`
+Definition split_degree_def:
   split_degree d k v =
   if v < d then (* TODO: unnecessary *)
   do
@@ -312,15 +336,17 @@ val split_degree_def = Define`
     return (vd < k ∧ b)
   od
   else
-    return T`
+    return T
+End
 
 (* sort moves by priority *)
-val sort_moves_def = Define`
+Definition sort_moves_def:
   sort_moves ls =
-    QSORT (λp:num,x p',x'. p>p') ls`
+    QSORT (λp:num,x p',x'. p>p') ls
+End
 
 (* merge two sorted lists *)
-val smerge_def = Define`
+Definition smerge_def:
   (smerge [] ys = ys) ∧
   (smerge xs [] = xs) ∧
   (smerge ((p:num,m)::xs) ((p',m')::ys) =
@@ -328,12 +354,13 @@ val smerge_def = Define`
       (p,m) :: smerge xs ((p',m')::ys)
     else
       (p',m') :: smerge ((p,m)::xs) ys
-  )`
+  )
+End
 
 (*
   revive the unavailable moves that touch each neighbor
 *)
-val revive_moves_def = Define`
+Definition revive_moves_def:
   revive_moves vs =
   do
     nbs <- st_ex_MAP adj_ls_sub vs;
@@ -347,9 +374,10 @@ val revive_moves_def = Define`
       set_avail_moves_wl sorted;
       set_unavail_moves_wl unavail
     od
-  od`
+  od
+End
 
-val unspill_def = Define`
+Definition unspill_def:
   unspill (k:num) =
   do
     d <- get_dim;
@@ -361,7 +389,8 @@ val unspill_def = Define`
     set_spill_wl gtk;
     add_simp_wl ltksimp;
     add_freeze_wl ltkfreeze
-  od`
+  od
+End
 
 (* simplify:
   Directly simplifies the entire list
@@ -369,7 +398,7 @@ val unspill_def = Define`
   T = successful simplification
   F = no simplification
 *)
-val do_simplify_def = Define`
+Definition do_simplify_def:
   do_simplify k =
   do
     simps <- get_simp_wl;
@@ -383,15 +412,17 @@ val do_simplify_def = Define`
       unspill k;
       return T
     od
-  od`
+  od
+End
 
 (* increment degree of n by d *)
-val inc_deg_def = Define`
+Definition inc_deg_def:
   inc_deg n d =
   do
     cd <- degrees_sub n;
     update_degrees n (cd+d)
-  od`
+  od
+End
 
 (*
   Within the allocator, we will assume that all moves
@@ -416,14 +447,15 @@ val inc_deg_def = Define`
 *)
 
 (* An actual register *)
-val is_Fixed_def = Define`
+Definition is_Fixed_def:
   is_Fixed x =
   do
     xt <- node_tag_sub x;
     return (case xt of Fixed n => T | _ => F)
-  od`
+  od
+End
 
-val do_coalesce_real_def = Define`
+Definition do_coalesce_real_def:
   do_coalesce_real x y case1 case2 =
   do
     (* mark y as coalesced to x *)
@@ -437,7 +469,8 @@ val do_coalesce_real_def = Define`
     list_insert_edge x case2;
     st_ex_FOREACH case1 dec_deg;
     push_stack y
-  od`
+  od
+End
 
 (* The coalesceable criterion, Briggs and George *)
 
@@ -455,37 +488,41 @@ val do_coalesce_real_def = Define`
   because the George check is only
   really efficient if one has a true adjacency matrix representation
 *)
-val is_Atemp_def = Define`
+Definition is_Atemp_def:
   is_Atemp d =
   do
     dt <- node_tag_sub d;
     return (dt = Atemp)
-  od`
+  od
+End
 
-val is_Fixed_k_def = Define`
+Definition is_Fixed_k_def:
   is_Fixed_k k x =
   do
     xt <- node_tag_sub x;
     return (case xt of Fixed n => n < k | _ => F)
-  od`
+  od
+End
 
-val considered_var_def = Define`
+Definition considered_var_def:
   considered_var k x =
   do
     bx <- is_Atemp x;
     fx <- is_Fixed_k k x;
     return (bx ∨ fx)
-  od`
+  od
+End
 
 (* Fixed vars are treated as having infinite degree *)
-val deg_or_inf_def = Define`
+Definition deg_or_inf_def:
   deg_or_inf k x =
   do
     bx <- is_Fixed_k k x;
     if bx then return k else degrees_sub x
-  od`
+  od
+End
 
-val bg_ok_def = Define`
+Definition bg_ok_def:
   bg_ok k x y =
   do
     adjx <- adj_ls_sub x;
@@ -514,7 +551,8 @@ val bg_ok_def = Define`
           return NONE
       od
     od
-  od`
+  od
+End
 
 (*
   Consistency check for moves
@@ -525,7 +563,7 @@ val bg_ok_def = Define`
   3) x,y either fixed or atemps and not both fixed
 *)
 
-val consistency_ok_def = Define`
+Definition consistency_ok_def:
   consistency_ok x y =
   if x = y then
     return F (* check 1 *)
@@ -541,14 +579,15 @@ val consistency_ok_def = Define`
       movrely <- move_related_sub y;
       return ((bx ∨ movrelx) ∧ (by ∨ movrely) ∧ ¬(bx ∧ by) );
     od
-  od`
+  od
+End
 
 (*
   find the ancestor
   and collapse along the way
 
 *)
-val coalesce_parent_def = Define`
+Definition coalesce_parent_def:
   coalesce_parent x =
   do
     xt <- coalesced_sub x;
@@ -565,9 +604,10 @@ val coalesce_parent_def = Define`
         update_coalesced x anc;
         return anc
       od
-  od`
+  od
+End
 
-val canonize_move_def = Define`
+Definition canonize_move_def:
   canonize_move x y =
   do
     bx <- is_Fixed x;
@@ -577,7 +617,8 @@ val canonize_move_def = Define`
     else
       if x < y then return (x,y)
       else return (y,x)
-  od`
+  od
+End
 
 (*
   Picks apart the available moves worklist
@@ -585,7 +626,7 @@ val canonize_move_def = Define`
   not necessary? -- 2) canonize the move to put fixed register in front
   3) returns the first bg_ok move that is also consistent
 *)
-val st_ex_FIRST_def = Define`
+Definition st_ex_FIRST_def:
   (st_ex_FIRST P Q [] unavail = return (NONE,unavail)) ∧
   (st_ex_FIRST P Q (m::ms) unavail =
     let (p,(x,y)) = m in
@@ -604,9 +645,10 @@ val st_ex_FIRST_def = Define`
         | SOME pr =>
           return (SOME ((x,y),pr,ms),unavail)
       od
-    od)`
+    od)
+End
 
-val respill_def = Define`
+Definition respill_def:
   respill k x =
   do
     xd <- degrees_sub x;
@@ -621,9 +663,10 @@ val respill_def = Define`
       od
       else return ()
     od
-  od`
+  od
+End
 
-val do_coalesce_def = Define`
+Definition do_coalesce_def:
   do_coalesce k =
   do
     am <- get_avail_moves_wl;
@@ -644,7 +687,8 @@ val do_coalesce_def = Define`
       respill k x;
       return T
     od
-  od`
+  od
+End
 
 (*
   prefreeze: make the freeze and spill worklists consistent.
@@ -662,7 +706,7 @@ val do_coalesce_def = Define`
 
 *)
 
-val reset_move_related_def = Define`
+Definition reset_move_related_def:
   reset_move_related ls =
   do
     d <- get_dim;
@@ -677,9 +721,10 @@ val reset_move_related_def = Define`
           update_move_related x (~bx);
           update_move_related y (~by)
         od)
-  od`
+  od
+End
 
-val do_prefreeze_def = Define`
+Definition do_prefreeze_def:
   do_prefreeze k =
   do
     fwl_pre <- get_freeze_wl;
@@ -698,11 +743,12 @@ val do_prefreeze_def = Define`
     add_simp_wl ltksimp;
     set_freeze_wl ltkfreeze;
     do_simplify k
-  od`
+  od
+End
 
 (* if prefreeze failed, then just freeze *)
 
-val do_freeze_def = Define`
+Definition do_freeze_def:
   do_freeze k =
   do
     freeze <- get_freeze_wl;
@@ -716,7 +762,8 @@ val do_freeze_def = Define`
         unspill k;
         return T
       od
-  od`
+  od
+End
 
 (* spill:
   If given a spill cost,
@@ -725,10 +772,11 @@ val do_freeze_def = Define`
   Otherwise,
     picks highest degree node
 *)
-val safe_div_def = Define`
-  safe_div x v = if v = 0 then 0 else x DIV v`
+Definition safe_div_def:
+  safe_div x v = if v = 0 then 0 else x DIV v
+End
 
-val st_ex_list_MIN_cost_def = Define`
+Definition st_ex_list_MIN_cost_def:
   (st_ex_list_MIN_cost sc [] d k v acc = return (k,acc)) ∧
   (st_ex_list_MIN_cost sc (x::xs) d k v acc =
   if x < d then
@@ -741,9 +789,10 @@ val st_ex_list_MIN_cost_def = Define`
         st_ex_list_MIN_cost sc xs d k v (x::acc)
     od
   else
-    st_ex_list_MIN_cost sc xs d k v acc)`
+    st_ex_list_MIN_cost sc xs d k v acc)
+End
 
-val st_ex_list_MAX_deg_def = Define`
+Definition st_ex_list_MAX_deg_def:
   (st_ex_list_MAX_deg [] d k v acc = return (k,acc)) ∧
   (st_ex_list_MAX_deg (x::xs) d k v acc =
   if x < d then
@@ -755,9 +804,10 @@ val st_ex_list_MAX_deg_def = Define`
         st_ex_list_MAX_deg xs d k v (x::acc)
     od
   else
-  st_ex_list_MAX_deg xs d k v acc)`
+  st_ex_list_MAX_deg xs d k v acc)
+End
 
-val do_spill_def = Define`
+Definition do_spill_def:
   do_spill scopt k =
   do
     spills <- get_spill_wl;
@@ -776,9 +826,10 @@ val do_spill_def = Define`
         unspill k;
         return T
       od
-  od`
+  od
+End
 
-val do_step_def = Define`
+Definition do_step_def:
   do_step sc k =
   do
     b <- do_simplify k;
@@ -804,22 +855,24 @@ val do_step_def = Define`
         od
       od
     od
-  od`
+  od
+End
 
-val rpt_do_step_def = Define`
+Definition rpt_do_step_def:
   (rpt_do_step sc k 0 = return ()) ∧
   (rpt_do_step sc k (SUC c) =
   do
     b <- do_step sc k;
     if b then rpt_do_step sc k c else return ()
-  od)`
+  od)
+End
 
 (*
   The coloring functions
 *)
 
 (* Removing adjacent colours from ks *)
-val remove_colours_def = Define`
+Definition remove_colours_def:
   (*No more available colours*)
   (remove_colours (ls:num list) [] = return []) ∧
   (*Some available colour after checking*)
@@ -835,12 +888,13 @@ val remove_colours_def = Define`
       | _ =>
           remove_colours xs ks);
       return r
-    od)`
+    od)
+End
 
 (* First colouring -- turns all Atemps into Fixeds or Stemps drawing from colors in ks *)
 (* Assign a tag to an Atemp node, skipping if it is not actually an Atemp *)
 
-val assign_Atemp_tag_def = Define`
+Definition assign_Atemp_tag_def:
   assign_Atemp_tag ks prefs n =
   do
     ntag <- node_tag_sub n;
@@ -862,11 +916,12 @@ val assign_Atemp_tag_def = Define`
           od
       od
     | _ => return ()
-  od`
+  od
+End
 
 (* The first allocation step *)
 (* k = num registers, ls = heuristic list, prefs = coloring preference *)
-val assign_Atemps_def = Define`
+Definition assign_Atemps_def:
   assign_Atemps k ls prefs =
   do
     d <- get_dim;
@@ -877,18 +932,20 @@ val assign_Atemps_def = Define`
     st_ex_FOREACH ls (assign_Atemp_tag ks prefs);
     (* actually, assign_Atemp_tag already filters for Atemps, so just pass it all the nodes *)
     st_ex_FOREACH cs (assign_Atemp_tag ks prefs)
-  od`
+  od
+End
 
 (* Default makes it easier to translate, doesn't matter for our purposes what
    the default is *)
-val tag_col_def = Define`
+Definition tag_col_def:
   (tag_col (Fixed n) = n) ∧
-  (tag_col _ = 0n)`
+  (tag_col _ = 0n)
+End
 
 (* Find the first available in k,k+1,...
    assuming input is sorted
 *)
-val unbound_colour_def = Define `
+Definition unbound_colour_def:
   (unbound_colour col [] = col) ∧
   (unbound_colour col ((x:num)::xs) =
     if col < x then
@@ -896,11 +953,12 @@ val unbound_colour_def = Define `
     else if x = col then
       unbound_colour (col+1) xs
     else
-      unbound_colour col xs)`
+      unbound_colour col xs)
+End
 
 (* Second colouring -- turns all Stemps into Fixed ≥ k *)
-val assign_Stemp_tag_def = Define`
-  assign_Stemp_tag k n =
+Definition assign_Stemp_tag_def:
+  assign_Stemp_tag k prefs n =
   do
     ntag <- node_tag_sub n;
     case ntag of
@@ -908,23 +966,33 @@ val assign_Stemp_tag_def = Define`
       do
         adjs <- adj_ls_sub n;
         tags <- st_ex_MAP node_tag_sub adjs;
-        col <- return (unbound_colour k (QSORT (λx y. x≤y) (MAP tag_col tags)));
-        update_node_tag n (Fixed col)
+        let bads = QSORT (λx y. x≤y) (MAP tag_col tags) in
+        do
+          c <- prefs n bads;
+          case c of
+            NONE =>
+              update_node_tag n (Fixed (unbound_colour k bads))
+          | SOME y =>
+              update_node_tag n (Fixed y)
+        od
       od
     | _ => return ()
-  od`
+  od
+End
+
 
 (* The second allocation step *)
-val assign_Stemps_def = Define`
-  assign_Stemps k =
+Definition assign_Stemps_def:
+  assign_Stemps k prefs =
   do
     d <- get_dim;
     cs <- return (GENLIST (\x.x) d);
-    st_ex_FOREACH cs (assign_Stemp_tag k)
-  od`
+    st_ex_FOREACH cs (assign_Stemp_tag k prefs)
+  od
+End
 
 (* Monadic biased selection oracle, finds the first matching color *)
-val first_match_col_def = Define`
+Definition first_match_col_def:
   (first_match_col ks [] = return NONE) ∧
   (first_match_col ks (x::xs) =
     do
@@ -933,7 +1001,8 @@ val first_match_col_def = Define`
         Fixed m =>
           if MEM m ks then return (SOME m) else first_match_col ks xs
       | _ => first_match_col ks xs
-    od)`
+    od)
+End
 
 (* Clash tree representation of a program -- this is designed as an interface:
   wordLang program -> clash tree -> reg alloc
@@ -948,27 +1017,30 @@ val first_match_col_def = Define`
   from the allocator
 *)
 
-val _ = Datatype`
+Datatype:
   clash_tree = Delta (num list) (num list) (* (Writes list, Reads list) *)
              | Set num_set (* Fixed set *)
              | Branch (num_set option) clash_tree clash_tree
-             | Seq clash_tree clash_tree`
+             | Seq clash_tree clash_tree
              (* Binary branch, with an optional liveset at the head*)
+End
 
 (* --- clash_tree oracle checks --- *)
-val numset_list_delete_def = Define`
+Definition numset_list_delete_def:
   (numset_list_delete [] (t:'a num_map) = t) ∧
-  (numset_list_delete (x::xs) t = numset_list_delete xs (delete x t))`
+  (numset_list_delete (x::xs) t = numset_list_delete xs (delete x t))
+End
 
 (*Check that a numset is injective over the clash sets in an interpreted tree*)
-val check_col_def = Define`
+Definition check_col_def:
   check_col f t =
     let names = MAP (f o FST) (toAList t) in
     if ALL_DISTINCT names then
       SOME (t,fromAList (MAP (λx. (x,())) names))
-    else NONE`
+    else NONE
+End
 
-val check_partial_col_def = Define`
+Definition check_partial_col_def:
   (check_partial_col f [] t ft = SOME (t,ft)) ∧
   (check_partial_col f (x::xs) t ft =
     case lookup x t of
@@ -976,11 +1048,12 @@ val check_partial_col_def = Define`
     | NONE =>
     case lookup (f x) ft of
       NONE => check_partial_col f xs (insert x () t) (insert (f x) () ft)
-    | SOME () => NONE)`
+    | SOME () => NONE)
+End
 
 (* The checking function, used by oracle, and also used as part of the correctness proof *)
 (* live = the liveset, flive = the liveset with f applied over it*)
-val check_clash_tree_def = Define`
+Definition check_clash_tree_def:
   (check_clash_tree f (Delta w r) live flive =
     case check_partial_col f w live flive of
       NONE => NONE
@@ -1005,7 +1078,8 @@ val check_clash_tree_def = Define`
     case check_clash_tree f t2 live flive of
       NONE => NONE
     | SOME (t2_out,ft2_out) =>
-      check_clash_tree f t1 t2_out ft2_out)`
+      check_clash_tree f t1 t2_out ft2_out)
+End
 
 (* --
 compile clash_trees into a register allocator state
@@ -1020,15 +1094,16 @@ The second remap is probably not necessary?
   fa = from allocator
   nv = next fresh name
 *)
-val list_remap_def = Define`
+Definition list_remap_def:
   (list_remap [] (ta,fa,nv) = (ta,fa,nv)) ∧
   (list_remap (x::xs) (ta,fa,nv) =
     case lookup x ta of
       SOME v => list_remap xs (ta,fa,nv)
     | NONE =>
-      list_remap xs (insert x nv ta,insert nv x fa,nv+1))`
+      list_remap xs (insert x nv ta,insert nv x fa,nv+1))
+End
 
-val mk_bij_aux_def = Define`
+Definition mk_bij_aux_def:
   (mk_bij_aux (Delta writes reads) tfn =
     list_remap writes (list_remap reads tfn)) ∧
   (mk_bij_aux (Set t) tfn =
@@ -1039,12 +1114,14 @@ val mk_bij_aux_def = Define`
        NONE => tfn'
      | SOME ts => list_remap (MAP FST (toAList ts)) tfn') ∧
   (mk_bij_aux (Seq t1 t2) tfn =
-    mk_bij_aux t1 (mk_bij_aux t2 tfn))`
+    mk_bij_aux t1 (mk_bij_aux t2 tfn))
+End
 
-val mk_bij_def = Define`
+Definition mk_bij_def:
   mk_bij t =
     let (ta,fa,n) = mk_bij_aux t (LN,LN,0n) in
-    (ta,fa,n)`
+    (ta,fa,n)
+End
     (* Hide the sptree impl
     ((λi. lookup_any i ta 0),(λi. lookup_any i fa 0), n)` *)
 
@@ -1053,12 +1130,15 @@ val mk_bij_def = Define`
   4n+1 are allocatable registers
   4n+3 are stack registers*)
 
-val is_stack_var_def = Define`
-  is_stack_var (n:num) = (n MOD 4 = 3)`;
-val is_phy_var_def = Define`
-  is_phy_var (n:num) = (n MOD 2 = 0)`;
-val is_alloc_var_def = Define`
-  is_alloc_var (n:num) = (n MOD 4 = 1)`;
+Definition is_stack_var_def:
+  is_stack_var (n:num) = (n MOD 4 = 3)
+End
+Definition is_phy_var_def:
+  is_phy_var (n:num) = (n MOD 2 = 0)
+End
+Definition is_alloc_var_def:
+  is_alloc_var (n:num) = (n MOD 4 = 1)
+End
 
 Theorem convention_partitions:
     ∀n. (is_stack_var n ⇔ (¬is_phy_var n) ∧ ¬(is_alloc_var n)) ∧
@@ -1077,8 +1157,8 @@ Proof
 QED
 
 (* Set the tags according to wordLang conventions *)
-val mk_tags_def = Define`
-  mk_tags n fa =
+Definition mk_tags_def:
+  mk_tags n fs fa =
   do
     inds <- return (GENLIST (\x.x) n);
     st_ex_FOREACH inds
@@ -1086,15 +1166,18 @@ val mk_tags_def = Define`
       let v = fa i in
       let remainder = v MOD 4 in
       if remainder = 1 then
-        update_node_tag i Atemp
+        (case lookup v fs of
+          NONE => update_node_tag i Atemp
+        | SOME () => update_node_tag i Stemp)
       else if remainder = 3 then
         update_node_tag i Stemp
       else
         update_node_tag i (Fixed (v DIV 2)))
-  od`;
+  od
+End
 
 (* Initializes the clash_graph using a clash_tree and a remapping bijection *)
-val mk_graph_def = Define`
+Definition mk_graph_def:
   (mk_graph ta (Delta w r) liveout =
     do
       wta  <- return(MAP ta w);
@@ -1131,19 +1214,22 @@ val mk_graph_def = Define`
     do
       live <- mk_graph ta t2 liveout;
       mk_graph ta t1 live
-    od)`;
+    od)
+End
 
-val sp_default_def = Define`
+Definition sp_default_def:
   sp_default t i =
-  (case lookup i t of NONE => if is_phy_var i then i DIV 2 else i | SOME x => x)`
+  (case lookup i t of NONE => if is_phy_var i then i DIV 2 else i | SOME x => x)
+End
 
-val extend_graph_def = Define`
+Definition extend_graph_def:
   (extend_graph ta [] = return ()) ∧
   (extend_graph ta ((x,y)::xs) =
   do
     insert_edge (ta x) (ta y);
     extend_graph ta xs
-  od)`
+  od)
+End
 
 (* sets up the register allocator init state with the clash_tree input
   TODO: should the sptrees be hidden right away?
@@ -1153,21 +1239,23 @@ val extend_graph_def = Define`
   ct = clash_tree
   forced = forced edges -- will need new proof that all forced edges are in the tree
 *)
-val init_ra_state_def = Define`
-  init_ra_state ct forced (ta,fa,n) =
+Definition init_ra_state_def:
+  init_ra_state ct forced fs (ta,fa,n) =
   do
     mk_graph (sp_default ta) ct []; (* Put in the usual edges *)
     extend_graph (sp_default ta) forced;
-    mk_tags n (sp_default fa);
-  od`;
+    mk_tags n fs (sp_default fa);
+  od
+End
 
 (* work around translator bug *)
-val do_upd_coalesce_def = Define`
+Definition do_upd_coalesce_def:
   do_upd_coalesce i =
-  update_coalesced i (0+i)`
+  update_coalesced i (0+i)
+End
 
 (* Initializer for the first allocation step *)
-val init_alloc1_heu_def = Define`
+Definition init_alloc1_heu_def:
   init_alloc1_heu moves d k =
   do
     ds <- return (COUNT_LIST d);
@@ -1195,9 +1283,10 @@ val init_alloc1_heu_def = Define`
     set_freeze_wl ltkfreeze;
 
     return (LENGTH allocs)
-  od`
+  od
+End
 
-val do_alloc1_def = Define`
+Definition do_alloc1_def:
   do_alloc1 moves sc k =
   do
     d <- get_dim;
@@ -1205,15 +1294,17 @@ val do_alloc1_def = Define`
     rpt_do_step sc k l;
     st <- get_stack;
     return st
-  od`
+  od
+End
 
-val extract_tag_def = Define`
+Definition extract_tag_def:
   (extract_tag t = case t of
     Fixed m => m
-  | _ => 0)` (* never happens*)
+  | _ => 0)
+End (* never happens*)
 
 (* return the final coloring as an sptree *)
-val extract_color_def = Define`
+Definition extract_color_def:
   extract_color ta =
   do
     taa <- return (toAList ta);
@@ -1223,36 +1314,42 @@ val extract_color_def = Define`
         return (k,extract_tag t)
       od) taa; (* can make the sptree directly *)
     return (fromAList itags)
-  od`
+  od
+End
 
-val pri_move_insert_def = Define`
+Definition pri_move_insert_def:
   pri_move_insert p x y acc =
   case lookup x acc of
     NONE =>
       insert x [(p,y)] acc
   | SOME ls =>
-      insert x ((p,y)::ls) acc`
+      insert x ((p,y)::ls) acc
+End
 
-val undir_move_insert_def = Define`
+Definition undir_move_insert_def:
   undir_move_insert p x y acc =
-    pri_move_insert p x y (pri_move_insert p y x acc)`
+    pri_move_insert p x y (pri_move_insert p y x acc)
+End
 
-val moves_to_sp_def = Define`
+Definition moves_to_sp_def:
   (moves_to_sp [] acc = acc) ∧
   (moves_to_sp (move::xs) acc =
     let (p,x,y) = move in
-    moves_to_sp xs (undir_move_insert p x y acc))`
+    moves_to_sp xs (undir_move_insert p x y acc))
+End
 
 (*Do a consistency sort after setting up the sptree of moves*)
-val resort_moves_def = Define`
+Definition resort_moves_def:
   resort_moves acc =
-  map (λls. MAP SND (sort_moves ls)) acc`
+  map (λls. MAP SND (sort_moves ls)) acc
+End
 
-val _ = Datatype`
-  algorithm = Simple | IRC`
+Datatype:
+  algorithm = Simple | IRC
+End
 
 (* mtable is an sptree lookup for the moves *)
-val biased_pref_def = Define`
+Definition biased_pref_def:
   biased_pref mtable n ks =
   do
     d <- get_dim;
@@ -1264,10 +1361,11 @@ val biased_pref_def = Define`
     od
     else
       return NONE
-  od`
+  od
+End
 
 (* very similar to consistency_ok, but for initializing *)
-val full_consistency_ok_def = Define`
+Definition full_consistency_ok_def:
   full_consistency_ok k x y =
   if x = y then
     return F (* check 1 *)
@@ -1288,30 +1386,63 @@ val full_consistency_ok_def = Define`
         return ((bx ∨ ax) ∧ (by ∨ ay) ∧ ¬(bx ∧ by) );
       od
     od
-  od`
+  od
+End
 
-val update_move_def = Define`
+Definition update_move_def:
   update_move spta (p:num,(x:num,y:num)) =
   let spx:num = spta x in
   let spy:num = spta y in
   if spx ≤ spy then
     (p, (spx,spy))
   else
-    (p, (spy,spx))`
+    (p, (spy,spx))
+End
+
+(* These behave in reverse to their other versions *)
+Definition neg_first_match_col_def:
+  (neg_first_match_col k bads [] = return NONE) ∧
+  (neg_first_match_col k bads (x::xs) =
+    do
+      c <- node_tag_sub x;
+      case c of
+        Fixed m =>
+          if MEM m bads ∨ m < k
+          then neg_first_match_col k bads xs
+          else return (SOME m)
+      | _ => neg_first_match_col k bads xs
+    od)
+End
+
+Definition neg_biased_pref_def:
+  neg_biased_pref k mtable n bads =
+  do
+    d <- get_dim;
+    if n < d then
+    do
+      let vs = case lookup n mtable of NONE => [] | SOME vs => vs in
+      handle_Subscript (neg_first_match_col k bads vs) (return NONE)
+    od
+    else
+      return NONE
+  od
+End
 
 (* Putting everything together in one call *)
-val do_reg_alloc_def = Define`
-  do_reg_alloc alg sc k moves ct forced (ta,fa,n) =
+Definition do_reg_alloc_def:
+  do_reg_alloc alg sc k moves ct forced fs (ta,fa,n) =
   do
-    init_ra_state ct forced (ta,fa,n);
-    moves <- return (MAP (update_move (sp_default ta)) moves);
-    moves <- st_ex_FILTER (λ(_,(x,y)).full_consistency_ok k x y) moves [];
+    init_ra_state ct forced fs (ta,fa,n);
+    moves0 <- return (MAP (update_move (sp_default ta)) moves);
+    moves <- st_ex_FILTER (λ(_,(x,y)).full_consistency_ok k x y) moves0 [];
     ls <- do_alloc1 (if alg = Simple then [] else moves) sc k;
-    assign_Atemps k ls (biased_pref (resort_moves (moves_to_sp moves LN)));
-    assign_Stemps k;
+    mvs <- return (resort_moves (moves_to_sp moves0 LN));
+    assign_Atemps k ls (biased_pref mvs);
+    assign_Stemps k (neg_biased_pref k mvs);
     spcol <- extract_color ta;
     return spcol (* return the composed from wordLang into the graph + the allocation *)
-  od`
+  od
+End
 
 (* As we are using fixed-size array, we need to define a different record type for the initialization *)
 val array_fields_names = ["adj_ls", "node_tag", "degrees","coalesced","move_related"];
@@ -1322,9 +1453,9 @@ val run_ira_state_def = define_run ``:ra_state``
 (* The top-level (non-monadic) reg_alloc call which should be modified to fit
    the translator's requirements *)
 
-val reg_alloc_aux_def = Define`
-  reg_alloc_aux alg sc k moves ct forced (ta,fa,n) =
-    run_ira_state (do_reg_alloc alg sc k moves ct forced (ta,fa,n))
+Definition reg_alloc_aux_def:
+  reg_alloc_aux alg sc k moves ct forced fs (ta,fa,n) =
+    run_ira_state (do_reg_alloc alg sc k moves ct forced fs (ta,fa,n))
                       <| adj_ls    := (n, [])
                        ; node_tag  := (n, Atemp)
                        ; degrees   := (n, 0)
@@ -1336,10 +1467,12 @@ val reg_alloc_aux_def = Define`
                        ; unavail_moves_wl := []
                        ; coalesced := (n,0)
                        ; move_related := (n,F)
-                       ; stack     := [] |>`;
+                       ; stack     := [] |>
+End
 
-val reg_alloc_def = Define`
-  reg_alloc alg sc k moves ct forced =
-    reg_alloc_aux alg sc k moves ct forced (mk_bij ct)`;
+Definition reg_alloc_def:
+  reg_alloc alg sc k moves ct forced fs =
+    reg_alloc_aux alg sc k moves ct forced fs (mk_bij ct)
+End
 
 val _ = export_theory();

@@ -142,7 +142,7 @@ Proof
   \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC
 QED
 
-val pure_op_def = Define `
+Definition pure_op_def:
   pure_op op ⇔
     case op of
       FFI _ => F
@@ -156,10 +156,10 @@ val pure_op_def = Define `
     | Update => F
     | Install => F
     | _ => T
-`;
+End
 
 (* pure e means e can neither raise an exception nor side-effect the state *)
-val pure_def = tDefine "pure" `
+Definition pure_def:
   (pure (Var _ _) ⇔ T)
     ∧
   (pure (If _ e1 e2 e3) ⇔ pure e1 ∧ pure e2 ∧ pure e3)
@@ -181,14 +181,17 @@ val pure_def = tDefine "pure" `
   (pure (Letrec _ _ _ _ x) ⇔ pure x)
     ∧
   (pure (Op _ opn es) ⇔ EVERY pure es ∧ pure_op opn)
-` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt conj_tac >> rpt gen_tac >>
+Termination
+  WF_REL_TAC `measure exp_size` >> simp[] >> rpt conj_tac >> rpt gen_tac >>
    (Induct_on `es` ORELSE Induct_on `fns`) >> dsimp[exp_size_def] >>
-   rpt strip_tac >> res_tac >> simp[])
+   rpt strip_tac >> res_tac >> simp[]
+End
 
 (* used in proofs about closLang, BVL, BVI and dataLang *)
-val assign_get_code_label_def = Define`
+Definition assign_get_code_label_def:
   (assign_get_code_label (closLang$Label x) = {x}) ∧
-  (assign_get_code_label x = {})`
+  (assign_get_code_label x = {})
+End
 
 Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
 
