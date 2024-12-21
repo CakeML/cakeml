@@ -520,13 +520,6 @@ End
 
 val res = translate plainLim_nf_def;
 
-val plainlim_nf_side = Q.prove(`
-   ∀x y z. plainlim_nf_side x y z = T`,
-  EVAL_TAC>>
-  rw[])
-  |> update_precondition;
-
-
 val res = translate pbc_normaliseTheory.mk_map_def;
 val res = translate pbc_normaliseTheory.name_to_num_var_def;
 

@@ -10,7 +10,7 @@ open preamble
      stack_allocProofTheory
      stack_namesProofTheory
      semanticsPropsTheory
-local open word_to_stackProofTheory data_to_word_gcProofTheory in end
+local open word_to_stackProofTheory data_to_word_gcProofTheory stack_rawcallProofTheory in end
 
 val _ = new_theory"stack_to_labProof";
 
@@ -27,6 +27,8 @@ val get_labels_def = stackSemTheory.get_labels_def;
 val get_reg_value_def = targetSemTheory.get_reg_value_def;
 
 (* val _ = set_prover (fn (tm,_) => mk_thm([],tm)); remove *)
+
+Overload Loc = “wordLang$Loc”
 
 (* TODO: move *)
 
@@ -3569,7 +3571,7 @@ Proof
 QED
 
 Theorem IMP_init_state_ok:
-   4 < kkk /\
+  4 < kkk /\
   (bitmaps:'a word list) = 4w::t ∧
   good_dimindex (:α) /\
   (∀n.
@@ -3585,11 +3587,11 @@ Theorem IMP_init_state_ok:
    (λ((bm0,cfg),progs).
       (λ(progs,fs,bm). (cfg,progs,append (FST bm)))
         (compile_word_to_stack
-           kkk progs
+           ac kkk progs
            (Nil, bm0))) (word_oracle n)) ∧
     (full_make_init sc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
     ==>
-    init_state_ok kkk fmis word_oracle
+    init_state_ok ac kkk fmis word_oracle
 Proof
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def] \\ strip_tac

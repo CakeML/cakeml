@@ -22,7 +22,7 @@ val r = translate EL;
 val el_side = Q.prove(
   `!n xs. el_side n xs = (n < LENGTH xs)`,
   Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "el_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [])
+  THEN fs[])
   |> update_precondition;
 val r = translate optionTheory.OPTION_BIND_def;
 val r = translate sexp_to_dafnyTheory.sxsym_to_opt_def;

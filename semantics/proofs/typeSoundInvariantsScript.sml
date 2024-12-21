@@ -136,16 +136,16 @@ Inductive type_v:
     check_freevars 0 [] t ∧
     FLOOKUP tenvS n = SOME (Ref_t t)
     ⇒
-    type_v tvs ctMap tenvS (Loc n) (Tref t)) ∧
+    type_v tvs ctMap tenvS (Loc T n) (Tref t)) ∧
   (!tvs ctMap tenvS n.
     FLOOKUP tenvS n = SOME W8array_t
     ⇒
-    type_v tvs ctMap tenvS (Loc n) Tword8array) ∧
+    type_v tvs ctMap tenvS (Loc T n) Tword8array) ∧
   (!tvs ctMap tenvS n t.
     check_freevars 0 [] t ∧
     FLOOKUP tenvS n = SOME (Varray_t t)
     ⇒
-    type_v tvs ctMap tenvS (Loc n) (Tarray t)) ∧
+    type_v tvs ctMap tenvS (Loc T n) (Tarray t)) ∧
   (!tvs ctMap tenvS vs t.
     check_freevars 0 [] t ∧
     EVERY (\v. type_v tvs ctMap tenvS v t) vs

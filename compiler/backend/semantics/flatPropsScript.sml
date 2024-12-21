@@ -949,7 +949,7 @@ Theorem isClosure_simps[simp] = map (fn x => SPEC x isClosure_def) v_conss
 
 Definition simple_basic_val_rel_def[simp]:
   (simple_basic_val_rel (Litv l) v = (v = Litv l)) /\
-  (simple_basic_val_rel (Loc i) v = (v = Loc i)) /\
+  (simple_basic_val_rel (Loc b i) v = (v = Loc b i)) /\
   (simple_basic_val_rel (Conv stmp vs1) v = (?vs2. v = Conv stmp vs2)) /\
   (simple_basic_val_rel (Vectorv vs1) v = (?vs2. v = Vectorv vs2)) /\
   (simple_basic_val_rel (Closure vs nm exp) v = F) /\
@@ -958,7 +958,7 @@ End
 
 Definition v_container_xs_def[simp]:
   v_container_xs (Litv _) = [] /\
-  v_container_xs (Loc _) = [] /\
+  v_container_xs (Loc _ _) = [] /\
   v_container_xs (Conv _ vs) = vs /\
   v_container_xs (Vectorv vs) = vs /\
   v_container_xs (Closure vs nm exp) = [] /\

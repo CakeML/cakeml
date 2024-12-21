@@ -26,9 +26,25 @@ val _ = use_full_type_names := true;
 val r = translate newline_def;
 val r = translate breakdist_def;
 val r = translate REPLICATE;
-val r = translate blanks_def;
+val r = translate (blanks_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate SmartAppend_def;
-val r = translate print_list_def;
+val r = translate (print_list_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+Triviality print_list_ind:
+  print_list_ind
+Proof
+  once_rewrite_tac [fetch "-" "print_list_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = print_list_ind |> update_precondition;
+
 val r = translate pr_def;
 val r = translate tlength_def;
 val r = translate mk_blo_def;
@@ -159,27 +175,20 @@ val r = translate next_line_def;
 val r = translate line_Fail_def;
 val r = translate strh_aux_def;
 
-Theorem strh_aux_side[local]:
-  ∀a b c. strh_aux_side a b c
-Proof
-  ho_match_mp_tac strh_aux_ind \\ rw []
-  \\ simp [Once (fetch "-" "strh_aux_side_def")]
-QED
-val _ = update_precondition strh_aux_side;
-
 val r = translate strh_def;
-val r = translate s2c_def;
+val r = translate (s2c_def |> REWRITE_RULE [GSYM sub_check_def]);
 
 Theorem s2c_side[local]:
   ∀s. s2c_side s
 Proof
   namedCases ["x"]
   \\ rw [fetch "-" "s2c_side_def"]
-  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs [sub_check_def]
 QED
 val _ = update_precondition s2c_side;
 
-val r = translate str_prefix_def;
+val r = translate (str_prefix_def |> REWRITE_RULE [GSYM sub_check_def]);
+
 val r = translate tokenize_def;
 
 val r = m_translate readLines_def;
@@ -221,7 +230,6 @@ val r = translate upd2str_applist_def;
 val r = translate msg_success_def;
 val r = translate msg_usage_def;
 val r = translate msg_bad_name_def;
-val r = translate str_prefix_def;
 
 (* ------------------------------------------------------------------------- *)
 (* Things needed by whole_prog_spec                                          *)

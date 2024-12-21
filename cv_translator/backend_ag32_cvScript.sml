@@ -36,6 +36,30 @@ val _ = cv_trans ag32_targetTheory.ag32_enc_def;
   Remaining ag32-specific functions
  *---------------------------------------------------------------------------*)
 
+val pre = cv_auto_trans_pre comp_ag32_def;
+
+Theorem comp_ag32_pre[cv_pre,local]:
+  ∀v bs kf. comp_ag32_pre v bs kf
+Proof
+  gen_tac \\ completeInduct_on ‘prog_size (K 0) v’
+  \\ rw [] \\ gvs [PULL_FORALL]
+  \\ rw [] \\ simp [Once pre]
+  \\ rw [] \\ gvs []
+  \\ last_x_assum irule
+  \\ gvs [wordLangTheory.prog_size_def]
+QED
+
+val _ = cv_auto_trans compile_prog_ag32_def;
+
+val pre = cv_auto_trans_pre compile_word_to_stack_ag32_def;
+
+Theorem compile_word_to_stack_ag32_pre[cv_pre]:
+  ∀k v bitmaps. compile_word_to_stack_ag32_pre k v bitmaps
+Proof
+  Induct_on`v`
+  \\ rw [] \\ simp [Once pre]
+QED
+
 Triviality fp_ok_false:
   fp_ok_ag32 v = F
 Proof
@@ -150,10 +174,11 @@ val _ = cv_auto_trans
                             to_words_line_byte,
                             split16_eq_chunks16]);
 
-(* main two translations below *)
+(* main translations below *)
 
 val _ = cv_trans backend_ag32Theory.to_livesets_ag32_def;
 val _ = cv_trans backend_ag32Theory.compile_cake_ag32_def;
+val _ = cv_auto_trans backend_ag32Theory.compile_cake_explore_ag32_def;
 
 (* lemma used by automation *)
 

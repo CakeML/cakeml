@@ -23,12 +23,12 @@ val _ = translate pbcTheory.negate_def;
 val _ = translate iff_and_def;
 val _ = translate iff_or_def;
 val _ = translate walk_base_def;
-val _ = translate walk_aux_def;
-val _ = translate walk_ind_def;
+val _ = translate (walk_aux_def |> REWRITE_RULE[GSYM sub_check_def]);
+val _ = translate (walk_ind_def |> REWRITE_RULE[GSYM sub_check_def]);
 
 val res = translate walk_k_eq;
 
-val res = translate full_encode_mccis_eq;
+val res = translate (full_encode_mccis_eq |> REWRITE_RULE[GSYM sub_check_def])
 
 (* parse input from f1 f2 and run encoder into pbc *)
 val parse_and_enc = (append_prog o process_topdecs) `
@@ -139,7 +139,7 @@ Definition map_concl_to_string_def:
     | NONE => INL (strlit "c Unexpected conclusion for MCIS problem.\n"))
 End
 
-val res = translate conv_concl_def;
+val res = translate (conv_concl_def |> REWRITE_RULE [GSYM sub_check_def]) ;
 
 val conv_concl_side = Q.prove(
   `∀x y. conv_concl_side x y <=> T`,

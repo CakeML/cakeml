@@ -36,9 +36,6 @@ structures, signatures, and between parentheses).
 [ocaml](ocaml):
 OCaml lexer and parser frontend for the Candle theorem prover.
 
-[parsingComputeLib.sml](parsingComputeLib.sml):
-compset for the lexer and parser.
-
 [proofs](proofs):
 Soundness and completeness proofs for the CakeML PEG.
 

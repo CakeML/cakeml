@@ -6870,7 +6870,7 @@ Termination
 End
 
 Theorem find_surplus:
-  CHAR c cv ∧ NUM i iv ∧ NUM j jv ∧ i ≤ j ∧ j ≤ LENGTH wl ∧ av = Loc a
+  CHAR c cv ∧ NUM i iv ∧ NUM j jv ∧ i ≤ j ∧ j ≤ LENGTH wl ∧ av = Loc T a
   ⇒
   app (p:'ffi ffi_proj) TextIO_find_surplus_v [cv; av; iv; jv]
     (a ~~>> W8array wl)
@@ -6913,7 +6913,7 @@ Proof
 QED
 
 Triviality to_W8ARRAY:
-  loc ~~>> W8array bcontent = W8ARRAY (Loc loc) bcontent
+  loc ~~>> W8array bcontent = W8ARRAY (Loc T loc) bcontent
 Proof
   gvs [W8ARRAY_def,cond_STAR,FUN_EQ_THM,SEP_EXISTS_THM]
 QED

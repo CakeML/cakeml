@@ -10,6 +10,7 @@ val _ = new_theory "decodeProg"
 val _ = translation_extends "explorerProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "decodeProg");
+val _ = ml_translatorLib.use_sub_check true;
 
 (* translator setup *)
 
