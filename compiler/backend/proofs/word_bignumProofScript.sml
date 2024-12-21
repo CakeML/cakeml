@@ -1,7 +1,7 @@
 (*
   Correctness proof for word_bignum
 *)
-open preamble astTheory wordLangTheory wordSemTheory tailrecTheory;
+open preamble astTheory wordLangTheory wordSemTheory wordPropsTheory tailrecTheory;
 open mc_multiwordTheory set_sepTheory helperLib word_bignumTheory;
 
 val good_dimindex_def = miscTheory.good_dimindex_def;
@@ -656,12 +656,15 @@ Proof
   THEN1 (* Assign *)
     (fs [compile_def] \\ rveq
      \\ fs [evaluate_def]
-     \\ drule compile_exp_thm \\ fs [] \\ strip_tac
-     \\ fs [word_exp_def,set_var_def,lookup_insert]
-     \\ qpat_abbrev_tac `s6 = set_store _ _ _`
+     \\ drule_all compile_exp_thm \\ fs [] \\ strip_tac
+     \\ fs [word_exp_def,set_var_def]
+     \\ qmatch_goalsub_abbrev_tac `evaluate (p9, s6)`
      \\ qexists_tac `s6` \\ fs []
-     \\ unabbrev_all_tac \\ fs [set_store_def,get_var_def,lookup_insert]
-     \\ fs [state_rel_def,reg_write_def,FLOOKUP_UPDATE]
+     \\ unabbrev_all_tac \\ fs[]
+     \\ fs[set_store_def]
+     \\ fs [get_var_def,lookup_insert]
+     \\ fs [state_rel_def]
+     \\ fs [reg_write_def,FLOOKUP_UPDATE]
      \\ fs [syntax_ok_def,syntax_ok_aux_def]
      \\ fs [TempIn1_def,TempIn2_def,TempOut_def]
      \\ strip_tac \\ Cases_on `n = a` \\ fs []
@@ -719,7 +722,7 @@ Proof
      \\ unabbrev_all_tac \\ fs [])
   THEN1 (* Load *)
    (fs [compile_def] \\ rveq \\ fs [FLOOKUP_DEF]
-    \\ imp_res_tac state_rel_IN_FDOM
+    \\ drule_all state_rel_IN_FDOM
     \\ qpat_assum `state_rel s1 t1 cs2 t0 frame`
          (fn th => assume_tac (REWRITE_RULE [state_rel_def] th))
     \\ fs [SeqIndex_def,evaluate_def,array_rel_def]
@@ -734,7 +737,7 @@ Proof
     \\ SEP_R_TAC \\ fs []
     \\ pop_assum (fn th => fs [GSYM th])
     \\ full_simp_tac std_ss [EL_LENGTH_APPEND,NULL_DEF,GSYM APPEND_ASSOC,APPEND,HD]
-    \\ qpat_abbrev_tac `s4 = set_store _ _ _`
+    \\ qmatch_goalsub_abbrev_tac `evaluate (p9, s4)`
     \\ qexists_tac `s4` \\ fs []
     \\ unabbrev_all_tac \\ fs [set_store_def,get_var_def,lookup_insert]
     \\ fs [state_rel_def,reg_write_def,FLOOKUP_UPDATE]

@@ -958,7 +958,7 @@ End
 
 (* Second colouring -- turns all Stemps into Fixed ≥ k *)
 Definition assign_Stemp_tag_def:
-  assign_Stemp_tag k n =
+  assign_Stemp_tag k prefs n =
   do
     ntag <- node_tag_sub n;
     case ntag of
@@ -966,20 +966,28 @@ Definition assign_Stemp_tag_def:
       do
         adjs <- adj_ls_sub n;
         tags <- st_ex_MAP node_tag_sub adjs;
-        col <- return (unbound_colour k (QSORT (λx y. x≤y) (MAP tag_col tags)));
-        update_node_tag n (Fixed col)
+        let bads = QSORT (λx y. x≤y) (MAP tag_col tags) in
+        do
+          c <- prefs n bads;
+          case c of
+            NONE =>
+              update_node_tag n (Fixed (unbound_colour k bads))
+          | SOME y =>
+              update_node_tag n (Fixed y)
+        od
       od
     | _ => return ()
   od
 End
 
+
 (* The second allocation step *)
 Definition assign_Stemps_def:
-  assign_Stemps k =
+  assign_Stemps k prefs =
   do
     d <- get_dim;
     cs <- return (GENLIST (\x.x) d);
-    st_ex_FOREACH cs (assign_Stemp_tag k)
+    st_ex_FOREACH cs (assign_Stemp_tag k prefs)
   od
 End
 
@@ -1150,7 +1158,7 @@ QED
 
 (* Set the tags according to wordLang conventions *)
 Definition mk_tags_def:
-  mk_tags n fa =
+  mk_tags n fs fa =
   do
     inds <- return (GENLIST (\x.x) n);
     st_ex_FOREACH inds
@@ -1158,7 +1166,9 @@ Definition mk_tags_def:
       let v = fa i in
       let remainder = v MOD 4 in
       if remainder = 1 then
-        update_node_tag i Atemp
+        (case lookup v fs of
+          NONE => update_node_tag i Atemp
+        | SOME () => update_node_tag i Stemp)
       else if remainder = 3 then
         update_node_tag i Stemp
       else
@@ -1230,11 +1240,11 @@ End
   forced = forced edges -- will need new proof that all forced edges are in the tree
 *)
 Definition init_ra_state_def:
-  init_ra_state ct forced (ta,fa,n) =
+  init_ra_state ct forced fs (ta,fa,n) =
   do
     mk_graph (sp_default ta) ct []; (* Put in the usual edges *)
     extend_graph (sp_default ta) forced;
-    mk_tags n (sp_default fa);
+    mk_tags n fs (sp_default fa);
   od
 End
 
@@ -1389,16 +1399,46 @@ Definition update_move_def:
     (p, (spy,spx))
 End
 
+(* These behave in reverse to their other versions *)
+Definition neg_first_match_col_def:
+  (neg_first_match_col k bads [] = return NONE) ∧
+  (neg_first_match_col k bads (x::xs) =
+    do
+      c <- node_tag_sub x;
+      case c of
+        Fixed m =>
+          if MEM m bads ∨ m < k
+          then neg_first_match_col k bads xs
+          else return (SOME m)
+      | _ => neg_first_match_col k bads xs
+    od)
+End
+
+Definition neg_biased_pref_def:
+  neg_biased_pref k mtable n bads =
+  do
+    d <- get_dim;
+    if n < d then
+    do
+      let vs = case lookup n mtable of NONE => [] | SOME vs => vs in
+      handle_Subscript (neg_first_match_col k bads vs) (return NONE)
+    od
+    else
+      return NONE
+  od
+End
+
 (* Putting everything together in one call *)
 Definition do_reg_alloc_def:
-  do_reg_alloc alg sc k moves ct forced (ta,fa,n) =
+  do_reg_alloc alg sc k moves ct forced fs (ta,fa,n) =
   do
-    init_ra_state ct forced (ta,fa,n);
-    moves <- return (MAP (update_move (sp_default ta)) moves);
-    moves <- st_ex_FILTER (λ(_,(x,y)).full_consistency_ok k x y) moves [];
+    init_ra_state ct forced fs (ta,fa,n);
+    moves0 <- return (MAP (update_move (sp_default ta)) moves);
+    moves <- st_ex_FILTER (λ(_,(x,y)).full_consistency_ok k x y) moves0 [];
     ls <- do_alloc1 (if alg = Simple then [] else moves) sc k;
-    assign_Atemps k ls (biased_pref (resort_moves (moves_to_sp moves LN)));
-    assign_Stemps k;
+    mvs <- return (resort_moves (moves_to_sp moves0 LN));
+    assign_Atemps k ls (biased_pref mvs);
+    assign_Stemps k (neg_biased_pref k mvs);
     spcol <- extract_color ta;
     return spcol (* return the composed from wordLang into the graph + the allocation *)
   od
@@ -1414,8 +1454,8 @@ val run_ira_state_def = define_run ``:ra_state``
    the translator's requirements *)
 
 Definition reg_alloc_aux_def:
-  reg_alloc_aux alg sc k moves ct forced (ta,fa,n) =
-    run_ira_state (do_reg_alloc alg sc k moves ct forced (ta,fa,n))
+  reg_alloc_aux alg sc k moves ct forced fs (ta,fa,n) =
+    run_ira_state (do_reg_alloc alg sc k moves ct forced fs (ta,fa,n))
                       <| adj_ls    := (n, [])
                        ; node_tag  := (n, Atemp)
                        ; degrees   := (n, 0)
@@ -1431,8 +1471,8 @@ Definition reg_alloc_aux_def:
 End
 
 Definition reg_alloc_def:
-  reg_alloc alg sc k moves ct forced =
-    reg_alloc_aux alg sc k moves ct forced (mk_bij ct)
+  reg_alloc alg sc k moves ct forced fs =
+    reg_alloc_aux alg sc k moves ct forced fs (mk_bij ct)
 End
 
 val _ = export_theory();

@@ -10574,15 +10574,15 @@ Proof
      rveq >> rfs[])
   \\ TOP_CASE_TAC \\ fs[]
   THEN1 (* dimindex (:'a) = 64 *)
-   (`dimindex (:'a) = 64` by fs [state_rel_def,good_dimindex_def]
+   (
+    `dimindex (:'a) = 64` by fs [state_rel_def,good_dimindex_def]
     \\ fs [] \\ clean_tac
     \\ fs[state_rel_thm] \\ eval_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
     \\ strip_tac
     \\ fs[wordSemTheory.get_vars_def]
-    \\ qpat_x_assum`_ = SOME [_]`mp_tac
-    \\ TOP_CASE_TAC \\ fs[] \\ strip_tac \\ clean_tac
+    \\ gvs[AllCaseEqs()]
     \\ rpt_drule0 evaluate_LoadWord64
     \\ rfs[good_dimindex_def] \\ rfs[]
     \\ disch_then drule0
@@ -10592,9 +10592,9 @@ Proof
     \\ simp[Once wordSemTheory.evaluate_def]
     \\ simp[Once wordSemTheory.evaluate_def,word_exp_set_var_ShiftVar]
     \\ eval_tac
-    \\ qmatch_goalsub_abbrev_tac`OPTION_MAP Word opt`
+    \\ qmatch_goalsub_abbrev_tac`option_CASE opt _ _`
     \\ `∃w. opt = SOME w`
-    by ( simp[Abbr`opt`] \\ CASE_TAC \\ simp[] )
+      by ( simp[Abbr`opt`] \\ CASE_TAC \\ simp[] )
     \\ qunabbrev_tac`opt` \\ simp[]
     \\ qhdtm_x_assum`memory_rel`kall_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
@@ -10634,8 +10634,8 @@ Proof
       \\ IF_CASES_TAC \\ simp[]
       \\ simp[word_msb_def]
       \\ rfs[w2w,fcpTheory.FCP_BETA])
-    >-
-     (simp[fcpTheory.CART_EQ]
+    >- (
+      simp[fcpTheory.CART_EQ]
       \\ simp[word_extract_def,word_bits_def,w2w,word_ror_def,fcpTheory.FCP_BETA]
       \\ rpt strip_tac
       \\ eq_tac \\ fs []
