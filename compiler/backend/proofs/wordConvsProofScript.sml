@@ -1396,8 +1396,7 @@ QED
 Triviality word_cseInst_not_created_subprogs:
   !env i. not_created_subprogs P (SND (word_cseInst env i))
 Proof
-  ho_match_mp_tac word_cseTheory.word_cseInst_ind
-  \\ rw [word_cseTheory.word_cseInst_def]
+  gen_tac \\ Induct \\ rw[word_cseTheory.word_cseInst_def]
   \\ fs [not_created_subprogs_def]
   \\ fs [word_cseTheory.add_to_data_def, word_cseTheory.add_to_data_aux_def]
   \\ every_case_tac
@@ -1478,35 +1477,34 @@ Triviality word_cse_flat_exp_conventions:
       flat_exp_conventions p ⇒ flat_exp_conventions p'
 Proof
   Induct \\ gvs [flat_exp_conventions_def, word_cse_def, AllCaseEqs()]
-  >- (Cases_on ‘canonicalMoveRegs3 data l’ \\ gvs [flat_exp_conventions_def])
-  >- (rpt gen_tac
-      \\ pairarg_tac \\ gvs []
-      \\ Cases_on ‘i’ \\ gvs [word_cseInst_def, flat_exp_conventions_def,
-                              add_to_data_def, add_to_data_aux_def, AllCaseEqs()]
-      \\ Cases_on ‘a’ \\ gvs [word_cseInst_def, flat_exp_conventions_def, AllCaseEqs()])
-  >- (Cases_on ‘is_seen n data’ \\ gvs [flat_exp_conventions_def])
-  >- (Cases_on ‘s = CurrHeap’ \\ Cases_on ‘e’ \\ gvs [flat_exp_conventions_def, canonicalExp_def])
-  >- (gen_tac \\ first_x_assum (qspec_then ‘data’ assume_tac)
-      \\ Cases_on ‘word_cse data p’ \\ gvs [flat_exp_conventions_def])
-  >- (Cases_on ‘o'’ \\ gvs [flat_exp_conventions_def]
-      \\ Cases_on ‘x’ \\ gvs []
-      \\ Cases_on ‘r’ \\ gvs [flat_exp_conventions_def])
-  >- (gen_tac \\ strip_tac
-      \\ rpt (first_x_assum drule \\ strip_tac)
-      \\ Cases_on ‘word_cse data p’ \\ gvs []
-      \\ first_x_assum (qspec_then ‘data’ assume_tac) \\ gvs []
-      \\ Cases_on ‘word_cse q p'’ \\ gvs []
-      \\ first_x_assum (qspec_then ‘q’ assume_tac) \\ gvs [flat_exp_conventions_def])
-  >- (rpt gen_tac
-      \\ Cases_on ‘word_cse data p’ \\ gvs []
-      \\ Cases_on ‘word_cse data p'’ \\ gvs []
-      \\ strip_tac \\ gvs []
-      \\ last_x_assum (qspec_then ‘data’ assume_tac) \\ gvs []
-      \\ last_x_assum (qspec_then ‘data’ assume_tac) \\ gvs [flat_exp_conventions_def])
-  >- (Cases_on ‘is_seen n data ∨ ¬is_seen n0 data’ \\ gvs [flat_exp_conventions_def]
-      \\ gvs [add_to_data_aux_def]  \\ rpt gen_tac
-      \\ rpt CASE_TAC \\ gvs [flat_exp_conventions_def])
-  >- (Cases_on ‘is_seen n data’ \\ gvs [flat_exp_conventions_def])
+  >- (Induct
+     \\ gvs [word_cseInst_def,add_to_data_def, add_to_data_aux_def]
+     \\rw[] \\ every_case_tac \\ fs[flat_exp_conventions_def])
+  >-(
+    rw[] \\ every_case_tac \\ fs[flat_exp_conventions_def])
+  >-(
+    rw[] \\ every_case_tac \\ fs[flat_exp_conventions_def])
+  >-(
+    rw[] \\ fs[] \\
+    Cases_on `word_cse data p` \\ fs[flat_exp_conventions_def] \\
+    first_x_assum (qspec_then `data` assume_tac) \\ fs[] \\ gvs[])
+  >-(
+    rw[] \\ fs[] \\ rw[GSYM SND_pair] \\
+    rpt (pairarg_tac \\ fs[]) \\
+    gvs[flat_exp_conventions_def] \\
+    first_x_assum (qspec_then `data1` assume_tac) \\
+    first_x_assum (qspec_then `data` assume_tac) \\
+    fs[] \\ gvs[])
+  >-(
+    rw[] \\ fs[] \\ rw[GSYM SND_pair] \\
+    rpt (pairarg_tac \\ fs[]) \\
+    gvs[flat_exp_conventions_def] \\
+    first_x_assum (qspec_then `data` assume_tac) \\
+    first_x_assum (qspec_then `data` assume_tac) \\
+    fs[] \\ gvs[])
+  >-(
+    fs[add_to_data_aux_def] \\
+    rw[] \\ every_case_tac \\ fs[flat_exp_conventions_def])
 QED
 
 Theorem flat_exp_conventions_word_common_subexp_elim:
@@ -1523,41 +1521,31 @@ Triviality word_cse_wf_cutsets:
     let p' = SND (word_cse data p) in
       wf_cutsets p ⇒ wf_cutsets p'
 Proof
-  Induct \\ gvs [wf_cutsets_def, word_cse_def, AllCaseEqs()]
-  \\ rpt gen_tac
-  >- (pairarg_tac \\ gvs [wf_cutsets_def])
-  >- (pairarg_tac \\ gvs []
-      \\ Cases_on ‘i’
-      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
-              wf_cutsets_def, AllCaseEqs()]
-      \\ Cases_on ‘a’
-      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
-              wf_cutsets_def, AllCaseEqs()])
-  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def])
-  >- (Cases_on ‘s’ \\ gvs [wf_cutsets_def])
+  Induct \\ gvs [wf_cutsets_def, word_cse_def, AllCaseEqs()] \\
+  gvs[oneline word_cseInst_def,add_to_data_def, add_to_data_aux_def,AllCaseEqs()] \\
+  rw[] \\ rpt (pairarg_tac \\ gvs[])
+  \\ gvs[AllCaseEqs(),wf_cutsets_def]
+  \\ every_case_tac \\ gvs[wf_cutsets_def]
+  \\ rw[] \\ every_case_tac \\ fs[wf_cutsets_def]
   >- (
-    pairarg_tac \\ strip_tac \\ gvs []
-    \\ simp[wf_cutsets_def]
-    \\ metis_tac[SND])
-  >- (Cases_on ‘o'’ \\ gvs [wf_cutsets_def]
-      \\ Cases_on ‘x’ \\ gvs [wf_cutsets_def]
-      \\ Cases_on ‘r’ \\ gvs [wf_cutsets_def])
-  >- (pairarg_tac \\ gvs [] \\ strip_tac
-      \\ last_x_assum drule_all \\ strip_tac
-      \\ last_x_assum drule_all \\ strip_tac
-      \\ pairarg_tac \\ gvs [wf_cutsets_def]
-      \\ metis_tac[SND])
-  >- (strip_tac
-      \\ rpt (pairarg_tac \\ gvs [])
-      \\ rpt (last_x_assum drule \\ strip_tac)
-      \\ gvs [wf_cutsets_def]
-      \\ metis_tac[SND])
-  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
-      \\ Cases_on ‘¬is_seen n0 data’ \\ gvs [wf_cutsets_def]
-      \\ gvs [add_to_data_aux_def]
-      \\ Cases_on ‘lookup listCmp (OpCurrHeapToNumList b (canonicalRegs' n data n0)) data.instrs’ \\ gvs []
-      \\ Cases_on ‘EVEN n’ \\ gvs [wf_cutsets_def])
-  \\ Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
+     first_x_assum (qspec_then `data` assume_tac) \\
+     gvs[])
+  >- (
+     first_x_assum (qspec_then `data1` assume_tac) \\
+     first_x_assum (qspec_then `data` assume_tac) \\
+     gvs[])
+  >- (
+     first_x_assum (qspec_then `data1` assume_tac) \\
+     first_x_assum (qspec_then `data` assume_tac) \\
+     gvs[])
+  >- (
+     first_x_assum (qspec_then `data` assume_tac) \\
+     first_x_assum (qspec_then `data` assume_tac) \\
+     gvs[])
+  >- (
+     first_x_assum (qspec_then `data` assume_tac) \\
+     first_x_assum (qspec_then `data` assume_tac) \\
+     gvs[])
 QED
 
 Theorem wf_cutsets_word_common_subexp_elim:
