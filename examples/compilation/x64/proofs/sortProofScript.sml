@@ -14,7 +14,9 @@ val sort_io_events_def = new_specification("sort_io_events_def", ["sort_io_event
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM),RIGHT_EXISTS_AND_THM]);
 
 val (sort_sem,sort_output) = sort_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (sort_not_fail,sort_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail sort_sem |> CONJ_PAIR
+val (sort_not_fail,sort_sem_sing) = sort_sem
+  |> SRULE [sort_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 sort_compiled)

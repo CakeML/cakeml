@@ -427,7 +427,7 @@ fun xspec_in_asl f asl : (spec_kind * term) option =
 
 fun xspec_in_db f : (string * string * spec_kind * thm) option =
   case DB.matchp (fn thm => is_spec_for f (concl thm)) [] of
-      ((thy, name), (thm, _)) :: _ =>
+      ((thy, name), (thm, _, _)) :: _ =>
       (case spec_kind_for f (concl thm) of
            SOME k => SOME (thy, name, k, thm)
          | NONE => fail())

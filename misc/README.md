@@ -7,9 +7,6 @@ Build a basic compset for evaluation in the logic.
 [induct_tweakLib.sml](induct_tweakLib.sml):
 Code for adjusting and improving induction theorems.
 
-[libScript.sml](libScript.sml):
-Renamnts of Lem dependency
-
 [miscScript.sml](miscScript.sml):
 Miscellaneous definitions and minor lemmas used throughout the
 development.

@@ -1692,7 +1692,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       (final_spec, frame_hpl)
   end
   handle HOL_ERR{message = msg, origin_function = fname,
-                 origin_structure  = sname} => raise (ERR "xlet_simp_spec" msg);
+                 origin_structure  = sname, ...} => raise (ERR "xlet_simp_spec" msg);
 
 (* [xlet_mk_post_conditions] *)
 fun xlet_mk_post_condition asl frame_hpl app_spec =
@@ -1921,7 +1921,7 @@ fun xlet_auto_spec (opt_spec : thm option) (g as (asl, w)) =
 (* [xlet_auto] *)
 fun xlet_auto (g as (asl, w)) =
   xlet_auto_spec NONE g
-  handle HOL_ERR {origin_structure = _, origin_function = fname, message = msg}
+  handle HOL_ERR {message = msg, ...}
          => raise (ERR "xlet_auto" msg);
 
 end

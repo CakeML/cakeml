@@ -4,7 +4,7 @@
 *)
 
 open preamble backendTheory lab_to_targetTheory backend_enc_decTheory;
-open backend_passesTheory;
+open backend_passesTheory evaluate_decTheory;
 
 val _ = new_theory "backend_asm";
 
@@ -84,7 +84,7 @@ Definition to_livesets_0_def:
     let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
     (get_clash_tree prog,heu_moves,spillcosts,
-      get_forced asm_conf prog [],get_stack_only LN prog)) p
+      get_forced asm_conf prog [],get_stack_only prog)) p
   in
     ((asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs),data),c,names,p)
 End
@@ -309,7 +309,9 @@ End
 
 Definition compile_cake_def:
   compile_cake (asm_conf :'a asm_config) (c :inc_config) p =
-    from_word_0 asm_conf (to_word_0 asm_conf c p)
+    if ml_prog$prog_syntax_ok p then
+      from_word_0 asm_conf (to_word_0 asm_conf c p)
+    else NONE
 End
 
 (*----------------------------------------------------------------*
@@ -336,7 +338,7 @@ Proof
           inc_config_to_config_def,backendTheory.inc_config_to_config_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ pop_assum kall_tac
-  \\ ntac 2 (TOP_CASE_TAC \\ gvs [])
+  \\ gvs [AllCaseEqs()]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [backendTheory.attach_bitmaps_def,backendTheory.config_to_inc_config_def,
           lab_to_targetTheory.config_to_inc_config_def]
@@ -504,6 +506,7 @@ Theorem compile_cake_thm:
       LENGTH bytes = bytes_len ∧
       LENGTH bm = bm_len ∧
       LENGTH c1.lab_conf.shmem_extra = shmem_len ∧
+      ml_prog$prog_syntax_ok p ∧
       conf_str = encode_backend_config (config_to_inc_config c1)
 Proof
   rw [compile_cake_def]

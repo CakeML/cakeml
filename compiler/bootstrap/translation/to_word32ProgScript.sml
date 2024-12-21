@@ -14,6 +14,7 @@ val _ = translation_extends "basis_defProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_word32Prog");
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val RW = REWRITE_RULE
 
@@ -334,6 +335,27 @@ val _ = word_cse_ind |> update_precondition;
 
 val res = translate (word_cseTheory.word_common_subexp_elim_def |> spec32);
 
+val res = translate (word_copyTheory.copy_prop_def |> spec32);
+
+val res = translate_no_ind miscTheory.anub_def;
+
+Triviality misc_anub_ind:
+  misc_anub_ind (:'a) (:'b)
+Proof
+  once_rewrite_tac [fetch "-" "misc_anub_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+QED
+
+val _ = misc_anub_ind |> update_precondition;
+
+val res = translate (spec32 word_unreachTheory.remove_unreach_def);
+
 val _ = translate (const_fp_inst_cs_def |> spec32 |> econv)
 
 Triviality rws:
@@ -447,7 +469,7 @@ val _ = translate (spec32 full_ssa_cc_trans_def)
 
 val _ = translate (conv32 remove_dead_inst_def)
 val _ = translate (conv32 get_live_inst_def)
-val _ = translate (spec32 remove_dead_def)
+val _ = translate (spec32 remove_dead_prog_def)
 
 Triviality lem:
   dimindex(:64) = 64 ∧
@@ -500,6 +522,8 @@ val word_inst_three_to_two_reg_side = Q.prove(`
 >> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_inst_three_to_two_reg_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition
+
+val res = translate (spec32 three_to_two_reg_prog_def);
 
 val res = translate_no_ind (spec32 word_removeTheory.remove_must_terminate_pmatch);
 

@@ -16,7 +16,9 @@ val cake_pb_wcnf_io_events_def = new_specification("cake_pb_wcnf_io_events_def",
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_pb_wcnf_sem,cake_pb_wcnf_output) = cake_pb_wcnf_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (cake_pb_wcnf_not_fail,cake_pb_wcnf_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_pb_wcnf_sem |> CONJ_PAIR
+val (cake_pb_wcnf_not_fail,cake_pb_wcnf_sem_sing) = cake_pb_wcnf_sem
+  |> SRULE [wcnf_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 wcnf_compiled)

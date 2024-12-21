@@ -15,7 +15,9 @@ val cat_io_events_def =
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cat_sem,cat_output) = cat_io_events_def |> SPEC_ALL |> UNDISCH_ALL |> CONJ_PAIR
-val (cat_not_fail,cat_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cat_sem |> CONJ_PAIR
+val (cat_not_fail,cat_sem_sing) = cat_sem
+  |> SRULE [iocat_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 iocat_compiled)

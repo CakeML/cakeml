@@ -336,7 +336,7 @@ Definition to_livesets_def:
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
     (get_clash_tree prog,heu_moves,spillcosts,
-      get_forced c.lab_conf.asm_conf prog [],get_stack_only LN prog)) p
+      get_forced c.lab_conf.asm_conf prog [],get_stack_only prog)) p
   in
     ((reg_count,data),c',names,p)
 End
@@ -362,7 +362,7 @@ Definition to_livesets_0_def:
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
     (get_clash_tree prog,heu_moves,spillcosts,
-      get_forced c.lab_conf.asm_conf prog [],get_stack_only LN prog)) p
+      get_forced c.lab_conf.asm_conf prog [],get_stack_only prog)) p
   in
     ((reg_count,data),c,names,p)
 End
@@ -779,23 +779,6 @@ Proof
      to_flat_def,to_livesets_def,to_word_0_def] >>
   unabbrev_all_tac>>fs[]>>
   rpt(rfs[]>>fs[])
-QED
-
-(* used in compilationLib *)
-Theorem MAP_ZIP_ZIP:
-  ∀n xs ys zs.
-    LENGTH xs = n ∧ LENGTH ys = n ∧ LENGTH zs = n ⇒
-    MAP f (ZIP (xs, ZIP (ys, zs))) =
-    MAP3 (λx (y1,y2,y3,y4) (z1,z2,z3). f (x,(y1,y2,y3,y4),(z1,z2,z3))) xs ys zs
-Proof
-  Induct \\ fs [LENGTH_NIL,LENGTH_CONS,PULL_EXISTS,FORALL_PROD]
-QED
-
-(* used in compilationLib *)
-Theorem TAKE_DROP_PAIR_LEMMA:
-  LENGTH xs = n ⇒ (TAKE n xs, DROP n xs) = (xs, [])
-Proof
-  rw []
 QED
 
 Theorem compile_inc_progs_for_eval_eq:

@@ -53,6 +53,7 @@ val EXP_AUX_THM = Q.prove(
 
 val _ = next_ml_names := ["exp"];
 val res = translate EXP_AUX_def;
+
 val _ = next_ml_names := ["exp"];
 val res = translate EXP_AUX_THM; (* tailrec version of EXP *)
 
@@ -61,8 +62,10 @@ val res = translate MAX_DEF;
 val res = translate arithmeticTheory.EVEN_MOD2;
 val res = translate (REWRITE_RULE [EVEN_MOD2,DECIDE ``~(n = 0) = (0 < n:num)``] ODD_EVEN);
 val res = translate FUNPOW;
+
 val res = translate ABS_DIFF_def;
-val res = translate (DECIDE ``PRE n = n-1``);
+
+val res = translate (DECIDE ``PRE n = n-1`` |> REWRITE_RULE [GSYM sub_check_def]);
 
 (* while, owhile and least *)
 

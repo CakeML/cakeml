@@ -295,6 +295,34 @@ Definition CPstate_models_def:
     lookup c cs.from_eq = SOME vrep ⇒
     lookup v S.locals = lookup vrep S.locals
 End
+(*FIXME need to add for cs side also*)
+
+Theorem CPstate_models_with_const[simp]:
+  CPstate_models cs (s with locals_size := ls) = (CPstate_models cs s) /\
+  CPstate_models cs (s with fp_regs := fp) = CPstate_models cs s /\
+  CPstate_models cs (s with store := store) = CPstate_models cs s /\
+  CPstate_models cs (s with stack := xs) = CPstate_models cs s /\
+  CPstate_models cs (s with stack_limit := sl) = CPstate_models cs s /\
+  CPstate_models cs (s with stack_max := sm) = CPstate_models cs s /\
+  CPstate_models cs (s with stack_size := ssize) = CPstate_models cs s /\
+  CPstate_models cs (s with memory := m) = CPstate_models cs s /\
+  CPstate_models cs (s with mdomain := md) = CPstate_models cs s /\
+  CPstate_models cs (s with sh_mdomain := smd) = CPstate_models cs s /\
+  CPstate_models cs (s with permute := p) = CPstate_models cs s /\
+  CPstate_models cs (s with compile := c) = CPstate_models cs s /\
+  CPstate_models cs (s with compile_oracle := co) = CPstate_models cs s /\
+  CPstate_models cs (s with code_buffer := cb) = CPstate_models cs s /\
+  CPstate_models cs (s with data_buffer := db) = CPstate_models cs s /\
+  CPstate_models cs (s with gc_fun := g) = CPstate_models cs s /\
+  CPstate_models cs (s with handler := hd) = CPstate_models cs s /\
+  CPstate_models cs (s with clock := clk) = CPstate_models cs s /\
+  CPstate_models cs (s with termdep := tdep) = CPstate_models cs s /\
+  CPstate_models cs (s with code := cd) = CPstate_models cs s /\
+  CPstate_models cs (s with be := b) = CPstate_models cs s /\
+  CPstate_models cs (s with ffi := ffi) = CPstate_models cs s
+Proof
+  fs[CPstate_models_def]
+QED
 
 Theorem CPstate_model:
   CPstate_models cs st ⇒
@@ -395,15 +423,6 @@ Proof
   >>irule CPstate_models_same_locals
   >>rw[set_fp_var_def]
   >>metis_tac[]
-QED
-
-Theorem memory_model:
-  CPstate_models cs st ⇒
-  CPstate_models cs (st with memory := m)
-Proof
-  DISCH_TAC
-  >>irule CPstate_models_same_locals
-  >>rw[]>>metis_tac[]
 QED
 
 Theorem merge_eqs_model1:
@@ -908,7 +927,7 @@ Proof
     Cases_on‘ins’
     >>gvs[copy_prop_inst_def,evaluate_def,inst_def,assign_def,mem_store_def,remove_eqs_def,ACE]
     >>rpt(pairarg_tac>>fs[])
-    >>metis_tac[remove_eq_inv,remove_eq_model_set_var,remove_eq_model,memory_model,set_fp_var_model]
+    >>metis_tac[remove_eq_inv,remove_eq_model_set_var,remove_eq_model,set_fp_var_model]
   )
 QED
 
@@ -935,13 +954,13 @@ Theorem remove_eq_model_sh_mem_set_var:
   sh_mem_set_var x t st = (err, st') ⇒
   CPstate_models (remove_eq cs t) st'
 Proof
-  namedCases_on‘x’["","fr"]>-(rw[sh_mem_set_var_def]>>metis_tac[remove_eq_model])
-  >>Cases_on‘fr’>>rw[sh_mem_set_var_def]
-  >-(
-    ‘CPstate_models cs (st with ffi:=f)’ by fs[CPstate_models_def]
-    >>metis_tac[remove_eq_model_set_var]
-  )
-  >-(pop_assum mp_tac>>rw[CPstate_models_def,remove_eq_def,flush_state_def])
+  namedCases_on‘x’["","fr"]>-
+  (rw[sh_mem_set_var_def]>>
+  irule remove_eq_model >>
+  first_x_assum (irule_at Any))
+  >> Cases_on‘fr’ >> rw[sh_mem_set_var_def]
+  >-(fs[] >> metis_tac[remove_eq_model_set_var])
+  >-(fs[flush_state_def] >> fs[] >> fs[CPstate_models_def])
 QED
 
 Theorem CPstate_modelsD_copy_prop_share:
@@ -976,12 +995,6 @@ Theorem sh_mem_store_byte_model:
   CPstate_models cs st'
 Proof
   rw[CPstate_models_def,sh_mem_store_byte_def,flush_state_def]>>gvs[ACE]
-QED
-(*MOVE*)
-Theorem CPstate_models_with_const[simp]:
-CPstate_models cs (st with memory := m) = CPstate_models cs st
-Proof
-  fs[CPstate_models_def]
 QED
 
 Theorem copy_prop_correct:
@@ -1127,7 +1140,7 @@ Proof
     conj_tac>-metis_tac[remove_eq_inv]>>
     irule remove_eq_model_unset_var>>
     conj_tac>-metis_tac[remove_eq_inv]>>
-    metis_tac[memory_model]
+    fs[]
   )
   >-(
     (*Raise*)
@@ -1203,260 +1216,12 @@ Proof
   )
 QED
 
-(* TODO: insert an induction over copy_prop_prog *)
-
 (* Main semantics result *)
 Theorem evaluate_copy_prop:
   evaluate (copy_prop e, s) = evaluate (e, s)
 Proof
   rw[copy_prop_def]
   >>metis_tac[copy_prop_correct,empty_eq_inv,empty_eq_model,PAIR]
-QED
-
-(*========================================================================*)
-(* Bunch of syntactic results for integration into compiler *)
-
-(* may not prove goal fully *)
-fun boring_tac def =
-  ho_match_mp_tac copy_prop_prog_ind
-  >>rw[copy_prop_prog_def,def]
-  >>rpt(pairarg_tac>>fs[])
-  >>rw[def]
-  >-(
-    qid_spec_tac‘cs’>>qid_spec_tac‘i’
-    >>ho_match_mp_tac copy_prop_inst_ind
-    >>rw[copy_prop_inst_def,def]
-  )
-  >-(
-    TOP_CASE_TAC>>rw[def]
-  );
-
-Theorem wf_cutsets_copy_prop_aux:
-  ∀p cs. wf_cutsets p ⇒
-    wf_cutsets (FST (copy_prop_prog p cs))
-Proof
-  boring_tac wf_cutsets_def
-QED
-
-Theorem wf_cutsets_copy_prop:
-  wf_cutsets p ⇒ wf_cutsets (copy_prop p)
-Proof
-  metis_tac[wf_cutsets_copy_prop_aux,copy_prop_def]
-QED
-
-Theorem every_inst_distinct_tar_reg_copy_prop_aux:
-  ∀p cs.
-  every_inst distinct_tar_reg p ⇒
-  every_inst distinct_tar_reg (FST (copy_prop_prog p cs))
-Proof
-  ho_match_mp_tac copy_prop_prog_ind
-  >>rw[every_inst_def,copy_prop_prog_def]
-  >>rpt(pairarg_tac>>fs[])
-  >>rw[every_inst_def]
-  (* Inst *)
-  >-(
-    pop_assum mp_tac
-    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
-    >>ho_match_mp_tac copy_prop_inst_ind
-    >>rw[copy_prop_inst_def,every_inst_def,distinct_tar_reg_def]
-  )
-  >-fs[distinct_tar_reg_def]
-  >-(TOP_CASE_TAC>>rw[every_inst_def,distinct_tar_reg_def])
-QED
-
-Theorem every_inst_distinct_tar_reg_copy_prop:
-  every_inst distinct_tar_reg p ⇒
-  every_inst distinct_tar_reg (copy_prop p)
-Proof
-  metis_tac[every_inst_distinct_tar_reg_copy_prop_aux,copy_prop_def]
-QED
-
-Theorem extract_labels_copy_prop_aux:
-  ∀p cs.
-  extract_labels (FST (copy_prop_prog p cs)) =
-  extract_labels p
-Proof
-  boring_tac extract_labels_def
-QED
-
-Theorem extract_labels_copy_prop:
-  extract_labels (copy_prop p) =
-  extract_labels p
-Proof
-  metis_tac[extract_labels_copy_prop_aux,copy_prop_def]
-QED
-
-Theorem flat_exp_conventions_copy_prop_aux:
-  ∀p cs.
-  flat_exp_conventions p ⇒
-  flat_exp_conventions (FST (copy_prop_prog p cs))
-Proof
-  boring_tac flat_exp_conventions_def
-  >>Cases_on‘exp’
-  >>fs[copy_prop_share_def,flat_exp_conventions_def]
-  >>rpt(TOP_CASE_TAC>>rw[flat_exp_conventions_def])
-QED
-
-Theorem flat_exp_conventions_copy_prop:
-  flat_exp_conventions p ⇒
-  flat_exp_conventions (copy_prop p)
-Proof
-  metis_tac[flat_exp_conventions_copy_prop_aux,copy_prop_def]
-QED
-
-Theorem copy_prop_prog_not_alloc_var_aux1:
-  (∀x. ¬is_alloc_var x ⇒ lookup x cs.to_eq = NONE) ⇒
-  ¬is_alloc_var x ⇒
-  lookup x (remove_eq cs y).to_eq = NONE
-Proof
-  rw[remove_eq_def]>>TOP_CASE_TAC>>rw[empty_eq_def]
-QED
-
-Theorem copy_prop_prog_not_alloc_var_aux2:
-  ∀cs.
-  (∀x. ¬is_alloc_var x ⇒ lookup x cs.to_eq = NONE) ⇒
-  ¬is_alloc_var x ⇒
-  lookup x (remove_eqs cs yy).to_eq = NONE
-Proof
-  Induct_on‘yy’>>rw[remove_eqs_def]
-  >>metis_tac[copy_prop_prog_not_alloc_var_aux1]
-QED
-
-(* trivial and tedious *)
-Theorem copy_prop_prog_not_alloc_var:
-  ∀p cs.
-  (∀x. ¬(is_alloc_var x) ⇒ lookup x cs.to_eq = NONE) ⇒
-  (∀x. ¬(is_alloc_var x) ⇒ lookup x (SND (copy_prop_prog p cs)).to_eq = NONE)
-Proof
-  ho_match_mp_tac copy_prop_prog_ind
-  >>rw[copy_prop_prog_def]
-  >>rpt(pairarg_tac>>fs[])
-  >>rw[empty_eq_def,copy_prop_prog_not_alloc_var_aux1,copy_prop_prog_not_alloc_var_aux2]
-  >-(
-    pop_assum mp_tac
-    >>qpat_x_assum‘EVERY _ _’kall_tac
-    >>qid_spec_tac‘xs'’>>qid_spec_tac‘cs'’
-    >>Induct_on‘xs’
-    >-(fs[copy_prop_move_def]>>metis_tac[])
-    >>rw[copy_prop_move_def]
-    >>PairCases_on‘h’
-    >>fs[copy_prop_move_def]
-    >>(pairarg_tac>>fs[])
-    >>gvs[]
-    >>rw[set_eq_def](*2*)
-    >-(
-      TOP_CASE_TAC(*2*)
-      >-(
-        rw[lookup_insert]
-        >-metis_tac[]
-        >-metis_tac[]
-        >>rw[remove_eq_def]
-        >>TOP_CASE_TAC>>rw[empty_eq_def]
-      )
-      >-(
-        rw[lookup_insert]
-        >-metis_tac[]
-        >>rw[remove_eq_def]
-        >>TOP_CASE_TAC>>rw[empty_eq_def]
-      )
-    )
-    >>rw[remove_eq_def]
-    >>TOP_CASE_TAC>>rw[empty_eq_def]
-  )
-  >-(
-    rpt(pop_assum mp_tac)
-    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
-    >>ho_match_mp_tac copy_prop_inst_ind
-    >>rw[copy_prop_inst_def]
-    >>metis_tac[copy_prop_prog_not_alloc_var_aux1,copy_prop_prog_not_alloc_var_aux2]
-  )
-  >-rw[merge_eqs_def,lookup_inter_eq]
-  >-(TOP_CASE_TAC>>rw[])
-QED
-
-Theorem pre_alloc_conventions_copy_prop_aux:
-  ∀p cs.
-  (∀x. ¬(is_alloc_var x) ⇒ lookup x cs.to_eq = NONE) ⇒
-  pre_alloc_conventions p ⇒
-  pre_alloc_conventions (FST (copy_prop_prog p cs))
-Proof
-  ho_match_mp_tac copy_prop_prog_ind
-  >>rw[copy_prop_prog_def,pre_alloc_conventions_def]
-  >>rpt(pairarg_tac>>fs[])
-  >>fs[wordLangTheory.every_stack_var_def,call_arg_convention_def]
-  >-(
-    qid_spec_tac‘cs’>>qid_spec_tac‘i’
-    >>ho_match_mp_tac copy_prop_inst_ind
-    >>rw[wordLangTheory.every_stack_var_def,copy_prop_inst_def]
-  )
-  >-(
-    rpt(pop_assum mp_tac)
-    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
-    >>ho_match_mp_tac copy_prop_inst_ind
-    >>rw[call_arg_convention_def,inst_arg_convention_def,copy_prop_inst_def]
-    >>rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
-  )
-  >-rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
-  >-rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
-  >-(
-    ‘cs' = SND (copy_prop_prog p cs)’ by rw[]
-    >>rw[]
-    >>metis_tac[copy_prop_prog_not_alloc_var]
-  )
-  >-(
-    ‘cs' = SND (copy_prop_prog p cs)’ by rw[]
-    >>rw[]
-    >>metis_tac[copy_prop_prog_not_alloc_var]
-  )
-  >-(TOP_CASE_TAC>>rw[wordLangTheory.every_stack_var_def])
-  >-(TOP_CASE_TAC>>rw[call_arg_convention_def])
-QED
-
-Theorem pre_alloc_conventions_copy_prop:
-  pre_alloc_conventions p ⇒
-  pre_alloc_conventions (copy_prop p)
-Proof
-  ‘∀x. lookup x empty_eq.to_eq = NONE’ by rw[empty_eq_def]
-  >>metis_tac[pre_alloc_conventions_copy_prop_aux,copy_prop_def]
-QED
-
-Theorem full_inst_ok_less_copy_prop_aux:
-  ∀p cs.
-  full_inst_ok_less ac p ⇒
-  full_inst_ok_less ac (FST (copy_prop_prog p cs))
-Proof
-  ho_match_mp_tac copy_prop_prog_ind
-  >>rw[copy_prop_prog_def,full_inst_ok_less_def]
-  >>rpt(pairarg_tac>>fs[])
-  >>rw[full_inst_ok_less_def]
-  >-(
-    pop_assum mp_tac
-    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
-    >>ho_match_mp_tac copy_prop_inst_ind
-    >>rw[copy_prop_inst_def,full_inst_ok_less_def]
-    >>fs[inst_ok_less_def]
-    >-(
-      Cases_on‘ri’
-      >>fs[inst_ok_less_def,lookup_eq_imm_def]
-    )
-    >-(
-      Cases_on‘ri’
-      >>fs[inst_ok_less_def,lookup_eq_imm_def]
-    )
-    >>metis_tac[]
-  )
-  >-(TOP_CASE_TAC>>rw[full_inst_ok_less_def])
-  >-(
-    rw[copy_prop_share_def]>>every_case_tac
-    >>gvs[wordLangTheory.exp_to_addr_def]
-  )
-QED
-
-Theorem full_inst_ok_less_copy_prop:
-  full_inst_ok_less ac p ⇒
-  full_inst_ok_less ac (copy_prop p)
-Proof
-  metis_tac[full_inst_ok_less_copy_prop_aux,copy_prop_def]
 QED
 
 val _ = export_theory();

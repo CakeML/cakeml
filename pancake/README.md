@@ -17,9 +17,6 @@ Simplification of arithmetic in crepLang.
 [crep_to_loopScript.sml](crep_to_loopScript.sml):
 Compilation from crepLang to panLang.
 
-[examples](examples):
-A few examples of timeLang programs
-
 [ffi](ffi):
 FFI for Pancake
 

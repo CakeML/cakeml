@@ -991,7 +991,7 @@ Definition quicksort_def:
   (quicksort cmp (x::xs) = do
     alloc_arr (LENGTH (x::xs)) x;
     array_set (x::xs);
-    quicksort_aux cmp 0n (LENGTH (x::xs) - 1n);
+    quicksort_aux cmp 0n (LENGTH xs);
     array_get ()
   od)
 End

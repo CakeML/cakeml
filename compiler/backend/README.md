@@ -17,9 +17,6 @@ This directory contains the ARMv8-specific part of the compiler backend.
 This directory contains proofs for the ASL-derived ARMv8-specific part of the
 compiler backend.
 
-[backendComputeLib.sml](backendComputeLib.sml):
-A compset for evaluating the compiler backend inside the logic of HOL.
-
 [backendScript.sml](backendScript.sml):
 Composes all of the compiler phases within the compiler backend into
 a single compile function which is connected (in ../compilerScript.sml)

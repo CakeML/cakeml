@@ -2428,7 +2428,7 @@ Definition v_rel_def:
   (v_rel c g (Number i) v <=> v = Number i) /\
   (v_rel c g (Word64 w) v <=> v = Word64 w) /\
   (v_rel c g (ByteVector ws) v <=> v = ByteVector ws) /\
-  (v_rel c g (RefPtr n) v <=> v = RefPtr n) /\
+  (v_rel c g (RefPtr b n) v <=> v = RefPtr b n) /\
   (v_rel c g (Block n xs) v <=>
      ?ys. v = Block n ys /\ LIST_REL (v_rel c g) xs ys) /\
   (v_rel c g (Closure loc_opt args1 env1 num_args e1) v <=>
@@ -2468,7 +2468,7 @@ Definition v_rel_app_def:
   (v_rel_app c g (Number i) v args1 <=> v_rel c g (Number i) v) /\
   (v_rel_app c g (Word64 w) v args1 <=> v_rel c g (Word64 w) v) /\
   (v_rel_app c g (ByteVector ws) v args1 <=> v_rel c g (ByteVector ws) v) /\
-  (v_rel_app c g (RefPtr n) v args1 <=> v_rel c g (RefPtr n) v) /\
+  (v_rel_app c g (RefPtr b n) v args1 <=> v_rel c g (RefPtr b n) v) /\
   (v_rel_app c g (Block n xs) v args1 <=> v_rel c g (Block n xs) v) /\
   (v_rel_app c g (Closure loc_opt pargs1 env1 num_args e1) v args1 <=>
      every_Fn_vs_NONE [e1] /\

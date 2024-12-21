@@ -14,18 +14,18 @@ val _ = translation_extends"lpr_arrayProg";
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 (* TODO: Mostly copied from mlintTheory *)
-val result = translate fromChar_unsafe_def;
+val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 Definition fromChars_range_unsafe_tail_def:
   fromChars_range_unsafe_tail b n str mul acc =
   if n ≤ b then acc
   else
-    let m = sub_nocheck n 1 in
+    let m = n - 1 in
     fromChars_range_unsafe_tail b m str (mul * 10)
       (acc + fromChar_unsafe (strsub str m) * mul)
 Termination
   WF_REL_TAC`measure (λ(b,n,_). n)`>>
-  rw[sub_nocheck_def]
+  rw[]
 End
 
 Theorem fromChars_range_unsafe_tail_eq:
@@ -37,7 +37,7 @@ Proof
   >-
     rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
   rw[]>>
-  simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def,sub_nocheck_def]>>
+  simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def]>>
   fs[ADD1]
 QED
 
@@ -49,6 +49,23 @@ Proof
 QED
 
 val result = translate fromChars_range_unsafe_tail_def;
+
+val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
+
+Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
+  ∀a1 a0 a2 a3 a4.
+  fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
+   ¬(a1 ≤ a0) ⇒
+   (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
+   fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
+     (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
+Proof
+  Induct>>
+  rw[Once fromchars_range_unsafe_tail_side_def]>>
+  simp[]>>eq_tac>>rw[ADD1]>>
+  gvs[]
+QED
+
 val result = translate fromChars_range_unsafe_alt;
 
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
@@ -74,22 +91,6 @@ val result = translate lpr_parsingTheory.fromString_unsafe_def;
 
 val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
-val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
-
-Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
-  ∀a1 a0 a2 a3 a4.
-  fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
-   ¬(a1 ≤ a0) ⇒
-   (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
-   fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
-     (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
-Proof
-  Induct>>
-  rw[Once fromchars_range_unsafe_tail_side_def]>>
-  simp[sub_nocheck_def]>>eq_tac>>rw[ADD1]>>
-  gvs[]
-QED
-
 val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
 
 Theorem fromchars_unsafe_side_thm:
@@ -112,10 +113,6 @@ val _ = translate blanks_def;
 val _ = translate tokenize_def;
 
 val _ = translate tokenize_fast_def;
-
-val tokenize_fast_side = Q.prove(
-  `∀x. tokenize_fast_side x = T`,
-  EVAL_TAC >> fs[]) |> update_precondition;
 
 val _ = translate toks_def;
 val _ = translate parse_until_zero_def;
@@ -274,7 +271,7 @@ val parse_vb_string_aux_side = Q.prove(
   fs[])
   |> update_precondition;
 
-val res = translate parse_vb_string_def;
+val res = translate (parse_vb_string_def |> REWRITE_RULE [GSYM sub_check_def]);
 val parse_vb_string_side = Q.prove(
   `∀a. parse_vb_string_side a = T`,
   EVAL_TAC>>
@@ -282,7 +279,7 @@ val parse_vb_string_side = Q.prove(
   match_mp_tac parse_vb_string_aux_side>>
   simp[]) |> update_precondition;
 
-val res = translate parse_vb_string_head_def;
+val res = translate (parse_vb_string_head_def |> REWRITE_RULE [GSYM sub_check_def]);
 val parse_vb_string_head_side = Q.prove(
   `∀a. parse_vb_string_head_side a = T`,
   EVAL_TAC>>

@@ -21,7 +21,7 @@ Datatype:
   | Word64 word64
   | Block num (v list)
   | ByteVector (word8 list)
-  | RefPtr num
+  | RefPtr bool num
   | Closure (num option) (v list) (v list) num closLang$exp
   | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num
 End
@@ -73,9 +73,9 @@ Definition do_eq_def:
          (case y of
           | ByteVector ds => Eq_val (cs = ds)
           | _ => Eq_type_error)
-     | RefPtr i =>
+     | RefPtr bi i =>
          (case y of
-          | RefPtr j => Eq_val (i = j)
+          | RefPtr bj j => (if bi ∧ bj then Eq_val (i = j) else Eq_type_error)
           | _ => Eq_type_error)
      | _ =>
          (case y of
@@ -83,7 +83,7 @@ Definition do_eq_def:
           | Word64 _ => Eq_type_error
           | Block _ _ => Eq_type_error
           | ByteVector _ => Eq_type_error
-          | RefPtr _ => Eq_type_error
+          | RefPtr _ _ => Eq_type_error
           | _ => Eq_val T)) /\
   (do_eq_list [] [] = Eq_val T) /\
   (do_eq_list (x::xs) (y::ys) =
@@ -206,7 +206,7 @@ Definition do_app_def:
     | (ConsExtend tag,_) => Error
     | (El,[Block tag xs; Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
-    | (El,[RefPtr ptr; Number i]) =>
+    | (El,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
@@ -221,12 +221,12 @@ Definition do_app_def:
         | _ => Error)
     | (LengthBlock,[Block tag xs]) =>
         Rval (Number (&LENGTH xs), s)
-    | (Length,[RefPtr ptr]) =>
+    | (Length,[RefPtr _ ptr]) =>
         (case FLOOKUP s.refs ptr of
           | SOME (ValueArray xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
-    | (LengthByte,[RefPtr ptr]) =>
+    | (LengthByte,[RefPtr _ ptr]) =>
         (case FLOOKUP s.refs ptr of
           | SOME (ByteArray xs) =>
               Rval (Number (&LENGTH xs), s)
@@ -234,23 +234,23 @@ Definition do_app_def:
     | (RefByte F,[Number i;Number b]) =>
          if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-             Rval (RefPtr ptr, s with refs := s.refs |+
+             Rval (RefPtr T ptr, s with refs := s.refs |+
                (ptr,ByteArray (REPLICATE (Num i) (i2w b))))
          else Error
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
           let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-            Rval (RefPtr ptr, s with refs := s.refs |+
+            Rval (RefPtr T ptr, s with refs := s.refs |+
               (ptr,ValueArray (REPLICATE (Num i) v)))
          else Error
-    | (DerefByte,[RefPtr ptr; Number i]) =>
+    | (DerefByte,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
-    | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
+    | (UpdateByte,[RefPtr _ ptr; Number i; Number b]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
@@ -279,14 +279,14 @@ Definition do_app_def:
         (if 0 ≤ i ∧ i < &LENGTH bs then
            Rval (Number (&(w2n(EL (Num i) bs))), s)
          else Error)
-    | (CopyByte F,[ByteVector ws; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
+    | (CopyByte F,[ByteVector ws; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case FLOOKUP s.refs dst of
          | SOME (ByteArray ds) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
             | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds))
             | NONE => Error)
          | _ => Error)
-    | (CopyByte F,[RefPtr src; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
+    | (CopyByte F,[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
          | (SOME (ByteArray ws), SOME (ByteArray ds)) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
@@ -297,7 +297,7 @@ Definition do_app_def:
        (case copy_array (ws,srcoff) len NONE of
         | SOME ds => Rval (ByteVector ds, s)
         | _ => Error)
-    | (CopyByte T,[RefPtr src; Number srcoff; Number len]) =>
+    | (CopyByte T,[RefPtr _ src; Number srcoff; Number len]) =>
        (case FLOOKUP s.refs src of
         | SOME (ByteArray ws) =>
           (case copy_array (ws,srcoff) len NONE of
@@ -324,8 +324,8 @@ Definition do_app_def:
          | _ => Error)
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
-          Rval (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
-    | (Update,[RefPtr ptr; Number i; x]) =>
+          Rval (RefPtr T ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
+    | (Update,[RefPtr _ ptr; Number i; x]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
@@ -370,7 +370,7 @@ Definition do_app_def:
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
-    | (FFI n, [ByteVector conf; RefPtr ptr]) =>
+    | (FFI n, [ByteVector conf; RefPtr _ ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
            (case call_FFI s.ffi (ExtCall n) conf ws of
@@ -402,12 +402,12 @@ Definition do_app_def:
         Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
     | (BoundsCheckByte loose,[ByteVector bs; Number i]) =>
         Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH bs)),s)
-    | (BoundsCheckByte loose,[RefPtr ptr; Number i]) =>
+    | (BoundsCheckByte loose,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
              Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
          | _ => Error)
-    | (BoundsCheckArray,[RefPtr ptr; Number i]) =>
+    | (BoundsCheckArray,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray ws) =>
              Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)

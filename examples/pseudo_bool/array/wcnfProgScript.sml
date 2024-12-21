@@ -34,11 +34,6 @@ val parse_wclause_side = Q.prove(`
 
 val _ = translate wnocomment_line_def;
 
-val wnocomment_line_side = Q.prove(`
-  wnocomment_line_side x ⇔ T`,
-  EVAL_TAC>>
-  rw[]) |> update_precondition;
-
 Definition format_wcnf_failure_def:
   format_wcnf_failure (lno:num) s =
   strlit "c wcnf parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"

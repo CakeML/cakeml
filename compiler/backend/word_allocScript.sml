@@ -1407,6 +1407,15 @@ Definition total_colour_def:
     dtcase lookup x col of NONE => if is_phy_var x then x else 2*x | SOME x => 2*x
 End
 
+Theorem total_colour_alt:
+  total_colour col = (\x. 2 * x) o (sp_default col)
+Proof
+  rw[FUN_EQ_THM]>>fs[total_colour_def,sp_default_def,lookup_any_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  IF_CASES_TAC>>simp[]>>
+  metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2]
+QED
+
 (*Check that the oracle provided colour (if it exists) is okay*)
 Definition oracle_colour_ok_def:
   oracle_colour_ok k col_opt tree prog ls ⇔
@@ -1513,56 +1522,69 @@ End
     then we mark x as forced stack as well
 *)
 Definition merge_stack_only_def:
-  merge_stack_only fs (x,y) =
-  if is_phy_var x
+  merge_stack_only (x,y) (ts,fs) =
+  if lookup x ts = SOME ()
   then
-    delete y fs
+    let ts = if is_alloc_var y then insert y () ts else ts in
+    let fs = if is_phy_var y then fs else insert x () fs in
+    (ts, fs)
   else
-  if is_stack_var y ∨ lookup y fs = SOME ()
-  then
-    (if is_alloc_var x then insert x () fs else fs)
-  else fs
+    if is_stack_var x
+    then
+      let ts = if is_alloc_var y then insert y () ts else ts in
+      (ts, fs)
+    else
+      (delete y ts, fs)
 End
 
 Definition merge_stack_sets_def:
-  merge_stack_sets fs fsL fsR =
-    let keep1 = inter fsR (inter fsL fs) in
-    let keep2 = union (difference fsL fs) (difference fsR fs) in
-    union keep1 keep2
+  merge_stack_sets (ts,fs) (tsL,fsL) (tsR,fsR) =
+  let keep1 = inter tsR (inter tsL ts) in
+  let keep2 = union (difference tsL ts) (difference tsR ts) in
+    (union keep1 keep2, union fsL fsR)
+End
+
+Definition remove_temp_stack_def:
+  remove_temp_stack ls (ts,fs) =
+    (FOLDR delete ts ls,fs)
 End
 
 (* Alloc variables that are already stack or
   only ever involved in stack moves *)
-Definition get_stack_only_def:
-  (get_stack_only fs (Move pri ls) =
-    FOLDL merge_stack_only fs ls) ∧
-  (get_stack_only fs (Seq s1 s2) =
-    get_stack_only (get_stack_only fs s1) s2) ∧
-  (get_stack_only fs (If cmp r1 ri e2 e3) =
-    let fs' =
+Definition get_stack_only_aux_def:
+  (get_stack_only_aux tfs (Move pri ls) =
+    FOLDR merge_stack_only tfs ls) ∧
+  (get_stack_only_aux tfs (Seq s1 s2) =
+    get_stack_only_aux (get_stack_only_aux tfs s2) s1) ∧
+  (get_stack_only_aux tfs (If cmp r1 ri e2 e3) =
+    let tfsL = get_stack_only_aux tfs e2 in
+    let tfsR = get_stack_only_aux tfs e3 in
+    let tfsM = merge_stack_sets tfs tfsL tfsR in
       dtcase ri of
-        Reg r2 => delete r1 (delete r2 fs)
-      | _ => delete r1 fs in
-    let fsL = get_stack_only fs e2 in
-    let fsR = get_stack_only fs e3 in
-    merge_stack_sets fs fsL fsR) ∧
-  (get_stack_only fs (MustTerminate s) =
-    get_stack_only fs s) ∧
-  (get_stack_only fs (Call ret dest args h) =
+        Reg r2 => remove_temp_stack [r1;r2] tfsM
+      | _ => remove_temp_stack [r1] tfsM
+  ) ∧
+  (get_stack_only_aux tfs (MustTerminate s) =
+    get_stack_only_aux tfs s) ∧
+  (get_stack_only_aux tfs (Call ret dest args h) =
     (dtcase ret of
-      NONE => fs
+      NONE => tfs
     | SOME (v,cutset,ret_handler,_,_) =>
-      let retfs = get_stack_only fs ret_handler in
+      let rettfs = get_stack_only_aux tfs ret_handler in
       dtcase h of
-        NONE => retfs
+        NONE => rettfs
       | SOME (v',handler,_,_) =>
-        let handlerfs =
-          get_stack_only fs handler in
-        merge_stack_sets fs retfs handlerfs)) ∧
-  (get_stack_only fs prog =
+        let handlertfs =
+          get_stack_only_aux tfs handler in
+        merge_stack_sets tfs rettfs handlertfs)) ∧
+  (get_stack_only_aux tfs prog =
     dtcase get_clash_tree prog of
-      Delta ws rs => FOLDR delete fs (ws++rs)
-    | _ => fs)
+      Delta ws rs => remove_temp_stack (ws++rs) tfs
+    | _ => tfs)
+End
+
+Definition get_stack_only_def:
+  get_stack_only prog = SND (get_stack_only_aux (LN,LN) prog)
 End
 
 (*
@@ -1580,7 +1602,7 @@ End
 Definition word_alloc_def:
   word_alloc fc c alg k prog col_opt =
   let tree = get_clash_tree prog in
-  let fs = get_stack_only LN prog in
+  let fs = get_stack_only prog in
   (*let moves = get_prefs_sp prog [] in*)
   let forced = get_forced c prog [] in
   dtcase oracle_colour_ok k col_opt tree prog forced of

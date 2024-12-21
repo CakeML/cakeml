@@ -63,9 +63,16 @@ val result = translate TL_DEF;
 val result = translate LAST_DEF;
 
 val _ = next_ml_names := ["getItem"];
-val result = translate getItem_def;
+val result = translate mllistTheory.getItem_def;
 
-val result = translate (EL |> REWRITE_RULE[GSYM nth_def]);
+Triviality nth_thm:
+  mllist$nth l 0 = HD l ∧
+  mllist$nth l (SUC n) = mllist$nth (TL l) n
+Proof
+  gvs [mllistTheory.nth_def,listTheory.EL]
+QED
+
+val result = translate nth_thm;
 val nth_side_def = theorem"nth_side_def";
 
 val result = translate (TAKE_def |> REWRITE_RULE[GSYM take_def]);
@@ -146,7 +153,9 @@ val result = translate EVERY_DEF;
 val result = translate SNOC;
 
 val _ = ml_prog_update open_local_block;
+
 val result = translate GENLIST_AUX;
+
 val _ = ml_prog_update open_local_in_block;
 
 val result = next_ml_names := ["genlist"];
@@ -275,12 +284,13 @@ QED
 
 val result = translate UNZIP_eq;
 
-val result = translate PAD_RIGHT;
-val result = translate PAD_LEFT;
+val result = translate (PAD_RIGHT |> REWRITE_RULE [GSYM sub_check_def]);
+val result = translate (PAD_LEFT |> REWRITE_RULE [GSYM sub_check_def]);
 val result = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = next_ml_names := ["isPrefix"];
 val result = translate isPREFIX;
 val result = translate FRONT_DEF;
+
 val _ = next_ml_names := ["splitAtPki"];
 val result = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
 
@@ -311,7 +321,7 @@ val last_side_def = Q.prove(
 val nth_side_def = Q.prove(
   `!n xs. nth_side xs n = (n < LENGTH xs)`,
   Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "nth_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
+  THEN fs[CONTAINER_def])
   |> update_precondition;
 
 Theorem LUPDATE_ind:
