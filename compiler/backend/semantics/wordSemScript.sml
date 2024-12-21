@@ -443,7 +443,20 @@ Definition jump_exc_def:
     else NONE
 End
 
-(* TODO: reuse this from dataSem? *)
+Definition cut_names_def:
+  cut_names name_set env =
+      if domain name_set SUBSET domain env
+      then SOME (inter env name_set)
+      else NONE
+End
+
+Definition cut_envs_def:
+  cut_envs (name_sets:cutsets) env =
+    case cut_names (FST name_sets) env, cut_names (SND name_sets) env of
+    | (SOME e1, SOME e2) => SOME (e1, e2)
+    | _ => NONE
+End
+
 Definition cut_env_def:
   cut_env (name_sets:cutsets) env =
     case cut_envs name_sets env of
@@ -1149,7 +1162,7 @@ Proof
   \\ decide_tac
 QED
 
-Theorem fix_clock_evaluate[local]:
+Triviality fix_clock_evaluate:
   fix_clock s (evaluate (c1,s)) = evaluate (c1,s)
 Proof
   Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[fix_clock_def]
