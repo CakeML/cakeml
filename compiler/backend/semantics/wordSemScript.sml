@@ -197,29 +197,6 @@ Definition the_words_def:
      | _ => NONE)
 End
 
-Definition word_exp_def:
-  (word_exp ^s (Const w) = SOME (Word w)) /\
-  (word_exp s (Var v) = lookup v s.locals) /\
-  (word_exp s (Lookup name) = FLOOKUP s.store name) /\
-  (word_exp s (Load addr) =
-     case word_exp s addr of
-     | SOME (Word w) => mem_load w s
-     | _ => NONE) /\
-  (word_exp s (Op op wexps) =
-     case the_words (MAP (word_exp s) wexps) of
-     | SOME ws => (OPTION_MAP Word (word_op op ws))
-     | _ => NONE) /\
-  (word_exp s (Shift sh wexp n) =
-     case word_exp s wexp of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
-     | _ => NONE)
-Termination
-  WF_REL_TAC `measure (exp_size ARB o SND)`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC
-End
-
 Definition get_var_def:
   get_var v ^s = sptree$lookup v s.locals
 End
@@ -248,8 +225,35 @@ Definition set_vars_def:
     (s with locals := (alist_insert vs xs s.locals))
 End
 
+Definition get_store_def:
+  get_store v ^s = (FLOOKUP s.store v)
+End
+
 Definition set_store_def:
   set_store v x ^s = (s with store := s.store |+ (v,x))
+End
+
+Definition word_exp_def:
+  (word_exp ^s (Const w) = SOME (Word w)) /\
+  (word_exp s (Var v) = get_var v s) /\
+  (word_exp s (Lookup name) = get_store name s) /\
+  (word_exp s (Load addr) =
+     case word_exp s addr of
+     | SOME (Word w) => mem_load w s
+     | _ => NONE) /\
+  (word_exp s (Op op wexps) =
+     case the_words (MAP (word_exp s) wexps) of
+     | SOME ws => (OPTION_MAP Word (word_op op ws))
+     | _ => NONE) /\
+  (word_exp s (Shift sh wexp n) =
+     case word_exp s wexp of
+     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
+     | _ => NONE)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND)`
+   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
+   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+   \\ DECIDE_TAC
 End
 
 (* Flushes the locals and (optionally) the stack *)
@@ -530,7 +534,7 @@ End
 
 Definition has_space_def:
   has_space wl ^s =
-    case (wl, FLOOKUP s.store NextFree, FLOOKUP s.store TriggerGC) of
+    case (wl, get_store NextFree s, get_store TriggerGC s) of
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
     | _ => NONE
 End
@@ -553,7 +557,7 @@ Definition alloc_def:
         | NONE => (SOME Error, flush_state T s)
         | SOME s =>
          (* read how much space should be allocated *)
-         (case FLOOKUP s.store AllocSize of
+         (case get_store AllocSize s of
           | NONE => (SOME Error, s)
           | SOME w =>
            (* check how much space there is *)
@@ -875,7 +879,7 @@ Definition evaluate_def:
      | NONE => (SOME Error, s)
      | SOME w => (NONE, set_var v w s)) /\
   (evaluate (Get v name,s) =
-     case FLOOKUP s.store name of
+     case get_store name s of
      | NONE => (SOME Error, s)
      | SOME x => (NONE, set_var v x s)) /\
   (evaluate (Set v exp,s) =
