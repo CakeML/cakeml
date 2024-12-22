@@ -180,12 +180,6 @@ val _ = ml_prog_update open_local_block;
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
 
-Theorem raconv_side = Q.prove(`
-  !x y z. raconv_side x y z`,
-  ho_match_mp_tac holKernelTheory.raconv_ind
-  \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
-  |> update_precondition;
-
 val res = translate (check [‘tm1’,‘tm2’] aconv_def);
 
 val _ = ml_prog_update open_local_in_block;

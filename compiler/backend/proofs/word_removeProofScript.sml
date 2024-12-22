@@ -1,7 +1,7 @@
 (*
   Correctness proof for word_remove
 *)
-open preamble word_removeTheory wordSemTheory wordPropsTheory;
+open preamble word_removeTheory wordSemTheory wordPropsTheory wordConvsTheory;
 
 val _ = new_theory "word_removeProof";
 
@@ -87,9 +87,9 @@ Proof
 QED
 
 Theorem get_vars_compile_state[simp]:
-   ∀xs s. get_vars xs (compile_state clk c s) = get_vars xs s
+   get_vars xs (compile_state clk c s) = get_vars xs s
 Proof
-  Induct \\ rw[get_vars_def]
+  fs[compile_state_def]
 QED
 
 Theorem set_var_compile_state[simp]:
@@ -363,34 +363,6 @@ Proof
   \\ qmatch_asmsub_abbrev_tac`remove_must_terminate _,sb`
   \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality] )
   \\ rw[]
-QED
-
-(* syntactic preservation all in one go *)
-val convs = [flat_exp_conventions_def, full_inst_ok_less_def,
-  every_inst_def, post_alloc_conventions_def, call_arg_convention_def,
-  wordLangTheory.every_stack_var_def, wordLangTheory.every_var_def,
-  extract_labels_def]
-
-Theorem remove_must_terminate_conventions:
-    ∀p c k.
-  let comp = remove_must_terminate p in
-  (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
-  (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
-  (post_alloc_conventions k p ⇒ post_alloc_conventions k comp) ∧
-  (every_inst two_reg_inst p ⇒ every_inst two_reg_inst comp) ∧
-  (extract_labels p = extract_labels comp)
-Proof
-  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
-  fs[remove_must_terminate_def]>>fs convs>>
-  TRY
-  (rename1`args = A`>>
-  Cases_on`ret`>>fs[]>>
-  PairCases_on`x`>>fs[]>>
-  Cases_on`h`>>fs[]>- metis_tac[]>>
-  PairCases_on`x`>>fs[]>>
-  metis_tac[])>>
-  EVERY_CASE_TAC>>fs[]>>
-  metis_tac[]
 QED
 
 val _ = export_theory();

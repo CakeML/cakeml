@@ -4,6 +4,8 @@
 developers
 developers/bin
 
+misc
+
 # build many things in parallel at the start
 compiler/proofs
 compiler/bootstrap/translation
@@ -25,11 +27,13 @@ characteristic
 
 # monadic translator
 translator/monadic
+translator/monadic/monad_base
 
 # basis library
 basis
 
 # compiler
+compiler
 compiler/inference
 compiler/backend/reg_alloc
 compiler/backend/gc
@@ -42,12 +46,17 @@ compiler/encoders/arm8_asl
 compiler/encoders/mips
 compiler/encoders/riscv
 compiler/encoders/ag32
+compiler/encoders/tests
+compiler/encoders/monadic_enc
 compiler/backend/x64
 compiler/backend/arm7
 compiler/backend/arm8
 compiler/backend/mips
 compiler/backend/riscv
 compiler/backend/ag32
+compiler/backend/pattern_matching
+compiler/parsing/ocaml
+compiler/printing
 
 # compiler verification
 compiler/parsing/proofs
@@ -74,25 +83,30 @@ compiler/backend/cv_compute
 cv_translator
 
 # candle
+candle
 candle/set-theory
 candle/syntax-lib
+candle/standard
 candle/standard/syntax
 candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel
+candle/standard/ml_kernel/lisp
+candle/overloading
 candle/overloading/syntax
 candle/overloading/semantics
 candle/overloading/monadic
 candle/overloading/ml_kernel
 candle/overloading/ml_checker
 candle/prover
+candle/prover/compute
 
 # pancake
 pancake
-pancake/ffi
 pancake/semantics
 pancake/parser
 pancake/proofs
+pancake/ta_progs
 
 # dafny compiler
 compiler/dafny
@@ -106,6 +120,7 @@ tutorial/solutions
 translator/monadic/examples
 
 examples
+examples/compilation
 examples/compilation/x64
 examples/compilation/x64/proofs
 examples/compilation/ag32
@@ -131,12 +146,12 @@ examples/pseudo_bool/array/compilation/proofs
 examples/pseudo_bool/array/compilation/proofsARM8
 
 examples/opentheory
-examples/opentheory
 examples/opentheory/compilation
 examples/opentheory/compilation/proofs
 examples/opentheory/compilation/ag32
 examples/opentheory/compilation/ag32/proofs
 examples/sat_encodings
+examples/sat_encodings/demo
 examples/sat_encodings/case_studies
 examples/sat_encodings/translation
 examples/sat_encodings/translation/compilation
@@ -148,12 +163,15 @@ examples/vipr/compilation
 
 translator/okasaki-examples
 translator/other-examples
+translator/other-examples/auxiliary
 compiler/parsing/tests
 compiler/inference/tests
 compiler/printing/test
 
 # Floating-Point optimizer
 icing/flover
+icing/flover/Infra
+icing/flover/semantics
 icing/
 icing/examples
 
@@ -166,6 +184,8 @@ unverified/sexpr-bootstrap/x64/32:cake-unverified-x64-32.tar.gz
 
 # build benchmarks and report (must come after sexp bootstrap)
 compiler/benchmarks
+compiler/benchmarks/cakeml_benchmarks/cakeml
+compiler/benchmarks/mlton_benchmarks/cakeml
 
 # compiler HOL bootstrap
 compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz

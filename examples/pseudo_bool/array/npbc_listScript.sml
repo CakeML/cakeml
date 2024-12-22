@@ -1142,7 +1142,7 @@ End
 
 Definition hash_pair_def:
   hash_pair (i:int,n:num) =
-  if i < 0 then
+  if i ≤ 0 then
     (2 * (Num(ABS i)) + h_base * n) MOD h_mod
   else
     (2 * (Num (ABS i)) - 1 + h_base * n) MOD h_mod

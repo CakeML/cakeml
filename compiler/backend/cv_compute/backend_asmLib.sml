@@ -6,6 +6,7 @@ struct
 
 open HolKernel boolLib bossLib;
 open backendTheory backend_asmTheory;
+
 (*
 val asm_config_def = x64_targetTheory.x64_config_def
 *)
@@ -96,6 +97,9 @@ fun define_target_specific_backend asm_config_def = let
   (* rest *)
   val th = from_lab_def |> asm_spec
   val th = from_stack_def |> asm_spec
+  val th = word_to_stackTheory.comp_def |> asm_spec
+  val th = word_to_stackTheory.compile_prog_def |> asm_spec
+  val th = word_to_stackTheory.compile_word_to_stack_def |> asm_spec
   val th = from_word_def |> REWRITE_RULE [word_to_stackTheory.compile_def] |> asm_spec
   val th = word_alloc_inlogic_def |> asm_spec
   val th = each_inlogic_def |> asm_spec
@@ -104,6 +108,12 @@ fun define_target_specific_backend asm_config_def = let
   val th = compile_cake_def |> asm_spec
   val th = ISPEC asm_conf compile_cake_thm |> REWRITE_RULE [th]
   val res = save_thm ("compile_cake_" ^ name ^ "_thm", th)
+  (* explorer *)
+  val th = backend_passesTheory.word_internal_def |> asm_spec
+  val th = to_word_all_def |> asm_spec
+  val th = to_stack_all_def |> REWRITE_RULE [word_to_stackTheory.compile_def] |> asm_spec
+  val th = to_lab_all_def |> asm_spec
+  val th = compile_cake_explore_def |> asm_spec
   in get_memory() end
 
 end

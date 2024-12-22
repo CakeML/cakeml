@@ -128,7 +128,7 @@ Definition map_concl_to_string_def:
     | NONE => INL (strlit "c Unexpected conclusion for MCIS problem.\n"))
 End
 
-val res = translate conv_concl_def;
+val res = translate (conv_concl_def |> REWRITE_RULE [GSYM sub_check_def]) ;
 
 val conv_concl_side = Q.prove(
   `∀x y. conv_concl_side x y <=> T`,

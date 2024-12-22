@@ -294,16 +294,8 @@ QED
 
 val _ = translate cut_at_null_def;
 
-val null_index_side_lem = Q.prove(
-  `!s n. null_index_side s n <=> T`,
-  ho_match_mp_tac null_index_ind
-  >> rw[]
-  >> PURE_ONCE_REWRITE_TAC[fetch "-" "null_index_side_def"]
-  >> fs[ADD1])
- |> update_precondition;
-
 val cut_at_null_side_lem = Q.prove(`!s. cut_at_null_side s <=> T`,
-  rw[fetch "-" "cut_at_null_side_def",null_index_side_lem]
+  rw[fetch "-" "cut_at_null_side_def"]
   >> imp_res_tac null_index_le_len >> fs[])
  |> update_precondition;
 

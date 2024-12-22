@@ -15,6 +15,7 @@ val _ = translation_extends "mipsProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler64Prog");
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val _ = (ml_translatorLib.trace_timing_to
          := SOME "compiler64Prog_translate_timing.txt")
@@ -79,6 +80,8 @@ QED
 val _ = update_precondition backend_passes_to_bvi_all_side
 
 val r = backend_passesTheory.to_data_all_def |> spec64 |> translate;
+
+val r = backend_passesTheory.word_internal_def |> spec64 |> translate;
 
 val r = backend_passesTheory.to_word_all_def |> spec64
           |> REWRITE_RULE [data_to_wordTheory.stubs_def,APPEND] |> translate;
@@ -207,18 +210,7 @@ val res = translate (spec64 word_to_string_def);
 
 val res = translate compilerTheory.find_next_newline_def;
 
-Theorem find_next_newline_side = prove(
-          “∀n s. compiler_find_next_newline_side n s”,
-          ho_match_mp_tac compilerTheory.find_next_newline_ind \\ rw []
-          \\ once_rewrite_tac [fetch "-" "compiler_find_next_newline_side_def"]
-          \\ fs []) |> update_precondition;
-
 val res = translate compilerTheory.safe_substring_def;
-
-Theorem safe_substring_side = prove(
-          “compiler_safe_substring_side s n l”,
-          fs [fetch "-" "compiler_safe_substring_side_def"])
-                                |> update_precondition;
 
 val _ = translate compilerTheory.get_nth_line_def;
 val _ = translate compilerTheory.locs_to_string_def;
@@ -238,11 +230,6 @@ val res = translate inferTheory.init_config_def;
   TODO: some of these should be moved up, see comment above on exportScript
  *)
 val res = translate error_to_str_def;
-
-val compiler_error_to_str_side_thm = prove(
-  ``compiler_error_to_str_side x = T``,
-                                    fs [fetch "-" "compiler_error_to_str_side_def"])
-                                       |> update_precondition;
 
 val res = translate parse_bool_def;
 val res = translate parse_num_def;

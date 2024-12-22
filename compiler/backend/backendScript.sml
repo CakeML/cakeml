@@ -327,14 +327,17 @@ Definition to_livesets_def:
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let cse_prog = word_common_subexp_elim ssa_prog in
-    let rm_prog = FST(remove_dead cse_prog LN) in
-    let prog = if two_reg_arith then three_to_two_reg rm_prog
-                                else rm_prog in
-     (name_num,arg_count,prog)) p in
+    let rm_ssa_prog = remove_dead_prog ssa_prog in
+    let cse_prog = word_common_subexp_elim rm_ssa_prog in
+    let cp_prog = copy_prop cse_prog in
+    let two_prog = three_to_two_reg_prog two_reg_arith cp_prog in
+    let unreach_prog = remove_unreach two_prog in
+    let rm_prog = remove_dead_prog unreach_prog in
+     (name_num,arg_count,rm_prog)) p in
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
+    (get_clash_tree prog,heu_moves,spillcosts,
+      get_forced c.lab_conf.asm_conf prog [],get_stack_only prog)) p
   in
     ((reg_count,data),c',names,p)
 End
@@ -350,14 +353,17 @@ Definition to_livesets_0_def:
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let cse_prog = word_common_subexp_elim ssa_prog in
-    let rm_prog = FST(remove_dead cse_prog LN) in
-    let prog = if two_reg_arith then three_to_two_reg rm_prog
-                                else rm_prog in
-     (name_num,arg_count,prog)) p in
+    let rm_ssa_prog = remove_dead_prog ssa_prog in
+    let cse_prog = word_common_subexp_elim rm_ssa_prog in
+    let cp_prog = copy_prop cse_prog in
+    let two_prog = three_to_two_reg_prog two_reg_arith cp_prog in
+    let unreach_prog = remove_unreach two_prog in
+    let rm_prog = remove_dead_prog unreach_prog in
+     (name_num,arg_count,rm_prog)) p in
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
+    (get_clash_tree prog,heu_moves,spillcosts,
+      get_forced c.lab_conf.asm_conf prog [],get_stack_only prog)) p
   in
     ((reg_count,data),c,names,p)
 End
@@ -394,11 +400,11 @@ Definition from_livesets_def:
   let alg = word_conf.reg_alg in
   let prog_with_oracles = ZIP (n_oracles,ZIP(data,p)) in
   let p =
-    MAP (λ(col_opt,((tree,heu_moves,spillcosts,forced),name_num,arg_count,prog)).
+    MAP (λ(col_opt,((tree,heu_moves,spillcosts,forced,fs),name_num,arg_count,prog)).
       case oracle_colour_ok k col_opt tree prog forced of
         NONE =>
           let cp =
-            (case select_reg_alloc alg spillcosts k heu_moves tree forced of
+            (case select_reg_alloc alg spillcosts k heu_moves tree forced fs of
               M_success col =>
                 (apply_colour (total_colour col) prog)
             | M_failure _ => prog (*cannot happen*)) in
@@ -610,7 +616,7 @@ Definition compile_inc_progs_def:
         c.word_to_word_conf.reg_alg asm_c (p, NONE)) p in
     let ps = ps with <| word_prog := keep_progs k p |> in
     let bm0 = c.word_conf.bitmaps_length in
-    let (p, fs, bm) = compile_word_to_stack reg_count1 p (Nil, bm0) in
+    let (p, fs, bm) = compile_word_to_stack c.lab_conf.asm_conf reg_count1 p (Nil, bm0) in
     let cur_bm = append (FST bm) in
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
     let ps = ps with <| stack_prog := keep_progs k p ; cur_bm := cur_bm |> in
@@ -800,7 +806,7 @@ Theorem compile_inc_progs_for_eval_eq:
         c.word_to_word_conf.reg_alg asm_c' (p, NONE)) p in
     let _ = empty_ffi (strlit "finished: data_to_word") in
     let bm0 = c.word_conf.bitmaps_length in
-    let (p, fs, bm) = compile_word_to_stack reg_count1 p (Nil, bm0) in
+    let (p, fs, bm) = compile_word_to_stack asm_c' reg_count1 p (Nil, bm0) in
     let _ = empty_ffi (strlit "finished: word_to_stack") in
     let cur_bm = append (FST bm) in
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in

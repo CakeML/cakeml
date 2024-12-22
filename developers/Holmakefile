@@ -1,4 +1,4 @@
-all: $(DEFAULT_TARGETS) README.md
+all: $(DEFAULT_TARGETS) README.md readme_gen lint
 .PHONY: all
 
 README_SOURCES = $(wildcard *.sml) $(wildcard *.sh) build-sequence
@@ -7,6 +7,11 @@ README.md: $(README_SOURCES) readmePrefix readme_gen $(patsubst %,%readmePrefix,
 	./readme_gen --check $(CAKEMLDIR)
 	./readme_gen $(README_SOURCES)
 
+lint: lint_build_dirs
+	./lint_build_dirs $(CAKEMLDIR)
+
 readme_gen: readme_gen.sml
 	$(POLYC) readme_gen.sml -o readme_gen
-all: readme_gen
+
+lint_build_dirs: lint_build_dirs.sml
+	$(POLYC) lint_build_dirs.sml -o lint_build_dirs
