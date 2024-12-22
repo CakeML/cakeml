@@ -185,7 +185,7 @@ End
 
 
 Definition to_livesets_alt_def:
-  to_livesets_alt source_conf clos_conf bvl_conf data_conf word_conf asm_conf stack_conf p =
+  to_livesets_alt source_conf clos_conf bvl_conf data_conf word_conf asm_conf p =
   let p = source_to_source$compile p in
   let (source_conf', compiled_p_flat) =
     source_to_flat$compile source_conf p in
@@ -652,7 +652,7 @@ End
 
 
 Definition init_icompile_to_livesets_def:
-  init_icompile_to_livesets source_conf clos_conf bvl_conf data_conf word_conf asm_conf stack_conf =
+  init_icompile_to_livesets source_conf clos_conf bvl_conf data_conf word_conf asm_conf =
   let (source_iconf, flat_stub) = init_icompile_source_to_flat source_conf in
   let clos_stub = init_icompile_flat_to_clos flat_stub in
   let (clos_iconf, bvl_init) = init_icompile_clos_to_bvl clos_conf clos_stub in
@@ -2144,7 +2144,7 @@ End
 
 
 Theorem init_icompile_icompile_end_icompile_to_livesets:
-  init_icompile_to_livesets source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf stack_conf =
+  init_icompile_to_livesets source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf =
     (source_iconf, clos_iconf, bvl_iconf, data_conf, (reg_count, livesets_data_init), livesets_init)
   ∧
   icompile_to_livesets source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf p [] =
@@ -2156,7 +2156,7 @@ Theorem init_icompile_icompile_end_icompile_to_livesets:
                            data_conf (word_conf with col_oracle := []) asm_conf
   = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, livesets_data_end, livesets_end)
   ∧
-  to_livesets_alt source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf stack_conf p =
+  to_livesets_alt source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf  p =
     (source_conf_after_c, clos_conf_after_c, bvl_conf_after_c, (reg_count_c, livesets_data_c), compiled_p)
   ∧
   source_conf = source_to_flat$empty_config
@@ -2270,7 +2270,7 @@ QED
 
 
 Theorem icompile_to_livesets_eq:
-  init_icompile_to_livesets source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf stack_conf =
+  init_icompile_to_livesets source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf  =
     (source_iconf, clos_iconf, bvl_iconf, data_conf, (reg_count, livesets_data_init), livesets_init)
   ∧
   fold_icompile_to_livesets source_iconf clos_iconf bvl_iconf data_conf (word_conf with col_oracle := []) asm_conf pss [] =
@@ -2282,7 +2282,7 @@ Theorem icompile_to_livesets_eq:
                            data_conf (word_conf with col_oracle := []) asm_conf
   = (source_conf_after_ic, clos_conf_after_ic, bvl_conf_after_ic, livesets_data_end, livesets_end)
   ∧
-  to_livesets_alt source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf stack_conf (FLAT pss) =
+  to_livesets_alt source_conf clos_conf bvl_conf data_conf (word_conf with col_oracle := []) asm_conf (FLAT pss) =
     (source_conf_after_c, clos_conf_after_c, bvl_conf_after_c, (reg_count_c, livesets_data_c), compiled_p)
   ∧
   source_conf = source_to_flat$empty_config
