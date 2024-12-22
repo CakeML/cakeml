@@ -675,7 +675,7 @@ Definition to_lab_all_def:
     let max_heap = 2 * max_heap_limit (:'a) c.inc_data_conf - 1 in
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
-    let prog = stack_rawcall$compile p in
+    let (info,prog) = stack_rawcall$compile stack_conf.rawcall_fwd stack_conf.rawcall_info p in
     let ps = ps ++ [(strlit "after stack_rawcall",Stack prog names)] in
     let prog = stack_alloc$compile data_conf prog in
     let ps = ps ++ [(strlit "after stack_alloc",Stack prog names)] in
@@ -686,6 +686,7 @@ Definition to_lab_all_def:
     let ps = ps ++ [(strlit "after stack_names",Stack prog names)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(strlit "after stack_to_lab",Lab p names)] in
+    let c = c with inc_stack_conf := stack_conf with rawcall_info := info in
       ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p,names)
 End
 
