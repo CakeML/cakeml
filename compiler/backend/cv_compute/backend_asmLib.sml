@@ -9,6 +9,8 @@ open backendTheory backend_asmTheory;
 (*
 val asm_config_def = x64_targetTheory.x64_config_def
 *)
+
+
 fun asm_spec_raw init asm_config_def = let
   val def = asm_config_def
   val asm_conf = def |> concl |> dest_eq |> fst;
@@ -49,7 +51,8 @@ fun asm_spec_raw init asm_config_def = let
                 orelse (print_thm th3;
                         failwith "resulting term contains asm_conf reference")
     val _ = save_thm(full_name_def ^ "[userdef,allow_rebind]",th3)
-    in d end
+
+    in (d, th3) end
   fun get_memory () = LIST_CONJ (!memory)
   in (asm_spec,get_memory) end
 
@@ -59,6 +62,7 @@ fun define_target_specific_backend asm_config_def = let
   val tokens = String.tokens (fn c => c = #"_")
   val name = asm_conf |> dest_const |> fst |> tokens |> hd;
   val (asm_spec,get_memory) = asm_spec_raw [] asm_config_def
+  val asm_spec = fn th => asm_spec th |> fst
   (* to_livesets *)
   val th = data_to_wordTheory.compile_0_def |> asm_spec
   val th = to_word_0_def |> asm_spec
