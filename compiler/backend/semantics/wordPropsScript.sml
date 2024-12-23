@@ -2,7 +2,7 @@
   Properties about wordLang and its semantics
 *)
 open preamble BasicProvers
-     wordLangTheory wordConvsTheory wordSemTheory
+     wordLangTheory wordSemTheory
      asmTheory reg_allocTheory backendPropsTheory helperLib;
 
 (*
@@ -18,7 +18,7 @@ val _ = temp_delsimps ["NORMEQ_CONV"];
 
 val _ = new_theory "wordProps";
 
-val _ = set_grammar_ancestry ["backendProps","wordConvs","wordLang", "wordSem"]
+val _ = set_grammar_ancestry ["backendProps","wordLang", "wordSem"]
 
 (* TODO: move *)
 Theorem mem_list_rearrange:
@@ -409,24 +409,6 @@ Theorem set_store_with_const[simp]:
   set_store x y (z with ffi := ffi) = set_store x y z with ffi := ffi
 Proof
   EVAL_TAC
-QED
-
-(**)
-Theorem stack_size_eq:
-  (stack_size(StackFrame n l NONE::stack) = OPTION_MAP2 $+ n (stack_size stack)) /\
-  (stack_size(StackFrame n l (SOME handler)::stack) =
-     OPTION_MAP2 $+ (OPTION_MAP ($+ 3) n) (stack_size stack)) /\
-  (stack_size [] = SOME 1)
-Proof
-  rw[stack_size_def,stack_size_frame_def]
-QED
-
-Theorem stack_size_eq2:
-  (stack_size(sfrm::stack) =
-    OPTION_MAP2 $+ (stack_size_frame sfrm) (stack_size stack)) /\
-  (stack_size [] = SOME 1)
-Proof
-  rw[stack_size_def,stack_size_frame_def]
 QED
 
 Theorem push_env_const[simp]:
@@ -1785,14 +1767,32 @@ Proof
   metis_tac[LENGTH]
 QED
 
+(**)
+Theorem stack_size_eq:
+  (stack_size (StackFrame n _ _ NONE::stack) = OPTION_MAP2 $+ n (stack_size stack)) /\
+  (stack_size (StackFrame n _ _ (SOME handler)::stack) =
+     OPTION_MAP2 $+ (OPTION_MAP ($+ 3) n) (stack_size stack)) /\
+  (stack_size [] = SOME 1)
+Proof
+  rw[stack_size_def,stack_size_frame_def]
+QED
+
+Theorem stack_size_eq2:
+  (stack_size(sfrm::stack) =
+    OPTION_MAP2 $+ (stack_size_frame sfrm) (stack_size stack)) /\
+  (stack_size [] = SOME 1)
+Proof
+  rw[stack_size_def,stack_size_frame_def]
+QED
+
 (*--Stack Swap Lemma--*)
 
 (*Stacks look the same except for the keys (e.g. recoloured and in order)*)
 Definition s_frame_val_eq_def:
-  (s_frame_val_eq (StackFrame n ls NONE) (StackFrame n' ls' NONE)
-     <=> MAP SND ls = MAP SND ls' /\ n=n') /\
-  (s_frame_val_eq (StackFrame n ls (SOME y)) (StackFrame n' ls' (SOME y'))
-     <=> MAP SND ls = MAP SND ls' /\ y=y' /\ n=n') /\
+  (s_frame_val_eq (StackFrame n ls1 ls NONE) (StackFrame n' ls1' ls' NONE)
+     <=> MAP SND ls = MAP SND ls' /\ ls1 = ls1' /\  n=n') /\
+  (s_frame_val_eq (StackFrame n ls1 ls (SOME y)) (StackFrame n' ls1' ls' (SOME y'))
+     <=> MAP SND ls = MAP SND ls' /\ y=y' /\ ls1 = ls1' /\ n=n') /\
   (s_frame_val_eq _ _ = F)
 End
 
@@ -1805,10 +1805,10 @@ End
 
 (*Stacks look the same except for the values (e.g. result of gc)*)
 Definition s_frame_key_eq_def:
-  (s_frame_key_eq (StackFrame n ls NONE) (StackFrame n' ls' NONE)
-     <=> MAP FST ls = MAP FST ls' /\ n=n') /\
-  (s_frame_key_eq (StackFrame n ls (SOME y)) (StackFrame n' ls' (SOME y'))
-     <=> MAP FST ls = MAP FST ls' /\ y=y' /\ n=n') /\
+  (s_frame_key_eq (StackFrame n ls0 ls NONE) (StackFrame n' ls0' ls' NONE)
+     <=> MAP FST ls = MAP FST ls' /\ ls0 = ls0' /\  n=n') /\
+  (s_frame_key_eq (StackFrame n ls0 ls (SOME y)) (StackFrame n' ls0' ls' (SOME y'))
+     <=> MAP FST ls = MAP FST ls' /\ y=y' /\ ls0 = ls0' /\ n=n') /\
   (s_frame_key_eq _ _ = F)
 End
 
@@ -1956,7 +1956,7 @@ Proof
    first_x_assum(qspecl_then [`t`,`x'`] assume_tac)>> rev_full_simp_tac(srw_ss())[]>>
    strip_tac>>pop_assum (SUBST1_TAC o SYM)>>
    full_simp_tac(srw_ss())[s_frame_val_eq_def,s_val_eq_def]>>
-   `LENGTH l' = LENGTH l` by
+   `LENGTH l0' = LENGTH l` by
     (Cases_on `handler` \\ Cases_on `o'` \\ Cases_on `o0` \\ full_simp_tac(srw_ss())[s_frame_val_eq_def]
      \\ metis_tac[LENGTH_MAP]) \\ full_simp_tac(srw_ss())[NOT_LESS]
    \\ Cases_on `handler` \\ Cases_on `o'` \\ Cases_on `o0` \\ full_simp_tac(srw_ss())[s_frame_val_eq_def,s_val_eq_def]
@@ -2041,21 +2041,23 @@ QED
 
 (*pushing and popping maintain the stack_key relation*)
 Theorem push_env_pop_env_s_key_eq:
-   ∀s t x b. s_key_eq (push_env x b s).stack t.stack ⇒
+   ∀ x b s t. s_key_eq (push_env x b s).stack t.stack ⇒
        ∃n l ls opt.
-              t.stack = (StackFrame n l opt)::ls ∧
+              t.stack = (StackFrame n (toAList (FST x)) l opt)::ls ∧
               ∃y. (pop_env t = SOME y ∧
-                   y.locals = fromAList l ∧
-                   domain x = domain y.locals ∧
+                   y.locals = union  (fromAList l) (fromAList (toAList (FST x))) ∧
+                   (domain (SND x)) ∪ (domain (FST x)) = domain y.locals ∧
                    s_key_eq s.stack y.stack)
 Proof
   srw_tac[][]>>Cases_on`b`>>TRY(PairCases_on`x'`)>>full_simp_tac(srw_ss())[push_env_def]>>
   full_simp_tac(srw_ss())[LET_THM,env_to_list_def]>>Cases_on`t.stack`>>
   full_simp_tac(srw_ss())[s_key_eq_def,pop_env_def]>>BasicProvers.EVERY_CASE_TAC>>
   full_simp_tac(srw_ss())[domain_fromAList,s_frame_key_eq_def]>>
+  rw[] >>
+  simp[domain_union,domain_fromAList] >>
   qpat_x_assum `A = MAP FST l` (SUBST1_TAC o SYM)>>
-  full_simp_tac(srw_ss())[EXTENSION,mem_list_rearrange,MEM_MAP,QSORT_MEM,MEM_toAList
-    ,EXISTS_PROD,domain_lookup]
+  fs[EXTENSION,mem_list_rearrange,MEM_MAP,QSORT_MEM,MEM_toAList
+    ,EXISTS_PROD,domain_lookup] >> METIS_TAC[]
 QED
 
 Triviality get_vars_stack_swap:
@@ -2163,9 +2165,9 @@ Proof
 QED
 
 Triviality s_key_eq_LASTN_exists:
-  !s t n m e y xs. s_key_eq s t /\
-    LASTN n s = StackFrame m e (SOME y)::xs
-    ==> ?e' ls. LASTN n t = StackFrame m e' (SOME y)::ls
+  !s t n m e0 e y xs. s_key_eq s t /\
+    LASTN n s = StackFrame m e0 e (SOME y)::xs
+    ==> ?e' ls. LASTN n t = StackFrame m e0 e' (SOME y)::ls
         /\ MAP FST e' = MAP FST e
         /\ s_key_eq xs ls
 Proof
@@ -2178,9 +2180,9 @@ Proof
 QED
 
 Theorem s_val_eq_LASTN_exists:
-   !s t n m e y xs. s_val_eq s t /\
-   LASTN n s = StackFrame m e (SOME y)::xs
-    ==> ?e' ls. LASTN n t = StackFrame m e' (SOME y)::ls
+   !s t n m e0 e y xs. s_val_eq s t /\
+   LASTN n s = StackFrame m e0 e (SOME y)::xs
+    ==> ?e' ls. LASTN n t = StackFrame m e0 e' (SOME y)::ls
        /\ MAP SND e' = MAP SND e
        /\ s_val_eq xs ls
 Proof
@@ -2209,11 +2211,11 @@ Theorem s_val_eq_stack_size:
    s_val_eq xs ys ==>
    stack_size xs = stack_size ys
 Proof
-  ho_match_mp_tac (fetch "-" "s_val_eq_ind") >>
+  ho_match_mp_tac s_val_eq_ind >>
   rw[s_val_eq_def] >>
   rename1 `s_frame_val_eq x y` >>
   Cases_on `x` >> Cases_on `y` >>
-  rename1 `s_frame_val_eq (StackFrame _ _ ss1) (StackFrame _ _ ss2)` >>
+  rename1 `s_frame_val_eq (StackFrame _ _ _ ss1) (StackFrame _ _ _ ss2)` >>
   Cases_on `ss1` >> Cases_on `ss2` >> fs[s_frame_val_eq_def,stack_size_eq]
 QED
 
@@ -2248,15 +2250,15 @@ Theorem evaluate_stack_swap:
                              result should be exactly the same*)
     | (SOME (Exception x y),s1) =>
           (s.handler<LENGTH s.stack) /\ (*precondition for jump_exc*)
-          (?e n ls m lss.
-              (LASTN (s.handler+1) s.stack = StackFrame m e (SOME n)::ls) /\
+          (?e0 e n ls m lss.
+              (LASTN (s.handler+1) s.stack = StackFrame m e0 e (SOME n)::ls) /\
               Abbrev (m = s1.locals_size) /\
               (MAP FST e = MAP FST lss /\
-                 s1.locals = fromAList lss) /\
+                 s1.locals = union (fromAList lss) (fromAList e0)) /\
               (s_key_eq s1.stack ls) /\ (s1.handler = case n of(a,b,c)=>a) /\
               (!xs e' ls'.
                          (LASTN (s.handler+1) xs =
-                           StackFrame m e' (SOME n):: ls') /\
+                           StackFrame m e0 e' (SOME n):: ls') /\
                          (s_val_eq s.stack xs) ==> (*this implies n=n' and m=m'*)
                          ?st locs.
                          (evaluate (c,s with stack := xs) =
@@ -2265,7 +2267,7 @@ Theorem evaluate_stack_swap:
                                         handler := case n of (a,b,c) => a;
                                         locals := locs |>) /\
                           (?lss'. MAP FST e' = MAP FST lss' /\
-                             locs = fromAList lss' /\
+                             locs = union (fromAList lss') (fromAList e0) /\
                              MAP SND lss = MAP SND lss')/\
                           s_val_eq s1.stack st /\ s_key_eq ls' st)))
     (*NONE, SOME Result cases*)
@@ -2356,7 +2358,8 @@ Proof
     simp[]>>
     fs[s_key_eq_refl])
   >- (*MustTerminate*)
-    (full_simp_tac(srw_ss())[evaluate_def]>>
+    (
+    full_simp_tac(srw_ss())[evaluate_def]>>
     LET_ELIM_TAC>> every_case_tac>>full_simp_tac(srw_ss())[]>>
     TRY(srw_tac[][]>>res_tac>>simp[]>>metis_tac[])
     >-
