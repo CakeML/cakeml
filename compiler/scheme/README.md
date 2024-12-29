@@ -3,6 +3,9 @@ A compiler from Scheme to CakeML
 [compilation](compilation):
 Compilation scripts for the Scheme-to-CakeML compiler.
 
+[examples](examples):
+Example Scheme programs compiled using the Scheme compiler
+
 [scheme_astScript.sml](scheme_astScript.sml):
 AST of Scheme
 
@@ -20,3 +23,6 @@ Definition of Scheme values
 
 [translation](translation):
 CakeML translation of Scheme-to-CakeML compiler
+
+[unverified](unverified):
+An unverified compiler from Scheme to ML written in Haskell
