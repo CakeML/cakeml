@@ -14,6 +14,19 @@ Datatype:
   app_result = Rval v | Rraise v
 End
 
+Definition thunk_op_def:
+  thunk_op (s: v store_v list) th_op vs =
+    case (th_op,vs) of
+    | (AllocThunk b, [v]) =>
+        (let (s',n) = store_alloc (Thunk b v) s in
+           SOME (s', Rval (Loc F n)))
+    | (UpdateThunk b, [Loc _ lnum; v]) =>
+        (case store_assign lnum (Thunk b v) s of
+         | SOME s' => SOME (s', Rval (Conv NONE []))
+         | NONE => NONE)
+    | _ => NONE
+End
+
 Definition do_app_def:
   do_app s op vs = case (op, vs) of
       (ListAppend, [x1; x2]) => (
@@ -372,6 +385,7 @@ Definition do_app_def:
             Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
     | (Env_id, [Conv NONE [gen; id]]) => SOME (s,
             Rval (Conv NONE [gen; id]))
+    | (ThunkOp th_op, vs) => thunk_op s th_op vs
     | _ => NONE
 End
 
