@@ -1,50 +1,81 @@
 module Scheme where
 import Data.Typeable (cast)
-import Data.Char (ord, isSpace)
+import Data.Char (ord, isSpace, toLower)
 import Data.Maybe (fromMaybe)
-import Control.Monad ((<=<), liftM2)
+import Control.Monad (liftM2, guard)
+import Control.Applicative ((<|>))
+import Data.Either.Extra (maybeToEither)
+import Data.Tuple (swap)
 
 data ArithOp = Plus | Minus | Multiply
-    deriving Show
-data Token = Open | Close | NumT Int | Arith ArithOp
-    deriving Show
-
-data Exp = ExpList [Exp] | Const Value | Prim ArithOp
-    deriving Show
-data Value = NumE Int
+    deriving (Show, Eq)
+data Token = Open | Close | Value SValue | Arith ArithOp | Identifier String
     deriving Show
 
-data AstExp = Apply AstExp [AstExp] | AstConst Value | AstPrim ArithOp
+data Datum = ExpList [Datum] | Const SValue | Prim ArithOp | Symbol String
     deriving Show
+data SValue = SNum Int | SBool Bool
+    deriving (Show, Eq)
 
-lexNum (x:xs) acc = if ord '0' <= ord x && ord x <= ord '9'
-    then let next = acc * 10 + (ord x - ord '0') in Just . fromMaybe next <$> lexNum xs next
-    else (x:xs, Nothing)
+data Exp = Apply Exp [Exp] | Cond Exp Exp Exp | Equiv Exp Exp | Begin [Exp] | ConstExp SValue | PrimExp ArithOp | Display Exp | Unit
+    deriving (Show, Eq)
 
-schlex [] acc = Right acc
-schlex ls acc = numOrNot $ lexNum ls 0 where
-    numOrNot (rs, Just n) = schlex rs $ NumT n:acc
-    numOrNot (x:xs, Nothing) = if isSpace x
-        then schlex xs acc
-        else symb x >>= schlex xs . (:acc)
+delimitsNext [] = True
+delimitsNext (x:_) = elem x ['(', ')', '[', ']', '"', ';', '#'] || isSpace x
 
-    symb '(' = Right Open
-    symb ')' = Right Close
-    symb '+' = Right $ Arith Plus
-    symb '-' = Right $ Arith Minus
-    symb '*' = Right $ Arith Multiply
-    symb c = Left $ "Invalid symbol " <> return c
+lexSymb ('(':xs) = Just (xs, Open)
+lexSymb (')':xs) = Just (xs, Close)
+lexSymb ('[':xs) = Nothing
+lexSymb (']':xs) = Nothing
+lexSymb ('"':xs) = Nothing
+lexSymb ('#':xs) = Nothing
+lexSymb (';':xs) = Nothing
+lexSymb ('+':xs) = Just (xs, Arith Plus)
+lexSymb ('-':xs) = Just (xs, Arith Minus)
+lexSymb ('*':xs) = Just (xs, Arith Multiply)
+lexSymb _ = Nothing
 
---parse (Close:xs) q =
+lexBool ('#':x:xs)
+    | toLower x == 'f' && delimitsNext xs = Just (xs, Value $ SBool False)
+    | toLower x == 't' && delimitsNext xs = Just (xs, Value $ SBool True)
+    | otherwise = Nothing
+lexBool _ = Nothing
+
+lexIdentifier (x:xs) = if delimitsNext xs then Just (xs, [x])
+    else ((x:) <$>) <$> lexIdentifier xs
+
+lexNum acc (x:xs) = if ord '0' <= ord x && ord x <= ord '9'
+    then (if delimitsNext xs then Just . (xs,) . Value . SNum else flip lexNum xs) $ acc * 10 + (ord x - ord '0')
+    else Nothing
+lexNum _ _ = Nothing
+
+schlex acc [] = Right acc
+schlex acc ls@(x:xs) = if isSpace x then schlex acc xs
+    else uncurry (schlex . (:acc)) . swap =<< maybeToEither ("Failed to parse at character " <> [x]) (foldl (<|>) Nothing $ map ($ ls) [
+        lexSymb,
+        lexBool,
+        lexNum 0,
+        ((Identifier <$>) <$>) . lexIdentifier
+    ])
+
 parse [] p [] = Right p
 parse _ _ [] = Left "Too many close brackets"
 parse q p (Close:xs) = parse (ExpList p:q) [] xs
 parse (ExpList q':q) p (Open:xs) = parse q (ExpList p:q') xs
 parse _ _ (Open:_) = Left "Too many open brackets"
-parse q p (NumT i:xs) = parse q (Const (NumE i):p) xs
+parse q p (Value v:xs) = parse q (Const v:p) xs
 parse q p (Arith o:xs) = parse q (Prim o:p) xs
+parse q p (Identifier i:xs) = parse q (Symbol i:p) xs
 
-toAst (Const v) = Right $ AstConst v
-toAst (Prim o) = Right $ AstPrim o
+toAst (Const v) = Right $ ConstExp v
+toAst (Prim o) = Right $ PrimExp o
+toAst (Symbol x) = Left $ "Unrecognised symbol " <> x
 toAst (ExpList []) = Left "Empty S expression"
+toAst (ExpList [Symbol "if", c, x, y]) = Cond <$> toAst c <*> toAst x <*> toAst y
+toAst (ExpList (Symbol "if":_)) = Left "Wrong number of arguments to if"
+toAst (ExpList [Symbol "eq?", x, y]) = Equiv <$> toAst x <*> toAst y
+toAst (ExpList [Symbol "begin"]) = Left "Wrong number of arguments to begin"
+toAst (ExpList (Symbol "begin":xs)) = Begin <$> mapM toAst xs
+toAst (ExpList [Symbol "display", x]) = Display <$> toAst x
+toAst (ExpList (Symbol "display":_)) = Left "Wrong number of arguments to display"
 toAst (ExpList xs) = liftM2 Apply head tail <$> mapM toAst xs
