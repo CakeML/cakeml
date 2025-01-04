@@ -3,15 +3,15 @@
 
 ## build Poly/ML
 ## alternatively on macOS
-# Note that as of 3/1/2025 brew from polyml is broken
+# Note that as of 3/1/2025 polyml from brew is broken
 # brew install polyml
 cd
 git clone https://github.com/polyml/polyml
 cd polyml
 ./configure --prefix=/usr --enable-intinf-as-int
 # --enable-intinf-as-int is to make polyml use gmp for arbitrary precision integer.
-# gmp headers is needed to be installed for polyml to build and 
-# lib gmp would be needed as a library for polyml to run
+# gmp headers is needed to be installed for polyml to build and
+# libgmp would be needed as a library for polyml to run
 ## on Debian/Ubuntu, either:
 ##  - make sure to use --prefix=/usr
 ##  - or add "export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" to ~/.profile
