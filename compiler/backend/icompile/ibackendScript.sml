@@ -493,10 +493,10 @@ Definition init_icompile_data_to_word_def:
 End
 
 Definition icompile_word_to_stack_def:
-  icompile_word_to_stack word_iconf p =
+  icompile_word_to_stack asm_conf word_iconf p =
   let k = word_iconf.k in
   let bm = word_iconf.bm in
-  let (p, fs, bm') = word_to_stack$compile_word_to_stack k p bm in
+  let (p, fs, bm') = word_to_stack$compile_word_to_stack asm_conf k p bm in
   let sfs_list = (MAP (λ((i,_),n). (i,n)) (ZIP (p,fs))) in
   let word_iconf = word_iconf with <| bm := bm';
                                       sfs_list := word_iconf.sfs_list ++ sfs_list;
@@ -512,17 +512,16 @@ Definition init_icompile_word_to_stack_def:
                       sfs_list := [];
                       fs := [0]
                    |> in
-  let (word_iconf, stack_init) = icompile_word_to_stack word_iconf word1_init in
+  let (word_iconf, stack_init) = icompile_word_to_stack asm_conf word_iconf word1_init in
   let stack_init =
       (raise_stub_location,raise_stub k) ::
       (store_consts_stub_location,store_consts_stub k) :: stack_init in
     (word_iconf, stack_init)
-
 End
 
 Definition end_icompile_word_to_stack_def:
-  end_icompile_word_to_stack word_iconf word1_end =
-  let (word_iconf, stack_end) = icompile_word_to_stack word_iconf word1_end in
+  end_icompile_word_to_stack asm_conf word_iconf word1_end =
+  let (word_iconf, stack_end) = icompile_word_to_stack asm_conf word_iconf word1_end in
   let sfs = fromAList word_iconf.sfs_list in
   let bitmaps = word_iconf.bm in
     (append (FST bitmaps),
@@ -585,7 +584,7 @@ Definition end_icompile_def:
   let data_end = bvi_to_data$compile_prog bvi_end in
   let word_end = icompile_data_to_word data_conf data_end in
   let (_, word_end1) = word_to_word$compile word_conf asm_conf word_end in
-  let (bm, w2s_conf, fs, stack_end) = end_icompile_word_to_stack word_iconf word_end1 in
+  let (bm, w2s_conf, fs, stack_end) = end_icompile_word_to_stack asm_conf word_iconf word_end1 in
   let offset = asm_conf.addr_offset in
   let k = (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3)) in
   let (stack_conf_after_ic, lab_end) = icompile_stack_to_lab stack_conf offset k stack_end in
@@ -604,7 +603,7 @@ Definition icompile_def:
   let icompiled_p_data = bvi_to_data$compile_prog icompiled_p_bvi in
   let icompiled_p_word = icompile_data_to_word data_conf icompiled_p_data in
   let (_, icompiled_p_word1) = word_to_word$compile word_conf asm_conf icompiled_p_word in
-  let (word_iconf', icompiled_p_stack) = icompile_word_to_stack word_iconf icompiled_p_word1 in
+  let (word_iconf', icompiled_p_stack) = icompile_word_to_stack asm_conf word_iconf icompiled_p_word1 in
   let offset = asm_conf.addr_offset in
   let k = (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3)) in
   let (stack_conf', icompiled_p_lab) = icompile_stack_to_lab stack_conf offset k icompiled_p_stack in
@@ -1438,10 +1437,10 @@ Proof
 QED
 
 Theorem compile_word_to_stack_append:
-  ∀p1 p2 bs bs1 bs2 fs1 fs2 p1' p2'.
-  compile_word_to_stack k p1 bs = (p1', fs1, bs1) ∧
-  compile_word_to_stack k p2 bs1 = (p2', fs2, bs2) ⇒
-  compile_word_to_stack k (p1 ++ p2) bs = (p1' ++ p2', fs1 ++ fs2, bs2)
+  ∀p1 p2 bs bs1 bs2 fs1 fs2 p1' p2' asm_conf.
+  compile_word_to_stack asm_conf k p1 bs = (p1', fs1, bs1) ∧
+  compile_word_to_stack asm_conf k p2 bs1 = (p2', fs2, bs2) ⇒
+  compile_word_to_stack asm_conf k (p1 ++ p2) bs = (p1' ++ p2', fs1 ++ fs2, bs2)
 Proof
   Induct_on ‘p1’ >> rw[word_to_stackTheory.compile_word_to_stack_def] >>
   ntac 2 (pop_assum mp_tac) >>
@@ -1454,8 +1453,8 @@ Proof
 QED
 
 Theorem compile_word_to_stack_length:
-  ∀ k p b p' fs bm'.
-  compile_word_to_stack k p b = (p', fs, bm') ⇒
+  ∀ k p b p' fs bm' asm_conf.
+  compile_word_to_stack asm_conf k p b = (p', fs, bm') ⇒
   LENGTH p' = LENGTH fs
 Proof
   Induct_on ‘p’ >>
@@ -1470,9 +1469,9 @@ QED
 
 
 Theorem icompile_icompile_word_to_stack:
-  icompile_word_to_stack word_iconf p1 = (word_iconf1, p1') ∧
-  icompile_word_to_stack word_iconf1 p2 = (word_iconf2, p2') ⇒
-  icompile_word_to_stack word_iconf (p1 ++ p2) = (word_iconf2, p1' ++ p2')
+  icompile_word_to_stack asm_conf word_iconf p1 = (word_iconf1, p1') ∧
+  icompile_word_to_stack asm_conf word_iconf1 p2 = (word_iconf2, p2') ⇒
+  icompile_word_to_stack asm_conf word_iconf (p1 ++ p2) = (word_iconf2, p1' ++ p2')
 Proof
   rw[icompile_word_to_stack_def] >>
   rpt (pairarg_tac >> gvs[]) >>
@@ -1488,14 +1487,6 @@ Proof
   disch_then (fn t => assume_tac (GSYM t)) >>
   rw[]
 QED
-
-(*
-Theorem icompile_icompile_stack_to_lab:
-  icompile_stack_to_lab stack_conf offset k (p1 ++ p2) =
-  icompile_stack_to_lab stack_conf offset k p1 ++ icompile_stack_to_lab stack_conf offset k p2
-Proof
-  rw[icompile_stack_to_lab_def]
-QED *)
 
 
 Theorem stack_rawcall_compile_aux_cons:
@@ -1897,8 +1888,8 @@ QED
 
 Theorem init_icompile_icompile_end_icompile_w12s:
   init_icompile_word_to_stack asm_conf word1_init = (word_iconf, stack_init) ∧
-  icompile_word_to_stack word_iconf p = (word_iconf', icompiled_p_stack) ∧
-  end_icompile_word_to_stack word_iconf' word1_end = (bm, w2s_conf_after_ic, fs_after_ic, stack_end) ⇒
+  icompile_word_to_stack asm_conf word_iconf p = (word_iconf', icompiled_p_stack) ∧
+  end_icompile_word_to_stack asm_conf word_iconf' word1_end = (bm, w2s_conf_after_ic, fs_after_ic, stack_end) ⇒
   word_to_stack$compile asm_conf (word1_init ++ p ++ word1_end) =
   (bm, w2s_conf_after_ic, fs_after_ic, stack_init ++ icompiled_p_stack ++ stack_end)
 Proof
@@ -1907,13 +1898,13 @@ Proof
   pairarg_tac >> gvs[] >>
   drule icompile_icompile_word_to_stack >>
   disch_then rev_drule >>
-  rpt (qpat_x_assum ‘icompile_word_to_stack _ _ = _’ kall_tac) >>
+  rpt (qpat_x_assum ‘icompile_word_to_stack _ _ _ = _’ kall_tac) >>
   strip_tac >>
   fs[end_icompile_word_to_stack_def] >>
   pairarg_tac >> gvs[] >>
   rev_drule icompile_icompile_word_to_stack >>
   disch_then drule >>
-  rpt (qpat_x_assum ‘icompile_word_to_stack _ _ = _’ kall_tac) >>
+  rpt (qpat_x_assum ‘icompile_word_to_stack _ _ _ = _’ kall_tac) >>
   strip_tac >>
   rw[word_to_stackTheory.compile_def] >>
   pairarg_tac >> simp[] >>
