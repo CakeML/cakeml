@@ -109,9 +109,44 @@ Definition vars_clause_def:
   vars_clause C = IMAGE var_lit (set C) DELETE 0n
 End
 
+Theorem vars_clause_cons[simp]:
+  x ≠ 0 ⇒
+  vars_clause (x::C) =
+  Num (ABS x) INSERT vars_clause C
+Proof
+  rw[vars_clause_def,EXTENSION]>>
+  eq_tac>>rw[]
+  >- intLib.ARITH_TAC
+  >- metis_tac[]
+  >- metis_tac[]
+QED
+
 Definition vars_fml_def:
   vars_fml fml = BIGUNION (IMAGE vars_clause fml)
 End
+
+Theorem vars_fml_INSERT[simp]:
+  vars_fml (l INSERT fml) =
+  vars_clause l ∪ vars_fml fml
+Proof
+  rw[vars_fml_def]
+QED
+
+Theorem vars_fml_UNION[simp]:
+  vars_fml (fml ∪ fml') =
+  vars_fml fml ∪ vars_fml fml'
+Proof
+  rw[vars_fml_def]
+QED
+
+Theorem vars_fml_SUBSET:
+  x ⊆ y ⇒
+  vars_fml x ⊆ vars_fml y
+Proof
+  rw[vars_fml_def]>>
+  match_mp_tac SUBSET_BIGUNION>>
+  simp[]
+QED
 
 (* Raw type for SCPOG nodes *)
 Datatype:
@@ -667,7 +702,7 @@ Definition declare_root_def:
   declare_root pc sc l =
     case sc.root of
       NONE =>
-        if is_data_ext_lit_run pc.D sc.Ev l then
+        if l ≠ 0 ∧ is_data_ext_lit_run pc.D sc.Ev l then
           SOME (sc with root := SOME l)
         else NONE
     | SOME _ => NONE
@@ -721,10 +756,7 @@ End
 Definition insert_one_def:
   insert_one pc sc mode fml i c =
     case lookup i fml of
-      NONE =>
-      if EVERY (λi. ¬is_fresh pc sc (Num (ABS i))) c then
-        SOME (insert i (c,mode) fml)
-      else NONE
+      NONE => SOME (insert i (c,mode) fml)
     | SOME _ => NONE
 End
 
@@ -741,10 +773,16 @@ End
 
 (* Clauses encoding the extension variable
   v <-> l_1 ∧ l_2 ∧ ... ∧ l_n *)
+Definition mk_sko_def:
+  mk_sko v (ls:int list) =
+  let iv = (&v):int in
+  MAP (\l. [-iv;l]) ls
+End
+
 Definition mk_pro_def:
   mk_pro v (ls:int list) =
   let iv = (&v):int in
-  (iv::MAP (\l. -l) ls):: MAP (\l. [-iv;l]) ls
+  (iv::MAP (\l. -l) ls):: mk_sko v ls
 End
 
 Definition check_pro_def:
@@ -754,13 +792,28 @@ Definition check_pro_def:
     is_fresh pc sc v)
 End
 
+Definition get_node_vars_def:
+  get_node_vars Ev ls =
+  FOLDL (λt i.
+    case lookup (Num (ABS i)) Ev of
+      NONE => t
+    | SOME vs => union t vs) LN ls
+End
+
+Definition mk_Ev_def:
+  mk_Ev Ev v ls =
+    insert v (get_node_vars Ev ls) Ev
+End
+
 Definition declare_pro_def:
   declare_pro pc sc (v:num) ls =
   if
     check_pro pc sc v ls
   then
     SOME (mk_pro v ls,
-      (sc with scp := (v,Pro ls)::sc.scp))
+      (sc with
+        <| scp := (v,Pro ls)::sc.scp;
+           Ev := mk_Ev sc.Ev v ls|>))
   else
     NONE
 End
@@ -784,18 +837,28 @@ Definition declare_sum_def:
     check_sum pc sc v [l1;l2]
   then
     SOME (mk_sum v [l1;l2] ,
-      (sc with scp := (v,Sum [l1;l2])::sc.scp))
+      (sc with
+        <| scp := (v,Sum [l1;l2])::sc.scp;
+           Ev := mk_Ev sc.Ev v [l1;l2]|>))
   else
     NONE
+End
+
+Definition check_sko_def:
+  check_sko pc sc v ls =
+    (v ≠ 0n ∧ EVERY (λi. i ≠ 0i) ls ∧
+    is_fresh pc sc v)
 End
 
 Definition declare_sko_def:
   declare_sko pc sc (v:num) ls =
   if
-    check_pro pc sc v ls
+    check_sko pc sc v ls
   then
-    SOME (mk_pro v ls, [(&v):int],
-      (sc with scp := (v,Sko ls)::sc.scp))
+    SOME ([(&v):int], mk_sko v ls,
+      (sc with
+        <| scp := (v,Sko ls)::sc.scp;
+           Ev := mk_Ev sc.Ev v ls|>))
   else
     NONE
 End
@@ -818,13 +881,15 @@ Definition check_scpstep_def:
     (case is_rup NONE fml i0 C of
       NONE => NONE
     | SOME md =>
-      if md_lat md (SOME T) then
-      OPTION_MAP (λfml'. (fml',sc))
-        (insert_one pc sc NONE fml n C)
+      if md_lat md (SOME T) ∧
+        EVERY (λi. ¬is_fresh pc sc (Num (ABS i))) C
+      then
+        OPTION_MAP (λfml'. (fml',sc))
+          (insert_one pc sc NONE fml n C)
       else NONE)
   | RupDel n i0 =>
     (case lookup n fml of
-    | SOME (C,NONE) =>
+    | SOME (C,_) =>
       let fml' = delete n fml in
       (case is_rup NONE fml' i0 C of
         NONE => NONE
@@ -840,22 +905,22 @@ Definition check_scpstep_def:
     (case declare_pro pc sc v ls of
       SOME (cs,sc') =>
         OPTION_MAP (λfml'. (fml',sc'))
-          (insert_list pc sc NONE fml n cs)
+          (insert_list pc sc' NONE fml n cs)
     | NONE => NONE)
   | DeclSum n v l1 l2 =>
     (case declare_sum pc sc v l1 l2 of
       SOME (cs,sc') =>
         OPTION_MAP (λfml'. (fml',sc'))
-          (insert_list pc sc NONE fml n cs)
+          (insert_list pc sc' NONE fml n cs)
     | NONE => NONE)
   | DeclSko n v ls =>
     (case declare_sko pc sc v ls of
-      SOME (csF,cT,sc') =>
-        (case insert_list pc sc (SOME F) fml n csF of
+      SOME (cT,csF,sc') =>
+        (case insert_one pc sc' (SOME T) fml n cT of
           NONE => NONE
         | SOME fml' =>
           OPTION_MAP (λfml''. (fml'',sc'))
-            (insert_one pc sc (SOME T) fml (n + LENGTH csF) cT))
+            (insert_list pc sc' (SOME F) fml' (n + 1) csF))
     | NONE => NONE)
 End
 
@@ -1066,6 +1131,22 @@ Proof
   CCONTR_TAC>>gvs[]
 QED
 
+Theorem mk_sko_sem:
+  v ≠ 0 ∧ EVERY (λi. i ≠ 0) ls ⇒
+  (
+    sat_fml w (set (mk_sko v ls)) ⇔
+    (
+      (w v ⇒ EVERY (sat_lit w) ls)
+    )
+  )
+Proof
+  rw[sat_fml_def,mk_sko_def]>>
+  gvs[MEM_MAP,SF DNF_ss,sat_clause_cons]>>
+  eq_tac>>rw[]>>gvs[EVERY_MEM]>>
+  gvs[sat_clause_def,MEM_MAP]>>
+  metis_tac[]
+QED
+
 Theorem mk_pro_sem:
   v ≠ 0 ∧ EVERY (λi. i ≠ 0) ls ⇒
   (
@@ -1075,7 +1156,7 @@ Theorem mk_pro_sem:
     )
   )
 Proof
-  rw[sat_fml_def,mk_pro_def]>>
+  rw[mk_pro_def,mk_sko_sem]>>
   gvs[MEM_MAP,SF DNF_ss,sat_clause_cons]>>
   eq_tac>>rw[]>>gvs[EVERY_MEM]
   >- (
@@ -1162,15 +1243,6 @@ Proof
   irule agree_on_SUBSET>>
   first_x_assum (irule_at Any)>>
   match_mp_tac SUBSET_BIGUNION_I>>
-  simp[]
-QED
-
-Theorem vars_fml_SUBSET:
-  x ⊆ y ⇒
-  vars_fml x ⊆ vars_fml y
-Proof
-  rw[vars_fml_def]>>
-  match_mp_tac SUBSET_BIGUNION>>
   simp[]
 QED
 
@@ -1313,14 +1385,14 @@ Proof
       simp[SUBSET_DEF]))
   >- ( (* DeclSko *)
     strip_tac>>
-    gvs[declare_sko_def,AllCaseEqs(),check_pro_def,is_fresh_def]>>
-    rename1`mk_pro v ls`>>
+    gvs[declare_sko_def,AllCaseEqs(),check_sko_def,is_fresh_def]>>
+    rename1`mk_sko v ls`>>
     `v ∉ domain pc.D` by (
       gvs[good_pc_def,SUBSET_DEF]>>
       CCONTR_TAC>>gvs[]>>first_x_assum drule>>
       gvs[])>>
-    drule get_fml_insert_list_SOME>>
-    drule get_fml_insert_one_SOME>>rw[]
+    drule get_fml_insert_one_SOME>>
+    drule get_fml_insert_list_SOME>>rw[]
     >- (
       rw[extends_over_def]>>
       qexists_tac`λx. x = v ∨ w x`>>
@@ -1332,12 +1404,16 @@ Proof
         DEP_ONCE_REWRITE_TAC[agree_on_vars_fml |> GSYM]>>
         rw[agree_on_def]>>
         gvs[SUBSET_DEF]>>
-        `x ≠ v` by
-          (first_x_assum drule>>gvs[domain_lookup]>>
+        `x ≠ v` by (
+          first_x_assum drule>>gvs[domain_lookup]>>
           rw[]>>gvs[]>>
           metis_tac[option_CLAUSES])>>
         simp[]))
-    >- metis_tac[insert_list_SOME_unchanged,insert_one_SOME_unchanged])
+    >- metis_tac[insert_list_SOME_unchanged,insert_one_SOME_unchanged]
+    >- (
+      match_mp_tac extends_over_SUBSET>>
+      simp[SUBSET_DEF])
+    )
 QED
 
 Definition check_scpsteps_def:
@@ -1368,8 +1444,57 @@ Proof
   metis_tac[agree_on_trans]
 QED
 
-(* TODO Add checks to make these true *)
+Theorem vars_clause_MAP_neg[simp]:
+  vars_clause (MAP (λl. -l) ls) = vars_clause ls
+Proof
+  rw[vars_clause_def,EXTENSION,MEM_MAP]>>
+  eq_tac>>rw[]>>
+  first_x_assum (irule_at Any)>>
+  intLib.ARITH_TAC
+QED
+
+Theorem vars_fml_mk_pro:
+  v ≠ 0 ∧ EVERY (λi. i ≠ 0) ls ⇒
+  vars_fml (set (mk_pro v ls)) =
+  v INSERT IMAGE var_lit (set ls)
+Proof
+  rw[mk_pro_def,mk_sko_def,vars_fml_def]>>
+  simp[LIST_TO_SET_MAP,IMAGE_IMAGE,o_DEF]>>
+  rw[EXTENSION,vars_clause_def,PULL_EXISTS]>>
+  eq_tac>>rw[]
+  >- metis_tac[]
+  >- metis_tac[]>>
+  gvs[EVERY_MEM]>> metis_tac[]
+QED
+
+Theorem vars_fml_mk_sum:
+  v ≠ 0 ∧ EVERY (λi. i ≠ 0) ls ⇒
+  vars_fml (set (mk_sum v ls)) =
+  v INSERT IMAGE var_lit (set ls)
+Proof
+  rw[mk_sum_def,vars_fml_def]>>
+  simp[LIST_TO_SET_MAP,IMAGE_IMAGE,o_DEF]>>
+  rw[EXTENSION,vars_clause_def,PULL_EXISTS]>>
+  eq_tac>>rw[]
+  >- metis_tac[]
+  >- metis_tac[]>>
+  gvs[EVERY_MEM]>> metis_tac[]
+QED
+
+Theorem domain_mk_Ev[simp]:
+  domain (mk_Ev Ev v ls) = v INSERT domain Ev
+Proof
+  rw[mk_Ev_def]
+QED
+
+Theorem lookup_unit_cases:
+  lookup n t = SOME () ∨ lookup n t = NONE
+Proof
+  Cases_on`lookup n t`>>rw[]
+QED
+
 Theorem check_scpstep_vars_fml:
+  good_pc pc ∧
   check_scpstep pc fml sc scpstep = SOME (fml',sc') ∧
   vars_fml (get_fml (SOME T) fml) ⊆ count (pc.n+1) ∪ domain sc.Ev ⇒
   vars_fml (get_fml (SOME T) fml') ⊆ count (pc.n+1) ∪ domain sc'.Ev
@@ -1378,8 +1503,14 @@ Proof
   simp[check_scpstep_def]>>rw[]>>gvs[AllCaseEqs()]
   >-
     gvs[declare_root_def,AllCaseEqs()]
-  >-
-    cheat
+  >- (
+    drule get_fml_insert_one_NONE>>rw[]>>
+    gvs[vars_clause_def,var_lit_def,SUBSET_DEF,EVERY_MEM,PULL_EXISTS]>>
+    rw[]>>
+    first_x_assum drule>>
+    simp[is_fresh_def,domain_lookup]>>
+    rename1`lookup xn sc.Ev`>>
+    Cases_on`lookup xn sc.Ev`>>rw[])
   >- (
     gvs[fix_mode_def,AllCaseEqs()]>>
     irule SUBSET_TRANS>>
@@ -1389,8 +1520,44 @@ Proof
     irule SUBSET_TRANS>>
     first_x_assum (irule_at Any)>>
     metis_tac[get_fml_delete_SUBSET,vars_fml_SUBSET])
-  >>
-    cheat
+  >- (
+    gvs[declare_pro_def,check_pro_def]>>
+    drule_all vars_fml_mk_pro>>
+    drule get_fml_insert_list_NONE>>rw[]
+    >- (
+      gvs[EVERY_MEM,is_data_ext_lit_run_def,SUBSET_DEF,PULL_EXISTS,good_pc_def]>>
+      rw[]>>first_x_assum drule>>
+      gvs[domain_lookup]>>
+      metis_tac[lookup_unit_cases,option_CLAUSES])
+    >- (
+      gvs[SUBSET_DEF]>>
+      metis_tac[]) )
+  >- (
+    gvs[declare_sum_def,check_sum_def]>>
+    rename1`mk_sum v [l1;l2]`>>
+    qmatch_asmsub_abbrev_tac`mk_sum v ls`>>
+    drule vars_fml_mk_sum>>
+    disch_then (qspec_then`ls` mp_tac)>>
+    impl_tac >- rw[Abbr`ls`]>>
+    drule get_fml_insert_list_NONE>>rw[]
+    >- (
+      gvs[EVERY_MEM,is_data_ext_lit_run_def,SUBSET_DEF,PULL_EXISTS,good_pc_def]>>
+      rw[Abbr`ls`]>>
+      gvs[domain_lookup]>>
+      metis_tac[lookup_unit_cases,option_CLAUSES])
+    >- (
+      gvs[SUBSET_DEF]>>
+      metis_tac[]) )
+  >- (
+    gvs[declare_sko_def,check_sko_def]>>
+    drule_all vars_fml_mk_pro>>
+    drule get_fml_insert_one_SOME>>
+    drule get_fml_insert_list_SOME>>rw[]
+    >-
+      simp[vars_clause_def]
+    >- (
+      gvs[SUBSET_DEF]>>
+      metis_tac[]))
 QED
 
 Theorem check_scpsteps_extends_over:
@@ -1652,6 +1819,68 @@ Proof
   qexists_tac`n+1`>>simp[]
 QED
 
+(* Invariant maintained by the configuration *)
+Definition conf_inv_def:
+  conf_inv pc sc ⇔
+  count (pc.n + 1) ∩ domain sc.Ev = {} ∧
+  dir_scp (domain pc.D)
+    (count (pc.n+1) DIFF domain pc.D) (domain sc.Ev) sc.scp ∧
+  EVERY wf_scp sc.scp ∧
+  (∀n v.
+    lookup n sc.Ev = SOME v ⇔
+    (ALOOKUP sc.scp n ≠ NONE ∧
+    vars_scp F (&n) sc.scp = domain v)) ∧
+  (∀r. decomposable_scp T r sc.scp) ∧
+  case sc.root of
+    NONE => T
+  | SOME r =>
+    r ≠ 0 ∧
+    is_data_ext_lit (domain pc.D) sc.scp r
+End
+
+Theorem is_data_ext_lit_run_sem:
+  (∀n v. lookup n Ev = SOME v ⇔
+    ALOOKUP scp n ≠ NONE ∧ vars_scp F (&n) scp = domain v) ∧
+  is_data_ext_lit_run D Ev i ⇒
+  is_data_ext_lit (domain D) scp i
+Proof
+  rw[is_data_ext_lit_run_def,is_data_ext_lit_def] >>
+  gvs[domain_lookup]>>
+  metis_tac[lookup_unit_cases,option_CLAUSES]
+QED
+
+Theorem conf_inv_with_mode[simp]:
+  conf_inv pc (sc with mode := b) ⇔
+  conf_inv pc sc
+Proof
+  rw[conf_inv_def]
+QED
+
+Theorem check_scpstep_conf_inv:
+  check_scpstep pc fml sc scpstep = SOME (fml',sc') ∧
+  conf_inv pc sc ⇒
+  conf_inv pc sc'
+Proof
+  Cases_on`scpstep`>>
+  simp[check_scpstep_def]>>
+  rw[]>>gvs[AllCaseEqs()]
+  >- (
+    gvs[declare_root_def,conf_inv_def,AllCaseEqs()]>>
+    metis_tac[is_data_ext_lit_run_sem])
+  >- gvs[fix_mode_def]
+  >> cheat
+QED
+
+Theorem check_scpsteps_conf_inv:
+  ∀xs fml sc.
+  check_scpsteps pc fml sc xs = SOME (fml',sc') ∧
+  conf_inv pc sc ⇒
+  conf_inv pc sc'
+Proof
+  Induct>>rw[check_scpsteps_def] >>gvs[AllCaseEqs()]>>
+  metis_tac[check_scpstep_conf_inv]
+QED
+
 Theorem soundness:
   good_pc pc ∧
   LENGTH fmlls ≤ pc.cl ∧
@@ -1671,23 +1900,29 @@ Proof
     gvs[EVERY_MEM,SUBSET_DEF]>>
     metis_tac[])>>
   rw[init_sc_def]>>
-  (* TODO: Extra conditions that must be fulfilled either by forcing them
-    or as invariants of the checker *)
-  `domain pc.D ∩ EE = {} ∧ domain pc.D ∩ PP = {} ∧ PP ∩ EE = {}` by cheat>>
-  `dir_scp (domain pc.D) PP EE sc'.scp` by cheat>>
-  `EVERY wf_scp sc'.scp` by cheat>>
-  `r ≠ 0 ∧ is_data_ext_lit (domain pc.D) sc'.scp r` by cheat>>
-  `decomposable_scp T r sc'.scp` by cheat>>
-  drule_all final_conditions_extends_over>>
+  drule check_scpsteps_conf_inv>>
+  impl_tac>-
+    gvs[conf_inv_def,init_sc_def,decomposable_scp_def,dir_scp_def]>>
+  rw[conf_inv_def]>>
+  drule_at Any final_conditions_extends_over>>
+  gvs[]>>
+  disch_then (drule_at Any)>>
+  disch_then (drule_at Any)>>
+  impl_tac >- (
+    gvs[good_pc_def,SUBSET_DEF,EXTENSION]>>
+    metis_tac[])>>
   rw[]>>
   gvs[extends_over_def]>>
   rw[EXTENSION,models_def]>>eq_tac>>rw[]
   >- (
     drule_at Any agree_on_sat_scp_F_to_T>>
+    simp[]>>
     disch_then (drule_at Any)>>
-    disch_then (drule_at Any)>>gvs[]>>
-    gvs[IN_DEF]>>
-    disch_then drule>>rw[]>>
+    disch_then(qspec_then `w` mp_tac)>>
+    impl_tac >- (
+      gvs[IN_DEF,EXTENSION,good_pc_def,SUBSET_DEF]>>
+      metis_tac[])>>
+    rw[]>>
     first_x_assum drule>>rw[]>>
     first_x_assum drule>>rw[]>>
     gvs[build_fml_get_bnd_fml]>>
