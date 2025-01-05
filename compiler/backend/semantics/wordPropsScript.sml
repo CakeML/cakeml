@@ -165,7 +165,7 @@ Theorem get_vars_with_const[simp]:
    get_vars x (y with be := b) = get_vars x y /\
    get_vars x (y with ffi := ffi) = get_vars x y
 Proof
-  Induct_on`x` >> fs[get_vars_def]
+  Induct_on`x` >> simp[get_vars_def]
 QED
 
 Theorem set_var_const[simp]:
@@ -222,33 +222,6 @@ Proof
   EVAL_TAC
 QED
 
-Theorem unset_var_with_const[simp]:
-  unset_var x (z with locals_size := ls) = unset_var x z with locals_size := ls /\
-  unset_var x (z with fp_regs := fp) = unset_var x z with fp_regs := fp /\
-  unset_var x (z with store := store) = unset_var x z with store := store /\
-  unset_var x (z with stack := xs) = unset_var x z with stack := xs /\
-  unset_var x (z with stack_limit := sl) = unset_var x z with stack_limit := sl /\
-  unset_var x (z with stack_max := sm) = unset_var x z with stack_max := sm /\
-  unset_var x (z with stack_size := ssize) = unset_var x z with stack_size := ssize /\
-  unset_var x (z with memory := m) = unset_var x z with memory := m /\
-  unset_var x (z with mdomain := md) = unset_var x z with mdomain := md /\
-  unset_var x (z with sh_mdomain := smd) = unset_var x z with sh_mdomain := smd /\
-  unset_var x (z with permute := p) = unset_var x z with permute := p /\
-  unset_var x (z with compile := c) = unset_var x z with compile := c /\
-  unset_var x (z with compile_oracle := co) = unset_var x z with compile_oracle := co /\
-  unset_var x (z with code_buffer := cb) = unset_var x z with code_buffer := cb /\
-  unset_var x (z with data_buffer := db) = unset_var x z with data_buffer := db /\
-  unset_var x (z with gc_fun := g) = unset_var x z with gc_fun := g /\
-  unset_var x (z with handler := hd) = unset_var x z with handler := hd /\
-  unset_var x (z with clock := clk) = unset_var x z with clock := clk /\
-  unset_var x (z with termdep := tdep) = unset_var x z with termdep := tdep /\
-  unset_var x (z with code := cd) = unset_var x z with code := cd /\
-  unset_var x (z with be := b) = unset_var x z with be := b /\
-  unset_var x (z with ffi := ffi) = unset_var x z with ffi := ffi
-Proof
-  EVAL_TAC
-QED
-
 Theorem unset_var_const[simp]:
    (unset_var x z).locals_size = z.locals_size ∧
    (unset_var x z).fp_regs = z.fp_regs ∧
@@ -272,6 +245,33 @@ Theorem unset_var_const[simp]:
    (unset_var x z).code = z.code ∧
    (unset_var x z).be = z.be ∧
    (unset_var x z).ffi = z.ffi
+Proof
+  EVAL_TAC
+QED
+
+Theorem unset_var_with_const[simp]:
+  unset_var x (z with locals_size := ls) = unset_var x z with locals_size := ls /\
+  unset_var x (z with fp_regs := fp) = unset_var x z with fp_regs := fp /\
+  unset_var x (z with store := store) = unset_var x z with store := store /\
+  unset_var x (z with stack := xs) = unset_var x z with stack := xs /\
+  unset_var x (z with stack_limit := sl) = unset_var x z with stack_limit := sl /\
+  unset_var x (z with stack_max := sm) = unset_var x z with stack_max := sm /\
+  unset_var x (z with stack_size := ssize) = unset_var x z with stack_size := ssize /\
+  unset_var x (z with memory := m) = unset_var x z with memory := m /\
+  unset_var x (z with mdomain := md) = unset_var x z with mdomain := md /\
+  unset_var x (z with sh_mdomain := smd) = unset_var x z with sh_mdomain := smd /\
+  unset_var x (z with permute := p) = unset_var x z with permute := p /\
+  unset_var x (z with compile := c) = unset_var x z with compile := c /\
+  unset_var x (z with compile_oracle := co) = unset_var x z with compile_oracle := co /\
+  unset_var x (z with code_buffer := cb) = unset_var x z with code_buffer := cb /\
+  unset_var x (z with data_buffer := db) = unset_var x z with data_buffer := db /\
+  unset_var x (z with gc_fun := g) = unset_var x z with gc_fun := g /\
+  unset_var x (z with handler := hd) = unset_var x z with handler := hd /\
+  unset_var x (z with clock := clk) = unset_var x z with clock := clk /\
+  unset_var x (z with termdep := tdep) = unset_var x z with termdep := tdep /\
+  unset_var x (z with code := cd) = unset_var x z with code := cd /\
+  unset_var x (z with be := b) = unset_var x z with be := b /\
+  unset_var x (z with ffi := ffi) = unset_var x z with ffi := ffi
 Proof
   EVAL_TAC
 QED
@@ -539,6 +539,8 @@ QED
 Theorem flush_state_with_const[simp]:
    flush_state b (y with locals := l) = flush_state b y /\
    flush_state b (y with locals_size := ls) = flush_state b y /\
+   flush_state T (y with stack := xs) = flush_state T y /\
+   flush_state b (y with stack_max := sm) = flush_state b y with stack_max := sm /\
    flush_state b (y with clock := k) = flush_state b y with clock := k
 Proof
  Cases_on `b` \\ EVAL_TAC
@@ -773,15 +775,13 @@ Theorem word_exp_with_const[simp]:
   word_exp (x with compile_oracle := co) y = word_exp x y ∧
   word_exp (x with compile := cc) y = word_exp x y
 Proof
-  recInduct word_exp_ind >>
-  rw[word_exp_def] >>
-  every_case_tac >> fs[] >>
-  ntac 2 (pop_assum mp_tac) >>
+  recInduct word_exp_ind >> simp[word_exp_def] >>
+  rpt STRIP_TAC >>
   qpat_abbrev_tac `ls = MAP A B` >>
   qpat_abbrev_tac `ls' = MAP A B` >>
   `ls = ls'`
      by (unabbrev_all_tac >> fs[MAP_EQ_f]) >>
-  rw[]
+  simp[]
 QED
 
 (*TODO remove*)
@@ -1475,6 +1475,40 @@ val evaluate_with_const = [
   evaluate_ShareInst_with_const
 ]
 
+(*TODO complete for all get set variaents *)
+Theorem get_var_set_store[simp]:
+   get_var v1 (set_store v2 x s) = get_var v1 s
+Proof
+  fs[set_store_def]
+QED
+
+Theorem get_var_set_fp_var[simp]:
+   get_var v1 (set_fp_var v2 x s) = get_var v1 s
+Proof
+  fs[set_fp_var_def]
+QED
+
+(******CONST LEMMAS END *****)
+Theorem get_var_set_var:
+   get_var v1 (set_var v2 x s) = if v1 = v2 then SOME x else get_var v1 s
+Proof
+  simp[get_var_def,set_var_def,lookup_insert]
+QED
+
+Theorem get_store_set_store:
+   get_store v1 (set_store v2 x s) = if v1 = v2 then SOME x else get_store v1 s
+Proof
+  fs[get_store_def,set_store_def,FLOOKUP_UPDATE] >>
+  irule bool_case_CONG >> simp[] >> irule EQ_SYM_EQ
+QED
+
+Theorem get_fp_var_set_fp_var:
+   get_fp_var v1 (set_fp_var v2 x s) = if v1 = v2 then SOME x else get_fp_var v1 s
+Proof
+  fs[get_fp_var_def,set_fp_var_def,FLOOKUP_UPDATE] >>
+  irule bool_case_CONG >> simp[] >> irule EQ_SYM_EQ
+QED
+
 (* Standard add clock lemma for FBS *)
 Theorem evaluate_add_clock:
    ∀p s r s'.
@@ -1576,17 +1610,15 @@ Proof
   >-(
     fs[evaluate_def,dec_clock_def] >>
     ntac 6 (TOP_CASE_TAC>>gvs[])
-      >-(
-        fs[flush_state_def] >>
+      >-( (*Tail call*)
         rpt (CASE_ONE >> gvs[]) >>
         rpt disch_tac
-        >- (fs[state_component_equality] >> gvs[])
         >> imp_res_tac evaluate_clock>> fs[] >> gvs[]
         )
       >-(
         PairCases_on `x'` >> fs[]
         >> ntac 3 (TOP_CASE_TAC >> fs[])
-          >-(strip_tac>>rveq>>full_simp_tac(srw_ss())[flush_state_def])
+          >-(strip_tac>>rveq>>fs[])
           >-(
             ntac 2 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
               >- tac2
