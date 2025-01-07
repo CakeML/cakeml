@@ -396,6 +396,7 @@ Datatype:
   ctxt_frame = Craise
              | Chandle ((pat # exp) list)
              | Capp op (v list) (exp list)
+             | Cforce num
              | Clog lop exp
              | Cif exp exp
              | Cmat_check ((pat # exp) list) v
@@ -449,6 +450,10 @@ Definition do_fprw_def:
   | (_, _) => NONE
 End
 
+Definition AppUnit_def:
+  AppUnit e = App Opapp [e; Con NONE []]
+End
+
 Definition application_def:
   application op env s fp vs c : estep_result =
    case getOpClass op of
@@ -487,6 +492,18 @@ Definition application_def:
        | SOME (s', Rval v) => return env s' fp v c
        | NONE => Etype_error (fix_fp_state c fp))
       else Etype_error (fix_fp_state c (shift_fp_state fp))
+    | Force =>
+      (case vs of
+         [Loc _ n] => (
+           case store_lookup n s of
+             SOME (Thunk F v) =>
+               return env s fp v c
+           | SOME (Thunk T f) =>
+               push (env with v := nsBind "pure_f" f env.v) s fp
+                    (AppUnit (Var $ Short "pure_f")) (Cforce n) c
+           | _ =>
+               Etype_error (fix_fp_state c fp))
+       | _ => Etype_error (fix_fp_state c fp))
      | _ =>
          case op of
          | FFI n => (
@@ -513,6 +530,10 @@ Definition continue_def:
   continue s fp v ((Chandle pes, env)::c) = return env s fp v c ∧
   continue s fp v ((Capp op vs [], env) :: c) = application op env s fp (v::vs) c ∧
   continue s fp v ((Capp op vs (e::es), env) :: c) = push env s fp e (Capp op (v::vs) es) c ∧
+  continue s fp v ((Cforce n, env) :: c) = (
+    case store_assign n (Thunk F v) s of
+      SOME s' => return env s' fp v c
+    | NONE => Etype_error (fix_fp_state c fp)) ∧
   continue s fp v ((Clog l e, env) :: c) = (
     case do_log l v e of
       SOME (Exp e) => Estep (env, s, fp, Exp e, c)
