@@ -11,8 +11,8 @@ open preamble ibackendTheory
      x64_configTheory
      x64_targetTheory
 ;
-
 open backend_asmLib;
+open helloProgTheory;
 
 val _ = new_theory"ibackend_cv";
 
@@ -99,7 +99,7 @@ val res = cv_eval “
                  SOME (source_conf_after_ic, clos_conf_after_ic_bvi, bvl_conf_after_ic, ^data_init ++ icompiled_p_data ++ data_end)
 ”;
 *)
-             
+
 (* livesets *)
 
 val asm_spec_mem_list = CONJUNCTS asm_spec_memory;
@@ -108,15 +108,15 @@ val asm_spec' = fn th => asm_spec th |> snd
 
 val _ = cv_auto_trans (asm_spec' init_icompile_data_to_word_def |> arch_spec)
 val _ = cv_auto_trans (to_livesets_0_x64_def);
-val _ = cv_auto_trans (icompile_data_to_word_def |> arch_spec)    
+val _ = cv_auto_trans (icompile_data_to_word_def |> arch_spec)
 val _ = cv_auto_trans (asm_spec' to_livesets_0_alt_def )
 val _ = cv_auto_trans (asm_spec' icompile_to_livesets_def)
 val _ = cv_auto_trans (asm_spec' init_icompile_to_livesets_def)
 val _ = cv_auto_trans (asm_spec' end_icompile_to_livesets_def)
 
-(* just in case i forget *)                                 
-Globals.max_print_depth := 20;                                 
-    
+(* just in case i forget *)
+Globals.max_print_depth := 20;
+
 val init_res = cv_eval “init_icompile_to_livesets_x64 ^source_conf ^clos_conf ^bvl_conf ^data_conf ^word_conf”
 
 val (source_iconf_lvs, rest) = pairSyntax.dest_pair (rconc init_res);
@@ -127,9 +127,9 @@ val (reg_count_and_lvs_data, livesets_init) = pairSyntax.dest_pair rest;
 val (reg_count, lvs_data) = pairSyntax.dest_pair reg_count_and_lvs_data;
 
 (* very slow *)
-val res_opt = cv_eval “icompile_to_livesets_x64 ^source_iconf ^clos_iconf ^bvl_iconf ^data_conf ^word_conf ^prog ^lvs_data” 
+val res_opt = cv_eval “icompile_to_livesets_x64 ^source_iconf ^clos_iconf ^bvl_iconf ^data_conf ^word_conf ^prog ^lvs_data”
 
-(* debug *)    
+(* debug *)
 val source_prog = cv_eval “source_to_source$compile ^prog” |> rconc;
 val flat_prog_opt = cv_eval “icompile_source_to_flat ^source_iconf_lvs ^prog” |> rconc |> optionSyntax.dest_some;
 val clos_prog_opt = cv_eval “case ^flat_prog_opt of NONE => NONE | SOME (_, flat) => SOME (icompile_flat_to_clos flat)” |> rconc;
@@ -140,7 +140,7 @@ val word0_prog_opt = cv_eval “case ^data_prog_opt of NONE => (NONE : (num # nu
 val word0_prog = word0_prog_opt |> optionSyntax.dest_some;
 val _ = cv_eval “to_livesets_0_alt_x64 (^word_conf, ^word0_prog)”
 
-    
+
 (* doesnt seem to eval properly *)
 (*val end_icompile = cv_eval “
  case ^res_opt of
