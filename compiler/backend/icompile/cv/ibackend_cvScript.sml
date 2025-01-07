@@ -11,8 +11,8 @@ open preamble ibackendTheory
      x64_configTheory
      x64_targetTheory
 ;
-
 open backend_asmLib;
+open helloProgTheory;
 
 val _ = new_theory"ibackend_cv";
 
