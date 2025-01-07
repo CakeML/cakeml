@@ -99,7 +99,7 @@ val res = cv_eval “
                  SOME (source_conf_after_ic, clos_conf_after_ic_bvi, bvl_conf_after_ic, ^data_init ++ icompiled_p_data ++ data_end)
 ”;
 *)
-             
+
 (* livesets *)
 
 val asm_spec_mem_list = CONJUNCTS asm_spec_memory;
@@ -108,15 +108,15 @@ val asm_spec' = fn th => asm_spec th |> snd
 
 val _ = cv_auto_trans (asm_spec' init_icompile_data_to_word_def |> arch_spec)
 val _ = cv_auto_trans (to_livesets_0_x64_def);
-val _ = cv_auto_trans (icompile_data_to_word_def |> arch_spec)    
+val _ = cv_auto_trans (icompile_data_to_word_def |> arch_spec)
 val _ = cv_auto_trans (asm_spec' to_livesets_0_alt_def )
 val _ = cv_auto_trans (asm_spec' icompile_to_livesets_def)
 val _ = cv_auto_trans (asm_spec' init_icompile_to_livesets_def)
 val _ = cv_auto_trans (asm_spec' end_icompile_to_livesets_def)
 
-(* just in case i forget *)                                 
-Globals.max_print_depth := 20;                                 
-    
+(* just in case i forget *)
+(*Globals.max_print_depth := 20; *)
+
 val init_res = cv_eval “init_icompile_to_livesets_x64 ^source_conf ^clos_conf ^bvl_conf ^data_conf ^word_conf”
 
 val (source_iconf_lvs, rest) = pairSyntax.dest_pair (rconc init_res);
@@ -127,31 +127,25 @@ val (reg_count_and_lvs_data, livesets_init) = pairSyntax.dest_pair rest;
 val (reg_count, lvs_data) = pairSyntax.dest_pair reg_count_and_lvs_data;
 
 (* very slow *)
-val res_opt = cv_eval “icompile_to_livesets_x64 ^source_iconf ^clos_iconf ^bvl_iconf ^data_conf ^word_conf ^prog ^lvs_data” 
+val res_opt = cv_eval “icompile_to_livesets_x64 ^source_iconf_lvs ^clos_iconf_lvs ^bvl_iconf_lvs ^data_conf_lvs ^word_conf ^prog []”
 
-(* debug *)    
+(* debug *)
 val source_prog = cv_eval “source_to_source$compile ^prog” |> rconc;
-val flat_prog_opt = cv_eval “icompile_source_to_flat ^source_iconf_lvs ^prog” |> rconc |> optionSyntax.dest_some;
-val clos_prog_opt = cv_eval “case ^flat_prog_opt of NONE => NONE | SOME (_, flat) => SOME (icompile_flat_to_clos flat)” |> rconc;
-val bvl_prog_opt = cv_eval “case ^clos_prog_opt of NONE => NONE | SOME clos => SOME (icompile_clos_to_bvl ^clos_iconf_lvs clos)” |> rconc;
-val bvi_prog_opt = cv_eval “case ^bvl_prog_opt of NONE => NONE | SOME (_, bvl) => SOME (icompile_bvl_to_bvi ^bvl_iconf_lvs bvl)” |> rconc;
-val data_prog_opt = cv_eval “case ^bvi_prog_opt of NONE => NONE | SOME (_, bvi) => SOME (bvi_to_data$compile_prog bvi)” |> rconc;
-val word0_prog_opt = cv_eval “case ^data_prog_opt of NONE => (NONE : (num # num # 64 prog) list option) | SOME data => SOME (icompile_data_to_word ^data_conf_lvs data)” |> rconc; (* not translated ?*)
-val word0_prog = word0_prog_opt |> optionSyntax.dest_some;
-val _ = cv_eval “to_livesets_0_alt_x64 (^word_conf, ^word0_prog)”
+val (source_iconf', flat_prog) = cv_eval “icompile_source_to_flat ^source_iconf_lvs ^prog” |> rconc |> optionSyntax.dest_some |> pairSyntax.dest_pair;
+val clos_prog = cv_eval “icompile_flat_to_clos ^flat_prog” |> rconc;
+val (clos_iconf', bvl_prog) = cv_eval “icompile_clos_to_bvl ^clos_iconf_lvs ^clos_prog” |> rconc |> pairSyntax.dest_pair;
+val (bvl_iconf', bvi_prog) = cv_eval “icompile_bvl_to_bvi ^bvl_iconf_lvs ^bvl_prog” |> rconc |> pairSyntax.dest_pair;
+val data_prog = cv_eval “bvi_to_data$compile_prog ^bvi_prog” |> rconc;
+val word0_prog = cv_eval “(icompile_data_to_word ^data_conf_lvs ^data_prog) : (num # num # 64 wordLang$prog) list” |> rconc;
+val (reg_count_and_lvs_data_prog, word_prog) = cv_eval “to_livesets_0_alt_x64 (^word_conf, ^word0_prog)” |> rconc |> pairSyntax.dest_pair;
+val (reg_count_prog, lvs_data_prog) = pairSyntax.dest_pair reg_count_and_lvs_data_prog;
 
-    
-(* doesnt seem to eval properly *)
-(*val end_icompile = cv_eval “
- case ^res_opt of
- | NONE => NONE
- | SOME (source_iconf', clos_iconf', bvl_iconf', lvs_data', icompiled_p_livesets) =>
-     let (source_conf', clos_conf', bvl_conf', lvs_data_end, livesets_end) =
-         end_icompile_to_livesets_x64 source_iconf' ^source_conf
-                                      clos_iconf' ^clos_conf
-                                      bvl_iconf' ^bvl_conf
-                                      ^data_conf_lvs ^word_conf in
-       SOME (source_conf', clos_conf', bvl_conf', lvs_data' ++ lvs_data_end, ^livesets_init ++ icompiled_p_livesets ++ livesets_end)”
-*)
+
+val end_res = cv_eval “end_icompile_to_livesets_x64 ^source_iconf' ^source_conf
+                                                    ^clos_iconf' ^clos_conf
+                                                    ^bvl_iconf' ^bvl_conf
+                                                    ^data_conf_lvs ^word_conf”
+
+
 
 val _ = export_theory();
