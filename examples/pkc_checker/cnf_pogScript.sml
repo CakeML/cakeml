@@ -9,9 +9,23 @@ val _ = new_theory "cnf_pog";
   with 0 treated specially *)
 Type assignment = ``:num -> bool``;
 
-Definition var_lit_def[simp]:
+Definition var_lit_def:
   var_lit l = Num (ABS l)
 End
+
+Theorem var_lit_num[simp]:
+  var_lit (&n) = n
+Proof
+  rw[var_lit_def]
+QED
+
+Theorem var_lit_int[simp]:
+  n > 0 ⇒
+  &var_lit n = n
+Proof
+  rw[var_lit_def]>>
+  intLib.ARITH_TAC
+QED
 
 Definition match_lit_def:
   match_lit l b =
@@ -28,7 +42,7 @@ Theorem sat_lit_neg[simp]:
   sat_lit w (-l) =
   ¬sat_lit w l
 Proof
-  rw[sat_lit_def,match_lit_def]>>
+  rw[sat_lit_def,match_lit_def,var_lit_def]>>
   `F` by intLib.ARITH_TAC
 QED
 
@@ -36,8 +50,16 @@ Theorem sat_lit_num[simp]:
   v ≠ 0 ⇒
   sat_lit w (&v) = w v
 Proof
-  rw[sat_lit_def,match_lit_def]>>
+  rw[sat_lit_def,match_lit_def,var_lit_def]>>
   `F` by intLib.ARITH_TAC
+QED
+
+Theorem sat_lit_eq:
+  w (var_lit e) = w' (var_lit e)
+  ⇒
+  (sat_lit w e = sat_lit w' e)
+Proof
+  rw[sat_lit_def]
 QED
 
 Definition sat_clause_def:
@@ -112,11 +134,11 @@ End
 Theorem vars_clause_cons[simp]:
   x ≠ 0 ⇒
   vars_clause (x::C) =
-  Num (ABS x) INSERT vars_clause C
+  var_lit x INSERT vars_clause C
 Proof
   rw[vars_clause_def,EXTENSION]>>
   eq_tac>>rw[]
-  >- intLib.ARITH_TAC
+  >- (rw[var_lit_def]>>intLib.ARITH_TAC)
   >- metis_tac[]
   >- metis_tac[]
 QED
@@ -174,7 +196,7 @@ Type scp = ``:(num # scpn) list``
 Definition is_data_ext_lit_def:
   is_data_ext_lit D ls l ⇔
     var_lit l ∈ D ∨
-    ALOOKUP ls (var_lit l) ≠ NONE ∧ l > 0
+    var_lit l ∈ set (MAP FST ls) ∧ l > 0
 End
 
 Definition dir_scp_def:
@@ -493,7 +515,7 @@ QED
 
 Theorem sat_scp_ALOOKUP_NONE:
   ∀ns.
-  ALOOKUP ns (Num (ABS n)) = NONE ⇒
+  ALOOKUP ns (var_lit n) = NONE ⇒
   (sat_scp sko n ns w ⇔ sat_lit w n)
 Proof
   Induct>-rw[sat_scp_def]>>
@@ -588,7 +610,7 @@ Proof
       last_x_assum drule>>
       strip_tac>>
       rename1`MEM yy ls`>>
-      qexists_tac`λy. if y = Num(ABS yy) then yy > 0 else w y`>>
+      qexists_tac`λy. if y = var_lit yy then yy > 0 else w y`>>
       CONJ_TAC >- (
          rw[agree_on_def] >>
          `y ∉ P` by (gvs[EXTENSION]>>metis_tac[])>>
@@ -795,7 +817,7 @@ End
 Definition get_node_vars_def:
   get_node_vars Ev ls =
   FOLDL (λt i.
-    case lookup (Num (ABS i)) Ev of
+    case lookup (var_lit i) Ev of
       NONE => t
     | SOME vs => union t vs) LN ls
 End
@@ -882,7 +904,7 @@ Definition check_scpstep_def:
       NONE => NONE
     | SOME md =>
       if md_lat md (SOME T) ∧
-        EVERY (λi. ¬is_fresh pc sc (Num (ABS i))) C
+        EVERY (λi. ¬is_fresh pc sc (var_lit i)) C
       then
         OPTION_MAP (λfml'. (fml',sc))
           (insert_one pc sc NONE fml n C)
@@ -1228,16 +1250,20 @@ Theorem agree_on_vars_clause:
   (sat_clause w C ⇔ sat_clause w' C)
 Proof
   rw[vars_clause_def,agree_on_def,PULL_EXISTS,sat_clause_def]>>
-  gvs[sat_lit_def,match_lit_def]>>
+  gvs[sat_lit_def,match_lit_def,var_lit_def]>>
   metis_tac[]
 QED
+
+Theorem equiv_imp_imp = METIS_PROVE [] ``(!x. (P x ⇒ (Q x ⇔ R x))) ⇒ ((!x. P x ⇒ Q x) ⇔ (!x. P x ⇒ R x))``;
+
+Theorem equiv_imp_imp_2 = METIS_PROVE [] ``(!x. (P x ⇒ (Q x ⇔ R x))) ⇒ ((?x. P x ∧ Q x) ⇔ (?x. P x ∧ R x))``;
 
 Theorem agree_on_vars_fml:
   agree_on (vars_fml fml) w w' ⇒
   (sat_fml w fml ⇔ sat_fml w' fml)
 Proof
   rw[vars_fml_def,sat_fml_def]>>
-  ho_match_mp_tac (METIS_PROVE [] ``(!x. (P x ⇒ (Q x ⇔ R x))) ⇒ ((!x. P x ⇒ Q x) ⇔ (!x. P x ⇒ R x))``)>>
+  ho_match_mp_tac equiv_imp_imp>>
   rw[]>>
   match_mp_tac agree_on_vars_clause>>
   irule agree_on_SUBSET>>
@@ -1447,7 +1473,7 @@ QED
 Theorem vars_clause_MAP_neg[simp]:
   vars_clause (MAP (λl. -l) ls) = vars_clause ls
 Proof
-  rw[vars_clause_def,EXTENSION,MEM_MAP]>>
+  rw[vars_clause_def,EXTENSION,MEM_MAP,var_lit_def]>>
   eq_tac>>rw[]>>
   first_x_assum (irule_at Any)>>
   intLib.ARITH_TAC
@@ -1460,7 +1486,7 @@ Theorem vars_fml_mk_pro:
 Proof
   rw[mk_pro_def,mk_sko_def,vars_fml_def]>>
   simp[LIST_TO_SET_MAP,IMAGE_IMAGE,o_DEF]>>
-  rw[EXTENSION,vars_clause_def,PULL_EXISTS]>>
+  rw[EXTENSION,vars_clause_def,PULL_EXISTS,var_lit_def]>>
   eq_tac>>rw[]
   >- metis_tac[]
   >- metis_tac[]>>
@@ -1474,11 +1500,22 @@ Theorem vars_fml_mk_sum:
 Proof
   rw[mk_sum_def,vars_fml_def]>>
   simp[LIST_TO_SET_MAP,IMAGE_IMAGE,o_DEF]>>
-  rw[EXTENSION,vars_clause_def,PULL_EXISTS]>>
+  rw[EXTENSION,vars_clause_def,PULL_EXISTS,var_lit_def]>>
   eq_tac>>rw[]
   >- metis_tac[]
   >- metis_tac[]>>
   gvs[EVERY_MEM]>> metis_tac[]
+QED
+
+Theorem vars_fml_mk_sko:
+  v ≠ 0 ∧ EVERY (λi. i ≠ 0) ls ⇒
+  vars_fml (set (mk_sko v ls)) ⊆
+  v INSERT IMAGE var_lit (set ls)
+Proof
+  rw[mk_sko_def,vars_fml_def]>>
+  simp[LIST_TO_SET_MAP,IMAGE_IMAGE,o_DEF]>>
+  rw[SUBSET_DEF,vars_clause_def,PULL_EXISTS,var_lit_def]>>
+  metis_tac[]
 QED
 
 Theorem domain_mk_Ev[simp]:
@@ -1554,7 +1591,7 @@ Proof
     drule get_fml_insert_one_SOME>>
     drule get_fml_insert_list_SOME>>rw[]
     >-
-      simp[vars_clause_def]
+      simp[vars_clause_def,var_lit_def]
     >- (
       gvs[SUBSET_DEF]>>
       metis_tac[]))
@@ -1632,7 +1669,7 @@ Definition mk_enc_one_def:
   | Sko ls =>
     if md
     then [[(&v):int]]
-    else mk_pro v ls
+    else mk_sko v ls
 End
 
 Definition final_conditions_def:
@@ -1694,21 +1731,44 @@ Proof
     rw[]>>gvs[]>>
     simp[sat_lit_def,match_lit_def]>>
     match_mp_tac EXISTS_CONG>>gvs[EVERY_MEM])
-  >-
-    gvs[sat_lit_def,match_lit_def]
 QED
 
-(* TODO: this proof may be hard *)
-Theorem sat_scp_mk_enc_one:
-  D ∩ E = {} ⇒
-  ∀ns r.
+Theorem dir_scp_vars_fml_mk_enc_one:
+  ∀ns.
   dir_scp D P E ns ∧
   EVERY wf_scp ns ∧
-  is_data_ext_lit D ns r ⇒
+  MEM n ns ⇒
+  vars_fml (set (mk_enc_one F n)) ⊆ D ∪ P ∪ set (MAP FST ns)
+Proof
+  Induct>-rw[]>>
+  reverse (Cases>>gvs[dir_scp_def]>>rw[]>>gvs[])
+  >-
+    (gvs[SUBSET_DEF]>>metis_tac[])>>
+  gvs[AllCasePreds(),mk_enc_one_def,wf_scp_def]
+  >- (
+    gvs[vars_fml_mk_pro,is_data_ext_lit_def,EVERY_MEM,SUBSET_DEF,MEM_MAP]>>
+    metis_tac[ALOOKUP_MEM,FST])
+  >- (
+    gvs[vars_fml_mk_sum,is_data_ext_lit_def,EVERY_MEM,SUBSET_DEF,MEM_MAP]>>
+    metis_tac[ALOOKUP_MEM,FST])
+  >- (
+    irule SUBSET_TRANS>>
+    irule_at Any vars_fml_mk_sko>>
+    gvs[EVERY_MEM,SUBSET_DEF,PULL_EXISTS])
+QED
+
+Theorem sat_scp_mk_enc_one:
+  D ∩ E = {} ∧ P ∩ E = {} ⇒
+  ∀ns.
+  dir_scp D P E ns ∧
+  EVERY wf_scp ns ∧
+  ALL_DISTINCT (MAP FST ns) ⇒
   ∃w'.
-    agree_on D w w' ∧
-    EVERY (λn. sat_fml w' (set (mk_enc_one F n))) ns ∧
-    (sat_scp T r ns w ⇔ sat_lit w' r)
+    agree_on (UNIV DIFF E) w w' ∧
+    EVERY (λn.
+      sat_fml w' (set (mk_enc_one F n)) ∧
+      (sat_scp T (&(FST n)) ns w ⇔ sat_lit w' (&(FST n)))
+    ) ns
 Proof
   strip_tac>>
   Induct
@@ -1717,22 +1777,103 @@ Proof
     metis_tac[agree_on_refl])>>
   Cases>>rw[]>>
   gvs[dir_scp_def]>>
-  reverse (rw[sat_scp_def])
+  rename1`agree_on _ w w'`>>
+  rename1`wf_scp (q,r)`>>
+  `&q > 0i` by (
+      gvs[wf_scp_def]>>
+      intLib.ARITH_TAC)>>
+  qexists_tac`λx. if x = q then sat_scp T (&q) ((q,r)::ns) w else w' x`>>
+  rw[]
+  >- (gvs[agree_on_def] >> rw[])
   >- (
-    rename1`is_data_ext_lit _ _ rr`>>
-    first_x_assum(qspec_then`rr` mp_tac)>>
-    impl_tac >-
-      gvs[is_data_ext_lit_def]>>
-    rw[]>>
-    cheat)>>
-  cheat
+    simp[sat_scp_def,mk_enc_one_def]>>
+    Cases_on`r`>>gvs[wf_scp_def]
+    >- ( (* Pro *)
+      gvs[mk_pro_sem,sat_scp_def,match_lit_def,EVERY_MEM]>>
+      ho_match_mp_tac equiv_imp_imp>>
+      rw[]>>
+      first_x_assum drule>>
+      rw[is_data_ext_lit_def]
+      >- (
+        DEP_REWRITE_TAC[sat_scp_ALOOKUP_NONE]>>
+        rw[]
+        >- (
+          drule dir_scp_MAP_FST>>
+          gvs[ALOOKUP_NONE,SUBSET_DEF,MEM_MAP,PULL_EXISTS,EXTENSION]>>
+          metis_tac[])>>
+        match_mp_tac sat_lit_eq>>
+        gvs[agree_on_def,EXTENSION]>>rw[]>>
+        metis_tac[])>>
+      gvs[MEM_MAP]>>
+      last_x_assum drule>>rw[]>>
+      `&FST y = e` by metis_tac[var_lit_int]>>
+      gvs[]>>
+      match_mp_tac sat_lit_eq>>
+      gvs[agree_on_def,EXTENSION,MEM_MAP]>>rw[]>>
+      metis_tac[FST,sat_lit_eq,var_lit_num])
+    >- ( (* Sum *)
+      gvs[mk_sum_sem,sat_scp_def,match_lit_def,EXISTS_MEM,EVERY_MEM]>>
+      ho_match_mp_tac equiv_imp_imp_2>>
+      rw[]>>
+      first_x_assum drule>>
+      rw[is_data_ext_lit_def]
+      >- (
+        DEP_REWRITE_TAC[sat_scp_ALOOKUP_NONE]>>
+        rw[]
+        >- (
+          drule dir_scp_MAP_FST>>
+          gvs[ALOOKUP_NONE,SUBSET_DEF,MEM_MAP,PULL_EXISTS,EXTENSION]>>
+          metis_tac[])>>
+        match_mp_tac sat_lit_eq>>
+        gvs[agree_on_def,EXTENSION]>>rw[]>>
+        metis_tac[])>>
+      gvs[MEM_MAP]>>
+      last_x_assum drule>>rw[]>>
+      `&FST y = e` by metis_tac[var_lit_int]>>
+      gvs[]>>
+      match_mp_tac sat_lit_eq>>
+      gvs[agree_on_def,EXTENSION,MEM_MAP]>>rw[]>>
+      metis_tac[FST])
+    >- ( (* Sko *)
+      gvs[mk_sko_sem,sat_scp_def,match_lit_def,EVERY_MEM]>>
+      rw[]>>first_x_assum drule>>
+      DEP_REWRITE_TAC[sat_scp_ALOOKUP_NONE]>>
+      CONJ_TAC
+      >- (
+        drule dir_scp_MAP_FST>>
+        gvs[ALOOKUP_NONE,MEM_MAP,SUBSET_DEF,EXTENSION]>>
+        metis_tac[])>>
+      match_mp_tac EQ_IMPLIES>>
+      match_mp_tac sat_lit_eq>>
+      gvs[agree_on_def,EXTENSION,MEM_MAP]>>rw[]>>
+      metis_tac[FST]))
+  >- simp[sat_lit_def,match_lit_def]
+  >- (
+    gvs[EVERY_MEM]>>rw[]>>
+    last_x_assum drule>>rw[]
+    >- (
+      qpat_x_assum`sat_fml _ _` mp_tac>>
+      match_mp_tac EQ_IMPLIES>>
+      match_mp_tac agree_on_vars_fml>>
+      rw[agree_on_def]>>rw[]>>
+      drule dir_scp_vars_fml_mk_enc_one>>
+      simp[EVERY_MEM]>>
+      disch_then drule>>
+      rw[SUBSET_DEF]>>gvs[EXTENSION]>>
+      metis_tac[])
+    >- (
+      simp[Once sat_scp_def]>>
+      `q ≠ FST n` by
+        (gvs[MEM_MAP]>>metis_tac[])>>
+      simp[sat_lit_def]))
 QED
 
 Theorem final_conditions_extends_over:
-  D ∩ E = {} ∧
+  D ∩ E = {} ∧ P ∩ E = {} ∧
   dir_scp D P E ns ∧
   EVERY wf_scp ns ∧ r ≠ 0 ∧
   is_data_ext_lit D ns r ∧
+  ALL_DISTINCT (MAP FST ns) ∧
   final_conditions fml r ns ⇒
   extends_over D (λw. sat_fml w (get_fml (SOME T) fml)) (sat_scp F r ns) ∧
   extends_over D (sat_scp T r ns) (λw. sat_fml w (get_fml (SOME F) fml))
@@ -1756,14 +1897,36 @@ Proof
     gvs[md_lat_def]>>
     Cases_on`b`>>gvs[md_lat_def])
   >- (
-    drule sat_scp_mk_enc_one>>
-    disch_then drule>>
+    drule_at Any sat_scp_mk_enc_one>>
+    simp[]>>disch_then (drule_at Any)>>
     simp[]>>
-    disch_then drule>>
     disch_then(qspec_then`w` assume_tac)>>gvs[]>>
-    asm_exists_tac>>rw[sat_fml_def]>>
+    rename1`agree_on _ w w'`>>
+    qexists_tac`w'`>>rw[]
+    >- (
+      irule agree_on_SUBSET>>
+      first_x_assum (irule_at Any)>>
+      gvs[SUBSET_DEF,EXTENSION]>>
+      metis_tac[])>>
+    rw[sat_fml_def]>>
     first_x_assum drule>>rw[]>>
-    gvs[EVERY_MEM]>>
+    gvs[EVERY_MEM]
+    >- (
+      gvs[is_data_ext_lit_def]
+      >- (
+        qpat_x_assum`sat_scp _ _ _ _` mp_tac>>
+        DEP_REWRITE_TAC[sat_scp_ALOOKUP_NONE]>>
+        drule dir_scp_MAP_FST>>
+        simp[ALOOKUP_NONE,MEM_MAP,SUBSET_DEF,PULL_EXISTS]>>
+        gvs[EXTENSION]>>rw[]
+        >- metis_tac[]>>
+        gvs[agree_on_def,sat_lit_def,match_lit_def,EXTENSION]>>
+        metis_tac[])
+      >>
+        gvs[MEM_MAP]>>
+        first_x_assum drule>>rw[]>>
+        `&FST y = r` by metis_tac[var_lit_int]>>
+        gvs[])>>
     metis_tac[sat_fml_def])
 QED
 
@@ -1826,9 +1989,10 @@ Definition conf_inv_def:
   dir_scp (domain pc.D)
     (count (pc.n+1) DIFF domain pc.D) (domain sc.Ev) sc.scp ∧
   EVERY wf_scp sc.scp ∧
+  ALL_DISTINCT (MAP FST sc.scp) ∧
   (∀n v.
     lookup n sc.Ev = SOME v ⇔
-    (ALOOKUP sc.scp n ≠ NONE ∧
+    (MEM n (MAP FST sc.scp) ∧
     vars_scp F (&n) sc.scp = domain v)) ∧
   (∀r. decomposable_scp T r sc.scp) ∧
   case sc.root of
@@ -1840,7 +2004,7 @@ End
 
 Theorem is_data_ext_lit_run_sem:
   (∀n v. lookup n Ev = SOME v ⇔
-    ALOOKUP scp n ≠ NONE ∧ vars_scp F (&n) scp = domain v) ∧
+    MEM n (MAP FST scp) ∧ vars_scp F (&n) scp = domain v) ∧
   is_data_ext_lit_run D Ev i ⇒
   is_data_ext_lit (domain D) scp i
 Proof
@@ -1909,7 +2073,7 @@ Proof
   disch_then (drule_at Any)>>
   disch_then (drule_at Any)>>
   impl_tac >- (
-    gvs[good_pc_def,SUBSET_DEF,EXTENSION]>>
+    gvs[good_pc_def,SUBSET_DEF,EXTENSION,conf_inv_def]>>
     metis_tac[])>>
   rw[]>>
   gvs[extends_over_def]>>
