@@ -1,7 +1,7 @@
 (*
   Definition of CP problem syntax and semantics
 *)
-open preamble mlintTheory;
+open preamble mlintTheory pbcTheory;
 
 val _ = new_theory "cp";
 
@@ -41,12 +41,29 @@ Definition abs_sem_def:
     varc w X = ABS (varc w Y)
 End
 
+Type iclin_term = ``:(int # 'a varc) list ``
+
+Definition eval_icterm_def[simp]:
+  eval_icterm w (c:int,X) = c * varc w X
+End
+
+Definition eval_iclin_term_def:
+  eval_iclin_term w (xs:'a iclin_term) =
+    iSUM (MAP (eval_icterm w) xs)
+End
+
+Definition ilc_sem_def:
+  ilc_sem (Xs : 'a iclin_term) op rhs (w:'a assignment) ⇔
+  do_op op (eval_iclin_term w Xs) rhs
+End
+
 Datatype:
   constraint =
     NotEquals ('a varc) ('a varc)
   | AllDifferent ('a varc list)
   | Element ('a varc) ('a varc) ('a varc list)
   | Abs ('a varc) ('a varc)
+  | Ilc ('a iclin_term) pbop int
 End
 
 Definition constraint_sem_def:
@@ -56,6 +73,7 @@ Definition constraint_sem_def:
   | AllDifferent As => all_different_sem As w
   | Element R X As => element_sem R X As w
   | Abs X Y => abs_sem X Y w
+  | Ilc Xs op rhs => ilc_sem Xs op rhs w
 End
 
 Definition valid_assignment_def:
