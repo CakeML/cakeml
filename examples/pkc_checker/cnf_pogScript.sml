@@ -816,15 +816,36 @@ End
 
 Definition get_node_vars_def:
   get_node_vars Ev ls =
-  FOLDL (λt i.
+  MAP (λi.
     case lookup (var_lit i) Ev of
-      NONE => t
-    | SOME vs => union t vs) LN ls
+      NONE => (insert (var_lit i) () LN)
+    | SOME vs => vs) ls
+End
+
+Definition big_union_def:
+  big_union ts = FOLDL union LN ts
 End
 
 Definition mk_Ev_def:
   mk_Ev Ev v ls =
-    insert v (get_node_vars Ev ls) Ev
+    insert v (big_union (get_node_vars Ev ls)) Ev
+End
+
+Definition big_disjoint_union_def:
+  big_disjoint_union ts =
+    FOLDL
+    (\t i.
+      case t of NONE => NONE
+      | SOME tt =>
+        if isEmpty (inter i tt) then
+          SOME (union i tt)
+        else NONE) (SOME LN) ts
+End
+
+Definition mk_Ev_disj_def:
+  mk_Ev_disj Ev v ls =
+    OPTION_MAP (\t. insert v t Ev)
+    (big_disjoint_union (get_node_vars Ev ls))
 End
 
 Definition declare_pro_def:
@@ -832,10 +853,12 @@ Definition declare_pro_def:
   if
     check_pro pc sc v ls
   then
+    case mk_Ev_disj sc.Ev v ls of NONE => NONE
+    | SOME Ev =>
     SOME (mk_pro v ls,
       (sc with
         <| scp := (v,Pro ls)::sc.scp;
-           Ev := mk_Ev sc.Ev v ls|>))
+           Ev := Ev|>))
   else
     NONE
 End
@@ -866,9 +889,17 @@ Definition declare_sum_def:
     NONE
 End
 
+Definition is_proj_lit_run_def:
+  is_proj_lit_run n D l ⇔
+    let v = var_lit l in
+    lookup v D = NONE ∧
+    v ≤ n
+End
+
 Definition check_sko_def:
   check_sko pc sc v ls =
-    (v ≠ 0n ∧ EVERY (λi. i ≠ 0i) ls ∧
+    (EVERY (is_proj_lit_run pc.n pc.D) ls ∧
+    v ≠ 0n ∧ EVERY (λi. i ≠ 0i) ls ∧
     is_fresh pc sc v)
 End
 
@@ -877,10 +908,12 @@ Definition declare_sko_def:
   if
     check_sko pc sc v ls
   then
+    case mk_Ev_disj sc.Ev v ls of NONE => NONE
+    | SOME Ev =>
     SOME ([(&v):int], mk_sko v ls,
       (sc with
         <| scp := (v,Sko ls)::sc.scp;
-           Ev := mk_Ev sc.Ev v ls|>))
+           Ev := Ev|>))
   else
     NONE
 End
@@ -1558,7 +1591,7 @@ Proof
     first_x_assum (irule_at Any)>>
     metis_tac[get_fml_delete_SUBSET,vars_fml_SUBSET])
   >- (
-    gvs[declare_pro_def,check_pro_def]>>
+    gvs[declare_pro_def,check_pro_def,AllCaseEqs(),mk_Ev_disj_def]>>
     drule_all vars_fml_mk_pro>>
     drule get_fml_insert_list_NONE>>rw[]
     >- (
@@ -1586,7 +1619,7 @@ Proof
       gvs[SUBSET_DEF]>>
       metis_tac[]) )
   >- (
-    gvs[declare_sko_def,check_sko_def]>>
+    gvs[declare_sko_def,check_sko_def,AllCaseEqs(),mk_Ev_disj_def]>>
     drule_all vars_fml_mk_pro>>
     drule get_fml_insert_one_SOME>>
     drule get_fml_insert_list_SOME>>rw[]
@@ -1989,11 +2022,10 @@ Definition conf_inv_def:
   dir_scp (domain pc.D)
     (count (pc.n+1) DIFF domain pc.D) (domain sc.Ev) sc.scp ∧
   EVERY wf_scp sc.scp ∧
-  ALL_DISTINCT (MAP FST sc.scp) ∧
+  ALL_DISTINCT (MAP FST sc.scp) ∧ domain sc.Ev = set (MAP FST sc.scp) ∧
   (∀n v.
-    lookup n sc.Ev = SOME v ⇔
-    (MEM n (MAP FST sc.scp) ∧
-    vars_scp F (&n) sc.scp = domain v)) ∧
+    lookup n sc.Ev = SOME v ⇒
+    vars_scp T (&n) sc.scp = domain v) ∧
   (∀r. decomposable_scp T r sc.scp) ∧
   case sc.root of
     NONE => T
@@ -2003,13 +2035,12 @@ Definition conf_inv_def:
 End
 
 Theorem is_data_ext_lit_run_sem:
-  (∀n v. lookup n Ev = SOME v ⇔
-    MEM n (MAP FST scp) ∧ vars_scp F (&n) scp = domain v) ∧
-  is_data_ext_lit_run D Ev i ⇒
+  domain (Ev:num_set num_map) = set (MAP FST scp) ∧
+  is_data_ext_lit_run (D:num_set) Ev i ⇒
   is_data_ext_lit (domain D) scp i
 Proof
   rw[is_data_ext_lit_run_def,is_data_ext_lit_def] >>
-  gvs[domain_lookup]>>
+  gvs[domain_lookup,MEM_MAP,EXTENSION]>>
   metis_tac[lookup_unit_cases,option_CLAUSES]
 QED
 
@@ -2020,23 +2051,289 @@ Proof
   rw[conf_inv_def]
 QED
 
+Theorem INTER_INSERT:
+  A ∩ (x INSERT B) =
+  if x ∈ A then x INSERT (A ∩ B) else A ∩ B
+Proof
+  rw[EXTENSION]>>metis_tac[]
+QED
+
+Theorem dir_scp_more_E[simp]:
+  ∀ns.
+  dir_scp D P E ns ⇒
+  dir_scp D P (x INSERT E) ns
+Proof
+  Induct>-rw[dir_scp_def]>>
+  Cases>>rw[dir_scp_def]
+QED
+
+Theorem is_data_ext_lit_more_ls[simp]:
+  is_data_ext_lit D ls l ⇒
+  is_data_ext_lit D (n::ls) l
+Proof
+  rw[is_data_ext_lit_def]>>
+  metis_tac[]
+QED
+
+Theorem vars_scp_ALOOKUP_NONE:
+  ∀ns.
+  ALOOKUP ns (var_lit n) = NONE ⇒
+  vars_scp b n ns = {var_lit n}
+Proof
+  Induct>-rw[vars_scp_def]>>
+  Cases>>
+  rw[vars_scp_def]
+QED
+
+Theorem domain_FOLDL_union:
+  ∀ls tt.
+  domain (FOLDL union tt ls) =
+  domain tt ∪ BIGUNION (IMAGE domain (set ls))
+Proof
+  Induct>>rw[]>>
+  metis_tac[UNION_ASSOC]
+QED
+
+Theorem domain_big_union:
+  domain (big_union ls) =
+  BIGUNION (IMAGE domain (set ls))
+Proof
+  simp[big_union_def,domain_FOLDL_union]
+QED
+
+Theorem domain_FOLDL_disj_NONE[simp]:
+  ∀ls.
+  FOLDL
+    (\t i.
+      case t of NONE => NONE
+      | SOME tt =>
+        if isEmpty (inter i tt) then
+          SOME (union i tt)
+        else NONE) NONE ls = NONE
+Proof
+  Induct>>rw[]
+QED
+
+Theorem domain_FOLDL_disj_union:
+  ∀ls tt.
+  FOLDL
+    (\t i.
+      case t of NONE => NONE
+      | SOME tt =>
+        if isEmpty (inter i tt) then
+          SOME (union i tt)
+        else NONE) (SOME tt) ls = SOME res ⇒
+  domain res = domain tt ∪ BIGUNION (IMAGE domain (set ls)) ∧
+  all_disjoint (domain tt :: MAP domain ls)
+Proof
+  Induct>-
+    rw[all_disjoint_def]>>
+  simp[]>>
+  ntac 2 strip_tac>>
+  IF_CASES_TAC>>gvs[]>>
+  strip_tac>>
+  first_x_assum drule>>
+  rw[]
+  >- metis_tac[UNION_COMM,UNION_ASSOC]>>
+  gvs[all_disjoint_CONS,inter_eq_LN]>>
+  metis_tac[DISJOINT_SYM]
+QED
+
+Theorem domain_big_disjoint_union:
+  big_disjoint_union ls = SOME res ⇒
+  domain res = BIGUNION (IMAGE domain (set ls)) ∧
+  all_disjoint (MAP domain ls)
+Proof
+  simp[big_disjoint_union_def]>>
+  rw[]>>
+  drule domain_FOLDL_disj_union>>simp[all_disjoint_CONS]
+QED
+
+Theorem lookup_mk_Ev:
+  EVERY (λx. x > 0 ∨ lookup(var_lit x) Ev = NONE) ls ∧
+  (∀n. lookup n Ev = NONE ⇒ ALOOKUP scp n = NONE) ∧
+  (∀n res. lookup n Ev = SOME res ⇒ vars_scp b (&n) scp = domain res) ∧
+  lookup n (mk_Ev Ev v ls) = SOME res ⇒
+  if n = v then
+    domain res =
+      BIGUNION (IMAGE (λi. vars_scp b i scp) (set ls))
+  else lookup n Ev = SOME res
+Proof
+  rw[mk_Ev_def,lookup_insert]>>
+  simp[domain_big_union]>>
+  AP_TERM_TAC>>
+  simp[get_node_vars_def,LIST_TO_SET_MAP,IMAGE_IMAGE,o_DEF]>>
+  match_mp_tac IMAGE_CONG>>rw[]>>
+  TOP_CASE_TAC>>rw[domain_insert]
+  >- (
+    first_x_assum drule>>
+    metis_tac[vars_scp_ALOOKUP_NONE])
+  >>
+    first_x_assum drule>>
+    gvs[EVERY_MEM]>>first_x_assum drule>>rw[]
+QED
+
+Theorem lookup_mk_Ev_disj:
+  EVERY (λx. x > 0 ∨ lookup(var_lit x) Ev = NONE) ls ∧
+  (∀n. lookup n Ev = NONE ⇒ ALOOKUP scp n = NONE) ∧
+  (∀n res. lookup n Ev = SOME res ⇒ vars_scp b (&n) scp = domain res) ∧
+  mk_Ev_disj Ev v ls = SOME Ev' ∧
+  lookup n Ev' = SOME res ⇒
+  if n = v then
+    domain res =
+      BIGUNION (IMAGE (λi. vars_scp b i scp) (set ls))
+  else lookup n Ev = SOME res
+Proof
+  rw[mk_Ev_disj_def]>>gvs[lookup_insert]>>
+  drule domain_big_disjoint_union>>rw[]>>
+  AP_TERM_TAC>>
+  simp[get_node_vars_def,LIST_TO_SET_MAP,IMAGE_IMAGE,o_DEF]>>
+  match_mp_tac IMAGE_CONG>>rw[]>>
+  TOP_CASE_TAC>>rw[domain_insert]
+  >- (
+    first_x_assum drule>>
+    metis_tac[vars_scp_ALOOKUP_NONE])
+  >>
+    first_x_assum drule>>
+    gvs[EVERY_MEM]>>first_x_assum drule>>rw[]
+QED
+
+Theorem domain_mk_Ev_disj:
+  mk_Ev_disj Ev v ls = SOME Ev' ⇒
+  domain Ev' = v INSERT domain Ev
+Proof
+  rw[mk_Ev_disj_def]>>simp[domain_insert]
+QED
+
+Theorem all_disjoint_mk_Ev_disj:
+  EVERY (λx. x > 0 ∨ lookup(var_lit x) Ev = NONE) ls ∧
+  (∀n. lookup n Ev = NONE ⇒ ALOOKUP scp n = NONE) ∧
+  (∀n res. lookup n Ev = SOME res ⇒ vars_scp b (&n) scp = domain res) ∧
+  mk_Ev_disj Ev v ls = SOME Ev' ⇒
+  all_disjoint (MAP (λi. vars_scp b i scp) ls)
+Proof
+  rw[]>>
+  gvs[mk_Ev_disj_def]>>
+  drule domain_big_disjoint_union>>
+  rw[]>>
+  qmatch_asmsub_abbrev_tac`all_disjoint A`>>
+  qmatch_goalsub_abbrev_tac`all_disjoint B`>>
+  `A = B` by (
+    unabbrev_all_tac>>
+    simp[get_node_vars_def,MAP_MAP_o,o_DEF,MAP_EQ_f]>>rw[]>>
+    TOP_CASE_TAC>>rw[domain_insert]
+    >- (
+      first_x_assum drule>>
+      metis_tac[vars_scp_ALOOKUP_NONE])
+    >>
+      first_x_assum drule>>
+      gvs[EVERY_MEM]>>first_x_assum drule>>rw[])>>
+  gvs[]
+QED
+
 Theorem check_scpstep_conf_inv:
+  good_pc pc ∧
   check_scpstep pc fml sc scpstep = SOME (fml',sc') ∧
   conf_inv pc sc ⇒
   conf_inv pc sc'
 Proof
+  rw[]>>
+  `domain pc.D ∩ domain sc.Ev = {}` by (
+    gvs[good_pc_def,conf_inv_def,EXTENSION,SUBSET_DEF]>>
+    metis_tac[])>>
+  `(∀n. lookup n sc.Ev = NONE ⇒ ALOOKUP sc.scp n = NONE)` by  (
+      gvs[conf_inv_def,ALOOKUP_NONE,EXTENSION]>>
+      metis_tac[domain_lookup,option_CLAUSES])>>
   Cases_on`scpstep`>>
-  simp[check_scpstep_def]>>
-  rw[]>>gvs[AllCaseEqs()]
+  gvs[check_scpstep_def,AllCaseEqs()]
   >- (
     gvs[declare_root_def,conf_inv_def,AllCaseEqs()]>>
     metis_tac[is_data_ext_lit_run_sem])
   >- gvs[fix_mode_def]
-  >> cheat
+  >- (
+    gvs[declare_pro_def,check_pro_def,conf_inv_def,is_fresh_def,wf_scp_def,AllCaseEqs()]>>
+    `EVERY (λx. x > 0 ∨ lookup (var_lit x) sc.Ev = NONE) l` by (
+      gvs[EVERY_MEM]>>rw[]>>last_x_assum drule>>
+      simp[is_data_ext_lit_run_def]>>
+      CCONTR_TAC>>gvs[EXTENSION,domain_lookup]>>
+      metis_tac[lookup_unit_cases,option_CLAUSES])>>
+    drule domain_mk_Ev_disj>>
+    rw[]
+    >-
+      gvs[INTER_INSERT]
+    >- (
+      gvs[dir_scp_def,EVERY_MEM]>>
+      rw[]>>
+      irule is_data_ext_lit_run_sem>>
+      metis_tac[])
+    >- (
+      gvs[domain_lookup,EXTENSION]>>
+      metis_tac[option_CLAUSES])
+    >- (
+      drule_at Any lookup_mk_Ev_disj>>
+      rpt(disch_then (drule_at Any))>>
+      rw[vars_scp_def])
+    >- (
+      simp[decomposable_scp_def]>>
+      rw[]>> irule all_disjoint_mk_Ev_disj>>
+      rpt (first_x_assum (irule_at Any))>>
+      gvs[])
+    >- gvs[AllCasePreds()])
+  >- (
+    gvs[declare_sum_def,check_sum_def,conf_inv_def,is_fresh_def,INTER_INSERT,wf_scp_def]>>
+    `EVERY (λx. x > 0 ∨ lookup (var_lit x) sc.Ev = NONE) [i;i0]` by (
+      gvs[is_data_ext_lit_run_def]>>
+      CCONTR_TAC>>gvs[EXTENSION,domain_lookup]>>
+      metis_tac[lookup_unit_cases,option_CLAUSES])>>
+    rw[]
+    >- (
+      gvs[dir_scp_def,EVERY_MEM]>>
+      rw[]>>
+      irule is_data_ext_lit_run_sem>>
+      metis_tac[])
+    >- (
+      gvs[domain_lookup,EXTENSION]>>
+      metis_tac[option_CLAUSES])
+    >- (
+      drule_at Any lookup_mk_Ev>>
+      rpt(disch_then (drule_at Any))>>
+      rw[vars_scp_def])
+    >- simp[decomposable_scp_def]
+    >- gvs[AllCasePreds()])
+  >- (
+    gvs[declare_sko_def,check_sko_def,conf_inv_def,is_fresh_def,wf_scp_def,AllCaseEqs()]>>
+    `EVERY (λx. x > 0 ∨ lookup (var_lit x) sc.Ev = NONE) l` by (
+      gvs[EVERY_MEM]>>rw[]>>last_x_assum drule>>
+      gvs[is_proj_lit_run_def,EXTENSION]>>
+      rw[]>>last_x_assum drule>>rw[]>>
+      `var_lit x < pc.n + 1` by fs[]>>
+      DISJ2_TAC>>
+      metis_tac[option_CLAUSES,domain_lookup])>>
+    drule domain_mk_Ev_disj>>
+    rw[]
+    >-
+      gvs[INTER_INSERT]
+    >- (
+      gvs[dir_scp_def,EVERY_MEM,is_proj_lit_run_def]>>
+      rw[]>>last_x_assum drule>>simp[domain_lookup])
+    >- (
+      gvs[domain_lookup,EXTENSION]>>
+      metis_tac[option_CLAUSES])
+    >- (
+      drule_at Any lookup_mk_Ev_disj>>
+      rpt(disch_then (drule_at Any))>>
+      rw[vars_scp_def])
+    >- (
+      simp[decomposable_scp_def]>>
+      rw[]>> irule all_disjoint_mk_Ev_disj>>
+      rpt (first_x_assum (irule_at Any))>>
+      gvs[])
+    >- gvs[AllCasePreds()])
 QED
 
 Theorem check_scpsteps_conf_inv:
   ∀xs fml sc.
+  good_pc pc ∧
   check_scpsteps pc fml sc xs = SOME (fml',sc') ∧
   conf_inv pc sc ⇒
   conf_inv pc sc'
@@ -2065,6 +2362,7 @@ Proof
     metis_tac[])>>
   rw[init_sc_def]>>
   drule check_scpsteps_conf_inv>>
+  disch_then drule>>
   impl_tac>-
     gvs[conf_inv_def,init_sc_def,decomposable_scp_def,dir_scp_def]>>
   rw[conf_inv_def]>>
