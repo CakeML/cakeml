@@ -32,7 +32,8 @@ val res = cv_trans fib_def;
 
 (* time EVAL ``fib 2000 1 1``; *)
 (* time cv_eval ``fib 2000 1 1``; *)
-
+val arch_size = “:64”
+val arch_spec = INST_TYPE [alpha |-> arch_size];
 (* Some basic setup *)
 val _ = cv_auto_trans locationTheory.unknown_loc_def;
 val _ = cv_auto_trans source_to_sourceTheory.compile_def;
@@ -45,6 +46,10 @@ val _ = cv_auto_trans init_icompile_bvl_to_bvi_def;
 val _ = cv_trans bvi_to_dataTheory.compile_prog_def;
 val _ = cv_auto_trans icompile_source_to_flat_def;
 val _ = cv_auto_trans icompile_flat_to_clos_def;
+val eq = icompile_clos_to_bvl_prog_def |> SRULE [clos_to_bvlTheory.compile_exp_sing_eq]
+val _ = cv_auto_trans eq
+val _ = cv_auto_trans icompile_clos_to_bvl_def;
+val _ = cv_auto_trans (icompile_data_to_word_def |> arch_spec);
 val _ = cv_auto_trans end_icompile_source_to_flat_def;
 val _ = cv_auto_trans end_icompile_clos_to_bvl_def;
 val _ = cv_auto_trans end_icompile_bvl_to_bvi_def;
@@ -63,7 +68,7 @@ val stack_conf = EVAL ``^(c).stack_conf`` |> rconc;
 
 val prog = ``REPLICATE 10 (ast$Dlet unknown_loc Pany (Con NONE []))``;
 
-
+(*
 val res = cv_eval ``init_icompile_source_to_flat ^source_conf``;
 val (source_iconf,flat_stub) = pairSyntax.dest_pair (rconc res);
 val clos_stub = cv_eval “init_icompile_flat_to_clos ^flat_stub” |> rconc;
@@ -93,39 +98,51 @@ val res = cv_eval “
                let data_end = bvi_to_data$compile_prog bvi_end in
                  SOME (source_conf_after_ic, clos_conf_after_ic_bvi, bvl_conf_after_ic, ^data_init ++ icompiled_p_data ++ data_end)
 ”;
-
-
-
+*)
+             
 (* livesets *)
 
 val asm_spec_mem_list = CONJUNCTS asm_spec_memory;
 val (asm_spec, _) = asm_spec_raw asm_spec_mem_list x64_targetTheory.x64_config_def;
 val asm_spec' = fn th => asm_spec th |> snd
-val arch_size = “:64”
-val arch_spec = INST_TYPE [alpha |-> arch_size];
-
 
 val _ = cv_auto_trans (asm_spec' init_icompile_data_to_word_def |> arch_spec)
-val _ = cv_auto_trans (asm_spec' to_livesets_0_alt_def |> arch_spec )
+val _ = cv_auto_trans (to_livesets_0_x64_def);
+val _ = cv_auto_trans (icompile_data_to_word_def |> arch_spec)    
+val _ = cv_auto_trans (asm_spec' to_livesets_0_alt_def )
 val _ = cv_auto_trans (asm_spec' icompile_to_livesets_def)
 val _ = cv_auto_trans (asm_spec' init_icompile_to_livesets_def)
 val _ = cv_auto_trans (asm_spec' end_icompile_to_livesets_def)
 
-
+(* just in case i forget *)                                 
+Globals.max_print_depth := 20;                                 
+    
 val init_res = cv_eval “init_icompile_to_livesets_x64 ^source_conf ^clos_conf ^bvl_conf ^data_conf ^word_conf”
 
-val (source_iconf_lvs, rest) = pairSyntax.dest_pair (rconc init_res)
-val (clos_iconf_lvs, rest) = pairSyntax.dest_pair rest
-val (bvl_iconf_lvs, rest) = pairSyntax.dest_pair rest
-val (data_conf_lvs, rest) = pairSyntax.dest_pair rest
-val (reg_count_and_lvs_data, livesets_init) = pairSyntax.dest_pair rest
-val (reg_count, lvs_data) = pairSyntax.dest_pair reg_count_and_lvs_data
+val (source_iconf_lvs, rest) = pairSyntax.dest_pair (rconc init_res);
+val (clos_iconf_lvs, rest) = pairSyntax.dest_pair rest;
+val (bvl_iconf_lvs, rest) = pairSyntax.dest_pair rest;
+val (data_conf_lvs, rest) = pairSyntax.dest_pair rest;
+val (reg_count_and_lvs_data, livesets_init) = pairSyntax.dest_pair rest;
+val (reg_count, lvs_data) = pairSyntax.dest_pair reg_count_and_lvs_data;
 
-val res_opt = cv_eval “icompile_to_livesets_x64 ^source_iconf ^clos_iconf ^bvl_iconf ^data_conf ^word_conf ^prog ^lvs_data”
-val res_opt = res_opt |> rconc
+(* very slow *)
+val res_opt = cv_eval “icompile_to_livesets_x64 ^source_iconf ^clos_iconf ^bvl_iconf ^data_conf ^word_conf ^prog ^lvs_data” 
 
-(* doesnt seem to eval properly, will fix later*)
-val end_icompile = cv_eval “
+(* debug *)    
+val source_prog = cv_eval “source_to_source$compile ^prog” |> rconc;
+val flat_prog_opt = cv_eval “icompile_source_to_flat ^source_iconf_lvs ^prog” |> rconc |> optionSyntax.dest_some;
+val clos_prog_opt = cv_eval “case ^flat_prog_opt of NONE => NONE | SOME (_, flat) => SOME (icompile_flat_to_clos flat)” |> rconc;
+val bvl_prog_opt = cv_eval “case ^clos_prog_opt of NONE => NONE | SOME clos => SOME (icompile_clos_to_bvl ^clos_iconf_lvs clos)” |> rconc;
+val bvi_prog_opt = cv_eval “case ^bvl_prog_opt of NONE => NONE | SOME (_, bvl) => SOME (icompile_bvl_to_bvi ^bvl_iconf_lvs bvl)” |> rconc;
+val data_prog_opt = cv_eval “case ^bvi_prog_opt of NONE => NONE | SOME (_, bvi) => SOME (bvi_to_data$compile_prog bvi)” |> rconc;
+val word0_prog_opt = cv_eval “case ^data_prog_opt of NONE => (NONE : (num # num # 64 prog) list option) | SOME data => SOME (icompile_data_to_word ^data_conf_lvs data)” |> rconc; (* not translated ?*)
+val word0_prog = word0_prog_opt |> optionSyntax.dest_some;
+val _ = cv_eval “to_livesets_0_alt_x64 (^word_conf, ^word0_prog)”
+
+    
+(* doesnt seem to eval properly *)
+(*val end_icompile = cv_eval “
  case ^res_opt of
  | NONE => NONE
  | SOME (source_iconf', clos_iconf', bvl_iconf', lvs_data', icompiled_p_livesets) =>
@@ -135,6 +152,6 @@ val end_icompile = cv_eval “
                                       bvl_iconf' ^bvl_conf
                                       ^data_conf_lvs ^word_conf in
        SOME (source_conf', clos_conf', bvl_conf', lvs_data' ++ lvs_data_end, ^livesets_init ++ icompiled_p_livesets ++ livesets_end)”
-
+*)
 
 val _ = export_theory();

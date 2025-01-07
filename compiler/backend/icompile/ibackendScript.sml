@@ -170,17 +170,20 @@ Definition to_livesets_0_alt_def:
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let cse_prog = word_common_subexp_elim ssa_prog in
-    let rm_prog = FST(remove_dead cse_prog LN) in
-    let prog = if asm_conf.two_reg_arith then
-                 three_to_two_reg rm_prog
-               else rm_prog in
-     (name_num,arg_count,prog)) p in
-  let data = MAP (\(name_num,arg_count,prog).
+    let rm_ssa_prog = remove_dead_prog ssa_prog in
+    let cse_prog = word_common_subexp_elim rm_ssa_prog in
+    let cp_prog = copy_prop cse_prog in
+    let two_prog = three_to_two_reg_prog asm_conf.two_reg_arith cp_prog in
+    let unreach_prog = remove_unreach two_prog in
+    let rm_prog = remove_dead_prog unreach_prog in
+        (name_num,arg_count,rm_prog))
+      p in
+    let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,get_forced asm_conf prog [])) p
+    (get_clash_tree prog,heu_moves,spillcosts,
+      get_forced asm_conf prog [],get_stack_only prog)) p
   in
-    ((asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs),data), p)
+    ((asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs),data), p)
 End
 
 
