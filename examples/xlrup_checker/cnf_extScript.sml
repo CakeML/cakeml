@@ -1,23 +1,22 @@
 (*
-  Syntax and semantics of CNF-XOR
+  Syntax and semantics of CNF extended with theories
 *)
 open preamble miscTheory mlstringTheory mlintTheory;
 
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = new_theory "cnf_ext";
 
-val _ = new_theory "cnf_xor";
+(*
+  The goal of this file is to provide a surface syntax and semantics that
+  closely resembles the informal meaning of CNF DIMACS files (or its extended
+  variants)
+*)
 
-(***
-  The following syntax and semantics directly mirrors a
-  corresponding version in Isabelle/HOL
- ***)
 Datatype:
   lit = Pos num | Neg num
 End
 
+(* Clauses and their semantics *)
 Type clause = ``:lit list``;
-Type cmsxor = ``:lit list``;
-Type fml = ``:clause list # cmsxor list``;
 Type assignment = ``:num -> bool``;
 
 Definition sat_lit_def:
@@ -30,6 +29,10 @@ Definition sat_clause_def:
   (∃l. l ∈ set C ∧ sat_lit w l)
 End
 
+(* XOR constraints are a list of literals required to sum (XOR) to 1 under the
+given assignment. This is the format currently used by CryptoMiniSat. *)
+Type cmsxor = ``:lit list``;
+
 Definition of_bool_def:
   (of_bool T = (1:num)) ∧
   (of_bool F = 0)
@@ -40,10 +43,25 @@ Definition sat_cmsxor_def:
     ODD (SUM (MAP (of_bool o sat_lit w) C))
 End
 
+(* BNN constraints are a list (set) of variables, an RHS k and a variable y.
+  The constraint is satisfied iff y reifies the at-least-k constraint *)
+Type cmsbnn = ``:num list # num # num``;
+
+Definition sat_cmsbnn_def:
+  sat_cmsbnn w ((C, k, y):cmsbnn) =
+    (w y ⇔ (∑ (λv. of_bool (w v)) (set C) ≥ k))
+End
+
+(***
+  Next, we define the general semantics of formulas sharing an assignment.
+ ***)
+Type fml = ``:clause list # cmsxor list # cmsbnn list``;
+
 Definition sat_fml_def:
-  sat_fml w (f:fml) = (
-    (∀C. C ∈ set (FST f) ⇒ sat_clause w C) ∧
-    (∀C. C ∈ set (SND f) ⇒ sat_cmsxor w C)
+  sat_fml w ((fc,fx,fb):fml) = (
+    (∀C. C ∈ set fc ⇒ sat_clause w C) ∧
+    (∀C. C ∈ set fx ⇒ sat_cmsxor w C) ∧
+    (∀C. C ∈ set fb ⇒ sat_cmsbnn w C)
   )
 End
 
@@ -55,7 +73,7 @@ End
   End mirrored definitions
  ***)
 
-(* A parser and printed for CNF-XOR in CakeML *)
+(* A parser and printed for extended CNF in CakeML *)
 
 (* Everything recognized as a "blank" *)
 Definition blanks_def:
@@ -73,7 +91,7 @@ Definition toks_def:
   toks s = MAP tokenize (tokens blanks s)
 End
 
-(* CNF-XOR parser *)
+(* Extended CNF parser *)
 
 (* Parse a list of literals ending with 0
   Literals only use variables between 1 to maxvar (inclusive) *)
@@ -89,6 +107,10 @@ Definition parse_lits_aux_def:
       if n = 0 ∨ n > maxvar then NONE
       else parse_lits_aux maxvar xs (v::acc)
     | INL (_:mlstring) => NONE)
+End
+
+Definition parse_lits_def:
+  parse_lits maxvar ls = parse_lits_aux maxvar ls []
 End
 
 Definition parse_clause_def:
@@ -113,6 +135,43 @@ Definition parse_xor_def:
       case parse_xvar c of NONE => NONE
       | SOME i => parse_lits_aux maxvar (INR i::cs) [])
   | _ => NONE
+End
+
+(* Special handling for "bID" no space *)
+Definition parse_bvar_def:
+  parse_bvar s =
+  if strlen s ≥ 1 ∧ strsub s 0 = #"b" then
+    mlint$fromNatString (substring s 1 (strlen s - 1))
+  else NONE
+End
+
+(* parses the tail part of the BNN constraint "k y 0" *)
+Definition parse_bnn_tail_def:
+  (parse_bnn_tail [INR k; INR y; INR n] =
+    if k ≥ 0i ∧ y ≥ 0i ∧ n = 0i
+    then
+      SOME (Num k, Num y)
+    else
+      NONE) ∧
+  (parse_bnn_tail _ = NONE)
+End
+
+(* Parse a list of BNN LHS variables ending with 0
+  Variables between 1 to maxvar (inclusive) *)
+Definition parse_bnn_vars_aux_def:
+  (parse_bnn_vars_aux maxvar [] (acc:lit list) = NONE) ∧
+  (parse_bnn_vars_aux maxvar (x::xs) acc =
+    case x of
+      INR l =>
+      let n = Num (ABS l) in
+      let v = if l > 0 then Pos n else Neg n in
+      if n = 0 ∨ n > maxvar then NONE
+      else parse_bnn_vars_aux maxvar xs (v::acc)
+    | INL (_:mlstring) => NONE)
+End
+
+Definition parse_bnn_vars_def:
+  parse_bnn_vars maxvar ls = parse_bnn_vars_aux maxvar ls []
 End
 
 (* lines which are not comments don't start with a single "c" *)
