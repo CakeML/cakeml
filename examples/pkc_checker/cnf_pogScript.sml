@@ -255,7 +255,8 @@ Definition all_disjoint_def:
     DISJOINT (EL i ls) (EL j ls))
 End
 
-(* We will define partitioning separately for products and sums *)
+(* We will define partitioning separately for products and sums and both
+  controlled by a flag determining whether Skolem nodes are in play. *)
 
 (* Decomposable products *)
 Definition decomposable_scp_def:
@@ -678,14 +679,14 @@ Type id = ``:num``;
 Datatype:
   scpstep =
   | Root lit
-  | Mode var (* This is a no-op in current implementation *)
+  | Mode var (* This is a no-op in the current implementation *)
 
   | RupAdd id clause hint
   | RupDel id hint
   | ArbDel id
 
   | DeclPro id var (lit list)
-  | DeclSum id var lit lit
+  | DeclSum id var lit lit hint
   | DeclSko id var (lit list)
 End
 
@@ -735,25 +736,32 @@ Definition delete_literals_def:
   FILTER (λx. ¬MEM x D) C
 End
 
+Datatype:
+  tag =
+  | Structural
+  | Untagged
+  | Normal bool
+End
+
 (*
   We represent indexed formulas with a mapping
     num -> clause # tag
-  where tag is bool option
+  where tag is bool option option
 
   The lattice is
-
-  NONE < SOME T
-  NONE < SOME F
+  Structural < Untagged < Normal (T/F) (last 2 are incomparable)
 *)
 
 (* T if the LHS ≤ RHS in the lattice *)
 Definition md_lat_def:
-  (md_lat NONE res = T) ∧
-  (md_lat (SOME b) r =
-    case r of NONE => F
-  | SOME b' => b = b')
+  (md_lat tag1 tag2 =
+    case tag1 of
+      Structural => T
+    | Untagged => tag2 ≠ Structural
+    | Normal b => tag2 = Normal b)
 End
 
+(* RUP steps computes maximum tag used *)
 Definition is_rup_def:
   (is_rup md fml [] (C:clause) = NONE) ∧
   (is_rup md fml (i::is) C =
@@ -782,15 +790,14 @@ Definition insert_one_def:
     | SOME _ => NONE
 End
 
-(* If n ≤ pc.cl or md = SOME F, the final mode has to be F *)
+(* If n ≤ pc.cl or md = Skolem, the final mode has to be F *)
 Definition fix_mode_def:
   fix_mode pc sc md n =
   let fm = (¬ (n ≤ pc.cl) ∧ sc.mode) in
-  if md_lat md (SOME fm)
-  then
-    SOME (sc with mode := fm)
-  else
-    NONE
+  case md of
+    Normal T =>
+      if fm then SOME (sc with mode := T) else NONE
+  | _ => SOME (sc with mode := fm)
 End
 
 (* Clauses encoding the extension variable
@@ -926,6 +933,11 @@ Definition insert_list_def:
   | SOME fml' => insert_list pc sc mode fml' (i+1) cs)
 End
 
+Definition mk_structural_def:
+  mk_structural md =
+    if md = Structural then Structural else Untagged
+End
+
 Definition check_scpstep_def:
   check_scpstep pc fml sc scpstep =
   case scpstep of
@@ -933,20 +945,21 @@ Definition check_scpstep_def:
   | Root l =>
       OPTION_MAP (λsc'. (fml,sc')) (declare_root pc sc l)
   | RupAdd n C i0 =>
-    (case is_rup NONE fml i0 C of
+    (case is_rup Structural fml i0 C of
       NONE => NONE
     | SOME md =>
-      if md_lat md (SOME T) ∧
+      if md_lat md (Normal T) ∧
         EVERY (λi. ¬is_fresh pc sc (var_lit i)) C
       then
+        let md' = mk_structural md in
         OPTION_MAP (λfml'. (fml',sc))
-          (insert_one pc sc NONE fml n C)
+          (insert_one pc sc md' fml n C)
       else NONE)
   | RupDel n i0 =>
     (case lookup n fml of
     | SOME (C,_) =>
       let fml' = delete n fml in
-      (case is_rup NONE fml' i0 C of
+      (case is_rup Structural fml' i0 C of
         NONE => NONE
       | SOME md =>
         OPTION_MAP (λsc'. (fml',sc'))
@@ -960,28 +973,31 @@ Definition check_scpstep_def:
     (case declare_pro pc sc v ls of
       SOME (cs,sc') =>
         OPTION_MAP (λfml'. (fml',sc'))
-          (insert_list pc sc' NONE fml n cs)
+          (insert_list pc sc' Structural fml n cs)
     | NONE => NONE)
-  | DeclSum n v l1 l2 =>
-    (case declare_sum pc sc v l1 l2 of
-      SOME (cs,sc') =>
-        OPTION_MAP (λfml'. (fml',sc'))
-          (insert_list pc sc' NONE fml n cs)
-    | NONE => NONE)
+  | DeclSum n v l1 l2 i0 =>
+    (case is_rup Structural fml i0 [-l1;-l2] of
+    | SOME Structural =>
+      (case declare_sum pc sc v l1 l2 of
+        SOME (cs,sc') =>
+          OPTION_MAP (λfml'. (fml',sc'))
+            (insert_list pc sc' Structural fml n cs)
+      | NONE => NONE)
+    | _ => NONE)
   | DeclSko n v ls =>
     (case declare_sko pc sc v ls of
       SOME (cT,csF,sc') =>
-        (case insert_one pc sc' (SOME T) fml n cT of
+        (case insert_one pc sc' (Normal T) fml n cT of
           NONE => NONE
         | SOME fml' =>
           OPTION_MAP (λfml''. (fml'',sc'))
-            (insert_list pc sc' (SOME F) fml' (n + 1) csF))
+            (insert_list pc sc' (Normal F) fml' (n + 1) csF))
     | NONE => NONE)
 End
 
 Definition get_fml_def:
   get_fml md fml =
-  {v | ∃n b. lookup n fml = SOME (v:int list,b:bool option) ∧ md_lat b md}
+  {v | ∃n b. lookup n fml = SOME (v:int list,b:tag) ∧ md_lat b md}
 End
 
 Theorem set_delete_literals:
@@ -1124,45 +1140,99 @@ Proof
   metis_tac[option_CLAUSES]
 QED
 
-Theorem get_fml_insert_one_NONE:
-  insert_one pc sc NONE fml n C = SOME fml' ⇒
-  (get_fml b fml' = C INSERT get_fml b fml)
-Proof
-  strip_tac>>drule range_insert_one>>
-  rw[range_def,get_fml_def,EXTENSION]>>
-  metis_tac[PAIR,FST,SND,md_lat_def]
-QED
-
-Theorem md_lat_neq:
-  b ≠ b' ⇒
-  ¬md_lat (SOME b) (SOME b')
+Theorem md_lat_Structural:
+  md_lat Structural b
 Proof
   rw[md_lat_def]
 QED
 
-Theorem get_fml_insert_one_SOME:
-  insert_one pc sc (SOME b) fml n C = SOME fml' ⇒
-  (get_fml (SOME b') fml' =
-    if b = b' then C INSERT get_fml (SOME b') fml
-    else get_fml (SOME b') fml)
+Theorem md_lat_Untagged:
+  md_lat Untagged (Normal b)
+Proof
+  rw[md_lat_def]
+QED
+
+Theorem not_md_lat_Structural:
+  b ≠ Structural ⇒
+  ¬md_lat b Structural
+Proof
+  Cases_on`b`>>rw[md_lat_def]
+QED
+
+Theorem get_fml_insert_one_not_Structural:
+  b ≠ Structural ∧
+  insert_one pc sc b fml n C = SOME fml' ⇒
+  (get_fml Structural fml' = get_fml Structural fml)
+Proof
+  strip_tac>>drule range_insert_one>>
+  rw[range_def,get_fml_def,EXTENSION]>>
+  metis_tac[PAIR,FST,SND,not_md_lat_Structural]
+QED
+
+Theorem get_fml_insert_one_Structural:
+  insert_one pc sc Structural fml n C = SOME fml' ⇒
+  (get_fml b fml' = C INSERT get_fml b fml)
+Proof
+  strip_tac>>drule range_insert_one>>
+  rw[range_def,get_fml_def,EXTENSION]>>
+  metis_tac[PAIR,FST,SND,md_lat_Structural]
+QED
+
+Theorem get_fml_insert_one_mk_structural:
+  insert_one pc sc (mk_structural md) fml n C = SOME fml' ⇒
+  (get_fml (Normal b) fml' = C INSERT get_fml (Normal b) fml)
+Proof
+  rw[mk_structural_def]>>
+  drule range_insert_one>>
+  rw[range_def,get_fml_def,EXTENSION]>>
+  metis_tac[PAIR,FST,SND,md_lat_Structural,md_lat_Untagged]
+QED
+
+Theorem md_lat_neq_Normal:
+  b ≠ b' ⇒
+  ¬md_lat (Normal b) (Normal b')
+Proof
+  rw[md_lat_def]
+QED
+
+Theorem get_fml_insert_one_Normal:
+  insert_one pc sc (Normal b) fml n C = SOME fml' ⇒
+  (get_fml (Normal b') fml' =
+    if b = b' then C INSERT get_fml (Normal b') fml
+    else get_fml (Normal b') fml)
 Proof
   strip_tac>>drule range_insert_one>>
   rw[range_def,get_fml_def,EXTENSION]>>
   eq_tac>>gvs[EQ_IMP_THM,SF DNF_ss]>>rw[]>>
-  metis_tac[PAIR,FST,SND,md_lat_def,md_lat_refl,md_lat_neq]
+  metis_tac[PAIR,FST,SND,md_lat_def,md_lat_refl,md_lat_neq_Normal]
 QED
 
-Theorem get_fml_insert_list_SOME:
+Theorem get_fml_insert_list_Normal:
   ∀cs fml n.
-  insert_list pc sc (SOME b) fml n cs = SOME fml' ⇒
-  (get_fml (SOME b') fml' =
-    if b = b' then set cs ∪ get_fml (SOME b') fml
-    else get_fml (SOME b') fml)
+  insert_list pc sc (Normal b) fml n cs = SOME fml' ⇒
+  (get_fml (Normal b') fml' =
+    if b = b' then set cs ∪ get_fml (Normal b') fml
+    else get_fml (Normal b') fml)
 Proof
   Induct>>rw[insert_list_def]>>
   gvs[AllCaseEqs()]>>
   first_x_assum  drule>>rw[]>>
-  drule get_fml_insert_one_SOME>>
+  drule get_fml_insert_one_Normal>>
+  rw[EXTENSION]>>
+  metis_tac[]
+QED
+
+Theorem get_fml_insert_list_not_Structural:
+  b ≠ Structural ⇒
+  ∀cs fml n.
+  insert_list pc sc b fml n cs = SOME fml' ⇒
+  (get_fml Structural fml' = get_fml Structural fml)
+Proof
+  strip_tac>>
+  Induct>>rw[insert_list_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum  drule>>rw[]>>
+  drule get_fml_insert_one_not_Structural>>
   rw[EXTENSION]>>
   metis_tac[]
 QED
@@ -1247,14 +1317,14 @@ Proof
   metis_tac[]
 QED
 
-Theorem get_fml_insert_list_NONE:
-  insert_list pc sc NONE fml n cs = SOME fml' ⇒
+Theorem get_fml_insert_list_Structural:
+  insert_list pc sc Structural fml n cs = SOME fml' ⇒
   (get_fml b fml' = set cs ∪ get_fml b fml)
 Proof
   strip_tac>>drule range_insert_list>>
   rw[range_def,get_fml_def,EXTENSION]>>
   gvs[MEM_MAP,FORALL_PROD]>>
-  metis_tac[PAIR,FST,SND,md_lat_def]
+  metis_tac[PAIR,FST,SND,md_lat_Structural]
 QED
 
 Theorem insert_one_SOME_unchanged:
@@ -1308,19 +1378,19 @@ QED
 Theorem check_scpstep_extends_over:
   good_pc pc ∧
   check_scpstep pc fml sc scpstep = SOME (fml',sc') ∧
-  vars_fml (get_fml (SOME T) fml) ⊆ count (pc.n+1) ∪ domain sc.Ev
+  vars_fml (get_fml (Normal T) fml) ⊆ count (pc.n+1) ∪ domain sc.Ev
   ⇒
   extends_over (domain pc.D)
-    (λw. sat_fml w (get_fml (SOME T) fml))
-    (λw. sat_fml w (get_fml (SOME T) fml')) ∧
+    (λw. sat_fml w (get_fml (Normal T) fml))
+    (λw. sat_fml w (get_fml (Normal T) fml')) ∧
   (sc'.mode ⇒
     sc.mode ∧
     ∀n v. n ≤ pc.cl ∧ lookup n fml = SOME v ⇒
       lookup n fml' = SOME v) ∧
   (¬sc'.mode ⇒
     extends_over (domain pc.D)
-      (λw. sat_fml w (get_fml (SOME F) fml'))
-      (λw. sat_fml w (get_fml (SOME F) fml)))
+      (λw. sat_fml w (get_fml (Normal F) fml'))
+      (λw. sat_fml w (get_fml (Normal F) fml)))
 Proof
   Cases_on`scpstep`>>
   simp[check_scpstep_def]
@@ -1331,7 +1401,7 @@ Proof
     strip_tac>>
     gvs[AllCaseEqs()]>>
     drule is_rup_sound>>
-    drule get_fml_insert_one_NONE>>
+    drule get_fml_insert_one_mk_structural>>
     gvs[extends_over_def]>>rw[]
     >- (
       qexists_tac`w`>>gvs[]>>
@@ -1350,7 +1420,7 @@ Proof
       rw[]>>irule_at Any sat_fml_SUBSET>>
       first_x_assum (irule_at Any)>>
       metis_tac[get_fml_delete_SUBSET])
-    >- gvs[fix_mode_def]
+    >- gvs[fix_mode_def,AllCaseEqs()]
     >- (
       rw[]>>gvs[]>>
       gvs[fix_mode_def,AllCaseEqs()]>>
@@ -1359,8 +1429,7 @@ Proof
       gvs[fix_mode_def,AllCaseEqs()]>>
       rw[extends_over_def]>>
       qexists_tac`w`>>gvs[]>>
-      drule get_fml_md_lat>>
-      metis_tac[sat_fml_sat_clause_delete,sat_fml_SUBSET]))
+      metis_tac[sat_fml_sat_clause_delete,sat_fml_SUBSET,get_fml_md_lat,md_lat_Structural,md_lat_Untagged]))
   >- ( (* ArbDel *)
     rw[]>>gvs[]
     >- ( (* Trivial *)
@@ -1378,7 +1447,7 @@ Proof
       gvs[good_pc_def,SUBSET_DEF]>>
       CCONTR_TAC>>gvs[]>>first_x_assum drule>>
       gvs[])>>
-    drule get_fml_insert_list_NONE>>
+    drule get_fml_insert_list_Structural>>
     rw[]
     >- (
       drule_at Any mk_pro_sem>>
@@ -1415,7 +1484,7 @@ Proof
       gvs[good_pc_def,SUBSET_DEF]>>
       CCONTR_TAC>>gvs[]>>first_x_assum drule>>
       gvs[])>>
-    drule get_fml_insert_list_NONE>>
+    drule get_fml_insert_list_Structural>>
     rw[]
     >- (
       drule_all mk_sum_sem>>
@@ -1450,8 +1519,8 @@ Proof
       gvs[good_pc_def,SUBSET_DEF]>>
       CCONTR_TAC>>gvs[]>>first_x_assum drule>>
       gvs[])>>
-    drule get_fml_insert_one_SOME>>
-    drule get_fml_insert_list_SOME>>rw[]
+    drule get_fml_insert_one_Normal>>
+    drule get_fml_insert_list_Normal>>rw[]
     >- (
       rw[extends_over_def]>>
       qexists_tac`λx. x = v ∨ w x`>>
@@ -1485,7 +1554,7 @@ End
 
 Definition get_bnd_fml_def:
   get_bnd_fml cl fml =
-  {v | ∃n b. lookup n fml = SOME (v:int list,b:bool option) ∧ n ≤ cl ∧ md_lat b (SOME F)}
+  {v | ∃n b. lookup n fml = SOME (v:int list,b:tag) ∧ n ≤ cl ∧ md_lat b (Normal F)}
 End
 
 Theorem agree_on_trans:
@@ -1566,15 +1635,15 @@ QED
 Theorem check_scpstep_vars_fml:
   good_pc pc ∧
   check_scpstep pc fml sc scpstep = SOME (fml',sc') ∧
-  vars_fml (get_fml (SOME T) fml) ⊆ count (pc.n+1) ∪ domain sc.Ev ⇒
-  vars_fml (get_fml (SOME T) fml') ⊆ count (pc.n+1) ∪ domain sc'.Ev
+  vars_fml (get_fml (Normal T) fml) ⊆ count (pc.n+1) ∪ domain sc.Ev ⇒
+  vars_fml (get_fml (Normal T) fml') ⊆ count (pc.n+1) ∪ domain sc'.Ev
 Proof
   Cases_on`scpstep`>>
   simp[check_scpstep_def]>>rw[]>>gvs[AllCaseEqs()]
   >-
     gvs[declare_root_def,AllCaseEqs()]
   >- (
-    drule get_fml_insert_one_NONE>>rw[]>>
+    drule get_fml_insert_one_mk_structural>>rw[]>>
     gvs[vars_clause_def,var_lit_def,SUBSET_DEF,EVERY_MEM,PULL_EXISTS]>>
     rw[]>>
     first_x_assum drule>>
@@ -1593,7 +1662,7 @@ Proof
   >- (
     gvs[declare_pro_def,check_pro_def,AllCaseEqs(),mk_Ev_disj_def]>>
     drule_all vars_fml_mk_pro>>
-    drule get_fml_insert_list_NONE>>rw[]
+    drule get_fml_insert_list_Structural>>rw[]
     >- (
       gvs[EVERY_MEM,is_data_ext_lit_run_def,SUBSET_DEF,PULL_EXISTS,good_pc_def]>>
       rw[]>>first_x_assum drule>>
@@ -1609,7 +1678,7 @@ Proof
     drule vars_fml_mk_sum>>
     disch_then (qspec_then`ls` mp_tac)>>
     impl_tac >- rw[Abbr`ls`]>>
-    drule get_fml_insert_list_NONE>>rw[]
+    drule get_fml_insert_list_Structural>>rw[]
     >- (
       gvs[EVERY_MEM,is_data_ext_lit_run_def,SUBSET_DEF,PULL_EXISTS,good_pc_def]>>
       rw[Abbr`ls`]>>
@@ -1621,8 +1690,8 @@ Proof
   >- (
     gvs[declare_sko_def,check_sko_def,AllCaseEqs(),mk_Ev_disj_def]>>
     drule_all vars_fml_mk_pro>>
-    drule get_fml_insert_one_SOME>>
-    drule get_fml_insert_list_SOME>>rw[]
+    drule get_fml_insert_one_Normal>>
+    drule get_fml_insert_list_Normal>>rw[]
     >-
       simp[vars_clause_def,var_lit_def]
     >- (
@@ -1634,17 +1703,17 @@ Theorem check_scpsteps_extends_over:
   ∀xs fml sc.
   good_pc pc ∧
   check_scpsteps pc fml sc xs = SOME (fml',sc') ∧
-  vars_fml (get_fml (SOME T) fml) ⊆ count (pc.n+1) ∪ domain sc.Ev
+  vars_fml (get_fml (Normal T) fml) ⊆ count (pc.n+1) ∪ domain sc.Ev
   ⇒
   extends_over (domain pc.D)
-    (λw. sat_fml w (get_fml (SOME T) fml))
-    (λw. sat_fml w (get_fml (SOME T) fml')) ∧
+    (λw. sat_fml w (get_fml (Normal T) fml))
+    (λw. sat_fml w (get_fml (Normal T) fml')) ∧
   (¬sc.mode ⇒
     extends_over (domain pc.D)
-      (λw. sat_fml w (get_fml (SOME F) fml'))
-      (λw. sat_fml w (get_fml (SOME F) fml))) ∧
+      (λw. sat_fml w (get_fml (Normal F) fml'))
+      (λw. sat_fml w (get_fml (Normal F) fml))) ∧
   extends_over (domain pc.D)
-    (λw. sat_fml w (get_fml (SOME F) fml'))
+    (λw. sat_fml w (get_fml (Normal F) fml'))
     (λw. sat_fml w (get_bnd_fml pc.cl fml))
 Proof
   Induct>>simp[check_scpsteps_def]
@@ -1707,10 +1776,10 @@ End
 
 Definition final_conditions_def:
   final_conditions fml r ns ⇔
-  [r] ∈ get_fml NONE fml ∧
-  EVERY (λn. set (mk_enc_one T n) ⊆ get_fml (SOME T) fml) ns ∧
+  [r] ∈ get_fml Untagged fml ∧
+  EVERY (λn. set (mk_enc_one T n) ⊆ get_fml (Normal T) fml) ns ∧
   (∀C.
-    C ∈ get_fml (SOME F) fml ⇒
+    C ∈ get_fml (Normal F) fml ⇒
     C = [r] ∨
     ∃n. MEM n ns ∧
       C ∈ set (mk_enc_one F n))
@@ -1771,7 +1840,7 @@ Theorem dir_scp_vars_fml_mk_enc_one:
   dir_scp D P E ns ∧
   EVERY wf_scp ns ∧
   MEM n ns ⇒
-  vars_fml (set (mk_enc_one F n)) ⊆ D ∪ P ∪ set (MAP FST ns)
+  vars_fml (set (mk_enc_one b n)) ⊆ D ∪ P ∪ set (MAP FST ns)
 Proof
   Induct>-rw[]>>
   reverse (Cases>>gvs[dir_scp_def]>>rw[]>>gvs[])
@@ -1785,6 +1854,9 @@ Proof
     gvs[vars_fml_mk_sum,is_data_ext_lit_def,EVERY_MEM,SUBSET_DEF,MEM_MAP]>>
     metis_tac[ALOOKUP_MEM,FST])
   >- (
+    rw[]
+    >- gvs[vars_clause_def]
+    >- gvs[vars_fml_def]>>
     irule SUBSET_TRANS>>
     irule_at Any vars_fml_mk_sko>>
     gvs[EVERY_MEM,SUBSET_DEF,PULL_EXISTS])
@@ -1799,8 +1871,8 @@ Theorem sat_scp_mk_enc_one:
   ∃w'.
     agree_on (UNIV DIFF E) w w' ∧
     EVERY (λn.
-      sat_fml w' (set (mk_enc_one F n)) ∧
-      (sat_scp T (&(FST n)) ns w ⇔ sat_lit w' (&(FST n)))
+      sat_fml w' (set (mk_enc_one b n)) ∧
+      (sat_scp (~b) (&(FST n)) ns w ⇔ sat_lit w' (&(FST n)))
     ) ns
 Proof
   strip_tac>>
@@ -1815,7 +1887,7 @@ Proof
   `&q > 0i` by (
       gvs[wf_scp_def]>>
       intLib.ARITH_TAC)>>
-  qexists_tac`λx. if x = q then sat_scp T (&q) ((q,r)::ns) w else w' x`>>
+  qexists_tac`λx. if x = q then sat_scp (~b) (&q) ((q,r)::ns) w else w' x`>>
   rw[]
   >- (gvs[agree_on_def] >> rw[])
   >- (
@@ -1868,6 +1940,9 @@ Proof
       gvs[agree_on_def,EXTENSION,MEM_MAP]>>rw[]>>
       metis_tac[FST])
     >- ( (* Sko *)
+      rw[]
+      >-
+        gvs[match_lit_def]>>
       gvs[mk_sko_sem,sat_scp_def,match_lit_def,EVERY_MEM]>>
       rw[]>>first_x_assum drule>>
       DEP_REWRITE_TAC[sat_scp_ALOOKUP_NONE]>>
@@ -1908,8 +1983,8 @@ Theorem final_conditions_extends_over:
   is_data_ext_lit D ns r ∧
   ALL_DISTINCT (MAP FST ns) ∧
   final_conditions fml r ns ⇒
-  extends_over D (λw. sat_fml w (get_fml (SOME T) fml)) (sat_scp F r ns) ∧
-  extends_over D (sat_scp T r ns) (λw. sat_fml w (get_fml (SOME F) fml))
+  extends_over D (λw. sat_fml w (get_fml (Normal T) fml)) (sat_scp F r ns) ∧
+  extends_over D (sat_scp T r ns) (λw. sat_fml w (get_fml (Normal F) fml))
 Proof
   rw[final_conditions_def,AllCasePreds()]>>
   simp[]>>
@@ -1933,7 +2008,7 @@ Proof
     drule_at Any sat_scp_mk_enc_one>>
     simp[]>>disch_then (drule_at Any)>>
     simp[]>>
-    disch_then(qspec_then`w` assume_tac)>>gvs[]>>
+    disch_then(qspecl_then[`w`,`F`] assume_tac)>>gvs[]>>
     rename1`agree_on _ w w'`>>
     qexists_tac`w'`>>rw[]
     >- (
@@ -1971,14 +2046,14 @@ End
 Definition build_fml_def:
   (build_fml (id:num) [] = LN) ∧
   (build_fml id (cl::cls) =
-    insert id (cl,NONE) (build_fml (id+1) cls))
+    insert id (cl,Untagged) (build_fml (id+1) cls))
 End
 
 Theorem lookup_build_fml:
   ∀ls n acc i.
   lookup i (build_fml n ls) =
   if n ≤ i ∧ i < n + LENGTH ls
-  then SOME (EL (i-n) ls, NONE)
+  then SOME (EL (i-n) ls, Untagged)
   else NONE
 Proof
   Induct>>rw[build_fml_def,lookup_def,lookup_insert]>>
@@ -1994,14 +2069,20 @@ Definition init_sc_def:
        mode := T |>
 End
 
-Theorem build_fml_get_fml:
-  get_fml b (build_fml n fmlls) = set fmlls
+Theorem build_fml_get_fml_Normal:
+  get_fml (Normal b) (build_fml n fmlls) = set fmlls
 Proof
   rw[get_fml_def,lookup_build_fml,EXTENSION,md_lat_def]>>
   eq_tac>>rw[MEM_EL]
   >-
     (qexists_tac`n'-n`>>simp[])>>
   qexists_tac`n+n'`>>simp[]
+QED
+
+Theorem build_fml_get_fml_Structural:
+  get_fml Structural (build_fml n fmlls) = {}
+Proof
+  rw[get_fml_def,lookup_build_fml,EXTENSION,md_lat_def]
 QED
 
 Theorem build_fml_get_bnd_fml:
@@ -2027,6 +2108,7 @@ Definition conf_inv_def:
     lookup n sc.Ev = SOME v ⇒
     vars_scp T (&n) sc.scp = domain v) ∧
   (∀r. decomposable_scp T r sc.scp) ∧
+  (∀r. deterministic_scp F r sc.scp) ∧
   case sc.root of
     NONE => T
   | SOME r =>
@@ -2231,13 +2313,28 @@ Proof
   gvs[]
 QED
 
+Theorem all_disjoint_2:
+  all_disjoint [X;Y] ⇔
+  DISJOINT X Y
+Proof
+  rw[all_disjoint_def]>>
+  `∀i. i < 2 ⇔ i = 0n ∨ i = 1` by
+    intLib.ARITH_TAC>>
+  rw[SF DNF_ss]>>
+  metis_tac[DISJOINT_SYM]
+QED
+
 Theorem check_scpstep_conf_inv:
   good_pc pc ∧
   check_scpstep pc fml sc scpstep = SOME (fml',sc') ∧
-  conf_inv pc sc ⇒
-  conf_inv pc sc'
+  conf_inv pc sc ∧
+  (∀w. EVERY (λn. sat_fml w (set (mk_enc_one T n))) sc.scp ⇒
+    sat_fml w (get_fml Structural fml)) ⇒
+  conf_inv pc sc' ∧
+  (∀w. EVERY (λn. sat_fml w (set (mk_enc_one T n))) sc'.scp ⇒
+    sat_fml w (get_fml Structural fml'))
 Proof
-  rw[]>>
+  strip_tac>>
   `domain pc.D ∩ domain sc.Ev = {}` by (
     gvs[good_pc_def,conf_inv_def,EXTENSION,SUBSET_DEF]>>
     metis_tac[])>>
@@ -2249,7 +2346,25 @@ Proof
   >- (
     gvs[declare_root_def,conf_inv_def,AllCaseEqs()]>>
     metis_tac[is_data_ext_lit_run_sem])
-  >- gvs[fix_mode_def]
+  >- (
+    gvs[mk_structural_def]>>every_case_tac>>gvs[]
+    >- (
+      drule is_rup_sound>>
+      drule get_fml_insert_one_Structural>>
+      rw[])>>
+    drule_at (Pos last) get_fml_insert_one_not_Structural>>
+    simp[]>>metis_tac[])
+  >- (
+    gvs[fix_mode_def,AllCaseEqs()]>>
+    rw[]>>first_x_assum drule>>
+    rw[]>>irule_at Any sat_fml_SUBSET>>
+    pop_assum (irule_at Any)>>
+    metis_tac[get_fml_delete_SUBSET])
+  >- (
+    rw[]>>first_x_assum drule>>
+    rw[]>>irule_at Any sat_fml_SUBSET>>
+    pop_assum (irule_at Any)>>
+    metis_tac[get_fml_delete_SUBSET])
   >- (
     gvs[declare_pro_def,check_pro_def,conf_inv_def,is_fresh_def,wf_scp_def,AllCaseEqs()]>>
     `EVERY (λx. x > 0 ∨ lookup (var_lit x) sc.Ev = NONE) l` by (
@@ -2278,7 +2393,12 @@ Proof
       rw[]>> irule all_disjoint_mk_Ev_disj>>
       rpt (first_x_assum (irule_at Any))>>
       gvs[])
-    >- gvs[AllCasePreds()])
+    >- simp[deterministic_scp_def]
+    >- gvs[AllCasePreds()]
+    >- (
+      drule get_fml_insert_list_Structural>>rw[]>>
+      gvs[mk_enc_one_def])
+    )
   >- (
     gvs[declare_sum_def,check_sum_def,conf_inv_def,is_fresh_def,INTER_INSERT,wf_scp_def]>>
     `EVERY (λx. x > 0 ∨ lookup (var_lit x) sc.Ev = NONE) [i;i0]` by (
@@ -2299,7 +2419,33 @@ Proof
       rpt(disch_then (drule_at Any))>>
       rw[vars_scp_def])
     >- simp[decomposable_scp_def]
-    >- gvs[AllCasePreds()])
+    >- (
+      pop_assum kall_tac>>
+      simp[deterministic_scp_def]>>
+      rw[all_disjoint_2,DISJOINT_DEF,EXTENSION]>>
+      rename1`w ∉ _`>>
+      drule is_rup_sound>>strip_tac>>
+      drule_at Any sat_scp_mk_enc_one>>
+      disch_then (drule_at (Pos last))>>
+      disch_then (drule_at (Pos last))>>
+      disch_then (drule_at (Pos last))>>
+      impl_tac >-
+        (gvs[EXTENSION]>>metis_tac[])>>
+      disch_then (qspecl_then[`w`,`T`] assume_tac)>>gvs[]>>
+      rename1`agree_on _ w w'`>>
+      CCONTR_TAC>>gvs[]>>
+      `sat_lit w' i ∧ sat_lit w' i0` by cheat>>
+      gvs[sat_clause_def,SF DNF_ss]>>
+      first_x_assum(qspec_then`w'` mp_tac)>>
+      impl_tac >- (
+        first_x_assum irule>>
+        metis_tac[EVERY_CONJ])>>
+      simp[])
+    >- gvs[AllCasePreds()]
+    >- (
+      drule get_fml_insert_list_Structural>>rw[]>>
+      gvs[mk_enc_one_def])
+    )
   >- (
     gvs[declare_sko_def,check_sko_def,conf_inv_def,is_fresh_def,wf_scp_def,AllCaseEqs()]>>
     `EVERY (λx. x > 0 ∨ lookup (var_lit x) sc.Ev = NONE) l` by (
@@ -2328,44 +2474,54 @@ Proof
       rw[]>> irule all_disjoint_mk_Ev_disj>>
       rpt (first_x_assum (irule_at Any))>>
       gvs[])
-    >- gvs[AllCasePreds()])
+    >- simp[deterministic_scp_def]
+    >- gvs[AllCasePreds()]
+    >- (
+      drule_at Any get_fml_insert_one_not_Structural>>
+      drule_at Any get_fml_insert_list_not_Structural>>rw[])
+  )
 QED
 
 Theorem check_scpsteps_conf_inv:
   ∀xs fml sc.
   good_pc pc ∧
   check_scpsteps pc fml sc xs = SOME (fml',sc') ∧
-  conf_inv pc sc ⇒
-  conf_inv pc sc'
+  conf_inv pc sc ∧
+  (∀w. EVERY (λn. sat_fml w (set (mk_enc_one T n))) sc.scp ⇒
+    sat_fml w (get_fml Structural fml)) ⇒
+  conf_inv pc sc' ∧
+  (∀w. EVERY (λn. sat_fml w (set (mk_enc_one T n))) sc'.scp ⇒
+    sat_fml w (get_fml Structural fml'))
 Proof
   Induct>>rw[check_scpsteps_def] >>gvs[AllCaseEqs()]>>
   metis_tac[check_scpstep_conf_inv]
 QED
 
 Theorem soundness:
-  good_pc pc ∧
-  LENGTH fmlls ≤ pc.cl ∧
+  good_pc pc ∧ LENGTH fmlls ≤ pc.cl ∧
   EVERY (λC. vars_clause C ⊆ count (pc.n + 1)) fmlls ∧
-  check_scpsteps pc (build_fml 1 fmlls)
-    init_sc xs = SOME (fml', sc') ∧
+  check_scpsteps pc (build_fml 1 fmlls) init_sc xs = SOME (fml', sc') ∧
   sc'.root = SOME r ∧
   final_conditions fml' r sc'.scp ⇒
   models (domain pc.D) (sat_scp F r sc'.scp) =
-  models (domain pc.D) {w | sat_fml w (set fmlls)}
+    models (domain pc.D) {w | sat_fml w (set fmlls)} ∧
+  decomposable_scp F r sc'.scp ∧
+  deterministic_scp F r sc'.scp
 Proof
-  rw[]>>
+  strip_tac>>
   drule check_scpsteps_extends_over>>
   disch_then drule>>
   impl_tac >- (
-    simp[build_fml_get_fml,init_sc_def,SUBSET_DEF,vars_fml_def,PULL_EXISTS]>>
+    simp[build_fml_get_fml_Normal,init_sc_def,SUBSET_DEF,vars_fml_def,PULL_EXISTS]>>
     gvs[EVERY_MEM,SUBSET_DEF]>>
     metis_tac[])>>
-  rw[init_sc_def]>>
+  simp[init_sc_def]>>strip_tac>>
   drule check_scpsteps_conf_inv>>
   disch_then drule>>
   impl_tac>-
-    gvs[conf_inv_def,init_sc_def,decomposable_scp_def,dir_scp_def]>>
-  rw[conf_inv_def]>>
+    gvs[conf_inv_def,init_sc_def,decomposable_scp_def,dir_scp_def,deterministic_scp_def,build_fml_get_fml_Structural]>>
+  reverse(rw[conf_inv_def])
+  >- metis_tac[decomposable_scp_T_to_F]>>
   drule_at Any final_conditions_extends_over>>
   gvs[]>>
   disch_then (drule_at Any)>>
