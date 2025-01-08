@@ -2548,7 +2548,7 @@ Proof
     gvs[agree_on_def,IN_DEF]>>
     metis_tac[])
   >- (
-    gvs[build_fml_get_fml]>>
+    gvs[build_fml_get_fml_Normal]>>
     first_x_assum drule>>rw[]>>
     first_x_assum drule>>rw[]>>
     simp[IN_DEF]>>
