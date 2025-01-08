@@ -28,6 +28,12 @@ Definition apply_nummap_key_def:
   fromAList (MAP (λx,y.f x,y) (toAList names))
 End
 
+Definition apply_nummaps_key_def:
+  apply_nummaps_key f names =
+  (fromAList (MAP (λx,y.f x,y) (toAList (FST names))),
+   fromAList (MAP (λx,y.f x,y) (toAList (SND names))))
+End
+
 Definition option_lookup_def:
   option_lookup t v = dtcase lookup v t of NONE => 0n | SOME x => x
 End
@@ -352,15 +358,16 @@ Definition ssa_cc_trans_def:
     (If cmp r1' ri' (Seq e2' e2_cons) (Seq e3' e3_cons),ssa_fin,na_fin)) ∧
   (*For cutsets, we must restart the ssa mapping to maintain consistency*)
   (ssa_cc_trans (Alloc num numset) ssa na =
-    let ls = MAP FST (toAList numset) in
+    let all_names = union (FST numset) (SND numset) in
+    let ls = MAP FST (toAList all_names) in
     (*This trick allows us to not keep the "next stack" variable by
       simply starting from the next available stack location
       Assuming na is an alloc var of course..*)
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
     let num' = option_lookup ssa' num in
-    let stack_set = apply_nummap_key (option_lookup ssa') numset in
+    let stack_set = apply_nummaps_key (option_lookup ssa') numset in
     (*Restart the ssa map*)
-    let ssa_cut = inter ssa' numset in
+    let ssa_cut = inter ssa' all_names in
     let (ret_mov,ssa'',na'') =
       list_next_var_rename_move ssa_cut (na'+2) ls in
     let prog = (Seq (stack_mov)
@@ -375,11 +382,12 @@ Definition ssa_cc_trans_def:
     let src' = option_lookup ssa src in
     let (dst',ssa',na') = next_var_rename dst ssa na in
       (OpCurrHeap b dst' src',ssa',na')) ∧
-  (ssa_cc_trans (Return num1 num2) ssa na=
-    let num1' = option_lookup ssa num1 in
-    let num2' = option_lookup ssa num2 in
-    let mov = Move1 [(2,num2')] in
-    (Seq mov (Return num1' 2),ssa,na)) ∧
+  (ssa_cc_trans (Return num nums) ssa na=
+    let num' = option_lookup ssa num in
+    let nums' = MAP (option_lookup ssa) nums in
+    let rets = GENLIST (\x.2*(x+1)) (LENGTH nums') in
+    let mov = Move 0 (ZIP (rets,nums')) in
+    (Seq mov (Return num' rets),ssa,na)) ∧
   (ssa_cc_trans Tick ssa na = (Tick,ssa,na)) ∧
   (ssa_cc_trans (Set n exp) ssa na =
     let exp' = ssa_cc_trans_exp ssa exp in
@@ -388,14 +396,15 @@ Definition ssa_cc_trans_def:
     let (r',ssa',na') = next_var_rename r ssa na in
       (LocValue r' l1,ssa',na')) ∧
   (ssa_cc_trans (Install ptr len dptr dlen numset) ssa na =
-    let ls = MAP FST (toAList numset) in
+    let all_names = union (FST numset) (SND numset) in
+    let ls = MAP FST (toAList all_names) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
-    let stack_set = apply_nummap_key (option_lookup ssa') numset in
+    let stack_set = apply_nummaps_key (option_lookup ssa') numset in
     let ptr' = option_lookup ssa' ptr in
     let len' = option_lookup ssa' len in
     let dptr' = option_lookup ssa' dptr in
     let dlen' = option_lookup ssa' dlen in
-    let ssa_cut = inter ssa' numset in
+    let ssa_cut = inter ssa' all_names in
     let (ptr'',ssa'',na'') = next_var_rename ptr ssa_cut (na'+2) in
     let (ret_mov,ssa''',na''') =
       list_next_var_rename_move ssa'' na'' ls in
@@ -413,14 +422,15 @@ Definition ssa_cc_trans_def:
     let r2' = option_lookup ssa r2 in
     (DataBufferWrite r1' r2',ssa,na)) ∧
   (ssa_cc_trans (FFI ffi_index ptr1 len1 ptr2 len2 numset) ssa na =
-    let ls = MAP FST (toAList numset) in
+    let all_names = union (FST numset) (SND numset) in
+    let ls = MAP FST (toAList all_names) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
-    let stack_set = apply_nummap_key (option_lookup ssa') numset in
+    let stack_set = apply_nummaps_key (option_lookup ssa') numset in
     let cptr1 = option_lookup ssa' ptr1 in
     let clen1 = option_lookup ssa' len1 in
     let cptr2 = option_lookup ssa' ptr2 in
     let clen2 = option_lookup ssa' len2 in
-    let ssa_cut = inter ssa' numset in
+    let ssa_cut = inter ssa' all_names in
     let (ret_mov,ssa'',na'') =
       list_next_var_rename_move ssa_cut (na'+2) ls in
     let prog = (Seq (stack_mov)
@@ -434,27 +444,29 @@ Definition ssa_cc_trans_def:
     let prog = Seq move_args (Call NONE dest conv_args h) in
       (prog,ssa,na)) ∧
   (ssa_cc_trans (Call (SOME(ret,numset,ret_handler,l1,l2)) dest args h) ssa na =
-    let ls = MAP FST (toAList numset) in
+    let all_names = union (FST numset) (SND numset) in
+    let ls = MAP FST (toAList all_names) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
-    let stack_set = apply_nummap_key (option_lookup ssa') numset in
+    let stack_set = apply_nummaps_key (option_lookup ssa') numset in
     let names = MAP (option_lookup ssa) args in
     let conv_args = GENLIST (\x.2*(x+1)) (LENGTH names) in
     let move_args = (Move1 (ZIP (conv_args,names))) in
-    let ssa_cut = inter ssa' numset in
+    let ssa_cut = inter ssa' all_names in
     let (ret_mov,ssa'',na'') =
       list_next_var_rename_move ssa_cut (na'+2) ls in
     (*ret_mov restores the cutset*)
     (*This recurses on the returning handler*)
-    let (ret',ssa_2_p,na_2_p) = next_var_rename ret ssa'' na'' in
+    let (ret',ssa_2_p,na_2_p) = list_next_var_rename ret ssa'' na'' in
     let (ren_ret_handler,ssa_2,na_2) =
       ssa_cc_trans ret_handler ssa_2_p na_2_p in
+    let regs = GENLIST (\x.2*(x+1)) (LENGTH ret) in
     let mov_ret_handler =
-        (Seq ret_mov (Seq (Move1 [ret',2]) (ren_ret_handler))) in
+        (Seq ret_mov (Seq (Move1 (ZIP (ret',regs))) (ren_ret_handler))) in
     (dtcase h of
       NONE =>
         let prog =
           (Seq stack_mov (Seq move_args
-          (Call (SOME(2,stack_set,mov_ret_handler,l1,l2))
+          (Call (SOME(regs,stack_set,mov_ret_handler,l1,l2))
                 dest conv_args NONE))) in
         (prog,ssa_2,na_2)
     | SOME(n,h,l1',l2') =>
@@ -470,7 +482,7 @@ Definition ssa_cc_trans_def:
         let cons_exc_handler = Seq mov_exc_handler exc_cons in
         let prog =
             (Seq stack_mov (Seq move_args
-            (Call (SOME(2,stack_set,cons_ret_handler,l1,l2))
+            (Call (SOME(regs,stack_set,cons_ret_handler,l1,l2))
                dest conv_args (SOME(2,cons_exc_handler,l1',l2'))))) in
         (prog,ssa_fin,na_fin))) /\
   (ssa_cc_trans (ShareInst op v exp) ssa na =
@@ -548,8 +560,8 @@ Definition apply_colour_def:
   (apply_colour f (Store exp num) = Store (apply_colour_exp f exp) (f num)) ∧
   (apply_colour f (Call ret dest args h) =
     let ret = dtcase ret of NONE => NONE
-                        | SOME (v,cutset,ret_handler,l1,l2) =>
-                          SOME (f v,apply_nummap_key f cutset,apply_colour f ret_handler,l1,l2) in
+                        | SOME (vs,cutset,ret_handler,l1,l2) =>
+                          SOME (MAP f vs,apply_nummaps_key f cutset,apply_colour f ret_handler,l1,l2) in
     let args = MAP f args in
     let h = dtcase h of NONE => NONE
                      | SOME (v,prog,l1,l2) => SOME (f v, apply_colour f prog,l1,l2) in
@@ -559,21 +571,21 @@ Definition apply_colour_def:
   (apply_colour f (If cmp r1 ri e2 e3) =
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
   (apply_colour f (Install r1 r2 r3 r4 numset) =
-    Install (f r1) (f r2) (f r3) (f r4) (apply_nummap_key f numset)) ∧
+    Install (f r1) (f r2) (f r3) (f r4) (apply_nummaps_key f numset)) ∧
   (apply_colour f (CodeBufferWrite r1 r2) =
     CodeBufferWrite (f r1) (f r2)) ∧
   (apply_colour f (DataBufferWrite r1 r2) =
     DataBufferWrite (f r1) (f r2)) ∧
   (apply_colour f (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
-    FFI ffi_index (f ptr1) (f len1) (f ptr2) (f len2) (apply_nummap_key f numset)) ∧
+    FFI ffi_index (f ptr1) (f len1) (f ptr2) (f len2) (apply_nummaps_key f numset)) ∧
   (apply_colour f (LocValue r l1) =
     LocValue (f r) l1) ∧
   (apply_colour f (Alloc num numset) =
-    Alloc (f num) (apply_nummap_key f numset)) ∧
+    Alloc (f num) (apply_nummaps_key f numset)) ∧
   (apply_colour f (StoreConsts a b c d ws) =
     StoreConsts (f a) (f b) (f c) (f d) ws) ∧
   (apply_colour f (Raise num) = Raise (f num)) ∧
-  (apply_colour f (Return num1 num2) = Return (f num1) (f num2)) ∧
+  (apply_colour f (Return num1 nums) = Return (f num1) (MAP f nums)) ∧
   (apply_colour f Tick = Tick) ∧
   (apply_colour f (Set n exp) = Set n (apply_colour_exp f exp)) ∧
   (apply_colour f (OpCurrHeap b n1 n2) = OpCurrHeap b (f n1) (f n2)) ∧
@@ -581,9 +593,9 @@ Definition apply_colour_def:
   (apply_colour f p = p )
 End
 
-val _ = export_rewrites ["apply_nummap_key_def","apply_colour_exp_def"
-                        ,"apply_colour_inst_def","apply_colour_def"
-                        ,"apply_colour_imm_def"];
+val _ = export_rewrites ["apply_nummap_key_def", "apply_nummap_key_def",
+                        "apply_colour_exp_def","apply_colour_inst_def",
+                        "apply_colour_imm_def","apply_colour_def"];
 
 (* Liveness Analysis*)
 
@@ -709,22 +721,22 @@ Definition get_live_def:
     let union_live = union e2_live e3_live in
        dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
-  (get_live (Alloc num numset) live = insert num () numset) ∧
+  (get_live (Alloc num numset) live = insert num () (union (FST numset) (SND numset))) ∧
   (get_live (StoreConsts a b c d ws) live =
     insert c () (insert d () (delete a (delete b live)))) ∧
   (get_live (Install r1 r2 r3 r4 numset) live =
-    list_insert [r1;r2;r3;r4] numset) ∧
+    list_insert [r1;r2;r3;r4] (union (FST numset) (SND numset))) ∧
   (get_live (CodeBufferWrite r1 r2) live =
     list_insert [r1;r2] live) ∧
   (get_live (DataBufferWrite r1 r2) live =
     list_insert [r1;r2] live) ∧
   (get_live (FFI ffi_index ptr1 len1 ptr2 len2 numset) live =
    insert ptr1 () (insert len1 ()
-     (insert ptr2 () (insert len2 () numset)))) ∧
+     (insert ptr2 () (insert len2 () (union (FST numset) (SND numset)) )))) ∧
   (get_live (StoreConsts a b c d ws) live =
      (insert c () (insert d () live))) ∧
   (get_live (Raise num) live = insert num () live) ∧
-  (get_live (Return num1 num2) live = insert num1 () (insert num2 () live)) ∧
+  (get_live (Return num1 nums) live = insert num1 () (numset_list_insert nums live)) ∧
   (get_live Tick live = live) ∧
   (get_live (LocValue r l1) live = delete r live) ∧
   (get_live (Set n exp) live = union (get_live_exp exp) live) ∧
@@ -741,7 +753,7 @@ Definition get_live_def:
   *)
   (get_live (Call NONE dest args h) live = numset_list_insert args LN) ∧
   (get_live (Call (SOME(_,cutset,_)) dest args h) live =
-    union cutset (numset_list_insert args LN))
+    union (union (FST cutset) (SND cutset)) (numset_list_insert args LN))
 End
 
 (* Dead instruction removal *)
