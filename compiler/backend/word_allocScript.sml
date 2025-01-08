@@ -842,9 +842,10 @@ Definition remove_dead_def:
       if e2 = Skip ∧ e3 = Skip then Skip
       else If cmp r1 ri e2 e3 in
     (prog,liveset)) ∧
-  (remove_dead (Call(SOME(v,cutset,ret_handler,l1,l2))dest args h) live =
+  (remove_dead (Call(SOME(v,cutsets,ret_handler,l1,l2))dest args h) live =
     (*top level*)
     let args_set = numset_list_insert args LN in
+    let cutset = union (FST cutsets) (SND cutsets) in
     let live_set = union cutset args_set in
     let (ret_handler,_) = remove_dead ret_handler live in
     let h =
@@ -852,7 +853,7 @@ Definition remove_dead_def:
         NONE => NONE
       | SOME(v',prog,l1,l2) =>
         SOME(v',FST (remove_dead prog live),l1,l2)) in
-    (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h,live_set)) ∧
+    (Call (SOME (v,cutsets,ret_handler,l1,l2)) dest args h,live_set)) ∧
   (* we should not remove the ShareInst Load instructions.
   * It produces a ffi event even if the variable is not in
   * the live set *)
@@ -1003,17 +1004,17 @@ Definition get_clash_tree_def:
   (get_clash_tree (MustTerminate s) =
     get_clash_tree s) ∧
   (get_clash_tree (Alloc num numset) =
-    Seq (Delta [] [num]) (Set numset)) ∧
+    Seq (Delta [] [num]) (Set (union (FST numset) (SND numset)))) ∧
   (get_clash_tree (Install r1 r2 r3 r4 numset) =
-    Seq (Delta [] [r4;r3;r2;r1]) (Seq (Set numset) (Delta [r1] []))) ∧
+    Seq (Delta [] [r4;r3;r2;r1]) (Seq (Set (union (FST numset) (SND numset))) (Delta [r1] []))) ∧
   (get_clash_tree (CodeBufferWrite r1 r2) =
     Delta [] [r2;r1]) ∧
   (get_clash_tree (DataBufferWrite r1 r2) =
     Delta [] [r2;r1]) ∧
   (get_clash_tree (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
-    Seq (Delta [] [ptr1;len1;ptr2;len2]) (Set numset)) ∧
+    Seq (Delta [] [ptr1;len1;ptr2;len2]) (Set (union (FST numset) (SND numset)))) ∧
   (get_clash_tree (Raise num) = Delta [] [num]) ∧
-  (get_clash_tree (Return num1 num2) = Delta [] [num1;num2]) ∧
+  (get_clash_tree (Return num1 nums) = Delta [] (num1::nums)) ∧
   (get_clash_tree Tick = Delta [] []) ∧
   (get_clash_tree (LocValue r l1) = Delta [r] []) ∧
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
@@ -1025,18 +1026,17 @@ Definition get_clash_tree_def:
   (get_clash_tree (Call ret dest args h) =
     let args_set = numset_list_insert args LN in
     dtcase ret of
-      NONE => Set (numset_list_insert args LN)
-    | SOME (v,cutset,ret_handler,_,_) =>
+      NONE => Set args_set
+    | SOME (vs,cutsets,ret_handler,_,_) =>
+      let cutset = union (FST cutsets) (SND cutsets) in
       let live_set = union cutset args_set in
       (*Might be inefficient..*)
-      let ret_tree = Seq (Set (insert v () cutset)) (get_clash_tree ret_handler) in
+      let ret_tree = Seq (Set (numset_list_insert vs cutset)) (get_clash_tree ret_handler) in
       dtcase h of
         NONE => Seq (Set live_set) ret_tree
       | SOME (v',prog,_,_) =>
         let handler_tree =
-          (*They will actually always be equal if call_arg_conv is met*)
-          if v = v' then get_clash_tree prog
-          else Seq (Set (insert v' () cutset)) (get_clash_tree prog) in
+          Seq (Set (insert v' () cutset)) (get_clash_tree prog) in
         Branch (SOME live_set) ret_tree handler_tree)
 End
 
