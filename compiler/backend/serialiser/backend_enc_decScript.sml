@@ -450,9 +450,9 @@ val res = encode_for_rec “:source_to_flat$config”;
 val res = encode_for_rec “:word_to_stack$config”;
 val res = encode_for_rec “:lab_to_target$shmem_info_num”;
 val res = encode_for_rec “:lab_to_target$inc_config”;
-val res = encode_for_rec “:backend$inc_config”;
+val res = encode_for_rec “:backend$config”;
 
-Theorem inc_config_dec_thm =
+Theorem config_dec_thm =
   res |> SIMP_RULE std_ss [enc_dec_ok'_def]
       |> CONJUNCT2 |> Q.SPECL [‘c’,‘[]’]
       |> GEN_ALL |> SIMP_RULE std_ss [APPEND_NIL];
@@ -461,18 +461,18 @@ Theorem inc_config_dec_thm =
 
 Definition encode_backend_config_def:
   encode_backend_config c =
-    rev_nums_to_chars (append_rev (inc_config_enc c) []) "" : char list
+    rev_nums_to_chars (append_rev (config_enc c) []) "" : char list
 End
 
 Definition decode_backend_config_def:
-  decode_backend_config s = FST (inc_config_dec (chars_to_nums s))
+  decode_backend_config s = FST (config_dec (chars_to_nums s))
 End
 
 Theorem encode_backend_config_thm:
   decode_backend_config (encode_backend_config c) = c
 Proof
   fs [encode_backend_config_def,decode_backend_config_def,rev_nums_to_chars_thm,
-      chars_to_nums_nums_to_chars,inc_config_dec_thm,append_rev_thm]
+      chars_to_nums_nums_to_chars,config_dec_thm,append_rev_thm]
 QED
 
 val _ = export_theory();
