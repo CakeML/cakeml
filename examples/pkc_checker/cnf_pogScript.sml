@@ -705,18 +705,32 @@ Datatype:
     |>
 End
 
-(* The immutable problem configuration consisting of data
-  variables, the clause limit, and a max var limit n *)
+(* The immutable problem configuration consisting of
+  data variables, the clause limit, and a max var limit n. *)
 Datatype:
   prob_conf =
-    <| D : num_set ; cl : num ; n : num |>
+    <| D : num_set option ; cl : num ; n : num |>
+End
+
+Definition get_data_vars_def:
+  get_data_vars pc =
+  case pc.D of
+    NONE => count (pc.n+1)
+  | SOME D => domain D
+End
+
+Definition is_data_var_def:
+  is_data_var pc v =
+  case pc.D of
+    NONE => v ≤ pc.n
+  | SOME D => lookup v D ≠ NONE
 End
 
 (* l is a data literal or an extension variable *)
 Definition is_data_ext_lit_run_def:
-  is_data_ext_lit_run D Ev l ⇔
+  is_data_ext_lit_run pc Ev l ⇔
     let v = var_lit l in
-    lookup v D ≠ NONE ∨
+    is_data_var pc v ∨
     lookup v Ev ≠ NONE ∧ l > 0
 End
 
@@ -725,7 +739,7 @@ Definition declare_root_def:
   declare_root pc sc l =
     case sc.root of
       NONE =>
-        if l ≠ 0 ∧ is_data_ext_lit_run pc.D sc.Ev l then
+        if l ≠ 0 ∧ is_data_ext_lit_run pc sc.Ev l then
           SOME (sc with root := SOME l)
         else NONE
     | SOME _ => NONE
@@ -816,7 +830,7 @@ End
 
 Definition check_pro_def:
   check_pro pc sc v ls =
-    (EVERY (is_data_ext_lit_run pc.D sc.Ev) ls ∧
+    (EVERY (is_data_ext_lit_run pc sc.Ev) ls ∧
     v ≠ 0n ∧ EVERY (λi. i ≠ 0i) ls ∧
     is_fresh pc sc v)
 End
@@ -878,7 +892,7 @@ End
 
 Definition check_sum_def:
   check_sum pc sc v ls =
-    (EVERY (is_data_ext_lit_run pc.D sc.Ev) ls ∧
+    (EVERY (is_data_ext_lit_run pc sc.Ev) ls ∧
     v ≠ 0n ∧ EVERY (λi. i ≠ 0i) ls ∧
     is_fresh pc sc v)
 End
@@ -897,15 +911,16 @@ Definition declare_sum_def:
 End
 
 Definition is_proj_lit_run_def:
-  is_proj_lit_run n D l ⇔
+  is_proj_lit_run pc l ⇔
+  case pc.D of NONE => F
+  | SOME D =>
     let v = var_lit l in
-    lookup v D = NONE ∧
-    v ≤ n
+    lookup v D = NONE ∧ v ≤ pc.n
 End
 
 Definition check_sko_def:
   check_sko pc sc v ls =
-    (EVERY (is_proj_lit_run pc.n pc.D) ls ∧
+    (EVERY (is_proj_lit_run pc) ls ∧
     v ≠ 0n ∧ EVERY (λi. i ≠ 0i) ls ∧
     is_fresh pc sc v)
 End
@@ -1101,7 +1116,7 @@ Proof
 QED
 
 Definition good_pc_def:
-  good_pc pc ⇔ domain pc.D ⊆ count (pc.n+1)
+  good_pc pc ⇔ get_data_vars pc ⊆ count (pc.n+1)
 End
 
 Definition extends_over_def:
@@ -1375,12 +1390,27 @@ Proof
   simp[]
 QED
 
+Theorem lookup_unit_cases:
+  lookup n t = SOME () ∨ lookup n t = NONE
+Proof
+  Cases_on`lookup n t`>>rw[]
+QED
+
+Theorem is_data_var_get_data_vars:
+  is_data_var pc v ⇔
+  v ∈ get_data_vars pc
+Proof
+  rw[get_data_vars_def,is_data_var_def]>>
+  TOP_CASE_TAC>>gvs[domain_lookup]>>
+  metis_tac[lookup_unit_cases,option_CLAUSES]
+QED
+
 Theorem check_scpstep_extends_over:
   good_pc pc ∧
   check_scpstep pc fml sc scpstep = SOME (fml',sc') ∧
   vars_fml (get_fml (Normal T) fml) ⊆ count (pc.n+1) ∪ domain sc.Ev
   ⇒
-  extends_over (domain pc.D)
+  extends_over (get_data_vars pc)
     (λw. sat_fml w (get_fml (Normal T) fml))
     (λw. sat_fml w (get_fml (Normal T) fml')) ∧
   (sc'.mode ⇒
@@ -1388,7 +1418,7 @@ Theorem check_scpstep_extends_over:
     ∀n v. n ≤ pc.cl ∧ lookup n fml = SOME v ⇒
       lookup n fml' = SOME v) ∧
   (¬sc'.mode ⇒
-    extends_over (domain pc.D)
+    extends_over (get_data_vars pc)
       (λw. sat_fml w (get_fml (Normal F) fml'))
       (λw. sat_fml w (get_fml (Normal F) fml)))
 Proof
@@ -1443,8 +1473,9 @@ Proof
     strip_tac>>
     gvs[declare_pro_def,AllCaseEqs(),check_pro_def,is_fresh_def]>>
     rename1`mk_pro v ls`>>
-    `v ∉ domain pc.D` by (
-      gvs[good_pc_def,SUBSET_DEF]>>
+    `v ∉ get_data_vars pc` by (
+      gvs[good_pc_def,get_data_vars_def]>>
+      TOP_CASE_TAC>>gvs[SUBSET_DEF]>>
       CCONTR_TAC>>gvs[]>>first_x_assum drule>>
       gvs[])>>
     drule get_fml_insert_list_Structural>>
@@ -1463,8 +1494,7 @@ Proof
         simp[sat_lit_def]>>
         gvs[EVERY_MEM]>>
         first_x_assum drule>>
-        rw[is_data_ext_lit_run_def]>>
-        gvs[domain_lookup,GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS])
+        rw[is_data_ext_lit_run_def,is_data_var_get_data_vars])
       >- (
         DEP_ONCE_REWRITE_TAC[agree_on_vars_fml |> GSYM]>>
         rw[agree_on_def]>>
@@ -1480,8 +1510,9 @@ Proof
     rename1`mk_sum v [l1;l2]`>>
     qmatch_asmsub_abbrev_tac`mk_sum v ls`>>
     gvs[check_sum_def,is_fresh_def]>>
-    `v ≠ 0 ∧ v ∉ domain pc.D` by (
-      gvs[good_pc_def,SUBSET_DEF]>>
+    `v ≠ 0 ∧ v ∉ get_data_vars pc` by (
+      gvs[good_pc_def,SUBSET_DEF,get_data_vars_def]>>
+      TOP_CASE_TAC>>
       CCONTR_TAC>>gvs[]>>first_x_assum drule>>
       gvs[])>>
     drule get_fml_insert_list_Structural>>
@@ -1500,8 +1531,7 @@ Proof
         simp[sat_lit_def]>>
         gvs[EVERY_MEM]>>
         first_x_assum drule>>
-        rw[is_data_ext_lit_run_def]>>
-        gvs[domain_lookup,GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS])
+        rw[is_data_ext_lit_run_def,is_data_var_get_data_vars])
       >- (
         DEP_ONCE_REWRITE_TAC[agree_on_vars_fml |> GSYM]>>
         rw[agree_on_def]>>
@@ -1515,8 +1545,9 @@ Proof
     strip_tac>>
     gvs[declare_sko_def,AllCaseEqs(),check_sko_def,is_fresh_def]>>
     rename1`mk_sko v ls`>>
-    `v ∉ domain pc.D` by (
-      gvs[good_pc_def,SUBSET_DEF]>>
+    `v ∉ get_data_vars pc` by (
+      gvs[good_pc_def,get_data_vars_def,SUBSET_DEF]>>
+      TOP_CASE_TAC>>gvs[]>>
       CCONTR_TAC>>gvs[]>>first_x_assum drule>>
       gvs[])>>
     drule get_fml_insert_one_Normal>>
@@ -1626,12 +1657,6 @@ Proof
   rw[mk_Ev_def]
 QED
 
-Theorem lookup_unit_cases:
-  lookup n t = SOME () ∨ lookup n t = NONE
-Proof
-  Cases_on`lookup n t`>>rw[]
-QED
-
 Theorem check_scpstep_vars_fml:
   good_pc pc ∧
   check_scpstep pc fml sc scpstep = SOME (fml',sc') ∧
@@ -1664,7 +1689,7 @@ Proof
     drule_all vars_fml_mk_pro>>
     drule get_fml_insert_list_Structural>>rw[]
     >- (
-      gvs[EVERY_MEM,is_data_ext_lit_run_def,SUBSET_DEF,PULL_EXISTS,good_pc_def]>>
+      gvs[EVERY_MEM,is_data_ext_lit_run_def,SUBSET_DEF,PULL_EXISTS,good_pc_def,is_data_var_get_data_vars]>>
       rw[]>>first_x_assum drule>>
       gvs[domain_lookup]>>
       metis_tac[lookup_unit_cases,option_CLAUSES])
@@ -1680,7 +1705,7 @@ Proof
     impl_tac >- rw[Abbr`ls`]>>
     drule get_fml_insert_list_Structural>>rw[]
     >- (
-      gvs[EVERY_MEM,is_data_ext_lit_run_def,SUBSET_DEF,PULL_EXISTS,good_pc_def]>>
+      gvs[EVERY_MEM,is_data_ext_lit_run_def,SUBSET_DEF,PULL_EXISTS,good_pc_def,is_data_var_get_data_vars]>>
       rw[Abbr`ls`]>>
       gvs[domain_lookup]>>
       metis_tac[lookup_unit_cases,option_CLAUSES])
@@ -1705,14 +1730,14 @@ Theorem check_scpsteps_extends_over:
   check_scpsteps pc fml sc xs = SOME (fml',sc') ∧
   vars_fml (get_fml (Normal T) fml) ⊆ count (pc.n+1) ∪ domain sc.Ev
   ⇒
-  extends_over (domain pc.D)
+  extends_over (get_data_vars pc)
     (λw. sat_fml w (get_fml (Normal T) fml))
     (λw. sat_fml w (get_fml (Normal T) fml')) ∧
   (¬sc.mode ⇒
-    extends_over (domain pc.D)
+    extends_over (get_data_vars pc)
       (λw. sat_fml w (get_fml (Normal F) fml'))
       (λw. sat_fml w (get_fml (Normal F) fml))) ∧
-  extends_over (domain pc.D)
+  extends_over (get_data_vars pc)
     (λw. sat_fml w (get_fml (Normal F) fml'))
     (λw. sat_fml w (get_bnd_fml pc.cl fml))
 Proof
@@ -2100,8 +2125,9 @@ QED
 Definition conf_inv_def:
   conf_inv pc sc ⇔
   count (pc.n + 1) ∩ domain sc.Ev = {} ∧
-  dir_scp (domain pc.D)
-    (count (pc.n+1) DIFF domain pc.D) (domain sc.Ev) sc.scp ∧
+  dir_scp (get_data_vars pc)
+    (count (pc.n+1) DIFF get_data_vars pc)
+    (domain sc.Ev) sc.scp ∧
   EVERY wf_scp sc.scp ∧
   ALL_DISTINCT (MAP FST sc.scp) ∧ domain sc.Ev = set (MAP FST sc.scp) ∧
   (∀n v.
@@ -2113,15 +2139,15 @@ Definition conf_inv_def:
     NONE => T
   | SOME r =>
     r ≠ 0 ∧
-    is_data_ext_lit (domain pc.D) sc.scp r
+    is_data_ext_lit (get_data_vars pc) sc.scp r
 End
 
 Theorem is_data_ext_lit_run_sem:
   domain (Ev:num_set num_map) = set (MAP FST scp) ∧
-  is_data_ext_lit_run (D:num_set) Ev i ⇒
-  is_data_ext_lit (domain D) scp i
+  is_data_ext_lit_run pc Ev i ⇒
+  is_data_ext_lit (get_data_vars pc) scp i
 Proof
-  rw[is_data_ext_lit_run_def,is_data_ext_lit_def] >>
+  rw[is_data_ext_lit_run_def,is_data_ext_lit_def,is_data_var_get_data_vars] >>
   gvs[domain_lookup,MEM_MAP,EXTENSION]>>
   metis_tac[lookup_unit_cases,option_CLAUSES]
 QED
@@ -2335,7 +2361,7 @@ Theorem check_scpstep_conf_inv:
     sat_fml w (get_fml Structural fml'))
 Proof
   strip_tac>>
-  `domain pc.D ∩ domain sc.Ev = {}` by (
+  `get_data_vars pc ∩ domain sc.Ev = {}` by (
     gvs[good_pc_def,conf_inv_def,EXTENSION,SUBSET_DEF]>>
     metis_tac[])>>
   `(∀n. lookup n sc.Ev = NONE ⇒ ALOOKUP sc.scp n = NONE)` by  (
@@ -2369,7 +2395,7 @@ Proof
     gvs[declare_pro_def,check_pro_def,conf_inv_def,is_fresh_def,wf_scp_def,AllCaseEqs()]>>
     `EVERY (λx. x > 0 ∨ lookup (var_lit x) sc.Ev = NONE) l` by (
       gvs[EVERY_MEM]>>rw[]>>last_x_assum drule>>
-      simp[is_data_ext_lit_run_def]>>
+      simp[is_data_ext_lit_run_def,is_data_var_get_data_vars]>>
       CCONTR_TAC>>gvs[EXTENSION,domain_lookup]>>
       metis_tac[lookup_unit_cases,option_CLAUSES])>>
     drule domain_mk_Ev_disj>>
@@ -2402,7 +2428,7 @@ Proof
   >- (
     gvs[declare_sum_def,check_sum_def,conf_inv_def,is_fresh_def,INTER_INSERT,wf_scp_def]>>
     `EVERY (λx. x > 0 ∨ lookup (var_lit x) sc.Ev = NONE) [i;i0]` by (
-      gvs[is_data_ext_lit_run_def]>>
+      gvs[is_data_ext_lit_run_def,is_data_var_get_data_vars]>>
       CCONTR_TAC>>gvs[EXTENSION,domain_lookup]>>
       metis_tac[lookup_unit_cases,option_CLAUSES])>>
     rw[]
@@ -2451,7 +2477,7 @@ Proof
     `EVERY (λx. x > 0 ∨ lookup (var_lit x) sc.Ev = NONE) l` by (
       gvs[EVERY_MEM]>>rw[]>>last_x_assum drule>>
       gvs[is_proj_lit_run_def,EXTENSION]>>
-      rw[]>>last_x_assum drule>>rw[]>>
+      rw[AllCasePreds()]>>last_x_assum drule>>rw[]>>
       `var_lit x < pc.n + 1` by fs[]>>
       DISJ2_TAC>>
       metis_tac[option_CLAUSES,domain_lookup])>>
@@ -2460,8 +2486,11 @@ Proof
     >-
       gvs[INTER_INSERT]
     >- (
-      gvs[dir_scp_def,EVERY_MEM,is_proj_lit_run_def]>>
-      rw[]>>last_x_assum drule>>simp[domain_lookup])
+      gvs[dir_scp_def,EVERY_MEM,is_proj_lit_run_def,is_data_var_get_data_vars]>>
+      rw[]>>last_x_assum drule>>
+      rw[AllCasePreds()]>>
+      simp[domain_lookup]>>
+      gvs[GSYM is_data_var_get_data_vars,is_data_var_def])
     >- (
       gvs[domain_lookup,EXTENSION]>>
       metis_tac[option_CLAUSES])
@@ -2503,8 +2532,8 @@ Theorem soundness:
   check_scpsteps pc (build_fml 1 fmlls) init_sc xs = SOME (fml', sc') ∧
   sc'.root = SOME r ∧
   final_conditions fml' r sc'.scp ⇒
-  models (domain pc.D) (sat_scp F r sc'.scp) =
-    models (domain pc.D) {w | sat_fml w (set fmlls)} ∧
+  models (get_data_vars pc) (sat_scp F r sc'.scp) =
+    models (get_data_vars pc) {w | sat_fml w (set fmlls)} ∧
   decomposable_scp F r sc'.scp ∧
   deterministic_scp F r sc'.scp
 Proof
