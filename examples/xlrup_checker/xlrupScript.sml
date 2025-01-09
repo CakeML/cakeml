@@ -1,14 +1,20 @@
 (*
    Basic specification of an xlrup checker (minimal optimization)
 *)
-open preamble miscTheory mlstringTheory cnf_xorTheory blastLib;
+open preamble miscTheory mlstringTheory cnf_extTheory blastLib sptreeTheory;
 
 val _ = new_theory "xlrup";
 
 (* Internal representations *)
 Type cclause = ``:int list``;
+
 Type strxor = ``:mlstring``;
 Type rawxor = ``:int list``;
+
+(* The constraint (upper ≥ |offset + X| ≥ lower) *)
+Type cardc = ``:(num # (num # num_set) # num)``
+(* A cardinality and the reification var on the RHS *)
+Type ibnn = ``:cardc # num``;
 
 (* Satisfiability for clauses is defined by interpreting into the
   top-level semantics *)
@@ -83,9 +89,27 @@ Definition isat_xfml_def:
   isat_xfml w xfml ⇔ (∀C. C ∈ xfml ⇒ isat_strxor w C)
 End
 
+Definition bdom_def:
+  bdom (off:num,lhs:num_set) =
+    IMAGE ((+) off) (domain lhs)
+End
+
+Definition isat_cardc_def:
+  isat_cardc (w:assignment) (u,ns,l) ⇔
+  let c = ∑ (λv. of_bool (w v)) (bdom ns) in
+    l ≤ c ∧ c ≤ u
+End
+
+(* TODO *)
+Definition isat_bfml_def:
+  isat_bfml w bfml ⇔ (∀C. C ∈ bfml ⇒ ARB w C)
+End
+
 Definition isat_fml_def:
-  isat_fml w f (cfml,xfml) ⇔
-  isat_cfml w cfml ∧ isat_xfml (w o f) xfml
+  isat_fml w f (cfml,xfml,bfml) ⇔
+  isat_cfml w cfml ∧
+  isat_xfml (w o f) xfml ∧
+  isat_bfml w bfml
 End
 
 (* Connection to the top-level semantics *)
@@ -799,6 +823,7 @@ Datatype:
   | Del (num list) (* Clauses to delete *)
   | RUP num cclause (num list)
     (* RUP n C hints : derive clause C by RUP using hints *)
+
   | XOrig num (lit list)
     (* XOrig n C : add XOR C from original at ID n *)
   | XAdd num rawxor (num list) (num list)
@@ -809,6 +834,12 @@ Datatype:
     (* Derive clause from hint XORs *)
   | XFromC num rawxor (num list)
     (* Derive XOR from hint clauses *)
+
+  | BOrig num ibnn
+    (* BOrig n B : add BNN B from original at ID n *)
+  | BDel (num list) (* BNN constraints to delete *)
+  | CFromB num cclause num (num list)
+    (* Derive clause from hint BNN and rup hints *)
 End
 
 Definition delete_literals_def:
@@ -970,6 +1001,51 @@ Definition ren_lit_ls_def:
       let (m,tn) = get_name tn v in
         ren_lit_ls tn is (Neg m::acc))
 End
+
+Definition lookup_offspt_def:
+  lookup_offspt n (off,ns) =
+  if n < off then NONE
+  else
+  lookup (n - off) ns
+End
+
+Definition prop_cardc_def:
+  (prop_cardc ns upp low [] = (upp:num,low:num)) ∧
+  (prop_cardc ns upp low (l::ls) =
+    let n = Num l in
+    case lookup_offspt n ns of
+      NONE => prop_cardc ns upp low ls
+    | SOME () =>
+      if l > 0
+      then
+        prop_cardc ns (upp-1) (low-1) ls
+      else
+        prop_cardc ns (upp-1) low ls)
+End
+
+Theorem lookup_offspt_bdom:
+  lookup_offspt n ns = SOME () ⇔
+  n ∈ bdom ns
+Proof
+  Cases_on`ns`>>rw[bdom_def,lookup_offspt_def,domain_lookup]>>
+  cheat
+QED
+
+Theorem prop_cardc_sound:
+  ∀ls upp low.
+  prop_cardc ns upp low ls = (upp',low') ∧
+  EVERY (sat_lit w o interp_lit) ls
+  ⇒
+  (
+    isat_cardc w (upp',ns,low') ⇔
+    isat_cardc w (upp,ns,low)
+  )
+Proof
+  Induct>>rw[prop_cardc_def]>>
+  gvs[AllCaseEqs(),interp_lit_def,sat_lit_def]>>
+  first_x_assum drule>> rw[]>>
+  cheat
+QED
 
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
 Definition check_xlrup_def:

@@ -159,19 +159,23 @@ End
 (* Parse a list of BNN LHS variables ending with 0
   Variables between 1 to maxvar (inclusive) *)
 Definition parse_bnn_vars_aux_def:
-  (parse_bnn_vars_aux maxvar [] (acc:lit list) = NONE) ∧
+  (parse_bnn_vars_aux maxvar [] (acc:num list) = NONE) ∧
   (parse_bnn_vars_aux maxvar (x::xs) acc =
     case x of
       INR l =>
       let n = Num (ABS l) in
-      let v = if l > 0 then Pos n else Neg n in
-      if n = 0 ∨ n > maxvar then NONE
-      else parse_bnn_vars_aux maxvar xs (v::acc)
+      if l ≤ 0 ∨ n > maxvar then NONE
+      else parse_bnn_vars_aux maxvar xs (n::acc)
     | INL (_:mlstring) => NONE)
 End
 
+(* TODO *)
 Definition parse_bnn_vars_def:
-  parse_bnn_vars maxvar ls = parse_bnn_vars_aux maxvar ls []
+  parse_bnn_vars maxvar ls =
+  case parse_bnn_vars_aux maxvar ls [] of
+    NONE => NONE
+  | SOME ls =>
+    if ALL_DISTINCT ls then SOME ls else NONE
 End
 
 (* lines which are not comments don't start with a single "c" *)
