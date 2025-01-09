@@ -534,4 +534,15 @@ Definition inc_config_to_config_def:
   |>
 End
 
+Definition compile_lab_inc_def:
+  compile_lab_inc asm_conf ilc sec_list =
+  OPTION_MAP (λ(bytes, c'). (bytes,config_to_inc_config c'))
+      (compile_lab (inc_config_to_config asm_conf ilc) sec_list)
+End
+
+Definition compile_inc_def:
+  compile_inc asm_conf ilc sec_list =
+    compile_lab_inc asm_conf ilc (filter_skip sec_list)
+End
+
 val _ = export_theory();

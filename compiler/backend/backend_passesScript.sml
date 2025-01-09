@@ -22,7 +22,7 @@ Datatype:
 End
 
 Definition to_flat_all_def:
-  to_flat_all (c:'a config) p =
+  to_flat_all (c:config) p =
     let ps = [] in
     let ps = ps ++ [(strlit "original source code",Source p)] in
     let p = source_let$compile_decs p in
@@ -48,7 +48,7 @@ Proof
 QED
 
 Definition to_clos_all_def:
-  to_clos_all (c:'a config) p =
+  to_clos_all (c:config) p =
     let (ps,c,p) = to_flat_all c p in
     let p = flat_to_clos$compile_prog p in
     let ps = ps ++ [(strlit "after flat_to_clos",Clos p [])] in
@@ -64,7 +64,7 @@ Proof
 QED
 
 Definition to_bvl_all_def:
-  to_bvl_all (c:'a config) p =
+  to_bvl_all (c:config) p =
     let (ps,c,es0) = to_clos_all c p in
     let c0 = c.clos_conf in
     let es = clos_mti$compile c0.do_mti c0.max_app es0 in
@@ -109,7 +109,7 @@ Proof
 QED
 
 Definition to_bvi_all_def:
-  to_bvi_all (c:'a config) p =
+  to_bvi_all (c:config) p =
     let (ps,c,p,names) = to_bvl_all c p in
     let start = c.clos_conf.start in
     let c0 = c.bvl_conf in
@@ -156,7 +156,7 @@ Proof
 QED
 
 Definition to_data_all_def:
-  to_data_all (c:'a config) p =
+  to_data_all (c:config) p =
     let (ps,c,p,names) = to_bvi_all c p in
     let p = MAP (λ(a,n,e). (a,n,FST (compile n (COUNT_LIST n) T [] [e]))) p in
     let ps = ps ++ [(strlit "after bvi_to_data",Data p names)] in
@@ -170,7 +170,7 @@ Definition to_data_all_def:
 End
 
 Theorem to_data_thm:
-  SND (to_data_all (c:'a config) p) = to_data c p
+  SND (to_data_all (c:config) p) = to_data c p
 Proof
   assume_tac to_bvi_thm
   \\ fs [to_data_all_def,to_data_def,bvi_to_dataTheory.compile_prog_def]
@@ -182,8 +182,8 @@ QED
 
 (* NOTE: this definition is meant to minimize code duplication
   in the explorer pretty printing. *)
-Definition word_internal_def:
-  word_internal asm_conf ps names p =
+Definition word_internal_all_def:
+  word_internal_all asm_conf ps names p =
     let two_reg_arith = asm_conf.two_reg_arith in
     let p = MAP (λ((name_num,arg_count,prog)).
                   ((name_num,arg_count,word_simp$compile_exp prog))) p in
@@ -218,11 +218,10 @@ Definition word_internal_def:
 End
 
 Definition to_word_all_def:
-  to_word_all (c:'a config) p =
+  to_word_all asm_conf (c:config) p =
     let (ps,c,p,names) = to_data_all c p in
     let word_conf = c.word_to_word_conf in
     let data_conf = c.data_conf in
-    let asm_conf = c.lab_conf.asm_conf in
     let data_conf =
             data_conf with
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
@@ -230,7 +229,7 @@ Definition to_word_all_def:
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(strlit "after data_to_word",Word p names)] in
-    let (p,ps) = word_internal asm_conf ps names p in
+    let (p,ps) = word_internal_all asm_conf ps names p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
     let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
@@ -258,14 +257,14 @@ Proof
 QED
 
 Theorem to_word_thm:
-  SND (to_word_all (c:'a config) p) = to_word c p
+  SND (to_word_all asm_conf (c:config) p) = to_word asm_conf c p
 Proof
   assume_tac to_data_thm
   \\ fs [to_word_all_def,
          to_word_def,data_to_wordTheory.compile_def,
          word_to_wordTheory.compile_def]
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs[word_internal_def, Excl "MAP_APPEND", MAP_MAP_o, o_DEF,LAMBDA_PROD]
+  \\ gvs[word_internal_all_def, Excl "MAP_APPEND", MAP_MAP_o, o_DEF,LAMBDA_PROD]
   \\ DEP_REWRITE_TAC[ZIP_MAP_1]
   \\ imp_res_tac LENGTH_next_n_oracle
   \\ CONJ_TAC >- (
@@ -276,16 +275,16 @@ Proof
 QED
 
 Definition to_stack_all_def:
-  to_stack_all (c:'a config) p =
-    let (ps,c,p,names) = to_word_all c p in
-    let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  to_stack_all asm_conf (c:config) p =
+    let (ps,c,p,names) = to_word_all asm_conf c p in
+    let (bm,c',fs,p) = word_to_stack$compile asm_conf p in
     let ps = ps ++ [(strlit "after word_to_stack",Stack p names)] in
     let c = c with word_conf := c' in
       ((ps: (mlstring # 'a any_prog) list),bm,c,p,names)
 End
 
 Theorem to_stack_thm:
-  SND (to_stack_all (c:'a config) p) = to_stack c p
+  SND (to_stack_all asm_conf (c:config) p) = to_stack asm_conf c p
 Proof
   assume_tac to_word_thm
   \\ fs [to_stack_all_def,to_stack_def]
@@ -293,13 +292,13 @@ Proof
 QED
 
 Definition to_lab_all_def:
-  to_lab_all (c:'a config) p =
-    let (ps,bm,c,p,names) = to_stack_all c p in
+  to_lab_all asm_conf (c:config) p =
+    let (ps,bm,c,p,names) = to_stack_all asm_conf c p in
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
     let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
-    let sp = c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3) in
-    let offset = c.lab_conf.asm_conf.addr_offset in
+    let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
+    let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
     let ps = ps ++ [(strlit "after stack_rawcall",Stack prog names)] in
     let prog = stack_alloc$compile data_conf prog in
@@ -315,7 +314,7 @@ Definition to_lab_all_def:
 End
 
 Theorem to_lab_thm:
-  SND (to_lab_all (c:'a config) p) = to_lab c p
+  SND (to_lab_all asm_conf (c:config) p) = to_lab asm_conf c p
 Proof
   assume_tac to_stack_thm
   \\ fs [to_lab_all_def,to_lab_def,stack_to_labTheory.compile_def]
@@ -323,43 +322,43 @@ Proof
 QED
 
 Definition to_target_all_def:
-  to_target_all (c:'a config) p =
-    let (ps,bm,c,p,names) = to_lab_all c p in
+  to_target_all asm_conf (c:config) p =
+    let (ps,bm,c,p,names) = to_lab_all asm_conf c p in
     let p = filter_skip p in
     let ps = ps ++ [(strlit "after filter_skip",Lab p names)] in
-    let p = compile_lab c.lab_conf p in
+    let p = compile_lab_inc asm_conf c.lab_conf p in
       ((ps: (mlstring # 'a any_prog) list), attach_bitmaps names c bm p)
 End
 
 Theorem to_target_thm:
-  SND (to_target_all c p) = to_target c p
+  SND (to_target_all asm_conf c p) = to_target asm_conf c p
 Proof
   assume_tac to_lab_thm
-  \\ fs [to_target_all_def,to_target_def,lab_to_targetTheory.compile_def]
+  \\ fs [to_target_all_def,to_target_def,lab_to_targetTheory.compile_def,lab_to_targetTheory.compile_inc_def]
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
 Definition from_lab_all_def:
-  from_lab_all ps (c:'a config) names p (bm:'a word list) =
+  from_lab_all ps asm_conf (c:config) names p (bm:'a word list) =
     let p = filter_skip p in
     let ps = ps ++ [(strlit "after filter_skip",Lab p names)] in
-    let p = compile_lab c.lab_conf p in
+    let p = compile_lab_inc asm_conf c.lab_conf p in
       ((ps: (mlstring # 'a any_prog) list), attach_bitmaps names c bm p)
 End
 
 Theorem from_lab_thm:
-  SND (from_lab_all ps c names p bm) = from_lab c names p bm
+  SND (from_lab_all ps asm_conf c names p bm) = from_lab asm_conf c names p bm
 Proof
-  gvs [from_lab_all_def,from_lab_def,lab_to_targetTheory.compile_def]
+  gvs [from_lab_all_def,from_lab_def,lab_to_targetTheory.compile_inc_def]
 QED
 
 Definition from_stack_all_def:
-  from_stack_all ps (c:'a config) names p bm =
+  from_stack_all ps (asm_conf:'a asm_config) (c:config) names p bm =
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
     let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
-    let sp = c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3) in
-    let offset = c.lab_conf.asm_conf.addr_offset in
+    let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
+    let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
     let ps = ps ++ [(strlit "after stack_rawcall",Stack prog names)] in
     let prog = stack_alloc$compile data_conf prog in
@@ -371,36 +370,35 @@ Definition from_stack_all_def:
     let ps = ps ++ [(strlit "after stack_names",Stack prog names)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(strlit "after stack_to_lab",Lab p names)] in
-      from_lab_all ps c names p bm
+      from_lab_all ps asm_conf c names p bm
 End
 
 Theorem from_stack_thm:
-  SND (from_stack_all ps c names p bm) = from_stack c names p bm
+  SND (from_stack_all ps asm_conf c names p bm) = from_stack asm_conf c names p bm
 Proof
   gvs [from_stack_all_def,from_stack_def,stack_to_labTheory.compile_def,
        from_lab_thm]
 QED
 
 Definition from_word_all_def:
-  from_word_all ps (c:'a config) names p =
-    let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  from_word_all ps asm_conf (c:config) names p =
+    let (bm,c',fs,p) = word_to_stack$compile asm_conf p in
     let ps = ps ++ [(strlit "after word_to_stack",Stack p names)] in
     let c = c with word_conf := c' in
-      from_stack_all ps c names p bm
+      from_stack_all ps asm_conf c names p bm
 End
 
 Theorem from_word_thm:
-  SND (from_word_all ps c names p) = from_word c names p
+  SND (from_word_all ps asm_conf c names p) = from_word asm_conf c names p
 Proof
   gvs [from_word_all_def,from_word_def,word_to_stackTheory.compile_def]
   \\ pairarg_tac \\ gvs [from_stack_thm]
 QED
 
 Definition from_word_0_all_def:
-  from_word_0_all ps (c:'a config) names p =
+  from_word_0_all ps asm_conf (c:config) names p =
     let word_conf = c.word_to_word_conf in
-    let asm_conf = c.lab_conf.asm_conf in
-    let (p,ps) = word_internal asm_conf ps names p in
+    let (p,ps) = word_internal_all asm_conf ps names p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
     let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
@@ -410,17 +408,17 @@ Definition from_word_0_all_def:
                      (word_alloc name_num asm_conf alg reg_count prog col_opt)))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(strlit "after word_alloc (and remove_must_terminate)",Word p names)] in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-      from_word_all ps c names p
+      from_word_all ps asm_conf c names p
 End
 
 Theorem from_word_0_thm:
-  SND (from_word_0_all ps c names p) = from_word_0 c names p
+  SND (from_word_0_all ps asm_conf c names p) = from_word_0 asm_conf c names p
 Proof
   gvs [from_word_0_all_def,from_word_0_def]
   \\ fs [data_to_wordTheory.compile_def,
          word_to_wordTheory.compile_def]
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs[word_internal_def, Excl "MAP_APPEND", MAP_MAP_o, o_DEF,LAMBDA_PROD]
+  \\ gvs[word_internal_all_def, Excl "MAP_APPEND", MAP_MAP_o, o_DEF,LAMBDA_PROD]
   \\ DEP_REWRITE_TAC[ZIP_MAP_1]
   \\ imp_res_tac LENGTH_next_n_oracle
   \\ CONJ_TAC >- simp[]
@@ -432,10 +430,9 @@ Proof
 QED
 
 Definition from_data_all_def:
-  from_data_all ps c names p =
+  from_data_all ps asm_conf c names p =
     let data_conf = c.data_conf in
     let word_conf = c.word_to_word_conf in
-    let asm_conf = c.lab_conf.asm_conf in
     let data_conf =
             data_conf with
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
@@ -443,11 +440,11 @@ Definition from_data_all_def:
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(strlit "after data_to_word",Word p names)] in
-      from_word_0_all ps c names p
+      from_word_0_all ps asm_conf c names p
 End
 
 Theorem from_data_thm:
-  SND (from_data_all ps c names p) = from_data c names p
+  SND (from_data_all ps asm_conf c names p) = from_data asm_conf c names p
 Proof
   gvs [from_data_all_def,from_data_def,from_word_0_thm]
   \\ gvs [backendTheory.from_word_0_def]
@@ -455,9 +452,9 @@ Proof
 QED
 
 Theorem to_data_all_from_data_all_correctness:
-  to_target_all c p =
+  to_target_all asm_conf c p =
     let (ps,c',p,ns) = to_data_all c p in
-      from_data_all ps c' ns p
+      from_data_all ps asm_conf c' ns p
 Proof
   gvs [to_target_all_def,to_lab_all_def,to_stack_all_def,to_word_all_def]
   \\ rpt (pairarg_tac \\ gvs [])
@@ -466,18 +463,18 @@ Proof
 QED
 
 Theorem compile_eq_to_target_all:
-  compile c p = SND (to_target_all c p)
+  compile asm_conf c p = SND (to_target_all asm_conf c p)
 Proof
   rewrite_tac [compile_eq_to_target,GSYM to_target_thm]
 QED
 
 Theorem number_of_passes:
-  LENGTH (FST (to_target_all c p)) = 39
+  LENGTH (FST (to_target_all asm_conf c p)) = 39
 Proof
   fs [to_target_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_lab_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_stack_all_def] \\ rpt (pairarg_tac \\ gvs [])
-  \\ fs [word_internal_def,to_word_all_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [word_internal_all_def,to_word_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_data_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_bvi_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_bvl_all_def] \\ rpt (pairarg_tac \\ gvs [])
@@ -505,15 +502,15 @@ Definition pp_with_title_def:
 End
 
 Definition compile_tap_def:
-  compile_tap (c:'a config) p =
+  compile_tap asm_conf (c:config) p =
     if c.tap_conf.explore_flag then
-      let (ps,out) = to_target_all c p in
+      let (ps,out) = to_target_all asm_conf c p in
         (out, FOLDR (pp_with_title any_prog_pp) Nil ps)
-    else (compile c p, Nil)
+    else (compile asm_conf c p, Nil)
 End
 
 Theorem compile_alt:
-  compile c p = FST (compile_tap c p)
+  compile asm_conf c p = FST (compile_tap asm_conf c p)
 Proof
   rw [compile_tap_def]
   \\ mp_tac compile_eq_to_target_all
