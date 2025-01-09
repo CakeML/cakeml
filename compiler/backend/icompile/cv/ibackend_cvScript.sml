@@ -18,20 +18,6 @@ val _ = new_theory"ibackend_cv";
 
 (* using the default config for x64 *)
 
-(*
- conv == term -> thm
-*)
-Definition fib_def:
-  fib n a b =
-    if n = 0n then (a:num)
-    else if n = 1 then b
-    else fib (n-1) b (a+b)
-End
-
-val res = cv_trans fib_def;
-
-(* time EVAL ``fib 2000 1 1``; *)
-(* time cv_eval ``fib 2000 1 1``; *)
 val arch_size = “:64”
 val arch_spec = INST_TYPE [alpha |-> arch_size];
 (* Some basic setup *)
@@ -66,41 +52,8 @@ val asm_conf = EVAL ``^(c).lab_conf.asm_conf`` |> rconc;
 val word_conf = EVAL ``^(c).word_to_word_conf`` |> rconc;
 val stack_conf = EVAL ``^(c).stack_conf`` |> rconc;
 
+(* replace with hello progs *)
 val prog = ``REPLICATE 10 (ast$Dlet unknown_loc Pany (Con NONE []))``;
-
-(*
-val res = cv_eval ``init_icompile_source_to_flat ^source_conf``;
-val (source_iconf,flat_stub) = pairSyntax.dest_pair (rconc res);
-val clos_stub = cv_eval “init_icompile_flat_to_clos ^flat_stub” |> rconc;
-val res = cv_eval ``init_icompile_clos_to_bvl ^clos_conf ^clos_stub``;
-val (clos_iconf, bvl_init) = pairSyntax.dest_pair (rconc res);
-
-val res = cv_eval ``init_icompile_bvl_to_bvi ^bvl_conf ^bvl_init``;
-val (bvl_iconf, bvi_init) = pairSyntax.dest_pair (rconc res);
-val data_init = cv_eval ``bvi_to_data$compile_prog ^bvi_init`` |> rconc;
-val icompiled_to_data_opt = cv_eval “
-  let p = source_to_source$compile ^prog in
-    case icompile_source_to_flat ^source_iconf p of NONE => NONE
-    | SOME (source_iconf', icompiled_p_flat) =>
-        let icompiled_p_clos = icompile_flat_to_clos icompiled_p_flat in
-        let (clos_iconf', icompiled_p_bvl) = icompile_clos_to_bvl_alt ^clos_iconf icompiled_p_clos in
-        let (bvl_iconf', icompiled_p_bvi) = icompile_bvl_to_bvi ^bvl_iconf icompiled_p_bvl in
-        let icompiled_p_data = bvi_to_data$compile_prog icompiled_p_bvi in
-          SOME (source_iconf', clos_iconf', bvl_iconf', icompiled_p_data)
-          ” |> rconc;
-val res = cv_eval “
- case ^icompiled_to_data_opt of NONE => NONE |
- SOME (source_iconf, clos_iconf, bvl_iconf, icompiled_p_data) =>
-               let source_conf_after_ic = end_icompile_source_to_flat source_iconf ^source_conf in
-               let (clos_conf_after_ic, bvl_end) = end_icompile_clos_to_bvl clos_iconf ^clos_conf in
-               let (clos_conf_after_ic_bvi, bvl_conf_after_ic, bvi_end) =
-                   end_icompile_bvl_to_bvi bvl_end bvl_iconf clos_conf_after_ic ^bvl_conf in
-               let data_end = bvi_to_data$compile_prog bvi_end in
-                 SOME (source_conf_after_ic, clos_conf_after_ic_bvi, bvl_conf_after_ic, ^data_init ++ icompiled_p_data ++ data_end)
-”;
-*)
-
-(* livesets *)
 
 val asm_spec_mem_list = CONJUNCTS asm_spec_memory;
 val (asm_spec, _) = asm_spec_raw asm_spec_mem_list x64_targetTheory.x64_config_def;
@@ -119,6 +72,7 @@ val _ = cv_auto_trans (asm_spec' end_icompile_to_livesets_def)
 
 val init_res = cv_eval “init_icompile_to_livesets_x64 ^source_conf ^clos_conf ^bvl_conf ^data_conf ^word_conf”
 
+(* init *)
 val (source_iconf_lvs, rest) = pairSyntax.dest_pair (rconc init_res);
 val (clos_iconf_lvs, rest) = pairSyntax.dest_pair rest;
 val (bvl_iconf_lvs, rest) = pairSyntax.dest_pair rest;
@@ -126,8 +80,53 @@ val (data_conf_lvs, rest) = pairSyntax.dest_pair rest;
 val (reg_count_and_lvs_data, livesets_init) = pairSyntax.dest_pair rest;
 val (reg_count, lvs_data) = pairSyntax.dest_pair reg_count_and_lvs_data;
 
-(* very slow *)
-val res_opt = cv_eval “icompile_to_livesets_x64 ^source_iconf_lvs ^clos_iconf_lvs ^bvl_iconf_lvs ^data_conf_lvs ^word_conf ^prog []”
+val source_iconf = ref source_iconf_lvs;
+val clos_iconf = ref clos_iconf_lvs;
+val bvl_iconf = ref bvl_iconf_lvs;
+val lvs_data_acc : term list ref = ref [lvs_data];
+val prog_acc = ref [livesets_init];
+(*=======*)
+
+
+(* public *)
+fun icompile (prog : term) =
+  let
+   val res_opt = cv_eval “icompile_to_livesets_x64 ^(!source_iconf) ^(!clos_iconf) ^(!bvl_iconf) ^data_conf_lvs ^word_conf ^prog” |> rconc;
+   val res = res_opt |> optionSyntax.dest_some;
+   val (source_iconf', rest) = pairSyntax.dest_pair (res);
+   val (clos_iconf', rest) = pairSyntax.dest_pair rest;
+   val (bvl_iconf', rest) = pairSyntax.dest_pair rest;
+   val (lvs_data', prog') = pairSyntax.dest_pair rest;
+   val _ = source_iconf := source_iconf';
+   val _ = clos_iconf := clos_iconf';
+   val _ = bvl_iconf := bvl_iconf';
+   val _ = lvs_data_acc := (lvs_data' :: (!lvs_data_acc));
+   val _ = prog_acc := (prog' :: (!prog_acc))
+  in ()
+
+ end
+
+(* public *)
+fun end_icompile () =
+
+  let
+    val end_res =
+        cv_eval “end_icompile_to_livesets_x64 ^(!source_iconf) ^source_conf
+                                              ^(!clos_iconf) ^clos_conf
+                                              ^(!bvl_iconf) ^bvl_conf
+                                              ^data_conf_lvs ^word_conf”
+          |> rconc;
+   val (source_conf, rest) = pairSyntax.dest_pair end_res;
+   val (clos_conf, rest) = pairSyntax.dest_pair rest;
+   val (bvl_conf, rest) = pairSyntax.dest_pair rest;
+   val (lvs_data_end, livesets_end) = pairSyntax.dest_pair rest;
+   val _ = lvs_data_acc := (lvs_data_end :: !lvs_data_acc);
+   val _ = prog_acc := (livesets_end :: !prog_acc);
+  in
+    (source_conf, clos_conf, bvl_conf, rev (!lvs_data_acc), rev (!prog_acc))
+end
+
+
 
 (* debug *)
 val source_prog = cv_eval “source_to_source$compile ^prog” |> rconc;
@@ -140,12 +139,8 @@ val word0_prog = cv_eval “(icompile_data_to_word ^data_conf_lvs ^data_prog) : 
 val (reg_count_and_lvs_data_prog, word_prog) = cv_eval “to_livesets_0_alt_x64 (^word_conf, ^word0_prog)” |> rconc |> pairSyntax.dest_pair;
 val (reg_count_prog, lvs_data_prog) = pairSyntax.dest_pair reg_count_and_lvs_data_prog;
 
-
-val end_res = cv_eval “end_icompile_to_livesets_x64 ^source_iconf' ^source_conf
-                                                    ^clos_iconf' ^clos_conf
-                                                    ^bvl_iconf' ^bvl_conf
-                                                    ^data_conf_lvs ^word_conf”
-
-
+(* user interface *)
+icompile prog;
+val final_res = end_icompile ()
 
 val _ = export_theory();
