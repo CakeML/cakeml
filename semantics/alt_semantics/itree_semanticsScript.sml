@@ -450,10 +450,6 @@ Definition do_fprw_def:
   | (_, _) => NONE
 End
 
-Definition AppUnit_def:
-  AppUnit e = App Opapp [e; Con NONE []]
-End
-
 Definition application_def:
   application op env s fp vs c : estep_result =
    case getOpClass op of
@@ -499,8 +495,7 @@ Definition application_def:
              SOME (Thunk F v) =>
                return env s fp v c
            | SOME (Thunk T f) =>
-               push (env with v := nsBind "pure_f" f env.v) s fp
-                    (AppUnit (Var $ Short "pure_f")) (Cforce n) c
+               application Opapp env s fp [f; Conv NONE []] ((Cforce n,env)::c)
            | _ =>
                Etype_error (fix_fp_state c fp))
        | _ => Etype_error (fix_fp_state c fp))
@@ -522,6 +517,9 @@ Definition application_def:
                 SOME (s', Rraise v) => Estep (env, s, fp, Exn v,c)
               | SOME (s', Rval v) => return env s' fp v c
               | NONE => Etype_error (fix_fp_state c fp) )
+Termination
+  WF_REL_TAC ‘measure (λ(x,_). if x = ThunkOp ForceThunk then 1 else 0)’ >>
+  rw[] >> Cases_on ‘op’ >> gvs[]
 End
 
 Definition continue_def:

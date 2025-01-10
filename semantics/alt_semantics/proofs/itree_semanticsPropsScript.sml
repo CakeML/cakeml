@@ -581,8 +581,7 @@ Theorem application_thm:
              SOME (Thunk F v) =>
                return env s fp v c
            | SOME (Thunk T f) =>
-               push (env with v := nsBind "pure_f" f env.v) s fp
-                    (AppUnit (Var $ Short "pure_f")) (Cforce n) c
+               application Opapp env s fp [f; Conv NONE []] ((Cforce n,env)::c)
            | _ =>
                Etype_error (fix_fp_state c fp))
        | _ => Etype_error (fix_fp_state c fp))
