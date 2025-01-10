@@ -29,8 +29,9 @@ Definition isat_cclause_def:
   ∃l. MEM l ls ∧ l ≠ 0 ∧ sat_lit w (interp_lit l)
 End
 
-Definition isat_cfml_def:
-  isat_cfml w cfml ⇔ (∀C. C ∈ cfml ⇒ isat_cclause w C)
+Definition isat_fml_gen_def:
+  isat_fml_gen sem w fml ⇔
+    (∀C. C ∈ fml ⇒ sem w  C)
 End
 
 (* Satisfiability for XORs uses a string-based
@@ -85,10 +86,6 @@ Definition isat_strxor_def:
     EVEN (sum_bitlist w (string_to_bits x))
 End
 
-Definition isat_xfml_def:
-  isat_xfml w xfml ⇔ (∀C. C ∈ xfml ⇒ isat_strxor w C)
-End
-
 Definition bdom_def:
   bdom (off:num,lhs:num_set) =
     IMAGE ((+) off) (domain lhs)
@@ -101,9 +98,13 @@ Definition isat_cardc_def:
 End
 
 (* TODO *)
-Definition isat_bfml_def:
-  isat_bfml w bfml ⇔ (∀C. C ∈ bfml ⇒ ARB w C)
+Definition isat_ibnn_def:
+  isat_ibnn (w:assignment) (b:ibnn) ⇔ T
 End
+
+Overload isat_cfml = ``isat_fml_gen isat_cclause``;
+Overload isat_xfml = ``isat_fml_gen isat_strxor``;
+Overload isat_bfml = ``isat_fml_gen isat_ibnn``;
 
 Definition isat_fml_def:
   isat_fml w f (cfml,xfml,bfml) ⇔
@@ -162,7 +163,7 @@ Theorem conv_cfml_sound:
   (isat_cfml w (set (conv_cfml cfml)) ⇔
   (∀C. C ∈ set cfml ⇒ sat_clause w C))
 Proof
-  rw[isat_cfml_def,conv_cfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
+  rw[isat_fml_gen_def,conv_cfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
   metis_tac[issat_cclause_MAP_conv_lit,EVERY_MEM]
 QED
 
@@ -931,13 +932,13 @@ Definition is_cfromx_def:
     strxor_imp_cclause def x c
 End
 
-Definition get_clauses_def:
-  (get_clauses fml [] = SOME []) ∧
-  (get_clauses fml (i::is) =
+Definition get_constrs_def:
+  (get_constrs fml [] = SOME []) ∧
+  (get_constrs fml (i::is) =
     case lookup i fml of
       NONE => NONE
     | SOME Ci =>
-      (case get_clauses fml is of NONE => NONE
+      (case get_constrs fml is of NONE => NONE
       | SOME Cs => SOME (Ci::Cs)))
 End
 
@@ -964,7 +965,7 @@ End
 (* Every clause in ds must be in cs *)
 Definition is_xfromc_def:
   is_xfromc fml is rx =
-  case get_clauses fml is of NONE => F
+  case get_constrs fml is of NONE => F
   | SOME ds =>
     check_rawxor_imp ds rx
 End
@@ -1047,52 +1048,77 @@ Proof
   cheat
 QED
 
+(* TODO: Return T if C is implified *)
+Definition is_cfromb_def:
+  is_cfromb C cfml bfml ib i0 = T
+End
+
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
 Definition check_xlrup_def:
-  check_xlrup xorig xlrup cfml xfml tn def =
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
   case xlrup of
     Del cl =>
-    SOME (FOLDL (\a b. delete b a) cfml cl, xfml, tn, def)
+    SOME (FOLDL (\a b. delete b a) cfml cl, xfml, bfml,
+      tn, def)
   | RUP n C i0 =>
     if is_rup cfml i0 C then
-      SOME (insert n C cfml, xfml, tn, def)
+      SOME (insert n C cfml, xfml, bfml, tn, def)
     else NONE
   | XOrig n rX =>
     if MEM rX xorig
     then
       let (mX,tn) = ren_lit_ls tn rX [] in
       let X = conv_xor_mv def mX in
-      SOME (cfml, insert n X xfml, tn, MAX def (strlen X))
+      SOME (cfml, insert n X xfml, bfml,
+        tn, MAX def (strlen X))
     else NONE
   | XAdd n rX i0 i1 =>
     let (mX,tn) = ren_int_ls tn rX [] in
     let X = conv_rawxor def mX in
     if is_xor def xfml i0 cfml i1 (FST tn) X then
-      SOME (cfml, insert n X xfml, tn, MAX def (strlen X))
+      SOME (cfml, insert n X xfml, bfml,
+        tn, MAX def (strlen X))
     else NONE
   | XDel xl =>
-      SOME (cfml, FOLDL (\a b. delete b a) xfml xl, tn, def)
+      SOME (cfml, FOLDL (\a b. delete b a) xfml xl, bfml,
+        tn, def)
   | CFromX n C i0 =>
     let (mC,tn) = ren_int_ls tn C [] in
     if is_cfromx def xfml i0 mC then
-      SOME (insert n C cfml, xfml, tn, def)
+      SOME (insert n C cfml, xfml, bfml,
+        tn, def)
     else NONE
   | XFromC n rX i0 =>
     if is_xfromc cfml i0 rX then
       let (mX,tn) = ren_int_ls tn rX [] in
       let X = conv_rawxor def mX in
-      SOME (cfml, insert n X xfml, tn, MAX def (strlen X))
+      SOME (cfml, insert n X xfml, bfml,
+        tn, MAX def (strlen X))
+    else NONE
+  | BOrig n bnn =>
+    if MEM bnn borig
+    then
+      SOME (cfml, xfml, insert n bnn bfml,
+        tn, def)
+    else NONE
+  | BDel bl =>
+      SOME (cfml, xfml, FOLDL (\a b. delete b a) bfml bl,
+        tn, def)
+  | CFromB n C ib i0 =>
+    if is_cfromb C cfml bfml ib i0 then
+      SOME (insert n C cfml, xfml, bfml,
+        tn, def)
     else NONE
 End
 
 Definition check_xlrups_def:
-  (check_xlrups xorig [] cfml xfml tn def =
-    SOME (cfml,xfml,tn,def)) ∧
-  (check_xlrups xorig (x::xs) cfml xfml tn def =
-  case check_xlrup xorig x cfml xfml tn def of
+  (check_xlrups xorig borig [] cfml xfml bfml tn def =
+    SOME (cfml,xfml,bfml,tn,def)) ∧
+  (check_xlrups xorig borig (x::xs) cfml xfml bfml tn def =
+  case check_xlrup xorig borig x cfml xfml bfml tn def of
     NONE => NONE
-  | SOME (cfml',xfml',tn',def') =>
-    check_xlrups xorig xs cfml' xfml' tn' def')
+  | SOME (cfml',xfml',bfml',tn',def') =>
+    check_xlrups xorig borig xs cfml' xfml' bfml' tn' def')
 End
 
 Definition contains_emp_def:
@@ -1102,10 +1128,10 @@ Definition contains_emp_def:
 End
 
 Definition check_xlrups_unsat_def:
-  check_xlrups_unsat xorig xlrups cfml xfml tn def =
-  case check_xlrups xorig xlrups cfml xfml tn def of
+  check_xlrups_unsat xorig borig xlrups cfml xfml bfml tn def =
+  case check_xlrups xorig borig xlrups cfml xfml bfml tn def of
     NONE => F
-  | SOME (cfml',xfml',tn'def') => contains_emp cfml'
+  | SOME (cfml',_) => contains_emp cfml'
 End
 
 (* Proofs *)
@@ -1142,7 +1168,7 @@ Proof
    metis_tac[set_delete_literals]>>
   gvs[]
   >- (
-    fs[isat_cfml_def,PULL_EXISTS,range_def]>>
+    fs[isat_fml_gen_def,PULL_EXISTS,range_def]>>
     first_x_assum drule>>
     rw[isat_cclause_def]>>
     first_x_assum (irule_at Any)>>
@@ -1153,7 +1179,7 @@ Proof
     gvs[isat_cclause_def,EXTENSION]>>
     reverse (rw[])
     >- metis_tac[]>>
-    fs[isat_cfml_def,PULL_EXISTS,range_def]>>
+    fs[isat_fml_gen_def,PULL_EXISTS,range_def]>>
     first_x_assum drule>>
     rw[isat_cclause_def]>>
     Cases_on`MEM l C`
@@ -1192,7 +1218,7 @@ Proof
   first_x_assum (irule_at Any)>>
   match_mp_tac isat_strxor_strxor>>
   simp[]>>
-  fs[isat_xfml_def,range_def,PULL_EXISTS]>>
+  fs[isat_fml_gen_def,range_def,PULL_EXISTS]>>
   metis_tac[]
 QED
 
@@ -1252,24 +1278,16 @@ Proof
   simp[EVERY_MAP,MAP2_MAP,charxor_self]
 QED
 
-Theorem delete_preserves_isat_cfml:
-  isat_cfml w (range C) ⇒
-  isat_cfml w (range (delete n C))
+Theorem delete_preserves_isat_fml_gen:
+  isat_fml_gen sem w (range C) ⇒
+  isat_fml_gen sem w (range (delete n C))
 Proof
-  rw[isat_cfml_def]>>
+  rw[isat_fml_gen_def]>>
   fs[range_def,lookup_delete,PULL_EXISTS]>>
   metis_tac[]
 QED
 
-Theorem delete_preserves_isat_xfml:
-  isat_xfml w (range x) ⇒
-  isat_xfml w (range (delete n x))
-Proof
-  rw[isat_xfml_def]>>
-  fs[range_def,lookup_delete,PULL_EXISTS]>>
-  metis_tac[]
-QED
-
+(* TODO: make generic *)
 Theorem delete_clauses_sound:
   ∀l fml.
   isat_fml w f (range fml,x) ⇒
@@ -1277,17 +1295,27 @@ Theorem delete_clauses_sound:
 Proof
   Induct>>simp[]>>
   rw[]>>
-  metis_tac[delete_preserves_isat_cfml,isat_fml_def]
+  metis_tac[delete_preserves_isat_fml_gen,isat_fml_def,PAIR]
 QED
 
 Theorem delete_xors_sound:
   ∀l x.
-  isat_fml w f (fml,range x) ⇒
-  isat_fml w f (fml, range (FOLDL (λa b. delete b a) x l))
+  isat_fml w f (fml,range x,rest) ⇒
+  isat_fml w f (fml, range (FOLDL (λa b. delete b a) x l), rest)
 Proof
   Induct>>simp[]>>
   rw[]>>
-  metis_tac[delete_preserves_isat_xfml,isat_fml_def]
+  metis_tac[delete_preserves_isat_fml_gen,isat_fml_def,PAIR]
+QED
+
+Theorem delete_bnns_sound:
+  ∀l x.
+  isat_fml w f (fml,fml',range x) ⇒
+  isat_fml w f (fml,fml',range (FOLDL (λa b. delete b a) x l))
+Proof
+  Induct>>simp[]>>
+  rw[]>>
+  metis_tac[delete_preserves_isat_fml_gen,isat_fml_def,PAIR]
 QED
 
 Theorem range_FOLDL_delete_SUBSET:
@@ -1299,22 +1327,12 @@ Proof
   metis_tac[range_delete,SUBSET_TRANS]
 QED
 
-Theorem isat_cfml_insert:
-  isat_cfml w (range cfml) ∧
-  isat_cclause w c ⇒
-  isat_cfml w (range (insert n c cfml))
+Theorem isat_fml_gen_insert:
+  isat_fml_gen sem w (range cfml) ∧
+  sem w c ⇒
+  isat_fml_gen sem w (range (insert n c cfml))
 Proof
-  rw[isat_cfml_def,range_def,lookup_insert]>>
-  gvs[AllCaseEqs()]>>
-  metis_tac[]
-QED
-
-Theorem isat_xfml_insert:
-  isat_xfml w (range xfml) ∧
-  isat_strxor w x ⇒
-  isat_xfml w (range (insert n x xfml))
-Proof
-  rw[isat_xfml_def,range_def,lookup_insert]>>
+  rw[isat_fml_gen_def,range_def,lookup_insert]>>
   gvs[AllCaseEqs()]>>
   metis_tac[]
 QED
@@ -1341,6 +1359,7 @@ Definition wf_xlrup_def:
   (wf_xlrup (CFromX n C i0) = wf_clause C) ∧
   (wf_xlrup (XFromC n X i0) = wf_clause X) ∧
   (wf_xlrup (XOrig n rX) = EVERY nz_lit rX) ∧
+  (wf_xlrup (CFromB n C ib i0) = wf_clause C) ∧
   (wf_xlrup _ = T)
 End
 
@@ -1371,20 +1390,16 @@ QED
 
 Theorem wf_cfml_check_xlrup:
   wf_cfml cfml ∧ wf_xlrup xlrup ∧
-  check_xlrup xorig xlrup cfml xfml tn def =
-    SOME (cfml',xfml',tn',def') ⇒
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
+    SOME (cfml',xfml',bfml',tn',def') ⇒
   wf_cfml cfml'
 Proof
   rw[check_xlrup_def]>>gvs[AllCaseEqs()]>>
   rpt(pairarg_tac>>fs[])
   >-
-    metis_tac[wf_cfml_delete_clauses]
-  >- (
-    fs[wf_xlrup_def]>>
-    metis_tac[wf_cfml_insert])
-  >- (
-    fs[wf_xlrup_def]>>
-    metis_tac[wf_cfml_insert])
+    metis_tac[wf_cfml_delete_clauses]>>
+  fs[wf_xlrup_def]>>
+  metis_tac[wf_cfml_insert]
 QED
 
 Theorem conv_xor_aux_cclause_sound:
@@ -1510,16 +1525,16 @@ Proof
   metis_tac[]
 QED
 
-Theorem isat_cfml_get_clauses:
+Theorem isat_fml_gen_get_constrs:
   ∀is xs x.
-  isat_cfml w (range fml) ∧
-  get_clauses fml is = SOME xs ∧
+  isat_fml_gen sem w (range fml) ∧
+  get_constrs fml is = SOME xs ∧
   MEM x xs ⇒
-  isat_cclause w x
+  sem w x
 Proof
-  Induct>>rw[get_clauses_def]>>
+  Induct>>rw[get_constrs_def]>>
   gvs[AllCaseEqs()]>>
-  fs[isat_cfml_def,range_def]>>
+  fs[isat_fml_gen_def,range_def]>>
   metis_tac[]
 QED
 
@@ -1537,7 +1552,7 @@ Proof
   fs[check_rawxor_imp_def,EVERY_MEM]>>
   rw[]>>first_x_assum drule>>
   rw[EXISTS_MEM]>>
-  metis_tac[isat_cfml_get_clauses,imp_cclause_imp]
+  metis_tac[isat_fml_gen_get_constrs,imp_cclause_imp]
 QED
 
 Definition tn_inv_def:
@@ -1919,7 +1934,7 @@ Theorem isat_xfml_restore_str_submap:
   isat_xfml (w ∘ restore_fn tn) (range xfml) ⇒
   isat_xfml (w ∘ restore_fn tn') (range xfml)
 Proof
-  rw[range_def,isat_xfml_def]>>
+  rw[range_def,isat_fml_gen_def]>>
   match_mp_tac isat_strxor_restore_str_submap>>
   metis_tac[]
 QED
@@ -1971,7 +1986,7 @@ Proof
   gvs[AllCaseEqs()]>>
   first_x_assum drule>>
   DEP_REWRITE_TAC[unit_prop_xor_sound]>>
-  fs[isat_cfml_def,range_def,PULL_EXISTS]>>
+  fs[isat_fml_gen_def,range_def,PULL_EXISTS]>>
   first_x_assum drule>>
   simp[isat_cclause_def]
 QED
@@ -2054,16 +2069,27 @@ Proof
   simp[restore_int_def]
 QED
 
+Theorem is_cfromb_sound:
+  wf_clause C ∧
+  isat_cfml w (range cfml) ∧
+  isat_bfml w (range bfml) ∧
+  is_cfromb C cfml bfml ib i0  ⇒
+  isat_cclause w C
+Proof
+  cheat
+QED
+
 Theorem check_xlrup_sound:
   wf_xlrup xlrup ∧
-  check_xlrup xorig xlrup cfml xfml tn def =
-    SOME (cfml',xfml',tn',def') ∧ tn_inv tn ∧
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
+    SOME (cfml',xfml',bfml',tn',def') ∧ tn_inv tn ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
+  (∀x. MEM x borig ⇒ isat_ibnn w x) ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
-  isat_fml w (restore_fn tn) (range cfml, range xfml)
+  isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml)
   ⇒
   (∀s. s ∈ range xfml' ⇒ can_restore_str tn' s) ∧
-  isat_fml w (restore_fn tn') (range cfml', range xfml')
+  isat_fml w (restore_fn tn') (range cfml', range xfml', range bfml')
 Proof
   simp[check_xlrup_def]>>strip_tac>>
   gvs[AllCaseEqs()]
@@ -2071,7 +2097,7 @@ Proof
     metis_tac[delete_clauses_sound]
   >~ [‘RUP’] >- (
     fs[isat_fml_def]>>
-    match_mp_tac isat_cfml_insert>>
+    match_mp_tac isat_fml_gen_insert>>
     simp[]>>
     match_mp_tac (GEN_ALL is_rup_sound)>>gvs[]>>
     asm_exists_tac>>simp[])
@@ -2086,7 +2112,7 @@ Proof
         match_mp_tac can_restore_str_conv_xor_mv
         \\ metis_tac [can_restore_str_submap])
       \\ metis_tac [can_restore_str_submap])>>
-    match_mp_tac isat_xfml_insert>>
+    match_mp_tac isat_fml_gen_insert>>
     CONJ_TAC >-
       metis_tac[isat_xfml_restore_str_submap]>>
     fs[wf_xlrup_def] >>
@@ -2112,7 +2138,7 @@ Proof
         metis_tac[ETA_AX])>>
       fs[range_def]
       \\ metis_tac [can_restore_str_submap])>>
-    match_mp_tac isat_xfml_insert>>
+    match_mp_tac isat_fml_gen_insert>>
     CONJ_TAC >-
       metis_tac[isat_xfml_restore_str_submap]>>
     match_mp_tac (GEN_ALL is_xor_sound)>>gvs[]>>
@@ -2134,7 +2160,7 @@ Proof
       fs[range_def]
       \\ metis_tac [can_restore_str_submap])>>
     CONJ_ASM2_TAC >- (
-      match_mp_tac isat_cfml_insert>>
+      match_mp_tac isat_fml_gen_insert>>
       simp[]>>
       fs[wf_xlrup_def]>>
       drule_at (Pos last) (GEN_ALL is_cfromx_sound)>>
@@ -2158,7 +2184,7 @@ Proof
         metis_tac[ETA_AX])>>
       fs[range_def]
       \\ metis_tac [can_restore_str_submap])>>
-    match_mp_tac isat_xfml_insert>>
+    match_mp_tac isat_fml_gen_insert>>
     CONJ_TAC >-
       metis_tac[isat_xfml_restore_str_submap]>>
     drule_at (Pos last) is_xfromc_sound >>
@@ -2185,10 +2211,23 @@ Proof
     CONJ_TAC >-
       (EVAL_TAC>>rw[])>>
     EVAL_TAC)
+  >~ [‘BOrig’] >- (
+    fs[isat_fml_def]>>
+    match_mp_tac isat_fml_gen_insert>>
+    simp[])
+  >~ [‘BDel’] >- (
+    metis_tac[delete_bnns_sound])
+  >~ [‘CFromB ’] >- (
+    fs[isat_fml_def]>>
+    match_mp_tac isat_fml_gen_insert>>
+    simp[]>>
+    fs[wf_xlrup_def]>>
+    metis_tac[is_cfromb_sound])
 QED
 
 Theorem check_xlrup_tn_inv:
-  check_xlrup xorig xlrup cfml xfml tn def = SOME (cfml',xfml',tn',def') ∧ tn_inv tn ⇒
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
+    SOME (cfml',xfml',bfml',tn',def') ∧ tn_inv tn ⇒
   tn_inv tn'
 Proof
   rw[check_xlrup_def]
@@ -2200,14 +2239,15 @@ QED
 
 (* The main operational theorem about check_xlrups *)
 Theorem check_xlrups_sound:
-  ∀ls cfml xfml def def' tn tn'.
+  ∀ls cfml xfml bfml def def' tn tn'.
   EVERY wf_xlrup ls ∧ tn_inv tn ∧
-  check_xlrups xorig ls cfml xfml tn def =
-    SOME (cfml',xfml', tn', def') ∧
+  check_xlrups xorig borig ls cfml xfml bfml tn def =
+    SOME (cfml', xfml', bfml', tn', def') ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
-  (∀x. MEM x xorig ⇒ sat_cmsxor w x) ⇒
-  (isat_fml w (restore_fn tn) (range cfml, range xfml) ⇒
-   isat_fml w (restore_fn tn') (range cfml', range xfml'))
+  (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
+  (∀x. MEM x borig ⇒ isat_ibnn w x) ⇒
+  (isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml) ⇒
+   isat_fml w (restore_fn tn') (range cfml', range xfml', range bfml'))
 Proof
   Induct>>simp[check_xlrups_def]>>
   rw[]>>
@@ -2261,16 +2301,17 @@ QED
 (* Main theorem *)
 Theorem check_xlrups_unsat_sound:
   EVERY wf_xlrup xlrups ∧
-  check_xlrups_unsat xfml xlrups
-    (build_fml cid cfml) LN (LN,1) def ⇒
+  check_xlrups_unsat xfml bfml xlrups
+    (build_fml cid cfml) LN LN (LN,1) def ⇒
   ¬ ∃w.
     isat_cfml w (set cfml) ∧
-    (∀x. MEM x xfml ⇒ sat_cmsxor w x)
+    (∀x. MEM x xfml ⇒ sat_cmsxor w x) ∧
+    (∀b. MEM b bfml ⇒ isat_ibnn w b)
 Proof
   rw[check_xlrups_unsat_def]>>
   every_case_tac>>fs[]>>
   `¬∃w. isat_cfml w (range q)` by (
-    fs[isat_cfml_def,contains_emp_def,MEM_MAP]>>
+    fs[isat_fml_gen_def,contains_emp_def,MEM_MAP]>>
     Cases_on`y`>>fs[MEM_toAList,range_def,PULL_EXISTS]>>
     rw[]>>
     asm_exists_tac>>simp[isat_cclause_def])>>
@@ -2279,7 +2320,7 @@ Proof
   disch_then (drule_at Any)>>
   ‘tn_inv (LN,1)’ by fs [tn_inv_def]>>
   fs[isat_fml_def,range_build_fml]>>
-  simp[range_def,isat_xfml_def]>>
+  simp[range_def,isat_fml_gen_def]>>
   metis_tac[]
 QED
 
@@ -2311,7 +2352,7 @@ Theorem conv_xfml_sound:
   (isat_xfml w (set (conv_xfml mv xfml)) ⇔
   (∀C. C ∈ set xfml ⇒ sat_cmsxor w C))
 Proof
-  rw[isat_xfml_def,conv_xfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
+  rw[isat_fml_gen_def,conv_xfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
   metis_tac[conv_xor_base,EVERY_MEM]
 QED
 
