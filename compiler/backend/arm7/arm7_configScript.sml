@@ -36,7 +36,7 @@ val word_to_word_conf = ``<| reg_alg:=2; col_oracle := [] |>``
 val arm7_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=20; has_div:=F; has_longdiv:=F; has_fp_ops:=T; has_fp_tern:=T; be:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
 val arm7_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val arm7_stack_conf = ``<|jump:=T;reg_names:=arm7_names|>``
-val arm7_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=arm7_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
+val arm7_lab_conf = ``<|inc_pos:=0;inc_ffi_names:=NONE;inc_labels:=LN;inc_sec_pos_len:=[];inc_init_clock:=5;inc_hash_size:=104729n;inc_shmem_extra:=[]|>``
 
 Definition arm7_backend_config_def:
   arm7_backend_config =

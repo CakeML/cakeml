@@ -49,7 +49,7 @@ val word_to_word_conf = ``<| reg_alg:=3; col_oracle := [] |>``
 val riscv_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=F; has_fp_tern:=F; be:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
 val riscv_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val riscv_stack_conf = ``<|jump:=F;reg_names:=riscv_names|>``
-val riscv_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=riscv_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
+val riscv_lab_conf = ``<|inc_pos:=0;inc_ffi_names:=NONE;inc_labels:=LN;inc_sec_pos_len:=[];inc_init_clock:=5;inc_hash_size:=104729n;inc_shmem_extra:=[]|>``
 
 Definition riscv_backend_config_def:
   riscv_backend_config =

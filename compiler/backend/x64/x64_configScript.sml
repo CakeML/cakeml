@@ -43,7 +43,7 @@ val word_to_word_conf = ``<| reg_alg:=2; col_oracle := [] |>``
 val x64_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=F; has_longdiv:=T; has_fp_ops:=T; has_fp_tern:=F; be:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
 val x64_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val x64_stack_conf = ``<|jump:=T;reg_names:=x64_names|>``
-val x64_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=x64_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
+val x64_lab_conf = ``<|inc_pos:=0;inc_ffi_names:=NONE;inc_labels:=LN;inc_sec_pos_len:=[];inc_init_clock:=5;inc_hash_size:=104729n;inc_shmem_extra:=[]|>``
 
 Definition x64_backend_config_def:
   x64_backend_config =
