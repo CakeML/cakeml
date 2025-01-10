@@ -631,7 +631,8 @@ Proof
        lab_to_targetTheory.shmem_info_num_component_equality]>>fs[]
 QED
 
-(*
+(* TODO delete?
+
 Theorem inc_config_to_config_inv:
   asm_c = c.lab_conf.asm_conf ==>
   inc_config_to_config asm_c  (config_to_inc_config c) = c
@@ -673,6 +674,7 @@ Proof
   simp[EVERY_MEM]>>strip_tac>>strip_tac>>
   CASE_TAC>>fs[w2n_lt]
 QED
+*)
 
 Definition upper_w2w_def:
   upper_w2w (w:'a word) =
@@ -680,18 +682,17 @@ Definition upper_w2w_def:
 End
 
 Definition compile_inc_progs_for_eval_def:
-  compile_inc_progs_for_eval asm_c x =
-  let (env_id, inc_c', decs) = x in
-  let c' = inc_config_to_config asm_c inc_c' in
-  let (c'', ps) = compile_inc_progs T c' (env_id, decs) in
-    OPTION_MAP (\(bs, ws). (config_to_inc_config c'', bs, MAP upper_w2w ws))
+  compile_inc_progs_for_eval asm_conf x =
+  let (env_id, c', decs) = x in
+  let (c'', ps) = compile_inc_progs T asm_conf c' (env_id, decs) in
+    OPTION_MAP (\(bs, ws). (c'', bs, MAP upper_w2w ws))
         ps.target_prog
 End
 
 Theorem to_word_0_invariant:
   (wc.reg_alg = c.word_to_word_conf.reg_alg) ⇒
-  ((to_word_0 (c with word_to_word_conf:=wc) p) =
-  let (c,p,names) = to_word_0 c p in
+  ((to_word_0 asm_conf (c with word_to_word_conf:=wc) p) =
+  let (c,p,names) = to_word_0 asm_conf c p in
     (c with word_to_word_conf:=wc,p,names))
 Proof
   srw_tac[][FUN_EQ_THM,
@@ -705,8 +706,7 @@ Proof
 QED
 
 Theorem compile_inc_progs_for_eval_eq:
-  compile_inc_progs_for_eval asm_c' (env_id,inc_c,p) =
-    let c = inc_config_to_config asm_c' inc_c in
+  compile_inc_progs_for_eval asm_conf (env_id,c,p) =
     let p = source_to_source$compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
     let _ = empty_ffi (strlit "finished: source_to_flat") in
@@ -721,36 +721,35 @@ Theorem compile_inc_progs_for_eval_eq:
     let c = c with <| bvl_conf := c' |> in
     let p = bvi_to_data_compile_prog p in
     let _ = empty_ffi (strlit "finished: bvi_to_data") in
-    let dc = ensure_fp_conf_ok asm_c' c.data_conf in
+    let dc = ensure_fp_conf_ok asm_conf c.data_conf in
     let p = MAP (compile_part dc) p in
-    let reg_count1 = asm_c'.reg_count - (5 + LENGTH asm_c'.avoid_regs) in
-    let p = MAP (\p. full_compile_single_for_eval asm_c'.two_reg_arith reg_count1
-        c.word_to_word_conf.reg_alg asm_c' (p, NONE)) p in
+    let reg_count1 = asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs) in
+    let p = MAP (\p. full_compile_single_for_eval asm_conf.two_reg_arith reg_count1
+        c.word_to_word_conf.reg_alg asm_conf (p, NONE)) p in
     let _ = empty_ffi (strlit "finished: data_to_word") in
     let bm0 = c.word_conf.bitmaps_length in
-    let (p, fs, bm) = compile_word_to_stack asm_c' reg_count1 p (Nil, bm0) in
+    let (p, fs, bm) = compile_word_to_stack asm_conf reg_count1 p (Nil, bm0) in
     let _ = empty_ffi (strlit "finished: word_to_stack") in
     let cur_bm = append (FST bm) in
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
-    let reg_count2 = asm_c'.reg_count - (3 + LENGTH asm_c'.avoid_regs) in
+    let reg_count2 = asm_conf.reg_count - (3 + LENGTH asm_conf.avoid_regs) in
     let p = stack_to_lab$compile_no_stubs
-        c.stack_conf.reg_names c.stack_conf.jump asm_c'.addr_offset
+        c.stack_conf.reg_names c.stack_conf.jump asm_conf.addr_offset
         reg_count2 p in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
-    let target = lab_to_target$compile c.lab_conf (p:'a prog) in
+    let target = lab_to_target$compile_inc asm_conf c.lab_conf (p:'a prog) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
     let c = c with lab_conf updated_by (case target of NONE => I
                                         | SOME (_, c') => K c') in
-      OPTION_MAP (λx. (config_to_inc_config c,FST x,MAP upper_w2w cur_bm)) target
+      OPTION_MAP (λx. (c,FST x,MAP upper_w2w cur_bm)) target
 Proof
   fs [compile_inc_progs_for_eval_def,compile_inc_progs_def, full_compile_single_for_eval_eq]
-  \\ rpt (pairarg_tac \\ gvs [EVAL “(inc_config_to_config asm_c' inc_c).lab_conf.asm_conf”])
+  \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [optionTheory.OPTION_MAP_COMPOSE]
   \\ AP_THM_TAC
   \\ AP_TERM_TAC
   \\ fs [FUN_EQ_THM,FORALL_PROD]
 QED
-*)
 
 Definition ffinames_to_string_list_def:
   (ffinames_to_string_list [] = []) ∧
@@ -760,17 +759,17 @@ Definition ffinames_to_string_list_def:
     ffinames_to_string_list rest)
 End
 
+Definition set_oracle_def:
+  set_oracle c oracle =
+    c with
+    word_to_word_conf := c.word_to_word_conf with col_oracle := oracle
+End
+
 (*
 Definition inc_set_oracle_def:
   inc_set_oracle c oracle =
     c with inc_word_to_word_conf :=
         (c.inc_word_to_word_conf with col_oracle := oracle)
-End
-
-Definition set_oracle_def:
-  set_oracle c oracle =
-    c with
-    word_to_word_conf := c.word_to_word_conf with col_oracle := oracle
 End
 
 Definition set_asm_conf_def:
