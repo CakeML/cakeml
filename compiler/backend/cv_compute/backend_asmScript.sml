@@ -487,11 +487,11 @@ Theorem to_livesets_thm:
     backend$to_livesets (inc_config_to_config asm_conf c) p =
                         (sets,inc_config_to_config asm_conf c1,rest)
 Proof
-  rw [to_livesets_def,backendTheory.to_liveset_0_thm]
+  rw [to_livesets_def,backendTheory.to_liveset_0_thm,word_internal_def]
   \\ ‘∃t. to_word_0 asm_conf c p = t’ by fs [] \\ PairCases_on ‘t’
   \\ ‘∃u. to_word_0 (inc_config_to_config asm_conf c) p = u’ by fs [] \\ PairCases_on ‘u’
   \\ drule_all_then strip_assume_tac to_word_0_thm \\ gvs []
-  \\ gvs [to_livesets_0_def,backendTheory.to_livesets_0_def]
+  \\ gvs [to_livesets_0_def,backendTheory.to_livesets_0_def,word_internal_def]
   \\ gvs [backendTheory.inc_config_to_config_def]
   \\ gvs [lab_to_targetTheory.inc_config_to_config_def]
   \\ rw [] \\ rpt CASE_TAC
