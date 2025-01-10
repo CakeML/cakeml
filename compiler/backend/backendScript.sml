@@ -421,15 +421,13 @@ QED
 Theorem compile_oracle:
   from_livesets asm_conf (to_livesets asm_conf c p) = compile asm_conf c p
 Proof
-  cheat
-  (*
   srw_tac[][FUN_EQ_THM,
      to_data_def,
      to_bvi_def,
      to_bvl_def,
      to_clos_def,
-     to_flat_def,to_livesets_def] >>
-  fs[compile_def]>>
+     to_flat_def,to_livesets_def,to_word_0_def] >>
+  fs[compile_def, compile_0_def, to_livesets_0_def]>>
   pairarg_tac>>
   fs[data_to_wordTheory.compile_def,word_to_wordTheory.compile_def]>>
   fs[from_livesets_def,from_word_def,from_stack_def,from_lab_def]>>
@@ -460,7 +458,7 @@ Proof
   rpt(pairarg_tac>>fs[])>>
   fs[word_to_wordTheory.compile_single_def,word_allocTheory.word_alloc_def]>>
   rveq>>fs[]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[] *)
+  BasicProvers.EVERY_CASE_TAC>>fs[]
 QED
 
 Theorem compile_oracle_word_0:
