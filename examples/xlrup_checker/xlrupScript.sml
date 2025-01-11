@@ -11,8 +11,9 @@ Type cclause = ``:int list``;
 Type strxor = ``:mlstring``;
 Type rawxor = ``:int list``;
 
-(* The constraint (upper ≥ |offset + X| ≥ lower) *)
-Type cardc = ``:(num # (num # num_set) # num)``
+(* The constraint (upper ≥ |offset + X| ≥ lower)
+  TODO: figure out the representation here *)
+Type cardc = ``:(num # (num # num num_map) # num)``
 (* A cardinality and the reification var on the RHS *)
 Type ibnn = ``:cardc # num``;
 
@@ -836,7 +837,7 @@ Datatype:
   | XFromC num rawxor (num list)
     (* Derive XOR from hint clauses *)
 
-  | BOrig num ibnn
+  | BOrig num cmsbnn
     (* BOrig n B : add BNN B from original at ID n *)
   | BDel (num list) (* BNN constraints to delete *)
   | CFromB num cclause num (num list)
@@ -1048,9 +1049,14 @@ Proof
   cheat
 QED
 
-(* TODO: Return T if C is implified *)
+(* TODO: Return T if C is implied *)
 Definition is_cfromb_def:
   is_cfromb C cfml bfml ib i0 = T
+End
+
+(* TODO: convert a CMS bnn into an ibnn *)
+Definition conv_bnn_def:
+  conv_bnn (ob:cmsbnn) = ARB:ibnn
 End
 
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
@@ -1098,7 +1104,7 @@ Definition check_xlrup_def:
   | BOrig n bnn =>
     if MEM bnn borig
     then
-      SOME (cfml, xfml, insert n bnn bfml,
+      SOME (cfml, xfml, insert n (conv_bnn bnn) bfml,
         tn, def)
     else NONE
   | BDel bl =>
@@ -2079,12 +2085,18 @@ Proof
   cheat
 QED
 
+Theorem conv_bnn_sound:
+  isat_ibnn w (conv_bnn bnn) ⇔ sat_cmsbnn w bnn
+Proof
+  cheat
+QED
+
 Theorem check_xlrup_sound:
   wf_xlrup xlrup ∧
   check_xlrup xorig borig xlrup cfml xfml bfml tn def =
     SOME (cfml',xfml',bfml',tn',def') ∧ tn_inv tn ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
-  (∀x. MEM x borig ⇒ isat_ibnn w x) ∧
+  (∀x. MEM x borig ⇒ sat_cmsbnn w x) ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
   isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml)
   ⇒
@@ -2214,7 +2226,9 @@ Proof
   >~ [‘BOrig’] >- (
     fs[isat_fml_def]>>
     match_mp_tac isat_fml_gen_insert>>
-    simp[])
+    simp[]>>
+    metis_tac[conv_bnn_sound]
+    )
   >~ [‘BDel’] >- (
     metis_tac[delete_bnns_sound])
   >~ [‘CFromB ’] >- (
@@ -2245,7 +2259,7 @@ Theorem check_xlrups_sound:
     SOME (cfml', xfml', bfml', tn', def') ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
-  (∀x. MEM x borig ⇒ isat_ibnn w x) ⇒
+  (∀x. MEM x borig ⇒ sat_cmsbnn w x) ⇒
   (isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml) ⇒
    isat_fml w (restore_fn tn') (range cfml', range xfml', range bfml'))
 Proof
@@ -2306,7 +2320,7 @@ Theorem check_xlrups_unsat_sound:
   ¬ ∃w.
     isat_cfml w (set cfml) ∧
     (∀x. MEM x xfml ⇒ sat_cmsxor w x) ∧
-    (∀b. MEM b bfml ⇒ isat_ibnn w b)
+    (∀b. MEM b bfml ⇒ sat_cmsbnn w b)
 Proof
   rw[check_xlrups_unsat_def]>>
   every_case_tac>>fs[]>>
@@ -2356,9 +2370,14 @@ Proof
   metis_tac[conv_xor_base,EVERY_MEM]
 QED
 
+Definition conv_bfml_def:
+  conv_bfml bfml =
+  MAP (conv_bnn) bfml
+End
+
 Definition conv_fml_def:
-  conv_fml mv (cfml,xfml) =
-  (conv_cfml cfml, conv_xfml xfml)
+  conv_fml mv (cfml,xfml,bfml) =
+  (conv_cfml cfml, conv_xfml xfml, conv_bfml bfml)
 End
 
 (* 1-sided variant of strxor *)
