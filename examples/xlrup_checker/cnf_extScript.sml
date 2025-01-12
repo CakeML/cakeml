@@ -93,36 +93,42 @@ End
 
 (* Extended CNF parser *)
 
-(* Parse a list of literals ending with 0
-  Literals only use variables between 1 to maxvar (inclusive) *)
+(* Parse a literal *)
 Definition mk_lit_def:
-  mk_lit maxvar l =
-  let n = Num (ABS l) in
-  if n > maxvar then NONE
-  else
-    if l > 0 then SOME (Pos n) else SOME (Neg n)
+  mk_lit l =
+  let n = Num l in
+  if l > 0 then Pos n else Neg n
 End
 
+(* Parse a list of literals ending with 0 and return the rest *)
 Definition parse_lits_aux_def:
-  (parse_lits_aux maxvar [] (acc:lit list) = NONE) ∧
-  (parse_lits_aux maxvar (x::xs) acc =
+  (parse_lits_aux [] (acc:lit list) = NONE) ∧
+  (parse_lits_aux (x::xs) acc =
     case x of
       INR l =>
       if l = 0i then SOME (REVERSE acc, xs)
       else
-      (case mk_lit maxvar l of NONE => NONE
-      | SOME v => parse_lits_aux maxvar xs (v::acc))
+        parse_lits_aux xs (mk_lit l::acc)
     | INL (_:mlstring) => NONE)
+End
+
+Definition var_lit_def:
+  (var_lit (Pos n) = n) ∧
+  (var_lit (Neg n) = n)
+End
+
+(* Force literals to be in maxvar *)
+Definition check_maxvar_def:
+  check_maxvar maxvar ls =
+  EVERY (λl. var_lit l ≤ maxvar) ls
 End
 
 Definition parse_lits_def:
   parse_lits maxvar ls =
-  case parse_lits_aux maxvar ls [] of SOME (ls,[]) => SOME ls
+  case parse_lits_aux ls [] of
+    SOME (ls,[]) =>
+    if check_maxvar maxvar ls then SOME ls else NONE
   | _ => NONE
-End
-
-Definition parse_clause_def:
-  parse_clause maxvar xs = parse_lits maxvar xs
 End
 
 (* Makes sure we start with cID or c ID and return the rest *)
@@ -147,26 +153,28 @@ End
 
 (* parses the tail part of the BNN constraint "k y 0" *)
 Definition parse_bnn_tail_def:
-  (parse_bnn_tail maxvar [INR k; INR y; INR n] =
+  (parse_bnn_tail [INR k; INR y; INR n] =
     if k ≥ 0i ∧ n = 0i
     then
-      case mk_lit maxvar y of
-        NONE => NONE
-      | SOME l => SOME (Num k, l)
+      SOME (Num k, mk_lit y)
     else
       NONE) ∧
-  (parse_bnn_tail _ _ = NONE)
+  (parse_bnn_tail _ = NONE)
 End
 
 Definition parse_bnn_def:
   parse_bnn maxvar ls =
   case fix_hd #"b" ls of
     SOME cs =>
-    (case parse_lits_aux maxvar cs [] of
+    (case parse_lits_aux cs [] of
       NONE => NONE
     | SOME (ls,xs) =>
-      (case parse_bnn_tail maxvar xs of NONE => NONE
-      |  SOME (k,y) => SOME (ls,k,y)))
+      (case parse_bnn_tail xs of NONE => NONE
+      |  SOME (k,y) =>
+        if check_maxvar maxvar (y::ls) then
+          SOME (ls,k,y)
+        else NONE
+      ))
   | _ => NONE
 End
 
@@ -185,7 +193,7 @@ End
 
 Definition parse_line_def:
   parse_line maxvar xs =
-  (case parse_clause maxvar xs of
+  (case parse_lits maxvar xs of
     SOME c => SOME (Clause c)
   | NONE =>
   (case parse_xor maxvar xs of
@@ -251,7 +259,7 @@ End
 
 val cnf_ext_raw = ``[
   strlit "c this is a comment";
-  strlit "p cnf 111 10 ";
+  strlit "p cnf 15 10 ";
   strlit "    1  4 0";
   strlit "x1  -5 0";
   strlit "c this is a comment";
@@ -260,8 +268,8 @@ val cnf_ext_raw = ``[
   strlit "x  -3  4 0";
   strlit "    3  5 0";
   strlit "-1 -2 -3 0";
-  strlit "b 1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 111 0";
-  strlit "b1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 -111 0";
+  strlit "b 1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 11 0";
+  strlit "b1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 -11 0";
   strlit "c this is a comment";
   strlit "   -4 -5 0";
   ]``;
@@ -275,28 +283,32 @@ Definition print_lit_def:
   (print_lit (Neg n) = strlit"-" ^ toString n)
 End
 
+Definition print_lits_def:
+  (print_lits e [] = strlit [#"0";e]) ∧
+  (print_lits e (x::xs) =
+    print_lit x ^ strlit(" ") ^ print_lits e xs)
+End
+
 Definition print_clause_def:
-  (print_clause [] = strlit "0\n") ∧
-  (print_clause (x::xs) =
-    print_lit x ^ strlit(" ") ^ print_clause xs)
+  print_clause xs = print_lits (#"\n") xs
 End
 
 Definition print_xor_def:
-  print_xor xs = strlit"x " ^ print_clause xs
+  print_xor xs = strlit"x " ^ print_lits (#"\n") xs
+End
+
+Definition print_tail_def:
+  print_tail (k:num) (y:lit) =
+  toString k ^ strlit " " ^ print_lit y ^ strlit " 0\n"
 End
 
 Definition print_bnn_def:
-  print_bnn (ls,k,y) = strlit"b " ^ print_clause ls ^ toString k ^ strlit " " ^ print_lit y ^ strlit "0\n"
+  print_bnn (ls,k,y) = strlit"b " ^ print_lits (#" ") ls ^ print_tail k y
 End
 
 Definition print_header_line_def:
   print_header_line v len =
   strlit ("p cnf ") ^  toString v ^ strlit(" ") ^ toString len ^ strlit("\n")
-End
-
-Definition var_lit_def:
-  (var_lit (Pos n) = n) ∧
-  (var_lit (Neg n) = n)
 End
 
 Definition max_list_def:
@@ -336,30 +348,36 @@ Proof
   CCONTR_TAC \\ fs [blanks_def] \\ fs [isDigit_def]
 QED
 
+Theorem blanks_thms[simp]:
+  (blanks #"\n") ∧
+  (blanks #" ") ∧
+  (¬blanks #"-") ∧
+  (¬blanks #"x") ∧
+  (¬blanks #"b")
+Proof
+  EVAL_TAC
+QED
+
+Theorem isDigit_thms[simp]:
+  (¬isDigit #"x") ∧
+  (¬isDigit #"b")
+Proof
+  EVAL_TAC
+QED
+
 Theorem tokens_blanks_print_lit:
   tokens blanks (print_lit l) = [print_lit l]
 Proof
   match_mp_tac tokens_unchanged>>
   Cases_on`l`>>
   Cases_on`toString n`>>
-  simp[print_lit_def,EVAL ``blanks #"-"``]>>
+  simp[print_lit_def]>>
   `~NULL s` by
     (drule num_to_str_imp_cons>>rw[]>>fs[])>>
   simp[]>>
   irule listTheory.EVERY_MONOTONIC >>
   irule_at Any num_to_str_every>>
   asm_exists_tac>>simp[GSYM isDigit_def, isDigit_not_blanks]
-QED
-
-Theorem tokens_print_clause_nonempty:
-  ∀ys. tokens blanks (print_clause ys) ≠ []
-Proof
-  Induct>>fs[print_clause_def]
-  >-
-    EVAL_TAC
-  >>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
-  drule mlstringTheory.tokens_append>>simp[]
 QED
 
 Theorem print_lit_alt:
@@ -375,7 +393,7 @@ Theorem fromString_print_lit:
   var_lit h ≠ 0 ⇒
   ∃i.
     fromString (print_lit h) = SOME i ∧
-    Num (ABS i) = var_lit h ∧
+    Num i = var_lit h ∧
     (if i > 0 then h = Pos (var_lit h) else h = Neg (var_lit h))
 Proof
   Cases_on`h`>>rw[var_lit_def]>>
@@ -384,60 +402,77 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem parse_lits_aux_print_clause:
-  ∀ys maxvar acc.
-  EVERY (λl. var_lit l ≠ 0 ∧ var_lit l ≤ maxvar) ys
+Theorem parse_lits_aux_print_lits:
+  ∀ys acc.
+  EVERY (λl. var_lit l ≠ 0) ys ∧ blanks c
   ⇒
-  parse_lits_aux maxvar (toks (print_clause ys) ++ rest) acc =
-    SOME (REVERSE acc ++ ys,rest)
+  parse_lits_aux (toks (print_lits c ys ^ rest)) acc =
+    SOME (REVERSE acc ++ ys,toks rest)
 Proof
   simp[toks_def]>>
-  Induct>>rw[print_clause_def]
-  >-
-    EVAL_TAC>>
+  Induct>>rw[print_lits_def]
+  >- (
+    drule mlstringTheory.tokens_append>>simp[]>>
+    `strlit (STRING #"0" (STRING c "")) = strlit"0" ^ str c` by EVAL_TAC>>
+    simp[]>>
+    EVAL_TAC)>>
   `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
-  disch_then kall_tac>>
+  PURE_REWRITE_TAC[GSYM strcat_assoc]>>
+  disch_then (fn th => simp[th])>>
   simp[tokens_blanks_print_lit]>>
-  simp[tokenize_def]>>
-  Cases_on`tokens blanks (print_clause ys)`
-  >-
-    fs[tokens_print_clause_nonempty] >>
-  simp[parse_lits_aux_def]>>
+  gvs[parse_lits_aux_def,tokenize_def]>>
   drule fromString_print_lit>>
   rw[]>>simp[]>>
-  rw[]>>gvs[]>>
-  simp[mk_lit_def]>>rw[]>>gvs[]
+  rw[]>>gvs[AllCaseEqs()]>>
+  simp[mk_lit_def]>>rw[]>>
+  gvs[]>>rw[]
 QED
 
-Theorem parse_clause_print_clause:
-  EVERY (λl. var_lit l ≠ 0 ∧ var_lit l ≤ maxvar) ys
+Theorem parse_lits_print_clause:
+  EVERY (λl. var_lit l ≠ 0) ys ∧
+  EVERY (λl. var_lit l ≤ maxvar) ys
   ⇒
-  parse_clause maxvar (toks (print_clause ys)) = SOME ys
+  parse_lits maxvar (toks (print_clause ys)) = SOME ys
 Proof
-  rw[parse_clause_def,parse_lits_def]>>
-  drule parse_lits_aux_print_clause>>
-  disch_then (qspecl_then[`[]`,`[]`] assume_tac)>>gvs[]
+  rw[parse_lits_def,print_clause_def]>>
+  drule parse_lits_aux_print_lits>>
+  disch_then (qspecl_then[`strlit""`,`#"\n"`,`[]`] mp_tac)>>
+  gvs[check_maxvar_def]>>
+  EVAL_TAC
 QED
 
 Theorem fix_hd_toks:
-  s = strlit [c;#" "] ⇒
+  s = strlit [c;#" "] ∧ ¬blanks c ∧ ¬isDigit c ⇒
   fix_hd c (toks (s ^ rest)) =
   SOME (toks rest)
 Proof
-  cheat
+  rw[toks_def]>>
+  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  drule mlstringTheory.tokens_append>>simp[]>>
+  qmatch_goalsub_abbrev_tac`aa ^ bb`>>
+  `aa = strlit[c] ^ strlit" "` by
+    (fs[Abbr`aa`]>>EVAL_TAC)>>
+  rw[]>>
+  DEP_ONCE_REWRITE_TAC[tokens_unchanged]>>
+  simp[tokenize_def]>>
+  EVAL_TAC>>gvs[isDigit_def,fix_hd_def]
 QED
 
 Theorem parse_xor_print_xor:
-  EVERY (λl. var_lit l ≠ 0 ∧ var_lit l ≤ maxvar) ys
+  EVERY (λl. var_lit l ≠ 0) ys ∧
+  EVERY (λl. var_lit l ≤ maxvar) ys
   ⇒
   parse_xor maxvar (toks (print_xor ys)) = SOME ys
 Proof
   rw[parse_xor_def,print_xor_def]>>
   DEP_REWRITE_TAC[fix_hd_toks]>>
+  CONJ_TAC >- EVAL_TAC>>
   simp[]>>
-  drule parse_lits_aux_print_clause>>
-  disch_then (qspecl_then[`[]`,`[]`] assume_tac)>>fs[toks_def,parse_lits_def]
+  drule parse_lits_aux_print_lits>>
+  disch_then (qspecl_then[`strlit""`,`#"\n"`,`[]`] mp_tac)>>
+  fs[toks_def,parse_lits_def,check_maxvar_def]>>
+  EVAL_TAC
 QED
 
 Theorem tokens_blanks_toString:
@@ -451,6 +486,59 @@ Proof
   irule listTheory.EVERY_MONOTONIC >>
   irule_at Any num_to_str_every>>
   asm_exists_tac>>simp[GSYM isDigit_def, isDigit_not_blanks]
+QED
+
+Theorem tokenize_toString[simp]:
+  tokenize (toString n) = INR (&n)
+Proof
+  rw[tokenize_def,num_to_str_def]
+QED
+
+Theorem tokenize_print_lit[simp]:
+  var_lit n ≠ 0 ⇒
+  tokenize (print_lit n) =
+    INR (
+      case n of Pos v => &v | Neg v => -&v)
+Proof
+  rw[tokenize_def]>>
+  drule fromString_print_lit>>rw[]>>
+  simp[]>>
+  every_case_tac>>gvs[var_lit_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem parse_bnn_tail_print_tail:
+  var_lit y ≠ 0 ⇒
+  parse_bnn_tail (toks (print_tail k y)) = SOME (k,y)
+Proof
+  rw[print_tail_def,toks_def]>>
+  `« 0\n» = str #" " ^ strlit"0\n"` by EVAL_TAC>>
+  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  drule mlstringTheory.tokens_append>>
+  simp[tokens_blanks_toString,tokens_blanks_print_lit]>>
+  `MAP tokenize (tokens blanks «0\n») = [INR 0]` by
+    EVAL_TAC>>
+  simp[parse_bnn_tail_def]>>
+  rw[]
+  >- intLib.ARITH_TAC>>
+  Cases_on`y`>>rw[mk_lit_def]>>gvs[var_lit_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem parse_bnn_print_bnn:
+  var_lit y ≠ 0 ∧ var_lit y ≤ maxvar ∧
+  EVERY (λl. var_lit l ≠ 0) ls ∧ EVERY (λl. var_lit l ≤ maxvar) ls
+  ⇒
+  parse_bnn maxvar (toks (print_bnn (ls,k,y))) = SOME (ls,k,y)
+Proof
+  rw[parse_bnn_def,print_bnn_def]>>
+  PURE_REWRITE_TAC[GSYM strcat_assoc]>>
+  DEP_REWRITE_TAC[fix_hd_toks]>>
+  CONJ_TAC >- EVAL_TAC>>
+  drule parse_lits_aux_print_lits>>
+  disch_then (qspecl_then[`print_tail k y`,`#" "`,`[]`] mp_tac)>>
+  simp[parse_bnn_tail_print_tail]>>
+  rw[check_maxvar_def]
 QED
 
 Theorem fromString_toString_num:
@@ -516,7 +604,7 @@ Proof
   `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
   first_x_assum drule>>
   simp[DISJ_IMP_THM,FORALL_AND_THM]>>rw[]>>
-  simp[toks_def]>>
+  simp[toks_def,print_lits_def]>>
   drule mlstringTheory.tokens_append>>simp[]>>
   simp[tokens_blanks_print_lit,tokenize_def]>>
   drule fromString_print_lit >> rw[]>>simp[nocomment_line_def]
@@ -533,21 +621,36 @@ Proof
   EVAL_TAC
 QED
 
-Theorem parse_body_MAP_print_clause:
-  ∀cs cacc xacc.
-  EVERY (EVERY (λl. var_lit l ≠ 0 ∧ var_lit l ≤ maxvar)) cs
+Theorem FILTER_nocomment_print_bnn:
+  FILTER nocomment_line
+    (MAP toks (MAP print_bnn ls)) =
+    (MAP toks (MAP print_bnn ls))
+Proof
+  simp[FILTER_EQ_ID,EVERY_MAP,EVERY_MEM]>>
+  rw[]>>
+  PairCases_on`x`>>simp[print_bnn_def]>>
+  PURE_REWRITE_TAC[GSYM strcat_assoc]>>
+  rename1`_ ^ bla`>>
+  EVAL_TAC
+QED
+
+Theorem parse_body_MAP_print_lits:
+  ∀cs cacc xacc bacc.
+  EVERY (λls.
+    EVERY (λl. var_lit l ≠ 0) ls ∧
+    EVERY (λl. var_lit l ≤ maxvar) ls) cs
   ⇒
   parse_body maxvar (MAP toks (MAP print_clause cs)) cacc xacc bacc =
     SOME (REVERSE cacc ++ cs, REVERSE xacc, REVERSE bacc)
 Proof
   Induct>>rw[parse_body_def,parse_line_def]>>
-  drule parse_clause_print_clause>> rw[]
+  drule parse_lits_print_clause>> rw[]
 QED
 
-Theorem parse_clause_print_xor:
-  parse_clause maxvar (toks (print_xor xs)) = NONE
+Theorem parse_lits_print_xor:
+  parse_lits maxvar (toks (print_xor xs)) = NONE
 Proof
-  rw[parse_clause_def,print_xor_def,toks_def]>>
+  rw[parse_lits_def,print_xor_def,toks_def]>>
   `strlit "x " = strlit"x" ^ strlit" "` by EVAL_TAC>>
   pop_assum SUBST_ALL_TAC>>
   `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
@@ -559,14 +662,62 @@ Proof
 QED
 
 Theorem parse_body_MAP_print_xor:
-  ∀cs cacc xacc.
-  EVERY (EVERY (λl. var_lit l ≠ 0 ∧ var_lit l ≤ maxvar)) cs
+  ∀cs xacc cacc bacc.
+  EVERY (λls.
+    EVERY (λl. var_lit l ≠ 0) ls ∧
+    EVERY (λl. var_lit l ≤ maxvar) ls) cs
   ⇒
   parse_body maxvar (MAP toks (MAP print_xor cs)) cacc xacc bacc =
     SOME (REVERSE cacc, REVERSE xacc ++ cs, REVERSE bacc)
 Proof
-  Induct>>rw[parse_body_def,parse_line_def,parse_clause_print_xor]>>
+  Induct>>rw[parse_body_def,parse_line_def,parse_lits_print_xor]>>
   drule parse_xor_print_xor>>rw[]
+QED
+
+Theorem parse_lits_print_bnn:
+  parse_lits maxvar (toks (print_bnn b)) = NONE
+Proof
+  PairCases_on`b`>>
+  rw[parse_lits_def,print_bnn_def,toks_def]>>
+  `strlit "b " = strlit"b" ^ strlit" "` by EVAL_TAC>>
+  pop_assum SUBST_ALL_TAC>>
+  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  drule mlstringTheory.tokens_append>>simp[]>>
+  PURE_REWRITE_TAC[GSYM strcat_assoc]>>
+  DISCH_THEN (fn th => simp[th])>>
+  rename1`_ ++ rest`>>
+  EVAL_TAC
+QED
+
+Theorem parse_xor_print_bnn:
+  parse_xor maxvar (toks (print_bnn b)) = NONE
+Proof
+  PairCases_on`b`>>
+  rw[parse_xor_def,print_bnn_def,toks_def]>>
+  `strlit "b " = strlit"b" ^ strlit" "` by EVAL_TAC>>
+  pop_assum SUBST_ALL_TAC>>
+  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  drule mlstringTheory.tokens_append>>simp[]>>
+  PURE_REWRITE_TAC[GSYM strcat_assoc]>>
+  DISCH_THEN (fn th => simp[th])>>
+  rename1`_ ++ rest`>>
+  EVAL_TAC
+QED
+
+Theorem parse_body_MAP_print_bnn:
+  ∀cs bacc cacc xacc.
+  EVERY (λ(ls,k,y).
+    var_lit y ≠ 0 ∧
+    var_lit y ≤ maxvar ∧
+    EVERY (λl. var_lit l ≠ 0) ls ∧
+    EVERY (λl. var_lit l ≤ maxvar) ls
+    ) cs
+  ⇒
+  parse_body maxvar (MAP toks (MAP print_bnn cs)) cacc xacc bacc =
+    SOME (REVERSE cacc, REVERSE xacc, REVERSE bacc ++ cs)
+Proof
+  Induct>>rw[parse_body_def,parse_line_def,parse_lits_print_bnn,parse_xor_print_bnn]>>
+  PairCases_on`h`>>DEP_REWRITE_TAC[parse_bnn_print_bnn]>>gvs[]
 QED
 
 Theorem parse_body_append:
@@ -608,8 +759,6 @@ Theorem parse_cnf_ext_toks_print_cnf_ext_toks:
   parse_cnf_ext_toks (MAP toks (print_cnf_ext (cs,xs,bs))) =
     SOME (mv,cl,(cs,xs,bs))
 Proof
-  cheat
-  (*
   strip_tac>>simp[parse_cnf_ext_toks_def,print_cnf_ext_def]>>
   qmatch_goalsub_abbrev_tac`print_header_line a b`>>
   simp[Once toks_def]>>
@@ -619,39 +768,63 @@ Proof
   simp[nocomment_line_def]>>
   simp[parse_header_line_print_header_line]>>
   unabbrev_all_tac>>
-  simp[FILTER_APPEND,FILTER_nocomment_print_xor,FILTER_nocomment_print_clause]>>
-  qmatch_goalsub_abbrev_tac`parse_body a b _ _`>>
-  qspecl_then [`a`,`cs`,`[]`,`[]`] mp_tac (GEN_ALL parse_body_MAP_print_clause)>>
+  simp[FILTER_APPEND,FILTER_nocomment_print_xor,FILTER_nocomment_print_clause,FILTER_nocomment_print_bnn]>>
+  qmatch_goalsub_abbrev_tac`parse_body a (b1++b2++b3) _ _`>>
+  qspecl_then [`a`,`cs`,`[]`,`[]`,`[]`] mp_tac (GEN_ALL parse_body_MAP_print_lits)>>
   simp[]>>
   impl_tac >- (
     fs[EVERY_MEM,PULL_FORALL,AND_IMP_INTRO]>>rw[]
     >-
       metis_tac[]>>
     simp[Abbr`a`]>>
+    irule le_max_list>>
+    simp[MEM_MAP,PULL_EXISTS,SF DNF_ss]>>
     DISJ1_TAC>>
-    match_mp_tac le_max_list>>
+    irule_at Any le_max_list>>
     simp[MEM_MAP,PULL_EXISTS]>>
     irule_at Any le_max_list>>
     simp[MEM_MAP,PULL_EXISTS]>>
     metis_tac[LESS_EQ_REFL])>>
   strip_tac>>
   drule parse_body_append>>
-  disch_then(qspec_then`MAP toks (MAP print_xor xs)` assume_tac)>>
-  simp[Abbr`b`]>>
-  qspecl_then [`a`,`xs`,`(REVERSE cs)`,`[]`] mp_tac (GEN_ALL parse_body_MAP_print_xor)>>
-  simp[]>>
+  PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+  simp[]>> disch_then kall_tac>>
+  qspecl_then [`a`,`xs`,`[]`,`(REVERSE cs)`,`[]`] mp_tac (GEN_ALL parse_body_MAP_print_xor)>>
   impl_tac >- (
     fs[EVERY_MEM,PULL_FORALL,AND_IMP_INTRO]>>rw[]
     >-
       metis_tac[]>>
     simp[Abbr`a`]>>
-    DISJ2_TAC>>
-    match_mp_tac le_max_list>>
+    irule le_max_list>>
+    simp[MEM_MAP,PULL_EXISTS,SF DNF_ss]>>
+    DISJ2_TAC>>DISJ1_TAC>>
+    irule le_max_list>>
     simp[MEM_MAP,PULL_EXISTS]>>
     irule_at Any le_max_list>>
     simp[MEM_MAP,PULL_EXISTS]>>
     metis_tac[LESS_EQ_REFL])>>
-  simp[] *)
+  strip_tac>>
+  drule parse_body_append>>
+  rw[]>>
+  qspecl_then [`a`,`bs`,`[]`,`(REVERSE cs)`,`REVERSE xs`] mp_tac (GEN_ALL parse_body_MAP_print_bnn)>>
+  simp[]>>
+  impl_tac >- (
+    fs[EVERY_MEM,PULL_FORALL,AND_IMP_INTRO]>>rw[]>>
+    first_x_assum drule>>
+    pairarg_tac>>simp[Abbr`a`]>>rw[]>>
+    irule le_max_list>>
+    simp[MEM_MAP,PULL_EXISTS,SF DNF_ss]>>
+    DISJ2_TAC>>DISJ2_TAC>>
+    irule le_max_list>>
+    simp[MEM_MAP,PULL_EXISTS]>>
+    first_x_assum (irule_at Any)>>
+    simp[max_var_bnn_def]
+    >-
+      metis_tac[max_list_max]>>
+    irule_at Any le_max_list>>
+    simp[MEM_MAP,PULL_EXISTS]>>
+    metis_tac[LESS_EQ_REFL])>>
+  simp[]
 QED
 
 Theorem parse_cnf_ext_print_cnf_ext:
