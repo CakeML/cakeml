@@ -9,6 +9,11 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
+Overload "lit_list_TYPE" = ``LIST_TYPE INT``
+Overload "strxor_TYPE" = ``STRING_TYPE``
+Overload "cardc_TYPE" = ``PAIR_TYPE NUM (PAIR_TYPE (PAIR_TYPE NUM (SPTREE_SPT_TYPE NUM)) NUM)``
+Overload "ibnn_TYPE" = ``PAIR_TYPE cardc_TYPE NUM``
+
 (* TODO: move *)
 Theorem ALL_DISTINCT_MAP_FST_toSortedAList:
   ALL_DISTINCT (MAP FST (toSortedAList t))
@@ -143,7 +148,7 @@ QED
 
 Theorem every_one_arr_spec:
   ∀ls lsv.
-  (LIST_TYPE INT) ls lsv ∧
+  lit_list_TYPE ls lsv ∧
   EVERY ($> (LENGTH Clist) o index) ls
   ⇒
   app (p : 'ffi ffi_proj)
@@ -174,7 +179,7 @@ Theorem delete_literals_sing_arr_spec:
   ∀ls lsv lno lnov i iv.
   NUM lno lnov ∧
   NUM i iv ∧
-  (LIST_TYPE INT) ls lsv ∧
+  lit_list_TYPE ls lsv ∧
   EVERY ($> (LENGTH Clist) o index) ls
   ⇒
   app (p : 'ffi ffi_proj)
@@ -265,8 +270,8 @@ Theorem is_rup_arr_aux_spec:
   ∀ls lsv c cv fmlv fmlls fml Carrv Clist lno lnov.
   NUM lno lnov ∧
   (LIST_TYPE NUM) ls lsv ∧
-  (LIST_TYPE INT) c cv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
+  lit_list_TYPE c cv ∧
+  LIST_REL (OPTION_TYPE lit_list_TYPE) fmlls fmllsv ∧
   bounded_cfml (LENGTH Clist) fmlls
   ⇒
   app (p : 'ffi ffi_proj)
@@ -281,7 +286,7 @@ Theorem is_rup_arr_aux_spec:
           (is_rup_list_aux fmlls ls c Clist) Clist'
         ) *
         &unwrap_TYPE
-          (LIST_TYPE INT o FST)
+          (lit_list_TYPE o FST)
           (is_rup_list_aux fmlls ls c Clist) v)
       (λe. ARRAY fmlv fmllsv *
         &(Fail_exn e ∧ is_rup_list_aux fmlls ls c Clist = NONE)))
@@ -311,7 +316,7 @@ Proof
     simp[unwrap_TYPE_def]>>
     metis_tac[])>>
   xlet_autop>>
-  `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  `OPTION_TYPE lit_list_TYPE (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
   TOP_CASE_TAC
   >- (
     fs[list_lookup_def]>>
@@ -368,7 +373,7 @@ val set_array = process_topdecs`
 
 Theorem set_array_spec:
   ∀c cv Carrv Clist.
-  (LIST_TYPE INT) c cv ∧
+  lit_list_TYPE c cv ∧
   WORD8 v vv ∧
   EVERY ($> (LENGTH Clist) o index) c
   ⇒
@@ -474,8 +479,8 @@ Theorem is_rup_arr_spec:
   ∀ls lsv c cv fmlv fmlls Carrv Clist lno lnov.
   NUM lno lnov ∧
   (LIST_TYPE NUM) ls lsv ∧
-  (LIST_TYPE INT) c cv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
+  lit_list_TYPE c cv ∧
+  LIST_REL (OPTION_TYPE lit_list_TYPE) fmlls fmllsv ∧
   bounded_cfml (LENGTH Clist) fmlls ∧
   EVERY ($> (LENGTH Clist) ∘ index) c
   ⇒
@@ -541,7 +546,7 @@ val strxor_aux_c_arr = process_topdecs`
 Theorem strxor_aux_c_arr_spec:
   ∀n nv cs csv ds dsv.
   NUM n nv ∧
-  STRING_TYPE ds dsv ∧
+  strxor_TYPE ds dsv ∧
   n ≤ strlen ds ∧ strlen ds ≤ LENGTH cs
   ⇒
   app (p : 'ffi ffi_proj)
@@ -583,7 +588,7 @@ val strxor_c_arr = process_topdecs`
   end` |> append_prog;
 
 Theorem strxor_c_arr_spec:
-  STRING_TYPE ds dsv
+  strxor_TYPE ds dsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "strxor_c_arr" (get_ml_prog_state()))
@@ -629,7 +634,7 @@ Theorem add_xors_aux_c_arr_spec:
   ∀ls lsv cs csv fmlv fmlls fmllsv lno lnov.
   NUM lno lnov ∧
   (LIST_TYPE NUM) ls lsv ∧
-  LIST_REL (OPTION_TYPE STRING_TYPE) fmlls fmllsv
+  LIST_REL (OPTION_TYPE strxor_TYPE) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "add_xors_aux_c_arr" (get_ml_prog_state()))
@@ -662,7 +667,7 @@ Proof
     simp[Fail_exn_def,unwrap_TYPE_def]>>
     metis_tac[])>>
   xlet_autop>>
-  `OPTION_TYPE STRING_TYPE (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  `OPTION_TYPE strxor_TYPE (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
   xmatch
   >- (
@@ -927,7 +932,7 @@ Theorem unit_props_xor_arr_spec:
   NUM lno lnov ∧
   SPTREE_SPT_TYPE NUM t tv ∧
   (LIST_TYPE NUM) ls lsv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv
+  LIST_REL (OPTION_TYPE lit_list_TYPE) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "unit_props_xor_arr" (get_ml_prog_state()))
@@ -960,7 +965,7 @@ Proof
     simp[Fail_exn_def,unwrap_TYPE_def]>>
     metis_tac[])>>
   xlet_autop>>
-  `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  `OPTION_TYPE lit_list_TYPE (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
   xmatch
   >- (
@@ -1134,9 +1139,9 @@ Theorem is_xor_arr_spec:
   PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn tnv ∧
   (LIST_TYPE NUM) ls lsv ∧
   (LIST_TYPE NUM) cls clsv ∧
-  LIST_REL (OPTION_TYPE STRING_TYPE) fmlls fmllsv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) cfmlls cfmllsv ∧
-  STRING_TYPE s sv
+  LIST_REL (OPTION_TYPE strxor_TYPE) fmlls fmllsv ∧
+  LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls cfmllsv ∧
+  strxor_TYPE s sv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_xor_arr" (get_ml_prog_state()))
@@ -1276,7 +1281,7 @@ val resize_carr = process_topdecs`
   end` |> append_prog
 
 Theorem resize_carr_spec:
-  (LIST_TYPE INT) c cv ⇒
+  lit_list_TYPE c cv ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "resize_carr" (get_ml_prog_state()))
     [cv; Carrv]
@@ -1353,7 +1358,7 @@ val conv_xor_aux_arr = process_topdecs`
 
 Theorem conv_xor_aux_arr_spec:
   ∀xs xsv cs csv.
-  LIST_TYPE INT xs xsv
+  lit_list_TYPE xs xsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "conv_xor_aux_arr" (get_ml_prog_state()))
@@ -1400,14 +1405,14 @@ val conv_rawxor_arr = process_topdecs`
 
 Theorem conv_rawxor_arr_spec:
   NUM n nv ∧
-  LIST_TYPE INT xs xsv
+  lit_list_TYPE xs xsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "conv_rawxor_arr" (get_ml_prog_state()))
     [nv; xsv]
     (emp)
     (POSTv v.
-      &(STRING_TYPE (conv_rawxor_list n xs) v))
+      &(strxor_TYPE (conv_rawxor_list n xs) v))
 Proof
   rw[]>>
   xcf "conv_rawxor_arr" (get_ml_prog_state ())>>
@@ -1440,7 +1445,7 @@ Theorem strxor_imp_cclause_arr_spec:
   NUM lno lnov ∧
   NUM n nv ∧
   PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn tnv ∧
-  LIST_TYPE INT xs xsv
+  lit_list_TYPE xs xsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "strxor_imp_cclause_arr" (get_ml_prog_state()))
@@ -1476,8 +1481,8 @@ Theorem is_cfromx_arr_spec:
   NUM def defv ∧
   PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn tnv ∧
   (LIST_TYPE NUM) ls lsv ∧
-  LIST_REL (OPTION_TYPE STRING_TYPE) fmlls fmllsv ∧
-  LIST_TYPE INT s sv
+  LIST_REL (OPTION_TYPE strxor_TYPE) fmlls fmllsv ∧
+  lit_list_TYPE s sv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_cfromx_arr" (get_ml_prog_state()))
@@ -1503,41 +1508,41 @@ Proof
   metis_tac[]
 QED
 
-val get_clauses_arr = process_topdecs`
-  fun get_clauses_arr lno fml ls =
+val get_constrs_arr = process_topdecs`
+  fun get_constrs_arr lno fml ls =
     case ls of
       [] => []
     | (i::is) =>
       if Array.length fml <= i then
-        raise Fail (format_failure lno ("no clause at index: " ^ Int.toString i))
+        raise Fail (format_failure lno ("no clause/constraint at index: " ^ Int.toString i))
       else
         (case Unsafe.sub fml i of
-          None => raise Fail (format_failure lno ("no clause at index (maybe deleted): " ^ Int.toString i))
+          None => raise Fail (format_failure lno ("no clause/constraint at index (maybe deleted): " ^ Int.toString i))
         | Some ci =>
-          ci :: get_clauses_arr lno fml is)` |> append_prog;
+          ci :: get_constrs_arr lno fml is)` |> append_prog;
 
-Theorem get_clauses_arr_spec:
+Theorem get_constrs_arr_spec:
   ∀ls lsv fmlv fmlls fml lno lnov.
   NUM lno lnov ∧
   (LIST_TYPE NUM) ls lsv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv
+  LIST_REL (OPTION_TYPE a) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "get_clauses_arr" (get_ml_prog_state()))
+    ^(fetch_v "get_constrs_arr" (get_ml_prog_state()))
     [lnov; fmlv; lsv]
     (ARRAY fmlv fmllsv)
     (POSTve
       (λv. ARRAY fmlv fmllsv *
         &unwrap_TYPE
-          (LIST_TYPE (LIST_TYPE INT))
-          (get_clauses_list fmlls ls) v)
+          (LIST_TYPE a)
+          (get_constrs_list fmlls ls) v)
       (λe. ARRAY fmlv fmllsv *
-        &(Fail_exn e ∧ get_clauses_list fmlls ls = NONE)))
+        &(Fail_exn e ∧ get_constrs_list fmlls ls = NONE)))
 Proof
   Induct>>
   rw[]>>
-  xcf "get_clauses_arr" (get_ml_prog_state ())>>
-  simp[get_clauses_list_def]
+  xcf "get_constrs_arr" (get_ml_prog_state ())>>
+  simp[get_constrs_list_def]
   >- (
     fs[LIST_TYPE_def]>>
     xmatch>>
@@ -1557,7 +1562,7 @@ Proof
     simp[unwrap_TYPE_def]>>
     metis_tac[])>>
   xlet_autop>>
-  `OPTION_TYPE (LIST_TYPE INT) (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  `OPTION_TYPE a (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
   TOP_CASE_TAC
   >- (
     fs[list_lookup_def]>>
@@ -1586,7 +1591,7 @@ val res = translate check_rawxor_imp_def;
 
 val is_xfromc_arr = process_topdecs`
   fun is_xfromc_arr lno fml is rx =
-  let val ds = get_clauses_arr lno fml is in
+  let val ds = get_constrs_arr lno fml is in
     if check_rawxor_imp ds rx then ()
     else raise Fail
       (format_failure lno ("clauses do not imply XOR"))
@@ -1595,8 +1600,8 @@ val is_xfromc_arr = process_topdecs`
 Theorem is_xfromc_arr_spec:
   NUM lno lnov ∧
   (LIST_TYPE NUM) ls lsv ∧
-  LIST_TYPE INT rx rxv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv
+  lit_list_TYPE rx rxv ∧
+  LIST_REL (OPTION_TYPE lit_list_TYPE) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_xfromc_arr" (get_ml_prog_state()))
@@ -1638,14 +1643,14 @@ val conv_xor_mv_arr = process_topdecs`
 
 Theorem conv_xor_mv_arr_spec:
   NUM n nv ∧
-  LIST_TYPE CNF_XOR_LIT_TYPE xs xsv
+  LIST_TYPE CNF_EXT_LIT_TYPE xs xsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "conv_xor_mv_arr" (get_ml_prog_state()))
     [nv; xsv]
     (emp)
     (POSTv v.
-      &(STRING_TYPE (conv_xor_mv_list n xs) v))
+      &(strxor_TYPE (conv_xor_mv_list n xs) v))
 Proof
   rw[]>>
   xcf "conv_xor_mv_arr" (get_ml_prog_state ())>>
@@ -1671,15 +1676,19 @@ End
 val res = translate ren_int_ls_def;
 val res = translate ren_ints_def;
 
+val is_cfromb_arr = process_topdecs`
+  fun is_cfromb_arr lno c cfml bfml ib i0 carr = carr` |> append_prog;
+
 val check_xlrup_arr = process_topdecs`
-  fun check_xlrup_arr lno xorig xlrup cfml xfml tn def carr =
+  fun check_xlrup_arr lno xorig xlrup cfml xfml bfml
+    tn def carr =
   case xlrup of
     Del cl =>
-      (list_delete_arr cl cfml; (cfml, xfml, tn, def, carr))
+      (list_delete_arr cl cfml; (cfml, xfml, bfml, tn, def, carr))
   | Rup n c i0 =>
       let val carr = resize_carr c carr
           val u = is_rup_arr lno cfml i0 c carr in
-        (resize_update_arr (Some c) n cfml, xfml, tn, def, carr)
+        (resize_update_arr (Some c) n cfml, xfml, bfml, tn, def, carr)
       end
   | Xorig n rx =>
       if List.member rx xorig
@@ -1688,7 +1697,7 @@ val check_xlrup_arr = process_topdecs`
       let
         val x = conv_xor_mv_arr def mx
       in
-        (cfml, resize_update_arr (Some x) n xfml,
+        (cfml, resize_update_arr (Some x) n xfml, bfml,
           tn, max def (String.size x), carr)
       end)
       else
@@ -1699,26 +1708,34 @@ val check_xlrup_arr = process_topdecs`
         val x = conv_rawxor_arr def mx
         val u = is_xor_arr lno tn def xfml i0 cfml i1 x
       in
-        (cfml, resize_update_arr (Some x) n xfml,
+        (cfml, resize_update_arr (Some x) n xfml, bfml,
           tn, max def (String.size x), carr)
       end)
   | Xdel xl =>
-      (list_delete_arr xl xfml; (cfml, xfml, tn, def, carr))
+      (list_delete_arr xl xfml; (cfml, xfml, bfml, tn, def, carr))
   | Cfromx n c i0 =>
     (case ren_ints tn c of (mc,tn) =>
     let val carr = resize_carr c carr
         val u = is_cfromx_arr lno tn def xfml i0 mc in
-      (resize_update_arr (Some c) n cfml, xfml, tn, def, carr)
+      (resize_update_arr (Some c) n cfml, xfml, bfml, tn, def, carr)
     end)
   | Xfromc n rx i0 =>
     let val u = is_xfromc_arr lno cfml i0 rx
     in
       case ren_ints tn rx of (mx,tn) =>
       let val x = conv_rawxor_arr def mx in
-        (cfml, resize_update_arr (Some x) n xfml,
+        (cfml, resize_update_arr (Some x) n xfml, bfml,
             tn, max def (String.size x), carr)
       end
-    end` |> append_prog
+    end
+  | Bdel bl =>
+    (list_delete_arr bl bfml; (cfml, xfml, bfml, tn, def, carr))
+  | Cfromb n c ib i0 =>
+    let val carr = resize_carr c carr
+        val u = is_cfromb_arr lno c cfml bfml ib i0 carr in
+      (resize_update_arr (Some c) n cfml, xfml, bfml, tn, def, carr)
+    end
+  ` |> append_prog
 
 val XLRUP_XLRUP_TYPE_def = fetch "-" "XLRUP_XLRUP_TYPE_def";
 
@@ -1780,10 +1797,10 @@ Proof
   intLib.ARITH_TAC
 QED
 
-val CNF_XOR_LIT_TYPE_def = fetch "-" "CNF_XOR_LIT_TYPE_def";
+val CNF_EXT_LIT_TYPE_def = fetch "-" "CNF_EXT_LIT_TYPE_def";
 
-Theorem EqualityType_CNF_XOR_LIT_TYPE:
-  EqualityType CNF_XOR_LIT_TYPE
+Theorem EqualityType_CNF_EXT_LIT_TYPE:
+  EqualityType CNF_EXT_LIT_TYPE
 Proof
   metis_tac(eq_lemmas())
 QED
@@ -1798,48 +1815,52 @@ QED
 Theorem check_xlrup_arr_spec:
   NUM lno lnov ∧
   XLRUP_XLRUP_TYPE xlrup xlrupv ∧
-  LIST_TYPE (LIST_TYPE CNF_XOR_LIT_TYPE) xorig xorigv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) cfmlls cfmllsv ∧
-  LIST_REL (OPTION_TYPE STRING_TYPE) xfmlls xfmllsv ∧
+  LIST_TYPE (LIST_TYPE CNF_EXT_LIT_TYPE) xorig xorigv ∧
+  LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls cfmllsv ∧
+  LIST_REL (OPTION_TYPE strxor_TYPE) xfmlls xfmllsv ∧
+  LIST_REL (OPTION_TYPE ibnn_TYPE) bfmlls bfmllsv ∧
   PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn tnv ∧
   NUM def defv ∧
   bounded_cfml (LENGTH Clist) cfmlls
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_xlrup_arr" (get_ml_prog_state()))
-    [lnov; xorigv; xlrupv; cfmlv; xfmlv; tnv; defv; Carrv]
+    [lnov; xorigv; xlrupv; cfmlv; xfmlv; bfmlv; tnv; defv; Carrv]
     (ARRAY cfmlv cfmllsv *
     ARRAY xfmlv xfmllsv *
+    ARRAY bfmlv bfmllsv *
     W8ARRAY Carrv Clist)
     (POSTve
       (λv.
-        SEP_EXISTS v1 v2 v3 v4 v5.
-          &(v = Conv NONE [v1; v2; v3; v4; v5]) *
-          (* v1,v2 are pointers to the formula arrays
-             v3 is the tn mapping
-             v4 is th def size
-             v5 points to the byte array
+        SEP_EXISTS v1 v2 v3 v4 v5 v6.
+          &(v = Conv NONE [v1; v2; v3; v4; v5; v6]) *
+          (* v1,v2,v3 are pointers to the formula arrays
+             v4 is the tn mapping
+             v5 is th def size
+             v6 points to the byte array
           *)
-          (SEP_EXISTS cfmllsv' xfmllsv' clist'.
+          (SEP_EXISTS cfmllsv' xfmllsv' bfmllsv' clist'.
             ARRAY v1 cfmllsv' *
             ARRAY v2 xfmllsv' *
-            W8ARRAY v5 clist' *
+            ARRAY v3 bfmllsv' *
+            W8ARRAY v6 clist' *
             &(
-            case check_xlrup_list xorig xlrup cfmlls xfmlls tn def Clist of
+            case check_xlrup_list xorig xlrup cfmlls xfmlls bfmlls tn def Clist of
               NONE => F
-            | SOME (cfmlls', xfmlls', tn', def', Clist') =>
+            | SOME (cfmlls', xfmlls', bfmlls', tn', def', Clist') =>
                 bounded_cfml (LENGTH Clist') cfmlls' ∧
-                LIST_REL (OPTION_TYPE (LIST_TYPE INT)) cfmlls' cfmllsv' ∧
-                LIST_REL (OPTION_TYPE STRING_TYPE) xfmlls' xfmllsv' ∧
-                PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn' v3 ∧
-                NUM def' v4 ∧
+                LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls' cfmllsv' ∧
+                LIST_REL (OPTION_TYPE strxor_TYPE) xfmlls' xfmllsv' ∧
+                LIST_REL (OPTION_TYPE ibnn_TYPE) bfmlls' bfmllsv' ∧
+                PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn' v4 ∧
+                NUM def' v5 ∧
                 Clist' = clist' ∧
                 LENGTH Clist ≤ LENGTH Clist'
             ))
       )
-      (λe. ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv *
+      (λe. ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY bfmlv bfmllsv *
         &(Fail_exn e ∧
-        check_xlrup_list xorig xlrup cfmlls xfmlls tn def Clist = NONE)))
+        check_xlrup_list xorig xlrup cfmlls xfmlls bfmlls tn def Clist = NONE)))
 Proof
   rw[check_xlrup_list_def]>>
   xcf "check_xlrup_arr" (get_ml_prog_state ())>>
@@ -1864,9 +1885,10 @@ Proof
         SEP_EXISTS cfmllsv'.
         ARRAY resv cfmllsv' *
         ARRAY xfmlv xfmllsv *
-        &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (update_resize cfmlls NONE (SOME l) n) cfmllsv'))`
+        ARRAY bfmlv bfmllsv *
+        &(LIST_REL (OPTION_TYPE lit_list_TYPE) (update_resize cfmlls NONE (SOME l) n) cfmllsv'))`
     >- (
-      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``(LIST_TYPE INT)``)>>
+      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``lit_list_TYPE``)>>
       xsimpl>>
       asm_exists_tac>>simp[]>>
       asm_exists_tac>>simp[]>>
@@ -1880,7 +1902,7 @@ Proof
     >- (
       xsimpl>>
       match_mp_tac EqualityType_LIST_TYPE>>
-      simp[EqualityType_CNF_XOR_LIT_TYPE])>>
+      simp[EqualityType_CNF_EXT_LIT_TYPE])>>
     fs[MEMBER_INTRO]>>
     reverse xif
     >- (
@@ -1900,9 +1922,10 @@ Proof
         SEP_EXISTS xfmllsv'.
         ARRAY cfmlv cfmllsv *
         ARRAY resv xfmllsv' *
-        &(LIST_REL (OPTION_TYPE STRING_TYPE) (update_resize xfmlls NONE (SOME lll) n) xfmllsv'))`
+        ARRAY bfmlv bfmllsv *
+        &(LIST_REL (OPTION_TYPE strxor_TYPE) (update_resize xfmlls NONE (SOME lll) n) xfmllsv'))`
     >- (
-      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``STRING_TYPE``)>>
+      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``strxor_TYPE``)>>
       xsimpl>>
       asm_exists_tac>>simp[]>>
       asm_exists_tac>>simp[]>>
@@ -1919,11 +1942,11 @@ Proof
     rename1`is_xor_list _ _ _ _ _ tn`>>
     xlet`POSTve
     (λv.
-         ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+         ARRAY bfmlv bfmllsv * ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
          W8ARRAY Carrv Clist *
          &is_xor_list def xfmlls l0 cfmlls l1 tn (conv_rawxor_list def mx))
     (λe.
-         ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+         ARRAY bfmlv bfmllsv * ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
          &(Fail_exn e ∧
           ¬is_xor_list def xfmlls l0 cfmlls l1 tn (conv_rawxor_list def mx)))`
     >- (
@@ -1942,9 +1965,10 @@ Proof
         SEP_EXISTS xfmllsv'.
         ARRAY cfmlv cfmllsv *
         ARRAY resv xfmllsv' *
-        &(LIST_REL (OPTION_TYPE STRING_TYPE) (update_resize xfmlls NONE (SOME lll) n) xfmllsv'))`
+        ARRAY bfmlv bfmllsv *
+        &(LIST_REL (OPTION_TYPE strxor_TYPE) (update_resize xfmlls NONE (SOME lll) n) xfmllsv'))`
     >- (
-      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``STRING_TYPE``)>>
+      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``strxor_TYPE``)>>
       xsimpl>>
       asm_exists_tac>>simp[]>>
       asm_exists_tac>>simp[]>>
@@ -1964,11 +1988,11 @@ Proof
     (* xlet_auto creates the wrong frame here *)
     xlet` POSTve
           (λv.
-               ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+               ARRAY bfmlv bfmllsv * ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
                W8ARRAY carrv (resize_Clist l Clist) *
                &is_cfromx_list def xfmlls l0 mc)
           (λe.
-               ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+               ARRAY bfmlv bfmllsv * ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
                &(Fail_exn e ∧
                 ¬is_cfromx_list def xfmlls l0 mc))`
     >- (
@@ -1983,9 +2007,10 @@ Proof
         SEP_EXISTS cfmllsv'.
         ARRAY resv cfmllsv' *
         ARRAY xfmlv xfmllsv *
-        &(LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (update_resize cfmlls NONE (SOME l) n) cfmllsv'))`
+        ARRAY bfmlv bfmllsv *
+        &(LIST_REL (OPTION_TYPE lit_list_TYPE) (update_resize cfmlls NONE (SOME l) n) cfmllsv'))`
     >- (
-      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``(LIST_TYPE INT)``)>>
+      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``lit_list_TYPE``)>>
       xsimpl>>
       asm_exists_tac>>simp[]>>
       asm_exists_tac>>simp[]>>
@@ -1997,11 +2022,11 @@ Proof
     xmatch>>
     xlet` POSTve
       (λv.
-           ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+           ARRAY bfmlv bfmllsv * ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
            W8ARRAY Carrv Clist *
            &is_xfromc_list cfmlls l0 l)
       (λe.
-           ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
+           ARRAY bfmlv bfmllsv * ARRAY xfmlv xfmllsv * ARRAY cfmlv cfmllsv *
            &(Fail_exn e ∧
             ¬is_xfromc_list cfmlls l0 l))`
     >- (
@@ -2018,16 +2043,25 @@ Proof
         W8ARRAY Carrv Clist *
         SEP_EXISTS xfmllsv'.
         ARRAY cfmlv cfmllsv *
+        ARRAY bfmlv bfmllsv *
         ARRAY resv xfmllsv' *
-        &(LIST_REL (OPTION_TYPE STRING_TYPE) (update_resize xfmlls NONE (SOME lll) n) xfmllsv'))`
+        &(LIST_REL (OPTION_TYPE strxor_TYPE) (update_resize xfmlls NONE (SOME lll) n) xfmllsv'))`
     >- (
-      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``STRING_TYPE``)>>
+      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``strxor_TYPE``)>>
       xsimpl>>
       asm_exists_tac>>simp[]>>
       asm_exists_tac>>simp[]>>
       qexists_tac`SOME lll`>>
       simp[OPTION_TYPE_def])>>
     xcon>>xsimpl)
+  >- ( (* Bdel *)
+    xmatch>>
+    xlet_autop >>
+    xcon>>xsimpl)
+  >- ( (* Cfromb *)
+    xmatch>>
+    xlet_autop>>
+    cheat)
 QED
 
 Definition is_empty_def:
@@ -2052,7 +2086,7 @@ Theorem contains_emp_arr_aux_spec:
   ∀cfmlls i iv cfmlv cfmllsv.
   NUM i iv ∧
   i <= LENGTH cfmlls ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) cfmlls cfmllsv
+  LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls cfmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "contains_emp_arr_aux" (get_ml_prog_state()))
@@ -2074,7 +2108,7 @@ Proof
   `LENGTH cfmlls = LENGTH cfmllsv` by
     metis_tac[LIST_REL_LENGTH]>>
   xlet_autop>>
-  `OPTION_TYPE (LIST_TYPE INT) (EL (i-1) cfmlls) (EL (i-1) cfmllsv)` by
+  `OPTION_TYPE lit_list_TYPE (EL (i-1) cfmlls) (EL (i-1) cfmllsv)` by
     fs[LIST_REL_EL_EQN]>>
   simp[list_lookup_def]>>
   TOP_CASE_TAC >> fs[OPTION_TYPE_def]
@@ -2098,7 +2132,7 @@ val contains_emp_arr = (append_prog o process_topdecs)`
   contains_emp_arr_aux cfml (Array.length cfml)`
 
 Theorem contains_emp_arr_spec:
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) cfmlls cfmllsv
+  LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls cfmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "contains_emp_arr" (get_ml_prog_state()))
@@ -2215,8 +2249,8 @@ val fromString_unsafe_side = Q.prove(
   \\ match_mp_tac fromchars_unsafe_side_thm
   \\ rw[]) |> update_precondition;
 
-val _ = translate cnf_xorTheory.blanks_def;
-val _ = translate cnf_xorTheory.tokenize_def;
+val _ = translate cnf_extTheory.blanks_def;
+val _ = translate cnf_extTheory.tokenize_def;
 
 val _ = translate is_lowercase_def;
 val _ = translate tokenize_fast_def;
@@ -2233,8 +2267,10 @@ val _ = translate parse_id_u_rest_def;
 val _ = translate starts_with_def;
 val _ = translate parse_rup_del_def;
 val _ = translate parse_xadd_xdel_def;
-val _ = translate parse_cfromx_xfromc_def;
-val _ = translate parse_lits_aux_nomv_def;
+val _ = translate parse_imply_def;
+
+(* TODO: broken from here *)
+val _ = translate cnf_extTheory.parse_lits_aux_def;
 
 Triviality parse_lits_aux_nomv_ind:
   parse_lits_aux_nomv_ind
@@ -2276,9 +2312,9 @@ val parse_and_run_arr = process_topdecs`
 
 Theorem parse_and_run_arr_spec:
   NUM lno lnov ∧
-  LIST_TYPE (LIST_TYPE CNF_XOR_LIT_TYPE) xorig xorigv ∧
+  LIST_TYPE (LIST_TYPE CNF_EXT_LIT_TYPE) xorig xorigv ∧
   LIST_TYPE (SUM_TYPE STRING_TYPE INT) l lv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) cfmlls cfmllsv ∧
+  LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls cfmllsv ∧
   LIST_REL (OPTION_TYPE STRING_TYPE) xfmlls xfmllsv ∧
   PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn tnv ∧
   NUM def defv ∧
@@ -2308,7 +2344,7 @@ Theorem parse_and_run_arr_spec:
               NONE => F
             | SOME (cfmlls', xfmlls', tn', def', Clist') =>
                 bounded_cfml (LENGTH Clist') cfmlls' ∧
-                LIST_REL (OPTION_TYPE (LIST_TYPE INT)) cfmlls' cfmllsv' ∧
+                LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls' cfmllsv' ∧
                 LIST_REL (OPTION_TYPE STRING_TYPE) xfmlls' xfmllsv' ∧
                 PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn' v3 ∧
                 NUM def' v4 ∧
@@ -2420,13 +2456,13 @@ val b_inputLineTokens_specialize =
   |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
   |> Q.GEN `gv` |> Q.ISPEC`tokenize_fast_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,cnf_xorTheory.blanks_def] ;
+  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,cnf_extTheory.blanks_def] ;
 
 Theorem check_unsat''_spec:
   !lines fs cfmlv cfmlls cfmllsv xfmlv xfmlls xfmllsv Clist Carrv lno lnov tn tnv def defv xorig xorigv.
   NUM lno lnov ∧
-  LIST_TYPE (LIST_TYPE CNF_XOR_LIT_TYPE) xorig xorigv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) cfmlls cfmllsv ∧
+  LIST_TYPE (LIST_TYPE CNF_EXT_LIT_TYPE) xorig xorigv ∧
+  LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls cfmllsv ∧
   LIST_REL (OPTION_TYPE STRING_TYPE) xfmlls xfmllsv ∧
   PAIR_TYPE (SPTREE_SPT_TYPE NUM) NUM tn tnv ∧
   NUM def defv ∧
@@ -2447,7 +2483,7 @@ Theorem check_unsat''_spec:
             ARRAY v2 xfmllsv' *
             &(unwrap_TYPE
               (λv fv.
-              LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
+              LIST_REL (OPTION_TYPE lit_list_TYPE) (FST v) fv)
                  (parse_and_run_file_list lines xorig cfmlls xfmlls tn def Clist) cfmllsv' ∧
               unwrap_TYPE
               (λv fv.
@@ -2610,8 +2646,8 @@ QED
 
 Theorem check_unsat'_spec:
   NUM n nv ∧
-  LIST_TYPE (LIST_TYPE CNF_XOR_LIT_TYPE) xorig xorigv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) cfmlls cfmllsv ∧
+  LIST_TYPE (LIST_TYPE CNF_EXT_LIT_TYPE) xorig xorigv ∧
+  LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls cfmllsv ∧
   LIST_REL (OPTION_TYPE STRING_TYPE) xfmlls xfmllsv ∧
   FILENAME f fv ∧
   hasFreeFD fs ∧
@@ -2683,7 +2719,7 @@ Proof
         resv = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]] ∧
         v1 = cfmlv' ∧
         v2 = xfmlv' ∧
-        LIST_REL (OPTION_TYPE (LIST_TYPE INT)) cfmlls' cfmllsv' ∧
+        LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls' cfmllsv' ∧
         LIST_REL (OPTION_TYPE STRING_TYPE) xfmlls' xfmllsv'
     )`
   >- (
@@ -2757,7 +2793,7 @@ Proof
            ARRAY v1 cfmllsv' *
            ARRAY v2 xfmllsv' *
            &(unwrap_TYPE
-             (λv fv. LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
+             (λv fv. LIST_REL (OPTION_TYPE lit_list_TYPE) (FST v) fv)
                 (parse_and_run_file_list (all_lines fs f) xorig cfmlls xfmlls tn def Clist) cfmllsv' ∧
              unwrap_TYPE
              (λv fv. LIST_REL (OPTION_TYPE STRING_TYPE) (SND v) fv)
@@ -2773,7 +2809,7 @@ Proof
                     ARRAY v2 xfmllsv' *
                     &(unwrap_TYPE
                       (λv fv.
-                           LIST_REL (OPTION_TYPE (LIST_TYPE INT))
+                           LIST_REL (OPTION_TYPE lit_list_TYPE)
                              (FST v) fv)
                       (parse_and_run_file_list (all_lines fs f) xorig cfmlls xfmlls tn def Clist) cfmllsv' ∧
                       unwrap_TYPE

@@ -1012,7 +1012,7 @@ End
 Definition prop_cardc_def:
   (prop_cardc ns upp low [] = (upp:num,low:num)) ∧
   (prop_cardc ns upp low (l::ls) =
-    let n = Num l in
+    let n = Num (ABS l) in
     case lookup_offspt n ns of
       NONE => prop_cardc ns upp low ls
     | SOME () =>

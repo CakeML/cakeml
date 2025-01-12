@@ -96,7 +96,7 @@ End
 (* Parse a literal *)
 Definition mk_lit_def:
   mk_lit l =
-  let n = Num l in
+  let n = Num (ABS l) in
   if l > 0 then Pos n else Neg n
 End
 
@@ -393,7 +393,7 @@ Theorem fromString_print_lit:
   var_lit h ≠ 0 ⇒
   ∃i.
     fromString (print_lit h) = SOME i ∧
-    Num i = var_lit h ∧
+    Num (ABS i) = var_lit h ∧
     (if i > 0 then h = Pos (var_lit h) else h = Neg (var_lit h))
 Proof
   Cases_on`h`>>rw[var_lit_def]>>
