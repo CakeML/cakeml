@@ -14,7 +14,7 @@ Type rawxor = ``:int list``;
 (* The constraint (upper ≥ |offset + X| ≥ lower)
   TODO: figure out the representation here *)
 Type cardc = ``:(num # (num # num num_map) # num)``
-(* A cardinality and the reification var on the RHS *)
+(* A cardinality constraint and the reification var on the RHS *)
 Type ibnn = ``:cardc # num``;
 
 (* Satisfiability for clauses is defined by interpreting into the
@@ -837,8 +837,6 @@ Datatype:
   | XFromC num rawxor (num list)
     (* Derive XOR from hint clauses *)
 
-  | BOrig num cmsbnn
-    (* BOrig n B : add BNN B from original at ID n *)
   | BDel (num list) (* BNN constraints to delete *)
   | CFromB num cclause num (num list)
     (* Derive clause from hint BNN and rup hints *)
@@ -1061,7 +1059,7 @@ End
 
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
 Definition check_xlrup_def:
-  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
+  check_xlrup xorig xlrup cfml xfml bfml tn def =
   case xlrup of
     Del cl =>
     SOME (FOLDL (\a b. delete b a) cfml cl, xfml, bfml,
@@ -1101,12 +1099,6 @@ Definition check_xlrup_def:
       SOME (cfml, insert n X xfml, bfml,
         tn, MAX def (strlen X))
     else NONE
-  | BOrig n bnn =>
-    if MEM bnn borig
-    then
-      SOME (cfml, xfml, insert n (conv_bnn bnn) bfml,
-        tn, def)
-    else NONE
   | BDel bl =>
       SOME (cfml, xfml, FOLDL (\a b. delete b a) bfml bl,
         tn, def)
@@ -1118,13 +1110,13 @@ Definition check_xlrup_def:
 End
 
 Definition check_xlrups_def:
-  (check_xlrups xorig borig [] cfml xfml bfml tn def =
+  (check_xlrups xorig [] cfml xfml bfml tn def =
     SOME (cfml,xfml,bfml,tn,def)) ∧
-  (check_xlrups xorig borig (x::xs) cfml xfml bfml tn def =
-  case check_xlrup xorig borig x cfml xfml bfml tn def of
+  (check_xlrups xorig (x::xs) cfml xfml bfml tn def =
+  case check_xlrup xorig x cfml xfml bfml tn def of
     NONE => NONE
   | SOME (cfml',xfml',bfml',tn',def') =>
-    check_xlrups xorig borig xs cfml' xfml' bfml' tn' def')
+    check_xlrups xorig xs cfml' xfml' bfml' tn' def')
 End
 
 Definition contains_emp_def:
@@ -1134,8 +1126,8 @@ Definition contains_emp_def:
 End
 
 Definition check_xlrups_unsat_def:
-  check_xlrups_unsat xorig borig xlrups cfml xfml bfml tn def =
-  case check_xlrups xorig borig xlrups cfml xfml bfml tn def of
+  check_xlrups_unsat xorig xlrups cfml xfml bfml tn def =
+  case check_xlrups xorig xlrups cfml xfml bfml tn def of
     NONE => F
   | SOME (cfml',_) => contains_emp cfml'
 End
@@ -1396,7 +1388,7 @@ QED
 
 Theorem wf_cfml_check_xlrup:
   wf_cfml cfml ∧ wf_xlrup xlrup ∧
-  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
+  check_xlrup xorig xlrup cfml xfml bfml tn def =
     SOME (cfml',xfml',bfml',tn',def') ⇒
   wf_cfml cfml'
 Proof
@@ -2093,10 +2085,9 @@ QED
 
 Theorem check_xlrup_sound:
   wf_xlrup xlrup ∧
-  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
+  check_xlrup xorig xlrup cfml xfml bfml tn def =
     SOME (cfml',xfml',bfml',tn',def') ∧ tn_inv tn ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
-  (∀x. MEM x borig ⇒ sat_cmsbnn w x) ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
   isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml)
   ⇒
@@ -2223,12 +2214,6 @@ Proof
     CONJ_TAC >-
       (EVAL_TAC>>rw[])>>
     EVAL_TAC)
-  >~ [‘BOrig’] >- (
-    fs[isat_fml_def]>>
-    match_mp_tac isat_fml_gen_insert>>
-    simp[]>>
-    metis_tac[conv_bnn_sound]
-    )
   >~ [‘BDel’] >- (
     metis_tac[delete_bnns_sound])
   >~ [‘CFromB ’] >- (
@@ -2240,7 +2225,7 @@ Proof
 QED
 
 Theorem check_xlrup_tn_inv:
-  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
+  check_xlrup xorig xlrup cfml xfml bfml tn def =
     SOME (cfml',xfml',bfml',tn',def') ∧ tn_inv tn ⇒
   tn_inv tn'
 Proof
@@ -2255,11 +2240,10 @@ QED
 Theorem check_xlrups_sound:
   ∀ls cfml xfml bfml def def' tn tn'.
   EVERY wf_xlrup ls ∧ tn_inv tn ∧
-  check_xlrups xorig borig ls cfml xfml bfml tn def =
+  check_xlrups xorig ls cfml xfml bfml tn def =
     SOME (cfml', xfml', bfml', tn', def') ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
-  (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
-  (∀x. MEM x borig ⇒ sat_cmsbnn w x) ⇒
+  (∀x. MEM x xorig ⇒ sat_cmsxor w x) ⇒
   (isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml) ⇒
    isat_fml w (restore_fn tn') (range cfml', range xfml', range bfml'))
 Proof
@@ -2315,12 +2299,12 @@ QED
 (* Main theorem *)
 Theorem check_xlrups_unsat_sound:
   EVERY wf_xlrup xlrups ∧
-  check_xlrups_unsat xfml bfml xlrups
-    (build_fml cid cfml) LN LN (LN,1) def ⇒
+  check_xlrups_unsat xfml xlrups
+    (build_fml cid cfml) LN (build_fml bid bfml) (LN,1) def ⇒
   ¬ ∃w.
     isat_cfml w (set cfml) ∧
     (∀x. MEM x xfml ⇒ sat_cmsxor w x) ∧
-    (∀b. MEM b bfml ⇒ sat_cmsbnn w b)
+    isat_bfml w (set bfml)
 Proof
   rw[check_xlrups_unsat_def]>>
   every_case_tac>>fs[]>>
