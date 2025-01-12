@@ -591,16 +591,17 @@ Theorem application_thm:
       | SOME (v1,Rval v') => return env v1 fp v' c
       | SOME (v1,Rraise v) => Estep (env,v1,fp,Exn v,c))
 Proof
-  cheat (* works in interactive, doesn't work with Holmake *)
-  (*rpt strip_tac >> Cases_on ‘getOpClass op’ >> gs[] >>
+  rpt strip_tac >> Cases_on ‘getOpClass op’ >> gs[] >>
   TOP_CASE_TAC >> gs[application_def]
   >- (
-    Cases_on ‘op’ >> gs[application_def] >> every_case_tac >> gs[do_app_def] >>
+    Cases_on ‘op’ >> gs[application_def] >> every_case_tac >>
+    gs[itree_semanticsTheory.do_app_def] >>
     every_case_tac >> gs[]) >>
-  Cases_on ‘op’ >> gs[application_def] >> every_case_tac >> gs[do_app_def] >>
+  Cases_on ‘op’ >> gs[application_def] >> every_case_tac >>
+  gs[itree_semanticsTheory.do_app_def] >>
   pop_assum $ mp_tac >>
   rpt (TOP_CASE_TAC >> gvs[SF itree_ss]) >> gs[store_alloc_def] >>
-  rpt (FULL_CASE_TAC >> gvs[thunk_op_def, store_alloc_def, store_assign_def])*)
+  rpt (FULL_CASE_TAC >> gvs[thunk_op_def, store_alloc_def, store_assign_def])
 QED
 
 Theorem application_FFI_results:
