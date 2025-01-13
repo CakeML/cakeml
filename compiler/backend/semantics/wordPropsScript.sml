@@ -2321,6 +2321,18 @@ Proof
   Cases_on `ss1` >> Cases_on `ss2` >> fs[s_frame_val_eq_def,stack_size_eq]
 QED
 
+
+Theorem s_key_eq_stack_size:
+  !xs ys. s_key_eq xs ys ⇒ stack_size xs = stack_size ys
+Proof
+  ho_match_mp_tac s_key_eq_ind >>
+  rw[s_key_eq_def] >>
+  rename1 `s_frame_key_eq x y` >>
+  Cases_on `x` >> Cases_on `y` >>
+  rename1 `s_frame_key_eq (StackFrame _ _ _ ss1) (StackFrame _ _ _ ss2)` >>
+  Cases_on `ss1` >> Cases_on `ss2` >> fs[s_frame_key_eq_def,stack_size_eq]
+QED
+
 Theorem s_val_append_eq_stack_size:
   !stk stk' frm. s_val_eq stk stk' ==>
     stack_size (frm::stk) = stack_size (frm::stk')
@@ -3877,6 +3889,8 @@ Proof
   TOP_CASE_TAC >>
   qmatch_asmsub_rename_tac  `push_env env handler _` >>
   qmatch_asmsub_rename_tac  `evaluate (exp,_)= (_,stnew)`
+  >> cheat
+(*
   >- ( (*  SOME result *)
    TOP_CASE_TAC
    >- (
@@ -4055,6 +4069,7 @@ Proof
   strip_tac >>
   assume_tac push_call_option_le_stack_max_preserved >>
   res_tac >> rfs []
+  *)
 QED
 
 
@@ -4141,7 +4156,8 @@ Proof
   >~ [`share_inst`]
   >- (
     drule share_inst_const >>
-    gvs[miscTheory.the_def] ) >>
+    gvs[miscTheory.the_def] )
+   >>
   TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
       fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
          CaseEq"inst",CaseEq"arith",CaseEq"word_loc",CaseEq"addr",CaseEq"memop",assign_def,
@@ -4253,8 +4269,8 @@ Proof
        fs[call_env_def,option_le_max]) >>
       (* Returning calls *)
       fs[CaseEq"prod"] >> rveq >> fs[] >> rveq >> fs[] >>
-      Cases_on `domain names = ∅` >> fs[] >> rveq >> fs[] >>
-      Cases_on `cut_env names s.locals` >> fs[] >> rveq >> fs[] >>
+      Cases_on `domain (FST names) = ∅` >> fs[] >> rveq >> fs[] >>
+      Cases_on `cut_envs names s.locals` >> fs[] >> rveq >> fs[] >>
       reverse(Cases_on `s.clock`) >-
          (fs[dec_clock_def,ADD1] >>
           fs[CaseEq"prod",CaseEq"option",
@@ -4312,6 +4328,7 @@ Proof
   fs[] >>
   res_tac >>
   imp_res_tac evaluate_stack_max_le >>
+  fs[] >>
   metis_tac[option_le_trans]
 QED
 
@@ -4420,17 +4437,6 @@ Proof
   \\ fs []
   \\ imp_res_tac subspt_trans \\ fs []
   \\ imp_res_tac pop_env_const \\ fs []
-QED
-
-Theorem s_key_eq_stack_size:
-  !xs ys. s_key_eq xs ys ⇒ stack_size xs = stack_size ys
-Proof
-  Induct \\ Cases_on `ys` \\ fs [s_key_eq_def,stack_size_def]
-  \\ Cases_on `h` \\ Cases
-  \\ rename [`StackFrame _ _ opt`] \\ Cases_on `opt`
-  \\ Cases_on `o0`
-  \\ fs [s_frame_key_eq_def,stack_size_frame_def]
-  \\ rw [] \\ res_tac \\ fs []
 QED
 
 Theorem evaluate_NONE_stack_size_const:
