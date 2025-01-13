@@ -284,7 +284,7 @@ Definition print_lit_def:
 End
 
 Definition print_lits_def:
-  (print_lits e [] = strlit [#"0";e]) ∧
+  (print_lits e [] = str #"0" ^ str e) ∧
   (print_lits e (x::xs) =
     print_lit x ^ strlit(" ") ^ print_lits e xs)
 End
