@@ -19,10 +19,4 @@ Datatype:
   exp = Print mlstring | Apply exp (exp list) | Val val
 End
 
-Definition exp_size_def:
-  exp_size (Val _) = 0 ∧
-  exp_size (Print _) = 0 ∧
-  exp_size (Apply fn args) = 1
-End
-
 val _ = export_theory();
