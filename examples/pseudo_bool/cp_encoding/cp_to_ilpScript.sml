@@ -670,6 +670,39 @@ Proof
     metis_tac[encode_abs_const_sem]
 QED
 
+Definition split_iclin_term_def:
+  (split_iclin_term ([]:'a iclin_term)
+    (acc:'a ilin_term) rhs = (acc,rhs)) ∧
+  (split_iclin_term ((c,X)::xs) acc rhs =
+    case X of
+      INL v => split_iclin_term xs ((c,v)::acc) rhs
+    | INR cc =>
+      split_iclin_term xs acc (rhs - c * cc))
+End
+
+Definition encode_ilc_def:
+  encode_ilc (Xs:'a iclin_term) (op:pbop) (rhs:int) =
+  let (xs,rhs) = split_iclin_term Xs [] rhs in
+  case op of
+    GreaterEqual => [(xs, [], rhs)]
+  | Greater => [(xs, [] , rhs+1)]
+  | LessEqual => ARB
+  | Less => ARB
+  | Equal => ARB
+End
+
+Theorem encode_ilc_sem:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_ilc Xs op rhs)
+  ⇔
+  ilc_sem Xs op rhs wi
+Proof
+  rw[encode_ilc_def,ilc_sem_def]>>
+  pairarg_tac>>gvs[]>>
+  Cases_on`op`>>
+  simp[iconstraint_sem_def]>>
+  cheat
+QED
+
 (* The top-level encodings *)
 Definition encode_cp_one_def:
   encode_cp_one bnd c =
@@ -678,6 +711,7 @@ Definition encode_cp_one_def:
   | AllDifferent As => encode_all_different bnd As
   | Element R X As => encode_element bnd R X As
   | Abs X Y => encode_abs bnd X Y
+  | Ilc Xs op rhs => encode_ilc Xs op rhs
 End
 
 Theorem encode_cp_one_sem_1:
@@ -704,6 +738,9 @@ Proof
   >- (
     simp[encode_abs_sem,reify_eilp_def]>>
     every_case_tac>>simp[])
+  >- (
+    (**)
+  )
 QED
 
 Theorem encode_cp_one_sem_2:
