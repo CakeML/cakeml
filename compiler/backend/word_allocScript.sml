@@ -819,8 +819,7 @@ Definition remove_dead_def:
     let (s1,s1live) = remove_dead s1 s2live in
     let prog =
       if s1 = Skip then
-        if s2 = Skip then Skip
-        else s2
+        s2
       else
         if s2 = Skip then s1
         else Seq s1 s2
