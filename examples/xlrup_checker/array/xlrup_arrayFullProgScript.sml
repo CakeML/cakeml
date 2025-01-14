@@ -827,10 +827,6 @@ Proof
   Cases_on`vv`>>gvs[var_lit_def,conv_lit_def,index_def]
 QED
 
-(* NOTE: Somehow these got too general?? *)
-Overload "cardc_TYPE" = ``PAIR_TYPE NUM (PAIR_TYPE (PAIR_TYPE NUM (SPTREE_SPT_TYPE NUM)) NUM)``
-Overload "ibnn_TYPE" = ``PAIR_TYPE cardc_TYPE NUM``
-
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
   STRING_TYPE f2 f2v ∧ validArg f2 ∧
@@ -861,7 +857,7 @@ Proof
   rw[]>>
   qpat_x_assum`LIST_TYPE lit_list_TYPE _ _` assume_tac>>
   (drule_at (Pos (hd o tl))) fill_arr_spec>>
-  (* help instantiate fill_arr_spec *)
+  (* help instantiate fill_arr_spec for cfml *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
         (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
@@ -895,6 +891,7 @@ Proof
   disch_then drule>>
   rw[]>>
   rpt xlet_autop>> *)
+
   simp[check_xlrups_unsat_list_def]>>
   qmatch_goalsub_abbrev_tac`check_xlrups_list _ _ a b c d e f`>>
   xlet`POSTv v.
@@ -911,13 +908,13 @@ Proof
            INR (contains_emp_list cfml')))
        else INL err) v`
   >- (
-    cheat
-    (*
+    xapp>>
     xsimpl>>
     asm_exists_tac>>simp[]>>
     fs[FILENAME_def,validArg_def]>>
     asm_exists_tac>>simp[]>>
     asm_exists_tac>>simp[]>>
+    first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
     qexists_tac`REPLICATE x1 NONE`>>
@@ -927,8 +924,8 @@ Proof
       CONJ_TAC >-
         metis_tac[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
       CONJ_TAC >- (
-        simp[PAIR_TYPE_def,Abbr`c`]>>
-        EVAL_TAC)>>
+        simp[PAIR_TYPE_def,Abbr`d`]>>
+        EVAL_TAC) >>
       rw[]>>metis_tac[])>>
     (* bounded_cfml *)
     drule parse_cnf_ext_toks_bound>>
@@ -936,7 +933,7 @@ Proof
     strip_tac>>
     drule bounded_cfml_FOLDL_enumerate>>
     disch_then match_mp_tac>>
-    simp[]*))>>
+    simp[])>>
   reverse TOP_CASE_TAC>>simp[]
   >- (fs[SUM_TYPE_def]>>xmatch>>err_tac)>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]

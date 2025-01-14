@@ -9,11 +9,6 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-Overload "lit_list_TYPE" = ``LIST_TYPE INT``
-Overload "strxor_TYPE" = ``STRING_TYPE``
-Overload "cardc_TYPE" = ``PAIR_TYPE NUM (PAIR_TYPE (PAIR_TYPE NUM (SPTREE_SPT_TYPE NUM)) NUM)``
-Overload "ibnn_TYPE" = ``PAIR_TYPE cardc_TYPE NUM``
-
 (* TODO: move *)
 Theorem ALL_DISTINCT_MAP_FST_toSortedAList:
   ALL_DISTINCT (MAP FST (toSortedAList t))
@@ -62,6 +57,11 @@ val _ = translation_extends"UnsafeProg";
 (* Pure translation of LPR checker *)
 val _ = register_type``:xlrup``;
 val _ = register_type``:'a spt``;
+
+Overload "lit_list_TYPE" = ``LIST_TYPE INT``
+Overload "strxor_TYPE" = ``STRING_TYPE``
+Overload "cardc_TYPE" = ``PAIR_TYPE NUM (PAIR_TYPE (PAIR_TYPE NUM (SPTREE_SPT_TYPE NUM)) NUM)``
+Overload "ibnn_TYPE" = ``PAIR_TYPE cardc_TYPE NUM``
 
 val _ = translate insert_def;
 
