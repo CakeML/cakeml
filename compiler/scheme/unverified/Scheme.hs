@@ -9,15 +9,16 @@ import Data.Tuple (swap)
 
 data ArithOp = Plus | Minus | Multiply
     deriving (Show, Eq)
-data Token = Open | Close | Value SValue | Arith ArithOp | Identifier String
+data Token = Open | Close | Value SValue | Identifier String
     deriving Show
 
-data Datum = ExpList [Datum] | Const SValue | Prim ArithOp | Symbol String
+data Datum = ExpList [Datum] | Const SValue | Symbol String
     deriving Show
-data SValue = SNum Int | SBool Bool
+data SValue = SNum Int | SBool Bool | SPrim ArithOp | Unit | Proc [String] [Exp]
     deriving (Show, Eq)
 
-data Exp = Apply Exp [Exp] | Cond Exp Exp Exp | Equiv Exp Exp | Begin [Exp] | ConstExp SValue | PrimExp ArithOp | Display Exp | Unit
+data Exp = Apply Exp [Exp] | Cond Exp Exp Exp | Equiv Exp Exp | Begin [Exp]
+    | Val SValue | Display Exp | SIdentifier String | Lambda [String] [Exp]
     deriving (Show, Eq)
 
 delimitsNext [] = True
@@ -30,9 +31,9 @@ lexSymb (']':xs) = Nothing
 lexSymb ('"':xs) = Nothing
 lexSymb ('#':xs) = Nothing
 lexSymb (';':xs) = Nothing
-lexSymb ('+':xs) = Just (xs, Arith Plus)
-lexSymb ('-':xs) = Just (xs, Arith Minus)
-lexSymb ('*':xs) = Just (xs, Arith Multiply)
+lexSymb ('+':xs) = Just (xs, Value $ SPrim Plus)
+lexSymb ('-':xs) = Just (xs, Value $ SPrim Minus)
+lexSymb ('*':xs) = Just (xs, Value $ SPrim Multiply)
 lexSymb _ = Nothing
 
 lexBool ('#':x:xs)
@@ -64,12 +65,10 @@ parse q p (Close:xs) = parse (ExpList p:q) [] xs
 parse (ExpList q':q) p (Open:xs) = parse q (ExpList p:q') xs
 parse _ _ (Open:_) = Left "Too many open brackets"
 parse q p (Value v:xs) = parse q (Const v:p) xs
-parse q p (Arith o:xs) = parse q (Prim o:p) xs
 parse q p (Identifier i:xs) = parse q (Symbol i:p) xs
 
-toAst (Const v) = Right $ ConstExp v
-toAst (Prim o) = Right $ PrimExp o
-toAst (Symbol x) = Left $ "Unrecognised symbol " <> x
+toAst (Const v) = Right $ Val v
+toAst (Symbol x) = Right $ SIdentifier x
 toAst (ExpList []) = Left "Empty S expression"
 toAst (ExpList [Symbol "if", c, x, y]) = Cond <$> toAst c <*> toAst x <*> toAst y
 toAst (ExpList (Symbol "if":_)) = Left "Wrong number of arguments to if"
