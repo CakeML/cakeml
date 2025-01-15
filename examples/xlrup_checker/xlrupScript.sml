@@ -11,11 +11,16 @@ Type cclause = ``:int list``;
 Type strxor = ``:mlstring``;
 Type rawxor = ``:int list``;
 
-(* The constraint (upper ≥ |offset + X| ≥ lower)
-  TODO: figure out the representation here *)
-Type cardc = ``:(num # (num # num num_map) # num)``
-(* A cardinality constraint and the reification var on the RHS *)
-Type ibnn = ``:cardc # num``;
+(* The constraint
+  \Sum c*X ≥ k,
+  together with auxiliary counters UB, LB
+  which are required to bound \Sum c*X from above
+  and below, respectively (for all assignments).
+*)
+Type cardc = ``:(num # int num_map) # int # int # int``
+
+(* A cardinality constraint and the reification literal on the RHS *)
+Type ibnn = ``:cardc # int``;
 
 (* Satisfiability for clauses is defined by interpreting into the
   top-level semantics *)
@@ -87,20 +92,43 @@ Definition isat_strxor_def:
     EVEN (sum_bitlist w (string_to_bits x))
 End
 
-Definition bdom_def:
-  bdom (off:num,lhs:num_set) =
-    IMAGE ((+) off) (domain lhs)
+Definition as_list_def:
+  as_list (off,ns) =
+    MAP (λ(k,v). (k + off,v)) (toAList ns)
+End
+
+Definition iSUM_def:
+  (iSUM [] = 0:int) ∧
+  (iSUM (x::xs) = x + iSUM xs)
 End
 
 Definition isat_cardc_def:
-  isat_cardc (w:assignment) (u,ns,l) ⇔
-  let c = ∑ (λv. of_bool (w v)) (bdom ns) in
-    l ≤ c ∧ c ≤ u
+  isat_cardc (w:assignment) ((ons,k,lb,ub):cardc) ⇔
+  let ls = as_list ons in
+  k ≤ iSUM
+    (MAP (λ(k,v).
+      if w k then v else 0i) ls)
 End
 
-(* TODO *)
 Definition isat_ibnn_def:
-  isat_ibnn (w:assignment) (b:ibnn) ⇔ T
+  isat_ibnn (w:assignment) ((cc,y):ibnn) ⇔
+  (isat_cardc w cc ⇔ sat_lit w (interp_lit y))
+End
+
+Definition wf_cardc_def:
+  wf_cardc ((ons,k,lb,ub):cardc) ⇔
+  let ls = as_list ons in
+  lb ≤ iSUM
+    (MAP (λ(k,v).
+      if v < 0 then v else 0) ls) ∧
+  iSUM
+    (MAP (λ(k,v).
+      if v > 0 then v else 0) ls) ≤ ub
+End
+
+Definition wf_ibnn_def:
+  wf_ibnn ((cc,y):ibnn) ⇔
+  wf_cardc cc
 End
 
 Overload isat_cfml = ``isat_fml_gen isat_cclause``;
@@ -1010,46 +1038,70 @@ Definition lookup_offspt_def:
 End
 
 Definition prop_cardc_def:
-  (prop_cardc ns upp low [] = (upp:num,low:num)) ∧
-  (prop_cardc ns upp low (l::ls) =
+  (prop_cardc ons k lb ub [] = (k:int,lb:int,ub:int)) ∧
+  (prop_cardc ons k lb ub (l::ls) =
     let n = Num (ABS l) in
-    case lookup_offspt n ns of
-      NONE => prop_cardc ns upp low ls
-    | SOME () =>
-      if l > 0
-      then
-        prop_cardc ns (upp-1) (low-1) ls
-      else
-        prop_cardc ns (upp-1) low ls)
+    case lookup_offspt n ons of
+      NONE => prop_cardc ons k lb ub ls
+    | SOME c =>
+      let lb' = if c < 0 then lb - c else lb in
+      let ub' = if c > 0 then ub - c else ub in
+      let k' = if l > 0 then k else k - c in
+      prop_cardc ons k' lb' ub' ls)
 End
 
-Theorem lookup_offspt_bdom:
-  lookup_offspt n ns = SOME () ⇔
-  n ∈ bdom ns
-Proof
-  Cases_on`ns`>>rw[bdom_def,lookup_offspt_def,domain_lookup]>>
-  cheat
-QED
+(* Propagate *)
+Definition prop_lit_def:
+  (prop_lit ny [] = NONE) ∧
+  (prop_lit ny (l::ls) =
+    if ny = Num (ABS l) then
+      SOME (l <= 0)
+    else prop_lit ny ls)
+End
 
-Theorem prop_cardc_sound:
-  ∀ls upp low.
-  prop_cardc ns upp low ls = (upp',low') ∧
-  EVERY (sat_lit w o interp_lit) ls
-  ⇒
-  (
-    isat_cardc w (upp',ns,low') ⇔
-    isat_cardc w (upp,ns,low)
-  )
-Proof
-  Induct>>rw[prop_cardc_def]>>
-  gvs[AllCaseEqs(),interp_lit_def,sat_lit_def]>>
-  first_x_assum drule>> rw[]>>
-  cheat
-QED
+(* True if given BNN constraint is falsified by
+  the propagated literals *)
+Definition check_ibnn_def:
+  check_ibnn ((ons,k,lb,ub),y) ls = (
+  case prop_lit (Num (ABS y)) ls of
+    NONE => F
+  | SOME b =>
+    let b' = (b ⇔ y > 0) in
+    let (k,lb,ub) = prop_cardc ons k lb ub ls in
+    if b' then
+      ub < k
+    else
+      k ≤ lb)
+End
 
-(* TODO: Return T if C is implied *)
+(* TODO: unify the two RUPs with efficient representations
+  This version makes sure the propagations are distinct *)
+Definition is_rup2_def:
+  (is_rup2 fml [] (C:cclause) = SOME C) ∧
+  (is_rup2 fml (i::is) C =
+  case lookup i fml of
+    NONE => NONE
+  | SOME Ci =>
+  case delete_literals Ci C of
+    [] => NONE
+  | [l] =>
+    if l = 0 ∨ MEM (Num (ABS l)) (MAP (λl. Num (ABS l)) C)
+    then NONE
+    else
+      is_rup2 fml is (-l :: C)
+  | _ => NONE)
+End
+
 Definition is_cfromb_def:
-  is_cfromb C cfml bfml ib i0 = T
+  is_cfromb C cfml bfml ib i0 =
+  case lookup ib bfml of NONE => F
+  | SOME bnn =>
+  if ALL_DISTINCT (MAP (λl. Num (ABS l)) C) then
+  case is_rup2 cfml i0 C of
+    NONE => F
+  | SOME ls =>
+    check_ibnn bnn ls
+  else F
 End
 
 (* TODO: convert a CMS bnn into an ibnn *)
@@ -2067,14 +2119,305 @@ Proof
   simp[restore_int_def]
 QED
 
+Definition delete_offspt_def:
+  delete_offspt n (off,ns) =
+  if n < off then (off,ns)
+  else
+  (off,delete (n - off) ns)
+End
+
+(* We'll reason about this *)
+Definition prop_cardc_sem_def:
+  (prop_cardc_sem ons k lb ub [] = (ons,k:int,lb:int,ub:int)) ∧
+  (prop_cardc_sem ons k lb ub (l::ls) =
+    let n = Num (ABS l) in
+    case lookup_offspt n ons of
+      NONE => prop_cardc_sem ons k lb ub ls
+    | SOME c =>
+      let lb' = if c < 0 then lb - c else lb in
+      let ub' = if c > 0 then ub - c else ub in
+      let k' = if l > 0 then k else k - c in
+      let ons' = delete_offspt n ons in
+      prop_cardc_sem ons' k' lb' ub' ls)
+End
+
+Theorem lookup_offspt_delete_offspt:
+  lookup_offspt n (delete_offspt n' t) =
+  if n = n' then NONE
+  else lookup_offspt n t
+Proof
+  Cases_on`t`>>rw[lookup_offspt_def,delete_offspt_def,lookup_delete]
+QED
+
+Theorem prop_cardc_sem_eq_aux:
+  ∀ls ons k lb ub.
+  ALL_DISTINCT (MAP (λl. Num (ABS l)) ls) ∧
+  (∀n.
+    MEM n (MAP (λl. Num (ABS l)) ls) ⇒
+    lookup_offspt n ons = lookup_offspt n ons') ⇒
+  SND (prop_cardc_sem ons k lb ub ls) =
+  prop_cardc ons' k lb ub ls
+Proof
+  Induct>>rw[prop_cardc_sem_def,prop_cardc_def]>>
+  TOP_CASE_TAC>>gvs[]>>
+  first_x_assum irule>>
+  rw[lookup_offspt_delete_offspt]
+QED
+
+Theorem prop_cardc_sem_eq:
+  ALL_DISTINCT (MAP (λl. Num (ABS l)) ls) ⇒
+  prop_cardc ons k lb ub ls =
+  SND (prop_cardc_sem ons k lb ub ls)
+Proof
+  metis_tac[prop_cardc_sem_eq_aux]
+QED
+
+Theorem iSUM_le:
+  (∀x. MEM x ls ⇒ f x ≤ g x)
+  ⇒
+  iSUM (MAP f ls) ≤ iSUM (MAP g ls)
+Proof
+  Induct_on`ls`>>rw[iSUM_def]>>
+  gvs[SF DNF_ss]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem toAList_delete_PERM:
+  lookup n t = SOME v ⇒
+  PERM (toAList t) ((n,v)::toAList (delete n t))
+Proof
+  rw[]>>
+  irule PERM_ALL_DISTINCT>>
+  rw[]
+  >- (
+    Cases_on`x`>>
+    rw[MEM_toAList,lookup_delete]>>
+    metis_tac[SOME_11])
+  >-
+    metis_tac[ALL_DISTINCT_MAP,ALL_DISTINCT_MAP_FST_toAList]
+  >-
+    simp[MEM_toAList,lookup_delete]
+  >-
+    metis_tac[ALL_DISTINCT_MAP,ALL_DISTINCT_MAP_FST_toAList]
+QED
+
+Theorem iSUM_PERM:
+  ∀xs ys.
+  PERM xs ys ⇒
+  iSUM xs = iSUM ys
+Proof
+  ho_match_mp_tac PERM_IND>>rw[iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_as_list_delete_offspt:
+  lookup_offspt n ons = SOME c ⇒
+  iSUM (MAP f (as_list ons)) =
+  iSUM (MAP f (as_list (delete_offspt n ons))) +
+  f (n,c)
+Proof
+  Cases_on`ons`>>
+  rw[lookup_offspt_def,as_list_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,delete_offspt_def]>>
+  drule toAList_delete_PERM>>
+  rw[]>>
+  qmatch_goalsub_abbrev_tac`iSUM (MAP ff _)`>>
+  drule (PERM_MAP |> INST_TYPE [beta |-> ``:int``])>>
+  disch_then (qspec_then `ff` assume_tac)>>
+  drule iSUM_PERM>>
+  rw[iSUM_def,Abbr`ff`]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem prop_cardc_sem_isat_cardc:
+  ∀ls ons k lb ub.
+  prop_cardc_sem ons k lb ub ls = (ons',k',lb',ub') ∧
+  (∀l. MEM l ls ⇒ ¬sat_lit w (interp_lit l)) ⇒
+  (isat_cardc w (ons,k,lb,ub) ⇔
+  isat_cardc w (ons',k',lb',ub'))
+Proof
+  Induct>>rw[prop_cardc_sem_def]>>
+  gvs[AllCaseEqs(),SF DNF_ss]>>
+  first_x_assum drule>>
+  disch_then (fn th => simp[GSYM th])>>
+  gvs[isat_cardc_def]>>rw[]
+  >- (
+    qmatch_goalsub_abbrev_tac`iSUM (MAP ff _)`>>
+    drule (iSUM_as_list_delete_offspt |> INST_TYPE [beta |-> ``:int``])>>
+    disch_then(qspec_then`ff` SUBST_ALL_TAC)>>
+    gvs[Abbr`ff`,sat_lit_def,interp_lit_def]>>
+    intLib.ARITH_TAC)>>
+  qmatch_goalsub_abbrev_tac`iSUM (MAP ff _)`>>
+  drule (iSUM_as_list_delete_offspt |> INST_TYPE [beta |-> ``:int``])>>
+  disch_then(qspec_then`ff` SUBST_ALL_TAC)>>
+  gvs[Abbr`ff`,sat_lit_def,interp_lit_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem prop_cardc_sem_wf_cardc:
+  ∀ls ons k lb ub.
+  prop_cardc_sem ons k lb ub ls = (ons',k',lb',ub') ∧
+  wf_cardc (ons,k,lb,ub) ⇒
+  wf_cardc (ons',k',lb',ub')
+Proof
+  Induct>>rw[prop_cardc_sem_def]
+  >-
+    metis_tac[]>>
+  gvs[AllCaseEqs(),SF DNF_ss]
+  >-
+    metis_tac[]>>
+  first_x_assum irule>>
+  last_x_assum (irule_at Any)>>
+  gvs[wf_cardc_def]>>rw[]>>
+  qmatch_goalsub_abbrev_tac`iSUM (MAP ff _)`>>
+  drule (iSUM_as_list_delete_offspt |> INST_TYPE [beta |-> ``:int``])>>
+  disch_then(qspec_then`ff` SUBST_ALL_TAC)>>
+  gvs[Abbr`ff`,sat_lit_def,interp_lit_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem prop_lit_sat_lit:
+  prop_lit n ls = SOME b ∧
+  (∀l. MEM l ls ⇒ ¬sat_lit w (interp_lit l)) ⇒
+  w n = b
+Proof
+  Induct_on`ls`>>rw[prop_lit_def]>>
+  gvs[SF DNF_ss,sat_lit_def,interp_lit_def,AllCaseEqs(),AllCasePreds()]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem wf_cardc_ub:
+  wf_cardc (x,k,lb,ub) ∧
+  ub < k ⇒
+  ¬isat_cardc w (x,k,lb,ub)
+Proof
+  rw[isat_cardc_def,wf_cardc_def]>>
+  qmatch_asmsub_abbrev_tac `iSUM (MAP f1 _) ≤ ub`>>
+  qmatch_goalsub_abbrev_tac `iSUM (MAP f2 _)`>>
+  CCONTR_TAC>>gvs[]>>
+  `iSUM (MAP f2 (as_list x)) ≤ iSUM (MAP f1 (as_list x))` by
+    (match_mp_tac iSUM_le>>
+    rw[Abbr`f1`,Abbr`f2`]>>
+    pairarg_tac>>rw[]>>
+    intLib.ARITH_TAC)>>
+  intLib.ARITH_TAC
+QED
+
+Theorem wf_cardc_lb:
+  wf_cardc (x,k,lb,ub) ∧
+  k ≤ lb ⇒
+  isat_cardc w (x,k,lb,ub)
+Proof
+  rw[isat_cardc_def,wf_cardc_def]>>
+  qmatch_asmsub_abbrev_tac `lb ≤ iSUM (MAP f1 _)`>>
+  qmatch_goalsub_abbrev_tac `iSUM (MAP f2 _)`>>
+  CCONTR_TAC>>gvs[]>>
+  `iSUM (MAP f1 (as_list x)) ≤ iSUM (MAP f2 (as_list x))` by
+    (match_mp_tac iSUM_le>>
+    rw[Abbr`f1`,Abbr`f2`]>>
+    pairarg_tac>>rw[]>>
+    intLib.ARITH_TAC)>>
+  intLib.ARITH_TAC
+QED
+
+Theorem check_ibnn_sound:
+  check_ibnn bnn ls ∧
+  wf_ibnn bnn ∧
+  ALL_DISTINCT (MAP (λl. Num (ABS l)) ls) ∧
+  (∀l. MEM l ls ⇒ ¬sat_lit w (interp_lit l))
+  ⇒
+  ¬isat_ibnn w bnn
+Proof
+  PairCases_on`bnn`>>
+  rw[check_ibnn_def]>>
+  gvs[AllCasePreds(),wf_ibnn_def]>>
+  drule_all prop_lit_sat_lit>>
+  strip_tac>>CCONTR_TAC>>gvs[isat_ibnn_def]>>
+  drule prop_cardc_sem_eq>>
+  strip_tac>>gvs[]>>
+  pairarg_tac>>gvs[SND_EQ_EQUIV]
+  >- (
+    drule_at Any prop_cardc_sem_isat_cardc>>
+    disch_then drule>> gvs[]>>
+    drule_all prop_cardc_sem_wf_cardc>>strip_tac>>
+    rw[sat_lit_def,interp_lit_def]>>
+    irule wf_cardc_ub>>
+    gvs[])
+  >- (
+    drule_at Any prop_cardc_sem_isat_cardc>>
+    disch_then drule>>
+    disch_then (fn th => gvs[th])>>
+    `¬sat_lit w (interp_lit bnn5)` by
+      (rw[sat_lit_def,interp_lit_def]>>gvs[])>>
+    gvs[]>>
+    drule_all prop_cardc_sem_wf_cardc>>strip_tac>>
+    drule wf_cardc_lb>>
+    metis_tac[])
+QED
+
+Theorem is_rup2_sound:
+  ∀is C.
+  wf_clause C ∧
+  is_rup2 fml is C = SOME D ∧
+  isat_cfml w (range fml) ∧
+  ¬ isat_cclause w C ∧
+  MEM l D ⇒
+  ¬sat_lit w (interp_lit l)
+Proof
+  Induct>>fs[is_rup2_def]>>rw[]
+  >- (
+    gvs[isat_cclause_def,wf_clause_def]>>
+    metis_tac[])>>
+  gvs[AllCaseEqs()]>>
+  rename1`delete_literals x C`>>
+  first_x_assum irule>>
+  first_x_assum (irule_at (Pos last))>>
+  rw[]
+  >-
+    gvs[wf_clause_def]>>
+  fs[isat_fml_gen_def,PULL_EXISTS,range_def]>>
+  first_x_assum drule>>
+  gvs[isat_cclause_cons]>>
+  `set x DIFF set C =
+   set (delete_literals x C)` by
+   metis_tac[set_delete_literals]>>
+  gvs[isat_cclause_def]>>rw[]>>
+  gvs[EXTENSION]>>
+  metis_tac[sat_lit_interp_lit_neg]
+QED
+
+Theorem is_rup2_wf:
+  ∀i0 C.
+  is_rup2 cfml i0 C = SOME ls ∧
+  ALL_DISTINCT (MAP (λl. Num (ABS l)) C) ⇒
+  ALL_DISTINCT (MAP (λl. Num (ABS l)) ls)
+Proof
+  Induct>>rw[is_rup2_def]>>gvs[AllCaseEqs()]>>
+  first_x_assum irule>>
+  first_x_assum (irule_at (Pos last))>>
+  gvs[]
+QED
+
 Theorem is_cfromb_sound:
   wf_clause C ∧
+  (∀b. b ∈ range bfml ⇒ wf_ibnn b) ∧
   isat_cfml w (range cfml) ∧
   isat_bfml w (range bfml) ∧
   is_cfromb C cfml bfml ib i0  ⇒
   isat_cclause w C
 Proof
-  cheat
+  rw[is_cfromb_def]>>
+  gvs[AllCasePreds()]>>
+  CCONTR_TAC>>
+  drule is_rup2_sound>>
+  rpt (disch_then drule)>>
+  strip_tac>>
+  drule check_ibnn_sound>>
+  disch_then (drule_at Any)>>
+  impl_tac >- (
+    drule is_rup2_wf>>gvs[range_def]>>
+    metis_tac[])>>
+  gvs[isat_fml_gen_def,range_def]>>
+  metis_tac[]
 QED
 
 Theorem conv_bnn_sound:
@@ -2089,9 +2432,11 @@ Theorem check_xlrup_sound:
     SOME (cfml',xfml',bfml',tn',def') ∧ tn_inv tn ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
+  (∀b. b ∈ range bfml ⇒ wf_ibnn b) ∧
   isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml)
   ⇒
   (∀s. s ∈ range xfml' ⇒ can_restore_str tn' s) ∧
+  (∀b. b ∈ range bfml' ⇒ wf_ibnn b) ∧
   isat_fml w (restore_fn tn') (range cfml', range xfml', range bfml')
 Proof
   simp[check_xlrup_def]>>strip_tac>>
@@ -2215,6 +2560,9 @@ Proof
       (EVAL_TAC>>rw[])>>
     EVAL_TAC)
   >~ [‘BDel’] >- (
+    rw[]
+    >-
+      metis_tac[range_FOLDL_delete_SUBSET,SUBSET_DEF]>>
     metis_tac[delete_bnns_sound])
   >~ [‘CFromB ’] >- (
     fs[isat_fml_def]>>
@@ -2243,6 +2591,7 @@ Theorem check_xlrups_sound:
   check_xlrups xorig ls cfml xfml bfml tn def =
     SOME (cfml', xfml', bfml', tn', def') ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
+  (∀b. b ∈ range bfml ⇒ wf_ibnn b) ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ⇒
   (isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml) ⇒
    isat_fml w (restore_fn tn') (range cfml', range xfml', range bfml'))
@@ -2299,6 +2648,7 @@ QED
 (* Main theorem *)
 Theorem check_xlrups_unsat_sound:
   EVERY wf_xlrup xlrups ∧
+  EVERY wf_ibnn bfml ∧
   check_xlrups_unsat xfml xlrups
     (build_fml cid cfml) LN (build_fml bid bfml) (LN,1) def ⇒
   ¬ ∃w.
@@ -2317,7 +2667,7 @@ Proof
   PairCases_on`r`>>drule check_xlrups_sound>>
   disch_then (drule_at Any)>>
   ‘tn_inv (LN,1)’ by fs [tn_inv_def]>>
-  fs[isat_fml_def,range_build_fml]>>
+  fs[isat_fml_def,range_build_fml,EVERY_MEM]>>
   simp[range_def,isat_fml_gen_def]>>
   metis_tac[]
 QED
