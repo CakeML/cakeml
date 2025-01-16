@@ -60,8 +60,8 @@ val _ = register_type``:'a spt``;
 
 Overload "lit_list_TYPE" = ``LIST_TYPE INT``
 Overload "strxor_TYPE" = ``STRING_TYPE``
-Overload "cardc_TYPE" = ``PAIR_TYPE NUM (PAIR_TYPE (PAIR_TYPE NUM (SPTREE_SPT_TYPE NUM)) NUM)``
-Overload "ibnn_TYPE" = ``PAIR_TYPE cardc_TYPE NUM``
+Overload "cardc_TYPE" = ``PAIR_TYPE (PAIR_TYPE NUM (SPTREE_SPT_TYPE INT)) (PAIR_TYPE INT (PAIR_TYPE INT INT))``
+Overload "ibnn_TYPE" = `` PAIR_TYPE cardc_TYPE INT``
 
 val _ = translate insert_def;
 
@@ -1676,8 +1676,336 @@ End
 val res = translate ren_int_ls_def;
 val res = translate ren_ints_def;
 
+val check_abs_mem_arr = process_topdecs`
+  fun check_abs_mem_arr c carr =
+  let val ic = index c
+    val nic = index (~c) in
+  eq_w8z (Unsafe.w8sub carr ic) andalso
+  eq_w8z (Unsafe.w8sub carr nic)
+  end` |> append_prog;
+
+Theorem check_abs_mem_arr_spec:
+  INT c cv ∧
+  ($> (LENGTH Clist) o index) c ∧
+  ($> (LENGTH Clist) o index o $~) c ⇒
+  app (p : 'ffi ffi_proj)
+      ^(fetch_v "check_abs_mem_arr" (get_ml_prog_state()))
+      [cv; Carrv]
+      (W8ARRAY Carrv Clist)
+      (POSTv v.
+        W8ARRAY Carrv Clist *
+        &(BOOL (check_abs_mem c Clist) v))
+Proof
+  rw[]>>
+  xcf "check_abs_mem_arr" (get_ml_prog_state ())>>
+  simp[check_abs_mem_def]>>
+  rpt xlet_autop>>
+  xlog>>rw[]
+  >- (
+    rpt xlet_autop>>xapp>>
+    last_x_assum (irule_at Any)>>
+    xsimpl>>
+    gvs[eq_w8z_def])>>
+  xsimpl>>
+  gvs[eq_w8z_def]
+QED
+
+val distinct_set_array = process_topdecs`
+  fun distinct_set_array lno carr cs =
+  case cs of [] => ()
+  | (c::cs) =>
+    if check_abs_mem_arr c carr
+    then
+      (Unsafe.w8update carr (index c) w8o;
+      distinct_set_array lno carr cs)
+    else
+      raise Fail (format_failure lno ("duplicate var when setting propagated literal: "  ^ Int.toString c))` |> append_prog;
+
+Theorem distinct_set_array_spec:
+  ∀c cv Carrv Clist.
+  NUM lno lnov ∧
+  lit_list_TYPE c cv ∧
+  EVERY ($> (LENGTH Clist) o index) c ∧
+  EVERY ($> (LENGTH Clist) o index o $~) c
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "distinct_set_array" (get_ml_prog_state()))
+    [lnov; Carrv; cv]
+    (W8ARRAY Carrv Clist)
+    (POSTve
+      (λv.
+        SEP_EXISTS Clist'.
+        W8ARRAY Carrv Clist' *
+        &unwrap_TYPE ($=)
+          (distinct_set_list Clist c) Clist')
+      (λe. &(Fail_exn e ∧ distinct_set_list Clist c = NONE)))
+Proof
+  Induct>>
+  rw[]>>
+  xcf "distinct_set_array" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]
+  >- (
+    rw[distinct_set_list_def]>>
+    xmatch>>xcon>>xsimpl>>simp[unwrap_TYPE_def])>>
+  xmatch>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  simp[distinct_set_list_def]>>
+  xif
+  >- (
+    assume_tac w8o_v_thm>>
+    rpt xlet_autop>>
+    xapp>>
+    gvs[EVERY_MEM])>>
+  rpt xlet_autop>>
+  simp[distinct_set_list_def]>>
+  xraise>>xsimpl>>
+  simp[unwrap_TYPE_def]>>
+  metis_tac[Fail_exn_def]
+QED
+
+val is_rup2_arr = process_topdecs`
+  fun is_rup2_arr lno fml ls c carr =
+    case ls of
+      [] => c
+    | (i::is) =>
+    if Array.length fml <= i then
+      raise Fail (format_failure lno
+        ("no clause at index: " ^ Int.toString i))
+    else
+    case Unsafe.sub fml i of
+      None => raise Fail (format_failure lno
+        ("no clause at index (maybe deleted): " ^ Int.toString i))
+    | Some ci =>
+      let val nl = delete_literals_sing_arr lno i carr ci in
+      if nl = 0 then
+        raise Fail (format_failure lno
+        ("propagation led to conflict (not allowed for BNN-to-clause implication): " ^ Int.toString i))
+      else if check_abs_mem_arr nl carr then
+        (Unsafe.w8update carr (index nl) w8o;
+        is_rup2_arr lno fml is (nl::c) carr)
+      else
+        raise Fail (format_failure lno
+        ("duplicate var when setting propagated literal: " ^ Int.toString nl))
+      end` |> append_prog
+
+Theorem is_rup2_arr_spec:
+  ∀ls lsv c cv fmlv fmlls fml Carrv Clist lno lnov.
+  NUM lno lnov ∧
+  (LIST_TYPE NUM) ls lsv ∧
+  lit_list_TYPE c cv ∧
+  LIST_REL (OPTION_TYPE lit_list_TYPE) fmlls fmllsv ∧
+  bounded_cfml (LENGTH Clist) fmlls
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "is_rup2_arr" (get_ml_prog_state()))
+    [lnov; fmlv; lsv; cv; Carrv]
+    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (POSTve
+      (λv. ARRAY fmlv fmllsv *
+        (SEP_EXISTS Clist'.
+          W8ARRAY Carrv Clist' *
+          &unwrap_TYPE ($= o SND)
+          (is_rup2_list fmlls ls c Clist) Clist'
+        ) *
+        &unwrap_TYPE
+          (lit_list_TYPE o FST)
+          (is_rup2_list fmlls ls c Clist) v)
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧ is_rup2_list fmlls ls c Clist = NONE)))
+Proof
+  Induct>>
+  rw[]>>
+  xcf "is_rup2_arr" (get_ml_prog_state ())>>
+  simp[is_rup2_list_def]
+  >- (
+    fs[LIST_TYPE_def]>>
+    xmatch>>
+    xvar>>xsimpl>>
+    simp[unwrap_TYPE_def])>>
+  fs[LIST_TYPE_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    rpt (xlet_autop)>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def]>>
+    `list_lookup fmlls NONE h = NONE` by
+      (simp[list_lookup_def]>>
+      metis_tac[LIST_REL_LENGTH])>>
+    simp[unwrap_TYPE_def]>>
+    metis_tac[])>>
+  xlet_autop>>
+  `OPTION_TYPE lit_list_TYPE (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  TOP_CASE_TAC
+  >- (
+    fs[list_lookup_def]>>
+    reverse (Cases_on`EL h fmlls`)>-
+      (fs[IS_SOME_DEF]>>metis_tac[LIST_REL_LENGTH])>>
+    fs[OPTION_TYPE_def]>>
+    xmatch>>
+    rpt(xlet_autop)>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def,unwrap_TYPE_def]>>
+    metis_tac[])>>
+  fs[list_lookup_def,OPTION_TYPE_def]>>
+  xmatch>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    fs[bounded_cfml_def,EVERY_EL]>>
+    first_x_assum(qspec_then`h` mp_tac)>>simp[])
+  >- (
+    xsimpl>>rw[]>> simp[]>>
+    metis_tac[])>>
+  fs[unwrap_TYPE_def]>>
+  xlet_autop>>
+  xif
+  >- (
+    rpt (xlet_autop)>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def]>>
+    metis_tac[])>>
+  `index z < LENGTH Clist ∧ index (-z) < LENGTH Clist ∧ WORD8 w8o w8o_v` by
+    (fs[w8o_v_thm]>>
+    fs[bounded_cfml_def,EVERY_EL]>>
+    first_x_assum(qspec_then`h` assume_tac)>>rfs[]>>
+    drule delete_literals_sing_list_MEM>>fs[]>>
+    simp[MEM_EL]>>
+    rw[]>>
+    pop_assum mp_tac>>
+    rpt (first_x_assum drule)>>
+    rw[]>>
+    pop_assum sym_sub_tac>>fs[])>>
+  rpt xlet_autop>>
+  reverse xif
+  >- (
+    rpt (xlet_autop)>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def]>>
+    metis_tac[])>>
+  rpt xlet_autop>>
+  xapp>>
+  xsimpl>>
+  qexists_tac`fmlls`>>qexists_tac`z::c`>>
+  simp[LIST_TYPE_def]>>
+  metis_tac[]
+QED
+
+val res = translate prop_lit_def;
+val res = translate lookup_offspt_def;
+val res = translate prop_cardc_def;
+val res = translate check_ibnn_def;
+
 val is_cfromb_arr = process_topdecs`
-  fun is_cfromb_arr lno c cfml bfml ib i0 carr = carr` |> append_prog;
+  fun is_cfromb_arr lno c cfml bfml ib i0 carr =
+  if Array.length bfml <= ib then
+    raise Fail (format_failure lno
+      ("no BNN constraint at index: " ^ Int.toString ib))
+  else
+  case Unsafe.sub bfml ib of
+    None => raise Fail (format_failure lno
+      ("no BNN constraint at index (maybe deleted): " ^ Int.toString ib))
+  | Some bnn =>
+    let val u = distinct_set_array lno carr c
+        val c = is_rup2_arr lno cfml i0 c carr in
+    if check_ibnn bnn c then
+      (set_array carr w8z c; carr)
+    else
+      raise Fail (format_failure lno
+      ("failed to derive conflict after propagation for BNN constraint: " ^ Int.toString ib))
+    end` |> append_prog;
+
+Theorem LENGTH_distinct_set_list_bound[simp]:
+  ∀c Clist.
+  EVERY ($> (LENGTH Clist) ∘ index) c ∧
+  distinct_set_list Clist c = SOME Clist' ⇒
+  LENGTH Clist' = LENGTH Clist
+Proof
+  Induct>>rw[distinct_set_list_def]>>
+  first_x_assum (drule_at (Pos last))>>
+  simp[]
+QED
+
+Theorem is_cfromb_arr_spec:
+  NUM lno lnov ∧
+  lit_list_TYPE c cv ∧
+  LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls cfmllsv ∧
+  LIST_REL (OPTION_TYPE ibnn_TYPE) bfmlls bfmllsv ∧
+  NUM ib ibv ∧
+  (LIST_TYPE NUM) ls lsv ∧
+  bounded_cfml (LENGTH Clist) cfmlls ∧
+  EVERY ($> (LENGTH Clist) ∘ index) c ∧
+  EVERY ($> (LENGTH Clist) ∘ index o $~) c
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "is_cfromb_arr" (get_ml_prog_state()))
+    [lnov; cv; cfmlv; bfmlv; ibv; lsv; Carrv]
+    (ARRAY cfmlv cfmllsv * ARRAY bfmlv bfmllsv * W8ARRAY Carrv Clist)
+    (POSTve
+      (λv. ARRAY cfmlv cfmllsv * ARRAY bfmlv bfmllsv *
+          (SEP_EXISTS Clist'.
+          W8ARRAY Carrv Clist' *
+          &(unwrap_TYPE $=
+            (is_cfromb_list c cfmlls bfmlls ib ls Clist) Clist' ∧
+            LENGTH Clist = LENGTH Clist')
+          ) *
+        &unwrap_TYPE
+          (λv w. T)
+          (is_cfromb_list c cfmlls bfmlls ib ls Clist) v)
+      (λe. ARRAY cfmlv cfmllsv * ARRAY bfmlv bfmllsv *
+        &(Fail_exn e ∧ is_cfromb_list c cfmlls bfmlls ib ls Clist = NONE)))
+Proof
+  rw[]>>
+  xcf "is_cfromb_arr" (get_ml_prog_state ())>>
+  rw[is_cfromb_list_def]>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def]>>
+    `list_lookup bfmlls NONE ib = NONE` by
+      (simp[list_lookup_def]>>
+      metis_tac[LIST_REL_LENGTH])>>
+    simp[unwrap_TYPE_def]>>
+    metis_tac[])>>
+  xlet_autop>>
+  `OPTION_TYPE ibnn_TYPE (EL ib bfmlls) (EL ib bfmllsv)` by fs[LIST_REL_EL_EQN]>>
+  TOP_CASE_TAC
+  >- (
+    fs[list_lookup_def]>>
+    reverse (Cases_on`EL ib bfmlls`)>-
+      (fs[IS_SOME_DEF]>>metis_tac[LIST_REL_LENGTH])>>
+    fs[OPTION_TYPE_def]>>
+    xmatch>>
+    rpt(xlet_autop)>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def,unwrap_TYPE_def]>>
+    metis_tac[])>>
+  fs[list_lookup_def,OPTION_TYPE_def]>>
+  xmatch>>
+  xlet_auto>>xsimpl>>
+  gvs[unwrap_TYPE_def]>>
+  xlet_auto>>xsimpl
+  >-
+    cheat>>
+  gvs[unwrap_TYPE_def]>>
+  xlet_autop>>
+  TOP_CASE_TAC>>rw[]>>gvs[]>>
+  reverse xif
+  >- (
+    rpt(xlet_autop)>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def,unwrap_TYPE_def]>>
+    metis_tac[])>>
+  assume_tac w8z_v_thm>>
+  xlet_auto>>xsimpl
+  >- cheat>>
+  xvar>>xsimpl>>
+  cheat
+QED
 
 val check_xlrup_arr = process_topdecs`
   fun check_xlrup_arr lno xorig xlrup cfml xfml bfml
@@ -1836,7 +2164,7 @@ Theorem check_xlrup_arr_spec:
           &(v = Conv NONE [v1; v2; v3; v4; v5; v6]) *
           (* v1,v2,v3 are pointers to the formula arrays
              v4 is the tn mapping
-             v5 is th def size
+             v5 is the def size
              v6 points to the byte array
           *)
           (SEP_EXISTS cfmllsv' xfmllsv' bfmllsv' clist'.
@@ -2061,7 +2389,29 @@ Proof
   >- ( (* Cfromb *)
     xmatch>>
     xlet_autop>>
-    cheat)
+    xlet_auto
+    >- (
+      xsimpl>>
+      metis_tac[bounded_cfml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
+    >- xsimpl>>
+    xlet_autop>>
+    fs[unwrap_TYPE_def]>>
+    xlet`(POSTv resv.
+        W8ARRAY carrv Clist' *
+        SEP_EXISTS cfmllsv'.
+        ARRAY resv cfmllsv' *
+        ARRAY xfmlv xfmllsv *
+        ARRAY bfmlv bfmllsv *
+        &(LIST_REL (OPTION_TYPE lit_list_TYPE) (update_resize cfmlls NONE (SOME l) n) cfmllsv'))`
+    >- (
+      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``lit_list_TYPE``)>>
+      xsimpl>>
+      asm_exists_tac>>simp[]>>
+      asm_exists_tac>>simp[]>>
+      qexists_tac`SOME l`>>simp[OPTION_TYPE_def])>>
+    xcon>>xsimpl>>
+    gvs[]>>
+    metis_tac[bounded_cfml_update_resize,bounded_cfml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
 QED
 
 Definition is_empty_def:
@@ -2274,6 +2624,7 @@ val _ = translate cnf_extTheory.parse_lits_aux_def;
 
 val _ = translate parse_id_xor_nomv_def;
 val _ = translate parse_xorig_def;
+val _ = translate parse_bdel_def;
 val _ = translate parse_xlrup_def;
 
 (* Hooking up to the parser and stuff *)
@@ -3094,6 +3445,7 @@ Theorem check_xlrups_unsat_list_sound:
     (LN,1) def
     Clist ∧
   EVERY wf_clause cfml ∧
+  EVERY wf_ibnn bfml ∧
   EVERY wf_xlrup xlrups ∧
   EVERY ($= w8z) Clist ⇒
   ¬ ∃w.
