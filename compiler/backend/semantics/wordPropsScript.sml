@@ -2649,11 +2649,12 @@ Proof
     PairCases_on`x'`>> full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     Cases_on`cut_envs (x'1,x'2) s.locals`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`s.clock=0`>-
-      (gvs[AllCaseEqs()] >> fs[flush_state_def,call_env_def] >>
-      rw[state_component_equality] >>
+    IF_CASES_TAC >> gvs[]
+    >-(gvs[AllCaseEqs()] >> fs[flush_state_def,call_env_def] >>
       Cases_on `handler` >-
-        (rw[push_env_def,ELIM_UNCURRY,stack_size_eq] >>
+        (
+        gvs[push_env_def,env_to_list_def,state_component_equality
+        ,stack_size_eq] >> rpt strip_tac >>
          imp_res_tac s_val_eq_stack_size >> rw[]) >>
       rename1 `push_env _ (SOME handler)` >>
       PairCases_on `handler` >>
@@ -2900,59 +2901,58 @@ Proof
            full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
            `LENGTH ls = LENGTH r.stack` by full_simp_tac(srw_ss())[s_key_eq_length] >>
            full_simp_tac(srw_ss())[])>>
-           IMP_RES_TAC s_key_eq_LASTN_exists>>
-           cheat (*
-           Q.EXISTS_TAC`e''`>>
-           Q.EXISTS_TAC`n''`>>
-           Q.EXISTS_TAC`ls''`>>
-           full_simp_tac(srw_ss())[]>>
-           Q.EXISTS_TAC`lss'`>>
-          (*check*)
-           CONJ_TAC>-
-           (`LENGTH s.stack +1 =
-             LENGTH (StackFrame s.locals_size (list_rearrange (s.permute 0)
-             (QSORT key_val_compare (toAList x')))
+           gvs[] >>
+           IMP_RES_TAC s_key_eq_LASTN_exists>> gvs[] >>
+           `LASTN (s.handler + 1) ls = LASTN (s.handler + 1) s.stack`
+            by (`LENGTH s.stack +1 =
+             LENGTH (StackFrame s.locals_size (toAList(FST x')) (list_rearrange (s.permute 0)
+             (QSORT key_val_compare (toAList (SND x'))))
              (SOME (s.handler,x''2,x''3))::s.stack)` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
-           full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
+           full_simp_tac(bool_ss)[LASTN_LENGTH_ID]>>
            `LENGTH ls = LENGTH r.stack` by full_simp_tac(srw_ss())[s_key_eq_length]>>
-           full_simp_tac(srw_ss())[EQ_SYM_EQ])>>
-           full_simp_tac(srw_ss())[]>>
+           full_simp_tac(srw_ss())[EQ_SYM_EQ] >> gvs[])>>
+           gvs[] >>
+           qexists_tac `lss'` >> gvs[] >>
            CONJ_TAC>- metis_tac[s_key_eq_trans]>>
            rpt strip_tac>> fs[] >>
-           qpat_abbrev_tac`frame = StackFrame lsz c d`>>
+           qpat_abbrev_tac`frame = StackFrame lsz b c d`>>
            `s_val_eq (frame::s.stack) (frame::xs)` by
              metis_tac[s_val_eq_def,s_frame_val_eq_def]>>
            drule s_val_eq_stack_size >> strip_tac >> fs [] >>
            IMP_RES_TAC s_val_eq_LASTN_exists>>
            pop_assum kall_tac>>
-           first_x_assum(qspec_then `frame::xs` assume_tac)>>
-           rev_full_simp_tac(srw_ss())[]>>
+           first_x_assum drule_all >>
+           disch_tac >> gvs[] >>
            `LENGTH s.stack = LENGTH xs` by full_simp_tac(srw_ss())[s_val_eq_length] >>
-           first_x_assum(qspecl_then [`frame::xs`,`e''''`,`ls''''`] assume_tac)>>
-           rev_full_simp_tac(srw_ss())[]>>
+           gvs[] >>
            `LENGTH s.stack +1 = LENGTH (frame::s.stack) /\
             LENGTH s.stack +1 = LENGTH (frame::xs)` by
              full_simp_tac(srw_ss())[arithmeticTheory.ADD1,s_val_eq_length]>>
            full_simp_tac(srw_ss())[LASTN_LENGTH_cond]>>
+           gvs[] >>
            `MAP FST lss = MAP FST lss''` by metis_tac[EQ_SYM_EQ]>>
            `lss'' = lss` by full_simp_tac(srw_ss())[LIST_EQ_MAP_PAIR]>>
-           full_simp_tac(srw_ss())[]>>
+           fs[]>> gvs[] >>
+           qmatch_goalsub_abbrev_tac `set_var _ _ a` >>
+           `a = r with stack := st`
+            by fs[Abbr`a`, state_component_equality] >>
+           fs[] >> gvs[] >>
+           (*Clean assms*)
+           gvs[s_val_eq_def,stack_size_eq2,s_frame_val_eq_def] >>
            IMP_RES_TAC s_key_eq_LASTN_exists>>
-           qpat_x_assum `LASTN _ _ = StackFrame _ _ _::_` mp_tac >>
-           rename [`LASTN _ st = StackFrame _ e5 _::ls5`]>> strip_tac >>
-           first_x_assum (qspecl_then [`st`,`e5`,`ls5`] assume_tac)>>
-           rev_full_simp_tac(srw_ss())[]>>
-           full_simp_tac(srw_ss())[handler_eq]>>
-           HINT_EXISTS_TAC>>Q.EXISTS_TAC`fromAList lss'''`>>
-           full_simp_tac(srw_ss())[handler_eq]>>
+           qmatch_asmsub_abbrev_tac `LASTN _ st = StackFrame _ _ e5 _::ls5` >>
+           first_x_assum (qspecl_then [`st`,`e5`,`ls5`] mp_tac)>>
+           impl_tac >- (
+           gvs[]) >>
+           disch_tac >> gvs[] >>
+           simp[state_component_equality] >>
            CONJ_TAC >-
-             metis_tac[handler_eq]>>
-           CONJ_TAC>-
-            (Q.EXISTS_TAC`lss'''`>>full_simp_tac(srw_ss())[])>>
-           metis_tac[s_key_eq_trans]*))>>
+           (Q.EXISTS_TAC `lss''` >> fs[])
+           >>
+            metis_tac[s_key_eq_trans])
           (*TimeOut*)
-           rpt strip_tac>> fs[] >>
+           >> rpt strip_tac>> fs[] >>
            qpat_abbrev_tac`frame = StackFrame lsz _ _ _`>>
            `s_val_eq (frame::s.stack) (frame::xs)` by
              metis_tac[s_val_eq_def,s_frame_val_eq_def]>>
