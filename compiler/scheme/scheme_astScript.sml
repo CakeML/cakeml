@@ -16,7 +16,7 @@ Datatype:
 End
 
 Datatype:
-  exp = Print mlstring | Apply exp (exp list) | Val val
+  exp = (*Print mlstring | *)Apply exp (exp list) | Val val
 End
 
 val _ = export_theory();
