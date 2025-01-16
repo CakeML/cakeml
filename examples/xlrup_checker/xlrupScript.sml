@@ -1129,25 +1129,20 @@ Definition to_spt_def:
         | SOME i => if i = 1 then delete m acc else insert m (i-1) acc))
 End
 
-Definition int_min_def:
-  int_min i j = if i < j then i else j:int
-End
-
-Definition int_max_def:
-  int_max i j = if i < j then j else i:int
-End
-
 Definition lb_ub_spt_def:
   lb_ub_spt LN = (0:int,0:int) ∧
   lb_ub_spt (LS x) = (if x < 0 then (x,0) else (0,x)) ∧
   lb_ub_spt (BN t1 t2) =
     (let (lb1,ub1) = lb_ub_spt t1 in
      let (lb2,ub2) = lb_ub_spt t2 in
-       (int_min lb1 lb2, int_max ub1 ub2)) ∧
+       (lb1 + lb2, ub1 + ub2)) ∧
   lb_ub_spt (BS t1 i t2) =
     (let (lb1,ub1) = lb_ub_spt t1 in
      let (lb2,ub2) = lb_ub_spt t2 in
-       (int_min i (int_min lb1 lb2), int_max i (int_max ub1 ub2)))
+       if i < 0 then
+         (lb1 + i + lb2, ub1 + ub2)
+       else
+         (lb1 + lb2, ub1 + i + ub2))
 End
 
 (* TODO: convert a CMS bnn into an ibnn *)
@@ -2471,6 +2466,49 @@ Proof
   metis_tac[]
 QED
 
+Triviality foldi_cons_lemma:
+  ∀t acc k. foldi (λk v a. f v::a) k acc t =
+            foldi (λk v a. f v::a) k [] t ++ acc
+Proof
+  Induct
+  \\ rewrite_tac [foldi_def,APPEND]
+  \\ rpt (pop_assum (fn th => once_rewrite_tac [th]))
+  \\ simp []
+QED
+
+Theorem iSUM_MAP_toAList_EQ_MAP_toList:
+  iSUM (MAP (λ(x,y). f y) (toAList t)) = iSUM (MAP f (toList t))
+Proof
+  gvs [toAList_def]
+  \\ gvs [sptreeTheory.MAP_foldi,toList_def]
+  \\ qsuff_tac ‘∀t l. iSUM (foldi (λk v a. f v::a) l [] t) = iSUM (MAP f (toList t))’
+  >- metis_tac [toList_def]
+  \\ Induct
+  \\ gvs [foldi_def,toList_def,toListA_def]
+  \\ once_rewrite_tac [foldi_cons_lemma]
+  \\ once_rewrite_tac [sptreeTheory.toListA_append]
+  \\ gvs [iSUM_append,iSUM_def]
+  \\ gvs [AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
+QED
+
+Theorem iSUM_append:
+  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
+Proof
+  Induct \\ gvs [iSUM_def,AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
+QED
+
+Theorem lb_ub_spt_thm:
+  lb_ub_spt s = (iSUM (MAP (λp2. if p2 < 0 then p2 else 0) (toList s)),
+                 iSUM (MAP (λp2. if p2 > 0 then p2 else 0) (toList s)))
+Proof
+  Induct_on ‘s’
+  \\ gvs [lb_ub_spt_def,EVAL “toList LN”,iSUM_def,toList_def,toListA_def]
+  \\ rw [] \\ once_rewrite_tac [sptreeTheory.toListA_append]
+  \\ gvs [GSYM toListA_def,iSUM_append]
+  \\ gvs [lb_ub_spt_def,EVAL “toList LN”,iSUM_def,toList_def,toListA_def]
+  \\ rw [] \\ intLib.COOPER_TAC
+QED
+
 Theorem conv_bnn_sound:
   nz_lit y ∧ EVERY nz_lit C ⇒
   wf_ibnn (conv_bnn (C,k,y)) ∧
@@ -2487,6 +2525,9 @@ Proof
   \\ irule_at Any (METIS_PROVE [] “x = y ⇒ (x = b ⇔ b = y)”)
   \\ gvs [wf_cardc_def]
   \\ gvs [isat_cardc_def]
+  \\ gvs [as_list_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,iSUM_MAP_toAList_EQ_MAP_toList]
+  \\ qabbrev_tac ‘s = to_spt (h::t) min' LN’
+  \\ gvs [lb_ub_spt_thm]
   \\ cheat
 QED
 
