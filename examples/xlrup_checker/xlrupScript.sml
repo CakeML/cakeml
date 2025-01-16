@@ -1104,9 +1104,60 @@ Definition is_cfromb_def:
   else F
 End
 
+Definition min_loop_def:
+  min_loop [] min k = (min,k:int) ∧
+  min_loop (Pos n :: rest) min k = min_loop rest (MIN n min) k ∧
+  min_loop (Neg n :: rest) min k = min_loop rest (MIN n min) (k - 1)
+End
+
+Definition min_def:
+  min (Pos n) rest k = min_loop rest n k ∧
+  min (Neg n) rest k = min_loop rest n k
+End
+
+Definition to_spt_def:
+  to_spt [] min acc = acc ∧
+  to_spt ((Pos n) :: rest) min acc =
+    (let m = n - min in
+       to_spt rest min (case lookup m acc of
+        | NONE => insert m 1 acc
+        | SOME i => if i = -1 then delete m acc else insert m (i+1) acc)) ∧
+  to_spt ((Neg n) :: rest) min acc =
+    (let m = n - min in
+       to_spt rest min (case lookup m acc of
+        | NONE => insert m (-1:int) acc
+        | SOME i => if i = 1 then delete m acc else insert m (i-1) acc))
+End
+
+Definition int_min_def:
+  int_min i j = if i < j then i else j:int
+End
+
+Definition int_max_def:
+  int_max i j = if i < j then j else i:int
+End
+
+Definition lb_ub_spt_def:
+  lb_ub_spt LN = (0:int,0:int) ∧
+  lb_ub_spt (LS x) = (if x < 0 then (x,0) else (0,x)) ∧
+  lb_ub_spt (BN t1 t2) =
+    (let (lb1,ub1) = lb_ub_spt t1 in
+     let (lb2,ub2) = lb_ub_spt t2 in
+       (int_min lb1 lb2, int_max ub1 ub2)) ∧
+  lb_ub_spt (BS t1 i t2) =
+    (let (lb1,ub1) = lb_ub_spt t1 in
+     let (lb2,ub2) = lb_ub_spt t2 in
+       (int_min i (int_min lb1 lb2), int_max i (int_max ub1 ub2)))
+End
+
 (* TODO: convert a CMS bnn into an ibnn *)
 Definition conv_bnn_def:
-  conv_bnn (ob:cmsbnn) = ARB:ibnn
+  conv_bnn (([],k,y):cmsbnn) = (((0:num,LN),& k,0,0), conv_lit y):ibnn ∧
+  conv_bnn ((c::cs,k,y)) =
+    let (min,new_k) = min c cs (& k) in
+    let spt = to_spt (c::cs) min LN in
+    let (lb,ub) = lb_ub_spt spt in
+      (((min, spt), new_k, lb, ub), conv_lit y)
 End
 
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
@@ -2421,9 +2472,22 @@ Proof
 QED
 
 Theorem conv_bnn_sound:
-  isat_ibnn w (conv_bnn bnn) ⇔ sat_cmsbnn w bnn
+  nz_lit y ∧ EVERY nz_lit C ⇒
+  wf_ibnn (conv_bnn (C,k,y)) ∧
+  (isat_ibnn w (conv_bnn (C,k,y)) ⇔ sat_cmsbnn w (C,k,y))
 Proof
-  cheat
+  Cases_on ‘C’ \\ gvs [conv_bnn_def,wf_ibnn_def,wf_cardc_def]
+  >- (* C is [] *)
+   (gvs [sat_cmsbnn_def,isat_ibnn_def,interp_lit_conv_lit]
+    \\ gvs [isat_cardc_def,as_list_def,EVAL “toAList LN”,EVAL “iSUM []”]
+    \\ Cases_on ‘k’ \\ gvs [])
+  \\ rpt (pairarg_tac \\ gvs [wf_ibnn_def])
+  \\ strip_tac
+  \\ gvs [sat_cmsbnn_def,isat_ibnn_def,interp_lit_conv_lit]
+  \\ irule_at Any (METIS_PROVE [] “x = y ⇒ (x = b ⇔ b = y)”)
+  \\ gvs [wf_cardc_def]
+  \\ gvs [isat_cardc_def]
+  \\ cheat
 QED
 
 Theorem check_xlrup_sound:
