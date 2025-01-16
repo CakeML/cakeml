@@ -170,6 +170,18 @@ Definition parse_xadd_xdel_def:
     | _ => NONE
 End
 
+(* Bdel (line prefix is "b") *)
+Definition parse_bdel_def:
+  parse_bdel rest =
+  case starts_with (INL (strlit "d")) rest of
+    INL rest => NONE
+  | INR rest =>
+    (* BDel *)
+    case parse_until_zero_nn rest [] of
+       SOME (ls, []) => SOME (BDel ls)
+    | _ => NONE
+End
+
 (* CFromX or XFromC or CFromB (line prefix is "i", followed by character *)
 Definition parse_imply_def:
   parse_imply rest =
@@ -221,14 +233,15 @@ Definition parse_xlrup_def:
     if c = strlit"x"
     then
       parse_xadd_xdel rest
-    else
-    if c = strlit"i"
+    else if c = strlit"i"
     then
       parse_imply rest
-    else
-    if c = strlit"o"
+    else if c = strlit"o"
     then
       parse_xorig rest
+    else if c = strlit"b"
+    then
+      parse_bdel rest
     else
        NONE)
 End
@@ -313,7 +326,7 @@ Theorem parse_xlrup_wf:
   wf_xlrup line
 Proof
   Cases_on`ls`>>rw[parse_xlrup_def]>>
-  gvs[AllCaseEqs(),wf_xlrup_def,parse_xadd_xdel_def,parse_imply_def,parse_rup_del_def,parse_xorig_def]>>
+  gvs[AllCaseEqs(),wf_xlrup_def,parse_xadd_xdel_def,parse_imply_def,parse_rup_del_def,parse_xorig_def,parse_bdel_def]>>
   metis_tac[parse_id_rest_wf_clause,parse_rest_wf_clause,parse_id_xor_nomv_nz_lit,parse_id_u_rest_wf_clause]
 QED
 
@@ -361,6 +374,7 @@ val xlrupsraw = ``[
   strlit"i cx 17 1 2 3 4 0 14 12 13 8 0";
   strlit"i x 17 0 14 12 13 8 0";
   strlit"i cb 17 1 2 3 4 0 14 u 12 13 8 0";
+  strlit"b d 1 2 3 4 0";
   ]``;
 
 val xlrups = rconc (EVAL ``THE (parse_xlrups ^(xlrupsraw))``);
