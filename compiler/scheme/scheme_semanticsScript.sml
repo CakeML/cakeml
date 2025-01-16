@@ -62,7 +62,7 @@ Definition big_step_def:
 End
 
 Theorem big_small_equiv:
-  ∀ e . ∃ n . SND (steps n ([], e)) = Val $ semantics e
+  ∀ e . ∃ n . big_step n ([], e) = semantics e
 Proof
   rw[]
 QED
