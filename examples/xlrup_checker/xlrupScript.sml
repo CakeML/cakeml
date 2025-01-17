@@ -1177,21 +1177,104 @@ Definition lb_ub_spt_def:
          (lb1 + lb2, ub1 + i + ub2))
 End
 
-(* TODO: convert a CMS bnn into an ibnn *)
-Definition conv_bnn_def:
-  conv_bnn (c:cmsbnn) = ARB:ibnn
+Definition while_var_def:
+  while_var n k [] t = (k,[],t) ∧
+  while_var n k (x::xs) t =
+    case x of
+    | Pos v => (if n = v then while_var n k xs (t+1) else (k,x::xs,t))
+    | Neg v => (if n = v then while_var n (k-1) xs (t-1) else (k,x::xs,t))
 End
 
-(*
-Definition conv_bnn_def:
-  conv_bnn (([],k,y):cmsbnn) = (((0:num,LN),& k,0,0), conv_lit y):ibnn ∧
-  conv_bnn ((c::cs,k,y)) =
-    let (min,new_k) = min c cs (& k) in
-    let spt = to_spt (c::cs) min LN in
-    let (lb,ub) = lb_ub_spt spt in
-      (((min, spt), new_k, lb, ub), conv_lit y)
+Definition get_Var_def[simp]:
+  get_Var (Pos n) = n ∧
+  get_Var (Neg n) = n
 End
-*)
+
+Triviality while_var_LENGTH:
+  ∀n k xs t new_k new_xs new_t.
+    (new_k,new_xs,new_t) = while_var n k xs t ⇒
+    ∃ys. xs = ys ++ new_xs ∧ EVERY (λx. get_Var x = n) ys
+Proof
+  Induct_on ‘xs’ \\ gvs [while_var_def,AllCaseEqs()] \\ rw []
+  \\ pop_assum $ mp_tac o GSYM
+  \\ strip_tac \\ res_tac \\ gvs []
+QED
+
+Definition to_vector_def:
+  to_vector k lb ub n [] acc = SOME (k,lb,ub,Vector (REVERSE acc)) ∧
+  to_vector k lb ub n ((Pos v)::xs) acc =
+    (if n < v then to_vector k lb ub (n+1) ((Pos v)::xs) (0::acc) else
+     if n > v then NONE else
+       let (new_k,new_xs,new_t) = while_var n k xs 1 in
+         if new_t < 0 then
+           to_vector new_k (lb + new_t) ub n new_xs (new_t::acc)
+         else
+           to_vector new_k lb (ub + new_t) n new_xs (new_t::acc)) ∧
+  to_vector k lb ub n ((Neg v)::xs) acc =
+    (if n < v then to_vector k lb ub (n+1) ((Neg v)::xs) (0::acc) else
+     if n > v then NONE else
+       let (new_k,new_xs,new_t) = while_var n (k-1) xs (0-1) in
+         if new_t < 0 then
+           to_vector new_k (lb + new_t) ub n new_xs (new_t::acc)
+         else
+           to_vector new_k lb (ub + new_t) n new_xs (new_t::acc))
+Termination
+  WF_REL_TAC ‘measure (λ(k,lb,ub,n,xs,acc). SUM (MAP get_Var xs) + LENGTH xs - n)’ \\ rw []
+  \\ imp_res_tac while_var_LENGTH \\ gvs [SUM_APPEND]
+End
+
+Definition lit_le_def:
+  lit_le x y = (get_Var x ≤ get_Var y)
+End
+
+Triviality SORTED_lit_le_DROP:
+  ∀ys y.
+    SORTED lit_le (y::(ys ++ new_xs)) ∧
+    EVERY (λx. get_Var y = get_Var x) ys ⇒
+    SORTED lit_le (y::new_xs)
+Proof
+  Induct \\ gvs [lit_le_def] \\ rw []
+  \\ last_x_assum irule \\ gvs []
+  \\ Cases_on ‘new_xs’ \\ fs [lit_le_def]
+  \\ Cases_on ‘ys’ \\ fs [lit_le_def]
+QED
+
+Theorem SORTED_to_vector:
+  ∀k lb ub n cs acc.
+    SORTED lit_le (Pos n :: cs) ⇒ to_vector k lb ub n cs acc ≠ NONE
+Proof
+  ho_match_mp_tac to_vector_ind \\ rw []
+  \\ simp [Once to_vector_def]
+  \\ rw [] \\ gvs [lit_le_def]
+  \\ pairarg_tac \\ gvs []
+  \\ imp_res_tac $ GSYM while_var_LENGTH
+  \\ gvs [] \\ rw [] \\ gvs []
+  \\ last_x_assum irule
+  \\ ‘n = k'’ by gvs [] \\ gvs []
+  \\ drule SORTED_lit_le_DROP \\ gvs []
+  \\ Cases_on ‘new_xs’ \\ gvs [lit_le_def]
+QED
+
+Triviality SORTED_QSORT_lit_le:
+  SORTED lit_le (QSORT lit_le cs)
+Proof
+  irule sortingTheory.QSORT_SORTED
+  \\ gvs [transitive_def,total_def,lit_le_def]
+QED
+
+(* TODO: convert a CMS bnn into an ibnn *)
+Definition conv_bnn_def:
+  conv_bnn ((cs,k,y):cmsbnn) =
+    let init_n = (case cs of [] => 0 | (c::cs) => get_Var c) in
+      case to_vector (& k) 0 0 init_n cs [] of
+      | NONE => conv_bnn ((QSORT lit_le cs,k,y):cmsbnn)
+      | SOME (k,lb,ub,vec) => (((init_n,vec),k,lb,ub), conv_lit y):ibnn
+Termination
+  WF_REL_TAC ‘measure (λ(cs,k,y). if SORTED lit_le cs then 0 else 1:num)’
+  \\ gvs [SORTED_QSORT_lit_le] \\ rw []
+  \\ irule SORTED_to_vector
+  \\ Cases_on ‘cs’ \\ gvs [lit_le_def,SORTED_QSORT_lit_le]
+End
 
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
 Definition check_xlrup_def:
@@ -2651,12 +2734,16 @@ Proof
   \\ gvs [lb_ub_spt_def,EVAL “toList LN”,iSUM_def,toList_def,toListA_def]
   \\ rw [] \\ intLib.COOPER_TAC
 QED
+*)
 
 Theorem conv_bnn_sound:
   nz_lit y ∧ EVERY nz_lit C ⇒
   wf_ibnn (conv_bnn (C,k,y)) ∧
   (isat_ibnn w (conv_bnn (C,k,y)) ⇔ sat_cmsbnn w (C,k,y))
 Proof
+  cheat
+(*
+  conv_bnn_ind
   Cases_on ‘C’ \\ gvs [conv_bnn_def,wf_ibnn_def,wf_cardc_def]
   >- (* C is [] *)
    (gvs [sat_cmsbnn_def,isat_ibnn_def,interp_lit_conv_lit]
@@ -2671,9 +2758,8 @@ Proof
   \\ gvs [as_list_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,iSUM_MAP_toAList_EQ_MAP_toList]
   \\ qabbrev_tac ‘s = to_spt (h::t) min' LN’
   \\ gvs [lb_ub_spt_thm]
-  \\ cheat
+  \\ cheat *)
 QED
-*)
 
 Theorem check_xlrup_sound:
   wf_xlrup xlrup ∧
