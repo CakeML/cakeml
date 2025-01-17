@@ -5,6 +5,8 @@ open preamble miscTheory mlstringTheory cnf_extTheory blastLib sptreeTheory merg
 
 val _ = new_theory "xlrup";
 
+val _ = set_grammar_ancestry ["mlvector","sptree","misc","cnf_ext","bitstring"]
+
 (* Internal representations *)
 Type cclause = ``:int list``;
 
@@ -1166,6 +1168,10 @@ Definition lb_ub_spt_def:
 End
 
 (* TODO: convert a CMS bnn into an ibnn *)
+Definition conv_bnn_def:
+  conv_bnn (c:cmsbnn) = ARB:ibnn
+End
+
 (*
 Definition conv_bnn_def:
   conv_bnn (([],k,y):cmsbnn) = (((0:num,LN),& k,0,0), conv_lit y):ibnn ∧
@@ -2631,7 +2637,6 @@ Proof
   metis_tac[]
 QED
 
-(* TODO BROKEN BELOW *)
 Triviality foldi_cons_lemma:
   ∀t acc k. foldi (λk v a. f v::a) k acc t =
             foldi (λk v a. f v::a) k [] t ++ acc
@@ -2642,6 +2647,7 @@ Proof
   \\ simp []
 QED
 
+(*
 Theorem iSUM_append:
   ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
 Proof
@@ -2696,6 +2702,7 @@ Proof
   \\ gvs [lb_ub_spt_thm]
   \\ cheat
 QED
+*)
 
 Theorem check_xlrup_sound:
   wf_xlrup xlrup ∧
