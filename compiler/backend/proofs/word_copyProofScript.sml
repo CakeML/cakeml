@@ -1021,7 +1021,7 @@ Theorem copy_prop_correct:
 Proof
   Induct (* 23 subgoals *)
   >- (*Skip*)
-    simp[evaluate_def,copy_prop_prog_def]
+    fs[evaluate_def,copy_prop_prog_def]
   >- (*Move*)
     metis_tac[copy_prop_move_correct]
   >-(*Inst*)(
@@ -1157,16 +1157,12 @@ Proof
   >-(
     (*Raise*)
     rw[copy_prop_prog_def,evaluate_def]
-    >-(‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]>>rw[])
-    >>every_case_tac>>fs[]
-  )
+    >> fs[CPstate_modelsD_get_var]
+    >> gvs[ACE])
   >-(
     (*Return*)
     rw[copy_prop_prog_def,evaluate_def]
-    >-(
-       DEP_REWRITE_TAC[CPstate_modelsD_get_var,CPstate_modelsD_get_vars]
-       >> gvs[]
-    )
+    >> fs[CPstate_modelsD_get_var,CPstate_modelsD_get_vars]
     >> gvs[ACE]
   )
   >-(
@@ -1177,16 +1173,15 @@ Proof
   >-(
     (*OpCurrHeap*)
     rw[copy_prop_prog_def,evaluate_def]
-    >-metis_tac[remove_eq_inv]
-    >-(gvs[ACE]>>metis_tac[remove_eq_model_set_var])
+    >- fs[remove_eq_inv]
+    >-(gvs[ACE,remove_eq_model_set_var])
     >-(
       pop_assum sym_sub_tac>>
       irule option_case_cong>> simp[]>>
       irule word_exp_cong_Op>>
-      rw[]>>metis_tac[word_exp_cong_Var,CPstate_modelsD_get_var]
-    )
-    >-metis_tac[remove_eq_inv]
-    >-(gvs[ACE]>>metis_tac[remove_eq_model_set_var])
+      gvs[CPstate_modelsD_Var])
+    >- metis_tac[remove_eq_inv]
+    >- (gvs[ACE]>>metis_tac[remove_eq_model_set_var])
   )
   >-(
     (*LocValue*)
@@ -1201,13 +1196,13 @@ Proof
     (*CodeBufferWrite*)
     rpt gen_tac >> rpt disch_tac >>
     fs[copy_prop_prog_def,evaluate_def] >>
-    DEP_REWRITE_TAC[CPstate_modelsD_get_var,CPstate_modelsD_get_vars] >>
+    fs[CPstate_modelsD_get_var,CPstate_modelsD_get_vars] >>
     gvs[ACE])
   >-(
     (*DataBufferWrite*)
     rpt gen_tac >> rpt disch_tac >>
     fs[copy_prop_prog_def,evaluate_def] >>
-    DEP_REWRITE_TAC[CPstate_modelsD_get_var,CPstate_modelsD_get_vars] >>
+    fs[CPstate_modelsD_get_var,CPstate_modelsD_get_vars] >>
     gvs[ACE])
   >-(
     (*FFI*)
@@ -1216,10 +1211,10 @@ Proof
   >-(
     (*ShareInst*)
     rw[copy_prop_prog_def,evaluate_def]
-    >>‘word_exp st (copy_prop_share e cs) = word_exp st e’ by metis_tac[CPstate_modelsD_copy_prop_share]
-    >>gvs[ACE,remove_eq_inv]
-    >>Cases_on‘m’>>gvs[ACE,share_inst_def]
-    >>metis_tac[remove_eq_model_sh_mem_set_var,remove_eq_model,sh_mem_store_model,sh_mem_store_byte_model,sh_mem_store32_model]
+    >> fs[CPstate_modelsD_copy_prop_share]
+    >> gvs[ACE,remove_eq_inv]
+    >> Cases_on‘m’>>gvs[ACE,share_inst_def]
+    >> metis_tac[remove_eq_model_sh_mem_set_var,remove_eq_model,sh_mem_store_model,sh_mem_store_byte_model,sh_mem_store32_model]
   )
 QED
 

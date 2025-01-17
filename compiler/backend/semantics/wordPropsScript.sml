@@ -1114,6 +1114,7 @@ Proof
   >> gvs[]
 QED
 
+(*TODO use PAIRMAP and deal with breakage*)
 Theorem sh_mem_set_var_with_const[simp]:
   sh_mem_set_var res v (s with permute := p) =
   (λ(r,s). (r,s with permute := p)) (sh_mem_set_var res v s) /\
@@ -1154,6 +1155,7 @@ Proof
   EVAL_TAC
 QED
 
+(*TODO use PAIRMAP and deal with breakage*)
 Theorem sh_mem_store_with_const[simp]:
   sh_mem_store a w (s with permute := p) =
   (λ(r,s). (r,s with permute := p)) (sh_mem_store a w s) /\
@@ -1163,6 +1165,7 @@ Proof
   fs[sh_mem_store_def] >> (rpt (CASE_ONE >> fs[]))
 QED
 
+(*TODO use PAIRMAP and deal with breakage*)
 Theorem sh_mem_store_byte_with_const[simp]:
   sh_mem_store_byte a w (s with permute := p) =
   (λ(r,s). (r,s with permute := p)) (sh_mem_store_byte a w s) /\
@@ -1171,7 +1174,7 @@ Theorem sh_mem_store_byte_with_const[simp]:
 Proof
   fs[sh_mem_store_byte_def] >> (rpt (CASE_ONE >> fs[]))
 QED
-
+(*TODO use PAIRMAP and deal with breakage*)
 Theorem sh_mem_store32_with_const[simp]:
   sh_mem_store32 a w (s with permute := p) =
   (λ(r,s). (r,s with permute := p)) (sh_mem_store32 a w s) /\
@@ -1181,6 +1184,7 @@ Proof
   fs[sh_mem_store32_def] >> (rpt (CASE_ONE >> fs[]))
 QED
 
+(*TODO use PAIRMAP and deal with breakage*)
 Theorem share_inst_with_const[simp]:
    share_inst op v c (s with permute := p) =
    (λ(r,s). (r,s with permute := p)) (share_inst op v c s) /\
@@ -2237,21 +2241,21 @@ QED
 Triviality s_val_eq_APPEND:
   !s t x y. (s_val_eq s t /\ s_val_eq x y)==> s_val_eq (s++x) (t++y)
 Proof
-  ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
+  ho_match_mp_tac (s_val_eq_ind)>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def]
 QED
 
 Triviality s_val_eq_REVERSE:
   !s t. s_val_eq s t ==> s_val_eq (REVERSE s) (REVERSE t)
 Proof
-  ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
+  ho_match_mp_tac (s_val_eq_ind)>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def,s_val_eq_APPEND]
 QED
 
 Triviality s_val_eq_TAKE:
   !s t n. s_val_eq s t ==> s_val_eq (TAKE n s) (TAKE n t)
 Proof
-  ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>rw[]>>
+  ho_match_mp_tac (s_val_eq_ind)>>rw[]>>
   Cases_on`n`>>fs[s_val_eq_def]
 QED
 
@@ -2259,7 +2263,7 @@ Triviality s_val_eq_LASTN:
   !s t n. s_val_eq s t
     ==> s_val_eq (LASTN n s) (LASTN n t)
 Proof
-  ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
+  ho_match_mp_tac (s_val_eq_ind)>>
   srw_tac[][LASTN_def]>>full_simp_tac(srw_ss())[s_val_eq_def]>>
   `s_val_eq [x] [y]` by full_simp_tac(srw_ss())[s_val_eq_def]>>
   `s_val_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
@@ -2271,21 +2275,21 @@ QED
 Triviality s_key_eq_APPEND:
   !s t x y. (s_key_eq s t /\ s_key_eq x y)==> s_key_eq (s++x) (t++y)
 Proof
-  ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
+  ho_match_mp_tac s_key_eq_ind>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def]
 QED
 
 Triviality s_key_eq_REVERSE:
   !s t. s_key_eq s t ==> s_key_eq (REVERSE s) (REVERSE t)
 Proof
-  ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
+  ho_match_mp_tac s_key_eq_ind>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def,s_key_eq_APPEND]
 QED
 
 Triviality s_key_eq_TAKE:
   !s t n. s_key_eq s t ==> s_key_eq (TAKE n s) (TAKE n t)
 Proof
-  ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
+  ho_match_mp_tac s_key_eq_ind>>
   rw[]>>Cases_on`n`>>fs[s_key_eq_def]
 QED
 
@@ -2293,7 +2297,7 @@ Triviality s_key_eq_LASTN:
   !s t n. s_key_eq s t
     ==> s_key_eq (LASTN n s) (LASTN n t)
 Proof
-  ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
+  ho_match_mp_tac s_key_eq_ind>>
   srw_tac[][LASTN_def]>>full_simp_tac(srw_ss())[s_key_eq_def]>>
   `s_key_eq [x] [y]` by full_simp_tac(srw_ss())[s_key_eq_def]>>
   `s_key_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
