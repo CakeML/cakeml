@@ -4,6 +4,8 @@
 open preamble;
 open prim_recTheory;
 open mesonLib;
+open arithmeticTheory;
+open numTheory;
 open mlstringTheory;
 open scheme_astTheory;
 
@@ -27,8 +29,16 @@ End
 
 Definition strict_def:
   strict (Prim SAdd) xs = sadd xs 0 ∧
-  strict (Prim SMul) xs = smul xs 1
+  strict (Prim SMul) xs = smul xs 1 ∧
+  strict _ _ = Wrong "Not a procedure"
 End
+
+Theorem wrong_strict:
+  ∀ args n w . strict (SNum n) args = Wrong "Not a procedure" ∧
+               strict (Wrong w) args = Wrong "Not a procedure"
+Proof
+  rw[strict_def]
+QED
 
 Definition semantics_def:
   semantics (Val v) = v ∧
@@ -39,17 +49,17 @@ End
 
 Definition return_def:
   return [] v = ([], Val v) ∧
-  return (ApplyK NONE [] :: ks) v = (ks, Val $ strict v []) ∧
-  return (ApplyK NONE (e::es) :: ks) v = (ApplyK (SOME (v, [])) es :: ks, e) ∧
-  return (ApplyK (SOME (vfn, vargs)) [] :: ks) v =
-    (ks, Val $ strict vfn (REVERSE $ v::vargs)) ∧
-  return (ApplyK (SOME (vfn, vargs)) (e::es) :: ks) v =
-    (ApplyK (SOME (vfn, v::vargs)) es ::ks, e)
+  return (ApplyK NONE eargs :: ks) v = (case eargs of
+  | [] => (ks, Val $ strict v [])
+  | (e::es) => (ApplyK (SOME (v, [])) es :: ks, e)) ∧
+  return (ApplyK (SOME (vfn, vargs)) eargs :: ks) v = (case eargs of
+  | [] => (ks, Val $ strict vfn (REVERSE $ v::vargs))
+  | (e::es) => (ApplyK (SOME (vfn, v::vargs)) es ::ks, e))
 End
 
 Definition step_def:
-  step ks (Val v) = return ks v ∧
-  step ks (Apply fn args) = (ApplyK NONE args :: ks, fn)
+  step (ks, (Val v)) = return ks v ∧
+  step (ks, (Apply fn args)) = (ApplyK NONE args :: ks, fn)
 End
 
 Definition big_step_def:
@@ -60,67 +70,69 @@ Definition big_step_def:
 End
 
 Definition steps_def:
-  steps _ [] (Val v) = ([], Val v) ∧
-  steps (n:num) ks e = if n > 0
-    then let (ks', e') = (step ks e) in (steps (n - 1) ks' e')
+  steps (n:num) (ks, e) = if n > 0
+    then steps (n - 1) $ step (ks, e)
     else (ks, e)
 End
 
-Theorem steps_return:
-  ∀ e v n ks . steps n [] e = ([], Val v) ⇒ steps n ks e = return ks v
+Theorem steps_add:
+  ∀ n m ks e .
+    steps (n + m) (ks, e) = (ks2, e2) ⇔
+    ∃ ks1 e1 . steps n (ks, e) = (ks1, e1) ∧
+               steps m (ks1, e1) = (ks2, e2)
 Proof
-  Induct_on ‘ks’
-  Induct_on ‘l’
-  Induct_on ‘n’
-  fs[return_def]
-  fs[steps_def]
-  rw[steps_def]
-  rw[step_def]
-  rw[return_def]
-  rw[]
-  simp[steps_def]
-  ‘return ks' v'' = steps n'' ks' (Val v'')’ by rw[]
-  pop_assum(SUBST1_TAC o SYM o SPEC ``0:num`` o SPEC ``SNum 0``)
-  gs[]
-  first_x_assum $ qspecl_then [‘SNum 0’,‘0’] SUBST1_TAC
-  last_x_assum $ assume_tac o SRULE [Once EQ_SYM_EQ]
-  qexists_tac ‘n’
-  qexists_tac ‘n + 1’
-  Cases_on ‘o'’
-  Cases_on ‘v’
-  Cases_on ‘v'’
-  Cases_on ‘l’
-  Cases_on ‘ks’
-  Cases_on ‘n - 1 > 0’
-  MESON_TAC[steps_def]
+  Induct >- (
+    rpt strip_tac >> iff_tac >- (
+      rpt strip_tac >> fs[] >> qexistsl[‘ks’, ‘e’]
+      >> simp[Once steps_def]
+    )
+    >> rpt strip_tac >> rpt $ pop_assum mp_tac
+    >> strip_tac
+    >> last_x_assum $ assume_tac o SRULE [Once steps_def]
+    >> simp[]
+  )
+  >> rpt strip_tac
+  >> pop_assum $ qspecl_then[‘m’, ‘FST $ step (ks, e)’,
+                                  ‘SND $ step (ks, e)’] assume_tac
+  >> simp[]
+  >> cheat
+QED
 
 Theorem big_small_equiv:
-  ∀ e v . semantics e = v ⇒ ∃ n . steps n ([], e) = ([], Val v)
+  ∀ e ks . ∃ n . steps n ks e = (ks, Val (semantics e))
 Proof
-  rw[]
-  Induct
-  simp[]
-  fs[]
-  Induct_on ‘l’
-  Induct_on ‘e’
-  asm_simp_tac bool_ss []
-  SUBST1_TAC(ASSUME “return ks (SNum 0) = steps 0 ks (Val (SNum 0))”)
-  fs[steps_def, step_def, semantics_def,
-    return_def, strict_def, sadd_def, smul_def]
-  DISCH_TAC
-  rw[steps_def, step_def, semantics_def,
-    return_def, strict_def, sadd_def, smul_def]
-  metis_tac[steps_def, step_def, semantics_def,
-    return_def, strict_def, sadd_def, smul_def]
-  qexists_tac ‘n’
-  Cases_on ‘e’
-  Cases_on ‘p’
-  Cases_on ‘v’
-  Cases_on ‘h’
-  qexists_tac ‘n+99’
-  qexists_tac ‘1’
-  full_simp_tac bool_ss [steps_def]
-  full_simp_tac pure_ss []
+  ho_match_mp_tac semantics_ind
+  >> rpt strip_tac
+  >~ [‘semantics (Val _)’]
+  >- (rpt strip_tac >> qexists_tac ‘0’ >> simp[Once steps_def, semantics_def])
+  >> simp[semantics_def, SF ETA_ss]
+  >> simp[Once steps_def]
+  >> simp[step_def(*, AllCaseEqs()*)]
+  >> qrefine ‘n+1’
+  >> simp[]
+  >> first_x_assum $ qspec_then ‘ApplyK NONE args::ks’ mp_tac
+  >> strip_tac
+  >> qrefine ‘k+m’
+  >> simp[steps_add]
+  >> pop_assum $ irule_at Any
+
+  >> qrefine ‘n+m’
+  >> rewrite_tac[steps_add]
+  >> simp[]
+  
+  Induct_on ‘ks’ >> Induct_on ‘e’ >| [
+    simp[semantics_def] >> Induct_on ‘l’ >| [
+      rw[] >> Cases_on ‘semantics e’ >| [
+        Cases_on ‘p’ >> simp[strict_def, sadd_def, smul_def]
+          >> simp[Once steps_def, step_def]
+        ,
+      ]
+      ,
+    ]
+    ,
+    simp[semantics_def] >> rw[] >> qexists_tac ‘0’
+      >> simp[Once steps_def]
+  ]
 QED
 
 (*EVAL “semantics (Val (SNum 3))”*)
