@@ -75,6 +75,15 @@ Definition steps_def:
     else (ks, e)
 End
 
+Theorem steps_suc:
+  ∀ n m ks e .
+    steps (SUC n) (ks, e) = (ks2, e2) ⇔
+    ∃ ks1 e1 . step (ks, e) = (ks1, e1) ∧
+               steps n (ks1, e1) = (ks2, e2)
+Proof
+  cheat
+QED
+
 Theorem steps_add:
   ∀ n m ks e .
     steps (n + m) (ks, e) = (ks2, e2) ⇔
@@ -91,11 +100,10 @@ Proof
     >> last_x_assum $ assume_tac o SRULE [Once steps_def]
     >> simp[]
   )
-  >> rpt strip_tac
-  >> pop_assum $ qspecl_then[‘m’, ‘FST $ step (ks, e)’,
-                                  ‘SND $ step (ks, e)’] assume_tac
-  >> simp[]
-  >> cheat
+  >> rewrite_tac [ADD_CLAUSES]
+  >> simp [steps_suc]
+  >> simp [PULL_EXISTS]
+  >> metis_tac []
 QED
 
 Theorem big_small_equiv:
@@ -119,7 +127,7 @@ Proof
   >> qrefine ‘n+m’
   >> rewrite_tac[steps_add]
   >> simp[]
-  
+
   Induct_on ‘ks’ >> Induct_on ‘e’ >| [
     simp[semantics_def] >> Induct_on ‘l’ >| [
       rw[] >> Cases_on ‘semantics e’ >| [
