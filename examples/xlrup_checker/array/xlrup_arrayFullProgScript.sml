@@ -494,7 +494,7 @@ val r = translate conv_cfml_def;
 
 (* TODO *)
 Theorem conv_bnn_temp:
-  conv_bnn x = ((0, (0,LN), 0), 0)
+  conv_bnn x = (((0,LN), 0, 0 ,0), 0)
 Proof
   cheat
 QED

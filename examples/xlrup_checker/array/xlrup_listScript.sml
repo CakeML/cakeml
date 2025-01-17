@@ -121,7 +121,7 @@ Definition set_bit_list_def:
 End
 
 Definition unit_prop_xor_list_def:
-  unit_prop_xor_list t l s =
+  unit_prop_xor_list t s l =
   let n = Num (ABS l) in
   case lookup n t of NONE => s
   | SOME n =>
@@ -134,13 +134,20 @@ Definition unit_prop_xor_list_def:
   else s
 End
 
-Definition unit_props_xor_list_def:
-  (unit_props_xor_list fml t [] s = SOME s) ∧
-  (unit_props_xor_list fml t (i::is) s =
-  case list_lookup fml NONE i of NONE => NONE
+Definition get_units_list_def:
+  (get_units_list fml [] cs = SOME cs) ∧
+  (get_units_list fml (i::is) cs =
+  case list_lookup fml NONE i of
   | SOME [l] =>
-    unit_props_xor_list fml t is (unit_prop_xor_list t l s)
+    get_units_list fml is (l::cs)
   | _ => NONE)
+End
+
+Definition unit_props_xor_list_def:
+  unit_props_xor_list fml t ls s =
+  case get_units_list fml ls [] of NONE => NONE
+  | SOME cs =>
+    SOME (FOLDL (unit_prop_xor_list t) s cs)
 End
 
 Definition is_xor_list_def:
@@ -237,50 +244,21 @@ Definition conv_xor_mv_list_def:
   conv_rawxor_list mv (MAP conv_lit x)
 End
 
-Definition check_abs_mem_def:
-  check_abs_mem c Clist =
-  let ic = index c in
-  let nic = index (-c) in
-  list_lookup Clist w8z ic = w8z ∧
-  list_lookup Clist w8z nic = w8z
-End
-
-(* Set to w8z while checking distinctness *)
-Definition distinct_set_list_def:
-  (distinct_set_list Clist [] = SOME Clist) ∧
-  (distinct_set_list Clist (c::cs) =
-    if check_abs_mem c Clist
-    then
-      distinct_set_list
-        (update_resize Clist w8z w8o (index c)) cs
-    else NONE)
-End
-
-Definition is_rup2_list_def:
-  (is_rup2_list fml [] C Clist = SOME(C,Clist)) ∧
-  (is_rup2_list fml (i::is) C Clist =
-  case list_lookup fml NONE i of
-    NONE => NONE
-  | SOME Ci =>
-  case delete_literals_sing_list Clist Ci of
-    NONE => NONE
-  | SOME nl =>
-    if nl = 0 ∨ ¬ check_abs_mem nl Clist then NONE
-    else is_rup2_list fml is (nl::C) (update_resize Clist w8z w8o (index nl)))
+(* just making it easier to translate *)
+Definition do_check_ibnn_def:
+  do_check_ibnn bnn cs c =
+  let ls = MAP (λl. -l) cs ++ c in
+    check_ibnn bnn (mk_strict ls)
 End
 
 Definition is_cfromb_list_def:
-  is_cfromb_list c cfml bfml ib i0 Clist =
+  is_cfromb_list c cfml bfml ib i0 =
   case list_lookup bfml NONE ib of
-    NONE => NONE
+    NONE => F
   | SOME bnn =>
-  (case distinct_set_list Clist c of NONE => NONE
-  | SOME Clist =>
-  (case is_rup2_list cfml i0 c Clist of NONE => NONE
-  | SOME (c, Clist) =>
-      if check_ibnn bnn c then
-        SOME (set_list Clist w8z c)
-      else NONE))
+  case get_units_list cfml i0 [] of NONE => F
+  | SOME cs =>
+    do_check_ibnn bnn cs c
 End
 
 Definition check_xlrup_list_def:
@@ -330,11 +308,10 @@ Definition check_xlrup_list_def:
     SOME (cfml, xfml, list_delete_list bl bfml, tn, def, Clist)
   | CFromB n c ib i0 =>
     let Clist = resize_Clist c Clist in
-    (case is_cfromb_list c cfml bfml ib i0 Clist of
-      NONE => NONE
-    | SOME Clist =>
+    if is_cfromb_list c cfml bfml ib i0 then
       SOME (update_resize cfml NONE (SOME c) n, xfml, bfml,
-        tn, def, Clist))
+        tn, def, Clist)
+    else NONE
 End
 
 (* semantic *)
@@ -793,8 +770,8 @@ Proof
 QED
 
 Theorem unit_prop_xor_list_unit_prop_xor:
-  implode (MAP fromByte (unit_prop_xor_list t l x)) =
-  unit_prop_xor t l (implode (MAP fromByte x))
+  implode (MAP fromByte (unit_prop_xor_list t x l)) =
+  unit_prop_xor t (implode (MAP fromByte x)) l
 Proof
   rw[unit_prop_xor_def,unit_prop_xor_list_def]>>
   TOP_CASE_TAC>>
@@ -808,6 +785,15 @@ Proof
   simp[MAP_MAP_o,o_DEF]
 QED
 
+Theorem get_units_list_get_units:
+  ∀is acc.
+  fml_rel fml fmlls ⇒
+  get_units_list fmlls is acc = get_units fml is acc
+Proof
+  Induct>>rw[get_units_list_def,get_units_def]>>
+  drule fml_rel_list_lookup>>rw[]>>gvs[]
+QED
+
 Theorem unit_props_xor_list_unit_props_xor:
   ∀is x y .
   fml_rel fml fmlls ∧
@@ -815,13 +801,14 @@ Theorem unit_props_xor_list_unit_props_xor:
   unit_props_xor fml t is (implode (MAP fromByte x)) =
     SOME (implode (MAP fromByte y))
 Proof
-  Induct>>rw[unit_props_xor_def,unit_props_xor_list_def]>>
-  gvs[AllCaseEqs()]>>
-  drule fml_rel_list_lookup>>rw[]>>gvs[]>>
-  first_x_assum drule>>
-  disch_then sym_sub_tac>>
-  AP_TERM_TAC>>
-  simp[GSYM unit_prop_xor_list_unit_prop_xor]
+  rw[]>>drule get_units_list_get_units>>
+  gvs[unit_props_xor_def,unit_props_xor_list_def,AllCaseEqs()]>>rw[]>>
+  gvs[]>>
+  rpt (pop_assum kall_tac)>>
+  qid_spec_tac`x`>>
+  qid_spec_tac`cs`>>
+  ho_match_mp_tac SNOC_INDUCT>>rw[]>>
+  simp[FOLDL_SNOC,GSYM unit_prop_xor_list_unit_prop_xor]
 QED
 
 Theorem is_xor_list_is_xor:
@@ -896,122 +883,17 @@ Proof
   metis_tac[fml_rel_get_constrs_list,option_CLAUSES]
 QED
 
-Theorem check_abs_mem_not_MEM:
-  lookup_rel C ls ∧
-  check_abs_mem h ls ⇒
-  ¬ MEM (Num (ABS h)) (MAP (λl. Num (ABS l)) C)
-Proof
-  rw[check_abs_mem_def]>>
-  CCONTR_TAC>>gvs[lookup_rel_def,MEM_MAP]>>
-  `index l = index h ∨ index l = index (-h)` by
-    (simp[index_def]>>
-    intLib.ARITH_TAC)>>
-  first_x_assum(qspec_then`l` mp_tac)>>
-  gvs[w8o_def,w8z_def]
-QED
-
-Theorem lookup_rel_distinct_set_list_lookup_rel:
-  ∀D ls C.
-  lookup_rel C ls ∧
-  distinct_set_list ls D = SOME ls' ⇒
-  lookup_rel (C++D) ls'
-Proof
-  Induct>> rw[distinct_set_list_def]>>
-  gvs[]>>
-  `C ++ h::D = (C++[h])++D` by simp[]>>
-  pop_assum SUBST_ALL_TAC>>
-  first_x_assum irule>>
-  first_x_assum (irule_at Any)>>
-  `C++[h] = REVERSE (h::REVERSE C)` by fs[]>>
-  metis_tac[lookup_rel_REVERSE,lookup_rel_cons]
-QED
-
-Theorem distinct_set_list_ALL_DISTINCT:
-  ∀D ls C.
-  lookup_rel C ls ∧
-  ALL_DISTINCT (MAP (λl. Num (ABS l)) C) ∧
-  distinct_set_list ls D = SOME ls' ⇒
-  ALL_DISTINCT (MAP (λl. Num (ABS l)) (C++D))
-Proof
-  Induct>>rw[distinct_set_list_def]>>
-  gvs[]>>
-  first_x_assum (drule_at Any)>>
-  disch_then(qspec_then `C++[h]` mp_tac)>>
-  simp[]>>
-  PURE_REWRITE_TAC[GSYM APPEND_ASSOC,APPEND]>>
-  disch_then irule>>
-  CONJ_TAC >- (
-    simp[ALL_DISTINCT_APPEND]>>
-    metis_tac[check_abs_mem_not_MEM])>>
-  `C++[h] = REVERSE (h::REVERSE C)` by fs[]>>
-  metis_tac[lookup_rel_REVERSE,lookup_rel_cons]
-QED
-
-Theorem empty_distinct_set_list_lookup_rel:
-  EVERY ($= w8z) Clist ∧
-  distinct_set_list Clist C = SOME Clist' ⇒
-  ALL_DISTINCT (MAP (λl. Num (ABS l)) C) ∧
-  lookup_rel C Clist'
-Proof
-  strip_tac>>
-  `lookup_rel [] Clist` by
-    (fs[lookup_rel_def,EVERY_MEM,list_lookup_def]>>
-    rw[]>>fs[w8z_def,w8o_def]>>
-    first_x_assum(qspec_then`EL (index i) Clist` mp_tac)>>
-    impl_tac>-
-      simp[EL_MEM]>>
-    simp[])>>
-  drule lookup_rel_distinct_set_list_lookup_rel>>
-  drule distinct_set_list_ALL_DISTINCT>>
-  simp[]>>
-  metis_tac[]
-QED
-
-Theorem fml_rel_is_rup2_list_is_rup2:
-  ∀ls C Clist.
-  fml_rel fml fmlls ∧ wf_cfml fml ∧
-  lookup_rel C Clist ⇒
-  case is_rup2_list fmlls ls C Clist of
-    SOME (C', Clist') =>
-    is_rup2 fml ls C = SOME C' ∧ lookup_rel C' Clist'
-  | NONE => T
-Proof
-  Induct>>fs[is_rup2_list_def,is_rup2_def]>>rw[]>>
-  DEP_REWRITE_TAC[fml_rel_list_lookup]>>simp[]>>
-  Cases_on`lookup h fml`>>simp[]>>
-  `wf_clause x` by
-    (fs[wf_cfml_def,range_def]>>metis_tac[])>>
-  drule delete_literals_sing_list_correct>>
-  disch_then drule>>
-  strip_tac>>gvs[AllCasePreds()]>>
-  qmatch_goalsub_abbrev_tac`is_rup2_list _ _ aaa bbb`>>
-  first_x_assum(qspecl_then[`aaa`,`bbb`] mp_tac)>>
-  impl_tac >-
-    (unabbrev_all_tac>>simp[lookup_rel_cons])>>
-  simp[IS_SOME_EXISTS]>>rw[]>>gvs[]>>
-  metis_tac[check_abs_mem_not_MEM]
-QED
-
 Theorem is_cfromb_list_is_cfromb:
-  EVERY ($= w8z) Clist ∧
-  wf_cfml cfml ∧
   fml_rel cfml cfmlls ∧
   fml_rel bfml bfmlls ∧
-  is_cfromb_list c cfmlls bfmlls ib ls Clist = SOME Clist' ⇒
-  is_cfromb c cfml bfml ib ls ∧
-  EVERY ($= w8z) Clist'
+  is_cfromb_list c cfmlls bfmlls ib ls ⇒
+  is_cfromb c cfml bfml ib ls
 Proof
   strip_tac>>
-  gvs[AllCaseEqs(),is_cfromb_list_def,is_cfromb_def]>>
+  gvs[AllCasePreds(),is_cfromb_list_def,is_cfromb_def]>>
   drule fml_rel_list_lookup>>
-  strip_tac>>gvs[]>>
-  drule empty_distinct_set_list_lookup_rel>>
-  disch_then drule_all>> strip_tac>>
-  simp[]>>
-  drule_all fml_rel_is_rup2_list_is_rup2>>
-  disch_then(qspec_then`ls` assume_tac)>>
-  gvs[AllCasePreds()]>>
-  metis_tac[lookup_rel_set_list_empty]
+  drule get_units_list_get_units>>
+  rw[]>>gvs[do_check_ibnn_def]
 QED
 
 Theorem fml_rel_check_xlrup_list:
