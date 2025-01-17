@@ -153,13 +153,14 @@ End
 
 (* parses the tail part of the BNN constraint "k y 0" *)
 Definition parse_bnn_tail_def:
-  (parse_bnn_tail [INR k; INR y; INR n] =
-    if k ≥ 0i ∧ n = 0i
+  (parse_bnn_tail ls =
+  case ls of [INR k; INR y; INR n] =>
+    if k ≥ 0i ∧ y ≠ 0 ∧ n = 0i
     then
       SOME (Num k, mk_lit y)
     else
-      NONE) ∧
-  (parse_bnn_tail _ = NONE)
+      NONE
+  | _ => NONE)
 End
 
 Definition parse_bnn_def:
@@ -389,8 +390,10 @@ Proof
   simp[strcat_def,concat_def,implode_def]
 QED
 
+Overload nz_lit = ``(λl. var_lit l ≠ 0)``
+
 Theorem fromString_print_lit:
-  var_lit h ≠ 0 ⇒
+  nz_lit h ⇒
   ∃i.
     fromString (print_lit h) = SOME i ∧
     Num (ABS i) = var_lit h ∧
@@ -404,7 +407,7 @@ QED
 
 Theorem parse_lits_aux_print_lits:
   ∀ys acc.
-  EVERY (λl. var_lit l ≠ 0) ys ∧ blanks c
+  EVERY nz_lit ys ∧ blanks c
   ⇒
   parse_lits_aux (toks (print_lits c ys ^ rest)) acc =
     SOME (REVERSE acc ++ ys,toks rest)
@@ -426,11 +429,13 @@ Proof
   rw[]>>simp[]>>
   rw[]>>gvs[AllCaseEqs()]>>
   simp[mk_lit_def]>>rw[]>>
-  gvs[]>>rw[]
+  gvs[]>>rw[]>>
+  every_case_tac>>gvs[var_lit_def]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem parse_lits_print_clause:
-  EVERY (λl. var_lit l ≠ 0) ys ∧
+  EVERY nz_lit ys ∧
   EVERY (λl. var_lit l ≤ maxvar) ys
   ⇒
   parse_lits maxvar (toks (print_clause ys)) = SOME ys
@@ -460,7 +465,7 @@ Proof
 QED
 
 Theorem parse_xor_print_xor:
-  EVERY (λl. var_lit l ≠ 0) ys ∧
+  EVERY nz_lit  ys ∧
   EVERY (λl. var_lit l ≤ maxvar) ys
   ⇒
   parse_xor maxvar (toks (print_xor ys)) = SOME ys
@@ -495,7 +500,7 @@ Proof
 QED
 
 Theorem tokenize_print_lit[simp]:
-  var_lit n ≠ 0 ⇒
+  nz_lit n ⇒
   tokenize (print_lit n) =
     INR (
       case n of Pos v => &v | Neg v => -&v)
@@ -508,7 +513,7 @@ Proof
 QED
 
 Theorem parse_bnn_tail_print_tail:
-  var_lit y ≠ 0 ⇒
+  nz_lit y ⇒
   parse_bnn_tail (toks (print_tail k y)) = SOME (k,y)
 Proof
   rw[print_tail_def,toks_def]>>
@@ -526,8 +531,8 @@ Proof
 QED
 
 Theorem parse_bnn_print_bnn:
-  var_lit y ≠ 0 ∧ var_lit y ≤ maxvar ∧
-  EVERY (λl. var_lit l ≠ 0) ls ∧ EVERY (λl. var_lit l ≤ maxvar) ls
+  nz_lit y ∧ var_lit y ≤ maxvar ∧
+  EVERY nz_lit ls ∧ EVERY (λl. var_lit l ≤ maxvar) ls
   ⇒
   parse_bnn maxvar (toks (print_bnn (ls,k,y))) = SOME (ls,k,y)
 Proof
@@ -592,7 +597,7 @@ Proof
 QED
 
 Theorem FILTER_nocomment_print_clause:
-  EVERY (EVERY (λl. var_lit l ≠ 0)) ls ⇒
+  EVERY (EVERY nz_lit) ls ⇒
   FILTER nocomment_line
     (MAP toks (MAP print_clause ls)) =
     (MAP toks (MAP print_clause ls))
@@ -637,7 +642,7 @@ QED
 Theorem parse_body_MAP_print_lits:
   ∀cs cacc xacc bacc.
   EVERY (λls.
-    EVERY (λl. var_lit l ≠ 0) ls ∧
+    EVERY nz_lit ls ∧
     EVERY (λl. var_lit l ≤ maxvar) ls) cs
   ⇒
   parse_body maxvar (MAP toks (MAP print_clause cs)) cacc xacc bacc =
@@ -664,7 +669,7 @@ QED
 Theorem parse_body_MAP_print_xor:
   ∀cs xacc cacc bacc.
   EVERY (λls.
-    EVERY (λl. var_lit l ≠ 0) ls ∧
+    EVERY nz_lit ls ∧
     EVERY (λl. var_lit l ≤ maxvar) ls) cs
   ⇒
   parse_body maxvar (MAP toks (MAP print_xor cs)) cacc xacc bacc =
@@ -707,9 +712,9 @@ QED
 Theorem parse_body_MAP_print_bnn:
   ∀cs bacc cacc xacc.
   EVERY (λ(ls,k,y).
-    var_lit y ≠ 0 ∧
+    nz_lit y ∧
     var_lit y ≤ maxvar ∧
-    EVERY (λl. var_lit l ≠ 0) ls ∧
+    EVERY nz_lit ls ∧
     EVERY (λl. var_lit l ≤ maxvar) ls
     ) cs
   ⇒
@@ -751,9 +756,9 @@ Proof
 QED
 
 Theorem parse_cnf_ext_toks_print_cnf_ext_toks:
-  EVERY (EVERY (λl. var_lit l ≠ 0)) cs ∧
-  EVERY (EVERY (λl. var_lit l ≠ 0)) xs ∧
-  EVERY (λ(ls,k,y). var_lit y ≠ 0 ∧ EVERY (λl. var_lit l ≠ 0) ls) bs
+  EVERY (EVERY nz_lit) cs ∧
+  EVERY (EVERY nz_lit) xs ∧
+  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bs
   ⇒
   ∃mv cl.
   parse_cnf_ext_toks (MAP toks (print_cnf_ext (cs,xs,bs))) =
@@ -828,15 +833,99 @@ Proof
 QED
 
 Theorem parse_cnf_ext_print_cnf_ext:
-  EVERY (EVERY (λl. var_lit l ≠ 0)) cs ∧
-  EVERY (EVERY (λl. var_lit l ≠ 0)) xs ∧
-  EVERY (λ(ls,k,y). var_lit y ≠ 0 ∧ EVERY (λl. var_lit l ≠ 0) ls) bs ⇒
+  EVERY (EVERY nz_lit) cs ∧
+  EVERY (EVERY nz_lit) xs ∧
+  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bs
+  ⇒
   parse_cnf_ext (print_cnf_ext (cs,xs,bs)) = SOME (cs,xs,bs)
 Proof
-  rw[]>>
-  simp[parse_cnf_ext_def]>>
+  rw[parse_cnf_ext_def]>>
   assume_tac parse_cnf_ext_toks_print_cnf_ext_toks>>
   gvs[]
+QED
+
+Theorem parse_lits_aux_nz_lit:
+  ∀ls acc c rest.
+  parse_lits_aux ls acc = SOME (c,rest) ∧
+  EVERY nz_lit acc ⇒
+  EVERY nz_lit c
+Proof
+  Induct>>
+  rw[parse_lits_aux_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum match_mp_tac>>
+  last_x_assum (irule_at Any)>>
+  rw[mk_lit_def,var_lit_def]
+QED
+
+Theorem parse_line_nz_lit:
+  case parse_line v h of
+    SOME (Clause c) => EVERY nz_lit c
+  | SOME (Cmsxor x) => EVERY nz_lit x
+  | SOME (Cmsbnn (ls,k,y)) => nz_lit y ∧ EVERY nz_lit ls
+  | _ => T
+Proof
+  rw[parse_line_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  gvs[AllCaseEqs()]
+  >- (
+    last_x_assum kall_tac>>
+    last_x_assum kall_tac>>
+    gvs[parse_bnn_def,parse_lits_def,AllCaseEqs(),parse_bnn_tail_def]>>
+    drule parse_lits_aux_nz_lit>>simp[]>>
+    rw[mk_lit_def,var_lit_def])
+  >- (
+    last_x_assum kall_tac>>
+    gvs[parse_xor_def,parse_lits_def,AllCaseEqs()]>>
+    drule parse_lits_aux_nz_lit>>
+    simp[])
+  >- (
+    gvs[parse_lits_def,AllCaseEqs()]>>
+    drule parse_lits_aux_nz_lit>>
+    simp[])
+QED
+
+Theorem parse_body_nz_lit:
+  ∀ss cacc xacc bacc.
+  parse_body v ss cacc xacc bacc = SOME (cs,xs,bs) ∧
+  EVERY (EVERY nz_lit) cacc ∧
+  EVERY (EVERY nz_lit) xacc ∧
+  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bacc ⇒
+  EVERY (EVERY nz_lit) cs ∧
+  EVERY (EVERY nz_lit) xs ∧
+  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bs
+Proof
+  Induct >- (
+    rw[parse_body_def]>>
+    gvs[])>>
+  simp[parse_body_def]>>
+  ntac 5 strip_tac>>
+  assume_tac parse_line_nz_lit>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum drule>>
+  impl_tac >> simp[]>>
+  pairarg_tac>>gvs[]
+QED
+
+Theorem parse_cnf_ext_toks_nz_lit:
+  parse_cnf_ext_toks tokss = SOME (v,n,cs,xs,bs) ⇒
+  EVERY (EVERY nz_lit) cs ∧
+  EVERY (EVERY nz_lit) xs ∧
+  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bs
+Proof
+  rw[parse_cnf_ext_toks_def]>>
+  gvs[AllCaseEqs()]>>
+  drule parse_body_nz_lit>>simp[]
+QED
+
+Theorem parse_cnf_ext_nz_lit:
+  parse_cnf_ext ls = SOME (cs,xs,bs) ⇒
+  EVERY (EVERY nz_lit) cs ∧
+  EVERY (EVERY nz_lit) xs ∧
+  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bs
+Proof
+  strip_tac>>gvs[parse_cnf_ext_def,AllCaseEqs()]>>
+  metis_tac[parse_cnf_ext_toks_nz_lit]
 QED
 
 val _ = export_theory ();

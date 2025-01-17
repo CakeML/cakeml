@@ -1,7 +1,7 @@
 (*
    Basic specification of an xlrup checker (minimal optimization)
 *)
-open preamble miscTheory mlstringTheory cnf_extTheory blastLib sptreeTheory;
+open preamble miscTheory mlstringTheory cnf_extTheory blastLib sptreeTheory mergesortTheory;
 
 val _ = new_theory "xlrup";
 
@@ -152,16 +152,12 @@ Definition conv_cfml_def:
   conv_cfml cfml = MAP (MAP conv_lit) cfml
 End
 
-Definition nz_lit_def[simp]:
-  (nz_lit (Pos n) <=> n ≠ (0:num)) ∧
-  (nz_lit (Neg n) <=> n ≠ 0)
-End
-
 Theorem interp_lit_conv_lit:
   nz_lit y ⇒
   interp_lit (conv_lit y) = y
 Proof
-  Cases_on`y`>>rw[conv_lit_def,interp_lit_def]>>
+  Cases_on`y`>>
+  rw[conv_lit_def,interp_lit_def,var_lit_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -175,10 +171,10 @@ QED
 Theorem nz_lit_conv_lit:
   nz_lit y ⇒ conv_lit y ≠ 0
 Proof
-  Cases_on`y`>>rw[conv_lit_def]
+  Cases_on`y`>>rw[conv_lit_def,var_lit_def]
 QED
 
-Theorem issat_cclause_MAP_conv_lit:
+Theorem isat_cclause_MAP_conv_lit:
   EVERY nz_lit C ⇒
   (isat_cclause w (MAP conv_lit C) ⇔
   sat_clause w C)
@@ -193,7 +189,11 @@ Theorem conv_cfml_sound:
   (∀C. C ∈ set cfml ⇒ sat_clause w C))
 Proof
   rw[isat_fml_gen_def,conv_cfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
-  metis_tac[issat_cclause_MAP_conv_lit,EVERY_MEM]
+  simp[GSYM EVERY_MEM]>>
+  match_mp_tac EVERY_CONG>>rw[]>>
+  irule isat_cclause_MAP_conv_lit>>
+  gvs[EVERY_MEM]>>
+  metis_tac[]
 QED
 
 (* Get and Set bit in a string
@@ -822,7 +822,8 @@ Proof
   >-
     simp[sat_cmsxor_def]
   >- (
-    reverse(Cases_on`h`>>fs[sat_lit_def,conv_lit_def])
+    reverse(Cases_on`h`>>
+      fs[sat_lit_def,conv_lit_def,var_lit_def])
     >-
       `F` by intLib.ARITH_TAC>>
     DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
@@ -830,7 +831,8 @@ Proof
       simp[strlen_extend_s]>>
     simp[isat_strxor_extend_s]>>
     metis_tac[]) >>
-  Cases_on`h`>>fs[sat_lit_def,conv_lit_def]
+  Cases_on`h`>>
+  fs[sat_lit_def,conv_lit_def,var_lit_def]
   >-
     `F` by intLib.ARITH_TAC>>
   DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
@@ -904,7 +906,7 @@ End
 
 (* Unit propagation on an XOR *)
 Definition unit_prop_xor_def:
-  unit_prop_xor t l s =
+  unit_prop_xor t s l =
   let n = Num (ABS l) in
   case lookup n t of NONE => s
   | SOME n =>
@@ -917,14 +919,21 @@ Definition unit_prop_xor_def:
   else s
 End
 
-(* It doesn't make sense to unit propagate on *)
-Definition unit_props_xor_def:
-  (unit_props_xor fml t [] s = SOME s) ∧
-  (unit_props_xor fml t (i::is) s =
+(* Extracts unit clauses in REVERSE order *)
+Definition get_units_def:
+  (get_units fml [] cs = SOME cs) ∧
+  (get_units fml (i::is) cs =
   case lookup i fml of
   | SOME [l] =>
-    unit_props_xor fml t is (unit_prop_xor t l s)
+    get_units fml is (l::cs)
   | _ => NONE)
+End
+
+Definition unit_props_xor_def:
+  unit_props_xor fml t ls s =
+  case get_units fml ls [] of NONE => NONE
+  | SOME cs =>
+    SOME (FOLDL (unit_prop_xor t) s cs)
 End
 
 Definition is_xor_def:
@@ -1044,10 +1053,11 @@ Definition prop_cardc_def:
     case lookup_offspt n ons of
       NONE => prop_cardc ons k lb ub ls
     | SOME c =>
-      let lb' = if c < 0 then lb - c else lb in
-      let ub' = if c > 0 then ub - c else ub in
       let k' = if l > 0 then k else k - c in
-      prop_cardc ons k' lb' ub' ls)
+      if c > 0 then
+        prop_cardc ons k' lb (ub - c) ls
+      else
+        prop_cardc ons k' (lb - c) ub ls)
 End
 
 (* Propagate *)
@@ -1075,7 +1085,7 @@ Definition check_ibnn_def:
 End
 
 (* TODO: unify the two RUPs with efficient representations
-  This version makes sure the propagations are distinct *)
+  This version makes sure the propagations are distinct
 Definition is_rup2_def:
   (is_rup2 fml [] (C:cclause) = SOME C) ∧
   (is_rup2 fml (i::is) C =
@@ -1091,17 +1101,31 @@ Definition is_rup2_def:
       is_rup2 fml is (-l :: C)
   | _ => NONE)
 End
+ *)
+
+Definition mk_strict_aux_def:
+  (mk_strict_aux x [] acc = x::acc) ∧
+  (mk_strict_aux x (y::ys) acc =
+    if x = (y:int) then
+      mk_strict_aux x ys acc
+    else mk_strict_aux y ys (x::acc))
+End
+
+Definition mk_strict_def:
+  mk_strict ls =
+  case mergesort_tail (\x y. x ≥ y) ls of
+    [] => []
+  | (x::xs) => mk_strict_aux x xs []
+End
 
 Definition is_cfromb_def:
   is_cfromb C cfml bfml ib i0 =
   case lookup ib bfml of NONE => F
   | SOME bnn =>
-  if ALL_DISTINCT (MAP (λl. Num (ABS l)) C) then
-  case is_rup2 cfml i0 C of
-    NONE => F
-  | SOME ls =>
-    check_ibnn bnn ls
-  else F
+  case get_units cfml i0 [] of NONE => F
+  | SOME cs =>
+  let ls = MAP (λl. -l) cs ++ C in
+    check_ibnn bnn (mk_strict ls)
 End
 
 Definition min_loop_def:
@@ -1769,7 +1793,7 @@ Proof
   \\ Cases \\ fs [ren_lit_ls_def] \\ rw []
   \\ pairarg_tac \\ gvs []
   \\ first_x_assum $ drule_then $ irule \\ gvs []
-  \\ drule tn_inv_get_name \\ gvs []
+  \\ drule tn_inv_get_name \\ gvs [var_lit_def]
 QED
 
 Theorem ren_lit_ls_tn_inv:
@@ -2038,7 +2062,7 @@ QED
 Theorem unit_prop_xor_sound:
   tn_inv (t,n) ∧
   sat_lit w (interp_lit l) ⇒
-  (isat_strxor (w o restore_fn (t,n)) (unit_prop_xor t l X) ⇔
+  (isat_strxor (w o restore_fn (t,n)) (unit_prop_xor t X l) ⇔
     isat_strxor (w o restore_fn (t,n)) X)
 Proof
   rw[unit_prop_xor_def]>>
@@ -2070,6 +2094,20 @@ Proof
   simp[of_bool_def]
 QED
 
+Theorem get_units_sound:
+  ∀ls cs.
+  isat_cfml w (range fml) ∧
+  EVERY (λl. sat_lit w (interp_lit l)) cs ∧
+  get_units fml ls cs = SOME cs' ⇒
+  EVERY (λl. sat_lit w (interp_lit l)) cs'
+Proof
+  Induct>>rw[get_units_def]>>gvs[AllCaseEqs()]>>
+  first_x_assum irule>>
+  first_x_assum (irule_at Any)>>
+  gvs[isat_fml_gen_def,range_def,PULL_EXISTS]>>
+  first_x_assum drule>>simp[isat_cclause_def]
+QED
+
 Theorem unit_props_xor_sound:
   ∀is X Y.
   tn_inv (t,n) ∧
@@ -2078,13 +2116,17 @@ Theorem unit_props_xor_sound:
   (isat_strxor (w ∘ restore_fn (t,n)) X ⇔
     isat_strxor (w ∘ restore_fn (t,n)) Y)
 Proof
-  Induct>>rw[unit_props_xor_def]>>
+  rw[unit_props_xor_def]>>
   gvs[AllCaseEqs()]>>
-  first_x_assum drule>>
-  DEP_REWRITE_TAC[unit_prop_xor_sound]>>
-  fs[isat_fml_gen_def,range_def,PULL_EXISTS]>>
-  first_x_assum drule>>
-  simp[isat_cclause_def]
+  drule get_units_sound>>
+  disch_then (drule_at Any)>>
+  simp[]>>
+  pop_assum kall_tac>>
+  qid_spec_tac`cs`>>
+  ho_match_mp_tac SNOC_INDUCT>>rw[]>>
+  gvs[EVERY_SNOC,FOLDL_SNOC]>>
+  match_mp_tac (GSYM unit_prop_xor_sound)>>
+  gvs[]
 QED
 
 Theorem is_xor_sound:
@@ -2180,11 +2222,12 @@ Definition prop_cardc_sem_def:
     case lookup_offspt n ons of
       NONE => prop_cardc_sem ons k lb ub ls
     | SOME c =>
-      let lb' = if c < 0 then lb - c else lb in
-      let ub' = if c > 0 then ub - c else ub in
       let k' = if l > 0 then k else k - c in
       let ons' = delete_offspt n ons in
-      prop_cardc_sem ons' k' lb' ub' ls)
+      if c > 0 then
+        prop_cardc_sem ons' k' lb (ub - c) ls
+      else
+        prop_cardc_sem ons' k' (lb - c) ub ls)
 End
 
 Theorem lookup_offspt_delete_offspt:
@@ -2205,7 +2248,7 @@ Theorem prop_cardc_sem_eq_aux:
   prop_cardc ons' k lb ub ls
 Proof
   Induct>>rw[prop_cardc_sem_def,prop_cardc_def]>>
-  TOP_CASE_TAC>>gvs[]>>
+  TOP_CASE_TAC>>gvs[]>>rw[]>>
   first_x_assum irule>>
   rw[lookup_offspt_delete_offspt]
 QED
@@ -2400,6 +2443,7 @@ Proof
     metis_tac[])
 QED
 
+(*
 Theorem is_rup2_sound:
   ∀is C.
   wf_clause C ∧
@@ -2442,9 +2486,89 @@ Proof
   first_x_assum (irule_at (Pos last))>>
   gvs[]
 QED
+*)
+Theorem get_units_wf:
+  ∀i0 cs.
+  wf_cfml cfml ∧
+  get_units cfml i0 cs = SOME cs' ∧
+  wf_clause cs ⇒
+  wf_clause cs'
+Proof
+  Induct>>rw[get_units_def]>>gvs[AllCaseEqs()]>>
+  first_x_assum irule>>
+  first_x_assum (irule_at (Pos last))>>
+  gvs[wf_clause_def,wf_cfml_def,range_def,PULL_EXISTS]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
+Theorem mk_strict_aux_SORTED:
+  ∀ls x acc.
+  SORTED (\x y. x ≥ y) (x::ls) ∧
+  SORTED $< (x::acc) ⇒
+  SORTED $< (mk_strict_aux x ls acc)
+Proof
+  Induct>>rw[mk_strict_aux_def]>>
+  first_x_assum irule>>gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem mk_strict_SORTED:
+  SORTED $< (mk_strict ls)
+Proof
+  rw[mk_strict_def]>>
+  every_case_tac>>gvs[]>>
+  irule mk_strict_aux_SORTED>>
+  gvs[]>>
+  pop_assum sym_sub_tac>>
+  DEP_REWRITE_TAC[mergesort_tail_correct]>>
+  CONJ_ASM1_TAC
+  >- (
+    simp[total_def,transitive_def]>>
+    intLib.ARITH_TAC)>>
+  irule mergesort_sorted >>
+  simp[]
+QED
+
+Theorem mk_strict_aux_MEM:
+  ∀ls y acc.
+  MEM x (mk_strict_aux y ls acc) ⇔
+  x = y ∨ MEM x ls ∨ MEM x acc
+Proof
+  Induct>>rw[mk_strict_aux_def]>>
+  metis_tac[]
+QED
+
+Theorem mk_strict_MEM:
+  MEM x (mk_strict ls) ⇔ MEM x ls
+Proof
+  rw[mk_strict_def]>>
+  every_case_tac>>gvs[]>>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC[mergesort_tail_correct]>>
+  (CONJ_TAC
+  >- (
+    simp[total_def,transitive_def]>>
+    intLib.ARITH_TAC))
+  >- metis_tac[mergesort_mem,MEM]>>
+  simp[mk_strict_aux_MEM]>>
+  metis_tac[mergesort_mem,MEM]
+QED
+
+Theorem not_sat_lit_inj:
+  ¬ sat_lit w (interp_lit x) ∧
+  ¬ sat_lit w (interp_lit y) ∧
+  Num (ABS x) = Num (ABS y) ⇒
+  x = y
+Proof
+  simp[interp_lit_def,sat_lit_def,AllCasePreds()]>>
+  rw[]>>gvs[]>>
+  intLib.ARITH_TAC
+QED
 
 Theorem is_cfromb_sound:
   wf_clause C ∧
+  wf_cfml cfml ∧
   (∀b. b ∈ range bfml ⇒ wf_ibnn b) ∧
   isat_cfml w (range cfml) ∧
   isat_bfml w (range bfml) ∧
@@ -2454,13 +2578,40 @@ Proof
   rw[is_cfromb_def]>>
   gvs[AllCasePreds()]>>
   CCONTR_TAC>>
-  drule is_rup2_sound>>
-  rpt (disch_then drule)>>
-  strip_tac>>
-  drule check_ibnn_sound>>
+  drule get_units_sound>>
   disch_then (drule_at Any)>>
+  strip_tac>>gvs[]>>
+  qmatch_asmsub_abbrev_tac`check_ibnn bnn ls`>>
+  `SORTED $< ls` by (
+    gvs[Abbr`ls`]>>
+    metis_tac[mk_strict_SORTED])>>
+  `ALL_DISTINCT ls` by (
+    irule SORTED_ALL_DISTINCT>>
+    first_x_assum (irule_at Any)>>
+    simp[irreflexive_def,transitive_def]>>
+    intLib.ARITH_TAC)>>
+  drule check_ibnn_sound>>
+  disch_then(qspec_then`w` mp_tac)>>
   impl_tac >- (
-    drule is_rup2_wf>>gvs[range_def]>>
+    CONJ_TAC >- (
+      gvs[range_def]>>
+      metis_tac[])>>
+    CONJ_ASM2_TAC >- (
+      CCONTR_TAC>>
+      gvs[EL_ALL_DISTINCT_EL_EQ,EL_MAP]>>
+      rename1`_ ⇎ n1 = n2`>>
+      Cases_on`n1 = n2`>>gvs[]>>
+      gvs[MEM_EL,PULL_EXISTS]>>
+      metis_tac[not_sat_lit_inj])>>
+    gvs[MAP_MAP_o,o_DEF,Abbr`ls`,mk_strict_MEM]>>
+    gvs[isat_cclause_def,wf_clause_def,EVERY_MEM,MEM_MAP]>>
+    rw[]
+    >- (
+      DEP_REWRITE_TAC[sat_lit_interp_lit_neg]>>
+      drule get_units_wf>>
+      disch_then drule>>
+      simp[wf_clause_def]>>
+      metis_tac[])>>
     metis_tac[])>>
   gvs[isat_fml_gen_def,range_def]>>
   metis_tac[]
@@ -2476,6 +2627,12 @@ Proof
   \\ simp []
 QED
 
+Theorem iSUM_append:
+  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
+Proof
+  Induct \\ gvs [iSUM_def,AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
+QED
+
 Theorem iSUM_MAP_toAList_EQ_MAP_toList:
   iSUM (MAP (λ(x,y). f y) (toAList t)) = iSUM (MAP f (toList t))
 Proof
@@ -2489,12 +2646,6 @@ Proof
   \\ once_rewrite_tac [sptreeTheory.toListA_append]
   \\ gvs [iSUM_append,iSUM_def]
   \\ gvs [AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
-QED
-
-Theorem iSUM_append:
-  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
-Proof
-  Induct \\ gvs [iSUM_def,AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
 QED
 
 Theorem lb_ub_spt_thm:
@@ -2533,6 +2684,7 @@ QED
 
 Theorem check_xlrup_sound:
   wf_xlrup xlrup ∧
+  wf_cfml cfml ∧
   check_xlrup xorig xlrup cfml xfml bfml tn def =
     SOME (cfml',xfml',bfml',tn',def') ∧ tn_inv tn ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
@@ -2652,7 +2804,7 @@ Proof
     rw[]
     >- (
       fs[wf_clause_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
-      rw[nz_lit_def,interp_lit_def]
+      rw[var_lit_def,interp_lit_def]
       >- intLib.ARITH_TAC>>
       CCONTR_TAC>>
       fs[]>>
@@ -2692,7 +2844,7 @@ QED
 (* The main operational theorem about check_xlrups *)
 Theorem check_xlrups_sound:
   ∀ls cfml xfml bfml def def' tn tn'.
-  EVERY wf_xlrup ls ∧ tn_inv tn ∧
+  EVERY wf_xlrup ls ∧ wf_cfml cfml ∧ tn_inv tn ∧
   check_xlrups xorig ls cfml xfml bfml tn def =
     SOME (cfml', xfml', bfml', tn', def') ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
@@ -2710,6 +2862,7 @@ Proof
   strip_tac>>
   first_x_assum drule_all>>
   rw[]>>
+  drule_all wf_cfml_check_xlrup>>
   drule_all check_xlrup_tn_inv>>
   metis_tac[]
 QED
@@ -2753,6 +2906,7 @@ QED
 (* Main theorem *)
 Theorem check_xlrups_unsat_sound:
   EVERY wf_xlrup xlrups ∧
+  EVERY wf_clause cfml ∧
   EVERY wf_ibnn bfml ∧
   check_xlrups_unsat xfml xlrups
     (build_fml cid cfml) LN (build_fml bid bfml) (LN,1) def ⇒
@@ -2772,7 +2926,7 @@ Proof
   PairCases_on`r`>>drule check_xlrups_sound>>
   disch_then (drule_at Any)>>
   ‘tn_inv (LN,1)’ by fs [tn_inv_def]>>
-  fs[isat_fml_def,range_build_fml,EVERY_MEM]>>
+  fs[isat_fml_def,range_build_fml,EVERY_MEM,wf_cfml_def]>>
   simp[range_def,isat_fml_gen_def]>>
   metis_tac[]
 QED
@@ -2806,7 +2960,11 @@ Theorem conv_xfml_sound:
   (∀C. C ∈ set xfml ⇒ sat_cmsxor w C))
 Proof
   rw[isat_fml_gen_def,conv_xfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
-  metis_tac[conv_xor_base,EVERY_MEM]
+  simp[GSYM EVERY_MEM]>>
+  match_mp_tac EVERY_CONG>>rw[]>>
+  match_mp_tac conv_xor_base>>
+  gvs[EVERY_MEM]>>
+  metis_tac[]
 QED
 
 Definition conv_bfml_def:

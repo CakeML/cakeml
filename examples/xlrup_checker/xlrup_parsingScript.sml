@@ -308,7 +308,7 @@ Proof
   gvs[AllCaseEqs()]>>
   first_x_assum drule>>
   disch_then irule>>
-  simp[mk_lit_def]>>rw[]
+  simp[mk_lit_def]>>rw[var_lit_def]
 QED
 
 Theorem parse_id_xor_nomv_nz_lit:
