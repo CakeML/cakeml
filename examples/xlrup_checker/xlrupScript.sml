@@ -2292,6 +2292,30 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem iSUM_LUPDATE:
+  ∀ls v n.
+  n < LENGTH ls ⇒
+  iSUM (LUPDATE v n ls) =
+  iSUM ls - EL n ls + v
+Proof
+  Induct>>rw[]>>
+  Cases_on`n`>>gvs[LUPDATE_def,iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_as_list_delete_ons:
+  (∀n. f (n,0) = 0) ⇒
+  iSUM (MAP f (as_list ons)) =
+  iSUM (MAP f (as_list (delete_ons n ons))) +
+  f (n, lookup_ons n ons)
+Proof
+  Cases_on`ons`>>
+  rw[lookup_ons_def,as_list_def,delete_ons_def,o_DEF]>>
+  Cases_on`r`>>simp[update_def,toList_thm,MAPi_LUPDATE]>>
+  DEP_REWRITE_TAC[iSUM_LUPDATE]>>
+  gvs[length_def,sub_def]
+QED
+
 Theorem prop_cardc_sem_isat_cardc:
   ∀ls ons k lb ub.
   prop_cardc_sem ons k lb ub ls = (ons',k',lb',ub') ∧
@@ -2299,24 +2323,16 @@ Theorem prop_cardc_sem_isat_cardc:
   (isat_cardc w (ons,k,lb,ub) ⇔
   isat_cardc w (ons',k',lb',ub'))
 Proof
-  cheat
-  (*
   Induct>>rw[prop_cardc_sem_def]>>
   gvs[AllCaseEqs(),SF DNF_ss]>>
   first_x_assum drule>>
   disch_then (fn th => simp[GSYM th])>>
-  gvs[isat_cardc_def]>>rw[]
-  >- (
-    qmatch_goalsub_abbrev_tac`iSUM (MAP ff _)`>>
-    drule (iSUM_as_list_delete_offspt |> INST_TYPE [beta |-> ``:int``])>>
-    disch_then(qspec_then`ff` SUBST_ALL_TAC)>>
-    gvs[Abbr`ff`,sat_lit_def,interp_lit_def]>>
-    intLib.ARITH_TAC)>>
-  qmatch_goalsub_abbrev_tac`iSUM (MAP ff _)`>>
-  drule (iSUM_as_list_delete_offspt |> INST_TYPE [beta |-> ``:int``])>>
-  disch_then(qspec_then`ff` SUBST_ALL_TAC)>>
-  gvs[Abbr`ff`,sat_lit_def,interp_lit_def]>>
-  intLib.ARITH_TAC *)
+  gvs[isat_cardc_def]>>rw[]>>
+  qmatch_goalsub_abbrev_tac`iSUM (MAP f _)`>>
+  qmatch_goalsub_abbrev_tac`delete_ons n ons`>>
+  mp_tac iSUM_as_list_delete_ons>>
+  gvs[Abbr`f`,Abbr`n`,sat_lit_def,interp_lit_def]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem prop_cardc_sem_wf_cardc:
@@ -2325,22 +2341,18 @@ Theorem prop_cardc_sem_wf_cardc:
   wf_cardc (ons,k,lb,ub) ⇒
   wf_cardc (ons',k',lb',ub')
 Proof
-  cheat
-  (*
   Induct>>rw[prop_cardc_sem_def]
   >-
     metis_tac[]>>
-  gvs[AllCaseEqs(),SF DNF_ss]
-  >-
-    metis_tac[]>>
+  gvs[AllCaseEqs(),SF DNF_ss]>>
   first_x_assum irule>>
   last_x_assum (irule_at Any)>>
   gvs[wf_cardc_def]>>rw[]>>
-  qmatch_goalsub_abbrev_tac`iSUM (MAP ff _)`>>
-  drule (iSUM_as_list_delete_offspt |> INST_TYPE [beta |-> ``:int``])>>
-  disch_then(qspec_then`ff` SUBST_ALL_TAC)>>
-  gvs[Abbr`ff`,sat_lit_def,interp_lit_def]>>
-  intLib.ARITH_TAC *)
+  qmatch_goalsub_abbrev_tac`iSUM (MAP f _)`>>
+  qmatch_goalsub_abbrev_tac`delete_ons n ons`>>
+  mp_tac iSUM_as_list_delete_ons>>
+  gvs[Abbr`f`,Abbr`n`,sat_lit_def,interp_lit_def]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem prop_lit_sat_lit:
@@ -2359,8 +2371,6 @@ Theorem wf_cardc_ub:
   ¬isat_cardc w (x,k,lb,ub)
 Proof
   rw[isat_cardc_def,wf_cardc_def]>>
-  cheat
-  (*
   qmatch_asmsub_abbrev_tac `iSUM (MAP f1 _) ≤ ub`>>
   qmatch_goalsub_abbrev_tac `iSUM (MAP f2 _)`>>
   CCONTR_TAC>>gvs[]>>
@@ -2369,7 +2379,7 @@ Proof
     rw[Abbr`f1`,Abbr`f2`]>>
     pairarg_tac>>rw[]>>
     intLib.ARITH_TAC)>>
-  intLib.ARITH_TAC *)
+  intLib.ARITH_TAC
 QED
 
 Theorem wf_cardc_lb:
@@ -2378,8 +2388,7 @@ Theorem wf_cardc_lb:
   isat_cardc w (x,k,lb,ub)
 Proof
   rw[isat_cardc_def,wf_cardc_def]>>
-  cheat
-  (*qmatch_asmsub_abbrev_tac `lb ≤ iSUM (MAP f1 _)`>>
+  qmatch_asmsub_abbrev_tac `lb ≤ iSUM (MAP f1 _)`>>
   qmatch_goalsub_abbrev_tac `iSUM (MAP f2 _)`>>
   CCONTR_TAC>>gvs[]>>
   `iSUM (MAP f1 (as_list x)) ≤ iSUM (MAP f2 (as_list x))` by
@@ -2387,7 +2396,7 @@ Proof
     rw[Abbr`f1`,Abbr`f2`]>>
     pairarg_tac>>rw[]>>
     intLib.ARITH_TAC)>>
-  intLib.ARITH_TAC *)
+  intLib.ARITH_TAC
 QED
 
 Theorem check_ibnn_sound:
