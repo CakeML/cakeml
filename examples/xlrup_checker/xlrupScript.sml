@@ -94,15 +94,22 @@ Definition isat_strxor_def:
     EVEN (sum_bitlist w (string_to_bits x))
 End
 
-Definition foldli_ons_def:
-  foldli_ons f e (off,ns) =
-  foldli (λn i acc. f (off+n) i acc) e ns
+Definition as_list_def:
+  as_list (off,ns) =
+    MAPi (λk v. (k + off,v)) (mlvector$toList ns)
+End
+
+Definition iSUM_def:
+  (iSUM [] = 0:int) ∧
+  (iSUM (x::xs) = x + iSUM xs)
 End
 
 Definition isat_cardc_def:
   isat_cardc (w:assignment) ((ons,k,lb,ub):cardc) ⇔
-  k ≤
-  foldli_ons (λn i acc. if w n then i + acc else acc) 0i ons
+  let ls = as_list ons in
+  k ≤ iSUM
+    (MAP (λ(k,v).
+      if w k then v else 0i) ls)
 End
 
 Definition isat_ibnn_def:
@@ -113,10 +120,13 @@ End
 (* offset doesn't actually matter here *)
 Definition wf_cardc_def:
   wf_cardc ((ons,k,lb,ub):cardc) ⇔
-  lb ≤ foldli_ons
-    (λn i acc. if i < 0 then i + acc else acc) 0i ons ∧
-  foldli_ons
-    (λn i acc. if i > 0 then i + acc else acc) 0i ons ≤ ub
+  let ls = as_list ons in
+  lb ≤ iSUM
+    (MAP (λ(k,v).
+      if v < 0 then v else 0) ls) ∧
+  iSUM
+    (MAP (λ(k,v).
+      if v > 0 then v else 0) ls) ≤ ub
 End
 
 Definition wf_ibnn_def:
@@ -2272,7 +2282,6 @@ Proof
   metis_tac[prop_cardc_sem_eq_aux]
 QED
 
-(*
 Theorem iSUM_le:
   (∀x. MEM x ls ⇒ f x ≤ g x)
   ⇒
@@ -2282,53 +2291,6 @@ Proof
   gvs[SF DNF_ss]>>
   intLib.ARITH_TAC
 QED
-
-Theorem toAList_delete_PERM:
-  lookup n t = SOME v ⇒
-  PERM (toAList t) ((n,v)::toAList (delete n t))
-Proof
-  rw[]>>
-  irule PERM_ALL_DISTINCT>>
-  rw[]
-  >- (
-    Cases_on`x`>>
-    rw[MEM_toAList,lookup_delete]>>
-    metis_tac[SOME_11])
-  >-
-    metis_tac[ALL_DISTINCT_MAP,ALL_DISTINCT_MAP_FST_toAList]
-  >-
-    simp[MEM_toAList,lookup_delete]
-  >-
-    metis_tac[ALL_DISTINCT_MAP,ALL_DISTINCT_MAP_FST_toAList]
-QED
-
-Theorem iSUM_PERM:
-  ∀xs ys.
-  PERM xs ys ⇒
-  iSUM xs = iSUM ys
-Proof
-  ho_match_mp_tac PERM_IND>>rw[iSUM_def]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem iSUM_as_list_delete_offspt:
-  lookup_offspt n ons = SOME c ⇒
-  iSUM (MAP f (as_list ons)) =
-  iSUM (MAP f (as_list (delete_offspt n ons))) +
-  f (n,c)
-Proof
-  Cases_on`ons`>>
-  rw[lookup_offspt_def,as_list_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,delete_offspt_def]>>
-  drule toAList_delete_PERM>>
-  rw[]>>
-  qmatch_goalsub_abbrev_tac`iSUM (MAP ff _)`>>
-  drule (PERM_MAP |> INST_TYPE [beta |-> ``:int``])>>
-  disch_then (qspec_then `ff` assume_tac)>>
-  drule iSUM_PERM>>
-  rw[iSUM_def,Abbr`ff`]>>
-  intLib.ARITH_TAC
-QED
-*)
 
 Theorem prop_cardc_sem_isat_cardc:
   ∀ls ons k lb ub.
