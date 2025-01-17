@@ -1,7 +1,7 @@
 (*
    Basic specification of an xlrup checker (minimal optimization)
 *)
-open preamble miscTheory mlstringTheory cnf_extTheory blastLib sptreeTheory mergesortTheory;
+open preamble miscTheory mlstringTheory cnf_extTheory blastLib sptreeTheory mergesortTheory mlvectorTheory;
 
 val _ = new_theory "xlrup";
 
@@ -17,7 +17,7 @@ Type rawxor = ``:int list``;
   which are required to bound \Sum c*X from above
   and below, respectively (for all assignments).
 *)
-Type cardc = ``:(num # int num_map) # int # int # int``
+Type cardc = ``:(num # int vector) # int # int # int``
 
 (* A cardinality constraint and the reification literal on the RHS *)
 Type ibnn = ``:cardc # int``;
@@ -92,22 +92,15 @@ Definition isat_strxor_def:
     EVEN (sum_bitlist w (string_to_bits x))
 End
 
-Definition as_list_def:
-  as_list (off,ns) =
-    MAP (λ(k,v). (k + off,v)) (toAList ns)
-End
-
-Definition iSUM_def:
-  (iSUM [] = 0:int) ∧
-  (iSUM (x::xs) = x + iSUM xs)
+Definition foldli_ons_def:
+  foldli_ons f e (off,ns) =
+  foldli (λn i acc. f (off+n) i acc) e ns
 End
 
 Definition isat_cardc_def:
   isat_cardc (w:assignment) ((ons,k,lb,ub):cardc) ⇔
-  let ls = as_list ons in
-  k ≤ iSUM
-    (MAP (λ(k,v).
-      if w k then v else 0i) ls)
+  k ≤
+  foldli_ons (λn i acc. if w n then i + acc else acc) 0i ons
 End
 
 Definition isat_ibnn_def:
@@ -115,15 +108,13 @@ Definition isat_ibnn_def:
   (isat_cardc w cc ⇔ sat_lit w (interp_lit y))
 End
 
+(* offset doesn't actually matter here *)
 Definition wf_cardc_def:
   wf_cardc ((ons,k,lb,ub):cardc) ⇔
-  let ls = as_list ons in
-  lb ≤ iSUM
-    (MAP (λ(k,v).
-      if v < 0 then v else 0) ls) ∧
-  iSUM
-    (MAP (λ(k,v).
-      if v > 0 then v else 0) ls) ≤ ub
+  lb ≤ foldli_ons
+    (λn i acc. if i < 0 then i + acc else acc) 0i ons ∧
+  foldli_ons
+    (λn i acc. if i > 0 then i + acc else acc) 0i ons ≤ ub
 End
 
 Definition wf_ibnn_def:
@@ -1039,20 +1030,25 @@ Definition ren_lit_ls_def:
         ren_lit_ls tn is (Neg m::acc))
 End
 
-Definition lookup_offspt_def:
-  lookup_offspt n (off,ns) =
-  if n < off then NONE
+Definition lookup_ons_def:
+  lookup_ons n (off,ns) =
+  if n < off then 0i
   else
-  lookup (n - off) ns
+  let n = n - off in
+    if n < length ns
+    then
+      sub ns n
+    else 0
 End
 
 Definition prop_cardc_def:
   (prop_cardc ons k lb ub [] = (k:int,lb:int,ub:int)) ∧
   (prop_cardc ons k lb ub (l::ls) =
     let n = Num (ABS l) in
-    case lookup_offspt n ons of
-      NONE => prop_cardc ons k lb ub ls
-    | SOME c =>
+    let c = lookup_ons n ons in
+    if c = 0 then
+      prop_cardc ons k lb ub ls
+    else
       let k' = if l > 0 then k else k - c in
       if c > 0 then
         prop_cardc ons k' lb (ub - c) ls
@@ -1170,6 +1166,7 @@ Definition lb_ub_spt_def:
 End
 
 (* TODO: convert a CMS bnn into an ibnn *)
+(*
 Definition conv_bnn_def:
   conv_bnn (([],k,y):cmsbnn) = (((0:num,LN),& k,0,0), conv_lit y):ibnn ∧
   conv_bnn ((c::cs,k,y)) =
@@ -1178,6 +1175,7 @@ Definition conv_bnn_def:
     let (lb,ub) = lb_ub_spt spt in
       (((min, spt), new_k, lb, ub), conv_lit y)
 End
+*)
 
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
 Definition check_xlrup_def:
@@ -1470,7 +1468,7 @@ Definition wf_clause_def:
 End
 
 Definition wf_cfml_def:
-  wf_cfml cfml ⇔
+  wf_cfml (cfml:int list num_map) ⇔
   ∀C. C ∈ range cfml ⇒ wf_clause C
 End
 
@@ -2207,11 +2205,15 @@ Proof
   simp[restore_int_def]
 QED
 
-Definition delete_offspt_def:
-  delete_offspt n (off,ns) =
+Definition delete_ons_def:
+  delete_ons n (off,ns) =
   if n < off then (off,ns)
   else
-  (off,delete (n - off) ns)
+  let n = n - off in
+  if n < length ns then
+    (off,update ns n 0i)
+  else
+    (off,ns)
 End
 
 (* We'll reason about this *)
@@ -2219,23 +2221,27 @@ Definition prop_cardc_sem_def:
   (prop_cardc_sem ons k lb ub [] = (ons,k:int,lb:int,ub:int)) ∧
   (prop_cardc_sem ons k lb ub (l::ls) =
     let n = Num (ABS l) in
-    case lookup_offspt n ons of
-      NONE => prop_cardc_sem ons k lb ub ls
-    | SOME c =>
+    let c = lookup_ons n ons in
+    let ons' = delete_ons n ons in
+    if c = 0 then
+      prop_cardc_sem ons' k lb ub ls
+    else
       let k' = if l > 0 then k else k - c in
-      let ons' = delete_offspt n ons in
       if c > 0 then
         prop_cardc_sem ons' k' lb (ub - c) ls
       else
         prop_cardc_sem ons' k' (lb - c) ub ls)
 End
 
-Theorem lookup_offspt_delete_offspt:
-  lookup_offspt n (delete_offspt n' t) =
-  if n = n' then NONE
-  else lookup_offspt n t
+Theorem lookup_ons_delete_ons:
+  lookup_ons n (delete_ons n' t) =
+  if n = n' then 0
+  else lookup_ons n t
 Proof
-  Cases_on`t`>>rw[lookup_offspt_def,delete_offspt_def,lookup_delete]
+  Cases_on`t`>>Cases_on`r`>>
+  rw[lookup_ons_def,delete_ons_def]>>
+  gvs[update_def,length_def,toList_thm,sub_def]>>
+  rw[EL_LUPDATE]
 QED
 
 Theorem prop_cardc_sem_eq_aux:
@@ -2243,14 +2249,13 @@ Theorem prop_cardc_sem_eq_aux:
   ALL_DISTINCT (MAP (λl. Num (ABS l)) ls) ∧
   (∀n.
     MEM n (MAP (λl. Num (ABS l)) ls) ⇒
-    lookup_offspt n ons = lookup_offspt n ons') ⇒
+    lookup_ons n ons = lookup_ons n ons') ⇒
   SND (prop_cardc_sem ons k lb ub ls) =
   prop_cardc ons' k lb ub ls
 Proof
   Induct>>rw[prop_cardc_sem_def,prop_cardc_def]>>
-  TOP_CASE_TAC>>gvs[]>>rw[]>>
   first_x_assum irule>>
-  rw[lookup_offspt_delete_offspt]
+  rw[lookup_ons_delete_ons]
 QED
 
 Theorem prop_cardc_sem_eq:
@@ -2261,6 +2266,7 @@ Proof
   metis_tac[prop_cardc_sem_eq_aux]
 QED
 
+(*
 Theorem iSUM_le:
   (∀x. MEM x ls ⇒ f x ≤ g x)
   ⇒
@@ -2316,6 +2322,7 @@ Proof
   rw[iSUM_def,Abbr`ff`]>>
   intLib.ARITH_TAC
 QED
+*)
 
 Theorem prop_cardc_sem_isat_cardc:
   ∀ls ons k lb ub.
@@ -2324,6 +2331,8 @@ Theorem prop_cardc_sem_isat_cardc:
   (isat_cardc w (ons,k,lb,ub) ⇔
   isat_cardc w (ons',k',lb',ub'))
 Proof
+  cheat
+  (*
   Induct>>rw[prop_cardc_sem_def]>>
   gvs[AllCaseEqs(),SF DNF_ss]>>
   first_x_assum drule>>
@@ -2339,7 +2348,7 @@ Proof
   drule (iSUM_as_list_delete_offspt |> INST_TYPE [beta |-> ``:int``])>>
   disch_then(qspec_then`ff` SUBST_ALL_TAC)>>
   gvs[Abbr`ff`,sat_lit_def,interp_lit_def]>>
-  intLib.ARITH_TAC
+  intLib.ARITH_TAC *)
 QED
 
 Theorem prop_cardc_sem_wf_cardc:
@@ -2348,6 +2357,8 @@ Theorem prop_cardc_sem_wf_cardc:
   wf_cardc (ons,k,lb,ub) ⇒
   wf_cardc (ons',k',lb',ub')
 Proof
+  cheat
+  (*
   Induct>>rw[prop_cardc_sem_def]
   >-
     metis_tac[]>>
@@ -2361,7 +2372,7 @@ Proof
   drule (iSUM_as_list_delete_offspt |> INST_TYPE [beta |-> ``:int``])>>
   disch_then(qspec_then`ff` SUBST_ALL_TAC)>>
   gvs[Abbr`ff`,sat_lit_def,interp_lit_def]>>
-  intLib.ARITH_TAC
+  intLib.ARITH_TAC *)
 QED
 
 Theorem prop_lit_sat_lit:
@@ -2380,6 +2391,8 @@ Theorem wf_cardc_ub:
   ¬isat_cardc w (x,k,lb,ub)
 Proof
   rw[isat_cardc_def,wf_cardc_def]>>
+  cheat
+  (*
   qmatch_asmsub_abbrev_tac `iSUM (MAP f1 _) ≤ ub`>>
   qmatch_goalsub_abbrev_tac `iSUM (MAP f2 _)`>>
   CCONTR_TAC>>gvs[]>>
@@ -2388,7 +2401,7 @@ Proof
     rw[Abbr`f1`,Abbr`f2`]>>
     pairarg_tac>>rw[]>>
     intLib.ARITH_TAC)>>
-  intLib.ARITH_TAC
+  intLib.ARITH_TAC *)
 QED
 
 Theorem wf_cardc_lb:
@@ -2397,7 +2410,8 @@ Theorem wf_cardc_lb:
   isat_cardc w (x,k,lb,ub)
 Proof
   rw[isat_cardc_def,wf_cardc_def]>>
-  qmatch_asmsub_abbrev_tac `lb ≤ iSUM (MAP f1 _)`>>
+  cheat
+  (*qmatch_asmsub_abbrev_tac `lb ≤ iSUM (MAP f1 _)`>>
   qmatch_goalsub_abbrev_tac `iSUM (MAP f2 _)`>>
   CCONTR_TAC>>gvs[]>>
   `iSUM (MAP f1 (as_list x)) ≤ iSUM (MAP f2 (as_list x))` by
@@ -2405,7 +2419,7 @@ Proof
     rw[Abbr`f1`,Abbr`f2`]>>
     pairarg_tac>>rw[]>>
     intLib.ARITH_TAC)>>
-  intLib.ARITH_TAC
+  intLib.ARITH_TAC *)
 QED
 
 Theorem check_ibnn_sound:
@@ -2617,6 +2631,7 @@ Proof
   metis_tac[]
 QED
 
+(* TODO BROKEN BELOW *)
 Triviality foldi_cons_lemma:
   ∀t acc k. foldi (λk v a. f v::a) k acc t =
             foldi (λk v a. f v::a) k [] t ++ acc
