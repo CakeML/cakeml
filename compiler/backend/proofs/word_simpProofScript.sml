@@ -97,7 +97,7 @@ End
 
 
 Definition sf_gc_consts_def:
-  sf_gc_consts (StackFrame lsz sv h) (StackFrame lsz' sw h') =
+  sf_gc_consts (StackFrame _ _ sv h) (StackFrame _ _ sw h') =
   (EVERY2 (\(ak, av) (bk, bv). (ak = bk) /\ (is_gc_word_const av ==> bv = av)) sv sw /\ h = h')
 End
 
@@ -484,7 +484,7 @@ QED
 
 Definition get_above_handler_def:
   get_above_handler s = case EL (LENGTH s.stack - (s.handler + 1)) s.stack of
-                          | StackFrame _ _ (SOME (h,_,_)) => h
+                          | StackFrame _ _ _ (SOME (h,_,_)) => h
 End
 
 Theorem enc_stack_dec_stack_is_gc_word_const:

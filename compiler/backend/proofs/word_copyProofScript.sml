@@ -509,16 +509,28 @@ Proof
 QED
 
 Theorem CPstate_modelsD_get_var:
-  CPstate_inv cs ⇒
+  CPstate_inv cs /\
   CPstate_models cs st ⇒
   get_var (lookup_eq cs x) st = get_var x st
 Proof
   rw[get_var_def]>>
-  metis_tac[CPstate_modelsD,lookup_eq_idempotent]
+  imp_res_tac CPstate_modelsD >>
+  imp_res_tac lookup_eq_idempotent >>
+  metis_tac[]
+QED
+
+Theorem CPstate_modelsD_get_vars:
+  CPstate_inv cs /\
+  CPstate_models cs st ⇒
+  get_vars (MAP (lookup_eq cs) xs) st = get_vars xs st
+Proof
+  Induct_on `xs` >> rw[get_vars_def] >>
+  DEP_REWRITE_TAC[CPstate_modelsD_get_var] >>
+  fs[]
 QED
 
 Theorem CPstate_modelsD_get_var_imm:
-  CPstate_inv cs ⇒
+  CPstate_inv cs /\
   CPstate_models cs st ⇒
   get_var_imm (lookup_eq_imm cs x) st = get_var_imm x st
 Proof
@@ -527,12 +539,12 @@ Proof
 QED
 
 Theorem CPstate_modelsD_Var:
-  CPstate_inv cs ⇒
+  CPstate_inv cs /\
   CPstate_models cs st ⇒
   word_exp st (Var (lookup_eq cs x)) = word_exp st (Var x)
 Proof
   rw[word_exp_def]>>
-  metis_tac[CPstate_modelsD,lookup_eq_idempotent]
+  metis_tac[CPstate_modelsD_get_var]
 QED
 
 Theorem CPstate_modelsD_lookup_eq_imm:
@@ -543,7 +555,7 @@ Theorem CPstate_modelsD_lookup_eq_imm:
 Proof
   Cases_on‘x’>>
   rw[lookup_eq_imm_def,word_exp_def]>>
-  metis_tac[CPstate_modelsD,lookup_eq_idempotent]
+  metis_tac[CPstate_modelsD_get_var]
 QED
 
 Theorem MAP_get_var_eqD:
@@ -1152,11 +1164,10 @@ Proof
     (*Return*)
     rw[copy_prop_prog_def,evaluate_def]
     >-(
-      ‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
-      >>‘get_var (lookup_eq cs n0) st = get_var n0 st’ by metis_tac[CPstate_modelsD_get_var]
-      >>rw[]
+       DEP_REWRITE_TAC[CPstate_modelsD_get_var,CPstate_modelsD_get_vars]
+       >> gvs[]
     )
-    >>every_case_tac>>fs[]
+    >> gvs[ACE]
   )
   >-(
     (*Tick*)
@@ -1188,20 +1199,16 @@ Proof
   )
   >-(
     (*CodeBufferWrite*)
-    rw[copy_prop_prog_def,evaluate_def]
-    >>‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
-    >>‘get_var (lookup_eq cs n0) st = get_var n0 st’ by metis_tac[CPstate_modelsD_get_var]
-    >>gvs[ACE]
-    >>qpat_x_assum‘CPstate_models cs st’mp_tac>>rw[CPstate_models_def]
-  )
+    rpt gen_tac >> rpt disch_tac >>
+    fs[copy_prop_prog_def,evaluate_def] >>
+    DEP_REWRITE_TAC[CPstate_modelsD_get_var,CPstate_modelsD_get_vars] >>
+    gvs[ACE])
   >-(
     (*DataBufferWrite*)
-    rw[copy_prop_prog_def,evaluate_def]
-    >>‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
-    >>‘get_var (lookup_eq cs n0) st = get_var n0 st’ by metis_tac[CPstate_modelsD_get_var]
-    >>gvs[ACE]
-    >>qpat_x_assum‘CPstate_models cs st’mp_tac>>rw[CPstate_models_def]
-  )
+    rpt gen_tac >> rpt disch_tac >>
+    fs[copy_prop_prog_def,evaluate_def] >>
+    DEP_REWRITE_TAC[CPstate_modelsD_get_var,CPstate_modelsD_get_vars] >>
+    gvs[ACE])
   >-(
     (*FFI*)
     rw[copy_prop_prog_def,evaluate_def,empty_eq_inv,empty_eq_model]

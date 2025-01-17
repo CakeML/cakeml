@@ -438,6 +438,10 @@ QED
 
 Theorem push_env_with_const[simp]:
    (push_env x y (z with clock := k) = push_env x y z with clock := k) ∧
+   (push_env x y (z with compile := c) = push_env x y z with compile := c) ∧
+   (push_env x y (z with compile_oracle := co) = push_env x y z with compile_oracle := co) ∧
+   (push_env x y (z with code := code) = push_env x y z with code := code) ∧
+   (push_env x y (z with termdep := termdep) = push_env x y z with termdep := termdep) ∧
    (push_env x y (z with locals := l) = push_env x y z with locals := l)
 Proof
   Cases_on`y`>>srw_tac[][push_env_def] >> unabbrev_all_tac >> simp[state_component_equality] >>
@@ -466,6 +470,10 @@ QED
 
 Theorem pop_env_with_const[simp]:
    pop_env (z with clock := k) = OPTION_MAP (λs. s with clock := k) (pop_env z) ∧
+   pop_env (z with compile:= c) = OPTION_MAP (λs. s with compile := c) (pop_env z) ∧
+   pop_env (z with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (pop_env z) ∧
+   pop_env (z with code := code) = OPTION_MAP (λs. s with code := code) (pop_env z) ∧
+   pop_env (z with termdep := termdep) = OPTION_MAP (λs. s with termdep := termdep) (pop_env z) ∧
    pop_env (z with permute:= perm) = OPTION_MAP (λs. s with permute := perm) (pop_env z) ∧
    pop_env (z with locals := l) = pop_env z /\
    pop_env (z with locals_size := ls) = pop_env z
@@ -517,6 +525,10 @@ QED
 Theorem call_env_with_const[simp]:
    call_env x ss (y with locals := l) = call_env x ss y /\
    call_env x ss (y with clock := k) = call_env x ss y with clock := k /\
+   call_env x ss (y with termdep := termdep) = call_env x ss y with termdep := termdep /\
+   call_env x ss (y with compile := c) = call_env x ss y with compile := c /\
+   call_env x ss (y with compile_oracle := co) = call_env x ss y with compile_oracle := co /\
+   call_env x ss (y with code := code) = call_env x ss y with code := code /\
    call_env x ss (y with handler := k) = call_env x ss y with handler := k /\
    call_env x ss (y with permute := perm) = call_env x ss y with permute := perm
 Proof
@@ -553,6 +565,10 @@ QED
 
 Theorem has_space_with_const[simp]:
    has_space x (y with clock := k) = has_space x y /\
+   has_space x (y with compile:= c) = has_space x y /\
+   has_space x (y with compile_oracle := co) = has_space x y /\
+   has_space x (y with code := code) = has_space x y /\
+   has_space x (y with termdep := termdep) = has_space x y /\
    has_space x (y with locals := l) = has_space x y /\
    has_space x (y with locals_size := ls) = has_space x y /\
    has_space x (y with stack := xs) = has_space x y
@@ -582,7 +598,11 @@ QED
 
 Theorem gc_with_const[simp]:
    gc (x with clock := k) = OPTION_MAP (λs. s with clock := k) (gc x) ∧
+   gc (x with compile := c) = OPTION_MAP (λs. s with compile := c) (gc x) ∧
+   gc (x with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (gc x) ∧
+   gc (x with code := code) = OPTION_MAP (λs. s with code := code) (gc x) ∧
    gc (x with permute := perm) = OPTION_MAP (λs. s with permute := perm) (gc x) ∧
+   gc (x with termdep := t) = OPTION_MAP (λs. s with termdep := t) (gc x) /\
    gc (x with locals := l) = OPTION_MAP (λs. s with locals := l) (gc x) /\
    gc (x with locals_size := ls) = OPTION_MAP (λs. s with locals_size := ls) (gc x)
 Proof
@@ -634,17 +654,15 @@ Proof
   imp_res_tac pop_env_code_gc_fun_clock>>fs[]
 QED
 
+(*TODO convert to using PAIRMAP and deal with breakage*)
 Theorem alloc_with_const[simp]:
-   alloc c names (s with clock := k) =
-   (λ(r,s). (r,s with clock := k)) (alloc c names s)
+   alloc c names (s with clock := k) = (λ(r,s). (r,s with clock := k)) (alloc c names s) /\
+   alloc c names (s with termdep := t) = (λ(r,s). (r,s with termdep := t)) (alloc c names s) /\
+   alloc c names (s with code := code) = (λ(r,s). (r,s with code := code)) (alloc c names s) /\
+   alloc c names (s with compile_oracle := compile_oracle) = (λ(r,s). (r,s with compile_oracle := compile_oracle)) (alloc c names s) /\
+   alloc c names (s with compile := comp) = (λ(r,s). (r,s with compile := comp)) (alloc c names s)
 Proof
-  srw_tac[][alloc_def] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[]
+  fs[alloc_def] >> EVERY_CASE_TAC >> fs[flush_state_def]
 QED
 
 Theorem get_fp_var_with_const[simp]:
@@ -730,6 +748,7 @@ QED
 
 Theorem mem_load_with_const[simp]:
    mem_load x (y with locals := l) = mem_load x y ∧
+   mem_load x (y with termdep := td) = mem_load x y ∧
    mem_load x (y with clock := k) = mem_load x y ∧
    mem_load x (y with stack := xs) = mem_load x y ∧
    mem_load x (y with permute := perm) = mem_load x y ∧
@@ -768,6 +787,8 @@ QED
 Theorem mem_store_with_const[simp]:
    mem_store x z (y with locals := l) = OPTION_MAP (λs. s with locals := l) (mem_store x z y) /\
    mem_store x z (y with clock := k) = OPTION_MAP (λs. s with clock := k) (mem_store x z y) /\
+   mem_store x z (y with compile := c) = OPTION_MAP (λs. s with compile := c) (mem_store x z y) /\
+   mem_store x z (y with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (mem_store x z y) /\
    mem_store x z (y with permute := perm) = OPTION_MAP (λs. s with permute := perm) (mem_store x z y) /\
    mem_store x z (y with stack := xs) = OPTION_MAP (λs. s with stack := xs) (mem_store x z y)
 Proof
@@ -779,6 +800,7 @@ Theorem word_exp_with_const[simp]:
   word_exp (x with clock := k) y = word_exp x y ∧
   word_exp (x with stack := xs) y = word_exp x y ∧
   word_exp (x with permute := perm) y = word_exp x y ∧
+  word_exp (x with termdep := termdep) y = word_exp x y ∧
   word_exp (x with code := c) y = word_exp x y ∧
   word_exp (x with compile_oracle := co) y = word_exp x y ∧
   word_exp (x with compile := cc) y = word_exp x y
@@ -789,14 +811,6 @@ Proof
   qpat_abbrev_tac `ls' = MAP A B` >>
   `ls = ls'`
      by (unabbrev_all_tac >> simp[MAP_EQ_f]) >>
-  simp[]
-QED
-
-(*TODO remove*)
-Theorem word_exp_stack[simp]:
-    ∀s exp. word_exp (s with stack := stk) exp =
-          word_exp s exp
-Proof
   simp[]
 QED
 
@@ -829,6 +843,8 @@ QED
 
 Theorem assign_with_const[simp]:
    assign x y (z with clock := k) = OPTION_MAP (λs. s with clock := k) (assign x y z) /\
+   assign x y (z with compile := c) = OPTION_MAP (λs. s with compile := c) (assign x y z) /\
+   assign x y (z with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (assign x y z) /\
    assign x y (z with permute := perm) = OPTION_MAP (λs. s with permute := perm) (assign x y z) /\
    assign x y (z with stack := xs) = OPTION_MAP (λs. s with stack := xs) (assign x y z)
 Proof
@@ -837,6 +853,8 @@ QED
 
 Theorem inst_with_const[simp]:
    inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s) /\
+   inst i (s with compile := c) = OPTION_MAP (λs. s with compile := c) (inst i s) /\
+   inst i (s with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (inst i s) /\
    inst i (s with permute := perm) = OPTION_MAP (λs. s with permute := perm) (inst i s) /\
    inst i (s with stack := xs) = OPTION_MAP (λs. s with stack := xs) (inst i s)
 Proof
@@ -911,6 +929,10 @@ QED
 
 Theorem get_var_imm_with_const[simp]:
    get_var_imm x (y with clock := k) = get_var_imm x y /\
+   get_var_imm x (y with code := code) = get_var_imm x y /\
+   get_var_imm x (y with compile := compile) = get_var_imm x y /\
+   get_var_imm x (y with compile_oracle := compile_oracle) = get_var_imm x y /\
+   get_var_imm x (y with termdep := td) = get_var_imm x y /\
    get_var_imm x (y with stack := xs) = get_var_imm x y /\
    get_var_imm x (y with permute := perm) = get_var_imm x y
 Proof
