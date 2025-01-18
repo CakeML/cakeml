@@ -2735,28 +2735,28 @@ QED
 *)
 
 Theorem conv_bnn_sound:
-  nz_lit y ∧ EVERY nz_lit C ⇒
-  wf_ibnn (conv_bnn (C,k,y)) ∧
-  (isat_ibnn w (conv_bnn (C,k,y)) ⇔ sat_cmsbnn w (C,k,y))
+  ∀C k y w.
+    nz_lit y ∧ EVERY nz_lit C ⇒
+    wf_ibnn (conv_bnn (C,k,y)) ∧
+    (isat_ibnn w (conv_bnn (C,k,y)) ⇔ sat_cmsbnn w (C,k,y))
 Proof
-  cheat
-(*
-  conv_bnn_ind
-  Cases_on ‘C’ \\ gvs [conv_bnn_def,wf_ibnn_def,wf_cardc_def]
-  >- (* C is [] *)
-   (gvs [sat_cmsbnn_def,isat_ibnn_def,interp_lit_conv_lit]
-    \\ gvs [isat_cardc_def,as_list_def,EVAL “toAList LN”,EVAL “iSUM []”]
-    \\ Cases_on ‘k’ \\ gvs [])
-  \\ rpt (pairarg_tac \\ gvs [wf_ibnn_def])
-  \\ strip_tac
-  \\ gvs [sat_cmsbnn_def,isat_ibnn_def,interp_lit_conv_lit]
-  \\ irule_at Any (METIS_PROVE [] “x = y ⇒ (x = b ⇔ b = y)”)
-  \\ gvs [wf_cardc_def]
-  \\ gvs [isat_cardc_def]
-  \\ gvs [as_list_def,MAP_MAP_o,o_DEF,LAMBDA_PROD,iSUM_MAP_toAList_EQ_MAP_toList]
-  \\ qabbrev_tac ‘s = to_spt (h::t) min' LN’
-  \\ gvs [lb_ub_spt_thm]
-  \\ cheat *)
+  recInduct conv_bnn_ind
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ gvs []
+  \\ simp [Once conv_bnn_def]
+  \\ TOP_CASE_TAC \\ gvs []
+  >-
+   (pop_assum $ qspec_then ‘w’ mp_tac
+    \\ impl_tac
+    >-
+     (DEP_REWRITE_TAC [mergesortTheory.mergesort_tail_correct]
+      \\ gvs [mergesortTheory.mergesort_mem,EVERY_MEM]
+      \\ gvs [total_def,transitive_def,lit_le_def])
+    \\ strip_tac \\ gvs []
+    \\ simp [Once conv_bnn_def]
+    \\ cheat)
+  \\ cheat
 QED
 
 Theorem check_xlrup_sound:
