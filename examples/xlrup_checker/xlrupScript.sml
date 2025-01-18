@@ -160,7 +160,7 @@ Theorem interp_lit_conv_lit:
   interp_lit (conv_lit y) = y
 Proof
   Cases_on`y`>>
-  rw[conv_lit_def,interp_lit_def,var_lit_def]>>
+  rw[conv_lit_def,interp_lit_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -174,7 +174,7 @@ QED
 Theorem nz_lit_conv_lit:
   nz_lit y ⇒ conv_lit y ≠ 0
 Proof
-  Cases_on`y`>>rw[conv_lit_def,var_lit_def]
+  Cases_on`y`>>rw[conv_lit_def]
 QED
 
 Theorem isat_cclause_MAP_conv_lit:
@@ -826,7 +826,7 @@ Proof
     simp[sat_cmsxor_def]
   >- (
     reverse(Cases_on`h`>>
-      fs[sat_lit_def,conv_lit_def,var_lit_def])
+      fs[sat_lit_def,conv_lit_def])
     >-
       `F` by intLib.ARITH_TAC>>
     DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
@@ -835,7 +835,7 @@ Proof
     simp[isat_strxor_extend_s]>>
     metis_tac[]) >>
   Cases_on`h`>>
-  fs[sat_lit_def,conv_lit_def,var_lit_def]
+  fs[sat_lit_def,conv_lit_def]
   >-
     `F` by intLib.ARITH_TAC>>
   DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
@@ -1185,15 +1185,10 @@ Definition while_var_def:
     | Neg v => (if n = v then while_var n (k-1) xs (t-1) else (k,x::xs,t))
 End
 
-Definition get_Var_def[simp]:
-  get_Var (Pos n) = n ∧
-  get_Var (Neg n) = n
-End
-
 Triviality while_var_LENGTH:
   ∀n k xs t new_k new_xs new_t.
     (new_k,new_xs,new_t) = while_var n k xs t ⇒
-    ∃ys. xs = ys ++ new_xs ∧ EVERY (λx. get_Var x = n) ys
+    ∃ys. xs = ys ++ new_xs ∧ EVERY (λx. var_lit x = n) ys
 Proof
   Induct_on ‘xs’ \\ gvs [while_var_def,AllCaseEqs()] \\ rw []
   \\ pop_assum $ mp_tac o GSYM
@@ -1219,18 +1214,18 @@ Definition to_vector_def:
          else
            to_vector new_k lb (ub + new_t) n new_xs (new_t::acc))
 Termination
-  WF_REL_TAC ‘measure (λ(k,lb,ub,n,xs,acc). SUM (MAP get_Var xs) + LENGTH xs - n)’ \\ rw []
+  WF_REL_TAC ‘measure (λ(k,lb,ub,n,xs,acc). SUM (MAP var_lit xs) + LENGTH xs - n)’ \\ rw []
   \\ imp_res_tac while_var_LENGTH \\ gvs [SUM_APPEND]
 End
 
 Definition lit_le_def:
-  lit_le x y = (get_Var x ≤ get_Var y)
+  lit_le x y = (var_lit x ≤ var_lit y)
 End
 
 Triviality SORTED_lit_le_DROP:
   ∀ys y.
     SORTED lit_le (y::(ys ++ new_xs)) ∧
-    EVERY (λx. get_Var y = get_Var x) ys ⇒
+    EVERY (λx. var_lit y = var_lit x) ys ⇒
     SORTED lit_le (y::new_xs)
 Proof
   Induct \\ gvs [lit_le_def] \\ rw []
@@ -1255,25 +1250,28 @@ Proof
   \\ Cases_on ‘new_xs’ \\ gvs [lit_le_def]
 QED
 
-Triviality SORTED_QSORT_lit_le:
-  SORTED lit_le (QSORT lit_le cs)
+Triviality SORTED_mergesort_tail_lit_le:
+  SORTED lit_le (mergesort_tail lit_le cs)
 Proof
-  irule sortingTheory.QSORT_SORTED
-  \\ gvs [transitive_def,total_def,lit_le_def]
+  DEP_REWRITE_TAC[mergesort_tail_correct]>>
+  CONJ_ASM1_TAC
+  >- simp[lit_le_def,total_def,transitive_def]>>
+  irule mergesort_sorted >>
+  simp[]
 QED
 
 (* TODO: convert a CMS bnn into an ibnn *)
 Definition conv_bnn_def:
   conv_bnn ((cs,k,y):cmsbnn) =
-    let init_n = (case cs of [] => 0 | (c::cs) => get_Var c) in
+    let init_n = (case cs of [] => 0 | (c::cs) => var_lit c) in
       case to_vector (& k) 0 0 init_n cs [] of
-      | NONE => conv_bnn ((QSORT lit_le cs,k,y):cmsbnn)
+      | NONE => conv_bnn ((mergesort_tail lit_le cs,k,y):cmsbnn)
       | SOME (k,lb,ub,vec) => (((init_n,vec),k,lb,ub), conv_lit y):ibnn
 Termination
   WF_REL_TAC ‘measure (λ(cs,k,y). if SORTED lit_le cs then 0 else 1:num)’
-  \\ gvs [SORTED_QSORT_lit_le] \\ rw []
+  \\ gvs [SORTED_mergesort_tail_lit_le] \\ rw []
   \\ irule SORTED_to_vector
-  \\ Cases_on ‘cs’ \\ gvs [lit_le_def,SORTED_QSORT_lit_le]
+  \\ Cases_on ‘cs’ \\ gvs [lit_le_def,SORTED_mergesort_tail_lit_le]
 End
 
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
@@ -1890,7 +1888,7 @@ Proof
   \\ Cases \\ fs [ren_lit_ls_def] \\ rw []
   \\ pairarg_tac \\ gvs []
   \\ first_x_assum $ drule_then $ irule \\ gvs []
-  \\ drule tn_inv_get_name \\ gvs [var_lit_def]
+  \\ drule tn_inv_get_name \\ gvs []
 QED
 
 Theorem ren_lit_ls_tn_inv:
@@ -2883,7 +2881,7 @@ Proof
     rw[]
     >- (
       fs[wf_clause_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
-      rw[var_lit_def,interp_lit_def]
+      rw[interp_lit_def]
       >- intLib.ARITH_TAC>>
       CCONTR_TAC>>
       fs[]>>

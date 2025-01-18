@@ -112,7 +112,7 @@ Definition parse_lits_aux_def:
     | INL (_:mlstring) => NONE)
 End
 
-Definition var_lit_def:
+Definition var_lit_def[simp]:
   (var_lit (Pos n) = n) ∧
   (var_lit (Neg n) = n)
 End
@@ -399,7 +399,7 @@ Theorem fromString_print_lit:
     Num (ABS i) = var_lit h ∧
     (if i > 0 then h = Pos (var_lit h) else h = Neg (var_lit h))
 Proof
-  Cases_on`h`>>rw[var_lit_def]>>
+  Cases_on`h`>>rw[]>>
   drule print_lit_alt>>simp[]>>
   rw[]>>
   intLib.ARITH_TAC
@@ -430,7 +430,7 @@ Proof
   rw[]>>gvs[AllCaseEqs()]>>
   simp[mk_lit_def]>>rw[]>>
   gvs[]>>rw[]>>
-  every_case_tac>>gvs[var_lit_def]>>
+  every_case_tac>>gvs[]>>
   intLib.ARITH_TAC
 QED
 
@@ -508,7 +508,7 @@ Proof
   rw[tokenize_def]>>
   drule fromString_print_lit>>rw[]>>
   simp[]>>
-  every_case_tac>>gvs[var_lit_def]>>
+  every_case_tac>>gvs[]>>
   intLib.ARITH_TAC
 QED
 
@@ -526,7 +526,7 @@ Proof
   simp[parse_bnn_tail_def]>>
   rw[]
   >- intLib.ARITH_TAC>>
-  Cases_on`y`>>rw[mk_lit_def]>>gvs[var_lit_def]>>
+  Cases_on`y`>>rw[mk_lit_def]>>gvs[]>>
   intLib.ARITH_TAC
 QED
 
@@ -855,7 +855,7 @@ Proof
   gvs[AllCaseEqs()]>>
   first_x_assum match_mp_tac>>
   last_x_assum (irule_at Any)>>
-  rw[mk_lit_def,var_lit_def]
+  rw[mk_lit_def]
 QED
 
 Theorem parse_line_nz_lit:
@@ -873,7 +873,7 @@ Proof
     last_x_assum kall_tac>>
     gvs[parse_bnn_def,parse_lits_def,AllCaseEqs(),parse_bnn_tail_def]>>
     drule parse_lits_aux_nz_lit>>simp[]>>
-    rw[mk_lit_def,var_lit_def])
+    rw[mk_lit_def])
   >- (
     last_x_assum kall_tac>>
     gvs[parse_xor_def,parse_lits_def,AllCaseEqs()]>>
