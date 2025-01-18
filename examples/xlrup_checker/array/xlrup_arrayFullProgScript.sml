@@ -492,14 +492,30 @@ val r = translate usage_string_def;
 
 val r = translate conv_cfml_def;
 
-(* TODO *)
-Theorem conv_bnn_temp:
-  conv_bnn x = (((0,LN), 0, 0 ,0), 0)
+
+val r = translate while_var_def;
+val r = translate to_vector_def;
+
+Theorem conv_bnn_alt:
+  conv_bnn (cs,k,y) =
+  (let
+    init_n = case cs of [] => 0 | c::cs => var_lit c
+   in
+    case to_vector (&k) 0 0 init_n cs [] of
+      NONE =>
+        let cs = mergesort_tail lit_le cs in
+        let init_n = case cs of [] => 0 | c::cs => var_lit c in
+        (case to_vector (&k) 0 0 init_n cs [] of
+          NONE => (((0,fromList []),0,0,0),0)
+        | SOME (k',lb,ub,vec) => (((init_n,vec),k',lb,ub),conv_lit y))
+    | SOME (k',lb,ub,vec) => (((init_n,vec),k',lb,ub),conv_lit y))
 Proof
   cheat
 QED
 
-val r = translate conv_bnn_temp;
+val r = translate lit_le_def;
+val r = translate regexp_compilerTheory.fromList_def;
+val r = translate conv_bnn_alt;
 val r = translate conv_bfml_def;
 
 val r = translate max_list_def;

@@ -60,7 +60,7 @@ val _ = register_type``:'a spt``;
 
 Overload "lit_list_TYPE" = ``LIST_TYPE INT``
 Overload "strxor_TYPE" = ``STRING_TYPE``
-Overload "cardc_TYPE" = ``PAIR_TYPE (PAIR_TYPE NUM (SPTREE_SPT_TYPE INT)) (PAIR_TYPE INT (PAIR_TYPE INT INT))``
+Overload "cardc_TYPE" = ``PAIR_TYPE (PAIR_TYPE NUM (VECTOR_TYPE INT)) (PAIR_TYPE INT (PAIR_TYPE INT INT))``
 Overload "ibnn_TYPE" = `` PAIR_TYPE cardc_TYPE INT``
 
 val _ = translate insert_def;
@@ -1750,7 +1750,7 @@ End
 val res = translate ren_int_ls_def;
 val res = translate ren_ints_def;
 
-val res = translate lookup_offspt_def;
+val res = translate lookup_ons_def;
 val res = translate prop_cardc_def;
 val res = translate prop_lit_def;
 val res = translate check_ibnn_def;
