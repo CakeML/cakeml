@@ -2700,11 +2700,6 @@ Proof
 QED
 
 (*
-Theorem iSUM_append:
-  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
-Proof
-  Induct \\ gvs [iSUM_def,AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
-QED
 
 Theorem iSUM_MAP_toAList_EQ_MAP_toList:
   iSUM (MAP (λ(x,y). f y) (toAList t)) = iSUM (MAP f (toList t))
@@ -2734,6 +2729,58 @@ Proof
 QED
 *)
 
+Theorem iSUM_append:
+  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
+Proof
+  Induct \\ gvs [iSUM_def,AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
+QED
+
+Theorem iSUM_REVERSE:
+  ∀xs. iSUM (REVERSE xs) = iSUM xs
+Proof
+  Induct \\ gvs [REVERSE_DEF,iSUM_append,iSUM_def]
+  \\ gvs [AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
+QED
+
+Theorem to_vector_bounds:
+  ∀k lb ub n xs acc x0 x1 x2 x3.
+    to_vector k lb ub n xs acc = SOME (x0,x1,x2,x3) ⇒
+    x1 = iSUM (MAP (λv. if v < 0 then v else 0) (toList x3))
+          - iSUM (MAP (λv. if v < 0 then v else 0) acc) + lb ∧
+    x2 = iSUM (MAP (λv. if v > 0 then v else 0) (toList x3))
+          - iSUM (MAP (λv. if v > 0 then v else 0) acc) + ub
+Proof
+  recInduct to_vector_ind \\ rpt conj_tac
+  \\ rpt gen_tac \\ disch_tac
+  >- gvs [to_vector_def,toList_thm,MAP_REVERSE,iSUM_REVERSE]
+  \\ simp [Once to_vector_def]
+  \\ IF_CASES_TAC \\ gvs []
+  \\ rpt strip_tac \\ gvs [iSUM_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
+  \\ intLib.COOPER_TAC
+QED
+
+Theorem to_vector_lemma:
+  ∀k lb ub n xs acc x0 x1 x2 x3.
+    to_vector k lb ub n xs acc = SOME (x0,x1,x2,x3) ∧
+    LENGTH acc ≤ n ⇒
+    (x0 ≤ iSUM (MAP (λ(k,v). if w k then v else 0) (as_list (n,x3))) -
+          iSUM (MAP (λ(k,v). if w k then v else 0) (as_list (n,Vector (REVERSE acc)))) ⇔
+     k ≤ & SUM (MAP (of_bool o sat_lit w) xs))
+Proof
+  recInduct to_vector_ind \\ rpt conj_tac
+  \\ rpt gen_tac \\ disch_tac
+  >- gvs [to_vector_def]
+  \\ simp [Once to_vector_def]
+  \\ rpt IF_CASES_TAC \\ gvs []
+  \\ rpt strip_tac
+  \\ cheat (* theorem statement needs fixing *)
+QED
+
+Theorem to_vector_thm =
+  Q.SPECL [‘k’,‘lb’,‘ub’,‘n’,‘xs’,‘[]’] to_vector_lemma |> SRULE [] |> GEN_ALL;
+
 Theorem conv_bnn_sound:
   ∀C k y w.
     nz_lit y ∧ EVERY nz_lit C ⇒
@@ -2755,8 +2802,24 @@ Proof
       \\ gvs [total_def,transitive_def,lit_le_def])
     \\ strip_tac \\ gvs []
     \\ simp [Once conv_bnn_def]
-    \\ cheat)
-  \\ cheat
+    \\ gvs [sat_cmsbnn_def]
+    \\ irule (METIS_PROVE [] “y = z ⇒ (x = (y >= k) ⇔ x = (z >= k:num))”)
+    \\ simp [Once EQ_SYM_EQ]
+    \\ irule sortingTheory.PERM_SUM
+    \\ irule PERM_MAP
+    \\ DEP_REWRITE_TAC [mergesortTheory.mergesort_tail_correct]
+    \\ gvs [mergesortTheory.mergesort_perm]
+    \\ gvs [total_def,transitive_def,lit_le_def])
+  \\ PairCases_on ‘x’ \\ gvs [wf_ibnn_def,wf_cardc_def]
+  \\ conj_tac
+  >- (gvs [as_list_def,o_DEF]
+      \\ drule to_vector_bounds \\ gvs [] \\ strip_tac \\ gvs [iSUM_def])
+  \\ simp [Once conv_bnn_def,isat_ibnn_def,sat_cmsbnn_def]
+  \\ gvs [interp_lit_conv_lit,isat_cardc_def]
+  \\ irule (METIS_PROVE [] “y = z ⇒ (y = x ⇔ x = z)”)
+  \\ gvs [GREATER_EQ]
+  \\ drule to_vector_thm \\ gvs []
+  \\ gvs [as_list_def,toList_thm,iSUM_def]
 QED
 
 Theorem check_xlrup_sound:
