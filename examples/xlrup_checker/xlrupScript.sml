@@ -1188,7 +1188,8 @@ End
 Triviality while_var_LENGTH:
   ∀n k xs t new_k new_xs new_t.
     (new_k,new_xs,new_t) = while_var n k xs t ⇒
-    ∃ys. xs = ys ++ new_xs ∧ EVERY (λx. var_lit x = n) ys
+    ∃ys. xs = ys ++ new_xs ∧ EVERY (λx. var_lit x = n) ys ∧
+         ∀z zs. new_xs = z :: zs ⇒ n ≠ var_lit z
 Proof
   Induct_on ‘xs’ \\ gvs [while_var_def,AllCaseEqs()] \\ rw []
   \\ pop_assum $ mp_tac o GSYM
@@ -1202,17 +1203,17 @@ Definition to_vector_def:
      if n > v then NONE else
        let (new_k,new_xs,new_t) = while_var n k xs 1 in
          if new_t < 0 then
-           to_vector new_k (lb + new_t) ub n new_xs (new_t::acc)
+           to_vector new_k (lb + new_t) ub (n+1) new_xs (new_t::acc)
          else
-           to_vector new_k lb (ub + new_t) n new_xs (new_t::acc)) ∧
+           to_vector new_k lb (ub + new_t) (n+1) new_xs (new_t::acc)) ∧
   to_vector k lb ub n ((Neg v)::xs) acc =
     (if n < v then to_vector k lb ub (n+1) ((Neg v)::xs) (0::acc) else
      if n > v then NONE else
        let (new_k,new_xs,new_t) = while_var n (k-1) xs (0-1) in
          if new_t < 0 then
-           to_vector new_k (lb + new_t) ub n new_xs (new_t::acc)
+           to_vector new_k (lb + new_t) ub (n+1) new_xs (new_t::acc)
          else
-           to_vector new_k lb (ub + new_t) n new_xs (new_t::acc))
+           to_vector new_k lb (ub + new_t) (n+1) new_xs (new_t::acc))
 Termination
   WF_REL_TAC ‘measure (λ(k,lb,ub,n,xs,acc). SUM (MAP var_lit xs) + LENGTH xs - n)’ \\ rw []
   \\ imp_res_tac while_var_LENGTH \\ gvs [SUM_APPEND]
@@ -1246,8 +1247,12 @@ Proof
   \\ gvs [] \\ rw [] \\ gvs []
   \\ last_x_assum irule
   \\ ‘n = k'’ by gvs [] \\ gvs []
-  \\ drule SORTED_lit_le_DROP \\ gvs []
-  \\ Cases_on ‘new_xs’ \\ gvs [lit_le_def]
+  \\ full_simp_tac bool_ss [GSYM APPEND]
+  \\ ‘transitive lit_le’ by gvs [transitive_def,lit_le_def]
+  \\ full_simp_tac bool_ss [SORTED_APPEND]
+  \\ Cases_on ‘new_xs’ \\ gvs [SORTED_DEF]
+  \\ gvs [SF DNF_ss]
+  \\ Cases_on ‘h’ \\ gvs [var_lit_def,lit_le_def]
 QED
 
 Triviality SORTED_mergesort_tail_lit_le:
@@ -2761,25 +2766,87 @@ Proof
   \\ intLib.COOPER_TAC
 QED
 
+Theorem to_vector_acc:
+  ∀k lb ub n xs (_acc:int list) (acc:int list) x0 x1 x2 x3.
+    to_vector k lb ub n xs acc = SOME (x0,x1,x2,x3) ⇔
+    ∃y3. to_vector k lb ub n xs [] = SOME (x0,x1,x2,y3) ∧
+         x3 = Vector (REVERSE acc ++ toList y3)
+Proof
+  recInduct to_vector_ind \\ rpt conj_tac
+  \\ rpt gen_tac
+  >- (gvs [to_vector_def,toList_thm] \\ metis_tac [])
+  \\ strip_tac
+  \\ once_rewrite_tac [to_vector_def]
+  \\ rpt IF_CASES_TAC
+  \\ rewrite_tac []
+  \\ rpt gen_tac
+  \\ simp_tac std_ss [LET_THM]
+  \\ rpt $ pop_assum $ mp_tac o GSYM
+  \\ rpt strip_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rpt IF_CASES_TAC \\ gvs []
+  \\ last_x_assum (fn th => once_rewrite_tac [GSYM th])
+  \\ gvs [PULL_EXISTS,toList_thm]
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+QED
+
+Theorem as_list_cons:
+  as_list (n,Vector (x::xs)) = (n,x) :: as_list (n+1,Vector xs)
+Proof
+  gvs [as_list_def,toList_thm,o_DEF,ADD1]
+  \\ AP_THM_TAC \\ AP_TERM_TAC \\ gvs [FUN_EQ_THM]
+QED
+
+Triviality Vector_toList[simp]:
+  ∀v. Vector (toList v) = v
+Proof
+  Cases \\ gvs [toList_thm]
+QED
+
+Theorem while_var_thm:
+  ∀n k xs t new_k new_xs new_t.
+    while_var n k xs t = (new_k,new_xs,new_t) ⇒
+    ∃ys. xs = ys ++ new_xs ∧
+         & SUM (MAP (of_bool ∘ sat_lit w) xs) =
+         (if w n then (new_t - t) else 0) +
+         & SUM (MAP (of_bool ∘ sat_lit w) new_xs) - new_k + k
+Proof
+  Induct_on ‘xs’ \\ gvs [while_var_def,AllCaseEqs()]
+  \\ rpt strip_tac \\ gvs []
+  \\ last_x_assum drule \\ strip_tac \\ gvs []
+  \\ gvs [SUM_APPEND,intLib.COOPER_PROVE “& (m + n) : int = & m + & n”]
+  \\ Cases_on ‘w n’
+  \\ gvs [sat_lit_def,of_bool_def]
+  \\ intLib.COOPER_TAC
+QED
+
 Theorem to_vector_lemma:
-  ∀k lb ub n xs acc x0 x1 x2 x3.
-    to_vector k lb ub n xs acc = SOME (x0,x1,x2,x3) ∧
-    LENGTH acc ≤ n ⇒
-    (x0 ≤ iSUM (MAP (λ(k,v). if w k then v else 0) (as_list (n,x3))) -
-          iSUM (MAP (λ(k,v). if w k then v else 0) (as_list (n,Vector (REVERSE acc)))) ⇔
-     k ≤ & SUM (MAP (of_bool o sat_lit w) xs))
+  ∀k lb ub n xs (acc:int list) x0 x1 x2 x3.
+    to_vector k lb ub n xs [] = SOME (x0,x1,x2,x3) ⇒
+    & SUM (MAP (of_bool o sat_lit w) xs) =
+    iSUM (MAP (λ(k,v). if w k then v else 0) (as_list (n,x3))) + k - x0
 Proof
   recInduct to_vector_ind \\ rpt conj_tac
   \\ rpt gen_tac \\ disch_tac
-  >- gvs [to_vector_def]
+  >- gvs [to_vector_def,as_list_def,toList_thm,iSUM_def]
   \\ simp [Once to_vector_def]
+  \\ rpt gen_tac
   \\ rpt IF_CASES_TAC \\ gvs []
   \\ rpt strip_tac
-  \\ cheat (* theorem statement needs fixing *)
+  \\ pop_assum mp_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rpt IF_CASES_TAC \\ gvs []
+  \\ simp [Once to_vector_acc]
+  \\ strip_tac \\ gvs [as_list_cons,iSUM_def]
+  \\ drule while_var_thm
+  \\ disch_then $ qspec_then ‘w’ strip_assume_tac
+  \\ gvs [SUM_APPEND,intLib.COOPER_PROVE “& (m + n) : int = & m + & n”]
+  \\ qabbrev_tac ‘j = iSUM (MAP (λ(k,v). if w k then v else 0) (as_list (n + 1,y3)))’
+  \\ gvs [sat_lit_def,of_bool_def]
+  \\ ‘n = v’ by intLib.COOPER_TAC
+  \\ IF_CASES_TAC \\ gvs [of_bool_def]
+  \\ intLib.COOPER_TAC
 QED
-
-Theorem to_vector_thm =
-  Q.SPECL [‘k’,‘lb’,‘ub’,‘n’,‘xs’,‘[]’] to_vector_lemma |> SRULE [] |> GEN_ALL;
 
 Theorem conv_bnn_sound:
   ∀C k y w.
@@ -2818,8 +2885,10 @@ Proof
   \\ gvs [interp_lit_conv_lit,isat_cardc_def]
   \\ irule (METIS_PROVE [] “y = z ⇒ (y = x ⇔ x = z)”)
   \\ gvs [GREATER_EQ]
-  \\ drule to_vector_thm \\ gvs []
+  \\ drule to_vector_lemma \\ gvs []
   \\ gvs [as_list_def,toList_thm,iSUM_def]
+  \\ disch_then $ qspec_then ‘w’ mp_tac
+  \\ intLib.COOPER_TAC
 QED
 
 Theorem check_xlrup_sound:
