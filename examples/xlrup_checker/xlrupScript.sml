@@ -3181,6 +3181,21 @@ Definition conv_bfml_def:
   MAP (conv_bnn) bfml
 End
 
+Theorem conv_bfml_sound:
+  EVERY (λ(ls,k,y). nz_lit y ∧
+  EVERY (λl. nz_lit l) ls) bfml ⇒
+  (isat_bfml w (set (conv_bfml bfml)) ⇔
+  (∀b. b ∈ set bfml ⇒ sat_cmsbnn w b))
+Proof
+  rw[isat_fml_gen_def,conv_bfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
+  simp[GSYM EVERY_MEM]>>
+  match_mp_tac EVERY_CONG>>rw[]>>
+  first_x_assum drule>>
+  pairarg_tac>>fs[]>> strip_tac>>
+  drule conv_bnn_sound>>
+  gvs[EVERY_MEM]
+QED
+
 Definition conv_fml_def:
   conv_fml mv (cfml,xfml,bfml) =
   (conv_cfml cfml, conv_xfml xfml, conv_bfml bfml)

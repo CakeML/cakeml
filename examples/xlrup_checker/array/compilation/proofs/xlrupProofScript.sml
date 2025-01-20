@@ -6,7 +6,7 @@
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      TextIOProofTheory
-     cnf_xorTheory xlrupTheory xlrup_listTheory xlrup_arrayFullProgTheory
+     cnf_extTheory xlrupTheory xlrup_listTheory xlrup_arrayFullProgTheory
      xlrup_parsingTheory xlrupCompileTheory;
 
 val _ = new_theory"xlrupProof";
@@ -63,52 +63,6 @@ Definition cake_xlrup_run_def:
   installed_x64 cake_xlrup_code mc ms
 End
 
-Theorem parse_lits_aux_nz_lit:
-  ∀v ls acc c.
-  parse_lits_aux v ls acc = SOME c ∧
-  EVERY nz_lit acc ⇒
-  EVERY nz_lit c
-Proof
-  ho_match_mp_tac parse_lits_aux_ind>>
-  rw[parse_lits_aux_def]>>
-  gvs[AllCaseEqs()]>>
-  first_x_assum match_mp_tac>>
-  rw[]
-QED
-
-Theorem parse_line_INL_nz_lit:
-  ∀ls c.
-  parse_line v ls = SOME (INL c) ⇒
-  EVERY nz_lit c
-Proof
-  Induct>>rw[parse_line_def]>>
-  gvs[AllCaseEqs(),parse_clause_def]>>
-  drule parse_lits_aux_nz_lit>>
-  fs[]
-QED
-
-Theorem parse_body_nz_lit:
-  ∀ss cacc dacc cacc' dacc'.
-  parse_body v ss cacc dacc = SOME (cacc',xacc') ∧
-  EVERY (EVERY nz_lit) cacc ⇒
-  EVERY (EVERY nz_lit) cacc'
-Proof
-  Induct>>rw[parse_body_def]>>
-  gvs[AllCaseEqs()]>>
-  first_x_assum drule>>
-  disch_then match_mp_tac>>fs[]>>
-  metis_tac[parse_line_INL_nz_lit]
-QED
-
-Theorem parse_cnf_xor_toks_nz_lit:
-  parse_cnf_xor_toks tokss = SOME (v,n,cfml,xfml) ⇒
-  EVERY (EVERY nz_lit) cfml
-Proof
-  rw[parse_cnf_xor_toks_def]>>
-  gvs[AllCaseEqs()]>>
-  drule parse_body_nz_lit>>simp[]
-QED
-
 Theorem machine_code_sound:
   cake_xlrup_run cl fs mc ms ⇒
   machine_sem mc (basis_ffi cl fs) ms ⊆
@@ -120,15 +74,15 @@ Theorem machine_code_sound:
   if LENGTH cl = 2 then
     if inFS_fname fs (EL 1 cl)
     then
-      case parse_cnf_xor (all_lines fs (EL 1 cl)) of
+      case parse_cnf_ext (all_lines fs (EL 1 cl)) of
         NONE => out = strlit ""
-      | SOME fml => out = concat (print_cnf_xor fml)
+      | SOME fml => out = concat (print_cnf_ext fml)
     else out = strlit ""
   else if LENGTH cl = 3 then
     if out = strlit "s VERIFIED UNSAT\n" then
       inFS_fname fs (EL 1 cl) ∧
       ∃f.
-        parse_cnf_xor (all_lines fs (EL 1 cl)) = SOME f ∧
+        parse_cnf_ext (all_lines fs (EL 1 cl)) = SOME f ∧
         sols f = {}
     else out = strlit ""
   else
@@ -198,22 +152,32 @@ Proof
     qexists_tac`strlit ""`>> simp[]>>
     CONJ_TAC >-
       metis_tac[STD_streams_stderr,add_stdo_nil]>>
-    simp[parse_cnf_xor_def]>>
+    simp[parse_cnf_ext_def]>>
+    drule parse_cnf_ext_toks_nz_lit>>
+    strip_tac>>
     drule (GEN_ALL xlrup_arrayProgTheory.check_xlrups_unsat_list_sound)>>
     simp[]>>
-    rename1`sols (cfml,xfml)`>>
-    `EVERY (EVERY nz_lit) cfml` by
-      metis_tac[parse_cnf_xor_toks_nz_lit]>>
+    rename1`sols (cfml,xfml,bfml)`>>
     impl_tac >- (
       drule parse_xlrups_wf>>
-      simp[]>>
-      fs[EVERY_MEM,conv_cfml_def,MEM_MAP,wf_clause_def,PULL_EXISTS]>>
-      rw[]>>first_x_assum drule>>
-      rw[]>>CCONTR_TAC>>fs[]>>first_x_assum drule>>
-      rename1`nz_lit l`>>
-      Cases_on`l`>>fs[nz_lit_def,conv_lit_def])>>
+      fs[EVERY_MEM,conv_cfml_def,MEM_MAP,wf_clause_def,PULL_EXISTS,conv_bfml_def]>>
+      rw[]
+      >- (
+        first_x_assum drule>>
+        rw[]>>CCONTR_TAC>>fs[]>>first_x_assum drule>>
+        rename1`nz_lit l`>>
+        Cases_on`l`>>fs[conv_lit_def])
+      >- (
+        first_x_assum drule>>
+        pairarg_tac>>rw[]>>
+        drule conv_bnn_sound>>
+        gvs[EVERY_MEM]
+      )
+    )>>
     rw[sols_def,EXTENSION,sat_fml_def]>>
+    qpat_x_assum`EVERY _ xfml` kall_tac>>
     drule conv_cfml_sound>>
+    drule conv_bfml_sound>>
     rw[]>>gvs[])>>
   qexists_tac`err`>>rw[]>>
   metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]
