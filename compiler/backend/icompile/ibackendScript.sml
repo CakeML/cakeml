@@ -3,7 +3,6 @@
   meant to be syntactically equal to backend but allows
   compiling program in a part-by-part manner
 *)
-
 open preamble backendTheory namespacePropsTheory;
 
 val _ = new_theory"ibackend";
@@ -42,12 +41,10 @@ val _ = new_theory"ibackend";
 (******************************************************************************)
 
 (* An alternative version compile_def that we'll prove correctness against
-  TODO: this is being defined incrementally
-  TODO: the _alt parts of this definition will need to be moved into backend/ *)
+  TODO: the _alt parts of this definition will eventually need to be proved
+  and moved into backend/ *)
 
-(* we always insert the clos_interpreter code, this should be put into config *)
-
-(* change the order of chain_exps *)
+(* NOTE: change the order of chain_exps *)
 Definition clos_to_bvl_compile_common_alt_def:
   clos_to_bvl_compile_common_alt c es =
     let es = clos_mti$compile c.do_mti c.max_app es in
@@ -96,7 +93,6 @@ Definition bvi_stubs_without_init_globs_def:
    (ConcatByte_location, ConcatByte_code)]
 End
 
-
 Definition bvl_to_bvi_compile_prog_alt_def:
   bvl_to_bvi_compile_prog_alt start n prog =
     let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
@@ -126,7 +122,7 @@ Definition bvl_to_bvi_compile_update_config_def:
     (clos_conf, bvl_conf, p)
 End
 
-(* no raw call *)
+(* no raw call TODO: use new rawcall config *)
 Definition stack_to_lab_compile_alt_def:
   stack_to_lab_compile_alt stack_conf data_conf max_heap sp offset prog =
   let prog = stack_alloc$compile data_conf prog in
@@ -191,28 +187,14 @@ End
 Definition to_livesets_0_alt_def:
   to_livesets_0_alt asm_conf (word_conf, p) =
   let alg = word_conf.reg_alg in
-  let p =
-    MAP (λ(name_num,arg_count,prog).
-    let prog = word_simp$compile_exp prog in
-    let maxv = max_var prog + 1 in
-    let inst_prog = inst_select asm_conf maxv prog in
-    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let rm_ssa_prog = remove_dead_prog ssa_prog in
-    let cse_prog = word_common_subexp_elim rm_ssa_prog in
-    let cp_prog = copy_prop cse_prog in
-    let two_prog = three_to_two_reg_prog asm_conf.two_reg_arith cp_prog in
-    let unreach_prog = remove_unreach two_prog in
-    let rm_prog = remove_dead_prog unreach_prog in
-        (name_num,arg_count,rm_prog))
-      p in
-    let data = MAP (\(name_num,arg_count,prog).
-    let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,
-      get_forced asm_conf prog [],get_stack_only prog)) p
+  let p = word_internal asm_conf p in
+  let data = MAP (\(name_num,arg_count,prog).
+  let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
+  (get_clash_tree prog,heu_moves,spillcosts,
+    get_forced asm_conf prog [],get_stack_only prog)) p
   in
     ((asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs),data), p)
 End
-
 
 Definition to_livesets_alt_def:
   to_livesets_alt source_conf clos_conf bvl_conf data_conf word_conf asm_conf p =
@@ -231,8 +213,6 @@ Definition to_livesets_alt_def:
   let ((reg_count, data), p) = to_livesets_0_alt asm_conf (word_conf, compiled_p_word_0) in
     (source_conf', clos_conf', bvl_conf', (reg_count, data), p)
 End
-
-
 
 Datatype:
   source_iconfig =

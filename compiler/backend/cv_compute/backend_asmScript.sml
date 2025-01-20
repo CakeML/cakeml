@@ -487,11 +487,11 @@ Theorem to_livesets_thm:
     backend$to_livesets (inc_config_to_config asm_conf c) p =
                         (sets,inc_config_to_config asm_conf c1,rest)
 Proof
-  rw [to_livesets_def,backendTheory.to_liveset_0_thm]
+  rw [to_livesets_def,backendTheory.to_liveset_0_thm,word_internal_def]
   \\ ‘∃t. to_word_0 asm_conf c p = t’ by fs [] \\ PairCases_on ‘t’
   \\ ‘∃u. to_word_0 (inc_config_to_config asm_conf c) p = u’ by fs [] \\ PairCases_on ‘u’
   \\ drule_all_then strip_assume_tac to_word_0_thm \\ gvs []
-  \\ gvs [to_livesets_0_def,backendTheory.to_livesets_0_def]
+  \\ gvs [to_livesets_0_def,backendTheory.to_livesets_0_def,word_internal_def]
   \\ gvs [backendTheory.inc_config_to_config_def]
   \\ gvs [lab_to_targetTheory.inc_config_to_config_def]
   \\ rw [] \\ rpt CASE_TAC
@@ -643,7 +643,7 @@ Definition to_word_all_def:
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(strlit "after data_to_word",Word p names)] in
-    let (p,ps) = word_internal asm_conf ps names p in
+    let (p,ps) = word_internal_all asm_conf ps names p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
     let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in

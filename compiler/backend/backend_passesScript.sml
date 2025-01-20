@@ -181,8 +181,8 @@ QED
 
 (* NOTE: this definition is meant to minimize code duplication
   in the explorer pretty printing. *)
-Definition word_internal_def:
-  word_internal asm_conf ps names p =
+Definition word_internal_all_def:
+  word_internal_all asm_conf ps names p =
     let two_reg_arith = asm_conf.two_reg_arith in
     let p = MAP (λ((name_num,arg_count,prog)).
                   ((name_num,arg_count,word_simp$compile_exp prog))) p in
@@ -229,7 +229,7 @@ Definition to_word_all_def:
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(strlit "after data_to_word",Word p names)] in
-    let (p,ps) = word_internal asm_conf ps names p in
+    let (p,ps) = word_internal_all asm_conf ps names p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
     let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
@@ -264,7 +264,7 @@ Proof
          to_word_def,data_to_wordTheory.compile_def,
          word_to_wordTheory.compile_def]
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs[word_internal_def, Excl "MAP_APPEND", MAP_MAP_o, o_DEF,LAMBDA_PROD]
+  \\ gvs[word_internal_all_def, Excl "MAP_APPEND", MAP_MAP_o, o_DEF,LAMBDA_PROD]
   \\ DEP_REWRITE_TAC[ZIP_MAP_1]
   \\ imp_res_tac LENGTH_next_n_oracle
   \\ CONJ_TAC >- (
@@ -404,7 +404,7 @@ Definition from_word_0_all_def:
   from_word_0_all ps (c:'a config) names p =
     let word_conf = c.word_to_word_conf in
     let asm_conf = c.lab_conf.asm_conf in
-    let (p,ps) = word_internal asm_conf ps names p in
+    let (p,ps) = word_internal_all asm_conf ps names p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
     let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
@@ -424,7 +424,7 @@ Proof
   \\ fs [data_to_wordTheory.compile_def,
          word_to_wordTheory.compile_def]
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs[word_internal_def, Excl "MAP_APPEND", MAP_MAP_o, o_DEF,LAMBDA_PROD]
+  \\ gvs[word_internal_all_def, Excl "MAP_APPEND", MAP_MAP_o, o_DEF,LAMBDA_PROD]
   \\ DEP_REWRITE_TAC[ZIP_MAP_1]
   \\ imp_res_tac LENGTH_next_n_oracle
   \\ CONJ_TAC >- simp[]
@@ -481,7 +481,7 @@ Proof
   fs [to_target_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_lab_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_stack_all_def] \\ rpt (pairarg_tac \\ gvs [])
-  \\ fs [word_internal_def,to_word_all_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ fs [word_internal_all_def,to_word_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_data_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_bvi_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_bvl_all_def] \\ rpt (pairarg_tac \\ gvs [])

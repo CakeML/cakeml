@@ -312,17 +312,10 @@ Proof
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
 QED
 
-Definition to_livesets_def:
-  to_livesets (c:α backend$config) p =
-  let (c',p,names) = to_data c p in
-  let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
-  let data_conf = (data_conf with <| has_fp_ops := (1 < asm_conf.fp_reg_count);
-                                     has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count)|>) in
-  let p = stubs(:α) data_conf ++ MAP (compile_part data_conf) p in
-  let alg = word_conf.reg_alg in
-  let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
-  let p =
-    MAP (λ(name_num,arg_count,prog).
+Definition word_internal_def:
+  word_internal asm_conf p =
+  let two_reg_arith = asm_conf.two_reg_arith in
+  MAP (λ(name_num,arg_count,prog).
     let prog = word_simp$compile_exp prog in
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
@@ -333,7 +326,19 @@ Definition to_livesets_def:
     let two_prog = three_to_two_reg_prog two_reg_arith cp_prog in
     let unreach_prog = remove_unreach two_prog in
     let rm_prog = remove_dead_prog unreach_prog in
-     (name_num,arg_count,rm_prog)) p in
+     (name_num,arg_count,rm_prog)) p
+End
+
+Definition to_livesets_def:
+  to_livesets (c:α backend$config) p =
+  let (c',p,names) = to_data c p in
+  let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
+  let data_conf = (data_conf with <| has_fp_ops := (1 < asm_conf.fp_reg_count);
+                                     has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count)|>) in
+  let p = stubs(:α) data_conf ++ MAP (compile_part data_conf) p in
+  let p = word_internal asm_conf p in
+  let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
+  let alg = word_conf.reg_alg in
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
     (get_clash_tree prog,heu_moves,spillcosts,
@@ -345,21 +350,9 @@ End
 Definition to_livesets_0_def:
   to_livesets_0 (c:α backend$config,p,names: mlstring num_map) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
+  let p = word_internal asm_conf p in
+  let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
   let alg = word_conf.reg_alg in
-  let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
-  let p =
-    MAP (λ(name_num,arg_count,prog).
-    let prog = word_simp$compile_exp prog in
-    let maxv = max_var prog + 1 in
-    let inst_prog = inst_select asm_conf maxv prog in
-    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let rm_ssa_prog = remove_dead_prog ssa_prog in
-    let cse_prog = word_common_subexp_elim rm_ssa_prog in
-    let cp_prog = copy_prop cse_prog in
-    let two_prog = three_to_two_reg_prog two_reg_arith cp_prog in
-    let unreach_prog = remove_unreach two_prog in
-    let rm_prog = remove_dead_prog unreach_prog in
-     (name_num,arg_count,rm_prog)) p in
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
     (get_clash_tree prog,heu_moves,spillcosts,
@@ -432,7 +425,7 @@ Theorem from_word_0_to_livesets_0:
   from_word_0 c names p =
   from_livesets (to_livesets_0 (c,p,names))
 Proof
-  simp[to_livesets_0_def,from_word_0_def,from_livesets_def] >>
+  simp[to_livesets_0_def,word_internal_def,from_word_0_def,from_livesets_def] >>
   simp[word_to_wordTheory.compile_def] >>
   Cases_on ‘next_n_oracle (LENGTH p) c.word_to_word_conf.col_oracle’ >> fs [] >>
   AP_TERM_TAC >>
@@ -456,7 +449,7 @@ Proof
      to_bvi_def,
      to_bvl_def,
      to_clos_def,
-     to_flat_def,to_livesets_def] >>
+     to_flat_def,to_livesets_def,word_internal_def] >>
   fs[compile_def]>>
   pairarg_tac>>
   fs[data_to_wordTheory.compile_def,word_to_wordTheory.compile_def]>>
