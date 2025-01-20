@@ -510,7 +510,18 @@ Theorem conv_bnn_alt:
         | SOME (k',lb,ub,vec) => (((init_n,vec),k',lb,ub),conv_lit y))
     | SOME (k',lb,ub,vec) => (((init_n,vec),k',lb,ub),conv_lit y))
 Proof
-  cheat
+  simp [Once conv_bnn_def] \\ TOP_CASE_TAC
+  \\ simp [Once conv_bnn_def] \\ TOP_CASE_TAC
+  \\ qsuff_tac ‘F’ \\ gvs []
+  \\ pop_assum mp_tac \\ gvs []
+  \\ irule SORTED_to_vector
+  \\ qabbrev_tac ‘ys = mergesort_tail lit_le cs’
+  \\ qsuff_tac ‘SORTED lit_le ys’
+  >- (Cases_on ‘ys’ \\ gvs [] \\ Cases_on ‘h’ \\ gvs [lit_le_def])
+  \\ gvs [Abbr‘ys’]
+  \\ DEP_REWRITE_TAC [mergesortTheory.mergesort_tail_correct]
+  \\ irule_at Any mergesortTheory.mergesort_sorted
+  \\ gvs [transitive_def,total_def,lit_le_def]
 QED
 
 val r = translate lit_le_def;
