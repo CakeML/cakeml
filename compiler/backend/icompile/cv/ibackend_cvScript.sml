@@ -17,28 +17,38 @@ open helloProgTheory;
 val _ = new_theory"ibackend_cv";
 
 (* using the default config for x64 *)
-
 val arch_size = “:64”
 val arch_spec = INST_TYPE [alpha |-> arch_size];
-(* Some basic setup *)
 val _ = cv_auto_trans locationTheory.unknown_loc_def;
-val _ = cv_auto_trans source_to_sourceTheory.compile_def;
+val asm_spec_mem_list = CONJUNCTS asm_spec_memory;
+val (asm_spec, _) = asm_spec_raw asm_spec_mem_list x64_targetTheory.x64_config_def;
+val asm_spec' = fn th => asm_spec th |> snd;
+
+(* translating icompile_source_to_livesets *)
+val _ = word0_to_livesets_def |> asm_spec' |> arch_spec |> cv_auto_trans;
+val _ = icompile_bvl_to_bvi_prog_def
+          |> SRULE [GSYM bvl_to_bviTheory.alloc_glob_count_eq_global_count_list]
+          |> cv_auto_trans;
+val _ = icompile_source_to_livesets_def |> asm_spec' |> cv_auto_trans;
+(* no problem *)
+
+
+(* tried translating each phases one by one, no problem *)
 val _ = cv_auto_trans init_icompile_source_to_flat_def;
 val _ = cv_auto_trans init_icompile_flat_to_clos_def;
 val _ = cv_auto_trans init_icompile_clos_to_bvl_def;
-val eq = icompile_bvl_to_bvi_prog_def |> SRULE [GSYM bvl_to_bviTheory.alloc_glob_count_eq_global_count_list];
-val _ = cv_auto_trans eq;
 val _ = cv_auto_trans init_icompile_bvl_to_bvi_def;
-val _ = cv_trans bvi_to_dataTheory.compile_prog_def;
-val _ = cv_auto_trans icompile_source_to_flat_def;
-val _ = cv_auto_trans icompile_flat_to_clos_def;
-val eq = icompile_clos_to_bvl_prog_def |> SRULE [clos_to_bvlTheory.compile_exp_sing_eq]
-val _ = cv_auto_trans eq
-val _ = cv_auto_trans icompile_clos_to_bvl_def;
-val _ = cv_auto_trans (icompile_data_to_word_def |> arch_spec);
-val _ = cv_auto_trans end_icompile_source_to_flat_def;
-val _ = cv_auto_trans end_icompile_clos_to_bvl_def;
-val _ = cv_auto_trans end_icompile_bvl_to_bvi_def;
+val _ = cv_auto_trans bvi_to_dataTheory.compile_prog_def;
+val _ = init_icompile_data_to_word_def |> asm_spec' |> arch_spec |> cv_auto_trans;
+
+(* then when i do this, then there is a problem *)
+val _ = init_icompile_source_to_livesets_def |> asm_spec' |> arch_spec |> cv_auto_trans; (* <----- problematic *)
+
+(* translating end_icompile_source_to_livesets no problem *)
+val _ = end_icompile_source_to_livesets_def |> asm_spec' |> cv_auto_trans;
+
+
+
 
 val c = x64_backend_config_def |> concl |> lhs;
 val x64_ic_term = backendTheory.config_to_inc_config_def
@@ -52,20 +62,13 @@ val asm_conf = EVAL ``^(c).lab_conf.asm_conf`` |> rconc;
 val word_conf = EVAL ``^(c).word_to_word_conf`` |> rconc;
 val stack_conf = EVAL ``^(c).stack_conf`` |> rconc;
 
+
+
+
+
 (* replace with hello progs *)
 val prog = ``REPLICATE 10 (ast$Dlet unknown_loc Pany (Con NONE []))``;
 
-val asm_spec_mem_list = CONJUNCTS asm_spec_memory;
-val (asm_spec, _) = asm_spec_raw asm_spec_mem_list x64_targetTheory.x64_config_def;
-val asm_spec' = fn th => asm_spec th |> snd
-
-val _ = cv_auto_trans (asm_spec' init_icompile_data_to_word_def |> arch_spec)
-val _ = cv_auto_trans (to_livesets_0_x64_def);
-val _ = cv_auto_trans (icompile_data_to_word_def |> arch_spec)
-val _ = cv_auto_trans (asm_spec' to_livesets_0_alt_def )
-val _ = cv_auto_trans (asm_spec' icompile_to_livesets_def)
-val _ = cv_auto_trans (asm_spec' init_icompile_to_livesets_def)
-val _ = cv_auto_trans (asm_spec' end_icompile_to_livesets_def)
 
 (* just in case i forget *)
 (*Globals.max_print_depth := 20; *)
