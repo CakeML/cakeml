@@ -42,14 +42,14 @@ val _ = cv_auto_trans bvi_to_dataTheory.compile_prog_def;
 val _ = init_icompile_data_to_word_def |> asm_spec' |> arch_spec |> cv_auto_trans;
 
 (* then when i do this, then there is a problem *)
-val _ = init_icompile_source_to_livesets_def |> asm_spec' |> arch_spec |> cv_auto_trans; (* <----- problematic *)
+val _ = cv_auto_trans (icompile_data_to_word_def |> arch_spec);
+val _ = init_icompile_source_to_livesets_def |> arch_spec |> asm_spec' |> cv_auto_trans; (* <----- problematic *)
 
 (* translating end_icompile_source_to_livesets no problem *)
 val _ = end_icompile_source_to_livesets_def |> asm_spec' |> cv_auto_trans;
 
 
-
-
+(* constructing mconfig *)
 val c = x64_backend_config_def |> concl |> lhs;
 val x64_ic_term = backendTheory.config_to_inc_config_def
        |> ISPEC c |> CONV_RULE (RAND_CONV EVAL) |> rconc;
@@ -61,9 +61,6 @@ val data_conf = EVAL ``^(c).data_conf`` |> rconc;
 val asm_conf = EVAL ``^(c).lab_conf.asm_conf`` |> rconc;
 val word_conf = EVAL ``^(c).word_to_word_conf`` |> rconc;
 val stack_conf = EVAL ``^(c).stack_conf`` |> rconc;
-
-
-
 
 
 (* replace with hello progs *)

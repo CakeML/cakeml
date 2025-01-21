@@ -260,6 +260,13 @@ Datatype:
                           |>
 End
 
+Definition empty_word_to_stack_iconf_def:
+    empty_word_to_stack_iconf = (<| k := 0n;
+                                   bm := ((Nil, 1n) : 'a word app_list # num);
+                                   sfs_list := [];
+                                   fs := [] |> : 'a word_to_stack_iconfig)
+End
+
 
 Datatype:
   iconfig =
@@ -272,6 +279,17 @@ Datatype:
      stack_conf: stack_to_lab$config;
   |>
 End
+
+Datatype:
+  iconfig_lvs =
+  <| source_iconf : source_iconfig;
+     clos_iconf: clos_iconfig;
+     bvl_iconf: bvl_iconfig;
+     data_conf: data_to_word$config;
+     word_to_word_conf: word_to_word$config;
+  |>
+End
+
 
 Definition icompile_source_to_flat_def:
   icompile_source_to_flat source_iconf p =
@@ -2231,6 +2249,9 @@ Definition init_icompile_source_to_livesets_def:
               bvl_iconf := bvl_iconf;
               data_conf := data_conf';
               word_to_word_conf := word_to_word_conf;
+              word_to_stack_iconf := (empty_word_to_stack_iconf: 'a word_to_stack_iconfig);
+              stack_conf := c.stack_conf;
+
            |>
   in
     (ic, (reg_count, data), word0_init_lvs)
