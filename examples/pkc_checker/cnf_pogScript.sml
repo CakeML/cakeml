@@ -705,10 +705,10 @@ Datatype:
 End
 
 (* The immutable problem configuration consisting of
-  data variables, the clause limit, and a max var limit n. *)
+  data variables and a max var limit n. *)
 Datatype:
   prob_conf =
-    <| D : num_set option ; cl : num ; n : num |>
+    <| D : num_set option ; n : num |>
 End
 
 Definition get_data_vars_def:
@@ -2609,7 +2609,7 @@ Proof
 QED
 
 Theorem soundness:
-  good_pc pc ∧ LENGTH fmlls ≤ pc.cl ∧
+  good_pc pc ∧
   EVERY (λC. vars_clause C ⊆ count (pc.n + 1)) fmlls ∧
   check_scpsteps pc (build_fml 1 fmlls) init_sc xs = SOME (fml', sc') ∧
   sc'.root = SOME r ∧
