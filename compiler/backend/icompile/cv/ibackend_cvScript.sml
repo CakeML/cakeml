@@ -26,23 +26,31 @@ val asm_spec' = fn th => asm_spec th |> snd;
 
 val _ = cv_auto_trans locationTheory.unknown_loc_def;
 
+(* translating icompile_source_to_livesets *)
+(* val _ = to_word_0_alt_def |> asm_spec' |> arch_spec |> cv_auto_trans; *)
+(* val _ = to_livesets_0_def |> asm_spec' |> cv_trans *)
+val _ = to_livesets_0_alt_def |>
+  SIMP_RULE std_ss [backendTheory.word_internal_def,
+  LET_DEF |> INST_TYPE [alpha |-> ``:bool``]] |> asm_spec' |> cv_auto_trans;
+
 val _ = cv_auto_trans
-  (bvl_to_bvi_compile_prog_alt_def
+  (icompile_bvl_to_bvi_prog_def
   |> SRULE [GSYM bvl_to_bviTheory.alloc_glob_count_eq_global_count_list]);
 
-(* translating icompile_source_to_livesets *)
-val _ = to_word_0_alt_def |> asm_spec' |> arch_spec |> cv_auto_trans;
-val _ = to_livesets_0_def |> asm_spec' |> cv_trans
-val _ = to_livesets_0_alt_def |>
-  SIMP_RULE std_ss [backendTheory.word_internal_def, LET_DEF |> INST_TYPE [alpha |-> ``:bool``]] |> asm_spec' |> cv_auto_trans;
+val _ = end_icompile_source_to_livesets_def |> asm_spec' |> cv_auto_trans;
 
-val _ = cv_auto_
-val _ = to_livesets_alt_def |> asm_spec' |> arch_spec |> cv_auto_trans;
-val _ = icompile_bvl_to_bvi_prog_def
-          |> SRULE [GSYM bvl_to_bviTheory.alloc_glob_count_eq_global_count_list]
-          |> cv_auto_trans;
 val _ = icompile_source_to_livesets_def |> asm_spec' |> cv_auto_trans;
-(* no problem *)
+
+
+val _ = init_icompile_data_to_word_def |> asm_spec' |> arch_spec |> cv_auto_trans ;
+
+val _ = cv_trans empty_word_iconf_def;
+
+val _ = mk_iconfig_def |> cv_auto_trans ;
+
+val _ = init_icompile_source_to_livesets_def |> asm_spec' |> cv_auto_trans;
+
+(* TODO: cleanup below *)
 
 
 (* tried translating each phases one by one, no problem *)

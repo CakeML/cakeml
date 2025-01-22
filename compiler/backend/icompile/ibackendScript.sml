@@ -214,15 +214,6 @@ Datatype:
                   |>
 End
 
-(*
-Definition empty_word_to_stack_iconf_def:
-    empty_word_to_stack_iconf = (<| k := 0n;
-                                   bm := ((Nil, 1n) : 'a word app_list # num);
-                                   sfs_list := [];
-                                   fs := [] |> : 'a word_to_stack_iconfig)
-End
-*)
-
 Datatype:
   iconfig =
   <| source_iconf : source_iconfig;
@@ -2101,6 +2092,26 @@ Definition icompile_source_to_livesets_def:
     SOME (ic', data, pword0: (num # num # 'a wordLang$prog) list)
 End
 
+Definition empty_word_iconf_def:
+    empty_word_iconf =
+    (<| k := 0n;
+        bm := ((Nil, 1n) : 'a word app_list # num);
+        sfs_list := [];
+        fs := [] |> : 'a word_iconfig)
+End
+
+Definition mk_iconfig_def:
+  mk_iconfig source_iconf clos_iconf bvl_iconf data_conf word_to_word_conf word_iconf stack_conf =
+       <| source_iconf := source_iconf;
+          clos_iconf := clos_iconf;
+          bvl_iconf := bvl_iconf;
+          data_conf := data_conf;
+          word_to_word_conf := word_to_word_conf;
+          word_iconf := word_iconf;
+          stack_conf := stack_conf;
+       |>
+End
+
 Definition init_icompile_source_to_livesets_def:
   init_icompile_source_to_livesets (asm_conf: 'a asm_config) (c: inc_config) =
   let source_conf = c.inc_source_conf in
@@ -2116,14 +2127,8 @@ Definition init_icompile_source_to_livesets_def:
   let (data_conf', word0_init) = init_icompile_data_to_word data_conf asm_conf data_init in
   let ((reg_count, data), word0_init_lvs) =
     to_livesets_0_alt asm_conf word_to_word_conf word0_init in
-  let ic = <| source_iconf := source_iconf;
-              clos_iconf := clos_iconf;
-              bvl_iconf := bvl_iconf;
-              data_conf := data_conf';
-              word_to_word_conf := word_to_word_conf;
-              word_iconf := ARB;
-              stack_conf := c.inc_stack_conf;
-           |>
+  let (ic:'a iconfig) =
+    mk_iconfig source_iconf clos_iconf bvl_iconf data_conf' word_to_word_conf empty_word_iconf c.inc_stack_conf
   in
     (ic, (reg_count, data), word0_init_lvs)
 End
@@ -2253,6 +2258,7 @@ Theorem init_icompile_icompile_end_icompile_s2lvs:
                    reg_count_ic reg_count_c
 Proof
   rw[init_icompile_source_to_livesets_def,
+     mk_iconfig_def,
      icompile_source_to_livesets_def,
      end_icompile_source_to_livesets_def,
      to_livesets_alt_def,
