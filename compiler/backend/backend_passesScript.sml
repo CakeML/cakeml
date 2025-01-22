@@ -299,7 +299,7 @@ Definition to_lab_all_def:
     let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
     let sp = c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3) in
     let offset = c.lab_conf.asm_conf.addr_offset in
-    let prog = stack_rawcall$compile p in
+    let prog = if stack_conf.do_rawcall then stack_rawcall$compile p else p in
     let ps = ps ++ [(strlit "after stack_rawcall",Stack prog names)] in
     let prog = stack_alloc$compile data_conf prog in
     let ps = ps ++ [(strlit "after stack_alloc",Stack prog names)] in
@@ -359,7 +359,7 @@ Definition from_stack_all_def:
     let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
     let sp = c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3) in
     let offset = c.lab_conf.asm_conf.addr_offset in
-    let prog = stack_rawcall$compile p in
+    let prog = if stack_conf.do_rawcall then stack_rawcall$compile p else p in
     let ps = ps ++ [(strlit "after stack_rawcall",Stack prog names)] in
     let prog = stack_alloc$compile data_conf prog in
     let ps = ps ++ [(strlit "after stack_alloc",Stack prog names)] in
