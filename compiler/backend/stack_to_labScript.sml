@@ -131,30 +131,25 @@ Datatype:
   config =
   <| reg_names : num num_map
    ; jump : bool (* whether to compile to JumpLower or If Lower ... in stack_remove*)
-   ; rawcall_fwd : bool (* whether to lookahead to later programs in rawcall *)
-   ; rawcall_info : num sptree$num_map (* the mapping *)
    |>
 End
 
 Definition compile_def:
  compile stack_conf data_conf max_heap sp offset prog =
-   let (info, prog) = stack_rawcall$compile stack_conf.rawcall_fwd stack_conf.rawcall_info prog in
+   let prog = stack_rawcall$compile prog in
    let prog = stack_alloc$compile data_conf prog in
    let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
                 max_heap sp InitGlobals_location prog in
    let prog = stack_names$compile stack_conf.reg_names prog in
-     (stack_conf with rawcall_info := info,
-       MAP prog_to_section prog)
+     MAP prog_to_section prog
 End
 
 Definition compile_no_stubs_def:
-  compile_no_stubs rawcall_fwd rawcall_info f
-    jump offset sp prog =
-  let (info,prog) = stack_rawcall$compile rawcall_fwd rawcall_info prog in
-  (info,MAP prog_to_section
+  compile_no_stubs f jump offset sp prog =
+  MAP prog_to_section
     (stack_names$compile f
       (MAP (prog_comp jump offset sp)
-        (MAP prog_comp prog))))
+        (MAP prog_comp prog)))
 End
 
 val _ = export_theory();
