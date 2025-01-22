@@ -235,18 +235,6 @@ Datatype:
   |>
 End
 
-(*
-Datatype:
-  iconfig_lvs =
-  <| source_iconf : source_iconfig;
-     clos_iconf: clos_iconfig;
-     bvl_iconf: bvl_iconfig;
-     data_conf: data_to_word$config;
-     word_to_word_conf: word_to_word$config;
-  |>
-End
-*)
-
 (* source_to_flat *)
 Definition icompile_source_to_flat_def:
   icompile_source_to_flat source_iconf p =
@@ -463,6 +451,7 @@ Definition end_icompile_bvl_to_bvi_def:
     (clos_conf, bvl_conf: bvl_to_bvi$config, bvi_stubs ++ init_globs_stub)
 End
 
+(* data_to_word *)
 Definition icompile_data_to_word_def:
   icompile_data_to_word data_conf p =
   MAP (compile_part data_conf) p
@@ -477,6 +466,7 @@ Definition init_icompile_data_to_word_def:
     (data_conf, stubs (:'a) data_conf ++ stubs1)
 End
 
+(* word_to_stack *)
 Definition icompile_word_to_stack_def:
   icompile_word_to_stack asm_conf word_iconf p =
   let k = word_iconf.k in
@@ -514,7 +504,7 @@ Definition end_icompile_word_to_stack_def:
           stack_frame_size := sfs |>, word_iconf.fs, stack_end)
 End
 
-(* drop rawcall *)
+(* stack_to_lab *)
 Definition icompile_stack_to_lab_def:
   icompile_stack_to_lab stack_conf offset k p =
   let p = MAP stack_alloc$prog_comp p in
@@ -1554,19 +1544,14 @@ Definition config_prog_rel_alt_def:
     icompiled_p_finalised = compiled_p
 End
 
-
 Definition source_conf_ok_def:
   source_conf_ok source_conf =
   (source_conf.mod_env = source_to_flat$empty_env
-  ∧
-  source_conf.init_vidx = 10000
   ∧
   source_conf.do_elim = F
   ∧
   source_conf.next.vidx = 0)
 End
-
-
 
 Theorem init_icompile_icompile_end_icompile_s2f:
   init_icompile_source_to_flat source_conf = (source_iconf, flat_stub)
@@ -2107,7 +2092,7 @@ Definition icompile_source_to_livesets_def:
   let ic' = ic with <| source_iconf := source_iconf';
                       clos_iconf := clos_iconf';
                       bvl_iconf := bvl_iconf'; |> in
-    SOME (ic', data, pword0: (num # num # 'a prog) list)
+    SOME (ic', data, pword0: (num # num # 'a wordLang$prog) list)
 End
 
 Definition init_icompile_source_to_livesets_def:
