@@ -2072,6 +2072,15 @@ Proof
   rw[to_livesets_0_def]
 QED
 
+Theorem to_livesets_0_alt_append:
+  to_livesets_0_alt asm_conf word_conf p1 = ((a, data1), p1') ∧
+  to_livesets_0_alt asm_conf word_conf p2 = ((_, data2), p2') ⇒
+  to_livesets_0_alt asm_conf word_conf (p1 ++ p2) = ((a, data1 ++ data2), p1' ++ p2')
+Proof
+  rw[to_livesets_0_alt_def, backendTheory.word_internal_def]
+QED
+
+
 Definition icompile_source_to_livesets_def:
   icompile_source_to_livesets asm_conf (ic: 'a iconfig) p =
   let source_iconf = ic.source_iconf in
@@ -2148,6 +2157,14 @@ Definition end_icompile_source_to_livesets_def:
     (c', data, word0_end_lvs)
 End
 
+
+Theorem bvi_to_data_compile_prog_append:
+  bvi_to_data$compile_prog (p1 ++ p2) =
+  bvi_to_data$compile_prog p1 ++ bvi_to_data$compile_prog p2
+Proof
+  rw[bvi_to_dataTheory.compile_prog_def]
+QED
+
 Theorem icompile_icompile_source_to_livesets:
   icompile_source_to_livesets asm_conf ic p1 = SOME (ic', d1, p1') ∧
   icompile_source_to_livesets asm_conf ic' p2 = SOME (ic'', d2, p2') ⇒
@@ -2163,16 +2180,12 @@ Proof
   strip_tac >> gvs[] >>
   drule_all icompile_icompile_bvl_to_bvi >>
   strip_tac >> gvs[] >>
-  simp[bvi_to_dataTheory.compile_prog_def] >>
-  simp[icompile_icompile_data_to_word] >>
-  cheat
-  (*
-  qpat_x_assum ‘word0_to_livesets _ _ = ((_, d1), _)’ assume_tac >>
-  drule word0_to_livesets_append >>
-  qpat_x_assum ‘word0_to_livesets _ _ = ((_, d2), _)’ assume_tac >>
+  gvs[bvi_to_data_compile_prog_append] >>
+  qpat_x_assum ‘_ _ _ = ((_, d1), _)’ assume_tac >>
+  drule to_livesets_0_alt_append >>
+  qpat_x_assum ‘_ _ _ = ((_, d2), _)’ assume_tac >>
   disch_then drule >>
-  gvs[bvi_to_dataTheory.compile_prog_def] >>
-  gvs[icompile_icompile_data_to_word] *)
+  gvs[icompile_icompile_data_to_word]
 QED
 
 Definition fold_icompile_source_to_livesets_def:
@@ -2261,17 +2274,15 @@ Proof
   simp[config_prog_rel_b2b_def] >> strip_tac >> gvs[] >>
   gvs[bvi_to_data_prog_compile_append_all] >>
   drule init_icompile_icompile_end_icompile_d2w0 >> strip_tac >> gvs[] >>
-  cheat
-  (*
-  qpat_x_assum ‘word0_to_livesets _ _ = ((_, d_init), _)’ assume_tac >>
-  drule word0_to_livesets_append >>
-  qpat_x_assum ‘word0_to_livesets _ _ = ((_, d_ic), _)’ assume_tac >>
+  qpat_x_assum ‘_ _ _ = ((_, d_init), _)’ assume_tac >> (* weird, it cannot pattern match when given own name *)
+  drule to_livesets_0_alt_append >>
+  qpat_x_assum ‘_ _ _ = ((_, d_ic), _)’ assume_tac >>
   disch_then drule >> strip_tac >>
-  drule word0_to_livesets_append >>
-  qpat_x_assum ‘word0_to_livesets _ _ = ((_, d_end), _)’ assume_tac >>
+  drule to_livesets_0_alt_append >>
+  qpat_x_assum ‘_ _ _ = ((_, d_end), _)’ assume_tac >>
   disch_then drule  >>
   strip_tac >> gvs[] >>
-  simp[config_prog_rel4_def] *)
+  simp[config_prog_rel4_def]
 QED
 
 Theorem icompile_eq_s2livesets:
