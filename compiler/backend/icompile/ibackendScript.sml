@@ -1916,10 +1916,7 @@ Proof
   drule init_icompile_icompile_end_icompile_d2w1 >> (* change this part.. split d2w1 *)
   simp[] >> ntac 3 (disch_then drule) >> disch_then rev_drule >>
   strip_tac >> gvs[] >>
-  ‘bvi_to_data$compile_prog (bvi_init ++ icompiled_p_bvi ++ bvi_end) =
-   bvi_to_data$compile_prog bvi_init ++
-   bvi_to_data$compile_prog icompiled_p_bvi ++
-   bvi_to_data$compile_prog bvi_end’ by rw[bvi_to_dataTheory.compile_prog_def] >> gvs[] >>
+  gvs[bvi_to_data_prog_compile_append_all] >>
   drule_all init_icompile_icompile_end_icompile_w12s >>
   strip_tac >> gvs[] >>
   gvs[config_prog_pair_rel_def] >>
