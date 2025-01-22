@@ -1,5 +1,5 @@
 (*
-  Quick test file for ibackend
+  CV translation for ibackend
 *)
 open preamble ibackendTheory
      backend_asmTheory
@@ -9,8 +9,8 @@ open preamble ibackendTheory
      backend_x64_cvTheory
      cv_transLib
      x64_configTheory
-     x64_targetTheory
-;
+     x64_targetTheory;
+
 open backend_asmLib;
 open helloProgTheory;
 
@@ -19,13 +19,25 @@ val _ = new_theory"ibackend_cv";
 (* using the default config for x64 *)
 val arch_size = “:64”
 val arch_spec = INST_TYPE [alpha |-> arch_size];
-val _ = cv_auto_trans locationTheory.unknown_loc_def;
+
 val asm_spec_mem_list = CONJUNCTS asm_spec_memory;
 val (asm_spec, _) = asm_spec_raw asm_spec_mem_list x64_targetTheory.x64_config_def;
 val asm_spec' = fn th => asm_spec th |> snd;
 
+val _ = cv_auto_trans locationTheory.unknown_loc_def;
+
+val _ = cv_auto_trans
+  (bvl_to_bvi_compile_prog_alt_def
+  |> SRULE [GSYM bvl_to_bviTheory.alloc_glob_count_eq_global_count_list]);
+
 (* translating icompile_source_to_livesets *)
-val _ = word0_to_livesets_def |> asm_spec' |> arch_spec |> cv_auto_trans;
+val _ = to_word_0_alt_def |> asm_spec' |> arch_spec |> cv_auto_trans;
+val _ = to_livesets_0_def |> asm_spec' |> cv_trans
+val _ = to_livesets_0_alt_def |>
+  SIMP_RULE std_ss [backendTheory.word_internal_def, LET_DEF |> INST_TYPE [alpha |-> ``:bool``]] |> asm_spec' |> cv_auto_trans;
+
+val _ = cv_auto_
+val _ = to_livesets_alt_def |> asm_spec' |> arch_spec |> cv_auto_trans;
 val _ = icompile_bvl_to_bvi_prog_def
           |> SRULE [GSYM bvl_to_bviTheory.alloc_glob_count_eq_global_count_list]
           |> cv_auto_trans;
