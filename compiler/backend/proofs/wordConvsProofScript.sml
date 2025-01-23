@@ -1699,9 +1699,9 @@ Triviality pre_alloc_conventions_copy_prop_aux:
   pre_alloc_conventions (FST (copy_prop_prog p cs))
 Proof
   ho_match_mp_tac copy_prop_prog_ind
-  >>rw[copy_prop_prog_def,pre_alloc_conventions_def]
-  >>rpt(pairarg_tac>>fs[])
-  >>fs[wordLangTheory.every_stack_var_def,call_arg_convention_def]
+  >> rw[copy_prop_prog_def,pre_alloc_conventions_def]
+  >> rpt(pairarg_tac>>fs[])
+  >> fs[wordLangTheory.every_stack_var_def,call_arg_convention_def]
   >-(
     qid_spec_tac‘cs’>>qid_spec_tac‘i’
     >>ho_match_mp_tac copy_prop_inst_ind
@@ -1714,10 +1714,13 @@ Proof
     >>rw[call_arg_convention_def,inst_arg_convention_def,copy_prop_inst_def]
     >>rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
   )
-  >>
-  cheat
-  (*
-  >- rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
+  >- (qpat_abbrev_tac `ysl = LENGTH _` >> gvs[] >>
+  fs[MAP_GENLIST,GENLIST_FUN_EQ] >>
+  rw[] >>
+  fs[lookup_eq_def,reg_allocTheory.is_alloc_var_def] >>
+  first_assum (qspec_then `(2 * x)` assume_tac) >>
+  `(2 * x) MOD 4 ≠ 1` by intLib.ARITH_TAC >>
+  gvs[])
   >- rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
   >-(
     ‘cs' = SND (copy_prop_prog p cs)’ by rw[]
@@ -1730,7 +1733,7 @@ Proof
     >>metis_tac[copy_prop_prog_not_alloc_var]
   )
   >-(TOP_CASE_TAC>>rw[wordLangTheory.every_stack_var_def])
-  >-(TOP_CASE_TAC>>rw[call_arg_convention_def]) *)
+  >-(TOP_CASE_TAC>>rw[call_arg_convention_def])
 QED
 
 Theorem pre_alloc_conventions_copy_prop:

@@ -4852,17 +4852,16 @@ Triviality ssa_cc_trans_exp_correct:
   ⇒
   word_exp cst (ssa_cc_trans_exp ssa w) = SOME res
 Proof
-  cheat (*
   ho_match_mp_tac word_exp_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[word_exp_def,ssa_cc_trans_exp_def]>>
   qpat_x_assum`A=SOME res` mp_tac
   >-
-    (fs[ssa_locals_rel_def,word_state_eq_rel_def]>>rw[]>>
+    (fs[get_var_def,ssa_locals_rel_def,word_state_eq_rel_def]>>rw[]>>
     res_tac>>rpt(qpat_x_assum`!x.P` kall_tac)>>
     fs[domain_lookup,option_lookup_def]>>
     rfs[])
   >-
-    full_simp_tac(srw_ss())[word_state_eq_rel_def]
+    full_simp_tac(srw_ss())[word_state_eq_rel_def,get_store_def]
   >-
     (Cases_on`word_exp st w`>>
     res_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,mem_load_def])
@@ -4879,7 +4878,7 @@ Proof
     fs[])
   >-
     (Cases_on`word_exp st w`>>
-    res_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,mem_load_def]) *)
+    res_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,mem_load_def])
 QED
 
 val exp_tac =
@@ -7127,64 +7126,86 @@ Proof
   DECIDE_TAC
 QED
 
+Triviality MAX_DEF2:
+  MAX m n = (if n > m then n else m)
+Proof
+  fs[MAX_DEF]
+QED
 
 Theorem max_var_max:
     ∀prog.
     every_var (λx. x ≤ max_var prog) prog
 Proof
-  cheat (*
   ho_match_mp_tac max_var_ind>>
-  srw_tac[][every_var_def,max_var_def]>>
-  TRY(Cases_on`ri`)>>full_simp_tac(srw_ss())[every_var_imm_def]>>
-  rpt IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-  srw_tac[][]>>TRY(full_simp_tac(srw_ss())[Abbr`r`])>>
-  TRY(DECIDE_TAC)>>
-  TRY
+  rpt strip_tac >>
+  full_simp_tac(std_ss)[every_var_def,max_var_def]
+  >-
   (Q.ISPECL_THEN [`MAP FST ls ++ MAP SND ls`] assume_tac list_max_max>>
-  rev_full_simp_tac(srw_ss())[])
-  >- metis_tac[max_var_inst_max]>>
+  rev_full_simp_tac(srw_ss())[] >> NO_TAC)
+  >- metis_tac[max_var_inst_max] >>
   TRY
     (match_mp_tac every_var_exp_mono>>
     qexists_tac`λx. x ≤ max_var_exp exp`>>
     full_simp_tac(srw_ss())[max_var_exp_max]>>
     DECIDE_TAC)
-  >-
-    (full_simp_tac(srw_ss())[LET_THM,EVERY_MEM,MAX_DEF]>>srw_tac[][]>>
-    EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[]>>
-    `x ≤ list_max args` by
-       (Q.ISPECL_THEN [`args`] assume_tac list_max_max>>
-       full_simp_tac(srw_ss())[EVERY_MEM])>>
-    TRY(DECIDE_TAC))
-  >-
-    (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,MAX_DEF]>>
-    LET_ELIM_TAC>>
-    rename1`toAList tree`>>
-    TRY(
-    `∀z. z ∈ domain tree ⇒ z ≤ cutset_max` by
-      (srw_tac[][]>>
-      Q.ISPECL_THEN [`MAP FST(toAList tree)`] assume_tac list_max_max>>
-      full_simp_tac(srw_ss())[Abbr`cutset_max`,EVERY_MEM,MEM_MAP,PULL_EXISTS
-        ,FORALL_PROD,MEM_toAList,domain_lookup]>>
-      res_tac>>DECIDE_TAC)>>res_tac)>>
-    TRY(match_mp_tac every_var_mono>>
-    TRY(HINT_EXISTS_TAC)>>
-    TRY(qexists_tac`λx.x ≤ max_var q''''`>>full_simp_tac(srw_ss())[]))>>
-    full_simp_tac(srw_ss())[every_name_def]>>
-    unabbrev_all_tac>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>DECIDE_TAC)
-  >>
-    TRY(match_mp_tac every_var_mono>>
+  >- (
+     EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+     TRY (full_simp_tac(srw_ss())[list_max_max,LET_THM] >> NO_TAC) >>
+     rpt strip_tac  >> full_simp_tac(srw_ss())[EVERY_MEM,every_name_def] >>
+     rpt strip_tac >> LET_ELIM_TAC >> full_simp_tac(srw_ss())[] >>
+     TRY (  match_mp_tac every_var_mono>>
+     first_x_assum (irule_at (Pos last)) >>
+     rw[]) >>
+     TRY (
+     qmatch_asmsub_abbrev_tac `MEM _ ls` >>
+     Q.ISPECL_THEN [`ls`] assume_tac list_max_max>>
+     full_simp_tac(srw_ss())[EVERY_MEM] >>
+     first_x_assum drule_all >>
+     disch_tac >> rw[]) >>
+     UNABBREV_ALL_TAC >> EVERY_CASE_TAC >>
+     rw[] >> intLib.ARITH_TAC
+     )
+  >-(srw_tac[][] >> match_mp_tac every_var_mono>>
     TRY(HINT_EXISTS_TAC)>>TRY(qexists_tac`λx. x ≤ max_var prog`)>>
     srw_tac[][]>>
     DECIDE_TAC)
-  >>
-    qabbrev_tac`ls' = MAP FST (toAList numset)`>>
-    Q.ISPECL_THEN [`ls'`] assume_tac list_max_max>>
-    fs[list_max_def]>>
-    full_simp_tac(srw_ss())[every_name_def,Abbr`ls'`,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList,domain_lookup,MAX_DEF]>>srw_tac[][]>>
-    TRY(res_tac>>DECIDE_TAC)
-  >>
-    fs[list_max_def]>>
-    res_tac>>every_case_tac>>fs[] *)
+  >-(
+    Cases_on `ri` >> full_simp_tac(srw_ss())[every_var_imm_def] >>
+    LET_ELIM_TAC >> UNABBREV_ALL_TAC >>
+    TRY (intLib.ARITH_TAC) >>
+    rpt IF_CASES_TAC >> fs[] >>
+    match_mp_tac every_var_mono>>
+    first_x_assum (irule_at (Pos last)) >>
+    full_simp_tac (srw_ss())[] >>
+    intLib.ARITH_TAC)
+  >-((*This is ugly*)
+   fs[every_name_def] >>
+   fs[EVERY_MEM] >> rw[] >>
+   qmatch_asmsub_abbrev_tac `MEM x ls` >>
+   Q.ISPECL_THEN [`ls`] assume_tac list_max_max>>
+   fs[EVERY_MEM])
+  >-(fs[GSYM FOLDR_MAX_0_list_max])
+  >-(
+   fs[GSYM FOLDR_MAX_0_list_max] >>
+   fs[FOLDR_MAX_0_list_max] >>
+   fs[every_name_def] >>
+   fs[EVERY_MEM] >> rw[] >>
+   qmatch_asmsub_abbrev_tac `MEM x ls` >>
+   Q.ISPECL_THEN [`ls`] assume_tac list_max_max>>
+   fs[EVERY_MEM])
+  >-(
+   fs[GSYM FOLDR_MAX_0_list_max] >>
+   fs[FOLDR_MAX_0_list_max] >>
+   fs[every_name_def] >>
+   fs[EVERY_MEM] >> rw[] >>
+   qmatch_asmsub_abbrev_tac `MEM x ls` >>
+   Q.ISPECL_THEN [`ls`] assume_tac list_max_max>>
+   fs[EVERY_MEM])
+  >-(
+    fs[list_max_def] >>
+    IF_CASES_TAC >> fs[list_max_max] >>
+    Q.ISPECL_THEN [`ns`] assume_tac list_max_max>>
+    fs[EVERY_MEM] >> rw[] >> res_tac >> intLib.ARITH_TAC)
 QED
 
 Triviality limit_var_props:
@@ -7900,8 +7921,6 @@ Triviality call_arg_convention_preservation:
   call_arg_convention prog ⇒
   call_arg_convention (apply_colour f prog)
 Proof
-  cheat
-  (*
   ho_match_mp_tac call_arg_convention_ind>>
   srw_tac[][call_arg_convention_def,every_var_def]>>
   EVERY_CASE_TAC>>unabbrev_all_tac>>
@@ -7910,15 +7929,11 @@ Proof
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>>
     TRY(Cases_on`f'`>>every_case_tac)>>
     fs[inst_arg_convention_def,every_var_inst_def,is_phy_var_def]) >>
-  TRY(first_x_assum match_mp_tac>> is_phy_var_tac>>NO_TAC)>>
-  `EVERY is_phy_var args` by
-    (qpat_x_assum`args=A` SUBST_ALL_TAC>>
-    full_simp_tac(srw_ss())[EVERY_GENLIST]>>srw_tac[][]>>
-    is_phy_var_tac)>>
-  qpat_x_assum`args = A` (SUBST_ALL_TAC o SYM)>>
-  full_simp_tac(srw_ss())[EVERY_MEM,miscTheory.MAP_EQ_ID]>>
-  rev_full_simp_tac(srw_ss())[]>>
-  first_x_assum match_mp_tac>> is_phy_var_tac*)
+  TRY(is_phy_var_tac>>NO_TAC)>>
+  rpt conj_tac >>
+  TRY (qpat_abbrev_tac `ysl = LENGTH _` >> gvs[]) >>
+  fs[MAP_GENLIST,GENLIST_FUN_EQ,EVERY_GENLIST] >>
+  rw[] >> res_tac >> is_phy_var_tac
 QED
 
 (*Composing with a function using apply_colour*)
@@ -7949,7 +7964,6 @@ Theorem every_var_apply_colour:
   (∀x. P x ⇒ Q (f x)) ⇒
   every_var Q (apply_colour f prog)
 Proof
-  cheat (*
   ho_match_mp_tac every_var_ind>>srw_tac[][every_var_def]>>
   full_simp_tac(srw_ss())[MAP_ZIP,(GEN_ALL o SYM o SPEC_ALL) MAP_MAP_o]>>
   full_simp_tac(srw_ss())[EVERY_MAP,EVERY_MEM]
@@ -7960,26 +7974,31 @@ Proof
   >-
     metis_tac[every_var_exp_apply_colour_exp]
   >-
-    (full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain]>>
+    (Cases_on `names` >>
+    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,apply_nummaps_key_def]>>
     full_simp_tac(srw_ss())[domain_fromAList,MEM_MAP,ZIP_MAP]>>srw_tac[][]>>
     Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])
   >-
-    (fs[every_name_def,EVERY_MEM,toAList_domain]>>
-    fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>srw_tac[][]>>
+    (Cases_on `names` >>
+    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,apply_nummaps_key_def]>>
+    full_simp_tac(srw_ss())[domain_fromAList,MEM_MAP,ZIP_MAP]>>srw_tac[][]>>
     Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])
   >-
     (EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_var_def,EVERY_MAP,EVERY_MEM]>>
-    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain]>>
+    rename1 `(apply_nummaps_key f names)` >>
+    Cases_on `names` >>
+    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,apply_nummaps_key_def]>>
     srw_tac[][]>>full_simp_tac(srw_ss())[domain_fromAList,MEM_MAP,ZIP_MAP]>>
     Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])
   >-
     (Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])
   >-
-    (full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain]>>
+    (Cases_on `numset` >>
+    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,apply_nummaps_key_def]>>
     full_simp_tac(srw_ss())[domain_fromAList,MEM_MAP,ZIP_MAP]>>srw_tac[][]>>
     Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])
   >>
-    metis_tac[every_var_exp_apply_colour_exp] *)
+    metis_tac[every_var_exp_apply_colour_exp]
 QED
 
 Theorem every_stack_var_apply_colour:
@@ -7988,13 +8007,13 @@ Theorem every_stack_var_apply_colour:
   (∀x. P x ⇒ Q (f x)) ⇒
   every_stack_var Q (apply_colour f prog)
 Proof
-  cheat (*
   ho_match_mp_tac every_stack_var_ind>>srw_tac[][every_stack_var_def]
   >>
   (EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_stack_var_def,EVERY_MAP,EVERY_MEM]>>
-    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain]>>
+    TRY (rename1 `(apply_nummaps_key f names)` >> Cases_on `names`) >>
+    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,apply_nummaps_key_def]>>
     srw_tac[][]>>full_simp_tac(srw_ss())[domain_fromAList,MEM_MAP,ZIP_MAP]>>
-    Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup]) *)
+    Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])
 QED
 
 Triviality every_var_exp_get_reads_exp:
