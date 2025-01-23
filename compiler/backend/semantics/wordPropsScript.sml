@@ -14,6 +14,7 @@ Main lemmas:
 4) Effect of extra locals (locals_rel)
 *)
 
+(*TODO remove *)
 val _ = temp_delsimps ["NORMEQ_CONV"];
 
 val _ = new_theory "wordProps";
@@ -90,6 +91,8 @@ Theorem case_eq_thms =
         ``:'a addr``,``:memop``,``:'a wordSem$result``,``:'a ffi_result``])
     |> LIST_CONJ
 
+(*helps with existence proofs
+?l'. (s with locals := l) = (s with locals := l')*)
 Theorem state_const[simp]:
    ((s with locals:= l) = (s with locals := l') <=> l = l') /\
    ((s with permute := p) = (s with permute := p') <=> p = p') /\
@@ -165,7 +168,7 @@ Theorem get_vars_with_const[simp]:
    get_vars x (y with be := b) = get_vars x y /\
    get_vars x (y with ffi := ffi) = get_vars x y
 Proof
-  Induct_on`x` >> simp[get_vars_def]
+  time (Induct_on`x` >>  simp[get_vars_def])
 QED
 
 Theorem set_var_const[simp]:
@@ -654,13 +657,12 @@ Proof
   imp_res_tac pop_env_code_gc_fun_clock>>fs[]
 QED
 
-(*TODO convert to using PAIRMAP and deal with breakage*)
 Theorem alloc_with_const[simp]:
-   alloc c names (s with clock := k) = (λ(r,s). (r,s with clock := k)) (alloc c names s) /\
-   alloc c names (s with termdep := t) = (λ(r,s). (r,s with termdep := t)) (alloc c names s) /\
-   alloc c names (s with code := code) = (λ(r,s). (r,s with code := code)) (alloc c names s) /\
-   alloc c names (s with compile_oracle := compile_oracle) = (λ(r,s). (r,s with compile_oracle := compile_oracle)) (alloc c names s) /\
-   alloc c names (s with compile := comp) = (λ(r,s). (r,s with compile := comp)) (alloc c names s)
+   alloc c names (s with clock := k) = (I ## (λs. s with clock := k)) (alloc c names s) /\
+   alloc c names (s with termdep := t) = (I ## (λs. s with termdep := t)) (alloc c names s) /\
+   alloc c names (s with code := code) = (I ## (λs. s with code := code)) (alloc c names s) /\
+   alloc c names (s with compile_oracle := compile_oracle) = (I ## (λs. s with compile_oracle := compile_oracle)) (alloc c names s) /\
+   alloc c names (s with compile := comp) = (I ## (λs. s with compile := comp)) (alloc c names s)
 Proof
   fs[alloc_def] >> EVERY_CASE_TAC >> fs[flush_state_def]
 QED
@@ -1117,9 +1119,9 @@ QED
 (*TODO use PAIRMAP and deal with breakage*)
 Theorem sh_mem_set_var_with_const[simp]:
   sh_mem_set_var res v (s with permute := p) =
-  (λ(r,s). (r,s with permute := p)) (sh_mem_set_var res v s) /\
+  (I ## (λs. s with permute := p)) (sh_mem_set_var res v s) /\
   sh_mem_set_var res v (s with clock := k) =
-  (λ(r,s). (r,s with clock := k)) (sh_mem_set_var res v s)
+  (I ## (λs. s with clock := k)) (sh_mem_set_var res v s)
 Proof
   Cases_on `res` >>
   fs[sh_mem_set_var_def] >>
@@ -1155,41 +1157,38 @@ Proof
   EVAL_TAC
 QED
 
-(*TODO use PAIRMAP and deal with breakage*)
 Theorem sh_mem_store_with_const[simp]:
   sh_mem_store a w (s with permute := p) =
-  (λ(r,s). (r,s with permute := p)) (sh_mem_store a w s) /\
+  (I ## (λs. s with permute := p)) (sh_mem_store a w s) /\
   sh_mem_store a w (s with clock := k) =
-  (λ(r,s). (r,s with clock := k)) (sh_mem_store a w s)
+  (I ## (λs. s with clock := k)) (sh_mem_store a w s)
 Proof
   fs[sh_mem_store_def] >> (rpt (CASE_ONE >> fs[]))
 QED
 
-(*TODO use PAIRMAP and deal with breakage*)
 Theorem sh_mem_store_byte_with_const[simp]:
   sh_mem_store_byte a w (s with permute := p) =
-  (λ(r,s). (r,s with permute := p)) (sh_mem_store_byte a w s) /\
+  (I ## (λs. s with permute := p)) (sh_mem_store_byte a w s) /\
   sh_mem_store_byte a w (s with clock := k) =
-  (λ(r,s). (r,s with clock := k)) (sh_mem_store_byte a w s)
+  (I ## (λs. s with clock := k)) (sh_mem_store_byte a w s)
 Proof
   fs[sh_mem_store_byte_def] >> (rpt (CASE_ONE >> fs[]))
 QED
-(*TODO use PAIRMAP and deal with breakage*)
+
 Theorem sh_mem_store32_with_const[simp]:
   sh_mem_store32 a w (s with permute := p) =
-  (λ(r,s). (r,s with permute := p)) (sh_mem_store32 a w s) /\
+  (I ## (λs. s with permute := p)) (sh_mem_store32 a w s) /\
   sh_mem_store32 a w (s with clock := k) =
-  (λ(r,s). (r,s with clock := k)) (sh_mem_store32 a w s)
+  (I ## (λs. s with clock := k)) (sh_mem_store32 a w s)
 Proof
   fs[sh_mem_store32_def] >> (rpt (CASE_ONE >> fs[]))
 QED
 
-(*TODO use PAIRMAP and deal with breakage*)
 Theorem share_inst_with_const[simp]:
    share_inst op v c (s with permute := p) =
-   (λ(r,s). (r,s with permute := p)) (share_inst op v c s) /\
+   (I ## (λs. s with permute := p)) (share_inst op v c s) /\
    share_inst op v c (s with clock := k) =
-   (λ(r,s). (r,s with clock := k)) (share_inst op v c s)
+   (I ## (λs. s with clock := k)) (share_inst op v c s)
 Proof
   Cases_on `op` >> fs[share_inst_def] >> (rpt (CASE_ONE >> fs[]))
 QED
@@ -1570,6 +1569,7 @@ Theorem evaluate_add_clock:
     evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
     evaluate (p,s with clock := s.clock + extra) = (r,s' with clock := s'.clock + extra)
 Proof
+  Count.apply (
   recInduct evaluate_ind >> rpt strip_tac >>
   qpat_x_assum `evaluate _ = _` mp_tac
   >~[`Tick`]
@@ -1607,7 +1607,7 @@ Proof
   >>
   fs evaluate_with_const >>
   strip_tac >>
-  (drulel evaluate_const) >> gvs[]
+  (drulel evaluate_const) >> gvs[])
 QED
 
 val tac = EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality]
@@ -1629,6 +1629,7 @@ Theorem evaluate_dec_clock:
   evaluate(prog,st) = (res,rst) ⇒
   evaluate(prog,st with clock:=st.clock-rst.clock) = (res,rst with clock:=0)
 Proof
+  Count.apply (
   recInduct evaluate_ind >> rpt strip_tac >>
   (qpat_x_assum `evaluate _ = _` mp_tac)
   >~[`Tick`]
@@ -1713,7 +1714,7 @@ Proof
   >>
   fs evaluate_with_const >>
   disch_tac >>
-  (drulel evaluate_const) >> simp[]
+  (drulel evaluate_const) >> simp[])
 QED
 
 (* IO and clock monotonicity *)
@@ -1723,6 +1724,7 @@ Theorem evaluate_io_events_mono:
    evaluate (exps,s1) = (res, s2) ⇒
    s1.ffi.io_events ≼ s2.ffi.io_events
 Proof
+  Count.apply (
   recInduct evaluate_ind >> rpt strip_tac >>
   (qpat_x_assum `evaluate _ = _` mp_tac) >>
   fs[evaluate_def]
@@ -1738,7 +1740,7 @@ Proof
          ]) >>
   TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
-  metis_tac[IS_PREFIX_TRANS]
+  metis_tac[IS_PREFIX_TRANS] )
 QED
 
 Triviality SND_alt_def:
@@ -1754,6 +1756,7 @@ Theorem evaluate_add_clock_io_events_mono:
     (SND(evaluate(exps,s))).ffi.io_events ≼
     (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events
 Proof
+  Count.apply (
   recInduct evaluate_ind >> rpt strip_tac
   >~[`Call`]
   >-(
@@ -1816,7 +1819,7 @@ Proof
   rveq >> fs[] >>
   rpt (first_x_assum(qspec_then`extra`mp_tac)>>simp[]  ) >>
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
-  metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]
+  metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR] )
 QED
 
 
@@ -1831,13 +1834,14 @@ Theorem evaluate_consts:
 (*     s1.stack_size = s2.stack_size ∧*)
      s1.stack_limit = s2.stack_limit
 Proof
+  Count.apply (
   recInduct evaluate_ind
   \\ fs[evaluate_def,LET_THM,dec_clock_def,flush_state_def]
   \\ (rpt conj_tac>>rpt gen_tac)
   >> rpt (CASE_ONE >> gvs[])
   >> strip_tac >> fs[]
   >> TRY (drulel [alloc_code_gc_fun_const, inst_code_gc_fun_const, mem_store_const,jump_exc_const,share_inst_const,pop_env_code_gc_fun_clock,evaluate_clock])
-  >> strip_tac >> gvs[]
+  >> strip_tac >> gvs[] )
 QED
 
 (* TODO: monotonicity *)
@@ -2444,6 +2448,7 @@ Theorem evaluate_stack_swap:
                               s_val_eq s1.stack st /\
                               s_key_eq xs st)
 Proof
+  Count.apply (
   simp_tac std_ss [LET_DEF,markerTheory.Abbrev_def]
   >> ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`)
   >> srw_tac[][]
@@ -3009,6 +3014,7 @@ Proof
      drule s_val_eq_stack_size >> strip_tac >> fs [] >>
     `LENGTH xs = LENGTH s.stack` by full_simp_tac(srw_ss())[s_val_eq_length]>>
     full_simp_tac(srw_ss())[])
+    )
 QED
 
 (*--Stack Swap Lemma DONE--*)
@@ -3024,6 +3030,7 @@ Theorem permute_swap_lemma:
     ∃perm'. evaluate(prog,st with permute := perm') =
     (res,rst with permute:=perm)
 Proof
+  Count.apply (
   ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> srw_tac[][]
   >~[`Alloc`]
   >-
@@ -3115,7 +3122,7 @@ Proof
         fs[] >>
         full_simp_tac bool_ss [GSYM state_fupdcanon] >> fs[]
     )
-    >> gvs[evaluate_def,AllCaseEqs()] >> simp[state_component_equality]
+    >> gvs[evaluate_def,AllCaseEqs()] >> simp[state_component_equality] )
 QED
 
 (* Locals extend lemma *)
@@ -3323,6 +3330,7 @@ Theorem locals_rel_evaluate_thm:
       | NONE => locals_rel temp rst.locals loc'
       | SOME _ => rst.locals = loc'
 Proof
+  Count.apply (
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
   Cases_on`prog` >> fs[every_var_def]
@@ -3486,6 +3494,7 @@ Proof
     gvs[AllCaseEqs()] >> simp[state_component_equality] >>
     simp[set_var_def] >>
     rpt (irule locals_rel_set_var >> fs[])
+  )
 QED
 
 Definition gc_fun_ok_def:
@@ -3638,6 +3647,7 @@ Proof
   goal_assum drule >>
   intLib.COOPER_TAC
 QED
+
 (*I'm pretty sure this is defined somewhere else too
 MOVE THIS to backend props.*)
 Theorem OPTION_MAP2_ADD_0:
@@ -3652,6 +3662,7 @@ Theorem evaluate_option_le_stack_max_preserved:
      option_le (OPTION_MAP2 $+ (stack_size s.stack) s.locals_size) s.stack_max ==>
      option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size) t.stack_max
 Proof
+  Count.apply (
   recInduct evaluate_ind >>
   rw[]
   >~[`Call`]
@@ -3879,6 +3890,7 @@ Proof
     Cases_on `s.locals_size` >>
     gvs[] )
   >> TRY (gvs[evaluate_def,AllCaseEqs()] >> NO_TAC)
+  )
 QED
 
 Theorem push_env_stack_max_eq:
@@ -3910,6 +3922,7 @@ Theorem evaluate_stack_max_le:
   evaluate (c, s1) = (res,s2) ==>
   option_le s1.stack_max s2.stack_max
 Proof
+  Count.apply (
   recInduct wordSemTheory.evaluate_ind >> rpt strip_tac
   >~ [`Alloc`]
   >-(
@@ -3954,7 +3967,7 @@ Proof
    )
   >>
    gvs[evaluate_def,AllCaseEqs(),flush_state_def] >>
-   rpt (pairarg_tac >> gvs[]) >> gvs[AllCaseEqs()]
+   rpt (pairarg_tac >> gvs[]) >> gvs[AllCaseEqs()] )
 QED
 
 Theorem evaluate_stack_max:
@@ -3985,29 +3998,27 @@ Theorem evaluate_stack_limit:
   evaluate (c,s1) = (res,s2) ==>
   s2.stack_limit = s1.stack_limit
 Proof
+  Count.apply (
   recInduct wordSemTheory.evaluate_ind >>
-  rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc"] >>
-  rw[set_vars_const]
-  >~ [`share_inst`]
-  >- (
-    drule share_inst_const >>
-    gvs[miscTheory.the_def] )
-   >>
+  rw[wordSemTheory.evaluate_def,CaseEq"option",CaseEq"word_loc",CaseEq"prod"] >>
+  fs[] >>
+  TRY (drulel [alloc_const,inst_const_full,
+  mem_store_const,jump_exc_const, share_inst_const] >> gvs[])
+  >>
   TRY(EVERY_ASSUM (fn thm => if is_forall(concl thm) then NO_TAC else ALL_TAC) >>
-      fs[alloc_def,CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
+      fs[CaseEq"option",CaseEq"prod",CaseEq"list",CaseEq"stack_frame",CaseEq"bool",
          CaseEq"inst",CaseEq"arith",CaseEq"word_loc",CaseEq"addr",CaseEq"memop",assign_def,
-         word_exp_def,mem_store_def,CaseEq"fp",jump_exc_def,CaseEq"ffi_result",
-         inst_def,call_env_def,gc_def,pop_env_def,push_env_def,ELIM_UNCURRY] >> rveq >> fs[] >>
+         word_exp_def,mem_store_def,CaseEq"fp",CaseEq"ffi_result",
+         inst_def,call_env_def,pop_env_def,push_env_def,ELIM_UNCURRY] >> rveq >> fs[] >>
       rveq >> fs[] >>
       NO_TAC) >>
   TRY(pairarg_tac >> fs[CaseEq"bool"] >> rveq >> rw[] >> NO_TAC) >>
-  TRY(rename1 `word_cmp` >> fs[CaseEq"bool"]) >>
   fs[CaseEq "bool",CaseEq"option",CaseEq"prod",CaseEq"wordSem$result"] >>
   rveq >> simp[call_env_def] >>
   rpt(first_x_assum (drule_then strip_assume_tac)) >>
   fs[] >> rpt(first_x_assum (drule_then strip_assume_tac)) >>
   fs[pop_env_def,CaseEq "list",CaseEq"stack_frame",CaseEq"option",CaseEq"prod"] >>
-  rveq >> fs[]
+  rveq >> fs[] )
 QED
 
 
@@ -4083,16 +4094,26 @@ Theorem evaluate_stack_max_only_grows:
      evaluate (p,inc_clock ck s) = (r',t') ==>
        option_le t.stack_max t'.stack_max
 Proof
-  recInduct evaluate_ind >> reverse(rpt strip_tac)
+  recInduct evaluate_ind >> (rpt strip_tac)
+  >~ [`Call`]
   >- (* Call *)
-     (fs[evaluate_def,inc_clock_def] >>
+     (
+      ntac 4 (last_x_assum mp_tac)>>
+      PURE_REWRITE_TAC[AND_IMP_INTRO]>>
+      qmatch_goalsub_abbrev_tac`FOO ⇒ _`>>
+      disch_then (fn th => EQT_INTRO th |> PURE_ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def] |> assume_tac)>>
+      rpt (qpat_x_assum `evaluate _ = _` mp_tac) >>
+      rpt disch_tac >>
+      fs[evaluate_def,inc_clock_def] >>
       Cases_on `get_vars args s` >> fs[] >> rveq >> fs[] >>
       Cases_on `bad_dest_args dest args` >> fs[] >> rveq >> fs[] >>
       Cases_on `find_code dest (add_ret_loc ret x) s.code s.stack_size` >> fs[] >> rveq >> fs[] >>
       fs[CaseEq"prod"] >> rveq >> fs[] >> rveq >>
       Cases_on `ret`
       >- (* Tail call *)
-      (Cases_on `handler` >> fs[] >> rveq >> fs[] >>
+      (
+      fs[] >> fs[Abbr `FOO`] >>
+      Cases_on `handler` >> fs[] >> rveq >> fs[] >>
        reverse(Cases_on `s.clock`) >-
          (fs[dec_clock_def,ADD1] >>
           fs[CaseEq"prod",CaseEq"option"] >> rveq >> fs[] >>
@@ -4109,8 +4130,8 @@ Proof
       reverse(Cases_on `s.clock`) >-
          (fs[dec_clock_def,ADD1] >>
           fs[CaseEq"prod",CaseEq"option",
-             CaseEq"bool"] >> rveq >> fs[] >>
-          res_tac >>
+             CaseEq"bool"]>> rveq >> fs[] >>
+          fs[Abbr `FOO`] >> res_tac >>
           TRY(rename1 `ck + nn` >>
               qpat_x_assum `evaluate (prog, _ with clock := nn) = _` assume_tac >>
               drule_then(qspec_then `ck` mp_tac) evaluate_add_clock >>
@@ -4148,23 +4169,21 @@ Proof
       fs[set_var_def] >>
       TRY(Cases_on `handler`) >>
       fs[call_env_def,push_env_def,dec_clock_def,ELIM_UNCURRY] >> metis_tac[option_le_trans])
-  >> (* Every case except call *)
-  fs[evaluate_def,inc_clock_def,
-     CaseEq"option",CaseEq"word_loc",CaseEq"bool",
-     CaseEq"prod",CaseEq"list",CaseEq"ffi_result",
-     ELIM_UNCURRY,flush_state_def] >>
-  rveq >> fs[] >> rveq >> fs[] >> res_tac >>
-  (* The remainder deals with subcases originating from Seq *)
-  fs[FST_EQ_EQUIV] >>
-  rfs[] >> res_tac >>
-  qpat_x_assum `evaluate(c1,s) = _` assume_tac >>
+  >~[`Seq`]
+  >-(
+  fs[evaluate_def,inc_clock_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  first_x_assum drule_all >>
+  EVERY_CASE_TAC >> gvs[] >>
   drule_then (qspec_then `ck` mp_tac) evaluate_add_clock >>
-  rw[] >>
-  fs[] >>
-  res_tac >>
-  imp_res_tac evaluate_stack_max_le >>
-  fs[] >>
-  metis_tac[option_le_trans]
+  rw[] >> gvs[]
+  >- (first_x_assum drule_all >> gvs[])
+  >> imp_res_tac evaluate_stack_max_le >> gvs[]
+  >> (PROVE_TAC[option_le_trans]))
+  >> (* Every case except call *)
+  fs[inc_clock_def, LIST_CONJ evaluate_with_const] >> gvs[] >>
+  gvs[evaluate_def,inc_clock_def,AllCaseEqs(),flush_state_def] >>
+  rpt (pairarg_tac >> gvs[]) >> EVERY_CASE_TAC >> res_tac >> gvs[]
 QED
 
 Theorem evaluate_code_only_grows:
