@@ -167,6 +167,56 @@ Definition compile_alt_def:
     (c', bm, compiled_p_lab)
 End
 
+(* data-to-word compilation using oracles *)
+Definition data_to_word_compile_orac_def:
+  data_to_word_compile_orac asm_conf inc_data_conf inc_word_to_word_conf p =
+  let p = data_to_word$compile_0 inc_data_conf asm_conf p in
+  case word_to_word_inlogic asm_conf inc_word_to_word_conf p of
+    | NONE => NONE
+    | SOME (col,prog) =>
+      SOME (inc_word_to_word_conf with col_oracle := col,prog)
+End
+
+(* This mirror compile_cake from backend_asmTheory *)
+Definition compile_cake_alt_def:
+  compile_cake_alt (asm_conf: 'a asm_config) (c : inc_config) p =
+  let source_conf = c.inc_source_conf in
+  let clos_conf = c.inc_clos_conf in
+  let bvl_conf = c.inc_bvl_conf in
+  let data_conf = c.inc_data_conf in
+  let word_to_word_conf = c.inc_word_to_word_conf in
+  let stack_conf = c.inc_stack_conf in
+  let p = source_to_source$compile p in
+  let (source_conf', compiled_p_flat) =
+    source_to_flat$compile source_conf p in
+  let compiled_p_clos =
+    flat_to_clos$compile_prog compiled_p_flat in
+  let (clos_conf', compiled_p_bvl) =
+    clos_to_bvl_compile_alt clos_conf compiled_p_clos in
+  let (clos_conf', bvl_conf', compiled_p_bvi) =
+    bvl_to_bvi_compile_update_config clos_conf' bvl_conf compiled_p_bvl in
+  let compiled_p_data =
+    bvi_to_data$compile_prog compiled_p_bvi in
+  case data_to_word_compile_orac asm_conf data_conf
+    word_to_word_conf compiled_p_data of
+    NONE => NONE
+  | SOME (word_to_word_conf',compiled_p_word1) =>
+  let (bm, word_to_stack_conf ,fs, compiled_p_stack) =
+    word_to_stack$compile asm_conf compiled_p_word1 in
+  let max_heap = (2 * data_to_word$max_heap_limit (:'a) data_conf - 1) in
+  let sp = (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3)) in
+  let offset = asm_conf.addr_offset in
+  let compiled_p_lab = stack_to_lab$compile stack_conf data_conf max_heap sp offset compiled_p_stack in
+  let c' = c with
+             <| inc_source_conf := source_conf';
+                inc_clos_conf := clos_conf';
+                inc_bvl_conf := bvl_conf';
+                inc_word_to_word_conf := word_to_word_conf';
+                inc_word_conf := word_to_stack_conf
+             |> in
+    SOME (c', bm, compiled_p_lab)
+End
+
 (* Configurations for incremental compilation *)
 Datatype:
   source_iconfig =
