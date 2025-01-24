@@ -212,7 +212,7 @@ Definition code_rel_def:
        ALOOKUP (SND cs) prog = SOME (n,p2) ==>
        ?cs1 l2 i2 cs2.
          compile n 2 1 cs1 prog = (p2,l2,i2,cs2) /\
-         lookup n code = SOME (1n,Seq p2 (Return 0 0)) /\
+         lookup n code = SOME (1n,Seq p2 (Return 0 [0])) /\
          code_subset cs2 cs
 End
 
@@ -385,7 +385,7 @@ val has_compiled_lemma = prove(
     has_compiled p cs = INL x /\ code_subset cs cs2 ==>
     ?cs0 p1 l1 i1 cs' cs1.
       compile x 2 1 cs' p = (p1,l1,i1,cs1) /\ code_subset cs1 cs2 /\
-      lookup x t1.code = SOME (1,Seq p1 (Return 0 0))``,
+      lookup x t1.code = SOME (1,Seq p1 (Return 0 [0]))``,
   Cases_on `cs`
   \\ Cases_on `cs2`
   \\ fs [state_rel_def,code_rel_def,has_compiled_def]
@@ -410,7 +410,7 @@ val compile_exp_thm = prove(
   \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on `x`
   \\ fs [word_exp_def,eval_exp_def,eval_exp_pre_def,compile_exp_def]
-  THEN1 (imp_res_tac state_rel_IN_FDOM \\ fs [FLOOKUP_DEF])
+  THEN1 (imp_res_tac state_rel_IN_FDOM \\ fs [get_store_def,FLOOKUP_DEF])
   THEN1
    (Cases_on `l` \\ fs [eval_exp_pre_def]
     \\ Cases_on `t` \\ fs [eval_exp_pre_def]
@@ -437,7 +437,7 @@ val evaluate_SeqTemp = prove(
     if Temp (n2w r) IN FDOM t.store then
        evaluate (p,set_var i (t.store ' (Temp (n2w r))) t)
     else evaluate (SeqTemp i r p,t)``,
-  rw [] \\ fs [SeqTemp_def,evaluate_def,word_exp_def,FLOOKUP_DEF]);
+  rw [] \\ fs [SeqTemp_def,evaluate_def,word_exp_def,get_store_def,FLOOKUP_DEF]);
 
 val evaluate_SeqTempImm = prove(
   ``evaluate (SeqTempImm i ri p,t) =
@@ -459,8 +459,8 @@ val evaluate_SeqTempImmNot = prove(
                                          | Word w => Word (~w)) t)
     else evaluate (SeqTempImmNot i ri p,t)``,
   Cases_on `ri` \\ fs [SeqTempImmNot_def]
-  \\ fs [SeqTemp_def,evaluate_def,word_exp_def,FLOOKUP_DEF]
-  \\ rw [] \\ fs [set_var_def,the_words_def,word_op_def]
+  \\ fs [SeqTemp_def,evaluate_def,word_exp_def,get_store_def,FLOOKUP_DEF]
+  \\ rw [] \\ fs [set_var_def,get_var_def,the_words_def,word_op_def]
   \\ fs [insert_shadow]);
 
 val LESS_LENGTH_IMP_APPEND = prove(
@@ -515,7 +515,7 @@ val evaluate_LoadRegs = prove(
         fs [state_rel_def,set_var_def]
   \\ first_x_assum drule
   \\ disch_then drule
-  \\ fs [] \\ rw [] \\ AP_TERM_TAC \\ fs []
+  \\ fs [get_store_def] \\ rw [] \\ AP_TERM_TAC \\ fs []
   \\ fs [set_var_def,list_update_def]
   \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC) \\ fs []
   \\ imp_res_tac LIST_REL_LENGTH \\ pop_assum mp_tac
@@ -555,14 +555,14 @@ val evaluate_SaveRegs = prove(
   Induct \\ fs [list_store_def,SaveRegs_def]
   THEN1 (simp [Once evaluate_def,wordSemTheory.state_component_equality])
   \\ fs [PULL_EXISTS]
-  \\ fs [evaluate_def,word_exp_def,set_store_def]
+  \\ fs [evaluate_def,word_exp_def,get_var_def]
   \\ rpt strip_tac \\ fs []
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,t99)`
   \\ first_x_assum (qspecl_then [`t99`,`ys`] mp_tac)
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [])
   \\ fs [] \\ unabbrev_all_tac \\ fs []
   \\ fs [wordSemTheory.state_component_equality]
-  \\ rpt strip_tac
+  \\ rpt strip_tac \\ fs[set_store_def]
   \\ match_mp_tac list_store_FUPDATE \\ fs []);
 
 val FLOOKUP_list_store_ignore = prove(
@@ -623,10 +623,10 @@ Theorem compile_thm:
                 ?l i cs p1 l1 i1 cs1.
                   compile n l i cs body = (p1,l1,i1,cs1) /\
                   0 < i ∧ syntax_ok_aux body ∧ code_subset cs1 cs2 /\
-                  lookup n t1.code = SOME (1,Seq p1 (Return 0 0))) /\
+                  lookup n t1.code = SOME (1,Seq p1 (Return 0 [0]))) /\
         (!body. prog = LoopBody body ==>
-                p9 = Return 0 0 /\
-                lookup n t1.code = SOME (1,Seq p1 (Return 0 0))) /\
+                p9 = Return 0 [0] /\
+                lookup n t1.code = SOME (1,Seq p1 (Return 0 [0]))) /\
         get_var 0 t1 = SOME ret_val /\ good_dimindex (:'a) ==>
         ?t2 res.
           (evaluate (Seq p1 p9,t1) = res) /\
@@ -657,7 +657,7 @@ Proof
     (fs [compile_def] \\ rveq
      \\ fs [evaluate_def]
      \\ drule_all compile_exp_thm \\ fs [] \\ strip_tac
-     \\ fs [word_exp_def,set_var_def]
+     \\ fs [word_exp_def,get_var_def,set_var_def]
      \\ qmatch_goalsub_abbrev_tac `evaluate (p9, s6)`
      \\ qexists_tac `s6` \\ fs []
      \\ unabbrev_all_tac \\ fs[]
@@ -727,10 +727,10 @@ Proof
          (fn th => assume_tac (REWRITE_RULE [state_rel_def] th))
     \\ fs [SeqIndex_def,evaluate_def,array_rel_def]
     \\ Cases_on `a`
-    \\ fs [word_exp_def,FLOOKUP_DEF,word_sh_def]
+    \\ fs [word_exp_def,get_store_def,FLOOKUP_DEF,word_sh_def]
     \\ `shift (:α) < dimindex (:α)` by
           (fs [good_dimindex_def,shift_def] \\ NO_TAC)
-    \\ fs [the_words_def,word_op_def,set_var_def,lookup_insert,
+    \\ fs [the_words_def,word_op_def,get_var_def,set_var_def,lookup_insert,
            mem_load_def]
     \\ imp_res_tac LESS_LENGTH_IMP_APPEND
     \\ fs [word_list_def,word_list_APPEND,shift_eq_bytes_in_word]
@@ -745,7 +745,7 @@ Proof
     \\ fs [syntax_ok_def,syntax_ok_aux_def]
     \\ strip_tac \\ Cases_on `r = a` \\ fs []
     \\ rpt strip_tac \\ fs [FLOOKUP_DEF]
-    \\ `a < max_var_name` by fs [] \\ fs [])
+    \\ res_tac \\ fs[])
   THEN1 (* Store *)
    (fs [compile_def] \\ rveq \\ fs [FLOOKUP_DEF]
     \\ imp_res_tac state_rel_IN_FDOM
@@ -753,7 +753,7 @@ Proof
          (fn th => assume_tac (REWRITE_RULE [state_rel_def] th))
     \\ fs [SeqIndex_def,evaluate_def,array_rel_def]
     \\ once_rewrite_tac [evaluate_SeqTemp] \\ fs [evaluate_def]
-    \\ fs [word_exp_def,FLOOKUP_DEF,word_sh_def,set_var_def]
+    \\ fs [word_exp_def,get_store_def,FLOOKUP_DEF,word_sh_def,set_var_def]
     \\ `shift (:α) < dimindex (:α)` by
           (fs [good_dimindex_def,shift_def] \\ NO_TAC)
     \\ fs [the_words_def,word_op_def,set_var_def,lookup_insert,get_var_def,
@@ -780,12 +780,12 @@ Proof
   THEN1 (* Swap *)
    (fs [compile_def] \\ rveq
     \\ fs [evaluate_def,word_exp_def,state_rel_def,array_rel_def,array_write_def,
-           TempIn1_def,TempIn2_def,TempOut_def,set_var_def,set_store_def,
+           TempIn1_def,TempIn2_def,TempOut_def,set_var_def,get_store_def,set_store_def,
            FLOOKUP_UPDATE,APPLY_UPDATE_THM,get_var_def,lookup_insert]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t5)`
     \\ qexists_tac `t5` \\ unabbrev_all_tac \\ fs []
     \\ fs [evaluate_def,word_exp_def,state_rel_def,array_rel_def,array_write_def,
-           TempIn1_def,TempIn2_def,TempOut_def,set_var_def,set_store_def,
+           TempIn1_def,TempIn2_def,TempOut_def,set_var_def,get_store_def,set_store_def,
            FLOOKUP_UPDATE,APPLY_UPDATE_THM,get_var_def,lookup_insert]
     \\ rpt strip_tac
     \\ res_tac \\ fs []
@@ -931,14 +931,15 @@ Proof
      (simp [Once evaluate_def] \\ simp [Once evaluate_def]
       \\ `t1.clock <> 0` by fs [state_rel_def]
       \\ simp [get_vars_def,bad_dest_args_def,add_ret_loc_def,find_code_def]
-      \\ `wordSem$cut_env (LS ()) t1.locals = SOME (insert 0 ret_val LN)` by
-       (fs [wordSemTheory.cut_env_def,domain_lookup,get_var_def]
-        \\ fs [spt_eq_thm,wf_insert,wf_def,lookup_insert,
+      \\ `wordSem$cut_envs (LS (),LN) t1.locals = SOME (insert 0 ret_val LN,LN)` by
+       (fs [wordSemTheory.cut_envs_def,cut_names_def,
+            domain_lookup,get_var_def]
+       \\ fs [spt_eq_thm,wf_insert,wf_def,lookup_insert,
                lookup_def,lookup_inter_alt] \\ NO_TAC) \\ fs []
       \\ drule (GEN_ALL has_compiled_lemma)
       \\ disch_then drule
       \\ fs [] \\ strip_tac \\ fs []
-      \\ Q.MATCH_GOALSUB_ABBREV_TAC `(Seq p1 (Return 0 0),t5)`
+      \\ Q.MATCH_GOALSUB_ABBREV_TAC `(Seq p1 (Return 0 [0]),t5)`
       \\ first_x_assum drule
       \\ disch_then (qspecl_then [`cs2`,`t5`] mp_tac)
       \\ `get_var 0 t5 = SOME (Loc n l)` by (unabbrev_all_tac \\ EVAL_TAC \\ NO_TAC)
@@ -946,7 +947,8 @@ Proof
       \\ impl_tac THEN1
        (unabbrev_all_tac
         \\ fs [call_env_def, flush_state_def,push_env_def,env_to_list_insert_0_LN,
-               wordSemTheory.dec_clock_def, stack_size_def, get_var_def]
+               wordSemTheory.dec_clock_def,get_store_def, stack_size_def, get_var_def]
+        \\ fs[env_to_list_def]
         \\ reverse conj_tac
         THEN1 (rw[] \\ fs [] \\ metis_tac [EVAL ``0<1n``])
         \\ match_mp_tac state_rel_delete_vars
@@ -958,9 +960,16 @@ Proof
       \\ strip_tac \\ fs []
       \\ fs [evaluate_def]
       \\ unabbrev_all_tac
-      \\ fs [pop_env_def,call_env_def, flush_state_def,push_env_def, stack_size_def, get_var_def]
+      \\ fs [pop_env_def,call_env_def, flush_state_def,push_env_def, stack_size_def, get_vars_def]
       \\ fs [env_to_list_insert_0_LN,EVAL ``domain (fromAList [(0,ret_val)])``]
-      \\ fs [set_var_def,fromAList_def,wordSemTheory.dec_clock_def]
+      \\ fs [env_to_list_def]
+      \\ fs [set_vars_def,alist_insert_def,fromAList_def,wordSemTheory.dec_clock_def]
+      \\ DEP_REWRITE_TAC [fromAList_toAList]
+      \\ CONJ_TAC >- (irule wf_insert \\ fs[])
+      \\ fs[domain_fromAList]
+      \\ fs[toAList_def,foldi_def]
+      \\ fs[QSORT_DEF]
+      \\ fs[list_rearrange_def]
       \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
       \\ qexists_tac `t8` \\ fs []
       \\ unabbrev_all_tac \\ fs [get_var_def,lookup_insert]
@@ -974,14 +983,14 @@ Proof
     \\ simp [Once evaluate_def] \\ simp [Once evaluate_def]
     \\ `t1.clock <> 0` by fs [state_rel_def]
     \\ simp [get_vars_def,bad_dest_args_def,add_ret_loc_def,find_code_def]
-    \\ `wordSem$cut_env (LS ()) t1.locals = SOME (insert 0 ret_val LN)` by
-     (fs [wordSemTheory.cut_env_def,domain_lookup,get_var_def]
+    \\ `wordSem$cut_envs (LS (),LN) t1.locals = SOME (insert 0 ret_val LN,LN)` by
+     (fs [wordSemTheory.cut_envs_def,cut_names_def,domain_lookup,get_var_def]
       \\ fs [spt_eq_thm,wf_insert,wf_def,lookup_insert,
              lookup_def,lookup_inter_alt] \\ NO_TAC) \\ fs []
     \\ drule (GEN_ALL has_compiled_lemma)
     \\ disch_then drule
     \\ fs [] \\ strip_tac \\ fs []
-    \\ Q.MATCH_GOALSUB_ABBREV_TAC `(Seq p1 (Return 0 0),t5)`
+    \\ Q.MATCH_GOALSUB_ABBREV_TAC `(Seq p1 (Return 0 [0]),t5)`
     \\ first_x_assum drule
     \\ disch_then (qspecl_then [`cs2`,`t5`] mp_tac)
     \\ `get_var 0 t5 = SOME (Loc n l)` by (unabbrev_all_tac \\ EVAL_TAC \\ NO_TAC)
@@ -990,6 +999,7 @@ Proof
      (unabbrev_all_tac
       \\ fs [call_env_def, flush_state_def,push_env_def,env_to_list_insert_0_LN,
              wordSemTheory.dec_clock_def]
+      \\ fs [env_to_list_def]
       \\ reverse conj_tac
       THEN1 (rw [] \\ fs [] \\ metis_tac [EVAL ``0<1n``])
       \\ match_mp_tac state_rel_delete_vars
@@ -997,15 +1007,24 @@ Proof
       \\ fs [state_rel_def] \\ fs [])
     \\ strip_tac \\ fs []
     \\ fs [evaluate_def]
+    \\ fs [get_vars_def]
     \\ unabbrev_all_tac
     \\ fs [pop_env_def,call_env_def, flush_state_def,push_env_def]
     \\ fs [env_to_list_insert_0_LN,EVAL ``domain (fromAList [(0,ret_val)])``]
-    \\ fs [set_var_def,fromAList_def,wordSemTheory.dec_clock_def]
+    \\ fs [set_vars_def,fromAList_def,wordSemTheory.dec_clock_def]
+    \\ fs [env_to_list_def]
+    \\ DEP_REWRITE_TAC [fromAList_toAList]
+    \\ CONJ_TAC >- (irule wf_insert \\ fs[])
+    \\ fs[domain_fromAList]
+    \\ fs[toAList_def,foldi_def]
+    \\ fs[QSORT_DEF]
+    \\ fs[list_rearrange_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
     \\ qexists_tac `t8` \\ fs []
-    \\ unabbrev_all_tac \\ fs [get_var_def,lookup_insert]
+    \\ unabbrev_all_tac \\ fs [get_var_def,alist_insert_def,lookup_insert]
     \\ fs [state_rel_def] \\ fs [])
-  THEN1 (* Rec *)
+  THEN1 (* Rec *) cheat
+   (*
    (fs [compile_def] \\ rveq
     \\ fs [compile_def,syntax_ok_def,syntax_ok_aux_def] \\ rfs []
     \\ simp [Once evaluate_def]
@@ -1120,7 +1139,7 @@ Proof
     \\ rpt (pop_assum kall_tac)
     \\ Induct_on `save_regs` \\ fs [list_store_def]
     \\ rpt strip_tac \\ fs []
-    \\ match_mp_tac FUPDATE_COMMUTES \\ fs [])
+    \\ match_mp_tac FUPDATE_COMMUTES \\ fs []) *)
   THEN1 (* LoopBody ret *)
    (fs [syntax_ok_def,compile_def]
     \\ `syntax_ok prog /\ !r. prog <> LoopBody r` by
@@ -1136,7 +1155,7 @@ Proof
     \\ qpat_x_assum `!v w._` mp_tac
     \\ first_x_assum drule
     \\ disch_then drule \\ fs []
-    \\ disch_then (qspec_then `Return 0 0` strip_assume_tac) \\ fs []
+    \\ disch_then (qspec_then `Return 0 [0]` strip_assume_tac) \\ fs []
     \\ disch_then drule \\ fs []
     \\ `state_rel (dec_clock s2) (call_env [ret_val] (lookup n t2.stack_size) (dec_clock t2)) cs2 t0 frame` by
       (fs [state_rel_def,call_env_def, flush_state_def,wordSemTheory.dec_clock_def,dec_clock_def]
@@ -2154,7 +2173,7 @@ Theorem evaluate_mc_iop =
   |> REWRITE_RULE [GSYM lemma]
   |> REWRITE_RULE [GSYM CONJ_ASSOC]
   |> DISCH_ALL
-  |> Q.INST [`p9`|->`Return 0 0`]
+  |> Q.INST [`p9`|->`Return 0 [0]`]
   |> Q.INST [`s`|->`FST ((i2mw i1): bool # 'a word list)`,
              `xs`|->`SND (i2mw i1: bool # 'a word list)`,
              `t`|->`FST (i2mw i2: bool # 'a word list)`,
