@@ -4606,10 +4606,10 @@ Theorem ssa_cc_trans_props[local]:
   is_alloc_var na' ∧
   ssa_map_ok na' ssa'
 Proof
-  cheat (*
   ho_match_mp_tac ssa_cc_trans_ind>>
   full_simp_tac(srw_ss())[ssa_cc_trans_def]>>
-  strip_tac >- (
+  rpt conj_tac >> rpt gen_tac
+  >- (
     (* Move *)
     LET_ELIM_TAC>>
     full_simp_tac(srw_ss())[]
@@ -4631,8 +4631,8 @@ Proof
       rename1`4 * xx + na`>>
       `is_alloc_var (4 * xx + na)` by
         gvs[is_alloc_var_def]>>
-      metis_tac[convention_partitions]) )>>
-  strip_tac >- (
+      metis_tac[convention_partitions]) )
+  >- (
     (* StoreConsts *)
     LET_ELIM_TAC>>fs[next_var_rename_def]
     >- (
@@ -4648,30 +4648,27 @@ Proof
     drule ssa_map_ok_extend >>
     disch_then(qspec_then `c` mp_tac)>>
     impl_tac >- metis_tac[convention_partitions,is_alloc_var_add]>>
-    simp[])>>
-  strip_tac >-
+    simp[])
+  >-
     (LET_ELIM_TAC>>
     full_simp_tac(srw_ss())[]>>
-    metis_tac[ssa_cc_trans_inst_props])>>
-  strip_tac >-
-    exp_tac>>
-  strip_tac >-
-    exp_tac>>
-  strip_tac >-
-    exp_tac>>
-  strip_tac >-
+    metis_tac[ssa_cc_trans_inst_props])
+  >- exp_tac
+  >- exp_tac
+  >- exp_tac
+  >-
     (LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
-    DECIDE_TAC)>>
-  strip_tac >-
+    DECIDE_TAC)
+  >-
     (LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
-    DECIDE_TAC)>>
-  strip_tac >-
+    DECIDE_TAC)
+  >-
     (LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
     imp_res_tac ssa_map_ok_more>>
     first_x_assum(qspec_then`na3` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
     full_simp_tac(srw_ss())[]>>
-    imp_res_tac fix_inconsistencies_props>>DECIDE_TAC)>>
-  strip_tac >-
+    imp_res_tac fix_inconsistencies_props>>DECIDE_TAC)
+  >-
     (* Alloc *)
     (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
     `∀naa. ssa_map_ok naa ssa''' ⇒ ssa_map_ok naa ssa_cut` by
@@ -4684,18 +4681,13 @@ Proof
     imp_res_tac ssa_map_ok_more>>
     res_tac>>
     imp_res_tac list_next_var_rename_props_2>>
-    DECIDE_TAC)>>
-  strip_tac >-
-    exp_tac>>
-  strip_tac >-
-    exp_tac>>
-  strip_tac >-
-    exp_tac>>
-  strip_tac >-
-    exp_tac>>
-  strip_tac >-
-    exp_tac>>
-  strip_tac >-
+    DECIDE_TAC)
+  >- exp_tac
+  >- exp_tac
+  >- exp_tac
+  >- exp_tac
+  >- exp_tac
+  >-
     (* Install *)
     (rpt gen_tac>> strip_tac>>
     simp[Once (GSYM markerTheory.Abbrev_def)]>>
@@ -4723,14 +4715,12 @@ Proof
          asm_exists_tac>>fs[])>>
         metis_tac[convention_partitions])>>
       strip_tac>>
-      fs[Abbr`na2`,markerTheory.Abbrev_def]))>>
-  strip_tac>-
-    (* CBW *)
-    (rw[]>>fs[])>>
-  strip_tac>-
-    (* DBW *)
-    (rw[]>>fs[])>>
-  strip_tac>-
+      fs[Abbr`na2`,markerTheory.Abbrev_def]))
+  >- (* CBW *)
+    (rw[]>>fs[])
+  >- (* DBW *)
+    (rw[]>>fs[])
+  >-
     (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
     `∀naa. ssa_map_ok naa ssa''' ⇒ ssa_map_ok naa ssa_cut` by
       (srw_tac[][Abbr`ssa_cut`,ssa_map_ok_def,lookup_inter]>>
@@ -4742,12 +4732,12 @@ Proof
     imp_res_tac ssa_map_ok_more>>
     res_tac>>
     imp_res_tac list_next_var_rename_props_2>>
-    DECIDE_TAC)>>
-  strip_tac >-
+    DECIDE_TAC)
+  >-
     (LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
-    rev_full_simp_tac(srw_ss())[])>>
-  strip_tac >-
-  (*Calls*)
+    rev_full_simp_tac(srw_ss())[])
+  >- cheat
+  (*Calls*) (*
   (Cases_on`h`>-
     (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
     srw_tac[][]>>
@@ -4763,6 +4753,7 @@ Proof
     imp_res_tac ssa_map_ok_more>>
     res_tac>>
     imp_res_tac list_next_var_rename_props_2>>
+    gvs[]
     (last_assum mp_tac>>impl_tac>-
       (full_simp_tac(srw_ss())[next_var_rename_def]>>
       CONJ_ASM2_TAC>-
@@ -4815,7 +4806,7 @@ Proof
       full_simp_tac(srw_ss())[next_var_rename_def]>>
       DECIDE_TAC)>>
     imp_res_tac fix_inconsistencies_props>>
-    DECIDE_TAC)
+    DECIDE_TAC) *)
   >- ((*ShareInst*)
     rpt gen_tac >>
     simp[LET_THM] >>
@@ -4827,7 +4818,7 @@ Proof
     gvs[next_var_rename_def] >>
     conj_tac >- fs[is_alloc_var_def] >>
     drule_then irule ssa_map_ok_extend >>
-    metis_tac[convention_partitions] ) *)
+    metis_tac[convention_partitions] )
 QED
 
 Triviality PAIR_ZIP_MEM:
@@ -7795,8 +7786,6 @@ Theorem ssa_cc_trans_full_inst_ok_less[local]:
     full_inst_ok_less c prog ⇒
     full_inst_ok_less c (FST (ssa_cc_trans prog ssa na))
 Proof
-  cheat
-  (*
   ho_match_mp_tac ssa_cc_trans_ind>>
   full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
@@ -7846,7 +7835,8 @@ Proof
     (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
     rpt (pop_assum mp_tac)>>
     LET_ELIM_TAC>>full_simp_tac(srw_ss())[full_inst_ok_less_def,EQ_SYM_EQ]>>NO_TAC)
-  >- ((*Call SOME*)
+  >- cheat
+    (* ((*Call SOME*)
     EVERY_CASE_TAC>>unabbrev_all_tac>>
     gvs[fix_inconsistencies_def]>>
     rpt(pairarg_tac>>gvs[])>>
@@ -7917,7 +7907,7 @@ Proof
         match_mp_tac every_var_mono>>
         first_x_assum (irule_at Any)>>
         simp[])
-      >- gvs[is_alloc_var_add]))
+      >- gvs[is_alloc_var_add])) *)
   >> (*ShareInst*)
     qpat_x_assum `option_CASE _ _ _` mp_tac >>
     ntac 2 TOP_CASE_TAC >>
@@ -7926,7 +7916,6 @@ Proof
     simp[full_inst_ok_less_def] >>
     gvs[exp_to_addr_ShareInst,ssa_cc_trans_exp_def] >>
     simp[exp_to_addr_def]
-   *)
 QED
 
 Theorem full_ssa_cc_trans_full_inst_ok_less:
