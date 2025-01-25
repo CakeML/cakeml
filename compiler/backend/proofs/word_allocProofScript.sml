@@ -5079,8 +5079,6 @@ Theorem ssa_cc_trans_correct:
         ssa_locals_rel na' ssa' rst.locals rcst.locals
     | SOME _    => rst.locals = rcst.locals )
 Proof
-  cheat
-  (*
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
   full_simp_tac(srw_ss())[PULL_FORALL,evaluate_def]>>
@@ -5519,8 +5517,9 @@ Proof
     )
   >-(*Assign*)
     exp_tac
-  >-(*Get*)
-    exp_tac
+  >-(*Get*) cheat
+    (*
+    exp_tac *)
   >-(*Set*)
     exp_tac
   >-(*Store*)
@@ -5552,7 +5551,8 @@ Proof
     rpt(pairarg_tac>>gvs[])>>
     gvs[AllCaseEqs()])
   >~[`Call`]
-  >- (
+  >- cheat (*
+    (
     goalStack.print_tac"Slow ssa_cc_trans_correct Call proof">>
     Cases_on`o'`
     >- ((*Tail call*)
@@ -6383,7 +6383,7 @@ Proof
       srw_tac[][]>>qexists_tac`perm`>>full_simp_tac(srw_ss())[]>>
       first_x_assum(qspec_then`envy.stack` mp_tac)>>
       (impl_tac>- (unabbrev_all_tac>>full_simp_tac(srw_ss())[]))>>
-      srw_tac[][]>>full_simp_tac(srw_ss())[])
+      srw_tac[][]>>full_simp_tac(srw_ss())[])*)
   >- (*Seq*)
     (srw_tac[][]>>full_simp_tac(srw_ss())[evaluate_def,ssa_cc_trans_def,LET_THM]>>
     last_assum(qspecl_then[`p`,`st`,`cst`,`ssa`,`na`] mp_tac)>>
@@ -6484,7 +6484,8 @@ Proof
         metis_tac[ssa_locals_rel_more,ssa_map_ok_more])>>
       Cases_on`evaluate(e3_cons,r'')`>>full_simp_tac(srw_ss())[word_state_eq_rel_def]))
   >~[`Alloc`]
-  >- (
+  >- cheat
+    (*(
     qabbrev_tac`A = ssa_cc_trans (Alloc n s) ssa na`>>
     PairCases_on`A`>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>
     pop_assum mp_tac>>
@@ -6678,6 +6679,7 @@ Proof
     simp[] >>
     srw_tac[][]>>full_simp_tac(srw_ss())[word_state_eq_rel_def]) >>
     full_simp_tac(srw_ss())[word_state_eq_rel_def, stack_size_def, stack_size_frame_def] >> srw_tac[][])
+    *)
   >~[`StoreConsts`]
   >- (
     exists_tac>>fs[]>>
@@ -6724,8 +6726,9 @@ Proof
     Cases_on`get_var n st`>>imp_res_tac ssa_locals_rel_get_var>>
     full_simp_tac(srw_ss())[get_vars_def,get_var_def,set_vars_def,lookup_alist_insert]>>
     full_simp_tac(srw_ss())[jump_exc_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>> gvs[])
-  >-
+  >-cheat
     (*Return*)
+    (*
     (exists_tac>>fs[]>>
     Cases_on`get_var n st`>>
     Cases_on`get_var n0 st`>>
@@ -6743,7 +6746,7 @@ Proof
     Q.ISPECL_THEN [`Loc l1 l2`,`st`,`ssa`,`na`,`n`,`rcst`] assume_tac (GEN_ALL ssa_locals_rel_get_var)>>
     Q.ISPECL_THEN [`x'`,`st`,`ssa`,`na`,`n0`,`rcst`] assume_tac (GEN_ALL ssa_locals_rel_get_var)>>
     unabbrev_all_tac>>rfs[]>>
-    full_simp_tac(srw_ss())[get_var_def,call_env_def,flush_state_def])
+    full_simp_tac(srw_ss())[get_var_def,call_env_def,flush_state_def]) *)
   >- (* Tick *)
     (exists_tac>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[call_env_def, flush_state_def,dec_clock_def])
@@ -6760,7 +6763,7 @@ Proof
   >-
     exp_tac
   >~[`Install`]
-  >-(
+  >-cheat (*(
     qexists_tac`cst.permute`>>
     fs[evaluate_def,word_state_eq_rel_def,ssa_cc_trans_def]>>
     last_x_assum kall_tac>>
@@ -6900,12 +6903,12 @@ Proof
       match_mp_tac ssa_map_ok_inter>>
       match_mp_tac (GEN_ALL ssa_map_ok_more)>>
       asm_exists_tac>>fs[])>>
-    pairarg_tac>>fs[word_state_eq_rel_def])
+    pairarg_tac>>fs[word_state_eq_rel_def]) *)
   >-
     exp_tac
   >-
     exp_tac
-  >- (
+  >- cheat (* (
     (*FFI*)
     exists_tac>>
     last_x_assum kall_tac>>
@@ -7039,7 +7042,9 @@ Proof
       full_simp_tac(srw_ss())[LET_THM]>>
       srw_tac[][]>>
       Cases_on`evaluate(ret_mov,rcstt)`>>unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def] )
-  >- ((*ShareInst*)
+  *)
+  (*ShareInst*)
+  >-cheat  (*(
     exists_tac >>
     pairarg_tac >>
     simp[] >>
@@ -7069,7 +7074,7 @@ Proof
       set_var_def,flush_state_def,AllCaseEqs(),
       markerTheory.Abbrev_def] >>
     irule ssa_locals_rel_set_var >>
-    fs[every_var_def] ) *)
+    fs[every_var_def] )*)
 QED
 
 (*For starting up*)
@@ -7375,7 +7380,6 @@ Theorem ssa_cc_trans_pre_alloc_conventions:
   let (prog',ssa',na') = ssa_cc_trans prog ssa na in
   pre_alloc_conventions prog'
 Proof
-  cheat (*
   completeInduct_on`wordLang$prog_size (K 0) prog`>>
   rpt strip_tac>>
   full_simp_tac(srw_ss())[PULL_FORALL,LET_THM]>>
@@ -7392,7 +7396,8 @@ Proof
   >-
     (first_x_assum(qspecl_then [`p`,`ssa`,`na`] mp_tac)>>
     size_tac>>simp[])
-  >- ( (* Call *)
+  >-cheat
+    (* ( (* Call *)
     Cases_on`o'`
     >- (
       full_simp_tac(srw_ss())[ssa_cc_trans_def]>>LET_ELIM_TAC>>
@@ -7470,7 +7475,7 @@ Proof
     gvs[EQ_SYM_EQ,LET_THM])>>
     rev_full_simp_tac(srw_ss())[LET_THM]>>
     rpt(pairarg_tac>>gvs[])
-    )
+    )*)
   >- ( (*Seq*)
     first_assum(qspecl_then[`p`,`ssa`,`na`] assume_tac)>>
     first_x_assum(qspecl_then[`p0`,`ssa'`,`na'`] assume_tac)>>
@@ -7488,7 +7493,8 @@ Proof
     rev_full_simp_tac(srw_ss())[]>>
     Q.SPECL_THEN [`ssa2`,`ssa3`,`na3`,`prio`] assume_tac fix_inconsistencies_conventions>>
     rev_full_simp_tac(srw_ss())[LET_THM])
-  >>
+  >> cheat
+  (*
   (*Alloc and FFI*)
   TRY(full_simp_tac(srw_ss())[Abbr`prog`,list_next_var_rename_move_def]>>
   ntac 2 (qpat_x_assum `A = (B,C,D)` mp_tac)>>
@@ -7619,8 +7625,6 @@ Theorem ssa_cc_trans_distinct_tar_reg:
     ssa_map_ok na ssa ⇒
     every_inst distinct_tar_reg (FST (ssa_cc_trans prog ssa na))
 Proof
-  cheat
-  (*
   ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[every_inst_def]>>imp_res_tac ssa_cc_trans_props>>full_simp_tac(srw_ss())[]
@@ -7665,7 +7669,9 @@ Proof
     fs[is_alloc_var_def]>>CCONTR_TAC>>fs[])
   >>
   FULL_CASE_TAC>>full_simp_tac(srw_ss())[every_var_def,every_inst_def]
-  >-
+
+  >- cheat
+    (*
     (qpat_x_assum`A ∧ B ∧ C ⇒ every_inst distinct_tar_reg D` mp_tac>>
     impl_tac>-
       (imp_res_tac list_next_var_rename_move_props_2>>
@@ -7686,7 +7692,9 @@ Proof
       full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
       rpt(qpat_x_assum`A=(B,C,D)` mp_tac)>>
       LET_ELIM_TAC>>full_simp_tac(srw_ss())[EQ_SYM_EQ,every_inst_def])
-    >>
+      *)
+    >> cheat
+      (*
       PairCases_on`x`>>full_simp_tac(srw_ss())[fix_inconsistencies_def]>>LET_ELIM_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def]>>
       qpat_x_assum`A ∧ B ∧ C ⇒ every_inst distinct_tar_reg ren_ret_handler` mp_tac>>
       impl_keep_tac>-
@@ -7728,8 +7736,7 @@ Proof
       full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
       rpt(qpat_x_assum`A=(B,C,D)` mp_tac)>>
       LET_ELIM_TAC>>full_simp_tac(srw_ss())[EQ_SYM_EQ,every_inst_def]>>
-      metis_tac[fake_moves_distinct_tar_reg]
-   *)
+      metis_tac[fake_moves_distinct_tar_reg] *)
 QED
 
 Theorem full_ssa_cc_trans_distinct_tar_reg:
