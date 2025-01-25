@@ -4126,16 +4126,6 @@ Proof
   \\ simp[MULT_DIV]
 QED
 
-Theorem alist_insert_pull_insert:
-   ∀xs ys z. ¬MEM x xs ⇒
-   alist_insert xs ys (insert x y z) =
-   insert x y (alist_insert xs ys z)
-Proof
-  ho_match_mp_tac alist_insert_ind
-  \\ simp[alist_insert_def] \\ rw[] \\ fs[]
-  \\ metis_tac[insert_swap]
-QED
-
 Theorem alist_insert_REVERSE:
    ∀xs ys s.
    ALL_DISTINCT xs ∧ LENGTH xs = LENGTH ys ⇒
