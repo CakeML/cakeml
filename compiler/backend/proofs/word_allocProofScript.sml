@@ -4934,7 +4934,7 @@ val exp_tac =
     imp_res_tac ssa_locals_rel_get_var>>
     imp_res_tac ssa_cc_trans_exp_correct>>full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
     rev_full_simp_tac(srw_ss())[evaluate_def]>>
-    fs[set_var_def,set_store_def]>>
+    fs[set_var_def,get_store_def,set_store_def]>>
     match_mp_tac ssa_locals_rel_set_var>>
     full_simp_tac(srw_ss())[every_var_def]);
 
@@ -5055,6 +5055,30 @@ Proof
   gvs[option_lookup_def,AllCaseEqs()]>>
   gvs[EL_ALL_DISTINCT_EL_EQ,MEM_EL,EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
   metis_tac[]
+QED
+(*TODO move*)
+
+Theorem get_vars_NOT_MEM:
+  ¬MEM h xs ==>
+  get_vars xs (cs with locals :=  insert h h' ys) = get_vars xs (cs with locals := ys)
+Proof
+  Induct_on `xs` >> gvs[get_vars_def,get_var_def,lookup_insert]
+QED
+
+Theorem get_vars_set_vars:
+  !xs xy cs.
+  ALL_DISTINCT xs /\
+  LENGTH xs = LENGTH xy ==>
+  get_vars xs (set_vars xs xy cs) = SOME xy
+Proof
+  (*This is super hacky*)
+  Induct_on `xs` >> rw[] >>
+  fs[get_vars_def,set_vars_def,alist_insert_def] >>
+  Cases_on `xy` >> fs[] >>
+  fs[alist_insert_def,get_var_def] >>
+  first_x_assum (qspecl_then [`t`,`cs`] assume_tac) >>
+  gvs[] >>
+  gvs[get_vars_NOT_MEM]
 QED
 
 Theorem ssa_cc_trans_correct:
@@ -5517,9 +5541,8 @@ Proof
     )
   >-(*Assign*)
     exp_tac
-  >-(*Get*) cheat
-    (*
-    exp_tac *)
+  >-(*Get*)
+    exp_tac
   >-(*Set*)
     exp_tac
   >-(*Store*)
@@ -6726,27 +6749,38 @@ Proof
     Cases_on`get_var n st`>>imp_res_tac ssa_locals_rel_get_var>>
     full_simp_tac(srw_ss())[get_vars_def,get_var_def,set_vars_def,lookup_alist_insert]>>
     full_simp_tac(srw_ss())[jump_exc_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>> gvs[])
-  >-cheat
+  >-
     (*Return*)
-    (*
     (exists_tac>>fs[]>>
-    Cases_on`get_var n st`>>
-    Cases_on`get_var n0 st`>>
-    imp_res_tac ssa_locals_rel_get_var>>full_simp_tac(srw_ss())[]>>
-    Cases_on `x`>>full_simp_tac(srw_ss())[]>>
-    full_simp_tac(srw_ss())[get_vars_def,set_vars_def]>>
+    Cases_on`get_var n st`>> fs[] >>
+    Cases_on `x` >> fs[] >>
+    Cases_on`get_vars l st`>> fs[] >>
+    full_simp_tac(srw_ss())[MAP_ZIP,ALL_DISTINCT_GENLIST] >>
+    imp_res_tac ssa_locals_rel_get_vars>>
+    full_simp_tac(srw_ss())[]>>
+    imp_res_tac ssa_locals_rel_get_var>>
+    full_simp_tac(srw_ss())[]>>
+    full_simp_tac(srw_ss())[set_vars_def]>>
     imp_res_tac ssa_locals_rel_ignore_list_insert>>
     ntac 4 (pop_assum kall_tac)>>
-    pop_assum(qspecl_then [`[x']`,`[2]`] mp_tac)>>
-    impl_tac>-full_simp_tac(srw_ss())[]>>
-    impl_tac>- is_phy_var_tac>>
+    pop_assum(qspecl_then [`x`,`(GENLIST (λx. 2 * (x + 1)) (LENGTH l))`] mp_tac)>>
+    pop_assum kall_tac >>
+    impl_tac>- (full_simp_tac(srw_ss())[LENGTH_GENLIST]>>
+   imp_res_tac get_vars_length_lemma >> gvs[]) >>
+    impl_tac>- full_simp_tac(srw_ss())[EVERY_GENLIST,is_phy_var_def] >>
     srw_tac[][]>>full_simp_tac(srw_ss())[alist_insert_def]>>
     qpat_abbrev_tac`rcst=cst with locals:=A`>>
     rename1 `get_var _ cst = SOME (Loc l1 l2)`>>
     Q.ISPECL_THEN [`Loc l1 l2`,`st`,`ssa`,`na`,`n`,`rcst`] assume_tac (GEN_ALL ssa_locals_rel_get_var)>>
-    Q.ISPECL_THEN [`x'`,`st`,`ssa`,`na`,`n0`,`rcst`] assume_tac (GEN_ALL ssa_locals_rel_get_var)>>
-    unabbrev_all_tac>>rfs[]>>
-    full_simp_tac(srw_ss())[get_var_def,call_env_def,flush_state_def]) *)
+    pop_assum mp_tac >>
+    impl_tac >- (unabbrev_all_tac>>rfs[])>>
+    strip_tac >> full_simp_tac(srw_ss())[] >>
+    unabbrev_all_tac >> full_simp_tac (srw_ss())[GSYM set_vars_def] >>
+    DEP_REWRITE_TAC[get_vars_set_vars] >>
+    fs[ALL_DISTINCT_GENLIST,LENGTH_GENLIST] >>
+    CONJ_TAC >-
+    (imp_res_tac get_vars_length_lemma >> gvs[]) >>
+    fs[flush_state_def])
   >- (* Tick *)
     (exists_tac>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[call_env_def, flush_state_def,dec_clock_def])
