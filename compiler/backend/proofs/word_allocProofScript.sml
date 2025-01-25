@@ -7704,54 +7704,62 @@ Proof
   >>
   FULL_CASE_TAC>>full_simp_tac(srw_ss())[every_var_def,every_inst_def]
 
-  >- cheat
-    (*
+  >-
     (qpat_x_assum`A ∧ B ∧ C ⇒ every_inst distinct_tar_reg D` mp_tac>>
     impl_tac>-
-      (imp_res_tac list_next_var_rename_move_props_2>>
-      full_simp_tac(srw_ss())[next_var_rename_def]>>
-      `ssa_map_ok na' (inter ssa' numset)` by
-        metis_tac[ssa_map_ok_inter]>>
-      rev_full_simp_tac(srw_ss())[]>>srw_tac[][]
-      >-
-        metis_tac[is_alloc_var_add]
-      >-
-        (match_mp_tac every_var_mono>>HINT_EXISTS_TAC>>
-        full_simp_tac(srw_ss())[]>>DECIDE_TAC)
-      >>
-        match_mp_tac ssa_map_ok_extend>>
+      (
+    	qmatch_asmsub_abbrev_tac `list_next_var_rename_move _ _ ls` >>
+    	qspecl_then [`ret`, `ssa''`, `na''`]  assume_tac list_next_var_rename_props >>
+    	qspecl_then [`ls`, `ssa`, `na`]  assume_tac list_next_var_rename_move_props_2 >>
+    	qspecl_then [`ls`, `(inter ssa' (union (FST numset) (SND numset)))`, `na'`]  assume_tac list_next_var_rename_move_props_2 >>
+       	ntac 3 (pop_assum mp_tac) >>
         full_simp_tac(srw_ss())[]>>
-        metis_tac[convention_partitions])
+        rpt disch_tac >>
+        full_simp_tac(srw_ss())[]>>
+       `ssa_map_ok na' (inter ssa' (union (FST numset) (SND numset)))` by
+        metis_tac[ssa_map_ok_inter]>>
+        full_simp_tac(srw_ss())[]>>
+        match_mp_tac every_var_mono>>HINT_EXISTS_TAC>>
+        full_simp_tac(srw_ss())[]>>DECIDE_TAC)
       >>
       full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
       rpt(qpat_x_assum`A=(B,C,D)` mp_tac)>>
       LET_ELIM_TAC>>full_simp_tac(srw_ss())[EQ_SYM_EQ,every_inst_def])
-      *)
-    >> cheat
-      (*
+    >>
       PairCases_on`x`>>full_simp_tac(srw_ss())[fix_inconsistencies_def]>>LET_ELIM_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def]>>
       qpat_x_assum`A ∧ B ∧ C ⇒ every_inst distinct_tar_reg ren_ret_handler` mp_tac>>
       impl_keep_tac>-
-        (imp_res_tac list_next_var_rename_move_props_2>>
-        full_simp_tac(srw_ss())[next_var_rename_def]>>
-        `ssa_map_ok na' (inter ssa' numset)` by
+        (
+        gvs[] >>
+    	qmatch_asmsub_abbrev_tac `list_next_var_rename_move _ _ ls` >>
+    	qspecl_then [`ret`, `ssa''`, `na''`]  assume_tac list_next_var_rename_props >>
+    	qspecl_then [`ls`, `ssa`, `na`]  assume_tac list_next_var_rename_move_props_2 >>
+    	qspecl_then [`ls`, `(inter ssa' (union (FST numset) (SND numset)))`, `na'`]  assume_tac list_next_var_rename_move_props_2 >>
+       	ntac 3 (pop_assum mp_tac) >>
+        full_simp_tac(srw_ss())[]>>
+        rpt disch_tac >>
+        full_simp_tac(srw_ss())[]>>
+        `ssa_map_ok na' (inter ssa' (union (FST numset) (SND numset)))` by
           metis_tac[ssa_map_ok_inter]>>
-        rev_full_simp_tac(srw_ss())[]>>srw_tac[][]
-        >-
-          metis_tac[is_alloc_var_add]
-        >-
-          (match_mp_tac every_var_mono>>
-          qexists_tac` λx. x < na`>>full_simp_tac(srw_ss())[]>>
-          DECIDE_TAC)
+        full_simp_tac(srw_ss())[]>>
+        match_mp_tac every_var_mono>>
+        qexists_tac` λx. x < na`>>full_simp_tac(srw_ss())[]>>
+        DECIDE_TAC)
         >>
-          match_mp_tac ssa_map_ok_extend>>
-          full_simp_tac(srw_ss())[]>>
-          metis_tac[convention_partitions])>>
       qpat_x_assum`A ∧ B ∧ C ⇒ every_inst distinct_tar_reg ren_exc_handler` mp_tac>>
       impl_keep_tac>-
-        (imp_res_tac list_next_var_rename_move_props_2>>
+        (
+        gvs[] >>
+    	qmatch_asmsub_abbrev_tac `list_next_var_rename_move _ _ ls` >>
+    	qspecl_then [`ret`, `ssa''`, `na''`]  assume_tac list_next_var_rename_props >>
+    	qspecl_then [`ls`, `ssa`, `na`]  assume_tac list_next_var_rename_move_props_2 >>
+    	qspecl_then [`ls`, `(inter ssa' (union (FST numset) (SND numset)))`, `na'`]  assume_tac list_next_var_rename_move_props_2 >>
+       	ntac 3 (pop_assum mp_tac) >>
+        full_simp_tac(srw_ss())[]>>
+        rpt disch_tac >>
+        full_simp_tac(srw_ss())[]>>
         full_simp_tac(srw_ss())[next_var_rename_def]>>
-        `ssa_map_ok na' (inter ssa' numset)` by
+        `ssa_map_ok na' (inter ssa' (union (FST numset) (SND numset)))` by
           metis_tac[ssa_map_ok_inter]>>
         rev_full_simp_tac(srw_ss())[]>>srw_tac[][]
         >-
@@ -7766,11 +7774,12 @@ Proof
           >-
             (`na'' ≤ n'` by DECIDE_TAC>>
             metis_tac[ssa_map_ok_more])
-          >> metis_tac[convention_partitions])>>
+          >> metis_tac[convention_partitions])
+      >>
       full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
       rpt(qpat_x_assum`A=(B,C,D)` mp_tac)>>
       LET_ELIM_TAC>>full_simp_tac(srw_ss())[EQ_SYM_EQ,every_inst_def]>>
-      metis_tac[fake_moves_distinct_tar_reg] *)
+      metis_tac[fake_moves_distinct_tar_reg]
 QED
 
 Theorem full_ssa_cc_trans_distinct_tar_reg:
