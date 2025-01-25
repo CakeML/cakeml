@@ -4540,7 +4540,9 @@ val list_next_var_rename_props_2 =
   |> REWRITE_RULE[GSYM AND_IMP_INTRO]
   |> C MATCH_MP (UNDISCH th)
   |> DISCH_ALL
-  |> REWRITE_RULE[flip_rw];
+  |> REWRITE_RULE[flip_rw]
+  |> GEN_ALL
+  |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["ls","ssa","na"]));
 
 Triviality ssa_map_ok_lem:
   ssa_map_ok na ssa ⇒ ssa_map_ok (na+2) ssa
@@ -4594,6 +4596,7 @@ Proof
   match_mp_tac ssa_map_ok_insert>>
   simp[]
 QED
+
 
 (*Prove the properties that hold of ssa_cc_trans independent of semantics*)
 Theorem ssa_cc_trans_props[local]:
@@ -4736,77 +4739,87 @@ Proof
   >-
     (LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
     rev_full_simp_tac(srw_ss())[])
-  >- cheat
-  (*Calls*) (*
-  (Cases_on`h`>-
-    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
-    srw_tac[][]>>
+  >-
+  (*Calls*)
+  (Count.apply (Cases_on`h`>-
+    (
+    full_simp_tac(srw_ss())[]>> rpt (disch_tac ORELSE gen_tac)>>
+    qpat_abbrev_tac `goal = (_ ∧ _ ∧ _)` >>
     ntac 3 (pop_assum mp_tac)>>LET_ELIM_TAC>>
-    `∀naa. ssa_map_ok naa ssa''' ⇒ ssa_map_ok naa ssa_cut` by
-      (srw_tac[][Abbr`ssa_cut`,ssa_map_ok_def,lookup_inter]>>
-      EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-      metis_tac[])>>
     full_simp_tac(srw_ss())[PULL_FORALL,LET_THM]>>
-     `na ≤ na+2 ∧ na'' ≤ na''+2` by DECIDE_TAC>>
-    imp_res_tac ssa_map_ok_more>>
-    imp_res_tac list_next_var_rename_props_2>>
-    imp_res_tac ssa_map_ok_more>>
-    res_tac>>
-    imp_res_tac list_next_var_rename_props_2>>
-    gvs[]
-    (last_assum mp_tac>>impl_tac>-
-      (full_simp_tac(srw_ss())[next_var_rename_def]>>
-      CONJ_ASM2_TAC>-
-        metis_tac[ssa_map_ok_extend,convention_partitions]
-      >>
-      metis_tac[is_alloc_var_add]))>>
-    srw_tac[][]>>
-    full_simp_tac(srw_ss())[next_var_rename_def]>>
-    DECIDE_TAC)
+    rveq >> gvs[] >>
+    qspecl_then [`ret`, `ssa'''`, `na'''`]  assume_tac list_next_var_rename_props >>
+    qspecl_then [`ls`, `ssa_cut`, `na''`]  assume_tac list_next_var_rename_move_props_2 >>
+    qspecl_then [`ls`, `ssa`, `na`]  assume_tac list_next_var_rename_move_props_2 >>
+    ntac 3 (pop_assum mp_tac) >>
+    full_simp_tac(srw_ss())[] >>
+    rpt strip_tac >>
+    full_simp_tac(srw_ss())[] >>
+    `ssa_map_ok na'' ssa_cut`
+      by (
+      pop_assum mp_tac >>
+      srw_tac[][Abbr`ssa_cut`,ssa_map_ok_def,lookup_inter]>>
+      EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
+      metis_tac[]) >>
+    full_simp_tac(srw_ss())[]>>
+    full_simp_tac(srw_ss())[Abbr`goal`]>>
+    intLib.ARITH_TAC)
+
   >>
+    (*This is a hacky mess*)
     PairCases_on`x`>>full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
-    srw_tac[][]>>
+    rpt (disch_tac ORELSE gen_tac)>>
+    qpat_abbrev_tac `goal = (_ ∧ _ ∧ _)` >>
     ntac 3 (pop_assum mp_tac)>>LET_ELIM_TAC>>
+    rpt (pop_assum mp_tac) >>
+    full_simp_tac(srw_ss())[PULL_FORALL,LET_THM]>>
+    rpt (disch_tac) >>
+    full_simp_tac(srw_ss())[]>>
+    rveq >>
+    ntac 21 (pop_assum mp_tac) >>
+    full_simp_tac(srw_ss())[]>>
+    rpt (disch_tac) >>
+    rpt (first_x_assum (qspec_then `cur_ls'` mp_tac)) >>
+    simp[markerTheory.Abbrev_def] >>
+    rpt (disch_tac) >>
+    drule fix_inconsistencies_props >>
+    rpt (disch_tac) >>
+    qspecl_then [`ret`, `ssa''''`, `n''`]  assume_tac list_next_var_rename_props >>
+    qspecl_then [`ls`, `ssa_cut`, `n'`]  assume_tac list_next_var_rename_props_2 >>
+    qspecl_then [`ls`, `ssa`, `na`]  assume_tac list_next_var_rename_props_2 >>
+    ntac 3 (pop_assum mp_tac) >>
+    full_simp_tac(srw_ss())[] >>
+    rpt (disch_tac) >>
+    full_simp_tac(srw_ss())[] >>
     `∀naa. ssa_map_ok naa ssa'' ⇒ ssa_map_ok naa ssa_cut` by
       (srw_tac[][Abbr`ssa_cut`,ssa_map_ok_def,lookup_inter]>>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       metis_tac[])>>
-    full_simp_tac(srw_ss())[PULL_FORALL,LET_THM]>>
-    `na ≤ na+2 ∧ na'' ≤ na''+2` by DECIDE_TAC>>
-    imp_res_tac ssa_map_ok_more>>
-    imp_res_tac list_next_var_rename_props_2>>
-    imp_res_tac ssa_map_ok_more>>
-    rpt VAR_EQ_TAC>>
-    res_tac>>
-    imp_res_tac list_next_var_rename_props_2>>
-    (ntac 2 (last_x_assum mp_tac)>>
-    impl_keep_tac>-
-      (full_simp_tac(srw_ss())[next_var_rename_def]>>
-      CONJ_ASM2_TAC>-
-        metis_tac[ssa_map_ok_extend,convention_partitions]
-      >>
-      metis_tac[is_alloc_var_add])>>
-    strip_tac>>
-    impl_keep_tac>-
-      (full_simp_tac(srw_ss())[next_var_rename_def]>>
-      CONJ_ASM2_TAC>-
-        (qpat_x_assum`A=na_3_p` sym_sub_tac>>
-        qpat_x_assum `A=ssa_3_p` sym_sub_tac>>
-        match_mp_tac ssa_map_ok_extend>>
-        `n'' ≤ na_2_p` by DECIDE_TAC>>
-        metis_tac[ssa_map_ok_more,ssa_map_ok_extend,convention_partitions])
-      >>
-      metis_tac[is_alloc_var_add]))>>
-    srw_tac[][]>>
-    full_simp_tac(srw_ss())[next_var_rename_def]>>
-    rpt VAR_EQ_TAC>>
-    `ssa_map_ok na_3 ssa_2` by
-      (match_mp_tac (GEN_ALL ssa_map_ok_more)>>
-      qexists_tac`n'''`>>
-      full_simp_tac(srw_ss())[next_var_rename_def]>>
-      DECIDE_TAC)>>
-    imp_res_tac fix_inconsistencies_props>>
-    DECIDE_TAC) *)
+    `∀naa ssa. ssa_map_ok naa ssa ⇒ ssa_map_ok (naa + 2) ssa` by
+      (
+    rpt strip_tac >>
+    irule ssa_map_ok_more>>
+    first_x_assum (irule_at Any) >>
+    intLib.ARITH_TAC) >>
+    full_simp_tac(srw_ss())[next_var_rename_def] >>
+    gvs[] >>
+    qspecl_then [`ssa''''`, `n'''`,`x0`]  assume_tac (GEN_ALL ssa_map_ok_extend) >>
+    pop_assum mp_tac >>
+    impl_tac >-(
+        fs[Once convention_partitions] >>
+        imp_res_tac ssa_map_ok_more>>metis_tac[]) >>
+    rpt strip_tac >>
+    full_simp_tac(srw_ss())[is_alloc_var_add]>>
+    ntac 16 (pop_assum mp_tac) >>
+    full_simp_tac(srw_ss())[]>>
+    rpt strip_tac >>
+    `ssa_map_ok na_3 ssa_2`
+     by (irule ssa_map_ok_more >>
+     qexists_tac `n'''` >>
+     fs[]) >>
+    full_simp_tac(srw_ss())[]>>
+    full_simp_tac(srw_ss())[Abbr`goal`]>>
+    intLib.ARITH_TAC))
   >- ((*ShareInst*)
     rpt gen_tac >>
     simp[LET_THM] >>
