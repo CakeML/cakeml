@@ -515,7 +515,7 @@ Definition compile_exp_alt_def:
   (compile_exp_alt cfg (flatLang$Letrec t fs x) =
     let ys = compile_letexps_alt cfg fs in
     let (i, sgx, y) = compile_exp_alt cfg x in
-    let j = list_max (MAP (\(_,_,(j,_,_)). j) ys) in
+    let j = MAX_LIST (MAP (\(_,_,(j,_,_)). j) ys) in
     let sgfs = EXISTS (\(_,_,(_,sg,_)). sg) ys in
     let fs2 = MAP (\(a, b, (_, _, exp)). (a, b, exp)) ys in
     (MAX i j, sgfs \/ sgx, flatLang$Letrec t fs2 y)) /\
