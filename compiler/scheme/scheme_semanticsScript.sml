@@ -6,6 +6,7 @@ open prim_recTheory;
 open mesonLib;
 open arithmeticTheory;
 open numTheory;
+open listTheory;
 open mlstringTheory;
 open scheme_astTheory;
 
@@ -40,11 +41,13 @@ Proof
   rw[strict_def]
 QED
 
+
 Definition semantics_def:
   semantics (Val v) = v ∧
-  semantics (Apply fn args) = strict (semantics fn) (MAP semantics args)
-Termination
-  WF_REL_TAC ‘measure exp_size’
+  semantics (Apply fn args) = strict (semantics fn)
+    (semantics_over_args args) ∧
+  semantics_over_args [] = [] ∧
+  semantics_over_args (e::es) = semantics e::semantics_over_args es
 End
 
 Definition return_def:
@@ -54,7 +57,7 @@ Definition return_def:
   | (e::es) => (ApplyK (SOME (v, [])) es :: ks, e)) ∧
   return (ApplyK (SOME (vfn, vargs)) eargs :: ks) v = (case eargs of
   | [] => (ks, Val $ strict vfn (REVERSE $ v::vargs))
-  | (e::es) => (ApplyK (SOME (vfn, v::vargs)) es ::ks, e))
+  | (e::es) => (ApplyK (SOME (vfn, v::vargs)) es :: ks, e))
 End
 
 Definition step_def:
@@ -91,25 +94,48 @@ Proof
 QED
 
 Theorem big_small_equiv:
-  ∀ e ks . ∃ n . steps n ks e = (ks, Val (semantics e))
+  ∀ e ks . ∃ n . steps n (ks, e) = (ks, Val (semantics e))
 Proof
-  ho_match_mp_tac semantics_ind
-  >> rpt strip_tac
+  Induct
   >~ [‘semantics (Val _)’]
   >- (rpt strip_tac >> qexists_tac ‘0’ >> simp[Once steps_def, semantics_def])
-  >> simp[semantics_def, SF ETA_ss]
-  >> simp[Once steps_def]
-  >> simp[step_def(*, AllCaseEqs()*)]
-  >> qrefine ‘n+1’
-  >> simp[]
-  >> first_x_assum $ qspec_then ‘ApplyK NONE args::ks’ mp_tac
-  >> strip_tac
-  >> qrefine ‘k+m’
-  >> simp[steps_add]
-  >> pop_assum $ irule_at Any
+  >> rpt strip_tac 
+  >> Induct_on ‘l’ >- (
+    qrefine ‘n+1’
+    >> simp[Once steps_def, step_def, return_def, semantics_def, SF ETA_ss]
+    >> first_assum $ qspec_then ‘ApplyK NONE []::ks’ mp_tac
+    >> strip_tac
+    >> qrefine ‘n+m’
+    >> rewrite_tac[steps_add]
+    >> pop_assum $ simp o single
+    >> qexists_tac ‘1’
+    >> simp[Once steps_def, step_def, return_def]
+    >> simp[Once steps_def]
+  )
 
+  >> strip_tac
+  >> qrefine ‘n+1’
+  >> first_assum $ qspec_then ‘ApplyK NONE (h::l)::ks’ mp_tac
+  >> strip_tac
+  >> simp[Once steps_def, step_def, return_def, semantics_def]
+  >> qrefine ‘n + m’
+  >> rewrite_tac[steps_add]
+  >> pop_assum $ simp o single
+  >> qrefine ‘m + 1’
+  >> simp[Once steps_def, step_def, return_def, semantics_def]
+  >> pop_assum $ assume_tac o SRULE [Once steps_def]
+  >> Induct_on ‘t’ >- (
+    qexists_tac ‘1’
+    >> simp[Once steps_def, step_def, return_def, semantics_def]
+  )
+  >> rpt strip_tac
+  >> qrefine ‘m+1’
+  >> simp[Once steps_def, step_def, return_def, semantics_def]
+  >> last_assum $ qspec_then ‘ApplyK (SOME (semantics h, [])) l::ks’ mp_tac
+  >> strip_tac
   >> qrefine ‘n+m’
   >> rewrite_tac[steps_add]
+  >> pop_assum $ simp o single
   >> simp[]
 
   Induct_on ‘ks’ >> Induct_on ‘e’ >| [
