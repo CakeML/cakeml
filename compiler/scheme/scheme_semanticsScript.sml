@@ -68,46 +68,26 @@ Definition steps_def:
 End
 
 Theorem steps_suc:
-  ∀ n m ks e .
-    steps (SUC n) (ks, e) = (ks2, e2) ⇔
-    ∃ ks1 e1 . step (ks, e) = (ks1, e1) ∧
-               steps n (ks1, e1) = (ks2, e2)
+  ∀ n m t .
+    steps (SUC n) t = steps n (step t)
 Proof
   Induct >- (
     rpt (strip_tac >> simp [Once steps_def])
   )
-  >> rpt strip_tac
   >> simp [Once steps_def]
-  >> pop_assum $ rw o single o SRULE [Once EQ_SYM_EQ]
-  >> rw[]
-  >> metis_tac[]
-  >> iff_tac >- (
-    rw[Once EQ_SYM_EQ]
-    >> fs[]
-  )
-  cheat
 QED
 
 Theorem steps_add:
-  ∀ n m ks e .
-    steps (n + m) (ks, e) = (ks2, e2) ⇔
-    ∃ ks1 e1 . steps n (ks, e) = (ks1, e1) ∧
-               steps m (ks1, e1) = (ks2, e2)
+  ∀ n m t .
+    steps (n + m) t = steps m (steps n t)
 Proof
   Induct >- (
-    rpt strip_tac >> iff_tac >- (
-      rpt strip_tac >> fs[] >> qexistsl[‘ks’, ‘e’]
-      >> simp[Once steps_def]
-    )
-    >> rpt strip_tac >> rpt $ pop_assum mp_tac
-    >> strip_tac
-    >> last_x_assum $ assume_tac o SRULE [Once steps_def]
-    >> simp[]
+    rpt strip_tac
+    >> ‘steps 0 t = t’ by simp[Once steps_def]
+    >> rw[]
   )
   >> rewrite_tac [ADD_CLAUSES]
   >> simp [steps_suc]
-  >> simp [PULL_EXISTS]
-  >> metis_tac []
 QED
 
 Theorem big_small_equiv:
