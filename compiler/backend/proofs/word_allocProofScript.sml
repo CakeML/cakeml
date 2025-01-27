@@ -1579,8 +1579,6 @@ Proof
         oneline sh_mem_set_var_def,
         flush_state_def,set_var_def,
         markerTheory.Abbrev_def,AllCaseEqs()] >>
-      Cases_on `m` >> fs[] >>
-      EVERY_CASE_TAC >> gvs[] >>
       irule strong_locals_rel_insert >>
       fs[domain_union] >>
       (conj_tac >- (
@@ -7078,7 +7076,7 @@ Proof
       Cases_on`evaluate(ret_mov,rcstt)`>>unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def] )
   *)
   (*ShareInst*)
-  >-cheat  (*(
+  >-(
     exists_tac >>
     pairarg_tac >>
     simp[] >>
@@ -7108,7 +7106,7 @@ Proof
       set_var_def,flush_state_def,AllCaseEqs(),
       markerTheory.Abbrev_def] >>
     irule ssa_locals_rel_set_var >>
-    fs[every_var_def] )*)
+    fs[every_var_def] )
 QED
 
 (*For starting up*)
@@ -7708,11 +7706,11 @@ Proof
     (qpat_x_assum`A ∧ B ∧ C ⇒ every_inst distinct_tar_reg D` mp_tac>>
     impl_tac>-
       (
-    	qmatch_asmsub_abbrev_tac `list_next_var_rename_move _ _ ls` >>
-    	qspecl_then [`ret`, `ssa''`, `na''`]  assume_tac list_next_var_rename_props >>
-    	qspecl_then [`ls`, `ssa`, `na`]  assume_tac list_next_var_rename_move_props_2 >>
-    	qspecl_then [`ls`, `(inter ssa' (union (FST numset) (SND numset)))`, `na'`]  assume_tac list_next_var_rename_move_props_2 >>
-       	ntac 3 (pop_assum mp_tac) >>
+        qmatch_asmsub_abbrev_tac `list_next_var_rename_move _ _ ls` >>
+        qspecl_then [`ret`, `ssa''`, `na''`]  assume_tac list_next_var_rename_props >>
+        qspecl_then [`ls`, `ssa`, `na`]  assume_tac list_next_var_rename_move_props_2 >>
+        qspecl_then [`ls`, `(inter ssa' (union (FST numset) (SND numset)))`, `na'`]  assume_tac list_next_var_rename_move_props_2 >>
+        ntac 3 (pop_assum mp_tac) >>
         full_simp_tac(srw_ss())[]>>
         rpt disch_tac >>
         full_simp_tac(srw_ss())[]>>
@@ -7731,11 +7729,11 @@ Proof
       impl_keep_tac>-
         (
         gvs[] >>
-    	qmatch_asmsub_abbrev_tac `list_next_var_rename_move _ _ ls` >>
-    	qspecl_then [`ret`, `ssa''`, `na''`]  assume_tac list_next_var_rename_props >>
-    	qspecl_then [`ls`, `ssa`, `na`]  assume_tac list_next_var_rename_move_props_2 >>
-    	qspecl_then [`ls`, `(inter ssa' (union (FST numset) (SND numset)))`, `na'`]  assume_tac list_next_var_rename_move_props_2 >>
-       	ntac 3 (pop_assum mp_tac) >>
+        qmatch_asmsub_abbrev_tac `list_next_var_rename_move _ _ ls` >>
+        qspecl_then [`ret`, `ssa''`, `na''`]  assume_tac list_next_var_rename_props >>
+        qspecl_then [`ls`, `ssa`, `na`]  assume_tac list_next_var_rename_move_props_2 >>
+        qspecl_then [`ls`, `(inter ssa' (union (FST numset) (SND numset)))`, `na'`]  assume_tac list_next_var_rename_move_props_2 >>
+        ntac 3 (pop_assum mp_tac) >>
         full_simp_tac(srw_ss())[]>>
         rpt disch_tac >>
         full_simp_tac(srw_ss())[]>>
@@ -7750,11 +7748,11 @@ Proof
       impl_keep_tac>-
         (
         gvs[] >>
-    	qmatch_asmsub_abbrev_tac `list_next_var_rename_move _ _ ls` >>
-    	qspecl_then [`ret`, `ssa''`, `na''`]  assume_tac list_next_var_rename_props >>
-    	qspecl_then [`ls`, `ssa`, `na`]  assume_tac list_next_var_rename_move_props_2 >>
-    	qspecl_then [`ls`, `(inter ssa' (union (FST numset) (SND numset)))`, `na'`]  assume_tac list_next_var_rename_move_props_2 >>
-       	ntac 3 (pop_assum mp_tac) >>
+        qmatch_asmsub_abbrev_tac `list_next_var_rename_move _ _ ls` >>
+        qspecl_then [`ret`, `ssa''`, `na''`]  assume_tac list_next_var_rename_props >>
+        qspecl_then [`ls`, `ssa`, `na`]  assume_tac list_next_var_rename_move_props_2 >>
+        qspecl_then [`ls`, `(inter ssa' (union (FST numset) (SND numset)))`, `na'`]  assume_tac list_next_var_rename_move_props_2 >>
+        ntac 3 (pop_assum mp_tac) >>
         full_simp_tac(srw_ss())[]>>
         rpt disch_tac >>
         full_simp_tac(srw_ss())[]>>
@@ -7854,23 +7852,13 @@ Proof
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[full_inst_ok_less_def]
   >- (
-    Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
-    TRY(Cases_on`f`)>>
-    TRY(full_simp_tac(srw_ss())[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def,ssa_map_ok_def]>>
-    every_case_tac>>rw[]>>
+    full_simp_tac(srw_ss())[oneline ssa_cc_trans_inst_def,LET_THM,next_var_rename_def,ssa_map_ok_def,
+    AllCaseEqs()]>> rveq >>
     full_simp_tac(srw_ss())[EQ_SYM_EQ,inst_ok_less_def,full_inst_ok_less_def,every_var_def,every_var_inst_def]>>
     rw[]>>
     fs[option_lookup_def]>>every_case_tac>>rw[]>>
     pop_assum (assume_tac o SYM)>>res_tac>>
-    fs[is_phy_var_def,is_alloc_var_def]>>CCONTR_TAC>>fs[]>>NO_TAC)>>
-    (* Nasty special case again *)
-    full_simp_tac(srw_ss())[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def,ssa_map_ok_def]>>
-    every_case_tac>>rw[]>>
-    full_simp_tac(srw_ss())[EQ_SYM_EQ,inst_ok_less_def,full_inst_ok_less_def,every_var_def,every_var_inst_def]>>
-    rw[]>>
-    fs[option_lookup_def]>>every_case_tac>>rw[]>>
-    pop_assum (assume_tac o SYM)>>res_tac>>
-    fs[is_phy_var_def,is_alloc_var_def]>>CCONTR_TAC>>fs[]>>NO_TAC)
+    intLib.ARITH_TAC)
   >>
   (* Some trivial cases *)
   TRY
@@ -7898,8 +7886,8 @@ Proof
     (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
     rpt (pop_assum mp_tac)>>
     LET_ELIM_TAC>>full_simp_tac(srw_ss())[full_inst_ok_less_def,EQ_SYM_EQ]>>NO_TAC)
-  >- cheat
-    (* ((*Call SOME*)
+  >-
+    ((*Call SOME*)
     EVERY_CASE_TAC>>unabbrev_all_tac>>
     gvs[fix_inconsistencies_def]>>
     rpt(pairarg_tac>>gvs[])>>
@@ -7909,68 +7897,47 @@ Proof
     gvs[every_var_def,list_next_var_rename_move_def,next_var_rename_def]>>
     rpt(pairarg_tac>>gvs[])>>
     gvs[full_inst_ok_less_def]>>
-    `is_stack_var (na + 2)` by fs[is_alloc_var_flip]>>
-    first_x_assum (fn th => mp_tac (HO_MATCH_MP (list_next_var_rename_props|>REWRITE_RULE[Once (METIS_PROVE [] ``A ∧ B ∧ C ⇔ C ∧ A ∧ B``)]|>REWRITE_RULE[GSYM AND_IMP_INTRO]) th))>>
+    ntac 2 (pop_assum mp_tac) >>
+    qmatch_asmsub_abbrev_tac `list_next_var_rename ret _ m` >>
+    qmatch_goalsub_abbrev_tac `list_next_var_rename ls _ _` >>
+    disch_tac >>
+    qmatch_asmsub_abbrev_tac `list_next_var_rename ls ssa''' (m' + _)` >>
+    disch_tac >>
+    qspecl_then [`ret`,`ssa''`,`m`] mp_tac list_next_var_rename_props >>
+    qspecl_then [`ls`,`ssa'''`,`m'`] mp_tac list_next_var_rename_props_2 >>
+    qspecl_then [`ls`,`ssa`,`na`] mp_tac list_next_var_rename_props_2 >>
+    gvs[] >> rpt disch_tac >>
     `ssa_map_ok (na+2) ssa` by (
       match_mp_tac ssa_map_ok_more>>
-      simp[])>>
-    simp[]>>
-    strip_tac>>
-    drule is_stack_var_flip>>
-    strip_tac>>
-    first_x_assum (fn th => mp_tac (HO_MATCH_MP (list_next_var_rename_props|>REWRITE_RULE[Once (METIS_PROVE [] ``A ∧ B ∧ C ⇔ C ∧ A ∧ B``)]|>REWRITE_RULE[GSYM AND_IMP_INTRO]) th))>>
-    simp[]>>
-    (impl_tac >- (
+      simp[])>> gvs[] >>
+    `ssa_map_ok (m' +2) ssa'''` by (
+      simp[Abbr`ssa'''`] >>
       match_mp_tac ssa_map_ok_inter>>
       irule ssa_map_ok_more>>
       first_x_assum (irule_at Any)>>
-      simp[]))>>
-    strip_tac>>
-    rpt(irule_at Any ssa_map_ok_insert)>>
-    gvs[is_alloc_var_add]
-    >- (
-      rw[]
-      >- (
-        irule ssa_map_ok_more>>
-        first_x_assum (irule_at Any)>>
-        gvs[])
-      >- metis_tac[convention_partitions]>>
-      match_mp_tac every_var_mono>>
-      first_x_assum (irule_at Any)>>
+      simp[])>> gvs[]
+    >-(
+      match_mp_tac every_var_mono >>
+      first_x_assum (irule_at Any) >>
+      simp[])
+    >-(
+    CONJ_TAC
+    >-(
+      match_mp_tac every_var_mono >>
+      first_x_assum (irule_at Any) >>
+      simp[]) >>
+    qspecl_then [`prog`,`ssa_2_p`,`na_2_p`] mp_tac ssa_cc_trans_props>>
+    gvs[] >> rpt disch_tac >> gvs[is_alloc_var_add] >>
+    CONJ_TAC
+    >-(
+      match_mp_tac every_var_mono >>
+      first_x_assum (irule_at Any) >>
       simp[])
     >- (
-      qpat_x_assum `ssa_cc_trans _ _ _ = _` mp_tac>>
-      drule ssa_cc_trans_props>>
-      impl_tac >- (
-        irule_at Any ssa_map_ok_insert>>
-        simp[]>>rw[]
-        >- (
-          irule ssa_map_ok_more>>
-          first_x_assum (irule_at Any)>>
-          gvs[])
-        >- metis_tac[convention_partitions]>>
-        gvs[is_alloc_var_add])>>
-      ntac 2 strip_tac>>
-      rw[]
-      >- (
-        irule ssa_map_ok_more>>
-        first_x_assum (irule_at Any)>>
-        gvs[])
-      >- metis_tac[convention_partitions]
-      >- (
-        irule ssa_map_ok_more>>
-        first_x_assum (irule_at Any)>>
-        gvs[])
-      >- metis_tac[convention_partitions]
-      >- (
-        match_mp_tac every_var_mono>>
-        first_x_assum (irule_at Any)>>
-        simp[])
-      >- (
-        match_mp_tac every_var_mono>>
-        first_x_assum (irule_at Any)>>
-        simp[])
-      >- gvs[is_alloc_var_add])) *)
+      irule ssa_map_ok_insert >>
+      irule_at Any ssa_map_ok_more >>
+      first_x_assum (irule_at Any)>>
+      simp[Once convention_partitions])))
   >> (*ShareInst*)
     qpat_x_assum `option_CASE _ _ _` mp_tac >>
     ntac 2 TOP_CASE_TAC >>

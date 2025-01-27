@@ -102,6 +102,12 @@ Proof
    fs[state_component_equality]
 QED
 
+Theorem PAIR_MAP_EQ_PAIR[simp]:
+  (f ## g) p = (a,b) ⇔ ∃x y. p = (x,y) ∧ f x = a ∧ g y = b
+Proof
+  Cases_on `p` >> fs[]
+QED
+
 Theorem OPTION_CASE_OPTION_MAP[simp]:
   (option_CASE (OPTION_MAP f a) e g) = option_CASE a e (λx. g (f x))
 Proof
