@@ -961,12 +961,10 @@ Proof
   \\ EQ_TAC \\ rw [] \\ fs []
 QED
 
-Theorem list_max_LESS_EVERY:
-  (list_max xs < N) = (0 < N /\ EVERY (\x. x < N) xs)
+Theorem MAX_LIST_LESS_EVERY:
+  (MAX_LIST xs < N) = (0 < N /\ EVERY (\x. x < N) xs)
 Proof
-  Induct_on `xs`
-  \\ simp [list_max_def |> REWRITE_RULE [GSYM MAX_DEF]]
-  \\ metis_tac []
+  Induct_on `xs` \\ simp[] \\ DECIDE_TAC
 QED
 
 Theorem max_dec_name_LESS_EVERY:
@@ -1851,7 +1849,7 @@ Proof
     \\ irule ALOOKUP_rel_eq_fst
     \\ rw [LIST_REL_EL_EQN, EL_MAP, UNCURRY]
     \\ simp [Once v_rel_cases]
-    \\ fs [ELIM_UNCURRY, list_max_LESS_EVERY, EVERY_MAP, env_rel_def]
+    \\ fs [ELIM_UNCURRY, MAX_LIST_LESS_EVERY, EVERY_MAP, env_rel_def]
     \\ metis_tac []
   )
   >- (
