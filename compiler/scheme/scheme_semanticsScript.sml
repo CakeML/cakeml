@@ -62,17 +62,9 @@ Definition step_def:
   step (ks, (Apply fn args)) = (ApplyK NONE args :: ks, fn)
 End
 
-Definition big_step_def:
-  big_step _ ([], Val v) = v ∧
-  big_step (n:num) t = if n > 0
-    then big_step (n - 1) $ step t
-    else Wrong "Diverged"
-End
-
 Definition steps_def:
-  steps (n:num) (ks, e) = if n > 0
-    then steps (n - 1) $ step (ks, e)
-    else (ks, e)
+  steps (n:num) t = if n = 0 then t
+    else steps (n - 1) $ step t
 End
 
 Theorem steps_suc:
@@ -81,6 +73,18 @@ Theorem steps_suc:
     ∃ ks1 e1 . step (ks, e) = (ks1, e1) ∧
                steps n (ks1, e1) = (ks2, e2)
 Proof
+  Induct >- (
+    rpt (strip_tac >> simp [Once steps_def])
+  )
+  >> rpt strip_tac
+  >> simp [Once steps_def]
+  >> pop_assum $ rw o single o SRULE [Once EQ_SYM_EQ]
+  >> rw[]
+  >> metis_tac[]
+  >> iff_tac >- (
+    rw[Once EQ_SYM_EQ]
+    >> fs[]
+  )
   cheat
 QED
 
