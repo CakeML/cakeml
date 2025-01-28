@@ -15,6 +15,9 @@ Definition of a compiler from Scheme to CakeML
 [scheme_parsingScript.sml](scheme_parsingScript.sml):
 Parser for Scheme
 
+[scheme_semanticsScript.sml](scheme_semanticsScript.sml):
+Semantics of Scheme
+
 [scheme_to_cakeScript.sml](scheme_to_cakeScript.sml):
 Code generator for Scheme to CakeML compiler
 
