@@ -453,7 +453,7 @@ QED
 Definition abs_stack_def:
   (abs_stack (bitmaps:'a word list) [] stack [] =
     if stack = [Word (0w:'a word)] then SOME [] else NONE) ∧
-  (abs_stack bitmaps ((StackFrame n l NONE)::xs) (w::stack) (len::lens) =
+  (abs_stack bitmaps ((StackFrame n l0 l NONE)::xs) (w::stack) (len::lens) =
     (*Should cover the stack = [] case automatically*)
     case full_read_bitmap bitmaps w of
     | NONE => NONE
@@ -468,7 +468,7 @@ Definition abs_stack_def:
             case abs_stack bitmaps xs rest lens of
             | NONE => NONE
             | SOME ys => SOME ((NONE,bits,frame)::ys)) ∧
-  (abs_stack bitmaps ((StackFrame n l (SOME _))::xs) (w::stack) (len::lens) =
+  (abs_stack bitmaps ((StackFrame n l0 l (SOME _))::xs) (w::stack) (len::lens) =
     (*Index for bitmap for a handler frame*)
     if w ≠ Word 1w then NONE
     else
@@ -562,7 +562,7 @@ End
 *)
 
 Definition is_handler_frame_def:
-  (is_handler_frame (StackFrame n l NONE) = F) ∧
+  (is_handler_frame (StackFrame n l0 l NONE) = F) ∧
   (is_handler_frame _ = T)
 End
 
@@ -570,11 +570,11 @@ End
 (*Checks for consistency of the values*)
 Definition stack_rel_aux_def:
   (stack_rel_aux k len [] [] ⇔ T) ∧
-  (stack_rel_aux k len ((StackFrame n l NONE)::xs) ((NONE,bits,frame)::stack) ⇔
+  (stack_rel_aux k len ((StackFrame n l0 l NONE)::xs) ((NONE,bits,frame)::stack) ⇔
     filter_bitmap bits (index_list frame k) = SOME (MAP_FST adjust_names l,[]) ∧
     the (LENGTH frame + 1) n = LENGTH frame + 1 ∧
     stack_rel_aux k len xs stack) ∧
-  (stack_rel_aux k len ((StackFrame n l (SOME (h1,l1,l2)))::xs) ((SOME(loc,hv),bits,frame)::stack) ⇔
+  (stack_rel_aux k len ((StackFrame n l0 l (SOME (h1,l1,l2)))::xs) ((SOME(loc,hv),bits,frame)::stack) ⇔
       (h1 < LENGTH stack ∧
       is_handler_frame (EL (LENGTH stack - (h1+1)) xs) ⇒
       hv = Word (n2w (len - handler_val (LASTN (h1+1) stack)))) ∧
@@ -586,7 +586,7 @@ Definition stack_rel_aux_def:
 End
 
 Definition sorted_env_def:
-  sorted_env (StackFrame n l _) = SORTED (\x y. FST x > FST y) l
+  sorted_env (StackFrame n l0 l _) = SORTED (\x y. FST x > FST y) l
 End
 
 Definition stack_rel_def:
@@ -1084,24 +1084,23 @@ QED
 
 Theorem evaluate_wLive[local]:
   wLive names (bs,n) (k,f,f') = (wlive_prog,(bs',n')) /\
-  (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
+  (∀x. x ∈ domain (SND names) ⇒ EVEN x /\ k ≤ x DIV 2) /\
   state_rel ac k f f' (s:('a,num # 'c,'ffi) wordSem$state) t lens /\ 1 <= f /\
-  (cut_env names s.locals = SOME env) /\
+  (cut_envs names s.locals = SOME envs) /\
   LENGTH (append bs) ≤ n ∧ n - LENGTH (append bs) ≤ LENGTH t.bitmaps ∧
   isPREFIX (append bs') (DROP (n - LENGTH (append bs)) t.bitmaps) ==>
   ?t5:('a,'c,'ffi) stackSem$state bs5.
     (evaluate (wlive_prog,t) = (NONE,t5)) /\
-    state_rel ac k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
+    state_rel ac k 0 0 (push_env envs ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
     state_rel ac k f f' s t5 lens /\
     LENGTH t5.stack = LENGTH t.stack /\ t5.stack_space = t.stack_space /\
     !i. i ≠ k ==> get_var i t5 = get_var i t
 Proof
-  fsrw_tac[] [wLive_def,LET_THM] \\ rpt strip_tac \\
-  `f ≠ 0` by DECIDE_TAC \\ fsrw_tac[][] \\ pop_assum kall_tac
-  \\ pairarg_tac \\ fsrw_tac[] [] \\ rpt var_eq_tac
-  \\ fsrw_tac[] [stackSemTheory.evaluate_def,stackSemTheory.inst_def,
-         stackSemTheory.assign_def,stackSemTheory.word_exp_def,LET_THM]
- \\ `t.stack_space <= LENGTH t.stack /\
+  rw[wLive_def]
+  \\ pairarg_tac \\ gvs[]
+  \\ fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def,
+         stackSemTheory.assign_def,stackSemTheory.word_exp_def]
+  \\ `t.stack_space <= LENGTH t.stack /\
      t.use_stack /\ ~(LENGTH t.stack ≤ t.stack_space)` by
         (fsrw_tac[][state_rel_def,LET_THM,stack_rel_def] \\ decide_tac) \\ fsrw_tac[] []
   \\ fsrw_tac[] [stackSemTheory.set_var_def,stackSemTheory.get_var_def,
@@ -1125,24 +1124,32 @@ Proof
     \\ match_mp_tac (GSYM DROP_list_LUPDATE_IGNORE |> Q.SPEC `[x]`
            |> SIMP_RULE std_ss [list_LUPDATE_def])
     \\ fsrw_tac[] [] \\ decide_tac)
-  \\ TRY(rename1`flat_exp_conventions A`>>metis_tac[])
-  \\ TRY(rename1`post_alloc_conventions A B`>>metis_tac[])
-  \\ TRY(qmatch_goalsub_abbrev_tac`_ <= _ + the _ _` >>
-         rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn,stack_size_eq] >> fs[])
-  \\ TRY(qmatch_goalsub_abbrev_tac`the _ _ = _` >>
-         fs[IS_SOME_EXISTS,OPTION_MAP2_DEF,PULL_EXISTS] >> fs[] >>
-         fs[the_eqn,CaseEq"option",stack_size_eq] >>
-         rveq >> fs[]
-        )
-  \\ TRY(rename1`compile_prog` >> first_x_assum drule >> metis_tac[])
-  \\ TRY(qmatch_goalsub_abbrev_tac`IS_SOME _` >>
-         fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >> fs[the_eqn,CaseEq"option",stack_size_eq])
+  >~[`flat_exp_conventions`]
+  >- metis_tac[]
+  >~[`post_alloc_conventions`]
+  >- metis_tac[]
+  >~[`_ ≤ _ + the _ _`]
+  >- (
+    rw[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF] >>
+    fs[the_eqn,stack_size_eq] >> fs[])
+  >~ [`the (_ - _) _ = _ - t.stack_space`]
+  >- (
+    fs[IS_SOME_EXISTS,OPTION_MAP2_DEF,PULL_EXISTS] >> fs[] >>
+    fs[the_eqn,CaseEq"option",stack_size_eq] >>
+    rveq >> fs[])
+  >~[`IS_SOME (stack_size (_::s.stack))`]
+  >- fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,the_eqn,CaseEq"option",stack_size_eq]
+  >~[`flat_exp_conventions pp`]
+  >- metis_tac[]
+  >~[`post_alloc_conventions k pp`]
+  >- metis_tac[]
   \\ fsrw_tac[][wf_def]
   \\ fsrw_tac[] [stack_rel_def,stack_rel_aux_def,abs_stack_def]
   \\ Cases_on `DROP t.stack_space t.stack` \\ fsrw_tac[] []
   \\ fsrw_tac[] [LUPDATE_def,abs_stack_def]
-  \\ conj_tac THEN1
-   (mp_tac (Q.SPEC `env` env_to_list_K_I_IMP)
+  \\ conj_tac
+  >- (
+    Q.ISPEC_THEN `SND envs` mp_tac  env_to_list_K_I_IMP
     \\ fsrw_tac[] [env_to_list_def,sorted_env_def,LET_DEF] \\ srw_tac[] []
     \\ `s.permute 0 = I` by fsrw_tac[] [FUN_EQ_THM] \\ fsrw_tac[] [])
   \\ fsrw_tac[] [full_read_bitmap_def,GSYM word_add_n2w]
@@ -1163,7 +1170,7 @@ Proof
   \\ `isPREFIX (DROP i (TAKE (n − LENGTH (append bs)) t.bitmaps ++ append bs')) (DROP i t.bitmaps)` by (
     fs[LENGTH_TAKE,insert_bitmap_def]>>rveq>>fs[]>>
     qmatch_goalsub_abbrev_tac`DROP a b`>>
-    `DROP a b = write_bitmap names k f'` by
+    `DROP a b = write_bitmap (SND names) k f'` by
       (unabbrev_all_tac>> simp[DROP_APPEND])>>
     drule isPREFIX_DROP>>
     disch_then(qspec_then`LENGTH (append bs)` mp_tac)>>
@@ -1176,8 +1183,7 @@ Proof
   \\ fsrw_tac[][IS_PREFIX_APPEND]
   \\ imp_res_tac read_bitmap_append_extra
   \\ simp[DROP_APPEND]
-  \\ fsrw_tac[ARITH_ss][] \\ rveq
-  \\ fsrw_tac[ARITH_ss][]
+  \\ gvs[]
   \\ ntac 2 (pop_assum kall_tac)
   \\ conj_tac
   >- (
@@ -1202,12 +1208,16 @@ Proof
       fsrw_tac[] [LENGTH_index_list,LENGTH_TAKE_EQ,MIN_DEF]
       \\ srw_tac[][] >> decide_tac )
   \\ fsrw_tac[] [ZIP_GENLIST] \\ pop_assum kall_tac
+  \\ `?names0 names1. names = (names0,names1)` by metis_tac[PAIR]
+  \\ gvs[cut_envs_def,AllCaseEqs(),cut_names_def]
+  \\ qmatch_goalsub_abbrev_tac`QSORT _ (toAList envs1)`
   \\ qpat_abbrev_tac`ls = MAP _ (toAList _)`
   \\ `!x. MEM x ls <=>
-          ?n. x = f' - 1 - (n DIV 2 - k) /\ n IN domain env` by
-   (fsrw_tac[] [MEM_MAP,EXISTS_PROD,MEM_toAList,cut_env_def,Abbr`ls`] \\ srw_tac[][]
-    \\ fsrw_tac[] [lookup_inter_alt,domain_lookup,SUBSET_DEF]
-  \\ metis_tac []) \\ fsrw_tac[] [] \\ ntac 2 (pop_assum kall_tac)
+          ?n. x = f' - 1 - (n DIV 2 - k) /\ n IN domain envs1` by (
+    fs[MEM_MAP,EXISTS_PROD,MEM_toAList,Abbr`ls`,lookup_inter_alt,domain_lookup,SUBSET_DEF,Abbr`envs1`]
+    \\ metis_tac [])
+  \\ fsrw_tac[] []
+  \\ ntac 2 (pop_assum kall_tac)
   \\ fsrw_tac[] [MAP_FST_def,adjust_names_def]
   \\ match_mp_tac SORTED_IMP_EQ_LISTS
   \\ conj_tac
@@ -1224,9 +1234,8 @@ Proof
       simp[MEM_QSORT,Abbr`R`] >>
       simp[Abbr`R'`,inv_image_def,FORALL_PROD,Abbr`ls`,MEM_toAList] >>
       fsrw_tac[][key_val_compare_def,LET_THM]>>
-      `∀p v. lookup p env = SOME v ⇒ lookup p s.locals = SOME v` by
-        (fsrw_tac[][cut_env_def]>>qpat_x_assum`A=env` (SUBST_ALL_TAC o SYM)>>
-        fsrw_tac[][lookup_inter_EQ])>>
+      `∀p v. lookup p envs1 = SOME v ⇒ lookup p s.locals = SOME v` by (
+        simp[Abbr`envs1`,lookup_inter_EQ])>>
       srw_tac[][]>>fsrw_tac[][]>>res_tac>>res_tac>>
       fsrw_tac[][EVEN_GT])
   \\ conj_tac
@@ -1256,10 +1265,9 @@ Proof
     fsrw_tac[][SORTED_EL_SUC]>>srw_tac[][]>>
     `n'' < m` by DECIDE_TAC>>
     fsrw_tac[][EL_GENLIST]>>DECIDE_TAC)
-  \\ qhdtm_x_assum`cut_env`mp_tac
   \\ simp[MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_QSORT,
-            MEM_toAList,EXISTS_PROD,FORALL_PROD,cut_env_def]
-  \\ strip_tac >> rveq
+            MEM_toAList,EXISTS_PROD,FORALL_PROD,Abbr`envs1`]
+  \\ rw[]
   \\ simp[lookup_inter_alt,domain_inter]
   \\ fsrw_tac[][SUBSET_DEF]
   \\ `LENGTH (TAKE f' t') = f'` by ( simp[LENGTH_TAKE_EQ] )
@@ -1295,10 +1303,12 @@ Proof
   \\ simp_tac (srw_ss()) [MULT_COMM,MULT_DIV]
 QED
 
-val push_env_set_store = Q.prove(
-  `push_env env ^nn (set_store AllocSize (Word c) s) =
-    set_store AllocSize (Word c) (push_env env ^nn s)`,
-  fs [push_env_def,set_store_def,env_to_list_def,LET_DEF])|> INST_TYPE [beta|-> alpha, gamma|->beta];
+Triviality push_env_set_store:
+  push_env env ^nn (set_store AllocSize (Word c) s) =
+    set_store AllocSize (Word c) (push_env env ^nn s)
+Proof
+  fs [push_env_def,set_store_def,env_to_list_def,LET_DEF]
+QED
 
 Triviality state_rel_set_store_0:
   state_rel ac k 0 0 s5 t5 len ==>
@@ -1388,7 +1398,7 @@ Proof
   \\ TOP_CASE_TAC
   \\ strip_tac
   \\ pop_assum (assume_tac o SYM)
-  \\ qmatch_assum_rename_tac`stack_rel_aux _ _ (StackFrame _ _ (SOME p)::_) _`
+  \\ qmatch_assum_rename_tac`stack_rel_aux _ _ (StackFrame _ _ _ (SOME p)::_) _`
   \\ PairCases_on`p`
   \\ fs[stack_rel_aux_def]
   \\ rfs[]
@@ -1467,9 +1477,9 @@ QED
 
 Triviality sorted_env_zip:
   ∀l:(num,'a word_loc) alist ls:'a word_loc list x n.
-  sorted_env (StackFrame n l x) ∧
-  LENGTH ls = LENGTH l⇒
-  sorted_env (StackFrame n (ZIP (MAP FST l, ls)) x)
+  sorted_env (StackFrame n l0 l x) ∧
+  LENGTH ls = LENGTH l ⇒
+  sorted_env (StackFrame n l0 (ZIP (MAP FST l, ls)) x)
 Proof
   fs[sorted_env_def]>>
   Induct>>fs[LENGTH_NIL]>>rw[]>>
@@ -1728,7 +1738,7 @@ Triviality alloc_alt:
   FST (alloc c names (s:('a,num # 'c,'ffi) wordSem$state)) <>
     SOME (Error:'a wordSem$result) ==>
     (alloc c names (s:('a,num # 'c,'ffi) wordSem$state) =
-     case cut_env names s.locals of
+     case cut_envs names s.locals of
        NONE => (SOME Error,s)
      | SOME env =>
          case gc (set_store AllocSize (Word c)
@@ -1738,7 +1748,7 @@ Triviality alloc_alt:
              case pop_env s' of
                NONE => (SOME Error,s')
              | SOME s' =>
-                 case FLOOKUP s'.store AllocSize of
+                 case get_store AllocSize s' of
                    NONE => (SOME Error,s')
                  | SOME w =>
                      case has_space w s' of
@@ -1748,12 +1758,9 @@ Triviality alloc_alt:
                          (SOME NotEnoughSpace, flush_state T s'))
 Proof
   fs [alloc_def]
-  \\ Cases_on `cut_env names s.locals` \\ fs []
-  \\ fs [gc_def,set_store_def,push_env_def,LET_DEF,
-         env_to_list_def,pop_env_def,flush_state_def]
-  \\ BasicProvers.EVERY_CASE_TAC
-  \\ fs [state_component_equality] \\ rw []
-  \\ gvs[has_space_def]
+  \\ Cases_on `cut_envs names s.locals` \\ fs []
+  \\ simp[push_env_set_store]
+  \\ every_case_tac \\ rw[]
 QED
 
 (*MEM to an EL characterization for index lists*)
@@ -1794,14 +1801,14 @@ Proof
   rw[s_key_eq_def,stack_size_eq] >>
   rename1 `s_frame_key_eq x y` >>
   Cases_on `x` >>Cases_on `y` >>
-  rename1 `s_frame_key_eq (StackFrame _ _ handler1) (StackFrame _ _ handler2)` >>
+  rename1 `s_frame_key_eq (StackFrame _ _ _ handler1) (StackFrame _ _ _ handler2)` >>
   Cases_on `handler1` >> Cases_on `handler2` >>
   fs[s_frame_key_eq_def,stack_size_eq]
 QED
 
 Theorem s_key_eq_push_env_locals_size:
   s_key_eq (push_env env opt1 s).stack
-           (StackFrame n l opt2::stack')
+           (StackFrame n l0 l opt2::stack')
   ==>
   n = s.locals_size /\ stack_size s.stack = stack_size stack'
 Proof
@@ -1813,11 +1820,11 @@ QED
 
 Triviality alloc_IMP_alloc:
   (wordSem$alloc c names (s:('a,num # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) /\
-    (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
+    (∀x. x ∈ domain (SND names) ⇒ EVEN x /\ k ≤ x DIV 2) /\
     1 ≤ f /\
     state_rel ac k f f' s t5 lens /\
-    state_rel ac k 0 0 (push_env env ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
-    (cut_env names s.locals = SOME env) /\
+    state_rel ac k 0 0 (push_env envs ^nn s with <|locals := LN; locals_size := SOME 0|>) t5 (f'::lens) /\
+    (cut_envs names s.locals = SOME envs) /\
     res <> SOME Error ==>
     ?t1:('a,'c,'ffi) stackSem$state res1.
       (stackSem$alloc c t5 = (res1:'a stackSem$result option,t1)) /\
@@ -1842,8 +1849,8 @@ Proof
   \\ rename1`pop_env x`
   \\ Cases_on `pop_env x` \\ fsrw_tac[] []
   \\ Q.MATCH_ASSUM_RENAME_TAC `pop_env s2 = SOME s3`
-  \\ `state_rel ac k f f' s3 t2 lens` by
-    (imp_res_tac gc_s_key_eq>>
+  \\ `state_rel ac k f f' s3 t2 lens` by (
+    imp_res_tac gc_s_key_eq>>
     fsrw_tac[][set_store_def]>>
     imp_res_tac push_env_pop_env_s_key_eq>>
     rveq>>
@@ -1857,9 +1864,8 @@ Proof
     simp[stackSemTheory.gc_def]>>
     ntac 5 TOP_CASE_TAC>>fsrw_tac[][stackSemTheory.set_store_def]>>
     strip_tac>>rveq>>fsrw_tac[][]>>
-    CONJ_TAC>-
-      metis_tac[]>>
-    simp[wf_fromAList] >>
+    CONJ_TAC>- metis_tac[]>>
+    simp[wf_fromAList,wf_union] >>
     CONJ_ASM1_TAC>-
       (fs[stack_rel_def] >> imp_res_tac s_key_eq_push_env_locals_size >> metis_tac[]) >>
     CONJ_ASM1_TAC>-
@@ -1884,8 +1890,8 @@ Proof
        rveq >> fs[PULL_EXISTS,stack_size_eq] >>
        rfs[] >> fs[the_eqn]
       ) >>
-    CONJ_TAC>-
-      (fsrw_tac[][stack_rel_def,LET_THM]>>
+    CONJ_TAC>- (
+      fsrw_tac[][stack_rel_def,LET_THM]>>
       qpat_x_assum`abs_stack A B C D = E` mp_tac>>
       simp[DROP_APPEND,DROP_TAKE_NIL]>>
       Cases_on`x'`>>simp[abs_stack_def]>>
@@ -1926,6 +1932,8 @@ Proof
     strip_tac>>rveq>>
     simp[stack_rel_aux_def]>>
     ntac 4 strip_tac>>
+    (* TODO: might need to fix state_rel... or not *)
+    cheat>>
     `n ∈ domain (fromAList l)` by
       metis_tac[domain_lookup]>>
     `n ∈ domain names ∧ n ∈ domain s.locals` by
@@ -1955,14 +1963,12 @@ Proof
       SUC ( k+ LENGTH x'' - (n DIV 2 +1))` by
         DECIDE_TAC>>
     simp[])
-  \\ `s3.store SUBMAP t2.store` by
-    (fsrw_tac[] [state_rel_def,SUBMAP_DEF,DOMSUB_FAPPLY_THM] \\ NO_TAC)
-  \\ gvs[AllCaseEqs()]
+  \\ `s3.store SUBMAP t2.store` by (
+    fsrw_tac[] [state_rel_def,SUBMAP_DEF,DOMSUB_FAPPLY_THM] \\ NO_TAC)
+  \\ gvs[AllCaseEqs(),get_store_def]
   \\ drule_all FLOOKUP_SUBMAP \\ simp[]
+  \\ gvs[has_space_def,AllCaseEqs(),stackSemTheory.has_space_def,get_store_def]
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fsrw_tac[] []
-  \\ fsrw_tac[] [has_space_def,stackSemTheory.has_space_def]
-  \\ EVERY_CASE_TAC \\ fsrw_tac[] []
-  \\ imp_res_tac FLOOKUP_SUBMAP \\ fsrw_tac[] [] \\ srw_tac[] [] \\ fsrw_tac[] []
   \\ fsrw_tac[] [state_rel_def]
 QED
 

@@ -226,10 +226,10 @@ Definition insert_bitmap_def:
 End
 
 Definition wLive_def:
-  wLive (live:num_set) (bitmaps:'a word app_list # num) (k,f:num,f':num) =
+  wLive (live:cutsets) (bitmaps:'a word app_list # num) (k,f:num,f':num) =
     if f = 0 then (Skip,bitmaps)
     else
-      let (new_bitmaps,i) = insert_bitmap (write_bitmap live k f') bitmaps in
+      let (new_bitmaps,i) = insert_bitmap (write_bitmap (SND live) k f') bitmaps in
         (Seq (Inst (Const k (n2w (i+1)))) (StackStore k 0):'a stackLang$prog,new_bitmaps)
 End
 
@@ -325,8 +325,7 @@ Definition comp_def:
   (comp conf (Move _ xs) bs kf = (wMove xs kf,bs)) /\
   (comp conf (Inst i) bs kf = (wInst i kf,bs)) /\
   (comp conf (Return v1 v2) bs kf =
-     let (xs,x) = wReg1 v1 kf in
-       (wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1)),bs)) /\
+     ARB) /\
   (comp conf (Raise v) bs kf = (Call NONE (INL raise_stub_location) NONE,bs)) /\
   (comp conf (OpCurrHeap b dst src) bs kf =
      let (xs,src_r) = wReg1 src kf in
@@ -425,7 +424,7 @@ End
 
 Definition store_consts_stub_def:
   store_consts_stub k =
-    Seq (StoreConsts k (k+1) NONE) (Return 0 0)
+    Seq (StoreConsts k (k+1) NONE) (Return 0)
 End
 
 (*stack args are in wordLang vars 0,2,4,...,2*(k-1), 2*k , ...*)
