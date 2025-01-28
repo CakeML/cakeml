@@ -41,7 +41,12 @@ End
 
 Definition adjust_set_def:
   adjust_set (names:'a num_map) =
-    (LS (), fromAList (MAP (\(n,k). (adjust_var n,())) (toAList names))):num_set # num_set
+    (fromAList (MAP (\(n,k). (adjust_var n,())) (toAList names))):num_set
+End
+
+Definition adjust_sets_def:
+  adjust_sets (names:'a num_map) =
+    (LS (),adjust_set names):num_set # num_set
 End
 
 Definition Unit_def:
@@ -50,7 +55,7 @@ End
 
 Definition GiveUp_def:
   GiveUp = Seq (Assign 1 (Const (-1w)))
-               (Alloc 1 (adjust_set (LN:num_set))) :'a wordLang$prog
+               (Alloc 1 (adjust_sets (LN:num_set))) :'a wordLang$prog
 End
 
 Definition BignumHalt_def:
@@ -340,10 +345,10 @@ Definition AllocVar_def:
                 (Assign 1 (Const (-1w:'a word)));
               Assign 3 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
               If Lower 3 (Reg 1)
-                (list_Seq [SilentFFI c 3 (FST (adjust_set names),
-                                          insert 1 () (SND (adjust_set names)));
-                           Alloc 1 (adjust_set names);
-                           SilentFFI c 3 (adjust_set names)]) Skip]
+                (list_Seq [SilentFFI c 3 (FST (adjust_sets names),
+                                          insert 1 () (SND (adjust_sets names)));
+                           Alloc 1 (adjust_sets names);
+                           SilentFFI c 3 (adjust_sets names)]) Skip]
 End
 
 Definition MakeBytes_def:
@@ -1207,7 +1212,7 @@ val def = assign_Define `
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
            (MustTerminate
-             (Call (SOME ([adjust_var dest],adjust_set (get_names names),Skip,secn,l))
+             (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
                 (SOME Append_location)
                    [adjust_var v2; adjust_var v1] NONE) :'a wordLang$prog,l+1))
       : 'a wordLang$prog # num`;
@@ -1238,10 +1243,10 @@ val def = assign_Define `
 val def = assign_Define `
   assign_ConfigGC (c:data_to_word$config)
             (secn:num) (l:num) (dest:num) (names:num_set option) v1 v2 =
-             (list_Seq [SilentFFI c 3 (adjust_set (get_names names));
+             (list_Seq [SilentFFI c 3 (adjust_sets (get_names names));
                         Assign 1 (Const 0w);
-                        Alloc 1 (adjust_set (get_names names)); (* runs GC *)
-                        SilentFFI c 3 (adjust_set (get_names names));
+                        Alloc 1 (adjust_sets (get_names names)); (* runs GC *)
+                        SilentFFI c 3 (adjust_sets (get_names names));
                         Assign (adjust_var dest) (Const 2w)],l)
       : 'a wordLang$prog # num`;
 
@@ -1436,7 +1441,7 @@ val def = assign_Define `
                      ShiftVar Lsl (adjust_var start) (shift (:'a) - 2)]);
                    If Test 15 (Reg 15) (Assign (adjust_var dest) (Var 3)) (list_Seq [
                      MustTerminate
-                       (Call (SOME ([adjust_var dest],adjust_set (get_names names),
+                       (Call (SOME ([adjust_var dest],adjust_sets (get_names names),
                              Skip,secn,l))
                           (SOME MemCopy_location) [15;11;13;3] NONE)])]),l+1)
          | _ => (Skip,l))
@@ -1467,7 +1472,7 @@ val def = assign_Define `
          (Seq
            (Assign 1 (Const (if immutable then 0w else 16w))) (* n.b. this would have been better done with Set Temp *)
            (MustTerminate
-             (Call (SOME ([adjust_var dest],adjust_set (get_names names),Skip,secn,l))
+             (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
                 (SOME RefByte_location)
                    [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog),l+1)
       : 'a wordLang$prog # num`;
@@ -1478,13 +1483,13 @@ val def = assign_Define `
       (dtcase args of
        | [v1;v2;v3;v4;v5] (* alloc_new is F *) =>
            (MustTerminate
-             (Call (SOME ([adjust_var dest],adjust_set (get_names names),Skip,secn,l))
+             (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
                 (SOME ByteCopy_location)
                    [adjust_var v1; adjust_var v2; adjust_var v3;
                     adjust_var v4; adjust_var v5] NONE) :'a wordLang$prog,l+1)
        | [v1;v2;v3] (* alloc_new is T *) =>
            (MustTerminate
-             (Call (SOME ([adjust_var dest],adjust_set (get_names names),Skip,secn,l))
+             (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
                 (SOME ByteCopyNew_location)
                    [adjust_var v1; adjust_var v2;
                     adjust_var v3] NONE) :'a wordLang$prog,l+1)
@@ -1502,7 +1507,7 @@ val def = assign_Define `
           Move 0 [(1,adjust_var v1)];
           AllocVar c limit (list_insert [v1; v2] (get_names names));
           MustTerminate
-            (Call (SOME ([adjust_var dest],adjust_set (get_names names),Skip,secn,l))
+            (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
                (SOME RefArray_location)
                   [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog
           ],l+1)
@@ -1514,7 +1519,7 @@ val def = assign_Define `
        if encode_header c (4 * tag) 0 = (NONE:'a word option) then (GiveUp,l) else
          (MustTerminate (list_Seq [
             Assign 1 (Const (n2w (16 * tag)));
-            (Call (SOME ([adjust_var dest],adjust_set (get_names names),Skip,secn,l))
+            (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
                (SOME FromList_location)
                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
       : 'a wordLang$prog # num`;
@@ -1581,7 +1586,7 @@ val def = assign_Define `
                    If Test 5 (Imm 1w) Skip
                      (If Equal 1 (Reg 3) Skip
                        (Seq (MustTerminate
-                          (Call (SOME ([1],adjust_set (get_names names),Skip,secn,l))
+                          (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
                                 (SOME Equal_location) [1;3] NONE))
                           (Assign 3 (Const 1w))));
                    (If Equal 1 (Reg 3)
@@ -1597,7 +1602,7 @@ val def = assign_Define `
                    Assign 5 (Op Or [Var 1; Var 3]);
                    If Test 5 (Imm 1w) Skip
                      (Seq (MustTerminate
-                          (Call (SOME ([1],adjust_set (get_names names),Skip,secn,l))
+                          (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
                                 (SOME Compare_location) [1;3] NONE))
                           (Assign 3 (Const 1w)));
                    (If Less 1 (Reg 3)
@@ -1613,7 +1618,7 @@ val def = assign_Define `
                    Assign 5 (Op Or [Var 1; Var 3]);
                    If Test 5 (Imm 1w) Skip
                      (Seq (MustTerminate
-                          (Call (SOME ([1],adjust_set (get_names names),Skip,secn,l))
+                          (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
                                 (SOME Compare_location) [1;3] NONE))
                           (Assign 3 (Const 1w)));
                    (If NotLess 3 (Reg 1)
@@ -1747,7 +1752,7 @@ val def = assign_Define `
                    (* if the least significant bit is set, then bignum is needed *)
                    If Test 3 (Imm 1w) Skip
                     (MustTerminate
-                      (Call (SOME ([1],adjust_set (get_names names),Skip,secn,l))
+                      (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
                         (SOME Add_location) [adjust_var v1; adjust_var v2] NONE));
                    Move 2 [(adjust_var dest,1)]],l+1)
       : 'a wordLang$prog # num`;
@@ -1763,7 +1768,7 @@ val def = assign_Define `
                    (* if the least significant bit is set, then bignum is needed *)
                    If Test 3 (Imm 1w) Skip
                     (MustTerminate
-                      (Call (SOME ([1],adjust_set (get_names names),Skip,secn,l))
+                      (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
                         (SOME Sub_location) [adjust_var v1; adjust_var v2] NONE));
                    Move 2 [(adjust_var dest,1)]],l+1)
       : 'a wordLang$prog # num`;
@@ -1779,7 +1784,7 @@ val def = assign_Define `
                    Assign 1 (ShiftVar Lsr 1 1);
                    If Equal 3 (Imm 0w) Skip
                      (MustTerminate
-                       (Call (SOME ([1],adjust_set (get_names names),Skip,secn,l))
+                       (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
                         (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE));
                    Move 2 [(adjust_var dest,1)]],l+1)
       : 'a wordLang$prog # num`;
@@ -1802,13 +1807,13 @@ val def = assign_Define `
                 list_Seq
                   [Assign 1 (Const 0w);
                    MustTerminate
-                    (Call (SOME ([1],adjust_set (get_names names),Skip,secn,l+1))
+                    (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l+1))
                       (SOME LongDiv_location)
                         [1; adjust_var v1; adjust_var v2] NONE);
                    Assign (adjust_var dest) (ShiftVar Lsl 1 2)])
              (list_Seq
                 [MustTerminate
-                   (Call (SOME ([1],adjust_set (get_names names),Skip,secn,l))
+                   (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
                       (SOME Div_location) [adjust_var v1; adjust_var v2] NONE);
                  Move 2 [(adjust_var dest,1)]])],l + 2)
       : 'a wordLang$prog # num`;
@@ -1833,13 +1838,13 @@ val def = assign_Define `
                 list_Seq
                   [Assign 1 (Const 0w);
                    MustTerminate
-                    (Call (SOME ([1],adjust_set (get_names names),Skip,secn,l+1))
+                    (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l+1))
                       (SOME LongDiv_location)
                         [1; adjust_var v1; adjust_var v2] NONE);
                    Get (adjust_var dest) (Temp 28w)])
              (list_Seq
                 [MustTerminate
-                   (Call (SOME ([1],adjust_set (get_names names),Skip,secn,l))
+                   (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
                       (SOME Mod_location) [adjust_var v1; adjust_var v2] NONE);
                  Move 2 [(adjust_var dest,1)]])],l + 2)
       : 'a wordLang$prog # num`;
@@ -2072,7 +2077,7 @@ val def = assign_Define `
           Assign 3 (Op Sub [fakelen1; Const bytes_in_word]);
           Assign 5 (if ffi_index = "" then Const 0w else (Op Add [addr2; Const bytes_in_word]));
           Assign 7 (if ffi_index = "" then Const 0w else (Op Sub [fakelen2; Const bytes_in_word]));
-          FFI ffi_index 1 3 5 7 (adjust_set (dtcase names of SOME names => names | NONE => LN));
+          FFI ffi_index 1 3 5 7 (adjust_sets (dtcase names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)
       : 'a wordLang$prog # num`;
@@ -2125,7 +2130,7 @@ val def = assign_Define `
                    If Lower 3 (Reg 5) (* too little code space *) GiveUp Skip;
                    MustTerminate
                     (Call (SOME ([adjust_var dest],
-                       adjust_set (get_names names),Skip,secn,l))
+                       adjust_sets (get_names names),Skip,secn,l))
                     (SOME InstallCode_location)
                       [adjust_var v1; adjust_var v2; 1] NONE)],l+1)
       : 'a wordLang$prog # num`;
@@ -2355,17 +2360,17 @@ Definition comp_def:
         let w = if w2n w = n * k then w else ~0w in
           (Seq (Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]))
                (If Lower 1 (Imm w)
-                 (list_Seq [SilentFFI c 3 (adjust_set names);
+                 (list_Seq [SilentFFI c 3 (adjust_sets names);
                             Assign 1 (Const w);
-                            Alloc 1 (adjust_set names);
-                            SilentFFI c 3 (adjust_set names)])
+                            Alloc 1 (adjust_sets names);
+                            SilentFFI c 3 (adjust_sets names)])
                 Skip),l)
     | Assign dest op args names => assign c secn l dest op args names
     | Call ret target args handler =>
         dtcase ret of
         | NONE => (Call NONE target (0::MAP adjust_var args) NONE,l)
         | SOME (n,names) =>
-            let ret = SOME ([adjust_var n], adjust_set names, Skip, secn, l) in
+            let ret = SOME ([adjust_var n], adjust_sets names, Skip, secn, l) in
               dtcase handler of
               | NONE => (Call ret target (MAP adjust_var args) NONE, l+1)
               | SOME (n,p) =>
