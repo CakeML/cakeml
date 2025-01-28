@@ -425,6 +425,7 @@ Theorem push_env_const[simp]:
    (push_env x y z).clock = z.clock ∧
    (push_env x y z).memory = z.memory ∧
    (push_env x y z).store = z.store ∧
+   (push_env x NONE z).handler = z.handler ∧
    (push_env x y z).ffi = z.ffi ∧
    (push_env x y z).termdep = z.termdep ∧
    (push_env x y z).data_buffer = z.data_buffer ∧
@@ -512,12 +513,15 @@ Proof
 QED
 
 Theorem call_env_const[simp]:
+   (call_env x ss y).store = y.store ∧
+   (call_env x ss y).termdep = y.termdep ∧
    (call_env x ss y).clock = y.clock ∧
    (call_env x ss y).handler = y.handler ∧
    (call_env x ss y).stack = y.stack ∧
    (call_env x ss y).compile_oracle = y.compile_oracle ∧
    (call_env x ss y).compile = y.compile ∧
    (call_env x ss y).be = y.be ∧
+   (call_env x ss y).memory = y.memory ∧
    (call_env x ss y).mdomain = y.mdomain ∧
    (call_env x ss y).sh_mdomain = y.sh_mdomain ∧
    (call_env x ss y).gc_fun = y.gc_fun ∧

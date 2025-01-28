@@ -403,6 +403,7 @@ val state_rel_IN_FDOM = prove(
     t1.store ' (Temp (n2w r)) = Word (s1.regs ' r)``,
   fs [state_rel_def] \\ rw [] \\ fs [FLOOKUP_DEF]);
 
+
 val compile_exp_thm = prove(
   ``state_rel s1 t1 cs2 t0 frame /\ eval_exp_pre s1 x /\ good_dimindex (:α) ==>
     word_exp t1 (compile_exp x) = SOME (Word (eval_exp s1 (x:'a wordLang$exp)))``,
@@ -490,12 +491,21 @@ val b2w_if = prove(
 val b2n_if = prove(
   ``b2n b = if ~b then 0 else 1``,
   Cases_on `b` \\ EVAL_TAC);
-
+(*Is this worth the hassle*)
 Definition list_update_def:
   list_update [] ys t = t /\
   list_update (x::xs) (y::ys) t = insert x y (list_update xs ys t) /\
   list_update (x::xs) [] t = insert x ARB (list_update xs [] t)
 End
+
+Theorem list_update_alist_insert:
+  !xs ys t.
+  LENGTH xs = LENGTH ys ==>
+  list_update xs ys t = alist_insert xs ys t
+Proof
+  recInduct list_update_ind >>
+  fs[list_update_def,alist_insert_def]
+QED
 
 val evaluate_LoadRegs = prove(
   ``!save_regs vals t1.
@@ -611,7 +621,12 @@ val LIST_REL_lemma = prove(
       LIST_REL P xs ys ==>
       LIST_REL Q xs ys``,
   Induct \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []);
-
+(*TODO move*)
+Theorem domain_fromAList_toAList:
+  domain (fromAList (toAList l)) = domain l
+Proof
+  fs[domain_fromAList,set_MAP_FST_toAList_domain]
+QED
 Theorem compile_thm:
    !rec s1 prog s2.
       Eval rec s1 prog s2 ==>
@@ -1023,8 +1038,7 @@ Proof
     \\ qexists_tac `t8` \\ fs []
     \\ unabbrev_all_tac \\ fs [get_var_def,alist_insert_def,lookup_insert]
     \\ fs [state_rel_def] \\ fs [])
-  THEN1 (* Rec *) cheat
-   (*
+  THEN1 (* Rec *)
    (fs [compile_def] \\ rveq
     \\ fs [compile_def,syntax_ok_def,syntax_ok_aux_def] \\ rfs []
     \\ simp [Once evaluate_def]
@@ -1034,69 +1048,83 @@ Proof
     \\ disch_then kall_tac
     \\ simp [Once evaluate_def,find_code_def,bad_dest_args_def,add_ret_loc_def,
          get_vars_def]
-    \\ IF_CASES_TAC
-    THEN1 (fs [EXTENSION,domain_list_insert] \\ metis_tac [])
-    \\ TOP_CASE_TAC THEN1
-     (sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
-      \\ fs [cut_env_def,domain_list_insert,SUBSET_DEF,get_var_def]
-      \\ fs [domain_list_update]
-      \\ fs [domain_lookup] \\ metis_tac [])
+    \\ TOP_CASE_TAC >-(
+      fs[cut_envs_def,cut_names_def]
+      \\ fs [domain_list_update,SUBSET_DEF,domain_list_insert,MEM_MAP,domain_lookup]
+      \\ gvs[get_var_def])
     \\ `t1.clock <> 0` by fs [state_rel_def] \\ fs []
     \\ qmatch_goalsub_abbrev_tac `evaluate (_,t6)`
     \\ first_x_assum drule \\ fs []
     \\ disch_then (qspecl_then [`cs2`,`t6`,`Loc n l`] mp_tac)
     \\ impl_tac THEN1
-     (`t6.code = t1.code` by
-       (unabbrev_all_tac
-        \\ fs [call_env_def, flush_state_def,push_env_def,wordSemTheory.dec_clock_def]) \\ fs []
-      \\ conj_tac THEN1
-       (match_mp_tac state_rel_delete_vars
-        \\ fs [state_rel_def,dec_clock_def,wordSemTheory.dec_clock_def,Abbr`t6`,
-               call_env_def, flush_state_def,push_env_def]
-        \\ pairarg_tac \\ fs [])
-      \\ fs [PULL_EXISTS]
-      \\ asm_exists_tac \\ fs []
-      \\ unabbrev_all_tac \\ fs [call_env_def, flush_state_def,push_env_def]
-      \\ pairarg_tac \\ fs [] \\ EVAL_TAC)
-    \\ strip_tac \\ fs []
-    \\ simp [Once evaluate_def]
-    \\ fs [pop_env_def,call_env_def, flush_state_def,push_env_def]
-    \\ fs [env_to_list_insert_0_LN,EVAL ``domain (fromAList [(0,ret_val)])``]
+      (irule_at Any state_rel_delete_vars \\
+       unabbrev_all_tac \\
+       fs[state_rel_def,delete_vars_def] \\
+       fs[dec_clock_def,wordSemTheory.dec_clock_def] \\
+       first_x_assum (irule_at (Pos hd)) \\
+       fs[call_env_def,push_env_def,env_to_list_def] \\
+       full_simp_tac (bool_ss) [GSYM state_fupdcanon] \\
+       fs[] \\ simp[get_var_def,fromList2_def])
+    \\ disch_tac \\ fs []
+    \\ simp [Once evaluate_def,get_vars_def]
     \\ qunabbrev_tac `t6` \\ fs []
-    \\ fs [set_var_def,fromAList_def,wordSemTheory.dec_clock_def]
-    \\ Cases_on `env_to_list x t1.permute` \\ fs []
+    \\ simp [pop_env_def,flush_state_def,push_env_def]
+    \\ Cases_on `env_to_list (SND x) t1.permute` \\ fs []
     \\ reverse IF_CASES_TAC THEN1
      (sg `F` \\ fs [] \\ pop_assum mp_tac
       \\ imp_res_tac env_to_list_lookup_equiv
-      \\ simp [EXTENSION,domain_lookup,lookup_fromAList])
+      \\ gvs[cut_envs_def,cut_names_def,AllCaseEqs()]
+      \\ fs [EXTENSION,domain_lookup,ALOOKUP_toAList,
+          lookup_fromAList,lookup_inter]
+      \\ gvs[AllCaseEqs()] \\
+      rpt gen_tac \\ EQ_TAC \\ rpt strip_tac
+      \\ gvs[lookup_def])
     \\ qmatch_goalsub_abbrev_tac `evaluate (_,t7)`
     \\ `EVERY2 (λn v. lookup (n+2) t7.locals = SOME (Word v)) save_regs vals` by
      (fs [cut_env_def] \\ rveq \\ unabbrev_all_tac
       \\ fs [lookup_insert,lookup_fromAList]
       \\ imp_res_tac env_to_list_lookup_equiv
       \\ fs [lookup_inter_alt,domain_list_insert]
+      \\ fs[set_vars_def,alist_insert_def,lookup_insert,lookup_union,lookup_fromAList,
+       ALOOKUP_toAList]
+      \\ gvs[cut_envs_def,cut_names_def,AllCaseEqs()]
+      \\ fs[lookup_inter_alt,domain_list_insert,MEM_MAP]
       \\ imp_res_tac EVERY2_LENGTH
-      \\ pop_assum mp_tac
-      \\ qpat_x_assum `ALL_DISTINCT save_regs` mp_tac
-      \\ rpt (pop_assum kall_tac)
-      \\ qspec_tac (`vals`,`vals`)
-      \\ qspec_tac (`save_regs`,`save_regs`)
-      \\ Induct \\ fs []
-      \\ Cases_on `vals` \\ fs [list_update_def,lookup_insert]
-      \\ rpt strip_tac
-      \\ res_tac \\ pop_assum mp_tac
-      \\ match_mp_tac LIST_REL_lemma \\ fs [] \\ metis_tac [])
+      \\ DEP_REWRITE_TAC[list_update_alist_insert]
+      \\ conj_asm1_tac >- fs[]
+      \\ simp[lookup_alist_insert]
+      \\ simp[ALOOKUP_ZIP_MAP_SND]
+      \\ simp[AllCaseEqs()]
+      \\ simp[ALOOKUP_ZIP_FAIL]
+      \\ simp[MEM_MAP]
+      \\ `ALL_DISTINCT (MAP FST (ZIP (MAP (λn. n + 2) save_regs,vals)))`
+         by
+         (simp[MAP_ZIP] >>
+         irule ALL_DISTINCT_MAP_INJ >>
+         simp[])
+      \\ simp[GSYM MEM_ALOOKUP]
+      \\ simp[MEM_MAP]
+      \\ simp[Once LIST_REL_MEM]
+      \\ simp[GSYM LIST_REL_MEM]
+      \\ simp[LIST_REL_EL_EQN]
+      \\ simp[MEM_ZIP]
+      \\ rw[] \\ gvs[]
+      \\ HINT_EXISTS_TAC \\ gvs[EL_MAP])
     \\ drule (GEN_ALL evaluate_SaveRegs) \\ fs []
     \\ disch_then kall_tac \\ qunabbrev_tac `t7`
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
     \\ qexists_tac `t8` \\ fs []
-    \\ unabbrev_all_tac \\ fs [get_var_def,lookup_insert]
+    \\ unabbrev_all_tac \\ fs []
+    \\ fs[get_var_def,set_vars_def,alist_insert_def,lookup_insert,
+     lookup_union]
+    \\ gvs[cut_envs_def,cut_names_def,AllCaseEqs()]
+    \\ fs[lookup_fromAList_toAList,lookup_inter_alt]
     \\ imp_res_tac env_to_list_lookup_equiv
     \\ fs [lookup_fromAList,get_var_def,state_rel_def]
+    \\ fs [lookup_inter_alt,domain_list_insert,MEM_MAP,lookup_list_update_ADD_2]
+    \\ gvs[]
     \\ imp_res_tac copy_vars_const
-    \\ `lookup 0 x = SOME ret_val` by
-      (fs [cut_env_def] \\ rveq
-       \\ fs [lookup_inter_alt,domain_list_insert,lookup_list_update_ADD_2])
+    \\ gvs[]
     \\ fs [FLOOKUP_list_store_ignore]
     \\ qpat_x_assum `LIST_REL (λn v. FLOOKUP s1.regs n = SOME v) save_regs vals`
           mp_tac
@@ -1105,6 +1133,7 @@ Proof
     \\ qpat_x_assum `EVERY (λn. n < _) save_regs` mp_tac
     \\ qpat_x_assum `ALL_DISTINCT save_regs` mp_tac
     \\ qpat_x_assum `copy_vars save_regs s1.regs s2 = SOME s3` mp_tac
+    \\ fs[]
     \\ rpt (pop_assum kall_tac)
     \\ qspec_tac (`t2.store`,`st`)
     \\ qspec_tac (`s1.regs`,`regs`)
@@ -1139,7 +1168,7 @@ Proof
     \\ rpt (pop_assum kall_tac)
     \\ Induct_on `save_regs` \\ fs [list_store_def]
     \\ rpt strip_tac \\ fs []
-    \\ match_mp_tac FUPDATE_COMMUTES \\ fs []) *)
+    \\ match_mp_tac FUPDATE_COMMUTES \\ fs [])
   THEN1 (* LoopBody ret *)
    (fs [syntax_ok_def,compile_def]
     \\ `syntax_ok prog /\ !r. prog <> LoopBody r` by
