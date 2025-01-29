@@ -239,28 +239,30 @@ Proof
   metis_tac[MEM_toAList,domain_lookup]
 QED
 
-(*
-Theorem cut_envs_lemma:
+
+Theorem cut_names_lemma:
     ∀names sloc tloc x f.
   INJ f (domain names) UNIV ∧
-  cut_envs names sloc = SOME x ∧
+  cut_names names sloc = SOME x ∧
   strong_locals_rel f (domain names) sloc tloc
   ⇒
-  ∃y. cut_envs (apply_nummap_key f names) tloc = SOME y ∧
+  ∃y. cut_names (apply_nummap_key f names) tloc = SOME y ∧
       domain y = IMAGE f (domain x) ∧
       strong_locals_rel f (domain names) x y ∧
       INJ f (domain x) UNIV ∧
       domain x = domain names
 Proof
   rpt strip_tac>>
-  full_simp_tac(srw_ss())[domain_inter,cut_env_def,apply_nummap_key_domain
+  full_simp_tac(srw_ss())[domain_inter,cut_names_def,apply_nummap_key_domain
     ,strong_locals_rel_def]>>
+  full_simp_tac (bool_ss)[GSYM apply_nummap_key_def] >>
   CONJ_ASM1_TAC>-
     (full_simp_tac(srw_ss())[SUBSET_DEF,domain_lookup]>>srw_tac[][]>>metis_tac[])>>
   CONJ_ASM1_TAC>-
     (Q.ISPECL_THEN[`f`,`names`] assume_tac apply_nummap_key_domain>>
-    full_simp_tac(srw_ss())[SUBSET_INTER_ABSORPTION,INTER_COMM]>>
-    metis_tac[domain_inter])>>
+    rveq >>
+    full_simp_tac(srw_ss())[SUBSET_INTER_ABSORPTION,INTER_COMM,apply_nummap_key_def]
+    )>>
   srw_tac[][]>-
     (srw_tac[][]>>full_simp_tac(srw_ss())[lookup_inter]>>
     Cases_on`lookup n sloc`>>full_simp_tac(srw_ss())[]>>
@@ -273,7 +275,7 @@ Proof
   >>
     full_simp_tac(srw_ss())[domain_inter,SUBSET_INTER_ABSORPTION,INTER_COMM]
 QED
-*)
+
 
 Triviality LENGTH_list_rerrange:
   LENGTH (list_rearrange mover xs) = LENGTH xs
