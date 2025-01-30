@@ -160,8 +160,7 @@ End
 
 (*tlocs is a supermap of slocs under f for everything in a given
   live set*)
-(*TODO strength to equality on
-lookup = lookup *)
+
 Definition strong_locals_rel_def:
   strong_locals_rel f ls slocs tlocs ⇔
   ∀n v.
@@ -276,6 +275,26 @@ Proof
     full_simp_tac(srw_ss())[domain_inter,SUBSET_INTER_ABSORPTION,INTER_COMM]
 QED
 
+Triviality nummaps_to_nummap:
+   FST (apply_nummaps_key f a) = apply_nummap_key f (FST a) /\
+   SND (apply_nummaps_key f a) = apply_nummap_key f (SND a)
+Proof
+   fs[apply_nummaps_key_def,apply_nummap_key_def]
+QED
+
+Theorem INJ_union:
+    INJ f (A ∪ B) C ==> INJ f A C /\ INJ f B C
+Proof
+   disch_tac >> fs[INJ_DEF]
+QED
+
+Theorem strong_locals_rel_UNION:
+    strong_locals_rel f (A ∪ B) t l <=> strong_locals_rel f A t l /\ strong_locals_rel f B t l
+Proof
+   EQ_TAC >> DISCH_TAC >> fs[strong_locals_rel_def] >>
+   rpt strip_tac >> fs[]
+QED
+
 
 Triviality LENGTH_list_rerrange:
   LENGTH (list_rearrange mover xs) = LENGTH xs
@@ -326,7 +345,7 @@ val ALL_DISTINCT_FST = ALL_DISTINCT_MAP |> Q.ISPEC `FST`
 *)
 
 Triviality env_to_list_perm:
-  ∀tperm.
+  ∀y x f perm  tperm.
   domain y = IMAGE f (domain x) ∧
   INJ f (domain x) UNIV ∧
   strong_locals_rel f (domain x) x y
@@ -1311,9 +1330,9 @@ Proof
         assume_tac permute_swap_lemma>>
       rev_full_simp_tac(srw_ss())[LET_THM]>>
       qexists_tac`perm'''`>>srw_tac[][]>>full_simp_tac(srw_ss())[]))
-  >- (*Alloc*) cheat
-    (*
-    (full_simp_tac(srw_ss())[evaluate_def,colouring_ok_def,get_live_def]>>
+  >- cheat (*(*Alloc*)
+    (
+    full_simp_tac(srw_ss())[evaluate_def,colouring_ok_def,get_live_def,get_writes_def]>>
     Cases_on`get_var n st`>>full_simp_tac(srw_ss())[LET_THM]>>
     imp_res_tac strong_locals_rel_get_var>>full_simp_tac(srw_ss())[]>>
     Cases_on`x`>>full_simp_tac(srw_ss())[alloc_def]>>
