@@ -11,6 +11,7 @@
 
   General checks:
   - Errors:
+    - Main function parameters
     - Exported main function
     - Exported function with >4 arguments
     - Missing function exit (return, tail call, etc)
@@ -19,6 +20,11 @@
     - Incorrect number of Op arguments (impossible from parser)
   - Warnings:
     - Unreachable statements (after function exit, after loop exit)
+      - Note: To minimise output, subsequent warnings of this kind after the
+        first guaranteed-unreachable line within a block are silenced. If an
+        inner block occurs *before* this line, warnings within that block do not
+        count towards this first. However, if an inner block occurs *after* this
+        line, the line is recognised as the first for the inner block as well
     - Base-calculated address in shared memory operation
     - Non-base -calculated address in local memory operation
 
@@ -568,6 +574,9 @@ Definition static_check_funs_def:
   static_check_funs fnames [] = return () ∧
   static_check_funs fnames ((fname, export:bool, vshapes, body)::funs) =
     do
+      if (fname = «main» /\ LENGTH vshapes > 0) then
+        error (GenErr $ strlit "main function has arguments\n")
+      else return ();
       if (fname = «main» /\ export) then
         error (GenErr $ strlit "main function is exported\n")
       else return ();
