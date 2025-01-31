@@ -14,7 +14,6 @@ End
 Datatype:
   val = Prim prim | SNum num | Wrong string | SBool bool
       | SList (val list)
-      | Exception mlstring
       | Proc ((mlstring # val) list) (mlstring list) (mlstring option) exp
 ;
   exp = Print mlstring
@@ -24,6 +23,7 @@ Datatype:
       | Ident mlstring
       | SLet ((mlstring # exp) list) exp
       | Lambda (mlstring list) (mlstring option) exp
+      | Exception mlstring
 End
 
 val _ = export_theory();
