@@ -10,7 +10,8 @@ val _ = new_theory "scheme_semantics";
 Datatype:
   cont = ApplyK ((val # val list) option) (exp list)
        | CondK exp exp
-       | LetK mlstring ((mlstring # exp) list) exp
+       | LetK ((mlstring # val) list) mlstring ((mlstring # exp) list) exp
+       | InLetK ((mlstring # val) list)
 End
 
 Definition sadd_def:
@@ -47,12 +48,14 @@ Definition return_def:
   | [] => (env, ks, Val $ strict vfn (REVERSE $ v::vargs))
   | e::es => (env, ApplyK (SOME (vfn, v::vargs)) es :: ks, e)) ∧
 
-  return (env, CondK t f :: ks, cv) = (if cv = (SBool F)
+  return (env, CondK t f :: ks, v) = (if v = (SBool F)
     then (env, ks, f) else (env, ks, t)) ∧
 
-  return (env, LetK i is e :: ks, v) = let env' = (i, v)::env in case is of
-  | [] => (env', ks, e)
-  | (i', e')::is' => (env', LetK i' is' e :: ks, e')
+  return (env, LetK env' i is e :: ks, v) = (case is of
+  | [] => ((i, v)::env', InLetK env :: ks, e)
+  | (i', e')::is' => (env, LetK ((i, v)::env') i' is' e :: ks, e')) ∧
+
+  return (env, InLetK env' :: ks, v) = (env', ks, Val v)
 End
 
 Definition step_def:
@@ -62,10 +65,10 @@ Definition step_def:
   step (env, ks, Ident s) = (let v' = case FIND ($= s o FST) env of
     | NONE => Wrong "Unrecognised identifier"
     | SOME (_, v) => v
-    in return (env, ks, v')) ∧
+    in (env, ks, Val v')) ∧
   step (env, ks, SLet is e) = case is of
   | [] => (env, ks, e)
-  | (i, e')::is' => (env, LetK i is' e :: ks, e')
+  | (i, e')::is' => (env, LetK env i is' e :: ks, e')
 End
 
 Definition steps_def:
@@ -77,6 +80,6 @@ End
 (*EVAL “semantics (Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”*)
 (*EVAL “steps 4 ([], [], Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”*)
 (*EVAL “steps 2 ([], [], Cond (Val (SBool F)) (Val (SNum 2)) (Val (SNum 4)))”*)
-(*EVAL “steps 3 ([], [], SLet [(strlit "x", Val $ SNum 42)] (Ident $ strlit "x"))”*)
+(*EVAL “steps 4 ([], [], SLet [(strlit "x", Val $ SNum 42)] (Ident $ strlit "x"))”*)
 
 val _ = export_theory();
