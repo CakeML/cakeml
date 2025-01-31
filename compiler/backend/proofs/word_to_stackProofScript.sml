@@ -582,7 +582,7 @@ Definition stack_rel_aux_def:
       is_handler_frame (EL (LENGTH stack - (h1+1)) xs) ⇒
       hv = Word (n2w (len - handler_val (LASTN (h1+1) stack)))) ∧
       loc = Loc l1 l2 ∧
-        (∀n v.
+      (∀n v.
         ALOOKUP l0 n = SOME v ∧ ALOOKUP l n = NONE ⇒
         ALOOKUP (index_list frame k) (n DIV 2) = SOME v) ∧
       filter_bitmap bits (index_list frame k) = SOME (MAP_FST adjust_names l,[]) ∧
@@ -2192,8 +2192,8 @@ val stack_evaluate_add_clock_NONE =
 
 (* TODO: this is used for exceptions. Not quite right *)
 Definition push_locals_def:
-  push_locals s = s with <| locals := LN; locals_size := SOME 0;
-    stack := StackFrame s.locals_size [] (FST (env_to_list s.locals (K I))) NONE :: s.stack |>
+  push_locals cs s = s with <| locals := LN; locals_size := SOME 0;
+    stack := StackFrame s.locals_size (FST (env_to_list (difference s.locals cs) (K I))) (FST (env_to_list (inter s.locals cs) (K I))) NONE :: s.stack |>
 End
 
 Triviality LASTN_LENGTH_ID2:
@@ -2492,6 +2492,15 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem inter_union_left:
+  wf s ⇒
+  inter (union s t) s = s
+Proof
+  rw[]>>DEP_REWRITE_TAC[spt_eq_thm]>>
+  simp[lookup_inter,lookup_union,AllCaseEqs()]>>
+  metis_tac[option_CLAUSES]
+QED
+
 (* TODO: This isn't quite right ... *)
 Triviality stack_rel_raise:
   n ≤ LENGTH sstack /\
@@ -2510,9 +2519,14 @@ Triviality stack_rel_raise:
         Word (n2w
           (LENGTH sstack - handler_val (LASTN (h1+1) (LASTN (handler+1) stack)))))) /\
     stack_rel_aux k (LENGTH sstack)
-      (StackFrame m [] (FST (env_to_list (fromAList l) (K I))) NONE::rest)
+      (StackFrame m
+        (FST (env_to_list (difference (union (fromAList l) (fromAList l0)) (fromAList l)) (K I)))
+        (FST (env_to_list (inter (union (fromAList l) (fromAList l0)) (fromAList l)) (K I))) NONE::rest)
           ((NONE,payload) :: LASTN handler stack) /\
-    abs_stack bs (StackFrame m [] (FST (env_to_list (fromAList l) (K I))) NONE::rest)
+    abs_stack bs
+      (StackFrame m
+        (FST (env_to_list (difference (union (fromAList l) (fromAList l0)) (fromAList l)) (K I)))
+        (FST (env_to_list (inter (union (fromAList l) (fromAList l0)) (fromAList l)) (K I))) NONE::rest)
       (DROP (LENGTH sstack - handler_val (LASTN (handler+1) stack) + 3)
          sstack) (LASTN (handler+1) lens) = SOME ((NONE,payload) :: LASTN handler stack)
 Proof
@@ -2522,6 +2536,8 @@ Proof
   Cases_on`LASTN (handler+1) stack`>>fs[stack_rel_aux_def]>>
   PairCases_on`h`>>Cases_on`h0`>>fs[stack_rel_aux_def]>>
   PairCases_on`x`>>fs[stack_rel_aux_def]>>
+  DEP_REWRITE_TAC[inter_union_left]>>
+  simp[wf_fromAList]>>
   `FST (env_to_list (fromAList l) (K I)) = l` by
    (Cases_on `env_to_list (fromAList l) (K I)` \\ fs []
     \\ imp_res_tac env_to_list_K_I_IMP \\ rw []
@@ -5742,7 +5758,9 @@ val goal = ``
          | NONE => state_rel ac k f f' s1 t1 lens
          | SOME (Result _ ys) => state_rel ac k 0 0 s1 t1 lens /\
             ARB (FLOOKUP t1.regs 1 = SOME ARB)
-         | SOME (Exception _ y) => state_rel ac k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
+         | SOME (Exception _ y) =>
+           ∃cs.
+           state_rel ac k 0 0 (push_locals cs s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock``
 
 local
