@@ -38,14 +38,29 @@ Termination
   WF_REL_TAC ‘measure exp_size’
 End
 
+Definition parameterize_def:
+  parameterize env ks env' [] NONE e [] = (env', InLetK env :: ks, e) ∧
+  parameterize env ks env' [] (SOME l) e xs = ((l, SList xs)::env', InLetK env :: ks, e) ∧
+  parameterize env ks env' (p::ps) lp e (x::xs) = parameterize env ks ((p, x)::env') ps lp e xs ∧
+  parameterize env ks _ _ _ _ _ = (env, ks, Val $ Exception $ strlit "Wrong number of arguments")
+End
+
+Definition application_def:
+  application env ks (Prim p) xs = (case p of
+  | SAdd => (env, ks, Val $ sadd xs 0)
+  | SMul => (env, ks, Val $ smul xs 1)) ∧
+  application env ks (Proc env' ps lp e) xs =
+    parameterize env ks env' ps lp e xs
+End
+
 Definition return_def:
   return (env, [], v) = (env, [], Val v) ∧
 
   return (env, ApplyK NONE eargs :: ks, v) = (case eargs of
-  | [] => (env, ks, Val $ strict v [])
+  | [] => application env ks v []
   | e::es => (env, ApplyK (SOME (v, [])) es :: ks, e)) ∧
   return (env, ApplyK (SOME (vfn, vargs)) eargs :: ks, v) = (case eargs of
-  | [] => (env, ks, Val $ strict vfn (REVERSE $ v::vargs))
+  | [] => application env ks vfn (REVERSE $ v::vargs)
   | e::es => (env, ApplyK (SOME (vfn, v::vargs)) es :: ks, e)) ∧
 
   return (env, CondK t f :: ks, v) = (if v = (SBool F)
@@ -66,9 +81,10 @@ Definition step_def:
     | NONE => Wrong "Unrecognised identifier"
     | SOME (_, v) => v
     in (env, ks, Val v')) ∧
-  step (env, ks, SLet is e) = case is of
+  step (env, ks, SLet is e) = (case is of
   | [] => (env, ks, e)
-  | (i, e')::is' => (env, LetK env i is' e :: ks, e')
+  | (i, e')::is' => (env, LetK env i is' e :: ks, e')) ∧
+  step (env, ks, Lambda ps lp e) = (env, ks, Val $ Proc env ps lp e)
 End
 
 Definition steps_def:
@@ -81,5 +97,6 @@ End
 (*EVAL “steps 4 ([], [], Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”*)
 (*EVAL “steps 2 ([], [], Cond (Val (SBool F)) (Val (SNum 2)) (Val (SNum 4)))”*)
 (*EVAL “steps 4 ([], [], SLet [(strlit "x", Val $ SNum 42)] (Ident $ strlit "x"))”*)
+(*EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 4])”*)
 
 val _ = export_theory();
