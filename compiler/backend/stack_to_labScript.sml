@@ -69,7 +69,7 @@ local val flatten_quotation = `
           (List [Label n m 0; LabAsm (JumpCmp (negate c) r ri (Lab n (m+1))) 0w [] 0] ++
            xs ++ List [LabAsm (Jump (Lab n m)) 0w [] 0; Label n (m+1) 0],F,m+2)
     | Raise r => (List [Asm (JumpReg r) [] 0],T,m)
-    | Return r _ => (List [Asm (JumpReg r) [] 0],T,m)
+    | Return r => (List [Asm (JumpReg r) [] 0],T,m)
     | RawCall n => (List [LabAsm (Jump (Lab n 1)) 0w [] 0],T,m)
     | Call NONE dest handler => (List [compile_jump dest],T,m)
     | Call (SOME (p1,lr,l1,l2)) dest handler =>
