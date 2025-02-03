@@ -13,6 +13,7 @@ Datatype:
        | CondK exp exp
        | LetK ((mlstring # val) list) mlstring ((mlstring # exp) list) exp
        | InLetK ((mlstring # val) list)
+       | BeginK (exp list)
 End
 
 Definition sadd_def:
@@ -74,7 +75,15 @@ Definition return_def:
   | [] => ((i, v)::env', InLetK env :: ks, e)
   | (i', e')::is' => (env, LetK ((i, v)::env') i' is' e :: ks, e')) ∧
 
-  return (env, InLetK env' :: ks, v) = (env', ks, Val v)
+  return (env, InLetK env' :: ks, v) = (env', ks, Val v) ∧
+  return (env, BeginK es :: ks, v) = case es of
+  | [] => (env, ks, Val v)
+  | e::es' => (env, BeginK es' :: ks, e)
+End
+
+Definition unwind_def:
+  unwind env [] ex = (env, [], Exception ex) ∧
+  unwind env (k::ks) ex = unwind env ks ex
 End
 
 Definition unwind_def:
@@ -94,6 +103,7 @@ Definition step_def:
   | [] => (env, ks, e)
   | (i, e')::is' => (env, LetK env i is' e :: ks, e')) ∧
   step (env, ks, Lambda ps lp e) = (env, ks, Val $ Proc env ps lp e) ∧
+  step (env, ks, Begin e es) = (env, BeginK es :: ks, e) ∧
 
   step (env, ks, Exception ex) = unwind env ks ex
 End
@@ -112,6 +122,7 @@ End
   EVAL “steps 2 ([], [], Cond (Val (SBool F)) (Val (SNum 2)) (Val (SNum 4)))”
   EVAL “steps 4 ([], [], SLet [(strlit "x", Val $ SNum 42)] (Ident $ strlit "x"))”
   EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 4])”
+  EVAL “steps 3 ([], [], Begin (Val $ SNum 1) [Val $ SNum 2])”
 *)
 
 val _ = export_theory();
