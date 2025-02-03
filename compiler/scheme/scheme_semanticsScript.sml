@@ -8,6 +8,7 @@ open scheme_astTheory;
 val _ = new_theory "scheme_semantics";
 
 Datatype:
+  (*Contexts for small-step operational semantics*)
   cont = ApplyK ((val # val list) option) (exp list)
        | CondK exp exp
        | LetK ((mlstring # val) list) mlstring ((mlstring # exp) list) exp
@@ -52,7 +53,8 @@ Definition application_def:
   | SAdd => (env, ks, sadd xs 0)
   | SMul => (env, ks, smul xs 1)) ∧
   application env ks (Proc env' ps lp e) xs =
-    parameterize env ks env' ps lp e xs
+    parameterize env ks env' ps lp e xs ∧
+  application env ks _ _ = (env, ks, Exception $ strlit "Not a procedure")
 End
 
 Definition return_def:
@@ -75,6 +77,11 @@ Definition return_def:
   return (env, InLetK env' :: ks, v) = (env', ks, Val v)
 End
 
+Definition unwind_def:
+  unwind env [] ex = (env, [], Exception ex) ∧
+  unwind env (k::ks) ex = unwind env ks ex
+End
+
 Definition step_def:
   step (env, ks, Val v) = return (env, ks, v) ∧
   step (env, ks, Apply fn args) = (env, ApplyK NONE args :: ks, fn) ∧
@@ -88,8 +95,7 @@ Definition step_def:
   | (i, e')::is' => (env, LetK env i is' e :: ks, e')) ∧
   step (env, ks, Lambda ps lp e) = (env, ks, Val $ Proc env ps lp e) ∧
 
-  step (env, k::ks, Exception ex) = (env, ks, Exception ex) ∧
-  step t = t
+  step (env, ks, Exception ex) = unwind env ks ex
 End
 
 Definition steps_def:
@@ -97,12 +103,15 @@ Definition steps_def:
     else steps (n - 1) $ step t
 End
 
-(*EVAL “semantics (Val (SNum 3))”*)
-(*EVAL “semantics (Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”*)
-(*EVAL “steps 4 ([], [], Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”*)
-(*EVAL “steps 6 ([], [InLetK []], Apply (Val (Prim SMul)) [Val (SNum 2); Val (Prim SAdd)])”*)
-(*EVAL “steps 2 ([], [], Cond (Val (SBool F)) (Val (SNum 2)) (Val (SNum 4)))”*)
-(*EVAL “steps 4 ([], [], SLet [(strlit "x", Val $ SNum 42)] (Ident $ strlit "x"))”*)
-(*EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 4])”*)
+(*
+  EVAL “semantics (Val (SNum 3))”
+  EVAL “semantics (Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”
+  EVAL “steps 4 ([], [], Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”
+  EVAL “steps 4 ([], [], Apply (Val (SNum 7)) [Val (SNum 2); Val (SNum 4)])”
+  EVAL “steps 6 ([], [InLetK []], Apply (Val (Prim SMul)) [Val (SNum 2); Val (Prim SAdd)])”
+  EVAL “steps 2 ([], [], Cond (Val (SBool F)) (Val (SNum 2)) (Val (SNum 4)))”
+  EVAL “steps 4 ([], [], SLet [(strlit "x", Val $ SNum 42)] (Ident $ strlit "x"))”
+  EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 4])”
+*)
 
 val _ = export_theory();
