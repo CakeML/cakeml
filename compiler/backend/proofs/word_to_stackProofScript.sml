@@ -566,7 +566,6 @@ Definition is_handler_frame_def:
   (is_handler_frame _ = T)
 End
 
-
 (*Checks for consistency of the values*)
 Definition stack_rel_aux_def:
   (stack_rel_aux k len [] [] ⇔ T) ∧
@@ -2193,7 +2192,9 @@ val stack_evaluate_add_clock_NONE =
 (* TODO: this is used for exceptions. Not quite right *)
 Definition push_locals_def:
   push_locals cs s = s with <| locals := LN; locals_size := SOME 0;
-    stack := StackFrame s.locals_size (FST (env_to_list (difference s.locals cs) (K I))) (FST (env_to_list (inter s.locals cs) (K I))) NONE :: s.stack |>
+    stack := StackFrame s.locals_size
+      (FST (env_to_list (difference s.locals cs) (K I)))
+      (FST (env_to_list (inter s.locals cs) (K I))) NONE :: s.stack |>
 End
 
 Triviality LASTN_LENGTH_ID2:
@@ -2609,7 +2610,10 @@ Proof
   Cases_on`t'''`>>simp[]>>
   ntac 5 TOP_CASE_TAC>>
   rw[]>>
-  fs[abs_stack_def,LET_THM]
+  fs[abs_stack_def,LET_THM]>>
+  first_x_assum irule>>
+  simp[]>>
+  cheat
 QED
 
 Triviality EVERY_IMP_EVERY_LASTN:
@@ -2665,7 +2669,6 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ rpt (pairarg_tac >> fs[])
   \\ rveq
-  \\ cheat (* fix Return *)
   \\ metis_tac[IS_PREFIX_TRANS,wLive_isPREFIX,insert_bitmap_isPREFIX]
 QED
 
@@ -5664,7 +5667,6 @@ Proof
   \\ rpt (pairarg_tac >> fs[])
   \\ rveq \\ fs[]
   \\ TRY (Cases_on`bs`>>fs[insert_bitmap_def] \\ rw[] \\ NO_TAC)
-  \\ cheat
   \\ drule wLive_LENGTH \\ simp[]
 QED
 
@@ -5757,7 +5759,15 @@ val goal = ``
          case res of
          | NONE => state_rel ac k f f' s1 t1 lens
          | SOME (Result _ ys) => state_rel ac k 0 0 s1 t1 lens /\
-            ARB (FLOOKUP t1.regs 1 = SOME ARB)
+            (*
+              list positions:  0 1 2 3 ... k-2 k-1 k  k+1 ...
+              registers:       1 2 3 4 ... k-1
+              stack    :                       0   1  2   ...
+              TODO: LLOOKUP probably off by one or two *)
+            (∀i. i < LENGTH ys ∧ i < k - 1 ⇒
+              FLOOKUP t1.regs (i+1) = SOME (EL i ys)) ∧
+            (∀i. i < LENGTH ys ∧ k - 1 ≤ i ⇒
+              LLOOKUP s.stack (f-1 -(i + 1 - k)) = SOME (EL i ys))
          | SOME (Exception _ y) =>
            ∃cs.
            state_rel ac k 0 0 (push_locals cs s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
