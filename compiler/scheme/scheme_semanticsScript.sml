@@ -86,11 +86,6 @@ Definition unwind_def:
   unwind env (k::ks) ex = unwind env ks ex
 End
 
-Definition unwind_def:
-  unwind env [] ex = (env, [], Exception ex) ∧
-  unwind env (k::ks) ex = unwind env ks ex
-End
-
 Definition step_def:
   step (env, ks, Val v) = return (env, ks, v) ∧
   step (env, ks, Apply fn args) = (env, ApplyK NONE args :: ks, fn) ∧
