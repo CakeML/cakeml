@@ -374,7 +374,7 @@ End
 Definition call_arg_convention_def:
   (call_arg_convention (Inst i) =
     inst_arg_convention i) ∧
-  (call_arg_convention (Return x ys) = (ys = GENLIST (\x.2*x) (LENGTH ys))) ∧
+  (call_arg_convention (Return x ys) = (ys = GENLIST (\x.2*(x+1)) (LENGTH ys))) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
   (call_arg_convention (Install ptr len _ _ _) = (ptr = 2 ∧ len = 4)) ∧
   (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
@@ -387,7 +387,7 @@ Definition call_arg_convention_def:
       NONE => args = GENLIST (\x.2*x) (LENGTH args)
     | SOME (vs,cutset,ret_handler,l1,l2) =>
       args = GENLIST (\x.2*(x+1)) (LENGTH args) ∧
-      (vs = GENLIST (\x.2*x) (LENGTH vs)) ∧ call_arg_convention ret_handler ∧
+      (vs = GENLIST (\x.2*(x+1)) (LENGTH vs)) ∧ call_arg_convention ret_handler ∧
     (case h of  (*Does not check the case where Calls are ill-formed*)
       NONE => T
     | SOME (v,prog,l1,l2) =>
