@@ -851,8 +851,8 @@ Definition icompile_def:
   let (clos_iconf', icompiled_p_bvl) = icompile_clos_to_bvl_alt clos_iconf icompiled_p_clos in
   let (bvl_iconf', icompiled_p_bvi) = icompile_bvl_to_bvi bvl_iconf icompiled_p_bvl in
   let icompiled_p_data = bvi_to_data$compile_prog icompiled_p_bvi in
-  case data_to_word_compile_orac asm_conf data_conf word_to_word_conf icompiled_p_data of NONE => NONE
-  | SOME (word_to_word_conf_inj_oracle, icompiled_p_word1) =>
+  let icompiled_p_word = icompile_data_to_word data_conf icompiled_p_data in
+  let (_, icompiled_p_word1) = word_to_word$compile word_to_word_conf asm_conf icompiled_p_word in
   let (word_iconf', icompiled_p_stack) = icompile_word_to_stack asm_conf word_conf icompiled_p_word1 in
   let offset = asm_conf.addr_offset in
   let k = (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3)) in
@@ -2273,7 +2273,7 @@ Proof
   drule init_icompile_icompile_end_icompile_d2w1 >> (* change this part.. split d2w1 *)
   simp[] >> ntac 3 (disch_then drule) >> disch_then rev_drule >>
   strip_tac >> gvs[] >>
-  gvs[bvi_to_data_prog_compile_append_all] >>
+  gvs[bvi_to_data_compile_prog_append_all] >>
   drule_all init_icompile_icompile_end_icompile_w12s >>
   strip_tac >> gvs[] >>
   gvs[config_prog_pair_rel_def] >>
@@ -2691,7 +2691,7 @@ Proof
   gvs[] >>
   drule_all init_icompile_icompile_end_icompile_b2b >>
   simp[config_prog_rel_b2b_def] >> strip_tac >> gvs[] >>
-  gvs[bvi_to_data_prog_compile_append_all] >>
+  gvs[bvi_to_data_compile_prog_append_all] >>
   drule init_icompile_icompile_end_icompile_d2w0 >> strip_tac >> gvs[] >>
   qpat_x_assum ‘_ _ _ = ((_, d_init), _)’ assume_tac >> (* weird, it cannot pattern match when given own name *)
   drule to_livesets_0_alt_append >>
