@@ -742,6 +742,7 @@ Definition init_icompile_cake_def:
   let (data_conf', word_init) = init_icompile_data_to_word data_conf asm_conf data_init in
   case word_to_word_inlogic asm_conf word_to_word_conf word_init of NONE => NONE
   | SOME (col, word_init1) =>
+    if col ≠ [] then NONE else
     let word_to_word_conf = word_to_word_conf with col_oracle := col in
     let (word_iconf, stack_init) = init_icompile_word_to_stack asm_conf word_init1 in
     let max_heap = (2 * data_to_word$max_heap_limit (:'a) data_conf - 1) in
@@ -816,6 +817,7 @@ Definition end_icompile_cake_def:
   let word_end = icompile_data_to_word data_conf data_end in
   case word_to_word_inlogic asm_conf word_to_word_conf word_end of NONE => NONE
   | SOME (col, word_end1) =>
+    if col ≠ [] then NONE else
     let word_to_word_conf = word_to_word_conf with col_oracle := col in
     let (bm, w2s_conf, fs, stack_end) = end_icompile_word_to_stack asm_conf word_iconf word_end1 in
     let offset = asm_conf.addr_offset in
@@ -2064,7 +2066,7 @@ Proof
   rw[config_prog_rel_b2b_def]
 QED
 
-Theorem bvi_to_data_prog_compile_append_all:
+Theorem bvi_to_data_compile_prog_append_all:
   bvi_to_data$compile_prog (bvi_init ++ icompiled_p_bvi ++ bvi_end) =
   bvi_to_data$compile_prog bvi_init ++
   bvi_to_data$compile_prog icompiled_p_bvi ++
@@ -2139,6 +2141,40 @@ Proof
   gvs[icompile_data_to_word_def]
 QED
 
+
+Theorem init_icompile_icompile_end_icompile_d2w_orac:
+  init_icompile_data_to_word data_conf asm_conf data_init = (data_conf', word_init) ∧
+  word_to_word_inlogic asm_conf
+                       (word_conf with col_oracle := init_orac) word_init = SOME ([], word_init1)  ∧
+  word_to_word_inlogic asm_conf
+                       (word_conf with col_oracle := ic_orac)
+                       (icompile_data_to_word data_conf' data_ic) = SOME ([], word_ic1)  ∧
+  word_to_word_inlogic asm_conf 
+                       (word_conf with col_oracle := end_orac)
+                       (icompile_data_to_word data_conf' data_end) = SOME ([], word_end1)  ∧
+  data_to_word_compile_orac asm_conf data_conf (word_conf with col_oracle := init_orac ++ ic_orac ++ end_orac) 
+                       (data_init ++ data_ic ++ data_end) = SOME (wc_after_c, word1_prog) ⇒
+  word_init1 ++ word_ic1 ++ word_end1 = word1_prog ∧
+  wc_after_c = word_conf with col_oracle := []
+Proof
+  rw[data_to_word_compile_orac_def] >>
+  gvs[AllCaseEqs()] >>
+  rev_drule word_to_word_inlogic_append >>
+  strip_tac >>
+  ntac 2 (last_x_assum mp_tac) >>
+  pop_assum rev_drule >> 
+  strip_tac >>
+  drule word_to_word_inlogic_append >>
+  strip_tac >>
+  last_x_assum mp_tac >>
+  pop_assum rev_drule >>
+  rpt strip_tac >>
+  drule init_icompile_icompile_end_icompile_d2w0 >>
+  simp[] >> disch_then (fn th => qspecl_then [‘data_ic’, ‘data_end’] mp_tac th) >>
+  strip_tac >> gvs[]
+QED
+ 
+        
 Theorem init_icompile_icompile_end_icompile_w12s:
   init_icompile_word_to_stack asm_conf word1_init = (word_iconf, stack_init) ∧
   icompile_word_to_stack asm_conf word_iconf p = (word_iconf', icompiled_p_stack) ∧
@@ -2257,12 +2293,12 @@ Definition conf_ok_cake_def:
 End
 
 Theorem init_icompile_icompile_end_icompile_cake:
-  init_icompile_cake (asm_conf: 'a asm_config) (c: inc_config) =
+  init_icompile_cake (asm_conf: 'a asm_config) (c: inc_config) init_orac =
     SOME (ic, lab_init)
   ∧
-  icompile_cake ic asm_conf p = SOME (ic', icompiled_p_lab)
+  icompile_cake ic asm_conf p ic_orac = SOME (ic', icompiled_p_lab) 
   ∧
-  end_icompile_cake asm_conf ic' c = SOME (c_after_ic, bm_after_ic, lab_end)
+  end_icompile_cake asm_conf ic' c end_orac = SOME (c_after_ic, bm_after_ic, lab_end)
   ∧
   conf_ok_cake c
   ⇒
@@ -2278,7 +2314,7 @@ Proof
   rw[init_icompile_cake_def, icompile_cake_def, end_icompile_cake_def, conf_ok_cake_def] >>
   gvs[AllCaseEqs()] >> rpt (pairarg_tac >> gvs[]) >> every_case_tac >> gvs[] >>
   rpt (pairarg_tac >> gvs[]) >>
-  qexists_tac ‘c.inc_word_to_word_conf.col_oracle ++ ic.word_to_word_conf.col_oracle ++ ic'.word_to_word_conf.col_oracle’ >>
+  qexists_tac ‘init_orac ++ ic_orac ++ end_orac’ >> 
   strip_tac >>
   fs[compile_cake_alt_def, conf_ok_cake_def] >> rpt (pairarg_tac >> gvs[]) >>
   every_case_tac >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
@@ -2291,9 +2327,13 @@ Proof
   gvs[] >>
   drule_all init_icompile_icompile_end_icompile_b2b >>
   simp[config_prog_rel_b2b_def] >> strip_tac >> gvs[] >>
-  
-
-                                
+  gvs[bvi_to_data_compile_prog_append_all] >>
+  drule_all init_icompile_icompile_end_icompile_d2w_orac >>
+  strip_tac >> gvs[] >>
+  drule_all init_icompile_icompile_end_icompile_w12s >>
+  strip_tac >> gvs[] >>
+  gvs[config_prog_rel_top_def] >>
+  metis_tac[init_icompile_icompile_end_icompile_stack2l]
 QED
         
 
