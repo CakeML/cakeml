@@ -186,7 +186,7 @@ Proof
   rw[word_to_wordTheory.next_n_oracle_def] >>
   rw[TAKE_def]
 QED
-        
+
 Theorem next_n_oracles_length:
   next_n_oracle n orac = (x, orac') ⇒
   LENGTH x = n
@@ -263,7 +263,7 @@ Proof
               disch_then (fn th => ntac 2 strip_tac >> drule th >> rw[]))))
 QED
 
-              
+
 Theorem each_inlogic_oracles:
   ∀p1 p1_orac.
   LENGTH p1 = LENGTH p1_orac ∧
@@ -271,14 +271,14 @@ Theorem each_inlogic_oracles:
   each_inlogic asm_conf (ZIP (p1, p1_orac)) = SOME p1' ⇒
   orac1 = p1_orac
 Proof
-  Induct_on ‘p1’ >> rw[word_to_wordTheory.next_n_oracle_def] 
+  Induct_on ‘p1’ >> rw[word_to_wordTheory.next_n_oracle_def]
   >- (gvs[])
   >- (pop_assum mp_tac >>
       once_rewrite_tac[ZIP_def] >>
       namedCases_on ‘h’ ["name_num arg_count prog"] >>
       once_rewrite_tac [each_inlogic_def] >>
       gvs[word_alloc_inlogic_def, word_allocTheory.oracle_colour_ok_def])
-QED      
+QED
 
 Theorem word_to_word_inlogic_append:
   word_to_word_inlogic asm_conf (word_to_word_conf with col_oracle := orac1) p1 = SOME ([], p1') ∧
@@ -290,7 +290,7 @@ Proof
   gvs[AllCaseEqs()] >>
   drule next_n_oracles_length >> disch_then (fn th => assume_tac (GSYM th)) >>
   drule_all each_inlogic_append >>
-  strip_tac >> 
+  strip_tac >>
   drule_all each_inlogic_oracles >>
   strip_tac >>
   qpat_x_assum ‘next_n_oracle (LENGTH p2) _ = _’ assume_tac >>
@@ -298,12 +298,12 @@ Proof
   drule_all each_inlogic_oracles >>
   strip_tac >>
   ‘LENGTH p2 = LENGTH orac2 ∧ LENGTH p1 = LENGTH orac1’ by gvs[] >>
-  drule next_n_oracles_append >> 
+  drule next_n_oracles_append >>
   disch_then (fn th => pop_assum mp_tac >> drule th) >>
-  disch_then drule_all >> strip_tac >> gvs[] 
+  disch_then drule_all >> strip_tac >> gvs[]
 QED
 
-        
+
 
 (* This mirror compile_cake from backend_asmTheory *)
 Definition compile_cake_alt_def:
@@ -913,6 +913,9 @@ Definition fold_icompile_def:
     | SOME (ic'', ps') =>
       SOME (ic'', p' ++ ps'))
 End
+
+
+
 
 
 (******************************************************************************)
@@ -2149,10 +2152,10 @@ Theorem init_icompile_icompile_end_icompile_d2w_orac:
   word_to_word_inlogic asm_conf
                        (word_conf with col_oracle := ic_orac)
                        (icompile_data_to_word data_conf' data_ic) = SOME ([], word_ic1)  ∧
-  word_to_word_inlogic asm_conf 
+  word_to_word_inlogic asm_conf
                        (word_conf with col_oracle := end_orac)
                        (icompile_data_to_word data_conf' data_end) = SOME ([], word_end1)  ∧
-  data_to_word_compile_orac asm_conf data_conf (word_conf with col_oracle := init_orac ++ ic_orac ++ end_orac) 
+  data_to_word_compile_orac asm_conf data_conf (word_conf with col_oracle := init_orac ++ ic_orac ++ end_orac)
                        (data_init ++ data_ic ++ data_end) = SOME (wc_after_c, word1_prog) ⇒
   word_init1 ++ word_ic1 ++ word_end1 = word1_prog ∧
   wc_after_c = word_conf with col_oracle := []
@@ -2162,7 +2165,7 @@ Proof
   rev_drule word_to_word_inlogic_append >>
   strip_tac >>
   ntac 2 (last_x_assum mp_tac) >>
-  pop_assum rev_drule >> 
+  pop_assum rev_drule >>
   strip_tac >>
   drule word_to_word_inlogic_append >>
   strip_tac >>
@@ -2173,8 +2176,8 @@ Proof
   simp[] >> disch_then (fn th => qspecl_then [‘data_ic’, ‘data_end’] mp_tac th) >>
   strip_tac >> gvs[]
 QED
- 
-        
+
+
 Theorem init_icompile_icompile_end_icompile_w12s:
   init_icompile_word_to_stack asm_conf word1_init = (word_iconf, stack_init) ∧
   icompile_word_to_stack asm_conf word_iconf p = (word_iconf', icompiled_p_stack) ∧
@@ -2296,7 +2299,7 @@ Theorem init_icompile_icompile_end_icompile_cake:
   init_icompile_cake (asm_conf: 'a asm_config) (c: inc_config) init_orac =
     SOME (ic, lab_init)
   ∧
-  icompile_cake ic asm_conf p ic_orac = SOME (ic', icompiled_p_lab) 
+  icompile_cake ic asm_conf p ic_orac = SOME (ic', icompiled_p_lab)
   ∧
   end_icompile_cake asm_conf ic' c end_orac = SOME (c_after_ic, bm_after_ic, lab_end)
   ∧
@@ -2314,7 +2317,7 @@ Proof
   rw[init_icompile_cake_def, icompile_cake_def, end_icompile_cake_def, conf_ok_cake_def] >>
   gvs[AllCaseEqs()] >> rpt (pairarg_tac >> gvs[]) >> every_case_tac >> gvs[] >>
   rpt (pairarg_tac >> gvs[]) >>
-  qexists_tac ‘init_orac ++ ic_orac ++ end_orac’ >> 
+  qexists_tac ‘init_orac ++ ic_orac ++ end_orac’ >>
   strip_tac >>
   fs[compile_cake_alt_def, conf_ok_cake_def] >> rpt (pairarg_tac >> gvs[]) >>
   every_case_tac >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
@@ -2322,7 +2325,7 @@ Proof
   simp[config_prog_pair_rel_def] >> strip_tac >> gvs[] >>
   drule_all init_icompile_icompile_end_icompile_f2c_alt >>
   strip_tac >> gvs[] >>
-  drule_all init_icompile_icompile_end_icompile_c2b >> 
+  drule_all init_icompile_icompile_end_icompile_c2b >>
   simp[config_prog_pair_rel_def] >> strip_tac >>
   gvs[] >>
   drule_all init_icompile_icompile_end_icompile_b2b >>
@@ -2335,9 +2338,9 @@ Proof
   gvs[config_prog_rel_top_def] >>
   metis_tac[init_icompile_icompile_end_icompile_stack2l]
 QED
-        
 
-        
+
+
 Theorem icompile_none:
   icompile a b p = NONE ⇒
   icompile a b (p ++ p') = NONE
