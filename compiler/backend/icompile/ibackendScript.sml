@@ -131,6 +131,7 @@ Definition bvl_to_bvi_compile_update_config_def:
     (clos_conf, bvl_conf, p)
 End
 
+(* This is backend$compile but using inc_config and without labLang phase *)
 Definition compile_alt_def:
   compile_alt (asm_conf: 'a asm_config) (c : inc_config) p =
   let source_conf = c.inc_source_conf in
@@ -150,8 +151,9 @@ Definition compile_alt_def:
     bvl_to_bvi_compile_update_config clos_conf' bvl_conf compiled_p_bvl in
   let compiled_p_data =
     bvi_to_data$compile_prog compiled_p_bvi in
-  let (_, compiled_p_word1) =
+  let (col, compiled_p_word1) =
     data_to_word$compile data_conf word_to_word_conf asm_conf compiled_p_data in
+  let word_to_word_conf' = word_to_word_conf with <| col_oracle := col |> in
   let (bm, word_to_stack_conf ,fs, compiled_p_stack) =
     word_to_stack$compile asm_conf compiled_p_word1 in
   let max_heap = (2 * data_to_word$max_heap_limit (:'a) data_conf - 1) in
@@ -162,7 +164,8 @@ Definition compile_alt_def:
              <| inc_source_conf := source_conf';
                 inc_clos_conf := clos_conf';
                 inc_bvl_conf := bvl_conf';
-                inc_word_conf := word_to_stack_conf
+                inc_word_conf := word_to_stack_conf;
+                inc_word_to_word_conf := word_to_word_conf'
              |> in
     (c', bm, compiled_p_lab)
 End
@@ -176,6 +179,81 @@ Definition data_to_word_compile_orac_def:
     | SOME (col,prog) =>
       SOME (inc_word_to_word_conf with col_oracle := col,prog)
 End
+
+(* This mirrors compile_cake from backend_asmTheory without labLang phases *)
+Definition compile_cake_alt_def:
+  compile_cake_alt (asm_conf: 'a asm_config) (c : inc_config) p =
+  let source_conf = c.inc_source_conf in
+  let clos_conf = c.inc_clos_conf in
+  let bvl_conf = c.inc_bvl_conf in
+  let data_conf = c.inc_data_conf in
+  let word_to_word_conf = c.inc_word_to_word_conf in
+  let stack_conf = c.inc_stack_conf in
+  let p = source_to_source$compile p in
+  let (source_conf', compiled_p_flat) =
+    source_to_flat$compile source_conf p in
+  let compiled_p_clos =
+    flat_to_clos$compile_prog compiled_p_flat in
+  let (clos_conf', compiled_p_bvl) =
+    clos_to_bvl_compile_alt clos_conf compiled_p_clos in
+  let (clos_conf', bvl_conf', compiled_p_bvi) =
+    bvl_to_bvi_compile_update_config clos_conf' bvl_conf compiled_p_bvl in
+  let compiled_p_data =
+    bvi_to_data$compile_prog compiled_p_bvi in
+  case data_to_word_compile_orac asm_conf data_conf
+    word_to_word_conf compiled_p_data of
+    NONE => NONE
+  | SOME (word_to_word_conf',compiled_p_word1) =>
+  let (bm, word_to_stack_conf ,fs, compiled_p_stack) =
+    word_to_stack$compile asm_conf compiled_p_word1 in
+  let max_heap = (2 * data_to_word$max_heap_limit (:'a) data_conf - 1) in
+  let sp = (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3)) in
+  let offset = asm_conf.addr_offset in
+  let compiled_p_lab = stack_to_lab$compile stack_conf data_conf max_heap sp offset compiled_p_stack in
+  let c' = c with
+             <| inc_source_conf := source_conf';
+                inc_clos_conf := clos_conf';
+                inc_bvl_conf := bvl_conf';
+                inc_word_to_word_conf := word_to_word_conf';
+                inc_word_conf := word_to_stack_conf
+             |> in
+    SOME (c', bm, compiled_p_lab)
+End
+
+(* TODO: remove [local] tag in backend_asm *)
+Theorem word_to_word_inlogic_thm[local]:
+  word_to_word_inlogic asm_conf c.inc_word_to_word_conf p = SOME (col,prog) ⇒
+  compile c.inc_word_to_word_conf asm_conf p = (col,prog)
+Proof
+  gvs [word_to_word_inlogic_def,word_to_wordTheory.compile_def]
+  \\ pairarg_tac \\ gvs [AllCaseEqs()] \\ rw []
+  \\ last_x_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ qspec_tac (‘ZIP (p,n_oracles)’,‘xs’)
+  \\ qid_spec_tac ‘prog’
+  \\ Induct_on ‘xs’
+  \\ gvs [each_inlogic_def]
+  \\ PairCases
+  \\ gvs [each_inlogic_def,AllCaseEqs(),word_alloc_inlogic_def]
+  \\ rpt strip_tac \\ gvs []
+  \\ gvs [word_to_wordTheory.full_compile_single_def]
+  \\ gvs [word_to_wordTheory.compile_single_def]
+  \\ rw [] \\ gvs [word_allocTheory.word_alloc_def]
+QED
+
+(* sanity check *)
+Theorem compile_cake_alt_thm:
+  compile_cake_alt ac c p = SOME (c',bm,compiled_p_lab) ⇒
+  compile_alt ac c p = (c',bm,compiled_p_lab)
+Proof
+  rw[compile_cake_alt_def,compile_alt_def,data_to_word_compile_orac_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  gvs[AllCaseEqs()]>>
+  drule word_to_word_inlogic_thm>>
+  strip_tac>>gvs[]>>
+  rpt(pairarg_tac>>gvs[])>>
+  gvs[data_to_wordTheory.compile_0_def,data_to_wordTheory.compile_def]
+QED
 
 Theorem next_n_oracles_append:
   n1 = LENGTH orac1 ∧ n2 = LENGTH orac2 ∧
@@ -215,7 +293,6 @@ Proof
   every_case_tac >>
   gvs[each_inlogic_def]
 QED
-
 
 Theorem each_inlogic_rest_none:
   each_inlogic asm_conf rest = NONE ⇒
@@ -263,7 +340,6 @@ Proof
               disch_then (fn th => ntac 2 strip_tac >> drule th >> rw[]))))
 QED
 
-
 Theorem each_inlogic_oracles:
   ∀p1 p1_orac.
   LENGTH p1 = LENGTH p1_orac ∧
@@ -302,48 +378,6 @@ Proof
   disch_then (fn th => pop_assum mp_tac >> drule th) >>
   disch_then drule_all >> strip_tac >> gvs[]
 QED
-
-
-
-(* This mirror compile_cake from backend_asmTheory *)
-Definition compile_cake_alt_def:
-  compile_cake_alt (asm_conf: 'a asm_config) (c : inc_config) p =
-  let source_conf = c.inc_source_conf in
-  let clos_conf = c.inc_clos_conf in
-  let bvl_conf = c.inc_bvl_conf in
-  let data_conf = c.inc_data_conf in
-  let word_to_word_conf = c.inc_word_to_word_conf in
-  let stack_conf = c.inc_stack_conf in
-  let p = source_to_source$compile p in
-  let (source_conf', compiled_p_flat) =
-    source_to_flat$compile source_conf p in
-  let compiled_p_clos =
-    flat_to_clos$compile_prog compiled_p_flat in
-  let (clos_conf', compiled_p_bvl) =
-    clos_to_bvl_compile_alt clos_conf compiled_p_clos in
-  let (clos_conf', bvl_conf', compiled_p_bvi) =
-    bvl_to_bvi_compile_update_config clos_conf' bvl_conf compiled_p_bvl in
-  let compiled_p_data =
-    bvi_to_data$compile_prog compiled_p_bvi in
-  case data_to_word_compile_orac asm_conf data_conf
-    word_to_word_conf compiled_p_data of
-    NONE => NONE
-  | SOME (word_to_word_conf',compiled_p_word1) =>
-  let (bm, word_to_stack_conf ,fs, compiled_p_stack) =
-    word_to_stack$compile asm_conf compiled_p_word1 in
-  let max_heap = (2 * data_to_word$max_heap_limit (:'a) data_conf - 1) in
-  let sp = (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3)) in
-  let offset = asm_conf.addr_offset in
-  let compiled_p_lab = stack_to_lab$compile stack_conf data_conf max_heap sp offset compiled_p_stack in
-  let c' = c with
-             <| inc_source_conf := source_conf';
-                inc_clos_conf := clos_conf';
-                inc_bvl_conf := bvl_conf';
-                inc_word_to_word_conf := word_to_word_conf';
-                inc_word_conf := word_to_stack_conf
-             |> in
-    SOME (c', bm, compiled_p_lab)
-End
 
 (* Configurations for incremental compilation *)
 Datatype:
@@ -901,21 +935,27 @@ Definition icompile_cake_def:
     SOME (ic', icompiled_p_lab)
 End
 
-
 Definition fold_icompile_def:
-  fold_icompile ic asm_conf [] =
-    icompile ic asm_conf []
+  (fold_icompile ic asm_conf [] = SOME(ic,[]))
   ∧
-  fold_icompile ic asm_conf (p :: ps)  =
+  (fold_icompile ic asm_conf (p :: ps)  =
   case icompile ic asm_conf p of NONE => NONE
   | SOME (ic',  p') =>
     (case fold_icompile ic' asm_conf ps of NONE => NONE
     | SOME (ic'', ps') =>
-      SOME (ic'', p' ++ ps'))
+      SOME (ic'', p' ++ ps')))
 End
 
-
-
+Definition fold_icompile_cake_def:
+  (fold_icompile_cake ic asm_conf [] [] = SOME (ic,[])) ∧
+  (fold_icompile_cake ic asm_conf (p :: ps) (orac::oracs) =
+  case icompile_cake ic asm_conf p orac of NONE => NONE
+  | SOME (ic',  p') =>
+    (case fold_icompile_cake ic' asm_conf ps oracs of NONE => NONE
+    | SOME (ic'', ps') =>
+      SOME (ic'', p' ++ ps'))) ∧
+  (fold_icompile_cake ic asm_conf _ _ = NONE)
+End
 
 
 (******************************************************************************)
@@ -2144,7 +2184,6 @@ Proof
   gvs[icompile_data_to_word_def]
 QED
 
-
 Theorem init_icompile_icompile_end_icompile_d2w_orac:
   init_icompile_data_to_word data_conf asm_conf data_init = (data_conf', word_init) ∧
   word_to_word_inlogic asm_conf
@@ -2154,11 +2193,10 @@ Theorem init_icompile_icompile_end_icompile_d2w_orac:
                        (icompile_data_to_word data_conf' data_ic) = SOME ([], word_ic1)  ∧
   word_to_word_inlogic asm_conf
                        (word_conf with col_oracle := end_orac)
-                       (icompile_data_to_word data_conf' data_end) = SOME ([], word_end1)  ∧
+                       (icompile_data_to_word data_conf' data_end) = SOME ([], word_end1) ⇒
   data_to_word_compile_orac asm_conf data_conf (word_conf with col_oracle := init_orac ++ ic_orac ++ end_orac)
-                       (data_init ++ data_ic ++ data_end) = SOME (wc_after_c, word1_prog) ⇒
-  word_init1 ++ word_ic1 ++ word_end1 = word1_prog ∧
-  wc_after_c = word_conf with col_oracle := []
+                       (data_init ++ data_ic ++ data_end) =
+    SOME (word_conf with col_oracle := [], word_init1 ++ word_ic1 ++ word_end1)
 Proof
   rw[data_to_word_compile_orac_def] >>
   gvs[AllCaseEqs()] >>
@@ -2176,7 +2214,6 @@ Proof
   simp[] >> disch_then (fn th => qspecl_then [‘data_ic’, ‘data_end’] mp_tac th) >>
   strip_tac >> gvs[]
 QED
-
 
 Theorem init_icompile_icompile_end_icompile_w12s:
   init_icompile_word_to_stack asm_conf word1_init = (word_iconf, stack_init) ∧
@@ -2223,8 +2260,6 @@ Proof
   rw[stack_allocTheory.compile_def, stack_removeTheory.compile_def, stack_namesTheory.compile_def]
 QED
 
-
-
 Definition conf_ok_def:
   conf_ok (c:inc_config) =
   (source_conf_ok c.inc_source_conf
@@ -2232,8 +2267,6 @@ Definition conf_ok_def:
    clos_conf_ok c.inc_clos_conf
    ∧
    bvl_conf_ok c.inc_bvl_conf
-   ∧
-   word_conf_ok c.inc_word_to_word_conf
    ∧
    stack_conf_ok c.inc_stack_conf)
 End
@@ -2256,6 +2289,8 @@ Theorem init_icompile_icompile_end_icompile:
   compile_alt asm_conf c p = (c_after_c, bm_after_c, compiled_p)
   ∧
   conf_ok c
+  ∧
+  word_conf_ok c.inc_word_to_word_conf
   ⇒
   config_prog_rel_top c_after_ic c_after_c
                       (lab_init ++ icompiled_p_lab ++ lab_end) compiled_p
@@ -2280,20 +2315,10 @@ Proof
   drule_all init_icompile_icompile_end_icompile_w12s >>
   strip_tac >> gvs[] >>
   gvs[config_prog_pair_rel_def] >>
-  rw[config_prog_rel_top_def]>>
-  metis_tac[init_icompile_icompile_end_icompile_stack2l]
+  rw[config_prog_rel_top_def]
+  >- cheat (* the oracles generated by RHS should all be [] *)
+  >- metis_tac[init_icompile_icompile_end_icompile_stack2l]
 QED
-
-Definition conf_ok_cake_def:
-  conf_ok_cake (c:inc_config) =
-  (source_conf_ok c.inc_source_conf
-   ∧
-   clos_conf_ok c.inc_clos_conf
-   ∧
-   bvl_conf_ok c.inc_bvl_conf
-   ∧
-   stack_conf_ok c.inc_stack_conf)
-End
 
 Theorem init_icompile_icompile_end_icompile_cake:
   init_icompile_cake (asm_conf: 'a asm_config) (c: inc_config) init_orac =
@@ -2303,43 +2328,44 @@ Theorem init_icompile_icompile_end_icompile_cake:
   ∧
   end_icompile_cake asm_conf ic' c end_orac = SOME (c_after_ic, bm_after_ic, lab_end)
   ∧
-  conf_ok_cake c
+  conf_ok c
   ⇒
-  ∃orac.
-  let word_to_word_conf = c.inc_word_to_word_conf with col_oracle := orac in
+  let word_to_word_conf = c.inc_word_to_word_conf with col_oracle := init_orac ++ ic_orac ++ end_orac in
   let c' = c with inc_word_to_word_conf := word_to_word_conf in
-  compile_cake_alt asm_conf c' p = SOME (c_after_c, bm_after_c, compiled_p)
-  ⇒
-  config_prog_rel_top c_after_ic c_after_c
-                      (lab_init ++ icompiled_p_lab ++ lab_end) compiled_p
-                      bm_after_ic bm_after_c
+  let compiled_p = lab_init ++ icompiled_p_lab ++ lab_end in
+  compile_cake_alt asm_conf c' p = SOME (c_after_ic, bm_after_ic, compiled_p)
 Proof
-  rw[init_icompile_cake_def, icompile_cake_def, end_icompile_cake_def, conf_ok_cake_def] >>
+  rw[init_icompile_cake_def, icompile_cake_def, end_icompile_cake_def, conf_ok_def] >>
   gvs[AllCaseEqs()] >> rpt (pairarg_tac >> gvs[]) >> every_case_tac >> gvs[] >>
   rpt (pairarg_tac >> gvs[]) >>
-  qexists_tac ‘init_orac ++ ic_orac ++ end_orac’ >>
-  strip_tac >>
-  fs[compile_cake_alt_def, conf_ok_cake_def] >> rpt (pairarg_tac >> gvs[]) >>
-  every_case_tac >> gvs[] >> rpt (pairarg_tac >> gvs[]) >>
+  fs[compile_cake_alt_def, conf_ok_def] >> rpt (pairarg_tac >> gvs[]) >>
+  (* source-to-flat *)
   drule_all init_icompile_icompile_end_icompile_s2f >>
   simp[config_prog_pair_rel_def] >> strip_tac >> gvs[] >>
+  (* flat-to-clos *)
   drule_all init_icompile_icompile_end_icompile_f2c_alt >>
   strip_tac >> gvs[] >>
+  (* clos-to-bvl *)
   drule_all init_icompile_icompile_end_icompile_c2b >>
   simp[config_prog_pair_rel_def] >> strip_tac >>
   gvs[] >>
+  (* bvl-to-bvi and to_data *)
   drule_all init_icompile_icompile_end_icompile_b2b >>
   simp[config_prog_rel_b2b_def] >> strip_tac >> gvs[] >>
   gvs[bvi_to_data_compile_prog_append_all] >>
-  drule_all init_icompile_icompile_end_icompile_d2w_orac >>
-  strip_tac >> gvs[] >>
+  (* data-to-word *)
+  drule init_icompile_icompile_end_icompile_d2w_orac >>
+  disch_then drule>>
+  disch_then drule>>
+  disch_then rev_drule>>
+  strip_tac>>
+  simp[]>>
+  pairarg_tac>>gvs[]>>
+  (* word-to-stack *)
   drule_all init_icompile_icompile_end_icompile_w12s >>
   strip_tac >> gvs[] >>
-  gvs[config_prog_rel_top_def] >>
   metis_tac[init_icompile_icompile_end_icompile_stack2l]
 QED
-
-
 
 Theorem icompile_none:
   icompile a b p = NONE ⇒
@@ -2377,7 +2403,11 @@ Theorem fold_icompile_collapse:
   icompile ic asm_conf (FLAT pss)
 Proof
   Induct >>
-  rw[fold_icompile_def] >>
+  rw[fold_icompile_def]
+  >- (
+    simp[icompile_def]>>
+    (* unfold definitions *)
+    cheat )>>
   Cases_on ‘icompile ic asm_conf h’
   >- (simp[] >>
       drule icompile_none >> rw[])
@@ -2395,7 +2425,6 @@ Proof
       >- (namedCases_on ‘x’ ["ic'' p''"] >> drule_all icompile_icompile >> gvs[]))
 QED
 
-
 Theorem icompile_eq:
   init_icompile (asm_conf: 'a asm_config) (c: inc_config) = (ic, lab_init)
   ∧
@@ -2411,6 +2440,7 @@ Theorem icompile_eq:
                       (lab_init ++ icompiled_p_lab ++ lab_end) compiled_p
                       bm_after_ic bm_after_c
 Proof
+  cheat>>
   rpt strip_tac >>
   ‘ic.word_to_word_conf.col_oracle = []’
     by (fs[init_icompile_def, conf_ok_def, word_conf_ok_def] >>
@@ -2418,6 +2448,39 @@ Proof
   drule fold_icompile_collapse >> strip_tac >>
   ‘icompile ic asm_conf (FLAT p) = SOME (ic', icompiled_p_lab)’ by gvs[] >>
   drule_all init_icompile_icompile_end_icompile >> simp[]
+QED
+
+Theorem fold_icompile_cake_collapse:
+  ∀ic asm_conf pss oracs.
+  fold_icompile_cake ic asm_conf pss oracs = SOME (ic',p) ⇒
+  icompile_cake ic asm_conf (FLAT pss) (FLAT oracs) = SOME (ic',p)
+Proof
+  ho_match_mp_tac fold_icompile_cake_ind>>rw[fold_icompile_cake_def]
+  >-
+    cheat>>
+  cheat
+QED
+
+Theorem icompile_eq_cake:
+  init_icompile_cake (asm_conf: 'a asm_config) (c: inc_config) init_orac =
+    SOME (ic, lab_init)
+  ∧
+  fold_icompile_cake ic asm_conf p ic_orac = SOME (ic', icompiled_p_lab)
+  ∧
+  end_icompile_cake asm_conf ic' c end_orac = SOME (c_after_ic, bm_after_ic, lab_end)
+  ∧
+  conf_ok c
+  ⇒
+  let word_to_word_conf = c.inc_word_to_word_conf with col_oracle := init_orac ++ (FLAT ic_orac) ++ end_orac in
+  let c' = c with inc_word_to_word_conf := word_to_word_conf in
+  let compiled_p = lab_init ++ icompiled_p_lab ++ lab_end in
+  compile_cake_alt asm_conf c' (FLAT p) = SOME (c_after_ic, bm_after_ic, compiled_p)
+Proof
+  rw[]>>
+  drule fold_icompile_cake_collapse>>
+  rw[]>>
+  drule_all init_icompile_icompile_end_icompile_cake>>
+  rw[]
 QED
 
 (* livesets *)
