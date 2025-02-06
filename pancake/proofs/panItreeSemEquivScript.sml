@@ -2588,6 +2588,15 @@ Proof
   first_x_assum $ irule_at Any
 QED
 
+Theorem ltree_lift_corres_evaluate_error':
+  good_dimindex (:α) ∧
+  evaluate (prog:'a prog,s) = (SOME Error,s') ∧
+  ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,unclock s))) ≈ Ret (SOME Error,unclock s')
+Proof
+  rw [] >>
+  drule_all itree_semantics_corres_evaluate >>
+QED
+
 Theorem ltree_Ret_to_evaluate:
   ∀s r s' prog:'a prog.
   good_dimindex (:α) ∧
@@ -5717,39 +5726,43 @@ Definition stree_trace_oracle_def:
      | (FFI_final (Final_event s' conf' bytes' outcome)):::as => Oracle_final outcome
      | LNIL => Oracle_final FFI_failed
 End
-(*
+
 Theorem itree_semantics_completeness:
   good_dimindex(:α) ⇒
   ∀(path : 'a semtree_ans llist).
-    is_valid_path (to_stree (mrec_sem (h_prog (prog,s)))) path ⇒
+    is_valid_path (to_stree (mrec_sem (h_prog (prog,(s:('a,'a atrace_ffi) bstate))))) path ⇒
     ∃(or : 'a atrace_ffi oracle).
       let ffi_or_state = <| oracle := or; ffi_state := <| alist := path |>; io_events := [] |> in
-        (build_lprefix_lub (IMAGE (λk. fromList (SND (evaluate (prog,((reclock s) with <| clock := k; ffi := ffi_or_state |>)))).ffi.io_events) UNIV) =
-         stree_trace query_oracle event_filter ffi_or_state (to_stree (mrec_sem (h_prog (prog,s))))) ∧
-        case toList path of
-             SOME finPath =>
-          let (r,s') = evaluate (prog,(reclock s) with ffi := ffi_or_state) in
-            ltree_lift query_oracle ffi_or_state (mrec_sem (h_prog (prog,s))) ≈ Ret (r,unclock s')
-            | NONE => T
+        fbs_semantics_beh (s with ffi := ffi_or_state) prog =
+        itree_semantics_beh (s with ffi := ffi_or_state) prog
 Proof
   rw [] >>
-  qexists_tac ‘stree_trace_oracle’ >> reverse $ rw []
-  >- (Cases_on ‘toList path’ >> rw [] >>
-      qpat_x_assum ‘is_valid_path _ _’ mp_tac >>
-      pairarg_tac >> rw [] >>
-      qpat_x_assum ‘evaluate _ = (r,s')’ mp_tac >>
-      MAP_EVERY qid_spec_tac [‘s’,‘r’,‘s'’,‘prog’] >>
-      recInduct evaluate_ind >> rw []
-      >~ [‘Skip’]
-      >- (gvs [Once evaluate_def] >>
-          rw [h_prog_def,mrec_sem_simps,ltree_lift_cases,
-              wbisim_Ret_eq] >>
-          (* TODO: Reduces to proving itree state is the same as FBS state which has the specific oracle
-             implanted. *)
-          (* Not sure if this is true and whether we want to take another approach. *)
-          cheat) >>
-      cheat)
-  >- (cheat)
+  qexists_tac ‘stree_trace_oracle’ >>
+  metis_tac [itree_semantics_corres]
+  (* (* finite case *) *)
+  (* >- (Cases_on ‘toList path’ >> rw [] >> *)
+  (*     pairarg_tac >> rw [] >> *)
+  (*     Cases_on ‘r ≠ SOME TimeOut ∧ r ≠ SOME Error’ *)
+  (*     >- (irule itree_wbisim_trans >> *)
+  (*         irule_at Any ltree_lift_corres_evaluate >> *)
+  (*         first_assum $ irule_at Any >> *)
+  (*         rw [itree_wbisim_refl]) *)
+  (*     >- (reverse (fs []) *)
+  (*         >- (fs [unclock_reclock_simps] >> *)
+  (*            gvs [] >> *)
+  (*             (* metis_tac [itree_wbisim_refl, *) *)
+  (*             (*            itree_wbisim_sym,itree_wbisim_trans, *) *)
+  (*             (*            unclock_def,unclock_reclock_simps,unclock_reclock_update] *)               *)
+  (*             drule_all ltree_lift_corres_evaluate_error >> *)
+  (*             disch_tac >> *)
+  (*             last_x_assum $ X_CHOOSE_TAC “f:('a,'a atrace_ffi) bstate” >> *)
+  (*             gvs [] >> *)
+  (*             qabbrev_tac ‘f' = unclock s'’ >> *)
+  (*             cheat) *)
+  (*         >- (cheat)) *)
+  (*     (* infinite case *) *)
+  (* >- (cheat) >> *)
+  (* cheat *)
 QED
-*)
+
 val _ = export_theory();
