@@ -2262,13 +2262,6 @@ Proof
   srw_tac[][] >> metis_tac[]
 QED
 
-Theorem pair_case_eq:
- pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
-Proof
- Cases_on `x` >>
- srw_tac[][]
-QED
-
 Theorem lookup_fromList2:
    !l n. lookup n (fromList2 l) =
           if EVEN n then lookup (n DIV 2) (fromList l) else NONE
