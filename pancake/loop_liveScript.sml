@@ -124,6 +124,8 @@ Definition shrink_def:
       insert r1 () (insert r2 () (insert r3 () (insert r4 () (inter l1 l)))))) ∧
   (shrink b (LoadByte x y) l =
     (LoadByte x y, insert x () (delete y l))) ∧
+  (shrink b (Store32 x y) l =
+    (Store32 x y, insert x () (insert y () l))) ∧
   (shrink b (StoreByte x y) l =
     (StoreByte x y, insert x () (insert y () l))) ∧
   (shrink b prog l = (prog,l)) /\

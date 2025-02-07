@@ -85,6 +85,24 @@ Definition mem_load_byte_def:
        then SOME (get_byte w v be) else NONE
 End
 
+Definition mem_load_32_def:
+  (* returns 32 word, first or second half of w if a = 64 *)
+  mem_load_32 m dm be (w:'a word) =
+  if aligned (LOG2 (dimindex (:'a)) DIV 4) w
+  then
+    case m (byte_align w) of
+    | Label _ => NONE
+    | Word v =>
+        if byte_align w IN dm
+        then
+          let v' = if byte_aligned w
+                   then (if be then word_lsr v 32 else v)
+                   else (if be then v else word_lsr v 32)
+          in SOME ((w2w v'): word32)
+        else NONE
+  else NONE
+End
+
 Definition mem_load_def:
   (mem_load sh addr dm (m: 'a word -> 'a word_lab) =
    case sh of
@@ -145,6 +163,13 @@ Definition eval_def:
     case eval s addr of
      | SOME (ValWord w) => mem_load shape w s.memaddrs s.memory
      | _ => NONE) /\
+  (eval s (Load32 addr) =
+    case eval s addr of
+     | SOME (ValWord w) =>
+        (case mem_load_32 s.memory s.memaddrs s.be w of
+           | NONE => NONE
+           | SOME w => SOME (ValWord (w2w w)))
+        | _ => NONE) /\
   (eval s (LoadByte addr) =
     case eval s addr of
      | SOME (ValWord w) =>
@@ -216,6 +241,27 @@ Definition write_bytearray_def:
      | NONE => NONE)
 End
 *)
+
+Definition mem_store_32_def:
+  (* takes a 32 word *)
+  mem_store_32 m dm be (w:'a word) (hw:word32) =
+  if aligned (LOG2 (dimindex (:'a)) DIV 4) w
+  then 
+    case m (byte_align w) of
+    | Word v =>
+        if byte_align w IN dm
+        then
+          let i = if byte_aligned w
+                  then (if be then 32 else 0)
+                  else (if be then 0 else 32) in
+          let
+            v' = word_slice_alt (dimindex (:α)) (i + 32) v
+                 ‖ w2w hw ≪ i ‖ word_slice_alt i 0 v in
+            SOME ((byte_align w =+ Word v') m)
+        else NONE
+    | Label _ => NONE
+  else NONE
+End
 
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_lab) dm m =
@@ -361,6 +407,13 @@ Definition evaluate_def:
        (case mem_stores addr (flatten value) s.memaddrs s.memory of
          | SOME m => (NONE, s with memory := m)
          | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (Store32 dst src,s) =
+    case (eval s dst, eval s src) of
+     | (SOME (ValWord adr), SOME (ValWord w)) =>
+        (case mem_store_32 s.memory s.memaddrs s.be adr (w2w w) of
+          | SOME m => (NONE, s with memory := m)
+          | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (StoreByte dst src,s) =
     case (eval s dst, eval s src) of
