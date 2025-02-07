@@ -14,11 +14,13 @@ End
 Datatype:
   val = Prim prim | SNum num | Wrong string | SBool bool
       | SList (val list)
-      | Proc ((mlstring # val) list) (mlstring list) (mlstring option) exp
-;
+      (*| Proc ((mlstring # val) list) (mlstring list) (mlstring option) 'a*)
+End
+
+Datatype:
   exp = Print mlstring
       | Apply exp (exp list)
-      | Val val
+      | Val ((*exp*) val)
       | Cond exp exp exp
       | Ident mlstring
       | SLet ((mlstring # exp) list) exp
