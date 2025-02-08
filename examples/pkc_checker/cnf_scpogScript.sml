@@ -1,9 +1,9 @@
 (*
-  Defines the syntax and semantics of CNF / POG
+  Defines the syntax and semantics of CNF / POG and a proof checker
 *)
 open preamble miscTheory mlstringTheory mlintTheory sptreeTheory;
 
-val _ = new_theory "cnf_pog";
+val _ = new_theory "cnf_scpog";
 
 (* Num-based CNF semantics
   with 0 treated specially *)
@@ -678,6 +678,8 @@ Type id = ``:num``;
 
 Datatype:
   scpstep =
+  | Skip
+
   | Root lit
 
   | RupAdd bool id clause hint
@@ -817,7 +819,7 @@ End
 
 (* TODO: we can relax this to allow overrides *)
 Definition insert_one_def:
-  insert_one pc sc tag fml i c =
+  insert_one tag fml i c =
     case lookup i fml of
       NONE => SOME (insert i (c,tag) fml)
     | SOME _ => NONE
@@ -950,11 +952,11 @@ Definition declare_sko_def:
 End
 
 Definition insert_list_def:
-  (insert_list pc sc tag fml i [] = SOME fml) ∧
-  (insert_list pc sc tag fml i (c::cs) =
-  case insert_one pc sc tag fml i c of
+  (insert_list tag fml i [] = SOME fml) ∧
+  (insert_list tag fml i (c::cs) =
+  case insert_one tag fml i c of
     NONE => NONE
-  | SOME fml' => insert_list pc sc tag fml' (i+1) cs)
+  | SOME fml' => insert_list tag fml' (i+1) cs)
 End
 
 Definition is_strfwd_def:
@@ -991,6 +993,7 @@ End
 Definition check_scpstep_def:
   check_scpstep pc fml sc scpstep =
   case scpstep of
+  | Skip => SOME (fml,sc)
   | Root l =>
       OPTION_MAP (λsc'. (fml,sc')) (declare_root pc sc l)
   | RupAdd b n C i0 =>
@@ -999,7 +1002,7 @@ Definition check_scpstep_def:
       EVERY (λi. ¬is_fresh pc sc (var_lit i)) C
     then
       OPTION_MAP (λfml'. (fml',sc))
-        (insert_one pc sc (strfwd_tag b) fml n C)
+        (insert_one (strfwd_tag b) fml n C)
     else NONE
   | RupDel n i0 =>
     (case lookup n fml of
@@ -1020,24 +1023,24 @@ Definition check_scpstep_def:
     (case declare_pro pc sc v ls of
       SOME (cs,sc') =>
         OPTION_MAP (λfml'. (fml',sc'))
-          (insert_list pc sc' tseitin_tag fml n cs)
+          (insert_list tseitin_tag fml n cs)
     | NONE => NONE)
   | DeclSum n v l1 l2 i0 =>
     if is_rup is_structural fml i0 [-l1;-l2] then
       (case declare_sum pc sc v l1 l2 of
         SOME (cs,sc') =>
           OPTION_MAP (λfml'. (fml',sc'))
-            (insert_list pc sc' tseitin_tag fml n cs)
+            (insert_list tseitin_tag fml n cs)
       | NONE => NONE)
     else NONE
   | DeclSko n v ls =>
     (case declare_sko pc sc v ls of
       SOME (cT,csF,sc') =>
-        (case insert_one pc sc' disable_tag fml n cT of
+        (case insert_one disable_tag fml n cT of
           NONE => NONE
         | SOME fml' =>
           OPTION_MAP (λfml''. (fml'',sc'))
-            (insert_list pc sc' skolem_tag fml' (n + 1) csF))
+            (insert_list skolem_tag fml' (n + 1) csF))
     | NONE => NONE)
 End
 
@@ -1098,7 +1101,7 @@ Proof
 QED
 
 Theorem range_insert_one:
-  insert_one pc sc tag fml n C = SOME fml' ⇒
+  insert_one tag fml n C = SOME fml' ⇒
   range fml' = (C,tag) INSERT range fml
 Proof
   rw[insert_one_def,range_def,AllCaseEqs(),EXTENSION]>>
@@ -1108,7 +1111,7 @@ Proof
 QED
 
 Theorem get_fml_insert_one:
-  insert_one pc sc tag fml n C = SOME fml' ⇒
+  insert_one tag fml n C = SOME fml' ⇒
   (get_fml pred fml' =
     if pred (C,tag) then C INSERT get_fml pred fml
     else get_fml pred fml)
@@ -1199,7 +1202,7 @@ QED
 
 Theorem range_insert_list:
   ∀cs fml n fml'.
-  insert_list pc sc tag fml n cs = SOME fml' ⇒
+  insert_list tag fml n cs = SOME fml' ⇒
   range fml' = set (MAP (λC. C,tag) cs) ∪ range fml
 Proof
   Induct>>rw[insert_list_def]>>
@@ -1212,7 +1215,7 @@ Proof
 QED
 
 Theorem get_fml_insert_list_1:
-  insert_list pc sc tag fml n cs = SOME fml' ∧
+  insert_list tag fml n cs = SOME fml' ∧
   (∀C. pred (C,tag)) ⇒
   get_fml pred fml' = set cs ∪ get_fml pred fml
 Proof
@@ -1223,7 +1226,7 @@ Proof
 QED
 
 Theorem get_fml_insert_list_2:
-  insert_list pc sc tag fml n cs = SOME fml' ∧
+  insert_list tag fml n cs = SOME fml' ∧
   (∀C. ¬pred (C,tag)) ⇒
   get_fml pred fml' = get_fml pred fml
 Proof
@@ -2608,7 +2611,15 @@ Proof
       gvs[EVERY_MEM,MEM_MAP]))
 QED
 
-Theorem soundness:
+(* Guarantees preservation of all models
+  + decomposability
+  + deterministic
+
+  Note that there are other minor syntactic well-formedness
+  properties of the POG that are implied as well by conf_inv.
+  For example, the output POG satisfies dir_scp.
+*)
+Theorem scpog_soundness:
   good_pc pc ∧
   EVERY (λC. vars_clause C ⊆ count (pc.n + 1)) fmlls ∧
   check_scpsteps pc (build_fml 1 fmlls) init_sc xs = SOME (fml', sc') ∧
@@ -2679,6 +2690,38 @@ Proof
     pop_assum (irule_at Any)>>
     gvs[agree_on_def,IN_DEF]>>
     metis_tac[])
+QED
+
+Definition unsat_condition_def:
+  unsat_condition fml ⇔
+    [] ∈ get_fml is_forward fml
+End
+
+Theorem scpog_soundness_special:
+  good_pc pc ∧
+  EVERY (λC. vars_clause C ⊆ count (pc.n + 1)) fmlls ∧
+  check_scpsteps pc (build_fml 1 fmlls) init_sc xs = SOME (fml', sc') ∧
+  unsat_condition fml' ⇒
+  {w | sat_fml w (set fmlls)} = {}
+Proof
+  strip_tac>>
+  drule check_scpsteps_extends_over>>
+  disch_then drule>>
+  simp[init_sc_def]>>
+  DEP_REWRITE_TAC[get_fml_build_fml_1]>>
+  simp[is_forward_def,is_backward_def]>>
+  impl_tac >- (
+    simp[is_forward_def,SUBSET_DEF,vars_fml_def,PULL_EXISTS]>>
+    gvs[EVERY_MEM,SUBSET_DEF]>>
+    metis_tac[])>>
+  strip_tac>>
+  rw[EXTENSION]>>
+  CCONTR_TAC>>gvs[]>>
+  gvs[extends_over_def]>>
+  first_x_assum drule>>
+  strip_tac>>gvs[unsat_condition_def,sat_fml_def]>>
+  first_x_assum drule>>
+  simp[sat_clause_def]
 QED
 
 val _ = export_theory ();

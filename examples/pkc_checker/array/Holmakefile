@@ -1,6 +1,6 @@
-INCLUDES = $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
-					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis/pure $(CAKEMLDIR)/basis\
-					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/characteristic \
+INCLUDES = $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc $(HOLDIR)/examples/algorithms \
+					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis/pure $(CAKEMLDIR)/basis $(CAKEMLDIR)/examples \
+					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/characteristic .. \
 					 $(CAKEMLDIR)/examples/lpr_checker
 
 all: $(DEFAULT_TARGETS) README.md
@@ -12,5 +12,5 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
 ifdef POLY
-HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
+HOLHEAP = $(CAKEMLDIR)/basis/basis-heap
 endif
