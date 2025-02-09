@@ -23,12 +23,6 @@ Definition w8o_def:
   w8o = (1w:word8)
 End
 
-Definition list_lookup_def:
-  list_lookup ls default k =
-  if LENGTH ls ≤ k then default
-  else EL k ls
-End
-
 Definition index_def:
   index (i:int) =
   if i ≤ 0 then
@@ -41,10 +35,10 @@ End
 Definition delete_literals_sing_list_def:
   (delete_literals_sing_list Clist [] = SOME 0) ∧
   (delete_literals_sing_list Clist (c::cs) =
-  if list_lookup Clist (w8z) (index c) = w8o
+  if any_el (index c) Clist (w8z) = w8o
   then delete_literals_sing_list Clist cs
   else (* c should be the only literal left *)
-    if EVERY (λi. list_lookup Clist w8z (index i) = w8o) cs
+    if EVERY (λi. any_el (index i) Clist w8z = w8o) cs
     then SOME (~c)
     else NONE)
 End
@@ -52,7 +46,7 @@ End
 Definition is_rup_list_aux_def:
   (is_rup_list_aux pred fml [] C Clist = NONE) ∧
   (is_rup_list_aux pred fml (i::is) C Clist =
-  case list_lookup fml NONE i of
+  case any_el i fml NONE of
     NONE => NONE
   | SOME ctag =>
   if pred ctag then
@@ -92,7 +86,7 @@ End
 
 Definition insert_one_list_def:
   insert_one_list tag fml i c =
-    case list_lookup fml NONE i of
+    case any_el i fml NONE of
       NONE => SOME (update_resize fml NONE (SOME (c,tag)) i)
     | SOME _ => NONE
 End
@@ -108,7 +102,7 @@ End
 Definition arb_delete_list_def:
   (arb_delete_list sc [] fml = SOME fml) ∧
   (arb_delete_list sc (i::is) fml =
-    case list_lookup fml NONE i of
+    case any_el i fml NONE of
       NONE => NONE
     | SOME ctag =>
       if is_adel sc.root ctag
@@ -135,7 +129,7 @@ Definition check_scpstep_list_def:
           (insert_one_list (strfwd_tag b) fml n c)
       else NONE)
   | RupDel n i0 =>
-    (case list_lookup fml NONE n of
+    (case any_el n fml NONE of
       NONE => NONE
     | SOME (C,tag) =>
       if tag = input_tag
@@ -197,11 +191,11 @@ Definition fml_rel_def:
     lookup x fml = NONE
 End
 
-Theorem fml_rel_list_lookup:
+Theorem fml_rel_any_el:
   fml_rel fml fmlls ⇒
-  list_lookup fmlls NONE i = lookup i fml
+  any_el i fmlls NONE = lookup i fml
 Proof
-  rw[fml_rel_def,list_lookup_def]>>
+  rw[fml_rel_def,any_el_ALT]>>
   first_x_assum(qspec_then`i` mp_tac)>>
   rw[]
 QED
@@ -212,7 +206,7 @@ Definition lookup_rel_def:
   (* elements are either 0 or 1 *)
   (∀i. MEM i Clist ⇒ i = w8z ∨ i = w8o) ∧
   (* where 1 indicates membership in C *)
-  (∀i. list_lookup Clist w8z (index i) = w8o ⇔ MEM i C)
+  (∀i. any_el (index i) Clist w8z = w8o ⇔ MEM i C)
 End
 
 Theorem delete_literals_sing_list_correct:
@@ -247,18 +241,18 @@ Proof
   simp[EL_REPLICATE]
 QED
 
-Theorem list_lookup_update_resize:
-  list_lookup (update_resize ls def v x) def y =
+Theorem any_el_update_resize:
+  any_el y (update_resize ls def v x) def =
   if y = x then v
   else
-    list_lookup ls def y
+    any_el y ls def
 Proof
   simp[update_resize_def]>>
   IF_CASES_TAC
   >-
-    (simp[list_lookup_def,EL_LUPDATE]>>
+    (simp[any_el_ALT,EL_LUPDATE]>>
     IF_CASES_TAC>>simp[])>>
-  simp[list_lookup_def,EL_LUPDATE,EL_APPEND_EQN,REPLICATE]>>
+  simp[any_el_ALT,EL_LUPDATE,EL_APPEND_EQN,REPLICATE]>>
   IF_CASES_TAC>>simp[]>>
   IF_CASES_TAC>>simp[]>>
   IF_CASES_TAC>>simp[]>>
@@ -289,7 +283,7 @@ Proof
   >-
    (drule MEM_update_resize >>
    metis_tac[])>>
-  simp[list_lookup_update_resize,index_11]>>
+  simp[any_el_update_resize,index_11]>>
   IF_CASES_TAC>>metis_tac[]
 QED
 
@@ -309,7 +303,7 @@ Theorem fml_rel_is_rup_list_aux:
   | NONE => ¬ is_rup pred fml ls C (* Not required but should be true *)
 Proof
   Induct>>fs[is_rup_list_aux_def,is_rup_def]>>rw[]>>
-  DEP_REWRITE_TAC[fml_rel_list_lookup]>>simp[]>>
+  DEP_REWRITE_TAC[fml_rel_any_el]>>simp[]>>
   Cases_on`lookup h fml`>>simp[]>>
   `wf_clause (FST x)` by
     (fs[wf_fml_def,range_def]>>metis_tac[FST,PAIR])>>
@@ -346,7 +340,7 @@ Theorem empty_set_list_lookup_rel:
 Proof
   rw[]>>
   `lookup_rel [] Clist` by
-    (fs[lookup_rel_def,EVERY_MEM,list_lookup_def]>>
+    (fs[lookup_rel_def,EVERY_MEM,any_el_ALT]>>
     rw[]>>fs[w8z_def,w8o_def]>>
     first_x_assum(qspec_then`EL (index i) Clist` mp_tac)>>
     impl_tac>-
@@ -356,19 +350,19 @@ Proof
   simp[]
 QED
 
-Theorem list_lookup_set_list:
+Theorem any_el_set_list:
   ∀is ls.
-  list_lookup (set_list ls v is) w8z x =
+  any_el x (set_list ls v is) w8z =
   if ∃y. x = index y ∧ MEM y is then v
   else
-    list_lookup ls w8z x
+    any_el x ls w8z
 Proof
   Induct>>simp[set_list_def]>>
   ntac 2 strip_tac>>
   IF_CASES_TAC>-
     (fs[]>>
     metis_tac[])>>
-  simp[list_lookup_update_resize]>>
+  simp[any_el_update_resize]>>
   fs[]>>
   metis_tac[]
 QED
@@ -379,20 +373,20 @@ Theorem lookup_rel_set_list_empty:
   EVERY ($= w8z) (set_list Clist w8z C)
 Proof
   rw[EVERY_EL]>>
-  `list_lookup (set_list Clist w8z C) w8z n = w8z` by
-    (simp[list_lookup_set_list]>>
+  `any_el n (set_list Clist w8z C) w8z = w8z` by
+    (simp[any_el_set_list]>>
     rw[]>>fs[lookup_rel_def,PULL_EXISTS]>>
     `?k. index k = n` by fs[index_onto]>>
     first_x_assum(qspec_then`k` assume_tac)>>rfs[]>>
     first_x_assum(qspec_then`k` assume_tac)>>rfs[]>>
-    fs[list_lookup_def]>>
+    fs[any_el_ALT]>>
     rw[]>>fs[]>>
     first_x_assum(qspec_then `EL (index k) Clist` mp_tac)>>
     impl_tac>-
       (simp[MEM_EL]>>
       qexists_tac`index k`>>simp[])>>
     metis_tac[])>>
-  rfs[list_lookup_def]
+  rfs[any_el_ALT]
 QED
 
 Theorem fml_rel_is_rup_list:
@@ -439,7 +433,7 @@ Theorem fml_rel_insert_one_list:
 Proof
   rw[insert_one_def,insert_one_list_def]>>
   gvs[AllCaseEqs()]>>
-  drule fml_rel_list_lookup>>
+  drule fml_rel_any_el>>
   metis_tac[fml_rel_update_resize]
 QED
 
@@ -473,7 +467,7 @@ Proof
   Induct>>
   rw[arb_delete_def,arb_delete_list_def]>>
   gvs[AllCaseEqs()]>>
-  drule fml_rel_list_lookup>>
+  drule fml_rel_any_el>>
   rw[]>>gvs[]>>
   first_x_assum irule>>
   first_x_assum (irule_at Any)>>
@@ -524,7 +518,7 @@ Proof
     every_case_tac>>gvs[]>>
     metis_tac[fml_rel_insert_one_list])
   >- ( (* RupDel *)
-    DEP_REWRITE_TAC[fml_rel_list_lookup]>>
+    DEP_REWRITE_TAC[fml_rel_any_el]>>
     TOP_CASE_TAC>>gvs[AllCaseEqs()]>>
     qmatch_asmsub_abbrev_tac`is_rup_list A B C D E`>>
     qspecl_then [`A`,`C`,`B`,`delete n fml`,`Clist`,`D`] mp_tac (GEN_ALL fml_rel_is_rup_list)>>
@@ -549,7 +543,7 @@ Proof
     metis_tac[fml_rel_insert_list_list])
   >- (
     TOP_CASE_TAC>>gvs[AllCaseEqs()]>>
-    metis_tac[fml_rel_insert_list_list,fml_rel_insert_one])
+    metis_tac[fml_rel_insert_list_list,fml_rel_insert_one_list])
 QED
 
 Theorem fml_rel_check_scpsteps_list:
