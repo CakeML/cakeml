@@ -9,11 +9,6 @@ open cpscheme_astTheory;
 
 val _ = new_theory "cpscheme_to_cake";
 
-Definition cexp_cont_size_def:
-  cexp_cont_size (ApplyK _ cs) = FOLDL (λ n c . n + cexp_size c) 0 cs ∧
-  cexp_cont_size (CondK c c') = cexp_size c + cexp_size c'
-End
-
 Definition to_ml_vals_def:
   to_ml_vals (Prim p) = Con (SOME $ Short "Prim") [case p of
   | SAdd => Con (SOME $ Short "SAdd") []
@@ -91,10 +86,8 @@ Definition refunc_def:
 Termination
   WF_REL_TAC ‘measure $ λ x . case x of
     | INL(_,c) => cexp_size c
-    | INR(INL(_,k)) => cexp_cont_size k
-    | INR(INR(_,_,_,cs)) => SUM (MAP cexp_size cs)’
-  >> rw[cexp_cont_size_def]
-  >>cheat
+    | INR(INL(_,k)) => cont_size cexp_size k
+    | INR(INR(_,_,_,cs)) => list_size cexp_size cs’
 End
 
 Definition scheme_program_to_cake_def:
