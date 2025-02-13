@@ -385,6 +385,7 @@ Datatype:
   <| n : num ;
      next : next_indices;
      env : environment;
+     fake_env : environment;
      env_gens : environment_generation_store;
      pattern_cfg : flat_pattern$config ;
      init_vidx : num
@@ -450,7 +451,7 @@ Definition icompile_source_to_flat_def:
     compile_decs [] n next env envs p in
   if next1.vidx < init_vidx
   then
-    let source_iconf = source_iconf with <| n := n'; next := next1; env := extend_env new_env1 env; env_gens := env_gens1|> in
+    let source_iconf = source_iconf with <| n := n'; next := next1; env := extend_env new_env1 env; env_gens := env_gens1; fake_env := extend_env new_env1 source_iconf.fake_env|> in
     SOME (source_iconf, MAP (flat_pattern$compile_dec source_iconf.pattern_cfg) p')
   else NONE
 End
@@ -472,6 +473,7 @@ Definition init_icompile_source_to_flat_def:
     <| n := 1n;
        next := next;
        env := source_conf.mod_env;
+       fake_env := empty_env;
        env_gens := env_gens;
        pattern_cfg := source_conf.pattern_cfg;
        init_vidx := source_conf.init_vidx |> in
@@ -493,7 +495,7 @@ Definition end_icompile_source_to_flat_def:
                     (source_iconf.next with
                       vidx := source_iconf.init_vidx);
                    envs := envs;
-                   mod_env := source_iconf.env |>
+                   mod_env := source_iconf.fake_env |>
 End
 
 (* flat_to_clos *)
@@ -1005,7 +1007,6 @@ Theorem source_to_flat_compile_decs_lemma:
   let (n', next1, new_env1, envs1, xs') = source_to_flat$compile_decs t n next env envs xs in
   let (n'', next2, new_env2, envs2, ys') = source_to_flat$compile_decs t n' next1 (extend_env new_env1 env) envs1 ys in
   (n'', next2, extend_env new_env2 new_env1, envs2, xs' ++ ys')
-
 Proof
   Induct >- (
   rw[] >> pairarg_tac >> gvs[] >> pairarg_tac >> gvs[] >>
@@ -1016,7 +1017,6 @@ Proof
   once_rewrite_tac[source_to_flat_compile_decs_lemma_cons] >>
   rw[] >> rpt (pairarg_tac >> gvs[])  >> gvs[extend_env_assoc])
 QED
-
 
 
 Theorem flat_to_clos_compile_decs_and_append_commute:
@@ -1910,7 +1910,7 @@ End
 
 Definition source_conf_ok_def:
   source_conf_ok source_conf =
-  (source_conf.mod_env = source_to_flat$empty_env
+  (source_conf.mod_env = prim_src_config.mod_env
   ∧
   source_conf.do_elim = F
   ∧
@@ -2788,5 +2788,7 @@ Proof
   once_rewrite_tac[fold_icompile_source_to_livesets_collapse] >>
   metis_tac[init_icompile_icompile_end_icompile_s2lvs]
 QED
+
+
 
 val _ = export_theory();
