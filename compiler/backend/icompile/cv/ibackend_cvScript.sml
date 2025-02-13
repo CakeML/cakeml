@@ -136,16 +136,42 @@ val prog2_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc prog2_ls;
 val prog2_comp = time cv_eval “icompile_cake_x64 ^prog1_ic ^prog2 ^prog2_oracs”;
 val prog2_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc prog2_comp)));
 
+
+(* TODO: merge
+  prog1_comp
+  prog2_comp
+  into a fold *)
+Theorem icompile_fold_icompile:
+  ∀pss oracss ic ic' ic'' ps' p'.
+  fold_icompile_cake ic asm_conf pss oracss = SOME (ic', ps') ∧
+  icompile_cake ic' asm_conf p orac = SOME (ic'', p') ⇒
+  fold_icompile_cake ic asm_conf (pss ++ [p]) (oracss ++ [orac]) = SOME (ic'', ps' ++ p')
+Proof
+  Induct_on ‘pss’
+  >- (Cases_on ‘oracss’ >> rpt (rw[fold_icompile_cake_def]))
+  >- (Cases_on ‘oracss’ >>
+      rw[fold_icompile_cake_def] >>
+      gvs[AllCaseEqs()] >>
+      last_x_assum drule)
+QED
+
+val prog1_comp' = prog1_comp |> REWRITE_RULE [GSYM icompile_cake_x64_th];
+val prog2_comp' = prog2_comp |> REWRITE_RULE [GSYM icompile_cake_x64_th];
+
+val prog1_fold = MATCH_MP (icompile_fold_icompile |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+                          (cj 1 fold_icompile_cake_def |> ISPECL [“^init_ic”, “x64_config”])
+                   |> (fn th => MATCH_MP th prog1_comp') |> REWRITE_RULE [APPEND];
+
+val prog2_fold = MATCH_MP (icompile_fold_icompile |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+                          (prog1_fold) |> (fn th => MATCH_MP th prog2_comp');
+
+
 (* end phase *)
 val end_ls = time cv_eval_raw “(9n,FST (SND (end_icompile_source_to_livesets_x64 ^prog2_ic ^(x64_inc_conf))))” |> rconc;
 val end_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc end_ls;
 
 val end_comp = time cv_eval “end_icompile_cake_x64 ^prog2_ic ^(x64_inc_conf) ^end_oracs”;
 
-(* TODO: merge
-  prog1_comp
-  prog2_comp
-  into a fold *)
 
 (* setting up the proof *)
 
@@ -163,6 +189,21 @@ val h = hd (hyp th);
 val conf_ok = EVAL h |> SIMP_RULE (bool_ss) [];
 
 val th_final = PROVE_HYP conf_ok th;
+
+val th_fold = MATCH_MP
+              (icompile_eq_cake |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+              (init_comp |> REWRITE_RULE[GSYM init_icompile_cake_x64_th])
+                |> (fn th =>
+                      MATCH_MP th (prog2_fold))
+                |> (fn th =>
+                      MATCH_MP th (end_comp |> REWRITE_RULE[GSYM end_icompile_cake_x64_th]))
+                |> UNDISCH;
+
+val h = hd (hyp th_fold);
+val conf_ok = EVAL h |> SIMP_RULE (bool_ss) [];
+val th_final_fold = PROVE_HYP conf_ok th_fold;
+
+
 
 
 val _ = export_theory();
