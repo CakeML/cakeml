@@ -94,11 +94,19 @@ val _ = init_icompile_cake_x64_def |> cv_auto_trans;
 
 (* Testing the cv translation *)
 
-(* basic setup *)
-val prog = hello_prog_def |> rconc;
-val prog1 = EVAL``TAKE 15 hello_prog`` |> rconc;
-val prog2 = EVAL``TAKE 15 (DROP 15 hello_prog)`` |> rconc;
+val _ = Globals.max_print_depth := 10;
 
+(* helper *)
+fun define_abbrev name tm =
+  Feedback.trace ("Theory.allow_rebinds", 1)
+    (mk_abbrev name) tm;
+
+(* basic setup for testing *)
+val prog = hello_prog_def |> rconc;
+val basis_prog_def = define_abbrev "basis_prog" (EVAL``TAKE 93 hello_prog`` |> rconc);
+val hello_prog_1_def = define_abbrev "hello_prog_1" (EVAL``DROP 93 hello_prog`` |> rconc);
+
+(* config *)
 val c = x64_backend_config_def |> concl |> lhs;
 val x64_inc_conf = backendTheory.config_to_inc_config_def
                      |> ISPEC c |> CONV_RULE (RAND_CONV EVAL) |> rconc;
@@ -106,21 +114,25 @@ val inc_source_conf_init_vidx = EVAL “^(x64_inc_conf).inc_source_conf with
                                       <| init_vidx := 10000;
                                          do_elim := F;
                                       |>” |> rconc;
-val inc_stack_conf_do_rawfall_f = EVAL “^(x64_inc_conf).inc_stack_conf with do_rawcall := F” |> rconc;
+val inc_stack_conf_do_rawcall_f = EVAL “^(x64_inc_conf).inc_stack_conf with do_rawcall := F” |> rconc;
+val x64_inc_conf_def = (EVAL “^(x64_inc_conf) with
+        <| inc_source_conf := ^(inc_source_conf_init_vidx);
+           inc_stack_conf := ^(inc_stack_conf_do_rawcall_f) |>” |> rconc);
 
-val x64_inc_conf = EVAL “^(x64_inc_conf) with
-                         <| inc_source_conf := ^(inc_source_conf_init_vidx);
-                            inc_stack_conf := ^(inc_stack_conf_do_rawfall_f) |>” |> rconc;
+(* embedding *)
+val res = (cv_trans_deep_embedding EVAL) basis_prog_def;
+val res = (cv_trans_deep_embedding EVAL) hello_prog_1_def;
 
 (* init phase *)
-
-val init_ls = time cv_eval_raw “FST (SND (init_icompile_source_to_livesets_x64 ^(x64_inc_conf)))” |> rconc;
+val init_ls = time cv_eval_raw “FST (SND (init_icompile_source_to_livesets_x64 ^x64_inc_conf))” |> rconc;
 val init_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc init_ls;
+val init_oracs_def = define_abbrev "init_oracs" init_oracs;
+val res = (cv_trans_deep_embedding EVAL) init_oracs_def;
 
-val init_comp = time cv_eval “init_icompile_cake_x64 ^(x64_inc_conf) ^init_oracs”;
-
+val init_comp = time cv_eval “init_icompile_cake_x64 ^x64_inc_conf init_oracs”;
 val init_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc init_comp)));
 
+(* TRY embedding below *)
 (* icompile phase *)
 
 (* prog1 *)
@@ -136,11 +148,6 @@ val prog2_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc prog2_ls;
 val prog2_comp = time cv_eval “icompile_cake_x64 ^prog1_ic ^prog2 ^prog2_oracs”;
 val prog2_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc prog2_comp)));
 
-
-(* TODO: merge
-  prog1_comp
-  prog2_comp
-  into a fold *)
 Theorem icompile_fold_icompile:
   ∀pss oracss ic ic' ic'' ps' p'.
   fold_icompile_cake ic asm_conf pss oracss = SOME (ic', ps') ∧
@@ -175,21 +182,6 @@ val end_comp = time cv_eval “end_icompile_cake_x64 ^prog2_ic ^(x64_inc_conf) ^
 
 (* setting up the proof *)
 
-val th = MATCH_MP
-  (init_icompile_icompile_end_icompile_cake |> REWRITE_RULE [GSYM AND_IMP_INTRO])
-  (init_comp |> REWRITE_RULE[GSYM init_icompile_cake_x64_th])
-  |> (fn th =>
-        MATCH_MP th (prog1_comp |> REWRITE_RULE[GSYM icompile_cake_x64_th]))
-  |> (fn th =>
-        MATCH_MP th (end_comp |> REWRITE_RULE[GSYM end_icompile_cake_x64_th]))
-  |> UNDISCH;
-
-val h = hd (hyp th);
-
-val conf_ok = EVAL h |> SIMP_RULE (bool_ss) [];
-
-val th_final = PROVE_HYP conf_ok th;
-
 val th_fold = MATCH_MP
               (icompile_eq_cake |> REWRITE_RULE [GSYM AND_IMP_INTRO])
               (init_comp |> REWRITE_RULE[GSYM init_icompile_cake_x64_th])
@@ -202,6 +194,18 @@ val th_fold = MATCH_MP
 val h = hd (hyp th_fold);
 val conf_ok = EVAL h |> SIMP_RULE (bool_ss) [];
 val th_final_fold = PROVE_HYP conf_ok th_fold;
+
+val th_rw = th_final_fold |> PURE_REWRITE_RULE [LET_THM] |> CONV_RULE BETA_CONV |> CONV_RULE BETA_CONV |> CONV_RULE BETA_CONV;
+
+val [inc_conf, bm, p] = pairSyntax.strip_pair (th_rw |> rconc |> optionSyntax.dest_some);
+
+val res = (cv_trans_deep_embedding EVAL) lab_prog_def;
+val res = (cv_trans_deep_embedding EVAL) bm_def;
+
+val lab = time cv_eval ``from_lab_x64 ^inc_conf LN lab_prog bm``;
+
+  from_lab (asm_conf :'a asm_config) (c:inc_config) names p bm =
+ 
 
 
 
