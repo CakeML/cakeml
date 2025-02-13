@@ -60,7 +60,6 @@ val _ = end_icompile_cake_x64_def |> cv_auto_trans;
 val (icompile_cake_x64_th, icompile_cake_x64_def) = icompile_cake_def |> asm_spec;
 val _ = icompile_cake_x64_def |> cv_auto_trans;
 
-
 val _ = icompile_word_to_stack_def |> asm_spec' |> cv_auto_trans;
 
 Definition ic_w2s_mk_config_def:
@@ -98,7 +97,7 @@ val _ = init_icompile_cake_x64_def |> cv_auto_trans;
 (* basic setup *)
 val prog = hello_prog_def |> rconc;
 val prog1 = EVAL``TAKE 15 hello_prog`` |> rconc;
-val prog2 = EVAL``DROP 15 hello_prog`` |> rconc;
+val prog2 = EVAL``TAKE 15 (DROP 15 hello_prog)`` |> rconc;
 
 val c = x64_backend_config_def |> concl |> lhs;
 val x64_inc_conf = backendTheory.config_to_inc_config_def
@@ -108,7 +107,7 @@ val inc_source_conf_init_vidx = EVAL “^(x64_inc_conf).inc_source_conf with
                                          do_elim := F;
                                       |>” |> rconc;
 val inc_stack_conf_do_rawfall_f = EVAL “^(x64_inc_conf).inc_stack_conf with do_rawcall := F” |> rconc;
-                                      
+
 val x64_inc_conf = EVAL “^(x64_inc_conf) with
                          <| inc_source_conf := ^(inc_source_conf_init_vidx);
                             inc_stack_conf := ^(inc_stack_conf_do_rawfall_f) |>” |> rconc;
@@ -131,24 +130,39 @@ val prog1_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc prog1_ls;
 val prog1_comp = time cv_eval “icompile_cake_x64 ^init_ic ^prog1 ^prog1_oracs”;
 val prog1_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc prog1_comp)));
 
-(* prog2: TODO *)
+val prog2_ls = time cv_eval_raw “(9n,FST (SND (case (icompile_source_to_livesets_x64 ^prog1_ic ^prog2) of NONE => ARB | SOME v => v)))” |> UNDISCH |> rconc;
+val prog2_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc prog2_ls;
+
+val prog2_comp = time cv_eval “icompile_cake_x64 ^prog1_ic ^prog2 ^prog2_oracs”;
+val prog2_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc prog2_comp)));
 
 (* end phase *)
-val end_ls = time cv_eval_raw “(9n,FST (SND (end_icompile_source_to_livesets_x64 ^prog1_ic ^(x64_inc_conf))))” |> rconc;
+val end_ls = time cv_eval_raw “(9n,FST (SND (end_icompile_source_to_livesets_x64 ^prog2_ic ^(x64_inc_conf))))” |> rconc;
 val end_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc end_ls;
 
-val end_comp = time cv_eval “end_icompile_cake_x64 ^prog1_ic ^(x64_inc_conf) ^end_oracs”;
+val end_comp = time cv_eval “end_icompile_cake_x64 ^prog2_ic ^(x64_inc_conf) ^end_oracs”;
+
+(* TODO: merge
+  prog1_comp
+  prog2_comp
+  into a fold *)
 
 (* setting up the proof *)
 
-MATCH_MP
+val th = MATCH_MP
   (init_icompile_icompile_end_icompile_cake |> REWRITE_RULE [GSYM AND_IMP_INTRO])
   (init_comp |> REWRITE_RULE[GSYM init_icompile_cake_x64_th])
   |> (fn th =>
         MATCH_MP th (prog1_comp |> REWRITE_RULE[GSYM icompile_cake_x64_th]))
   |> (fn th =>
         MATCH_MP th (end_comp |> REWRITE_RULE[GSYM end_icompile_cake_x64_th]))
-  |> 
+  |> UNDISCH;
+
+val h = hd (hyp th);
+
+val conf_ok = EVAL h |> SIMP_RULE (bool_ss) [];
+
+val th_final = PROVE_HYP conf_ok th;
 
 
 val _ = export_theory();
