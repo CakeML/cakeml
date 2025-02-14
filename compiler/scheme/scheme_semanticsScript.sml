@@ -4,6 +4,7 @@
 open preamble;
 open mlstringTheory;
 open scheme_astTheory;
+open finite_mapTheory;
 
 val _ = new_theory "scheme_semantics";
 
@@ -11,8 +12,8 @@ Datatype:
   (*Contexts for small-step operational semantics*)
   cont = ApplyK (((*'a*) val # (*'a*) val list) option) ('a list)
        | CondK 'a 'a
-       | LetK ((mlstring # (*'a*) val) list) mlstring ((mlstring # 'a) list) 'a
-       | InLetK ((mlstring # (*'a*) val) list)
+       (*| LetK ((mlstring # (*'a*) val) list) mlstring ((mlstring # 'a) list) 'a
+       | InLetK ((mlstring # (*'a*) val) list)*)
        | BeginK ('a list)
 End
 
@@ -42,65 +43,71 @@ Termination
 End
 *)
 
+Definition fresh_loc_def:
+  fresh_loc store l = (LENGTH store, SNOC l store)
+End
+
 Definition parameterize_def:
-  parameterize _ env ks env' [] NONE e [] = (env', InLetK env :: ks, e) ∧
-  parameterize _ env ks env' [] (SOME l) e xs = ((l, SList xs)::env', InLetK env :: ks, e) ∧
-  parameterize excons env ks env' (p::ps) lp e (x::xs) = parameterize excons env ks ((p, x)::env') ps lp e xs ∧
-  parameterize excons env ks _ _ _ _ _ = (env, ks, excons $ strlit "Wrong number of arguments")
+  parameterize _ store ks env [] NONE e [] = (store, ks, env, e) ∧
+  parameterize _ store ks env [] (SOME l) e xs = (let (n, store') = fresh_loc store (SList xs)
+    in (store', ks, (FUPDATE env (l, n)), e)) ∧
+  parameterize excons store ks env (p::ps) lp e (x::xs) = (let (n, store') = fresh_loc store x
+    in parameterize excons store' ks (FUPDATE env (p, n)) ps lp e xs) ∧
+  parameterize excons store ks _ _ _ _ _ = (store, ks, FEMPTY, excons $ strlit "Wrong number of arguments")
 End
 
 Definition application_def:
-  application vcons excons env ks (Prim p) xs = (case p of
-  | SAdd => (env, ks, sadd vcons excons xs 0)
-  | SMul => (env, ks, smul vcons excons xs 1)) ∧
-  (*application _ excons env ks (Proc env' ps lp e) xs =
-    parameterize excons env ks env' ps lp e xs ∧*)
-  application _ excons env ks _ _ = (env, ks, excons $ strlit "Not a procedure")
+  application vcons excons store ks (Prim p) xs = (case p of
+  | SAdd => (store, ks, FEMPTY, sadd vcons excons xs 0)
+  | SMul => (store, ks, FEMPTY, smul vcons excons xs 1)) ∧
+  application _ excons store ks (Proc env ps lp e) xs =
+    parameterize excons store ks env ps lp e xs ∧
+  application _ excons store ks _ _ = (store, ks, FEMPTY, excons $ strlit "Not a procedure")
 End
 
 Definition return_def:
-  return vcons _ (env, [], v) = (env, [], vcons v) ∧
+  return vcons _ (store, [], env, v) = (store, [], env, vcons v) ∧
 
-  return vcons excons (env, ApplyK NONE eargs :: ks, v) = (case eargs of
-  | [] => application vcons excons env ks v []
-  | e::es => (env, ApplyK (SOME (v, [])) es :: ks, e)) ∧
-  return vcons excons (env, ApplyK (SOME (vfn, vargs)) eargs :: ks, v) = (case eargs of
-  | [] => application vcons excons env ks vfn (REVERSE $ v::vargs)
-  | e::es => (env, ApplyK (SOME (vfn, v::vargs)) es :: ks, e)) ∧
+  return vcons excons (store, (env, ApplyK NONE eargs) :: ks, _, v) = (case eargs of
+  | [] => application vcons excons store ks v []
+  | e::es => (store, (env, ApplyK (SOME (v, [])) es) :: ks, env, e)) ∧
+  return vcons excons (store, (env, ApplyK (SOME (vfn, vargs)) eargs) :: ks, _, v) = (case eargs of
+  | [] => application vcons excons store ks vfn (REVERSE $ v::vargs)
+  | e::es => (store, (env, ApplyK (SOME (vfn, v::vargs)) es) :: ks, env, e)) ∧
 
-  return _ _ (env, CondK t f :: ks, v) = (if v = (SBool F)
-    then (env, ks, f) else (env, ks, t)) ∧
+  return _ _ (store, (env, CondK t f) :: ks, _, v) = (if v = (SBool F)
+    then (store, ks, env, f) else (store, ks, env, t)) ∧
 
-  return _ _ (env, LetK env' i is e :: ks, v) = (case is of
-  | [] => ((i, v)::env', InLetK env :: ks, e)
-  | (i', e')::is' => (env, LetK ((i, v)::env') i' is' e :: ks, e')) ∧
+  (*return _ _ (store, LetK store' i is e :: ks, v) = (case is of
+  | [] => ((i, v)::store', InLetK store :: ks, e)
+  | (i', e')::is' => (store, LetK ((i, v)::store') i' is' e :: ks, e')) ∧
 
-  return vcons _ (env, InLetK env' :: ks, v) = (env', ks, vcons v) ∧
-  return vcons _ (env, BeginK es :: ks, v) = case es of
-  | [] => (env, ks, vcons v)
-  | e::es' => (env, BeginK es' :: ks, e)
+  return vcons _ (store, InLetK store' :: ks, v) = (store', ks, vcons v) ∧*)
+  return vcons _ (store, (env, BeginK es) :: ks, _, v) = case es of
+  | [] => (store, ks, env, vcons v)
+  | e::es' => (store, (env, BeginK es') :: ks, env, e)
 End
 
 Definition unwind_def:
-  unwind excons env [] ex = (env, [], excons ex) ∧
-  unwind excons env (k::ks) ex = unwind excons env ks ex
+  unwind excons store [] ex = (store, [], FEMPTY, excons ex) ∧
+  unwind excons store (k::ks) ex = unwind excons store ks ex
 End
 
 Definition step_def:
-  step (env, ks, Val v) = return Val Exception (env, ks, v) ∧
-  step (env, ks, Apply fn args) = (env, ApplyK NONE args :: ks, fn) ∧
-  step (env, ks, Cond c t f) = (env, CondK t f :: ks, c) ∧
-  step (env, ks, Ident s) = (let v' = case FIND ($= s o FST) env of
-    | NONE => Wrong "Unrecognised identifier"
-    | SOME (_, v) => v
-    in (env, ks, Val v')) ∧
-  step (env, ks, SLet is e) = (case is of
-  | [] => (env, ks, e)
-  | (i, e')::is' => (env, LetK env i is' e :: ks, e')) ∧
-  (*step (env, ks, Lambda ps lp e) = (env, ks, Val $ Proc env ps lp e) ∧*)
-  step (env, ks, Begin e es) = (env, BeginK es :: ks, e) ∧
+  step (store, ks, env, Val v) = return Val Exception (store, ks, env, v) ∧
+  step (store, ks, env, Apply fn args) = (store, (env, ApplyK NONE args) :: ks, env, fn) ∧
+  step (store, ks, env, Cond c t f) = (store, (env, CondK t f) :: ks, env, c) ∧
+  step (store, ks, env, Ident s) = (let v = case FLOOKUP env s of
+    | NONE => Exception $ strlit "Unrecognised identifier"
+    | SOME n => Val $ EL n store
+    in (store, ks, env, v)) ∧
+  (*step (store, ks, env, SLet is e) = (case is of
+  | [] => (store, ks, e)
+  | (i, e')::is' => (store, LetK store i is' e :: ks, e')) ∧*)
+  step (store, ks, env, Lambda ps lp e) = (store, ks, env, Val $ Proc env ps lp e) ∧
+  step (store, ks, env, Begin e es) = (store, (env, BeginK es) :: ks, env, e) ∧
 
-  step (env, ks, Exception ex) = unwind Exception env ks ex
+  step (store, ks, env, Exception ex) = unwind Exception store ks ex
 End
 
 Definition steps_def:
@@ -118,6 +125,37 @@ End
   EVAL “steps 4 ([], [], SLet [(strlit "x", Val $ SNum 42)] (Ident $ strlit "x"))”
   EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 4])”
   EVAL “steps 3 ([], [], Begin (Val $ SNum 1) [Val $ SNum 2])”
+
+  EVAL “steps 16 ([], [], FEMPTY,
+    Apply (
+      Lambda [strlit "f"; strlit "x"] NONE (
+        Apply (Ident $ strlit "f") [Val $ SNum 1]
+      )
+    ) [
+      Lambda [strlit "y"] NONE (
+        Apply (Val $ Prim SAdd) [
+          Ident $ strlit "y";
+          Ident $ strlit "x"
+        ]
+      );
+      Val $ SNum 4
+    ]
+  )”
+
+  EVAL “steps 16 ([], [], FEMPTY,
+    Apply (
+      Lambda [strlit "x"] NONE (
+        Apply (
+          Lambda [strlit "y"] NONE (
+            Apply (Val $ Prim SAdd) [
+              Ident $ strlit "y";
+              Ident $ strlit "x"
+            ]
+          )
+        ) [Val $ SNum 1]
+      )
+    ) [Val $ SNum 4]
+  )”
 *)
 
 val _ = export_theory();
