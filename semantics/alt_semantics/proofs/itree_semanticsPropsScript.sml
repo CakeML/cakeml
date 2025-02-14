@@ -547,7 +547,7 @@ Theorem application_thm:
              SOME (Thunk Evaluated v) =>
                return env s v c
            | SOME (Thunk NotEvaluated f) =>
-               application Opapp env s [f; Conv NONE []] ((Cforce n,env)::c)
+               return env s f ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c)
            | _ => Etype_error)
        | _ => Etype_error)
     | _ =>

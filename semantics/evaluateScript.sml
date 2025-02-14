@@ -84,10 +84,6 @@ Definition sing_env_def:
     <| v := nsBind n v nsEmpty; c := nsEmpty |> : v sem_env
 End
 
-Definition AppUnit_def:
-  AppUnit e = App Opapp [e; Con NONE []]
-End
-
 Definition evaluate_def[nocompute]:
   evaluate st env [] = ((st:'ffi state),Rval [])
   ∧
@@ -146,21 +142,21 @@ Definition evaluate_def[nocompute]:
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
      | Force =>
-        (case dest_thunk vs st'.refs of
+        (case dest_thunk (REVERSE vs) st'.refs of
          | BadRef => (st', Rerr (Rabort Rtype_error))
          | NotThunk => (st', Rerr (Rabort Rtype_error))
          | IsThunk Evaluated v => (st', Rval [v])
          | IsThunk NotEvaluated f =>
-            if st'.clock = 0 then
-              (st', Rerr (Rabort Rtimeout_error))
-            else
-              case evaluate (dec_clock st') (sing_env "f" f)
-                    [AppUnit (Var (Short "f"))] of
-              | (st2, Rval vs2) =>
-                  (case update_thunk vs st2.refs vs2 of
-                   | NONE => (st2, Rerr (Rabort Rtype_error))
-                   | SOME refs => (st2 with refs := refs, Rval vs2))
-              | (st2, Rerr e) => (st2, Rerr e))
+            case do_opapp [f; Conv NONE []] of
+            | SOME (env',e) =>
+                if st'.clock = 0 then (st', Rerr (Rabort Rtimeout_error)) else
+                  (case evaluate (dec_clock st') env' [e] of
+                   | (st2, Rval vs2) =>
+                       (case update_thunk (REVERSE vs) st2.refs vs2 of
+                        | NONE => (st2, Rerr (Rabort Rtype_error))
+                        | SOME refs => (st2 with refs := refs, Rval vs2))
+                   | (st2, Rerr e) => (st2, Rerr e))
+            | NONE => (st', Rerr (Rabort Rtype_error)))
      | EvalOp =>
         (case fix_clock st' (do_eval_res (REVERSE vs) st') of
           (st1, Rval (env1, decs)) =>

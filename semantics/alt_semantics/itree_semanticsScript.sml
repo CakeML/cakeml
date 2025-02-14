@@ -415,7 +415,8 @@ Definition application_def:
              SOME (Thunk Evaluated v) =>
                return env s v c
            | SOME (Thunk NotEvaluated f) =>
-               application Opapp env s [f; Conv NONE []] ((Cforce n,env)::c)
+              return env s f
+                ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c)
            | _ => Etype_error)
        | _ => Etype_error)
    | _ =>
@@ -436,9 +437,6 @@ Definition application_def:
               SOME (s', Rraise v) => Estep (env, s, Exn v,c)
               | SOME (s', Rval v) => return env s' v c
               | NONE => Etype_error )
-Termination
-  WF_REL_TAC ‘measure (λ(x,_). if x = ThunkOp ForceThunk then 1 else 0)’ >>
-  rw[] >> Cases_on ‘op’ >> gvs[]
 End
 
 Definition continue_def:
