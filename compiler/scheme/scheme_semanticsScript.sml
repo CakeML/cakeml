@@ -7,15 +7,6 @@ open scheme_astTheory;
 
 val _ = new_theory "scheme_semantics";
 
-Datatype:
-  (*Contexts for small-step operational semantics*)
-  cont = ApplyK (((*'a*) val # (*'a*) val list) option) ('a list)
-       | CondK 'a 'a
-       | LetK ((mlstring # (*'a*) val) list) mlstring ((mlstring # 'a) list) 'a
-       | InLetK ((mlstring # (*'a*) val) list)
-       | BeginK ('a list)
-End
-
 Definition sadd_def:
   sadd vcons _ [] n = vcons $ SNum n ∧
   sadd vcons excons (SNum m :: xs) n = sadd vcons excons xs (m + n) ∧
@@ -52,9 +43,15 @@ End
 Definition application_def:
   application vcons excons env ks (Prim p) xs = (case p of
   | SAdd => (env, ks, sadd vcons excons xs 0)
-  | SMul => (env, ks, smul vcons excons xs 1)) ∧
+  | SMul => (env, ks, smul vcons excons xs 1)
+  | CallCC => case xs of
+    | [v] => (env, ApplyK (SOME (v, [])) [] :: ks, vcons $ Throw ks)
+    | _ => (env, ks, excons $ strlit "arity mismatch")) ∧
   (*application _ excons env ks (Proc env' ps lp e) xs =
     parameterize excons env ks env' ps lp e xs ∧*)
+  application vcons excons env ks (Throw ks') xs = (case xs of
+    | [v] => (env, ks', vcons v)
+    | _ => (env, ks, excons $ strlit "arity mismatch")) ∧
   application _ excons env ks _ _ = (env, ks, excons $ strlit "Not a procedure")
 End
 
