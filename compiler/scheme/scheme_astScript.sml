@@ -17,7 +17,7 @@ Datatype:
   val = Prim prim | SNum num | Wrong string | SBool bool
       | SList (val list)
       | Proc senv (mlstring list) (mlstring option) exp
-      | Throw senv (cont list)
+      | Throw 'a (('a # cont) list)
 ;
   (*Contexts for small-step operational semantics*)
   cont = ApplyK (( val # val list) option) (exp list)
