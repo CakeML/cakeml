@@ -1,54 +1,11 @@
 (*
   This refines scpog_list to use arrays
 *)
-open preamble basis UnsafeProofTheory cnf_scpogTheory scpog_listTheory scpog_parsingTheory blastLib;
+open preamble basis UnsafeProofTheory cnf_scpogTheory scpog_listTheory lpr_parsingTheory scpog_parsingTheory blastLib;
 
 val _ = new_theory "scpog_arrayProg"
 
 val _ = diminish_srw_ss ["ABBREV"]
-
-(* TODO: move *)
-Theorem ALL_DISTINCT_MAP_FST_toSortedAList:
-  ALL_DISTINCT (MAP FST (toSortedAList t))
-Proof
-  `SORTED $< (MAP FST (toSortedAList t))` by
-    simp[SORTED_toSortedAList]>>
-  pop_assum mp_tac>>
-  match_mp_tac SORTED_ALL_DISTINCT>>
-  simp[irreflexive_def]
-QED
-
-Theorem MAP_FST_enumerate:
-  MAP FST (enumerate k ls) = GENLIST ($+ k) (LENGTH ls)
-Proof
-  rw[LIST_EQ_REWRITE,LENGTH_enumerate]>>
-  simp[EL_MAP,LENGTH_enumerate,EL_enumerate]
-QED
-
-Theorem ALL_DISTINCT_MAP_FST_enumerate:
-  ALL_DISTINCT (MAP FST (enumerate k ls))
-Proof
-  simp[MAP_FST_enumerate,ALL_DISTINCT_GENLIST]
-QED
-
-(* replace in miscTheory *)
-Theorem MEM_enumerate_IMP:
-  ∀ls k.
-  MEM (i,e) (enumerate k ls) ⇒ MEM e ls
-Proof
-  Induct_on`ls`>>fs[miscTheory.enumerate_def]>>rw[]>>
-  metis_tac[]
-QED
-
-Theorem ALOOKUP_enumerate:
-  ∀ls k x.
-  ALOOKUP (enumerate k ls) x =
-  if k ≤ x ∧ x < LENGTH ls + k then SOME (EL (x-k) ls) else NONE
-Proof
-  Induct>>rw[miscTheory.enumerate_def]>>
-  `x-k = SUC(x-(k+1))` by DECIDE_TAC>>
-  simp[]
-QED
 
 val _ = translation_extends"UnsafeProg";
 
@@ -965,6 +922,7 @@ Theorem check_scpstep_arr_spec:
             | SOME (fmlls', sc' , Clist') =>
                 bounded_fml (LENGTH Clist') fmlls' ∧
                 LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv' ∧
+                CNF_SCPOG_SCPOG_CONF_TYPE sc' v2 ∧
                 Clist' = clist' ∧
                 LENGTH Clist ≤ LENGTH Clist'
             ))
@@ -1229,20 +1187,21 @@ Proof
     cheat)
 QED
 
+(* Hooking up to parser *)
 val res = translate parse_root_def;
-val res = translate lpr_parsingTheory.parse_until_nn_def;
+val res = translate parse_until_nn_def;
 
 val parse_until_nn_side_def = theorem "parse_until_nn_side_def"
 
 val parse_until_nn_side = Q.prove(`
   !x y. parse_until_nn_side x y ⇔ T`,
   Induct>>
-  simp[lpr_parsingTheory.parse_until_nn_def,Once parse_until_nn_side_def]>>
+  simp[parse_until_nn_def,Once parse_until_nn_side_def]>>
   rw[]>>fs[]>>
   intLib.ARITH_TAC) |> update_precondition
 
-val res = translate parse_hint_def;
-val res = translate lpr_parsingTheory.parse_until_zero_def;
+val res = translate parse_nat_until_zero_def;
+val res = translate parse_until_zero_def;
 val res = translate parse_rup_add_def;
 val res = translate parse_rup_del_def;
 val res = translate parse_arb_del_def;
@@ -1252,7 +1211,6 @@ val res = translate parse_sko_def;
 val res = translate parse_sum_def;
 val res = translate parse_scpstep_def;
 
-(* Hooking up to the parser and stuff *)
 Definition parse_and_run_list_def:
   parse_and_run_list pc fml sc Clist l =
   case parse_scpstep l of
@@ -1297,6 +1255,7 @@ Theorem parse_and_run_arr_spec:
             | SOME (fmlls', sc' , Clist') =>
                 bounded_fml (LENGTH Clist') fmlls' ∧
                 LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv' ∧
+                CNF_SCPOG_SCPOG_CONF_TYPE sc' v2 ∧
                 Clist' = clist' ∧
                 LENGTH Clist ≤ LENGTH Clist'
             ))
@@ -1323,8 +1282,8 @@ End
 
 val r = translate noparse_string_def;
 
-val _ = translate lpr_parsingTheory.blanks_def;
-val _ = translate lpr_parsingTheory.tokenize_def;
+val _ = translate blanks_def;
+val _ = translate tokenize_def;
 
 val check_unsat'' = process_topdecs `
   fun check_unsat'' fd lno pc fml sc carr =
@@ -1336,11 +1295,251 @@ val check_unsat'' = process_topdecs `
       check_unsat'' fd (lno+1) pc fml' sc' carr'`
       |> append_prog;
 
+(* This says what happens to the STDIO *)
+Definition check_unsat''_def:
+  (check_unsat'' fd pc fml sc Clist fs [] =
+    STDIO (fastForwardFD fs fd)) ∧
+  (check_unsat'' fd pc fml sc Clist fs (ln::ls) =
+    case parse_and_run_list pc fml sc Clist (toks ln) of
+      NONE => STDIO (lineForwardFD fs fd)
+    | SOME (fml', sc', Clist') =>
+      check_unsat'' fd pc fml' sc' Clist'
+        (lineForwardFD fs fd) ls)
+End
+
+Definition parse_and_run_file_list_def:
+  (parse_and_run_file_list [] pc fml sc Clist =
+    SOME (fml, sc)) ∧
+  (parse_and_run_file_list (x::xs) pc fml sc Clist =
+    case parse_and_run_list pc fml sc Clist (toks x) of
+      NONE => NONE
+    | SOME (fml', sc', Clist') =>
+    parse_and_run_file_list xs pc fml' sc' Clist')
+End
+
+Theorem parse_and_run_file_list_eq:
+  ∀ls pc fml sc Clist.
+  parse_and_run_file_list ls pc fml sc Clist =
+  case parse_scpsteps ls of
+    NONE => NONE
+  | SOME scpsteps =>
+    OPTION_MAP (λ(a,b,c). (a,b))
+      (check_scpsteps_list scpsteps pc fml sc Clist)
+Proof
+  Induct>>
+  fs[parse_and_run_list_def,parse_scpsteps_def,parse_and_run_file_list_def,check_scpsteps_list_def]>>
+  rw[]>>
+  every_case_tac>>
+  fs[toks_def]>>
+  simp[check_scpsteps_list_def]
+QED
+
+Theorem linesFD_cons:
+  lineFD fs fd = SOME x ⇒
+  linesFD fs fd = x::linesFD (lineForwardFD fs fd) fd
+Proof
+  Cases_on`linesFD fs fd`>>
+  fs[linesFD_nil_lineFD_NONE]>>
+  drule linesFD_cons_imp>>
+  fs[]
+QED
+
+val blanks_v_thm = theorem "blanks_v_thm";
+val tokenize_v_thm = theorem "tokenize_v_thm";
+
+val b_inputLineTokens_specialize =
+  b_inputLineTokens_spec_lines
+  |> Q.GEN `f` |> Q.SPEC`blanks`
+  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
+  |> Q.GEN `g` |> Q.ISPEC`tokenize`
+  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
+  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
+  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def];
+
+Theorem check_unsat''_spec:
+  !lines fs fmlv fmlls fmllsv Clist Carrv lno lnov pc pcv sc scv.
+  NUM lno lnov ∧
+  CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
+  CNF_SCPOG_SCPOG_CONF_TYPE sc scv ∧
+  LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
+  bounded_fml (LENGTH Clist) fmlls
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_unsat''" (get_ml_prog_state()))
+    [fdv; lnov; pcv; fmlv; scv; Carrv]
+    (STDIO fs * ARRAY fmlv fmllsv *
+      W8ARRAY Carrv Clist * INSTREAM_LINES #"\n" fd fdv lines fs)
+    (POSTve
+      (λv.
+         SEP_EXISTS k v1 v2.
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
+           &(v = Conv NONE [v1; v2]) *
+           (SEP_EXISTS fmllsv'.
+            ARRAY v1 fmllsv' *
+            &(unwrap_TYPE
+              (λv fv.
+              LIST_REL (OPTION_TYPE ctag_TYPE) (FST v) fv)
+                 (parse_and_run_file_list lines pc fmlls sc Clist) fmllsv' ∧
+              unwrap_TYPE
+              (λv fv.
+                CNF_SCPOG_SCPOG_CONF_TYPE (SND v) fv)
+                 (parse_and_run_file_list lines pc fmlls sc Clist) v2
+              ))
+      )
+      (λe.
+         SEP_EXISTS k fmlv fmllsv lines'.
+           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
+           ARRAY fmlv fmllsv *
+           &(Fail_exn e ∧ parse_and_run_file_list lines pc fmlls sc Clist = NONE)))
+Proof
+  Induct \\ rw []
+  \\ xcf "check_unsat''" (get_ml_prog_state ())
+  THEN1 (
+    xlet ‘(POSTv v.
+            SEP_EXISTS k.
+                ARRAY fmlv fmllsv *
+                W8ARRAY Carrv Clist *
+                STDIO (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
+                &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
+    THEN1 (
+      xapp_spec b_inputLineTokens_specialize
+      \\ qexists_tac ‘ARRAY fmlv fmllsv * W8ARRAY Carrv Clist’
+      \\ qexists_tac ‘[]’
+      \\ qexists_tac ‘fs’
+      \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
+      \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl
+      \\ fs[OPTION_TYPE_def])
+    \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ fs []
+    \\ xmatch \\ fs []
+    \\ xcon \\ xsimpl
+    \\ fs [parse_and_run_file_list_def]
+    \\ qexists_tac ‘k’ \\ xsimpl
+    \\ fs [unwrap_TYPE_def])
+  \\ xlet ‘(POSTv v.
+            SEP_EXISTS k.
+                ARRAY fmlv fmllsv *
+                W8ARRAY Carrv Clist *
+                STDIO (forwardFD fs fd k) *
+                INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
+                & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
+    THEN1 (
+      xapp_spec b_inputLineTokens_specialize
+      \\ qexists_tac ‘ARRAY fmlv fmllsv * W8ARRAY Carrv Clist’
+      \\ qexists_tac ‘h::lines’
+      \\ qexists_tac ‘fs’
+      \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
+      \\ rw [] \\ qexists_tac ‘x’ \\ xsimpl
+      \\ simp[toks_def])
+  \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ fs []
+  \\ xmatch \\ fs []
+  \\ xlet_auto >- (
+    xsimpl>>simp[unwrap_TYPE_def]>>rw[]>>
+    qexists_tac`x`>> qexists_tac`x'`>>xsimpl)
+  >- (
+    xsimpl>>
+    simp[parse_and_run_file_list_def]>>
+    xsimpl>>
+    rw[]>>
+    qexists_tac ‘k’>>
+    rename1`ARRAY xx yy`>>
+    qexists_tac`xx`>>qexists_tac`yy`>>
+    xsimpl>>
+    qexists_tac ‘lines’>>
+    xsimpl>>
+    metis_tac[])>>
+  rveq \\ fs [] >>
+  every_case_tac>>gvs[]>>
+  xmatch>>
+  xlet_autop >>
+  xapp>>xsimpl>>
+  rpt(first_x_assum (irule_at Any))>>
+  fs [unwrap_TYPE_def]>>
+  xsimpl>>
+  qexists_tac ‘(forwardFD fs fd k)’>> xsimpl>>
+  simp[parse_and_run_file_list_def]>>
+  every_case_tac>> gvs[]>>
+  rw[]>>gvs[forwardFD_o]
+  >- (qexists_tac`k+x`>>xsimpl>>metis_tac[])>>
+  qexists_tac ‘k+x’ \\ xsimpl >>
+  rename1`INSTREAM_LINES _ _ _ A _ * ARRAY B C`>>
+  qexists_tac`B`>>
+  qexists_tac`C`>>
+  qexists_tac`A`>>
+  xsimpl
+QED
+
+(* We don't really care about the STDIO afterwards long as it gets closed *)
+Theorem check_unsat''_eq:
+  ∀ls fd fml fs sc Clist.
+  ∃n.
+    check_unsat'' fd pc fml sc Clist fs ls =
+    case parse_and_run_file_list ls pc fml sc Clist of
+     NONE => STDIO (forwardFD fs fd n)
+   | SOME _ => STDIO (fastForwardFD fs fd)
+Proof
+  Induct>>rw[check_unsat''_def,parse_and_run_file_list_def]>>
+  TOP_CASE_TAC
+  >-
+    metis_tac[lineForwardFD_forwardFD]>>
+  PairCases_on`x`>>fs[]>>
+  rename1`check_unsat'' fd pc a b c _ ls`>>
+  first_x_assum(qspecl_then[`fd`,`a`,`lineForwardFD fs fd`,`b`,`c`] strip_assume_tac)>>
+  simp[]>>
+  qspecl_then [`fs`,`fd`] strip_assume_tac lineForwardFD_forwardFD>>
+  simp[forwardFD_o]>>
+  metis_tac[]
+QED
+
 Definition notfound_string_def:
   notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
 End
 
 val r = translate notfound_string_def;
+
+val is_forward_clause_v_thm = translate is_forward_clause_def;
+
+val is_forward_fml_arr = process_topdecs`
+  fun is_forward_fml_arr arr c =
+  Array.exists (is_forward_clause c) arr` |> append_prog;
+
+val res = translate is_input_def;
+val not_is_input_clause_v_thm = translate not_is_input_clause_def;
+
+val no_is_input_fml_arr = process_topdecs`
+  fun no_is_input_fml_arr arr =
+  Array.all not_is_input_clause arr` |> append_prog;
+
+Definition get_root_def:
+  get_root sc = sc.root
+End
+
+val r = translate get_root_def;
+
+Definition get_scp_def:
+  get_scp sc = sc.scp
+End
+
+val r = translate get_scp_def;
+
+val check_final_arr = process_topdecs `
+  fun check_final_arr pc sc fml =
+  case get_root sc of
+    None => Inl ("root not declared")
+  | Some r =>
+    if r = 0
+    then
+      if is_forward_fml_arr fml []
+      then Inr (Inl ())
+      else Inl ("did not find empty clause for UNSAT proof")
+    else
+      if is_forward_fml_arr fml [r]
+      then
+        if no_is_input_fml_arr fml
+        then Inr (Inr (r,get_scp sc))
+        else Inl ("final condition check failed: not all input clauses deleted")
+      else Inl ("final condition check failed: root singleton clause not found")
+  ` |> append_prog;
 
 val check_unsat' = process_topdecs `
   fun check_unsat' pc fml sc fname n =
@@ -1355,8 +1554,340 @@ val check_unsat' = process_topdecs `
       Inl s => Inl s
     | Inr res =>
       (case res of (fml,sc) =>
-      Inr True)
+        check_final_arr pc sc fml)
   end
   handle TextIO.BadFileName => Inl (notfound_string fname)` |> append_prog;
+
+(* TODO: COPIED from readerProg, should be moved *)
+Theorem fastForwardFD_ADELKEY_same[simp]:
+   forwardFD fs fd n with infds updated_by ADELKEY fd =
+   fs with infds updated_by ADELKEY fd
+Proof
+  fs [forwardFD_def, IO_fs_component_equality]
+QED
+
+Theorem all_lines_gen_all_lines[simp]:
+  all_lines_gen #"\n" fs f =
+  all_lines fs f
+Proof
+  rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
+QED
+
+Overload "res_TYPE" = ``SUM_TYPE UNIT_TYPE (PAIR_TYPE INT (LIST_TYPE (PAIR_TYPE NUM CNF_SCPOG_SCPN_TYPE)))``
+
+Theorem EqualityType_LIST_TYPE_INT:
+  EqualityType (LIST_TYPE INT)
+Proof
+  match_mp_tac EqualityType_LIST_TYPE>>
+  simp[EqualityType_NUM_BOOL]
+QED
+
+Theorem check_final_arr_spec:
+  LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
+  CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
+  CNF_SCPOG_SCPOG_CONF_TYPE sc scv
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"check_final_arr"(get_ml_prog_state()))
+  [pcv; scv; fmlv]
+  (ARRAY fmlv fmllsv)
+  (POSTv v.
+    ARRAY fmlv fmllsv *
+    SEP_EXISTS err.
+      &(SUM_TYPE STRING_TYPE res_TYPE
+      (case check_final_list pc sc fmlls of
+        NONE => INL err
+      | SOME res => INR res) v))
+Proof
+  rw[]>>
+  xcf "check_final_arr" (get_ml_prog_state ())>>
+  xlet_autop>>
+  gvs[get_root_def,check_final_list_def,OPTION_TYPE_SPLIT]>>
+  xmatch
+  >- (
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def])>>
+  xlet_autop>>
+  xif
+  >- (
+    xlet`POSTv v. ARRAY fmlv fmllsv * &(LIST_TYPE INT [] v)`
+    >- (xcon>>xsimpl>>simp[LIST_TYPE_def])>>
+    xlet`POSTv v. ARRAY fmlv fmllsv * &BOOL (is_forward_fml_list fmlls []) v`
+    >- (
+      xapp_prepare_goal>>
+      xcf "is_forward_fml_arr" (get_ml_prog_state ())>>
+      assume_tac (
+        (is_forward_clause_v_thm |> DISCH_ALL |> MATCH_MP )
+        EqualityType_LIST_TYPE_INT)>>
+      drule Arrow_IMP_app_basic>>
+      disch_then drule>>
+      simp[GSYM app_def]>>
+      rw[]>>
+      xlet_autop>>
+      simp[is_forward_fml_list_def]>>
+      (* Array.exists needs a spec! *)
+      cheat)>>
+    xif>>xsimpl
+    >- (
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[SUM_TYPE_def])>>
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def])>>
+  xlet_autop>>
+  rename1`is_forward_fml_list _ [r]`>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * &(LIST_TYPE INT [r] v)`
+  >- (
+    xcon>>xsimpl>>simp[LIST_TYPE_def])>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * &BOOL (is_forward_fml_list fmlls [r]) v`
+  >- (
+    xapp_prepare_goal>>
+    xcf "is_forward_fml_arr" (get_ml_prog_state ())>>
+    assume_tac (
+      (is_forward_clause_v_thm |> DISCH_ALL |> MATCH_MP)
+      EqualityType_LIST_TYPE_INT)>>
+    drule Arrow_IMP_app_basic>>
+    disch_then drule>>
+    simp[GSYM app_def]>>
+    rw[]>>
+    xlet_autop>>
+    simp[is_forward_fml_list_def]>>
+    (* Array.exists needs a spec! *)
+    cheat)>>
+  reverse xif
+  >- (
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def])>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * &BOOL (no_is_input_fml_list fmlls) v`
+  >- (
+    xapp_prepare_goal>>
+    xcf "no_is_input_fml_arr" (get_ml_prog_state ())>>
+    (* Array.all needs a spec! *)
+    cheat)>>
+  reverse xif
+  >- (
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def])>>
+  rpt xlet_autop>>
+  xcon>>xsimpl>>
+  fs[SUM_TYPE_def,PAIR_TYPE_def,get_scp_def]
+QED
+
+Theorem check_unsat'_spec:
+  NUM n nv ∧
+  LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
+  FILENAME f fv ∧
+  hasFreeFD fs ∧
+  CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
+  CNF_SCPOG_SCPOG_CONF_TYPE sc scv ∧
+  bounded_fml n fmlls
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"check_unsat'"(get_ml_prog_state()))
+  [pcv; fmlv; scv; fv; nv]
+  (STDIO fs * ARRAY fmlv fmllsv)
+  (POSTv v.
+    STDIO fs *
+    SEP_EXISTS err.
+      &(SUM_TYPE STRING_TYPE res_TYPE)
+      (if inFS_fname fs f then
+        (case parse_scpsteps (all_lines fs f) of
+         SOME scpsteps =>
+           (case check_scp_final_list scpsteps pc fmlls sc (REPLICATE n w8z) of
+             NONE => INL err
+           | SOME res => INR res)
+        | NONE => INL err)
+      else
+        INL err
+      ) v)
+Proof
+  rw[]>>
+  xcf"check_unsat'"(get_ml_prog_state()) >>
+  reverse (Cases_on `STD_streams fs`)
+  >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
+  reverse (Cases_on`consistentFS fs`)
+  >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[]) >>
+  reverse (Cases_on `inFS_fname fs f`) >> simp[]
+  >- (
+    xhandle`POSTe ev.
+      &BadFileName_exn ev *
+      &(~inFS_fname fs f) *
+      STDIO fs *
+      ARRAY fmlv fmllsv`
+    >-
+      (xlet_auto_spec (SOME b_openIn_STDIO_spec) \\ xsimpl)
+    >>
+      fs[BadFileName_exn_def]>>
+      xcases>>rw[]>>
+      xlet_auto>>xsimpl>>
+      xcon>>xsimpl>>
+      simp[SUM_TYPE_def]>>metis_tac[])>>
+  qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
+  xhandle`$POSTv Qval` \\ xsimpl >>
+  qunabbrev_tac`Qval`>>
+  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
+  `WORD8 w8z w8z_v` by fs[w8z_v_thm]>>
+  xlet_autop >>
+  qmatch_goalsub_abbrev_tac`STDIO fss`>>
+  qabbrev_tac`Clist = REPLICATE n w8z`>>
+  xlet`POSTv resv.
+   SEP_EXISTS v0 v1 v2 fmllsv' fmlv' k rest.
+    STDIO (forwardFD fss (nextFD fs) k) *
+    INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
+    ARRAY fmlv' fmllsv' *
+    &(
+      case
+        parse_and_run_file_list (all_lines fs f) pc fmlls sc (REPLICATE n w8z)
+      of
+        NONE => resv =
+          Conv (SOME (TypeStamp "Inl" 4)) [v0] ∧ ∃s. STRING_TYPE s v0
+      | SOME(fmlls',sc') =>
+        resv = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]] ∧
+        v1 = fmlv' ∧
+        CNF_SCPOG_SCPOG_CONF_TYPE sc' v2 ∧
+        LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv'
+    )`
+  >- (
+    simp[]>>
+    TOP_CASE_TAC
+    >- (
+      xhandle`POSTe e.
+        SEP_EXISTS fmlv fmllsv rest k.
+          STDIO (forwardFD fss (nextFD fs) k) *
+          INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
+          ARRAY fmlv fmllsv *
+          &(Fail_exn e ∧ parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist = NONE)`
+      >- (
+        (* this used to be an xauto_let .. sigh *)
+        xlet `POSTe e.
+         SEP_EXISTS k fmlv fmllsv lines'.
+           STDIO (forwardFD fss (nextFD fs) k) *
+           INSTREAM_LINES #"\n" (nextFD fs) is lines' (forwardFD fss (nextFD fs) k) *
+           ARRAY fmlv fmllsv *
+           &(Fail_exn e ∧ parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist = NONE)`
+        THEN1 (
+          xapp_spec check_unsat''_spec
+          \\ xsimpl
+          \\ rpt (first_x_assum (irule_at Any))
+          \\ xsimpl \\ fs [Abbr`Clist`]
+          \\ qexists_tac `all_lines fs f`
+          \\ qexists_tac `fss`
+          \\ qexists_tac `nextFD fs`
+          \\ qexists_tac `emp`
+          \\ xsimpl \\ fs [unwrap_TYPE_def]
+          \\ rw[]
+          \\ qexists_tac `x`
+          \\ rename [`_ * INSTREAM_LINES _ _ _ xxx _ * ARRAY a1 a2`]
+          \\ qexists_tac `a1`
+          \\ qexists_tac `a2`
+          \\ qexists_tac `xxx`
+          \\ xsimpl)>>
+        fs[unwrap_TYPE_def]>>
+        xsimpl>>
+        rw[]>>
+        rename [`_ * INSTREAM_LINES _ _ _ xxx _ * ARRAY a1 a2`]
+        \\ qexists_tac `a1`
+        \\ qexists_tac `a2`
+        \\ qexists_tac `xxx`
+        \\ qexists_tac `x`
+        \\ xsimpl)>>
+      fs[Fail_exn_def]>>
+      xcases>>
+      xcon>>xsimpl>>
+      simp[PULL_EXISTS]>>
+      asm_exists_tac>> simp[]>>
+      rename [`_ * _ * ARRAY a1 a2`]>>
+      qexists_tac `a2` >>
+      qexists_tac `a1` >>
+      qexists_tac `k` >>
+      qexists_tac `rest` >> xsimpl) >>
+    xhandle`(POSTv v.
+        SEP_EXISTS v1 v2 k rest.
+         STDIO (forwardFD fss (nextFD fs) k) *
+         INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
+         &(v = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]]) *
+         (SEP_EXISTS fmllsv'.
+           ARRAY v1 fmllsv' *
+           &(unwrap_TYPE
+             (λv fv. LIST_REL (OPTION_TYPE ctag_TYPE) (FST v) fv)
+                (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist) fmllsv' ∧
+             unwrap_TYPE
+             (λv fv. CNF_SCPOG_SCPOG_CONF_TYPE (SND v) fv)
+                (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist ) v2)))`
+    >- (
+        xlet `POSTv v.
+           SEP_EXISTS k v1 v2.
+               STDIO (forwardFD fss (nextFD fs) k) *
+               INSTREAM_LINES #"\n" (nextFD fs) is [] (forwardFD fss (nextFD fs) k) *
+               &(v = Conv NONE [v1; v2]) *
+               (SEP_EXISTS fmllsv'.
+                    ARRAY v1 fmllsv' *
+                    &(unwrap_TYPE
+                     (λv fv. LIST_REL (OPTION_TYPE ctag_TYPE) (FST v) fv)
+                        (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist) fmllsv' ∧
+                     unwrap_TYPE
+                     (λv fv. CNF_SCPOG_SCPOG_CONF_TYPE (SND v) fv)
+                        (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist ) v2))`
+        THEN1
+         (xapp_spec check_unsat''_spec
+          \\ xsimpl
+          \\ rpt (first_x_assum (irule_at Any))
+          \\ xsimpl \\ fs [Abbr`Clist`]
+          \\ qexists_tac `all_lines fs f`
+          \\ qexists_tac `fss`
+          \\ qexists_tac `nextFD fs`
+          \\ qexists_tac `emp`
+          \\ xsimpl \\ fs [unwrap_TYPE_def]
+          \\ rpt strip_tac
+          \\ qexists_tac `x'`
+          \\ xsimpl) >>
+        fs[unwrap_TYPE_def]>>
+        xcon >>
+        xsimpl>>
+        rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
+        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl) >>
+      xsimpl>>simp[unwrap_TYPE_def]>>
+      Cases_on`x`>>fs[]>>rw[]>>xsimpl >>
+      rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
+      rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl)>>
+  qspecl_then [`all_lines fs f`,`pc`,`fmlls`,`sc`,`Clist`] strip_assume_tac parse_and_run_file_list_eq>>
+  fs[]>>rw[]>>
+  xlet `POSTv v. STDIO fs * ARRAY fmlv' fmllsv'`
+  THEN1
+   (xapp_spec b_closeIn_spec_lines >>
+    rename [`_ * _ * ARRAY a1 a2`] >>
+    qexists_tac `ARRAY a1 a2` >>
+    qexists_tac `rest` >>
+    qexists_tac `forwardFD fss (nextFD fs) k` >>
+    qexists_tac `nextFD fs` >>
+    qexists_tac `#"\n"` >>
+    conj_tac THEN1
+     (fs [forwardFD_def,Abbr`fss`]
+      \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
+      \\ imp_res_tac fsFFIPropsTheory.STD_streams_nextFD \\ fs []) >>
+    `validFileFD (nextFD fs) (forwardFD fss (nextFD fs) k).infds` by
+      (simp[validFileFD_forwardFD]>> simp[Abbr`fss`]
+       \\ imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs []
+       \\ match_mp_tac validFileFD_nextFD \\ fs []) >>
+    xsimpl >> rw [] >>
+    imp_res_tac (DECIDE ``n<m:num ==> n <= m``) >>
+    imp_res_tac fsFFIPropsTheory.nextFD_leX \\ fs [] >>
+    drule fsFFIPropsTheory.openFileFS_ADELKEY_nextFD >>
+    fs [Abbr`fss`] \\ xsimpl) >>
+  Cases_on`parse_scpsteps (all_lines fs f)`>> fs[OPTION_TYPE_def]
+  >- (
+    xmatch>>
+    xcon >> xsimpl >>
+    simp[SUM_TYPE_def]>>metis_tac[])>>
+  gvs[AllCasePreds(),check_scp_final_list_def]
+  >- (
+    xmatch >> xcon >>
+    xsimpl>> simp[SUM_TYPE_def] >> metis_tac[])>>
+  pairarg_tac>>gvs[]>>
+  xmatch >> fs[]>>
+  xmatch >> fs[]>>
+  xapp>>
+  rpt(first_x_assum (irule_at Any))>>
+  xsimpl>>
+  metis_tac[]
+QED
 
 val _ = export_theory();

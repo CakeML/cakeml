@@ -567,7 +567,233 @@ Proof
   first_x_assum (irule_at Any)>>
   first_x_assum (irule_at Any)>>
   first_x_assum (irule_at Any)>>
+  (* wf presetvation using check_scpstep *)
   cheat
+QED
+
+Definition is_forward_clause_def:
+  is_forward_clause c ctopt ⇔
+  case ctopt of NONE => F
+  | SOME (cc,tag) =>
+    cc = c ∧ tag ≤ forward_tag
+End
+
+Definition is_forward_fml_list_def:
+  is_forward_fml_list ls c =
+  EXISTS (is_forward_clause c) ls
+End
+
+Definition not_is_input_clause_def:
+  not_is_input_clause ctopt ⇔
+  case ctopt of NONE => T
+  | SOME ct => ¬is_input ct
+End
+
+Definition no_is_input_fml_list_def:
+  no_is_input_fml_list ls =
+  EVERY not_is_input_clause ls
+End
+
+Definition check_final_list_def:
+  check_final_list pc sc fml =
+  case sc.root of
+    NONE => NONE
+  | SOME r =>
+    if r = 0
+    then
+      if is_forward_fml_list fml []
+      then SOME (INL())
+      else NONE
+    else
+      if is_forward_fml_list fml [r] ∧
+        no_is_input_fml_list fml
+      then
+        SOME (INR(r,sc.scp))
+      else NONE
+End
+
+Definition check_scp_final_list_def:
+  check_scp_final_list ls pc fmlls sc Clist =
+  case check_scpsteps_list ls pc fmlls sc Clist of
+    NONE => NONE
+  | SOME (fmlls', sc', Clist') =>
+    check_final_list pc sc' fmlls'
+End
+
+Theorem all_distinct_map_fst_rev:
+  ALL_DISTINCT (MAP FST ls) ⇔ ALL_DISTINCT (MAP FST (REVERSE ls))
+Proof
+  fs[MAP_REVERSE]
+QED
+
+Theorem LENGTH_FOLDR_update_resize1:
+  ∀ll.
+  LENGTH (FOLDR (λx acc. (λ(i,v). update_resize acc NONE (SOME (v,input_tag)) i) x) (REPLICATE n NONE) ll) ≥ n
+Proof
+  Induct>>simp[FORALL_PROD]>>rw[]>>
+  rw[Once update_resize_def]
+QED
+
+Theorem LENGTH_FOLDR_update_resize2:
+  ∀ll x.
+  MEM x ll ⇒
+  FST x < LENGTH (FOLDR (λx acc. (λ(i,v). update_resize acc NONE (SOME (v,input_tag)) i) x) (REPLICATE n NONE) ll)
+Proof
+  Induct>>simp[FORALL_PROD]>>rw[]>>
+  rw[Once update_resize_def]
+  >- (
+    first_x_assum drule>>
+    simp[])>>
+  first_x_assum drule>>simp[]
+QED
+
+Theorem FOLDL_update_resize_lookup:
+  ∀ls.
+  ALL_DISTINCT (MAP FST ls) ⇒
+  ∀x.
+  x < LENGTH (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,input_tag)) i) (REPLICATE n NONE) ls)
+  ⇒
+  EL x (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,input_tag)) i) (REPLICATE n NONE) ls)
+  =
+  OPTION_MAP (λc. (c,input_tag)) (ALOOKUP ls x)
+Proof
+  simp[Once (GSYM EVERY_REVERSE), Once (GSYM MAP_REVERSE)]>>
+  simp[FOLDL_FOLDR_REVERSE]>>
+  simp[GSYM alookup_distinct_reverse]>>
+  simp[Once all_distinct_map_fst_rev]>>
+  strip_tac>>
+  qabbrev_tac`ll= REVERSE ls`>>
+  pop_assum kall_tac>>
+  Induct_on`ll`>-
+    simp[EL_REPLICATE]>>
+  simp[FORALL_PROD]>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once update_resize_def]>>
+  strip_tac>>
+  simp[Once update_resize_def]>>
+  IF_CASES_TAC>>fs[]
+  >-
+    (simp[EL_LUPDATE]>>
+    IF_CASES_TAC>>simp[])>>
+  simp[EL_LUPDATE]>>
+  IF_CASES_TAC >> simp[]>>
+  simp[EL_APPEND_EQN]>>rw[]>>
+  simp[EL_REPLICATE]>>
+  CCONTR_TAC>>fs[]>>
+  Cases_on`ALOOKUP ll x`>>fs[]>>
+  drule ALOOKUP_MEM>>
+  strip_tac>>
+  drule LENGTH_FOLDR_update_resize2>>
+  simp[]>>
+  metis_tac[]
+QED
+
+Theorem SORTED_REVERSE:
+  transitive P ⇒
+  (SORTED P (REVERSE ls) ⇔ SORTED (λx y. P y x)  ls)
+Proof
+  rw[]>>
+  DEP_REWRITE_TAC [SORTED_EL_LESS]>>
+  fs[]>>
+  CONJ_TAC>- (
+    fs[transitive_def]>>
+    metis_tac[])>>
+  simp[EL_REVERSE]>>
+  rw[EQ_IMP_THM]
+  >- (
+    first_x_assum (qspecl_then [`LENGTH ls-n-1`,`LENGTH ls-m-1`] mp_tac)>>
+    simp[GSYM ADD1])>>
+  first_x_assum match_mp_tac>>
+  simp[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem fml_rel_FOLDL_update_resize:
+  fml_rel (build_fml kc fml)
+  (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,input_tag)) i) (REPLICATE n NONE) (enumerate kc fml))
+Proof
+  rw[fml_rel_def]>>
+  reverse IF_CASES_TAC
+  >- (
+    fs[lookup_build_fml]>>
+    CCONTR_TAC>>fs[]>>
+    `MEM x (MAP FST (enumerate kc fml))` by
+      (fs[MAP_FST_enumerate,MEM_GENLIST]>>
+      intLib.ARITH_TAC)>>
+    fs[MEM_MAP]>>
+    fs[FOLDL_FOLDR_REVERSE]>>
+    `MEM y (REVERSE (enumerate kc fml))` by
+      fs[MEM_REVERSE]>>
+    drule LENGTH_FOLDR_update_resize2>>
+    simp[]>>
+    metis_tac[]) >>
+  DEP_REWRITE_TAC [FOLDL_update_resize_lookup]>>
+  simp[]>>
+  CONJ_TAC >-
+    simp[ALL_DISTINCT_MAP_FST_enumerate]>>
+  simp[lookup_build_fml,ALOOKUP_enumerate]>>
+  rw[]
+QED
+
+Theorem fml_rel_is_forward_fml_list:
+  fml_rel fml fmlls ⇒
+  (is_forward_fml_list fmlls c ⇔ c ∈ get_fml is_forward fml)
+Proof
+  rw[is_forward_fml_list_def,get_fml_def,EXISTS_MEM,MEM_EL]>>
+  eq_tac>>gvs[fml_rel_def]>>rw[]>>
+  gvs[is_forward_clause_def,is_forward_def,AllCasePreds()]>>
+  metis_tac[option_CLAUSES]
+QED
+
+Theorem fml_rel_no_is_input_fml_list:
+  fml_rel fml fmlls ⇒
+  (no_is_input_fml_list fmlls ⇔ get_fml is_input fml = {})
+Proof
+  rw[no_is_input_fml_list_def,get_fml_def,EVERY_MEM]>>
+  eq_tac>>gvs[fml_rel_def]>>rw[EXTENSION]>>
+  gvs[not_is_input_clause_def,MEM_EL,AllCasePreds()]>>
+  metis_tac[option_CLAUSES,PAIR]
+QED
+
+Theorem check_scp_final_list_sound:
+  good_pc pc ∧
+  EVERY (λC. vars_clause C ⊆ count (pc.n + 1)) fml ∧
+  check_scp_final_list ls pc
+    (FOLDL (λacc (i,v).
+      update_resize acc NONE (SOME (v,input_tag)) i) (REPLICATE nc NONE)
+        (enumerate kc fml))
+    init_sc Clist = SOME res ∧
+  EVERY ($= w8z) Clist ⇒
+  case res of
+    INL () => {w | sat_fml w (set fml)} = {}
+  | INR (r,scp) =>
+    models (get_data_vars pc) (sat_scp F r scp) =
+      models (get_data_vars pc) {w | sat_fml w (set fml)} ∧
+    decomposable_scp F r scp ∧
+    deterministic_scp F r scp
+Proof
+  rw[check_scp_final_list_def]>>
+  gvs[AllCaseEqs()]>>
+  assume_tac (GEN_ALL fml_rel_FOLDL_update_resize |>
+    INST_TYPE [alpha |-> ``:int list``] |>
+    Q.SPECL [`nc`,`kc`,`fml`])>>
+  drule fml_rel_check_scpsteps_list>>
+  rpt (disch_then (drule_at Any))>>
+  impl_tac >-
+    (* wf build*)
+    cheat>>
+  rw[]>>
+  gvs[check_final_list_def,AllCaseEqs()]
+  >- (
+    irule scpog_soundness_special>>
+    first_x_assum (irule_at Any)>>
+    simp[unsat_condition_def]>>
+    metis_tac[fml_rel_is_forward_fml_list])>>
+  irule scpog_soundness>>
+  simp[final_conditions_def]>>
+  first_x_assum (irule_at Any)>>
+  metis_tac[fml_rel_is_forward_fml_list,fml_rel_no_is_input_fml_list]
 QED
 
 val _ = export_theory();

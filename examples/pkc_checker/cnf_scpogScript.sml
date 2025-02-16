@@ -2622,7 +2622,7 @@ QED
 Theorem scpog_soundness:
   good_pc pc ∧
   EVERY (λC. vars_clause C ⊆ count (pc.n + 1)) fmlls ∧
-  check_scpsteps pc (build_fml 1 fmlls) init_sc xs = SOME (fml', sc') ∧
+  check_scpsteps pc (build_fml kc fmlls) init_sc xs = SOME (fml', sc') ∧
   sc'.root = SOME r ∧
   r ≠ 0 ∧
   final_conditions fml' r ⇒
@@ -2700,7 +2700,7 @@ End
 Theorem scpog_soundness_special:
   good_pc pc ∧
   EVERY (λC. vars_clause C ⊆ count (pc.n + 1)) fmlls ∧
-  check_scpsteps pc (build_fml 1 fmlls) init_sc xs = SOME (fml', sc') ∧
+  check_scpsteps pc (build_fml kc fmlls) init_sc xs = SOME (fml', sc') ∧
   unsat_condition fml' ⇒
   {w | sat_fml w (set fmlls)} = {}
 Proof
