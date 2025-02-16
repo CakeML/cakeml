@@ -50,9 +50,9 @@ End
 Definition parameterize_def:
   parameterize _ store ks env [] NONE e [] = (store, ks, env, e) ∧
   parameterize _ store ks env [] (SOME l) e xs = (let (n, store') = fresh_loc store (SList xs)
-    in (store', ks, (FUPDATE env (l, n)), e)) ∧
+    in (store', ks, (env |+ (l, n)), e)) ∧
   parameterize excons store ks env (p::ps) lp e (x::xs) = (let (n, store') = fresh_loc store x
-    in parameterize excons store' ks (FUPDATE env (p, n)) ps lp e xs) ∧
+    in parameterize excons store' ks (env |+ (p, n)) ps lp e xs) ∧
   parameterize excons store ks _ _ _ _ _ = (store, ks, FEMPTY, excons $ strlit "Wrong number of arguments")
 End
 
@@ -149,6 +149,20 @@ End
           Lambda [strlit "y"] NONE (
             Apply (Val $ Prim SAdd) [
               Ident $ strlit "y";
+              Ident $ strlit "x"
+            ]
+          )
+        ) [Val $ SNum 1]
+      )
+    ) [Val $ SNum 4]
+  )”
+
+  EVAL “steps 16 ([], [], FEMPTY,
+    Apply (
+      Lambda [strlit "x"] NONE (
+        Apply (
+          Lambda [strlit "x"] NONE (
+            Apply (Val $ Prim SAdd) [
               Ident $ strlit "x"
             ]
           )
