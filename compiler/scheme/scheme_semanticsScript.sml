@@ -15,6 +15,7 @@ Datatype:
        (*| LetK ((mlstring # (*'a*) val) list) mlstring ((mlstring # 'a) list) 'a
        | InLetK ((mlstring # (*'a*) val) list)*)
        | BeginK ('a list)
+       | SetK mlstring
 End
 
 Definition sadd_def:
@@ -83,9 +84,12 @@ Definition return_def:
   | (i', e')::is' => (store, LetK ((i, v)::store') i' is' e :: ks, e')) ∧
 
   return vcons _ (store, InLetK store' :: ks, v) = (store', ks, vcons v) ∧*)
-  return vcons _ (store, (env, BeginK es) :: ks, _, v) = case es of
+  return vcons _ (store, (env, BeginK es) :: ks, _, v) = (case es of
   | [] => (store, ks, env, vcons v)
-  | e::es' => (store, (env, BeginK es') :: ks, env, e)
+  | e::es' => (store, (env, BeginK es') :: ks, env, e)) ∧
+  return vcons excons (store, (env, SetK x) :: ks, _, v) = (case FLOOKUP env x of
+  | NONE => (store, ks, env, excons $ strlit "Unrecognised identifier")
+  | SOME n => (LUPDATE v n store, ks, env, vcons $ Wrong "Unspecified"))
 End
 
 Definition unwind_def:
@@ -98,6 +102,8 @@ Definition step_def:
   step (store, ks, env, Apply fn args) = (store, (env, ApplyK NONE args) :: ks, env, fn) ∧
   step (store, ks, env, Cond c t f) = (store, (env, CondK t f) :: ks, env, c) ∧
   step (store, ks, env, Ident s) = (let v = case FLOOKUP env s of
+    (*There is a chance that this should be unreachable, because
+    of static scoping determined by the parser*)
     | NONE => Exception $ strlit "Unrecognised identifier"
     | SOME n => Val $ EL n store
     in (store, ks, env, v)) ∧
@@ -106,6 +112,7 @@ Definition step_def:
   | (i, e')::is' => (store, LetK store i is' e :: ks, e')) ∧*)
   step (store, ks, env, Lambda ps lp e) = (store, ks, env, Val $ Proc env ps lp e) ∧
   step (store, ks, env, Begin e es) = (store, (env, BeginK es) :: ks, env, e) ∧
+  step (store, ks, env, Set x e) = (store, (env, SetK x) :: ks, env, e) ∧
 
   step (store, ks, env, Exception ex) = unwind Exception store ks ex
 End
@@ -168,6 +175,25 @@ End
           )
         ) [Val $ SNum 1]
       )
+    ) [Val $ SNum 4]
+  )”
+
+  EVAL “steps 22 ([], [], FEMPTY,
+    Apply (
+      Lambda [strlit "x"] NONE (Begin (
+        Apply (
+          Lambda [strlit "y"] NONE (Begin (
+            Set (strlit "x") (Val $ SNum 5)
+          ) [
+            Apply (Val $ Prim SAdd) [
+              Ident $ strlit "y";
+              Ident $ strlit "x"
+            ]
+          ])
+        ) [Val $ SNum 1]
+      ) [
+        Ident $ strlit "x"
+      ])
     ) [Val $ SNum 4]
   )”
 *)

@@ -27,6 +27,7 @@ Datatype:
       | Lambda (mlstring list) (mlstring option) exp
       | Exception mlstring
       | Begin exp (exp list)
+      | Set mlstring exp
 End
 
 val _ = export_theory();
