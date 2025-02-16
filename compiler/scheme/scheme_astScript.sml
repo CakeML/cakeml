@@ -23,11 +23,11 @@ Datatype:
       | Val ((*exp*) val)
       | Cond exp exp exp
       | Ident mlstring
-      (*| SLet ((mlstring # exp) list) exp*)
       | Lambda (mlstring list) (mlstring option) exp
       | Exception mlstring
       | Begin exp (exp list)
       | Set mlstring exp
+      | Letrec ((mlstring # exp) list) exp
 End
 
 val _ = export_theory();
