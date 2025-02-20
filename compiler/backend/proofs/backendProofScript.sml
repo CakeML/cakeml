@@ -1365,8 +1365,6 @@ Theorem accum_lab_conf_labels:
     SND ∘ cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
     (λps. ps.lab_prog)) (COUNT_LIST i)))
 Proof
-  cheat
-  (*
   disch_tac \\ Induct_on `i`
   \\ simp [cake_configs_def, state_orac_states_def, COUNT_LIST_SNOC]
   \\ simp [MAP_SNOC, LIST_TO_SET_SNOC, GSYM cake_configs_def]
@@ -1380,17 +1378,23 @@ Proof
   )
   \\ simp []
   \\ drule_then (fn t => fs [t]) cake_orac_config_eqs
-  \\ fs[lab_to_targetTheory.compile_def]
+  \\ fs[lab_to_targetTheory.compile_inc_def,lab_to_targetTheory.compile_lab_inc_def]
   \\ old_drule (Q.GENL [`cfg`, `code`] lab_labels_ok_oracle)
   \\ simp [PAIR_FST_SND_EQ]
   \\ disch_tac
-  \\ drule_then assume_tac compile_lab_domain_labels
-  \\ simp []
-  \\ rw [] \\ TRY (drule_then irule SUBSET_TRANS \\ simp [SUBSET_DEF])
+  \\ pairarg_tac \\ fs[]
+  \\ drule_then assume_tac $ GEN_ALL compile_lab_domain_labels
+  \\ simp [] \\ gvs[]
+  \\ simp [lab_to_targetTheory.config_to_inc_config_def]
+  \\ rw []
+  \\ TRY (drule_then irule SUBSET_TRANS \\ simp [SUBSET_DEF])
   \\ drule stack_labels_ok_FST_code_labels_Section_num
-  \\ simp [cake_orac_def, config_tuple2_def, compile_inc_progs_defs]
+  \\ simp [cake_orac_def, config_tuple2_def, compile_inc_progs_defs,lab_to_targetTheory.inc_config_to_config_def]
   \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
-  \\ simp [SUBSET_DEF] *)
+  \\ TRY (drule_then irule SUBSET_TRANS \\ simp [SUBSET_DEF])
+  \\ rpt disch_tac \\ fs[]
+  \\ TRY (drule_then irule SUBSET_TRANS \\ simp [SUBSET_DEF])
+  \\ simp [SUBSET_DEF]
 QED
 
 Theorem MAP_Section_num_stack_to_lab_SUBSET:
