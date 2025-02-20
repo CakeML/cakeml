@@ -161,6 +161,11 @@ Proof
    strip_tac >> fs [var_cexp_def] >>
    fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
    rveq >> fs [mem_load_def])
+  >- (
+   rpt gen_tac >>
+   strip_tac >> fs [var_cexp_def] >>
+   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [mem_load_def])
   >- fs [var_cexp_def, eval_def, CaseEq "option"]
   >- (
    rpt gen_tac >>
@@ -202,6 +207,11 @@ Proof
    fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
    rveq >> fs [mem_load_def]
    )
+  >- (
+   rpt gen_tac >>
+   strip_tac >> fs [var_cexp_def] >>
+   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [mem_load_def])
   >- (
    rpt gen_tac >>
    strip_tac >> fs [var_cexp_def] >>
@@ -655,6 +665,11 @@ Proof
   >- fs [eval_def]
   >- fs [eval_def]
   >- fs [eval_def]
+  >- (
+   rpt gen_tac >>
+   strip_tac >> fs [exps_def] >>
+   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [mem_load_def] >> rveq >> metis_tac [])
   >- (
    rpt gen_tac >>
    strip_tac >> fs [exps_def] >>

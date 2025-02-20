@@ -814,6 +814,11 @@ Proof
    rveq >> fs [mem_load_def])
   >- (
    rpt gen_tac >>
+   strip_tac >> fs [var_exp_def] >>
+   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [mem_load_def])
+  >- (
+   rpt gen_tac >>
    strip_tac >> fs [var_exp_def, ETA_AX] >>
    fs [eval_def, CaseEq "option", ETA_AX] >>
    qexists_tac ‘ws’ >>
