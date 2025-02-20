@@ -2416,136 +2416,21 @@ Proof
   >- (namedCases_on ‘x’ ["a'' b''"] >> gvs[] >> rpt (pairarg_tac >> gvs[]))
 QED
 
-(* -- need some assumptions that may not be true at different stages,
-   going to add a conjunct in the icompile definition
-Theorem icompile_empty_prog:
-  ic.source_iconf.init_vidx > 0 ∧
-  ic.source_iconf.next.vidx = 0 ∧
-  ic.clos_iconf.known_g = LN ∧
-  ic.clos_iconf.clos_call_g = LN ⇒
-  icompile ic asm_conf [] = SOME (ic, [])
-Proof
-  rw[icompile_def,
-     icompile_source_to_flat_def,
-     source_to_sourceTheory.compile_def,
-     source_letTheory.compile_decs_def,
-     source_to_flatTheory.compile_decs_def,
-     icompile_flat_to_clos_def,
-     flat_to_closTheory.compile_decs_def,
-     icompile_clos_to_bvl_alt_def,
-     icompile_clos_to_bvl_common_def,
-     clos_numberTheory.renumber_code_locs_def,
-     clos_callTheory.calls_def,
-     clos_annotateTheory.compile_def,
-     clos_to_bvl_compile_prog_top_def,
-     icompile_bvl_to_bvi_def,
-     clos_fvsTheory.compile_def,
-     clos_fvsTheory.remove_fvs_def,
-     clos_knownTheory.known_def,
-     clos_ticksTheory.remove_ticks_def,
-     clos_letopTheory.let_op_def
-    ] >>
-  every_case_tac >> gvs[] >>
-  rw[clos_callTheory.calls_def,
-     clos_annotateTheory.compile_def,
-     clos_to_bvl_compile_prog_top_def,
-     icompile_bvl_to_bvi_def,
-     icompile_bvl_to_bvi_inline_def,
-     bvl_inlineTheory.compile_inc_def,
-     bvl_inlineTheory.tick_compile_prog_def,
-     bvl_inlineTheory.tick_inline_all_def,
-     icompile_bvl_to_bvi_prog_def,
-     bvl_to_bviTheory.compile_list_def,
-     bvi_tailrecTheory.compile_prog_def,
-     bvi_to_dataTheory.compile_prog_def,
-     icompile_data_to_word_def,
-     word_to_wordTheory.compile_def,
-     ZIP_def,
-     word_to_wordTheory.next_n_oracle_def,
-     icompile_word_to_stack_def,
-     word_to_stackTheory.compile_word_to_stack_def,
-     icompile_stack_to_lab_def,
-     extend_env_empty_env,
-     bvl_to_bviTheory.alloc_glob_count_def,
-     fetch "-" "iconfig_component_equality",
-     fetch "-" "source_iconfig_component_equality",
-     fetch "-" "clos_iconfig_component_equality",
-     fetch "-" "bvl_iconfig_component_equality",
-     fetch "-" "word_iconfig_component_equality"
-    ]
-QED
-*)
-
-(*
-Theorem fold_icompile_collapse:
-  ∀pss ic asm_conf.
-    ic.word_to_word_conf.col_oracle = []
-    ∧
-    pss ≠ []
-    ⇒
-    fold_icompile ic asm_conf pss =
-    icompile ic asm_conf (FLAT pss)
-Proof
-  cheat >>
-  Induct >> rw[fold_icompile_def] >>
-
-  Cases_on ‘icompile ic asm_conf h’
-  >- (simp[] >>
-      drule icompile_none >> rw[])
-  >- (namedCases_on ‘x’ ["ic' p'"] >>
-      simp[] >>
-      ‘ic.word_to_word_conf.col_oracle = ic'.word_to_word_conf.col_oracle’
-        by (qpat_x_assum ‘icompile ic asm_conf h = SOME (ic', p')’ mp_tac >>
-            rw[icompile_def] >>
-            Cases_on ‘icompile_source_to_flat ic.source_iconf (compile h)’ >>
-            gvs[] >> every_case_tac >> rpt (pairarg_tac >> gvs[])) >>
-      Cases_on ‘icompile ic' asm_conf (FLAT pss)’
-      >- (rev_drule icompile_none1 >>
-          disch_then drule >>
-          strip_tac >> gvs[])
-      >- (namedCases_on ‘x’ ["ic'' p''"] >> drule_all icompile_icompile >> gvs[]))
-QED
-
-Theorem icompile_eq:
-  init_icompile (asm_conf: 'a asm_config) (c: inc_config) = (ic, lab_init)
-  ∧
-  fold_icompile ic asm_conf p = SOME (ic', icompiled_p_lab)
-  ∧
-  end_icompile asm_conf ic' c = (c_after_ic, bm_after_ic, lab_end)
-  ∧
-  compile_alt asm_conf c (FLAT p) = (c_after_c, bm_after_c, compiled_p)
-  ∧
-  conf_ok c
-  ⇒
-  config_prog_rel_top c_after_ic c_after_c
-                      (lab_init ++ icompiled_p_lab ++ lab_end) compiled_p
-                      bm_after_ic bm_after_c
-Proof
-  cheat>>
-  rpt strip_tac >>
-  ‘ic.word_to_word_conf.col_oracle = []’
-    by (fs[init_icompile_def, conf_ok_def, word_conf_ok_def] >>
-        rpt (pairarg_tac >> gvs[])) >>
-  drule fold_icompile_collapse >> strip_tac >>
-  ‘icompile ic asm_conf (FLAT p) = SOME (ic', icompiled_p_lab)’ by gvs[] >>
-  drule_all init_icompile_icompile_end_icompile >> simp[]
-QED
-*)
-
-
 Theorem fold_icompile_cake_collapse:
   ∀ic asm_conf pss oracs p.
+  pss ≠ [] ∧
   fold_icompile_cake ic asm_conf pss oracs = SOME (ic',p) ⇒
   icompile_cake ic asm_conf (FLAT pss) (FLAT oracs) = SOME (ic',p)
 Proof
-  ho_match_mp_tac fold_icompile_cake_ind >> rw[fold_icompile_cake_def]
-  >- (cheat)
-  >- (Cases_on ‘icompile_cake ic asm_conf p orac’ >> gvs[] >>
-      Cases_on ‘x’ >> gvs[] >>
-      Cases_on ‘fold_icompile_cake q asm_conf pss oracs’ >>  gvs[] >>
-      Cases_on ‘x’ >> gvs[] >>
-      drule icompile_icompile_cake >> disch_then rev_drule
-      >> rw[])
+  ho_match_mp_tac fold_icompile_cake_ind >> rw[fold_icompile_cake_def]>>
+  gvs[AllCaseEqs()]>>
+  Cases_on`pss`
+  >-
+    (Cases_on`oracs`>>gvs[fold_icompile_cake_def])>>
+  Cases_on`oracs`>>gvs[fold_icompile_cake_def,AllCaseEqs()]>>
+  qpat_x_assum` _ h _ = _` kall_tac>>
+  drule_all icompile_icompile_cake>>
+  simp[]
 QED
 
 Theorem icompile_eq_cake:
@@ -2556,6 +2441,8 @@ Theorem icompile_eq_cake:
   ∧
   end_icompile_cake asm_conf ic' c end_orac = SOME (c_after_ic, bm_after_ic, lab_end)
   ∧
+  p ≠ []
+  ∧
   conf_ok c
   ⇒
   let word_to_word_conf = c.inc_word_to_word_conf with col_oracle := init_orac ++ (FLAT ic_orac) ++ end_orac in
@@ -2564,7 +2451,7 @@ Theorem icompile_eq_cake:
   compile_cake_alt asm_conf c' (FLAT p) = SOME (c_after_ic, bm_after_ic, compiled_p)
 Proof
   rw[]>>
-  drule fold_icompile_cake_collapse>>
+  drule_all fold_icompile_cake_collapse>>
   rw[]>>
   drule_all init_icompile_icompile_end_icompile_cake>>
   rw[]
@@ -2875,7 +2762,5 @@ Proof
   once_rewrite_tac[fold_icompile_source_to_livesets_collapse] >>
   metis_tac[init_icompile_icompile_end_icompile_s2lvs]
 QED
-
-
 
 val _ = export_theory();
