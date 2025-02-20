@@ -111,11 +111,11 @@ val c = x64_backend_config_def |> concl |> lhs;
 val x64_inc_conf = backendTheory.config_to_inc_config_def
                      |> ISPEC c |> CONV_RULE (RAND_CONV EVAL) |> rconc;
 val inc_source_conf_init_vidx = EVAL “^(x64_inc_conf).inc_source_conf with
-                                      <| init_vidx := 10000;
+                                      <| init_vidx := 100000;
                                          do_elim := F;
                                       |>” |> rconc;
 val inc_stack_conf_do_rawcall_f = EVAL “^(x64_inc_conf).inc_stack_conf with do_rawcall := F” |> rconc;
-val x64_inc_conf_def = (EVAL “^(x64_inc_conf) with
+val x64_inc_conf = (EVAL “^(x64_inc_conf) with
         <| inc_source_conf := ^(inc_source_conf_init_vidx);
            inc_stack_conf := ^(inc_stack_conf_do_rawcall_f) |>” |> rconc);
 
@@ -124,29 +124,41 @@ val res = (cv_trans_deep_embedding EVAL) basis_prog_def;
 val res = (cv_trans_deep_embedding EVAL) hello_prog_1_def;
 
 (* init phase *)
-val init_ls = time cv_eval_raw “FST (SND (init_icompile_source_to_livesets_x64 ^x64_inc_conf))” |> rconc;
+val init_ls = time cv_eval_raw “FST (init_icompile_source_to_livesets_x64 ^x64_inc_conf)” |> rconc;
+(*  # runtime: 3.8s,    gctime: 0.15335s,     systime: 0.04283s. *)
+
 val init_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc init_ls;
 val init_oracs_def = define_abbrev "init_oracs" init_oracs;
 val res = (cv_trans_deep_embedding EVAL) init_oracs_def;
 
 val init_comp = time cv_eval “init_icompile_cake_x64 ^x64_inc_conf init_oracs”;
+(* # runtime: 19.9s,    gctime: 1.2s,     systime: 0.35453s. *)
 val init_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc init_comp)));
+
 
 (* TRY embedding below *)
 (* icompile phase *)
 
-(* prog1 *)
-val prog1_ls = time cv_eval_raw “(9n,FST (SND (case (icompile_source_to_livesets_x64 ^init_ic ^prog1) of NONE => ARB | SOME v => v)))” |> UNDISCH |> rconc;
-val prog1_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc prog1_ls;
 
-val prog1_comp = time cv_eval “icompile_cake_x64 ^init_ic ^prog1 ^prog1_oracs”;
-val prog1_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc prog1_comp)));
+val basis_prog_ls = time cv_eval_raw “(9n,FST (case (icompile_source_to_livesets_x64 ^init_ic basis_prog) of NONE => ARB | SOME v => v))” |> UNDISCH |> rconc;
+(* > # runtime: 14.9s,    gctime: 0.20970s,     systime: 1.1s. *)
+val basis_prog_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc basis_prog_ls;
+val basis_prog_oracs_def = define_abbrev "basis_prog_oracs" basis_prog_oracs;
+val res = (cv_trans_deep_embedding EVAL) basis_prog_oracs_def;
 
-val prog2_ls = time cv_eval_raw “(9n,FST (SND (case (icompile_source_to_livesets_x64 ^prog1_ic ^prog2) of NONE => ARB | SOME v => v)))” |> UNDISCH |> rconc;
-val prog2_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc prog2_ls;
+val basis_prog_comp = time cv_eval “icompile_cake_x64 ^init_ic basis_prog basis_prog_oracs”;
+(* > # runtime: 1m55s,    gctime: 9.8s,     systime: 4.7s. *)
+val basis_prog_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc basis_prog_comp)));
 
-val prog2_comp = time cv_eval “icompile_cake_x64 ^prog1_ic ^prog2 ^prog2_oracs”;
-val prog2_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc prog2_comp)));
+val hello_prog_ls = time cv_eval_raw “(9n,FST (case (icompile_source_to_livesets_x64 ^basis_prog_ic hello_prog_1) of NONE => ARB | SOME v => v))” |> UNDISCH |> rconc;
+(* > # runtime: 3m32s,    gctime: 32.5s,     systime: 50.7s. *)
+val hello_prog_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc hello_prog_ls;
+val hello_prog_oracs_def = define_abbrev "hello_prog_oracs" hello_prog_oracs;
+val res = (cv_trans_deep_embedding EVAL) hello_prog_oracs_def;
+
+val hello_prog_comp = time cv_eval “icompile_cake_x64 ^basis_prog_ic hello_prog_1 hello_prog_oracs”;
+(* > # runtime: 3m53s,    gctime: 26.3s,     systime: 1m18s.*)
+val hello_prog_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc hello_prog_comp)));
 
 Theorem icompile_fold_icompile:
   ∀pss oracss ic ic' ic'' ps' p'.
@@ -162,22 +174,28 @@ Proof
       last_x_assum drule)
 QED
 
-val prog1_comp' = prog1_comp |> REWRITE_RULE [GSYM icompile_cake_x64_th];
-val prog2_comp' = prog2_comp |> REWRITE_RULE [GSYM icompile_cake_x64_th];
+val basis_prog_comp' = basis_prog_comp |> REWRITE_RULE [GSYM icompile_cake_x64_th];
+val hello_prog_comp' = hello_prog_comp |> REWRITE_RULE [GSYM icompile_cake_x64_th];
 
-val prog1_fold = MATCH_MP (icompile_fold_icompile |> REWRITE_RULE [GSYM AND_IMP_INTRO])
-                          (cj 1 fold_icompile_cake_def |> ISPECL [“^init_ic”, “x64_config”])
-                   |> (fn th => MATCH_MP th prog1_comp') |> REWRITE_RULE [APPEND];
+val basis_prog_fold = MATCH_MP (icompile_fold_icompile |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+                               (cj 1 fold_icompile_cake_def |> ISPECL [“^init_ic”, “x64_config”])
+                        |> (fn th => MATCH_MP th basis_prog_comp') |> REWRITE_RULE [APPEND];
 
-val prog2_fold = MATCH_MP (icompile_fold_icompile |> REWRITE_RULE [GSYM AND_IMP_INTRO])
-                          (prog1_fold) |> (fn th => MATCH_MP th prog2_comp');
+val hello_prog_fold = MATCH_MP (icompile_fold_icompile |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+                          (basis_prog_fold) |> (fn th => MATCH_MP th hello_prog_comp');
 
 
 (* end phase *)
-val end_ls = time cv_eval_raw “(9n,FST (SND (end_icompile_source_to_livesets_x64 ^prog2_ic ^(x64_inc_conf))))” |> rconc;
+val end_ls = time cv_eval_raw “(9n,FST (end_icompile_source_to_livesets_x64 ^hello_prog_ic ^(x64_inc_conf)))” |> rconc;
+(* > # runtime: 3m25s,    gctime: 30.2s,     systime: 1m08s. *)
 val end_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc end_ls;
+val end_oracs_def = define_abbrev "end_oracs" end_oracs;
+val res = (cv_trans_deep_embedding EVAL) end_oracs_def;
 
-val end_comp = time cv_eval “end_icompile_cake_x64 ^prog2_ic ^(x64_inc_conf) ^end_oracs”;
+
+val end_comp = time cv_eval “end_icompile_cake_x64 ^hello_prog_ic ^(x64_inc_conf) end_oracs”;
+(*  # runtime: 4m30s,    gctime: 33.9s,     systime: 1m32s. *)
+
 
 
 (* setting up the proof *)
@@ -186,7 +204,7 @@ val th_fold = MATCH_MP
               (icompile_eq_cake |> REWRITE_RULE [GSYM AND_IMP_INTRO])
               (init_comp |> REWRITE_RULE[GSYM init_icompile_cake_x64_th])
                 |> (fn th =>
-                      MATCH_MP th (prog2_fold))
+                      MATCH_MP th (hello_prog_fold))
                 |> (fn th =>
                       MATCH_MP th (end_comp |> REWRITE_RULE[GSYM end_icompile_cake_x64_th]))
                 |> UNDISCH;
@@ -195,19 +213,27 @@ val h = hd (hyp th_fold);
 val conf_ok = EVAL h |> SIMP_RULE (bool_ss) [];
 val th_final_fold = PROVE_HYP conf_ok th_fold;
 
-val th_rw = th_final_fold |> PURE_REWRITE_RULE [LET_THM] |> CONV_RULE BETA_CONV |> CONV_RULE BETA_CONV |> CONV_RULE BETA_CONV;
+val th_rw = th_final_fold
+              |> PURE_REWRITE_RULE [LET_THM]
+              |> CONV_RULE BETA_CONV
+              |> CONV_RULE BETA_CONV
+              |> CONV_RULE BETA_CONV;
 
 val [inc_conf, bm, p] = pairSyntax.strip_pair (th_rw |> rconc |> optionSyntax.dest_some);
+val lab_prog_def = define_abbrev "lab_prog" p;
+val bm_def = define_abbrev "bm" bm;
 
 val res = (cv_trans_deep_embedding EVAL) lab_prog_def;
 val res = (cv_trans_deep_embedding EVAL) bm_def;
 
-val lab = time cv_eval ``from_lab_x64 ^inc_conf LN lab_prog bm``;
+val lab = time cv_eval ``from_lab_x64 ^inc_conf LN lab_prog bm`` ;
+val first_byte = optionSyntax.dest_some (lab |> rconc)
+              |> pairSyntax.dest_pair
+              |> #1
+              |> listSyntax.dest_list
+              |> #1 |> hd |> numSyntax.int_of_term |> chr; (* does not work *)
 
-  from_lab (asm_conf :'a asm_config) (c:inc_config) names p bm =
- 
-
-
-
+val f = TextIO.openOut "hello";
+val _ = TextIO.output1 (f, bytes);
 
 val _ = export_theory();
