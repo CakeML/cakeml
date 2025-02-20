@@ -8,8 +8,6 @@ open preamble flat_patternTheory
      pattern_semanticsTheory
 local open bagSimps induct_tweakLib in end
 
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
 val _ = new_theory "flat_patternProof"
 
 val _ = set_grammar_ancestry ["flat_pattern",
@@ -54,30 +52,21 @@ Proof
 QED
 
 (* decoding the encoded names *)
-
-Theorem sum_string_ords_eq:
-  sum_string_ords i s = SUM (MAP (\c. ORD c - 35) (DROP i s))
-Proof
-  measureInduct_on `(\i. LENGTH s - i) i`
-  \\ simp [Once sum_string_ords_def]
-  \\ rw [rich_listTheory.DROP_EL_CONS, listTheory.DROP_LENGTH_TOO_LONG]
-QED
-
 Theorem dec_enc:
-  !xs. dec_name_to_num (enc_num_to_name i xs) =
-  i + SUM (MAP (\c. ORD c - 35) xs)
+  !i. dec_name_to_num (enc_num_to_name i) = i
 Proof
-  measureInduct_on `I i`
-  \\ simp [Once enc_num_to_name_def]
-  \\ CASE_TAC \\ simp [dec_name_to_num_def, sum_string_ords_eq]
+  simp[dec_name_to_num_def,enc_num_to_name_def]
+  \\ recInduct num_to_base64_ind \\ rpt strip_tac
+  \\ simp [Once num_to_base64_def] \\ rw[]
+  \\ simp[base64_to_num_def] \\ fs[]
+  \\ intLib.ARITH_TAC
 QED
 
 Theorem enc_num_to_name_inj:
-  (enc_num_to_name i [] = enc_num_to_name j []) = (i = j)
+  (enc_num_to_name i = enc_num_to_name j) = (i = j)
 Proof
-  metis_tac [dec_enc |> Q.SPEC `[]` |> SIMP_RULE list_ss []]
+  metis_tac [dec_enc |> Q.SPEC `i` |> SIMP_RULE list_ss []]
 QED
-
 (* lists and lookups *)
 
 Theorem LIST_REL_ALOOKUP_OPTREL:
@@ -504,7 +493,7 @@ Proof
       \\ impl_tac \\ simp [pure_eval_to_def, evaluate_def, do_app_def]
       \\ drule_then irule ALOOKUP_rel_mono
       \\ simp []
-    )
+      )
     \\ rw []
     \\ fs [Q.ISPEC `Match m` EQ_SYM_EQ]
     \\ fs [PULL_EXISTS, pmatch_list_append_Match_exists]
@@ -521,12 +510,12 @@ Proof
       \\ res_tac
       \\ simp []
       \\ NO_TAC
-    )
+      )
     \\ TRY (
       fs [pat_bindings_def, pats_bindings_FLAT_MAP, EVERY_FLAT, EVERY_REVERSE]
       \\ fs [EVERY_EL, FORALL_PROD, UNCURRY, EL_MAP, MEM_EL]
       \\ NO_TAC
-    )
+      )
     \\ irule LIST_REL_APPEND_suff
     \\ conj_tac
     >- (
@@ -547,7 +536,7 @@ Proof
       \\ simp [MAPi_enumerate_MAP]
       \\ irule ALL_DISTINCT_MAP_INJ
       \\ simp [FORALL_PROD, ALL_DISTINCT_enumerate]
-    )
+      )
     (* prior env *)
     \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac LIST_REL_mono)
     \\ simp [FORALL_PROD]
@@ -582,7 +571,7 @@ Proof
     \\ qpat_assum ‘pmatch s p _ _ = Match _’ (irule_at Any) \\ simp []
     \\ first_assum (irule_at Any)
     \\ gs [miscTheory.opt_bind_def]
-    \\ ‘¬((λk. k < j) o dec_name_to_num) (enc_num_to_name (i + 1) "")’
+    \\ ‘¬((λk. k < j) o dec_name_to_num) (enc_num_to_name (i + 1))’
       by simp [dec_enc]
     \\ simp [ALOOKUP_rel_cons_false]
     \\ irule_at Any ALOOKUP_rel_cons \\ simp []
@@ -896,10 +885,10 @@ Proof
   \\ rfs []
   \\ imp_res_tac LIST_REL_LENGTH \\ fs []
   >- ( irule ALOOKUP_rel_cons \\ simp [] )
+  >- (TOP_CASE_TAC \\ fs[])
   >- (
     first_x_assum irule \\ gs []
-    \\ irule ALOOKUP_rel_cons \\ gs []
-  )
+    \\ irule ALOOKUP_rel_cons \\ gs [])
   >- (
     fs [store_lookup_def, bool_case_eq, option_case_eq]
     \\ every_case_tac \\ rfs []
@@ -1291,19 +1280,16 @@ Proof
   )
   >- (
     (* pattern alias *)
-    gs [CaseEq "match_result", PULL_EXISTS, flatSemTheory.pmatch_def]
-    >- (
-      Cases_on ‘pmatch s p y ((i,y)::bindings)’ \\ gs []
-      \\ first_x_assum (drule_then (qspec_then ‘((i,y)::bindings)’ mp_tac))
-      \\ simp [])
-    \\ ‘pmatch_list s (MAP FST mats) ys ((i,y)::bindings) ≠ Match_type_error’
-      by (strip_tac
-          \\ drule_then assume_tac (CONJUNCT2 pmatch_any_match_error)
-          \\ gs [])
-    \\ first_x_assum (drule_then (qspec_then ‘((i,y)::bindings)’ mp_tac))
-    \\ rw [] \\ AP_TERM_TAC
-    \\ metis_tac [pmatch_any_match, pmatch_any_match_error, pmatch_any_no_match]
-  )
+    LAST_X_ASSUM (qspecl_then [`(y::ys)`,‘((i,y)::bindings)’] mp_tac) \\ fs[] \\
+    impl_tac >-
+    (fs[flatSemTheory.pmatch_def] \\
+    gvs[AllCaseEqs()] >>
+    METIS_TAC $ CONJUNCTS pmatch_any_match_error) \\
+    disch_tac \\ gvs[] \\
+    AP_TERM_TAC \\ fs[] \\
+    fs[flatSemTheory.pmatch_def] \\
+    EVERY_CASE_TAC \\ fs[] \\
+    METIS_TAC [match_result_distinct,pmatch_any_match_error])
   >- (
     (* cons with tag *)
     Cases_on `y` \\ fs [flatSemTheory.pmatch_def]
@@ -1474,12 +1460,12 @@ QED
 
 Theorem evaluate_compile_pat_rhs:
   evaluate (env3 with v updated_by f) s
-    [compile_pat_rhs tr N (Var_local tr (enc_num_to_name N ""))
+    [compile_pat_rhs tr N (Var_local tr (enc_num_to_name N))
     (p, exp)] = (t, res) /\
   pmatch s p v [] = Match bindings /\
   env_rel M env1 env2 /\
   nv_rel M l_bindings bindings /\
-  f env3.v = (enc_num_to_name N "", v) :: env2.v /\
+  f env3.v = (enc_num_to_name N , v) :: env2.v /\
   N <= M /\
   max_dec_name (pat_bindings p []) < N - 1
   ==>
