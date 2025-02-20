@@ -243,7 +243,7 @@ val th1 = th |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair)
 fun abbrev_inside name path th = let
     val tm = dest_path path (concl th)
     val def = define_abbrev name tm
-                                 in (def, CONV_RULE (PATH_CONV path (REWR_CONV (SYM def))) th) end;
+            in (def, CONV_RULE (PATH_CONV path (REWR_CONV (SYM def))) th) end;
 
 val (code_def,th) = abbrev_inside "code" "rrlr" th1;
 val (data_def,th) = abbrev_inside "data" "rrrrlr" th
