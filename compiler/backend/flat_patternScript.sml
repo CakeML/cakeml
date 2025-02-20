@@ -24,23 +24,53 @@ Definition init_config_def:
   init_config ph = <| pat_heuristic := ph |>
 End
 
-Definition sum_string_ords_def:
-  sum_string_ords i str = if i < LENGTH str
-    then (ORD (EL i str) - 35) + sum_string_ords (i + 1) str
-    else 0
+Definition base64_to_num_def:
+  base64_to_num [] = 0 /\
+  base64_to_num (x :: xs) =
+  ((
+    let char = (ORD x) in
+    if ORD(#"0") <= char /\ char <= ORD(#"9") then
+        char - ORD (#"0") + 52
+    else if (ORD(#"A") <= char /\ char  <= ORD (#"Z")) then
+        char - ORD (#"A")
+    else if (ORD(#"a") <= char /\ char <= ORD(#"z")) then
+        char - ORD (#"a") + 26
+    else if x =#"+" then
+        62n
+    else if x =#"/" then
+        63n
+    else 0n)
+  + 64n * base64_to_num xs)
+End
+
+Definition num_to_base64_def:
+  num_to_base64 i = (
+  let char = i MOD 64n in
+  if char <= 25 then
+  CHR (char + ORD (#"A"))
+  else if char <= 51 then
+  CHR (char + ORD (#"a") - 26)
+  else if char <= 61 then
+  CHR (char + ORD (#"0") - 52)
+  else if char = 62 then
+  (#"+")
+  else (#"/")):: (
+  let div = (i DIV 64n) in
+  (if div = 0 then [] else num_to_base64 div))
 Termination
-  WF_REL_TAC `measure (\(i, str). LENGTH str - i)`
+ WF_REL_TAC `measure (\i. i)` \\
+ intLib.ARITH_TAC
 End
 
 Definition dec_name_to_num_def:
   dec_name_to_num name = if LENGTH name < 2 then 0
     else if EL 0 name = #"." /\ EL 1 name = #"."
-    then sum_string_ords 2 name else 0
+    then base64_to_num (TL (TL name)) else 0
 End
 
+
 Definition enc_num_to_name_def:
-  enc_num_to_name i xs = if i < 90 then #"." :: #"." :: CHR (i + 35) :: xs
-    else enc_num_to_name (i - 90) (CHR 125 :: xs)
+  enc_num_to_name i =  #"." :: #"." :: num_to_base64 i
 End
 
 Theorem pat1_size:
@@ -66,7 +96,7 @@ Definition compile_pat_bindings_def:
     compile_pat_bindings t i m exp /\
   compile_pat_bindings t i ((Pcon _ ps, k, x) :: m) exp = (
     let j_nms = MAP (\(j, p). let k = i + 1 + j in
-        let nm = enc_num_to_name k [] in
+        let nm = enc_num_to_name k in
         ((j, nm), (p, k, Var_local t nm))) (enumerate 0 ps) in
     let (spt, exp2) = compile_pat_bindings t (i + 2 + LENGTH ps)
         (MAP SND j_nms ++ m) exp in
@@ -76,13 +106,13 @@ Definition compile_pat_bindings_def:
     let spt2 = if NULL j_nms_used then spt else insert k () spt in
     (spt2, exp3)) /\
   compile_pat_bindings t i ((Pas p v, k, x) :: m) exp = (
-    let nm = enc_num_to_name (i + 1) [] in
+    let nm = enc_num_to_name (i + 1) in
     let (spt, exp2) = compile_pat_bindings t (i + 2)
                       ((p, i + 1, Var_local t nm) :: m) exp in
     (insert k () spt, Let t (SOME v) x
                             (Let t (SOME nm) (Var_local t v) exp2))) /\
   compile_pat_bindings t i ((Pref p, k, x) :: m) exp = (
-    let nm = enc_num_to_name (i + 1) [] in
+    let nm = enc_num_to_name (i + 1) in
     let (spt, exp2) = compile_pat_bindings t (i + 2)
         ((p, i + 1, Var_local t nm) :: m) exp in
     (insert k () spt, Let t (SOME nm) (App t (El 0) [x]) exp2))
@@ -241,7 +271,7 @@ Definition compile_exp_def:
     let (i, sgx, y) = compile_exp cfg x in
     let (j, sgp, ps2) = compile_match cfg ps in
     let k = MAX i j + 2 in
-    let nm = enc_num_to_name k [] in
+    let nm = enc_num_to_name k in
     let v = Var_local t nm in
     let r = Raise t v in
     let exp = compile_pats cfg sgp t k v r ps2 in
@@ -259,7 +289,7 @@ Definition compile_exp_def:
     let (i, sgx, y) = compile_exp cfg x in
     let (j, sgp, ps2) = compile_match cfg ps in
     let k = MAX i j + 2 in
-    let nm = enc_num_to_name k [] in
+    let nm = enc_num_to_name k in
     let v = Var_local t nm in
     let r = Raise t (Con t (SOME (bind_tag, NONE)) []) in
     let exp = compile_pats cfg sgp t k v r ps2 in
