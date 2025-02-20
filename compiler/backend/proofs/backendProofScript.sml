@@ -1719,8 +1719,6 @@ Theorem monotonic_labels_stack_to_lab:
     (cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. ps.lab_prog))
 Proof
-  cheat
-  (*
   disch_tac
   \\ match_mp_tac oracle_monotonic_subset
   \\ conj_tac >- (
@@ -1731,9 +1729,11 @@ Proof
     \\ drule_then strip_assume_tac attach_bitmaps_SOME
     \\ simp [to_stack_def, to_word_def, to_data_def, to_bvi_def, to_bvl_def,
         to_clos_def, to_flat_def, to_lab_def]
-    \\ fs[lab_to_targetTheory.compile_def]
+    \\ fs[lab_to_targetTheory.compile_inc_def,lab_to_targetTheory.compile_lab_inc_def]
+    \\ rpt (pairarg_tac \\ fs [])
     \\ drule compile_lab_domain_labels
     \\ `domain c.lab_conf.inc_labels = {}` by fs [backend_config_ok_def]
+    \\ fs [lab_to_targetTheory.config_to_inc_config_def,lab_to_targetTheory.inc_config_to_config_def]
     \\ rw []
     \\ simp [stack_labels_ok_FST_code_labels_Section_num]
     \\ irule MAP_Section_num_stack_to_lab_SUBSET
@@ -1744,7 +1744,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ simp [stack_to_labTheory.compile_no_stubs_def, MAP_prog_to_section_Section_num,
-    MAP_MAP_o, o_DEF, Q.ISPEC `FST` ETA_THM] *)
+    MAP_MAP_o, o_DEF, Q.ISPEC `FST` ETA_THM]
 QED
 
 Theorem monotonic_labels_bvi_down_to_stack:
@@ -1759,8 +1759,6 @@ Theorem monotonic_labels_bvi_down_to_stack:
     (cake_orac asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. (ps.stack_prog,ps.cur_bm)))
 Proof
-  cheat
-  (*
   disch_tac
   \\ match_mp_tac oracle_monotonic_subset
   \\ fs []
@@ -1770,8 +1768,8 @@ Proof
     \\ disch_tac
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
-    \\ rename [`compile c2.lab_conf.asm_conf word_p = _`]
-    \\ qspecl_then [`word_p`, `c2.lab_conf.asm_conf`] mp_tac
+    \\ rename [`compile asm_conf word_p = _`]
+    \\ qspecl_then [`word_p`, `asm_conf`] mp_tac
         (GEN_ALL word_to_stack_compile_lab_pres)
     \\ simp [EVAL ``raise_stub_location < SUC data_num_stubs``]
     \\ simp [EVAL ``store_consts_stub_location < SUC data_num_stubs``]
@@ -1793,7 +1791,7 @@ Proof
   \\ drule_then assume_tac MAP_FST_compile_word_to_stack
   \\ fs [REWRITE_RULE [o_DEF] MAP_MAP_o,
         word_to_wordTheory.full_compile_single_def, UNCURRY,
-        Q.ISPEC `FST` ETA_THM] *)
+        Q.ISPEC `FST` ETA_THM]
 QED
 
 Theorem monotonic_labels_bvl_to_bvi:
