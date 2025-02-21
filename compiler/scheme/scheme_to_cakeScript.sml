@@ -3,7 +3,7 @@
 *)
 open preamble;
 open astTheory;
-open scheme_astTheory
+open scheme_astTheory;
 
 open semanticPrimitivesTheory;
 open namespaceTheory;

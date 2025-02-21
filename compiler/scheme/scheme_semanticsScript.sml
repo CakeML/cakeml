@@ -119,8 +119,8 @@ Definition steps_def:
 End
 
 (*
-  EVAL “semantics (Val (SNum 3))”
-  EVAL “semantics (Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”
+  open scheme_semanticsTheory;
+
   EVAL “steps 4 ([], [], Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”
   EVAL “steps 4 ([], [], Apply (Val (SNum 7)) [Val (SNum 2); Val (SNum 4)])”
   EVAL “steps 6 ([], [InLetK []], Apply (Val (Prim SMul)) [Val (SNum 2); Val (Prim SAdd)])”
@@ -226,6 +226,24 @@ End
         ]
       )]
     ]
+  )”
+
+  EVAL “steps 102 ([], [], FEMPTY,
+    Letrec [
+      (strlit $ "double", Val $ SNum 0);
+      (strlit $ "x", Val $ SNum 1)
+    ] (Begin (
+      Apply (Val $ Prim CallCC) [ Lambda [strlit "x"] NONE (
+        Set (strlit "double") (Ident $ strlit "x")
+      )]
+    ) [
+      Set (strlit "x") (Apply (Val $ Prim SMul) [
+        Val $ SNum 2;
+        Ident $ strlit "x"
+      ]);
+      Apply (Ident $ strlit "double") [Val $ SNum 0]
+    ])
+  )”
 *)
 
 val _ = export_theory();
