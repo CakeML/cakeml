@@ -7,6 +7,7 @@ open preamble ibackendTheory
      to_data_cvTheory
      backend_64_cvTheory
      backend_x64_cvTheory
+     cv_repLib
      cv_transLib
      x64_configTheory
      x64_targetTheory;
@@ -101,6 +102,15 @@ fun define_abbrev name tm =
   Feedback.trace ("Theory.allow_rebinds", 1)
     (mk_abbrev name) tm;
 
+val to_option_some = cv_typeTheory.to_option_def |> cj 2;
+val to_pair = cv_typeTheory.to_pair_def |> cj 1;
+val c2n_Num = cvTheory.c2n_def |> cj 1;
+
+fun abbrev_inside name path th = let
+    val tm = dest_path path (concl th)
+    val def = define_abbrev name tm
+            in (def, CONV_RULE (PATH_CONV path (REWR_CONV (SYM def))) th) end;
+
 (* basic setup for testing *)
 val prog = hello_prog_def |> rconc;
 val basis_prog_def = define_abbrev "basis_prog" (EVAL``TAKE 93 hello_prog`` |> rconc);
@@ -133,16 +143,30 @@ val res = (cv_trans_deep_embedding EVAL) init_oracs_def;
 
 val init_comp = time cv_eval_raw “init_icompile_cake_x64 ^x64_inc_conf init_oracs”;
 (* # runtime: 19.9s,    gctime: 1.2s,     systime: 0.35453s, for non raw *)
-val init_ic_raw_def = init_comp |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some))
-          |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair))
-          |> abbrev_inside "init_ic_raw" "rrlr" |> fst;
-val res = (cv_trans_deep_embedding EVAL) init_ic_raw_def; 
 
-val init_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc init_comp)));
-val init_ic_def = define_abbrev "init_ic" init_ic;
-val res = (cv_trans_deep_embedding EVAL) init_ic_def; 
+(* Remove SOME and pairing *)
+val init_comp2 = init_comp
+          |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some))
+          |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair));
 
-    
+val init_ic_raw_def =
+  init_comp2 |> abbrev_inside "init_ic_raw" "rrlr" |> fst;
+
+fun prove_iconfig_th def =
+  let
+    val tm = def |> concl |> rhs;
+    val cv_tm = tm |> rand;
+    val from = cv_typeLib.from_term_for ``:64 iconfig``;
+    val from_def = AP_TERM from def;
+  in
+    EVAL (mk_eq(rconc from_def,cv_tm)) |>
+        SIMP_RULE std_ss [cvTheory.b2c_def]
+  end;
+
+val init_ic_th = prove_iconfig_th init_ic_raw_def;
+
+val res = cv_trans_deep_embedding (fn tm => init_ic_th) init_ic_raw_def;
+
 (* basis *)
 val basis_prog_ls = time cv_eval_raw
                          “(9n,FST (case (icompile_source_to_livesets_x64 init_ic_raw basis_prog) of NONE => ARB | SOME v => v))”
@@ -153,23 +177,46 @@ val basis_prog_ls = time cv_eval_raw
 val basis_prog_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc basis_prog_ls;
 val basis_prog_oracs_def = define_abbrev "basis_prog_oracs" basis_prog_oracs;
 val res = (cv_trans_deep_embedding EVAL) basis_prog_oracs_def;
-val basis_prog_comp = time cv_eval “icompile_cake_x64 ^init_ic basis_prog basis_prog_oracs”;
+val basis_prog_comp = time cv_eval_raw “icompile_cake_x64 init_ic_raw basis_prog basis_prog_oracs”;
 (* > # runtime: 1m55s,    gctime: 9.8s,     systime: 4.7s. *)
-val basis_prog_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc basis_prog_comp)));
 
+(* Remove SOME and pairing *)
+val basis_prog_comp2 = basis_prog_comp
+          |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some))
+          |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair));
+
+val basis_prog_ic_raw_def =
+  basis_prog_comp2 |> abbrev_inside "basis_prog_ic_raw" "rrlr" |> fst;
+
+val basis_prog_ic_th = prove_iconfig_th basis_prog_ic_raw_def;
+
+val res = cv_trans_deep_embedding (fn tm => basis_prog_ic_th) basis_prog_ic_raw_def;
 
 (* hello prog *)
 val hello_prog_ls = time cv_eval_raw
-                         “(9n,FST (case (icompile_source_to_livesets_x64 ^basis_prog_ic hello_prog_1) of NONE => ARB | SOME v => v))”
+                         “(9n,FST (case (icompile_source_to_livesets_x64 basis_prog_ic_raw hello_prog_1) of NONE => ARB | SOME v => v))”
                       |> UNDISCH
                       |> rconc;
+
 (* > # runtime: 3m32s,    gctime: 32.5s,     systime: 50.7s. *)
 val hello_prog_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc hello_prog_ls;
 val hello_prog_oracs_def = define_abbrev "hello_prog_oracs" hello_prog_oracs;
 val res = (cv_trans_deep_embedding EVAL) hello_prog_oracs_def;
-val hello_prog_comp = time cv_eval “icompile_cake_x64 ^basis_prog_ic hello_prog_1 hello_prog_oracs”;
+val hello_prog_comp = time cv_eval_raw “icompile_cake_x64 basis_prog_ic_raw hello_prog_1 hello_prog_oracs”;
 (* > # runtime: 3m53s,    gctime: 26.3s,     systime: 1m18s.*)
-val hello_prog_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc hello_prog_comp)));
+
+(* Remove SOME and pairing *)
+val hello_prog_comp2 = hello_prog_comp
+          |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some))
+          |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair));
+
+val hello_prog_ic_raw_def =
+  hello_prog_comp2 |> abbrev_inside "hello_prog_ic_raw" "rrlr" |> fst;
+
+(* TODO: SLOW∃ *)
+val hello_prog_ic_th = prove_iconfig_th hello_prog_ic_raw_def;
+
+val res = cv_trans_deep_embedding (fn tm => hello_prog_ic_th) hello_prog_ic_raw_def;
 
 (* not using fold_icompile *)
 (*
@@ -233,10 +280,6 @@ val res = (cv_trans_deep_embedding EVAL) bm_def;
 
 val target_def = time cv_eval_raw ``from_lab_x64 ^inc_conf LN lab_prog bm`` ;
 
-val to_option_some = cv_typeTheory.to_option_def |> cj 2;
-val to_pair = cv_typeTheory.to_pair_def |> cj 1;
-val c2n_Num = cvTheory.c2n_def |> cj 1;
-
 val th = target_def |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some));
 val th1 = th |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair)
                                      THENC PATH_CONV "rrr" (REWR_CONV to_pair)
@@ -248,11 +291,6 @@ val th1 = th |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair)
                                      THENC PATH_CONV "rrrlr" (REWR_CONV c2n_Num)
                                      THENC PATH_CONV "rrrrrlr" (REWR_CONV c2n_Num)
                                      THENC PATH_CONV "rrrrrrrlr" (REWR_CONV c2n_Num))
-
-fun abbrev_inside name path th = let
-    val tm = dest_path path (concl th)
-    val def = define_abbrev name tm
-            in (def, CONV_RULE (PATH_CONV path (REWR_CONV (SYM def))) th) end;
 
 val (code_def,th) = abbrev_inside "code" "rrlr" th1;
 val (data_def,th) = abbrev_inside "data" "rrrrlr" th
