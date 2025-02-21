@@ -52,7 +52,7 @@ val _ = init_icompile_source_to_livesets_def |> asm_spec' |> cv_auto_trans;
 
 (* translating icompile *)
 
-val _ = icompile_word_to_stack_def |> asm_spec';
+val icompile_word_to_stack_asm = icompile_word_to_stack_def |> asm_spec';
 val _ = end_icompile_word_to_stack_def |> asm_spec';
 
 val (end_icompile_cake_x64_th,end_icompile_cake_x64_def) = end_icompile_cake_def |> asm_spec ;
@@ -61,7 +61,7 @@ val _ = end_icompile_cake_x64_def |> cv_auto_trans;
 val (icompile_cake_x64_th, icompile_cake_x64_def) = icompile_cake_def |> asm_spec;
 val _ = icompile_cake_x64_def |> cv_auto_trans;
 
-val _ = icompile_word_to_stack_def |> asm_spec' |> cv_auto_trans;
+val _ = icompile_word_to_stack_asm |> cv_auto_trans;
 
 Definition ic_w2s_mk_config_def:
   ic_w2s_mk_config k =
@@ -111,6 +111,8 @@ fun abbrev_inside name path th = let
     val def = define_abbrev name tm
             in (def, CONV_RULE (PATH_CONV path (REWR_CONV (SYM def))) th) end;
 
+Theorem b2c_compute[compute] = cvTheory.b2c_def;
+
 (* basic setup for testing *)
 val prog = hello_prog_def |> rconc;
 val basis_prog_def = define_abbrev "basis_prog" (EVAL``TAKE 93 hello_prog`` |> rconc);
@@ -152,20 +154,7 @@ val init_comp2 = init_comp
 val init_ic_raw_def =
   init_comp2 |> abbrev_inside "init_ic_raw" "rrlr" |> fst;
 
-fun prove_iconfig_th def =
-  let
-    val tm = def |> concl |> rhs;
-    val cv_tm = tm |> rand;
-    val from = cv_typeLib.from_term_for ``:64 iconfig``;
-    val from_def = AP_TERM from def;
-  in
-    EVAL (mk_eq(rconc from_def,cv_tm)) |>
-        SIMP_RULE std_ss [cvTheory.b2c_def]
-  end;
-
-val init_ic_th = prove_iconfig_th init_ic_raw_def;
-
-val res = cv_trans_deep_embedding (fn tm => init_ic_th) init_ic_raw_def;
+val res = time (cv_trans_deep_embedding EVAL) init_ic_raw_def;
 
 (* basis *)
 val basis_prog_ls = time cv_eval_raw
@@ -188,9 +177,7 @@ val basis_prog_comp2 = basis_prog_comp
 val basis_prog_ic_raw_def =
   basis_prog_comp2 |> abbrev_inside "basis_prog_ic_raw" "rrlr" |> fst;
 
-val basis_prog_ic_th = prove_iconfig_th basis_prog_ic_raw_def;
-
-val res = cv_trans_deep_embedding (fn tm => basis_prog_ic_th) basis_prog_ic_raw_def;
+val res = time (cv_trans_deep_embedding EVAL) basis_prog_ic_raw_def;
 
 (* hello prog *)
 val hello_prog_ls = time cv_eval_raw
@@ -213,10 +200,7 @@ val hello_prog_comp2 = hello_prog_comp
 val hello_prog_ic_raw_def =
   hello_prog_comp2 |> abbrev_inside "hello_prog_ic_raw" "rrlr" |> fst;
 
-(* TODO: SLOW∃ *)
-val hello_prog_ic_th = prove_iconfig_th hello_prog_ic_raw_def;
-
-val res = cv_trans_deep_embedding (fn tm => hello_prog_ic_th) hello_prog_ic_raw_def;
+val res = time (cv_trans_deep_embedding EVAL) hello_prog_ic_raw_def;
 
 (* not using fold_icompile *)
 (*
@@ -234,20 +218,27 @@ Proof
       last_x_assum drule)
 QED
 *)
-val basis_prog_comp' = basis_prog_comp |> REWRITE_RULE [GSYM icompile_cake_x64_th];
-val hello_prog_comp' = hello_prog_comp |> REWRITE_RULE [GSYM icompile_cake_x64_th];
+val basis_prog_comp' = basis_prog_comp2 |> REWRITE_RULE [GSYM icompile_cake_x64_th];
+val hello_prog_comp' = hello_prog_comp2 |> REWRITE_RULE [GSYM icompile_cake_x64_th];
 
 val basis_hello_prog_comp = MATCH_MP (icompile_icompile_cake |> REWRITE_RULE [GSYM AND_IMP_INTRO])
                                      basis_prog_comp'
-                              |> (fn th => MATCH_MP th hello_prog_comp');
+                            |> PURE_REWRITE_RULE [GSYM basis_prog_ic_raw_def]
+                            |> (fn th => MATCH_MP th hello_prog_comp');
 
 (* end phase *)
-val end_ls = time cv_eval_raw “(9n,FST (end_icompile_source_to_livesets_x64 ^hello_prog_ic ^(x64_inc_conf)))” |> rconc;
+val end_ls = time cv_eval_raw “(9n,FST (end_icompile_source_to_livesets_x64 hello_prog_ic_raw ^(x64_inc_conf)))” |> rconc;
 (* > # runtime: 3m25s,    gctime: 30.2s,     systime: 1m08s. *)
 val end_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc end_ls;
 val end_oracs_def = define_abbrev "end_oracs" end_oracs;
 val res = (cv_trans_deep_embedding EVAL) end_oracs_def;
-val end_comp = time cv_eval “end_icompile_cake_x64 ^hello_prog_ic ^(x64_inc_conf) end_oracs”;
+val end_comp = time cv_eval_raw “end_icompile_cake_x64 hello_prog_ic_raw ^(x64_inc_conf) end_oracs”;
+
+(* Remove SOME and pairing *)
+val end_comp2 = end_comp
+          |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some))
+          |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair))
+          |> CONV_RULE (PATH_CONV "rrr" (REWR_CONV to_pair));
 (*  # runtime: 4m30s,    gctime: 33.9s,     systime: 1m32s. *)
 
 
@@ -255,9 +246,11 @@ val end_comp = time cv_eval “end_icompile_cake_x64 ^hello_prog_ic ^(x64_inc_co
 (* setting up the proof *)
 
 val conf_ok_imp_icompile_eq_th = MATCH_MP (init_icompile_icompile_end_icompile_cake |> REWRITE_RULE [GSYM AND_IMP_INTRO])
-                                          (init_comp |> REWRITE_RULE[GSYM init_icompile_cake_x64_th])
-                                   |> (fn th => MATCH_MP th basis_hello_prog_comp)
-                                   |> (fn th => MATCH_MP th (end_comp |> REWRITE_RULE[GSYM end_icompile_cake_x64_th])) |> UNDISCH;
+                                          (init_comp2 |> REWRITE_RULE[GSYM init_icompile_cake_x64_th])
+                                 |> PURE_REWRITE_RULE [GSYM init_ic_raw_def]
+                                 |> (fn th => MATCH_MP th basis_hello_prog_comp)
+                                 |> PURE_REWRITE_RULE [GSYM hello_prog_ic_raw_def]
+                                 |> (fn th => MATCH_MP th (end_comp2 |> REWRITE_RULE[GSYM end_icompile_cake_x64_th])) |> UNDISCH;
 
 val conf_ok = hd (hyp conf_ok_imp_icompile_eq_th)
                 |> EVAL |> SIMP_RULE (bool_ss) [];
@@ -272,13 +265,15 @@ val icompile_eq_rw = icompile_eq_th
 
 val _ = Globals.max_print_depth := 1;
 val [inc_conf, bm, p] = pairSyntax.strip_pair (icompile_eq_rw |> rconc |> optionSyntax.dest_some);
+val inc_conf_def = define_abbrev "inc_conf" inc_conf;
 val lab_prog_def = define_abbrev "lab_prog" p;
 val bm_def = define_abbrev "bm" bm;
 
-val res = (cv_trans_deep_embedding EVAL) lab_prog_def;
-val res = (cv_trans_deep_embedding EVAL) bm_def;
+val res = time (cv_trans_deep_embedding EVAL) inc_conf_def;
+val res = time (cv_trans_deep_embedding EVAL) lab_prog_def;
+val res = time (cv_trans_deep_embedding EVAL) bm_def;
 
-val target_def = time cv_eval_raw ``from_lab_x64 ^inc_conf LN lab_prog bm`` ;
+val target_def = time cv_eval_raw ``from_lab_x64 inc_conf LN lab_prog bm`` ;
 
 val th = target_def |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some));
 val th1 = th |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair)
@@ -297,7 +292,6 @@ val (data_def,th) = abbrev_inside "data" "rrrrlr" th
 val (ffis_def,th) = abbrev_inside "ffis" "rrrrrrlr" th
 val (syms_def,th) = abbrev_inside "syms" "rrrrrrrrlr" th
 val (conf_def,th) = abbrev_inside "conf" "rrrrrrrrr" th
-
 
 val e = backend_x64_cvTheory.cv_x64_export_def |> concl |> strip_forall |> snd |> lhs;
 val cv_ty = cvSyntax.cv;
@@ -339,9 +333,8 @@ fun write_cv_char_list_to_file filename cv_char_list_tm = let
   in TextIO.closeOut f end;
 
 
-val _ = write_cv_char_list_to_file "hello_prog_ic" l;
-val _ = case output_conf_filename of NONE => ()
-                                  | SOME fname => write_cv_char_list_to_file fname
-                            (conf_def |> concl |> rhs |> rand);
+val _ = write_cv_char_list_to_file "hello_prog_ic.S" l;
+
+val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = export_theory();
