@@ -80,9 +80,7 @@ Definition return_def:
   return vcons _ (store, (env, BeginK es) :: ks, _, v) = (case es of
   | [] => (store, ks, env, vcons v)
   | e::es' => (store, (env, BeginK es') :: ks, env, e)) ∧
-  return vcons excons (store, (env, SetK x) :: ks, _, v) = (case FLOOKUP env x of
-  | NONE => (store, ks, env, excons $ strlit "Unrecognised identifier")
-  | SOME n => (LUPDATE (SOME v) n store, ks, env, vcons $ Wrong "Unspecified"))
+  return vcons excons (store, (env, SetK x) :: ks, _, v) = (LUPDATE (SOME v) (env ' x) store, ks, env, vcons $ Wrong "Unspecified")
 End
 
 Definition unwind_def:
@@ -100,13 +98,10 @@ Definition step_def:
   step (store, ks, env, Val v) = return Val Exception (store, ks, env, v) ∧
   step (store, ks, env, Apply fn args) = (store, (env, ApplyK NONE args) :: ks, env, fn) ∧
   step (store, ks, env, Cond c t f) = (store, (env, CondK t f) :: ks, env, c) ∧
-  step (store, ks, env, Ident s) = (let e = case FLOOKUP env s of
-    (*There is a chance that this should be unreachable, because
-    of static scoping determined by the parser*)
-    | NONE => Exception $ strlit "Unrecognised identifier"
-    | SOME n => case EL n store of
-      | NONE => Exception $ strlit "letrec variable touched"
-      | SOME v => Val v
+  (*This is undefined if the program doesn't typecheck*)
+  step (store, ks, env, Ident s) = (let e = case EL (env ' s) store of
+    | NONE => Exception $ strlit "letrec variable touched"
+    | SOME v => Val v
     in (store, ks, env, e)) ∧
   step (store, ks, env, Lambda ps lp e) = (store, ks, env, Val $ Proc env ps lp e) ∧
   step (store, ks, env, Begin e es) = (store, (env, BeginK es) :: ks, env, e) ∧
@@ -214,7 +209,7 @@ End
       ))
     ] (Apply (Ident $ strlit "to") [Val $ SNum 0])
   )”
-  
+
   EVAL “steps 3 ([], [], FEMPTY,
     Letrec [(strlit $ "fail", Ident $ strlit "fail")] (Val $ SBool F)
   )”
