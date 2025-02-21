@@ -131,15 +131,24 @@ val init_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc init_ls;
 val init_oracs_def = define_abbrev "init_oracs" init_oracs;
 val res = (cv_trans_deep_embedding EVAL) init_oracs_def;
 
-val init_comp = time cv_eval “init_icompile_cake_x64 ^x64_inc_conf init_oracs”;
-(* # runtime: 19.9s,    gctime: 1.2s,     systime: 0.35453s. *)
-val init_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc init_comp)));
+val init_comp = time cv_eval_raw “init_icompile_cake_x64 ^x64_inc_conf init_oracs”;
+(* # runtime: 19.9s,    gctime: 1.2s,     systime: 0.35453s, for non raw *)
+val init_ic_raw_def = init_comp |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some))
+          |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair))
+          |> abbrev_inside "init_ic_raw" "rrlr" |> fst;
+val res = (cv_trans_deep_embedding EVAL) init_ic_raw_def; 
 
+val init_ic = #1 (pairSyntax.dest_pair (optionSyntax.dest_some (rconc init_comp)));
+val init_ic_def = define_abbrev "init_ic" init_ic;
+val res = (cv_trans_deep_embedding EVAL) init_ic_def; 
+
+    
 (* basis *)
 val basis_prog_ls = time cv_eval_raw
-                         “(9n,FST (case (icompile_source_to_livesets_x64 ^init_ic basis_prog) of NONE => ARB | SOME v => v))”
+                         “(9n,FST (case (icompile_source_to_livesets_x64 init_ic_raw basis_prog) of NONE => ARB | SOME v => v))”
                       |> UNDISCH
                       |> rconc;
+
 (* > # runtime: 14.9s,    gctime: 0.20970s,     systime: 1.1s. *)
 val basis_prog_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc basis_prog_ls;
 val basis_prog_oracs_def = define_abbrev "basis_prog_oracs" basis_prog_oracs;
