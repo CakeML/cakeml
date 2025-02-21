@@ -35,14 +35,14 @@ End
 *)
 
 Definition fresh_loc_def:
-  fresh_loc store l = (LENGTH store, SNOC l store)
+  fresh_loc store ov = (LENGTH store, SNOC ov store)
 End
 
 Definition parameterize_def:
   parameterize _ store ks env [] NONE e [] = (store, ks, env, e) ∧
-  parameterize _ store ks env [] (SOME l) e xs = (let (n, store') = fresh_loc store (SList xs)
+  parameterize _ store ks env [] (SOME l) e xs = (let (n, store') = fresh_loc store (SOME $ SList xs)
     in (store', ks, (env |+ (l, n)), e)) ∧
-  parameterize excons store ks env (p::ps) lp e (x::xs) = (let (n, store') = fresh_loc store x
+  parameterize excons store ks env (p::ps) lp e (x::xs) = (let (n, store') = fresh_loc store (SOME x)
     in parameterize excons store' ks (env |+ (p, n)) ps lp e xs) ∧
   parameterize excons store ks _ _ _ _ _ = (store, ks, FEMPTY, excons $ strlit "Wrong number of arguments")
 End
@@ -75,14 +75,10 @@ Definition return_def:
   return _ _ (store, (env, CondK t f) :: ks, _, v) = (if v = (SBool F)
     then (store, ks, env, f) else (store, ks, env, t)) ∧
 
-  (*return _ _ (store, LetK store' i is e :: ks, v) = (case is of
-  | [] => ((i, v)::store', InLetK store :: ks, e)
-  | (i', e')::is' => (store, LetK ((i, v)::store') i' is' e :: ks, e')) ∧
-
-  return vcons _ (store, InLetK store' :: ks, v) = (store', ks, vcons v) ∧*)
-  return vcons _ (store, (env, BeginK es) :: ks, _, v) = case es of
+  return vcons _ (store, (env, BeginK es) :: ks, _, v) = (case es of
   | [] => (store, ks, env, vcons v)
-  | e::es' => (store, (env, BeginK es') :: ks, env, e)
+  | e::es' => (store, (env, BeginK es') :: ks, env, e)) ∧
+  return vcons excons (store, (env, SetK x) :: ks, _, v) = (LUPDATE (SOME v) (env ' x) store, ks, env, vcons $ Wrong "Unspecified")
 End
 
 Definition unwind_def:
@@ -90,19 +86,29 @@ Definition unwind_def:
   unwind excons store (k::ks) ex = unwind excons store ks ex
 End
 
+Definition letrec_init_def:
+  letrec_init store env [] = (store, env) ∧
+  letrec_init store env (x::xs) = (let (n, store') = fresh_loc store NONE
+    in letrec_init store' (env |+ (x, n)) xs)
+End
+
 Definition step_def:
   step (store, ks, env, Val v) = return Val Exception (store, ks, env, v) ∧
   step (store, ks, env, Apply fn args) = (store, (env, ApplyK NONE args) :: ks, env, fn) ∧
   step (store, ks, env, Cond c t f) = (store, (env, CondK t f) :: ks, env, c) ∧
-  step (store, ks, env, Ident s) = (let v = case FLOOKUP env s of
-    | NONE => Exception $ strlit "Unrecognised identifier"
-    | SOME n => Val $ EL n store
-    in (store, ks, env, v)) ∧
-  (*step (store, ks, env, SLet is e) = (case is of
-  | [] => (store, ks, e)
-  | (i, e')::is' => (store, LetK store i is' e :: ks, e')) ∧*)
+  (*This is undefined if the program doesn't typecheck*)
+  step (store, ks, env, Ident s) = (let e = case EL (env ' s) store of
+    | NONE => Exception $ strlit "letrec variable touched"
+    | SOME v => Val v
+    in (store, ks, env, e)) ∧
   step (store, ks, env, Lambda ps lp e) = (store, ks, env, Val $ Proc env ps lp e) ∧
   step (store, ks, env, Begin e es) = (store, (env, BeginK es) :: ks, env, e) ∧
+  step (store, ks, env, Set x e) = (store, (env, SetK x) :: ks, env, e) ∧
+  (*There is a missing reinit check, though the spec says it is optional*)
+  step (store, ks, env, Letrec bs e) = (case bs of
+  | [] => (store, ks, env, e)
+  | (x, i)::bs' => let (store', env') = letrec_init store env (MAP FST bs)
+      in (store', (env', BeginK (SNOC e (MAP (UNCURRY Set) bs'))) :: ks, env', Set x i)) ∧
 
   step (store, ks, env, Exception ex) = unwind Exception store ks ex
 End
@@ -168,6 +174,44 @@ End
     ) [Val $ SNum 4]
   )”
 
+  EVAL “steps 22 ([], [], FEMPTY,
+    Apply (
+      Lambda [strlit "x"] NONE (Begin (
+        Apply (
+          Lambda [strlit "y"] NONE (Begin (
+            Set (strlit "x") (Val $ SNum 5)
+          ) [
+            Apply (Val $ Prim SAdd) [
+              Ident $ strlit "y";
+              Ident $ strlit "x"
+            ]
+          ])
+        ) [Val $ SNum 1]
+      ) [
+        Ident $ strlit "x"
+      ])
+    ) [Val $ SNum 4]
+  )”
+
+  EVAL “steps 100 ([], [], FEMPTY,
+    Letrec [
+      (strlit $ "to", Lambda [strlit "x"] NONE (
+        Apply (Ident $ strlit "fro") [
+          Apply (Val $ Prim SAdd) [Val $ SNum 1; Ident $ strlit "x"]
+        ]
+      ));
+      (strlit $ "fro", Lambda [strlit "x"] NONE (
+        Apply (Ident $ strlit "to") [
+          Apply (Val $ Prim SMul) [Val $ SNum 2; Ident $ strlit "x"]
+        ]
+      ))
+    ] (Apply (Ident $ strlit "to") [Val $ SNum 0])
+  )”
+
+  EVAL “steps 3 ([], [], FEMPTY,
+    Letrec [(strlit $ "fail", Ident $ strlit "fail")] (Val $ SBool F)
+  )”
+
   EVAL “steps 20 ([], [], FEMPTY,
     Apply (Val $ Prim SMul) [
       Val $ SNum 2;
@@ -182,7 +226,6 @@ End
         ]
       )]
     ]
-  )”
 *)
 
 val _ = export_theory();
