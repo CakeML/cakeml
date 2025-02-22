@@ -59,9 +59,15 @@ Definition proc_ml_def:
           Con (SOME $ Short "Ex") [Lit $ StrLit "Wrong number of arguments"]);
         (Pcon (SOME $ Short "cons") [Pvar arg; Pvar args'],
           Let (SOME $ "s" ++ explode x)
-            (App Opref [Var (Short arg)])
+            (App Opref [Con (SOME $ Short "Some") [Var (Short arg)]])
             inner)
     ]))
+End
+
+Definition letinit_ml_def:
+  letinit_ml [] inner = inner ∧
+  letinit_ml ((x,_)::bs) inner = Let (SOME $ "s" ++ explode x)
+      (App Opref [Con (SOME $ Short "None") []]) (letinit_ml bs inner)
 End
 
 Definition cps_transform_def:
@@ -88,8 +94,11 @@ Definition cps_transform_def:
   in
     (l, Fun k $ App Opapp [cfn; Fun t ce])) ∧
   cps_transform n (Ident x) = (let k = "k" ++ toString n in
-    (n, Fun k $ App Opapp [
-      Var (Short k); App Opderef [Var (Short $ "s" ++ explode x)]])) ∧
+    (n, Fun k $ Mat (App Opderef [Var (Short $ "s" ++ explode x)]) [
+      (Pcon (SOME $ Short "None") [],
+        Con (SOME $ Short "Ex") [Lit $ StrLit "Letrec variable touched"]);
+      (Pcon (SOME $ Short "Some") [Pvar $ "s'" ++ explode x],
+        App Opapp [Var (Short k); Var (Short $ "s'" ++ explode x)])])) ∧
   cps_transform n (Lambda xs xp e) = (let
     (m, ce) = cps_transform n e;
     args = "xs" ++ toString m;
@@ -111,8 +120,15 @@ Definition cps_transform_def:
     t = "t" ++ toString (m+1);
   in
     (m+2, Fun k $ (App Opapp [ce;
-      Fun t $ Let NONE (App Opassign [Var (Short $ "s" ++ explode x); Var (Short t)])
+      Fun t $ Let NONE (App Opassign [Var (Short $ "s" ++ explode x);
+          Con (SOME $ Short "Some") [Var (Short t)]])
         (App Opapp [Var (Short k); Con (SOME $ Short "Wrong") [Lit $ StrLit "Unspecified"]])]))) ∧
+  cps_transform n (Letrec bs e) = (let
+    (m, ce) = cps_transform n e;
+    k = "k" ++ toString m;
+    (l, inner) = cps_transform_letreinit (m+1) k bs ce
+  in
+    (l, Fun k $ letinit_ml bs inner)) ∧
 
   cps_transform_app n tfn ts (e::es) k = (let
     (m, ce) = cps_transform n e;
@@ -130,12 +146,30 @@ Definition cps_transform_def:
     (m, ce) = cps_transform n e;
     (l, inner) = cps_transform_seq m k es
   in
-    (l, Fun "_" $ App Opapp [ce; inner]))
+    (l, Fun "_" $ App Opapp [ce; inner])) ∧
+
+  cps_transform_letreinit n k [] ce = (n,
+    App Opapp [ce; Var (Short k)]) ∧
+  cps_transform_letreinit n k ((x,e)::bs) ce = (let
+    (m, ce') = cps_transform n e;
+    (l, inner) = cps_transform_letreinit m k bs ce;
+    t = "t" ++ toString l
+  in
+    (l+1, App Opapp [ce'; Fun t $ Let NONE
+      (App Opassign [Var (Short $ "s" ++ explode x);
+        Con (SOME $ Short "Some") [Var (Short t)]])
+      inner]))
 Termination
   WF_REL_TAC ‘measure (λ x . case x of
     | INL(_,e) => exp_size e
     | INR(INL(_,_,_,es,_)) => list_size exp_size es
-    | INR(INR(_,_,es)) => list_size exp_size es)’
+    | INR(INR(INL(_,_,es))) => list_size exp_size es
+    | INR(INR(INR(_,_,es,_))) => list_size (exp_size o SND) es)’
+  >> Induct >- (rw[val_size_def, list_size_def])
+  >> Cases
+  >> rw[val_size_def, list_size_def]
+  >> last_x_assum $ qspecl_then [‘e’,‘n’,‘m’,‘ce’] $ mp_tac
+  >> rw[]
 End
 
 Definition scheme_program_to_cake_def:
@@ -155,6 +189,8 @@ Definition myC_def:
     ("cons", (2, TypeStamp "cons" 2));
     ("nil", (0, TypeStamp "nil" 2));
     ("Ex", (1, TypeStamp "Ex" 0));
+    ("Some", (1, TypeStamp "Some" 3));
+    ("None", (0, TypeStamp "None" 3));
   ] []
 End
 
@@ -227,8 +263,19 @@ val _ = export_theory();
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake (Cond (Val $ SBool F) (Val $ SNum 420) (Val $ SNum 69))]”
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake (Apply (Val $ Prim SMul) [Val $ SNum 2; Val $ SNum 3])]”
   EVAL “evaluate <| clock := 999; refs := [] |> myEnv [scheme_program_to_cake (Apply (Lambda [strlit "x"] NONE (Begin (Set (strlit "x") (Val $ SNum 7)) [Ident $ strlit "x"])) [Val $ SNum 5])]”
+  EVAL “SND $ evaluate <| clock := 999; refs := [] |> myEnv [scheme_program_to_cake (
+    Letrec [(strlit "f", Lambda [strlit "b"; strlit "x"] NONE (
+      Cond (Ident $ strlit "b")
+        (Apply (Val $ Prim SMul) [Val $ SNum 2; Ident $ strlit "x"])
+        (Apply (Ident $ strlit "f") [Val $ SBool T; Apply
+          (Val $ Prim SAdd) [Val $ SNum 1; Ident $ strlit "x"]])
+    ))] (
+      Apply (Ident $ strlit "f") [Val $ SBool F; Val $ SNum 7]
+    )
+  )]”
   EVAL “scheme_program_to_cake (Cond (Val $ SBool F) (Val $ SNum 420) (Val $ SNum 69))”
   EVAL “scheme_program_to_cake (Apply (Val $ Prim SMul) [Val $ SNum 2; Val $ SNum 3])”
   EVAL “scheme_program_to_cake (Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 5])”
   EVAL “scheme_program_to_cake (Begin (Val $ SNum 0) [Val $ SNum 1; Val $ SNum 2])”
+  EVAL “scheme_program_to_cake (Letrec [(strlit "x", Val $ SNum 1)] (Ident $ strlit "x"))”
 *)
