@@ -28,6 +28,14 @@ Definition smul_def:
   smul _ excons (_ :: xs) _ = excons $ strlit "Arguments to * must be numbers"
 End
 
+Definition sminus_def:
+  sminus [] = Exception $ strlit "Arity mismatch" ∧
+  sminus (SNum n :: xs) = (case sadd Val Exception xs 0 of
+  | Val (SNum m) => Val (SNum (n - m))
+  | e => e) ∧
+  sminus _ = Exception $ strlit "Arguments to - must be numbers"
+End
+
 (*
 Definition strict_def:
   strict (Prim SAdd) xs = sadd xs 0 ∧
@@ -52,7 +60,8 @@ End
 Definition application_def:
   application vcons excons env ks (Prim p) xs = (case p of
   | SAdd => (env, ks, sadd vcons excons xs 0)
-  | SMul => (env, ks, smul vcons excons xs 1)) ∧
+  | SMul => (env, ks, smul vcons excons xs 1)
+  | SMinus => (env, ks, sminus xs)) ∧
   (*application _ excons env ks (Proc env' ps lp e) xs =
     parameterize excons env ks env' ps lp e xs ∧*)
   application _ excons env ks _ _ = (env, ks, excons $ strlit "Not a procedure")
@@ -111,7 +120,7 @@ End
 (*
   EVAL “semantics (Val (SNum 3))”
   EVAL “semantics (Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”
-  EVAL “steps 4 ([], [], Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”
+  EVAL “steps 4 ([], [], Apply (Val (Prim SMinus)) [Val (SNum 2); Val (SNum 4)])”
   EVAL “steps 4 ([], [], Apply (Val (SNum 7)) [Val (SNum 2); Val (SNum 4)])”
   EVAL “steps 6 ([], [InLetK []], Apply (Val (Prim SMul)) [Val (SNum 2); Val (Prim SAdd)])”
   EVAL “steps 2 ([], [], Cond (Val (SBool F)) (Val (SNum 2)) (Val (SNum 4)))”

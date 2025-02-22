@@ -8,11 +8,11 @@ val _ = new_theory "scheme_ast";
 
 (* This needs completing: Var, Lit, ... *)
 Datatype:
-  prim = SAdd | SMul
+  prim = SAdd | SMul | SMinus
 End
 
 Datatype:
-  val = Prim prim | SNum num | Wrong string | SBool bool
+  val = Prim prim | SNum int | Wrong string | SBool bool
       | SList (val list)
       (*| Proc ((mlstring # val) list) (mlstring list) (mlstring option) 'a*)
 End
