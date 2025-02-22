@@ -99,6 +99,12 @@ Definition cps_transform_def:
   in
     (l+1, Fun k' $ App Opapp [Var (Short k');
       Con (SOME $ Short "Proc") [Fun k $ Fun args inner]])) ∧
+  cps_transform n (Begin e es) = (let
+    (m, ce) = cps_transform n e;
+    k = "k" ++ toString m;
+    (l, seqk) = cps_transform_seq (m+1) k es
+  in
+    (l, Fun k $ App Opapp [ce; seqk])) ∧
 
   cps_transform_app n tfn ts (e::es) k = (let
     (m, ce) = cps_transform n e;
@@ -109,7 +115,19 @@ Definition cps_transform_def:
   cps_transform_app n tfn ts [] k = (let
     (m, capp) = app_ml n k tfn;
   in
-    (m, App Opapp [capp;cons_list (REVERSE ts)]))
+    (m, App Opapp [capp;cons_list (REVERSE ts)])) ∧
+
+  cps_transform_seq n k [] = (n, Var (Short k)) ∧
+  cps_transform_seq n k (e::es) = (let
+    (m, ce) = cps_transform n e;
+    (l, inner) = cps_transform_seq m k es
+  in
+    (l, Fun "_" $ App Opapp [ce; inner]))
+Termination
+  WF_REL_TAC ‘measure (λ x . case x of
+    | INL(_,e) => exp_size e
+    | INR(INL(_,_,_,es,_)) => list_size exp_size es
+    | INR(INR(_,_,es)) => list_size exp_size es)’
 End
 
 Definition scheme_program_to_cake_def:
@@ -203,4 +221,5 @@ val _ = export_theory();
   EVAL “scheme_program_to_cake (Cond (Val $ SBool F) (Val $ SNum 420) (Val $ SNum 69))”
   EVAL “scheme_program_to_cake (Apply (Val $ Prim SMul) [Val $ SNum 2; Val $ SNum 3])”
   EVAL “scheme_program_to_cake (Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 5])”
+  EVAL “scheme_program_to_cake (Begin (Val $ SNum 0) [Val $ SNum 1; Val $ SNum 2])”
 *)
