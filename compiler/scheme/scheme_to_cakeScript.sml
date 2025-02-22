@@ -52,7 +52,7 @@ Definition proc_ml_def:
   proc_ml n (x::xs) xp k args ce = (let
     arg = "x" ++ toString n;
     args' = "xs" ++ toString (n+1);
-    (m, inner) = proc_ml_def (n+2) xs xp k args' ce
+    (m, inner) = proc_ml (n+2) xs xp k args' ce
   in
     (m, Mat (Var (Short args)) [
         (Pcon (SOME $ Short "nil") [],
@@ -193,6 +193,7 @@ End
 val _ = export_theory();
 
 (*
+  open scheme_to_cakeTheory;
   open evaluateTheory;
 
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake $ Val $ SNum 3]”
