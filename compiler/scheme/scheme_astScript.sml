@@ -8,7 +8,7 @@ val _ = new_theory "scheme_ast";
 
 (* This needs completing: Var, Lit, ... *)
 Datatype:
-  prim = SAdd | SMul | SMinus
+  prim = SAdd | SMul | SMinus | SEqv
 End
 
 Datatype:

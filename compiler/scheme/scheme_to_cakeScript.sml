@@ -14,7 +14,8 @@ Definition to_ml_vals_def:
   to_ml_vals (Prim p) = Con (SOME $ Short "Prim") [case p of
   | SAdd => Con (SOME $ Short "SAdd") []
   | SMul => Con (SOME $ Short "SMul") []
-  | SMinus => Con (SOME $ Short "SMinus") []] ∧
+  | SMinus => Con (SOME $ Short "SMinus") []
+  | SEqv => Con (SOME $ Short "SEqv") []] ∧
   to_ml_vals (SNum n) = Con (SOME $ Short "SNum") [Lit $ IntLit n] ∧
   to_ml_vals (SBool b) = Con (SOME $ Short "SBool") [Lit $ IntLit
     if b then 1 else 0]
@@ -37,6 +38,8 @@ Definition app_ml_def:
         App Opapp [App Opapp [Var (Short "smul"); Var (Short k)]; Lit $ IntLit 1]);
       (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMinus") []],
         App Opapp [Var (Short "sminus"); Var (Short k)]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SEqv") []],
+        App Opapp [Var (Short "seqv"); Var (Short k)]);
       (Pany, cex)
     ])
 End
@@ -89,6 +92,7 @@ Definition myC_def:
     ("SAdd", (0, TypeStamp "SAdd" 1));
     ("SMul", (0, TypeStamp "SMul" 1));
     ("SMinus", (0, TypeStamp "SMinus" 1));
+    ("SEqv", (0, TypeStamp "SEqv" 1));
     ("cons", (2, TypeStamp "cons" 2));
     ("nil", (0, TypeStamp "nil" 2));
     ("Ex", (1, TypeStamp "Ex" 0));
@@ -136,7 +140,27 @@ Definition myEnv_def:
               Con (SOME $ Short "Ex") [Lit $ StrLit "Not a number"])
           ])
       ])
-    ] "smul")
+    ] "smul");
+    ("seqv", Closure <| v := nsEmpty; c := myC |> "k" (Fun "xs" $
+      Mat (Var (Short "xs")) [
+        (Pcon (SOME $ Short "nil") [],
+          Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+        (Pcon (SOME $ Short "cons") [Pvar "x1"; Pvar "xs'"],
+          Mat (Var (Short "xs'")) [
+            (Pcon (SOME $ Short "nil") [],
+              Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+            (Pcon (SOME $ Short "cons") [Pvar "x2"; Pvar "xs''"],
+              Mat (Var (Short "xs''")) [
+                (Pcon (SOME $ Short "nil") [],
+                  If (App Equality [Var (Short "x1"); Var (Short "x2")])
+                    (App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [Lit $ IntLit 1]])
+                    (App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [Lit $ IntLit 0]]));
+                (Pany,
+                  Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+              ])
+          ])
+      ]
+    ))
   ] []
   in nsAppend first $ Bind [
     ("sminus", Closure <| v := first; c := myC |> "k" (Fun "xs" $
@@ -186,6 +210,7 @@ val _ = export_theory();
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake $ Val $ SNum 3]”
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake (Cond (Val $ SBool F) (Val $ SNum 420) (Val $ SNum 69))]”
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake (Apply (Val $ Prim SMinus) [Val $ SNum 2; Val $ SNum 3])]”
+  EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake (Apply (Val $ Prim SEqv) [Val $ SNum 2; Val $ SNum 2])]”
   EVAL “scheme_program_to_cake (Cond (Val $ SBool F) (Val $ SNum 420) (Val $ SNum 69))”
   EVAL “scheme_program_to_cake (Apply (Val $ Prim SMinus) [Val $ SNum 2; Val $ SNum 3])”
 *)

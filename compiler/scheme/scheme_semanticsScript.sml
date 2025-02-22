@@ -36,6 +36,11 @@ Definition sminus_def:
   sminus _ = Exception $ strlit "Arguments to - must be numbers"
 End
 
+Definition seqv_def:
+  seqv [v1; v2] = (if v1 = v2 then Val $ SBool T else Val $ SBool F) ∧
+  seqv _ = Exception $ strlit "Arity mismatch"
+End
+
 (*
 Definition strict_def:
   strict (Prim SAdd) xs = sadd xs 0 ∧
@@ -61,7 +66,8 @@ Definition application_def:
   application vcons excons env ks (Prim p) xs = (case p of
   | SAdd => (env, ks, sadd vcons excons xs 0)
   | SMul => (env, ks, smul vcons excons xs 1)
-  | SMinus => (env, ks, sminus xs)) ∧
+  | SMinus => (env, ks, sminus xs)
+  | SEqv => (env, ks, seqv xs)) ∧
   (*application _ excons env ks (Proc env' ps lp e) xs =
     parameterize excons env ks env' ps lp e xs ∧*)
   application _ excons env ks _ _ = (env, ks, excons $ strlit "Not a procedure")
@@ -127,6 +133,7 @@ End
   EVAL “steps 4 ([], [], SLet [(strlit "x", Val $ SNum 42)] (Ident $ strlit "x"))”
   EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 4])”
   EVAL “steps 3 ([], [], Begin (Val $ SNum 1) [Val $ SNum 2])”
+  EVAL “steps 10 ([], [], Apply (Val $ Prim SEqv) [Val $ SNum 3; Val $ SNum 2])”
 *)
 
 val _ = export_theory();
