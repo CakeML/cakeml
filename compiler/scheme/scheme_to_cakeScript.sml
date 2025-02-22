@@ -68,7 +68,7 @@ Definition cps_transform_def:
   cps_transform n (Val v) = (let k = "k" ++ toString n in
     (n+1, Fun k $ App Opapp [Var (Short k); to_ml_vals v])) ∧
   cps_transform n (Exception s) =
-    (n, Fun "_" $ App Opapp [Var (Short "print"); Lit $ StrLit $ explode s]) ∧
+    (n, Fun "_" $ Con (SOME $ Short "Ex") [Lit $ StrLit $ explode s]) ∧
   cps_transform n (Cond c t f) = (let
     (m, cc) = cps_transform n c;
     (l, ct) = cps_transform m t;
@@ -105,6 +105,14 @@ Definition cps_transform_def:
     (l, seqk) = cps_transform_seq (m+1) k es
   in
     (l, Fun k $ App Opapp [ce; seqk])) ∧
+  cps_transform n (Set x e) = (let
+    (m, ce) = cps_transform n e;
+    k = "k" ++ toString m;
+    t = "t" ++ toString (m+1);
+  in
+    (m+2, Fun k $ (App Opapp [ce;
+      Fun t $ Let NONE (App Opassign [Var (Short $ "s" ++ explode x); Var (Short t)])
+        (App Opapp [Var (Short k); Con (SOME $ Short "Wrong") [Lit $ StrLit "Unspecified"]])]))) ∧
 
   cps_transform_app n tfn ts (e::es) k = (let
     (m, ce) = cps_transform n e;
@@ -141,6 +149,7 @@ Definition myC_def:
     ("SList", (1, TypeStamp "SList" 0));
     ("Proc", (1, TypeStamp "Proc" 0));
     ("Prim", (1, TypeStamp "Prim" 0));
+    ("Wrong", (1, TypeStamp "Wrong" 0));
     ("SAdd", (0, TypeStamp "SAdd" 1));
     ("SMul", (0, TypeStamp "SMul" 1));
     ("cons", (2, TypeStamp "cons" 2));
@@ -217,7 +226,7 @@ val _ = export_theory();
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake $ Val $ SNum 3]”
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake (Cond (Val $ SBool F) (Val $ SNum 420) (Val $ SNum 69))]”
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake (Apply (Val $ Prim SMul) [Val $ SNum 2; Val $ SNum 3])]”
-  EVAL “evaluate <| clock := 999; refs := [] |> myEnv [scheme_program_to_cake (Apply (Lambda [strlit "x"; strlit "y"] NONE (Ident $ strlit "x")) [Val $ SNum 5; Val $ SNum 4])]”
+  EVAL “evaluate <| clock := 999; refs := [] |> myEnv [scheme_program_to_cake (Apply (Lambda [strlit "x"] NONE (Begin (Set (strlit "x") (Val $ SNum 7)) [Ident $ strlit "x"])) [Val $ SNum 5])]”
   EVAL “scheme_program_to_cake (Cond (Val $ SBool F) (Val $ SNum 420) (Val $ SNum 69))”
   EVAL “scheme_program_to_cake (Apply (Val $ Prim SMul) [Val $ SNum 2; Val $ SNum 3])”
   EVAL “scheme_program_to_cake (Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 5])”
