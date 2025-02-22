@@ -25,17 +25,43 @@ Definition cons_list_def:
 End
 
 Definition app_ml_def:
-  app_ml n k = let
-    t = "t" ++ toString n;
+  app_ml n k t = let
     cex = Fun "_" $ Con (SOME $ Short "Ex") [Lit $ StrLit"Not a procedure"]
   in
-    (n+1, Fun t $ Mat (Var (Short t)) [
+    (n, Mat (Var (Short t)) [
       (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SAdd") []],
         App Opapp [App Opapp [Var (Short "sadd"); Var (Short k)]; Lit $ IntLit 0]);
       (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMul") []],
         App Opapp [App Opapp [Var (Short "smul"); Var (Short k)]; Lit $ IntLit 1]);
+      (Pcon (SOME $ Short "Proc") [Pvar "e"],
+        App Opapp [Var (Short "e"); Var (Short k)]);
       (Pany, cex)
     ])
+End
+
+Definition proc_ml_def:
+  proc_ml n [] NONE k args ce = (n, Mat (Var (Short args)) [
+        (Pcon (SOME $ Short "nil") [],
+          App Opapp [ce; Var (Short k)]);
+        (Pany,
+          Con (SOME $ Short "Ex") [Lit $ StrLit "Wrong number of arguments"])
+    ]) ∧
+  proc_ml n [] (SOME x) k args ce = (n, Let (SOME $ "s" ++ explode x)
+      (App Opref [Con (SOME $ Short "SList") [Var (Short args)]])
+      (App Opapp [ce; Var (Short k)])) ∧
+  proc_ml n (x::xs) xp k args ce = (let
+    arg = "x" ++ toString n;
+    args' = "xs" ++ toString (n+1);
+    (m, inner) = proc_ml_def (n+2) xs xp k args' ce
+  in
+    (m, Mat (Var (Short args)) [
+        (Pcon (SOME $ Short "nil") [],
+          Con (SOME $ Short "Ex") [Lit $ StrLit "Wrong number of arguments"]);
+        (Pcon (SOME $ Short "cons") [Pvar arg; Pvar args'],
+          Let (SOME $ "s" ++ explode x)
+            (App Opref [Var (Short arg)])
+            inner)
+    ]))
 End
 
 Definition cps_transform_def:
@@ -60,7 +86,19 @@ Definition cps_transform_def:
     t = "t" ++ toString (m+1);
     (l, ce) = cps_transform_app (m+2) t [] args k
   in
-    (l+1, Fun k $ App Opapp [cfn; Fun t ce])) ∧
+    (l, Fun k $ App Opapp [cfn; Fun t ce])) ∧
+  cps_transform n (Ident x) = (let k = "k" ++ toString n in
+    (n, Fun k $ App Opapp [
+      Var (Short k); App Opderef [Var (Short $ "s" ++ explode x)]])) ∧
+  cps_transform n (Lambda xs xp e) = (let
+    (m, ce) = cps_transform n e;
+    args = "xs" ++ toString m;
+    k = "k" ++ toString (m+1);
+    (l, inner) = proc_ml (m+2) xs xp k args ce;
+    k' = "k" ++ toString l;
+  in
+    (l+1, Fun k' $ App Opapp [Var (Short k');
+      Con (SOME $ Short "Proc") [Fun k $ Fun args inner]])) ∧
 
   cps_transform_app n tfn ts (e::es) k = (let
     (m, ce) = cps_transform n e;
@@ -69,9 +107,9 @@ Definition cps_transform_def:
   in
     (l, App Opapp [ce; Fun t inner])) ∧
   cps_transform_app n tfn ts [] k = (let
-    (m, capp) = app_ml n k;
+    (m, capp) = app_ml n k tfn;
   in
-    (m, App Opapp [App Opapp [capp;Var (Short tfn)];cons_list (REVERSE ts)]))
+    (m, App Opapp [capp;cons_list (REVERSE ts)]))
 End
 
 Definition scheme_program_to_cake_def:
@@ -82,6 +120,8 @@ Definition myC_def:
   (myC :('a, string, num # stamp) namespace) = Bind [
     ("SNum", (1, TypeStamp "SNum" 0));
     ("SBool", (1, TypeStamp "SBool" 0));
+    ("SList", (1, TypeStamp "SList" 0));
+    ("Proc", (1, TypeStamp "Proc" 0));
     ("Prim", (1, TypeStamp "Prim" 0));
     ("SAdd", (0, TypeStamp "SAdd" 1));
     ("SMul", (0, TypeStamp "SMul" 1));
@@ -158,6 +198,8 @@ val _ = export_theory();
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake $ Val $ SNum 3]”
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake (Cond (Val $ SBool F) (Val $ SNum 420) (Val $ SNum 69))]”
   EVAL “evaluate <| clock := 999 |> myEnv [scheme_program_to_cake (Apply (Val $ Prim SMul) [Val $ SNum 2; Val $ SNum 3])]”
+  EVAL “evaluate <| clock := 999; refs := [] |> myEnv [scheme_program_to_cake (Apply (Lambda [strlit "x"; strlit "y"] NONE (Ident $ strlit "x")) [Val $ SNum 5; Val $ SNum 4])]”
   EVAL “scheme_program_to_cake (Cond (Val $ SBool F) (Val $ SNum 420) (Val $ SNum 69))”
   EVAL “scheme_program_to_cake (Apply (Val $ Prim SMul) [Val $ SNum 2; Val $ SNum 3])”
+  EVAL “scheme_program_to_cake (Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 5])”
 *)
