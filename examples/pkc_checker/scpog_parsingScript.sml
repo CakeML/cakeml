@@ -39,7 +39,8 @@ Definition parse_show_def:
       | SOME ls => SOME (opt_union vs ls))
     else NONE
   else SOME vs) ∧
-  (parse_show vs [] = SOME vs)
+  (parse_show vs [] = SOME vs) ∧
+  (parse_show vs _ = NONE)
 End
 
 (* Parses extended DIMACS including support for "c p show ... 0" lines. Produces the list of clauses in order they are read.
@@ -119,6 +120,7 @@ Definition parse_rup_add_def:
   | SOME i0 => SOME (RupAdd b n C i0)
 End
 
+(*
 (* Parses clauseID {nat_until_zeros} 0 *)
 Definition parse_rup_del_def:
   parse_rup_del ls =
@@ -130,6 +132,7 @@ Definition parse_rup_del_def:
     else NONE
   | _ => NONE
 End
+*)
 
 Definition parse_arb_del_def:
   parse_arb_del ls =
@@ -181,7 +184,7 @@ Definition parse_scpstep_def:
   case ls of
   | INL s::ls =>
     if s = strlit"c" then SOME Skip
-    else if s = strlit "d" then parse_rup_del ls
+    (* else if s = strlit "d" then parse_rup_del ls *)
     else if s = strlit "D" then parse_arb_del ls
     else if s = strlit"r" then parse_root ls
     else NONE
@@ -224,9 +227,6 @@ val scpstepsraw = ``[
   strlit"124 as -47 -45 -52 0 101 108 0";
   strlit"125 as -49 -45 -52 0 100 113 0";
   strlit"c Operation T23";
-  strlit"d 1 406 355 358 0 ";
-  strlit"d 2 406 35 40 44 45 52 54 87 94 135 148 159 185 235 242 249 256 299 308 317 324 348 357 0 ";
-  strlit"d 6 406 35 40 49 53 54 87 94 135 148 159 185 238 243 249 256 300 308 317 324 348 357 0 ";
   strlit"D 6 406 35 40 49 53 54 87 94 135 148 159 185 238 243 249 256 300 308 317 324 348 357 0 ";]``
 
 val scpsteps = rconc (EVAL ``THE (parse_scpsteps ^(scpstepsraw))``);
