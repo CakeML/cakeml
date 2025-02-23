@@ -325,6 +325,16 @@ val _ = export_theory();
       Apply (Ident $ strlit "f") [Val $ SBool F; Val $ SNum 7]
     )
   )]”
+  EVAL “SND $ evaluate <| clock := 999; refs := [] |> myEnv [scheme_program_to_cake (
+    Letrec [(strlit "fac", Lambda [strlit "x"] NONE (
+      Cond (Apply (Val $ Prim SEqv) [Ident $ strlit "x"; Val $ SNum 0]) (
+        Val $ SNum 1
+      ) (
+        Apply (Val $ Prim SMul) [Ident $ strlit "x"; Apply (Ident $ strlit "fac") [
+          Apply (Val $ Prim SMinus) [Ident $ strlit "x"; Val $ SNum 1]
+        ]]
+      )
+    ))] (Apply (Ident $ strlit "fac") [Val $ SNum 6]))]”
   EVAL “scheme_program_to_cake (Cond (Val $ SBool F) (Val $ SNum 420) (Val $ SNum 69))”
   EVAL “scheme_program_to_cake (Apply (Val $ Prim SMul) [Val $ SNum 2; Val $ SNum 3])”
   EVAL “scheme_program_to_cake (Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 5])”

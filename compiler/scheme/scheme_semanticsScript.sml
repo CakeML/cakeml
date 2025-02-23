@@ -226,7 +226,17 @@ End
     Letrec [(strlit $ "fail", Ident $ strlit "fail")] (Val $ SBool F)
   )”
 
-  EVAL “steps 10 ([], [], Apply (Val $ Prim SEqv) [Val $ SNum 3; Val $ SNum 2])”
+  EVAL “steps 10 ([], [], FEMPTY, Apply (Val $ Prim SMinus) [Val $ SNum 3; Val $ SNum 2])”
+
+  EVAL “steps 1000 ([], [], FEMPTY, Letrec [(strlit "fac", Lambda [strlit "x"] NONE (
+    Cond (Apply (Val $ Prim SEqv) [Ident $ strlit "x"; Val $ SNum 0]) (
+      Val $ SNum 1
+    ) (
+      Apply (Val $ Prim SMul) [Ident $ strlit "x"; Apply (Ident $ strlit "fac") [
+        Apply (Val $ Prim SMinus) [Ident $ strlit "x"; Val $ SNum 1]
+      ]]
+    )
+  ))] (Apply (Ident $ strlit "fac") [Val $ SNum 6]))”
 *)
 
 val _ = export_theory();
