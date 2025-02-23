@@ -96,11 +96,6 @@ Definition return_def:
   | e::es' => (env, BeginK es' :: ks, e)
 End
 
-Definition unwind_def:
-  unwind env [] ex = (env, [], Exception ex) ∧
-  unwind env (k::ks) ex = unwind env ks ex
-End
-
 Definition step_def:
   step (env, ks, Val v) = return (env, ks, v) ∧
   step (env, ks, Apply fn args) = (env, ApplyK NONE args :: ks, fn) ∧
@@ -115,7 +110,7 @@ Definition step_def:
   (*step (env, ks, Lambda ps lp e) = (env, ks, Val $ Proc env ps lp e) ∧*)
   step (env, ks, Begin e es) = (env, BeginK es :: ks, e) ∧
 
-  step (env, ks, Exception ex) = unwind env ks ex
+  step (env, ks, Exception ex) = (env, [], Exception ex)
 End
 
 Definition steps_def:
@@ -124,6 +119,8 @@ Definition steps_def:
 End
 
 (*
+  open scheme_semanticsTheory;
+
   EVAL “semantics (Val (SNum 3))”
   EVAL “semantics (Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”
   EVAL “steps 4 ([], [], Apply (Val (Prim SMinus)) [Val (SNum 2); Val (SNum 4)])”
@@ -131,7 +128,7 @@ End
   EVAL “steps 6 ([], [InLetK []], Apply (Val (Prim SMul)) [Val (SNum 2); Val (Prim SAdd)])”
   EVAL “steps 2 ([], [], Cond (Val (SBool F)) (Val (SNum 2)) (Val (SNum 4)))”
   EVAL “steps 4 ([], [], SLet [(strlit "x", Val $ SNum 42)] (Ident $ strlit "x"))”
-  EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 4])”
+  EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "y")) [Val $ SNum 4])”
   EVAL “steps 3 ([], [], Begin (Val $ SNum 1) [Val $ SNum 2])”
   EVAL “steps 10 ([], [], Apply (Val $ Prim SEqv) [Val $ SNum 3; Val $ SNum 2])”
 *)
