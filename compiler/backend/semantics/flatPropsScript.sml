@@ -7,8 +7,6 @@ local
        evaluatePropsTheory
 in end
 
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
 val _ = new_theory"flatProps"
 val _ = set_grammar_ancestry ["flatLang", "flatSem"];
 val _ = temp_tight_equality ();
@@ -336,7 +334,7 @@ Theorem do_app_state_unchanged:
 Proof
   rw [do_app_cases] >>
   fs [semanticPrimitivesTheory.store_assign_def] >>
-  rfs []
+  rveq >> rfs[]
 QED
 
 Theorem evaluate_decs_append:
@@ -352,13 +350,34 @@ Proof
   fs []
 QED
 
+Triviality do_app_with_clock:
+  (do_app (s with clock := k) op es) =
+  OPTION_MAP ((λs.^s with clock := k) ## I) (do_app ^s op es)
+Proof
+  Cases_on `(do_app (s with clock :=k) op es)` \\ fs[]
+  >-(pop_assum (mp_tac o SIMP_RULE (srw_ss()) [do_app_def, AllCaseEqs()]) \\
+  Count.apply (rw[] \\
+  computeLib.RESTR_EVAL_TAC[``store_lookup``,``store_assign``,``store_assign``,
+  ``copy_array``, ``ws_to_chars``,``chars_to_ws``,``call_FFI``,
+  ``div_exn_v``,``subscript_exn_v``,``Unitv``]) \\
+  fs[UNCURRY_eq_pair] \\
+  fs[bool_case_eq,case_eq_thms] \\
+  disch_tac \\ first_x_assum irule \\
+  fs[IS_SOME_EXISTS,bool_case_eq,case_eq_thms]) \\
+  Cases_on `x` \\ fs[do_app_cases] \\ fs[] \\ rveq \\
+  computeLib.RESTR_EVAL_TAC[``store_lookup``,``store_alloc``,``store_assign``,
+   ``copy_array``,``ws_to_chars``,``chars_to_ws``,``call_FFI``,
+  ``div_exn_v``,``subscript_exn_v``,``Unitv``] \\
+  fs[IS_SOME_EXISTS] \\ fs[] \\ rw[]
+QED
+
 Triviality do_app_add_to_clock:
   do_app ^s op es = SOME (t, r)
    ==>
    do_app (s with clock := s.clock + k) op es =
      SOME (t with clock := t.clock + k, r)
 Proof
-  rw [do_app_cases] \\ fs []
+  rw [do_app_cases] \\ fs [state_component_equality]
 QED
 
 Triviality do_app_add_to_clock_NONE:
@@ -366,14 +385,7 @@ Triviality do_app_add_to_clock_NONE:
    ==>
    do_app (s with clock := s.clock + k) op es = NONE
 Proof
-  Cases_on `op`
-  \\ disch_then (mp_tac o SIMP_RULE (srw_ss()) [do_app_def, case_eq_thms])
-  \\ rw []
-  \\ rw [do_app_def]
-  \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ fs [bool_case_eq, case_eq_thms]
-  \\ fs [IS_SOME_EXISTS,CaseEq"option",CaseEq"store_v"]
+  fs[do_app_with_clock]
 QED
 
 Theorem evaluate_add_to_clock:
@@ -453,7 +465,7 @@ Proof
   metis_tac [evaluate_io_events_mono, FST]
 QED
 
-Theorem with_clock_ffi:
+Triviality with_clock_ffi:
    (s with clock := k).ffi = s.ffi
 Proof
   EVAL_TAC
@@ -662,10 +674,6 @@ Proof
   rw [initial_state_def]
 QED
 
-val SND_SND_lemma = prove(
-  ``(SND x) = y <=> ?y1. x = (y1, y)``,
-  PairCases_on `x` \\ fs []);
-
 Definition eval_sim_def:
   eval_sim ffi ds1 ds2 ec ec2 rel allow_fail =
     !k res1 s2.
@@ -689,18 +697,18 @@ Theorem IMP_semantics_eq:
    rel ds1 ds2 ==>
    semantics ec ffi ds1 =
    semantics ec2 ffi ds2
-Proof
+Proof [exclude_simps = lift_disj_eq lift_imp_disj]
   rewrite_tac [GSYM AND_IMP_INTRO]
   \\ strip_tac
   \\ simp [Once semantics_def]
-  \\ IF_CASES_TAC \\ fs [SND_SND_lemma] \\ disch_then kall_tac
+  \\ IF_CASES_TAC \\ fs [SND_EQ_EQUIV] \\ disch_then kall_tac
   \\ strip_tac
   \\ simp [Once semantics_def]
-  \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
+  \\ IF_CASES_TAC \\ fs [SND_EQ_EQUIV]
   \\ rfs []
   \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
   >- (
-    simp[semantics_def, SND_SND_lemma]
+    simp[semantics_def, SND_EQ_EQUIV]
     \\ IF_CASES_TAC \\ fs[]
     >- (
       fs[eval_sim_def]
@@ -740,7 +748,7 @@ Proof
     \\ asm_exists_tac \\ fs[]
     \\ every_case_tac \\ fs[])
   \\ simp [Once semantics_def]
-  \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
+  \\ IF_CASES_TAC \\ fs [SND_EQ_EQUIV]
   >-
    (`?a b. evaluate_decs (initial_state ffi k ec) ds1 = (a,b)`
         by simp [PAIR_FST_SND_EQ]
@@ -1016,6 +1024,7 @@ Proof
   \\ rw []
   \\ fs [Q.ISPEC `Eq_val v` EQ_SYM_EQ]
   \\ rfs [do_eq_def]
+  \\ rw[]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ fs []
   \\ imp_res_tac simple_val_rel_isClosure
@@ -1158,8 +1167,7 @@ Proof
   \\ rfs [EL_MAP]
 QED
 
-
-val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases
+Triviality sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases
 
 Theorem simple_do_app_thm:
   simple_val_rel vr /\

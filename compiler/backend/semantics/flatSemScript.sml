@@ -6,6 +6,7 @@ open preamble
 open evaluateTheory
 open flatLangTheory semanticPrimitivesPropsTheory
 
+(*Removal breaks flat_elim*)
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory "flatSem";
@@ -810,7 +811,7 @@ Termination
   \\ fs []
   \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_size]
 End
-
+(*
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def};
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def};
 val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def};
@@ -828,16 +829,12 @@ val err_thms = { nchotomy = semanticPrimitivesTheory.error_result_nchotomy, case
 val eqs = LIST_CONJ (map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms,
    eq_v_thms, wz_thms, result_thms, ffi_result_thms, err_thms])
-
+*)
+val eqs = LIST_CONJ [CaseEq "op",CaseEq "list",CaseEq"option",CaseEq"v",
+   CaseEq"store_v",CaseEq"lit",CaseEq"eq_result",CaseEq"word_size",
+   CaseEq"result",CaseEq "ffi_result",CaseEq"error_result"]
 Theorem case_eq_thms =
   eqs
-
-Triviality pair_case_eq:
-  pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
-Proof
-  Cases_on `x` >>
- srw_tac[][]
-QED
 
 Triviality pair_lam_lem:
   !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
@@ -855,8 +852,8 @@ Theorem do_app_const:
    do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c
 Proof
   rw [do_app_cases] >>
-  rw [] >>
-  rfs []
+  fs[] >> rveq >> fs[IS_SOME_EXISTS] >>
+  fs[]
 QED
 
 Theorem evaluate_clock:
