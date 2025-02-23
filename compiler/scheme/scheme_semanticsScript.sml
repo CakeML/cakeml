@@ -10,22 +10,35 @@ val _ = new_theory "scheme_semantics";
 
 Datatype:
   (*Contexts for small-step operational semantics*)
-  cont = ApplyK (((*'a*) val # (*'a*) val list) option) ('a list)
-       | CondK 'a 'a
-       | BeginK ('a list)
+  cont = ApplyK ((val # val list) option) (exp list)
+       | CondK exp exp
+       | BeginK (exp list)
        | SetK mlstring
 End
 
 Definition sadd_def:
-  sadd vcons _ [] n = vcons $ SNum n ∧
-  sadd vcons excons (SNum m :: xs) n = sadd vcons excons xs (m + n) ∧
-  sadd _ excons (_ :: xs) _ = excons $ strlit "Arguments to + must be numbers"
+  sadd [] n = Val $ SNum n ∧
+  sadd (SNum m :: xs) n = sadd xs (m + n) ∧
+  sadd (_ :: xs) _ = Exception $ strlit "Arguments to + must be numbers"
 End
 
 Definition smul_def:
-  smul vcons _ [] n = vcons $ SNum n ∧
-  smul vcons excons (SNum m :: xs) n = smul vcons excons xs (m * n) ∧
-  smul _ excons (_ :: xs) _ = excons $ strlit "Arguments to * must be numbers"
+  smul [] n = Val $ SNum n ∧
+  smul (SNum m :: xs) n = smul xs (m * n) ∧
+  smul (_ :: xs) _ = Exception $ strlit "Arguments to * must be numbers"
+End
+
+Definition sminus_def:
+  sminus [] = Exception $ strlit "Arity mismatch" ∧
+  sminus (SNum n :: xs) = (case sadd xs 0 of
+  | Val (SNum m) => Val (SNum (n - m))
+  | e => e) ∧
+  sminus _ = Exception $ strlit "Arguments to - must be numbers"
+End
+
+Definition seqv_def:
+  seqv [v1; v2] = (if v1 = v2 then Val $ SBool T else Val $ SBool F) ∧
+  seqv _ = Exception $ strlit "Arity mismatch"
 End
 
 (*
@@ -47,45 +60,42 @@ Definition fresh_loc_def:
 End
 
 Definition parameterize_def:
-  parameterize _ store ks env [] NONE e [] = (store, ks, env, e) ∧
-  parameterize _ store ks env [] (SOME l) e xs = (let (n, store') = fresh_loc store (SOME $ SList xs)
+  parameterize store ks env [] NONE e [] = (store, ks, env, e) ∧
+  parameterize store ks env [] (SOME l) e xs = (let (n, store') = fresh_loc store (SOME $ SList xs)
     in (store', ks, (env |+ (l, n)), e)) ∧
-  parameterize excons store ks env (p::ps) lp e (x::xs) = (let (n, store') = fresh_loc store (SOME x)
-    in parameterize excons store' ks (env |+ (p, n)) ps lp e xs) ∧
-  parameterize excons store ks _ _ _ _ _ = (store, ks, FEMPTY, excons $ strlit "Wrong number of arguments")
+  parameterize store ks env (p::ps) lp e (x::xs) = (let (n, store') = fresh_loc store (SOME x)
+    in parameterize store' ks (env |+ (p, n)) ps lp e xs) ∧
+  parameterize store ks _ _ _ _ _ = (store, ks, FEMPTY, Exception $ strlit "Wrong number of arguments")
 End
 
 Definition application_def:
-  application vcons excons store ks (Prim p) xs = (case p of
-  | SAdd => (store, ks, FEMPTY, sadd vcons excons xs 0)
-  | SMul => (store, ks, FEMPTY, smul vcons excons xs 1)) ∧
-  application _ excons store ks (Proc env ps lp e) xs =
-    parameterize excons store ks env ps lp e xs ∧
-  application _ excons store ks _ _ = (store, ks, FEMPTY, excons $ strlit "Not a procedure")
+  application store ks (Prim p) xs = (case p of
+  | SAdd => (store, ks, FEMPTY, sadd xs 0)
+  | SMul => (store, ks, FEMPTY, smul xs 1)
+  | SMinus => (store, ks, FEMPTY, sminus xs)
+  | SEqv => (store, ks, FEMPTY, seqv xs)) ∧
+  application store ks (Proc env ps lp e) xs =
+    parameterize store ks env ps lp e xs ∧
+  application store ks _ _ = (store, ks, FEMPTY, Exception $ strlit "Not a procedure")
 End
 
 Definition return_def:
-  return vcons _ (store, [], env, v) = (store, [], env, vcons v) ∧
+  return (store, [], env, v) = (store, [], env, Val v) ∧
 
-  return vcons excons (store, (env, ApplyK NONE eargs) :: ks, _, v) = (case eargs of
-  | [] => application vcons excons store ks v []
+  return (store, (env, ApplyK NONE eargs) :: ks, _, v) = (case eargs of
+  | [] => application store ks v []
   | e::es => (store, (env, ApplyK (SOME (v, [])) es) :: ks, env, e)) ∧
-  return vcons excons (store, (env, ApplyK (SOME (vfn, vargs)) eargs) :: ks, _, v) = (case eargs of
-  | [] => application vcons excons store ks vfn (REVERSE $ v::vargs)
+  return (store, (env, ApplyK (SOME (vfn, vargs)) eargs) :: ks, _, v) = (case eargs of
+  | [] => application store ks vfn (REVERSE $ v::vargs)
   | e::es => (store, (env, ApplyK (SOME (vfn, v::vargs)) es) :: ks, env, e)) ∧
 
-  return _ _ (store, (env, CondK t f) :: ks, _, v) = (if v = (SBool F)
+  return (store, (env, CondK t f) :: ks, _, v) = (if v = (SBool F)
     then (store, ks, env, f) else (store, ks, env, t)) ∧
 
-  return vcons _ (store, (env, BeginK es) :: ks, _, v) = (case es of
-  | [] => (store, ks, env, vcons v)
+  return (store, (env, BeginK es) :: ks, _, v) = (case es of
+  | [] => (store, ks, env, Val v)
   | e::es' => (store, (env, BeginK es') :: ks, env, e)) ∧
-  return vcons excons (store, (env, SetK x) :: ks, _, v) = (LUPDATE (SOME v) (env ' x) store, ks, env, vcons $ Wrong "Unspecified")
-End
-
-Definition unwind_def:
-  unwind excons store [] ex = (store, [], FEMPTY, excons ex) ∧
-  unwind excons store (k::ks) ex = unwind excons store ks ex
+  return (store, (env, SetK x) :: ks, _, v) = (LUPDATE (SOME v) (env ' x) store, ks, env, Val $ Wrong "Unspecified")
 End
 
 Definition letrec_init_def:
@@ -95,7 +105,7 @@ Definition letrec_init_def:
 End
 
 Definition step_def:
-  step (store, ks, env, Val v) = return Val Exception (store, ks, env, v) ∧
+  step (store, ks, env, Val v) = return (store, ks, env, v) ∧
   step (store, ks, env, Apply fn args) = (store, (env, ApplyK NONE args) :: ks, env, fn) ∧
   step (store, ks, env, Cond c t f) = (store, (env, CondK t f) :: ks, env, c) ∧
   (*This is undefined if the program doesn't typecheck*)
@@ -112,7 +122,7 @@ Definition step_def:
   | (x, i)::bs' => let (store', env') = letrec_init store env (MAP FST bs)
       in (store', (env', BeginK (SNOC e (MAP (UNCURRY Set) bs'))) :: ks, env', Set x i)) ∧
 
-  step (store, ks, env, Exception ex) = unwind Exception store ks ex
+  step (store, ks, env, Exception ex) = (store, [], env, Exception ex)
 End
 
 Definition steps_def:
@@ -121,14 +131,16 @@ Definition steps_def:
 End
 
 (*
+  open scheme_semanticsTheory;
+
   EVAL “semantics (Val (SNum 3))”
   EVAL “semantics (Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”
-  EVAL “steps 4 ([], [], Apply (Val (Prim SMul)) [Val (SNum 2); Val (SNum 4)])”
+  EVAL “steps 4 ([], [], Apply (Val (Prim SMinus)) [Val (SNum 2); Val (SNum 4)])”
   EVAL “steps 4 ([], [], Apply (Val (SNum 7)) [Val (SNum 2); Val (SNum 4)])”
   EVAL “steps 6 ([], [InLetK []], Apply (Val (Prim SMul)) [Val (SNum 2); Val (Prim SAdd)])”
   EVAL “steps 2 ([], [], Cond (Val (SBool F)) (Val (SNum 2)) (Val (SNum 4)))”
   EVAL “steps 4 ([], [], SLet [(strlit "x", Val $ SNum 42)] (Ident $ strlit "x"))”
-  EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 4])”
+  EVAL “steps 6 ([], [], Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "y")) [Val $ SNum 4])”
   EVAL “steps 3 ([], [], Begin (Val $ SNum 1) [Val $ SNum 2])”
 
   EVAL “steps 16 ([], [], FEMPTY,
@@ -213,6 +225,8 @@ End
   EVAL “steps 3 ([], [], FEMPTY,
     Letrec [(strlit $ "fail", Ident $ strlit "fail")] (Val $ SBool F)
   )”
+
+  EVAL “steps 10 ([], [], Apply (Val $ Prim SEqv) [Val $ SNum 3; Val $ SNum 2])”
 *)
 
 val _ = export_theory();

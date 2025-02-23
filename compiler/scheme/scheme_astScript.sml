@@ -10,17 +10,17 @@ Type senv = “:(mlstring |-> num)”
 
 (* This needs completing: Var, Lit, ... *)
 Datatype:
-  prim = SAdd | SMul
+  prim = SAdd | SMul | SMinus | SEqv
 End
 
 Datatype:
-  val = Prim prim | SNum num | Wrong string | SBool bool
+  val = Prim prim | SNum int | Wrong string | SBool bool
       | SList (val list)
       | Proc senv (mlstring list) (mlstring option) exp
 ;
   exp = Print mlstring
       | Apply exp (exp list)
-      | Val ((*exp*) val)
+      | Val (val)
       | Cond exp exp exp
       | Ident mlstring
       | Lambda (mlstring list) (mlstring option) exp
