@@ -266,6 +266,28 @@ End
       ]]
     )
   ))] (Apply (Ident $ strlit "fac") [Val $ SNum 6]))”
+
+  EVAL “steps 500 ([], [], FEMPTY, Letrec [(strlit "fac", Lambda [strlit "x"] NONE (
+    Letrec [(strlit "st", Val $ SNum 0); (strlit "acc", Val $ SNum 1)] (
+      Begin ( Apply (Val $ Prim CallCC) [ Lambda [strlit "k"] NONE (
+        Set (strlit "st") (Ident $ strlit "k")
+      )]) [
+        Cond (Apply (Val $ Prim SEqv) [Ident $ strlit "x"; Val $ SNum 0])
+          (Ident $ strlit "acc")
+          (Apply (Ident $ strlit "st") [ Begin (
+            Set (strlit "acc") (Apply (Val $ Prim SMul) [
+              Ident $ strlit "acc";
+              Ident $ strlit "x"
+            ])
+          ) [
+            Set (strlit "x") (Apply (Val $ Prim SMinus) [
+              Ident $ strlit "x";
+              Val $ SNum 1
+            ])
+          ]])
+      ]
+    )
+  ))] (Apply (Ident $ strlit "fac") [Val $ SNum 6]))”
 *)
 
 val _ = export_theory();

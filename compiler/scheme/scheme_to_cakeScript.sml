@@ -15,7 +15,8 @@ Definition to_ml_vals_def:
   | SAdd => Con (SOME $ Short "SAdd") []
   | SMul => Con (SOME $ Short "SMul") []
   | SMinus => Con (SOME $ Short "SMinus") []
-  | SEqv => Con (SOME $ Short "SEqv") []] ∧
+  | SEqv => Con (SOME $ Short "SEqv") []
+  | CallCC => Con (SOME $ Short "CallCC") []] ∧
   to_ml_vals (SNum n) = Con (SOME $ Short "SNum") [Lit $ IntLit n] ∧
   to_ml_vals (SBool b) = Con (SOME $ Short "SBool") [Lit $ IntLit
     if b then 1 else 0]
@@ -39,8 +40,12 @@ Definition app_ml_def:
         App Opapp [Var (Short "sminus"); Var (Short k)]);
       (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SEqv") []],
         App Opapp [Var (Short "seqv"); Var (Short k)]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "CallCC") []],
+        App Opapp [Var (Short "callcc"); Var (Short k)]);
       (Pcon (SOME $ Short "Proc") [Pvar "e"],
         App Opapp [Var (Short "e"); Var (Short k)]);
+      (Pcon (SOME $ Short "Throw") [Pvar "k'"],
+        App Opapp [Var (Short "throw"); Var (Short "k'")]);
       (Pany, cex)
     ])
 End
@@ -188,12 +193,14 @@ Definition myC_def:
     ("SBool", (1, TypeStamp "SBool" 0));
     ("SList", (1, TypeStamp "SList" 0));
     ("Proc", (1, TypeStamp "Proc" 0));
+    ("Throw", (1, TypeStamp "Throw" 0));
     ("Prim", (1, TypeStamp "Prim" 0));
     ("Wrong", (1, TypeStamp "Wrong" 0));
     ("SAdd", (0, TypeStamp "SAdd" 1));
     ("SMul", (0, TypeStamp "SMul" 1));
     ("SMinus", (0, TypeStamp "SMinus" 1));
     ("SEqv", (0, TypeStamp "SEqv" 1));
+    ("CallCC", (0, TypeStamp "CallCC" 1));
     ("cons", (2, TypeStamp "cons" 2));
     ("nil", (0, TypeStamp "nil" 2));
     ("Ex", (1, TypeStamp "Ex" 0));
@@ -205,8 +212,7 @@ End
 Definition myEnv_def:
   myEnv = <| v := let first = Bind [
     ("sadd", Recclosure <| v := nsEmpty; c := myC |> [
-      ("sadd", "k",
-        Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
+      ("sadd", "k", Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
         (Pcon (SOME $ Short "nil") [],
           App Opapp [Var (Short "k"); Con (SOME $ Short "SNum") [Var (Short "n")]]);
         (Pcon (SOME $ Short "cons") [Pvar "x"; Pvar "xs'"],
@@ -225,8 +231,7 @@ Definition myEnv_def:
       ])
     ] "sadd");
     ("smul", Recclosure <| v := nsEmpty; c := myC |> [
-      ("smul", "k",
-        Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
+      ("smul", "k", Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
         (Pcon (SOME $ Short "nil") [],
           App Opapp [Var (Short "k"); Con (SOME $ Short "SNum") [Var (Short "n")]]);
         (Pcon (SOME $ Short "cons") [Pvar "x"; Pvar "xs'"],
@@ -263,9 +268,22 @@ Definition myEnv_def:
               ])
           ])
       ]
-    ))
-  ] []
-  in nsAppend first $ Bind [
+    ));
+    ("throw", Closure <| v := nsEmpty; c := myC |> "k" (Fun "xs" $
+      Mat (Var (Short "xs")) [
+        (Pcon (SOME $ Short "nil") [],
+          Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+        (Pcon (SOME $ Short "cons") [Pvar "x"; Pvar "xs'"],
+          Mat (Var (Short "xs'")) [
+            (Pcon (SOME $ Short "nil") [],
+              App Opapp [Var (Short "k"); Var (Short "x")]);
+            (Pany,
+              Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+          ])
+      ]
+    ));
+  ] [];
+  second = nsAppend first $ Bind [
     ("sminus", Closure <| v := first; c := myC |> "k" (Fun "xs" $
       Mat (Var (Short "xs")) [
         (Pcon (SOME $ Short "nil") [],
@@ -287,6 +305,24 @@ Definition myEnv_def:
           ])
       ]
     ))
+  ] []
+  in nsAppend second $ Bind [
+    ("callcc", Recclosure <| v := second; c := myC |> [
+      ("callcc", "k", Fun "xs" $ Mat (Var (Short "xs")) [
+        (Pcon (SOME $ Short "nil") [],
+          Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+        (Pcon (SOME $ Short "cons") [Pvar "x"; Pvar "xs'"],
+          Mat (Var (Short "xs'")) [
+            (Pcon (SOME $ Short "nil") [],
+              App Opapp [SND $ app_ml 0 "k" "x";
+                Con (SOME $ Short "cons") [Con (SOME $ Short "Throw")
+                  [Var (Short "k")];
+                  Con (SOME $ Short "nil") []]]);
+            (Pany,
+              Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"])
+          ])
+      ])
+    ] "callcc");
   ] []
 ; c := myC
 |>
@@ -335,9 +371,48 @@ val _ = export_theory();
         ]]
       )
     ))] (Apply (Ident $ strlit "fac") [Val $ SNum 6]))]”
+  EVAL “SND $ evaluate <| clock := 999; refs := [] |> myEnv [scheme_program_to_cake (
+    Apply (Val $ Prim SMul) [
+      Val $ SNum 2;
+      Apply (Val $ Prim CallCC) [ Lambda [strlit "x"] NONE (
+        Apply (Val $ Prim SAdd) [
+          Val $ SNum 4;
+          Cond (Val $ SBool T) (
+            Val $ SNum 3
+          ) (
+            Apply (Ident $ strlit "x") [Val $ SNum 5]
+          )
+        ]
+      )]
+    ]
+  )]”
+  EVAL “SND $ evaluate <| clock := 999; refs := [] |> myEnv [scheme_program_to_cake (
+    Letrec [(strlit "fac", Lambda [strlit "x"] NONE (
+      Letrec [(strlit "st", Val $ SNum 0); (strlit "acc", Val $ SNum 1)] (
+        Begin ( Apply (Val $ Prim CallCC) [ Lambda [strlit "k"] NONE (
+          Set (strlit "st") (Ident $ strlit "k")
+        )]) [
+          Cond (Apply (Val $ Prim SEqv) [Ident $ strlit "x"; Val $ SNum 0])
+            (Ident $ strlit "acc")
+            (Apply (Ident $ strlit "st") [ Begin (
+              Set (strlit "acc") (Apply (Val $ Prim SMul) [
+                Ident $ strlit "acc";
+                Ident $ strlit "x"
+              ])
+            ) [
+              Set (strlit "x") (Apply (Val $ Prim SMinus) [
+                Ident $ strlit "x";
+                Val $ SNum 1
+              ])
+            ]])
+        ]
+      )
+    ))] (Apply (Ident $ strlit "fac") [Val $ SNum 6])
+  )]”
   EVAL “scheme_program_to_cake (Cond (Val $ SBool F) (Val $ SNum 420) (Val $ SNum 69))”
   EVAL “scheme_program_to_cake (Apply (Val $ Prim SMul) [Val $ SNum 2; Val $ SNum 3])”
   EVAL “scheme_program_to_cake (Apply (Lambda [] (SOME $ strlit "x") (Ident $ strlit "x")) [Val $ SNum 5])”
   EVAL “scheme_program_to_cake (Begin (Val $ SNum 0) [Val $ SNum 1; Val $ SNum 2])”
   EVAL “scheme_program_to_cake (Letrec [(strlit "x", Val $ SNum 1)] (Ident $ strlit "x"))”
+  EVAL “SND $ evaluate <| clock := 999; refs := [] |> myEnv [scheme_program_to_cake (Apply (Val $ Prim CallCC) [Lambda [strlit "x"] NONE $ Apply (Ident $ strlit "x") [Val $ SNum 5]])]”
 *)
