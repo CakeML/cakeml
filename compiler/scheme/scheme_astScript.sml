@@ -10,11 +10,11 @@ Type senv = “:(mlstring |-> num)”
 
 (* This needs completing: Var, Lit, ... *)
 Datatype:
-  prim = SAdd | SMul | CallCC
+  prim = SAdd | SMul | SMinus | SEqv | CallCC
 End
 
 Datatype:
-  val = Prim prim | SNum num | Wrong string | SBool bool
+  val = Prim prim | SNum int | Wrong string | SBool bool
       | SList (val list)
       | Proc senv (mlstring list) (mlstring option) exp
       (*requires HOL 94eb753a85c5628f4fd0401deb4b7e2972a8eb25*)
