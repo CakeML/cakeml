@@ -67,33 +67,33 @@ Definition application_def:
   | SMinus => (store, ks, FEMPTY, sminus xs)
   | SEqv => (store, ks, FEMPTY, seqv xs)
   | CallCC => case xs of
-    | [v] => (store, (env, ApplyK (SOME (v, [])) []) :: ks, env, Val $ Throw env ks)
-    | _ => (store, ks, env, Exception $ strlit "arity mismatch")) ∧
+    | [v] => (store, (FEMPTY, ApplyK (SOME (v, [])) []) :: ks, FEMPTY, Val $ Throw ks)
+    | _ => (store, ks, FEMPTY, Exception $ strlit "arity mismatch")) ∧
   application store ks (Proc env ps lp e) xs =
     parameterize store ks env ps lp e xs ∧
-  application store ks (Throw env' ks') xs = (case xs of
-    | [v] => (store, ks', env', Val v)
-    | _ => (store, ks, env, Exception $ strlit "arity mismatch")) ∧
+  application store ks (Throw ks') xs = (case xs of
+    | [v] => (store, ks', FEMPTY, Val v)
+    | _ => (store, ks, FEMPTY, Exception $ strlit "arity mismatch")) ∧
   application store ks _ _ = (store, ks, FEMPTY, Exception $ strlit "Not a procedure")
 End
 
 Definition return_def:
-  return (store, [], env, v) = (store, [], env, Val v) ∧
+  return store [] v = (store, [], FEMPTY, Val v) ∧
 
-  return (store, (env, ApplyK NONE eargs) :: ks, _, v) = (case eargs of
+  return store ((env, ApplyK NONE eargs) :: ks) v = (case eargs of
   | [] => application store ks v []
   | e::es => (store, (env, ApplyK (SOME (v, [])) es) :: ks, env, e)) ∧
-  return (store, (env, ApplyK (SOME (vfn, vargs)) eargs) :: ks, _, v) = (case eargs of
+  return store ((env, ApplyK (SOME (vfn, vargs)) eargs) :: ks) v = (case eargs of
   | [] => application store ks vfn (REVERSE $ v::vargs)
   | e::es => (store, (env, ApplyK (SOME (vfn, v::vargs)) es) :: ks, env, e)) ∧
 
-  return (store, (env, CondK t f) :: ks, _, v) = (if v = (SBool F)
+  return store ((env, CondK t f) :: ks) v = (if v = (SBool F)
     then (store, ks, env, f) else (store, ks, env, t)) ∧
 
-  return (store, (env, BeginK es) :: ks, _, v) = (case es of
+  return store ((env, BeginK es) :: ks) v = (case es of
   | [] => (store, ks, env, Val v)
   | e::es' => (store, (env, BeginK es') :: ks, env, e)) ∧
-  return (store, (env, SetK x) :: ks, _, v) = (LUPDATE (SOME v) (env ' x) store, ks, env, Val $ Wrong "Unspecified")
+  return store ((env, SetK x) :: ks) v = (LUPDATE (SOME v) (env ' x) store, ks, env, Val $ Wrong "Unspecified")
 End
 
 Definition letrec_init_def:
@@ -103,7 +103,7 @@ Definition letrec_init_def:
 End
 
 Definition step_def:
-  step (store, ks, env, Val v) = return (store, ks, env, v) ∧
+  step (store, ks, env, Val v) = return store ks v ∧
   step (store, ks, env, Apply fn args) = (store, (env, ApplyK NONE args) :: ks, env, fn) ∧
   step (store, ks, env, Cond c t f) = (store, (env, CondK t f) :: ks, env, c) ∧
   (*This is undefined if the program doesn't typecheck*)

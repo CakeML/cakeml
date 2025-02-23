@@ -18,7 +18,7 @@ Datatype:
       | SList (val list)
       | Proc senv (mlstring list) (mlstring option) exp
       (*requires HOL 94eb753a85c5628f4fd0401deb4b7e2972a8eb25*)
-      | Throw senv ((senv # cont) list)
+      | Throw ((senv # cont) list)
 ;
   (*Contexts for small-step operational semantics*)
   cont = ApplyK ((val # val list) option) (exp list)
