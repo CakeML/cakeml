@@ -74,30 +74,30 @@ Definition application_def:
 End
 
 Definition return_def:
-  return (env, [], v) = (env, [], Val v) ∧
+  return env [] v = (env, [], Val v) ∧
 
-  return (env, ApplyK NONE eargs :: ks, v) = (case eargs of
+  return env (ApplyK NONE eargs :: ks) v = (case eargs of
   | [] => application env ks v []
   | e::es => (env, ApplyK (SOME (v, [])) es :: ks, e)) ∧
-  return (env, ApplyK (SOME (vfn, vargs)) eargs :: ks, v) = (case eargs of
+  return env (ApplyK (SOME (vfn, vargs)) eargs :: ks) v = (case eargs of
   | [] => application env ks vfn (REVERSE $ v::vargs)
   | e::es => (env, ApplyK (SOME (vfn, v::vargs)) es :: ks, e)) ∧
 
-  return (env, CondK t f :: ks, v) = (if v = (SBool F)
+  return env (CondK t f :: ks) v = (if v = (SBool F)
     then (env, ks, f) else (env, ks, t)) ∧
 
-  return (env, LetK env' i is e :: ks, v) = (case is of
+  return env (LetK env' i is e :: ks) v = (case is of
   | [] => ((i, v)::env', InLetK env :: ks, e)
   | (i', e')::is' => (env, LetK ((i, v)::env') i' is' e :: ks, e')) ∧
 
-  return (env, InLetK env' :: ks, v) = (env', ks, Val v) ∧
-  return (env, BeginK es :: ks, v) = case es of
+  return env (InLetK env' :: ks) v = (env', ks, Val v) ∧
+  return env (BeginK es :: ks) v = case es of
   | [] => (env, ks, Val v)
   | e::es' => (env, BeginK es' :: ks, e)
 End
 
 Definition step_def:
-  step (env, ks, Val v) = return (env, ks, v) ∧
+  step (env, ks, Val v) = return env ks v ∧
   step (env, ks, Apply fn args) = (env, ApplyK NONE args :: ks, fn) ∧
   step (env, ks, Cond c t f) = (env, CondK t f :: ks, c) ∧
   step (env, ks, Ident s) = (let v' = case FIND ($= s o FST) env of
