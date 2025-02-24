@@ -132,6 +132,17 @@ Definition last_to_str_def:
     (* only used to print exits in warnings *)
 End
 
+(* Definition prog_is_exit_def:
+  last_is_exit x = 
+    case x of
+    | Return e      => T
+    | Raise  id e   => T
+    | TailCall f as => T
+    | Break         => T
+    | Continue      => T
+    | _             => F
+End *)
+
 Definition last_is_exit_def:
   last_is_exit x = ~(x = InvisLast \/ x = OtherLast)
 End
@@ -163,8 +174,11 @@ Definition seq_last_stmt_def:
   seq_last_stmt x y = if y = InvisLast then x else y
 End
 
-Definition branch_last_stmt_def:
+(* Definition branch_last_stmt_def:
   branch_last_stmt double_ret = if double_ret then IfExitLast else OtherLast
+End *)
+Definition branch_last_stmt_def:
+  branch_last_stmt ls1 ls2 = if (last_is_exit ls1 /\ last_is_exit ls2) then IfExitLast else OtherLast
 End
 
 (* misc functions *)
@@ -427,7 +441,8 @@ Definition static_check_prog_def:
       (rt1, rh1, ls1, vs1, loc1) <- static_check_prog ctxt p1;
       (rt2, rh2, ls2, vs2, loc2) <- static_check_prog (ctxt with loc := loc1) p2;
       double_ret <<- (rt1 /\ rt2);
-      return (double_ret, ctxt.is_reachable, branch_last_stmt double_ret, branch_vbases ctxt.vars vs1 vs2, loc2)
+      (* return (double_ret, ctxt.is_reachable, branch_last_stmt double_ret, branch_vbases ctxt.vars vs1 vs2, loc2) *)
+      return (double_ret, ctxt.is_reachable, branch_last_stmt ls1 ls2, branch_vbases ctxt.vars vs1 vs2, loc2)
     od ∧
   static_check_prog ctxt (While e p) =
     do
