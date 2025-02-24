@@ -115,14 +115,14 @@ val ex_arg_main = `
   }
 `;
 
-val parse_export_main =
-  check_parse_success $ parse_pancake ex_export_main;
+val parse_arg_main =
+  check_parse_success $ parse_pancake ex_arg_main;
 
-val static_export_main =
-  check_static_failure $ static_check_pancake parse_export_main;
+val static_arg_main =
+  check_static_failure $ static_check_pancake parse_arg_main;
 
-val warns_export_main =
-  check_static_no_warnings $ static_check_pancake parse_export_main;
+val warns_arg_main =
+  check_static_no_warnings $ static_check_pancake parse_arg_main;
 
 
 (* Error: Exported main function *)
@@ -310,55 +310,55 @@ val warns_repeat_params =
 (* Error: Incorrect number of Op arguments (impossible from parser) *)
 
 val parse_missing_arg_binop = ``
-  [(«f»,F,[]:(mlstring # shape) list),
+  [(«f»,F,([]:(mlstring # shape) list),
     Seq (Annot «location» «(0:0 0:0)»)
     (Return (Op Xor [Const 1w])))]
 ``;
 
 val static_missing_arg_binop =
-  check_static_failure $ static_check_pancake parse_missing_arg_binop;
+  check_static_failure $ EVAL “static_check ^parse_missing_arg_binop”;
 
 val warns_missing_arg_binop =
-  check_static_no_warnings $ static_check_pancake parse_missing_arg_binop;
+  check_static_no_warnings $ EVAL “static_check ^parse_missing_arg_binop”;
 
 
 val parse_missing_arg_panop = ``
-  [(«f»,F,[]:(mlstring # shape) list),
+  [(«f»,F,([]:(mlstring # shape) list),
     Seq (Annot «location» «(0:0 0:0)»)
     (Return (Panop Mul [Const 1w])))]
 ``;
 
 val static_missing_arg_panop =
-  check_static_failure $ static_check_pancake parse_missing_arg_panop;
+  check_static_failure $ EVAL “static_check ^parse_missing_arg_panop”;
 
 val warns_missing_arg_panop =
-  check_static_no_warnings $ static_check_pancake parse_missing_arg_panop;
+  check_static_no_warnings $ EVAL “static_check ^parse_missing_arg_panop”;
 
 
 val parse_missing_arg_sub = ``
-  [(«f»,F,[]:(mlstring # shape) list),
+  [(«f»,F,([]:(mlstring # shape) list),
     Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Op Sub [Const 1w])))
+    (Return (Op Sub [Const 1w])))]
 ``;
 
 val static_missing_arg_sub =
-  check_static_failure $ static_check_pancake parse_missing_arg_sub;
+  check_static_failure $ EVAL “static_check ^parse_missing_arg_sub”;
 
 val warns_missing_arg_sub =
-  check_static_no_warnings $ static_check_pancake parse_missing_arg_sub;
+  check_static_no_warnings $ EVAL “static_check ^parse_missing_arg_sub”;
 
 
 val parse_extra_arg_panop = ``
-  [(«f»,F,[]:(mlstring # shape) list),
+  [(«f»,F,([]:(mlstring # shape) list),
     Seq (Annot «location» «(0:0 0:0)»)
     (Return (Panop Mul [Const 1w; Const 1w; Const 1w])))]
 ``;
 
 val static_extra_arg_panop =
-  check_static_failure $ static_check_pancake parse_extra_arg_panop;
+  check_static_failure $ EVAL “static_check ^parse_extra_arg_panop”;
 
 val warns_extra_arg_panop =
-  check_static_no_warnings $ static_check_pancake parse_extra_arg_panop;
+  check_static_no_warnings $ EVAL “static_check ^parse_extra_arg_panop”;
 
 
 val parse_extra_arg_sub = ``
@@ -368,10 +368,10 @@ val parse_extra_arg_sub = ``
 ``;
 
 val static_extra_arg_sub =
-  check_static_failure $ static_check_pancake parse_extra_arg_sub;
+  check_static_failure $ EVAL “static_check ^parse_extra_arg_sub”;
 
 val warns_extra_arg_sub =
-  check_static_no_warnings $ static_check_pancake parse_extra_arg_sub;
+  check_static_no_warnings $ EVAL “static_check ^parse_extra_arg_sub”;
 
 
 (* Warning: Unreachable statements (after function exit, after loop exit) *)
@@ -415,7 +415,7 @@ val ex_stmt_after_raise = `
     raise Err 1;
     skip;
   }
-;
+`;
 
 val parse_stmt_after_raise =
   check_parse_success $ parse_pancake ex_stmt_after_raise;
@@ -602,6 +602,7 @@ val static_stmt_after_cont =
 
 val warns_stmt_after_cont =
   check_static_has_warnings $ static_check_pancake parse_stmt_after_cont;
+
 
 val ex_stmt_after_inner_brk = `
   fun f () {
