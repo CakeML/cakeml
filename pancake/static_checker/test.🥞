@@ -32,6 +32,11 @@
 //     return 1;
 // }
 
+// // main with args
+// fun main (1 a) {
+//     return 1;
+// }
+
 // // exported main
 // export fun main () {
 //     return 1;
@@ -746,7 +751,52 @@
 //     return 1 - 1 - 1;
 // }
 
-
+// // some fucked up unreachable examples to show when warning stops
+// fun f () {
+//     if 1 {
+//         if 1 {
+//             return 1;
+//             skip;
+//         } else {
+//             skip;
+//         }
+//         if 1 {
+//             return 1;
+//             skip;
+//         } else {
+//             return 1;
+//             skip;
+//         }
+//         return 1;
+//         skip;
+//         if 1 {
+//             return 1;
+//             skip;
+//         } else {
+//             skip;
+//         }
+//     } else {
+//         skip;
+//     }
+//     return 1;
+//     skip;
+// }
+// fun f () {
+//     {
+//         {
+//             return 1;
+//             skip; // warns here
+//         };
+//         return 1; // warns here
+//         skip;
+//         {
+//             return 1;
+//             skip;
+//         };
+//     };
+//     return 1; // warns here
+//     skip;
+// }
 
 // fp syntax notes
 // fun f () {

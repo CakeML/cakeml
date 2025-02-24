@@ -2,8 +2,7 @@ INCLUDES = $(HOLDIR)/examples/machine-code/multiword\
 					 $(CAKEMLDIR)/misc\
 					 $(CAKEMLDIR)/basis/pure\
 					 $(CAKEMLDIR)/compiler/backend/\
-					 $(CAKEMLDIR)/compiler/encoders/asm\
-					 $(CAKEMLDIR)/pancake/parser\
+					 $(CAKEMLDIR)/compiler/encoders/asm
 
 
 all: $(DEFAULT_TARGETS) README.md
