@@ -11,7 +11,6 @@ open preamble ibackendTheory
      cv_transLib
      x64_configTheory
      x64_targetTheory;
-
 open backend_asmLib;
 open helloProgTheory;
 
@@ -102,17 +101,6 @@ fun define_abbrev name tm =
   Feedback.trace ("Theory.allow_rebinds", 1)
     (mk_abbrev name) tm;
 
-val to_option_some = cv_typeTheory.to_option_def |> cj 2;
-val to_pair = cv_typeTheory.to_pair_def |> cj 1;
-val c2n_Num = cvTheory.c2n_def |> cj 1;
-
-fun abbrev_inside name path th = let
-    val tm = dest_path path (concl th)
-    val def = define_abbrev name tm
-            in (def, CONV_RULE (PATH_CONV path (REWR_CONV (SYM def))) th) end;
-
-Theorem b2c_compute[compute] = cvTheory.b2c_def;
-
 (* basic setup for testing *)
 val prog = hello_prog_def |> rconc;
 val basis_prog_def = define_abbrev "basis_prog" (EVAL``TAKE 93 hello_prog`` |> rconc);
@@ -136,44 +124,40 @@ val res = (cv_trans_deep_embedding EVAL) basis_prog_def;
 val res = (cv_trans_deep_embedding EVAL) hello_prog_1_def;
 
 
-fun foo () = let
 (* init phase *)
-val init_ls = time cv_eval_raw “FST (init_icompile_source_to_livesets_x64 ^x64_inc_conf)” |> rconc;
-(*  # runtime: 3.8s,    gctime: 0.15335s,     systime: 0.04283s. *)
+fun init_icompile conf_tm =
+  let
+    val init_ls = time cv_eval_raw “FST (init_icompile_source_to_livesets_x64 ^conf_tm)” |> rconc;
+    val init_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc init_ls;
+    val init_oracs_def = define_abbrev "init_oracs" init_oracs;
+    val res = (cv_trans_deep_embedding EVAL) init_oracs_def;
+    val init_comp = cv_eval_pat (Some (cv_transLib.Pair (Name "init_ic", Name "init_lab"))) “init_icompile_cake_x64 ^conf_tm init_oracs”;
+  in
+    init_comp
+  end;
 
-val init_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc init_ls;
-val init_oracs_def = define_abbrev "init_oracs" init_oracs;
-val res = (cv_trans_deep_embedding EVAL) init_oracs_def;
+val init_comp = init_icompile x64_inc_conf;
 
-val init_comp = time (cv_eval_pat (Some (cv_transLib.Pair (Name "init_ic", Name "init_lab")))) “init_icompile_cake_x64 ^x64_inc_conf init_oracs”;
-(*# runtime: 5.5s,    gctime: 0.15220s,     systime: 0.03526s.*)
+fun icompile ic_name prog_name prog_tm =
+  let
+    val prog_def = define_abbrev prog_name prog_tm;
+    val res = (cv_trans_deep_embedding EVAL) prog_def;
+    val ic_tm_const = mk_const (ic_name, “:64 iconfig”);
+    val prog_tm_const = mk_const (prog_name, “:ast$dec list”);
+    val prog_ls = cv_eval_raw “(9n,FST (case (icompile_source_to_livesets_x64 ^(ic_tm_const) ^(prog_tm_const)) of NONE => ARB | SOME v => v))” |> rconc;
+    val prog_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc prog_ls;
+    val prog_oracs_def = define_abbrev (prog_name ^ "_oracs") prog_oracs;
+    val res = (cv_trans_deep_embedding EVAL) prog_oracs_def;
+    val prog_oracs_const = mk_const (prog_name ^ "_oracs", “:num sptree$num_map option list”);
+    val prog_comp = cv_eval_pat (Some (cv_transLib.Pair (Name (prog_name ^ "_ic"), Name (prog_name ^ "_lab"))))
+                                “icompile_cake_x64 ^ic_tm_const ^prog_tm_const ^prog_oracs_const”;
+  in
+    (prog_comp, prog_name ^ "_ic")
+  end
 
-(* basis *)
-val basis_prog_ls = time cv_eval_raw
-                         “(9n,FST (case (icompile_source_to_livesets_x64 init_ic basis_prog) of NONE => ARB | SOME v => v))”
-                      |> rconc;
-(*  runtime: 16.7s,    gctime: 3.2s,     systime: 0.70746s *)
+val (basis_prog_comp, basis_ic_name) = icompile "init_ic" "basis_prog" (EVAL``TAKE 93 hello_prog`` |> rconc);
 
-val basis_prog_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc basis_prog_ls;
-val basis_prog_oracs_def = define_abbrev "basis_prog_oracs" basis_prog_oracs;
-val res = (cv_trans_deep_embedding EVAL) basis_prog_oracs_def;
-
-val basis_prog_comp = time (cv_eval_pat (Some (cv_transLib.Pair (Name "basis_ic", Name "basis_prog_lab")))) “icompile_cake_x64 init_ic basis_prog basis_prog_oracs”;
-(*  # runtime: 18.7s,    gctime: 0.98483s,     systime: 0.31648s. *)
-
-(* hello prog *)
-val hello_prog_ls = time cv_eval_raw
-                         “(9n,FST (case (icompile_source_to_livesets_x64 basis_ic hello_prog_1) of NONE => ARB | SOME v => v))”
-                      |> rconc;
-
-(* > # runtime: 3m32s,    gctime: 32.5s,     systime: 50.7s. *)
-val hello_prog_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc hello_prog_ls;
-val hello_prog_oracs_def = define_abbrev "hello_prog_oracs" hello_prog_oracs;
-val res = (cv_trans_deep_embedding EVAL) hello_prog_oracs_def;
-
-val hello_prog_comp = time (cv_eval_pat (Some (cv_transLib.Pair (Name "hello_prog_ic", Name "hello_prog_lab")))) “icompile_cake_x64 basis_ic hello_prog_1 hello_prog_oracs”;
-(*  # runtime: 1.4s,    gctime: 0.00000s,     systime: 0.00852s. *)
-
+val (hello_prog_comp, hello_ic_name) = icompile basis_ic_name "hello_prog" (EVAL``DROP 93 hello_prog`` |> rconc);
 
 val basis_prog_comp' = basis_prog_comp |> REWRITE_RULE [GSYM icompile_cake_x64_th];
 val hello_prog_comp' = hello_prog_comp |> REWRITE_RULE [GSYM icompile_cake_x64_th];
@@ -211,29 +195,25 @@ val icompile_eq_rw = icompile_eq_th
               |> CONV_RULE BETA_CONV;
 
 val _ = Globals.max_print_depth := 10;
-(* define abbrev doesnt work as expected, but cv_eval_pat works *)
 val [inc_conf, bm, p] = pairSyntax.strip_pair (icompile_eq_rw |> rconc |> optionSyntax.dest_some);
 val res = cv_eval_pat (Name "lab_prog") p;
 
-val target_def = time cv_eval_raw ``from_lab_x64 inc_conf LN lab_prog bm``;
-
-val th = target_def |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some));
-val th1 = th |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair)
-                                     THENC PATH_CONV "rrr" (REWR_CONV to_pair)
-                                     THENC PATH_CONV "rrrr" (REWR_CONV to_pair)
-                                     THENC PATH_CONV "rrrrr" (REWR_CONV to_pair)
-                                     THENC PATH_CONV "rrrrrr" (REWR_CONV to_pair)
-                                     THENC PATH_CONV "rrrrrrr" (REWR_CONV to_pair)
-                                     THENC PATH_CONV "rrrrrrrr" (REWR_CONV to_pair)
-                                     THENC PATH_CONV "rrrlr" (REWR_CONV c2n_Num)
-                                     THENC PATH_CONV "rrrrrlr" (REWR_CONV c2n_Num)
-                                     THENC PATH_CONV "rrrrrrrlr" (REWR_CONV c2n_Num))
-
-val (code_def,th) = abbrev_inside "code" "rrlr" th1;
-val (data_def,th) = abbrev_inside "data" "rrrrlr" th
-val (ffis_def,th) = abbrev_inside "ffis" "rrrrrrlr" th
-val (syms_def,th) = abbrev_inside "syms" "rrrrrrrrlr" th
-val (conf_def,th) = abbrev_inside "conf" "rrrrrrrrr" th
+val target_def = time cv_eval_pat (Some (cv_transLib.Pair (
+                                          Name "code",
+                                          cv_transLib.Pair (
+                                            Raw,
+                                            cv_transLib.Pair (
+                                              Name "data",
+                                              cv_transLib.Pair (
+                                                Raw,
+                                                cv_transLib.Pair (
+                                                  Name "ffis",
+                                                  cv_transLib.Pair (
+                                                    Raw,
+                                                    cv_transLib.Pair (
+                                                      Name "syms",
+                                                      Name "conf")))))))))
+                      ``from_lab_x64 inc_conf LN lab_prog bm``;
 
 val e = backend_x64_cvTheory.cv_x64_export_def |> concl |> strip_forall |> snd |> lhs;
 val cv_ty = cvSyntax.cv;
@@ -252,10 +232,8 @@ val export_tm = e |> cv_append |> cv_concat |> cv_explode |> subst
      mk_var("cv_ret",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm,
      mk_var("cv_pk",cvSyntax.cv)  |-> cvSyntax.mk_cv_num numSyntax.zero_tm];
 val _ = null (free_vars export_tm) orelse failwith "failed to eval export"
-
 val l = cv_computeLib.cv_compute (cv_transLib.cv_eqs_for export_tm) export_tm
           |> concl |> rhs;
-
 fun write_cv_char_list_to_file filename cv_char_list_tm = let
   val s = print ("Writing cv to file: " ^ filename ^"\n")
   val f = TextIO.openOut filename
@@ -276,7 +254,6 @@ fun write_cv_char_list_to_file filename cv_char_list_tm = let
 
 
 val _ = write_cv_char_list_to_file "hello_prog_ic.S" l;
-             in () end
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 
