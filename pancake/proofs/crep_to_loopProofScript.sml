@@ -1867,30 +1867,25 @@ Proof
     last_x_assum (qspec_then ‘byte_align adr’ mp_tac) >>
     metis_tac [wlab_wloc_def]) >>
   fs [state_rel_def] >>
-  reverse conj_tac
-  >- (
-   ‘subspt l sl’ by (
-     imp_res_tac compile_exp_out_rel >> fs [] >>
-     imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
-     rveq >> metis_tac [subspt_trans]) >>
-   match_mp_tac locals_rel_insert_gt_vmax >>
-   imp_res_tac compile_exp_out_rel >>
-   fs [] >>
-   match_mp_tac locals_rel_insert_gt_vmax >>
-   imp_res_tac compile_exp_out_rel >>
-   fs [] >>
-   match_mp_tac locals_rel_cutset_prop >>
-   metis_tac []) >>
-  imp_res_tac mem_rel_intro >>
-  rw [mem_rel_def] >>
-  fs [APPLY_UPDATE_THM] >>
-  reverse FULL_CASE_TAC >> fs [] >> rveq >>
-  TRY (res_tac >> fs [wlab_wloc_def] >> NO_TAC) >>
-  imp_res_tac locals_rel_intro >>
-  imp_res_tac code_rel_intro >>
-  imp_res_tac globals_rel_intro >>
-  drule eval_label_eq_state_contains_label >>
-  rw [] >> res_tac >> fs []
+  (reverse conj_tac
+   >- (
+    ‘subspt l sl’ by (
+      imp_res_tac compile_exp_out_rel >> fs [] >>
+      imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
+      rveq >> metis_tac [subspt_trans]) >>
+    match_mp_tac locals_rel_insert_gt_vmax >>
+    imp_res_tac compile_exp_out_rel >>
+    fs [] >>
+    match_mp_tac locals_rel_insert_gt_vmax >>
+    imp_res_tac compile_exp_out_rel >>
+    fs [] >>
+    match_mp_tac locals_rel_cutset_prop >>
+    metis_tac []) >>
+   imp_res_tac mem_rel_intro >>
+   rw [mem_rel_def] >>
+   fs [APPLY_UPDATE_THM] >>
+   reverse FULL_CASE_TAC >> fs [] >> rveq >>
+   res_tac >> fs [wlab_wloc_def])
 QED
 
 Theorem compile_StoreByte:

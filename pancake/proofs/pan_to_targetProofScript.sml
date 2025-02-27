@@ -384,6 +384,27 @@ Proof
   strip_tac>>gs[wordSemTheory.mem_store_def]
 QED
 
+Theorem mem_load_32_const_memory[simp]:
+  fun2set (m,dm) = fun2set (m',dm) ⇒
+  wordSem$mem_load_32 m dm be ad = mem_load_32 m' dm be ad
+Proof
+  strip_tac>>gs[wordSemTheory.mem_load_32_def]>>
+  rpt (TOP_CASE_TAC>>gs[set_sepTheory.fun2set_eq])>>
+  last_x_assum $ qspec_then ‘byte_align ad’ assume_tac>>gvs[]
+QED
+
+Theorem mem_store_32_const_memory:
+  fun2set (m, dm) = fun2set (m', dm) ⇒
+  (mem_store_32 m dm be ad hw = NONE ⇔ wordSem$mem_store_32 m' dm be ad hw = NONE) ∧
+  (fun2set (THE (mem_store_32 m dm be ad hw), dm) =
+    fun2set (THE (wordSem$mem_store_32 m' dm be ad hw), dm))
+Proof
+  strip_tac>>gs[wordSemTheory.mem_store_32_def]>>
+  rpt (TOP_CASE_TAC>>gs[set_sepTheory.fun2set_eq])>>
+  rpt strip_tac>>
+  simp[APPLY_UPDATE_THM]
+QED
+
 Theorem word_exp_const_memory[simp]:
   ∀s exp m.
   fun2set (s.memory,s.mdomain) = fun2set (m, s.mdomain) ⇒
@@ -474,8 +495,11 @@ Proof
       rpt (CASE_TAC>>gs[])>>
       imp_res_tac mem_load_byte_aux_const_memory>>gs[]>>
       imp_res_tac mem_store_byte_aux_const_memory>>gs[]>>
+      imp_res_tac mem_store_32_const_memory>>gs[]>>
+      imp_res_tac mem_load_32_const_memory>>gs[]>>
       imp_res_tac mem_store_const_memory>>gs[]>>
       imp_res_tac mem_load_const_memory>>gs[]>>
+      ntac 2 $ first_x_assum $ qspecl_then [‘w2w c’, ‘s.be’, ‘c''’] assume_tac>>
       ntac 2 $ first_x_assum $ qspecl_then [‘c''’, ‘s.be’, ‘w2w c’] assume_tac>>
       gs[wordSemTheory.set_var_def]>>
       gs[wordSemTheory.mem_store_def]>>
