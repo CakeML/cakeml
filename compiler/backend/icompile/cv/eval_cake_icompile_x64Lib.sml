@@ -1,101 +1,12 @@
 (*
-  CV translation for ibackend
+  icompile lib
 *)
-open preamble ibackendTheory
-     backend_asmTheory
-     backend_x64Theory
-     to_data_cvTheory
-     backend_64_cvTheory
-     backend_x64_cvTheory
-     cv_repLib
-     cv_transLib
-     x64_configTheory
-     x64_targetTheory;
-open backend_asmLib;
-open helloProgTheory;
 
-open reg_allocComputeLib;
+structure eval_cake_icompile_x64Lib :> eval_cake_icompile_x64Lib =
+struct
 
-val _ = new_theory"ibackend_cv";
+open ibackendTheory ibackend_cvTheory preamble x64_configTheory cv_transLib;
 
-(* using the default config for x64 *)
-val arch_size = “:64”
-val arch_spec = INST_TYPE [alpha |-> arch_size];
-
-val asm_spec_mem_list = CONJUNCTS asm_spec_memory;
-val (asm_spec, _) = asm_spec_raw asm_spec_mem_list x64_targetTheory.x64_config_def;
-val asm_spec' = fn th => asm_spec th |> snd;
-
-val _ = cv_auto_trans locationTheory.unknown_loc_def;
-
-(* translating icompile_source_to_livesets *)
-val _ = to_livesets_0_alt_def |>
-  SIMP_RULE std_ss [backendTheory.word_internal_def,
-  LET_DEF |> INST_TYPE [alpha |-> ``:bool``]] |> asm_spec' |> cv_auto_trans;
-
-val _ = cv_auto_trans
-  (icompile_bvl_to_bvi_prog_def
-  |> SRULE [GSYM bvl_to_bviTheory.alloc_glob_count_eq_global_count_list]);
-
-val _ = end_icompile_source_to_livesets_def |> asm_spec' |> cv_auto_trans;
-
-val _ = icompile_source_to_livesets_def |> asm_spec' |> cv_auto_trans;
-
-val _ = init_icompile_data_to_word_def |> asm_spec' |> arch_spec |> cv_auto_trans ;
-
-val _ = cv_trans empty_word_iconf_def;
-
-val _ = mk_iconfig_def |> cv_auto_trans ;
-
-val _ = init_icompile_source_to_livesets_def |> asm_spec' |> cv_auto_trans;
-
-(* translating icompile *)
-
-val icompile_word_to_stack_asm = icompile_word_to_stack_def |> asm_spec';
-val _ = end_icompile_word_to_stack_def |> asm_spec';
-
-val (end_icompile_cake_x64_th,end_icompile_cake_x64_def) = end_icompile_cake_def |> asm_spec ;
-Theorem end_icompile_cake_x64_th = end_icompile_cake_x64_th
-val _ = end_icompile_cake_x64_def |> cv_auto_trans;
-
-val (icompile_cake_x64_th, icompile_cake_x64_def) = icompile_cake_def |> asm_spec;
-Theorem icompile_cake_x64_th = icompile_cake_x64_th;
-val _ = icompile_cake_x64_def |> cv_auto_trans;
-
-val _ = icompile_word_to_stack_asm |> cv_auto_trans;
-
-Definition ic_w2s_mk_config_def:
-  ic_w2s_mk_config k =
-    (empty_word_iconf :'a word_iconfig) with
-    <| k := k;
-      bm := (List [4w:'a word], 1);
-      sfs_list := [];
-      fs := [0] |>
-End
-
-val _ = ic_w2s_mk_config_def |> arch_spec |> cv_auto_trans;
-
-Theorem init_icompile_word_to_stack_thm:
-  init_icompile_word_to_stack asm_conf word1_init =
-  let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
-  let word_iconf = ic_w2s_mk_config k in
-  let (word_iconf, stack_init) = icompile_word_to_stack asm_conf word_iconf word1_init in
-  let stack_init =
-      (raise_stub_location,raise_stub k) ::
-      (store_consts_stub_location,store_consts_stub k) :: stack_init in
-    (word_iconf, stack_init)
-Proof
-  rw[init_icompile_word_to_stack_def,ic_w2s_mk_config_def]
-QED
-
-val _ = init_icompile_word_to_stack_thm |> asm_spec' |> cv_auto_trans;
-
-val (init_icompile_cake_x64_th, init_icompile_cake_x64_def) = init_icompile_cake_def  |> SIMP_RULE std_ss [GSYM mk_iconfig_def] |> asm_spec;
-Theorem init_icompile_cake_x64_th = init_icompile_cake_x64_th
-val _ = init_icompile_cake_x64_def |> cv_auto_trans;
-
-(* Testing the cv translation *)
-(* up to here, another file *)
 val _ = Globals.max_print_depth := 10;
 
 (* helper *)
@@ -117,7 +28,7 @@ val x64_inc_conf = (EVAL “^(x64_inc_conf) with
         <| inc_source_conf := ^(inc_source_conf_init_vidx);
            inc_stack_conf := ^(inc_stack_conf_do_rawcall_f) |>” |> rconc);
 
-(*
+
 (* LIB *)
 (* TODO : error handling *)
 fun icompile0 ic_name prog_name prog_tm  =
@@ -200,7 +111,7 @@ fun end_icompile init_comp_thm icomp_thm final_iconf_name init_conf_tm =
 
 
 
-fun print_to_file file_name final_comp_thm =
+fun print_to_file final_comp_thm file_name =
   let
     val [inc_conf, bm, p] = pairSyntax.strip_pair (final_comp_thm |> rconc |> optionSyntax.dest_some);
     val res = cv_eval_pat (Name "lab_prog") p;
@@ -269,37 +180,10 @@ fun print_to_file file_name final_comp_thm =
       in TextIO.closeOut f end;
 
 
-    val _ = write_cv_char_list_to_file (file_name ^ ".S") l;
+    val _ = write_cv_char_list_to_file file_name l;
 
     val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
   in
     ()
   end;
-
-(* end LIB *)
-*)
-(*
-val basis_prog_tm = (EVAL``TAKE 93 hello_prog`` |> rconc);
-val hello_prog1_tm = (EVAL``DROP 93 hello_prog`` |> rconc);
-
-
-val (init_comp, init_icomp_thm, init_iconf_name) = time init_icompile x64_inc_conf;
-(* runtime: 34.4s,    gctime: 0.35867s,     systime: 0.36503s. *)
-
-fun icompile_basis () = icompile init_iconf_name init_icomp_thm "basis_prog" basis_prog_tm;
-val (basis_prog_comp, basis_ic_name) = time icompile_basis ();
-(* runtime: 1m39s,    gctime: 2.3s,     systime: 1.7s. *)
-
-fun icompile_hello () = icompile basis_ic_name basis_prog_comp "hello_prog1" hello_prog1_tm;
-val (hello_prog_comp, hello_ic_name) = time icompile_hello ();
-(* runtime: 2.8s,    gctime: 0.00000s,     systime: 0.04453s. *)
-
-fun end_icompile_hello () = end_icompile init_comp hello_prog_comp hello_ic_name x64_inc_conf;
-val hello_prog_final_comp_thm = time end_icompile_hello ();
-(* runtime: 12.3s,    gctime: 0.35795s,     systime: 0.86163s. *)
-
-fun print_hello_to_file () = print_to_file "hello_prog_ic" hello_prog_final_comp_thm;
-val _ = time print_hello_to_file ();
-(* runtime: 26.8s,    gctime: 1.8s,     systime: 5.1s. *)
-*)
-val _ = export_theory();
+end
