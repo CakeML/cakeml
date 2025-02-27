@@ -2470,6 +2470,13 @@ Proof
         (simp[APPLY_UPDATE_THM]>>
          Cases_on ‘s1.be’>>fs[]>>gvs[]>>
          rpt (IF_CASES_TAC>>fs[word_loc_val_def])>>
+         TRY (simp[good_dimindex_get_byte_set_byte,
+                   get_byte_set_byte_diff]>>
+              qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`
+                                       (qspec_then`n` assume_tac)>>
+              rfs[word_loc_val_def,w2w_w2w,WORD_ALL_BITS]>>
+              rfs[word_lsr_n2w,word_bits_w2w]>>
+              simp[w2w_w2w,WORD_BITS_COMP_THM]>>NO_TAC)>>
          TRY (qmatch_asmsub_abbrev_tac ‘aligned 2 X’>>
               ‘X ≠ X + 1w ∧ X ≠ X + 2w ∧ X ≠ X + 3w ∧ X + 1w ≠ X + 2w ∧
                X + 1w ≠ X + 3w ∧ X + 2w ≠ X + 3w’ by
@@ -2509,7 +2516,7 @@ Proof
        >- rfs[]
        >- (
           fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-          share_mem_state_rel_tac))
+          share_mem_state_rel_tac)))
 
      >> (* store32 - word64 *)
      Cases_on ‘aligned 3 x’>>fs[]
@@ -2530,21 +2537,61 @@ Proof
          metis_tac[]
        >-
          metis_tac[]
-(*       >-
-         metis_tac[]*)
-       >- cheat
-(*         (simp[word_loc_val_byte_def,APPLY_UPDATE_THM]>>
-         IF_CASES_TAC>>fs[]
-         >-
-           (fs[get_byte_def,byte_index_def]>>
-           drule byte_align_64_IMP>>
-           rpt IF_CASES_TAC>>fs[]>>
-           metis_tac[byte_align_64_CASES])
-         >>
-           qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
-           imp_res_tac aligned_3_not_eq>>fs[word_loc_val_byte_def])*)
        >-
-         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>HINT_EXISTS_TAC>>fs[]>>
+        (simp[APPLY_UPDATE_THM]>>
+         Cases_on ‘s1.be’>>fs[]>>gvs[]>>
+         rpt (IF_CASES_TAC>>fs[word_loc_val_def])>>
+         TRY (simp[good_dimindex_get_byte_set_byte,
+                   get_byte_set_byte_diff]>>
+              qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`
+                                (qspec_then`n` assume_tac)>>
+              rfs[word_loc_val_def]>>
+              simp[WORD_w2w_EXTRACT]>>
+              simp[word_extract_def]>>
+              simp[word_lsr_n2w]>>
+              simp[WORD_BITS_COMP_THM]>>
+              simp[word_bits_w2w]>>
+              simp[WORD_BITS_COMP_THM]>>
+              simp[WORD_w2w_EXTRACT]>>
+              simp[WORD_BITS_EXTRACT]>>
+              simp[WORD_EXTRACT_COMP_THM]>>
+              simp[WORD_EXTRACT_MIN_HIGH]>>NO_TAC)>>
+         TRY (qmatch_asmsub_abbrev_tac ‘aligned 3 X’>>
+              ‘X ≠ X + 1w ∧ X ≠ X + 2w ∧ X ≠ X + 3w ∧ X + 1w ≠ X + 2w ∧
+               X + 1w ≠ X + 3w ∧ X + 2w ≠ X + 3w’ by
+                (‘¬aligned 3 (X + 1w) ∧ ¬aligned 3 (X + 2w) ∧
+                  ¬aligned 3 (X + 3w)’
+                   by (rpt strip_tac>>
+                       pop_assum $ assume_tac o SIMP_RULE std_ss [aligned_def]>>
+                       rfs[align_add_aligned_gen]>>
+                       rfs[align_w2n,dimword_def])>>
+                 drule aligned_3_imp>>
+                 strip_tac>>rfs[aligned_def,byte_align_def,dimword_def])>>
+              TRY (qpat_assum ‘_ = a’ (fn h => rewrite_tac[GSYM h]))>>
+              simp[good_dimindex_get_byte_set_byte,
+                   get_byte_set_byte_diff]>>
+              qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`
+                                (qspec_then`n` assume_tac)>>
+              rfs[word_loc_val_def]>>
+              simp[WORD_w2w_EXTRACT]>>
+              simp[word_extract_def]>>
+              simp[word_lsr_n2w]>>
+              simp[WORD_BITS_COMP_THM]>>
+              simp[word_bits_w2w]>>
+              simp[WORD_BITS_COMP_THM]>>
+              simp[WORD_w2w_EXTRACT]>>
+              simp[WORD_BITS_EXTRACT]>>
+              simp[WORD_EXTRACT_COMP_THM]>>
+              simp[WORD_EXTRACT_MIN_HIGH]>>NO_TAC)>>
+         simp[APPLY_UPDATE_THM]>>simp[]>>
+         qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
+         FULL_CASE_TAC>>fs[]>>gvs[word_loc_val_def]>>
+         simp[good_dimindex_get_byte_set_byte,
+              get_byte_set_byte_diff])
+       >-
+         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
+         simp[APPLY_UPDATE_THM]>>
+         qexists_tac`t1.mem`>>rfs[]>>
          rw[APPLY_UPDATE_THM]>>
          rfs[])
        >-
@@ -2553,10 +2600,11 @@ Proof
          qexists_tac`t1.mem`>>rfs[]>>
          rw[APPLY_UPDATE_THM]>>
          rfs[])
-       >-rfs[]
+       >- rfs[]
        >- (
           fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
           share_mem_state_rel_tac)))
+
        >> (* word64, off by 4w *)
      ‘aligned 3 (byte_align x)’ by fs[byte_align_def,aligned_align]>>
      drule aligned_3_imp>>
@@ -2577,19 +2625,58 @@ Proof
          metis_tac[]
         >-
          metis_tac[]
-        (*       >-
-         metis_tac[]*)
-        >- cheat
-        (*         (simp[word_loc_val_byte_def,APPLY_UPDATE_THM]>>
-         IF_CASES_TAC>>fs[]
-         >-
-           (fs[get_byte_def,byte_index_def]>>
-           drule byte_align_64_IMP>>
-           rpt IF_CASES_TAC>>fs[]>>
-           metis_tac[byte_align_64_CASES])
-         >>
-           qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
-           imp_res_tac aligned_3_not_eq>>fs[word_loc_val_byte_def])*)
+        >-
+         (simp[APPLY_UPDATE_THM]>>
+          Cases_on ‘s1.be’>>fs[]>>gvs[]>>
+          rpt (IF_CASES_TAC>>fs[word_loc_val_def])>>
+          TRY (simp[good_dimindex_get_byte_set_byte,
+                    get_byte_set_byte_diff]>>
+               qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`                         (qspec_then`n` assume_tac)>>
+               rfs[word_loc_val_def]>>
+               simp[WORD_w2w_EXTRACT]>>
+               simp[word_extract_def]>>
+               simp[word_lsr_n2w]>>
+               simp[WORD_BITS_COMP_THM]>>
+               simp[word_bits_w2w]>>
+               simp[WORD_BITS_COMP_THM]>>
+               simp[WORD_w2w_EXTRACT]>>
+               simp[WORD_BITS_EXTRACT]>>
+               simp[WORD_EXTRACT_COMP_THM]>>
+               simp[WORD_EXTRACT_MIN_HIGH]>>NO_TAC)>>
+          TRY (qmatch_asmsub_abbrev_tac ‘aligned 3 X’>>
+               ‘X + 4w ≠ X + 5w ∧ X + 4w ≠ X + 6w ∧ X + 4w ≠ X + 7w ∧
+                X + 5w ≠ X + 6w ∧ X + 5w ≠ X + 7w ∧ X + 6w ≠ X + 7w’ by
+                 (‘¬aligned 3 (X + 5w) ∧ ¬aligned 3 (X + 6w) ∧
+                   ¬aligned 3 (X + 7w)’
+                    by (rpt strip_tac>>
+                        pop_assum $ assume_tac o SIMP_RULE std_ss [aligned_def]>>
+                        rpt (qpat_x_assum ‘_ = a’ kall_tac)>>
+                        rfs[align_add_aligned_gen]>>
+                        rfs[align_w2n,dimword_def])>>
+                  drule aligned_3_imp>>
+                  strip_tac>>rfs[aligned_def,byte_align_def,dimword_def])>>
+               TRY (qpat_assum ‘_ = a’ (fn h => rewrite_tac[GSYM h]))>>
+               simp[good_dimindex_get_byte_set_byte,
+                    get_byte_set_byte_diff]>>
+               qpat_x_assum `!r. word_loc_val _ _ (read_reg r _) = SOME _`
+                               (qspec_then`n` assume_tac)>>
+               rfs[word_loc_val_def]>>
+               simp[WORD_w2w_EXTRACT]>>
+               simp[word_extract_def]>>
+               simp[word_lsr_n2w]>>
+               simp[WORD_BITS_COMP_THM]>>
+               simp[word_bits_w2w]>>
+               simp[WORD_BITS_COMP_THM]>>
+               simp[WORD_w2w_EXTRACT]>>
+               simp[WORD_BITS_EXTRACT]>>
+               simp[WORD_EXTRACT_COMP_THM]>>
+               simp[WORD_EXTRACT_MIN_HIGH]>>NO_TAC)>>
+          simp[APPLY_UPDATE_THM]>>simp[]>>
+          IF_CASES_TAC>>fs[]>>
+          simp[word_loc_val_def]>>
+          gvs[get_byte_set_byte_diff]>>
+          qpat_x_assum `!a. byte_align a IN s1.mem_domain ==> _` imp_res_tac >>
+          FULL_CASE_TAC>>gvs[word_loc_val_def])
         >-
          (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>HINT_EXISTS_TAC>>fs[]>>
           rw[APPLY_UPDATE_THM]>>
@@ -2603,8 +2690,8 @@ Proof
         >- rfs[]
         >- (
          fs[read_mem_def,APPLY_UPDATE_THM,share_mem_state_rel_def] >>
-         share_mem_state_rel_tac))))
-    )
+         share_mem_state_rel_tac))
+    ))
   THEN1
   (strip_tac>>CONJ_ASM1_TAC>-
     (Cases_on`f`>>TRY(EVAL_TAC>>fs[state_rel_def]>>NO_TAC)
