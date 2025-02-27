@@ -116,12 +116,12 @@ val x64_inc_conf = (EVAL “^(x64_inc_conf) with
            inc_stack_conf := ^(inc_stack_conf_do_rawcall_f) |>” |> rconc);
 
 
-(* LIB *)   
-(* TODO : error handling *)    
+(* LIB *)
+(* TODO : error handling *)
 fun icompile0 ic_name prog_name prog_tm  =
   let
 
-    (* get livesets *)    
+    (* get livesets *)
     val prog_def = define_abbrev prog_name prog_tm;
     val res = (cv_trans_deep_embedding EVAL) prog_def;
     val ic_tm_const = mk_const (ic_name, “:64 iconfig”);
@@ -130,7 +130,7 @@ fun icompile0 ic_name prog_name prog_tm  =
     (* external register allocation *)
     val prog_oracs = reg_allocComputeLib.get_oracle_raw reg_alloc.Irc prog_ls;
     val prog_oracs_def = define_abbrev (prog_name ^ "_oracs") prog_oracs;
-    val res = (cv_trans_deep_embedding EVAL) prog_oracs_def;    
+    val res = (cv_trans_deep_embedding EVAL) prog_oracs_def;
     val prog_oracs_const = mk_const (prog_name ^ "_oracs", “:num sptree$num_map option list”);
     (* run with oracles *)
     val prog_comp = cv_eval_pat (Some (cv_transLib.Pair (Name (prog_name ^ "_ic"), Name (prog_name ^ "_lab"))))
@@ -147,14 +147,14 @@ fun collapse_icompile prev_thm curr_thm =
     |> (fn th => MATCH_MP th curr_thm);
 
 
-fun icompile ic_name prev_thm prog_name prog_tm =     
-  let 
+fun icompile ic_name prev_thm prog_name prog_tm =
+  let
     val (curr_thm, curr_prog_ic_name) = icompile0 ic_name prog_name prog_tm;
     val acc_thm = collapse_icompile prev_thm curr_thm;
   in
     (acc_thm, curr_prog_ic_name)
   end;
-        
+
 fun init_icompile conf_tm =
   let
     val init_ls = time cv_eval_raw “FST (init_icompile_source_to_livesets_x64 ^conf_tm)” |> rconc;
@@ -164,7 +164,7 @@ fun init_icompile conf_tm =
     val init_comp = cv_eval_pat (Some (cv_transLib.Pair (Name "init_ic", Name "init_lab"))) “init_icompile_cake_x64 ^conf_tm init_oracs”;
     val (icomp_thm, iconf_name) = icompile0 "init_ic" "empty_prog_for_init" “[]: ast$dec list”;
     val init_comp' = init_comp |> REWRITE_RULE [GSYM init_icompile_cake_x64_th];
-    
+
   in
     (init_comp', icomp_thm, iconf_name)
   end;
@@ -198,7 +198,7 @@ fun end_icompile init_comp_thm icomp_thm final_iconf_name init_conf_tm =
 
 
 
-fun print_to_file file_name final_comp_thm =  
+fun print_to_file file_name final_comp_thm =
   let
     val [inc_conf, bm, p] = pairSyntax.strip_pair (final_comp_thm |> rconc |> optionSyntax.dest_some);
     val res = cv_eval_pat (Name "lab_prog") p;
@@ -209,7 +209,7 @@ fun print_to_file file_name final_comp_thm =
     fun abbrev_inside name path th = let
         val tm = dest_path path (concl th)
         val def = define_abbrev name tm
-                in (def, CONV_RULE (PATH_CONV path (REWR_CONV (SYM def))) th) end;    
+                in (def, CONV_RULE (PATH_CONV path (REWR_CONV (SYM def))) th) end;
     val th = target_def |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some));
     val th1 = th |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair)
                                      THENC PATH_CONV "rrr" (REWR_CONV to_pair)
@@ -228,7 +228,7 @@ fun print_to_file file_name final_comp_thm =
     val (syms_def,th) = abbrev_inside "syms" "rrrrrrrrlr" th
     val (conf_def,th) = abbrev_inside "conf" "rrrrrrrrr" th
 
-    
+
     val e = backend_x64_cvTheory.cv_x64_export_def |> concl |> strip_forall |> snd |> lhs;
     val cv_ty = cvSyntax.cv;
     fun get_one_subst name abbrev_def = mk_var(name,cvSyntax.cv) |-> (abbrev_def |> concl |> rhs |> rand);
@@ -272,31 +272,31 @@ fun print_to_file file_name final_comp_thm =
     val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
   in
     ()
-  end; 
+  end;
 
 (* end LIB *)
-
+(*
 val basis_prog_tm = (EVAL``TAKE 93 hello_prog`` |> rconc);
 val hello_prog1_tm = (EVAL``DROP 93 hello_prog`` |> rconc);
 
-    
+
 val (init_comp, init_icomp_thm, init_iconf_name) = time init_icompile x64_inc_conf;
 (* runtime: 34.4s,    gctime: 0.35867s,     systime: 0.36503s. *)
 
 fun icompile_basis () = icompile init_iconf_name init_icomp_thm "basis_prog" basis_prog_tm;
 val (basis_prog_comp, basis_ic_name) = time icompile_basis ();
 (* runtime: 1m39s,    gctime: 2.3s,     systime: 1.7s. *)
-    
+
 fun icompile_hello () = icompile basis_ic_name basis_prog_comp "hello_prog1" hello_prog1_tm;
 val (hello_prog_comp, hello_ic_name) = time icompile_hello ();
 (* runtime: 2.8s,    gctime: 0.00000s,     systime: 0.04453s. *)
-    
+
 fun end_icompile_hello () = end_icompile init_comp hello_prog_comp hello_ic_name x64_inc_conf;
 val hello_prog_final_comp_thm = time end_icompile_hello ();
 (* runtime: 12.3s,    gctime: 0.35795s,     systime: 0.86163s. *)
-    
+
 fun print_hello_to_file () = print_to_file "hello_prog_ic" hello_prog_final_comp_thm;
 val _ = time print_hello_to_file ();
 (* runtime: 26.8s,    gctime: 1.8s,     systime: 5.1s. *)
-    
+*)
 val _ = export_theory();
