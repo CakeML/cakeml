@@ -27,29 +27,6 @@ Definition cons_list_def:
   cons_list (x::xs) = Con (SOME $ Short "cons") [Var (Short x); cons_list xs]
 End
 
-Definition app_ml_def:
-  app_ml n k t = let
-    cex = Fun "_" $ Con (SOME $ Short "Ex") [Lit $ StrLit"Not a procedure"]
-  in
-    (n, Mat (Var (Short t)) [
-      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SAdd") []],
-        App Opapp [App Opapp [Var (Short "sadd"); Var (Short k)]; Lit $ IntLit 0]);
-      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMul") []],
-        App Opapp [App Opapp [Var (Short "smul"); Var (Short k)]; Lit $ IntLit 1]);
-      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMinus") []],
-        App Opapp [Var (Short "sminus"); Var (Short k)]);
-      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SEqv") []],
-        App Opapp [Var (Short "seqv"); Var (Short k)]);
-      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "CallCC") []],
-        App Opapp [Var (Short "callcc"); Var (Short k)]);
-      (Pcon (SOME $ Short "Proc") [Pvar "e"],
-        App Opapp [Var (Short "e"); Var (Short k)]);
-      (Pcon (SOME $ Short "Throw") [Pvar "k'"],
-        App Opapp [Var (Short "throw"); Var (Short "k'")]);
-      (Pany, cex)
-    ])
-End
-
 Definition proc_ml_def:
   proc_ml n [] NONE k args ce = (n, Mat (Var (Short args)) [
         (Pcon (SOME $ Short "nil") [],
@@ -147,10 +124,12 @@ Definition cps_transform_def:
     (l, inner) = cps_transform_app (m+1) tfn (t::ts) es k
   in
     (l, App Opapp [ce; Fun t inner])) ∧
-  cps_transform_app n tfn ts [] k = (let
-    (m, capp) = app_ml n k tfn;
-  in
-    (m, App Opapp [capp;cons_list (REVERSE ts)])) ∧
+  cps_transform_app n tfn ts [] k = (n,
+    App Opapp [
+      App Opapp [
+        App Opapp [Var (Short "app"); Var (Short k)];
+        Var (Short tfn)];
+      cons_list (REVERSE ts)]) ∧
 
   cps_transform_seq n k [] = (n, Var (Short k)) ∧
   cps_transform_seq n k (e::es) = (let
@@ -307,22 +286,42 @@ Definition myEnv_def:
     ))
   ] []
   in nsAppend second $ Bind [
-    ("callcc", Recclosure <| v := second; c := myC |> [
+    ("app", Recclosure <| v := second; c := myC |> [
       ("callcc", "k", Fun "xs" $ Mat (Var (Short "xs")) [
         (Pcon (SOME $ Short "nil") [],
           Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
         (Pcon (SOME $ Short "cons") [Pvar "x"; Pvar "xs'"],
           Mat (Var (Short "xs'")) [
             (Pcon (SOME $ Short "nil") [],
-              App Opapp [SND $ app_ml 0 "k" "x";
+              App Opapp [
+                App Opapp [
+                  App Opapp [Var (Short "app");Var (Short "k")];
+                  Var (Short "x")];
                 Con (SOME $ Short "cons") [Con (SOME $ Short "Throw")
                   [Var (Short "k")];
                   Con (SOME $ Short "nil") []]]);
             (Pany,
               Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"])
           ])
-      ])
-    ] "callcc");
+      ]);
+      ("app", "k", Fun "fn" $ Mat (Var (Short "fn")) [
+        (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SAdd") []],
+          App Opapp [App Opapp [Var (Short "sadd"); Var (Short "k")]; Lit $ IntLit 0]);
+        (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMul") []],
+          App Opapp [App Opapp [Var (Short "smul"); Var (Short "k")]; Lit $ IntLit 1]);
+        (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMinus") []],
+          App Opapp [Var (Short "sminus"); Var (Short "k")]);
+        (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SEqv") []],
+          App Opapp [Var (Short "seqv"); Var (Short "k")]);
+        (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "CallCC") []],
+          App Opapp [Var (Short "callcc"); Var (Short "k")]);
+        (Pcon (SOME $ Short "Proc") [Pvar "e"],
+          App Opapp [Var (Short "e"); Var (Short "k")]);
+        (Pcon (SOME $ Short "Throw") [Pvar "k'"],
+          App Opapp [Var (Short "throw"); Var (Short "k'")]);
+        (Pany, Fun "_" $ Con (SOME $ Short "Ex") [Lit $ StrLit"Not a procedure"])
+    ])
+    ] "app");
   ] []
 ; c := myC
 |>
