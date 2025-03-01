@@ -501,6 +501,11 @@ Definition conv_Exp_alt_def:
             [] => NONE
           | [t] => OPTION_MAP LoadByte (conv_Exp_alt t)
           | t::v6::v7 => NONE
+        else if isNT nodeNT ELoad32NT then
+          case args of
+            [] => NONE
+          | [t] => OPTION_MAP Load32 (conv_Exp_alt t)
+          | t::v6::v7 => NONE
         else if isNT nodeNT ELoadNT then
           case args of
             [] => NONE
@@ -646,18 +651,13 @@ Proof
       >- (fs[]>>ntac 2 (CASE_TAC>>fs[]) >> metis_tac[])>>
       IF_CASES_TAC
       >- (fs[]>>ntac 6 (CASE_TAC>>fs[]))>>
-      IF_CASES_TAC>>fs[]
-      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
-      IF_CASES_TAC>>fs[]
-      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])
-      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
-      IF_CASES_TAC>>fs[]
-      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
-      IF_CASES_TAC>>fs[]
-      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
-      IF_CASES_TAC>>fs[]
-      >- (rpt (CASE_TAC>>fs[]))>>
-      IF_CASES_TAC>>fs[]>>rpt (CASE_TAC>>fs[]))>>
+      IF_CASES_TAC
+      >- (fs[]>>ntac 6 (CASE_TAC>>fs[]))>>
+      IF_CASES_TAC
+      >- (fs[]>>rpt (CASE_TAC>>fs[]))>>
+      IF_CASES_TAC
+      >- (fs[]>>rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])
+      >- (fs[]>>rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES]))>>
   (Cases_on ‘trees’>>fs[]
    >- simp[Once conv_Exp_alt_def, Once conv_Exp_def]>>
    rename1 ‘h::t’>>Cases_on ‘t’>>fs[]>>
