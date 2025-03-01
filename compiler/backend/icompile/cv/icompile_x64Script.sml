@@ -176,12 +176,6 @@ fun run_icompile_whole prog_name x64_inc_conf =
     val _ = print_to_file final_thm (prog_name^"_icompiled.S");
     in () end;
 
-val (duration, res) = time4 eval_cake_compile_x64_with_conf "" x64_conf_alt_def diff_prog_def  "diff_mcomp.S" ;
-
-val (duration, res) = time2 run_icompile_whole "diff_prog" x64_inc_conf_alt;
-(* runtime: 2m44s,    gctime: 14.6s,     systime: 4.5s. *)
-
-
 fun rq1 progs =
   let
     fun loop progs acc =
@@ -193,7 +187,7 @@ fun rq1 progs =
             val (duration_for_c, res_for_c) =
               time4 eval_cake_compile_x64_with_conf "" x64_conf_alt_def pdef  "diff_mcomp.S" ;
             val (duration_for_ic, res_for_ic) =
-              time2 run_icompile_whole pname x64_inc_conf_alt;
+              time2 run_icompile_whole pname x64_inc_conf_alt_tm;
             val row = (desc, duration_for_c, duration_for_ic);
           in
             loop progs' (row :: acc)
@@ -202,12 +196,6 @@ fun rq1 progs =
   in
     table
   end;
-
-rq1 [hd progs]
-
-
-val _ = time mcompile_hello_prog ();
-(* runtime: 2m43s,    gctime: 13.5s,     systime: 3.9s. *)
 
 fun addt3 (t1, t2, t3) (t1', t2', t3') : Time.time * Time.time * Time.time =
                                          (t1 + t1', t2 + t2', t3 + t3');
@@ -225,7 +213,8 @@ fun rq2or3 progs conf_for_c =
                            val prog1tm = split_basis pname |> snd;
                          in
                            (pname, prog1tm, pdef)
-                         end) progs;
+                           end) progs;
+    val _ = PolyML.fullGC();
     val sum_time = foldl
                    (fn (curr, acc) =>
                       let
@@ -236,8 +225,8 @@ fun rq2or3 progs conf_for_c =
                       in
                         acc'
                       end) (Time.zeroTime, Time.zeroTime, Time.zeroTime) progs;
-
-    val (init_duration, (init_icomp_thm, init_icomp_empty, init_ic_name)) = time1 init_icompile x64_inc_conf_alt;
+    val _ = PolyML.fullGC();
+    val (init_duration, (init_icomp_thm, init_icomp_empty, init_ic_name)) = time1 init_icompile x64_inc_conf_alt_tm;
     val (basis_duration, (basis_prog_icomp, basis_prog_ic_name)) = time4 icompile init_ic_name init_icomp_empty "basis_prog" basis_prog_tm;
     val sum_time_ic = foldl
                       (fn (curr, acc) =>
@@ -247,7 +236,7 @@ fun rq2or3 progs conf_for_c =
                            val (end_ic_duration, final_th) = time4 end_icompile init_icomp_thm
                                                                                prog1_icomp
                                                                                prog1_ic_name
-                                                                               x64_inc_conf_alt;
+                                                                               x64_inc_conf_alt_tm;
 
                            val (print_duration, ()) = time2 print_to_file final_th (pname^"_icompiled_rq2.S");
                          in
@@ -259,8 +248,20 @@ fun rq2or3 progs conf_for_c =
     (sum_time |> format_t3, init_duration |> addt3 basis_duration |> addt3 sum_time_ic |> format_t3)
     end;
 
+    
+(* returns res where
+   fst res : the total time taken to run the compiler on all the programs without optimisations
+   snd res : the total time taken to run the icompiler on all the programs without optimisations
+             with basis compiled incrementally *)
 
 val resrq2 = rq2or3 progs x64_conf_alt_def;
+
+
+
+(* returns res where
+   fst res : the total time taken to run the compiler on all the programs WITH  optimisations
+   snd res : the total time taken to run the icompiler on all the programs without optimisations
+             with basis compiled incrementally *)
 val resrq3 = rq2or3 progs x64_backend_config_def;
 
 
