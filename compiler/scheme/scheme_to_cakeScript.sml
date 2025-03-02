@@ -24,7 +24,7 @@ End
 
 Definition cons_list_def:
   cons_list [] = Con (SOME $ Short "nil") [] ∧
-  cons_list (x::xs) = Con (SOME $ Short "cons") [Var (Short x); cons_list xs]
+  cons_list (x::xs) = Con (SOME $ Short "cons") [x; cons_list xs]
 End
 
 Definition proc_ml_def:
@@ -65,22 +65,16 @@ Definition cps_transform_def:
     (n, Fun "_" $ Con (SOME $ Short "Ex") [Lit $ StrLit $ explode s]) ∧
   cps_transform n (Cond c t f) = (let
     (m, cc) = cps_transform n c;
-    (l, ct) = cps_transform m t;
-    (j, cf) = cps_transform l f;
-    p = "t" ++ toString j;
-    k = "k" ++ toString (j+1)
+    k = "k" ++ toString m;
+    (l, ck) = cps_transform_cont (m+1) (CondK t f) k
   in
-    (j+2, Fun k $ App Opapp [cc;  Fun p $ Mat (Var (Short p)) [
-      (Pcon (SOME $ Short "SBool") [Plit $ IntLit 0], App Opapp [cf; Var (Short k)]);
-      (Pany, App Opapp [ct; Var (Short k)])
-    ]])) ∧
+    (l, Fun k $ App Opapp [cc; ck])) ∧
   cps_transform n (Apply fn args) = (let
     (m, cfn) = cps_transform n fn;
     k = "k" ++ toString m;
-    t = "t" ++ toString (m+1);
-    (l, ce) = cps_transform_app (m+2) t [] args k
+    (l, ck) = cps_transform_cont (m+1) (ApplyK NONE args) k
   in
-    (l, Fun k $ App Opapp [cfn; Fun t ce])) ∧
+    (l, Fun k $ App Opapp [cfn; ck])) ∧
   cps_transform n (Ident x) = (let k = "k" ++ toString n in
     (n, Fun k $ Mat (App Opderef [Var (Short $ "s" ++ explode x)]) [
       (Pcon (SOME $ Short "None") [],
@@ -118,17 +112,33 @@ Definition cps_transform_def:
   in
     (l, Fun k $ letinit_ml bs inner)) ∧
 
+  cps_transform_cont n (CondK t f) k = (let
+    (m, ct) = cps_transform n t;
+    (l, cf) = cps_transform m f;
+    p = "t" ++ toString l;
+  in
+    (l+1, Fun p $ Mat (Var (Short p)) [
+      (Pcon (SOME $ Short "SBool") [Plit $ IntLit 0], App Opapp [cf; Var (Short k)]);
+      (Pany, App Opapp [ct; Var (Short k)])
+    ])) ∧
+  cps_transform_cont n (ApplyK NONE es) k = (let
+    t = "t" ++ toString n;
+    (m, ce) = cps_transform_app (n+1) (Var (Short t)) [] es k
+  in
+    (m, Fun t ce)
+  ) ∧
+  cps_transform_cont n (ApplyK (SOME (f, vs)) es) k =
+    cps_transform_app n (to_ml_vals f) (MAP to_ml_vals vs) es k ∧
+
   cps_transform_app n tfn ts (e::es) k = (let
     (m, ce) = cps_transform n e;
     t = "t" ++ toString m;
-    (l, inner) = cps_transform_app (m+1) tfn (t::ts) es k
+    (l, inner) = cps_transform_app (m+1) tfn (Var (Short t)::ts) es k
   in
     (l, App Opapp [ce; Fun t inner])) ∧
   cps_transform_app n tfn ts [] k = (n,
     App Opapp [
-      App Opapp [
-        App Opapp [Var (Short "app"); Var (Short k)];
-        Var (Short tfn)];
+      App Opapp [App Opapp [Var (Short "app"); Var (Short k)]; tfn];
       cons_list (REVERSE ts)]) ∧
 
   cps_transform_seq n k [] = (n, Var (Short k)) ∧
@@ -152,10 +162,13 @@ Definition cps_transform_def:
 Termination
   WF_REL_TAC ‘measure (λ x . case x of
     | INL(_,e) => exp_size e
-    | INR(INL(_,_,_,es,_)) => list_size exp_size es
-    | INR(INR(INL(_,_,es))) => list_size exp_size es
-    | INR(INR(INR(_,_,es,_))) => list_size (exp_size o SND) es)’
-  >> Induct >- (rw[val_size_def, list_size_def])
+    | INR(INL(_,k,_)) => cont_size k
+    | INR(INR(INL(_,_,_,es,_))) => list_size exp_size es
+    | INR(INR(INR(INL(_,_,es)))) => list_size exp_size es
+    | INR(INR(INR(INR(_,_,es,_)))) => list_size (exp_size o SND) es)’
+  >> strip_tac >- (Cases >> rw[val_size_def, list_size_def])
+  >> strip_tac >- (Cases >> rw[val_size_def, list_size_def])
+  >> Induct_on ‘bs’ >- (rw[val_size_def, list_size_def])
   >> Cases
   >> rw[val_size_def, list_size_def]
   >> last_x_assum $ qspecl_then [‘e’,‘n’,‘m’,‘ce’] $ mp_tac
