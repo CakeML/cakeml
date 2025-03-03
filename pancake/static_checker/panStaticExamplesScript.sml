@@ -89,8 +89,10 @@ fun is_static_no_warnings tm =
 val check_static_no_warnings = assert $ is_static_no_warnings o rhs o concl
 
 
-(* #!TEMP *)
-(* val ex_ = ;
+(*
+TEMPLATE:
+
+val ex_ = ;
 
 val parse_ =
   check_parse_success $ parse_pancake ex_;
@@ -100,8 +102,10 @@ val static_ =
   (* check_static_failure $ static_check_pancake parse_; *)
 
 val warns_ =
-  (* check_static_no_warnings $ static_check_pancake parse_; *)
-  check_static_has_warnings $ static_check_pancake parse_; *)
+  check_static_no_warnings $ static_check_pancake parse_;
+  (* check_static_has_warnings $ static_check_pancake parse_; *)
+
+*)
 
 
 
@@ -430,7 +434,7 @@ val warns_stmt_after_raise =
 val ex_annot_after_ret = `
   fun j () {
     return 1;
-    /*@ annot @*/
+    /@ annot @/
   }
 `;
 
@@ -447,7 +451,7 @@ val warns_annot_after_ret =
 val ex_stmt_after_annot_after_ret = `
   fun k () {
     return 1;
-    /*@ annot @*/
+    /@ annot @/
     skip;
   }
 `;
