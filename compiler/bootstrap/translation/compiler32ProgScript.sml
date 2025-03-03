@@ -28,15 +28,14 @@ val spec32 = INST_TYPE[alpha|->``:32``]
 
 val res = translate $ spec32 panStaticTheory.based_merge_def;
 val res = translate $ spec32 panStaticTheory.based_cmp_def;
-val res = translate $ spec32 panStaticTheory.seq_vbases_def;
 val res = translate $ spec32 panStaticTheory.branch_vbases_def;
+val res = translate $ spec32 panStaticTheory.seq_vbases_def;
 val res = translate $ spec32 panStaticTheory.last_to_str_def;
-val res = translate $ spec32 panStaticTheory.last_is_exit_def;
 val res = translate $ spec32 panStaticTheory.next_is_reachable_def;
 val res = translate $ spec32 panStaticTheory.next_now_unreachable_def;
 val res = translate $ spec32 panStaticTheory.reached_warnable_def;
-val res = translate $ spec32 panStaticTheory.seq_last_stmt_def;
 val res = translate $ spec32 panStaticTheory.branch_last_stmt_def;
+val res = translate $ spec32 panStaticTheory.seq_last_stmt_def;
 val res = translate $ spec32 panStaticTheory.first_repeat_def;
 val res = translate $ spec32 panStaticTheory.binop_to_str_def;
 val res = translate $ spec32 panStaticTheory.panop_to_str_def;
