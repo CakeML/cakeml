@@ -1,5 +1,5 @@
 (**
- * Pancake static checking examples/unit tests/sanity checks
+ * Some simple static checking examples/unit tests/sanity checks for Pancake
  *)
 open HolKernel Parse boolLib bossLib stringLib numLib intLib
 open errorLogMonadTheory;
@@ -699,502 +699,664 @@ val warns_maybe_stmt_after_always_brk =
   check_static_has_warnings $ static_check_pancake parse_maybe_stmt_after_always_brk;
 
 
-(* Warning: Base-calculated address in shared memory operation #!TODO *)
-`
-  fun a () {
-    var y = lds 1 0;
-    y = ld8 0;
-    st 0, y;
-    st8 0, y;
+(* Warning: Non-base-calculated address in local memory operation *)
+
+val ex_local_word_notbased = `
+  fun f () {
+    var x = lds 1 0;
+    st 0, x;
 
     return 1;
   }
-`
-`
-  fun b () {
-    var y = lds 1 @base;
-    y = ld8 @base;
-    st @base, y;
-    st8 @base, y;
+`;
+
+val parse_local_word_notbased =
+  check_parse_success $ parse_pancake ex_local_word_notbased;
+
+val static_local_word_notbased =
+  check_static_success $ static_check_pancake parse_local_word_notbased;
+
+val warns_local_word_notbased =
+  check_static_has_warnings $ static_check_pancake parse_local_word_notbased;
+
+
+val ex_local_byte_notbased = `
+  fun f () {
+    var x = ld8 0;
+    st8 0, x;
 
     return 1;
   }
-`
+`;
+
+val parse_local_byte_notbased =
+  check_parse_success $ parse_pancake ex_local_byte_notbased;
+
+val static_local_byte_notbased =
+  check_static_success $ static_check_pancake parse_local_byte_notbased;
+
+val warns_local_byte_notbased =
+  check_static_has_warnings $ static_check_pancake parse_local_byte_notbased;
 
 
-(* Warning: Non-base -calculated address in local memory operation #!TODO *)
-`
-  fun a () {
-    var y = 0;
-    !ldw y, 0;
-    !stw 0, y;
-
-    return 1;
-  }
-`
-`
-  fun b () {
-    var y = 0;
-    !ldw y, @base;
-    !stw @base, y;
+val ex_local_word_based = `
+  fun f () {
+    var x = lds 1 @base;
+    st @base, x;
 
     return 1;
   }
-`
+`;
 
-`
-  fun c () {
-    var x = 0 + 1;
+val parse_local_word_based =
+  check_parse_success $ parse_pancake ex_local_word_based;
 
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+val static_local_word_based =
+  check_static_success $ static_check_pancake parse_local_word_based;
 
-    x = @base + 1;
+val warns_local_word_based =
+  check_static_no_warnings $ static_check_pancake parse_local_word_based;
 
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
 
-    x = @base + @base;
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+val ex_local_byte_based = `
+  fun f () {
+    var x = ld8 @base;
+    st8 @base, x;
 
     return 1;
   }
-`
-`
-  fun d () {
-    var 1 x = foo();
+`;
 
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+val parse_local_byte_based =
+  check_parse_success $ parse_pancake ex_local_byte_based;
 
-    x = foo();
+val static_local_byte_based =
+  check_static_success $ static_check_pancake parse_local_byte_based;
 
-    y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+val warns_local_byte_based =
+  check_static_no_warnings $ static_check_pancake parse_local_byte_based;
+
+
+val ex_local_word_arg = `
+  fun f (1 a) {
+    var x = lds 1 a;
+    st a, x;
 
     return 1;
   }
-`
-`
-  fun e (1 a) {
+`;
 
-    var y = lds 1 a;
-    y = ld8 a;
-    st a, y;
-    st8 a, y;
+val parse_local_word_arg =
+  check_parse_success $ parse_pancake ex_local_word_arg;
 
-    y = lds 1 y;
-    y = ld8 y;
-    st y, y;
-    st8 y, y;
-    !ldw y, y;
-    !stw y, y;
+val static_local_word_arg =
+  check_static_success $ static_check_pancake parse_local_word_arg;
 
-    !ldw y, a;
-    !stw a, y;
+val warns_local_word_arg =
+  check_static_no_warnings $ static_check_pancake parse_local_word_arg;
 
-    y = ld8 y;
-    st y, y;
-    st8 y, y;
-    !ldw y, y;
-    !stw y, y;
+
+val ex_local_word_local = `
+  fun f () {
+    var a = (lds 1 @base);
+
+    var x = lds 1 a;
+    st a, x;
 
     return 1;
   }
-`
-`
+`;
+
+val parse_local_word_local =
+  check_parse_success $ parse_pancake ex_local_word_local;
+
+val static_local_word_local =
+  check_static_success $ static_check_pancake parse_local_word_local;
+
+val warns_local_word_local =
+  check_static_no_warnings $ static_check_pancake parse_local_word_local;
+
+
+val ex_local_word_shared = `
+  fun f () {
+    var a = 0;
+    !ldw a, 0;
+
+    var x = lds 1 a;
+    st a, x;
+
+    return 1;
+  }
+`;
+
+val parse_local_word_shared =
+  check_parse_success $ parse_pancake ex_local_word_shared;
+
+val static_local_word_shared =
+  check_static_success $ static_check_pancake parse_local_word_shared;
+
+val warns_local_word_shared =
+  check_static_no_warnings $ static_check_pancake parse_local_word_shared;
+
+
+val ex_local_word_always_based = `
+  fun f () {
+    var a = 0;
+    if (1) {
+      a = @base;
+    } else {
+      a = @base;
+    }
+
+    var x = lds 1 a;
+    st a, x;
+
+    return 1;
+  }
+`;
+
+val parse_local_word_always_based =
+  check_parse_success $ parse_pancake ex_local_word_always_based;
+
+val static_local_word_always_based =
+  check_static_success $ static_check_pancake parse_local_word_always_based;
+
+val warns_local_word_always_based =
+  check_static_no_warnings $ static_check_pancake parse_local_word_always_based;
+
+
+val ex_local_word_else_based = `
+  fun f () {
+    var a = 0;
+    if (1) {
+      a = 0;
+    } else {
+      a = @base;
+    }
+
+    var x = lds 1 a;
+    st a, x;
+
+    return 1;
+  }
+`;
+
+val parse_local_word_else_based =
+  check_parse_success $ parse_pancake ex_local_word_else_based;
+
+val static_local_word_else_based =
+  check_static_success $ static_check_pancake parse_local_word_else_based;
+
+val warns_local_word_else_based =
+  check_static_has_warnings $ static_check_pancake parse_local_word_else_based;
+
+
+val ex_local_word_based_while_based = `
+  fun f () {
+    var a = @base;
+    while (1) {
+      a = @base;
+    }
+
+    var x = lds 1 a;
+    st a, x;
+
+    return 1;
+  }
+`;
+
+val parse_local_word_based_while_based =
+  check_parse_success $ parse_pancake ex_local_word_based_while_based;
+
+val static_local_word_based_while_based =
+  check_static_success $ static_check_pancake parse_local_word_based_while_based;
+
+val warns_local_word_based_while_based =
+  check_static_no_warnings $ static_check_pancake parse_local_word_based_while_based;
+
+
+val ex_local_word_nonbased_while_based = `
+  fun f () {
+    var a = 0;
+    while (1) {
+      a = @base;
+    }
+
+    var x = lds 1 a;
+    st a, x;
+
+    return 1;
+  }
+`;
+
+val parse_local_word_nonbased_while_based =
+  check_parse_success $ parse_pancake ex_local_word_nonbased_while_based;
+
+val static_local_word_nonbased_while_based =
+  check_static_success $ static_check_pancake parse_local_word_nonbased_while_based;
+
+val warns_local_word_nonbased_while_based =
+  check_static_has_warnings $ static_check_pancake parse_local_word_nonbased_while_based;
+
+
+val ex_local_word_always_nonbased = `
+  fun f () {
+    var a = 0;
+    if (1) {
+      a = 0;
+    } else {
+      a = 0;
+    }
+
+    var x = lds 1 a;
+    st a, x;
+
+    return 1;
+  }
+`;
+
+val parse_local_word_always_nonbased =
+  check_parse_success $ parse_pancake ex_local_word_always_nonbased;
+
+val static_local_word_always_nonbased =
+  check_static_success $ static_check_pancake parse_local_word_always_nonbased;
+
+val warns_local_word_always_nonbased =
+  check_static_has_warnings $ static_check_pancake parse_local_word_always_nonbased;
+
+
+val ex_local_word_else_nonbased = `
+  fun f () {
+    var a = 0;
+    if (1) {
+      a = @base;
+    } else {
+      a = 0;
+    }
+
+    var x = lds 1 a;
+    st a, x;
+
+    return 1;
+  }
+`;
+
+val parse_local_word_else_nonbased =
+  check_parse_success $ parse_pancake ex_local_word_else_nonbased;
+
+val static_local_word_else_nonbased =
+  check_static_success $ static_check_pancake parse_local_word_else_nonbased;
+
+val warns_local_word_else_nonbased =
+  check_static_has_warnings $ static_check_pancake parse_local_word_else_nonbased;
+
+
+val ex_local_word_nonbased_while_nonbased = `
+  fun f () {
+    var a = 0;
+    while (1) {
+      a = 0;
+    }
+
+    var x = lds 1 a;
+    st a, x;
+
+    return 1;
+  }
+`;
+
+val parse_local_word_nonbased_while_nonbased =
+  check_parse_success $ parse_pancake ex_local_word_nonbased_while_nonbased;
+
+val static_local_word_nonbased_while_nonbased =
+  check_static_success $ static_check_pancake parse_local_word_nonbased_while_nonbased;
+
+val warns_local_word_nonbased_while_nonbased =
+  check_static_has_warnings $ static_check_pancake parse_local_word_nonbased_while_nonbased;
+
+
+val ex_local_word_based_while_nonbased = `
+  fun f () {
+    var a = @base;
+    while (1) {
+      a = 0;
+    }
+
+    var x = lds 1 a;
+    st a, x;
+
+    return 1;
+  }
+`;
+
+val parse_local_word_based_while_nonbased =
+  check_parse_success $ parse_pancake ex_local_word_based_while_nonbased;
+
+val static_local_word_based_while_nonbased =
+  check_static_success $ static_check_pancake parse_local_word_based_while_nonbased;
+
+val warns_local_word_based_while_nonbased =
+  check_static_has_warnings $ static_check_pancake parse_local_word_based_while_nonbased;
+
+
+(* Warning: Base-calculated address in shared memory operation *)
+
+val ex_shared_word_nonbased = `
   fun f () {
     var x = 0;
-    if (1) {
-      x = x + 1;
-    } else {
-      x = x + 1;
-    }
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+    !ldw x, 0;
+    !stw 0, x;
 
     return 1;
   }
-`
-`
-  fun g () {
+`;
+
+val parse_shared_word_nonbased =
+  check_parse_success $ parse_pancake ex_shared_word_nonbased;
+
+val static_shared_word_nonbased =
+  check_static_success $ static_check_pancake parse_shared_word_nonbased;
+
+val warns_shared_word_nonbased =
+  check_static_no_warnings $ static_check_pancake parse_shared_word_nonbased;
+
+
+
+val ex_shared_word_based = `
+  fun f () {
     var x = 0;
-    if (1) {
-      x = x + @base;
-    } else {
-      x = x + @base;
-    }
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+    !ldw x, @base;
+    !stw @base, x;
 
     return 1;
   }
-`
-`
-  fun h () {
+`;
+
+val parse_shared_word_based =
+  check_parse_success $ parse_pancake ex_shared_word_based;
+
+val static_shared_word_based =
+  check_static_success $ static_check_pancake parse_shared_word_based;
+
+val warns_shared_word_based =
+  check_static_has_warnings $ static_check_pancake parse_shared_word_based;
+
+
+val ex_shared_word_arg = `
+  fun f (1 a) {
     var x = 0;
-    if (1) {
-      x = x + @base;
-    } else {
-      x = x + 1;
-    }
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
-
-    x = x + 1;
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
-
-    x = x + @base;
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
-
-    x = x + 1;
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+    !ldw x, a;
+    !stw a, x;
 
     return 1;
   }
-`
-`
-  fun i () {
+`;
+
+val parse_shared_word_arg =
+  check_parse_success $ parse_pancake ex_shared_word_arg;
+
+val static_shared_word_arg =
+  check_static_success $ static_check_pancake parse_shared_word_arg;
+
+val warns_shared_word_arg =
+  check_static_no_warnings $ static_check_pancake parse_shared_word_arg;
+
+
+val ex_shared_word_local = `
+  fun f () {
+    var a = (lds 1 @base);
+
     var x = 0;
-    if (1) {
-      x = 1;
-    }
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+    !ldw x, a;
+    !stw a, x;
 
     return 1;
   }
-`
-`
-  fun j () {
+`;
+
+val parse_shared_word_local =
+  check_parse_success $ parse_pancake ex_shared_word_local;
+
+val static_shared_word_local =
+  check_static_success $ static_check_pancake parse_shared_word_local;
+
+val warns_shared_word_local =
+  check_static_no_warnings $ static_check_pancake parse_shared_word_local;
+
+
+val ex_shared_word_shared = `
+  fun f () {
+    var a = 0;
+    !ldw a, 0;
+
     var x = 0;
-    if (1) {
-      x = x + @base;
-    }
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+    !ldw x, a;
+    !stw a, x;
 
     return 1;
   }
-`
-`
-  fun k () {
-    var x = @base;
+`;
+
+val parse_shared_word_shared =
+  check_parse_success $ parse_pancake ex_shared_word_shared;
+
+val static_shared_word_shared =
+  check_static_success $ static_check_pancake parse_shared_word_shared;
+
+val warns_shared_word_shared =
+  check_static_no_warnings $ static_check_pancake parse_shared_word_shared;
+
+
+val ex_shared_word_always_based = `
+  fun f () {
+    var a = 0;
     if (1) {
-      x = x + 1;
+      a = @base;
     } else {
-      x = x + 1;
+      a = @base;
     }
 
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
-
-    return 1;
-  }
-`
-`
-  fun l () {
-    var x = @base;
-    if (1) {
-      x = x + @base;
-    } else {
-      x = x + @base;
-    }
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
-
-    return 1;
-  }
-`
-`
-  fun m () {
-    var x = @base;
-    if (1) {
-      x = x + @base;
-    } else {
-      x = x + 1;
-    }
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
-
-    return 1;
-  }
-`
-`
-  fun n () {
-    var x = @base;
-    if (1) {
-      x = 1;
-    }
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
-
-    return 1;
-  }
-`
-`
-  fun o () {
-    var x = @base;
-    if (1) {
-      x = x + @base;
-    }
-
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
-
-    return 1;
-  }
-`
-`
-  fun p () {
     var x = 0;
+    !ldw x, a;
+    !stw a, x;
+
+    return 1;
+  }
+`;
+
+val parse_shared_word_always_based =
+  check_parse_success $ parse_pancake ex_shared_word_always_based;
+
+val static_shared_word_always_based =
+  check_static_success $ static_check_pancake parse_shared_word_always_based;
+
+val warns_shared_word_always_based =
+  check_static_has_warnings $ static_check_pancake parse_shared_word_always_based;
+
+
+val ex_shared_word_else_based = `
+  fun f () {
+    var a = 0;
+    if (1) {
+      a = 0;
+    } else {
+      a = @base;
+    }
+
+    var x = 0;
+    !ldw x, a;
+    !stw a, x;
+
+    return 1;
+  }
+`;
+
+val parse_shared_word_else_based =
+  check_parse_success $ parse_pancake ex_shared_word_else_based;
+
+val static_shared_word_else_based =
+  check_static_success $ static_check_pancake parse_shared_word_else_based;
+
+val warns_shared_word_else_based =
+  check_static_has_warnings $ static_check_pancake parse_shared_word_else_based;
+
+
+val ex_shared_word_based_while_based = `
+  fun f () {
+    var a = @base;
     while (1) {
-      x = x + 1;
+      a = @base;
     }
 
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
-
-    return 1;
-  }
-`
-`
-  fun q () {
     var x = 0;
+    !ldw x, a;
+    !stw a, x;
+
+    return 1;
+  }
+`;
+
+val parse_shared_word_based_while_based =
+  check_parse_success $ parse_pancake ex_shared_word_based_while_based;
+
+val static_shared_word_based_while_based =
+  check_static_success $ static_check_pancake parse_shared_word_based_while_based;
+
+val warns_shared_word_based_while_based =
+  check_static_has_warnings $ static_check_pancake parse_shared_word_based_while_based;
+
+
+val ex_shared_word_nonbased_while_based = `
+  fun f () {
+    var a = 0;
     while (1) {
-      x = x + @base;
+      a = @base;
     }
 
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+    var x = 0;
+    !ldw x, a;
+    !stw a, x;
 
     return 1;
   }
-`
-`
-  fun r () {
-    var x = @base;
-    while (1) {
-      x = x + 1;
-    }
+`;
 
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+val parse_shared_word_nonbased_while_based =
+  check_parse_success $ parse_pancake ex_shared_word_nonbased_while_based;
 
-    return 1;
-  }
-`
-`
-  fun s () {
-    var x = @base;
-    while (1) {
-      x = x + @base;
-    }
+val static_shared_word_nonbased_while_based =
+  check_static_success $ static_check_pancake parse_shared_word_nonbased_while_based;
 
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+val warns_shared_word_nonbased_while_based =
+  check_static_has_warnings $ static_check_pancake parse_shared_word_nonbased_while_based;
 
-    return 1;
-  }
-`
-`
-  fun t () {
-    var x = @base;
-    
-    {
-      var x = 1;
-      
-      var y = lds 1 x;
-      y = ld8 x;
-      st x, y;
-      st8 x, y;
-      !ldw y, x;
-      !stw x, y;
-    };
-    
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
 
-    return 1;
-  }
-`
-`
-  fun u () {
-    var x = @base;
-    
-    while (1) {
-      var x = 1;
-      
-      var y = lds 1 x;
-      y = ld8 x;
-      st x, y;
-      st8 x, y;
-      !ldw y, x;
-      !stw x, y;
-    }
-    
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
-
-    return 1;
-  }
-`
-`
-  fun v (1 a) {
-    var x = @base;
-    
+val ex_shared_word_always_nonbased = `
+  fun f () {
+    var a = 0;
     if (1) {
-      var x = 1;
-      
-      var y = lds 1 x;
-      y = ld8 x;
-      st x, y;
-      st8 x, y;
-      !ldw y, x;
-      !stw x, y;
+      a = 0;
     } else {
-      var x = a;
-      
-      var y = lds 1 x;
-      y = ld8 x;
-      st x, y;
-      st8 x, y;
-      !ldw y, x;
-      !stw x, y;
+      a = 0;
     }
-    
-    var y = lds 1 x;
-    y = ld8 x;
-    st x, y;
-    st8 x, y;
-    !ldw y, x;
-    !stw x, y;
+
+    var x = 0;
+    !ldw x, a;
+    !stw a, x;
 
     return 1;
   }
-`
-`
-  fun foo () {
+`;
+
+val parse_shared_word_always_nonbased =
+  check_parse_success $ parse_pancake ex_shared_word_always_nonbased;
+
+val static_shared_word_always_nonbased =
+  check_static_success $ static_check_pancake parse_shared_word_always_nonbased;
+
+val warns_shared_word_always_nonbased =
+  check_static_no_warnings $ static_check_pancake parse_shared_word_always_nonbased;
+
+
+val ex_shared_word_else_nonbased = `
+  fun f () {
+    var a = 0;
+    if (1) {
+      a = @base;
+    } else {
+      a = 0;
+    }
+
+    var x = 0;
+    !ldw x, a;
+    !stw a, x;
+
     return 1;
   }
-`
+`;
 
-(* #!REF *)
+val parse_shared_word_else_nonbased =
+  check_parse_success $ parse_pancake ex_shared_word_else_nonbased;
+
+val static_shared_word_else_nonbased =
+  check_static_success $ static_check_pancake parse_shared_word_else_nonbased;
+
+val warns_shared_word_else_nonbased =
+  check_static_has_warnings $ static_check_pancake parse_shared_word_else_nonbased;
+
+
+val ex_shared_word_nonbased_while_nonbased = `
+  fun f () {
+    var a = 0;
+    while (1) {
+      a = 0;
+    }
+
+    var x = 0;
+    !ldw x, a;
+    !stw a, x;
+
+    return 1;
+  }
+`;
+
+val parse_shared_word_nonbased_while_nonbased =
+  check_parse_success $ parse_pancake ex_shared_word_nonbased_while_nonbased;
+
+val static_shared_word_nonbased_while_nonbased =
+  check_static_success $ static_check_pancake parse_shared_word_nonbased_while_nonbased;
+
+val warns_shared_word_nonbased_while_nonbased =
+  check_static_no_warnings $ static_check_pancake parse_shared_word_nonbased_while_nonbased;
+
+
+val ex_shared_word_based_while_nonbased = `
+  fun f () {
+    var a = @base;
+    while (1) {
+      a = 0;
+    }
+
+    var x = 0;
+    !ldw x, a;
+    !stw a, x;
+
+    return 1;
+  }
+`;
+
+val parse_shared_word_based_while_nonbased =
+  check_parse_success $ parse_pancake ex_shared_word_based_while_nonbased;
+
+val static_shared_word_based_while_nonbased =
+  check_static_success $ static_check_pancake parse_shared_word_based_while_nonbased;
+
+val warns_shared_word_based_while_nonbased =
+  check_static_has_warnings $ static_check_pancake parse_shared_word_based_while_nonbased;
+
+
 
 (* Scope checks *)
-
 
 (* Error: Undefined/out-of-scope functions *)
 
@@ -1264,14 +1426,14 @@ val ex_redefined_var_dec_dec = `
   }
 `;
 
-val parse_redefined_var =
-  check_parse_success $ parse_pancake ex_redefined_var;
+val parse_redefined_var_dec_dec =
+  check_parse_success $ parse_pancake ex_redefined_var_dec_dec;
 
-val static_redefined_var =
-  check_static_success $ static_check_pancake parse_redefined_var;
+val static_redefined_var_dec_dec =
+  check_static_success $ static_check_pancake parse_redefined_var_dec_dec;
 
-val warns_redefined_var =
-  check_static_has_warnings $ static_check_pancake parse_redefined_var;
+val warns_redefined_var_dec_dec =
+  check_static_has_warnings $ static_check_pancake parse_redefined_var_dec_dec;
 
 
 val ex_redefined_var_dec_deccall = `
@@ -1329,7 +1491,7 @@ val warns_redefined_var_deccall_deccall =
 
 
 
-(* Shape checks - TODO*)
+(* Shape checks - TODO *)
 
 
 val _ = export_theory();
