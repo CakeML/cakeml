@@ -94,24 +94,24 @@ Type var_info = ``:(varname, based) map``
 (* Record for current (per-func) context *)
 Datatype:
   context = <|
-    vars : var_info          (* tracked var state *)
-  ; funcs : funname list     (* all function info *)
-  ; fname : funname          (* current function info *)
-  ; in_loop : bool           (* loop status *)
-  ; is_reachable : reachable (* reachability *)
-  ; last : last_stmt         (* exit-ness of last statement *)
-  ; loc : mlstring           (* location string *)
+    vars         : var_info     (* tracked var state *)
+  ; funcs        : funname list (* all function info *)
+  ; fname        : funname      (* current function info *)
+  ; in_loop      : bool         (* loop status *)
+  ; is_reachable : reachable    (* reachability *)
+  ; last         : last_stmt    (* exit-ness of last statement *)
+  ; loc          : mlstring     (* location string *)
   |>
 End
 
 (* Record for static_check_prog returns *)
 Datatype:
   prog_return = <|
-    exits_fun : bool       (* func exit status for all paths *)
-  ; exits_loop : bool      (* loop exit status for all paths *)
-  ; last : last_stmt       (* new exit-ness of last statement *)
-  ; var_delta : var_info   (* change in var state *)
-  ; curr_loc : mlstring    (* latest location string *)
+    exits_fun  : bool       (* func exit status for all paths *)
+  ; exits_loop : bool       (* loop exit status for all paths *)
+  ; last       : last_stmt  (* new exit-ness of last statement *)
+  ; var_delta  : var_info   (* change in var state *)
+  ; curr_loc   : mlstring   (* latest location string *)
   |>
 End
 
