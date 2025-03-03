@@ -119,6 +119,16 @@ Definition strip_prefix_def:
   else NONE
 End
 
+Definition split_last_def:
+  split_last [] = fail "split_last: Cannot split empty list" ∧
+  split_last [x] = return ([], x) ∧
+  split_last (x::xs) =
+  do
+    (rest, last) <- split_last xs;
+    return (x::rest, last)
+  od
+End
+
 (* TODO move this to dafny_ast? *)
 Definition is_DeclareVar_def:
   is_DeclareVar s =
@@ -811,7 +821,8 @@ Definition dafny_type_of_def:
          ts <- map_dafny_type_of env es;
          return (Tuple ts)
        od
-   | NewUninitArray [_] typ => return (Array (normalize_type typ) 1)
+   | NewUninitArray dims typ =>
+       return (Array (normalize_type typ) (LENGTH dims))
    | FinalizeNewArray e t =>
        do
          e_t <- dafny_type_of env e;
@@ -895,15 +906,13 @@ Definition dafny_type_of_def:
            else
              dest_Seq e'_t
          else if cok = CollKind_Array then
-           if idxs = [] then
-             fail "dafny_type_of (Index/Array): Unexpectedly idxs was empty"
-           else if LENGTH idxs > 1 then
-             fail "dafny_type_of (Index/Array): multi-dimensional indexing \
-                 \unsupported"
-           else
-             do
-               (t, _) <- dest_Array e'_t;
-               return t
+           do
+             (t, dims) <- dest_Array e'_t;
+             if dims ≠ LENGTH idxs then
+               fail "dafny_type_of (Index/Array): Unexpectedly, array dims \
+                    \and passed number of indices does not match"
+               else
+                 return t
              od
          else
            fail "dafny_type_of (Index): Unsupported kind of collection"
@@ -1003,6 +1012,44 @@ Definition gen_call_name_def:
   fail "gen_call_name: Passed callName currently unsupported"
 End
 
+(* Constructs a multi-dimensional array in CakeML *)
+Definition cml_multi_dim_arr_aux_def:
+  cml_multi_dim_arr_aux [] _ =
+  (fail "cml_multi_dim_arr_aux: Dimension must be positive") ∧
+  cml_multi_dim_arr_aux [dim] fill_val =
+  (return (cml_fapp (Var (Long "Array" (Short "array"))) [dim; fill_val])) ∧
+  cml_multi_dim_arr_aux (dim::dims) fill_val =
+  do
+    nested_arr <- cml_multi_dim_arr_aux dims fill_val;
+    return (cml_fapp (Var (Long "Array" (Short "array"))) [dim; nested_arr])
+  od
+End
+
+(* Constructs a multi-dimensional array with "cached" dimensions in CakeML *)
+(* We cannot use the length function in CakeML, as Dafny allows for a dimension to
+   be 0 (while also allowing to get that dimension's length). Using the length
+   function requires us to access that dimension, which would not be possible
+   for dimensions after a dimension with length 0. *)
+Definition cml_multi_dim_arr_def:
+  cml_multi_dim_arr dims fill_val =
+  do
+    lengths <<- cml_list dims;
+    data <- cml_multi_dim_arr_aux dims fill_val;
+    cml_tuple [lengths; data]
+  od
+End
+
+Definition cml_multi_dim_idx_aux_def:
+  cml_multi_dim_idx_aux [] arr = arr ∧
+  cml_multi_dim_idx_aux (idx::idxs) arr =
+  cml_fapp (Var (Long "Array" (Short "sub")))
+           [cml_multi_dim_idx_aux idxs arr; idx]
+End
+
+Definition cml_multi_dim_idx_def:
+  cml_multi_dim_idx idxs arr = cml_multi_dim_idx_aux (REVERSE idxs) arr
+End
+
 (* TODO Clean up from_expression/dafny_type_of: Some code parts may be duplicated,
  some checks may be unnecessary (depending on the assumptions we make about/get from
  the Dafny AST *)
@@ -1019,13 +1066,12 @@ Definition from_expression_def:
          cml_es <- map_from_expression comp env es;
          cml_tuple cml_es
        od
-   | NewUninitArray [dim0] t =>
+   | NewUninitArray dims t =>
        do
-         t <<- normalize_type t;
-         cml_dim0 <- from_expression comp env dim0;
-         fill_val <- arb_value t;
-         return (Some (cml_fapp (Var (Long "Array" (Short "array")))
-                                [cml_dim0; fill_val]))
+         cml_dims <- map_from_expression comp env dims;
+         fill_val <- arb_value (normalize_type t);
+         cml_arr <- cml_multi_dim_arr cml_dims fill_val;
+         return (Some cml_arr)
        od
    | FinalizeNewArray e _ =>
        (* Don't do anything special on finalize *)
@@ -1087,14 +1133,12 @@ Definition from_expression_def:
    | BinOp (TypedBinOp bop _ _ _) e1 e2 =>
        from_binOp comp env bop e1 e2
    | ArrayLen e _ dim _ =>
-       if dim ≠ 0 then
-         fail "from_expression (ArrayLen): != 1 dimension unsupported"
-       else
-         do
-           cml_e <- from_expression comp env e;
-           return (cml_fapp (Var (Long "Array" (Short "length")))
-                            [cml_get_arr cml_e])
-         od
+       do
+         cml_e <- from_expression comp env e;
+         lengths <<- cml_tuple_select 2 cml_e 0;
+         return (cml_fapp (Var (Long "List" (Short "nth")))
+                          [lengths; Lit (IntLit (&dim))])
+       od
    | SelectFn f_comp nam onDt isStatic _ _ =>
        (* TODO Figure out whether it is fine to ignore arguments *)
        (* TODO Figure out whether it is fine to ignore isConstant *)
@@ -1125,15 +1169,12 @@ Definition from_expression_def:
          if idxs = [] then
            fail "from_expression (Index/Array): Unexpectedly received an \
                 \empty list of indices"
-         else if LENGTH idxs > 1 then
-           fail "from_expression (Index/Array): multi-dimensional indexing \
-                \unsupported"
          else
            do
              cml_ce <- from_expression comp env ce;
-             idx <- from_expression comp env (EL 0 idxs);
-             return (cml_fapp (Var (Long "Array" (Short "sub")))
-                              [cml_get_arr cml_ce; idx])
+             cml_ce <<- cml_tuple_select 2 cml_ce 1;
+             cml_idxs <- map_from_expression comp env idxs;
+             return (cml_multi_dim_idx cml_idxs (cml_get_arr cml_ce))
            od
        else
          fail "from_expression: Unsupported kind of collection"
@@ -1377,13 +1418,15 @@ Definition from_expression_def:
           case lhs of
           | AssignLhs_Ident id =>
               return (cml_ref_ass (from_varName id) cml_rhs)
-          | AssignLhs_Index e' [idx] =>
+          | AssignLhs_Index e' idxs =>
               do
+                cml_idxs <- map_from_expression comp env idxs;
+                (init, last) <- split_last cml_idxs;
                 cml_e' <- from_expression comp env e';
-                cml_arr <<- cml_get_arr cml_e';
-                cml_idx <- from_expression comp env idx;
+                cml_e' <<- cml_tuple_select 2 cml_e' 1;
+                cml_arr <<- cml_multi_dim_idx init (cml_get_arr cml_e');
                 return (cml_fapp (Var (Long "Array" (Short "update")))
-                                 [cml_arr; cml_idx; cml_rhs])
+                                 [cml_arr; last; cml_rhs])
               od
           | _ =>
               fail "from_indep_stmt (Assign): Unsupported LHS"
