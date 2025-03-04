@@ -60,9 +60,7 @@ Theorem compile_prog_eq:
 Proof
   rewrite_tac [compile_prog_def,LET_THM]
   \\ AP_THM_TAC \\ gvs [FUN_EQ_THM] \\ rw []
-  >- (Cases_on ‘prog0’ \\ gvs [] \\ PairCases_on ‘h’ \\ gvs [])
-  \\ Cases_on ‘prog0’ \\ gvs [from_word_0_def]
-  \\ PairCases_on ‘h’ \\ gvs []
+  \\ pairarg_tac \\ gvs[from_word_0_def]
 QED
 
 val _ = export_theory();
