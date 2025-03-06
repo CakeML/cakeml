@@ -10,7 +10,7 @@ val _ = new_theory"init_icompile";
 Definition x64_config'_def:
   x64_config' =
   let conf = x64_backend_config in
-  let source_conf' = conf.source_conf with <| do_elim := F; init_vidx := 100000 |> in
+  let source_conf' = conf.source_conf with <| do_elim := F; init_vidx := 10000 |> in
   let stack_conf' = conf.stack_conf with do_rawcall := F in
     conf with <| source_conf := source_conf';
                  stack_conf := stack_conf'|>

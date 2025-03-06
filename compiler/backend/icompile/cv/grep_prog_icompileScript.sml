@@ -13,15 +13,6 @@ val _ = Globals.max_print_depth := 10;
 
 val _ = new_theory"grep_prog_icompile";
 
-fun split_basis prog_name =
-  let
-    val prog_const = mk_const (prog_name, “: ast$dec list”);
-    val basis = EVAL “TAKE 93 ^prog_const” |> rconc;
-    val prog1 = EVAL “DROP 93 ^prog_const” |> rconc;
-  in
-    (basis, prog1)
-  end;
-
 val (_, grep_prog1_tm) = split_basis "grep_prog";
 
 val (grep_prog1_icomp, grep_prog1_ic_name) = time_desc "icompile grep prog1 runtime in separate file"

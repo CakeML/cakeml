@@ -10,10 +10,11 @@ open ibackendTheory ibackend_cvTheory preamble x64_configTheory cv_transLib reg_
 val _ = Globals.max_print_depth := 10;
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 
+fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
+
 (* helper *)
 fun define_abbrev name tm =
-  Feedback.trace ("Theory.allow_rebinds", 1)
-    (mk_abbrev name) tm;
+  allowing_rebind (mk_abbrev name) tm;
 
 (* LIB *)
 (* TODO : error handling *)
@@ -188,7 +189,7 @@ fun print_to_file final_comp_thm file_name =
 
 
     val _ = write_cv_char_list_to_file file_name l;
-    val _ = Theory.delete_binding ("syms")
+    val _ = Theory.delete_binding ("syms_def")
 
   in
     ()
