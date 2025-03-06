@@ -1,12 +1,11 @@
+(*
+  Initialize the icompiler
+*)
 open preamble
      eval_cake_icompile_x64Lib
      x64_configTheory;
 
-
-val _ = Globals.max_print_depth := 10;
-
 val _ = new_theory"init_icompile";
-
 
 Definition x64_config'_def:
   x64_config' =
@@ -17,26 +16,20 @@ Definition x64_config'_def:
                  stack_conf := stack_conf'|>
 End
 
-
 val x64_conf_def = CONV_RULE (RAND_CONV EVAL) x64_config'_def; (* no optimisation *)
 
 val x64_inc_conf = backendTheory.config_to_inc_config_def
                          |> ISPEC (x64_conf_def |> rconc)
                          |> CONV_RULE (RAND_CONV EVAL) |> rconc;
 
-
-fun run () =
-init_icompile x64_inc_conf;
-
-
-val (init_icomp_thm, init_icomp_empty, init_ic_name) = time run ();
-
+val (init_icomp_thm, init_icomp_empty, init_ic_name) = time init_icompile x64_inc_conf;
 
 Theorem init_icomp_thm = init_icomp_thm;
+
 Theorem init_icomp_empty = init_icomp_empty;
+
 Definition x64_inc_conf_def:
   x64_inc_conf = ^(x64_inc_conf)
 End
-
 
 val _ = export_theory();

@@ -248,7 +248,7 @@ fun rq2or3 progs conf_for_c =
     (sum_time |> format_t3, init_duration |> addt3 basis_duration |> addt3 sum_time_ic |> format_t3)
     end;
 
-    
+
 (* returns res where
    fst res : the total time taken to run the compiler on all the programs without optimisations
    snd res : the total time taken to run the icompiler on all the programs without optimisations

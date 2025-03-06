@@ -1,12 +1,12 @@
+(*
+  icompile basis
+*)
+
 open preamble
      eval_cake_icompile_x64Lib
      x64_configTheory
-     eval_cake_compile_x64Lib
 open benchmarkLib;
-
-
 open grepProgTheory;
-
 
 val _ = new_theory"grep_prog_full_icompile";
 val _ = Globals.max_print_depth := 10;
@@ -31,23 +31,15 @@ val (init_icomp_thm, init_icomp_empty, init_ic_name) = time_desc "init_icompile 
 
 val (basis_prog_tm, grep_prog1_tm) = split_basis "grep_prog";
 
-fun icompile_basis () = icompile init_ic_name init_icomp_empty "basis_prog" (basis_prog_tm);
-val (basis_prog_icomp, basis_prog_ic_name) = time_desc "icompile basis runtime in one file" icompile_basis ();
+val (basis_prog_icomp, basis_prog_ic_name) = time_desc "icompile basis runtime in one file"
+  (icompile init_ic_name init_icomp_empty "basis_prog") basis_prog_tm
 
+val (grep_prog_icomp, grep_prog_ic_name) = time_desc "icompile grep_prog1 runtime in one file"
+  (icompile basis_prog_ic_name basis_prog_icomp "grep_prog1") grep_prog1_tm;
 
-fun icompile_grep1 () = icompile basis_prog_ic_name basis_prog_icomp "grep_prog1" (grep_prog1_tm);
-val (grep_prog_icomp, grep_prog_ic_name) = time_desc "icompile grep_prog1 runtime in one file" icompile_grep1();
+val final_thm = time_desc "end_ic runtime in one file for grep"
+  (end_icompile init_icomp_thm grep_prog_icomp grep_prog_ic_name) x64_inc_conf;
 
-fun end_ic () = end_icompile init_icomp_thm
-                             grep_prog_icomp
-                             grep_prog_ic_name
-                             x64_inc_conf;
-
-val final_thm = time_desc "end_ic runtime in one file for grep" end_ic ();
-
-
-fun print_the_file () = print_to_file final_thm ("grep_prog_full_icompiled.S");
-
-val _ = time_desc "printing the file for grep to .S file" print_the_file ();
+val _ = time_desc "printing the file for grep to .S file" (print_to_file final_thm) "grep_prog_full_icompiled.S"
 
 val _ = export_theory();

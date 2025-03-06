@@ -1,6 +1,6 @@
 (*
-	some bench marking tools
-	*)
+  some bench marking tools
+*)
 
 structure benchmarkLib =
 struct
@@ -63,4 +63,4 @@ fun time_desc desc f x =
       end_time_desc desc timer; y
    end;
 end;
-   
+
