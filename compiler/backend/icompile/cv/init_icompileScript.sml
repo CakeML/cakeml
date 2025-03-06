@@ -2,8 +2,8 @@
   Initialize the icompiler
 *)
 open preamble
+     x64_configTheory
      eval_cake_icompile_x64Lib
-     x64_configTheory;
 
 val _ = new_theory"init_icompile";
 

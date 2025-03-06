@@ -5,7 +5,7 @@
 structure eval_cake_icompile_x64Lib :> eval_cake_icompile_x64Lib =
 struct
 
-open ibackendTheory ibackend_cvTheory preamble x64_configTheory cv_transLib;
+open ibackendTheory ibackend_cvTheory preamble x64_configTheory cv_transLib reg_allocComputeLib;
 
 val _ = Globals.max_print_depth := 10;
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
@@ -14,21 +14,6 @@ val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 fun define_abbrev name tm =
   Feedback.trace ("Theory.allow_rebinds", 1)
     (mk_abbrev name) tm;
-
-
-(* config *)
-val c = x64_backend_config_def |> concl |> lhs;
-val x64_inc_conf = backendTheory.config_to_inc_config_def
-                     |> ISPEC c |> CONV_RULE (RAND_CONV EVAL) |> rconc;
-val inc_source_conf_init_vidx = EVAL “^(x64_inc_conf).inc_source_conf with
-                                      <| init_vidx := 100000;
-                                         do_elim := F;
-                                      |>” |> rconc;
-val inc_stack_conf_do_rawcall_f = EVAL “^(x64_inc_conf).inc_stack_conf with do_rawcall := F” |> rconc;
-val x64_inc_conf = (EVAL “^(x64_inc_conf) with
-        <| inc_source_conf := ^(inc_source_conf_init_vidx);
-           inc_stack_conf := ^(inc_stack_conf_do_rawcall_f) |>” |> rconc);
-
 
 (* LIB *)
 (* TODO : error handling *)
@@ -50,10 +35,19 @@ fun icompile0 ic_name prog_name prog_tm  =
     val prog_comp = cv_eval_pat (Some (Tuple [Name (prog_name ^ "_ic"), Name (prog_name ^ "_lab")]))
                                 “icompile_cake_x64 ^ic_tm_const ^prog_tm_const ^prog_oracs_const”;
     val prog_comp' = prog_comp |> REWRITE_RULE [GSYM icompile_cake_x64_th];
+
+    val _ = Theory.delete_binding (prog_name ^ "_oracs_cv_eq")
+    val _ = Theory.delete_binding (prog_name ^ "_oracs_cv_def")
+    val _ = Theory.delete_binding (prog_name ^ "_oracs_cv_thm")
+    val _ = Theory.delete_binding (prog_name ^ "_oracs_def")
+
+    val _ = Theory.delete_binding (prog_name ^ "_cv_eq")
+    val _ = Theory.delete_binding (prog_name ^ "_cv_def")
+    val _ = Theory.delete_binding (prog_name ^ "_cv_thm")
+
   in
     (prog_comp', prog_name ^ "_ic")
   end
-
 
 fun collapse_icompile prev_thm curr_thm =
   MATCH_MP (icompile_icompile_cake |> REWRITE_RULE [GSYM AND_IMP_INTRO])
@@ -76,6 +70,12 @@ fun init_icompile conf_tm =
     val init_oracs_def = define_abbrev "init_oracs" init_oracs;
     val res = (cv_trans_deep_embedding EVAL) init_oracs_def;
     val init_comp = cv_eval_pat (Some (Tuple [Name "init_ic", Name "init_lab"])) “init_icompile_cake_x64 ^conf_tm init_oracs”;
+
+    val _ = Theory.delete_binding ("init_oracs_cv_eq")
+    val _ = Theory.delete_binding ("init_oracs_cv_def")
+    val _ = Theory.delete_binding ("init_oracs_cv_thm")
+    val _ = Theory.delete_binding ("init_oracs_def")
+
     val (icomp_thm, iconf_name) = icompile0 "init_ic" "empty_prog_for_init" “[]: ast$dec list”;
     val init_comp' = init_comp |> REWRITE_RULE [GSYM init_icompile_cake_x64_th];
 
@@ -94,6 +94,12 @@ fun end_icompile init_comp_thm icomp_thm final_iconf_name init_conf_tm =
                    (Some (Tuple [Name "inc_conf_after_ic", Name "bm_after_ic", Name "end_lab"]))
                    “end_icompile_cake_x64 ^(final_iconf_const) ^(init_conf_tm) end_oracs”;
     val end_comp' = end_comp |> REWRITE_RULE [GSYM end_icompile_cake_x64_th];
+
+    val _ = Theory.delete_binding ("end_oracs_cv_eq")
+    val _ = Theory.delete_binding ("end_oracs_cv_def")
+    val _ = Theory.delete_binding ("end_oracs_cv_thm")
+    val _ = Theory.delete_binding ("end_oracs_def")
+
     val conf_ok_imp_icompile_eq_th = MATCH_MP (init_icompile_icompile_end_icompile_cake |> REWRITE_RULE [GSYM AND_IMP_INTRO])
                                               (init_comp_thm)
                                        |> (fn th => MATCH_MP th icomp_thm)
@@ -182,6 +188,7 @@ fun print_to_file final_comp_thm file_name =
 
 
     val _ = write_cv_char_list_to_file file_name l;
+    val _ = Theory.delete_binding ("syms")
 
   in
     ()
