@@ -26,19 +26,26 @@ val () = use_long_names := true;
 
 val spec64 = INST_TYPE[alpha|->``:64``]
 
-val res = translate $ spec64 panStaticTheory.based_merge_def;
-val res = translate $ spec64 panStaticTheory.based_cmp_def;
-val res = translate $ spec64 panStaticTheory.branch_vbases_def;
-val res = translate $ spec64 panStaticTheory.seq_vbases_def;
-val res = translate $ spec64 panStaticTheory.last_to_str_def;
-val res = translate $ spec64 panStaticTheory.next_is_reachable_def;
-val res = translate $ spec64 panStaticTheory.next_now_unreachable_def;
-val res = translate $ spec64 panStaticTheory.reached_warnable_def;
-val res = translate $ spec64 panStaticTheory.branch_last_stmt_def;
-val res = translate $ spec64 panStaticTheory.seq_last_stmt_def;
-val res = translate $ spec64 panStaticTheory.first_repeat_def;
-val res = translate $ spec64 panStaticTheory.binop_to_str_def;
-val res = translate $ spec64 panStaticTheory.panop_to_str_def;
+val res = translate $ errorLogMonadTheory.return_def;
+val res = translate $ errorLogMonadTheory.bind_def;
+val res = translate $ errorLogMonadTheory.log_def;
+val res = translate $ errorLogMonadTheory.error_def;
+
+val res = translate $ panStaticTheory.based_merge_def;
+val res = translate $ panStaticTheory.based_cmp_def;
+val res = translate $ panStaticTheory.branch_vbases_def;
+val res = translate $ panStaticTheory.seq_vbases_def;
+
+val res = translate $ panStaticTheory.last_to_str_def;
+val res = translate $ panStaticTheory.next_is_reachable_def;
+val res = translate $ panStaticTheory.next_now_unreachable_def;
+val res = translate $ spec64 $ panStaticTheory.reached_warnable_def;
+val res = translate $ panStaticTheory.branch_last_stmt_def;
+val res = translate $ panStaticTheory.seq_last_stmt_def;
+
+val res = translate $ panStaticTheory.first_repeat_def;
+val res = translate $ panStaticTheory.binop_to_str_def;
+val res = translate $ panStaticTheory.panop_to_str_def;
 
 val res = translate $ spec64 $ panStaticTheory.static_check_exp_def;
 val res = translate $ spec64 $ panStaticTheory.static_check_prog_def;
