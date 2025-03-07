@@ -66,13 +66,13 @@ Definition cps_transform_def:
   cps_transform n (Cond c t f) = (let
     (m, cc) = cps_transform n c;
     k = "k" ++ toString m;
-    (l, ck) = cps_transform_cont (m+1) (CondK t f) k
+    (l, ck) = cps_transform_cont (m+1) (CondK t f) (Var (Short k))
   in
     (l, Fun k $ App Opapp [cc; ck])) ∧
   cps_transform n (Apply fn args) = (let
     (m, cfn) = cps_transform n fn;
     k = "k" ++ toString m;
-    (l, ck) = cps_transform_cont (m+1) (ApplyK NONE args) k
+    (l, ck) = cps_transform_cont (m+1) (ApplyK NONE args) (Var (Short k))
   in
     (l, Fun k $ App Opapp [cfn; ck])) ∧
   cps_transform n (Ident x) = (let k = "k" ++ toString n in
@@ -93,7 +93,7 @@ Definition cps_transform_def:
   cps_transform n (Begin e es) = (let
     (m, ce) = cps_transform n e;
     k = "k" ++ toString m;
-    (l, seqk) = cps_transform_seq (m+1) k es
+    (l, seqk) = cps_transform_seq (m+1) (Var (Short k)) es
   in
     (l, Fun k $ App Opapp [ce; seqk])) ∧
   cps_transform n (Set x e) = (let
@@ -108,7 +108,7 @@ Definition cps_transform_def:
   cps_transform n (Letrec bs e) = (let
     (m, ce) = cps_transform n e;
     k = "k" ++ toString m;
-    (l, inner) = cps_transform_letreinit (m+1) k bs ce
+    (l, inner) = cps_transform_letreinit (m+1) (Var (Short k)) bs ce
   in
     (l, Fun k $ letinit_ml bs inner)) ∧
 
@@ -118,8 +118,8 @@ Definition cps_transform_def:
     p = "t" ++ toString l;
   in
     (l+1, Fun p $ Mat (Var (Short p)) [
-      (Pcon (SOME $ Short "SBool") [Plit $ IntLit 0], App Opapp [cf; Var (Short k)]);
-      (Pany, App Opapp [ct; Var (Short k)])
+      (Pcon (SOME $ Short "SBool") [Plit $ IntLit 0], App Opapp [cf; k]);
+      (Pany, App Opapp [ct; k])
     ])) ∧
   cps_transform_cont n (ApplyK NONE es) k = (let
     t = "t" ++ toString n;
@@ -138,18 +138,17 @@ Definition cps_transform_def:
     (l, App Opapp [ce; Fun t inner])) ∧
   cps_transform_app n tfn ts [] k = (n,
     App Opapp [
-      App Opapp [App Opapp [Var (Short "app"); Var (Short k)]; tfn];
+      App Opapp [App Opapp [Var (Short "app"); k]; tfn];
       cons_list (REVERSE ts)]) ∧
 
-  cps_transform_seq n k [] = (n, Var (Short k)) ∧
+  cps_transform_seq n k [] = (n, k) ∧
   cps_transform_seq n k (e::es) = (let
     (m, ce) = cps_transform n e;
     (l, inner) = cps_transform_seq m k es
   in
     (l, Fun "_" $ App Opapp [ce; inner])) ∧
 
-  cps_transform_letreinit n k [] ce = (n,
-    App Opapp [ce; Var (Short k)]) ∧
+  cps_transform_letreinit n k [] ce = (n, App Opapp [ce; k]) ∧
   cps_transform_letreinit n k ((x,e)::bs) ce = (let
     (m, ce') = cps_transform n e;
     (l, inner) = cps_transform_letreinit m k bs ce;
@@ -173,6 +172,15 @@ Termination
   >> rw[val_size_def, list_size_def]
   >> last_x_assum $ qspecl_then [‘e’,‘n’,‘m’,‘ce’] $ mp_tac
   >> rw[]
+End
+
+Definition scheme_cont_def:
+  scheme_cont [] = Fun "t" $ Var (Short "t") ∧
+  scheme_cont (k:: ks) = SND $ cps_transform_cont 0 k (scheme_cont ks)
+End
+
+Definition exp_with_cont_def:
+  exp_with_cont k e = App Opapp [SND $ cps_transform 0 e; scheme_cont k]
 End
 
 Definition scheme_program_to_cake_def:
@@ -310,9 +318,7 @@ Definition myEnv_def:
                 App Opapp [
                   App Opapp [Var (Short "app");Var (Short "k")];
                   Var (Short "x")];
-                Con (SOME $ Short "cons") [Con (SOME $ Short "Throw")
-                  [Var (Short "k")];
-                  Con (SOME $ Short "nil") []]]);
+                cons_list [Con (SOME $ Short "Throw") [Var (Short "k")]]]);
             (Pany,
               Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"])
           ])
