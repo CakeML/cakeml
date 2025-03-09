@@ -1,19 +1,9 @@
 (*
   This refines the SCPOG checker to a fixed-size, list-based implementation.
 *)
-open preamble basis cnf_scpogTheory;
+open preamble basis cnf_scpogTheory mlvectorTheory;
 
 val _ = new_theory "scpog_list"
-
-(* TODO *)
-Definition wf_clause_def:
-  wf_clause (C:int list) ⇔ ¬ MEM 0 C
-End
-
-Definition wf_fml_def:
-  wf_fml fml ⇔
-  ∀C tag. (C,tag) ∈ misc$range fml ⇒ wf_clause C
-End
 
 Definition w8z_def:
   w8z = (0w:word8)
@@ -44,17 +34,17 @@ Definition delete_literals_sing_list_def:
 End
 
 Definition is_rup_list_aux_def:
-  (is_rup_list_aux pred fml [] C Clist = NONE) ∧
-  (is_rup_list_aux pred fml (i::is) C Clist =
+  (is_rup_list_aux is_struct fml [] C Clist = NONE) ∧
+  (is_rup_list_aux is_struct fml (i::is) C Clist =
   case any_el i fml NONE of
     NONE => NONE
-  | SOME ctag =>
-  if pred ctag then
-    case delete_literals_sing_list Clist (FST ctag) of
+  | SOME (c,tag) =>
+  if is_struct ⇒ tag then
+    case delete_literals_sing_list Clist c of
       NONE => NONE
     | SOME nl =>
       if nl = 0 then SOME (C, Clist)
-      else is_rup_list_aux pred fml is (nl::C) (update_resize Clist w8z w8o (index nl))
+      else is_rup_list_aux is_struct fml is (nl::C) (update_resize Clist w8z w8o (index nl))
   else NONE)
 End
 
@@ -65,9 +55,9 @@ Definition set_list_def:
 End
 
 Definition is_rup_list_def:
-  is_rup_list pred fml ls c Clist =
+  is_rup_list is_struct fml ls c Clist =
   let Clist = set_list Clist w8o c in
-  case is_rup_list_aux pred fml ls c Clist of
+  case is_rup_list_aux is_struct fml ls c Clist of
     NONE => NONE
   | SOME (c, Clist) => SOME (set_list Clist w8z c)
 End
@@ -100,14 +90,15 @@ Definition insert_list_list_def:
 End
 
 Definition arb_delete_list_def:
-  (arb_delete_list sc [] fml = SOME fml) ∧
-  (arb_delete_list sc (i::is) fml =
+  (arb_delete_list nc [] fml = SOME fml) ∧
+  (arb_delete_list nc (i::is) fml =
+    if i ≤ nc then NONE
+    else
     case any_el i fml NONE of
       NONE => NONE
-    | SOME ctag =>
-      if is_adel sc.root ctag
-      then arb_delete_list sc is (LUPDATE NONE i fml)
-      else NONE)
+    | SOME (c,tag) =>
+      if tag then NONE
+      else arb_delete_list nc is (LUPDATE NONE i fml))
 End
 
 Definition check_scpstep_list_def:
@@ -115,58 +106,44 @@ Definition check_scpstep_list_def:
   case scpstep of
     Skip => SOME (fml, sc, Clist)
   | Root l =>
-    OPTION_MAP (λsc'. (fml,sc',Clist)) (declare_root pc sc l)
+    OPTION_MAP (λsc'. (fml,sc',Clist)) (declare_root sc l)
   | RupAdd b n c i0 =>
     (let Clist = resize_Clist c Clist in
     case
-      is_rup_list (is_strfwd b) fml i0 c Clist of
+      is_rup_list b fml i0 c Clist of
       NONE => NONE
     | SOME Clist =>
       if
         EVERY (λi. ¬is_fresh pc sc (var_lit i)) c
       then
         OPTION_MAP (λfml'. (fml',sc,Clist))
-          (insert_one_list (strfwd_tag b) fml n c)
-      else NONE)
-  | RupDel n i0 =>
-    (case any_el n fml NONE of
-      NONE => NONE
-    | SOME (C,tag) =>
-      if tag = input_tag
-      then
-      let fml' = LUPDATE NONE n fml in
-      case is_rup_list (is_backward sc.root) fml' i0 C Clist of
-        NONE => NONE
-      | SOME Clist => SOME (fml',sc,Clist)
+          (insert_one_list b fml n c)
       else NONE)
   | ArbDel ls =>
     OPTION_MAP (λfml'. (fml',sc,Clist))
-      (arb_delete_list sc ls fml)
+      (arb_delete_list pc.nc ls fml)
   | DeclPro n v ls =>
     (case declare_pro pc sc v ls of
       SOME (cs,sc') =>
         OPTION_MAP (λfml'. (fml',sc',Clist))
-          (insert_list_list tseitin_tag fml n cs)
+          (insert_list_list T fml n cs)
     | NONE => NONE)
   | DeclSum n v l1 l2 i0 =>
     (let c = [-l1;-l2] in
     let Clist = resize_Clist c Clist in
-    case is_rup_list is_structural fml i0 c Clist of
+    case is_rup_list T fml i0 c Clist of
       NONE => NONE
     | SOME Clist =>
       (case declare_sum pc sc v l1 l2 of
         SOME (cs,sc') =>
           OPTION_MAP (λfml'. (fml',sc',Clist))
-            (insert_list_list tseitin_tag fml n cs)
+            (insert_list_list T fml n cs)
       | NONE => NONE))
   | DeclSko n v ls =>
     (case declare_sko pc sc v ls of
-      SOME (cT,csF,sc') =>
-        (case insert_one_list disable_tag fml n cT of
-          NONE => NONE
-        | SOME fml' =>
-          OPTION_MAP (λfml''. (fml'',sc',Clist))
-            (insert_list_list skolem_tag fml' (n + 1) csF))
+      SOME (cT,sc') =>
+        OPTION_MAP (λfml'. (fml',sc',Clist))
+        (insert_one_list T fml n cT)
     | NONE => NONE)
 End
 
@@ -297,10 +274,10 @@ Theorem fml_rel_is_rup_list_aux:
   ∀ls C Clist.
   fml_rel fml fmlls ∧ wf_fml fml ∧
   lookup_rel C Clist ⇒
-  case is_rup_list_aux pred fmlls ls C Clist of
+  case is_rup_list_aux b fmlls ls C Clist of
     SOME (C', Clist') =>
-    is_rup pred fml ls C ∧ lookup_rel C' Clist'
-  | NONE => ¬ is_rup pred fml ls C (* Not required but should be true *)
+    is_rup b fml ls C ∧ lookup_rel C' Clist'
+  | NONE => ¬ is_rup b fml ls C (* Not required but should be true *)
 Proof
   Induct>>fs[is_rup_list_aux_def,is_rup_def]>>rw[]>>
   DEP_REWRITE_TAC[fml_rel_any_el]>>simp[]>>
@@ -310,9 +287,9 @@ Proof
   drule delete_literals_sing_list_correct>>
   disch_then drule>>
   TOP_CASE_TAC>>simp[]
-  >-
-    (every_case_tac>>fs[]) >>
-  Cases_on `pred x`>>gvs[]>>
+  >-  (every_case_tac>>fs[]) >>
+  Cases_on`x`>>gvs[]>>
+  Cases_on`b ⇒ r` >>gvs[]>>
   IF_CASES_TAC>>simp[]>>
   qmatch_goalsub_abbrev_tac`is_rup_list_aux _ _ _ aaa bbb`>>
   first_x_assum(qspecl_then[`aaa`,`bbb`] mp_tac)>>
@@ -393,9 +370,9 @@ Theorem fml_rel_is_rup_list:
   EVERY ($= w8z) Clist ∧ (* the array is always zero-ed before and after *)
   wf_fml fml ∧
   fml_rel fml fmlls ⇒
-  (case is_rup_list pred fmlls ls (C:int list) Clist of
-    SOME Clist' => is_rup pred fml ls C ∧ EVERY ($= w8z) Clist'
-  | NONE => ¬is_rup pred fml ls C)
+  (case is_rup_list b fmlls ls (C:int list) Clist of
+    SOME Clist' => is_rup b fml ls C ∧ EVERY ($= w8z) Clist'
+  | NONE => ¬is_rup b fml ls C)
 Proof
   rw[is_rup_list_def]>>
   drule fml_rel_is_rup_list_aux>>
@@ -403,7 +380,7 @@ Proof
   drule empty_set_list_lookup_rel>>
   disch_then(qspec_then`C` assume_tac)>>
   disch_then drule>>
-  disch_then(qspecl_then[`pred`,`ls`] assume_tac)>>
+  disch_then(qspecl_then[`b`,`ls`] assume_tac)>>
   every_case_tac>>fs[]>>
   metis_tac[lookup_rel_set_list_empty]
 QED
@@ -514,17 +491,9 @@ Proof
     `EVERY ($= w8z) (resize_Clist l Clist)` by
       rw[resize_Clist_def]>>
     drule_all fml_rel_is_rup_list>>
-    disch_then (qspecl_then [`is_strfwd b`,`l0`,`l`] assume_tac)>>
+    disch_then (qspecl_then [`l0`,`b`,`l`] assume_tac)>>
     every_case_tac>>gvs[]>>
     metis_tac[fml_rel_insert_one_list])
-  >- ( (* RupDel *)
-    DEP_REWRITE_TAC[fml_rel_any_el]>>
-    TOP_CASE_TAC>>gvs[AllCaseEqs()]>>
-    qmatch_asmsub_abbrev_tac`is_rup_list A B C D E`>>
-    qspecl_then [`A`,`C`,`B`,`delete n fml`,`Clist`,`D`] mp_tac (GEN_ALL fml_rel_is_rup_list)>>
-    impl_tac >-
-      simp[wf_fml_delete,fml_rel_LUPDATE_NONE,Abbr`B`]>>
-    simp[fml_rel_LUPDATE_NONE,Abbr`B`])
   >- (
     simp[OPTION_MAP_CASE,o_DEF]>>
     TOP_CASE_TAC>>gvs[AllCaseEqs()]>>
@@ -535,7 +504,7 @@ Proof
   >- (
     TOP_CASE_TAC>>gvs[AllCaseEqs()]>>
     qmatch_asmsub_abbrev_tac`is_rup_list A B C D E`>>
-    qspecl_then [`A`,`C`,`B`,`fml`,`E`,`D`] mp_tac (GEN_ALL fml_rel_is_rup_list)>>
+    qspecl_then [`C`,`B`,`fml`,`A`,`E`,`D`] mp_tac (GEN_ALL fml_rel_is_rup_list)>>
     unabbrev_all_tac>>simp[]>>
     impl_tac >-
       rw[resize_Clist_def]>>
@@ -574,8 +543,7 @@ QED
 Definition is_forward_clause_def:
   is_forward_clause c ctopt ⇔
   case ctopt of NONE => F
-  | SOME (cc,tag) =>
-    cc = c ∧ tag ≤ forward_tag
+  | SOME (cc,tag) => cc = c
 End
 
 Definition is_forward_fml_list_def:
@@ -583,42 +551,15 @@ Definition is_forward_fml_list_def:
   EXISTS (is_forward_clause c) ls
 End
 
-Definition not_is_input_clause_def:
-  not_is_input_clause ctopt ⇔
-  case ctopt of NONE => T
-  | SOME ct => ¬is_input ct
-End
-
-Definition no_is_input_fml_list_def:
-  no_is_input_fml_list ls =
-  EVERY not_is_input_clause ls
-End
-
-Definition check_final_list_def:
-  check_final_list pc sc fml =
-  case sc.root of
-    NONE => NONE
-  | SOME r =>
-    if r = 0
-    then
-      if is_forward_fml_list fml []
-      then SOME (INL())
-      else NONE
-    else
-      if is_forward_fml_list fml [r] ∧
-        no_is_input_fml_list fml
-      then
-        SOME (INR(r,sc.scp))
-      else NONE
-End
-
-Definition check_scp_final_list_def:
-  check_scp_final_list ls pc fmlls sc Clist =
-  case check_scpsteps_list ls pc fmlls sc Clist of
-    NONE => NONE
-  | SOME (fmlls', sc', Clist') =>
-    check_final_list pc sc' fmlls'
-End
+Theorem fml_rel_is_forward_fml_list:
+  fml_rel fml fmlls ⇒
+  (is_forward_fml_list fmlls c ⇔ c ∈ get_fml F fml)
+Proof
+  rw[is_forward_fml_list_def,get_fml_def,EXISTS_MEM,MEM_EL]>>
+  eq_tac>>gvs[fml_rel_def]>>rw[]>>
+  gvs[is_forward_clause_def,AllCasePreds()]>>
+  metis_tac[option_CLAUSES]
+QED
 
 Theorem all_distinct_map_fst_rev:
   ALL_DISTINCT (MAP FST ls) ⇔ ALL_DISTINCT (MAP FST (REVERSE ls))
@@ -628,7 +569,7 @@ QED
 
 Theorem LENGTH_FOLDR_update_resize1:
   ∀ll.
-  LENGTH (FOLDR (λx acc. (λ(i,v). update_resize acc NONE (SOME (v,input_tag)) i) x) (REPLICATE n NONE) ll) ≥ n
+  LENGTH (FOLDR (λx acc. (λ(i,v). update_resize acc NONE (SOME (v,F)) i) x) (REPLICATE n NONE) ll) ≥ n
 Proof
   Induct>>simp[FORALL_PROD]>>rw[]>>
   rw[Once update_resize_def]
@@ -637,7 +578,7 @@ QED
 Theorem LENGTH_FOLDR_update_resize2:
   ∀ll x.
   MEM x ll ⇒
-  FST x < LENGTH (FOLDR (λx acc. (λ(i,v). update_resize acc NONE (SOME (v,input_tag)) i) x) (REPLICATE n NONE) ll)
+  FST x < LENGTH (FOLDR (λx acc. (λ(i,v). update_resize acc NONE (SOME (v,F)) i) x) (REPLICATE n NONE) ll)
 Proof
   Induct>>simp[FORALL_PROD]>>rw[]>>
   rw[Once update_resize_def]
@@ -651,11 +592,11 @@ Theorem FOLDL_update_resize_lookup:
   ∀ls.
   ALL_DISTINCT (MAP FST ls) ⇒
   ∀x.
-  x < LENGTH (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,input_tag)) i) (REPLICATE n NONE) ls)
+  x < LENGTH (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,F)) i) (REPLICATE n NONE) ls)
   ⇒
-  EL x (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,input_tag)) i) (REPLICATE n NONE) ls)
+  EL x (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,F)) i) (REPLICATE n NONE) ls)
   =
-  OPTION_MAP (λc. (c,input_tag)) (ALOOKUP ls x)
+  OPTION_MAP (λc. (c,F)) (ALOOKUP ls x)
 Proof
   simp[Once (GSYM EVERY_REVERSE), Once (GSYM MAP_REVERSE)]>>
   simp[FOLDL_FOLDR_REVERSE]>>
@@ -711,7 +652,7 @@ QED
 
 Theorem fml_rel_FOLDL_update_resize:
   fml_rel (build_fml kc fml)
-  (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,input_tag)) i) (REPLICATE n NONE) (enumerate kc fml))
+  (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,F)) i) (REPLICATE n NONE) (enumerate kc fml))
 Proof
   rw[fml_rel_def]>>
   reverse IF_CASES_TAC
@@ -736,33 +677,182 @@ Proof
   rw[]
 QED
 
-Theorem fml_rel_is_forward_fml_list:
+Definition iter_input_fml_def:
+  iter_input_fml i n fml P =
+    if n < i then T
+    else
+    let chk =
+      (case any_el i fml NONE of
+        NONE => T
+      | SOME (c,b) => P c) in
+      chk ∧ iter_input_fml (i+1) n fml P
+Termination
+  WF_REL_TAC`measure (λ(a,b,_). b+1-a)`>>rw[]
+End
+
+Theorem fml_rel_iter_input_fml:
+  ∀i nc fmlls P.
   fml_rel fml fmlls ⇒
-  (is_forward_fml_list fmlls c ⇔ c ∈ get_fml is_forward fml)
+  (iter_input_fml i nc fmlls P ⇔
+  (∀c. c ∈
+    {c | ∃n b. i ≤ n ∧ n ≤ nc ∧
+      lookup n fml = SOME (c:int list,b)} ⇒
+      P c))
 Proof
-  rw[is_forward_fml_list_def,get_fml_def,EXISTS_MEM,MEM_EL]>>
-  eq_tac>>gvs[fml_rel_def]>>rw[]>>
-  gvs[is_forward_clause_def,is_forward_def,AllCasePreds()]>>
-  metis_tac[option_CLAUSES]
+  ho_match_mp_tac iter_input_fml_ind>>
+  rw[]>>
+  simp[Once iter_input_fml_def]>>rw[]>>
+  Cases_on`nc < i`>>gvs[]
+  >- (
+    rw[]>>
+    `F` by intLib.ARITH_TAC)>>
+  `∀n. i ≤ n ⇔ i + 1 ≤ n ∨ i = n` by intLib.ARITH_TAC>>
+  simp[SF DNF_ss]>>
+  DEP_REWRITE_TAC[fml_rel_any_el]>>
+  simp[]>>
+  every_case_tac>>simp[]>>
+  metis_tac[]
 QED
 
-Theorem fml_rel_no_is_input_fml_list:
-  fml_rel fml fmlls ⇒
-  (no_is_input_fml_list fmlls ⇔ get_fml is_input fml = {})
+Definition clean_list_def:
+  clean_list i fml =
+  if LENGTH fml <= i
+  then fml
+  else
+    clean_list (i+1) (LUPDATE NONE i fml)
+Termination
+  WF_REL_TAC`measure (λ(i,f). LENGTH f - i)`>>rw[]
+End
+
+Definition check_inputs_scp_list_def:
+  check_inputs_scp_list r pc scp fml =
+  let fml = clean_list (pc.nc+1) fml in
+  if is_data_var pc (var_lit r)
+  then
+    if iter_input_fml 0 pc.nc fml (MEM r)
+    then SOME (INR (r,scp))
+    else NONE
+  else
+    let ns = map_scpnv pc scp in
+    let ov = alist_to_vec ns in
+    let iter = LENGTH scp in
+    if iter_input_fml 0 pc.nc fml
+      (falsify_top pc iter (var_lit r) ov)
+    then SOME (INR (r,scp))
+    else NONE
+End
+
+Definition check_final_list_def:
+  check_final_list pc sc fml =
+  case sc.root of
+    NONE => NONE
+  | SOME r =>
+    if r = 0
+    then
+      if is_forward_fml_list fml []
+      then SOME (INL())
+      else NONE
+    else
+      if is_data_ext_lit_run pc sc.Ev r ∧
+         is_forward_fml_list fml [r]
+      then
+        check_inputs_scp_list r pc sc.scp fml
+      else
+        NONE
+End
+
+Theorem iter_input_fml_same:
+  ∀i nc fml P fml'.
+  LENGTH fml = LENGTH fml' ∧
+  (∀i. i ≤ nc ∧ i < LENGTH fml ⇒ EL i fml = EL i fml') ⇒
+  iter_input_fml i nc fml P =
+  iter_input_fml i nc fml' P
 Proof
-  rw[no_is_input_fml_list_def,get_fml_def,EVERY_MEM]>>
-  eq_tac>>gvs[fml_rel_def]>>rw[EXTENSION]>>
-  gvs[not_is_input_clause_def,MEM_EL,AllCasePreds()]>>
-  metis_tac[option_CLAUSES,PAIR]
+  ho_match_mp_tac iter_input_fml_ind>>
+  rw[]>>
+  simp[Once iter_input_fml_def]>>
+  simp[Once iter_input_fml_def,SimpRHS]>>
+  rw[]>>
+  Cases_on`nc < i`>>
+  gvs[any_el_ALT]>>rw[]>>gvs[]>>
+  metis_tac[]
 QED
+
+Theorem clean_list_LENGTH:
+  ∀nc fml fml'.
+  clean_list nc fml = fml' ⇒
+  LENGTH fml = LENGTH fml'
+Proof
+  ho_match_mp_tac clean_list_ind>>rw[]>>
+  simp[Once clean_list_def]>>rw[]
+QED
+
+Theorem clean_list_same:
+  ∀nc fml i.
+  i < LENGTH fml ⇒
+  EL i (clean_list nc fml) =
+  if i < nc then EL i fml
+  else NONE
+Proof
+  ho_match_mp_tac clean_list_ind>>
+  rw[]>>
+  simp[Once clean_list_def]>>rw[]>>gvs[]>>
+  rw[EL_LUPDATE]
+QED
+
+Theorem iter_input_fml_clean_list:
+  iter_input_fml i nc (clean_list (nc + 1) fmlls) P =
+  iter_input_fml i nc fmlls P
+Proof
+  ho_match_mp_tac iter_input_fml_same>>
+  rw[]
+  >- metis_tac[clean_list_LENGTH]>>
+  DEP_REWRITE_TAC[clean_list_same]>>
+  rw[]>>
+  metis_tac[clean_list_LENGTH]
+QED
+
+Theorem fml_rel_check_inputs_scp_list:
+  fml_rel fml fmlls ⇒
+  check_inputs_scp_list r pc sc fmlls =
+  check_inputs_scp r pc sc fml
+Proof
+  strip_tac>>
+  simp[check_inputs_scp_list_def,check_inputs_scp_def,iter_input_fml_clean_list]>>
+  DEP_REWRITE_TAC[fml_rel_iter_input_fml]>>
+  simp[get_input_fml_def]
+QED
+
+Theorem fml_rel_check_final_list:
+  fml_rel fml fmlls ⇒
+  check_final_list pc sc fmlls =
+  check_final pc sc fml
+Proof
+  strip_tac>>
+  simp[check_final_list_def,check_final_def]>>
+  DEP_REWRITE_TAC[fml_rel_is_forward_fml_list]>>
+  simp[]>>
+  TOP_CASE_TAC>>simp[]>>
+  TOP_CASE_TAC>>simp[]>>
+  DEP_REWRITE_TAC[fml_rel_is_forward_fml_list,fml_rel_check_inputs_scp_list]>>
+  simp[]
+QED
+
+Definition check_scp_final_list_def:
+  check_scp_final_list ls pc fmlls sc Clist =
+  case check_scpsteps_list ls pc fmlls sc Clist of
+    NONE => NONE
+  | SOME (fmlls', sc', Clist') =>
+    check_final_list pc sc' fmlls'
+End
 
 Theorem check_scp_final_list_sound:
-  good_pc pc ∧
-  EVERY (λC. vars_clause C ⊆ count (pc.n + 1)) fml ∧
+  good_pc pc ∧ pc.nc = LENGTH fml ∧
+  EVERY (λC. vars_clause C ⊆ count (pc.nv + 1)) fml ∧
   check_scp_final_list ls pc
     (FOLDL (λacc (i,v).
-      update_resize acc NONE (SOME (v,input_tag)) i) (REPLICATE nc NONE)
-        (enumerate kc fml))
+      update_resize acc NONE (SOME (v,F)) i) (REPLICATE nc NONE)
+        (enumerate 1 fml))
     init_sc Clist = SOME res ∧
   EVERY ($= w8z) Clist ⇒
   case res of
@@ -777,23 +867,23 @@ Proof
   gvs[AllCaseEqs()]>>
   assume_tac (GEN_ALL fml_rel_FOLDL_update_resize |>
     INST_TYPE [alpha |-> ``:int list``] |>
-    Q.SPECL [`nc`,`kc`,`fml`])>>
+    Q.SPECL [`nc`,`1`,`fml`])>>
   drule fml_rel_check_scpsteps_list>>
   rpt (disch_then (drule_at Any))>>
   impl_tac >-
     (* wf build*)
     cheat>>
   rw[]>>
-  gvs[check_final_list_def,AllCaseEqs()]
+  drule fml_rel_check_final_list>>
+  strip_tac>>gvs[]>>
+  every_case_tac
   >- (
     irule scpog_soundness_special>>
     first_x_assum (irule_at Any)>>
-    simp[unsat_condition_def]>>
-    metis_tac[fml_rel_is_forward_fml_list])>>
+    gvs[])>>
   irule scpog_soundness>>
-  simp[final_conditions_def]>>
-  first_x_assum (irule_at Any)>>
-  metis_tac[fml_rel_is_forward_fml_list,fml_rel_no_is_input_fml_list]
+  simp[]>>
+  metis_tac[]
 QED
 
 val _ = export_theory();

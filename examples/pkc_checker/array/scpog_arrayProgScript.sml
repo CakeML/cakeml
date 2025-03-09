@@ -192,8 +192,14 @@ Proof
   raise_tac
 QED
 
+Definition check_imp_def:
+  check_imp b b' = (b ⇒ b')
+End
+
+val res = translate check_imp_def;
+
 val is_rup_arr_aux = process_topdecs`
-  fun is_rup_arr_aux lno pred fml ls c carr =
+  fun is_rup_arr_aux lno is_struct fml ls c carr =
     case ls of
       [] =>
         raise Fail (format_failure lno
@@ -206,13 +212,13 @@ val is_rup_arr_aux = process_topdecs`
     case Unsafe.sub fml i of
       None => raise Fail (format_failure lno
         ("no clause at index (maybe deleted): " ^ Int.toString i))
-    | Some ct =>
-      if pred ct then
-        let val nl = delete_literals_sing_arr lno i carr (fst ct) in
+    | Some (c',t) =>
+      if check_imp is_struct t then
+        let val nl = delete_literals_sing_arr lno i carr c' in
         if nl = 0 then c
         else
           (Unsafe.w8update carr (index nl) w8o;
-          is_rup_arr_aux lno pred fml is (nl::c) carr)
+          is_rup_arr_aux lno is_struct fml is (nl::c) carr)
         end
       else
         raise Fail (format_failure lno
@@ -240,8 +246,7 @@ Proof
   CCONTR_TAC >> fs [] >> rw []
 QED
 
-Overload "ctag_TYPE" = ``PAIR_TYPE (LIST_TYPE INT) NUM``
-Overload "pred_TYPE" = ``ctag_TYPE --> BOOL``;
+Overload "ctag_TYPE" = ``PAIR_TYPE (LIST_TYPE INT) BOOL``
 
 Theorem is_rup_arr_aux_spec:
   ∀ls lsv c cv fmlv fmlls fml Carrv Clist lno lnov.
@@ -249,25 +254,25 @@ Theorem is_rup_arr_aux_spec:
   (LIST_TYPE NUM) ls lsv ∧
   (LIST_TYPE INT) c cv ∧
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
-  pred_TYPE pred predv ∧
+  BOOL b bv ∧
   bounded_fml (LENGTH Clist) fmlls
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_rup_arr_aux" (get_ml_prog_state()))
-    [lnov; predv; fmlv; lsv; cv; Carrv]
+    [lnov; bv; fmlv; lsv; cv; Carrv]
     (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
     (POSTve
       (λv. ARRAY fmlv fmllsv *
         (SEP_EXISTS Clist'.
           W8ARRAY Carrv Clist' *
           &unwrap_TYPE ($= o SND)
-          (is_rup_list_aux pred fmlls ls c Clist) Clist'
+          (is_rup_list_aux b fmlls ls c Clist) Clist'
         ) *
         &unwrap_TYPE
           (LIST_TYPE INT o FST)
-          (is_rup_list_aux pred fmlls ls c Clist) v)
+          (is_rup_list_aux b fmlls ls c Clist) v)
       (λe. ARRAY fmlv fmllsv *
-        &(Fail_exn e ∧ is_rup_list_aux pred fmlls ls c Clist = NONE)))
+        &(Fail_exn e ∧ is_rup_list_aux b fmlls ls c Clist = NONE)))
 Proof
   Induct>>
   rw[]>>
@@ -301,8 +306,11 @@ Proof
     xmatch>>
     raise_tac)>>
   fs[any_el_ALT,OPTION_TYPE_def]>>
+  TOP_CASE_TAC>>
+  fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
+  gvs[check_imp_def]>>
   reverse xif
   >- raise_tac>>
   rpt xlet_autop>>
@@ -374,9 +382,9 @@ Proof
 QED
 
 val is_rup_arr = process_topdecs`
-  fun is_rup_arr lno pred fml ls c carr =
+  fun is_rup_arr lno is_struct fml ls c carr =
     (set_array carr w8o c;
-    set_array carr w8z (is_rup_arr_aux lno pred fml ls c carr);
+    set_array carr w8z (is_rup_arr_aux lno is_struct fml ls c carr);
     carr)`
     |> append_prog
 
@@ -420,7 +428,7 @@ Theorem is_rup_list_aux_length_bound:
   ∀ls c Clist.
   bounded_fml (LENGTH Clist) fmlls ∧
   EVERY ($> (LENGTH Clist) ∘ index) c ∧
-  is_rup_list_aux pred fmlls ls c (set_list Clist w8o c) = SOME(d,r) ⇒
+  is_rup_list_aux b fmlls ls c (set_list Clist w8o c) = SOME(d,r) ⇒
     Abbrev (r = set_list Clist w8o d ∧
     LENGTH r = LENGTH Clist ∧
     EVERY ($> (LENGTH Clist) ∘ index) d)
@@ -460,27 +468,27 @@ Theorem is_rup_arr_spec:
   (LIST_TYPE NUM) ls lsv ∧
   (LIST_TYPE INT) c cv ∧
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
-  pred_TYPE pred predv ∧
+  BOOL b bv ∧
   bounded_fml (LENGTH Clist) fmlls ∧
   EVERY ($> (LENGTH Clist) ∘ index) c
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_rup_arr" (get_ml_prog_state()))
-    [lnov; predv; fmlv; lsv; cv; Carrv]
+    [lnov; bv; fmlv; lsv; cv; Carrv]
     (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
     (POSTve
       (λv. ARRAY fmlv fmllsv *
           (SEP_EXISTS Clist'.
           W8ARRAY Carrv Clist' *
           &(unwrap_TYPE $=
-            (is_rup_list pred fmlls ls c Clist) Clist' ∧
+            (is_rup_list b fmlls ls c Clist) Clist' ∧
             LENGTH Clist = LENGTH Clist')
           ) *
         &unwrap_TYPE
           (λv w. T)
-          (is_rup_list pred fmlls ls c Clist) v)
+          (is_rup_list b fmlls ls c Clist) v)
       (λe. ARRAY fmlv fmllsv *
-        &(Fail_exn e ∧ is_rup_list pred fmlls ls c Clist = NONE)))
+        &(Fail_exn e ∧ is_rup_list b fmlls ls c Clist = NONE)))
 Proof
   rw[]>>
   xcf "is_rup_arr" (get_ml_prog_state ())>>
@@ -569,7 +577,7 @@ QED
 Theorem insert_one_arr_spec:
   NUM lno lnov ∧
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
-  NUM tag tagv ∧
+  BOOL tag tagv ∧
   (LIST_TYPE INT) c cv ∧
   NUM i iv
   ⇒
@@ -615,7 +623,7 @@ Theorem insert_list_arr_spec:
   ∀ls lsv i iv fmlls fmllsv fmlv.
   NUM lno lnov ∧
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
-  NUM tag tagv ∧
+  BOOL tag tagv ∧
   LIST_TYPE (LIST_TYPE INT) ls lsv ∧
   NUM i iv
   ⇒
@@ -654,22 +662,16 @@ QED
 val _ = register_type``:scpog_conf``;
 val _ = register_type``:prob_conf``;
 
-val res = translate var_lit_def;
-val res = translate lookup_def;
-val res = translate is_data_var_def;
-val res = translate is_data_ext_lit_run_def;
 val res = translate declare_root_def;
-
-val res = translate is_structural_def;
-val res = translate is_forward_def;
-val res = translate is_strfwd_def;
 
 Definition every_not_is_fresh_def:
   every_not_is_fresh pc sc c =
     EVERY (λi. ¬is_fresh pc sc (var_lit i)) c
 End
 
+val res = translate lookup_def;
 val res = translate is_fresh_def;
+val res = translate var_lit_def;
 val res = translate every_not_is_fresh_def;
 
 val delete_arr = process_topdecs`
@@ -710,28 +712,23 @@ Proof
   simp[]
 QED
 
-val res = translate is_root_def;
-val res = translate is_adel_def;
-
-Definition is_adel_sc_def:
-  is_adel_sc sc = is_adel sc.root
-End
-
-val res = translate is_adel_sc_def;
-
 val arb_delete_arr = process_topdecs`
-  fun arb_delete_arr lno sc ls fml =
+  fun arb_delete_arr lno nc ls fml =
     case ls of [] => ()
   | (i::is) =>
-    case Array.lookup fml None i of
+  if i <= nc then
+      raise Fail (format_failure lno "unable to delete an input clause index: "^ Int.toString i)
+  else
+  case Array.lookup fml None i of
     None =>
       raise Fail (format_failure lno "missing id for arbitrary deletion: "^ Int.toString i)
-  | Some ctag =>
-    if is_adel_sc sc ctag
+  | Some (c,tag) =>
+    if tag
     then
-      (delete_arr i fml; arb_delete_arr lno sc is fml)
+     raise Fail (format_failure lno "invalid arbitrary deletion of structural clause at id: "^ Int.toString i)
     else
-    raise Fail (format_failure lno "invalid arbitrary deletion at id: "^ Int.toString i)` |> append_prog;
+      (delete_arr i fml; arb_delete_arr lno nc is fml)
+    ` |> append_prog;
 
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
@@ -744,42 +741,46 @@ QED
 Theorem arb_delete_arr_spec:
   ∀ls lsv fmlls fmlv fmllsv.
   NUM lno lnov ∧
-  CNF_SCPOG_SCPOG_CONF_TYPE sc scv ∧
+  NUM nc ncv ∧
   LIST_TYPE NUM ls lsv ∧
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "arb_delete_arr" (get_ml_prog_state()))
-    [lnov; scv; lsv; fmlv]
+    [lnov; ncv; lsv; fmlv]
     (ARRAY fmlv fmllsv)
     (POSTve
       (λv.
         SEP_EXISTS fmllsv'.
         ARRAY fmlv fmllsv' *
         &(UNIT_TYPE () v ∧
-        case arb_delete_list sc ls fmlls of NONE => F
+        case arb_delete_list nc ls fmlls of NONE => F
         | SOME fmlls' =>
           LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv'))
       (λe.
         SEP_EXISTS fmllsv'.
         ARRAY fmlv fmllsv' *
         & (Fail_exn e ∧
-          arb_delete_list sc ls fmlls = NONE)))
+          arb_delete_list nc ls fmlls = NONE)))
 Proof
   Induct>>rw[arb_delete_list_def]>>
   xcf "arb_delete_arr" (get_ml_prog_state ())>>
   gvs[LIST_TYPE_def]>>xmatch
   >- (xcon>>xsimpl)>>
   rpt xlet_autop>>
+  xif >> instantiate
+  >- raise_tac>>
+  rpt xlet_autop>>
   xlet_auto>>
   `OPTION_TYPE ctag_TYPE (any_el h fmlls NONE) v'` by (
     rw[any_el_ALT]>>
     fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
-  gvs[OPTION_TYPE_SPLIT]>>xmatch
-  >- raise_tac>>
-  rpt xlet_autop>>
-  gvs[is_adel_sc_def]>>
-  reverse xif
+  gvs[OPTION_TYPE_SPLIT]
+  >- (
+    xmatch>>
+    raise_tac)>>
+  Cases_on`y`>>gvs[PAIR_TYPE_def]>>xmatch>>
+  xif
   >- raise_tac>>
   xlet_autop>>
   xapp>>xsimpl>>
@@ -787,38 +788,32 @@ Proof
   simp[OPTION_TYPE_def]
 QED
 
-Definition mk_backward_def:
-  mk_backward sc = is_backward sc.root
-End
-
-val res = translate is_root_def;
-val res = translate is_backward_def;
-val res = translate mk_backward_def;
-val res = translate strfwd_tag_def;
-
-Definition is_input_tag_def:
-  is_input_tag tag = (tag = input_tag)
-End
-
-val res = translate is_input_tag_def;
-
+val res = translate is_data_var_def;
+val res = translate is_data_ext_lit_run_def;
 val res = translate check_pro_def;
+
 val res = translate FOLDL;
+
+(*
 val res = translate mk_BN_def;
 val res = translate mk_BS_def;
 val res = translate inter_def;
 val res = translate union_def;
 val res = translate big_disjoint_union_def;
 val res = translate get_node_vars_def;
-val res = translate mk_Ev_disj_def;
+val res = translate mk_Ev_disj_def; *)
+
 val res = translate mk_sko_def;
 val res = translate mk_pro_def;
 val res = translate declare_pro_def;
 
 val res = translate check_sum_def;
 val res = translate mk_sum_def;
+
+(*
 val res = translate big_union_def;
-val res = translate mk_Ev_def;
+val res = translate mk_Ev_def; *)
+
 val res = translate declare_sum_def;
 
 val res = translate is_proj_lit_run_def;
@@ -828,58 +823,54 @@ val res = translate declare_sko_def;
 Definition mk_cl_def:
   mk_cl l1 (l2:int) = [-l1;-l2]
 End
+
 val res = translate mk_cl_def;
+
+Definition get_nc_def:
+  get_nc pc = pc.nc
+End
+
+val res = translate get_nc_def;
 
 val check_scpstep_arr = process_topdecs`
   fun check_scpstep_arr lno scpstep pc fml sc carr =
   case scpstep of
     Skip => (fml,sc,carr)
   | Root l =>
-      (case declare_root pc sc l of
+      (case declare_root sc l of
         None => raise Fail (format_failure lno "invalid root declaration")
       | Some sc' => (fml,sc',carr))
   | Rupadd b n c i0 =>
     (let val carr = resize_carr c carr
-        val u = is_rup_arr lno (is_strfwd b) fml i0 c carr in
+        val u = is_rup_arr lno b fml i0 c carr in
       if every_not_is_fresh pc sc c
       then
-        (insert_one_arr lno (strfwd_tag b) fml n c, sc, carr)
+        (insert_one_arr lno b fml n c, sc, carr)
       else raise Fail (format_failure lno "clause has fresh variable")
     end)
-  | Rupdel n i0 =>
-    (case Array.lookup fml None n of
-      None => raise Fail (format_failure lno "invalid RUP deletion")
-    | Some (c,tag) =>
-      if is_input_tag tag then
-        let
-          val u1 = delete_arr n fml
-          val u2 = is_rup_arr lno (mk_backward sc) fml i0 c carr in
-          (fml, sc, carr)
-        end
-      else raise Fail (format_failure lno "invalid deletion tag for clause"))
   | Arbdel ls =>
-    (arb_delete_arr lno sc ls fml; (fml,sc,carr))
+    (arb_delete_arr lno (get_nc pc) ls fml; (fml,sc,carr))
   | Declpro n v ls =>
     (case declare_pro pc sc v ls of
       Some (cs,sc') =>
-        (insert_list_arr lno 1 fml n cs, sc', carr)
+        (insert_list_arr lno True fml n cs, sc', carr)
     | _ =>
       raise Fail (format_failure lno "Product node freshness/variable checks failed"))
   | Declsum n v l1 l2 i0 =>
     (let
       val c = mk_cl l1 l2
       val carr = resize_carr c carr
-      val u = is_rup_arr lno is_structural fml i0 c carr in
+      val u = is_rup_arr lno True fml i0 c carr in
       (case declare_sum pc sc v l1 l2 of
         Some (cs,sc') =>
-          (insert_list_arr lno 1 fml n cs,sc',carr)
+          (insert_list_arr lno True fml n cs,sc',carr)
       | _ =>
         raise Fail (format_failure lno "Sum node freshness/variable checks failed"))
     end)
   | Declsko n v ls =>
     (case declare_sko pc sc v ls of
-      Some (cT,(csF,sc')) =>
-        (insert_list_arr lno 5 (insert_one_arr lno 0 fml n cT) (n+1) csF, sc',carr)
+      Some (cT,sc') =>
+        (insert_one_arr lno True fml n cT, sc',carr)
     | _ =>
       raise Fail (format_failure lno "Skolem node freshness/variable checks failed"))`
   |> append_prog;
@@ -951,19 +942,6 @@ Proof
   >- ( (* RupAdd *)
     xmatch>>
     xlet_autop>>
-    xlet`(POSTv f.
-      W8ARRAY carrv (resize_Clist l Clist) * ARRAY fmlv fmllsv * &(pred_TYPE (is_strfwd b) f))`
-    >- (
-      assume_tac (fetch "-" "is_strfwd_v_thm" |> Q.GEN`a` |> Q.ISPEC `LIST_TYPE INT`)>>
-      drule Arrow_IMP_app_basic>>
-      disch_then drule>>
-      simp[GSYM app_def]>>
-      simp[cf_app_def,local_def,PULL_EXISTS]>>rw[]>>
-      first_x_assum (irule_at (Pos (el 4)))>>
-      xsimpl>>
-      CONJ_TAC >-
-        metis_tac[ml_monad_translatorBaseTheory.EMP_STAR_GC,ml_monad_translatorBaseTheory.H_STAR_GC_SAT_IMP]>>
-      EVAL_TAC)>>
     xlet_auto
     >- (
       xsimpl>>
@@ -977,17 +955,16 @@ Proof
     >- (
       `¬EVERY (λi. ¬is_fresh pc sc (var_lit i)) l` by metis_tac[NOT_EVERY,o_DEF]>>
       raise_tac)>>
-    xlet_autop>>
     xlet`POSTve
       (λv.
            SEP_EXISTS fmllsv'.
              ARRAY v fmllsv' * W8ARRAY carrv Clist' *
-             &case insert_one_list (strfwd_tag b) fmlls n l of
+             &case insert_one_list b fmlls n l of
                NONE => F
              | SOME fmlls' => LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv')
       (λe.
            ARRAY fmlv fmllsv *
-           &(Fail_exn e ∧ insert_one_list (strfwd_tag b) fmlls n l = NONE))`
+           &(Fail_exn e ∧ insert_one_list b fmlls n l = NONE))`
     >- (
       xapp>>xsimpl>>
       rpt (first_x_assum (irule_at Any))>>
@@ -998,77 +975,26 @@ Proof
     gvs[AllCasePreds()]>>
     xcon>>xsimpl>>
     cheat)
-  >- ( (* RupDel *)
-    xmatch>>
-    rpt xlet_autop>>
-    `OPTION_TYPE ctag_TYPE (any_el n fmlls NONE) v'` by (
-      rw[any_el_ALT]>>
-      fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
-    gvs[OPTION_TYPE_SPLIT,PAIR_TYPE_SPLIT]>>xmatch
-    >- raise_tac>>
-    xlet_autop>>
-    gvs[is_input_tag_def]>>
-    reverse xif
-    >- raise_tac>>
-    rpt xlet_autop>>
-    qmatch_goalsub_abbrev_tac`ARRAY fmlv fmllsv'`>>
-    xlet`(POSTv f.
-      (ARRAY fmlv fmllsv' * W8ARRAY Carrv Clist) * &(pred_TYPE (is_backward sc.root) f))`
-    >- (
-      assume_tac (fetch "-" "mk_backward_v_thm")>>
-      drule Arrow_IMP_app_basic>>
-      disch_then drule>>
-      simp[GSYM app_def]>>
-      simp[cf_app_def,local_def,PULL_EXISTS,mk_backward_def]>>rw[]>>
-      first_x_assum (irule_at (Pos (el 4)))>>
-      xsimpl>>
-      CONJ_TAC >-
-        metis_tac[ml_monad_translatorBaseTheory.EMP_STAR_GC,ml_monad_translatorBaseTheory.H_STAR_GC_SAT_IMP]>>
-      EVAL_TAC)>>
-    qmatch_goalsub_abbrev_tac`is_rup_list pred _ ls c Clist`>>
-    `bounded_fml (LENGTH Clist) (LUPDATE NONE n fmlls)` by cheat>>
-    `LIST_REL (OPTION_TYPE ctag_TYPE) (LUPDATE NONE n fmlls) fmllsv'` by (
-      gvs[Abbr`fmllsv'`]>>
-      match_mp_tac EVERY2_LUPDATE_same>>
-      simp[OPTION_TYPE_def])>>
-    xlet`POSTve
-            (λv.
-                 ARRAY fmlv fmllsv' *
-                 (SEP_EXISTS Clist'.
-                    W8ARRAY Carrv Clist' *
-                    &(unwrap_TYPE $= (is_rup_list pred (LUPDATE NONE n fmlls) ls c Clist)
-                       Clist' ∧ LENGTH Clist = LENGTH Clist')) *
-                 &unwrap_TYPE (λv w. T) (is_rup_list pred (LUPDATE NONE n fmlls) ls c Clist) v)
-            (λe.
-                 ARRAY fmlv fmllsv' *
-                 &(Fail_exn e ∧ is_rup_list pred (LUPDATE NONE n fmlls) ls c Clist = NONE))`
-    >- (
-      xapp>>xsimpl>>
-      cheat)
-    >- (
-      xsimpl>>
-      metis_tac[ARRAY_refl])>>
-    gvs[unwrap_TYPE_def]>>
-    xcon>>xsimpl)
   >- (  (* ArbDel *)
     xmatch>>
+    xlet_autop>>
     xlet`
       POSTve
         (λv.
              SEP_EXISTS fmllsv'.
                ARRAY fmlv fmllsv' * W8ARRAY Carrv Clist *
                &(UNIT_TYPE () v ∧
-                case arb_delete_list sc l fmlls of
+                case arb_delete_list pc.nc l fmlls of
                   NONE => F
                 | SOME fmlls' => LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv'))
         (λe.
              SEP_EXISTS fmllsv'.
                ARRAY fmlv fmllsv' *
-               &(Fail_exn e ∧ arb_delete_list sc l fmlls = NONE))`
+               &(Fail_exn e ∧ arb_delete_list pc.nc l fmlls = NONE))`
     >- (
       xapp>>xsimpl>>
       rpt (first_x_assum (irule_at Any))>>
-      simp[])
+      gvs[get_nc_def])
     >- (
       xsimpl>>
       metis_tac[ARRAY_refl])>>
@@ -1080,22 +1006,25 @@ Proof
     gvs[OPTION_TYPE_SPLIT,PAIR_TYPE_SPLIT]>>
     xmatch
     >- raise_tac>>
+    xlet_autop>>
     xlet`POSTve
       (λv.
            SEP_EXISTS fmllsv'.
              ARRAY v fmllsv' * W8ARRAY Carrv Clist *
-             &case insert_list_list 1 fmlls n x1 of
+             &case insert_list_list T fmlls n x1 of
                NONE => F
              | SOME fmlls' => LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv')
       (λe.
            SEP_EXISTS fmlv' fmllsv'.
              ARRAY fmlv' fmllsv' *
-             &(Fail_exn e ∧ insert_list_list 1 fmlls n x1 = NONE))`
+             &(Fail_exn e ∧ insert_list_list T fmlls n x1 = NONE))`
     >- (
       xapp>>xsimpl>>
       rpt(first_x_assum (irule_at Any))>>
+      qexists_tac`T`>>
       simp[]>>
-      rw[]>>
+      rw[]
+      >- EVAL_TAC>>
       metis_tac[ARRAY_W8ARRAY_refl])
     >- xsimpl>>
     gvs[AllCasePreds()]>>
@@ -1103,8 +1032,11 @@ Proof
     cheat)
   >- ( (* DeclSum *)
     xmatch>>
-    rpt xlet_autop>>
-    assume_tac (fetch "-" "is_structural_v_thm" |> Q.GEN`a` |> Q.ISPEC `LIST_TYPE INT`)>>
+    xlet_autop>>
+    xlet_autop>>
+    xlet`POSTv v. W8ARRAY carrv (resize_Clist (mk_cl i i0) Clist) * ARRAY fmlv fmllsv * &BOOL T v`
+    >-
+      (xcon>>xsimpl)>>
     gvs[mk_cl_def]>>
     xlet_auto
     >- (
@@ -1118,22 +1050,24 @@ Proof
     gvs[OPTION_TYPE_SPLIT,PAIR_TYPE_SPLIT]>>xmatch
     >-
       raise_tac>>
+    xlet_autop>>
     xlet`POSTve
       (λv.
            SEP_EXISTS fmllsv'.
              ARRAY v fmllsv' * W8ARRAY carrv Clist' *
-             &case insert_list_list 1 fmlls n x1 of
+             &case insert_list_list T fmlls n x1 of
                NONE => F
              | SOME fmlls' => LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv')
       (λe.
            SEP_EXISTS fmlv' fmllsv'.
              ARRAY fmlv' fmllsv' *
-             &(Fail_exn e ∧ insert_list_list 1 fmlls n x1 = NONE))`
+             &(Fail_exn e ∧ insert_list_list T fmlls n x1 = NONE))`
     >- (
       xapp>>xsimpl>>
       rpt(first_x_assum (irule_at Any))>>
-      simp[]>>
-      rw[]>>
+      qexists_tac`T`>>simp[]>>
+      rw[]
+      >- EVAL_TAC>>
       metis_tac[ARRAY_W8ARRAY_refl])
     >-
       (xsimpl>>metis_tac[ARRAY_refl])>>
@@ -1151,39 +1085,23 @@ Proof
       (λv.
            SEP_EXISTS fmllsv'.
              ARRAY v fmllsv' * W8ARRAY Carrv Clist *
-             &case insert_one_list disable_tag fmlls n x1 of
+             &case insert_one_list T fmlls n x1 of
                NONE => F
              | SOME fmlls' => LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv')
       (λe.
            ARRAY fmlv fmllsv *
-           &(Fail_exn e ∧ insert_one_list disable_tag fmlls n x1 = NONE))`
+           &(Fail_exn e ∧ insert_one_list T fmlls n x1 = NONE))`
     >- (
       xapp>>xsimpl>>
       rpt(first_x_assum (irule_at Any))>>
-      simp[])
+      qexists_tac`T`>>
+      simp[]>>
+      EVAL_TAC)
     >- (
       xsimpl>>
       metis_tac[ARRAY_refl])>>
     gvs[AllCasePreds()]>>
-    xlet`POSTve
-      (λv.
-           SEP_EXISTS fmllsv'.
-             ARRAY v fmllsv' * W8ARRAY Carrv Clist *
-             &case insert_list_list 5 fmlls' (n+1) x1' of
-               NONE => F
-             | SOME fmlls' => LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv')
-      (λe.
-           SEP_EXISTS fmlv' fmllsv'.
-             ARRAY fmlv' fmllsv' *
-             &(Fail_exn e ∧ insert_list_list 5 fmlls' (n+1) x1' = NONE))`
-    >- (
-      xapp>>xsimpl>>
-      rpt(first_x_assum (irule_at Any))>>
-      simp[]>>
-      rw[]>>
-      metis_tac[ARRAY_W8ARRAY_refl])
-    >- xsimpl>>
-    gvs[AllCasePreds()]>>xcon>>xsimpl>>
+    xcon>>xsimpl>>
     cheat)
 QED
 
@@ -1203,7 +1121,6 @@ val parse_until_nn_side = Q.prove(`
 val res = translate parse_nat_until_zero_def;
 val res = translate parse_until_zero_def;
 val res = translate parse_rup_add_def;
-val res = translate parse_rup_del_def;
 val res = translate parse_arb_del_def;
 val res = translate parse_pro_aux_def;
 val res = translate parse_pro_def;
@@ -1497,18 +1414,467 @@ End
 
 val r = translate notfound_string_def;
 
+val iter_input_fml_arr = process_topdecs`
+  fun iter_input_fml_arr i n fml p =
+    if n < i then True
+    else
+    (case Array.lookup fml None i of
+      None => iter_input_fml_arr (i+1) n fml p
+    | Some (c,b) =>
+      (p c andalso
+      iter_input_fml_arr (i+1) n fml p))` |> append_prog;
+
+Theorem iter_input_fml_arr_spec:
+  ∀i n fmlls P fmlv fmllsv Pv iv nv.
+  NUM i iv ∧
+  NUM n nv ∧
+  LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
+  (LIST_TYPE INT --> BOOL) P Pv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "iter_input_fml_arr" (get_ml_prog_state()))
+    [iv; nv; fmlv; Pv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+      ARRAY fmlv fmllsv *
+      &(BOOL (iter_input_fml i n fmlls P) v))
+Proof
+  ho_match_mp_tac iter_input_fml_ind>>rw[]>>
+  simp[Once iter_input_fml_def]>>
+  xcf "iter_input_fml_arr" (get_ml_prog_state ())>>
+  xlet_autop>>
+  xif
+  >- (xcon>>xsimpl)>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  `OPTION_TYPE ctag_TYPE (any_el i fmlls NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  TOP_CASE_TAC>>gvs[OPTION_TYPE_def]
+  >- (
+    xmatch>>
+    xlet_autop>>
+    xapp>>xsimpl)>>
+  TOP_CASE_TAC>>gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xlog>>rw[]
+  >- (
+    xlet_autop>>
+    xapp>>xsimpl)>>
+  xsimpl>>gvs[]
+QED
+
+val r = translate mergesortTheory.sort2_def;
+val r = translate mergesortTheory.sort3_def;
+val r = translate mergesortTheory.merge_def;
+val r = translate DROP_def;
+val r = translate (mergesortTheory.mergesortN_def |> SIMP_RULE std_ss [DIV2_def]);
+
+Triviality mergesortn_ind:
+  mergesortn_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "mergesortn_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, DIV2_def]
+QED
+
+val _ = mergesortn_ind |> update_precondition;
+
+Triviality mergesortn_side:
+  ∀x y z.
+  mergesortn_side x y z
+Proof
+  completeInduct_on`y`>>
+  rw[Once (fetch "-" "mergesortn_side_def")]>>
+  simp[arithmeticTheory.DIV2_def]
+  >- (
+    first_x_assum match_mp_tac>>
+    simp[]>>
+    match_mp_tac dividesTheory.DIV_POS>>
+    simp[])
+  >>
+    match_mp_tac DIV_LESS_EQ>>
+    simp[]
+QED
+val _ = mergesortn_side |> update_precondition;
+
+val r = translate mergesortTheory.mergesort_def;
+
+val r = translate mergesortTheory.sort2_tail_def;
+val r = translate mergesortTheory.sort3_tail_def;
+val r = translate REV_DEF;
+val r = translate mergesortTheory.merge_tail_def;
+val r = translate (mergesortTheory.mergesortN_tail_def |> SIMP_RULE std_ss [DIV2_def]);
+
+Triviality mergesortn_tail_ind:
+  mergesortn_tail_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, DIV2_def]
+QED
+
+val _ = mergesortn_tail_ind |> update_precondition;
+
+Triviality mergesortn_tail_side:
+  ∀w x y z.
+  mergesortn_tail_side w x y z
+Proof
+  completeInduct_on`y`>>
+  rw[Once (fetch "-" "mergesortn_tail_side_def")]>>
+  simp[arithmeticTheory.DIV2_def]
+  >- (
+    first_x_assum match_mp_tac>>
+    simp[]>>
+    match_mp_tac dividesTheory.DIV_POS>>
+    simp[])
+  >>
+    match_mp_tac DIV_LESS_EQ>>
+    simp[]
+QED
+val _ = mergesortn_tail_side |> update_precondition;
+
+val r = translate mergesortTheory.mergesort_tail_def;
+
+val res = translate split_lit_def;
+val res = translate split_lits_def;
+val res = translate mk_strict_aux_def;
+val res = translate mk_strict_def;
+val res = translate opt_hd_def;
+val res = translate opt_chr_def;
+
+val res = translate prepend_def;
+
+val r = translate (to_flat_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
+
+Triviality to_flat_ind:
+  to_flat_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "to_flat_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = to_flat_ind |> update_precondition;
+
+val res = translate (to_lit_string_def |> SIMP_RULE std_ss [GSYM implode_def]);
+
+val to_lit_string_side_def = fetch "-" "to_lit_string_side_def";
+
+Theorem to_lit_string_side:
+  to_lit_string_side x ⇔ T
+Proof
+  rw[to_lit_string_side_def]>>
+  cheat
+QED
+
+val _ = to_lit_string_side |> update_precondition;
+
+val res = translate scpn_to_scpnv_def;
+val res = translate map_scpnv_def;
+
+val res = translate alist_to_vec_def;
+val res = translate vec_lookup_def;
+val res = translate falsify_lit_def;
+
+Theorem falsify_lit_side:
+  falsify_lit_side obs i ⇔ T
+Proof
+  Cases_on`obs`>> EVAL_TAC>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+val _ = falsify_lit_side |> update_precondition;
+
+val res = translate falsify_vec_def;
+
+val res = translate PART_DEF;
+val res = translate PARTITION_DEF;
+val res = translate clean_vec_def;
+val res = translate (falsify_vec_sat_scpv_def |> REWRITE_RULE [MEMBER_INTRO]);
+val res = translate (falsify_top_def);
+
+Definition get_scp_def:
+  get_scp sc = sc.scp
+End
+
+val r = translate get_scp_def;
+
+(*
+val r = translate spts_to_alist_add_pause_def;
+val r = translate spt_left_def;
+val r = translate spt_right_def;
+val r = translate spt_center_def;
+val r = translate spts_to_alist_aux_def;
+val r = translate spts_to_alist_def;
+val r = translate toSortedAList_def;
+val r = translate spt_to_vec_def;
+*)
+
+val clean_arr = process_topdecs`
+  fun clean_arr i fml =
+  if Array.length fml <= i
+  then ()
+  else
+    (Unsafe.update fml i None;
+    clean_arr (i+1) fml)` |> append_prog;
+
+Theorem check_arr_spec:
+  ∀i fmlls iv fmllsv.
+  NUM i iv ∧
+  LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "clean_arr" (get_ml_prog_state()))
+    [iv; fmlv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+      SEP_EXISTS fmllsv'.
+      ARRAY fmlv fmllsv' *
+      &LIST_REL (OPTION_TYPE ctag_TYPE)
+        (clean_list i fmlls) fmllsv')
+Proof
+  ho_match_mp_tac clean_list_ind>>
+  rw[]>>
+  xcf "clean_arr" (get_ml_prog_state ())>>
+  simp[Once clean_list_def]>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    xcon>>xsimpl>>gvs[]>>
+    drule LIST_REL_LENGTH>>
+    rw[])>>
+  rpt xlet_autop>>
+  xapp>>xsimpl>>
+  drule LIST_REL_LENGTH>>
+  rw[]>>
+  match_mp_tac EVERY2_LUPDATE_same>>
+  fs[OPTION_TYPE_def]
+QED
+
+val check_inputs_scp_arr = process_topdecs`
+  fun check_inputs_scp_arr r pc scp fml =
+  let val u = clean_arr (get_nc pc + 1) fml in
+  if is_data_var pc (var_lit r)
+  then
+    if iter_input_fml_arr 0 (get_nc pc) fml (List.member r)
+    then Inr (Inr (r,scp))
+    else Inl ("final condition check failed: could not delete all input clauses using POG\n")
+  else
+    let
+      val ns = map_scpnv pc scp
+      val ov = alist_to_vec ns
+      val iter = List.length scp
+    in
+      if iter_input_fml_arr 0 (get_nc pc) fml
+        (falsify_top pc iter (var_lit r) ov)
+      then Inr (Inr (r,scp))
+      else Inl ("final condition check failed: could not delete all input clauses using POG\n")
+    end
+  end`|>append_prog;
+
+Theorem EqualityType_INT:
+  EqualityType INT
+Proof
+  simp[EqualityType_NUM_BOOL]
+QED
+
+Theorem EqualityType_LIST_TYPE_INT:
+  EqualityType (LIST_TYPE INT)
+Proof
+  match_mp_tac EqualityType_LIST_TYPE>>
+  simp[EqualityType_NUM_BOOL]
+QED
+
+(*
+Theorem app_efalsify_vec_sat_scpv_v:
+  NUM w wv ∧
+  NUM x xv ∧
+  VECTOR_TYPE (OPTION_TYPE CNF_SCPOG_SCPNV_TYPE) y yv ∧
+  VECTOR_TYPE (OPTION_TYPE (VECTOR_TYPE (OPTION_TYPE UNIT_TYPE))) z zv ⇒
+  app (p : 'ffi ffi_proj) efalsify_vec_sat_scpv_v [wv;xv;yv;zv] emp
+    (POSTv v.
+       &(LIST_TYPE INT --> BOOL)
+         (efalsify_vec_sat_scpv w x y z) v)
+Proof
+  rw[]>>
+  simp[app_def]>>
+  `app_basic p efalsify_vec_sat_scpv_v wv emp
+    (POSTv g. &app_basic p g xv emp
+        (POSTv g. &app_basic p g yv emp
+        (POSTv g. &app_basic p g zv emp
+          (POSTv v. &(LIST_TYPE INT --> BOOL)
+          (efalsify_vec_sat_scpv w x y z) v))))` by (
+    assume_tac (fetch "-" "efalsify_vec_sat_scpv_v_thm")>>
+    qpat_x_assum`NUM w wv` assume_tac>>
+    drule Arrow_IMP_app_basic>>
+    disch_then drule>>
+    disch_then(qspec_then`p` mp_tac)>>
+    ho_match_mp_tac app_basic_weaken>>
+    rw[cfAppTheory.POSTv_cond]>>
+    drule Arrow_IMP_app_basic>>
+    qpat_x_assum`NUM x xv` assume_tac>>
+    disch_then drule>>
+    disch_then(qspec_then`p` mp_tac)>>
+    ho_match_mp_tac app_basic_weaken>>
+    rw[cfAppTheory.POSTv_cond]>>
+    drule Arrow_IMP_app_basic>>
+    disch_then drule>>
+    disch_then(qspec_then`p` mp_tac)>>
+    ho_match_mp_tac app_basic_weaken>>
+    rw[cfAppTheory.POSTv_cond]>>
+    drule Arrow_IMP_app_basic>>
+    disch_then drule>>
+    disch_then(qspec_then`p` mp_tac)>>
+    simp[])>>
+  gvs[GSYM app_def]>>
+  drule_then irule app_weaken>>
+  xsimpl>> rw[]>>
+  qexists_tac`emp`>>xsimpl>>
+  drule_then irule app_weaken>>
+  xsimpl>> rw[]>>
+  qexists_tac`emp`>>xsimpl>>
+  drule_then irule app_weaken>>
+  xsimpl>> rw[]>>
+  qexists_tac`emp`>>xsimpl
+QED
+*)
+
+Theorem app_falsify_top_v:
+  CNF_SCPOG_PROB_CONF_TYPE u uv ∧
+  NUM w wv ∧
+  NUM x xv ∧
+  VECTOR_TYPE (OPTION_TYPE CNF_SCPOG_SCPNV_TYPE) y yv ⇒
+  app (p : 'ffi ffi_proj) falsify_top_v [uv;wv;xv;yv] emp
+    (POSTv v.
+       &(LIST_TYPE INT --> BOOL)
+         (falsify_top u w x y) v)
+Proof
+  rw[]>>
+  simp[app_def]>>
+  `app_basic p falsify_top_v uv emp
+    (POSTv g. &app_basic p g wv emp
+        (POSTv g. &app_basic p g xv emp
+        (POSTv g. &app_basic p g yv emp
+          (POSTv v. &(LIST_TYPE INT --> BOOL)
+          (falsify_top u w x y) v))))` by (
+    assume_tac (fetch "-" "falsify_top_v_thm")>>
+    drule Arrow_IMP_app_basic>>
+    disch_then drule>>
+    disch_then(qspec_then`p` mp_tac)>>
+    ho_match_mp_tac app_basic_weaken>>
+    rw[cfAppTheory.POSTv_cond]>>
+    qpat_x_assum`NUM w wv` assume_tac>>
+    drule Arrow_IMP_app_basic>>
+    disch_then drule>>
+    disch_then(qspec_then`p` mp_tac)>>
+    ho_match_mp_tac app_basic_weaken>>
+    rw[cfAppTheory.POSTv_cond]>>
+    drule Arrow_IMP_app_basic>>
+    qpat_x_assum`NUM x xv` assume_tac>>
+    disch_then drule>>
+    disch_then(qspec_then`p` mp_tac)>>
+    ho_match_mp_tac app_basic_weaken>>
+    rw[cfAppTheory.POSTv_cond]>>
+    drule Arrow_IMP_app_basic>>
+    disch_then drule>>
+    disch_then(qspec_then`p` mp_tac)>>
+    ho_match_mp_tac app_basic_weaken>>
+    rw[cfAppTheory.POSTv_cond])>>
+  gvs[GSYM app_def]>>
+  drule_then irule app_weaken>>
+  xsimpl>> rw[]>>
+  qexists_tac`emp`>>xsimpl>>
+  drule_then irule app_weaken>>
+  xsimpl>> rw[]>>
+  qexists_tac`emp`>>xsimpl>>
+  drule_then irule app_weaken>>
+  xsimpl>> rw[]>>
+  qexists_tac`emp`>>xsimpl
+QED
+
+Definition check_inputs_scp_list_err_def:
+  check_inputs_scp_list_err r pc scp fmlls err =
+  case check_inputs_scp_list r pc scp fmlls of
+    NONE => INL err
+  | SOME res => INR res
+End
+
+Overload "res_TYPE" = ``SUM_TYPE UNIT_TYPE (PAIR_TYPE INT (LIST_TYPE (PAIR_TYPE NUM CNF_SCPOG_SCPN_TYPE)))``
+
+Theorem check_inputs_scp_arr_spec:
+  INT r rv ∧
+  CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
+  LIST_TYPE (PAIR_TYPE NUM CNF_SCPOG_SCPN_TYPE) scp scpv ∧
+  LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_inputs_scp_arr" (get_ml_prog_state()))
+    [rv; pcv; scpv; fmlv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+      &(∃err.
+        SUM_TYPE STRING_TYPE res_TYPE
+        (check_inputs_scp_list_err r pc scp fmlls err) v))
+Proof
+  rw[]>>
+  xcf "check_inputs_scp_arr" (get_ml_prog_state ())>>
+  simp[check_inputs_scp_list_err_def,check_inputs_scp_list_def]>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    xlet`POSTv v. ARRAY fmlv fmllsv' *
+      &( (LIST_TYPE INT --> BOOL) (MEM r) v)`
+    >- (
+      assume_tac (
+        (ListProgTheory.member_v_thm |> DISCH_ALL |> MATCH_MP )
+        EqualityType_INT)>>
+      drule Arrow_IMP_app_basic>>
+      disch_then drule>>
+      simp[GSYM app_def]>>
+      rw[]>>
+      xapp>>xsimpl>>
+      simp[MEMBER_INTRO])>>
+    rpt xlet_autop>>
+    xif
+    >- (
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      gvs[get_nc_def,SUM_TYPE_def,PAIR_TYPE_def])>>
+    xcon>>xsimpl>>
+    gvs[get_nc_def,SUM_TYPE_def,PAIR_TYPE_def])>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    gvs[get_nc_def,SUM_TYPE_def,PAIR_TYPE_def])>>
+  xcon>>xsimpl>>
+  gvs[get_nc_def,SUM_TYPE_def,PAIR_TYPE_def]
+QED
+
 val is_forward_clause_v_thm = translate is_forward_clause_def;
 
 val is_forward_fml_arr = process_topdecs`
   fun is_forward_fml_arr arr c =
   Array.exists (is_forward_clause c) arr` |> append_prog;
-
-val res = translate is_input_def;
-val not_is_input_clause_v_thm = translate not_is_input_clause_def;
-
-val no_is_input_fml_arr = process_topdecs`
-  fun no_is_input_fml_arr arr =
-  Array.all not_is_input_clause arr` |> append_prog;
 
 Definition get_root_def:
   get_root sc = sc.root
@@ -1516,11 +1882,12 @@ End
 
 val r = translate get_root_def;
 
-Definition get_scp_def:
-  get_scp sc = sc.scp
+Definition is_data_ext_lit_run_Ev_def:
+  is_data_ext_lit_run_Ev pc sc r =
+    is_data_ext_lit_run pc sc.Ev r
 End
 
-val r = translate get_scp_def;
+val r = translate is_data_ext_lit_run_Ev_def;
 
 val check_final_arr = process_topdecs `
   fun check_final_arr pc sc fml =
@@ -1535,10 +1902,11 @@ val check_final_arr = process_topdecs `
     else
       if is_forward_fml_arr fml [r]
       then
-        if no_is_input_fml_arr fml
-        then Inr (Inr (r,get_scp sc))
-        else Inl ("final condition check failed: not all input clauses deleted")
-      else Inl ("final condition check failed: root singleton clause not found")
+        if is_data_ext_lit_run_ev pc sc r
+        then
+          check_inputs_scp_arr r pc (get_scp sc) fml
+        else Inl ("final condition check failed: invalid root declared\n")
+      else Inl ("final condition check failed: root unit clause not found\n")
   ` |> append_prog;
 
 val check_unsat' = process_topdecs `
@@ -1573,15 +1941,6 @@ Proof
   rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
 QED
 
-Overload "res_TYPE" = ``SUM_TYPE UNIT_TYPE (PAIR_TYPE INT (LIST_TYPE (PAIR_TYPE NUM CNF_SCPOG_SCPN_TYPE)))``
-
-Theorem EqualityType_LIST_TYPE_INT:
-  EqualityType (LIST_TYPE INT)
-Proof
-  match_mp_tac EqualityType_LIST_TYPE>>
-  simp[EqualityType_NUM_BOOL]
-QED
-
 Theorem check_final_arr_spec:
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
   CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
@@ -1591,7 +1950,6 @@ Theorem check_final_arr_spec:
   [pcv; scv; fmlv]
   (ARRAY fmlv fmllsv)
   (POSTv v.
-    ARRAY fmlv fmllsv *
     SEP_EXISTS err.
       &(SUM_TYPE STRING_TYPE res_TYPE
       (case check_final_list pc sc fmlls of
@@ -1617,15 +1975,15 @@ Proof
       xcf "is_forward_fml_arr" (get_ml_prog_state ())>>
       assume_tac (
         (is_forward_clause_v_thm |> DISCH_ALL |> MATCH_MP )
-        EqualityType_LIST_TYPE_INT)>>
+        EqualityType_LIST_TYPE_INT |> Q.GEN`b` |> Q.ISPEC`BOOL`)>>
       drule Arrow_IMP_app_basic>>
       disch_then drule>>
       simp[GSYM app_def]>>
       rw[]>>
       xlet_autop>>
       simp[is_forward_fml_list_def]>>
-      (* Array.exists needs a spec! *)
-      cheat)>>
+      xapp>>xsimpl>>
+      metis_tac[])>>
     xif>>xsimpl
     >- (
       rpt xlet_autop>>
@@ -1644,32 +2002,29 @@ Proof
     xcf "is_forward_fml_arr" (get_ml_prog_state ())>>
     assume_tac (
       (is_forward_clause_v_thm |> DISCH_ALL |> MATCH_MP)
-      EqualityType_LIST_TYPE_INT)>>
+        EqualityType_LIST_TYPE_INT |> Q.GEN`b` |> Q.ISPEC`BOOL`)>>
     drule Arrow_IMP_app_basic>>
     disch_then drule>>
     simp[GSYM app_def]>>
     rw[]>>
     xlet_autop>>
     simp[is_forward_fml_list_def]>>
-    (* Array.exists needs a spec! *)
-    cheat)>>
+    xapp>>xsimpl>>
+    metis_tac[])>>
   reverse xif
   >- (
     xcon>>xsimpl>>
     simp[SUM_TYPE_def])>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * &BOOL (no_is_input_fml_list fmlls) v`
-  >- (
-    xapp_prepare_goal>>
-    xcf "no_is_input_fml_arr" (get_ml_prog_state ())>>
-    (* Array.all needs a spec! *)
-    cheat)>>
+  xlet_autop>>
+  gvs[is_data_ext_lit_run_Ev_def]>>
   reverse xif
   >- (
     xcon>>xsimpl>>
     simp[SUM_TYPE_def])>>
   rpt xlet_autop>>
-  xcon>>xsimpl>>
-  fs[SUM_TYPE_def,PAIR_TYPE_def,get_scp_def]
+  xapp>>xsimpl>>
+  rpt (first_x_assum (irule_at Any))>>
+  simp[check_inputs_scp_list_err_def,get_scp_def]
 QED
 
 Theorem check_unsat'_spec:
