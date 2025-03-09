@@ -847,19 +847,20 @@ val res = translate add_to_acc_def;
 val rup_pass1_arr = process_topdecs`
   fun rup_pass1_arr assg ls acc ys m =
     case ls of [] => (acc,ys,m)
-  | (i,n)::xs =>
+  | inn::xs =>
+    case inn of (i,n) =>
     let
       val k = abs i in
       if n < Word8Array.length assg
       then
         let val v = Unsafe.w8sub assg n in
           if eq_zw v then
-            rup_pass1_arr assg xs (acc + k) ((k,(i,n))::ys) (max m n)
+            rup_pass1_arr assg xs (acc + k) ((k,inn)::ys) (max m n)
           else
             rup_pass1_arr assg xs (add_to_acc i v k acc) ys m
         end
       else
-        rup_pass1_arr assg xs (acc + k) ((k,(i,n))::ys) (max m n)
+        rup_pass1_arr assg xs (acc + k) ((k,inn)::ys) (max m n)
     end` |> append_prog;
 
 Theorem rup_pass1_arr_spec:
@@ -885,9 +886,9 @@ Theorem rup_pass1_arr_spec:
 Proof
   Induct>>rw[]>>
   xcf"rup_pass1_arr"(get_ml_prog_state ())>>
-  gvs[LIST_TYPE_def,rup_pass1_list_def]
+  gvs[LIST_TYPE_def,rup_pass1_list_def]>>
+  xmatch
   >- (
-    xmatch>>
     xcon>>xsimpl)>>
   PairCases_on`h`>>
   gvs[PAIR_TYPE_def,rup_pass1_list_def]>>
