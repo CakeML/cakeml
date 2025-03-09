@@ -491,6 +491,6 @@ The definitive definition of the syntax and semantics of CakeML can be
 found at: https://code.cakeml.org/tree/master/semantics
 
 The CakeML team aims to be open and accessible. Feel free to join the
-CakeML Discord using the invitation link at https://cakeml.org.
+CakeML channel in the [HOL Zulip chat](https://hol.zulipchat.com/).
 Ask questions and contribute to the project or build your own project
 based on CakeML.
