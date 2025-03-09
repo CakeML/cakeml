@@ -1,7 +1,7 @@
 (*
   Pseudo-boolean constraints proof format and checker
 *)
-open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory spt_to_vecTheory;
+open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory spt_to_vecTheory mergesortTheory;
 
 val _ = new_theory "npbc_check";
 
@@ -54,8 +54,9 @@ Datatype:
   | Mul constr num      (* Multiply by a constant factor *)
   | Div constr num      (* Divide by a constant factor *)
   | Sat constr          (* Saturation *)
-  | Lit (num lit)       (* Literal axiom lit ≥ 0 *)
+  | Lit (num lit)       (* Literal axiom lit ≥ 0 (superseded by triv but used in parsing) *)
   | Weak constr var     (* Addition of literal axioms until "var" disappears *)
+  | Triv ((num # num lit) app_list) (* Literal axiom corresponds to [1,l] ≥ 0 *)
 End
 
 (* Steps that preserve logical implication *)
@@ -96,6 +97,53 @@ Definition lookup_core_only_def:
     else NONE
 End
 
+Definition map_app_list_def:
+  (map_app_list f (List ls) = List (MAP f ls)) ∧
+  (map_app_list f (Append l r) = Append (map_app_list f l) (map_app_list f r)) ∧
+  (map_app_list f Nil = Nil)
+End
+
+Definition mul_triv_def:
+  mul_triv ls k = map_app_list (λ(x:num,y). (x * k,y) ) ls
+End
+
+Definition to_triv_def:
+  (to_triv (Add l r) =
+    let ll = to_triv l in
+    let rr = to_triv r in
+    case (ll,rr) of
+      (Triv lt, Triv rt) => Triv (SmartAppend lt rt)
+    | (Triv lt, Add re (Triv rt)) => Add re (Triv (SmartAppend lt rt))
+    | (Add le (Triv lt), Triv rt) => Add le (Triv (SmartAppend lt rt))
+    | (Add le (Triv lt), Add re (Triv rt)) => Add (Add le re) (Triv (SmartAppend lt rt))
+    | _ => Add ll rr) ∧
+  (to_triv (Mul c k) =
+    let cc = to_triv c in
+    case cc of
+      Triv ls => Triv (mul_triv ls k)
+    | _ => Mul cc k) ∧
+  (to_triv (Div c k) = Div (to_triv c) k) ∧
+  (to_triv (Sat c) = Sat (to_triv c)) ∧
+  (to_triv (Weak c v) = Weak (to_triv c) v) ∧
+  (to_triv (Lit l) = Triv (List [(1,l)])) ∧
+  (to_triv c = c)
+End
+
+Definition sing_lit_def:
+  sing_lit (k:num,l) =
+  case l of Pos v => (&k:int,v)
+  | Neg v => (-&k:int,v)
+End
+
+Definition clean_triv_def:
+  clean_triv ls =
+    FOLDR (λpc1 c2.
+      npbc$add ([pc1],0) c2) ([],0)
+      (FILTER (λh. FST h ≠ 0)
+      (mergesort_tail (λx y. SND x ≤ SND y)
+        (MAP sing_lit (append ls))))
+End
+
 Definition check_cutting_def:
   (check_cutting b (fml:pbf) (Id n) =
     lookup_core_only b fml n) ∧
@@ -111,6 +159,7 @@ Definition check_cutting_def:
     OPTION_MAP saturate (check_cutting b fml c)) ∧
   (check_cutting b fml (Lit (Pos v)) = SOME ([(1,v)],0)) ∧
   (check_cutting b fml (Lit (Neg v)) = SOME ([(-1,v)],0)) ∧
+  (check_cutting b fml (Triv ls) = SOME (clean_triv ls)) ∧
   (check_cutting b fml (Weak c var) =
     OPTION_MAP (λc. weaken c var) (check_cutting b fml c))
 End
@@ -189,7 +238,7 @@ Definition check_lstep_def:
     then SOME (FOLDL (λa b. delete b a) fml ls,id)
     else NONE
   | Cutting constr =>
-    (case check_cutting b fml constr of
+    (case check_cutting b fml (to_triv constr) of
       NONE => NONE
     | SOME c =>
       SOME (insert_fml b fml id c))
@@ -239,6 +288,25 @@ Definition core_only_fml_def:
     {v | ∃n b. lookup n fml = SOME(v,b)}
 End
 
+Theorem FOLDR_add_sound:
+  ∀ls c.
+  satisfies_npbc w c ⇒
+  satisfies_npbc w (FOLDR (λpc1 c2. add ([pc1],0) c2) c ls)
+Proof
+  Induct>>
+  rw[]>>
+  match_mp_tac add_thm>>
+  simp[satisfies_npbc_def]
+QED
+
+Theorem clean_triv_thm:
+  satisfies_npbc w (clean_triv ls)
+Proof
+  rw[clean_triv_def]>>
+  irule FOLDR_add_sound>>
+  simp[satisfies_npbc_def]
+QED
+
 Theorem check_cutting_correct:
   ∀fml n c w.
   check_cutting b fml n = SOME c ∧
@@ -276,6 +344,27 @@ Proof
     (* weaken case *)
     match_mp_tac weaken_thm>>
     metis_tac[])
+  >-
+    metis_tac[clean_triv_thm]
+QED
+
+Theorem FOLDR_add_compact:
+  ∀ls c.
+  compact c ∧ EVERY (λh. FST h ≠ 0) ls ⇒
+  compact (FOLDR (λpc1 c2. add ([pc1],0) c2) c ls)
+Proof
+  Induct>>
+  rw[]>>
+  match_mp_tac compact_add>>
+  simp[]
+QED
+
+Theorem clean_triv_compact:
+  compact (clean_triv ls)
+Proof
+  rw[clean_triv_def]>>
+  irule FOLDR_add_compact>>
+  simp[EVERY_FILTER]
 QED
 
 Theorem check_cutting_compact:
@@ -307,6 +396,8 @@ Proof
   >- (
     (* weaken case *)
     metis_tac[compact_weaken])
+  >-
+    metis_tac[clean_triv_compact]
 QED
 
 Definition id_ok_def:

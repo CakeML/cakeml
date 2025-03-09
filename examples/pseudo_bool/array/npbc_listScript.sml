@@ -44,6 +44,7 @@ Definition check_cutting_list_def:
     case l of
       Pos v => SOME ([(1,v)],0)
     | Neg v => SOME ([(-1,v)],0)) ∧
+  (check_cutting_list b fml (Triv ls) = SOME (clean_triv ls)) ∧
   (check_cutting_list b fml (Weak c var) =
     OPTION_MAP (λc. weaken c var) (check_cutting_list b fml c))
 End
@@ -184,7 +185,7 @@ Definition check_lstep_list_def:
       else
         NONE
   | Cutting constr =>
-    (case check_cutting_list b fml constr of
+    (case check_cutting_list b fml (to_triv constr) of
       NONE => NONE
     | SOME c =>
       SOME (fml, SOME(c,b), id, zeros))
@@ -919,7 +920,7 @@ Proof
       metis_tac[fml_rel_list_delete_list])
     >- ((* Cutting *)
       drule fml_rel_check_cutting>>
-      disch_then(qspecl_then[`b`,`constr`] assume_tac)>>
+      disch_then(qspecl_then[`b`,`to_triv constr`] assume_tac)>>
       fs[insert_fml_def]>>
       metis_tac[fml_rel_update_resize])
     >- ( (* Rup*)

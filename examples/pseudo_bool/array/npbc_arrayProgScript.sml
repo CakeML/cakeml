@@ -84,6 +84,90 @@ val r = translate saturate_def;
 val r = translate (weaken_aux_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 val r = translate weaken_def;
 
+val r = translate mergesortTheory.sort2_def;
+val r = translate mergesortTheory.sort3_def;
+val r = translate mergesortTheory.merge_def;
+val r = translate DROP_def;
+val r = translate (mergesortTheory.mergesortN_def |> SIMP_RULE std_ss [DIV2_def]);
+
+Triviality mergesortn_ind:
+  mergesortn_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "mergesortn_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, DIV2_def]
+QED
+
+val _ = mergesortn_ind |> update_precondition;
+
+Triviality mergesortn_side:
+  ∀x y z.
+  mergesortn_side x y z
+Proof
+  completeInduct_on`y`>>
+  rw[Once (fetch "-" "mergesortn_side_def")]>>
+  simp[arithmeticTheory.DIV2_def]
+  >- (
+    first_x_assum match_mp_tac>>
+    simp[]>>
+    match_mp_tac dividesTheory.DIV_POS>>
+    simp[])
+  >>
+    match_mp_tac DIV_LESS_EQ>>
+    simp[]
+QED
+val _ = mergesortn_side |> update_precondition;
+
+val r = translate mergesortTheory.mergesort_def;
+
+val r = translate mergesortTheory.sort2_tail_def;
+val r = translate mergesortTheory.sort3_tail_def;
+val r = translate mergesortTheory.merge_tail_def;
+val r = translate (mergesortTheory.mergesortN_tail_def |> SIMP_RULE std_ss [DIV2_def]);
+
+Triviality mergesortn_tail_ind:
+  mergesortn_tail_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, DIV2_def]
+QED
+
+val _ = mergesortn_tail_ind |> update_precondition;
+
+Triviality mergesortn_tail_side:
+  ∀w x y z.
+  mergesortn_tail_side w x y z
+Proof
+  completeInduct_on`y`>>
+  rw[Once (fetch "-" "mergesortn_tail_side_def")]>>
+  simp[arithmeticTheory.DIV2_def]
+  >- (
+    first_x_assum match_mp_tac>>
+    simp[]>>
+    match_mp_tac dividesTheory.DIV_POS>>
+    simp[])
+  >>
+    match_mp_tac DIV_LESS_EQ>>
+    simp[]
+QED
+val _ = mergesortn_tail_side |> update_precondition;
+
+val r = translate mergesortTheory.mergesort_tail_def;
+
+val r = translate npbc_checkTheory.sing_lit_def;
+val r = translate npbc_checkTheory.clean_triv_def;
+
 Definition lookup_err_string_def:
   lookup_err_string b =
     if b then
@@ -235,7 +319,8 @@ val check_cutting_arr = process_topdecs`
       Pos v => ([(1,v)], 0)
     | Neg v => ([(~1,v)], 0))
   | Weak c var =>
-    weaken (check_cutting_arr lno b fml c) var` |> append_prog
+    weaken (check_cutting_arr lno b fml c) var
+  | Triv ls => (clean_triv ls)` |> append_prog
 
 Theorem check_cutting_arr_spec:
   ∀constr constrv lno lnov b bv fmlls fmllsv fmlv.
@@ -316,7 +401,7 @@ Proof
     rpt xlet_autop>>
     xcon>>xsimpl>>
     simp[LIST_TYPE_def,PAIR_TYPE_def])
-  >> ( (* Weak *)
+  >- ( (* Weak *)
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xlet_autop>- xsimpl>>
@@ -327,6 +412,12 @@ Proof
     TOP_CASE_TAC>>rw[]>>
     first_x_assum (irule_at Any)>>
     metis_tac[EqualityType_NUM_BOOL])
+  >- ( (* Triv *)
+    fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
+    xmatch>>
+    xapp>>xsimpl>>
+    metis_tac[]
+  )
 QED
 
 (*
@@ -1203,6 +1294,11 @@ Proof
   xvar>>xsimpl
 QED
 
+val res = translate npbc_checkTheory.map_app_list_def;
+val res = translate npbc_checkTheory.mul_triv_def;
+val res = translate SmartAppend_def;
+val res = translate npbc_checkTheory.to_triv_def;
+
 val check_lstep_arr = process_topdecs`
   fun check_lstep_arr lno step b fml mindel id zeros =
   case step of
@@ -1218,7 +1314,7 @@ val check_lstep_arr = process_topdecs`
       else
         raise Fail (format_failure lno ("Deletion not permitted for core constraints and constraint index < " ^ Int.toString mindel))
   | Cutting constr =>
-    let val c = check_cutting_arr lno b fml constr in
+    let val c = check_cutting_arr lno b fml (to_triv constr) in
       (fml, (Some(c,b), (id, zeros)))
     end
   | Rup c ls =>
@@ -1343,6 +1439,7 @@ Proof
     >- ((* Cutting *)
       fs[NPBC_CHECK_LSTEP_TYPE_def,check_lstep_list_def]>>
       xmatch>>
+      xlet_autop>>
       xlet_autop >- (
         xsimpl>>
         metis_tac[ARRAY_W8ARRAY_refl])>>
