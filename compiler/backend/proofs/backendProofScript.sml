@@ -2598,7 +2598,7 @@ End
 
 Definition backend_from_data_tuple_cc_def:
   backend_from_data_tuple_cc asm_conf (c : config) cfg =
-    OPTION_MAP (I ## MAP data_to_word_gcProof$upper_w2w ## I) o
+    OPTION_MAP (I ## MAP upper_w2w ## I) o
       (λprogs.
         (λ(bm0,cfg) progs.
           (λ(progs,fs,bm).
@@ -2667,7 +2667,7 @@ Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
       (SND (inc_compile_prog env_id src_cfg (source_to_source$compile decs)))) =
   let (c'', ps) = compile_inc_progs T asm_conf c' (env_id, decs) in
     OPTION_MAP (\(bs, ws). (bs,
-        MAP data_to_word_gcProof$upper_w2w ws,
+        MAP upper_w2w ws,
         SND (config_tuple1 c''))) ps.target_prog
 Proof
   disch_tac
@@ -3069,7 +3069,6 @@ Proof
       \\ rfs [opt_eval_config_wf_def, compile_inc_progs_for_eval_def]
       \\ rpt (pairarg_tac \\ fs [])
       \\ rveq \\ fs []
-      \\ cheat (* remove upper_w2w in data_to_word_gcProof *)
     )
   )
   \\ conj_tac

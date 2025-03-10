@@ -157,4 +157,9 @@ Definition word_shift_def:
     if dimindex (:'a) = 32 then 2 else 3:num
 End
 
+Definition upper_w2w_def:
+  upper_w2w (w:'a word) =
+    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
+End
+
 val _ = export_theory();

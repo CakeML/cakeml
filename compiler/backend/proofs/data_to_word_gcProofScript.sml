@@ -23,6 +23,7 @@ val _ = set_grammar_ancestry
   ];
 
 val shift_def = backend_commonTheory.word_shift_def
+val upper_w2w_def = backend_commonTheory.upper_w2w_def
 val isWord_def = wordSemTheory.isWord_def
 val theWord_def = wordSemTheory.theWord_def
 val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def
@@ -4425,11 +4426,6 @@ End
 
 Definition contains_loc_def:
   contains_loc (StackFrame _ vs _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))
-End
-
-Definition upper_w2w_def:
-  upper_w2w (w:'a word) =
-    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
 End
 
 Definition code_oracle_rel_def:

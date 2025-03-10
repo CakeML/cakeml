@@ -12,11 +12,11 @@ open preamble
      bvl_to_bviTheory
      bvi_to_dataTheory
      data_to_wordTheory
+     word_to_wordTheory
      word_to_stackTheory
      stack_to_labTheory
      lab_to_targetTheory
 local open primTypesTheory in end
-open word_to_wordTheory
 open jsonLangTheory presLangTheory
 
 val _ = new_theory"backend";
@@ -673,11 +673,6 @@ Proof
   CASE_TAC>>fs[w2n_lt]
 QED
 *)
-
-Definition upper_w2w_def:
-  upper_w2w (w:'a word) =
-    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
-End
 
 Definition compile_inc_progs_for_eval_def:
   compile_inc_progs_for_eval asm_conf x =

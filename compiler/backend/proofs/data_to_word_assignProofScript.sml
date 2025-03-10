@@ -34,6 +34,7 @@ fun drule0 th =
 val _ = hide "next";
 val _ = hide "el";
 val shift_def = backend_commonTheory.word_shift_def
+val upper_w2w_def = backend_commonTheory.upper_w2w_def
 val isWord_def = wordSemTheory.isWord_def
 val theWord_def = wordSemTheory.theWord_def
 
