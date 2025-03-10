@@ -93,16 +93,9 @@ Proof
   >~ [‘Val v’] >- (
     strip_tac >> simp[cps_transform_def, to_ml_vals_def, evaluate_def]
   )
-  >~ [‘Cond c t f’] >- (
-    simp[cps_transform_def]
-    >> rpt (pairarg_tac >> gvs[step_def])
-    >> simp[evaluate_def]
-  )
-  >~ [‘Apply e as’] >- (
-    simp[cps_transform_def]
-    >> rpt (pairarg_tac >> gvs[step_def])
-    >> simp[evaluate_def]
-  )
+  >> simp[cps_transform_def]
+  >> rpt (pairarg_tac >> gvs[step_def])
+  >> simp[evaluate_def]
 QED
 
 Theorem k_vals_subset1:
@@ -111,20 +104,14 @@ Theorem k_vals_subset1:
 Proof
   Cases >> simp[] >- simp[scheme_cont_def, evaluate_def]
   >> Cases_on ‘h’ >> simp[] >> rpt strip_tac >> simp[]
-  >~ [‘CondK t f’] >- (
-    simp[scheme_cont_def, cps_transform_def]
-    >> rpt (pairarg_tac >> gvs[step_def])
-    >> simp[evaluate_def]
-  )
-  >~ [‘ApplyK NONE es’] >- (
-    simp[scheme_cont_def, cps_transform_def]
-    >> rpt (pairarg_tac >> gvs[step_def])
-    >> simp[evaluate_def]
-  )
+  >> simp[scheme_cont_def, cps_transform_def]
+  >> rpt (pairarg_tac >> gvs[step_def])
+  >> simp[evaluate_def]
 QED
 
+
 Theorem myproof:
-  ∀ e e' n k k' . subset1 e ⇒ step  ([], k, FEMPTY, e) = ([], k', FEMPTY, e') ⇒
+  ∀ e e' n k k' . kssubset1 (MAP SND k) ∧ subset1 e ⇒ step  ([], k, FEMPTY, e) = ([], k', FEMPTY, e') ⇒
       ∃ ck ck' t1 . evaluate <| clock := ck |> myEnv [exp_with_cont (MAP SND k) e] =
         evaluate <| clock := ck |> myEnv [exp_with_cont (MAP SND k') e']
 Proof
@@ -135,12 +122,11 @@ Proof
     gvs[step_def, scheme_cont_def, cps_transform_def]
     >> rpt (pairarg_tac >> gvs[step_def])
     >> simp[evaluate_def]
-    >> qexists_tac ‘ck'’
-    >> Cases_on ‘evaluate <|clock := ck'|> myEnv [scheme_cont (MAP SND k)]’
-    >> Cases_on ‘r’
-    >> simp[]
-    >> simp[eval_expand]
-  )
+    >> dxrule_then mp_tac (SRULE [] k_vals_subset1)
+    >> strip_tac
+    >> qexists_tac ‘ck’
+    >> simp[] >> cheat
+  ) >> cheat
 QED
 
 (*Theorem val_correct:

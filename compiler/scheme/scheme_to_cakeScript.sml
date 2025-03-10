@@ -127,8 +127,12 @@ Definition cps_transform_def:
   in
     (m, Fun t ce)
   ) ∧
-  cps_transform_cont n (ApplyK (SOME (f, vs)) es) k =
-    cps_transform_app n (to_ml_vals f) (MAP to_ml_vals vs) es k ∧
+  cps_transform_cont n (ApplyK (SOME (f, vs)) es) k = (let
+    t = "t" ++ toString n;
+    (m, ce) = cps_transform_app (n+1) (to_ml_vals f)
+                (Var (Short t) :: MAP to_ml_vals vs) es k
+  in
+    (m, Fun t ce)) ∧
 
   cps_transform_app n tfn ts (e::es) k = (let
     (m, ce) = cps_transform n e;
