@@ -3345,11 +3345,13 @@ Proof
   \\ fs[Abbr`c''''`]
   \\ impl_tac
   >- (
-    cheat
-    \\ rpt (qsubpat_x_assum kall_tac `bvlSem$semantics`)
+    rpt (qsubpat_x_assum kall_tac `bvlSem$semantics`)
     \\ simp [Abbr `co`]
     \\ simp [cake_orac_0, config_tuple2_def]
-    \\ drule_then (fn t => conseq [t]) cake_orac_bvl_ALL_DISTINCT
+    \\ simp[Once CONJ_COMM] \\ simp[Once $ GSYM CONJ_ASSOC]
+    \\ CONJ_TAC >-(
+    irule_at Any cake_orac_bvl_ALL_DISTINCT \\
+    first_x_assum $ irule_at Any)
     \\ unabbrev_all_tac
     \\ imp_res_tac clos_to_bvlProofTheory.compile_all_distinct_locs
     \\ drule_then (fn t => simp [t]) is_state_oracle_tailrec_cake_orac
