@@ -28,6 +28,8 @@ val r = translate parse_to_ast_def;
 
 val r = translate locationTheory.unknown_loc_def;
 val r = translate cake_print_def;
+val r = translate to_ml_vals_def;
+val r = translate small_cps_def;
 val r = translate codegen_def;
 
 (* top-level compiler *)

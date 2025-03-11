@@ -58,6 +58,32 @@ Definition letinit_ml_def:
       (App Opref [Con (SOME $ Short "None") []]) (letinit_ml bs inner)
 End
 
+Definition small_cps_def:
+  small_cps n (Val v) = (let k = "k" ++ toString n in
+    (n+1, Fun k $ App Opapp [Var (Short k); to_ml_vals v])) ∧
+  small_cps n (Cond c t f) = (let
+    (m, cc) = small_cps n c;
+    k = "k" ++ toString m;
+    (l, ck) = small_cps_cont (m+1) (CondK t f) (Var (Short k))
+  in
+    (l, Fun k $ App Opapp [cc; ck])) ∧
+
+  small_cps_cont n (CondK t f) k = (let
+    (m, ct) = small_cps n t;
+    (l, cf) = small_cps m f;
+    p = "t" ++ toString l;
+  in
+    (l+1, Fun p $ Mat (Var (Short p)) [
+      (Pcon (SOME $ Short "SBool") [Plit $ IntLit 0], App Opapp [cf; k]);
+      (Pany, App Opapp [ct; k])
+    ]))
+Termination
+  WF_REL_TAC ‘measure (λ x . case x of
+    | INL(_,e) => exp_size e
+    | INR(_,k,_) => cont_size k)’
+  >> Cases >> rw[val_size_def]
+End
+
 Definition cps_transform_def:
   cps_transform n (Val v) = (let k = "k" ++ toString n in
     (n+1, Fun k $ App Opapp [Var (Short k); to_ml_vals v])) ∧
