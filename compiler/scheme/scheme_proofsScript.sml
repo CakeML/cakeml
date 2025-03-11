@@ -149,8 +149,9 @@ Proof
 QED
 
 Theorem k_vals_subset1:
-  ∀ ks . kssubset1 ks ⇒ ∃ (st : 'ffi state) ck v .
-    evaluate <|clock := ck|> myEnv [scheme_cont ks] = (st, Rval v)
+  ∀ ks ck . kssubset1 ks ⇒ ∃ v .
+    evaluate <|clock := ck|> myEnv [scheme_cont ks]
+      = (<|clock := ck|> : 'ffi state, Rval [v])
 Proof
   Cases >> simp[] >- simp[scheme_cont_def, evaluate_def]
   >> Cases_on ‘h’ >> simp[] >> rpt strip_tac >> simp[]
@@ -159,14 +160,25 @@ Proof
   >> simp[evaluate_def]
 QED
 
-Theorem clock_preserve_val:
-  ∀ e ck (st:'ffi state) env v .
-    evaluate <|clock := ck|> env [e] = (st, Rval v)
-    ⇒ evaluate <|clock := ck + 1|> env [e] = (st, Rval v)
+Theorem cps_equiv:
+  ∀ e n n' m m' ce ce' ck v v' c c' k k' t t'. subset1 e
+    ∧ nsSub (λ id . $=) myEnv.c c ∧ nsSub (λ id . $=) myEnv.c c'
+    ∧ nsSub (λ id . $=) myEnv.v v ∧ nsSub (λ id . $=) myEnv.v v'
+    ∧ cps_transform n e = (n',ce) ∧ cps_transform m e = (m', ce')
+    ∧ evaluate <|clock := ck+1|> <|v:=v;c:=c|> [App Opapp [ce;Fun t k]]
+      = evaluate <|clock := ck+1|> <|v:=v';c:=c'|> [App Opapp [ce';Fun t' k']]
+    ⇒ ∀ vl . evaluate <|clock := ck|> <|v:=nsBind t vl v;c:=c|> [k]
+      = evaluate <|clock := ck|> <|v:=nsBind t vl v';c:=c'|> [k']
 Proof
-  Cases
-  >> simp[Once evaluate_def]
-  >> cheat
+  ho_match_mp_tac rec_scheme_ind
+  >> simp[cps_transform_def] >> rpt strip_tac
+  >~ [‘vsubset1 v’] >- (
+    Cases_on ‘v’ >> gvs[evaluate_def, to_ml_vals_def, do_opapp_def]
+    >> gs[myEnv_def, nsSub_def]
+    >> Cases_on ‘p’ >> simp[]
+  )
+  Induct_on ‘e’
+  rpt strip_tac
 QED
 
 Theorem myproof:
@@ -182,7 +194,8 @@ Proof
     >> rpt (pairarg_tac >> gvs[step_def])
     >> simp[SimpLHS, evaluate_def]
     >> qexistsl_tac [‘ck+1’,‘ck’]
-    >> dxrule_then assume_tac (SRULE [] k_vals_subset1)
+    >> dxrule_then (qspec_then ‘ck+1’ mp_tac) (SRULE [] k_vals_subset1)
+    >> strip_tac >> simp[do_opapp_def, dec_clock_def]
     >> cheat
   ) >> cheat
 QED
