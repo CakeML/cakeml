@@ -2289,47 +2289,42 @@ Proof
   \\ CCONTR_TAC \\ gvs [EVERY_MEM] \\ res_tac \\ fs []
 QED
 
+(* Tools to deal with sortedness *)
+
+(* Makes a list strict and returns it in reverse *)
 Definition mk_strict_aux_def:
   (mk_strict_aux x [] acc = x::acc) ∧
   (mk_strict_aux x (y::ys) acc =
-    if x = (y:int) then
+    if x = y then
       mk_strict_aux x ys acc
     else mk_strict_aux y ys (x::acc))
 End
 
 Definition mk_strict_def:
   mk_strict ls =
-  case mergesort_tail (\x y. x ≥ y) ls of
+  case ls of
     [] => []
   | (x::xs) => mk_strict_aux x xs []
 End
 
 Theorem mk_strict_aux_SORTED:
   ∀ls x acc.
-  SORTED (\x y. x ≥ y) (x::ls) ∧
-  SORTED $< (x::acc) ⇒
-  SORTED $< (mk_strict_aux x ls acc)
+  SORTED R (x::ls) ∧
+  SORTED (\x y. R y x ∧ x ≠ y) (x::acc) ⇒
+  SORTED (\x y. R y x ∧ x ≠ y) (mk_strict_aux x ls acc)
 Proof
   Induct>>rw[mk_strict_aux_def]>>
-  first_x_assum irule>>gvs[]>>
-  intLib.ARITH_TAC
+  first_x_assum irule>>gvs[]
 QED
 
 Theorem mk_strict_SORTED:
-  SORTED $< (mk_strict ls)
+  SORTED R ls ⇒
+  SORTED (\x y. R y x ∧ x ≠ y) (mk_strict ls)
 Proof
   rw[mk_strict_def]>>
   every_case_tac>>gvs[]>>
   irule mk_strict_aux_SORTED>>
-  gvs[]>>
-  pop_assum sym_sub_tac>>
-  DEP_REWRITE_TAC[mergesort_tail_correct]>>
-  CONJ_ASM1_TAC
-  >- (
-    simp[total_def,transitive_def]>>
-    intLib.ARITH_TAC)>>
-  irule mergesort_sorted >>
-  simp[]
+  gvs[]
 QED
 
 Theorem mk_strict_aux_MEM:
@@ -2346,14 +2341,44 @@ Theorem mk_strict_MEM:
 Proof
   rw[mk_strict_def]>>
   every_case_tac>>gvs[]>>
-  pop_assum mp_tac>>
+  simp[mk_strict_aux_MEM]
+QED
+
+Definition mk_strict_sorted_def:
+  mk_strict_sorted ls =
+  mk_strict (mergesort_tail (\x y. x ≥ y) ls)
+End
+
+Theorem mk_strict_sorted_SORTED:
+  SORTED $< (mk_strict_sorted ls)
+Proof
+  rw[mk_strict_sorted_def]>>
+  irule SORTED_weaken>>
+  irule_at Any mk_strict_SORTED>>
+  simp[]>>
+  qexists_tac`(λx y. x ≥ y)`>>
+  rw[]
+  >- (
+    DEP_REWRITE_TAC[mergesort_tail_correct]>>
+    CONJ_ASM1_TAC
+    >- (
+      simp[total_def,transitive_def]>>
+      intLib.ARITH_TAC)>>
+    irule mergesort_sorted >>
+    simp[])>>
+  intLib.ARITH_TAC
+QED
+
+Theorem mk_strict_sorted_MEM:
+  MEM x (mk_strict_sorted ls) ⇔ MEM x ls
+Proof
+  rw[mk_strict_sorted_def]>>
+  simp[mk_strict_MEM]>>
   DEP_REWRITE_TAC[mergesort_tail_correct]>>
-  (CONJ_TAC
+  CONJ_TAC
   >- (
     simp[total_def,transitive_def]>>
-    intLib.ARITH_TAC))
-  >- metis_tac[mergesort_mem,MEM]>>
-  simp[mk_strict_aux_MEM]>>
+    intLib.ARITH_TAC)>>
   metis_tac[mergesort_mem,MEM]
 QED
 
@@ -2369,7 +2394,7 @@ End
 
 Definition to_lit_string_def:
   to_lit_string ls =
-  let xs = mk_strict ls in
+  let xs = mk_strict_sorted ls in
   let h = opt_hd xs in
   let ys = MAP (λi. (Num (i - h), ())) xs in
   let (yss:char list) = MAP opt_chr (to_flat 0 ys []) in
@@ -2439,22 +2464,29 @@ Proof
   gvs[]
 QED
 
+Theorem EVERY_opt_hd_mk_strict_sorted:
+  EVERY (λi. opt_hd (mk_strict_sorted ls) ≤ i) (mk_strict_sorted ls)
+Proof
+  rw[opt_hd_def]>>
+  TOP_CASE_TAC>>rw[]>>
+  `SORTED $< (mk_strict_sorted ls)` by metis_tac[mk_strict_sorted_SORTED]>>
+  pop_assum mp_tac>>
+  simp[]>>
+  DEP_REWRITE_TAC[SORTED_EQ]>>
+  simp[transitive_def]>>rw[]
+  >-
+    intLib.ARITH_TAC>>
+  gvs[EVERY_MEM]
+QED
+
 Theorem sat_vec_to_lit_string:
   sat_vec (to_lit_string bss) w ⇔
   EVERY (sat_lit w) bss
 Proof
   rw[to_lit_string_def,sat_vec_def]>>
   qmatch_goalsub_abbrev_tac`opt_hd xss`>>
-  ‘SORTED $< xss’ by metis_tac[mk_strict_SORTED]>>
-  `EVERY (λi. opt_hd xss ≤ i) xss` by (
-    rw[opt_hd_def]>>
-    TOP_CASE_TAC>>rw[]>>
-    last_x_assum mp_tac>>
-    DEP_REWRITE_TAC[SORTED_EQ]>>
-    simp[transitive_def]>>rw[]
-    >-
-      intLib.ARITH_TAC>>
-    gvs[EVERY_MEM])>>
+  ‘SORTED $< xss’ by metis_tac[mk_strict_sorted_SORTED]>>
+  `EVERY (λi. opt_hd xss ≤ i) xss` by metis_tac[EVERY_opt_hd_mk_strict_sorted]>>
   ‘SORTED $< (MAP FST ([] ++ MAP (λi. (Num (i − opt_hd xss),())) xss))’ by (
     simp[sorted_map,inv_image_def,MEM_MAP,PULL_EXISTS]>>
     match_mp_tac SORTED_weaken>>
@@ -2468,7 +2500,7 @@ Proof
   rw[] >> simp[]>>
   eq_tac>>rw[EVERY_MEM]
   >- (
-    gvs[Once (GSYM mk_strict_MEM)]>>
+    gvs[Once (GSYM mk_strict_sorted_MEM)]>>
     gvs[EVERY_MEM]>>
     first_x_assum (irule_at Any)>>
     first_assum drule>>
@@ -2490,7 +2522,7 @@ Proof
   rename1`MEM ii xss`>>
   qsuff_tac`ii = i`
   >-
-    metis_tac[mk_strict_MEM]>>
+    metis_tac[mk_strict_sorted_MEM]>>
   intLib.ARITH_TAC
 QED
 
@@ -3074,8 +3106,163 @@ Definition falsify_top_def:
       falsify_vec_sat_scpv iter (r:num) ov cd cp
 End
 
+Definition get_node_vars_def:
+  (get_node_vars vm [] accl accr = (accl,accr)) ∧
+  (get_node_vars vm (i::is) accl accr =
+    let v = var_lit i in
+    case lookup v vm of
+      NONE => get_node_vars vm is (v::accl) accr
+    | SOME vs => get_node_vars vm is accl (vs::accr))
+End
+
+Definition big_union_def:
+  big_union ts = FOLDL (merge (λx y:num. x ≤ y)) [] ts
+End
+
+Definition mk_pro_vm_def:
+  mk_pro_vm v ls vm =
+    let (l,ls) = get_node_vars vm ls [] [] in
+    let vs = big_union (l::ls) in
+    if SORTED $< vs
+    then SOME (insert v vs vm)
+    else NONE
+End
+
+Definition mk_strict_sorted_num_def:
+  mk_strict_sorted_num ls =
+  mk_strict (mergesort_tail (\x y:num. y ≤ x) ls)
+End
+
+Theorem mk_strict_sorted_num_SORTED:
+  SORTED $< (mk_strict_sorted_num ls)
+Proof
+  rw[mk_strict_sorted_num_def]>>
+  irule SORTED_weaken>>
+  irule_at Any mk_strict_SORTED>>
+  simp[]>>
+  qexists_tac`(λx y. y <= x)`>>
+  rw[]>>
+  DEP_REWRITE_TAC[mergesort_tail_correct]>>
+  CONJ_ASM1_TAC
+  >- (
+    simp[total_def,transitive_def]>>
+    intLib.ARITH_TAC)>>
+  irule mergesort_sorted >>
+  simp[]
+QED
+
+Theorem mk_strict_sorted_num_MEM:
+  MEM x (mk_strict_sorted_num ls) ⇔ MEM x ls
+Proof
+  rw[mk_strict_sorted_num_def]>>
+  simp[mk_strict_MEM]>>
+  DEP_REWRITE_TAC[mergesort_tail_correct]>>
+  CONJ_TAC
+  >- (
+    simp[total_def,transitive_def]>>
+    intLib.ARITH_TAC)>>
+  metis_tac[mergesort_mem,MEM]
+QED
+
+Definition mk_sum_vm_def:
+  mk_sum_vm v ls vm =
+    let (l,ls) = get_node_vars vm ls [] [] in
+    let vs = big_union (l::ls) in
+      SOME (insert v (mk_strict_sorted_num vs) vm)
+End
+
+Definition mk_sko_vm_def:
+  mk_sko_vm  v ls vm =
+    let vs = mergesort_tail (\x y. x ≤ y) (MAP var_lit ls) in
+    if SORTED $< vs
+    then SOME (insert v vs vm)
+    else NONE
+End
+
+(* Check decomposable_scp T r scp *)
+Definition check_dec_def:
+  (check_dec [] = SOME LN) ∧
+  (check_dec ((v,n)::ns) =
+    case check_dec ns of NONE => NONE
+    | SOME vm =>
+    (case n of
+      Pro ls => mk_pro_vm v ls vm
+    | Sum ls => mk_sum_vm v ls vm
+    | Sko ls => mk_sko_vm v ls vm ))
+End
+
+Theorem set_merge:
+  set (merge R xs ys) =
+  set xs ∪ set ys
+Proof
+  rw[EXTENSION]>>
+  `PERM (xs++ys) (merge R xs ys)` by metis_tac[merge_perm]>>
+  drule PERM_MEM_EQ>>
+  simp[]
+QED
+
+Theorem set_FOLDL_union:
+  ∀ls tt.
+  set (FOLDL (merge R) tt ls) =
+  set tt ∪ BIGUNION (IMAGE set (set ls))
+Proof
+  Induct>>rw[]>>
+  simp[set_merge,UNION_ASSOC]
+QED
+
+Theorem set_big_union:
+  set (big_union ls) =
+  BIGUNION (IMAGE set (set ls))
+Proof
+  rw[big_union_def]>>
+  DEP_REWRITE_TAC[set_FOLDL_union]>>
+  simp[]
+QED
+
+Theorem check_dec_decomposable_scp:
+  ∀ns vm.
+  check_dec ns = SOME vm ⇒
+  (∀n vs.
+    case lookup n vm of
+      NONE => ALOOKUP ns n = NONE
+    | SOME vs =>
+      SORTED $< vs ∧
+      vars_scp T (&n) ns = set vs) ∧
+  (∀r. decomposable_scp T r ns)
+Proof
+  Induct>>simp[check_dec_def]
+  >-
+    rw[decomposable_scp_def]>>
+  Cases>>rpt gen_tac>>
+  simp[check_dec_def,decomposable_scp_def]>>
+  TOP_CASE_TAC>>gvs[]>>
+  strip_tac>>
+  gvs[AllCaseEqs()]
+  >- (
+    gvs[mk_pro_vm_def,vars_scp_def]>>
+    pairarg_tac>>gvs[]>>
+    rw[lookup_insert]>>gvs[]
+    >- (
+      simp[set_big_union]>>
+      cheat)
+    >- cheat)
+  >- (
+    gvs[mk_sum_vm_def,vars_scp_def]>>
+    pairarg_tac>>gvs[]>>
+    rw[lookup_insert]>>gvs[]
+    >-
+      metis_tac[mk_strict_sorted_num_SORTED]>>
+    cheat)
+  >- (
+    gvs[mk_sko_vm_def,vars_scp_def]>>
+    rw[lookup_insert]>>gvs[]>>
+    cheat)
+QED
+
 Definition check_inputs_scp_def:
   check_inputs_scp r pc scp fml =
+  if check_dec scp = NONE then NONE
+  else
   if is_data_var pc (var_lit r)
   then
     if (∀c. c ∈ get_input_fml pc.nc fml ⇒ MEM r c)
@@ -3177,7 +3364,11 @@ Proof
   `r' = r ∧ ns = sc'.scp` by
     gvs[check_inputs_scp_def,AllCaseEqs()]>>
   gvs[]>>
-  `decomposable_scp T r sc'.scp` by cheat>>
+  `decomposable_scp T r sc'.scp` by
+    (gvs[check_inputs_scp_def]>>
+    gvs[GSYM IS_SOME_EQ_NOT_NONE, IS_SOME_EXISTS]>>
+    drule check_dec_decomposable_scp>>
+    simp[])>>
   reverse(rw[conf_inv_def])
   >- (
     gvs[check_inputs_scp_def,AllCaseEqs()]>>

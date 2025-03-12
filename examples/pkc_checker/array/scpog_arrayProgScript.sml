@@ -1551,6 +1551,7 @@ val res = translate split_lit_def;
 val res = translate split_lits_def;
 val res = translate mk_strict_aux_def;
 val res = translate mk_strict_def;
+val res = translate mk_strict_sorted_def;
 val res = translate opt_hd_def;
 val res = translate opt_chr_def;
 
@@ -1581,7 +1582,8 @@ Theorem to_lit_string_side:
   to_lit_string_side x ⇔ T
 Proof
   rw[to_lit_string_side_def]>>
-  cheat
+  drule (EVERY_opt_hd_mk_strict_sorted |> SIMP_RULE std_ss [EVERY_MEM])>>
+  intLib.ARITH_TAC
 QED
 
 val _ = to_lit_string_side |> update_precondition;
@@ -1669,9 +1671,27 @@ Proof
   fs[OPTION_TYPE_def]
 QED
 
+val res = translate get_node_vars_def;
+val res = translate big_union_def;
+val res = translate SORTED_DEF;
+val res = translate mk_pro_vm_def;
+val res = translate mk_strict_sorted_num_def;
+val res = translate mk_sum_vm_def;
+val res = translate mk_sko_vm_def;
+val res = translate check_dec_def;
+
+Definition check_dec_top_def:
+  check_dec_top scp = (check_dec scp = NONE)
+End
+
+val res = translate check_dec_top_def;
+
 val check_inputs_scp_arr = process_topdecs`
   fun check_inputs_scp_arr r pc scp fml =
   let val u = clean_arr (get_nc pc + 1) fml in
+  if check_dec_top scp then
+    Inl ("final condition check failed: input is not decomposable\n")
+  else
   if is_data_var pc (var_lit r)
   then
     if iter_input_fml_arr 0 (get_nc pc) fml (List.member r)
@@ -1837,6 +1857,12 @@ Proof
   rw[]>>
   xcf "check_inputs_scp_arr" (get_ml_prog_state ())>>
   simp[check_inputs_scp_list_err_def,check_inputs_scp_list_def]>>
+  rpt xlet_autop>>
+  gvs[check_dec_top_def]>>
+  xif
+  >- (
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def])>>
   rpt xlet_autop>>
   xif
   >- (
