@@ -2935,7 +2935,7 @@ Proof
   >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
   >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
   >- (*Install*)
-    (fs[evaluate_def] >> qexists_tac`perm`>>fs[case_eq_thms,UNCURRY])
+    (fs[evaluate_def] >> qexists_tac`perm`>>fs[case_eq_thms,UNCURRY] >> gvs[state_component_equality])
   >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
   >- (fs[evaluate_def] >> every_case_tac >> fs[state_component_equality])
   >- (fs[evaluate_def,flush_state_def] >> every_case_tac >> fs[state_component_equality])
@@ -4232,7 +4232,7 @@ Proof
     \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq] \\ rveq \\ fs []
     \\ rw [] \\ fs []
     \\ rpt (pop_assum mp_tac)
-    \\ pairarg_tac \\ fs [] \\ rw [])
+    \\ pairarg_tac \\ fs [] \\ rw [] \\ fs[])
   THEN1 (* Seq *)
    (rpt gen_tac
     \\ fs [wordSemTheory.evaluate_def] \\ rveq
