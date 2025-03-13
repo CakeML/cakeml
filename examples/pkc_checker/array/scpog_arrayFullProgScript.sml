@@ -542,7 +542,7 @@ val fill_arr = process_topdecs`
 Definition print_result_def:
   (print_result (INL ()) = strlit "s VERIFIED UNSAT\n") ∧
   (print_result (INR (r,scp)) =
-    strlit "s VERIFIED SCPOG EQUIVALENCE\n")
+    strlit "s VERIFIED CPOG REPRESENTATION\n")
 End
 
 val r = translate print_result_def;
@@ -626,9 +626,8 @@ Proof
 QED
 *)
 
-(* [f1] => check_unsat_1 f1 *)
-val check_unsat = (append_prog o process_topdecs) `
-  fun check_unsat u =
+val main = (append_prog o process_topdecs) `
+  fun main u =
   case CommandLine.arguments () of
     [f1,f2] => check_unsat_2 f1 f2
   | _ => TextIO.output TextIO.stdErr usage_string`
@@ -937,29 +936,29 @@ Proof
     qexists_tac`err`>>xsimpl)
 QED
 
-Definition check_unsat_sem_def:
-  check_unsat_sem cl fs err =
+Definition main_sem_def:
+  main_sem cl fs err =
   case TL cl of
   | [f1] => check_unsat_1_sem fs f1 err
   | [f1;f2] => check_unsat_2_sem fs f1 f2 err
   | _ => add_stderr fs err
 End
 
-Theorem check_unsat_spec:
+Theorem main_spec:
    hasFreeFD fs
    ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat"(get_ml_prog_state()))
+   app (p:'ffi ffi_proj) ^(fetch_v"main"(get_ml_prog_state()))
      [Conv NONE []]
      (COMMANDLINE cl * STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv *
-     COMMANDLINE cl * SEP_EXISTS err. STDIO (check_unsat_sem cl fs err))
+     COMMANDLINE cl * SEP_EXISTS err. STDIO (main_sem cl fs err))
 Proof
   rw[]>>
-  xcf"check_unsat"(get_ml_prog_state())>>
+  xcf"main"(get_ml_prog_state())>>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)>>
   rpt xlet_autop >>
   Cases_on `cl` >- fs[wfcl_def] >>
-  simp[check_unsat_sem_def]>>
+  simp[main_sem_def]>>
   every_case_tac>>fs[LIST_TYPE_def]>>xmatch>>
   qmatch_asmsub_abbrev_tac`wfcl cl`
   >- (
@@ -993,31 +992,31 @@ Proof
 QED
 *)
 
-Definition check_unsat_sem_def:
-  check_unsat_sem cl fs err = fs
+Definition main_sem_def:
+  main_sem cl fs err = fs
 End
 
-Theorem check_unsat_spec:
+Theorem main_spec:
    hasFreeFD fs
    ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat"(get_ml_prog_state()))
+   app (p:'ffi ffi_proj) ^(fetch_v"main"(get_ml_prog_state()))
      [Conv NONE []]
      (COMMANDLINE cl * STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv *
-     COMMANDLINE cl * SEP_EXISTS err. STDIO (check_unsat_sem cl fs err))
+     COMMANDLINE cl * SEP_EXISTS err. STDIO (main_sem cl fs err))
 Proof
   cheat
 QED
 
-Theorem check_unsat_whole_prog_spec2:
+Theorem main_whole_prog_spec2:
    hasFreeFD fs ⇒
-   whole_prog_spec2 check_unsat_v cl fs NONE (λfs'. ∃err. fs' = check_unsat_sem cl fs err)
+   whole_prog_spec2 main_v cl fs NONE (λfs'. ∃err. fs' = main_sem cl fs err)
 Proof
   rw[basis_ffiTheory.whole_prog_spec2_def]
-  \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH check_unsat_spec))))
+  \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH main_spec))))
   \\ xsimpl
   \\ rw[PULL_EXISTS]
-  \\ qexists_tac`check_unsat_sem cl fs x`
+  \\ qexists_tac`main_sem cl fs x`
   \\ qexists_tac`x`
   \\ xsimpl
   \\ cheat
@@ -1025,18 +1024,18 @@ QED
 
 local
 
-val name = "check_unsat"
+val name = "main"
 val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec2)
-Definition check_unsat_prog_def:
-  check_unsat_prog = ^prog_tm
+  whole_prog_thm (get_ml_prog_state()) name (UNDISCH main_whole_prog_spec2)
+Definition main_prog_def:
+  main_prog = ^prog_tm
 End
 
 in
 
-Theorem check_unsat_semantics =
+Theorem main_semantics =
   sem_thm
-  |> REWRITE_RULE[GSYM check_unsat_prog_def]
+  |> REWRITE_RULE[GSYM main_prog_def]
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 

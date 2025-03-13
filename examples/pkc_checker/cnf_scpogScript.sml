@@ -2349,6 +2349,15 @@ Definition mk_strict_sorted_def:
   mk_strict (mergesort_tail (\x y. x ≥ y) ls)
 End
 
+Theorem mergesort_tail_eq_1[simp]:
+  mergesort_tail (λx y. x ≥ y) ls =
+  mergesort (λx y:int. x ≥ y) ls
+Proof
+  irule mergesort_tail_correct>>
+  simp[total_def,transitive_def]>>
+  intLib.ARITH_TAC
+QED
+
 Theorem mk_strict_sorted_SORTED:
   SORTED $< (mk_strict_sorted ls)
 Proof
@@ -2359,13 +2368,9 @@ Proof
   qexists_tac`(λx y. x ≥ y)`>>
   rw[]
   >- (
-    DEP_REWRITE_TAC[mergesort_tail_correct]>>
-    CONJ_ASM1_TAC
-    >- (
-      simp[total_def,transitive_def]>>
-      intLib.ARITH_TAC)>>
     irule mergesort_sorted >>
-    simp[])>>
+    simp[total_def,transitive_def]>>
+    intLib.ARITH_TAC)>>
   intLib.ARITH_TAC
 QED
 
@@ -2374,11 +2379,6 @@ Theorem mk_strict_sorted_MEM:
 Proof
   rw[mk_strict_sorted_def]>>
   simp[mk_strict_MEM]>>
-  DEP_REWRITE_TAC[mergesort_tail_correct]>>
-  CONJ_TAC
-  >- (
-    simp[total_def,transitive_def]>>
-    intLib.ARITH_TAC)>>
   metis_tac[mergesort_mem,MEM]
 QED
 
@@ -2479,6 +2479,12 @@ Proof
   gvs[EVERY_MEM]
 QED
 
+Theorem NOT_NONE_EXISTS:
+  x ≠ NONE ⇔ ∃y. x = SOME y
+Proof
+  metis_tac[IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]
+QED
+
 Theorem sat_vec_to_lit_string:
   sat_vec (to_lit_string bss) w ⇔
   EVERY (sat_lit w) bss
@@ -2513,7 +2519,7 @@ Proof
     gvs[ALOOKUP_NONE,MEM_MAP,PULL_FORALL])>>
   gvs[EL_MAP,opt_chr_def,AllCaseEqs()]>>
   first_assum (irule_at Any)>>simp[]>>
-  gvs[GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>
+  gvs[NOT_NONE_EXISTS]>>
   drule ALOOKUP_MEM>>
   rw[MEM_MAP]>>
   gvs[EVERY_MEM]>>
@@ -2681,21 +2687,24 @@ Proof
   rw[EXTENSION,PERM_MEM_EQ]
 QED
 
+Theorem mergesort_tail_eq_2[simp]:
+  mergesort_tail (λ(x :num # α) (y :num # α). FST x ≤ FST y) ls =
+  mergesort (λ(x :num # α) (y :num # α). FST x ≤ FST y) ls
+Proof
+  irule mergesort_tail_correct>>
+  simp[total_def,transitive_def]
+QED
+
 Theorem vec_lookup_alist_to_vec:
   ALL_DISTINCT (MAP FST ls) ⇒
   vec_lookup (alist_to_vec ls) n = ALOOKUP ls n
 Proof
   rw[]>>
-  fs [alist_to_vec_def,vec_lookup_def,length_def,sub_def]>>
-  DEP_REWRITE_TAC[mergesort_tail_correct]>>
-  CONJ_ASM1_TAC
-  >- (
-    simp[total_def,transitive_def]>>
-    intLib.ARITH_TAC)
+  fs [alist_to_vec_def,vec_lookup_def,length_def,sub_def]
   \\ ‘SORTED $<= (MAP FST ([] ++ mergesort (λx y. FST x ≤ FST y) ls))’ by
     (simp[sorted_map,inv_image_def]>>
     irule mergesort_sorted >>
-    simp[])
+    simp[total_def,transitive_def])
   \\ `PERM ls (mergesort (λx y. FST x ≤ FST y) ls)` by metis_tac[mergesort_perm]
   \\ ‘SORTED $< (MAP FST ([] ++ mergesort (λx y. FST x ≤ FST y) ls))’ by
     (drule_at Any ALL_DISTINCT_SORTED_WEAKEN>>
@@ -3122,6 +3131,7 @@ End
 Definition mk_pro_vm_def:
   mk_pro_vm v ls vm =
     let (l,ls) = get_node_vars vm ls [] [] in
+    let l = mergesort_tail (\x y:num. x ≤ y) l in
     let vs = big_union (l::ls) in
     if SORTED $< vs
     then SOME (insert v vs vm)
@@ -3133,6 +3143,14 @@ Definition mk_strict_sorted_num_def:
   mk_strict (mergesort_tail (\x y:num. y ≤ x) ls)
 End
 
+Theorem mergesort_tail_eq_3[simp]:
+  mergesort_tail (λ(x :num) (y :num). y ≤ x) ls =
+  mergesort (λ(x :num) (y :num). y ≤ x) ls
+Proof
+  irule mergesort_tail_correct>>
+  simp[total_def,transitive_def]
+QED
+
 Theorem mk_strict_sorted_num_SORTED:
   SORTED $< (mk_strict_sorted_num ls)
 Proof
@@ -3142,13 +3160,8 @@ Proof
   simp[]>>
   qexists_tac`(λx y. y <= x)`>>
   rw[]>>
-  DEP_REWRITE_TAC[mergesort_tail_correct]>>
-  CONJ_ASM1_TAC
-  >- (
-    simp[total_def,transitive_def]>>
-    intLib.ARITH_TAC)>>
   irule mergesort_sorted >>
-  simp[]
+  simp[total_def,transitive_def]
 QED
 
 Theorem mk_strict_sorted_num_MEM:
@@ -3156,17 +3169,13 @@ Theorem mk_strict_sorted_num_MEM:
 Proof
   rw[mk_strict_sorted_num_def]>>
   simp[mk_strict_MEM]>>
-  DEP_REWRITE_TAC[mergesort_tail_correct]>>
-  CONJ_TAC
-  >- (
-    simp[total_def,transitive_def]>>
-    intLib.ARITH_TAC)>>
   metis_tac[mergesort_mem,MEM]
 QED
 
 Definition mk_sum_vm_def:
   mk_sum_vm v ls vm =
     let (l,ls) = get_node_vars vm ls [] [] in
+    let l = mergesort_tail (\x y:num. x ≤ y) l in
     let vs = big_union (l::ls) in
       SOME (insert v (mk_strict_sorted_num vs) vm)
 End
@@ -3181,14 +3190,16 @@ End
 
 (* Check decomposable_scp T r scp *)
 Definition check_dec_def:
-  (check_dec [] = SOME LN) ∧
+  (check_dec [] = INR LN) ∧
   (check_dec ((v,n)::ns) =
-    case check_dec ns of NONE => NONE
-    | SOME vm =>
-    (case n of
+    case check_dec ns of INL v => INL v
+    | INR vm =>
+    let res = (case n of
       Pro ls => mk_pro_vm v ls vm
     | Sum ls => mk_sum_vm v ls vm
-    | Sko ls => mk_sko_vm v ls vm ))
+    | Sko ls => mk_sko_vm v ls vm ) in
+    case res of NONE => INL v
+    | SOME m => INR m)
 End
 
 Theorem set_merge:
@@ -3219,17 +3230,192 @@ Proof
   simp[]
 QED
 
+Theorem set_mk_strict_sorted_num:
+  set (mk_strict_sorted_num ls) = set ls
+Proof
+  rw[EXTENSION]>>
+  simp[mk_strict_sorted_num_MEM]
+QED
+
+Theorem get_node_vars_eq_1:
+  ∀ls accl accr.
+  (∀n.
+  case lookup n vm of
+    NONE => ALOOKUP ns n = NONE
+  | SOME vs => SORTED $< vs ∧ vars_scp T (&n) ns = set vs) ∧
+  EVERY (λh. lookup (var_lit h) vm ≠ NONE ⇒ h > 0) ls ∧
+  get_node_vars vm ls accl accr = (l,r) ⇒
+  BIGUNION (IMAGE (λi. vars_scp T i ns) (set ls)) ∪ set accl ∪ BIGUNION (IMAGE set (set accr)) =
+  set l ∪ BIGUNION (IMAGE set (set r))
+Proof
+  Induct>>rw[get_node_vars_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum (qspec_then`var_lit h` assume_tac)>>
+  gvs[]
+  >- (
+    first_x_assum drule>>rw[]>>
+    drule vars_scp_ALOOKUP_NONE>>
+    gvs[EXTENSION]>>
+    metis_tac[])>>
+  first_x_assum drule>>rw[]>>
+  gvs[EXTENSION]>>
+  metis_tac[]
+QED
+
+Theorem get_node_vars_eq_2:
+  ∀ls accl accr.
+  (∀n.
+  case lookup n vm of
+    NONE => ALOOKUP ns n = NONE
+  | SOME vs => SORTED $< vs ∧ vars_scp T (&n) ns = set vs) ∧
+  EVERY (λh. lookup (var_lit h) vm ≠ NONE ⇒ h > 0) ls ∧
+  get_node_vars vm ls accl accr = (l,r) ⇒
+  PERM (MAP (λi. {i}) accl ++ MAP (λi. vars_scp T i ns) ls ++ MAP set accr)
+    (MAP (λi. {i}) l ++ MAP set r)
+Proof
+  Induct>>rw[get_node_vars_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum (qspec_then`var_lit h` assume_tac)>>
+  gvs[]
+  >- (
+    first_x_assum drule>>rw[]>>
+    drule vars_scp_ALOOKUP_NONE>>
+    rw[]>>
+    drule_at (Pos last) PERM_TRANS>>
+    disch_then irule>>
+    metis_tac[PERM_APPEND_IFF,APPEND,PERM_TRANS,PERM_SYM,PERM_APPEND])>>
+  first_x_assum drule>>rw[]>>
+  drule_at (Pos last) PERM_TRANS>>
+  disch_then irule>>
+  metis_tac[PERM_APPEND_IFF,APPEND,PERM_TRANS,PERM_SYM,PERM_APPEND]
+QED
+
+Theorem get_node_vars_eq:
+  (∀n.
+  case lookup n vm of
+    NONE => ALOOKUP ns n = NONE
+  | SOME vs => SORTED $< vs ∧ vars_scp T (&n) ns = set vs) ∧
+  EVERY (λh. lookup (var_lit h) vm ≠ NONE ⇒ h > 0) ls ∧
+  get_node_vars vm ls [] [] = (l,r) ⇒
+  BIGUNION (IMAGE (λi. vars_scp T i ns) (set ls))  =
+    set l ∪ BIGUNION (IMAGE set (set r)) ∧
+  PERM (MAP (λi. vars_scp T i ns) ls)
+    (MAP (λi. {i}) l ++ MAP set r)
+Proof
+  rw[]>>
+  drule_all get_node_vars_eq_1>>
+  drule_all get_node_vars_eq_2>>
+  simp[]
+QED
+
+Theorem PERM_FOLDL_merge:
+  ∀ls (acc:num list) acc'.
+  PERM acc acc' ⇒
+  PERM (FOLDL (merge (λx y. x ≤ y)) acc ls) (acc' ++ FLAT ls)
+Proof
+  Induct>>rw[]>>
+  first_x_assum irule>>
+  `PERM (merge (λx y. x ≤ y) acc h) (acc ++ h)` by
+    metis_tac[merge_perm,PERM_SYM]>>
+  irule PERM_TRANS>>
+  first_x_assum (irule_at Any)>>
+  metis_tac[PERM_APPEND_IFF]
+QED
+
+Theorem SORTED_big_union_ALL_DISTINCT:
+  ∀ls.
+  SORTED $< (big_union ls) ⇒
+  ALL_DISTINCT (FLAT ls)
+Proof
+  rw[]>>
+  drule_at Any SORTED_ALL_DISTINCT>>
+  simp[irreflexive_def]>>
+  rw[big_union_def]>>
+  `PERM (FOLDL (merge (λx y. x ≤ y)) [] ls) ([] ++ FLAT ls)` by (irule PERM_FOLDL_merge>>simp[])>>
+  gvs[]>>drule ALL_DISTINCT_PERM>>
+  simp[]
+QED
+
+Theorem all_disjoint_APPEND_2:
+  all_disjoint (xs ++ ys) ⇒
+  all_disjoint (ys ++ xs)
+Proof
+  rw[all_disjoint_def]>>
+  gvs[EL_APPEND]>>rw[]
+  >- (
+    first_x_assum (qspecl_then [`i + LENGTH xs`,`j + LENGTH xs`] mp_tac)>>
+    simp[])
+  >- (
+    first_x_assum (qspecl_then [`i + LENGTH xs`,`j - LENGTH ys`] mp_tac)>>
+    simp[])
+  >- (
+    first_x_assum (qspecl_then [`i - LENGTH ys`,`j + LENGTH xs`] mp_tac)>>
+    simp[])
+  >- (
+    first_x_assum (qspecl_then [`i - LENGTH ys`,`j - LENGTH ys`] mp_tac)>>
+    simp[])
+QED
+
+Theorem all_disjoint_APPEND_3:
+  ∀xs.
+  all_disjoint (xs ++ ys ++ zs) ⇒
+  all_disjoint (xs ++ zs ++ ys)
+Proof
+  Induct>>rw[]
+  >-
+    metis_tac[all_disjoint_APPEND_2]>>
+  gvs[all_disjoint_CONS]>>
+  metis_tac[]
+QED
+
+Theorem all_disjoint_PERM:
+  PERM ls ls' ∧ all_disjoint ls ⇒
+  all_disjoint ls'
+Proof
+  rw[]>>
+  irule_at Any PERM_lifts_invariants>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  metis_tac[all_disjoint_APPEND_3]
+QED
+
+Theorem ALL_DISTINCT_FLAT_all_disjoint:
+  ∀ls.
+  ALL_DISTINCT (FLAT ls) ⇒
+  all_disjoint (MAP set ls)
+Proof
+  Induct>>rw[]
+  >-
+    simp[all_disjoint_def]>>
+  gvs[ALL_DISTINCT_APPEND]>>
+  rw[all_disjoint_CONS]>>
+  gvs[DISJOINT_DEF,EXTENSION,MEM_MAP,MEM_FLAT]>>
+  metis_tac[]
+QED
+
+Theorem mergesort_tail_eq_4[simp]:
+  mergesort_tail (λ(x :num) (y :num). x ≤ y) ls =
+  mergesort (λ(x :num) (y :num). x ≤ y) ls
+Proof
+  irule mergesort_tail_correct>>
+  simp[total_def,transitive_def]
+QED
+
 Theorem check_dec_decomposable_scp:
+  D ∩ E = {} ∧ P ∩ E = {} ⇒
   ∀ns vm.
-  check_dec ns = SOME vm ⇒
+  dir_scp D P E ns ∧
+  check_dec ns = INR vm ⇒
   (∀n vs.
     case lookup n vm of
       NONE => ALOOKUP ns n = NONE
     | SOME vs =>
+      ALOOKUP ns n ≠ NONE ∧
       SORTED $< vs ∧
       vars_scp T (&n) ns = set vs) ∧
   (∀r. decomposable_scp T r ns)
 Proof
+  strip_tac>>
   Induct>>simp[check_dec_def]
   >-
     rw[decomposable_scp_def]>>
@@ -3237,31 +3423,116 @@ Proof
   simp[check_dec_def,decomposable_scp_def]>>
   TOP_CASE_TAC>>gvs[]>>
   strip_tac>>
-  gvs[AllCaseEqs()]
+  gvs[AllCaseEqs(),dir_scp_def]
   >- (
     gvs[mk_pro_vm_def,vars_scp_def]>>
     pairarg_tac>>gvs[]>>
+    drule_at Any get_node_vars_eq>>
+    disch_then (qspec_then`ns` mp_tac)>>
+    impl_tac >- (
+      CONJ_TAC >- (
+        gvs[AllCasePreds()]>>
+        metis_tac[])>>
+      gvs[EVERY_MEM]>>rw[]>>
+      first_x_assum drule>>
+      simp[is_data_ext_lit_def]>>
+      rw[]>>
+      first_x_assum (qspec_then `var_lit h` mp_tac)>>
+      gvs[NOT_NONE_EXISTS]>>
+      drule dir_scp_MAP_FST>>
+      rw[SUBSET_DEF]>>gvs[EXTENSION]>>
+      drule ALOOKUP_MEM>>
+      rw[]>>
+      gvs[MEM_MAP]>>
+      metis_tac[FST])>>
     rw[lookup_insert]>>gvs[]
     >- (
+      rw[]>>
       simp[set_big_union]>>
-      cheat)
-    >- cheat)
+      rw[EXTENSION]>>
+      metis_tac[mergesort_mem])>>
+    irule all_disjoint_PERM>>
+    simp[Once PERM_SYM]>>
+    first_x_assum (irule_at Any)>>
+    drule SORTED_big_union_ALL_DISTINCT>>
+    `FLAT (mergesort (λx y. x ≤ y) l::ls') =
+     FLAT (MAP (λi. [i]) (mergesort (λx y. x ≤ y) l) ++ ls')` by
+      simp[FLAT_MAP_SING]>>
+    pop_assum SUBST_ALL_TAC>>
+    strip_tac>>
+    drule ALL_DISTINCT_FLAT_all_disjoint>>
+    simp[MAP_MAP_o,o_DEF]>>
+    strip_tac>>
+    irule all_disjoint_PERM>>
+    first_x_assum (irule_at Any)>>
+    simp[PERM_APPEND_IFF]>>
+    irule PERM_MAP>>
+    metis_tac[mergesort_perm,PERM_SYM])
   >- (
     gvs[mk_sum_vm_def,vars_scp_def]>>
     pairarg_tac>>gvs[]>>
-    rw[lookup_insert]>>gvs[]
+    drule_at Any get_node_vars_eq>>
+    disch_then (qspec_then`ns` mp_tac)>>
+    impl_tac >- (
+      CONJ_TAC >- (
+        gvs[AllCasePreds()]>>
+        metis_tac[])>>
+      gvs[EVERY_MEM]>>rw[]>>
+      first_x_assum drule>>
+      simp[is_data_ext_lit_def]>>
+      rw[]>>
+      first_x_assum (qspec_then `var_lit h` mp_tac)>>
+      gvs[NOT_NONE_EXISTS]>>
+      drule dir_scp_MAP_FST>>
+      rw[SUBSET_DEF]>>gvs[EXTENSION]>>
+      drule ALOOKUP_MEM>>
+      rw[]>>
+      gvs[MEM_MAP]>>
+      metis_tac[FST])>>
+    rw[lookup_insert]>>gvs[]>>
+    rw[]
     >-
       metis_tac[mk_strict_sorted_num_SORTED]>>
-    cheat)
+    simp[set_mk_strict_sorted_num,set_big_union]>>
+    rw[EXTENSION]>>
+    metis_tac[mergesort_mem])
   >- (
     gvs[mk_sko_vm_def,vars_scp_def]>>
-    rw[lookup_insert]>>gvs[]>>
-    cheat)
+    rename1`EVERY _ lss`>>
+    `EVERY (λl. vars_scp T l ns = {var_lit l}) lss` by
+      (irule EVERY_MONOTONIC>>
+      first_x_assum (irule_at Any)>>
+      rw[]>>
+      irule vars_scp_ALOOKUP_NONE>>
+      drule dir_scp_MAP_FST>>
+      rw[SUBSET_DEF]>>gvs[EXTENSION]>>
+      gvs[ALOOKUP_NONE]>>
+      metis_tac[])>>
+    rw[]
+    >- (
+      gvs[EVERY_MEM,EXTENSION,mergesort_mem,MEM_MAP]>>
+      metis_tac[])
+    >-
+      rw[lookup_insert]
+    >- (
+      `MAP (λi. vars_scp T i ns) lss =
+        MAP (λi. {var_lit i}) lss` by
+        gvs[EVERY_MEM,MAP_EQ_f]>>
+      gvs[]>>
+      drule_at Any SORTED_ALL_DISTINCT>>
+      simp[irreflexive_def]>>
+      strip_tac>>
+      `ALL_DISTINCT (MAP var_lit lss)` by
+        metis_tac[ALL_DISTINCT_PERM,mergesort_perm]>>
+      `ALL_DISTINCT (FLAT (MAP (λi. [i]) (MAP var_lit lss)))` by
+        simp[FLAT_MAP_SING]>>
+      drule ALL_DISTINCT_FLAT_all_disjoint>>
+      simp[MAP_MAP_o,o_DEF]))
 QED
 
 Definition check_inputs_scp_def:
   check_inputs_scp r pc scp fml =
-  if check_dec scp = NONE then NONE
+  if ISL (check_dec scp) then NONE
   else
   if is_data_var pc (var_lit r)
   then
@@ -3364,12 +3635,17 @@ Proof
   `r' = r ∧ ns = sc'.scp` by
     gvs[check_inputs_scp_def,AllCaseEqs()]>>
   gvs[]>>
-  `decomposable_scp T r sc'.scp` by
-    (gvs[check_inputs_scp_def]>>
-    gvs[GSYM IS_SOME_EQ_NOT_NONE, IS_SOME_EXISTS]>>
-    drule check_dec_decomposable_scp>>
+  strip_tac>>
+  `decomposable_scp T r sc'.scp` by (
+    gvs[check_inputs_scp_def,quantHeuristicsTheory.ISR_exists,conf_inv_def]>>
+    drule_at Any check_dec_decomposable_scp>>
+    simp[]>>
+    impl_tac >- (
+      gvs[good_pc_def,SUBSET_DEF,EXTENSION]>>
+      metis_tac[] )>>
     simp[])>>
-  reverse(rw[conf_inv_def])
+  gvs[conf_inv_def]>>
+  reverse(rw[])
   >- (
     gvs[check_inputs_scp_def,AllCaseEqs()]>>
     metis_tac[decomposable_scp_T_to_F])>>

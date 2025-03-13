@@ -37,7 +37,7 @@ Definition parse_show_def:
       (case parse_nat_until_zero rest of
         NONE => NONE
       | SOME ls => SOME (opt_union vs ls))
-    else NONE
+    else SOME vs
   else SOME vs) ∧
   (parse_show vs [] = SOME vs) ∧
   (parse_show vs _ = NONE)

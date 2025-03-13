@@ -1680,8 +1680,17 @@ val res = translate mk_sum_vm_def;
 val res = translate mk_sko_vm_def;
 val res = translate check_dec_def;
 
+Definition dec_fail_str_def:
+  dec_fail_str (v:num) =
+  strlit "final condition check failed: input is not decomposable at " ^
+  toString v ^ strlit"\n"
+End
+val res = translate dec_fail_str_def;
+
 Definition check_dec_top_def:
-  check_dec_top scp = (check_dec scp = NONE)
+  check_dec_top scp =
+  case check_dec scp of INL v => INL (dec_fail_str v)
+  | INR vs => INR ()
 End
 
 val res = translate check_dec_top_def;
@@ -1689,9 +1698,9 @@ val res = translate check_dec_top_def;
 val check_inputs_scp_arr = process_topdecs`
   fun check_inputs_scp_arr r pc scp fml =
   let val u = clean_arr (get_nc pc + 1) fml in
-  if check_dec_top scp then
-    Inl ("final condition check failed: input is not decomposable\n")
-  else
+  case check_dec_top scp of
+    Inl v => Inl v
+  | Inr res =>
   if is_data_var pc (var_lit r)
   then
     if iter_input_fml_arr 0 (get_nc pc) fml (List.member r)
@@ -1858,11 +1867,12 @@ Proof
   xcf "check_inputs_scp_arr" (get_ml_prog_state ())>>
   simp[check_inputs_scp_list_err_def,check_inputs_scp_list_def]>>
   rpt xlet_autop>>
-  gvs[check_dec_top_def]>>
-  xif
+  Cases_on`check_dec_top scp`>>
+  gvs[SUM_TYPE_def,check_dec_top_def,AllCaseEqs()]>>
+  xmatch
   >- (
     xcon>>xsimpl>>
-    simp[SUM_TYPE_def])>>
+    metis_tac[])>>
   rpt xlet_autop>>
   xif
   >- (

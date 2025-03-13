@@ -727,7 +727,7 @@ End
 Definition check_inputs_scp_list_def:
   check_inputs_scp_list r pc scp fml =
   let fml = clean_list (pc.nc+1) fml in
-  if check_dec scp = NONE then NONE
+  if ISL (check_dec scp) then NONE
   else
   if is_data_var pc (var_lit r)
   then
