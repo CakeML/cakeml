@@ -805,57 +805,6 @@ Definition check_pro_def:
     is_fresh pc sc v)
 End
 
-(*
-Definition get_node_vars_def:
-  get_node_vars Ev ls =
-  MAP (λi.
-    case lookup (var_lit i) Ev of
-      NONE => (insert (var_lit i) () LN)
-    | SOME vs => vs) ls
-End
-
-Definition big_union_def:
-  big_union ts = FOLDL sptree$union LN ts
-End
-
-Definition mk_Ev_def:
-  mk_Ev Ev v ls =
-    insert v (big_union (get_node_vars Ev ls)) Ev
-End
-
-Definition big_disjoint_union_def:
-  big_disjoint_union ts =
-    FOLDL
-    (\t i.
-      case t of NONE => NONE
-      | SOME tt =>
-        if isEmpty (inter i tt) then
-          SOME (union i tt)
-        else NONE) (SOME LN) ts
-End
-
-Definition mk_Ev_disj_def:
-  mk_Ev_disj Ev v ls =
-    OPTION_MAP (\t. sptree$insert v t Ev)
-    (big_disjoint_union (get_node_vars Ev ls))
-End
-
-Definition declare_pro_def:
-  declare_pro pc sc (v:num) ls =
-  if
-    check_pro pc sc v ls
-  then
-    case mk_Ev_disj sc.Ev v ls of NONE => NONE
-    | SOME Ev =>
-    SOME (mk_pro v ls,
-      (sc with
-        <| scp := (v,Pro ls)::sc.scp;
-           Ev := Ev|>))
-  else
-    NONE
-End
-*)
-
 Definition declare_pro_def:
   declare_pro pc sc (v:num) ls =
   if
@@ -953,7 +902,7 @@ Definition check_scpstep_def:
   | RupAdd b n C i0 =>
     if
       is_rup b fml i0 C ∧
-      EVERY (λi. ¬is_fresh pc sc (var_lit i)) C
+      EVERY (λi. ¬is_fresh pc sc (var_lit i) ∧ i ≠ 0) C
     then
       OPTION_MAP (λfml'. (fml',sc))
         (insert_one b fml n C)
@@ -2392,12 +2341,53 @@ Definition opt_hd_def:
   opt_hd xs = case xs of [] => 0 | (x::xs) => x
 End
 
+Definition to_flat_chr_def:
+  to_flat_chr n l acc =
+    case l of
+    | [] => REVERSE acc
+    | (m::xs) =>
+      to_flat_chr (m+1) xs (CHR 1 :: prepend (m-n) (CHR 0) acc)
+End
+
+Theorem MAP_opt_chr_prepend:
+  ∀n def acc.
+  MAP f (prepend n def acc) =
+  prepend n (f def) (MAP f acc)
+Proof
+  ho_match_mp_tac prepend_ind>>
+  rw[]>>
+  simp[Once prepend_def]>>
+  simp[Once prepend_def,SimpRHS]>>
+  rw[]
+QED
+
+Theorem to_flat_chr_thm:
+  ∀n l acc' acc.
+  acc' = MAP opt_chr acc ⇒
+  MAP opt_chr (to_flat n (MAP (λi. (i,())) l) acc) =
+  to_flat_chr n l acc'
+Proof
+  ho_match_mp_tac to_flat_chr_ind>>rw[]>>
+  simp[Once to_flat_def, Once to_flat_chr_def]>>
+  Cases_on`l`>>rw[MAP_REVERSE]>>
+  first_x_assum (fn th => DEP_REWRITE_TAC[th])>>
+  simp[MAP_opt_chr_prepend,opt_chr_def]
+QED
+
+Theorem to_flat_chr_thm':
+  MAP opt_chr (to_flat n (MAP (λi. (i,())) l) []) =
+  to_flat_chr n l []
+Proof
+  irule to_flat_chr_thm>>
+  simp[]
+QED
+
 Definition to_lit_string_def:
   to_lit_string ls =
   let xs = mk_strict_sorted ls in
   let h = opt_hd xs in
-  let ys = MAP (λi. (Num (i - h), ())) xs in
-  let (yss:char list) = MAP opt_chr (to_flat 0 ys []) in
+  let ys = MAP (λi. (Num (i - h))) xs in
+  let (yss:char list) = to_flat_chr 0 ys [] in
   (h,strlit yss)
 End
 
@@ -2489,7 +2479,7 @@ Theorem sat_vec_to_lit_string:
   sat_vec (to_lit_string bss) w ⇔
   EVERY (sat_lit w) bss
 Proof
-  rw[to_lit_string_def,sat_vec_def]>>
+  rw[to_lit_string_def,sat_vec_def,GSYM to_flat_chr_thm',MAP_MAP_o,o_DEF]>>
   qmatch_goalsub_abbrev_tac`opt_hd xss`>>
   ‘SORTED $< xss’ by metis_tac[mk_strict_sorted_SORTED]>>
   `EVERY (λi. opt_hd xss ≤ i) xss` by metis_tac[EVERY_opt_hd_mk_strict_sorted]>>
@@ -2790,7 +2780,6 @@ Proof
   gvs[vec_lookup_alist_to_vec]
 QED
 
-(* TODO *)
 Definition wf_clause_def:
   wf_clause (C:int list) ⇔ ¬ MEM 0 C
 End

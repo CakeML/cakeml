@@ -114,7 +114,7 @@ Definition check_scpstep_list_def:
       NONE => NONE
     | SOME Clist =>
       if
-        EVERY (λi. ¬is_fresh pc sc (var_lit i)) c
+        EVERY (λi. ¬is_fresh pc sc (var_lit i) ∧ i ≠ 0) c
       then
         OPTION_MAP (λfml'. (fml',sc,Clist))
           (insert_one_list b fml n c)

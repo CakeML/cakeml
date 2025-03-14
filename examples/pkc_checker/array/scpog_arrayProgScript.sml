@@ -666,7 +666,7 @@ val res = translate declare_root_def;
 
 Definition every_not_is_fresh_def:
   every_not_is_fresh pc sc c =
-    EVERY (λi. ¬is_fresh pc sc (var_lit i)) c
+    EVERY (λi. ¬is_fresh pc sc (var_lit i) ∧ i ≠ 0) c
 End
 
 val res = translate lookup_def;
@@ -945,6 +945,7 @@ Proof
     xlet_auto
     >- (
       xsimpl>>
+      (* bounds *)
       cheat)
     >- (
       xsimpl>>
@@ -953,7 +954,7 @@ Proof
     fs[unwrap_TYPE_def,every_not_is_fresh_def]>>
     reverse xif
     >- (
-      `¬EVERY (λi. ¬is_fresh pc sc (var_lit i)) l` by metis_tac[NOT_EVERY,o_DEF]>>
+      `¬EVERY (λi. ¬is_fresh pc sc (var_lit i) ∧ i ≠ 0) l` by metis_tac[NOT_EVERY,o_DEF]>>
       raise_tac)>>
     xlet`POSTve
       (λv.
@@ -974,6 +975,7 @@ Proof
       metis_tac[ARRAY_refl])>>
     gvs[AllCasePreds()]>>
     xcon>>xsimpl>>
+    (* bounds *)
     cheat)
   >- (  (* ArbDel *)
     xmatch>>
@@ -999,6 +1001,7 @@ Proof
       xsimpl>>
       metis_tac[ARRAY_refl])>>
     gvs[AllCasePreds()]>>xcon>>xsimpl>>
+    (* bounds *)
     cheat)
   >- ( (* DeclPro *)
     xmatch>>
@@ -1029,6 +1032,7 @@ Proof
     >- xsimpl>>
     gvs[AllCasePreds()]>>
     xcon>>xsimpl>>
+    (* bounds *)
     cheat)
   >- ( (* DeclSum *)
     xmatch>>
@@ -1041,6 +1045,7 @@ Proof
     xlet_auto
     >- (
       xsimpl>>
+      (* bounds *)
       cheat)
     >- (
       xsimpl>>rw[]>>
@@ -1073,6 +1078,7 @@ Proof
       (xsimpl>>metis_tac[ARRAY_refl])>>
     gvs[AllCasePreds()]>>
     xcon>>xsimpl>>
+    (* bounds *)
     cheat)
   >- ( (* DeclSko *)
     xmatch>>
@@ -1553,7 +1559,6 @@ val res = translate mk_strict_aux_def;
 val res = translate mk_strict_def;
 val res = translate mk_strict_sorted_def;
 val res = translate opt_hd_def;
-val res = translate opt_chr_def;
 
 val res = translate prepend_def;
 
@@ -1573,6 +1578,23 @@ Proof
 QED
 
 val _ = to_flat_ind |> update_precondition;
+
+val r = translate (to_flat_chr_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
+
+Triviality to_flat_chr_ind:
+  to_flat_chr_ind
+Proof
+  once_rewrite_tac [fetch "-" "to_flat_chr_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = to_flat_chr_ind |> update_precondition;
 
 val res = translate (to_lit_string_def |> SIMP_RULE std_ss [GSYM implode_def]);
 
