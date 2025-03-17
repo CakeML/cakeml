@@ -76,7 +76,11 @@ Definition is_simple_method_def:
     isStatic ∧ hasBody ∧
     ¬outVarsAreUninitFieldsToAssign ∧ ¬wasFunction ∧
     overridingPath = NONE ∧ typeParams = [] ∧
-    params = [] ∧ inheritedParams = [] ∧ outTypes = [] ∧ outVars = SOME []
+    params = [Formal (VarName "__noArgsParameter")
+                     (Seq (Primitive String)) []] ∧
+    inheritedParams = [Formal (VarName "__noArgsParameter")
+                              (Seq (Primitive String)) []] ∧
+    outTypes = [] ∧ outVars = SOME []
 End
 
 (* Find main function in environment *)
@@ -98,8 +102,8 @@ Definition main_call_def:
           callName <<- CallName method_nam NONE NONE F (CallSignature [] []);
           return (Call on callName [] [] NONE)
         od
-    | _ =>
-        fail "main_call: Found no, or more than one Main"
+    | [] => fail "main_call: Found no Main"
+    | _ => fail "main_call: Found more than one Main"
 End
 
 (* Set up initial environment containing all methods defined in the Dafny
@@ -200,7 +204,7 @@ End
 (* TODO move to semantic primitives? *)
 Definition literal_to_value_def:
   literal_to_value (BoolLiteral b) = SOME (BoolV b) ∧
-  literal_to_value (IntLiteral s (Primitive String)) =
+  literal_to_value (IntLiteral s (Primitive Int)) =
   (case fromString (implode s) of
    | NONE => NONE
    | SOME i => SOME (IntV i)) ∧
@@ -294,7 +298,10 @@ Definition evaluate_stmt_ann_def[nocompute]:
   (let varNam = dest_varName varNam in
      (case init_val t of
       | NONE => (st, Rerr Runsupported)
-      | SOME v => (st, Rval v)))
+      | SOME v =>
+             (case add_local st varNam v of
+              | NONE => (st, Rerr Rtype_error)
+              | SOME st' => (st', Rval UnitV))))
   ∧
   evaluate_stmt st env (Assign (AssignLhs_Ident varNam) e) =
   (let varNam = dest_varName varNam in
@@ -389,6 +396,15 @@ End
 (* open sexp_to_dafnyTheory *)
 (* open fromSexpTheory simpleSexpParseTheory *)
 (* open TextIO *)
+
+(* val exp = “(BinOp *)
+(*             (TypedBinOp EuclidianDiv (Primitive Int) *)
+(*                         (Primitive Int) (Primitive Int)) *)
+(*             (Literal (IntLiteral "4" (Primitive Int))) *)
+(*             (Literal (IntLiteral "2" (Primitive Int))))” *)
+
+(* val eval_exp_r = EVAL “(evaluate_exp init_state <||> ^exp)” *)
+(*                    |> concl |> rhs |> rand; *)
 
 (* val inStream = TextIO.openIn "../tests/test.sexp"; *)
 (* val fileContent = TextIO.inputAll inStream; *)

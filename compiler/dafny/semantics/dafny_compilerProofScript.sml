@@ -160,8 +160,9 @@ Proof
           >> gvs [res_rel_def, dafny_to_cakeml_v_def,
                   Boolv_def, bool_type_num_def])
       >~ [‘IntLiteral’]
-      >- (gvs [AllCaseEqs (), oneline bind_def]
-          >> gvs [evaluate_exp_def, literal_to_value_def])
+      >- (gvs [AllCaseEqs (), oneline bind_def, string_to_int_def]
+          >> gvs [evaluate_exp_def, literal_to_value_def]
+          >> gvs [evaluate_def, res_rel_def, dafny_to_cakeml_v_def])
       >~ [‘StringLiteral’]
       >- gvs [evaluate_exp_def, literal_to_value_def]
       >~ [‘Char’]
