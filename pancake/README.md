@@ -17,9 +17,6 @@ Simplification of arithmetic in crepLang.
 [crep_to_loopScript.sml](crep_to_loopScript.sml):
 Compilation from crepLang to panLang.
 
-[ffi](ffi):
-FFI for Pancake
-
 [loopLangScript.sml](loopLangScript.sml):
 loopLang intermediate language
 
