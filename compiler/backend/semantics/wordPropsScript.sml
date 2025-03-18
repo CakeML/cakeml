@@ -1247,7 +1247,7 @@ Proof
 QED
 
 Theorem sh_mem_store16_with_const[simp]:
-  sh_mem_store16 a w (s with permute := k) =
+  sh_mem_store16 a w (s with permute := p) =
   (I ## (λs. s with permute := p)) (sh_mem_store16 a w s) /\
   sh_mem_store16 a w (s with clock := k) =
   (I ## (λs. s with clock := k)) (sh_mem_store16 a w s)

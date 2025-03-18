@@ -748,6 +748,7 @@ Proof
   >- (gvs[evaluate_def,oneline share_inst_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
       oneline sh_mem_set_var_def] >>
     rw[] >>
     gvs[AllCaseEqs(),set_var_def,flush_state_def] >>
@@ -856,6 +857,8 @@ Proof
       >- (* Load8 *)
       (every_case_tac \\ fs [mem_store_def] \\ rw [] \\
       metis_tac [cs_delete_if_set, cs_delete_if_set])
+      >- (* Load16 *)
+      (every_case_tac \\ fs [mem_store_def,get_var_def] \\ rw [])
       >- (* Load32 *)
       (every_case_tac \\ fs [mem_store_def] \\ rw [] \\
       metis_tac [cs_delete_if_set, cs_delete_if_set])
@@ -1017,6 +1020,7 @@ Proof
     fs[const_fp_loop_def] \\
     gvs[evaluate_def,oneline share_inst_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
       oneline sh_mem_set_var_def] \\
     rw[] \\
