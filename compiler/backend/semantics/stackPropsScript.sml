@@ -264,6 +264,20 @@ Proof
   gs[]
 QED
 
+Theorem sh_mem_load16_with_const[simp]:
+  (sh_mem_load16 r x (y with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_load16 r x y)
+Proof
+  simp[sh_mem_load16_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  fs[]
+QED
+
+Theorem sh_mem_store16_with_const[simp]:
+  (sh_mem_store16 x y (z with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_store16 x y z)
+Proof
+  gs[sh_mem_store16_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[]
+QED
+
 Theorem sh_mem_load_byte_with_const[simp]:
    (sh_mem_load_byte r x (y with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_load_byte r x y)
 Proof

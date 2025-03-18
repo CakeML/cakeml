@@ -7171,7 +7171,7 @@ Theorem share_load_lemma1:
   state_rel ac k f f' s t lens 0 /\
   v < f' + k /\
   k <= v /\
-  (op = Load \/ op = Load8 \/ op = Load32) /\
+  (op = Load \/ op = Load8 \/ op = Load16 \/ op = Load32) /\
   res <> SOME Error ==>
   ?t1. sh_mem_op op k ad' t =
       (OPTION_MAP compile_result res, t1) /\
@@ -7192,8 +7192,10 @@ Proof
   gvs[Abbr`ops`,share_inst_def,sh_mem_op_def,
     sh_mem_load_def,sh_mem_load_byte_def,
     sh_mem_load32_def,sh_mem_store32_def,
+    sh_mem_load16_def,sh_mem_store16_def,
     stackSemTheory.sh_mem_load_byte_def,
     stackSemTheory.sh_mem_load32_def,
+    stackSemTheory.sh_mem_load16_def,
     stackSemTheory.sh_mem_load_def,
     oneline sh_mem_set_var_def,
     AllCaseEqs()] >>
@@ -7215,7 +7217,7 @@ Theorem share_load_lemma2:
   share_inst op (2 * v) ad' s = (res,s1) /\
   state_rel ac k f f' s t lens 0 /\
   v < k /\
-  (op = Load \/ op = Load8 \/ op = Load32) /\
+  (op = Load \/ op = Load8 \/ op = Load16 \/ op = Load32) /\
   res <> SOME Error ==>
   ?t1.
     sh_mem_op op v ad' t =
@@ -7232,8 +7234,10 @@ Proof
   gvs[share_inst_def,sh_mem_op_def,
     sh_mem_load_def,sh_mem_load_byte_def,
     sh_mem_load32_def,sh_mem_store32_def,
+    sh_mem_load16_def,sh_mem_store16_def,
     stackSemTheory.sh_mem_load_byte_def,
     stackSemTheory.sh_mem_load32_def,
+    stackSemTheory.sh_mem_load16_def,
     stackSemTheory.sh_mem_load_def,AllCaseEqs(),
     oneline sh_mem_set_var_def] >>
   rpt strip_tac >>
@@ -7257,7 +7261,7 @@ Theorem share_store_lemma1:
   share_inst op (2 * v) ad' s = (res,s1) /\
   state_rel ac k f f' s t lens 0 /\
   ~(v < k) /\
-  (op = Store \/ op = Store8 \/ op = Store32) /\
+  (op = Store \/ op = Store8 \/ op = Store16 \/ op = Store32) /\
   res <> SOME Error ==>
   ?t1.
     sh_mem_op op (k + 1) ad'
@@ -7278,7 +7282,9 @@ Proof
   gvs[share_inst_def,sh_mem_op_def,
     sh_mem_store_def,sh_mem_store_byte_def,
     sh_mem_load32_def,sh_mem_store32_def,
+    sh_mem_load16_def,sh_mem_store16_def,
     stackSemTheory.sh_mem_store_byte_def,
+    stackSemTheory.sh_mem_store16_def,
     stackSemTheory.sh_mem_store32_def,
     stackSemTheory.sh_mem_store_def,AllCaseEqs(),
     PULL_EXISTS] >>
@@ -7305,7 +7311,7 @@ Theorem share_store_lemma2:
   share_inst op (2 * v) ad' s = (res,s1) /\
   state_rel ac k f f' s t lens 0 /\
   v < k /\
-  (op = Store \/ op = Store8 \/ op = Store32) /\
+  (op = Store \/ op = Store8 \/ op = Store16 \/ op = Store32) /\
   res <> SOME Error ==>
   ?t1.
     sh_mem_op op v ad' t =
@@ -7322,8 +7328,10 @@ Proof
   gvs[share_inst_def,sh_mem_op_def,
     sh_mem_store_def,sh_mem_store_byte_def,
     sh_mem_load32_def,sh_mem_store32_def,
+    sh_mem_load16_def,sh_mem_store16_def,
     stackSemTheory.sh_mem_store_byte_def,
     stackSemTheory.sh_mem_store32_def,
+    stackSemTheory.sh_mem_store16_def,
     stackSemTheory.sh_mem_store_def,AllCaseEqs()] >>
   rpt strip_tac >>
   fs[PULL_EXISTS] >>
@@ -7344,7 +7352,7 @@ Theorem evaluate_ShareInst_Load:
   state_rel ac k f f' s t lens 0 /\
   v < f' + k /\
   ad < f' + k /\
-  (op = Load \/ op = Load8 \/ op = Load32) ==>
+  (op = Load \/ op = Load8 \/ op = Load16 \/ op = Load32) ==>
   ?ck t1.
     evaluate
       (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
@@ -7405,7 +7413,7 @@ Theorem evaluate_ShareInst_Store:
   v < f' + k /\
   ad < f' + k /\
   res <> SOME Error /\
-  (op = Store \/ op = Store8 \/ op = Store32) ==>
+  (op = Store \/ op = Store8 \/ op = Store16 \/ op = Store32) ==>
   ?ck t1.
     evaluate
       (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
