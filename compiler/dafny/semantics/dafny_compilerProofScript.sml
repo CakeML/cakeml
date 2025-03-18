@@ -43,6 +43,11 @@ Definition env_rel_def:
     nsLookup env_cml.c (Short "False") = SOME (0, TypeStamp "False" 0)
 End
 
+Definition state_rel_def:
+  state_rel (s_dfy : dafny_state) (s_cml : cakeml_state) ⇔
+    T
+End
+
 Definition dafny_to_cakeml_v_def:
   dafny_to_cakeml_v UnitV = (Conv NONE []) ∧
   dafny_to_cakeml_v (BoolV b) = (Boolv b) ∧
@@ -169,6 +174,19 @@ Proof
       >~ [‘Null’]
       >- gvs [evaluate_exp_def, literal_to_value_def])
   >> gvs [evaluate_exp_def, literal_to_value_def]
+QED
+
+Theorem correct_stmt:
+  ∀ (s₁ : dafny_state) (env_dfy : dafny_env) (stmt : dafny_stmt) (s₂ : dafny_state)
+    (r_dfy : dafny_res) (t₁ : cakeml_state) (env_cml : cakeml_env)
+    (cml_e : cakeml_exp).
+    evaluate_stmt s₁ env_dfy stmt = (s₂, r_dfy) ∧ ¬(is_fail_dfy r_dfy) ∧
+    state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧
+    from_expression (Companion [] []) [] e = INR cml_e ⇒
+    ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
+      evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
+      (* state_rel s₂ t₂ ∧ *) res_rel r_dfy r_cml
+Proof
 QED
 
 val _ = export_theory ();
