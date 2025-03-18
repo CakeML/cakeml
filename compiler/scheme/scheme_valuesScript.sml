@@ -6,12 +6,11 @@ open arithmeticTheory listTheory stringTheory;
 
 val _ = new_theory "scheme_values";
 
-(* Values in the source semantics are binary trees where the
-   leaves are natural numbers (num) *)
+(* Values in the source semantics are binary trees *)
 Datatype:
-  v = Pair v v | Num num
+  v = Pair v v | Num int | Bool bool | Word string | Nil
 End
-
+(*
 (* Since strings are not in the representation, we have a function that
    coverts strings into numbers. Note that parsing and pretty printing
    is set up so that printing reproduces these strings when possible. *)
@@ -45,6 +44,7 @@ End
 Definition div_def[simp]:
   div (Num n) (Num m) = Num (n DIV m)
 End
+*)
 
 Definition head_def[simp]:
   head (Pair x y) = x ∧
@@ -60,6 +60,7 @@ Definition cons_def[simp]:
   cons x y = Pair x y
 End
 
+(*
 Definition bool_def[simp]:
   bool T = Num 1 ∧
   bool F = Num 0
@@ -113,10 +114,11 @@ Theorem isNum_bool[simp]:
 Proof
   Cases_on ‘b’ \\ EVAL_TAC
 QED
+*)
 
 Theorem v_size_def[simp,allow_rebind] = fetch "-" "v_size_def";
 
-Theorem all_macro_defs = LIST_CONJ [list_def, cons_def, bool_def,
+(*Theorem all_macro_defs = LIST_CONJ [list_def, cons_def, bool_def,
    map_def, pair_def, option_def];
 
 Definition is_upper_def:
@@ -131,5 +133,6 @@ End
 Definition otherwise_def[simp]:
   otherwise x = x
 End
+*)
 
 val _ = export_theory();
