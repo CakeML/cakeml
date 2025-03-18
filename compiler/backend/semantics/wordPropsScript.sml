@@ -1095,6 +1095,35 @@ Proof
   gvs[flush_state_def]
 QED
 
+Theorem sh_mem_store16_const:
+  sh_mem_store16 ad v s = (res, s') ==>
+  s'.clock = s.clock ∧
+  s'.compile_oracle = s.compile_oracle ∧
+  s'.compile = s.compile ∧
+  s'.be = s.be ∧
+  s'.gc_fun = s.gc_fun ∧
+  s'.mdomain = s.mdomain ∧
+  s'.sh_mdomain = s.sh_mdomain ∧
+  s'.code = s.code ∧
+  s'.code_buffer = s.code_buffer ∧
+  s'.data_buffer = s.data_buffer ∧
+  s'.permute = s.permute ∧
+  s'.handler = s.handler ∧
+  s'.stack_limit = s.stack_limit ∧
+  s'.stack_max = s.stack_max ∧
+  (res = SOME Error ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.stack_max = s.stack_max) ∧
+  (res = SOME Error ==> s'.stack_max = s.stack_max) ∧
+  (res = NONE ==> s'.stack_size = s.stack_size) ∧
+  (res = SOME Error ==> s'.stack_size = s.stack_size)
+Proof
+  gvs[sh_mem_store16_def] >>
+  rpt (TOP_CASE_TAC>> fs[]) >>
+  rpt strip_tac >>
+  gvs[flush_state_def]
+QED
+
 Theorem sh_mem_store32_const:
   sh_mem_store32 ad v s = (res, s') ==>
   s'.clock = s.clock ∧
@@ -1145,7 +1174,7 @@ Proof
   gvs[share_inst_def]
   >> rpt (CASE_ONE >> gvs[])
   >> strip_tac >> gvs[]
-  >> drulel [sh_mem_set_var_const,sh_mem_store_const,sh_mem_store_byte_const,sh_mem_store32_const]
+  >> drulel [sh_mem_set_var_const,sh_mem_store_const,sh_mem_store_byte_const,sh_mem_store16_const,sh_mem_store32_const]
   >> gvs[]
 QED
 
@@ -1181,6 +1210,15 @@ Proof
   EVAL_TAC
 QED
 
+Theorem sh_mem_load16_with_const[simp]:
+  sh_mem_load16 a (s with locals := l) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with permute := p) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with clock := k) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with stack := xs) = sh_mem_load16 a s
+Proof
+  gvs[sh_mem_load16_def]
+QED
+
 Theorem sh_mem_load32_with_const[simp]:
   sh_mem_load32 a (s with locals := l) = sh_mem_load32 a s /\
   sh_mem_load32 a (s with permute := p) = sh_mem_load32 a s /\
@@ -1206,6 +1244,15 @@ Theorem sh_mem_store_byte_with_const[simp]:
   (I ## (λs. s with clock := k)) (sh_mem_store_byte a w s)
 Proof
   fs[sh_mem_store_byte_def] >> (rpt (CASE_ONE >> fs[]))
+QED
+
+Theorem sh_mem_store16_with_const[simp]:
+  sh_mem_store16 a w (s with permute := k) =
+  (I ## (λs. s with permute := p)) (sh_mem_store16 a w s) /\
+  sh_mem_store16 a w (s with clock := k) =
+  (I ## (λs. s with clock := k)) (sh_mem_store16 a w s)
+Proof
+  fs[sh_mem_store16_def] >> (rpt (CASE_ONE >> fs[]))
 QED
 
 Theorem sh_mem_store32_with_const[simp]:
@@ -1777,6 +1824,7 @@ Proof
        (strip_assume_tac o SRULE[oneline share_inst_def,
           sh_mem_store_def,sh_mem_store_byte_def,
           sh_mem_load_def,sh_mem_load_byte_def,
+          sh_mem_load16_def,sh_mem_store16_def,
           sh_mem_load32_def,sh_mem_store32_def,
           oneline sh_mem_set_var_def,
           AllCaseEqs()]) >>
@@ -2693,6 +2741,9 @@ Proof
     >-(fs[sh_mem_store_byte_def] >> every_case_tac >>
     fs[flush_state_def] >>
     fs[s_key_eq_refl])
+    >-(fs[sh_mem_store16_def] >> every_case_tac >>
+    fs[flush_state_def] >>
+    fs[s_key_eq_refl])
     >-(fs[sh_mem_store32_def] >> every_case_tac >>
     fs[flush_state_def] >>
     fs[s_key_eq_refl])
@@ -3520,7 +3571,8 @@ Proof
       gvs[AllCaseEqs()] >> fs[set_var_def]
       >-(irule locals_rel_set_var >> fs[]) >>
      simp[state_component_equality]) >>
-    fs[sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def] >>
+    fs[sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+       sh_mem_store16_def] >>
     gvs[AllCaseEqs()] >> simp[state_component_equality])
   >>
     gvs[evaluate_def] >>
@@ -3901,6 +3953,7 @@ Proof
   >- ( (* ShareInst *)
     gvs[evaluate_def,(oneline share_inst_def),AllCaseEqs()] >>
     gvs[sh_mem_store_def,sh_mem_load_def,sh_mem_store_byte_def,
+        sh_mem_load16_def,sh_mem_store16_def,
         sh_mem_load_byte_def,sh_mem_load32_def,sh_mem_store32_def]
     >>~- ([`sh_mem_set_var`],
       every_case_tac
@@ -4520,6 +4573,7 @@ Proof
    >- (
      gvs[evaluate_def, oneline share_inst_def ,AllCaseEqs()] >>
      gvs[oneline sh_mem_set_var_def,oneline sh_mem_store_def,
+         oneline sh_mem_load16_def,oneline sh_mem_store16_def,
          oneline sh_mem_store_byte_def,oneline sh_mem_store32_def,
          AllCaseEqs()] >>
      simp[state_component_equality,flush_state_def])

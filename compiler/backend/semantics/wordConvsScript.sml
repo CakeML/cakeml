@@ -223,7 +223,7 @@ Definition inst_ok_less_def:
   (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) ⇔
-    if m IN {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w) ∧
+    if m IN {Load; Store; Load16; Store16; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w) ∧
   (inst_ok_less c (FP (FPLess r d1 d2)) ⇔  fp_reg_ok d1 c ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPLessEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c)  ∧
@@ -323,7 +323,7 @@ Definition full_inst_ok_less_def:
   (full_inst_ok_less c (ShareInst op r ad) =
     case exp_to_addr ad of
     | SOME (Addr _ w) =>
-      if op IN {Load; Store; Load32; Store32}
+      if op IN {Load; Store; Load16; Store16; Load32; Store32}
         then addr_offset_ok c w
         else byte_offset_ok c w
     | NONE => F) ∧
