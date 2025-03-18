@@ -536,9 +536,11 @@ Proof
   gs[wordSemTheory.share_inst_def,
      wordSemTheory.sh_mem_load_def,
      wordSemTheory.sh_mem_load_byte_def,
+     wordSemTheory.sh_mem_load16_def,
      wordSemTheory.sh_mem_load32_def,
      wordSemTheory.sh_mem_store_def,
      wordSemTheory.sh_mem_store_byte_def,
+     wordSemTheory.sh_mem_store16_def,
      wordSemTheory.sh_mem_store32_def,
      ffiTheory.call_FFI_def]>>
   every_case_tac>>gvs[]>>
@@ -890,6 +892,7 @@ Proof
     gs[wordSemTheory.share_inst_def,
          wordSemTheory.sh_mem_load_def, wordSemTheory.sh_mem_load_byte_def,
          wordSemTheory.sh_mem_store_def, wordSemTheory.sh_mem_store_byte_def,
+         wordSemTheory.sh_mem_load16_def, wordSemTheory.sh_mem_store16_def,
          wordSemTheory.sh_mem_load32_def, wordSemTheory.sh_mem_store32_def,
          ffiTheory.call_FFI_def]>>
     every_case_tac>>
@@ -986,9 +989,11 @@ Proof
      wordSemTheory.sh_mem_load_def,
      wordSemTheory.sh_mem_load_def,
      wordSemTheory.sh_mem_load_byte_def,
+     wordSemTheory.sh_mem_load16_def,
      wordSemTheory.sh_mem_load32_def,
      wordSemTheory.sh_mem_store_def,
      wordSemTheory.sh_mem_store_byte_def,
+     wordSemTheory.sh_mem_store16_def,
      wordSemTheory.sh_mem_store32_def,
      ffiTheory.call_FFI_def]>>
   every_case_tac >>
