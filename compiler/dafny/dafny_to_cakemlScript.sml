@@ -644,74 +644,6 @@ Definition from_varName_def:
   from_varName n = Var (Short (dest_varName n))
 End
 
-(* TODO double check if this is still used *)
-Definition from_name_def:
-  from_name n = Var (Short (dest_Name n))
-End
-
-(* TODO double check if this is still used *)
-Definition from_ident_def:
-  from_ident (Ident n) = from_name n
-End
-
-(* It appears that function and methods in Dafny are both represented by the
- * same datatype, even though they are slightly different *)
-(* This assumption is incorrect; at the IR level only methods exist since
- * expression can be compiled down to statements in it *)
-(* TODO Handle everything as "method" *)
-(* TODO Currently ignoring inheritedParams, unsure what it does. *)
-Definition method_is_function_def:
-  method_is_function (Method attrs isStatic hasBody _ _ overridingPath nam
-                             typeParams params _ body outTypes outVars) =
-  (* Function has one outType and no outVars *)
-  if LENGTH outTypes ≠ 1 ∨ outVars ≠ NONE then
-    return F
-  else if attrs ≠ [] ∧ attrs ≠ [Attribute "tailrecursion" ["false"]] then
-    fail ("method_is_function: unsupported attributes")
-  else if ¬isStatic then
-    fail ("method_is_function: Did not expect function " ++ (dest_Name nam) ++
-          " to be static")
-  else if ¬hasBody then
-    fail ("method_is_function: Function " ++ (dest_Name nam) ++
-          " did not have a body, even though it must")
-  else if overridingPath ≠ NONE then
-    fail ("method_is_function: Did not expect function " ++ (dest_Name nam) ++
-          " to have an overriding path")
-  else if typeParams ≠ [] then
-    fail ("method_is_function: Type parameters are currently unsupported (in "
-          ++ (dest_Name nam) ++ ")")
-  else
-    return T
-End
-
-Definition method_is_method_def:
-  method_is_method (Method attrs isStatic hasBody _ _ overridingPath nam
-                           typeParams params _ body outTypes outVars) =
-  case outVars of
-  | SOME outVars_list =>
-      if LENGTH outTypes ≠ LENGTH outVars_list then
-        fail ("method_is_method: Function " ++ (dest_Name nam) ++
-              " did not have the same number of outTypes and outVars, even" ++
-              " though it must")
-      else if attrs ≠ [] ∧ attrs ≠ [Attribute "tailrecursion" ["false"]] then
-        fail ("method_is_method: unsupported attributes")
-      else if ¬isStatic then
-        fail ("method_is_method: non-static methods are currently " ++
-              "unsupported (in " ++ (dest_Name nam) ++ ")")
-      else if ¬hasBody then
-        fail ("method_is_method: Method " ++ (dest_Name nam) ++
-              " did not have a body, even though it must")
-      else if overridingPath ≠ NONE then
-        fail ("method_is_method: Overriding path for methods are currently " ++
-              "unsupported (in " ++ (dest_Name nam) ++ ")")
-      else if typeParams ≠ [] then
-        fail ("method_is_method: Type parameters are currently unsupported (in "
-              ++ (dest_Name nam) ++ ")")
-      else
-        return T
-  | NONE => return F
-End
-
 Definition from_literal_def:
   from_literal (l: dafny_ast$literal) =
    case l of
@@ -761,30 +693,13 @@ Definition call_type_env_from_class_body_def:
   call_type_env_from_class_body acc _ [] = return acc ∧
   call_type_env_from_class_body acc comp ((ClassItem_Method m)::rest) =
   do
-    is_function <- method_is_function m;
-    is_method <- method_is_method m;
-    if is_function then
-      do
-        (_, _, _, _, _, _, nam, _, params, _, _, outTypes, _) <<- dest_Method m;
-        nam <<- dest_Name nam;
-        param_t <- type_from_formals params;
-        outTypes <<- MAP normalize_type outTypes;
-        acc <<- (((comp, nam), Arrow param_t (HD outTypes))::acc);
-        call_type_env_from_class_body acc comp rest;
-      od
-    else if is_method then
-      do
-        (_, _, _, _, _, _, nam, _, params, _, _, _, _) <<- dest_Method m;
-        nam <<- dest_Name nam;
-        (* outTypes refers to the type of outVars; the method itself returns
-         * Unit (I think) *)
-        param_t <- type_from_formals params;
-        acc <<- (((comp, nam), Arrow param_t (Tuple []))::acc);
-        call_type_env_from_class_body acc comp rest
-      od
-    else
-      fail "call_type_env_from_class_body: ClassItem_Method m was neither \
-           \method nor function."
+    (_, _, _, _, _, _, nam, _, params, _, _, _, _) <<- dest_Method m;
+    nam <<- dest_Name nam;
+    (* outTypes refers to the type of outVars; the method itself returns
+     * Unit (I think) *)
+    param_t <- type_from_formals params;
+    acc <<- (((comp, nam), Arrow param_t (Tuple []))::acc);
+    call_type_env_from_class_body acc comp rest
   od
 End
 
@@ -1483,31 +1398,16 @@ End
 Definition from_classItem_def:
   from_classItem comp env (ClassItem_Method m) =
   do
-    is_function <- method_is_function m;
-    is_method <- method_is_method m;
-    if is_function then
-      do
-        (_, _, _, _, _, _, nam, _, params, _, body, _, _) <<- dest_Method m;
-        fun_name <<- dest_Name nam;
-        (env, cml_param, preamble) <- gen_param_preamble env params;
-        cml_body <- process_function_body comp env preamble body;
-        return (fun_name, cml_param, cml_body)
-      od
-    else if is_method then
-      do
-        (_, _, _, _, _, _, nam, _, params, _,
-         body, outTypes, outVars) <<- dest_Method m;
-        outTypes <<- MAP normalize_type outTypes;
-        outVars <- dest_SOME outVars;
-        fun_name <<- dest_Name nam;
-        (env, cml_param,
-         preamble, epilogue) <- gen_param_preamble_epilogue env params
-                                                            outTypes outVars;
-        cml_body <- process_method_body comp env preamble epilogue body;
-        return (fun_name, cml_param, cml_body)
-      od
-    else
-      fail "(Unreachable) from_method: m was neither a function nor method"
+    (_, _, _, _, _, _, nam, _, params, _,
+     body, outTypes, outVars) <<- dest_Method m;
+    outTypes <<- MAP normalize_type outTypes;
+    outVars <- dest_SOME outVars;
+    fun_name <<- dest_Name nam;
+    (env, cml_param,
+     preamble, epilogue) <- gen_param_preamble_epilogue env params
+                                                        outTypes outVars;
+    cml_body <- process_method_body comp env preamble epilogue body;
+    return (fun_name, cml_param, cml_body)
   od
 End
 
