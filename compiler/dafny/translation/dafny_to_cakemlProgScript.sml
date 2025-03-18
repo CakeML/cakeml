@@ -3,11 +3,11 @@
  *)
 
 open preamble ml_translatorLib
-open sexp_to_dafnyProgTheory
+open dafny_runtimeProgTheory
 
 val _ = new_theory "dafny_to_cakemlProg";
 
-val _ = translation_extends "sexp_to_dafnyProg";
+val _ = translation_extends "dafny_runtimeProg";
 
 val r = translate locationTheory.unknown_loc_def;
 val r = translate DROP; (* for strip_prefix_def *)

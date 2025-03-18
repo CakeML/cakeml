@@ -3,7 +3,6 @@
 *)
 
 open preamble
-open cfTacticsLib (* process_topdecs *)
 open result_monadTheory
 open astTheory semanticPrimitivesTheory (* CakeML AST *)
 open dafny_astTheory
@@ -17,63 +16,6 @@ val _ = new_theory "dafny_to_cakeml";
 
 (* TODO Instead of keeping track of types manually, maybe we can add them
    in the upstream Dafny AST *)
-
-(* Defines the Dafny module containing the Dafny runtime *)
-Quote dafny_module = process_topdecs:
-  structure Dafny =
-  struct
-
-  exception Return;
-  exception Break;
-  exception LabeledBreak string;
-
-  (* Adapted from ABS, ediv, and emod from HOL's integerTheory *)
-  fun abs n = if n < 0 then ~n else n;
-
-  fun ediv i j = if 0 < j then i div j else ~(i div ~j);
-
-  fun emod i j = i mod (abs j);
-
-
-  (* Array functions *)
-  fun array_to_list arr = Array.foldr (fn x => fn xs => x :: xs) [] arr;
-
-
-  (* to_string functions to be used for "Dafny-conform" printing *)
-  fun bool_to_string b = if b then "true" else "false";
-
-  fun int_to_string i = Int.int_to_string #"-" i;
-
-  fun escape_char c =
-    if c = #"'" then "\\'"
-    else if c = #"\"" then "\\\""
-    else if c = #"\\" then "\\\\"
-    else if c = #"\000" then "\\0"
-    else if c = #"\n" then "\\n"
-    (* #"\r" leads to "not terminated with nil" exception *)
-    else if c = #"\013" then "\\r"
-    else if c = #"\t" then "\\t"
-    else String.str c;
-
-  fun char_to_string c = String.concat ["'", escape_char c, "'"];
-
-  fun list_to_string f lst =
-    String.concat ["[", String.concatWith ", " (List.map f lst), "]"];
-
-  fun char_list_to_string cs = list_to_string char_to_string cs;
-
-  (* f converts the tuple into a list of strings *)
-  fun tuple_to_string f tpl =
-    String.concat ["(", String.concatWith ", " (f tpl), ")"];
-
-  (* Commented out because we use CakeML char list's instead of strings *)
-
-  (* In Dafny, strings within collections are printed as a list of chars *)
-  (* fun string_element_to_string s = *)
-  (*   list_to_string char_to_string (String.explode s); *)
-
-  end
-End
 
 (* TODO Check if we can reduce the number of generated cases *)
 (* TODO Check if it makes sense to extract Var (...) into a function
@@ -1547,8 +1489,7 @@ Definition compile_def:
     (* validate_system_module sys_mod; *)
     (env, cml_ms) <- map_from_module [] ms;
     main_id <- find_main env;
-    return (^dafny_module ++
-            cml_ms ++
+    return (cml_ms ++
             [Dlet unknown_loc Pany (cml_fapp main_id [Unit])])
   od ∧
   compile _ = fail "compile: Module layout unsupported"
@@ -1586,9 +1527,6 @@ End
 
 (* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))” *)
 (*                    |> concl |> rhs |> rand; *)
-(* (* Test Dafny module *) *)
-(* (* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^dafny_module)))” *) *)
-(* (*                    |> concl |> rhs |> rand; *) *)
 (* val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r; *)
 (* val outFile = TextIO.openOut "./tests/test.cml.sexp"; *)
 (* val _ = TextIO.output (outFile, cml_sexp_str_r); *)
