@@ -253,6 +253,15 @@ Proof
   >> gvs[evaluate_exp_def, AllCaseEqs()]
 QED
 
+(* Do an if-then-else *)
+(* TODO move to semantic primitives? *)
+Definition do_if_def:
+  do_if cnd thn els =
+    if cnd = BoolV T then SOME thn
+    else if cnd = BoolV F then SOME els
+    else NONE
+End
+
 (* Annotated with fix_clock *)
 Definition evaluate_stmt_ann_def[nocompute]:
   (* TODO Commented, since we do not want to think about calls for now *)
@@ -312,6 +321,14 @@ Definition evaluate_stmt_ann_def[nocompute]:
            | SOME st'' => (st'', Rval UnitV))
       | r => r))
   ∧
+  evaluate_stmt st env (If cnd thn els) =
+  (case evaluate_exp st env cnd of
+     (st', Rval v) =>
+       (case do_if v thn els of
+          NONE => (st', Rerr Rtype_error)
+        | SOME stmts => evaluate_stmts (dec_clock st') env stmts)
+   | r => r)
+  ∧
   evaluate_stmt st env (While e stmts) =
   (case evaluate_exp st env e of
    | (st', Rval v) =>
@@ -352,7 +369,7 @@ Termination
                        (s.clock, list_size statement_size stmts))’ >> rw[]
   >> imp_res_tac evaluate_exp_clock
   >> imp_res_tac fix_clock_IMP
-  >> gvs[dec_clock_def, AllCaseEqs(), assignLhs_size_eq]
+  >> gvs[dec_clock_def, AllCaseEqs(), assignLhs_size_eq, do_if_def]
 End
 
 Theorem evaluate_stmt_clock:
@@ -397,16 +414,22 @@ End
 (* open fromSexpTheory simpleSexpParseTheory *)
 (* open TextIO *)
 
-(* val exp = “(BinOp *)
-(*             (TypedBinOp EuclidianDiv (Primitive Int) *)
-(*                         (Primitive Int) (Primitive Int)) *)
-(*             (Literal (IntLiteral "4" (Primitive Int))) *)
-(*             (Literal (IntLiteral "2" (Primitive Int))))” *)
+(* val exp = “(Literal (BoolLiteral T))” *)
 
 (* val eval_exp_r = EVAL “(evaluate_exp init_state <||> ^exp)” *)
 (*                    |> concl |> rhs |> rand; *)
 
-(* val inStream = TextIO.openIn "../tests/test.sexp"; *)
+(* val stmt = “[DeclareVar (VarName "foo") (Primitive Int) NONE; *)
+(*              If (Literal (BoolLiteral T)) *)
+(*             [(Assign (AssignLhs_Ident (VarName "foo")) *)
+(*                      (Literal (IntLiteral "4" (Primitive Int))))] *)
+(*             [(Assign (AssignLhs_Ident (VarName "foo")) *)
+(*                      (Literal (IntLiteral "2" (Primitive Int))))]]” *)
+
+(* val stmt_exp_r = EVAL “(evaluate_stmts init_state <||> ^stmt)” *)
+(*                    |> concl |> rhs |> rand; *)
+
+(* val inStream = TextIO.openIn "../tests/basic/binary_search.sexp"; *)
 (* val fileContent = TextIO.inputAll inStream; *)
 (* val _ = TextIO.closeIn inStream; *)
 (* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)
