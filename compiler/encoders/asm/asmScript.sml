@@ -123,8 +123,8 @@ Datatype:
 End
 
 Datatype:
-  memop = Load  | Load8  | Load32
-        | Store | Store8 | Store32
+  memop = Load  | Load8  | Load16  | Load32
+        | Store | Store8 | Store16 | Store32
 End
 
 Datatype:
@@ -284,7 +284,7 @@ Definition inst_ok_def:
   (inst_ok (FP x) c = fp_ok x c) /\
   (inst_ok (Mem m r1 (Addr r2 w) : 'a inst) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\
-     (if m IN {Load; Store; Load32; Store32} then
+     (if m IN {Load; Store; Load16; Store16; Load32; Store32} then
         addr_offset_ok c w
       else
         byte_offset_ok c w))
@@ -316,6 +316,7 @@ End
 Definition is_load_def[simp]:
   (is_load Load = T) ∧
   (is_load Load8 = T) ∧
+  (is_load Load16 = T) ∧
   (is_load Load32 = T) ∧
   (is_load _ = F)
 End
