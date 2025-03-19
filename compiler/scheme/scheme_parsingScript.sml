@@ -53,7 +53,7 @@ Definition read_bool_def:
       if MEM c "fF" then SOME (F, cs) else
         NONE
     else NONE) ∧
-  read_bool (_::cs) = NONE
+  read_bool _ = NONE
 End
 
 Theorem read_bool_length:
@@ -196,8 +196,8 @@ QED
 
 Definition cons_formals_def:
   cons_formals ps Nil = INR (REVERSE ps, NONE) ∧
-  cons_formals ps (Word w) = INR (REVERSE ps, SOME (strlit w)) ∧
-  cons_formals ps (Pair (Word x) y) = cons_formals (strlit x::ps) y ∧
+  cons_formals ps (Word w) = INR (REVERSE ps, SOME (implode w)) ∧
+  cons_formals ps (Pair (Word x) y) = cons_formals (implode x::ps) y ∧
   cons_formals ps _ = INL "Invalid lambda formals"
 End
 
@@ -249,7 +249,7 @@ Definition cons_ast_def:
     | Word "set!" => (case ys of
       | [Word w;y'] => do
           e <- cons_ast y';
-          return (Set (strlit w) e)
+          return (Set (implode w) e)
         od
       | _ => INL "Invalid set expression")
     | fn => do
@@ -272,7 +272,7 @@ Definition cons_ast_def:
     | [Word w;b] => do
         e <- cons_ast b;
         es <- cons_ast_bindings xs;
-        return ((strlit w, e)::es)
+        return ((implode w, e)::es)
       od
     | _ => INL "Invalid letrec binding"))
 Termination

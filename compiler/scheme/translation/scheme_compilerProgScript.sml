@@ -13,15 +13,21 @@ val _ = translation_extends "to_sexpProg";
 
 (* parsing *)
 
+val r = translate (delimits_next_def |> SRULE [MEMBER_INTRO]);
+val r = translate (read_bool_def |> SRULE [MEMBER_INTRO]);
 val r = translate read_num_def;
+val r = translate read_word_def;
 val r = translate end_line_def;
 val r = translate (lex_def |> SRULE [MEMBER_INTRO]);
 val r = translate lexer_def;
-val r = translate scheme_valuesTheory.list_def;
-val r = translate scheme_valuesTheory.name_def;
+(*val r = translate scheme_valuesTheory.list_def;*)
+(*val r = translate scheme_valuesTheory.name_def;*)
 val r = translate scheme_valuesTheory.head_def;
-val r = translate quote_def;
+(*val r = translate quote_def;*)
 val r = translate parse_def;
+val r = translate pair_to_list_def;
+val r = translate cons_formals_def;
+val r = translate cons_ast_def;
 val r = translate parse_to_ast_def;
 
 (* codegen *)
