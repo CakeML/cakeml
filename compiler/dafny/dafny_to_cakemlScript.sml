@@ -119,14 +119,6 @@ Definition strip_prefix_def:
   else NONE
 End
 
-(* TODO move this to dafny_ast? *)
-Definition is_DeclareVar_def:
-  is_DeclareVar s =
-  case s of
-  | DeclareVar _ _ _ => T
-  | _ => F
-End
-
 (* TODO? Merge is_<Con> and dest_<Con> into one def returning an option *)
 Definition is_Eq_def:
   is_Eq bop =
@@ -200,14 +192,6 @@ End
 (* TODO? Move to dafny_ast *)
 Definition dest_Name_def:
   dest_Name (Name s) = s
-End
-
-(* TODO move this to dafny_ast? *)
-Definition dest_DeclareVar_def:
-  dest_DeclareVar s =
-  case s of
-  | DeclareVar n t e_opt => return (n, t, e_opt)
-  | _ => fail "dest_DeclareVar: Not a DeclareVar"
 End
 
 (* TODO move this to result_monad? *)
@@ -552,25 +536,6 @@ Definition to_string_fun_def:
        od)
 Termination
   cheat
-End
-
-(* An independent statement must not depend on statements outside of it *)
-(* TODO Fill out cases properly; wildcard means that I did not explicitly
-   consider it yet *)
-Definition is_indep_stmt_def:
-  is_indep_stmt (s: dafny_ast$statement) =
-  case s of
-  | DeclareVar _ _ _=> F
-  | Assign _ _ => T
-  | If _ _ _ => T
-  | Labeled _ _ => T
-  | While _ _ => T
-  | Call _ _ _ _ _ => T
-  | Return _ => T
-  | EarlyReturn => T
-  | Break _ => T
-  | Print _ => T
-  | _ => F
 End
 
 Definition dest_resolvedType_def:
@@ -1183,7 +1148,7 @@ Definition from_expression_def:
        do
          (env, param, preamble) <- gen_param_preamble env params;
          param <<- if param = "" then "u" else param;
-         (_, cml_e) <- from_stmts comp T env 0 Unit body;
+         cml_e <- from_stmts comp T env 0 Unit body;
          return (Fun param (preamble cml_e))
        od
    | Apply e args =>
@@ -1329,135 +1294,122 @@ Definition from_expression_def:
           else
             fail "from_binOp (Concat): Unsupported types"
       | _ => fail "from_binOp: Unsupported bop")
-   od) ∧
-(* TODO is_<constructor> calls could maybe be replaced using monad choice *)
-(* At the moment we assume that only statements can change env *)
-(* lvl = level of the next while loop *)
-  (from_stmts (comp: expression) (is_function: bool)
-              (env: ((expression # string, type) alist))
-              (lvl: int) epilogue ([]: (dafny_ast$statement list)) =
-   return (env, Unit)) ∧
-  (from_stmts comp is_function env lvl epilogue [s] =
-   if is_indep_stmt s then
-     do
-       cml_e <- from_indep_stmt comp is_function env lvl epilogue s;
-       return (env, cml_e)
-     od
-   else
-     fail ("from_stmts: " ++
-           "Cannot convert single non-self-contained statement")) ∧
-  (from_stmts comp is_function env lvl epilogue (s1::s2::rest) =
-   if is_indep_stmt s1 then
-     do
-       e1 <- from_indep_stmt comp is_function env lvl epilogue s1;
-       (env', e2) <- from_stmts comp is_function env lvl epilogue (s2::rest);
-       return (env', (Let NONE e1 e2))
-     od
-   else if is_DeclareVar s1 then
-     do
-       (n, t, e_opt) <- dest_DeclareVar s1;
-       t <<- normalize_type t;
-       n_str <<- dest_varName n;
-       (* TODO look into when/why this is NONE *)
-       iv_e <- if e_opt = NONE then arb_value t
-               else do e <- dest_SOME e_opt; from_expression comp env e od;
-       (env', in_e) <- from_stmts comp is_function
-                                  ((local_env_name n_str, t)::env)
-                                  lvl epilogue (s2::rest);
-       return (env', cml_ref n_str iv_e in_e)
-     od
-   else
-     fail "from_stmts: Unsupported statement") ∧
-  (from_indep_stmt comp (is_function: bool) env (lvl: int) epilogue
-                   (s: dafny_ast$statement) =
-   (case s of
-    | Assign lhs e =>
-        do
-          cml_rhs <- from_expression comp env e;
-          case lhs of
-          | AssignLhs_Ident id =>
-              return (cml_ref_ass (from_varName id) cml_rhs)
-          | AssignLhs_Index e' [idx] =>
-              do
-                cml_e' <- from_expression comp env e';
-                cml_arr <<- cml_get_arr cml_e';
-                cml_idx <- from_expression comp env idx;
-                return (cml_fapp (Var (Long "Array" (Short "update")))
-                                 [cml_arr; cml_idx; cml_rhs])
-              od
-          | _ =>
-              fail "from_indep_stmt (Assign): Unsupported LHS"
-        od
-    | If cnd thn els =>
-        do
-          cml_cnd <- from_expression comp env cnd;
-          (_, cml_thn) <- from_stmts comp is_function env lvl epilogue thn;
-          (_, cml_els) <- from_stmts comp is_function env lvl epilogue els;
-          return (If cml_cnd cml_thn cml_els)
-        od
-    | Labeled lbl body =>
-        do
-          (_, cml_body) <- from_stmts comp is_function env lvl epilogue body;
-          return (add_labeled_break_handle lbl cml_body)
-        od
-    | While cnd body =>
-        do
-          cml_cnd <- from_expression comp env cnd;
-          (_, cml_body) <- from_stmts comp is_function env (lvl + 1)
-                                           epilogue body;
-          exec_iter <<- (cml_fapp (Var (Short (cml_while_name lvl))) [Unit]);
-          cml_while_def <<- (Letrec [((cml_while_name lvl), "",
+   od)
+  ∧
+  from_stmt comp (is_function: bool) env (lvl: int) epilogue stmt =
+  (case stmt of
+   | DeclareVar nam typ opt_v in_stmts =>
+       do
+         typ <<- normalize_type typ;
+         nam_str <<- dest_varName nam;
+         (* TODO Look into when/why this is NONE *)
+         init_v <- (case opt_v of
+                    | NONE => arb_value typ
+                    | SOME init_e => from_expression comp env init_e);
+         env' <<- ((local_env_name nam_str, typ)::env);
+         in_e <- from_stmts comp is_function env' lvl epilogue in_stmts;
+         return (cml_ref nam_str init_v in_e)
+       od
+   | Assign lhs e =>
+       do
+         cml_rhs <- from_expression comp env e;
+         case lhs of
+         | AssignLhs_Ident id =>
+             return (cml_ref_ass (from_varName id) cml_rhs)
+         | AssignLhs_Index e' [idx] =>
+             do
+               cml_e' <- from_expression comp env e';
+               cml_arr <<- cml_get_arr cml_e';
+               cml_idx <- from_expression comp env idx;
+               return (cml_fapp (Var (Long "Array" (Short "update")))
+                                [cml_arr; cml_idx; cml_rhs])
+             od
+         | _ =>
+             fail "from_stmt (Assign): Unsupported LHS"
+       od
+   | If cnd thn els =>
+       do
+         cml_cnd <- from_expression comp env cnd;
+         cml_thn <- from_stmts comp is_function env lvl epilogue thn;
+         cml_els <- from_stmts comp is_function env lvl epilogue els;
+         return (If cml_cnd cml_thn cml_els)
+       od
+   | Labeled lbl body =>
+       do
+         cml_body <- from_stmts comp is_function env lvl epilogue body;
+         return (add_labeled_break_handle lbl cml_body)
+       od
+   | While cnd body =>
+       do
+         cml_cnd <- from_expression comp env cnd;
+         cml_body <- from_stmts comp is_function env (lvl + 1)
+                                     epilogue body;
+         exec_iter <<- (cml_fapp (Var (Short (cml_while_name lvl))) [Unit]);
+         cml_while_def <<- (Letrec [((cml_while_name lvl), "",
                                      If (cml_cnd)
                                         (Let NONE cml_body exec_iter) (Unit))]
-                                    (add_break_handle exec_iter));
-          return cml_while_def
-        od
-    | Call on call_nam typeArgs args outs =>
-        do
-          if typeArgs ≠ [] then
-            fail "from_indep_stmt: (Call) type arguments currently unsupported"
-          else
-            do
-              fun_name <- gen_call_name comp on call_nam;
-              cml_param_args <- map_from_expression comp env args;
-              cml_out_args <- (case outs of
-                               | NONE => return []
-                               | SOME outs =>
-                                   return (MAP from_varName outs));
-              return (cml_fapp (Var fun_name) (cml_param_args ++ cml_out_args))
-            od
-        od
-    | Return e =>
-        do
-          if ¬is_function then
-            fail ("from_indep_stmt: Assumption that Return does not occur in " ++
-                  "methods was violated")
-          else
-            from_expression comp env e
-        od
-    | EarlyReturn =>
-        if is_function then
-          fail ("from_indep_stmt: Assumption that EarlyReturn does not occur in " ++
-                "functions was violated")
-        else
-          return epilogue
-    (* TODO Check if we can better test this case
-     * It seems that only non-deterministic while loops make use of this, while
-       other break statements are transformed into labeled ones. *)
-    | Break NONE =>
-        return raise_break
-    | Break (SOME lbl) =>
-        return (raise_labeled_break lbl)
-    | Print e =>
-        do
-          e_t <- dafny_type_of env e;
-          cml_e_to_string <- to_string_fun F e_t;
-          cml_e <- from_expression comp env e;
-          cml_e_string <<- cml_fapp cml_e_to_string [cml_e];
-          return (cml_fapp (Var (Short "print")) [cml_e_string])
-        od
-    | _ => fail ("from_indep_stmt_def: Unsupported or " ++
-                 "not independent statement")))
+                                   (add_break_handle exec_iter));
+         return cml_while_def
+       od
+   | Call on call_nam typeArgs args outs =>
+       do
+         if typeArgs ≠ [] then
+           fail "from_stmt: (Call) type arguments currently unsupported"
+         else
+           do
+             fun_name <- gen_call_name comp on call_nam;
+             cml_param_args <- map_from_expression comp env args;
+             cml_out_args <<- (case outs of
+                              | NONE => []
+                              | SOME outs => MAP from_varName outs);
+             return (cml_fapp (Var fun_name) (cml_param_args ++ cml_out_args))
+           od
+       od
+   | Return e =>
+       do
+         if ¬is_function then
+           fail "from_stmt: Assumption that Return does not occur in \
+                \methods was violated"
+         else
+           from_expression comp env e
+       od
+   | EarlyReturn =>
+       if is_function then
+         fail "from_stmt: Assumption that EarlyReturn does not occur in \
+              \functions was violated"
+       else
+         return epilogue
+   (* TODO Check if we can better test this case *)
+   (*  * It seems that only non-deterministic while loops make use of this, while *)
+   (*  other break statements are transformed into labeled ones. *)
+   | Break NONE =>
+       return raise_break
+   | Break (SOME lbl) =>
+       return (raise_labeled_break lbl)
+   | Print e =>
+       do
+         e_t <- dafny_type_of env e;
+         cml_e_to_string <- to_string_fun F e_t;
+         cml_e <- from_expression comp env e;
+         cml_e_string <<- cml_fapp cml_e_to_string [cml_e];
+         return (cml_fapp (Var (Short "print")) [cml_e_string])
+       od
+   | _ => fail "from_stmt: Unsupported statement")
+  ∧
+  from_stmts (comp: expression) (is_function: bool)
+              (env: ((expression # string, type) alist))
+              (lvl: int) epilogue ([]: (dafny_ast$statement list)) =
+  (return Unit)
+  ∧
+  from_stmts comp is_function env lvl epilogue [stmt] =
+  (from_stmt comp is_function env lvl epilogue stmt)
+  ∧
+  from_stmts comp is_function env lvl epilogue (stmt::(stmt'::stmts)) =
+  do
+    e1 <- from_stmt comp is_function env lvl epilogue stmt;
+    e2 <- from_stmts comp is_function env lvl epilogue (stmt'::stmts);
+    return (Let NONE e1 e2)
+  od
 Termination
   cheat
 End
@@ -1465,7 +1417,7 @@ End
 Definition process_function_body_def:
   process_function_body comp env preamble stmts =
    do
-     (env, cml_body) <- from_stmts comp T env 0 Unit stmts;
+     cml_body <- from_stmts comp T env 0 Unit stmts;
      return (preamble cml_body)
    od
 End
@@ -1473,7 +1425,7 @@ End
 Definition process_method_body_def:
   process_method_body comp env preamble epilogue body =
   do
-    (_, cml_body) <- from_stmts comp F env 0 epilogue body;
+    cml_body <- from_stmts comp F env 0 epilogue body;
     cml_body <<- (Handle cml_body
                    [Pcon (SOME (Long "Dafny" (Short "Return"))) [], Unit]);
     return (preamble cml_body)
@@ -1674,7 +1626,7 @@ End
 (* (* val _ = astPP.disable_astPP(); *) *)
 (* val _ = astPP.enable_astPP(); *)
 
-(* val inStream = TextIO.openIn "/home/daniel/dfy-in-cml/scratchpad/string_concat.dfy.sexp" *)
+(* val inStream = TextIO.openIn "./tests/output/multiple_out_values.dfy.sexp" *)
 (* val fileContent = TextIO.inputAll inStream; *)
 (* val _ = TextIO.closeIn inStream; *)
 (* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)

@@ -294,23 +294,24 @@ Definition evaluate_stmt_ann_def[nocompute]:
   (*        (st with cout := st.cout ++ (value_to_string v), Rret UnitV) *)
   (*    | r => r) *)
   (* ∧ *)
-  evaluate_stmt st env (DeclareVar varNam _ (SOME e)) =
+  (* TODO Should we combine the DeclareVar cases? *)
+  evaluate_stmt st env (DeclareVar varNam _ (SOME e) in_stmts) =
   (let varNam = dest_varName varNam in
      (case evaluate_exp st env e of
       | (st', Rval v) =>
           (case add_local st' varNam v of
            | NONE => (st', Rerr Rtype_error)
-           | SOME st'' => (st'', Rval UnitV))
+           | SOME st'' => evaluate_stmts st'' env in_stmts)
       | r => r))
   ∧
-  evaluate_stmt st env (DeclareVar varNam t NONE) =
+  evaluate_stmt st env (DeclareVar varNam t NONE in_stmts) =
   (let varNam = dest_varName varNam in
      (case init_val t of
       | NONE => (st, Rerr Runsupported)
       | SOME v =>
              (case add_local st varNam v of
               | NONE => (st, Rerr Rtype_error)
-              | SOME st' => (st', Rval UnitV))))
+              | SOME st' => evaluate_stmts st' env in_stmts)))
   ∧
   evaluate_stmt st env (Assign (AssignLhs_Ident varNam) e) =
   (let varNam = dest_varName varNam in
@@ -369,7 +370,8 @@ Termination
                        (s.clock, list_size statement_size stmts))’ >> rw[]
   >> imp_res_tac evaluate_exp_clock
   >> imp_res_tac fix_clock_IMP
-  >> gvs[dec_clock_def, AllCaseEqs(), assignLhs_size_eq, do_if_def]
+  >> gvs [dec_clock_def, AllCaseEqs(), assignLhs_size_eq, do_if_def,
+          add_local_def]
 End
 
 Theorem evaluate_stmt_clock:
@@ -419,15 +421,16 @@ End
 (* val eval_exp_r = EVAL “(evaluate_exp init_state <||> ^exp)” *)
 (*                    |> concl |> rhs |> rand; *)
 
-(* val stmt = “[DeclareVar (VarName "foo") (Primitive Int) NONE; *)
-(*              If (Literal (BoolLiteral T)) *)
-(*             [(Assign (AssignLhs_Ident (VarName "foo")) *)
-(*                      (Literal (IntLiteral "4" (Primitive Int))))] *)
-(*             [(Assign (AssignLhs_Ident (VarName "foo")) *)
-(*                      (Literal (IntLiteral "2" (Primitive Int))))]]” *)
+(* val stmt = “[DeclareVar (VarName "foo") (Primitive Int) *)
+(*                         (SOME (Literal (IntLiteral "999" (Primitive Int)))) *)
+(*                         [If (Literal (BoolLiteral F)) *)
+(*                             [(Assign (AssignLhs_Ident (VarName "foo")) *)
+(*                                      (Literal (IntLiteral "4" (Primitive Int))))] *)
+(*                             [(Assign (AssignLhs_Ident (VarName "foo")) *)
+(*                                      (Literal (IntLiteral "2" (Primitive Int))))]]]” *)
 
 (* val stmt_exp_r = EVAL “(evaluate_stmts init_state <||> ^stmt)” *)
-(*                    |> concl |> rhs |> rand; *)
+(*                    |> concl |> rhs; *)
 
 (* val inStream = TextIO.openIn "../tests/basic/binary_search.sexp"; *)
 (* val fileContent = TextIO.inputAll inStream; *)

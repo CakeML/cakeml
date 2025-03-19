@@ -1179,16 +1179,8 @@ Definition sexp_statement_def:
   (sexp_statement se =
    do
      (ss, args) <- dstrip_sexp se;
-     if (ss = "Statement.DeclareVar" ∧ LENGTH args = 3) then
-       do
-         n <- sexp_varName (EL 0 args);
-         typ <- sexp_type (EL 1 args);
-         (* TODO Extract this pattern opt <- ... out? *)
-         opt <- sxsym_to_opt (EL 2 args);
-         expr <- opt_sexp_expression opt;
-         return (DeclareVar n typ expr)
-       od
-     else if (ss = "Statement.Assign" ∧ LENGTH args = 2) then
+     (* NOTE: Statement.DeclareVar is handled in map_sexp_statement *)
+     if (ss = "Statement.Assign" ∧ LENGTH args = 2) then
        do
          assLhs <- sexp_assignLhs (EL 0 args);
          expr <- sexp_expression (EL 1 args);
@@ -1272,17 +1264,33 @@ Definition sexp_statement_def:
          return (ConstructorNewSeparator fields)
        od
      else fail
-   od
-  ) ∧
-  (map_sexp_statement ses =
-   case ses of
-   | [] => return []
-   | (se::rest) =>
-       do
-         fse <- sexp_statement se;
-         frest <- map_sexp_statement rest;
-         return (fse::frest)
-       od)
+   od)
+  ∧
+  map_sexp_statement ses =
+  (case ses of
+     | [] => return []
+     | (se::rest) =>
+         do
+           frest <- map_sexp_statement rest;
+           (* If 'se' is DeclareVar, we deviate from Dafny's definition of the
+              IR and add the block where the declaration is visible to it. *)
+           (ss, args) <- dstrip_sexp se;
+           if (ss = "Statement.DeclareVar" ∧ LENGTH args = 3) then
+             do
+               n <- sexp_varName (EL 0 args);
+               typ <- sexp_type (EL 1 args);
+               (* TODO Extract this pattern opt <- ... out? *)
+               opt <- sxsym_to_opt (EL 2 args);
+               expr <- opt_sexp_expression opt;
+               return [(DeclareVar n typ expr frest)]
+             od
+             (* 'se' is not DeclareVar, so handle it like a normal statement. *)
+           else
+             do
+               fse <- sexp_statement se;
+               return (fse::frest)
+             od
+         od)
 Termination
   cheat
   (* may be outdated; double check *)
@@ -1318,7 +1326,8 @@ Definition sexp_method_def:
     typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 8 args);
     params <- opt_mmap_sexp_list sexp_formal (EL 9 args);
     inheritedParams <- opt_mmap_sexp_list sexp_formal (EL 10 args);
-    body <- opt_mmap_sexp_list sexp_statement (EL 11 args);
+    arg11_list <- strip_sxcons (EL 11 args);
+    body <- map_sexp_statement arg11_list;
     outTypes <- opt_mmap_sexp_list sexp_type (EL 12 args);
     opt <- sxsym_to_opt (EL 13 args);
     outVars <<- monad_bind opt (opt_mmap_sexp_list sexp_varName);
@@ -1378,7 +1387,8 @@ Definition sexp_newtypeConstraint_def:
     (ss, args) <- dstrip_sexp se;
     assert (ss = "NewtypeConstraint.NewtypeConstraint" ∧ LENGTH args = 2);
     vrbl <- sexp_formal (EL 0 args);
-    constraintStmts <- opt_mmap_sexp_list sexp_statement (EL 1 args);
+    arg1_list <- strip_sxcons (EL 1 args);
+    constraintStmts <- map_sexp_statement arg1_list;
     return (NewtypeConstraint vrbl constraintStmts)
   od
 End
@@ -1395,7 +1405,8 @@ Definition sexp_newtype_def:
     rnge <- sexp_newtypeRange (EL 4 args);
     opt <- sxsym_to_opt (EL 5 args);
     cnstrnt <<- monad_bind opt sexp_newtypeConstraint;
-    witnessStmts <- opt_mmap_sexp_list sexp_statement (EL 6 args);
+    arg6_list <- strip_sxcons (EL 6 args);
+    witnessStmts <- map_sexp_statement arg6_list;
     opt <- sxsym_to_opt (EL 7 args);
     witnessExpr <<- monad_bind opt sexp_expression;
     eqSup <- sexp_equalitySupport (EL 8 args);
@@ -1461,7 +1472,8 @@ Definition sexp_synonymType_def:
     (* Skip docString at second position *)
     typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 2 args);
     base <- sexp_type (EL 3 args);
-    witnessStmts <- opt_mmap_sexp_list sexp_statement (EL 4 args);
+    arg4_list <- strip_sxcons (EL 4 args);
+    witnessStmts <- map_sexp_statement arg4_list;
     opt <- sxsym_to_opt (EL 5 args);
     witnessExpr <<- monad_bind opt sexp_expression;
     attrs <- opt_mmap_sexp_list sexp_attribute (EL 6 args);
@@ -1566,7 +1578,7 @@ End
 (* open fromSexpTheory simpleSexpParseTheory *)
 (* open TextIO *)
 
-(* val inStream = TextIO.openIn "./tests/dafny/firstSteps/3_Calls-As.sexp"; *)
+(* val inStream = TextIO.openIn "./tests/output/3_Calls-As.dfy.sexp"; *)
 (* val fileContent = TextIO.inputAll inStream; *)
 (* val _ = TextIO.closeIn inStream; *)
 (* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)

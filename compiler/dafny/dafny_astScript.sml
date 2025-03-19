@@ -343,7 +343,10 @@ Datatype:
   | Quantifier type expression bool expression ;
 
   statement =
-  | DeclareVar varName type (expression option)
+  (* NOTE: We deviate from Dafny's definition of the IR to make
+       compilation and semantics easier by adding ‘in’. *)
+  (* DeclareVar name typ maybeValue in *)
+  | DeclareVar varName type (expression option) (statement list)
   | Assign assignLhs expression
   (* If cond thn els *)
   | If expression (statement list) (statement list)
