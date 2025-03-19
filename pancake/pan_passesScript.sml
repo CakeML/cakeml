@@ -19,7 +19,7 @@ Datatype:
 End
 
 Definition pan_to_target_all_def:
-  pan_to_target_all (c:'a config) prog =
+  pan_to_target_all asm_conf (c:config) prog =
     let
       prog0 = case SPLITP (λ(n,e,p,b). n = «main») prog of
               | ([],ys) => ys
@@ -38,7 +38,7 @@ Definition pan_to_target_all_def:
           ps = ps ++ [(«after crep_arith»,Crep prog_b)];
           fnums = GENLIST (λn. n + first_name) (LENGTH prog_b);
           funcs = make_funcs prog_b;
-          target = c.lab_conf.asm_conf.ISA;
+          target = asm_conf.ISA;
           comp = comp_func target funcs;
           prog_b1 = MAP2 (λn (name,params,body).
                       (n,(GENLIST I ∘ LENGTH) params, comp params body)) fnums prog_b;
@@ -54,7 +54,7 @@ Definition pan_to_target_all_def:
           ps = ps ++ [(«after loop_remove»,Loop prog_c1 names)];
           ps = ps ++ [(«after loop_to_word»,Cake (Word prog2 names))];
           c = c with exported := MAP FST (FILTER (FST ∘ SND) prog);
-          (ps1,out) = from_word_0_all [] c names prog2
+          (ps1,out) = from_word_0_all [] asm_conf c names prog2
         in
           (ps ++ MAP (λ(n,p). (n,Cake p)) ps1,out)
 End
@@ -85,7 +85,7 @@ Proof
 QED
 
 Theorem compile_prog_eq_pan_to_target_all:
-  compile_prog c p = SND (pan_to_target_all c p)
+  compile_prog asm_conf c p = SND (pan_to_target_all asm_conf c p)
 Proof
   gvs [compile_prog_eq,pan_to_target_all_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac ‘NULL prog’
@@ -587,15 +587,15 @@ Definition any_pan_prog_pp_def:
 End
 
 Definition pan_compile_tap_def:
-  pan_compile_tap (c:'a config) p =
+  pan_compile_tap asm_conf (c:config) p =
     if c.tap_conf.explore_flag then
-      let (ps,out) = pan_to_target_all c p in
+      let (ps,out) = pan_to_target_all asm_conf c p in
         (out, FOLDR (pp_with_title any_pan_prog_pp) Nil ps)
-    else (compile_prog c p, Nil)
+    else (compile_prog asm_conf c p, Nil)
 End
 
 Theorem compile_alt:
-  compile_prog c p = FST (pan_compile_tap c p)
+  compile_prog asm_conf c p = FST (pan_compile_tap asm_conf c p)
 Proof
   rw [pan_compile_tap_def]
   \\ mp_tac compile_prog_eq_pan_to_target_all
