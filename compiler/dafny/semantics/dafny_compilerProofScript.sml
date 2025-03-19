@@ -112,17 +112,20 @@ Proof
           >~ [‘Plus’]
           >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
               >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
+              >> Cases_on ‘vl’ >> Cases_on ‘vr’
+              >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval]
               >> gvs [evaluate_def, do_app_def, opn_lookup_def])
           >~ [‘Minus’]
           >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
               >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
+              >> Cases_on ‘vl’ >> Cases_on ‘vr’
+              >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval]
               >> gvs [evaluate_def, do_app_def, opn_lookup_def])
           >~ [‘Times’]
           >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
               >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
+              >> Cases_on ‘vl’ >> Cases_on ‘vr’
+              >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval]
               >> gvs [evaluate_def, do_app_def, opn_lookup_def])
           >~ [‘And’]
           >- (Cases_on ‘vl’ >> gvs [do_lop_def]

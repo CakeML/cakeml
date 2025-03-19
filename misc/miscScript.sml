@@ -2262,13 +2262,6 @@ Proof
   srw_tac[][] >> metis_tac[]
 QED
 
-Theorem pair_case_eq:
- pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
-Proof
- Cases_on `x` >>
- srw_tac[][]
-QED
-
 Theorem lookup_fromList2:
    !l n. lookup n (fromList2 l) =
           if EVEN n then lookup (n DIV 2) (fromList l) else NONE
@@ -4124,16 +4117,6 @@ Theorem TWOxDIV2:
 Proof
   ONCE_REWRITE_TAC[MULT_COMM]
   \\ simp[MULT_DIV]
-QED
-
-Theorem alist_insert_pull_insert:
-   ∀xs ys z. ¬MEM x xs ⇒
-   alist_insert xs ys (insert x y z) =
-   insert x y (alist_insert xs ys z)
-Proof
-  ho_match_mp_tac alist_insert_ind
-  \\ simp[alist_insert_def] \\ rw[] \\ fs[]
-  \\ metis_tac[insert_swap]
 QED
 
 Theorem alist_insert_REVERSE:
