@@ -705,26 +705,36 @@ Definition conv_expos_def:
     | _ => NONE
 End
 
+Definition conv_inline_def:
+  conv_inline tree =
+    case destTOK ' (destLf tree) of
+      SOME (KeywordT InlineK) => SOME T
+    | SOME (NoninlineT) => SOME F
+    | _ => NONE
+End
+
 Definition conv_Fun_def:
   conv_Fun tree =
   case argsNT tree FunNT of
-    SOME [e;n;ps] =>
+    SOME [i;e;n;ps] =>
       (case (argsNT ps ParamListNT) of
          SOME args =>
            (do ps'  <- conv_params args;
                n'   <- conv_ident n;
                e'   <- conv_expos e;
-               SOME (n', e', ps', Skip)
+               i'   <- conv_inline i;
+               SOME (n', i', e', ps', Skip)
             od)
        | _ => NONE)
-  | SOME [e;n;ps;c] =>
+  | SOME [i;e;n;ps;c] =>
       (case (argsNT ps ParamListNT) of
          SOME args =>
            (do ps'  <- conv_params args;
                body <- conv_Prog c;
                n'   <- conv_ident n;
                e'   <- conv_expos e;
-               SOME (n', e', ps', body)
+               i'   <- conv_inline i;
+               SOME (n', i', e', ps', body)
             od)
        | _ => NONE)
   | _ => NONE
