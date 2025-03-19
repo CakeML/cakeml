@@ -210,7 +210,7 @@ Definition cons_ast_def:
     if w = "*" then INR (Val (Prim SMul)) else
     if w = "eqv?" then INR (Val (Prim SEqv)) else
     if w = "callcc" then INR (Val (Prim CallCC)) else
-      INR (Ident (strlit w))) ∧
+      INR (Ident (implode w))) ∧
   cons_ast Nil = INL "Empty S expression" ∧
   cons_ast (Pair x y) = (case pair_to_list y of
   | NONE => INL "Invalid S expression"
