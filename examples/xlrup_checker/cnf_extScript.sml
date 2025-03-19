@@ -5,11 +5,8 @@ open preamble miscTheory mlstringTheory mlintTheory;
 
 val _ = new_theory "cnf_ext";
 
-(*
-  The goal of this file is to provide a surface syntax and semantics that
-  closely resembles the informal meaning of CNF DIMACS files (or its extended
-  variants)
-*)
+(* The goal of this file is to provide a surface syntax and semantics that
+closely resembles the meaning of CNF DIMACS files (or its extended variants) *)
 
 Datatype:
   lit = Pos num | Neg num
@@ -43,13 +40,14 @@ Definition sat_cmsxor_def:
     ODD (SUM (MAP (of_bool o sat_lit w) C))
 End
 
-(* BNN constraints are a list of literals, an RHS k and a literal y.
-  The constraint is satisfied iff y reifies the at-least-k constraint *)
-Type cmsbnn = ``:lit list # num # lit``;
+(* BNN constraints are a list of literals, an RHS k and an optional literal y.
+  The constraint is satisfied iff y reifies the at-least-k constraint.
+  The option defaults to true if not present *)
+Type cmsbnn = ``:lit list # num # lit option``;
 
 Definition sat_cmsbnn_def:
-  sat_cmsbnn w ((C, k, y):cmsbnn) =
-    (sat_lit w y ⇔ (SUM (MAP (of_bool o sat_lit w) C) ≥ k))
+  sat_cmsbnn w ((C, k, oy):cmsbnn) =
+    (OPTION_ALL (sat_lit w) oy ⇔ (SUM (MAP (of_bool o sat_lit w) C) ≥ k))
 End
 
 (***
@@ -151,13 +149,20 @@ Definition parse_xor_def:
   | _ => NONE
 End
 
-(* parses the tail part of the BNN constraint "k y 0" *)
+(* parses the tail part of the BNN constraint "k y 0" or "k 0" *)
 Definition parse_bnn_tail_def:
   (parse_bnn_tail ls =
-  case ls of [INR k; INR y; INR n] =>
+  case ls of
+  | [INR k; INR y; INR n] =>
     if k ≥ 0i ∧ y ≠ 0 ∧ n = 0i
     then
-      SOME (Num k, mk_lit y)
+      SOME (Num k, SOME (mk_lit y))
+    else
+      NONE
+  | [INR k; INR n] =>
+    if k ≥ 0i ∧ n = 0i
+    then
+      SOME (Num k, NONE)
     else
       NONE
   | _ => NONE)
@@ -171,9 +176,9 @@ Definition parse_bnn_def:
       NONE => NONE
     | SOME (ls,xs) =>
       (case parse_bnn_tail xs of NONE => NONE
-      |  SOME (k,y) =>
-        if check_maxvar maxvar (y::ls) then
-          SOME (ls,k,y)
+      |  SOME (k,oy) =>
+        if OPTION_ALL (λy. var_lit y ≤ maxvar) oy ∧ check_maxvar maxvar ls then
+          SOME (ls,k,oy)
         else NONE
       ))
   | _ => NONE
@@ -260,7 +265,7 @@ End
 
 val cnf_ext_raw = ``[
   strlit "c this is a comment";
-  strlit "p cnf 15 10 ";
+  strlit "p cnf 15 11 ";
   strlit "    1  4 0";
   strlit "x1  -5 0";
   strlit "c this is a comment";
@@ -271,6 +276,7 @@ val cnf_ext_raw = ``[
   strlit "-1 -2 -3 0";
   strlit "b 1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 11 0";
   strlit "b1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 -11 0";
+  strlit "b1 -2 -3 -4 -5 6 -7 -8 -9 -10 11 -12 13 -14 -15 0 55 0";
   strlit "c this is a comment";
   strlit "   -4 -5 0";
   ]``;
@@ -298,9 +304,15 @@ Definition print_xor_def:
   print_xor xs = strlit"x " ^ print_lits (#"\n") xs
 End
 
+Definition print_opt_lit_def:
+  print_opt_lit oy = case oy of NONE => strlit "" | SOME y => print_lit y
+End
+
 Definition print_tail_def:
-  print_tail (k:num) (y:lit) =
-  toString k ^ strlit " " ^ print_lit y ^ strlit " 0\n"
+  print_tail (k:num) (oy:lit option) =
+  toString k ^ strlit " " ^
+  case oy of NONE => strlit "0\n"
+  | SOME y => print_lit y ^ strlit " 0\n"
 End
 
 Definition print_bnn_def:
@@ -317,9 +329,13 @@ Definition max_list_def:
   (max_list k (x::xs) = max_list (MAX k x) xs)
 End
 
+Definition max_var_opt_def:
+  max_var_opt oy = case oy of NONE => 0n | SOME y => var_lit y
+End
+
 Definition max_var_bnn_def:
-  max_var_bnn (ls,k,y) =
-    max_list (var_lit y) (MAP var_lit ls)
+  max_var_bnn (ls,k,oy) =
+    max_list (max_var_opt oy) (MAP var_lit ls)
 End
 
 Definition print_cnf_ext_def:
@@ -513,35 +529,37 @@ Proof
 QED
 
 Theorem parse_bnn_tail_print_tail:
-  nz_lit y ⇒
-  parse_bnn_tail (toks (print_tail k y)) = SOME (k,y)
+  OPTION_ALL nz_lit oy ⇒
+  parse_bnn_tail (toks (print_tail k oy)) = SOME (k,oy)
 Proof
   rw[print_tail_def,toks_def]>>
   `« 0\n» = str #" " ^ strlit"0\n"` by EVAL_TAC>>
   `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>
-  simp[tokens_blanks_toString,tokens_blanks_print_lit]>>
+  simp[tokens_blanks_toString]>>
   `MAP tokenize (tokens blanks «0\n») = [INR 0]` by
     EVAL_TAC>>
-  simp[parse_bnn_tail_def]>>
+  Cases_on`oy`>>simp[parse_bnn_tail_def]>>
   rw[]
   >- intLib.ARITH_TAC>>
-  Cases_on`y`>>rw[mk_lit_def]>>gvs[]>>
+  simp[tokens_blanks_print_lit]>>
+  Cases_on`x`>>rw[mk_lit_def]>>gvs[]>>
+  rw[]>>
   intLib.ARITH_TAC
 QED
 
 Theorem parse_bnn_print_bnn:
-  nz_lit y ∧ var_lit y ≤ maxvar ∧
+  OPTION_ALL nz_lit oy ∧ OPTION_ALL (\y. var_lit y ≤ maxvar) oy ∧
   EVERY nz_lit ls ∧ EVERY (λl. var_lit l ≤ maxvar) ls
   ⇒
-  parse_bnn maxvar (toks (print_bnn (ls,k,y))) = SOME (ls,k,y)
+  parse_bnn maxvar (toks (print_bnn (ls,k,oy))) = SOME (ls,k,oy)
 Proof
   rw[parse_bnn_def,print_bnn_def]>>
   PURE_REWRITE_TAC[GSYM strcat_assoc]>>
   DEP_REWRITE_TAC[fix_hd_toks]>>
   CONJ_TAC >- EVAL_TAC>>
   drule parse_lits_aux_print_lits>>
-  disch_then (qspecl_then[`print_tail k y`,`#" "`,`[]`] mp_tac)>>
+  disch_then (qspecl_then[`print_tail k oy`,`#" "`,`[]`] mp_tac)>>
   simp[parse_bnn_tail_print_tail]>>
   rw[check_maxvar_def]
 QED
@@ -711,9 +729,9 @@ QED
 
 Theorem parse_body_MAP_print_bnn:
   ∀cs bacc cacc xacc.
-  EVERY (λ(ls,k,y).
-    nz_lit y ∧
-    var_lit y ≤ maxvar ∧
+  EVERY (λ(ls,k,oy).
+    OPTION_ALL nz_lit oy ∧
+    OPTION_ALL (\y. var_lit y ≤ maxvar) oy ∧
     EVERY nz_lit ls ∧
     EVERY (λl. var_lit l ≤ maxvar) ls
     ) cs
@@ -758,7 +776,7 @@ QED
 Theorem parse_cnf_ext_toks_print_cnf_ext_toks:
   EVERY (EVERY nz_lit) cs ∧
   EVERY (EVERY nz_lit) xs ∧
-  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bs
+  EVERY (λ(ls,k,oy). OPTION_ALL nz_lit oy ∧ EVERY nz_lit ls) bs
   ⇒
   ∃mv cl.
   parse_cnf_ext_toks (MAP toks (print_cnf_ext (cs,xs,bs))) =
@@ -817,13 +835,14 @@ Proof
     fs[EVERY_MEM,PULL_FORALL,AND_IMP_INTRO]>>rw[]>>
     first_x_assum drule>>
     pairarg_tac>>simp[Abbr`a`]>>rw[]>>
+    TRY(Cases_on`oy`>>simp[])>>
     irule le_max_list>>
     simp[MEM_MAP,PULL_EXISTS,SF DNF_ss]>>
     DISJ2_TAC>>DISJ2_TAC>>
     irule le_max_list>>
     simp[MEM_MAP,PULL_EXISTS]>>
     first_x_assum (irule_at Any)>>
-    simp[max_var_bnn_def]
+    simp[max_var_bnn_def,max_var_opt_def]
     >-
       metis_tac[max_list_max]>>
     irule_at Any le_max_list>>
@@ -835,7 +854,7 @@ QED
 Theorem parse_cnf_ext_print_cnf_ext:
   EVERY (EVERY nz_lit) cs ∧
   EVERY (EVERY nz_lit) xs ∧
-  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bs
+  EVERY (λ(ls,k,oy). OPTION_ALL nz_lit oy ∧ EVERY nz_lit ls) bs
   ⇒
   parse_cnf_ext (print_cnf_ext (cs,xs,bs)) = SOME (cs,xs,bs)
 Proof
@@ -862,7 +881,7 @@ Theorem parse_line_nz_lit:
   case parse_line v h of
     SOME (Clause c) => EVERY nz_lit c
   | SOME (Cmsxor x) => EVERY nz_lit x
-  | SOME (Cmsbnn (ls,k,y)) => nz_lit y ∧ EVERY nz_lit ls
+  | SOME (Cmsbnn (ls,k,oy)) => OPTION_ALL nz_lit oy ∧ EVERY nz_lit ls
   | _ => T
 Proof
   rw[parse_line_def]>>
@@ -890,10 +909,10 @@ Theorem parse_body_nz_lit:
   parse_body v ss cacc xacc bacc = SOME (cs,xs,bs) ∧
   EVERY (EVERY nz_lit) cacc ∧
   EVERY (EVERY nz_lit) xacc ∧
-  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bacc ⇒
+  EVERY (λ(ls,k,oy). OPTION_ALL nz_lit oy ∧ EVERY nz_lit ls) bacc ⇒
   EVERY (EVERY nz_lit) cs ∧
   EVERY (EVERY nz_lit) xs ∧
-  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bs
+  EVERY (λ(ls,k,oy). OPTION_ALL nz_lit oy ∧ EVERY nz_lit ls) bs
 Proof
   Induct >- (
     rw[parse_body_def]>>
@@ -911,7 +930,7 @@ Theorem parse_cnf_ext_toks_nz_lit:
   parse_cnf_ext_toks tokss = SOME (v,n,cs,xs,bs) ⇒
   EVERY (EVERY nz_lit) cs ∧
   EVERY (EVERY nz_lit) xs ∧
-  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bs
+  EVERY (λ(ls,k,oy). OPTION_ALL nz_lit oy ∧ EVERY nz_lit ls) bs
 Proof
   rw[parse_cnf_ext_toks_def]>>
   gvs[AllCaseEqs()]>>
@@ -922,7 +941,7 @@ Theorem parse_cnf_ext_nz_lit:
   parse_cnf_ext ls = SOME (cs,xs,bs) ⇒
   EVERY (EVERY nz_lit) cs ∧
   EVERY (EVERY nz_lit) xs ∧
-  EVERY (λ(ls,k,y). nz_lit y ∧ EVERY nz_lit ls) bs
+  EVERY (λ(ls,k,oy). OPTION_ALL nz_lit oy ∧ EVERY nz_lit ls) bs
 Proof
   strip_tac>>gvs[parse_cnf_ext_def,AllCaseEqs()]>>
   metis_tac[parse_cnf_ext_toks_nz_lit]
