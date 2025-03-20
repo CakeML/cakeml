@@ -19,7 +19,7 @@ Definition to_ml_vals_def:
   | CallCC => Con (SOME $ Short "CallCC") []] ∧
   to_ml_vals (SNum n) = Con (SOME $ Short "SNum") [Lit $ IntLit n] ∧
   to_ml_vals (SBool b) = Con (SOME $ Short "SBool") [Con (SOME $ Short 
-    if b then "False" else "True") []]
+    if b then "True" else "False") []]
 End
 
 Definition cons_list_def:
