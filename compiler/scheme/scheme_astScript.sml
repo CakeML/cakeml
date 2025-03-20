@@ -26,8 +26,8 @@ Datatype:
        | BeginK (exp list)
        | SetK mlstring
 ;
-  exp = Print mlstring
-      | Apply exp (exp list)
+  exp = (*Print mlstring
+      |*) Apply exp (exp list)
       | Val val
       | Cond exp exp exp
       | Ident mlstring
