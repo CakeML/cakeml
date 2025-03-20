@@ -18,6 +18,8 @@ val _ = new_theory "dafny_to_cakeml";
 (* TODO Instead of keeping track of types manually, maybe we can add them
    in the upstream Dafny AST *)
 
+(* TODO Separately check whether a feature is supported or not? *)
+
 (* Defines the Dafny module containing the Dafny runtime *)
 Quote dafny_module = process_topdecs:
   structure Dafny =
@@ -258,6 +260,10 @@ End
 
 (* TODO Find better way to generate internal names *)
 
+Definition return_ref_name_def:
+  return_ref_name = "_CML_return"
+End
+
 Definition varN_from_formal_def:
   varN_from_formal (Formal n _ attrs) =
   if attrs ≠ [] then
@@ -276,17 +282,6 @@ End
 
 Definition internal_varN_from_varName_def:
   internal_varN_from_varName (VarName n) = (n ++ "_CML_out_ref")
-End
-
-(* Declares additional parameters using Fun x => ... *)
-Definition fun_from_params_def:
-  (fun_from_params preamble [] = return preamble) ∧
-  (fun_from_params preamble (fo::rest) =
-   do
-     param_name <- internal_varN_from_formal fo;
-     preamble <<- (λx. preamble (Fun param_name x));
-     fun_from_params preamble rest
-   od)
 End
 
 Definition local_env_name_def:
@@ -353,6 +348,13 @@ Definition cml_tuple_to_string_list_def:
              [Pcon NONE field_pvars, string_list])
 End
 
+Definition cml_option_def:
+  cml_option (opt: exp option) : exp =
+  (case opt of
+   | NONE => None
+   | SOME cml_e => Some cml_e)
+End
+
 Definition raise_return_def:
   raise_return = Raise (Con (SOME (Long "Dafny" (Short "Return"))) [])
 End
@@ -389,18 +391,6 @@ Definition cml_get_arr_def:
   cml_get_arr cml_e = (cml_fapp (Var (Long "Option" (Short "valOf"))) [cml_e])
 End
 
-Definition fun_from_lambda_params_def:
-  fun_from_lambda_params [] = return [] ∧
-  fun_from_lambda_params ((Formal nam _ attrs)::rest) =
-  if attrs ≠ [] then
-    fail "fun_from_lambda_params: attributes unsupported"
-  else
-    do
-      rest <- fun_from_lambda_params rest;
-      return ((λe. Fun (dest_varName nam) e)::rest)
-    od
-End
-
 Definition param_type_env_def:
   param_type_env [] acc = return acc ∧
   param_type_env ((Formal n t attrs)::rest) acc =
@@ -411,35 +401,55 @@ Definition param_type_env_def:
       param_type_env rest ((local_env_name n, (normalize_type t))::acc)
 End
 
-Definition env_and_epilogue_from_outs_def:
-  (env_and_epilogue_from_outs env epilogue [] [] =
+Definition out_type_env_def:
+  out_type_env [] [] env : (((expression # string) # type) list) result =
+    return env
+  ∧
+  out_type_env [] _ env =
+    fail "out_type_env: More out variables than types"
+  ∧
+  out_type_env _ [] env =
+    fail "out_type_env: More out variables than types"
+  ∧
+  out_type_env (out_t::rest_t) (out_v::rest_v) env =
+  (let v_str = dest_varName out_v in
+     out_type_env rest_t rest_v ((local_env_name v_str, out_t)::env))
+End
+
+Definition add_local_env_def:
+  add_local_env env params (outTypes : type list) (outVars : varName list option) : (((expression # string) # type) list) result =
+  do
+    env <- param_type_env params env;
+    case outVars of
+    | NONE => return env
+    | SOME outVars => out_type_env outTypes outVars env
+  od
+End
+
+Definition first_param_def:
+  first_param (param::params) outVars = internal_varN_from_formal param
+  ∧
+  first_param [] outVars =
+  (case outVars of
+   | NONE => return ""
+   | SOME [] => return ""
+   | SOME (out_v::out_vs) => return (internal_varN_from_varName out_v))
+End
+
+(* Declares additional parameters using Fun x => ... *)
+Definition fun_from_params_def:
+  (fun_from_params (preamble : exp -> exp) [] = return preamble) ∧
+  (fun_from_params preamble (fo::rest) =
    do
-     epilogue <<- epilogue raise_return;
-     return (env, epilogue)
-   od) ∧
-  (env_and_epilogue_from_outs env epilogue (t::rest_t) (v::rest_v) =
-   do
-     if LENGTH rest_t ≠ LENGTH rest_v then
-       fail ("env_and_epilogue_from_outs: Length of outTypes and outVars " ++
-             "is different")
-     else
-       do
-         v_str <<- dest_varName v;
-         env <<- ((local_env_name v_str, t)::env);
-         out_ref_name <<- internal_varN_from_varName v;
-         epilogue <<- (λx. epilogue (Let NONE (cml_ref_ass
-                                               (Var (Short out_ref_name))
-                                               ((App Opderef
-                                                     [Var (Short v_str)])))
-                                         x));
-         env_and_epilogue_from_outs env epilogue rest_t rest_v
-       od
+     param_name <- internal_varN_from_formal fo;
+     preamble <<- (λx. preamble (Fun param_name x));
+     fun_from_params preamble rest
    od)
 End
 
 (* Allows us to pass in out references as parameters *)
 Definition fun_from_outs_def:
-  fun_from_outs preamble [] = preamble ∧
+  fun_from_outs (preamble : exp -> exp) [] = preamble ∧
   fun_from_outs preamble (v::rest_v) =
      fun_from_outs (λx. preamble (Fun (internal_varN_from_varName v) x)) rest_v
 End
@@ -449,7 +459,7 @@ End
  * We do this since within the body the parameter names act as variables, which
  * we encode using references. *)
 Definition ref_from_params_def:
-  (ref_from_params preamble [] = return preamble) ∧
+  (ref_from_params (preamble : exp -> exp) [] = return preamble) ∧
   (ref_from_params preamble (fo::rest) =
    do
      ref_name <- varN_from_formal fo;
@@ -460,42 +470,49 @@ Definition ref_from_params_def:
    od)
 End
 
-Definition gen_param_preamble_epilogue_def:
-  gen_param_preamble_epilogue env [] [] [] =
+(* Preamble: Rest of parameters *)
+Definition gen_preamble_aux_def:
+  gen_preamble_aux [] [] =
+   return (λx. x)
+  ∧
+  gen_preamble_aux [] (out_v::rest_v) =
+    return (fun_from_outs (λx. x) rest_v)
+  ∧
+  gen_preamble_aux (param::params) outVars =
   do
-    param <<- "";
-    preamble <<- λx. x;
-    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
-                                                  [] [];
-    return (env, param, preamble, epilogue)
-  od ∧
-  gen_param_preamble_epilogue env [] (t::rest_t) (v::rest_v) =
-  do
-    param <<- internal_varN_from_varName v;
-    preamble <<- fun_from_outs (λx. x) rest_v;
-    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
-                                                  (t::rest_t) (v::rest_v);
-    return (env, param, preamble, epilogue)
-  od ∧
-  gen_param_preamble_epilogue env (p::rest_p) outTypes outVars =
-  do
-    param <- internal_varN_from_formal p;
-    preamble <- fun_from_params (λx. x) rest_p;
+    (* First parameter is part of the function signature *)
+    preamble <- fun_from_params (λx. x) params;
     preamble <<- fun_from_outs preamble outVars;
-    preamble <- ref_from_params preamble (p::rest_p);
-    env <- param_type_env (p::rest_p) env;
-    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
-                                                  outTypes outVars;
-    return (env, param, preamble, epilogue)
+    ref_from_params preamble (param::params)
   od
 End
 
-Definition gen_param_preamble_def:
-  gen_param_preamble env params =
-  do
-    (env, param, preamble, _) <- gen_param_preamble_epilogue env params [] [];
-    return (env, param, preamble)
-  od
+Definition gen_preamble_def:
+  gen_preamble params outVars =
+  (case outVars of
+   | NONE => gen_preamble_aux params []
+   | SOME outVars => gen_preamble_aux params outVars)
+End
+
+Definition gen_epilogue_aux_def:
+  gen_epilogue_aux [] epilogue : exp = epilogue Unit
+  ∧
+  gen_epilogue_aux (out_v::rest_v) epilogue =
+  let v_str = dest_varName out_v;
+      out_ref_name = internal_varN_from_varName out_v;
+      epilogue = (λx. epilogue (Let NONE (cml_ref_ass
+                                          (Var (Short out_ref_name))
+                                          ((App Opderef
+                                                [Var (Short v_str)])))
+                                    x)) in
+    gen_epilogue_aux rest_v epilogue
+End
+
+Definition gen_epilogue_def:
+  gen_epilogue (SOME (outVars : varName list)) : exp =
+    gen_epilogue_aux outVars (λx. x)
+  ∧
+  gen_epilogue NONE = Unit
 End
 
 (* Returns a function that can be applied to a CakeML expression to turn it into
@@ -604,6 +621,29 @@ Termination
   cheat
 End
 
+(* Cannot have type variables in exceptions, so we need to store the return
+   value of functions in a reference. *)
+Definition add_return_ref_def:
+  add_return_ref cml_body (outTypes : type list) (outVars : (varName list) option) =
+  (case outVars of
+   (* If there is exactly one return type, but no out variable, we add a
+      reference for returning. *)
+   | NONE =>
+       (case outTypes of
+        | [t] =>
+            do
+              (* "Return" value of return reference *)
+              cml_body <<- (Let NONE cml_body
+                                (App Opderef [Var (Short return_ref_name)]));
+              init_v <- arb_value t;
+              return (cml_ref return_ref_name init_v cml_body)
+            od
+        | _ =>
+            fail "add_return_ref: No out variables, but not exactly one return \
+                 \type")
+   | SOME _ => return cml_body)
+End
+
 (* TODO double check whether this is used *)
 Definition from_varName_def:
   from_varName n = Var (Short (dest_varName n))
@@ -617,64 +657,6 @@ End
 (* TODO double check if this is still used *)
 Definition from_ident_def:
   from_ident (Ident n) = from_name n
-End
-
-(* It appears that function and methods in Dafny are both represented by the
- * same datatype, even though they are slightly different *)
-(* This assumption is incorrect; at the IR level only methods exist since
- * expression can be compiled down to statements in it *)
-(* TODO Handle everything as "method" *)
-(* TODO Currently ignoring inheritedParams, unsure what it does. *)
-Definition method_is_function_def:
-  method_is_function (Method attrs isStatic hasBody _ _ overridingPath nam
-                             typeParams params _ body outTypes outVars) =
-  (* Function has one outType and no outVars *)
-  if LENGTH outTypes ≠ 1 ∨ outVars ≠ NONE then
-    return F
-  else if attrs ≠ [] ∧ attrs ≠ [Attribute "tailrecursion" ["false"]] then
-    fail ("method_is_function: unsupported attributes")
-  else if ¬isStatic then
-    fail ("method_is_function: Did not expect function " ++ (dest_Name nam) ++
-          " to be static")
-  else if ¬hasBody then
-    fail ("method_is_function: Function " ++ (dest_Name nam) ++
-          " did not have a body, even though it must")
-  else if overridingPath ≠ NONE then
-    fail ("method_is_function: Did not expect function " ++ (dest_Name nam) ++
-          " to have an overriding path")
-  else if typeParams ≠ [] then
-    fail ("method_is_function: Type parameters are currently unsupported (in "
-          ++ (dest_Name nam) ++ ")")
-  else
-    return T
-End
-
-Definition method_is_method_def:
-  method_is_method (Method attrs isStatic hasBody _ _ overridingPath nam
-                           typeParams params _ body outTypes outVars) =
-  case outVars of
-  | SOME outVars_list =>
-      if LENGTH outTypes ≠ LENGTH outVars_list then
-        fail ("method_is_method: Function " ++ (dest_Name nam) ++
-              " did not have the same number of outTypes and outVars, even" ++
-              " though it must")
-      else if attrs ≠ [] ∧ attrs ≠ [Attribute "tailrecursion" ["false"]] then
-        fail ("method_is_method: unsupported attributes")
-      else if ¬isStatic then
-        fail ("method_is_method: non-static methods are currently " ++
-              "unsupported (in " ++ (dest_Name nam) ++ ")")
-      else if ¬hasBody then
-        fail ("method_is_method: Method " ++ (dest_Name nam) ++
-              " did not have a body, even though it must")
-      else if overridingPath ≠ NONE then
-        fail ("method_is_method: Overriding path for methods are currently " ++
-              "unsupported (in " ++ (dest_Name nam) ++ ")")
-      else if typeParams ≠ [] then
-        fail ("method_is_method: Type parameters are currently unsupported (in "
-              ++ (dest_Name nam) ++ ")")
-      else
-        return T
-  | NONE => return F
 End
 
 Definition from_literal_def:
@@ -724,32 +706,20 @@ End
  * have been added to the context *)
 Definition call_type_env_from_class_body_def:
   call_type_env_from_class_body acc _ [] = return acc ∧
-  call_type_env_from_class_body acc comp ((ClassItem_Method m)::rest) =
+  call_type_env_from_class_body acc (comp : expression) ((ClassItem_Method m)::rest) =
   do
-    is_function <- method_is_function m;
-    is_method <- method_is_method m;
-    if is_function then
-      do
-        (_, _, _, _, _, _, nam, _, params, _, _, outTypes, _) <<- dest_Method m;
-        nam <<- dest_Name nam;
-        param_t <- type_from_formals params;
-        outTypes <<- MAP normalize_type outTypes;
-        acc <<- (((comp, nam), Arrow param_t (HD outTypes))::acc);
-        call_type_env_from_class_body acc comp rest;
-      od
-    else if is_method then
-      do
-        (_, _, _, _, _, _, nam, _, params, _, _, _, _) <<- dest_Method m;
-        nam <<- dest_Name nam;
-        (* outTypes refers to the type of outVars; the method itself returns
-         * Unit (I think) *)
-        param_t <- type_from_formals params;
-        acc <<- (((comp, nam), Arrow param_t (Tuple []))::acc);
-        call_type_env_from_class_body acc comp rest
-      od
-    else
-      fail "call_type_env_from_class_body: ClassItem_Method m was neither \
-           \method nor function."
+    (_, _, _, _, _, _, nam, _, params, _, _, outTypes, outVars) <<- dest_Method m;
+    nam <<- dest_Name nam;
+    param_t <- type_from_formals params;
+    ret_t <- (case outVars of
+             | NONE =>
+                 (case outTypes of
+                  | [ret_t] => return (normalize_type ret_t)
+                  | _ => fail "call_type_env_from_class_body: outTypes was not a singleton")
+             | SOME _ =>
+                 return (Tuple []));
+    acc <<- (((comp, nam), Arrow param_t ret_t)::acc);
+    call_type_env_from_class_body acc comp rest
   od
 End
 
@@ -968,6 +938,12 @@ Definition gen_call_name_def:
   fail "gen_call_name: Passed callName currently unsupported"
 End
 
+Definition handle_return_def:
+  handle_return cml_body =
+    Handle cml_body
+           [(Pcon (SOME (Long "Dafny" (Short "Return"))) [], Unit)]
+End
+
 (* TODO Clean up from_expression/dafny_type_of: Some code parts may be duplicated,
  some checks may be unnecessary (depending on the assumptions we make about/get from
  the Dafny AST *)
@@ -1144,12 +1120,19 @@ Definition from_expression_def:
              return (cml_fapp (Var fun_name) cml_args)
            od
        od
-   | Lambda params _ body =>
+   | Lambda params retT body =>
        do
-         (env, param, preamble) <- gen_param_preamble env params;
+         env <- add_local_env env params [] NONE;
+         param <- first_param params NONE;
          param <<- if param = "" then "u" else param;
-         cml_e <- from_stmts comp T env 0 Unit body;
-         return (Fun param (preamble cml_e))
+         preamble <- gen_preamble params NONE;
+         (* Lambda doesn't need the epilogue used for outVars, as we expect then
+            to return a single value, and hence use its own return reference. *)
+         cml_e <- from_stmts comp env 0 body Unit;
+         cml_e <<- handle_return cml_e;
+         cml_e <- add_return_ref cml_e [normalize_type retT] NONE;
+         cml_e <<- preamble cml_e;
+         return (Fun param cml_e)
        od
    | Apply e args =>
        do
@@ -1296,7 +1279,7 @@ Definition from_expression_def:
       | _ => fail "from_binOp: Unsupported bop")
    od)
   ∧
-  from_stmt comp (is_function: bool) env (lvl: int) epilogue stmt =
+  from_stmt comp env (lvl: int) stmt (epilogue : exp) =
   (case stmt of
    | DeclareVar nam typ opt_v in_stmts =>
        do
@@ -1307,7 +1290,7 @@ Definition from_expression_def:
                     | NONE => arb_value typ
                     | SOME init_e => from_expression comp env init_e);
          env' <<- ((local_env_name nam_str, typ)::env);
-         in_e <- from_stmts comp is_function env' lvl epilogue in_stmts;
+         in_e <- from_stmts comp env' lvl in_stmts epilogue;
          return (cml_ref nam_str init_v in_e)
        od
    | Assign lhs e =>
@@ -1330,20 +1313,19 @@ Definition from_expression_def:
    | If cnd thn els =>
        do
          cml_cnd <- from_expression comp env cnd;
-         cml_thn <- from_stmts comp is_function env lvl epilogue thn;
-         cml_els <- from_stmts comp is_function env lvl epilogue els;
+         cml_thn <- from_stmts comp env lvl thn epilogue;
+         cml_els <- from_stmts comp env lvl els epilogue;
          return (If cml_cnd cml_thn cml_els)
        od
    | Labeled lbl body =>
        do
-         cml_body <- from_stmts comp is_function env lvl epilogue body;
+         cml_body <- from_stmts comp env lvl body epilogue;
          return (add_labeled_break_handle lbl cml_body)
        od
    | While cnd body =>
        do
          cml_cnd <- from_expression comp env cnd;
-         cml_body <- from_stmts comp is_function env (lvl + 1)
-                                     epilogue body;
+         cml_body <- from_stmts comp env (lvl + 1) body epilogue;
          exec_iter <<- (cml_fapp (Var (Short (cml_while_name lvl))) [Unit]);
          cml_while_def <<- (Letrec [((cml_while_name lvl), "",
                                      If (cml_cnd)
@@ -1367,22 +1349,18 @@ Definition from_expression_def:
        od
    | Return e =>
        do
-         if ¬is_function then
-           fail "from_stmt: Assumption that Return does not occur in \
-                \methods was violated"
-         else
-           from_expression comp env e
+         cml_e <- from_expression comp env e;
+         (* Write return value to reference, which we can later use as the
+            return value of the overall function *)
+         return (Let NONE (cml_ref_ass (Var (Short return_ref_name)) cml_e)
+                     raise_return)
        od
    | EarlyReturn =>
-       if is_function then
-         fail "from_stmt: Assumption that EarlyReturn does not occur in \
-              \functions was violated"
-       else
-         return epilogue
-   (* TODO Check if we can better test this case *)
-   (*  * It seems that only non-deterministic while loops make use of this, while *)
-   (*  other break statements are transformed into labeled ones. *)
+       return (Let NONE epilogue raise_return)
    | Break NONE =>
+     (* TODO Check if we can better test this case
+        It seems that only non-deterministic while loops make use of this, while
+        other break statements are transformed into labeled ones. *)
        return raise_break
    | Break (SOME lbl) =>
        return (raise_labeled_break lbl)
@@ -1396,70 +1374,37 @@ Definition from_expression_def:
        od
    | _ => fail "from_stmt: Unsupported statement")
   ∧
-  from_stmts (comp: expression) (is_function: bool)
-              (env: ((expression # string, type) alist))
-              (lvl: int) epilogue ([]: (dafny_ast$statement list)) =
-  (return Unit)
+  from_stmts (comp: expression)
+             (env: ((expression # string, type) alist))
+             (lvl: int) ([]: (dafny_ast$statement list)) (epilogue : exp) =
+  return Unit
   ∧
-  from_stmts comp is_function env lvl epilogue [stmt] =
-  (from_stmt comp is_function env lvl epilogue stmt)
-  ∧
-  from_stmts comp is_function env lvl epilogue (stmt::(stmt'::stmts)) =
+  from_stmts comp env lvl (stmt::stmts) epilogue =
   do
-    e1 <- from_stmt comp is_function env lvl epilogue stmt;
-    e2 <- from_stmts comp is_function env lvl epilogue (stmt'::stmts);
+    e1 <- from_stmt comp env lvl stmt epilogue;
+    e2 <- from_stmts comp env lvl stmts epilogue;
     return (Let NONE e1 e2)
   od
 Termination
   cheat
 End
 
-Definition process_function_body_def:
-  process_function_body comp env preamble stmts =
-   do
-     cml_body <- from_stmts comp T env 0 Unit stmts;
-     return (preamble cml_body)
-   od
-End
-
-Definition process_method_body_def:
-  process_method_body comp env preamble epilogue body =
-  do
-    cml_body <- from_stmts comp F env 0 epilogue body;
-    cml_body <<- (Handle cml_body
-                   [Pcon (SOME (Long "Dafny" (Short "Return"))) [], Unit]);
-    return (preamble cml_body)
-  od
-End
-
 Definition from_classItem_def:
-  from_classItem comp env (ClassItem_Method m) =
+  from_classItem comp env (ClassItem_Method m) : (string # string # exp) result =
   do
-    is_function <- method_is_function m;
-    is_method <- method_is_method m;
-    if is_function then
-      do
-        (_, _, _, _, _, _, nam, _, params, _, body, _, _) <<- dest_Method m;
-        fun_name <<- dest_Name nam;
-        (env, cml_param, preamble) <- gen_param_preamble env params;
-        cml_body <- process_function_body comp env preamble body;
-        return (fun_name, cml_param, cml_body)
-      od
-    else if is_method then
-      do
-        (_, _, _, _, _, _, nam, _, params, _,
-         body, outTypes, outVars) <<- dest_Method m;
-        outTypes <<- MAP normalize_type outTypes;
-        outVars <- dest_SOME outVars;
-        fun_name <<- dest_Name nam;
-        (env, cml_param,
-         preamble, epilogue) <- gen_param_preamble_epilogue env params
-                                                            outTypes outVars;
-        cml_body <- process_method_body comp env preamble epilogue body;
-        return (fun_name, cml_param, cml_body)
-      od
-    else
-      fail "(Unreachable) from_method: m was neither a function nor method"
+    (_, _, _, _, _, _, nam, _, params, _,
+     body, outTypes, outVars) <<- dest_Method m;
+    outTypes <<- MAP normalize_type outTypes;
+    fun_name <<- dest_Name nam;
+    env <- add_local_env env params outTypes outVars;
+    cml_param <- first_param params outVars;
+    preamble <- gen_preamble params outVars;
+    epilogue <<- gen_epilogue outVars;
+    cml_body <- from_stmts comp env 0 body epilogue;
+    cml_body <<- handle_return cml_body;
+    cml_body <- add_return_ref cml_body outTypes outVars;
+    cml_body <<- preamble cml_body;
+    return (fun_name, cml_param, cml_body)
   od
 End
 
@@ -1594,7 +1539,7 @@ End
 (* End *)
 
 Definition compile_def:
-  compile (ms : dafny_ast$module list) =
+  compile (ms : dafny_ast$module list) : (dec list) result =
   do
     (* validate_system_module sys_mod; *)
     (env, cml_ms) <- map_from_module [] ms;
@@ -1602,8 +1547,7 @@ Definition compile_def:
     return (^dafny_module ++
             cml_ms ++
             [Dlet unknown_loc Pany (cml_fapp main_id [Unit])])
-  od ∧
-  compile _ = fail "compile: Module layout unsupported"
+  od
 End
 
 (* Unpacks the AST from M. If the process failed, create a program that prints
@@ -1634,15 +1578,17 @@ End
 (* val lex_r = EVAL “(lex ^fileContent_tm)” |> concl |> rhs |> rand; *)
 (* val parse_r = EVAL “(parse ^lex_r)” |> concl |> rhs |> rand; *)
 (* val dafny_r = EVAL “(sexp_program ^parse_r)” |> concl |> rhs |> rand; *)
+
 (* val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand; *)
 
-(* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))” *)
-(*                    |> concl |> rhs |> rand; *)
 (* (* Test Dafny module *) *)
 (* (* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^dafny_module)))” *) *)
 (* (*                    |> concl |> rhs |> rand; *) *)
+
+(* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))” *)
+(*                    |> concl |> rhs |> rand; *)
 (* val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r; *)
-(* val outFile = TextIO.openOut "./tests/test.cml.sexp"; *)
+(* val outFile = TextIO.openOut "./tests/output/test.cml.sexp"; *)
 (* val _ = TextIO.output (outFile, cml_sexp_str_r); *)
 (* val _ = TextIO.closeOut outFile; *)
 
