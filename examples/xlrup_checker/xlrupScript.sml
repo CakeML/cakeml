@@ -22,7 +22,7 @@ Type rawxor = ``:int list``;
 Type cardc = ``:(num # int vector) # int # int # int``
 
 (* A cardinality constraint and the reification literal on the RHS *)
-Type ibnn = ``:cardc # int``;
+Type ibnn = ``:cardc # int option``;
 
 (* Satisfiability for clauses is defined by interpreting into the
   top-level semantics *)
@@ -113,8 +113,8 @@ Definition isat_cardc_def:
 End
 
 Definition isat_ibnn_def:
-  isat_ibnn (w:assignment) ((cc,y):ibnn) ⇔
-  (isat_cardc w cc ⇔ sat_lit w (interp_lit y))
+  isat_ibnn (w:assignment) ((cc,oy):ibnn) ⇔
+  (isat_cardc w cc ⇔ OPTION_ALL (sat_lit w o interp_lit) oy)
 End
 
 (* offset doesn't actually matter here *)
@@ -130,7 +130,7 @@ Definition wf_cardc_def:
 End
 
 Definition wf_ibnn_def:
-  wf_ibnn ((cc,y):ibnn) ⇔
+  wf_ibnn ((cc,oy):ibnn) ⇔
   wf_cardc cc
 End
 
@@ -870,6 +870,8 @@ Datatype:
   | XFromC num rawxor (num list)
     (* Derive XOR from hint clauses *)
 
+  | BAdd num cmsbnn num (num list)
+  (* BAdd n B bhint hints derive BNN B from the BNN at bhint using units *)
   | BDel (num list) (* BNN constraints to delete *)
   | CFromB num cclause num (num list)
     (* Derive clause from hint BNN and rup hints *)
@@ -1080,12 +1082,15 @@ End
 (* True if given BNN constraint is falsified by
   the propagated literals *)
 Definition check_ibnn_def:
-  check_ibnn ((ons,k,lb,ub),y) ls = (
+  check_ibnn ((ons,k,lb,ub),oy) ls = (
+  let (k,lb,ub) = prop_cardc ons k lb ub ls in
+  case oy of
+    NONE => ub < k
+  | SOME y =>
   case prop_lit (Num (ABS y)) ls of
-    NONE => F
+    NONE => F (* failed to propagate y *)
   | SOME b =>
     let b' = (b ⇔ y > 0) in
-    let (k,lb,ub) = prop_cardc ons k lb ub ls in
     if b' then
       ub < k
     else
@@ -1265,18 +1270,22 @@ Proof
   simp[]
 QED
 
-(* TODO: convert a CMS bnn into an ibnn *)
 Definition conv_bnn_def:
   conv_bnn ((cs,k,y):cmsbnn) =
     let init_n = (case cs of [] => 0 | (c::cs) => var_lit c) in
       case to_vector (& k) 0 0 init_n cs [] of
       | NONE => conv_bnn ((mergesort_tail lit_le cs,k,y):cmsbnn)
-      | SOME (k,lb,ub,vec) => (((init_n,vec),k,lb,ub), conv_lit y):ibnn
+      | SOME (k,lb,ub,vec) => (((init_n,vec),k,lb,ub), OPTION_MAP conv_lit y):ibnn
 Termination
   WF_REL_TAC ‘measure (λ(cs,k,y). if SORTED lit_le cs then 0 else 1:num)’
   \\ gvs [SORTED_mergesort_tail_lit_le] \\ rw []
   \\ irule SORTED_to_vector
   \\ Cases_on ‘cs’ \\ gvs [lit_le_def,SORTED_mergesort_tail_lit_le]
+End
+
+(* TODO: *)
+Definition is_bnn_def:
+  is_bnn rB cfml bfml ib i0 ⇔ T
 End
 
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
@@ -1320,6 +1329,12 @@ Definition check_xlrup_def:
       let X = conv_rawxor def mX in
       SOME (cfml, insert n X xfml, bfml,
         tn, MAX def (strlen X))
+    else NONE
+  | BAdd n rB ib i0 =>
+    (* check the raw BNN before adding it *)
+    if is_bnn rB cfml bfml ib i0 then
+      let B = conv_bnn rB in
+        SOME (cfml, xfml, insert n B bfml, tn, def)
     else NONE
   | BDel bl =>
       SOME (cfml, xfml, FOLDL (\a b. delete b a) bfml bl,
@@ -1579,6 +1594,9 @@ Definition wf_xlrup_def:
   (wf_xlrup (CFromX n C i0) = wf_clause C) ∧
   (wf_xlrup (XFromC n X i0) = wf_clause X) ∧
   (wf_xlrup (XOrig n rX) = EVERY nz_lit rX) ∧
+  (wf_xlrup (BAdd n rB ib i0) =
+    case rB of ((C, k, oy):cmsbnn) =>
+    OPTION_ALL nz_lit oy ∧ EVERY nz_lit C) ∧
   (wf_xlrup (CFromB n C ib i0) = wf_clause C) ∧
   (wf_xlrup _ = T)
 End
@@ -2496,23 +2514,29 @@ Proof
   PairCases_on`bnn`>>
   rw[check_ibnn_def]>>
   gvs[AllCasePreds(),wf_ibnn_def]>>
-  drule_all prop_lit_sat_lit>>
-  strip_tac>>CCONTR_TAC>>gvs[isat_ibnn_def]>>
+  pairarg_tac>>gvs[]>>
   drule prop_cardc_sem_eq>>
-  strip_tac>>gvs[]>>
-  pairarg_tac>>gvs[SND_EQ_EQUIV]
+  strip_tac>>gvs[SND_EQ_EQUIV]>>
+  CCONTR_TAC>>gvs[isat_ibnn_def]
   >- (
     drule_at Any prop_cardc_sem_isat_cardc>>
     disch_then drule>> gvs[]>>
     drule_all prop_cardc_sem_wf_cardc>>strip_tac>>
+    irule wf_cardc_ub>>
+    gvs[])
+  >- (
+    drule_all prop_lit_sat_lit>>
+    drule_all prop_cardc_sem_isat_cardc>>
+    drule_all prop_cardc_sem_wf_cardc>>
     rw[sat_lit_def,interp_lit_def]>>
     irule wf_cardc_ub>>
     gvs[])
   >- (
-    drule_at Any prop_cardc_sem_isat_cardc>>
-    disch_then drule>>
+    drule_all prop_lit_sat_lit>>
+    strip_tac>>
+    drule_all prop_cardc_sem_isat_cardc>>
     disch_then (fn th => gvs[th])>>
-    `¬sat_lit w (interp_lit bnn5)` by
+    `¬sat_lit w (interp_lit y)` by
       (rw[sat_lit_def,interp_lit_def]>>gvs[])>>
     gvs[]>>
     drule_all prop_cardc_sem_wf_cardc>>strip_tac>>
@@ -2850,7 +2874,7 @@ QED
 
 Theorem conv_bnn_sound:
   ∀C k y w.
-    nz_lit y ∧ EVERY nz_lit C ⇒
+    OPTION_ALL nz_lit y ∧ EVERY nz_lit C ⇒
     wf_ibnn (conv_bnn (C,k,y)) ∧
     (isat_ibnn w (conv_bnn (C,k,y)) ⇔ sat_cmsbnn w (C,k,y))
 Proof
@@ -2882,7 +2906,11 @@ Proof
   >- (gvs [as_list_def,o_DEF]
       \\ drule to_vector_bounds \\ gvs [] \\ strip_tac \\ gvs [iSUM_def])
   \\ simp [Once conv_bnn_def,isat_ibnn_def,sat_cmsbnn_def]
-  \\ gvs [interp_lit_conv_lit,isat_cardc_def]
+  \\ `OPTION_ALL (sat_lit w ∘ interp_lit) (OPTION_MAP conv_lit y) =
+    OPTION_ALL (sat_lit w) y` by (
+      Cases_on`y`
+      \\ gvs [interp_lit_conv_lit,isat_cardc_def])
+  \\ gvs [isat_cardc_def]
   \\ irule (METIS_PROVE [] “y = z ⇒ (y = x ⇔ x = z)”)
   \\ gvs [GREATER_EQ]
   \\ drule to_vector_lemma \\ gvs []
@@ -3025,6 +3053,18 @@ Proof
     CONJ_TAC >-
       (EVAL_TAC>>rw[])>>
     EVAL_TAC)
+  >~ [‘BAdd’] >- (
+    gvs[wf_xlrup_def,AllCasePreds()]>>
+    drule_all conv_bnn_sound>>
+    strip_tac>>
+    rw[]
+    >-
+      metis_tac[range_insert_2]>>
+    fs[isat_fml_def]>>
+    match_mp_tac isat_fml_gen_insert>>
+    gvs[]>>
+    cheat (* TO BE ADDED *)
+    )
   >~ [‘BDel’] >- (
     rw[]
     >-
@@ -3182,7 +3222,7 @@ Definition conv_bfml_def:
 End
 
 Theorem conv_bfml_sound:
-  EVERY (λ(ls,k,y). nz_lit y ∧
+  EVERY (λ(ls,k,y). OPTION_ALL nz_lit y ∧
   EVERY (λl. nz_lit l) ls) bfml ⇒
   (isat_bfml w (set (conv_bfml bfml)) ⇔
   (∀b. b ∈ set bfml ⇒ sat_cmsbnn w b))

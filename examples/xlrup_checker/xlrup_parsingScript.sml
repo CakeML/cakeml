@@ -170,11 +170,46 @@ Definition parse_xadd_xdel_def:
     | _ => NONE
 End
 
-(* Bdel (line prefix is "b") *)
-Definition parse_bdel_def:
-  parse_bdel rest =
+Definition parse_badd_tail_def:
+  parse_badd_tail (tl:int list) = parse_bnn_tail ((MAP INR tl ++ [INR 0]):(unit + int) list)
+End
+
+Definition split_hint_def:
+  split_hint ls = case ls of [] => NONE
+  | b::rest => SOME (b,rest)
+End
+
+(* id lits 0 bnn_tail 0 bid cids 0 *)
+Definition parse_badd_def:
+  parse_badd ls =
+  case ls of (id::rest) =>
+    (case id of INL _ => NONE
+    | INR n =>
+      if n ≥ 0 then
+      case parse_lits_aux rest [] of
+        NONE => NONE
+      | SOME (ls,rest) =>
+        case parse_rest rest of NONE => NONE
+        | SOME (tl,allhints) =>
+          case parse_badd_tail tl of NONE => NONE
+          | SOME (k,oy) =>
+          case split_hint allhints of NONE => NONE
+          | SOME (bid,cids) =>
+            SOME(Num (ABS n), (ls, k, oy), bid, cids)
+      else NONE)
+  | _ => NONE
+End
+
+(* BAdd or BDel (line prefix is "b") *)
+Definition parse_badd_bdel_def:
+  parse_badd_bdel rest =
   case starts_with (INL (strlit "d")) rest of
-    INL rest => NONE
+    INL rest =>
+    (* BAdd *)
+    (case parse_badd rest of
+      NONE => NONE
+    | SOME (n,cmsbnn,bid,cids) =>
+      SOME (BAdd n cmsbnn bid cids))
   | INR rest =>
     (* BDel *)
     case parse_until_zero_nn rest [] of
@@ -241,7 +276,7 @@ Definition parse_xlrup_def:
       parse_xorig rest
     else if c = strlit"b"
     then
-      parse_bdel rest
+      parse_badd_bdel rest
     else
        NONE)
 End
@@ -321,13 +356,28 @@ Proof
   simp[]
 QED
 
+Theorem parse_badd_wf:
+  parse_badd rest = SOME (n,cmsbnn,bid,cids) ⇒
+  case cmsbnn of
+    (C,k,oy) => OPTION_ALL (λl. nz_lit l) oy ∧ EVERY (λl. nz_lit l) C
+Proof
+  rw[parse_badd_def]>>
+  every_case_tac>>rw[]
+  >- (
+    gvs[parse_rest_def,AllCaseEqs(),split_hint_def,parse_badd_tail_def,parse_bnn_tail_def]>>
+    rw[mk_lit_def])>>
+  drule parse_lits_aux_nz_lit>>
+  rw[]
+QED
+
 Theorem parse_xlrup_wf:
   parse_xlrup ls = SOME line ⇒
   wf_xlrup line
 Proof
   Cases_on`ls`>>rw[parse_xlrup_def]>>
-  gvs[AllCaseEqs(),wf_xlrup_def,parse_xadd_xdel_def,parse_imply_def,parse_rup_del_def,parse_xorig_def,parse_bdel_def]>>
-  metis_tac[parse_id_rest_wf_clause,parse_rest_wf_clause,parse_id_xor_nomv_nz_lit,parse_id_u_rest_wf_clause]
+  gvs[AllCaseEqs(),wf_xlrup_def,parse_xadd_xdel_def,parse_imply_def,
+    parse_rup_del_def,parse_xorig_def,parse_badd_bdel_def]>>
+  metis_tac[parse_id_rest_wf_clause,parse_rest_wf_clause,parse_id_xor_nomv_nz_lit,parse_id_u_rest_wf_clause,parse_badd_wf]
 QED
 
 (* Mostly semantic!*)
@@ -374,6 +424,7 @@ val xlrupsraw = ``[
   strlit"i cx 17 1 2 3 4 0 14 12 13 8 0";
   strlit"i x 17 0 14 12 13 8 0";
   strlit"i cb 17 1 2 3 4 0 14 u 12 13 8 0";
+  strlit"b 18 1 2 3 4 0 14 15 0 12 13 8 0";
   strlit"b d 1 2 3 4 0";
   ]``;
 

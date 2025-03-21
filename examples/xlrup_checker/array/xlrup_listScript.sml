@@ -262,6 +262,10 @@ Definition is_cfromb_list_def:
     do_check_ibnn bnn cs c
 End
 
+Definition is_bnn_list_def:
+  is_bnn_list rB cfml bfml ib i0 ⇔ T
+End
+
 Definition check_xlrup_list_def:
   check_xlrup_list xorig xlrup cfml xfml bfml tn def Clist =
   case xlrup of
@@ -304,6 +308,11 @@ Definition check_xlrup_list_def:
       let X = conv_rawxor_list def mx in
       SOME (cfml, update_resize xfml NONE (SOME X) n, bfml,
         tn, MAX def (strlen X), Clist)
+    else NONE
+  | BAdd n rB ib i0 =>
+    if is_bnn_list rB cfml bfml ib i0 then
+      let B = conv_bnn rB in
+        SOME (cfml, xfml, update_resize bfml NONE (SOME B) n, tn, def, Clist)
     else NONE
   | BDel bl =>
     SOME (cfml, xfml, list_delete_list bl bfml, tn, def, Clist)
@@ -954,6 +963,9 @@ Proof
     pairarg_tac>>gvs[]>>
     CONJ_TAC >-
       metis_tac[is_xfromc_list_is_xfromc]>>
+    metis_tac[fml_rel_update_resize])
+  >- (
+    rw[] >- cheat>>
     metis_tac[fml_rel_update_resize])
   >- (* BDel *)
     metis_tac[fml_rel_list_delete_list]
