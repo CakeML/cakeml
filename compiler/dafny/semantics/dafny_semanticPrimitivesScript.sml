@@ -81,7 +81,6 @@ End
 Datatype:
   result =
   | Rval value
-  | Rret value
   | Rerr error_result
 End
 

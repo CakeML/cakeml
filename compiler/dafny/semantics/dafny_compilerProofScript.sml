@@ -43,7 +43,7 @@ Definition env_rel_def:
     nsLookup env_cml.c (Short "False") = SOME (0, TypeStamp "False" 0)
 End
 
-Definition dafny_to_cakeml_v_def:
+Definition dafny_to_cakeml_v_def[simp]:
   dafny_to_cakeml_v UnitV = (Conv NONE []) ∧
   dafny_to_cakeml_v (BoolV b) = (Boolv b) ∧
   dafny_to_cakeml_v (IntV i) = (Litv (IntLit i)) ∧
@@ -51,9 +51,12 @@ Definition dafny_to_cakeml_v_def:
   dafny_to_cakeml_v (StrV s) = (Litv (StrLit s))
 End
 
+Definition state_rel_def:
+  state_rel (s : dafny_state) (t : cakeml_state) ⇔ T
+End
+
 Definition res_rel_def:
   res_rel (Rval v_dfy) (Rval [v_cml]) = (dafny_to_cakeml_v v_dfy = v_cml) ∧
-  res_rel (Rret v_dfy) (Rval [v_cml]) = (dafny_to_cakeml_v v_dfy = v_cml) ∧
   res_rel (Rerr Rtype_error) (Rerr (Rabort Rtype_error)) = T ∧
   res_rel (Rerr Rtimeout_error) (Rerr (Rabort Rtimeout_error)) = T ∧
   res_rel (Rerr Runsupported) (_ : cakeml_res) = T ∧
@@ -73,14 +76,6 @@ Definition is_fail_dfy_def[simp]:
   is_fail_dfy _ = F
 End
 
-Theorem exp_not_ret:
-  ∀s1 env_dfy e st' v. evaluate_exp s1 env_dfy e = (st', Rret v) ⇔ F
-Proof
-  ho_match_mp_tac evaluate_exp_ind >> rw [evaluate_exp_def]
-  >- (Cases_on ‘literal_to_value l’ >> gvs [])
-  >- (Cases_on ‘bop’ >> gvs [do_bop_def, AllCaseEqs ()])
-QED
-
 Theorem correct_exp:
   ∀ (s₁ : dafny_state) (env_dfy : dafny_env) (e : dafny_exp) (s₂ : dafny_state)
     (r_dfy : dafny_res) (t₁ : cakeml_state) (env_cml : cakeml_env)
@@ -99,9 +94,8 @@ Proof
   >~ [‘BinOp’]
   >- (gvs [evaluate_exp_def, CaseEq "prod",
            CaseEq "dafny_semanticPrimitives$result"]
-      >~ [‘evaluate_exp _ _ _ = (_, Rret _)’] >- gvs [exp_not_ret]
       >- (Cases_on ‘bop’
-          >> gvs [exp_not_ret, is_lop_def, do_bop_def, AllCaseEqs ()]
+          >> gvs [is_lop_def, do_bop_def, AllCaseEqs ()]
           >> (pop_assum mp_tac >> simp [Once from_expression_def] >> strip_tac
               >> gvs[AllCaseEqs(), oneline bind_def])
           >~ [‘Lt’]
@@ -170,6 +164,48 @@ Proof
       >~ [‘Null’]
       >- gvs [evaluate_exp_def, literal_to_value_def])
   >> gvs [evaluate_exp_def, literal_to_value_def]
+QED
+
+Theorem correct_stmts:
+  (∀ (s₁ : dafny_state) (env_dfy : dafny_env) (stmt : statement)
+     (s₂ : dafny_state) (r_dfy : dafny_res) (t₁ : cakeml_state)
+     (env_cml : cakeml_env) (cml_e : cakeml_exp).
+     evaluate_stmt s₁ env_dfy stmt = (s₂, r_dfy) ∧ ¬(is_fail_dfy r_dfy) ∧
+     state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧
+     from_stmt (Companion [] []) [] 0 stmt Unit = INR cml_e
+     ⇒ ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
+         evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
+         state_rel s₂ t₂ ∧ res_rel r_dfy r_cml)
+  ∧
+  (∀ (s₁ : dafny_state) (env_dfy : dafny_env) (stmts : statement list)
+     (s₂ : dafny_state) (r_dfy : dafny_res) (t₁ : cakeml_state)
+     (env_cml : cakeml_env) (cml_e : cakeml_exp).
+     evaluate_stmts s₁ env_dfy stmts = (s₂, r_dfy) ∧ ¬(is_fail_dfy r_dfy) ∧
+     state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧
+     from_stmts (Companion [] []) [] 0 stmts Unit = INR cml_e
+     ⇒ ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
+         evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
+         state_rel s₂ t₂ ∧ res_rel r_dfy r_cml)
+Proof
+  ho_match_mp_tac evaluate_stmt_ind >> rw[]
+  >> gvs [state_rel_def] (* This probably only works while it's defined as T *)
+  >~ [‘If’]
+  >- (gvs [Once from_expression_def, oneline bind_def, CaseEq "sum"]
+      >> gvs [evaluate_stmt_def, CaseEq "prod",
+              CaseEq "dafny_semanticPrimitives$result"]
+      >> gvs [do_if_def, CaseEq "option"]
+      >> Cases_on ‘v’ >> gvs []
+      >> Cases_on ‘b’ >> gvs []
+      (* from_expression cnd is properly compiled *)
+      >> drule correct_exp >> simp [] >> disch_then $ drule_at Any
+      >> disch_then $ qspec_then ‘t₁’ assume_tac >> gvs []
+      (* Apply induction hypothesis *)
+      >> first_x_assum $ qspec_then ‘t₂’ assume_tac
+      >> pop_assum $ drule_then assume_tac >> gs[]
+      (* Massage evaluate *)
+      >> gvs [res_rel_rval, evaluate_def,
+              semanticPrimitivesTheory.do_if_def])
+  >> cheat
 QED
 
 val _ = export_theory ();
