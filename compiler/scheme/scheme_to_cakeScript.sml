@@ -350,7 +350,15 @@ Definition codegen_def:
     Dlet unknown_loc Pany $ Mat (Var (Short "res")) [
       (Pcon (SOME $ Short "SNum") [Pvar "n"],
         App Opapp [Var (Short "print_int"); Var (Short "n")]);
-      (Pany, App Opapp [Var (Short "print"); Lit $ StrLit "NaN"])
+      (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "True") []],
+        App Opapp [Var (Short "print"); Lit $ StrLit "#t"]);
+      (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []],
+        App Opapp [Var (Short "print"); Lit $ StrLit "#f"]);
+      (Pcon (SOME $ Short "Ex") [Pvar "ex"],
+        App Opapp [Var (Short "print"); Var (Short "ex")]);
+      (Pcon (SOME $ Short "Wrong") [Pany],
+        App Opapp [Var (Short "print"); Lit $ StrLit "unspecified"]);
+      (Pany, App Opapp [Var (Short "print"); Lit $ StrLit "proc"])
     ]
   ]
 End
