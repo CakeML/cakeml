@@ -267,7 +267,8 @@ Definition is_bnn_list_def:
 End
 
 Definition check_xlrup_list_def:
-  check_xlrup_list xorig xlrup cfml xfml bfml tn def Clist =
+  check_xlrup_list xorig borig xlrup
+    cfml xfml bfml tn def Clist =
   case xlrup of
     Del cl =>
     SOME (list_delete_list cl cfml, xfml, bfml, tn, def, Clist)
@@ -309,6 +310,12 @@ Definition check_xlrup_list_def:
       SOME (cfml, update_resize xfml NONE (SOME X) n, bfml,
         tn, MAX def (strlen X), Clist)
     else NONE
+  | BOrig n rB =>
+    if MEM rB borig
+    then
+      let B = conv_bnn rB in
+        SOME (cfml, xfml, update_resize bfml NONE (SOME B) n, tn, def, Clist)
+    else NONE
   | BAdd n rB ib i0 =>
     if is_bnn_list rB cfml bfml ib i0 then
       let B = conv_bnn rB in
@@ -326,13 +333,13 @@ End
 
 (* semantic *)
 Definition check_xlrups_list_def:
-  (check_xlrups_list xorig [] cfml xfml bfml tn def Clist =
+  (check_xlrups_list xorig borig [] cfml xfml bfml tn def Clist =
     SOME (cfml, xfml, bfml, tn, def)) ∧
-  (check_xlrups_list xorig (x::xs) cfml xfml bfml tn def Clist =
-    case check_xlrup_list xorig x cfml xfml bfml tn def Clist of
+  (check_xlrups_list xorig borig (x::xs) cfml xfml bfml tn def Clist =
+    case check_xlrup_list xorig borig x cfml xfml bfml tn def Clist of
       NONE => NONE
     | SOME (cfml', xfml', bfml', tn', def', Clist') =>
-      check_xlrups_list xorig xs cfml' xfml' bfml' tn' def' Clist')
+      check_xlrups_list xorig borig xs cfml' xfml' bfml' tn' def' Clist')
 End
 
 (* Search backwards through the IDs *)
@@ -354,9 +361,9 @@ Definition contains_emp_list_def:
 End
 
 Definition check_xlrups_unsat_list_def:
-  check_xlrups_unsat_list xorig xlrups
+  check_xlrups_unsat_list xorig borig xlrups
     cfml xfml bfml tn def Clist =
-  case check_xlrups_list xorig xlrups
+  case check_xlrups_list xorig borig xlrups
     cfml xfml bfml tn def Clist of
     NONE => F
   | SOME (cfml', xfml', bfml', tn', def') =>
@@ -912,12 +919,12 @@ Theorem fml_rel_check_xlrup_list:
   fml_rel bfml bfmlls ∧
   EVERY ($= w8z) Clist ∧
   wf_cfml cfml ⇒
-  case check_xlrup_list xorig xlrup
+  case check_xlrup_list xorig borig xlrup
     cfmlls xfmlls bfmlls tn def Clist of
     SOME (cfmlls', xfmlls', bfmlls', tn', def', Clist') =>
     EVERY ($= w8z) Clist' ∧
     ∃cfml' xfml' bfml'.
-    check_xlrup xorig xlrup cfml xfml bfml tn def =
+    check_xlrup xorig borig xlrup cfml xfml bfml tn def =
       SOME (cfml',xfml',bfml',tn',def') ∧
     fml_rel cfml' cfmlls' ∧
     fml_rel xfml' xfmlls' ∧
@@ -964,6 +971,10 @@ Proof
     CONJ_TAC >-
       metis_tac[is_xfromc_list_is_xfromc]>>
     metis_tac[fml_rel_update_resize])
+  >- ( (* BOrig *)
+    every_case_tac>>gvs[]>>
+    metis_tac[fml_rel_update_resize]
+  )
   >- (
     rw[] >- cheat>>
     metis_tac[fml_rel_update_resize])
@@ -1011,18 +1022,18 @@ Proof
 QED
 
 Theorem fml_rel_check_xlrups_list:
-  ∀xlrups xorig cfml cfmlls xfml xfmlls bfml bfmlls
+  ∀xlrups cfml cfmlls xfml xfmlls bfml bfmlls
     cfmlls' xfmlls' bfmlls' tn tn' def def' Clist.
   fml_rel cfml cfmlls ∧
   fml_rel xfml xfmlls ∧
   fml_rel bfml bfmlls ∧
   EVERY ($= w8z) Clist ∧ wf_cfml cfml ∧
   EVERY wf_xlrup xlrups ∧
-  check_xlrups_list xorig xlrups cfmlls xfmlls bfmlls
+  check_xlrups_list xorig borig xlrups cfmlls xfmlls bfmlls
     tn def Clist =
     SOME (cfmlls', xfmlls', bfmlls', tn', def') ⇒
   ∃cfml' xfml' bfml'.
-    check_xlrups xorig xlrups cfml xfml bfml tn def =
+    check_xlrups xorig borig xlrups cfml xfml bfml tn def =
       SOME (cfml',xfml',bfml',tn',def') ∧
     fml_rel cfml' cfmlls' ∧
     fml_rel xfml' xfmlls' ∧
@@ -1032,7 +1043,7 @@ Proof
   rw[]>>gvs[AllCaseEqs()]>>
   drule  fml_rel_check_xlrup_list>>
   rpt (disch_then drule)>>
-  disch_then (qspecl_then [`xorig`,`h`,`tn`,`def`] mp_tac)>>
+  disch_then (qspecl_then [`xorig`,`h`,`tn`,`def`,`borig`] mp_tac)>>
   simp[PULL_EXISTS]>>
   rw[]>>
   first_x_assum (irule_at Any)>>

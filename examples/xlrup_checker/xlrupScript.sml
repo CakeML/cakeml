@@ -870,6 +870,7 @@ Datatype:
   | XFromC num rawxor (num list)
     (* Derive XOR from hint clauses *)
 
+  | BOrig num cmsbnn
   | BAdd num cmsbnn num (num list)
   (* BAdd n B bhint hints derive BNN B from the BNN at bhint using units *)
   | BDel (num list) (* BNN constraints to delete *)
@@ -1290,7 +1291,7 @@ End
 
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
 Definition check_xlrup_def:
-  check_xlrup xorig xlrup cfml xfml bfml tn def =
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
   case xlrup of
     Del cl =>
     SOME (FOLDL (\a b. delete b a) cfml cl, xfml, bfml,
@@ -1330,6 +1331,12 @@ Definition check_xlrup_def:
       SOME (cfml, insert n X xfml, bfml,
         tn, MAX def (strlen X))
     else NONE
+  | BOrig n rB =>
+    if MEM rB borig
+    then
+      let B = conv_bnn rB in
+        SOME (cfml, xfml, insert n B bfml, tn, def)
+    else NONE
   | BAdd n rB ib i0 =>
     (* check the raw BNN before adding it *)
     if is_bnn rB cfml bfml ib i0 then
@@ -1347,13 +1354,13 @@ Definition check_xlrup_def:
 End
 
 Definition check_xlrups_def:
-  (check_xlrups xorig [] cfml xfml bfml tn def =
+  (check_xlrups xorig borig [] cfml xfml bfml tn def =
     SOME (cfml,xfml,bfml,tn,def)) ∧
-  (check_xlrups xorig (x::xs) cfml xfml bfml tn def =
-  case check_xlrup xorig x cfml xfml bfml tn def of
+  (check_xlrups xorig borig (x::xs) cfml xfml bfml tn def =
+  case check_xlrup xorig borig x cfml xfml bfml tn def of
     NONE => NONE
   | SOME (cfml',xfml',bfml',tn',def') =>
-    check_xlrups xorig xs cfml' xfml' bfml' tn' def')
+    check_xlrups xorig borig xs cfml' xfml' bfml' tn' def')
 End
 
 Definition contains_emp_def:
@@ -1363,8 +1370,8 @@ Definition contains_emp_def:
 End
 
 Definition check_xlrups_unsat_def:
-  check_xlrups_unsat xorig xlrups cfml xfml bfml tn def =
-  case check_xlrups xorig xlrups cfml xfml bfml tn def of
+  check_xlrups_unsat xorig borig xlrups cfml xfml bfml tn def =
+  case check_xlrups xorig borig xlrups cfml xfml bfml tn def of
     NONE => F
   | SOME (cfml',_) => contains_emp cfml'
 End
@@ -1589,14 +1596,18 @@ Definition wf_cfml_def:
   ∀C. C ∈ range cfml ⇒ wf_clause C
 End
 
+Definition wf_cmsbnn_def:
+  wf_cmsbnn ((C, k, oy):cmsbnn) ⇔
+  OPTION_ALL nz_lit oy ∧ EVERY nz_lit C
+End
+
 Definition wf_xlrup_def:
   (wf_xlrup (RUP n C i0) = wf_clause C) ∧
   (wf_xlrup (CFromX n C i0) = wf_clause C) ∧
   (wf_xlrup (XFromC n X i0) = wf_clause X) ∧
   (wf_xlrup (XOrig n rX) = EVERY nz_lit rX) ∧
-  (wf_xlrup (BAdd n rB ib i0) =
-    case rB of ((C, k, oy):cmsbnn) =>
-    OPTION_ALL nz_lit oy ∧ EVERY nz_lit C) ∧
+  (wf_xlrup (BOrig n rB) = wf_cmsbnn rB) ∧
+  (wf_xlrup (BAdd n rB ib i0) = wf_cmsbnn rB) ∧
   (wf_xlrup (CFromB n C ib i0) = wf_clause C) ∧
   (wf_xlrup _ = T)
 End
@@ -1628,7 +1639,7 @@ QED
 
 Theorem wf_cfml_check_xlrup:
   wf_cfml cfml ∧ wf_xlrup xlrup ∧
-  check_xlrup xorig xlrup cfml xfml bfml tn def =
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
     SOME (cfml',xfml',bfml',tn',def') ⇒
   wf_cfml cfml'
 Proof
@@ -2874,11 +2885,12 @@ QED
 
 Theorem conv_bnn_sound:
   ∀C k y w.
-    OPTION_ALL nz_lit y ∧ EVERY nz_lit C ⇒
+    wf_cmsbnn (C,k,y) ⇒
     wf_ibnn (conv_bnn (C,k,y)) ∧
     (isat_ibnn w (conv_bnn (C,k,y)) ⇔ sat_cmsbnn w (C,k,y))
 Proof
-  recInduct conv_bnn_ind
+  simp[wf_cmsbnn_def]
+  \\ recInduct conv_bnn_ind
   \\ rpt gen_tac \\ rpt disch_tac
   \\ rpt gen_tac \\ rpt disch_tac
   \\ gvs []
@@ -2922,9 +2934,10 @@ QED
 Theorem check_xlrup_sound:
   wf_xlrup xlrup ∧
   wf_cfml cfml ∧
-  check_xlrup xorig xlrup cfml xfml bfml tn def =
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
     SOME (cfml',xfml',bfml',tn',def') ∧ tn_inv tn ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
+  (∀x. MEM x borig ⇒ sat_cmsbnn w x) ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
   (∀b. b ∈ range bfml ⇒ wf_ibnn b) ∧
   isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml)
@@ -3053,8 +3066,21 @@ Proof
     CONJ_TAC >-
       (EVAL_TAC>>rw[])>>
     EVAL_TAC)
+  >~ [‘BOrig’] >- (
+    gvs[wf_xlrup_def,AllCasePreds()]>>
+    PairCases_on`rB`>>
+    drule_all conv_bnn_sound>>
+    strip_tac>>
+    rw[]
+    >-
+      metis_tac[range_insert_2]>>
+    fs[isat_fml_def]>>
+    match_mp_tac isat_fml_gen_insert>>
+    gvs[])
   >~ [‘BAdd’] >- (
     gvs[wf_xlrup_def,AllCasePreds()]>>
+    rename1`wf_cmsbnn rB`>>
+    PairCases_on`rB`>>
     drule_all conv_bnn_sound>>
     strip_tac>>
     rw[]
@@ -3063,8 +3089,7 @@ Proof
     fs[isat_fml_def]>>
     match_mp_tac isat_fml_gen_insert>>
     gvs[]>>
-    cheat (* TO BE ADDED *)
-    )
+    cheat (* TO BE ADDED *) )
   >~ [‘BDel’] >- (
     rw[]
     >-
@@ -3079,7 +3104,7 @@ Proof
 QED
 
 Theorem check_xlrup_tn_inv:
-  check_xlrup xorig xlrup cfml xfml bfml tn def =
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
     SOME (cfml',xfml',bfml',tn',def') ∧ tn_inv tn ⇒
   tn_inv tn'
 Proof
@@ -3094,11 +3119,12 @@ QED
 Theorem check_xlrups_sound:
   ∀ls cfml xfml bfml def def' tn tn'.
   EVERY wf_xlrup ls ∧ wf_cfml cfml ∧ tn_inv tn ∧
-  check_xlrups xorig ls cfml xfml bfml tn def =
+  check_xlrups xorig borig ls cfml xfml bfml tn def =
     SOME (cfml', xfml', bfml', tn', def') ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
   (∀b. b ∈ range bfml ⇒ wf_ibnn b) ∧
-  (∀x. MEM x xorig ⇒ sat_cmsxor w x) ⇒
+  (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
+  (∀x. MEM x borig ⇒ sat_cmsbnn w x) ⇒
   (isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml) ⇒
    isat_fml w (restore_fn tn') (range cfml', range xfml', range bfml'))
 Proof
@@ -3156,13 +3182,12 @@ QED
 Theorem check_xlrups_unsat_sound:
   EVERY wf_xlrup xlrups ∧
   EVERY wf_clause cfml ∧
-  EVERY wf_ibnn bfml ∧
-  check_xlrups_unsat xfml xlrups
-    (build_fml cid cfml) LN (build_fml bid bfml) (LN,1) def ⇒
+  check_xlrups_unsat xfml bfml xlrups
+    (build_fml cid cfml) LN LN (LN,1) def ⇒
   ¬ ∃w.
     isat_cfml w (set cfml) ∧
     (∀x. MEM x xfml ⇒ sat_cmsxor w x) ∧
-    isat_bfml w (set bfml)
+    (∀x. MEM x bfml ⇒ sat_cmsbnn w x)
 Proof
   rw[check_xlrups_unsat_def]>>
   every_case_tac>>fs[]>>
@@ -3216,14 +3241,14 @@ Proof
   metis_tac[]
 QED
 
+(* Unused *)
 Definition conv_bfml_def:
   conv_bfml bfml =
   MAP (conv_bnn) bfml
 End
 
 Theorem conv_bfml_sound:
-  EVERY (λ(ls,k,y). OPTION_ALL nz_lit y ∧
-  EVERY (λl. nz_lit l) ls) bfml ⇒
+  EVERY wf_cmsbnn bfml ⇒
   (isat_bfml w (set (conv_bfml bfml)) ⇔
   (∀b. b ∈ set bfml ⇒ sat_cmsbnn w b))
 Proof
@@ -3231,9 +3256,7 @@ Proof
   simp[GSYM EVERY_MEM]>>
   match_mp_tac EVERY_CONG>>rw[]>>
   first_x_assum drule>>
-  pairarg_tac>>fs[]>> strip_tac>>
-  drule conv_bnn_sound>>
-  gvs[EVERY_MEM]
+  metis_tac[conv_bnn_sound,PAIR]
 QED
 
 Definition conv_fml_def:
