@@ -352,14 +352,11 @@ Definition evaluate_stmt_ann_def[nocompute]:
   evaluate_stmts (st: state) (env: sem_env) [] : (state # dafny_result) =
     (st, Rval UnitV)
   ∧
-  evaluate_stmts (st: state) (env: sem_env) [stmt] : (state # dafny_result) =
-    evaluate_stmt st env stmt
-  ∧
   evaluate_stmts (st: state) (env: sem_env)
-                 (stmt1::stmt2::stmts') : (state # dafny_result) =
-    (case fix_clock st (evaluate_stmt st env stmt1) of
+                 (stmt::stmts) : (state # dafny_result) =
+    (case fix_clock st (evaluate_stmt st env stmt) of
      | (st', Rval _) =>
-         evaluate_stmts st' env (stmt2::stmts')
+         evaluate_stmts st' env stmts
      | r => r)
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<)
@@ -424,6 +421,11 @@ End
 (* val stmt = “[DeclareVar (VarName "foo") (Primitive Int) *)
 (*                         (SOME (Literal (IntLiteral "999" (Primitive Int)))) *)
 (*                         [If (Literal (BoolLiteral F)) *)
+(*                             [(Assign (AssignLhs_Ident (VarName "foo")) *)
+(*                                      (Literal (IntLiteral "4" (Primitive Int))))] *)
+(*                             [(Assign (AssignLhs_Ident (VarName "foo")) *)
+(*                                      (Literal (IntLiteral "2" (Primitive Int))))]; *)
+(*                          If (Literal (BoolLiteral T)) *)
 (*                             [(Assign (AssignLhs_Ident (VarName "foo")) *)
 (*                                      (Literal (IntLiteral "4" (Primitive Int))))] *)
 (*                             [(Assign (AssignLhs_Ident (VarName "foo")) *)
