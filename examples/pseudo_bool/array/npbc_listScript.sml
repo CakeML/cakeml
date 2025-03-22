@@ -1627,13 +1627,13 @@ Definition ind_lim_def:
 End
 
 Definition opt_cons_def:
-  (opt_cons v NONE = INL (1n,[v])) ∧
+  (opt_cons (v:num) NONE = INL (1n,[v])) ∧
   (opt_cons v (SOME (INL (n,ls))) =
     if ind_lim ≤ n
     then
-      INL (n+1, v::ls)
+      INR (0n)
     else
-      INR (LAST ls)) ∧
+      INL (n+1, v::ls)) ∧
   (opt_cons v (SOME (INR earliest)) = INR earliest)
 End
 
