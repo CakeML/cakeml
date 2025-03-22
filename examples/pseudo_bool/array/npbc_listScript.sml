@@ -1244,15 +1244,6 @@ Definition do_red_check_def:
      check_contradiction_fml_list b fml cid
 End
 
-(*
-Definition get_earliest_def:
-  (get_earliest earliest (INR v) =
-    if length v = 0 then NONE
-    else SOME (0:num)) ∧
-  (get_earliest earliest (INL (n,_)) =
-    sptree$lookup n earliest)
-End *)
-
 (* A reverse mapping of vars -> indices *)
 Definition get_indices_def:
   get_indices fml inds s vimap =

@@ -1879,6 +1879,8 @@ QED
 Type subproof =
   ``:(((num + num) # num) option, lstep list) alist``;
 
+Type assg_raw = ``:((num # bool) list)``;
+
 Datatype:
   cstep =
   (* Derivation steps *)
@@ -1902,7 +1904,7 @@ Datatype:
       subproof
 
   (* Objective steps *)
-  | Obj (bool spt) bool (int option)
+  | Obj assg_raw bool (int option)
   | ChangeObj bool ((int # var) list # int)
       (* sub proof*)
       subproof
@@ -1927,10 +1929,28 @@ Proof
   metis_tac[]
 QED
 
+Definition to_flat_d_def:
+  to_flat_d d n l acc =
+    case l of
+    | [] => REVERSE acc
+    | ((m,x)::xs) => to_flat_d d (m+1) xs (x :: prepend (m-n) d acc)
+End
+
+Definition mk_obj_vec_def:
+  mk_obj_vec (wm:((num # bool) list)) =
+    let wms = mergesort_tail (λx y. FST x ≤ FST y) wm in
+    Vector (to_flat_d F 0 wms [])
+End
+
+Definition vec_lookup_d_def:
+  vec_lookup_d d vec n =
+    if n < length vec then sub vec n else d
+End
+
 Definition check_obj_def:
   check_obj obj wm cs bopt =
-  let w = (λn.
-    case lookup n wm of NONE => F | SOME b => b) in
+  let wv = mk_obj_vec wm in
+  let w = vec_lookup_d F wv in
   let new = eval_obj obj w in
   if
     EVERY (satisfies_npbc w) cs
@@ -4037,9 +4057,9 @@ QED
 Datatype:
   hconcl =
   | HNoConcl
-  | HDSat (bool spt option)
+  | HDSat (assg_raw option)
   | HDUnsat num
-  | HOBounds (int option) (int option) num (bool spt option)
+  | HOBounds (int option) (int option) num (assg_raw option)
 End
 
 Definition check_implies_fml_def:

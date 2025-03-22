@@ -3314,6 +3314,26 @@ val res = translate npbcTheory.eval_term_def;
 val res = translate npbcTheory.eval_obj_def;
 val res = translate npbc_checkTheory.opt_lt_def;
 val res = translate npbcTheory.satisfies_npbc_def;
+
+val r = translate (npbc_checkTheory.to_flat_d_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
+
+Triviality to_flat_d_ind:
+  to_flat_d_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "to_flat_d_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = to_flat_d_ind |> update_precondition;
+
+val res = translate npbc_checkTheory.mk_obj_vec_def;
+val res = translate npbc_checkTheory.vec_lookup_d_def;
 val res = translate npbc_checkTheory.check_obj_def;
 
 val res = translate npbc_checkTheory.model_improving_def;
@@ -4794,9 +4814,9 @@ Proof
   >- ( (* Obj *)
     xmatch>>
     rpt xlet_autop>>
-    rename1`check_obj _ _ _ oo`>>
+    rename1`check_obj _ ll _ oo`>>
     fs[get_obj_def]>>
-    Cases_on`check_obj pc.obj s (MAP SND (core_fmlls fmlls inds)) oo`>>
+    Cases_on`check_obj pc.obj ll (MAP SND (core_fmlls fmlls inds)) oo`>>
     fs[map_snd_def,OPTION_TYPE_def]>>
     xmatch
     >- (
