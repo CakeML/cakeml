@@ -1539,7 +1539,7 @@ End
 
 Type vimap_ty = ``:((num # num list) + num) option list``;
 
-(* Given a descending sorted list, return the prefix ≥ earliest *)
+(* Given a descending sorted list, return the prefix ≥ earliest
 Definition split_earliest_def:
   (split_earliest earliest [] acc = REVERSE acc) ∧
   (split_earliest earliest (i::is) acc =
@@ -1547,6 +1547,7 @@ Definition split_earliest_def:
     else
       split_earliest earliest is (i::acc))
 End
+ *)
 
 (* A reverse mapping of vars -> indices *)
 Definition get_indices_def:
@@ -1559,19 +1560,7 @@ Definition get_indices_def:
     case any_el n vimap NONE of
       NONE => []
     | SOME (INL (n,inds)) => reindex fml inds
-    | SOME (INR earliest) => reindex fml (split_earliest earliest inds [])
-End
-
-Definition ind_lim_def:
-  ind_lim = 10n
-End
-
-Definition mk_inds_def:
-  mk_inds ls =
-  let n = LENGTH ls in
-  if n ≤ ind_lim then
-    INL (n,ls)
-  else INR (LAST ls)
+    | SOME (INR earliest) => reindex fml inds
 End
 
 Definition set_indices_def:
@@ -1581,7 +1570,9 @@ Definition set_indices_def:
     if length v = 0 then (inds,vimap)
     else (rinds,vimap)
   | INL (n,_) =>
-    (inds, update_resize vimap NONE (SOME (mk_inds rinds)) n)
+    case any_el n vimap NONE of
+    | SOME (INL (n,_)) => (inds , update_resize vimap NONE (SOME (INL (LENGTH rinds,rinds))) n)
+    | _ => (inds,vimap)
 End
 
 Definition check_red_list_def:
@@ -1631,6 +1622,9 @@ Definition update_earliest_def:
     ns)
 End
 *)
+Definition ind_lim_def:
+  ind_lim = 10n
+End
 
 Definition opt_cons_def:
   (opt_cons v NONE = INL (1n,[v])) ∧
@@ -1640,8 +1634,7 @@ Definition opt_cons_def:
       INL (n+1, v::ls)
     else
       INR (LAST ls)) ∧
-  (opt_cons v (SOME (INR earliest)) =
-    INR earliest)
+  (opt_cons v (SOME (INR earliest)) = INR earliest)
 End
 
 Definition update_vimap_def:
@@ -2278,7 +2271,7 @@ Definition vimap_rel_def:
       any_el x vimap NONE = SOME ll ∧
       case ll of
         INL (n,ls) => MEM i ls
-      | INR earliest => earliest ≤ i
+      | INR earliest => T (*earliest ≤ i *)
 End
 
 
