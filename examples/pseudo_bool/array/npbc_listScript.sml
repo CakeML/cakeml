@@ -3403,23 +3403,37 @@ Proof
   simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]
 QED
 
+Theorem list_delete_list_length:
+  ∀l fmlls. LENGTH (list_delete_list l fmlls) = LENGTH fmlls
+Proof
+  Induct \\ gvs [list_delete_list_def]
+  \\ rw [delete_list_def]
+QED
+
 Theorem vimap_rel_list_delete_list:
   ∀l fmlls.
   vimap_rel fmlls vimap ==>
   vimap_rel (list_delete_list l fmlls) vimap
 Proof
-  cheat
-  (*
-  Cases_on`vimap`>>gvs[vimap_rel_def]>>
-  Induct \\ gvs [list_delete_list_def] \\ rw []
-  \\ last_x_assum irule
-  \\ gvs [vimap_rel_aux_def]
-  \\ ‘LENGTH (delete_list h fmlls) = LENGTH fmlls’ by rw [delete_list_def]
-  \\ gvs [] \\ rw []
-  \\ last_x_assum irule \\ simp[]
-  \\ last_x_assum (irule_at Any)
+  gvs [vimap_rel_def]
+  \\ rw []
+  \\ gvs [list_delete_list_length]
+  \\ qsuff_tac ‘EL i fmlls = SOME c’
+  >- metis_tac []
+  \\ qpat_x_assum ‘i < LENGTH fmlls’ mp_tac
+  \\ pop_assum kall_tac
   \\ pop_assum mp_tac
-  \\ rw [delete_list_def,EL_LUPDATE] *)
+  \\ rpt $ pop_assum kall_tac
+  \\ qid_spec_tac ‘fmlls’
+  \\ qid_spec_tac ‘i’
+  \\ qid_spec_tac ‘l’
+  \\ Induct
+  \\ gvs [list_delete_list_def]
+  \\ rw []
+  \\ last_x_assum drule
+  \\ impl_tac >- rw [delete_list_def]
+  \\ rw [delete_list_def]
+  \\ gvs [EL_LUPDATE]
 QED
 
 Theorem all_core_list_SORTED:
