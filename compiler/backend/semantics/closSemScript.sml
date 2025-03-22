@@ -538,25 +538,9 @@ Definition build_recc_def:
     | NONE => NONE
 End
 
-val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def}
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
-val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
-val ref_thms = { nchotomy = theorem"ref_nchotomy", case_def = definition"ref_case_def"}
-val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
-                    case_def = TypeBase.case_def_of ``:('a,'b)result`` }
-val error_result_thms = { nchotomy = TypeBase.nchotomy_of ``:'a error_result``,
-                          case_def = TypeBase.case_def_of ``:'a error_result`` }
-val eq_result_thms = { nchotomy = TypeBase.nchotomy_of ``:eq_result``,
-                       case_def = TypeBase.case_def_of ``:eq_result`` }
-val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
-                     case_def = TypeBase.case_def_of ``:app_kind`` }
-val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
-                     case_def = TypeBase.case_def_of ``:word_size`` }
-
-val case_eq_thms = LIST_CONJ (CaseEq"const_part" :: map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, ref_thms,
-   result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
+val case_eq_thms = LIST_CONJ (CaseEq"const_part" :: closLangTheory.op_case_eq :: map CaseEq
+  ["list","option","v","ref",
+   "result","error_result","eq_result","app_kind","word_size"])
 
 Theorem case_eq_thms =
   case_eq_thms
@@ -565,14 +549,14 @@ Theorem do_install_clock:
    do_install vs s = (Rval e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1
 Proof
   rw[do_install_def,case_eq_thms]
-  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]
+  \\ pairarg_tac \\ gvs[case_eq_thms,pair_case_eq,bool_case_eq]
 QED
 
 Theorem do_install_clock_less_eq:
    do_install vs s = (res,s') ⇒ s'.clock <= s.clock
 Proof
   rw[do_install_def,case_eq_thms] \\ fs []
-  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]
+  \\ pairarg_tac \\ gvs[case_eq_thms,pair_case_eq,bool_case_eq]
 QED
 
 Definition evaluate_def[nocompute]:

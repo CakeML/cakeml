@@ -55,7 +55,7 @@ Proof
   \\ asm_exists_tac \\ fs []
   \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [evaluateTheory.dec_clock_def]
+  \\ fs [evaluateTheory.dec_clock_def]
   \\ `evaluate (st2 with clock := (ck + ck2 + 1) - 1) env [exp] =
         ((st' with clock := st2.clock) with clock := ck2 + st'.clock,
          Rval [Conv NONE []])` by fs []

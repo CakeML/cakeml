@@ -295,6 +295,8 @@ Proof
          \\ fs[case_eq_thms] \\ rveq
          \\ fs [] \\ rfs []
          \\ fs[state_component_equality] \\ rveq
+         \\ qpat_abbrev_tac `v4_locals = v4.locals`
+         \\ rveq
          \\ fs[op_space_req_def]
          \\ first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]evaluate_locals))
          \\ disch_then drule

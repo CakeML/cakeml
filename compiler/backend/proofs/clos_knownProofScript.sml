@@ -22,32 +22,12 @@ fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 
 (* fixeqs flips any equations in the assumption that have evaluate on the rhs *)
 val evaluate_t = ``closSem$evaluate``
-val fixeqs = let
-  fun c t =
-    let
-      val r = rhs t
-      val (f, _) = strip_comb r
-    in
-      if same_const evaluate_t f then REWR_CONV EQ_SYM_EQ
-      else NO_CONV
-    end t
-in
-  RULE_ASSUM_TAC (CONV_RULE (TRY_CONV c))
-end
 
-val va_case_eq =
-    prove_case_eq_thm{case_def = TypeBase.case_def_of ``:val_approx``,
-                      nchotomy = TypeBase.nchotomy_of ``:val_approx``}
+val va_case_eq = TypeBase.case_eq_of ``:val_approx``
 
-val inlD_case_eq =
-    prove_case_eq_thm{case_def = TypeBase.case_def_of ``:inliningDecision``,
-                      nchotomy = TypeBase.nchotomy_of ``:inliningDecision``}
+val inlD_case_eq = TypeBase.case_eq_of ``:inliningDecision``
 
-val result_ty = ``:(α,β)semanticPrimitives$result``
-val result_CASES = TypeBase.nchotomy_of result_ty
-val result_case_eq =
-    prove_case_eq_thm{case_def = TypeBase.case_def_of result_ty,
-                      nchotomy = result_CASES}
+val result_case_eq = TypeBase.case_eq_of ``:(α,β)semanticPrimitives$result``
 
 (* simple properties of constants from clos_known: i.e., merge and known *)
 
@@ -361,11 +341,9 @@ Theorem do_install_IMP_shift_seq:
      ?k. s.compile_oracle = shift_seq k s0.compile_oracle
 Proof
    rpt strip_tac  \\ fs [do_install_def]
-   \\ fs [case_eq_thms]
+   \\ fs [case_eq_thms,bool_case_eq,pair_case_eq,UNCURRY_EQ]
    \\ TRY (qexists_tac `0` \\ simp [] \\ NO_TAC)
-   \\ pairarg_tac \\ fs []
-   \\ fs [bool_case_eq, case_eq_thms, pair_case_eq]
-   \\ TRY (qexists_tac `0` \\ simp [] \\ NO_TAC)
+   \\ rveq \\ fs[]
    \\ metis_tac []
 QED
 
@@ -922,7 +900,7 @@ Proof
     \\ metis_tac [UNION_ASSOC, UNION_COMM])
   THEN1
    (say "Var"
-    \\ fs [evaluate_def, bool_case_eq, EVERY_EL]
+    \\ fs [evaluate_def, bool_case_eq, EVERY_EL] \\ rveq \\ fs[]
     \\ qexists_tac `0` \\ simp [])
   THEN1
    (say "If"
@@ -1058,7 +1036,7 @@ Proof
     \\ qexists_tac `0` \\ simp [])
   THEN1
    (say "Letrec"
-    \\ reverse (fs [evaluate_def, bool_case_eq])
+    \\ reverse (fs [evaluate_def, bool_case_eq]) \\ rveq \\ fs[]
     THEN1 (qexists_tac `0` \\ simp [])
     \\ fs [Once case_eq_thms] \\ rveq \\ fs []
     THEN1 (qexists_tac `0` \\ simp [])
@@ -1101,15 +1079,14 @@ Proof
    (say "Tick"
     \\ fs [evaluate_def, bool_case_eq] \\ rveq \\ fs []
     THEN1 (qexists_tac `0` \\ simp [])
-    \\ qpat_x_assum `_ = evaluate _` (assume_tac o GSYM)
     \\ fs [dec_clock_def]
     \\ qexists_tac `n` \\ simp [])
   THEN1
    (say "Call"
     \\ fs [evaluate_def, pair_case_eq, case_eq_thms, bool_case_eq]
     \\ rveq \\ fs []
-    \\ qpat_x_assum `_ = evaluate _` (assume_tac o GSYM)
     \\ fs [dec_clock_def]
+    >- metis_tac[]
     \\ rename [`find_code _ _ s1.code = SOME (args, code)`]
     \\ fs [find_code_def, case_eq_thms, pair_case_eq, bool_case_eq]
     \\ rveq \\ fs []
@@ -1489,7 +1466,7 @@ Proof
     \\ rpt (pairarg_tac \\ fs [])
     \\ imp_res_tac known_sing_EQ_E
     \\ imp_res_tac decide_inline_LetInline_IMP_Clos_fv_max
-    \\ fs [bool_case_eq, fv_max_rw] \\ rveq
+    \\ fs [bool_case_eq] \\ rveq \\ fs[fv_max_rw]
     \\ res_tac
     \\ qspec_then`MAP FST ea2`(fn th => rw[th])(Q.GEN`t`fv_max_cons)
     \\ match_mp_tac fv_max_less
@@ -1901,7 +1878,7 @@ Proof
     \\ simp [] \\ strip_tac
     \\ patresolve `known _ _ _ g1 = _` (el 1) known_preserves_esgc_free
     \\ simp [] \\ strip_tac
-    \\ reverse (fs [bool_case_eq]) \\ fixeqs \\ rveq
+    \\ reverse (fs [bool_case_eq]) \\ rveq
     THEN1
      (irule state_globals_approx_known_mglobals_disjoint
       \\ `?eaunused. known c [x2; x3] aenv g1 = (eaunused, g)` by simp [known_def]
@@ -2082,11 +2059,11 @@ Proof
     >-(
       rw[]
       \\ fs[result_case_eq, option_case_eq, pair_case_eq, bool_case_eq]
-      \\ rveq \\ fs[] \\ fixeqs
+      \\ rveq \\ fs[]
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ fs[LENGTH_EQ_NUM_compute])
     \\ fs[result_case_eq, option_case_eq, pair_case_eq, bool_case_eq]
-    \\ rveq \\ fs[] \\ fixeqs
+    \\ rveq \\ fs[]
     \\ fs[mglobals_disjoint_rw]
     \\ rename1 `evaluate (_, _, s0) = (Rval vs, s1)`
     \\ patresolve `known _ _ _ g0 = _` (el 1) known_preserves_esgc_free
@@ -3146,8 +3123,8 @@ Proof
        by simp [next_g_def, shift_seq_def, oracle_gapprox_subspt_alt]
     \\ fs [bool_case_eq] \\ rveq \\ fs []
     THEN
-     (fixeqs
-      \\ first_x_assum drule
+     (
+      first_x_assum drule
       \\ rpt (disch_then drule \\ simp [])
       \\ simp [co_every_Fn_vs_NONE_shift_seq,
                oracle_state_sgc_free_shift_seq,
@@ -3627,7 +3604,6 @@ Proof
     \\ fs [known_def]
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ fs [evaluate_def, bool_case_eq]
-    \\ fixeqs
     \\ first_x_assum drule
     \\ rpt (disch_then drule \\ simp [])
     \\ qmatch_asmsub_abbrev_tac `evaluate (_, rcs1 ++ env1 ++ xenv1, _)`
@@ -4079,7 +4055,7 @@ Proof
       \\ pop_assum (qspec_then `ii` mp_tac)
       \\ simp [f_rel_def]
       \\ strip_tac
-      \\ fs [bool_case_eq]
+      \\ fs [bool_case_eq] \\ rveq
       THEN1
        (fs [state_rel_def, next_g_def, loptrel_def, check_loc_def]
         \\ Cases_on `lopt2` \\ fs []

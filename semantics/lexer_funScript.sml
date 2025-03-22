@@ -182,7 +182,7 @@ Theorem read_FFIcall_reduces_input:
      read_FFIcall s0 a l0 = (t, l, s) ⇒ LENGTH s < LENGTH s0 + 1
 Proof
   Induct >> dsimp[read_FFIcall_def, bool_case_eq] >> rw[] >>
-  qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]
+  res_tac >> simp[]
 QED
 
 Definition read_REPLcommand_def:
@@ -202,7 +202,7 @@ Theorem read_REPLcommand_reduces_input:
     read_REPLcommand s0 a l0 = (t, l, s) ⇒ LENGTH s < LENGTH s0 + 1
 Proof
   Induct >> dsimp[read_REPLcommand_def, bool_case_eq] >> rw[] >>
-  qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]
+  res_tac >> simp[]
 QED
 
 Definition isAlphaNumPrime_def:
@@ -344,7 +344,7 @@ Theorem next_sym_LESS:
    ∀input l s l' rest.
      (next_sym input l = SOME (s, l', rest)) ⇒ LENGTH rest < LENGTH input
 Proof
-  ho_match_mp_tac (fetch "-" "next_sym_ind") >>
+  ho_match_mp_tac next_sym_ind >>
   simp[next_sym_def, bool_case_eq, listeq, optioneq] >> rw[] >> fs[] >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[NOT_NIL_EXISTS_CONS] >>
   rveq >> fs[] >> rveq >> fs[] >>
@@ -359,7 +359,6 @@ Proof
        imp_res_tac read_FFIcall_reduces_input >> simp[] >> NO_TAC) >>
   TRY (rename1 `read_REPLcommand` >>
        imp_res_tac read_REPLcommand_reduces_input >> simp[] >> NO_TAC) >>
-  qpat_x_assum ‘SOME _ = next_sym _ _’ (assume_tac o SYM) >>
   first_x_assum drule >> simp[]
 QED
 

@@ -1179,7 +1179,6 @@ Proof
   \\ `Num (ABS i7) = Num i7 /\
       (i7 < &LENGTH ws <=> Num i7 < LENGTH ws)` by intLib.COOPER_TAC
   \\ fs [] \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-  \\ qpat_x_assum `SOME (s2,res2) = _` (assume_tac o GSYM)
   \\ fs [option_case_eq] \\ rveq \\ fs [v_rel_def,Unit_def,EVAL ``tuple_tag``]
   \\ fs [state_rel_def,store_rel_def,EL_LUPDATE]
   \\ strip_tac

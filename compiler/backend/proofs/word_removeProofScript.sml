@@ -223,6 +223,14 @@ Proof
   \\ split_pair_case_tac \\ rw[push_env_def,FUN_EQ_THM]
 QED
 
+Triviality pair_map_I:
+   (λ(k,v). (k,f v)) = (I ## f) /\
+   (λ(k,v). (f k,v)) = (f ## I)
+Proof
+  fs[FUN_EQ_THM] \\ rw[] \\
+  pairarg_tac \\ fs[]
+QED
+
 Theorem word_remove_correct:
   ∀prog st res rst.
   evaluate (prog,st) = (res,rst) ∧
@@ -235,9 +243,8 @@ Proof
   recInduct evaluate_ind
   \\ rw[evaluate_def,remove_must_terminate_def]
   \\ TRY (
-     fs[case_eq_thms] \\ rveq \\
+     fs[case_eq_thms,UNCURRY_EQ] \\ rveq \\
      fs[domain_map] \\
-     rpt(pairarg_tac \\ fs[]) \\
      metis_tac[] >> NO_TAC)
   THEN1 ( (* MustTerminate *)
     qmatch_goalsub_rename_tac`remove_must_terminate _` \\
@@ -256,21 +263,17 @@ Proof
     pairarg_tac \\ fs[] \\
     reverse(fs[case_eq_thms] \\ rveq \\ fs[])
     >- ( qexists_tac`clk` \\ fs[] \\ NO_TAC ) \\
-    qpat_x_assum`(res,rst) = _`(assume_tac o SYM) \\ fs[] \\
-    `s1.compile = s.compile` by (imp_res_tac evaluate_consts \\ fs[]) \\ fs[] \\
-    qexists_tac`clk + clk'` \\ fs[] \\
+    fs[] \\ `s1.compile = s.compile` by (imp_res_tac evaluate_consts \\ fs[]) \\
+    fs[] \\ qexists_tac`clk + clk'` \\ fs[] \\
     imp_res_tac (GEN_ALL evaluate_add_clock) \\ fs[] \\
     first_x_assum(qspec_then`clk'`mp_tac) \\ fs[] \\
     fs[compile_state_def] \\ NO_TAC )
   THEN1 ( (* Install *)
-    fs[case_eq_thms] \\ rveq \\
-    pairarg_tac \\ fs[] \\
-    pairarg_tac \\ fs[] \\
-    fs[case_eq_thms] \\ rveq \\ fs[] \\
+    fs[case_eq_thms,UNCURRY_EQ] \\ rveq \\ fs[] \\
     fs[shift_seq_def] \\
-    qexists_tac`0` \\
-    simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList,map_insert] \\
-    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\ simp[FUN_EQ_THM,FORALL_PROD] \\ NO_TAC)
+    fs[compile_state_def,state_component_equality] \\
+    fs[map_union,map_fromAList,map_insert,FUN_EQ_THM] \\
+    fs[pair_map_I,SF ETA_ss])
   >~ [`share_inst`]
   >- ( (* ShareInst *)
     gvs[oneline share_inst_def,

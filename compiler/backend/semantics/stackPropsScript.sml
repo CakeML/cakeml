@@ -343,68 +343,34 @@ Proof
     qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC)
   (* Seq *)
   >- (
-    pairarg_tac \\ fs[] \\
-    every_case_tac \\ fs[] \\
-    fs[shift_seq_def] \\
-    qmatch_goalsub_abbrev_tac`_ + w` \\
-    qexists_tac`w` \\ simp[] \\
-    simp[Abbr`w`] \\
-    once_rewrite_tac[ADD_COMM] \\
-    simp[GENLIST_APPEND] \\
-    simp[FOLDL_APPEND] \\
-    rw[] \\
-    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\
-    simp[FUN_EQ_THM] )
+    fs[case_eq_thms,UNCURRY_EQ] \\ rw[] \\
+    gs[] \\
+    PURE_REWRITE_TAC[GSYM FLAT_APPEND,GSYM MAP_APPEND,GSYM GENLIST_APPEND,
+    GSYM FOLDL_APPEND, shift_seq_def] \\
+    fs[GSYM shift_seq_def] \\ METIS_TAC[])
   (* If *)
   >- (
-    fs[case_eq_thms] \\ rw[] \\
+    fs[case_eq_thms,UNCURRY_EQ] \\ rw[] \\
     TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    fs[] \\
-    qpat_x_assum`_ = evaluate _`(assume_tac o SYM) \\ fs[] \\
-    metis_tac[] )
+    gs[] \\
+    PURE_REWRITE_TAC[GSYM FLAT_APPEND,GSYM MAP_APPEND,GSYM GENLIST_APPEND,
+    GSYM FOLDL_APPEND, shift_seq_def] \\
+    fs[GSYM shift_seq_def] \\ METIS_TAC[])
   (* While *)
   >- (
-    fs[case_eq_thms] \\ rw[] \\
+    fs[case_eq_thms,UNCURRY_EQ] \\ rw[] \\
     TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    pairarg_tac \\ fs[] \\
-    fs[case_eq_thms] \\ fs[]
-    >- metis_tac[]
-    >- metis_tac[] \\
-    qpat_x_assum`_ = evaluate _`(assume_tac o SYM) \\ fs[] \\
-    fs[shift_seq_def] \\
-    qmatch_goalsub_abbrev_tac`_ + w` \\
-    qexists_tac`w` \\ simp[] \\
-    simp[Abbr`w`] \\
-    once_rewrite_tac[ADD_COMM] \\
-    simp[GENLIST_APPEND] \\
-    simp[FOLDL_APPEND] \\
-    rw[] \\
-    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\
-    simp[FUN_EQ_THM] )
+    gs[] \\
+    PURE_REWRITE_TAC[GSYM FLAT_APPEND,GSYM MAP_APPEND,GSYM GENLIST_APPEND,
+    GSYM FOLDL_APPEND, shift_seq_def] \\
+    fs[GSYM shift_seq_def] \\ METIS_TAC[])
   (* Call *)
   >- (
-    fs[case_eq_thms] \\ rw[] \\
+    fs[case_eq_thms,UNCURRY_EQ] \\ rw[] \\
     TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    rfs[] \\
-    qpat_x_assum`_ = evaluate _`(assume_tac o SYM) \\ fs[] \\
-    fs[shift_seq_def] \\
-    qmatch_goalsub_abbrev_tac`_ + w` \\
+    qmatch_goalsub_abbrev_tac`shift_seq w` \\
     qexists_tac`w` \\ simp[] \\
-    simp[Abbr`w`] \\
-    once_rewrite_tac[ADD_COMM] \\
-    simp[GENLIST_APPEND] \\
-    simp[FOLDL_APPEND] \\
-    rw[] \\
-    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\
-    simp[FUN_EQ_THM] )
-  (* Install *)
-  >- (
-    fs[case_eq_thms,empty_env_def]>>rw[]>>
-    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    pairarg_tac \\ fs[] \\
-    fs[case_eq_thms,empty_env_def]>>rw[]>>
-    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    qexists_tac`1` \\ fsrw_tac[ETA_ss][shift_seq_def])
+    simp[Abbr`w`])
 QED
 
 Theorem evaluate_mono:
