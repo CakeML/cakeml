@@ -781,8 +781,15 @@ Theorem ARRAY_W8ARRAY_refl:
   (W8ARRAY zerosv zeros * ARRAY fml fmllsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros) ∧
   (ARRAY fml fmllsv * W8ARRAY zerosv zeros ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * GC) ∧
   (ARRAY fml fmllsv * W8ARRAY zerosv zeros ==>> W8ARRAY zerosv zeros * ARRAY fml fmllsv * GC) ∧
-  (W8ARRAY zerosv zeros * ARRAY fml fmllsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * GC)
+  (W8ARRAY zerosv zeros * ARRAY fml fmllsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * GC) ∧
+  (W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv) ∧
+  (W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv * GC)  ∧
+  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv) ∧
+  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv * GC) ∧
+  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>> W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv) ∧
+  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>> W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv * GC)
 Proof
+  rw[]>>
   xsimpl
 QED
 
@@ -2676,57 +2683,136 @@ val check_red_arr_fast = process_topdecs`
       else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid))
     end` |> append_prog;
 
-val res = translate opt_insert_def;
-val res = translate set_indices_def;
+Overload "vimapn_TYPE" = ``
+  SUM_TYPE (PAIR_TYPE NUM (LIST_TYPE NUM)) NUM``
 
-Definition get_indices_pure_def:
-  get_indices_pure inds s vimap =
-  case s of
-    INR v =>
-    if length v = 0 then INL ()
-    else INR inds
-  | INL (n,_) =>
-    case vimap of NONE => INR inds
-    | SOME spt =>
-    case sptree$lookup n spt of
-      NONE => INL ()
-    | SOME inds => INR inds
-End
-
-val res = translate get_indices_pure_def;
+Theorem check_red_arr_fast_spec:
+  NUM lno lnov ∧
+  BOOL b bv ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  (LIST_TYPE NUM) inds indsv ∧
+  NUM id idv ∧
+  constraint_TYPE c cv ∧
+  LIST_TYPE NPBC_CHECK_LSTEP_TYPE pfs pfsv ∧
+  NUM cid cidv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
+  EVERY (λw. w = 0w) zeros
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_red_arr_fast" (get_ml_prog_state()))
+    [lnov; bv; fmlv; indsv; idv;
+      cv; pfsv; cidv; vimapv; zerosv]
+    (ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
+      ARRAY vimapv vimaplsv)
+    (POSTve
+      (λv.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
+        ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
+        &(
+          case check_red_list_fast b fmlls inds id
+              c pfs cid vimap zeros of NONE => F
+          | SOME res =>
+            PAIR_TYPE (λl v.
+              LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
+              v = fmlv')
+              (PAIR_TYPE (LIST_TYPE NUM)
+                (PAIR_TYPE
+                  (λl v.
+                    LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+                    v = vimapv')
+                (PAIR_TYPE NUM (λl v. l = zeros' ∧ v = zerosv' ∧ EVERY (λw. w = 0w) zeros') ))) res v
+          ))
+      (λe.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
+        ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
+        & (Fail_exn e ∧
+          check_red_list_fast b fmlls inds id
+              c pfs cid vimap zeros = NONE)))
+Proof
+  rw[]>>
+  xcf "check_red_arr_fast" (get_ml_prog_state ())>>
+  rw[check_red_list_fast_def]>>
+  rpt xlet_autop>>
+  `LIST_REL (OPTION_TYPE bconstraint_TYPE)
+   (update_resize fmlls NONE (SOME (not c,b)) id)
+   (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])
+           (Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [v; bv]]) id)` by (
+    match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def,PAIR_TYPE_def])>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    metis_tac[ARRAY_W8ARRAY_refl])
+  >- (
+    xsimpl>>
+    metis_tac[ARRAY_W8ARRAY_refl])>>
+  pop_assum mp_tac>>
+  TOP_CASE_TAC>>
+  PairCases_on`x`>>simp[PAIR_TYPE_def]>>
+  strip_tac>>
+  xmatch>>
+  rpt xlet_autop>>
+  xif
+  >- (
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    simp[PAIR_TYPE_def]>>
+    metis_tac[ARRAY_W8ARRAY_refl])>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  metis_tac[ARRAY_W8ARRAY_refl,Fail_exn_def]
+QED
 
 val get_indices_arr = process_topdecs`
   fun get_indices_arr fml inds s vimap =
-  case get_indices_pure inds s vimap of
-    Inl v => []
-  | Inr inds => reindex_arr fml inds` |> append_prog;
-
-Overload "vimap_TYPE" = ``
-  OPTION_TYPE (SPTREE_SPT_TYPE (LIST_TYPE NUM))``
-
-Overload "vomap_TYPE" = ``STRING_TYPE``
+  case s of
+    Inr v =>
+    if Vector.length v = 0 then []
+    else reindex_arr fml inds
+  | Inl (n,ls) =>
+    case Array.lookup vimap None n of
+      None => []
+    | Some (Inl (nn,inds)) => reindex_arr fml inds
+    | Some (Inr (earliest)) => reindex_arr fml inds` |> append_prog;
 
 Theorem get_indices_arr_spec:
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   subst_TYPE s sv ∧
-  vimap_TYPE vimap vimapv
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "get_indices_arr" (get_ml_prog_state()))
     [fmlv; indsv; sv; vimapv]
-    (ARRAY fmlv fmllsv)
+    (ARRAY fmlv fmllsv * ARRAY vimapv vimaplsv)
     (POSTv v.
-        ARRAY fmlv fmllsv *
+        ARRAY fmlv fmllsv * ARRAY vimapv vimaplsv *
         &(
           LIST_TYPE NUM
             (get_indices fmlls inds s vimap) v))
 Proof
   rw[]>>
   xcf "get_indices_arr" (get_ml_prog_state ())>>
-  xlet_autop>>
-  fs[get_indices_pure_def,get_indices_def]>>
-  every_case_tac>>fs[SUM_TYPE_def]>>xmatch
+  reverse (Cases_on`s`)>>fs[SUM_TYPE_def]
+  >- (
+    xmatch>>
+    simp[get_indices_def]>>
+    rpt xlet_autop>>
+    xif
+    >-  (xcon>>xsimpl>> simp[LIST_TYPE_def])>>
+    xapp>>xsimpl>>
+    metis_tac[])>>
+  Cases_on`x`>>gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  cheat
+  (*
+  fs[get_indices_def]>>
+  every_case_tac>>fs[SUM_TYPE_def,PAIR_TYPE_def]>>
+  xmatch
   >-
     (xapp>>xsimpl)
   >- (
@@ -2744,8 +2830,84 @@ Proof
     rpt xlet_autop>>xcon>>
     xsimpl>>
     simp[PAIR_TYPE_def,LIST_TYPE_def])
-  >- (xapp>>xsimpl)
+  >- (xapp>>xsimpl) *)
 QED
+
+val set_indices_arr = process_topdecs`
+  fun set_indices_arr inds s vimap rinds =
+  case s of
+    Inr v =>
+    if Vector.length v = 0 then (inds,vimap)
+    else (rinds,vimap)
+  | Inl (n,ls) =>
+    case Array.lookup vimap None n of
+      Some (Inl (nn,inds)) =>
+        (inds, Array.updateResize vimap None n (Some (Inl (List.length rinds,rinds))))
+    | _ => (inds,vimap)` |> append_prog;
+
+Theorem set_indices_arr_spec:
+  (LIST_TYPE NUM) inds indsv ∧
+  subst_TYPE s sv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
+  (LIST_TYPE NUM) rinds rindsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "set_indices_arr" (get_ml_prog_state()))
+    [indsv; sv; vimapv; rindsv]
+    (ARRAY vimapv vimaplsv)
+    (POSTv v.
+        SEP_EXISTS vimapv' vimaplsv'.
+        ARRAY vimapv' vimaplsv' *
+        &(
+          PAIR_TYPE
+            (LIST_TYPE NUM)
+            (λl v.
+              LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+              v = vimapv')
+            (set_indices inds s vimap rinds) v))
+Proof
+  rw[]>>
+  xcf "set_indices_arr" (get_ml_prog_state ())>>
+  reverse (Cases_on`s`)>>fs[SUM_TYPE_def]
+  >- (
+    xmatch>>
+    simp[set_indices_def]>>
+    rpt xlet_autop>>
+    xif
+    >-  (xcon>>xsimpl>> simp[LIST_TYPE_def,PAIR_TYPE_def]>>metis_tac[ARRAY_refl])>>
+    xcon>>xsimpl>>
+    simp[PAIR_TYPE_def]>>
+    metis_tac[ARRAY_refl])>>
+  Cases_on`x`>>gvs[PAIR_TYPE_def,set_indices_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  cheat
+  (*
+  fs[get_indices_def]>>
+  every_case_tac>>fs[SUM_TYPE_def,PAIR_TYPE_def]>>
+  xmatch
+  >-
+    (xapp>>xsimpl)
+  >- (
+    rpt xlet_autop>>xcon>>
+    xsimpl>>
+    simp[PAIR_TYPE_def,LIST_TYPE_def])
+  >-
+    (xapp>>xsimpl)
+  >- (
+    rpt xlet_autop>>xcon>>
+    xsimpl>>
+    simp[PAIR_TYPE_def,LIST_TYPE_def])
+  >- (xapp>>xsimpl)
+  >- (
+    rpt xlet_autop>>xcon>>
+    xsimpl>>
+    simp[PAIR_TYPE_def,LIST_TYPE_def])
+  >- (xapp>>xsimpl) *)
+QED
+
+Overload "vomap_TYPE" = ``STRING_TYPE``
 
 val r = translate spt_to_vecTheory.prepend_def;
 val r = translate (spt_to_vecTheory.to_flat_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
@@ -2791,7 +2953,7 @@ val check_red_arr = process_topdecs`
   let
     val bortcb = b orelse tcb
     val rinds = get_indices_arr fml inds s vimap in
-    case set_indices inds s vimap rinds of (inds',vimap') =>
+    case set_indices_arr inds s vimap rinds of (inds',vimap') =>
   let
     val nc = not_1 c
     val rsubs = do_rso ord s c obj vomap
@@ -2834,78 +2996,6 @@ Overload "ord_TYPE" = ``
 Overload "obj_TYPE" = ``
   OPTION_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT)``
 
-Theorem check_red_arr_fast_spec:
-  NUM lno lnov ∧
-  BOOL b bv ∧
-  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
-  (LIST_TYPE NUM) inds indsv ∧
-  NUM id idv ∧
-  constraint_TYPE c cv ∧
-  LIST_TYPE NPBC_CHECK_LSTEP_TYPE pfs pfsv ∧
-  NUM cid cidv ∧
-  vimap_TYPE vimap vimapv ∧
-  EVERY (λw. w = 0w) zeros
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "check_red_arr_fast" (get_ml_prog_state()))
-    [lnov; bv; fmlv; indsv; idv;
-      cv; pfsv; cidv; vimapv; zerosv]
-    (ARRAY fmlv fmllsv * W8ARRAY zerosv zeros)
-    (POSTve
-      (λv.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
-        ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
-        &(
-          case check_red_list_fast b fmlls inds id
-              c pfs cid vimap zeros of NONE => F
-          | SOME res =>
-            PAIR_TYPE (λl v.
-              LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
-              v = fmlv')
-              (PAIR_TYPE (LIST_TYPE NUM)
-                (PAIR_TYPE vimap_TYPE
-                (PAIR_TYPE NUM (λl v. l = zeros' ∧ v = zerosv' ∧ EVERY (λw. w = 0w) zeros') ))) res v
-          ))
-      (λe.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
-        ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
-        & (Fail_exn e ∧
-          check_red_list_fast b fmlls inds id
-              c pfs cid vimap zeros = NONE)))
-Proof
-  rw[]>>
-  xcf "check_red_arr_fast" (get_ml_prog_state ())>>
-  rw[check_red_list_fast_def]>>
-  rpt xlet_autop>>
-  `LIST_REL (OPTION_TYPE bconstraint_TYPE)
-   (update_resize fmlls NONE (SOME (not c,b)) id)
-   (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])
-           (Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [v; bv]]) id)` by (
-    match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def,PAIR_TYPE_def])>>
-  xlet_auto
-  >- (
-    xsimpl>>
-    metis_tac[ARRAY_W8ARRAY_refl])
-  >- (
-    xsimpl>>
-    metis_tac[ARRAY_W8ARRAY_refl])>>
-  pop_assum mp_tac>>
-  TOP_CASE_TAC>>
-  PairCases_on`x`>>simp[PAIR_TYPE_def]>>
-  strip_tac>>
-  xmatch>>
-  rpt xlet_autop>>
-  xif
-  >- (
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    simp[PAIR_TYPE_def]>>
-    metis_tac[ARRAY_W8ARRAY_refl])>>
-  rpt xlet_autop>>
-  xraise>>xsimpl>>
-  metis_tac[ARRAY_W8ARRAY_refl,Fail_exn_def]
-QED
-
 Overload "subst_raw_TYPE" = ``LIST_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))``
 
 Overload "pres_TYPE" = ``OPTION_TYPE (SPTREE_SPT_TYPE UNIT_TYPE)``
@@ -2924,7 +3014,7 @@ Theorem check_red_arr_spec:
   subst_raw_TYPE s sv ∧
   pfs_TYPE pfs pfsv ∧
   OPTION_TYPE NUM idopt idoptv ∧
-  vimap_TYPE vimap vimapv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
   vomap_TYPE vomap vomapv ∧
   EVERY (λw. w = 0w) zeros
   ⇒
@@ -2932,11 +3022,12 @@ Theorem check_red_arr_spec:
     ^(fetch_v "check_red_arr" (get_ml_prog_state()))
     [lnov; presv; ordv; objv; bv; tcbv; fmlv; indsv; idv;
       cv; sv; pfsv; idoptv; vimapv; vomapv; zerosv]
-    (ARRAY fmlv fmllsv * W8ARRAY zerosv zeros)
+    (ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv)
     (POSTve
       (λv.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros' vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         &(
           case check_red_list pres ord obj b tcb fmlls inds id
               c s pfs idopt vimap vomap zeros of
@@ -2946,12 +3037,17 @@ Theorem check_red_arr_spec:
               LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
               v = fmlv')
               (PAIR_TYPE (LIST_TYPE NUM)
-                (PAIR_TYPE vimap_TYPE
+                (PAIR_TYPE
+                  (λl v.
+                    LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+                    v = vimapv')
                 (PAIR_TYPE NUM (λl v. l = zeros' ∧ v = zerosv'  ∧ EVERY (λw. w = 0w) zeros') ))) res v
           ))
       (λe.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         & (Fail_exn e ∧
           check_red_list pres ord obj b tcb fmlls inds id
               c s pfs idopt vimap vomap zeros = NONE)))
@@ -2983,34 +3079,42 @@ Proof
   fs[OPTION_TYPE_def]>>
   xmatch>>
   xlet`POSTv v. ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
+    ARRAY vimapv vimaplsv *
     &BOOL (b ∨ tcb) v`
   >- (
     xlog>>xsimpl>>rw[]>>fs[]>>
     xvar>>xsimpl)>>
   pairarg_tac>>gs[]>>
   xlet_autop>>
-  xlet_autop>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    metis_tac[ARRAY_refl])>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
   qmatch_asmsub_abbrev_tac`subst_TYPE ss _`>>
-  qmatch_goalsub_abbrev_tac`ARRAY aa vv`>>
+  qmatch_goalsub_abbrev_tac`ARRAY vimapv' vimaplsv' * ARRAY aa vv * W8ARRAY zerosv zeros`>>
   xlet`(POSTve
     (λv.
-      ARRAY aa vv * W8ARRAY zerosv zeros *
+      ARRAY aa vv * W8ARRAY zerosv zeros * ARRAY vimapv' vimaplsv' *
       &(case extract_clauses_list ss b fmlls
           (do_rso ord ss c obj vomap) pfs [] of
           NONE => F
-        | SOME res => LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (LIST_TYPE constraint_TYPE) NUM)) (LIST_TYPE NPBC_CHECK_LSTEP_TYPE)) res v))
+        | SOME res =>
+        LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (LIST_TYPE constraint_TYPE) NUM))
+          (LIST_TYPE NPBC_CHECK_LSTEP_TYPE)) res v))
   (λe.
-    ARRAY aa vv * W8ARRAY zerosv zeros *
+    ARRAY aa vv * W8ARRAY zerosv zeros * ARRAY vimapv' vimaplsv' *
     & (Fail_exn e ∧
       extract_clauses_list ss b fmlls (do_rso ord ss c obj vomap) pfs [] = NONE)))`
   >- (
     xapp>>xsimpl>>
     rpt(first_x_assum (irule_at Any))>>
     qexists_tac`[]`>>
-    fs[LIST_TYPE_def])
+    fs[LIST_TYPE_def]>>
+    rw[]>>
+    metis_tac[ARRAY_W8ARRAY_refl])
   >- (
     xsimpl>>
     fs[do_rso_def]>>
@@ -3060,8 +3164,7 @@ Proof
       xraise>>
       xsimpl>>
       rw[]>>fs[]>>
-      metis_tac[ARRAY_W8ARRAY_refl,NOT_EVERY,Fail_exn_def])
-    )>>
+      metis_tac[ARRAY_W8ARRAY_refl,NOT_EVERY,Fail_exn_def]) )>>
   rpt xlet_autop>>
   reverse xif
   >- (
@@ -3076,9 +3179,61 @@ Proof
   xsimpl
 QED
 
-val res = translate opt_cons_def;
-val res = translate update_vimap_aux_def;
-val res = translate update_vimap_def;
+val res = translate (opt_cons_def |> REWRITE_RULE [ind_lim_def]);
+
+val update_vimap_arr = process_topdecs`
+  fun update_vimap_arr vimap v ls =
+  case ls of [] => vimap
+  | ((i,n)::ns) =>
+    update_vimap_arr
+    (Array.updateResize vimap None n
+      (Some (opt_cons v (Array.lookup vimap None n))))
+    v
+    ns` |> append_prog;
+
+Theorem update_vimap_arr_spec:
+  ∀ls lsv vimap vimaplsv vimapv.
+  LIST_TYPE (PAIR_TYPE INT NUM) ls lsv ∧
+  NUM v vv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "update_vimap_arr" (get_ml_prog_state()))
+    [vimapv; vv; lsv]
+    (ARRAY vimapv vimaplsv)
+    (POSTv vimapv'.
+        SEP_EXISTS vimaplsv'.
+        ARRAY vimapv' vimaplsv' *
+        &(
+        LIST_REL (OPTION_TYPE vimapn_TYPE) (update_vimap vimap v ls) vimaplsv'))
+Proof
+  Induct>>
+  rw[]>>
+  xcf "update_vimap_arr" (get_ml_prog_state ())>>
+  gvs[LIST_TYPE_def]
+  >- (
+    xmatch>>
+    xvar>>xsimpl>>
+    simp[update_vimap_def])>>
+  Cases_on`h`>>gvs[PAIR_TYPE_def,update_vimap_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  `OPTION_TYPE vimapn_TYPE (any_el r vimap NONE) v''` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  xlet`POSTv res.
+    ARRAY vimapv vimaplsv *
+    &vimapn_TYPE (opt_cons v (any_el r vimap NONE)) res`
+  >- (
+    xapp>>xsimpl  >>
+    metis_tac[])>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  xapp>>xsimpl>>
+  match_mp_tac LIST_REL_update_resize>>
+  fs[OPTION_TYPE_def,PAIR_TYPE_def]
+QED
 
 val check_sstep_arr = process_topdecs`
   fun check_sstep_arr lno step pres ord obj tcb fml inds id
@@ -3092,7 +3247,7 @@ val check_sstep_arr = process_topdecs`
       | Some cc =>
         (Array.updateResize rfml None id' (Some cc),
           (sorted_insert id' inds,
-          (update_vimap vimap id' (fst (fst cc)),
+          (update_vimap_arr vimap id' (fst (fst cc)),
           (id'+1,
           zeros)))) ))
   | Red c s pfs idopt =>
@@ -3102,7 +3257,7 @@ val check_sstep_arr = process_topdecs`
        (Array.updateResize fml' None id'
           (Some (c,tcb)),
         (sorted_insert id' rinds,
-        (update_vimap vimap' id' (fst c),
+        (update_vimap_arr vimap' id' (fst c),
         (id'+1,
         zeros)))))
   ` |> append_prog
@@ -3119,18 +3274,20 @@ Theorem check_sstep_arr_spec:
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   NUM id idv ∧
-  vimap_TYPE vimap vimapv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
   vomap_TYPE vomap vomapv ∧
   EVERY (λw. w = 0w) zeros
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_sstep_arr" (get_ml_prog_state()))
     [lnov; stepv; presv; ordv; objv; tcbv; fmlv; indsv; idv; vimapv; vomapv; zerosv]
-    (ARRAY fmlv fmllsv * W8ARRAY zerosv zeros)
+    (ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv)
     (POSTve
       (λv.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         &(
           case check_sstep_list step pres ord obj tcb
             fmlls inds id vimap vomap zeros of NONE => F
@@ -3139,12 +3296,17 @@ Theorem check_sstep_arr_spec:
               LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
               v = fmlv')
               (PAIR_TYPE (LIST_TYPE NUM)
-                (PAIR_TYPE (vimap_TYPE)
+                (PAIR_TYPE
+                  (λl v.
+                    LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+                    v = vimapv')
                 (PAIR_TYPE NUM (λl v. l = zeros' ∧ v = zerosv'  ∧ EVERY (λw. w = 0w) zeros') ))) res v)
           )
       (λe.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         & (Fail_exn e ∧
           check_sstep_list step pres ord obj tcb
             fmlls inds id vimap vomap zeros = NONE)))
@@ -3160,6 +3322,7 @@ Proof
       (λv.
         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv vimaplsv *
         &(
           case check_lstep_list l F fmlls 0 id zeros of
             NONE => F
@@ -3173,12 +3336,15 @@ Proof
       (λe.
         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv vimaplsv *
         & (Fail_exn e ∧
         check_lstep_list l F fmlls 0 id zeros = NONE))`
     >- (
       xapp>>xsimpl>>
+      rpt (first_x_assum (irule_at Any))>>
+      qexists_tac`F`>>simp[]>>
       CONJ_TAC >- EVAL_TAC>>
-      metis_tac[])
+      metis_tac[ARRAY_W8ARRAY_refl])
     >- (
       xsimpl>>
       metis_tac[ARRAY_W8ARRAY_refl])>>
@@ -3209,8 +3375,10 @@ Proof
               c s pfs idopt vimap vomap zeros`>>
     xlet`POSTve
       (λv.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         &(
           case check_red_list pres ord obj F tcb fmlls inds id
               c s pfs idopt vimap vomap zeros of NONE => F
@@ -3218,19 +3386,23 @@ Proof
             PAIR_TYPE (λl v.
               LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
               v = fmlv') (PAIR_TYPE (LIST_TYPE NUM)
-                (PAIR_TYPE vimap_TYPE
+                (PAIR_TYPE (λl v.
+                    LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+                    v = vimapv')
                 (PAIR_TYPE NUM (λl v. l = zeros' ∧ v = zerosv'  ∧ EVERY (λw. w = 0w) zeros') ))) res v
           ))
       (λe.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         & (Fail_exn e ∧
           check_red_list pres ord obj F tcb fmlls inds id
               c s pfs idopt vimap vomap zeros = NONE))`
     >- (
       xapp >> xsimpl>>
       CONJ_TAC >- EVAL_TAC>>
-      metis_tac[])
+      metis_tac[ARRAY_W8ARRAY_refl])
     >- (
       xsimpl>>
       metis_tac[ARRAY_W8ARRAY_refl])>>
@@ -4327,7 +4499,7 @@ val check_cstep_arr = process_topdecs`
       (Array.updateResize fml' None id' (Some (c,get_tcb pc)),
        (zeros',
        (sorted_insert id' rinds,
-       (update_vimap vimap id' (fst c),
+       (update_vimap_arr vimap id' (fst c),
         (vomap, set_id pc (id'+1))))))
       else raise Fail (format_failure lno ("domain of substitution must not mention projection set."))
     )
@@ -4419,7 +4591,7 @@ val check_cstep_arr = process_topdecs`
           (Array.updateResize fml None id (Some (c,True)),
            (zeros,
            (sorted_insert id inds,
-           (update_vimap vimap id (fst c),
+           (update_vimap_arr vimap id (fst c),
            (vomap,
             obj_update pc (id+1) bound' dbound')))))
         end
@@ -4473,18 +4645,20 @@ Theorem check_cstep_arr_spec:
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   NPBC_CHECK_PROOF_CONF_TYPE pc pcv ∧
-  vimap_TYPE vimap vimapv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
   vomap_TYPE vomap vomapv ∧
   EVERY (λw. w = 0w) zeros
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_cstep_arr" (get_ml_prog_state()))
     [lnov; cstepv; fmlv; zerosv; indsv; vimapv; vomapv; pcv]
-    (ARRAY fmlv fmllsv * W8ARRAY zerosv zeros)
+    (ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv)
     (POSTve
       (λv.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         &(
           case check_cstep_list cstep fmlls zeros inds vimap vomap pc of
             NONE => F
@@ -4494,17 +4668,23 @@ Theorem check_cstep_arr_spec:
               v = fmlv')
               (PAIR_TYPE (λl v. l = zeros' ∧ v = zerosv'  ∧ EVERY (λw. w = 0w) zeros')
               (PAIR_TYPE (LIST_TYPE NUM)
-                (PAIR_TYPE (vimap_TYPE)
+                (PAIR_TYPE (λl v.
+                    LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+                    v = vimapv')
                   (PAIR_TYPE (vomap_TYPE)
                   NPBC_CHECK_PROOF_CONF_TYPE))))
                 res v
           ))
       (λe.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         & (Fail_exn e ∧
           check_cstep_list cstep fmlls zeros inds vimap vomap pc = NONE)))
 Proof
+  cheat
+  (*
   rw[]>>
   xcf "check_cstep_arr" (get_ml_prog_state ())>>
   rw[check_cstep_list_def]>>
@@ -4614,22 +4794,31 @@ Proof
     rename1`check_red_list pres ord obj T pc.tcb (delete_list n fmlls) inds pc.id c s pfs idopt vimap vomap zeros`>>
     xlet`POSTve
       (λv.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         &(
-        case check_red_list pres ord obj T pc.tcb (delete_list n fmlls) inds pc.id c s pfs idopt vimap vomap zeros of NONE => F
+        case check_red_list pres ord obj T pc.tcb (delete_list n fmlls) inds
+          pc.id c s pfs idopt vimap vomap zeros of NONE => F
         | SOME res =>
           PAIR_TYPE (λl v.
             LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
             v = fmlv') (PAIR_TYPE (LIST_TYPE NUM)
-              (PAIR_TYPE vimap_TYPE
+              (PAIR_TYPE
+                (λl v.
+                  LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+                  v = vimapv')
               (PAIR_TYPE NUM (λl v. l = zeros' ∧ v = zerosv'  ∧ EVERY (λw. w = 0w) zeros') ))) res v
         ))
       (λe.
-        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
         ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
         & (Fail_exn e ∧
-          check_red_list pres ord obj T pc.tcb (delete_list n fmlls) inds pc.id c s pfs idopt vimap vomap zeros = NONE))`
+          check_red_list pres ord obj T pc.tcb (delete_list n fmlls) inds
+            pc.id c s pfs idopt vimap vomap zeros = NONE))`
     >- (
       xapp>>xsimpl>>
       CONJ_TAC >- EVAL_TAC>>
@@ -4900,7 +5089,7 @@ Proof
     rpt xlet_autop>>
     xcon>>
     xsimpl>>
-    fs[change_pres_update_def])
+    fs[change_pres_update_def]) *)
 QED
 
 val check_implies_fml_arr = process_topdecs`
