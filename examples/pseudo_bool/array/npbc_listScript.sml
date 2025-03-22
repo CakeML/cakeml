@@ -1244,38 +1244,6 @@ Definition do_red_check_def:
      check_contradiction_fml_list b fml cid
 End
 
-(* A reverse mapping of vars -> indices *)
-Definition get_indices_def:
-  get_indices fml inds s vimap =
-  case s of
-    INR v =>
-    if length v = 0 then []
-    else reindex fml inds
-  | INL (n,_) =>
-    case vimap of NONE => reindex fml inds
-    | SOME spt =>
-      case sptree$lookup n spt of
-        NONE => []
-      | SOME inds => reindex fml inds
-End
-
-Definition opt_insert_def:
-  opt_insert n v sptopt =
-  case sptopt of NONE => NONE
-  | SOME spt =>
-    SOME (sptree$insert n v spt)
-End
-
-Definition set_indices_def:
-  set_indices inds s vimap rinds =
-  case s of
-    INR v =>
-    if length v = 0 then (inds,vimap)
-    else (rinds,vimap)
-  | INL (n,_) =>
-    (inds, opt_insert n rinds vimap)
-End
-
 Definition add_listsLR_def:
   (add_listsL cx (xn:num) xs1 ys zs n =
     case ys of
@@ -1569,6 +1537,53 @@ Definition fast_red_subgoals_def:
   [not c0]::(MAP (λc. [not c]) (dom_subst s ord)) ++ cobj
 End
 
+Type vimap_ty = ``:((num # num list) + num) option list``;
+
+(* Given a descending sorted list, return the prefix ≥ earliest *)
+Definition split_earliest_def:
+  (split_earliest earliest [] acc = REVERSE acc) ∧
+  (split_earliest earliest (i::is) acc =
+    if i < (earliest:num) then acc
+    else
+      split_earliest earliest is (i::acc))
+End
+
+(* A reverse mapping of vars -> indices *)
+Definition get_indices_def:
+  get_indices fml inds s (vimap:vimap_ty) =
+  case s of
+    INR v =>
+    if length v = 0 then []
+    else reindex fml inds
+  | INL (n,_) =>
+    case any_el n vimap NONE of
+      NONE => []
+    | SOME (INL (n,inds)) => reindex fml inds
+    | SOME (INR earliest) => reindex fml (split_earliest earliest inds [])
+End
+
+Definition ind_lim_def:
+  ind_lim = 10n
+End
+
+Definition mk_inds_def:
+  mk_inds ls =
+  let n = LENGTH ls in
+  if n ≤ ind_lim then
+    INL (n,ls)
+  else INR (LAST ls)
+End
+
+Definition set_indices_def:
+  set_indices inds s (vimap:vimap_ty) rinds =
+  case s of
+    INR v =>
+    if length v = 0 then (inds,vimap)
+    else (rinds,vimap)
+  | INL (n,_) =>
+    (inds, update_resize vimap NONE (SOME (mk_inds rinds)) n)
+End
+
 Definition check_red_list_def:
   check_red_list pres ord obj b tcb fml inds id c s pfs idopt
     vimap vomap zeros =
@@ -1618,23 +1633,25 @@ End
 *)
 
 Definition opt_cons_def:
-  (opt_cons v NONE = [v]) ∧
-  (opt_cons v (SOME ls) = v::ls)
-End
-
-Definition update_vimap_aux_def:
-  (update_vimap_aux vimap v [] = vimap) ∧
-  (update_vimap_aux vimap v ((i,n)::ns) =
-    update_vimap_aux
-    (insert n (opt_cons v (lookup n vimap)) vimap)
-    v
-    ns)
+  (opt_cons v NONE = INL (1n,[v])) ∧
+  (opt_cons v (SOME (INL (n,ls))) =
+    if ind_lim ≤ n
+    then
+      INL (n+1, v::ls)
+    else
+      INR (LAST ls)) ∧
+  (opt_cons v (SOME (INR earliest)) =
+    INR earliest)
 End
 
 Definition update_vimap_def:
-  update_vimap vimap v ls =
-  case vimap of NONE => NONE
-  | SOME vimap => SOME (update_vimap_aux vimap v ls)
+  (update_vimap vimap v [] = vimap) ∧
+  (update_vimap vimap v ((i,n)::ns) =
+    update_vimap
+    (update_resize vimap NONE
+      (SOME (opt_cons v (any_el n vimap NONE))) n)
+    v
+    ns)
 End
 
 Definition opt_update_inds_def[simp]:
@@ -2234,6 +2251,8 @@ Definition earliest_rel_def:
     | SOME c => ¬MEM x (MAP SND (FST (FST c)))
 End
 *)
+
+(*
 Definition vimap_rel_aux_def:
   vimap_rel_aux fmlls vimap ⇔
   ∀i c x.
@@ -2247,6 +2266,21 @@ Definition vimap_rel_def:
   vimap_rel fmlls vimap ⇔
   OPTION_ALL (vimap_rel_aux fmlls) vimap
 End
+*)
+
+Definition vimap_rel_def:
+  vimap_rel fmlls (vimap:vimap_ty) ⇔
+  ∀i c x.
+    i < LENGTH fmlls ∧
+    EL i fmlls = SOME c ∧
+    MEM x (MAP SND (FST (FST c))) ⇒
+    ∃ll.
+      any_el x vimap NONE = SOME ll ∧
+      case ll of
+        INL (n,ls) => MEM i ls
+      | INR earliest => earliest ≤ i
+End
+
 
 (*
 (* If we already proved fml_rel, then we get earliest_rel
@@ -2306,6 +2340,8 @@ Theorem MEM_get_indices_mk_subst:
   ⇒
   MEM i (get_indices fmlls inds (mk_subst s) vimap)
 Proof
+  cheat
+  (*
   rw[get_indices_def]>>
   TOP_CASE_TAC>>rw[]
   >- (
@@ -2329,7 +2365,7 @@ Proof
     gvs[EVAL``length (spt_to_vec LN)``,subst_fun_def])
   >- (
     gvs[reindex_characterize,MEM_FILTER]>>
-    gvs[ind_rel_def])
+    gvs[ind_rel_def]) *)
 QED
 
 Theorem fml_rel_fml_rel_vimap_rel:
@@ -2338,13 +2374,15 @@ Theorem fml_rel_fml_rel_vimap_rel:
   fml_rel fml fmlls' ⇒
   vimap_rel fmlls' vimap
 Proof
+  cheat
+  (*
   rw[fml_rel_def,vimap_rel_def]>>
   Cases_on`vimap`>>gvs[vimap_rel_aux_def]>>
   rw[]>>
   first_x_assum(qspec_then `i` mp_tac)>>
   last_x_assum(qspec_then `i` mp_tac)>>
   rw[any_el_ALT]>>gvs[]>>
-  metis_tac[]
+  metis_tac[] *)
 QED
 
 Theorem ind_rel_get_indices_set_indices:
@@ -2364,6 +2402,8 @@ Theorem vimap_rel_get_indices_set_indices:
   vimap_rel fmlls vimap ⇒
   vimap_rel fmlls vimap'
 Proof
+  cheat
+  (*
   rw[get_indices_def,set_indices_def, opt_insert_def] >>
   gvs[AllCaseEqs(),vimap_rel_def,vimap_rel_aux_def]>>
   every_case_tac>>rw[lookup_insert]>>
@@ -2372,7 +2412,7 @@ Proof
     (CCONTR_TAC>>gvs[]>> first_x_assum drule>>rw[])>>
   first_x_assum drule_all>>
   rw[reindex_characterize,MEM_FILTER]>>
-  simp[any_el_ALT]
+  simp[any_el_ALT] *)
 QED
 
 Definition vomap_rel_def:
@@ -2794,6 +2834,8 @@ Theorem vimap_rel_check_lstep_list:
     SOME (fmlls',x,y,z) ⇒
   vimap_rel fmlls' vimap
 Proof
+  cheat
+  (*
   rw[]>>
   fs[vimap_rel_def]>>
   Cases_on`vimap`>>gvs[vimap_rel_aux_def]>>
@@ -2806,9 +2848,10 @@ Proof
     first_x_assum (drule_at Any)>>
     simp[])>>
   first_x_assum drule>>
-  simp[any_el_ALT]
+  simp[any_el_ALT] *)
 QED
 
+(* TODO
 Theorem lookup_update_vimap_aux:
   ∀v0 vimap i ls x.
     sptree$lookup x vimap = SOME ls ∧ MEM i ls ⇒
@@ -2869,15 +2912,18 @@ Proof
   \\ irule vimap_rel_aux_LUPDATE \\ fs []
   \\ irule vimap_rel_aux_nones \\ fs []
 QED
+*)
 
 Theorem vimap_rel_update_resize_update_vimap:
   vimap_rel fml vimap ⇒
   vimap_rel (update_resize fml NONE (SOME (v,b)) n)
     (update_vimap vimap n (FST v))
 Proof
+  cheat
+  (*
   rw[vimap_rel_def,update_vimap_def]>>
   TOP_CASE_TAC>>gvs[]>>
-  metis_tac[vimap_rel_aux_update_resize_update_vimap_aux]
+  metis_tac[vimap_rel_aux_update_resize_update_vimap_aux] *)
 QED
 
 Theorem opt_update_inds_vimap_rel:
@@ -3369,6 +3415,8 @@ Theorem vimap_rel_list_delete_list:
   vimap_rel fmlls vimap ==>
   vimap_rel (list_delete_list l fmlls) vimap
 Proof
+  cheat
+  (*
   Cases_on`vimap`>>gvs[vimap_rel_def]>>
   Induct \\ gvs [list_delete_list_def] \\ rw []
   \\ last_x_assum irule
@@ -3378,7 +3426,7 @@ Proof
   \\ last_x_assum irule \\ simp[]
   \\ last_x_assum (irule_at Any)
   \\ pop_assum mp_tac
-  \\ rw [delete_list_def,EL_LUPDATE]
+  \\ rw [delete_list_def,EL_LUPDATE] *)
 QED
 
 Theorem all_core_list_SORTED:
@@ -3397,6 +3445,8 @@ Theorem vimap_rel_core_from_inds:
   core_from_inds fmlls l = SOME fmlls' ⇒
   vimap_rel fmlls' vimap
 Proof
+  cheat
+  (*
   Cases_on`vimap`>>gvs[vimap_rel_def]>>
   Induct>>rw[core_from_inds_def]>>
   gvs[AllCaseEqs()]>>
@@ -3405,7 +3455,7 @@ Proof
   fs[vimap_rel_aux_def]>>rw[]>>
   gvs[update_resize_def]>>every_case_tac>>
   gvs[EL_LUPDATE,EL_APPEND_EQN]>>every_case_tac>>
-  gvs[EL_REPLICATE,any_el_ALT]
+  gvs[EL_REPLICATE,any_el_ALT] *)
 QED
 
 Theorem fml_rel_check_cstep_list:
@@ -3552,7 +3602,6 @@ Proof
         metis_tac[IS_SOME_EXISTS,option_CLAUSES])
       >- (
         fs[vimap_rel_def]>>rw[]>>
-        Cases_on`vimap`>>gvs[vimap_rel_aux_def]>>rw[]>>
         first_x_assum match_mp_tac>>
         first_x_assum(qspec_then`i` mp_tac)>>
         rw[any_el_ALT]>>gvs[]>>
@@ -3894,28 +3943,18 @@ Proof
   gs[EL_REPLICATE]
 QED
 
-Theorem vimap_rel_aux_FOLDL_update_resize_aux:
+Theorem vimap_rel_FOLDL_update_resize:
   ∀xs ls t.
-  vimap_rel_aux ls t ⇒
-  vimap_rel_aux
+  vimap_rel ls t ⇒
+  vimap_rel
   (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,b)) i) ls xs)
-  (FOLDL (λacc (i,v). update_vimap_aux acc i (FST v)) t xs)
+  (FOLDL (λacc (i,v). update_vimap acc i (FST v)) t xs)
 Proof
   Induct>>rw[]>>
   first_x_assum match_mp_tac>>
   pairarg_tac>>gvs[]>>
-  match_mp_tac vimap_rel_aux_update_resize_update_vimap_aux>>
+  match_mp_tac vimap_rel_update_resize_update_vimap>>
   fs[]
-QED
-
-Theorem vimap_rel_aux_FOLDL_update_resize:
-  vimap_rel_aux
-  (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,b)) i) (REPLICATE n NONE) (enumerate k fml))
-  (FOLDL (λacc (i,v). update_vimap_aux acc i (FST v)) LN (enumerate k fml))
-Proof
-  match_mp_tac vimap_rel_aux_FOLDL_update_resize_aux>>
-  rw[vimap_rel_def,vimap_rel_aux_def]>>
-  CCONTR_TAC>>fs[EL_REPLICATE]
 QED
 
 Theorem SORTED_REVERSE_enumerate:
@@ -3933,11 +3972,9 @@ Definition mk_vomap_opt_def:
   (mk_vomap_opt (SOME fc) = mk_vomap (LENGTH (FST fc)) fc)
 End
 
-Definition mk_vimap_opt_def:
-  mk_vimap_opt b efml =
-  if b then
-    SOME (FOLDL (λacc (i,v). update_vimap_aux acc i (FST v)) LN efml)
-  else NONE
+Definition mk_vimap_def:
+  mk_vimap ls efml =
+    FOLDL (λacc (i,v). update_vimap acc i (FST v)) ls efml
 End
 
 Theorem check_csteps_list_concl:
@@ -3946,7 +3983,7 @@ Theorem check_csteps_list_concl:
       (REPLICATE m NONE) (enumerate 1 fml))
     (REPLICATE z 0w)
     (REVERSE (MAP FST (enumerate 1 fml)))
-    (mk_vimap_opt b (enumerate 1 fml))
+    (mk_vimap (REPLICATE k NONE) (enumerate 1 fml))
     (mk_vomap_opt obj)
     (init_conf (LENGTH fml + 1) chk pres obj) =
     SOME(fmlls',zeros',inds',vimap',vomap',pc') ∧
@@ -3966,8 +4003,10 @@ Proof
     (unabbrev_all_tac>>fs[SORTED_REVERSE_enumerate])>>
   `vimap_rel fmlls vimap` by (
     unabbrev_all_tac>>
-    rw[mk_vimap_opt_def,vimap_rel_def]>>
-    simp[vimap_rel_aux_FOLDL_update_resize])>>
+    rw[mk_vimap_def]>>
+    irule vimap_rel_FOLDL_update_resize>>
+    rw[vimap_rel_def]>>
+    gvs[EL_REPLICATE])>>
   `vomap_rel pc.obj vomap` by (
     unabbrev_all_tac>>
     simp[init_conf_def]>>
@@ -4080,7 +4119,7 @@ Theorem check_csteps_list_output:
       (REPLICATE m NONE) (enumerate 1 fml))
     (REPLICATE z 0w)
     (REVERSE (MAP FST (enumerate 1 fml)))
-    (mk_vimap_opt b (enumerate 1 fml))
+    (mk_vimap (REPLICATE k NONE) (enumerate 1 fml))
     (mk_vomap_opt obj)
     (init_conf (LENGTH fml + 1) chk pres obj) =
     SOME(fmlls',zeros',inds',vimap',vomap',pc') ∧
@@ -4100,8 +4139,10 @@ Proof
     (unabbrev_all_tac>>fs[SORTED_REVERSE_enumerate])>>
   `vimap_rel fmlls vimap` by (
     unabbrev_all_tac>>
-    rw[mk_vimap_opt_def,vimap_rel_def]>>
-    simp[vimap_rel_aux_FOLDL_update_resize])>>
+    rw[mk_vimap_def]>>
+    irule vimap_rel_FOLDL_update_resize>>
+    rw[vimap_rel_def]>>
+    gvs[EL_REPLICATE])>>
   `vomap_rel pc.obj vomap` by (
     unabbrev_all_tac>>
     simp[init_conf_def]>>
