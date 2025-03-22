@@ -14,10 +14,6 @@ Two benchmark suites for the CakeML compiler.
 Theories that perform proof-grounded bootstrapping of
 the CakeML compiler in HOL.
 
-[compilationLib.sml](compilationLib.sml):
-Library for in-logic compilation of CakeML abstract syntax producing machine
-code (for a variety of targets) using the CakeML compiler backend.
-
 [compilerScript.sml](compilerScript.sml):
 Definition of the CakeML compiler as a function that takes a list of command
 line arguments and a string corresponding to standard input, and produces a
