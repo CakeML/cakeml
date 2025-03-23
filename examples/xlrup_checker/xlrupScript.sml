@@ -1286,7 +1286,16 @@ End
 
 (* TODO: *)
 Definition is_bnn_def:
-  is_bnn rB cfml bfml ib i0 ⇔ T
+  is_bnn
+    (rB : ibnn)
+    (cfml : int list sptree$num_map)
+    (bfml : ibnn sptree$num_map)
+    (ib : num)
+    (i0 : num list)
+  ⇔
+    case lookup ib bfml of
+    | NONE => F
+    | SOME (x,opt) => T
 End
 
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
@@ -1339,9 +1348,9 @@ Definition check_xlrup_def:
     else NONE
   | BAdd n rB ib i0 =>
     (* check the raw BNN before adding it *)
-    if is_bnn rB cfml bfml ib i0 then
-      let B = conv_bnn rB in
-        SOME (cfml, xfml, insert n B bfml, tn, def)
+    let B = conv_bnn rB in
+    if is_bnn B cfml bfml ib i0 then
+      SOME (cfml, xfml, insert n B bfml, tn, def)
     else NONE
   | BDel bl =>
       SOME (cfml, xfml, FOLDL (\a b. delete b a) bfml bl,
@@ -3077,7 +3086,7 @@ Proof
     fs[isat_fml_def]>>
     match_mp_tac isat_fml_gen_insert>>
     gvs[])
-  >~ [‘BAdd’] >- (
+  >~ [‘BAdd n rB ib i0’] >- (
     gvs[wf_xlrup_def,AllCasePreds()]>>
     rename1`wf_cmsbnn rB`>>
     PairCases_on`rB`>>
@@ -3088,8 +3097,10 @@ Proof
       metis_tac[range_insert_2]>>
     fs[isat_fml_def]>>
     match_mp_tac isat_fml_gen_insert>>
-    gvs[]>>
-    cheat (* TO BE ADDED *) )
+    gvs[SF DNF_ss]>>
+    rename [‘sat_cmsbnn w (C1,k,oy)’]>>
+    cheat (* TO BE ADDED *)
+    )
   >~ [‘BDel’] >- (
     rw[]
     >-
