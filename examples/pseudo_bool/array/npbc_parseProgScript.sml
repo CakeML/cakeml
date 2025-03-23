@@ -236,7 +236,7 @@ val parse_lsteps_aux = process_topdecs`
           case check_end s of
             None => raise Fail (format_failure lno' "subproof not terminated with contradiction id")
           | Some id =>
-            parse_lsteps_aux f_ns'' fd (lno'+1) (Con c pf id::acc))`
+            parse_lsteps_aux f_ns'' fd (lno') (Con c pf id::acc))`
     |> append_prog;
 
 val blanks_v_thm = theorem "blanks_v_thm";
