@@ -82,6 +82,22 @@ val r = translate abs_min_def;
 val r = translate saturate_def;
 
 val r = translate (weaken_aux_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
+
+Triviality weaken_aux_ind:
+  weaken_aux_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "weaken_aux_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = weaken_aux_ind |> update_precondition;
+
 val r = translate weaken_def;
 
 val r = translate mergesortTheory.sort2_def;
@@ -165,6 +181,9 @@ val _ = mergesortn_tail_side |> update_precondition;
 
 val r = translate mergesortTheory.mergesort_tail_def;
 
+val r = translate npbc_checkTheory.weaken_sorted_def;
+
+val r = translate npbc_checkTheory.fuse_weaken_def;
 val r = translate npbc_checkTheory.sing_lit_def;
 val r = translate npbc_checkTheory.clean_triv_def;
 
@@ -318,8 +337,8 @@ val check_cutting_arr = process_topdecs`
     (case l of
       Pos v => ([(1,v)], 0)
     | Neg v => ([(~1,v)], 0))
-  | Weak c var =>
-    weaken (check_cutting_arr lno b fml c) var
+  | Weak c vs =>
+    weaken_sorted (check_cutting_arr lno b fml c) vs
   | Triv ls => (clean_triv ls)` |> append_prog
 
 Theorem check_cutting_arr_spec:
@@ -406,7 +425,7 @@ Proof
     xmatch>>
     xlet_autop>- xsimpl>>
     xapp_spec
-    (fetch "-" "weaken_v_thm" |> INST_TYPE [alpha|->``:num``])>>
+    (fetch "-" "weaken_sorted_v_thm" |> INST_TYPE [alpha|->``:num``])>>
     xsimpl>>
     pop_assum mp_tac>>
     TOP_CASE_TAC>>rw[]>>

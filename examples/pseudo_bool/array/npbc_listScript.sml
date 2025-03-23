@@ -46,7 +46,7 @@ Definition check_cutting_list_def:
     | Neg v => SOME ([(-1,v)],0)) ∧
   (check_cutting_list b fml (Triv ls) = SOME (clean_triv ls)) ∧
   (check_cutting_list b fml (Weak c var) =
-    OPTION_MAP (λc. weaken c var) (check_cutting_list b fml c))
+    OPTION_MAP (λc. weaken_sorted c var) (check_cutting_list b fml c))
 End
 
 (* Copied from LPR *)

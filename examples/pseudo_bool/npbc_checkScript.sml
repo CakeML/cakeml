@@ -55,7 +55,7 @@ Datatype:
   | Div constr num      (* Divide by a constant factor *)
   | Sat constr          (* Saturation *)
   | Lit (num lit)       (* Literal axiom lit ≥ 0 (superseded by triv but used in parsing) *)
-  | Weak constr var     (* Addition of literal axioms until "var" disappears *)
+  | Weak constr (var list)     (* Addition of literal axioms until "var" disappears *)
   | Triv ((num # num lit) app_list) (* Literal axiom corresponds to [1,l] ≥ 0 *)
 End
 
@@ -107,6 +107,11 @@ Definition mul_triv_def:
   mul_triv ls k = map_app_list (λ(x:num,y). (x * k,y) ) ls
 End
 
+Definition fuse_weaken_def:
+  (fuse_weaken vs (Weak c rs) = Weak c (vs ++ rs)) ∧
+  (fuse_weaken vs p = Weak p vs)
+End
+
 Definition to_triv_def:
   (to_triv (Add l r) =
     let ll = to_triv l in
@@ -124,7 +129,7 @@ Definition to_triv_def:
     | _ => Mul cc k) ∧
   (to_triv (Div c k) = Div (to_triv c) k) ∧
   (to_triv (Sat c) = Sat (to_triv c)) ∧
-  (to_triv (Weak c v) = Weak (to_triv c) v) ∧
+  (to_triv (Weak c vs) = fuse_weaken vs (to_triv c)) ∧
   (to_triv (Lit l) = Triv (List [(1,l)])) ∧
   (to_triv c = c)
 End
@@ -144,6 +149,11 @@ Definition clean_triv_def:
         (MAP sing_lit (append ls))))
 End
 
+Definition weaken_sorted_def:
+  weaken_sorted c vs =
+  weaken c (mergesort_tail (λx y. x ≤ y) vs)
+End
+
 Definition check_cutting_def:
   (check_cutting b (fml:pbf) (Id n) =
     lookup_core_only b fml n) ∧
@@ -161,7 +171,7 @@ Definition check_cutting_def:
   (check_cutting b fml (Lit (Neg v)) = SOME ([(-1,v)],0)) ∧
   (check_cutting b fml (Triv ls) = SOME (clean_triv ls)) ∧
   (check_cutting b fml (Weak c var) =
-    OPTION_MAP (λc. weaken c var) (check_cutting b fml c))
+    OPTION_MAP (λc. weaken_sorted c var) (check_cutting b fml c))
 End
 
 Definition check_contradiction_fml_def:
@@ -342,6 +352,7 @@ Proof
     EVAL_TAC)
   >- (
     (* weaken case *)
+    simp[weaken_sorted_def]>>
     match_mp_tac weaken_thm>>
     metis_tac[])
   >-
@@ -395,6 +406,7 @@ Proof
     EVAL_TAC)
   >- (
     (* weaken case *)
+    simp[weaken_sorted_def]>>
     metis_tac[compact_weaken])
   >-
     metis_tac[clean_triv_compact]

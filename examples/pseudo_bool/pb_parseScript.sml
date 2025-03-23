@@ -309,7 +309,7 @@ Definition parse_cutting_def:
     | _ => NONE)
   else if s = str #"w" then
     (case stack of
-      Lit (Pos v)::a::rest => parse_cutting f_ns xs (Weak a v::rest)
+      Lit (Pos v)::a::rest => parse_cutting f_ns xs (Weak a [v]::rest)
     | _ => NONE)
   else
     case parse_lit_num f_ns s of
