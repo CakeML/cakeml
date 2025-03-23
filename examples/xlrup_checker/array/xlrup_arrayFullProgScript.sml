@@ -21,20 +21,13 @@ val parse_header_line_side = Q.prove(`
   intLib.ARITH_TAC)
   |> update_precondition;
 
-val _ = translate var_lit_def;
 val _ = translate check_maxvar_def;
 val _ = translate parse_lits_def;
 val _ = translate fix_hd_def;
 
 val _ = translate parse_xor_def;
-val _ = translate parse_bnn_tail_def;
 
-val parse_bnn_tail_side = Q.prove(`
-   ∀x. parse_bnn_tail_side x= T`,
-  rw[definition"parse_bnn_tail_side_def"]>>
-  intLib.ARITH_TAC)
-  |> update_precondition;
-
+val _ = translate OPTION_ALL_def;
 val _ = translate parse_bnn_def;
 val _ = translate parse_line_def;
 
@@ -75,7 +68,7 @@ val parse_body_arr = process_topdecs`
 
 Overload "LL_LIT_TYPE" = ``LIST_TYPE (LIST_TYPE CNF_EXT_LIT_TYPE)``
 Overload "L_BNN_TYPE" = ``LIST_TYPE (PAIR_TYPE (LIST_TYPE CNF_EXT_LIT_TYPE)
-                            (PAIR_TYPE NUM CNF_EXT_LIT_TYPE))``
+                            (PAIR_TYPE NUM (OPTION_TYPE CNF_EXT_LIT_TYPE)))``
 
 Theorem parse_body_arr_spec:
   !lines fd fdv fs maxvar maxvarv cacc caccv xacc xaccv bacc baccv lno lnov.
@@ -492,45 +485,9 @@ val r = translate usage_string_def;
 
 val r = translate conv_cfml_def;
 
-
-val r = translate while_var_def;
-val r = translate to_vector_def;
-
-Theorem conv_bnn_alt:
-  conv_bnn (cs,k,y) =
-  (let
-    init_n = case cs of [] => 0 | c::cs => var_lit c
-   in
-    case to_vector (&k) 0 0 init_n cs [] of
-      NONE =>
-        let cs = mergesort_tail lit_le cs in
-        let init_n = case cs of [] => 0 | c::cs => var_lit c in
-        (case to_vector (&k) 0 0 init_n cs [] of
-          NONE => (((0,fromList []),0,0,0),0)
-        | SOME (k',lb,ub,vec) => (((init_n,vec),k',lb,ub),conv_lit y))
-    | SOME (k',lb,ub,vec) => (((init_n,vec),k',lb,ub),conv_lit y))
-Proof
-  simp [Once conv_bnn_def] \\ TOP_CASE_TAC
-  \\ simp [Once conv_bnn_def] \\ TOP_CASE_TAC
-  \\ qsuff_tac ‘F’ \\ gvs []
-  \\ pop_assum mp_tac \\ gvs []
-  \\ irule SORTED_to_vector
-  \\ qabbrev_tac ‘ys = mergesort_tail lit_le cs’
-  \\ qsuff_tac ‘SORTED lit_le ys’
-  >- (Cases_on ‘ys’ \\ gvs [] \\ Cases_on ‘h’ \\ gvs [lit_le_def])
-  \\ gvs [Abbr‘ys’]
-  \\ DEP_REWRITE_TAC [mergesortTheory.mergesort_tail_correct]
-  \\ irule_at Any mergesortTheory.mergesort_sorted
-  \\ gvs [transitive_def,total_def,lit_le_def]
-QED
-
-val r = translate lit_le_def;
-val r = translate regexp_compilerTheory.fromList_def;
-val r = translate conv_bnn_alt;
-val r = translate conv_bfml_def;
-
 val r = translate max_list_def;
 val r = translate max_var_xor_def;
+val r = translate max_var_opt_def;
 val r = translate max_var_bnn_def;
 
 (*
@@ -610,17 +567,15 @@ val check_unsat_2 = (append_prog o process_topdecs) `
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (mv,(ncx,(cfml,(xfml,bfml)))) =>
   let val cfml = conv_cfml cfml
-      val bfml = conv_bfml bfml
       val one = 1
       val carr = Array.array (2*ncx) None
       val carr = fill_arr carr one cfml
       val xarr = Array.array ncx None
       val barr = Array.array ncx None
-      val barr = fill_arr barr one bfml
       val tn = (Ln, 1)
       val bnd = 2*mv + 3
   in
-    case check_unsat' xfml carr xarr barr tn 0 f2 bnd of
+    case check_unsat' xfml bfml carr xarr barr tn 0 f2 bnd of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr b =>
       if b then
@@ -717,20 +672,17 @@ Definition check_unsat_2_sem_def:
     NONE => add_stderr fs err
   | SOME (mv,ncl,cfml,xfml,bfml) =>
     let cfml = conv_cfml cfml in
-    let bfml = conv_bfml bfml in
     if inFS_fname fs f2 then
       case parse_xlrups (all_lines fs f2) of
         SOME xlrups =>
         let cfmlls = enumerate 1 cfml in
-        let bfmlls = enumerate 1 bfml in
         let base = REPLICATE (2*ncl) NONE in
         let cupd = FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) base cfmlls in
         let basex = REPLICATE ncl NONE in
         let baseb = REPLICATE ncl NONE in
-        let bupd = FOLDL (λacc (i,v). update_resize acc NONE (SOME v) i) baseb bfmlls in
         let tn = (LN,1) in
         let bnd = 2*mv+3 in
-          if check_xlrups_unsat_list xfml xlrups cupd basex bupd tn
+          if check_xlrups_unsat_list xfml bfml xlrups cupd basex baseb tn
             0 (REPLICATE bnd w8z)
           then
             add_stdout fs (strlit "s VERIFIED UNSAT\n")
@@ -879,7 +831,6 @@ Proof
   xmatch>>
   rename1`_ = SOME (_,_,cfml,xfml,bfml)`>>
   xlet_autop>>
-  xlet_autop>>
   xlet`POSTv v. &NUM 1 v * STDIO fs` >- (xlit>>xsimpl)>>
   rw[]>>
   qpat_x_assum`LIST_TYPE lit_list_TYPE _ _` assume_tac>>
@@ -887,17 +838,6 @@ Proof
   (* help instantiate fill_arr_spec for cfml *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
         (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
-    simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
-  qpat_x_assum`NUM 1 _` assume_tac>>
-  disch_then drule>>
-  disch_then drule>>
-  rw[]>>rpt xlet_autop>>
-
-  qpat_x_assum`LIST_TYPE _ (conv_bfml bfml) _` assume_tac>>
-  (drule_at (Pos (hd o tl))) fill_arr_spec>>
-  (* help instantiate fill_arr_spec *)
-  `LIST_REL (OPTION_TYPE ibnn_TYPE) (REPLICATE x1 NONE)
-        (REPLICATE x1 (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   qpat_x_assum`NUM 1 _` assume_tac>>
   disch_then drule>>
@@ -920,7 +860,7 @@ Proof
   rpt xlet_autop>> *)
 
   simp[check_xlrups_unsat_list_def]>>
-  qmatch_goalsub_abbrev_tac`check_xlrups_list _ _ a b c d e f`>>
+  qmatch_goalsub_abbrev_tac`check_xlrups_list _ _ _ a b c d e f`>>
   xlet`POSTv v.
     STDIO fs *
     SEP_EXISTS err.
@@ -929,7 +869,7 @@ Proof
          (case parse_xlrups (all_lines fs f2) of
             NONE => INL err
           | SOME xlrups =>
-            (case check_xlrups_list xfml xlrups a b c d e f of
+            (case check_xlrups_list xfml bfml xlrups a b c d e f of
              NONE => INL err
            | SOME (cfml', xfml') =>
            INR (contains_emp_list cfml')))
@@ -946,8 +886,11 @@ Proof
     first_x_assum (irule_at Any)>>
     qexists_tac`REPLICATE x1 NONE`>>
     qexists_tac`(LN,1)`>>
+    qexists_tac`REPLICATE x1 NONE`>>
     xsimpl>>
     reverse CONJ_TAC >- (
+      CONJ_TAC >-
+        metis_tac[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
       CONJ_TAC >-
         metis_tac[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
       CONJ_TAC >- (
@@ -965,7 +908,7 @@ Proof
   >- (fs[SUM_TYPE_def]>>xmatch>>err_tac)>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]
   >- (xmatch>>err_tac)>>
-  Cases_on`check_xlrups_list xfml x a b c d e f`>>fs[SUM_TYPE_def]
+  Cases_on`check_xlrups_list xfml bfml x a b c d e f`>>fs[SUM_TYPE_def]
   >- (xmatch>>err_tac)>>
   Cases_on`x'`>>fs[]>>
   fs[SUM_TYPE_def]>>
