@@ -2440,13 +2440,13 @@ QED
 
 Theorem check_unsat''_spec:
   ∀fns ss fmlls zeros inds vimap vomap pc
-    fnsv lno lnov fmllsv zerosv indsv pcv lines fs fmlv vimapv vomapv.
+    fnsv lno lnov fmllsv zerosv indsv pcv lines fs fmlv vimaplsv vimapv vomapv.
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   NPBC_CHECK_PROOF_CONF_TYPE pc pcv ∧
-  vimap_TYPE vimap vimapv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
   vomap_TYPE vomap vomapv ∧
   EVERY (λw. w = 0w) zeros ∧
   MAP toks_fast lines = ss
@@ -2455,7 +2455,8 @@ Theorem check_unsat''_spec:
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
     [fnsv; fdv; lnov; fmlv; zerosv; indsv; vimapv; vomapv; pcv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs *
-      ARRAY fmlv fmllsv * W8ARRAY zerosv zeros)
+      ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
+      ARRAY vimapv vimaplsv)
     (POSTve
       (λv.
          SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
@@ -2495,7 +2496,7 @@ Proof
       xapp>>xsimpl>>
       asm_exists_tac>>simp[]>>
       asm_exists_tac>>simp[]>>
-      qexists_tac`ARRAY fmlv fmllsv * W8ARRAY zerosv zeros`>>
+      qexists_tac`ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv`>>
       qexists_tac`lines`>>simp[]>>
       qexists_tac`fs`>>qexists_tac`fd`>>xsimpl>>
       rw[]>>
@@ -2510,7 +2511,7 @@ Proof
     SEP_EXISTS k lines' lno'.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
-         ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
+         ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv *
          &(
             case parse_cstep fns (MAP toks_fast lines) of
               NONE => F
@@ -2525,7 +2526,7 @@ Proof
     xapp>>xsimpl>>
     asm_exists_tac>>simp[]>>
     asm_exists_tac>>simp[]>>
-    qexists_tac`ARRAY fmlv fmllsv * W8ARRAY zerosv zeros`>>
+    qexists_tac`ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv`>>
     qexists_tac`lines`>>simp[]>>
     qexists_tac`fs`>>qexists_tac`fd`>>xsimpl>>
     PairCases_on`x`>>fs[]>>rw[]>>
@@ -2551,11 +2552,12 @@ Proof
   (* INR *)
   xmatch>>
   xlet`
-  POSTve
+    POSTve
     (λv'.
-         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+           vimapv' vimaplsv'.
            W8ARRAY zerosv' zeros' * ARRAY fmlv' fmllsv' *
-           STDIO (forwardFD fs fd k) *
+           ARRAY vimapv' vimaplsv' * STDIO (forwardFD fs fd k) *
            INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &case check_cstep_list y fmlls zeros inds vimap vomap pc of
              NONE => F
@@ -2567,11 +2569,14 @@ Proof
                (PAIR_TYPE
                   (λl v. l = zeros' ∧ v = zerosv' ∧ EVERY (λw. w = 0w) zeros')
                   (PAIR_TYPE (LIST_TYPE NUM)
-                     (PAIR_TYPE vimap_TYPE
+                     (PAIR_TYPE
+                       (λl v.
+                         LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+                         v = vimapv')
                         (PAIR_TYPE vomap_TYPE NPBC_CHECK_PROOF_CONF_TYPE))))
                res v')
     (λe.
-         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+         SEP_EXISTS fmlv' fmllsv'.
            ARRAY fmlv' fmllsv' *
            STDIO (forwardFD fs fd k) *
            INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
@@ -2580,7 +2585,8 @@ Proof
   >- (
     xapp>>
     xsimpl>>reverse (rw[])>>
-    rpt(first_x_assum (irule_at Any))>>xsimpl>>
+    rpt(first_x_assum (irule_at Any))>>
+    xsimpl>>
     CONJ_TAC >-
       metis_tac[ARRAY_W8ARRAY_refl]>>
     rw[]>>
@@ -2689,31 +2695,16 @@ Definition fold_update_vimap_enum_def:
   (fold_update_vimap_enum (k:num) [] acc = acc) ∧
   (fold_update_vimap_enum k (x::xs) acc =
     fold_update_vimap_enum (k+1)
-      xs (update_vimap_aux acc k (FST x)))
-End
-
-Definition fold_update_vimap_enum_full_def:
-  fold_update_vimap_enum_full k fml =
-  fold_update_vimap_enum k fml LN
+      xs (update_vimap acc k (FST x)))
 End
 
 Theorem fold_update_vimap_enum_FOLDL:
   ∀xs k acc.
   fold_update_vimap_enum k xs acc =
-  (FOLDL (λacc (i,v). update_vimap_aux acc i (FST v)) acc (enumerate k xs))
+  (FOLDL (λacc (i,v). update_vimap acc i (FST v)) acc (enumerate k xs))
 Proof
   Induct>>rw[fold_update_vimap_enum_def,miscTheory.enumerate_def]
 QED
-
-Theorem fold_update_vimap_enum_full_FOLDL:
-  fold_update_vimap_enum_full k xs =
-  (FOLDL (λacc (i,v). update_vimap_aux acc i (FST v)) LN (enumerate k xs))
-Proof
-  rw[fold_update_vimap_enum_full_def,fold_update_vimap_enum_FOLDL]
-QED
-
-val res = translate fold_update_vimap_enum_def;
-val res = translate fold_update_vimap_enum_full_def;
 
 val res = translate parse_unsat_def;
 
@@ -3015,19 +3006,42 @@ Proof
   xapp>>xsimpl
 QED
 
-Definition mk_vimap_fml_def:
-  mk_vimap_fml b fml =
-  if b then SOME (fold_update_vimap_enum_full 1 fml)
-  else NONE
-End
+val fold_update_vimap_enum_arr = process_topdecs `
+  fun fold_update_vimap_enum_arr k ls acc =
+  case ls of [] => acc
+  | (x::xs) =>
+    fold_update_vimap_enum_arr (k+1)
+      xs (update_vimap_arr acc k (fst x))` |> append_prog;
 
-Theorem mk_vimap_fml_eq:
-  mk_vimap_fml b fml = mk_vimap_opt b (enumerate 1 fml)
+Theorem fold_update_vimap_enum_arr_spec:
+  ∀ls lsv vimap vimapv vimaplsv k kv.
+  NUM k kv ∧
+  LIST_TYPE constraint_TYPE ls lsv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "fold_update_vimap_enum_arr" (get_ml_prog_state()))
+    [kv; lsv; vimapv]
+    (ARRAY vimapv vimaplsv)
+    (POSTv v.
+       SEP_EXISTS vimaplsv'.
+        ARRAY v vimaplsv' *
+        &(LIST_REL (OPTION_TYPE vimapn_TYPE)
+          (mk_vimap vimap (enumerate k ls)) vimaplsv'))
 Proof
-  rw[mk_vimap_fml_def,npbc_listTheory.mk_vimap_opt_def,fold_update_vimap_enum_full_FOLDL]
+  simp[npbc_listTheory.mk_vimap_def]>>
+  Induct>>rw[]>>
+  xcf "fold_update_vimap_enum_arr" (get_ml_prog_state ())>>
+  gvs[LIST_TYPE_def]>>
+  xmatch
+  >- (
+    xvar>>xsimpl>>
+    simp[miscTheory.enumerate_def])>>
+  simp[miscTheory.enumerate_def]>>
+  rpt xlet_autop>>
+  xapp>>
+  xsimpl
 QED
-
-val res = translate mk_vimap_fml_def;
 
 (* NOTE: 100000 just a random number *)
 val check_unsat' = process_topdecs `
@@ -3038,7 +3052,8 @@ val check_unsat' = process_topdecs `
     val arr = fill_arr arr 1 fml
     val zeros = Word8Array.array 100000 w8z
     val inds = rev_enum_full 1 fml
-    val vimap = mk_vimap_fml b fml
+    val vimap = Array.array 100000 None
+    val vimap = fold_update_vimap_enum_arr 1 fml vimap
     val vomap = mk_vomap_opt_arr obj
     val pc = init_conf id True pres obj
   in
@@ -3149,13 +3164,26 @@ Proof
     asm_exists_tac>>xsimpl)>>
   assume_tac w8z_v_thm>>
   rpt xlet_autop>>
-  qmatch_asmsub_abbrev_tac`LIST_REL _ fmlls fmllsv`>>
-  qmatch_asmsub_abbrev_tac`LIST_TYPE _ inds indsv`>>
-
+  qmatch_goalsub_abbrev_tac`ARRAY cv cvs * _`>>
+  `LIST_REL (OPTION_TYPE vimapn_TYPE) (REPLICATE 100000 NONE) cvs` by
+    simp[Abbr`cvs`,LIST_REL_REPLICATE_same,OPTION_TYPE_def,PAIR_TYPE_def]>>
+  xlet`POSTv vimapv. SEP_EXISTS vimaplsv.
+    ARRAY vimapv vimaplsv * W8ARRAY v' (REPLICATE 100000 w8z) *
+    ARRAY resv arrlsv' * STDIO fs *
+    INSTREAM_LINES #"\n" fd fdv lines fs *
+     &LIST_REL (OPTION_TYPE vimapn_TYPE)
+       (mk_vimap (REPLICATE 100000 NONE) (enumerate 1 fml)) vimaplsv`
+  >- (
+    xapp>>xsimpl>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    simp[])>>
+  rpt xlet_autop>>
   `BOOL T (Conv (SOME (TypeStamp "True" 0)) [])` by EVAL_TAC>>
   xlet_autop>>
-
-  qmatch_asmsub_abbrev_tac`vimap_TYPE vimap vimapv`>>
+  qmatch_asmsub_abbrev_tac`LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv`>>
+  qmatch_asmsub_abbrev_tac`LIST_TYPE _ inds indsv`>>
+  qmatch_asmsub_abbrev_tac`LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv`>>
   qmatch_asmsub_abbrev_tac`vomap_TYPE vomap vomapv`>>
   qmatch_goalsub_abbrev_tac`W8ARRAY zerosv zeros`>>
   `EVERY (λw. w = 0w) zeros` by
@@ -3303,13 +3331,13 @@ Proof
         match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_concl)>>
         first_x_assum (irule_at Any)>>
         unabbrev_all_tac>>
-        gs[rev_enum_full_rev_enumerate, mk_vimap_fml_eq]>>
+        gs[rev_enum_full_rev_enumerate]>>
         metis_tac[])>>
       simp[get_bound_def]>>
       match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_output)>>
       first_x_assum (irule_at Any)>>
       unabbrev_all_tac>>
-      gs[rev_enum_full_rev_enumerate, mk_vimap_fml_eq]>>
+      gs[rev_enum_full_rev_enumerate]>>
       metis_tac[])>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   xsimpl
