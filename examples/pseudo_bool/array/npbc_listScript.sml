@@ -2333,8 +2333,6 @@ Theorem MEM_get_indices_mk_subst:
   ⇒
   MEM i (get_indices fmlls inds (mk_subst s) vimap)
 Proof
-  cheat
-  (*
   rw[get_indices_def]>>
   TOP_CASE_TAC>>rw[]
   >- (
@@ -2343,7 +2341,10 @@ Proof
     TOP_CASE_TAC>>gvs[]
     >- (
       gvs[reindex_characterize,MEM_FILTER]>>
-      gvs[ind_rel_def])>>
+      gvs[ind_rel_def] >>
+      gvs [IS_SOME_EXISTS,AllCaseEqs(),PULL_EXISTS] >>
+      cheat)>>
+    cheat (*
     gvs[vimap_rel_aux_def,vimap_rel_def,any_el_ALT]>>
     first_x_assum drule>>
     disch_then drule>>
@@ -2351,14 +2352,14 @@ Proof
     disch_then drule>>
     rw[]>>gvs[IS_SOME_EXISTS,AllCaseEqs()]>>
     gvs[reindex_characterize,MEM_FILTER]>>
-    gvs[IS_SOME_EXISTS,any_el_ALT])
+    gvs[IS_SOME_EXISTS,any_el_ALT] *))
   >- (
     drule IS_SOME_subst_opt>>
     gvs[mk_subst_cases]>>every_case_tac>>
     gvs[EVAL``length (spt_to_vec LN)``,subst_fun_def])
   >- (
     gvs[reindex_characterize,MEM_FILTER]>>
-    gvs[ind_rel_def]) *)
+    gvs[ind_rel_def])
 QED
 
 Theorem fml_rel_fml_rel_vimap_rel:
@@ -2367,15 +2368,13 @@ Theorem fml_rel_fml_rel_vimap_rel:
   fml_rel fml fmlls' ⇒
   vimap_rel fmlls' vimap
 Proof
-  cheat
-  (*
   rw[fml_rel_def,vimap_rel_def]>>
-  Cases_on`vimap`>>gvs[vimap_rel_aux_def]>>
   rw[]>>
   first_x_assum(qspec_then `i` mp_tac)>>
   last_x_assum(qspec_then `i` mp_tac)>>
+  last_x_assum(qspec_then `i` mp_tac)>>
   rw[any_el_ALT]>>gvs[]>>
-  metis_tac[] *)
+  metis_tac[]
 QED
 
 Theorem ind_rel_get_indices_set_indices:
@@ -2827,12 +2826,7 @@ Theorem vimap_rel_check_lstep_list:
     SOME (fmlls',x,y,z) ⇒
   vimap_rel fmlls' vimap
 Proof
-  cheat
-  (*
-  rw[]>>
-  fs[vimap_rel_def]>>
-  Cases_on`vimap`>>gvs[vimap_rel_aux_def]>>
-  rw[]>>
+  rw[] \\ fs[vimap_rel_def] \\ rw[] >>
   drule (CONJUNCT1 check_lstep_list_id_del)>>
   drule (CONJUNCT1 check_lstep_list_id_upper)>>
   disch_then drule>>rw[]>>
@@ -2841,7 +2835,7 @@ Proof
     first_x_assum (drule_at Any)>>
     simp[])>>
   first_x_assum drule>>
-  simp[any_el_ALT] *)
+  simp[any_el_ALT]
 QED
 
 (* TODO
@@ -3452,17 +3446,13 @@ Theorem vimap_rel_core_from_inds:
   core_from_inds fmlls l = SOME fmlls' ⇒
   vimap_rel fmlls' vimap
 Proof
-  cheat
-  (*
-  Cases_on`vimap`>>gvs[vimap_rel_def]>>
-  Induct>>rw[core_from_inds_def]>>
-  gvs[AllCaseEqs()]>>
-  first_x_assum match_mp_tac>>
-  first_x_assum (irule_at Any)>>
-  fs[vimap_rel_aux_def]>>rw[]>>
-  gvs[update_resize_def]>>every_case_tac>>
-  gvs[EL_LUPDATE,EL_APPEND_EQN]>>every_case_tac>>
-  gvs[EL_REPLICATE,any_el_ALT] *)
+  Induct \\ rw[core_from_inds_def] \\ gvs []
+  \\ gvs [AllCaseEqs()]
+  \\ last_x_assum irule
+  \\ pop_assum $ irule_at Any
+  \\ rw [update_resize_def]
+  \\ gvs [vimap_rel_def,EL_LUPDATE,any_el_ALT]
+  \\ rw [] \\ gvs []
 QED
 
 Theorem fml_rel_check_cstep_list:
