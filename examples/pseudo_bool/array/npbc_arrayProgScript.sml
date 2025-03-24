@@ -801,12 +801,22 @@ Theorem ARRAY_W8ARRAY_refl:
   (ARRAY fml fmllsv * W8ARRAY zerosv zeros ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * GC) ∧
   (ARRAY fml fmllsv * W8ARRAY zerosv zeros ==>> W8ARRAY zerosv zeros * ARRAY fml fmllsv * GC) ∧
   (W8ARRAY zerosv zeros * ARRAY fml fmllsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * GC) ∧
-  (W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv) ∧
-  (W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv * GC)  ∧
-  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv) ∧
-  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>> ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv * GC) ∧
-  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>> W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv) ∧
-  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>> W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv * GC)
+  (W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv ==>>
+    ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv) ∧
+  (W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv ==>>
+    ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv * GC)  ∧
+  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>>
+    ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv) ∧
+  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>>
+    ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv * GC) ∧
+  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>>
+    W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv) ∧
+  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>>
+    W8ARRAY zerosv zeros * ARRAY fml fmllsv * ARRAY vimapv vimaplsv * GC) ∧
+  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>>
+    ARRAY vimapv vimaplsv * W8ARRAY zerosv zeros * ARRAY fml fmllsv) ∧
+  (ARRAY fml fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv ==>>
+    ARRAY vimapv vimaplsv * W8ARRAY zerosv zeros * ARRAY fml fmllsv * GC)
 Proof
   rw[]>>
   xsimpl
@@ -3482,8 +3492,46 @@ val eval_lit_side = Q.prove(
   Cases_on`x z`>>simp[b2n_def]
   ) |> update_precondition
 
-val res = translate npbcTheory.eval_term_def;
-val res = translate npbcTheory.eval_obj_def;
+Theorem eval_term_compute:
+  eval_term w (c,v) =
+  if w v
+  then
+    if c < 0 then 0 else Num c
+  else
+    if c < 0 then Num (-c) else 0
+Proof
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+val res = translate eval_term_compute;
+val res = translate eval_term_compute;
+val res = translate eval_term_compute;
+
+val eval_term_side = Q.prove(
+  `eval_term_side x yz`,
+  EVAL_TAC>>
+  rw[]>>
+  intLib.ARITH_TAC
+  ) |> update_precondition
+
+Theorem eval_obj_compute:
+  eval_obj fopt w =
+  case fopt of NONE => 0
+  | SOME (f,c:int) =>
+    FOLDL (λn cv. &(eval_term w cv) + n) c f
+Proof
+  Cases_on`fopt`>>simp[eval_obj_def]>>
+  `?f c. x = (f,c)` by metis_tac[PAIR]>>
+  simp[]>>
+  qid_spec_tac`c`>>
+  pop_assum kall_tac>>
+  Induct_on`f`>>rw[]>>
+  first_x_assum (fn th => DEP_REWRITE_TAC[GSYM th])>>
+  intLib.ARITH_TAC
+QED
+
+val res = translate eval_obj_compute;
 val res = translate npbc_checkTheory.opt_lt_def;
 val res = translate npbcTheory.satisfies_npbc_def;
 
@@ -4683,8 +4731,6 @@ Theorem check_cstep_arr_spec:
         & (Fail_exn e ∧
           check_cstep_list cstep fmlls zeros inds vimap vomap pc = NONE)))
 Proof
-  cheat
-  (*
   rw[]>>
   xcf "check_cstep_arr" (get_ml_prog_state ())>>
   rw[check_cstep_list_def]>>
@@ -4699,8 +4745,7 @@ Proof
       xraise>> xsimpl>>
       metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
     rpt xlet_autop>>
-    xlet_auto >-
-      (xsimpl>> simp (eq_lemmas()))>>
+    xlet_auto >- (xsimpl>> simp (eq_lemmas()))>>
     reverse xif
     >- (
       rpt xlet_autop>>
@@ -4720,9 +4765,10 @@ Proof
       xsimpl>>
       simp[check_dom_list_def]>>
       rw[]>>
-      qmatch_goalsub_abbrev_tac`W8ARRAY C D * ARRAY A B`>>
-      qexists_tac`A`>>qexists_tac`B`>>
+      qmatch_goalsub_abbrev_tac`W8ARRAY C D * ARRAY A B * ARRAY AA BB`>>
+      qexists_tac`AA`>>qexists_tac`BB`>>
       qexists_tac`C`>>qexists_tac`D`>>
+      qexists_tac`A`>>qexists_tac`B`>>
       xsimpl>>
       fs[do_dom_check_def,AllCaseEqs()])>>
     pop_assum mp_tac>>TOP_CASE_TAC>>
@@ -4748,6 +4794,7 @@ Proof
     xlet_auto
     >- (
       xsimpl>>
+      rw[]>>
       metis_tac[ARRAY_W8ARRAY_refl])
     >- (
       xsimpl>>
@@ -4771,11 +4818,11 @@ Proof
     rpt xlet_autop>>
     xlet`(POSTve
       (λv.
-      ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
+      ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv *
         &(case lookup_core_only_list T fmlls n of NONE => F
           | SOME x => constraint_TYPE x v))
       (λe.
-      ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
+      ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv *
         & (Fail_exn e ∧
           lookup_core_only_list T fmlls n = NONE)))`
     >- (
@@ -4791,7 +4838,8 @@ Proof
     gvs[]>>
     rpt xlet_autop>>
     fs[get_id_def,get_tcb_def,get_obj_def,get_ord_def,get_pres_def]>>
-    rename1`check_red_list pres ord obj T pc.tcb (delete_list n fmlls) inds pc.id c s pfs idopt vimap vomap zeros`>>
+    rename1`check_red_list pres ord obj T pc.tcb (delete_list n fmlls) inds
+      pc.id c s pfs idopt vimap vomap zeros`>>
     xlet`POSTve
       (λv.
         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
@@ -4842,6 +4890,7 @@ Proof
       xlet`POSTv v.
         ARRAY fmlv fmllsv' *
         W8ARRAY zerosv zeros *
+        ARRAY vimapv vimaplsv *
         &NPBC_CHECK_PROOF_CONF_TYPE (set_chk pc F) v`
       >- (
         xapp>>xsimpl>>
@@ -4856,6 +4905,7 @@ Proof
       metis_tac[ARRAY_W8ARRAY_refl])>>
     xlet`POSTv v. ARRAY fmlv fmllsv *
       W8ARRAY zerosv zeros *
+      ARRAY vimapv vimaplsv *
       &(LIST_TYPE NUM [] v)`
     >- (
       xcon>>xsimpl>>
@@ -4871,6 +4921,7 @@ Proof
     xlet`POSTv v.
         ARRAY fmlv fmllsv' *
         W8ARRAY zerosv zeros *
+        ARRAY vimapv vimaplsv *
         &NPBC_CHECK_PROOF_CONF_TYPE (set_chk pc F) v`
     >- (
       xapp>>xsimpl>>
@@ -4943,6 +4994,7 @@ Proof
       metis_tac[ARRAY_W8ARRAY_refl])>>
     rpt xlet_autop>>
     xlet`POSTv v. ARRAY fmlv' fmllsv' * W8ARRAY zerosv zeros *
+      ARRAY vimapv vimaplsv *
       &NPBC_CHECK_PROOF_CONF_TYPE (set_ord pc (SOME (x,l))) v`
     >- (
       xapp>>xsimpl>>
@@ -4965,6 +5017,7 @@ Proof
       metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
     rpt xlet_autop>>
     xlet`POSTv v. ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
+      ARRAY vimapv vimaplsv *
       &NPBC_CHECK_PROOF_CONF_TYPE (set_ord pc NONE) v`
     >- (
       xapp>>xsimpl>>
@@ -4988,6 +5041,7 @@ Proof
     every_case_tac>>fs[]>>
     rpt xlet_autop>>
     xlet`POSTv v. ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
+      ARRAY vimapv vimaplsv *
       &NPBC_CHECK_PROOF_CONF_TYPE (set_orders pc ((m,p')::pc.orders)) v`
     >- (
       xapp>>xsimpl>>simp[set_orders_def]>>
@@ -5089,7 +5143,7 @@ Proof
     rpt xlet_autop>>
     xcon>>
     xsimpl>>
-    fs[change_pres_update_def]) *)
+    fs[change_pres_update_def])
 QED
 
 val check_implies_fml_arr = process_topdecs`
