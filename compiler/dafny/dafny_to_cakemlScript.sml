@@ -288,50 +288,6 @@ Definition local_env_name_def:
   local_env_name n = (Companion [] [], n)
 End
 
-(* In Dafny, the string and seq<char> type are synonyms. We replace the
- * former with the latter for consistency. We also replace newtypes by their
- * base type (which may be incorrect) *)
-(* TODO? Maybe it is better to implement this with a map as Dafny does it;
-   Seems like Dafny has a function to remove synonyms? *)
-Definition normalize_type_def:
-  normalize_type t =
-  (case t of
-   | Primitive String => Seq (Primitive Char)
-   (* TODO Unsure whether we can ignore these like that *)
-   | UserDefined
-     (ResolvedType _ [] rtb attrs [] extendedTs) =>
-       (* Returning t in this case means it is unsupported *)
-       if attrs ≠ [Attribute "axiom" []] ∧ attrs ≠ [] then
-         t
-       else if extendedTs ≠ [Primitive Int] ∧ extendedTs ≠ [] then
-         t
-       else
-         (case rtb of
-          | ResolvedTypeBase_SynonymType bt => normalize_type bt
-          (* Is dealing with newtype like this really fine? *)
-          | ResolvedTypeBase_Newtype bt _ _ => normalize_type bt
-          | _ => t)
-   | Tuple ts => Tuple (map_normalize_type ts)
-   | Array elem dims => Array (normalize_type elem) dims
-   | Seq t => Seq (normalize_type t)
-   | Set t => Set (normalize_type t)
-   | Multiset t => Multiset (normalize_type t)
-   | Type_Map kt vt => Type_Map (normalize_type kt) (normalize_type vt)
-   | SetBuilder t => SetBuilder (normalize_type t)
-   | MapBuilder kt vt => MapBuilder (normalize_type kt)
-                                    (normalize_type vt)
-   | Arrow argsT resT => Arrow (map_normalize_type argsT)
-                               (normalize_type resT)
-   | _ => t) ∧
-  map_normalize_type ts =
-  (case ts of
-   | [] => []
-   | (t::rest) =>
-       (normalize_type t)::(map_normalize_type rest))
-Termination
-  cheat
-End
-
 Definition compose_all_def:
   compose_all = FOLDR (o) I
 End

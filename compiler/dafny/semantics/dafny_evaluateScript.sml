@@ -124,7 +124,7 @@ Definition init_env_def:
   do
     methods <- result_mmap env_from_mod p;
     methods <<- FLAT methods;
-    return <| methods := methods |>
+    return <| methods := methods; locals := [FEMPTY] |>
   od
 End
 
@@ -295,23 +295,25 @@ Definition evaluate_stmt_ann_def[nocompute]:
   (*    | r => r) *)
   (* ∧ *)
   (* TODO Should we combine the DeclareVar cases? *)
-  evaluate_stmt st env (DeclareVar varNam _ (SOME e) in_stmts) =
-  (let varNam = dest_varName varNam in
+  evaluate_stmt st env (DeclareVar varNam t (SOME e) in_stmts) =
+  (let varNam = dest_varName varNam;
+       t = normalize_type t in
      (case evaluate_exp st env e of
       | (st', Rval v) =>
-          (case add_local st' varNam v of
+          (case add_local env st' varNam v t of
            | NONE => (st', Rerr Rtype_error)
-           | SOME st'' => evaluate_stmts st'' env in_stmts)
+           | SOME (env', st'') => evaluate_stmts st'' env' in_stmts)
       | r => r))
   ∧
   evaluate_stmt st env (DeclareVar varNam t NONE in_stmts) =
-  (let varNam = dest_varName varNam in
+  (let varNam = dest_varName varNam;
+       t = normalize_type t in
      (case init_val t of
       | NONE => (st, Rerr Runsupported)
       | SOME v =>
-             (case add_local st varNam v of
+             (case add_local env st varNam v t of
               | NONE => (st, Rerr Rtype_error)
-              | SOME st' => evaluate_stmts st' env in_stmts)))
+              | SOME (env', st') => evaluate_stmts st' env' in_stmts)))
   ∧
   evaluate_stmt st env (Assign (AssignLhs_Ident varNam) e) =
   (let varNam = dest_varName varNam in

@@ -20,6 +20,8 @@ open result_monadTheory
 
 val _ = new_theory "dafny_compilerProof";
 
+Type comp_env = “:(((expression # string), type) alist)”
+
 Type dafny_program = “:dafny_ast$module list”
 Type dafny_state = “:dafny_semanticPrimitives$state”
 Type dafny_env = “:dafny_semanticPrimitives$sem_env”
@@ -79,110 +81,109 @@ End
 Theorem correct_exp:
   ∀ (s₁ : dafny_state) (env_dfy : dafny_env) (e : dafny_exp) (s₂ : dafny_state)
     (r_dfy : dafny_res) (t₁ : cakeml_state) (env_cml : cakeml_env)
-    (cml_e : cakeml_exp).
+    (env_comp : comp_env) (cml_e : cakeml_exp).
     evaluate_exp s₁ env_dfy e = (s₂, r_dfy) ∧ ¬(is_fail_dfy r_dfy) ∧
-    (* state_rel s₁ t₁ ∧ *) env_rel env_dfy env_cml ∧
-    (* TODO comp and env for from_expression are sketchy; should they come
-       from state? *)
-    from_expression (Companion [] []) [] e = INR cml_e ⇒
+    state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧
+    from_expression (Companion [] []) env_comp e = INR cml_e ⇒
     ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
       evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
-      (* state_rel s₂ t₂ ∧ *) res_rel r_dfy r_cml
+      state_rel s₂ t₂ ∧ res_rel r_dfy r_cml
 Proof
-  ho_match_mp_tac evaluate_exp_ind >> rw[]
-  >> pop_assum mp_tac >> simp [Once from_expression_def] >> strip_tac
-  >~ [‘BinOp’]
-  >- (gvs [evaluate_exp_def, CaseEq "prod",
-           CaseEq "dafny_semanticPrimitives$result"]
-      >- (Cases_on ‘bop’
-          >> gvs [is_lop_def, do_bop_def, AllCaseEqs ()]
-          >> (pop_assum mp_tac >> simp [Once from_expression_def] >> strip_tac
-              >> gvs[AllCaseEqs(), oneline bind_def])
-          >~ [‘Lt’]
-          >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
-              >> gvs [evaluate_def, do_app_def, opb_lookup_def])
-          >~ [‘Plus’]
-          >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> Cases_on ‘vl’ >> Cases_on ‘vr’
-              >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval]
-              >> gvs [evaluate_def, do_app_def, opn_lookup_def])
-          >~ [‘Minus’]
-          >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> Cases_on ‘vl’ >> Cases_on ‘vr’
-              >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval]
-              >> gvs [evaluate_def, do_app_def, opn_lookup_def])
-          >~ [‘Times’]
-          >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> Cases_on ‘vl’ >> Cases_on ‘vr’
-              >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval]
-              >> gvs [evaluate_def, do_app_def, opn_lookup_def])
-          >~ [‘And’]
-          >- (Cases_on ‘vl’ >> gvs [do_lop_def]
-              >> Cases_on ‘b’ >> gvs []
-              (* TODO Figure out why it is swapped here *)
-              >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> last_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
-              >> gvs [evaluate_def, do_log_def])
-          >- (Cases_on ‘vl’ >> gvs [do_lop_def]
-              >> Cases_on ‘b’ >> gvs []
-              >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
-              >> gvs [evaluate_def, do_log_def])
-          >- (Cases_on ‘vl’ >> gvs [do_lop_def]
-              >> Cases_on ‘b’ >> gvs []
-              (* TODO Figure out why it is swapped here *)
-              >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> last_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
-              >> gvs [evaluate_def, do_log_def])
-          >- (Cases_on ‘vl’ >> gvs [do_lop_def]
-              >> Cases_on ‘b’ >> gvs []
-              >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
-              >> gvs [evaluate_def, do_log_def])))
-  >~ [‘Literal’]
-  >- (Cases_on ‘l’ >> gvs [from_literal_def]
-      >~ [‘BoolLiteral’]
-      >- (Cases_on ‘b’ >> gvs [evaluate_exp_def, literal_to_value_def]
-          >> gvs [env_rel_def, evaluate_def, do_con_check_def, build_conv_def]
-          >> gvs [res_rel_def, dafny_to_cakeml_v_def,
-                  Boolv_def, bool_type_num_def])
-      >~ [‘IntLiteral’]
-      >- (gvs [AllCaseEqs (), oneline bind_def, string_to_int_def]
-          >> gvs [evaluate_exp_def, literal_to_value_def]
-          >> gvs [evaluate_def, res_rel_def, dafny_to_cakeml_v_def])
-      >~ [‘StringLiteral’]
-      >- gvs [evaluate_exp_def, literal_to_value_def]
-      >~ [‘Char’]
-      >- gvs [evaluate_exp_def, literal_to_value_def]
-      >~ [‘Null’]
-      >- gvs [evaluate_exp_def, literal_to_value_def])
-  >> gvs [evaluate_exp_def, literal_to_value_def]
+  cheat
+  (* ho_match_mp_tac evaluate_exp_ind >> rw[] *)
+  (* >> pop_assum mp_tac >> simp [Once from_expression_def] >> strip_tac *)
+  (* >~ [‘BinOp’] *)
+  (* >- (gvs [evaluate_exp_def, CaseEq "prod", *)
+  (*          CaseEq "dafny_semanticPrimitives$result"] *)
+  (*     >- (Cases_on ‘bop’ *)
+  (*         >> gvs [is_lop_def, do_bop_def, AllCaseEqs ()] *)
+  (*         >> (pop_assum mp_tac >> simp [Once from_expression_def] >> strip_tac *)
+  (*             >> gvs[AllCaseEqs(), oneline bind_def]) *)
+  (*         >~ [‘Lt’] *)
+  (*         >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac *)
+  (*             >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac *)
+  (*             >> gvs [res_rel_rval, dafny_to_cakeml_v_def] *)
+  (*             >> gvs [evaluate_def, do_app_def, opb_lookup_def]) *)
+  (*         >~ [‘Plus’] *)
+  (*         >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac *)
+  (*             >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac *)
+  (*             >> Cases_on ‘vl’ >> Cases_on ‘vr’ *)
+  (*             >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval] *)
+  (*             >> gvs [evaluate_def, do_app_def, opn_lookup_def]) *)
+  (*         >~ [‘Minus’] *)
+  (*         >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac *)
+  (*             >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac *)
+  (*             >> Cases_on ‘vl’ >> Cases_on ‘vr’ *)
+  (*             >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval] *)
+  (*             >> gvs [evaluate_def, do_app_def, opn_lookup_def]) *)
+  (*         >~ [‘Times’] *)
+  (*         >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac *)
+  (*             >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac *)
+  (*             >> Cases_on ‘vl’ >> Cases_on ‘vr’ *)
+  (*             >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval] *)
+  (*             >> gvs [evaluate_def, do_app_def, opn_lookup_def]) *)
+  (*         >~ [‘And’] *)
+  (*         >- (Cases_on ‘vl’ >> gvs [do_lop_def] *)
+  (*             >> Cases_on ‘b’ >> gvs [] *)
+  (*             (* TODO Figure out why it is swapped here *) *)
+  (*             >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac *)
+  (*             >> last_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac *)
+  (*             >> gvs [res_rel_rval, dafny_to_cakeml_v_def] *)
+  (*             >> gvs [evaluate_def, do_log_def]) *)
+  (*         >- (Cases_on ‘vl’ >> gvs [do_lop_def] *)
+  (*             >> Cases_on ‘b’ >> gvs [] *)
+  (*             >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac *)
+  (*             >> gvs [res_rel_rval, dafny_to_cakeml_v_def] *)
+  (*             >> gvs [evaluate_def, do_log_def]) *)
+  (*         >- (Cases_on ‘vl’ >> gvs [do_lop_def] *)
+  (*             >> Cases_on ‘b’ >> gvs [] *)
+  (*             (* TODO Figure out why it is swapped here *) *)
+  (*             >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac *)
+  (*             >> last_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac *)
+  (*             >> gvs [res_rel_rval, dafny_to_cakeml_v_def] *)
+  (*             >> gvs [evaluate_def, do_log_def]) *)
+  (*         >- (Cases_on ‘vl’ >> gvs [do_lop_def] *)
+  (*             >> Cases_on ‘b’ >> gvs [] *)
+  (*             >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac *)
+  (*             >> gvs [res_rel_rval, dafny_to_cakeml_v_def] *)
+  (*             >> gvs [evaluate_def, do_log_def]))) *)
+  (* >~ [‘Literal’] *)
+  (* >- (Cases_on ‘l’ >> gvs [from_literal_def] *)
+  (*     >~ [‘BoolLiteral’] *)
+  (*     >- (Cases_on ‘b’ >> gvs [evaluate_exp_def, literal_to_value_def] *)
+  (*         >> gvs [env_rel_def, evaluate_def, do_con_check_def, build_conv_def] *)
+  (*         >> gvs [res_rel_def, dafny_to_cakeml_v_def, *)
+  (*                 Boolv_def, bool_type_num_def]) *)
+  (*     >~ [‘IntLiteral’] *)
+  (*     >- (gvs [AllCaseEqs (), oneline bind_def, string_to_int_def] *)
+  (*         >> gvs [evaluate_exp_def, literal_to_value_def] *)
+  (*         >> gvs [evaluate_def, res_rel_def, dafny_to_cakeml_v_def]) *)
+  (*     >~ [‘StringLiteral’] *)
+  (*     >- gvs [evaluate_exp_def, literal_to_value_def] *)
+  (*     >~ [‘Char’] *)
+  (*     >- gvs [evaluate_exp_def, literal_to_value_def] *)
+  (*     >~ [‘Null’] *)
+  (*     >- gvs [evaluate_exp_def, literal_to_value_def]) *)
+  (* >> gvs [evaluate_exp_def, literal_to_value_def] *)
 QED
 
 Theorem correct_stmts:
   (∀ (s₁ : dafny_state) (env_dfy : dafny_env) (stmt : statement)
      (s₂ : dafny_state) (r_dfy : dafny_res) (t₁ : cakeml_state)
-     (env_cml : cakeml_env) (cml_e : cakeml_exp).
+     (env_cml : cakeml_env) (env_comp : comp_env) (cml_e : cakeml_exp).
      evaluate_stmt s₁ env_dfy stmt = (s₂, r_dfy) ∧ ¬(is_fail_dfy r_dfy) ∧
      state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧
-     from_stmt (Companion [] []) [] 0 stmt Unit = INR cml_e
+     from_stmt (Companion [] []) env_comp 0 stmt Unit = INR cml_e
      ⇒ ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
          evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
          state_rel s₂ t₂ ∧ res_rel r_dfy r_cml)
   ∧
   (∀ (s₁ : dafny_state) (env_dfy : dafny_env) (stmts : statement list)
      (s₂ : dafny_state) (r_dfy : dafny_res) (t₁ : cakeml_state)
-     (env_cml : cakeml_env) (cml_e : cakeml_exp).
+     (env_cml : cakeml_env) (env_comp : comp_env) (cml_e : cakeml_exp).
      evaluate_stmts s₁ env_dfy stmts = (s₂, r_dfy) ∧ ¬(is_fail_dfy r_dfy) ∧
      state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧
-     from_stmts (Companion [] []) [] 0 stmts Unit = INR cml_e
+     from_stmts (Companion [] []) env_comp 0 stmts Unit = INR cml_e
      ⇒ ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
          evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
          state_rel s₂ t₂ ∧ res_rel r_dfy r_cml)
@@ -198,13 +199,41 @@ Proof
       >> Cases_on ‘b’ >> gvs []
       (* from_expression cnd is properly compiled *)
       >> drule correct_exp >> simp [] >> disch_then $ drule_at Any
-      >> disch_then $ qspec_then ‘t₁’ assume_tac >> gvs []
+      >> disch_then $ qspec_then ‘t₁’ mp_tac >> disch_then $ drule_at Any
+      >> disch_then assume_tac >> gvs [state_rel_def, comp_env_rel_def]
       (* Apply induction hypothesis *)
-      >> first_x_assum $ qspec_then ‘t₂’ assume_tac
-      >> pop_assum $ drule_then assume_tac >> gs[]
+      >> first_x_assum $ qspecl_then [‘t₂’, ‘env_cml’, ‘env_comp’] assume_tac
+      >> gs []
       (* Massage evaluate *)
       >> gvs [res_rel_rval, evaluate_def,
               semanticPrimitivesTheory.do_if_def])
+  >~ [‘DeclareVar’]
+  >- (
+  gvs [Once from_expression_def, oneline bind_def, CaseEq "sum"]
+  >> gvs [evaluate_stmt_def, CaseEq "prod",
+          CaseEq "dafny_semanticPrimitives$result"]
+  >> gvs [add_local_def, CaseEq "option", CaseEq "list"]
+
+  (* from_expression e is properly compiled *)
+  >> drule correct_exp >> simp [] >> disch_then $ drule_at Any
+  >> disch_then $ qspec_then ‘t₁’ mp_tac >> disch_then $ drule_at Any
+  >> disch_then assume_tac >> gvs [state_rel_def, comp_env_rel_def]
+  (* Massage evaluate *)
+  >> gvs [cml_ref_def]
+  >> gvs [res_rel_rval, evaluate_def, do_app_def, store_alloc_def]
+  >> gvs [CaseEq "semanticPrimitives$result", CaseEq "prod", CaseEq "option"]
+  (* Apply induction hypothesis *)
+  >> first_x_assum $ qspecl_then [‘(t₂ with
+             <|refs := t₂.refs ++ [Refv (dafny_to_cakeml_v v)];
+               ffi := t₂.ffi|>)’, ‘(env_cml with
+             v :=
+               nsOptBind (SOME (dest_varName varNam))
+                         (Loc T (LENGTH t₂.refs)) env_cml.v)’] assume_tac
+  >> last_x_assum $ drule_at Any >> disch_then assume_tac
+  >> gvs [env_rel_def])
+  >~ [‘DeclareVar’]
+  >- cheat
+
   >> cheat
 QED
 

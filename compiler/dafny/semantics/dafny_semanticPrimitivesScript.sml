@@ -10,12 +10,6 @@ open finite_mapTheory
 val _ = new_theory "dafny_semanticPrimitives"
 
 Datatype:
-  sem_env =
-  (* For now, we are assuming (module, method) is enough as a key *)
-  <| methods: ((name # name), method) alist |>
-End
-
-Datatype:
   value =
   | UnitV
   | BoolV bool
@@ -30,21 +24,37 @@ Definition init_val_def:
 End
 
 Datatype:
+  sem_env =
+  <|
+    (* For now, we are assuming (module, method) is enough as a key *)
+    methods: ((name # name), method) alist;
+    (* locals are stored as refs *)
+    locals: (string |-> num) list
+  |>
+End
+
+Datatype:
   state =
   <| clock: num;
-     locals: (string |-> value) list;
+     (* As in the CakeML semantics, the nth item in the list is the value at
+        location n *)
+     refs: value list;
      cout: string |>
 End
 
 Definition add_local_def:
-  add_local (st: state) (varNam: string) (v: value): state option =
-  case st.locals of
-  | [] => NONE
-  | (cur::rest) => SOME (st with locals := (cur |+ (varNam, v))::rest)
+  add_local (env: sem_env) (st: state) (varNam: string) (v: value) (t: type)
+    : (sem_env # state) option =
+  case (env.locals, st.locals) of
+  | ((env_cur::env_rest), (st_cur::st_rest)) =>
+      SOME (env with locals := (env_cur |+ (varNam, t)::env_rest),
+            st with locals := (st_cur |+ (varNam, v))::st_rest)
+  | _ => NONE
 End
 
 Theorem add_local_clock:
-  ∀s1 varNam v s2. add_local s1 varNam v = SOME s2 ⇒ s2.clock = s1.clock
+  ∀env₁ s₁ varNam v t env₂ s₂.
+    add_local env₁ s₁ varNam v t = SOME (env₂, s₂) ⇒ s₂.clock = s₁.clock
 Proof
   rw[] >> gvs[add_local_def, AllCaseEqs()]
 QED
