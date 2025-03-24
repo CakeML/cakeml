@@ -1571,8 +1571,9 @@ Definition set_indices_def:
     else (rinds,vimap)
   | INL (n,_) =>
     case any_el n vimap NONE of
-    | SOME (INL (nn,_)) => (inds , update_resize vimap NONE (SOME (INL (LENGTH rinds,rinds))) n)
-    | _ => (inds,vimap)
+    | NONE => (inds,vimap)
+    | SOME (INL _) => (inds , update_resize vimap NONE (SOME (INL (LENGTH rinds,rinds))) n)
+    | SOME (INR _) => (rinds,vimap)
 End
 
 Definition check_red_list_def:
@@ -2394,17 +2395,12 @@ Theorem vimap_rel_get_indices_set_indices:
   vimap_rel fmlls vimap ⇒
   vimap_rel fmlls vimap'
 Proof
-  cheat
-  (*
-  rw[get_indices_def,set_indices_def, opt_insert_def] >>
-  gvs[AllCaseEqs(),vimap_rel_def,vimap_rel_aux_def]>>
-  every_case_tac>>rw[lookup_insert]>>
-  first_x_assum (drule_at Any)>>rw[]
-  >-
-    (CCONTR_TAC>>gvs[]>> first_x_assum drule>>rw[])>>
+  rw[get_indices_def,set_indices_def] >>
+  gvs[AllCaseEqs(),vimap_rel_def]>>
+  every_case_tac>>rw[any_el_update_resize]>>
   first_x_assum drule_all>>
   rw[reindex_characterize,MEM_FILTER]>>
-  simp[any_el_ALT] *)
+  simp[any_el_ALT]
 QED
 
 Definition vomap_rel_def:

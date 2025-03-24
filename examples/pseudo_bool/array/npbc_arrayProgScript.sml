@@ -2827,29 +2827,16 @@ Proof
   Cases_on`x`>>gvs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
-  cheat
-  (*
-  fs[get_indices_def]>>
-  every_case_tac>>fs[SUM_TYPE_def,PAIR_TYPE_def]>>
+  simp[get_indices_def]>>
+  `OPTION_TYPE vimapn_TYPE (any_el q vimap NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  every_case_tac>>
+  gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
   xmatch
-  >-
-    (xapp>>xsimpl)
-  >- (
-    rpt xlet_autop>>xcon>>
-    xsimpl>>
-    simp[PAIR_TYPE_def,LIST_TYPE_def])
-  >-
-    (xapp>>xsimpl)
-  >- (
-    rpt xlet_autop>>xcon>>
-    xsimpl>>
-    simp[PAIR_TYPE_def,LIST_TYPE_def])
-  >- (xapp>>xsimpl)
-  >- (
-    rpt xlet_autop>>xcon>>
-    xsimpl>>
-    simp[PAIR_TYPE_def,LIST_TYPE_def])
-  >- (xapp>>xsimpl) *)
+  >-  (xcon>>xsimpl>>EVAL_TAC)>>
+  xapp>>xsimpl>>
+  metis_tac[]
 QED
 
 val set_indices_arr = process_topdecs`
@@ -2859,10 +2846,11 @@ val set_indices_arr = process_topdecs`
     if Vector.length v = 0 then (inds,vimap)
     else (rinds,vimap)
   | Inl (n,ls) =>
-    case Array.lookup vimap None n of
-      Some (Inl (nn,inds)) =>
+    (case Array.lookup vimap None n of
+      None => (inds,vimap)
+    | Some (Inl _) =>
         (inds, Array.updateResize vimap None n (Some (Inl (List.length rinds,rinds))))
-    | _ => (inds,vimap)` |> append_prog;
+    | Some (Inr _) => (rinds,vimap))` |> append_prog;
 
 Theorem set_indices_arr_spec:
   (LIST_TYPE NUM) inds indsv ∧
@@ -2901,29 +2889,22 @@ Proof
   xmatch>>
   rpt xlet_autop>>
   xlet_auto>>
-  cheat
-  (*
-  fs[get_indices_def]>>
-  every_case_tac>>fs[SUM_TYPE_def,PAIR_TYPE_def]>>
+  `OPTION_TYPE vimapn_TYPE (any_el q vimap NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  every_case_tac>>
+  gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
   xmatch
   >-
-    (xapp>>xsimpl)
+    (xcon>>xsimpl)
   >- (
-    rpt xlet_autop>>xcon>>
-    xsimpl>>
-    simp[PAIR_TYPE_def,LIST_TYPE_def])
+    rpt xlet_autop>>
+    xlet_auto>>
+    xcon>>xsimpl>>
+    irule LIST_REL_update_resize>>
+    fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def])
   >-
-    (xapp>>xsimpl)
-  >- (
-    rpt xlet_autop>>xcon>>
-    xsimpl>>
-    simp[PAIR_TYPE_def,LIST_TYPE_def])
-  >- (xapp>>xsimpl)
-  >- (
-    rpt xlet_autop>>xcon>>
-    xsimpl>>
-    simp[PAIR_TYPE_def,LIST_TYPE_def])
-  >- (xapp>>xsimpl) *)
+    (xcon>>xsimpl)
 QED
 
 Overload "vomap_TYPE" = ``STRING_TYPE``
