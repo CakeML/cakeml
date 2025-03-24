@@ -1571,7 +1571,7 @@ Definition set_indices_def:
     else (rinds,vimap)
   | INL (n,_) =>
     case any_el n vimap NONE of
-    | SOME (INL (n,_)) => (inds , update_resize vimap NONE (SOME (INL (LENGTH rinds,rinds))) n)
+    | SOME (INL (nn,_)) => (inds , update_resize vimap NONE (SOME (INL (LENGTH rinds,rinds))) n)
     | _ => (inds,vimap)
 End
 
