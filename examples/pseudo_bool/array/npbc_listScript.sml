@@ -2825,79 +2825,69 @@ Proof
   simp[any_el_ALT]
 QED
 
-(* TODO
 Theorem lookup_update_vimap_aux:
   ∀v0 vimap i ls x.
-    sptree$lookup x vimap = SOME ls ∧ MEM i ls ⇒
-    ∃ls. lookup x (update_vimap_aux vimap n v0) =
-      SOME ls ∧ MEM i ls
+    any_el x vimap NONE = SOME ll (* ∧
+    (case ll of INL (n,ls) => MEM i ls | INR earliest => T) *) ⇒
+    ∃ll.
+      any_el x (update_vimap vimap n v0) NONE = SOME ll ∧
+      case ll of INL (n,ls) => MEM i ls | INR earliest => T
 Proof
-  Induct \\ gvs [update_vimap_aux_def,FORALL_PROD] \\ rw []
+  Induct \\ gvs [update_vimap_def,FORALL_PROD] \\ rw []
+  \\ cheat (*
   \\ last_x_assum irule
   \\ gvs [lookup_insert] \\ rw []
-  \\ Cases_on ‘lookup p_2 vimap’ \\ gvs [opt_cons_def]
+  \\ Cases_on ‘lookup p_2 vimap’ \\ gvs [opt_cons_def] *)
 QED
 
 Theorem lookup_update_vimap_aux_MEM:
   ∀v0 vimap.
     MEM x (MAP SND v0) ⇒
-    ∃ls. lookup x (update_vimap_aux vimap i v0) =
-      SOME ls ∧ MEM i ls
+    ∃ll.
+      any_el x (update_vimap vimap i v0) NONE = SOME ll ∧
+      case ll of INL (n,ls) => MEM i ls | INR earliest => T
 Proof
-  Induct \\ gvs [update_vimap_aux_def,FORALL_PROD] \\ reverse (rw [])
+  Induct \\ gvs [update_vimap_def,FORALL_PROD] \\ reverse (rw [])
   >- (last_x_assum irule \\ fs [])
   \\ irule lookup_update_vimap_aux
-  \\ gvs [lookup_insert]
-  \\ Cases_on ‘lookup p_2 vimap’ \\ gvs [opt_cons_def]
+  \\ gvs [any_el_ALT] \\ rw []
+  \\ gvs [update_resize_def,EL_LUPDATE]
 QED
 
 Theorem vimap_rel_aux_LUPDATE:
   n < LENGTH fml ∧
-  vimap_rel_aux fml vimap ⇒
-  vimap_rel_aux (LUPDATE (SOME (v,b)) n fml)
-    (update_vimap_aux vimap n (FST v))
+  vimap_rel fml vimap ⇒
+  vimap_rel (LUPDATE (SOME (v,b)) n fml)
+    (update_vimap vimap n (FST v))
 Proof
-  gvs [vimap_rel_aux_def,EL_LUPDATE]
+  gvs [vimap_rel_def,EL_LUPDATE]
   \\ rpt strip_tac
   \\ PairCases_on ‘v’ \\ gvs []
   \\ Cases_on ‘i = n’ \\ gvs []
   >- (irule lookup_update_vimap_aux_MEM \\ fs [])
-  \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+  \\ first_assum drule_all \\ strip_tac \\ gvs []
   \\ irule lookup_update_vimap_aux \\ fs []
 QED
 
 Theorem vimap_rel_aux_nones:
-  vimap_rel_aux fml vimap ⇒
-  vimap_rel_aux (fml ++ REPLICATE n NONE) vimap
+  vimap_rel fml vimap ⇒
+  vimap_rel (fml ++ REPLICATE n NONE) vimap
 Proof
-  rw [vimap_rel_aux_def]
+  rw [vimap_rel_def]
   \\ last_x_assum irule
   \\ Cases_on ‘i < LENGTH fml’ \\ gvs [EL_APPEND1]
   \\ gvs [EL_APPEND2,NOT_LESS]
   \\ gvs [EL_REPLICATE]
 QED
 
-Theorem vimap_rel_aux_update_resize_update_vimap_aux:
-  vimap_rel_aux fml vimap ⇒
-  vimap_rel_aux (update_resize fml NONE (SOME (v,b)) n)
-    (update_vimap_aux vimap n (FST v))
-Proof
-  rewrite_tac [update_resize_def] \\ rw []
-  \\ irule vimap_rel_aux_LUPDATE \\ fs []
-  \\ irule vimap_rel_aux_nones \\ fs []
-QED
-*)
-
 Theorem vimap_rel_update_resize_update_vimap:
   vimap_rel fml vimap ⇒
   vimap_rel (update_resize fml NONE (SOME (v,b)) n)
     (update_vimap vimap n (FST v))
 Proof
-  cheat
-  (*
-  rw[vimap_rel_def,update_vimap_def]>>
-  TOP_CASE_TAC>>gvs[]>>
-  metis_tac[vimap_rel_aux_update_resize_update_vimap_aux] *)
+  rewrite_tac [update_resize_def] \\ rw []
+  \\ irule vimap_rel_aux_LUPDATE \\ fs []
+  \\ irule vimap_rel_aux_nones \\ fs []
 QED
 
 Theorem opt_update_inds_vimap_rel:
