@@ -2339,21 +2339,12 @@ Proof
   >- (
     drule IS_SOME_subst_opt>>simp[subst_fun_def]>>
     rw[]>>Cases_on`x`>>gvs[]>>
-    TOP_CASE_TAC>>gvs[]
-    >- (
-      gvs[reindex_characterize,MEM_FILTER]>>
-      gvs[ind_rel_def] >>
-      gvs [IS_SOME_EXISTS,AllCaseEqs(),PULL_EXISTS] >>
-      cheat)>>
-    cheat (*
-    gvs[vimap_rel_aux_def,vimap_rel_def,any_el_ALT]>>
-    first_x_assum drule>>
-    disch_then drule>>
+    gvs[IS_SOME_EXISTS,vimap_rel_def,any_el_ALT]>>
+    last_x_assum (drule_at Any)>>
     simp[]>>
-    disch_then drule>>
-    rw[]>>gvs[IS_SOME_EXISTS,AllCaseEqs()]>>
-    gvs[reindex_characterize,MEM_FILTER]>>
-    gvs[IS_SOME_EXISTS,any_el_ALT] *))
+    disch_then drule>>rw[]>>
+    every_case_tac>>
+    gvs[reindex_characterize,MEM_FILTER,IS_SOME_EXISTS,ind_rel_def,PULL_EXISTS,any_el_ALT])
   >- (
     drule IS_SOME_subst_opt>>
     gvs[mk_subst_cases]>>every_case_tac>>
