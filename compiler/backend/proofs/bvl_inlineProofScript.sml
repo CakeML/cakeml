@@ -823,7 +823,6 @@ Proof
     \\ match_mp_tac exp_rel_tick_inline \\ metis_tac [])
   \\ fs [lookup_union,case_eq_thms,GSYM lookup_NONE_domain,lookup_insert,
          lookup_def]
-  \\ pop_assum (assume_tac o GSYM)
   \\ first_x_assum drule \\ strip_tac \\ fs []
   \\ match_mp_tac (subspt_exp_rel |> ONCE_REWRITE_RULE [CONJ_COMM])
   \\ asm_exists_tac \\ fs []
@@ -1518,11 +1517,10 @@ Proof
     \\ res_tac \\ fs [])
   THEN1 (rw [] \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
+   (fs [case_eq_thms] \\ rveq \\ fs []
+   \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
+   (fs [case_eq_thms] \\ rveq \\ fs []
     \\ first_x_assum drule \\ rw [] \\ fs []
     THEN1
      (first_x_assum drule \\ rw [] \\ fs []
@@ -1539,24 +1537,20 @@ Proof
     \\ TOP_CASE_TAC \\ fs []
     \\ fs [evaluate_def])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
+   (fs [case_eq_thms] \\ rveq \\ fs []
+   \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
+   (fs [case_eq_thms] \\ rveq \\ fs []
+   \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM)) \\ fs []
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+   (fs [case_eq_thms] \\ rveq \\ fs []
+    \\ res_tac \\ fs [] \\ res_tac \\ fs []
     \\ rveq \\ fs []
     \\ drule (do_app_lemma |> Q.GEN `a` |> Q.SPEC `REVERSE vs`)
     \\ fs [] \\ rw [] \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+   (fs [case_eq_thms] \\ rveq \\ fs []
+    \\ res_tac \\ fs [] \\ res_tac \\ fs []
     THEN1 (fs [let_state_rel_def])
     \\ `let_state_rel q4 l4 (dec_clock 1 s) (dec_clock 1 t1)`
            by fs [let_state_rel_def,dec_clock_def]
@@ -1564,9 +1558,8 @@ Proof
     \\ rveq \\ fs []
     \\ qexists_tac `t2` \\ fs [] \\ fs [let_state_rel_def])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [] \\ rveq
+   (fs [case_eq_thms] \\ rveq \\ fs []
+    \\ res_tac \\ fs [] \\ res_tac \\ fs [] \\ rveq
     \\ res_tac \\ fs [PULL_EXISTS]
     THEN1
      (qexists_tac `t2' with clock := 0` \\ fs [let_state_rel_def]
@@ -1587,7 +1580,6 @@ Proof
     \\ res_tac \\ fs [] \\ rfs [let_state_rel_def]
     \\ rename1 `_ = (res,t9)`
     \\ qexists_tac `t9` \\ fs []
-    \\ once_rewrite_tac [EQ_SYM_EQ]
     \\ match_mp_tac bvl_handleProofTheory.compile_any_correct \\ fs []
     \\ fs [let_op_sing_thm,HD_let_op])
 QED

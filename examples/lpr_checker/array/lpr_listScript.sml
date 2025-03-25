@@ -302,8 +302,9 @@ Definition safe_hd_def:
   safe_hd ls = case ls of [] => (0:int) | (x::xs) => x
 End
 
+(*Might want to rename to MAX_LIST_index*)
 Definition list_max_index_def:
-  list_max_index C = 2*list_max (MAP (λc. Num (ABS c)) C) + 1
+  list_max_index C = 2*MAX_LIST (MAP (λc. Num (ABS c)) C) + 1
 End
 
 (* bump up the length to a large number *)

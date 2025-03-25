@@ -1914,7 +1914,7 @@ Proof
   recInduct (theorem"v_inv_ind") \\ rw [v_inv_def]
   \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND, heap_expand_def]
   \\ fs [case_eq_thms]
-  \\ Cases_on `sp` \\ fs []
+  \\ namedCases_on `sp` ["", "sp'"] \\ fs []
   \\ fs [heap_lookup_def, Bignum_def, Word64Rep_def, BlockRep_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ unlength_tac [ADD1]
@@ -1928,6 +1928,9 @@ Proof
     \\ rpt (disch_then drule \\ fs []))
   \\ unlength_tac []
   \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC) \\ fs []
+  \\ imp_res_tac heap_lookup_SPLIT
+  \\ gvs[]
+  \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND, heap_lookup_def]
 QED
 
 Theorem v_inv_LIST_REL:

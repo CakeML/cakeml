@@ -1263,7 +1263,7 @@ Proof
   simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]
 QED
 
-val _ = translate list_max_def;
+val _ = translate MAX_LIST_def;
 val _ = translate list_max_index_def;
 
 (* bump up the length to a large number *)
@@ -1738,8 +1738,10 @@ Theorem list_max_index_bounded_clause:
   EVERY ($> n o index) l ∧ EVERY ($> n o index o $~) l
 Proof
   simp[list_max_index_def]>>
-  Induct>>rw[list_max_def,index_def]>>
-  intLib.ARITH_TAC
+  Induct>>rw[] >>
+  fs[MAX_LIST_def,MAX_DEF,index_def]>>
+  rw[] >>
+  intLib.COOPER_TAC
 QED
 
 Theorem bounded_cfml_update_resize:
@@ -1772,8 +1774,8 @@ Theorem EVERY_index_resize_Clist:
 Proof
   rw[]>>
   simp[resize_Clist_def,list_max_index_def]>>
-  qmatch_goalsub_abbrev_tac`list_max lss`>>
-  qspec_then `lss` assume_tac list_max_max>>
+  qmatch_goalsub_abbrev_tac`MAX_LIST lss`>>
+  qspec_then `lss` assume_tac MAX_LIST_PROPERTY>>
   fs[EVERY_MEM,Abbr`lss`,MEM_MAP,PULL_EXISTS]>>
   ntac 2 strip_tac>>first_x_assum drule>>
   rw[]>>simp[index_def]>>rw[]>>

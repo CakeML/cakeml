@@ -15,6 +15,9 @@ val _ = new_theory "dafny_to_cakeml";
 
 (* TODO Instead of breaking strings with ++, use SML style \ in all files *)
 
+(* TODO Instead of keeping track of types manually, maybe we can add them
+   in the upstream Dafny AST *)
+
 (* Defines the Dafny module containing the Dafny runtime *)
 Quote dafny_module = process_topdecs:
   structure Dafny =
@@ -309,28 +312,32 @@ End
 (* In Dafny, the string and seq<char> type are synonyms. We replace the
  * former with the latter for consistency. We also replace newtypes by their
  * base type (which may be incorrect) *)
-(* TODO? Maybe it is better to implement this with a map as Dafny does it *)
+(* TODO? Maybe it is better to implement this with a map as Dafny does it;
+   Seems like Dafny has a function to remove synonyms? *)
 Definition normalize_type_def:
   normalize_type t =
   (case t of
    | Primitive String => Seq (Primitive Char)
    (* TODO Unsure whether we can ignore these like that *)
    | UserDefined
-     (ResolvedType _ [] (ResolvedTypeBase_Newtype bt _ _)
-                   attrs [] extendedTs) =>
+     (ResolvedType _ [] rtb attrs [] extendedTs) =>
        (* Returning t in this case means it is unsupported *)
        if attrs ≠ [Attribute "axiom" []] ∧ attrs ≠ [] then
          t
        else if extendedTs ≠ [Primitive Int] ∧ extendedTs ≠ [] then
          t
        else
-         normalize_type bt
+         (case rtb of
+          | ResolvedTypeBase_SynonymType bt => normalize_type bt
+          (* Is dealing with newtype like this really fine? *)
+          | ResolvedTypeBase_Newtype bt _ _ => normalize_type bt
+          | _ => t)
    | Tuple ts => Tuple (map_normalize_type ts)
    | Array elem dims => Array (normalize_type elem) dims
    | Seq t => Seq (normalize_type t)
    | Set t => Set (normalize_type t)
    | Multiset t => Multiset (normalize_type t)
-   | Map kt vt => Map (normalize_type kt) (normalize_type vt)
+   | Type_Map kt vt => Type_Map (normalize_type kt) (normalize_type vt)
    | SetBuilder t => SetBuilder (normalize_type t)
    | MapBuilder kt vt => MapBuilder (normalize_type kt)
                                     (normalize_type vt)
@@ -514,7 +521,7 @@ Definition to_string_fun_def:
    return (Var (Long "Dafny" (Short "char_to_string")))) ∧
   (to_string_fun _ (Primitive Int) =
    return (Var (Long "Dafny" (Short "int_to_string")))) ∧
-  (to_string_fun _ (Primitive Bool) =
+  (to_string_fun _ (Primitive Primitive_Bool) =
    return (Var (Long "Dafny" (Short "bool_to_string")))) ∧
   (to_string_fun inCol (Seq (Primitive Char)) =
    if inCol then
@@ -576,7 +583,7 @@ Definition arb_value_def:
   arb_value (t: dafny_ast$type) =
   (case t of
    | Primitive Int => return (Lit (IntLit 0))
-   | Primitive Bool => return False
+   | Primitive Primitive_Bool => return False
    | Seq _ => return (cml_list [])
    | Tuple ts =>
        do
@@ -651,10 +658,11 @@ End
  * same datatype, even though they are slightly different *)
 (* This assumption is incorrect; at the IR level only methods exist since
  * expression can be compiled down to statements in it *)
-(* TODO Handle everything as "method"*)
+(* TODO Handle everything as "method" *)
+(* TODO Currently ignoring inheritedParams, unsure what it does. *)
 Definition method_is_function_def:
   method_is_function (Method attrs isStatic hasBody _ _ overridingPath nam
-                             typeParams params body outTypes outVars) =
+                             typeParams params _ body outTypes outVars) =
   (* Function has one outType and no outVars *)
   if LENGTH outTypes ≠ 1 ∨ outVars ≠ NONE then
     return F
@@ -678,7 +686,7 @@ End
 
 Definition method_is_method_def:
   method_is_method (Method attrs isStatic hasBody _ _ overridingPath nam
-                           typeParams params body outTypes outVars) =
+                           typeParams params _ body outTypes outVars) =
   case outVars of
   | SOME outVars_list =>
       if LENGTH outTypes ≠ LENGTH outVars_list then
@@ -757,7 +765,7 @@ Definition call_type_env_from_class_body_def:
     is_method <- method_is_method m;
     if is_function then
       do
-        (_, _, _, _, _, _, nam, _, params, _, outTypes, _) <<- dest_Method m;
+        (_, _, _, _, _, _, nam, _, params, _, _, outTypes, _) <<- dest_Method m;
         nam <<- dest_Name nam;
         param_t <- type_from_formals params;
         outTypes <<- MAP normalize_type outTypes;
@@ -766,7 +774,7 @@ Definition call_type_env_from_class_body_def:
       od
     else if is_method then
       do
-        (_, _, _, _, _, _, nam, _, params, _, _, _) <<- dest_Method m;
+        (_, _, _, _, _, _, nam, _, params, _, _, _, _) <<- dest_Method m;
         nam <<- dest_Name nam;
         (* outTypes refers to the type of outVars; the method itself returns
          * Unit (I think) *)
@@ -789,7 +797,7 @@ Definition dafny_type_of_def:
   dafny_type_of (env: (((expression # string), type) alist))
                 (e: dafny_ast$expression) =
   (case e of
-   | Literal (BoolLiteral _) => return (Primitive Bool)
+   | Literal (BoolLiteral _) => return (Primitive Primitive_Bool)
    | Literal (IntLiteral _ (Primitive Int)) => return (Primitive Int)
    | Literal (StringLiteral _ _) => return (Seq (Primitive Char))
    | Literal (CharLiteral _) => return (Primitive Char)
@@ -830,18 +838,11 @@ Definition dafny_type_of_def:
        od
    | SeqValue _ t =>
        return (Seq (normalize_type t))
-   | SeqUpdate se idx v =>
-       do
-         se_t <- dafny_type_of env se;
-         idx_t <- dafny_type_of env idx;
-         v_t <- dafny_type_of env v;
-         if se_t ≠ Seq v_t then
-           fail "dafny_type_of (SeqUpdate): Unexpectedly, se_t <> Seq v_t"
-         else if idx_t ≠ Primitive Int then
-           fail "dafny_type_of (SeqUpdate): Unexpectedly, idx_t wasn't an int"
-         else
-           return se_t
-       od
+   | SeqUpdate se idx v collT exprT =>
+       if collT ≠ exprT then
+         fail "dafny_type_of (SeqUpdate): Unexpectedly, collT <> exprT"
+       else
+         return (normalize_type collT)
    | Ite cnd thn els =>
        do
          thn_t <- dafny_type_of env thn;
@@ -855,8 +856,8 @@ Definition dafny_type_of_def:
    | UnOp Not e =>
        do
          e_t <- dafny_type_of env e;
-         if e_t = (Primitive Bool) then
-           return (Primitive Bool)
+         if e_t = (Primitive Primitive_Bool) then
+           return (Primitive Primitive_Bool)
          else
            fail "dafny_type_of (UnOp Not): Unsupported type for e"
        od
@@ -870,75 +871,15 @@ Definition dafny_type_of_def:
          else
            fail "dafny_type_of (UnOp Cardinality): Unsupported type"
        od
-   | BinOp bop e1 e2 =>
-       (* TODO? Figure out why using | BinOp Lt _ _ and
-        * | BinOp (Eq _ _) _ _ results in the | BinOp bop e1 e2 case to be
-        * repeated over and over again *)
-       (* TODO Add sanity checks as done below *)
-       if (bop = Lt ∨ (is_Eq bop)) then return (Primitive Bool)
-       else
-         do
-           e1_t <- dafny_type_of env e1;
-           e2_t <- dafny_type_of env e2;
-           if (bop = EuclidianDiv ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-             return (Primitive Int)
-           else if (bop = EuclidianMod ∧ e1_t = (Primitive Int) ∧
-                    e1_t = e2_t) then
-             return (Primitive Int)
-           else if (bop = Plus ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-             return (Primitive Int)
-           else if (bop = Minus ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-             return (Primitive Int)
-           else if (bop = Times ∧ e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-             return (Primitive Int)
-           else if (bop = And ∧ e1_t = Primitive Bool ∧ e1_t = e2_t) then
-             return (Primitive Bool)
-           else if (bop = Or ∧ e1_t = Primitive Bool ∧ e1_t = e2_t) then
-             return (Primitive Bool)
-           else if (bop = Concat ∧ e1_t = (Seq (Primitive Char)) ∧
-                    e1_t = e2_t) then
-             return (Seq (Primitive Char))
-           else if (bop = Concat ∧ is_Seq e1_t ∧ e1_t = e2_t) then
-             return e1_t
-           else if (bop = In ∧ is_Seq e2_t) then
-             do
-               seq_t <- dest_Seq e2_t;
-               if e1_t ≠ seq_t then
-                 fail "dafny_type_of (BinOp In): Types did not match"
-               else
-                 return (Primitive Bool)
-             od
-           else if (bop = SeqPrefix ∧ is_Seq e1_t ∧ is_Seq e2_t) then
-             do
-               seq1_t <- dest_Seq e1_t;
-               seq2_t <- dest_Seq e2_t;
-               if seq1_t ≠ seq2_t then
-                 fail "dafny_type_of (BinOp SeqPrefix): Types did not match"
-               else
-                 return (Primitive Bool)
-             od
-           else if (bop = SeqProperPrefix ∧ is_Seq e1_t ∧ is_Seq e2_t) then
-             do
-               seq1_t <- dest_Seq e1_t;
-               seq2_t <- dest_Seq e2_t;
-               if seq1_t ≠ seq2_t then
-                 fail ("dafny_type_of (BinOp SeqProperPrefix): Types did " ++
-                       "not match")
-               else
-                 return (Primitive Bool)
-             od
-           else
-             fail "dafny_type_of (BinOp): Unsupported bop/types"
-         od
+   | BinOp (TypedBinOp _ _ _ resultT) _ _ => return (normalize_type resultT)
    | ArrayLen _ _ _ _ => return (Primitive Int)
-   | SelectFn comp nam onDt isStatic isConstant _ =>
+   | SelectFn comp nam onDt isStatic _ _ =>
        (* TODO Figure out whether it is fine to ignore arguments *)
+       (* TODO Figure out whether it is fine to ignore isConstant *)
        if onDt then
          fail "dafny_type_of (SelectFn): On datatype unsupported"
        else if ¬isStatic then
          fail "dafny_type_of (SelectFn): non-static unsupported"
-       else if ¬isConstant then
-         fail "dafny_type_of (SelectFn): non-constant unsupported"
        else
          (let nam = dest_varName nam in
             (case ALOOKUP env (comp, nam) of
@@ -1118,13 +1059,11 @@ Definition from_expression_def:
          cml_els <- map_from_expression comp env els;
          return (cml_list cml_els)
        od
-   | SeqUpdate se idx v =>
+   | SeqUpdate se idx v collT exprT =>
        do
-         se_t <- dafny_type_of env se;
          idx_t <- dafny_type_of env idx;
-         v_t <- dafny_type_of env v;
-         if se_t ≠ Seq v_t then
-           fail "from_expression (SeqUpdate): Unexpectedly, se_t <> Seq v_t"
+         if collT ≠ exprT then
+           fail "from_expression (SeqUpdate): Unexpectedly, collT <> exprT"
          else if idx_t ≠ Primitive Int then
            fail "from_expression (SeqUpdate): Unexpectedly, idx_t wasn't an int"
          else
@@ -1145,7 +1084,7 @@ Definition from_expression_def:
        od
    | UnOp uop e =>
        from_unaryOp comp env uop e
-   | BinOp bop e1 e2 =>
+   | BinOp (TypedBinOp bop _ _ _) e1 e2 =>
        from_binOp comp env bop e1 e2
    | ArrayLen e _ dim _ =>
        if dim ≠ 0 then
@@ -1156,19 +1095,19 @@ Definition from_expression_def:
            return (cml_fapp (Var (Long "Array" (Short "length")))
                             [cml_get_arr cml_e])
          od
-   | SelectFn f_comp nam onDt isStatic isConstant _ =>
+   | SelectFn f_comp nam onDt isStatic _ _ =>
+       (* TODO Figure out whether it is fine to ignore arguments *)
+       (* TODO Figure out whether it is fine to ignore isConstant *)
        if onDt then
          fail "from_expression (SelectFn): On datatype unsupported"
        else if ¬isStatic then
          fail "from_expression (SelectFn): non-static unsupported"
-       else if ¬isConstant then
-         fail "from_expression (SelectFn): non-constant unsupported"
-       else (* TODO Check if it is fine to ignore arguments *)
+       else
          do
            nam <<- Name (dest_varName nam);
            f_name <- gen_call_name comp f_comp
                                    (CallName nam NONE NONE F
-                                             (CallSignature []));
+                                             (CallSignature [] []));
            return (Var f_name)
          od
    | Index ce cok idxs =>
@@ -1316,27 +1255,27 @@ Definition from_expression_def:
             return (App (Opb Lt) [cml_e1; cml_e2])
           else
             fail "from_binOp (Lt): Unsupported types"
-      | Plus =>
-          if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
+      | Plus overflow =>
+          if (e1_t = (Primitive Int) ∧ e1_t = e2_t ∧ ¬overflow) then
             return (App (Opn Plus) [cml_e1; cml_e2])
           else
             fail "from_binOp (Plus): Unsupported types"
-      | Minus =>
-          if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
+      | Minus overflow =>
+          if (e1_t = (Primitive Int) ∧ e1_t = e2_t ∧ ¬overflow) then
             return (App (Opn Minus) [cml_e1; cml_e2])
           else
             fail "from_binOp (Minus): Unsupported types"
-      | Times =>
-          if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
+      | Times overflow =>
+          if (e1_t = (Primitive Int) ∧ e1_t = e2_t ∧ ¬overflow) then
             return (App (Opn Times) [cml_e1; cml_e2])
           else
             fail "from_binOp (Times): Unsupported types"
       | And =>
-          if (e1_t = Primitive Bool ∧ e1_t = e2_t) then
+          if (e1_t = Primitive Primitive_Bool ∧ e1_t = e2_t) then
             return (Log And cml_e1 cml_e2)
           else fail "from_binOp (And): Unsupported type"
       | Or =>
-          if (e1_t = Primitive Bool ∧ e1_t = e2_t) then
+          if (e1_t = Primitive Primitive_Bool ∧ e1_t = e2_t) then
             return (Log Or cml_e1 cml_e2)
           else fail "from_binOp (Or): Unsupported type"
       | In =>
@@ -1548,7 +1487,7 @@ Definition from_classItem_def:
     is_method <- method_is_method m;
     if is_function then
       do
-        (_, _, _, _, _, _, nam, _, params, body, _, _) <<- dest_Method m;
+        (_, _, _, _, _, _, nam, _, params, _, body, _, _) <<- dest_Method m;
         fun_name <<- dest_Name nam;
         (env, cml_param, preamble) <- gen_param_preamble env params;
         cml_body <- process_function_body comp env preamble body;
@@ -1556,7 +1495,7 @@ Definition from_classItem_def:
       od
     else if is_method then
       do
-        (_, _, _, _, _, _, nam, _, params,
+        (_, _, _, _, _, _, nam, _, params, _,
          body, outTypes, outVars) <<- dest_Method m;
         outTypes <<- MAP normalize_type outTypes;
         outVars <- dest_SOME outVars;
@@ -1652,7 +1591,7 @@ Definition find_main_def:
         ((on, nam), _) <<- HD main_defs;
         main_name <- gen_call_name (Companion [] []) on
                                    (CallName (Name nam) NONE NONE F
-                                             (CallSignature []));
+                                             (CallSignature [] []));
         return (Var main_name)
       od
   od
@@ -1727,7 +1666,7 @@ Definition unpack_def:
             (cml_fapp (Var (Short "print")) [Lit (StrLit s)])]
 End
 
-(* (* Testing *) *)
+(* Testing *)
 (* open dafny_sexpTheory *)
 (* open sexp_to_dafnyTheory *)
 (* open fromSexpTheory simpleSexpParseTheory *)
@@ -1735,7 +1674,7 @@ End
 (* (* val _ = astPP.disable_astPP(); *) *)
 (* val _ = astPP.enable_astPP(); *)
 
-(* val inStream = TextIO.openIn "/home/daniel/cakeml/dafny-ir-update/compiler/dafny/tests/basic/simple_modules.sexp"; *)
+(* val inStream = TextIO.openIn "/home/daniel/dfy-in-cml/scratchpad/string_concat.dfy.sexp" *)
 (* val fileContent = TextIO.inputAll inStream; *)
 (* val _ = TextIO.closeIn inStream; *)
 (* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)

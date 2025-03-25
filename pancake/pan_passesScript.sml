@@ -26,37 +26,36 @@ Definition pan_to_target_all_def:
               | (xs,[]) => («main»,F,[],Return (Const 0w))::xs
               | (xs,y::ys) => y::xs ++ ys
     in
-      if ¬NULL prog0 ∧ FST (SND (HD prog0)) then ([],NONE) else
-        let
-          prog1 = MAP (λ(n,e,p,b). (n,p,b)) prog0;
-          ps = [(«initial pancake program»,Pan prog1)];
-          prog_a = pan_simp$compile_prog prog1;
-          ps = ps ++ [(«after pan_simp»,Pan prog_a)];
-          prog_b0 = pan_to_crep$compile_prog prog_a;
-          ps = ps ++ [(«after pan_to_crep»,Crep prog_b0)];
-          prog_b = MAP (λ(n,ps,e). (n,ps,crep_arith$simp_prog e)) prog_b0;
-          ps = ps ++ [(«after crep_arith»,Crep prog_b)];
-          fnums = GENLIST (λn. n + first_name) (LENGTH prog_b);
-          funcs = make_funcs prog_b;
-          target = c.lab_conf.asm_conf.ISA;
-          comp = comp_func target funcs;
-          prog_b1 = MAP2 (λn (name,params,body).
-                      (n,(GENLIST I ∘ LENGTH) params, comp params body)) fnums prog_b;
-          prog_c = MAP (λ(name,params,body). (name,params,loop_live$optimise body)) prog_b1;
-          prog_c1 = loop_remove$comp_prog prog_c;
-          prog2 = loop_to_word$compile_prog prog_c1;
-          names = fromAList (ZIP (QSORT $< (MAP FST prog2),MAP FST prog1));
-          names = union (fromAList (word_to_stack$stub_names () ++
-                                    stack_alloc$stub_names () ++
-                                    stack_remove$stub_names ())) names;
-          ps = ps ++ [(«after crep_to_loop»,Loop prog_b1 names)];
-          ps = ps ++ [(«after loop_optimise»,Loop prog_c names)];
-          ps = ps ++ [(«after loop_remove»,Loop prog_c1 names)];
-          ps = ps ++ [(«after loop_to_word»,Cake (Word prog2 names))];
-          c = c with exported := MAP FST (FILTER (FST ∘ SND) prog);
-          (ps1,out) = from_word_0_all [] c names prog2
-        in
-          (ps ++ MAP (λ(n,p). (n,Cake p)) ps1,out)
+      let
+        prog1 = MAP (λ(n,e,p,b). (n,p,b)) prog0;
+        ps = [(«initial pancake program»,Pan prog1)];
+        prog_a = pan_simp$compile_prog prog1;
+        ps = ps ++ [(«after pan_simp»,Pan prog_a)];
+        prog_b0 = pan_to_crep$compile_prog prog_a;
+        ps = ps ++ [(«after pan_to_crep»,Crep prog_b0)];
+        prog_b = MAP (λ(n,ps,e). (n,ps,crep_arith$simp_prog e)) prog_b0;
+        ps = ps ++ [(«after crep_arith»,Crep prog_b)];
+        fnums = GENLIST (λn. n + first_name) (LENGTH prog_b);
+        funcs = make_funcs prog_b;
+        target = c.lab_conf.asm_conf.ISA;
+        comp = comp_func target funcs;
+        prog_b1 = MAP2 (λn (name,params,body).
+                    (n,(GENLIST I ∘ LENGTH) params, comp params body)) fnums prog_b;
+        prog_c = MAP (λ(name,params,body). (name,params,loop_live$optimise body)) prog_b1;
+        prog_c1 = loop_remove$comp_prog prog_c;
+        prog2 = loop_to_word$compile_prog prog_c1;
+        names = fromAList (ZIP (QSORT $< (MAP FST prog2),MAP FST prog1));
+        names = union (fromAList (word_to_stack$stub_names () ++
+                                  stack_alloc$stub_names () ++
+                                  stack_remove$stub_names ())) names;
+        ps = ps ++ [(«after crep_to_loop»,Loop prog_b1 names)];
+        ps = ps ++ [(«after loop_optimise»,Loop prog_c names)];
+        ps = ps ++ [(«after loop_remove»,Loop prog_c1 names)];
+        ps = ps ++ [(«after loop_to_word»,Cake (Word prog2 names))];
+        c = c with exported := MAP FST (FILTER (FST ∘ SND) prog);
+        (ps1,out) = from_word_0_all [] c names prog2
+      in
+        (ps ++ MAP (λ(n,p). (n,Cake p)) ps1,out)
 End
 
 Triviality MAP2_MAP:
@@ -88,9 +87,6 @@ Theorem compile_prog_eq_pan_to_target_all:
   compile_prog c p = SND (pan_to_target_all c p)
 Proof
   gvs [compile_prog_eq,pan_to_target_all_def,UNCURRY]
-  \\ qmatch_goalsub_abbrev_tac ‘NULL prog’
-  \\ IF_CASES_TAC >- gvs []
-  \\ pop_assum kall_tac
   \\ gvs [backend_passesTheory.from_word_0_thm,pan_to_wordTheory.compile_prog_def,
           loop_to_wordTheory.compile_def,crep_to_loopTheory.compile_prog_def,
           MAP_MAP2,MAP2_MAP,make_funcs_MAP]
