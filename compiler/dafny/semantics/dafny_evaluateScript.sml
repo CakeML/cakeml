@@ -124,7 +124,7 @@ Definition init_env_def:
   do
     methods <- result_mmap env_from_mod p;
     methods <<- FLAT methods;
-    return <| methods := methods |>
+    return <| methods := methods; locals := [FEMPTY] |>
   od
 End
 
@@ -299,9 +299,9 @@ Definition evaluate_stmt_ann_def[nocompute]:
   (let varNam = dest_varName varNam in
      (case evaluate_exp st env e of
       | (st', Rval v) =>
-          (case add_local st' varNam v of
+          (case add_local env st' varNam v of
            | NONE => (st', Rerr Rtype_error)
-           | SOME st'' => evaluate_stmts st'' env in_stmts)
+           | SOME (env', st'') => evaluate_stmts st'' env' in_stmts)
       | r => r))
   ∧
   evaluate_stmt st env (DeclareVar varNam t NONE in_stmts) =
@@ -309,15 +309,15 @@ Definition evaluate_stmt_ann_def[nocompute]:
      (case init_val t of
       | NONE => (st, Rerr Runsupported)
       | SOME v =>
-             (case add_local st varNam v of
-              | NONE => (st, Rerr Rtype_error)
-              | SOME st' => evaluate_stmts st' env in_stmts)))
+          (case add_local env st varNam v of
+           | NONE => (st, Rerr Rtype_error)
+           | SOME (env', st') => evaluate_stmts st' env' in_stmts)))
   ∧
   evaluate_stmt st env (Assign (AssignLhs_Ident varNam) e) =
   (let varNam = dest_varName varNam in
      (case evaluate_exp st env e of
       | (st', Rval v) =>
-          (case assign_to_local st varNam v of
+          (case assign_to_local env st varNam v of
            | NONE => (st, Rerr Rtype_error)
            | SOME st'' => (st'', Rval UnitV))
       | r => r))

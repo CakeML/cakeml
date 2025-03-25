@@ -11,8 +11,13 @@ val _ = new_theory "dafny_semanticPrimitives"
 
 Datatype:
   sem_env =
-  (* For now, we are assuming (module, method) is enough as a key *)
-  <| methods: ((name # name), method) alist |>
+  <|
+    (* For now, we are assuming (module, method) is enough as a key *)
+    methods: ((name # name), method) alist;
+    (* We use a list of maps from variable names to locations to model
+       (potentially nested) scopes and mutable variables. *)
+    locals: (string |-> num) list
+  |>
 End
 
 Datatype:
@@ -32,42 +37,48 @@ End
 Datatype:
   state =
   <| clock: num;
-     locals: (string |-> value) list;
+     (* The nth item in the list is the value at location n *)
+     heap: value list;
      cout: string |>
 End
 
 Definition add_local_def:
-  add_local (st: state) (varNam: string) (v: value): state option =
-  case st.locals of
+  add_local (env: sem_env) (st: state) (varNam: string) (v: value): (sem_env # state) option =
+  case env.locals of
   | [] => NONE
-  | (cur::rest) => SOME (st with locals := (cur |+ (varNam, v))::rest)
+  | (cur::rest) =>
+      let next_location = LENGTH st.heap in
+        SOME (env with locals := (cur |+ (varNam, next_location))::rest,
+              st with heap := SNOC v st.heap)
 End
 
 Theorem add_local_clock:
-  ∀s1 varNam v s2. add_local s1 varNam v = SOME s2 ⇒ s2.clock = s1.clock
+  ∀env₁ s₁ varNam v env₂ s₂.
+    add_local env₁ s₁ varNam v = SOME (env₂, s₂) ⇒ s₂.clock = s₁.clock
 Proof
   rw[] >> gvs[add_local_def, AllCaseEqs()]
 QED
 
 Definition assign_to_local_def:
-  assign_to_local (st: state) (varNam: string) (v: value): (state option) =
-  case st.locals of
+  assign_to_local (env: sem_env) (st: state) (varNam: string) (v: value): state option =
+  case env.locals of
   | [] => NONE
   | (cur::rest) =>
-      if varNam ∉ FDOM cur
-      then NONE
-      else SOME (st with locals := (cur |+ (varNam, v))::rest)
+      let loc = cur ' varNam;
+          new_heap = LUPDATE v loc (st.heap) in
+        SOME (st with heap := new_heap)
 End
 
 Theorem assign_to_local_clock:
-  ∀s1 varNam v s2. assign_to_local s1 varNam v = SOME s2 ⇒ s2.clock = s1.clock
+  ∀ env s₁ varNam v s₂.
+    assign_to_local env s₁ varNam v = SOME s₂ ⇒ s₂.clock = s₁.clock
 Proof
   rw[] >> gvs[assign_to_local_def, AllCaseEqs()]
 QED
 
 Definition init_state_def:
   init_state = <| clock := 424242;
-                  locals := [FEMPTY];
+                  heap := [];
                   cout := "" |>
 End
 
