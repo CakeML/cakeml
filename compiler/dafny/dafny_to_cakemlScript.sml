@@ -788,19 +788,19 @@ Definition dafny_type_of_def:
          else
            return thn_t
        od
-   | UnOp Not e =>
+   | UnOp Not e e_t =>
        do
-         e_t <- dafny_type_of env e;
+         e_t <<- normalize_type e_t;
          if e_t = (Primitive Primitive_Bool) then
            return (Primitive Primitive_Bool)
          else
            fail "dafny_type_of (UnOp Not): Unsupported type for e"
        od
-   | UnOp BitwiseNot _ =>
+   | UnOp BitwiseNot _ _ =>
        fail "dafny_type_of (UnOp BitwiseNot): Unsupported"
-   | UnOp Cardinality e' =>
+   | UnOp Cardinality e' e'_t =>
        do
-         e'_t <- dafny_type_of env e';
+         e'_t <<- normalize_type e'_t;
          if is_Seq e'_t then
            return (Primitive Int)
          else
@@ -852,7 +852,7 @@ Definition dafny_type_of_def:
          od
        else
          dafny_type_of env se
-   | TupleSelect _ _ fieldT =>
+   | TupleSelect _ _ _ fieldT =>
        return (normalize_type fieldT)
    | Expression_Call on (CallName nam onType receiverArg receiverAsArgument _)
                      _ _ =>
@@ -948,8 +948,7 @@ End
  some checks may be unnecessary (depending on the assumptions we make about/get from
  the Dafny AST *)
 Definition from_expression_def:
-  (from_expression comp (env: (((expression # string), type) alist))
-                   (e: dafny_ast$expression) : (ast$exp result) =
+  (from_expression comp (e: dafny_ast$expression) : (ast$exp result) =
    case e of
    | Literal l =>
        from_literal l
@@ -957,82 +956,65 @@ Definition from_expression_def:
        return (App Opderef [Var (Short (dest_varName n))])
    | Expression_Tuple es =>
        do
-         cml_es <- map_from_expression comp env es;
+         cml_es <- map_from_expression comp es;
          cml_tuple cml_es
        od
    | NewUninitArray [dim0] t =>
        do
          t <<- normalize_type t;
-         cml_dim0 <- from_expression comp env dim0;
+         cml_dim0 <- from_expression comp dim0;
          fill_val <- arb_value t;
          return (Some (cml_fapp (Var (Long "Array" (Short "array")))
                                 [cml_dim0; fill_val]))
        od
    | FinalizeNewArray e _ =>
        (* Don't do anything special on finalize *)
-       from_expression comp env e
+       from_expression comp e
    | Convert val fro tot =>
        do
          if normalize_type fro ≠ normalize_type tot then
            fail "from_expression (Convert): Converting different types \
                 \(after normalization) unsupported"
          else
-           from_expression comp env val
+           from_expression comp val
        od
    | SeqConstruct len f_e =>
        do
-         fe_t <- dafny_type_of env f_e;
-         (argTs, retT) <- dest_Arrow fe_t;
-         argT <- dest_singleton_list argTs;
-         if argT ≠ Primitive Int then
-           fail "from_expression (SeqConstruct): Argument of function was not \
-                \an int"
-         else
-           do
-             cml_len <- from_expression comp env len;
-             cml_f <- from_expression comp env f_e;
-             return (cml_fapp (Var (Long "List" (Short "genlist")))
-                              [cml_f; cml_len])
-           od
+         cml_len <- from_expression comp len;
+         cml_f <- from_expression comp f_e;
+         return (cml_fapp (Var (Long "List" (Short "genlist")))
+                          [cml_f; cml_len])
        od
    | SeqValue els _ =>
        do
-         cml_els <- map_from_expression comp env els;
+         cml_els <- map_from_expression comp els;
          return (cml_list cml_els)
        od
    | SeqUpdate se idx v collT exprT =>
        do
-         idx_t <- dafny_type_of env idx;
-         if collT ≠ exprT then
-           fail "from_expression (SeqUpdate): Unexpectedly, collT <> exprT"
-         else if idx_t ≠ Primitive Int then
-           fail "from_expression (SeqUpdate): Unexpectedly, idx_t wasn't an int"
-         else
-           do
-             cml_se <- from_expression comp env se;
-             cml_idx <- from_expression comp env idx;
-             cml_v <- from_expression comp env v;
-             return (cml_fapp (Var (Long "List" (Short "update")))
-                              [cml_v; cml_idx; cml_se])
-           od
+         cml_se <- from_expression comp se;
+         cml_idx <- from_expression comp idx;
+         cml_v <- from_expression comp v;
+         return (cml_fapp (Var (Long "List" (Short "update")))
+                          [cml_v; cml_idx; cml_se])
        od
    | Ite cnd thn els =>
        do
-         cml_cnd <- from_expression comp env cnd;
-         cml_thn <- from_expression comp env thn;
-         cml_els <- from_expression comp env els;
+         cml_cnd <- from_expression comp cnd;
+         cml_thn <- from_expression comp thn;
+         cml_els <- from_expression comp els;
          return (If cml_cnd cml_thn cml_els)
        od
-   | UnOp uop e =>
-       from_unaryOp comp env uop e
-   | BinOp (TypedBinOp bop _ _ _) e1 e2 =>
-       from_binOp comp env bop e1 e2
+   | UnOp uop e e_t =>
+       from_unaryOp comp uop e (normalize_type e_t)
+   | BinOp (TypedBinOp bop e1_t e2_t _) e1 e2 =>
+       from_binOp comp bop e1 e2 (normalize_type e1_t) (normalize_type e2_t)
    | ArrayLen e _ dim _ =>
        if dim ≠ 0 then
          fail "from_expression (ArrayLen): != 1 dimension unsupported"
        else
          do
-           cml_e <- from_expression comp env e;
+           cml_e <- from_expression comp e;
            return (cml_fapp (Var (Long "Array" (Short "length")))
                             [cml_get_arr cml_e])
          od
@@ -1058,8 +1040,8 @@ Definition from_expression_def:
                 \exactly one index"
          else
            do
-             cml_ce <- from_expression comp env ce;
-             idx <- from_expression comp env (EL 0 idxs);
+             cml_ce <- from_expression comp ce;
+             idx <- from_expression comp (EL 0 idxs);
              return (cml_fapp (Var (Long "List" (Short "nth"))) [cml_ce; idx])
            od
        else if cok = CollKind_Array then
@@ -1071,8 +1053,8 @@ Definition from_expression_def:
                 \unsupported"
          else
            do
-             cml_ce <- from_expression comp env ce;
-             idx <- from_expression comp env (EL 0 idxs);
+             cml_ce <- from_expression comp ce;
+             idx <- from_expression comp (EL 0 idxs);
              return (cml_fapp (Var (Long "Array" (Short "sub")))
                               [cml_get_arr cml_ce; idx])
            od
@@ -1080,7 +1062,7 @@ Definition from_expression_def:
          fail "from_expression: Unsupported kind of collection"
    | IndexRange ce isArray lo hi =>
        do
-         cml_ce <- from_expression comp env ce;
+         cml_ce <- from_expression comp ce;
          cml_se <<- if isArray then
                      cml_fapp (Var (Long "Dafny" (Short "array_to_list")))
                               [cml_get_arr cml_ce]
@@ -1089,7 +1071,7 @@ Definition from_expression_def:
                    | NONE => return cml_se
                    | SOME hi =>
                        do
-                         cml_hi <- from_expression comp env hi;
+                         cml_hi <- from_expression comp hi;
                          return (cml_fapp (Var (Long "List" (Short "take")))
                                           [cml_se; cml_hi])
                        od;
@@ -1097,16 +1079,14 @@ Definition from_expression_def:
          | NONE => return cml_se
          | SOME lo =>
                do
-                 cml_lo <- from_expression comp env lo;
+                 cml_lo <- from_expression comp lo;
                  return (cml_fapp (Var (Long "List" (Short "drop")))
                                   [cml_se; cml_lo])
                od
        od
-   | TupleSelect te idx type =>
+   | TupleSelect te idx len _ =>
        do
-         te_t <- dafny_type_of env te;
-         len <- tuple_len te_t;
-         cml_te <- from_expression comp env te;
+         cml_te <- from_expression comp te;
          return (cml_tuple_select len cml_te idx)
        od
    | Expression_Call on call_nam typeArgs args =>
@@ -1116,19 +1096,18 @@ Definition from_expression_def:
          else
            do
              fun_name <- gen_call_name comp on call_nam;
-             cml_args <- map_from_expression comp env args;
+             cml_args <- map_from_expression comp args;
              return (cml_fapp (Var fun_name) cml_args)
            od
        od
    | Lambda params retT body =>
        do
-         env <- add_local_env env params [] NONE;
          param <- first_param params NONE;
          param <<- if param = "" then "u" else param;
          preamble <- gen_preamble params NONE;
          (* Lambda doesn't need the epilogue used for outVars, as we expect then
             to return a single value, and hence use its own return reference. *)
-         cml_e <- from_stmts comp env 0 body Unit;
+         cml_e <- from_stmts comp 0 body Unit;
          cml_e <<- handle_return cml_e;
          cml_e <- add_return_ref cml_e [normalize_type retT] NONE;
          cml_e <<- preamble cml_e;
@@ -1136,27 +1115,26 @@ Definition from_expression_def:
        od
    | Apply e args =>
        do
-         cml_e <- from_expression comp env e;
-         cml_args <- map_from_expression comp env args;
+         cml_e <- from_expression comp e;
+         cml_args <- map_from_expression comp args;
          return (cml_fapp cml_e cml_args)
        od
    | InitializationValue t =>
        arb_value (normalize_type t)
    | _ => fail ("from_expression: Unsupported expression")) ∧
-  (map_from_expression comp env es =
+  (map_from_expression comp es =
    case es of
    | [] => return []
    | (e::rest) =>
        do
-         se' <- from_expression comp env e;
-         rest' <- map_from_expression comp env rest;
+         se' <- from_expression comp e;
+         rest' <- map_from_expression comp rest;
          return (se'::rest')
        od) ∧
-  (from_unaryOp comp env (uop: dafny_ast$unaryOp)
-                (e: dafny_ast$expression) =
+  (from_unaryOp comp (uop: dafny_ast$unaryOp)
+                (e: dafny_ast$expression) e_t =
    do
-     e_t <- dafny_type_of env e;
-     cml_e <- from_expression comp env e;
+     cml_e <- from_expression comp e;
      if uop = Not then
        return (cml_fapp (Var (Short "not")) [cml_e])
      else if uop = BitwiseNot then
@@ -1170,13 +1148,11 @@ Definition from_expression_def:
        fail "from_unaryOp: Unexpected unary operation"
    od
   ) ∧
-  (from_binOp comp env (bop: dafny_ast$binOp)
-              (e1: dafny_ast$expression) (e2: dafny_ast$expression) =
+  (from_binOp comp (bop: dafny_ast$binOp)
+              (e1: dafny_ast$expression) (e2: dafny_ast$expression) e1_t e2_t =
    do
-     e1_t <- dafny_type_of env e1;
-     e2_t <- dafny_type_of env e2;
-     cml_e1 <- from_expression comp env e1;
-     cml_e2 <- from_expression comp env e2;
+     cml_e1 <- from_expression comp e1;
+     cml_e2 <- from_expression comp e2;
      (case bop of
       | Eq referential =>
           if referential then
@@ -1279,7 +1255,7 @@ Definition from_expression_def:
       | _ => fail "from_binOp: Unsupported bop")
    od)
   ∧
-  from_stmt comp env (lvl: int) stmt (epilogue : exp) =
+  from_stmt comp (lvl: int) stmt (epilogue : exp) =
   (case stmt of
    | DeclareVar nam typ opt_v in_stmts =>
        do
@@ -1288,22 +1264,21 @@ Definition from_expression_def:
          (* TODO Look into when/why this is NONE *)
          init_v <- (case opt_v of
                     | NONE => arb_value typ
-                    | SOME init_e => from_expression comp env init_e);
-         env' <<- ((local_env_name nam_str, typ)::env);
-         in_e <- from_stmts comp env' lvl in_stmts epilogue;
+                    | SOME init_e => from_expression comp init_e);
+         in_e <- from_stmts comp lvl in_stmts epilogue;
          return (cml_ref nam_str init_v in_e)
        od
    | Assign lhs e =>
        do
-         cml_rhs <- from_expression comp env e;
+         cml_rhs <- from_expression comp e;
          case lhs of
          | AssignLhs_Ident id =>
              return (cml_ref_ass (from_varName id) cml_rhs)
          | AssignLhs_Index e' [idx] =>
              do
-               cml_e' <- from_expression comp env e';
+               cml_e' <- from_expression comp e';
                cml_arr <<- cml_get_arr cml_e';
-               cml_idx <- from_expression comp env idx;
+               cml_idx <- from_expression comp idx;
                return (cml_fapp (Var (Long "Array" (Short "update")))
                                 [cml_arr; cml_idx; cml_rhs])
              od
@@ -1312,20 +1287,20 @@ Definition from_expression_def:
        od
    | If cnd thn els =>
        do
-         cml_cnd <- from_expression comp env cnd;
-         cml_thn <- from_stmts comp env lvl thn epilogue;
-         cml_els <- from_stmts comp env lvl els epilogue;
+         cml_cnd <- from_expression comp cnd;
+         cml_thn <- from_stmts comp lvl thn epilogue;
+         cml_els <- from_stmts comp lvl els epilogue;
          return (If cml_cnd cml_thn cml_els)
        od
    | Labeled lbl body =>
        do
-         cml_body <- from_stmts comp env lvl body epilogue;
+         cml_body <- from_stmts comp lvl body epilogue;
          return (add_labeled_break_handle lbl cml_body)
        od
    | While cnd body =>
        do
-         cml_cnd <- from_expression comp env cnd;
-         cml_body <- from_stmts comp env (lvl + 1) body epilogue;
+         cml_cnd <- from_expression comp cnd;
+         cml_body <- from_stmts comp (lvl + 1) body epilogue;
          exec_iter <<- (cml_fapp (Var (Short (cml_while_name lvl))) [Unit]);
          cml_while_def <<- (Letrec [((cml_while_name lvl), "",
                                      If (cml_cnd)
@@ -1340,7 +1315,7 @@ Definition from_expression_def:
          else
            do
              fun_name <- gen_call_name comp on call_nam;
-             cml_param_args <- map_from_expression comp env args;
+             cml_param_args <- map_from_expression comp args;
              cml_out_args <<- (case outs of
                               | NONE => []
                               | SOME outs => MAP from_varName outs);
@@ -1349,7 +1324,7 @@ Definition from_expression_def:
        od
    | Return e =>
        do
-         cml_e <- from_expression comp env e;
+         cml_e <- from_expression comp e;
          (* Write return value to reference, which we can later use as the
             return value of the overall function *)
          return (Let NONE (cml_ref_ass (Var (Short return_ref_name)) cml_e)
@@ -1364,25 +1339,24 @@ Definition from_expression_def:
        return raise_break
    | Break (SOME lbl) =>
        return (raise_labeled_break lbl)
-   | Print e =>
+   | Print e e_t =>
        do
-         e_t <- dafny_type_of env e;
+         e_t <<- normalize_type e_t;
          cml_e_to_string <- to_string_fun F e_t;
-         cml_e <- from_expression comp env e;
+         cml_e <- from_expression comp e;
          cml_e_string <<- cml_fapp cml_e_to_string [cml_e];
          return (cml_fapp (Var (Short "print")) [cml_e_string])
        od
    | _ => fail "from_stmt: Unsupported statement")
   ∧
   from_stmts (comp: expression)
-             (env: ((expression # string, type) alist))
              (lvl: int) ([]: (dafny_ast$statement list)) (epilogue : exp) =
   return Unit
   ∧
-  from_stmts comp env lvl (stmt::stmts) epilogue =
+  from_stmts comp lvl (stmt::stmts) epilogue =
   do
-    e1 <- from_stmt comp env lvl stmt epilogue;
-    e2 <- from_stmts comp env lvl stmts epilogue;
+    e1 <- from_stmt comp lvl stmt epilogue;
+    e2 <- from_stmts comp lvl stmts epilogue;
     return (Let NONE e1 e2)
   od
 Termination
@@ -1400,7 +1374,7 @@ Definition from_classItem_def:
     cml_param <- first_param params outVars;
     preamble <- gen_preamble params outVars;
     epilogue <<- gen_epilogue outVars;
-    cml_body <- from_stmts comp env 0 body epilogue;
+    cml_body <- from_stmts comp 0 body epilogue;
     cml_body <<- handle_return cml_body;
     cml_body <- add_return_ref cml_body outTypes outVars;
     cml_body <<- preamble cml_body;

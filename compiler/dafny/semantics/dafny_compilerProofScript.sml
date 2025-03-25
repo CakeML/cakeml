@@ -82,9 +82,7 @@ Theorem correct_exp:
     (cml_e : cakeml_exp).
     evaluate_exp s₁ env_dfy e = (s₂, r_dfy) ∧ ¬(is_fail_dfy r_dfy) ∧
     (* state_rel s₁ t₁ ∧ *) env_rel env_dfy env_cml ∧
-    (* TODO comp and env for from_expression are sketchy; should they come
-       from state? *)
-    from_expression (Companion [] []) [] e = INR cml_e ⇒
+    from_expression (Companion [] []) e = INR cml_e ⇒
     ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
       evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
       (* state_rel s₂ t₂ ∧ *) res_rel r_dfy r_cml
@@ -172,7 +170,7 @@ Theorem correct_stmts:
      (env_cml : cakeml_env) (cml_e : cakeml_exp).
      evaluate_stmt s₁ env_dfy stmt = (s₂, r_dfy) ∧ ¬(is_fail_dfy r_dfy) ∧
      state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧
-     from_stmt (Companion [] []) [] 0 stmt Unit = INR cml_e
+     from_stmt (Companion [] []) 0 stmt Unit = INR cml_e
      ⇒ ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
          evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
          state_rel s₂ t₂ ∧ res_rel r_dfy r_cml)
@@ -182,7 +180,7 @@ Theorem correct_stmts:
      (env_cml : cakeml_env) (cml_e : cakeml_exp).
      evaluate_stmts s₁ env_dfy stmts = (s₂, r_dfy) ∧ ¬(is_fail_dfy r_dfy) ∧
      state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧
-     from_stmts (Companion [] []) [] 0 stmts Unit = INR cml_e
+     from_stmts (Companion [] []) 0 stmts Unit = INR cml_e
      ⇒ ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
          evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
          state_rel s₂ t₂ ∧ res_rel r_dfy r_cml)
