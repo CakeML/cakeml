@@ -2825,22 +2825,67 @@ Proof
   simp[any_el_ALT]
 QED
 
-Theorem lookup_update_vimap_aux:
-  ∀v0 vimap i ls x.
-    any_el x vimap NONE = SOME ll (* ∧
-    (case ll of INL (n,ls) => MEM i ls | INR earliest => T) *) ⇒
-    ∃ll.
-      any_el x (update_vimap vimap n v0) NONE = SOME ll ∧
-      case ll of INL (n,ls) => MEM i ls | INR earliest => T
+Theorem opt_cons_alt:
+  opt_cons (v:num) opt =
+  case opt of
+    NONE => INL (1n,[v])
+  | (SOME (INL (n,ls))) =>
+    if ind_lim ≤ n
+    then
+      INR (0n)
+    else
+      INL (n+1, v::ls)
+  | (SOME (INR earliest)) => INR earliest
 Proof
-  Induct \\ gvs [update_vimap_def,FORALL_PROD] \\ rw []
-  \\ cheat (*
-  \\ last_x_assum irule
-  \\ gvs [lookup_insert] \\ rw []
-  \\ Cases_on ‘lookup p_2 vimap’ \\ gvs [opt_cons_def] *)
+  every_case_tac>>rw[opt_cons_def]
 QED
 
-Theorem lookup_update_vimap_aux_MEM:
+Theorem lookup_update_vimap:
+  ∀v0 vimap ls x ll0.
+    any_el x vimap NONE = SOME ll0 ⇒
+    ∃ll.
+      any_el x (update_vimap vimap n v0) NONE = SOME ll ∧
+      case ll0 of
+        INL (n,ls) =>
+        (case ll of INL (n',ls') => ∀i. MEM i ls ⇒ MEM i ls'
+        | INR _ => T)
+      | INR _ => ISR ll
+Proof
+  Induct \\ gvs [update_vimap_def,FORALL_PROD] \\ rw []
+  >-
+    (every_case_tac>>simp[])
+  \\ `∃ll.
+    any_el x
+    (update_resize vimap NONE
+       (SOME (opt_cons n (any_el p_2 vimap NONE))) p_2) NONE = SOME ll ∧
+    case ll0 of
+      INL (n,ls) =>
+      (case ll of INL (n',ls') => ∀i. MEM i ls ⇒ MEM i ls'
+      | INR _ => T)
+    | INR _ => ISR ll` by
+    (rw[any_el_update_resize]>>gvs[]>>
+    every_case_tac>>gvs[opt_cons_alt])
+  \\ first_x_assum drule_all
+  \\ rw[]>>simp[]
+  \\ every_case_tac \\ gvs[]
+QED
+
+Theorem lookup_update_vimap':
+  any_el x vimap NONE = SOME ll0 ∧
+  (case ll0 of INL (n,ls) => MEM i ls | INR _ => T) ⇒
+  ∃ll.
+    any_el x (update_vimap vimap n v0) NONE = SOME ll ∧
+    case ll of
+      INL (n,ls) => MEM i ls
+    | INR _ => T
+Proof
+  rw[]>>
+  drule  lookup_update_vimap>>
+  disch_then(qspecl_then[`n`,`v0`] assume_tac)>>gvs[]>>
+  every_case_tac>>gvs[]
+QED
+
+Theorem lookup_update_vimap_MEM:
   ∀v0 vimap.
     MEM x (MAP SND v0) ⇒
     ∃ll.
@@ -2849,12 +2894,13 @@ Theorem lookup_update_vimap_aux_MEM:
 Proof
   Induct \\ gvs [update_vimap_def,FORALL_PROD] \\ reverse (rw [])
   >- (last_x_assum irule \\ fs [])
-  \\ irule lookup_update_vimap_aux
-  \\ gvs [any_el_ALT] \\ rw []
-  \\ gvs [update_resize_def,EL_LUPDATE]
+  \\ irule lookup_update_vimap'
+  \\ gvs [any_el_update_resize] \\ rw []
+  \\ rw[opt_cons_alt]
+  \\ every_case_tac>>gvs[]
 QED
 
-Theorem vimap_rel_aux_LUPDATE:
+Theorem vimap_rel_LUPDATE:
   n < LENGTH fml ∧
   vimap_rel fml vimap ⇒
   vimap_rel (LUPDATE (SOME (v,b)) n fml)
@@ -2864,12 +2910,12 @@ Proof
   \\ rpt strip_tac
   \\ PairCases_on ‘v’ \\ gvs []
   \\ Cases_on ‘i = n’ \\ gvs []
-  >- (irule lookup_update_vimap_aux_MEM \\ fs [])
+  >- (irule lookup_update_vimap_MEM \\ fs [])
   \\ first_assum drule_all \\ strip_tac \\ gvs []
-  \\ irule lookup_update_vimap_aux \\ fs []
+  \\ irule lookup_update_vimap' \\ fs []
 QED
 
-Theorem vimap_rel_aux_nones:
+Theorem vimap_rel_nones:
   vimap_rel fml vimap ⇒
   vimap_rel (fml ++ REPLICATE n NONE) vimap
 Proof
@@ -2886,8 +2932,8 @@ Theorem vimap_rel_update_resize_update_vimap:
     (update_vimap vimap n (FST v))
 Proof
   rewrite_tac [update_resize_def] \\ rw []
-  \\ irule vimap_rel_aux_LUPDATE \\ fs []
-  \\ irule vimap_rel_aux_nones \\ fs []
+  \\ irule vimap_rel_LUPDATE \\ fs []
+  \\ irule vimap_rel_nones \\ fs []
 QED
 
 Theorem opt_update_inds_vimap_rel:
