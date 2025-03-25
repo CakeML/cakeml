@@ -3505,8 +3505,6 @@ Proof
 QED
 
 val res = translate eval_term_compute;
-val res = translate eval_term_compute;
-val res = translate eval_term_compute;
 
 val eval_term_side = Q.prove(
   `eval_term_side x yz`,
@@ -3533,7 +3531,17 @@ QED
 
 val res = translate eval_obj_compute;
 val res = translate npbc_checkTheory.opt_lt_def;
-val res = translate npbcTheory.satisfies_npbc_def;
+
+Theorem satisfies_npbc_compute:
+  satisfies_npbc w xsn ⇔
+    case xsn of (xs,n) =>
+    FOLDL (λn cv. eval_term w cv + n) 0 xs ≥ n
+Proof
+  `?xs n. xsn = (xs,n)` by metis_tac[PAIR]>>
+  simp[satisfies_npbc_def,SUM_MAP_FOLDL]
+QED
+
+val res = translate satisfies_npbc_compute;
 
 val r = translate (npbc_checkTheory.to_flat_d_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
