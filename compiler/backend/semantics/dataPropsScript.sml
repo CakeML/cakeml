@@ -2016,10 +2016,9 @@ Proof
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-      pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def]
+      pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def,
+      UNCURRY_EQ]
   \\ rw [] \\ fs [state_component_equality] \\ rw []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ EVERY_CASE_TAC \\ fs []
 QED
 
 Theorem evaluate_safe_for_space_mono:

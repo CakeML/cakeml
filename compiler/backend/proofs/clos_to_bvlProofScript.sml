@@ -3676,11 +3676,11 @@ Proof
       \\ pairarg_tac \\ reverse (fs [bool_case_eq])
       THEN1 (rveq \\ fs[])
       THEN1 (rveq \\ fs[])
-      \\ Cases_on `p1.compile cfg progs` \\ fs []
+      \\ Cases_on `p1.compile cfg progs` \\ fs [] THEN1 (rveq \\ fs [])
       \\ rename1 `_ = SOME yy`
       \\ PairCases_on `yy` \\ fs []
       \\ PairCases_on `progs` \\ fs []
-      \\ qpat_x_assum `xx = _` (assume_tac o GSYM) \\ fs []
+      \\ qpat_x_assum `_ = xx` (assume_tac) \\ fs[]
       \\ PairCases_on `xx`
       \\ `xx0 <> Rerr (Rabort Rtype_error)` by
            (strip_tac \\ fs [] \\ rveq \\ fs [])
@@ -3731,8 +3731,8 @@ Proof
         \\ rpt strip_tac
         THEN1
          (first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
-          \\ Cases \\ Cases \\ fs [OPTREL_def]
-          \\ strip_tac \\ match_mp_tac v_rel_union \\ fs [])
+         \\ match_mp_tac OPTREL_MONO
+         \\ rpt strip_tac \\ match_mp_tac v_rel_union \\ simp[])
         THEN1 (res_tac \\ fs[])
         THEN1
          (first_x_assum drule \\ strip_tac \\ fs []
@@ -3740,7 +3740,7 @@ Proof
           \\ Cases_on `x3` \\ fs []
           \\ Cases_on `x2` \\ fs [ref_rel_def]
           \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
-          \\ rpt strip_tac \\ match_mp_tac v_rel_union \\ fs [])
+          \\ rpt strip_tac \\ match_mp_tac v_rel_union \\ simp [])
         THEN1
          (fs [compile_oracle_inv_def]
           \\ fs [FUN_EQ_THM,shift_seq_def]
@@ -7382,8 +7382,7 @@ Proof
   \\ rw[eval_sim_def]
   \\ rw[bvlSemTheory.evaluate_def, bvlSemTheory.find_code_def, lookup_fromAList]
   \\ fs[closSemTheory.evaluate_def]
-  \\ fs[pair_case_eq, CaseEq"option"] \\ rveq
-  \\ fs[bool_case_eq]
+  \\ fs[pair_case_eq, CaseEq"option",bool_case_eq] \\ rveq
   >- (
     fs[closSemTheory.initial_state_def]
     \\ qexists_tac`0` \\ simp[] )
@@ -7406,7 +7405,6 @@ Proof
   \\ first_assum drule \\ strip_tac
   \\ simp[bvlSemTheory.find_code_def]
   \\ fs[EVAL``(initial_state ffi max_app code co cc k).clock``]
-  \\ qpat_x_assum`(_ ,_) = _`(assume_tac o SYM)
   \\ drule (CONJUNCT1 compile_exps_correct |> SIMP_RULE std_ss [] |> INST_TYPE[gamma|->beta])
   \\ simp[closSemTheory.dec_clock_def]
   \\ disch_then drule
