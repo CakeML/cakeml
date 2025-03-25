@@ -931,11 +931,12 @@ Definition sexp_statement_def:
          els <- sexp_expression (EL 2 args);
          return (Ite cond thn els)
        od
-     else if (ss = "Expression.UnOp" ∧ LENGTH args = 2) then
+     else if (ss = "Expression.UnOp" ∧ LENGTH args = 3) then
        do
          uOp <- sexp_unaryOp (EL 0 args);
          expr <- sexp_expression (EL 1 args);
-         return (UnOp uOp expr)
+         typ <- sexp_type (EL 2 args);
+         return (UnOp uOp expr typ)
        od
      else if (ss = "Expression.BinOp" ∧ LENGTH args = 3) then
        do
@@ -1004,12 +1005,13 @@ Definition sexp_statement_def:
          high <- opt_sexp_expression opt;
          return (IndexRange expr isArray low high)
        od
-     else if (ss = "Expression.TupleSelect" ∧ LENGTH args = 3) then
+     else if (ss = "Expression.TupleSelect" ∧ LENGTH args = 4) then
        do
          expr <- sexp_expression (EL 0 args);
          index <- sxnum_to_num (EL 1 args);
-         fieldTyp <- sexp_type (EL 2 args);
-         return (TupleSelect expr index fieldTyp)
+         dim <- sxnum_to_num (EL 2 args);
+         fieldTyp <- sexp_type (EL 3 args);
+         return (TupleSelect expr index dim fieldTyp)
        od
      else if (ss = "Expression.Call" ∧ LENGTH args = 4) then
        do
@@ -1252,10 +1254,11 @@ Definition sexp_statement_def:
        return JumpTailCallStart
      else if (ss = "Statement.Halt" ∧ LENGTH args = 0) then
        return Halt
-     else if (ss = "Statement.Print" ∧ LENGTH args = 1) then
+     else if (ss = "Statement.Print" ∧ LENGTH args = 2) then
        do
          expr <- sexp_expression (EL 0 args);
-         return (Print expr)
+         typ <- sexp_type (EL 1 args);
+         return (Print expr typ)
        od
      else if (ss = "Statement.ConstructorNewSeparator" ∧ LENGTH args = 1) then
        do

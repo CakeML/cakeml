@@ -292,7 +292,7 @@ Datatype:
   (* Ite cond thn els *)
   | Ite expression expression expression
   (* In contract to Dafny, we do not include formatting information *)
-  | UnOp unaryOp expression
+  | UnOp unaryOp expression type
   (* BinOp op left right *)
   | BinOp typedBinOp expression expression
   (* ArrayLen expr exprType dim native *)
@@ -308,8 +308,8 @@ Datatype:
   | Index expression collKind (expression list)
   (* IndexRange expr isArray low high *)
   | IndexRange expression bool (expression option) (expression option)
-  (* TupleSelect expr index fieldType *)
-  | TupleSelect expression num type
+  (* TupleSelect expr index dim fieldType *)
+  | TupleSelect expression num num type
   (* Call on callName typeArgs args *)
   | Expression_Call expression callName (type list) (expression list)
   (* Lambda params retType body *)
@@ -366,7 +366,7 @@ Datatype:
   | TailRecursive (statement list)
   | JumpTailCallStart
   | Halt
-  | Print expression
+  | Print expression type
   (* ConstructorNewSeparator fields *)
   | ConstructorNewSeparator (field list)
 End
