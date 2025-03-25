@@ -43,6 +43,7 @@ Definition env_rel_def:
     nsLookup env_cml.c (Short "False") = SOME (0, TypeStamp "False" 0)
 End
 
+(* TODO Make this declarative/merge with val_rel_def? *)
 Definition dafny_to_cakeml_v_def[simp]:
   dafny_to_cakeml_v UnitV = (Conv NONE []) ∧
   dafny_to_cakeml_v (BoolV b) = (Boolv b) ∧
@@ -51,8 +52,25 @@ Definition dafny_to_cakeml_v_def[simp]:
   dafny_to_cakeml_v (StrV s) = (Litv (StrLit s))
 End
 
+Definition val_rel_def:
+  val_rel v_dfy v_cml ⇔ dafny_to_cakeml_v v_dfy = v_cml
+End
+
+Definition heap_val_rel_def:
+  heap_val_rel (v_dfy : value) (Refv (v_cml : v)) =
+    val_rel v_dfy v_cml
+  ∧
+  heap_val_rel _ _ = F
+End
+
+Definition heap_rel_def:
+  heap_rel (dfy_heap : value list) (cml_refs : v store) =
+    LIST_REL heap_val_rel dfy_heap cml_refs
+End
+
 Definition state_rel_def:
-  state_rel (s : dafny_state) (t : cakeml_state) ⇔ T
+  state_rel (s : dafny_state) (t : cakeml_state) ⇔
+    heap_rel s.heap t.refs
 End
 
 Definition res_rel_def:
@@ -80,12 +98,64 @@ Theorem correct_exp:
   ∀ (s₁ : dafny_state) (env_dfy : dafny_env) (e : dafny_exp) (s₂ : dafny_state)
     (r_dfy : dafny_res) (t₁ : cakeml_state) (env_cml : cakeml_env)
     (cml_e : cakeml_exp).
+    evaluate_exp s₁ env_dfy e = (s₂, r_dfy) ∧
+    from_expression c e = INR cml_e ∧
+    env_rel env_dfy env_cml ∧ state_rel s₁ t₁ ∧ ¬(is_fail_dfy r_dfy)
+     ⇒
+    ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
+      evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
+      res_rel r_dfy r_cml ∧ state_rel s₂ t₂
+Proof
+  ho_match_mp_tac evaluate_exp_ind
+  >> rpt strip_tac
+  >> qpat_x_assum ‘from_expression _ _ = _’ $ assume_tac o SRULE [Once from_expression_def]
+
+  >> pop_assum mp_tac >> simp [Once from_expression_def] >> strip_tac
+
+  >> rw[]
+  >> pop_assum mp_tac >> simp [Once from_expression_def] >> strip_tac
+  >~ [‘Literal l’] >-
+   (Cases_on ‘l’ >> gvs [from_literal_def]
+    >~ [‘BoolLiteral b’]
+    >- (Cases_on ‘b’ >> gvs [evaluate_exp_def, literal_to_value_def]
+        >> gvs [env_rel_def, evaluate_def, do_con_check_def, build_conv_def]
+        >> gvs [res_rel_def, dafny_to_cakeml_v_def,
+                Boolv_def, bool_type_num_def])
+    >~ [‘IntLiteral’]
+    >- (gvs [AllCaseEqs (), oneline bind_def, string_to_int_def]
+        >> gvs [evaluate_exp_def, literal_to_value_def]
+        >> gvs [evaluate_def, res_rel_def, dafny_to_cakeml_v_def])
+    >> gvs [evaluate_exp_def, literal_to_value_def])
+  >~ [‘BinOp bop’]
+  >- (gvs [evaluate_exp_def, CaseEq "prod",
+           CaseEq "dafny_semanticPrimitives$result"]
+      >> Cases_on ‘bop’
+      >> gvs [is_lop_def, do_bop_def, AllCaseEqs ()]
+      >> (pop_assum mp_tac >> simp [Once from_expression_def] >> strip_tac
+          >> gvs[AllCaseEqs(), oneline bind_def])
+      >~ [‘Lt’]
+      >- (
+
+       first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac >> gvs []
+       >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac >> gvs []
+       >> qexistsl [‘t₂'’, ‘r_cml’]
+
+       >> gvs [res_rel_rval]
+
+       >> gvs [evaluate_def, CaseEq "prod"]))
+
+QED
+
+Theorem correct_exp:
+  ∀ (s₁ : dafny_state) (env_dfy : dafny_env) (e : dafny_exp) (s₂ : dafny_state)
+    (r_dfy : dafny_res) (t₁ : cakeml_state) (env_cml : cakeml_env)
+    (cml_e : cakeml_exp).
     evaluate_exp s₁ env_dfy e = (s₂, r_dfy) ∧ ¬(is_fail_dfy r_dfy) ∧
-    (* state_rel s₁ t₁ ∧ *) env_rel env_dfy env_cml ∧
+    env_rel env_dfy env_cml ∧ state_rel s₁ t₁ ∧
     from_expression (Companion [] []) e = INR cml_e ⇒
     ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
       evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
-      (* state_rel s₂ t₂ ∧ *) res_rel r_dfy r_cml
+      res_rel r_dfy r_cml ∧ state_rel s₂ t₂
 Proof
   ho_match_mp_tac evaluate_exp_ind >> rw[]
   >> pop_assum mp_tac >> simp [Once from_expression_def] >> strip_tac
@@ -99,6 +169,8 @@ Proof
           >~ [‘Lt’]
           >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
               >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
+              >> pop_assum $ drule_then assume_tac
+
               >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
               >> gvs [evaluate_def, do_app_def, opb_lookup_def])
           >~ [‘Plus’]
