@@ -167,26 +167,25 @@ Definition do_lop_def:
   else NONE
 End
 
-(* TODO Is this good style of pattern matching? Maybe (el, er) would be better? *)
 Definition do_bop_def:
   do_bop Lt el er =
-  (case el of
-   | IntV vl => (case er of IntV vr => SOME (BoolV (vl < vr)) | _ => NONE)
+  (case (el, er) of
+   | (IntV vl, IntV vr) => SOME (BoolV (vl < vr))
    | _ => NONE)
   ∧
   do_bop (Plus F) el er =
-  (case el of
-   | IntV vl => (case er of IntV vr => SOME (IntV (vl + vr)) | _ => NONE)
+  (case (el, er) of
+   | (IntV vl, IntV vr) => SOME (IntV (vl + vr))
    | _ => NONE)
   ∧
   do_bop (Minus F) el er =
-  (case el of
-   | IntV vl => (case er of IntV vr => SOME (IntV (vl - vr)) | _ => NONE)
+  (case (el, er) of
+   | (IntV vl, IntV vr) => SOME (IntV (vl - vr))
    | _ => NONE)
   ∧
   do_bop (Times F) el er =
-  (case el of
-   | IntV vl => (case er of IntV vr => SOME (IntV (vl * vr)) | _ => NONE)
+  (case (el, er) of
+   | (IntV vl, IntV vr) => SOME (IntV (vl * vr))
    | _ => NONE)
   ∧
   do_bop _ _ _ = NONE
