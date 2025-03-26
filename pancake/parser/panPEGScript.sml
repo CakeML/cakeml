@@ -136,7 +136,8 @@ Definition pancake_peg_def[nocompute]:
         (INL FunListNT, choicel [not (any $ K $ mksubtree FunListNT []) $ mksubtree FunListNT [];
                                  seql [mknt FunNT; mknt FunListNT] (mksubtree FunListNT);
                                  seql [keep_annot; mknt FunListNT] (mksubtree FunListNT)]);
-        (INL FunNT, seql [try_default (keep_kw ExportK) StaticT;
+        (INL FunNT, seql [try_default (keep_kw InlineK) NoninlineT;
+                          try_default (keep_kw ExportK) StaticT;
                           consume_kw FunK;
                           keep_ident;
                           consume_tok LParT;
