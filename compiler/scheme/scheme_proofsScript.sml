@@ -85,6 +85,56 @@ Theorem eval_expand = LIST_CONJ[
   nsLookup_def, nsBind_def, do_con_check_def, build_conv_def
 ];
 
+Inductive ml_subset:
+[~Fun:]
+  ml_subset e ⇒ ml_subset (Fun t e)
+[~App:]
+  EVERY ml_subset es ⇒ ml_subset (App op es)
+[~Var:]
+  ml_subset (Var (Short t))
+[~Con:]
+  EVERY ml_subset es ⇒ ml_subset (Con x es)
+[~Lit:]
+  ml_subset (Lit x')
+[~Let:]
+  ml_subset e1 ∧ ml_subset e2 ⇒ ml_subset (Let p e1 e2)
+[~Mat:]
+  ml_subset e ∧ EVERY ml_subset (MAP SND bs) ⇒ ml_subset (Mat e bs)
+End
+
+Definition rec_scheme_def:
+  rec_scheme (Cond c t f) = rec_scheme c + rec_scheme t + rec_scheme f ∧
+  rec_scheme (Apply fn es) = rec_scheme fn + SUM (MAP rec_scheme es) ∧
+  rec_scheme (Val v) = 0
+Termination
+  WF_REL_TAC ‘measure exp_size’
+End
+
+Theorem ml_subset_rewrite[simp] = LIST_CONJ [
+  “ml_subset (Fun t e)” |> SCONV [Once ml_subset_cases],
+  “ml_subset (App op es)” |> SCONV [Once ml_subset_cases],
+  “ml_subset (Var (Short t))” |> SCONV [Once ml_subset_cases],
+  “ml_subset (Con x es)” |> SCONV [Once ml_subset_cases],
+  “ml_subset (Lit x')” |> SCONV [Once ml_subset_cases],
+  “ml_subset (Let p e1 e2)” |> SCONV [Once ml_subset_cases],
+  “ml_subset (Mat e bs)” |> SCONV [Once ml_subset_cases]
+];
+
+Theorem small_ml:
+  ∀ e n m ce . cps_transform n e = (m, ce) ∧ subset1 e
+    ⇒ ml_subset ce
+Proof
+  ho_match_mp_tac rec_scheme_ind
+  >> simp[cps_transform_def] >> rpt strip_tac
+  >~ [‘vsubset1 v’] >- (
+    Cases_on ‘v’ >> gvs[to_ml_vals_def]
+    >> Cases_on ‘p’ >> simp[]
+  )
+  >> rpt strip_tac >> rpt (pairarg_tac >> gvs[step_def])
+  >> rpt $ last_x_assum dxrule >> simp[] >> disch_then kall_tac
+  >> cheat
+QED
+
 Theorem e_vals_subset1:
   ∀ n e . subset1 e ⇒  ∃ st ck v .
     evaluate <|clock := ck|> myEnv [SND $ cps_transform n e] = (st, Rval v)
@@ -99,8 +149,9 @@ Proof
 QED
 
 Theorem k_vals_subset1:
-  ∀ ks . kssubset1 ks ⇒ ∃ st ck v .
-    evaluate <|clock := ck|> myEnv [scheme_cont ks] = (st, Rval v)
+  ∀ ks ck . kssubset1 ks ⇒ ∃ v .
+    evaluate <|clock := ck|> myEnv [scheme_cont ks]
+      = (<|clock := ck|> : 'ffi state, Rval [v])
 Proof
   Cases >> simp[] >- simp[scheme_cont_def, evaluate_def]
   >> Cases_on ‘h’ >> simp[] >> rpt strip_tac >> simp[]
@@ -109,11 +160,31 @@ Proof
   >> simp[evaluate_def]
 QED
 
+Theorem cps_equiv:
+  ∀ e n n' m m' ce ce' ck v v' c c' k k' t t'. subset1 e
+    ∧ nsSub (λ id . $=) myEnv.c c ∧ nsSub (λ id . $=) myEnv.c c'
+    ∧ nsSub (λ id . $=) myEnv.v v ∧ nsSub (λ id . $=) myEnv.v v'
+    ∧ cps_transform n e = (n',ce) ∧ cps_transform m e = (m', ce')
+    ∧ evaluate <|clock := ck+1|> <|v:=v;c:=c|> [App Opapp [ce;Fun t k]]
+      = evaluate <|clock := ck+1|> <|v:=v';c:=c'|> [App Opapp [ce';Fun t' k']]
+    ⇒ ∀ vl . evaluate <|clock := ck|> <|v:=nsBind t vl v;c:=c|> [k]
+      = evaluate <|clock := ck|> <|v:=nsBind t vl v';c:=c'|> [k']
+Proof
+  ho_match_mp_tac rec_scheme_ind
+  >> simp[cps_transform_def] >> rpt strip_tac
+  >~ [‘vsubset1 v’] >- (
+    Cases_on ‘v’ >> gvs[evaluate_def, to_ml_vals_def, do_opapp_def]
+    >> gs[myEnv_def, nsSub_def]
+    >> Cases_on ‘p’ >> simp[]
+  )
+  Induct_on ‘e’
+  rpt strip_tac
+QED
 
 Theorem myproof:
   ∀ e e' n k k' . kssubset1 (MAP SND k) ∧ subset1 e ⇒ step  ([], k, FEMPTY, e) = ([], k', FEMPTY, e') ⇒
-      ∃ ck ck' t1 . evaluate <| clock := ck |> myEnv [exp_with_cont (MAP SND k) e] =
-        evaluate <| clock := ck |> myEnv [exp_with_cont (MAP SND k') e']
+      ∃ ck ck' t1 . evaluate (<| clock := ck |> : 'ffi state) myEnv [exp_with_cont (MAP SND k) e] =
+        evaluate <| clock := ck' |> myEnv [exp_with_cont (MAP SND k') e']
 Proof
   Cases >> simp[]
   >> rpt strip_tac
@@ -121,11 +192,11 @@ Proof
   >~ [‘Cond c t f’] >- (
     gvs[step_def, scheme_cont_def, cps_transform_def]
     >> rpt (pairarg_tac >> gvs[step_def])
-    >> simp[evaluate_def]
-    >> dxrule_then mp_tac (SRULE [] k_vals_subset1)
-    >> strip_tac
-    >> qexists_tac ‘ck’
-    >> simp[] >> cheat
+    >> simp[SimpLHS, evaluate_def]
+    >> qexistsl_tac [‘ck+1’,‘ck’]
+    >> dxrule_then (qspec_then ‘ck+1’ mp_tac) (SRULE [] k_vals_subset1)
+    >> strip_tac >> simp[do_opapp_def, dec_clock_def]
+    >> cheat
   ) >> cheat
 QED
 
