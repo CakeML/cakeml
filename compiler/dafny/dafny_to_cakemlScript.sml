@@ -15,8 +15,6 @@ val _ = new_theory "dafny_to_cakeml";
 
 (* TODO Instead of breaking strings with ++, use SML style \ in all files *)
 
-(* TODO Separately check whether a feature is supported or not? *)
-
 (* Defines the Dafny module containing the Dafny runtime *)
 Quote dafny_module = process_topdecs:
   structure Dafny =
@@ -65,18 +63,10 @@ Quote dafny_module = process_topdecs:
   fun tuple_to_string f tpl =
     String.concat ["(", String.concatWith ", " (f tpl), ")"];
 
-  (* Commented out because we use CakeML char list's instead of strings *)
-
-  (* In Dafny, strings within collections are printed as a list of chars *)
-  (* fun string_element_to_string s = *)
-  (*   list_to_string char_to_string (String.explode s); *)
-
   end
 End
 
 (* TODO Check if we can reduce the number of generated cases *)
-(* TODO Check if it makes sense to extract Var (...) into a function
- * in particular look at from_name *)
 
 Overload True = “Con (SOME (Short "True")) []”
 Overload False = “Con (SOME (Short "False")) []”
@@ -620,20 +610,10 @@ Definition add_return_ref_def:
    | SOME _ => return cml_body)
 End
 
-(* TODO double check whether this is used *)
 Definition from_varName_def:
   from_varName n = Var (Short (dest_varName n))
 End
 
-(* TODO double check if this is still used *)
-Definition from_name_def:
-  from_name n = Var (Short (dest_Name n))
-End
-
-(* TODO double check if this is still used *)
-Definition from_ident_def:
-  from_ident (Ident n) = from_name n
-End
 
 Definition from_literal_def:
   from_literal (l: dafny_ast$literal) =
@@ -761,9 +741,6 @@ Definition handle_return_def:
            [(Pcon (SOME (Long "Dafny" (Short "Return"))) [], Unit)]
 End
 
-(* TODO Clean up from_expression: Some code parts may be duplicated,
- some checks may be unnecessary (depending on the assumptions we make about/get from
- the Dafny AST *)
 Definition from_expression_def:
   (from_expression comp (e: dafny_ast$expression) : (ast$exp result) =
    case e of
@@ -1300,54 +1277,9 @@ Definition find_main_def:
   od
 End
 
-(* TODO Verify that _System module does not get generated anymore *)
-
-(* Definition validate_system_module_body_def: *)
-(*   (validate_system_module_body [] = return ()) ∧ *)
-(*   (validate_system_module_body ((ModuleItem_Newtype *)
-(*                                  (Newtype _ _ _ _ constraint _ _ _))::rest) = *)
-(*    (* We essentially ignore newtypes, since we simply interpret them *)
-(*       as their base type *) *)
-(*    (* TODO Is that really fine? Especially considering type arguments... *) *)
-(*    (* The main issue with newtype constraints is probably that we need to *)
-(*     * account for them in the initialization, i.e. we cannot just initialize *)
-(*     * with 0 *) *)
-(*    if constraint ≠ NONE then *)
-(*      fail "validate_system_module_body: constraint on newtype unsupported" *)
-(*    else *)
-(*      validate_system_module_body rest) ∧ *)
-(*   (validate_system_module_body ((ModuleItem_Datatype *)
-(*                                (Datatype nam enclosingModule *)
-(*                                              _ _ _ _ _)::rest)) = *)
-(*    (* Restrict datatype support to tuples *) *)
-(*    if enclosingModule ≠ (Ident (Name "_System")) then *)
-(*      fail "validate_system_module_body: Unsupported enclosing module" *)
-(*    else *)
-(*      case strip_prefix "Tuple" (dest_Name nam) of *)
-(*      | NONE => fail "validate_system_module_body: Unsupported datatype name" *)
-(*      | SOME sfx => do string_to_num sfx; validate_system_module_body rest od) ∧ *)
-(*   (validate_system_module_body _ = *)
-(*    fail "validate_system_module_body: Unsupported module item") *)
-(* End *)
-
-(* Definition validate_system_module_def: *)
-(*   validate_system_module (Module nam attrs requiresExterns body) = *)
-(*   if nam ≠ Name "_System" then *)
-(*     fail "validate_system_module: Not module _System" *)
-(*   else if attrs ≠ [] then *)
-(*     fail "validate_system_module: Expected empty attribute list" *)
-(*   else if requiresExterns then *)
-(*     fail "validate_system_module: System module should not require externs" *)
-(*   else *)
-(*     case body of *)
-(*     | NONE => fail "validate_system_module: Unexpectedly body was empty" *)
-(*     | SOME body => validate_system_module_body body *)
-(* End *)
-
 Definition compile_def:
   compile (ms : dafny_ast$module list) : (dec list) result =
   do
-    (* validate_system_module sys_mod; *)
     (env, cml_ms) <- map_from_module [] ms;
     main_id <- find_main env;
     return (^dafny_module ++
@@ -1386,10 +1318,6 @@ End
 (* val dafny_r = EVAL “(sexp_program ^parse_r)” |> concl |> rhs |> rand; *)
 
 (* val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand; *)
-
-(* (* Test Dafny module *) *)
-(* (* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^dafny_module)))” *) *)
-(* (*                    |> concl |> rhs |> rand; *) *)
 
 (* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))” *)
 (*                    |> concl |> rhs |> rand; *)

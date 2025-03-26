@@ -147,15 +147,6 @@ Definition dec_clock_def:
   dec_clock s = (s with clock := s.clock − 1)
 End
 
-(* TODO Commented out because we postpone print (since IO isn't trivial) *)
-(* Definition value_to_string_def: *)
-(*   value_to_string UnitV : string = "()" ∧ *)
-(*   value_to_string (BoolV b) = (if b then "true" else "false") ∧ *)
-(*   value_to_string (IntV i) = (explode (toString i)) ∧ *)
-(*   value_to_string (CharV c) = [c] ∧ *)
-(*   value_to_string (StrV s) = s *)
-(* End *)
-
 (* TODO move to semantic primitives? *)
 Datatype:
   exp_or_val = Exp dafny_ast$expression | Val dafny_semanticPrimitives$value
@@ -208,10 +199,6 @@ Definition literal_to_value_def:
   (case fromString (implode s) of
    | NONE => NONE
    | SOME i => SOME (IntV i)) ∧
-  (* TODO Commented because I don't want to deal with lists/chars right now *)
-  (* literal_to_value (StringLiteral s verbatim) = *)
-  (* SOME (StrV (unescape_string s verbatim)) ∧ *)
-  (* literal_to_value (CharLiteral c) = SOME (CharV c) ∧ *)
   literal_to_value _ = NONE
 End
 
@@ -264,37 +251,6 @@ End
 
 (* Annotated with fix_clock *)
 Definition evaluate_stmt_ann_def[nocompute]:
-  (* TODO Commented, since we do not want to think about calls for now *)
-  (* evaluate_stmt (st: state) (env: sem_env) *)
-  (*               (Call on callName typeArgs args outs) : (state # dafny_result) = *)
-  (* (let stmt = (Call on callName typeArgs args outs) in *)
-  (*    (case dest_simple_call stmt of *)
-  (*     | INL _ => (st, Rerr Runsupported) *)
-  (*     | INR m_path => *)
-  (*         (case ALOOKUP env.methods m_path of *)
-  (*          | NONE => (st, Rerr Rtype_error) *)
-  (*          | SOME m => *)
-  (*              if ¬is_simple_method m then *)
-  (*                (st, Rerr Rtimeout_error) *)
-  (*              else if st.clock = 0 then *)
-  (*                (st, Rerr Rtimeout_error) *)
-  (*              else *)
-  (*                let body = method_body m in *)
-  (*                  evaluate_stmts (dec_clock st) env body))) *)
-  (* ∧ *)
-  (* evaluate_stmt (st: state) (env: sem_env) *)
-  (*               EarlyReturn : (state # dafny_result) = *)
-  (*   (st, Rret UnitV) *)
-  (* ∧ *)
-  (* TODO Commented, since we do not want to think about IO for now *)
-  (* evaluate_stmt (st: state) (env: sem_env) *)
-  (*               (Print e) : (state # dafny_result) = *)
-  (*   (case evaluate_exp st env e of *)
-  (*    | (st', Rval v) => *)
-  (*        (st with cout := st.cout ++ (value_to_string v), Rret UnitV) *)
-  (*    | r => r) *)
-  (* ∧ *)
-  (* TODO Should we combine the DeclareVar cases? *)
   evaluate_stmt st env (DeclareVar varNam _ (SOME e) in_stmts) =
   (let varNam = dest_varName varNam in
      (case evaluate_exp st env e of
