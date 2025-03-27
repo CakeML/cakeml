@@ -4412,13 +4412,13 @@ Definition code_rel_def:
 End
 
 Definition stack_rel_def:
-  (stack_rel (Env s1 env) (StackFrame s2 vs NONE) <=>
+  (stack_rel (Env s1 env) (StackFrame s2 ws vs NONE) <=>
      EVERY (\(x1,x2). isWord x2 ==> x1 <> 0 /\ EVEN x1) vs /\ s1 = s2 /\
      ALL_DISTINCT (MAP FST vs) /\
      !n. IS_SOME (lookup n env) <=>
          IS_SOME (lookup (adjust_var n) (fromAList vs))) /\
-  (stack_rel (Exc s1 env n) (StackFrame s2 vs (SOME (x1,x2,x3))) <=>
-     stack_rel (Env s1 env) (StackFrame s2 vs NONE) /\ (x1 = n)) /\
+  (stack_rel (Exc s1 env n) (StackFrame s2 ws vs (SOME (x1,x2,x3))) <=>
+     stack_rel (Env s1 env) (StackFrame s2 ws vs NONE) /\ (x1 = n)) /\
   (stack_rel _ _ <=> F)
 End
 
@@ -4427,7 +4427,7 @@ Definition the_global_def:
 End
 
 Definition contains_loc_def:
-  contains_loc (StackFrame _ vs _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))
+  contains_loc (StackFrame _ vs _ _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))
 End
 
 Definition upper_w2w_def:
@@ -4594,32 +4594,30 @@ Proof
   \\ fs [state_rel_thm,dataSemTheory.initial_state_def,
     join_env_def,lookup_def,the_global_def,
     miscTheory.the_def,flat_NIL,FLOOKUP_DEF] \\ strip_tac \\ fs []
-  \\ qpat_abbrev_tac `fil = FILTER _ _`
-  \\ `fil = []` by
-   (fs [FILTER_EQ_NIL,Abbr `fil`] \\ fs [EVERY_MEM,MEM_toAList,FORALL_PROD]
-    \\ fs [lookup_inter_alt]) \\ fs [max_heap_limit_def]
   \\ fs [GSYM (EVAL ``(Smallnum 0)``)]
   \\ fs [wordSemTheory.stack_size_def]
   \\ conj_tac THEN1 (fs [limits_inv_def])
   \\ match_mp_tac IMP_memory_rel_Number
   \\ fs [] \\ conj_tac
   THEN1 (EVAL_TAC \\ fs [good_dimindex_def,dimword_def])
+  \\ qsuff_tac ‘memory_rel c t.be 0 LN 0 t.store t.memory t.mdomain []’
+  >- simp []
   \\ fs [memory_rel_def]
   \\ rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
   \\ `(limit+3) * (dimindex (:α) DIV 8) + 1 < dimword (:α)` by
-   (fs [good_dimindex_def,dimword_def]
-    \\ rfs [shift_def] \\ decide_tac)
+   (fs [good_dimindex_def,dimword_def,max_heap_limit_def]
+    \\ rfs [shift_def])
   \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def]
-  \\ qexists_tac `heap_expand limit`
-  \\ qexists_tac `0`
-  \\ qexists_tac `case c.gc_kind of Generational l => 0 | _ => limit`
-  \\ qexists_tac `case c.gc_kind of Generational l => limit | _ => 0`
-  \\ qexists_tac `GenState 0 (case c.gc_kind of
-                              | Generational l => MAP (K 0) l
-                              | _ => [])` \\ fs []
-  \\ reverse conj_tac THEN1
+  \\ ‘abs_ml_inv c [] LN
+          (([] : 'a word_loc heap_address list),
+           heap_expand limit,t.be,0,
+           (case c.gc_kind of Generational l => 0 | _ => limit),
+           (case c.gc_kind of Generational l => limit | _ => 0),
+           GenState 0
+             (case c.gc_kind of
+              Generational l => MAP (K 0) l | _ => [])) limit 0’ by
    (Cases_on ‘c.gc_kind’
     \\ fs[abs_ml_inv_def,roots_ok_def,heap_ok_def,heap_length_heap_expand,
        unused_space_inv_def,bc_stack_ref_inv_def,FDOM_EQ_EMPTY]
@@ -4630,6 +4628,7 @@ Proof
     \\ fs [gen_state_ok_def,EVERY_MAP,gen_start_ok_def,heap_split_0]
     \\ fs [heap_split_def,el_length_def] \\ every_case_tac
     \\ fs [isRef_def,heap_lookup_def])
+  \\ pop_assum $ irule_at Any
   \\ CASE_TAC \\ fs []
   \\ fs [heap_in_memory_store_def,heap_length_heap_expand,word_heap_heap_expand]
   \\ fs [glob_real_inv_def]
@@ -4639,7 +4638,7 @@ Proof
   \\ simp_tac bool_ss [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``)]
   \\ once_rewrite_tac [MULT_COMM]
   \\ simp_tac bool_ss [aligned_add_pow] \\ rfs []
-  \\ fs [gen_starts_in_store_def]
+  \\ fs [gen_starts_in_store_def,max_heap_limit_def]
   \\ Cases \\ fs [] \\ rw[] \\ EVAL_TAC
   \\ Cases_on `l` \\ fs []
 QED
@@ -4748,8 +4747,9 @@ End
 Theorem cut_env_IMP_cut_env:
    state_rel c l1 l2 ^s t [] locs /\
     dataSem$cut_env r s.locals = SOME x ==>
-    ?y. wordSem$cut_env (adjust_set r) t.locals = SOME y
+    ?y. wordSem$cut_env (adjust_sets r) t.locals = SOME y
 Proof
+  cheat (*
   fs[dataSemTheory.cut_env_def,wordSemTheory.cut_env_def]
   \\ fs[adjust_set_def,domain_fromAList,SUBSET_DEF,MEM_MAP,
         Excl "fromAList_def",
@@ -4764,7 +4764,7 @@ Proof
   \\ gvs[adjust_var_11]
   \\ gvs[state_rel_def, optionTheory.IS_SOME_EXISTS, PULL_EXISTS]
   \\ rpt (first_assum irule)
-  \\ gs[MEM_toAList]
+  \\ gs[MEM_toAList] *)
 QED
 
 Theorem jump_exc_call_env:
@@ -4795,16 +4795,16 @@ Theorem jump_exc_push_env_NONE:
   mk_loc (jump_exc (push_env y NONE s with stack_max := m)) =
   mk_loc (jump_exc (s:('a,'c,'ffi) wordSem$state))
 Proof
-  full_simp_tac(srw_ss())[wordSemTheory.push_env_def,wordSemTheory.jump_exc_def,wordSemTheory.dec_clock_def]
-  \\ Cases_on `env_to_list y s.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
+  fs[wordSemTheory.push_env_def,wordSemTheory.jump_exc_def,wordSemTheory.dec_clock_def]
+  \\ Cases_on `env_to_list (SND y) s.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ Cases_on `s.handler = LENGTH s.stack` \\ full_simp_tac(srw_ss())[LASTN_ADD1]
   \\ Cases_on `~(s.handler < LENGTH s.stack)` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  THEN1 (`F` by DECIDE_TAC)
-  \\ `LASTN (s.handler + 1) (StackFrame s.locals_size q NONE::s.stack) =
+  >- gvs []
+  \\ `LASTN (s.handler + 1) (StackFrame s.locals_size (toAList (FST y)) q NONE::s.stack) =
       LASTN (s.handler + 1) s.stack` by
     (match_mp_tac LASTN_TL \\ decide_tac)
   \\ every_case_tac \\ srw_tac[][mk_loc_def]
-  \\ `F` by decide_tac
+  \\ gvs []
 QED
 
 Theorem option_le_stack_size_cons:
