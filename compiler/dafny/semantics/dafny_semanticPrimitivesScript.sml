@@ -36,6 +36,32 @@ Datatype:
      cout: string |>
 End
 
+Definition strict_zip_def:
+  strict_zip (x::xs) (y::ys) =
+  (case (strict_zip xs ys) of
+   | SOME rest => SOME ((x, y)::rest)
+   | NONE => NONE) ∧
+  strict_zip [] (y::ys) = NONE ∧
+  strict_zip (x::xs) [] = NONE ∧
+  strict_zip [] [] = SOME []
+End
+
+Definition push_param_frame_def:
+  push_param_frame st param_names vals =
+  let param_names = MAP dest_varName param_names in
+    (case (strict_zip param_names vals) of
+     | NONE => NONE
+     | SOME params =>
+         SOME (st with locals := (alist_to_fmap params)::st.locals))
+End
+
+Theorem push_param_frame_clock:
+  ∀ s₁ pns vs s₂.
+    push_param_frame s₁ pns vs = SOME s₂ ⇒ s₂.clock = s₁.clock
+Proof
+  rpt strip_tac >> gvs [push_param_frame_def, CaseEq "option"]
+QED
+
 Definition add_local_def:
   add_local (st: state) (varNam: string) (v: value): state option =
   case st.locals of
@@ -80,7 +106,7 @@ End
 
 Datatype:
   result =
-  | Rval value
+  | Rval 'a
   | Rerr error_result
 End
 

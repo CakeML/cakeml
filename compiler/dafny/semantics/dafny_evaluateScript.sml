@@ -9,7 +9,7 @@ open dafny_semanticPrimitivesTheory
 
 val _ = new_theory "dafny_evaluate";
 
-Type dafny_result = “:dafny_semanticPrimitives$result”
+Type dafny_result = “:'a dafny_semanticPrimitives$result”
 Type resultM = “:'a result_monad$result”
 Type program = “:module list”
 
@@ -201,15 +201,72 @@ Definition literal_to_value_def:
   literal_to_value _ = NONE
 End
 
-Definition evaluate_exp_def:
-  evaluate_exp (st: state) (env: sem_env)
-               (Literal l): (state # dafny_result) =
+(* Do an if-then-else *)
+(* TODO move to semantic primitives? *)
+Definition do_if_def:
+  do_if cnd thn els =
+    if cnd = BoolV T then SOME thn
+    else if cnd = BoolV F then SOME els
+    else NONE
+End
+
+(* Returns a list of names if none of the Formals has any attributes. *)
+Definition simple_formal_names_def:
+  simple_formal_names [] = SOME []
+  ∧
+  simple_formal_names ((Formal n _ [])::rest) =
+  (case (simple_formal_names rest) of
+   | SOME rest => SOME (n::rest)
+   | NONE => NONE)
+  ∧
+  simple_formal_names _ = NONE
+End
+
+Definition name_sig_call_def:
+  name_sig_call (Companion [mod_name] []) (CallName met_name NONE NONE F (CallSignature params inheritedParams)) =
+  SOME (dest_Ident mod_name, met_name, params, inheritedParams)
+  ∧
+  name_sig_call _ _ = NONE
+End
+
+Definition resolve_call_def:
+  resolve_call (env: sem_env) (exp_call: bool) (call_on: expression) (call_name: callName) call_typeArgs =
+  (case (name_sig_call call_on call_name) of
+   | NONE => INL Runsupported
+   | SOME (call_mod_name, call_met_name, call_params, call_inheritedParams) =>
+       (case (ALOOKUP env.methods (call_mod_name, call_met_name)) of
+        | NONE => INL Rtype_error
+        | SOME (Method met_attrs met_isStatic met_hasBody _ _
+                       met_overridingPath met_nam met_typeParams
+                       met_params met_inheritedParams met_body met_outTypes
+                       met_outVars) =>
+            (* Ignore outVarsAreUninitFieldsToAssign, wasFunction *)
+            if met_attrs ≠ [] ∨ ¬met_isStatic ∨ met_overridingPath ≠ NONE
+               ∨ met_typeParams ≠ [] ∨ call_typeArgs ≠ [] then
+              INL Runsupported
+            else if ¬met_hasBody ∨ met_nam ≠ call_met_name
+                    ∨ met_params ≠ call_params
+                    ∨ met_inheritedParams ≠ call_inheritedParams
+                    ∨ (exp_call ∧
+                       (LENGTH met_outTypes ≠ 1 ∨ met_outVars ≠ NONE)) then
+              INL Rtype_error
+            else
+              (* NOTE I believe that inheritedParams are mainly used in the Rust *)
+              (*   compiler to determine whether something needs to be borrowed. *)
+              (case (simple_formal_names met_params) of
+               | NONE => INL Runsupported
+               | SOME param_names => INR (param_names, met_body))))
+End
+
+(* Annotated with fix_clock *)
+Definition evaluate_stmts_ann_def[nocompute]:
+  evaluate_exp (st: state) (env: sem_env) (Literal l) : (state # value dafny_result) =
   (case literal_to_value l of
    | NONE => (st, Rerr Runsupported)  (* TODO Could also be Rtype_error *)
    | SOME v => (st, Rval v))
   ∧
   evaluate_exp st env (BinOp (TypedBinOp bop _ _ _) el er) =
-  (case evaluate_exp st env el of
+  (case fix_clock st (evaluate_exp st env el) of
    | (st', Rval vl) =>
        if is_lop bop then
          (case do_lop bop vl er of
@@ -223,36 +280,41 @@ Definition evaluate_exp_def:
                (* TODO Could also be Runsupported *)
                | NONE => (st'', Rerr Rtype_error)
                | SOME r => (st'', Rval r))
-           | r => r)
+          | r => r)
    | r => r)
   ∧
+  evaluate_exp st env (Expression_Call call_on call_name call_typeArgs call_args) =
+  (case (resolve_call env T call_on call_name call_typeArgs) of
+   | INL err => (st, Rerr err)
+   | INR (param_names, met_body) =>
+       (case fix_clock st (evaluate_exps st env call_args) of
+        | (st', Rval vals) =>
+            (case (push_param_frame st' param_names vals) of
+             | NONE => (st', Rerr Rtype_error)
+             | SOME st'' =>
+                 if st''.clock = 0
+                 then (st'', Rerr Rtimeout_error)
+                 else (evaluate_stmts (dec_clock st'') env met_body))
+        (* We mention this case explicitly to avoid type errors *)
+        | (st', Rerr err) => (st', Rerr err)))
+  ∧
   evaluate_exp st env _ = (st, Rerr Runsupported)
-Termination
-  WF_REL_TAC ‘measure $ expression_size o (λ(_,_,c). c)’ >> rw[]
-  >> gvs[do_lop_def, AllCaseEqs()]
-End
-
-Theorem evaluate_exp_clock:
-  ∀s1 env e r s2. evaluate_exp s1 env e = (s2, r) ⇒ s2.clock ≤ s1.clock
-Proof
-  ho_match_mp_tac evaluate_exp_ind >> rw[]
-  >> gvs[evaluate_exp_def, AllCaseEqs()]
-QED
-
-(* Do an if-then-else *)
-(* TODO move to semantic primitives? *)
-Definition do_if_def:
-  do_if cnd thn els =
-    if cnd = BoolV T then SOME thn
-    else if cnd = BoolV F then SOME els
-    else NONE
-End
-
-(* Annotated with fix_clock *)
-Definition evaluate_stmt_ann_def[nocompute]:
+  ∧
+  evaluate_exps st env [] : (state # (value list) dafny_result) =
+    (st, Rval [])
+  ∧
+  evaluate_exps st env (exp::exps) : (state # (value list) dafny_result) =
+  (case fix_clock st (evaluate_exp st env exp) of
+   | (st', Rval v) =>
+       (case (evaluate_exps st' env exps) of
+        | (sf, Rval vs) => (sf, Rval (v::vs))
+        | r => r)
+   (* We mention this case explicitly to avoid type errors *)
+   | (st', Rerr err) => (st', Rerr err))
+  ∧
   evaluate_stmt st env (DeclareVar varNam _ (SOME e) in_stmts) =
   (let varNam = dest_varName varNam in
-     (case evaluate_exp st env e of
+     (case fix_clock st (evaluate_exp st env e) of
       | (st', Rval v) =>
           (case add_local st' varNam v of
            | NONE => (st', Rerr Rtype_error)
@@ -264,7 +326,7 @@ Definition evaluate_stmt_ann_def[nocompute]:
      (case init_val t of
       | NONE => (st, Rerr Runsupported)
       | SOME v =>
-             (case add_local st varNam v of
+          (case add_local st varNam v of
               | NONE => (st, Rerr Rtype_error)
               | SOME st' => evaluate_stmts st' env in_stmts)))
   ∧
@@ -272,13 +334,13 @@ Definition evaluate_stmt_ann_def[nocompute]:
   (let varNam = dest_varName varNam in
      (case evaluate_exp st env e of
       | (st', Rval v) =>
-          (case assign_to_local st varNam v of
-           | NONE => (st, Rerr Rtype_error)
+          (case assign_to_local st' varNam v of
+           | NONE => (st', Rerr Rtype_error)
            | SOME st'' => (st'', Rval UnitV))
       | r => r))
   ∧
   evaluate_stmt st env (If cnd thn els) =
-  (case evaluate_exp st env cnd of
+  (case fix_clock st (evaluate_exp st env cnd) of
      (st', Rval v) =>
        (case do_if v thn els of
           NONE => (st', Rerr Rtype_error)
@@ -286,7 +348,7 @@ Definition evaluate_stmt_ann_def[nocompute]:
    | r => r)
   ∧
   evaluate_stmt st env (While e stmts) =
-  (case evaluate_exp st env e of
+  (case fix_clock st (evaluate_exp st env e) of
    | (st', Rval v) =>
        if v = BoolV F then (st', Rval UnitV)
        else if v = BoolV T then
@@ -301,60 +363,72 @@ Definition evaluate_stmt_ann_def[nocompute]:
          (st', Rerr Rtype_error)
    | r => r)
   ∧
-  evaluate_stmt (st: state) (env: sem_env) _ : (state # dafny_result) =
-    (st, Rerr Runsupported)
+  evaluate_stmt (st: state) (env: sem_env) _ =
+  (st, Rerr Runsupported)
   ∧
-  evaluate_stmts (st: state) (env: sem_env) [] : (state # dafny_result) =
-    (st, Rval UnitV)
+  evaluate_stmts (st: state) (env: sem_env) [] =
+  (st, Rval UnitV)
   ∧
-  evaluate_stmts (st: state) (env: sem_env)
-                 (stmt::stmts) : (state # dafny_result) =
-    (case fix_clock st (evaluate_stmt st env stmt) of
-     | (st', Rval _) =>
-         evaluate_stmts st' env stmts
-     | r => r)
+  evaluate_stmts (st: state) (env: sem_env) (stmt::stmts) =
+  (case fix_clock st (evaluate_stmt st env stmt) of
+   | (st', Rval _) =>
+       evaluate_stmts st' env stmts
+   | r => r)
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<)
               (λx. case x of
-                   | INL (s, _, stmt) =>
+                   | INL (s, _, exp) =>
+                       (s.clock, expression_size exp)
+                   | INR (INL (s, _, exps)) =>
+                       (s.clock, list_size expression_size exps)
+                   | INR (INR (INL (s, _, stmt))) =>
                        (s.clock, statement_size stmt)
-                   | INR (s, _, stmts) =>
-                       (s.clock, list_size statement_size stmts))’ >> rw[]
-  >> imp_res_tac evaluate_exp_clock
+                   | INR (INR (INR (s, _, stmts))) =>
+                       (s.clock, list_size statement_size stmts))’
+  >> rpt strip_tac
   >> imp_res_tac fix_clock_IMP
   >> gvs [dec_clock_def, AllCaseEqs(), assignLhs_size_eq, do_if_def,
-          add_local_def]
+          add_local_def, do_lop_def, push_param_frame_def]
 End
 
-Theorem evaluate_stmt_clock:
-  (∀s1 env stmt r s2.
-    evaluate_stmt s1 env stmt = (s2, r) ⇒ s2.clock ≤ s1.clock) ∧
-  (∀s1 env stmts r s2.
-    evaluate_stmts s1 env stmts = (s2, r) ⇒ s2.clock ≤ s1.clock)
+Theorem evaluate_stmts_clock:
+  (∀s₁ env exp r s₂.
+     evaluate_exp s₁ env exp = (s₂, r) ⇒ s₂.clock ≤ s₁.clock) ∧
+  (∀s₁ env exps r s₂.
+     evaluate_exps s₁ env exps = (s₂, r) ⇒ s₂.clock ≤ s₁.clock) ∧
+  (∀s₁ env stmt r s₂.
+     evaluate_stmt s₁ env stmt = (s₂, r) ⇒ s₂.clock ≤ s₁.clock) ∧
+  (∀s₁ env stmts r s₂.
+     evaluate_stmts s₁ env stmts = (s₂, r) ⇒ s₂.clock ≤ s₁.clock)
 Proof
-  ho_match_mp_tac evaluate_stmt_ann_ind >> rw[]
-  >> pop_assum mp_tac >> simp[Once evaluate_stmt_ann_def] >> strip_tac
-  >> gvs[AllCaseEqs(), dec_clock_def, fix_clock_def]
+  ho_match_mp_tac evaluate_stmts_ann_ind
+  >> rpt strip_tac
+  >> pop_assum mp_tac >> simp [Once evaluate_stmts_ann_def] >> strip_tac
+  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def]
   >> EVERY (map imp_res_tac [add_local_clock, assign_to_local_clock,
-                             evaluate_exp_clock, fix_clock_IMP]) >> gvs[]
+                             push_param_frame_clock, fix_clock_IMP]) >> gvs[]
 QED
 
-Theorem fix_clock_evaluate_stmt:
-  fix_clock s1 (evaluate_stmt s1 env stmt) = evaluate_stmt s1 env stmt
+Theorem fix_clock_evaluate_stmts:
+  (fix_clock s₁ (evaluate_exp s₁ env exp) = evaluate_exp s₁ env exp) ∧
+  (fix_clock s₁ (evaluate_exps s₁ env exps) = evaluate_exps s₁ env exps) ∧
+  (fix_clock s₁ (evaluate_stmt s₁ env stmt) = evaluate_stmt s₁ env stmt) ∧
+  (fix_clock s₁ (evaluate_stmts s₁ env stmts) = evaluate_stmts s₁ env stmts)
 Proof
-  Cases_on ‘evaluate_stmt s1 env stmt’
-  \\ imp_res_tac evaluate_stmt_clock
-  \\ fs[fix_clock_def, state_component_equality]
+  Cases_on ‘evaluate_exp s₁ env exp’ >> Cases_on ‘evaluate_exps s₁ env exps’
+  >> Cases_on ‘evaluate_stmt s₁ env stmt’ >> Cases_on ‘evaluate_stmts s₁ env stmts’
+  >> imp_res_tac evaluate_stmts_clock
+  >> gvs [fix_clock_def, state_component_equality]
 QED
 
-Theorem evaluate_stmt_def[compute] =
-  REWRITE_RULE [fix_clock_evaluate_stmt] evaluate_stmt_ann_def;
+Theorem evaluate_stmts_def[compute] =
+  REWRITE_RULE [fix_clock_evaluate_stmts] evaluate_stmts_ann_def;
 
-Theorem evaluate_stmt_ind =
-  REWRITE_RULE [fix_clock_evaluate_stmt] evaluate_stmt_ann_ind;
+Theorem evaluate_stmts_ind =
+  REWRITE_RULE [fix_clock_evaluate_stmts] evaluate_stmts_ann_ind;
 
 Definition evaluate_def:
-  evaluate (p: program): (state # dafny_result) resultM =
+  evaluate (p: program): (state # value dafny_result) resultM =
   do
     env <- init_env p;
     main <- main_call env;
