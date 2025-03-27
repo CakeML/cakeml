@@ -85,7 +85,7 @@ End
 Theorem correct_stmts:
   (∀ (s₁ : dafny_state) (env_dfy : dafny_env) (e : dafny_exp) (s₂ : dafny_state)
      (r_dfy : value dafny_res) (t₁ : cakeml_state) (env_cml : cakeml_env)
-     (cml_e : cakeml_exp) (comp : expression).
+     (cml_e : cakeml_exp) (path : ident list).
      evaluate_exp s₁ env_dfy e = (s₂, r_dfy) ∧
      from_expression comp e = INR cml_e ∧ state_rel s₁ t₁ ∧
      env_rel env_dfy env_cml ∧ ¬(is_fail_dfy r_dfy)
@@ -94,7 +94,7 @@ Theorem correct_stmts:
          state_rel s₂ t₂ ∧ res_rel r_dfy r_cml) ∧
   (∀ (s₁ : dafny_state) (env_dfy : dafny_env) (es : dafny_exp list)
      (s₂ : dafny_state) (r_dfy : (value list) dafny_res) (t₁ : cakeml_state)
-     (env_cml : cakeml_env) (cml_e : cakeml_exp) (comp : expression).
+     (env_cml : cakeml_env) (cml_e : cakeml_exp) (path : ident list).
      evaluate_exps s₁ env_dfy es = (s₂, r_dfy) ∧
      map_from_expression comp es = INR cml_es ∧ state_rel s₁ t₁ ∧
      env_rel env_dfy env_cml ∧ ¬(is_fail_dfy r_dfy)
@@ -103,7 +103,7 @@ Theorem correct_stmts:
          state_rel s₂ t₂ ∧ list_res_rel r_dfy r_cml) ∧
   (∀ (s₁ : dafny_state) (env_dfy : dafny_env) (stmt : statement)
      (s₂ : dafny_state) (r_dfy : value dafny_res) (t₁ : cakeml_state)
-     (env_cml : cakeml_env) (cml_e : cakeml_exp) (comp : expression)
+     (env_cml : cakeml_env) (cml_e : cakeml_exp) (path : ident list)
      (lvl : int) (epi : exp).
      evaluate_stmt s₁ env_dfy stmt = (s₂, r_dfy) ∧
      from_stmt comp lvl stmt epi = INR cml_e ∧ state_rel s₁ t₁ ∧
@@ -113,7 +113,7 @@ Theorem correct_stmts:
          state_rel s₂ t₂ ∧ res_rel r_dfy r_cml) ∧
   (∀ (s₁ : dafny_state) (env_dfy : dafny_env) (stmts : statement list)
      (s₂ : dafny_state) (r_dfy : value dafny_res) (t₁ : cakeml_state)
-     (env_cml : cakeml_env) (cml_e : cakeml_exp) (comp : expression)
+     (env_cml : cakeml_env) (cml_e : cakeml_exp) (path : ident list)
      (lvl : int) (epi : exp).
      evaluate_stmts s₁ env_dfy stmts = (s₂, r_dfy) ∧
      from_stmts comp lvl stmts epi = INR cml_e ∧ state_rel s₁ t₁ ∧
