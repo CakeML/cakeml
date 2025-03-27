@@ -145,6 +145,14 @@ Proof
   srw_tac[][adjust_set_def,fromAList_def]
 QED
 
+Theorem push_env_termdep:
+   (push_env y opt t).termdep = t.termdep
+Proof
+  Cases_on `opt` \\ TRY (PairCases_on `x`)
+  \\ fs [wordSemTheory.push_env_def]
+  \\ pairarg_tac \\ fs []
+QED
+
 Theorem ALOOKUP_SKIP_LEMMA:
    ¬MEM n (MAP FST xs) /\ d = e ==>
     ALOOKUP (xs ++ [(n,d)] ++ ys) n = SOME e
@@ -4191,7 +4199,8 @@ Theorem word_gc_fun_lemma = Q.prove(`
     \\ fs [PULL_EXISTS]
     \\ qexists_tac `s2.n - k9` \\ fs []
     \\ fs [GSYM WORD_LEFT_ADD_DISTRIB,word_add_n2w]
-    \\ fs [wordSemTheory.has_space_def,wordSemTheory.get_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+    \\ fs [wordSemTheory.has_space_def,FLOOKUP_DEF,
+           FAPPLY_FUPDATE_THM,wordSemTheory.get_store_def]
     \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
     \\ strip_tac \\ fs [theWord_def] \\ rfs [GSYM WORD_LS]
     \\ qpat_x_assum `_ = bytes_in_word * _` (assume_tac o GSYM) \\ fs []
@@ -4359,8 +4368,8 @@ Proof
   THEN1
    (rename [`c.gc_kind = Simple`] (* asserts that only one case if left *)
     \\ fs [heap_in_memory_store_def]
-    \\ fs [abs_ml_inv_def,unused_space_inv_def,
-           wordSemTheory.get_store_def,wordSemTheory.has_space_def]
+    \\ fs [abs_ml_inv_def,unused_space_inv_def,wordSemTheory.has_space_def,
+           wordSemTheory.get_store_def]
     \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
     \\ fs [GSYM NOT_LESS] \\ rw []
     \\ drule alloc_size_check
@@ -4371,8 +4380,8 @@ Proof
   \\ reverse (Cases_on `do_partial c s`)
   THEN1
    (fs [heap_in_memory_store_def]
-    \\ fs [abs_ml_inv_def,unused_space_inv_def,
-           wordSemTheory.get_store_def,wordSemTheory.has_space_def]
+    \\ fs [abs_ml_inv_def,unused_space_inv_def,wordSemTheory.has_space_def,
+           wordSemTheory.get_store_def]
     \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
     \\ fs [GSYM NOT_LESS] \\ rw []
     \\ drule alloc_size_check
