@@ -258,12 +258,44 @@ Definition resolve_call_def:
                | SOME param_names => INR (param_names, met_body))))
 End
 
+Definition alloc_array_def:
+  alloc_array st dim t =
+  (case (val_to_num dim, init_val t) of
+   | (SOME dim, SOME init) =>
+       (st with heap := SNOC (HArray (REPLICATE dim init)) st.heap,
+        Rval (ArrayV [dim] (LENGTH st.heap)))
+   | (NONE, _) => (st, Rerr Rtype_error)
+   | (_, NONE) => (st, Rerr Runsupported))
+End
+
+Theorem alloc_array_clock:
+  ∀ s₁ dim t s₂ r.
+    alloc_array s₁ dim t = (s₂, r) ⇒ s₂.clock = s₁.clock
+Proof
+  rpt strip_tac >> gvs [alloc_array_def, CaseEq "option"]
+QED
+
 (* Annotated with fix_clock *)
 Definition evaluate_stmts_ann_def[nocompute]:
   evaluate_exp (st: state) (env: sem_env) (Literal l) : (state # value dafny_result) =
   (case literal_to_value l of
    | NONE => (st, Rerr Runsupported)  (* TODO Could also be Rtype_error *)
    | SOME v => (st, Rval v))
+  ∧
+  (* TODO? Rename NewUninitArray + drop FinalizeNewArray from IR *)
+  (* We actually do initialize the array; instead, FinalizeNewArray does not do
+     anything special. *)
+  evaluate_exp st env (NewUninitArray dims t) =
+  (case dims of
+   | [] => (st, Rerr Rtype_error)
+   | [dim] =>
+       (case evaluate_exp st env dim of
+        | (st', Rval dim) => alloc_array st' dim t
+        | r => r)
+   | _ => (st, Rerr Runsupported))
+  ∧
+  evaluate_exp st env (FinalizeNewArray e _) =
+    evaluate_exp st env e
   ∧
   evaluate_exp st env (BinOp (TypedBinOp bop _ _ _) el er) =
   (case fix_clock st (evaluate_exp st env el) of
@@ -406,7 +438,8 @@ Proof
   >> pop_assum mp_tac >> simp [Once evaluate_stmts_ann_def] >> strip_tac
   >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def]
   >> EVERY (map imp_res_tac [add_local_clock, assign_to_local_clock,
-                             push_param_frame_clock, fix_clock_IMP]) >> gvs[]
+                             push_param_frame_clock, alloc_array_clock,
+                             fix_clock_IMP]) >> gvs[]
 QED
 
 Theorem fix_clock_evaluate_stmts:
