@@ -8,29 +8,33 @@ open finite_mapTheory;
 
 val _ = new_theory "scheme_semantics";
 
+Datatype:
+  e_or_v = Exp exp | Val val
+End
+
 Definition sadd_def:
   sadd [] n = Val $ SNum n ∧
   sadd (SNum m :: xs) n = sadd xs (m + n) ∧
-  sadd (_ :: xs) _ = Exception $ strlit "Arguments to + must be numbers"
+  sadd (_ :: xs) _ = Exp $ Exception $ strlit "Arguments to + must be numbers"
 End
 
 Definition smul_def:
   smul [] n = Val $ SNum n ∧
   smul (SNum m :: xs) n = smul xs (m * n) ∧
-  smul (_ :: xs) _ = Exception $ strlit "Arguments to * must be numbers"
+  smul (_ :: xs) _ = Exp $ Exception $ strlit "Arguments to * must be numbers"
 End
 
 Definition sminus_def:
-  sminus [] = Exception $ strlit "Arity mismatch" ∧
+  sminus [] = Exp $ Exception $ strlit "Arity mismatch" ∧
   sminus (SNum n :: xs) = (case sadd xs 0 of
   | Val (SNum m) => Val (SNum (n - m))
   | e => e) ∧
-  sminus _ = Exception $ strlit "Arguments to - must be numbers"
+  sminus _ = Exp $ Exception $ strlit "Arguments to - must be numbers"
 End
 
 Definition seqv_def:
   seqv [v1; v2] = (if v1 = v2 then Val $ SBool T else Val $ SBool F) ∧
-  seqv _ = Exception $ strlit "Arity mismatch"
+  seqv _ = Exp $ Exception $ strlit "Arity mismatch"
 End
 
 (*
@@ -52,12 +56,12 @@ Definition fresh_loc_def:
 End
 
 Definition parameterize_def:
-  parameterize store ks env [] NONE e [] = (store, ks, env, e) ∧
-  parameterize store ks env [] (SOME l) e xs = (let (n, store') = fresh_loc store (SOME $ SList xs)
-    in (store', ks, (env |+ (l, n)), e)) ∧
+  parameterize store ks env [] NONE e [] = (store, ks, env, Exp e) ∧
+  parameterize store ks env [] (SOME (l:mlstring)) e xs = (let (n, store') = fresh_loc store (SOME $ SList xs)
+    in (store', ks, (env |+ (l, n)), Exp e)) ∧
   parameterize store ks env (p::ps) lp e (x::xs) = (let (n, store') = fresh_loc store (SOME x)
     in parameterize store' ks (env |+ (p, n)) ps lp e xs) ∧
-  parameterize store ks _ _ _ _ _ = (store, ks, FEMPTY, Exception $ strlit "Wrong number of arguments")
+  parameterize store ks _ _ _ _ _ = (store, ks, FEMPTY, Exp $ Exception $ strlit "Wrong number of arguments")
 End
 
 Definition application_def:
@@ -68,13 +72,13 @@ Definition application_def:
   | SEqv => (store, ks, FEMPTY, seqv xs)
   | CallCC => case xs of
     | [v] => (store, (FEMPTY, ApplyK (SOME (v, [])) []) :: ks, FEMPTY, Val $ Throw ks)
-    | _ => (store, ks, FEMPTY, Exception $ strlit "arity mismatch")) ∧
+    | _ => (store, ks, FEMPTY, Exp $ Exception $ strlit "arity mismatch")) ∧
   application store ks (Proc env ps lp e) xs =
     parameterize store ks env ps lp e xs ∧
   application store ks (Throw ks') xs = (case xs of
     | [v] => (store, ks', FEMPTY, Val v)
-    | _ => (store, ks, FEMPTY, Exception $ strlit "arity mismatch")) ∧
-  application store ks _ _ = (store, ks, FEMPTY, Exception $ strlit "Not a procedure")
+    | _ => (store, ks, FEMPTY, Exp $ Exception $ strlit "arity mismatch")) ∧
+  application store ks _ _ = (store, ks, FEMPTY, Exp $ Exception $ strlit "Not a procedure")
 End
 
 Definition return_def:
@@ -82,17 +86,17 @@ Definition return_def:
 
   return store ((env, ApplyK NONE eargs) :: ks) v = (case eargs of
   | [] => application store ks v []
-  | e::es => (store, (env, ApplyK (SOME (v, [])) es) :: ks, env, e)) ∧
+  | e::es => (store, (env, ApplyK (SOME (v, [])) es) :: ks, env, Exp e)) ∧
   return store ((env, ApplyK (SOME (vfn, vargs)) eargs) :: ks) v = (case eargs of
   | [] => application store ks vfn (REVERSE $ v::vargs)
-  | e::es => (store, (env, ApplyK (SOME (vfn, v::vargs)) es) :: ks, env, e)) ∧
+  | e::es => (store, (env, ApplyK (SOME (vfn, v::vargs)) es) :: ks, env, Exp e)) ∧
 
   return store ((env, CondK t f) :: ks) v = (if v = (SBool F)
-    then (store, ks, env, f) else (store, ks, env, t)) ∧
+    then (store, ks, env, Exp f) else (store, ks, env, Exp t)) ∧
 
   return store ((env, BeginK es) :: ks) v = (case es of
   | [] => (store, ks, env, Val v)
-  | e::es' => (store, (env, BeginK es') :: ks, env, e)) ∧
+  | e::es' => (store, (env, BeginK es') :: ks, env, Exp e)) ∧
   return store ((env, SetK x) :: ks) v = (LUPDATE (SOME v) (env ' x) store, ks, env, Val $ Wrong "Unspecified")
 End
 
@@ -104,23 +108,24 @@ End
 
 Definition step_def:
   step (store, ks, env, Val v) = return store ks v ∧
-  step (store, ks, env, Apply fn args) = (store, (env, ApplyK NONE args) :: ks, env, fn) ∧
-  step (store, ks, env, Cond c t f) = (store, (env, CondK t f) :: ks, env, c) ∧
+  step (store, ks, env, Exp $ Lit lit) = (store, ks, env, Val $ lit_to_val lit) ∧
+  step (store, ks, env, Exp $ Apply fn args) = (store, (env, ApplyK NONE args) :: ks, env, Exp fn) ∧
+  step (store, ks, env, Exp $ Cond c t f) = (store, (env, CondK t f) :: ks, env, Exp c) ∧
   (*This is undefined if the program doesn't typecheck*)
-  step (store, ks, env, Ident s) = (let e = case EL (env ' s) store of
-    | NONE => Exception $ strlit "letrec variable touched"
+  step (store, ks, env, Exp $ Ident s) = (let ev = case EL (env ' s) store of
+    | NONE => Exp $ Exception $ strlit "letrec variable touched"
     | SOME v => Val v
-    in (store, ks, env, e)) ∧
-  step (store, ks, env, Lambda ps lp e) = (store, ks, env, Val $ Proc env ps lp e) ∧
-  step (store, ks, env, Begin e es) = (store, (env, BeginK es) :: ks, env, e) ∧
-  step (store, ks, env, Set x e) = (store, (env, SetK x) :: ks, env, e) ∧
+    in (store, ks, env, ev)) ∧
+  step (store, ks, env, Exp $ Lambda ps lp e) = (store, ks, env, Val $ Proc env ps lp e) ∧
+  step (store, ks, env, Exp $ Begin e es) = (store, (env, BeginK es) :: ks, env, Exp e) ∧
+  step (store, ks, env, Exp $ Set x e) = (store, (env, SetK x) :: ks, env, Exp e) ∧
   (*There is a missing reinit check, though the spec says it is optional*)
-  step (store, ks, env, Letrec bs e) = (case bs of
-  | [] => (store, ks, env, e)
+  step (store, ks, env, Exp $ Letrec bs e) = (case bs of
+  | [] => (store, ks, env, Exp e)
   | (x, i)::bs' => let (store', env') = letrec_init store env (MAP FST bs)
-      in (store', (env', BeginK (SNOC e (MAP (UNCURRY Set) bs'))) :: ks, env', Set x i)) ∧
+      in (store', (env', BeginK (SNOC e (MAP (UNCURRY Set) bs'))) :: ks, env', Exp $ Set x i)) ∧
 
-  step (store, ks, env, Exception ex) = (store, [], env, Exception ex)
+  step (store, ks, env, Exp $ Exception ex) = (store, [], env, Exp $ Exception ex)
 End
 
 Definition steps_def:
@@ -155,19 +160,19 @@ End
     ]
   )”
 
-  EVAL “steps 16 ([], [], FEMPTY,
+  EVAL “steps 99 ([], [], FEMPTY,Exp $
     Apply (
       Lambda [strlit "x"] NONE (
         Apply (
           Lambda [strlit "y"] NONE (
-            Apply (Val $ Prim SAdd) [
+            Apply (Lit $ LitPrim SAdd) [
               Ident $ strlit "y";
               Ident $ strlit "x"
             ]
           )
-        ) [Val $ SNum 1]
+        ) [Lit $ LitNum 1]
       )
-    ) [Val $ SNum 4]
+    ) [Lit $ LitNum 4]
   )”
 
   EVAL “steps 16 ([], [], FEMPTY,

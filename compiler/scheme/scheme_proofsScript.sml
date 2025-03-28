@@ -29,6 +29,7 @@ Termination
 End
 *)
 
+(*
 Inductive subset1:
 [~Prim:]
   vsubset1 (Prim p)
@@ -52,6 +53,7 @@ Inductive subset1:
 [~Cont:]
   EVERY ksubset1 ks ⇒ kssubset1 ks
 End
+
 
 Theorem subset1_rewrite[simp] = LIST_CONJ[
   “vsubset1 (Prim p)” |> SCONV [Once subset1_cases],
@@ -180,24 +182,68 @@ Proof
   Induct_on ‘e’
   rpt strip_tac
 QED
+*)
+
+(*
+Example lambda calculus code of conditional expression,
+before and after step in CEK machine
+
+(\k0 -> (\k1 -> k1 $ SBool T)
+  (\t0 -> match t0
+          | SBool F => (\k2 -> k2 (SNum 1)) k0
+          | _ => (\k2 -> k2 (SNum 2)) k0))
+(\t -> t)
+
+-->
+
+(\k1 -> k1 $ SBool T)
+(\t0 -> match t0
+        | SBool F => (\k2 -> k2 (SNum 1)) (\t -> t)
+        | _ => (\k2 -> k2 (SNum 2)) (\t -> t)))
+*)
+
+Definition e_or_v_to_exp_def:
+  e_or_v_to_exp (Val v) var = App Opapp [Var (Short var); to_ml_vals v] ∧
+  e_or_v_to_exp (Exp e) var = (let
+    (n, ce) = cps_transform 0 e
+  in
+    App Opapp [ce; Var (Short var)])
+End
+
+Inductive cont_rel:
+[~Id:]
+  cont_rel []
+    (Closure env t (Var (Short t)))
+[~CondK:]
+  cont_rel ks kv ∧
+  nsLookup (env . v) (Short var) = SOME kv ∧
+  (n', ct) = cps_transform n te ∧
+  (m', cf) = cps_transform m fe
+  ⇒
+  (*Likely needs condition on se i.e. Scheme env*)
+  cont_rel ((se, CondK te fe) :: ks)
+    (Closure env t $ Mat (Var (Short t)) [
+      (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []],
+        App Opapp [cf; Var (Short var)]);
+      (Pany, App Opapp [ct;  Var (Short var)])
+    ])
+End
 
 Theorem myproof:
-  ∀ e e' n k k' . kssubset1 (MAP SND k) ∧ subset1 e ⇒ step  ([], k, FEMPTY, e) = ([], k', FEMPTY, e') ⇒
-      ∃ ck ck' t1 . evaluate (<| clock := ck |> : 'ffi state) myEnv [exp_with_cont (MAP SND k) e] =
-        evaluate <| clock := ck' |> myEnv [exp_with_cont (MAP SND k') e']
+  ∀ store store' env env' e e' k k' (st : 'ffi state) mlenv var kv mle .
+  step  (store, k, env, e) = (store', k', env', e') ∧
+  st.clock > 0 ∧
+  cont_rel k kv ∧
+  nsLookup mlenv.v (Short var) = SOME kv
+  ⇒
+  ∃ st' mlenv' var' kv' mle'.
+    evaluate st mlenv [e_or_v_to_exp e var]
+    =
+    evaluate st' mlenv' [e_or_v_to_exp e' var'] ∧
+    cont_rel k' kv' ∧
+    nsLookup mlenv'.v (Short var') = SOME kv'
 Proof
-  Cases >> simp[]
-  >> rpt strip_tac
-  >> simp[exp_with_cont_def, cps_transform_def]
-  >~ [‘Cond c t f’] >- (
-    gvs[step_def, scheme_cont_def, cps_transform_def]
-    >> rpt (pairarg_tac >> gvs[step_def])
-    >> simp[SimpLHS, evaluate_def]
-    >> qexistsl_tac [‘ck+1’,‘ck’]
-    >> dxrule_then (qspec_then ‘ck+1’ mp_tac) (SRULE [] k_vals_subset1)
-    >> strip_tac >> simp[do_opapp_def, dec_clock_def]
-    >> cheat
-  ) >> cheat
+  cheat
 QED
 
 (*Theorem val_correct:

@@ -202,14 +202,14 @@ Definition cons_formals_def:
 End
 
 Definition cons_ast_def:
-  cons_ast (Num n) = INR (Val (SNum n)) ∧
-  cons_ast (Bool b) = INR (Val (SBool b)) ∧
+  cons_ast (Num n) = INR (Lit (LitNum n)) ∧
+  cons_ast (Bool b) = INR (Lit (LitBool b)) ∧
   cons_ast (Word w) = (
-    if w = "+" then INR (Val (Prim SAdd)) else
-    if w = "-" then INR (Val (Prim SMinus)) else
-    if w = "*" then INR (Val (Prim SMul)) else
-    if w = "eqv?" then INR (Val (Prim SEqv)) else
-    if w = "callcc" then INR (Val (Prim CallCC)) else
+    if w = "+" then INR (Lit (LitPrim SAdd)) else
+    if w = "-" then INR (Lit (LitPrim SMinus)) else
+    if w = "*" then INR (Lit (LitPrim SMul)) else
+    if w = "eqv?" then INR (Lit (LitPrim SEqv)) else
+    if w = "callcc" then INR (Lit (LitPrim CallCC)) else
       INR (Ident (implode w))) ∧
   cons_ast Nil = INL "Empty S expression" ∧
   cons_ast (Pair x y) = (case pair_to_list y of

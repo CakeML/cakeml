@@ -14,21 +14,13 @@ Datatype:
 End
 
 Datatype:
-  val = Prim prim | SNum int | Wrong string | SBool bool
-      | SList (val list)
-      | Proc senv (mlstring list) (mlstring option) exp
-      (*requires HOL 94eb753a85c5628f4fd0401deb4b7e2972a8eb25*)
-      | Throw ((senv # cont) list)
-;
-  (*Contexts for small-step operational semantics*)
-  cont = ApplyK ((val # val list) option) (exp list)
-       | CondK exp exp
-       | BeginK (exp list)
-       | SetK mlstring
-;
+  lit = LitPrim prim | LitNum int | LitBool bool
+End
+
+Datatype:
   exp = (*Print mlstring
       |*) Apply exp (exp list)
-      | Val val
+      | Lit lit
       | Cond exp exp exp
       | Ident mlstring
       | Lambda (mlstring list) (mlstring option) exp
@@ -36,6 +28,26 @@ Datatype:
       | Begin exp (exp list)
       | Set mlstring exp
       | Letrec ((mlstring # exp) list) exp
+End
+
+Datatype:
+  (*Contexts for small-step operational semantics*)
+  cont = ApplyK ((val # val list) option) (exp list)
+       | CondK exp exp
+       | BeginK (exp list)
+       | SetK mlstring
+;
+  val = Prim prim | SNum int | Wrong string | SBool bool
+      | SList (val list)
+      | Proc senv (mlstring list) (mlstring option) exp
+      (*requires HOL 94eb753a85c5628f4fd0401deb4b7e2972a8eb25*)
+      | Throw ((senv # cont) list)
+End
+
+Definition lit_to_val_def:
+  lit_to_val (LitPrim p) = Prim p ∧
+  lit_to_val (LitNum n) = SNum n ∧
+  lit_to_val (LitBool b) = SBool b
 End
 
 Definition static_scoping_check_def:
@@ -64,7 +76,7 @@ Termination
   WF_REL_TAC ‘measure $ exp_size o SND’
   >> Induct_on ‘xes’ >- (rw[])
   >> Cases_on ‘h’
-  >> simp[definition "val_size_def", list_size_def, snd (TypeBase.size_of “:'a # 'b”)]
+  >> simp[snd (TypeBase.size_of “:exp”), list_size_def, snd (TypeBase.size_of “:'a # 'b”)]
   >> rpt strip_tac >- (rw[])
   >> last_x_assum $ qspecl_then [‘e’, ‘a’] $ imp_res_tac
   >> first_x_assum $ qspec_then ‘e’ $ assume_tac

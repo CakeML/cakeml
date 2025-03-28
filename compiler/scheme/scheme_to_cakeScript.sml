@@ -18,7 +18,7 @@ Definition to_ml_vals_def:
   | SEqv => Con (SOME $ Short "SEqv") []
   | CallCC => Con (SOME $ Short "CallCC") []] ∧
   to_ml_vals (SNum n) = Con (SOME $ Short "SNum") [Lit $ IntLit n] ∧
-  to_ml_vals (SBool b) = Con (SOME $ Short "SBool") [Con (SOME $ Short 
+  to_ml_vals (SBool b) = Con (SOME $ Short "SBool") [Con (SOME $ Short
     if b then "True" else "False") []]
 End
 
@@ -59,8 +59,8 @@ Definition letinit_ml_def:
 End
 
 Definition cps_transform_def:
-  cps_transform n (Val v) = (let k = "k" ++ toString n in
-    (n+1, Fun k $ App Opapp [Var (Short k); to_ml_vals v])) ∧
+  cps_transform n (Lit v) = (let k = "k" ++ toString n in
+    (n+1, Fun k $ App Opapp [Var (Short k); to_ml_vals $ lit_to_val v])) ∧
   cps_transform n (Exception s) =
     (n, Fun "_" $ Con (SOME $ Short "Ex") [Lit $ StrLit $ explode s]) ∧
   cps_transform n (Cond c t f) = (let
@@ -169,14 +169,13 @@ Termination
     | INR(INR(INL(_,_,_,es,_))) => list_size exp_size es
     | INR(INR(INR(INL(_,_,es)))) => list_size exp_size es
     | INR(INR(INR(INR(_,_,es,_)))) => list_size (exp_size o SND) es)’
-  >> rpt (strip_tac >- (Cases >> rw[val_size_def]))
-  >> strip_tac >- (
-    Induct_on ‘bs’ >> Cases
-    >> rw[val_size_def, list_size_def]
-    >> last_x_assum $ qspecl_then [‘e’,‘n’,‘m’,‘ce’] $ mp_tac
-    >> rw[]
-  )
-  >> Cases >> rw[val_size_def]
+  >> rpt (strip_tac >- (Cases >> rw[scheme_astTheory.exp_size_def]))
+  >> rpt (strip_tac >- (
+      Induct >- (Cases >> simp[scheme_astTheory.exp_size_def, list_size_def])
+      >> Cases >> rw[scheme_astTheory.exp_size_def, list_size_def]
+      >> last_x_assum dxrule >> simp[]
+  ))
+  >> Cases >> rw[scheme_astTheory.exp_size_def]
 End
 
 Definition scheme_cont_def:
