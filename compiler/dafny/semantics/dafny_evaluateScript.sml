@@ -275,6 +275,17 @@ Proof
   rpt strip_tac >> gvs [alloc_array_def, CaseEq "option"]
 QED
 
+Definition index_into_array_def:
+  index_into_array st arr idx =
+  (case (arr, val_to_num idx) of
+   (* If arr is not one-dimensional, we have a type error *)
+   | (ArrayV [dim] loc, SOME idx) =>
+       (case (LLOOKUP st.heap loc) of
+        | SOME (HArray arr) => LLOOKUP arr idx
+        | NONE => NONE)
+   | _ => NONE)
+End
+
 (* Annotated with fix_clock *)
 Definition evaluate_stmts_ann_def[nocompute]:
   evaluate_exp (st: state) (env: sem_env) (Literal l) : (state # value dafny_result) =
@@ -327,6 +338,21 @@ Definition evaluate_stmts_ann_def[nocompute]:
              | SOME len => (st', Rval (IntV &len)))
         | _ => (st', Rerr Rtype_error))
    | r => r)
+  ∧
+  evaluate_exp st env (Index e cok idxs) =
+  (case (cok, idxs) of
+   | (CollKind_Array, [idx]) =>
+       (* TODO If we add more cases, remember to factor out common paths *)
+       (case (fix_clock st (evaluate_exp st env e)) of
+        | (st', Rval arr) =>
+            (case evaluate_exp st' env idx of
+             | (st'', Rval idx) =>
+                 (case index_into_array st'' arr idx of
+                  | NONE => (st'', Rerr Rtype_error)
+                  | SOME v => (st'', Rval v))
+             | r => r)
+        | r => r)
+   | _ => (st, Rerr Runsupported))
   ∧
   evaluate_exp st env (Expression_Call call_on call_name call_typeArgs call_args) =
   (case (resolve_call env T call_on call_name call_typeArgs) of
