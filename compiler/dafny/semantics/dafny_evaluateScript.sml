@@ -315,6 +315,19 @@ Definition evaluate_stmts_ann_def[nocompute]:
           | r => r)
    | r => r)
   ∧
+  (* ArrayLen expr exprType dim native - ignoring exprType, native *)
+  evaluate_exp st env (ArrayLen e _ dim _) =
+  (case evaluate_exp st env e of
+   | (st', Rval v) =>
+       (case v of
+        | ArrayV dims _ =>
+            (case LLOOKUP dims dim of
+             | NONE => (st', Rerr Rtype_error)
+             (* TODO Ponder how to deal with subset types (e.g., nat) *)
+             | SOME len => (st', Rval (IntV &len)))
+        | _ => (st', Rerr Rtype_error))
+   | r => r)
+  ∧
   evaluate_exp st env (Expression_Call call_on call_name call_typeArgs call_args) =
   (case (resolve_call env T call_on call_name call_typeArgs) of
    | INL err => (st, Rerr err)
