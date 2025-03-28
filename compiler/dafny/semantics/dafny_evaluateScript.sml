@@ -258,12 +258,98 @@ Definition resolve_call_def:
                | SOME param_names => INR (param_names, met_body))))
 End
 
+Definition push_to_heap_def:
+  push_to_heap st hv =
+    (st with heap := SNOC hv st.heap, LocV (LENGTH st.heap))
+End
+
+Definition alloc_array_aux_def:
+  alloc_array_aux st [] init =
+    INL (st, Rtype_error) ∧
+  alloc_array_aux st [dim] init =
+    INR (push_to_heap st (HArray (REPLICATE dim init))) ∧
+  alloc_array_aux st (dim::dims) init =
+  (case (alloc_subarrays st dims init dim) of
+   | INR (st', locs) => INR (push_to_heap st' (HArray locs))
+   | INL err => INL err)
+  ∧
+  alloc_subarrays st dims init 0 = INR (st, []) ∧
+  alloc_subarrays st dims init (SUC n) =
+  (case (alloc_array_aux st dims init) of
+   | INR (st', loc) =>
+       (case (alloc_subarrays st' dims init n) of
+        | INR (st'', locs) => INR (st'', loc::locs)
+        | INL err => INL err)
+   | INL err => INL err)
+Termination
+  WF_REL_TAC ‘inv_image ($< LEX $< LEX $<)
+              (λx. case x of
+                   | INL (_,[],_) => (0,0,0)
+                   | INL (_,dim::dims,_) => (LENGTH dims+1,0n,dim)
+                   | INR (_,dims,_,n) => (LENGTH dims,1n,n))’
+  >> Cases_on ‘dims’ >> gvs []
+End
+
+(* Theorem alloc_array_aux_clock: *)
+(*   (∀ s₁ dims init s₂. *)
+(*      (case alloc_array_aux s₁ dims init of *)
+(*       | INR (s₂, _) => s₂.clock = s₁.clock *)
+(*       | INL (s₂', _) => s₂.clock = s₁.clock)) ∧ *)
+(*   (∀ s₁ dims init n. *)
+(*      (case alloc_)) *)
+(* Proof *)
+
+(* Qed *)
+
+Definition alloc_array_def:
+  alloc_array st dims t =
+  (case init_val t of
+   | NONE => (st, Rerr Runsupported)
+   | SOME v =>
+       (case (alloc_array_aux st dims v) of
+        | INR (st', loc) => (st', Rval loc)
+        | INL (st', err) => (st', Rerr err)))
+End
+
+Theorem alloc_array_clock:
+  ∀ s₁ dims t s₂ r.
+    alloc_array s₁ dims t = (s₂, r) ⇒ s₂.clock = s₁.clock
+Proof
+  rpt strip_tac
+  >> gvs [alloc_array_def, CaseEq "option", CaseEq "sum", CaseEq "prod"]
+  >> Induct_on ‘dims’ >> strip_tac >> gvs [alloc_array_aux_def]
+  >> Cases_on ‘dims’
+  >> gvs [alloc_array_aux_def, push_to_heap_def, state_component_equality,
+          CaseEq "sum", CaseEq "prod"]
+
+  >> Induct_on ‘h’ >> gvs [alloc_array_aux_def]
+  >> gvs [alloc_array_aux_def, CaseEq "sum", CaseEq "prod"]
+  >> strip_tac >> gvs []
+
+  >> gvs [CaseEq "sum", CaseEq "prod", alloc_array_aux_def]
+  >> Cases_on ‘h’ >> gvs [alloc_array_aux_def]
+
+  >> gvs [push_param_frame_def, CaseEq "option"]
+QED
+
 (* Annotated with fix_clock *)
 Definition evaluate_stmts_ann_def[nocompute]:
   evaluate_exp (st: state) (env: sem_env) (Literal l) : (state # value dafny_result) =
   (case literal_to_value l of
    | NONE => (st, Rerr Runsupported)  (* TODO Could also be Rtype_error *)
    | SOME v => (st, Rval v))
+  ∧
+  (* TODO? Rename NewUninitArray + drop FinalizeNewArray from IR *)
+  (* We actually do initialize the array; instead, FinalizeNewArray becomes
+     a no-op. *)
+  evaluate_exp st env (NewUninitArray dims t) =
+  (case evaluate_exps st env dims of
+   | (st', Rval dims) =>
+       (case (OPT_MMAP val_to_num dims) of
+        | NONE => (st', Rerr Rtype_error)
+        | SOME dims => alloc_array st' dims t)
+   (* We mention this case explicitly to avoid type errors *)
+   | (st', Rerr err) => (st', Rerr err))
   ∧
   evaluate_exp st env (BinOp (TypedBinOp bop _ _ _) el er) =
   (case fix_clock st (evaluate_exp st env el) of

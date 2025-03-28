@@ -22,6 +22,8 @@ Datatype:
   | IntV int
   | CharV char
   | StrV string
+  | LocV num
+  | ArrayV (num list) value  (* value should be a LocV *)
 End
 
 Definition init_val_def:
@@ -29,10 +31,22 @@ Definition init_val_def:
   init_val (t: type): (value option) = NONE
 End
 
+Definition val_to_num:
+  val_to_num (IntV i) = SOME (Num i) ∧
+  val_to_num _ = NONE
+End
+
+Datatype:
+  heap_value =
+  | HRef value
+  | HArray (value list)
+End
+
 Datatype:
   state =
   <| clock: num;
      locals: (string |-> value) list;
+     heap: heap_value list;
      cout: string |>
 End
 
