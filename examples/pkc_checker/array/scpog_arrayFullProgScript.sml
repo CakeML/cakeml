@@ -412,7 +412,7 @@ QED
 
 Theorem main_whole_prog_spec2:
    hasFreeFD fs ⇒
-   whole_prog_spec2 main_v_0 cl fs NONE (λfs'. ∃err. fs' = main_sem cl fs err)
+   whole_prog_spec2 main_v cl fs NONE (λfs'. ∃err. fs' = main_sem cl fs err)
 Proof
   rw[basis_ffiTheory.whole_prog_spec2_def]
   \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH main_spec))))
