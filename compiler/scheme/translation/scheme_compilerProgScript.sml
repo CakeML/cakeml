@@ -3,6 +3,7 @@
 *)
 open preamble basis;
 open to_sexpProgTheory;
+open scheme_astTheory;
 open scheme_parsingTheory;
 open scheme_to_cakeTheory;
 open scheme_compilerTheory;
@@ -33,6 +34,7 @@ val r = translate parse_to_ast_def;
 (* codegen *)
 
 val r = translate locationTheory.unknown_loc_def;
+val r = translate lit_to_val_def;
 val r = translate cake_print_def;
 val r = translate to_ml_vals_def;
 val r = translate cons_list_def;
