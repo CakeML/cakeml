@@ -515,7 +515,7 @@ Proof
   xvar>>xsimpl
 QED
 
-val _ = translate list_max_def;
+val _ = translate MAX_LIST_def;
 val _ = translate list_max_index_def;
 
 (* bump up the length to a large number *)
@@ -546,6 +546,34 @@ Proof
     metis_tac[w8z_v_thm])>>
   xvar>>
   xsimpl
+QED
+
+(* bump up the length to a large number *)
+val fold_resize_carr = process_topdecs`
+  fun fold_resize_carr cs carr =
+    case cs of [] => carr
+    | (c::cs) =>
+    fold_resize_carr cs (resize_carr c carr)`
+    |> append_prog;
+
+Theorem fold_resize_carr_spec:
+  ∀cs csv Carrv Clist.
+  LIST_TYPE (LIST_TYPE INT) cs csv ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "fold_resize_carr" (get_ml_prog_state()))
+    [csv; Carrv]
+    (W8ARRAY Carrv Clist)
+    (POSTv carrv.
+      W8ARRAY carrv (fold_resize_Clist cs Clist))
+Proof
+  Induct>>rw[]>>
+  xcf "fold_resize_carr" (get_ml_prog_state ())>>
+  gvs[LIST_TYPE_def,fold_resize_Clist_def]>>
+  xmatch
+  >-
+    (xvar>>xsimpl)>>
+  xlet_auto>>
+  xapp>>xsimpl
 QED
 
 val insert_one_arr = process_topdecs`
@@ -853,7 +881,9 @@ val check_scpstep_arr = process_topdecs`
   | Declpro n v ls =>
     (case declare_pro pc sc v ls of
       Some (cs,sc') =>
-        (insert_list_arr lno True fml n cs, sc', carr)
+        let val carr = fold_resize_carr cs carr in
+          (insert_list_arr lno True fml n cs, sc', carr)
+        end
     | _ =>
       raise Fail (format_failure lno "Product node freshness/variable checks failed"))
   | Declsum n v l1 l2 i0 =>
@@ -863,14 +893,18 @@ val check_scpstep_arr = process_topdecs`
       val u = is_rup_arr lno True fml i0 c carr in
       (case declare_sum pc sc v l1 l2 of
         Some (cs,sc') =>
-          (insert_list_arr lno True fml n cs,sc',carr)
+          let val carr = fold_resize_carr cs carr in
+            (insert_list_arr lno True fml n cs,sc',carr)
+          end
       | _ =>
         raise Fail (format_failure lno "Sum node freshness/variable checks failed"))
     end)
   | Declsko n v ls =>
     (case declare_sko pc sc v ls of
       Some (cT,sc') =>
+        let val carr = resize_carr cT carr in
         (insert_one_arr lno True fml n cT, sc',carr)
+        end
     | _ =>
       raise Fail (format_failure lno "Skolem node freshness/variable checks failed"))`
   |> append_prog;
@@ -884,14 +918,115 @@ Proof
   Cases_on`x`>>EVAL_TAC>>rw[]
 QED
 
+Theorem LENGTH_resize_Clist:
+  LENGTH Clist ≤ LENGTH (resize_Clist l Clist)
+Proof
+  rw[resize_Clist_def]
+QED
+
+Theorem LENGTH_fold_resize_Clist:
+  ∀ls Clist.
+  LENGTH Clist ≤ LENGTH (fold_resize_Clist ls Clist)
+Proof
+  Induct>>gvs[fold_resize_Clist_def]>>rw[]>>
+  metis_tac[LE_TRANS,LENGTH_resize_Clist]
+QED
+
+Theorem bounded_fml_leq:
+  bounded_fml n fmlls ∧ n ≤ m ⇒
+  bounded_fml m fmlls
+Proof
+  rw[bounded_fml_def,EVERY_MEM]>>
+  first_x_assum drule>>every_case_tac>>simp[]>>
+  rw[]>>rpt(first_x_assum drule)>>fs[]
+QED
+
+Theorem EVERY_index_resize_Clist:
+  EVERY ($> (LENGTH (resize_Clist ls Clist)) ∘ index) ls ∧
+  EVERY ($> (LENGTH (resize_Clist ls Clist)) ∘ index o $~) ls
+Proof
+  rw[]>>
+  simp[resize_Clist_def,list_max_index_def]>>
+  qmatch_goalsub_abbrev_tac`MAX_LIST lss`>>
+  qspec_then `lss` assume_tac MAX_LIST_PROPERTY>>
+  fs[EVERY_MEM,Abbr`lss`,MEM_MAP,PULL_EXISTS]>>
+  ntac 2 strip_tac>>first_x_assum drule>>
+  rw[]>>simp[index_def]>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem fold_resize_Clist_cons:
+  fold_resize_Clist (h::ls) Clist =
+    fold_resize_Clist ls (resize_Clist h Clist)
+Proof
+  rw[fold_resize_Clist_def]
+QED
+
+Theorem EVERY_index_fold_resize_Clist:
+  ∀ls Clist m.
+  LENGTH (fold_resize_Clist ls Clist) ≤ m ⇒
+  EVERY (EVERY ($> m ∘ index)) ls ∧
+  EVERY (EVERY ($> m ∘ index ∘ $~)) ls
+Proof
+  Induct>>gvs[]>>
+  rpt gen_tac>>
+  strip_tac>>
+  gvs[fold_resize_Clist_cons]>>
+  first_x_assum drule>>
+  simp[]>>
+  `EVERY ($> (LENGTH (resize_Clist h Clist)) ∘ index) h ∧
+  EVERY ($> (LENGTH (resize_Clist h Clist)) ∘ index o $~) h` by
+    metis_tac[EVERY_index_resize_Clist]>>
+  `LENGTH (resize_Clist h Clist) ≤ m` by
+    metis_tac[LENGTH_fold_resize_Clist,LE_TRANS]>>
+  gvs[EVERY_MEM]>>rw[]>>
+  rpt (first_x_assum drule)>>gvs[]
+QED
+
+Theorem insert_one_list_bounded_fml:
+  bounded_fml m fmlls ∧
+  EVERY ($> m o index) l ∧ EVERY ($> m o index o $~) l ∧
+  insert_one_list b fmlls n l = SOME fmlls' ⇒
+  bounded_fml m fmlls'
+Proof
+  rw[bounded_fml_def,insert_one_list_def,EVERY_MEM]>>
+  gvs[AllCaseEqs()]>>
+  drule MEM_update_resize>>rw[]>>simp[]
+QED
+
+Theorem insert_list_list_bounded_fml:
+  ∀ls fmlls fmlls' n.
+  bounded_fml m fmlls ∧
+  EVERY (EVERY ($> m o index)) ls ∧
+  EVERY (EVERY ($> m o index o $~)) ls ∧
+  insert_list_list b fmlls n ls = SOME fmlls' ⇒
+  bounded_fml m fmlls'
+Proof
+  Induct>>rw[insert_list_list_def]>>gvs[AllCaseEqs()]>>
+  metis_tac[insert_one_list_bounded_fml]
+QED
+
+Theorem bounded_fml_arb_delete_list:
+  ∀l fmlls fmlls'.
+  bounded_fml n fmlls ∧
+  arb_delete_list nc l fmlls = SOME fmlls' ⇒
+  bounded_fml n fmlls'
+Proof
+  Induct>>rw[arb_delete_list_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum match_mp_tac>>
+  first_x_assum (irule_at Any)>>
+  fs[bounded_fml_def,EVERY_EL,EL_LUPDATE]>>
+  rw[]>>fs[]
+QED
+
 Theorem check_scpstep_arr_spec:
   NUM lno lnov ∧
   CNF_SCPOG_SCPSTEP_TYPE scpstep scpstepv ∧
   CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
   CNF_SCPOG_SCPOG_CONF_TYPE sc scv ∧
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
-  bounded_fml (LENGTH Clist) fmlls
-  ⇒
+  bounded_fml (LENGTH Clist) fmlls ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_scpstep_arr" (get_ml_prog_state()))
     [lnov; scpstepv; pcv; fmlv; scv; Carrv]
@@ -945,8 +1080,7 @@ Proof
     xlet_auto
     >- (
       xsimpl>>
-      (* bounds *)
-      cheat)
+      metis_tac[bounded_fml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
     >- (
       xsimpl>>
       metis_tac[ARRAY_refl])>>
@@ -975,8 +1109,10 @@ Proof
       metis_tac[ARRAY_refl])>>
     gvs[AllCasePreds()]>>
     xcon>>xsimpl>>
-    (* bounds *)
-    cheat)
+    drule_at Any insert_one_list_bounded_fml>>
+    disch_then (irule_at Any)>>
+    simp[]>>
+    metis_tac[bounded_fml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
   >- (  (* ArbDel *)
     xmatch>>
     xlet_autop>>
@@ -1001,19 +1137,18 @@ Proof
       xsimpl>>
       metis_tac[ARRAY_refl])>>
     gvs[AllCasePreds()]>>xcon>>xsimpl>>
-    (* bounds *)
-    cheat)
+    metis_tac[bounded_fml_arb_delete_list])
   >- ( (* DeclPro *)
     xmatch>>
     rpt xlet_autop>>
     gvs[OPTION_TYPE_SPLIT,PAIR_TYPE_SPLIT]>>
     xmatch
     >- raise_tac>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xlet`POSTve
       (λv.
            SEP_EXISTS fmllsv'.
-             ARRAY v fmllsv' * W8ARRAY Carrv Clist *
+             ARRAY v fmllsv' * W8ARRAY carrv (fold_resize_Clist x1 Clist) *
              &case insert_list_list T fmlls n x1 of
                NONE => F
              | SOME fmlls' => LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv')
@@ -1032,8 +1167,14 @@ Proof
     >- xsimpl>>
     gvs[AllCasePreds()]>>
     xcon>>xsimpl>>
-    (* bounds *)
-    cheat)
+    simp[LENGTH_fold_resize_Clist] >>
+    drule_at Any insert_list_list_bounded_fml>>
+    disch_then irule>>
+    PURE_REWRITE_TAC[CONJ_ASSOC]>>
+    CONJ_TAC >- (
+      irule_at Any EVERY_index_fold_resize_Clist>>
+      qexists_tac`Clist`>>simp[])>>
+    metis_tac[bounded_fml_leq,LENGTH_fold_resize_Clist])
   >- ( (* DeclSum *)
     xmatch>>
     xlet_autop>>
@@ -1045,8 +1186,11 @@ Proof
     xlet_auto
     >- (
       xsimpl>>
-      (* bounds *)
-      cheat)
+      `EVERY ($> (LENGTH
+        (resize_Clist [-i; -i0] Clist)) ∘ index) [-i; -i0]` by
+        metis_tac[bounded_fml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist]>>
+      gvs[]>>
+      metis_tac[bounded_fml_leq,LENGTH_resize_Clist])
     >- (
       xsimpl>>rw[]>>
       metis_tac[ARRAY_refl])>>
@@ -1055,11 +1199,11 @@ Proof
     gvs[OPTION_TYPE_SPLIT,PAIR_TYPE_SPLIT]>>xmatch
     >-
       raise_tac>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xlet`POSTve
       (λv.
            SEP_EXISTS fmllsv'.
-             ARRAY v fmllsv' * W8ARRAY carrv Clist' *
+             ARRAY v fmllsv' * W8ARRAY carrv' (fold_resize_Clist x1 Clist') *
              &case insert_list_list T fmlls n x1 of
                NONE => F
              | SOME fmlls' => LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv')
@@ -1072,25 +1216,33 @@ Proof
       rpt(first_x_assum (irule_at Any))>>
       qexists_tac`T`>>simp[]>>
       rw[]
-      >- EVAL_TAC>>
-      metis_tac[ARRAY_W8ARRAY_refl])
+      >- EVAL_TAC
+      >- metis_tac[ARRAY_W8ARRAY_refl])
     >-
       (xsimpl>>metis_tac[ARRAY_refl])>>
     gvs[AllCasePreds()]>>
     xcon>>xsimpl>>
-    (* bounds *)
-    cheat)
+    reverse CONJ_TAC
+    >-
+      metis_tac[LENGTH_resize_Clist,LENGTH_fold_resize_Clist,LE_TRANS] >>
+    drule_at Any insert_list_list_bounded_fml>>
+    disch_then irule>>
+    PURE_REWRITE_TAC[CONJ_ASSOC]>>
+    CONJ_TAC >- (
+      irule_at Any EVERY_index_fold_resize_Clist>>
+      qexists_tac`Clist'`>>simp[])>>
+    metis_tac[bounded_fml_leq,LENGTH_fold_resize_Clist,LENGTH_resize_Clist])
   >- ( (* DeclSko *)
     xmatch>>
     rpt xlet_autop>>
     gvs[OPTION_TYPE_SPLIT,PAIR_TYPE_SPLIT]>>
     xmatch
     >- raise_tac>>
-    xlet_autop>>
+    rpt xlet_autop>>
     xlet`POSTve
       (λv.
            SEP_EXISTS fmllsv'.
-             ARRAY v fmllsv' * W8ARRAY Carrv Clist *
+             ARRAY v fmllsv' * W8ARRAY carrv (resize_Clist x1 Clist) *
              &case insert_one_list T fmlls n x1 of
                NONE => F
              | SOME fmlls' => LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv')
@@ -1108,7 +1260,11 @@ Proof
       metis_tac[ARRAY_refl])>>
     gvs[AllCasePreds()]>>
     xcon>>xsimpl>>
-    cheat)
+    simp[LENGTH_resize_Clist]>>
+    drule_at Any insert_one_list_bounded_fml>>
+    disch_then (irule_at Any)>>
+    simp[]>>
+    metis_tac[bounded_fml_leq,LENGTH_resize_Clist,EVERY_index_resize_Clist])
 QED
 
 (* Hooking up to parser *)

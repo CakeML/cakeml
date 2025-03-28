@@ -63,14 +63,14 @@ Definition is_rup_list_def:
 End
 
 Definition list_max_index_def:
-  list_max_index C = 2*list_max (MAP (λc. Num (ABS c)) C) + 1
+  list_max_index C = 2*MAX_LIST (MAP (λc. Num (ABS c)) C) + 1
 End
 
 (* bump up the length to a large number *)
 Definition resize_Clist_def:
   resize_Clist C Clist =
   if LENGTH Clist ≤ list_max_index C then
-    REPLICATE (2 * (list_max_index C )) w8z
+    REPLICATE (2 * (list_max_index C)) w8z
   else Clist
 End
 
@@ -101,6 +101,11 @@ Definition arb_delete_list_def:
       else arb_delete_list nc is (LUPDATE NONE i fml))
 End
 
+Definition fold_resize_Clist_def:
+  fold_resize_Clist cs Clist =
+  FOLDL (λx e. resize_Clist e x) Clist cs
+End
+
 Definition check_scpstep_list_def:
   check_scpstep_list scpstep pc fml sc Clist =
   case scpstep of
@@ -125,6 +130,7 @@ Definition check_scpstep_list_def:
   | DeclPro n v ls =>
     (case declare_pro pc sc v ls of
       SOME (cs,sc') =>
+        let Clist = fold_resize_Clist cs Clist in
         OPTION_MAP (λfml'. (fml',sc',Clist))
           (insert_list_list T fml n cs)
     | NONE => NONE)
@@ -136,12 +142,14 @@ Definition check_scpstep_list_def:
     | SOME Clist =>
       (case declare_sum pc sc v l1 l2 of
         SOME (cs,sc') =>
+          let Clist = fold_resize_Clist cs Clist in
           OPTION_MAP (λfml'. (fml',sc',Clist))
             (insert_list_list T fml n cs)
       | NONE => NONE))
   | DeclSko n v ls =>
     (case declare_sko pc sc v ls of
       SOME (cT,sc') =>
+        let Clist = resize_Clist cT Clist in
         OPTION_MAP (λfml'. (fml',sc',Clist))
         (insert_one_list T fml n cT)
     | NONE => NONE)
@@ -414,14 +422,6 @@ Proof
   metis_tac[fml_rel_update_resize]
 QED
 
-Theorem wf_fml_delete:
-  wf_fml fml ⇒
-  wf_fml (delete n fml)
-Proof
-  rw[wf_fml_def]>>
-  metis_tac[range_delete,SUBSET_DEF]
-QED
-
 Theorem fml_rel_LUPDATE_NONE:
   fml_rel fml fmlls ⇒
   fml_rel (delete n fml) (LUPDATE NONE n fmlls)
@@ -467,6 +467,18 @@ Proof
   metis_tac[]
 QED
 
+Theorem zero_resize_Clist:
+  ∀l Clist.
+  EVERY ($= w8z) Clist ⇒
+  EVERY ($= w8z) (fold_resize_Clist l Clist)
+Proof
+  simp[fold_resize_Clist_def]>>
+  Induct>>
+  rw[]>>
+  first_x_assum (irule_at Any)>>
+  rw[resize_Clist_def]
+QED
+
 Theorem fml_rel_check_scpstep_list:
   fml_rel fml fmlls ∧
   EVERY ($= w8z) Clist ∧
@@ -500,7 +512,7 @@ Proof
     metis_tac[fml_rel_arb_delete_list])
   >- (
     TOP_CASE_TAC>>gvs[AllCaseEqs()]>>
-    metis_tac[fml_rel_insert_list_list])
+    metis_tac[fml_rel_insert_list_list,zero_resize_Clist])
   >- (
     TOP_CASE_TAC>>gvs[AllCaseEqs()]>>
     qmatch_asmsub_abbrev_tac`is_rup_list A B C D E`>>
@@ -509,10 +521,86 @@ Proof
     impl_tac >-
       rw[resize_Clist_def]>>
     rw[]>>
-    metis_tac[fml_rel_insert_list_list])
+    metis_tac[fml_rel_insert_list_list,zero_resize_Clist])
   >- (
     TOP_CASE_TAC>>gvs[AllCaseEqs()]>>
+    rw[resize_Clist_def]>>
     metis_tac[fml_rel_insert_list_list,fml_rel_insert_one_list])
+QED
+
+Theorem wf_fml_insert_one:
+  wf_fml fml ∧
+  insert_one b fml n C = SOME fml' ∧
+  wf_clause C ⇒
+  wf_fml fml'
+Proof
+  rw[wf_fml_def,insert_one_def]>>
+  gvs[AllCaseEqs()]>>
+  drule range_insert_2>>
+  rw[]>>
+  metis_tac[]
+QED
+
+Theorem wf_fml_insert_list:
+  ∀cs n fml fml'.
+  wf_fml fml ∧
+  insert_list b fml n cs = SOME fml' ∧
+  EVERY wf_clause cs ⇒
+  wf_fml fml'
+Proof
+  Induct>>rw[insert_list_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  metis_tac[wf_fml_insert_one]
+QED
+
+Theorem wf_fml_delete:
+  wf_fml fml ⇒
+  wf_fml (delete h fml)
+Proof
+  rw[wf_fml_def]>>
+  metis_tac[range_delete,SUBSET_DEF]
+QED
+
+Theorem wf_fml_arb_delete:
+  ∀l fml fml'.
+  wf_fml fml ∧
+  arb_delete nc l fml = SOME fml' ⇒
+  wf_fml fml'
+Proof
+  Induct>>rw[arb_delete_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum irule>>
+  pop_assum (irule_at Any)>>
+  metis_tac[wf_fml_delete]
+QED
+
+Theorem check_scpstep_wf_fml:
+  wf_fml fml ∧
+  check_scpstep pc fml sc h = SOME (fml', sc') ⇒
+  wf_fml fml'
+Proof
+  rw[check_scpstep_def]>>
+  gvs[AllCaseEqs()]
+  >- (
+    irule wf_fml_insert_one>>
+    first_x_assum (irule_at Any)>>
+    fs[wf_clause_def,EVERY_MEM]>>
+    metis_tac[])
+  >- metis_tac[wf_fml_arb_delete]
+  >- (
+    irule wf_fml_insert_list>>
+    first_x_assum (irule_at Any)>>
+    gvs[declare_pro_def,mk_pro_def,check_pro_def,mk_sko_def,EVERY_MEM,MEM_MAP,wf_clause_def,PULL_EXISTS])
+  >- (
+    irule wf_fml_insert_list>>
+    first_x_assum (irule_at Any)>>
+    gvs[declare_sum_def,mk_sum_def,check_sum_def,wf_clause_def])
+  >- (
+    irule wf_fml_insert_one>>
+    first_x_assum (irule_at Any)>>
+    gvs[declare_sko_def,check_sko_def,wf_clause_def])
 QED
 
 Theorem fml_rel_check_scpsteps_list:
@@ -536,8 +624,7 @@ Proof
   first_x_assum (irule_at Any)>>
   first_x_assum (irule_at Any)>>
   first_x_assum (irule_at Any)>>
-  (* wf presetvation using check_scpstep *)
-  cheat
+  metis_tac[check_scpstep_wf_fml]
 QED
 
 Definition is_forward_clause_def:
@@ -848,8 +935,36 @@ Definition check_scp_final_list_def:
     check_final_list pc sc' fmlls'
 End
 
+Theorem range_build_fml:
+  ∀ls id.
+  range (build_fml id ls) = IMAGE (\C. (C,F)) (set ls)
+Proof
+  Induct>>
+  rw[build_fml_def,range_def,lookup_insert,EXTENSION]>>
+  eq_tac>>rw[]
+  >- (
+    gvs[AllCaseEqs(),lookup_build_fml,MEM_EL]>>
+    DISJ2_TAC>>simp[]>>
+    qexists_tac`n - (id + 1)`>>simp[])
+  >-
+    metis_tac[]>>
+  gvs[MEM_EL]>>
+  simp[lookup_build_fml]>>
+  qexists_tac`n + (id+1)` >> simp[]
+QED
+
+Theorem wf_fml_build_fml:
+  EVERY wf_clause ls ⇒
+  wf_fml (build_fml id ls)
+Proof
+  simp[wf_fml_def]>>
+  rw[range_build_fml]>>
+  metis_tac[EVERY_MEM]
+QED
+
 Theorem check_scp_final_list_sound:
   good_pc pc ∧ pc.nc = LENGTH fml ∧
+  EVERY wf_clause fml ∧
   EVERY (λC. vars_clause C ⊆ count (pc.nv + 1)) fml ∧
   check_scp_final_list ls pc
     (FOLDL (λacc (i,v).
@@ -873,8 +988,7 @@ Proof
   drule fml_rel_check_scpsteps_list>>
   rpt (disch_then (drule_at Any))>>
   impl_tac >-
-    (* wf build*)
-    cheat>>
+    metis_tac[wf_fml_build_fml]>>
   rw[]>>
   drule fml_rel_check_final_list>>
   strip_tac>>gvs[]>>
