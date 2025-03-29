@@ -227,27 +227,32 @@ val b_inputAllTokensFrom_spec_specialize =
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
   |> REWRITE_RULE [blanks_v_thm,tokenize_v_thm,blanks_def] ;
 
+Definition get_scpog_def:
+  get_scpog fs f =
+  if inFS_fname fs f then
+    parse_scpsteps (all_lines fs f)
+  else NONE
+End
+
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 f2 err =
   if inFS_fname fs f1 then
-  (case parse_ext_dimacs_toks (MAP toks (all_lines fs f1)) of
-    NONE => add_stderr fs err
-  | SOME (mv,ncl,vars,fml) =>
-    if inFS_fname fs f2 then
-      case parse_scpsteps (all_lines fs f2) of
-        SOME scpsteps =>
-        let pc = mk_pc mv ncl vars in
-        let fmlls = enumerate 1 fml in
-        let base = REPLICATE (2*ncl) NONE in
-        let cupd = FOLDL (λacc (i,v).
-            update_resize acc NONE (SOME (v,F)) i) base fmlls in
-        let bnd = 2*mv+3 in
-          (case check_scp_final_list scpsteps pc cupd init_sc (REPLICATE bnd w8z) of
-            NONE => add_stderr fs err
-          | SOME res =>
-            add_stdout fs (print_result res))
-      | NONE => add_stderr fs err
-    else add_stderr fs err)
+    case get_prob fs f1 of
+      NONE => add_stderr fs err
+    | SOME (mv,ncl,vars,fml) =>
+      (case get_scpog fs f2 of
+        NONE => add_stderr fs err
+      | SOME scpsteps =>
+      let pc = mk_pc mv ncl vars in
+      let fmlls = enumerate 1 fml in
+      let base = REPLICATE (2*ncl) NONE in
+      let cupd = FOLDL (λacc (i,v).
+          update_resize acc NONE (SOME (v,F)) i) base fmlls in
+      let bnd = 2*mv+3 in
+        case check_scp_final_list scpsteps pc cupd init_sc (REPLICATE bnd w8z) of
+          NONE => add_stderr fs err
+        | SOME res =>
+          add_stdout fs (print_result res))
   else add_stderr fs err
 End
 
@@ -256,6 +261,71 @@ val err_tac = xapp_spec output_stderr_spec \\ xsimpl>>
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>qexists_tac`err`>>xsimpl;
+
+Theorem parse_ext_dimacs_body_props:
+  ∀ss vs acc vs' fml.
+  parse_ext_dimacs_body mv ss vs acc = SOME (vs',fml) ∧
+  EVERY (λC. wf_clause C ∧ vars_clause C ⊆ count (mv + 1)) acc ⇒
+  EVERY (λC. wf_clause C ∧ vars_clause C ⊆ count (mv + 1)) fml
+Proof
+  Induct>>rw[]>>
+  gvs[EVERY_REVERSE,AllCaseEqs(),parse_ext_dimacs_body_def]>>
+  first_x_assum irule>>
+  last_x_assum (irule_at Any)>>
+  gvs[parse_one_def,AllCaseEqs()]>>
+  drule lpr_parsingTheory.parse_clause_bound>>
+  drule lpr_parsingTheory.parse_clause_wf_clause>>
+  rw[SUBSET_DEF,vars_clause_def,EVERY_MEM]>>
+  gvs[lprTheory.wf_clause_def,wf_clause_def]>>
+  first_x_assum drule>>
+  simp[var_lit_def]
+QED
+
+Theorem parse_ext_dimacs_toks_props:
+  parse_ext_dimacs_toks ls = SOME (mv,ncl,vs,fml) ⇒
+  (∀D. vs = SOME D ⇒ domain D ⊆ count (mv + 1)) ∧
+  LENGTH fml = ncl ∧
+  EVERY wf_clause fml ∧
+  EVERY (λC. vars_clause C ⊆ count (mv + 1)) fml
+Proof
+  rw[parse_ext_dimacs_toks_def]>>
+  gvs[AllCaseEqs()]
+  >- (
+    gvs[opt_bound_vs_def,EVERY_MEM,FORALL_PROD,MEM_toAList,SUBSET_DEF,domain_lookup]>>
+    rw[]>>first_x_assum drule>>
+    simp[])>>
+  drule parse_ext_dimacs_body_props>>
+  simp[EVERY_MEM]
+QED
+
+Theorem bounded_fml_FOLDL_enumerate:
+  EVERY wf_clause ls ∧
+  EVERY (λC. vars_clause C ⊆ count (mv + 1)) ls ∧
+  v > 2 * mv ⇒
+  bounded_fml v
+    (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,F)) i)
+     (REPLICATE n NONE) (enumerate k ls))
+Proof
+  rw[bounded_fml_def]>>
+  simp[Once EVERY_EL]>>rw[]>>
+  `ALL_DISTINCT (MAP FST (enumerate k ls))` by
+    metis_tac[ALL_DISTINCT_MAP_FST_enumerate]>>
+  TOP_CASE_TAC>>simp[]>>
+  drule FOLDL_update_resize_lookup>>
+  disch_then drule>>
+  disch_then (SUBST_ALL_TAC)>>
+  TOP_CASE_TAC>>gvs[]>>
+  drule ALOOKUP_MEM>>
+  strip_tac>> drule MEM_enumerate_IMP>>
+  fs[EVERY_MEM]>>
+  strip_tac>>
+  first_x_assum drule>>
+  simp[vars_clause_def,SUBSET_DEF,PULL_EXISTS]>>rw[]>>
+  gvs[wf_clause_def,var_lit_def]>>
+  rpt (first_x_assum drule)>>
+  rw[index_def]>>
+  intLib.ARITH_TAC
+QED
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -300,15 +370,12 @@ Proof
     STDIO fs *
     SEP_EXISTS err.
       &(SUM_TYPE STRING_TYPE res_TYPE)
-      (if inFS_fname fs f2 then
-        (case parse_scpsteps (all_lines fs f2) of
-         SOME scpsteps =>
-           (case check_scp_final_list scpsteps a b c d of
-             NONE => INL err
-           | SOME res => INR res)
-        | NONE => INL err)
-      else
-        INL err
+      (case get_scpog fs f2 of
+        NONE => INL err
+      | SOME scpsteps =>
+         (case check_scp_final_list scpsteps a b c d of
+           NONE => INL err
+         | SOME res => INR res)
       ) v)`
   >- (
     xapp_spec (GEN_ALL check_unsat'_spec)>>
@@ -326,20 +393,17 @@ Proof
     rw[]
     >-
       gvs[Abbr`c`,fetch "-""init_sc_v_thm"]
-    >- cheat
-      (*
-      drule parse_cnf_xor_toks_bound>>
-      fs[Abbr`a`]>>
-      strip_tac>>
-      drule bounded_cfml_FOLDL_enumerate>>
-      disch_then match_mp_tac>>
-      simp[] *)
-    >- metis_tac[]
-    >- metis_tac[])>>
-  reverse TOP_CASE_TAC>>simp[]
+    >- (
+      gvs[Abbr`b`]>>
+      irule  bounded_fml_FOLDL_enumerate>>
+      drule_all parse_ext_dimacs_toks_props>>
+      rw[]>>
+      first_x_assum (irule_at Any)>>
+      simp[])
+    >- (gvs[get_scpog_def]>> metis_tac[])
+    >- (gvs[get_scpog_def]>> metis_tac[]))>>
+  TOP_CASE_TAC>>simp[]
   >- (fs[SUM_TYPE_def]>>xmatch>>err_tac)>>
-  TOP_CASE_TAC>>fs[SUM_TYPE_def]
-  >- (xmatch>>err_tac)>>
   gvs[check_scp_final_list_def]>>
   Cases_on`check_scpsteps_list x a b c d`>>fs[SUM_TYPE_def]
   >- (
