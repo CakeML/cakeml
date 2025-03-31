@@ -188,6 +188,11 @@ Definition do_bop_def:
    | (IntV vl, IntV vr) => SOME (IntV (vl * vr))
    | _ => NONE)
   ∧
+  do_bop (EuclidianDiv) el er =
+  (case (el, er) of
+   | (IntV vl, IntV vr) => SOME (IntV (ediv vl vr))
+   | _ => NONE)
+   ∧
   do_bop _ _ _ = NONE
 End
 
