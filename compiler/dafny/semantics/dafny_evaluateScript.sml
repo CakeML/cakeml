@@ -286,6 +286,51 @@ Definition index_into_array_def:
    | _ => NONE)
 End
 
+Definition update_list_def:
+  update_list xs n e = if n ≥ LENGTH xs then NONE else SOME (LUPDATE e n xs)
+End
+
+Definition update_array_heap_def:
+  update_array_heap st loc new_arr =
+  (case update_list st.heap loc (HArray new_arr) of
+   | SOME new_heap => INR (st with heap := new_heap)
+   | NONE => INL Rtype_error)
+End
+
+Definition access_update_array_def:
+  access_update_array st loc idx v =
+  (case LLOOKUP st.heap loc of
+   | SOME (HArray arr) =>
+       (case update_list arr idx v of
+        | SOME new_arr => update_array_heap st loc new_arr
+        | NONE => INL Rtype_error)
+   | _ => INL Rtype_error)
+End
+
+Definition assign_to_array_def:
+  assign_to_array st arr idxs v =
+  (case arr of
+   | ArrayV dims loc =>
+       if LENGTH idxs ≠ LENGTH dims then INL Rtype_error else
+         (case idxs of
+          | [] => INL Rtype_error
+          | [idx] =>
+              (case val_to_num idx of
+                 SOME idx_num => access_update_array st loc idx_num v
+               | NONE => INL Rtype_error)
+          | _ => INL Runsupported)
+   | _ => INL Rtype_error)
+End
+
+Theorem assign_to_array_clock:
+  ∀s₁ arr idxs v s₂.
+    assign_to_array s₁ arr idxs v = INR s₂ ⇒ s₂.clock = s₁.clock
+Proof
+  rpt strip_tac
+  >> gvs [assign_to_array_def, AllCaseEqs (), access_update_array_def,
+          update_array_heap_def]
+QED
+
 (* Annotated with fix_clock *)
 Definition evaluate_stmts_ann_def[nocompute]:
   evaluate_exp (st: state) (env: sem_env) (Literal l) : (state # value dafny_result) =
@@ -401,14 +446,27 @@ Definition evaluate_stmts_ann_def[nocompute]:
               | NONE => (st, Rerr Rtype_error)
               | SOME st' => evaluate_stmts st' env in_stmts)))
   ∧
-  evaluate_stmt st env (Assign (AssignLhs_Ident varNam) e) =
-  (let varNam = dest_varName varNam in
-     (case evaluate_exp st env e of
-      | (st', Rval v) =>
-          (case assign_to_local st' varNam v of
-           | NONE => (st', Rerr Rtype_error)
-           | SOME st'' => (st'', Rval UnitV))
-      | r => r))
+  evaluate_stmt st env (Assign lhs rhs) =
+  (case fix_clock st (evaluate_exp st env rhs) of
+   | (st', Rval rhs) =>
+       (case lhs of
+        | AssignLhs_Ident id =>
+            (let id = dest_varName id in
+               (case assign_to_local st' id rhs of
+                | NONE => (st', Rerr Rtype_error)
+                | SOME st'' => (st'', Rval UnitV)))
+        | AssignLhs_Index to_e idxs =>
+            (case fix_clock st' (evaluate_exp st' env to_e) of
+             | (st'', Rval to_v) =>
+                 (case evaluate_exps st'' env idxs of
+                  | (st₃, Rval idxs) =>
+                      (case assign_to_array st₃ to_v idxs rhs of
+                       | INR st₄ => (st₄, Rval UnitV)
+                       | INL err => (st₃, Rerr err))
+                  | (st₃, Rerr err) => (st₃, Rerr err))
+             | r => r)
+        | _ => (st', Rerr Runsupported))
+   | r => r)
   ∧
   evaluate_stmt st env (If cnd thn els) =
   (case fix_clock st (evaluate_exp st env cnd) of
@@ -478,7 +536,7 @@ Proof
   >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def]
   >> EVERY (map imp_res_tac [add_local_clock, assign_to_local_clock,
                              push_param_frame_clock, alloc_array_clock,
-                             fix_clock_IMP]) >> gvs[]
+                             assign_to_array_clock, fix_clock_IMP]) >> gvs[]
 QED
 
 Theorem fix_clock_evaluate_stmts:
