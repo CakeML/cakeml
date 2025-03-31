@@ -1298,21 +1298,21 @@ Definition unpack_def:
 End
 
 (* Testing *)
-(* open dafny_sexpTheory *)
-(* open sexp_to_dafnyTheory *)
-(* open fromSexpTheory simpleSexpParseTheory *)
-(* open TextIO *)
-(* (* val _ = astPP.disable_astPP(); *) *)
-(* val _ = astPP.enable_astPP(); *)
+open dafny_sexpTheory
+open sexp_to_dafnyTheory
+open fromSexpTheory simpleSexpParseTheory
+open TextIO
+(* val _ = astPP.disable_astPP(); *)
+val _ = astPP.enable_astPP();
 
-(* val inStream = TextIO.openIn "./tests/output/multiple_out_values.dfy.sexp" *)
-(* val fileContent = TextIO.inputAll inStream; *)
-(* val _ = TextIO.closeIn inStream; *)
-(* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)
+val inStream = TextIO.openIn "./tests/output/multiple_out_values.dfy.sexp"
+val fileContent = TextIO.inputAll inStream;
+val _ = TextIO.closeIn inStream;
+val fileContent_tm = stringSyntax.fromMLstring fileContent;
 
-(* val lex_r = EVAL “(lex ^fileContent_tm)” |> concl |> rhs |> rand; *)
-(* val parse_r = EVAL “(parse ^lex_r)” |> concl |> rhs |> rand; *)
-(* val dafny_r = EVAL “(sexp_program ^parse_r)” |> concl |> rhs |> rand; *)
+val lex_r = EVAL “(lex ^fileContent_tm)” |> concl |> rhs |> rand;
+val parse_r = EVAL “(parse ^lex_r)” |> concl |> rhs |> rand;
+val dafny_r = EVAL “(sexp_program ^parse_r)” |> concl |> rhs |> rand;
 
 (* val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand; *)
 

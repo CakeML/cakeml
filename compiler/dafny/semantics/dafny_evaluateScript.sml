@@ -235,7 +235,7 @@ Definition name_sig_call_def:
 End
 
 Definition resolve_call_def:
-  resolve_call (env: sem_env) (exp_call: bool) (call_on: expression) (call_name: callName) call_typeArgs =
+  resolve_call (env: sem_env) (is_exp_call: bool) (call_on: expression) (call_name: callName) call_typeArgs call_outs =
   (case (name_sig_call call_on call_name) of
    | NONE => INL Runsupported
    | SOME (call_mod_name, call_met_name, call_params, call_inheritedParams) =>
@@ -252,8 +252,10 @@ Definition resolve_call_def:
             else if ¬met_hasBody ∨ met_nam ≠ call_met_name
                     ∨ met_params ≠ call_params
                     ∨ met_inheritedParams ≠ call_inheritedParams
-                    ∨ (exp_call ∧
-                       (LENGTH met_outTypes ≠ 1 ∨ met_outVars ≠ NONE)) then
+                    (* TODO Maybe we should only check that they are both NONE,
+                         or contain lists of the same size? *)
+                    ∨ met_outVars ≠ call_outs
+                    ∨ (is_exp_call ∧ (LENGTH met_outTypes ≠ 1)) then
               INL Rtype_error
             else
               (* NOTE I believe that inheritedParams are mainly used in the Rust *)
@@ -405,19 +407,22 @@ Definition evaluate_stmts_ann_def[nocompute]:
    | _ => (st, Rerr Runsupported))
   ∧
   evaluate_exp st env (Expression_Call call_on call_name call_typeArgs call_args) =
-  (case (resolve_call env T call_on call_name call_typeArgs) of
-   | INL err => (st, Rerr err)
-   | INR (param_names, met_body) =>
-       (case fix_clock st (evaluate_exps st env call_args) of
-        | (st', Rval vals) =>
-            (case (push_param_frame st' param_names vals) of
-             | NONE => (st', Rerr Rtype_error)
-             | SOME st'' =>
-                 if st''.clock = 0
-                 then (st'', Rerr Rtimeout_error)
-                 else (evaluate_stmts (dec_clock st'') env met_body))
-        (* We mention this case explicitly to avoid type errors *)
-        | (st', Rerr err) => (st', Rerr err)))
+  (let is_exp_call = T; call_outs = NONE in
+     (case (resolve_call env is_exp_call call_on call_name call_typeArgs call_outs) of
+      | INL err => (st, Rerr err)
+      | INR (param_names, met_body) =>
+          (case fix_clock st (evaluate_exps st env call_args) of
+           | (st', Rval vals) =>
+               (case (push_param_frame st' param_names vals) of
+                | NONE => (st', Rerr Rtype_error)
+                | SOME st'' =>
+                    if st''.clock = 0
+                    then (st'', Rerr Rtimeout_error)
+                    else
+                      (evaluate_stmts (dec_clock st'')
+                                      (set_out_vars env call_outs) met_body))
+           (* We mention this case explicitly to avoid type errors *)
+           | (st', Rerr err) => (st', Rerr err))))
   ∧
   evaluate_exp st env _ = (st, Rerr Runsupported)
   ∧
@@ -496,6 +501,36 @@ Definition evaluate_stmts_ann_def[nocompute]:
        else
          (st', Rerr Rtype_error)
    | r => r)
+  ∧
+  evaluate_stmt st env (Call call_on call_name call_typeArgs call_args call_outs) =
+  (let is_exp_call = F in
+     (case (resolve_call env is_exp_call call_on call_name call_typeArgs call_outs) of
+      | INL err => (st, Rerr err)
+      | INR (param_names, met_body) =>
+          (case fix_clock st (evaluate_exps st env call_args) of
+           | (st', Rval vals) =>
+               (case (push_param_frame st' param_names vals) of
+                | NONE => (st', Rerr Rtype_error)
+                | SOME st'' =>
+                    if st''.clock = 0
+                    then (st'', Rerr Rtimeout_error)
+                    else (evaluate_stmts (dec_clock st'')
+                                         (set_out_vars env call_outs) met_body))
+           (* We mention this case explicitly to avoid type errors *)
+           | (st', Rerr err) => (st', Rerr err))))
+  ∧
+  evaluate_stmt st env (Return e) =
+  (if env.outVars ≠ NONE
+   then (st, Rerr Rtype_error)
+   else
+     (case evaluate_exp st env e of
+      | (st', Rval v) => (st', Rret v)
+      | r => r))
+  ∧
+  evaluate_stmt st env EarlyReturn =
+  (case env.outVars of
+   | NONE => (st, Rerr Rtype_error)
+   | SOME outs => )
   ∧
   evaluate_stmt (st: state) (env: sem_env) _ =
   (st, Rerr Runsupported)

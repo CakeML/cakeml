@@ -11,8 +11,17 @@ val _ = new_theory "dafny_semanticPrimitives"
 
 Datatype:
   sem_env =
-  (* For now, we are assuming (module, method) is enough as a key *)
-  <| methods: ((name # name), method) alist |>
+  <|
+    (* For now, we are assuming (module, method) is enough as a key *)
+    methods: ((name # name), method) alist;
+    (* EarlyReturn writes to out variables - need to keep track of them *)
+    outVars: (varName list) option
+  |>
+End
+
+Definition set_out_vars_def:
+  set_out_vars (env: sem_env) (outs: (varName list) option) =
+  env with outVars := outs
 End
 
 Datatype:
