@@ -1699,41 +1699,38 @@ Triviality pre_alloc_conventions_copy_prop_aux:
   pre_alloc_conventions (FST (copy_prop_prog p cs))
 Proof
   ho_match_mp_tac copy_prop_prog_ind
-  >> rw[copy_prop_prog_def,pre_alloc_conventions_def]
+  >> rpt conj_tac >> rpt (gen_tac ORELSE disch_tac)
+  >> fs[copy_prop_prog_def,pre_alloc_conventions_def,COND_RAND]
   >> rpt(pairarg_tac>>fs[])
   >> fs[wordLangTheory.every_stack_var_def,call_arg_convention_def]
+  >~[`copy_prop_inst`]
   >-(
+    rpt $ pop_assum mp_tac >>
     qid_spec_tac‘cs’>>qid_spec_tac‘i’
-    >>ho_match_mp_tac copy_prop_inst_ind
-    >>rw[wordLangTheory.every_stack_var_def,copy_prop_inst_def]
-  )
-  >-(
-    rpt(pop_assum mp_tac)
-    >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
-    >>ho_match_mp_tac copy_prop_inst_ind
-    >>rw[call_arg_convention_def,inst_arg_convention_def,copy_prop_inst_def]
-    >>rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
+    >> ho_match_mp_tac copy_prop_inst_ind
+    >> rpt conj_tac >> rpt (gen_tac ORELSE disch_tac) 
+    >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
+       inst_arg_convention_def, call_arg_convention_def]
+    >- fs[reg_allocTheory.is_alloc_var_def,lookup_eq_def]
+    >> rpt(pairarg_tac>>fs[]) >> rw[]
+    >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
+       inst_arg_convention_def, call_arg_convention_def]
   )
   >- (qpat_abbrev_tac `ysl = LENGTH _` >> gvs[] >>
   fs[MAP_GENLIST,GENLIST_FUN_EQ] >>
   rw[] >>
   fs[lookup_eq_def,reg_allocTheory.is_alloc_var_def] >>
-  first_assum (qspec_then `(2 * x)` assume_tac) >>
-  `(2 * x) MOD 4 ≠ 1` by intLib.ARITH_TAC >>
-  gvs[])
+  first_assum (qspec_then `(2 * (x + 1))` mp_tac) >>
+  impl_tac >-intLib.ARITH_TAC >> gvs[])
   >- rw[lookup_eq_def,reg_allocTheory.is_alloc_var_def,copy_prop_prog_not_alloc_var]
   >-(
     ‘cs' = SND (copy_prop_prog p cs)’ by rw[]
     >>rw[]
     >>metis_tac[copy_prop_prog_not_alloc_var]
   )
-  >-(
-    ‘cs' = SND (copy_prop_prog p cs)’ by rw[]
-    >>rw[]
-    >>metis_tac[copy_prop_prog_not_alloc_var]
-  )
-  >-(TOP_CASE_TAC>>rw[wordLangTheory.every_stack_var_def])
-  >-(TOP_CASE_TAC>>rw[call_arg_convention_def])
+  >-(TOP_CASE_TAC>>
+    rw[wordLangTheory.every_stack_var_def,
+    call_arg_convention_def])
 QED
 
 Theorem pre_alloc_conventions_copy_prop:

@@ -947,9 +947,9 @@ QED
 Theorem word_shift_or_1:
   (n ≪ 1) ‖ 1w = (n ≪ 1) + 1w
 Proof
-  `?x. n = v2w x`
+  `?x. n = bitstring$v2w x`
     by METIS_TAC[ bitstringTheory.v2w_w2v]
-  >> `1w = v2w [T]`
+  >> `1w = bitstring$v2w [T]`
    by fs[GSYM bitstringTheory.n2w_v2n,bitstringTheory.v2n]
   >> fs[bitstringTheory.word_lsl_v2w,bitstringTheory.word_or_v2w]
   >> fs[bitstringTheory.shiftl_def,listTheory.PAD_RIGHT]
