@@ -372,9 +372,11 @@ val shmem_ex = ‘
   fun test_shmem() {
     var v = 12;
     !st8 1000, v; // store byte from variable v (12) to shared memory address 1000
+    !st16 1000, v; // store 32 bits from variable v (12) to shared memory address 1000
     !st32 1000, v; // store 32 bits from variable v (12) to shared memory address 1000
     !stw 1004, 1+1; // store 1+1 (aka 2) to shared memory address 1004
     !ld8 v, 1000 + 12; // load byte stored in shared memory address 1012 to v
+    !ld16 v, 1000 + 12; // load 32 bits from shared memory address 1012 to v
     !ld32 v, 1000 + 12; // load 32 bits from shared memory address 1012 to v
     !ldw v, 1000 + 12 * 2; // load word stored in shared memory address 1024 to v
   }’;

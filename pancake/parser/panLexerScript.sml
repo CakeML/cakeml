@@ -16,9 +16,9 @@ Libs
 
 
 Datatype:
-  keyword = SkipK | StK | StwK | St8K | St32K | IfK | ElseK | WhileK
+  keyword = SkipK | StK | StwK | St8K | St16K | St32K | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK | BiwK
-  | LdsK | Ld8K | LdwK | Ld32K | BaseK | TopK | InK | FunK | ExportK | TrueK | FalseK
+  | LdsK | Ld8K | LdwK | Ld16K | Ld32K | BaseK | TopK | InK | FunK | ExportK | TrueK | FalseK
 End
 
 Datatype:
@@ -115,6 +115,7 @@ Definition get_keyword_def:
   if s = "st" then (KeywordT StK) else
   if s = "stw" then (KeywordT StwK) else
   if s = "st8" then (KeywordT St8K) else
+  if s = "st16" then (KeywordT St16K) else
   if s = "st32" then (KeywordT St32K) else
   if s = "if" then (KeywordT IfK) else
   if s = "else" then (KeywordT ElseK) else
@@ -131,6 +132,7 @@ Definition get_keyword_def:
   if s = "lds" then (KeywordT LdsK) else
   if s = "ldw" then (KeywordT LdwK) else
   if s = "ld8" then (KeywordT Ld8K) else
+  if s = "ld16" then (KeywordT Ld16K) else
   if s = "ld32" then (KeywordT Ld32K) else
   if s = "@base" then (KeywordT BaseK) else
   if s = "@top" then (KeywordT BaseK) else
