@@ -158,6 +158,10 @@ Definition arm7_enc_def:
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Load (LoadWord (add, T, F, n2w r1, n2w r2,
                            immediate_form1 imm12)))) /\
+   (arm7_enc (Inst (Mem Load16 r1 (Addr r2 a))) =
+      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      enc (Load (LoadHalf (T, add, T, F, n2w r1, n2w r2,
+                           immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Load (LoadByte (T, add, T, F, n2w r1, n2w r2,
@@ -169,6 +173,10 @@ Definition arm7_enc_def:
    (arm7_enc (Inst (Mem Store32 r1 (Addr r2 a))) =
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Store (StoreWord (add, T, F, n2w r1, n2w r2,
+                             immediate_form1 imm12)))) /\
+   (arm7_enc (Inst (Mem Store16 r1 (Addr r2 a))) =
+      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      enc (Store (StoreHalf (add, T, F, n2w r1, n2w r2,
                              immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
