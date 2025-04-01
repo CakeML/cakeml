@@ -193,8 +193,8 @@ Definition cake_print_def:
     [Dlet unknown_loc Pany (App Opapp [Var (Short "print"); e])]
 End
 
-Definition codegen_def:
-  codegen p = INR [
+Definition scheme_basis_def:
+  scheme_basis = [
     Dtype unknown_loc [
       ([], "sprim", [
         ("SAdd", []);
@@ -344,7 +344,12 @@ Definition codegen_def:
           App Opapp [Var (Short "throw"); Var (Short "k'")]);
         (Pany, Fun "_" $ Con (SOME $ Short "Ex") [Lit $ StrLit"Not a procedure"])
       ])
-    ];
+    ]
+  ]
+End
+
+Definition codegen_def:
+  codegen p = INR $ scheme_basis ++ [
     Dlet unknown_loc (Pvar "res") $ exp_with_cont [] p;
     Dlet unknown_loc Pany $ Mat (Var (Short "res")) [
       (Pcon (SOME $ Short "SNum") [Pvar "n"],

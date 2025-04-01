@@ -8,8 +8,10 @@ open scheme_to_cakeTheory;
 open astTheory;
 
 open evaluateTheory;
+open evaluatePropsTheory;
 open semanticPrimitivesTheory;
 open namespaceTheory;
+open primTypesTheory;
 
 val _ = new_theory "scheme_proofs";
 
@@ -229,21 +231,103 @@ Inductive cont_rel:
     ])
 End
 
+(*
+EVAL “case (SND $ evaluate_decs <|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|>
+<|v:=nsEmpty;c:=nsEmpty|> $ prim_types_program
+++ (scheme_basis)) of
+  | Rval env => evaluate <|clock:=999|> env $ [exp_with_cont [] (Lit $ LitBool T)]
+  | _ => (st, v)”
+*)
+
+Definition scheme_env_def:
+  scheme_env env
+  ⇔
+  (*not sure what to do with the state type variable,
+  it doesn't work without a concrete type*)
+  ∀ (st:num state) .
+  evaluate st env [Con (SOME (Short "SBool")) [
+    Con (SOME (Short "False")) []]]
+  = (st, Rval [Conv (SOME (TypeStamp "SBool" 3)) [
+    Conv (SOME (TypeStamp "False" 0)) []]]) ∧
+  evaluate st env [Con (SOME (Short "SBool")) [
+    Con (SOME (Short "True")) []]]
+  = (st, Rval [Conv (SOME (TypeStamp "SBool" 3)) [
+    Conv (SOME (TypeStamp "True" 0)) []]])
+End
+
+Theorem basis_scheme_env:
+  ∃ st st' env .
+    evaluate_decs st <|v:=nsEmpty;c:=nsEmpty|>
+      (prim_types_program ++ scheme_basis) = (st', Rval env) ∧
+    scheme_env env
+Proof
+  qexists ‘<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|>’
+  >> simp[evaluate_decs_def, prim_types_program_def, scheme_basis_def,
+  check_dup_ctors_def, build_tdefs_def, do_con_check_def,
+  nsAppend_def, build_constrs_def, alist_to_ns_def,
+  nsLookup_def, build_rec_env_def, extend_dec_env_def,
+  nsSing_def, nsEmpty_def, nsBind_def, pat_bindings_def,
+  evaluate_def, pmatch_def, combine_dec_result_def,
+  every_exp_def, one_con_check_def, cons_list_def,
+  scheme_env_def, build_conv_def]
+QED
+
 Theorem myproof:
   ∀ store store' env env' e e' k k' (st : 'ffi state) mlenv var kv mle .
   step  (store, k, env, e) = (store', k', env', e') ∧
   st.clock > 0 ∧
   cont_rel k kv ∧
-  nsLookup mlenv.v (Short var) = SOME kv
+  nsLookup mlenv.v (Short var) = SOME kv ∧
+  scheme_env mlenv
   ⇒
   ∃ st' mlenv' var' kv' mle'.
+    nsLookup mlenv'.v (Short var') = SOME kv'
+    ⇒
     evaluate st mlenv [e_or_v_to_exp e var]
     =
     evaluate st' mlenv' [e_or_v_to_exp e' var'] ∧
-    cont_rel k' kv' ∧
-    nsLookup mlenv'.v (Short var') = SOME kv'
+    cont_rel k' kv'
 Proof
-  cheat
+  Cases_on ‘e’
+  >~ [‘Val v’] >- (
+    Cases_on ‘k’
+    >- (simp[step_def, return_def] >> metis_tac[])
+    >> cheat
+  )
+  >~ [‘Exp e’] >- (
+    Cases_on ‘e’
+    >> simp[step_def, e_or_v_to_exp_def]
+    >~ [‘Cond c te fe’] >- (
+      rpt strip_tac
+      >> simp[cps_transform_def]
+      >> rpt (pairarg_tac >> gvs[])
+      >> qexistsl [
+        ‘dec_clock st’,
+        ‘mlenv with v := nsBind (STRING #"k" (toString n')) kv mlenv.v’,
+        ‘var'’,
+        ‘Closure
+           (mlenv with
+            v := nsBind (STRING #"k" (toString n')) kv mlenv.v)
+           (STRING #"t" (toString l'))
+           (Mat (Var (Short (STRING #"t" (toString l'))))
+              [(Pcon (SOME (Short "SBool"))
+                  [Pcon (SOME (Short "False")) []],
+                App Opapp
+                  [cf; Var (Short (STRING #"k" (toString n')))]);
+               (Pany,
+                App Opapp
+                    [ct; Var (Short (STRING #"k" (toString n')))])])’]
+      >> rpt strip_tac >- simp[evaluate_def, do_opapp_def]
+      >> qspecl_then [‘cf’, ‘ct’,
+        ‘mlenv with v := nsBind (STRING #"k" (toString n')) kv mlenv.v’,
+        ‘fe’,‘k’,‘kv’,‘m'’,‘l'’,‘n'+1’,‘m'’,‘env’,
+        ‘STRING #"t" (toString l')’,‘te’,‘STRING #"k" (toString n')’
+      ] assume_tac cont_rel_CondK
+      >> simp[]
+    )
+    >> cheat
+  )
+  >> cheat
 QED
 
 (*Theorem val_correct:
