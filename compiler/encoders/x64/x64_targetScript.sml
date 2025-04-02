@@ -110,12 +110,16 @@ Definition x64_ast_def:
       [Zmov (Z_ALWAYS, Z64, ld r1 r2 a)]) /\
    (x64_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z32, ld r1 r2 a)]) /\
+   (x64_ast (Inst (Mem Load16 r1 (Addr r2 a))) =
+      [Zmov (Z_ALWAYS, Z16, ld r1 r2 a)]) /\
    (x64_ast (Inst (Mem Load8 r1 (Addr r2 a))) =
       [Zmovzx (Z8 T, ld r1 r2 a, Z64)]) /\
    (x64_ast (Inst (Mem Store r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z64, st r1 r2 a)]) /\
    (x64_ast (Inst (Mem Store32 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z32, st r1 r2 a)]) /\
+   (x64_ast (Inst (Mem Store16 r1 (Addr r2 a))) =
+      [Zmov (Z_ALWAYS, Z16, st r1 r2 a)]) /\
    (x64_ast (Inst (Mem Store8 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a)]) /\
 (**)
