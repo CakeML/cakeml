@@ -281,17 +281,22 @@ Theorem myproof:
   scheme_env mlenv
   ⇒
   ∃ st' mlenv' var' kv' mle'.
-    nsLookup mlenv'.v (Short var') = SOME kv'
-    ⇒
     evaluate st mlenv [e_or_v_to_exp e var]
     =
     evaluate st' mlenv' [e_or_v_to_exp e' var'] ∧
-    cont_rel k' kv'
+    cont_rel k' kv' ∧
+    nsLookup mlenv'.v (Short var') = SOME kv'
 Proof
   Cases_on ‘e’
   >~ [‘Val v’] >- (
     Cases_on ‘k’
     >- (simp[step_def, return_def] >> metis_tac[])
+    >> PairCases_on ‘h’
+    >> Cases_on ‘∃ te fe . h1 = CondK te fe’
+    >- (
+      gvs[]
+      >> cheat
+    )
     >> cheat
   )
   >~ [‘Exp e’] >- (
@@ -301,29 +306,11 @@ Proof
       rpt strip_tac
       >> simp[cps_transform_def]
       >> rpt (pairarg_tac >> gvs[])
-      >> qexistsl [
-        ‘dec_clock st’,
-        ‘mlenv with v := nsBind (STRING #"k" (toString n')) kv mlenv.v’,
-        ‘var'’,
-        ‘Closure
-           (mlenv with
-            v := nsBind (STRING #"k" (toString n')) kv mlenv.v)
-           (STRING #"t" (toString l'))
-           (Mat (Var (Short (STRING #"t" (toString l'))))
-              [(Pcon (SOME (Short "SBool"))
-                  [Pcon (SOME (Short "False")) []],
-                App Opapp
-                  [cf; Var (Short (STRING #"k" (toString n')))]);
-               (Pany,
-                App Opapp
-                    [ct; Var (Short (STRING #"k" (toString n')))])])’]
-      >> rpt strip_tac >- simp[evaluate_def, do_opapp_def]
-      >> qspecl_then [‘cf’, ‘ct’,
-        ‘mlenv with v := nsBind (STRING #"k" (toString n')) kv mlenv.v’,
-        ‘fe’,‘k’,‘kv’,‘m'’,‘l'’,‘n'+1’,‘m'’,‘env’,
-        ‘STRING #"t" (toString l')’,‘te’,‘STRING #"k" (toString n')’
-      ] assume_tac cont_rel_CondK
-      >> simp[]
+      >> simp[SimpLHS, Ntimes evaluate_def 6, do_opapp_def, nsOptBind_def]
+      >> irule_at (Pos hd) EQ_REFL
+      >> simp[nsLookup_def]
+      >> simp[Once cont_rel_cases]
+      >> metis_tac[]
     )
     >> cheat
   )

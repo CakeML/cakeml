@@ -68,7 +68,7 @@ Definition cps_transform_def:
     k = "k" ++ toString m;
     (l, ck) = refunc_cont (m+1) (CondK t f) (Var (Short k))
   in
-    (l, Fun k $ App Opapp [cc; ck])) ∧
+    (l, Fun k $ Let (SOME $ "cont") ck $ App Opapp [cc; Var (Short "cont")])) ∧
   cps_transform n (Apply fn args) = (let
     (m, cfn) = cps_transform n fn;
     k = "k" ++ toString m;
