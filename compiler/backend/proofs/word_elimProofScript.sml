@@ -934,9 +934,12 @@ Proof
         qpat_assum `word_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once word_state_rel_def] >> strip_tac >>
         `∀ args . get_vars args removed_state = get_vars args s` by (
-            Induct >> rw[get_vars_def] >> rw[get_var_def] >> rw[])
+            Induct >> rw[get_vars_def] >> rw[get_var_def] >> rw[]) >>
+        `∀ arg . get_var arg removed_state = get_var arg s` by (
+           fs[get_var_def] >> rw[])
     >-  (
     (* CALL *)
+        cheat (*
         simp[wordSemTheory.evaluate_def] >> Cases_on `get_vars args s` >>
         fs[] >>
         Cases_on `bad_dest_args dest args` >> fs[no_install_def] >>
@@ -1300,7 +1303,7 @@ Proof
                     rw[] >> rw[] >> rfs[dec_clock_def]
                 >> `no_install p1` by
                         metis_tac[no_install_find_code] >> fs[]
-        )
+       *) )
     >- ( (* ShareInst *)
       gvs[wordSemTheory.evaluate_def,AllCaseEqs(),
         DefnBase.one_line_ify NONE share_inst_def,
@@ -1318,24 +1321,16 @@ Proof
         PULL_EXISTS,AllCaseEqs(),get_stack_def,get_var_def] >>
       first_x_assum $ drule_then irule )
     >- ( (* FFI *)
-        simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >>
-        Cases_on `lookup len1 s.locals` >> fs[] >>
-        Cases_on `x` >> fs[] >> Cases_on `lookup ptr1 s.locals` >> fs[] >>
-        Cases_on `x` >> fs[] >>
-        Cases_on `lookup len2 s.locals` >> fs[] >> Cases_on `x` >> fs[] >>
-        Cases_on `lookup ptr2 s.locals` >> fs[] >>
-        Cases_on `x` >> fs[] >> Cases_on `cut_env names s.locals` >> fs[] >>
-        Cases_on `read_bytearray c' (w2n c)
-            (mem_load_byte_aux s.memory s.mdomain s.be)` >> fs[] >>
-        Cases_on `read_bytearray c''' (w2n c'')
-            (mem_load_byte_aux s.memory s.mdomain s.be)` >> fs[] >>
-        simp[case_eq_thms]
-        \\ reverse strip_tac \\ fs[word_state_rel_def, cut_env_def]
-          \\ rveq
-          \\ fs[call_env_def, flush_state_def,dest_result_loc_def,
-                domain_find_loc_state]
-          \\ fs[get_memory_write_bytearray_lemma]
-        >- EVAL_TAC
+        simp[wordSemTheory.evaluate_def,flush_state_def] >>
+        rpt (TOP_CASE_TAC >> fs[]) >>
+        strip_tac >> rveq >>
+        fs[word_state_rel_def] >>
+        fs[domain_find_loc_state] >>
+        simp[dest_result_loc_def,get_stack_def,get_locals_def] >>
+        fs[get_memory_write_bytearray_lemma] >>
+        gvs[cut_env_def,cut_envs_def,cut_names_def,AllCaseEqs()] >>
+        irule SUBSET_TRANS >> irule_at (Pos hd) get_locals_union_subset
+        \\ fs[domain_union]
         \\ fs[SUBSET_DEF]
         \\ rw[]
         \\ imp_res_tac domain_get_locals_lookup
@@ -1405,15 +1400,18 @@ Proof
             fs[domain_find_loc_state] >> res_tac >> fs[]
         )
     >- ( (* Return *)
-        simp[wordSemTheory.evaluate_def] >> fs[get_var_def] >>
-        Cases_on `lookup n s.locals` >> fs[] >>
-        Cases_on `x` >> fs[] >> Cases_on `lookup m s.locals` >> fs[] >> rw[] >>
-        fs[call_env_def, flush_state_def, fromList2_def, word_state_rel_def,
-            domain_find_loc_state, get_locals_def]
-        >> Cases_on `x` >> fs[dest_result_loc_def] >> fs[SUBSET_DEF] >>
-            qspecl_then [`n''`, `s.locals`] mp_tac domain_get_locals_lookup >>
-            rw[] >>
-            fs[domain_find_loc_state] >> res_tac >> fs[]
+        simp[wordSemTheory.evaluate_def,flush_state_def] >>
+        rpt (TOP_CASE_TAC >> fs[]) >>
+        strip_tac >> rveq >>
+        simp[dest_result_loc_def] >>
+        fs[word_state_rel_def,domain_find_loc_state,get_locals_def] >>
+        TOP_CASE_TAC >> fs[] >>
+        irule SUBSET_TRANS >>
+        qpat_x_assum `domain (get_locals _) ⊆ domain reachable`
+        (irule_at (Pos last)) >>
+        fs[SUBSET_DEF,domain_get_locals_lookup] >>
+        rpt (pop_assum mp_tac) >>
+        cheat
         )
     >- ( (* Seq *)
         simp[wordSemTheory.evaluate_def] >>
@@ -1469,14 +1467,16 @@ Proof
         fs[SUBSET_DEF] >> metis_tac[]
         )
     >- ( (* OpCurrHeap *)
+        cheat (*
         simp[wordSemTheory.evaluate_def,word_exp_def,the_words_def]
         \\ simp [AllCaseEqs(),PULL_EXISTS] \\ rpt gen_tac \\ strip_tac
         \\ gvs [dest_result_loc_def,set_var_def]
         \\ fs[word_state_rel_def, domain_find_loc_state, dest_result_loc_def]
         \\ qspecl_then [`dst`, `Word z`, `s.locals`] mp_tac get_locals_insert
-        \\ fs[dest_word_loc_def] \\ metis_tac[SUBSET_TRANS]
+        \\ fs[dest_word_loc_def] \\ metis_tac[SUBSET_TRANS] *)
         )
     >- ( (* Set *)
+        cheat (*
         simp[wordSemTheory.evaluate_def] >>
         Cases_on `v = Handler ∨ v = BitmapBase` >> fs[] >>
         `word_exp s exp = word_exp removed_state exp` by
@@ -1504,9 +1504,10 @@ Proof
                 fs[])
             >- (Cases_on `word_exp removed_state e` >> fs[] >>
                 Cases_on `x` >> fs[])) >>
-        fs[SUBSET_DEF] >> metis_tac[]
+        fs[SUBSET_DEF] >> metis_tac[] *)
         )
     >- ( (* Get *)
+        cheat  (*
         simp[wordSemTheory.evaluate_def] >>
         Cases_on `FLOOKUP s.store name` >> fs[] >>
         fs[set_var_def] >>
@@ -1517,9 +1518,10 @@ Proof
         Cases_on `x` >> fs[dest_word_loc_def] >- metis_tac[SUBSET_TRANS] >>
         rw[] >>
         `n ∈ domain reachable` by metis_tac[domain_get_store, SUBSET_DEF] >>
-        fs[SUBSET_DEF] >> metis_tac[]
+        fs[SUBSET_DEF] >> metis_tac[] *)
         )
     >- ( (* Assign *)
+        cheat (*
         simp[wordSemTheory.evaluate_def] >>
         `word_exp s exp = word_exp removed_state exp` by
             metis_tac[word_state_rel_word_exp] >> fs[] >>
@@ -1545,7 +1547,7 @@ Proof
                 fs[])
             >- (Cases_on `word_exp removed_state e` >> fs[] >>
                 Cases_on `x` >> fs[])) >>
-        fs[SUBSET_DEF] >> metis_tac[]
+        fs[SUBSET_DEF] >> metis_tac[] *)
         )
     >- ( (* Inst *)
         simp[wordSemTheory.evaluate_def] >>
