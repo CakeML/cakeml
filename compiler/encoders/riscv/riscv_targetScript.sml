@@ -60,9 +60,11 @@ End
 Definition riscv_memop_def:
    (riscv_memop Load    = INL LD) /\
    (riscv_memop Load32  = INL LWU) /\
+   (riscv_memop Load16  = INL LHU) /\
    (riscv_memop Load8   = INL LBU) /\
    (riscv_memop Store   = INR SD) /\
    (riscv_memop Store32 = INR SW) /\
+   (riscv_memop Store16 = INR SH) /\
    (riscv_memop Store8  = INR SB)
 End
 

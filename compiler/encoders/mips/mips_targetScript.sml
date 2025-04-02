@@ -81,9 +81,11 @@ End
 Definition mips_memop_def:
    (mips_memop Load    = INL LD) /\
    (mips_memop Load32  = INL LWU) /\
+   (mips_memop Load16  = INL LWU) /\  (* no 16bit op for mips *)
    (mips_memop Load8   = INL LBU) /\
    (mips_memop Store   = INR SD) /\
    (mips_memop Store32 = INR SW) /\
+   (mips_memop Store16 = INR SW) /\  (* no 16bit op for mips *)
    (mips_memop Store8  = INR SB)
 End
 
