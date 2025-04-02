@@ -326,6 +326,25 @@ Definition static_check_exp_def:
       (* return based-ness *)
       return (Trusted)
     od ∧
+  static_check_exp ctxt (Load32 addr) =
+    do
+      (* check addr exp *)
+      b <- static_check_exp ctxt addr;
+      (* check address references base *)
+      case b of
+      | NotBased   => log (WarningErr $ concat
+          [ctxt.loc;
+           strlit "local load address is not calculated from base in function ";
+           ctxt.fname; strlit "\n"])
+      | NotTrusted => log (WarningErr $ concat
+          [ctxt.loc;
+           strlit "local load address may not be calculated from base in function ";
+           ctxt.fname; strlit "\n"])
+      | Based      => return ()
+      | Trusted    => return ();
+      (* return based-ness *)
+      return (Trusted)
+    od ∧
   static_check_exp ctxt (LoadByte addr) =
     do
       (* check addr exp *)
@@ -506,6 +525,29 @@ Definition static_check_prog_def:
            ctxt.fname; strlit "\n"])
       | Based      => return ()
       | Trusted    => return ();
+      (* return prog info *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
+              ; var_delta  := empty mlstring$compare
+              ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (Store32 addr exp) =
+    do
+      (* check address and value exps *)
+      b <- static_check_exp ctxt addr;
+      static_check_exp ctxt exp;
+      (* check address references base *)
+      case b of
+      | NotBased   => log (WarningErr $ concat
+          [ctxt.loc;
+           strlit "local store address is not calculated from base in function ";
+           ctxt.fname; strlit "\n"])
+      | NotTrusted => log (WarningErr $ concat
+          [ctxt.loc;
+           strlit "local store address may not be calculated from base in function ";
+           ctxt.fname; strlit "\n"])
+      | _          => return ();
       (* return prog info *)
       return <| exits_fun  := F
               ; exits_loop := F
