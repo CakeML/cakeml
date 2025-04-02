@@ -47,7 +47,8 @@ Definition dest_word_loc_def:
 End
 
 Definition dest_result_loc_def:
-    (dest_result_loc (SOME (Result w (Loc n n0))) = {n}) ∧
+    (dest_result_loc (SOME (Result w ns)) =
+    (case OPT_MMAP dest_word_loc ns of NONE => ∅ | SOME x => set x)) ∧
     (dest_result_loc (SOME (Exception w (Loc n n0))) = {n}) ∧
     (dest_result_loc _ = {})
 End
@@ -125,6 +126,7 @@ Proof
             qexists_tac `n1` >> fs[])
 QED
 
+(*TODO fix conflict with get_store in WordSem*)
 Definition get_store_def:
   (* store : store_name |-> 'a word_loc *)
     get_store (st:store_name |-> 'a word_loc) =
@@ -188,28 +190,44 @@ Proof
         fs[SUBSET_DEF] >> metis_tac[])
 QED
 
+Theorem get_locals_union_subset:
+   !A B.
+   domain (get_locals (union A B)) ⊆ (domain (union (get_locals A) (get_locals B)))
+Proof
+   Induct_on `A` >> fs[union_def,get_locals_def] >>
+   Cases_on `B` >> fs[get_locals_def] >>
+   rw[] >> EVERY_CASE_TAC >> fs[] >>
+   ASM_SET_TAC[]
+QED
+
 Definition get_stack_def:
   (* stack : ('a stack_frame) list *)
     (get_stack [] = LN:num_set) ∧
-    (get_stack ((StackFrame lsz e _)::xs) =
-        union (get_num_wordloc_alist e) (get_stack xs))
+    (get_stack ((StackFrame lsz e0 e _)::xs) =
+        union (union (get_num_wordloc_alist e0) (get_num_wordloc_alist e)) (get_stack xs))
 End
 
 val get_stack_ind = theorem "get_stack_ind";
 
 Theorem get_stack_hd_thm:
-     ∀ stack dr l opt t . domain (get_stack stack) ⊆ dr ∧
-        stack = StackFrame lsz l opt::t
-        ⇒ domain (get_locals (fromAList l)) ⊆ dr ∧
+     ∀ stack dr l0 l opt t . domain (get_stack stack) ⊆ dr ∧
+        stack = StackFrame lsz l l0 opt::t
+        ⇒ domain (get_locals (union (fromAList l0) (fromAList l))) ⊆ dr ∧
           domain (get_stack t) ⊆ dr
 Proof
-            recInduct get_stack_ind >> rw[]
-            >- (Cases_on `e` >>
-                fs[get_stack_def, domain_union,
-                    fromAList_def, get_locals_def] >>
-                fs[get_stack_def, domain_union, fromAList_def] >>
-                metis_tac[get_num_wordloc_alist_get_locals, SUBSET_TRANS])
-            >-  fs[get_stack_def, domain_union]
+    recInduct get_stack_ind >>
+    rpt conj_tac >> rpt (gen_tac ORELSE disch_tac) >>
+    fs[get_stack_def, domain_union, fromAList_def, get_locals_def] >>
+    rveq >>
+    Cases_on `e` >> fs[get_stack_def, domain_union,
+    fromAList_def, get_locals_def]
+    >- metis_tac[get_num_wordloc_alist_get_locals, SUBSET_TRANS]
+    >> Cases_on `e0` >> fs[get_stack_def, domain_union,
+    fromAList_def, get_locals_def]
+    >- metis_tac[get_num_wordloc_alist_get_locals, SUBSET_TRANS]
+    >> irule SUBSET_TRANS >> irule_at (Pos hd) get_locals_union_subset
+    >> fs[domain_union]
+    >- metis_tac[get_num_wordloc_alist_get_locals, SUBSET_TRANS]
 QED
 
 Theorem get_stack_LASTN:
@@ -224,7 +242,7 @@ Theorem get_stack_CONS:
      ∀ h t . domain (get_stack [h]) ⊆ domain (get_stack (h::t)) ∧
         domain (get_stack t) ⊆ domain (get_stack (h::t))
 Proof
-    Cases_on `h` >> fs[get_stack_def, domain_union]
+    Cases_on `h` >> fs[get_stack_def, domain_union] >> ASM_SET_TAC[]
 QED
 
 Theorem get_stack_enc_stack:
@@ -272,16 +290,13 @@ Theorem s_val_eq_get_stack:
      ∀ stack1 stack2 . s_val_eq stack1 stack2
     ⇒ get_stack stack1 = get_stack stack2
 Proof
-  recInduct get_stack_ind >> rw[] >> Cases_on `stack2` >>
-  fs[s_val_eq_def] >>
-  Cases_on `h` >> fs[s_frame_val_eq_def, get_stack_def] >>
-  rename1 `s_frame_val_eq (StackFrame _ _ o1) (StackFrame _ _ o2)` >>
-  first_x_assum drule >> rw[] >> Cases_on `o1` >> Cases_on `o2` >>
-  Cases_on `lsz` >> Cases_on `o'` >>
-  fs[s_frame_val_eq_def] >> rw[] >>
-  `MAP (dest_word_loc o SND) e = MAP (dest_word_loc o SND) l` by
-    rw[GSYM MAP_MAP_o] >> fs[] >>
-    fs[get_num_wordloc_alist_def]
+  recInduct get_stack_ind >> rw[]
+  >> fs[s_val_eq_def2] >> fs[get_stack_def]
+  >> rename1 `get_stack (y:: ys)` >> Cases_on `y`
+  >> fs [s_frame_val_eq_def2,get_stack_def]
+  >> rveq >> fs[] >> res_tac >> fs[]
+  >> fs[get_num_wordloc_alist_def]
+  >> fs[GSYM MAP_MAP_o]
 QED
 
 Definition get_memory_def:
@@ -492,8 +507,9 @@ QED
 Theorem stack_list_rearrange_lemma:
      ∀ s dr locs opt lsz .
         domain (get_locals s.locals) ⊆ dr ∧
-        domain (get_stack s.stack) ⊆ dr
-    ⇒ domain (get_stack (StackFrame lsz (list_rearrange (s.permute 0)
+        domain (get_stack s.stack) ⊆ dr /\
+        domain (get_num_wordloc_alist e0)  ⊆ dr
+    ⇒ domain (get_stack (StackFrame lsz e0 (list_rearrange (s.permute 0)
     (QSORT key_val_compare (toAList (inter s.locals locs)))) opt::s.stack))
         ⊆ dr
 Proof
@@ -536,6 +552,12 @@ Proof
    fs[word_state_rel_def, get_var_def]
 QED
 
+Theorem word_state_rel_get_store:
+    word_state_rel reachable s t
+    ⇒  wordSem$get_store v t = wordSem$get_store v s
+Proof
+   fs[word_state_rel_def, wordSemTheory.get_store_def]
+QED
 
 Theorem word_state_rel_get_vars:
     word_state_rel reachable s t
@@ -550,7 +572,8 @@ Theorem word_state_rel_word_exp:
         ⇒ word_exp s2 exp = word_exp s1 exp
 Proof
     recInduct word_exp_ind >> rw[word_exp_def]
-    >- (fs[word_state_rel_def]) >- (fs[word_state_rel_def])
+    >- (drule word_state_rel_get_var >> fs[])
+    >- (drule word_state_rel_get_store >> fs[])
     >- (first_x_assum drule >> rw[] >> PURE_TOP_CASE_TAC >> rw[] >>
         PURE_TOP_CASE_TAC >> fs[] >> fs[mem_load_def, word_state_rel_def])
     >- (`MAP (λ a . word_exp s a) wexps = MAP (λ a . word_exp s2 a) wexps` by
@@ -631,13 +654,13 @@ Proof
             fs[dest_word_loc_def]
             >> irule SUBSET_IMP
             >> qpat_x_assum `domain (get_locals _) ⊆ domain reachable` (irule_at Any)
-            >> fs[domain_get_locals_lookup]
+            >> fs[domain_get_locals_lookup,get_var_def]
             >> first_x_assum (irule_at Any))
         >- (Cases_on `x` >>
             fs[dest_word_loc_def]
             >> irule SUBSET_IMP
             >> qpat_x_assum `domain (get_store _) ⊆ domain reachable` (irule_at Any)
-            >> fs[domain_get_store]
+            >> fs[domain_get_store,wordSemTheory.get_store_def]
             >> first_x_assum (irule_at Any))
         >-(Cases_on `x` >>
             fs[dest_word_loc_def]
@@ -658,13 +681,14 @@ Proof
       )
     >> (fs[set_var_def])
 QED
+
 (*FIXME this is slow because of word_state_rel_set_var_SOME not implemented*)
 Theorem word_state_rel_inst_SOME:
      ∀ reachable s t i s1 t1 . word_state_rel reachable s t ⇒
     (inst i s = SOME s1 ∧ inst i t = SOME t1 ⇒ word_state_rel reachable s1 t1)
 Proof
     rpt gen_tac >> disch_tac >>
-    drule_then assume_tac word_state_rel_assign_SOME >>
+   drule_then assume_tac word_state_rel_assign_SOME >>
    drule_then assume_tac word_state_rel_get_vars >>
    drule_then assume_tac word_state_rel_get_var >>
    drule_then assume_tac word_state_rel_word_exp >>
@@ -799,15 +823,15 @@ Theorem word_state_rel_jump_exc:
     ==> jump_exc s = SOME (s1, l1, l2)
     ⇒ ∃ t1 . jump_exc t = SOME (t1, l1, l2) ∧ word_state_rel reachable s1 t1
 Proof
-    strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
-    strip_tac >> strip_tac >>
+    rpt strip_tac >> pop_assum mp_tac >>
     fs[jump_exc_def] >> `s.handler = t.handler ∧ s.stack = t.stack` by
         fs[word_state_rel_def] >> fs[] >>
     EVERY_CASE_TAC >> fs[] >> rw[] >> fs[word_state_rel_def] >> rw[] >>
     fs[domain_find_loc_state] >>
-    `domain (get_stack (StackFrame o' l (SOME (q,l1,l2))::t')) ⊆
-        domain reachable` by metis_tac[get_stack_LASTN,SUBSET_TRANS] >>
-    drule get_stack_hd_thm >> rw[]
+    qmatch_asmsub_abbrev_tac `LASTN A B` >>
+    qspecl_then [`B`,`A`] mp_tac get_stack_LASTN >>
+    simp[] >> UNABBREV_ALL_TAC >> rw[] >>
+    drule get_stack_hd_thm >> ASM_SET_TAC[]
 QED
 
 Theorem word_state_rel_gc:
@@ -836,23 +860,29 @@ Proof
     rw[] >> qpat_assum `word_state_rel _ _ _` mp_tac >>
     SIMP_TAC std_ss [Once word_state_rel_def] >>
     strip_tac >> qpat_x_assum `alloc _ _ _ = _` mp_tac >>
-    fs[alloc_def] >> fs[cut_env_def, domain_find_loc_state] >>
-    Cases_on `domain n ⊆ domain s.locals` >> fs[] >> CASE_TAC >> fs[] >>
-    `word_state_rel reachable (push_env (inter s.locals n) NONE
-        (set_store AllocSize (Word c) s))
-        (push_env (inter s.locals n) NONE
-        (set_store AllocSize (Word c) t))` by (
-            simp[push_env_def, env_to_list_def, set_store_def,
-                 word_state_rel_def, domain_find_loc_state] >> rw[]
-            >- (qspecl_then [`s.store`, `AllocSize`, `Word c`] mp_tac
-                get_store_update >> fs[dest_word_loc_def] >>
-                rw[] >> imp_res_tac SUBSET_TRANS)
-            >- fs[stack_list_rearrange_lemma]) >>
-    `(push_env (inter s.locals n) NONE
-        (set_store AllocSize (Word c) s)).gc_fun = s.gc_fun` by
-        fs[env_to_list_def, push_env_def, set_store_def] >> fs[] >> rw[] >>
+    fs[alloc_def] >>
+    fs[cut_envs_def,cut_names_def] >>
+    Cases_on `domain (FST n) ⊆ domain s.locals` >> fs[] >>
+    Cases_on `domain (SND n) ⊆ domain s.locals` >> fs[] >>
+    disch_tac >>
     qmatch_asmsub_abbrev_tac `gc s_state` >>
     qmatch_goalsub_abbrev_tac `gc t_state` >>
+    qpat_x_assum `(_) = (a,b)` mp_tac >>
+    `word_state_rel reachable s_state t_state`
+        by (UNABBREV_ALL_TAC >>
+            simp[push_env_def, env_to_list_def,
+                 wordSemTheory.get_store_def, set_store_def,
+                 word_state_rel_def, domain_find_loc_state] >> rw[]
+             >> fs[domain_find_loc_state]
+             >-(irule SUBSET_TRANS >>
+                irule_at (Pos hd) get_store_update >>
+                fs[dest_word_loc_def])
+             >- cheat) >>
+  (*
+            >- fs[stack_list_rearrange_lemma]) >>
+
+  *)
+    TOP_CASE_TAC >> fs[] >>
     qspecl_then [`reachable`, `s_state`, `t_state`, `x`]
         mp_tac word_state_rel_gc >>
     impl_tac >- fs[push_env_def, Abbr `s_state`]
@@ -863,10 +893,10 @@ Proof
         Cases_on `x.stack` >> fs[] >>
         Cases_on `h` >> fs[] >> Cases_on `o0` >> fs[]
         >| [ALL_TAC, (Cases_on `x'` >> fs[])] >>
-        EVERY_CASE_TAC >> fs[has_space_def, call_env_def, flush_state_def, fromList2_def] >>
-        rfs[] >>
+        EVERY_CASE_TAC >> fs[has_space_def, call_env_def,
+        wordSemTheory.get_store_def,flush_state_def, fromList2_def] >>
+        gvs[AllCaseEqs()] >>
         strip_tac >> rveq >> fs[dest_result_loc_def, word_state_rel_def] >>
-        rw[] >>
         fs[domain_find_loc_state]
         >- (drule get_stack_hd_thm >> rw[] >> metis_tac[])
         >- (fs[get_locals_def, get_stack_def])
