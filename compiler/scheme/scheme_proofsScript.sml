@@ -212,15 +212,55 @@ Definition e_or_v_to_exp_def:
     App Opapp [ce; Var (Short var)])
 End
 
+Inductive e_ce_rel:
+[~Val:]
+  mlv = to_ml_vals v
+  ⇒
+  e_ce_rel (Val v) var $ App Opapp [Var (Short var); mlv]
+[~Exp:]
+  (m, ce) = cps_transform n e
+  ⇒
+  e_ce_rel (Exp e) var $ App Opapp [ce; Var (Short var)]
+End
+
+Definition scheme_env'_def:
+  scheme_env' = case evaluate_decs (<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|> :num state) <|v:=nsEmpty;c:=nsEmpty|> (prim_types_program ++ scheme_basis) of
+    | (st', Rval env) => env
+    | _ => <|v:=nsEmpty;c:=nsEmpty|>
+End
+
+Theorem scheme_env'_def[allow_rebind] = EVAL “scheme_env'”;
+
+EVAL “nsLookup scheme_env'.c (Short "SMul")”;
+
+Definition scheme_env_def:
+  scheme_env env
+  ⇔
+  (nsLookup env.c (Short "SNum") = SOME (1, TypeStamp "SNum" 3)) ∧
+  (nsLookup env.c (Short "SBool") = SOME (1, TypeStamp "SBool" 3)) ∧
+  (nsLookup env.c (Short "True") = SOME (0, TypeStamp "True" 0)) ∧
+  (nsLookup env.c (Short "False") = SOME (0, TypeStamp "False" 0)) ∧
+  (nsLookup env.c (Short "Prim") = SOME (1, TypeStamp "Prim" 3)) ∧
+  (nsLookup env.c (Short "SAdd") = SOME (0, TypeStamp "SAdd" 2)) ∧
+  (nsLookup env.c (Short "SMul") = SOME (0, TypeStamp "SMul" 2)) ∧
+  (nsLookup env.c (Short "SMinus") = SOME (0, TypeStamp "SMinus" 2)) ∧
+  (nsLookup env.c (Short "SEqv") = SOME (0, TypeStamp "SEqv" 2)) ∧
+  (nsLookup env.c (Short "CallCC") = SOME (0, TypeStamp "CallCC" 2))
+End
+
 Inductive cont_rel:
 [~Id:]
+  scheme_env env
+  ⇒
   cont_rel []
     (Closure env t (Var (Short t)))
 [~CondK:]
   cont_rel ks kv ∧
   nsLookup (env . v) (Short var) = SOME kv ∧
   (n', ct) = cps_transform n te ∧
-  (m', cf) = cps_transform m fe
+  (m', cf) = cps_transform m fe ∧
+  scheme_env env ∧
+  var ≠ t
   ⇒
   (*Likely needs condition on se i.e. Scheme env*)
   cont_rel ((se, CondK te fe) :: ks)
@@ -238,22 +278,6 @@ EVAL “case (SND $ evaluate_decs <|clock:=999;next_type_stamp:=0;next_exn_stamp
   | Rval env => evaluate <|clock:=999|> env $ [exp_with_cont [] (Lit $ LitBool T)]
   | _ => (st, v)”
 *)
-
-Definition scheme_env_def:
-  scheme_env env
-  ⇔
-  (*not sure what to do with the state type variable,
-  it doesn't work without a concrete type*)
-  ∀ (st:num state) .
-  evaluate st env [Con (SOME (Short "SBool")) [
-    Con (SOME (Short "False")) []]]
-  = (st, Rval [Conv (SOME (TypeStamp "SBool" 3)) [
-    Conv (SOME (TypeStamp "False" 0)) []]]) ∧
-  evaluate st env [Con (SOME (Short "SBool")) [
-    Con (SOME (Short "True")) []]]
-  = (st, Rval [Conv (SOME (TypeStamp "SBool" 3)) [
-    Conv (SOME (TypeStamp "True" 0)) []]])
-End
 
 Theorem basis_scheme_env:
   ∃ st st' env .
@@ -277,14 +301,16 @@ Theorem myproof:
   step  (store, k, env, e) = (store', k', env', e') ∧
   st.clock > 0 ∧
   cont_rel k kv ∧
+  e_ce_rel e var mle ∧
   nsLookup mlenv.v (Short var) = SOME kv ∧
   scheme_env mlenv
   ⇒
-  ∃ st' mlenv' var' kv' mle'.
-    evaluate st mlenv [e_or_v_to_exp e var]
+  ∃ st' mlenv' var' kv' mle' .
+    evaluate st mlenv [mle]
     =
-    evaluate st' mlenv' [e_or_v_to_exp e' var'] ∧
+    evaluate st' mlenv' [mle'] ∧
     cont_rel k' kv' ∧
+    e_ce_rel e' var' mle' ∧
     nsLookup mlenv'.v (Short var') = SOME kv'
 Proof
   Cases_on ‘e’
@@ -295,21 +321,45 @@ Proof
     >> Cases_on ‘∃ te fe . h1 = CondK te fe’
     >- (
       gvs[]
+      >> simp[step_def, return_def]
+      >> Cases_on ‘(∃p. v = Prim p) ∨ (∃n. v = SNum n) ∨ ∃b. v = SBool b’
+      (*Only covering cases supported by to_ml_vals,
+      but in theory should work for any vals*)
+      >- (
+        simp[Once e_ce_rel_cases, Once cont_rel_cases]
+        >> simp[oneline to_ml_vals_def]
+        >> every_case_tac
+        >> rpt strip_tac
+        >> gvs[]
+        >> simp[SimpLHS, evaluate_def, do_con_check_def,
+          build_conv_def, scheme_env_def, do_opapp_def]
+        >> qpat_assum ‘scheme_env mlenv’ $ simp o single o SRULE [scheme_env_def]
+        >> simp[SimpLHS, Ntimes evaluate_def 3, can_pmatch_all_def, pmatch_def]
+        >> qpat_assum ‘scheme_env env’ $ simp o single o SRULE [scheme_env_def]
+        >> simp[same_type_def, same_ctor_def, do_opapp_def,
+          evaluate_match_def, pmatch_def, pat_bindings_def]
+        >> irule_at (Pos hd) EQ_REFL
+        >> qexistsl [‘var'’, ‘kv'’]
+        >> simp[Once e_ce_rel_cases]
+        >> metis_tac[]
+      )
       >> cheat
     )
     >> cheat
   )
   >~ [‘Exp e’] >- (
     Cases_on ‘e’
-    >> simp[step_def, e_or_v_to_exp_def]
+    >> simp[step_def, Once e_ce_rel_cases]
     >~ [‘Cond c te fe’] >- (
-      rpt strip_tac
-      >> simp[cps_transform_def]
+      simp[cps_transform_def]
+      >> rpt strip_tac
       >> rpt (pairarg_tac >> gvs[])
       >> simp[SimpLHS, Ntimes evaluate_def 6, do_opapp_def, nsOptBind_def]
       >> irule_at (Pos hd) EQ_REFL
-      >> simp[nsLookup_def]
-      >> simp[Once cont_rel_cases]
+      >> qexists ‘"cont"’
+      >> simp[Once e_ce_rel_cases, Once cont_rel_cases]
+      >> gvs[scheme_env_def]
+      >> rpt strip_tac
       >> metis_tac[]
     )
     >> cheat
