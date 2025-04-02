@@ -969,7 +969,7 @@ Theorem bits_to_word_bitstring_reverse:
   (bits_to_word xs:'a word) = bitstring$v2w (REVERSE xs)
 Proof
   Induct_on `xs`
-  >- simp[v2n_NIL, bits_to_word_def]
+  >- simp[bitstringTheory.v2n,GSYM bitstringTheory.n2w_v2n, bits_to_word_def]
   >> fs[GSYM bitstringTheory.n2w_v2n]
   >> simp[bitstringTheory.v2n,bitstringTheory.v2n_APPEND,Once $ oneline bits_to_word_def]
   >> reverse $ rw[]
