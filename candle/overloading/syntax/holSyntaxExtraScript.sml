@@ -8010,7 +8010,6 @@ Proof
           qpat_x_assum `!x. MEM _ (tyvars (Tyvar a)) \/ _ ==> ~MEM _ _` (qspec_then `a` mp_tac)
           >> rw[MEM_MAP,tyvars_def]
         )
-        >- fs[o_PAIR_MAP]
         >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [INSERT_SING_UNION]))
         >> fs[AC UNION_ASSOC UNION_COMM]
       )
@@ -8048,7 +8047,6 @@ Proof
         >> qpat_x_assum `!x. MEM _ (tyvars (Tyvar a)) \/ _ ==> ~MEM _ _` $ qspec_then `a` mp_tac
         >> rw[MEM_MAP,tyvars_def]
       )
-      >- fs[o_PAIR_MAP]
       >> CONV_TAC $ RHS_CONV $ PURE_ONCE_REWRITE_CONV [INSERT_SING_UNION]
       >> fs[AC UNION_ASSOC UNION_COMM]
     )
