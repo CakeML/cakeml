@@ -76,23 +76,25 @@ QED
 (*drulel takes a list and tries to apply drule
 *)
 fun drulel tl = FIRST (map (drule) tl)
+(*This is faster than gvs[AllCaseEqs()]*)
 val CASE_ONE = (TOP_CASE_TAC ORELSE pairarg_tac )
 (* Clock lemmas *)
 
 
 
-(*TODO: define globally somewhere? *)
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
-   map (prove_case_eq_thm o get_thms)
+   map TypeBase.case_eq_of
        [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``,``:'a arith``,
         ``:'a addr``,``:memop``,``:'a wordSem$result``,``:'a ffi_result``])
     |> LIST_CONJ
 
 (*helps with existence proofs
 ?l'. (s with locals := l) = (s with locals := l')*)
+(*TODO does not work when given a goal like
+?k'. (s with <|locals := l; clock := k|>) = (s with <|locals := l, clock := k |>)
+*)
 Theorem state_const[simp]:
    ((s with locals:= l) = (s with locals := l') <=> l = l') /\
    ((s with permute := p) = (s with permute := p') <=> p = p') /\
@@ -108,6 +110,10 @@ Proof
   Cases_on `p` >> fs[]
 QED
 
+(*TODO Weaken this simplification
+What that is needed to be pulled down is when
+f is a record update like (λs. s with clock := k)
+*)
 Theorem OPTION_CASE_OPTION_MAP[simp]:
   (option_CASE (OPTION_MAP f a) e g) = option_CASE a e (λx. g (f x))
 Proof
@@ -799,6 +805,7 @@ QED
 Theorem mem_store_with_const[simp]:
    mem_store x z (y with locals := l) = OPTION_MAP (λs. s with locals := l) (mem_store x z y) /\
    mem_store x z (y with clock := k) = OPTION_MAP (λs. s with clock := k) (mem_store x z y) /\
+   mem_store x z (y with code := code) = OPTION_MAP (λs. s with code := code) (mem_store x z y) /\
    mem_store x z (y with compile := c) = OPTION_MAP (λs. s with compile := c) (mem_store x z y) /\
    mem_store x z (y with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (mem_store x z y) /\
    mem_store x z (y with permute := perm) = OPTION_MAP (λs. s with permute := perm) (mem_store x z y) /\
@@ -855,6 +862,7 @@ QED
 
 Theorem assign_with_const[simp]:
    assign x y (z with clock := k) = OPTION_MAP (λs. s with clock := k) (assign x y z) /\
+   assign x y (z with code := code) = OPTION_MAP (λs. s with code := code) (assign x y z) /\
    assign x y (z with compile := c) = OPTION_MAP (λs. s with compile := c) (assign x y z) /\
    assign x y (z with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (assign x y z) /\
    assign x y (z with permute := perm) = OPTION_MAP (λs. s with permute := perm) (assign x y z) /\
@@ -865,6 +873,7 @@ QED
 
 Theorem inst_with_const[simp]:
    inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s) /\
+   inst i (s with code := code) = OPTION_MAP (λs. s with code := code) (inst i s) /\
    inst i (s with compile := c) = OPTION_MAP (λs. s with compile := c) (inst i s) /\
    inst i (s with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (inst i s) /\
    inst i (s with permute := perm) = OPTION_MAP (λs. s with permute := perm) (inst i s) /\
