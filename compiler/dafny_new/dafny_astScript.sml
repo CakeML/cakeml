@@ -7,7 +7,9 @@ open preamble
 val _ = new_theory "dafny_ast";
 
 Datatype:
-  type = IntType
+  type =
+  | IntType
+  | UserDefinedType string
 End
 
 Datatype:
@@ -34,17 +36,27 @@ End
 
 Datatype:
   expression =
-  (* Probably for methods calls: ApplySuffix lhsResolved args *)
+  (* ApplySuffix lhsResolved args
+     - Probably for methods calls *)
   | ApplySuffix expression (expression list)
   | IdentifierExpr string type
   | BinaryExpr resolvedOpcode expression expression
   | LiteralExpr literal
   (* MemberSelectExpr obj memberName *)
   | MemberSelectExpr expression string
+  (* SeqSelectExpr selectOne seq e0 e1
+     - ¬selectOne ==> select a range *)
+  | SeqSelectExpr bool expression expression (expression option)
 End
 
 Datatype:
-  assignmentRhs = ExprRhs expression
+  assignmentRhs =
+  | ExprRhs expression
+  (* AllocateArray explicitType arrayDimensions elementInit initDisplay
+     - At most one of elementInit and initDisplay may be non-null
+     - initDisplay is a "sequence display" expression, e.g. [4+2, 1+5, a*b]
+     - initDisplay seems to be only used for one-dimensional array *)
+  | AllocateArray type (expression list) (expression option) ((expression list) option)
 End
 
 Datatype:
