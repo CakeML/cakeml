@@ -13,7 +13,8 @@ Datatype:
 End
 
 Datatype:
-  resolvedOpcode = Lt | EqCommon | NeqCommon | Sub | Add
+  resolvedOpcode =
+  Lt | EqCommon | NeqCommon | Sub | Add | Div
 End
 
 Datatype:
@@ -69,7 +70,8 @@ Datatype:
   | VarDecl (localVariable list) (concrete_assign_statement option)
   | While expression block_stmt
   | Statement_BlockStmt block_stmt
-  | PrintStmt (expression list);
+  | PrintStmt (expression list)
+  | ReturnStmt ((assignmentRhs list) option);
 End
 
 Datatype:
