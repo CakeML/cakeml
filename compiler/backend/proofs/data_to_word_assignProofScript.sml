@@ -56,6 +56,8 @@ val do_app = LIST_CONJ [do_app_def,do_app_aux_def,do_space_def,
 
 val eval_tac = fs [wordSemTheory.evaluate_def,
   wordSemTheory.word_exp_def, wordSemTheory.set_var_def, set_var_def,
+  wordSemTheory.get_store_def,
+  wordSemTheory.get_var_def,
   wordSemTheory.the_words_def, wordSemTheory.mem_load_def,
   wordLangTheory.word_op_def, wordLangTheory.word_sh_def]
 
@@ -117,6 +119,7 @@ Proof
   fs [get_real_offset_def] \\ every_case_tac \\ fs []
   \\ fs [wordSemTheory.get_var_def,real_offset_def] \\ eval_tac \\ fs []
   \\ fs [good_dimindex_def,dimword_def] \\ rw []
+    \\ fs [wordSemTheory.get_var_def,real_offset_def]
 QED
 
 Theorem get_real_byte_offset_lemma:
@@ -470,7 +473,8 @@ Proof
   \\ Cases_on `lookup n s.locals` \\ fs []
   \\ Cases_on `x` \\ fs [] \\ IF_CASES_TAC
   \\ fs [EVAL ``good_dimindex (:'a)``]
-  \\ fs [wordSemTheory.set_var_def,lookup_insert,word_of_byte_def,
+  \\ fs [wordSemTheory.set_var_def,
+         wordSemTheory.get_var_def,lookup_insert,word_of_byte_def,
          insert_shadow,wordSemTheory.evaluate_def,word_exp_rw]
 QED
 
