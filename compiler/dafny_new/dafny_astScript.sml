@@ -71,9 +71,9 @@ Datatype:
   | Skip
   | Then statement statement
   | Assignment (expression list) (assignmentRhs list)
-  | If expression statement (statement option)
+  | If expression statement statement
   (* VarDecl locals assign scope *)
-  | VarDecl (localVariable list) (statement option) statement
+  | VarDecl (localVariable list) statement statement
   | While expression statement
   | PrintStmt (expression list)
   | ReturnStmt ((assignmentRhs list) option);
