@@ -67,14 +67,14 @@ Datatype:
 End
 
 Datatype:
-  block_stmt = BlockStmt (statement list);
   statement =
+  | Skip
+  | Then statement statement
   | Assignment (expression list) (assignmentRhs list)
-  | If expression block_stmt (statement option)
+  | If expression statement (statement option)
   (* VarDecl locals assign *)
   | VarDecl (localVariable list) (statement option)
-  | While expression block_stmt
-  | Statement_BlockStmt block_stmt
+  | While expression statement
   | PrintStmt (expression list)
   | ReturnStmt ((assignmentRhs list) option);
 End
