@@ -67,13 +67,12 @@ Datatype:
 End
 
 Datatype:
-  concrete_assign_statement = Assignment (expression list) (assignmentRhs list);
   block_stmt = BlockStmt (statement list);
   statement =
-  | Statement_ConreteAssignStatement concrete_assign_statement
+  | Assignment (expression list) (assignmentRhs list)
   | If expression block_stmt (statement option)
   (* VarDecl locals assign *)
-  | VarDecl (localVariable list) (concrete_assign_statement option)
+  | VarDecl (localVariable list) (statement option)
   | While expression block_stmt
   | Statement_BlockStmt block_stmt
   | PrintStmt (expression list)
