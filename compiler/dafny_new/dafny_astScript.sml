@@ -9,6 +9,7 @@ val _ = new_theory "dafny_ast";
 Datatype:
   type =
   | IntType
+  | BoolType
   | UserDefinedType string
 End
 
@@ -33,6 +34,7 @@ Datatype:
   | StringLiteral bool string
   | Null
   | BigInteger int
+  | BoolV bool
 End
 
 Datatype:
@@ -40,6 +42,8 @@ Datatype:
   (* ApplySuffix lhsResolved args
      - Probably for methods calls *)
   | ApplySuffix expression (expression list)
+  (* FunctionCallExpr name receiver args *)
+  | FunctionCallExpr string expression (expression list)
   | IdentifierExpr string type
   | BinaryExpr resolvedOpcode expression expression
   | LiteralExpr literal
@@ -48,6 +52,8 @@ Datatype:
   (* SeqSelectExpr selectOne seq e0 e1
      - ¬selectOne ==> select a range *)
   | SeqSelectExpr bool expression expression (expression option)
+  (* ITE test thn els *)
+  | ITE expression expression expression
 End
 
 Datatype:
@@ -77,7 +83,9 @@ End
 Datatype:
   member_decl =
   (* Method name ins outs body *)
-  Method string (formal list) (formal list) block_stmt
+  | Method string (formal list) (formal list) block_stmt
+  (* Function name ins resultType body *)
+  | Function string (formal list) type expression
 End
 
 Datatype:
