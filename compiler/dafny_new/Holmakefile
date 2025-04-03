@@ -1,4 +1,5 @@
-#INCLUDES =
+# $(CAKEMLDIR)/misc -> preamble
+INCLUDES = $(CAKEMLDIR)/misc
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
