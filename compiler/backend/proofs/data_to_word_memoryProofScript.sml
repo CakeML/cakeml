@@ -4460,7 +4460,7 @@ Definition get_addr_def:
 End
 
 Definition word_addr_def:
-  (word_addr conf (Data (Loc l1 l2)) = Loc l1 l2) /\
+  (word_addr conf (Data (Loc l1 l2)) = Loc l1 0) /\
   (word_addr conf (Data (Word v)) = Word (v && (~1w))) /\
   (word_addr conf (Pointer n w) = Word (get_addr conf n w))
 End
@@ -6815,10 +6815,11 @@ Proof
 QED
 
 Theorem word_addr_eq_Loc:
-   word_addr c v = Loc l1 l2 <=> v = Data (Loc l1 l2)
+  word_addr c v = Loc l1 l2 <=> l2 = 0 ∧ ∃l2. v = Data (Loc l1 l2)
 Proof
   Cases_on `v` \\ fs [word_addr_def]
   \\ Cases_on `a` \\ fs [word_addr_def]
+  \\ eq_tac \\ rw []
 QED
 
 Theorem memory_rel_CodePtr:
@@ -6830,7 +6831,7 @@ Proof
   \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []
   \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,
          roots_ok_def,reachable_refs_def]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  \\ rw [] \\ fs [] \\ res_tac \\ fs [PULL_EXISTS]
   \\ qexists_tac `f` \\ qexists_tac `tf`
   \\ fs [PULL_EXISTS] \\ rw [] \\ fs []
   \\ fs [get_refs_def] \\ res_tac

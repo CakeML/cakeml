@@ -5,7 +5,7 @@ open preamble dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory data_to_word_memoryProofTheory finite_mapTheory
      data_to_wordTheory wordPropsTheory whileTheory
      set_sepTheory semanticsPropsTheory
-     helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
+open helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
      word_bignumProofTheory gen_gc_partialTheory gc_sharedTheory
      word_gcFunctionsTheory backendPropsTheory
 local open gen_gcTheory in end
@@ -821,7 +821,7 @@ Proof
   reverse (Cases_on `x`) \\ full_simp_tac(srw_ss())[copying_gcTheory.gc_move_def] THEN1
    (srw_tac[][] \\ full_simp_tac(srw_ss())[word_heap_def,SEP_CLAUSES]
     \\ Cases_on `a'` \\ full_simp_tac(srw_ss())[word_addr_def,word_gc_move_def]
-    \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[heap_length_def])
+    \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[heap_length_def] \\ gvs [])
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ rename1 `heap_lookup k heap = SOME x`
   \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_addr_def]
@@ -6075,6 +6075,7 @@ Proof
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[isWord_def]
 QED
 
+(*
 Triviality word_gc_move_roots_IMP_FILTER0:
   !ws i pa old m dm ws2 i2 pa2 m2 c2 c.
       word_gc_move_roots c (ws,i,pa,old,m,dm) = (ws2,i2,pa2,m2,c2) ==>
@@ -6133,9 +6134,11 @@ Proof
   \\ rpt (pairarg_tac \\ fs []) \\ fs [] \\ rveq
   \\ res_tac \\ fs [isWord_def]
 QED
+*)
 
 val IMP_EQ_DISJ = METIS_PROVE [] ``(b1 ==> b2) <=> ~b1 \/ b2``
 
+(*
 Theorem word_gc_fun_IMP_FILTER:
    word_gc_fun c (xs,m,dm,s) = SOME (stack1,m1,s1) ==>
     word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (FILTER isWord stack1,m1,s1)
@@ -6174,6 +6177,7 @@ Proof
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
 QED
+*)
 
 Definition loc_merge_def:
   (loc_merge [] ys = []) /\
@@ -6190,6 +6194,7 @@ Proof
   \\ Cases_on `h'` \\ full_simp_tac(srw_ss())[loc_merge_def]
 QED
 
+(*
 Theorem word_gc_move_roots_IMP_FILTER:
    !ws i pa old m dm ws2 i2 pa2 m2 c2 c.
       word_gc_move_roots c (FILTER isWord ws,i,pa,old,m,dm) =
@@ -6240,6 +6245,7 @@ Proof
   \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ res_tac \\ fs [] \\ rveq \\ fs [loc_merge_def]
 QED
+*)
 
 Theorem loc_merge_FILTER_isWord:
    !xs. loc_merge xs (FILTER isWord xs) = xs
@@ -6247,6 +6253,7 @@ Proof
   Induct \\ fs [loc_merge_def] \\ Cases \\ fs [loc_merge_def,isWord_def]
 QED
 
+(*
 Theorem word_gc_fun_loc_merge:
    word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (ys,m1,s1) ==>
     word_gc_fun c (xs,m,dm,s) = SOME (loc_merge xs ys,m1,s1)
@@ -6286,6 +6293,7 @@ Proof
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
 QED
+*)
 
 Theorem word_gc_fun_IMP:
    word_gc_fun c (xs,m,dm,s) = SOME (ys,m1,s1) ==>
