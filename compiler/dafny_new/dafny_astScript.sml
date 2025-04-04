@@ -75,7 +75,8 @@ Datatype:
   | While expression (expression list) (expression list)
           ((expression list) option) statement
   | Print (expression list)
-  | Return ((assign_rhs list) option);
+  | Return ((assign_rhs list) option)
+  | Assert expression
 End
 
 Datatype:
