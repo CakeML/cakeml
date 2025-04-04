@@ -422,6 +422,7 @@ Type sig = ``:tysig # tmsig``
 Overload tysof = ``FST:sig->tysig``
 Overload tmsof = ``SND:sig->tmsig``
 
+
 (* Well-formedness of types/terms with respect to a signature *)
 
 Definition type_ok_def:
@@ -465,13 +466,16 @@ End
    the types of the constants are all ok, the axioms are all ok terms of type
    bool, and the signature is standard. *)
 
-Type thy = ``:sig # term set``
-Overload sigof = ``FST:thy->sig``
-Overload axsof = ``SND:thy->term set``
+Type thy = ``:sig # term set # sig # term set``
+
+Overload sigof = ``(λ(a, _, _, _). a):thy->sig``
+Overload axsof = ``(λ(_, b, _, _). b):thy->term set``
+Overload elimsigof = ``(λ(_, _, c, _). c):thy->sig``
+Overload elimaxsof = ``(λ(_, _, _, d). d):thy->term set``
 Overload tysof = ``tysof o sigof``
 Overload tmsof = ``tmsof o sigof``
 
-  (* Standard signature includes the minimal type operators and constants *)
+(* Standard signature includes the minimal type operators and constants *)
 
 Definition is_std_sig_def:
   is_std_sig (sig:sig) ⇔
@@ -494,54 +498,76 @@ val _ = Parse.add_infix("|-",450,Parse.NONASSOC)
 Inductive proves:
 [~ABS:]
   (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧ type_ok (tysof thy) ty ∧
-   (thy, h) |- l === r
-   ⇒ (thy, h) |- (Abs (Var x ty) l) === (Abs (Var x ty) r))
+   (thy, es, h) |- l === r
+   ⇒ (thy, es, h) |- (Abs (Var x ty) l) === (Abs (Var x ty) r))
 
 [~ASSUME:]
   (theory_ok thy ∧ p has_type Bool ∧ term_ok (sigof thy) p
-   ⇒ (thy, [p]) |- p)
+   ⇒ (thy, es, [p]) |- p)
 
 [~BETA:]
   (theory_ok thy ∧ type_ok (tysof thy) ty ∧ term_ok (sigof thy) t
-   ⇒ (thy, []) |- Comb (Abs (Var x ty) t) (Var x ty) === t)
+   ⇒ (thy, es, []) |- Comb (Abs (Var x ty) t) (Var x ty) === t)
 
 [~DEDUCT_ANTISYM:]
-  ((thy, h1) |- c1 ∧
-   (thy, h2) |- c2
-   ⇒ (thy, term_union (term_remove c2 h1)
+  ((thy, es, h1) |- c1 ∧
+   (thy, es, h2) |- c2
+   ⇒ (thy, es, term_union (term_remove c2 h1)
                       (term_remove c1 h2))
            |- c1 === c2)
 
 [~EQ_MP:]
-  ((thy, h1) |- p === q ∧
-   (thy, h2) |- p' ∧ ACONV p p'
-   ⇒ (thy, term_union h1 h2) |- q)
+  ((thy, es, h1) |- p === q ∧
+   (thy, es, h2) |- p' ∧ ACONV p p'
+   ⇒ (thy, es, term_union h1 h2) |- q)
 
 [~INST:]
   ((∀s s'. MEM (s',s) ilist ⇒
              ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof thy) s') ∧
-   (thy, h) |- c
-   ⇒ (thy, term_image (VSUBST ilist) h) |- VSUBST ilist c)
+   (thy, es, h) |- c
+   ⇒ (thy, es, term_image (VSUBST ilist) h) |- VSUBST ilist c)
 
 [~INST_TYPE:]
   ((EVERY (type_ok (tysof thy)) (MAP FST tyin)) ∧
-   (thy, h) |- c
-   ⇒ (thy, term_image (INST tyin) h) |- INST tyin c)
+   (thy, es, h) |- c
+   ⇒ (thy, es, term_image (INST tyin) h) |- INST tyin c)
 
 [~MK_COMB:]
-  ((thy, h1) |- l1 === r1 ∧
-   (thy, h2) |- l2 === r2 ∧
+  ((thy, es, h1) |- l1 === r1 ∧
+   (thy, es, h2) |- l2 === r2 ∧
    welltyped(Comb l1 l2)
-   ⇒ (thy, term_union h1 h2) |- Comb l1 l2 === Comb r1 r2)
+   ⇒ (thy, es, term_union h1 h2) |- Comb l1 l2 === Comb r1 r2)
 
 [~REFL:]
   (theory_ok thy ∧ term_ok (sigof thy) t
-   ⇒ (thy, []) |- t === t)
+   ⇒ (thy, es, []) |- t === t)
 
 [~axioms:]
   (theory_ok thy ∧ c ∈ (axsof thy)
-   ⇒ (thy, []) |- c)
+   ⇒ (thy, es, []) |- c)
+(*
+[~elim_discharge:]
+  (thy, es1, h1) |- c ∧ (thy, es2, h2) |- ec ∧ ec ∈ es1
+⇒ (thy, es1 DELETE ec, h1 UNION h2) |- c
+
+[~elim_inst:]
+  (thy, es1, h1) |- c
+⇒ (thy, SUBSTL es sigma, SUBSTL es h1) |- SUBST c sigma
+*)
+[~elim_axioms:]
+  (theory_ok thy ∧ c ∈ (elimaxsof thy)
+   ⇒ (thy, [c], []) |- c)
 End
+
+Definition elim_eliminables_def:
+  elim_eliminables (a, b, _, _) = (a, b, (FEMPTY, FEMPTY), {})
+End
+
+Theorem elim_eliminables_empty:
+  (thy, [], h) |- c ⇒ (elim_eliminables thy, [], h) |- c
+Proof
+  Induct_on ‘$|-’ >> rw[] >> simp[proves_rules]
+QED
 
 (* A context is a sequence of updates *)
 
@@ -555,10 +581,16 @@ Datatype:
   | TypeDefn mlstring term mlstring mlstring
   (* NewType name arity *)
   | NewType mlstring num
+  (* NewEliminableType name arity *)
+  | NewEliminableType mlstring num
   (* NewConst name type *)
   | NewConst mlstring type
+  (* NewEliminableConst name type *)
+  | NewEliminableConst mlstring type
   (* NewAxiom proposition *)
   | NewAxiom term
+  (* NewEliminableAxiom proposition *)
+  | NewEliminableAxiom term
 End
 
 (* Projecting out pieces of the context *)
@@ -568,8 +600,7 @@ Definition types_of_upd_def[simp]:
   (types_of_upd (ConstSpec _ _) = []) ∧
   (types_of_upd (TypeDefn name pred _ _) = [(name,LENGTH (tvars pred))]) ∧
   (types_of_upd (NewType name arity) = [(name,arity)]) ∧
-  (types_of_upd (NewConst _ _) = []) ∧
-  (types_of_upd (NewAxiom _) = [])
+  (types_of_upd _ = [])
 End
 
 Definition consts_of_upd_def[simp]:
@@ -579,9 +610,8 @@ Definition consts_of_upd_def[simp]:
      let abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))) in
        [(abs, Fun rep_type abs_type);
         (rep, Fun abs_type rep_type)]) ∧
-  (consts_of_upd (NewType _ _) = []) ∧
   (consts_of_upd (NewConst name type) = [(name,type)]) ∧
-  (consts_of_upd (NewAxiom _) = [])
+  (consts_of_upd _ = [])
 End
 
 Overload type_list = ``λctxt. FLAT (MAP types_of_upd ctxt)``
