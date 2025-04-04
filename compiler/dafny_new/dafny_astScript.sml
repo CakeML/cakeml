@@ -39,16 +39,14 @@ End
 
 Datatype:
   expression =
-  (* ApplySuffix lhsResolved args
-     - Probably for methods calls *)
-  | ApplySuffix expression (expression list)
+  (* MethodCall name args *)
+  | MethodCall string (expression list)
   (* FunctionCallExpr name receiver args *)
   | FunctionCallExpr string expression (expression list)
   | IdentifierExpr string type
   | BinaryExpr resolvedOpcode expression expression
   | LiteralExpr literal
-  (* MemberSelectExpr obj memberName *)
-  | MemberSelectExpr expression string
+  | ArrayLen expression
   (* SeqSelectExpr selectOne seq e0 e1
      - ¬selectOne ==> select a range *)
   | SeqSelectExpr bool expression expression (expression option)
