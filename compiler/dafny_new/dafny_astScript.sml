@@ -21,15 +21,6 @@ Datatype:
 End
 
 Datatype:
-  (* Formal name type *)
-  formal = Formal string type
-End
-
-Datatype:
-  local_var = LocalVar string type
-End
-
-Datatype:
   literal =
   | IntV int
   | BoolV bool
@@ -69,7 +60,7 @@ Datatype:
   | Assign (expression list) (assign_rhs list)
   | If expression statement statement
   (* VarDecl locals assign scope *)
-  | VarDecl (local_var list) statement statement
+  | VarDecl ((string # type) list) statement statement
   (* While guard invariants decreases
            mod body *)
   | While expression (expression list) (expression list)
@@ -84,12 +75,12 @@ Datatype:
   (* Method name ins req ens
             reads decreases outs
             mod body *)
-  | Method string (formal list) (expression list) (expression list)
-           ((expression list) option) (expression list) (formal list)
+  | Method string ((string # type) list) (expression list) (expression list)
+           ((expression list) option) (expression list) ((string # type) list)
            ((expression list) option) statement
   (* Function name ins resultType req
               reads body *)
-  | Function string (formal list) type (expression list)
+  | Function string ((string # type) list) type (expression list)
              ((expression list) option) expression
 End
 
