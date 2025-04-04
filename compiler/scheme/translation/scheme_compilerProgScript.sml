@@ -43,6 +43,7 @@ val r = translate letinit_ml_def;
 val r = translate cps_transform_def;
 val r = translate scheme_cont_def;
 val r = translate exp_with_cont_def;
+val r = translate compile_scheme_prog_def;
 val r = translate scheme_basis_def;
 val r = translate codegen_def;
 

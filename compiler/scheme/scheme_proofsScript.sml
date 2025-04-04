@@ -271,6 +271,26 @@ Inductive cont_rel:
     ])
 End
 
+Theorem compile_in_rel:
+  ∀ p st env .
+    scheme_env env
+    ⇒
+    ∃ st' env' var mle k kv .
+      e_ce_rel (Exp p) var mle ∧
+      cont_rel k kv ∧
+      nsLookup env'.v (Short var) = SOME kv ∧
+      evaluate st env [compile_scheme_prog p] = evaluate st' env' [mle]
+Proof
+  simp[Once e_ce_rel_cases, compile_scheme_prog_def]
+  >> rpt strip_tac
+  >> rpt (pairarg_tac >> gvs[])
+  >> simp[Ntimes evaluate_def 2, nsOptBind_def]
+  >> irule_at (Pos hd) EQ_REFL
+  >> irule_at Any EQ_REFL
+  >> simp[nsLookup_def, Once cont_rel_cases]
+  >> metis_tac[]
+QED
+
 (*
 EVAL “case (SND $ evaluate_decs <|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|>
 <|v:=nsEmpty;c:=nsEmpty|> $ prim_types_program
@@ -286,14 +306,7 @@ Theorem basis_scheme_env:
     scheme_env env
 Proof
   qexists ‘<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|>’
-  >> simp[evaluate_decs_def, prim_types_program_def, scheme_basis_def,
-  check_dup_ctors_def, build_tdefs_def, do_con_check_def,
-  nsAppend_def, build_constrs_def, alist_to_ns_def,
-  nsLookup_def, build_rec_env_def, extend_dec_env_def,
-  nsSing_def, nsEmpty_def, nsBind_def, pat_bindings_def,
-  evaluate_def, pmatch_def, combine_dec_result_def,
-  every_exp_def, one_con_check_def, cons_list_def,
-  scheme_env_def, build_conv_def]
+  >> EVAL_TAC >> simp[nsLookup_def]
 QED
 
 Theorem myproof:

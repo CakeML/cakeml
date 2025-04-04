@@ -187,6 +187,14 @@ Definition exp_with_cont_def:
   exp_with_cont k e = App Opapp [SND $ cps_transform 0 e; scheme_cont k]
 End
 
+Definition compile_scheme_prog_def:
+  compile_scheme_prog p = let
+    (n, cp) = cps_transform 0 p
+  in
+    Let (SOME $ "k") (Fun "t" $ Var (Short "t")) $
+      App Opapp [cp; Var (Short "k")]
+End
+
 Definition cake_print_def:
   cake_print e =
     (* val _ = print e; *)
@@ -350,7 +358,7 @@ End
 
 Definition codegen_def:
   codegen p = INR $ scheme_basis ++ [
-    Dlet unknown_loc (Pvar "res") $ exp_with_cont [] p;
+    Dlet unknown_loc (Pvar "res") $ compile_scheme_prog p;
     Dlet unknown_loc Pany $ Mat (Var (Short "res")) [
       (Pcon (SOME $ Short "SNum") [Pvar "n"],
         App Opapp [Var (Short "print_int"); Var (Short "n")]);
