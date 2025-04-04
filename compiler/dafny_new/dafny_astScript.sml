@@ -6,9 +6,6 @@ open preamble
 
 val _ = new_theory "dafny_ast";
 
-(* TODO Add ghost code *)
-(* TODO Make sure to have assert? *)
-
 Datatype:
   type =
   | IntT
