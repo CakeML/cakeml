@@ -9,6 +9,10 @@ val _ = new_theory "tokens"
 val _ = set_grammar_ancestry ["integer", "string"];
 
 Datatype:
+  path = Mod string path | End
+End
+
+Datatype:
   token =
     WhitespaceT num | NewlineT | LexErrorT
   | HashT | LparT | RparT | StarT | CommaT | ArrowT | DotsT | ColonT | SealT
@@ -27,7 +31,7 @@ Datatype:
   | TyvarT string
   | AlphaT string
   | SymbolT string
-  | LongidT string string
+  | LongidT path string
   | FFIT string
   | REPLIDT string
 End
