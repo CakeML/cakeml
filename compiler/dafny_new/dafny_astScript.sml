@@ -6,6 +6,9 @@ open preamble
 
 val _ = new_theory "dafny_ast";
 
+(* TODO Add ghost code *)
+(* TODO Make sure to have assert? *)
+
 Datatype:
   type =
   | IntT
@@ -14,7 +17,7 @@ Datatype:
 End
 
 Datatype:
-  bop = Lt | Le | Eq | Neq | Sub | Add | Mul | Div | And | Imp
+  bop = Lt | Le | Ge | Eq | Neq | Sub | Add | Mul | Div | And | Imp
 End
 
 Datatype:
@@ -83,8 +86,10 @@ Datatype:
   | Method string (formal list) (expression list) (expression list)
            ((expression list) option) (expression list) (formal list)
            ((expression list) option) statement
-  (* Function name ins resultType body *)
-  | Function string (formal list) type expression
+  (* Function name ins resultType req
+              reads body *)
+  | Function string (formal list) type (expression list)
+             ((expression list) option) expression
 End
 
 Datatype:
