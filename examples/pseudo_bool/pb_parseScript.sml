@@ -309,7 +309,7 @@ Definition parse_cutting_def:
     | _ => NONE)
   else if s = str #"w" then
     (case stack of
-      Lit (Pos v)::a::rest => parse_cutting f_ns xs (Weak a v::rest)
+      Lit (Pos v)::a::rest => parse_cutting f_ns xs (Weak a [v]::rest)
     | _ => NONE)
   else
     case parse_lit_num f_ns s of
@@ -988,8 +988,8 @@ Definition parse_delc_header_def:
 End
 
 Definition insert_lit_def:
-  (insert_lit (Pos v) (f:bool spt) = sptree$insert v T f) ∧
-  (insert_lit (Neg v) f = insert v F f)
+  (insert_lit (Pos v) f = (v,T)::f) ∧
+  (insert_lit (Neg v) f = (v,F)::f)
 End
 
 Definition parse_assg_def:
@@ -1098,7 +1098,7 @@ Definition parse_cstep_head_def:
         let b = (r = INL(strlit "preserve_add")) in
           SOME (ChangePrespar b x c,f_ns')
     else if r = INL (strlit "soli") ∨ r = INL (strlit "sol") then
-      case parse_assg f_ns rs LN of NONE => NONE
+      case parse_assg f_ns rs [] of NONE => NONE
       | SOME (assg,ov,f_ns') =>
         let b = (r = INL( strlit "soli")) in
           SOME (Done (Obj assg b ov),f_ns')
@@ -1172,7 +1172,7 @@ Definition parse_sat_def:
   case rest of
     INL s::rest =>
     if s = strlit":" then
-      OPTION_MAP (SOME o FST) (parse_assg f_ns rest LN)
+      OPTION_MAP (SOME o FST) (parse_assg f_ns rest [])
     else NONE
   | [] => SOME NONE
   | _ => NONE
@@ -1206,7 +1206,7 @@ Definition parse_ub_def:
         (case rest of [] => SOME(ub, NONE)
         | INL s::rest =>
           if s = strlit":" then
-            (case parse_assg f_ns rest LN of NONE => NONE
+            (case parse_assg f_ns rest [] of NONE => NONE
             | SOME (a,f_ns') => SOME(ub,SOME a))
           else NONE
         | _ => NONE))
