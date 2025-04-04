@@ -89,3 +89,5 @@ Datatype:
      default class *)
   program = Program (member_decl list)
 End
+
+val _ = export_theory ();
