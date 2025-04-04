@@ -47,9 +47,8 @@ Datatype:
   | BinaryExpr resolvedOpcode expression expression
   | LiteralExpr literal
   | ArrayLen expression
-  (* SeqSelectExpr selectOne seq e0 e1
-     - ¬selectOne ==> select a range *)
-  | SeqSelectExpr bool expression expression (expression option)
+  (* ArraySelect arr idx *)
+  | ArraySelect expression expression
   (* ITE test thn els *)
   | ITE expression expression expression
 End
