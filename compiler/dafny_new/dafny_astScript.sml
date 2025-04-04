@@ -14,7 +14,7 @@ Datatype:
 End
 
 Datatype:
-  bop = Lt | Le | Eq | Neq | Sub | Add | Mul | Div | And
+  bop = Lt | Le | Eq | Neq | Sub | Add | Mul | Div | And | Imp
 End
 
 Datatype:
@@ -48,6 +48,8 @@ Datatype:
   | ArraySelect expression expression
   (* ITE test thn els *)
   | ITE expression expression expression
+  (* ForallExp boundVars term *)
+  | ForallExp (string # type) expression
 End
 
 Datatype:
