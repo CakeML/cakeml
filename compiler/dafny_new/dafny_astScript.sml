@@ -58,9 +58,6 @@ Datatype:
   | ExprRhs expression
   (* AllocArray type length initValue *)
   | AllocArray type expression expression
-  (* AllocArrayWithDisplay type initDisplay
-     - length is implied by initDisplay *)
-  | AllocArrayWithDisplay type (expression list)
 End
 
 Datatype:
