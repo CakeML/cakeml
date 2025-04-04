@@ -836,7 +836,6 @@ Triviality code_rel_no_install = code_rel_P |> Q.SPEC `(<>) (Install 0 0 0 0 (LN
     |> REWRITE_RULE [GSYM no_install_subprogs_def]
 
 (***** compile_single correctness for no_alloc & no_install ******)
-
 Theorem no_install_no_alloc_compile_single_correct:
   ∀prog (st:('a,'c,'ffi) wordSem$state) l.
     code_rel st.code l ∧
@@ -855,48 +854,40 @@ Theorem no_install_no_alloc_compile_single_correct:
             domain rst.code = domain rst1.code ∧
             rst1 = rst with code:=rst1.code
 Proof
-  cheat (*
   completeInduct_on`((st:('a,'c,'ffi)wordSem$state).termdep)`>>
                    completeInduct_on`((st:('a,'c,'ffi)wordSem$state).clock)`>>
-                   simp[PULL_FORALL]>>
+                   simp_tac(srw_ss())[PULL_FORALL]>>
   completeInduct_on`prog_size (K 0) (prog:'a wordLang$prog)`>>
                    rpt strip_tac>>
-  fs[PULL_FORALL,evaluate_def]>>
+  full_simp_tac(srw_ss())[PULL_FORALL,evaluate_def,AND_IMP_INTRO]>>
   Cases_on`prog`
-  >- fs[evaluate_def,state_component_equality]
-  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
-  >- (Cases_on`i`>>
-      fs[evaluate_def,inst_def,
-         state_component_equality,assign_def,
-         mem_load_def,
-         mem_store_def, LET_THM]>>
-      EVERY_CASE_TAC>>
-      fs[]>>
-      rw[])
-  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
-  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
-  >- (fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[])
-  >- (fs[evaluate_def,mem_store_def,state_component_equality] >> every_case_tac >> fs[])
-  >-
+  >- (fs[evaluate_def] >> simp[state_component_equality])
+  >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
+      simp[state_component_equality])
+  >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
+      drule inst_const_full >> simp[state_component_equality])
+  >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
+      simp[state_component_equality])
+  >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
+      simp[state_component_equality])
+  >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
+      simp[state_component_equality])
+  >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
+      drule mem_store_const >> simp[state_component_equality])
    (* Must_Terminate *)
-   (fs[evaluate_def,AND_IMP_INTRO,
-       no_alloc_def, no_install_def]>>
-    IF_CASES_TAC>>
-    fs[]>>
-    last_x_assum(qspecl_then[`st with <|clock:=MustTerminate_limit(:'a);termdep:=st.termdep-1|>`,`p`,`l`] mp_tac)>>
-    simp[]>>
-    rw[]>>
-    qexists_tac`perm'`>>fs[]>>
-    pop_assum mp_tac >>
-    rpt(pairarg_tac >> fs[])>>
-    rw[]>> ntac 5 (pop_assum mp_tac) >>
-    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    rw[] >> rw[]>>fs[state_component_equality])
+  >- (fs[evaluate_def,no_install_def,no_alloc_def] >>
+     rpt (TOP_CASE_TAC >> simp[]) >>
+     last_x_assum(qspecl_then[`st with <|clock:=MustTerminate_limit(:'a);termdep:=st.termdep-1|>`,`p`,`l`] mp_tac)>>
+     impl_tac >- simp[] >>
+     disch_tac >> fs[] >>
+     qexists_tac`perm'`>>fs[]>>
+     rpt (pairarg_tac >> fs[]) >>
+     fs[bool_case_eq] >>
+     fs[state_component_equality])
   >- (*Call -- the hard case*)
    (
-   fs[evaluate_def,
-      no_alloc_def, no_install_def]>>
-   TOP_CASE_TAC>> fs [] >>
+   fs[evaluate_def,no_alloc_def, no_install_def]>>
+   TOP_CASE_TAC >> fs[] >>
    TOP_CASE_TAC>> fs []>>
    Cases_on`find_code o1 (add_ret_loc o' x) st.code st.stack_size`>>
    fs []>>
@@ -917,7 +908,7 @@ Proof
      >-simp[flush_state_def,
             state_component_equality]>>
      qabbrev_tac`stt = call_env q r' (dec_clock st)`>>
-                                first_x_assum(qspecl_then[`stt`,`prog'`,`l`] mp_tac)>>
+     first_x_assum(qspecl_then[`stt`,`prog'`,`l`] mp_tac)>>
      simp[AND_IMP_INTRO]>>
      impl_tac>-
       (full_simp_tac(srw_ss())
@@ -986,12 +977,8 @@ Proof
    qabbrev_tac`stt = call_env q r' (push_env x' o0 (dec_clock st))`>>
                               first_assum(qspecl_then[`stt`,`prog'`,`l`] mp_tac)>>
    impl_tac>-
-    (fs[Abbr`stt`,dec_clock_def]>>
-     DECIDE_TAC)>>
-   impl_tac>-
-    fs[Abbr`stt`,call_env_def,flush_state_def,wordPropsTheory.push_env_const,dec_clock_def]>>
-   impl_tac>-
-    (fs[Abbr`stt`,call_env_def,flush_state_def,dec_clock_def,word_simpProofTheory.push_env_gc_fun]>>
+    (
+     fs[Abbr`stt`,call_env_def,flush_state_def,dec_clock_def] >>
      qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
      drule (GEN_ALL code_rel_no_install)>>
      disch_then drule>>gs[]>>
@@ -1010,7 +997,7 @@ Proof
     (Q.GEN `name` compile_single_lem)>>
    impl_tac>-
     (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def,flush_state_def]>>
-     simp[domain_fromList2,word_allocTheory.even_list_def,word_simpProofTheory.push_env_gc_fun,dec_clock_def])>>
+     simp[domain_fromList2,word_allocTheory.even_list_def,word_simpProofTheory.push_env_gc_fun,dec_clock_def])>> 
    qpat_abbrev_tac`A = compile_single t k a c B`>>
                                       PairCases_on`A`>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
    pop_assum mp_tac >>
@@ -1027,6 +1014,8 @@ Proof
      full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,
                              flush_state_def,ETA_AX])>>
    Cases_on`x''`>>full_simp_tac(srw_ss())[]
+   >> cheat
+   (*
    >-
     (*Manual simulation for Result*)
     (Cases_on`w ≠ Loc xl1 xl2`>>full_simp_tac(srw_ss())[]
@@ -1206,7 +1195,8 @@ Proof
    >>
    qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
                                                               Cases_on`o0`>>TRY(PairCases_on`x''`)>>
-   fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
+   fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,flush_state_def,ETA_AX]
+  *))
   >- (*Seq, inductive*)
    (fs[evaluate_def,LET_THM,AND_IMP_INTRO]>>
     gs[no_install_def, no_alloc_def]>>
@@ -1300,7 +1290,6 @@ Proof
   gs[no_alloc_def, no_install_def]>> (
   fs[evaluate_def,jump_exc_def,flush_state_def,dec_clock_def,state_component_equality] >>
   every_case_tac >> fs[])
-  *)
 QED
 
 (******** more on no_mt **********)
