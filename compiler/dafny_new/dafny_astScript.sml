@@ -8,33 +8,30 @@ val _ = new_theory "dafny_ast";
 
 Datatype:
   type =
-  | IntType
-  | BoolType
-  | ArrayType type
+  | IntT
+  | BoolT
+  | ArrayT type
 End
 
 Datatype:
-  resolvedOpcode =
-  Lt | EqCommon | NeqCommon | Sub | Add | Div
+  bop = Lt | Eq | Neq | Sub | Add | Div
 End
 
 Datatype:
-  formal =
   (* Formal name type *)
-  Formal string type
+  formal = Formal string type
 End
 
 Datatype:
-  localVariable = LocalVariable string type
+  local_var = LocalVar string type
 End
 
 Datatype:
   literal =
-  (* StringLiteral isVerbatim value *)
-  | StringLiteral bool string
-  | Null
-  | BigInteger int
+  | IntV int
   | BoolV bool
+  (* StringV isVerbatim value *)
+  | StringV bool string
 End
 
 Datatype:
@@ -43,9 +40,9 @@ Datatype:
   | MethodCall string (expression list)
   (* FunctionCall name args *)
   | FunctionCall string (expression list)
-  | IdentifierExpr string type
-  | BinaryExpr resolvedOpcode expression expression
-  | LiteralExpr literal
+  | IdentifierExp string type
+  | BinaryExp bop expression expression
+  | LiteralExp literal
   | ArrayLen expression
   (* ArraySelect arr idx *)
   | ArraySelect expression expression
@@ -54,8 +51,8 @@ Datatype:
 End
 
 Datatype:
-  assignmentRhs =
-  | ExprRhs expression
+  assign_rhs =
+  | ExpRhs expression
   (* AllocArray type length initValue *)
   | AllocArray type expression expression
 End
@@ -64,19 +61,19 @@ Datatype:
   statement =
   | Skip
   | Then statement statement
-  | Assignment (expression list) (assignmentRhs list)
+  | Assign (expression list) (assign_rhs list)
   | If expression statement statement
   (* VarDecl locals assign scope *)
-  | VarDecl (localVariable list) statement statement
+  | VarDecl (local_var list) statement statement
   | While expression statement
-  | PrintStmt (expression list)
-  | ReturnStmt ((assignmentRhs list) option);
+  | Print (expression list)
+  | Return ((assign_rhs list) option);
 End
 
 Datatype:
   member_decl =
   (* Method name ins outs body *)
-  | Method string (formal list) (formal list) block_stmt
+  | Method string (formal list) (formal list) statement
   (* Function name ins resultType body *)
   | Function string (formal list) type expression
 End
