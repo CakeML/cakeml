@@ -302,18 +302,12 @@ Proof
 QED
 
 (* Helpful lemmas about locals *)
-
+(*TODO move*)
 Theorem get_var_set_var_thm:
    !k1 k2 v s. get_var k1 (set_var k2 v s) =
                if k1 = k2 then SOME v else get_var k1 s
 Proof
   rw [get_var_def, set_var_def, lookup_insert]
-QED
-
-Theorem get_var_set_store_thm:
-   !v w x s. get_var v (set_store w x s) = get_var v s
-Proof
-  rw [get_var_def, set_store_def]
 QED
 
 Theorem get_var_mem_store_thm:
@@ -390,14 +384,8 @@ Proof
   Cases_on `x2` \\ TRY (PairCases_on `x`) \\ rw [push_env_def, set_store_def] \\ pairarg_tac \\ fs []
 QED
 
-Theorem push_env_stack_gc:
-   !s ls h. (push_env ls h s).gc_fun = s.gc_fun
-Proof
-  Cases_on `h` \\ TRY (PairCases_on `x`) \\
-  rw [push_env_def, env_to_list_def]
-QED
-
-Theorem pop_env_stack_gc:
+(*TODO delete*)
+Triviality pop_env_stack_gc:
    !s. pop_env s = SOME s' ==> s'.gc_fun = s.gc_fun
 Proof
   rw [pop_env_def] \\ every_case_tac \\ fs [] \\ rw []
@@ -460,12 +448,6 @@ Theorem ALOOKUP_ALL_DISTINCT_FST_PERM_SOME:
               ALOOKUP (f l1) k = SOME v
 Proof
   metis_tac [ALOOKUP_ALL_DISTINCT_FST_PERM]
-QED
-
-Theorem push_env_gc_fun:
-   !s x h. (push_env x h s).gc_fun = s.gc_fun
-Proof
-  Cases_on `h` \\ fs [] \\ TRY (PairCases_on `x`) \\ rw [push_env_def, env_to_list_def]
 QED
 
 Theorem pop_env_gc_fun:
@@ -612,6 +594,7 @@ Proof
   Cases_on `h` \\ TRY (PairCases_on `x`) \\ rw [push_env_def] \\ pairarg_tac \\ fs []
 QED
 
+(*TODO move*)
 Theorem LASTN_LENGTH_CONS:
    !l h. LASTN (LENGTH l) (h::l) = l
 Proof
@@ -697,9 +680,9 @@ Proof
     reverse TOP_CASE_TAC >- (rw [] \\ rw []) \\
     fs [call_env_def, flush_state_def, dec_clock_def, set_var_def] \\
 
-    rfs [push_env_gc_fun] \\
+    rfs [] \\
     imp_res_tac evaluate_gc_fun_const_ok \\
-    rfs [push_env_gc_fun] \\
+    rfs [] \\
     imp_res_tac pop_env_gc_fun_const_ok \\
 
     imp_res_tac LIST_REL_call_Result \\
@@ -800,12 +783,6 @@ Proof
   imp_res_tac gc_sf_gc_consts \\ fs [push_env_def, pop_env_def] \\
   pairarg_tac \\ fs [] \\ res_tac \\ Cases_on `y` \\ fs [sf_gc_consts_def] \\
   rveq \\ fs [] \\ imp_res_tac gc_handler \\ rw [])
-QED
-
-Theorem get_var_set_fp_var[simp]:
-   get_var x (set_fp_var y v s) = get_var x s
-Proof
-  fs[get_var_def,set_fp_var_def]
 QED
 
 Theorem evaluate_drop_consts_1:
@@ -983,7 +960,7 @@ Proof
        disch_then drule>>
        fs[is_gc_word_const_def,get_var_set_vars_ignore])
     >- (imp_res_tac evaluate_consts \\ imp_res_tac pop_env_gc_fun \\
-       fs [set_vars_def, push_env_gc_fun])
+       fs [set_vars_def])
     >- rw[])
 
   >- (** FFI **)
@@ -999,7 +976,7 @@ Proof
   >- (** Alloc **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def, alloc_def] \\ every_case_tac \\ fs [] \\
   `gc_fun_const_ok (push_env x (NONE:(num # 'a prog # num # num) option) (set_store AllocSize (Word c) s)).gc_fun`
-  by (fs [set_store_def, push_env_gc_fun]) \\
+  by (fs [set_store_def]) \\
   imp_res_tac gc_sf_gc_consts \\
   fs [push_env_set_store_stack] \\
   imp_res_tac lookup_filter_v_SOME \\
@@ -1047,7 +1024,7 @@ Proof
 
   >- (** Set **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
-  res_tac \\ every_case_tac \\ rw [] \\ rw [get_var_set_store_thm])
+  res_tac \\ every_case_tac \\ rw [] \\ rw [])
 
   \\ (** Remaining: Raise, Return and Tick, buffer writes**)
     rw[const_fp_loop_def,evaluate_def] \\ fs[case_eq_thms,evaluate_def] \\

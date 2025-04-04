@@ -468,7 +468,7 @@ Proof
         imp_res_tac evaluate_clock>> fs[] >>
         imp_res_tac evaluate_consts>>fs[dec_clock_def]>>
         fs[word_state_eq_rel_def]>>
-        gs[])
+        gs[]) >>
       rw[]>>
       Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' (SOME (p0,p1,p2,p3)) (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
       rfs[]>>
