@@ -41,8 +41,8 @@ Datatype:
   expression =
   (* MethodCall name args *)
   | MethodCall string (expression list)
-  (* FunctionCallExpr name receiver args *)
-  | FunctionCallExpr string expression (expression list)
+  (* FunctionCall name args *)
+  | FunctionCall string (expression list)
   | IdentifierExpr string type
   | BinaryExpr resolvedOpcode expression expression
   | LiteralExpr literal
