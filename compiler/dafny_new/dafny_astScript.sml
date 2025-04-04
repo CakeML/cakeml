@@ -56,11 +56,11 @@ End
 Datatype:
   assignmentRhs =
   | ExprRhs expression
-  (* AllocateArray explicitType arrayDimensions elementInit initDisplay
-     - At most one of elementInit and initDisplay may be non-null
-     - initDisplay is a "sequence display" expression, e.g. [4+2, 1+5, a*b]
-     - initDisplay seems to be only used for one-dimensional array *)
-  | AllocateArray type (expression list) (expression option) ((expression list) option)
+  (* AllocArray type length initValue *)
+  | AllocArray type expression expression
+  (* AllocArrayWithDisplay type initDisplay
+     - length is implied by initDisplay *)
+  | AllocArrayWithDisplay type (expression list)
 End
 
 Datatype:
