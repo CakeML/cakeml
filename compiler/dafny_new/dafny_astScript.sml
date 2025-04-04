@@ -14,7 +14,7 @@ Datatype:
 End
 
 Datatype:
-  bop = Lt | Eq | Neq | Sub | Add | Div
+  bop = Lt | Le | Eq | Neq | Sub | Add | Mul | Div | And
 End
 
 Datatype:
@@ -65,15 +65,22 @@ Datatype:
   | If expression statement statement
   (* VarDecl locals assign scope *)
   | VarDecl (local_var list) statement statement
-  | While expression statement
+  (* While guard invariants decreases
+           mod body *)
+  | While expression (expression list) (expression list)
+          ((expression list) option) statement
   | Print (expression list)
   | Return ((assign_rhs list) option);
 End
 
 Datatype:
   member_decl =
-  (* Method name ins outs body *)
-  | Method string (formal list) (formal list) statement
+  (* Method name ins req ens
+            reads decreases outs
+            mod body *)
+  | Method string (formal list) (expression list) (expression list)
+           ((expression list) option) (expression list) (formal list)
+           ((expression list) option) statement
   (* Function name ins resultType body *)
   | Function string (formal list) type expression
 End
