@@ -10,7 +10,7 @@ Datatype:
   type =
   | IntType
   | BoolType
-  | UserDefinedType string
+  | ArrayType type
 End
 
 Datatype:
