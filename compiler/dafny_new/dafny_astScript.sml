@@ -79,19 +79,7 @@ Datatype:
 End
 
 Datatype:
-  top_level_decl =
-  (* DefaultClassDecl name members *)
-  DefaultClassDecl string (member_decl list)
-End
-
-Datatype:
-  module_definition =
-  (* Module string topLevelDecls *)
-  Module string (top_level_decl list)
-End
-
-Datatype:
-  program =
-  (* Program compileModules *)
-  Program (module_definition list)
+  (* For now, we only consider programs with a single module that uses the
+     default class *)
+  program = Program (member_decl list)
 End
