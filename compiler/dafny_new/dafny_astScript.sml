@@ -61,12 +61,12 @@ Datatype:
   | If expression statement statement
   (* VarDecl locals assign scope *)
   | VarDecl ((string # type) list) statement statement
-  (* While guard invariants decreases
-           mod body *)
-  | While expression (expression list) (expression list)
-          ((expression list) option) statement
+  (* While guard invariants decreases mod
+           body *)
+  | While expression (expression list) (expression list) (expression list)
+          statement
   | Print (expression list)
-  | Return ((assign_rhs list) option)
+  | Return (assign_rhs list)
   | Assert expression
 End
 
@@ -76,12 +76,12 @@ Datatype:
             reads decreases outs
             mod body *)
   | Method string ((string # type) list) (expression list) (expression list)
-           ((expression list) option) (expression list) ((string # type) list)
-           ((expression list) option) statement
+           (expression list) (expression list) ((string # type) list)
+           (expression list) statement
   (* Function name ins resultType req
               reads body *)
   | Function string ((string # type) list) type (expression list)
-             ((expression list) option) expression
+             (expression list) expression
 End
 
 Datatype:
