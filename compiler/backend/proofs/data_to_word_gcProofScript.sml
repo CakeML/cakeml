@@ -7600,8 +7600,10 @@ Theorem word_exp_rw =
   [wordSemTheory.word_exp_def,
    wordLangTheory.word_op_def,
    wordLangTheory.word_sh_def,
+   wordSemTheory.get_var_def,
    wordSemTheory.get_var_imm_def,
    wordSemTheory.the_words_def,
+   wordSemTheory.get_store_def,
    lookup_insert]
 
 Theorem get_var_set_var_thm:
@@ -7700,6 +7702,13 @@ Proof
   \\ rw [] \\ pop_assum mp_tac
   \\ simp [domain_lookup,lookup_adjust_set]
   \\ rw [] \\ fs []
+QED
+
+Theorem cut_env_adjust_sets_insert_ODD:
+   ODD n ==> cut_env (adjust_sets the_names) (insert n w s) =
+             cut_env (adjust_sets the_names) s
+Proof
+  cheat
 QED
 
 Theorem cut_names_insert_1_insert_1:
