@@ -153,7 +153,7 @@ Definition cps_transform_def:
     t = "t" ++ toString m;
     (l, inner) = cps_transform_app (m+1) tfn (Var (Short t)::ts) es k
   in
-    (l, App Opapp [ce; Fun t inner])) ∧
+    (l, Let (SOME "k") (Fun t inner) $ App Opapp [ce; Var (Short "k")])) ∧
 
   cps_transform_app n tfn ts [] k = (n,
     App Opapp [

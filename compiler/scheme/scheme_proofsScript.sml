@@ -558,6 +558,16 @@ Theorem scheme_env_def[allow_rebind, compute] = SRULE [] $ zDefine ‘
     MAP Short ["sadd"; "smul"; "sminus"; "seqv"; "throw"; "callcc"; "app"]
 ’
 
+Definition cps_app_ts_def:
+  cps_app_ts n (e::es) = (let
+    (m, ce) = cps_transform n e;
+    t = "t" ++ toString m
+  in
+    t :: cps_app_ts (m+1) es) ∧
+
+  cps_app_ts n [] = []
+End
+
 Inductive cont_rel:
 [~Id:]
   scheme_env env ∧
@@ -587,10 +597,41 @@ Inductive cont_rel:
   scheme_env env ∧
   ¬ MEM var vconses ∧
   ¬ MEM t vconses ∧
+  ts = cps_app_ts n es ∧
+  ¬ MEM var ts ∧
+  ¬ MEM t ts ∧
   var ≠ t
   ⇒
   (*Likely needs condition on se i.e. Scheme env*)
   cont_rel ((se, ApplyK NONE es) :: ks)
+    (Closure env t $ ce)
+[~ApplyK_SOME:]
+  cont_rel ks kv ∧
+  nsLookup env.v (Short var) = SOME kv ∧
+  (m, ce) = cps_transform_app n (Var (Short fnt))
+    (Var (Short t) :: MAP (Var o Short) ts) es (Var (Short var)) ∧
+  nsLookup env.v (Short fnt) = SOME (ml_v_vals fn) ∧
+  LIST_REL (λ x v . nsLookup env.v (Short x) = SOME (ml_v_vals v)) ts vs ∧
+  scheme_env env ∧
+  ALL_DISTINCT ts ∧
+  ¬ MEM var vconses ∧
+  ¬ MEM fnt vconses ∧
+  ¬ MEM t vconses ∧
+  EVERY (λ x . ¬ MEM x vconses) ts ∧
+  ¬ MEM var ts ∧
+  ¬ MEM fnt ts ∧
+  ¬ MEM t ts ∧
+  ts' = cps_app_ts n es ∧
+  EVERY (λ x . ¬ MEM x ts') ts ∧
+  ¬ MEM var ts' ∧
+  ¬ MEM fnt ts' ∧
+  ¬ MEM t ts' ∧
+  var ≠ fnt ∧
+  var ≠ t ∧
+  fnt ≠ t
+  ⇒
+  (*Likely needs condition on se i.e. Scheme env*)
+  cont_rel ((se, ApplyK (SOME (fn, vs)) es) :: ks)
     (Closure env t $ ce)
 End
 
@@ -625,6 +666,69 @@ Theorem basis_scheme_env:
     scheme_env scheme_env'
 Proof
   EVAL_TAC
+QED
+
+(*
+open scheme_proofsTheory;
+*)
+
+Theorem str_not_num:
+  ∀ (n:num) str . ¬ EVERY isDigit str ⇒ toString n ≠ str
+Proof
+  simp[EVERY_isDigit_num_to_dec_string]
+QED
+
+Theorem k_in_ts:
+  ∀ es (n:num) m . ¬ MEM (STRING #"k" (toString n)) (cps_app_ts m es)
+Proof
+  Induct
+  >> simp[cps_app_ts_def]
+  >> rpt strip_tac
+  >> rpt (pairarg_tac >> gvs[])
+QED
+
+Theorem mono_proc_ml_on_n:
+  ∀ xs xp n k args ce m ce' .
+    (m, ce') = proc_ml n xs xp k args ce ⇒ m ≥ n
+Proof
+  Induct >> Cases
+  >> simp[proc_ml_def]
+  >> rpt strip_tac
+  >> rpt (pairarg_tac >> gvs[])
+  >> last_x_assum $ dxrule o GSYM
+  >> simp[]
+QED
+
+Theorem mono_cps_on_n:
+  (∀ n e m ce . (m, ce) = cps_transform n e ⇒ m ≥ n) ∧
+  (∀ n k k' m ce . (m, ce) = refunc_cont n k k' ⇒ m ≥ n) ∧
+  (∀ n fn ts es k m ce . (m, ce) = cps_transform_app n fn ts es k ⇒ m ≥ n) ∧
+  (∀ n k es m ce . (m, ce) = cps_transform_seq n k es ⇒ m ≥ n) ∧
+  (∀ n k bs ce' m ce . (m, ce) = cps_transform_letreinit n k bs ce' ⇒ m ≥ n)
+Proof
+  ho_match_mp_tac $ cps_transform_ind
+  >> simp[cps_transform_def]
+  >> rpt strip_tac
+  >> rpt (pairarg_tac >> gvs[]) >- (
+    dxrule $ GSYM mono_proc_ml_on_n
+    >> simp[]
+  )
+  >> pop_assum mp_tac
+  >> every_case_tac
+  >> strip_tac
+  >> gvs[]
+QED
+
+Theorem t_in_ts:
+  ∀ es n m . m > n ⇒ ¬ MEM (STRING #"t" (toString n)) (cps_app_ts m es)
+Proof
+  Induct >> rpt strip_tac
+  >> gvs[cps_app_ts_def]
+  >> rpt (pairarg_tac >> gvs[])
+  >> dxrule $ GSYM $ cj 1 mono_cps_on_n
+  >> simp[]
+  >> last_x_assum $ qspecl_then [‘n’, ‘m'+1’] mp_tac
+  >> simp[]
 QED
 
 Theorem myproof:
@@ -750,6 +854,63 @@ Proof
       )
       >> cheat
     )
+    >> Cases_on ‘∃ e es . h1 = ApplyK NONE (e::es)’ >- (
+      gvs[]
+      >> simp[step_def, return_def, Once e_ce_rel_cases,
+        Once cont_rel_cases, cps_transform_def, cps_app_ts_def]
+      >> rpt strip_tac
+      >> rpt (pairarg_tac >> gvs[])
+      >> simp[Ntimes evaluate_def 6, do_opapp_def, nsOptBind_def]
+      >> irule_at (Pos hd) EQ_REFL
+      >> simp[Once e_ce_rel_cases]
+      >> irule_at Any EQ_REFL
+      >> qpat_assum ‘cps_transform _ _ = (_,_)’ $
+        irule_at (Pos $ el 2) o GSYM
+      >> simp[Once cont_rel_cases]
+      >> pop_assum $ irule_at (Pos $ el 3) o GSYM
+      >> qpat_assum ‘scheme_env env’ $ simp
+        o curry ((::) o swap) [scheme_env_def] o SRULE [scheme_env_def]
+      >> irule_at Any str_not_num
+      >> simp[isDigit_def, t_in_ts]
+    )
+    >> Cases_on ‘∃ e es . h1 = ApplyK (SOME (fn, vs)) (e::es)’ >- (
+      gvs[]
+      >> simp[step_def, return_def, Once e_ce_rel_cases,
+        Once cont_rel_cases, cps_transform_def, cps_app_ts_def]
+      >> rpt strip_tac
+      >> rpt (pairarg_tac >> gvs[])
+      >> simp[Ntimes evaluate_def 6, do_opapp_def, nsOptBind_def]
+      >> irule_at (Pos hd) EQ_REFL
+      >> simp[Once e_ce_rel_cases]
+      >> irule_at Any EQ_REFL
+      >> qpat_assum ‘cps_transform _ _ = (_,_)’ $ irule_at
+        (Pos $ hd o tl) o GSYM
+      >> simp[Once cont_rel_cases]
+      >> SIMP_TAC std_ss [MAP_o]
+      >> pop_assum $ irule_at (Pos $ el 3) o GSYM
+        o SIMP_RULE std_ss [Ntimes (GSYM MAP) 2, MAP_o]
+      >> irule_at Any EQ_REFL
+      >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+      >> qpat_assum ‘scheme_env env’ $ simp
+        o curry ((::) o swap) [scheme_env_def] o SRULE [scheme_env_def]
+      >> irule_at Any str_not_num
+      >> simp[isDigit_def, t_in_ts]
+      >> gvs[EVERY_CONJ]
+      >> qpat_assum ‘EVERY (λ x . x ≠ _) _’ $ simp o single
+        o SRULE [EVERY_MEM]
+      >> irule EVERY2_MEM_MONO
+      >> qpat_assum ‘LIST_REL _ _ _’ $ irule_at (Pos last)
+      >> qpat_assum ‘LIST_REL _ _ _’ $ assume_tac o cj 1
+        o SRULE [EVERY2_EVERY]
+      >> PairCases >> simp[]
+      >> strip_tac
+      >> drule $ SRULE [Once CONJ_COMM] MEM_ZIP_MEM_MAP
+      >> simp[]
+      >> strip_tac
+      >> qsuff_tac ‘x0 ≠ t'’
+      >> strip_tac
+      >> gvs[]
+    )
     >> cheat
   )
   >~ [‘Exp e’] >- (
@@ -789,11 +950,10 @@ Proof
       >> simp[Once e_ce_rel_cases, Once cont_rel_cases]
       >> rpt $ irule_at Any EQ_REFL
       >> pop_assum $ irule_at Any o GSYM
-      >> gvs[scheme_env_def]
-      >> ‘∀ (n:num) str . ¬ EVERY isDigit str ⇒ toString n ≠ str’ by
-        simp[EVERY_isDigit_num_to_dec_string]
-      >> pop_assum $ irule_at $ Pos hd
-      >> simp[isDigit_def]
+      >> qpat_assum ‘scheme_env mlenv’ $ simp
+        o curry ((::) o swap) [scheme_env_def] o SRULE [scheme_env_def]
+      >> irule_at (Pos hd) str_not_num
+      >> simp[isDigit_def, k_in_ts, t_in_ts]
       >> metis_tac[]
     )
     >> cheat
