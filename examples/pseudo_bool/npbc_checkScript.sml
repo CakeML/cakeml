@@ -1,7 +1,7 @@
 (*
   Pseudo-boolean constraints proof format and checker
 *)
-open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory spt_to_vecTheory;
+open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory spt_to_vecTheory mergesortTheory;
 
 val _ = new_theory "npbc_check";
 
@@ -54,8 +54,9 @@ Datatype:
   | Mul constr num      (* Multiply by a constant factor *)
   | Div constr num      (* Divide by a constant factor *)
   | Sat constr          (* Saturation *)
-  | Lit (num lit)       (* Literal axiom lit ≥ 0 *)
-  | Weak constr var     (* Addition of literal axioms until "var" disappears *)
+  | Lit (num lit)       (* Literal axiom lit ≥ 0 (superseded by triv but used in parsing) *)
+  | Weak constr (var list)     (* Addition of literal axioms until "var" disappears *)
+  | Triv ((num # num lit) app_list) (* Literal axiom corresponds to [1,l] ≥ 0 *)
 End
 
 (* Steps that preserve logical implication *)
@@ -96,6 +97,63 @@ Definition lookup_core_only_def:
     else NONE
 End
 
+Definition map_app_list_def:
+  (map_app_list f (List ls) = List (MAP f ls)) ∧
+  (map_app_list f (Append l r) = Append (map_app_list f l) (map_app_list f r)) ∧
+  (map_app_list f Nil = Nil)
+End
+
+Definition mul_triv_def:
+  mul_triv ls k = map_app_list (λ(x:num,y). (x * k,y) ) ls
+End
+
+Definition fuse_weaken_def:
+  (fuse_weaken vs (Weak c rs) = Weak c (vs ++ rs)) ∧
+  (fuse_weaken vs p = Weak p vs)
+End
+
+Definition to_triv_def:
+  (to_triv (Add l r) =
+    let ll = to_triv l in
+    let rr = to_triv r in
+    case (ll,rr) of
+      (Triv lt, Triv rt) => Triv (SmartAppend lt rt)
+    | (Triv lt, Add re (Triv rt)) => Add re (Triv (SmartAppend lt rt))
+    | (Add le (Triv lt), Triv rt) => Add le (Triv (SmartAppend lt rt))
+    | (Add le (Triv lt), Add re (Triv rt)) => Add (Add le re) (Triv (SmartAppend lt rt))
+    | _ => Add ll rr) ∧
+  (to_triv (Mul c k) =
+    let cc = to_triv c in
+    case cc of
+      Triv ls => Triv (mul_triv ls k)
+    | _ => Mul cc k) ∧
+  (to_triv (Div c k) = Div (to_triv c) k) ∧
+  (to_triv (Sat c) = Sat (to_triv c)) ∧
+  (to_triv (Weak c vs) = fuse_weaken vs (to_triv c)) ∧
+  (to_triv (Lit l) = Triv (List [(1,l)])) ∧
+  (to_triv c = c)
+End
+
+Definition sing_lit_def:
+  sing_lit (k:num,l) =
+  case l of Pos v => (&k:int,v)
+  | Neg v => (-&k:int,v)
+End
+
+Definition clean_triv_def:
+  clean_triv ls =
+    FOLDR (λpc1 c2.
+      npbc$add ([pc1],0) c2) ([],0)
+      (FILTER (λh. FST h ≠ 0)
+      (mergesort_tail (λx y. SND x ≤ SND y)
+        (MAP sing_lit (append ls))))
+End
+
+Definition weaken_sorted_def:
+  weaken_sorted c vs =
+  weaken c (mergesort_tail (λx y. x ≤ y) vs)
+End
+
 Definition check_cutting_def:
   (check_cutting b (fml:pbf) (Id n) =
     lookup_core_only b fml n) ∧
@@ -111,8 +169,9 @@ Definition check_cutting_def:
     OPTION_MAP saturate (check_cutting b fml c)) ∧
   (check_cutting b fml (Lit (Pos v)) = SOME ([(1,v)],0)) ∧
   (check_cutting b fml (Lit (Neg v)) = SOME ([(-1,v)],0)) ∧
+  (check_cutting b fml (Triv ls) = SOME (clean_triv ls)) ∧
   (check_cutting b fml (Weak c var) =
-    OPTION_MAP (λc. weaken c var) (check_cutting b fml c))
+    OPTION_MAP (λc. weaken_sorted c var) (check_cutting b fml c))
 End
 
 Definition check_contradiction_fml_def:
@@ -189,7 +248,7 @@ Definition check_lstep_def:
     then SOME (FOLDL (λa b. delete b a) fml ls,id)
     else NONE
   | Cutting constr =>
-    (case check_cutting b fml constr of
+    (case check_cutting b fml (to_triv constr) of
       NONE => NONE
     | SOME c =>
       SOME (insert_fml b fml id c))
@@ -239,6 +298,25 @@ Definition core_only_fml_def:
     {v | ∃n b. lookup n fml = SOME(v,b)}
 End
 
+Theorem FOLDR_add_sound:
+  ∀ls c.
+  satisfies_npbc w c ⇒
+  satisfies_npbc w (FOLDR (λpc1 c2. add ([pc1],0) c2) c ls)
+Proof
+  Induct>>
+  rw[]>>
+  match_mp_tac add_thm>>
+  simp[satisfies_npbc_def]
+QED
+
+Theorem clean_triv_thm:
+  satisfies_npbc w (clean_triv ls)
+Proof
+  rw[clean_triv_def]>>
+  irule FOLDR_add_sound>>
+  simp[satisfies_npbc_def]
+QED
+
 Theorem check_cutting_correct:
   ∀fml n c w.
   check_cutting b fml n = SOME c ∧
@@ -274,8 +352,30 @@ Proof
     EVAL_TAC)
   >- (
     (* weaken case *)
+    simp[weaken_sorted_def]>>
     match_mp_tac weaken_thm>>
     metis_tac[])
+  >-
+    metis_tac[clean_triv_thm]
+QED
+
+Theorem FOLDR_add_compact:
+  ∀ls c.
+  compact c ∧ EVERY (λh. FST h ≠ 0) ls ⇒
+  compact (FOLDR (λpc1 c2. add ([pc1],0) c2) c ls)
+Proof
+  Induct>>
+  rw[]>>
+  match_mp_tac compact_add>>
+  simp[]
+QED
+
+Theorem clean_triv_compact:
+  compact (clean_triv ls)
+Proof
+  rw[clean_triv_def]>>
+  irule FOLDR_add_compact>>
+  simp[EVERY_FILTER]
 QED
 
 Theorem check_cutting_compact:
@@ -306,7 +406,10 @@ Proof
     EVAL_TAC)
   >- (
     (* weaken case *)
+    simp[weaken_sorted_def]>>
     metis_tac[compact_weaken])
+  >-
+    metis_tac[clean_triv_compact]
 QED
 
 Definition id_ok_def:
@@ -1788,6 +1891,8 @@ QED
 Type subproof =
   ``:(((num + num) # num) option, lstep list) alist``;
 
+Type assg_raw = ``:((num # bool) list)``;
+
 Datatype:
   cstep =
   (* Derivation steps *)
@@ -1811,7 +1916,7 @@ Datatype:
       subproof
 
   (* Objective steps *)
-  | Obj (bool spt) bool (int option)
+  | Obj assg_raw bool (int option)
   | ChangeObj bool ((int # var) list # int)
       (* sub proof*)
       subproof
@@ -1836,10 +1941,28 @@ Proof
   metis_tac[]
 QED
 
+Definition to_flat_d_def:
+  to_flat_d d n l acc =
+    case l of
+    | [] => REVERSE acc
+    | ((m,x)::xs) => to_flat_d d (m+1) xs (x :: prepend (m-n) d acc)
+End
+
+Definition mk_obj_vec_def:
+  mk_obj_vec (wm:((num # bool) list)) =
+    let wms = mergesort_tail (λx y. FST x ≤ FST y) wm in
+    Vector (to_flat_d F 0 wms [])
+End
+
+Definition vec_lookup_d_def:
+  vec_lookup_d d vec n =
+    if n < length vec then sub vec n else d
+End
+
 Definition check_obj_def:
   check_obj obj wm cs bopt =
-  let w = (λn.
-    case lookup n wm of NONE => F | SOME b => b) in
+  let wv = mk_obj_vec wm in
+  let w = vec_lookup_d F wv in
   let new = eval_obj obj w in
   if
     EVERY (satisfies_npbc w) cs
@@ -3946,9 +4069,9 @@ QED
 Datatype:
   hconcl =
   | HNoConcl
-  | HDSat (bool spt option)
+  | HDSat (assg_raw option)
   | HDUnsat num
-  | HOBounds (int option) (int option) num (bool spt option)
+  | HOBounds (int option) (int option) num (assg_raw option)
 End
 
 Definition check_implies_fml_def:
