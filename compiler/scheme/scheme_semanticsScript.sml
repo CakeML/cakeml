@@ -9,32 +9,32 @@ open finite_mapTheory;
 val _ = new_theory "scheme_semantics";
 
 Datatype:
-  e_or_v = Exp exp | Val val
+  e_or_v = Exp exp | Val val | Exception mlstring
 End
 
 Definition sadd_def:
   sadd [] n = Val $ SNum n ∧
   sadd (SNum m :: xs) n = sadd xs (m + n) ∧
-  sadd (_ :: xs) _ = Exp $ Exception $ strlit "Arguments to + must be numbers"
+  sadd (_ :: xs) _ = Exception $ strlit "Arguments to + must be numbers"
 End
 
 Definition smul_def:
   smul [] n = Val $ SNum n ∧
   smul (SNum m :: xs) n = smul xs (m * n) ∧
-  smul (_ :: xs) _ = Exp $ Exception $ strlit "Arguments to * must be numbers"
+  smul (_ :: xs) _ = Exception $ strlit "Arguments to * must be numbers"
 End
 
 Definition sminus_def:
-  sminus [] = Exp $ Exception $ strlit "Arity mismatch" ∧
+  sminus [] = Exception $ strlit "Arity mismatch" ∧
   sminus (SNum n :: xs) = (case sadd xs 0 of
   | Val (SNum m) => Val (SNum (n - m))
   | e => e) ∧
-  sminus _ = Exp $ Exception $ strlit "Arguments to - must be numbers"
+  sminus _ = Exception $ strlit "Arguments to - must be numbers"
 End
 
 Definition seqv_def:
   seqv [v1; v2] = (if v1 = v2 then Val $ SBool T else Val $ SBool F) ∧
-  seqv _ = Exp $ Exception $ strlit "Arity mismatch"
+  seqv _ = Exception $ strlit "Arity mismatch"
 End
 
 (*
@@ -61,7 +61,7 @@ Definition parameterize_def:
     in (store', ks, (env |+ (l, n)), Exp e)) ∧
   parameterize store ks env (p::ps) lp e (x::xs) = (let (n, store') = fresh_loc store (SOME x)
     in parameterize store' ks (env |+ (p, n)) ps lp e xs) ∧
-  parameterize store ks _ _ _ _ _ = (store, ks, FEMPTY, Exp $ Exception $ strlit "Wrong number of arguments")
+  parameterize store ks _ _ _ _ _ = (store, ks, FEMPTY, Exception $ strlit "Wrong number of arguments")
 End
 
 Definition application_def:
@@ -72,13 +72,13 @@ Definition application_def:
   | SEqv => (store, ks, FEMPTY, seqv xs)
   | CallCC => case xs of
     | [v] => (store, (FEMPTY, ApplyK (SOME (v, [])) []) :: ks, FEMPTY, Val $ Throw ks)
-    | _ => (store, ks, FEMPTY, Exp $ Exception $ strlit "arity mismatch")) ∧
+    | _ => (store, ks, FEMPTY, Exception $ strlit "Arity mismatch")) ∧
   application store ks (Proc env ps lp e) xs =
     parameterize store ks env ps lp e xs ∧
   application store ks (Throw ks') xs = (case xs of
     | [v] => (store, ks', FEMPTY, Val v)
-    | _ => (store, ks, FEMPTY, Exp $ Exception $ strlit "arity mismatch")) ∧
-  application store ks _ _ = (store, ks, FEMPTY, Exp $ Exception $ strlit "Not a procedure")
+    | _ => (store, ks, FEMPTY, Exception $ strlit "Arity mismatch")) ∧
+  application store ks _ _ = (store, ks, FEMPTY, Exception $ strlit "Not a procedure")
 End
 
 Definition return_def:
@@ -113,7 +113,7 @@ Definition step_def:
   step (store, ks, env, Exp $ Cond c t f) = (store, (env, CondK t f) :: ks, env, Exp c) ∧
   (*This is undefined if the program doesn't typecheck*)
   step (store, ks, env, Exp $ Ident s) = (let ev = case EL (env ' s) store of
-    | NONE => Exp $ Exception $ strlit "letrec variable touched"
+    | NONE => Exception $ strlit "letrec variable touched"
     | SOME v => Val v
     in (store, ks, env, ev)) ∧
   step (store, ks, env, Exp $ Lambda ps lp e) = (store, ks, env, Val $ Proc env ps lp e) ∧
@@ -125,7 +125,7 @@ Definition step_def:
   | (x, i)::bs' => let (store', env') = letrec_init store env (MAP FST bs)
       in (store', (env', BeginK (SNOC e (MAP (UNCURRY Set) bs'))) :: ks, env', Exp $ Set x i)) ∧
 
-  step (store, ks, env, Exp $ Exception ex) = (store, [], env, Exp $ Exception ex)
+  step (store, ks, env, Exception ex) = (store, [], env, Exception ex)
 End
 
 Definition steps_def:

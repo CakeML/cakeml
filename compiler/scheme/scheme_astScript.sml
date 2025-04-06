@@ -24,7 +24,6 @@ Datatype:
       | Cond exp exp exp
       | Ident mlstring
       | Lambda (mlstring list) (mlstring option) exp
-      | Exception mlstring
       | Begin exp (exp list)
       | Set mlstring exp
       | Letrec ((mlstring # exp) list) exp

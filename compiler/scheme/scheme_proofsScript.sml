@@ -2,6 +2,7 @@
   Proofs for Scheme to CakeML compilation
 *)
 open preamble;
+open computeLib;
 open scheme_astTheory;
 open scheme_semanticsTheory;
 open scheme_to_cakeTheory;
@@ -12,179 +13,439 @@ open evaluatePropsTheory;
 open semanticPrimitivesTheory;
 open namespaceTheory;
 open primTypesTheory;
+open namespacePropsTheory;
 
 val _ = new_theory "scheme_proofs";
 
-(*
-Definition subset1_def:
-  (subset1 (Apply fn args) ⇔ subset1 fn ∧ EVERY subset1 args) ∧
-  (subset1 (Cond c t f) ⇔ subset1 c ∧ subset1 t ∧ subset1 f) ∧
-  (subset1 (Exception _) ⇔ T) ∧
-  (subset1 (Val v) ⇔ case v of
-  | Prim _ => T
-  | SNum _ => T
-  | SBool _ => T
-  | _ => F) ∧
-  (subset1 _ ⇔ F)
-Termination
-  WF_REL_TAC ‘measure exp_size’
-End
-*)
-
-(*
-Inductive subset1:
-[~Prim:]
-  vsubset1 (Prim p)
-[~SNum:]
-  vsubset1 (SNum n)
-[~SBool:]
-  vsubset1 (SBool b)
-[~Apply:]
-  subset1 fn ∧ EVERY subset1 args ⇒ subset1 (Apply fn args)
-[~Cond:]
-  subset1 c ∧ subset1 t ∧ subset1 f ⇒ subset1 (Cond c t f)
-[~Val:]
-  vsubset1 v ⇒ subset1 (Val v)
-[~CondK:]
-  subset1 t ∧ subset1 f ⇒ ksubset1 (CondK t f)
-[~ApplyKNONE:]
-  EVERY subset1 args ⇒ ksubset1 (ApplyK NONE args)
-[~ApplyKSOME:]
-  vsubset1 fv ∧ EVERY vsubset1 vs ∧ EVERY subset1 args
-    ⇒ ksubset1 (ApplyK (SOME (fv, vs)) args)
-[~Cont:]
-  EVERY ksubset1 ks ⇒ kssubset1 ks
+Definition scheme_basis1_def:
+  scheme_basis1 = Dtype unknown_loc [
+    ([], "sprim", [
+      ("SAdd", []);
+      ("SMul", []);
+      ("SMinus", []);
+      ("SEqv", []);
+      ("CallCC", [])
+    ]);
+    ([], "sval", [
+      ("SNum", [Atapp [] (Short "int")]);
+      ("SBool", [Atapp [] (Short "bool")]);
+      ("Prim", [Atapp [] (Short "sprim")]);
+      ("SList", [Atapp [Atapp [] (Short "sval")] (Short "list")]);
+      ("Wrong", [Atapp [] (Short "string")]);
+      ("Ex", [Atapp [] (Short "string")]);
+      ("Proc", [Atfun
+                 (Atfun
+                   (Atapp [] (Short "sval"))
+                   (Atapp [] (Short "sval")))
+                 (Atfun
+                   (Atapp [Atapp [] (Short "sval")] (Short "list"))
+                   (Atapp [] (Short "sval")))]);
+      ("Throw", [Atfun
+                  (Atapp [] (Short "sval"))
+                  (Atapp [] (Short "sval"))]);
+    ])
+  ]
 End
 
+Theorem scheme_env1_def[allow_rebind, compute] = EVAL_RULE $ zDefine ‘
+  scheme_env1 = case evaluate_decs
+      (<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|> :num state)
+      <|v:=nsEmpty;c:=nsEmpty|>
+      (prim_types_program ++ [scheme_basis1]) of
+    | (st', Rval env) => env
+    | _ => <|v:=nsEmpty;c:=nsEmpty|>
+’;
 
-Theorem subset1_rewrite[simp] = LIST_CONJ[
-  “vsubset1 (Prim p)” |> SCONV [Once subset1_cases],
-  “vsubset1 (SNum n)” |> SCONV [Once subset1_cases],
-  “vsubset1 (SBool b)” |> SCONV [Once subset1_cases],
-  “vsubset1 (Wrong w)” |> SCONV [Once subset1_cases],
-  “vsubset1 (SList l)” |> SCONV [Once subset1_cases],
-  “vsubset1 (Proc r xs xp e)” |> SCONV [Once subset1_cases],
-  “vsubset1 (Throw k)” |> SCONV [Once subset1_cases],
-
-  “subset1 (Apply fn args)” |> SCONV [Once subset1_cases],
-  “subset1 (Cond c t f)” |> SCONV [Once subset1_cases],
-  “subset1 (Val v)” |> SCONV [Once subset1_cases],
-  “subset1 (Print m)” |> SCONV [Once subset1_cases],
-  “subset1 (Exception m)” |> SCONV [Once subset1_cases],
-  “subset1 (Ident x)” |> SCONV [Once subset1_cases],
-  “subset1 (Lambda xs xp e)” |> SCONV [Once subset1_cases],
-  “subset1 (Begin e es)” |> SCONV [Once subset1_cases],
-  “subset1 (Set x e)” |> SCONV [Once subset1_cases],
-  “subset1 (Letrec bs e)” |> SCONV [Once subset1_cases],
-
-  “ksubset1 (CondK t f)” |> SCONV [Once subset1_cases],
-  “ksubset1 (ApplyK ps args)” |> SCONV [Once subset1_cases],
-  “ksubset1 (SetK x)” |> SCONV [Once subset1_cases],
-  “ksubset1 (BeginK es)” |> SCONV [Once subset1_cases],
-  “kssubset1 ks” |> SCONV [Once subset1_cases]
+Theorem scheme_env1_rw[simp] = LIST_CONJ $ map EVAL [
+  “nsLookup scheme_env1.c (Short "SNum")”,
+  “nsLookup scheme_env1.c (Short "SBool")”,
+  “nsLookup scheme_env1.c (Short "True")”,
+  “nsLookup scheme_env1.c (Short "False")”,
+  “nsLookup scheme_env1.c (Short "Prim")”,
+  “nsLookup scheme_env1.c (Short "SAdd")”,
+  “nsLookup scheme_env1.c (Short "SMul")”,
+  “nsLookup scheme_env1.c (Short "SMinus")”,
+  “nsLookup scheme_env1.c (Short "SEqv")”,
+  “nsLookup scheme_env1.c (Short "CallCC")”,
+  “nsLookup scheme_env1.c (Short "[]")”,
+  “nsLookup scheme_env1.c (Short "::")”,
+  “nsLookup scheme_env1.c (Short "Ex")”,
+  “nsLookup scheme_env1.c (Short "Proc")”,
+  “nsLookup scheme_env1.c (Short "Throw")”
 ];
 
-Theorem eval_expand = LIST_CONJ[
-  myEnv_def, myC_def, do_opapp_def, dec_clock_def,
-  nsLookup_def, nsBind_def, do_con_check_def, build_conv_def
-];
-
-Inductive ml_subset:
-[~Fun:]
-  ml_subset e ⇒ ml_subset (Fun t e)
-[~App:]
-  EVERY ml_subset es ⇒ ml_subset (App op es)
-[~Var:]
-  ml_subset (Var (Short t))
-[~Con:]
-  EVERY ml_subset es ⇒ ml_subset (Con x es)
-[~Lit:]
-  ml_subset (Lit x')
-[~Let:]
-  ml_subset e1 ∧ ml_subset e2 ⇒ ml_subset (Let p e1 e2)
-[~Mat:]
-  ml_subset e ∧ EVERY ml_subset (MAP SND bs) ⇒ ml_subset (Mat e bs)
+Definition scheme_basis2_def:
+  scheme_basis2 = Dletrec unknown_loc [
+    ("sadd", "k", Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Let (SOME "v") (Con (SOME $ Short "SNum") [Var (Short "n")]) $
+          App Opapp [Var (Short "k"); Var (Short "v")]);
+      (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
+        Mat (Var (Short "x")) [
+          (Pcon (SOME $ Short "SNum") [Pvar "xn"],
+            App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "sadd"); Var (Short "k")];
+                App (Opn Plus) [Var (Short "n"); Var (Short "xn")]
+              ];
+              Var (Short "xs'")
+            ]);
+          (Pany,
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Not a number"])
+        ])
+    ])
+  ]
 End
 
-Definition rec_scheme_def:
-  rec_scheme (Cond c t f) = rec_scheme c + rec_scheme t + rec_scheme f ∧
-  rec_scheme (Apply fn es) = rec_scheme fn + SUM (MAP rec_scheme es) ∧
-  rec_scheme (Val v) = 0
-Termination
-  WF_REL_TAC ‘measure exp_size’
-End
+Theorem scheme_env2_def[allow_rebind, compute] = SRULE [] $
+  RESTR_EVAL_RULE [“scheme_env1”] $ zDefine ‘
+    scheme_env2 = case evaluate_decs
+        (<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|> :num state)
+        scheme_env1
+        [scheme_basis2] of
+      | (st', Rval env) => extend_dec_env env scheme_env1
+      | _ => <|v:=nsEmpty;c:=nsEmpty|>
+’;
 
-Theorem ml_subset_rewrite[simp] = LIST_CONJ [
-  “ml_subset (Fun t e)” |> SCONV [Once ml_subset_cases],
-  “ml_subset (App op es)” |> SCONV [Once ml_subset_cases],
-  “ml_subset (Var (Short t))” |> SCONV [Once ml_subset_cases],
-  “ml_subset (Con x es)” |> SCONV [Once ml_subset_cases],
-  “ml_subset (Lit x')” |> SCONV [Once ml_subset_cases],
-  “ml_subset (Let p e1 e2)” |> SCONV [Once ml_subset_cases],
-  “ml_subset (Mat e bs)” |> SCONV [Once ml_subset_cases]
+Theorem scheme_env2_rw[simp] = LIST_CONJ $ map
+  (SRULE [GSYM scheme_env1_def] o EVAL) [
+  “nsLookup scheme_env2.c (Short "SNum")”,
+  “nsLookup scheme_env2.c (Short "SBool")”,
+  “nsLookup scheme_env2.c (Short "True")”,
+  “nsLookup scheme_env2.c (Short "False")”,
+  “nsLookup scheme_env2.c (Short "Prim")”,
+  “nsLookup scheme_env2.c (Short "SAdd")”,
+  “nsLookup scheme_env2.c (Short "SMul")”,
+  “nsLookup scheme_env2.c (Short "SMinus")”,
+  “nsLookup scheme_env2.c (Short "SEqv")”,
+  “nsLookup scheme_env2.c (Short "CallCC")”,
+  “nsLookup scheme_env2.c (Short "[]")”,
+  “nsLookup scheme_env2.c (Short "::")”,
+  “nsLookup scheme_env2.c (Short "Ex")”,
+  “nsLookup scheme_env2.c (Short "Proc")”,
+  “nsLookup scheme_env2.c (Short "Throw")”,
+
+  “nsLookup scheme_env2.v (Short "sadd")”
 ];
 
-Theorem small_ml:
-  ∀ e n m ce . cps_transform n e = (m, ce) ∧ subset1 e
-    ⇒ ml_subset ce
-Proof
-  ho_match_mp_tac rec_scheme_ind
-  >> simp[cps_transform_def] >> rpt strip_tac
-  >~ [‘vsubset1 v’] >- (
-    Cases_on ‘v’ >> gvs[to_ml_vals_def]
-    >> Cases_on ‘p’ >> simp[]
-  )
-  >> rpt strip_tac >> rpt (pairarg_tac >> gvs[step_def])
-  >> rpt $ last_x_assum dxrule >> simp[] >> disch_then kall_tac
-  >> cheat
-QED
+Definition scheme_basis3_def:
+  scheme_basis3 = Dletrec unknown_loc [
+    ("smul", "k", Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Let (SOME "v") (Con (SOME $ Short "SNum") [Var (Short "n")]) $
+          App Opapp [Var (Short "k"); Var (Short "v")]);
+      (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
+        Mat (Var (Short "x")) [
+          (Pcon (SOME $ Short "SNum") [Pvar "xn"],
+            App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "smul"); Var (Short "k")];
+                App (Opn Times) [Var (Short "n"); Var (Short "xn")]
+              ];
+              Var (Short "xs'")
+            ]);
+          (Pany,
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Not a number"])
+        ])
+    ])
+  ]
+End
 
-Theorem e_vals_subset1:
-  ∀ n e . subset1 e ⇒  ∃ st ck v .
-    evaluate <|clock := ck|> myEnv [SND $ cps_transform n e] = (st, Rval v)
-Proof
-  strip_tac >> Cases >> simp[]
-  >~ [‘Val v’] >- (
-    strip_tac >> simp[cps_transform_def, to_ml_vals_def, evaluate_def]
-  )
-  >> simp[cps_transform_def]
-  >> rpt (pairarg_tac >> gvs[step_def])
-  >> simp[evaluate_def]
-QED
+Theorem scheme_env3_def[allow_rebind, compute] = SRULE [] $
+  RESTR_EVAL_RULE [“scheme_env2”] $ zDefine ‘
+    scheme_env3 = case evaluate_decs
+        (<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|> :num state)
+        scheme_env2
+        [scheme_basis3] of
+      | (st', Rval env) => extend_dec_env env scheme_env2
+      | _ => <|v:=nsEmpty;c:=nsEmpty|>
+’;
 
-Theorem k_vals_subset1:
-  ∀ ks ck . kssubset1 ks ⇒ ∃ v .
-    evaluate <|clock := ck|> myEnv [scheme_cont ks]
-      = (<|clock := ck|> : 'ffi state, Rval [v])
-Proof
-  Cases >> simp[] >- simp[scheme_cont_def, evaluate_def]
-  >> Cases_on ‘h’ >> simp[] >> rpt strip_tac >> simp[]
-  >> simp[scheme_cont_def, cps_transform_def]
-  >> rpt (pairarg_tac >> gvs[step_def])
-  >> simp[evaluate_def]
-QED
+Theorem scheme_env3_rw[simp] = LIST_CONJ $ map
+  (SRULE [
+    GSYM $ EVAL “scheme_env1”,
+    GSYM $ EVAL “scheme_env2”
+  ] o EVAL) [
+  “nsLookup scheme_env3.c (Short "SNum")”,
+  “nsLookup scheme_env3.c (Short "SBool")”,
+  “nsLookup scheme_env3.c (Short "True")”,
+  “nsLookup scheme_env3.c (Short "False")”,
+  “nsLookup scheme_env3.c (Short "Prim")”,
+  “nsLookup scheme_env3.c (Short "SAdd")”,
+  “nsLookup scheme_env3.c (Short "SMul")”,
+  “nsLookup scheme_env3.c (Short "SMinus")”,
+  “nsLookup scheme_env3.c (Short "SEqv")”,
+  “nsLookup scheme_env3.c (Short "CallCC")”,
+  “nsLookup scheme_env3.c (Short "[]")”,
+  “nsLookup scheme_env3.c (Short "::")”,
+  “nsLookup scheme_env3.c (Short "Ex")”,
+  “nsLookup scheme_env3.c (Short "Proc")”,
+  “nsLookup scheme_env3.c (Short "Throw")”,
 
-Theorem cps_equiv:
-  ∀ e n n' m m' ce ce' ck v v' c c' k k' t t'. subset1 e
-    ∧ nsSub (λ id . $=) myEnv.c c ∧ nsSub (λ id . $=) myEnv.c c'
-    ∧ nsSub (λ id . $=) myEnv.v v ∧ nsSub (λ id . $=) myEnv.v v'
-    ∧ cps_transform n e = (n',ce) ∧ cps_transform m e = (m', ce')
-    ∧ evaluate <|clock := ck+1|> <|v:=v;c:=c|> [App Opapp [ce;Fun t k]]
-      = evaluate <|clock := ck+1|> <|v:=v';c:=c'|> [App Opapp [ce';Fun t' k']]
-    ⇒ ∀ vl . evaluate <|clock := ck|> <|v:=nsBind t vl v;c:=c|> [k]
-      = evaluate <|clock := ck|> <|v:=nsBind t vl v';c:=c'|> [k']
-Proof
-  ho_match_mp_tac rec_scheme_ind
-  >> simp[cps_transform_def] >> rpt strip_tac
-  >~ [‘vsubset1 v’] >- (
-    Cases_on ‘v’ >> gvs[evaluate_def, to_ml_vals_def, do_opapp_def]
-    >> gs[myEnv_def, nsSub_def]
-    >> Cases_on ‘p’ >> simp[]
-  )
-  Induct_on ‘e’
-  rpt strip_tac
-QED
-*)
+  “nsLookup scheme_env3.v (Short "sadd")”,
+  “nsLookup scheme_env3.v (Short "smul")”
+];
+
+Definition scheme_basis4_def:
+  scheme_basis4 = Dlet unknown_loc (Pvar "sminus") $ Fun "k" $ Fun "xs" $
+    Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+      (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
+        Mat (Var (Short "x")) [
+          (Pcon (SOME $ Short "SNum") [Pvar "n"],
+            App Opapp [App Opapp [App Opapp [Var (Short "sadd");
+              Fun "t" $ Mat (Var (Short "t")) [
+                (Pcon (SOME $ Short "SNum") [Pvar "m"],
+                  Let (SOME "v") (Con (SOME $ Short "SNum") [
+                      App (Opn Minus) [Var (Short "n"); Var (Short "m")]]) $
+                    App Opapp [Var (Short "k"); Var (Short "v")]);
+                (Pany,
+                  App Opapp [Var (Short "k"); Var (Short "t")])
+              ]];
+              Lit $ IntLit 0]; Var (Short "xs'")]);
+          (Pany,
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Not a number"])
+        ])
+    ]
+End
+
+Theorem scheme_env4_def[allow_rebind, compute] = SRULE [] $
+  RESTR_EVAL_RULE [“scheme_env3”] $ zDefine ‘
+    scheme_env4 = case evaluate_decs
+        (<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|> :num state)
+        scheme_env3
+        [scheme_basis4] of
+      | (st', Rval env) => extend_dec_env env scheme_env3
+      | _ => <|v:=nsEmpty;c:=nsEmpty|>
+’;
+
+Theorem scheme_env4_rw[simp] = LIST_CONJ $ map
+  (SRULE [
+    GSYM $ EVAL “scheme_env1”,
+    GSYM $ EVAL “scheme_env2”,
+    GSYM $ EVAL “scheme_env3”
+  ] o EVAL) [
+  “nsLookup scheme_env4.c (Short "SNum")”,
+  “nsLookup scheme_env4.c (Short "SBool")”,
+  “nsLookup scheme_env4.c (Short "True")”,
+  “nsLookup scheme_env4.c (Short "False")”,
+  “nsLookup scheme_env4.c (Short "Prim")”,
+  “nsLookup scheme_env4.c (Short "SAdd")”,
+  “nsLookup scheme_env4.c (Short "SMul")”,
+  “nsLookup scheme_env4.c (Short "SMinus")”,
+  “nsLookup scheme_env4.c (Short "SEqv")”,
+  “nsLookup scheme_env4.c (Short "CallCC")”,
+  “nsLookup scheme_env4.c (Short "[]")”,
+  “nsLookup scheme_env4.c (Short "::")”,
+  “nsLookup scheme_env4.c (Short "Ex")”,
+  “nsLookup scheme_env4.c (Short "Proc")”,
+  “nsLookup scheme_env4.c (Short "Throw")”,
+
+  “nsLookup scheme_env4.v (Short "sadd")”,
+  “nsLookup scheme_env4.v (Short "smul")”,
+  “nsLookup scheme_env4.v (Short "sminus")”
+];
+
+Definition scheme_basis5_def:
+  scheme_basis5 = Dlet unknown_loc (Pvar "seqv") $ Fun "k" $ Fun "xs" $
+    Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+      (Pcon (SOME $ Short "::") [Pvar "x1"; Pvar "xs'"],
+        Mat (Var (Short "xs'")) [
+          (Pcon (SOME $ Short "[]") [],
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+          (Pcon (SOME $ Short "::") [Pvar "x2"; Pvar "xs''"],
+            Mat (Var (Short "xs''")) [
+              (Pcon (SOME $ Short "[]") [],
+                If (App Equality [Var (Short "x1"); Var (Short "x2")])
+                  (Let (SOME "v") (Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]) $
+                    App Opapp [Var (Short "k"); Var (Short "v")])
+                  (Let (SOME "v") (Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []]) $
+                    App Opapp [Var (Short "k"); Var (Short "v")]));
+              (Pany,
+                Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+            ])
+        ])
+    ]
+End
+
+Theorem scheme_env5_def[allow_rebind, compute] = SRULE [] $
+  RESTR_EVAL_RULE [“scheme_env4”] $ zDefine ‘
+    scheme_env5 = case evaluate_decs
+        (<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|> :num state)
+        scheme_env4
+        [scheme_basis5] of
+      | (st', Rval env) => extend_dec_env env scheme_env4
+      | _ => <|v:=nsEmpty;c:=nsEmpty|>
+’;
+
+Theorem scheme_env5_rw[simp] = LIST_CONJ $ map
+  (SRULE [
+    GSYM $ EVAL “scheme_env1”,
+    GSYM $ EVAL “scheme_env2”,
+    GSYM $ EVAL “scheme_env3”,
+    GSYM $ EVAL “scheme_env4”
+  ] o EVAL) [
+  “nsLookup scheme_env5.c (Short "SNum")”,
+  “nsLookup scheme_env5.c (Short "SBool")”,
+  “nsLookup scheme_env5.c (Short "True")”,
+  “nsLookup scheme_env5.c (Short "False")”,
+  “nsLookup scheme_env5.c (Short "Prim")”,
+  “nsLookup scheme_env5.c (Short "SAdd")”,
+  “nsLookup scheme_env5.c (Short "SMul")”,
+  “nsLookup scheme_env5.c (Short "SMinus")”,
+  “nsLookup scheme_env5.c (Short "SEqv")”,
+  “nsLookup scheme_env5.c (Short "CallCC")”,
+  “nsLookup scheme_env5.c (Short "[]")”,
+  “nsLookup scheme_env5.c (Short "::")”,
+  “nsLookup scheme_env5.c (Short "Ex")”,
+  “nsLookup scheme_env5.c (Short "Proc")”,
+  “nsLookup scheme_env5.c (Short "Throw")”,
+
+  “nsLookup scheme_env5.v (Short "sadd")”,
+  “nsLookup scheme_env5.v (Short "smul")”,
+  “nsLookup scheme_env5.v (Short "sminus")”,
+  “nsLookup scheme_env5.v (Short "seqv")”
+];
+
+Definition scheme_basis6_def:
+  scheme_basis6 = Dlet unknown_loc (Pvar "throw") $ Fun "k" $ Fun "xs" $
+    Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+      (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
+        Mat (Var (Short "xs'")) [
+          (Pcon (SOME $ Short "[]") [],
+            App Opapp [Var (Short "k"); Var (Short "x")]);
+          (Pany,
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+        ])
+    ]
+End
+
+Theorem scheme_env6_def[allow_rebind, compute] = SRULE [] $
+  RESTR_EVAL_RULE [“scheme_env5”] $ zDefine ‘
+    scheme_env6 = case evaluate_decs
+        (<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|> :num state)
+        scheme_env5
+        [scheme_basis6] of
+      | (st', Rval env) => extend_dec_env env scheme_env5
+      | _ => <|v:=nsEmpty;c:=nsEmpty|>
+’;
+
+Theorem scheme_env6_rw[simp] = LIST_CONJ $ map
+  (SRULE [
+    GSYM $ EVAL “scheme_env1”,
+    GSYM $ EVAL “scheme_env2”,
+    GSYM $ EVAL “scheme_env3”,
+    GSYM $ EVAL “scheme_env4”,
+    GSYM $ EVAL “scheme_env5”
+  ] o EVAL) [
+  “nsLookup scheme_env6.c (Short "SNum")”,
+  “nsLookup scheme_env6.c (Short "SBool")”,
+  “nsLookup scheme_env6.c (Short "True")”,
+  “nsLookup scheme_env6.c (Short "False")”,
+  “nsLookup scheme_env6.c (Short "Prim")”,
+  “nsLookup scheme_env6.c (Short "SAdd")”,
+  “nsLookup scheme_env6.c (Short "SMul")”,
+  “nsLookup scheme_env6.c (Short "SMinus")”,
+  “nsLookup scheme_env6.c (Short "SEqv")”,
+  “nsLookup scheme_env6.c (Short "CallCC")”,
+  “nsLookup scheme_env6.c (Short "[]")”,
+  “nsLookup scheme_env6.c (Short "::")”,
+  “nsLookup scheme_env6.c (Short "Ex")”,
+  “nsLookup scheme_env6.c (Short "Proc")”,
+  “nsLookup scheme_env6.c (Short "Throw")”,
+
+  “nsLookup scheme_env6.v (Short "sadd")”,
+  “nsLookup scheme_env6.v (Short "smul")”,
+  “nsLookup scheme_env6.v (Short "sminus")”,
+  “nsLookup scheme_env6.v (Short "seqv")”,
+  “nsLookup scheme_env6.v (Short "throw")”
+];
+
+Definition scheme_basis7_def:
+  scheme_basis7 = Dletrec unknown_loc [
+    ("callcc", "k", Fun "xs" $ Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+      (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
+        Mat (Var (Short "xs'")) [
+          (Pcon (SOME $ Short "[]") [],
+            App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "app");Var (Short "k")];
+                Var (Short "x")];
+              cons_list [Con (SOME $ Short "Throw") [Var (Short "k")]]]);
+          (Pany,
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"])
+        ])
+    ]);
+    ("app", "k", Fun "fn" $ Mat (Var (Short "fn")) [
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SAdd") []],
+        App Opapp [App Opapp [Var (Short "sadd"); Var (Short "k")]; Lit $ IntLit 0]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMul") []],
+        App Opapp [App Opapp [Var (Short "smul"); Var (Short "k")]; Lit $ IntLit 1]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMinus") []],
+        App Opapp [Var (Short "sminus"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SEqv") []],
+        App Opapp [Var (Short "seqv"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "CallCC") []],
+        App Opapp [Var (Short "callcc"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Proc") [Pvar "e"],
+        App Opapp [Var (Short "e"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Throw") [Pvar "k'"],
+        App Opapp [Var (Short "throw"); Var (Short "k'")]);
+      (Pany, Fun "_" $ Con (SOME $ Short "Ex") [Lit $ StrLit"Not a procedure"])
+    ])
+  ]
+End
+
+Theorem scheme_env7_def[allow_rebind, compute] = SRULE [] $
+  RESTR_EVAL_RULE [“scheme_env6”] $ zDefine ‘
+    scheme_env7 = case evaluate_decs
+        (<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|> :num state)
+        scheme_env6
+        [scheme_basis7] of
+      | (st', Rval env) => extend_dec_env env scheme_env6
+      | _ => <|v:=nsEmpty;c:=nsEmpty|>
+’;
+
+Theorem scheme_env7_rw[simp] = LIST_CONJ $ map
+  (SRULE [
+    GSYM $ EVAL “scheme_env1”,
+    GSYM $ EVAL “scheme_env2”,
+    GSYM $ EVAL “scheme_env3”,
+    GSYM $ EVAL “scheme_env4”,
+    GSYM $ EVAL “scheme_env5”,
+    GSYM $ EVAL “scheme_env6”
+  ] o EVAL) [
+  “nsLookup scheme_env7.c (Short "SNum")”,
+  “nsLookup scheme_env7.c (Short "SBool")”,
+  “nsLookup scheme_env7.c (Short "True")”,
+  “nsLookup scheme_env7.c (Short "False")”,
+  “nsLookup scheme_env7.c (Short "Prim")”,
+  “nsLookup scheme_env7.c (Short "SAdd")”,
+  “nsLookup scheme_env7.c (Short "SMul")”,
+  “nsLookup scheme_env7.c (Short "SMinus")”,
+  “nsLookup scheme_env7.c (Short "SEqv")”,
+  “nsLookup scheme_env7.c (Short "CallCC")”,
+  “nsLookup scheme_env7.c (Short "[]")”,
+  “nsLookup scheme_env7.c (Short "::")”,
+  “nsLookup scheme_env7.c (Short "Ex")”,
+  “nsLookup scheme_env7.c (Short "Proc")”,
+  “nsLookup scheme_env7.c (Short "Throw")”,
+
+  “nsLookup scheme_env7.v (Short "sadd")”,
+  “nsLookup scheme_env7.v (Short "smul")”,
+  “nsLookup scheme_env7.v (Short "sminus")”,
+  “nsLookup scheme_env7.v (Short "seqv")”,
+  “nsLookup scheme_env7.v (Short "throw")”,
+  “nsLookup scheme_env7.v (Short "callcc")”,
+  “nsLookup scheme_env7.v (Short "app")”
+];
 
 (*
 Example lambda calculus code of conditional expression,
@@ -204,36 +465,62 @@ before and after step in CEK machine
         | _ => (\k2 -> k2 (SNum 2)) (\t -> t)))
 *)
 
-Definition e_or_v_to_exp_def:
-  e_or_v_to_exp (Val v) var = App Opapp [Var (Short var); to_ml_vals v] ∧
-  e_or_v_to_exp (Exp e) var = (let
-    (n, ce) = cps_transform 0 e
-  in
-    App Opapp [ce; Var (Short var)])
+Definition ml_v_vals_def[nocompute]:
+  ml_v_vals v = case evaluate (<|clock:=0|> :num state)
+      scheme_env7 [to_ml_vals v] of
+    | (st, Rval [mlv]) => mlv
+    | _ => ARB
 End
+
+fun mydisch x = DISCH (hd $ hyp x) x;
+
+Theorem ml_v_vals_def[allow_rebind, compute] = SRULE [] $ mydisch $
+  LIST_CONJ $ map
+    (EVAL_RULE o SIMP_RULE pure_ss [SimpRHS, ml_v_vals_def]) [
+    REFL “ml_v_vals (Prim SAdd)”,
+    REFL “ml_v_vals (Prim SMul)”,
+    REFL “ml_v_vals (Prim SMinus)”,
+    REFL “ml_v_vals (Prim SEqv)”,
+    REFL “ml_v_vals (Prim CallCC)”,
+    ASSUME “∀ n . ml_v_vals (SNum n) = ml_v_vals (SNum n)”,
+    REFL “ml_v_vals (SBool T)”,
+    REFL “ml_v_vals (SBool F)”
+  ];
 
 Inductive e_ce_rel:
 [~Val:]
-  mlv = to_ml_vals v
+  nsLookup env.v (Short valv) = SOME (ml_v_vals v) ∧
+  nsLookup env.v (Short var) = SOME kv ∧
+  valv ≠ var
   ⇒
-  e_ce_rel (Val v) var $ App Opapp [Var (Short var); mlv]
+  e_ce_rel (Val v) var env kv $ App Opapp [Var (Short var); Var (Short valv)]
 [~Exp:]
-  (m, ce) = cps_transform n e
+  (m, ce) = cps_transform n e ∧
+  nsLookup env.v (Short var) = SOME kv
   ⇒
-  e_ce_rel (Exp e) var $ App Opapp [ce; Var (Short var)]
+  e_ce_rel (Exp e) var env kv $ App Opapp [ce; Var (Short var)]
+[~Exception:]
+  e_ce_rel (Exception s) var env kv $
+    Con (SOME $ Short "Ex") [Lit $ StrLit $ explode s]
 End
 
-Definition scheme_env'_def:
+Theorem scheme_env'_def[allow_rebind, compute] = EVAL_RULE $ zDefine ‘
   scheme_env' = case evaluate_decs (<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|> :num state) <|v:=nsEmpty;c:=nsEmpty|> (prim_types_program ++ scheme_basis) of
     | (st', Rval env) => env
     | _ => <|v:=nsEmpty;c:=nsEmpty|>
+’;
+
+Definition cconses_def[simp]:
+  cconses = ["SNum"; "SBool"; "True"; "False";
+    "Prim";"SAdd";"SMul";"SMinus";"SEqv";"CallCC";
+    "[]"]
 End
 
-Theorem scheme_env'_def[allow_rebind] = EVAL “scheme_env'”;
+Definition vconses_def[simp]:
+  vconses = ["sadd"; "smul"; "sminus"; "seqv"; "throw"; "callcc"; "app"]
+End
 
-EVAL “nsLookup scheme_env'.c (Short "SMul")”;
-
-Definition scheme_env_def:
+(*Definition scheme_env_def:
   scheme_env env
   ⇔
   (nsLookup env.c (Short "SNum") = SOME (1, TypeStamp "SNum" 3)) ∧
@@ -245,18 +532,42 @@ Definition scheme_env_def:
   (nsLookup env.c (Short "SMul") = SOME (0, TypeStamp "SMul" 2)) ∧
   (nsLookup env.c (Short "SMinus") = SOME (0, TypeStamp "SMinus" 2)) ∧
   (nsLookup env.c (Short "SEqv") = SOME (0, TypeStamp "SEqv" 2)) ∧
-  (nsLookup env.c (Short "CallCC") = SOME (0, TypeStamp "CallCC" 2))
-End
+  (nsLookup env.c (Short "CallCC") = SOME (0, TypeStamp "CallCC" 2)) ∧
+
+  (nsLookup env.c (Short "[]") = SOME (0, TypeStamp "[]" 1))
+  (nsLookup env.c (Short "::") = SOME (0, TypeStamp "::" 1))
+End*)
+
+(*Theorem scheme_env_def[compute] = EVAL_RULE $ zDefine ‘
+  scheme_env env
+  ⇔
+  EVERY (λ x . nsLookup env.c x = nsLookup scheme_env'.c x) $
+    MAP Short cconses ∧
+  EVERY (λ x . nsLookup env.v x = nsLookup scheme_env'.v x) $
+    MAP Short vconses
+’;*)
+
+Theorem scheme_env_def[allow_rebind, compute] = SRULE [] $ zDefine ‘
+  scheme_env env
+  ⇔
+  EVERY (λ x . nsLookup env.c x = nsLookup scheme_env7.c x) $
+    MAP Short ["SNum"; "SBool"; "True"; "False";
+    "Prim";"SAdd";"SMul";"SMinus";"SEqv";"CallCC";
+    "[]"; "::"; "Ex"; "Throw"] ∧
+  EVERY (λ x . nsLookup env.v x = nsLookup scheme_env7.v x) $
+    MAP Short ["sadd"; "smul"; "sminus"; "seqv"; "throw"; "callcc"; "app"]
+’
 
 Inductive cont_rel:
 [~Id:]
-  scheme_env env
+  scheme_env env ∧
+  ¬ MEM t vconses
   ⇒
   cont_rel []
     (Closure env t (Var (Short t)))
 [~CondK:]
   cont_rel ks kv ∧
-  nsLookup (env . v) (Short var) = SOME kv ∧
+  nsLookup env.v (Short var) = SOME kv ∧
   (n', ct) = cps_transform n te ∧
   (m', cf) = cps_transform m fe ∧
   scheme_env env ∧
@@ -269,6 +580,18 @@ Inductive cont_rel:
         App Opapp [cf; Var (Short var)]);
       (Pany, App Opapp [ct;  Var (Short var)])
     ])
+[~ApplyK_NONE:]
+  cont_rel ks kv ∧
+  nsLookup env.v (Short var) = SOME kv ∧
+  (m, ce) = cps_transform_app n (Var (Short t)) [] es (Var (Short var)) ∧
+  scheme_env env ∧
+  ¬ MEM var vconses ∧
+  ¬ MEM t vconses ∧
+  var ≠ t
+  ⇒
+  (*Likely needs condition on se i.e. Scheme env*)
+  cont_rel ((se, ApplyK NONE es) :: ks)
+    (Closure env t $ ce)
 End
 
 Theorem compile_in_rel:
@@ -276,9 +599,8 @@ Theorem compile_in_rel:
     scheme_env env
     ⇒
     ∃ st' env' var mle k kv .
-      e_ce_rel (Exp p) var mle ∧
+      e_ce_rel (Exp p) var env' kv mle ∧
       cont_rel k kv ∧
-      nsLookup env'.v (Short var) = SOME kv ∧
       evaluate st env [compile_scheme_prog p] = evaluate st' env' [mle]
 Proof
   simp[Once e_ce_rel_cases, compile_scheme_prog_def]
@@ -300,13 +622,9 @@ EVAL “case (SND $ evaluate_decs <|clock:=999;next_type_stamp:=0;next_exn_stamp
 *)
 
 Theorem basis_scheme_env:
-  ∃ st st' env .
-    evaluate_decs st <|v:=nsEmpty;c:=nsEmpty|>
-      (prim_types_program ++ scheme_basis) = (st', Rval env) ∧
-    scheme_env env
+    scheme_env scheme_env'
 Proof
-  qexists ‘<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|>’
-  >> EVAL_TAC >> simp[nsLookup_def]
+  EVAL_TAC
 QED
 
 Theorem myproof:
@@ -314,8 +632,7 @@ Theorem myproof:
   step  (store, k, env, e) = (store', k', env', e') ∧
   st.clock > 0 ∧
   cont_rel k kv ∧
-  e_ce_rel e var mle ∧
-  nsLookup mlenv.v (Short var) = SOME kv ∧
+  e_ce_rel e var mlenv kv mle ∧
   scheme_env mlenv
   ⇒
   ∃ st' mlenv' var' kv' mle' .
@@ -323,38 +640,113 @@ Theorem myproof:
     =
     evaluate st' mlenv' [mle'] ∧
     cont_rel k' kv' ∧
-    e_ce_rel e' var' mle' ∧
-    nsLookup mlenv'.v (Short var') = SOME kv'
+    e_ce_rel e' var' mlenv' kv' mle'
 Proof
   Cases_on ‘e’
   >~ [‘Val v’] >- (
     Cases_on ‘k’
     >- (simp[step_def, return_def] >> metis_tac[])
     >> PairCases_on ‘h’
-    >> Cases_on ‘∃ te fe . h1 = CondK te fe’
-    >- (
+    >> Cases_on ‘∃ te fe . h1 = CondK te fe’ >- (
       gvs[]
       >> simp[step_def, return_def]
-      >> Cases_on ‘(∃p. v = Prim p) ∨ (∃n. v = SNum n) ∨ ∃b. v = SBool b’
+      >> Cases_on ‘v = Prim SAdd ∨ v = Prim SMul ∨ v = Prim SMinus ∨
+        v = Prim SEqv ∨ v = Prim CallCC ∨
+        (∃n. v = SNum n) ∨ v = SBool T ∨ v = SBool F’
       (*Only covering cases supported by to_ml_vals,
       but in theory should work for any vals*)
       >- (
         simp[Once e_ce_rel_cases, Once cont_rel_cases]
-        >> simp[oneline to_ml_vals_def]
+        >> simp[oneline ml_v_vals_def]
         >> every_case_tac
-        >> rpt strip_tac
         >> gvs[]
-        >> simp[SimpLHS, evaluate_def, do_con_check_def,
-          build_conv_def, scheme_env_def, do_opapp_def]
-        >> qpat_assum ‘scheme_env mlenv’ $ simp o single o SRULE [scheme_env_def]
-        >> simp[SimpLHS, Ntimes evaluate_def 3, can_pmatch_all_def, pmatch_def]
-        >> qpat_assum ‘scheme_env env’ $ simp o single o SRULE [scheme_env_def]
-        >> simp[same_type_def, same_ctor_def, do_opapp_def,
-          evaluate_match_def, pmatch_def, pat_bindings_def]
+        >> rpt strip_tac
+        >> simp[SimpLHS, Ntimes evaluate_def 6, do_con_check_def,
+          build_conv_def, scheme_env_def, do_opapp_def,
+        can_pmatch_all_def, pmatch_def]
+        >> qpat_assum ‘scheme_env env’ $ simp o curry ((::) o swap) [
+            same_type_def, same_ctor_def, do_opapp_def,
+            evaluate_match_def, pmatch_def, pat_bindings_def]
+          o SRULE [scheme_env_def]
         >> irule_at (Pos hd) EQ_REFL
-        >> qexistsl [‘var'’, ‘kv'’]
         >> simp[Once e_ce_rel_cases]
+        >> irule_at Any EQ_REFL
+        >> simp[nsLookup_def]
         >> metis_tac[]
+      )
+      >> cheat
+    )
+    >> Cases_on ‘h1 = ApplyK NONE []’ >- (
+      gvs[]
+      >> simp[step_def, return_def, Once e_ce_rel_cases, Once cont_rel_cases]
+      >> Cases_on ‘v = Prim SAdd ∨ v = Prim SMul ∨ v = Prim SMinus ∨
+        v = Prim SEqv ∨ v = Prim CallCC ∨
+        (∃n. v = SNum n) ∨ v = SBool T ∨ v = SBool F’
+      >- (
+        simp[oneline ml_v_vals_def]
+        >> rpt strip_tac
+        >> Cases_on ‘st.clock > 6’ >- (
+          every_case_tac
+          >> gvs[application_def, sadd_def, smul_def, sminus_def,
+            seqv_def, cps_transform_def, cons_list_def]
+          >> simp[SimpLHS, evaluate_def, do_con_check_def,
+            build_conv_def, do_opapp_def]
+          >> qpat_assum ‘scheme_env env’ $ simp o single
+            o SRULE [scheme_env_def]
+          >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
+          >> simp[Ntimes evaluate_def 3, dec_clock_def]
+          >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+            same_type_def, same_ctor_def, evaluate_match_def,
+            pat_bindings_def]
+          >~ [‘Litv (IntLit i)’] >- (
+            simp[Once evaluate_def]
+            >> irule_at (Pos hd) EQ_REFL
+            >> simp[Once e_ce_rel_cases]
+            >> metis_tac[]
+          )
+          >~ [‘SOME (Conv (SOME (TypeStamp "SBool" _)) [
+            Conv (Some (TypeStamp "True" _)) []
+          ])’] >- (
+            simp[Once evaluate_def]
+            >> irule_at (Pos hd) EQ_REFL
+            >> simp[Once e_ce_rel_cases]
+            >> metis_tac[]
+          )
+          >~ [‘SOME (Conv (SOME (TypeStamp "SBool" _)) [
+            Conv (Some (TypeStamp "False" _)) []
+          ])’] >- (
+            simp[Once evaluate_def]
+            >> irule_at (Pos hd) EQ_REFL
+            >> simp[Once e_ce_rel_cases]
+            >> metis_tac[]
+          )
+          >> simp[evaluate_def]
+          >> simp[do_opapp_def,
+          Once find_recfun_def, Once build_rec_env_def]
+          >> simp[Ntimes evaluate_def 4, dec_clock_def]
+          >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+            same_type_def, same_ctor_def, evaluate_match_def,
+            pat_bindings_def]
+          >~ [‘"SAdd"’] >- (
+            simp[Ntimes evaluate_def 3, nsOptBind_def,
+              do_con_check_def, build_conv_def]
+            >> irule_at (Pos hd) EQ_REFL
+            >> simp[Once e_ce_rel_cases]
+            >> simp[ml_v_vals_def]
+          )
+          >~ [‘"SMul"’] >- (
+            simp[Ntimes evaluate_def 3, nsOptBind_def,
+              do_con_check_def, build_conv_def]
+            >> irule_at (Pos hd) EQ_REFL
+            >> simp[Once e_ce_rel_cases]
+            >> simp[ml_v_vals_def]
+          )
+          >> irule_at (Pos hd) EQ_REFL
+          >> simp[Once e_ce_rel_cases]
+          >> metis_tac[]
+        )
+        (*timeout case, I feel like this can be ignored for now*)
+        >> cheat
       )
       >> cheat
     )
@@ -363,16 +755,45 @@ Proof
   >~ [‘Exp e’] >- (
     Cases_on ‘e’
     >> simp[step_def, Once e_ce_rel_cases]
+    >~ [‘Lit l’] >- (
+      simp[cps_transform_def]
+      >> rpt strip_tac
+      >> Cases_on ‘l’
+      >> simp[lit_to_val_def, to_ml_vals_def]
+      >> TRY CASE_TAC (*for Prim cases*)
+      >> gvs[lit_to_val_def, to_ml_vals_def]
+      >> simp[SimpLHS, Ntimes evaluate_def 7, do_opapp_def,
+        do_con_check_def, build_conv_def, nsOptBind_def]
+      >> qpat_assum ‘scheme_env mlenv’ $ simp o single
+        o SRULE [scheme_env_def]
+      >> irule_at (Pos hd) EQ_REFL
+      >> simp[Once e_ce_rel_cases, ml_v_vals_def]
+    )
     >~ [‘Cond c te fe’] >- (
       simp[cps_transform_def]
       >> rpt strip_tac
       >> rpt (pairarg_tac >> gvs[])
       >> simp[SimpLHS, Ntimes evaluate_def 6, do_opapp_def, nsOptBind_def]
       >> irule_at (Pos hd) EQ_REFL
-      >> qexists ‘"cont"’
       >> simp[Once e_ce_rel_cases, Once cont_rel_cases]
+      >> rpt $ irule_at Any EQ_REFL
       >> gvs[scheme_env_def]
+      >> metis_tac[]
+    )
+    >~ [‘Apply fn es’] >- (
+      simp[cps_transform_def]
       >> rpt strip_tac
+      >> rpt (pairarg_tac >> gvs[])
+      >> simp[SimpLHS, Ntimes evaluate_def 6, do_opapp_def, nsOptBind_def]
+      >> irule_at (Pos hd) EQ_REFL
+      >> simp[Once e_ce_rel_cases, Once cont_rel_cases]
+      >> rpt $ irule_at Any EQ_REFL
+      >> pop_assum $ irule_at Any o GSYM
+      >> gvs[scheme_env_def]
+      >> ‘∀ (n:num) str . ¬ EVERY isDigit str ⇒ toString n ≠ str’ by
+        simp[EVERY_isDigit_num_to_dec_string]
+      >> pop_assum $ irule_at $ Pos hd
+      >> simp[isDigit_def]
       >> metis_tac[]
     )
     >> cheat

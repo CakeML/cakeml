@@ -19,7 +19,9 @@ Definition to_ml_vals_def:
   | CallCC => Con (SOME $ Short "CallCC") []] ∧
   to_ml_vals (SNum n) = Con (SOME $ Short "SNum") [Lit $ IntLit n] ∧
   to_ml_vals (SBool b) = Con (SOME $ Short "SBool") [Con (SOME $ Short
-    if b then "True" else "False") []]
+    if b then "True" else "False") []] ∧
+  (*following temporary, needed for proofs*)
+  to_ml_vals _ = Con (SOME $ Short "Ex") [Lit $ StrLit "Not supported"]
 End
 
 Definition cons_list_def:
@@ -59,28 +61,34 @@ Definition letinit_ml_def:
 End
 
 Definition cps_transform_def:
-  cps_transform n (Lit v) = (let k = "k" ++ toString n in
-    (n+1, Fun k $ App Opapp [Var (Short k); to_ml_vals $ lit_to_val v])) ∧
-  cps_transform n (Exception s) =
-    (n, Fun "_" $ Con (SOME $ Short "Ex") [Lit $ StrLit $ explode s]) ∧
+  cps_transform n (Lit v) = (let
+    k = "k" ++ toString n;
+    mlv = to_ml_vals $ lit_to_val v
+  in
+    (n+1, Fun k $ Let (SOME "v") mlv $
+      App Opapp [Var (Short k); Var (Short "v")])) ∧
+
   cps_transform n (Cond c t f) = (let
     (m, cc) = cps_transform n c;
     k = "k" ++ toString m;
     (l, ck) = refunc_cont (m+1) (CondK t f) (Var (Short k))
   in
-    (l, Fun k $ Let (SOME $ "cont") ck $ App Opapp [cc; Var (Short "cont")])) ∧
+    (l, Fun k $ Let (SOME "k") ck $ App Opapp [cc; Var (Short "k")])) ∧
+
   cps_transform n (Apply fn args) = (let
     (m, cfn) = cps_transform n fn;
     k = "k" ++ toString m;
     (l, ck) = refunc_cont (m+1) (ApplyK NONE args) (Var (Short k))
   in
-    (l, Fun k $ App Opapp [cfn; ck])) ∧
+    (l, Fun k $ Let (SOME "k") ck $ App Opapp [cfn; Var (Short "k")])) ∧
+
   cps_transform n (Ident x) = (let k = "k" ++ toString n in
     (n, Fun k $ Mat (App Opderef [Var (Short $ "s" ++ explode x)]) [
       (Pcon (SOME $ Short "None") [],
         Con (SOME $ Short "Ex") [Lit $ StrLit "Letrec variable touched"]);
       (Pcon (SOME $ Short "Some") [Pvar $ "s'" ++ explode x],
         App Opapp [Var (Short k); Var (Short $ "s'" ++ explode x)])])) ∧
+
   cps_transform n (Lambda xs xp e) = (let
     (m, ce) = cps_transform n e;
     args = "xs" ++ toString m;
@@ -90,18 +98,21 @@ Definition cps_transform_def:
   in
     (l+1, Fun k' $ App Opapp [Var (Short k');
       Con (SOME $ Short "Proc") [Fun k $ Fun args inner]])) ∧
+
   cps_transform n (Begin e es) = (let
     (m, ce) = cps_transform n e;
     k = "k" ++ toString m;
     (l, seqk) = refunc_cont (m+1) (BeginK es) (Var (Short k))
   in
     (l, Fun k $ App Opapp [ce; seqk])) ∧
+
   cps_transform n (Set x e) = (let
     (m, ce) = cps_transform n e;
     k = "k" ++ toString m;
     (l, setk) = refunc_cont (m+1) (SetK x) (Var (Short k))
   in
     (l, Fun k $ (App Opapp [ce;setk]))) ∧
+
   cps_transform n (Letrec bs e) = (let
     (m, ce) = cps_transform n e;
     k = "k" ++ toString m;
@@ -118,6 +129,7 @@ Definition cps_transform_def:
       (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []], App Opapp [cf; k]);
       (Pany, App Opapp [ct; k])
     ])) ∧
+
   refunc_cont n (ApplyK fnp es) k = (let
     t = "t" ++ toString n;
     (m, ce) = (case fnp of
@@ -126,7 +138,9 @@ Definition cps_transform_def:
                            (Var (Short t) :: MAP to_ml_vals vs) es k)
   in
     (m, Fun t ce)) ∧
+
   refunc_cont n (BeginK es) k = cps_transform_seq n k es ∧
+
   refunc_cont n (SetK x) k = (let
     t = "t" ++ toString n;
   in
@@ -140,12 +154,14 @@ Definition cps_transform_def:
     (l, inner) = cps_transform_app (m+1) tfn (Var (Short t)::ts) es k
   in
     (l, App Opapp [ce; Fun t inner])) ∧
+
   cps_transform_app n tfn ts [] k = (n,
     App Opapp [
       App Opapp [App Opapp [Var (Short "app"); k]; tfn];
       cons_list (REVERSE ts)]) ∧
 
   cps_transform_seq n k [] = (n, k) ∧
+
   cps_transform_seq n k (e::es) = (let
     (m, ce) = cps_transform n e;
     (l, inner) = cps_transform_seq m k es
@@ -153,6 +169,7 @@ Definition cps_transform_def:
     (l, Fun "_" $ App Opapp [ce; inner])) ∧
 
   cps_transform_letreinit n k [] ce = (n, App Opapp [ce; k]) ∧
+
   cps_transform_letreinit n k ((x,e)::bs) ce = (let
     (m, ce') = cps_transform n e;
     (l, inner) = cps_transform_letreinit m k bs ce;
@@ -233,7 +250,8 @@ Definition scheme_basis_def:
     Dletrec unknown_loc [
       ("sadd", "k", Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
         (Pcon (SOME $ Short "[]") [],
-          App Opapp [Var (Short "k"); Con (SOME $ Short "SNum") [Var (Short "n")]]);
+          Let (SOME "v") (Con (SOME $ Short "SNum") [Var (Short "n")]) $
+            App Opapp [Var (Short "k"); Var (Short "v")]);
         (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
           Mat (Var (Short "x")) [
             (Pcon (SOME $ Short "SNum") [Pvar "xn"],
@@ -252,7 +270,8 @@ Definition scheme_basis_def:
     Dletrec unknown_loc [
       ("smul", "k", Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
         (Pcon (SOME $ Short "[]") [],
-          App Opapp [Var (Short "k"); Con (SOME $ Short "SNum") [Var (Short "n")]]);
+          Let (SOME "v") (Con (SOME $ Short "SNum") [Var (Short "n")]) $
+            App Opapp [Var (Short "k"); Var (Short "v")]);
         (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
           Mat (Var (Short "x")) [
             (Pcon (SOME $ Short "SNum") [Pvar "xn"],
@@ -278,8 +297,9 @@ Definition scheme_basis_def:
               App Opapp [App Opapp [App Opapp [Var (Short "sadd");
                 Fun "t" $ Mat (Var (Short "t")) [
                   (Pcon (SOME $ Short "SNum") [Pvar "m"],
-                    App Opapp [Var (Short "k"); Con (SOME $ Short "SNum") [
-                      App (Opn Minus) [Var (Short "n"); Var (Short "m")]]]);
+                    Let (SOME "v") (Con (SOME $ Short "SNum") [
+                        App (Opn Minus) [Var (Short "n"); Var (Short "m")]]) $
+                      App Opapp [Var (Short "k"); Var (Short "v")]);
                   (Pany,
                     App Opapp [Var (Short "k"); Var (Short "t")])
                 ]];
@@ -300,8 +320,10 @@ Definition scheme_basis_def:
               Mat (Var (Short "xs''")) [
                 (Pcon (SOME $ Short "[]") [],
                   If (App Equality [Var (Short "x1"); Var (Short "x2")])
-                    (App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]])
-                    (App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []]]));
+                    (Let (SOME "v") (Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]) $
+                      App Opapp [Var (Short "k"); Var (Short "v")])
+                    (Let (SOME "v") (Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []]) $
+                      App Opapp [Var (Short "k"); Var (Short "v")]));
                 (Pany,
                   Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
               ])
