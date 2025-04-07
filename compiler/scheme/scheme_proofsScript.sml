@@ -17,6 +17,8 @@ open namespacePropsTheory;
 
 val _ = new_theory "scheme_proofs";
 
+val _ = (max_print_depth := 20);
+
 Definition scheme_basis1_def:
   scheme_basis1 = Dtype unknown_loc [
     ([], "sprim", [
@@ -472,20 +474,17 @@ Definition ml_v_vals_def[nocompute]:
     | _ => ARB
 End
 
-fun mydisch x = DISCH (hd $ hyp x) x;
-
-Theorem ml_v_vals_def[allow_rebind, compute] = SRULE [] $ mydisch $
-  LIST_CONJ $ map
-    (EVAL_RULE o SIMP_RULE pure_ss [SimpRHS, ml_v_vals_def]) [
-    REFL “ml_v_vals (Prim SAdd)”,
-    REFL “ml_v_vals (Prim SMul)”,
-    REFL “ml_v_vals (Prim SMinus)”,
-    REFL “ml_v_vals (Prim SEqv)”,
-    REFL “ml_v_vals (Prim CallCC)”,
-    ASSUME “∀ n . ml_v_vals (SNum n) = ml_v_vals (SNum n)”,
-    REFL “ml_v_vals (SBool T)”,
-    REFL “ml_v_vals (SBool F)”
-  ];
+Theorem ml_v_vals_def[allow_rebind, compute] = LIST_CONJ $
+  map (GEN_ALL o (REWR_CONV ml_v_vals_def THENC EVAL)) [
+    “ml_v_vals (Prim SAdd)”,
+    “ml_v_vals (Prim SMul)”,
+    “ml_v_vals (Prim SMinus)”,
+    “ml_v_vals (Prim SEqv)”,
+    “ml_v_vals (Prim CallCC)”,
+    “ml_v_vals (SNum n)”,
+    “ml_v_vals (SBool T)”,
+    “ml_v_vals (SBool F)”
+];
 
 Inductive e_ce_rel:
 [~Val:]
@@ -734,22 +733,29 @@ QED
 Theorem myproof:
   ∀ store store' env env' e e' k k' (st : 'ffi state) mlenv var kv mle .
   step  (store, k, env, e) = (store', k', env', e') ∧
-  st.clock > 0 ∧
   cont_rel k kv ∧
   e_ce_rel e var mlenv kv mle ∧
   scheme_env mlenv
   ⇒
-  ∃ st' mlenv' var' kv' mle' .
-    evaluate st mlenv [mle]
+  ∃ ck st' mlenv' var' kv' mle' .
+    evaluate (st with clock:=ck) mlenv [mle]
     =
     evaluate st' mlenv' [mle'] ∧
     cont_rel k' kv' ∧
-    e_ce_rel e' var' mlenv' kv' mle'
+    e_ce_rel e' var' mlenv' kv' mle' ∧
+    st'.clock ≤ ck ∧
+    (k ≠ [] ⇒ st'.clock < ck)
 Proof
   Cases_on ‘e’
   >~ [‘Val v’] >- (
     Cases_on ‘k’
-    >- (simp[step_def, return_def] >> metis_tac[])
+    >- (
+      simp[step_def, return_def]
+      >> rw[]
+      >> irule_at (Pos hd) EQ_REFL
+      >> simp[]
+      >> metis_tac[]
+    )
     >> PairCases_on ‘h’
     >> Cases_on ‘∃ te fe . h1 = CondK te fe’ >- (
       gvs[]
@@ -761,13 +767,20 @@ Proof
       but in theory should work for any vals*)
       >- (
         simp[Once e_ce_rel_cases, Once cont_rel_cases]
+        >> rpt gen_tac
+        >> IF_CASES_TAC
         >> simp[oneline ml_v_vals_def]
+        >> gvs[ml_v_vals_def]
+        >> rpt strip_tac
+
         >> every_case_tac
         >> gvs[]
         >> rpt strip_tac
+        
+        >> qrefine ‘ck+1’
         >> simp[SimpLHS, Ntimes evaluate_def 6, do_con_check_def,
           build_conv_def, scheme_env_def, do_opapp_def,
-        can_pmatch_all_def, pmatch_def]
+        can_pmatch_all_def, pmatch_def, dec_clock_def]
         >> qpat_assum ‘scheme_env env’ $ simp o curry ((::) o swap) [
             same_type_def, same_ctor_def, do_opapp_def,
             evaluate_match_def, pmatch_def, pat_bindings_def]
