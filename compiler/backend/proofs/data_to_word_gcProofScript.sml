@@ -7705,10 +7705,27 @@ Proof
 QED
 
 Theorem cut_env_adjust_sets_insert_ODD:
-   ODD n ==> cut_env (adjust_sets the_names) (insert n w s) =
-             cut_env (adjust_sets the_names) s
+  ODD n ⇒
+  cut_env (adjust_sets names) (insert n w t) =
+  cut_env (adjust_sets names) t
 Proof
-  cheat
+  strip_tac
+  \\ gvs [wordSemTheory.cut_env_def,adjust_sets_def,
+       wordSemTheory.cut_envs_def,wordSemTheory.cut_names_def]
+  \\ Cases_on ‘n = 0’ \\ gvs []
+  \\ ‘inter (insert n w t) (LS ()) = inter t (LS ())’ by
+        gvs [lookup_inter_alt,lookup_insert]
+  \\ ‘inter (insert n w t) (adjust_set names) =
+      inter t (adjust_set names)’ by
+       (gvs [lookup_inter_alt,lookup_insert] \\ rw [] \\ gvs []
+        \\ imp_res_tac domain_adjust_set_EVEN \\ gvs [EVEN_ODD])
+  \\ ‘domain (adjust_set names) ⊆ n INSERT domain t ⇔
+      domain (adjust_set names) ⊆ domain t’ by
+   (gvs [SUBSET_DEF]
+    \\ rw [] \\ eq_tac \\ rw []
+    \\ imp_res_tac domain_adjust_set_EVEN \\ gvs [EVEN_ODD]
+    \\ res_tac \\ gvs [])
+  \\ simp []
 QED
 
 Theorem cut_names_insert_1_insert_1:
