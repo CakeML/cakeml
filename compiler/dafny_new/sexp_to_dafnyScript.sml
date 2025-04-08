@@ -208,6 +208,8 @@ Definition to_bop_def:
        do _ <- prefix_error here (dest0 args); return And od
      else if (cns = "Imp") then
        do _ <- prefix_error here (dest0 args); return Imp od
+     else if (cns = "Or") then
+       do _ <- prefix_error here (dest0 args); return Or od
      else
        fail (here ++ " Unexpected constructor")
    od)
@@ -219,24 +221,24 @@ Definition to_literal_def:
    do
      (cns, args) <- prefix_error here (split se);
      here <<- extend_path here cns;
-     if (cns = "IntV") then
+     if (cns = "IntLit") then
        do
          i <- prefix_error here (dest1 args);
          i <- prefix_error here (to_int i);
-         return (IntV i)
+         return (IntLit i)
        od
-     else if (cns = "BoolV") then
+     else if (cns = "BoolLit") then
        do
          b <- prefix_error here (dest1 args);
          b <- prefix_error here (to_bool b);
-         return (BoolV b)
+         return (BoolLit b)
        od
-     else if (cns = "StringV") then
+     else if (cns = "StringLit") then
        do
          (is_verbatim, s) <- prefix_error here (dest2 args);
          is_verbatim <- prefix_error here (to_bool is_verbatim);
          s <- prefix_error here (to_string s);
-         return (StringV (unescape_string s is_verbatim))
+         return (StringLit (unescape_string s is_verbatim))
        od
      else
        fail (here ++ " Unexpected constructor")

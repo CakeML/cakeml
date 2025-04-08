@@ -14,14 +14,14 @@ Datatype:
 End
 
 Datatype:
-  bop = Lt | Le | Ge | Eq | Neq | Sub | Add | Mul | Div | And | Imp
+  binary_op = Lt | Le | Ge | Eq | Neq | Sub | Add | Mul | Div | And | Imp | Or
 End
 
 Datatype:
   literal =
-  | IntV int
-  | BoolV bool
-  | StringV string
+  | IntLit int
+  | BoolLit bool
+  | StringLit string
 End
 
 Datatype:
@@ -31,7 +31,7 @@ Datatype:
   (* FunctionCall name args *)
   | FunctionCall string (expression list)
   | IdentifierExp string type
-  | BinaryExp bop expression expression
+  | BinaryExp binary_op expression expression
   | LiteralExp literal
   | ArrayLen expression
   (* ArraySelect arr idx *)
