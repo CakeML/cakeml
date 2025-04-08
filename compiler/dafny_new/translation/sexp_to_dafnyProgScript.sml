@@ -28,6 +28,7 @@ val r = translate sexp_to_dafnyTheory.dest6_def;
 val r = translate sexp_to_dafnyTheory.dest9_def;
 
 val r = translate sexp_to_dafnyTheory.extend_path_def;
+val r = translate sexp_to_dafnyTheory.unescape_string_def;
 val r = translate sexp_to_dafnyTheory.to_type_def;
 val r = translate sexp_to_dafnyTheory.to_string_type_tup_def;
 val r = translate sexp_to_dafnyTheory.to_string_type_tup_lst_def;

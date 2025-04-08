@@ -21,8 +21,7 @@ Datatype:
   literal =
   | IntV int
   | BoolV bool
-  (* StringV isVerbatim value *)
-  | StringV bool string
+  | StringV string
 End
 
 Datatype:

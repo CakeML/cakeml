@@ -104,6 +104,36 @@ End
 
 (* Converting to Dafny AST *)
 
+(* unescape_string is adapted from Dafny (MIT License):
+   https://github.com/dafny-lang/dafny - function UnescapedCharacters at
+   Source/DafnyCore/Generic/Util.cs *)
+Definition unescape_string_def:
+  (unescape_string (c1::c2::rest) verbatim =
+  if verbatim then
+    if c1 = #"\"" ∧ c2 = #"\"" then
+      #"\""::(unescape_string rest verbatim)
+    else
+      c1::(unescape_string (c2::rest) verbatim)
+  else if c1 = #"\\" ∧ c2 = #"'" then
+    #"'"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"\"" then
+    #"\""::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"\\" then
+    #"\\"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"0" then
+    #"\000"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"n" then
+    #"\n"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"r" then
+    #"\r"::(unescape_string rest verbatim)
+  else if c1 = #"\\" ∧ c2 = #"t" then
+    #"\t"::(unescape_string rest verbatim)
+  else
+    c1::(unescape_string (c2::rest) verbatim)) ∧
+  (unescape_string (c::rest) verbatim = c::(unescape_string rest verbatim)) ∧
+  (unescape_string "" _ = "")
+End
+
 (* NOTE We do not use do notation for arguments of a recursive call, to avoid
    problems with the termination proofs. *)
 
@@ -206,7 +236,7 @@ Definition to_literal_def:
          (is_verbatim, s) <- prefix_error here (dest2 args);
          is_verbatim <- prefix_error here (to_bool is_verbatim);
          s <- prefix_error here (to_string s);
-         return (StringV is_verbatim s)
+         return (StringV (unescape_string s is_verbatim))
        od
      else
        fail (here ++ " Unexpected constructor")
