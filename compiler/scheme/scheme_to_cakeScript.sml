@@ -218,163 +218,191 @@ Definition cake_print_def:
     [Dlet unknown_loc Pany (App Opapp [Var (Short "print"); e])]
 End
 
+Definition scheme_basis1_def:
+  scheme_basis1 = Dtype unknown_loc [
+    ([], "sprim", [
+      ("SAdd", []);
+      ("SMul", []);
+      ("SMinus", []);
+      ("SEqv", []);
+      ("CallCC", [])
+    ]);
+    ([], "sval", [
+      ("SNum", [Atapp [] (Short "int")]);
+      ("SBool", [Atapp [] (Short "bool")]);
+      ("Prim", [Atapp [] (Short "sprim")]);
+      ("SList", [Atapp [Atapp [] (Short "sval")] (Short "list")]);
+      ("Wrong", [Atapp [] (Short "string")]);
+      ("Ex", [Atapp [] (Short "string")]);
+      ("Proc", [Atfun
+                 (Atfun
+                   (Atapp [] (Short "sval"))
+                   (Atapp [] (Short "sval")))
+                 (Atfun
+                   (Atapp [Atapp [] (Short "sval")] (Short "list"))
+                   (Atapp [] (Short "sval")))]);
+      ("Throw", [Atfun
+                  (Atapp [] (Short "sval"))
+                  (Atapp [] (Short "sval"))]);
+    ])
+  ]
+End
+
+Definition scheme_basis2_def:
+  scheme_basis2 = Dletrec unknown_loc [
+    ("sadd", "k", Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Let (SOME "v") (Con (SOME $ Short "SNum") [Var (Short "n")]) $
+          App Opapp [Var (Short "k"); Var (Short "v")]);
+      (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
+        Mat (Var (Short "x")) [
+          (Pcon (SOME $ Short "SNum") [Pvar "xn"],
+            App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "sadd"); Var (Short "k")];
+                App (Opn Plus) [Var (Short "n"); Var (Short "xn")]
+              ];
+              Var (Short "xs'")
+            ]);
+          (Pany,
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Arith-op applied to non-number"])
+        ])
+    ])
+  ]
+End
+
+Definition scheme_basis3_def:
+  scheme_basis3 = Dletrec unknown_loc [
+    ("smul", "k", Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Let (SOME "v") (Con (SOME $ Short "SNum") [Var (Short "n")]) $
+          App Opapp [Var (Short "k"); Var (Short "v")]);
+      (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
+        Mat (Var (Short "x")) [
+          (Pcon (SOME $ Short "SNum") [Pvar "xn"],
+            App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "smul"); Var (Short "k")];
+                App (Opn Times) [Var (Short "n"); Var (Short "xn")]
+              ];
+              Var (Short "xs'")
+            ]);
+          (Pany,
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Arith-op applied to non-number"])
+        ])
+    ])
+  ]
+End
+
+Definition scheme_basis4_def:
+  scheme_basis4 = Dlet unknown_loc (Pvar "sminus") $ Fun "k" $ Fun "xs" $
+    Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+      (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
+        Mat (Var (Short "x")) [
+          (Pcon (SOME $ Short "SNum") [Pvar "n"],
+            App Opapp [App Opapp [App Opapp [Var (Short "sadd");
+              Fun "t" $ Mat (Var (Short "t")) [
+                (Pcon (SOME $ Short "SNum") [Pvar "m"],
+                  Let (SOME "v") (Con (SOME $ Short "SNum") [
+                      App (Opn Minus) [Var (Short "n"); Var (Short "m")]]) $
+                    App Opapp [Var (Short "k"); Var (Short "v")]);
+                (Pany,
+                  App Opapp [Var (Short "k"); Var (Short "t")])
+              ]];
+              Lit $ IntLit 0]; Var (Short "xs'")]);
+          (Pany,
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Arith-op applied to non-number"])
+        ])
+    ]
+End
+
+Definition scheme_basis5_def:
+  scheme_basis5 = Dlet unknown_loc (Pvar "seqv") $ Fun "k" $ Fun "xs" $
+    Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+      (Pcon (SOME $ Short "::") [Pvar "x1"; Pvar "xs'"],
+        Mat (Var (Short "xs'")) [
+          (Pcon (SOME $ Short "[]") [],
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+          (Pcon (SOME $ Short "::") [Pvar "x2"; Pvar "xs''"],
+            Mat (Var (Short "xs''")) [
+              (Pcon (SOME $ Short "[]") [],
+                If (App Equality [Var (Short "x1"); Var (Short "x2")])
+                  (Let (SOME "v") (Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]) $
+                    App Opapp [Var (Short "k"); Var (Short "v")])
+                  (Let (SOME "v") (Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []]) $
+                    App Opapp [Var (Short "k"); Var (Short "v")]));
+              (Pany,
+                Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+            ])
+        ])
+    ]
+End
+
+Definition scheme_basis6_def:
+  scheme_basis6 = Dlet unknown_loc (Pvar "throw") $ Fun "k" $ Fun "xs" $
+    Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+      (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
+        Mat (Var (Short "xs'")) [
+          (Pcon (SOME $ Short "[]") [],
+            App Opapp [Var (Short "k"); Var (Short "x")]);
+          (Pany,
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+        ])
+    ]
+End
+
+Definition scheme_basis7_def:
+  scheme_basis7 = Dletrec unknown_loc [
+    ("callcc", "k", Fun "xs" $ Mat (Var (Short "xs")) [
+      (Pcon (SOME $ Short "[]") [],
+        Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+      (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
+        Mat (Var (Short "xs'")) [
+          (Pcon (SOME $ Short "[]") [],
+            App Opapp [
+              App Opapp [
+                App Opapp [Var (Short "app");Var (Short "k")];
+                Var (Short "x")];
+              cons_list [Con (SOME $ Short "Throw") [Var (Short "k")]]]);
+          (Pany,
+            Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"])
+        ])
+    ]);
+    ("app", "k", Fun "fn" $ Mat (Var (Short "fn")) [
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SAdd") []],
+        App Opapp [App Opapp [Var (Short "sadd"); Var (Short "k")]; Lit $ IntLit 0]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMul") []],
+        App Opapp [App Opapp [Var (Short "smul"); Var (Short "k")]; Lit $ IntLit 1]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMinus") []],
+        App Opapp [Var (Short "sminus"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SEqv") []],
+        App Opapp [Var (Short "seqv"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "CallCC") []],
+        App Opapp [Var (Short "callcc"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Proc") [Pvar "e"],
+        App Opapp [Var (Short "e"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Throw") [Pvar "k'"],
+        App Opapp [Var (Short "throw"); Var (Short "k'")]);
+      (Pany, Fun "_" $ Con (SOME $ Short "Ex") [Lit $ StrLit"Not a procedure"])
+    ])
+  ]
+End
+
 Definition scheme_basis_def:
   scheme_basis = [
-    Dtype unknown_loc [
-      ([], "sprim", [
-        ("SAdd", []);
-        ("SMul", []);
-        ("SMinus", []);
-        ("SEqv", []);
-        ("CallCC", [])
-      ]);
-      ([], "sval", [
-        ("SNum", [Atapp [] (Short "int")]);
-        ("SBool", [Atapp [] (Short "bool")]);
-        ("Prim", [Atapp [] (Short "sprim")]);
-        ("SList", [Atapp [Atapp [] (Short "sval")] (Short "list")]);
-        ("Wrong", [Atapp [] (Short "string")]);
-        ("Ex", [Atapp [] (Short "string")]);
-        ("Proc", [Atfun
-                   (Atfun
-                     (Atapp [] (Short "sval"))
-                     (Atapp [] (Short "sval")))
-                   (Atfun
-                     (Atapp [Atapp [] (Short "sval")] (Short "list"))
-                     (Atapp [] (Short "sval")))]);
-        ("Throw", [Atfun
-                    (Atapp [] (Short "sval"))
-                    (Atapp [] (Short "sval"))]);
-      ])
-    ];
-    Dletrec unknown_loc [
-      ("sadd", "k", Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
-        (Pcon (SOME $ Short "[]") [],
-          Let (SOME "v") (Con (SOME $ Short "SNum") [Var (Short "n")]) $
-            App Opapp [Var (Short "k"); Var (Short "v")]);
-        (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
-          Mat (Var (Short "x")) [
-            (Pcon (SOME $ Short "SNum") [Pvar "xn"],
-              App Opapp [
-                App Opapp [
-                  App Opapp [Var (Short "sadd"); Var (Short "k")];
-                  App (Opn Plus) [Var (Short "n"); Var (Short "xn")]
-                ];
-                Var (Short "xs'")
-              ]);
-            (Pany,
-              Con (SOME $ Short "Ex") [Lit $ StrLit "Not a number"])
-          ])
-      ])
-    ];
-    Dletrec unknown_loc [
-      ("smul", "k", Fun "n" $ Fun "xs" $ Mat (Var (Short "xs")) [
-        (Pcon (SOME $ Short "[]") [],
-          Let (SOME "v") (Con (SOME $ Short "SNum") [Var (Short "n")]) $
-            App Opapp [Var (Short "k"); Var (Short "v")]);
-        (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
-          Mat (Var (Short "x")) [
-            (Pcon (SOME $ Short "SNum") [Pvar "xn"],
-              App Opapp [
-                App Opapp [
-                  App Opapp [Var (Short "smul"); Var (Short "k")];
-                  App (Opn Times) [Var (Short "n"); Var (Short "xn")]
-                ];
-                Var (Short "xs'")
-              ]);
-            (Pany,
-              Con (SOME $ Short "Ex") [Lit $ StrLit "Not a number"])
-          ])
-      ])
-    ];
-    Dlet unknown_loc (Pvar "sminus") $ Fun "k" $ Fun "xs" $
-      Mat (Var (Short "xs")) [
-        (Pcon (SOME $ Short "[]") [],
-          Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
-        (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
-          Mat (Var (Short "x")) [
-            (Pcon (SOME $ Short "SNum") [Pvar "n"],
-              App Opapp [App Opapp [App Opapp [Var (Short "sadd");
-                Fun "t" $ Mat (Var (Short "t")) [
-                  (Pcon (SOME $ Short "SNum") [Pvar "m"],
-                    Let (SOME "v") (Con (SOME $ Short "SNum") [
-                        App (Opn Minus) [Var (Short "n"); Var (Short "m")]]) $
-                      App Opapp [Var (Short "k"); Var (Short "v")]);
-                  (Pany,
-                    App Opapp [Var (Short "k"); Var (Short "t")])
-                ]];
-                Lit $ IntLit 0]; Var (Short "xs'")]);
-            (Pany,
-              Con (SOME $ Short "Ex") [Lit $ StrLit "Not a number"])
-          ])
-      ];
-    Dlet unknown_loc (Pvar "seqv") $ Fun "k" $ Fun "xs" $
-      Mat (Var (Short "xs")) [
-        (Pcon (SOME $ Short "[]") [],
-          Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
-        (Pcon (SOME $ Short "::") [Pvar "x1"; Pvar "xs'"],
-          Mat (Var (Short "xs'")) [
-            (Pcon (SOME $ Short "[]") [],
-              Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
-            (Pcon (SOME $ Short "::") [Pvar "x2"; Pvar "xs''"],
-              Mat (Var (Short "xs''")) [
-                (Pcon (SOME $ Short "[]") [],
-                  If (App Equality [Var (Short "x1"); Var (Short "x2")])
-                    (Let (SOME "v") (Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]) $
-                      App Opapp [Var (Short "k"); Var (Short "v")])
-                    (Let (SOME "v") (Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []]) $
-                      App Opapp [Var (Short "k"); Var (Short "v")]));
-                (Pany,
-                  Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
-              ])
-          ])
-      ];
-    Dlet unknown_loc (Pvar "throw") $ Fun "k" $ Fun "xs" $
-      Mat (Var (Short "xs")) [
-        (Pcon (SOME $ Short "[]") [],
-          Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
-        (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
-          Mat (Var (Short "xs'")) [
-            (Pcon (SOME $ Short "[]") [],
-              App Opapp [Var (Short "k"); Var (Short "x")]);
-            (Pany,
-              Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
-          ])
-      ];
-    Dletrec unknown_loc [
-      ("callcc", "k", Fun "xs" $ Mat (Var (Short "xs")) [
-        (Pcon (SOME $ Short "[]") [],
-          Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
-        (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
-          Mat (Var (Short "xs'")) [
-            (Pcon (SOME $ Short "[]") [],
-              App Opapp [
-                App Opapp [
-                  App Opapp [Var (Short "app");Var (Short "k")];
-                  Var (Short "x")];
-                cons_list [Con (SOME $ Short "Throw") [Var (Short "k")]]]);
-            (Pany,
-              Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"])
-          ])
-      ]);
-      ("app", "k", Fun "fn" $ Mat (Var (Short "fn")) [
-        (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SAdd") []],
-          App Opapp [App Opapp [Var (Short "sadd"); Var (Short "k")]; Lit $ IntLit 0]);
-        (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMul") []],
-          App Opapp [App Opapp [Var (Short "smul"); Var (Short "k")]; Lit $ IntLit 1]);
-        (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SMinus") []],
-          App Opapp [Var (Short "sminus"); Var (Short "k")]);
-        (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SEqv") []],
-          App Opapp [Var (Short "seqv"); Var (Short "k")]);
-        (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "CallCC") []],
-          App Opapp [Var (Short "callcc"); Var (Short "k")]);
-        (Pcon (SOME $ Short "Proc") [Pvar "e"],
-          App Opapp [Var (Short "e"); Var (Short "k")]);
-        (Pcon (SOME $ Short "Throw") [Pvar "k'"],
-          App Opapp [Var (Short "throw"); Var (Short "k'")]);
-        (Pany, Fun "_" $ Con (SOME $ Short "Ex") [Lit $ StrLit"Not a procedure"])
-      ])
-    ]
+    scheme_basis1;
+    scheme_basis2;
+    scheme_basis3;
+    scheme_basis4;
+    scheme_basis5;
+    scheme_basis6;
+    scheme_basis7
   ]
 End
 

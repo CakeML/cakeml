@@ -15,13 +15,13 @@ End
 Definition sadd_def:
   sadd [] n = Val $ SNum n ∧
   sadd (SNum m :: xs) n = sadd xs (m + n) ∧
-  sadd (_ :: xs) _ = Exception $ strlit "Arguments to + must be numbers"
+  sadd (_ :: xs) _ = Exception $ strlit "Arith-op applied to non-number"
 End
 
 Definition smul_def:
   smul [] n = Val $ SNum n ∧
   smul (SNum m :: xs) n = smul xs (m * n) ∧
-  smul (_ :: xs) _ = Exception $ strlit "Arguments to * must be numbers"
+  smul (_ :: xs) _ = Exception $ strlit "Arith-op applied to non-number"
 End
 
 Definition sminus_def:
@@ -29,7 +29,7 @@ Definition sminus_def:
   sminus (SNum n :: xs) = (case sadd xs 0 of
   | Val (SNum m) => Val (SNum (n - m))
   | e => e) ∧
-  sminus _ = Exception $ strlit "Arguments to - must be numbers"
+  sminus _ = Exception $ strlit "Arith-op applied to non-number"
 End
 
 Definition seqv_def:

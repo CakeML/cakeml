@@ -41,9 +41,14 @@ val r = translate cons_list_def;
 val r = translate proc_ml_def;
 val r = translate letinit_ml_def;
 val r = translate cps_transform_def;
-val r = translate scheme_cont_def;
-val r = translate exp_with_cont_def;
 val r = translate compile_scheme_prog_def;
+val r = translate scheme_basis1_def;
+val r = translate scheme_basis2_def;
+val r = translate scheme_basis3_def;
+val r = translate scheme_basis4_def;
+val r = translate scheme_basis5_def;
+val r = translate scheme_basis6_def;
+val r = translate scheme_basis7_def;
 val r = translate scheme_basis_def;
 val r = translate codegen_def;
 
