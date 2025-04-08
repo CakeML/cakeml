@@ -10,3 +10,14 @@ README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax
 DIRS = $(patsubst tests/,,$(wildcard */))
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+
+EXTRA_CLEANS = dafny_ast-heap
+
+ifdef POLY
+
+all: dafny_ast-heap
+
+dafny_ast-heap: dafny_astTheory.uo
+	$(HOLDIR)/bin/buildheap -o $@ $<
+
+endif
