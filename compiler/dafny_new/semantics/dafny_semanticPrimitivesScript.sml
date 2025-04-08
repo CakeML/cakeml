@@ -21,6 +21,8 @@ Datatype:
   | IntV int
   | BoolV bool
   | StrV string
+  (* ArrayV length location *)
+  | ArrayV num num
 End
 
 Datatype:
@@ -45,7 +47,6 @@ End
 Datatype:
   result =
   | Rval 'a
-  | Rret (value list)
   | Rerr error_result
 End
 
@@ -54,18 +55,26 @@ Definition strict_zip_def:
   OPTION_MAP (CONS (x,y)) (strict_zip xs ys)
 End
 
-Definition push_param_frame_def:
-  push_param_frame st param_names vals =
-  (case (strict_zip param_names vals) of
+Definition push_params_def:
+  push_params st names vals =
+  (case (strict_zip names vals) of
    | NONE => NONE
    | SOME params =>
      SOME (st with locals := (alist_to_fmap params)::st.locals))
 End
 
-Definition lit_to_val_def[simp]:
-  lit_to_val (IntLit i) = (IntV i) ∧
-  lit_to_val (BoolLit b) = (BoolV b) ∧
-  lit_to_val (StringLit s) = (StrV s)
+Definition pop_params_def:
+  pop_params st =
+  (case st.locals of
+   | [] => NONE
+   | (cur::rest) => SOME (st with locals := rest))
+End
+
+Definition read_local_def:
+  read_local st name =
+  (case st.locals of
+   | [] => NONE
+   | (cur::rest) => FLOOKUP cur name)
 End
 
 (* Returns the value in case it is already known due to short-circuiting. *)
@@ -119,6 +128,38 @@ Definition do_bop_def:
   (case (v₀, v₁) of
    | (IntV i₀, IntV i₁) => SOME (IntV (ediv i₀ i₁))
    | _ => NONE)
+End
+
+Definition lit_to_val_def[simp]:
+  lit_to_val (IntLit i) = (IntV i) ∧
+  lit_to_val (BoolLit b) = (BoolV b) ∧
+  lit_to_val (StringLit s) = (StrV s)
+End
+
+Definition get_array_len_def:
+  get_array_len (ArrayV len _) = SOME len ∧
+  get_array_len _ = NONE
+End
+
+Definition val_to_num:
+  val_to_num (IntV i) = SOME (Num i) ∧
+  val_to_num _ = NONE
+End
+
+Definition index_array_def:
+  index_array st arr idx =
+  (case (arr, val_to_num idx) of
+   | (ArrayV len loc, SOME idx) =>
+     (case LLOOKUP st.heap loc of
+      | NONE => NONE
+      | SOME (HArray arr) => LLOOKUP arr idx)
+   | _ => NONE)
+End
+
+(* Can be used for both conditionals ITE and If *)
+Definition do_cond_def:
+  do_cond (BoolV b) thn els = SOME (if b then thn else els) ∧
+  do_cond _ _ _ = NONE
 End
 
 val _ = export_theory ();

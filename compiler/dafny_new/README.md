@@ -9,8 +9,14 @@ Definitions to lex and parse S-expressions.
 [result_monadScript.sml](result_monadScript.sml):
 Definition of a specialized Either monad, where an error is a string.
 
+[semantics](semantics):
+Definition of Dafny's semantics.
+
 [sexp_to_dafnyScript.sml](sexp_to_dafnyScript.sml):
 Parses an S-expression into a Dafny AST.
 
 [tests](tests):
 Contains programs to test the Dafny compiler.
+
+[translation](translation):
+Translation scripts for the Dafny compiler.
