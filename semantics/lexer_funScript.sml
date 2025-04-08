@@ -106,8 +106,13 @@ Definition read_string_def:
       case TL str of
       | #"\\"::cs => read_string cs (s ++ "\\") (next_loc 2 loc)
       | #"\""::cs => read_string cs (s ++ "\"") (next_loc 2 loc)
-      | #"n"::cs => read_string cs (s ++ "\n") (next_loc 2 loc)
-      | #"t"::cs => read_string cs (s ++ "\t") (next_loc 2 loc)
+      | #"a"::cs => read_string cs (s ++ [CHR 7]) (next_loc 2 loc)
+      | #"b"::cs => read_string cs (s ++ [CHR 8]) (next_loc 2 loc)
+      | #"t"::cs => read_string cs (s ++ [CHR 9]) (next_loc 2 loc)
+      | #"n"::cs => read_string cs (s ++ [CHR 10]) (next_loc 2 loc)
+      | #"v"::cs => read_string cs (s ++ [CHR 11]) (next_loc 2 loc)
+      | #"f"::cs => read_string cs (s ++ [CHR 12]) (next_loc 2 loc)
+      | #"r"::cs => read_string cs (s ++ [CHR 13]) (next_loc 2 loc)
       | c::cs => if isDigit c then
                    case read_char_as_3digits (c::cs) of
                      NONE => (ErrorS, loc, c::cs)

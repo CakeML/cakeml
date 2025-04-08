@@ -54,4 +54,8 @@ val test20 = run_test ``"a."`` ``[LexErrorT]``;
 
 val test21 = run_test “"\"1a\\001\\nb\""” “[StringT "1a\001\nb"]”
 
+val test22 = run_test “"\"\\a\\b\\r\""” “[StringT "\a\b\r"]”
+
+val test23 = run_test “"#\"\\n\""” “[CharT #"\n"]”
+
 val _ = export_theory ();
