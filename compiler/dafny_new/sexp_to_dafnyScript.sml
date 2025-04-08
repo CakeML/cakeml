@@ -252,19 +252,7 @@ Definition to_expression_def:
     | INL err => fail (here ++ err)
     | INR (cns, args) =>
       let here = extend_path here cns in
-      (if (cns = "MethodCall") then
-         (case dest2 args of
-          | INL err => fail (here ++ err)
-          | INR (s, es) =>
-            (case dest_expr es of
-             | INL err => fail (here ++ err)
-             | INR es =>
-               do
-                 es <- prefix_error here (map_to_expression es);
-                 s <- prefix_error here (to_string s);
-                 return (MethodCall s es)
-               od))
-       else if (cns = "FunctionCall") then
+      (if (cns = "FunctionCall") then
          (case dest2 args of
           | INL err => fail (here ++ err)
           | INR (s, es) =>
@@ -362,9 +350,9 @@ Definition to_expression_list_def:
    od)
 End
 
-Definition to_assign_rhs_def:
-  to_assign_rhs se =
-  (let here = extend_path "" "to_assign_rhs" in
+Definition to_rhs_exp_def:
+  to_rhs_exp se =
+  (let here = extend_path "" "to_rhs_exp" in
    do
      (cns, args) <- prefix_error here (split se);
      here <<- extend_path here cns;
@@ -373,6 +361,13 @@ Definition to_assign_rhs_def:
          e <- prefix_error here (dest1 args);
          e <- prefix_error here (to_expression e);
          return (ExpRhs e)
+       od
+     else if (cns = "MethodCall") then
+       do
+         (s, es) <- prefix_error here (dest2 args);
+         s <- prefix_error here (to_string s);
+         es <- prefix_error here (to_expression_list es);
+         return (MethodCall s es)
        od
      else if (cns = "AllocArray") then
        do
@@ -387,12 +382,12 @@ Definition to_assign_rhs_def:
    od)
 End
 
-Definition to_assign_rhs_list_def:
-  to_assign_rhs_list se =
-  (let here = extend_path "" "to_assign_rhs_list" in
+Definition to_rhs_exp_list_def:
+  to_rhs_exp_list se =
+  (let here = extend_path "" "to_rhs_exp_list" in
    do
      es <- prefix_error here (dest_expr se);
-     prefix_error here (result_mmap to_assign_rhs es)
+     prefix_error here (result_mmap to_rhs_exp es)
    od)
 End
 
@@ -421,7 +416,7 @@ Definition to_statement_def:
          do
            (lhss, rhss) <- prefix_error here (dest2 args);
            lhss <- prefix_error here (to_expression_list lhss);
-           rhss <- prefix_error here (to_assign_rhs_list rhss);
+           rhss <- prefix_error here (to_rhs_exp_list rhss);
            return (Assign lhss rhss)
          od
        else if (cns = "If") then
@@ -465,7 +460,7 @@ Definition to_statement_def:
        else if (cns = "Return") then
          do
            rhss <- prefix_error here (dest1 args);
-           rhss <- prefix_error here (to_assign_rhs_list rhss);
+           rhss <- prefix_error here (to_rhs_exp_list rhss);
            return (Return rhss)
          od
        else if (cns = "Assert") then

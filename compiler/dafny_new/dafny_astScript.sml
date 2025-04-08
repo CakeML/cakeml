@@ -26,8 +26,6 @@ End
 
 Datatype:
   expression =
-  (* MethodCall name args *)
-  | MethodCall string (expression list)
   (* FunctionCall name args *)
   | FunctionCall string (expression list)
   | IdentifierExp string type
@@ -42,9 +40,12 @@ Datatype:
   | ForallExp (string # type) expression
 End
 
+(* https://dafny.org/dafny/DafnyRef/DafnyRef#sec-rhs-expression *)
 Datatype:
-  assign_rhs =
+  rhs_exp =
   | ExpRhs expression
+  (* MethodCall name args *)
+  | MethodCall string (expression list)
   (* AllocArray type length initValue *)
   | AllocArray type expression expression
 End
@@ -53,7 +54,7 @@ Datatype:
   statement =
   | Skip
   | Then statement statement
-  | Assign (expression list) (assign_rhs list)
+  | Assign (expression list) (rhs_exp list)
   | If expression statement statement
   (* VarDecl locals assign scope *)
   | VarDecl ((string # type) list) statement statement
@@ -62,7 +63,7 @@ Datatype:
   | While expression (expression list) (expression list) (expression list)
           statement
   | Print (expression list)
-  | Return (assign_rhs list)
+  | Return (rhs_exp list)
   | Assert expression
 End
 

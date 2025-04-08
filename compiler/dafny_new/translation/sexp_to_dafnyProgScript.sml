@@ -38,8 +38,8 @@ val r = translate sexp_to_dafnyTheory.to_literal_def;
 val r = translate sexp_to_dafnyTheory.to_expression_def;
 
 val r = translate sexp_to_dafnyTheory.to_expression_list_def;
-val r = translate sexp_to_dafnyTheory.to_assign_rhs_def;
-val r = translate sexp_to_dafnyTheory.to_assign_rhs_list_def;
+val r = translate sexp_to_dafnyTheory.to_rhs_exp_def;
+val r = translate sexp_to_dafnyTheory.to_rhs_exp_list_def;
 
 val r = translate sexp_to_dafnyTheory.to_statement_def;
 val r = translate sexp_to_dafnyTheory.to_member_decl_def;
