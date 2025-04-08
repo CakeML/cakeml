@@ -8,7 +8,12 @@ val _ = new_theory "dafny_semanticPrimitives";
 
 Datatype:
   sem_env =
-  <| locals: (string |-> num) list |>;
+  <|
+    (* methods : method_name |-> (param_names, body) *)
+    methods : (string |-> (string list # statement));
+    (* functions : function_name |-> (param_names, body) *)
+    functions : (string |-> (string list # expression))
+  |>;
 End
 
 Datatype:
@@ -16,6 +21,45 @@ Datatype:
   | IntV int
   | BoolV bool
   | StrV string
+End
+
+Datatype:
+  heap_value =
+  | HArray (value list)
+End
+
+Datatype:
+  state =
+  <| clock: num;
+     locals: (string |-> value) list;
+     heap: heap_value list;
+     cout: string list |>
+End
+
+Datatype:
+  error_result =
+  | Rtype_error
+  | Rtimeout_error
+End
+
+Datatype:
+  result =
+  | Rval 'a
+  | Rret (value list)
+  | Rerr error_result
+End
+
+Definition strict_zip_def:
+  strict_zip (x::xs) (y::ys) =
+  OPTION_MAP (CONS (x,y)) (strict_zip xs ys)
+End
+
+Definition push_param_frame_def:
+  push_param_frame st param_names vals =
+  (case (strict_zip param_names vals) of
+   | NONE => NONE
+   | SOME params =>
+     SOME (st with locals := (alist_to_fmap params)::st.locals))
 End
 
 Definition lit_to_val_def[simp]:
@@ -75,27 +119,6 @@ Definition do_bop_def:
   (case (v₀, v₁) of
    | (IntV i₀, IntV i₁) => SOME (IntV (ediv i₀ i₁))
    | _ => NONE)
-End
-
-Datatype:
-  state =
-  <| clock: num;
-     (* The nth item in the list is the value at location n *)
-     heap: value list;
-     out: string list |>
-End
-
-Datatype:
-  error_result =
-  | Rtype_error
-  | Rtimeout_error
-End
-
-Datatype:
-  result =
-  | Rval value
-  | Rret (value list)
-  | Rerr error_result
 End
 
 val _ = export_theory ();
