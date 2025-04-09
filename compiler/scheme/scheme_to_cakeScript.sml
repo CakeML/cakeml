@@ -96,8 +96,9 @@ Definition cps_transform_def:
     (l, inner) = proc_ml (m+2) xs xp k args ce;
     k' = "k" ++ toString l;
   in
-    (l+1, Fun k' $ App Opapp [Var (Short k');
-      Con (SOME $ Short "Proc") [Fun k $ Fun args inner]])) ∧
+    (l+1, Fun k' $ Let (SOME "v")
+      (Con (SOME $ Short "Proc") [Fun k $ Fun args inner]) $
+      App Opapp [Var (Short k'); Var (Short "v")])) ∧
 
   cps_transform n (Begin e es) = (let
     (m, ce) = cps_transform n e;
@@ -193,15 +194,6 @@ Termination
       >> last_x_assum dxrule >> simp[]
   ))
   >> Cases >> rw[scheme_astTheory.exp_size_def]
-End
-
-Definition scheme_cont_def:
-  scheme_cont [] = Fun "t" $ Var (Short "t") ∧
-  scheme_cont (k:: ks) = SND $ refunc_cont 0 k (scheme_cont ks)
-End
-
-Definition exp_with_cont_def:
-  exp_with_cont k e = App Opapp [SND $ cps_transform 0 e; scheme_cont k]
 End
 
 Definition compile_scheme_prog_def:
