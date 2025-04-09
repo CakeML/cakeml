@@ -6671,12 +6671,6 @@ Proof
   rw[abs_stack_def]
 QED
 
-Triviality SUB_SUB_EQ:
-  a <= b ==> b - (b - a:num) = a
-Proof
-  DECIDE_TAC
-QED
-
 Triviality SUB_ADD_EQ:
   a <= b ==> a + (b - a:num) = b
 Proof
