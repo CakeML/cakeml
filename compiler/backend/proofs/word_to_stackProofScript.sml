@@ -108,7 +108,84 @@ Proof
 QED
 
 (* delete END *)
+(* list_max stuff the whole compiler should be done in terms of MAX_LIST
+and some should be deleted, some can be generalized and the rest can be moved up.
+ some should be generalized and moved up*)
 
+Theorem list_max_APPEND:
+    ∀a b.
+  list_max (a++b) = MAX (list_max a) (list_max b)
+Proof
+  Induct>>fs[list_max_def,LET_THM,MAX_DEF]>>rw[]>>
+  DECIDE_TAC
+QED
+
+Theorem list_max_SNOC:
+    list_max (SNOC x ls) = MAX x (list_max ls)
+Proof
+  fs[SNOC_APPEND,list_max_APPEND,list_max_def,LET_THM,MAX_DEF]>>
+  DECIDE_TAC
+QED
+
+Theorem list_max_GENLIST_evens:
+    ∀n. list_max (GENLIST (λx. 2*x) n) = 2*(n-1)
+Proof
+  Induct>>
+  fs[list_max_def]>>rw[]>>
+  fs[GENLIST,list_max_SNOC,MAX_DEF]>>
+  DECIDE_TAC
+QED
+
+Theorem list_max_GENLIST_evens2:
+    ∀n. list_max (GENLIST (λx. 2*(x+1)) n) = 2*n
+Proof
+  Induct>>
+  fs[list_max_def]>>rw[]>>
+  fs[GENLIST,list_max_SNOC,MAX_DEF]>>
+  DECIDE_TAC
+QED
+(*list_max end*)
+
+(*misc word stuff*)
+
+Triviality word_or_eq_0:
+  ((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
+  \\ metis_tac []
+QED
+
+Triviality shift_shift_lemma:
+  ~(word_msb w) ==> (w ≪ 1 ⋙ 1 = w)
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
+  \\ Cases_on `i + 1 < dimindex (:α)`
+  \\ full_simp_tac (srw_ss()++wordsLib.WORD_BIT_EQ_ss) [NOT_LESS]
+  \\ `i = dimindex (:'a) - 1` by decide_tac
+  \\ simp []
+QED
+
+Theorem word_shift_or_1:
+  (n ≪ 1) ‖ 1w = (n ≪ 1) + 1w
+Proof
+  `?x. n = bitstring$v2w x`
+    by METIS_TAC[ bitstringTheory.v2w_w2v]
+  >> `1w = bitstring$v2w [T]`
+   by fs[GSYM bitstringTheory.n2w_v2n,bitstringTheory.v2n]
+  >> fs[bitstringTheory.word_lsl_v2w,bitstringTheory.word_or_v2w]
+  >> fs[bitstringTheory.shiftl_def,listTheory.PAD_RIGHT]
+  >> fs[bitstringTheory.bor_def,bitstringTheory.bitwise_def,MAX_DEF]
+  >> fs[bitstringTheory.fixwidth_def]
+  >> reverse $ rw[]
+  >- fs[GSYM bitstringTheory.n2w_v2n,bitstringTheory.v2n]
+  >> fs[bitstringTheory.zero_extend_def,listTheory.PAD_LEFT]
+  >> pop_assum kall_tac >> Induct_on `x`
+  >> fs[GSYM bitstringTheory.n2w_v2n,bitstringTheory.v2n,
+     rich_listTheory.GENLIST_K_CONS]
+  >> fs[COND_RAND,COND_RATOR]
+  >> fs[GSYM wordsTheory.word_add_n2w]
+QED
+(*misc word_stuff end*)
 (*TODO figure a normal form
 Should set_store be pushed out always?*)
 Triviality push_env_set_store:
@@ -812,6 +889,7 @@ Definition state_rel_def:
              n DIV 2 < k + f')
 End
 
+(*TODO all the state_rel stuff should go here.*)
 (* correctness proof *)
 
 Triviality evaluate_SeqStackFree:
@@ -900,22 +978,6 @@ Proof
   \\ fs [MIN_LE,MIN_ADD] \\ decide_tac
 QED
 
-Triviality word_or_eq_0:
-  ((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)
-Proof
-  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
-  \\ metis_tac []
-QED
-
-Triviality shift_shift_lemma:
-  ~(word_msb w) ==> (w ≪ 1 ⋙ 1 = w)
-Proof
-  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
-  \\ Cases_on `i + 1 < dimindex (:α)`
-  \\ full_simp_tac (srw_ss()++wordsLib.WORD_BIT_EQ_ss) [NOT_LESS]
-  \\ `i = dimindex (:'a) - 1` by decide_tac
-  \\ simp []
-QED
 
 Triviality bit_length_bits_to_word:
   !qs.
@@ -942,27 +1004,6 @@ Proof
    (match_mp_tac shift_shift_lemma \\ fs [word_msb_def]
     \\ match_mp_tac bits_to_word_miss \\ fs [] \\ decide_tac)
   \\ fs [ADD1,word_or_eq_0]
-QED
-
-Theorem word_shift_or_1:
-  (n ≪ 1) ‖ 1w = (n ≪ 1) + 1w
-Proof
-  `?x. n = bitstring$v2w x`
-    by METIS_TAC[ bitstringTheory.v2w_w2v]
-  >> `1w = bitstring$v2w [T]`
-   by fs[GSYM bitstringTheory.n2w_v2n,bitstringTheory.v2n]
-  >> fs[bitstringTheory.word_lsl_v2w,bitstringTheory.word_or_v2w]
-  >> fs[bitstringTheory.shiftl_def,listTheory.PAD_RIGHT]
-  >> fs[bitstringTheory.bor_def,bitstringTheory.bitwise_def,MAX_DEF]
-  >> fs[bitstringTheory.fixwidth_def]
-  >> reverse $ rw[]
-  >- fs[GSYM bitstringTheory.n2w_v2n,bitstringTheory.v2n]
-  >> fs[bitstringTheory.zero_extend_def,listTheory.PAD_LEFT]
-  >> pop_assum kall_tac >> Induct_on `x`
-  >> fs[GSYM bitstringTheory.n2w_v2n,bitstringTheory.v2n,
-     rich_listTheory.GENLIST_K_CONS]
-  >> fs[COND_RAND,COND_RATOR]
-  >> fs[GSYM wordsTheory.word_add_n2w]
 QED
 
 Theorem bits_to_word_bitstring_reverse:
@@ -5087,39 +5128,6 @@ Proof
   imp_res_tac IS_PREFIX_LENGTH >- DECIDE_TAC>>
   fs[IS_PREFIX_APPEND]>>
   fs[EL_APPEND1]
-QED
-
-Theorem list_max_APPEND:
-    ∀a b.
-  list_max (a++b) = MAX (list_max a) (list_max b)
-Proof
-  Induct>>fs[list_max_def,LET_THM,MAX_DEF]>>rw[]>>
-  DECIDE_TAC
-QED
-
-Theorem list_max_SNOC:
-    list_max (SNOC x ls) = MAX x (list_max ls)
-Proof
-  fs[SNOC_APPEND,list_max_APPEND,list_max_def,LET_THM,MAX_DEF]>>
-  DECIDE_TAC
-QED
-
-Theorem list_max_GENLIST_evens:
-    ∀n. list_max (GENLIST (λx. 2*x) n) = 2*(n-1)
-Proof
-  Induct>>
-  fs[list_max_def]>>rw[]>>
-  fs[GENLIST,list_max_SNOC,MAX_DEF]>>
-  DECIDE_TAC
-QED
-
-Theorem list_max_GENLIST_evens2:
-    ∀n. list_max (GENLIST (λx. 2*(x+1)) n) = 2*n
-Proof
-  Induct>>
-  fs[list_max_def]>>rw[]>>
-  fs[GENLIST,list_max_SNOC,MAX_DEF]>>
-  DECIDE_TAC
 QED
 
 Theorem evaluate_wStackLoad_seq:
