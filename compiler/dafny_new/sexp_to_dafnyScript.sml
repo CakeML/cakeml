@@ -148,6 +148,8 @@ Definition to_type_def:
         do _ <- prefix_error here (dest0 args); return IntT od
       else if (cns = "BoolT") then
         do _ <- prefix_error here (dest0 args); return BoolT od
+      else if (cns = "StringT") then
+        do _ <- prefix_error here (dest0 args); return StringT od
       else if (cns = "ArrayT") then
         (case dest1 args of
          | INL err => fail (here ++ err)
@@ -350,6 +352,27 @@ Definition to_expression_list_def:
    od)
 End
 
+Definition to_exp_type_tup_def:
+  to_exp_type_tup se =
+  (let here = extend_path "" "to_exp_type_tup" in
+   do
+     tup <- prefix_error here (dest_expr se);
+     (s, t) <- prefix_error here (dest2 tup);
+     s <- prefix_error here (to_expression s);
+     t <- prefix_error here (to_type t);
+     return (s, t)
+   od)
+End
+
+Definition to_exp_type_tup_lst_def:
+  to_exp_type_tup_lst se =
+  (let here = extend_path "" "to_exp_type_tup_lst" in
+   do
+     lst <- prefix_error here (dest_expr se);
+     prefix_error here (result_mmap to_exp_type_tup lst)
+   od)
+End
+
 Definition to_rhs_exp_def:
   to_rhs_exp se =
   (let here = extend_path "" "to_rhs_exp" in
@@ -454,7 +477,7 @@ Definition to_statement_def:
        else if (cns = "Print") then
          do
            es <- prefix_error here (dest1 args);
-           es <- prefix_error here (to_expression_list es);
+           es <- prefix_error here (to_exp_type_tup_lst es);
            return (Print es)
          od
        else if (cns = "Return") then

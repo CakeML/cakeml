@@ -10,6 +10,7 @@ Datatype:
   type =
   | IntT
   | BoolT
+  | StringT
   | ArrayT type
 End
 
@@ -62,7 +63,7 @@ Datatype:
            body *)
   | While expression (expression list) (expression list) (expression list)
           statement
-  | Print (expression list)
+  | Print ((expression # type) list)
   | Return (rhs_exp list)
   | Assert expression
 End
