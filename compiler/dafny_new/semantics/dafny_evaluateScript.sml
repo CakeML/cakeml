@@ -7,8 +7,13 @@ open dafny_semanticPrimitivesTheory
 
 val _ = new_theory "dafny_evaluate";
 
-(* The following three definitions/theorems were adapted from
-   semantics/evaluateScript.sml *)
+(* Related papers:
+   "Functional Big-step Semantics", https://cakeml.org/esop16.pdf
+   "Clocked Definitions in HOL", https://arxiv.org/pdf/1803.03417 *)
+
+(* Helpers for clocked definition of semantics, which were adapted from
+   semantics/evaluateScript.sml. *)
+
 Definition fix_clock_def:
   fix_clock s (s', res) =
   (s' with clock := if s'.clock ≤ s.clock then s'.clock else s.clock, res)
@@ -23,6 +28,8 @@ QED
 Definition dec_clock_def:
   dec_clock s = (s with clock := s.clock − 1)
 End
+
+(* Semantics for expressions *)
 
 Definition evaluate_exp_ann_def[nocompute]:
   (* TODO Instead of pushing to the heap, get information from Dafny whether
@@ -111,5 +118,34 @@ Termination
   >> gvs [try_sc_def, push_params_def, dec_clock_def,
           oneline do_cond_def, AllCaseEqs ()]
 End
+
+Theorem evaluate_exp_clock:
+  (∀s₁ env e s₂ r.
+     evaluate_exp s₁ env e = (s₂, r) ⇒ s₂.clock ≤ s₁.clock) ∧
+  (∀s₁ env es s₂ r.
+     evaluate_exps s₁ env es = (s₂, r) ⇒ s₂.clock ≤ s₁.clock)
+Proof
+  ho_match_mp_tac evaluate_exp_ann_ind
+  >> rpt strip_tac
+  >> pop_assum mp_tac >> simp [Once evaluate_exp_ann_def] >> strip_tac
+  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def]
+  >> EVERY (map imp_res_tac
+                [push_params_clock, pop_params_clock, fix_clock_IMP]) >> gvs[]
+QED
+
+Theorem fix_clock_evaluate_exp:
+  (fix_clock s₁ (evaluate_exp s₁ env exp) = evaluate_exp s₁ env exp) ∧
+  (fix_clock s₁ (evaluate_exps s₁ env exps) = evaluate_exps s₁ env exps)
+Proof
+  Cases_on ‘evaluate_exp s₁ env exp’ >> Cases_on ‘evaluate_exps s₁ env exps’
+  >> imp_res_tac evaluate_exp_clock
+  >> gvs [fix_clock_def, state_component_equality]
+QED
+
+Theorem evaluate_exp_def[compute] =
+  REWRITE_RULE [fix_clock_evaluate_exp] evaluate_exp_ann_def
+
+Theorem evaluate_exp_ind =
+  REWRITE_RULE [fix_clock_evaluate_exp] evaluate_exp_ann_ind
 
 val _ = export_theory ();

@@ -63,12 +63,25 @@ Definition push_params_def:
      SOME (st with locals := (alist_to_fmap params)::st.locals))
 End
 
+Theorem push_params_clock:
+  ∀ s₁ ns vs s₂.
+    push_params s₁ ns vs = SOME s₂ ⇒ s₂.clock = s₁.clock
+Proof
+  rpt strip_tac >> gvs [push_params_def, CaseEq "option"]
+QED
+
 Definition pop_params_def:
   pop_params st =
   (case st.locals of
    | [] => NONE
    | (cur::rest) => SOME (st with locals := rest))
 End
+
+Theorem pop_params_clock:
+  ∀ s₁. pop_params s₁ = SOME s₂ ⇒ s₂.clock = s₁.clock
+Proof
+  rpt strip_tac >> gvs [pop_params_def, CaseEq "option", CaseEq "list"]
+QED
 
 Definition read_local_def:
   read_local st name =
