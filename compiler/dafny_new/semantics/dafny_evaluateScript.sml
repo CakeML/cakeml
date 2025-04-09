@@ -32,9 +32,6 @@ End
 (* Semantics for expressions *)
 
 Definition evaluate_exp_ann_def[nocompute]:
-  (* TODO Instead of pushing to the heap, get information from Dafny whether
-     a variable is mutable (and then put it on the heap), or not (and then
-     put it into the environment? *)
   evaluate_exp st env (FunctionCall name args) =
   (case FLOOKUP env.functions name of
    | NONE => (st, Rerr Rtype_error)
@@ -42,18 +39,15 @@ Definition evaluate_exp_ann_def[nocompute]:
      (case fix_clock st (evaluate_exps st env args) of
       | (st', Rerr err) => (st', Rerr err)
       | (st', Rval vs) =>
-        (case push_params st' param_names vs of
+        (case set_up_call st' param_names vs of
          | NONE => (st', Rerr Rtype_error)
-         | SOME st'' =>
-             if st''.clock = 0 then
-               (st'', Rerr Rtimeout_error)
-             else
-               (case evaluate_exp (dec_clock st'') env body of
-                | (st₃, Rerr err) => (st₃, Rerr err)
-                | (st₃, Rval v) =>
-                  (case pop_params st₃ of
-                   | NONE => (st₃, Rerr Rtype_error)
-                   | SOME st₄ => (st₄, Rval v)))))) ∧
+         | SOME (old_locals, st'') =>
+           if st''.clock = 0 then
+             (st'', Rerr Rtimeout_error)
+           else
+             (case evaluate_exp (dec_clock st'') env body of
+              | (st₃, Rerr err) => (st₃, Rerr err)
+              | (st₃, Rval v) => (restore_locals st₃ old_locals, Rval v))))) ∧
   evaluate_exp st env (IdentifierExp name _) =
   (case read_local st name of
    | NONE => (st, Rerr Rtype_error)
@@ -115,7 +109,7 @@ Termination
                        (s.clock, list_size expression_size exps))’
   >> rpt strip_tac
   >> imp_res_tac fix_clock_IMP
-  >> gvs [try_sc_def, push_params_def, dec_clock_def,
+  >> gvs [try_sc_def, dec_clock_def, set_up_call_def,
           oneline do_cond_def, AllCaseEqs ()]
 End
 
@@ -128,9 +122,10 @@ Proof
   ho_match_mp_tac evaluate_exp_ann_ind
   >> rpt strip_tac
   >> pop_assum mp_tac >> simp [Once evaluate_exp_ann_def] >> strip_tac
-  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def]
+  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def]
   >> EVERY (map imp_res_tac
-                [push_params_clock, pop_params_clock, fix_clock_IMP]) >> gvs[]
+                [set_up_call_clock, restore_locals_clock, fix_clock_IMP])
+  >> gvs[]
 QED
 
 Theorem fix_clock_evaluate_exp:

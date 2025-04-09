@@ -55,39 +55,43 @@ Definition strict_zip_def:
   OPTION_MAP (CONS (x,y)) (strict_zip xs ys)
 End
 
-Definition push_params_def:
-  push_params st names vals =
+Definition set_up_call_def:
+  set_up_call st names vals =
   (case (strict_zip names vals) of
    | NONE => NONE
    | SOME params =>
-     SOME (st with locals := (alist_to_fmap params)::st.locals))
+     (let old_locals = st.locals in
+        SOME (old_locals, st with locals := [alist_to_fmap params])))
 End
 
-Theorem push_params_clock:
-  ∀ s₁ ns vs s₂.
-    push_params s₁ ns vs = SOME s₂ ⇒ s₂.clock = s₁.clock
+Theorem set_up_call_clock:
+  ∀ s₁ ns vs locals s₂.
+    set_up_call s₁ ns vs = SOME (locals, s₂) ⇒ s₂.clock = s₁.clock
 Proof
-  rpt strip_tac >> gvs [push_params_def, CaseEq "option"]
+  rpt strip_tac >> gvs [set_up_call_def, CaseEq "option"]
 QED
 
-Definition pop_params_def:
-  pop_params st =
-  (case st.locals of
-   | [] => NONE
-   | (cur::rest) => SOME (st with locals := rest))
+Definition restore_locals_def:
+  restore_locals st old_locals = (st with locals := old_locals)
 End
 
-Theorem pop_params_clock:
-  ∀ s₁. pop_params s₁ = SOME s₂ ⇒ s₂.clock = s₁.clock
+Theorem restore_locals_clock:
+  ∀ s₁ old_locals.
+    restore_locals s₁ old_locals = s₂ ⇒ s₂.clock = s₁.clock
 Proof
-  rpt strip_tac >> gvs [pop_params_def, CaseEq "option", CaseEq "list"]
+  rpt strip_tac >> gvs [restore_locals_def]
 QED
+
+Definition read_local_aux_def:
+  read_local_aux [] name = NONE ∧
+  read_local_aux (cur::rest) name =
+  (case FLOOKUP cur name of
+   | NONE => read_local_aux rest name
+   | SOME v => SOME v)
+End
 
 Definition read_local_def:
-  read_local st name =
-  (case st.locals of
-   | [] => NONE
-   | (cur::rest) => FLOOKUP cur name)
+  read_local st name = read_local_aux st.locals name
 End
 
 (* Returns the value in case it is already known due to short-circuiting. *)
