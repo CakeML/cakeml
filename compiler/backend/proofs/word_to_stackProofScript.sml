@@ -38,6 +38,19 @@ Proof
   EVAL_TAC
 QED
 
+Theorem set_var_swap:
+   a ≠ a' ⇒ stackSem$set_var a b (set_var a' b' c) = set_var a' b' (set_var a b c)
+Proof
+  EVAL_TAC \\ simp[stackSemTheory.state_component_equality,fmap_eq_flookup,FLOOKUP_UPDATE]
+  \\ rw[] \\ rw[]
+QED
+
+Theorem set_var_cancel:
+   stackSem$set_var a b (set_var a b c) = set_var a b c
+Proof
+  EVAL_TAC \\ simp[stackSemTheory.state_component_equality]
+QED
+
 Theorem set_var_memory[simp]:
    (stackSem$set_var a b c).memory = c.memory
 Proof
@@ -65,6 +78,12 @@ Proof
   fs [stackSemTheory.state_component_equality]
 QED
 
+Triviality set_fp_var_stack:
+  (set_fp_var x y z).stack_space = z.stack_space /\
+  (set_fp_var x y z).stack = z.stack
+Proof
+  EVAL_TAC
+QED
 (* Move to stackProps END*)
 
 (* TODO delete*)
@@ -3730,12 +3749,6 @@ Theorem wRegWrite1_thm6 =
   |> Q.INST [`t`|-> `set_var v1 v2 (set_var v3 v4 t)`]
   |> PURE_REWRITE_RULE[set_var_const];
 
-Triviality set_fp_var_stack:
-  (set_fp_var x y z).stack_space = z.stack_space /\
-  (set_fp_var x y z).stack = z.stack
-Proof
-  EVAL_TAC
-QED
 
 Theorem wRegWrite2_thm1:
    state_rel ac k f f' s t lens ∧
@@ -4305,19 +4318,6 @@ Proof
   simp[state_rel_def]
   \\ strip_tac \\ simp[]
   \\ metis_tac[]
-QED
-
-Theorem set_var_swap:
-   a ≠ a' ⇒ stackSem$set_var a b (set_var a' b' c) = set_var a' b' (set_var a b c)
-Proof
-  EVAL_TAC \\ simp[stackSemTheory.state_component_equality,fmap_eq_flookup,FLOOKUP_UPDATE]
-  \\ rw[] \\ rw[]
-QED
-
-Theorem set_var_cancel:
-   stackSem$set_var a b (set_var a b c) = set_var a b c
-Proof
-  EVAL_TAC \\ simp[stackSemTheory.state_component_equality]
 QED
 
 Theorem word_exp_Op_SOME_Word:
