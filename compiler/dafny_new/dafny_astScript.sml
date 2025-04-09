@@ -57,6 +57,7 @@ Datatype:
   | Then statement statement
   | Assign (expression list) (rhs_exp list)
   | If expression statement statement
+  (* TODO? Can this be simplified? *)
   (* VarDecl locals assign scope *)
   | VarDecl ((string # type) list) statement statement
   (* While guard invariants decreases mod

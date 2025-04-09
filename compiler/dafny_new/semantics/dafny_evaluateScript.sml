@@ -90,7 +90,7 @@ Definition evaluate_exp_ann_def[nocompute]:
      (case do_cond v thn els of
       | NONE => (st', Rerr Rtype_error)
       | SOME branch => evaluate_exp st' env branch)) ∧
-  (* NOTE For now, we assume that forall is only used as ghost code *)
+  (* TODO If ¬env.is_running, try to express ForallExp in logic somehow? *)
   evaluate_exp st env (ForallExp _ _) = (st, Rerr Rtype_error) ∧
   evaluate_exps st env [] = (st, Rval []) ∧
   evaluate_exps st env (e::es) =
@@ -149,10 +149,42 @@ Theorem evaluate_exp_ind =
    statements *)
 Definition evaluate_stmt_ann_def[nocompute]:
   evaluate_stmt st env Skip = (st, Rcont) ∧
+  evaluate_stmt st env (Then stmt₁ stmt₂) =
+  (case fix_clock st (evaluate_stmt st env stmt₁) of
+   | (st', Rstop stp) => (st', Rstop stp)
+   | (st', Rcont) => evaluate_stmt st env stmt₂) ∧
+  (* TODO Assign *)
+  evaluate_stmt st env (If tst thn els) =
+  (case fix_clock st (evaluate_exp st env tst) of
+   | (st', Rerr err) => (st', Rstop (Serr err))
+   | (st', Rval tst) =>
+     (case do_cond tst thn els of
+      | NONE => (st', Rstop (Serr Rtype_error))
+      | SOME branch => evaluate_stmt st' env branch)) ∧
+  (* TODO VarDecl *)
+  evaluate_stmt st env (While guard invs decrs mods body) =
+  (case fix_clock st (evaluate_exp st env guard) of
+   | (st', Rerr err) => (st', Rstop (Serr err))
+   | (st', Rval guard_v) =>
+     if guard_v = BoolV F then
+       (st', Rcont)
+     else if guard_v = BoolV T then
+       (case fix_clock st' (evaluate_stmt st' env body) of
+        | (st'', Rstop stp) => (st'', Rstop stp)
+        | (st'', Rcont) =>
+          if st''.clock = 0 then
+            (st'', Rstop (Serr Rtimeout_error))
+          else
+            evaluate_stmt (dec_clock st'') env
+                          (While guard invs decrs mods body))
+     else
+       (st', Rstop (Serr Rtype_error))) ∧
+  (* TODO Print *)
   evaluate_stmt st env (Return rhss) =
   (case evaluate_rhs_exps st env rhss of
    | (st', Rerr err) => (st', Rstop (Serr err))
    | (st', Rval vs) => (st', Rstop (Sret vs))) ∧
+  (* TODO Assert - How should we model ghost code in evaluate? *)
   evaluate_rhs_exp st env (MethodCall name args) =
   (case FLOOKUP env.methods name of
    | NONE => (st, Rerr Rtype_error)
