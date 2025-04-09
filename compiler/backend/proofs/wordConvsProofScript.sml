@@ -1708,7 +1708,7 @@ Proof
     rpt $ pop_assum mp_tac >>
     qid_spec_tac‘cs’>>qid_spec_tac‘i’
     >> ho_match_mp_tac copy_prop_inst_ind
-    >> rpt conj_tac >> rpt (gen_tac ORELSE disch_tac) 
+    >> rpt conj_tac >> rpt (gen_tac ORELSE disch_tac)
     >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
        inst_arg_convention_def, call_arg_convention_def]
     >- fs[reg_allocTheory.is_alloc_var_def,lookup_eq_def]
