@@ -45,9 +45,23 @@ Datatype:
 End
 
 Datatype:
-  result =
+  exp_result =
   | Rval 'a
   | Rerr error_result
+End
+
+(* NOTE We use a separate type, so that we can easily add more cases in
+   the future (e.g., break, continue, ...) *)
+Datatype:
+  stop =
+  | Sret (value list)
+  | Serr error_result
+End
+
+Datatype:
+  stmt_result =
+  | Rcont  (* for example, Skip *)
+  | Rstop stop
 End
 
 Definition strict_zip_def:

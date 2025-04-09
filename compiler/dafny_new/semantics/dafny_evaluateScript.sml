@@ -143,4 +143,44 @@ Theorem evaluate_exp_def[compute] =
 Theorem evaluate_exp_ind =
   REWRITE_RULE [fix_clock_evaluate_exp] evaluate_exp_ann_ind
 
+(* Semantics for statements *)
+
+(* Also defines the semantics for rhs_exp, due to mutual recursion with
+   statements *)
+Definition evaluate_stmt_ann_def[nocompute]:
+  evaluate_stmt st env Skip = (st, Rcont) ∧
+  evaluate_stmt st env (Return rhss) =
+  (case evaluate_rhs_exps st env rhss of
+   | (st', Rerr err) => (st', Rstop (Serr err))
+   | (st', Rval vs) => (st', Rstop (Sret vs))) ∧
+  evaluate_rhs_exp st env (MethodCall name args) =
+  (case FLOOKUP env.methods name of
+   | NONE => (st, Rerr Rtype_error)
+   | SOME (param_names, body) =>
+     (case fix_clock st (evaluate_exps st env args) of
+      | (st', Rerr err) => (st', Rerr err)
+      | (st', Rval vs) =>
+        (case set_up_call st' param_names vs of
+         | NONE => (st', Rerr Rtype_error)
+         | SOME (old_locals, st'') =>
+           if st''.clock = 0 then
+             (st'', Rerr Rtimeout_error)
+           else
+             (case evaluate_stmt (dec_clock st'') env body of
+              | (st₃, Rcont) => (st₃, Rerr Rtype_error)
+              | (st₃, Rstop (Serr err)) => (st₃, Rerr err)
+              | (st₃, Rstop (Sret vs)) =>
+                  (restore_locals st₃ old_locals, Rval vs))))) ∧
+  evaluate_rhs_exps st env [] = (st, Rval []) ∧
+  evaluate_rhs_exps st env (e::es) =
+  (case fix_clock st (evaluate_rhs_exp st env e) of
+   | (st', Rerr err) => (st', Rerr err)
+   | (st', Rval vs) =>
+     (case evaluate_rhs_exps st' env es of
+      | (st'', Rerr err) => (st'', Rerr err)
+      | (st'', Rval vs') => (st'', Rval (vs ++ vs'))))
+Termination
+  cheat
+End
+
 val _ = export_theory ();
