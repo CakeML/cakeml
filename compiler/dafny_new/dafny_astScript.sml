@@ -6,6 +6,8 @@ open preamble
 
 val _ = new_theory "dafny_ast";
 
+(* TODO Start with easy cases *)
+
 Datatype:
   type =
   | IntT
@@ -37,16 +39,18 @@ Datatype:
   | ArraySelect expression expression
   (* ITE test thn els *)
   | ITE expression expression expression
-  (* ForallExp boundVars term *)
+  (* ForallExp boundVar term *)
+  (* TODO Fix in C# *)
   | ForallExp (string # type) expression
 End
 
-(* https://dafny.org/dafny/DafnyRef/DafnyRef#sec-rhs-expression *)
+(* https://dafny.org/dafny/DafnyRef/DafnyRef#sec-rhs-expression
+   Our definition of rhs_exp does not quite match the one described in the
+   reference, as method calls appear to be special (since they may result in
+   multiple values) *)
 Datatype:
   rhs_exp =
   | ExpRhs expression
-  (* MethodCall name args *)
-  | MethodCall string (expression list)
   (* AllocArray type length initValue *)
   | AllocArray type expression expression
 End
@@ -57,15 +61,18 @@ Datatype:
   | Then statement statement
   | Assign (expression list) (rhs_exp list)
   | If expression statement statement
-  (* TODO? Can this be simplified? *)
-  (* VarDecl locals assign scope *)
-  | VarDecl ((string # type) list) statement statement
+  (* MetCall lhss name args
+     - Results of a method call must always be bound to something, hence lhss *)
+  | MetCall (expression list) string (expression list)
+  (* Dec locals scope
+     - scope also contains possible assignments *)
+  | Dec ((string # type) list) statement
   (* While guard invariants decreases mod
            body *)
   | While expression (expression list) (expression list) (expression list)
           statement
   | Print ((expression # type) list)
-  | Return (rhs_exp list)
+  | Return
   | Assert expression
 End
 

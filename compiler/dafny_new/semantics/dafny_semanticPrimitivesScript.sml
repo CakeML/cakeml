@@ -10,8 +10,10 @@ val _ = new_theory "dafny_semanticPrimitives";
 Datatype:
   sem_env =
   <|
-    (* methods : method_name |-> (param_names, body) *)
-    methods : (string |-> (string list # statement));
+    (* Determines whether evaluate is actually running; relevant for Forall *)
+    is_running : bool;
+    (* methods : method_name |-> (param_names, out_names, body) *)
+    methods : (string |-> (string list # string list # statement));
     (* functions : function_name |-> (param_names, body) *)
     functions : (string |-> (string list # expression))
   |>;
@@ -34,7 +36,7 @@ End
 Datatype:
   state =
   <| clock: num;
-     locals: (string |-> value) list;
+     locals: (string |-> value option) list;
      heap: heap_value list;
      cout: string list |>
 End
@@ -55,7 +57,7 @@ End
    the future (e.g., break, continue, ...) *)
 Datatype:
   stop =
-  | Sret (value list)
+  | Sret
   | Serr error_result
 End
 
@@ -71,17 +73,19 @@ Definition strict_zip_def:
 End
 
 Definition set_up_call_def:
-  set_up_call st names vals =
-  (case (strict_zip names vals) of
+  set_up_call st in_ns in_vs outs =
+  (case (strict_zip in_ns (MAP SOME in_vs)) of
    | NONE => NONE
    | SOME params =>
-     (let old_locals = st.locals in
-        SOME (old_locals, st with locals := [alist_to_fmap params])))
+     (let old_locals = st.locals;
+          new_locals = params ++ (MAP (λn. (n, NONE)) outs)
+      in
+        SOME (old_locals, st with locals := [FEMPTY |++ new_locals])))
 End
 
 Theorem set_up_call_clock:
-  ∀ s₁ ns vs locals s₂.
-    set_up_call s₁ ns vs = SOME (locals, s₂) ⇒ s₂.clock = s₁.clock
+  ∀ s₁ ins ivs os locals s₂.
+    set_up_call s₁ ins ivs os = SOME (locals, s₂) ⇒ s₂.clock = s₁.clock
 Proof
   rpt strip_tac >> gvs [set_up_call_def, CaseEq "option"]
 QED
@@ -98,15 +102,15 @@ Proof
 QED
 
 Definition read_local_aux_def:
-  read_local_aux [] name = NONE ∧
-  read_local_aux (cur::rest) name =
-  (case FLOOKUP cur name of
-   | NONE => read_local_aux rest name
-   | SOME v => SOME v)
+  read_local_aux [] var = NONE ∧
+  read_local_aux (cur::rest) var =
+  (case FLOOKUP cur var of
+   | NONE => read_local_aux rest var
+   | SOME v => v)
 End
 
 Definition read_local_def:
-  read_local st name = read_local_aux st.locals name
+  read_local st var = read_local_aux st.locals var
 End
 
 (* Returns the value in case it is already known due to short-circuiting. *)
@@ -192,6 +196,74 @@ End
 Definition do_cond_def:
   do_cond (BoolV b) thn els = SOME (if b then thn else els) ∧
   do_cond _ _ _ = NONE
+End
+
+Definition alloc_array_def:
+  alloc_array st len init =
+  (case val_to_num len of
+   | NONE => NONE
+   | SOME len =>
+     let arr = (HArray (REPLICATE len init)) in
+       SOME (st with heap := SNOC arr st.heap, ArrayV len (LENGTH st.heap)))
+End
+
+Definition update_local_aux_def:
+  update_local_aux [] var val init = NONE ∧
+  update_local_aux (cur::rest) var val init =
+  (case FLOOKUP cur var of
+   | NONE => update_local_aux rest var val (init ++ [cur])
+   | SOME _ => SOME (init ++ [cur |+ (var, SOME val)] ++ rest))
+End
+
+Definition update_local_def:
+  update_local st var val =
+  (case update_local_aux st.locals var val [] of
+   | NONE => NONE
+   | SOME new_locals => SOME (st with locals := new_locals))
+End
+
+Definition update_array_def:
+  update_array st arr idx val =
+  (case (arr, val_to_num idx) of
+   | (ArrayV len loc, SOME idx) =>
+     (case LLOOKUP st.heap loc of
+      | NONE => NONE
+      | SOME (HArray arr) =>
+          if idx ≥ LENGTH arr then NONE else
+          let new_arr = LUPDATE val idx arr;
+              new_heap = LUPDATE (HArray new_arr) loc st.heap
+          in
+            SOME (st with heap := new_heap))
+   | _ => NONE)
+End
+
+Definition read_outs_def:
+  read_outs st outs =
+  (* We don't want to read the value of variables that shadowed locals; hence,
+     we go to the top, where we initially placed the ins and outs. *)
+  (case st.locals of
+   | [] => NONE
+   | locals =>
+       (let outs = OPT_MMAP (λout. FLOOKUP (LAST locals) out) outs in
+          OPTION_BIND outs (OPT_MMAP I)))
+End
+
+Definition push_local_def:
+  push_local st var val =
+  (st with locals := (FEMPTY |+ (var, SOME val))::st.locals)
+End
+
+Definition all_values_def:
+  all_values IntT = {IntV i | i ∈ 𝕌(:int)} ∧
+  all_values BoolT = {BoolV T; BoolV F} ∧
+  all_values StringT = {StrV s | s ∈ 𝕌(:string)} ∧
+  all_values _ = ∅
+End
+
+Definition declare_locals_def:
+  declare_locals st names =
+  let uninit = MAP (λn. (n, NONE)) names in
+    (st with locals := (FEMPTY |++ uninit)::st.locals)
 End
 
 (* TODO Use mlstring instead (where exactly?) *)
