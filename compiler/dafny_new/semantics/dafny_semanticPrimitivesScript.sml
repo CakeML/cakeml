@@ -3,6 +3,7 @@
 *)
 
 open preamble
+open mlintTheory  (* int_to_string *)
 
 val _ = new_theory "dafny_semanticPrimitives";
 
@@ -191,6 +192,45 @@ End
 Definition do_cond_def:
   do_cond (BoolV b) thn els = SOME (if b then thn else els) ∧
   do_cond _ _ _ = NONE
+End
+
+(* TODO Use mlstring instead (where exactly?) *)
+
+Definition val_to_string_def:
+  (* lub is an upper bound on locations we are allowed to access, which avoids
+     termination issues with trying to print circular structures. *)
+  val_to_string st lub (IntV i) =
+    SOME (explode (int_to_string #"-" i)) ∧
+  val_to_string st lub (BoolV b) =
+    SOME (if b then "True" else "False") ∧
+  val_to_string st lub (StrV s) = SOME s ∧
+  val_to_string st lub (ArrayV _ loc) =
+  (if loc ≥ lub then NONE
+   else
+     (case LLOOKUP st.heap loc of
+      | NONE => NONE
+      | SOME hval => hval_to_string st loc hval))
+  ∧
+  hval_to_string st lub (HArray vs) =
+  (case OPT_MMAP (val_to_string st lub) vs of
+   | NONE => NONE
+   | SOME ss =>
+       let content = explode (concatWith (strlit ", ") (MAP implode ss)) in
+       SOME ("[" ++ content ++ "]"))
+Termination
+  wf_rel_tac ‘inv_image ($< LEX $<)
+              (λx. case x of
+                   | INL (_,lub₁,v) => (lub₁, value_size v)
+                   | INR (_,lub₂,hv) => (lub₂, heap_value_size hv))’
+End
+
+Definition print_string_def:
+  print_string st vs =
+  (case OPT_MMAP (val_to_string st (LENGTH st.heap)) vs of
+   | NONE => NONE
+   | SOME ss =>
+       let s = explode (concat (MAP implode ss)) in
+         SOME (st with cout := SNOC s st.cout))
 End
 
 val _ = export_theory ();

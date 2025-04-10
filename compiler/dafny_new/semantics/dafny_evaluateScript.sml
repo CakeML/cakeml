@@ -179,7 +179,14 @@ Definition evaluate_stmt_ann_def[nocompute]:
                           (While guard invs decrs mods body))
      else
        (st', Rstop (Serr Rtype_error))) ∧
-  (* TODO Print *)
+  evaluate_stmt st env (Print ets) =
+  (let (es, _) = UNZIP ets in
+     (case evaluate_exps st env es of
+      | (st', Rerr err) => (st', Rstop (Serr err))
+      | (st', Rval vs) =>
+        (case print_string vs of
+         | NONE => (st', Rstop (Serr err))
+         | SOME st'' => (st'', Rcont)) ∧
   evaluate_stmt st env (Return rhss) =
   (case evaluate_rhs_exps st env rhss of
    | (st', Rerr err) => (st', Rstop (Serr err))
