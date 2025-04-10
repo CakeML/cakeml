@@ -184,7 +184,14 @@ Definition evaluate_stmt_ann_def[nocompute]:
   (case evaluate_rhs_exps st env rhss of
    | (st', Rerr err) => (st', Rstop (Serr err))
    | (st', Rval vs) => (st', Rstop (Sret vs))) ∧
-  (* TODO Assert - How should we model ghost code in evaluate? *)
+  evaluate_stmt st env (Assert e) =
+  (case evaluate_exp st env e of
+   | (st', Rerr err) => (st', Rstop (Serr err))
+   | (st', Rval vs) =>
+       if vs = BoolV T then
+         (st', Rcont)
+       else
+         (st', Rstop (Serr Rtype_error))) ∧
   evaluate_rhs_exp st env (MethodCall name args) =
   (case FLOOKUP env.methods name of
    | NONE => (st, Rerr Rtype_error)
