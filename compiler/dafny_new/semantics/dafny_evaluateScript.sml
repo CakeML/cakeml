@@ -130,8 +130,8 @@ Theorem evaluate_exp_clock:
 Proof
   ho_match_mp_tac evaluate_exp_ann_ind
   >> rpt strip_tac
-  >> pop_assum mp_tac >> simp [Once evaluate_exp_ann_def] >> strip_tac
-  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def]
+  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def,
+          evaluate_exp_ann_def]
   >> EVERY (map imp_res_tac
                 [set_up_call_clock, restore_locals_clock, fix_clock_IMP])
   >> gvs[]
@@ -348,7 +348,7 @@ Proof
   ho_match_mp_tac evaluate_stmt_ann_ind
   >> rpt strip_tac
   >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def,
-          declare_locals_def, print_string_def, Once evaluate_stmt_ann_def]
+          declare_locals_def, print_string_def, evaluate_stmt_ann_def]
   >> EVERY (map imp_res_tac
                 [set_up_call_clock, restore_locals_clock, fix_clock_IMP,
                  evaluate_rhs_exps_clock, evaluate_exp_clock,
