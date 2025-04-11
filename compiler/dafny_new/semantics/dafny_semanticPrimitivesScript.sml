@@ -268,35 +268,17 @@ Definition declare_locals_def:
 End
 
 Definition val_to_string_def:
-  (* lub is an upper bound on locations we are allowed to access, which avoids
-     termination issues with trying to print circular structures. *)
-  val_to_string st lub (IntV i) =
+  val_to_string st (IntV i) =
     SOME (int_to_string #"-" i) ∧
-  val_to_string st lub (BoolV b) =
+  val_to_string st (BoolV b) =
     SOME (if b then (strlit "True") else (strlit "False")) ∧
-  val_to_string st lub (StrV s) = SOME s ∧
-  val_to_string st lub (ArrayV _ loc) =
-  (if loc ≥ lub then NONE else
-   (case LLOOKUP st.heap loc of
-    | NONE => NONE
-    | SOME hval => hval_to_string st loc hval))
-  ∧
-  hval_to_string st lub (HArray vs) =
-  (case OPT_MMAP (val_to_string st lub) vs of
-   | NONE => NONE
-   | SOME ss =>
-       let content = (concatWith (strlit ", ") ss) in
-         SOME (concat [strlit "["; content; strlit "]"]))
-Termination
-  wf_rel_tac ‘inv_image ($< LEX $<)
-              (λx. case x of
-                   | INL (_,lub₁,v) => (lub₁, value_size v)
-                   | INR (_,lub₂,hv) => (lub₂, heap_value_size hv))’
+  val_to_string st (StrV s) = SOME s ∧
+  val_to_string st _ = NONE
 End
 
 Definition print_string_def:
   print_string st vs =
-  (case OPT_MMAP (val_to_string st (LENGTH st.heap)) vs of
+  (case OPT_MMAP (val_to_string st) vs of
    | NONE => NONE
    | SOME ss => SOME (st with cout := SNOC (concat ss) st.cout))
 End
