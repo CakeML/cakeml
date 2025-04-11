@@ -14,6 +14,8 @@ val _ = translation_extends "to_word64Prog";
 val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
+val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
+
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_target64Prog");
 
 val RW = REWRITE_RULE
