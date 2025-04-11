@@ -27,7 +27,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars ml_translatorTheory.ml_translator_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname="ml_translator"}
   end
   open Parse
   val prim_exn_list = let
