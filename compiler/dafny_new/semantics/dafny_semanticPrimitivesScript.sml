@@ -3,6 +3,7 @@
 *)
 
 open preamble
+open mlstringTheory
 open mlintTheory  (* int_to_string *)
 
 val _ = new_theory "dafny_semanticPrimitives";
@@ -13,9 +14,9 @@ Datatype:
     (* Determines whether evaluate is actually running; relevant for Forall *)
     is_running : bool;
     (* methods : method_name |-> (param_names, out_names, body) *)
-    methods : (string |-> (string list # string list # statement));
+    methods : (mlstring |-> (mlstring list # mlstring list # statement));
     (* functions : function_name |-> (param_names, body) *)
-    functions : (string |-> (string list # expression))
+    functions : (mlstring |-> (mlstring list # expression))
   |>;
 End
 
@@ -23,7 +24,7 @@ Datatype:
   value =
   | IntV int
   | BoolV bool
-  | StrV string
+  | StrV mlstring
   (* ArrayV length location *)
   | ArrayV num num
 End
@@ -36,9 +37,9 @@ End
 Datatype:
   state =
   <| clock: num;
-     locals: (string |-> value option) list;
+     locals: (mlstring |-> value option) list;
      heap: heap_value list;
-     cout: string list |>
+     cout: mlstring list |>
 End
 
 Datatype:
@@ -256,7 +257,7 @@ End
 Definition all_values_def:
   all_values IntT = {IntV i | i ∈ 𝕌(:int)} ∧
   all_values BoolT = {BoolV T; BoolV F} ∧
-  all_values StringT = {StrV s | s ∈ 𝕌(:string)} ∧
+  all_values StringT = {StrV s | s ∈ 𝕌(:mlstring)} ∧
   all_values _ = ∅
 End
 
@@ -266,29 +267,26 @@ Definition declare_locals_def:
     (st with locals := (FEMPTY |++ uninit)::st.locals)
 End
 
-(* TODO Use mlstring instead (where exactly?) *)
-
 Definition val_to_string_def:
   (* lub is an upper bound on locations we are allowed to access, which avoids
      termination issues with trying to print circular structures. *)
   val_to_string st lub (IntV i) =
-    SOME (explode (int_to_string #"-" i)) ∧
+    SOME (int_to_string #"-" i) ∧
   val_to_string st lub (BoolV b) =
-    SOME (if b then "True" else "False") ∧
+    SOME (if b then (strlit "True") else (strlit "False")) ∧
   val_to_string st lub (StrV s) = SOME s ∧
   val_to_string st lub (ArrayV _ loc) =
-  (if loc ≥ lub then NONE
-   else
-     (case LLOOKUP st.heap loc of
-      | NONE => NONE
-      | SOME hval => hval_to_string st loc hval))
+  (if loc ≥ lub then NONE else
+   (case LLOOKUP st.heap loc of
+    | NONE => NONE
+    | SOME hval => hval_to_string st loc hval))
   ∧
   hval_to_string st lub (HArray vs) =
   (case OPT_MMAP (val_to_string st lub) vs of
    | NONE => NONE
    | SOME ss =>
-       let content = explode (concatWith (strlit ", ") (MAP implode ss)) in
-       SOME ("[" ++ content ++ "]"))
+       let content = (concatWith (strlit ", ") ss) in
+         SOME (concat [strlit "["; content; strlit "]"]))
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
               (λx. case x of
@@ -300,9 +298,7 @@ Definition print_string_def:
   print_string st vs =
   (case OPT_MMAP (val_to_string st (LENGTH st.heap)) vs of
    | NONE => NONE
-   | SOME ss =>
-       let s = explode (concat (MAP implode ss)) in
-         SOME (st with cout := SNOC s st.cout))
+   | SOME ss => SOME (st with cout := SNOC (concat ss) st.cout))
 End
 
 val _ = export_theory ();

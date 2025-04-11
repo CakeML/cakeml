@@ -3,6 +3,7 @@
 *)
 
 open preamble
+open mlstringTheory
 
 val _ = new_theory "dafny_ast";
 
@@ -24,14 +25,14 @@ Datatype:
   literal =
   | IntLit int
   | BoolLit bool
-  | StringLit string
+  | StringLit mlstring
 End
 
 Datatype:
   expression =
   (* FunctionCall name args *)
-  | FunctionCall string (expression list)
-  | IdentifierExp string type
+  | FunctionCall mlstring (expression list)
+  | IdentifierExp mlstring type
   | BinaryExp binary_op expression expression
   | LiteralExp literal
   | ArrayLen expression
@@ -41,7 +42,7 @@ Datatype:
   | ITE expression expression expression
   (* ForallExp boundVar term *)
   (* TODO Fix in C# *)
-  | ForallExp (string # type) expression
+  | ForallExp (mlstring # type) expression
 End
 
 (* https://dafny.org/dafny/DafnyRef/DafnyRef#sec-rhs-expression
@@ -63,10 +64,10 @@ Datatype:
   | If expression statement statement
   (* MetCall lhss name args
      - Results of a method call must always be bound to something, hence lhss *)
-  | MetCall (expression list) string (expression list)
+  | MetCall (expression list) mlstring (expression list)
   (* Dec locals scope
      - scope also contains possible assignments *)
-  | Dec ((string # type) list) statement
+  | Dec ((mlstring # type) list) statement
   (* While guard invariants decreases mod
            body *)
   | While expression (expression list) (expression list) (expression list)
@@ -81,12 +82,12 @@ Datatype:
   (* Method name ins req ens
             reads decreases outs
             mod body *)
-  | Method string ((string # type) list) (expression list) (expression list)
-           (expression list) (expression list) ((string # type) list)
+  | Method mlstring ((mlstring # type) list) (expression list) (expression list)
+           (expression list) (expression list) ((mlstring # type) list)
            (expression list) statement
   (* Function name ins resultType req
               reads body *)
-  | Function string ((string # type) list) type (expression list)
+  | Function mlstring ((mlstring # type) list) type (expression list)
              (expression list) expression
 End
 
