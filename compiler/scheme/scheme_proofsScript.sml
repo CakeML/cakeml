@@ -248,44 +248,11 @@ Theorem scheme_typestamp_def[allow_rebind, simp] = SRULE [] $
   SIMP_CONV pure_ss [SimpRHS, scheme_typestamp_def, EVERY_DEF, cconses_def]
   “EVERY (λ x . scheme_typestamp x = scheme_typestamp x) cconses”;
 
-Definition ml_v_vals_def[nocompute]:
-  ml_v_vals v = case evaluate (<|clock:=0|> :num state)
-      scheme_env' [to_ml_vals v] of
-    | (st, Rval [mlv]) => mlv
-    | _ => ARB
-End
-
-Theorem ml_v_vals_def[allow_rebind, compute] = LIST_CONJ $
-  map (GEN_ALL o (REWR_CONV ml_v_vals_def THENC EVAL)) [
-    “ml_v_vals (Prim SAdd)”,
-    “ml_v_vals (Prim SMul)”,
-    “ml_v_vals (Prim SMinus)”,
-    “ml_v_vals (Prim SEqv)”,
-    “ml_v_vals (Prim CallCC)”,
-    “ml_v_vals (SNum n)”,
-    “ml_v_vals (SBool T)”,
-    “ml_v_vals (SBool F)”
-];
-
 Inductive env_rel:
-  FEVERY (λ (x, n). ∃ v.
-    nsLookup env.v (Short ("s" ++ explode x)) = SOME v) se
+  FEVERY (λ (x, n).
+    nsLookup env.v (Short ("s" ++ explode x)) = SOME (Loc T n)) se
   ⇒
-  env_rel se (env :v sem_env)
-End
-
-Inductive ml_v_vals':
-[~Proc:]
-  env_rel se env ∧
-  (m, ce) = cps_transform n e ∧
-  args = "xs" ++ toString m ∧
-  k = "k" ++ toString (m+1) ∧
-  (l, inner) = proc_ml (m+2) xs xp k args ce
-  ⇒
-  ml_v_vals' (Proc se xs xp e) $
-    Conv (SOME (TypeStamp "Proc" 4)) [
-      Closure env k $ Fun args inner
-    ]
+  env_rel se env
 End
 
 val (ml_v_vals'_rules,ml_v_vals'_ind,ml_v_vals'_cases) =
@@ -475,7 +442,7 @@ Theorem more = SRULE [Ntimes evaluate_def 6, do_opapp_def, nsOptBind_def, dec_cl
   Ntimes build_rec_env_def 2, can_pmatch_all_def, pmatch_def, evaluate_match_def,
   same_type_def, same_ctor_def, pat_bindings_def, do_app_def, store_alloc_def,
   Once LET_DEF] stuck_again;
-  
+
 SRULE [evaluate_def, do_opapp_def, nsOptBind_def, dec_clock_def,
   do_con_check_def, build_conv_def, Ntimes find_recfun_def 2,
   Ntimes build_rec_env_def 2, can_pmatch_all_def, pmatch_def, evaluate_match_def,
@@ -618,7 +585,7 @@ Proof
     >> Cases_on ‘∃ te fe . h1 = CondK te fe’ >- (
       gvs[]
       >> simp[step_def, return_def]
-      >>simp[Once e_ce_rel_cases, Once cont_rel_cases]
+      >> simp[Once e_ce_rel_cases, Once cont_rel_cases]
       >> simp[Once ml_v_vals'_cases]
       >> rpt strip_tac
       >> gvs[]
@@ -719,141 +686,134 @@ Proof
       gvs[]
       >> simp[step_def, return_def, Once e_ce_rel_cases,
         Once cont_rel_cases]
-      >> Cases_on ‘fn = Prim SAdd ∨ fn = Prim SMul ∨ fn = Prim SMinus ∨
-        fn = Prim SEqv ∨ fn = Prim CallCC ∨
-        (∃n. fn = SNum n) ∨ fn = SBool T ∨ fn = SBool F’
-      >- (
-        drule_then (simp o single) $
-          DISCH (hd $ hyp $ oneline ml_v_vals_def) $ oneline ml_v_vals_def
-        >> simp[Once ml_v_vals'_cases]
-        >> rpt strip_tac
-        >> gvs[application_def, sadd_def, smul_def, sminus_def,
-          seqv_def, cps_transform_def, cons_list_def]
-        >~ [‘"SAdd"’] >- (
-          qrefine ‘ck+1’
-          >> simp[evaluate_def, do_con_check_def,
-            build_conv_def, do_opapp_def, dec_clock_def]
-          >> qsuff_tac ‘scheme_env env'' ∧ ¬ MEM t' vconses ⇒ scheme_env (env'' with v:= nsBind t'
-            mlv env''.v)’
-          >- (
-            simp[] >> strip_tac
-            >> qsuff_tac ‘LIST_REL (λx v'. nsLookup (env'' with v:= nsBind t' mlv
-            env''.v).v (Short x) = SOME v') (REVERSE (t'::ts)) (REVERSE (mlv::mlvs))’ >- (
-              strip_tac
-              >> drule_all_then assume_tac cons_list_val
-              >> gvs[]
-              >> qpat_assum ‘scheme_env env''’ $ simp o single o SRULE [scheme_env_def]
-              >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
-              >> qrefine ‘ck+3’
-              >> simp[Ntimes evaluate_def 3]
+      >> simp[Once ml_v_vals'_cases]
+      >> rpt strip_tac
+      >> gvs[application_def, sadd_def, smul_def, sminus_def,
+        seqv_def, cps_transform_def, cons_list_def]
+      >~ [‘"SAdd"’] >- (
+        qrefine ‘ck+1’
+        >> simp[evaluate_def, do_con_check_def,
+          build_conv_def, do_opapp_def, dec_clock_def]
+        >> qsuff_tac ‘scheme_env env'' ∧ ¬ MEM t' vconses ⇒ scheme_env (env'' with v:= nsBind t'
+          mlv env''.v)’
+        >- (
+          simp[] >> strip_tac
+          >> qsuff_tac ‘LIST_REL (λx v'. nsLookup (env'' with v:= nsBind t' mlv
+          env''.v).v (Short x) = SOME v') (REVERSE (t'::ts)) (REVERSE (mlv::mlvs))’ >- (
+            strip_tac
+            >> drule_all_then assume_tac cons_list_val
+            >> gvs[]
+            >> qpat_assum ‘scheme_env env''’ $ simp o single o SRULE [scheme_env_def]
+            >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
+            >> qrefine ‘ck+3’
+            >> simp[Ntimes evaluate_def 3]
+            >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+              same_type_def, same_ctor_def, evaluate_match_def,
+              pat_bindings_def]
+            >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
+            >> simp[Ntimes evaluate_def 3]
+            >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+              same_type_def, same_ctor_def, evaluate_match_def,
+              pat_bindings_def]
+            >> simp[Ntimes evaluate_def 7, do_opapp_def]
+            >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
+            >> qrefine ‘ck+2’
+            >> simp[Ntimes evaluate_def 2, dec_clock_def]
+            >> Cases_on ‘∃ (n:int) . n = 0’ >~ [‘¬∃n.n=0’] >- gvs[]
+            >> pop_assum mp_tac
+            >> strip_tac
+            >> pop_assum $ simp o single o GSYM
+            >> qid_spec_tac ‘n’
+            >> pop_assum kall_tac
+            >> rpt $ qpat_x_assum ‘LIST_REL _ ts _’ kall_tac
+            >> qpat_assum ‘LIST_REL _ _ _’ mp_tac
+            >> qid_spec_tac ‘mlvs’
+            >> qid_spec_tac ‘vs’
+            >> ho_match_mp_tac LIST_REL_SNOC_ind
+            >> rpt strip_tac >- (
+              gvs[Once ml_v_vals'_cases, vcons_list_def]
+              >> qrefine ‘ck+1’
+              >> simp[Ntimes evaluate_def 2]
               >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
                 same_type_def, same_ctor_def, evaluate_match_def,
                 pat_bindings_def]
-              >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
-              >> simp[Ntimes evaluate_def 3]
-              >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
-                same_type_def, same_ctor_def, evaluate_match_def,
-                pat_bindings_def]
-              >> simp[Ntimes evaluate_def 7, do_opapp_def]
-              >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
-              >> qrefine ‘ck+2’
-              >> simp[Ntimes evaluate_def 2, dec_clock_def]
-              >> Cases_on ‘∃ (n:int) . n = 0’ >~ [‘¬∃n.n=0’] >- gvs[]
-              >> pop_assum mp_tac
-              >> strip_tac
-              >> pop_assum $ simp o single o GSYM
-              >> qid_spec_tac ‘n’
-              >> pop_assum kall_tac
-              >> rpt $ qpat_x_assum ‘LIST_REL _ ts _’ kall_tac
-              >> qpat_assum ‘LIST_REL _ _ _’ mp_tac
-              >> qid_spec_tac ‘mlvs’
-              >> qid_spec_tac ‘vs’
-              >> ho_match_mp_tac LIST_REL_SNOC_ind
-              >> rpt strip_tac >- (
-                gvs[Once ml_v_vals'_cases, vcons_list_def]
-                >> qrefine ‘ck+1’
-                >> simp[Ntimes evaluate_def 2]
+              >~ [‘SNum m’] >- (
+                qrefine ‘ck+3’
+                >> simp[evaluate_def, do_app_def, do_opapp_def, dec_clock_def]
                 >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
                   same_type_def, same_ctor_def, evaluate_match_def,
                   pat_bindings_def]
-                >~ [‘SNum m’] >- (
-                  qrefine ‘ck+3’
-                  >> simp[evaluate_def, do_app_def, do_opapp_def, dec_clock_def]
-                  >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
-                    same_type_def, same_ctor_def, evaluate_match_def,
-                    pat_bindings_def]
-                  >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
-                  >> simp[Ntimes evaluate_def 4]
-                  >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
-                    same_type_def, same_ctor_def, evaluate_match_def,
-                    pat_bindings_def]
-                  >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
-                  >> simp[Ntimes evaluate_def 3, do_con_check_def,
-                  build_conv_def, nsOptBind_def]
-                  >> simp[sadd_def]
-                  >> irule_at (Pos hd) EQ_REFL
-                  >> last_assum $ irule_at (Pos hd)
-                  >> simp[Once e_ce_rel_cases, opn_lookup_def,
-                    env_rel_cases, FEVERY_FEMPTY, Once ml_v_vals'_cases]
-                  >> simp[INT_ADD_COMM]
-                )
-                >> simp[Ntimes evaluate_def 3, do_app_def, do_opapp_def, dec_clock_def]
+                >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
+                >> simp[Ntimes evaluate_def 4]
                 >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
                   same_type_def, same_ctor_def, evaluate_match_def,
-                  pat_bindings_def, do_con_check_def, build_conv_def]
+                  pat_bindings_def]
+                >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
+                >> simp[Ntimes evaluate_def 3, do_con_check_def,
+                build_conv_def, nsOptBind_def]
+                >> simp[sadd_def]
                 >> irule_at (Pos hd) EQ_REFL
                 >> last_assum $ irule_at (Pos hd)
-                >> simp[Once e_ce_rel_cases, sadd_def,
-                  env_rel_cases, FEVERY_FEMPTY]
+                >> simp[Once e_ce_rel_cases, opn_lookup_def,
+                  env_rel_cases, FEVERY_FEMPTY, Once ml_v_vals'_cases]
+                >> simp[INT_ADD_COMM]
               )
-              >> qpat_assum ‘ml_v_vals' h1 h2’ $ assume_tac o SRULE [Once ml_v_vals'_cases]
-              >> gvs[REVERSE_SNOC, vcons_list_def]
-              >~ [‘SNum m’] >- (
-                simp[evaluate_def, do_opapp_def, do_app_def,
-                  opn_lookup_def, can_pmatch_all_def, pmatch_def, nsLookup_def,
-                  same_type_def, same_ctor_def, evaluate_match_def,
-                  pat_bindings_def, do_con_check_def, build_conv_def, dec_clock_def]
-                >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
-                >> qrefine ‘ck+3’
-                >> simp[Ntimes evaluate_def 2]
-                >> simp[sadd_def]
-                >> ‘∀ ck . st with <|clock:=ck;refs:=st.refs;ffi:=st.ffi|> = st with clock:=ck’
-                  by (simp[state_component_equality])
-                >> simp[]
-                >> pop_assum kall_tac
-                >> pop_assum $ qspec_then ‘n + m’ mp_tac
-                >> strip_tac
-                >> qpat_assum ‘evaluate _ _ _ = evaluate _ _ _’ $ irule_at (Pos hd)
-                >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
-                >> simp[Once INT_ADD_COMM]
-                >> qpat_assum ‘e_ce_rel _ _ _ _ _’ $ irule_at (Pos hd)
-              )
-              >> gvs[]
-              >> simp[Ntimes evaluate_def 10, do_opapp_def, do_app_def,
+              >> simp[Ntimes evaluate_def 3, do_app_def, do_opapp_def, dec_clock_def]
+              >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+                same_type_def, same_ctor_def, evaluate_match_def,
+                pat_bindings_def, do_con_check_def, build_conv_def]
+              >> irule_at (Pos hd) EQ_REFL
+              >> last_assum $ irule_at (Pos hd)
+              >> simp[Once e_ce_rel_cases, sadd_def,
+                env_rel_cases, FEVERY_FEMPTY]
+            )
+            >> qpat_assum ‘ml_v_vals' h1 h2’ $ assume_tac o SRULE [Once ml_v_vals'_cases]
+            >> gvs[REVERSE_SNOC, vcons_list_def]
+            >~ [‘SNum m’] >- (
+              simp[evaluate_def, do_opapp_def, do_app_def,
                 opn_lookup_def, can_pmatch_all_def, pmatch_def, nsLookup_def,
                 same_type_def, same_ctor_def, evaluate_match_def,
                 pat_bindings_def, do_con_check_def, build_conv_def, dec_clock_def]
               >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
-              >> simp[sadd_def, Once e_ce_rel_cases]
-              >> irule_at (Pos hd) EQ_REFL
-              >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
-              >> simp[env_rel_cases, FEVERY_FEMPTY]
-            )
-            >> simp[]
-            >> qsuff_tac ‘EVERY (λ(x,y). t' ≠ x) (ZIP (ts,mlvs))’ >- (
-              strip_tac
-              >> drule_then assume_tac EVERY2_LENGTH
-              >> drule_all $ iffRL EVERY2_EVERY
-              >> qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
-              >> simp[AND_IMP_INTRO, GSYM LIST_REL_CONJ]
-              >> ho_match_mp_tac EVERY2_mono
+              >> qrefine ‘ck+3’
+              >> simp[Ntimes evaluate_def 2]
+              >> simp[sadd_def]
+              >> ‘∀ ck . st with <|clock:=ck;refs:=st.refs;ffi:=st.ffi|> = st with clock:=ck’
+                by (simp[state_component_equality])
               >> simp[]
-            ) >> simp[EVERY_MEM] >> PairCases >> simp[]
-            >> strip_tac >> drule_at_then Any assume_tac MEM_ZIP_MEM_MAP
-            >> drule_then assume_tac EVERY2_LENGTH >> gvs[]
-            >> strip_tac >> gvs[]
-          ) >> gvs[scheme_env_def]
-        ) >> cheat
+              >> pop_assum kall_tac
+              >> pop_assum $ qspec_then ‘n + m’ mp_tac
+              >> strip_tac
+              >> qpat_assum ‘evaluate _ _ _ = evaluate _ _ _’ $ irule_at (Pos hd)
+              >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+              >> simp[Once INT_ADD_COMM]
+              >> qpat_assum ‘e_ce_rel _ _ _ _ _’ $ irule_at (Pos hd)
+            )
+            >> gvs[]
+            >> simp[Ntimes evaluate_def 10, do_opapp_def, do_app_def,
+              opn_lookup_def, can_pmatch_all_def, pmatch_def, nsLookup_def,
+              same_type_def, same_ctor_def, evaluate_match_def,
+              pat_bindings_def, do_con_check_def, build_conv_def, dec_clock_def]
+            >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
+            >> simp[sadd_def, Once e_ce_rel_cases]
+            >> irule_at (Pos hd) EQ_REFL
+            >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+            >> simp[env_rel_cases, FEVERY_FEMPTY]
+          )
+          >> simp[]
+          >> qsuff_tac ‘EVERY (λ(x,y). t' ≠ x) (ZIP (ts,mlvs))’ >- (
+            strip_tac
+            >> drule_then assume_tac EVERY2_LENGTH
+            >> drule_all $ iffRL EVERY2_EVERY
+            >> qpat_x_assum ‘LIST_REL _ _ _’ mp_tac
+            >> simp[AND_IMP_INTRO, GSYM LIST_REL_CONJ]
+            >> ho_match_mp_tac EVERY2_mono
+            >> simp[]
+          ) >> simp[EVERY_MEM] >> PairCases >> simp[]
+          >> strip_tac >> drule_at_then Any assume_tac MEM_ZIP_MEM_MAP
+          >> drule_then assume_tac EVERY2_LENGTH >> gvs[]
+          >> strip_tac >> gvs[]
+        ) >> gvs[scheme_env_def]
       ) >> cheat
     )
     >> Cases_on ‘∃ e es . h1 = ApplyK NONE (e::es)’ >- (
@@ -902,6 +862,7 @@ Proof
         o curry ((::) o swap) [scheme_env_def] o SRULE [scheme_env_def]
       >> irule_at Any str_not_num
       >> simp[isDigit_def, t_in_ts]
+      >> qpat_assum ‘LIST_REL _ vs _’ $ irule_at (Pos hd)
       >> gvs[EVERY_CONJ]
       >> qpat_assum ‘EVERY (λ x . x ≠ _) _’ $ simp o single
         o SRULE [EVERY_MEM]
@@ -915,7 +876,6 @@ Proof
       >> drule $ SRULE [Once CONJ_COMM] MEM_ZIP_MEM_MAP
       >> simp[]
       >> strip_tac
-      >> qpat_assum ‘ml_v_vals' _ _’ $ irule_at (Pos hd)
       >> qsuff_tac ‘x0 ≠ t'’
       >> strip_tac
       >> gvs[]
