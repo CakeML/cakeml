@@ -168,6 +168,15 @@ Definition evaluate_rhs_exp_def:
          | SOME (st₃, arr) => (st₃, Rval arr))))
 End
 
+Theorem evaluate_rhs_exp_clock:
+  ∀st env e st' res.
+    evaluate_rhs_exp st env e = (st', res) ⇒ st'.clock ≤ st.clock
+Proof
+  rpt strip_tac
+  >> gvs [oneline evaluate_rhs_exp_def, alloc_array_def, AllCaseEqs ()]
+  >> imp_res_tac evaluate_exp_clock
+QED
+
 Definition evaluate_rhs_exps_def:
   evaluate_rhs_exps st env [] = (st, Rval []) ∧
   evaluate_rhs_exps st env (e::es) =
@@ -178,6 +187,19 @@ Definition evaluate_rhs_exps_def:
       | (st₂, Rerr err) => (st₂, Rerr err)
       | (st₂, Rval vs) => (st₂, Rval (v::vs))))
 End
+
+Theorem evaluate_rhs_exps_clock:
+  ∀st env es st' res.
+    evaluate_rhs_exps st env es = (st', res) ⇒ st'.clock ≤ st.clock
+Proof
+  Induct_on ‘es’
+  >> rpt strip_tac
+  >> gvs [evaluate_rhs_exps_def, AllCaseEqs ()]
+  >> imp_res_tac evaluate_rhs_exp_clock
+  >> last_assum drule >> gvs []
+QED
+
+(* Semantics for assigning values *)
 
 Definition assign_value_def:
   assign_value st env (IdentifierExp var _) val =
@@ -197,6 +219,16 @@ Definition assign_value_def:
   assign_value st env _ val = (st, Rstop (Serr Rtype_error))
 End
 
+Theorem assign_value_clock:
+  ∀st env e v st' res.
+    assign_value st env e v = (st', res) ⇒ st'.clock ≤ st.clock
+Proof
+  rpt strip_tac
+  >> gvs [update_local_def, update_array_def,
+          oneline assign_value_def, AllCaseEqs ()]
+  >> imp_res_tac evaluate_exp_clock >> gvs []
+QED
+
 Definition assign_values_def:
   assign_values st env [] [] = (st, Rcont) ∧
   assign_values st env (lhs::lhss) (v::vs) =
@@ -205,6 +237,17 @@ Definition assign_values_def:
    | (st₁, Rcont) => assign_values st₁ env lhss vs) ∧
   assign_values st env _ _ = (st, Rstop (Serr Rtype_error))
 End
+
+Theorem assign_values_clock:
+  ∀st env lhss vs st' res.
+    assign_values st env lhss vs = (st', res) ⇒ st'.clock ≤ st.clock
+Proof
+  Induct_on ‘lhss’ >> Induct_on ‘vs’
+  >> rpt strip_tac
+  >> gvs [assign_values_def, AllCaseEqs ()]
+  >> imp_res_tac assign_value_clock
+  >> last_assum drule >> gvs []
+QED
 
 (* Semantics for statements *)
 
@@ -297,5 +340,34 @@ Termination
   >> gvs [dec_clock_def, set_up_call_def, declare_locals_def,
           oneline do_cond_def, AllCaseEqs ()]
 End
+
+Theorem evaluate_stmt_clock:
+  ∀s₁ env e s₂ r.
+    evaluate_stmt s₁ env e = (s₂, r) ⇒ s₂.clock ≤ s₁.clock
+Proof
+  ho_match_mp_tac evaluate_stmt_ann_ind
+  >> rpt strip_tac
+  >> pop_assum mp_tac >> simp [Once evaluate_stmt_ann_def] >> strip_tac
+  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def,
+          declare_locals_def, print_string_def]
+  >> EVERY (map imp_res_tac
+                [set_up_call_clock, restore_locals_clock, fix_clock_IMP,
+                 evaluate_rhs_exps_clock, evaluate_exp_clock,
+                 assign_values_clock]) >> gvs[]
+QED
+
+Theorem fix_clock_evaluate_stmt:
+  fix_clock s (evaluate_stmt s env stmt) = evaluate_stmt s env stmt
+Proof
+  Cases_on ‘evaluate_stmt s env stmt’
+  >> imp_res_tac evaluate_stmt_clock
+  >> gvs [fix_clock_def, state_component_equality]
+QED
+
+Theorem evaluate_stmt_def[compute] =
+  REWRITE_RULE [fix_clock_evaluate_stmt] evaluate_stmt_ann_def
+
+Theorem evaluate_stmt_ind =
+  REWRITE_RULE [fix_clock_evaluate_stmt] evaluate_stmt_ann_ind
 
 val _ = export_theory ();
