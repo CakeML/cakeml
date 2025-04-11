@@ -14,8 +14,6 @@ val _ = new_theory "dafny_evaluate";
 (* Helpers for clocked definition of semantics, which were adapted from
    semantics/evaluateScript.sml. *)
 
-(* TODO Use subscripts consistently *)
-
 Definition fix_clock_def:
   fix_clock s (s', res) =
   (s' with clock := if s'.clock ≤ s.clock then s'.clock else s.clock, res)
@@ -39,13 +37,13 @@ Definition evaluate_exp_ann_def[nocompute]:
    | NONE => (st, Rerr Rtype_error)
    | SOME (in_names, body) =>
      (case fix_clock st (evaluate_exps st env args) of
-      | (st', Rerr err) => (st', Rerr err)
-      | (st', Rval in_vs) =>
-        (case set_up_call st' in_names in_vs [] of
-         | NONE => (st', Rerr Rtype_error)
-         | SOME (old_locals, st'') =>
-           if st''.clock = 0 then (st'', Rerr Rtimeout_error) else
-           (case evaluate_exp (dec_clock st'') env body of
+      | (st₁, Rerr err) => (st₁, Rerr err)
+      | (st₁, Rval in_vs) =>
+        (case set_up_call st₁ in_names in_vs [] of
+         | NONE => (st₁, Rerr Rtype_error)
+         | SOME (old_locals, st₂) =>
+           if st₂.clock = 0 then (st₂, Rerr Rtimeout_error) else
+           (case evaluate_exp (dec_clock st₂) env body of
             | (st₃, Rerr err) => (st₃, Rerr err)
             | (st₃, Rval v) => (restore_locals st₃ old_locals, Rval v))))) ∧
   evaluate_exp st env (IdentifierExp name _) =
@@ -54,42 +52,42 @@ Definition evaluate_exp_ann_def[nocompute]:
    | SOME v => (st, Rval v)) ∧
   evaluate_exp st env (BinaryExp bop e₀ e₁) =
   (case fix_clock st (evaluate_exp st env e₀) of
-   | (st', Rerr err) => (st', Rerr err)
-   | (st', Rval v₀) =>
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v₀) =>
      (case try_sc bop v₀ of
-      | SOME v => (st', Rval v)
+      | SOME v => (st₁, Rval v)
       | NONE =>
-        (case evaluate_exp st' env e₁ of
-         | (st'', Rerr err) => (st'', Rerr err)
-         | (st'', Rval v₁) =>
+        (case evaluate_exp st₁ env e₁ of
+         | (st₂, Rerr err) => (st₂, Rerr err)
+         | (st₂, Rval v₁) =>
            (case do_bop bop v₀ v₁ of
-            | SOME res => (st'', Rval res)
-            | NONE => (st'', Rerr Rtype_error))))) ∧
+            | SOME res => (st₂, Rval res)
+            | NONE => (st₂, Rerr Rtype_error))))) ∧
   evaluate_exp st env (LiteralExp l) = (st, Rval (lit_to_val l)) ∧
   evaluate_exp st env (ArrayLen e) =
   (case evaluate_exp st env e of
-   | (st', Rerr err) => (st', Rerr err)
-   | (st', Rval v) =>
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v) =>
      (case get_array_len v of
-      | NONE => (st', Rerr Rtype_error)
-      | SOME len => (st', Rval (IntV &len)))) ∧
+      | NONE => (st₁, Rerr Rtype_error)
+      | SOME len => (st₁, Rval (IntV &len)))) ∧
   evaluate_exp st env (ArraySelect arr idx) =
   (case fix_clock st (evaluate_exp st env arr) of
-   | (st', Rerr err) => (st', Rerr err)
-   | (st', Rval arr) =>
-     (case fix_clock st' (evaluate_exp st' env idx) of
-      | (st'', Rerr err) => (st'', Rerr err)
-      | (st'', Rval idx) =>
-        (case index_array st'' arr idx of
-         | NONE => (st'', Rerr Rtype_error)
-         | SOME v => (st'', Rval v)))) ∧
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval arr) =>
+     (case fix_clock st₁ (evaluate_exp st₁ env idx) of
+      | (st₂, Rerr err) => (st₂, Rerr err)
+      | (st₂, Rval idx) =>
+        (case index_array st₂ arr idx of
+         | NONE => (st₂, Rerr Rtype_error)
+         | SOME v => (st₂, Rval v)))) ∧
   evaluate_exp st env (ITE tst thn els) =
   (case fix_clock st (evaluate_exp st env tst) of
-   | (st', Rerr err) => (st', Rerr err)
-   | (st', Rval v) =>
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v) =>
      (case do_cond v thn els of
-      | NONE => (st', Rerr Rtype_error)
-      | SOME branch => evaluate_exp st' env branch)) ∧
+      | NONE => (st₁, Rerr Rtype_error)
+      | SOME branch => evaluate_exp st₁ env branch)) ∧
   evaluate_exp st env (ForallExp (var, t) e) =
   (if env.is_running then (st, Rerr Rtype_error)
    else if st.clock = 0 then (st, Rerr Rtimeout_error) else
@@ -106,11 +104,11 @@ Definition evaluate_exp_ann_def[nocompute]:
   evaluate_exps st env [] = (st, Rval []) ∧
   evaluate_exps st env (e::es) =
   (case fix_clock st (evaluate_exp st env e) of
-   | (st', Rerr err) => (st', Rerr err)
-   | (st', Rval v) =>
-     (case evaluate_exps st' env es of
-      | (st'', Rerr err) => (st'', Rerr err)
-      | (st'', Rval vs) => (st'', Rval (v::vs))))
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v) =>
+     (case evaluate_exps st₁ env es of
+      | (st₂, Rerr err) => (st₂, Rerr err)
+      | (st₂, Rval vs) => (st₂, Rval (v::vs))))
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
               (λx. case x of
@@ -160,13 +158,13 @@ Definition evaluate_rhs_exp_def:
   evaluate_rhs_exp st env (ExpRhs e) = evaluate_exp st env e ∧
   evaluate_rhs_exp st env (AllocArray _ len init) =
   (case evaluate_exp st env len of
-   | (st', Rerr err) => (st', Rerr err)
-   | (st', Rval len) =>
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval len) =>
      (case evaluate_exp st env init of
-      | (st'', Rerr err) => (st'', Rerr err)
-      | (st'', Rval init) =>
-        (case alloc_array st'' len init of
-         | NONE => (st'', Rerr Rtype_error)
+      | (st₂, Rerr err) => (st₂, Rerr err)
+      | (st₂, Rval init) =>
+        (case alloc_array st₂ len init of
+         | NONE => (st₂, Rerr Rtype_error)
          | SOME (st₃, arr) => (st₃, Rval arr))))
 End
 
@@ -174,27 +172,27 @@ Definition evaluate_rhs_exps_def:
   evaluate_rhs_exps st env [] = (st, Rval []) ∧
   evaluate_rhs_exps st env (e::es) =
   (case evaluate_rhs_exp st env e of
-   | (st', Rerr err) => (st', Rerr err)
-   | (st', Rval v) =>
-     (case evaluate_rhs_exps st' env es of
-      | (st'', Rerr err) => (st'', Rerr err)
-      | (st'', Rval vs) => (st'', Rval (v::vs))))
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v) =>
+     (case evaluate_rhs_exps st₁ env es of
+      | (st₂, Rerr err) => (st₂, Rerr err)
+      | (st₂, Rval vs) => (st₂, Rval (v::vs))))
 End
 
 Definition assign_value_def:
   assign_value st env (IdentifierExp var _) val =
   (case update_local st var val of
    | NONE => (st, Rstop (Serr Rtype_error))
-   | SOME st' => (st', Rcont)) ∧
+   | SOME st₁ => (st₁, Rcont)) ∧
   assign_value st env (ArraySelect arr idx) val =
   (case evaluate_exp st env arr of
-   | (st', Rerr err) => (st', Rstop (Serr err))
-   | (st', Rval arr) =>
-     (case evaluate_exp st' env idx of
-      | (st'', Rerr err) => (st'', Rstop (Serr err))
-      | (st'', Rval idx) =>
-        (case update_array st'' arr idx val of
-         | NONE => (st'', Rstop (Serr Rtype_error))
+   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rval arr) =>
+     (case evaluate_exp st₁ env idx of
+      | (st₂, Rerr err) => (st₂, Rstop (Serr err))
+      | (st₂, Rval idx) =>
+        (case update_array st₂ arr idx val of
+         | NONE => (st₂, Rstop (Serr Rtype_error))
          | SOME st₃ => (st₃, Rcont)))) ∧
   assign_value st env _ val = (st, Rstop (Serr Rtype_error))
 End
@@ -203,8 +201,8 @@ Definition assign_values_def:
   assign_values st env [] [] = (st, Rcont) ∧
   assign_values st env (lhs::lhss) (v::vs) =
   (case assign_value st env lhs v of
-   | (st', Rstop stp) => (st', Rstop stp)
-   | (st', Rcont) => assign_values st' env lhss vs) ∧
+   | (st₁, Rstop stp) => (st₁, Rstop stp)
+   | (st₁, Rcont) => assign_values st₁ env lhss vs) ∧
   assign_values st env _ _ = (st, Rstop (Serr Rtype_error))
 End
 
@@ -219,31 +217,31 @@ Definition evaluate_stmt_ann_def[nocompute]:
   evaluate_stmt st env Skip = (st, Rcont) ∧
   evaluate_stmt st env (Then stmt₁ stmt₂) =
   (case fix_clock st (evaluate_stmt st env stmt₁) of
-   | (st', Rstop stp) => (st', Rstop stp)
-   | (st', Rcont) => evaluate_stmt st env stmt₂) ∧
+   | (st₁, Rstop stp) => (st₁, Rstop stp)
+   | (st₁, Rcont) => evaluate_stmt st env stmt₂) ∧
   evaluate_stmt st env (Assign lhss rhss) =
   (case evaluate_rhs_exps st env rhss of
-   | (st', Rerr err) => (st', Rstop (Serr err))
-   | (st', Rval vals) => assign_values st env lhss vals) ∧
+   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rval vals) => assign_values st env lhss vals) ∧
   evaluate_stmt st env (If tst thn els) =
   (case evaluate_exp st env tst of
-   | (st', Rerr err) => (st', Rstop (Serr err))
-   | (st', Rval tst) =>
+   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rval tst) =>
      (case do_cond tst thn els of
-      | NONE => (st', Rstop (Serr Rtype_error))
-      | SOME branch => evaluate_stmt st' env branch)) ∧
+      | NONE => (st₁, Rstop (Serr Rtype_error))
+      | SOME branch => evaluate_stmt st₁ env branch)) ∧
   evaluate_stmt st env (MetCall lhss name args) =
   (case FLOOKUP env.methods name of
    | NONE => (st, Rstop (Serr Rtype_error))
    | SOME (in_ns, out_ns, body) =>
      (case evaluate_exps st env args of
-      | (st', Rerr err) => (st', Rstop (Serr err))
-      | (st', Rval in_vs) =>
-        (case set_up_call st' in_ns in_vs out_ns of
-         | NONE => (st', Rstop (Serr Rtype_error))
-         | SOME (old_locals, st'') =>
-           if st''.clock = 0 then (st'', Rstop (Serr Rtimeout_error)) else
-           (case evaluate_stmt (dec_clock st'') env body of
+      | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+      | (st₁, Rval in_vs) =>
+        (case set_up_call st₁ in_ns in_vs out_ns of
+         | NONE => (st₁, Rstop (Serr Rtype_error))
+         | SOME (old_locals, st₂) =>
+           if st₂.clock = 0 then (st₂, Rstop (Serr Rtimeout_error)) else
+           (case evaluate_stmt (dec_clock st₂) env body of
             | (st₃, Rcont) => (st₃, Rstop (Serr Rtype_error))
             | (st₃, Rstop (Serr err)) => (st₃, Rstop (Serr err))
             | (st₃, Rstop Sret) =>
@@ -260,36 +258,36 @@ Definition evaluate_stmt_ann_def[nocompute]:
      evaluate_stmt (declare_locals st names) env scope) ∧
   evaluate_stmt st env (While guard invs decrs mods body) =
   (case evaluate_exp st env guard of
-   | (st', Rerr err) => (st', Rstop (Serr err))
-   | (st', Rval guard_v) =>
+   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rval guard_v) =>
      if guard_v = BoolV F then
-       (st', Rcont)
+       (st₁, Rcont)
      else if guard_v = BoolV T then
-       (case fix_clock st' (evaluate_stmt st' env body) of
-        | (st'', Rstop stp) => (st'', Rstop stp)
-        | (st'', Rcont) =>
-          if st''.clock = 0 then (st'', Rstop (Serr Rtimeout_error)) else
-          evaluate_stmt (dec_clock st'') env
+       (case fix_clock st₁ (evaluate_stmt st₁ env body) of
+        | (st₂, Rstop stp) => (st₂, Rstop stp)
+        | (st₂, Rcont) =>
+          if st₂.clock = 0 then (st₂, Rstop (Serr Rtimeout_error)) else
+          evaluate_stmt (dec_clock st₂) env
                         (I (While guard invs decrs mods body)))
      else
-       (st', Rstop (Serr Rtype_error))) ∧
+       (st₁, Rstop (Serr Rtype_error))) ∧
   evaluate_stmt st env (Print ets) =
   (let es = MAP FST ets in
      (case evaluate_exps st env es of
-      | (st', Rerr err) => (st', Rstop (Serr err))
-      | (st', Rval vs) =>
-        (case print_string st' vs of
-         | NONE => (st', Rstop (Serr Rtype_error))
-         | SOME st'' => (st'', Rcont)))) ∧
+      | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+      | (st₁, Rval vs) =>
+        (case print_string st₁ vs of
+         | NONE => (st₁, Rstop (Serr Rtype_error))
+         | SOME st₂ => (st₂, Rcont)))) ∧
   evaluate_stmt st env Return = (st, Rstop Sret) ∧
   evaluate_stmt st env (Assert e) =
   (case evaluate_exp st env e of
-   | (st', Rerr err) => (st', Rstop (Serr err))
-   | (st', Rval vs) =>
+   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rval vs) =>
        if vs = BoolV T then
-         (st', Rcont)
+         (st₁, Rcont)
        else
-         (st', Rstop (Serr Rtype_error)))
+         (st₁, Rstop (Serr Rtype_error)))
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
               (λx. case x of (s, _, stmt) => (s.clock, statement_size stmt))’
