@@ -311,7 +311,7 @@ Definition evaluate_stmt_ann_def[nocompute]:
         | (st₂, Rcont) =>
           if st₂.clock = 0 then (st₂, Rstop (Serr Rtimeout_error)) else
           evaluate_stmt (dec_clock st₂) env
-                        (I (While guard invs decrs mods body)))
+                        (STOP (While guard invs decrs mods body)))
      else
        (st₁, Rstop (Serr Rtype_error))) ∧
   evaluate_stmt st env (Print ets) =
@@ -347,9 +347,8 @@ Theorem evaluate_stmt_clock:
 Proof
   ho_match_mp_tac evaluate_stmt_ann_ind
   >> rpt strip_tac
-  >> pop_assum mp_tac >> simp [Once evaluate_stmt_ann_def] >> strip_tac
   >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def,
-          declare_locals_def, print_string_def]
+          declare_locals_def, print_string_def, Once evaluate_stmt_ann_def]
   >> EVERY (map imp_res_tac
                 [set_up_call_clock, restore_locals_clock, fix_clock_IMP,
                  evaluate_rhs_exps_clock, evaluate_exp_clock,
