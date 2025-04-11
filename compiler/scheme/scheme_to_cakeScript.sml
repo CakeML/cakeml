@@ -7,6 +7,7 @@ open scheme_astTheory;
 
 open semanticPrimitivesTheory;
 open namespaceTheory;
+open prim_recTheory;
 
 val _ = new_theory "scheme_to_cake";
 
@@ -70,17 +71,25 @@ Definition cps_transform_def:
 
   cps_transform n (Cond c t f) = (let
     (m, cc) = cps_transform n c;
-    k = "k" ++ toString m;
-    (l, ck) = refunc_cont (m+1) (CondK t f) (Var (Short k))
+    (l, ct) = cps_transform m t;
+    (j, cf) = cps_transform l f;
+    k = "k" ++ toString j;
+    p = "t" ++ toString (j+1);
   in
-    (l, Fun k $ Let (SOME "k") ck $ App Opapp [cc; Var (Short "k")])) ∧
+    (j+2, Fun k $ Let (SOME "k") (Fun p $ Mat (Var (Short p)) [
+      (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []],
+        App Opapp [cf; Var (Short k)]);
+      (Pany,
+        App Opapp [ct; Var (Short k)])
+    ]) $ App Opapp [cc; Var (Short "k")])) ∧
 
   cps_transform n (Apply fn args) = (let
     (m, cfn) = cps_transform n fn;
     k = "k" ++ toString m;
-    (l, ck) = refunc_cont (m+1) (ApplyK NONE args) (Var (Short k))
+    t = "t" ++ toString (m+1);
+    (l, capp) = cps_transform_app (m+2) (Var (Short t)) [] args (Var (Short k))
   in
-    (l, Fun k $ Let (SOME "k") ck $ App Opapp [cfn; Var (Short "k")])) ∧
+    (l, Fun k $ Let (SOME "k") (Fun t capp) $ App Opapp [cfn; Var (Short "k")])) ∧
 
   cps_transform n (Ident x) = (let k = "k" ++ toString n in
     (n, Fun k $ Mat (App Opderef [Var (Short $ "s" ++ explode x)]) [
@@ -100,19 +109,23 @@ Definition cps_transform_def:
       (Con (SOME $ Short "Proc") [Fun k $ Fun args inner]) $
       App Opapp [Var (Short k'); Var (Short "v")])) ∧
 
-  cps_transform n (Begin e es) = (let
-    (m, ce) = cps_transform n e;
-    k = "k" ++ toString m;
-    (l, seqk) = refunc_cont (m+1) (BeginK es) (Var (Short k))
-  in
-    (l, Fun k $ App Opapp [ce; seqk])) ∧
+  cps_transform n (Begin es e) = (let
+      k = "k" ++ toString n;
+      (m, ce) = cps_transform_seq (n+1) (Var (Short k)) es e
+    in
+      (m, Fun k ce)) ∧
 
   cps_transform n (Set x e) = (let
     (m, ce) = cps_transform n e;
     k = "k" ++ toString m;
-    (l, setk) = refunc_cont (m+1) (SetK x) (Var (Short k))
+    t = "t" ++ toString (m+1);
   in
-    (l, Fun k $ (App Opapp [ce;setk]))) ∧
+    (m+2, Fun k $ Let (SOME "k")
+      (Fun t $ Let NONE (App Opassign [Var (Short $ "s" ++ explode x);
+            Con (SOME $ Short "Some") [Var (Short t)]]) $
+          Let (SOME "v") (Con (SOME $ Short "Wrong") [Lit $ StrLit "Unspecified"])
+            (App Opapp [Var (Short k); Var (Short "v")])) $
+        App Opapp [ce; Var (Short "k")])) ∧
 
   cps_transform n (Letrec bs e) = (let
     (m, ce) = cps_transform n e;
@@ -121,33 +134,6 @@ Definition cps_transform_def:
   in
     (l, Fun k $ letinit_ml bs inner)) ∧
 
-  refunc_cont n (CondK t f) k = (let
-    (m, ct) = cps_transform n t;
-    (l, cf) = cps_transform m f;
-    p = "t" ++ toString l;
-  in
-    (l+1, Fun p $ Mat (Var (Short p)) [
-      (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []], App Opapp [cf; k]);
-      (Pany, App Opapp [ct; k])
-    ])) ∧
-
-  refunc_cont n (ApplyK fnp es) k = (let
-    t = "t" ++ toString n;
-    (m, ce) = (case fnp of
-      | NONE => cps_transform_app (n+1) (Var (Short t)) [] es k
-      | SOME (fn, vs) => cps_transform_app (n+1) (to_ml_vals fn)
-                           (Var (Short t) :: MAP to_ml_vals vs) es k)
-  in
-    (m, Fun t ce)) ∧
-
-  refunc_cont n (BeginK es) k = cps_transform_seq n k es ∧
-
-  refunc_cont n (SetK x) k = (let
-    t = "t" ++ toString n;
-  in
-    (n+1, Fun t $ Let NONE (App Opassign [Var (Short $ "s" ++ explode x);
-            Con (SOME $ Short "Some") [Var (Short t)]])
-          (App Opapp [k; Con (SOME $ Short "Wrong") [Lit $ StrLit "Unspecified"]]))) ∧
 
   cps_transform_app n tfn ts (e::es) k = (let
     (m, ce) = cps_transform n e;
@@ -161,13 +147,18 @@ Definition cps_transform_def:
       App Opapp [App Opapp [Var (Short "app"); k]; tfn];
       cons_list (REVERSE ts)]) ∧
 
-  cps_transform_seq n k [] = (n, k) ∧
 
-  cps_transform_seq n k (e::es) = (let
-    (m, ce) = cps_transform n e;
-    (l, inner) = cps_transform_seq m k es
+  cps_transform_seq n k [] e = (let
+    (m, ce) = cps_transform n e
   in
-    (l, Fun "_" $ App Opapp [ce; inner])) ∧
+    (n, App Opapp [ce; k])) ∧
+
+  cps_transform_seq n k (e'::es) e = (let
+    (m, ce) = cps_transform n e';
+    (l, inner) = cps_transform_seq m k es e
+  in
+    (l, Let (SOME "k") (Fun "_" $ inner) $ App Opapp [ce; Var (Short "k")])) ∧
+
 
   cps_transform_letreinit n k [] ce = (n, App Opapp [ce; k]) ∧
 
@@ -181,19 +172,33 @@ Definition cps_transform_def:
         Con (SOME $ Short "Some") [Var (Short t)]])
       inner]))
 Termination
-  WF_REL_TAC ‘measure (λ x . case x of
+  (*WF_REL_TAC ‘measure (λ x . case x of
     | INL(_,e) => exp_size e
-    | INR(INL(_,k,_)) => cont_size k
-    | INR(INR(INL(_,_,_,es,_))) => list_size exp_size es
-    | INR(INR(INR(INL(_,_,es)))) => list_size exp_size es
-    | INR(INR(INR(INR(_,_,es,_)))) => list_size (exp_size o SND) es)’
-  >> rpt (strip_tac >- (Cases >> rw[scheme_astTheory.exp_size_def]))
-  >> rpt (strip_tac >- (
-      Induct >- (Cases >> simp[scheme_astTheory.exp_size_def, list_size_def])
-      >> Cases >> rw[scheme_astTheory.exp_size_def, list_size_def]
-      >> last_x_assum dxrule >> simp[]
-  ))
-  >> Cases >> rw[scheme_astTheory.exp_size_def]
+    | INR(INL(_,_,_,es,_)) => list_size exp_size es
+    | INR(INR(INL(_,_,es,e))) => list_size exp_size (e::es)
+    | INR(INR(INR(_,_,bs,_))) => exp1_size bs)’*)
+  WF_REL_TAC ‘(λ x y . case x of
+    | INL(_,e) => (case y of
+      | INL(_,e') => exp_size e < exp_size e'
+      | INR(INL(_,_,_,es,_)) => exp_size e < exp3_size es
+      | INR(INR(INL(_,_,es,e'))) => exp_size e < exp3_size (e'::es)
+      | INR(INR(INR(_,_,bs,_))) => exp_size e < exp1_size bs)
+    | INR(INL(_,_,_,es,_)) => (case y of
+      | INL(_,e) => T
+      | INR(INL(_,_,_,es',_)) => exp3_size es < exp3_size es'
+      | INR(INR(INL(_,_,es',e))) => exp3_size es < exp3_size (e::es')
+      | INR(INR(INR(_,_,bs,_))) => exp3_size es < exp1_size bs)
+    | INR(INR(INL(_,_,es,e))) => (case y of
+      | INL(_,e') => T
+      | INR(INL(_,_,_,es',_)) => exp3_size (e::es) < exp3_size es'
+      | INR(INR(INL(_,_,es',e'))) => exp3_size (e::es) < exp3_size (e'::es')
+      | INR(INR(INR(_,_,bs,_))) => exp3_size (e::es) < exp1_size bs)
+    | INR(INR(INR(_,_,bs,_))) => (case y of
+      | INL(_,e) => T
+      | INR(INL(_,_,_,es,_)) => exp1_size bs < exp3_size es
+      | INR(INR(INL(_,_,es,e))) => exp1_size bs < exp3_size (e::es)
+      | INR(INR(INR(_,_,bs',_))) => exp1_size bs < exp1_size bs'))’
+  >> cheat
 End
 
 Definition compile_scheme_prog_def:
@@ -416,5 +421,12 @@ Definition codegen_def:
     ]
   ]
 End
+
+(*
+open scheme_parsingTheory;
+open scheme_to_cakeTheory;
+EVAL “cps_transform 0 $ OUTR $ parse_to_ast
+"(begin 1 2 3)"”
+*)
 
 val _ = export_theory();

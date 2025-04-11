@@ -8,7 +8,6 @@ open scheme_astTheory;
 
 val _ = new_theory "scheme_parsing";
 
-
 val _ = monadsyntax.declare_monad("sum", {
   unit = “INR”,
   bind = “λ s f . case s of
@@ -194,6 +193,14 @@ Proof
   >> Cases_on ‘pair_to_list p’ >> gvs[list_size_def]
 QED
 
+Theorem list_size_snoc[simp]:
+  ∀ f x xs .
+    list_size f (SNOC x xs) = 1 + (f x + list_size f xs)
+Proof
+  Induct_on ‘xs’
+  >> simp[list_size_def]
+QED
+
 Definition cons_formals_def:
   cons_formals ps Nil = INR (REVERSE ps, NONE) ∧
   cons_formals ps (Word w) = INR (REVERSE ps, SOME (implode w)) ∧
@@ -223,12 +230,12 @@ Definition cons_ast_def:
           return (Cond ce te fe)
         od
       | _ => INL "Wrong number of expressions in if statement")
-    | Word "begin" => (case ys of
-      | [] => INL "Wrong number of expressions to begin"
-      | y'::ys' => do
-          e <- cons_ast y';
-          es <- cons_ast_list ys';
-          return (Begin e es)
+    | Word "begin" => (if NULL ys
+        then INL "Wrong number of expressions to begin"
+        else do
+          es <- cons_ast_list (FRONT ys);
+          e <- cons_ast (LAST ys);
+          return (Begin es e)
         od)
     | Word "lambda" => (case ys of
       | [xs;y'] => do
@@ -285,6 +292,8 @@ Termination
     dxrule_then (assume_tac o GSYM) pair_to_list_size
     >> gvs[list_size_def]
   )
+  >> Cases_on ‘ys’ using SNOC_CASES
+  >> gvs[]
 End
 
 Definition parse_to_ast_def:

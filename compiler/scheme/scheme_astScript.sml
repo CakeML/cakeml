@@ -95,19 +95,6 @@ Inductive static_scope:
   static_scope env (Set x e)
 End
 
-Definition exp_rec_def:
-  exp_rec (Lit l) = 1 ∧
-  exp_rec (Cond c t f) = exp_rec c + exp_rec t + exp_rec f ∧
-  exp_rec (Apply fn es) = exp_rec fn + SUM (MAP exp_rec es) ∧
-  exp_rec (Begin es e) = exp_rec e + SUM (MAP exp_rec es) ∧
-  exp_rec (Lambda xs xp e) = exp_rec e ∧
-  exp_rec (Letrec bs e) = exp_rec e + SUM (MAP (exp_rec o SND) bs)∧
-  exp_rec (Ident x) = 1 ∧
-  exp_rec (Set x e) =  exp_rec e
-Termination
-  WF_REL_TAC ‘measure exp_size’
-End
-
 Theorem static_scope_mono:
   ∀ env e env' .
     env ⊆ env' ∧ static_scope env e ⇒ static_scope env' e
