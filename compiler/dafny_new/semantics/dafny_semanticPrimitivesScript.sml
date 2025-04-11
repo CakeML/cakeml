@@ -67,14 +67,14 @@ Datatype:
   | Rstop stop
 End
 
-Definition strict_zip_def:
-  strict_zip (x::xs) (y::ys) =
-  OPTION_MAP (CONS (x,y)) (strict_zip xs ys)
+Definition safe_zip_def:
+  safe_zip (x::xs) (y::ys) =
+  OPTION_MAP (CONS (x,y)) (safe_zip xs ys)
 End
 
 Definition set_up_call_def:
   set_up_call st in_ns in_vs outs =
-  (case (strict_zip in_ns (MAP SOME in_vs)) of
+  (case (safe_zip in_ns (MAP SOME in_vs)) of
    | NONE => NONE
    | SOME params =>
      (let old_locals = st.locals;
