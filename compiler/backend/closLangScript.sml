@@ -44,7 +44,7 @@ End
 
 Datatype:
   word_op
-     = WordOp word_size opw
+     = WordOpw word_size opw
      | WordShift word_size shift num
      | WordFromInt
      | WordToInt

@@ -38,7 +38,7 @@ Datatype:
 End
 
 Definition Bool_def:
-  Bool b = Op (Cons (bool_to_tag b)) []
+  Bool b = Op (BlockOp (Cons (bool_to_tag b))) []
 End
 
 Definition mk_tick_def:
