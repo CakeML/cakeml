@@ -7,7 +7,6 @@ open scheme_astTheory;
 
 open semanticPrimitivesTheory;
 open namespaceTheory;
-open prim_recTheory;
 
 val _ = new_theory "scheme_to_cake";
 
@@ -37,8 +36,9 @@ Definition proc_ml_def:
         (Pany,
           Con (SOME $ Short "Ex") [Lit $ StrLit "Wrong number of arguments"])
     ]) ∧
-  proc_ml n [] (SOME x) k args ce = (n, Let (SOME $ "s" ++ explode x)
-      (App Opref [Con (SOME $ Short "SList") [Var (Short args)]])
+  proc_ml n [] (SOME x) k args ce = (n, Let (SOME $ "var" ++ explode x)
+      (App Opref [Con (SOME $ Short "Some") [
+        Con (SOME $ Short "SList") [Var (Short args)]]])
       (App Opapp [ce; Var (Short k)])) ∧
   proc_ml n (x::xs) xp k args ce = (let
     arg = "x" ++ toString n;
@@ -49,7 +49,7 @@ Definition proc_ml_def:
         (Pcon (SOME $ Short "[]") [],
           Con (SOME $ Short "Ex") [Lit $ StrLit "Wrong number of arguments"]);
         (Pcon (SOME $ Short "::") [Pvar arg; Pvar args'],
-          Let (SOME $ "s" ++ explode x)
+          Let (SOME $ "var" ++ explode x)
             (App Opref [Con (SOME $ Short "Some") [Var (Short arg)]])
             inner)
     ]))
@@ -57,7 +57,7 @@ End
 
 Definition letinit_ml_def:
   letinit_ml [] inner = inner ∧
-  letinit_ml ((x,_)::bs) inner = Let (SOME $ "s" ++ explode x)
+  letinit_ml ((x,_)::bs) inner = Let (SOME $ "var" ++ explode x)
       (App Opref [Con (SOME $ Short "None") []]) (letinit_ml bs inner)
 End
 
@@ -92,11 +92,11 @@ Definition cps_transform_def:
     (l, Fun k $ Let (SOME "k") (Fun t capp) $ App Opapp [cfn; Var (Short "k")])) ∧
 
   cps_transform n (Ident x) = (let k = "k" ++ toString n in
-    (n, Fun k $ Mat (App Opderef [Var (Short $ "s" ++ explode x)]) [
+    (n, Fun k $ Mat (App Opderef [Var (Short $ "var" ++ explode x)]) [
       (Pcon (SOME $ Short "None") [],
         Con (SOME $ Short "Ex") [Lit $ StrLit "Letrec variable touched"]);
-      (Pcon (SOME $ Short "Some") [Pvar $ "s'" ++ explode x],
-        App Opapp [Var (Short k); Var (Short $ "s'" ++ explode x)])])) ∧
+      (Pcon (SOME $ Short "Some") [Pvar $ "'var" ++ explode x],
+        App Opapp [Var (Short k); Var (Short $ "'var" ++ explode x)])])) ∧
 
   cps_transform n (Lambda xs xp e) = (let
     (m, ce) = cps_transform n e;
@@ -121,7 +121,7 @@ Definition cps_transform_def:
     t = "t" ++ toString (m+1);
   in
     (m+2, Fun k $ Let (SOME "k")
-      (Fun t $ Let NONE (App Opassign [Var (Short $ "s" ++ explode x);
+      (Fun t $ Let NONE (App Opassign [Var (Short $ "var" ++ explode x);
             Con (SOME $ Short "Some") [Var (Short t)]]) $
           Let (SOME "v") (Con (SOME $ Short "Wrong") [Lit $ StrLit "Unspecified"])
             (App Opapp [Var (Short k); Var (Short "v")])) $
@@ -168,37 +168,15 @@ Definition cps_transform_def:
     t = "t" ++ toString l
   in
     (l+1, App Opapp [ce'; Fun t $ Let NONE
-      (App Opassign [Var (Short $ "s" ++ explode x);
+      (App Opassign [Var (Short $ "var" ++ explode x);
         Con (SOME $ Short "Some") [Var (Short t)]])
       inner]))
 Termination
-  (*WF_REL_TAC ‘measure (λ x . case x of
-    | INL(_,e) => exp_size e
-    | INR(INL(_,_,_,es,_)) => list_size exp_size es
-    | INR(INR(INL(_,_,es,e))) => list_size exp_size (e::es)
-    | INR(INR(INR(_,_,bs,_))) => exp1_size bs)’*)
-  WF_REL_TAC ‘(λ x y . case x of
-    | INL(_,e) => (case y of
-      | INL(_,e') => exp_size e < exp_size e'
-      | INR(INL(_,_,_,es,_)) => exp_size e < exp3_size es
-      | INR(INR(INL(_,_,es,e'))) => exp_size e < exp3_size (e'::es)
-      | INR(INR(INR(_,_,bs,_))) => exp_size e < exp1_size bs)
-    | INR(INL(_,_,_,es,_)) => (case y of
-      | INL(_,e) => T
-      | INR(INL(_,_,_,es',_)) => exp3_size es < exp3_size es'
-      | INR(INR(INL(_,_,es',e))) => exp3_size es < exp3_size (e::es')
-      | INR(INR(INR(_,_,bs,_))) => exp3_size es < exp1_size bs)
-    | INR(INR(INL(_,_,es,e))) => (case y of
-      | INL(_,e') => T
-      | INR(INL(_,_,_,es',_)) => exp3_size (e::es) < exp3_size es'
-      | INR(INR(INL(_,_,es',e'))) => exp3_size (e::es) < exp3_size (e'::es')
-      | INR(INR(INR(_,_,bs,_))) => exp3_size (e::es) < exp1_size bs)
-    | INR(INR(INR(_,_,bs,_))) => (case y of
-      | INL(_,e) => T
-      | INR(INL(_,_,_,es,_)) => exp1_size bs < exp3_size es
-      | INR(INR(INL(_,_,es,e))) => exp1_size bs < exp3_size (e::es)
-      | INR(INR(INR(_,_,bs',_))) => exp1_size bs < exp1_size bs'))’
-  >> cheat
+  WF_REL_TAC ‘inv_image ($< LEX $<) (λ x . case x of
+    | INL(_,e) => (exp_size e, 0)
+    | INR(INL(_,_,_,es,_)) => (list_size exp_size es, 1n)
+    | INR(INR(INL(_,_,es,e))) => (list_size exp_size es + exp_size e, 1)
+    | INR(INR(INR(_,_,bs,_))) => (exp1_size bs), 1)’
 End
 
 Definition compile_scheme_prog_def:

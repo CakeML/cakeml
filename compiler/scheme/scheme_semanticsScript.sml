@@ -113,7 +113,7 @@ Definition step_def:
   step (store, ks, env, Exp $ Cond c t f) = (store, (env, CondK t f) :: ks, env, Exp c) ∧
   (*This is undefined if the program doesn't typecheck*)
   step (store, ks, env, Exp $ Ident s) = (let ev = case EL (env ' s) store of
-    | NONE => Exception $ strlit "letrec variable touched"
+    | NONE => Exception $ strlit "Letrec variable touched"
     | SOME v => Val v
     in (store, ks, env, ev)) ∧
   step (store, ks, env, Exp $ Lambda ps lp e) = (store, ks, env, Val $ Proc env ps lp e) ∧
