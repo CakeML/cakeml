@@ -111,9 +111,9 @@ Definition cps_transform_def:
 
   cps_transform n (Begin es e) = (let
       k = "k" ++ toString n;
-      (m, ce) = cps_transform_seq (n+1) (Var (Short k)) es e
+      (m, inner) = cps_transform_seq (n+1) (Var (Short k)) es e
     in
-      (m, Fun k ce)) ∧
+      (m, Fun k inner)) ∧
 
   cps_transform n (Set x e) = (let
     (m, ce) = cps_transform n e;
@@ -157,7 +157,7 @@ Definition cps_transform_def:
     (m, ce) = cps_transform n e';
     (l, inner) = cps_transform_seq m k es e
   in
-    (l, Let (SOME "k") (Fun "_" $ inner) $ App Opapp [ce; Var (Short "k")])) ∧
+    (l, Let (SOME "k") (Fun "_" inner) $ App Opapp [ce; Var (Short "k")])) ∧
 
 
   cps_transform_letreinit n k [] ce = (n, App Opapp [ce; k]) ∧
