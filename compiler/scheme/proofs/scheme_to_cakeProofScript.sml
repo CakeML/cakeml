@@ -1,13 +1,14 @@
 (*
-  Proofs for Scheme to CakeML compilation
+  Proof of semantic preservation from Scheme to CakeML
 *)
 open preamble;
 open computeLib;
 open scheme_astTheory;
 open scheme_semanticsTheory;
 open scheme_to_cakeTheory;
-open astTheory;
+open scheme_semanticsPropsTheory;
 
+open astTheory;
 open evaluateTheory;
 open evaluatePropsTheory;
 open semanticPrimitivesTheory;
@@ -16,7 +17,7 @@ open primTypesTheory;
 open namespacePropsTheory;
 open integerTheory;
 
-val _ = new_theory "scheme_proofs";
+val _ = new_theory "scheme_to_cakeProof";
 
 val _ = (max_print_depth := 50);
 

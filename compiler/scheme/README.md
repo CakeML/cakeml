@@ -6,6 +6,9 @@ Compilation scripts for the Scheme-to-CakeML compiler.
 [examples](examples):
 Example Scheme programs compiled using the Scheme compiler
 
+[proofs](proofs):
+Proofs for Scheme to CakeML compiler
+
 [scheme_astScript.sml](scheme_astScript.sml):
 AST of Scheme
 
