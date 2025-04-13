@@ -39,8 +39,8 @@ instructions for conditionals, While loop,
 memory load and store, functions,
 and foreign function calls.
 
-[panScopeScript.sml](panScopeScript.sml):
-Scope checking for Pancake.
+[panStaticScript.sml](panStaticScript.sml):
+Static checking for Pancake.
 
 [pan_commonScript.sml](pan_commonScript.sml):
 Common definitions for Pancake compiler
@@ -69,6 +69,9 @@ Proofs files for compiling Pancake.
 
 [semantics](semantics):
 Semantics for Pancake and its intermediate languages.
+
+[static_checker](static_checker):
+Support files for Pancake static checker
 
 [taParserScript.sml](taParserScript.sml):
 Parser for compactDSL programs

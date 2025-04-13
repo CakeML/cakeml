@@ -7,6 +7,8 @@ val _ = new_theory "npbc_parseProg"
 
 val _ = translation_extends"npbc_arrayProg";
 
+val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
+
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 val r = translate strip_numbers_def;
