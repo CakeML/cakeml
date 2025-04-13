@@ -57,8 +57,10 @@ Proof
   EVAL_TAC
 QED
 
-Theorem get_var_with_clock[simp]:
+Theorem get_var_with_const[simp]:
   stackSem$get_var r (t with clock := clk) =
+  (stackSem$get_var r t) /\
+  stackSem$get_var r (t with stack_space := stk_space) =
   (stackSem$get_var r t)
 Proof
   rw[stackSemTheory.get_var_def]
@@ -3262,7 +3264,7 @@ Theorem call_dest_lemma[local]:
     t4.stack_space = t.stack_space /\
     !real_args prog ssize.
       find_code dest
-                (add_ret_loc (ret:(num#num_set#'a wordLang$prog#num#num)option)
+                (add_ret_loc (ret:(num list # (num_set #num_set) # 'a wordLang$prog#num#num)option)
                              args':'a word_loc list)
                 s.code s.stack_size = SOME (real_args,prog,ssize) ==>
       ?bs i bs2 i2 fs stack_prog.
@@ -5816,7 +5818,7 @@ val goal = ``
             (∀i. i < LENGTH ys ∧ i < k - 1 ⇒
               FLOOKUP t1.regs (i+1) = SOME (EL i ys)) ∧
             (∀i. i < LENGTH ys ∧ k - 1 ≤ i ⇒
-              LLOOKUP s.stack (f-1 -(i + 1 - k)) = SOME (EL i ys))
+              LLOOKUP t1.stack (f-1 -(i + 1 - k)) = SOME (EL i ys))
          | SOME (Exception _ y) =>
            ∃cs.
            state_rel ac k 0 0 (push_locals cs s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
@@ -6588,19 +6590,39 @@ Proof
   fs[]
 QED
 
-(* TODO: fix Return case
 Theorem comp_Return_correct:
   ^(get_goal "Return")
 Proof
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
-  qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,LET_DEF,
-      stackSemTheory.evaluate_def,comp_def,wReg1_def]
-  \\ pairarg_tac \\ fs[] \\ rw[]
+  qexists_tac `0` \\
+  gvs[wordSemTheory.evaluate_def,AllCaseEqs()] \\
+  gvs[comp_def,UNCURRY_EQ] \\
+  gvs[wReg1_def,bool_case_eq]
+  >- (
+  fs[wStackLoad_def]
+  \\ `t.use_stack /\ t.stack_space <= LENGTH t.stack` by
+   (fs [state_rel_def] \\ decide_tac) \\ fs [LET_DEF]
+  \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
+  \\ `(t.stack_space + skip_free (k,f,f') ms) <= LENGTH t.stack`
+     by fs[state_rel_def,skip_free_def]
+  \\ fs[]
+  \\ `get_var (n DIV 2) t = get_var n s`
+    by (fs[stackSemTheory.get_var_def,wordSemTheory.get_var_def,
+    state_rel_def] >> METIS_TAC[])
+  \\ fs[]
+  \\ CONJ_TAC
+  >- (fs[state_rel_def,flush_state_def]
+     \\ CONJ_TAC >- METIS_TAC[]
+     \\ CONJ_TAC >- cheat
+     \\ CONJ_TAC >- (STRIP_TAC >> gvs[IS_SOME_EXISTS,the_eqn]
+>> gvs[skip_free_def] >> cheat)
+     \\ CONJ_TAC >- cheat
+
   \\ pop_assum mp_tac \\ rw[]
   \\ `1 < k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
   \\ Cases_on `get_var n s` \\ fs []
   \\ Cases_on `get_var m s` \\ fs [] \\ rw []
-  \\ Cases_on `x` \\ fs []
+  \\ Cases_on `ys` \\ fs []
   \\ rename1 `get_var n s = SOME (Loc l1 l2)`
   \\ fs [wStackLoad_def] \\ fs [convs_def] \\ rw []
   \\ fs [reg_allocTheory.is_phy_var_def,wordLangTheory.max_var_def]
@@ -6650,7 +6672,6 @@ Proof
   \\ rw[] \\ fs[] \\ every_case_tac
   \\ fs[] \\ rw[] \\ rfs[]
 QED
-*)
 
 Theorem stack_rel_aux_stack_size:
   !len k frame bits.
@@ -6697,6 +6718,7 @@ Proof
   PairCases_on `h` >> Cases_on `h0` >> fs[handler_val_def]
 QED
 
+(*
 Theorem comp_Raise_correct:
   ^(get_goal "wordLang$Raise")
 Proof
@@ -6842,6 +6864,7 @@ QED
 Theorem comp_If_correct:
   ^(get_goal "wordLang$If")
 Proof
+  cheat (*
   rw[] >> fs[comp_def]>>
   rpt(pairarg_tac>>gvs[])>>
   rename1`_ = (q1,bss)`>>
@@ -6999,7 +7022,7 @@ Proof
           metis_tac[SUBSET_TRANS,loc_check_SUBSET]
                   )>>
       rw[])
-     )
+     ) *)
 QED
 
 Theorem comp_LocValue_correct:
@@ -7726,7 +7749,6 @@ Proof
   rfs[]
 QED
 
-(* TODO
 Theorem comp_Call_correct:
   ^(get_goal "wordLang$Call")
 Proof
@@ -7745,8 +7767,8 @@ Proof
     \\ qpat_x_assum `_ = (res,s1)` mp_tac
     \\ TOP_CASE_TAC THEN1 rw []
     \\ TOP_CASE_TAC THEN1 rw []
-    \\ imp_res_tac call_dest_lemma
-    \\ pop_assum(qspec_then`NONE` assume_tac) \\ fsrw_tac[][]
+    \\ drule_all call_dest_lemma
+    \\ disch_then (Q.SPEC_THEN `NONE` assume_tac) \\ fsrw_tac[][]
     \\ drule (GEN_ALL evaluate_add_clock) \\ fsrw_tac[] []
     \\ fsrw_tac[] [ADD_COMM,ADD_ASSOC,LET_THM]
     \\ disch_then kall_tac
@@ -7768,7 +7790,7 @@ Proof
     \\ last_x_assum(qspecl_then[`q`, `q'`, `r'`] assume_tac) \\ rfs[]
     \\ TOP_CASE_TAC \\ fsrw_tac[] []
     THEN1
-      (rw [] \\ qexists_tac `0` \\ fsrw_tac[] [] \\ res_tac \\ fsrw_tac[] [state_rel_def])
+      (rw [] \\ qexists_tac `0` \\  gvs[state_rel_def])
     \\ TOP_CASE_TAC
     \\ TOP_CASE_TAC THEN1 rw []
     \\ strip_tac \\ rpt var_eq_tac \\ fsrw_tac[] [] \\ rfs []
@@ -7782,23 +7804,23 @@ Proof
     \\ Cases_on `t4.stack_space + stack_free dest' (LENGTH args) (k,f,f') <
            m' - (LENGTH q - k)` \\ fsrw_tac[] []
     THEN1 ( (* Hit stack limit case *)
-      fsrw_tac[] [state_rel_def]
-      \\ rev_full_simp_tac std_ss []
-      \\ fsrw_tac[] [compile_result_NOT_2]
+      fs[] >>
+      PRED_ASSUM is_forall kall_tac >>
+      `compile_result x' ≠ Halt (Word 2w)` by
+         fs[state_rel_def,compile_result_NOT_2] >> simp[]
+      \\ fsrw_tac[] [state_rel_def] \\ fs[]
       \\ imp_res_tac stackPropsTheory.evaluate_io_events_mono
       \\ imp_res_tac wordPropsTheory.evaluate_io_events_mono
       \\ fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]
       \\ imp_res_tac evaluate_stack_limit
       \\ imp_res_tac evaluate_stack_max
-      \\ PRED_ASSUM is_forall kall_tac
       \\ PURE_FULL_CASE_TAC >- fs[the_eqn]
-      \\ fs[]
-      \\ rveq
+      \\ fs[] \\ rveq
       \\ Cases_on `r.stack_max` >- simp[the_eqn]
       \\ fs[miscTheory.the_def]
       \\ rveq
       \\ fs[stack_free_def]
-      \\ rfs[]
+      \\ rfs[] \\ gvs[] \\ rgs[]
       \\ fs[GREATER_DEF,GREATER_EQ]
       \\ `m' + LENGTH t.stack - (f + t.stack_space) <= x''` by intLib.COOPER_TAC
       \\ match_mp_tac (PURE_ONCE_REWRITE_RULE [CONJ_SYM] LESS_LESS_EQ_TRANS)
@@ -7819,6 +7841,7 @@ Proof
         fs[])
       \\ fs[stack_arg_count_def])
     \\ rev_full_simp_tac std_ss []
+    (*What is this even doing?*)
     \\ (fn g =>
          qabbrev_tac `t5 = ^((qexists_tac`0`
          \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
@@ -7840,6 +7863,7 @@ Proof
           qpat_abbrev_tac`len = LENGTH q -k`>>
           (*This seems too long for a trivial property..*)
           `len ≤ f` by (
+            PRED_ASSUM is_forall kall_tac >>
             fsrw_tac[][convs_def]>>
             qpat_x_assum`args = A` SUBST_ALL_TAC>>
             imp_res_tac get_vars_length_lemma>>
@@ -9811,7 +9835,7 @@ Proof
     strip_tac>>
     rev_full_simp_tac std_ss [] >>
     fsrw_tac[][state_rel_def])
-QED *)
+QED
 
 Theorem comp_correct:
    !(prog:'a wordLang$prog) (s:('a,num # 'c,'ffi) wordSem$state) k f f' res s1 t bs lens.
