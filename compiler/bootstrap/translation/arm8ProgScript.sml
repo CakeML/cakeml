@@ -14,6 +14,8 @@ val _ = set_grammar_ancestry ["arm8_target", "arm8"];
 
 val _ = new_theory "arm8Prog"
 
+val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
+
 val _ = translation_extends "x64Prog";
 val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;

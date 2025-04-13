@@ -24,8 +24,10 @@ val prove_parts_ok_st =
     \\ `st.ffi.oracle = basis_ffi_oracle`
     by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
     \\ rw[cfStoreTheory.parts_ok_def]
-    \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
-    \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
+    >- EVAL_TAC
+    >- (simp[Abbr`st`] \\ EVAL_TAC)
+    >~ [‘_ |++ _’] >- (imp_res_tac oracle_parts \\ gvs [])
+    >~ [‘SOME FFIdiverge’] >- (imp_res_tac oracle_parts_div \\ rfs[])
     \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
     \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
     \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)

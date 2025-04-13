@@ -9,7 +9,7 @@ open asmTheory asmSemTheory asmPropsTheory utilsLib
 
 structure Parse = struct
   open Parse
-  val (Type,Term) = parse_from_grammars asmPropsTheory.asmProps_grammars
+  val (Type,Term) = parse_from_grammars $ valOf $ grammarDB {thyname="asmProps"}
 end
 
 open Parse

@@ -54,8 +54,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars
-           ml_monad_translatorTheory.ml_monad_translator_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname="ml_monad_translator"}
   end
   open Parse
 

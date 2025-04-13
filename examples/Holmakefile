@@ -1,4 +1,5 @@
 INCLUDES = $(HOLDIR)/examples/formal-languages/regular $(HOLDIR)/examples/bootstrap \
+                     $(HOLDIR)/examples/Crypto \
 					 $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
 					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis/pure $(CAKEMLDIR)/basis\
 					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/characteristic
