@@ -93,10 +93,6 @@ Definition dest9_def:
   dest9 xs = dest_fail 9 xs
 End
 
-Definition extend_path_def:
-  extend_path cur next = concat [cur; next; «:»]
-End
-
 Definition bad_con_def[simp]:
   bad_con here = fail (here ^ « Unexpected constructor»)
 End
@@ -321,7 +317,7 @@ Definition to_exp_def:
   do
     e <- to_exp e;
     es <- map_to_exp es;
-    return (e:: es)
+    return (e::es)
   od
 Termination
   wf_rel_tac ‘measure (λx. case x of

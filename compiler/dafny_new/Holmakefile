@@ -1,6 +1,7 @@
 # $(CAKEMLDIR)/misc -> preamble
 # $(CAKEMLDIR)/basis/pure -> mlintTheory
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure
+# $(CAKEMLDIR)/characteristic -> cfTacticsLib
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure $(CAKEMLDIR)/characteristic
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

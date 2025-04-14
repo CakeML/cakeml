@@ -47,4 +47,8 @@ Definition prefix_error_def:
    | r => r)
 End
 
+Definition extend_path_def:
+  extend_path cur next = concat [cur; next; «:»]
+End
+
 val _ = export_theory();
