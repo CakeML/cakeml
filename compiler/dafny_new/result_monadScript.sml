@@ -1,13 +1,13 @@
 (*
-  Definition of a specialized Either monad, where an error is a string.
+  Definition of a specialized Either monad, where an error is an mlstring.
 *)
 
 open preamble
-open mlintTheory  (* fromString_def *)
+open mlstringTheory
 
 val _ = new_theory "result_monad"
 
-Type error = “:string”;
+Type error = “:mlstring”;
 
 Type result[pp] = “:error + α”
 
@@ -40,15 +40,10 @@ Definition result_mmap_def:
     od
 End
 
-(* Can be used to add the result of LENGTH to errors *)
-Definition num_to_string_def:
-  num_to_string (n: num) = explode (toString &n)
-End
-
 Definition prefix_error_def:
   prefix_error s r =
   (case r of
-   | INL e => INL (s ++ e)
+   | INL e => INL (s ^ e)
    | r => r)
 End
 

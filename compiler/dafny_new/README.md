@@ -4,10 +4,10 @@ Translate Dafny into CakeML using a custom intermediate representation.
 Abstract Syntax Tree for a subset of Dafny.
 
 [dafny_sexpScript.sml](dafny_sexpScript.sml):
-Definitions to lex and parse S-expressions.
+Defines a simple S-expression type.
 
 [result_monadScript.sml](result_monadScript.sml):
-Definition of a specialized Either monad, where an error is a string.
+Definition of a specialized Either monad, where an error is an mlstring.
 
 [semantics](semantics):
 Definition of Dafny's semantics.

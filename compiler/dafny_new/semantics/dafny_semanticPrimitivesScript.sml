@@ -16,7 +16,7 @@ Datatype:
     (* methods : method_name |-> (param_names, out_names, body) *)
     methods : (mlstring |-> (mlstring list # mlstring list # statement));
     (* functions : function_name |-> (param_names, body) *)
-    functions : (mlstring |-> (mlstring list # expression))
+    functions : (mlstring |-> (mlstring list # exp))
   |>;
 End
 
@@ -25,13 +25,13 @@ Datatype:
   | IntV int
   | BoolV bool
   | StrV mlstring
-  (* ArrayV length location *)
-  | ArrayV num num
+  (* ArrV length location *)
+  | ArrV num num
 End
 
 Datatype:
   heap_value =
-  | HArray (value list)
+  | HArr (value list)
 End
 
 Datatype:
@@ -170,13 +170,13 @@ Definition do_bop_def:
 End
 
 Definition lit_to_val_def[simp]:
-  lit_to_val (IntLit i) = (IntV i) ∧
-  lit_to_val (BoolLit b) = (BoolV b) ∧
-  lit_to_val (StringLit s) = (StrV s)
+  lit_to_val (IntL i) = (IntV i) ∧
+  lit_to_val (BoolL b) = (BoolV b) ∧
+  lit_to_val (StrL s) = (StrV s)
 End
 
 Definition get_array_len_def:
-  get_array_len (ArrayV len _) = SOME len ∧
+  get_array_len (ArrV len _) = SOME len ∧
   get_array_len _ = NONE
 End
 
@@ -188,10 +188,10 @@ End
 Definition index_array_def:
   index_array st arr idx =
   (case (arr, val_to_num idx) of
-   | (ArrayV len loc, SOME idx) =>
+   | (ArrV len loc, SOME idx) =>
      (case LLOOKUP st.heap loc of
       | NONE => NONE
-      | SOME (HArray arr) => LLOOKUP arr idx)
+      | SOME (HArr arr) => LLOOKUP arr idx)
    | _ => NONE)
 End
 
@@ -206,8 +206,8 @@ Definition alloc_array_def:
   (case val_to_num len of
    | NONE => NONE
    | SOME len =>
-     let arr = (HArray (REPLICATE len init)) in
-       SOME (st with heap := SNOC arr st.heap, ArrayV len (LENGTH st.heap)))
+     let arr = (HArr (REPLICATE len init)) in
+       SOME (st with heap := SNOC arr st.heap, ArrV len (LENGTH st.heap)))
 End
 
 Definition update_local_aux_def:
@@ -228,13 +228,13 @@ End
 Definition update_array_def:
   update_array st arr idx val =
   (case (arr, val_to_num idx) of
-   | (ArrayV len loc, SOME idx) =>
+   | (ArrV len loc, SOME idx) =>
      (case LLOOKUP st.heap loc of
       | NONE => NONE
-      | SOME (HArray arr) =>
+      | SOME (HArr arr) =>
           if idx ≥ LENGTH arr then NONE else
           let new_arr = LUPDATE val idx arr;
-              new_heap = LUPDATE (HArray new_arr) loc st.heap
+              new_heap = LUPDATE (HArr new_arr) loc st.heap
           in
             SOME (st with heap := new_heap))
    | _ => NONE)
@@ -259,7 +259,7 @@ End
 Definition all_values_def:
   all_values IntT = {IntV i | i ∈ 𝕌(:int)} ∧
   all_values BoolT = {BoolV T; BoolV F} ∧
-  all_values StringT = {StrV s | s ∈ 𝕌(:mlstring)} ∧
+  all_values StrT = {StrV s | s ∈ 𝕌(:mlstring)} ∧
   all_values _ = ∅
 End
 
