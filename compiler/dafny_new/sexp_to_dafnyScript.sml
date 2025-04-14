@@ -6,6 +6,7 @@ open preamble
 open result_monadTheory
 open dafny_sexpTheory
 open dafny_astTheory
+open mlintTheory
 
 val _ = new_theory "sexp_to_dafny";
 

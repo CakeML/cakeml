@@ -3,6 +3,7 @@
 *)
 
 open preamble
+open dafny_astTheory
 open mlstringTheory
 open mlintTheory  (* int_to_string *)
 
@@ -70,7 +71,10 @@ End
 
 Definition safe_zip_def:
   safe_zip (x::xs) (y::ys) =
-  OPTION_MAP (CONS (x,y)) (safe_zip xs ys)
+  OPTION_MAP (CONS (x,y)) (safe_zip xs ys) ∧
+  safe_zip [] (y::ys) = NONE ∧
+  safe_zip (x::xs) [] = NONE ∧
+  safe_zip [] [] = SOME []
 End
 
 Definition set_up_call_def:
@@ -165,7 +169,8 @@ Definition do_bop_def:
    | _ => NONE) ∧
   do_bop Div v₀ v₁ =
   (case (v₀, v₁) of
-   | (IntV i₀, IntV i₁) => SOME (IntV (ediv i₀ i₁))
+   | (IntV i₀, IntV i₁) =>
+       if i₁ = 0 then NONE else SOME (IntV (ediv i₀ i₁))
    | _ => NONE)
 End
 
@@ -181,7 +186,7 @@ Definition get_array_len_def:
 End
 
 Definition val_to_num:
-  val_to_num (IntV i) = SOME (Num i) ∧
+  val_to_num (IntV i) = (if i ≥ 0i then SOME (Num i) else NONE) ∧
   val_to_num _ = NONE
 End
 
