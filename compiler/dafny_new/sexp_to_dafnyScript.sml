@@ -206,8 +206,7 @@ Definition to_lit_def:
        od
      else if (cns = «StrL») then
        do
-         (is_verbatim, s) <- prefix_error here (dest2 args);
-         is_verbatim <- prefix_error here (to_bool is_verbatim);
+         s <- prefix_error here (dest1 args);
          s <- prefix_error here (to_mlstring s);
          return (StrL s)
        od
@@ -355,11 +354,11 @@ Definition to_rhs_exp_def:
        od
      else if (cns = «ArrAlloc») then
        do
-         (t, e₀, e₁) <- prefix_error here (dest3 args);
+         (t, len, init) <- prefix_error here (dest3 args);
          t <- prefix_error here (to_type t);
-         e₀ <- prefix_error here (to_exp e₀);
-         e₁ <- prefix_error here (to_exp e₁);
-         return (ArrAlloc t e₀ e₁)
+         len <- prefix_error here (to_exp len);
+         init <- prefix_error here (to_exp init);
+         return (ArrAlloc t len init)
        od
      else
        bad_con here
