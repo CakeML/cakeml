@@ -75,13 +75,15 @@ End
 
 Definition set_up_call_def:
   set_up_call st in_ns in_vs outs =
-  (case (safe_zip in_ns (MAP SOME in_vs)) of
-   | NONE => NONE
-   | SOME params =>
-     (let old_locals = st.locals;
-          new_locals = params ++ (MAP (λn. (n, NONE)) outs)
-      in
-        SOME (old_locals, st with locals := [FEMPTY |++ new_locals])))
+  if ¬ALL_DISTINCT (in_ns ++ outs) then NONE
+  else
+    (case (safe_zip in_ns (MAP SOME in_vs)) of
+     | NONE => NONE
+     | SOME params =>
+       (let old_locals = st.locals;
+            new_locals = params ++ (MAP (λn. (n, NONE)) outs)
+        in
+          SOME (old_locals, st with locals := [FEMPTY |++ new_locals])))
 End
 
 Theorem set_up_call_clock:
