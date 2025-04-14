@@ -15,18 +15,18 @@ val _ = new_theory "dafny_evaluate";
    semantics/evaluateScript.sml. *)
 
 Definition fix_clock_def:
-  fix_clock s (s', res) =
-  (s' with clock := if s'.clock ≤ s.clock then s'.clock else s.clock, res)
+  fix_clock st₀ (st₁, res) =
+  (st₁ with clock := if st₁.clock ≤ st₀.clock then st₁.clock else st₀.clock, res)
 End
 
 Triviality fix_clock_IMP:
-  fix_clock s x = (s', res) ⇒ s'.clock ≤ s.clock
+  fix_clock st₀ x = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
 Proof
   Cases_on ‘x’ >> rw[fix_clock_def] >> gvs[]
 QED
 
 Definition dec_clock_def:
-  dec_clock s = (s with clock := s.clock − 1)
+  dec_clock st = (st with clock := st.clock − 1)
 End
 
 (* Semantics for expressions *)
@@ -37,15 +37,15 @@ Definition evaluate_exp_ann_def[nocompute]:
   (case read_local st name of
    | NONE => (st, Rerr Rtype_error)
    | SOME v => (st, Rval v)) ∧
-  evaluate_exp st env (If tst thn els) =
-  (case fix_clock st (evaluate_exp st env tst) of
+  evaluate_exp st₀ env (If tst thn els) =
+  (case fix_clock st₀ (evaluate_exp st₀ env tst) of
    | (st₁, Rerr err) => (st₁, Rerr err)
    | (st₁, Rval v) =>
      (case do_cond v thn els of
       | NONE => (st₁, Rerr Rtype_error)
       | SOME branch => evaluate_exp st₁ env branch)) ∧
-  evaluate_exp st env (BinOp bop e₀ e₁) =
-  (case fix_clock st (evaluate_exp st env e₀) of
+  evaluate_exp st₀ env (BinOp bop e₀ e₁) =
+  (case fix_clock st₀ (evaluate_exp st₀ env e₀) of
    | (st₁, Rerr err) => (st₁, Rerr err)
    | (st₁, Rval v₀) =>
      (case try_sc bop v₀ of
@@ -57,15 +57,15 @@ Definition evaluate_exp_ann_def[nocompute]:
            (case do_bop bop v₀ v₁ of
             | SOME res => (st₂, Rval res)
             | NONE => (st₂, Rerr Rtype_error))))) ∧
-  evaluate_exp st env (ArrLen e) =
-  (case evaluate_exp st env e of
+  evaluate_exp st₀ env (ArrLen e) =
+  (case evaluate_exp st₀ env e of
    | (st₁, Rerr err) => (st₁, Rerr err)
    | (st₁, Rval v) =>
      (case get_array_len v of
       | NONE => (st₁, Rerr Rtype_error)
       | SOME len => (st₁, Rval (IntV &len)))) ∧
-  evaluate_exp st env (ArrSel arr idx) =
-  (case fix_clock st (evaluate_exp st env arr) of
+  evaluate_exp st₀ env (ArrSel arr idx) =
+  (case fix_clock st₀ (evaluate_exp st₀ env arr) of
    | (st₁, Rerr err) => (st₁, Rerr err)
    | (st₁, Rval arr) =>
      (case fix_clock st₁ (evaluate_exp st₁ env idx) of
@@ -74,11 +74,11 @@ Definition evaluate_exp_ann_def[nocompute]:
         (case index_array st₂ arr idx of
          | NONE => (st₂, Rerr Rtype_error)
          | SOME v => (st₂, Rval v)))) ∧
-  evaluate_exp st env (FunCall name args) =
+  evaluate_exp st₀ env (FunCall name args) =
   (case FLOOKUP env.functions name of
-   | NONE => (st, Rerr Rtype_error)
+   | NONE => (st₀, Rerr Rtype_error)
    | SOME (in_names, body) =>
-     (case fix_clock st (evaluate_exps st env args) of
+     (case fix_clock st₀ (evaluate_exps st₀ env args) of
       | (st₁, Rerr err) => (st₁, Rerr err)
       | (st₁, Rval in_vs) =>
         (case set_up_call st₁ in_names in_vs [] of
@@ -102,8 +102,8 @@ Definition evaluate_exp_ann_def[nocompute]:
         is a Bool to throw a type error if not. Instead, we return (BoolV F). *)
      else (st, Rval (BoolV F))) ∧
   evaluate_exps st env [] = (st, Rval []) ∧
-  evaluate_exps st env (e::es) =
-  (case fix_clock st (evaluate_exp st env e) of
+  evaluate_exps st₀ env (e::es) =
+  (case fix_clock st₀ (evaluate_exp st₀ env e) of
    | (st₁, Rerr err) => (st₁, Rerr err)
    | (st₁, Rval v) =>
      (case evaluate_exps st₁ env es of
@@ -123,10 +123,10 @@ Termination
 End
 
 Theorem evaluate_exp_clock:
-  (∀s₁ env e s₂ r.
-     evaluate_exp s₁ env e = (s₂, r) ⇒ s₂.clock ≤ s₁.clock) ∧
-  (∀s₁ env es s₂ r.
-     evaluate_exps s₁ env es = (s₂, r) ⇒ s₂.clock ≤ s₁.clock)
+  (∀st₀ env e st₁ r.
+     evaluate_exp st₀ env e = (st₁, r) ⇒ st₁.clock ≤ st₀.clock) ∧
+  (∀st₀ env es st₁ r.
+     evaluate_exps st₀ env es = (st₁, r) ⇒ st₁.clock ≤ st₀.clock)
 Proof
   ho_match_mp_tac evaluate_exp_ann_ind
   >> rpt strip_tac
@@ -138,10 +138,10 @@ Proof
 QED
 
 Theorem fix_clock_evaluate_exp:
-  (fix_clock s₁ (evaluate_exp s₁ env exp) = evaluate_exp s₁ env exp) ∧
-  (fix_clock s₁ (evaluate_exps s₁ env exps) = evaluate_exps s₁ env exps)
+  (fix_clock st (evaluate_exp st env exp) = evaluate_exp st env exp) ∧
+  (fix_clock st (evaluate_exps st env exps) = evaluate_exps st env exps)
 Proof
-  Cases_on ‘evaluate_exp s₁ env exp’ >> Cases_on ‘evaluate_exps s₁ env exps’
+  Cases_on ‘evaluate_exp st env exp’ >> Cases_on ‘evaluate_exps st env exps’
   >> imp_res_tac evaluate_exp_clock
   >> gvs [fix_clock_def, state_component_equality]
 QED
@@ -156,11 +156,11 @@ Theorem evaluate_exp_ind =
 
 Definition evaluate_rhs_exp_def:
   evaluate_rhs_exp st env (ExpRhs e) = evaluate_exp st env e ∧
-  evaluate_rhs_exp st env (ArrAlloc _ len init) =
-  (case evaluate_exp st env len of
+  evaluate_rhs_exp st₀ env (ArrAlloc _ len init) =
+  (case evaluate_exp st₀ env len of
    | (st₁, Rerr err) => (st₁, Rerr err)
    | (st₁, Rval len) =>
-     (case evaluate_exp st env init of
+     (case evaluate_exp st₁ env init of
       | (st₂, Rerr err) => (st₂, Rerr err)
       | (st₂, Rval init) =>
         (case alloc_array st₂ len init of
@@ -169,18 +169,18 @@ Definition evaluate_rhs_exp_def:
 End
 
 Theorem evaluate_rhs_exp_clock:
-  ∀st env e st' res.
-    evaluate_rhs_exp st env e = (st', res) ⇒ st'.clock ≤ st.clock
+  ∀st₀ env e st₁ res.
+    evaluate_rhs_exp st₀ env e = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
 Proof
   rpt strip_tac
   >> gvs [oneline evaluate_rhs_exp_def, alloc_array_def, AllCaseEqs ()]
-  >> imp_res_tac evaluate_exp_clock
+  >> imp_res_tac evaluate_exp_clock >> gvs []
 QED
 
 Definition evaluate_rhs_exps_def:
   evaluate_rhs_exps st env [] = (st, Rval []) ∧
-  evaluate_rhs_exps st env (e::es) =
-  (case evaluate_rhs_exp st env e of
+  evaluate_rhs_exps st₀ env (e::es) =
+  (case evaluate_rhs_exp st₀ env e of
    | (st₁, Rerr err) => (st₁, Rerr err)
    | (st₁, Rval v) =>
      (case evaluate_rhs_exps st₁ env es of
@@ -189,8 +189,8 @@ Definition evaluate_rhs_exps_def:
 End
 
 Theorem evaluate_rhs_exps_clock:
-  ∀st env es st' res.
-    evaluate_rhs_exps st env es = (st', res) ⇒ st'.clock ≤ st.clock
+  ∀st₀ env es st₁ res.
+    evaluate_rhs_exps st₀ env es = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
 Proof
   Induct_on ‘es’
   >> rpt strip_tac
@@ -202,12 +202,12 @@ QED
 (* Semantics for assigning values *)
 
 Definition assign_value_def:
-  assign_value st env (Var var) val =
-  (case update_local st var val of
-   | NONE => (st, Rstop (Serr Rtype_error))
+  assign_value st₀ env (Var var) val =
+  (case update_local st₀ var val of
+   | NONE => (st₀, Rstop (Serr Rtype_error))
    | SOME st₁ => (st₁, Rcont)) ∧
-  assign_value st env (ArrSel arr idx) val =
-  (case evaluate_exp st env arr of
+  assign_value st₀ env (ArrSel arr idx) val =
+  (case evaluate_exp st₀ env arr of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
    | (st₁, Rval arr) =>
      (case evaluate_exp st₁ env idx of
@@ -220,8 +220,8 @@ Definition assign_value_def:
 End
 
 Theorem assign_value_clock:
-  ∀st env e v st' res.
-    assign_value st env e v = (st', res) ⇒ st'.clock ≤ st.clock
+  ∀st₀ env e v st₁ res.
+    assign_value st₀ env e v = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
 Proof
   rpt strip_tac
   >> gvs [update_local_def, update_array_def,
@@ -231,16 +231,16 @@ QED
 
 Definition assign_values_def:
   assign_values st env [] [] = (st, Rcont) ∧
-  assign_values st env (lhs::lhss) (v::vs) =
-  (case assign_value st env lhs v of
+  assign_values st₀ env (lhs::lhss) (v::vs) =
+  (case assign_value st₀ env lhs v of
    | (st₁, Rstop stp) => (st₁, Rstop stp)
    | (st₁, Rcont) => assign_values st₁ env lhss vs) ∧
   assign_values st env _ _ = (st, Rstop (Serr Rtype_error))
 End
 
 Theorem assign_values_clock:
-  ∀st env lhss vs st' res.
-    assign_values st env lhss vs = (st', res) ⇒ st'.clock ≤ st.clock
+  ∀st₀ env lhss vs st₁ res.
+    assign_values st₀ env lhss vs = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
 Proof
   Induct_on ‘lhss’ >> Induct_on ‘vs’
   >> rpt strip_tac
@@ -258,18 +258,18 @@ End
 
 Definition evaluate_stmt_ann_def[nocompute]:
   evaluate_stmt st env Skip = (st, Rcont) ∧
-  evaluate_stmt st env (Assert e) =
-  (case evaluate_exp st env e of
+  evaluate_stmt st₀ env (Assert e) =
+  (case evaluate_exp st₀ env e of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
    | (st₁, Rval vs) =>
        if vs = BoolV T then (st₁, Rcont)
        else (st₁, Rstop (Serr Rtype_error))) ∧
-  evaluate_stmt st env (Then stmt₁ stmt₂) =
-  (case fix_clock st (evaluate_stmt st env stmt₁) of
+  evaluate_stmt st₀ env (Then stmt₁ stmt₂) =
+  (case fix_clock st₀ (evaluate_stmt st₀ env stmt₁) of
    | (st₁, Rstop stp) => (st₁, Rstop stp)
-   | (st₁, Rcont) => evaluate_stmt st env stmt₂) ∧
-  evaluate_stmt st env (If tst thn els) =
-  (case evaluate_exp st env tst of
+   | (st₁, Rcont) => evaluate_stmt st₁ env stmt₂) ∧
+  evaluate_stmt st₀ env (If tst thn els) =
+  (case evaluate_exp st₀ env tst of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
    | (st₁, Rval tst) =>
      (case do_cond tst thn els of
@@ -278,12 +278,12 @@ Definition evaluate_stmt_ann_def[nocompute]:
   evaluate_stmt st env (Dec locals scope) =
   (let names = MAP FST locals in
      evaluate_stmt (declare_locals st names) env scope) ∧
-  evaluate_stmt st env (Assign lhss rhss) =
-  (case evaluate_rhs_exps st env rhss of
+  evaluate_stmt st₀ env (Assign lhss rhss) =
+  (case evaluate_rhs_exps st₀ env rhss of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
-   | (st₁, Rval vals) => assign_values st env lhss vals) ∧
-  evaluate_stmt st env (While guard invs decrs mods body) =
-  (case evaluate_exp st env guard of
+   | (st₁, Rval vals) => assign_values st₁ env lhss vals) ∧
+  evaluate_stmt st₀ env (While guard invs decrs mods body) =
+  (case evaluate_exp st₀ env guard of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
    | (st₁, Rval guard_v) =>
      if guard_v = BoolV F then (st₁, Rcont)
@@ -295,19 +295,19 @@ Definition evaluate_stmt_ann_def[nocompute]:
           evaluate_stmt (dec_clock st₂) env
                         (STOP (While guard invs decrs mods body)))
      else (st₁, Rstop (Serr Rtype_error))) ∧
-  evaluate_stmt st env (Print ets) =
+  evaluate_stmt st₀ env (Print ets) =
   (let es = MAP FST ets in
-     (case evaluate_exps st env es of
+     (case evaluate_exps st₀ env es of
       | (st₁, Rerr err) => (st₁, Rstop (Serr err))
       | (st₁, Rval vs) =>
         (case print_string st₁ vs of
          | NONE => (st₁, Rstop (Serr Rtype_error))
          | SOME st₂ => (st₂, Rcont)))) ∧
-  evaluate_stmt st env (MetCall lhss name args) =
+  evaluate_stmt st₀ env (MetCall lhss name args) =
   (case FLOOKUP env.methods name of
-   | NONE => (st, Rstop (Serr Rtype_error))
+   | NONE => (st₀, Rstop (Serr Rtype_error))
    | SOME (in_ns, out_ns, body) =>
-     (case evaluate_exps st env args of
+     (case evaluate_exps st₀ env args of
       | (st₁, Rerr err) => (st₁, Rstop (Serr err))
       | (st₁, Rval in_vs) =>
         (case set_up_call st₁ in_ns in_vs out_ns of
@@ -338,8 +338,8 @@ Termination
 End
 
 Theorem evaluate_stmt_clock:
-  ∀s₁ env e s₂ r.
-    evaluate_stmt s₁ env e = (s₂, r) ⇒ s₂.clock ≤ s₁.clock
+  ∀st₀ env e st₁ r.
+    evaluate_stmt st₀ env e = (st₁, r) ⇒ st₁.clock ≤ st₀.clock
 Proof
   ho_match_mp_tac evaluate_stmt_ann_ind
   >> rpt strip_tac
@@ -352,9 +352,9 @@ Proof
 QED
 
 Theorem fix_clock_evaluate_stmt:
-  fix_clock s (evaluate_stmt s env stmt) = evaluate_stmt s env stmt
+  fix_clock st (evaluate_stmt st env stmt) = evaluate_stmt st env stmt
 Proof
-  Cases_on ‘evaluate_stmt s env stmt’
+  Cases_on ‘evaluate_stmt st env stmt’
   >> imp_res_tac evaluate_stmt_clock
   >> gvs [fix_clock_def, state_component_equality]
 QED

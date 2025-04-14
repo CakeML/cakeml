@@ -87,8 +87,8 @@ Definition set_up_call_def:
 End
 
 Theorem set_up_call_clock:
-  ∀ s₁ ins ivs os locals s₂.
-    set_up_call s₁ ins ivs os = SOME (locals, s₂) ⇒ s₂.clock = s₁.clock
+  ∀ st₀ ins ivs os locals st₁.
+    set_up_call st₀ ins ivs os = SOME (locals, st₁) ⇒ st₁.clock = st₀.clock
 Proof
   rpt strip_tac >> gvs [set_up_call_def, CaseEq "option"]
 QED
@@ -98,8 +98,8 @@ Definition restore_locals_def:
 End
 
 Theorem restore_locals_clock:
-  ∀ s₁ old_locals.
-    restore_locals s₁ old_locals = s₂ ⇒ s₂.clock = s₁.clock
+  ∀ st₀ old_locals st₁.
+    restore_locals st₀ old_locals = st₁ ⇒ st₁.clock = st₀.clock
 Proof
   rpt strip_tac >> gvs [restore_locals_def]
 QED
