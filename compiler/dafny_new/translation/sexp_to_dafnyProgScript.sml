@@ -34,6 +34,7 @@ val r = translate sexp_to_dafnyTheory.bad_con_def;
 val r = translate sexp_to_dafnyTheory.to_type_def;
 val r = translate sexp_to_dafnyTheory.to_mlstring_type_tup_def;
 val r = translate sexp_to_dafnyTheory.to_mlstring_type_tup_lst_def;
+val r = translate sexp_to_dafnyTheory.to_un_op_def;
 val r = translate sexp_to_dafnyTheory.to_bin_op_def;
 val r = translate sexp_to_dafnyTheory.to_lit_def;
 

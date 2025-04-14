@@ -44,6 +44,13 @@ Definition evaluate_exp_ann_def[nocompute]:
      (case do_cond v thn els of
       | NONE => (st₁, Rerr Rtype_error)
       | SOME branch => evaluate_exp st₁ env branch)) ∧
+  evaluate_exp st₀ env (UnOp uop e) =
+  (case evaluate_exp st₀ env e of
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v) =>
+     (case do_uop uop v of
+      | NONE => (st₁, Rerr Rtype_error)
+      | SOME res => (st₁, Rval res))) ∧
   evaluate_exp st₀ env (BinOp bop e₀ e₁) =
   (case fix_clock st₀ (evaluate_exp st₀ env e₀) of
    | (st₁, Rerr err) => (st₁, Rerr err)
@@ -55,8 +62,8 @@ Definition evaluate_exp_ann_def[nocompute]:
          | (st₂, Rerr err) => (st₂, Rerr err)
          | (st₂, Rval v₁) =>
            (case do_bop bop v₀ v₁ of
-            | SOME res => (st₂, Rval res)
-            | NONE => (st₂, Rerr Rtype_error))))) ∧
+            | NONE => (st₂, Rerr Rtype_error)
+            | SOME res => (st₂, Rval res))))) ∧
   evaluate_exp st₀ env (ArrLen e) =
   (case evaluate_exp st₀ env e of
    | (st₁, Rerr err) => (st₁, Rerr err)

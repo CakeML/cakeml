@@ -128,6 +128,10 @@ Definition try_sc_def:
   try_sc _ _ = NONE
 End
 
+Definition do_uop_def:
+  do_uop Not v = case v of BoolV b => SOME (BoolV ¬b) | _ => NONE
+End
+
 Definition do_bop_def:
   do_bop Eq v₀ v₁ = SOME (BoolV (v₀ = v₁)) ∧
   do_bop Neq v₀ v₁ = SOME (BoolV (v₀ ≠ v₁)) ∧

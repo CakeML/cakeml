@@ -16,6 +16,10 @@ Datatype:
 End
 
 Datatype:
+  un_op = Not
+End
+
+Datatype:
   bin_op = Lt | Le | Ge | Eq | Neq | Sub | Add | Mul | And | Or | Imp | Div
 End
 
@@ -32,6 +36,7 @@ Datatype:
   | Var mlstring
   (* Exp_If test thn els *)
   | Exp_If exp exp exp
+  | UnOp un_op exp
   | BinOp bin_op exp exp
   (* ArrLen arr *)
   | ArrLen exp

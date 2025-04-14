@@ -151,6 +151,19 @@ Definition to_mlstring_type_tup_lst_def:
    od)
 End
 
+Definition to_un_op_def:
+  to_un_op se =
+  (let here = extend_path «» «to_un_op» in
+   do
+     (cns, args) <- prefix_error here (split se);
+     here <<- extend_path here cns;
+     if (cns = «Not») then
+       do _ <- prefix_error here (dest0 args); return Not od
+     else
+       bad_con here
+   od)
+End
+
 Definition to_bin_op_def:
   to_bin_op se =
   (let here = extend_path «» «to_bin_op» in
@@ -243,6 +256,15 @@ Definition to_exp_def:
               thn <- prefix_error here (to_exp thn);
               els <- prefix_error here (to_exp els);
               return (If tst thn els)
+            od)
+       else if (cns = «UnOp») then
+         (case dest2 args of
+          | INL err => fail (here ^ err)
+          | INR (uop, e) =>
+            do
+              uop <- prefix_error here (to_un_op uop);
+              e <- prefix_error here (to_exp e);
+              return (UnOp uop e)
             od)
        else if (cns = «BinOp») then
          (case dest3 args of
