@@ -163,7 +163,7 @@ Theorem evaluate_exp_ind =
 
 Definition evaluate_rhs_exp_def:
   evaluate_rhs_exp st env (ExpRhs e) = evaluate_exp st env e ∧
-  evaluate_rhs_exp st₀ env (ArrAlloc _ len init) =
+  evaluate_rhs_exp st₀ env (ArrAlloc len init) =
   (case evaluate_exp st₀ env len of
    | (st₁, Rerr err) => (st₁, Rerr err)
    | (st₁, Rval len) =>

@@ -57,8 +57,8 @@ Overload If = “Exp_If”
 Datatype:
   rhs_exp =
   | ExpRhs exp
-  (* ArrAlloc type length init_value *)
-  | ArrAlloc type exp exp
+  (* ArrAlloc length init_value *)
+  | ArrAlloc exp exp
 End
 
 Datatype:

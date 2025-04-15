@@ -372,11 +372,10 @@ Definition to_rhs_exp_def:
        od
      else if (cns = «ArrAlloc») then
        do
-         (t, len, init) <- prefix_error here (dest3 args);
-         t <- prefix_error here (to_type t);
+         (len, init) <- prefix_error here (dest2 args);
          len <- prefix_error here (to_exp len);
          init <- prefix_error here (to_exp init);
-         return (ArrAlloc t len init)
+         return (ArrAlloc len init)
        od
      else
        bad_con here
