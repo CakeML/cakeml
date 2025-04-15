@@ -61,6 +61,13 @@ Definition letinit_ml_def:
       (App Opref [Con (SOME $ Short "None") []]) (letinit_ml bs inner)
 End
 
+Definition refunc_set_def:
+  refunc_set n t k x = (n, Let NONE (App Opassign [Var (Short $ "var" ++ explode x);
+              Con (SOME $ Short "Some") [t]]) $
+            Let (SOME "v") (Con (SOME $ Short "Wrong") [Lit $ StrLit "Unspecified"])
+              (App Opapp [k; Var (Short "v")]))
+End
+
 Definition cps_transform_def:
   cps_transform n (Lit v) = (let
     k = "k" ++ toString n;
@@ -119,13 +126,9 @@ Definition cps_transform_def:
     (m, ce) = cps_transform n e;
     k = "k" ++ toString m;
     t = "t" ++ toString (m+1);
+    (l, inner) = refunc_set (m+2) (Var (Short t)) (Var (Short k)) x;
   in
-    (m+2, Fun k $ Let (SOME "k")
-      (Fun t $ Let NONE (App Opassign [Var (Short $ "var" ++ explode x);
-            Con (SOME $ Short "Some") [Var (Short t)]]) $
-          Let (SOME "v") (Con (SOME $ Short "Wrong") [Lit $ StrLit "Unspecified"])
-            (App Opapp [Var (Short k); Var (Short "v")])) $
-        App Opapp [ce; Var (Short "k")])) ∧
+    (l, Fun k $ Let (SOME "k") (Fun t inner) $ App Opapp [ce; Var (Short "k")])) ∧
 
   cps_transform n (Letrec bs e) = (let
     (m, ce) = cps_transform n e;
@@ -158,7 +161,6 @@ Definition cps_transform_def:
     (l, inner) = cps_transform_seq m k es e
   in
     (l, Let (SOME "k") (Fun "_" inner) $ App Opapp [ce; Var (Short "k")])) ∧
-
 
   cps_transform_letreinit n k [] ce = (n, App Opapp [ce; k]) ∧
 

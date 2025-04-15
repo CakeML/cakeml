@@ -39,6 +39,7 @@ val r = translate cake_print_def;
 val r = translate to_ml_vals_def;
 val r = translate cons_list_def;
 val r = translate proc_ml_def;
+val r = translate refunc_set_def;
 val r = translate letinit_ml_def;
 val r = translate cps_transform_def;
 val r = translate compile_scheme_prog_def;

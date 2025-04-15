@@ -34,7 +34,7 @@ Theorem scheme_env1_def[allow_rebind, compute] = EVAL_RULE $ zDefine ‘
 Definition cconses_def[simp]:
   cconses = ["SNum"; "SBool"; "True"; "False";
     "Prim";"SAdd";"SMul";"SMinus";"SEqv";"CallCC";
-    "[]"; "::"; "Some"; "None"; "Ex"; "Proc"; "Throw";"SList"]
+    "[]"; "::"; "Some"; "None"; "Ex"; "Proc"; "Throw";"SList";"Wrong"]
 End
 
 Theorem scheme_env1_rw[simp] = SRULE [nsLookup_def] $ SIMP_CONV pure_ss [
@@ -279,6 +279,8 @@ val (ml_v_vals'_rules,ml_v_vals'_ind,ml_v_vals'_cases) =
     Conv (SOME (scheme_typestamp "Prim")) [Conv (SOME (scheme_typestamp "SEqv")) []]) ∧
   (ml_v_vals' (Prim CallCC) $
     Conv (SOME (scheme_typestamp "Prim")) [Conv (SOME (scheme_typestamp "CallCC")) []]) ∧
+  (ml_v_vals' (Wrong s) $
+    Conv (SOME (scheme_typestamp "Wrong")) [Litv (StrLit s)]) ∧
 
   (scheme_env env ∧
   env_rel se env ∧
@@ -417,6 +419,20 @@ Inductive cont_rel:
   ⇒
   cont_rel ((se, BeginK es e) :: ks)
     (Closure env "_" $ inner)
+[~SetK:]
+  cont_rel ks kv ∧
+  nsLookup env.v (Short var) = SOME kv ∧
+  (m, inner) = refunc_set n (Var (Short t)) (Var (Short var)) x ∧
+  scheme_env env ∧
+  env_rel se env ∧
+  ¬ MEM var vconses ∧
+  ¬ MEM t vconses ∧
+  (∀ x . t ≠ "var" ++ x) ∧
+  var ≠ "v" ∧
+  var ≠ t
+  ⇒
+  cont_rel ((se, SetK x) :: ks)
+    (Closure env t $ inner)
 End
 
 Theorem compile_in_rel:
@@ -441,7 +457,7 @@ Proof
 QED
 
 (*
-open scheme_proofsTheory;
+open scheme_to_cakeProofTheory;
 open scheme_parsingTheory;
 *)
 
@@ -479,7 +495,7 @@ Theorem mono_cps_on_n:
   (∀ n k bs ce' m ce . (m, ce) = cps_transform_letreinit n k bs ce' ⇒ m ≥ n)
 Proof
   ho_match_mp_tac $ cps_transform_ind
-  >> simp[cps_transform_def]
+  >> simp[cps_transform_def, refunc_set_def]
   >> rpt strip_tac
   >> rpt (pairarg_tac >> gvs[])
   >> dxrule $ GSYM mono_proc_ml_on_n
@@ -924,6 +940,24 @@ Proof
       >> simp[Once e_ce_rel_cases]
       >> gvs[env_rel_cases, FEVERY_DEF]
     )
+    >~ [‘Set x e’] >- (
+      simp[cps_transform_def]
+      >> rpt strip_tac
+      >> rpt (pairarg_tac >> gvs[])
+      >> qrefine ‘ck+1’
+      >> simp[SimpLHS, Ntimes evaluate_def 6, do_opapp_def,
+        nsOptBind_def, dec_clock_def]
+      >> irule_at (Pos hd) EQ_REFL
+      >> simp[Once e_ce_rel_cases]
+      >> irule_at Any EQ_REFL
+      >> simp[Once cont_rel_cases]
+      >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+      >> pop_assum $ irule_at (Pos $ el 2) o GSYM
+      >> gvs[scheme_env_def, env_rel_cases]
+      >> irule_at Any str_not_num
+      >> simp[isDigit_def]
+      >> pop_assum $ irule_at (Pos hd) o GSYM
+    )
     >> cheat
   )
   >~ [‘Val v’] >- (
@@ -996,6 +1030,37 @@ Proof
         o curry ((::) o swap) [scheme_env_def]
         o SRULE [scheme_env_def]
       >> gvs[env_rel_cases]
+    )
+    >> Cases_on ‘∃ x . h1 = SetK x’ >- (
+      gvs[]
+      >> simp[step_def, return_def, Once e_ce_rel_cases, refunc_set_def,
+        Once cont_rel_cases, cps_transform_def, cps_app_ts_def]
+      >> rpt strip_tac
+      >> simp[]
+      >> gvs[Once valid_state_cases]
+      >> qpat_x_assum ‘valid_cont _ _’ $ mp_tac
+        o SRULE [Once valid_val_cases]
+      >> strip_tac
+      >> qpat_assum ‘env_rel h0 _’ $ drule_then assume_tac
+        o SRULE [env_rel_cases, FEVERY_DEF, SPECIFICATION]
+      >> qpat_assum ‘can_lookup h0 _’ $ drule_then assume_tac
+        o SRULE [can_lookup_cases, FEVERY_DEF, SPECIFICATION]
+      >> drule_then assume_tac EVERY2_LENGTH
+      >> drule_all_then assume_tac $ cj 2 $ iffLR LIST_REL_EL_EQN
+      >> gvs[store_entry_rel_cases]
+      >> qrefine ‘ck+1’
+      >> simp[Ntimes evaluate_def 13, do_con_check_def, nsOptBind_def,
+        build_conv_def, scheme_env_def, do_opapp_def, dec_clock_def,
+        do_app_def, store_assign_def, store_v_same_type_def]
+      >> qpat_assum ‘scheme_env _’ $ simp o single
+        o SRULE [scheme_env_def]
+      >> irule_at (Pos hd) EQ_REFL
+      >> simp[]
+      >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+      >> simp[Once e_ce_rel_cases, Once ml_v_vals'_cases]
+      >> gvs[env_rel_cases]
+      >> irule EVERY2_LUPDATE_same
+      >> simp[store_entry_rel_cases]
     )
     >> Cases_on ‘∃ e es . h1 = ApplyK NONE (e::es)’ >- (
       gvs[]
@@ -1110,6 +1175,14 @@ Proof
         >> simp[env_rel_cases, FEVERY_FEMPTY]
       )
       >~ [‘SOME (Conv (SOME (TypeStamp "SList" _)) [_])’] >- (
+        qrefine ‘ck+1’
+        >> simp[Once evaluate_def]
+        >> irule_at (Pos hd) EQ_REFL
+        >> simp[Once e_ce_rel_cases]
+        >> last_assum $ irule_at (Pos hd)
+        >> simp[env_rel_cases, FEVERY_FEMPTY]
+      )
+      >~ [‘SOME (Conv (SOME (TypeStamp "Wrong" _)) [_])’] >- (
         qrefine ‘ck+1’
         >> simp[Once evaluate_def]
         >> irule_at (Pos hd) EQ_REFL
