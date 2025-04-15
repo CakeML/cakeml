@@ -160,6 +160,10 @@ Definition from_exp_def:
        cml_es <- from_exps es;
        return (cml_e::cml_es)
      od)
+Termination
+  wf_rel_tac ‘measure (λx. case x of
+                           | INL e => exp_size e
+                           | INR es => list_size exp_size es)’
 End
 
 (* Defines the Dafny module containing the Dafny runtime *)
