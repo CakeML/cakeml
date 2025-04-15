@@ -72,9 +72,8 @@ End
 Definition safe_zip_def:
   safe_zip (x::xs) (y::ys) =
   OPTION_MAP (CONS (x,y)) (safe_zip xs ys) ∧
-  safe_zip [] (y::ys) = NONE ∧
-  safe_zip (x::xs) [] = NONE ∧
-  safe_zip [] [] = SOME []
+  safe_zip [] [] = SOME [] ∧
+  safe_zip _ _ = NONE
 End
 
 Definition set_up_call_def:

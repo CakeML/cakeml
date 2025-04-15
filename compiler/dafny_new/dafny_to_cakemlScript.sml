@@ -27,10 +27,9 @@ End
 Overload True = “Con (SOME (Short "True")) []”
 Overload False = “Con (SOME (Short "False")) []”
 Overload Unit = “Con NONE []”
-
-Definition cml_deref_def[simp]:
-  cml_deref v = App Opderef [Var (Short (explode v))]
-End
+Overload Tuple = “λes. Con NONE es”
+Overload None = “Con (SOME (Short "None")) []”
+Overload Some = “λe. Con (SOME (Short "Some")) [e]”
 
 Definition cml_fapp_aux_def:
   cml_fapp_aux id cml_es =
@@ -44,11 +43,54 @@ Definition cml_fapp_def:
   cml_fapp mns n cml_es = cml_fapp_aux (Var (mk_id mns n)) (REVERSE cml_es)
 End
 
-(* Returns the tuple content at idx via pattern matching *)
-Definition cml_tuple_select_def:
-  cml_tuple_select len cml_te (idx: num) =
-  let field_vars = GENLIST (λn. Pvar ("_" ++ (num_to_string n))) len in
-    Mat cml_te [Pcon NONE field_vars, Var (Short ("t" ++ (num_to_string idx)))]
+Definition cml_read_var_def:
+  cml_read_var v =
+  let deref = App Opderef [Var (Short (explode v))] in
+    cml_fapp ["Option"] "valOf" [deref]
+End
+
+(* Generates strings of the form _0, _1, etc., to be used for matching tuples *)
+Definition cml_tup_vname_def:
+  cml_tup_vname (idx : num) = "_" ++ (num_to_string idx)
+End
+
+(* Generates code of the form: case cml_te of (_0, _1, ...) => cml_e *)
+Definition cml_tup_case_def:
+  cml_tup_case len cml_te cml_e =
+  let tup_pvars = GENLIST (λn. Pvar (cml_tup_vname n)) len in
+    Mat cml_te [Pcon NONE tup_pvars, cml_e]
+End
+
+(* Returns the tuple content at idx via pattern matching. *)
+Definition cml_tup_select_def:
+  cml_tup_select len cml_te (idx: num) =
+  cml_tup_case len cml_te (Var (Short (cml_tup_vname idx)))
+End
+
+Definition cml_new_refs_in_def:
+  cml_new_refs_in ns cml_e =
+  (case ns of
+   | [] => cml_e
+   | (n::ns) =>
+     Let (SOME n) (App Opref [None]) (cml_new_refs_in ns cml_e))
+End
+
+(* Generates fn i₀ => fn i₁ => ... => body from ins *)
+Definition cml_fun_aux_def:
+  cml_fun_aux ins body =
+  (case ins of
+   | [] => body
+   | (i::ins) => Fun i (cml_fun_aux ins body))
+End
+
+(* Deals with the fact that the first (optional) parameter is treated
+   differently when defining functions with Dletrec *)
+Definition cml_fun_def:
+  cml_fun ins body =
+  (case ins of
+   | [] => ("", body)
+   | [i] => (i, body)
+   | (i::ins) => (i, cml_fun_aux ins body))
 End
 
 (* Dafny to CakeML definitions *)
@@ -97,12 +139,18 @@ End
    we cannot just index to the appropriate dimension, and then use Array.length
    - we might get blocked by a dimension with length zero on the way. *)
 
+Definition cml_alloc_arr_def:
+  cml_alloc_arr len init =
+  let data = cml_fapp ["Array"] "array" [len; init] in
+    Tuple [len; data]
+End
+
 Definition cml_get_arr_dim_def:
-  cml_get_arr_dim cml_e = cml_tuple_select 2 cml_e 0
+  cml_get_arr_dim cml_e = cml_tup_select 2 cml_e 0
 End
 
 Definition cml_get_arr_data_def:
-  cml_get_arr_data cml_e = cml_tuple_select 2 cml_e 1
+  cml_get_arr_data cml_e = cml_tup_select 2 cml_e 1
 End
 
 Definition cml_arr_sel_def:
@@ -112,52 +160,51 @@ End
 
 Definition from_exp_def:
   from_exp e =
-  (let here = extend_path «» «from_exp» in
-   (case e of
-    | Lit l => return (from_lit l)
-    | Var v => return (cml_deref v)
-    | If tst thn els =>
-      do
-        cml_tst <- prefix_error here (from_exp tst);
-        cml_thn <- prefix_error here (from_exp thn);
-        cml_els <- prefix_error here (from_exp els);
-        return (If cml_tst cml_thn cml_els)
-      od
-    | UnOp uop e =>
-      do
-        cml_e <- prefix_error here (from_exp e);
-        return (from_un_op uop cml_e)
-      od
-    | BinOp bop e₀ e₁ =>
-      do
-        cml_e₀ <- prefix_error here (from_exp e₀);
-        cml_e₁ <- prefix_error here (from_exp e₁);
-        return (from_bin_op bop cml_e₀ cml_e₁)
-      od
-    | ArrLen arr =>
-      do
-        cml_arr <- prefix_error here (from_exp arr);
-        return (cml_get_arr_dim cml_arr)
-      od
-    | ArrSel arr idx =>
-      do
-        cml_arr <- prefix_error here (from_exp arr);
-        cml_idx <- prefix_error here (from_exp idx);
-        return (cml_arr_sel cml_arr cml_idx)
-      od
-    | FunCall name args =>
-      do
-        cml_args <- prefix_error here (from_exps args);
-        return (cml_fapp [] (explode name) cml_args)
-      od
-    | Forall _ _ => fail ((extend_path here «Forall») ^ « Unsupported»))) ∧
-  from_exps es =
+  (case e of
+   | Lit l => return (from_lit l)
+   | Var v => return (cml_read_var v)
+   | If tst thn els =>
+     do
+       cml_tst <- from_exp tst;
+       cml_thn <- from_exp thn;
+       cml_els <- from_exp els;
+       return (If cml_tst cml_thn cml_els)
+     od
+   | UnOp uop e =>
+     do
+       cml_e <- from_exp e;
+       return (from_un_op uop cml_e)
+     od
+   | BinOp bop e₀ e₁ =>
+     do
+       cml_e₀ <- from_exp e₀;
+       cml_e₁ <- from_exp e₁;
+       return (from_bin_op bop cml_e₀ cml_e₁)
+     od
+   | ArrLen arr =>
+     do
+       cml_arr <- from_exp arr;
+       return (cml_get_arr_dim cml_arr)
+     od
+   | ArrSel arr idx =>
+     do
+       cml_arr <- from_exp arr;
+       cml_idx <- from_exp idx;
+       return (cml_arr_sel cml_arr cml_idx)
+     od
+   | FunCall n args =>
+     do
+       cml_args <- map_from_exp args;
+       return (cml_fapp [] (explode n) cml_args)
+     od
+   | Forall _ _ => fail «from_exp:Forall: Unsupported») ∧
+  map_from_exp es =
   (case es of
    | [] => return []
    | (e::es) =>
      do
        cml_e <- from_exp e;
-       cml_es <- from_exps es;
+       cml_es <- map_from_exp es;
        return (cml_e::cml_es)
      od)
 Termination
@@ -166,13 +213,202 @@ Termination
                            | INR es => list_size exp_size es)’
 End
 
-(* Defines the Dafny module containing the Dafny runtime *)
+Definition map_from_exp_tup_def:
+  map_from_exp_tup [] = return [] ∧
+  map_from_exp_tup ((e, x)::rest) =
+  do
+    cml_e <- from_exp e;
+    cml_rest <- map_from_exp_tup rest;
+    return ((cml_e, x)::cml_rest)
+  od
+End
 
+Definition from_rhs_exp_def:
+  from_rhs_exp re =
+  (case re of
+   | ExpRhs e => from_exp e
+   | ArrAlloc len init =>
+     do
+       cml_len <- from_exp len;
+       cml_init <- from_exp init;
+       return (cml_alloc_arr cml_len cml_init)
+     od)
+End
+
+Definition assign_def:
+  assign lhs cml_rhs =
+  (case lhs of
+   | VarLhs v =>
+     (let cml_lhs = Var (Short (explode v)) in
+        return (App Opassign [cml_lhs; cml_rhs]))
+   | ArrSelLhs arr idx =>
+     do
+       cml_idx <- from_exp idx;
+       cml_arr <- from_exp arr;
+       cml_arr <<- cml_get_arr_data cml_arr;
+       return (cml_fapp ["Array"] "update" [cml_arr; cml_idx; cml_rhs])
+     od)
+End
+
+Definition par_assign_def:
+  par_assign (lhs::lhss) (cml_rhs::cml_rhss) =
+  do
+    cml_assign <- assign lhs cml_rhs;
+    rest <- par_assign lhss cml_rhss;
+    return (Let NONE cml_assign rest)
+  od ∧
+  par_assign [] [] = return Unit ∧
+  par_assign _ _ = fail «par_assign: Length mismatch»
+End
+
+Definition to_string_def:
+  to_string cml_e t =
+  (case t of
+   | BoolT => return (cml_fapp ["Dafny"] "bool_to_string" [cml_e])
+   | IntT => return (cml_fapp ["Dafny"] "int_to_string" [cml_e])
+   | StrT => return (cml_e)
+   | _ => fail «to_string: Unsupported»)
+End
+
+Definition from_statement_def:
+  (* lvl keeps track of nested while loops to generate new unique names *)
+  from_statement stmt (lvl: num) =
+  (case stmt of
+   | Skip => return Unit
+   | Assert _ => return Unit
+   | Then stmt₁ stmt₂ =>
+     do
+       cml_stmt₁ <- from_statement stmt₁ lvl;
+       cml_stmt₂ <- from_statement stmt₂ lvl;
+       return (Let NONE cml_stmt₁ cml_stmt₂)
+     od
+   | If tst thn els =>
+     do
+       cml_tst <- from_exp tst;
+       cml_thn <- from_statement thn lvl;
+       cml_els <- from_statement els lvl;
+       return (If cml_tst cml_thn cml_els)
+     od
+   | Dec locals scope =>
+     do
+       cml_scope <- from_statement scope lvl;
+       ns <<- MAP (explode ∘ FST) locals;
+       return (cml_new_refs_in ns cml_scope)
+     od
+   | Assign lhss rhss =>
+     do
+       cml_rhss <- result_mmap from_rhs_exp rhss;
+       par_assign lhss cml_rhss
+     od
+   | While grd _ _ _ body =>
+     do
+       cml_grd <- from_exp grd;
+       cml_body <- from_statement body (lvl + 1);
+       loop_name <<- "while" ++ (num_to_string lvl);
+       run_loop <<- cml_fapp [] loop_name [Unit];
+       (* Example (see The Definition of Standard ML, Appendix A):
+          let val rec while0 = fn () =>
+            if cml_grd then (cml_body; while0()) else ()
+          in
+            while0()
+          end *)
+       return (Letrec [(loop_name, "",
+                        If cml_grd (Let NONE cml_body run_loop) Unit)]
+                        run_loop)
+     od
+   | Print ets =>
+     do
+       cml_ets <- map_from_exp_tup ets;
+       cml_strs <- result_mmap (λ(e,t). to_string e t) cml_ets;
+       cml_str <<- cml_fapp ["String"] "concat" cml_strs;
+       return (cml_fapp [] "print" [cml_str])
+     od
+   | MetCall lhss n args =>
+     do
+       cml_args <- map_from_exp args;
+       cml_call <<- cml_fapp [] (explode n) cml_args;
+       (* Method returns a tuple of size outs_len, so we use case and assign
+          each component to the corresponding left-hand side. *)
+       outs_len <<- LENGTH lhss;
+       outs <<- GENLIST (λn. Var (Short (cml_tup_vname n))) outs_len;
+       cml_assign <- par_assign lhss outs;
+       return (cml_tup_case outs_len cml_call cml_assign);
+     od
+   | Return => return (Raise (Con (SOME (mk_id ["Dafny"] "Return")) [])))
+End
+
+(* The members are going to have parameters with the names in ins_ns prefixed
+   with _. These are then assigned to references to names without the
+   underscore. This way, we can keep the Var implementation the same for
+   mutable and immutable variables. *)
+(* TODO Optimize above by adding mutability information, and then using
+   references only for mutable variables? *)
+
+Definition set_up_cml_fun_def:
+  set_up_cml_fun n ins cml_body =
+  let
+    in_ref_ns = MAP FST ins;
+    in_param_ns = MAP (strcat «_») in_ref_ns;
+    init_ins = par_assign (MAP VarLhs in_ref_ns)
+                          (MAP (Var ∘ Short ∘ explode) in_param_ns);
+    cml_body = cml_new_refs_in (MAP explode in_ref_ns) cml_body;
+    (cml_param, cml_body) = cml_fun (MAP explode in_param_ns) cml_body;
+  in
+    (explode n, cml_param, cml_body)
+End
+
+Definition from_member_decl_def:
+  from_member_decl mem : (string # string # ast$exp) result =
+  (case mem of
+   (* Constructing methods and functions from bottom to top *)
+   | Method n ins _ _ _ _ outs _ body =>
+     do
+       cml_body <- from_statement body 0;
+       (* Method returns a tuple containing the value of the out variables *)
+       out_ns <<- MAP FST outs;
+       cml_tup <<- Tuple (MAP cml_read_var out_ns);
+       cml_body <<- Handle cml_body
+                [(Pcon (SOME (mk_id ["Dafny"] "Return")) [], cml_tup)];
+       cml_body <<- cml_new_refs_in (MAP explode out_ns) cml_body;
+       return (set_up_cml_fun n ins cml_body)
+     od
+   | Function n ins _ _ _ _ body =>
+     do cml_body <- from_exp body; return (set_up_cml_fun n ins cml_body) od)
+End
+
+(* Defines the Dafny module containing the Dafny runtime *)
 Quote dafny_module = process_topdecs:
+  structure Dafny =
+  struct
+
+  exception Return;
+
   (* Adapted from ABS and ediv from HOL's integerTheory *)
   fun abs n = if n < 0 then ~n else n;
 
   fun ediv i j = if 0 < j then i div j else ~(i div ~j);
+
+  (* to_string functions *)
+  fun bool_to_string b = if b then "True" else "False";
+
+  fun int_to_string i = Int.int_to_string #"-" i;
+
+  end
+End
+
+Definition from_program_def:
+  from_program (Program mems) : (dec list) result =
+  do
+    cml_funs <- result_mmap from_member_decl mems;
+    (* TODO Optimize this by only putting mutually recursive functions
+       together *)
+    cml_funs <<- Dletrec unknown_loc cml_funs;
+    (* NOTE For now, we assume the every program has a method called Main that
+       is not mutually recursive with anything else, takes no arguments, and
+       returns nothing. *)
+    cml_main <<- Dlet unknown_loc Pany (cml_fapp [] "Main" [Unit]);
+    return (^dafny_module ++ [cml_funs; cml_main])
+  od
 End
 
 val _ = export_theory ();
