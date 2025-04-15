@@ -57,8 +57,8 @@ End
 
 Definition letinit_ml_def:
   letinit_ml [] inner = inner ∧
-  letinit_ml ((x,_)::bs) inner = Let (SOME $ "var" ++ explode x)
-      (App Opref [Con (SOME $ Short "None") []]) (letinit_ml bs inner)
+  letinit_ml (x::xs) inner = Let (SOME $ "var" ++ explode x)
+      (App Opref [Con (SOME $ Short "None") []]) (letinit_ml xs inner)
 End
 
 Definition refunc_set_def:
@@ -131,11 +131,10 @@ Definition cps_transform_def:
     (l, Fun k $ Let (SOME "k") (Fun t inner) $ App Opapp [ce; Var (Short "k")])) ∧
 
   cps_transform n (Letrec bs e) = (let
-    (m, ce) = cps_transform n e;
-    k = "k" ++ toString m;
-    (l, inner) = cps_transform_letreinit (m+1) (Var (Short k)) bs ce
+    (m, ce) = cps_transform n (Begin (MAP (UNCURRY Set) bs) e);
+    k = "k" ++ toString m
   in
-    (l, Fun k $ letinit_ml bs inner)) ∧
+    (m+1, Fun k $ letinit_ml (MAP FST bs) $ App Opapp [ce; Var (Short k)])) ∧
 
 
   cps_transform_app n tfn ts (e::es) k = (let
@@ -160,25 +159,17 @@ Definition cps_transform_def:
     (m, ce) = cps_transform n e';
     (l, inner) = cps_transform_seq m k es e
   in
-    (l, Let (SOME "k") (Fun "_" inner) $ App Opapp [ce; Var (Short "k")])) ∧
-
-  cps_transform_letreinit n k [] ce = (n, App Opapp [ce; k]) ∧
-
-  cps_transform_letreinit n k ((x,e)::bs) ce = (let
-    (m, ce') = cps_transform n e;
-    (l, inner) = cps_transform_letreinit m k bs ce;
-    t = "t" ++ toString l
-  in
-    (l+1, App Opapp [ce'; Fun t $ Let NONE
-      (App Opassign [Var (Short $ "var" ++ explode x);
-        Con (SOME $ Short "Some") [Var (Short t)]])
-      inner]))
+    (l, Let (SOME "k") (Fun "_" inner) $ App Opapp [ce; Var (Short "k")]))
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) (λ x . case x of
-    | INL(_,e) => (exp_size e, 0)
-    | INR(INL(_,_,_,es,_)) => (list_size exp_size es, 1n)
-    | INR(INR(INL(_,_,es,e))) => (list_size exp_size es + exp_size e, 1)
-    | INR(INR(INR(_,_,bs,_))) => (exp1_size bs), 1)’
+    | INL(_,e) => (exp_size e, case e of Letrec _ _ => 1 | _ => 0)
+    | INR(INL(_,_,_,es,_)) => (list_size exp_size es, 2n)
+    | INR(INR(_,_,es,e)) => (list_size exp_size es + exp_size e, 2))’
+  >> strip_tac >- (Cases >> simp[])
+  >> Induct
+  >> simp[exp_size_def]
+  >> PairCases
+  >> simp[exp_size_def]
 End
 
 Definition compile_scheme_prog_def:

@@ -491,8 +491,7 @@ QED
 Theorem mono_cps_on_n:
   (∀ n e m ce . (m, ce) = cps_transform n e ⇒ m ≥ n) ∧
   (∀ n fn ts es k m ce . (m, ce) = cps_transform_app n fn ts es k ⇒ m ≥ n) ∧
-  (∀ n k es e m ce . (m, ce) = cps_transform_seq n k es e ⇒ m ≥ n) ∧
-  (∀ n k bs ce' m ce . (m, ce) = cps_transform_letreinit n k bs ce' ⇒ m ≥ n)
+  (∀ n k es e m ce . (m, ce) = cps_transform_seq n k es e ⇒ m ≥ n)
 Proof
   ho_match_mp_tac $ cps_transform_ind
   >> simp[cps_transform_def, refunc_set_def]
@@ -776,6 +775,86 @@ Proof
   >> simp[isDigit_def]
 QED
 
+Theorem preservation_of_letrec:
+  ∀ xs inner (st:'ffi state) mlenv store env store' env' .
+    (store', env') = letrec_init store env xs ∧
+    env_rel env mlenv ∧
+    LIST_REL store_entry_rel store st.refs ∧
+    scheme_env mlenv
+    ⇒
+    ∃ ck st' mlenv' var' .
+      evaluate (st with clock:=ck) mlenv [letinit_ml xs inner]
+        = evaluate st' mlenv' [inner] ∧
+      env_rel env' mlenv' ∧
+      LIST_REL store_entry_rel store' st'.refs ∧
+      st'.clock ≤ ck ∧
+      (∀ x v . (∀ x' . x ≠ "var" ++ x') ∧ nsLookup mlenv.v (Short x) = SOME v
+      ⇒
+      nsLookup mlenv'.v (Short x) = SOME v) ∧
+      scheme_env mlenv'
+Proof
+  Induct
+  >> simp[letrec_init_def, letinit_ml_def]
+  >> rpt strip_tac >- (
+    irule_at (Pos hd) EQ_REFL >> simp[]
+  )
+  >> rpt (pairarg_tac >> gvs[])
+  >> simp[Ntimes evaluate_def 3, do_con_check_def, build_conv_def,
+    do_app_def, store_alloc_def, nsOptBind_def]
+  >> qpat_assum ‘scheme_env _’ $ simp o single
+    o SRULE [scheme_env_def]
+  >> qsuff_tac ‘∀ mlenv' .
+          (∀x v.
+             (∀x'. x ≠ STRING #"v" (STRING #"a" (STRING #"r" x'))) ∧
+             nsLookup (mlenv with
+               v :=
+                 nsBind (STRING #"v" (STRING #"a" (STRING #"r" (explode h))))
+                   (Loc T (LENGTH st.refs)) mlenv.v).v (Short x) = SOME v ⇒
+             nsLookup mlenv'.v (Short x) = SOME v)
+          ⇔
+          (∀x v.
+             (∀x'. x ≠ STRING #"v" (STRING #"a" (STRING #"r" x'))) ∧
+             nsLookup mlenv.v (Short x) = SOME v ⇒
+             nsLookup mlenv'.v (Short x) = SOME v)
+        ’ >- (
+    strip_tac
+    >> pop_assum $ simp_tac pure_ss o single o GSYM
+    >> last_x_assum $ irule
+    >> simp[]
+    >> strip_tac >- gvs[scheme_env_def]
+    >> irule_at (Pos hd) EQ_REFL
+    >> gvs[env_rel_cases, fresh_loc_def, store_entry_rel_cases]
+    >> Cases_on ‘h ∈ FDOM env’ >- (
+      simp[FEVERY_DEF]
+      >> strip_tac
+      >> Cases_on ‘x = h’
+      >> gvs[] >- (
+        drule $ cj 1 $ iffLR EVERY2_EVERY
+        >> simp[]
+      )
+      >> strip_tac
+      >> gvs[FEVERY_DEF]
+      >> simp[FAPPLY_FUPDATE_THM]
+    )
+    >> irule $ cj 2 FEVERY_STRENGTHEN_THM
+    >> simp[]
+    >> drule_then assume_tac $ cj 1 $ iffLR EVERY2_EVERY
+    >> simp[FEVERY_DEF]
+    >> rpt strip_tac
+    >> ‘x ≠ h’ by (strip_tac >> gvs[])
+    >> gvs[FEVERY_DEF]
+  )
+  >> strip_tac
+  >> iff_tac
+  >> rpt strip_tac
+  >> qpat_assum ‘∀ _ _ . _ ∧ _ ⇒ _’ irule
+  >> simp[]
+  >> qpat_assum ‘∀ _ . _ ≠ _’ $ qspec_then ‘explode h’ assume_tac
+  >> simp[]
+  >> Cases_on ‘mlenv’
+  >> gvs[]
+QED
+
 Theorem step_preservation:
   ∀ store store' env env' e e' k k' (st : 'ffi state) mlenv var kv mle .
   step  (store, k, env, e) = (store', k', env', e') ∧
@@ -958,7 +1037,35 @@ Proof
       >> simp[isDigit_def]
       >> pop_assum $ irule_at (Pos hd) o GSYM
     )
-    >> cheat
+    >~ [‘Letrec bs e’] >- (
+      simp[Once cps_transform_def]
+      >> rpt strip_tac
+      >> rpt (pairarg_tac >> gvs[])
+      >> qrefine ‘ck+1’
+      >> simp[Ntimes evaluate_def 4, do_opapp_def, dec_clock_def]
+      >> pop_assum $ assume_tac o GSYM
+      >> drule preservation_of_letrec
+      >> qsuff_tac ‘env_rel env
+        (mlenv with v := nsBind (STRING #"k" (toString m')) kv mlenv.v)’ >- (
+        rpt strip_tac
+        >> pop_assum $ drule_then drule
+        >> qsuff_tac ‘scheme_env
+          (mlenv with v := nsBind (STRING #"k" (toString m')) kv mlenv.v)’ >- (
+          rpt strip_tac
+          >> pop_assum $ drule
+          >> rpt strip_tac
+          >> pop_assum $ qspec_then
+            ‘(App Opapp [ce'; Var (Short (STRING #"k" (toString m')))])’ mp_tac
+          >> rpt strip_tac
+          >> qpat_assum ‘evaluate _ _ _ = _’ $ irule_at (Pos hd)
+          >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+          >> simp[Once e_ce_rel_cases]
+          >> qpat_assum ‘cps_transform _ _ = _’ $ irule_at (Pos hd) o GSYM
+        )
+        >> gvs[scheme_env_def]
+      )
+      >> gvs[env_rel_cases]
+    )
   )
   >~ [‘Val v’] >- (
     Cases_on ‘k’
