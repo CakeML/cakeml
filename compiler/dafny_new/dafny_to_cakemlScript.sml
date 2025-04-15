@@ -6,20 +6,10 @@ open preamble
 open cfTacticsLib  (* process_topdecs *)
 open dafny_astTheory
 open astTheory  (* CakeML AST *)
-open mlintTheory  (* fromString *)
+open mlintTheory  (* num_to_str *)
 open result_monadTheory
 
 val _ = new_theory "dafny_to_cakeml";
-
-(* General helpers *)
-
-Definition int_to_string_def:
-  int_to_string (i: int) = explode (toString i)
-End
-
-Definition num_to_string_def:
-  num_to_string (n: num) = int_to_string (&n)
-End
 
 (* Helpers to generate CakeML *)
 
@@ -51,7 +41,7 @@ End
 
 (* Generates strings of the form _0, _1, etc., to be used for matching tuples *)
 Definition cml_tup_vname_def:
-  cml_tup_vname (idx : num) = "_" ++ (num_to_string idx)
+  cml_tup_vname (idx : num) = explode («_» ^ (num_to_str idx))
 End
 
 (* Generates code of the form: case cml_te of (_0, _1, ...) => cml_e *)
@@ -304,7 +294,7 @@ Definition from_statement_def:
      do
        cml_grd <- from_exp grd;
        cml_body <- from_statement body (lvl + 1);
-       loop_name <<- "while" ++ (num_to_string lvl);
+       loop_name <<- explode («while» ^ (num_to_str lvl));
        run_loop <<- cml_fapp [] loop_name [Unit];
        (* Example (see The Definition of Standard ML, Appendix A):
           let val rec while0 = fn () =>
