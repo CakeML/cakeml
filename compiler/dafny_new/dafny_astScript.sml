@@ -50,6 +50,13 @@ End
 
 Overload If = “Exp_If”
 
+Datatype:
+  lhs_exp =
+  | VarLhs mlstring
+  (* ArrSelLhs arr idx *)
+  | ArrSelLhs exp exp
+End
+
 (* https://dafny.org/dafny/DafnyRef/DafnyRef#sec-rhs-expression
    Our definition of rhs_exp does not quite match the one described in the
    reference, as method calls appear to be special (since they may result in
@@ -70,13 +77,13 @@ Datatype:
   (* Dec locals scope
      - scope also contains possible assignments *)
   | Dec ((mlstring # type) list) statement
-  | Assign (exp list) (rhs_exp list)
+  | Assign (lhs_exp list) (rhs_exp list)
   (* While guard invariants decreases mod body *)
   | While exp (exp list) (exp list) (exp list) statement
   | Print ((exp # type) list)
   (* MetCall lhss name args
      - Results of a method call must always be bound to something, hence lhss *)
-  | MetCall (exp list) mlstring (exp list)
+  | MetCall (lhs_exp list) mlstring (exp list)
   | Return
 End
 

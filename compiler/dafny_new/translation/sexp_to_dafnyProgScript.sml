@@ -42,6 +42,8 @@ val r = translate sexp_to_dafnyTheory.to_exp_def;
 val r = translate sexp_to_dafnyTheory.to_exp_list_def;
 val r = translate sexp_to_dafnyTheory.to_exp_type_tup_def;
 val r = translate sexp_to_dafnyTheory.to_exp_type_tup_lst_def;
+val r = translate sexp_to_dafnyTheory.to_lhs_exp_def;
+val r = translate sexp_to_dafnyTheory.to_lhs_exp_list_def;
 val r = translate sexp_to_dafnyTheory.to_rhs_exp_def;
 val r = translate sexp_to_dafnyTheory.to_rhs_exp_list_def;
 

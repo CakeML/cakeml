@@ -358,6 +358,39 @@ Definition to_exp_type_tup_lst_def:
    od)
 End
 
+Definition to_lhs_exp_def:
+  to_lhs_exp se =
+  (let here = extend_path «» «to_lhs_exp» in
+   do
+     (cns, args) <- prefix_error here (split se);
+     here <<- extend_path here cns;
+     if (cns = «VarLhs») then
+       do
+         s <- prefix_error here (dest1 args);
+         s <- prefix_error here (to_mlstring s);
+         return (VarLhs s)
+       od
+     else if (cns = «ArrSelLhs») then
+       do
+         (arr, idx) <- prefix_error here (dest2 args);
+         arr <- prefix_error here (to_exp arr);
+         idx <- prefix_error here (to_exp idx);
+         return (ArrSelLhs arr idx)
+       od
+     else
+       bad_con here
+   od)
+End
+
+Definition to_lhs_exp_list_def:
+  to_lhs_exp_list se =
+  (let here = extend_path «» «to_lhs_exp_list» in
+   do
+     es <- prefix_error here (dest_expr se);
+     prefix_error here (result_mmap to_lhs_exp es)
+   od)
+End
+
 Definition to_rhs_exp_def:
   to_rhs_exp se =
   (let here = extend_path «» «to_rhs_exp» in
@@ -440,7 +473,7 @@ Definition to_statement_def:
        else if (cns = «Assign») then
          do
            (lhss, rhss) <- prefix_error here (dest2 args);
-           lhss <- prefix_error here (to_exp_list lhss);
+           lhss <- prefix_error here (to_lhs_exp_list lhss);
            rhss <- prefix_error here (to_rhs_exp_list rhss);
            return (Assign lhss rhss)
          od
@@ -465,7 +498,7 @@ Definition to_statement_def:
        else if (cns = «MetCall») then
          do
            (lhss, name, met_args) <- prefix_error here (dest3 args);
-           lhss <- prefix_error here (to_exp_list lhss);
+           lhss <- prefix_error here (to_lhs_exp_list lhss);
            name <- prefix_error here (to_mlstring name);
            met_args <- prefix_error here (to_exp_list met_args);
            return (MetCall lhss name met_args)

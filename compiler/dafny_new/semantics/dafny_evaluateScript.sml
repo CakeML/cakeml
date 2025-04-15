@@ -209,11 +209,11 @@ QED
 (* Semantics for assigning values *)
 
 Definition assign_value_def:
-  assign_value st₀ env (Var var) val =
+  assign_value st₀ env (VarLhs var) val =
   (case update_local st₀ var val of
    | NONE => (st₀, Rstop (Serr Rtype_error))
    | SOME st₁ => (st₁, Rcont)) ∧
-  assign_value st₀ env (ArrSel arr idx) val =
+  assign_value st₀ env (ArrSelLhs arr idx) val =
   (case evaluate_exp st₀ env arr of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
    | (st₁, Rval arr) =>
