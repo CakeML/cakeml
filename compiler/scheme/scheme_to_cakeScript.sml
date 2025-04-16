@@ -333,11 +333,14 @@ Definition scheme_basis7_def:
       (Pcon (SOME $ Short "::") [Pvar "x"; Pvar "xs'"],
         Mat (Var (Short "xs'")) [
           (Pcon (SOME $ Short "[]") [],
-            App Opapp [
-              App Opapp [
-                App Opapp [Var (Short "app");Var (Short "k")];
-                Var (Short "x")];
-              cons_list [Con (SOME $ Short "Throw") [Var (Short "k")]]]);
+            Let (SOME "k'") (
+              Fun "t" $ App Opapp [
+                App Opapp [
+                  App Opapp [Var (Short "app");Var (Short "k")];
+                  Var (Short "x")];
+                cons_list [Var (Short "t")]]
+            ) $ Let (SOME "v") (Con (SOME $ Short "Throw") [Var (Short "k")]) $
+              App Opapp [Var (Short "k'"); Var (Short "v")]);
           (Pany,
             Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"])
         ])
