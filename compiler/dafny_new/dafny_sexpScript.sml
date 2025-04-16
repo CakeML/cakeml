@@ -128,8 +128,7 @@ Termination
 End
 
 Definition lex_def:
-  lex cs =
-    lex_aux cs []
+  lex cs = lex_aux cs []
 End
 
 (* Definitions for parsing *)
@@ -148,7 +147,7 @@ Definition parse_def:
   parse toks =
   case parse_aux toks [] [] of
   | [e] => return e
-  | _ => fail "parse: Not exactly one S-expression in input"
+  | _ => fail «parse: Not exactly one S-expression in input»
 End
 
 val _ = export_theory ();

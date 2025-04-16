@@ -565,7 +565,8 @@ Definition to_program_def:
        do
          members <- prefix_error here (dest1 args);
          members <- prefix_error here (dest_expr members);
-         prefix_error here (result_mmap to_member_decl members)
+         decls <- prefix_error here (result_mmap to_member_decl members);
+         return (Program decls)
        od
      else
        bad_con here
