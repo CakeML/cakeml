@@ -873,9 +873,17 @@ Theorem step_preservation:
     env_rel env' mlenv' ∧
     LIST_REL store_entry_rel store' st'.refs ∧
     st'.clock ≤ ck ∧
-    (k ≠ [] ⇒ st'.clock < ck)
+    (k ≠ [] ∧ (∀ s . e ≠ Exception s) ⇒ st'.clock < ck)
 Proof
   Cases_on ‘e’
+  >~ [‘Exception s’] >- (
+    simp[step_def, Once e_ce_rel_cases]
+    >> rpt strip_tac
+    >> irule_at (Pos hd) EQ_REFL
+    >> simp[Once e_ce_rel_cases, Once cont_rel_cases]
+    >> qexistsl [‘scheme_env7’, ‘""’]
+    >> simp[scheme_env_def]
+  )
   >~ [‘Exp e’] >- (
     Cases_on ‘e’
     >> simp[step_def, Once e_ce_rel_cases]
@@ -1191,7 +1199,7 @@ Proof
       >> simp[isDigit_def, t_in_ts]
       >> gvs[env_rel_cases]
     )
-    >> Cases_on ‘∃ e es . h1 = ApplyK (SOME (fn, vs)) (e::es)’ >- (
+    >> Cases_on ‘∃ fn vs e es . h1 = ApplyK (SOME (fn, vs)) (e::es)’ >- (
       gvs[]
       >> simp[step_def, return_def, Once e_ce_rel_cases,
         Once cont_rel_cases, cps_transform_def, cps_app_ts_def]
@@ -1351,7 +1359,7 @@ Proof
       >> simp[env_rel_cases, FEVERY_FEMPTY]
       >> last_assum $ irule_at Any
     )
-    >> Cases_on ‘h1 = ApplyK (SOME (fn, vs)) []’ >- (
+    >> Cases_on ‘∃ fn vs . h1 = ApplyK (SOME (fn, vs)) []’ >- (
       gvs[]
       >> simp[step_def, return_def, Once e_ce_rel_cases,
         Once cont_rel_cases]
@@ -1524,9 +1532,11 @@ Proof
       )
       >> gvs[scheme_env_def]
     )
-    >> cheat
+    >> Cases_on ‘h1’ >> gvs[]
+    >> Cases_on ‘l’ >> gvs[]
+    >> Cases_on ‘o'’ >> gvs[]
+    >> PairCases_on ‘x’ >> gvs[]
   )
-  >> cheat
 QED
 
 (*Theorem val_correct:

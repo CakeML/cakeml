@@ -864,6 +864,48 @@ Proof
   >> simp[step_def, Once valid_state_cases]
 QED
 
+Theorem scheme_divergence:
+  ∀ store ks env state store' ks' env' state' .
+    step (store, ks, env, state) = (store', ks', env', state') ∧
+    (ks = [] ⇒ ∀ v  . state ≠ Val v) ∧
+    (∀ s . state ≠ Exception s)
+    ⇒
+    (store, ks, env, state) ≠ (store', ks', env', state')
+Proof
+  Cases_on ‘state’
+  >> simp[]
+  >~ [‘Exp e’] >- (
+    Cases_on ‘e’
+    >> simp[step_def] >- (
+      rpt strip_tac
+      >> Cases_on ‘EL (env ' m) store’
+      >> gvs[]
+    )
+    >- (
+      CASE_TAC
+      >> simp[]
+      >> rpt strip_tac
+      >> ‘∀ e e' . e = e' ⇒ exp_size e = exp_size e'’ by simp[]
+      >> pop_assum drule
+      >> simp[exp_size_def]
+    )
+    >> rpt strip_tac
+    >> rpt (pairarg_tac >> gvs[])
+  )
+  >> Cases_on ‘ks’
+  >> simp[step_def]
+  >> PairCases_on ‘h’
+  >> simp[oneline return_def, oneline application_def, AllCaseEqs()]
+  >> rpt strip_tac
+  >> rpt (pairarg_tac >> gvs[])
+  >> qpat_x_assum ‘_ = Throw _’ mp_tac
+  >> rpt $ pop_assum kall_tac
+  >> strip_tac
+  >> ‘∀ v v' . v = v' ⇒ val_size v = val_size v'’ by simp[]
+  >> pop_assum drule
+  >> simp[cont_size_def]
+QED
+
 Theorem statically_scoped_program_valid:
   ∀ p . static_scope ∅ p ⇒ valid_state [] [] FEMPTY (Exp p)
 Proof
