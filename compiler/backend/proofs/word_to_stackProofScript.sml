@@ -51,8 +51,14 @@ Proof
   EVAL_TAC \\ simp[stackSemTheory.state_component_equality]
 QED
 
-Theorem set_var_memory[simp]:
-   (stackSem$set_var a b c).memory = c.memory
+Theorem set_var_const[simp]:
+   (stackSem$set_var a b c).memory = c.memory /\
+   (stackSem$set_var a b c).store = c.store /\
+   (stackSem$set_var a b c).stack = c.stack /\
+   (stackSem$set_var a b c).stack_space = c.stack_space /\
+   (stackSem$set_var a b c).fp_regs = c.fp_regs /\
+   (stackSem$set_var a b c).data_buffer = c.data_buffer /\
+   (stackSem$set_var a b c).code_buffer = c.code_buffer
 Proof
   EVAL_TAC
 QED
@@ -86,6 +92,13 @@ Triviality set_fp_var_stack:
 Proof
   EVAL_TAC
 QED
+
+Theorem set_store_set_var:
+   stackSem$set_store a b (set_var c d e) = set_var c d (set_store a b e)
+Proof
+  EVAL_TAC
+QED
+
 (* Move to stackProps END*)
 
 (* TODO delete*)
@@ -3734,22 +3747,22 @@ QED
 Theorem wRegWrite1_thm3 =
   wRegWrite1_thm2
   |> Q.INST [`t`|-> `set_var v1 v2 t`]
-  |> PURE_REWRITE_RULE[set_var_const];
+  |> PURE_REWRITE_RULE[wordPropsTheory.set_var_const,set_var_const];
 
 Theorem wRegWrite1_thm4 =
   wRegWrite1_thm1
   |> Q.INST [`t`|-> `set_var v1 v2 t`]
-  |> PURE_REWRITE_RULE[set_var_const];
+  |> PURE_REWRITE_RULE[wordPropsTheory.set_var_const,set_var_const];
 
 Theorem wRegWrite1_thm5 =
   wRegWrite1_thm2
   |> Q.INST [`t`|-> `set_var v1 v2 (set_var v3 v4 t)`]
-  |> PURE_REWRITE_RULE[set_var_const];
+  |> PURE_REWRITE_RULE[wordPropsTheory.set_var_const,set_var_const];
 
 Theorem wRegWrite1_thm6 =
   wRegWrite1_thm1
   |> Q.INST [`t`|-> `set_var v1 v2 (set_var v3 v4 t)`]
-  |> PURE_REWRITE_RULE[set_var_const];
+  |> PURE_REWRITE_RULE[wordPropsTheory.set_var_const,set_var_const];
 
 
 Theorem wRegWrite2_thm1:
@@ -3978,7 +3991,7 @@ QED
 Theorem wStackLoad_thm3 =
  wStackLoad_thm2
  |> Q.INST [`t`|->`set_var v1 v2 t`]
- |> PURE_REWRITE_RULE[set_var_const]
+ |> PURE_REWRITE_RULE[wordPropsTheory.set_var_const,set_var_const]
 
 Definition map_var_def:
   (map_var f (Var num) = Var (f num)) ∧
@@ -5054,12 +5067,6 @@ Proof
       every_case_tac>>fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def]>>
       imp_res_tac state_rel_get_fp_var>>
       rw[]>>fs[state_rel_set_fp_var,set_fp_var_stack])
-QED
-
-Theorem set_store_set_var:
-   stackSem$set_store a b (set_var c d e) = set_var c d (set_store a b e)
-Proof
-  EVAL_TAC
 QED
 
 Theorem state_rel_set_store:
@@ -6598,26 +6605,161 @@ Proof
   gvs[wordSemTheory.evaluate_def,AllCaseEqs()] \\
   gvs[comp_def,UNCURRY_EQ] \\
   gvs[wReg1_def,bool_case_eq]
+  wStackLoad_def
   >- (
-  fs[wStackLoad_def]
-  \\ `t.use_stack /\ t.stack_space <= LENGTH t.stack` by
-   (fs [state_rel_def] \\ decide_tac) \\ fs [LET_DEF]
-  \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
-  \\ `(t.stack_space + skip_free (k,f,f') ms) <= LENGTH t.stack`
-     by fs[state_rel_def,skip_free_def]
-  \\ fs[]
-  \\ `get_var (n DIV 2) t = get_var n s`
-    by (fs[stackSemTheory.get_var_def,wordSemTheory.get_var_def,
-    state_rel_def] >> METIS_TAC[])
-  \\ fs[]
-  \\ CONJ_TAC
-  >- (fs[state_rel_def,flush_state_def]
-     \\ CONJ_TAC >- METIS_TAC[]
-     \\ CONJ_TAC >- cheat
-     \\ CONJ_TAC >- (STRIP_TAC >> gvs[IS_SOME_EXISTS,the_eqn]
->> gvs[skip_free_def] >> cheat)
-     \\ CONJ_TAC >- cheat
-
+    fs[wStackLoad_def] \\
+    DEP_REWRITE_TAC[evaluate_SeqStackFree] \\
+    CONJ_ASM1_TAC >- (fs [state_rel_def] \\ decide_tac) \\
+    fs [stackSemTheory.evaluate_def] \\
+    `(t.stack_space + skip_free (k,f,f') ms) <= LENGTH t.stack`
+      by fs[state_rel_def,skip_free_def] \\
+    fs[] \\
+    `get_var (n DIV 2) t = get_var n s`
+      by (fs[stackSemTheory.get_var_def,wordSemTheory.get_var_def,
+      state_rel_def] >> METIS_TAC[]) \\
+    fs[] \\
+    CONJ_TAC
+    >- (fs[state_rel_def,flush_state_def] \\
+        CONJ_TAC >- METIS_TAC[] \\
+        CONJ_TAC >- cheat \\
+        CONJ_TAC >- cheat \\
+        CONJ_TAC >- cheat \\
+        simp[lookup_def]) \\
+    CONJ_TAC
+    >- (rpt strip_tac \\
+       `get_var (EL i ms) s = SOME (EL i ys)`
+         by(
+            qpat_x_assum `get_vars _ _ = _` mp_tac \\
+            qpat_x_assum `i < LENGTH ys` mp_tac \\
+            rpt (pop_assum kall_tac) \\
+            map_every qid_spec_tac [`i`,`ys`,`ms`] \\
+            Induct_on `i` \\ fs[] \\ rw[]
+            >- (Cases_on `ms` >> gvs[get_vars_def,AllCaseEqs()])
+            >- (Cases_on `ys` >> fs[] >>
+                Cases_on `ms` >> gvs[get_vars_def,AllCaseEqs()])
+           ) \\
+       `EL i ms = 2 * ((i + 1))`
+          by(
+             imp_res_tac get_vars_length_lemma \\
+             fs[convs_def] \\
+             qpat_assum `ms = _` (ONCE_REWRITE_TAC o single) \\
+             DEP_REWRITE_TAC[EL_GENLIST] \\ fs[]) \\
+       pop_assum SUBST_ALL_TAC \\
+       pop_assum (assume_tac o SRULE[get_var_def]) \\
+       fs[state_rel_def] \\
+       first_assum drule \\
+       strip_tac \\ fs[] \\
+       `i + 1 < k` by DECIDE_TAC \\
+       fs[])
+    >- (rpt strip_tac \\
+       `get_var (EL i ms) s = SOME (EL i ys)`
+         by(
+            qpat_x_assum `get_vars _ _ = _` mp_tac \\
+            qpat_x_assum `i < LENGTH ys` mp_tac \\
+            rpt (pop_assum kall_tac) \\
+            map_every qid_spec_tac [`i`,`ys`,`ms`] \\
+            Induct_on `i` \\ fs[] \\ rw[]
+            >- (Cases_on `ms` >> gvs[get_vars_def,AllCaseEqs()])
+            >- (Cases_on `ys` >> fs[] >>
+                Cases_on `ms` >> gvs[get_vars_def,AllCaseEqs()])
+           ) \\
+       `EL i ms = 2 * ((i + 1))`
+          by(
+             imp_res_tac get_vars_length_lemma \\
+             fs[convs_def] \\
+             qpat_assum `ms = _` (ONCE_REWRITE_TAC o single) \\
+             DEP_REWRITE_TAC[EL_GENLIST] \\ fs[]) \\
+       pop_assum SUBST_ALL_TAC \\
+       pop_assum (assume_tac o SRULE[get_var_def]) \\
+       fs[state_rel_def] \\
+       first_assum drule \\
+       strip_tac \\ fs[] \\
+       `~ (i + 1 < k)` by DECIDE_TAC \\
+       fs[] \\
+       cheat))
+  >- (fs[wStackLoad_def,stackSemTheory.evaluate_def] \\
+  `t.use_stack /\ (t.stack_space + (f + k − (n DIV 2 + 1))) < LENGTH t.stack`
+   by (fs [state_rel_def,get_var_def,LET_DEF]
+    \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
+    \\ fs [stackSemTheory.get_var_def]
+    \\ imp_res_tac LLOOKUP_TAKE_IMP
+    \\ fs [LLOOKUP_DROP] \\ fs [LLOOKUP_THM] \\ rw[]
+    \\ rfs[EL_TAKE]) \\
+  fs[] \\
+    DEP_REWRITE_TAC[evaluate_SeqStackFree] \\
+    CONJ_ASM1_TAC >- (fs []) \\
+    fs [stackSemTheory.evaluate_def] \\
+    `(t.stack_space + skip_free (k,f,f') ms) <= LENGTH t.stack`
+      by fs[state_rel_def,skip_free_def] \\
+    fs[] \\
+    `EL (t.stack_space + (f + k − (n DIV 2 + 1))) t.stack = THE (get_var n s)`
+      by (fs[state_rel_def,wordSemTheory.get_var_def] \\
+       first_x_assum drule >> simp[] >> strip_tac
+    \\ imp_res_tac LLOOKUP_TAKE_IMP
+    \\ fs [LLOOKUP_DROP] \\ fs [LLOOKUP_THM] \\ rw[]
+    \\ rfs[EL_TAKE]) \\
+    fs[] \\
+    CONJ_TAC
+    >- (fs[state_rel_def,flush_state_def] \\
+        CONJ_TAC >- METIS_TAC[] \\
+        CONJ_TAC >- cheat \\
+        CONJ_TAC >- cheat \\
+        CONJ_TAC >- cheat \\
+        simp[lookup_def]) \\
+    simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE] \\
+    CONJ_TAC
+    >- (rpt strip_tac \\
+       `get_var (EL i ms) s = SOME (EL i ys)`
+         by(
+            qpat_x_assum `get_vars _ _ = _` mp_tac \\
+            qpat_x_assum `i < LENGTH ys` mp_tac \\
+            rpt (pop_assum kall_tac) \\
+            map_every qid_spec_tac [`i`,`ys`,`ms`] \\
+            Induct_on `i` \\ fs[] \\ rw[]
+            >- (Cases_on `ms` >> gvs[get_vars_def,AllCaseEqs()])
+            >- (Cases_on `ys` >> fs[] >>
+                Cases_on `ms` >> gvs[get_vars_def,AllCaseEqs()])
+           ) \\
+       `EL i ms = 2 * ((i + 1))`
+          by(
+             imp_res_tac get_vars_length_lemma \\
+             fs[convs_def] \\
+             qpat_assum `ms = _` (ONCE_REWRITE_TAC o single) \\
+             DEP_REWRITE_TAC[EL_GENLIST] \\ fs[]) \\
+       pop_assum SUBST_ALL_TAC \\
+       pop_assum (assume_tac o SRULE[get_var_def]) \\
+       fs[state_rel_def] \\
+       first_assum drule \\
+       strip_tac \\ fs[] \\
+       `i + 1 < k` by DECIDE_TAC \\
+       fs[])
+    >- (rpt strip_tac \\
+       `get_var (EL i ms) s = SOME (EL i ys)`
+         by(
+            qpat_x_assum `get_vars _ _ = _` mp_tac \\
+            qpat_x_assum `i < LENGTH ys` mp_tac \\
+            rpt (pop_assum kall_tac) \\
+            map_every qid_spec_tac [`i`,`ys`,`ms`] \\
+            Induct_on `i` \\ fs[] \\ rw[]
+            >- (Cases_on `ms` >> gvs[get_vars_def,AllCaseEqs()])
+            >- (Cases_on `ys` >> fs[] >>
+                Cases_on `ms` >> gvs[get_vars_def,AllCaseEqs()])
+           ) \\
+       `EL i ms = 2 * ((i + 1))`
+          by(
+             imp_res_tac get_vars_length_lemma \\
+             fs[convs_def] \\
+             qpat_assum `ms = _` (ONCE_REWRITE_TAC o single) \\
+             DEP_REWRITE_TAC[EL_GENLIST] \\ fs[]) \\
+       pop_assum SUBST_ALL_TAC \\
+       pop_assum (assume_tac o SRULE[get_var_def]) \\
+       fs[state_rel_def] \\
+       first_assum drule \\
+       strip_tac \\ fs[] \\
+       `~ (i + 1 < k)` by DECIDE_TAC \\
+       fs[] \\
+       cheat))
+(*
   \\ pop_assum mp_tac \\ rw[]
   \\ `1 < k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
   \\ Cases_on `get_var n s` \\ fs []
@@ -6671,6 +6813,7 @@ Proof
         CaseEq"bool",CaseEq"option"]
   \\ rw[] \\ fs[] \\ every_case_tac
   \\ fs[] \\ rw[] \\ rfs[]
+*)
 QED
 
 Theorem stack_rel_aux_stack_size:
