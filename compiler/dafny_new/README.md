@@ -4,7 +4,7 @@ Translate Dafny into CakeML using a custom intermediate representation.
 Abstract Syntax Tree for a subset of Dafny.
 
 [dafny_sexpScript.sml](dafny_sexpScript.sml):
-Defines a simple S-expression type.
+Definitions to lex and parse S-expressions.
 
 [dafny_to_cakemlScript.sml](dafny_to_cakemlScript.sml):
 Defines the translation of Dafny's to CakeML's AST.
