@@ -117,6 +117,12 @@ Proof
   Cases_on ‘thy’ >> simp[type_ok_def]
 QED
 
+Theorem type_ok_imp_elim_rw:
+  type_ok (tysof (sigof thy)) ty ⇒ type_ok (tysof (thy, empty_elims)) ty
+Proof
+  Cases_on ‘thy’ >> simp[type_ok_def]
+QED
+
 Theorem type_ok_sigof_imp_elim:
   type_ok (tysof (sigof thy)) ty ⇒ type_ok (tysof (sigof (thy, empty_elims))) ty
 Proof
@@ -153,7 +159,7 @@ Theorem proves_imp_proves':
  ∀h. (thy, h) |- c ⇒ ((thy, empty_elims), [], h) |-' c
 Proof
   Induct_on ‘$|-’ >> rw[]
-  >- (irule proves'_ABS >> Cases_on ‘thy’ >> gvs[])
+  >- (irule proves'_ABS >> rw[type_ok_imp_elim_rw])
   >- (irule proves'_ASSUME >> rw[theory_ok_imp_elim, term_ok_sigof_imp])
   >- (irule proves'_BETA >> rw[theory_ok_imp_elim, term_ok_sigof_imp, type_ok_imp_elim])
   >- (irule proves'_DEDUCT_ANTISYM >> rw[])
@@ -165,37 +171,139 @@ Proof
   >- (irule proves'_axioms >> rw[axsof_elim_thy, theory_ok_imp_elim])
 QED
 
+Definition consts_of:
+  (consts_of (Var _ _) = {}) ∧
+  (consts_of (Const n ty) = {(n, ty)}) ∧
+  (consts_of (Comb s t) = consts_of s UNION consts_of t) ∧
+  (consts_of (Abs _ body) = consts_of body)
+End
+
+Overload tyvars_set = “λtm. set (tyvars tm)”
+
+Overload tyset = “(λtm. BIGUNION (IMAGE (tyvars_set o SND) (consts_of tm))):term->mlstring set”
+Overload tysetl = “(FOLDR (λb a. a UNION (tyset b)) {}):term list->mlstring set”
+Overload tysets = “(BIGUNION o IMAGE tyset):term set->mlstring set”
+
+Overload tmset = “(IMAGE FST o consts_of):term->mlstring set”
+Overload tmsetl = “(FOLDR (λb a. a UNION (tmset b)) {}):term list->mlstring set”
+Overload tmsets = “(BIGUNION o IMAGE tmset):term set->mlstring set”
+
+Definition remove_tysig_def:
+  remove_tysig ty ((tms, tys), axs) = ((tms, tys \\ ty), axs)
+End
+
+Definition remove_tmsig_def:
+  remove_tmsig tm ((tms, tys), axs) = ((tms \\ tm, tys), axs)
+End
+
+(*
+if there exists some type constant, ty, that does
+not appear in the the hypothesis nor the conclusion,
+nor as part of any axiom,
+then you can safely remove it from the theory signature.
+*)
 Theorem strip_redun_ty_consts:
-  (thy, h) |- c ∧ ty ∉ TYCONSTS_OF thy ∧ ty ∉ TYCONSTS_OF h ∧ ty ∉ TYCONSTS_OF c
-  ⇒ (remove_tysig ty thy, h) |- c
+  ∀thy h. (thy, h) |- c ∧ ty ∉ tyset c ∧ ty ∉ tysetl h
+          ∧ ty ∉ tysets (axsof thy)
+          ⇒ (remove_tysig ty thy, h) |- c
 Proof
   cheat
 QED
 
+(*
+if there exists some constant, tm, that does
+not appear in the the hypothesis nor the conclusion,
+nor any axiom,
+then you can safely remove it from the theory signature.
+*)
 Theorem strip_redun_tm_consts:
-  (thy, h) |- c ∧ tm ∉ TMCONSTS_OF thy ∧ tm ∉ TMCONSTS_OF h ∧ tm ∉ TMCONSTS_OF c
-  ⇒ (remove_tmsig tm thy, h) |- c
+  ∀thy h. (thy, h) |- c ∧ tm ∉ tmset c ∧ tm ∉ tmsetl h
+          ∧ tm ∉ tmsets (axsof thy)
+          ⇒ (remove_tmsig tm thy, h) |- c
 Proof
   cheat
+QED
+
+(*
+this pair of strip_redun theorems are useful, as we can then
+show that//.......
+*)
+
+(* induct over |-, chooses leftmost by default *)
+(*
+this theorem states that given c1 and c2 are deriveable
+in their own respective contexts and hypotheses, then
+if those contexts share signatures, then c2 can still
+be derived with that signature, the union of their hypotheses
+and
+*)
+
+Theorem proves_theory_ok:
+  ∀thy h c. (thy, h) |- c ⇒ theory_ok thy
+Proof
+  Induct_on ‘$|-’ >> rw[] >> rw[]
+QED
+
+Theorem proves_theory_ok_ext:
+  theory_ok thy1 ∧ (thy2, h) |- c ∧ sigof thy1 = sigof thy2
+  ⇒ theory_ok (sigof thy1, axsof thy1 DIFF {c1} ∪ axsof thy2)
+Proof
+  rw[] >> drule proves_theory_ok >> gvs[theory_ok_def] >> metis_tac[]
+QED
+
+Theorem axiom_weakening:
+  ∀axs h. ((sig, axs), h) |- c
+          ∧ (∀p. p ∈ A ⇒ term_ok sig p ∧ p has_type Bool)
+          ⇒ ((sig, A UNION axs), h) |- c
+Proof
+  Induct_on ‘$|-’ >> rw[]
+  >- (irule proves_ABS >> rw[] >> gvs[])
+  >- (irule proves_ASSUME >> rw[] >> gvs[theory_ok_def] >> metis_tac[])
+  >- (irule proves_BETA >> rw[] >> gvs[theory_ok_def] >> metis_tac[])
+  >- (irule proves_DEDUCT_ANTISYM >> rw[] >> gvs[] >> cheat)
+  >> cheat
 QED
 
 Theorem axioms_eliminable:
-  ∀thy1 thy2 h1 h2 c1 c2. (thy2, h2) |- c2 ∧ (thy1, h1) |- c1 ∧ sigof thy1 = sigof thy2
-  ⇒ ((delete_ax c1 thy2) union_ax thy1, h1 union_ax h2) |- c2
+  ∀thy1 thy2 h2 c1 c2. (thy2, h2) |- c2 ∧ (thy1, []) |- c1
+  ∧ sigof thy1 = sigof thy2
+  ⇒ ((sigof thy1, (axsof thy2 DIFF {c1}) UNION axsof thy1),
+     h2) |- c2
 Proof
-  cheat
+  Induct_on ‘$|-’ >> rw[]
+  >- (irule proves_ABS >> rw[])
+  >- (irule proves_ASSUME >> rw[] >> metis_tac[proves_theory_ok_ext])
+  >- (irule proves_BETA >> rw[] >> metis_tac[proves_theory_ok_ext])
+  >- (irule proves_DEDUCT_ANTISYM >> rw[])
+  >- (irule proves_EQ_MP >> rw[] >> metis_tac[])
+  >- (irule proves_INST >> rw[])
+  >- (irule proves_INST_TYPE >> rw[])
+  >- (irule proves_MK_COMB >> rw[])
+  >- (irule proves_REFL >> rw[] >> metis_tac[proves_theory_ok_ext])
+  >- (Cases_on ‘c1 = c2’
+      >- (rw[] >> irule axiom_weakening >> gvs[theory_ok_def]
+          >> Cases_on ‘thy’ >> gvs[])
+      >- (irule proves_axioms >> rw[] >> metis_tac[proves_theory_ok_ext]))
 QED
 
-Theorem adsfafisd:
-  (thy, (eaxs, esig)), [], h) |-' c ==> (insert_sig esig thy, h) |- c
-Proof
-  cheat
-QED
+Definition insert_sig_def:
+  insert_sig (etms, etys) (tms, tys) = (tms FUNION etms, tys FUNION etys)
+End
 
-Theorem imp:
-  ((thy, ethy), eaxs, h) |-' c ⇒ (merge_thy ethy thy, h) |- c
+Theorem proves'_imp_proves:
+  ∀h. ((thy, (eaxs, esig)), [], h) |-' c ==> (insert_sig esig thy, h) |- c
 Proof
-  cheat
+  Induct_on ‘$|-'’ >> rw[]
+  >- (irule proves_ABS >> Cases_on ‘thy’ >> rw[insert_sig_def] >> gvs[])
+  >- (irule proves_ASSUME >> Cases_on ‘thy’ >> rw[insert_sig_def, theory_ok'_imp_elim])
+  >- (irule proves_BETA >> cheat)
+  >- (irule proves_DEDUCT_ANTISYM >> cheat)
+  >- (irule proves_EQ_MP >> cheat)
+  >- (irule proves_INST >> cheat)
+  >- (irule proves_INST_TYPE >> cheat)
+  >- (irule proves_MK_COMB >> cheat)
+  >- (irule proves_REFL >> cheat)
+  >- (irule proves_axioms >> cheat)
 QED
 
 (* A context is a sequence of updates *)
