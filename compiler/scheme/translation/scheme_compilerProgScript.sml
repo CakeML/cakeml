@@ -27,11 +27,12 @@ val r = translate scheme_valuesTheory.head_def;
 (*val r = translate quote_def;*)
 val r = translate (IN_UNION |> SIMP_RULE bool_ss [SPECIFICATION]);
 val r = translate LIST_TO_SET_DEF;
-val r = translate (test'_def);
+val r = translate static_scope_def;
 val r = translate parse_def;
 val r = translate pair_to_list_def;
 val r = translate cons_formals_def;
 val r = translate cons_ast_def;
+val r = translate EMPTY_DEF;
 val r = translate static_scope_check_def;
 val r = translate parse_to_ast_def;
 

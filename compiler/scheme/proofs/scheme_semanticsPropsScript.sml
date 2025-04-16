@@ -476,15 +476,15 @@ Proof
     >~ [‘Begin es e’] >- (
       Cases_on ‘es’ >- (
         simp[step_def, Once valid_state_cases]
-        >> gvs[Once valid_state_cases, Once static_scope_cases]
+        >> gvs[Once valid_state_cases, Once static_scope_def]
       )
       >> simp[step_def, Once valid_state_cases]
       >> simp[Once valid_val_cases]
-      >> gvs[Once valid_state_cases, Once static_scope_cases]
+      >> gvs[Once valid_state_cases, Once static_scope_def]
     )
     >~ [‘Ident x’] >- (
       simp[step_def]
-      >> gvs[Once valid_state_cases, Once static_scope_cases, can_lookup_cases]
+      >> gvs[Once valid_state_cases, Once static_scope_def, can_lookup_cases]
       >> ‘∀ x . FDOM env x ⇒ ∃ a. FLOOKUP env x = SOME a’
         by simp[FLOOKUP_DEF, SPECIFICATION]
       >> pop_assum drule >> strip_tac
@@ -501,8 +501,8 @@ Proof
     >~ [‘Letrec bs e’] >- (
       simp[step_def]
       >> rpt (pairarg_tac >> gvs[])
-      >> simp[Once valid_state_cases, Once static_scope_cases]
-      >> gvs[Once valid_state_cases, Once static_scope_cases]
+      >> simp[Once valid_state_cases, Once static_scope_def]
+      >> gvs[Once valid_state_cases, Once static_scope_def]
       >> drule_then assume_tac letrec_init_dom
       >> drule_all_then assume_tac letrec_init_lookup
       >> gvs[]
@@ -528,7 +528,7 @@ Proof
       >> Induct_on ‘bs’ >- simp[]
       >> rpt strip_tac
       >> PairCases_on ‘h’
-      >> simp[Once static_scope_cases]
+      >> simp[Once static_scope_def]
       >> gvs[]
       >> last_x_assum $ qspec_then ‘env |+ (h0, 0)’ assume_tac
       >> gvs[]
@@ -547,7 +547,9 @@ Proof
     )
     >> simp[step_def, Once valid_state_cases]
     >> simp[Once valid_val_cases]
-    >> gvs[Once valid_state_cases, Once static_scope_cases, can_lookup_cases]
+    >> gvs[Once valid_state_cases, Once static_scope_def, can_lookup_cases]
+    >> Cases_on ‘o'’
+    >> gvs[Once valid_state_cases, Once static_scope_def, can_lookup_cases]
   )
   >~ [‘Val v’] >- (
     Cases_on ‘ks’ >- (

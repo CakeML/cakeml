@@ -999,7 +999,7 @@ Proof
       simp[cps_transform_def]
       >> rpt strip_tac
       >> gvs[Once valid_state_cases]
-      >> gvs[Once static_scope_cases]
+      >> gvs[Once static_scope_def]
       >> gvs[Once $ GSYM SPECIFICATION]
       >> qpat_assum ‘env_rel _ _’ $ drule_then assume_tac
         o SRULE [env_rel_cases, FEVERY_DEF]

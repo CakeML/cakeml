@@ -49,189 +49,78 @@ Definition lit_to_val_def:
   lit_to_val (LitBool b) = SBool b
 End
 
-Inductive static_scope:
-[~Lit:]
-  static_scope env (Lit lit)
-[~Cond:]
+Definition static_scope_def:
+  static_scope env (Lit lit) = T ∧
+
+  static_scope env (Cond c t f) = (
   static_scope env c ∧
   static_scope env t ∧
-  static_scope env f
-  ⇒
-  static_scope env (Cond c t f)
-[~Apply:]
+  static_scope env f) ∧
+
+  static_scope env (Apply fn es) = (
   static_scope env fn ∧
-  EVERY (static_scope env) es
-  ⇒
-  static_scope env (Apply fn es)
-[~Begin:]
-  EVERY (static_scope env) es ∧
-  static_scope env e
-  ⇒
-  static_scope env (Begin es e)
-[~Lambda_NONE:]
+  static_scope_list env es) ∧
+
+  static_scope env (Begin es e) = (
+  static_scope_list env es ∧
+  static_scope env e) ∧
+
+  static_scope env (Lambda xs NONE e) = (
   ALL_DISTINCT xs ∧
-  static_scope (env ∪ set xs) e
-  ⇒
-  static_scope env (Lambda xs NONE e)
-[~Lambda_SOME:]
+  static_scope (env ∪ set xs) e) ∧
+
+  static_scope env (Lambda xs (SOME x) e) = (
   ALL_DISTINCT (x::xs) ∧
-  static_scope (env ∪ set (x::xs)) e
-  ⇒
-  static_scope env (Lambda xs (SOME x) e)
-[~Letrec:]
+  static_scope (env ∪ set (x::xs)) e) ∧
+
+  static_scope env (Letrec bs e) = (
   ALL_DISTINCT (MAP FST bs) ∧
-  EVERY (static_scope (env ∪ set (MAP FST bs))) (MAP SND bs) ∧
-  static_scope (env ∪ set (MAP FST bs)) e
-  ⇒
-  static_scope env (Letrec bs e)
-[~Ident:]
-  env x
-  ⇒
-  static_scope env (Ident x)
-[~Set:]
+  static_scope_list (env ∪ set (MAP FST bs)) (MAP SND bs) ∧
+  static_scope (env ∪ set (MAP FST bs)) e) ∧
+
+  static_scope env (Ident x) = env x ∧
+
+  static_scope env (Set x e) = (
   env x ∧
-  static_scope env e
-  ⇒
-  static_scope env (Set x e)
+  static_scope env e) ∧
+
+  (static_scope_list env [] = T) ∧
+  static_scope_list env (e::es) = (static_scope env e ∧ static_scope_list env es)
+Termination
+  WF_REL_TAC ‘measure (λ x . case x of
+    | INL(_,e) => exp_size e
+    | INR(_,es) => list_size exp_size es)’
+  >> Induct_on ‘bs’
+  >> gvs[list_size_def, fetch "-" "exp_size_def"]
+  >> PairCases
+  >> strip_tac
+  >> gvs[list_size_def, fetch "-" "exp_size_def"]
+  >> pop_assum $ qspec_then ‘e’ assume_tac
+  >> gvs[list_size_def, fetch "-" "exp_size_def"]
 End
 
-Theorem static_scope_def = LIST_CONJ $ map
-  (SIMP_RULE pure_ss [Once $ GSYM CONJ_ASSOC] o
-    SIMP_RULE pure_ss [Once $ GSYM LIST_TO_SET,
-    Once $ CONJ_ASSOC, Once $ GSYM ALL_DISTINCT] o
-    GEN_ALL o SCONV [Once static_scope_cases]) [
-  “static_scope env (Lit l)”,
-  “static_scope env (Cond c t f)”,
-  “static_scope env (Apply fn es)”,
-  “static_scope env (Begin es e)”,
-  “static_scope env (Lambda xs NONE e)”,
-  “static_scope env (Lambda xs (SOME x) e)”,
-  “static_scope env (Letrec bs e)”,
-  “static_scope env (Ident x)”,
-  “static_scope env (Set x e)”
-];
-
-Theorem test_def = oneline $ GEN_ALL $
-  SIMP_RULE bool_ss [Once $ GSYM CONJ_ASSOC] $
-  SIMP_RULE bool_ss [Once $ GSYM LIST_TO_SET,
-    Once $ CONJ_ASSOC, Once $ GSYM ALL_DISTINCT] $
-  SCONV [Once static_scope_cases] “static_scope env (Apply fn es)”;
-
-Inductive static_scope':
-[~Lit:]
-  static_scope' env (Lit lit)
-[~Cond:]
-  static_scope' env c ∧
-  static_scope' env t ∧
-  static_scope' env f
-  ⇒
-  static_scope' env (Cond c t f)
-[~Apply:]
-  static_scope' env fn ∧
-  ALL_EL (static_scope' env) es
-  ⇒
-  static_scope' env (Apply fn es)
-[~Begin:]
-  EVERY (static_scope' env) es ∧
-  static_scope' env e
-  ⇒
-  static_scope' env (Begin es e)
-[~Lambda_NONE:]
-  ALL_DISTINCT xs ∧
-  static_scope' (env ++ xs) e
-  ⇒
-  static_scope' env (Lambda xs NONE e)
-[~Lambda_SOME:]
-  ALL_DISTINCT (x::xs) ∧
-  static_scope' (env ++ x::xs) e
-  ⇒
-  static_scope' env (Lambda xs (SOME x) e)
-[~Letrec:]
-  ALL_DISTINCT (MAP FST bs) ∧
-  EVERY (static_scope' (env ++ MAP FST bs)) (MAP SND bs) ∧
-  static_scope' (env ++ MAP FST bs) e
-  ⇒
-  static_scope' env (Letrec bs e)
-[~Ident:]
-  MEM x env
-  ⇒
-  static_scope' env (Ident x)
-[~Set:]
-  MEM x env ∧
-  static_scope' env e
-  ⇒
-  static_scope' env (Set x e)
-End
-
-Theorem static_scope'_def = LIST_CONJ $ map
-  (SIMP_RULE pure_ss [Once $ GSYM CONJ_ASSOC] o
-    SIMP_RULE pure_ss [Once $ GSYM LIST_TO_SET,
-    Once $ CONJ_ASSOC, Once $ GSYM ALL_DISTINCT] o
-    GEN_ALL o SCONV [Once static_scope'_cases]) [
-  “static_scope' env (Lit l)”,
-  “static_scope' env (Cond c t f)”,
-  “static_scope' env (Apply fn es)”,
-  “static_scope' env (Begin es e)”,
-  “static_scope' env (Lambda xs NONE e)”,
-  “static_scope' env (Lambda xs (SOME x) e)”,
-  “static_scope' env (Letrec bs e)”,
-  “static_scope' env (Ident x)”,
-  “static_scope' env (Set x e)”
-];
-
-Theorem test'_def = oneline $ GEN_ALL $
-  SCONV [Once static_scope'_cases] “static_scope' env (Apply fn es)”;
-
-dest_eq (concl (oneline static_scope_def));
-
-Theorem static_scope_mono:
-  ∀ env e env' .
-    env ⊆ env' ∧ static_scope env e ⇒ static_scope env' e
+Theorem static_scope_mono_all:
+    (∀ env' e env . env ⊆ env' ∧ static_scope env e ⇒ static_scope env' e) ∧
+    (∀ env' es env . env ⊆ env' ∧ static_scope_list env es ⇒ static_scope_list env' es)
 Proof
-  simp[Once CONJ_COMM]
-  >> simp[GSYM AND_IMP_INTRO]
-  >> simp[GSYM PULL_FORALL]
-  >> ho_match_mp_tac static_scope_ind
+  ho_match_mp_tac static_scope_ind
   >> rpt strip_tac
-  >~ [‘Letrec bs e’] >- (
-    simp[Once static_scope_cases]
-    >> ‘env ∪ set (MAP FST bs) ⊆ env' ∪ set (MAP FST bs)’
-      by gvs[SUBSET_UNION_ABSORPTION, UNION_ASSOC]
-    >> qpat_x_assum ‘∀ _._ ⇒ _’ $ irule_at (Pos last)
-    >> simp[]
-    >> irule EVERY_MONOTONIC
-    >> qpat_x_assum ‘EVERY _ _’ $ irule_at (Pos last)
-    >> rpt strip_tac
-    >> gvs[]
-  )
-  >> simp[Once static_scope_cases]
+  >> simp[Once static_scope_def]
+  >> gvs[Once static_scope_def]
+  >> rpt (last_x_assum $ drule_at_then (Pos last) assume_tac)
+  >> simp[]
   >> gvs[SUBSET_DEF, SPECIFICATION]
-  >> irule EVERY_MONOTONIC
-  >> qpat_assum ‘EVERY _ _’ $ irule_at (Pos last)
-  >> gvs[]
+QED
+
+Theorem static_scope_mono = cj 1 static_scope_mono_all;
+
+Theorem every_static_scope[simp]:
+  ∀ env . static_scope_list env = EVERY (static_scope env)
+Proof
+  gen_tac
+  >> irule EQ_EXT
+  >> Induct
+  >> simp[static_scope_def]
 QED
 
 val _ = export_theory();
-
-(*
-  EVAL “static_scoping_check {} (
-    Apply (
-      Lambda [strlit "f"; strlit "x"] NONE (Begin (
-        Apply (Ident $ strlit "f"
-        ) [Val $ SNum 1]
-      ) [
-        Ident $ strlit "x"
-      ])
-    ) [
-      Lambda [strlit "y"] NONE (Begin (
-        Set (strlit "x") (Val $ SNum 5)
-      ) [
-        Apply (Val $ Prim SAdd) [
-          Ident $ strlit "y";
-          Ident $ strlit "x"
-        ]
-      ]);
-      Val $ SNum 4
-    ]
-  )”
-*)
