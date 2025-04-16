@@ -21,6 +21,24 @@ Overload Tuple = “λes. Con NONE es”
 Overload None = “Con (SOME (Short "None")) []”
 Overload Some = “λe. Con (SOME (Short "Some")) [e]”
 
+(* Converts a HOL list of CakeML expressions into a CakeML list. *)
+Definition cml_list_def:
+  (cml_list [] = Con (SOME (Short "[]")) []) ∧
+  (cml_list (x::rest) =
+   Con (SOME (Short "::")) [x; cml_list rest])
+End
+
+(* Creates nested lets. *)
+Definition cml_lets_def:
+  cml_lets (lhs::lhss) (cml_rhs::cml_rhss) cml_e =
+  do
+    rest <- cml_lets lhss cml_rhss cml_e;
+    return (Let (SOME lhs) cml_rhs rest)
+  od ∧
+  cml_lets [] [] cml_e = return cml_e ∧
+  cml_lets _ _ _ = fail «cml_lets: Length mismatch»
+End
+
 Definition cml_fapp_aux_def:
   cml_fapp_aux id cml_es =
   (case cml_es of
@@ -230,7 +248,7 @@ Definition assign_def:
   (case lhs of
    | VarLhs v =>
      (let cml_lhs = Var (Short (explode v)) in
-        return (App Opassign [cml_lhs; cml_rhs]))
+        return (App Opassign [cml_lhs; Some cml_rhs]))
    | ArrSelLhs arr idx =>
      do
        cml_idx <- from_exp idx;
@@ -240,15 +258,33 @@ Definition assign_def:
      od)
 End
 
-Definition par_assign_def:
-  par_assign (lhs::lhss) (cml_rhs::cml_rhss) =
+Definition assign_mult_def:
+  assign_mult (lhs::lhss) (cml_rhs::cml_rhss) =
   do
     cml_assign <- assign lhs cml_rhs;
-    rest <- par_assign lhss cml_rhss;
+    rest <- assign_mult lhss cml_rhss;
     return (Let NONE cml_assign rest)
   od ∧
-  par_assign [] [] = return Unit ∧
-  par_assign _ _ = fail «par_assign: Length mismatch»
+  assign_mult [] [] = return Unit ∧
+  assign_mult _ _ = fail «assign_mult: Length mismatch»
+End
+
+Definition cml_tmp_vname_def:
+  cml_tmp_vname idx = explode («_tmp» ^ (num_to_str idx))
+End
+
+Definition par_assign_def:
+  par_assign lhss cml_rhss =
+  do
+    (* To properly implement parallel assign, we first need to evaluate all
+       rhss, store them in temporary variables, and then assign those to lhss.
+       Otherwise, assignments like a, b := b, a + b may not be dealt with
+       properly. *)
+    tmp_ns <<- GENLIST (λn. cml_tmp_vname n) (LENGTH cml_rhss);
+    tmp_vars <<- MAP (Var ∘ Short) tmp_ns;
+    cml_assign <- assign_mult lhss tmp_vars;
+    cml_lets tmp_ns cml_rhss cml_assign
+  od
 End
 
 Definition to_string_def:
@@ -310,7 +346,7 @@ Definition from_statement_def:
      do
        cml_ets <- map_from_exp_tup ets;
        cml_strs <- result_mmap (λ(e,t). to_string e t) cml_ets;
-       cml_str <<- cml_fapp ["String"] "concat" cml_strs;
+       cml_str <<- cml_fapp ["String"] "concat" [cml_list cml_strs];
        return (cml_fapp [] "print" [cml_str])
      od
    | MetCall lhss n args =>
@@ -336,15 +372,16 @@ End
 
 Definition set_up_cml_fun_def:
   set_up_cml_fun n ins cml_body =
-  let
-    in_ref_ns = MAP FST ins;
-    in_param_ns = MAP (strcat «_») in_ref_ns;
-    init_ins = par_assign (MAP VarLhs in_ref_ns)
-                          (MAP (Var ∘ Short ∘ explode) in_param_ns);
-    cml_body = cml_new_refs_in (MAP explode in_ref_ns) cml_body;
-    (cml_param, cml_body) = cml_fun (MAP explode in_param_ns) cml_body;
-  in
-    (explode n, cml_param, cml_body)
+  do
+    in_ref_ns <<- MAP FST ins;
+    in_param_ns <<- MAP (strcat «_») in_ref_ns;
+    init_ins <- par_assign (MAP VarLhs in_ref_ns)
+                           (MAP (Var ∘ Short ∘ explode) in_param_ns);
+    cml_body <<- Let NONE init_ins cml_body;
+    cml_body <<- cml_new_refs_in (MAP explode in_ref_ns) cml_body;
+    (cml_param, cml_body) <<- cml_fun (MAP explode in_param_ns) cml_body;
+    return (explode n, cml_param, cml_body)
+  od
 End
 
 Definition from_member_decl_def:
@@ -360,10 +397,10 @@ Definition from_member_decl_def:
        cml_body <<- Handle cml_body
                 [(Pcon (SOME (mk_id ["Dafny"] "Return")) [], cml_tup)];
        cml_body <<- cml_new_refs_in (MAP explode out_ns) cml_body;
-       return (set_up_cml_fun n ins cml_body)
+       set_up_cml_fun n ins cml_body
      od
    | Function n ins _ _ _ _ body =>
-     do cml_body <- from_exp body; return (set_up_cml_fun n ins cml_body) od)
+     do cml_body <- from_exp body; set_up_cml_fun n ins cml_body od)
 End
 
 (* Defines the Dafny module containing the Dafny runtime *)
@@ -400,5 +437,23 @@ Definition from_program_def:
     return (^dafny_module ++ [cml_funs; cml_main])
   od
 End
+
+(* Testing *)
+open dafny_sexpTheory
+open sexp_to_dafnyTheory
+open TextIO
+
+(* val _ = astPP.disable_astPP(); *)
+val _ = astPP.enable_astPP();
+
+val inStream = TextIO.openIn "./tests/output/fib.dfy.sexp";
+val fileContent = TextIO.inputAll inStream;
+val _ = TextIO.closeIn inStream;
+val fileContent_tm = stringSyntax.fromMLstring fileContent;
+
+val lex_r = EVAL “(lex ^fileContent_tm)” |> concl |> rhs |> rand;
+val parse_r = EVAL “(parse ^lex_r)” |> concl |> rhs |> rand;
+val dafny_r = EVAL “(to_program ^parse_r)” |> concl |> rhs |> rand;
+val cakeml_r = EVAL “(from_program ^dafny_r)” |> concl |> rhs |> rand;
 
 val _ = export_theory ();

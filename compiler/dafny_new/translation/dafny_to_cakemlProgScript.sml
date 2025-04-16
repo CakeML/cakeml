@@ -13,6 +13,8 @@ val _ = new_theory "dafny_to_cakemlProg";
 
 val _ = translation_extends "sexp_to_dafnyProg";
 
+val r = translate dafny_to_cakemlTheory.cml_list_def;
+val r = translate dafny_to_cakemlTheory.cml_lets_def;
 val r = translate dafny_to_cakemlTheory.cml_fapp_aux_def;
 
 val r = translate namespaceTheory.mk_id_def;
@@ -40,6 +42,8 @@ val r = translate dafny_to_cakemlTheory.map_from_exp_tup_def;
 val r = translate dafny_to_cakemlTheory.from_rhs_exp_def;
 
 val r = translate dafny_to_cakemlTheory.assign_def;
+val r = translate dafny_to_cakemlTheory.assign_mult_def;
+val r = translate dafny_to_cakemlTheory.cml_tmp_vname_def;
 val r = translate dafny_to_cakemlTheory.par_assign_def;
 val r = translate dafny_to_cakemlTheory.to_string_def;
 val r = translate dafny_to_cakemlTheory.from_statement_def;

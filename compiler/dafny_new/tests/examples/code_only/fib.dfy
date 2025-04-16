@@ -19,3 +19,17 @@ method ComputeFib(n: int) returns (b: int)
     i := i + 1;
   }
 }
+
+method Main() {
+  TestComputeFib(0);
+  TestComputeFib(1);
+  TestComputeFib(2);
+  TestComputeFib(5);
+  TestComputeFib(10);
+}
+
+method TestComputeFib(n: int)
+{
+  var r := ComputeFib(n);
+  print "ComputeFib(", n, ") = ", r, "\n";
+}
