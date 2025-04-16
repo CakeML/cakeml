@@ -13,7 +13,7 @@ open simpleSexpParseTheory
 val _ = new_theory "dafny_compiler";
 
 Definition dfy_to_cml_def:
-  dfy_to_cml (dfy_sexp: string) : (dec list) result =
+  dfy_to_cml (dfy_sexp: string) =
   do
     dfy_sexp <- lex dfy_sexp;
     dfy_sexp <- parse dfy_sexp;
