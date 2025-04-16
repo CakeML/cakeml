@@ -95,6 +95,95 @@ Inductive static_scope:
   static_scope env (Set x e)
 End
 
+Theorem static_scope_def = LIST_CONJ $ map
+  (SIMP_RULE pure_ss [Once $ GSYM CONJ_ASSOC] o
+    SIMP_RULE pure_ss [Once $ GSYM LIST_TO_SET,
+    Once $ CONJ_ASSOC, Once $ GSYM ALL_DISTINCT] o
+    GEN_ALL o SCONV [Once static_scope_cases]) [
+  “static_scope env (Lit l)”,
+  “static_scope env (Cond c t f)”,
+  “static_scope env (Apply fn es)”,
+  “static_scope env (Begin es e)”,
+  “static_scope env (Lambda xs NONE e)”,
+  “static_scope env (Lambda xs (SOME x) e)”,
+  “static_scope env (Letrec bs e)”,
+  “static_scope env (Ident x)”,
+  “static_scope env (Set x e)”
+];
+
+Theorem test_def = oneline $ GEN_ALL $
+  SIMP_RULE bool_ss [Once $ GSYM CONJ_ASSOC] $
+  SIMP_RULE bool_ss [Once $ GSYM LIST_TO_SET,
+    Once $ CONJ_ASSOC, Once $ GSYM ALL_DISTINCT] $
+  SCONV [Once static_scope_cases] “static_scope env (Apply fn es)”;
+
+Inductive static_scope':
+[~Lit:]
+  static_scope' env (Lit lit)
+[~Cond:]
+  static_scope' env c ∧
+  static_scope' env t ∧
+  static_scope' env f
+  ⇒
+  static_scope' env (Cond c t f)
+[~Apply:]
+  static_scope' env fn ∧
+  ALL_EL (static_scope' env) es
+  ⇒
+  static_scope' env (Apply fn es)
+[~Begin:]
+  EVERY (static_scope' env) es ∧
+  static_scope' env e
+  ⇒
+  static_scope' env (Begin es e)
+[~Lambda_NONE:]
+  ALL_DISTINCT xs ∧
+  static_scope' (env ++ xs) e
+  ⇒
+  static_scope' env (Lambda xs NONE e)
+[~Lambda_SOME:]
+  ALL_DISTINCT (x::xs) ∧
+  static_scope' (env ++ x::xs) e
+  ⇒
+  static_scope' env (Lambda xs (SOME x) e)
+[~Letrec:]
+  ALL_DISTINCT (MAP FST bs) ∧
+  EVERY (static_scope' (env ++ MAP FST bs)) (MAP SND bs) ∧
+  static_scope' (env ++ MAP FST bs) e
+  ⇒
+  static_scope' env (Letrec bs e)
+[~Ident:]
+  MEM x env
+  ⇒
+  static_scope' env (Ident x)
+[~Set:]
+  MEM x env ∧
+  static_scope' env e
+  ⇒
+  static_scope' env (Set x e)
+End
+
+Theorem static_scope'_def = LIST_CONJ $ map
+  (SIMP_RULE pure_ss [Once $ GSYM CONJ_ASSOC] o
+    SIMP_RULE pure_ss [Once $ GSYM LIST_TO_SET,
+    Once $ CONJ_ASSOC, Once $ GSYM ALL_DISTINCT] o
+    GEN_ALL o SCONV [Once static_scope'_cases]) [
+  “static_scope' env (Lit l)”,
+  “static_scope' env (Cond c t f)”,
+  “static_scope' env (Apply fn es)”,
+  “static_scope' env (Begin es e)”,
+  “static_scope' env (Lambda xs NONE e)”,
+  “static_scope' env (Lambda xs (SOME x) e)”,
+  “static_scope' env (Letrec bs e)”,
+  “static_scope' env (Ident x)”,
+  “static_scope' env (Set x e)”
+];
+
+Theorem test'_def = oneline $ GEN_ALL $
+  SCONV [Once static_scope'_cases] “static_scope' env (Apply fn es)”;
+
+dest_eq (concl (oneline static_scope_def));
+
 Theorem static_scope_mono:
   ∀ env e env' .
     env ⊆ env' ∧ static_scope env e ⇒ static_scope env' e

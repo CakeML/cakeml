@@ -296,11 +296,18 @@ Termination
   >> gvs[]
 End
 
+Definition static_scope_check_def:
+  static_scope_check p = if static_scope ∅ p
+    then INR p
+    else INL "Not statically scoped or duplicate parameter in lambda or letrec"
+End
+
 Definition parse_to_ast_def:
   parse_to_ast s = do
       lxs <- lexer s;
       e <- parse lxs Nil [];
-      cons_ast (head e)
+      p <- cons_ast (head e);
+      static_scope_check p
     od
 End
 
