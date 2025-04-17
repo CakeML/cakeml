@@ -439,21 +439,23 @@ Definition from_program_def:
 End
 
 (* Testing *)
-open dafny_sexpTheory
-open sexp_to_dafnyTheory
-open TextIO
+(* open dafny_sexpTheory *)
+(* open sexp_to_dafnyTheory *)
+(* open TextIO *)
+(* open dafny_transformTheory *)
 
 (* val _ = astPP.disable_astPP(); *)
-val _ = astPP.enable_astPP();
+(* val _ = astPP.enable_astPP(); *)
 
-val inStream = TextIO.openIn "./tests/output/fib.dfy.sexp";
-val fileContent = TextIO.inputAll inStream;
-val _ = TextIO.closeIn inStream;
-val fileContent_tm = stringSyntax.fromMLstring fileContent;
+(* val inStream = TextIO.openIn "./tests/output/binary_search.dfy.sexp" *)
+(* val fileContent = TextIO.inputAll inStream; *)
+(* val _ = TextIO.closeIn inStream; *)
+(* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)
 
-val lex_r = EVAL “(lex ^fileContent_tm)” |> concl |> rhs |> rand;
-val parse_r = EVAL “(parse ^lex_r)” |> concl |> rhs |> rand;
-val dafny_r = EVAL “(to_program ^parse_r)” |> concl |> rhs |> rand;
-val cakeml_r = EVAL “(from_program ^dafny_r)” |> concl |> rhs |> rand;
+(* val lex_r = EVAL “(lex ^fileContent_tm)” |> concl |> rhs |> rand; *)
+(* val parse_r = EVAL “(parse ^lex_r)” |> concl |> rhs |> rand; *)
+(* val dafny_r = EVAL “(to_program ^parse_r)” |> concl |> rhs |> rand; *)
+(* val fresh_vars_r = EVAL “(use_fresh_vars ^dafny_r)” |> concl |> rhs; *)
+(* val cakeml_r = EVAL “(from_program ^fresh_vars_r)” |> concl |> rhs |> rand; *)
 
 val _ = export_theory ();

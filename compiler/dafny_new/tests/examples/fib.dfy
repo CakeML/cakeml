@@ -32,10 +32,22 @@ method Main() {
   TestComputeFib(2);
   TestComputeFib(5);
   TestComputeFib(10);
+
+  TestFib(0);
+  TestFib(1);
+  TestFib(2);
+  TestFib(5);
+  TestFib(10);
 }
 
 method TestComputeFib(n: int)
 {
   var r := ComputeFib(n);
   print "ComputeFib(", n, ") = ", r, "\n";
+}
+
+method TestFib(n: int)
+{
+  var r := fib(n);
+  print "fib(", n, ") = ", r, "\n";
 }

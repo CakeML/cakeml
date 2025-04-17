@@ -7,10 +7,11 @@ open ml_translatorLib
 open dafny_to_cakemlProgTheory
 open dafny_compilerTheory
 open cfTacticsLib  (* process_topdecs *)
+open dafny_transformProgTheory
 
 val _ = new_theory "dafny_compilerProg";
 
-val _ = translation_extends "dafny_to_cakemlProg";
+val _ = translation_extends "dafny_transformProg";
 
 val r = translate dafny_compilerTheory.dfy_to_cml_def;
 val r = translate dafny_compilerTheory.unpack_def;
