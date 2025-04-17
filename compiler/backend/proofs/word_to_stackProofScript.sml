@@ -5824,7 +5824,7 @@ val goal = ``
               TODO: LLOOKUP probably off by one or two *)
             (∀i. i < LENGTH ys ==> (if i + 1 < k then
               (FLOOKUP t1.regs (i+1) = SOME (EL i ys)) else
-            (LLOOKUP t1.stack (f - 1 -(i + 1 - k)) = SOME (EL i ys))))
+            (LLOOKUP (DROP t1.stack_space t1.stack) (LENGTH ys - (i + 1)) = SOME (EL i ys))))
          | SOME (Exception _ y) =>
            ∃cs.
            state_rel ac k 0 0 (push_locals cs s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
@@ -6649,7 +6649,17 @@ Proof
     IF_CASES_TAC >- simp[] \\
     strip_tac \\ simp[] \\
     imp_res_tac LLOOKUP_TAKE_IMP \\
-    cheat)
+    fs[LLOOKUP_DROP,skip_free_def,num_stack_ret_def] \\
+    gvs[] \\
+    imp_res_tac get_vars_length_lemma \\
+    fs[] \\
+    `f' + k > LENGTH ms`
+       by(
+       fs[convs_def,wordLangTheory.max_var_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS] \\
+       rveq \\ fs[list_max_def] \\
+       qpat_x_assum `ms = GENLIST _ _` SUBST_ALL_TAC \\
+       fs[list_max_GENLIST_evens2]) \\
+    fs[])
   >- (fs[wStackLoad_def,stackSemTheory.evaluate_def] \\
   `t.use_stack /\ (t.stack_space + (f + k − (n DIV 2 + 1))) < LENGTH t.stack`
    by (fs [state_rel_def,get_var_def,LET_DEF]
@@ -6706,63 +6716,18 @@ Proof
     IF_CASES_TAC >- simp[] \\
     strip_tac \\ simp[] \\
     imp_res_tac LLOOKUP_TAKE_IMP \\
-    cheat)
+    fs[LLOOKUP_DROP,skip_free_def,num_stack_ret_def] \\
+    gvs[] \\
+    imp_res_tac get_vars_length_lemma \\
+    fs[] \\
+    `f' + k > LENGTH ms`
+       by(
+       fs[convs_def,wordLangTheory.max_var_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS] \\
+       rveq \\ fs[list_max_def] \\
+       qpat_x_assum `ms = GENLIST _ _` SUBST_ALL_TAC \\
+       fs[list_max_GENLIST_evens2]) \\
+    fs[])
 QED
-(*
-  \\ pop_assum mp_tac \\ rw[]
-  \\ `1 < k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
-  \\ Cases_on `get_var n s` \\ fs []
-  \\ Cases_on `get_var m s` \\ fs [] \\ rw []
-  \\ Cases_on `ys` \\ fs []
-  \\ rename1 `get_var n s = SOME (Loc l1 l2)`
-  \\ fs [wStackLoad_def] \\ fs [convs_def] \\ rw []
-  \\ fs [reg_allocTheory.is_phy_var_def,wordLangTheory.max_var_def]
-  \\ `t.use_stack /\ ~(LENGTH t.stack < t.stack_space + f) /\
-      t.stack_space <= LENGTH t.stack` by
-   (fs [state_rel_def] \\ decide_tac) \\ fs [LET_DEF]
-  \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
-  THEN1
-   (`(get_var (n DIV 2) t = SOME (Loc l1 l2)) /\ (get_var 1 t = SOME x')` by
-     (fs [state_rel_def,get_var_def,LET_DEF]
-      \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
-      \\ fs [stackSemTheory.get_var_def])
-    \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF]
-    \\ fs [state_rel_def,empty_env_def,call_env_def,flush_state_def,LET_DEF,
-           fromList2_def,lookup_def]
-    \\ rpt conj_tac >- metis_tac[]
-    \\ simp[wf_def,GSYM DROP_DROP] \\ fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,the_eqn,stack_size_eq,
-        CaseEq"bool",CaseEq"option"]
-    \\ rw[] \\ fs[] \\ every_case_tac
-    \\ fs[]
-    \\ rw[] \\ rfs[]
-   )
-  \\ `(t.stack_space + (f +k - (n DIV 2 + 1)) < LENGTH t.stack) /\
-      (EL (t.stack_space + (f +k - (n DIV 2 + 1))) t.stack = Loc l1 l2) /\
-      (get_var 1 t = SOME x')` by
-   (fs [state_rel_def,get_var_def,LET_DEF]
-    \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
-    \\ fs [stackSemTheory.get_var_def]
-    \\ imp_res_tac LLOOKUP_TAKE_IMP
-    \\ fs [LLOOKUP_DROP] \\ fs [LLOOKUP_THM] \\ rw[]
-    \\ rfs[EL_TAKE])
-  \\ fs [LET_DEF]
-  \\ `(set_var k (Loc l1 l2) t).use_stack /\
-      (set_var k (Loc l1 l2) t).stack_space <=
-       LENGTH (set_var k (Loc l1 l2) t).stack` by
-    fs [stackSemTheory.set_var_def]
-  \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
-  \\ fs [stackSemTheory.set_var_def,LET_DEF]
-  \\ `k <> 1` by (fs [state_rel_def] \\ decide_tac)
-  \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF,FLOOKUP_UPDATE]
-  \\ fs [state_rel_def,empty_env_def,call_env_def,flush_state_def,LET_DEF,
-         fromList2_def,lookup_def]
-  \\ conj_tac >- metis_tac[]
-  \\ simp[wf_def,GSYM DROP_DROP]
-  \\ fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,the_eqn,stack_size_eq,
-        CaseEq"bool",CaseEq"option"]
-  \\ rw[] \\ fs[] \\ every_case_tac
-  \\ fs[] \\ rw[] \\ rfs[]
-*)
 
 Theorem stack_rel_aux_stack_size:
   !len k frame bits.
@@ -7885,7 +7850,7 @@ Proof
     THEN1
       (rw [] \\ qexists_tac `0` \\ simp[] \\
       (*Naive way very slow*)
-      qpat_x_assum `state_rel _ _ _ _ s t4 _` 
+      qpat_x_assum `state_rel _ _ _ _ s t4 _`
       (PURE_REWRITE_TAC o single o SRULE[state_rel_def]) \\
       REFL_TAC)
     \\ TOP_CASE_TAC
@@ -7931,7 +7896,7 @@ Proof
       \\ `m' > f + t.stack_space` suffices_by intLib.COOPER_TAC
       \\ `stack_arg_count dest' (LENGTH args) k = (LENGTH q - k)`
           by (
-          `LENGTH x = LENGTH args` by 
+          `LENGTH x = LENGTH args` by
           (imp_res_tac get_vars_length_lemma) \\
           pop_assum mp_tac \\
           qhdtm_x_assum `wordSem$find_code` (mp_tac) \\
@@ -8093,9 +8058,7 @@ Proof
     \\ Cases_on `res1` \\ fsrw_tac[] []
     \\ fsrw_tac[][AC ADD_COMM ADD_ASSOC]
     \\ IF_CASES_TAC >> fs[]
-    \\ TOP_CASE_TAC >> fs[]
-    THEN1 (cheat)
-    THEN1 METIS_TAC[])
+    \\ TOP_CASE_TAC >> fs[])
   \\ goalStack.print_tac "comp_correct returning call case(s)"
   \\ PairCases_on `x` \\ fs []
   \\ pairarg_tac \\ fs []
@@ -8739,7 +8702,7 @@ Proof
         ntac 2 strip_tac>>
         fsrw_tac[][lookup_alist_insert,convs_def]
         reverse TOP_CASE_TAC>-(
-             `MEM (n'',x'') (ZIP (x0,l))` 
+             `MEM (n'',x'') (ZIP (x0,l))`
                by (DEP_REWRITE_TAC[ MEM_ALOOKUP ] >>
                simp[MAP_ZIP] >>
                qpat_assum `x0 = _` (fn x => SUBST_ALL_TAC x >> assume_tac x) >>
