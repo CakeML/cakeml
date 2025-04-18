@@ -855,6 +855,14 @@ End
   f' is the size of the current frame
   lens tracks the size of each remaining stack frame on the stackLang stack
 *)
+(* TODO define this
+    (!sm. s.stack_max = SOME sm ==>
+    LENGTH t.stack - t.stack_space - f <= sm /\
+    IS_SOME s.locals_size /\
+    (?ss. stack_size s.stack = SOME ss /\
+    ss = LENGTH t.stack - t.stack_space - f))
+*)
+
 Definition state_rel_def:
   state_rel ac k f f' (s:('a,num # 'c,'ffi) wordSem$state) (t:('a,'c,'ffi) stackSem$state) lens ⇔
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
@@ -905,10 +913,12 @@ Definition state_rel_def:
        actual stack usage. *)
     (f <> 0 ==> the f s.locals_size = f) /\
     s.stack_limit = LENGTH t.stack /\
+(*
     LENGTH t.stack - t.stack_space - f <= the (LENGTH t.stack - t.stack_space - f) s.stack_max /\
     (IS_SOME s.stack_max ==> IS_SOME (stack_size s.stack)) /\
     (IS_SOME s.stack_max ==> IS_SOME s.locals_size) /\
     (IS_SOME s.stack_max ==> the (LENGTH t.stack - t.stack_space - f) (stack_size s.stack) = LENGTH t.stack - t.stack_space - f) /\
+*)
     let stack = DROP t.stack_space t.stack in
     (*First f things on stack are the live stack vars*)
     let current_frame = TAKE f stack in
