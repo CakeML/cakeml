@@ -1561,15 +1561,79 @@ Proof
               >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
                 same_type_def, same_ctor_def, evaluate_match_def,
                 pat_bindings_def]
-              >> Cases_on ‘x=v’
-              >> simp[Ntimes evaluate_def 5, do_if_def, do_app_def, do_eq_def]
+              >> Cases_on ‘∃ n . x = SNum n’ >- (
+                gvs[Once ml_v_vals'_cases]
+                >> simp[Ntimes evaluate_def 8]
+                >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+                  same_type_def, same_ctor_def, evaluate_match_def,
+                  pat_bindings_def, do_con_check_def, build_conv_def]
+                >> Cases_on ‘∃ m . v = SNum m’ >- (
+                  gvs[Once ml_v_vals'_cases]
+                  >> simp[Ntimes evaluate_def 11, nsOptBind_def, do_app_def]
+                  >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+                    same_type_def, same_ctor_def, evaluate_match_def,
+                    pat_bindings_def, do_con_check_def, build_conv_def,
+                    do_eq_def, lit_same_type_def]
+                  >> irule_at (Pos hd) EQ_REFL
+                  >> simp[env_rel_cases, FEVERY_FEMPTY]
+                  >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+                  >> Cases_on ‘i=i'’
+                  >> simp[Once e_ce_rel_cases, Once ml_v_vals'_cases,
+                    Boolv_def, bool_type_num_def]
+                )
+                >> Cases_on ‘v’
+                >> gvs[Once ml_v_vals'_cases]
+                >> simp[Ntimes evaluate_def 8, nsOptBind_def]
+                >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+                  same_type_def, same_ctor_def, evaluate_match_def,
+                  pat_bindings_def, do_con_check_def, build_conv_def]
+                >> irule_at (Pos hd) EQ_REFL
+                >> simp[env_rel_cases, FEVERY_FEMPTY]
+                >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+                >> simp[Once e_ce_rel_cases, Once ml_v_vals'_cases,
+                  Boolv_def, bool_type_num_def]
+              )
+              >> Cases_on ‘∃ b . x = SBool b’ >- (
+                gvs[Once ml_v_vals'_cases]
+                >> simp[Ntimes evaluate_def 8]
+                >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+                  same_type_def, same_ctor_def, evaluate_match_def,
+                  pat_bindings_def, do_con_check_def, build_conv_def]
+                >> (Cases_on ‘∃ b' . v = SBool b'’ >- (
+                  gvs[Once ml_v_vals'_cases]
+                  >> simp[Ntimes evaluate_def 11, nsOptBind_def, do_app_def]
+                  >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+                    same_type_def, same_ctor_def, evaluate_match_def,
+                    pat_bindings_def, do_con_check_def, build_conv_def,
+                    do_eq_def, lit_same_type_def, ctor_same_type_def]
+                  >> irule_at (Pos hd) EQ_REFL
+                  >> simp[env_rel_cases, FEVERY_FEMPTY]
+                  >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+                  >> simp[Once e_ce_rel_cases, Once ml_v_vals'_cases,
+                    Boolv_def, bool_type_num_def]
+                ))
+                >> Cases_on ‘v’ >> gvs[]
+                >> gvs[Once ml_v_vals'_cases]
+                >> simp[Ntimes evaluate_def 8, nsOptBind_def]
+                >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+                  same_type_def, same_ctor_def, evaluate_match_def,
+                  pat_bindings_def, do_con_check_def, build_conv_def]
+                >> irule_at (Pos hd) EQ_REFL
+                >> simp[env_rel_cases, FEVERY_FEMPTY]
+                >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+                >> simp[Once e_ce_rel_cases, Once ml_v_vals'_cases,
+                  Boolv_def, bool_type_num_def]
+              )
+              >> Cases_on ‘x’ >> gvs[]
+              >> gvs[Once ml_v_vals'_cases]
+              >> simp[Ntimes evaluate_def 9, nsOptBind_def]
               >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
                 same_type_def, same_ctor_def, evaluate_match_def,
-                pat_bindings_def]
-              >> cheat
-              (*>> irule_at (Pos hd) EQ_REFL
+                pat_bindings_def, do_con_check_def, build_conv_def]
+              >> irule_at (Pos hd) EQ_REFL
+              >> simp[env_rel_cases, FEVERY_FEMPTY]
               >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
-              >> simp[Once e_ce_rel_cases, env_rel_cases, FEVERY_FEMPTY]*)
+              >> simp[Once e_ce_rel_cases, Once ml_v_vals'_cases]
             )
             >> Cases_on ‘l'’ using SNOC_CASES
             >> gvs[vcons_list_def, LIST_REL_SNOC, REVERSE_SNOC]

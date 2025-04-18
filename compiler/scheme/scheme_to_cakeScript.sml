@@ -298,13 +298,27 @@ Definition scheme_basis5_def:
           (Pcon (SOME $ Short "::") [Pvar "x2"; Pvar "xs''"],
             Mat (Var (Short "xs''")) [
               (Pcon (SOME $ Short "[]") [],
-                If (App Equality [Var (Short "x1"); Var (Short "x2")])
-                  (Let (SOME "v") (Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]) $
-                    App Opapp [Var (Short "k"); Var (Short "v")])
-                  (Let (SOME "v") (Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []]) $
-                    App Opapp [Var (Short "k"); Var (Short "v")]));
+                (Let (SOME "v") (Con (SOME $ Short "SBool") [
+                  Mat (Var (Short "x1")) [
+                    (Pcon (SOME $ Short "SNum") [Pvar "n"],
+                      Mat (Var (Short "x2")) [
+                        (Pcon (SOME $ Short "SNum") [Pvar "m"],
+                          App Equality [Var (Short "n"); Var (Short "m")]);
+                        (Pany,
+                          Con (SOME $ Short "False") [])
+                      ]);
+                    (Pcon (SOME $ Short "SBool") [Pvar "b"],
+                      Mat (Var (Short "x2")) [
+                        (Pcon (SOME $ Short "SBool") [Pvar "b'"],
+                          App Equality [Var (Short "b"); Var (Short "b'")]);
+                        (Pany,
+                          Con (SOME $ Short "False") [])
+                      ]);
+                    (Pany,
+                      Con (SOME $ Short "False") [])
+                    ]]) $ App Opapp [Var (Short "k"); Var (Short "v")]));
               (Pany,
-                Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+                Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"])
             ])
         ])
     ]

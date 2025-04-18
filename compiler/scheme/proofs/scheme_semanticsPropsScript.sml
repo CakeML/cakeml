@@ -451,8 +451,6 @@ Proof
   >> simp[seqv_def]
   >> Cases_on ‘t'’
   >> simp[seqv_def]
-  >> IF_CASES_TAC
-  >> simp[]
 QED
 
 Theorem valid_state_progress:

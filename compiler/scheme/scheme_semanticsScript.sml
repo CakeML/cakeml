@@ -33,7 +33,14 @@ Definition sminus_def:
 End
 
 Definition seqv_def:
-  seqv [v1; v2] = (if v1 = v2 then Val $ SBool T else Val $ SBool F) ∧
+  seqv [v1; v2] = (Val $ SBool $ case v1 of
+  | SNum n => (case v2 of
+    | SNum m => n = m
+    | _ => F)
+  | SBool b => (case v2 of
+    | SBool b' => b = b'
+    | _ => F)
+  | _ => F) ∧
   seqv _ = Exception $ strlit "Arity mismatch"
 End
 
