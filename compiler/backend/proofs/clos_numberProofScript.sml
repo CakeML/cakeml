@@ -775,7 +775,7 @@ Proof
         \\ fs[LIST_REL_SNOC]
         \\ pairarg_tac \\ fs []
         \\ once_rewrite_tac [evaluate_CONS]
-        \\ fs [EVAL ``evaluate ([Op None (Const n) []],[],t)``])
+        \\ fs [EVAL ``evaluate ([Op None (IntOp (Const n)) []],[],t)``])
       \\ Q.ISPEC_THEN`v'`FULL_STRUCT_CASES_TAC SNOC_CASES
       >- (
         imp_res_tac evaluate_IMP_LENGTH
@@ -784,7 +784,7 @@ Proof
       \\ fs[LIST_REL_SNOC]
       \\ pairarg_tac \\ fs []
       \\ once_rewrite_tac [evaluate_CONS]
-      \\ fs [EVAL ``evaluate ([Op None (Const n) []],[],t)``]
+      \\ fs [EVAL ``evaluate ([Op None (IntOp (Const n)) []],[],t)``]
       \\ rename [`LIST_REL _ a vss`]
       \\ reverse (Q.ISPEC_THEN`vss`FULL_STRUCT_CASES_TAC SNOC_CASES)
       THEN1 (rewrite_tac [GSYM SNOC,LAST_SNOC] \\ fs [LIST_REL_SNOC])
@@ -807,7 +807,7 @@ Proof
     last_x_assum mp_tac >>
     BasicProvers.CASE_TAC >> TRY(Cases_on`a'`) >> srw_tac[][] >> simp[] >>
     imp_res_tac do_app_err >>
-    reverse(Cases_on`op=Equal`) >> full_simp_tac(srw_ss())[] >>
+    reverse(Cases_on`op=BlockOp Equal`) >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[do_app_def] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][v_rel_simp])
   THEN1 (* Fn *)
@@ -1028,7 +1028,7 @@ Theorem renumber_code_locs_elist_globals:
 Proof
   ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]) >> rveq >> fs[EVAL ``op_gbag Add``] >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[EVAL ``op_gbag (IntOp Add)``] >>
   rename1`renumber_code_locs_list locn1 (MAP SND functions)` >>
   qspecl_then [`locn1`, `MAP SND functions`] mp_tac
     (CONJUNCT1 renumber_code_locs_length) >>

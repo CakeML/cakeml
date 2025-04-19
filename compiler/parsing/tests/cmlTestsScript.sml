@@ -554,7 +554,7 @@ val _ = parsetest0 “nDecl” “ptree_Decl” "val x = (y : int ref)"
                            (Tannot (V "y")
                              (Atapp [Atapp [] (Short "int")]
                                     (Short "ref")))”)
-val _ = parsetest0 “nE” “ptree_Expr nE” "op Ref"
+val _ = parsetest0 “nE” “ptree_Expr nE” "Op (MemOp Ref)"
                    (SOME “Con (SOME (Short "Ref")) []”);
 val _ = parsetest0 “nE” “ptree_Expr nE” "Ref"
                    (SOME “Con (SOME (Short "Ref")) []”);

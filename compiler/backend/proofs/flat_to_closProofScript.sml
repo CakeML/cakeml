@@ -425,9 +425,9 @@ QED
 
 Theorem dest_Constant_IMP:
   dest_Constant x = SOME c ⇔
-    (∃t. x = Op t (Constant c) []) ∨
-    (∃t i. x = Op t (Const i) [] ∧ c = ConstInt i) ∨
-    (∃t n. x = Op t (Cons n) [] ∧ c = ConstCons n [])
+    (∃t. x = Op t (BlockOp (Constant c)) []) ∨
+    (∃t i. x = Op t (IntOp (Const i)) [] ∧ c = ConstInt i) ∨
+    (∃t n. x = Op t (BlockOp (Cons n)) [] ∧ c = ConstCons n [])
 Proof
   fs [DefnBase.one_line_ify NONE dest_Constant_def, AllCaseEqs()]
   \\ Cases_on ‘x’ \\ fs []
@@ -466,7 +466,7 @@ Proof
 QED
 
 Theorem evaluate_SmartCons:
-  evaluate ([SmartCons t tag xs],db,s) = evaluate ([Op t (Cons tag) xs],db,s)
+  evaluate ([SmartCons t tag xs],db,s) = evaluate ([Op t (BlockOp (Cons tag)) xs],db,s)
 Proof
   rw [SmartCons_def] \\ TRY CASE_TAC \\ fs [NULL_EQ]
   \\ fs [evaluate_def,do_app_def,make_const_def]

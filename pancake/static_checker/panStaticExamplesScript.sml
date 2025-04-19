@@ -342,7 +342,7 @@ val warns_missing_arg_panop =
 val parse_missing_arg_sub = ``
   [(«f»,F,([]:(mlstring # shape) list),
     Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Op Sub [Const 1w])))]
+    (Return (Op (IntOp Sub) [Const 1w])))]
 ``;
 
 val static_missing_arg_sub =
@@ -368,7 +368,7 @@ val warns_extra_arg_panop =
 val parse_extra_arg_sub = ``
   [(«f»,F,([]:(mlstring # shape) list),
     Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Op Sub [Const 1w; Const 1w; Const 1w])))]
+    (Return (Op (IntOp Sub) [Const 1w; Const 1w; Const 1w])))]
 ``;
 
 val static_extra_arg_sub =

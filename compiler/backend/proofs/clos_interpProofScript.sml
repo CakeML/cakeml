@@ -100,20 +100,20 @@ Proof
 QED
 
 Theorem evaluate_Constant[simp,local]:
-  evaluate ([Op t (Constant c) []],env,s) = (Rval [make_const c],s)
+  evaluate ([Op t (BlockOp (Constant c)) []],env,s) = (Rval [make_const c],s)
 Proof
   fs [evaluate_def,do_app_def]
 QED
 
 Theorem evaluate_Cons_nil:
-  evaluate ([Op t (Cons n) []],env,s) = (Rval [Block n []],s)
+  evaluate ([Op t (BlockOp (Cons n)) []],env,s) = (Rval [Block n []],s)
 Proof
   fs [evaluate_def,do_app_def]
 QED
 
 Theorem evaluate_Global_0:
   state_rel s t ⇒
-  evaluate ([Op tr (Global 0) []],env,t with clock := k) =
+  evaluate ([Op tr (GlobOp (Global 0)) []],env,t with clock := k) =
     (Rval [Closure NONE [] [] 1 clos_interpreter],t with clock := k)
 Proof
   fs [evaluate_def,do_app_def,state_rel_def,get_global_def]
@@ -181,7 +181,7 @@ val evaluate_Var =
 
 val evaluate_TagLenEq =
   SIMP_CONV (srw_ss()) [evaluate_def,do_app_def]
-    “evaluate ([Op None (TagLenEq t l) [V 0]],Block t1 xs :: env,s)”;
+    “evaluate ([Op None (BlockOp (TagLenEq t l)) [V 0]],Block t1 xs :: env,s)”;
 
 val init0_tac =
   simp [to_constant_def,make_const_def,Boolv_def,
@@ -505,7 +505,7 @@ Proof
                        clos_interpreter_def,dec_clock_def,do_app_def,
                        evaluate_Global_0,SF SFY_ss])
   \\ rename [‘Op t p es’]
-  \\ Cases_on ‘∃n. p = Global n’
+  \\ Cases_on ‘∃n. p = GlobOp (Global n)’
   \\ gvs [can_interpret_def,can_interpret_op_def,
           to_constant_def,to_constant_op_def,make_const_def]
   >-
@@ -513,16 +513,17 @@ Proof
     \\ rename [‘state_rel s t’]
     \\ ‘s.globals = t.globals’ by fs [state_rel_def]
     \\ qexists_tac ‘0’ \\ gvs [AllCaseEqs()])
-  \\ Cases_on ‘∃c. p = Constant c’
+  \\ Cases_on ‘∃c. p = BlockOp (Constant c)’
   \\ gvs [can_interpret_def,can_interpret_op_def,
           to_constant_def,to_constant_op_def,make_const_def]
   >- (init0_tac \\ qexists_tac ‘0’ \\ gvs [evaluate_def,do_app_def])
-  \\ Cases_on ‘∃i. p = Const i’
+  \\ Cases_on ‘∃i. p = IntOp (Const i)’
   \\ gvs [can_interpret_def,can_interpret_op_def,
           to_constant_def,to_constant_op_def,make_const_def]
   >- (init0_tac \\ qexists_tac ‘0’ \\ gvs [evaluate_def,do_app_def])
-  \\ reverse $ Cases_on ‘∃tag. p = Cons tag’
-  >- (Cases_on ‘p’ \\ fs [can_interpret_op_def])
+  \\ reverse $ Cases_on ‘∃tag. p = BlockOp (Cons tag)’
+  >- (Cases_on ‘p’ \\ fs [can_interpret_op_def]
+    >| map Cases_on [‘i’, ‘b’, ‘g’] \\ fs [can_interpret_op_def])
   \\ Cases_on ‘es = []’
   \\ gvs [can_interpret_def,can_interpret_op_def,
           to_constant_def,to_constant_op_def,make_const_def]
@@ -1337,6 +1338,7 @@ Proof
   \\ rpt $ pop_assum kall_tac
   \\ Induct \\ fs [can_interpret_def]
   \\ Cases \\ fs [can_interpret_op_def,op_gbag_def]
+  \\ Cases_on `g` \\ fs [can_interpret_op_def,op_gbag_def]
 QED
 
 Theorem elist_globals_insert_interp:

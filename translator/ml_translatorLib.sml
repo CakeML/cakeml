@@ -278,6 +278,7 @@ in
   fun get_ml_prog_state () = (!prog_state)
   fun get_curr_env () = get_env (!prog_state);
   fun get_curr_state () = get_state (!prog_state);
+  fun get_eval_thms () = (!eval_thms);
   fun get_curr_v_defs () = get_v_defs (!prog_state);
   fun get_curr_modules () = get_open_modules (!prog_state);
   fun add_v_thms (name,ml_name,th,pre_def) = let

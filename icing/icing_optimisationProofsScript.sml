@@ -143,7 +143,7 @@ Theorem fp_assoc2_gen_cases:
 Proof
   rpt gen_tac \\ Cases_on `e`
   \\ fs[fp_assoc2_gen_def, reverse_tuple_def, fp_assoc_gen_def, rewriteFPexp_def, isPureExp_def, matchesFPexp_def]
-  \\ rename1 `App op els`
+  \\ rename1 `App Op (MemOp el)s`
   \\ Cases_on `op` \\ fs[isPureOp_def]
   \\ Cases_on ‘isPureExpList els ∧
       isFpArithPat (Binop fpBop (PatVar 0) (Binop fpBop (PatVar 1) (PatVar 2))) ∧

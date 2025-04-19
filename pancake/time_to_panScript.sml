@@ -59,7 +59,7 @@ End
 
 Definition waitTimes_def:
   waitTimes =
-    list$MAP2 (λt e. Op Sub [Const (n2w t); e])
+    list$MAP2 (λt e. Op (IntOp Sub) [Const (n2w t); e])
 End
 
 
@@ -118,7 +118,7 @@ Definition compExp_def:
   (compExp clks vname (EClock clk) =
      Field (findi clk clks) (Var vname)) ∧
   (compExp clks vname (ESub e1 e2) =
-     Op Sub [compExp clks vname e1;
+     Op (IntOp Sub) [compExp clks vname e1;
              compExp clks vname e2])
 End
 
@@ -202,7 +202,7 @@ End
 
 Definition normalisedClks_def:
   normalisedClks v1 v2 n =
-  MAP2 (λx y. Op Sub [x;y])
+  MAP2 (λx y. Op (IntOp Sub) [x;y])
        (mkClks v1 n)
        (fieldsOf (Var v2) n)
 End
@@ -212,7 +212,7 @@ Definition check_input_time_def:
   check_input_time =
   let time =  Load One (Var «ptr2»);
       input = Load One
-                   (Op Add [Var «ptr2»;
+                   (Op (IntOp Add) [Var «ptr2»;
                             Const bytes_in_word])
   in
     nested_seq [
@@ -257,7 +257,7 @@ Definition task_controller_def:
         Assign «clks» nClks;
         Assign «clks» (Struct (normalisedClks «sysTime» «clks» clksLength));
         Assign «waitSet» nWaitSet ;
-        Assign «wakeUpAt» (Op Add [Var «sysTime»; nwakeUpAt]);
+        Assign «wakeUpAt» (Op (IntOp Add) [Var «sysTime»; nwakeUpAt]);
         Assign «loc» nloc;
         Assign «isInput» (Const 1w);
         Assign «event» (Const 0w)])
@@ -302,7 +302,7 @@ Definition start_controller_def:
        Assign «wakeUpAt»
               (case initWakeUp of
                | NONE => Var «sysTime»
-               | SOME n => Op Add [Var «sysTime»; Const (n2w n)]);
+               | SOME n => Op (IntOp Add) [Var «sysTime»; Const (n2w n)]);
        always clksLength
      ])
 End

@@ -76,7 +76,7 @@ Definition load_shape_def:
   (load_shape a 0 e = []) ∧
   (load_shape a (SUC i) e =
      if a = 0w then (Load e) :: load_shape (a + byte$bytes_in_word) i e
-     else (Load (Op Add [e; Const a])) :: load_shape (a + byte$bytes_in_word) i e)
+     else (Load (Op (IntOp Add) [e; Const a])) :: load_shape (a + byte$bytes_in_word) i e)
 End
 
 Definition nested_seq_def:
@@ -89,7 +89,7 @@ Definition stores_def:
   (stores ad [] a = []) /\
   (stores ad (e::es) a =
      if a = 0w then Store ad e :: stores ad es (a + byte$bytes_in_word)
-     else Store (Op Add [ad; Const a]) e :: stores ad es (a + byte$bytes_in_word))
+     else Store (Op (IntOp Add) [ad; Const a]) e :: stores ad es (a + byte$bytes_in_word))
 End
 
 Definition nested_decs_def:

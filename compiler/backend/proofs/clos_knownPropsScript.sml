@@ -153,10 +153,12 @@ QED
 Theorem known_op_better_definedg:
    known_op opn apxs g0 = (a,g) ⇒ better_definedg g0 g
 Proof
-  Cases_on `opn` >>
-  simp[known_op_def, pair_case_eq, closSemTheory.case_eq_thms, va_case_eq, bool_case_eq] >> rw[] >>
-  rw[better_definedg_def, lookup_insert] >>
-  rw[] >> fs[lookup_NONE_domain]
+  Cases_on `opn`
+  >> simp[known_op_def, pair_case_eq, closSemTheory.case_eq_thms, va_case_eq, bool_case_eq]
+  >| map Cases_on [`i`,`b`,`g'`,`m`]
+  >> simp[known_op_def, pair_case_eq, closSemTheory.case_eq_thms, va_case_eq, bool_case_eq] >> rw[]
+  >> rw[better_definedg_def, lookup_insert]
+  >> rw[] >> fs[lookup_NONE_domain]
 QED
 
 Theorem known_better_definedg:

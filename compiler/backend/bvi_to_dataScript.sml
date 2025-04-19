@@ -15,29 +15,29 @@ Theorem op_space_reset_pmatch:
   ! op.
   op_space_reset op =
     case op of
-      Add => T
-    | Sub => T
-    | Mult => T
-    | Div => T
-    | Mod => T
-    | Less => T
-    | LessEq => T
-    | Greater => T
-    | GreaterEq => T
-    | Equal => T
-    | ListAppend => T
-    | FromList _ => T
-    | RefArray => T
-    | RefByte _ => T
-    | ConsExtend _ => T
-    | CopyByte new_flag => new_flag
-    | ConfigGC => T
+      IntOp Add => T
+    | IntOp Sub => T
+    | IntOp Mult => T
+    | IntOp Div => T
+    | IntOp Mod => T
+    | IntOp Less => T
+    | IntOp LessEq => T
+    | IntOp Greater => T
+    | IntOp GreaterEq => T
+    | BlockOp Equal => T
+    | BlockOp ListAppend => T
+    | BlockOp (FromList _) => T
+    | BlockOp (ConsExtend _) => T
+    | MemOp RefArray => T
+    | MemOp (RefByte _) => T
+    | MemOp (CopyByte new_flag) => new_flag
+    | MemOp ConfigGC => T
     | FFI _ => T
     | _ => F
 Proof
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  >> Cases_on `op` >> fs[op_space_reset_def]
+  >> rpt CASE_TAC >> fs[op_space_reset_def]
 QED
 
 Theorem op_requires_names_eqn:
@@ -45,10 +45,10 @@ Theorem op_requires_names_eqn:
     (op_space_reset op ∨ (dtcase op of
                           | FFI n => T
                           | Install => T
-                          | CopyByte new_flag => T
+                          | MemOp (CopyByte new_flag) => T
                           | _ => F))
 Proof
-  Cases>>fs[op_requires_names_def]
+  strip_tac >> rpt CASE_TAC >> fs[op_requires_names_def]
 QED
 
 Theorem op_requires_names_pmatch:
@@ -56,7 +56,7 @@ Theorem op_requires_names_pmatch:
   (op_space_reset op ∨ (case op of
                         | FFI n => T
                         | Install => T
-                        | CopyByte new_flag => T
+                        | MemOp (CopyByte new_flag) => T
                         | _ => F))
 Proof
   rpt strip_tac >>
@@ -68,10 +68,10 @@ Definition iAssign_def:
   iAssign n1 op vs live env =
     if op_requires_names op then
       let xs = SOME (list_to_num_set (vs++live++env)) in
-        if op = Greater then
-          Assign n1 Less (REVERSE vs) xs
-        else if op = GreaterEq then
-          Assign n1 LessEq (REVERSE vs) xs
+        if op = IntOp Greater then
+          Assign n1 (IntOp Less) (REVERSE vs) xs
+        else if op = IntOp GreaterEq then
+          Assign n1 (IntOp LessEq) (REVERSE vs) xs
         else
           Assign n1 op vs xs
     else

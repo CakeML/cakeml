@@ -568,7 +568,7 @@ Theorem v_ind =
 Theorem do_app_err:
    ∀op ls s e.
      do_app op ls s = Rerr e ⇒
-     (op ≠ Equal ⇒ ∃a. e = Rabort a)
+     (op ≠ BlockOp Equal ⇒ ∃a. e = Rabort a)
 Proof
   Cases >>
   srw_tac[][do_app_def,case_eq_thms] >>
@@ -617,17 +617,17 @@ val evaluate_LENGTH_ind =
             | _ => T)`
   |> Q.SPEC `\x1 x2 x3 x4.
        (case evaluate_app x1 x2 x3 x4 of (Rval res,s1) => (LENGTH res = 1)
-            | _ => T)`
+            | _ => T)`;
 
 val evaluate_LENGTH = prove(evaluate_LENGTH_ind |> concl |> rand,
   MATCH_MP_TAC evaluate_LENGTH_ind
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ ONCE_REWRITE_TAC [evaluate_def] \\ full_simp_tac(srw_ss())[LET_THM]
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
-  |> SIMP_RULE std_ss [FORALL_PROD]
+  |> SIMP_RULE std_ss [FORALL_PROD];
 
 Theorem evaluate_LENGTH =
-  evaluate_LENGTH
+  evaluate_LENGTH;
 
 Theorem evaluate_IMP_LENGTH:
    (evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)
@@ -765,7 +765,7 @@ val evaluate_code_ind =
             let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
             s1.code = s.code |++ ls ∧
             ALL_DISTINCT (MAP FST ls) ∧
-            DISJOINT (FDOM s.code) (set(MAP FST ls)))`
+            DISJOINT (FDOM s.code) (set(MAP FST ls)))`;
 
 val evaluate_code_lemma = prove(
   evaluate_code_ind |> concl |> rand,
@@ -883,7 +883,7 @@ QED
 
 Theorem evaluate_MAP_Op_Const:
    ∀f env s ls.
-      evaluate (MAP (λx. Op tra (Const (f x)) []) ls,env,s) =
+      evaluate (MAP (λx. Op tra (IntOp (Const (f x))) []) ls,env,s) =
       (Rval (MAP (Number o f) ls),s)
 Proof
   ntac 3 gen_tac >> Induct >>
@@ -951,6 +951,13 @@ Proof
  full_simp_tac(srw_ss())[evaluate_def]
 QED
 
+fun cases_on_op q = Cases_on q
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘IntOp’]) (Cases_on `i`)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘WordOp’]) (Cases_on `w`)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp’]) (Cases_on `b`)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp’]) (Cases_on `g`)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘MemOp’]) (Cases_on `m`);
+
 Theorem EVERY_pure_correct = Q.prove(`
   (∀t es E (s:('c,'ffi) closSem$state). t = (es,E,s) ∧ EVERY closLang$pure es ⇒
                case evaluate(es, E, s) of
@@ -975,20 +982,20 @@ Theorem EVERY_pure_correct = Q.prove(`
       \\ rveq
       \\ reverse PURE_CASE_TAC \\ fs[]
       >- (
-        rename1 `closLang$pure_op opn` >> Cases_on `opn` >>
+        rename1 `closLang$pure_op opn` >> cases_on_op `opn` >>
         full_simp_tac(srw_ss())[pure_op_def, do_app_def, case_eq_thms, bool_case_eq] >>
         rveq \\ fs[] \\ fs[CaseEq"prod"] )
-      \\ rename1 `closLang$pure_op opn` >> Cases_on `opn`
+      \\ rename1 `closLang$pure_op opn` >> cases_on_op `opn`
       \\ fs[pure_op_def, do_app_def, case_eq_thms, bool_case_eq] \\ rveq \\ fs[]
       \\ fs[CaseEq"prod"]
       \\ rveq \\ fs[])
   >- (every_case_tac >> simp[])
   >- (every_case_tac >> full_simp_tac(srw_ss())[]))
-  |> SIMP_RULE (srw_ss()) []
+  |> SIMP_RULE (srw_ss()) [];
 
 Theorem pure_correct =
   EVERY_pure_correct |> Q.SPECL [`[e]`, `env`, `s`]
-                     |> SIMP_RULE (srw_ss()) []
+                     |> SIMP_RULE (srw_ss()) [];
 
 Theorem evaluate_pure:
   evaluate (xs,env,s) = (res,t:('c,'ffi) state) ∧ EVERY pure xs ⇒
@@ -1006,33 +1013,35 @@ Proof
   srw_tac[][]
 QED
 
-val do_app_split_list = prove(
-  ``do_app op vs s = res
-    <=>
-    vs = [] /\ do_app op [] s = res \/
-    ?v vs1. vs = v::vs1 /\ do_app op (v::vs1) s = res``,
-  Cases_on `vs` \\ fs []);
+Theorem do_app_split_list:
+  do_app op vs s = res
+  <=>
+  vs = [] /\ do_app op [] s = res \/
+  ?v vs1. vs = v::vs1 /\ do_app op (v::vs1) s = res
+Proof
+  Cases_on `vs` \\ fs []
+QED
 
 Theorem do_app_cases_val =
   ``do_app op vs s = Rval (v,s')`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV)
+   ALL_CONV);
 
 Theorem do_app_cases_err =
   ``do_app op vs s = Rerr (Rraise v)`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV)
+   ALL_CONV);
 
 Theorem do_app_cases_timeout =
   ``do_app op vs s = Rerr (Rabort Rtimeout_error)`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV)
+   ALL_CONV);
 
 (* works but huge, slow, and can't be skipped by --fast
 Theorem do_app_cases_type_error =
@@ -1048,7 +1057,7 @@ Theorem do_app_cases_ffi_error =
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss++boolSimps.DNF_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV)
+   ALL_CONV);
 
 Theorem dest_closure_none_loc:
  !max_app l cl vs v e env rest.
@@ -1554,9 +1563,12 @@ Proof
   EVAL_TAC
 QED
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
+fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty };
 val case_eq_thms = pair_case_eq::bool_case_eq::list_case_eq::option_case_eq::map (prove_case_eq_thm o get_thms)
-  [``:'a ffi_result``,``:v``,``:'a ref``,``:closLang$op``,``:word_size``, ``:eq_result``, ``:('a,'b) result``, ``:'a error_result``, ``:app_kind``] |> LIST_CONJ
+  [``:'a ffi_result``, ``:v``, ``:'a ref``, ``:closLang$op``, ``:closLang$mem_op``,
+   ``:closLang$int_op``, ``:closLang$word_op``, ``:closLang$block_op``, ``:closLang$glob_op``,
+   ``:word_size``, ``:eq_result``, ``:('a,'b) result``, ``:'a error_result``, ``:app_kind``]
+  |> LIST_CONJ;
 
 Theorem do_app_ffi_error_IMP:
    do_app op vs s = Rerr (Rabort (Rffi_error f)) ==> ?i. op = FFI i
@@ -1818,7 +1830,7 @@ QED
 
 (* finding the SetGlobal operations *)
 Definition op_gbag_def:
-  op_gbag (SetGlobal n) = BAG_INSERT n {||} ∧
+  op_gbag (GlobOp (SetGlobal n)) = BAG_INSERT n {||} ∧
   op_gbag _ = {||}
 End
 
@@ -2283,28 +2295,19 @@ Theorem simple_val_rel_do_app_rev:
 Proof
   strip_tac
   \\ `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
-  \\ Cases_on `opp = ListAppend`
+  \\ Cases_on `opp = BlockOp ListAppend`
   THEN1
    (Cases_on `do_app opp ys t` \\ pop_assum mp_tac
     \\ rw [do_app_def, case_eq_thms, pair_case_eq, bool_case_eq, PULL_EXISTS]
     \\ TRY CASE_TAC \\ fs [] \\ rw []
     \\ metis_tac [simple_val_rel_list, simple_val_rel_APPEND, vr_list_NONE])
-  \\ Cases_on `opp = Add \/ opp = Sub \/ opp = Mult \/ opp = Div \/ opp = Mod \/
-               opp = Less \/ opp = LessEq \/ opp = Greater \/ opp = GreaterEq \/
-               opp = LengthBlock \/ (?i. opp = Const i) \/
-               (?c. opp = Build c) \/ opp = WordFromInt \/
-               (?f. opp = FP_cmp f) \/
-               (?f. opp = FP_uop f) \/ (opp = BoundsCheckBlock) \/
-               (?f. opp = FP_bop f) \/ (?f. opp = FP_top f) \/
-               opp = WordToInt \/ opp = ConfigGC \/
-               (?n. opp = Label n) \/ (?n. opp = Cons n) \/
-               (?i. opp = LessConstSmall i) \/ opp = LengthByteVec \/
-               (?i. opp = EqualConst i) \/ (?n. opp = TagEq n) \/
-               (?n. opp = LenEq n) \/
-               (?n n1. opp = TagLenEq n n1) \/ opp = Install \/
-               (?w oo k. opp = WordShift w oo k) \/
-               (?b. opp = WordFromWord b) \/
-               (?w oo. opp = WordOp w oo) \/ opp = ConcatByteVec`
+  \\ Cases_on `(?n. opp = Label n) \/ (?i. opp = IntOp i) \/
+    (?w. opp = WordOp w) \/ opp = Install \/
+    (?b. opp = BlockOp b ∧ (
+      b = LengthBlock \/ (?n. b = Cons n) \/ (?c. b = Build c) \/
+      b = BoundsCheckBlock \/ (?i. b = EqualConst i) \/ (?n. b = TagEq n) \/
+      (?n. b = LenEq n) \/ (?n n1. b = TagLenEq n n1))) \/
+    (?m. opp = MemOp m ∧ (m = ConfigGC \/ m = LengthByteVec \/ m = ConcatByteVec))`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def,AllCaseEqs()]
@@ -2314,7 +2317,7 @@ Proof
     \\ rpt strip_tac \\ rveq \\ fs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC))
-  \\ Cases_on `∃c. opp = Constant c`
+  \\ Cases_on `∃c. opp = BlockOp (Constant c)`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
@@ -2323,11 +2326,13 @@ Proof
     \\ recInduct make_const_ind
     \\ fs [make_const_def,simple_val_rel_def]
     \\ Induct \\ fs [])
-  \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
-               opp = BoundsCheckArray \/ opp = LengthByte \/
-               opp = DerefByteVec \/ opp = DerefByte \/
-               opp = GlobalsPtr \/ opp = SetGlobalsPtr \/
-               opp = El \/ (?n. opp = ElemAt n)`
+  \\ Cases_on `
+      (?m. opp = MemOp m ∧ (
+        m = Length \/ (?b. m = BoundsCheckByte b) \/
+        m = BoundsCheckArray \/ m = LengthByte \/
+        m = DerefByteVec \/ m = DerefByte \/ m = El)) \/
+      (?g. opp = GlobOp g ∧ (g = GlobalsPtr \/ g = SetGlobalsPtr)) \/
+      (?n. opp = BlockOp (ElemAt n))`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]
@@ -2341,7 +2346,7 @@ Proof
     \\ first_x_assum match_mp_tac
     \\ imp_res_tac (prove(``0 <= (i:int) ==> ?n. i = & n``,Cases_on `i` \\ fs []))
     \\ rveq \\ fs [])
-  \\ Cases_on `?n. opp = ConsExtend n` THEN1
+  \\ Cases_on `?n. opp = BlockOp (ConsExtend n)` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]
     \\ strip_tac \\ rveq \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
@@ -2352,14 +2357,14 @@ Proof
     \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
     \\ match_mp_tac EVERY2_TAKE \\ fs []
     \\ match_mp_tac EVERY2_DROP \\ fs [])
-  \\ Cases_on `opp = ToListByte` THEN1
+  \\ Cases_on `opp = MemOp ToListByte` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs []
     THEN1 (Induct_on `bs` \\ fs [list_to_v_def])
     \\ res_tac \\ Cases_on `x` \\ fs [isClos_def])
-  \\ Cases_on `opp = FromListByte` THEN1
+  \\ Cases_on `opp = MemOp FromListByte` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
@@ -2367,7 +2372,7 @@ Proof
     \\ drule v_rel_to_list_byte2 \\ fs []
     \\ disch_then drule
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs [])
-  \\ Cases_on `?b. opp = FromList b` THEN1
+  \\ Cases_on `?b. opp = BlockOp (FromList b)` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
@@ -2376,7 +2381,7 @@ Proof
     \\ drule v_to_list_NONE \\ disch_then drule \\ fs []
     \\ strip_tac \\ fs []
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs [])
-  \\ Cases_on `?n. opp = Global n` THEN1
+  \\ Cases_on `?n. opp = GlobOp (Global n)` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
@@ -2388,7 +2393,7 @@ Proof
     \\ disch_then (qspec_then `Num i` mp_tac) \\ fs [] \\ strip_tac \\ fs []
     \\ gvs [simple_val_rel_def] \\ res_tac
     \\ Cases_on ‘x’ \\ fs [isClos_def])
-  \\ Cases_on `opp = Equal` THEN1
+  \\ Cases_on `opp = BlockOp Equal` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
@@ -2396,7 +2401,7 @@ Proof
     \\ imp_res_tac v_rel_do_eq \\ fs []
     \\ Cases_on `b` \\ fs [Boolv_def]
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs [])
-  \\ Cases_on `?n. opp = SetGlobal n` THEN1
+  \\ Cases_on `?n. opp = GlobOp (SetGlobal n)` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ fs [] \\ rpt strip_tac \\ rveq
@@ -2408,7 +2413,7 @@ Proof
     \\ match_mp_tac simple_state_rel_update_globals \\ fs []
     \\ match_mp_tac EVERY2_LUPDATE_same \\ fs []
     \\ fs [OPTREL_def] \\ fs [simple_state_rel_def])
-  \\ Cases_on `opp = AllocGlobal` THEN1
+  \\ Cases_on `opp = GlobOp AllocGlobal` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
@@ -2420,7 +2425,7 @@ Proof
         \\ irule LIST_REL_APPEND_suff \\ fs []
         \\ rename [‘REPLICATE n’] \\ qid_spec_tac ‘n’ \\ Induct \\ fs [])
     \\ res_tac \\ Cases_on ‘x’ \\ fs [isClos_def])
-  \\ Cases_on `opp = RefArray \/ opp = Ref \/ (?b. opp = RefByte b)` THEN1
+  \\ Cases_on `?m. opp = MemOp m ∧ (m = RefArray \/ m = Ref \/ (?b. m = RefByte b))` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
@@ -2431,7 +2436,7 @@ Proof
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update))
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
-  \\ Cases_on `opp = UpdateByte \/ opp = Update \/ ?n. opp = FFI n` THEN1
+  \\ Cases_on `?m. opp = MemOp m ∧ (m = UpdateByte \/ m = Update) \/ ?n. opp = FFI n` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
@@ -2451,7 +2456,7 @@ Proof
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update))
     \\ asm_exists_tac \\ fs []
     \\ match_mp_tac EVERY2_LUPDATE_same \\ fs [])
-  \\ Cases_on `?b. opp = CopyByte b` THEN1
+  \\ Cases_on `?b. opp = MemOp (CopyByte b)` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]
     \\ strip_tac \\ rveq
@@ -2465,6 +2470,9 @@ Proof
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
   \\ Cases_on `opp` \\ fs []
+  >- (Cases_on `b` \\ fs [])
+  >- (Cases_on `g` \\ fs [])
+  >- (Cases_on `m` \\ fs [])
 QED
 
 Theorem simple_val_rel_do_app:

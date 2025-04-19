@@ -637,70 +637,70 @@ End
 
 Definition clos_op_to_display_def:
   clos_op_to_display ns op = case op of
-    | Global num => item_with_num (strlit "Global") num
-    | SetGlobal num => item_with_num (strlit "SetGlobal") num
-    | AllocGlobal => String (strlit "AllocGlobal")
-    | GlobalsPtr => String (strlit "GlobalsPtr")
-    | SetGlobalsPtr => String (strlit "SetGlobalsPtr")
-    | Cons num => item_with_num (strlit "Cons") num
-    | Constant c => Item NONE (strlit "Constant") [const_to_display c]
-    | ConsExtend num => item_with_num (strlit "ConsExtend") num
-    | Build bs => Item NONE (strlit "Build") (MAP const_part_to_display bs)
-    | El => String (strlit "El")
-    | LengthBlock => String (strlit "LengthBlock")
-    | Length => String (strlit "Length")
-    | LengthByte => String (strlit "LengthByte")
-    | RefByte b => Item NONE (strlit "RefByte") [bool_to_display b]
-    | RefArray => String (strlit "RefArray")
-    | DerefByte => String (strlit "DerefByte")
-    | UpdateByte => String (strlit "UpdateByte")
-    | ConcatByteVec => String (strlit "ConcatByteVec")
-    | CopyByte b => Item NONE (strlit "CopyByte") [bool_to_display b]
-    | ListAppend => String (strlit "ListAppend")
-    | FromList num => item_with_num (strlit "FromList") num
-    | FromListByte => String (strlit "FromListByte")
-    | ToListByte => String (strlit "ToListByte")
-    | LengthByteVec => String (strlit "LengthByteVec")
-    | DerefByteVec => String (strlit "DerefByteVec")
-    | TagLenEq n1 n2 => item_with_nums (strlit "TagLenEq") [n1; n2]
-    | ElemAt num => item_with_num (strlit "ElemAt") num
-    | LenEq num => item_with_num (strlit "LenEq") num
-    | TagEq num => item_with_num (strlit "TagEq") num
-    | Ref => String (strlit "Ref")
-    | Update => String (strlit "Update")
+    | GlobOp (Global num) => item_with_num (strlit "Global") num
+    | GlobOp (SetGlobal num) => item_with_num (strlit "SetGlobal") num
+    | GlobOp AllocGlobal => String (strlit "AllocGlobal")
+    | GlobOp GlobalsPtr => String (strlit "GlobalsPtr")
+    | GlobOp SetGlobalsPtr => String (strlit "SetGlobalsPtr")
+    | BlockOp (Cons num) => item_with_num (strlit "Cons") num
+    | BlockOp (ElemAt num) => item_with_num (strlit "ElemAt") num
+    | BlockOp (TagLenEq n1 n2) => item_with_nums (strlit "TagLenEq") [n1; n2]
+    | BlockOp (LenEq num) => item_with_num (strlit "LenEq") num
+    | BlockOp (TagEq num) => item_with_num (strlit "TagEq") num
+    | BlockOp LengthBlock => String (strlit "LengthBlock")
+    | BlockOp BoundsCheckBlock => String (strlit "BoundsCheckBlock")
+    | BlockOp (ConsExtend num) => item_with_num (strlit "ConsExtend") num
+    | BlockOp (FromList num) => item_with_num (strlit "FromList") num
+    | BlockOp ListAppend => String (strlit "ListAppend")
+    | BlockOp (Constant c) => Item NONE (strlit "Constant") [const_to_display c]
+    | BlockOp Equal => String (strlit "Equal")
+    | BlockOp (EqualConst c) => Item NONE (strlit "EqualConst") [const_part_to_display c]
+    | BlockOp (Build bs) => Item NONE (strlit "Build") (MAP const_part_to_display bs)
+    | MemOp Ref => String (strlit "Ref")
+    | MemOp Update => String (strlit "Update")
+    | MemOp El => String (strlit "El")
+    | MemOp Length => String (strlit "Length")
+    | MemOp LengthByte => String (strlit "LengthByte")
+    | MemOp (RefByte b) => Item NONE (strlit "RefByte") [bool_to_display b]
+    | MemOp RefArray => String (strlit "RefArray")
+    | MemOp DerefByte => String (strlit "DerefByte")
+    | MemOp UpdateByte => String (strlit "UpdateByte")
+    | MemOp ConcatByteVec => String (strlit "ConcatByteVec")
+    | MemOp (CopyByte b) => Item NONE (strlit "CopyByte") [bool_to_display b]
+    | MemOp FromListByte => String (strlit "FromListByte")
+    | MemOp ToListByte => String (strlit "ToListByte")
+    | MemOp LengthByteVec => String (strlit "LengthByteVec")
+    | MemOp DerefByteVec => String (strlit "DerefByteVec")
+    | MemOp BoundsCheckArray => String (strlit "BoundsCheckArray")
+    | MemOp (BoundsCheckByte b) => Item NONE (strlit "BoundsCheckByte") [bool_to_display b]
+    | MemOp closLang$ConfigGC => String (strlit "ConfigGC")
     | Label num => Item NONE (strlit "Label") [String (attach_name ns (SOME num))]
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
-    | Equal => String (strlit "Equal")
-    | EqualConst c => Item NONE (strlit "EqualConst") [const_part_to_display c]
-    | Const i => Item NONE (strlit "Const") [int_to_display i]
-    | Add => String (strlit "Add")
-    | Sub => String (strlit "Sub")
-    | Mult => String (strlit "Mult")
-    | Div => String (strlit "Div")
-    | Mod => String (strlit "Mod")
-    | Less => String (strlit "Less")
-    | LessEq => String (strlit "LessEq")
-    | Greater => String (strlit "Greater")
-    | GreaterEq => String (strlit "GreaterEq")
-    | WordOp ws op =>
+    | IntOp (Const i) => Item NONE (strlit "Const") [int_to_display i]
+    | IntOp Add => String (strlit "Add")
+    | IntOp Sub => String (strlit "Sub")
+    | IntOp Mult => String (strlit "Mult")
+    | IntOp Div => String (strlit "Div")
+    | IntOp Mod => String (strlit "Mod")
+    | IntOp Less => String (strlit "Less")
+    | IntOp LessEq => String (strlit "LessEq")
+    | IntOp Greater => String (strlit "Greater")
+    | IntOp GreaterEq => String (strlit "GreaterEq")
+    | IntOp (LessConstSmall num) => item_with_num (strlit "LessConstSmall") num
+    | WordOp (WordOpw ws op) =>
         Item NONE (strlit "WordOp") [ word_size_to_display ws; opw_to_display op ]
-    | WordShift ws sh num => Item NONE (strlit "WordShift") [
+    | WordOp (WordShift ws sh num) => Item NONE (strlit "WordShift") [
       word_size_to_display ws;
       shift_to_display sh;
       num_to_display num
     ]
-    | WordFromInt => String (strlit "WordFromInt")
-    | WordToInt => String (strlit "WordToInt")
-    | WordFromWord b => Item NONE (strlit "WordFromWord") [bool_to_display b]
-    | FP_cmp cmp => fp_cmp_to_display cmp
-    | FP_uop op => fp_uop_to_display op
-    | FP_bop op => fp_bop_to_display op
-    | FP_top op => fp_top_to_display op
-    | BoundsCheckBlock => String (strlit "BoundsCheckBlock")
-    | BoundsCheckArray => String (strlit "BoundsCheckArray")
-    | BoundsCheckByte b => Item NONE (strlit "BoundsCheckByte") [bool_to_display b]
-    | LessConstSmall num => item_with_num (strlit "LessConstSmall") num
-    | closLang$ConfigGC => String (strlit "ConfigGC")
+    | WordOp WordFromInt => String (strlit "WordFromInt")
+    | WordOp WordToInt => String (strlit "WordToInt")
+    | WordOp (WordFromWord b) => Item NONE (strlit "WordFromWord") [bool_to_display b]
+    | WordOp (FP_cmp cmp) => fp_cmp_to_display cmp
+    | WordOp (FP_uop op) => fp_uop_to_display op
+    | WordOp (FP_bop op) => fp_bop_to_display op
+    | WordOp (FP_top op) => fp_top_to_display op
     | Install => String (strlit "Install")
 End
 
@@ -1502,7 +1502,7 @@ val bvl_test =
   “concat $ append $ bvl_to_strs
      (insert 50 (strlit "foo") (insert 60 (strlit "bar") LN))
      [(50,2,Let [Var 0; Var 1]
-              $ Op Add [Var 0; Var 1; Var 2; Var 3]);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3]);
       (60,2,Let [Var 0; Var 1]
               $ Call 0 (SOME 50) [Var 2; Var 0])]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
@@ -1519,7 +1519,7 @@ val bvi_test =
   “concat $ append $ bvi_to_strs
      (insert 50 (strlit "foo") (insert 60 (strlit "bar") LN))
      [(50,2,Let [Var 0]
-              $ Op Add [Var 0; Var 1; Var 2; Var 3]);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3]);
       (60,2,Let [Var 0; Var 1]
               $ Call 0 (SOME 50) [Var 2; Var 0] (SOME (Var 0)))]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
@@ -1536,11 +1536,11 @@ val data_test =
   “concat $ append $ data_to_strs
      (insert 50 (strlit "foo") (insert 60 (strlit "bar") LN))
      [(50,2,Seq (Move 5 1) $
-            Seq (Assign 3 Add [0;1] NONE) $
-            Seq (Assign 6 Sub [5;3] NONE) $ Return 6);
+            Seq (Assign 3 (IntOp Add) [0;1] NONE) $
+            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return 6);
       (60,2,Skip)]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
-  |> (fn t => (print "\n\n"; print t; print "\n"))
+  |> (fn t => (print "\n\n"; print t; print "\n"));
 
 Definition word_to_strs_def:
   word_to_strs names xs =
@@ -1571,7 +1571,7 @@ val lab_test =
                   Label 50 2 0];
       Section 60 [Label 50 5 0]]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
-  |> (fn t => (print "\n\n"; print t; print "\n"))
+  |> (fn t => (print "\n\n"; print t; print "\n"));
 
 (*
 

@@ -680,7 +680,7 @@ Proof
   \\ simp [EVAL “small_enough_int 0”]
   \\ simp [Once iEval_def,iEvalOp_def,inc_clock_def,do_app_aux_def,bvlSemTheory.do_app_def]
   \\ rename [‘evaluate
-                ([Op Add [Var 0; Var 2]],
+                ([Op (IntOp Add) [Var 0; Var 2]],
                  [Number (&SUC n); RefPtr T p; Number (&k)],_)’]
   \\ simp [Once iEval_def]
   \\ simp [Once iEval_def]
@@ -980,7 +980,7 @@ QED
 val compile_string_thm = Q.prove(
   `∀str s ls vs.
    FLOOKUP s.refs ptr = SOME (ByteArray T ls) ∧ LENGTH vs + LENGTH str = LENGTH ls ⇒
-   evaluate (MAPi (λn c. Op UpdateByte [Op (Const (&ORD c)) []; compile_int (&(n + LENGTH vs)); Var 0]) str,
+   evaluate (MAPi (λn c. Op (MemOp UpdateByte) [Op (IntOp (Const (&ORD c))) []; compile_int (&(n + LENGTH vs)); Var 0]) str,
     RefPtr b ptr::env, s) = (Rval (REPLICATE (LENGTH str) Unit),
       s with refs := s.refs |+ (ptr, ByteArray T (TAKE (LENGTH vs) ls ++ (MAP (n2w o ORD) str))))`,
   Induct \\ rw[evaluate_def,REPLICATE]
@@ -1073,8 +1073,8 @@ Proof
      (fs [compile_op_def] \\ IF_CASES_TAC \\ fs []
       THEN1
        (once_rewrite_tac [evaluate_def]
-        \\ `evaluate ([Let c1 (Op (Const 0) []); Op (Const 0) []],vs ⧺ env,s) =
-           evaluate ([Let c1 (Op (Const 0) []); Op (Const 0) []],vs,s)` by
+        \\ `evaluate ([Let c1 (Op (IntOp (Const 0)) []); Op (IntOp (Const 0)) []],vs ⧺ env,s) =
+           evaluate ([Let c1 (Op (IntOp (Const 0)) []); Op (IntOp (Const 0)) []],vs,s)` by
           (fs [evaluate_def]
            \\ first_x_assum (qspecl_then [`n`,`vs`] mp_tac) \\ fs [])
         \\ fs [] \\ CASE_TAC \\ simp [case_eq_thms]
@@ -3652,7 +3652,7 @@ Proof
 QED
 
 Triviality evaluate_REPLICATE_0:
-  !n. evaluate (REPLICATE n (Op (Const 0) []),env,s) =
+  !n. evaluate (REPLICATE n (Op (IntOp (Const 0)) []),env,s) =
           (Rval (REPLICATE n (Number 0)),s)
 Proof
   Induct \\ fs [evaluate_def,REPLICATE]

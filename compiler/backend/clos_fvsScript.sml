@@ -12,7 +12,7 @@ Definition remove_fvs_def:
      HD (remove_fvs fvs [x]) :: remove_fvs fvs (y::xs)) /\
   (remove_fvs fvs [Var t v] =
     if v < fvs then [Var t v]
-    else [Op t El []]) /\
+    else [Op t (MemOp El) []]) /\
   (remove_fvs fvs [If t x1 x2 x3] =
      [If t (HD (remove_fvs fvs [x1]))
            (HD (remove_fvs fvs [x2]))
@@ -53,7 +53,7 @@ End
 Definition remove_fvs_sing_def:
   (remove_fvs_sing fvs (Var t v) =
     if v < fvs then Var t v
-    else Op t El []) /\
+    else Op t (MemOp El) []) /\
   (remove_fvs_sing fvs (If t x1 x2 x3) =
      If t (remove_fvs_sing fvs x1)
           (remove_fvs_sing fvs x2)

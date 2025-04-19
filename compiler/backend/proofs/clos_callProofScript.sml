@@ -4555,14 +4555,14 @@ Proof
 QED
 
 (*
-val tm = ``closLang$Let [Op (Const 0) []; Op (Const 0) []]
-             (App NONE (Fn (SOME 1) NONE 1 (Fn (SOME 2) NONE 1 (Op (Const 1) []))) [Op (Const 2) []])``
+val tm = ``closLang$Let [Op (IntOp (Const 0)) []; Op (IntOp (Const 0)) []]
+             (App NONE (Fn (SOME 1) NONE 1 (Fn (SOME 2) NONE 1 (Op (IntOp (Const 1)) []))) [Op (IntOp (Const 2)) []])``
 val res1 = EVAL``evaluate ([^tm],[],<|clock := 1|>)``
 val (ctm,ctab) = EVAL``clos_call$compile T ^tm`` |> concl |> rhs |> dest_pair
 val res2 = EVAL``evaluate ([^ctm],[],<|clock := 2; code := (alist_to_fmap ^ctab)|>)``
 
-val tm2 = ``closLang$Let [Op (Const 0) []; Op (Const 0) []]
-             (Fn (SOME 1) NONE 1 (App NONE (Fn (SOME 2) NONE 1 (Op (Const 1) [])) [Op (Const 2) []]))``
+val tm2 = ``closLang$Let [Op (IntOp (Const 0)) []; Op (IntOp (Const 0)) []]
+             (Fn (SOME 1) NONE 1 (App NONE (Fn (SOME 2) NONE 1 (Op (IntOp (Const 1)) [])) [Op (IntOp (Const 2)) []]))``
 val res3 = EVAL``evaluate ([^tm2],[],<|clock := 1|>)``
 val (ctm2,ctab2) = EVAL``clos_call$compile T ^tm2`` |> concl |> rhs |> dest_pair
 val res4 = EVAL``evaluate ([^ctm2],[],<|clock := 2; code := (alist_to_fmap ^ctab2)|>)``

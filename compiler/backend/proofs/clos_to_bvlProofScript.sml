@@ -367,7 +367,7 @@ QED
 
 Triviality evaluate_genlist_prev_args:
   !prev_args z x tag arg_list st.
-    evaluate (REVERSE (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args)),
+    evaluate (REVERSE (GENLIST (λprev_arg. Op (MemOp El) [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args)),
            x++(Block tag (z++prev_args))::arg_list,
            st)
     =
@@ -390,7 +390,7 @@ QED
 
 Triviality evaluate_genlist_prev_args1_simpl:
   !prev_args x y tag p n cl a st.
-    evaluate (REVERSE (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + 3))) []; Var 3]) (LENGTH prev_args)),
+    evaluate (REVERSE (GENLIST (λprev_arg. Op (MemOp El) [Op (Const (&(prev_arg + 3))) []; Var 3]) (LENGTH prev_args)),
            [x;y;a; Block tag (p::n::cl::prev_args)],
            st)
     =
@@ -403,7 +403,7 @@ QED
 
 Triviality evaluate_genlist_prev_args_no_rev:
   !prev_args z x tag arg_list st.
-    evaluate (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args),
+    evaluate (GENLIST (λprev_arg. Op (MemOp El) [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args),
            x++(Block tag (z++prev_args))::arg_list,
            st)
     =
@@ -426,7 +426,7 @@ QED
 
 Triviality evaluate_genlist_prev_args_no_rev:
   !prev_args z x tag arg_list st.
-    evaluate (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args),
+    evaluate (GENLIST (λprev_arg. Op (MemOp El) [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args),
            x++(Block tag (z++prev_args))::arg_list,
            st)
     =
@@ -449,7 +449,7 @@ QED
 
 Triviality evaluate_genlist_prev_args1_no_rev:
   !prev_args x tag p n cl args st.
-    evaluate (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + 3))) []; Var (LENGTH args + 1)]) (LENGTH prev_args),
+    evaluate (GENLIST (λprev_arg. Op (MemOp El) [Op (Const (&(prev_arg + 3))) []; Var (LENGTH args + 1)]) (LENGTH prev_args),
            x::(args++[Block tag (p::n::cl::prev_args)]),
            st)
     =
@@ -465,8 +465,8 @@ Triviality evaluate_partial_app_fn_location_code:
      n < total_args ∧ total_args < max_app ⇒
      evaluate
        ([partial_app_fn_location_code max_app
-               (Op El [Op (Const 1) []; Var (LENGTH args + 1)])
-               (Op (Const (&n)) [])],
+               (Op (MemOp El) [Op (IntOp (Const 1)) []; Var (LENGTH args + 1)])
+               (Op (IntOp (Const (&n))) [])],
         (x::(args++[Block tag (ptr::Number(&total_args)::fvs)])),
         st)
      =
@@ -679,7 +679,7 @@ Proof
   full_simp_tac (srw_ss() ++ ARITH_ss) [partial_app_tag_def] >>
   `(&rem_args − &(LENGTH args):int < 0)` by intLib.ARITH_TAC >>
   srw_tac[][] >>
-  `evaluate ([Op El [Op (Const (1:int)) []; Var (LENGTH args + 1)]],
+  `evaluate ([Op (MemOp El) [Op (Const (1:int)) []; Var (LENGTH args + 1)]],
           Number (&rem_args − &LENGTH args):: (args ++ [Block tag (CodePtr l::Number (&rem_args)::vs)]),
           st) =
     (Rval [Number (&rem_args)], st)`
@@ -1076,7 +1076,7 @@ val env_rel_IMP_EL =
 Definition extract_name_def:
   extract_name [] = (0,[]) /\
   extract_name (x :: xs) =
-    case (some n. ?t. x = Op t (Const (& n)) []) of
+    case (some n. ?t. x = Op t (IntOp (Const (& n))) []) of
     | NONE => (0,x::xs)
     | SOME n => (n, if xs = [] then [x] else xs)
 End
@@ -2480,7 +2480,7 @@ Triviality genlist_el:
     FLOOKUP st.refs r = SOME (ValueArray (ys++xs)) ∧
     skip = LENGTH ys
     ⇒
-    bvlSem$evaluate (GENLIST (λi. Op El [Op (Const (&(i + skip))) []; Var 0]) (LENGTH xs),
+    bvlSem$evaluate (GENLIST (λi. Op (MemOp El) [Op (Const (&(i + skip))) []; Var 0]) (LENGTH xs),
            RefPtr T r:: (args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr T r]::env),
            st)
     =
@@ -7531,7 +7531,7 @@ End
 
 Definition can_extract_def:
   can_extract exps = (?t n exps'.
-        exps = Op t (Const (& n)) [] :: exps')
+        exps = Op t (IntOp (Const (& n))) [] :: exps')
 End
 
 Theorem extract_name_MAP_FST_addrs:
@@ -7599,8 +7599,8 @@ Proof
 QED
 
 Theorem can_extract_to_case:
-  can_extract exps ==> (?t n. exps = [Op t (Const (& n)) []])
-    \/ (?t n exp exps'. exps = Op t (Const (& n)) [] :: exp :: exps')
+  can_extract exps ==> (?t n. exps = [Op t (IntOp (Const (& n))) []])
+    \/ (?t n exp exps'. exps = Op t (IntOp (Const (& n))) [] :: exp :: exps')
 Proof
   Cases_on `TL exps` \\ rw [can_extract_def] \\ fs []
 QED
@@ -7663,7 +7663,7 @@ Proof
 QED
 
 Theorem annotate_Op_Const:
-  annotate m ((Op t (Const n) [])::ls) = Op t (Const n) [] :: annotate m ls
+  annotate m ((Op t (IntOp (Const n)) [])::ls) = Op t (IntOp (Const n)) [] :: annotate m ls
 Proof
   rw[clos_annotateTheory.annotate_def]
   \\ Cases_on`ls` >- EVAL_TAC
@@ -7767,8 +7767,8 @@ val cond_call_compile_inc_req_oracle = mk_to_oracle
   ``\orac1. state_co (cond_call_compile_inc dc) orac1`` `[SUC]`
 
 Theorem known_Op_Const:
-  known a ((Op tv (Const (&n)) [])::b) c d =
-  ((CONS (Op tv (Const (&n)) [], Int (&n))) ## I) (known a b c d)
+  known a ((Op tv (IntOp (Const (&n))) [])::b) c d =
+  ((CONS (Op tv (IntOp (Const (&n))) [], Int (&n))) ## I) (known a b c d)
 Proof
   Cases_on`b` \\ rw[clos_knownTheory.known_def]
   \\ EVAL_TAC \\ simp[UNCURRY] \\ Cases_on`known a (h::t) c d` \\ simp[]
@@ -7796,14 +7796,14 @@ Proof
 QED
 
 Theorem remove_ticks_Op_Const:
-  remove_ticks ((Op t (Const (&n)) [])::ls) =
-  (Op t (Const (&n)) [])::(remove_ticks ls)
+  remove_ticks ((Op t (IntOp (Const (&n))) [])::ls) =
+  (Op t (IntOp (Const (&n))) [])::(remove_ticks ls)
 Proof
   Cases_on`ls` \\ EVAL_TAC
 QED
 
 Theorem let_op_Op_Const:
-  let_op ((Op t (Const (&n)) [])::ls) = (Op t (Const (&n)) [])::(let_op ls)
+  let_op ((Op t (IntOp (Const (&n))) [])::ls) = (Op t (IntOp (Const (&n))) [])::(let_op ls)
 Proof
   Cases_on`ls` \\ EVAL_TAC
 QED

@@ -214,42 +214,42 @@ Overload bignum_limit[local] =
   ``\i1 i2 s.
       let il = bignum_size s.limits.arch_64_bit i1 in
       let jl = bignum_size s.limits.arch_64_bit i2 in
-        2 * il + 2 * jl``
+        2 * il + 2 * jl``;
 
 (* Gives an upper bound to the memory consuption of an operation *)
 Definition space_consumed_def:
-  (space_consumed ^s (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
+  (space_consumed ^s (BlockOp (ConsExtend tag)) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
    LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) + 1
   ) /\
-  (space_consumed s RefArray [Number len; _] = Num len + 1) /\
-  (space_consumed s (RefByte _) [Number len; _] = Num len DIV (arch_size s.limits DIV 8) + 2) /\
-  (space_consumed s (FromList n) [Number len;lv] = Num len + 1) /\
-  (space_consumed s Add [Number i1; Number i2] =
+  (space_consumed s (MemOp RefArray) [Number len; _] = Num len + 1) /\
+  (space_consumed s (MemOp (RefByte _)) [Number len; _] = Num len DIV (arch_size s.limits DIV 8) + 2) /\
+  (space_consumed s (BlockOp (FromList n)) [Number len;lv] = Num len + 1) /\
+  (space_consumed s (IntOp Add) [Number i1; Number i2] =
     if small_num s.limits.arch_64_bit i1 /\
        small_num s.limits.arch_64_bit i2 /\
        small_num s.limits.arch_64_bit (i1 + i2)
     then 0 else bignum_limit i1 i2 s) /\
-  (space_consumed s Sub [Number i1; Number i2] =
+  (space_consumed s (IntOp Sub) [Number i1; Number i2] =
     if small_num s.limits.arch_64_bit i1 /\
        small_num s.limits.arch_64_bit i2 /\
        small_num s.limits.arch_64_bit (i1 - i2)
     then 0 else bignum_limit i1 i2 s) /\
-  (space_consumed s Mult [Number i1; Number i2] =
+  (space_consumed s (IntOp Mult) [Number i1; Number i2] =
     if small_num s.limits.arch_64_bit i1 /\ 0 <= i1 /\
        small_num s.limits.arch_64_bit i2 /\ 0 <= i2 /\
        small_num s.limits.arch_64_bit (i1 * i2)
     then 0 else bignum_limit i1 i2 s) /\
-  (space_consumed s Div [Number i1; Number i2] =
+  (space_consumed s (IntOp Div) [Number i1; Number i2] =
     if small_num s.limits.arch_64_bit i1 /\ 0 <= i1 /\
        small_num s.limits.arch_64_bit i2 /\ 0 <= i2 /\
        small_num s.limits.arch_64_bit (i1 / i2)
     then 0 else bignum_limit i1 i2 s) /\
-  (space_consumed s Mod [Number i1; Number i2] =
+  (space_consumed s (IntOp Mod) [Number i1; Number i2] =
     if small_num s.limits.arch_64_bit i1 /\ 0 <= i1 /\
        small_num s.limits.arch_64_bit i2 /\ 0 <= i2 /\
        small_num s.limits.arch_64_bit (i1 % i2)
     then 0 else bignum_limit i1 i2 s) /\
-  (space_consumed s ListAppend [lv1; lv2] =
+  (space_consumed s (BlockOp ListAppend) [lv1; lv2] =
    case v_to_list lv1 of
     SOME l => SUC(LENGTH l) * 3
    | NONE => 0
@@ -286,35 +286,35 @@ Definition eq_code_stack_max_def:
 End
 
 Definition stack_consumed_def:
-  (stack_consumed  sfs lims (CopyByte _) vs =
+  (stack_consumed sfs lims (MemOp (CopyByte _)) vs =
     OPTION_MAP2 MAX
      (sptree$lookup ByteCopy_location sfs)
      (OPTION_MAP2 MAX
         (lookup ByteCopyAdd_location sfs)
         (lookup ByteCopySub_location sfs))) /\
-  (stack_consumed sfs lims (RefByte _) vs =
+  (stack_consumed sfs lims (MemOp (RefByte _)) vs =
     OPTION_MAP2 MAX
      (lookup RefByte_location sfs)
      (lookup Replicate_location sfs)) /\
-  (stack_consumed sfs lims (RefArray) vs =
+  (stack_consumed sfs lims (MemOp (RefArray)) vs =
     OPTION_MAP2 MAX
      (lookup RefArray_location sfs)
      (lookup Replicate_location sfs)) /\
-  (stack_consumed sfs lims (ConsExtend _) vs =
+  (stack_consumed sfs lims (BlockOp (ConsExtend _)) vs =
     lookup MemCopy_location sfs) /\
     (* MemCopy looks not always necessary. Could be refined for more precise bounds. *)
-  (stack_consumed sfs lims (FromList _) vs =
+  (stack_consumed sfs lims (BlockOp (FromList _)) vs =
     OPTION_MAP2 MAX
      (lookup FromList_location sfs)
      (lookup FromList1_location sfs)) /\
-  (stack_consumed sfs lims ListAppend vs =
+  (stack_consumed sfs lims (BlockOp ListAppend) vs =
     OPTION_MAP2 MAX
      (lookup Append_location sfs)
      (OPTION_MAP2 MAX
        (lookup AppendLenLoop_location sfs)
        (lookup AppendMainLoop_location sfs))
   ) /\
-  (stack_consumed sfs lims (Div) [Number n1; Number n2] =
+  (stack_consumed sfs lims (IntOp Div) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\ 0 <= n1 /\
        small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
        small_num lims.arch_64_bit (n1 / n2)
@@ -325,7 +325,7 @@ Definition stack_consumed_def:
     else
       OPTION_MAP2 MAX (lookup Div_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
-  (stack_consumed sfs lims (Mod) [Number n1; Number n2] =
+  (stack_consumed sfs lims (IntOp Mod) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\ 0 <= n1 /\
        small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
        small_num lims.arch_64_bit (n1 % n2)
@@ -336,35 +336,35 @@ Definition stack_consumed_def:
     else
       OPTION_MAP2 MAX (lookup Mod_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
-  (stack_consumed sfs lims (Mult) [Number n1; Number n2] =
+  (stack_consumed sfs lims (IntOp Mult) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\ 0 <= n1 /\
        small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
        small_num lims.arch_64_bit (n1 * n2)
     then SOME 0 else
       OPTION_MAP2 MAX (lookup Mul_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
-  (stack_consumed sfs lims (Equal) [v1;v2] =
+  (stack_consumed sfs lims (BlockOp Equal) [v1;v2] =
    (eq_code_stack_max (MIN (vs_depth v1 + 1) (vs_depth v2 + 1)) sfs)) /\
-  (stack_consumed sfs lims (Sub) [Number n1; Number n2] =
+  (stack_consumed sfs lims (IntOp Sub) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\
        small_num lims.arch_64_bit n2 /\
        small_num lims.arch_64_bit (n1 - n2)
     then SOME 0 else
       OPTION_MAP2 MAX (lookup Sub_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
-  (stack_consumed sfs lims (Add) [Number n1; Number n2] =
+  (stack_consumed sfs lims (IntOp Add) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\
        small_num lims.arch_64_bit n2 /\
        small_num lims.arch_64_bit (n1 + n2)
     then SOME 0 else
       OPTION_MAP2 MAX (lookup Add_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
-  (stack_consumed sfs lims (LessEq) vs =
+  (stack_consumed sfs lims (IntOp LessEq) vs =
     (* This is a conservative estimate --- no calls happen for smallnums *)
     OPTION_MAP2 MAX
      (lookup Compare_location sfs)
      (lookup Compare1_location sfs)) /\
-  (stack_consumed sfs lims (Less) vs =
+  (stack_consumed sfs lims (IntOp Less) vs =
     (* This is a conservative estimate --- no calls happen for smallnums *)
     OPTION_MAP2 MAX
      (lookup Compare_location sfs)
@@ -378,12 +378,12 @@ Overload do_space_safe =
   ``λop vs ^s. if op_space_reset op
               then s.safe_for_space
                    ∧ size_of_heap s + space_consumed s op vs <= s.limits.heap_limit
-              else s.safe_for_space``
+              else s.safe_for_space``;
 
 Overload do_space_peak =
   ``λop vs ^s. if op_space_reset op
               then heap_peak (space_consumed s op vs) s
-              else s.peak_heap_length``
+              else s.peak_heap_length``;
 
 Definition do_space_def:
   do_space op vs ^s =
@@ -533,41 +533,43 @@ Definition lim_safe_part_def[simp]:
 End
 
 Definition lim_safe_def[simp]:
-  (lim_safe lims (Cons tag) xs = if xs = []
-                             then tag < 2 ** (arch_size lims) DIV 16
-                             else
-                               LENGTH xs < 2 ** lims.length_limit /\
-                               LENGTH xs < 2 ** (arch_size lims - 4) /\
-                               4 * tag < 2 ** (arch_size lims) DIV 16 /\
-                               4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)
-                               )
-∧ (lim_safe lims (FromList tag) xs = (case xs of
-                                 | [len;lv] =>
-                                   (case v_to_list lv of
-                                   | SOME n  =>
-                                       if len = Number (& (LENGTH n))
-                                       then small_num lims.arch_64_bit (&(LENGTH n)) /\
-                                            LENGTH n < 2 ** lims.length_limit /\
-                                            LENGTH n < arch_size lims DIV 16 /\
-                                            4 * tag < 2 ** (arch_size lims - lims.length_limit - 2) /\
-                                            4 * tag < 2 ** (arch_size lims) DIV 16
-                                       else T
-                                   | _ => T)
-                                 | _ => T))
-∧ (lim_safe lims ListAppend [x1;x2] =
-        (case (v_to_list x1, v_to_list x2) of
-         | (SOME xs, SOME ys) =>
-             1 < lims.length_limit /\
-             3 * (SUC (LENGTH xs)) < 2 ** (arch_size lims) DIV 8
-         | _ => T))
-∧ (lim_safe lims (ConsExtend tag) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
+  (lim_safe lims (BlockOp (Cons tag)) xs =
+    if xs = []
+    then tag < 2 ** (arch_size lims) DIV 16
+    else
+      LENGTH xs < 2 ** lims.length_limit /\
+      LENGTH xs < 2 ** (arch_size lims - 4) /\
+      4 * tag < 2 ** (arch_size lims) DIV 16 /\
+      4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)
+      )
+∧ (lim_safe lims (BlockOp (FromList tag)) xs =
+   (case xs of
+    | [len;lv] =>
+      (case v_to_list lv of
+      | SOME n  =>
+          if len = Number (& (LENGTH n))
+          then small_num lims.arch_64_bit (&(LENGTH n)) /\
+               LENGTH n < 2 ** lims.length_limit /\
+               LENGTH n < arch_size lims DIV 16 /\
+               4 * tag < 2 ** (arch_size lims - lims.length_limit - 2) /\
+               4 * tag < 2 ** (arch_size lims) DIV 16
+          else T
+      | _ => T)
+    | _ => T))
+∧ (lim_safe lims (BlockOp ListAppend) [x1;x2] =
+   (case (v_to_list x1, v_to_list x2) of
+    | (SOME xs, SOME ys) =>
+        1 < lims.length_limit /\
+        3 * (SUC (LENGTH xs)) < 2 ** (arch_size lims) DIV 8
+    | _ => T))
+∧ (lim_safe lims (BlockOp (ConsExtend tag)) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then T
         else LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** lims.length_limit /\
              LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) < 2 ** (arch_size lims) DIV 16 /\
              4 * tag < 2 ** (arch_size lims) DIV 16 /\
              4 * tag < 2 ** (arch_size lims - lims.length_limit - 2))
-∧ (lim_safe lims Add [Number i1; Number i2] =
+∧ (lim_safe lims (IntOp Add) [Number i1; Number i2] =
    (if small_num lims.arch_64_bit i1 /\
        small_num lims.arch_64_bit i2 /\
        small_num lims.arch_64_bit (i1 + i2)
@@ -576,7 +578,7 @@ Definition lim_safe_def[simp]:
       let jl = bignum_size lims.arch_64_bit i2 in
         il + jl <= 2 ** lims.length_limit)
   )
-∧ (lim_safe lims Sub [Number i1; Number i2] =
+∧ (lim_safe lims (IntOp Sub) [Number i1; Number i2] =
    (if small_num lims.arch_64_bit i1 /\
        small_num lims.arch_64_bit i2 /\
        small_num lims.arch_64_bit (i1 - i2)
@@ -585,7 +587,7 @@ Definition lim_safe_def[simp]:
       let jl = bignum_size lims.arch_64_bit i2 in
         il + jl <= 2 ** lims.length_limit)
   )
-∧ (lim_safe lims Mult [Number i1; Number i2] =
+∧ (lim_safe lims (IntOp Mult) [Number i1; Number i2] =
    (if small_num lims.arch_64_bit i1 /\ 0 <= i1 /\
        small_num lims.arch_64_bit i2 /\ 0 <= i2 /\
        small_num lims.arch_64_bit (i1 * i2)
@@ -594,7 +596,7 @@ Definition lim_safe_def[simp]:
       let jl = bignum_size lims.arch_64_bit i2 in
         il + jl <= 2 ** lims.length_limit)
   )
-∧ (lim_safe lims Div [Number i1; Number i2] =
+∧ (lim_safe lims (IntOp Div) [Number i1; Number i2] =
    (if small_num lims.arch_64_bit i1 /\ 0 <= i1 /\
        small_num lims.arch_64_bit i2 /\ 0 <= i2 /\
        small_num lims.arch_64_bit (i1 / i2)
@@ -603,7 +605,7 @@ Definition lim_safe_def[simp]:
       let jl = bignum_size lims.arch_64_bit i2 in
         il + jl <= 2 ** lims.length_limit)
   )
-∧ (lim_safe lims Mod [Number i1; Number i2] =
+∧ (lim_safe lims (IntOp Mod) [Number i1; Number i2] =
    (if small_num lims.arch_64_bit i1 /\ 0 <= i1 /\
        small_num lims.arch_64_bit i2 /\ 0 <= i2 /\
        small_num lims.arch_64_bit (i1 % i2)
@@ -612,49 +614,49 @@ Definition lim_safe_def[simp]:
       let jl = bignum_size lims.arch_64_bit i2 in
         il + jl <= 2 ** lims.length_limit)
   )
-∧ (lim_safe lims RefArray [Number i; v] =
+∧ (lim_safe lims (MemOp RefArray) [Number i; v] =
    (0 <= i /\
     Num i < 2 ** (arch_size lims) DIV 16 /\
     Num i < 2 ** lims.length_limit)
   )
-∧ (lim_safe lims (RefByte _) (Number i::xs) =
+∧ (lim_safe lims (MemOp (RefByte _)) (Number i::xs) =
    (0 <= i /\
     Num i DIV (arch_size lims DIV 8) < 2 ** (arch_size lims) DIV arch_size lims /\
     Num i DIV (arch_size lims DIV 8) + 1 < 2 ** lims.length_limit /\
     small_num lims.arch_64_bit i)
   )
-∧ (lim_safe lims Ref xs =
+∧ (lim_safe lims (MemOp Ref) xs =
    (LENGTH xs < 2 ** lims.length_limit /\
     LENGTH xs < 2 ** arch_size lims DIV 16)
   )
-∧ (lim_safe lims (Build parts) _ =
+∧ (lim_safe lims (BlockOp (Build parts)) _ =
    EVERY (lim_safe_part lims) parts
   )
-∧ (lim_safe lims WordToInt _ =
+∧ (lim_safe lims (WordOp WordToInt) _ =
    (1 < lims.length_limit)
   )
-∧ (lim_safe lims WordFromInt _ =
+∧ (lim_safe lims (WordOp WordFromInt) _ =
    (1 < lims.length_limit)
   )
-∧ (lim_safe lims (WordOp W64 _) _ =
+∧ (lim_safe lims (WordOp (WordOpw W64 _)) _ =
    (1 < lims.length_limit)
   )
-∧ (lim_safe lims (WordShift W64 _ _) _ =
+∧ (lim_safe lims (WordOp (WordShift W64 _ _)) _ =
    (1 < lims.length_limit)
   )
-∧ (lim_safe lims (WordFromWord _) _ =
+∧ (lim_safe lims (WordOp (WordFromWord _)) _ =
    (1 < lims.length_limit)
   )
-∧ (lim_safe lims (FP_cmp _) _ =
+∧ (lim_safe lims (WordOp (FP_cmp _)) _ =
    lims.has_fp_ops
   )
-∧ (lim_safe lims (FP_uop _) _ =
+∧ (lim_safe lims (WordOp (FP_uop _)) _ =
    (lims.has_fp_ops /\ (lims.arch_64_bit \/ 1 < lims.length_limit))
   )
-∧ (lim_safe lims (FP_bop _) _ =
+∧ (lim_safe lims (WordOp (FP_bop _)) _ =
    (lims.has_fp_ops /\ (lims.arch_64_bit \/ 1 < lims.length_limit))
   )
-∧ (lim_safe lims (FP_top _) _ =
+∧ (lim_safe lims (WordOp (FP_top _)) _ =
    (lims.has_fp_ops /\ lims.has_fp_tops /\ (lims.arch_64_bit \/ 1 < lims.length_limit))
   )
 ∧ (lim_safe lims _ _ = T)
@@ -701,21 +703,23 @@ Definition do_app_aux_def:
   do_app_aux op ^vs ^s =
     case (op,vs) of
     (* bvi part *)
-    | (Const i,xs) => if small_enough_int i then
-                        Rval (Number i : v, s)
-                      else Error
-    | (Label l,xs) => (case xs of
-                       | [] => if l IN domain s.code then
-                                 Rval (CodePtr l, s)
-                               else Error
-                       | _ => Error)
-    | (GlobalsPtr,xs) =>
+    | (IntOp (Const i),xs) =>
+      if small_enough_int i then
+        Rval (Number i : v, s)
+      else Error
+    | (Label l,xs) =>
+        (case xs of
+         | [] => if l IN domain s.code then
+                   Rval (CodePtr l, s)
+                 else Error
+         | _ => Error)
+    | (GlobOp GlobalsPtr,xs) =>
         (case xs of
          | [] => (case s.global of
                   | SOME p => Rval (RefPtr T p, s)
                   | NONE => Error)
          | _ => Error)
-    | (Global n,xs) =>
+    | (GlobOp (Global n),xs) =>
         (case xs of
          | [] => (case s.global of
                   | SOME ptr =>
@@ -727,7 +731,7 @@ Definition do_app_aux_def:
                        | _ => Error)
                   | NONE => Error)
          | _ => Error)
-    | (SetGlobal n,xs) =>
+    | (GlobOp (SetGlobal n),xs) =>
         (case xs of
          | [x] => (case s.global of
                    | SOME ptr =>
@@ -740,11 +744,11 @@ Definition do_app_aux_def:
                         | _ => Error)
                    | NONE => Error)
          | _ => Error)
-    | (SetGlobalsPtr,xs) =>
+    | (GlobOp (SetGlobalsPtr),xs) =>
         (case xs of
          | [RefPtr T p] => Rval (Unit, s with global := SOME p)
          | _ => Error)
-    | (FromList n, xs) =>
+    | (BlockOp (FromList n), xs) =>
         (case xs of
          | [len;lv] =>
             (case v_to_list lv of
@@ -758,7 +762,7 @@ Definition do_app_aux_def:
                           else Error
              | _ => Error)
          | _ => Error)
-    | (RefByte f, xs) =>
+    | (MemOp (RefByte f), xs) =>
         (case xs of
           | [Number i; Number b] =>
             if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
@@ -767,20 +771,20 @@ Definition do_app_aux_def:
                   (ByteArray f (REPLICATE (Num i) (i2w b))) s.refs|>)
             else Rerr (Rabort Rtype_error)
           | _ => Rerr (Rabort Rtype_error))
-    | (AllocGlobal, _)   => Rerr (Rabort Rtype_error)
-    | (FromListByte, _)  => Rerr (Rabort Rtype_error)
-    | (ConcatByteVec, _) => Rerr (Rabort Rtype_error)
-    | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
+    | (GlobOp AllocGlobal, _)  => Rerr (Rabort Rtype_error)
+    | (MemOp FromListByte, _)  => Rerr (Rabort Rtype_error)
+    | (MemOp ConcatByteVec, _) => Rerr (Rabort Rtype_error)
+    | (MemOp (CopyByte T), _)  => Rerr (Rabort Rtype_error)
     (* bvl part *)
-    | (Build parts,[]) =>
+    | (BlockOp (Build parts),[]) =>
         (case do_build_const parts s.refs s.tstamps of
          | (v,s1,ts1) => Rval (v,s with <| refs := s1 ; tstamps := ts1 |>))
-    | (Cons tag,xs) => (if xs = []
+    | (BlockOp (Cons tag),xs) => (if xs = []
                         then Rval (Block 0 tag [],s)
                         else with_fresh_ts s 1
                                (λts s'. Rval (Block ts tag xs,
                                               check_lim s' (LENGTH xs))))
-    | (ConsExtend tag,Block x y xs'::Number lower::Number len::Number tot::xs) =>
+    | (BlockOp (ConsExtend tag),Block x y xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
           Error
@@ -789,59 +793,59 @@ Definition do_app_aux_def:
                                     let l = (xs++TAKE (Num len) (DROP (Num lower) xs'))
                                     in Rval (Block ts tag l,
                                              check_lim s' (LENGTH l)))
-    | (ConsExtend tag,_) => Error
-    | (El,[Block _ tag xs; Number i]) =>
+    | (BlockOp (ConsExtend tag),_) => Error
+    | (MemOp El,[Block _ tag xs; Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
-    | (El,[RefPtr _ ptr; Number i]) =>
+    | (MemOp El,[RefPtr _ ptr; Number i]) =>
         (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
              then Rval (EL (Num i) xs, s)
              else Error)
          | _ => Error)
-    | (ElemAt n,[Block _ tag xs]) =>
+    | (BlockOp (ElemAt n),[Block _ tag xs]) =>
         if n < LENGTH xs then Rval (EL n xs, s) else Error
-    | (ElemAt n,[RefPtr _ ptr]) =>
+    | (BlockOp (ElemAt n),[RefPtr _ ptr]) =>
         (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>
             (if n < LENGTH xs
              then Rval (EL n xs, s)
              else Error)
          | _ => Error)
-    | (ListAppend,[x1;x2]) =>
+    | (BlockOp ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) =>
              with_fresh_ts ^s (LENGTH xs)
              (λts s'. Rval (list_to_v ts x2 xs,
                            check_lim (s') 2))
          | _ => Error)
-    | (LengthBlock,[Block _ tag xs]) =>
+    | (BlockOp LengthBlock,[Block _ tag xs]) =>
         Rval (Number (&LENGTH xs), s)
-    | (Length,[RefPtr _ ptr]) =>
+    | (MemOp Length,[RefPtr _ ptr]) =>
         (case lookup ptr s.refs of
           | SOME (ValueArray xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
-    | (LengthByte,[RefPtr _ ptr]) =>
+    | (MemOp LengthByte,[RefPtr _ ptr]) =>
         (case lookup ptr s.refs of
           | SOME (ByteArray _ xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
-    | (RefArray,[Number i;v]) =>
+    | (MemOp RefArray,[Number i;v]) =>
         if 0 ≤ i then
           let ptr = (LEAST ptr. ¬(ptr IN domain s.refs)) in
             Rval (RefPtr T ptr,
                   s with <|refs := insert ptr
                                           (ValueArray (REPLICATE (Num i) v)) s.refs|>)
          else Error
-    | (DerefByte,[RefPtr _ ptr; Number i]) =>
+    | (MemOp DerefByte,[RefPtr _ ptr; Number i]) =>
         (case lookup ptr s.refs of
          | SOME (ByteArray _ ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
-    | (UpdateByte,[RefPtr _ ptr; Number i; Number b]) =>
+    | (MemOp UpdateByte,[RefPtr _ ptr; Number i; Number b]) =>
         (case lookup ptr s.refs of
          | SOME (ByteArray f bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
@@ -850,7 +854,7 @@ Definition do_app_aux_def:
                  (ByteArray f (LUPDATE (i2w b) (Num i) bs)) s.refs)
              else Error)
          | _ => Error)
-    | (CopyByte F,[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+    | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (lookup src s.refs, lookup dst s.refs) of
          | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
@@ -858,13 +862,13 @@ Definition do_app_aux_def:
             | SOME ds => Rval (Unit, s with refs := insert dst (ByteArray fl ds) s.refs)
             | NONE => Error)
          | _ => Error)
-    | (TagEq n,[Block _ tag xs]) =>
+    | (BlockOp (TagEq n),[Block _ tag xs]) =>
         Rval (Boolv (tag = n), s)
-    | (LenEq l,[Block _ tag xs]) =>
+    | (BlockOp (LenEq l),[Block _ tag xs]) =>
         Rval (Boolv (LENGTH xs = l),s)
-    | (TagLenEq n l,[Block _ tag xs]) =>
+    | (BlockOp (TagLenEq n l),[Block _ tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
-    | (EqualConst p,[x1]) =>
+    | (BlockOp (EqualConst p),[x1]) =>
         (case p of
          | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
          | W64 i => (case x1 of Word64 j => Rval (Boolv (i = j), s) | _ => Error)
@@ -874,14 +878,14 @@ Definition do_app_aux_def:
                         | _ => Error)
                      | _ => Error)
          | _ => Error)
-    | (Equal,[x1;x2]) =>
+    | (BlockOp Equal,[x1;x2]) =>
         (case do_eq s.refs x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
-    | (Ref,xs) =>
+    | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
           Rval (RefPtr T ptr, s with <| refs := insert ptr (ValueArray xs) s.refs|>)
-    | (Update,[RefPtr _ ptr; Number i; x]) =>
+    | (MemOp Update,[RefPtr _ ptr; Number i; x]) =>
         (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
@@ -889,40 +893,40 @@ Definition do_app_aux_def:
                               (ValueArray (LUPDATE x (Num i) xs)) s.refs)
              else Error)
          | _ => Error)
-    | (Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
-    | (Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
-    | (Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
-    | (Div,[Number n1; Number n2]) =>
+    | (IntOp Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
+    | (IntOp Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
+    | (IntOp Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
+    | (IntOp Div,[Number n1; Number n2]) =>
          if n2 = 0 then Error else Rval (Number (n1 / n2),s)
-    | (Mod,[Number n1; Number n2]) =>
+    | (IntOp Mod,[Number n1; Number n2]) =>
          if n2 = 0 then Error else Rval (Number (n1 % n2),s)
-    | (Less,[Number n1; Number n2]) =>
+    | (IntOp Less,[Number n1; Number n2]) =>
          Rval (Boolv (n1 < n2),s)
-    | (LessEq,[Number n1; Number n2]) =>
+    | (IntOp LessEq,[Number n1; Number n2]) =>
          Rval (Boolv (n1 <= n2),s)
-    | (Greater,[Number n1; Number n2]) =>
+    | (IntOp Greater,[Number n1; Number n2]) =>
          Rval (Boolv (n1 > n2),s)
-    | (GreaterEq,[Number n1; Number n2]) =>
+    | (IntOp GreaterEq,[Number n1; Number n2]) =>
          Rval (Boolv (n1 >= n2),s)
-    | (WordOp W8 opw,[Number n1; Number n2]) =>
+    | (WordOp (WordOpw W8 opw),[Number n1; Number n2]) =>
        (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
         | NONE => Error
         | SOME (w1,w2) => Rval (Number &(w2n (opw_lookup opw w1 w2)),s))
-    | (WordOp W64 opw,[Word64 w1; Word64 w2]) =>
+    | (WordOp (WordOpw W64 opw),[Word64 w1; Word64 w2]) =>
         Rval (Word64 (opw_lookup opw w1 w2),s)
-    | (WordShift W8 sh n, [Number i]) =>
+    | (WordOp (WordShift W8 sh n), [Number i]) =>
        (case some (w:word8). i = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Number &(w2n (shift_lookup sh w n)),s))
-    | (WordShift W64 sh n, [Word64 w]) =>
+    | (WordOp (WordShift W64 sh n), [Word64 w]) =>
         Rval (Word64 (shift_lookup sh w n),s)
-    | (WordFromInt, [Number i]) =>
+    | (WordOp (WordFromInt), [Number i]) =>
         Rval (Word64 (i2w i),s)
-    | (WordToInt, [Word64 w]) =>
+    | (WordOp (WordToInt), [Word64 w]) =>
         Rval (Number (&(w2n w)),s)
-    | (WordFromWord T, [Word64 w]) =>
+    | (WordOp (WordFromWord T), [Word64 w]) =>
         Rval (Number (&(w2n ((w2w:word64->word8) w))),s)
-    | (WordFromWord F, [Number n]) =>
+    | (WordOp (WordFromWord F), [Number n]) =>
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
@@ -937,29 +941,29 @@ Definition do_app_aux_def:
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
-    | (FP_top t_op, ws) =>
+    | (WordOp (FP_top t_op), ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
             (Rval (Word64 (fp_top_comp t_op w1 w2 w3),s))
          | _ => Error)
-    | (FP_bop bop, ws) =>
+    | (WordOp (FP_bop bop), ws) =>
         (case ws of
          | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop_comp bop w1 w2),s))
          | _ => Error)
-    | (FP_uop uop, ws) =>
+    | (WordOp (FP_uop uop), ws) =>
         (case ws of
          | [Word64 w] => (Rval (Word64 (fp_uop_comp uop w),s))
          | _ => Error)
-    | (FP_cmp cmp, ws) =>
+    | (WordOp (FP_cmp cmp), ws) =>
         (case ws of
          | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp_comp cmp w1 w2),s))
          | _ => Error)
-    | (BoundsCheckBlock,xs) =>
+    | (BlockOp BoundsCheckBlock,xs) =>
         (case xs of
          | [Block _ tag ys; Number i] =>
                Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
          | _ => Error)
-    | (BoundsCheckByte loose,xs) =>
+    | (MemOp (BoundsCheckByte loose),xs) =>
         (case xs of
          | [RefPtr _ ptr; Number i] =>
           (case lookup ptr s.refs of
@@ -967,7 +971,7 @@ Definition do_app_aux_def:
                Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
            | _ => Error)
          | _ => Error)
-    | (BoundsCheckArray,xs) =>
+    | (MemOp BoundsCheckArray,xs) =>
         (case xs of
          | [RefPtr _ ptr; Number i] =>
           (case lookup ptr s.refs of
@@ -975,12 +979,12 @@ Definition do_app_aux_def:
                Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
            | _ => Error)
          | _ => Error)
-    | (LessConstSmall n,xs) =>
+    | (IntOp (LessConstSmall n),xs) =>
         (case xs of
          | [Number i] => if 0 <= i /\ i <= 1000000 /\ n < 1000000
                          then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
-    | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
+    | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Error
 End
 
@@ -991,18 +995,18 @@ Overload do_app_safe =
                            (OPTION_MAP2 $+ (stack_consumed s.stack_frame_sizes s.limits op vs)
                              (OPTION_MAP2 $+ (size_of_stack s.stack) s.locals_size))))
               else F
-              ``
+              ``;
 
 Overload do_app_peak =
   ``λop vs s. if op = Install
               then s.peak_heap_length
-              else if MEM op [Greater; GreaterEq] then s.peak_heap_length
-              else do_space_peak op vs s``
+              else if MEM op [IntOp Greater; IntOp GreaterEq] then s.peak_heap_length
+              else do_space_peak op vs s``;
 
 Definition do_app_def:
   do_app op vs ^s =
     if op = Install then do_install vs (s with <|stack_max := NONE; stack_frame_sizes := LN|>) else
-    if MEM op [Greater; GreaterEq] then Error else
+    if MEM op [IntOp Greater; IntOp GreaterEq] then Error else
     case do_space op vs s of
     | NONE => Error
     | SOME s1 => do_app_aux op vs (do_stack op vs (do_lim_safe s1 op vs))

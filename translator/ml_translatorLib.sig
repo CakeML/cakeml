@@ -124,6 +124,10 @@ sig
     val clean_v_thms : unit -> unit
     val filter_v_thms : ((string * string * term * thm * thm * string list) -> bool) -> int
 
+    val get_v_thms : unit -> (string * string * term * thm * thm * string list) list
+    val get_eval_thms : unit -> (string * term * thm) list
+    val get_type_mods : unit -> (string * string list) list
+
     (* Internal - handling type constructor names *)
     val mk_cons_name : term -> string
     val enter_cons_name : term * term -> string

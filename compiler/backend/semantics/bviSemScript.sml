@@ -52,25 +52,26 @@ val s = ``(s:('c,'ffi) bviSem$state)``
 Definition do_app_aux_def:
   do_app_aux op (vs:bvlSem$v list) ^s =
     case (op,vs) of
-    | (Const i,xs) => if small_enough_int i then
-                        SOME (SOME (Number i, s))
-                      else NONE
+    | (IntOp (Const i),xs) =>
+      if small_enough_int i then
+        SOME (SOME (Number i, s))
+      else NONE
     | (Label l,xs) => (case xs of
                        | [] => if l IN domain s.code then
                                  SOME (SOME (CodePtr l, s))
                                else NONE
                        | _ => NONE)
-    | (GlobalsPtr,xs) =>
+    | (GlobOp GlobalsPtr,xs) =>
         (case xs of
          | [] => (case s.global of
                   | SOME p => SOME (SOME (RefPtr T p, s))
                   | NONE => NONE)
          | _ => NONE)
-    | (SetGlobalsPtr,xs) =>
+    | (GlobOp SetGlobalsPtr,xs) =>
         (case xs of
          | [RefPtr T p] => SOME (SOME (Unit, s with global := SOME p))
          | _ => NONE)
-    | (Global n, xs) =>
+    | (GlobOp (Global n), xs) =>
         (case xs of
          | [] => (case s.global of
                    | SOME ptr =>
@@ -82,7 +83,7 @@ Definition do_app_aux_def:
                         | _ => NONE)
                    | NONE => NONE)
          | _ => NONE)
-    | (SetGlobal n, xs) =>
+    | (GlobOp (SetGlobal n), xs) =>
         (case xs of
          | [x] => (case s.global of
                    | SOME ptr =>
@@ -95,7 +96,7 @@ Definition do_app_aux_def:
                         | _ => NONE)
                    | NONE => NONE)
          | _ => NONE)
-    | (FromList n, xs) =>
+    | (BlockOp (FromList n), xs) =>
         (case xs of
          | [len;lv] =>
             (case v_to_list lv of
@@ -104,7 +105,7 @@ Definition do_app_aux_def:
                           else NONE
              | _ => NONE)
          | _ => NONE)
-    | (RefByte f, xs) =>
+    | (MemOp (RefByte f), xs) =>
         (case xs of
           | [Number i; Number b] =>
             if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
@@ -113,11 +114,11 @@ Definition do_app_aux_def:
                   (ptr, ByteArray f (REPLICATE (Num i) (i2w b)))))
             else NONE
           | _ => NONE)
-    | (AllocGlobal, _) => NONE
-    | (FromListByte, _) => NONE
-    | (ToListByte, _) => NONE
-    | (ConcatByteVec, _) => NONE
-    | (CopyByte T, _) => NONE
+    | (GlobOp AllocGlobal, _) => NONE
+    | (MemOp FromListByte, _) => NONE
+    | (MemOp ToListByte, _) => NONE
+    | (MemOp ConcatByteVec, _) => NONE
+    | (MemOp (CopyByte T), _) => NONE
     | _ => SOME NONE
 End
 

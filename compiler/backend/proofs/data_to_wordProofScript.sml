@@ -1467,7 +1467,7 @@ Proof
 QED
 
 Triviality extract_labels_assignWordOp:
-  assign a b c d (WordOp e f) g h = (i,j) ⇒
+  assign a b c d (WordOp (WordOpw e f)) g h = (i,j) ⇒
   extract_labels i = [] ∧ c ≤ j
 Proof
   simp[assign_def]>>
@@ -1512,7 +1512,7 @@ Proof
     (qmatch_goalsub_rename_tac `assign _ _ _ _ opname _ _` >>
     Cases_on `opname`>>
     TRY(
-      rename1`WordOp _ _`>>
+      rename1`WordOp (WordOpw _ _)`>>
       pairarg_tac>>old_drule extract_labels_assignWordOp>>
       simp[])>>
     TRY(

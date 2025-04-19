@@ -111,7 +111,7 @@ Theorem evaluate_fp_opts_inv = SIMP_RULE std_ss [] evaluate_fp_opts_inv_local;
 end;
 
 Theorem fpOp_determ:
-  ! op refs refsN (ffi1 ffi2:'a ffi_state) (ffi3:'b ffi_state) r vl.
+  ! Op (MemOp Ref)s refsN (ffi1 ffi2:'a ffi_state) (ffi3:'b ffi_state) r vl.
     getOpClass op = Icing /\
     do_app (refs, ffi1) op vl = SOME ((refsN, ffi2), r) ==>
     do_app (refs, ffi3) op vl = SOME ((refs, ffi3), r)
@@ -123,7 +123,7 @@ Proof
 QED
 
 Theorem realOp_determ:
-  ! op refs refsN (ffi1 ffi2:'a ffi_state) (ffi3:'b ffi_state) r vl.
+  ! Op (MemOp Ref)s refsN (ffi1 ffi2:'a ffi_state) (ffi3:'b ffi_state) r vl.
     getOpClass op = Reals /\
     do_app (refs, ffi1) op vl = SOME ((refsN, ffi2), r) ==>
     do_app (refs, ffi3) op vl = SOME ((refs, ffi3), r)

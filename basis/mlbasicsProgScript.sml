@@ -71,10 +71,10 @@ fun prove_ref_spec op_name =
 
 (*
 Theorem ref_spec:
-   !xv. app (p:'ffi ffi_proj) ^(fetch_v "op ref" (get_ml_prog_state ())) [xv]
+   !xv. app (p:'ffi ffi_proj) ^(fetch_v "Op (MemOp Ref)" (get_ml_prog_state ())) [xv]
           emp (POSTv rv. rv ~~> xv)
 Proof
-  prove_ref_spec "op ref"
+  prove_ref_spec "Op (MemOp Ref)"
 QED
 *)
 

@@ -682,7 +682,7 @@ Proof
      \\ `syntax_ok prog' /\ !b. prog' <> LoopBody b` by
           (Cases_on `prog'` \\ fs [syntax_ok_def,syntax_ok_aux_def] \\ NO_TAC)
      \\ fs []
-     \\ disch_then (qspec_then `Seq p2 p9` mp_tac)
+     \\ disch_then (qspec_then `Seq p2' p9` mp_tac)
      \\ match_mp_tac (METIS_PROVE [] ``(b3 ==> b1 ==> b2 ==> b4) ==>
                                        (b1 ==> b2 ==> b3 ==> b4)``)
      \\ strip_tac \\ disch_then drule

@@ -2316,20 +2316,20 @@ QED
 
 Theorem get_var_to_word_exp:
    get_var r s = SOME (Word w) ⇒
-  word_exp s (Op Add [Var r;Const 0w] ) = SOME (Word (w+0w)) ∧
-  word_exp s (Op Add [Var r;Const 1w] ) = SOME (Word (w+1w)) ∧
-  word_exp s (Op Add [Var r;Const 2w] ) = SOME (Word (w+2w)) ∧
-  word_exp s (Op Add [Var r;Const 3w] ) = SOME (Word (w+3w))
+  word_exp s (Op (IntOp Add) [Var r;Const 0w] ) = SOME (Word (w+0w)) ∧
+  word_exp s (Op (IntOp Add) [Var r;Const 1w] ) = SOME (Word (w+1w)) ∧
+  word_exp s (Op (IntOp Add) [Var r;Const 2w] ) = SOME (Word (w+2w)) ∧
+  word_exp s (Op (IntOp Add) [Var r;Const 3w] ) = SOME (Word (w+3w))
 Proof
   EVAL_TAC>>rw[]
 QED
 
 Triviality word_exp_set:
-  (word_exp s (Op Add [Var n; Const c]) =
+  (word_exp s (Op (IntOp Add) [Var n; Const c]) =
   case get_var n s of
     SOME (Word w) => SOME (Word (w+c))
   | _ => NONE) ∧
-  (word_exp s (Op Sub [Var n; Const c]) =
+  (word_exp s (Op (IntOp Sub) [Var n; Const c]) =
   case get_var n s of
     SOME (Word w) => SOME (Word (w-c))
   | _ => NONE)
@@ -8265,7 +8265,7 @@ Theorem assign_BoundsCheckByte:
                                 let header = Load addr in
                                 let extra = (if dimindex (:'a) = 32 then 2 else 3) in
                                 let k = dimindex (:'a) - c.len_size - extra in
-                                  Op Sub [Shift Lsr header k; Const bytes_in_word]);
+                                  Op (IntOp Sub) [Shift Lsr header k; Const bytes_in_word]);
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               (if leq then If NotLower 1 (Reg 3) else
                                            If Lower 3 (Reg 1))
@@ -9728,7 +9728,7 @@ Proof
 QED
 
 Theorem assign_WordOpW8:
-   (?opw. op = WordOp W8 opw) ==> ^assign_thm_goal
+   (?opw. op = WordOp (WordOpw W8 opw)) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -9896,7 +9896,7 @@ Proof
 QED
 
 val assign_WordOp64 =
-  ``assign c n l dest (WordOp W64 opw) [e1; e2] names_opt``
+  ``assign c n l dest (WordOp (WordOpw W64 opw)) [e1; e2] names_opt``
   |> SIMP_CONV (srw_ss()) [assign_def]
 
 Theorem mw2n_2_IMP:
@@ -10064,7 +10064,7 @@ Proof
 QED
 
 Theorem assign_WordOpW64:
-   (?opw. op = WordOp W64 opw) ==> ^assign_thm_goal
+   (?opw. op = WordOp (WordOpw W64 opw)) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]

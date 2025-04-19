@@ -7090,7 +7090,7 @@ QED
 Theorem flat_exp_conventions_ShareInst_exp_simp:
   flat_exp_conventions (ShareInst op v exp) ==>
   (?ad.exp = Var ad) \/
-  (?ad offset. exp = Op Add [Var ad; Const offset])
+  (?ad offset. exp = Op (IntOp Add) [Var ad; Const offset])
 Proof
   gvs[DefnBase.one_line_ify NONE flat_exp_conventions_def] >>
   rpt (every_case_tac >> fs[])
@@ -7098,7 +7098,7 @@ QED
 
 Theorem word_exp_Op_Add_0:
   wordSem$word_exp s exp = SOME $ Word x <=>
-    word_exp s (Op Add [exp;Const 0w]) = SOME $ Word x
+    word_exp s (Op (IntOp Add) [exp;Const 0w]) = SOME $ Word x
 Proof
   eq_tac >>
   gvs[wordSemTheory.word_exp_def,the_words_def,
@@ -7109,7 +7109,7 @@ QED
 
 Theorem evaluate_ShareInst_Var_eq_Op_Add:
   wordSem$evaluate (ShareInst op v (Var ad),s) =
-    evaluate (ShareInst op v (Op Add [Var ad;Const 0w]),s)
+    evaluate (ShareInst op v (Op (IntOp Add) [Var ad;Const 0w]),s)
 Proof
   gvs[wordSemTheory.evaluate_def] >>
   TOP_CASE_TAC
@@ -7301,7 +7301,7 @@ QED
 
 Theorem evaluate_ShareInst_Load:
   evaluate (ShareInst op (2 * v)
-    (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
+    (Op (IntOp Add) [Var (2 * ad);Const offset]),s) = (res,s1) /\
   res <> SOME Error /\
   state_rel ac k f f' s t lens /\
   v < f' + k /\
@@ -7361,7 +7361,7 @@ QED
 
 Theorem evaluate_ShareInst_Store:
   evaluate (ShareInst op (2 * v)
-    (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
+    (Op (IntOp Add) [Var (2 * ad);Const offset]),s) = (res,s1) /\
   state_rel ac k f f' s t lens /\
   v < f' + k /\
   ad < f' + k /\
@@ -7415,7 +7415,7 @@ QED
 
 Theorem evaluate_ShareInst_correct_lemma:
   evaluate (ShareInst op (2 * v)
-    (Op Add [Var (2 * ad);Const offset]),s) = (res,s1) /\
+    (Op (IntOp Add) [Var (2 * ad);Const offset]),s) = (res,s1) /\
   res <> SOME Error /\
   state_rel ac k f f' s t lens /\
   v < f' + k /\

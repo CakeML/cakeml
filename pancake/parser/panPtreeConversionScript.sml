@@ -119,7 +119,7 @@ End
 (** Subtraction must apply to only two subexpressions.
   * See the pancake semantics script. *)
 Definition isSubOp_def:
-  isSubOp (Op Sub [e1;e2]) = T ∧
+  isSubOp (Op (IntOp Sub) [e1;e2]) = T ∧
   isSubOp _ = F
 End
 

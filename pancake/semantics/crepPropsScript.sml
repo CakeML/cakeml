@@ -44,7 +44,7 @@ Theorem eval_load_shape_el_rel:
   !m n a t e.
   n < m ==>
   eval t (EL n (load_shape a m e)) =
-  eval t (Load (Op Add [e; Const (a + bytes_in_word * n2w n)]))
+  eval t (Load (Op (IntOp Add) [e; Const (a + bytes_in_word * n2w n)]))
 Proof
   Induct >> rw [] >>
   once_rewrite_tac [load_shape_def] >>
@@ -555,7 +555,7 @@ Proof
    disch_then drule >> fs []) >>
   fs [nested_seq_def, evaluate_def] >>
   pairarg_tac >> fs [] >>
-  ‘eval (s with locals := lc) (Op Add [Var ad; Const a]) = SOME (Word (addr+a))’ by (
+  ‘eval (s with locals := lc) (Op (IntOp Add) [Var ad; Const a]) = SOME (Word (addr+a))’ by (
     fs [eval_def, OPT_MMAP_def, Abbr ‘lc’] >>
     fs [Once FUPDATE_LIST_THM] >>
     ‘~MEM ad (MAP FST ((h,h')::ZIP (es,t')))’ by (

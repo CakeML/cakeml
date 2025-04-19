@@ -10,7 +10,7 @@
 
    and replaces them with constants
 
-     Let [ ... ; Op (Const _) [] ; ... ] ....
+     Let [ ... ; Op (IntOp (Const _)) [] ; ... ] ....
 
    and then replaces all occurrences of the bound var in the body with
    a lookup to the original variable.
@@ -53,7 +53,7 @@ Definition extract_list_def:
 End
 
 Definition delete_var_def:
-  (delete_var ((Var n):bvi$exp) = Op (Const 0) []) /\
+  (delete_var ((Var n):bvi$exp) = Op (IntOp (Const 0)) []) /\
   (delete_var x = x)
 End
 
