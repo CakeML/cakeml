@@ -1209,7 +1209,7 @@ QED
 
 Theorem step_preservation:
   ∀ store store' env env' e e' k k' (st : 'ffi state) mlenv var kv mle .
-  step  (store, k, env, e) = (store', k', env', e') ∧
+  step (store, k, env, e) = (store', k', env', e') ∧
   valid_state store k env e ∧
   cont_rel k kv ∧
   e_ce_rel e var mlenv kv mle ∧
@@ -2059,6 +2059,78 @@ Proof
     >> Cases_on ‘o'’ >> gvs[]
     >> PairCases_on ‘x’ >> gvs[]
   )
+QED
+
+Theorem steps_preservation:
+  ∀ n store store' env env' e e' k k' (st : 'ffi state) mlenv var kv mle .
+  FUNPOW step n (store, k, env, e) = (store', k', env', e') ∧
+  valid_state store k env e ∧
+  cont_rel k kv ∧
+  e_ce_rel e var mlenv kv mle ∧
+  env_rel env mlenv ∧
+  LIST_REL store_entry_rel store st.refs
+  ⇒
+  ∃ ck st' mlenv' var' kv' mle' .
+    evaluate (st with clock:=ck) mlenv [mle]
+    =
+    evaluate st' mlenv' [mle'] ∧
+    cont_rel k' kv' ∧
+    e_ce_rel e' var' mlenv' kv' mle' ∧
+    env_rel env' mlenv' ∧
+    LIST_REL store_entry_rel store' st'.refs ∧
+    st'.clock ≤ ck ∧
+    (n > 0 ∧ k ≠ [] ∧ (∀ s . e ≠ Exception s) ⇒ st'.clock < ck)
+Proof
+  Induct >- (
+    simp[]
+    >> rpt strip_tac
+    >> irule_at (Pos hd) EQ_REFL
+    >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+    >> qpat_assum ‘e_ce_rel _ _ _ _ _’ $ irule_at (Pos hd)
+    >> simp[]
+  )
+  >> simp[FUNPOW]
+  >> rpt strip_tac
+  >> drule valid_state_progress
+  >> rpt strip_tac
+  >> gvs[]
+  >> last_x_assum $ drule_then assume_tac
+  >> pop_assum $ drule_then assume_tac
+  >> drule_all step_preservation
+  >> rpt strip_tac
+  >> qpat_assum ‘∀ _ _ _ _ _ . _ ⇒ _’ drule_all
+  >> rpt strip_tac
+  >> simp[]
+  >> gvs[]
+QED
+
+Theorem value_terminating:
+  ∀ n e v mle mlv store store' ks env (st:'ffi state) mlenv var kv .
+    FUNPOW step n (store, ks, env, e) = (store', [], FEMPTY, Val v) ∧
+    valid_state store ks env e ∧
+    e_ce_rel e var mlenv kv mle ∧
+    cont_rel ks kv ∧
+    env_rel env mlenv ∧
+    LIST_REL store_entry_rel store st.refs
+    ⇒
+    ∃ ck st' mlv . evaluate (st with clock:=ck) mlenv [mle]
+      = (st', Rval [mlv]) ∧
+    ml_v_vals' v mlv
+Proof
+  Induct_on ‘n’
+  >> simp[FUNPOW]
+  >> rpt strip_tac >- (
+    gvs[Once e_ce_rel_cases, Once cont_rel_cases]
+    >> qrefine ‘ck+1’
+    >> simp[evaluate_def, do_opapp_def]
+  )
+  >> drule valid_state_progress
+  >> strip_tac
+  >> gvs[]
+  >> drule_all step_preservation
+  >> strip_tac
+  >> last_x_assum $ drule_all
+  >> strip_tac
 QED
 
 (*Theorem val_correct:
