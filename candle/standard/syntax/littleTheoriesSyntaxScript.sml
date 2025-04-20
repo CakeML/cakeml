@@ -112,11 +112,13 @@ Inductive proves':
 [~elim_discharge:]
   (thy, es1, h1) |-' c ∧ (thy, es2, h2) |-' ec ∧ MEM ec es1
 ⇒ (thy, term_remove ec es1, term_union h1 h2) |-' c
-(*
+
+(* have to define SUBST and SUBSTL first
 [~elim_inst:]
   (thy, es1, h1) |-' c
 ⇒ (thy, SUBSTL es sigma, SUBSTL es h1) |-' SUBST c sigma
-*)
+ *)
+
 [~elim_axioms:]
   (theory_ok' thy ∧ c ∈ (elimaxsof thy)
    ⇒ (thy, [c], []) |-' c)
@@ -249,12 +251,6 @@ Definition remove_tmsig_def:
   remove_tmsig tm ((tms, tys), axs) = ((tms \\ tm, tys), axs)
 End
 
-(*
-if there exists some type constant, ty, that does
-not appear in the the hypothesis nor the conclusion,
-nor as part of any axiom,
-then you can safely remove it from the theory signature.
-*)
 Theorem strip_redun_ty_consts:
   ∀thy h. (thy, h) |- c ∧ ty ∉ tyset c ∧ ty ∉ tysetl h
           ∧ ty ∉ tysets (axsof thy)
@@ -263,12 +259,6 @@ Proof
   cheat
 QED
 
-(*
-if there exists some constant, tm, that does
-not appear in the the hypothesis nor the conclusion,
-nor any axiom,
-then you can safely remove it from the theory signature.
-*)
 Theorem strip_redun_tm_consts:
   ∀thy h. (thy, h) |- c ∧ tm ∉ tmset c ∧ tm ∉ tmsetl h
           ∧ tm ∉ tmsets (axsof thy)
@@ -276,11 +266,6 @@ Theorem strip_redun_tm_consts:
 Proof
   cheat
 QED
-
-(*
-this pair of strip_redun theorems are useful, as we can then
-show that//.......
-*)
 
 (* induct over |-, chooses leftmost by default *)
 (*
@@ -427,7 +412,11 @@ Theorem insert_sig_every_type_ok:
                         tysof (elimsigof (thy',esig,eaxs)))) (MAP FST tyin)
   ⇒ EVERY (type_ok (tysof (insert_sig esig thy'))) (MAP FST tyin)
 Proof
-  cheat
+  qspecl_then [‘type_ok (tysof (sigof (thy',esig,eaxs)) ⊌
+                               tysof (elimsigof (thy',esig,eaxs)))’,
+               ‘type_ok (tysof (insert_sig esig thy'))’]
+              assume_tac EVERY_MONOTONIC
+  >> rw[insert_sig_type_ok]
 QED
 
 Theorem insert_sig_axsof:
@@ -455,7 +444,7 @@ Proof
   >- (irule proves_REFL >> rw[]
       >> metis_tac[insert_sig_theory_ok, term_ok'_imp_insert_sig])
   >- (irule proves_axioms >> rw[] >> metis_tac[insert_sig_theory_ok, insert_sig_axsof])
-  >> irule proves_EQ_MP >> qexistsl [‘c’, ‘c’] >> cheat
+  >- cheat
 QED
 
 
@@ -485,7 +474,7 @@ End
 
 (* Projecting out pieces of the context *)
 
-  (* Types and constants introduced by an update *)
+(* Types and constants introduced by an update *)
 Definition types_of_upd_def:
   (types_of_upd' (ConstSpec _ _) = []) ∧
   (types_of_upd' (TypeDefn name pred _ _) = [(name,LENGTH (tvars pred))]) ∧
@@ -509,7 +498,7 @@ Overload tysof = ``λctxt. alist_to_fmap (type_list ctxt)``
 Overload const_list = ``λctxt. FLAT (MAP consts_of_upd ctxt)``
 Overload tmsof = ``λctxt. alist_to_fmap (const_list ctxt)``
 
-  (* From this we can recover a signature *)
+(* From this we can recover a signature *)
 Overload sigof = ``λctxt:update list. (tysof ctxt, tmsof ctxt)``
 
   (* Axioms: we divide them into axiomatic extensions and conservative
