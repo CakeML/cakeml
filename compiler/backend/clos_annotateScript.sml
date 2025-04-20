@@ -12,7 +12,7 @@ val _ = set_grammar_ancestry ["closLang","db_vars","misc"]
 (* alt_free calculates free variable annotations, and replaces unused lets with dummies *)
 
 Definition const_0_def:
-  const_0 t = Op t (Const 0) []
+  const_0 t = Op t (IntOp (Const 0)) []
 End
 
 Definition no_overlap_def:

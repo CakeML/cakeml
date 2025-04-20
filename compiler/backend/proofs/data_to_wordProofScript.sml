@@ -1006,7 +1006,7 @@ Proof
     rveq >>
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
     every_case_tac >> fs[]) >>
-  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = ``k:num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = “k:num”}] (assert(has_pair_type)tm))`) (#2 g) g) >>
   old_drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
@@ -1234,7 +1234,7 @@ Proof
     rveq >>
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
     every_case_tac >> fs[]) >>
-  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = ``k:num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = “k:num”}] (assert(has_pair_type)tm))`) (#2 g) g) >>
   old_drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
@@ -1467,7 +1467,7 @@ Proof
 QED
 
 Triviality extract_labels_assignWordOp:
-  assign a b c d (WordOp e f) g h = (i,j) ⇒
+  assign a b c d (WordOp (WordOpw e f)) g h = (i,j) ⇒
   extract_labels i = [] ∧ c ≤ j
 Proof
   simp[assign_def]>>
@@ -1480,7 +1480,7 @@ Proof
 QED
 
 Triviality extract_labels_assignWordShift:
-  assign a b c d (WordShift e f k) g h = (i,j) ⇒
+  assign a b c d (WordOp (WordShift e f k)) g h = (i,j) ⇒
   extract_labels i = [] ∧ c ≤ j
 Proof
   simp[assign_def]>>
@@ -1491,6 +1491,9 @@ Proof
     simp[extract_labels_def,list_Seq_def,extract_labels_WordShift64_on_32]>>
     EVAL_TAC
 QED
+
+fun cases_on_op q = Cases_on q >|
+  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
 
 Theorem data_to_word_lab_pres_lem:
   ∀c n l p.
@@ -1510,13 +1513,13 @@ Proof
     CCONTR_TAC>>fs[]>>res_tac>>fs[])
   >-
     (qmatch_goalsub_rename_tac `assign _ _ _ _ opname _ _` >>
-    Cases_on `opname`>>
+    cases_on_op `opname`>>
     TRY(
-      rename1`WordOp _ _`>>
+      rename1`WordOp (WordOpw _ _)`>>
       pairarg_tac>>old_drule extract_labels_assignWordOp>>
       simp[])>>
     TRY(
-      rename1`WordShift _ _ _`>>
+      rename1`WordOp (WordShift _ _ _)`>>
       pairarg_tac>>old_drule extract_labels_assignWordShift>>
       simp[])>>
     fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras]>>
@@ -1638,6 +1641,9 @@ Proof
   \\ fs [every_inst_def]
 QED
 
+fun cases_on_op q = Cases_on q >|
+  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b'`], [`g'`], [`m`], []];
+
 Theorem assign_no_inst[local]:
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
@@ -1647,7 +1653,7 @@ Theorem assign_no_inst[local]:
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))
 Proof
   fs[assign_def]>>
-  Cases_on`e`>>fs[every_inst_def]>>
+  cases_on_op`e`>>fs[every_inst_def]>>
   rw[]>>fs[every_inst_def,GiveUp_def]>>
   every_case_tac>>
   TRY(Cases_on`f'`)>>
@@ -1894,7 +1900,7 @@ QED
 Theorem const_parts_to_words_labels:
   const_parts_to_words c bs = SOME (q,r) ⇒
   word_get_code_labels (StoreAnyConsts (adjust_var w) 1 3 r q) ⊆
-  closLang$assign_get_code_label (Build bs)
+  closLang$assign_get_code_label (BlockOp (Build bs))
 Proof
   rw [] \\ drule word_get_code_labels_StoreAnyConsts \\ fs []
 QED
