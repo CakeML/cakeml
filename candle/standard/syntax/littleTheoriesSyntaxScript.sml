@@ -367,19 +367,33 @@ Proof
   >> Cases_on ‘FLOOKUP f1 k’ >> rw[FLOOKUP_FUNION]
 QED
 
-(* if everything in l is type_ok, then adding more types will
- keep it ok *)
-Theorem every_type_ok_ext:
-  EVERY (λa. type_ok p a) l ⇒ EVERY (λa. type_ok (p ⊌ p') a) l
+Theorem type_ind =
+  TypeBase.induction_of``:holSyntax$type``
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE std_ss [EVERY_DEF]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> Q.GEN`P`
+
+Theorem every_monotonic_rw:
+  ∀P Q. EVERY (λa. P a ⇒ Q a) l ∧ EVERY (λa. P a) l ⇒
+        EVERY (λa. Q a) l
 Proof
-  cheat
+  Induct_on ‘l’ >> rw[] >> metis_tac[]
 QED
 
 Theorem type_ok_ext:
-  type_ok p t ⇒ type_ok (FUNION p q) t
+  ∀ty. type_ok p ty ⇒ type_ok (FUNION p q) ty
 Proof
-  Cases_on ‘t’ >> rw[type_ok_def] >> gvs[type_ok_def]
-  >> rw[FLOOKUP_FUNION, every_type_ok_ext]
+  ho_match_mp_tac type_ind >> rw[type_ok_def, FLOOKUP_FUNION]
+  >> metis_tac[every_monotonic_rw]
+QED
+
+Theorem every_type_ok_ext:
+  EVERY (λa. type_ok p a) l ⇒ EVERY (λa. type_ok (p ⊌ p') a) l
+Proof
+  metis_tac[type_ok_ext, EVERY_MONOTONIC]
 QED
 
 Theorem term_ok_ext:
