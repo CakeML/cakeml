@@ -306,7 +306,7 @@ Inductive val_cont_rels:
   ⇒
   ml_v_vals' (Proc se xs xp e) $
     Conv (SOME (scheme_typestamp "Proc")) [
-      Closure env "k" $ Fun "xs" inner
+      Closure env "k" $ Fun "ts" inner
     ]
 [~Throw:]
   cont_rel ks kv
@@ -532,7 +532,7 @@ Theorem preservation_of_sadd_body:
   ∀ store st env n k kv i .
     cont_rel k kv ∧
     LIST_REL store_entry_rel store st.refs ∧
-    nsLookup env.v (Short "xs") = SOME (vcons_list mlvs) ∧
+    nsLookup env.v (Short "ts") = SOME (vcons_list mlvs) ∧
     nsLookup env.v (Short "n") = SOME (Litv (IntLit n)) ∧
     nsLookup env.v (Short "k") = SOME kv ∧
     nsLookup env.v (Short "sadd") = nsLookup scheme_env2.v (Short "sadd") ∧
@@ -541,18 +541,18 @@ Theorem preservation_of_sadd_body:
     ⇒
     ∃ck st' mlenv' var' kv' mle'.
       evaluate (st with clock := ck) env
-        [Mat (Var (Short "xs"))
+        [Mat (Var (Short "ts"))
            [(Pcon (SOME (Short "[]")) [],
-             Let (SOME "v") (Con (SOME (Short "SNum")) [Var (Short "n")])
-               (App Opapp [Var (Short "k"); Var (Short "v")]));
-            (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs'"],
-             Mat (Var (Short "x"))
-               [(Pcon (SOME (Short "SNum")) [Pvar "xn"],
+             Let (SOME "t") (Con (SOME (Short "SNum")) [Var (Short "n")])
+               (App Opapp [Var (Short "k"); Var (Short "t")]));
+            (Pcon (SOME (Short "::")) [Pvar "t"; Pvar "ts'"],
+             Mat (Var (Short "t"))
+               [(Pcon (SOME (Short "SNum")) [Pvar "tn"],
                  App Opapp
                    [App Opapp
                       [App Opapp [Var (Short "sadd"); Var (Short "k")];
-                       App (Opn Plus) [Var (Short "n"); Var (Short "xn")]];
-                    Var (Short "xs'")]);
+                       App (Opn Plus) [Var (Short "n"); Var (Short "tn")]];
+                    Var (Short "ts'")]);
                 (Pany,
                  Con (SOME (Short "Ex"))
                    [Lit (StrLit "Arith-op applied to non-number")])])]] =
@@ -611,7 +611,7 @@ Theorem preservation_of_smul_body:
   ∀ store st env n k kv i .
     cont_rel k kv ∧
     LIST_REL store_entry_rel store st.refs ∧
-    nsLookup env.v (Short "xs") = SOME (vcons_list mlvs) ∧
+    nsLookup env.v (Short "ts") = SOME (vcons_list mlvs) ∧
     nsLookup env.v (Short "n") = SOME (Litv (IntLit n)) ∧
     nsLookup env.v (Short "k") = SOME kv ∧
     nsLookup env.v (Short "smul") = nsLookup scheme_env3.v (Short "smul") ∧
@@ -620,18 +620,18 @@ Theorem preservation_of_smul_body:
     ⇒
     ∃ck st' mlenv' var' kv' mle'.
       evaluate (st with clock := ck) env
-        [Mat (Var (Short "xs"))
+        [Mat (Var (Short "ts"))
            [(Pcon (SOME (Short "[]")) [],
-             Let (SOME "v") (Con (SOME (Short "SNum")) [Var (Short "n")])
-               (App Opapp [Var (Short "k"); Var (Short "v")]));
-            (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs'"],
-             Mat (Var (Short "x"))
-               [(Pcon (SOME (Short "SNum")) [Pvar "xn"],
+             Let (SOME "t") (Con (SOME (Short "SNum")) [Var (Short "n")])
+               (App Opapp [Var (Short "k"); Var (Short "t")]));
+            (Pcon (SOME (Short "::")) [Pvar "t"; Pvar "ts'"],
+             Mat (Var (Short "t"))
+               [(Pcon (SOME (Short "SNum")) [Pvar "tn"],
                  App Opapp
                    [App Opapp
                       [App Opapp [Var (Short "smul"); Var (Short "k")];
-                       App (Opn Times) [Var (Short "n"); Var (Short "xn")]];
-                    Var (Short "xs'")]);
+                       App (Opn Times) [Var (Short "n"); Var (Short "tn")]];
+                    Var (Short "ts'")]);
                 (Pany,
                  Con (SOME (Short "Ex"))
                    [Lit (StrLit "Arith-op applied to non-number")])])]] =
@@ -690,7 +690,7 @@ Theorem preservation_of_sminus_body:
   ∀ store (st:'ffi state) env n k kv i .
     cont_rel k kv ∧
     LIST_REL store_entry_rel store st.refs ∧
-    nsLookup env.v (Short "xs") = SOME (vcons_list mlvs) ∧
+    nsLookup env.v (Short "ts") = SOME (vcons_list mlvs) ∧
     nsLookup env.v (Short "k") = SOME kv ∧
     nsLookup env.v (Short "sadd") = nsLookup scheme_env3.v (Short "sadd") ∧
     env.c = scheme_env1.c ∧
@@ -698,11 +698,11 @@ Theorem preservation_of_sminus_body:
     ⇒
     ∃ck st' mlenv' var' kv' mle'.
       evaluate (st with clock := ck) env
-        [Mat (Var (Short "xs"))
+        [Mat (Var (Short "ts"))
            [(Pcon (SOME (Short "[]")) [],
              Con (SOME (Short "Ex")) [Lit (StrLit "Arity mismatch")]);
-            (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs'"],
-             Mat (Var (Short "x"))
+            (Pcon (SOME (Short "::")) [Pvar "t"; Pvar "ts'"],
+             Mat (Var (Short "t"))
                [(Pcon (SOME (Short "SNum")) [Pvar "n"],
                  App Opapp
                    [App Opapp
@@ -711,17 +711,17 @@ Theorem preservation_of_sminus_body:
                           Fun "t"
                             (Mat (Var (Short "t"))
                                [(Pcon (SOME (Short "SNum")) [Pvar "m"],
-                                 Let (SOME "v")
+                                 Let (SOME "t")
                                    (Con (SOME (Short "SNum"))
                                       [App (Opn Minus)
                                          [Var (Short "n");
                                           Var (Short "m")]])
                                    (App Opapp
-                                      [Var (Short "k"); Var (Short "v")]));
+                                      [Var (Short "k"); Var (Short "t")]));
                                 (Pany,
                                  App Opapp
                                    [Var (Short "k"); Var (Short "t")])])];
-                       Lit (IntLit 0)]; Var (Short "xs'")]);
+                       Lit (IntLit 0)]; Var (Short "ts'")]);
                 (Pany,
                  Con (SOME (Short "Ex"))
                    [Lit (StrLit "Arith-op applied to non-number")])])]] =
@@ -779,8 +779,8 @@ Proof
     >> ‘∃ kenv . (env with
                            v :=
                              nsBind "n" (Litv (IntLit i))
-                               (nsBind "xs'" (vcons_list t')
-                                  (nsBind "x"
+                               (nsBind "ts'" (vcons_list t')
+                                  (nsBind "t"
                                      (Conv (SOME (TypeStamp "SNum" 4))
                                         [Litv (IntLit i)]) env.v)))
                   = kenv’ by simp[]
@@ -873,7 +873,7 @@ Theorem preservation_of_proc:
   (store', env',e') = parameterize store env xs xp e vs ∧
   EVERY (OPTION_ALL (valid_val store)) store ∧
   nsLookup mlenv.v (Short "k") = SOME kv ∧
-  nsLookup mlenv.v (Short "xs") = SOME (vcons_list mlvs) ∧
+  nsLookup mlenv.v (Short "ts") = SOME (vcons_list mlvs) ∧
   env_rel env mlenv ∧
   scheme_env mlenv ∧
   can_lookup env store ∧
