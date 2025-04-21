@@ -6643,6 +6643,20 @@ Proof
   fs[]
 QED
 
+Theorem evaluate_wStackLoad:
+ s.use_stack /\
+ EVERY (\r. r + s.stack_space < LENGTH s.stack) (MAP SND l) ==>
+ evaluate (wStackLoad l x,s) =
+ evaluate (x, s with regs := s.regs |++ (MAP (I ## (\n. EL (s.stack_space + n) s.stack)) l))
+Proof
+ qid_spec_tac `s` >>
+ Induct_on `l` >> simp[wStackLoad_def,FUPDATE_LIST_THM]
+ >- (rw[] >>`(s with regs := s.regs) = s` by simp[stackSemTheory.state_component_equality] >> fs[])
+ >- (rw[] >>
+ Cases_on `h` >> simp[wStackLoad_def,stackSemTheory.evaluate_def] >>
+ simp[stackSemTheory.set_var_def])
+QED
+
 Theorem comp_Return_correct:
   ^(get_goal "Return")
 Proof
@@ -6650,39 +6664,70 @@ Proof
   qexists_tac `0` \\
   gvs[wordSemTheory.evaluate_def,AllCaseEqs()] \\
   gvs[comp_def,UNCURRY_EQ] \\
-  gvs[wReg1_def,bool_case_eq]
-  >- (
-    fs[wStackLoad_def] \\
-    DEP_REWRITE_TAC[evaluate_SeqStackFree] \\
-    CONJ_ASM1_TAC >- (fs [state_rel_def] \\ decide_tac) \\
-    fs [stackSemTheory.evaluate_def] \\
-    `(t.stack_space + skip_free (k,f,f') ms) <= LENGTH t.stack`
-      by fs[state_rel_def,skip_free_def] \\
-    fs[] \\
-    `get_var (n DIV 2) t = get_var n s`
-      by (fs[stackSemTheory.get_var_def,wordSemTheory.get_var_def,
-      state_rel_def] >> METIS_TAC[]) \\
-    fs[] \\
+  DEP_REWRITE_TAC[evaluate_wStackLoad] \\
+  CONJ_TAC >- (
     CONJ_TAC
-    >- (
+      >- (fs[state_rel_def])
+      >- (gvs[wReg1_def,bool_case_eq] >>
+          fs[state_rel_def] >>
+          fs[convs_def,wordLangTheory.max_var_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS] \\
+          rveq \\ fs[list_max_def])) \\
+  DEP_REWRITE_TAC[evaluate_SeqStackFree] \\
+  CONJ_ASM1_TAC >- (fs [state_rel_def] \\ decide_tac) \\
+  fs [stackSemTheory.evaluate_def] \\
+  `(t.stack_space + skip_free (k,f,f') ms) <= LENGTH t.stack`
+      by fs[state_rel_def,skip_free_def] \\
+  fs[] \\
+  full_simp_tac(bool_ss)[GSYM stackSemTheory.state_fupdcanon] \\
+  fs[] \\
+  qmatch_goalsub_abbrev_tac `stackSem$get_var x t'` \\
+  `get_var x t' = get_var n s`
+    by (simp[Abbr`t'`,stackSemTheory.get_var_def] >>
+    fs[wReg1_def,bool_case_eq] >> rveq >> fs[FUPDATE_LIST_THM]
+    >- (fs[wordSemTheory.get_var_def,state_rel_def] >> METIS_TAC[])
+    >- (simp[FLOOKUP_UPDATE] >>
+        fs[state_rel_def,wordSemTheory.get_var_def] >>
+        res_tac >> PRED_ASSUM is_forall kall_tac >>
+        rfs[] >>
+        imp_res_tac LLOOKUP_TAKE_IMP >>
+        fs[LLOOKUP_DROP] >>
+        rfs[LLOOKUP_EQ_EL])) >>
+  fs[] >>
+  CONJ_TAC >- (
       fs[state_rel_def,flush_state_def] \\
       CONJ_TAC >- METIS_TAC[] \\
       CONJ_TAC >- (
         fs[stack_size_rel_def]>>rw[]
         >- (
           gvs[skip_free_def,num_stack_ret_def]>>
-          (* should be provable with appropriate bounds and cancellation *)
-          cheat)
+          imp_res_tac get_vars_length_lemma >>
+          simp[])
         >- (
           (* should be provable with appropriate bounds and cancellation *)
           PURE_REWRITE_TAC[skip_free_def,num_stack_ret_def]>>
-          cheat) )>>
+          imp_res_tac get_vars_length_lemma >>
+          fs[list_max_def, wordLangTheory.max_var_def,GSYM MAX_DEF] >>
+          fs[convs_def] >>
+          qpat_x_assum `ms = _` SUBST_ALL_TAC >>
+          fs[list_max_GENLIST_evens2] >>
+          fs[GSYM LEFT_ADD_DISTRIB] >>
+          gvs[IS_SOME_EXISTS,the_eqn] >>
+          Cases_on `f' = 0` >> fs[])) >>
       CONJ_TAC >- (
         simp[skip_free_def,num_stack_ret_def]>>
-        (* cancellation of the sub terms (f - .. + ..) *)
-        cheat)>>
+        imp_res_tac get_vars_length_lemma >>
+        simp[] >>
+        `f = (f - (LENGTH ms + 1 - k) + (LENGTH ms + 1 - k))` suffices_by fs[DROP_DROP_EQ] >>
+        fs[list_max_def, wordLangTheory.max_var_def,GSYM MAX_DEF] >>
+        fs[convs_def] >>
+        qpat_x_assum `ms = _` SUBST_ALL_TAC >>
+        fs[list_max_GENLIST_evens2] >>
+        fs[GSYM LEFT_ADD_DISTRIB] >>
+        gvs[IS_SOME_EXISTS,the_eqn] >>
+        Cases_on `f' = 0` >> fs[]) >>
       simp[lookup_def]) \\
     rpt strip_tac \\
+    qmatch_goalsub_abbrev_tac `FLOOKUP t'' (i + 1)` \\
     `get_var (EL i ms) s = SOME (EL i ys)`
        by(
           qpat_x_assum `get_vars _ _ = _` mp_tac \\
@@ -6705,99 +6750,24 @@ Proof
     fs[state_rel_def] \\
     first_x_assum drule \\
     simp[EVEN_DOUBLE] \\
-    IF_CASES_TAC >- simp[] \\
-    strip_tac \\ simp[] \\
-    imp_res_tac LLOOKUP_TAKE_IMP \\
-    fs[LLOOKUP_DROP,skip_free_def,num_stack_ret_def] \\
-    gvs[] \\
-    imp_res_tac get_vars_length_lemma \\
-    fs[] \\
-    `f' + k > LENGTH ms`
-       by(
-       fs[convs_def,wordLangTheory.max_var_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS] \\
-       rveq \\ fs[list_max_def] \\
-       qpat_x_assum `ms = GENLIST _ _` SUBST_ALL_TAC \\
-       fs[list_max_GENLIST_evens2]) \\
-    fs[])
-  >- (
-    fs[wStackLoad_def,stackSemTheory.evaluate_def] \\
-    `t.use_stack /\ (t.stack_space + (f + k − (n DIV 2 + 1))) < LENGTH t.stack` by (
-      fs [state_rel_def,get_var_def,LET_DEF]
-      \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
-      \\ fs [stackSemTheory.get_var_def]
-      \\ imp_res_tac LLOOKUP_TAKE_IMP
-      \\ fs [LLOOKUP_DROP] \\ fs [LLOOKUP_THM] \\ rw[]
-      \\ rfs[EL_TAKE]) \\
-    fs[] \\
-    DEP_REWRITE_TAC[evaluate_SeqStackFree] \\
-    CONJ_ASM1_TAC >- (fs []) \\
-    fs [stackSemTheory.evaluate_def] \\
-    `(t.stack_space + skip_free (k,f,f') ms) <= LENGTH t.stack`
-      by fs[state_rel_def,skip_free_def] \\
-    fs[] \\
-    `EL (t.stack_space + (f + k − (n DIV 2 + 1))) t.stack = THE (get_var n s)`
-      by (fs[state_rel_def,wordSemTheory.get_var_def] \\
-       first_x_assum drule >> simp[] >> strip_tac
-    \\ imp_res_tac LLOOKUP_TAKE_IMP
-    \\ fs [LLOOKUP_DROP] \\ fs [LLOOKUP_THM] \\ rw[]
-    \\ rfs[EL_TAKE]) \\
-    fs[] \\
-    CONJ_TAC
-    >- (
-      fs[state_rel_def,flush_state_def] \\
-      CONJ_TAC >- metis_tac[] \\
-      CONJ_TAC >- (
-        fs[stack_size_rel_def]>>rw[]
-        >- (
-          gvs[skip_free_def,num_stack_ret_def]>>
-          (* should be provable with appropriate bounds and cancellation *)
-          cheat)
-        >- (
-          (* should be provable with appropriate bounds and cancellation *)
-          PURE_REWRITE_TAC[skip_free_def,num_stack_ret_def]>>
-          cheat) )
-      CONJ_TAC >- (
-        simp[skip_free_def,num_stack_ret_def]>>
-        cheat) \\
-      simp[lookup_def]) \\
-    simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE] \\
-    rpt strip_tac \\
-    `get_var (EL i ms) s = SOME (EL i ys)`
-       by(
-          qpat_x_assum `get_vars _ _ = _` mp_tac \\
-          qpat_x_assum `i < LENGTH ys` mp_tac \\
-          rpt (pop_assum kall_tac) \\
-          map_every qid_spec_tac [`i`,`ys`,`ms`] \\
-          Induct_on `i` \\ fs[] \\ rw[]
-          >- (Cases_on `ms` >> gvs[get_vars_def,AllCaseEqs()])
-          >- (Cases_on `ys` >> fs[] >>
-              Cases_on `ms` >> gvs[get_vars_def,AllCaseEqs()])
-           ) \\
-    `EL i ms = 2 * ((i + 1))`
-       by(
-         imp_res_tac get_vars_length_lemma \\
-         fs[convs_def] \\
-         qpat_assum `ms = _` (ONCE_REWRITE_TAC o single) \\
-         DEP_REWRITE_TAC[EL_GENLIST] \\ fs[]) \\
-    pop_assum SUBST_ALL_TAC \\
-    pop_assum (assume_tac o SRULE[get_var_def]) \\
-    fs[state_rel_def] \\
-    first_x_assum drule \\
-    simp[EVEN_DOUBLE] \\
-    IF_CASES_TAC >- simp[] \\
-    strip_tac \\ simp[] \\
-    imp_res_tac LLOOKUP_TAKE_IMP \\
-    fs[LLOOKUP_DROP,skip_free_def,num_stack_ret_def] \\
-    gvs[] \\
-    imp_res_tac get_vars_length_lemma \\
-    fs[] \\
-    `f' + k > LENGTH ms`
-       by(
-       fs[convs_def,wordLangTheory.max_var_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS] \\
-       rveq \\ fs[list_max_def] \\
-       qpat_x_assum `ms = GENLIST _ _` SUBST_ALL_TAC \\
-       fs[list_max_GENLIST_evens2]) \\
-    fs[])
+    IF_CASES_TAC
+      >- (
+      simp[Abbr `t''`] >>
+      gvs[wReg1_def,bool_case_eq,FUPDATE_LIST_THM,FLOOKUP_UPDATE])
+      >- (
+      strip_tac \\ simp[] \\
+      imp_res_tac LLOOKUP_TAKE_IMP \\
+      fs[LLOOKUP_DROP,skip_free_def,num_stack_ret_def] \\
+      gvs[] \\
+      imp_res_tac get_vars_length_lemma \\
+      fs[] \\
+      `f' + k > LENGTH ms`
+        by(
+        fs[convs_def,wordLangTheory.max_var_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS] \\
+        rveq \\ fs[list_max_def] \\
+        qpat_x_assum `ms = GENLIST _ _` SUBST_ALL_TAC \\
+        fs[list_max_GENLIST_evens2]) \\
+      fs[])
 QED
 
 Theorem stack_rel_aux_stack_size:
