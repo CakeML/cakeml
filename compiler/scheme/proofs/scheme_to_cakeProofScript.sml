@@ -1287,33 +1287,29 @@ Proof
     )
     >~ [‘Letrec bs e’] >- (
       simp[Once cps_transform_def]
-      >> cheat(*
       >> rpt strip_tac
       >> rpt (pairarg_tac >> gvs[])
       >> qrefine ‘ck+1’
       >> simp[Ntimes evaluate_def 4, do_opapp_def, dec_clock_def]
       >> pop_assum $ assume_tac o GSYM
       >> drule preservation_of_letrec
-      >> qsuff_tac ‘env_rel env
-        (mlenv with v := nsBind (STRING #"k" (toString m')) kv mlenv.v)’ >- (
-        rpt strip_tac
-        >> pop_assum $ drule_then drule
-        >> qsuff_tac ‘scheme_env
-          (mlenv with v := nsBind (STRING #"k" (toString m')) kv mlenv.v)’ >- (
-          rpt strip_tac
-          >> pop_assum $ drule
-          >> rpt strip_tac
-          >> pop_assum $ qspec_then
-            ‘(App Opapp [ce'; Var (Short (STRING #"k" (toString m')))])’ mp_tac
-          >> rpt strip_tac
-          >> qpat_assum ‘evaluate _ _ _ = _’ $ irule_at (Pos hd)
-          >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
-          >> simp[Once e_ce_rel_cases]
-          >> qpat_assum ‘cps_transform _ _ = _’ $ irule_at (Pos hd) o GSYM
-        )
-        >> gvs[scheme_env_def]
-      )
-      >> gvs[env_rel_cases]*)
+      >> ‘env_rel env (mlenv with v := nsBind "k" kv mlenv.v)’
+        by gvs[env_rel_cases]
+      >> strip_tac
+      >> pop_assum $ drule_then drule
+      >> ‘scheme_env (mlenv with v := nsBind "k" kv mlenv.v)’
+        by gvs[scheme_env_def]
+      >> strip_tac
+      >> pop_assum $ drule
+      >> strip_tac
+      >> pop_assum $ qspec_then
+        ‘App Opapp
+          [cps_transform (Begin (MAP (UNCURRY Set) bs) e);
+           Var (Short "k")]’ mp_tac
+      >> rpt strip_tac
+      >> qpat_assum ‘evaluate _ _ _ = _’ $ irule_at (Pos hd)
+      >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+      >> simp[Once e_ce_rel_cases]
     )
   )
   >~ [‘Val v’] >- (
