@@ -284,7 +284,8 @@ Definition evaluate_stmt_ann_def[nocompute]:
       | SOME branch => evaluate_stmt st₁ env branch)) ∧
   evaluate_stmt st env (Dec locals scope) =
   (let names = MAP FST locals in
-     evaluate_stmt (declare_locals st names) env scope) ∧
+     if ¬ALL_DISTINCT names then (st, Rstop (Serr Rtype_error))
+     else evaluate_stmt (declare_locals st names) env scope) ∧
   evaluate_stmt st₀ env (Assign lhss rhss) =
   (case evaluate_rhs_exps st₀ env rhss of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
