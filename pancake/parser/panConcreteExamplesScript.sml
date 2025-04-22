@@ -483,4 +483,16 @@ val annots = annot_fun_lex |> concl |> rhs |> listSyntax.dest_list |> fst
   |> filter (can (find_term (can (match_term ``AnnotCommentT``))))
 val has_annot = assert (not o null) annots;
 
+val inline_fun =
+  `
+    fun f() {
+        x = 1;
+        return g(x);
+    }
+    inline fun g(1 x) {
+      return x;
+    }
+  `
+val inline_fun_parse = check_success $ parse_pancake inline_fun;
+
 val _ = export_theory();
