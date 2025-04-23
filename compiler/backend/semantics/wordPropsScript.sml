@@ -473,6 +473,14 @@ Theorem pop_env_const:
    y.be = x.be ∧
    y.compile = x.compile ∧
    y.compile_oracle = x.compile_oracle ∧
+   y.memory = x.memory ∧
+   y.mdomain = x.mdomain ∧
+   y.sh_mdomain = x.sh_mdomain ∧
+   y.store = x.store ∧
+   y.fp_regs = x.fp_regs ∧
+   y.gc_fun = x.gc_fun ∧
+   y.termdep = x.termdep ∧
+   y.permute = x.permute ∧
    y.data_buffer = x.data_buffer ∧
    y.code_buffer = x.code_buffer ∧
    y.code = x.code ∧
