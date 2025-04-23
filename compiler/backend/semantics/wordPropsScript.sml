@@ -442,6 +442,7 @@ Theorem push_env_const[simp]:
    (push_env x y z).sh_mdomain = z.sh_mdomain ∧
    (push_env x y z).gc_fun = z.gc_fun ∧
    (push_env x y z).be = z.be ∧
+   (push_env x y z).fp_regs = z.fp_regs ∧
    (push_env x y z).code = z.code ∧
    (push_env x y z).stack_limit = z.stack_limit ∧
    (push_env x y z).stack_size = z.stack_size

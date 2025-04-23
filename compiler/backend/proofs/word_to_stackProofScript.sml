@@ -29,6 +29,26 @@ Type state[pp] = “:(α,β,γ)wordSem$state”
 Overload word_cmp[local] = “labSem$word_cmp”;
 val _ = Parse.hide "B"
 
+fun init_timer () =
+let
+  val timer = Lib.start_time ()
+  val realtimer = Lib.start_real_time ()
+  val m = Count.mk_meter()
+in
+  (timer,realtimer,m)
+end;
+
+fun get_time (timer,realtimer,m) =
+let
+  val () = Lib.end_time timer
+  val () = Lib.end_real_time realtimer
+  val () = Count.report (Count.read m)
+in
+  ()
+end;
+
+val timer = init_timer ();
+val _ = get_time timer;
 val nn = ``(NONE:(num # 'a wordLang$prog # num # num) option)``
 
 val s = ``s:('a,num # 'c,'ffi) wordSem$state``
@@ -978,6 +998,7 @@ val convs_def = LIST_CONJ
    wordLangTheory.every_stack_var_def,
    wordLangTheory.every_name_def]
 
+val _ = get_time timer;
 (*
 Triviality LENGTH_write_bitmap:
   state_rel ac k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f ==>
@@ -1962,6 +1983,7 @@ Proof
     fs[LENGTH_TAKE])
 QED
 
+val _ = get_time timer;
 Triviality dec_stack_lemma:
   good_dimindex(:'a) ∧
   1 ≤ LENGTH t1.bitmaps ∧
@@ -2997,6 +3019,8 @@ Proof
   \\ fsrw_tac[ARITH_ss][] *)
 QED
 
+val _ = get_time timer;
+
 Theorem wMoveSingle_thm:
    state_rel ac k f f' s t lens 0 ∧
    (case x of NONE => get_var (k+1) t = SOME v
@@ -3973,6 +3997,7 @@ Proof
   DECIDE_TAC
 QED
 
+val _ = get_time timer;
 Theorem wStackLoad_thm1_weak:
    wReg1 (2 * n1) (k,f,f') = (l,n2) ∧
    get_var (2*n1) (s:('a,num # 'c,'ffi)state) = SOME x ∧
@@ -5085,6 +5110,7 @@ Proof
     simp[]))
 QED
 
+val _ = get_time timer;
 Theorem state_rel_set_store:
    state_rel ac k f f' s t lens extra ∧ v ≠ Handler ⇒
    state_rel ac k f f' (set_store v x s) (set_store v x t) lens extra
@@ -5980,6 +6006,8 @@ Proof
   \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND] \\ fs []
   \\ fs [word_msb_chunk_to_bits]
 QED
+
+val _ = get_time timer;
 
 Theorem const_writes_append:
   ∀h t a off m.
@@ -6988,6 +7016,7 @@ Proof
       rw[])
      ) *)
 QED
+val _ = get_time timer;
 
 Theorem comp_LocValue_correct:
   ^(get_goal "wordLang$LocValue")
@@ -7714,6 +7743,7 @@ Proof
   rfs[]
 QED
 
+val _ = get_time timer;
 Theorem comp_Call_correct:
   ^(get_goal "wordLang$Call")
 Proof
@@ -9841,6 +9871,7 @@ Proof
     fsrw_tac[][state_rel_def])
 QED
 
+val _ = get_time timer;
 Theorem comp_correct:
    !(prog:'a wordLang$prog) (s:('a,num # 'c,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -9941,6 +9972,7 @@ val clock_simps =
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
+val _ = get_time timer;
 Theorem state_rel_IMP_semantics:
    state_rel ac k 0 0 ^s ^t lens /\ semantics s start <> Fail ==>
    semantics start t IN extend_with_resource_limit { semantics s start }
@@ -10962,6 +10994,7 @@ Proof
       metis_tac[PAIR]
 QED
 
+val _ = get_time timer;
 Theorem stack_move_alloc_arg:
   ∀n st off i p.
     alloc_arg p ⇒
@@ -11892,4 +11925,5 @@ Proof
   strip_tac>>res_tac
 QED
 
+val _ = get_time timer;
 val _ = export_theory();

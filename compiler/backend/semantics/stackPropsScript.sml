@@ -27,6 +27,7 @@ Theorem set_store_const[simp]:
    (set_store x y z).code = z.code ∧
    (set_store x y z).be = z.be ∧
    (set_store x y z).gc_fun = z.gc_fun ∧
+   (set_store x y z).memory = z.memory ∧
    (set_store x y z).mdomain = z.mdomain ∧
    (set_store x y z).sh_mdomain = z.sh_mdomain ∧
    (set_store x y z).bitmaps = z.bitmaps ∧
