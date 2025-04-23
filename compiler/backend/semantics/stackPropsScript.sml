@@ -8,11 +8,10 @@ val _ = new_theory"stackProps";
 
 val _ = set_grammar_ancestry["stackSem", "stack_names","backendProps"];
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
-   map (prove_case_eq_thm o get_thms)
+   map (TypeBase.case_eq_of)
         [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``,
          ``:'a reg_imm`` ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``,
          ``:'a ffi_result``])
@@ -55,12 +54,17 @@ Theorem set_var_const[simp]:
    (set_var x y z).use_stack = z.use_stack ∧
    (set_var x y z).code = z.code ∧
    (set_var x y z).be = z.be ∧
+   (set_var x y z).fp_regs = z.fp_regs ∧
+   (set_var x y z).data_buffer = z.data_buffer ∧
+   (set_var x y z).code_buffer = z.code_buffer ∧
    (set_var x y z).gc_fun = z.gc_fun ∧
+   (set_var x y z).memory = z.memory ∧
    (set_var x y z).mdomain = z.mdomain ∧
    (set_var x y z).sh_mdomain = z.sh_mdomain ∧
    (set_var x y z).bitmaps = z.bitmaps ∧
    (set_var x y z).compile = z.compile ∧
    (set_var x y z).compile_oracle = z.compile_oracle ∧
+   (set_var x y z).store = z.store ∧
    (set_var x y z).stack = z.stack ∧
    (set_var x y z).stack_space = z.stack_space
 Proof
@@ -74,10 +78,27 @@ Proof
   EVAL_TAC
 QED
 
+
+Theorem get_var_with_const[simp]:
+  get_var r (t with clock := clk) =
+  (get_var r t) /\
+  get_var r (t with stack_space := stk_space) =
+  (get_var r t)
+Proof
+  rw[stackSemTheory.get_var_def]
+QED
+
 Theorem get_var_imm_with_const[simp]:
    get_var_imm x (y with clock := k) = get_var_imm x y
 Proof
   Cases_on`x`>>EVAL_TAC
+QED
+
+Theorem set_fp_var_const[simp]:
+  (set_fp_var x y z).stack_space = z.stack_space /\
+  (set_fp_var x y z).stack = z.stack
+Proof
+  EVAL_TAC
 QED
 
 Theorem empty_env_const[simp]:

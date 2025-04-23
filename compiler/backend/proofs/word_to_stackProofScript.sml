@@ -92,18 +92,6 @@ Proof
   EVAL_TAC \\ simp[wordSemTheory.state_component_equality,insert_shadow]
 QED
 
-Theorem set_var_const[simp]:
-   (stackSem$set_var a b c).memory = c.memory /\
-   (stackSem$set_var a b c).store = c.store /\
-   (stackSem$set_var a b c).stack = c.stack /\
-   (stackSem$set_var a b c).stack_space = c.stack_space /\
-   (stackSem$set_var a b c).fp_regs = c.fp_regs /\
-   (stackSem$set_var a b c).data_buffer = c.data_buffer /\
-   (stackSem$set_var a b c).code_buffer = c.code_buffer
-Proof
-  EVAL_TAC
-QED
-
 Theorem get_var_with_const[simp]:
   stackSem$get_var r (t with clock := clk) =
   (stackSem$get_var r t) /\
@@ -125,13 +113,6 @@ Theorem clock_add_0[simp]:
     ((t with clock := t.clock) = t:('a,'c,'ffi) stackSem$state)
 Proof
   fs [stackSemTheory.state_component_equality]
-QED
-
-Triviality set_fp_var_const[simp]:
-  (set_fp_var x y z).stack_space = z.stack_space /\
-  (set_fp_var x y z).stack = z.stack
-Proof
-  EVAL_TAC
 QED
 
 Theorem set_store_set_var:
@@ -2978,45 +2959,31 @@ Theorem state_rel_set_var2:
   state_rel ac k f f' (set_var (2*x) v s)
     (t with stack := LUPDATE v (sp + (f + k − (x + 1))) st) lens 0
 Proof
-  cheat
-  (*
   simp[state_rel_def,stackSemTheory.set_var_def,wordSemTheory.set_var_def,stack_size_rel_def]
-  \\ strip_tac
+  \\ strip_tac \\ rveq
+  \\ fs[lookup_insert,FLOOKUP_UPDATE,wf_insert]
+  \\ CONJ_TAC THEN1 metis_tac[]
   \\ `0<f` by
       (Cases_on`f'`>>fs[]>>DECIDE_TAC)
-  \\ fs[lookup_insert,FLOOKUP_UPDATE,wf_insert]
   \\ simp[DROP_LUPDATE]
-  \\ CONJ_TAC THEN1 metis_tac[]
-  \\ CONJ_TAC THEN1 metis_tac[]
+  \\ CONJ_TAC >-  gvs[stack_rel_def]
   \\ rpt gen_tac
   \\ IF_CASES_TAC \\ simp[]
   >- (
+    strip_tac \\ rveq \\
     simp[EVEN_MULT]
     \\ ONCE_REWRITE_TAC[MULT_COMM]
     \\ simp[MULT_DIV]
-    \\ strip_tac >> rveq
     \\ simp[LLOOKUP_THM]
     \\ simp[EL_LUPDATE])
   \\ strip_tac
   \\ first_x_assum drule
   \\ strip_tac
   \\ IF_CASES_TAC >> fs[]
-  \\ simp[LLOOKUP_THM]
-  \\ simp[EL_LUPDATE]
+  \\ imp_res_tac LLOOKUP_TAKE_IMP
+  \\ fs[LLOOKUP_DROP,LLOOKUP_LUPDATE]
   \\ fs[EVEN_EXISTS]
-  \\ rveq
-  \\ ONCE_REWRITE_TAC[MULT_COMM]
-  \\ simp[MULT_DIV]
-  \\ fs [LLOOKUP_THM]
-  \\ rveq
-  \\ ONCE_REWRITE_TAC[MULT_COMM]
-  \\ simp[MULT_DIV]
-  \\ ntac 2 (pop_assum mp_tac)
-  \\ ONCE_REWRITE_TAC[MULT_COMM]
-  \\ simp[MULT_DIV]
-  \\ ntac 2 strip_tac
-  \\ rw[]
-  \\ fsrw_tac[ARITH_ss][] *)
+  \\ rfs[]
 QED
 
 val _ = get_time timer;
