@@ -3931,7 +3931,7 @@ Proof
   \\ metis_tac[]
 QED
 *)
-
+(*
 Theorem wStackLoad_thm1:
    wReg1 (2 * n1) (k,f,f') = (l,n2) ∧
    get_var (2*n1) (s:('a,num # 'c,'ffi)wordSem$state) = SOME x ∧
@@ -3963,8 +3963,9 @@ Proof
   Cases_on`f'`>>fs[]>>
   DECIDE_TAC
 QED
-
+*)
 val _ = get_time timer;
+(*
 Theorem wStackLoad_thm1_weak:
    wReg1 (2 * n1) (k,f,f') = (l,n2) ∧
    get_var (2*n1) (s:('a,num # 'c,'ffi)state) = SOME x ∧
@@ -3988,7 +3989,8 @@ Proof
   Cases_on`f'`>>fs[]>>
   DECIDE_TAC
 QED
-
+*)
+(*
 Theorem wStackLoad_thm2:
    wReg2 (2 * n1) (k,f,f') = (l,n2) ∧
    get_var (2*n1) (s:('a,num # 'c,'ffi)state) = SOME x ∧
@@ -4015,7 +4017,8 @@ Proof
   Cases_on`f'`>>fs[]>>
   DECIDE_TAC
 QED
-
+*)
+(*
 Theorem wStackLoad_thm2_weak:
    wReg2 (2 * n1) (k,f,f') = (l,n2) ∧
    get_var (2*n1) (s:('a,num # 'c,'ffi)state) = SOME x ∧
@@ -4038,12 +4041,13 @@ Proof
   Cases_on`f'`>>fs[]>>
   DECIDE_TAC
 QED
-
+*)
+(*
 Theorem wStackLoad_thm3 =
  wStackLoad_thm2
  |> Q.INST [`t`|->`set_var v1 v2 t`]
  |> PURE_REWRITE_RULE[wordPropsTheory.set_var_const,set_var_const]
-
+*)
 Definition map_var_def:
   (map_var f (Var num) = Var (f num)) ∧
   (map_var f (Load exp) = Load (map_var f exp)) ∧
@@ -6365,83 +6369,54 @@ QED
 Theorem comp_Set_correct:
   ^(get_goal "wordLang$Set")
 Proof
-  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
-  Cases_on`exp`>>fs[flat_exp_conventions_def]
-  \\ fs[comp_def,LET_THM]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
-  \\ last_x_assum mp_tac
-  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ strip_tac \\ rveq \\ simp[]
-  \\ qexists_tac`0` \\ simp[]
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac`NONE` \\ simp[]
-  \\ match_mp_tac (GEN_ALL wStackLoad_thm1_weak)
-  \\ fs[convs_def,wordLangTheory.every_var_exp_def]
-  \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,get_var_def]
-  \\ rveq \\ fs[]
-  \\ asm_exists_tac \\ simp[]
-  \\ asm_exists_tac \\ simp[]
-  \\ fs[GSYM wordSemTheory.get_var_def]
-  \\ drule (GEN_ALL state_rel_get_var_imp)
-  \\ disch_then drule \\ strip_tac
-  \\ drule (GEN_ALL state_rel_get_var_imp2)
-  \\ disch_then drule \\ strip_tac
+  REPEAT STRIP_TAC \\ qexists_tac `0`
+  \\ fs[get_labels_def]
+  \\ Cases_on`exp`>>fs[convs_def]
+  \\ fs[wordLangTheory.max_var_def,wordLangTheory.max_var_exp_def,
+     wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2]
+  \\ fs[comp_def]
+  \\ fs[wordSemTheory.evaluate_def]
+  \\ gvs[AllCaseEqs(),UNCURRY_EQ]
+  \\ fs[wordSemTheory.word_exp_def]
+  \\ simp[evaluate_wStackLoad_seq]
+  \\ dxrule_all evaluate_wStackLoad_wReg1
+  \\ strip_tac
+  \\ simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]
   \\ simp[stackSemTheory.evaluate_def]
-  \\ `t.use_store` by fs[state_rel_def]
-  \\ simp[]
-  \\ conj_tac \\ strip_tac \\ fs[stackSemTheory.get_var_def]
-  \\ simp[set_store_set_var]
-  \\ metis_tac[state_rel_set_store]
+  \\ `t'.use_store` by fs[state_rel_def]
+  \\ fs[]
+  \\ irule state_rel_set_store \\ fs[]
 QED
 
 Theorem comp_OpCurrHeap_correct:
   ^(get_goal "OpCurrHeap")
 Proof
-  REPEAT STRIP_TAC \\ fs[get_labels_def]
-  \\ fs[flat_exp_conventions_def]
-  \\ fs[comp_def,LET_THM]
+  REPEAT STRIP_TAC \\ qexists_tac `0`
+  \\ fs[get_labels_def]
+  \\ fs[convs_def]
+  \\ fs[wordLangTheory.max_var_def,wordLangTheory.max_var_exp_def,
+     wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2]
+  \\ fs[comp_def]
+  \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,the_words_def]
+  \\ gvs[AllCaseEqs(),UNCURRY_EQ]
+  \\ simp[evaluate_wStackLoad_seq]
+  \\ dxrule_all evaluate_wStackLoad_wReg1
+  \\ strip_tac
+  \\ simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]
+  \\ simp[evaluate_wRegWrite1_seq]
   \\ pairarg_tac \\ fs[]
-  \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,the_words_def,AllCaseEqs(),get_store_def]
-  \\ gvs [] \\ qexists_tac`0` \\ simp[]
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac`NONE` \\ simp[]
-  \\ CONV_TAC (PATH_CONV "ralrlrrlrr" (UNBETA_CONV “src_r:num”))
-  \\ match_mp_tac (GEN_ALL wStackLoad_thm1_weak)
-  \\ gvs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
-  \\ asm_exists_tac \\ fs []
-  \\ fs [get_var_def]
-  \\ asm_exists_tac \\ fs [] \\ rw []
-  \\ ‘t.use_store’ by fs [state_rel_def]
-  THEN1
-   (qmatch_goalsub_abbrev_tac `wRegWrite1 kont (2 * m)`
-    \\ qmatch_goalsub_abbrev_tac `state_rel _ _ _ _ (set_var _ v _) _ _ _`
-    \\ drule_then(qspecl_then [`v`,`m`,`kont`] mp_tac) (GEN_ALL wRegWrite1_thm1)
-    \\ unabbrev_all_tac
-    \\ fs[wordLangTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
-    \\ reverse impl_tac >- metis_tac[]
-    \\ rw [] \\ fs [stackSemTheory.evaluate_def,stackSemTheory.word_exp_def]
-    \\ fs [AllCaseEqs()]
-    \\ ‘FLOOKUP t.store CurrHeap = FLOOKUP s.store CurrHeap’ by
-          fs [state_rel_def,DOMSUB_FLOOKUP_THM] \\ fs []
-    \\ ‘get_var (2 * m') s = SOME (Word x)’ by fs [get_var_def]
-    \\ imp_res_tac state_rel_get_var_imp \\ fs [])
-  \\ qmatch_goalsub_abbrev_tac `wRegWrite1 kont (2 * m)`
-  \\ qmatch_goalsub_abbrev_tac `state_rel _ _ _ _ (set_var _ v _) _ _ _`
-  \\ qmatch_goalsub_abbrev_tac ‘_,set_var _ kval _’
-  \\ ‘state_rel ac k f f' s (set_var k kval t) lens 0’ by fs []
-  \\ drule_then(qspecl_then [`v`,`m`,`kont`] mp_tac) (GEN_ALL wRegWrite1_thm1)
-  \\ unabbrev_all_tac
-  \\ fs[wordLangTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
-  \\ reverse impl_tac >- metis_tac[]
-  \\ rw [] \\ fs [stackSemTheory.evaluate_def,stackSemTheory.word_exp_def]
-  \\ fs [AllCaseEqs()]
-  \\ ‘FLOOKUP t.store CurrHeap = FLOOKUP s.store CurrHeap’ by
+  \\ `t'.use_store` by fs[state_rel_def]
+  \\ simp[stackSemTheory.evaluate_def,stackSemTheory.word_exp_def]
+  (*TODO remove by changing word_exp_def*)
+  \\ fs[GSYM stackSemTheory.get_var_def]
+  (*TODO remove by changing get_store_def*)
+  \\ fs[wordSemTheory.get_store_def]
+  \\ ‘FLOOKUP t'.store CurrHeap = FLOOKUP s.store CurrHeap’ by
     fs [state_rel_def,DOMSUB_FLOOKUP_THM] \\ fs []
-  \\ ‘get_var (2 * m') s = SOME (Word x)’ by fs [get_var_def]
-  \\ imp_res_tac state_rel_get_var_imp2 \\ fs []
-  \\ fs [stackSemTheory.set_var_def,FLOOKUP_UPDATE]
+  \\ drule (GEN_ALL evaluate_wStackStore_wReg1)
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspec_then `Word z` strip_assume_tac)
+  \\ simp[]
 QED
 
 Theorem comp_Store_correct:
@@ -7126,65 +7101,57 @@ QED
 Theorem comp_CodeBufferWrite_correct:
   ^(get_goal "wordLang$CodeBufferWrite")
 Proof
-  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
-  fs[comp_def,wordSemTheory.evaluate_def]
-  \\ fs[case_eq_thms]
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ qexists_tac`0` \\ simp[]
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac`NONE` \\ simp[]
-  \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
-  \\ rveq \\ fs[]
-  \\ fs[wStackLoad_append]
-  \\ drule (GEN_ALL wStackLoad_thm1_weak)
-  \\ disch_then drule
-  \\ disch_then ho_match_mp_tac \\ fs[]
-  \\ drule (GEN_ALL state_rel_get_var_imp)
-  \\ disch_then imp_res_tac
-  \\ drule (GEN_ALL state_rel_get_var_imp2)
-  \\ disch_then imp_res_tac
-  \\ `t.code_buffer = s.code_buffer ∧ t.data_buffer = s.data_buffer` by fs[state_rel_def]
-  \\ conj_tac \\ strip_tac
-  \\ drule (GEN_ALL wStackLoad_thm2_weak)
-  \\ disch_then drule
-  \\ disch_then ho_match_mp_tac \\ fs[]
-  \\ conj_tac \\ strip_tac
-  \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-  \\ fs[state_rel_def,FLOOKUP_UPDATE]
+  REPEAT STRIP_TAC \\ qexists_tac `0`
+  \\ fs[get_labels_def]
+  \\ fs[convs_def]
+  \\ fs[wordLangTheory.max_var_def,wordLangTheory.max_var_exp_def,
+     wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2]
+  \\ fs[comp_def]
+  \\ fs[wordSemTheory.evaluate_def]
+  \\ gvs[AllCaseEqs(),UNCURRY_EQ]
+  \\ simp[wStackLoad_append]
+  \\ simp[evaluate_wStackLoad_seq]
+  \\ dxrule_all evaluate_wStackLoad_wReg1
+  \\ strip_tac
+  \\ simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]
+  \\ simp[evaluate_wStackLoad_seq]
+  \\ dxrule_all evaluate_wStackLoad_wReg2
+  \\ strip_tac
+  \\ simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]
+  \\ fs[stackSemTheory.evaluate_def]
+  \\ `t''.code_buffer = s.code_buffer` by fs[state_rel_def]
+  \\ fs[]
+  \\ fs[state_rel_def]
+  \\ gvs[]
   \\ metis_tac[]
 QED
 
 Theorem comp_DataBufferWrite_correct:
   ^(get_goal "wordLang$DataBufferWrite")
 Proof
-  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
-  fs[comp_def,wordSemTheory.evaluate_def]
-  \\ fs[case_eq_thms]
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ qexists_tac`0` \\ simp[]
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac`NONE` \\ simp[]
-  \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
-  \\ rveq \\ fs[]
-  \\ fs[wStackLoad_append]
-  \\ drule (GEN_ALL wStackLoad_thm1_weak)
-  \\ disch_then drule
-  \\ disch_then ho_match_mp_tac \\ fs[]
-  \\ drule (GEN_ALL state_rel_get_var_imp)
-  \\ disch_then imp_res_tac
-  \\ drule (GEN_ALL state_rel_get_var_imp2)
-  \\ disch_then imp_res_tac
-  \\ `t.code_buffer = s.code_buffer ∧ t.data_buffer = s.data_buffer` by fs[state_rel_def]
-  \\ conj_tac \\ strip_tac
-  \\ drule (GEN_ALL wStackLoad_thm2_weak)
-  \\ disch_then drule
-  \\ disch_then ho_match_mp_tac \\ fs[]
-  \\ conj_tac \\ strip_tac
-  \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-  \\ fs[state_rel_def,FLOOKUP_UPDATE,buffer_write_def]
-  \\ rveq \\ fs[]
+  REPEAT STRIP_TAC \\ qexists_tac `0`
+  \\ fs[get_labels_def]
+  \\ fs[convs_def]
+  \\ fs[wordLangTheory.max_var_def,wordLangTheory.max_var_exp_def,
+     wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2]
+  \\ fs[comp_def]
+  \\ fs[wordSemTheory.evaluate_def]
+  \\ gvs[AllCaseEqs(),UNCURRY_EQ]
+  \\ simp[wStackLoad_append]
+  \\ simp[evaluate_wStackLoad_seq]
+  \\ dxrule_all evaluate_wStackLoad_wReg1
+  \\ strip_tac
+  \\ simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]
+  \\ simp[evaluate_wStackLoad_seq]
+  \\ dxrule_all evaluate_wStackLoad_wReg2
+  \\ strip_tac
+  \\ simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]
+  \\ fs[stackSemTheory.evaluate_def]
+  \\ `t''.use_stack` by fs[state_rel_def]
+  \\ `t''.data_buffer = s.data_buffer` by fs[state_rel_def]
+  \\ fs[]
+  \\ fs[state_rel_def,buffer_write_def]
+  \\ gvs[]
   \\ metis_tac[]
 QED
 
