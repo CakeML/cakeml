@@ -97,12 +97,11 @@ Proof
   \\ gvs [LESS_OR_EQ]
 QED
 
-Definition ref_rel_def:
+Definition ref_rel_def[simp]:
   (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
   (ref_rel R (ByteArray as) (ByteArray bs) ⇔ as = bs) ∧
   (ref_rel _ _ _ = F)
 End
-val _ = export_rewrites["ref_rel_def"];
 
 Theorem ref_rel_simp[simp]:
    (ref_rel R (ValueArray vs) y ⇔ ∃ws. y = ValueArray ws ∧ LIST_REL R vs ws) ∧
@@ -804,7 +803,7 @@ val evaluate_code_lemma = prove(
   \\ TRY
    (qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
     \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
-    \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
+    \\ gvs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
     \\ qexists_tac`1+y`
     \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
     \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
@@ -812,7 +811,7 @@ val evaluate_code_lemma = prove(
   \\ TRY
    (qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
     \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
-    \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
+    \\ gvs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
     \\ qexists_tac`z+1+y`
     \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
     \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
@@ -1190,6 +1189,7 @@ Theorem dest_closure_partial_is_closure:
    is_closure v'
 Proof
   dsimp[dest_closure_def, case_eq_thms, bool_case_eq, is_closure_def, UNCURRY]
+  >> rw[] >> gvs[]
 QED
 
 Theorem is_closure_add_partial_args_nil:
@@ -1246,9 +1246,10 @@ Theorem stage_partial_app:
    dest_closure max_app NONE c rest =
      SOME (Partial_app (clo_add_partial_args rest c))
 Proof
-  Cases_on `v` >> simp[dest_closure_def, case_eq_thms, bool_case_eq, UNCURRY] >>
-  Cases_on `c` >>
-  simp[clo_add_partial_args_def, is_closure_def, check_loc_def]
+  rw[] >> Cases_on `v` >>
+  fs[dest_closure_def, case_eq_thms, bool_case_eq, UNCURRY] >>
+  Cases_on `c` >> fs[clo_add_partial_args_def, is_closure_def, check_loc_def] >>
+  gvs[]
 QED
 
 Theorem dest_closure_full_addargs:
@@ -1477,27 +1478,19 @@ Proof
   simp[dest_closure_def] >> Cases_on `v` >>
   simp[bool_case_eq, revnil, DROP_NIL, DECIDE ``0n >= x ⇔ x = 0``, UNCURRY,
        NOT_LESS, DECIDE ``x:num >= y ⇔ y ≤ x``, DECIDE ``¬(x:num ≤ y) ⇔ y < x``]
-  >- (strip_tac >> rename1 `TAKE (n - LENGTH l) (REVERSE vs)` >>
+   >- (strip_tac >> rename1 `TAKE (n - LENGTH l) (REVERSE vs)` >>
       dsimp[LENGTH_NIL] >> rveq >>
       simp[revdroprev] >>
       qexists_tac `DROP (LENGTH l + LENGTH vs - n) vs` >> simp[] >>
       reverse conj_tac
-      >- (`vs = TAKE (LENGTH l + LENGTH vs - n) vs ++
-                DROP (LENGTH l + LENGTH vs - n) vs`
-             by simp[] >>
-          pop_assum (fn th => CONV_TAC (LAND_CONV (ONCE_REWRITE_CONV[th]))) >>
-          simp[TAKE_APPEND1]) >>
-      Cases_on `loc` >> lfs[check_loc_def]) >>
+      >- simp[TAKE_REVERSE,LASTN_DROP_UNCOND]
+      >> Cases_on `loc` >> lfs[check_loc_def]) >>
+  simp[GSYM LASTN_def,GSYM BUTLASTN_def] >>
   simp[revdroprev] >> dsimp[LENGTH_NIL] >> rpt strip_tac >> rveq >>
-  rename1 `vs = TAKE (LENGTH l + LENGTH vs - N) vs ++ _` >>
-  qexists_tac `DROP (LENGTH l + LENGTH vs - N) vs` >> simp[] >>
-  reverse conj_tac
-  >- (`vs = TAKE (LENGTH l + LENGTH vs - N) vs ++
-            DROP (LENGTH l + LENGTH vs - N) vs`
-         by simp[] >>
-      pop_assum (fn th => CONV_TAC (LAND_CONV (ONCE_REWRITE_CONV[th]))) >>
-      simp[TAKE_APPEND1]) >>
-  Cases_on `loc` >> lfs[check_loc_def]
+  rename1 `vs = BUTLASTN (l2 - LENGTH l) vs ++ _` >>
+  qexists_tac `LASTN (l2 - LENGTH l) vs` >> simp[APPEND_BUTLASTN_LASTN] >>
+  reverse conj_tac >- simp[LASTN_def] >>
+  Cases_on `loc` >> lfs[check_loc_def,LASTN_def]
 QED
 
 Theorem dest_closure_partial_split:
@@ -3265,9 +3258,8 @@ Theorem evaluate_code_SUBMAP:
 Proof
   ho_match_mp_tac closSemTheory.evaluate_ind
   \\ rw[closSemTheory.evaluate_def]
-  \\ TRY (
-    rename1`dest_closure`
-    \\ imp_res_tac SUBMAP_rel_def
+  >>~-([`dest_closure`],
+    imp_res_tac SUBMAP_rel_def
     \\ imp_res_tac closSemTheory.state_component_equality
     \\ fs[CaseEq"option",CaseEq"app_kind",CaseEq"bool",closSemTheory.dec_clock_def]
     \\ rveq \\ res_tac \\ fs[]
@@ -3278,7 +3270,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac`evaluate (_,_,ss)`
     \\ fs[AND_IMP_INTRO]
     \\ last_x_assum(qspec_then`ss`(fn th => mp_tac th \\ impl_tac >- fs[Abbr`ss`]))
-    \\ strip_tac \\ fs[] \\ NO_TAC )
+    \\ strip_tac \\ fs[])
   \\ TRY (
        fs[closSemTheory.evaluate_def,
           bool_case_eq,
@@ -3289,6 +3281,10 @@ Proof
           closSemTheory.dec_clock_def]
     \\ rw[]
     \\ fs[PULL_EXISTS]
+    \\ TRY (
+            Q.EXISTS_TAC `z2` \\
+            fs[closSemTheory.state_component_equality,SUBMAP_rel_def] \\
+            NO_TAC)
     \\ TRY (fs[closSemTheory.state_component_equality,SUBMAP_rel_def] \\
             HINT_EXISTS_TAC \\ fs[] \\ NO_TAC)
     \\ res_tac \\ fs[]

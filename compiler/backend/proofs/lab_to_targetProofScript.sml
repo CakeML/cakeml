@@ -6894,14 +6894,13 @@ Proof
        \\ qabbrev_tac `ffi_names = TAKE (THE (mmio_pcs_min_index mc_conf.ffi_names)) mc_conf.ffi_names`
        \\ mp_tac IMP_bytes_in_memory_Inst
        \\ full_simp_tac(srw_ss())[]
-       \\ match_mp_tac IMP_IMP \\ strip_tac
-       THEN1 (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
+       \\ impl_tac
+       THEN1 (full_simp_tac(srw_ss())[state_rel_def])
        \\ rpt strip_tac \\ pop_assum mp_tac \\ pop_assum mp_tac
        \\ qpat_abbrev_tac `jj = asm$Inst i` \\ rpt strip_tac
        \\ (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`jj`]MP_TAC
             asm_step_IMP_evaluate_step_nop) \\ full_simp_tac(srw_ss())[]
-       \\ strip_tac \\ pop_assum (mp_tac o Q.SPEC `bytes'`)
-       \\ `~(asm_inst i s1).failed` by (rpt strip_tac \\ full_simp_tac(srw_ss())[])
+       \\ disch_then (mp_tac o Q.SPEC `bytes'`)
        \\ impl_tac>-
         (imp_res_tac Inst_lemma \\ pop_assum (K all_tac)
          \\ full_simp_tac(srw_ss())[state_rel_def,asm_def,LET_DEF] \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[]
@@ -6916,12 +6915,11 @@ Proof
                t1.mem_domain s1.mem_domain` mp_tac
          \\ match_mp_tac bytes_in_mem_IMP_memory \\ full_simp_tac(srw_ss())[])
        \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
-       \\ qpat_x_assum`(res,s2) = _` (assume_tac o SYM)
        \\ rfs[] \\ fs[]
        \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer l mc_conf`,
             `code2`,`labs`,
             `(asm jj (t1.pc + n2w (LENGTH (bytes':word8 list))) t1)`,`ms2`])
-       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+       \\ impl_tac THEN1
         (unabbrev_all_tac \\ rpt strip_tac \\ full_simp_tac(srw_ss())[asm_def]
          THEN1 (full_simp_tac(srw_ss())[shift_interfer_def])
          \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
@@ -7054,7 +7052,7 @@ Proof
     qmatch_asmsub_abbrev_tac`Inst jj`>>
     (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`Inst jj`]MP_TAC
             asm_step_IMP_evaluate_step_nop) \\ full_simp_tac(srw_ss())[]
-    \\ strip_tac \\ pop_assum (mp_tac o Q.SPEC `bytes'`)
+    \\ disch_then (mp_tac o Q.SPEC `bytes'`)
     \\ fs[asm_def] >>
     `inst jj t1 = t1 with mem := ((w1 =+ w2w w2) t1.mem)` by
       (unabbrev_all_tac >>
@@ -7118,15 +7116,14 @@ Proof
         (match_mp_tac bytes_in_mem_UPDATE>>rw[]>>
         PURE_REWRITE_TAC [GSYM WORD_ADD_ASSOC]>>
         simp[word_add_n2w])
-      \\ conj_tac>-
-        (simp[bytes_in_mem_APPEND] >> conj_tac
-        >-
-          (* non-overlap of cb with itself *)
-          (match_mp_tac bytes_in_mem_UPDATE>>
+      \\ conj_tac >-
+        (simp[bytes_in_mem_APPEND]
+      \\ conj_tac >-
+        (* non-overlap of cb with itself *)
+        (match_mp_tac bytes_in_mem_UPDATE>>
           rw[])
-        >>
-          simp[bytes_in_mem_def,APPLY_UPDATE_THM]>>
-          first_x_assum drule>>fs[])
+      \\ simp[bytes_in_mem_def,APPLY_UPDATE_THM]>>
+         first_x_assum drule>>fs[])
       \\ simp[GSYM word_add_n2w]
        >> fs[upd_pc_def, inc_pc_def, share_mem_state_rel_def] >>
         share_mem_state_rel_tac)
@@ -7136,8 +7133,8 @@ Proof
     \\ Q.EXISTS_TAC `k + l - 1` \\ full_simp_tac(srw_ss())[]
     \\ `^s1.clock - 1 + k + l = ^s1.clock + (k + l - 1)` by decide_tac
     \\ fs[])
-  THEN1 (* share_mem_op *)
-   (say "share_mem_op"
+  THEN1 ( (* share_mem_op *)
+    say "share_mem_op"
     \\ Cases_on `m` >>
     fs[share_mem_op_def,share_mem_load_def,share_mem_store_def]>>
     gvs[pair_case_eq,option_case_eq, ffi_result_case_eq,CaseEq"word_loc"]>>
@@ -7201,8 +7198,6 @@ Proof
     (conj_asm1_tac >-
       enc_is_valid_mapped_access_tac)>>fs[]>>
     pairarg_tac>>fs[inc_pc_def,dec_clock_def]>>
-    irule_at Any EQ_SYM>>
-    simp[Once SWAP_EXISTS_THM]>>
     last_x_assum $ irule>>fs[]>>
     (conj_tac >-
      (rpt strip_tac>>
@@ -7261,8 +7256,8 @@ Proof
     fs[target_state_rel_def,UPDATE_def]>>
     rw[word_loc_val_def]>>
     metis_tac[word_loc_val_def])
-  THEN1 (* Jump *)
-   (say "Jump"
+  THEN1 ( (* Jump *)
+    say "Jump"
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (Jump jtarget) l1 l2 l3)`
     \\ qmatch_assum_rename_tac
