@@ -24,6 +24,7 @@ Definition is_exp_fail_def[simp]:
   is_exp_fail _ = F
 End
 
+(*
 Theorem correct_exp:
   (∀s env e s' r m cnt cnt' e' t.
      evaluate_exp s env e = (s', r) ∧ freshen_exp m cnt e = SOME (cnt', e') ∧
@@ -35,6 +36,7 @@ Theorem correct_exp:
      state_rel s t m ∧ ¬(is_exp_fail r)
      ⇒ ∃t'. evaluate_exps t env es' = (t', r) ∧ state_rel s' t' m)
 Proof
+  cheat
 QED
 
 Theorem correct_exp:
@@ -47,14 +49,15 @@ Theorem correct_exp:
      freshen_exps m cnt es = (cnt', es') ∧ m_inv m cnt ⇒
      ∃t'. evaluate_exps t env es' = (t', res) ∧ state_rel s' t' m)
 Proof
-
-
+  cheat
+QED
+*)
 
 
 Definition lookup_def:
   lookup m old =
   case ALOOKUP m old of
-  | NONE => old
+  | NONE => «»
   | SOME cnt => «v» ^ num_to_str cnt
 End
 
@@ -63,100 +66,171 @@ Definition add_fresh_def:
 End
 
 Definition freshen_exp_def:
-  freshen_exp m cnt (Lit l) = (cnt + 1, Lit l) ∧
-  freshen_exp m cnt (Var old) = (cnt + 1, Var (lookup m old)) ∧
+  freshen_exp m cnt (Lit l) = (cnt, Lit l) ∧
+  freshen_exp m cnt (Var old) = (cnt, Var (lookup m old)) ∧
   freshen_exp m cnt (If tst thn els) =
-  (let
-     (cnt, tst) = freshen_exp m cnt tst;
-     (cnt, thn) = freshen_exp m cnt thn;
-     (cnt, els) = freshen_exp m cnt els
-   in
-     (cnt, If tst thn els)) ∧
+    (let
+       (cnt, tst) = freshen_exp m cnt tst;
+       (cnt, thn) = freshen_exp m cnt thn;
+       (cnt, els) = freshen_exp m cnt els
+     in
+       (cnt, If tst thn els)) ∧
   freshen_exp m cnt (UnOp uop e) =
-  (let
-     (cnt, e) = freshen_exp m cnt e
-   in
-     (cnt, UnOp uop e)) ∧
+    (let (cnt, e) = freshen_exp m cnt e in
+       (cnt, UnOp uop e)) ∧
   freshen_exp m cnt (BinOp bop e₁ e₂) =
-  (let
-     (cnt, e₁) = freshen_exp m cnt e₁;
-     (cnt, e₂) = freshen_exp m cnt e₂
-   in
-     (cnt, BinOp bop e₁ e₂)) ∧
+    (let (cnt, e₁) = freshen_exp m cnt e₁ in
+     let (cnt, e₂) = freshen_exp m cnt e₂ in
+       (cnt, BinOp bop e₁ e₂)) ∧
   freshen_exp m cnt (ArrLen arr) =
-  (let
-     (cnt, arr) = freshen_exp m cnt arr
-   in
-     (cnt, ArrLen arr)) ∧
+    (let
+       (cnt, arr) = freshen_exp m cnt arr
+     in
+       (cnt, ArrLen arr)) ∧
   freshen_exp m cnt (ArrSel arr idx) =
-  (let
-     (cnt, arr) = freshen_exp m cnt arr;
-     (cnt, idx) = freshen_exp m cnt idx
-   in
-     (cnt, ArrSel arr idx)) ∧
+    (let
+       (cnt, arr) = freshen_exp m cnt arr;
+       (cnt, idx) = freshen_exp m cnt idx
+     in
+       (cnt, ArrSel arr idx)) ∧
   freshen_exp m cnt (FunCall n args) =
-  (let
-     (cnt, args) = freshen_exps m cnt args
-   in
-     (cnt, FunCall n args)) ∧
+    (let
+       (cnt, args) = freshen_exps m cnt args
+     in
+       (cnt, FunCall n args)) ∧
   freshen_exp m cnt (Forall (old, vt) e) =
-  (let
-     (cnt, m) = add_fresh m cnt old;
-     (cnt, e) = freshen_exp m cnt e
-   in
-     (cnt, Forall (lookup m old, vt) e)) ∧
-  freshen_exps m cnt [] = (cnt + 1, []) ∧
+    (let
+       (cnt, m) = add_fresh m cnt old;
+       (cnt, e) = freshen_exp m cnt e
+     in
+       (cnt, Forall (lookup m old, vt) e)) ∧
+  freshen_exps m cnt [] = (cnt, []) ∧
   freshen_exps m cnt (e::es) =
-  (let
-     (cnt, e) = freshen_exp m cnt e;
-     (cnt, es) = freshen_exps m cnt es
-   in
-     (cnt, (e::es)))
+    (let
+       (cnt, e) = freshen_exp m cnt e;
+       (cnt, es) = freshen_exps m cnt es
+     in
+       (cnt, (e::es)))
 Termination
   wf_rel_tac ‘measure $ λx. case x of
                             | INL (_,_,e) => exp_size e
                             | INR (_,_,e) => exp1_size e’
 End
 
-Theorem foo:
-  (∀m cnt e cnt' e'. freshen_exp m cnt e = (cnt', e') ⇒ cnt < cnt') ∧
-  (∀m cnt es cnt' es'. freshen_exps m cnt es = (cnt', es') ⇒ cnt < cnt')
+Theorem freshen_exp_mono:
+  (∀m cnt e cnt' e'. freshen_exp m cnt e = (cnt', e') ⇒ cnt ≤ cnt') ∧
+  (∀m cnt es cnt' es'. freshen_exps m cnt es = (cnt', es') ⇒ cnt ≤ cnt')
 Proof
   ho_match_mp_tac freshen_exp_ind
   >> rpt strip_tac
   >> gvs [freshen_exp_def] >> rpt (pairarg_tac \\ gvs [])
-  >> rpt (last_x_assum $ drule_all >> strip_tac) >> gvs [add_fresh_def]
+  >> gvs [add_fresh_def]
 QED
 
 Definition state_rel_def:
-  state_rel s t m ⇔
+  state_rel s t m cnt ⇔
   s.clock = t.clock ∧ s.heap = t.heap ∧ s.cout = t.cout ∧
-  ∀old. read_local t (lookup m old) = read_local s old
+  (∀var new_var. ALOOKUP m var = SOME new_var ⇒ new_var < cnt) ∧
+  ∀var val.
+     read_local s var = SOME val ⇒
+     ∃new_var.
+       ALOOKUP m var = SOME new_var ∧
+       read_local t («v» ^ num_to_str new_var) = SOME val
 End
 
+(*
 Definition m_inv_def[simp]:
-  m_inv (m: (mlstring # num) list) cnt ⇔ ∀c. MEM c (MAP SND m) ⇒ c < cnt
+  m_inv (m: (mlstring # num) list) cnt ⇔
+    ∀c. MEM c (MAP SND m) ⇒ c < cnt
 End
+*)
 
-Theorem foobar:
+Theorem push_local_consts:
   push_local s var v = s' ⇒
   s.clock = s'.clock ∧ s.heap = s'.heap ∧ s.cout = s'.cout
 Proof
   rpt strip_tac >> gvs [push_local_def]
 QED
 
-Theorem bar:
+Theorem mlstring_common_prefix:
+  ∀s t1 t2. s ^ t1 = s ^ t2 ⇔ t1 = t2
+Proof
+  rpt Cases
+  \\ gvs [mlstringTheory.strcat_thm,mlstringTheory.implode_def]
+QED
+
+Theorem evaluate_exp_freshen_exp:
   (∀s env e s' res t m cnt cnt' e'.
-     evaluate_exp s env e = (s', res) ∧ state_rel s t m ∧
-     freshen_exp m cnt e = (cnt', e') ∧ m_inv m cnt ⇒
-     ∃t'. evaluate_exp t env e' = (t', res) ∧ state_rel s' t' m) ∧
+     evaluate_exp s env e = (s', res) ∧ state_rel s t m cnt ∧
+     freshen_exp m cnt e = (cnt', e') ∧ res ≠ Rerr Rtype_error ⇒
+     ∃t'. evaluate_exp t env e' = (t', res) ∧ state_rel s' t' m cnt') ∧
   (∀s env es s' res t m cnt cnt' es'.
-     evaluate_exps s env es = (s', res) ∧ state_rel s t m ∧
-     freshen_exps m cnt es = (cnt', es') ∧ m_inv m cnt ⇒
-     ∃t'. evaluate_exps t env es' = (t', res) ∧ state_rel s' t' m)
+     evaluate_exps s env es = (s', res) ∧ state_rel s t m cnt ∧
+     freshen_exps m cnt es = (cnt', es') ∧ res ≠ Rerr Rtype_error ⇒
+     ∃t'. evaluate_exps t env es' = (t', res) ∧ state_rel s' t' m cnt')
 Proof
   ho_match_mp_tac evaluate_exp_ind
   >> rpt strip_tac
+  >~ [‘Lit l’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def])
+  >~ [‘Var v’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def, state_rel_def, CaseEq "option"]
+    \\ res_tac \\ gvs [lookup_def, SF SFY_ss])
+  >~ [‘Forall (v,ty) e’] >-
+   (full_simp_tac bool_ss [evaluate_exp_def, freshen_exp_def]
+    \\ qabbrev_tac ‘f = λval. evaluate_exp (push_local s v val) env e’
+    \\ gvs [] \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘freshen_exp m1 cnt1 e = (cnt2,e2)’]
+    \\ full_simp_tac bool_ss [evaluate_exp_def, freshen_exp_def]
+    \\ ‘state_rel s t m cnt2’ by cheat
+    \\ IF_CASES_TAC >- gvs []
+    \\ ‘t.clock = s.clock’ by gvs [state_rel_def]
+    \\ IF_CASES_TAC >- gvs []
+    \\ qabbrev_tac ‘g = λval. evaluate_exp (push_local t (lookup m1 v) val) env e2’
+    \\ ‘s' = s’ by gvs [AllCaseEqs()]
+    \\ gvs []
+    \\ qexists_tac ‘t’ \\ gvs []
+    \\ qpat_x_assum ‘_ = (s,res)’ mp_tac
+    \\ IF_CASES_TAC >- gvs []
+    \\ gvs []
+    \\ qsuff_tac ‘∀v. v ∈ all_values ty ⇒ SND (f v) = SND (g v)’ >-
+     (rpt strip_tac
+      (* todo: try holyhammer *)
+      \\ gvs []
+      \\ gvs [AllCaseEqs()]
+      \\ metis_tac [PAIR_EQ])
+    \\ unabbrev_all_tac \\ gvs []
+    \\ qx_gen_tac ‘val’
+    \\ Cases_on ‘evaluate_exp (push_local s v val) env e’ \\ gvs []
+    \\ first_x_assum $ qspec_then ‘val’ mp_tac \\ gvs []
+    \\ rpt strip_tac
+    \\ gvs []
+    \\ last_x_assum drule \\ fs []
+    \\ disch_then $ drule_at $ Pos $ el 2
+    \\ disch_then $ qspec_then ‘(push_local t (lookup m1 v) val)’ mp_tac
+    \\ reverse impl_tac >- (strip_tac \\ gvs [])
+    \\ gvs [state_rel_def,push_local_def]
+    \\ conj_tac >-
+     (gvs [add_fresh_def,AllCaseEqs()]
+      \\ rpt strip_tac \\ gvs []
+      \\ res_tac \\ gvs [])
+    \\ gvs [read_local_def]
+    \\ gvs [add_fresh_def]
+    \\ gvs [lookup_def]
+    \\ rpt strip_tac
+    \\ rename [‘_ = SOME val2’]
+    \\ IF_CASES_TAC \\ gvs []
+    >- gvs [read_local_aux_def,FLOOKUP_SIMP]
+    \\ ‘read_local_aux s.locals var = SOME val2’ by
+      gvs [read_local_aux_def,FLOOKUP_SIMP]
+    \\ first_x_assum drule
+    \\ strip_tac \\ simp []
+    \\ gvs [read_local_aux_def,FLOOKUP_SIMP]
+    \\ reverse IF_CASES_TAC >- gvs []
+    \\ gvs [mlstring_common_prefix,mlintTheory.num_to_str_11]
+    \\ res_tac \\ gvs [])
+  \\ cheat
+(*
   >- gvs [evaluate_exp_def, freshen_exp_def]
   >- gvs [evaluate_exp_def, freshen_exp_def, state_rel_def, CaseEq "option"]
   >- cheat
@@ -265,7 +339,8 @@ Proof
   (*             >- gvs [read_local_def, read_local_aux_def, FLOOKUP_SIMP]) *)
   (*         >> rpt strip_tac >> gvs []) *)
   (*     >- *)
-
+*)
+QED
 
 
 val _ = export_theory ();

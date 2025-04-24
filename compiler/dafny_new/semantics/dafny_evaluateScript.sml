@@ -88,17 +88,17 @@ Definition evaluate_exp_ann_def[nocompute]:
      (case fix_clock st₀ (evaluate_exps st₀ env args) of
       | (st₁, Rerr err) => (st₁, Rerr err)
       | (st₁, Rval in_vs) =>
-        if st₁.clock = 0 then (st₁, Rerr Rtimeout_error) else
           (case set_up_call st₁ in_names in_vs [] of
            | NONE => (st₁, Rerr Rtype_error)
            | SOME (old_locals, st₂) =>
+             if st₂.clock = 0 then (st₂, Rerr Rtimeout_error) else
              (case evaluate_exp (dec_clock st₂) env body of
               | (st₃, Rerr err) => (restore_locals st₃ old_locals, Rerr err)
               | (st₃, Rval v) => (restore_locals st₃ old_locals, Rval v))))) ∧
   evaluate_exp st env (Forall (vn, vt) e) =
   (if env.is_running then (st, Rerr Rtype_error)
    else if st.clock = 0 then (st, Rerr Rtimeout_error) else
-   let eval = (λv. evaluate_exp (dec_clock (push_local st vn v)) env e) in
+   let eval = (λv. evaluate_exp (push_local st vn v) env e) in
      if (∃v. v ∈ all_values vt ∧ SND (eval v) = Rerr Rtype_error)
      then (st, Rerr Rtype_error)
      else if (∃v. v ∈ all_values vt ∧ SND (eval v) = Rerr Rtimeout_error)
