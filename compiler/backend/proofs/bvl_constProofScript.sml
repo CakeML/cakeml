@@ -109,7 +109,8 @@ Proof
   \\ imp_res_tac evaluate_SING \\ rw [] \\ fs []
   \\ Cases_on `h` \\ fs [extract_def]
   \\ rename1 `bvl_const$extract (Op opp ll) _ = SOME xx`
-  \\ Cases_on `opp` \\ fs [extract_def] \\ rw []
+  \\ Cases_on `opp` \\ fs [extract_def]
+  >| map Cases_on [`i`,`b'`] \\ fs [extract_def] \\ rw []
   \\ every_case_tac \\ fs []
   \\ fs [v_rel_def,NULL_EQ,evaluate_def,do_app_def]
   \\ every_case_tac \\ fs []
@@ -124,50 +125,54 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ fs [evaluate_def]
 QED
 
-val dest_simple_eq = prove(
-  ``dest_simple h = SOME y <=> (h = Op (Const y) [])``,
+Triviality dest_simple_eq:
+  dest_simple h = SOME y <=> (h = Op (IntOp (Const y)) [])
+Proof
   Cases_on `h` \\ fs [dest_simple_def]
   \\ Cases_on `o'` \\ fs [dest_simple_def,NULL_EQ]
-  \\ eq_tac \\ rw [] \\ rw []);
+  \\ Cases_on `i` \\ fs [dest_simple_def,NULL_EQ]
+  \\ eq_tac \\ rw [] \\ rw []
+QED
 
-val case_op_const_eq = prove(
-  ``case_op_const exp = SOME x <=>
-  (?op x1 n2. x = (op, x1, n2) /\ (exp = Op op [x1; Op (Const n2) []]))``,
+Triviality case_op_const_eq:
+  case_op_const exp = SOME x <=>
+  (?op x1 n2. x = (op, x1, n2) /\ (exp = Op op [x1; Op (IntOp (Const n2)) []]))
+Proof
   Cases_on `exp` \\ fs [case_op_const_def, NULL_EQ] \\
   every_case_tac \\
   eq_tac \\ rw []
-)
+QED
 
-val SmartOp_flip_thm = prove(
-    ``(op', x1', x2') = SmartOp_flip op x1 x2 /\
-    evaluate ([Op op [x1; x2]], env, s) = (res, s2) /\
-    res ≠ Rerr (Rabort Rtype_error) ==>
-    evaluate ([Op op' [x1'; x2']], env, s) = (res, s2)``,
-
-    rpt strip_tac \\
-    Cases_on `MEM op [Add; Sub; Mult]` THEN1 (
-      Cases_on `op` \\ fs [] \\
-      Cases_on `dest_simple x1` \\
-      fs [SmartOp_flip_def, dest_simple_eq] \\
-      fs [dest_simple_eq] \\
-      fs [evaluate_def, do_app_def] \\
-      fs [case_eq_thms] \\
-      rveq \\ fs [] \\ rveq \\ fs [REVERSE_DEF] \\ rveq \\ fs [] \\
-      intLib.COOPER_TAC
-    ) \\
-    Cases_on `op` \\
+Triviality SmartOp_flip_thm:
+  (op', x1', x2') = SmartOp_flip op x1 x2 /\
+  evaluate ([Op op [x1; x2]], env, s) = (res, s2) /\
+  res ≠ Rerr (Rabort Rtype_error) ==>
+  evaluate ([Op op' [x1'; x2']], env, s) = (res, s2)
+Proof
+  rpt strip_tac \\
+  Cases_on `MEM op [IntOp Add; IntOp Sub; IntOp Mult]` THEN1 (
+    Cases_on `op` \\ fs [] \\
     Cases_on `dest_simple x1` \\
-    fs [SmartOp_flip_def]
-)
+    fs [SmartOp_flip_def, dest_simple_eq] \\
+    fs [dest_simple_eq] \\
+    fs [evaluate_def, do_app_def] \\
+    fs [case_eq_thms] \\
+    rveq \\ fs [] \\ rveq \\ fs [REVERSE_DEF] \\ rveq \\ fs [] \\
+    intLib.COOPER_TAC
+  ) \\
+  Cases_on `op` \\
+  Cases_on `dest_simple x1` \\
+  fs [SmartOp_flip_def]
+QED
 
-val SmartOp2_thm = prove(
-  ``evaluate ([Op op [x1;x2]],env,s) = (res,s2) /\
-    res ≠ Rerr (Rabort Rtype_error) ==>
-    evaluate ([SmartOp2 (op,x1,x2)],env,s) = (res,s2)``,
-
+Triviality SmartOp2_thm:
+  evaluate ([Op op [x1;x2]],env,s) = (res,s2) /\
+  res ≠ Rerr (Rabort Rtype_error) ==>
+  evaluate ([SmartOp2 (op,x1,x2)],env,s) = (res,s2)
+Proof
   simp [SmartOp2_def] \\
-  reverse (Cases_on `op = Equal`)
-  THEN1 (
+  reverse (Cases_on `op = BlockOp Equal`)
+  >- (
     Cases_on `dest_simple x1` \\ fs [] \\
     Cases_on `dest_simple x2` \\ fs [] \\
     Cases_on `case_op_const x1` \\ fs [] \\
@@ -182,9 +187,7 @@ val SmartOp2_thm = prove(
     rw [REVERSE_DEF] \\
     imp_res_tac evaluate_SING  \\
     fs [] \\
-    intLib.COOPER_TAC
-  )
-
+    intLib.COOPER_TAC)
   \\ fs []
   \\ every_case_tac \\ fs []
   \\ fs [dest_simple_eq] \\ rveq
@@ -195,8 +198,8 @@ val SmartOp2_thm = prove(
   \\ imp_res_tac evaluate_SING \\ fs [do_eq_def]
   \\ TRY (Cases_on `d1`) \\ fs [do_eq_def]
   \\ rw [] \\ fs []
-  \\ eq_tac \\ fs []);
-
+  \\ eq_tac \\ fs []
+QED
 
 Theorem SmartOp1_thm:
   evaluate ([Op op [x]],env,s) = (res,s2) /\
@@ -207,6 +210,7 @@ Proof
   \\ TOP_CASE_TAC \\ fs []
   \\ TOP_CASE_TAC \\ fs []
   \\ Cases_on ‘op’ \\ gvs [dest_EqualInt_def]
+  \\ Cases_on ‘b’ \\ gvs [dest_EqualInt_def]
   \\ rename [‘EqualConst cc’]
   \\ Cases_on ‘cc’ \\ gvs [dest_EqualInt_def]
   \\ gvs [dest_simple_eq]
@@ -333,9 +337,10 @@ Proof
   rw[bvl_constTheory.SmartOp2_def, closLangTheory.assign_get_code_label_def]
   \\ rpt(PURE_CASE_TAC \\ simp[closLangTheory.assign_get_code_label_def])
   \\ imp_res_tac dest_simple_SOME_code_labels \\ fs[]
-  \\ fs[bvl_constTheory.case_op_const_def, CaseEq"option", CaseEq"closLang$op", CaseEq"bvl$exp", CaseEq"list", NULL_EQ]
+  \\ fs ([bvl_constTheory.case_op_const_def, NULL_EQ] @ map CaseEq [
+    "option", "closLang$op", "closLang$int_op", "bvl$exp", "list"])
   \\ rveq \\ fs[closLangTheory.assign_get_code_label_def,bvlTheory.Bool_def]
-  \\ simp[EXTENSION] \\ metis_tac[]
+  \\ simp[EXTENSION] \\ TRY (metis_tac[])
 QED
 
 Theorem SmartOp1_code_labels:
@@ -371,7 +376,8 @@ Proof
   \\ res_tac \\ fs[]
   \\ Cases_on`h` \\ fs[bvl_constTheory.extract_def]
   \\ rename1`Op op l`
-  \\ Cases_on`op` \\ fs[bvl_constTheory.extract_def] \\ rw[]
+  \\ Cases_on`op` \\ fs[bvl_constTheory.extract_def]
+  >| map Cases_on [`i`,`b`] \\ fs[bvl_constTheory.extract_def] \\ rw[]
   \\ EVAL_TAC
 QED
 

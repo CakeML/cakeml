@@ -377,7 +377,7 @@ Triviality do_app_err_thm:
 Proof
   srw_tac[][] >>
   imp_res_tac do_app_err >> fsrw_tac[][] >>
-  Cases_on `?i. op = EqualConst i`
+  Cases_on `?i. op = BlockOp (EqualConst i)`
   THEN1 (rw [] \\ fsrw_tac[][do_app_def] \\ every_case_tac >> fs[])
   \\ Cases_on `err` \\ fs []
   \\ fs [do_app_cases_err]
@@ -546,7 +546,7 @@ Proof
   \\ once_rewrite_tac [shift_CONS]
   \\ fs [EVAL ``shift [clos_annotate$const_0 t] a2 a3 a4``]
   \\ once_rewrite_tac [evaluate_CONS]
-  \\ fs [EVAL ``evaluate ([Op v8 (Const 0) []],env,t1)``]
+  \\ fs [EVAL ``evaluate ([Op v8 (IntOp (Const 0)) []],env,t1)``]
 QED
 
 val no_overlap_has_var_IMP = prove(
@@ -1546,16 +1546,16 @@ Proof
   \\ disch_then (qspec_then `ff k` mp_tac)
   \\ qunabbrev_tac `ff`
   \\ disch_then (qspec_then `[]` mp_tac)
-  \\ impl_tac THEN1
+  \\ impl_tac >-
    (fs [state_rel_def,initial_state_def]
     \\ conj_tac
-    THEN1 (match_mp_tac FEVERY_alist_to_fmap \\
+    >- (match_mp_tac FEVERY_alist_to_fmap \\
            fs [every_Fn_vs_NONE_EVERY_MAP, MAP_MAP_o, o_DEF])
     \\ rpt strip_tac
-    THEN1
+    >-
      (fs [FUN_EQ_THM,pure_co_def] \\ rw []
       \\ Cases_on `co x` \\ PairCases_on `r` \\ fs [compile_inc_def])
-    THEN1
+    >-
      (fs [FUN_EQ_THM,pure_cc_def] \\ rw []
       \\ PairCases_on `x` \\ fs [compile_inc_def])
     \\ pop_assum mp_tac
