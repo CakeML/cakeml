@@ -9,7 +9,7 @@ open dafny_semanticPrimitivesTheory
 
 val _ = new_theory "dafny_freshenProof";
 
-
+(*
 Definition state_rel_def:
   state_rel s t m ⇔
   s.clock = t.clock ∧ s.heap = t.heap ∧ s.cout = t.cout ∧
@@ -24,7 +24,6 @@ Definition is_exp_fail_def[simp]:
   is_exp_fail _ = F
 End
 
-(*
 Theorem correct_exp:
   (∀s env e s' r m cnt cnt' e' t.
      evaluate_exp s env e = (s', r) ∧ freshen_exp m cnt e = SOME (cnt', e') ∧
@@ -196,9 +195,7 @@ Proof
     \\ qsuff_tac ‘∀v. v ∈ all_values ty ⇒ SND (f v) = SND (g v)’ >-
      (rpt strip_tac
       (* todo: try holyhammer *)
-      \\ gvs []
-      \\ gvs [AllCaseEqs()]
-      \\ metis_tac [PAIR_EQ])
+      \\ gvs [] \\ gvs [AllCaseEqs()] \\ metis_tac [])
     \\ unabbrev_all_tac \\ gvs []
     \\ qx_gen_tac ‘val’
     \\ Cases_on ‘evaluate_exp (push_local s v val) env e’ \\ gvs []
