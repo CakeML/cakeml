@@ -85,7 +85,7 @@ Datatype:
 End
 
 Datatype:
-  decl = Function mlstring ((mlstring # shape) list) ('a prog)
+  decl = Function mlstring bool ((mlstring # shape) list) ('a prog)
        | Decl   mlstring ('a exp)
 End
 (*

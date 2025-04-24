@@ -14,7 +14,7 @@ open ASCIInumbersLib combinTheory;
 val _ = new_theory "panPEG";
 
 Datatype:
-  pancakeNT = FunListNT | FunNT | ProgNT | BlockNT | StmtNT | ExpNT
+  pancakeNT = TopDecListNT | FunNT | ProgNT | BlockNT | StmtNT | ExpNT
             | DecNT | AssignNT | StoreNT | StoreByteNT
             | IfNT | WhileNT | CallNT | RetNT | HandleNT
             | ExtCallNT | RaiseNT | ReturnNT
@@ -127,15 +127,16 @@ End
 
 Definition pancake_peg_def[nocompute]:
   pancake_peg = <|
-    start := mknt FunListNT;
+    start := mknt TopDecListNT;
     anyEOF := "Didn't expect an EOF";
     tokFALSE := "Failed to see expected token";
     tokEOF := "Failed to see expected token; saw EOF instead";
     notFAIL := "Not combinator failed";
     rules := FEMPTY |++ [
-        (INL FunListNT, choicel [not (any $ K $ mksubtree FunListNT []) $ mksubtree FunListNT [];
-                                 seql [mknt FunNT; mknt FunListNT] (mksubtree FunListNT);
-                                 seql [keep_annot; mknt FunListNT] (mksubtree FunListNT)]);
+        (INL TopDecListNT, choicel [not (any $ K $ mksubtree TopDecListNT []) $ mksubtree TopDecListNT [];
+                                 seql [mknt FunNT; mknt TopDecListNT] (mksubtree TopDecListNT);
+                                 seql [mknt DecNT; mknt TopDecListNT] (mksubtree TopDecListNT);
+                                 seql [keep_annot; mknt TopDecListNT] (mksubtree TopDecListNT)]);
         (INL FunNT, seql [try_default (keep_kw ExportK) StaticT;
                           consume_kw FunK;
                           keep_ident;
@@ -413,7 +414,7 @@ End
 
 Definition parse_def:
   parse s =
-    case peg_exec pancake_peg (mknt FunListNT) s [] NONE [] done failed of
+    case peg_exec pancake_peg (mknt TopDecListNT) s [] NONE [] done failed of
     | Result (Success [] [e] _) => INL e
     | Result (Success toks _ _) => INR [(«Parser could not consume all tokens», unknown_loc)]
     | Result (Failure loc msg) => INR [(implode msg, loc)]
@@ -657,7 +658,7 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
                 “DecCallNT”, “StmtNT”, “BlockNT”, “ParamListNT”, “FunNT”
                 ];
 
-(*  “FunNT”, “FunListNT” *)
+(*  “FunNT”, “TopDecListNT” *)
 
 (** All non-terminals except the top-level
   * program nonterminal always consume input. *)
@@ -689,7 +690,7 @@ end;
 (** This time include the top-level program non-terminal which is
   * well-formed. *)
 Theorem pancake_wfpeg_thm =
-  LIST_CONJ (List.foldl (wfnt “pancake_peg”) [] (topo_nts @ [“ProgNT”, “FunListNT”]))
+  LIST_CONJ (List.foldl (wfnt “pancake_peg”) [] (topo_nts @ [“ProgNT”, “TopDecListNT”]))
 
 Theorem pancake_wfpeg_FunNT_thm =
   LIST_CONJ (List.foldl (wfnt “pancake_peg with start := mknt FunNT”) [] (topo_nts @ [“ProgNT”]))

@@ -104,7 +104,7 @@ Definition conv_ffi_ident_def:
 End
 
 Definition conv_var_def:
-  conv_var t = lift (Var Local) (conv_ident t)
+  conv_var t = lift (Var Global) (conv_ident t)
 End
 
 (** Collection of binop expression nodes, n >= 2 *)
@@ -369,7 +369,7 @@ Definition conv_NonRecStmt_def:
   (conv_NonRecStmt (Nd nodeNT args) =
     if isNT nodeNT AssignNT then
       case args of
-        [dst; src] => lift2 (Assign Local) (conv_ident dst) (conv_Exp src)
+        [dst; src] => lift2 (Assign Global) (conv_ident dst) (conv_Exp src)
       | _ => NONE
     else if isNT nodeNT StoreNT then
       case args of
@@ -381,15 +381,15 @@ Definition conv_NonRecStmt_def:
       | _ => NONE
     else if isNT nodeNT SharedLoadNT then
       case args of
-        [v; e] => lift2 (ShMemLoad OpW Local) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad OpW Global) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedLoadByteNT then
       case args of
-        [v; e] => lift2 (ShMemLoad Op8 Local) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad Op8 Global) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedLoad32NT then
       case args of
-        [v; e] => lift2 (ShMemLoad Op32 Local) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad Op32 Global) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedStoreNT then
       case args of
@@ -696,24 +696,24 @@ Termination
   gs[]
 End
 
-Definition conv_expos_def:
-  conv_expos tree =
+Definition conv_export_def:
+  conv_export tree =
     case destTOK ' (destLf tree) of
       SOME (KeywordT ExportK) => SOME T
     | SOME (StaticT) => SOME F
     | _ => NONE
 End
 
-Definition conv_Fun_def:
-  conv_Fun tree =
+Definition conv_TopDec_def:
+  conv_TopDec tree =
   case argsNT tree FunNT of
     SOME [e;n;ps] =>
       (case (argsNT ps ParamListNT) of
          SOME args =>
            (do ps'  <- conv_params args;
                n'   <- conv_ident n;
-               e'   <- conv_expos e;
-               SOME (n', e', ps', Skip)
+               e'   <- conv_export e;
+               SOME $ Function n' e' ps' Skip
             od)
        | _ => NONE)
   | SOME [e;n;ps;c] =>
@@ -722,27 +722,30 @@ Definition conv_Fun_def:
            (do ps'  <- conv_params args;
                body <- conv_Prog c;
                n'   <- conv_ident n;
-               e'   <- conv_expos e;
-               SOME (n', e', ps', body)
+               e'   <- conv_export e;
+               SOME $ Function n' e' ps' body
             od)
        | _ => NONE)
-  | _ => NONE
+  | _ =>
+      (case conv_Dec tree of
+         NONE => NONE
+       | SOME (v,e) => SOME $ Decl v e)
 End
 
-Definition conv_FunList_def:
-  conv_FunList tree =
-   case argsNT tree FunListNT of
+Definition conv_TopDecList_def:
+  conv_TopDecList tree =
+   case argsNT tree TopDecListNT of
      SOME [] => SOME []
    | SOME [f; tree'] =>
        (case dest_annot_tok f of
          NONE =>
-           (case conv_Fun f of
+           (case conv_TopDec f of
             | SOME f =>
-                (case conv_FunList tree' of
+                (case conv_TopDecList tree' of
                   NONE => NONE
                  | SOME fs => SOME(f::fs))
             | NONE => NONE)
-       | SOME _ => conv_FunList tree')
+       | SOME _ => conv_TopDecList tree')
    | _ => NONE
 Termination
   wf_rel_tac ‘measure $ ptree_size’ >>
@@ -757,13 +760,13 @@ Definition parse_to_ast_def:
     | _ => NONE
 End
 
-Definition parse_funs_to_ast_def:
-  parse_funs_to_ast s =
+Definition parse_topdecs_to_ast_def:
+  parse_topdecs_to_ast s =
     (case safe_pancake_lex s of
      | INL toks =>
         (case parse toks of
            | INL e =>
-             (case conv_FunList e of
+             (case conv_TopDecList e of
               | SOME funs => INL funs
               | NONE => INR [(«Parse tree conversion failed»,unknown_loc)])
            | INR err => INR err)
