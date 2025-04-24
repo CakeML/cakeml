@@ -3787,7 +3787,7 @@ Proof
   \\ match_mp_tac state_rel_set_var2
   \\ simp[]
 QED
-
+(*
 Theorem wRegWrite1_thm3 =
   wRegWrite1_thm2
   |> Q.INST [`t`|-> `set_var v1 v2 t`]
@@ -3807,7 +3807,7 @@ Theorem wRegWrite1_thm6 =
   wRegWrite1_thm1
   |> Q.INST [`t`|-> `set_var v1 v2 (set_var v3 v4 t)`]
   |> PURE_REWRITE_RULE[wordPropsTheory.set_var_const,set_var_const];
-
+*)
 Theorem wRegWrite2_thm1:
    state_rel ac k f f' s t lens 0 ∧
    m < f' + k ∧
