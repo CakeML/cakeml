@@ -9,50 +9,6 @@ open dafny_semanticPrimitivesTheory
 
 val _ = new_theory "dafny_freshenProof";
 
-(*
-Definition state_rel_def:
-  state_rel s t m ⇔
-  s.clock = t.clock ∧ s.heap = t.heap ∧ s.cout = t.cout ∧
-  ∀local val.
-    read_local s local = SOME val ⇒
-    ∃local'.
-      ALOOKUP m local = SOME local' ∧ read_local t local' = SOME val
-End
-
-Definition is_exp_fail_def[simp]:
-  is_exp_fail (Rerr _) = T ∧
-  is_exp_fail _ = F
-End
-
-Theorem correct_exp:
-  (∀s env e s' r m cnt cnt' e' t.
-     evaluate_exp s env e = (s', r) ∧ freshen_exp m cnt e = SOME (cnt', e') ∧
-     state_rel s t m ∧ ¬(is_exp_fail r)
-     ⇒ ∃t'. evaluate_exp t env e' = (t', r) ∧ state_rel s' t' m) ∧
-  (∀s env es s' r m cnt cnt' es' t.
-     evaluate_exps s env es = (s', r) ∧
-     freshen_exps m cnt es = SOME (cnt', es') ∧
-     state_rel s t m ∧ ¬(is_exp_fail r)
-     ⇒ ∃t'. evaluate_exps t env es' = (t', r) ∧ state_rel s' t' m)
-Proof
-  cheat
-QED
-
-Theorem correct_exp:
-  (∀s env e s' res t m cnt cnt' e'.
-     evaluate_exp s env e = (s', res) ∧ state_rel s t m ∧
-     freshen_exp m cnt e = (cnt', e') ∧ m_inv m cnt ⇒
-     ∃t'. evaluate_exp t env e' = (t', res) ∧ state_rel s' t' m) ∧
-  (∀s env es s' res t m cnt cnt' es'.
-     evaluate_exps s env es = (s', res) ∧ state_rel s t m ∧
-     freshen_exps m cnt es = (cnt', es') ∧ m_inv m cnt ⇒
-     ∃t'. evaluate_exps t env es' = (t', res) ∧ state_rel s' t' m)
-Proof
-  cheat
-QED
-*)
-
-
 Definition lookup_def:
   lookup m old =
   case ALOOKUP m old of
@@ -137,25 +93,17 @@ Definition state_rel_def:
        read_local t («v» ^ num_to_str new_var) = SOME val
 End
 
-(*
-Definition m_inv_def[simp]:
-  m_inv (m: (mlstring # num) list) cnt ⇔
-    ∀c. MEM c (MAP SND m) ⇒ c < cnt
-End
-*)
-
-Theorem push_local_consts:
-  push_local s var v = s' ⇒
-  s.clock = s'.clock ∧ s.heap = s'.heap ∧ s.cout = s'.cout
-Proof
-  rpt strip_tac >> gvs [push_local_def]
-QED
-
 Theorem mlstring_common_prefix:
   ∀s t1 t2. s ^ t1 = s ^ t2 ⇔ t1 = t2
 Proof
   rpt Cases
   \\ gvs [mlstringTheory.strcat_thm,mlstringTheory.implode_def]
+QED
+
+Theorem with_same_locals[simp]:
+  ∀s. s with locals := s.locals = s
+Proof
+  gvs [state_component_equality]
 QED
 
 Theorem evaluate_exp_freshen_exp:
@@ -168,8 +116,7 @@ Theorem evaluate_exp_freshen_exp:
      freshen_exps m cnt es = (cnt', es') ∧ res ≠ Rerr Rtype_error ⇒
      ∃t'. evaluate_exps t env es' = (t', res) ∧ state_rel s' t' m cnt')
 Proof
-  ho_match_mp_tac evaluate_exp_ind
-  >> rpt strip_tac
+  ho_match_mp_tac evaluate_exp_ind \\ rpt strip_tac
   >~ [‘Lit l’] >-
    (gvs [evaluate_exp_def, freshen_exp_def])
   >~ [‘Var v’] >-
@@ -181,7 +128,9 @@ Proof
     \\ gvs [] \\ rpt (pairarg_tac \\ gvs [])
     \\ rename [‘freshen_exp m1 cnt1 e = (cnt2,e2)’]
     \\ full_simp_tac bool_ss [evaluate_exp_def, freshen_exp_def]
-    \\ ‘state_rel s t m cnt2’ by cheat
+    \\ ‘state_rel s t m cnt2’ by
+      (gvs [state_rel_def, add_fresh_def] \\ rpt strip_tac
+       \\ res_tac \\ imp_res_tac freshen_exp_mono \\ gvs [])
     \\ IF_CASES_TAC >- gvs []
     \\ ‘t.clock = s.clock’ by gvs [state_rel_def]
     \\ IF_CASES_TAC >- gvs []
@@ -226,7 +175,30 @@ Proof
     \\ reverse IF_CASES_TAC >- gvs []
     \\ gvs [mlstring_common_prefix,mlintTheory.num_to_str_11]
     \\ res_tac \\ gvs [])
+  >~ [‘FunCall name args’] >-
+   (gvs [freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘freshen_exps _ _ _ = (cnt₁, args')’]
+    \\ gvs [evaluate_exp_def]
+    \\ Cases_on ‘FLOOKUP env.functions name’ \\ gvs []
+    \\ namedCases_on ‘x’ ["in_ns body"] \\ gvs []
+    \\ namedCases_on ‘evaluate_exps s env args’ ["s₁ r"] \\ gvs []
+    \\ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
+    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
+    \\ last_x_assum kall_tac
+    \\ rename [‘state_rel s₁ t₁ m cnt₁’]
+    \\ gvs [set_up_call_def] \\ CASE_TAC \\ gvs []
+    \\ rename [‘safe_zip _ _ = SOME ins’]
+    \\ ‘s₁.clock = t₁.clock’ by gvs [state_rel_def]
+    \\ Cases_on ‘s₁.clock = 0’ \\ gvs [] >- gvs [restore_locals_def]
+    \\ namedCases_on ‘evaluate_exp (dec_clock (s₁ with locals := [FEMPTY |++ ins])) env body’ ["s₂ r"] \\ gvs []
+    \\ ‘s₁ with locals := [FEMPTY |++ ins] = t₁ with locals := [FEMPTY |++ ins]’
+      by gvs [state_component_equality, state_rel_def]
+    \\ rpt strip_tac \\ gvs []
+    \\ namedCases_on ‘r’ ["v", "err"] \\ gvs []
+    \\ gvs [restore_locals_def, state_rel_def, read_local_def, SF SFY_ss])
   \\ cheat
+
 (*
   >- gvs [evaluate_exp_def, freshen_exp_def]
   >- gvs [evaluate_exp_def, freshen_exp_def, state_rel_def, CaseEq "option"]

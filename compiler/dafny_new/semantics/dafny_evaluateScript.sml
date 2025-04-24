@@ -88,10 +88,12 @@ Definition evaluate_exp_ann_def[nocompute]:
      (case fix_clock st₀ (evaluate_exps st₀ env args) of
       | (st₁, Rerr err) => (st₁, Rerr err)
       | (st₁, Rval in_vs) =>
-          (case set_up_call st₁ in_names in_vs [] of
-           | NONE => (st₁, Rerr Rtype_error)
-           | SOME (old_locals, st₂) =>
-             if st₂.clock = 0 then (st₂, Rerr Rtimeout_error) else
+        (case set_up_call st₁ in_names in_vs [] of
+         | NONE => (st₁, Rerr Rtype_error)
+         | SOME (old_locals, st₂) =>
+           if st₂.clock = 0
+           then (restore_locals st₂ old_locals, Rerr Rtimeout_error)
+           else
              (case evaluate_exp (dec_clock st₂) env body of
               | (st₃, Rerr err) => (restore_locals st₃ old_locals, Rerr err)
               | (st₃, Rval v) => (restore_locals st₃ old_locals, Rval v))))) ∧
