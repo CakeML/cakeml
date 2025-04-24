@@ -93,6 +93,13 @@ Definition state_rel_def:
        read_local t («v» ^ num_to_str new_var) = SOME val
 End
 
+Theorem state_rel_mono:
+  ∀ s t m cnt cnt'.
+    state_rel s t m cnt ∧ cnt ≤ cnt' ⇒ state_rel s t m cnt'
+Proof
+  gvs [state_rel_def] \\ rpt strip_tac \\ res_tac \\ gvs []
+QED
+
 Theorem mlstring_common_prefix:
   ∀s t1 t2. s ^ t1 = s ^ t2 ⇔ t1 = t2
 Proof
@@ -105,6 +112,7 @@ Theorem with_same_locals[simp]:
 Proof
   gvs [state_component_equality]
 QED
+
 
 Theorem evaluate_exp_freshen_exp:
   (∀s env e s' res t m cnt cnt' e'.
@@ -142,9 +150,7 @@ Proof
     \\ IF_CASES_TAC >- gvs []
     \\ gvs []
     \\ qsuff_tac ‘∀v. v ∈ all_values ty ⇒ SND (f v) = SND (g v)’ >-
-     (rpt strip_tac
-      (* todo: try holyhammer *)
-      \\ gvs [] \\ gvs [AllCaseEqs()] \\ metis_tac [])
+     (rpt strip_tac \\ gvs [AllCaseEqs()] \\ metis_tac [])
     \\ unabbrev_all_tac \\ gvs []
     \\ qx_gen_tac ‘val’
     \\ Cases_on ‘evaluate_exp (push_local s v val) env e’ \\ gvs []
@@ -197,7 +203,27 @@ Proof
     \\ rpt strip_tac \\ gvs []
     \\ namedCases_on ‘r’ ["v", "err"] \\ gvs []
     \\ gvs [restore_locals_def, state_rel_def, read_local_def, SF SFY_ss])
+  >~ [‘If tst thn els’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac freshen_exp_mono
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp s env tst’ ["s₁ r"] \\ gvs []
+    \\ reverse $ namedCases_on ‘r’ ["tst_v", "err"] \\ gvs []
+    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
+    \\ imp_res_tac state_rel_mono
+    \\ rename [‘evaluate_exp t env tst' = (t₁,Rval tst_v)’]
+    \\ namedCases_on ‘do_cond tst_v thn els’ ["", "branch"] \\ gvs []
+    \\ namedCases_on ‘do_cond tst_v thn' els'’ ["", "branch'"] \\ gvs []
+    \\ gvs [oneline do_cond_def, AllCaseEqs ()]
+    \\ last_x_assum $ drule_at $ Pos $ el 2
+    \\ disch_then $ drule  \\ rpt strip_tac \\ gvs []
+    \\ imp_res_tac state_rel_mono)
   \\ cheat
+  (* >~ [‘UnOp uop e’] >- *)
+  (* >~ [‘BinOp bop e₀ e₁’] >- *)
+  (* >~ [‘ArrLen uop e’] >- *)
+
 
 (*
   >- gvs [evaluate_exp_def, freshen_exp_def]
