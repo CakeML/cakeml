@@ -205,7 +205,7 @@ Proof
           FLOOKUP s1.store NextFree = SOME (Word next)` by
             fs [state_rel_def,heap_in_memory_store_def]
     \\ rfs [lookup_insert,EVAL ``read_bytearray a 0 m``,
-            cut_env_adjust_sets_ODD]
+            cut_env_adjust_sets_insert_ODD]
     \\ rveq \\ rfs [add_space_def,cut_locals_def] \\ fs [GSYM NOT_LESS]
     \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
     \\ fs [add_space_def] \\ fs [state_rel_thm] \\ rfs [] \\ fs []
