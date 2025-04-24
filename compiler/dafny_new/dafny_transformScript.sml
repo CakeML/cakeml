@@ -5,39 +5,56 @@
 open preamble
 open dafny_astTheory
 open mlintTheory
+open dafny_evaluateTheory
 
 val _ = new_theory "dafny_transform";
 
 (* Transform: Pulls Dafny declarations to the top with unique names. *)
 
 Definition rename_var_exp_def:
-  rename_var_exp old new e =
+  rename_var_exp m e =
   (case e of
    | Lit l => Lit l
-   | Var n => if n = old then Var new else Var n
+   | Var v =>
+     (case ALOOKUP m v of
+      | NONE => Var v
+      | SOME v' => Var v')
    | If tst thn els =>
-     (let tst = rename_var_exp old new tst;
-          thn = rename_var_exp old new thn;
-          els = rename_var_exp old new els in
+     (let tst = rename_var_exp m tst;
+          thn = rename_var_exp m thn;
+          els = rename_var_exp m els in
         If tst thn els)
-   | UnOp uop e => UnOp uop (rename_var_exp old new e)
+   | UnOp uop e => UnOp uop (rename_var_exp m e)
    | BinOp bop e₁ e₂ =>
-     (let e₁ = rename_var_exp old new e₁;
-          e₂ = rename_var_exp old new e₂ in
+     (let e₁ = rename_var_exp m e₁;
+          e₂ = rename_var_exp m e₂ in
         BinOp bop e₁ e₂)
-   | ArrLen arr => ArrLen (rename_var_exp old new arr)
+   | ArrLen arr => ArrLen (rename_var_exp m arr)
    | ArrSel arr idx =>
-      (let arr = rename_var_exp old new arr;
-           idx = rename_var_exp old new idx in
+      (let arr = rename_var_exp m arr;
+           idx = rename_var_exp m idx in
          ArrSel arr idx)
-   | FunCall n args => FunCall n (MAP (rename_var_exp old new) args)
+   | FunCall n args => FunCall n (MAP (rename_var_exp m) args)
    | Forall (vn, vt) e =>
-       (* NOTE This could lead to capturing if new = vn *)
-       if vn = old then Forall (vn, vt) e
-       else Forall (vn, vt) (rename_var_exp old new e))
+     (let
+        (* Remove remapping of vn, since Forall binds it *)
+        m = FILTER (λ(old, new). old ≠ vn) m
+      in
+        Forall (vn, vt) (rename_var_exp m e)))
 Termination
-  wf_rel_tac ‘measure $ λ(_,_,e). exp_size e’
+  wf_rel_tac ‘measure $ λ(_,e). exp_size e’
 End
+
+Definition state_rel_def:
+  state_rel s s' m = T
+End
+
+Theorem foo:
+  ∀s env e s' m.
+    state_rel s s' m ⇒
+    evaluate_exp s env e = evaluate s' env (rename_var_exp m e)
+Proof
+QED
 
 Definition rename_vars_exp_def:
   rename_vars_exp m e =
@@ -334,6 +351,10 @@ Definition fresh_member_def:
       in
         Function n ins res_t req rds decrs body))
 End
+
+(* TODO "Pull out dec" as a separate function *)
+(* TODO Proof: Renaming doesnt change semantics *)
+(* TODO Stay closer to original names *)
 
 Definition use_fresh_vars_def:
   use_fresh_vars (Program members) = Program (MAP fresh_member members)

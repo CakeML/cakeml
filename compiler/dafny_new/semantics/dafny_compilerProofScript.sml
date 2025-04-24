@@ -20,11 +20,6 @@ Type cml_env[pp] = “:v semanticPrimitives$sem_env”
 Type cml_exp[pp] = “:ast$exp”
 Type cml_res[pp] = “:(v list, v) semanticPrimitives$result”
 
-Definition state_rel_def:
-  state_rel s t ⇔
-    ∀map l, map ∈ s.locals ∧ l ∈ FDOM map
-End
-
 Definition env_rel_def:
   env_rel env_dfy env_cml ⇔
     nsLookup env_cml.c (Short "True") = SOME (0, TypeStamp "True" 0) ∧
@@ -36,6 +31,26 @@ Definition val_rel_def:
   (val_rel (IntV i₀) (Litv (IntLit i₁)) ⇔ i₀ = i₁) ∧
   (val_rel (StrV ms) (Litv (StrLit s)) ⇔ (explode ms) = s) ∧
   (val_rel _ _ ⇔ F)
+End
+
+Definition val_opt_ref_def:
+  val_opt_ref val_opt ref = T
+End
+
+Definition state_rel_def:
+  state_rel s t ⇔
+  ∃params decs locals_to_cml heap_to_cml.
+    s.locals = [params; decs] ∧
+    (let
+       locals = params ⊌ decs;
+       heap_dom = count (LENGTH s.heap)
+     in
+       INJ locals_to_cml (FDOM locals) 𝕌(:num) ∧
+       INJ heap_to_cml heap_dom 𝕌(:num) ∧
+       ∀var ref.
+         var ∈ (FDOM locals) ⇒
+         store_lookup (locals_to_cml var) t.refs = SOME ref ∧
+         val_opt_ref (locals ' var) ref)
 End
 
 Definition exp_res_rel_def:
