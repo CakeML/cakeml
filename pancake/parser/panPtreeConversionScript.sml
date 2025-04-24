@@ -104,7 +104,7 @@ Definition conv_ffi_ident_def:
 End
 
 Definition conv_var_def:
-  conv_var t = lift Var (conv_ident t)
+  conv_var t = lift (Var Local) (conv_ident t)
 End
 
 (** Collection of binop expression nodes, n >= 2 *)
@@ -363,14 +363,13 @@ Termination
   >> drule_then assume_tac mem_ptree_thm >> gvs[]
 End
 
-
 (** Handles all statements which cannot contain
   * Prog nodes as children. *)
 Definition conv_NonRecStmt_def:
   (conv_NonRecStmt (Nd nodeNT args) =
     if isNT nodeNT AssignNT then
       case args of
-        [dst; src] => lift2 Assign (conv_ident dst) (conv_Exp src)
+        [dst; src] => lift2 (Assign Local) (conv_ident dst) (conv_Exp src)
       | _ => NONE
     else if isNT nodeNT StoreNT then
       case args of
@@ -382,15 +381,15 @@ Definition conv_NonRecStmt_def:
       | _ => NONE
     else if isNT nodeNT SharedLoadNT then
       case args of
-        [v; e] => lift2 (ShMemLoad OpW) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad OpW Local) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedLoadByteNT then
       case args of
-        [v; e] => lift2 (ShMemLoad Op8) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad Op8 Local) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedLoad32NT then
       case args of
-        [v; e] => lift2 (ShMemLoad Op32) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad Op32 Local) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedStoreNT then
       case args of
