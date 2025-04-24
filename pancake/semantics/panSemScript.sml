@@ -29,6 +29,7 @@ Overload ValLabel = “\l. Val (Label l)”
 Datatype:
   state =
     <| locals      : varname |-> 'a v
+     ; globals     : varname |-> 'a v
      ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
                      (* arguments (with shape), body *)
      ; eshapes     : eid |-> shape
@@ -120,9 +121,16 @@ Definition pan_op_def:
   pan_op _ _ = NONE
 End
 
+Definition lookup_var_def:
+  lookup_var ^s v =
+  case FLOOKUP s.locals v of
+    SOME v => SOME v
+  | NONE => FLOOKUP s.globals v
+End
+
 Definition eval_def:
   (eval ^s (Const w) = SOME (ValWord w)) /\
-  (eval s  (Var v) = FLOOKUP s.locals v) /\
+  (eval s  (Var v) = lookup_var s v) /\
   (eval s (Label fname) =
     case FLOOKUP s.code fname of
      | SOME _ => SOME (ValLabel fname)
@@ -204,7 +212,6 @@ Definition write_bytearray_def:
      case mem_store_byte (write_bytearray (a+1w) bs m dm be) dm be a b of
      | SOME m => m
      | NONE => m)
-
 End
 
 (*
@@ -240,9 +247,16 @@ Termination
   fs [MEM_IMP_v_size]
 End
 
+Definition set_local_def:
+  set_local v value ^s =
+    (s with locals := s.locals |+ (v,value))
+End
+
 Definition set_var_def:
   set_var v value ^s =
-    (s with locals := s.locals |+ (v,value))
+  case FLOOKUP s.locals v of
+    NONE => s with globals := s.globals |+ (v,value)
+  | SOME _ => s with locals := s.locals |+ (v,value)
 End
 
 Definition upd_locals_def:
@@ -372,7 +386,7 @@ Definition evaluate_def:
   (evaluate (ShMemLoad op v ad,s) =
     case eval s ad of
     | SOME (ValWord addr) =>
-        (case FLOOKUP s.locals v of
+        (case lookup_var s v of
            SOME (Val _) => sh_mem_load v addr (nb_op op) s
          | _ => (SOME Error, s))
      | _ => (SOME Error, s)) /\
@@ -440,7 +454,7 @@ Definition evaluate_def:
                     | SOME (NONE, _) => (NONE, st with locals := s.locals)
                     | SOME (SOME rt,  _) =>
                        if is_valid_value s.locals rt retv
-                       then (NONE, set_var rt retv (st with locals := s.locals))
+                       then (NONE, set_local rt retv (st with locals := s.locals))
                        else (SOME Error,st))
               | (SOME (Exception eid exn),st) =>
                   (case caltyp of
@@ -451,7 +465,7 @@ Definition evaluate_def:
                        case FLOOKUP s.eshapes eid of
                         | SOME sh =>
                             if shape_of exn = sh ∧ is_valid_value s.locals evar exn then
-                              evaluate (p, set_var evar exn (st with locals := s.locals))
+                              evaluate (p, set_local evar exn (st with locals := s.locals))
                             else (SOME Error,st)
                         | NONE => (SOME Error,st)
                       else (SOME (Exception eid exn), empty_locals st))
@@ -472,7 +486,7 @@ Definition evaluate_def:
               | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
                   if shape_of retv = shape then
-                    let (res',st') = evaluate (prog1, set_var rt retv (st with locals := s.locals)) in
+                    let (res',st') = evaluate (prog1, set_local rt retv (st with locals := s.locals)) in
                       (res',st' with locals := res_var st'.locals (rt, FLOOKUP s.locals rt))
                   else
                     (SOME Error, st)
@@ -495,13 +509,9 @@ Definition evaluate_def:
 Termination
   wf_rel_tac `(inv_image (measure I LEX measure (prog_size (K 0)))
                (\(xs,^s). (s.clock,xs)))` >>
-  rpt strip_tac >> TRY (full_simp_tac(srw_ss())[] >> DECIDE_TAC) >>
-  imp_res_tac fix_clock_IMP_LESS_EQ >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac (GSYM fix_clock_IMP_LESS_EQ) >>
-  full_simp_tac(srw_ss())[set_var_def,upd_locals_def,dec_clock_def, LET_THM] >>
-  rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  decide_tac
+  rw[] >>
+  gvs[set_var_def,set_local_def,upd_locals_def,dec_clock_def, UNCURRY_eq_pair,
+      oneline fix_clock_def, AllCaseEqs()]
 End
 
 val evaluate_ind = theorem"evaluate_ind";
@@ -526,20 +536,13 @@ Theorem evaluate_clock:
    !prog s r s'. (evaluate (prog,s) = (r,s')) ==>
                  s'.clock <= s.clock
 Proof
-  recInduct evaluate_ind >>
-  REPEAT STRIP_TAC >>
-  POP_ASSUM MP_TAC >> ONCE_REWRITE_TAC [evaluate_def] >>
-  rw [] >> every_case_tac >>
-  fs [set_var_def, upd_locals_def, empty_locals_def, dec_clock_def, LET_THM] >>
-  rveq >> fs [] >>
-  rpt (pairarg_tac >> fs []) >>
-  every_case_tac >> fs [] >> rveq >>
-  imp_res_tac fix_clock_IMP_LESS_EQ >>
-  imp_res_tac LESS_EQ_TRANS >> fs [] >> rfs [] >>
-  ‘s.clock <= s.clock + 1’ by DECIDE_TAC >>
-  res_tac >> fs []>>
-  Cases_on ‘op’>>fs[nb_op_def,sh_mem_load_def,sh_mem_store_def]>>
-  every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[]
+  recInduct evaluate_ind >> rpt strip_tac >>
+  qpat_x_assum ‘evaluate _ = _’ mp_tac >>
+  rw[Once evaluate_def] >>
+  gvs[AllCaseEqs(), UNCURRY_eq_pair,
+      set_var_def, set_local_def, upd_locals_def, empty_locals_def, dec_clock_def,
+      sh_mem_load_def,sh_mem_store_def, lookup_var_def, oneline fix_clock_def,
+      SF DNF_ss]
 QED
 
 Theorem fix_clock_evaluate:

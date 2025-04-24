@@ -80,6 +80,10 @@ Datatype:
        | Annot mlstring mlstring
 End
 
+Datatype:
+  decl = Function mlstring ((mlstring # shape) list) ('a prog)
+       | Global   mlstring ('a exp)
+End
 (*
 Datatype:
   handler = Handle eid varname ('a prog)
