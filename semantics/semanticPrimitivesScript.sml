@@ -197,7 +197,7 @@ Datatype:
   (* An array of values *)
   | Varray ('a list)
   (* Thunk *)
-  | Thunk bool 'a
+  | Thunk bool 'a (* T means evaluated *)
 End
 
 Definition store_v_same_type_def:
@@ -206,7 +206,7 @@ Definition store_v_same_type_def:
     | (Refv _,    Refv _   ) => T
     | (W8array _, W8array _) => T
     | (Varray _,  Varray _ ) => T
-    | (Thunk T _, Thunk _ _) => T  (* the thunk being updated must have T set *)
+    | (Thunk F _, Thunk _ _) => T  (* the thunk being updated must have F set *)
     | _ => F
 End
 
