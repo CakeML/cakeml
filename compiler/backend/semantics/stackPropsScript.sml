@@ -72,8 +72,11 @@ Proof
 QED
 
 Theorem set_var_with_const[simp]:
-   set_var x y (z with clock := k) = set_var x y z with clock := k ∧
-   set_var x y (z with stack_space := k) = set_var x y z with stack_space := k
+   set_var x y (z with clock := clk) = set_var x y z with clock := clk ∧
+   set_var x y (z with memory := m) = set_var x y z with memory := m ∧
+   set_var x y (z with ffi := ffi) = set_var x y z with ffi := ffi /\
+   set_var x y (z with stack := stk) = set_var x y z with stack := stk /\
+   set_var x y (z with stack_space := stk_space) = set_var x y z with stack_space := stk_space
 Proof
   EVAL_TAC
 QED

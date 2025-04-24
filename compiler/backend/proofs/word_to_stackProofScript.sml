@@ -60,13 +60,6 @@ Proof
   EVAL_TAC
 QED
 
-Theorem set_var_with_const:
-   stackSem$set_var n v (t with stack := stack) = set_var n v t with stack := stack /\
-   stackSem$set_var n v (t with ffi := ffi) = set_var n v t with ffi := ffi
-Proof
-  EVAL_TAC
-QED
-
 Theorem set_var_swap:
    a ≠ a' ⇒ stackSem$set_var a b (set_var a' b' c) = set_var a' b' (set_var a b c)
 Proof
@@ -93,15 +86,6 @@ Proof
   EVAL_TAC \\ simp[wordSemTheory.state_component_equality,insert_shadow]
 QED
 
-Theorem get_var_with_const[simp]:
-  stackSem$get_var r (t with clock := clk) =
-  (stackSem$get_var r t) /\
-  stackSem$get_var r (t with stack_space := stk_space) =
-  (stackSem$get_var r t)
-Proof
-  rw[stackSemTheory.get_var_def]
-QED
-
 Theorem get_var_set_var[simp]:
     stackSem$get_var k (set_var k v st) = SOME v
 Proof
@@ -109,9 +93,8 @@ Proof
   fs[FLOOKUP_UPDATE]
 QED
 
-Theorem clock_add_0[simp]:
-   ((t with clock := t.clock + 0) = t:('a,'c,'ffi) stackSem$state) /\
-    ((t with clock := t.clock) = t:('a,'c,'ffi) stackSem$state)
+Theorem state_with_const[simp]:
+    (t with clock := t.clock) = ^t
 Proof
   fs [stackSemTheory.state_component_equality]
 QED
@@ -125,19 +108,6 @@ QED
 (* Move to stackProps END*)
 
 (* TODO delete*)
-
-Triviality MEM_TAKE:
-  !xs n x. MEM x (TAKE n xs) ==> MEM x xs
-Proof
-  MATCH_ACCEPT_TAC MEM_TAKE
-QED
-
-Triviality MEM_LASTN_ALT:
-  !xs n x. MEM x (LASTN n xs) ==> MEM x xs
-Proof
-  MATCH_ACCEPT_TAC MEM_LASTN
-QED
-
 Theorem DROP_DROP_EQ:
    !n m xs. DROP m (DROP n xs) = DROP (m + n) xs
 Proof
@@ -305,7 +275,7 @@ QED
 Triviality EVERY_IMP_EVERY_LASTN:
   !xs ys P. EVERY P xs /\ LASTN n xs = ys ==> EVERY P ys
 Proof
-  fs [EVERY_MEM] \\ rw [] \\ imp_res_tac MEM_LASTN_ALT \\ res_tac \\ fs []
+  fs [EVERY_MEM] \\ rw [] \\ imp_res_tac MEM_LASTN \\ res_tac \\ fs []
 QED
 
 Triviality LASTN_HD:
@@ -3781,7 +3751,7 @@ Proof
   `∀A:('a,'b,'c) stackSem$state B. stackSem$set_var 0 v' A with stack:= B =
          set_var 0 v' (A with stack:=B)` by
     fs[stackSemTheory.set_var_def]>>
-  simp[]>>
+  pop_assum (asm_simp_tac(bool_ss) o single) >>
   match_mp_tac (state_rel_set_var |> Q.GEN`x`|>Q.SPEC`0`|>SIMP_RULE std_ss[])>>
   fs[]
   \\ match_mp_tac state_rel_set_var2
