@@ -113,7 +113,6 @@ Proof
   gvs [state_component_equality]
 QED
 
-
 Theorem evaluate_exp_freshen_exp:
   (∀s env e s' res t m cnt cnt' e'.
      evaluate_exp s env e = (s', res) ∧ state_rel s t m cnt ∧
@@ -219,122 +218,56 @@ Proof
     \\ last_x_assum $ drule_at $ Pos $ el 2
     \\ disch_then $ drule  \\ rpt strip_tac \\ gvs []
     \\ imp_res_tac state_rel_mono)
-  \\ cheat
-  (* >~ [‘UnOp uop e’] >- *)
-  (* >~ [‘BinOp bop e₀ e₁’] >- *)
-  (* >~ [‘ArrLen uop e’] >- *)
-
-
-(*
-  >- gvs [evaluate_exp_def, freshen_exp_def]
-  >- gvs [evaluate_exp_def, freshen_exp_def, state_rel_def, CaseEq "option"]
-  >- cheat
-   (* (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs ()] *)
-   (*  >> rpt (pairarg_tac \\ gvs []) *)
-   (*  >> last_x_assum $ drule_all >> strip_tac *)
-   (*  >> gvs [evaluate_exp_def, oneline do_cond_def, AllCaseEqs ()] *)
-   (*  >> qsuff_tac ‘∀c. MEM c (MAP SND m) ⇒ c < cnt''’ >> rpt strip_tac *)
-   (*  >- (last_x_assum $ drule_all >> strip_tac >> gvs []) *)
-   (*  >- (first_assum $ drule_then assume_tac >> imp_res_tac foo >> decide_tac) *)
-   (*  >- (last_x_assum $ drule_all >> strip_tac >> gvs [])) *)
-  >- cheat
-   (* (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs ()] *)
-   (*  >> rpt (pairarg_tac \\ gvs []) *)
-   (*  >> last_x_assum $ drule_all >> strip_tac >> gvs [evaluate_exp_def]) *)
-  >- cheat
-   (* (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs ()] *)
-   (*  >> rpt (pairarg_tac \\ gvs []) *)
-   (*  >> rpt (last_x_assum $ drule_all >> strip_tac) >> gvs [evaluate_exp_def]) *)
-  >- cheat
-   (* (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs ()] *)
-   (*  >> rpt (pairarg_tac \\ gvs []) *)
-   (*  >> last_x_assum $ drule_all >> strip_tac >> gvs [evaluate_exp_def]) *)
-  >- cheat
-   (* (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs ()] *)
-   (*  >> rpt (pairarg_tac \\ gvs []) *)
-   (*  >> rpt (last_x_assum $ drule_all >> strip_tac) *)
-   (*  >> gvs [evaluate_exp_def, index_array_def, state_rel_def]) *)
-  >- cheat
-   (* (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs ()] *)
-  (*   >> rpt (pairarg_tac \\ gvs []) *)
-  (*   >- gvs [evaluate_exp_def] *)
-  (*   >- *)
-  (*    (last_x_assum $ drule_all >> strip_tac >> gvs [evaluate_exp_def, state_rel_def]) *)
-  (*   >- *)
-  (*    (last_x_assum $ drule_all >> strip_tac *)
-  (*     >> gvs [evaluate_exp_def, set_up_call_def, state_rel_def, AllCaseEqs ()]) *)
-  (*   >- *)
-  (*    (last_x_assum $ drule_all >> strip_tac *)
-  (*     >> gvs [evaluate_exp_def, state_rel_def, set_up_call_def, *)
-  (*             restore_locals_def, AllCaseEqs ()] *)
-  (*     >> qsuff_tac ‘(t' with locals := [FEMPTY |++ params]) = (st₁ with locals := [FEMPTY |++ params])’ *)
-  (*     >- (rpt strip_tac >> gvs [read_local_def]) *)
-  (*     >- gvs [state_component_equality]) *)
-  (*   >- *)
-  (*    (last_x_assum $ drule_all >> strip_tac *)
-  (*     >> gvs [evaluate_exp_def, set_up_call_def, state_rel_def, *)
-  (*             restore_locals_def, AllCaseEqs ()] *)
-  (*     >> qsuff_tac ‘(t' with locals := [FEMPTY |++ params]) = (st₁ with locals := [FEMPTY |++ params])’ *)
-  (*     >- (rpt strip_tac >> gvs [read_local_def]) *)
-  (*     >- gvs [state_component_equality]) *)
-  (*   >- (last_x_assum $ drule_all >> strip_tac >> gvs [evaluate_exp_def])) *)
-  (* >- *)
-  (*  (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs ()] *)
-  (*   >> rpt (pairarg_tac \\ gvs []) *)
-  (*   >> gvs [evaluate_exp_def, state_rel_def, AllCaseEqs ()]) *)
-  >-
-   (gvs [freshen_exp_def] >> rpt (pairarg_tac \\ gvs [])
-    >> gvs [evaluate_exp_def, state_rel_def, AllCaseEqs ()]
-    >-
-     (qexists ‘v’ >> gvs []
-      >> Cases_on ‘evaluate_exp (dec_clock (push_local s vn v)) env e’ >> gvs []
-      >> last_x_assum $ drule_then assume_tac
-      >> pop_assum $ qspecl_then [‘dec_clock (push_local t (lookup m' vn) v)’,
-                                  ‘m'’, ‘cnt''’, ‘cnt'’, ‘e''’] mp_tac
-      >> impl_tac
-      >- (gvs [dec_clock_def, push_local_def, add_fresh_def, AllCaseEqs ()]
-          >> rpt strip_tac
-          >- (Cases_on ‘vn = old’
-              >- gvs [read_local_def, lookup_def, read_local_aux_def, FLOOKUP_SIMP]
-              >- (gvs [read_local_def, FLOOKUP_SIMP, lookup_def] >> CASE_TAC
-                  >> first_x_assum $ qspec_then ‘old’ assume_tac
-                  >> gvs [read_local_aux_def, FLOOKUP_SIMP, AllCaseEqs ()] >> rpt strip_tac)))
-
-
-      >> Cases_on ‘evalt v’ >> gvs []
-      >> last_x_assum $ drule_then assume_tac
-      >> imp_res_tac foobar
-
-        >> pop_assum $ qspecl_then [‘(dec_clock (push_local t' var v))’, ‘m'’] assume_tac
-        >> gvs [push_local_def, dec_clock_def, read_local_def,
-                read_local_aux_def, FLOOKUP_SIMP, AllCaseEqs ()]
-        >> first_x_assum $ drule_then assume_tac
-
-    )
-
-
-
-  (* >- (rename [‘Forall (var, ty)’, ‘state_rel s t’] *)
-  (*     >> FULL_SIMP_TAC (srw_ss()) [evaluate_exp_def] *)
-  (*     >> qmatch_goalsub_abbrev_tac ‘LET _ evalt’ >> simp [] *)
-  (*     >> qmatch_asmsub_abbrev_tac ‘LET _ evals’ *)
-  (*     >> qpat_x_assum ‘COND _ _ _ = _’ $ mp_tac >> *)
-  (*     >- (first_assum $ irule_at Any >> gvs [] *)
-  (*         >> Cases_on ‘evaluate_exp (dec_clock (push_local s var v)) env e’ >> gvs [] *)
-  (*         >> last_x_assum $ drule >> rpt strip_tac >> gvs [] *)
-  (*         >> pop_assum $ qspecl_then [‘(dec_clock (push_local t var v))’, ‘(FILTER (λ(old,new). old ≠ var) m)’] mp_tac *)
-  (*         >> impl_tac *)
-  (*         >- (simp [push_local_def, dec_clock_def] >> gvs [ALOOKUP_FILTER] >> rw[] *)
-  (*             >- (CASE_TAC >> gvs [read_local_def, read_local_aux_def, FLOOKUP_SIMP] *)
-  (*                 >- first_x_assum $ qspec_then ‘old’ (simp o single o Once o SYM) *)
-  (*                 >- (rw [] *)
-  (*                     >- (first_x_assum $ qspec_then ‘old’ (simp o single o Once o SYM) *)
-  (*                     >> cheat) *)
-  (*                     >- first_x_assum $ qspec_then ‘old’ (simp o single o Once o SYM))) *)
-  (*             >- gvs [read_local_def, read_local_aux_def, FLOOKUP_SIMP]) *)
-  (*         >> rpt strip_tac >> gvs []) *)
-  (*     >- *)
-*)
+  >~ [‘UnOp uop e’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp s env e’ ["s₁ r"] \\ gvs []
+    \\ namedCases_on ‘r’ ["v", "err"] \\ gvs []
+    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
+    \\ namedCases_on ‘do_uop uop v’ ["", "r"] \\ gvs [])
+  >~ [‘BinOp bop e₀ e₁’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘freshen_exp m cnt e₀ = (cnt₁,e₀')’,
+               ‘freshen_exp m cnt₁ e₁ = (cnt₂,e₁')’]
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp s env e₀’ ["s₁ r"] \\ gvs []
+    \\ reverse $ namedCases_on ‘r’ ["v₀", "err"] \\ gvs []
+    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
+    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono)
+    \\ rename [‘evaluate_exp t₁ env e₁'’]
+    \\ reverse $ namedCases_on ‘try_sc bop v₀’ ["", "r"] \\ gvs []
+    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono)
+    \\ namedCases_on ‘evaluate_exp s₁ env e₁’ ["s₂ r"] \\ gvs []
+    \\ reverse $ namedCases_on ‘r’ ["v₁", "err"] \\ gvs []
+    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
+    \\ namedCases_on ‘do_bop bop v₀ v₁’ ["", "r"] \\ gvs [])
+  >~ [‘ArrLen arr’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp s env arr’ ["s₁ r"]
+    \\ namedCases_on ‘r’ ["arr_v", "err"] \\ gvs []
+    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
+    \\ namedCases_on ‘get_array_len arr_v’ ["", "len"] \\ gvs [])
+  >~ [‘ArrSel arr idx’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp s env arr’ ["s₁ r"]
+    \\ reverse $ namedCases_on ‘r’ ["arr_v", "err"] \\ gvs []
+    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
+    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono)
+    \\ rename [‘evaluate_exp t _ _' = (t₁, _)’]
+    \\ namedCases_on ‘evaluate_exp s₁ env idx’ ["s₂ r"]
+    \\ namedCases_on ‘r’ ["idx_v", "err"] \\ gvs []
+    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
+    \\ rename [‘evaluate_exp t₁ _ _' = (t₂, _)’]
+    \\ namedCases_on ‘index_array s₂ arr_v idx_v’ ["", "v"] \\ gvs []
+    \\ namedCases_on ‘index_array t₂ arr_v idx_v’ ["", "v'"] \\ gvs []
+    \\ gvs [index_array_def, state_rel_def, AllCaseEqs ()])
+   \\ cheat
 QED
 
 
