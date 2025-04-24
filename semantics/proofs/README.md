@@ -7,7 +7,6 @@ TODO: delete this theory (it has no content)
 [cmlPtreeConversionPropsScript.sml](cmlPtreeConversionPropsScript.sml):
 Definition of a function for mapping types back to ASTs, and proofs that
 check that the conversion functions are doing something reasonable.
-TODO: check this description is correct
 
 [evaluateComputeLib.sml](evaluateComputeLib.sml):
 A compset for the operational semantics.

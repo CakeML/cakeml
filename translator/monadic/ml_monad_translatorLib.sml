@@ -54,8 +54,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars
-           ml_monad_translatorTheory.ml_monad_translator_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname="ml_monad_translator"}
   end
   open Parse
 
@@ -2748,7 +2747,7 @@ fun extract_precondition_non_rec th pre_var =
     val rw_thms = FALSE_def::TRUE_def::rw_thms
     val c = (REWRITE_CONV [CONTAINER_def, PRECONDITION_def] THENC
              ONCE_REWRITE_CONV [GSYM PRECONDITION_def] THENC
-             SIMP_CONV (srw_ss()) rw_thms)
+             SIMP_CONV (srw_ss()++ARITH_ss) rw_thms)
     val c = (RATOR_CONV o RAND_CONV) c
     val th = CONV_RULE c th
     val rhs = th |> concl |> dest_imp |> fst |> rand
@@ -2812,7 +2811,7 @@ fun extract_precondition_rec thms = let
   fun is_true_pre (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) =
     ((tm2 |> subst ss
           |> QCONV (REWRITE_CONV
-                ([rw2, PreImp_def, PRECONDITION_def, CONTAINER_def] @ rw_thms))
+                ([rw2, PreImp_def, PRECONDITION_def, CONTAINER_def] @ rw_thms) THENC SIMP_CONV (srw_ss()++ARITH_ss) [FALSE_def,TRUE_def])
           |> concl |> rand) |> Teq)
   val no_pre = (not o (List.exists (fn x => not x))) (List.map is_true_pre thms)
 

@@ -151,16 +151,16 @@ Proof
   \\ once_rewrite_tac [term_ok_int_def]
   \\ fs [case_elim_thms, case_eq_thms, pair_case_eq, bool_case_eq] \\ rw []
   \\ TRY
-   (fs [ty_rel_def, LIST_REL_EL_EQN, evaluate_def, pair_case_eq, bool_case_eq]
+   (gvs [ty_rel_def, LIST_REL_EL_EQN, evaluate_def, pair_case_eq, bool_case_eq]
     \\ NO_TAC)
   \\ TRY
    (rename1 `is_const op` \\ Cases_on `op` \\ fs []
-    \\ fs [evaluate_def, pair_case_eq, bool_case_eq, do_app_def,
+    \\ gvs [evaluate_def, pair_case_eq, bool_case_eq, do_app_def,
            do_app_aux_def, bvlSemTheory.do_app_def, small_int_def,
            backend_commonTheory.small_enough_int_def]
     \\ rw [] \\ fs [])
   \\ rename1 `is_arith op` \\ Cases_on `op` \\ fs [is_arith_def]
-  \\ fs [evaluate_def, pair_case_eq, bool_case_eq, do_app_def,
+  \\ gvs [evaluate_def, pair_case_eq, bool_case_eq, do_app_def,
          do_app_aux_def, bvlSemTheory.do_app_def, small_int_def,
          backend_commonTheory.small_enough_int_def,
          case_elim_thms, case_eq_thms]
@@ -256,10 +256,8 @@ Theorem scan_expr_not_Noop:
 Proof
   Induct
   \\ rw [scan_expr_def]
-  \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  \\ fs[bvlPropsTheory.case_eq_thms]
-  \\ fs [from_op_def] \\ rveq
-  \\ rfs [case_eq_thms, bool_case_eq] \\ fs []
+  \\ gvs[case_eq_thms,bvlPropsTheory.case_eq_thms,UNCURRY_EQ]
+  \\ rveq \\ gs[]
   \\ metis_tac []
 QED
 
@@ -497,22 +495,19 @@ Theorem scan_expr_ty_rel:
 Proof
   ho_match_mp_tac scan_expr_ind
   \\ fs [scan_expr_def]
-  \\ rpt conj_tac
-  \\ rpt gen_tac
-  \\ simp [evaluate_def]
-  \\ TRY (fs [ty_rel_def] \\ NO_TAC)
+  \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_tac)
+  \\ fs [evaluate_def]
+  >- (fs [ty_rel_def] \\ NO_TAC)
   >- (* Cons *)
    (fs [case_eq_thms, pair_case_eq, case_elim_thms, PULL_EXISTS] \\ rw []
     \\ rpt (pairarg_tac \\ fs [])
     \\ fs [ty_rel_def]
     \\ res_tac \\ fs [] \\ rw [])
   >- (* Var *)
-   (rw []
+   (fs[case_eq_thms]
     \\ fs [ty_rel_def, LIST_REL_EL_EQN]
     \\ rw []
     \\ metis_tac [])
-  \\ strip_tac
-  \\ rpt gen_tac
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ TRY (* All but Let, Op, If *)
    (fs [case_eq_thms, pair_case_eq, case_elim_thms, bool_case_eq, PULL_EXISTS]
@@ -531,7 +526,7 @@ Proof
     \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [] \\ rveq
     \\ fs [LENGTH_EQ_NUM_compute] \\ rveq
     \\ fs [LENGTH_EQ_NUM_compute] \\ rveq
-    \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM) \\ fs []
+    \\ fs []
     \\ TRY
      (imp_res_tac scan_expr_LENGTH \\ fs []
       \\ metis_tac [ty_rel_decide_ty])

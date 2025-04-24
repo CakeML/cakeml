@@ -27,7 +27,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars ml_translatorTheory.ml_translator_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname="ml_translator"}
   end
   open Parse
   val prim_exn_list = let
@@ -102,6 +102,7 @@ exception NotFoundVThm of term;
 
 local
   val use_string_type_ref = ref false;
+  val use_sub_check_ref = ref false; (* whether to default to checked num - *)
   val finalise_function = ref (I:unit -> unit);
 in
   fun use_string_type b =
@@ -109,11 +110,17 @@ in
      if b then print "Translator now treats `char list` as a CakeML string.\n"
      else print "Translator now treats `char list` as a list of characters in CakeML.\n");
   fun use_hol_string_type () = !use_string_type_ref
+  fun use_sub_check b =
+    (use_sub_check_ref := b;
+     if b then print "Translator now uses checked subtraction on num.\n"
+     else print "Translator now generates side conditions for subtraction on num.\n");
+  fun sub_check () = !use_sub_check_ref
   fun add_finalise_function f = let
     val old_f = !finalise_function
     in (finalise_function := (fn () => (old_f (); f ()))) end
   fun run_finalise_function () = (!finalise_function) ()
 end
+
 
 (* / non-persistent state *)
 
@@ -1585,29 +1592,6 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
 fun domain ty = ty |> dest_fun_type |> fst
 fun codomain ty = ty |> dest_fun_type |> snd
 
-fun persistent_skip_case_const const = let
-  val ty = (domain (type_of const))
-  fun thy_name_to_string thy name =
-    if thy = current_theory() then name else thy ^ "Theory." ^ name
-  val thm_name = if ty = bool then "COND_DEF" else
-    DB.match [] (concl (TypeBase.case_def_of ty))
-    |> map (fn ((thy,name),_) => thy_name_to_string thy name) |> hd
-  val str = thm_name
-  val str = "(Drule.CONJUNCTS " ^ str ^ ")"
-  val str = "(List.hd " ^ str ^ ")"
-  val str = "(Drule.SPEC_ALL " ^ str ^ ")"
-  val str = "(Thm.concl " ^ str ^ ")"
-  val str = "(boolSyntax.dest_eq " ^ str ^ ")"
-  val str = "(Lib.fst " ^ str ^ ")"
-  val str = "(Lib.repeat Term.rator " ^ str ^ ")"
-  val str = "val () = computeLib.set_skip computeLib.the_compset" ^
-            " " ^ str ^ " (SOME 1);\n"
-  val _ = adjoin_to_theory
-     {sig_ps = NONE, struct_ps = SOME(fn _ => PP.add_string str)}
-  in computeLib.set_skip computeLib.the_compset const (SOME 1) end
-
-val _ = persistent_skip_case_const (get_term "COND");
-
 val (FILTER_ASSUM_TAC : (term -> bool) -> tactic) = let
   fun sing f [x] = f x
     | sing f _ = raise ERR "sing" "Bind Error"
@@ -2892,7 +2876,7 @@ val builtin_terops =
 val builtin_binops =
   [Eval_NUM_ADD,
    Eval_NUM_SUB,
-   Eval_NUM_SUB_nocheck,
+   Eval_NUM_SUB_check,
    Eval_NUM_MULT,
    Eval_NUM_DIV,
    Eval_NUM_MOD,
@@ -2929,7 +2913,7 @@ val builtin_binops =
    Eval_sub,
    Eval_Implies,
    Eval_pure_seq]
-  |> map (fn th =>
+ |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
 
 val builtin_monops =
@@ -2971,10 +2955,16 @@ val builtin_hol_string_monops =
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th))
 
+val builtin_sub_check =
+  [Eval_NUM_SUB_check']
+ |> map (fn th =>
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
+
 val AUTO_ETA_EXPAND_CONV = let (* K ($=) --> K (\x y. x = y) *)
   val must_eta_expand_ops =
     map fst builtin_terops @
     map fst builtin_binops @
+    map fst builtin_sub_check @
     map fst builtin_monops @
     map fst builtin_hol_string_binops @
     map fst builtin_hol_string_monops
@@ -3059,8 +3049,9 @@ fun dest_builtin_terop tm = let
 fun dest_builtin_binop tm = let
   val (px,r2) = dest_comb tm
   val (p,r1) = dest_comb px
-  val thms = (if use_hol_string_type () then builtin_hol_string_binops else [])
-             @ builtin_binops
+  val thms =
+    (if sub_check () then builtin_sub_check else []) @
+    (if use_hol_string_type () then builtin_hol_string_binops else []) @ builtin_binops
   val (x,th) = first (fn (x,_) => can (match_term x) p) thms
   val (ss,ii) = match_term x p
   val th = INST ss (INST_TYPE ii th)
@@ -3733,7 +3724,7 @@ fun extract_precondition_non_rec th pre_var =
   if not (is_imp (concl th)) then (th,NONE) else let
     val c = (REWRITE_CONV [CONTAINER_def,PRECONDITION_def] THENC
              ONCE_REWRITE_CONV [GSYM PRECONDITION_def] THENC
-             SIMP_CONV (srw_ss()) [FALSE_def,TRUE_def])
+             SIMP_CONV (srw_ss()++ARITH_ss) [FALSE_def,TRUE_def])
     val c = (RATOR_CONV o RAND_CONV) c
     val th = CONV_RULE c th
     val rhs = th |> concl |> dest_imp |> fst |> rand
@@ -3772,6 +3763,9 @@ fun derive_split tm =
   SPEC tm DEFAULT_IMP
 
 fun extract_precondition_rec thms = let
+(*
+  val (fname,ml_fname,def,th) = hd thms
+*)
   fun rephrase_pre (fname,ml_fname,def,th) = let
     val (lhs,_) = dest_eq (concl def)
     val pre_var = get_pre_var lhs fname
@@ -3801,18 +3795,20 @@ val (fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
   fun is_true_pre (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) =
     (Teq
      (tm2 |> subst ss
-          |> QCONV (REWRITE_CONV [rw2,PreImp_def,PRECONDITION_def,CONTAINER_def])
+          |> QCONV (REWRITE_CONV [rw2,PreImp_def,PRECONDITION_def,CONTAINER_def] THENC SIMP_CONV (srw_ss()++ARITH_ss) [FALSE_def,TRUE_def])
           |> concl |> rand))
   val no_pre = every (map is_true_pre thms)
 
   (* if no pre then remove pre_var from thms *)
   in if no_pre then let
-    fun remove_pre_var (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = let
+    fun remove_pre_var (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) =
+    let
       val th5 = INST ss th
                 |> SIMP_RULE bool_ss [PRECONDITION_EQ_CONTAINER]
                 |> PURE_REWRITE_RULE [PreImp_def,PRECONDITION_def]
                 |> CONV_RULE (DEPTH_CONV BETA_CONV THENC
                                 (RATOR_CONV o RAND_CONV) (REWRITE_CONV []))
+
       in (fname,ml_fname,def,th5,NONE) end
     in map remove_pre_var thms end else let
 

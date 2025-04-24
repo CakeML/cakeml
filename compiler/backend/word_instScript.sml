@@ -39,7 +39,7 @@ End
 
 Definition convert_sub_def:
   (convert_sub [Const w1;Const w2] = Const (w1 -w2)) ∧
-  (convert_sub [x;Const w] = Op Add [x;Const (-w)]) ∧
+  (convert_sub [x;Const w] = Op Add [Const (-w); x]) ∧
   (convert_sub ls = Op Sub ls)
 End
 
@@ -48,7 +48,7 @@ Theorem convert_sub_pmatch:
   convert_sub l =
   case l of
     [Const w1;Const w2] => Const (w1 -w2)
-  | [x;Const w] => Op Add [x;Const (-w)]
+  | [x;Const w] => Op Add [Const (-w);x]
   | ls => Op Sub ls
 Proof
   rpt strip_tac
@@ -75,6 +75,21 @@ Proof
   >> fs[op_consts_def]
 QED
 
+(* Returns a definite value *)
+Definition reduce_const_def:
+  reduce_const op w rest =
+  if w = 0w then
+    if op = Add ∨ op = Or ∨ op = Xor then
+      dtcase rest of
+        []  => Const w
+      | [x] => x
+      | _ => Op op rest
+    else if op = And then
+      Const 0w
+    else Op op (Const w::rest)
+  else Op op (Const w::rest)
+End
+
 Definition optimize_consts_def:
   optimize_consts op ls =
   let (const_ls,nconst_ls) = PARTITION is_const ls in
@@ -82,11 +97,11 @@ Definition optimize_consts_def:
       [] => Op op nconst_ls
     | _ =>
       let w = THE (word_op op (MAP rm_const const_ls)) in
-      dtcase nconst_ls of
-        [] => Const w
-      | _ => Op op (Const w::nconst_ls)
+      reduce_const op w nconst_ls
 End
 
+(* If this expression contains a constant it should
+    be head of the output operation list *)
 Definition pull_exp_def:
   (pull_exp (Op Sub ls) =
     let new_ls = MAP pull_exp ls in
@@ -386,16 +401,7 @@ Definition inst_select_def:
       let prog = inst_select_exp c temp temp exp in
       Seq prog (ShareInst op v (Var temp))) ∧
   (inst_select c temp (If cmp r1 ri c1 c2) =
-    dtcase ri of
-      Imm w =>
-      if c.valid_imm (INR cmp) w
-      then
-        If cmp r1 (Imm w) (inst_select c temp c1) (inst_select c temp c2)
-      else
-        Seq (Inst (Const temp w))
-        (If cmp r1 (Reg temp) (inst_select c temp c1) (inst_select c temp c2))
-    | Reg r =>
-      If cmp r1 (Reg r) (inst_select c temp c1) (inst_select c temp c2)) ∧
+    If cmp r1 ri (inst_select c temp c1) (inst_select c temp c2)) ∧
   (inst_select c temp (Call ret dest args handler) =
     let retsel =
       dtcase ret of
@@ -437,16 +443,7 @@ Theorem inst_select_pmatch:
   | MustTerminate p1 =>
     MustTerminate (inst_select c temp p1)
   | (If cmp r1 ri c1 c2) =>
-    (case ri of
-      Imm w =>
-      if c.valid_imm (INR cmp) w
-      then
-        If cmp r1 (Imm w) (inst_select c temp c1) (inst_select c temp c2)
-      else
-        Seq (Inst (Const temp w))
-        (If cmp r1 (Reg temp) (inst_select c temp c1) (inst_select c temp c2))
-    | Reg r =>
-      If cmp r1 (Reg r) (inst_select c temp c1) (inst_select c temp c2))
+      If cmp r1 ri (inst_select c temp c1) (inst_select c temp c2)
   | ShareInst op var exp =>
     (let exp = (flatten_exp o pull_exp) exp in
     case exp of
@@ -558,5 +555,10 @@ Proof
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
     >> fs[three_to_two_reg_def])
 QED
+
+Definition three_to_two_reg_prog_def:
+  three_to_two_reg_prog b prog =
+    if b then three_to_two_reg prog else prog
+End
 
 val _ = export_theory();

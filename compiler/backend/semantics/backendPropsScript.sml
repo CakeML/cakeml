@@ -457,7 +457,11 @@ QED
 Theorem option_le_eq_eqns:
   (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ n p)
    <=> (n = NONE \/ option_le m p)) /\
+  (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ p n)
+   <=> (n = NONE \/ option_le m p)) /\
   (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ p m)
+   <=> (m = NONE \/ option_le n p)) /\
+  (option_le (OPTION_MAP2 $+ n m) (OPTION_MAP2 $+ m p)
    <=> (m = NONE \/ option_le n p))
 Proof
   Cases_on `n` >> Cases_on `m` >> Cases_on `p` >> rw[]

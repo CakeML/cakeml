@@ -128,7 +128,25 @@ val r = translate regexp_compareW_def;
 val _ = add_preferred_thy "-";
 Theorem mergesortN_ind =
   mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]
-val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
+val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def,GSYM mllistTheory.take_def]);
+
+Triviality mergesortn_side:
+  ∀x y z.
+  mergesortn_side x y z
+Proof
+  completeInduct_on`y`>>
+  rw[Once (fetch "-" "mergesortn_side_def")]>>
+  simp[arithmeticTheory.DIV2_def]
+  >- (
+    first_x_assum match_mp_tac>>
+    simp[]>>
+    match_mp_tac dividesTheory.DIV_POS>>
+    simp[])
+  >>
+    match_mp_tac DIV_LESS_EQ>>
+    simp[]
+QED
+val _ = mergesortn_side |> update_precondition;
 
 val _ = use_mem_intro := true;
 val r = translate build_or_def;

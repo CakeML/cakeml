@@ -1,7 +1,7 @@
 (*
   Correctness proof for word_remove
 *)
-open preamble word_removeTheory wordSemTheory wordPropsTheory;
+open preamble word_removeTheory wordSemTheory wordPropsTheory wordConvsTheory;
 
 val _ = new_theory "word_removeProof";
 
@@ -87,9 +87,9 @@ Proof
 QED
 
 Theorem get_vars_compile_state[simp]:
-   ∀xs s. get_vars xs (compile_state clk c s) = get_vars xs s
+   get_vars xs (compile_state clk c s) = get_vars xs s
 Proof
-  Induct \\ rw[get_vars_def]
+  fs[compile_state_def]
 QED
 
 Theorem set_var_compile_state[simp]:
@@ -223,6 +223,14 @@ Proof
   \\ split_pair_case_tac \\ rw[push_env_def,FUN_EQ_THM]
 QED
 
+Triviality pair_map_I:
+   (λ(k,v). (k,f v)) = (I ## f) /\
+   (λ(k,v). (f k,v)) = (f ## I)
+Proof
+  fs[FUN_EQ_THM] \\ rw[] \\
+  pairarg_tac \\ fs[]
+QED
+
 Theorem word_remove_correct:
   ∀prog st res rst.
   evaluate (prog,st) = (res,rst) ∧
@@ -235,9 +243,8 @@ Proof
   recInduct evaluate_ind
   \\ rw[evaluate_def,remove_must_terminate_def]
   \\ TRY (
-     fs[case_eq_thms] \\ rveq \\
+     fs[case_eq_thms,UNCURRY_EQ] \\ rveq \\
      fs[domain_map] \\
-     rpt(pairarg_tac \\ fs[]) \\
      metis_tac[] >> NO_TAC)
   THEN1 ( (* MustTerminate *)
     qmatch_goalsub_rename_tac`remove_must_terminate _` \\
@@ -256,21 +263,17 @@ Proof
     pairarg_tac \\ fs[] \\
     reverse(fs[case_eq_thms] \\ rveq \\ fs[])
     >- ( qexists_tac`clk` \\ fs[] \\ NO_TAC ) \\
-    qpat_x_assum`(res,rst) = _`(assume_tac o SYM) \\ fs[] \\
-    `s1.compile = s.compile` by (imp_res_tac evaluate_consts \\ fs[]) \\ fs[] \\
-    qexists_tac`clk + clk'` \\ fs[] \\
+    fs[] \\ `s1.compile = s.compile` by (imp_res_tac evaluate_consts \\ fs[]) \\
+    fs[] \\ qexists_tac`clk + clk'` \\ fs[] \\
     imp_res_tac (GEN_ALL evaluate_add_clock) \\ fs[] \\
     first_x_assum(qspec_then`clk'`mp_tac) \\ fs[] \\
     fs[compile_state_def] \\ NO_TAC )
   THEN1 ( (* Install *)
-    fs[case_eq_thms] \\ rveq \\
-    pairarg_tac \\ fs[] \\
-    pairarg_tac \\ fs[] \\
-    fs[case_eq_thms] \\ rveq \\ fs[] \\
+    fs[case_eq_thms,UNCURRY_EQ] \\ rveq \\ fs[] \\
     fs[shift_seq_def] \\
-    qexists_tac`0` \\
-    simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList,map_insert] \\
-    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\ simp[FUN_EQ_THM,FORALL_PROD] \\ NO_TAC)
+    fs[compile_state_def,state_component_equality] \\
+    fs[map_union,map_fromAList,map_insert,FUN_EQ_THM] \\
+    fs[pair_map_I,SF ETA_ss])
   >~ [`share_inst`]
   >- ( (* ShareInst *)
     gvs[oneline share_inst_def,
@@ -363,34 +366,6 @@ Proof
   \\ qmatch_asmsub_abbrev_tac`remove_must_terminate _,sb`
   \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality] )
   \\ rw[]
-QED
-
-(* syntactic preservation all in one go *)
-val convs = [flat_exp_conventions_def, full_inst_ok_less_def,
-  every_inst_def, post_alloc_conventions_def, call_arg_convention_def,
-  wordLangTheory.every_stack_var_def, wordLangTheory.every_var_def,
-  extract_labels_def]
-
-Theorem remove_must_terminate_conventions:
-    ∀p c k.
-  let comp = remove_must_terminate p in
-  (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
-  (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
-  (post_alloc_conventions k p ⇒ post_alloc_conventions k comp) ∧
-  (every_inst two_reg_inst p ⇒ every_inst two_reg_inst comp) ∧
-  (extract_labels p = extract_labels comp)
-Proof
-  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
-  fs[remove_must_terminate_def]>>fs convs>>
-  TRY
-  (rename1`args = A`>>
-  Cases_on`ret`>>fs[]>>
-  PairCases_on`x`>>fs[]>>
-  Cases_on`h`>>fs[]>- metis_tac[]>>
-  PairCases_on`x`>>fs[]>>
-  metis_tac[])>>
-  EVERY_CASE_TAC>>fs[]>>
-  metis_tac[]
 QED
 
 val _ = export_theory();

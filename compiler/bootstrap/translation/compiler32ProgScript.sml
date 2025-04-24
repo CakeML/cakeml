@@ -15,6 +15,7 @@ val _ = new_theory"compiler32Prog";
 
 val _ = translation_extends "ag32Prog";
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler32Prog");
 
@@ -24,11 +25,32 @@ val () = use_long_names := true;
 
 val spec32 = INST_TYPE[alpha|->``:32``]
 
-val res = translate $ spec32 panScopeTheory.scope_check_exp_def;
-val res = translate $ spec32 panScopeTheory.scope_check_prog_def;
+val res = translate $ errorLogMonadTheory.return_def;
+val res = translate $ errorLogMonadTheory.bind_def;
+val res = translate $ errorLogMonadTheory.log_def;
+val res = translate $ errorLogMonadTheory.error_def;
+
+val res = translate $ panStaticTheory.based_merge_def;
+val res = translate $ panStaticTheory.based_cmp_def;
+val res = translate $ panStaticTheory.branch_vbases_def;
+val res = translate $ panStaticTheory.seq_vbases_def;
+
+val res = translate $ panStaticTheory.last_to_str_def;
+val res = translate $ panStaticTheory.next_is_reachable_def;
+val res = translate $ panStaticTheory.next_now_unreachable_def;
+val res = translate $ spec32 $ panStaticTheory.reached_warnable_def;
+val res = translate $ panStaticTheory.branch_last_stmt_def;
+val res = translate $ panStaticTheory.seq_last_stmt_def;
+
+val res = translate $ panStaticTheory.first_repeat_def;
+val res = translate $ panStaticTheory.binop_to_str_def;
+val res = translate $ panStaticTheory.panop_to_str_def;
+
+val res = translate $ spec32 $ panStaticTheory.static_check_exp_def;
+val res = translate $ spec32 $ panStaticTheory.static_check_prog_def;
 val res = translate $
-  INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_funs_def;
-val res = translate $ INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_def;
+  INST_TYPE[beta|->``:32``] panStaticTheory.static_check_funs_def;
+val res = translate $ INST_TYPE[beta|->``:32``] panStaticTheory.static_check_def;
 
 Definition max_heap_limit_32_def:
   max_heap_limit_32 c =
@@ -78,6 +100,8 @@ QED
 val _ = update_precondition backend_passes_to_bvi_all_side
 
 val r = backend_passesTheory.to_data_all_def |> spec32 |> translate;
+
+val r = backend_passesTheory.word_internal_def |> spec32 |> translate;
 
 val r = backend_passesTheory.to_word_all_def |> spec32
           |> REWRITE_RULE [data_to_wordTheory.stubs_def,APPEND] |> translate;
@@ -206,18 +230,7 @@ val res = translate (spec32 word_to_string_def);
 
 val res = translate compilerTheory.find_next_newline_def;
 
-Theorem find_next_newline_side = prove(
-  “∀n s. compiler_find_next_newline_side n s”,
-  ho_match_mp_tac compilerTheory.find_next_newline_ind \\ rw []
-  \\ once_rewrite_tac [fetch "-" "compiler_find_next_newline_side_def"]
-  \\ fs []) |> update_precondition;
-
 val res = translate compilerTheory.safe_substring_def;
-
-Theorem safe_substring_side = prove(
-  “compiler_safe_substring_side s n l”,
-  fs [fetch "-" "compiler_safe_substring_side_def"])
-  |> update_precondition;
 
 val _ = translate compilerTheory.get_nth_line_def;
 val _ = translate compilerTheory.locs_to_string_def;
@@ -237,11 +250,6 @@ val res = translate inferTheory.init_config_def;
   TODO: some of these should be moved up, see comment above on exportScript
 *)
 val res = translate error_to_str_def;
-
-val compiler_error_to_str_side_thm = prove(
-  ``compiler_error_to_str_side x = T``,
-  fs [fetch "-" "compiler_error_to_str_side_def"])
-  |> update_precondition;
 
 val res = translate parse_bool_def;
 val res = translate parse_num_def;

@@ -949,11 +949,10 @@ Proof
   \\ rfs [store_v_same_type_def]
 QED
 
-local
-  val trivial =
+val trivial =
     rpt strip_tac \\ rveq
     \\ fs[fpState_component_equality, state_component_equality];
-  val by_eq =
+val by_eq =
       `s1.fp_state.choices = s2.fp_state.choices`
         by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
             \\ fs[fpState_component_equality, dec_clock_def])
@@ -966,7 +965,7 @@ local
                    \\ fs[fpState_component_equality, dec_clock_def])
              \\ gs[])
       \\ fs[fpState_component_equality, state_component_equality];
-in
+
 Theorem evaluate_fp_intro_strict:
   (∀ (s:'a state) env e s' r.
     evaluate s env e = (s', r) ∧
@@ -1458,7 +1457,6 @@ Proof
     \\ by_eq
     \\ qexists_tac ‘s1 with fp_state := fp_state2’ \\ gs[])
 QED
-end
 
 Theorem evaluate_ffi_intro:
   (∀(s:'a state) env e s' r.
@@ -1487,7 +1485,7 @@ Theorem evaluate_ffi_intro:
 Proof
   ho_match_mp_tac full_evaluate_ind
   \\ rpt strip_tac \\ fs [full_evaluate_def,combine_dec_result_def]
-  \\ fs [pair_case_eq, CaseEq "result", CaseEq "error_result", bool_case_eq,
+  \\ gvs [pair_case_eq, CaseEq "result", CaseEq "error_result", bool_case_eq,
         option_case_eq, list_case_eq, CaseEq "exp_or_val", do_eval_res_def, CaseEq"op_class"]
   \\ full_simp_tac bool_ss [CaseEq "match_result"]
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []

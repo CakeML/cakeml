@@ -2304,8 +2304,8 @@ Proof
   ho_match_mp_tac calls_ind
   \\ rw[calls_def] \\ fs[]
   \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
-  \\ imp_res_tac calls_sing \\ fs[closLangTheory.pure_def]
-  \\ fsrw_tac[ETA_ss][bool_case_eq,closLangTheory.pure_def]
+  \\ imp_res_tac calls_sing \\ fs[closLangTheory.pure_def,bool_case_eq]
+  \\ rveq \\  fsrw_tac[ETA_ss][closLangTheory.pure_def]
 QED
 
 Theorem calls_pure_sing:

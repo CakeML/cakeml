@@ -154,6 +154,30 @@ val _ = cv_auto_trans (arm8_targetTheory.arm8_enc_def |>
   Remaining arm8-specific functions
  *---------------------------------------------------------------------------*)
 
+val pre = cv_auto_trans_pre comp_arm8_def;
+
+Theorem comp_arm8_pre[cv_pre,local]:
+  ∀v bs kf. comp_arm8_pre v bs kf
+Proof
+  gen_tac \\ completeInduct_on ‘prog_size (K 0) v’
+  \\ rw [] \\ gvs [PULL_FORALL]
+  \\ rw [] \\ simp [Once pre]
+  \\ rw [] \\ gvs []
+  \\ last_x_assum irule
+  \\ gvs [wordLangTheory.prog_size_def]
+QED
+
+val _ = cv_auto_trans compile_prog_arm8_def;
+
+val pre = cv_auto_trans_pre compile_word_to_stack_arm8_def;
+
+Theorem compile_word_to_stack_arm8_pre[cv_pre]:
+  ∀k v bitmaps. compile_word_to_stack_arm8_pre k v bitmaps
+Proof
+  Induct_on`v`
+  \\ rw [] \\ simp [Once pre]
+QED
+
 Triviality fp_reg_ok_arm8_def[cv_inline] = fp_reg_ok_arm8_def;
 
 val _ = cv_auto_trans inst_ok_arm8_def;
@@ -279,10 +303,11 @@ val _ = cv_auto_trans
                             to_words_line_byte,
                             split16_eq_chunks16]);
 
-(* main two translations below *)
+(* main translations below *)
 
 val _ = cv_trans backend_arm8Theory.to_livesets_arm8_def;
 val _ = cv_trans backend_arm8Theory.compile_cake_arm8_def;
+val _ = cv_auto_trans backend_arm8Theory.compile_cake_explore_arm8_def;
 
 (* lemma used by automation *)
 

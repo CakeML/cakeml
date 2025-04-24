@@ -13,6 +13,7 @@ val _ = translation_extends "to_target64Prog";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_pancake64Prog");
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val RW = REWRITE_RULE
 
@@ -220,13 +221,6 @@ val _ = translate $ spec64 compile_prog_def;
 open loop_callTheory;
 
 val _ = translate $ spec64 comp_def;
-
-val loop_call_comp_side = Q.prove(
-  ‘∀spt prog. (loop_call_comp_side spt prog) ⇔ T’,
-  ho_match_mp_tac comp_ind
-  \\ rw[]
-  \\ simp[Once (fetch "-" "loop_call_comp_side_def")]
-  \\ TRY (metis_tac [])) |> update_precondition;
 
 open loop_liveTheory;
 

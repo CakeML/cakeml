@@ -5155,8 +5155,8 @@ QED
 Definition init_genv_next:
   init_genv_next = <|
     vidx := 0;
-    tidx := SUC (list_max (MAP (\v. case SND v of TypeStamp _ i => i | _ => 0) init_genv_els));
-    eidx := SUC (list_max (MAP (\v. case SND v of ExnStamp i => i | _ => 0) init_genv_els))
+    tidx := SUC (MAX_LIST (MAP (\v. case SND v of TypeStamp _ i => i | _ => 0) init_genv_els));
+    eidx := SUC (MAX_LIST (MAP (\v. case SND v of ExnStamp i => i | _ => 0) init_genv_els))
   |>
 End
 

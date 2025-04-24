@@ -148,7 +148,7 @@ Triviality BOTTOM_UP_OPT_THM1:
     eval_match_rel s env v (BOTTOM_UP_OPT_PAT f pats) w s1 r)
 Proof
   disch_tac
-  \\ ho_match_mp_tac (fetch "-" "BOTTOM_UP_OPT_ind")
+  \\ ho_match_mp_tac BOTTOM_UP_OPT_ind
   \\ rpt strip_tac
   \\ simp [eval_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
            eval_list_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
@@ -169,8 +169,6 @@ Proof
          bool_case_eq,option_case_eq,state_component_equality,
          REVERSE_BOTTOM_UP_OPT_LIST]
   \\ TRY (asm_exists_tac \\ fs [state_component_equality] \\ NO_TAC)
-  \\ TRY (qpat_x_assum `(_,_) = _` (assume_tac o GSYM)
-          \\ asm_exists_tac \\ fs [state_component_equality] \\ NO_TAC)
   THEN1 (* Con *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -179,7 +177,8 @@ Proof
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [])
   THEN1 (* App Eval *)
-   (fs [evaluateTheory.do_eval_res_def, Q.ISPEC `(_, _)` EQ_SYM_EQ]
+   (fs [evaluateTheory.do_eval_res_def (*, Q.ISPEC `(_, _)` EQ_SYM_EQ *)]
+    fs [evaluateTheory.do_eval_res_def]
     \\ fs [list_case_eq,option_case_eq,bool_case_eq,pair_case_eq,result_case_eq]
     \\ rveq \\ fs [PULL_EXISTS]
     \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
@@ -201,7 +200,7 @@ Proof
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM)
+    \\ qpat_x_assum `evaluate _ _ _  = (s1 with clock := _ ,_)` assume_tac
     \\ drule evaluate_add_to_clock \\ fs []
     \\ disch_then (qspec_then `ck2' + 1` assume_tac)
     \\ rfs [EVAL ``(dec_clock st1).clock``]
@@ -318,7 +317,7 @@ Proof
     imp_res_tac evaluate_sing \\ rveq \\ fs []
     \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
       by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
-    \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
+    \\ fs []
     \\ rpt (first_x_assum drule \\ rw [])
     \\ dxrule_then dxrule evaluate_and_match_clock
     \\ rw []
@@ -330,7 +329,7 @@ Proof
    (imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
       by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
-    \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
+    \\ fs []
     \\ rpt (first_x_assum drule \\ rw [])
     \\ dxrule_then dxrule evaluate_two_steps_clock
     \\ rw []
@@ -366,7 +365,7 @@ Proof
    )
   THEN1 (* match *)
    (
-    fs [Q.ISPEC `(_, _)` EQ_SYM_EQ, match_result_case_eq]
+    fs [match_result_case_eq]
     \\ fsrw_tac [SATISFY_ss] []
    )
 QED
@@ -396,7 +395,6 @@ Proof
   \\ rveq \\ fs [] \\ rveq \\ fs [do_opapp_def,bool_case_eq,PULL_EXISTS]
   \\ fs [evaluateTheory.dec_clock_def,evaluate_def,abs2let_def]
   \\ qexists_tac `ck1` \\ fs []
-  \\ first_x_assum (assume_tac o SYM) \\ fs []
   \\ drule evaluate_add_to_clock \\ fs []
   \\ disch_then (qspec_then `1` mp_tac) \\ fs []
   \\ `(st' with clock := st'.clock) = st'` by fs [state_component_equality]

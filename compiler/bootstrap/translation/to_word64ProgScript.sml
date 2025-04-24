@@ -14,6 +14,7 @@ val _ = translation_extends "printingProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_word64Prog");
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val RW = REWRITE_RULE
 
@@ -303,7 +304,8 @@ val _ = translate (comp_def |> conv64 |> wcomp_simp |> conv64 |> SIMP_RULE std_s
 
 open word_simpTheory word_allocTheory word_instTheory
 
-val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
+val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,
+                   ``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
 
 val res = word_cseTheory.map_insert_def |> DefnBase.one_line_ify NONE |> translate;
 val res = translate (word_cseTheory.word_cseInst_def |> spec64);
@@ -323,6 +325,27 @@ QED
 val _ = word_cse_ind |> update_precondition;
 
 val res = translate (word_cseTheory.word_common_subexp_elim_def |> spec64);
+
+val res = translate (word_copyTheory.copy_prop_def |> spec64);
+
+val res = translate_no_ind miscTheory.anub_def;
+
+Triviality misc_anub_ind:
+  misc_anub_ind (:'a) (:'b)
+Proof
+  once_rewrite_tac [fetch "-" "misc_anub_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+QED
+
+val _ = misc_anub_ind |> update_precondition;
+
+val res = translate (spec64 word_unreachTheory.remove_unreach_def);
 
 val _ = translate (const_fp_inst_cs_def |> spec64 |> econv)
 
@@ -419,7 +442,7 @@ val _ = translate (op_consts_pmatch|>conv64|>econv)
 
 val _ = translate (convert_sub_pmatch |> conv64 |> SIMP_RULE std_ss [word_2comp_def,word_mul_def] |> conv64)
 
-val _ = translate (spec64 pull_exp_def(*_pmatch*)) (* TODO: MAP pull_exp inside pmatch seems to throw the translator into an infinite loop *)
+val r = translate (spec64 pull_exp_def(*_pmatch*)) (* TODO: MAP pull_exp inside pmatch seems to throw the translator into an infinite loop *)
 
 val word_inst_pull_exp_side = Q.prove(`
   ∀x. word_inst_pull_exp_side x ⇔ T`,
@@ -432,13 +455,14 @@ val word_inst_pull_exp_side = Q.prove(`
 val _ = translate (spec64 inst_select_def(*pmatch*))
 
 val _ = translate (spec64 list_next_var_rename_move_def)
+val _ = translate force_rename_def
 
 val _ = translate (conv64 ssa_cc_trans_inst_def)
 val _ = translate (spec64 full_ssa_cc_trans_def)
 
 val _ = translate (conv64 remove_dead_inst_def)
 val _ = translate (conv64 get_live_inst_def)
-val _ = translate (spec64 remove_dead_def)
+val _ = translate (spec64 remove_dead_prog_def)
 
 Triviality lem:
   dimindex(:64) = 64 ∧
@@ -488,9 +512,11 @@ val word_inst_three_to_two_reg_side = Q.prove(`
 >> fs[]
 >> rw[Once(fetch "-" "word_inst_three_to_two_reg_side_def")]
 >> fs[]
->> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_inst_three_to_two_reg_side_def"])
+>> POP_ASSUM(ASSUME_TAC o PURE_ONCE_REWRITE_RULE[fetch"-" "word_inst_three_to_two_reg_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition
+
+val res = translate (spec64 three_to_two_reg_prog_def);
 
 val res = translate_no_ind (spec64 word_removeTheory.remove_must_terminate_pmatch);
 
@@ -528,7 +554,7 @@ val word_remove_remove_must_terminate_side = Q.prove(`
 >> fs[]
 >> rw[Once(fetch "-" "word_remove_remove_must_terminate_side_def")]
 >> fs[]
->> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_remove_remove_must_terminate_side_def"])
+>> POP_ASSUM(ASSUME_TAC o PURE_ONCE_REWRITE_RULE[fetch"-" "word_remove_remove_must_terminate_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition;
 
@@ -550,7 +576,7 @@ val word_simp_const_fp_loop_side = Q.prove(`
 >> fs[]
 >> rw[Once(fetch "-" "word_simp_const_fp_loop_side_def")]
 >> fs[]
->> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_simp_const_fp_loop_side_def"])
+>> POP_ASSUM(ASSUME_TAC o PURE_ONCE_REWRITE_RULE[fetch"-" "word_simp_const_fp_loop_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition
 
@@ -581,7 +607,7 @@ val word_inst_inst_select_side = Q.prove(`
 >> fs[]
 >> rw[Once(fetch "-" "word_inst_inst_select_side_def")]
 >> fs[]
->> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_inst_inst_select_side_def"])
+>> POP_ASSUM(ASSUME_TAC o PURE_ONCE_REWRITE_RULE[fetch"-" "word_inst_inst_select_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition
 *)
