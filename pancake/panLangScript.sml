@@ -37,8 +37,12 @@ Datatype:
 End
 
 Datatype:
+  varkind = Local | Global
+End
+
+Datatype:
   exp = Const ('a word)
-      | Var varname
+      | Var varkind varname
       | Label funname
    (* | GetAddr decname *)
       | Struct (exp list)
@@ -60,9 +64,9 @@ End
 Datatype:
   prog = Skip
        | Dec varname ('a exp) prog
-       | Assign    varname ('a exp)  (* dest, source *)
-       | Store     ('a exp) ('a exp) (* dest, source *)
-       | StoreByte ('a exp) ('a exp) (* dest, source *)
+       | Assign varkind varname ('a exp)  (* dest, source *)
+       | Store        ('a exp) ('a exp)   (* dest, source *)
+       | StoreByte    ('a exp) ('a exp)   (* dest, source *)
        | Seq prog prog
        | If    ('a exp) prog prog
        | While ('a exp) prog
@@ -74,7 +78,7 @@ Datatype:
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)
        | Return ('a exp)
-       | ShMemLoad opsize varname ('a exp)
+       | ShMemLoad opsize varkind varname ('a exp)
        | ShMemStore opsize ('a exp) ('a exp)
        | Tick
        | Annot mlstring mlstring
@@ -82,7 +86,7 @@ End
 
 Datatype:
   decl = Function mlstring ((mlstring # shape) list) ('a prog)
-       | Global   mlstring ('a exp)
+       | Decl   mlstring ('a exp)
 End
 (*
 Datatype:
@@ -97,7 +101,6 @@ End
 Overload TailCall = “Call NONE”
 Overload AssignCall = “\s h. Call (SOME (SOME s , h))”
 Overload StandAloneCall = “\h. Call (SOME (NONE , h))”
-
 (*
 Datatype:
   decl = Decl decname string
@@ -168,28 +171,10 @@ Definition size_of_eids_def:
    LENGTH (remove_dup eids)
 End
 
-(*
-  for time_to_pancake compiler:
-*)
-
-(* optimise this function *)
-Definition assigns_def:
-  (assigns [] n = Skip) ∧
-  (assigns (v::vs) n =
-    Seq (Assign v n) (assigns vs n))
-End
-
-
-Definition decs_def:
-  (decs [] p = p) /\
-  (decs ((v,e)::es) p =
-    Dec v e (decs es p))
-End
-
-
 Definition var_exp_def:
   (var_exp (Const w) = ([]:mlstring list)) ∧
-  (var_exp (Var v) = [v]) ∧
+  (var_exp (Var Local v) = [v]) ∧
+  (var_exp (Var Global v) = []) ∧
   (var_exp (Label f) = []) ∧
   (var_exp (Struct es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Field i e) = var_exp e) ∧
@@ -207,10 +192,25 @@ Termination
   decide_tac
 End
 
-
-Definition destruct_def:
-  (destruct (Struct es) = es) /\
-  (destruct _ = [])
+Definition global_var_exp_def:
+  (global_var_exp (Const w) = ([]:mlstring list)) ∧
+  (global_var_exp (Var Local v) = []) ∧
+  (global_var_exp (Var Global v) = [v]) ∧
+  (global_var_exp (Label f) = []) ∧
+  (global_var_exp (Struct es) = FLAT (MAP global_var_exp es)) ∧
+  (global_var_exp (Field i e) = global_var_exp e) ∧
+  (global_var_exp (Load sh e) = global_var_exp e) ∧
+  (global_var_exp (LoadByte e) = global_var_exp e) ∧
+  (global_var_exp (Op bop es) = FLAT (MAP global_var_exp es)) ∧
+  (global_var_exp (Panop op es) = FLAT (MAP global_var_exp es)) ∧
+  (global_var_exp (Cmp c e1 e2) = global_var_exp e1 ++ global_var_exp e2) ∧
+  (global_var_exp (Shift sh e num) = global_var_exp e)
+Termination
+  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  rpt strip_tac >>
+  imp_res_tac MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
 End
 
 Definition load_op_def:

@@ -121,16 +121,10 @@ Definition pan_op_def:
   pan_op _ _ = NONE
 End
 
-Definition lookup_var_def:
-  lookup_var ^s v =
-  case FLOOKUP s.locals v of
-    SOME v => SOME v
-  | NONE => FLOOKUP s.globals v
-End
-
 Definition eval_def:
   (eval ^s (Const w) = SOME (ValWord w)) /\
-  (eval s  (Var v) = lookup_var s v) /\
+  (eval s  (Var Local v) = FLOOKUP s.locals v) /\
+  (eval s  (Var Global v) = FLOOKUP s.globals v) /\
   (eval s (Label fname) =
     case FLOOKUP s.code fname of
      | SOME _ => SOME (ValLabel fname)
@@ -247,16 +241,28 @@ Termination
   fs [MEM_IMP_v_size]
 End
 
-Definition set_local_def:
-  set_local v value ^s =
+Definition set_var_def:
+  set_var v value ^s =
     (s with locals := s.locals |+ (v,value))
 End
 
-Definition set_var_def:
-  set_var v value ^s =
-  case FLOOKUP s.locals v of
-    NONE => s with globals := s.globals |+ (v,value)
-  | SOME _ => s with locals := s.locals |+ (v,value)
+Definition set_global_def:
+  set_global v value ^s =
+    (s with globals := s.globals |+ (v,value))
+End
+
+Definition set_kvar_def:
+  set_kvar vk v value ^s =
+  case vk of
+    Local => set_var v value s
+  | Global => set_global v value s
+End
+
+Definition lookup_kvar_def:
+  lookup_kvar ^s vk v =
+  case vk of
+    Local => FLOOKUP s.locals v
+  | Global => FLOOKUP s.globals v
 End
 
 Definition upd_locals_def:
@@ -310,20 +316,20 @@ Definition res_var_def:
 End
 
 Definition sh_mem_load_def:
-  sh_mem_load v (addr:'a word) nb ^s =
+  sh_mem_load vk v (addr:'a word) nb ^s =
   if nb = 0 then
     (if addr IN s.sh_memaddrs then
        (case call_FFI s.ffi (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F) of
           FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
         | FFI_return new_ffi new_bytes =>
-            (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
+            (NONE, (set_kvar vk v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
      else (SOME Error, s))
   else
     (if (byte_align addr) IN s.sh_memaddrs then
        (case call_FFI s.ffi (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F) of
           FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
         | FFI_return new_ffi new_bytes =>
-            (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
+            (NONE, (set_kvar vk v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
      else (SOME Error, s))
 End
 
@@ -362,11 +368,18 @@ Definition evaluate_def:
         let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
         (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
         | NONE => (SOME Error, s)) /\
-  (evaluate (Assign v src,s) =
+  (evaluate (Assign Local v src,s) =
     case (eval s src) of
      | SOME value =>
         if is_valid_value s.locals v value
         then (NONE, s with locals := s.locals |+ (v,value))
+        else (SOME Error, s)
+        | NONE => (SOME Error, s)) /\
+  (evaluate (Assign Global v src,s) =
+    case (eval s src) of
+     | SOME value =>
+        if is_valid_value s.globals v value
+        then (NONE, s with globals := s.globals |+ (v,value))
         else (SOME Error, s)
         | NONE => (SOME Error, s)) /\
   (evaluate (Store dst src,s) =
@@ -383,11 +396,11 @@ Definition evaluate_def:
           | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
-  (evaluate (ShMemLoad op v ad,s) =
+  (evaluate (ShMemLoad op vk v ad,s) =
     case eval s ad of
     | SOME (ValWord addr) =>
-        (case lookup_var s v of
-           SOME (Val _) => sh_mem_load v addr (nb_op op) s
+        (case lookup_kvar s vk v of
+           SOME (Val _) => sh_mem_load vk v addr (nb_op op) s
          | _ => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (ShMemStore op ad e,s) =
@@ -454,7 +467,7 @@ Definition evaluate_def:
                     | SOME (NONE, _) => (NONE, st with locals := s.locals)
                     | SOME (SOME rt,  _) =>
                        if is_valid_value s.locals rt retv
-                       then (NONE, set_local rt retv (st with locals := s.locals))
+                       then (NONE, set_var rt retv (st with locals := s.locals))
                        else (SOME Error,st))
               | (SOME (Exception eid exn),st) =>
                   (case caltyp of
@@ -465,7 +478,7 @@ Definition evaluate_def:
                        case FLOOKUP s.eshapes eid of
                         | SOME sh =>
                             if shape_of exn = sh ∧ is_valid_value s.locals evar exn then
-                              evaluate (p, set_local evar exn (st with locals := s.locals))
+                              evaluate (p, set_var evar exn (st with locals := s.locals))
                             else (SOME Error,st)
                         | NONE => (SOME Error,st)
                       else (SOME (Exception eid exn), empty_locals st))
@@ -486,7 +499,7 @@ Definition evaluate_def:
               | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
                   if shape_of retv = shape then
-                    let (res',st') = evaluate (prog1, set_local rt retv (st with locals := s.locals)) in
+                    let (res',st') = evaluate (prog1, set_var rt retv (st with locals := s.locals)) in
                       (res',st' with locals := res_var st'.locals (rt, FLOOKUP s.locals rt))
                   else
                     (SOME Error, st)
@@ -510,7 +523,7 @@ Termination
   wf_rel_tac `(inv_image (measure I LEX measure (prog_size (K 0)))
                (\(xs,^s). (s.clock,xs)))` >>
   rw[] >>
-  gvs[set_var_def,set_local_def,upd_locals_def,dec_clock_def, UNCURRY_eq_pair,
+  gvs[set_var_def,upd_locals_def,dec_clock_def, UNCURRY_eq_pair,
       oneline fix_clock_def, AllCaseEqs()]
 End
 
@@ -540,9 +553,9 @@ Proof
   qpat_x_assum ‘evaluate _ = _’ mp_tac >>
   rw[Once evaluate_def] >>
   gvs[AllCaseEqs(), UNCURRY_eq_pair,
-      set_var_def, set_local_def, upd_locals_def, empty_locals_def, dec_clock_def,
-      sh_mem_load_def,sh_mem_store_def, lookup_var_def, oneline fix_clock_def,
-      SF DNF_ss]
+      set_var_def, set_global_def, upd_locals_def, empty_locals_def, dec_clock_def,
+      sh_mem_load_def,sh_mem_store_def, lookup_kvar_def, oneline fix_clock_def,
+      set_kvar_def, SF DNF_ss]
 QED
 
 Theorem fix_clock_evaluate:
