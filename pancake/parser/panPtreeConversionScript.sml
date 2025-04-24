@@ -17,6 +17,7 @@ open grammarTheory;
 open panLexerTheory panLangTheory panPEGTheory;
 open ASCIInumbersLib combinTheory;
 open helperLib;
+open mlmapTheory;
 
 val _ = new_theory "panPtreeConversion";
 
@@ -760,6 +761,98 @@ Definition parse_to_ast_def:
     | _ => NONE
 End
 
+Definition collect_globals_def:
+  collect_globals [] = empty mlstring$compare ∧
+  collect_globals (d::ds) =
+  case d of
+    Decl v _ => mlmap$insert (collect_globals ds) v ()
+  | _ => collect_globals ds
+End
+
+Definition localise_exp_def:
+  (localise_exp ls (Var varkind varname) =
+   case lookup ls varname of
+     NONE   => Var varkind varname
+   | SOME _ => Var Local varname) ∧
+  localise_exp ls (Struct exps) = Struct (MAP (localise_exp ls) exps) ∧
+  localise_exp ls (Field index exp) = Field index (localise_exp ls exp) ∧
+  localise_exp ls (Load shape exp) = Load shape (localise_exp ls exp)∧
+  localise_exp ls (LoadByte exp) = LoadByte (localise_exp ls exp) ∧
+  localise_exp ls (Op binop exps) = Op binop (MAP (localise_exp ls) exps) ∧
+  localise_exp ls (Panop panop exps) = Panop panop (MAP (localise_exp ls) exps) ∧
+  localise_exp ls (Cmp cmp exp1 exp2) = Cmp cmp (localise_exp ls exp1) (localise_exp ls exp2) ∧
+  localise_exp ls (Shift shift exp num) = Shift shift (localise_exp ls exp) num ∧
+  localise_exp ls e = e
+Termination
+  wf_rel_tac ‘measure $ exp_size ARB o SND’
+End
+
+Definition localise_prog_def:
+  localise_prog ls (Dec varname exp prog) =
+  Dec varname
+      (localise_exp ls exp)
+      (localise_prog (insert ls varname ()) prog) ∧
+  localise_prog ls (Assign varkind varname exp) =
+  Assign (case lookup ls varname of NONE => varkind | SOME _ => Local)
+         varname (localise_exp ls exp) ∧
+  localise_prog ls (Store exp1 exp2) =
+  Store (localise_exp ls exp1)
+        (localise_exp ls exp2) ∧
+  localise_prog ls (StoreByte exp1 exp2) =
+  StoreByte (localise_exp ls exp1)
+            (localise_exp ls exp2) ∧
+  localise_prog ls (Seq prog1 prog2) =
+  Seq (localise_prog ls prog1)
+      (localise_prog ls prog2) ∧
+  localise_prog ls (If exp prog1 prog2) =
+  If (localise_exp ls exp)
+     (localise_prog ls prog1)
+     (localise_prog ls prog2) ∧
+  localise_prog ls (While exp prog) =
+  While (localise_exp ls exp)
+        (localise_prog ls prog) ∧
+  localise_prog ls (Call call exp exps) =
+  Call (OPTION_MAP
+          (λ(x,y). (x, OPTION_MAP (λ(x,y,z). (x,y,localise_prog (insert ls y ()) z)) y))
+          call)
+       (localise_exp ls exp)
+       (MAP (localise_exp ls) exps) ∧
+  localise_prog ls (DecCall varname shape exp exps prog) =
+  DecCall varname shape
+          (localise_exp ls exp)
+          (MAP (localise_exp ls) exps)
+          (localise_prog (insert ls varname ()) prog) ∧
+  localise_prog ls (ExtCall funname exp1 exp2 exp3 exp4) =
+  ExtCall funname
+          (localise_exp ls exp1) (localise_exp ls exp2)
+          (localise_exp ls exp3) (localise_exp ls exp4) ∧
+  localise_prog ls (Raise eid exp) =
+  Raise eid (localise_exp ls exp) ∧
+  localise_prog ls (Return exp) =
+  Return (localise_exp ls exp) ∧
+  localise_prog ls (ShMemLoad opsize varkind varname exp) =
+  ShMemLoad opsize
+            (case lookup ls varname of NONE => varkind | SOME _ => Local)
+            varname
+            (localise_exp ls exp) ∧
+  localise_prog ls (ShMemStore opsize exp1 exp2) =
+  ShMemStore opsize (localise_exp ls exp1) (localise_exp ls exp2) ∧
+  localise_prog ls p = p
+Termination
+  wf_rel_tac ‘measure $ prog_size ARB o SND’
+End
+
+Definition localise_topdec_def:
+  localise_topdec ls (Decl v e) = Decl v e ∧
+  localise_topdec ls (Function f b args body) =
+  Function f b args $
+           localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST args)) body
+End
+
+Definition localise_topdecs_def:
+  localise_topdecs decs = MAP (localise_topdec $ empty mlstring$compare) decs
+End
+
 Definition parse_topdecs_to_ast_def:
   parse_topdecs_to_ast s =
     (case safe_pancake_lex s of
@@ -767,7 +860,7 @@ Definition parse_topdecs_to_ast_def:
         (case parse toks of
            | INL e =>
              (case conv_TopDecList e of
-              | SOME funs => INL funs
+              | SOME funs => INL(localise_topdecs funs)
               | NONE => INR [(«Parse tree conversion failed»,unknown_loc)])
            | INR err => INR err)
      | INR err => INR err)

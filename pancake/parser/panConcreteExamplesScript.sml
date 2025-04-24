@@ -481,6 +481,15 @@ val globals2 =
 
 val globals2_parse = check_success $ parse_pancake globals2;
 
+val globals3 =
+ ‘
+  var x = 0;
+
+  fun f(1 y) { x = y + 1; var x = 5; return x; }
+  ’
+
+val globals3_parse = check_success $ parse_pancake globals3;
+
 (* Using the annotation comment syntax. *)
 val annot_fun =
   `
