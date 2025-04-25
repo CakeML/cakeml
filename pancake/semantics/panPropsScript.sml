@@ -539,9 +539,12 @@ Proof
       oneline sh_mem_load_def,
       oneline sh_mem_store_def,
       set_var_def,
+      set_global_def,
       empty_locals_def,
       dec_clock_def,
-      opt_mmap_eval_upd_clock_eq
+      opt_mmap_eval_upd_clock_eq,
+      lookup_kvar_def,
+      set_kvar_def
      ]
 QED
 
@@ -605,7 +608,7 @@ Proof
       imp_res_tac evaluate_clock >>
       gvs[empty_locals_def] >>
       TRY $ first_x_assum $ irule_at $ Pat ‘evaluate _ = _’ >>
-      gvs[state_component_equality] >>
+      gvs[state_component_equality,PULL_EXISTS] >>
       TRY $ first_x_assum $ irule_at $ Pat ‘evaluate _ = _’ >>
       rw[] >>
       qrefine ‘_ with locals := (_:('a,'b) state).locals’ >>
@@ -635,7 +638,8 @@ Proof
   gvs[evaluate_def,state_component_equality,AllCaseEqs(),eval_upd_clock_eq,
       oneline nb_op_def,oneline sh_mem_load_def,
       oneline sh_mem_store_def, set_var_def, empty_locals_def,
-      dec_clock_def,opt_mmap_eval_upd_clock_eq1
+      dec_clock_def,opt_mmap_eval_upd_clock_eq1,
+      set_global_def, lookup_kvar_def, set_kvar_def
      ] >>
   rpt(pairarg_tac >> gvs[]) >>
   gvs[state_component_equality]
@@ -659,6 +663,7 @@ Proof
   gvs[evaluate_def,AllCaseEqs(),
       oneline nb_op_def,oneline sh_mem_load_def,
       oneline sh_mem_store_def, set_var_def, empty_locals_def,
+      set_global_def,lookup_kvar_def,set_kvar_def,
       dec_clock_def,opt_mmap_eval_upd_clock_eq1,
       ffiTheory.call_FFI_def] >>
   rpt(pairarg_tac >> gvs[]) >>
@@ -750,6 +755,7 @@ Proof
   gvs[evaluate_def,AllCaseEqs(),
       oneline nb_op_def,oneline sh_mem_load_def,
       oneline sh_mem_store_def, set_var_def, empty_locals_def,
+      set_global_def,lookup_kvar_def,set_kvar_def,
       dec_clock_def,opt_mmap_eval_upd_clock_eq1,
       eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
   rpt(pairarg_tac >> gvs[]) >>
@@ -765,79 +771,40 @@ Theorem update_locals_not_vars_eval_eq:
   eval (s with locals := s.locals |+ (n,w)) e = SOME v
 Proof
   ho_match_mp_tac eval_ind >>
-  rpt conj_tac >> rpt gen_tac >> strip_tac
-  >- fs [eval_def]
-  >- fs [eval_def, var_exp_def, FLOOKUP_UPDATE]
-  >- fs [eval_def]
-  >- (
-    rpt gen_tac >>
-    fs [var_exp_def] >>
-    strip_tac >>
-    rpt (pop_assum mp_tac) >>
-    MAP_EVERY qid_spec_tac [‘s’, ‘n’, ‘v’, ‘es’] >>
-    Induct >> rw []
-    >- gs [eval_def, OPT_MMAP_def] >>
-    gs [eval_def, OPT_MMAP_def] >>
-    every_case_tac >> gvs []
-    >- (
-      first_x_assum (qspec_then ‘h’ mp_tac) >>
-      impl_tac >- gs [] >>
-      strip_tac >> gs [])
-    >- (
-      last_x_assum (qspecl_then [‘Struct t’, ‘n’, ‘s’] mp_tac) >>
-      impl_tac >- metis_tac [] >>
-      strip_tac >> gs []) >>
-    conj_asm1_tac
-    >- (
-      first_x_assum (qspec_then ‘h’ mp_tac) >>
-      impl_tac >- gs [] >>
-      strip_tac >> rgs []) >>
-    gvs [] >>
-    last_x_assum (qspecl_then [‘Struct t'’, ‘n’, ‘s’] mp_tac) >>
-    impl_tac >- metis_tac [] >>
-    simp[])
-  >- (
-    rpt gen_tac >>
-    strip_tac >>
-    fs [var_exp_def, eval_def] >>
-    cases_on ‘eval s e’ >>
-    fs [])
-  >- (
-   rpt gen_tac >>
-   strip_tac >> fs [var_exp_def] >>
-   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
-   rveq >> fs [mem_load_def])
-  >- (
-   rpt gen_tac >>
-   strip_tac >> fs [var_exp_def] >>
-   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
-   rveq >> fs [mem_load_def])
-  >- (
-   rpt gen_tac >>
-   strip_tac >> fs [var_exp_def, ETA_AX] >>
-   fs [eval_def, CaseEq "option", ETA_AX] >>
-   qexists_tac ‘ws’ >>
-   fs [opt_mmap_eq_some, ETA_AX,
-       MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-   rw [] >>
-   fs [MEM_FLAT, MEM_MAP] >>
-   metis_tac [EL_MEM])
-  >- (
-   rpt gen_tac >>
-   strip_tac >>
-   gvs [var_exp_def, eval_def, AllCaseEqs(),opt_mmap_eq_some,SF DNF_ss,
-        DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
-   metis_tac[]
-  )
-  >- (
-    rw [] >>
-    gs [var_exp_def, eval_def] >>
-    every_case_tac >> gvs []) >>
-  rw [] >>
-  gs [var_exp_def, eval_def] >>
-  every_case_tac >> gvs []
+  rpt conj_tac >> rpt gen_tac
+  >~ [‘Struct’]
+  >- (fs [var_exp_def] >>
+      rpt strip_tac >>
+      gvs[eval_def,AllCaseEqs()] >>
+      imp_res_tac opt_mmap_el >>
+      imp_res_tac opt_mmap_length_eq >>
+      gvs[opt_mmap_eq_some] >>
+      irule LIST_EQ >>
+      rw[EL_MAP] >>
+      first_x_assum irule >>
+      simp[MEM_EL,PULL_EXISTS] >>
+      irule_at (Pos last) EQ_REFL >>
+      simp[] >>
+      rw[] >>
+      gvs[MEM_FLAT,MEM_MAP,MEM_EL,PULL_FORALL, SF DNF_ss] >>
+      metis_tac[]) >>
+  rw[] >>
+  gvs[eval_def,var_exp_def, lookup_kvar_def, FLOOKUP_UPDATE,AllCaseEqs(),
+      PULL_EXISTS] >>
+  ntac 2 $ first_assum $ irule_at $ Pos last >>
+  imp_res_tac opt_mmap_el >>
+  imp_res_tac opt_mmap_length_eq >>
+  gvs[opt_mmap_eq_some] >>
+  irule LIST_EQ >>
+  rw[EL_MAP] >>
+  first_x_assum irule >>
+  simp[MEM_EL,PULL_EXISTS] >>
+  irule_at (Pos last) EQ_REFL >>
+  simp[] >>
+  rw[] >>
+  gvs[MEM_FLAT,MEM_MAP,MEM_EL,PULL_FORALL, SF DNF_ss] >>
+  metis_tac[]
 QED
-
 
 Theorem write_bytearray_update_byte:
   ∀bytes ad ad' m adrs be.
@@ -896,8 +863,8 @@ Proof
      >~[‘ShMemLoad’]
      >- (Cases_on ‘op’>>
          gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
-             dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,
-             sh_mem_load_def] >>
+             dec_clock_def,set_kvar_def,nb_op_def,sh_mem_store_def,
+             set_var_def, set_global_def,sh_mem_load_def,lookup_kvar_def] >>
          metis_tac[PAIR,FST,SND])
      >~[‘ShMemStore’]
      >- (Cases_on ‘op’>>
@@ -911,7 +878,7 @@ QED
 
 Definition every_exp_def:
   (every_exp P (panLang$Const w) = P(Const w)) ∧
-  (every_exp P (Var v) = P(Var v)) ∧
+  (every_exp P (Var vk v) = P(Var vk v)) ∧
   (every_exp P (Label f) = P(Label f)) ∧
   (every_exp P (Struct es) = (P(Struct es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Field i e) = (P(Field i e) ∧ every_exp P e)) ∧
@@ -945,8 +912,8 @@ Definition exps_of_def:
   (exps_of (StoreByte e1 e2) = [e1;e2]) ∧
   (exps_of (Return e) = [e]) ∧
   (exps_of (ExtCall _ e1 e2 e3 e4) = [e1;e2;e3;e4]) ∧
-  (exps_of (Assign _ e) = [e]) ∧
-  (exps_of (ShMemLoad _ _ e) = [e]) ∧
+  (exps_of (Assign _ _ e) = [e]) ∧
+  (exps_of (ShMemLoad _ _ _ e) = [e]) ∧
   (exps_of (ShMemStore _ e1 e2) = [e1;e2]) ∧
   (exps_of _ = [])
 End
