@@ -267,7 +267,18 @@ Proof
     \\ namedCases_on ‘index_array s₂ arr_v idx_v’ ["", "v"] \\ gvs []
     \\ namedCases_on ‘index_array t₂ arr_v idx_v’ ["", "v'"] \\ gvs []
     \\ gvs [index_array_def, state_rel_def, AllCaseEqs ()])
-   \\ cheat
+  >~ [‘freshen_exps m cnt []’] >- gvs [evaluate_exp_def, freshen_exp_def]
+  >~ [‘freshen_exps m cnt (e::es)’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp s env e’ ["s₁ r"]
+    \\ reverse $ namedCases_on ‘r’ ["v", "err"] \\ gvs []
+    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
+    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono)
+    \\ namedCases_on ‘evaluate_exps s₁ env es’ ["s₂ r"]
+    \\ namedCases_on ‘r’ ["vs", "err"] \\ gvs []
+    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs [])
 QED
 
 
