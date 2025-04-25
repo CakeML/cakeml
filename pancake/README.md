@@ -73,20 +73,5 @@ Semantics for Pancake and its intermediate languages.
 [static_checker](static_checker):
 Support files for Pancake static checker
 
-[taParserScript.sml](taParserScript.sml):
-Parser for compactDSL programs
-
-[ta_progs](ta_progs):
-Some sample timed automata (TA) programs.
-
 [temp](temp):
 Temporary files
-
-[timeLangScript.sml](timeLangScript.sml):
-Abstract syntax for timeLang
-
-[time_to_panScript.sml](time_to_panScript.sml):
-Compilation from timeLang to panLang
-
-[time_to_targetScript.sml](time_to_targetScript.sml):
-Compiler from timeLang to machine code
