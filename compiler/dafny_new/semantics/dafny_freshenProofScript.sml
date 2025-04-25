@@ -6,6 +6,9 @@ open preamble
 open dafny_astTheory
 open dafny_evaluateTheory
 open dafny_semanticPrimitivesTheory
+open mlstringTheory
+open mlintTheory
+open quantHeuristicsTheory  (* LIST_LENGTH_1 *)
 
 val _ = new_theory "dafny_freshenProof";
 
@@ -104,7 +107,7 @@ Theorem mlstring_common_prefix:
   ∀s t1 t2. s ^ t1 = s ^ t2 ⇔ t1 = t2
 Proof
   rpt Cases
-  \\ gvs [mlstringTheory.strcat_thm,mlstringTheory.implode_def]
+  \\ gvs [strcat_thm, implode_def]
 QED
 
 Theorem with_same_locals[simp]:
@@ -113,7 +116,7 @@ Proof
   gvs [state_component_equality]
 QED
 
-Theorem evaluate_exp_freshen_exp:
+Theorem correct_freshen_exp:
   (∀s env e s' res t m cnt cnt' e'.
      evaluate_exp s env e = (s', res) ∧ state_rel s t m cnt ∧
      freshen_exp m cnt e = (cnt', e') ∧ res ≠ Rerr Rtype_error ⇒
@@ -178,7 +181,7 @@ Proof
     \\ strip_tac \\ simp []
     \\ gvs [read_local_aux_def,FLOOKUP_SIMP]
     \\ reverse IF_CASES_TAC >- gvs []
-    \\ gvs [mlstring_common_prefix,mlintTheory.num_to_str_11]
+    \\ gvs [mlstring_common_prefix, num_to_str_11]
     \\ res_tac \\ gvs [])
   >~ [‘FunCall name args’] >-
    (gvs [freshen_exp_def]
@@ -279,6 +282,134 @@ Proof
     \\ namedCases_on ‘evaluate_exps s₁ env es’ ["s₂ r"]
     \\ namedCases_on ‘r’ ["vs", "err"] \\ gvs []
     \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs [])
+QED
+
+Definition rename_locals_def:
+  (rename_locals m cnt [] = (cnt, m, [])) ∧
+  (rename_locals m cnt (l::ls) =
+   let (ln, lt) = l in
+   let (cnt, m) = add_fresh m cnt ln in
+   let l = (lookup m ln, lt) in
+   let (cnt, m, ls) = rename_locals m cnt ls in
+     (cnt, m, l::ls))
+End
+
+Theorem rename_locals_lt_not_mem:
+  ∀m cnt locals cnt' m' locals' i.
+    rename_locals m cnt locals = (cnt', m', locals') ∧ i < cnt ⇒
+    ¬MEM («v» ^ toString i) (MAP FST locals')
+Proof
+  Induct_on ‘locals’ \\ rpt strip_tac
+  \\ gvs [rename_locals_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [add_fresh_def, lookup_def, mlstring_common_prefix, num_to_str_11]
+  \\ ‘i < cnt + 1’ by gvs [] \\ last_x_assum drule_all \\ gvs []
+QED
+
+Theorem rename_locals_all_distinct:
+  ∀m cnt locals cnt' m' locals'.
+    rename_locals m cnt locals = (cnt', m', locals') ∧
+    ALL_DISTINCT (MAP FST locals) ⇒
+    ALL_DISTINCT (MAP FST locals')
+Proof
+  Induct_on ‘locals’ \\ rpt strip_tac
+  \\ gvs [rename_locals_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ last_x_assum $ drule_all \\ strip_tac \\ gvs []
+  \\ gvs [add_fresh_def, lookup_def]
+  \\ imp_res_tac rename_locals_lt_not_mem
+  \\ pop_assum $ qspec_then ‘cnt’ mp_tac \\ gvs []
+QED
+
+Definition freshen_stmt_def:
+  (freshen_stmt m cnt (Dec locals scope) =
+   let (cnt, m, locals) = rename_locals m cnt locals in
+   let (cnt, scope) = freshen_stmt m cnt scope in
+     (cnt, Dec locals scope)) ∧
+  (freshen_stmt m cnt (Then stmt₀ stmt₁) =
+   let (cnt, stmt₀) = freshen_stmt m cnt stmt₀ in
+   let (cnt, stmt₁) = freshen_stmt m cnt stmt₁ in
+     (cnt, Then stmt₀ stmt₁)) ∧
+  (freshen_stmt m cnt _ = ARB)
+End
+
+Theorem freshen_stmt_mono:
+  ∀m cnt stmt cnt' stmt'.
+    freshen_stmt m cnt stmt = (cnt', stmt') ⇒ cnt ≤ cnt'
+Proof
+  cheat
+QED
+
+Theorem locals_not_empty_pop_locals_some:
+  ∀s. LENGTH s.locals > 0 ⇒ ∃s'. pop_locals s = SOME s'
+Proof
+  rpt strip_tac \\ gvs [pop_locals_def, LIST_LENGTH_1]
+QED
+
+Theorem evaluate_stmt_len_locals:
+  evaluate_stmt s env scope = (s', r) ⇒
+  LENGTH s'.locals = LENGTH s.locals
+Proof
+  cheat
+QED
+
+
+
+Theorem rename_locals_mono:
+  ∀m cnt locals cnt' m' used.
+    rename_locals m cnt locals = (cnt', m', used) ⇒ cnt ≤ cnt'
+Proof
+  Induct_on ‘locals’ \\ rpt strip_tac
+  \\ gvs [rename_locals_def, add_fresh_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ res_tac \\ gvs []
+QED
+
+Theorem correct_freshen_stmt:
+  ∀s env stmt s' res t m cnt cnt' stmt'.
+    evaluate_stmt s env stmt = (s', res) ∧ state_rel s t m cnt ∧
+    freshen_stmt m cnt stmt = (cnt', stmt') ∧
+    res ≠ Rstop (Serr Rtype_error) ⇒
+    ∃t'. evaluate_stmt t env stmt' = (t', res) ∧ state_rel s' t' m cnt'
+Proof
+  Induct_on ‘stmt’ \\ rpt strip_tac
+  >~ [‘Dec locals scope’] >-
+
+   (gvs [evaluate_stmt_def, freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ qabbrev_tac ‘s₁ = declare_locals s (MAP FST locals)’
+    \\ qabbrev_tac ‘t₁ = declare_locals t (MAP FST locals')’
+    \\ rename [‘rename_locals m cnt locals = (cnt₁, m₁, locals')’,
+               ‘freshen_stmt m₁ cnt₁ scope = (cnt₂, scope')’,
+               ‘evaluate_stmt s₁ env scope = (s₂, res)’]
+    \\ gvs [evaluate_stmt_def] \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘evaluate_stmt t₁ env scope' = (t₂, res')’]
+    \\ Cases_on ‘ALL_DISTINCT (MAP FST locals)’ \\ gvs []
+    \\ imp_res_tac rename_locals_all_distinct \\ gvs []
+    \\ rpt $ qpat_x_assum ‘ALL_DISTINCT _’ kall_tac
+    \\ imp_res_tac evaluate_stmt_len_locals
+    \\ ‘LENGTH s₂.locals > 0’ by (unabbrev_all_tac \\ gvs [declare_locals_def])
+    \\ ‘LENGTH t₂.locals > 0’ by (unabbrev_all_tac \\ gvs [declare_locals_def])
+    \\ imp_res_tac locals_not_empty_pop_locals_some \\ gvs []
+    \\ rpt $ qpat_x_assum ‘LENGTH _ = _’ kall_tac
+    \\ rpt $ qpat_x_assum ‘LENGTH _ > _’ kall_tac
+    \\ rename [‘pop_locals s₂ = SOME s₃’] \\ pop_assum $ mp_tac
+    \\ rename [‘pop_locals t₂ = SOME t₃’] \\ strip_tac
+    \\ qsuff_tac ‘state_rel s₁ t₁ m₁ cnt₁’
+    >- (strip_tac \\ last_x_assum $ drule_all \\ strip_tac \\ gvs []
+        \\ rename [‘evaluate_stmt _ _ _' = (t₂, _)’]
+
+
+        \\ gvs [state_rel_def, pop_locals_def, AllCaseEqs()]
+        \\ conj_tac
+        >- (imp_res_tac rename_locals_mono \\ imp_res_tac freshen_stmt_mono
+            \\ rpt strip_tac \\ res_tac \\ gvs [])
+
+        \\ rename [‘s₂.locals = decs::prev_locals’]
+        \\ qpat_x_assum ‘s₂.locals = _’ mp_tac
+        \\ rename [‘t₂.locals = decs'::prev_locals'’] \\ strip_tac
+        \\ rpt strip_tac \\ gvs [read_local_def]
+       )
+    >- cheat)
+  \\ cheat
 QED
 
 

@@ -284,10 +284,14 @@ Definition evaluate_stmt_ann_def[nocompute]:
      (case do_cond tst thn els of
       | NONE => (st₁, Rstop (Serr Rtype_error))
       | SOME branch => evaluate_stmt st₁ env branch)) ∧
-  evaluate_stmt st env (Dec locals scope) =
+  evaluate_stmt st₀ env (Dec locals scope) =
   (let names = MAP FST locals in
-     if ¬ALL_DISTINCT names then (st, Rstop (Serr Rtype_error))
-     else evaluate_stmt (declare_locals st names) env scope) ∧
+     if ¬ALL_DISTINCT names then (st₀, Rstop (Serr Rtype_error))
+     else
+       let (st₁, res) = evaluate_stmt (declare_locals st₀ names) env scope in
+         (case pop_locals st₁ of
+          | NONE => (st₁, res)
+          | SOME st₂ => (st₂, res))) ∧
   evaluate_stmt st₀ env (Assign lhss rhss) =
   (case evaluate_rhs_exps st₀ env rhss of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
@@ -353,12 +357,14 @@ Theorem evaluate_stmt_clock:
 Proof
   ho_match_mp_tac evaluate_stmt_ann_ind
   >> rpt strip_tac
+  >> gvs [evaluate_stmt_ann_def]
+  >> rpt (pairarg_tac \\ gvs [])
   >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def,
-          declare_locals_def, print_string_def, evaluate_stmt_ann_def]
+          print_string_def, evaluate_stmt_ann_def, declare_locals_clock]
   >> EVERY (map imp_res_tac
-                [set_up_call_clock, restore_locals_clock, fix_clock_IMP,
-                 evaluate_rhs_exps_clock, evaluate_exp_clock,
-                 assign_values_clock]) >> gvs[]
+                [set_up_call_clock, restore_locals_clock, pop_locals_clock,
+                 fix_clock_IMP, evaluate_rhs_exps_clock,
+                 evaluate_exp_clock, assign_values_clock]) >> gvs []
 QED
 
 Theorem fix_clock_evaluate_stmt:

@@ -275,6 +275,25 @@ Definition declare_locals_def:
     (st with locals := (FEMPTY |++ uninit)::st.locals)
 End
 
+Theorem declare_locals_clock:
+  (declare_locals st names).clock = st.clock
+Proof
+  gvs [declare_locals_def]
+QED
+
+Definition pop_locals_def:
+  pop_locals st =
+  case st.locals of
+  | [] => NONE
+  | (hd::tl) => SOME (st with locals := tl)
+End
+
+Theorem pop_locals_clock:
+  ∀st st'. pop_locals st = SOME st' ⇒ st'.clock = st.clock
+Proof
+  rpt strip_tac \\ gvs [pop_locals_def, AllCaseEqs ()]
+QED
+
 Definition val_to_string_def:
   val_to_string st (IntV i) =
     SOME (int_to_string #"-" i) ∧
