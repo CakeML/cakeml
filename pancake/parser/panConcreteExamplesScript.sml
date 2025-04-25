@@ -465,25 +465,25 @@ val empty_blocks_parse = check_success $ parse_pancake empty_blocks;
 (* Various kinds of global variables *)
 val globals1 =
  ‘
-  var x = 1+1;
+  var 1 x = 1+1;
   ’
 
 val globals1_parse = check_success $ parse_pancake globals1;
 
 val globals2 =
  ‘
-  var x = 1+1;
+  var 1 x = 1+1;
 
   fun f() { x = x + 1; return x; }
 
-  var y = x+1;
+  var 1 y = x+1;
   ’
 
 val globals2_parse = check_success $ parse_pancake globals2;
 
 val globals3 =
  ‘
-  var x = 0;
+  var 1 x = 0;
 
   fun f(1 y) { x = y + 1; var x = 5; return x; }
   ’

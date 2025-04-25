@@ -15,7 +15,7 @@ val _ = new_theory "panPEG";
 
 Datatype:
   pancakeNT = TopDecListNT | FunNT | ProgNT | BlockNT | StmtNT | ExpNT
-            | DecNT | AssignNT | StoreNT | StoreByteNT
+            | DecNT | GlobalDecNT | AssignNT | StoreNT | StoreByteNT
             | IfNT | WhileNT | CallNT | RetNT | HandleNT
             | ExtCallNT | RaiseNT | ReturnNT
             | DecCallNT | RetCallNT
@@ -135,7 +135,7 @@ Definition pancake_peg_def[nocompute]:
     rules := FEMPTY |++ [
         (INL TopDecListNT, choicel [not (any $ K $ mksubtree TopDecListNT []) $ mksubtree TopDecListNT [];
                                  seql [mknt FunNT; mknt TopDecListNT] (mksubtree TopDecListNT);
-                                 seql [mknt DecNT; mknt TopDecListNT] (mksubtree TopDecListNT);
+                                 seql [mknt GlobalDecNT; mknt TopDecListNT] (mksubtree TopDecListNT);
                                  seql [keep_annot; mknt TopDecListNT] (mksubtree TopDecListNT)]);
         (INL FunNT, seql [try_default (keep_kw ExportK) StaticT;
                           consume_kw FunK;
@@ -190,6 +190,10 @@ Definition pancake_peg_def[nocompute]:
                          consume_tok AssignT; mknt ExpNT;
                          consume_tok SemiT]
                          (mksubtree DecNT));
+        (INL GlobalDecNT,seql [consume_kw VarK; mknt ShapeNT; keep_ident;
+                         consume_tok AssignT; mknt ExpNT;
+                         consume_tok SemiT]
+                         (mksubtree GlobalDecNT));
         (INL AssignNT, seql [keep_ident; consume_tok AssignT;
                              mknt ExpNT] (mksubtree AssignNT));
         (INL StoreNT, seql [consume_kw StK; mknt ExpNT;
@@ -655,7 +659,7 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
                 “StoreNT”, “AssignNT”,
                 “SharedLoadByteNT”, “SharedLoad32NT”, “SharedLoadNT”,
                 “SharedStoreByteNT”, “SharedStore32NT”, “SharedStoreNT”, “DecNT”,
-                “DecCallNT”, “StmtNT”, “BlockNT”, “ParamListNT”, “FunNT”
+                “DecCallNT”, “StmtNT”, “BlockNT”, “ParamListNT”, “GlobalDecNT”, “FunNT”
                 ];
 
 (*  “FunNT”, “TopDecListNT” *)

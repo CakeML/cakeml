@@ -39,10 +39,11 @@ End
 Definition compile_exp_def:
   (compile_exp ctxt ((Const c):'a panLang$exp) =
    ([(Const c): 'a crepLang$exp], One)) /\
-  (compile_exp ctxt (Var vname) =
+  (compile_exp ctxt (Var Local vname) =
    case FLOOKUP ctxt.vars vname of
    | SOME (shape, ns) => (MAP Var ns, shape)
    | NONE => ([Const 0w], One)) /\
+  (compile_exp ctxt (Var Global) = ([Const 0w], One)) /\ (* should never happen *)
   (compile_exp ctxt (Label fname) = ([Label fname], One)) /\
   (compile_exp ctxt (Struct es) =
    let cexps = MAP (compile_exp ctxt) es in

@@ -514,6 +514,21 @@ Definition conv_Dec_def:
   conv_Dec _ = NONE
 End
 
+Definition conv_GlobalDec_def:
+  (conv_GlobalDec (^Nd nodeNT args) =
+   if isNT nodeNT GlobalDecNT then
+     case args of
+       [sh; id; e] => do sh <- conv_Shape sh;
+                         v <- conv_ident id;
+                         e' <- conv_Exp e;
+                         SOME (sh,v,e')
+                      od
+     | _ => NONE
+   else
+     NONE) ∧
+  conv_GlobalDec _ = NONE
+End
+
 Definition conv_DecCall_def:
   (conv_DecCall (^Nd nodeNT args) =
    if isNT nodeNT DecCallNT then
@@ -728,9 +743,9 @@ Definition conv_TopDec_def:
             od)
        | _ => NONE)
   | _ =>
-      (case conv_Dec tree of
+      (case conv_GlobalDec tree of
          NONE => NONE
-       | SOME (v,e) => SOME $ Decl v e)
+       | SOME (sh,v,e) => SOME $ Decl sh v e)
 End
 
 Definition conv_TopDecList_def:
@@ -765,7 +780,7 @@ Definition collect_globals_def:
   collect_globals [] = empty mlstring$compare ∧
   collect_globals (d::ds) =
   case d of
-    Decl v _ => mlmap$insert (collect_globals ds) v ()
+    Decl _ v _ => mlmap$insert (collect_globals ds) v ()
   | _ => collect_globals ds
 End
 
@@ -843,7 +858,7 @@ Termination
 End
 
 Definition localise_topdec_def:
-  localise_topdec ls (Decl v e) = Decl v e ∧
+  localise_topdec ls (Decl sh v e) = Decl sh v e ∧
   localise_topdec ls (Function f b args body) =
   Function f b args $
            localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST args)) body

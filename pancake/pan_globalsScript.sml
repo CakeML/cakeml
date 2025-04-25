@@ -105,8 +105,8 @@ End
 Definition compile_decs_def:
     compile_decs ctxt [] = [] ∧
     compile_decs ctxt (Decl v e::ds) =
-    Decl v (compile_exp ctxt e)::
-         compile_decs (ctxt with globals := ctxt.globals |+ (v, ARB)) ds ∧
+    Decl sh v (compile_exp ctxt e)::
+         compile_decs (ctxt with globals := ctxt.globals |+ (v, (sh,ARB))) ds ∧
     compile_decs ctxt (Function f xp args body::ds) =
     Function f xp args (compile ctxt body)::ds
 End
