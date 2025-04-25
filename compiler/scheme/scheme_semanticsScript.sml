@@ -26,9 +26,11 @@ End
 
 Definition sminus_def:
   sminus [] = Exception $ strlit "Arity mismatch" ∧
-  sminus (SNum n :: xs) = (case sadd xs 0 of
-  | Val (SNum m) => Val (SNum (n - m))
-  | e => e) ∧
+  sminus (SNum n :: xs) = (case xs of
+  | [] => Val (SNum (-n))
+  | _::_ => (case sadd xs 0 of
+    | Val (SNum m) => Val (SNum (n - m))
+    | e => e)) ∧
   sminus _ = Exception $ strlit "Arith-op applied to non-number"
 End
 
@@ -144,7 +146,7 @@ End
 (*
   open scheme_semanticsTheory;
 
-  EVAL “steps 4 ([], [], Apply (Val (Prim SMinus)) [Val (SNum 2); Val (SNum 4)])”
+  EVAL “steps 10 ([], [], FEMPTY, Exp $ Apply (Lit (LitPrim SMinus)) [Lit (LitNum 4); Lit (LitNum 2)])”
   EVAL “steps 4 ([], [], Apply (Val (SNum 7)) [Val (SNum 2); Val (SNum 4)])”
   EVAL “steps 6 ([], [InLetK []], Apply (Val (Prim SMul)) [Val (SNum 2); Val (Prim SAdd)])”
   EVAL “steps 2 ([], [], Cond (Val (SBool F)) (Val (SNum 2)) (Val (SNum 4)))”

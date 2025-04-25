@@ -704,24 +704,21 @@ Theorem preservation_of_sminus_body:
             (Pcon (SOME (Short "::")) [Pvar "t"; Pvar "ts'"],
              Mat (Var (Short "t"))
                [(Pcon (SOME (Short "SNum")) [Pvar "n"],
-                 App Opapp
-                   [App Opapp
-                      [App Opapp
-                         [Var (Short "sadd");
-                          Fun "t"
-                            (Mat (Var (Short "t"))
-                               [(Pcon (SOME (Short "SNum")) [Pvar "m"],
-                                 Let (SOME "t")
-                                   (Con (SOME (Short "SNum"))
-                                      [App (Opn Minus)
-                                         [Var (Short "n");
-                                          Var (Short "m")]])
-                                   (App Opapp
-                                      [Var (Short "k"); Var (Short "t")]));
-                                (Pany,
-                                 App Opapp
-                                   [Var (Short "k"); Var (Short "t")])])];
-                       Lit (IntLit 0)]; Var (Short "ts'")]);
+                  Mat (Var (Short "ts'")) [
+                    (Pcon (SOME $ Short "[]") [],
+                      Let (SOME "t") (Con (SOME $ Short "SNum") [
+                          App (Opn Minus) [Lit $ IntLit 0; Var (Short "n")]]) $
+                        App Opapp [Var (Short "k"); Var (Short "t")]);
+                    (Pany, App Opapp [App Opapp [App Opapp [Var (Short "sadd");
+                      Fun "t" $ Mat (Var (Short "t")) [
+                        (Pcon (SOME $ Short "SNum") [Pvar "m"],
+                          Let (SOME "t") (Con (SOME $ Short "SNum") [
+                              App (Opn Minus) [Var (Short "n"); Var (Short "m")]]) $
+                            App Opapp [Var (Short "k"); Var (Short "t")]);
+                        (Pany,
+                          App Opapp [Var (Short "k"); Var (Short "t")])
+                      ]];
+                      Lit $ IntLit 0]; Var (Short "ts'")])]);
                 (Pany,
                  Con (SOME (Short "Ex"))
                    [Lit (StrLit "Arith-op applied to non-number")])])]] =
@@ -760,6 +757,30 @@ Proof
       same_type_def, same_ctor_def, evaluate_match_def,
       pat_bindings_def]
     >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
+    >> Cases_on ‘t=[]’ >- (
+      gvs[vcons_list_def]
+      >> simp[Ntimes evaluate_def 3]
+      >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+        same_type_def, same_ctor_def, evaluate_match_def,
+        pat_bindings_def]
+      >> simp[Ntimes evaluate_def 6, do_app_def, do_con_check_def,
+        build_conv_def, nsOptBind_def, opn_lookup_def]
+      >> irule_at (Pos hd) EQ_REFL
+      >> simp[sminus_def, Once e_ce_rel_cases, Once ml_v_vals'_cases,
+        env_rel_cases, FEVERY_FEMPTY]
+    )
+    >> ‘∃ t' ts' . t'::ts'=t’ by (Cases_on ‘t’ >> gvs[])
+    >> simp[sminus_def]
+    >> first_assum $ simp_tac bool_ss o single o  GSYM
+    >> simp[Ntimes evaluate_def 3]
+    >> ‘∃ y ys . y::ys = t'’ by gvs[]
+    >> pop_assum $ simp_tac bool_ss o single o (fn x => Ntimes x 2) o GSYM
+    >> simp[vcons_list_def]
+    >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
+      same_type_def, same_ctor_def, evaluate_match_def,
+      pat_bindings_def]
+    >> pop_assum kall_tac
+    >> pop_assum kall_tac
     >> simp[Ntimes evaluate_def 3]
     >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
       same_type_def, same_ctor_def, evaluate_match_def,

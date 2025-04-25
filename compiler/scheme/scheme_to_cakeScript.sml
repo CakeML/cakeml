@@ -254,16 +254,22 @@ Definition scheme_basis4_def:
       (Pcon (SOME $ Short "::") [Pvar "t"; Pvar "ts'"],
         Mat (Var (Short "t")) [
           (Pcon (SOME $ Short "SNum") [Pvar "n"],
-            App Opapp [App Opapp [App Opapp [Var (Short "sadd");
-              Fun "t" $ Mat (Var (Short "t")) [
-                (Pcon (SOME $ Short "SNum") [Pvar "m"],
-                  Let (SOME "t") (Con (SOME $ Short "SNum") [
-                      App (Opn Minus) [Var (Short "n"); Var (Short "m")]]) $
-                    App Opapp [Var (Short "k"); Var (Short "t")]);
-                (Pany,
-                  App Opapp [Var (Short "k"); Var (Short "t")])
-              ]];
-              Lit $ IntLit 0]; Var (Short "ts'")]);
+            Mat (Var (Short "ts'")) [
+              (Pcon (SOME $ Short "[]") [],
+                Let (SOME "t") (Con (SOME $ Short "SNum") [
+                    App (Opn Minus) [Lit $ IntLit 0; Var (Short "n")]]) $
+                  App Opapp [Var (Short "k"); Var (Short "t")]);
+              (Pany, App Opapp [App Opapp [App Opapp [Var (Short "sadd");
+                Fun "t" $ Mat (Var (Short "t")) [
+                  (Pcon (SOME $ Short "SNum") [Pvar "m"],
+                    Let (SOME "t") (Con (SOME $ Short "SNum") [
+                        App (Opn Minus) [Var (Short "n"); Var (Short "m")]]) $
+                      App Opapp [Var (Short "k"); Var (Short "t")]);
+                  (Pany,
+                    App Opapp [Var (Short "k"); Var (Short "t")])
+                ]];
+                Lit $ IntLit 0]; Var (Short "ts'")])
+            ]);
           (Pany,
             Con (SOME $ Short "Ex") [Lit $ StrLit "Arith-op applied to non-number"])
         ])
