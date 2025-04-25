@@ -294,7 +294,8 @@ QED
 
 Theorem ret_to_tail_Others:
   ^(get_goal "panLang$Skip") /\
-  ^(get_goal "panLang$Assign") /\
+  ^(get_goal "panLang$Assign Local") /\
+  ^(get_goal "panLang$Assign Global") /\
   ^(get_goal "panLang$Store") /\
   ^(get_goal "panLang$StoreByte") /\
   ^(get_goal "panLang$Break") /\
@@ -374,7 +375,11 @@ Proof
    rename [‘Const w’] >>
    fs [panSemTheory.eval_def])
   >- (
-   rename [‘eval s (Var vname)’] >>
+   rename [‘eval s (Var Local vname)’] >>
+   fs [panSemTheory.eval_def] >> rveq >>
+   fs [state_rel_def, state_component_equality])
+  >- (
+   rename [‘eval s (Var Global vname)’] >>
    fs [panSemTheory.eval_def] >> rveq >>
    fs [state_rel_def, state_component_equality])
   >- (
@@ -476,7 +481,11 @@ Proof
    rename [‘Const w’] >>
    fs [panSemTheory.eval_def])
   >- (
-   rename [‘eval s (Var vname)’] >>
+   rename [‘eval s (Var Local vname)’] >>
+   fs [panSemTheory.eval_def] >> rveq >>
+   fs [state_rel_def, state_component_equality])
+  >- (
+   rename [‘eval s (Var Global vname)’] >>
    fs [panSemTheory.eval_def] >> rveq >>
    fs [state_rel_def, state_component_equality])
   >- (
@@ -868,18 +877,15 @@ Theorem compile_ShMemLoad:
   ^(get_goal "panLang$ShMemLoad")
 Proof
   rw [] >>
-  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
-  Cases_on ‘op’>>
-  fs [evaluate_def] >> rveq >>
-  fs [nb_op_def,sh_mem_load_def,sh_mem_store_def,
-      set_var_def,empty_locals_def] >>
-  last_x_assum mp_tac >>
-  rpt (TOP_CASE_TAC >> fs []) >>
+  gvs [evaluate_seq_assoc, evaluate_skip_seq,
+       oneline nb_op_def,sh_mem_load_def,sh_mem_store_def,
+      set_var_def,empty_locals_def, evaluate_def,
+      AllCaseEqs(), lookup_kvar_def, PULL_EXISTS,
+      set_kvar_def, set_global_def
+      ] >>
   MAP_EVERY imp_res_tac [compile_eval_correct,compile_eval_correct_none] >> gvs[] >>
-  rfs [state_rel_def, state_component_equality,
-       empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
-  rveq >> fs [] >> rveq >> rfs [] >>
-  strip_tac >> fs []
+  gvs [state_rel_def, state_component_equality,
+       empty_locals_def, dec_clock_def]
 QED
 
 Theorem compile_ShMemStore:
@@ -902,7 +908,8 @@ QED
 
 Theorem compile_Others:
   ^(get_goal "panLang$Skip") /\
-  ^(get_goal "panLang$Assign") /\
+  ^(get_goal "panLang$Assign Local") /\
+  ^(get_goal "panLang$Assign Global") /\
   ^(get_goal "panLang$Store") /\
   ^(get_goal "panLang$StoreByte") /\
   ^(get_goal "panLang$Break") /\
