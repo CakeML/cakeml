@@ -34,6 +34,7 @@ Datatype:
       | Cmp cmp exp exp
       | Shift shift exp num
       | BaseAddr
+      | TopAddr
 End
 
 Datatype:
@@ -129,7 +130,8 @@ Definition var_cexp_def:
   (var_cexp (Crepop cop es) = FLAT (MAP var_cexp es)) ∧
   (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
   (var_cexp (Shift sh e num) = var_cexp e) ∧
-  (var_cexp BaseAddr = [])
+  (var_cexp BaseAddr = []) ∧
+  (var_cexp TopAddr = [])
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>

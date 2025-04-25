@@ -194,7 +194,7 @@ QED
 Theorem locals_touched_eq_eval_eq:
   !s e t.
    s.globals = t.globals /\ s.memory = t.memory /\ s.mdomain = t.mdomain /\
-   s.base_addr = t.base_addr ∧
+   s.base_addr = t.base_addr ∧ s.top_addr = t.top_addr ∧
    (!n. MEM n (locals_touched e) ==> lookup n s.locals = lookup n t.locals) ==>
       eval t e = eval s e
 Proof
@@ -885,7 +885,7 @@ Proof
   drule_all comp_syn_ok_upd_local_clock >>
   fs [] >> strip_tac >>
   ‘st.globals = r.globals /\ st.memory = r.memory /\
-   st.base_addr = r.base_addr ∧ st.mdomain = r.mdomain’
+   st.base_addr = r.base_addr ∧ st.top_addr = r.top_addr ∧ st.mdomain = r.mdomain’
     by fs [state_component_equality] >>
   drule locals_touched_eq_eval_eq >> fs [] >>
   disch_then (qspec_then ‘e’ mp_tac) >> fs [] >>

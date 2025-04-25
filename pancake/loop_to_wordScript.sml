@@ -29,6 +29,7 @@ Definition comp_exp_def :
   (comp_exp ctxt (Var n) = Var (find_var ctxt n)) /\
   (comp_exp ctxt (Lookup m) = Lookup (Temp m)) /\
   (comp_exp ctxt (BaseAddr) = Lookup CurrHeap) /\
+  (comp_exp ctxt (TopAddr) = Lookup EndOfHeap) /\
   (comp_exp ctxt (Load exp) = Load (comp_exp ctxt exp)) /\
   (comp_exp ctxt (Shift s exp n) = Shift s (comp_exp ctxt exp) n) /\
   (comp_exp ctxt (Op op wexps) =

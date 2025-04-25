@@ -29,7 +29,8 @@ Datatype:
      ; clock       : num
      ; be          : bool
      ; ffi         : 'ffi ffi_state
-     ; base_addr   : 'a word |>
+     ; base_addr   : 'a word
+     ; top_addr   : 'a word |>
 End
 
 val state_component_equality = theorem"state_component_equality";
@@ -130,7 +131,9 @@ Definition eval_def:
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
      | _ => NONE) /\
   (eval s BaseAddr =
-        SOME (Word s.base_addr))
+        SOME (Word s.base_addr)) /\
+  (eval s TopAddr =
+        SOME (Word s.top_addr))
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
   \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size

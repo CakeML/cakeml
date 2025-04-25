@@ -52,6 +52,7 @@ End
 
 Definition compile_exp_def:
   (compile_exp ctxt tmp l ((BaseAddr):'a crepLang$exp) = ([], BaseAddr, tmp, l)) /\
+  (compile_exp ctxt tmp l ((TopAddr):'a crepLang$exp) = ([], TopAddr, tmp, l)) /\
   (compile_exp ctxt tmp l ((Const c):'a crepLang$exp) = ([], Const c, tmp, l)) /\
   (compile_exp ctxt tmp l (Var v) = ([], Var (find_var ctxt v), tmp, l)) /\
   (compile_exp ctxt tmp l (Label f) = ([LocValue tmp (find_lab ctxt f)],

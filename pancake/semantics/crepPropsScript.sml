@@ -516,7 +516,8 @@ Theorem evaluate_seq_stores_mem_state_rel:
    t.memaddrs = s.memaddrs ∧
    t.sh_memaddrs = s.sh_memaddrs ∧ (t.be ⇔ s.be) /\
    t.ffi = s.ffi ∧ t.code = s.code /\ t.clock = s.clock /\
-   t.base_addr = s.base_addr
+   t.base_addr = s.base_addr /\
+   t.top_addr = s.top_addr
 Proof
   Induct >> rpt gen_tac >> strip_tac >> rfs [] >> rveq
   >- fs [stores_def, nested_seq_def, evaluate_def,
@@ -843,20 +844,11 @@ Theorem eval_some_var_cexp_local_lookup:
     ?w. FLOOKUP s.locals n = SOME w
 Proof
   ho_match_mp_tac eval_ind >> rw [] >>
-  TRY (fs [eval_def, var_cexp_def] >> NO_TAC) >>
-  TRY (
-  fs [eval_def, var_cexp_def] >>
-  FULL_CASE_TAC >> fs [] >> NO_TAC)
-  >- (gvs [var_cexp_def,MEM_FLAT,MEM_MAP,eval_def,AllCaseEqs(),opt_mmap_eq_some,
-           MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-      first_x_assum $ drule_then match_mp_tac >>
-      metis_tac[MEM_EL])
-  >- (gvs [var_cexp_def,MEM_FLAT,MEM_MAP,eval_def,AllCaseEqs(),opt_mmap_eq_some,
-           MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-      first_x_assum $ drule_then match_mp_tac >>
-      metis_tac[MEM_EL]) >>
-  fs [var_cexp_def, eval_def] >>
-  every_case_tac >> fs []
+  gvs [var_cexp_def,MEM_FLAT,MEM_MAP,eval_def,AllCaseEqs(),opt_mmap_eq_some,
+       MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  first_x_assum irule >>
+  ntac 2 $ first_assum $ irule_at $ Pos last >>
+  gvs[MEM_EL]
 QED
 
 
@@ -1338,7 +1330,8 @@ Definition every_exp_def:
   (every_exp P (Crepop op es) = (P(Crepop op es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Cmp c e1 e2) = (P(Cmp c e1 e2) ∧ every_exp P e1 ∧ every_exp P e2)) ∧
   (every_exp P (Shift sh e num) = (P(Shift sh e num) ∧ every_exp P e)) ∧
-  (every_exp P (BaseAddr) = P BaseAddr)
+  (every_exp P (BaseAddr) = P BaseAddr) ∧
+  (every_exp P (TopAddr) = P TopAddr)
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)` >>
   rpt strip_tac >>

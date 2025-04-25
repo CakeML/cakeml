@@ -40,6 +40,7 @@ Datatype:
      ; be          : bool
      ; ffi         : 'ffi ffi_state
      ; base_addr   : 'a word
+     ; top_addr   : 'a word
   (* ; gaddrs      : decname |-> ('a word) (* num? *) *)
   (* TODISC: this maps decname to its starting address in the memory and relative size *)|>
 End
@@ -179,6 +180,8 @@ Definition eval_def:
      | _ => NONE) /\
   (eval s BaseAddr =
         SOME (ValWord s.base_addr)) /\
+  (eval s TopAddr =
+        SOME (ValWord s.top_addr)) /\
   (eval s BytesInWord =
         SOME (ValWord bytes_in_word))
 Termination

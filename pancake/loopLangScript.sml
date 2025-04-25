@@ -17,6 +17,7 @@ Datatype:
       | Op binop (exp list)
       | Shift shift exp num
       | BaseAddr
+      | TopAddr
 End
 
 Datatype:
@@ -74,7 +75,8 @@ Definition locals_touched_def:
   (locals_touched (Load addr) = locals_touched addr) /\
   (locals_touched (Op op wexps) = FLAT (MAP locals_touched wexps)) /\
   (locals_touched (Shift sh wexp n) = locals_touched wexp) ∧
-  (locals_touched BaseAddr = [])
+  (locals_touched BaseAddr = []) ∧
+  (locals_touched TopAddr = [])
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>
