@@ -40,7 +40,8 @@ Definition state_rel_def:
    s.clock = t.clock ∧
    s.be = t.be ∧
    s.ffi = t.ffi ∧
-   s.base_addr = t.base_addr
+   s.base_addr = t.base_addr ∧
+   s.top_addr = t.top_addr
 End
 
 (*
@@ -173,7 +174,8 @@ Theorem state_rel_intro:
   s.clock = t.clock ∧
   s.be = t.be ∧
   s.ffi = t.ffi ∧
-  s.base_addr = t.base_addr
+  s.base_addr = t.base_addr ∧
+  s.top_addr = t.top_addr
 Proof
   rw [state_rel_def]
 QED
@@ -479,7 +481,7 @@ Proof
    pairarg_tac >> fs [] >> rveq >>
    rpt gen_tac >> disch_then strip_assume_tac >>
    Cases_on ‘cop’ >>
-   gvs[DefnBase.one_line_ify NONE compile_crepop_def,ELIM_UNCURRY,AllCaseEqs()] >>
+   gvs[oneline compile_crepop_def,ELIM_UNCURRY,AllCaseEqs()] >>
    (conj_asm1_tac
     >- (rpt (match_mp_tac comp_syn_ok_nested_seq >> conj_tac) >>
         rw[] >>
@@ -604,7 +606,7 @@ Proof
    once_rewrite_tac [compile_exp_def] >> fs [] >> strip_tac >>
    pairarg_tac >> fs [])
   >- (
-   once_rewrite_tac [compile_exp_def] >> fs [DefnBase.one_line_ify NONE compile_crepop_def] >> strip_tac >>
+   once_rewrite_tac [compile_exp_def] >> fs [oneline compile_crepop_def] >> strip_tac >>
    PURE_TOP_CASE_TAC >> fs[] >>
    pairarg_tac >> fs [] >>
    ‘tmp <= tmp'’ by metis_tac [compile_exp_out_rel_cases] >>
@@ -678,7 +680,7 @@ Proof
      strip_tac >>
      qpat_x_assum ‘compile_exp _ _ _ _ = _’ mp_tac >>
      once_rewrite_tac [compile_exp_def] >>
-     strip_tac >> fs [DefnBase.one_line_ify NONE compile_crepop_def] >>
+     strip_tac >> fs [oneline compile_crepop_def] >>
      Cases_on ‘bop’ >>
      rpt(pairarg_tac >> fs [] >> rveq) >>
      fs [locals_touched_def, crepLangTheory.var_cexp_def, ETA_AX,AllCaseEqs()]
@@ -849,8 +851,8 @@ Proof
     fs [crepSemTheory.eval_def, CaseEq "option"] >> rveq >>
     fs [loopSemTheory.eval_def, wlab_wloc_def] >>
     fs [wlab_wloc_def] >>
-    gvs[AllCaseEqs(),DefnBase.one_line_ify NONE crep_op_def,
-        DefnBase.one_line_ify NONE compile_crepop_def,MAP_EQ_CONS,
+    gvs[AllCaseEqs(),oneline crep_op_def,
+        oneline compile_crepop_def,MAP_EQ_CONS,
         opt_mmap_eq_some,SF DNF_ss,
         compile_exps_alt
        ] >>
@@ -1249,7 +1251,7 @@ Proof
   >- (
    rw [] >>
    pop_assum mp_tac >>
-   rw [Once compile_exp_def, DefnBase.one_line_ify NONE compile_crepop_def, AllCaseEqs()] >> rveq >>
+   rw [Once compile_exp_def, oneline compile_crepop_def, AllCaseEqs()] >> rveq >>
    rpt(pairarg_tac >> gvs[AllCaseEqs()]) >>
    match_mp_tac survives_nested_seq_intro >>
    simp[nested_seq_def,survives_def] >>
@@ -1385,7 +1387,7 @@ Proof
   >- (
    rw [] >>
    qpat_x_assum ‘compile_exp _ _ _ (Crepop _ _) = _’ mp_tac >>
-   rw [Once compile_exp_def, AllCaseEqs(),DefnBase.one_line_ify NONE compile_crepop_def
+   rw [Once compile_exp_def, AllCaseEqs(),oneline compile_crepop_def
             ] >> rveq >>
    rpt(pairarg_tac >> fs []) >>
    gvs[assigned_vars_MAPi_Assign,assigned_vars_nested_seq_split,MEM_GENLIST,
@@ -3624,7 +3626,7 @@ code_rel2 nctxt s_code t_code ==>
   evaluate (Call NONE (Label start) [], s) = (res, s') ==>
   s.be = t.be /\ s.sh_memaddrs = t.sh_mdomain /\
   s.memaddrs = t.mdomain /\ s.clock = t.clock /\
-  s.ffi = t.ffi /\ s.base_addr = t.base_addr /\
+  s.ffi = t.ffi /\ s.base_addr = t.base_addr /\ s.top_addr = t.top_addr /\
   mem_rel (make_funcs crep_code) s.memory t.memory /\
   globals_rel (make_funcs crep_code) s.globals t.globals /\
   s.locals = FEMPTY /\
@@ -3868,7 +3870,7 @@ QED
 Theorem state_rel_imp_semantics:
   !s t crep_code start prog lc c. s.memaddrs = t.mdomain ∧
   s.be = t.be ∧ s.sh_memaddrs = t.sh_mdomain ∧
-  s.ffi = t.ffi ∧ s.base_addr = t.base_addr ∧
+  s.ffi = t.ffi ∧ s.base_addr = t.base_addr ∧ s.top_addr = t.top_addr ∧
   mem_rel (make_funcs crep_code) s.memory t.memory ∧
   globals_rel (make_funcs crep_code) s.globals t.globals ∧
   ALL_DISTINCT (MAP FST crep_code) ∧
