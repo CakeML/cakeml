@@ -7433,8 +7433,7 @@ QED
 Theorem alloc_lemma:
    state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\
     dataSem$cut_env names s.locals = SOME x /\
-    alloc (alloc_size k) (adjust_sets names)
-        (t with locals := insert 1 (Word (alloc_size k)) t.locals) =
+    alloc (alloc_size k) (adjust_sets names) t =
       ((q:'a result option),r) ==>
     (q = SOME NotEnoughSpace ⇒
      r.ffi = s.ffi /\ option_le r.stack_max s.stack_max /\

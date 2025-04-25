@@ -544,11 +544,11 @@ Definition alloc_def:
   alloc (w:'a word) names ^s =
     (* prune local names *)
     case cut_envs names s.locals of
-    | NONE => (SOME (Error:'a result),s)
+    | NONE => (SOME (Error:'a result),flush_state T s)
     | SOME envs =>
      (* perform garbage collection *)
      (case gc (push_env envs (NONE:(num # 'a wordLang$prog # num # num) option) (set_store AllocSize (Word w) s)) of
-      | NONE => (SOME Error,s)
+      | NONE => (SOME Error,flush_state T s)
       | SOME s =>
        (* restore local variables *)
        (case pop_env s of

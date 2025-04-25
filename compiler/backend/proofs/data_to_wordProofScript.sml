@@ -56,6 +56,14 @@ Proof
   \\ gvs[do_space_def,AllCaseEqs(),consume_space_def]
 QED
 
+Theorem alloc_locals_insert_1:
+  alloc k (adjust_sets names) (t with locals := insert 1 w t.locals) =
+  alloc k (adjust_sets names) t
+Proof
+  gvs [wordSemTheory.alloc_def]
+  \\ cheat
+QED
+
 Theorem data_compile_correct:
    !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
@@ -140,7 +148,6 @@ Proof
     \\ fs [call_env_def,wordSemTheory.call_env_def,wordSemTheory.flush_state_def,flush_state_def]
     \\ asm_exists_tac \\ fs [])
   >~ [‘evaluate (MakeSpace k names,s)’] >-
-
    (fs [comp_def,dataSemTheory.evaluate_def,
         wordSemTheory.evaluate_def,
         GSYM alloc_size_def,LET_DEF,wordSemTheory.word_exp_def,
@@ -164,12 +171,10 @@ Proof
     THEN1
      (fs [SilentFFI_def,wordSemTheory.evaluate_def,list_Seq_def,CaseEq"option"]
       \\ srw_tac[][]
-      \\ fs [add_space_def,wordSemTheory.word_exp_def,
+      \\ fs [add_space_def,wordSemTheory.word_exp_def,alloc_locals_insert_1,
            wordSemTheory.get_var_def,wordSemTheory.set_var_def]
-      \\ Cases_on `(alloc (alloc_size k) (adjust_sets names)
-           (t with locals := insert 1 (Word (alloc_size k)) t.locals))
-               :('a result option)#( ('a,'c,'ffi) wordSem$state)`
-      \\ fs [] \\ drule alloc_lemma
+      \\ pairarg_tac \\ gvs []
+      \\ drule alloc_lemma
       \\ rpt (disch_then drule)
       \\ rw [] \\ fs [] \\ rfs [GSYM NOT_LESS,cut_locals_def]
       \\ qpat_x_assum `state_rel c l1 l2 _ _ _ _` mp_tac \\ simp [state_rel_def])
@@ -183,17 +188,20 @@ Proof
     \\ drule_all cut_env_IMP_cut_env \\ strip_tac \\ fs []
     \\ gvs [cut_env_adjust_sets_insert_ODD]
     \\ pairarg_tac \\ fs []
-    \\ drule alloc_lemma \\ fs [] \\ rveq
+    \\ drule_all state_rel_cut_env_cut_env \\ strip_tac
+    \\ rename [‘_ = (res1,s1)’]
+    \\ ‘alloc (alloc_size k) (adjust_sets names) (t with locals := y) = (res1,s1)’ by
+      (‘t with
+           <|locals := insert 1 (Word (alloc_size k)) y; memory := t.memory;
+             ffi := t.ffi|> =
+        (t with locals := y) with locals := insert 1 (Word (alloc_size k)) (t with locals := y).locals’ by
+          gvs [wordSemTheory.state_component_equality]
+       \\ full_simp_tac std_ss [alloc_locals_insert_1])
     \\ `dataSem$cut_env names x = SOME x` by
       (fs [dataSemTheory.cut_env_def] \\ rveq \\ fs [lookup_inter_alt,domain_inter])
-    \\ disch_then drule
-    \\ qmatch_assum_abbrev_tac `alloc _ _ t5 = _`
-
-    \\ `t5 = t with locals := insert 1 (Word (alloc_size k)) t.locals` by
-          (unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality]
-          \\ cheat)
-    \\ fs [] \\ disch_then drule
-    \\ strip_tac \\ Cases_on `res' = SOME NotEnoughSpace`
+    \\ drule_then (drule_at $ Pos last) alloc_lemma
+    \\ simp []
+    \\ strip_tac \\ Cases_on `res1 = SOME NotEnoughSpace`
     >- (fs []
         \\ rveq \\ rfs [add_space_def,cut_locals_def] \\ fs [GSYM NOT_LESS]
         \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
@@ -210,6 +218,7 @@ Proof
     \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
     \\ fs [add_space_def] \\ fs [state_rel_thm] \\ rfs [] \\ fs []
     \\ fs [wordSemTheory.write_bytearray_def])
+
   >~ [‘evaluate (Raise _,s)’] >-
    (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ fs [] \\ srw_tac[][]

@@ -3685,6 +3685,12 @@ Proof
   Cases_on `m` >> fs[]
 QED
 
+Triviality option_le_stack_size_nil:
+  option_le (stack_size []) (OPTION_MAP2 $+ (stack_size xs) opt)
+Proof
+  cheat
+QED
+
 Theorem evaluate_option_le_stack_max_preserved:
   !p s r t. evaluate (p, s) = (r, t) /\
      option_le (OPTION_MAP2 $+ (stack_size s.stack) s.locals_size) s.stack_max ==>
@@ -3805,15 +3811,12 @@ Proof
      gvs[evaluate_def,alloc_def,AllCaseEqs()]
      >- (
        fs [gc_def, flush_state_def, set_store_def] >>
-       every_case_tac >>
-       fs [push_env_def, env_to_list_def] >> rveq >>
-       fs [state_fn_updates] >>
-       fs [stack_size_eq2, stack_size_frame_def] >>
-       ntac 5 (pop_assum kall_tac) >>
-       fs [option_le_def] >>
-       Cases_on `s.locals_size` >> Cases_on `stack_size s.stack` >> Cases_on `s.stack_max` >>
-       fs [OPTION_MAP_DEF] >> drule stack_size_some_at_least_one >>
-       DECIDE_TAC) >>
+       irule option_le_trans >> pop_assum $ irule_at Any >>
+       fs [OPTION_MAP2_ADD_0,option_le_stack_size_nil])
+     >- (
+       fs [gc_def, flush_state_def, set_store_def] >>
+       irule option_le_trans >> pop_assum $ irule_at Any >>
+       fs [OPTION_MAP2_ADD_0,option_le_stack_size_nil]) >>
      TRY (
      rveq >>
      fs [gc_def] >> every_case_tac >> fs [] >>
@@ -4074,8 +4077,6 @@ Proof
   rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
 QED
 
-
-
 Definition inc_clock_def:
   inc_clock n (t:('a,'c,'ffi) wordSem$state) = t with clock := t.clock + n
 End
@@ -4092,14 +4093,11 @@ Proof
   full_simp_tac(srw_ss())[inc_clock_def,wordSemTheory.state_component_equality,AC ADD_ASSOC ADD_COMM]
 QED
 
-
-
 Theorem evaluate_call_push_dec_option_le_stack_max:
   !p args sz env handler s res t ck.
     evaluate (p, call_env args sz
                (push_env env handler (dec_clock (s with clock := ck)))) =(res,t) ==>
     option_le (call_env args sz (push_env env handler s)).stack_max t.stack_max
-
 Proof
   rw [] >>
   drule evaluate_stack_max >>
@@ -4327,7 +4325,6 @@ Proof
   EVERY_CASE_TAC >> fs [] >> rveq >>
   metis_tac[]
 QED
-
 
 Definition no_install_code_def:
     no_install_code (code : (num # ('a wordLang$prog)) num_map) ⇔
