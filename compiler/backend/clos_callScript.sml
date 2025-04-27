@@ -471,9 +471,9 @@ QED
 
 val selftest = let
   (* example code *)
-  val f = ``Fn (strlit "") (SOME 800) NONE 1 (Op None Add [Var None 0; Op None (Const 1) []])``
+  val f = ``Fn (strlit "") (SOME 800) NONE 1 (Op None (IntOp Add) [Var None 0; Op None (IntOp (Const 1)) []])``
   val g = ``Fn (strlit "") (SOME 900) NONE 1 (App None (SOME 800) (Var None 1) [Var None 0])``
-  val f_g_5 = ``App None (SOME 800) (Var None 1) [App None (SOME 900) (Var None 0) [Op None (Const 5) []]]``
+  val f_g_5 = ``App None (SOME 800) (Var None 1) [App None (SOME 900) (Var None 0) [Op None (IntOp (Const 5)) []]]``
   val let_let = ``[Let None [^f] (Let None [^g] ^f_g_5)]``
   (* compiler evaluation *)
   val tm = EVAL ``compile T ^let_let`` |> concl

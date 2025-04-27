@@ -109,40 +109,7 @@ val r = translate bvi_tailrecTheory.compile_prog_def;
 
 val r = translate bvl_to_bviTheory.compile_int_def;
 val r = translate bvl_to_bviTheory.compile_aux_def;
-
-(* TODO: better way to translate Boolean pmatch patterns *)
-(* this code turns the
-      case ... | CopyByte T => ... | _ => last_case
-   in compile_op into
-      case ... | CopyByte b => if b then ... else last_case | _ => last_case
-*)
-val def = bvl_to_bviTheory.compile_op_pmatch;
-val rows = def |> SPEC_ALL |> concl |> rhs |> rand
-           |> listSyntax.dest_list |> #1
-val bad_row = rows |> List.rev |> el 5
-val default_row = rows |> last
-val (_,_,default_exp) = patternMatchesSyntax.dest_PMATCH_ROW default_row
-val (pat,guard,exp) = patternMatchesSyntax.dest_PMATCH_ROW bad_row
-val pat_var = mk_var("b",bool);
-val new_pat = mk_abs(pat_var,mk_comb(pat |> dest_abs |> #2 |> rator,pat_var))
-val new_guard = mk_abs(pat_var,guard |> dest_abs |> #2)
-val new_exp = mk_abs(pat_var,
-  mk_cond(pat_var, exp |> dest_abs |> #2, default_exp |> dest_abs |> #2))
-val new_row = patternMatchesSyntax.mk_PMATCH_ROW (new_pat,new_guard,new_exp)
-val goal = def |> SPEC_ALL |> concl |> Term.subst[bad_row |-> new_row]
-val some_v_T = prove(``(some (v:unit). T) = SOME ()``, rw[some_def]);
-val new_def = prove(goal,
-  rewrite_tac[bvl_to_bviTheory.compile_op_def]
-  \\ PURE_TOP_CASE_TAC
-  \\ CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[]))
-  \\ rewrite_tac[patternMatchesTheory.PMATCH_def,
-                 patternMatchesTheory.PMATCH_ROW_def,
-                 patternMatchesTheory.PMATCH_ROW_COND_def]
-  \\ simp[]
-  \\ TRY PURE_TOP_CASE_TAC
-  \\ simp[some_v_T]);
-val r = translate new_def;
-
+val r = translate bvl_to_bviTheory.compile_op_def;
 val r = translate bvl_to_bviTheory.compile_exps_def;
 
 val bvl_to_bvi_compile_exps_side = Q.prove(`

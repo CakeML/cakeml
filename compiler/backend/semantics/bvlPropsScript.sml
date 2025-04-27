@@ -35,8 +35,10 @@ val case_eq_thms = LIST_CONJ
   (CaseEq "eq_result" :: CaseEq "const_part" :: CaseEq "word_size" ::
    CaseEq "result" :: CaseEq "error_result" ::
    map (prove_case_eq_thm o get_thms)
-  [``:v``,``:'a ref``,``:'a option``,``:'a list``,``:'a + 'b``,
-   ``:closLang$op``,``:'a ffi_result``])
+  [``:v``, ``:'a ref``, ``:'a option``, ``:'a list``, ``:'a + 'b``,
+   ``:closLang$op``, ``:closLang$mem_op``, ``:closLang$int_op``,
+   ``:closLang$word_op``, ``:closLang$block_op``, ``:closLang$glob_op``,
+   ``:'a ffi_result``])
 val case_eq_thms = CONJ bool_case_eq (CONJ pair_case_eq case_eq_thms)
 
 Theorem case_eq_thms =
@@ -60,14 +62,14 @@ Theorem do_app_cases_val =
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV)
+   ALL_CONV);
 
 Theorem do_app_cases_err =
   ``do_app op vs s = Rerr err`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV)
+   ALL_CONV);
 
 Theorem do_app_Rval_swap:
    do_app op a (s1:('a,'b) bvlSem$state) = Rval (x0,x1) /\ op <> Install /\
@@ -388,7 +390,7 @@ QED
 
 Theorem evaluate_MAP_Const:
    !exps.
-      evaluate (MAP (K (Op (Const i) [])) (exps:'a list),env,t1) =
+      evaluate (MAP (K (Op (IntOp (Const i)) [])) (exps:'a list),env,t1) =
         (Rval (MAP (K (Number i)) exps),t1)
 Proof
   Induct \\ full_simp_tac(srw_ss())[evaluate_def,evaluate_CONS,do_app_def]
