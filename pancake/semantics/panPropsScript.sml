@@ -931,6 +931,48 @@ Definition exps_of_def:
   (exps_of _ = [])
 End
 
+Definition localised_exp_def:
+  (localised_exp (Const w) = T) ∧
+  (localised_exp (Var Local v) = T) ∧
+  (localised_exp (Var Global v) = F) ∧
+  (localised_exp (Struct es) = EVERY localised_exp es) ∧
+  (localised_exp (Field i e) = localised_exp e) ∧
+  (localised_exp (Load sh e) = localised_exp e) ∧
+  (localised_exp (LoadByte e) = localised_exp e) ∧
+  (localised_exp (Op bop es) = EVERY localised_exp es) ∧
+  (localised_exp (Panop op es) = EVERY localised_exp es) ∧
+  (localised_exp (Cmp c e1 e2) = (localised_exp e1 ∧ localised_exp e2)) ∧
+  (localised_exp (Shift sh e num) = localised_exp e)
+Termination
+  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  rpt strip_tac >>
+  imp_res_tac MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
+End
+
+Definition localised_prog_def:
+  (localised_prog (Raise _ e) ⇔ localised_exp e) ∧
+  (localised_prog (Dec _ e p) ⇔ localised_exp e ∧ localised_prog p) ∧
+  (localised_prog (Seq p q) ⇔ localised_prog p ∧ localised_prog q) ∧
+  (localised_prog (If e p q) ⇔ localised_exp e ∧ localised_prog p ∧ localised_prog q) ∧
+  (localised_prog (While e p) ⇔ localised_exp e ∧ localised_prog p) ∧
+  (localised_prog (Store e1 e2) ⇔ localised_exp e1 ∧ localised_exp e2) ∧
+  (localised_prog (StoreByte e1 e2) ⇔ localised_exp e1 ∧ localised_exp e2) ∧
+  (localised_prog (ExtCall fn e1 e2 e3 e4) ⇔ localised_exp e1 ∧ localised_exp e2 ∧ localised_exp e3 ∧ localised_exp e4) ∧
+  (localised_prog (Return e) ⇔ localised_exp e) ∧
+  (localised_prog (ShMemStore op e1 e2) ⇔ localised_exp e1 ∧ localised_exp e2) ∧
+  (localised_prog (ShMemLoad op vk v e) ⇔ localised_exp e) ∧
+  (localised_prog (Call hdl f args) ⇔
+   EVERY localised_exp args ∧
+   (case hdl of
+    | SOME(_,SOME(_,_,p)) => localised_prog p
+    | _ => T)) ∧
+  (localised_prog (DecCall vn sh fn args p) ⇔
+   EVERY localised_exp args ∧ localised_prog p) ∧
+  (localised_prog _ ⇔ T)
+End
+
 Theorem evaluate_decl_commute:
   evaluate_decls s (Function v export args body::Decl sh v e::ds) =
   evaluate_decls s (Decl sh v e::Function v export args body::ds)
