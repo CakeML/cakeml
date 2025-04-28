@@ -609,17 +609,17 @@ End
 
 Definition evaluate_decls_def:
   evaluate_decls ^s [] =
-  SOME ^s ∧
+  SOME s ∧
   evaluate_decls s (Decl sh v e::ds) =
   (case eval (s with locals := FEMPTY) e of
      SOME res =>
-       if sh = shape_of res then
-         evaluate_decls (s with globals := s.globals |+ (v,res)) start ds
-       else
-         NONE
+       (if sh = shape_of res then
+          evaluate_decls (s with globals := s.globals |+ (v,res)) ds
+        else
+          NONE)
    | NONE => NONE) ∧
   evaluate_decls s (Function v export args body::ds) =
-  evaluate_decls (s with code := s.code |+ (v,(args,body))) start ds
+  evaluate_decls (s with code := s.code |+ (v,(args,body))) ds
 End
 
 Definition semantics_decls_def:
