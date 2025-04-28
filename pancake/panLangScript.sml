@@ -43,7 +43,6 @@ End
 Datatype:
   exp = Const ('a word)
       | Var varkind varname
-   (* | GetAddr decname *)
       | Struct (exp list)
       | Field index exp
       | Load shape exp (* exp: start addr of value with given shape *)
@@ -88,25 +87,10 @@ Datatype:
   decl = Function mlstring bool ((varname # shape) list) ('a prog)
        | Decl shape mlstring ('a exp)
 End
-(*
-Datatype:
-  handler = Handle eid varname ('a prog)
-End
-
-Datatype:
-  ret = Tail | Ret varname ('a handler option)
-End
-*)
 
 Overload TailCall = “Call NONE”
 Overload AssignCall = “\s h. Call (SOME (SOME s , h))”
 Overload StandAloneCall = “\h. Call (SOME (NONE , h))”
-(*
-Datatype:
-  decl = Decl decname string
-       | Func funname (shape option) shape ('a prog)
-End
-*)
 
 Theorem MEM_IMP_shape_size:
    !shapes a. MEM a shapes ==> (shape_size a < 1 + shape1_size shapes)
@@ -157,18 +141,10 @@ Definition exp_ids_def:
   (exp_ids _ = [])
 End
 
-(* defining here for insead of in pan_to_crep for pan_simpProof*)
-Definition remove_dup:
-  (remove_dup [] = []) ∧
-  (remove_dup (x::xs) =
-   if MEM x xs then remove_dup xs
-   else x::remove_dup xs)
-End
-
 Definition size_of_eids_def:
   size_of_eids prog =
-  let eids = FLAT (MAP (exp_ids o SND o SND) prog) in
-   LENGTH (remove_dup eids)
+  let eids = FLAT (MAP (λp. case p of Decl _ _ _ => [] | Function _ _ _ p => exp_ids p) prog) in
+   LENGTH (nub eids)
 End
 
 Definition var_exp_def:
