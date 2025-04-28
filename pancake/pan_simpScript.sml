@@ -74,7 +74,7 @@ End
 Definition compile_prog_def:
   compile_prog prog =
     MAP (λdecl.
-           case decl of
+           dtcase decl of
              Function name export params body =>
                Function name export params (compile body)
            | _ => decl) prog
@@ -134,6 +134,19 @@ Proof
   rpt strip_tac >>
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >>
   every_case_tac >> fs[ret_to_tail_def]
+QED
+
+Theorem compile_prog_pmatch:
+  compile_prog prog =
+    MAP (λdecl.
+           case decl of
+             Function name export params body =>
+               Function name export params (compile body)
+           | _ => decl) prog
+Proof
+  rw[compile_prog_def,MAP_EQ_f] >>
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >>
+  simp[]
 QED
 
 val _ = export_theory();
