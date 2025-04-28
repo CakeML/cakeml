@@ -23,8 +23,8 @@ version of CakeML. See the [version2](../../tree/version2) or
 Directory structure
 -------------------
 
-[COPYING](COPYING):
-CakeML Copyright Notice, License, and Disclaimer.
+[LICENSE](LICENSE):
+BSD 3-Clause License
 
 [basis](basis):
 Contains the beginnings of a standard basis library for CakeML,

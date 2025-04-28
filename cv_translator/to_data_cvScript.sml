@@ -515,7 +515,7 @@ Definition compile_exp_alt_def:
   (compile_exp_alt cfg (flatLang$Letrec t fs x) =
     let ys = compile_letexps_alt cfg fs in
     let (i, sgx, y) = compile_exp_alt cfg x in
-    let j = list_max (MAP (\(_,_,(j,_,_)). j) ys) in
+    let j = MAX_LIST (MAP (\(_,_,(j,_,_)). j) ys) in
     let sgfs = EXISTS (\(_,_,(_,sg,_)). sg) ys in
     let fs2 = MAP (\(a, b, (_, _, exp)). (a, b, exp)) ys in
     (MAX i j, sgfs \/ sgx, flatLang$Letrec t fs2 y)) /\
@@ -842,7 +842,7 @@ Definition flat_to_clos_compile_alt_def:
            (flat_to_clos_compile_alt m (x3)))) /\
   (flat_to_clos_compile_alt m (Let t vo e1 e2) =
      (Let t [flat_to_clos_compile_alt m (e1)] (flat_to_clos_compile_alt (vo::m) (e2)))) /\
-  (flat_to_clos_compile_alt m (Mat t e pes) = (Op t (Const 0) [])) /\
+  (flat_to_clos_compile_alt m (Mat t e pes) = (Op t (IntOp (Const 0)) [])) /\
   (flat_to_clos_compile_alt m (Handle t e pes) =
      case dest_pat pes of
      | SOME (v,h) => (Handle t (flat_to_clos_compile_alt m (e)) (flat_to_clos_compile_alt (SOME v::m) (h)))
@@ -1601,8 +1601,8 @@ Definition known_alt_def:
          (if isGlobal op then
            case gO_destApx a of
              | gO_None => SmartOp t op (MAP FST ea1)
-             | gO_Int i => Op t (Const i) (MAP FST ea1)
-             | gO_NullTuple tag => Op t (Cons tag) (MAP FST ea1)
+             | gO_Int i => Op t (IntOp (Const i)) (MAP FST ea1)
+             | gO_NullTuple tag => Op t (BlockOp (Cons tag)) (MAP FST ea1)
           else SmartOp t op (MAP FST ea1))
      in
        (((e,a)),g)) /\
@@ -1693,13 +1693,13 @@ Definition eq_pure_list_alt:
     | SOME z => List [z]
     | NONE =>
       case dest_Op dest_Cons x, dest_Op dest_Cons y of
-      | (NONE, NONE) => List [Op None Equal [x;y]]
+      | (NONE, NONE) => List [Op None (BlockOp Equal) [x;y]]
       | (SOME (t1,xs), SOME (t2,ys)) =>
            if t1 ≠ t2 ∨ LENGTH xs ≠ LENGTH ys then List [MakeBool F]
            else eq_pure_list_alt ck (ZIP (REVERSE xs, REVERSE ys))
       | (SOME (t1,xs), NONE) =>
-           Append (List [Op None (TagLenEq t1 (LENGTH xs)) [y]])
-                  (eq_pure_list_alt ck (MAPi (λi x. (x, Op None (ElemAt i) [y])) (REVERSE xs)))
+           Append (List [Op None (BlockOp (TagLenEq t1 (LENGTH xs))) [y]])
+                  (eq_pure_list_alt ck (MAPi (λi x. (x, Op None (BlockOp (ElemAt i)) [y])) (REVERSE xs)))
       | (NONE, SOME (t1,ys)) => eq_pure_list_alt ck [(y,x)]) ∧
   eq_pure_list_alt (SUC ck) (xy::xys) = Append (eq_pure_list_alt ck [xy]) (eq_pure_list_alt ck xys) ∧
   eq_pure_list_alt _ _ = Nil
@@ -2238,13 +2238,13 @@ val _ = cv_auto_trans backend_asmTheory.to_bvl_def;
 
 Definition mk_add_const_def:
   mk_add_const = λx1 c2.
-            if c2 = 0 then x1 else Op Add [x1; Op (Const c2) []]
+            if c2 = 0 then x1 else Op (IntOp Add) [x1; Op (IntOp (Const c2)) []]
 End
 
 Definition mk_add_def:
   mk_add = λx1 x2.
   (let
-     default = Op Add [x1; x2]
+     default = Op (IntOp Add) [x1; x2]
    in
      case dest_simple x2 of
        NONE =>
@@ -2256,31 +2256,31 @@ Definition mk_add_def:
             | SOME (op2,x21,n22) =>
               case v5 of
                 (op1,x11,n12) =>
-                  if op1 = Add ∧ op2 = Add then
-                    mk_add_const (Op Add [x11; x21]) (n22 + n12)
-                  else if op1 = Add ∧ op2 = Sub then
-                    Op Sub
-                      [Op Sub [x11; x21];
-                       Op (Const (n22 + n12)) []]
-                  else if op1 = Sub ∧ op2 = Add then
-                    mk_add_const (Op Sub [x11; x21]) (n22 + n12)
+                  if op1 = IntOp Add ∧ op2 = IntOp Add then
+                    mk_add_const (Op (IntOp Add) [x11; x21]) (n22 + n12)
+                  else if op1 = IntOp Add ∧ op2 = IntOp Sub then
+                    Op (IntOp Sub)
+                      [Op (IntOp Sub) [x11; x21];
+                       Op (IntOp (Const (n22 + n12))) []]
+                  else if op1 = IntOp Sub ∧ op2 = IntOp Add then
+                    mk_add_const (Op (IntOp Sub) [x11; x21]) (n22 + n12)
                   else default)
      | SOME n2 =>
        case case_op_const x1 of
          NONE =>
            (case dest_simple x1 of
               NONE => mk_add_const x1 n2
-            | SOME n1 => Op (Const (n2 + n1)) [])
-       | SOME (Add,x11,n12) => mk_add_const x11 (n2 + n12)
-       | SOME (Sub,x11,n12) =>
-         Op Sub [x11; Op (Const (n2 + n12)) []]
+            | SOME n1 => Op (IntOp (Const (n2 + n1))) [])
+       | SOME (IntOp Add,x11,n12) => mk_add_const x11 (n2 + n12)
+       | SOME (IntOp Sub,x11,n12) =>
+         Op (IntOp Sub) [x11; Op (IntOp (Const (n2 + n12))) []]
        | SOME (op,x11,n12) => default)
 End
 
 Definition mk_sub_def:
   mk_sub = λx1 x2.
   (let
-     default = Op Sub [x1; x2]
+     default = Op (IntOp Sub) [x1; x2]
    in
      case dest_simple x2 of
        NONE =>
@@ -2292,33 +2292,33 @@ Definition mk_sub_def:
             | SOME (op2,x21,n22) =>
               case v5 of
                 (op1,x11,n12) =>
-                  if op1 = Add ∧ op2 = Add then
-                    Op Add
-                      [Op Sub [x11; x21];
-                       Op (Const (n22 − n12)) []]
-                  else if op1 = Add ∧ op2 = Sub then
-                    Op Sub
-                      [Op Add [x11; x21];
-                       Op (Const (n22 − n12)) []]
-                  else if op1 = Sub ∧ op2 = Add then
-                    mk_add_const (Op Add [x11; x21]) (n22 − n12)
+                  if op1 = IntOp Add ∧ op2 = IntOp Add then
+                    Op (IntOp Add)
+                      [Op (IntOp Sub) [x11; x21];
+                       Op (IntOp (Const (n22 − n12))) []]
+                  else if op1 = IntOp Add ∧ op2 = IntOp Sub then
+                    Op (IntOp Sub)
+                      [Op (IntOp Add) [x11; x21];
+                       Op (IntOp (Const (n22 − n12))) []]
+                  else if op1 = IntOp Sub ∧ op2 = IntOp Add then
+                    mk_add_const (Op (IntOp Add) [x11; x21]) (n22 − n12)
                   else default)
      | SOME n2 =>
        case case_op_const x1 of
          NONE =>
            (case dest_simple x1 of
               NONE => default
-            | SOME n1 => Op (Const (n2 − n1)) [])
-       | SOME (Add,x11,n12) =>
-         Op Sub [x11; Op (Const (n2 − n12)) []]
-       | SOME (Sub,x11,n12) => mk_add_const x11 (n2 − n12)
+            | SOME n1 => Op (IntOp (Const (n2 − n1))) [])
+       | SOME (IntOp Add,x11,n12) =>
+         Op (IntOp Sub) [x11; Op (IntOp (Const (n2 − n12))) []]
+       | SOME (IntOp Sub,x11,n12) => mk_add_const x11 (n2 − n12)
        | SOME (op,x11,n12) => default)
 End
 
 Definition mk_mul_def:
   mk_mul = λx1 x2.
   (let
-     default = Op Mult [x1; x2]
+     default = Op (IntOp Mult) [x1; x2]
    in
      case dest_simple x2 of
        NONE =>
@@ -2330,10 +2330,10 @@ Definition mk_mul_def:
             | SOME (op2,x21,n22) =>
               case v5 of
                 (op1,x11,n12) =>
-                  if op1 = Mult ∧ op2 = Mult then
-                    Op Mult
-                      [Op (Const (n22 * n12)) [];
-                       Op Mult [x11; x21]]
+                  if op1 = IntOp Mult ∧ op2 = IntOp Mult then
+                    Op (IntOp Mult)
+                      [Op (IntOp (Const (n22 * n12))) [];
+                       Op (IntOp Mult) [x11; x21]]
                   else default)
      | SOME n2 =>
        case case_op_const x1 of
@@ -2343,22 +2343,22 @@ Definition mk_mul_def:
                 if n2 = 1 then x1
                 else if n2 = -1 then
                   (let
-                     default = Op Sub [x1; Op (Const 0) []]
+                     default = Op (IntOp Sub) [x1; Op (IntOp (Const 0)) []]
                    in
                      case case_op_const x1 of
                        NONE =>
                          (case dest_simple x1 of
                             NONE => default
-                          | SOME n1 => Op (Const (-n1)) [])
-                     | SOME (Add,x11,n12) =>
-                       Op Sub [x11; Op (Const (-n12)) []]
-                     | SOME (Sub,x11,n12) =>
+                          | SOME n1 => Op (IntOp (Const (-n1))) [])
+                     | SOME (IntOp Add,x11,n12) =>
+                       Op (IntOp Sub) [x11; Op (IntOp (Const (-n12))) []]
+                     | SOME (IntOp Sub,x11,n12) =>
                        mk_add_const x11 (-n12)
                      | SOME (op,x11,n12) => default)
                 else default
-            | SOME n1 => Op (Const (n2 * n1)) [])
-       | SOME (Mult,x11,n12) =>
-         Op Mult [x11; Op (Const (n2 * n12)) []]
+            | SOME n1 => Op (IntOp (Const (n2 * n1))) [])
+       | SOME (IntOp Mult,x11,n12) =>
+         Op (IntOp Mult) [x11; Op (IntOp (Const (n2 * n12))) []]
        | SOME (op,x11,n12) => default)
 End
 

@@ -203,7 +203,14 @@ Proof
   EVAL_TAC >> srw_tac[][]
 QED
 
-Theorem do_app_with_stack = time Q.prove(
+fun cases_on_op_fs q = Cases_on q \\ fs []
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘IntOp i_’]) (Cases_on `i_`)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘WordOp w_’]) (Cases_on `w_`)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp g_’]) (Cases_on `g_`)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘MemOp m_’]) (Cases_on `m_`);
+
+val do_app_with_stack = time Q.prove(
   `do_app op vs (s with stack := z) =
    map_result (λ(x,y). (x,y with <| stack := z
                                   ; safe_for_space   := do_app_safe op vs (s with stack := z)
@@ -211,21 +218,22 @@ Theorem do_app_with_stack = time Q.prove(
                                   ; peak_heap_length := do_app_peak op vs (s with stack := z) |>))
               I (do_app op vs s)`,
   Cases_on `do_app op vs (s with stack := z)`
-  \\ Cases_on `op`
+  \\ cases_on_op_fs `op`
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
-  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-              with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def] >>
-          TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []) >>
-          fs[allowed_op_def]>>
-          rw [state_component_equality] \\ simp [Once CONJ_COMM] \\
-          rw[EQ_IMP_THM] >> fs[stack_consumed_def,allowed_op_def,PULL_EXISTS]);
+  \\ ntac 2 (
+    fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def]
+    \\ TRY (pairarg_tac \\ fs [])
+    \\ rveq \\ fs [])
+  \\ fs [allowed_op_def]
+  \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
+  \\ rw [EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def,PULL_EXISTS]);
 
-Theorem do_app_with_stack_and_locals = time Q.prove(
+val do_app_with_stack_and_locals = time Q.prove(
   `do_app op vs (s with <|locals_size := lsz; stack := z|>) =
    map_result (λ(x,y). (x,y with <| stack := z
                                   ; locals_size := lsz
@@ -234,53 +242,56 @@ Theorem do_app_with_stack_and_locals = time Q.prove(
                                   ; peak_heap_length := do_app_peak op vs (s with <|locals_size := lsz; stack := z|>) |>))
               I (do_app op vs s)`,
   Cases_on `do_app op vs (s with <|locals_size := lsz; stack := z|>)`
-  \\ Cases_on `op`
+  \\ cases_on_op_fs `op`
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
-  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-              with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def] >>
-          TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []) >>
-          fs[allowed_op_def] >>
-          rw [state_component_equality] \\ simp [Once CONJ_COMM] \\
-          rw[EQ_IMP_THM] >> fs[stack_consumed_def,allowed_op_def]);
+  \\ ntac 2 (
+    fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+        bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
+        with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
+        ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+        semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+        pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def]
+    \\ TRY (pairarg_tac \\ fs [])
+    \\ rveq \\ fs [])
+  \\ fs[allowed_op_def]
+  \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
+  \\ rw[EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def]);
 
 Theorem do_app_aux_with_space:
   do_app_aux op vs (s with space := z) = map_result (λ(x,y). (x,y with space := z)) I (do_app_aux op vs s)
 Proof
   Cases_on `do_app_aux op vs (s with space := z)`
-  \\ Cases_on `op`
+  \\ cases_on_op_fs `op`
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
-  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-              with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,check_lim_def] >>
-          TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs [] \\ rw [])
+  \\ ntac 2 (
+    fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      pair_case_eq,consume_space_def,check_lim_def]
+    \\ TRY (pairarg_tac \\ fs [])
+    \\ rveq \\ fs [] \\ rw [])
 QED
 
 Theorem do_app_aux_with_locals:
   do_app_aux op vs (s with locals := z) = map_result (λ(x,y). (x,y with locals := z)) I (do_app_aux op vs s)
 Proof
   Cases_on `do_app_aux op vs (s with locals := z)`
-  \\ Cases_on `op`
+  \\ cases_on_op_fs `op`
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
-  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-              with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,check_lim_def] >>
-          TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs [] >> rw [])
+  \\ ntac 2 (
+    fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      pair_case_eq,consume_space_def,check_lim_def]
+    \\ TRY (pairarg_tac \\ fs [])
+    \\ rveq \\ fs [] \\ rw [])
 QED
 
-Theorem do_app_with_locals = time Q.prove(
+val do_app_with_locals = time Q.prove(
   `do_app op vs (s with locals := z) =
    map_result (λ(x,y). (x,y with <| locals := z
                                   ; safe_for_space   := do_app_safe op vs (s with locals := z)
@@ -288,18 +299,20 @@ Theorem do_app_with_locals = time Q.prove(
                                   ; peak_heap_length := do_app_peak op vs (s with locals := z)|>))
                        I (do_app op vs s)`,
   Cases_on `do_app op vs (s with locals := z)`
-  \\ Cases_on `op`
+  \\ cases_on_op_fs `op`
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
-  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-              with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,check_lim_def] >>
-          TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []) >>
-          fs [allowed_op_def]>>
-          rw [state_component_equality] \\ simp [Once CONJ_COMM] \\ rw[EQ_IMP_THM] >> fs[stack_consumed_def,allowed_op_def]);
+  \\ ntac 2 (
+    fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      pair_case_eq,consume_space_def,check_lim_def]
+    \\ TRY (pairarg_tac \\ fs [])
+    \\ rveq \\ fs [])
+  \\ fs [allowed_op_def]
+  \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
+  \\ rw[EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def]);
 
 Theorem do_app_aux_err:
    do_app_aux op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
@@ -421,7 +434,7 @@ QED
 
 val do_app_swap_tac =
    strip_tac
-   \\ Cases_on ‘op’
+   \\ cases_on_op_fs ‘op’
    \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
    \\ rw [do_app_def,do_stack_def
               , do_install_def
@@ -1437,7 +1450,7 @@ Proof
         \\ fs[do_stack_def]
         >> metis_tac [])
      \\ fs [cut_state_def]
-     \\ Cases_on `cut_env (list_insert args x) s.locals` \\ fs[]
+     \\ Cases_on `cut_env x s.locals` \\ fs[]
      \\ IMP_RES_TAC locals_ok_cut_env \\ fs[]
      \\ TOP_CASE_TAC >> rw[state_component_equality,locals_ok_def]
      \\ metis_tac[])
@@ -1626,14 +1639,15 @@ Proof
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   Cases_on `do_app op vs s` >>
   fs[do_app_def,do_stack_def,do_space_def] >>
-  Cases_on `op` >> TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) >>
-  ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,stack_consumed_def,
-              with_fresh_ts_def,bvlSemTheory.ref_case_eq,space_consumed_with_clock,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,size_of_heap_with_clock,check_lim_def] >>
-          rveq >> fs [] >> rw [])
+  cases_on_op_fs `op` >> TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) >>
+  ntac 2 (
+    fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,ffiTheory.call_FFI_def,stack_consumed_def,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,space_consumed_with_clock,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      pair_case_eq,consume_space_def,size_of_heap_with_clock,check_lim_def]
+    \\ rveq \\ fs [] \\ rw [])
 QED
 
 Theorem do_app_change_clock:
@@ -1646,7 +1660,7 @@ Proof
     \\ pairarg_tac \\ fs []
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   srw_tac[][do_app_def,do_stack_def,do_space_def] >>
-  Cases_on `op` >> TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) >>
+  cases_on_op_fs `op` >> TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) >>
   ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
               bool_case_eq,ffiTheory.call_FFI_def,stack_consumed_def,
               with_fresh_ts_def,bvlSemTheory.ref_case_eq,space_consumed_with_clock,
@@ -1666,7 +1680,7 @@ Proof
     \\ pairarg_tac \\ fs []
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   srw_tac[][do_app_def,do_stack_def,do_space_def] >>
-  Cases_on `op` >> TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) >>
+  cases_on_op_fs `op` >> TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) >>
   ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
               bool_case_eq,ffiTheory.call_FFI_def,
               with_fresh_ts_def,bvlSemTheory.ref_case_eq,
@@ -1712,23 +1726,25 @@ Proof
          , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq
          , pair_case_eq,consume_space_def]
      \\ rveq \\ fs [call_env_def,flush_state_def,do_app_with_clock,do_app_with_locals]
-     \\ imp_res_tac do_app_const >-( fs [set_var_def,state_component_equality])
+     \\ imp_res_tac do_app_const \\ fs [set_var_def,state_component_equality]
      \\ PairCases_on `y` \\ fs []
+     \\ qpat_x_assum `v4 = _` (fn th => once_rewrite_tac [th]) \\ fs []
      \\ imp_res_tac do_app_const
      \\ fs[do_stack_def]
-     >- (
-     full_simp_tac bool_ss [GSYM state_fupdcanon]
-     \\ fs [size_of_heap_with_clock,space_consumed_with_clock]
      \\ fs [set_var_def,state_component_equality]
+     (* FIX: this is obnoxious *)
+     \\ qmatch_goalsub_abbrev_tac `size_of_heap f1`
+     \\ qpat_abbrev_tac `f2 = (s with locals := _)`
+     \\ `size_of_heap f1 = size_of_heap f2`
+         by(`f1 = f2 with clock := ck + s.clock`
+              by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
+            \\ rw [size_of_heap_with_clock])
+     \\ `space_consumed f1 = space_consumed f2`
+         by(`f1 = f2 with clock := ck + s.clock`
+              by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
+            \\ rw []
+            \\ metis_tac[space_consumed_with_clock])
      \\ rw[])
-     >> `cut_env z env = SOME env'`
-       by (fs[cut_env_def]
-       >> Induct_on `args` >> fs[list_insert_def,get_vars_def]
-       >> rw[] >> gvs[])
-     >> gvs[]
-     \\ full_simp_tac bool_ss [GSYM state_fupdcanon]
-     \\ fs [size_of_heap_with_clock,space_consumed_with_clock]
-     >> fs[set_var_def,state_component_equality])
   >- (EVAL_TAC >> simp[state_component_equality])
   >- (every_case_tac >> fs[] >> srw_tac[][]
      \\ fs [add_space_def,size_of_heap_def,stack_to_vs_def]
@@ -1788,7 +1804,7 @@ Proof
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   srw_tac[][do_app_def,do_stack_def,do_space_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  Cases_on `x` >> TRY (rename [‘EqualConst cc’] >> Cases_on ‘cc’) >>
+  cases_on_op_fs `x` >> TRY (rename [‘EqualConst cc’] >> Cases_on ‘cc’) >>
   ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
               bool_case_eq,ffiTheory.call_FFI_def,
               with_fresh_ts_def,bvlSemTheory.ref_case_eq,
@@ -1886,8 +1902,8 @@ Theorem evaluate_add_clock_io_events_mono:
 Proof
   recInduct evaluate_ind
   \\ srw_tac[][evaluate_def,LET_THM]
-  >~[`find_code`]
-         >-( every_case_tac >> fs[] >> srw_tac[][]
+  \\ TRY (rename1`find_code`
+         \\ every_case_tac >> fs[] >> srw_tac[][]
          \\ imp_res_tac evaluate_io_events_mono >> fs[]
          \\ imp_res_tac pop_env_const >> fs[]
          \\ fsrw_tac[ARITH_ss][dec_clock_def,call_env_with_const,push_env_with_const]
@@ -1900,12 +1916,14 @@ Proof
   \\ rpt (pairarg_tac >> fs[])
   \\ every_case_tac >> fs[cut_state_opt_with_const] >> rfs[]
   \\ rveq >> fs[] >> rveq >> fs[]
-  \\ fs [do_app_with_clock,cut_state_opt_with_const,flush_state_def] \\ gvs[]
-  \\ fs [do_app_with_clock,cut_state_opt_with_const,flush_state_def] \\ gvs[]
+  \\ fs [do_app_with_clock]
+  \\ TRY (PairCases_on `y`) >> fs []
   \\ imp_res_tac jump_exc_IMP >> fs[jump_exc_NONE]
+  \\ rveq >> fs[state_component_equality]
   \\ imp_res_tac evaluate_add_clock >> fs[]
   \\ rveq >> fs[]
   \\ imp_res_tac evaluate_io_events_mono >> rfs[]
+  \\ fs [] >> imp_res_tac jump_exc_IMP >> rw[jump_exc_NONE,flush_state_def]
   \\ metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]
 QED
 
@@ -2006,16 +2024,15 @@ QED
 Theorem do_app_safe_for_space_mono:
   (do_app op xs s = Rval (r,s1)) /\ s1.safe_for_space ==> s.safe_for_space
 Proof
-  Cases_on `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\
+  cases_on_op_fs `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\
   fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-      pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def]
+      pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def,
+      UNCURRY_EQ]
   \\ rw [] \\ fs [state_component_equality] \\ rw []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ EVERY_CASE_TAC \\ fs []
 QED
 
 Theorem evaluate_safe_for_space_mono:
@@ -2554,7 +2571,7 @@ Theorem do_app_cc_co_only_diff_rval:
     ?t1. dataSem$do_app op vs t = Rval (v,t1) /\ cc_co_only_diff s1 t1
 Proof
   rpt strip_tac >>
-  Cases_on ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs [] >>
+  cases_on_op_fs ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs [] >>
   ntac 2(
   fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
@@ -2594,7 +2611,7 @@ Proof
   rename1 `cc_co_only_diff s1 s2` >>
   qpat_x_assum `cc_co_only_diff y x` kall_tac >>
   rpt(qpat_x_assum `do_space _ _ _ = _` kall_tac) >>
-  Cases_on ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs [] >>
+  cases_on_op_fs ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs [] >>
   fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
@@ -2657,41 +2674,26 @@ Proof
          rveq >> fs[] >>
          fs[cc_co_only_diff_def] >>rfs[]) >>
       rename1 `cut_state_opt _ _ = SOME t'` >>
-      `?s'. cut_state_opt (OPTION_MAP (list_insert args) names_opt) s = SOME s' /\
+      `?s'. cut_state_opt names_opt s = SOME s' /\
            cc_co_only_diff s' t'`
        by(fs[] >> rveq >>
           fs[cut_state_opt_def,cut_state_def,cut_env_def,get_vars_def,
              CaseEq "option",CaseEq "bool"] >>
           rveq >> fs[] >> rveq >> fs[] >>
-          fs[cc_co_only_diff_def] >>rfs[]
-          ) >>
+          fs[cc_co_only_diff_def] >>rfs[]) >>
       qmatch_asmsub_abbrev_tac `~ a1` >>
       fs[] >>
       `s'.locals = t'.locals` by fs[cc_co_only_diff_def] >>
       fs[] >>
       fs[CaseEq "result",CaseEq "prod"] >>
       rveq >> fs[set_var_def] >>
-      every_case_tac >> fs[] >>
-      gvs[] >>
       TRY(drule_all_then strip_assume_tac do_app_cc_co_only_diff_rval >>
           fs[] >>
           fs[cc_co_only_diff_def]
          ) >>
-      fs[cut_state_opt_def,cut_state_def] >>
-      Cases_on `names_opt` >> fs[]
-      >- (Cases_on `cut_env x t1.locals` >> fs[])
-      >- (gvs[] >> drule_all_then strip_assume_tac do_app_cc_co_only_diff_rval >>
-          fs[] >>
-          fs[cc_co_only_diff_def]
-         )
-       >- (gvs[] >>
-           Cases_on `cut_env x'' v5.locals` >> fs[] >> gvs[] >>
-          drule_all_then strip_assume_tac do_app_cc_co_only_diff_rval >>
-          fs[] >>
-          fs[cc_co_only_diff_def])
-       >> (gvs[] >> fs[flush_state_def] >> gvs[] >>
-      imp_res_tac do_app_cc_co_only_diff_rerr >> fs[cc_co_only_diff_def])
-  )
+      Cases_on `op = Install` >- fs [flush_state_def] >>
+      reverse conj_tac >- fs[cc_co_only_diff_def,flush_state_def] >>
+      imp_res_tac do_app_cc_co_only_diff_rerr)
   >- ((* Tick *)
       fs[evaluate_def,CaseEq "bool",flush_state_def,cc_co_only_diff_def,dec_clock_def] >>
       rveq >> fs[])
@@ -2788,7 +2790,7 @@ Theorem do_app_stack_max_le_stack_limit:
   option_le s1.stack_max (SOME s1.limits.stack_limit)
 Proof
   rpt strip_tac >>
-  Cases_on ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs [] >>
+  cases_on_op_fs ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs [] >>
   fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,

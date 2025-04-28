@@ -612,6 +612,11 @@ val LIST_REL_lemma = prove(
       LIST_REL Q xs ys``,
   Induct \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []);
 
+fun uncurry_case_rand x = x
+                         |> TypeBase.case_rand_of
+                         |> ISPEC ``(UNCURRY (A:'uniquea -> 'uniqueb -> 'uniquec))``
+                         |> GEN ``(A:'uniquea -> 'uniqueb -> 'uniquec)``;
+
 Theorem compile_thm:
    !rec s1 prog s2.
       Eval rec s1 prog s2 ==>
@@ -645,57 +650,49 @@ Proof
   ho_match_mp_tac eval_ind \\ rpt strip_tac
   THEN1 (* Skip *)
     (fs [compile_def] \\ rveq \\ fs [evaluate_def]
-     \\ qexists_tac `t1` \\ fs [])
+     \\ (irule_at (Pos hd) EQ_REFL) \\ fs[])
   THEN1 (* Continue *)
     (fs [compile_def] \\ rveq \\ fs [evaluate_def]
-     \\ qexists_tac `t1` \\ fs []
-     \\ every_case_tac \\ fs [])
+     \\ fs $ map uncurry_case_rand [``:'a option``,``:bool``,``:'a # 'b``]
+     \\ (irule_at (Pos hd) EQ_REFL) \\ fs[])
   THEN1 (* Delete *)
     (fs [compile_def] \\ rveq \\ fs [evaluate_def]
-     \\ qexists_tac `t1` \\ fs [state_rel_delete_vars])
+     \\ (irule_at (Pos hd) EQ_REFL) \\ fs [state_rel_delete_vars])
   THEN1 (* Assign *)
-    (fs [compile_def] \\ rveq
-     \\ fs [evaluate_def]
+    (fs [compile_def] \\ rveq \\ fs [evaluate_def]
+     \\ fs $ map uncurry_case_rand [``:'a option``,``:bool``]
+     (*contextual simplifier fails due to types*)
      \\ drule_all compile_exp_thm \\ fs [] \\ strip_tac
      \\ fs [word_exp_def,set_var_def]
-     \\ qmatch_goalsub_abbrev_tac `evaluate (p9, s6)`
-     \\ qexists_tac `s6` \\ fs []
-     \\ unabbrev_all_tac \\ fs[]
+     \\ (irule_at (Pos hd) EQ_REFL) \\ fs[]
      \\ fs[set_store_def]
      \\ fs [get_var_def,lookup_insert]
      \\ fs [state_rel_def]
      \\ fs [reg_write_def,FLOOKUP_UPDATE]
      \\ fs [syntax_ok_def,syntax_ok_aux_def]
      \\ fs [TempIn1_def,TempIn2_def,TempOut_def]
-     \\ strip_tac \\ Cases_on `n = a` \\ fs []
-     \\ rpt strip_tac \\ res_tac  \\ fs [])
+     \\ rw[] \\ res_tac \\ fs[])
   THEN1 (* Seq *)
-    (fs [compile_def]
-     \\ rpt (pairarg_tac \\ fs []) \\ rveq
-     \\ qpat_x_assum `!x. _` mp_tac
-     \\ qpat_x_assum `!x. _` mp_tac
-     \\ first_x_assum drule
-     \\ `code_subset cs' cs2` by metis_tac [code_subset_trans,compile_IMP_code_subset]
-     \\ disch_then drule \\ fs []
+    (fs [compile_def,UNCURRY_EQ] \\ rveq
+     \\ rename1 `(Seq (Seq p1' p2') _)`
      \\ `syntax_ok prog /\ !b. prog <> LoopBody b` by
           (Cases_on `prog` \\ fs [syntax_ok_def,syntax_ok_aux_def] \\ NO_TAC)
      \\ `syntax_ok prog' /\ !b. prog' <> LoopBody b` by
           (Cases_on `prog'` \\ fs [syntax_ok_def,syntax_ok_aux_def] \\ NO_TAC)
-     \\ fs []
-     \\ disch_then (qspec_then `Seq p2 p9` mp_tac)
-     \\ match_mp_tac (METIS_PROVE [] ``(b3 ==> b1 ==> b2 ==> b4) ==>
-                                       (b1 ==> b2 ==> b3 ==> b4)``)
-     \\ strip_tac \\ disch_then drule
-     \\ strip_tac \\ fs [evaluate_Seq_Seq]
-     \\ disch_then drule \\ fs []
-     \\ disch_then drule \\ fs [])
+     \\ fs [GSYM evaluate_Seq_Seq]
+     \\ qpat_x_assum `!x. _` drule
+     \\ qpat_x_assum `!x. _` drule
+     \\ `code_subset cs' cs2` by metis_tac [code_subset_trans,compile_IMP_code_subset]
+     \\ disch_then drule \\ fs[]
+     \\ fs[] \\ disch_then (qspec_then `Seq p2' p9` assume_tac) \\ fs[]
+     \\ fs[] \\ disch_then drule \\ fs[])
   THEN1 (* If *)
     (fs [compile_def]
      \\ `syntax_ok p1 /\ !b. p1 <> LoopBody b` by
           (Cases_on `p1` \\ fs [syntax_ok_def,syntax_ok_aux_def] \\ NO_TAC)
      \\ `syntax_ok p2 /\ !b. p2 <> LoopBody b` by
           (Cases_on `p2` \\ fs [syntax_ok_def,syntax_ok_aux_def] \\ NO_TAC)
-     \\ Cases_on `ri` \\ fs [eval_ri_pre_def,eval_exp_pre_def]
+    \\ Cases_on `ri` \\ fs [eval_ri_pre_def,eval_exp_pre_def]
      \\ rpt (pairarg_tac \\ fs [] \\ rveq)
      \\ simp [evaluate_def]
      \\ once_rewrite_tac [evaluate_SeqTemp] \\ fs []

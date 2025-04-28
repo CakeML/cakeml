@@ -961,12 +961,10 @@ Proof
   \\ EQ_TAC \\ rw [] \\ fs []
 QED
 
-Theorem list_max_LESS_EVERY:
-  (list_max xs < N) = (0 < N /\ EVERY (\x. x < N) xs)
+Theorem MAX_LIST_LESS_EVERY:
+  (MAX_LIST xs < N) = (0 < N /\ EVERY (\x. x < N) xs)
 Proof
-  Induct_on `xs`
-  \\ simp [list_max_def |> REWRITE_RULE [GSYM MAX_DEF]]
-  \\ metis_tac []
+  Induct_on `xs` \\ simp[] \\ DECIDE_TAC
 QED
 
 Theorem max_dec_name_LESS_EVERY:
@@ -1202,7 +1200,7 @@ Proof
   \\ TRY (fs [bool_case_eq] \\ rveq \\ fs [] \\ NO_TAC)
   >- (
     (* conses *)
-    fs [Q.GEN `t` bool_case_eq |> Q.ISPEC `Match_type_error`] \\ fs []
+    fs [Q.GEN `t1` bool_case_eq |> Q.ISPEC `Match_type_error`] \\  fs []
     \\ fs [pmatch_stamps_ok_cases] \\ rveq \\ fs []
     \\ simp [pmatch_def, is_sibling_def]
     \\ rfs []
@@ -1601,8 +1599,8 @@ Proof
   \\ rpt (gen_tac ORELSE disch_tac ORELSE conj_tac)
   \\ simp [v_rel_rules]
   \\ fs [pair_case_eq,
-    Q.GEN `t` bool_case_eq |> Q.ISPEC `(x, Rerr (Rabort Rtype_error))`,
-    Q.GEN `f` bool_case_eq |> Q.ISPEC `(x, Rerr (Rabort Rtype_error))`]
+    Q.GEN `t1` bool_case_eq |> Q.ISPEC `(x, Rerr (Rabort Rtype_error))`,
+    Q.GEN `t2` bool_case_eq |> Q.ISPEC `(x, Rerr (Rabort Rtype_error))`]
   \\ fs []
   \\ fs [miscTheory.UNCURRY_eq_pair, PULL_EXISTS]
   \\ rpt (pairarg_tac \\ fs [])
@@ -1723,7 +1721,7 @@ Proof
       \\ imp_res_tac state_rel_IMP_clock
       \\ imp_res_tac LENGTH_compile_exps_IMP
       \\ fs [bool_case_eq, LENGTH_EQ_NUM_compute]
-      \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
+      \\ rveq \\ fs[]
       \\ imp_res_tac state_rel_dec_clock
       \\ last_x_assum drule
       \\ rpt (disch_then drule)
@@ -1851,7 +1849,7 @@ Proof
     \\ irule ALOOKUP_rel_eq_fst
     \\ rw [LIST_REL_EL_EQN, EL_MAP, UNCURRY]
     \\ simp [Once v_rel_cases]
-    \\ fs [ELIM_UNCURRY, list_max_LESS_EVERY, EVERY_MAP, env_rel_def]
+    \\ fs [ELIM_UNCURRY, MAX_LIST_LESS_EVERY, EVERY_MAP, env_rel_def]
     \\ metis_tac []
   )
   >- (
@@ -1888,8 +1886,8 @@ Proof
     \\ fs [compile_dec_def]
     \\ rveq \\ fs []
     \\ simp [evaluate_def]
-    \\ fs [bool_case_eq, OPTREL_def, state_rel_c_update]
-    \\ rveq \\ fs []
+    \\ fs [bool_case_eq, OPTREL_def]
+    \\ rveq \\ fs [state_rel_c_update]
     \\ rfs [SUBSET_DEF]
   )
   >- (

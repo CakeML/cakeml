@@ -32,7 +32,7 @@ Datatype:
   | Int
   | Real
   | String
-  | Bool
+  | Primitive_Bool
   | Char
   | Native
 End
@@ -45,51 +45,45 @@ Datatype:
 End
 
 Datatype:
-  typeArgBound =
-  | SupportsEquality
-  | SupportsDefault
+  variance = Nonvariant | Covariant | Contravariant
 End
 
-Datatype:
-  variance =
-  | Nonvariant | Covariant | Contravariant
-End
-
-Datatype:
-  typeArgDecl =
-  (* TypeArgDecl name bounds variance *)
-  | TypeArgDecl ident (typeArgBound list) variance
-End
-
-(* From Dafny:
- * USIZE is for whatever target considers that native arrays can be
- * indexed with *)
 Datatype:
   newtypeRange =
-  | U8 | I8
-  | U16 | I16
-  | U32 | I32
-  | U64 | I64
-  | U128 | I128
-  | BigInt | USIZE
+  (* bool determines whether arithmetic operations can overflow and wrap *)
+  | U8 bool
+  | I8 bool
+  | U16 bool
+  | I16 bool
+  | U32 bool
+  | I32 bool
+  | U64 bool
+  | I64 bool
+  | U128 bool
+  | I128 bool
+  | NativeArrayIndex
+  | BigInt
+  | NewtypeRange_Bool
+  | Sequence
+  | NewtypeRange_Map
   | NoRange
 End
 
 Datatype:
-  unaryOp =
-  | Not | BitwiseNot
-  | Cardinality
+  unaryOp = Not | BitwiseNot | Cardinality
 End
 
 Datatype:
   binOp =
   (* Eq referential *)
   | Eq bool
-  | Div | EuclidianDiv
+  (* Div overflow *)
+  | Div bool | EuclidianDiv
   | Mod | EuclidianMod
   (* a ≤ b is !(b < a) *)
   | Lt | LtChar
-  | Plus | Minus | Times
+  (* bool: overflow *)
+  | Plus bool | Minus bool | Times bool
   | BitwiseAnd | BitwiseOr | BitwiseXor
   | BitwiseShiftRight | BitwiseShiftLeft
   | And | Or
@@ -105,18 +99,34 @@ Datatype:
 End
 
 Datatype:
-  datatypeType = DatatypeType
+  traitType =
+  (* Dafny: Traits that extend objects with --type-system-refresh,
+     all traits otherwise *)
+  | ObjectTrait
+  (* Dafny: Traits that don't necessarily extend objects with
+     --type-system-refresh *)
+  | GeneralTrait
 End
 
 Datatype:
-  traitType = TraitType
+  typeParameterInfo =
+  (* TypeParameterInfo variance necessaryForEqualitySupportOfSurroundingInductiveDatatype *)
+  | TypeParameterInfo variance bool
+End
+
+Datatype:
+  equalitySupport =
+  | Never
+  | ConsultTypeArguments
 End
 
 Datatype:
   resolvedTypeBase =
   | ResolvedTypeBase_Class
-  | ResolvedTypeBase_Datatype (variance list)
-  | ResolvedTypeBase_Trait
+  (* ResolvedTypeBase_Datatype equalitySupport info *)
+  | ResolvedTypeBase_Datatype equalitySupport (typeParameterInfo list)
+  | ResolvedTypeBase_Trait traitType
+  | ResolvedTypeBase_SynonymType type
   (* Newtype baseType range erase *)
   | ResolvedTypeBase_Newtype type newtypeRange bool ;
 
@@ -134,7 +144,7 @@ Datatype:
   | Set type
   | Multiset type
   (* Map key value *)
-  | Map type type
+  | Type_Map type type
   | SetBuilder type
   (* MapBuilder key value *)
   | MapBuilder type type
@@ -142,6 +152,25 @@ Datatype:
   | Arrow (type list) type
   | Primitive primitive | Passthrough string
   | TypeArg ident | Object
+End
+
+Datatype:
+  typedBinOp =
+  (* TypedBinOp op leftType rightType resultType *)
+  | TypedBinOp binOp type type type
+End
+
+Datatype:
+  typeArgBound =
+  | SupportsEquality
+  | SupportsDefault
+  | TraitBound type
+End
+
+Datatype:
+  typeArgDecl =
+  (* TypeArgDecl name bounds info *)
+  | TypeArgDecl ident (typeArgBound list) typeParameterInfo
 End
 
 Datatype:
@@ -169,8 +198,8 @@ End
 
 Datatype:
   callSignature =
-  (* CallSignature parameters *)
-  | CallSignature (formal list)
+  (* CallSignature parameters inheritedParams *)
+  | CallSignature (formal list) (formal list)
 End
 
 Datatype:
@@ -184,12 +213,46 @@ Datatype:
 End
 
 Datatype:
+  selectContext =
+  | SelectContextDatatype
+  | SelectContextGeneralTrait
+  | SelectContextClassOrObjectTrait
+End
+
+(* Dafny comment:
+   Since constant fields need to be set up in the constructor,
+   accessing constant fields is done in two ways:
+   - The internal field access (through the internal field that contains the
+     value of the constant) it's not initialized at the beginning of the
+     constructor.
+   - The external field access (through a function), which when accessed
+     must always be initialized.
+   For Select expressions, it's important to know how the field is being
+   accessed.
+   For mutable fields, there is no wrapping function so only one way to access
+   the mutable field *)
+Datatype:
+  fieldMutability =
+  (* Access a class constant field after initialization, or a datatype constant
+     field *)
+  | ConstantField
+  (* Access a class internal field before initialization, or a datatype
+     destructor *)
+  | InternalClassConstantFieldOrDatatypeDestructor
+  | ClassMutableField
+End
+
+Datatype:
   assignLhs =
   | AssignLhs_Ident varName
-  (* Select expr field *)
-  | AssignLhs_Select expression varName
+  (* Select expr field isConstant *)
+  | AssignLhs_Select expression varName bool
   (* Index expr indices *)
   | AssignLhs_Index expression (expression list) ;
+
+  field =
+  (* Field formal isConstant defaultValue isStatic *)
+  | Field formal bool (expression option) bool ;
 
   expression =
   | Literal literal
@@ -214,13 +277,14 @@ Datatype:
   | SeqValue (expression list) type
   | SetValue (expression list)
   | MultisetValue (expression list)
-  | MapValue ((expression # expression) list)
+  (* MapValue mapElems domainType rangeType *)
+  | MapValue ((expression # expression) list) type type
   (* MapBuilder keyType valueType *)
   | Expression_MapBuilder type type
-  (* SeqUpdate expr indexExpr value *)
-  | SeqUpdate expression expression expression
-  (* MapUpdate expr indexExpr value *)
-  | MapUpdate expression expression expression
+  (* SeqUpdate expr indexExpr value collectionType exprType *)
+  | SeqUpdate expression expression expression type type
+  (* MapUpdate expr indexExpr value collectionType exprType *)
+  | MapUpdate expression expression expression type type
   (* SetBuilder elemType *)
   | Expression_SetBuilder type
   | ToMultiset expression
@@ -230,14 +294,14 @@ Datatype:
   (* In contract to Dafny, we do not include formatting information *)
   | UnOp unaryOp expression
   (* BinOp op left right *)
-  | BinOp binOp expression expression
+  | BinOp typedBinOp expression expression
   (* ArrayLen expr exprType dim native *)
   | ArrayLen expression type num bool
   | MapKeys expression
   | MapValues expression
   | MapItems expression
-  (* Select expr field isConstant onDatatype fieldType *)
-  | Select expression varName bool bool type
+  (* Select expr field fieldMutability selectContext fieldType *)
+  | Select expression varName fieldMutability selectContext type
   (* SelectFn expr field onDatatype isStatic isConstant arguments *)
   | SelectFn expression varName bool bool bool (type list)
   (* Index expr collKind indices *)
@@ -268,6 +332,7 @@ Datatype:
   | MapBoundedPool expression
   (* SeqBoundedPool of includeDuplicates *)
   | SeqBoundedPool expression bool
+  | MultisetBoundedPool expression bool
   (* ExactBoundedPool of *)
   | ExactBoundedPool expression
   (* IntRange elemType lo hi up *)
@@ -300,7 +365,7 @@ Datatype:
   | Halt
   | Print expression
   (* ConstructorNewSeparator fields *)
-  | ConstructorNewSeparator (formal list)
+  | ConstructorNewSeparator (field list)
 End
 
 (* Dafny comment:
@@ -309,6 +374,8 @@ End
  *)
 Datatype:
   synonymType =
+  (* SynonymType name typeParams base witnessStmts witnessExpr
+                 attributes *)
   | SynonymType name (typeArgDecl list) type (statement list)
                 (expression option) (attribute list)
 End
@@ -316,20 +383,14 @@ End
 Datatype:
   method =
   (* Method attributes isStatic hasBody outVarsAreUninitFieldsToAssign
-            wasFunction overridingPath name typeParams params body outTypes
-            outVars *)
+            wasFunction overridingPath name typeParams params inheritedParams
+            body outTypes outVars *)
   (* Comments from Dafny (probably Rust specific) *)
   (* outVarsAreUninitFieldsToAssign: for constructors *)
   (* wasFunction: to choose between "&self" and "&mut self" *)
-  | Method (attribute list) bool bool bool bool ((ident list) option) name
-           (typeArgDecl list) (formal list) (statement list)
+  | Method (attribute list) bool bool bool bool ((ident list) option)
+           name (typeArgDecl list) (formal list) (formal list) (statement list)
            (type list) ((varName list) option)
-End
-
-Datatype:
-  field =
-  (* Field formal defaultValue *)
-  | Field formal (expression option)
 End
 
 Datatype:
@@ -339,13 +400,15 @@ End
 
 Datatype:
   trait =
-  (* Trait name typeParams parents body attributes *)
-  | Trait name (typeArgDecl list) (type list) (classItem list) (attribute list)
+  (* Trait name typeParams traitType parents downcastableTraits
+           body attributes *)
+  | Trait name (typeArgDecl list) traitType (type list) (type list)
+          (classItem list) (attribute list)
 End
 
 Datatype:
   class =
-  (* Class name enclosingModule typeParams superClasses fields
+  (* Class name enclosingModule typeParams superTraitTypes fields
            body attributes *)
   | Class name ident (typeArgDecl list) (type list) (field list)
           (classItem list) (attribute list)
@@ -360,9 +423,10 @@ End
 Datatype:
   newtype =
   (* Newtype name typeParams base range constraint
-             witnessStmts witnessExpr attributes *)
-  | Newtype name (typeArgDecl list) type newtypeRange (newtypeConstraint option)
-            (statement list) (expression option) (attribute list)
+             witnessStmts witnessExpr equalitySupport attributes classItems *)
+  | Newtype name (typeArgDecl list) type newtypeRange
+            (newtypeConstraint option) (statement list) (expression option)
+            equalitySupport (attribute list) (classItem list)
 End
 
 Datatype:
@@ -380,9 +444,13 @@ End
 Datatype:
   datatype =
   (* Datatype name enclosingModule typeParams ctors
-              body isCo attributes *)
+              body isCo equalitySupport attributes superTraitTypes
+              superTraitNegativeTypes *)
+  (* superTraitNegativeTypes: Traits that one or more superTraits know they can
+     downcast to, but the datatype does not.*)
   | Datatype name ident (typeArgDecl list) (datatypeCtor list)
-             (classItem list) bool (attribute list)
+             (classItem list) bool equalitySupport (attribute list) (type list)
+             (type list)
 End
 
 Datatype:
@@ -409,10 +477,10 @@ End
 
 Definition dest_Method_def:
   dest_Method (Method attributes isStatic hasBody outVarsAreUninitFieldsToAssign
-                      wasFunction overridingPath nam typeParams params body
-                      outTypes outVars) =
+                      wasFunction overridingPath nam typeParams params inheritedParams
+                      body outTypes outVars) =
   (attributes, isStatic, hasBody, outVarsAreUninitFieldsToAssign, wasFunction,
-   overridingPath, nam, typeParams, params, body, outTypes, outVars)
+   overridingPath, nam, typeParams, params, inheritedParams, body, outTypes, outVars)
 End
 
 (* Adapted from
