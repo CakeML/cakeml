@@ -13,9 +13,9 @@ val _ = set_grammar_ancestry [
   "panLang", "alignment",
   "finite_map", "misc", "wordLang",  "ffi", "lprefix_lub"]
 
+(* TODO: rename or remove *)
 Datatype:
   word_lab = Word ('a word)
-           | Label funname
 End
 
 Datatype:
@@ -24,7 +24,6 @@ Datatype:
 End
 
 Overload ValWord  = “\w. Val (Word w)”
-Overload ValLabel = “\l. Val (Label l)”
 
 Datatype:
   state =
@@ -71,7 +70,6 @@ QED
 
 Definition shape_of_def:
   shape_of (ValWord _) = One /\
-  shape_of (ValLabel _) = One /\
   shape_of (Struct vs) = Comb (MAP shape_of vs)
 Termination
   wf_rel_tac `measure (\v. v_size ARB v)` >>
@@ -81,7 +79,6 @@ End
 Definition mem_load_byte_def:
   mem_load_byte m dm be w =
   case m (byte_align w) of
-    | Label _ => NONE
     | Word v =>
        if byte_align w IN dm
        then SOME (get_byte w v be) else NONE
@@ -126,14 +123,6 @@ Definition eval_def:
   (eval ^s (Const w) = SOME (ValWord w)) /\
   (eval s  (Var Local v) = FLOOKUP s.locals v) /\
   (eval s  (Var Global v) = FLOOKUP s.globals v) /\
-  (eval s (Label fname) =
-    case FLOOKUP s.code fname of
-     | SOME _ => SOME (ValLabel fname)
-     | _ => NONE) /\
-(*
-  (eval s (GetAddr dname) =
-    OPTION_MAP ValWord (FLOOKUP s.gaddrs dname)) /\ *)
-
   (eval s (Struct es) =
     case (OPT_MMAP (eval s) es) of
      | SOME vs => SOME (Struct vs)
@@ -200,7 +189,6 @@ Definition mem_store_byte_def:
      if byte_align w IN dm
      then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
      else NONE
-   | Label _ => NONE
 End
 
 Definition write_bytearray_def:
@@ -452,9 +440,9 @@ Definition evaluate_def:
     if s.clock = 0 then (SOME TimeOut,empty_locals s)
     else (NONE,dec_clock s)) /\
   (evaluate (Annot _ _,s) = (NONE, s)) /\
-  (evaluate (Call caltyp trgt argexps,s) =
-    case (eval s trgt, OPT_MMAP (eval s) argexps) of
-     | (SOME (ValLabel fname), SOME args) =>
+  (evaluate (Call caltyp fname argexps,s) =
+    case OPT_MMAP (eval s) argexps of
+     | SOME args =>
         (case lookup_code s.code fname args of
           | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
            else
@@ -487,10 +475,10 @@ Definition evaluate_def:
                       else (SOME (Exception eid exn), empty_locals st))
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
-     | (_, _) => (SOME Error,s))/\
-  (evaluate (DecCall rt shape trgt argexps prog1,s) =
-    case (eval s trgt, OPT_MMAP (eval s) argexps) of
-     | (SOME (ValLabel fname), SOME args) =>
+     | _ => (SOME Error,s))/\
+  (evaluate (DecCall rt shape fname argexps prog1,s) =
+    case OPT_MMAP (eval s) argexps of
+     | SOME args =>
         (case lookup_code s.code fname args of
           | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
            else
@@ -508,7 +496,7 @@ Definition evaluate_def:
                     (SOME Error, st)
               | (res,st) => (res,empty_locals st))
            | _ => (SOME Error,s))
-     | (_, _) => (SOME Error,s)) /\
+     | _ => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
    case (eval s ptr1, eval s len1, eval s ptr2, eval s len2) of
       | SOME (ValWord sz1),SOME (ValWord ad1),SOME (ValWord sz2),SOME (ValWord ad2) =>
@@ -580,7 +568,7 @@ Theorem evaluate_def[allow_rebind,compute] =
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call NONE (Label start) [] in
+   let prog = Call NONE start [] in
     if ∃k. case FST (evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F
