@@ -96,7 +96,7 @@ Definition simp_prog_def:
           | NONE => NONE
           | SOME (ix, ep) => SOME (ix, simp_prog ep)
       ) in
-    Call call_type2 (simp_exp e) (MAP simp_exp exps)
+    Call call_type2 e (MAP simp_exp exps)
   ) /\
   simp_prog (Return exp) = Return (simp_exp exp) /\
   simp_prog (ShMem op vn exp) = ShMem op vn (simp_exp exp) /\
@@ -104,4 +104,3 @@ Definition simp_prog_def:
 End
 
 val _ = export_theory();
-
