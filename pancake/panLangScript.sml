@@ -43,7 +43,6 @@ End
 Datatype:
   exp = Const ('a word)
       | Var varkind varname
-      | Label funname
    (* | GetAddr decname *)
       | Struct (exp list)
       | Field index exp
@@ -73,8 +72,8 @@ Datatype:
        | While ('a exp) prog
        | Break
        | Continue
-       | Call ((varname option # ((eid # varname # prog) option)) option) ('a exp) (('a exp) list)
-       | DecCall varname shape ('a exp) ('a exp list) prog
+       | Call ((varname option # ((eid # varname # prog) option)) option) funname (('a exp) list)
+       | DecCall varname shape funname ('a exp list) prog
        | ExtCall funname ('a exp) ('a exp) ('a exp) ('a exp)
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)
@@ -176,7 +175,6 @@ Definition var_exp_def:
   (var_exp (Const w) = ([]:mlstring list)) ∧
   (var_exp (Var Local v) = [v]) ∧
   (var_exp (Var Global v) = []) ∧
-  (var_exp (Label f) = []) ∧
   (var_exp (Struct es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Field i e) = var_exp e) ∧
   (var_exp (Load sh e) = var_exp e) ∧
@@ -197,7 +195,6 @@ Definition global_var_exp_def:
   (global_var_exp (Const w) = ([]:mlstring list)) ∧
   (global_var_exp (Var Local v) = []) ∧
   (global_var_exp (Var Global v) = [v]) ∧
-  (global_var_exp (Label f) = []) ∧
   (global_var_exp (Struct es) = FLAT (MAP global_var_exp es)) ∧
   (global_var_exp (Field i e) = global_var_exp e) ∧
   (global_var_exp (Load sh e) = global_var_exp e) ∧
