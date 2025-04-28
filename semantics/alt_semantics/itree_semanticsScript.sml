@@ -492,9 +492,9 @@ Definition application_def:
       (case vs of
          [Loc _ n] => (
            case store_lookup n s of
-             SOME (Thunk F v) =>
+             SOME (Thunk T v) =>
                return env s fp v c
-           | SOME (Thunk T f) =>
+           | SOME (Thunk F f) =>
                application Opapp env s fp [f; Conv NONE []] ((Cforce n,env)::c)
            | _ =>
                Etype_error (fix_fp_state c fp))
@@ -529,7 +529,7 @@ Definition continue_def:
   continue s fp v ((Capp op vs [], env) :: c) = application op env s fp (v::vs) c ∧
   continue s fp v ((Capp op vs (e::es), env) :: c) = push env s fp e (Capp op (v::vs) es) c ∧
   continue s fp v ((Cforce n, env) :: c) = (
-    case store_assign n (Thunk F v) s of
+    case store_assign n (Thunk T v) s of
       SOME s' => return env s' fp v c
     | NONE => Etype_error (fix_fp_state c fp)) ∧
   continue s fp v ((Clog l e, env) :: c) = (

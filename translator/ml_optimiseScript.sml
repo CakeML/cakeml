@@ -177,7 +177,7 @@ Proof
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [])
   THEN1 (* App Eval *)
-   (fs [evaluateTheory.do_eval_res_def (*, Q.ISPEC `(_, _)` EQ_SYM_EQ *)]
+   (
     fs [evaluateTheory.do_eval_res_def]
     \\ fs [list_case_eq,option_case_eq,bool_case_eq,pair_case_eq,result_case_eq]
     \\ rveq \\ fs [PULL_EXISTS]

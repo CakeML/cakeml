@@ -192,12 +192,18 @@ Definition compile_op_def:
     | ThunkOp t =>
         (dtcase t of
          | AllocThunk b =>
-              Let None xs (Op None Ref [Op None (Cons (if b then 1 else 0)) []; Var None 0])
+              Let None xs (Op None (MemOp Ref) [
+                 Op None (BlockOp (Cons (if b then 1 else 0))) [];
+                 Var None 0])
          | UpdateThunk b =>
               Let None xs (Let None
-                [Op None Update [Var None 0; Op None (Const 0) []; Op None (Cons (if b then 1 else 0)) []];
-                 Op None Update [Var None 0; Op None (Const 1) []; Var None 1]]
-                    (Var None 0))
+                [Op None (MemOp Update) [
+                   Var None 0; Op None (IntOp (Const 0)) [];
+                   Op None (BlockOp (Cons (if b then 1 else 0))) []];
+                   Op None (MemOp Update) [
+                     Var None 0; Op None (IntOp (Const 1)) [];
+                     Var None 1]]
+                (Var None 0))
          | ForceThunk =>
               Let None xs (Var None 0))
     | _ => Let None xs (Var None 0)

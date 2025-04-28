@@ -578,9 +578,9 @@ Theorem application_thm:
       (case vs of
          [Loc _ n] => (
            case store_lookup n s of
-             SOME (Thunk F v) =>
+             SOME (Thunk T v) =>
                return env s fp v c
-           | SOME (Thunk T f) =>
+           | SOME (Thunk F f) =>
                application Opapp env s fp [f; Conv NONE []] ((Cforce n,env)::c)
            | _ =>
                Etype_error (fix_fp_state c fp))
