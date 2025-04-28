@@ -7,7 +7,6 @@ open ml_translatorLib
 open dafny_to_cakemlProgTheory
 open dafny_compilerTheory
 open cfTacticsLib  (* process_topdecs *)
-open dafny_transformProgTheory
 open fromSexpTheory  (* listsexp *)
 open stringTheory
 open numposrepTheory
@@ -17,7 +16,7 @@ open simpleSexpParseTheory
 
 val _ = new_theory "dafny_compilerProg";
 
-val _ = translation_extends "dafny_transformProg";
+val _ = translation_extends "dafny_to_cakemlProg";
 
 (* First, we translate the functions for converting the output of the compiler
    (CakeML AST) into an S-expression string, namely decsexp, listsexp, and

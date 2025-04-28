@@ -318,8 +318,8 @@ Definition from_statement_def:
    | Dec locals scope =>
      do
        cml_scope <- from_statement scope lvl;
-       ns <<- MAP (explode ∘ FST) locals;
-       return (cml_new_refs_in ns cml_scope)
+       cml_name <<- explode (FST locals);
+       return (cml_new_refs_in [cml_name] cml_scope)
      od
    | Assign lhss rhss =>
      do

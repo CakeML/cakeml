@@ -251,34 +251,28 @@ Definition all_values_def:
   all_values _ = ∅
 End
 
-Definition declare_locals_def:
-  declare_locals st names =
-  let uninit = MAP (λn. (n, NONE)) names in
-    (st with locals := uninit ++ st.locals)
+Definition declare_local_def:
+  declare_local st n =
+    st with locals := (n, NONE)::st.locals
 End
 
-Theorem declare_locals_clock:
-  (declare_locals st names).clock = st.clock
+Theorem declare_local_clock:
+  (declare_local st names).clock = st.clock
 Proof
-  gvs [declare_locals_def]
+  gvs [declare_local_def]
 QED
 
-Definition safe_drop_def:
-  safe_drop n l =
-  if LENGTH l < n then NONE else SOME (DROP n l)
+Definition pop_local_def:
+  pop_local st =
+  (case st.locals of
+   | [] => NONE
+   | l::rest => SOME (st with locals := rest))
 End
 
-Definition pop_locals_def:
-  pop_locals n st =
-  (case safe_drop n st.locals of
-   | NONE => NONE
-   | SOME new_locals => SOME (st with locals := new_locals))
-End
-
-Theorem pop_locals_clock:
-  ∀n st st'. pop_locals n st = SOME st' ⇒ st'.clock = st.clock
+Theorem pop_local_clock:
+  ∀st st'. pop_local st = SOME st' ⇒ st'.clock = st.clock
 Proof
-  rpt strip_tac \\ gvs [pop_locals_def, AllCaseEqs ()]
+  rpt strip_tac \\ gvs [pop_local_def, AllCaseEqs ()]
 QED
 
 Definition val_to_string_def:

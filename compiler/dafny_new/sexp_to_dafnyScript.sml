@@ -464,11 +464,11 @@ Definition to_statement_def:
        else if (cns = «Dec») then
          (case dest2 args of
           | INL err => fail (here ^ err)
-          | INR (locals, scope) =>
+          | INR (local, scope) =>
             do
-              locals <- prefix_error here (to_mlstring_type_tup_lst locals);
+              local <- prefix_error here (to_mlstring_type_tup local);
               scope <- prefix_error here (to_statement scope);
-              return (Dec locals scope)
+              return (Dec local scope)
             od)
        else if (cns = «Assign») then
          do

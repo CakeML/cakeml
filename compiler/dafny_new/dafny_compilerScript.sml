@@ -9,7 +9,6 @@ open sexp_to_dafnyTheory
 open dafny_to_cakemlTheory
 open fromSexpTheory
 open simpleSexpParseTheory
-open dafny_transformTheory
 
 val _ = new_theory "dafny_compiler";
 
@@ -19,7 +18,6 @@ Definition dfy_to_cml_def:
     dfy_sexp <- lex dfy_sexp;
     dfy_sexp <- parse dfy_sexp;
     dfy <- to_program dfy_sexp;
-    dfy <<- use_fresh_vars dfy;
     from_program dfy
   od
 End

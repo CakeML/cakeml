@@ -284,14 +284,11 @@ Definition evaluate_stmt_ann_def[nocompute]:
      (case do_cond tst thn els of
       | NONE => (st₁, Rstop (Serr Rtype_error))
       | SOME branch => evaluate_stmt st₁ env branch)) ∧
-  evaluate_stmt st₀ env (Dec locals scope) =
-  (let names = MAP FST locals in
-     if ¬ALL_DISTINCT names then (st₀, Rstop (Serr Rtype_error))
-     else
-       let (st₁, res) = evaluate_stmt (declare_locals st₀ names) env scope in
-         (case pop_locals (LENGTH locals) st₁ of
-          | NONE => (st₁, res)
-          | SOME st₂ => (st₂, res))) ∧
+  evaluate_stmt st₀ env (Dec local scope) =
+  (let (st₁, res) = evaluate_stmt (declare_local st₀ (FST local)) env scope in
+   (case pop_local st₁ of
+    | NONE => (st₁, res)
+    | SOME st₂ => (st₂, res))) ∧
   evaluate_stmt st₀ env (Assign lhss rhss) =
   (case evaluate_rhs_exps st₀ env rhss of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
@@ -347,7 +344,7 @@ Termination
   >> rpt strip_tac
   >> imp_res_tac fix_clock_IMP
   >> imp_res_tac evaluate_exp_clock
-  >> gvs [dec_clock_def, set_up_call_def, declare_locals_def,
+  >> gvs [dec_clock_def, set_up_call_def, declare_local_def,
           oneline do_cond_def, AllCaseEqs ()]
 End
 
@@ -360,9 +357,9 @@ Proof
   >> gvs [evaluate_stmt_ann_def]
   >> rpt (pairarg_tac \\ gvs [])
   >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def,
-          print_string_def, evaluate_stmt_ann_def, declare_locals_clock]
+          print_string_def, evaluate_stmt_ann_def, declare_local_clock]
   >> EVERY (map imp_res_tac
-                [set_up_call_clock, restore_locals_clock, pop_locals_clock,
+                [set_up_call_clock, restore_locals_clock, pop_local_clock,
                  fix_clock_IMP, evaluate_rhs_exps_clock,
                  evaluate_exp_clock, assign_values_clock]) >> gvs []
 QED
