@@ -72,8 +72,7 @@ Definition compile_def:
   (compile ctxt (While e p) =
    While (compile_exp ctxt e) (compile ctxt p)) /\
   (compile ctxt (Call rtyp e es) =
-   let cs = compile_exp ctxt e;
-       cexps = MAP (compile_exp ctxt) es in
+   let cexps = MAP (compile_exp ctxt) es in
      Call (case rtyp of
            | NONE => NONE
            | SOME (tl, hdl) =>
@@ -82,10 +81,10 @@ Definition compile_def:
                      | NONE => NONE
                      | SOME (eid, evar, p) =>
                          SOME (eid, evar, compile ctxt p)))
-          cs
+          e
           cexps) /\
   (compile ctxt (DecCall v s e es p) =
-   DecCall v s (compile_exp ctxt e) (MAP (compile_exp ctxt) es) (compile ctxt p)) /\
+   DecCall v s e (MAP (compile_exp ctxt) es) (compile ctxt p)) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    ExtCall f
            (compile_exp ctxt ptr1)
@@ -104,7 +103,7 @@ End
  *)
 Definition compile_decs_def:
     compile_decs ctxt [] = [] ∧
-    compile_decs ctxt (Decl v e::ds) =
+    compile_decs ctxt (Decl sh v e::ds) =
     Decl sh v (compile_exp ctxt e)::
          compile_decs (ctxt with globals := ctxt.globals |+ (v, (sh,ARB))) ds ∧
     compile_decs ctxt (Function f xp args body::ds) =
