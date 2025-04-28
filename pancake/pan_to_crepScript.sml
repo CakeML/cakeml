@@ -43,8 +43,7 @@ Definition compile_exp_def:
    case FLOOKUP ctxt.vars vname of
    | SOME (shape, ns) => (MAP Var ns, shape)
    | NONE => ([Const 0w], One)) /\
-  (compile_exp ctxt (Var Global) = ([Const 0w], One)) /\ (* should never happen *)
-  (compile_exp ctxt (Label fname) = ([Label fname], One)) /\
+  (compile_exp ctxt (Var Global vname) = ([Const 0w], One)) /\ (* should never happen *)
   (compile_exp ctxt (Struct es) =
    let cexps = MAP (compile_exp ctxt) es in
    (FLAT (MAP FST cexps), Comb (MAP SND cexps))) /\
@@ -136,7 +135,7 @@ Definition compile_def:
             if size_of_shape sh = LENGTH es
             then nested_decs nvars es (compile nctxt p)
             else Skip) /\
-  (compile ctxt (Assign v e) =
+  (compile ctxt (Assign Local v e) =
    let (es, sh) = compile_exp ctxt e in
    case FLOOKUP ctxt.vars v of
     | SOME (vshp, ns) =>
@@ -149,6 +148,7 @@ Definition compile_def:
                        (nested_seq (MAP2 Assign ns (MAP Var temps)))
       else Skip:'a crepLang$prog
     | NONE => Skip) /\
+  (compile ctxt (Assign Global v e) = Skip) /\
   (compile ctxt (Store ad v) =
    case compile_exp ctxt ad of
     | (e::es',sh') =>
@@ -199,74 +199,66 @@ Definition compile_def:
    | _ => Skip) /\
   (compile ctxt Break = Break) /\
   (compile ctxt Continue = Continue) /\
-  (compile ctxt (Call rtyp e es) =
-   let (cs, sh) = compile_exp ctxt e;
-       cexps = MAP (compile_exp ctxt) es;
+  (compile ctxt (Call rtyp ce es) =
+   let cexps = MAP (compile_exp ctxt) es;
        args = FLAT (MAP FST cexps) in
-    case cs of
-    | ce::ces =>
-     (case rtyp of
-       | NONE => Call NONE ce args
-       | SOME (NONE, hdl) =>
-           (case hdl of
-             | NONE => Call (SOME (NONE, Skip, NONE)) ce args
-             | SOME (eid, evar, p) =>
-                (case FLOOKUP ctxt.eids eid of
-                  | NONE => Call (SOME (NONE, Skip, NONE)) ce args
-                  | SOME neid =>
-                    let comp_hdl = compile ctxt p;
-                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                      Call (SOME (NONE, Skip,
-                                  (SOME (neid, hndlr)))) ce args))
-       | SOME (SOME rt, hdl) =>
+     case rtyp of
+     | NONE => Call NONE ce args
+     | SOME (NONE, hdl) =>
+         (case hdl of
+          | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+          | SOME (eid, evar, p) =>
+              (case FLOOKUP ctxt.eids eid of
+               | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+               | SOME neid =>
+                   let comp_hdl = compile ctxt p;
+                       hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
+                     Call (SOME (NONE, Skip,
+                                 (SOME (neid, hndlr)))) ce args))
+     | SOME (SOME rt, hdl) =>
          (case wrap_rt (FLOOKUP ctxt.vars rt) of
           | NONE =>
-            (case hdl of
-              | NONE => Call NONE ce args
-              | SOME (eid, evar, p) =>
-                (case FLOOKUP ctxt.eids eid of
-                   | NONE => Call NONE ce args
-                   | SOME neid =>
-                     let comp_hdl = compile ctxt p;
-                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                     Call (SOME (NONE, Skip, (SOME (neid, hndlr)))) ce args))
+              (case hdl of
+               | NONE => Call NONE ce args
+               | SOME (eid, evar, p) =>
+                   (case FLOOKUP ctxt.eids eid of
+                    | NONE => Call NONE ce args
+                    | SOME neid =>
+                        let comp_hdl = compile ctxt p;
+                            hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
+                          Call (SOME (NONE, Skip, (SOME (neid, hndlr)))) ce args))
           | SOME (sh, ns) =>
-            (case hdl of
-             | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
-             | SOME (eid, evar, p) =>
-                (case FLOOKUP ctxt.eids eid of
-                  | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
-                  | SOME neid =>
-                    let comp_hdl = compile ctxt p;
-                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                      Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
-                              (SOME (neid, hndlr)))) ce args))))
-    | [] => Skip) /\
-  (compile ctxt (DecCall v s e es p) =
+              (case hdl of
+               | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+               | SOME (eid, evar, p) =>
+                   (case FLOOKUP ctxt.eids eid of
+                    | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+                    | SOME neid =>
+                        let comp_hdl = compile ctxt p;
+                            hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
+                          Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
+                                      (SOME (neid, hndlr)))) ce args)))) /\
+  (compile ctxt (DecCall v s ce es p) =
    let
-       (cs, sh) = compile_exp ctxt e;
-       cexps = MAP (compile_exp ctxt) es;
-       args = FLAT (MAP FST cexps);
-       vmax = ctxt.vmax;
-       nvars = GENLIST (λx. vmax + SUC x) (size_of_shape s);
-       nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (s, nvars));
-                            vmax := ctxt.vmax + size_of_shape s|> in
-     case cs of
-     | [] => Skip
-     | ce::ces =>
-         (case wrap_rt (SOME(s,nvars)) of
-            NONE => Call (SOME (NONE, compile nctxt p, NONE)) ce args
-          | SOME(sh,ns) =>
-              let ret_dec = case ret_var s ns of
-                              NONE => I
-                            |  SOME n => Dec n (Const 0w);
-                  p' = compile nctxt p;
-                  ret_decl = case ret_var s ns of
-                               NONE => nested_decs nvars (load_globals 0w (LENGTH nvars)) p'
-                             | SOME _ => p'
-              in ret_dec $
-                Call (SOME ((ret_var s ns), ret_decl, NONE)) ce args
-         )
+     cexps = MAP (compile_exp ctxt) es;
+     args = FLAT (MAP FST cexps);
+     vmax = ctxt.vmax;
+     nvars = GENLIST (λx. vmax + SUC x) (size_of_shape s);
+     nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (s, nvars));
+                          vmax := ctxt.vmax + size_of_shape s|> in
+     case wrap_rt (SOME(s,nvars)) of
+       NONE => Call (SOME (NONE, compile nctxt p, NONE)) ce args
+     | SOME(sh,ns) =>
+         let ret_dec = case ret_var s ns of
+                         NONE => I
+                       |  SOME n => Dec n (Const 0w);
+             p' = compile nctxt p;
+             ret_decl = case ret_var s ns of
+                          NONE => nested_decs nvars (load_globals 0w (LENGTH nvars)) p'
+                        | SOME _ => p'
+         in ret_dec $
+                    Call (SOME ((ret_var s ns), ret_decl, NONE)) ce args
+
   ) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    let
@@ -292,13 +284,14 @@ Definition compile_def:
         in
           Dec (n+1) a $ ShMem (store_op op) (n+1) e
     | _ => Skip)) ∧
-  (compile ctxt (ShMemLoad op r ad) =
+  (compile ctxt (ShMemLoad op Local r ad) =
    (case compile_exp ctxt ad of
       (a::_, _) =>
         (case FLOOKUP ctxt.vars r of
            SOME (_, r'::_) => ShMem (load_op op) r' a
          | _ => Skip)
      | _ => Skip)) ∧
+  (compile ctxt (ShMemLoad op Global r ad) = Skip) ∧
   (compile ctxt Tick = Tick) ∧
   (compile _ (Annot _ _) = Skip)
 End
