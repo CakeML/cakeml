@@ -333,7 +333,7 @@ End
 
 Definition get_eids_def:
   get_eids prog =
-   let eids = remove_dup (FLAT (MAP (exp_ids o SND o SND) prog));
+   let eids = nub (FLAT (MAP (exp_ids o SND o SND) prog));
        ns   = GENLIST (λx. n2w x) (LENGTH eids);
        es   = MAP2 (λx y. (x,y)) eids ns in
     alist_to_fmap es
