@@ -73,10 +73,11 @@ End
 
 Definition compile_prog_def:
   compile_prog prog =
-    MAP (λ(name, params, body).
-          (name,
-           params,
-           compile body)) prog
+    MAP (λdecl.
+           case decl of
+             Function name export params body =>
+               Function name export params (compile body)
+           | _ => decl) prog
 End
 
 

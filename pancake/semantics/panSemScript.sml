@@ -605,6 +605,29 @@ Definition semantics_def:
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
 
+(* declaration semantics *)
+
+Definition evaluate_decls_def:
+  evaluate_decls ^s [] =
+  SOME ^s ∧
+  evaluate_decls s (Decl sh v e::ds) =
+  (case eval (s with locals := FEMPTY) e of
+     SOME res =>
+       if sh = shape_of res then
+         evaluate_decls (s with globals := s.globals |+ (v,res)) start ds
+       else
+         NONE
+   | NONE => NONE) ∧
+  evaluate_decls s (Function v export args body::ds) =
+  evaluate_decls (s with code := s.code |+ (v,(args,body))) start ds
+End
+
+Definition semantics_decls_def:
+  semantics_decls ^s start decls =
+  case evaluate_decls s decls of
+    NONE => Fail
+  | SOME s' => semantics s' start
+End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 

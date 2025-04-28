@@ -45,6 +45,9 @@ Static checking for Pancake.
 [pan_commonScript.sml](pan_commonScript.sml):
 Common definitions for Pancake compiler
 
+[pan_globalsScript.sml](pan_globalsScript.sml):
+Allocate globals at the end of heap.
+
 [pan_passesScript.sml](pan_passesScript.sml):
 Reformulates compile definition to expose the result of each internal
 compiler pass
