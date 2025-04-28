@@ -6,6 +6,7 @@ open preamble
 open dafny_astTheory
 open mlstringTheory
 open mlintTheory  (* int_to_string *)
+open alistTheory
 
 val _ = new_theory "dafny_semanticPrimitives";
 
@@ -38,7 +39,7 @@ End
 Datatype:
   state =
   <| clock: num;
-     locals: (mlstring |-> value option) list;
+     locals: (mlstring, (value option)) alist;
      heap: heap_value list;
      cout: mlstring list |>
 End
@@ -70,10 +71,9 @@ Datatype:
 End
 
 Definition safe_zip_def:
-  safe_zip (x::xs) (y::ys) =
-  OPTION_MAP (CONS (x,y)) (safe_zip xs ys) ∧
-  safe_zip [] [] = SOME [] ∧
-  safe_zip _ _ = NONE
+  safe_zip xs ys =
+  if LENGTH xs ≠ LENGTH ys then NONE
+  else SOME (ZIP (xs, ys))
 End
 
 Definition set_up_call_def:
@@ -81,10 +81,9 @@ Definition set_up_call_def:
   (case (safe_zip in_ns (MAP SOME in_vs)) of
    | NONE => NONE
    | SOME params =>
-     (let old_locals = st.locals;
-          new_locals = params ++ (MAP (λn. (n, NONE)) outs)
-      in
-        SOME (old_locals, st with locals := [FEMPTY |++ new_locals])))
+     (let old_locals = st.locals in
+      let new_locals = params ++ (MAP (λn. (n, NONE)) outs) in
+        SOME (old_locals, st with locals := new_locals)))
 End
 
 Theorem set_up_call_clock:
@@ -105,16 +104,11 @@ Proof
   rpt strip_tac >> gvs [restore_locals_def]
 QED
 
-Definition read_local_aux_def:
-  read_local_aux [] var = NONE ∧
-  read_local_aux (cur::rest) var =
-  (case FLOOKUP cur var of
-   | NONE => read_local_aux rest var
-   | SOME v => v)
-End
-
 Definition read_local_def:
-  read_local st var = read_local_aux st.locals var
+  read_local locals var =
+  (case ALOOKUP locals var of
+   | NONE => NONE
+   | SOME ov => ov)
 End
 
 (* Returns the value in case it is already known due to short-circuiting. *)
@@ -217,11 +211,10 @@ Definition alloc_array_def:
 End
 
 Definition update_local_aux_def:
-  update_local_aux [] var val init = NONE ∧
-  update_local_aux (cur::rest) var val init =
-  (case FLOOKUP cur var of
-   | NONE => update_local_aux rest var val (init ++ [cur])
-   | SOME _ => SOME (init ++ [cur |+ (var, SOME val)] ++ rest))
+  update_local_aux [] var val acc = NONE ∧
+  update_local_aux ((x, w)::xs) var val acc =
+  (if x = var then SOME (acc ++ ((x, SOME val)::xs))
+   else update_local_aux xs var val (SNOC (x, w) acc))
 End
 
 Definition update_local_def:
@@ -246,20 +239,9 @@ Definition update_array_def:
    | _ => NONE)
 End
 
-Definition read_outs_def:
-  read_outs st outs =
-  (* We don't want to read the value of variables that shadowed locals; hence,
-     we go to the top, where we initially placed the ins and outs. *)
-  (case st.locals of
-   | [] => NONE
-   | locals =>
-       (let outs = OPT_MMAP (λout. FLOOKUP (LAST locals) out) outs in
-          OPTION_BIND outs (OPT_MMAP I)))
-End
-
 Definition push_local_def:
   push_local st var val =
-  (st with locals := (FEMPTY |+ (var, SOME val))::st.locals)
+  (st with locals := (var, SOME val)::st.locals)
 End
 
 Definition all_values_def:
@@ -272,7 +254,7 @@ End
 Definition declare_locals_def:
   declare_locals st names =
   let uninit = MAP (λn. (n, NONE)) names in
-    (st with locals := (FEMPTY |++ uninit)::st.locals)
+    (st with locals := uninit ++ st.locals)
 End
 
 Theorem declare_locals_clock:
@@ -281,15 +263,20 @@ Proof
   gvs [declare_locals_def]
 QED
 
+Definition safe_drop_def:
+  safe_drop n l =
+  if LENGTH l < n then NONE else SOME (DROP n l)
+End
+
 Definition pop_locals_def:
-  pop_locals st =
-  case st.locals of
-  | [] => NONE
-  | (hd::tl) => SOME (st with locals := tl)
+  pop_locals n st =
+  (case safe_drop n st.locals of
+   | NONE => NONE
+   | SOME new_locals => SOME (st with locals := new_locals))
 End
 
 Theorem pop_locals_clock:
-  ∀st st'. pop_locals st = SOME st' ⇒ st'.clock = st.clock
+  ∀n st st'. pop_locals n st = SOME st' ⇒ st'.clock = st.clock
 Proof
   rpt strip_tac \\ gvs [pop_locals_def, AllCaseEqs ()]
 QED

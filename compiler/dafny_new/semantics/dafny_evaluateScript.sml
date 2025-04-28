@@ -34,7 +34,7 @@ End
 Definition evaluate_exp_ann_def[nocompute]:
   evaluate_exp st env (Lit l) = (st, Rval (lit_to_val l)) ∧
   evaluate_exp st env (Var name) =
-  (case read_local st name of
+  (case read_local st.locals name of
    | NONE => (st, Rerr Rtype_error)
    | SOME v => (st, Rval v)) ∧
   evaluate_exp st₀ env (If tst thn els) =
@@ -107,8 +107,8 @@ Definition evaluate_exp_ann_def[nocompute]:
      then (st, Rerr Rtimeout_error)
      else if (∀v. v ∈ all_values vt ⇒ SND (eval v) = Rval (BoolV T))
      then (st, Rval (BoolV T))
-     (* NOTE For now, for simplicity reasons, we do not check whether (eval v)
-        is a Bool to throw a type error if not. Instead, we return (BoolV F). *)
+     (* NOTE For now, for simplicity reasons, we do not check whether (eval v) *)
+  (*       is a Bool to throw a type error if not. Instead, we return (BoolV F). *)
      else (st, Rval (BoolV F))) ∧
   evaluate_exps st env [] = (st, Rval []) ∧
   evaluate_exps st₀ env (e::es) =
@@ -289,7 +289,7 @@ Definition evaluate_stmt_ann_def[nocompute]:
      if ¬ALL_DISTINCT names then (st₀, Rstop (Serr Rtype_error))
      else
        let (st₁, res) = evaluate_stmt (declare_locals st₀ names) env scope in
-         (case pop_locals st₁ of
+         (case pop_locals (LENGTH locals) st₁ of
           | NONE => (st₁, res)
           | SOME st₂ => (st₂, res))) ∧
   evaluate_stmt st₀ env (Assign lhss rhss) =
@@ -332,7 +332,7 @@ Definition evaluate_stmt_ann_def[nocompute]:
             | (st₃, Rcont) => (st₃, Rstop (Serr Rtype_error))
             | (st₃, Rstop (Serr err)) => (st₃, Rstop (Serr err))
             | (st₃, Rstop Sret) =>
-              (case read_outs st₃ out_ns of
+              (case OPT_MMAP (read_local st₃.locals) out_ns of
                | NONE => (st₃, Rstop (Serr Rtype_error))
                | SOME out_vs =>
                  (case assign_values st₃ env lhss out_vs of

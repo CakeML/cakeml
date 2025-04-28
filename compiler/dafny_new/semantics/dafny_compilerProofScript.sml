@@ -37,21 +37,21 @@ Definition val_opt_ref_def:
   val_opt_ref val_opt ref = T
 End
 
-Definition state_rel_def:
-  state_rel s t ⇔
-  ∃params decs locals_to_cml heap_to_cml.
-    s.locals = [params; decs] ∧
-    (let
-       locals = params ⊌ decs;
-       heap_dom = count (LENGTH s.heap)
-     in
-       INJ locals_to_cml (FDOM locals) 𝕌(:num) ∧
-       INJ heap_to_cml heap_dom 𝕌(:num) ∧
-       ∀var ref.
-         var ∈ (FDOM locals) ⇒
-         store_lookup (locals_to_cml var) t.refs = SOME ref ∧
-         val_opt_ref (locals ' var) ref)
-End
+(* Definition state_rel_def: *)
+(*   state_rel s t ⇔ *)
+(*   ∃params decs locals_to_cml heap_to_cml. *)
+(*     s.locals = [params; decs] ∧ *)
+(*     (let *)
+(*        locals = params ⊌ decs; *)
+(*        heap_dom = count (LENGTH s.heap) *)
+(*      in *)
+(*        INJ locals_to_cml (FDOM locals) 𝕌(:num) ∧ *)
+(*        INJ heap_to_cml heap_dom 𝕌(:num) ∧ *)
+(*        ∀var ref. *)
+(*          var ∈ (FDOM locals) ⇒ *)
+(*          store_lookup (locals_to_cml var) t.refs = SOME ref ∧ *)
+(*          val_opt_ref (locals ' var) ref) *)
+(* End *)
 
 Definition exp_res_rel_def:
   exp_res_rel (Rval (v_dfy : value)) (Rval [v_cml] : cml_res) ⇔
@@ -68,25 +68,26 @@ Definition is_exp_fail_def[simp]:
   is_exp_fail _ = F
 End
 
-Theorem correct_exp:
-  (∀s₁ env_dfy e_dfy s₂ r_dfy t₁ env_cml e_cml.
-     evaluate_exp s₁ env_dfy e_dfy = (s₂, r_dfy) ∧ from_exp e_dfy = INR e_cml
-     ∧ state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧ ¬(is_exp_fail r_dfy)
-     ⇒ ∃t₂ r_cml.
-         evaluate$evaluate t₁ env_cml [e_cml] = (t₂, r_cml) ∧ state_rel s₂ t₂
-         ∧ exp_res_rel r_dfy r_cml) ∧
-  (∀s₁ env_dfy es_dfy s₂ rs_dfy t₁ env_cml es_cml.
-     evaluate_exps s₁ env_dfy es_dfy = (s₂, rs_dfy)
-     ∧ map_from_exp es_dfy = INR es_cml
-     ∧ state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧ ¬(is_exp_fail rs_dfy)
-     ⇒ ∃t₂ rs_cml.
-         evaluate$evaluate t₁ env_cml es_cml = (t₂, rs_cml) ∧ state_rel s₂ t₂
-         ∧ exps_res_rel rs_dfy rs_cml)
-Proof
-  ho_match_mp_tac evaluate_exp_ind
-  >> rpt strip_tac
-  >~ [‘Lit l’] >-
-   (gvs [from_exp_def, from_lit_def, evaluate_def, do_con_check_def,
-         env_rel_def, build_conv_def, AllCaseEqs ()])
+(* Theorem correct_exp: *)
+(*   (∀s₁ env_dfy e_dfy s₂ r_dfy t₁ env_cml e_cml. *)
+(*      evaluate_exp s₁ env_dfy e_dfy = (s₂, r_dfy) ∧ from_exp e_dfy = INR e_cml *)
+(*      ∧ state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧ ¬(is_exp_fail r_dfy) *)
+(*      ⇒ ∃t₂ r_cml. *)
+(*          evaluate$evaluate t₁ env_cml [e_cml] = (t₂, r_cml) ∧ state_rel s₂ t₂ *)
+(*          ∧ exp_res_rel r_dfy r_cml) ∧ *)
+(*   (∀s₁ env_dfy es_dfy s₂ rs_dfy t₁ env_cml es_cml. *)
+(*      evaluate_exps s₁ env_dfy es_dfy = (s₂, rs_dfy) *)
+(*      ∧ map_from_exp es_dfy = INR es_cml *)
+(*      ∧ state_rel s₁ t₁ ∧ env_rel env_dfy env_cml ∧ ¬(is_exp_fail rs_dfy) *)
+(*      ⇒ ∃t₂ rs_cml. *)
+(*          evaluate$evaluate t₁ env_cml es_cml = (t₂, rs_cml) ∧ state_rel s₂ t₂ *)
+(*          ∧ exps_res_rel rs_dfy rs_cml) *)
+(* Proof *)
+(*   ho_match_mp_tac evaluate_exp_ind *)
+(*   >> rpt strip_tac *)
+(*   >~ [‘Lit l’] >- *)
+(*    (gvs [from_exp_def, from_lit_def, evaluate_def, do_con_check_def, *)
+(*          env_rel_def, build_conv_def, AllCaseEqs ()]) *)
+(* QED *)
 
-QED
+val _ = export_theory ();
