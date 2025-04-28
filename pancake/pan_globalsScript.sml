@@ -110,8 +110,8 @@ Definition compile_decs_def:
     Function f xp args (compile ctxt body)::ds
 End
 
-Definition compile_def:
-  compile decs =
+Definition compile_top_def:
+  compile_top decs =
   compile_decs <| globals := FEMPTY; globals_size := 0w |> decs
 End
 
