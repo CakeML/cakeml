@@ -496,6 +496,20 @@ Proof
    fs [OPT_MMAP_def]
 QED
 
+Theorem eval_upd_code_eq:
+  !t e code. eval (t with code := code) e =  eval t e
+Proof
+  ho_match_mp_tac eval_ind >> rw [] >>
+  fs [eval_def] >>
+  qsuff_tac ‘OPT_MMAP (λa. eval (t with code := code) a) es =
+             OPT_MMAP (λa. eval t a) es’ >>
+  fs [] >>
+  pop_assum mp_tac >>
+  qid_spec_tac ‘es’ >>
+  Induct >> rw [] >>
+  fs [OPT_MMAP_def]
+QED
+
 Theorem opt_mmap_eval_upd_clock_eq:
    !es s ck. OPT_MMAP (eval (s with clock := ck + s.clock)) es =
    OPT_MMAP (eval s) es
@@ -879,7 +893,6 @@ QED
 Definition every_exp_def:
   (every_exp P (panLang$Const w) = P(Const w)) ∧
   (every_exp P (Var vk v) = P(Var vk v)) ∧
-  (every_exp P (Label f) = P(Label f)) ∧
   (every_exp P (Struct es) = (P(Struct es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Field i e) = (P(Field i e) ∧ every_exp P e)) ∧
   (every_exp P (Load sh e) = (P(Load sh e) ∧ every_exp P e)) ∧
@@ -904,10 +917,10 @@ Definition exps_of_def:
   (exps_of (Seq p q) = exps_of p ++ exps_of q) ∧
   (exps_of (If e p q) = e::exps_of p ++ exps_of q) ∧
   (exps_of (While e p) = e::exps_of p) ∧
-  (exps_of (Call NONE e es) = e::es) ∧
-  (exps_of (Call (SOME (_ , (SOME (_ ,  _ , ep)))) e es) = e::es++exps_of ep) ∧
-  (exps_of (Call (SOME (_ , NONE)) e es) = e::es) ∧
-  (exps_of (DecCall _ _ e es p) = e::es++exps_of p) ∧
+  (exps_of (Call NONE _ es) = es) ∧
+  (exps_of (Call (SOME (_ , (SOME (_ ,  _ , ep)))) _ es) = es++exps_of ep) ∧
+  (exps_of (Call (SOME (_ , NONE)) _ es) = es) ∧
+  (exps_of (DecCall _ _ _ es p) = es++exps_of p) ∧
   (exps_of (Store e1 e2) = [e1;e2]) ∧
   (exps_of (StoreByte e1 e2) = [e1;e2]) ∧
   (exps_of (Return e) = [e]) ∧
@@ -917,5 +930,15 @@ Definition exps_of_def:
   (exps_of (ShMemStore _ e1 e2) = [e1;e2]) ∧
   (exps_of _ = [])
 End
+
+Theorem evaluate_decl_commute:
+  evaluate_decls s (Function v export args body::Decl sh v e::ds) =
+  evaluate_decls s (Decl sh v e::Function v export args body::ds)
+Proof
+  rw[evaluate_decls_def] >>
+  irule option_case_cong >> simp[] >>
+  PURE_REWRITE_TAC[Once $ GSYM state_fupdcanon] >>
+  irule eval_upd_code_eq
+QED
 
 val _ = export_theory();
