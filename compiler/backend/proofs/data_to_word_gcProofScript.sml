@@ -7522,6 +7522,34 @@ Proof
   \\ fs [OPTION_MAP2_ADD_SOME_0,OPTION_MAP2_MAX_CANCEL] \\ rfs [] *)
 QED
 
+Theorem cut_names_adjust_set_insert_ODD:
+   ODD n ==> cut_names (adjust_set the_names) (insert n w s) =
+             cut_names (adjust_set the_names) s
+Proof
+  reverse (rw [wordSemTheory.cut_names_def] \\ fs [SUBSET_DEF])
+  \\ res_tac \\ fs []
+  THEN1 (rveq \\ fs [domain_lookup,lookup_adjust_set]
+         \\ every_case_tac \\ fs [])
+  \\ fs [lookup_inter_alt,lookup_insert]
+  \\ rw [] \\ pop_assum mp_tac
+  \\ simp [domain_lookup,lookup_adjust_set]
+  \\ rw [] \\ fs []
+QED
+
+Theorem alloc_locals_insert_1:
+  alloc k (adjust_sets names) (t with locals := insert 1 w t.locals) =
+  alloc k (adjust_sets names) t
+Proof
+  gvs [wordSemTheory.alloc_def]
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ gvs [adjust_sets_def,wordSemTheory.cut_envs_def]
+  \\ gvs [cut_names_adjust_set_insert_ODD]
+  \\ gvs [wordSemTheory.cut_names_def]
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw [] \\ gvs [lookup_inter_alt]
+  \\ rw [] \\ gvs [lookup_insert]
+QED
+
 Theorem evaluate_GiveUp:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
     ?r. evaluate (GiveUp,t) = (SOME NotEnoughSpace,r) /\
@@ -7531,7 +7559,7 @@ Proof
   \\ strip_tac
   \\ Cases_on `alloc (-1w) (adjust_sets (LN:num_set)) (set_var 1 (Word (-1w)) t)
                   :'a result option # ('a,'c,'ffi) wordSem$state`
-  \\ fs [wordSemTheory.set_var_def]
+  \\ fs [wordSemTheory.set_var_def,alloc_locals_insert_1]
   \\ `-1w = alloc_size (dimword (:'a)):'a word` by
    (fs [alloc_size_def,state_rel_def]
     \\ fs [good_dimindex_def,dimword_def] \\ rw [])
@@ -7586,8 +7614,7 @@ val alloc_fail_lemma = alloc_lemma
 Theorem alloc_fail:
   good_dimindex (:α) ∧ state_rel c l1 l2 ^s t [] locs ∧
   dataSem$cut_env names s.locals = SOME x ∧
-  alloc (-1w:'a word) (adjust_sets names)
-    (t with locals := insert 1 (Word (-1w)) t.locals) = (q,r) ⇒
+  alloc (-1w:'a word) (adjust_sets names) t = (q,r) ⇒
   (q = SOME NotEnoughSpace ⇒ r.ffi = s.ffi ∧ option_le r.stack_max s.stack_max) ∧
   q = SOME NotEnoughSpace
 Proof
@@ -7687,20 +7714,6 @@ Proof
   fs [adjust_set_def,domain_lookup,lookup_fromAList] \\ rw [] \\ fs []
   \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_MAP]
   \\ pairarg_tac \\ fs [EVEN_adjust_var]
-QED
-
-Theorem cut_names_adjust_set_insert_ODD:
-   ODD n ==> cut_names (adjust_set the_names) (insert n w s) =
-             cut_names (adjust_set the_names) s
-Proof
-  reverse (rw [wordSemTheory.cut_names_def] \\ fs [SUBSET_DEF])
-  \\ res_tac \\ fs []
-  THEN1 (rveq \\ fs [domain_lookup,lookup_adjust_set]
-         \\ every_case_tac \\ fs [])
-  \\ fs [lookup_inter_alt,lookup_insert]
-  \\ rw [] \\ pop_assum mp_tac
-  \\ simp [domain_lookup,lookup_adjust_set]
-  \\ rw [] \\ fs []
 QED
 
 Theorem cut_env_adjust_sets_insert_ODD:

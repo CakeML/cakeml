@@ -56,14 +56,6 @@ Proof
   \\ gvs[do_space_def,AllCaseEqs(),consume_space_def]
 QED
 
-Theorem alloc_locals_insert_1:
-  alloc k (adjust_sets names) (t with locals := insert 1 w t.locals) =
-  alloc k (adjust_sets names) t
-Proof
-  gvs [wordSemTheory.alloc_def]
-  \\ cheat
-QED
-
 Theorem data_compile_correct:
    !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\

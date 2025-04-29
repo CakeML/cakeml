@@ -62,7 +62,7 @@ QED
 
 Theorem set_var_with_const:
    stackSem$set_var n v (t with stack := stack) = set_var n v t with stack := stack /\
-   stackSem$set_var n v (t with ffi := ffi) = set_var n v t with ffi := ffi 
+   stackSem$set_var n v (t with ffi := ffi) = set_var n v t with ffi := ffi
 Proof
   EVAL_TAC
 QED
@@ -9780,7 +9780,7 @@ Theorem comp_correct:
                     else
                       LLOOKUP (DROP t1.stack_space t1.stack)
                         (LENGTH ys − (i + 1)) = SOME (EL i ys)))
-         | SOME (Exception _ y) => 
+         | SOME (Exception _ y) =>
             (state_rel ac k 0 0 (push_locals cs s1) t1 (LASTN (s.handler+1) lens) 0 /\
             FLOOKUP t1.regs 1 = SOME y)
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock
@@ -9795,7 +9795,7 @@ Proof
     comp_Seq_correct, comp_Return_correct, comp_Raise_correct,
     comp_If_correct, comp_LocValue_correct, comp_Install_correct,
     comp_CodeBufferWrite_correct, comp_DataBufferWrite_correct,
-    comp_FFI_correct, comp_OpCurrHeap_correct, comp_Call_correct,comp_ShareInst_correct] 
+    comp_FFI_correct, comp_OpCurrHeap_correct, comp_Call_correct,comp_ShareInst_correct]
   *)
 QED
 
