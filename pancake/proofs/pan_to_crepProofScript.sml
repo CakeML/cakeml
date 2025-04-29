@@ -37,6 +37,7 @@ Definition code_rel_def:
   code_rel ctxt s_code t_code <=>
   ∀f vshs prog.
   FLOOKUP s_code f = SOME (vshs, prog) ==>
+    localised_prog prog ∧
     FLOOKUP ctxt.funcs f = SOME vshs /\
        let vs  = MAP FST vshs;
            shs = MAP SND vshs;
@@ -53,7 +54,8 @@ Definition state_rel_def:
   s.clock = t.clock ∧
   s.be = t.be ∧
   s.ffi = t.ffi ∧
-  s.base_addr = t.base_addr
+  s.base_addr = t.base_addr ∧
+  s.top_addr = t.top_addr
 End
 
 Definition locals_rel_def:
@@ -69,6 +71,7 @@ Theorem code_rel_imp:
    code_rel ctxt s_code t_code ==>
   ∀f vshs prog.
   FLOOKUP s_code f = SOME (vshs, prog) ==>
+    localised_prog prog ∧
     FLOOKUP ctxt.funcs f = SOME vshs /\
        let vs  = MAP FST vshs;
            shs = MAP SND vshs;
@@ -76,14 +79,15 @@ Theorem code_rel_imp:
            nctxt = ctxt_fc ctxt.funcs ctxt.eids vs shs ns in
        FLOOKUP t_code f = SOME (ns, compile nctxt prog)
 Proof
-  fs [code_rel_def]
+  fs [code_rel_def] >> metis_tac[]
 QED
 
 Theorem code_rel_empty_locals:
   code_rel ctxt s.code t.code ==>
   code_rel ctxt (empty_locals s).code (empty_locals t).code
 Proof
-  fs [code_rel_def, empty_locals_def, panSemTheory.empty_locals_def]
+  rw [code_rel_def, empty_locals_def, panSemTheory.empty_locals_def] >>
+  metis_tac[]
 QED
 
 Theorem cexp_heads_eq:
@@ -95,12 +99,31 @@ Proof
   every_case_tac >> fs []
 QED
 
+(* TODO: move to crepProps and (perhaps) replace eval_load_shape_el_rel *)
+Theorem load_shape_el_rel:
+  ∀m n a t e.
+    n < m ⇒
+    EL n (load_shape a m e) =
+    if a + bytes_in_word * n2w n = 0w then
+      Load e
+    else
+      Load (Op Add [e; Const (a + bytes_in_word * n2w n)])
+Proof
+  Induct_on ‘n’ >> rw[] >>
+  rw[Once $ oneline load_shape_def] >>
+  TOP_CASE_TAC >> gvs[] >>
+  rw[] >> rw[] >>
+  gvs[n2w_SUC,WORD_LEFT_ADD_DISTRIB]
+QED
+
+
 Theorem compile_exp_val_rel:
   ∀s e v (t :('a, 'b) state) ct es sh.
   panSem$eval s e = SOME v ∧
   state_rel s t ∧
   code_rel ct s.code t.code ∧
   locals_rel ct s.locals t.locals ∧
+  localised_exp e ∧
   compile_exp ct e = (es, sh) ==>
   MAP (eval t) es = MAP SOME (flatten v) ∧
   LENGTH es = size_of_shape sh ∧
@@ -108,262 +131,239 @@ Theorem compile_exp_val_rel:
 Proof
   ho_match_mp_tac panSemTheory.eval_ind >>
   rpt conj_tac >> rpt gen_tac >> strip_tac
-  >- (
-   rename [‘Const w’] >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [flatten_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def, eval_def,
-       panLangTheory.size_of_shape_def, shape_of_def])
-  >- (
-   rename [‘eval s (Var vname)’] >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [locals_rel_def] >>
-   first_x_assum drule >>
-   fs [] >> strip_tac >> fs [] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [lookup_locals_eq_map_vars] >>
-   fs [opt_mmap_eq_some] >>
-   fs [MAP_MAP_o] >>
-   metis_tac [LENGTH_MAP, length_flatten_eq_size_of_shape])
-  >- (
-   rename [‘eval s (Label fname)’] >>
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [flatten_def] >>
-   fs [compile_exp_def] >> rveq >>
-   fs [OPT_MMAP_def] >>
-   fs [eval_def] >> fs [code_rel_def] >>
-   cases_on ‘v1’ >>
-   last_x_assum drule_all >> strip_tac >>
-   fs [panLangTheory.size_of_shape_def, shape_of_def])
-  >- (
-   rename [‘eval s (Struct es)’] >>
-   rpt gen_tac >> strip_tac >> fs [] >>
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   fs [panLangTheory.size_of_shape_def, shape_of_def] >>
-   fs [MAP_MAP_o, MAP_FLAT, flatten_def] >>
-   fs [o_DEF] >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [‘vs’, ‘es’] >>
-   Induct >> fs [] >>
-   rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
-   rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
-   rename [‘_ = SOME vs’] >>
-   fs [] >>
-   last_x_assum mp_tac >>
-   impl_tac >-
-    metis_tac [] >>
+  >~ [‘Const w’] >-
+   (rename [‘Const w’] >>
+    fs [panSemTheory.eval_def] >> rveq >>
+    fs [flatten_def] >>
+    fs [compile_exp_def] >> rveq >>
+    fs [OPT_MMAP_def, eval_def,
+        panLangTheory.size_of_shape_def, shape_of_def])
+  >~ [‘eval s (Var Local vname)’] >-
+   (fs [panSemTheory.eval_def] >> rveq >>
+    fs [locals_rel_def] >>
+    first_x_assum drule >>
+    fs [] >> strip_tac >> fs [] >>
+    fs [compile_exp_def] >> rveq >>
+    fs [lookup_locals_eq_map_vars] >>
+    fs [opt_mmap_eq_some] >>
+    fs [MAP_MAP_o] >>
+    metis_tac [LENGTH_MAP, length_flatten_eq_size_of_shape])
+  >~ [‘eval s (Var Global fname)’] >-
+   (rename [] >>
+    fs[localised_exp_def])
+  >~ [‘eval s (Struct es)’] >-
+   (rpt gen_tac >> strip_tac >> fs [] >>
+    fs [panSemTheory.eval_def, option_case_eq,localised_exp_def] >> rveq >>
+    fs [compile_exp_def] >> rveq >>
+    fs [panLangTheory.size_of_shape_def, shape_of_def] >>
+    fs [MAP_MAP_o, MAP_FLAT, flatten_def] >>
+    fs [o_DEF,LENGTH_FLAT] >>
+    rpt (pop_assum mp_tac) >>
+    MAP_EVERY qid_spec_tac [‘vs’, ‘es’] >>
+    Induct >> fs [] >>
+    rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
+    rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
+    rename [‘_ = SOME vs’] >>
+    fs [] >>
+    last_x_assum mp_tac >>
+    impl_tac >-
+     metis_tac [] >>
     strip_tac >> fs [] >>
     last_x_assum (qspec_then ‘h’ mp_tac) >> fs [] >>
     disch_then drule >> disch_then drule >>
     cases_on ‘compile_exp ct h’ >> fs [])
-  >-
-   (
-   (* Field case *)
-   rename [‘eval s (Field index e)’] >>
-   rpt gen_tac >> strip_tac >> fs [] >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
-   first_x_assum drule_all >> fs [shape_of_def] >>
-   strip_tac >> fs [] >> rveq >>
-   qpat_x_assum ‘_ = SOME (Struct _)’ kall_tac >>
-   qpat_x_assum ‘compile_exp _ _ = _’ kall_tac >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac
-             [‘ct’,‘cexp’ ,‘sh’ , ‘es’, ‘t’, ‘s’, ‘index’, ‘vs’] >>
-   Induct >> rpt gen_tac >- fs [] >>
-   rewrite_tac [AND_IMP_INTRO] >>
-   strip_tac >> fs [] >>
-   cases_on ‘index’ >> fs []
-   >- (
-    fs [comp_field_def] >> rveq >>
-    fs [MAP_TAKE, flatten_def] >>
+  >~ [‘eval s (Field index e)’] >-
+   (rpt gen_tac >> strip_tac >> fs [] >>
+    fs [panSemTheory.eval_def, option_case_eq, v_case_eq, localised_exp_def] >> rveq >>
+    fs [compile_exp_def] >> rveq >>
+    pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
+    first_x_assum drule_all >> fs [shape_of_def] >>
+    strip_tac >> fs [] >> rveq >>
+    qpat_x_assum ‘_ = SOME (Struct _)’ kall_tac >>
+    qpat_x_assum ‘compile_exp _ _ = _’ kall_tac >>
+    rpt (pop_assum mp_tac) >>
+    MAP_EVERY qid_spec_tac
+              [‘ct’,‘cexp’ ,‘sh’ , ‘es’, ‘t’, ‘s’, ‘index’, ‘vs’] >>
+    Induct >> rpt gen_tac >- fs [] >>
+    rewrite_tac [AND_IMP_INTRO] >>
+    strip_tac >> fs [] >>
+    cases_on ‘index’ >> fs []
+    >- (
+     fs [comp_field_def] >> rveq >>
+     fs [MAP_TAKE, flatten_def] >>
+     fs [panLangTheory.size_of_shape_def] >>
+     fs [GSYM length_flatten_eq_size_of_shape] >>
+     metis_tac [LENGTH_MAP, TAKE_LENGTH_APPEND]) >>
+    fs [comp_field_def] >>
+    last_x_assum drule >>
+    ntac 4 (disch_then drule) >>
+    fs [panLangTheory.size_of_shape_def, flatten_def] >>
+    drule map_append_eq_drop >>
+    fs [LENGTH_MAP, length_flatten_eq_size_of_shape])
+  >~ [‘eval s (Load sh e)’] >-
+   (rpt gen_tac >> strip_tac >>
+    fs [panSemTheory.eval_def, option_case_eq, v_case_eq, localised_exp_def,
+        CaseEq "word_lab"] >> rveq >>
+    fs [compile_exp_def] >> rveq >>
+    pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
+    last_x_assum drule_all >>
+    strip_tac >>
+    fs [shape_of_def, panLangTheory.size_of_shape_def,flatten_def] >>
+    rveq >> fs [] >> rveq >>
+    fs [length_load_shape_eq_shape] >>
+    drule mem_load_some_shape_eq >>
+    strip_tac >> fs [] >>
+    fs [MAP_EQ_EVERY2] >> fs [length_load_shape_eq_shape] >>
+    rveq >> fs [GSYM length_flatten_eq_size_of_shape] >>
+    fs [LIST_REL_EL_EQN] >>  fs [length_load_shape_eq_shape] >>
+    rw [] >> fs [state_rel_def] >>
+    drule mem_load_flat_rel >>
+    disch_then drule >>
+    strip_tac >> fs [] >>
+    drule eval_load_shape_el_rel >>
+    disch_then (qspecl_then [‘0w’, ‘t’,‘x0’] mp_tac) >> fs [] >>
+    strip_tac >>
+    fs [eval_def, OPT_MMAP_def] >>
+    every_case_tac >> fs [] >> rveq >>
+    fs[EVERY_DEF] >> cases_on ‘h’ >> fs [] >>
+    fs [wordLangTheory.word_op_def] >> rveq >>
+    qpat_x_assum ‘mem_load _ _ = _’ (mp_tac o GSYM) >>
+    strip_tac >> fs [])
+  >~ [‘eval s (LoadByte e)’] >-
+   (rpt gen_tac >> strip_tac >>
+    fs [panSemTheory.eval_def, option_case_eq, v_case_eq, localised_exp_def,
+        CaseEq "word_lab", option_case_eq] >> rveq >>
+    fs [compile_exp_def] >> rveq >>
+    pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
+    first_x_assum drule_all >> fs [shape_of_def] >>
+    strip_tac >> fs [] >> rveq >>
+    cases_on ‘cexp’ >> fs [panLangTheory.size_of_shape_def, flatten_def] >> rveq >>
     fs [panLangTheory.size_of_shape_def] >>
-    fs [GSYM length_flatten_eq_size_of_shape] >>
-    metis_tac [LENGTH_MAP, TAKE_LENGTH_APPEND]) >>
-   fs [comp_field_def] >>
-   last_x_assum drule >>
-   ntac 4 (disch_then drule) >>
-   fs [panLangTheory.size_of_shape_def, flatten_def] >>
-   drule map_append_eq_drop >>
-   fs [LENGTH_MAP, length_flatten_eq_size_of_shape])
-  >- (
-   rename [‘eval s (Load sh e)’] >>
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab"] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
-   last_x_assum drule_all >>
-   strip_tac >>
-   fs [shape_of_def, panLangTheory.size_of_shape_def,flatten_def] >>
-   rveq >> fs [] >> rveq >>
-   fs [length_load_shape_eq_shape] >>
-   drule mem_load_some_shape_eq >>
-   strip_tac >> fs [] >>
-   fs [MAP_EQ_EVERY2] >> fs [length_load_shape_eq_shape] >>
-   rveq >> fs [GSYM length_flatten_eq_size_of_shape] >>
-   fs [LIST_REL_EL_EQN] >>  fs [length_load_shape_eq_shape] >>
-   rw [] >> fs [state_rel_def] >>
-   drule mem_load_flat_rel >>
-   disch_then drule >>
-   strip_tac >> fs [] >>
-   drule eval_load_shape_el_rel >>
-   disch_then (qspecl_then [‘0w’, ‘t’,‘x0’] mp_tac) >> fs [] >>
-   strip_tac >>
-   fs [eval_def, OPT_MMAP_def] >>
-   every_case_tac >> fs [] >> rveq >>
-   fs[EVERY_DEF] >> cases_on ‘h’ >> fs [] >>
-   fs [wordLangTheory.word_op_def] >> rveq >>
-   qpat_x_assum ‘mem_load _ _ = _’ (mp_tac o GSYM) >>
-   strip_tac >> fs [])
-  >- (
-   rename [‘eval s (LoadByte e)’] >>
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab", option_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
-   first_x_assum drule_all >> fs [shape_of_def] >>
-   strip_tac >> fs [] >> rveq >>
-   cases_on ‘cexp’ >> fs [panLangTheory.size_of_shape_def, flatten_def] >> rveq >>
-   fs [panLangTheory.size_of_shape_def] >>
-   fs [eval_def, state_rel_def])
-  >- (
-   rename [‘eval s (Op op es)’] >>
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab", option_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   fs [cexp_heads_eq] >>
-   fs [cexp_heads_simp_def] >>
-   ‘~MEM [] (MAP FST (MAP (λa. compile_exp ct a) es))’ by (
-     CCONTR_TAC >> fs [] >> rveq >>
-     fs [MEM_MAP] >> rveq >>
-     drule opt_mmap_mem_func >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     rename1 ‘MEM e es’ >>
-     cases_on ‘compile_exp ct e’ >> fs [] >>
-     ‘shape_of m = One’ by (
-       ‘MEM m ws’ by (
-         drule opt_mmap_mem_defined >>
-         strip_tac >> res_tac >> fs []) >>
-       qpat_x_assum ‘EVERY _ ws’ mp_tac >>
-       fs [EVERY_MEM] >>
-       disch_then (qspec_then ‘m’ mp_tac) >>
-       fs [] >> TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [shape_of_def]) >>
-     last_x_assum drule_all >>
-     strip_tac >> rveq >> rfs [panLangTheory.size_of_shape_def]) >>
-     fs [] >> rveq >>
-     fs [panLangTheory.size_of_shape_def, shape_of_def] >>
-     fs [flatten_def, eval_def, MAP_MAP_o] >>
-     ‘OPT_MMAP (λa. eval t a)
-      (MAP (HD ∘ FST ∘ (λa. compile_exp ct a)) es) =
-      OPT_MMAP (λa. OPTION_MAP v2word (eval s a)) es’ by (
-       ho_match_mp_tac IMP_OPT_MMAP_EQ >>
-       fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-       rw [] >>
-       drule opt_mmap_length_eq >>
-       strip_tac >> fs [] >>
-       first_x_assum (qspec_then ‘EL n es’ mp_tac) >>
-       impl_tac >- metis_tac [EL_MEM] >>
-       drule opt_mmap_el >> fs [] >>
-       disch_then drule >>
-       strip_tac >> fs [] >>
-       disch_then drule >>
-       disch_then drule >>
-       disch_then (qspecl_then [‘FST (compile_exp ct (EL n es))’,
-                                ‘SND(compile_exp ct (EL n es))’] mp_tac) >>
-       fs [] >>
-       strip_tac >>
-       fs [EVERY_EL] >>
-       last_x_assum (qspec_then ‘n’ mp_tac) >>
-       fs [] >> TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [] >>
-       qpat_x_assum ‘LENGTH es = LENGTH _’ (mp_tac o GSYM) >>
-       strip_tac >> fs [] >>
-       drule (INST_TYPE [``:'a``|->``:'a panLang$exp``,
-                         ``:'b``|->``:'a crepLang$exp``] EL_MAP) >>
-       disch_then (qspec_then ‘(HD ∘ FST ∘ (λa. compile_exp ct a))’ mp_tac) >>
-       strip_tac >> fs [] >>
-       fs [flatten_def, v2word_def] >> rveq) >>
-     fs [] >>
-     ‘OPT_MMAP (λa. OPTION_MAP v2word (eval s a)) es =
-      SOME (MAP v2word ws)’ by (
-       ho_match_mp_tac opt_mmap_opt_map >> fs []) >>
-     fs [EVERY_MAP, MAP_MAP_o] >>
-     ‘∀x. (λw. case w of ValWord v6 => T | ValLabel v7 => F | Struct v3 => F) x ==>
-      (λx. case v2word x of Word v2 => T | Label v3 => F) x’ by (
-       rw [] >> every_case_tac >> fs [v2word_def]) >>
-     drule MONO_EVERY >>
-     disch_then (qspec_then ‘ws’ mp_tac) >> fs [] >>
-     strip_tac >> fs [flatten_def] >>
-     fs [GSYM MAP_MAP_o] >>
-     qmatch_goalsub_abbrev_tac ‘word_op op ins’ >>
-     qmatch_asmsub_abbrev_tac ‘word_op op ins'’ >>
-     ‘ins = ins'’ by (
-       unabbrev_all_tac >> fs [MAP_EQ_EVERY2] >>
-       fs [LIST_REL_EL_EQN] >>
-       rw [] >>
-       fs [EVERY_EL] >> (* for some reason, drule EL_MAP is not being inst. properly*)
-       ‘EL n (MAP v2word ws) = v2word (EL n ws)’ by (
-         match_mp_tac EL_MAP >> fs []) >>
-       fs [] >>
-       last_x_assum (qspec_then ‘n’ mp_tac) >>
-       fs [] >> TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [v2word_def]) >>
-     unabbrev_all_tac >> fs [])
-  >- (
-   rename1 ‘Panop’ >>
-   rpt gen_tac >> strip_tac >>
-   gvs[compile_exp_def,AllCaseEqs(),eval_def,panLangTheory.size_of_shape_def,
-       panSemTheory.eval_def,crepSemTheory.eval_def,flatten_def,shape_of_def,
-       DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,opt_mmap_eq_some,
-       cexp_heads_def,PULL_EXISTS, SF DNF_ss
-      ] >>
-   rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
-   rpt $ first_x_assum $ drule_then $ drule_then $ drule_then drule >>
-   rpt $ disch_then $ resolve_then Any assume_tac $ GSYM PAIR >>
-   gvs[flatten_def,shape_of_def,DefnBase.one_line_ify NONE compile_panop_def,crep_op_def])
-  >- (
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def] >>
-   fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
-   (* open compile_exp *)
-   fs [compile_exp_def] >>
-   cases_on ‘compile_exp ct e’ >>
-   cases_on ‘compile_exp ct e'’ >>
-   first_x_assum drule_all >>
-   first_x_assum drule_all >>
-   strip_tac >> strip_tac >>
-   fs [panLangTheory.size_of_shape_def, shape_of_def, flatten_def] >>
-   rveq >>
-   fs [panLangTheory.size_of_shape_def, shape_of_def] >>
-   rveq >>
-   fs [panLangTheory.size_of_shape_def, shape_of_def] >>
-   fs [eval_def] >>
-   every_case_tac >> fs [] >> EVAL_TAC)
-  >- (
-  rpt gen_tac >> rpt strip_tac >>
-  fs [panSemTheory.eval_def] >>
-  fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
-  fs [compile_exp_def] >>
-  cases_on ‘compile_exp ct e’ >>
-  first_x_assum drule_all >>
-  rpt strip_tac >> fs [] >>
-  fs [panLangTheory.size_of_shape_def, shape_of_def, flatten_def] >>
-  rveq >>
-  fs [panLangTheory.size_of_shape_def, shape_of_def] >> rveq >>
-  fs [eval_def] >>  every_case_tac >>
-  fs [panLangTheory.size_of_shape_def, shape_of_def])>>
+    fs [eval_def, state_rel_def])
+  >~ [‘eval s (Op op es)’] >-
+   (rpt gen_tac >> strip_tac >>
+    fs [panSemTheory.eval_def, option_case_eq, v_case_eq, localised_exp_def,
+        CaseEq "word_lab", option_case_eq] >> rveq >>
+    fs [compile_exp_def] >> rveq >>
+    fs [cexp_heads_eq] >>
+    fs [cexp_heads_simp_def] >>
+    pop_assum mp_tac >>
+    IF_CASES_TAC
+    >- (rpt $ disch_then assume_tac >>
+        spose_not_then kall_tac >>
+        gvs[AllCaseEqs(),MEM_MAP] >>
+        drule opt_mmap_mem_func >>
+        disch_then drule >>
+        strip_tac >> fs [] >>
+        rename1 ‘MEM e es’ >>
+        cases_on ‘compile_exp ct e’ >> fs [] >>
+        ‘shape_of m = One’ by (
+          ‘MEM m ws’ by (
+            drule opt_mmap_mem_defined >>
+            disch_then drule >>
+            simp[]) >>
+          qpat_x_assum ‘EVERY _ ws’ mp_tac >>
+          fs [EVERY_MEM] >>
+          disch_then drule >>
+          fs [] >> TOP_CASE_TAC >> fs [Once $ oneline panSemTheory.shape_of_def] >>
+          TOP_CASE_TAC >> fs [shape_of_def]) >>
+        gvs[EVERY_MEM] >>
+        res_tac >>
+        last_x_assum drule_all >>
+        strip_tac >> rveq >> rfs [panLangTheory.size_of_shape_def]) >>
+    fs [] >> rveq >>
+    fs [panLangTheory.size_of_shape_def, shape_of_def] >>
+    fs [flatten_def, eval_def, MAP_MAP_o] >>
+    ‘OPT_MMAP (λa. eval t a)
+     (MAP (HD ∘ FST ∘ (λa. compile_exp ct a)) es) =
+     OPT_MMAP (λa. OPTION_MAP v2word (eval s a)) es’ by (
+      ho_match_mp_tac IMP_OPT_MMAP_EQ >>
+      fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+      rw [] >>
+      drule opt_mmap_length_eq >>
+      strip_tac >> fs [] >>
+      first_x_assum (qspec_then ‘EL n es’ mp_tac) >>
+      impl_tac >- metis_tac [EL_MEM] >>
+      drule opt_mmap_el >> fs [] >>
+      disch_then drule >>
+      strip_tac >> fs [] >>
+      disch_then drule >>
+      disch_then drule >>
+      disch_then (qspecl_then [‘FST (compile_exp ct (EL n es))’,
+                               ‘SND(compile_exp ct (EL n es))’] mp_tac) >>
+      fs [] >>
+      strip_tac >>
+      fs [EVERY_EL] >>
+      res_tac >>
+      fs[] >>
+      pop_assum mp_tac >>
+      TOP_CASE_TAC >> fs[] >>
+      fs[EL_MAP] >>
+      fs[flatten_def] >>
+      rename1 ‘Val ww’ >> Cases_on ‘ww’ >> fs[v2word_def]) >>
+    fs [] >>
+    ‘OPT_MMAP (λa. OPTION_MAP v2word (eval s a)) es =
+     SOME (MAP v2word ws)’ by (
+      ho_match_mp_tac opt_mmap_opt_map >> fs []) >>
+    fs [EVERY_MAP, MAP_MAP_o] >>
+    strip_tac >> fs [flatten_def] >>
+    rveq >>
+    fs[] >>
+    simp[eval_def] >>
+    irule EQ_TRANS >>
+    first_x_assum $ irule_at $ Pos last >>
+    AP_TERM_TAC >>
+    simp[MAP_MAP_o] >>
+    simp[MAP_EQ_f] >>
+    rw[] >>
+    gvs[EVERY_MEM] >>
+    res_tac >>
+    every_case_tac >> fs[v2word_def])
+  >~ [‘Panop’] >-
+   (rpt gen_tac >> strip_tac >>
+    gvs[compile_exp_def,AllCaseEqs(),eval_def,panLangTheory.size_of_shape_def,
+        panSemTheory.eval_def,crepSemTheory.eval_def,flatten_def,shape_of_def,
+        DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,opt_mmap_eq_some,
+        cexp_heads_def,PULL_EXISTS, SF DNF_ss,localised_exp_def
+       ] >>
+    rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
+    rpt $ first_x_assum $ drule_then $ drule_then $ drule_then drule >>
+    rpt $ disch_then $ resolve_then Any assume_tac $ GSYM PAIR >>
+    gvs[flatten_def,shape_of_def,DefnBase.one_line_ify NONE compile_panop_def,crep_op_def])
+  >~ [‘Cmp’] >-
+   (rpt gen_tac >> strip_tac >>
+    fs [panSemTheory.eval_def] >>
+    fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
+    fs [compile_exp_def,localised_exp_def] >>
+    cases_on ‘compile_exp ct e’ >>
+    cases_on ‘compile_exp ct e'’ >>
+    first_x_assum drule_all >>
+    first_x_assum drule_all >>
+    strip_tac >> strip_tac >>
+    fs [panLangTheory.size_of_shape_def, shape_of_def, flatten_def] >>
+    rveq >>
+    fs [panLangTheory.size_of_shape_def, shape_of_def] >>
+    rveq >>
+    fs [panLangTheory.size_of_shape_def, shape_of_def] >>
+    fs [eval_def] >>
+    every_case_tac >> fs [] >> EVAL_TAC)
+  >~ [‘Shift’] >-
+   (rpt gen_tac >> rpt strip_tac >>
+    fs [panSemTheory.eval_def] >>
+    fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
+    fs [compile_exp_def,localised_exp_def] >>
+    cases_on ‘compile_exp ct e’ >>
+    first_x_assum drule_all >>
+    rpt strip_tac >> fs [] >>
+    fs [panLangTheory.size_of_shape_def, shape_of_def, flatten_def] >>
+    rveq >>
+    fs [panLangTheory.size_of_shape_def, shape_of_def] >> rveq >>
+    fs [eval_def] >>  every_case_tac >>
+    fs [panLangTheory.size_of_shape_def, shape_of_def])>>
   rpt strip_tac >>
   fs [panSemTheory.eval_def] >>
   fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
-  fs [compile_exp_def] >>
+  fs [compile_exp_def,localised_exp_def] >>
   fs [panLangTheory.size_of_shape_def, shape_of_def, flatten_def] >>
   fs [eval_def] >>
   fs[state_component_equality, state_rel_def]
@@ -418,7 +418,8 @@ val gen_goal =
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
       state_rel s t ∧ code_rel ctxt s.code t.code /\
       excp_rel ctxt.eids s.eshapes /\
-      locals_rel ctxt s.locals t.locals ⇒
+      locals_rel ctxt s.locals t.locals /\
+      localised_prog prog ⇒
       ∃res1 t1. evaluate (comp ctxt prog,t) = (res1,t1) /\
       state_rel s1 t1 ∧ code_rel ctxt s1.code t1.code /\
       excp_rel ctxt.eids s1.eshapes /\
@@ -462,15 +463,16 @@ end
 
 
 
-Theorem compile_Skip_Break_Continue_Annot:
+Theorem compile_Skip_Break_Continue_Annot_Global:
   ^(get_goal "compile _ panLang$Skip") /\
   ^(get_goal "compile _ panLang$Break") /\
   ^(get_goal "compile _ panLang$Continue") /\
-  ^(get_goal "compile _ (panLang$Annot _ _)")
+  ^(get_goal "compile _ (panLang$Annot _ _)") ∧
+  ^(get_goal "compile _ (panLang$Assign Global _ _)")
 Proof
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def, evaluate_def,
-      compile_def] >> rveq >> fs []
+      compile_def,localised_prog_def] >> rveq >> fs []
 QED
 
 
@@ -657,6 +659,7 @@ Theorem eval_var_cexp_present_ctxt:
   eval s e = SOME v /\
   code_rel ct s.code t.code /\
   locals_rel ct s.locals t.locals /\
+  localised_exp e ∧
   compile_exp ct e = (es,sh) ==>
   (∀n. MEM n (FLAT (MAP var_cexp es)) ==>
    ?v shp ns. FLOOKUP ct.vars v = SOME (shp,ns)  /\
@@ -670,7 +673,7 @@ Proof
    fs [compile_exp_def] >> rveq >>
    fs [var_cexp_def])
   >- (
-   rename [‘eval s (Var vname)’] >>
+   rename [‘eval s (Var Local vname)’] >>
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def] >> rveq >>
    fs [compile_exp_def] >> rveq >>
@@ -684,147 +687,89 @@ Proof
    fs [var_cexp_def] >>
    metis_tac [])
   >- (
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   fs [var_cexp_def])
+   rename [‘eval s (Var Global vname)’] >>
+   fs[localised_exp_def])
   >- (
    rename [‘eval s (Struct es)’] >>
-   rpt gen_tac >> strip_tac >> fs [] >>
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   fs [MAP_MAP_o, MAP_FLAT] >>
-   fs [o_DEF] >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [‘vs’, ‘es’] >>
-   Induct >> fs [] >>
-   rpt gen_tac >> strip_tac >>
-   fs [OPT_MMAP_def] >>
-   strip_tac >>
-   strip_tac >>
-   rveq >>
-   last_x_assum mp_tac >>
-   impl_tac >- metis_tac [] >>
-   strip_tac >> fs [] >>
-   last_x_assum (qspec_then ‘h’ mp_tac) >> fs [] >>
-   disch_then drule >>
-   cases_on ‘compile_exp ct h’ >> fs [] >>
-   strip_tac >>
-   strip_tac >>
-   metis_tac [])
+   rpt strip_tac >>
+   gvs[panSemTheory.eval_def,AllCaseEqs(),MEM_FLAT,MEM_MAP, SF DNF_ss] >>
+   first_x_assum irule >>
+   simp[PULL_EXISTS] >>
+   ntac 2 $ first_assum $ irule_at $ Pos last >>
+   simp[] >>
+   rpt $ first_assum $ irule_at $ Pos last >>
+   gvs[compile_exp_def,MEM_FLAT,MEM_MAP] >>
+   rpt $ first_assum $ irule_at $ Pos last >>
+   gvs[localised_exp_def,EVERY_MEM] >>
+   irule_at (Pos last) $ GSYM PAIR >>
+   gvs[opt_mmap_eq_some] >>
+   fs[LIST_EQ_REWRITE,MEM_EL,EL_MAP])
   >- (
    rename [‘eval s (Field index e)’] >>
-   rpt gen_tac >> strip_tac >> fs [] >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [CaseEq "shape"] >> rveq
-   >- rw [var_cexp_def] >>
-   rpt gen_tac >> strip_tac >>
-   fs [MEM_FLAT, MEM_MAP] >> rveq >>
-   first_x_assum drule >>
-   disch_then (qspec_then ‘ct’ mp_tac) >>
-   cases_on ‘compile_exp ct e’ >> fs [] >>
-   disch_then (qspec_then ‘n’ mp_tac) >>
-   fs [] >> rveq >>
-   impl_tac
-   >- (
-    qexists_tac ‘var_cexp y’ >>
-    fs [] >>
-    qexists_tac ‘y’ >> fs [] >>
-    drule compile_exp_val_rel >>
-    disch_then drule_all >>
-    strip_tac >> fs [] >> rveq >>
-    metis_tac [mem_comp_field]) >>
-   fs [])
+   rpt strip_tac >>
+   gvs[compile_exp_def,localised_exp_def,UNCURRY_EQ,AllCaseEqs(),
+       panSemTheory.eval_def, var_cexp_def,
+       MEM_FLAT,MEM_MAP,PULL_EXISTS,SF DNF_ss
+      ] >>
+   first_x_assum irule >>
+   simp[PULL_EXISTS] >>
+   rpt $ first_assum $ irule_at $ Pos last >>
+   drule_then irule mem_comp_field >>
+   simp[PULL_EXISTS] >>
+   first_assum $ irule_at $ Pos last >>
+   first_x_assum $ irule_at $ Pat ‘_ = _’ >>
+   drule_all_then strip_assume_tac compile_exp_val_rel >>
+   gvs[])
   >- (
    rename [‘eval s (Load sh e)’] >>
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab"] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
-   cases_on ‘cexp’ >> fs [] >> rveq
-   >- (rw [] >> fs [MEM_FLAT, MEM_MAP, var_cexp_def]) >>
-   rpt gen_tac >>
-   strip_tac >>
-   fs [MEM_FLAT, MEM_MAP] >> rveq >>
-   last_x_assum drule >>
-   disch_then (qspec_then ‘ct’ mp_tac) >>
-   cases_on ‘compile_exp ct e’ >> fs [] >>
-   rveq >>
-   disch_then (qspec_then ‘n’ mp_tac) >>
-   rveq >> fs [] >>
-   impl_tac
-   >- (
-    qexists_tac ‘var_cexp y’ >>
-    fs [] >>
-    qexists_tac ‘h’ >> fs [] >>
-    metis_tac [var_exp_load_shape]) >>
-   fs [])
+   rpt strip_tac >>
+   gvs[MEM_FLAT,MEM_MAP,var_cexp_def,localised_exp_def,panSemTheory.eval_def,
+       compile_exp_def, UNCURRY_EQ,
+       AllCaseEqs(), SF DNF_ss] >>
+   first_x_assum irule >>
+   simp[PULL_EXISTS] >>
+   ntac 3 $ first_assum $ irule_at $ Pos last >>
+   drule var_exp_load_shape >>
+   strip_tac >> fs[] >>
+   metis_tac[])
   >- (
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab"] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
-   cases_on ‘cexp’ >> fs [] >> rveq
-   >- (rw [] >> fs [MEM_FLAT, MEM_MAP, var_cexp_def]) >>
-   reverse (cases_on ‘shape’) >> fs [] >> rveq
-   >- (rw [] >> fs [MEM_FLAT, MEM_MAP, var_cexp_def]) >>
-   rw [] >>
-   fs [var_cexp_def] >>
-   last_x_assum drule >>
-   disch_then (qspec_then ‘ct’ mp_tac) >>
-   cases_on ‘compile_exp ct e’ >> fs [])
+   rpt strip_tac >>
+   gvs[panSemTheory.eval_def, AllCaseEqs(),MEM_FLAT,MEM_MAP,
+       localised_exp_def,compile_exp_def,UNCURRY_EQ,
+       var_cexp_def, SF DNF_ss, PULL_EXISTS] >>
+   first_x_assum irule >>
+   simp[PULL_EXISTS] >>
+   metis_tac[])
   >- (
    rename [‘eval s (Op op es)’] >>
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab", option_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   FULL_CASE_TAC >>
-   fs [] >> rveq
-   >- (rw [] >> fs [MEM_FLAT, MEM_MAP, var_cexp_def]) >>
-   fs [var_cexp_def, ETA_AX] >>
-   rveq >>
-   rw [] >>
-   ntac 4 (pop_assum mp_tac) >>
-   pop_assum kall_tac >>
-   pop_assum kall_tac >>
-   ntac 3 (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [‘n’,‘ws’, ‘x’, ‘es’] >>
-   Induct
-   >- (
-    rw [] >> fs [cexp_heads_def, var_cexp_def] >>
-    rveq  >> fs [MAP, FLAT]) >>
-   rpt gen_tac >> strip_tac >>
-   fs [OPT_MMAP_def] >>
    rpt strip_tac >>
-   rveq >>
-   fs [cexp_heads_def] >>
-   fs [CaseEq "list", CaseEq "option"] >>
-   rveq >>
-   fs [MAP, MEM_FLAT, MEM_MAP] >> rveq
-   >- (
-    first_x_assum (qspec_then ‘h’ mp_tac) >>
-    fs [] >>
-    disch_then drule >>
-    disch_then (qspec_then ‘ct’ mp_tac) >>
-    cases_on ‘compile_exp ct h’ >> fs []) >>
-   last_x_assum mp_tac >>
-   impl_tac >- metis_tac [] >>
-   disch_then (qspec_then ‘n’ mp_tac) >>
-   impl_tac
-   >- (
-    qexists_tac ‘var_cexp y’ >>
-    fs [] >> metis_tac []) >>
-   fs [])
+   gvs[panSemTheory.eval_def, AllCaseEqs(),MEM_FLAT,MEM_MAP,
+       localised_exp_def,compile_exp_def,UNCURRY_EQ,
+       var_cexp_def, SF DNF_ss, PULL_EXISTS,
+       cexp_heads_eq,cexp_heads_simp_def
+      ] >>
+   first_x_assum irule >>
+   simp[PULL_EXISTS] >>
+   ntac 3 $ first_assum $ irule_at $ Pos last >>
+   first_assum $ irule_at $ Pos last >>
+   first_assum $ irule_at $ Pos last >>
+   irule_at Any (GSYM PAIR) >>
+   irule_at Any HEAD_MEM >>
+   simp[GSYM PULL_EXISTS] >>
+   conj_asm1_tac
+   >- (CCONTR_TAC >> gvs[]) >>
+   conj_asm1_tac
+   >- gvs[EVERY_MEM] >>
+   gvs[opt_mmap_eq_some] >>
+   qpat_x_assum ‘MAP _ _ = MAP _ _’ mp_tac >>
+   rw[LIST_EQ_REWRITE] >>
+   gvs[MEM_EL,EL_MAP])
   >- (rpt strip_tac >>
       gvs[panSemTheory.eval_def,AllCaseEqs(),
          DefnBase.one_line_ify NONE pan_op_def,
          MAP_EQ_CONS,MEM_MAP,MEM_FLAT,compile_exp_def,
          opt_mmap_eq_some,cexp_heads_def,PULL_EXISTS,
-         SF DNF_ss,var_cexp_def
+         SF DNF_ss,var_cexp_def,localised_exp_def
         ] >>
       rpt $ first_x_assum $ resolve_then (Pat ‘_ = (_,_)’) assume_tac $ GSYM PAIR >>
       rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
@@ -836,7 +781,7 @@ Proof
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
        CaseEq "word_lab"] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
+   fs [compile_exp_def,localised_exp_def] >> rveq >>
    fs [CaseEq "list", CaseEq "option"] >>
    rveq >> fs [MEM_FLAT, MEM_MAP, var_cexp_def] >>
    rw []
@@ -850,7 +795,7 @@ Proof
   rpt gen_tac >> strip_tac >>
   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
       CaseEq "word_lab"] >> rveq >>
-  fs [compile_exp_def] >> rveq >>
+  fs [compile_exp_def,localised_exp_def] >> rveq >>
   fs [CaseEq "list", CaseEq "option"] >>
   rveq >> fs [MEM_FLAT, MEM_MAP, var_cexp_def] >>
   rw [] >> last_x_assum drule >>
@@ -860,12 +805,12 @@ QED
 
 
 Theorem compile_Assign:
-  ^(get_goal "compile _ (panLang$Assign _ _)")
+  ^(get_goal "compile _ (panLang$Assign Local _ _)")
 Proof
   rpt gen_tac >>
   rpt strip_tac >>
-  rename [‘Assign vr e’] >>
-  fs [panSemTheory.evaluate_def, is_valid_value_def] >>
+  rename [‘Assign _ vr e’] >>
+  fs [panSemTheory.evaluate_def, is_valid_value_def, localised_prog_def] >>
   fs [CaseEq "option", CaseEq "bool"] >> rveq >> fs [] >>
   rename [‘eval _ e = SOME ev’] >>
   rename [‘FLOOKUP _ vr = SOME v’] >>
@@ -1076,6 +1021,7 @@ Proof
    ‘LENGTH r = LENGTH (MAP Var dvs)’ by fs [Abbr ‘dvs’, LENGTH_GENLIST] >>
    drule nested_seq_assigned_free_vars_eq >>
    fs [] >> res_tac >> fs [])
+  >- (gvs[assigned_free_vars_def,compile_def])
   >- (
    fs [compile_def] >>
    rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
@@ -1119,7 +1065,6 @@ Proof
       rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
       metis_tac[])
   >- (fs [compile_def,assigned_free_vars_def] >>
-      pairarg_tac \\ gvs[] \\
       rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def])
       THEN1 (conj_asm1_tac
              THEN1 (gvs[exp_hdl_def] \\
@@ -1146,7 +1091,6 @@ Proof
           gvs[length_load_globals_eq_read_size] \\
           metis_tac[]))
   >- (fs [compile_def,assigned_free_vars_def] \\
-      pairarg_tac \\ gvs[] \\
       rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def])
       >- (last_x_assum irule >>
           rw[FLOOKUP_UPDATE] >>
@@ -1246,7 +1190,7 @@ Proof
   rpt gen_tac >>
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def] >>
-  fs [CaseEq "option"] >>
+  fs [CaseEq "option", localised_prog_def] >>
   pairarg_tac >> fs [] >>
   rveq >>
   fs [compile_def] >>
@@ -1291,7 +1235,7 @@ Proof
   impl_tac
   >- (
    fs [state_rel_def] >>
-   conj_tac >- fs [code_rel_def] >>
+   conj_tac >- (fs [code_rel_def] >> metis_tac[]) >>
    fs [locals_rel_def] >>
    conj_tac
    >- (
@@ -1350,7 +1294,7 @@ Proof
    fs [length_flatten_eq_size_of_shape])  >>
   strip_tac >> unabbrev_all_tac >> fs [] >> rveq >>
   conj_tac >- fs [state_rel_def] >>
-  conj_tac >- fs [code_rel_def] >>
+  conj_tac >- (fs [code_rel_def] >> metis_tac[]) >>
   cases_on ‘res = NONE ∨ res = SOME Continue ∨ res = SOME Break’ >>
   fs [] >> rveq >> rfs [] >>
   TRY
@@ -1468,7 +1412,7 @@ Proof
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab"] >>
   rveq >>
-  fs [compile_def] >>
+  fs [compile_def,localised_prog_def] >>
   TOP_CASE_TAC >>
   qpat_x_assum ‘eval s src = _’ mp_tac >>
   drule compile_exp_val_rel >>
@@ -1602,7 +1546,7 @@ Proof
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab"] >>
   rveq >>
-  fs [compile_def] >>
+  fs [compile_def, localised_prog_def] >>
   TOP_CASE_TAC >>
   qpat_x_assum ‘eval s src = _’ mp_tac >>
   drule compile_exp_val_rel >>
@@ -1629,14 +1573,16 @@ Proof
 QED
 
 Theorem compile_ShMemLoad:
-  ^(get_goal "compile _ (panLang$ShMemLoad _ _ _)")
+  ^(get_goal "compile _ (panLang$ShMemLoad _ _ _ _)")
 Proof
   rpt gen_tac >> rpt strip_tac >>
+  rename1 ‘ShMemLoad _ vk’ >> Cases_on ‘vk’ >>
   gvs[AllCaseEqs(),panSemTheory.evaluate_def,compile_def,
       oneline nb_op_def,
       panSemTheory.nb_op_def,panSemTheory.sh_mem_load_def,
       panSemTheory.sh_mem_store_def,panLangTheory.size_of_shape_def,
-      asmTheory.is_load_def,panLangTheory.load_op_def
+      asmTheory.is_load_def,panLangTheory.load_op_def,
+      localised_prog_def
       ] >>
   PURE_TOP_CASE_TAC >>
   imp_res_tac compile_exp_val_rel >>
@@ -1650,10 +1596,13 @@ Proof
   rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
   gvs[sh_mem_op_def,
       sh_mem_load_def,
-      panLangTheory.load_op_def
+      panLangTheory.load_op_def,
+      crepSemTheory.evaluate_def
      ] >>
   gvs[state_rel_def,
+      panSemTheory.set_kvar_def,
       panSemTheory.set_var_def,
+      panSemTheory.lookup_kvar_def,
       crepSemTheory.set_var_def,
       locals_rel_def,
       FLOOKUP_UPDATE,
@@ -1663,6 +1612,10 @@ Proof
   rw[] >>
   res_tac >> rw[] >> rw[panSemTheory.shape_of_def,shape_of_alt] >>
   gvs[FLOOKUP_UPDATE,flatten_def] >>
+  rename1 ‘shape_of (Val vv)’ >> Cases_on ‘vv’ >>
+  rw[] >> rw[shape_of_def] >>
+  gvs[FLOOKUP_UPDATE,flatten_def] >>
+  res_tac >> gvs[] >>
   irule opt_mmap_flookup_update >>
   gvs[no_overlap_def] >>
   strip_tac >>
@@ -1678,7 +1631,8 @@ Proof
       oneline nb_op_def,
       panSemTheory.nb_op_def,panSemTheory.sh_mem_load_def,
       panSemTheory.sh_mem_store_def,panLangTheory.size_of_shape_def,
-      asmTheory.is_load_def,panLangTheory.store_op_def
+      asmTheory.is_load_def,panLangTheory.store_op_def,
+      localised_prog_def
       ] >>
   PURE_TOP_CASE_TAC >>
   drule_all compile_exp_val_rel >>
@@ -1724,182 +1678,45 @@ Proof
 QED
 
 Theorem compile_exp_not_mem_load_glob:
-  ∀s e v (t :('a, 'b) state) ct es sh ad.
-  panSem$eval s e = SOME v ∧
+  ∀ct e s (t :('a, 'b) state) es sh ad.
+  compile_exp ct e = (es, sh) ∧
   state_rel s t ∧
   code_rel ct s.code t.code ∧
-  locals_rel ct s.locals t.locals ∧
-  compile_exp ct e = (es, sh) ==>
+  locals_rel ct s.locals t.locals
+  ==>
   ~MEM (LoadGlob ad) (FLAT (MAP exps es))
 Proof
-  ho_match_mp_tac panSemTheory.eval_ind >>
-  rpt conj_tac >> rpt gen_tac >> strip_tac
-  >- (
-   rename [‘Const w’] >>
-   fs [panSemTheory.eval_def, compile_exp_def] >> rveq >>
-   fs [exps_def])
-  >- (
-   rename [‘eval s (Var vname)’] >>
-   fs [panSemTheory.eval_def] >> rveq >>
-   fs [compile_exp_def] >>
-   CCONTR_TAC >> fs [] >>
-   FULL_CASE_TAC >> fs [] >> rveq >> fs [exps_def] >>
-   FULL_CASE_TAC >> fs [] >> rveq >>
-   fs [MEM_FLAT, MEM_MAP] >> rveq >> fs [exps_def])
-  >- (
-   fs [compile_exp_def] >>
-   CCONTR_TAC >> fs [] >>
-   rveq >> fs [exps_def])
-  >- (
-   rpt strip_tac >> fs [] >>
-   fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [‘vs’, ‘es’] >>
-   Induct >> rw [] >>
-   fs [OPT_MMAP_def] >> rveq
-   >- (
-    CCONTR_TAC >> fs [] >>
-    cases_on ‘compile_exp ct h’ >> fs [] >>
-    first_x_assum (qspec_then ‘h’ assume_tac) >> fs [] >>
-    metis_tac []) >>
-   last_x_assum mp_tac >>
-   impl_tac >- metis_tac [] >>
-   strip_tac >> fs [] >> rfs [] >> rveq >>
-   last_x_assum (qspec_then ‘h’ mp_tac) >> fs [] >> rfs [] >>
-   disch_then drule >> disch_then drule >>
-   cases_on ‘FST (compile_exp ct h)’ >> fs [] >> rveq >>
-   cases_on ‘compile_exp ct h’ >> fs [])
-  >- (
-   rpt gen_tac >> strip_tac >> fs [] >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [CaseEq "shape"] >> rveq >- fs [exps_def] >>
-   first_x_assum drule >> disch_then drule >>
-   disch_then drule >>  disch_then drule >>
-   disch_then (qspec_then ‘ad’ mp_tac) >>
-   CCONTR_TAC >> fs [] >>
-   ‘!m. MEM m (FLAT (MAP exps es)) ==> MEM m (FLAT (MAP exps cexp))’
-   suffices_by metis_tac [] >>
-   pop_assum kall_tac >>  pop_assum kall_tac >>
-   rw [] >> fs [MEM_FLAT, MEM_MAP] >> rveq >>
-   drule mem_comp_field >>
-   disch_then (qspecl_then [‘shapes’, ‘cexp’, ‘sh’, ‘y’, ‘es’] mp_tac) >>
-   impl_tac
-   >- (
-    drule compile_exp_val_rel >> disch_then drule_all >> fs [] >>
-    strip_tac >> rfs []) >>
-   strip_tac >> metis_tac [])
-  >- (
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab"] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
-   FULL_CASE_TAC >> fs [] >> rveq >- fs [exps_def] >>
-   first_x_assum drule >> disch_then drule >>
-   disch_then drule >> disch_then drule >>
-   disch_then (qspec_then ‘ad’ mp_tac) >>
-   CCONTR_TAC >> fs [] >>
-   metis_tac [load_glob_not_mem_load])
-  >- (
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab"] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
-   every_case_tac >> fs [] >> rveq >> fs [exps_def] >>
-   drule compile_exp_val_rel >> disch_then drule_all >> fs [] >>
-   strip_tac >> fs [panLangTheory.size_of_shape_def] >> rveq >>
-   last_x_assum drule >> disch_then drule >> disch_then drule >>
-   disch_then drule >>
-   disch_then (qspec_then ‘ad’ mp_tac) >> fs [])
-  >- (
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab"] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   FULL_CASE_TAC >> fs [] >> rveq >- fs [exps_def] >>
-   fs [exps_def] >>
-   fs [cexp_heads_eq] >>
-   fs [cexp_heads_simp_def] >>
-   CCONTR_TAC >> fs [] >>
-   fs [MAP_MAP_o] >>
-   fs [EVERY_MEM] >>
-   ‘EVERY (\x. LENGTH x = 1) (MAP (FST ∘ compile_exp ct) es)’ by (
-     fs [EVERY_MEM] >>
-     rw [] >>
-     fs [MEM_MAP] >>
-     cases_on ‘compile_exp ct y’ >> fs [] >>
-     rveq >> drule opt_mmap_mem_func >>
-     disch_then drule >>
-     strip_tac >> fs [] >>
-     drule compile_exp_val_rel >> disch_then drule_all >> strip_tac >>
-     drule opt_mmap_mem_defined >> disch_then drule >> fs [] >> strip_tac >>
-     first_x_assum drule >>
-     TOP_CASE_TAC >> fs [] >>  TOP_CASE_TAC >>
-     fs [panLangTheory.size_of_shape_def, shape_of_def] >> rveq >>
-     fs [panLangTheory.size_of_shape_def]) >>
-   ntac 7 (pop_assum mp_tac) >>
-   ntac 2 (pop_assum kall_tac) >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [‘x’ ,‘ws’, ‘es’] >>
-   Induct >> rpt gen_tac >> rpt strip_tac >>
-   fs [OPT_MMAP_def] >> rveq >> fs []
-   >- (
-    last_x_assum mp_tac >>
-    impl_tac >- metis_tac [] >>
-    strip_tac >> fs [] >>
-    last_x_assum (qspec_then ‘h’ mp_tac) >>
-    impl_tac >- fs [] >>
-    ntac 3 (disch_then drule) >>
-    cases_on ‘compile_exp ct h’ >> fs [] >>
-    cases_on ‘q’ >> fs [] >> metis_tac []) >>
-   last_x_assum mp_tac >>
-   impl_tac >- metis_tac [] >>
-   impl_tac >- fs [] >>
-   fs [EVERY_MEM])
-  >- (
-   rpt strip_tac >>
-   gvs[panSemTheory.eval_def,compile_exp_def,AllCaseEqs(),cexp_heads_def,
-       DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,exps_def,
-       opt_mmap_eq_some, SF DNF_ss
-     ] >>
-   rpt $ first_x_assum $ resolve_then (Pos last) assume_tac $ GSYM PAIR >>
-   rpt $ qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
-   rpt $ first_x_assum $ drule_then $ drule_then $ drule_then drule >>
-   rw[] >> metis_tac[])
-  >- (
-   rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab"] >> rveq >>
-   fs [compile_exp_def] >> rveq >>
-   every_case_tac >> fs [] >> rveq >> fs [exps_def] >>
-   cases_on ‘compile_exp ct e'’ >>
-   cases_on ‘compile_exp ct e’ >> fs [] >> rveq >>
-   drule compile_exp_val_rel >> disch_then drule_all >> strip_tac >>
-   qpat_x_assum ‘eval s e = SOME (ValWord w1)’ assume_tac >>
-   drule compile_exp_val_rel >> disch_then drule_all >> strip_tac >>
-   fs [flatten_def] >>
-   rveq >> fs [panLangTheory.size_of_shape_def, shape_of_def] >> rveq >>
-   last_x_assum drule >> last_x_assum drule >>
-   rpt (disch_then drule) >>  disch_then (qspec_then ‘ad’ mp_tac) >>
-   strip_tac >>
-   rpt (disch_then drule) >>  disch_then (qspec_then ‘ad’ mp_tac) >>
-   fs []) >>
-  rpt gen_tac >> strip_tac >>
-  fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-      CaseEq "word_lab"] >> rveq >>
-  fs [compile_exp_def] >> rveq >>
-  every_case_tac >> fs [] >> rveq >> fs [exps_def] >>
-  cases_on ‘compile_exp ct e’ >> fs [] >> rveq >>
-  drule compile_exp_val_rel >> disch_then drule_all >> strip_tac >>
-  qpat_x_assum ‘eval s e = SOME (ValWord w)’ assume_tac >>
-  fs [flatten_def] >>
-  rveq >> fs [panLangTheory.size_of_shape_def, shape_of_def] >> rveq >>
-  last_x_assum drule >>
-  rpt (disch_then drule) >>  disch_then (qspec_then ‘ad’ mp_tac) >>
-  fs []
+  ho_match_mp_tac compile_exp_ind >>
+  rw[compile_exp_def] >>
+  gvs[AllCaseEqs(),MEM_FLAT,MEM_MAP,exps_def, SF DNF_ss, UNCURRY_EQ] >>
+  rpt strip_tac >>
+  gvs[DISJ_EQ_IMP] >>
+  rw[]
+  >- metis_tac[PAIR]
+  >- ((* Field *)
+      ‘MEM y cexp ∨ y = Const 0w’ by(metis_tac[mem_comp_field_lem,PAIR,FST,SND]) >>
+      gvs[exps_def] >>
+      metis_tac[])
+  >- (gvs[MEM_EL,load_shape_el_rel,length_load_shape_eq_shape,EL_APPEND] >>
+      rw[] >>
+      CCONTR_TAC >> gvs[exps_def] >>
+      gvs[EL_APPEND,EL_CONS_IF] >>
+      rpt(PURE_FULL_CASE_TAC >> gvs[EL_CONS_IF]) >>
+      metis_tac[])
+  >- metis_tac [PAIR]
+  >- (gvs[cexp_heads_eq,cexp_heads_simp_def,AllCaseEqs(),MEM_MAP, SF DNF_ss] >>
+      first_x_assum irule >>
+      ntac 3 $ first_x_assum $ irule_at $ Pos last >>
+      irule_at Any $ GSYM PAIR >>
+      irule_at Any HEAD_MEM >>
+      metis_tac[])
+  >- (gvs[cexp_heads_eq,cexp_heads_simp_def,AllCaseEqs(),MEM_MAP, SF DNF_ss] >>
+      first_x_assum irule >>
+      ntac 3 $ first_x_assum $ irule_at $ Pos last >>
+      irule_at Any $ GSYM PAIR >>
+      irule_at Any HEAD_MEM >>
+      metis_tac[]) >>
+  metis_tac[MEM,PAIR]
 QED
 
 
@@ -1909,7 +1726,7 @@ Proof
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "bool"] >>
   rveq >> fs [] >>
-  fs [compile_def] >>
+  fs [compile_def, localised_prog_def] >>
   pairarg_tac >> fs [] >> rveq >>
   drule compile_exp_val_rel >>
   disch_then drule_all >>
@@ -2015,7 +1832,7 @@ Proof
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "bool"] >>
   rveq >> fs [] >>
-  fs [compile_def] >>
+  fs [compile_def,localised_prog_def] >>
   pairarg_tac >> fs [] >> rveq >>
   drule compile_exp_val_rel >>
   disch_then drule_all >>
@@ -2088,7 +1905,7 @@ Theorem compile_Seq:
 Proof
   rpt gen_tac >> rpt strip_tac >>
   fs [compile_def] >>
-  fs [panSemTheory.evaluate_def] >>
+  fs [panSemTheory.evaluate_def,localised_prog_def] >>
   pairarg_tac >> fs [] >> rveq >>
   cases_on ‘res' = NONE’ >> fs [] >>
   rveq  >> fs []
@@ -2113,7 +1930,7 @@ Theorem compile_If:
 Proof
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def] >>
-  fs [compile_def] >>
+  fs [compile_def,localised_prog_def] >>
   cases_on ‘eval s e’ >> fs [] >>
   cases_on ‘x’ >> fs [] >>
   cases_on ‘w’ >> fs [] >>
@@ -2124,12 +1941,12 @@ Proof
   rveq >> fs [] >>
   fs [evaluate_def] >>
   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+  rw[] >> gvs[] >>
   last_x_assum drule_all >>
   strip_tac >> fs [] >>
   rfs [] >>
   cases_on ‘res’ >> fs [] >>
-  rveq  >> fs [] >>
-  cases_on ‘c = 0w’ >> fs []
+  rveq  >> fs []
 QED
 
 Theorem compile_While:
@@ -2142,7 +1959,7 @@ Proof
   TOP_CASE_TAC >> fs [] >>
   TOP_CASE_TAC >> fs [] >>
   strip_tac >>
-  fs [compile_def] >>
+  fs [compile_def,localised_prog_def] >>
   TOP_CASE_TAC >> fs [] >>
   drule_all compile_exp_val_rel >>
   once_rewrite_tac [shape_of_def] >>
@@ -2201,7 +2018,7 @@ QED
 Theorem eval_map_comp_exp_flat_eq:
   !argexps args s t ctxt. MAP (eval s) argexps = MAP SOME args /\
   state_rel s t ∧ code_rel ctxt s.code t.code ∧
-  locals_rel ctxt s.locals t.locals ==>
+  locals_rel ctxt s.locals t.locals ∧ EVERY localised_exp argexps ==>
    MAP (eval t) (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) =
         MAP SOME (FLAT (MAP flatten args))
 Proof
