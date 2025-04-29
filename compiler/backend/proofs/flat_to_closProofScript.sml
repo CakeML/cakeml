@@ -76,12 +76,20 @@ Definition opt_rel_def[simp]:
   opt_rel f _ _ = F
 End
 
+Definition thunk_mode_to_digit_def[simp]:
+  thunk_mode_to_digit NotEvaluated = 0 /\
+  thunk_mode_to_digit Evaluated = 1
+End
+
 Definition store_rel_def:
   store_rel refs t_refs =
     !i. if LENGTH refs <= i then FLOOKUP t_refs i = NONE else
           case EL i refs of
           | Refv v => (?x. FLOOKUP t_refs i = SOME (ValueArray [x]) /\ v_rel v x)
-          | Thunk b v => (?x. FLOOKUP t_refs i = SOME (ValueArray [Block (if b then 1 else 0) []; x]) /\ v_rel v x)
+          | Thunk m v =>
+              (?x. FLOOKUP t_refs i = SOME (ValueArray [
+                     Block (thunk_mode_to_digit m) []; x]) /\
+                   v_rel v x)
           | Varray vs => (?xs. FLOOKUP t_refs i = SOME (ValueArray xs) /\
                                LIST_REL v_rel vs xs)
           | W8array bs => FLOOKUP t_refs i = SOME (ByteArray bs)

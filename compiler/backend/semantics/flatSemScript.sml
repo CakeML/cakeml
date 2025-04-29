@@ -536,11 +536,11 @@ Definition do_app_def:
     SOME (s, Rval v1)
   | (ThunkOp th_op, vs) =>
      (case (th_op,vs) of
-      | (AllocThunk b, [v]) =>
-          (let (r,n) = store_alloc (Thunk b v) s.refs in
+      | (AllocThunk m, [v]) =>
+          (let (r,n) = store_alloc (Thunk m v) s.refs in
              SOME (s with refs := r, Rval (Loc F n)))
-      | (UpdateThunk b, [Loc _ lnum; v]) =>
-          (case store_assign lnum (Thunk b v) s.refs of
+      | (UpdateThunk m, [Loc _ lnum; v]) =>
+          (case store_assign lnum (Thunk m v) s.refs of
            | SOME r => SOME (s with refs := r, Rval (Conv NONE []))
            | NONE => NONE)
       | _ => NONE)
@@ -689,14 +689,14 @@ End
 Definition dest_thunk_def:
   dest_thunk [Loc _ n] st =
     (case store_lookup n st of
-     | SOME (Thunk T v) => SOME (INL v)
-     | SOME (Thunk F v) => SOME (INR v)
+     | SOME (Thunk Evaluated v) => SOME (INL v)
+     | SOME (Thunk NotEvaluated v) => SOME (INR v)
      | _ => NONE) ∧
   dest_thunk vs st = NONE
 End
 
 Definition update_thunk_def:
-  update_thunk [Loc _ n] st [v] = store_assign n (Thunk T v) st ∧
+  update_thunk [Loc _ n] st [v] = store_assign n (Thunk Evaluated v) st ∧
   update_thunk _ st _ = NONE
 End
 

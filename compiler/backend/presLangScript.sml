@@ -188,6 +188,12 @@ Definition shift_to_display_def:
   (shift_to_display Ror = empty_item (strlit "Ror"))
 End
 
+Definition thunk_mode_to_display_def:
+  (thunk_mode_to_display Evaluated = empty_item (strlit "Evaluated"))
+  /\
+  (thunk_mode_to_display NotEvaluated = empty_item (strlit "NotEvaluated"))
+End
+
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
@@ -254,8 +260,10 @@ Definition op_to_display_def:
   | Env_id => empty_item (strlit "Eval")
   | ThunkOp t =>
        (case t of
-        | AllocThunk b => Item NONE (strlit "AllocThunk") [bool_to_display b]
-        | UpdateThunk b => Item NONE (strlit "UpdateThunk") [bool_to_display b]
+        | AllocThunk m =>
+            Item NONE (strlit "AllocThunk") [thunk_mode_to_display m]
+        | UpdateThunk m =>
+            Item NONE (strlit "UpdateThunk") [thunk_mode_to_display m]
         | ForceThunk => empty_item (strlit "ForceThunk"))
 End
 
@@ -486,8 +494,10 @@ Definition flat_op_to_display_def:
     | Eval => empty_item (strlit "Eval")
     | ThunkOp t =>
        (case t of
-        | AllocThunk b => Item NONE (strlit "AllocThunk") [bool_to_display b]
-        | UpdateThunk b => Item NONE (strlit "UpdateThunk") [bool_to_display b]
+        | AllocThunk m =>
+            Item NONE (strlit "AllocThunk") [thunk_mode_to_display m]
+        | UpdateThunk m =>
+            Item NONE (strlit "UpdateThunk") [thunk_mode_to_display m]
         | ForceThunk => empty_item (strlit "ForceThunk"))
     | GlobalVarAlloc n => item_with_num (strlit "GlobalVarAlloc") n
     | GlobalVarInit n => item_with_num (strlit "GlobalVarInit") n

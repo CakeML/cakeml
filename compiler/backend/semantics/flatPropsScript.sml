@@ -1384,7 +1384,7 @@ Theorem flat_evaluate_def = flat_evaluate_def
 Definition store_v_vs_def[simp]:
   store_v_vs (Varray vs) = vs /\
   store_v_vs (Refv v) = [v] /\
-  store_v_vs (Thunk b v) = [v] /\
+  store_v_vs (Thunk m v) = [v] /\
   store_v_vs (W8array xs) = []
 End
 

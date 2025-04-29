@@ -518,7 +518,7 @@ Definition map_sv_def:
   map_sv f (Refv v) = Refv (f v) ∧
   map_sv _ (W8array w) = (W8array w) ∧
   map_sv f (Varray vs) = (Varray (MAP f vs)) ∧
-  map_sv f (Thunk b v) = (Thunk b (f v))
+  map_sv f (Thunk m v) = (Thunk m (f v))
 End
 val _ = export_rewrites["map_sv_def"]
 
@@ -534,7 +534,7 @@ val _ = export_rewrites["dest_Refv_def","is_Refv_def"]
 Definition sv_every_def:
   sv_every P (Refv v) = P v ∧
   sv_every P (Varray vs) = EVERY P vs ∧
-  sv_every P (Thunk b v) = P v ∧
+  sv_every P (Thunk m v) = P v ∧
   sv_every P _ = T
 End
 val _ = export_rewrites["sv_every_def"]
@@ -543,7 +543,7 @@ Definition sv_rel_def:
   sv_rel R (Refv v1) (Refv v2) = R v1 v2 ∧
   sv_rel R (W8array w1) (W8array w2) = (w1 = w2) ∧
   sv_rel R (Varray vs1) (Varray vs2) = LIST_REL R vs1 vs2 ∧
-  sv_rel R (Thunk b1 v1) (Thunk b2 v2) = (b1 = b2 ∧ R v1 v2) ∧
+  sv_rel R (Thunk m1 v1) (Thunk m2 v2) = (m1 = m2 ∧ R v1 v2) ∧
   sv_rel R _ _ = F
 End
 val _ = export_rewrites["sv_rel_def"]
@@ -568,7 +568,7 @@ Theorem sv_rel_cases:
     sv_rel R x y ⇔
     (∃v1 v2. x = Refv v1 ∧ y = Refv v2 ∧ R v1 v2) ∨
     (∃w. x = W8array w ∧ y = W8array w) ∨
-    (∃b v1 v2. x = Thunk b v1 ∧ y = Thunk b v2 ∧ R v1 v2) ∨
+    (∃m v1 v2. x = Thunk m v1 ∧ y = Thunk m v2 ∧ R v1 v2) ∨
     (?vs1 vs2. x = Varray vs1 ∧ y = Varray vs2 ∧ LIST_REL R vs1 vs2)
 Proof
   Cases >> Cases >> simp[sv_rel_def,EQ_IMP_THM] >> metis_tac []

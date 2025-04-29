@@ -58,14 +58,14 @@ End
 Definition dest_thunk_def:
   dest_thunk [Loc _ n] st =
     (case store_lookup n st of
-     | SOME (Thunk T v) => SOME (INL v)
-     | SOME (Thunk F v) => SOME (INR v)
+     | SOME (Thunk Evaluated v) => SOME (INL v)
+     | SOME (Thunk NotEvaluated v) => SOME (INR v)
      | _ => NONE) ∧
   dest_thunk vs st = NONE
 End
 
 Definition update_thunk_def:
-  update_thunk [Loc _ n] st [v] = store_assign n (Thunk T v) st ∧
+  update_thunk [Loc _ n] st [v] = store_assign n (Thunk Evaluated v) st ∧
   update_thunk _ st _ = NONE
 End
 

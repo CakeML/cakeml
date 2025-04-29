@@ -17,11 +17,11 @@ End
 Definition thunk_op_def:
   thunk_op (s: v store_v list) th_op vs =
     case (th_op,vs) of
-    | (AllocThunk b, [v]) =>
-        (let (s',n) = store_alloc (Thunk b v) s in
+    | (AllocThunk m, [v]) =>
+        (let (s',n) = store_alloc (Thunk m v) s in
            SOME (s', Rval (Loc F n)))
-    | (UpdateThunk b, [Loc _ lnum; v]) =>
-        (case store_assign lnum (Thunk b v) s of
+    | (UpdateThunk m, [Loc _ lnum; v]) =>
+        (case store_assign lnum (Thunk m v) s of
          | SOME s' => SOME (s', Rval (Conv NONE []))
          | NONE => NONE)
     | _ => NONE
@@ -492,9 +492,9 @@ Definition application_def:
       (case vs of
          [Loc _ n] => (
            case store_lookup n s of
-             SOME (Thunk T v) =>
+             SOME (Thunk Evaluated v) =>
                return env s fp v c
-           | SOME (Thunk F f) =>
+           | SOME (Thunk NotEvaluated f) =>
                application Opapp env s fp [f; Conv NONE []] ((Cforce n,env)::c)
            | _ =>
                Etype_error (fix_fp_state c fp))
@@ -529,7 +529,7 @@ Definition continue_def:
   continue s fp v ((Capp op vs [], env) :: c) = application op env s fp (v::vs) c ∧
   continue s fp v ((Capp op vs (e::es), env) :: c) = push env s fp e (Capp op (v::vs) es) c ∧
   continue s fp v ((Cforce n, env) :: c) = (
-    case store_assign n (Thunk T v) s of
+    case store_assign n (Thunk Evaluated v) s of
       SOME s' => return env s' fp v c
     | NONE => Etype_error (fix_fp_state c fp)) ∧
   continue s fp v ((Clog l e, env) :: c) = (

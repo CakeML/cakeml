@@ -55,9 +55,13 @@ Datatype:
 End
 
 Datatype:
+  thunk_mode = Evaluated | NotEvaluated
+End
+
+Datatype:
   thunk_op =
-    AllocThunk bool
-  | UpdateThunk bool
+    AllocThunk thunk_mode
+  | UpdateThunk thunk_mode
   | ForceThunk
 End
 

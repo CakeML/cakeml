@@ -197,7 +197,7 @@ Datatype:
   (* An array of values *)
   | Varray ('a list)
   (* Thunk *)
-  | Thunk bool 'a (* T means evaluated *)
+  | Thunk thunk_mode 'a
 End
 
 Definition store_v_same_type_def:
@@ -206,7 +206,7 @@ Definition store_v_same_type_def:
     | (Refv _,    Refv _   ) => T
     | (W8array _, W8array _) => T
     | (Varray _,  Varray _ ) => T
-    | (Thunk F _, Thunk _ _) => T  (* the thunk being updated must have F set *)
+    | (Thunk NotEvaluated _, Thunk _ _) => T
     | _ => F
 End
 
@@ -884,11 +884,11 @@ End
 Definition thunk_op_def:
   thunk_op (s: v store_v list, t: 'ffi ffi_state) th_op vs =
     case (th_op,vs) of
-    | (AllocThunk b, [v]) =>
-        (let (s',n) = store_alloc (Thunk b v) s in
+    | (AllocThunk m, [v]) =>
+        (let (s',n) = store_alloc (Thunk m v) s in
            SOME ((s',t), Rval (Loc F n)))
-    | (UpdateThunk b, [Loc _ lnum; v]) =>
-        (case store_assign lnum (Thunk b v) s of
+    | (UpdateThunk m, [Loc _ lnum; v]) =>
+        (case store_assign lnum (Thunk m v) s of
          | SOME s' => SOME ((s',t), Rval (Conv NONE []))
          | NONE => NONE)
     | _ => NONE

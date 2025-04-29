@@ -96,6 +96,11 @@ Definition CopyByteAw8_def:
   CopyByteAw8 t = ^checkF
 End
 
+Definition thunk_mode_to_digit_def[simp]:
+  thunk_mode_to_digit NotEvaluated : num = 0 ∧
+  thunk_mode_to_digit Evaluated = 1
+End
+
 Definition compile_op_def:
   compile_op t op xs =
     dtcase op of
@@ -191,15 +196,15 @@ Definition compile_op_def:
     | Eval => Op t Install xs (* if need to flip:  Let t xs (Op t Install [Var t 1; Var t 0]) *)
     | ThunkOp t =>
         (dtcase t of
-         | AllocThunk b =>
+         | AllocThunk m =>
               Let None xs (Op None (MemOp Ref) [
-                 Op None (BlockOp (Cons (if b then 1 else 0))) [];
+                 Op None (BlockOp (Cons (thunk_mode_to_digit m))) [];
                  Var None 0])
-         | UpdateThunk b =>
+         | UpdateThunk m =>
               Let None xs (Let None
                 [Op None (MemOp Update) [
                    Var None 0; Op None (IntOp (Const 0)) [];
-                   Op None (BlockOp (Cons (if b then 1 else 0))) []];
+                   Op None (BlockOp (Cons (thunk_mode_to_digit m))) []];
                    Op None (MemOp Update) [
                      Var None 0; Op None (IntOp (Const 1)) [];
                      Var None 1]]
