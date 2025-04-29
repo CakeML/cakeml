@@ -298,17 +298,116 @@ Proof
     \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs [])
 QED
 
+Definition freshen_lhs_exp_def:
+  (freshen_lhs_exp m cnt (VarLhs old) =
+     (cnt, VarLhs (lookup m old))) ∧
+  freshen_lhs_exp m cnt (ArrSelLhs arr idx) =
+  let (cnt, arr) = freshen_exp m cnt arr in
+  let (cnt, idx) = freshen_exp m cnt idx in
+    (cnt, ArrSelLhs arr idx)
+End
+
+Definition freshen_lhs_exps_def:
+  (freshen_lhs_exps m cnt [] = (cnt, [])) ∧
+  freshen_lhs_exps m cnt (le::les) =
+  let (cnt, le) = freshen_lhs_exp m cnt le in
+  let (cnt, les) = freshen_lhs_exps m cnt les in
+    (cnt, le::les)
+End
+
+Triviality freshen_lhs_exp_mono:
+ ∀m cnt lhs cnt' lhs'.
+    freshen_lhs_exp m cnt lhs = (cnt', lhs') ⇒ cnt ≤ cnt'
+Proof
+  Cases_on ‘lhs’ \\ rpt strip_tac
+  \\ gvs [freshen_lhs_exp_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac freshen_exp_mono \\ gvs []
+QED
+
+Triviality freshen_lhs_exps_mono:
+  ∀m cnt lhss cnt' lhss'.
+    freshen_lhs_exps m cnt lhss = (cnt', lhss') ⇒ cnt ≤ cnt'
+Proof
+  Induct_on ‘lhss’ \\ rpt strip_tac
+  \\ gvs [freshen_lhs_exps_def] \\ rpt (pairarg_tac \\ gvs[])
+  \\ imp_res_tac freshen_lhs_exp_mono \\ res_tac \\ gvs []
+QED
+
+Definition freshen_rhs_exp_def:
+  (freshen_rhs_exp m cnt (ExpRhs e) =
+   let (cnt, e) = freshen_exp m cnt e in
+     (cnt, ExpRhs e)) ∧
+  freshen_rhs_exp m cnt (ArrAlloc len init_v) =
+  let (cnt, len) = freshen_exp m cnt len in
+  let (cnt, init_v) = freshen_exp m cnt init_v in
+    (cnt, ArrAlloc len init_v)
+End
+
+Definition freshen_rhs_exps_def:
+  (freshen_rhs_exps m cnt [] = (cnt, [])) ∧
+  freshen_rhs_exps m cnt (re::res) =
+  let (cnt, re) = freshen_rhs_exp m cnt re in
+  let (cnt, res) = freshen_rhs_exps m cnt res in
+    (cnt, re::res)
+End
+
+Triviality freshen_rhs_exp_mono:
+ ∀m cnt rhs cnt' rhs'.
+    freshen_rhs_exp m cnt rhs = (cnt', rhs') ⇒ cnt ≤ cnt'
+Proof
+  Cases_on ‘rhs’ \\ rpt strip_tac
+  \\ gvs [freshen_rhs_exp_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac freshen_exp_mono \\ gvs []
+QED
+
+Triviality freshen_rhs_exps_mono:
+  ∀m cnt rhss cnt' rhss'.
+    freshen_rhs_exps m cnt rhss = (cnt', rhss') ⇒ cnt ≤ cnt'
+Proof
+  Induct_on ‘rhss’ \\ rpt strip_tac
+  \\ gvs [freshen_rhs_exps_def] \\ rpt (pairarg_tac \\ gvs[])
+  \\ imp_res_tac freshen_rhs_exp_mono \\ res_tac \\ gvs []
+QED
+
 Definition freshen_stmt_def:
+  (freshen_stmt m cnt Skip = (cnt, Skip)) ∧
+  (freshen_stmt m cnt (Assert tst) =
+   let (cnt, tst) = freshen_exp m cnt tst in
+     (cnt, Assert tst)) ∧
+  (freshen_stmt m cnt (Then stmt₀ stmt₁) =
+   let (cnt, stmt₀) = freshen_stmt m cnt stmt₀ in
+   let (cnt, stmt₁) = freshen_stmt m cnt stmt₁ in
+     (cnt, Then stmt₀ stmt₁)) ∧
+  (freshen_stmt m cnt (If tst thn els) =
+   let (cnt, tst) = freshen_exp m cnt tst in
+   let (cnt, thn) = freshen_stmt m cnt thn in
+   let (cnt, els) = freshen_stmt m cnt els in
+     (cnt, If tst thn els)) ∧
   (freshen_stmt m cnt (Dec local scope) =
    let (old, vt) = local in
    let (cnt, m) = add_fresh m cnt old in
    let (cnt, scope) = freshen_stmt m cnt scope in
      (cnt, Dec (lookup m old, vt) scope)) ∧
-  (freshen_stmt m cnt (Then stmt₀ stmt₁) =
-   let (cnt, stmt₀) = freshen_stmt m cnt stmt₀ in
-   let (cnt, stmt₁) = freshen_stmt m cnt stmt₁ in
-     (cnt, Then stmt₀ stmt₁)) ∧
-  (freshen_stmt m cnt _ = ARB)
+  (freshen_stmt m cnt (Assign lhss rhss) =
+   let (cnt, rhss) = freshen_rhs_exps m cnt rhss in
+   let (cnt, lhss) = freshen_lhs_exps m cnt lhss in
+     (cnt, Assign lhss rhss)) ∧
+  (freshen_stmt m cnt (While grd invs decrs mods body) =
+   let (cnt, grd) = freshen_exp m cnt grd in
+   let (cnt, invs) = freshen_exps m cnt invs in
+   let (cnt, decrs) = freshen_exps m cnt decrs in
+   let (cnt, mods) = freshen_exps m cnt mods in
+   let (cnt, body) = freshen_stmt m cnt body in
+     (cnt, While grd invs decrs mods body)) ∧
+  (freshen_stmt m cnt (Print ets) =
+   let (es, ts) = UNZIP ets in
+   let (cnt, es) = freshen_exps m cnt es in
+     (cnt, Print (ZIP (es, ts)))) ∧
+  (freshen_stmt m cnt (MetCall lhss n args) =
+   let (cnt, args) = freshen_exps m cnt args in
+   let (cnt, lhss) = freshen_lhs_exps m cnt lhss in
+     (cnt, MetCall lhss n args)) ∧
+  freshen_stmt m cnt Return = (cnt, Return)
 End
 
 Triviality declare_local_len_inc:
@@ -449,9 +548,11 @@ Triviality freshen_stmt_mono:
     freshen_stmt m cnt stmt = (cnt', stmt') ⇒ cnt ≤ cnt'
 Proof
   Induct_on ‘stmt’ \\ rpt strip_tac
-  \\ gvs [freshen_stmt_def]
+  \\ gvs [freshen_stmt_def] \\ rpt (pairarg_tac \\ gvs [])
+  \\ res_tac \\ imp_res_tac freshen_exp_mono
+  \\ imp_res_tac freshen_rhs_exps_mono \\ imp_res_tac freshen_lhs_exps_mono
+  \\ gvs [add_fresh_def]
 QED
-
 
 Theorem correct_freshen_stmt:
   ∀s env stmt s' res t m cnt cnt' stmt'.
@@ -488,6 +589,23 @@ Proof
     \\ unabbrev_all_tac
     \\ gvs [state_rel_def, declare_local_def, add_fresh_def]
     \\ imp_res_tac locals_rel_push \\ gvs [])
+  >~ [‘Then stmt₀ stmt₁’] >-
+   (gvs [evaluate_stmt_def, freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [evaluate_stmt_def]
+    \\ imp_res_tac freshen_stmt_mono
+    \\ imp_res_tac state_rel_mono
+    \\ namedCases_on ‘evaluate_stmt s env stmt₀’ ["s₁ r"]
+    \\ namedCases_on ‘r’ ["", "stp"] \\ gvs []
+    \\ last_x_assum $ drule \\ gvs []
+    \\ disch_then $ drule_at $ Pos $ el 2
+    \\ disch_then drule \\ rpt strip_tac
+    \\ namedCases_on ‘evaluate_stmt t env stmt₀'’ ["t₁ r"]
+    \\ namedCases_on ‘r’ ["", "stp'"] \\ gvs []
+    \\ imp_res_tac state_rel_mono
+    \\ last_x_assum $ drule \\ gvs []
+    \\ disch_then $ drule_at $ Pos $ el 2
+    \\ disch_then drule \\ rpt strip_tac \\ gvs [])
   \\ cheat
 QED
 
