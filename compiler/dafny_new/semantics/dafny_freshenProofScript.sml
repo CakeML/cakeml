@@ -87,10 +87,9 @@ QED
 
 Definition locals_rel_def:
   locals_rel [] [] [] _ = T ∧
-  locals_rel (sl::ss) (ml::ms) (tl::ts) (ub:num) =
-  (let (snam, sval) = sl; (snam', tnum) = ml; (tnam, tval) = tl in
-     (tnum < ub ∧ snam = snam' ∧ tnam = («v» ^ num_to_str tnum) ∧
-      sval = tval ∧ locals_rel ss ms ts tnum)) ∧
+  locals_rel ((snam, sval)::ss) ((snam', tnum)::ms) ((tnam, tval)::ts) (ub:num) =
+    (tnum < ub ∧ snam = snam' ∧ tnam = («v» ^ num_to_str tnum) ∧
+     sval = tval ∧ locals_rel ss ms ts tnum) ∧
   locals_rel _ _ _ _ = F
 End
 
@@ -111,12 +110,9 @@ Triviality locals_rel_lookup_neq:
   ∀ss m ts ub i var.
     locals_rel ss m ts ub ∧ i ≥ ub ⇒ lookup m var ≠ «v» ^ toString i
 Proof
-  Induct_on ‘m’ \\ Cases_on ‘ss’ \\ Cases_on ‘ts’ \\ rpt strip_tac
+  recInduct locals_rel_ind \\ rpt strip_tac
   \\ gvs [locals_rel_def, lookup_def] >- gvs [strcat_thm, implode_def]
-  \\ rpt (pairarg_tac \\ gvs [])
   \\ FULL_CASE_TAC \\ gvs [mlstring_common_prefix, num_to_str_11]
-  \\ ‘i ≥ tnum’ by gvs []
-  \\ last_x_assum $ drule_all \\ rpt strip_tac \\ res_tac
 QED
 
 Triviality locals_rel_read_local:
@@ -125,8 +121,8 @@ Triviality locals_rel_read_local:
     read_local ss var = SOME val ⇒
     read_local ts (lookup m var) = SOME val
 Proof
-  Induct_on ‘m’ \\ Cases_on ‘ss’ \\ Cases_on ‘ts’ \\ rpt strip_tac
-  \\ gvs [locals_rel_def, read_local_def] \\ rpt (pairarg_tac \\ gvs [])
+  recInduct locals_rel_ind \\ rpt strip_tac
+  \\ gvs [locals_rel_def, read_local_def]
   \\ imp_res_tac locals_rel_lookup_neq \\ res_tac
   \\ rename [‘lookup ((snam,tnum)::m)’]
   \\ Cases_on ‘snam = var’ \\ gvs [lookup_def]
@@ -136,8 +132,7 @@ Triviality locals_rel_mono:
   ∀ss m ts cnt cnt'.
     locals_rel ss m ts cnt ∧ cnt ≤ cnt' ⇒ locals_rel ss m ts cnt'
 Proof
-  Cases_on ‘m’ \\ Cases_on ‘ss’ \\ Cases_on ‘ts’ \\ rpt strip_tac
-  \\ gvs [locals_rel_def] \\ rpt (pairarg_tac \\ gvs [])
+  recInduct locals_rel_ind \\ gvs [locals_rel_def]
 QED
 
 Triviality state_rel_mono:
@@ -147,7 +142,6 @@ Proof
   gvs [state_rel_def] \\ rpt strip_tac \\ imp_res_tac locals_rel_mono
 QED
 
-(* TODO Move to Dafny semantic primitives *)
 Theorem with_same_locals[simp]:
   ∀s. s with locals := s.locals = s
 Proof
@@ -317,18 +311,16 @@ Definition freshen_stmt_def:
   (freshen_stmt m cnt _ = ARB)
 End
 
-Triviality declare_local_len_gt:
+Triviality declare_local_len_inc:
   ∀s v. LENGTH (declare_local s v).locals = LENGTH s.locals + 1
 Proof
   gvs [declare_local_def]
 QED
 
-Triviality evaluate_stmt_len_locals:
-  ∀s env scope s' r.
-    evaluate_stmt s env scope = (s', r) ⇒
-    LENGTH s'.locals = LENGTH s.locals
+Triviality pop_local_len_dec:
+  ∀s s'. pop_local s = SOME s' ⇒ LENGTH s'.locals = LENGTH s.locals - 1
 Proof
-  cheat
+  rpt strip_tac \\ gvs [pop_local_def, AllCaseEqs()]
 QED
 
 Triviality locals_not_empty_pop_locals_some:
@@ -337,20 +329,110 @@ Proof
   rpt strip_tac \\ gvs [pop_local_def, LIST_LENGTH_1]
 QED
 
+Triviality evaluate_exp_len_locals:
+  (∀s env e s' r.
+     evaluate_exp s env e = (s', r) ⇒ LENGTH s'.locals = LENGTH s.locals) ∧
+  (∀s env es s' r.
+     evaluate_exps s env es = (s', r) ⇒ LENGTH s'.locals = LENGTH s.locals)
+Proof
+  ho_match_mp_tac evaluate_exp_ind \\ rpt strip_tac
+  \\ gvs [evaluate_exp_def, set_up_call_def, restore_locals_def, AllCaseEqs()]
+QED
+
+Triviality update_local_aux_len_locals:
+  ∀locals var val locals'.
+    update_local_aux locals var val = SOME locals' ⇒
+    LENGTH locals = LENGTH locals'
+Proof
+  Induct_on ‘locals’ \\ rpt strip_tac
+  \\ gvs [update_local_aux_def] \\ PairCases_on ‘h’
+  \\ gvs [update_local_aux_def, AllCaseEqs()] \\ res_tac
+QED
+
+Triviality update_local_len_locals:
+  ∀s var val s'.
+    update_local s var val = SOME s' ⇒
+    LENGTH s'.locals = LENGTH s.locals
+Proof
+  rpt strip_tac
+  \\ gvs [update_local_def, AllCaseEqs()]
+  \\ imp_res_tac update_local_aux_len_locals \\ gvs []
+QED
+
+Triviality assign_value_len_locals:
+  ∀s env lhs rhs s' r.
+    assign_value s env lhs rhs = (s', r) ⇒
+    LENGTH s'.locals = LENGTH s.locals
+Proof
+  Cases_on ‘lhs’ \\ rpt strip_tac
+  \\ gvs [assign_value_def, update_array_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_len_locals \\ gvs []
+  \\ imp_res_tac update_local_len_locals
+QED
+
+Triviality assign_values_len_locals:
+  ∀s env lhss vals s' r.
+    assign_values s env lhss vals = (s', r) ⇒
+    LENGTH s'.locals = LENGTH s.locals
+Proof
+  Induct_on ‘lhss’ \\ Cases_on ‘vals’ \\ rpt strip_tac
+  \\ gvs [assign_values_def, AllCaseEqs()]
+  \\ imp_res_tac assign_value_len_locals \\ res_tac \\ gvs []
+QED
+
+Triviality evaluate_rhs_exp_len_locals:
+  ∀s env e.
+    evaluate_rhs_exp s env e = (s', r) ⇒
+    LENGTH s'.locals = LENGTH s.locals
+Proof
+  Cases_on ‘e’ \\ rpt strip_tac
+  \\ gvs [evaluate_rhs_exp_def, alloc_array_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_len_locals \\ gvs []
+QED
+
+Triviality evaluate_rhs_exps_len_locals:
+  ∀s env es s' r.
+    evaluate_rhs_exps s env es = (s', r) ⇒
+    LENGTH s'.locals = LENGTH s.locals
+Proof
+  Induct_on ‘es’ \\ rpt strip_tac
+  \\ gvs [evaluate_rhs_exps_def, AllCaseEqs ()]
+  \\ imp_res_tac evaluate_rhs_exp_len_locals \\ res_tac \\ gvs []
+QED
+
+Triviality evaluate_stmt_len_locals:
+  ∀s env scope s' r.
+    evaluate_stmt s env scope = (s', r) ⇒
+    LENGTH s'.locals = LENGTH s.locals
+Proof
+  ho_match_mp_tac evaluate_stmt_ind \\ rpt strip_tac
+  >~ [‘Dec local scope’] >-
+   (gvs [evaluate_stmt_def] \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [declare_local_len_inc, AllCaseEqs()] \\ rename [‘pop_local s₁’]
+    >- (‘LENGTH s₁.locals > 0’ by gvs []
+        \\ imp_res_tac locals_not_empty_pop_locals_some \\ gvs [])
+    \\ imp_res_tac pop_local_len_dec \\ gvs [])
+  \\ gvs [evaluate_stmt_def, dec_clock_def, print_string_def,
+          restore_locals_def, set_up_call_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_len_locals
+  \\ imp_res_tac assign_values_len_locals
+  \\ imp_res_tac evaluate_rhs_exps_len_locals \\ gvs []
+QED
+
 Triviality locals_rel_weaken_ub:
   ∀ss ms ts ub ub'.
     locals_rel ss ms ts ub ∧ ub < ub' ⇒ locals_rel ss ms ts ub'
 Proof
-  Cases_on ‘ss’ \\ Cases_on ‘ms’ \\ Cases_on ‘ts’
-  \\ gvs [locals_rel_def] \\ rpt (pairarg_tac \\ gvs [])
+  recInduct locals_rel_ind \\ gvs [locals_rel_def]
 QED
 
 Triviality locals_rel_pop:
   ∀sl ss ml ms tl ts ub.
     locals_rel (sl::ss) (ml::ms) (tl::ts) ub ⇒ locals_rel ss ms ts ub
 Proof
-  gvs [locals_rel_def] \\ rpt strip_tac \\ rpt (pairarg_tac \\ gvs [])
-  \\ imp_res_tac locals_rel_weaken_ub
+  rpt strip_tac
+  \\ PairCases_on ‘sl’ \\ PairCases_on ‘ml’ \\ PairCases_on ‘tl’
+  \\ gvs [locals_rel_def] \\ imp_res_tac locals_rel_weaken_ub
 QED
 
 Triviality locals_rel_push:
@@ -359,8 +441,17 @@ Triviality locals_rel_push:
     locals_rel ((old, v)::ss) ((old, cnt)::ms)
       ((lookup ((old, cnt)::ms) old, v)::ts) cnt'
 Proof
-  gvs [locals_rel_def, lookup_def] \\ rpt strip_tac
+  gvs [locals_rel_def, lookup_def]
 QED
+
+Triviality freshen_stmt_mono:
+  ∀m cnt stmt cnt' stmt'.
+    freshen_stmt m cnt stmt = (cnt', stmt') ⇒ cnt ≤ cnt'
+Proof
+  Induct_on ‘stmt’ \\ rpt strip_tac
+  \\ gvs [freshen_stmt_def]
+QED
+
 
 Theorem correct_freshen_stmt:
   ∀s env stmt s' res t m cnt cnt' stmt'.
@@ -379,8 +470,8 @@ Proof
     \\ gvs [evaluate_stmt_def] \\ rpt (pairarg_tac \\ gvs [])
     \\ qabbrev_tac ‘t₁ = declare_local t (lookup m' old)’
     \\ rename [‘evaluate_stmt t₁ env scope' = (t₂, r')’]
-    \\ qspecl_then [‘s’, ‘old’] assume_tac declare_local_len_gt
-    \\ qspecl_then [‘t’, ‘lookup m' old’] assume_tac declare_local_len_gt
+    \\ qspecl_then [‘s’, ‘old’] assume_tac declare_local_len_inc
+    \\ qspecl_then [‘t’, ‘lookup m' old’] assume_tac declare_local_len_inc
     \\ imp_res_tac evaluate_stmt_len_locals
     \\ imp_res_tac locals_not_empty_pop_locals_some
     \\ ‘LENGTH s₂.locals > 0’ by gvs []

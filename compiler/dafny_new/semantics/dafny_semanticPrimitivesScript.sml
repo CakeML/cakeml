@@ -211,15 +211,18 @@ Definition alloc_array_def:
 End
 
 Definition update_local_aux_def:
-  update_local_aux [] var val acc = NONE ∧
-  update_local_aux ((x, w)::xs) var val acc =
-  (if x = var then SOME (acc ++ ((x, SOME val)::xs))
-   else update_local_aux xs var val (SNOC (x, w) acc))
+  update_local_aux [] var val = NONE ∧
+  update_local_aux ((x, w)::xs) var val =
+  (if x ≠ var then
+     (case update_local_aux xs var val of
+      | NONE => NONE
+      | SOME xs => SOME ((x, w)::xs))
+   else SOME ((x, SOME val)::xs))
 End
 
 Definition update_local_def:
   update_local st var val =
-  (case update_local_aux st.locals var val [] of
+  (case update_local_aux st.locals var val of
    | NONE => NONE
    | SOME new_locals => SOME (st with locals := new_locals))
 End

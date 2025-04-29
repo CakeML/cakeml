@@ -324,19 +324,26 @@ Definition evaluate_stmt_ann_def[nocompute]:
         (case set_up_call st₁ in_ns in_vs out_ns of
          | NONE => (st₁, Rstop (Serr Rtype_error))
          | SOME (old_locals, st₂) =>
-           if st₂.clock = 0 then (st₂, Rstop (Serr Rtimeout_error)) else
-           (case evaluate_stmt (dec_clock st₂) env body of
-            | (st₃, Rcont) => (st₃, Rstop (Serr Rtype_error))
-            | (st₃, Rstop (Serr err)) => (st₃, Rstop (Serr err))
-            | (st₃, Rstop Sret) =>
-              (case OPT_MMAP (read_local st₃.locals) out_ns of
-               | NONE => (st₃, Rstop (Serr Rtype_error))
-               | SOME out_vs =>
-                 (case assign_values st₃ env lhss out_vs of
-                  | (st₄, Rstop (Serr err)) => (st₄, Rstop (Serr err))
-                  | (st₄, Rstop Sret) => (st₄, Rstop (Serr Rtype_error))
-                  | (st₄, Rcont) =>
-                      (restore_locals st₄ old_locals, Rcont))))))) ∧
+           if st₂.clock = 0
+           then (restore_locals st₂ old_locals, Rstop (Serr Rtimeout_error))
+           else
+             (case evaluate_stmt (dec_clock st₂) env body of
+              | (st₃, Rcont) =>
+                  (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
+              | (st₃, Rstop (Serr err)) =>
+                  (restore_locals st₃ old_locals, Rstop (Serr err))
+              | (st₃, Rstop Sret) =>
+                (case OPT_MMAP (read_local st₃.locals) out_ns of
+                 | NONE =>
+                     (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
+                 | SOME out_vs =>
+                   (case assign_values st₃ env lhss out_vs of
+                    | (st₄, Rstop (Serr err)) =>
+                        (restore_locals st₄ old_locals, Rstop (Serr err))
+                    | (st₄, Rstop Sret) =>
+                        (restore_locals st₄ old_locals, Rstop (Serr Rtype_error))
+                    | (st₄, Rcont) =>
+                        (restore_locals st₄ old_locals, Rcont))))))) ∧
   evaluate_stmt st env Return = (st, Rstop Sret)
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
