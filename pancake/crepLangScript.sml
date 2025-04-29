@@ -196,7 +196,8 @@ Definition exps_def:
   (exps (Crepop pop es) = FLAT (MAP exps es)) ∧
   (exps (Cmp c e1 e2) = exps e1 ++ exps e2) ∧
   (exps (Shift sh e num) = exps e) ∧
-  (exps BaseAddr = [BaseAddr])
+  (exps BaseAddr = [BaseAddr]) ∧
+  (exps TopAddr = [TopAddr])
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>

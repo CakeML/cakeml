@@ -962,7 +962,7 @@ Definition localised_prog_def:
   (localised_prog (ExtCall fn e1 e2 e3 e4) ⇔ localised_exp e1 ∧ localised_exp e2 ∧ localised_exp e3 ∧ localised_exp e4) ∧
   (localised_prog (Return e) ⇔ localised_exp e) ∧
   (localised_prog (ShMemStore op e1 e2) ⇔ localised_exp e1 ∧ localised_exp e2) ∧
-  (localised_prog (ShMemLoad op vk v e) ⇔ localised_exp e) ∧
+  (localised_prog (ShMemLoad op vk v e) ⇔ vk = Local ∧ localised_exp e) ∧
   (localised_prog (Call hdl f args) ⇔
    EVERY localised_exp args ∧
    (case hdl of

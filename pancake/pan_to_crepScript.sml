@@ -84,6 +84,7 @@ Definition compile_exp_def:
    | [] => ([Const 0w], One)
    | e::es => ([Shift sh e n], One)) /\
   (compile_exp ctxt BaseAddr = ([BaseAddr], One)) /\
+  (compile_exp ctxt TopAddr = ([TopAddr], One)) /\
   (compile_exp ctxt BytesInWord = ([Const bytes_in_word], One))
 Termination
   wf_rel_tac `measure (\e. panLang$exp_size ARB (SND e))` >>
