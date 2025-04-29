@@ -593,19 +593,34 @@ Proof
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_stmt_def]
-    \\ imp_res_tac freshen_stmt_mono
-    \\ imp_res_tac state_rel_mono
+    \\ imp_res_tac freshen_stmt_mono \\ imp_res_tac state_rel_mono
     \\ namedCases_on ‘evaluate_stmt s env stmt₀’ ["s₁ r"]
     \\ namedCases_on ‘r’ ["", "stp"] \\ gvs []
     \\ last_x_assum $ drule \\ gvs []
     \\ disch_then $ drule_at $ Pos $ el 2
-    \\ disch_then drule \\ rpt strip_tac
-    \\ namedCases_on ‘evaluate_stmt t env stmt₀'’ ["t₁ r"]
-    \\ namedCases_on ‘r’ ["", "stp'"] \\ gvs []
+    \\ disch_then drule \\ rpt strip_tac \\ gvs []
     \\ imp_res_tac state_rel_mono
     \\ last_x_assum $ drule \\ gvs []
     \\ disch_then $ drule_at $ Pos $ el 2
     \\ disch_then drule \\ rpt strip_tac \\ gvs [])
+  >~ [‘If tst thn els’] >-
+
+   (gvs [evaluate_stmt_def, freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [evaluate_stmt_def]
+    \\ rename [‘freshen_exp m cnt tst = (cnt₁, tst')’]
+    \\ pop_assum $ mp_tac \\ rename [‘freshen_stmt _ _ _ = (cnt₂, thn')’]
+    \\ disch_then assume_tac \\ rename [‘freshen_stmt _ _ _ = (cnt₃, els')’]
+    \\ imp_res_tac freshen_exp_mono \\ imp_res_tac freshen_stmt_mono
+    \\ ‘state_rel s t m cnt₁’ by (imp_res_tac state_rel_mono)
+    \\ namedCases_on ‘evaluate_exp s env tst’ ["s₁ r"]
+    \\ namedCases_on ‘r’ ["tst_v", "err"] \\ gvs []
+    \\ qspecl_then [‘s’, ‘env’, ‘tst’, ‘s₁’, ‘Rval tst_v’, ‘t’] mp_tac
+         (cj 1 correct_freshen_exp) \\ gvs []
+    \\ cheat
+
+   )
+
   \\ cheat
 QED
 
