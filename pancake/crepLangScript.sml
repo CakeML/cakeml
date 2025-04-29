@@ -145,9 +145,11 @@ Definition assigned_free_vars_def:
   (assigned_free_vars (Seq p p') = assigned_free_vars p ++ assigned_free_vars p') ∧
   (assigned_free_vars (If e p p') = assigned_free_vars p ++ assigned_free_vars p') ∧
   (assigned_free_vars (While e p) = assigned_free_vars p) ∧
-  (assigned_free_vars (Call (SOME (_, rp, (SOME (_, p)))) e es) =
+  (assigned_free_vars (Call (SOME (NONE, rp, (SOME (_, p)))) e es) =
      assigned_free_vars rp ++ assigned_free_vars p) ∧
   (assigned_free_vars (Call (SOME (NONE, rp, NONE)) e es) = assigned_free_vars rp) ∧
+  (assigned_free_vars (Call (SOME ((SOME rt), rp, (SOME (_, p)))) e es) =
+     rt :: assigned_free_vars rp ++ assigned_free_vars p) ∧
   (assigned_free_vars (Call (SOME ((SOME rt), rp, NONE)) e es) = rt :: assigned_free_vars rp) ∧
   (assigned_free_vars (ShMem op r ad) = [r]) ∧
   (assigned_free_vars _ = [])
