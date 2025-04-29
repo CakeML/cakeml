@@ -970,6 +970,8 @@ Definition localised_prog_def:
     | _ => T)) ∧
   (localised_prog (DecCall vn sh fn args p) ⇔
    EVERY localised_exp args ∧ localised_prog p) ∧
+  (localised_prog(Assign Local _ e) ⇔ localised_exp e) ∧
+  (localised_prog(Assign Global _ _) ⇔ F) ∧
   (localised_prog _ ⇔ T)
 End
 
