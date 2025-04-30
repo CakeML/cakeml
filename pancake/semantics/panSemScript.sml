@@ -253,7 +253,7 @@ Definition mem_store_32_def:
   (* takes a 32 word *)
   mem_store_32 m dm be (w:'a word) (hw:word32) =
   if aligned 2 w
-  then 
+  then
     case m (byte_align w) of
     | Word v =>
         if byte_align w IN dm
