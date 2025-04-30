@@ -337,13 +337,14 @@ Definition evaluate_stmt_ann_def[nocompute]:
                  | NONE =>
                      (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
                  | SOME out_vs =>
-                   (case assign_values st₃ env lhss out_vs of
-                    | (st₄, Rstop (Serr err)) =>
-                        (restore_locals st₄ old_locals, Rstop (Serr err))
-                    | (st₄, Rstop Sret) =>
-                        (restore_locals st₄ old_locals, Rstop (Serr Rtype_error))
-                    | (st₄, Rcont) =>
-                        (restore_locals st₄ old_locals, Rcont))))))) ∧
+                   (let st₄ = restore_locals st₃ old_locals in
+                      (case assign_values st₄ env lhss out_vs of
+                       | (st₅, Rstop (Serr err)) =>
+                           (st₄, Rstop (Serr err))
+                       | (st₅, Rstop Sret) =>
+                           (st₄, Rstop (Serr Rtype_error))
+                       | (st₅, Rcont) =>
+                           (st₄, Rcont)))))))) ∧
   evaluate_stmt st env Return = (st, Rstop Sret)
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
