@@ -902,13 +902,12 @@ QED
 Theorem scheme_divergence:
   ∀ store ks env state store' ks' env' state' .
     step (store, ks, env, state) = (store', ks', env', state') ∧
-    (ks = [] ⇒ ∀ v  . state ≠ Val v) ∧
-    (∀ s . state ≠ Exception s)
+    ¬ terminating_state (store, ks, env, state)
     ⇒
     (store, ks, env, state) ≠ (store', ks', env', state')
 Proof
   Cases_on ‘state’
-  >> simp[]
+  >> simp[terminating_state_def]
   >~ [‘Exp e’] >- (
     Cases_on ‘e’
     >> simp[step_def] >- (
