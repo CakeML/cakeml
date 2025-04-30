@@ -100,6 +100,11 @@ Inductive valid_state:
   valid_state store ks env (Exception s)
 End
 
+Definition terminating_state_def:
+  terminating_state (store, ks, env, e)
+    ⇔ (ks = [] ∧ ∃ v . e = Val v) ∨ (∃ ex . e = Exception ex)
+End
+
 Theorem FEVERY_MONO:
   ∀ P Q f .
     (∀ x . P x ⇒ Q x) ∧ FEVERY P f
@@ -862,6 +867,36 @@ Proof
     )
   )
   >> simp[step_def, Once valid_state_cases]
+QED
+
+Theorem terminating_direction:
+  ∀ store ks env e store' ks' env' e' .
+    step (store, ks, env, e) = (store', ks', env', e') ∧
+    ¬ terminating_state (store', ks', env', e')
+    ⇒
+    ¬ terminating_state (store, ks, env, e)
+Proof
+  simp[terminating_state_def]
+  >> rpt strip_tac
+  >> gvs[step_def, return_def]
+QED
+
+Theorem terminating_direction_n:
+  ∀ n store ks env e store' ks' env' e' .
+    FUNPOW step n (store, ks, env, e) = (store', ks', env', e') ∧
+    ¬ terminating_state (store', ks', env', e')
+    ⇒
+    ¬ terminating_state (store, ks, env, e)
+Proof
+  Induct
+  >> simp[FUNPOW_SUC]
+  >> rpt gen_tac
+  >> strip_tac
+  >> last_x_assum irule
+  >> Cases_on ‘FUNPOW step n (store,ks,env,e)’
+  >> PairCases_on ‘r’
+  >> drule_all_then assume_tac terminating_direction
+  >> simp[]
 QED
 
 Theorem scheme_divergence:
