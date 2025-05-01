@@ -747,6 +747,34 @@ Proof
   \\ rev_dxrule_all locals_rel_same_map_imp \\ gvs []
 QED
 
+Triviality opt_mmap_val_to_string_eq:
+  ∀s vs t.
+    OPT_MMAP (val_to_string s) vs = OPT_MMAP (val_to_string t) vs
+Proof
+  rpt strip_tac \\ irule OPT_MMAP_CONG \\ rpt strip_tac \\ gvs []
+  \\ Cases_on ‘x’ \\ gvs [val_to_string_def]
+QED
+
+Triviality print_string_state_rel:
+  ∀s vs s' t m cnt.
+    print_string s vs = SOME s' ∧ state_rel s t m cnt ⇒
+    ∃t'. print_string t vs = SOME t' ∧ state_rel s' t' m cnt
+Proof
+  rpt strip_tac
+  \\ gvs [print_string_def]
+  \\ namedCases_on ‘OPT_MMAP (val_to_string s) vs’ ["", "ss"] \\ gvs []
+  \\ qspecl_then [‘s’, ‘vs’, ‘t’] assume_tac opt_mmap_val_to_string_eq
+  \\ gvs [state_rel_def]
+QED
+
+Triviality freshen_exps_len_eq:
+  ∀m cnt es cnt' es'.
+    freshen_exps m cnt es = (cnt', es') ⇒ LENGTH es = LENGTH es'
+Proof
+  Induct_on ‘es’ \\ rpt strip_tac
+  \\ gvs [freshen_exp_def] \\ rpt (pairarg_tac \\ gvs[]) \\ res_tac
+QED
+
 Theorem correct_freshen_stmt:
   ∀s env stmt s' res t m cnt cnt' stmt'.
     evaluate_stmt s env stmt = (s', res) ∧ state_rel s t m cnt ∧
@@ -902,10 +930,21 @@ Proof
          qspecl_then [‘cnt'’, ‘While grd' invs' decrs' mods' body'’] mp_tac
     \\ impl_tac >- gvs [freshen_stmt_def]
     \\ rpt strip_tac \\ gvs [])
-
-
   >~ [‘Print ets’] >-
-   cheat
+   (gvs [evaluate_stmt_def, freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [evaluate_stmt_def, UNZIP_MAP]
+    \\ drule_then assume_tac freshen_exps_len_eq
+    \\ namedCases_on ‘evaluate_exps s env (MAP FST ets)’ ["s₁ r"] \\ gvs []
+    \\ reverse $ namedCases_on ‘r’ ["vs", "err"] \\ gvs []
+    \\ drule (cj 2 correct_freshen_exp) \\ gvs []
+    >- (Cases_on ‘err’ \\ gvs [] \\ disch_then drule_all \\ rpt strip_tac
+        \\ gvs [MAP_ZIP])
+    \\ disch_then drule_all \\ rpt strip_tac \\ gvs [MAP_ZIP]
+    \\ rename [‘evaluate_exps _ _ _ = (t₁, _)’]
+    \\ namedCases_on ‘print_string s₁ vs’ ["", "s₂"] \\ gvs []
+    \\ drule_all print_string_state_rel \\ rpt strip_tac \\ gvs [])
+
   >~ [‘Assert e’] >-
    cheat
   \\ cheat
