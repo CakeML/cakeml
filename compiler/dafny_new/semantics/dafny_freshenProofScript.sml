@@ -944,10 +944,16 @@ Proof
     \\ rename [‘evaluate_exps _ _ _ = (t₁, _)’]
     \\ namedCases_on ‘print_string s₁ vs’ ["", "s₂"] \\ gvs []
     \\ drule_all print_string_state_rel \\ rpt strip_tac \\ gvs [])
-
   >~ [‘Assert e’] >-
-   cheat
-  \\ cheat
+   (gvs [evaluate_stmt_def, freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [evaluate_stmt_def]
+    \\ namedCases_on ‘evaluate_exp s env e’ ["s₁ r"] \\ gvs []
+    \\ namedCases_on ‘r’ ["v", "err"] \\ gvs []
+    \\ drule (cj 1 correct_freshen_exp) \\ gvs [] \\ disch_then drule_all
+    \\ rpt strip_tac \\ gvs []
+    \\ IF_CASES_TAC \\ gvs [])
+  \\ gvs [evaluate_stmt_def, freshen_stmt_def]
 QED
 
 val _ = export_theory ();
