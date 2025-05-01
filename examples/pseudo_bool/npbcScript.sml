@@ -1359,8 +1359,6 @@ Proof
   \\ fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint]
 QED
 
-(* The following is updated material *)
-
 (* set of syntactic variables *)
 Definition npbc_vars_def:
   npbc_vars ((xs,n):npbc) = set (MAP SND xs)
@@ -1504,6 +1502,153 @@ Theorem satisfies_subst_thm:
   satisfies w (fml ⇂ f) ⇔ satisfies (assign f w) fml
 Proof
   rw[satisfies_def,PULL_EXISTS,subst_thm]
+QED
+
+Theorem npbf_vars_UNION[simp]:
+  npbf_vars (f ∪ g) =
+  npbf_vars f ∪ npbf_vars g
+Proof
+  simp[npbf_vars_def]
+QED
+
+Theorem vars_add_lists:
+  ∀xs1 xs2 res k.
+  add_lists xs1 xs2 = (res,k) ∧
+  MEM v (MAP SND res) ⇒
+  MEM v (MAP SND xs1) ∨ MEM v (MAP SND xs2)
+Proof
+  ho_match_mp_tac add_lists_ind >>
+  rw[add_lists_def]>>
+  gvs[]>>
+  pairarg_tac>>
+  gvs[add_terms_def,AllCaseEqs()]
+QED
+
+Theorem vars_subst_aux_1:
+  ∀ls res1 res2 k.
+  subst_aux w ls = (res1,res2,k) ∧
+  MEM v (MAP SND res1) ⇒
+  MEM v (MAP SND ls)
+Proof
+  Induct>>rw[subst_aux_def]>>
+  Cases_on`h`>>gvs[subst_aux_def]>>
+  pairarg_tac>>
+  gvs[AllCaseEqs()]
+QED
+
+Theorem vars_subst_aux_2:
+  ∀ls res1 res2 k.
+  subst_aux w ls = (res1,res2,k) ∧
+  MEM v (MAP SND res2) ⇒
+  MEM v (MAP SND ls) ∨
+  ∃n.
+    w n = SOME (INR (Pos v)) ∨
+    w n = SOME (INR (Neg v))
+Proof
+  Induct>>rw[subst_aux_def,MEM_MAP]>>gvs[]>>
+  Cases_on`h`>>gvs[subst_aux_def]>>
+  pairarg_tac>>
+  gvs[AllCaseEqs(),EXISTS_PROD,MEM_MAP]>>
+  metis_tac[SND,PAIR,FST]
+QED
+
+Theorem vars_partition:
+  ∀ls xs ys.
+  partition ls xs ys = (res1,res2) ∧
+  (MEM v (MAP SND res1) ∨
+    MEM v (MAP SND res2))
+  ⇒
+  MEM v (MAP SND ls) ∨ MEM v (MAP SND xs) ∨ MEM v (MAP SND ys)
+Proof
+  Induct>>rw[partition_def]>>
+  first_x_assum drule>>
+  rw[]>>
+  metis_tac[]
+QED
+
+Theorem vars_clean_up:
+  ∀ls res k.
+  clean_up ls = (res,k) ∧
+  MEM v (MAP SND res) ⇒
+  MEM v (MAP SND ls)
+Proof
+  ho_match_mp_tac clean_up_ind \\ rw []>>
+  gvs[clean_up_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  drule_all vars_add_lists>>rw[]>>gvs[]>>
+  drule vars_partition>>
+  gvs[MEM_MAP]>>
+  metis_tac[]
+QED
+
+Theorem MEM_subst_lhs:
+  subst_lhs w ls = (res,k) ∧
+  MEM v (MAP SND res) ⇒
+  MEM v (MAP SND ls) ∨
+  ∃n.
+    w n = SOME (INR (Pos v)) ∨
+    w n = SOME (INR (Neg v))
+Proof
+  rw[subst_lhs_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  drule_all vars_add_lists>>
+  rw[]
+  >- (
+    drule_all vars_subst_aux_1>>
+    simp[])>>
+  drule_all vars_clean_up>>
+  rw[]>>
+  drule_all vars_subst_aux_2>>
+  simp[]
+QED
+
+Theorem npbc_vars_subst:
+  ∀v.
+  v ∈ npbc_vars (subst w c) ⇒
+  v ∈ npbc_vars c ∨
+  (∃n.
+    w n = SOME (INR (Pos v)) ∨
+    w n = SOME (INR (Neg v)))
+Proof
+  Cases_on`c`>>rw[subst_def,npbc_vars_def]>>
+  pairarg_tac>>gvs[npbc_vars_def]>>
+  drule_all MEM_subst_lhs>>
+  simp[]
+QED
+
+Theorem npbf_vars_subst:
+  v ∈ npbf_vars (f ⇂ w) ⇒
+  v ∈ npbf_vars f ∨
+  (∃n.
+    w n = SOME (INR (Pos v)) ∨
+    w n = SOME (INR (Neg v)))
+Proof
+  rw[npbf_vars_def]>>
+  metis_tac[npbc_vars_subst]
+QED
+
+Theorem npbc_vars_not[simp]:
+  npbc_vars (not c) = npbc_vars c
+Proof
+  Cases_on`c`>>
+  simp[not_def,npbc_vars_def]>>
+  rw[EXTENSION,MEM_MAP,EXISTS_PROD]
+QED
+
+Theorem npbc_vars_obj_constraint:
+  v ∈ npbc_vars (obj_constraint w obj) ⇒
+  MEM v (MAP SND (FST obj)) ∨
+  (∃n.
+    w n = SOME (INR (Pos v)) ∨
+    w n = SOME (INR (Neg v)))
+Proof
+  Cases_on`obj`>>rw[obj_constraint_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  gvs[npbc_vars_def]>>
+  drule_all vars_add_lists>>
+  rw[]>>simp[]>>
+  drule_all MEM_subst_lhs>>
+  simp[MAP_MAP_o,o_DEF,MEM_MAP,EXISTS_PROD]
 QED
 
 (* is_spec defines fml to be a specification over the variables in as *)
@@ -2038,17 +2183,31 @@ Proof
   qexists_tac`npbf_vars fml`>>rw[assign_def]
 QED
 
-(* TODO below *)
 Definition get_lits_subst_def:
   get_lits_subst xs =
   MAP (λ(b,x).
     if b then INR (Pos x) else INR (Neg x)) xs
 End
 
+Definition mk_lit_def:
+  mk_lit bv =
+  case bv of (b,v) =>
+  if b then Pos v
+  else Neg v
+End
+
+Definition mk_bit_lit_def:
+  mk_bit_lit b l =
+  case l of
+    INL b' => INL (b ⇔ b')
+  | INR (Pos v) => INR (mk_lit (b,v))
+  | INR (Neg v) => INR (mk_lit (¬b,v))
+End
+
 Theorem imp_sat_ord_po_of_aspo:
   (∀a. a ∈ set as ⇒
     a ∉ npbf_vars fml ∧
-    a ∉ npbc_vars (not c) ∧
+    a ∉ npbc_vars c ∧
     a ∉ set (MAP SND xs) ∧
     (∀n. w n ≠ SOME (INR (Pos a))) ∧
     (∀n. w n ≠ SOME (INR (Neg a)))) ∧
@@ -2057,9 +2216,13 @@ Theorem imp_sat_ord_po_of_aspo:
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
-        SOME v =>
-          (case w v of NONE => SOME (INR (Pos v)) | r => r)
-      | NONE => ALOOKUP (ZIP (vs, get_lits_subst xs)) n) ∧
+        SOME (b,v) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
   fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ (set f) ⇂ sub_leq ⇒
   sat_ord (fml ∪ {not c}) (po_of_aspo ((f,g,us,vs,as),xs)) w
 Proof
@@ -2081,13 +2244,13 @@ Proof
     >- (
       CCONTR_TAC>>gvs[AllCaseEqs()]>>
       drule ALOOKUP_MEM>> strip_tac>>
-      drule_at Any MEM_ZIP_MEM_MAP>>simp[MEM_MAP]>>
-      drule_at Any MEM_ZIP_MEM_MAP>>simp[MEM_MAP])
+      drule_at Any MEM_ZIP_MEM_MAP>>
+      gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def])
     >- (
       CCONTR_TAC>>gvs[AllCaseEqs()]>>
       drule ALOOKUP_MEM>> strip_tac>>
-      drule_at Any MEM_ZIP_MEM_MAP>>simp[MEM_MAP]>>
-      drule_at Any MEM_ZIP_MEM_MAP>>simp[MEM_MAP]))>>
+      drule_at Any MEM_ZIP_MEM_MAP>>
+      gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]))>>
   strip_tac>>
   gvs[the_spec_def]>>
   first_x_assum (drule_at (Pos last))>>
@@ -2105,8 +2268,8 @@ Proof
       assign (ALOOKUP (ZIP (as,MAP INL vvv)))
       (assign
         (ALOOKUP
-          (ZIP (us,MAP (INL ∘ assign w s) xs) ++
-           ZIP (vs,MAP (INL ∘ s) xs))) s) n)` by (
+          (ZIP (us,get_bits (assign w s) xs) ++
+           ZIP (vs,get_bits s xs))) s) n)` by (
     rw[]>>
     simp[Abbr`sub_leq`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
     >- (
@@ -2121,14 +2284,20 @@ Proof
       DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
       CONJ_TAC>- metis_tac[]>>
       simp[]>>
-      simp[assign_def]>>
+      Cases_on`yy`>>simp[]>>
       simp[Once EQ_SYM_EQ]>>
-      TOP_CASE_TAC>>simp[]
+      TOP_CASE_TAC>>simp[mk_bit_lit_def,mk_lit_def]
       >- (
-        DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]>>metis_tac[])>>
+        rw[]>>
+        DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+        gvs[MEM_MAP]>>
+        metis_tac[SND])>>
       TOP_CASE_TAC>>simp[]>>
       TOP_CASE_TAC>>simp[]>>
-      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]>>metis_tac[])
+      rw[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      gvs[MEM_MAP]>>
+      metis_tac[SND])
     >- (
       Cases_on`ALOOKUP (ZIP (vs,xs)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
@@ -2139,8 +2308,11 @@ Proof
         drule ALOOKUP_MEM>>
         rw[MEM_ZIP,MEM_EL]>>
         metis_tac[])>>
-      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]>>
-      metis_tac[])
+      simp[mk_lit_def]>>
+      TOP_CASE_TAC>>simp[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      gvs[MEM_MAP,AllCaseEqs()]>>
+      metis_tac[SND])
     >- (
       Cases_on`ALOOKUP (ZIP (as,vvv)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
@@ -2152,8 +2324,8 @@ QED
 Theorem imp_sat_strict_ord_po_of_aspo:
   (∀a. a ∈ set as ⇒
     a ∉ npbf_vars fml ∧
-    a ∉ npbc_vars (not c) ∧
-    a ∉ set xs ∧
+    a ∉ npbc_vars c ∧
+    a ∉ set (MAP SND xs) ∧
     (∀n. w n ≠ SOME (INR (Pos a))) ∧
     (∀n. w n ≠ SOME (INR (Neg a)))) ∧
   good_aord (f,g,us,vs,as) ∧
@@ -2161,15 +2333,23 @@ Theorem imp_sat_strict_ord_po_of_aspo:
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
-        SOME v =>
-          (case w v of NONE => SOME (INR (Pos v)) | r => r)
-      | NONE => ALOOKUP (ZIP (vs, MAP (INR o Pos) xs)) n) ∧
+        SOME (b,v) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
   sub_geq =
     (λn.
       case ALOOKUP (ZIP (vs,xs)) n of
-        SOME v =>
-          (case w v of NONE => SOME (INR (Pos v)) | r => r)
-      | NONE => ALOOKUP (ZIP (us, MAP (INR o Pos) xs)) n) ∧
+        SOME (b,v) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (us, xs)) n)) ∧
   fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ (set f) ⇂ sub_leq ∧
   unsatisfiable (
     fml ∪ {not c} ∪
@@ -2223,8 +2403,8 @@ Proof
     n ∈ set us ∪ set vs ∪ set as ⇒
     (assign
       (ALOOKUP
-        (ZIP (us,MAP (INL ∘ s) xs) ++
-         ZIP (vs,MAP (INL ∘ assign w s) xs)))
+        (ZIP (us,get_bits s xs) ++
+         ZIP (vs,get_bits (assign w s) xs)))
          (assign (ALOOKUP (ZIP (as,MAP INL vvv))) ww) n ⇔
     assign sub_geq (assign (ALOOKUP (ZIP (as,MAP INL vvv))) s) n)` by (
     rw[]>>
@@ -2239,10 +2419,11 @@ Proof
         metis_tac[])>>
       DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
       CONJ_TAC>- metis_tac[]>>
-      simp[]>>
+      simp[mk_lit_def]>>
+      TOP_CASE_TAC>>simp[]>>
       DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-      simp[]>>
-      metis_tac[])
+      gvs[AllCaseEqs(),MEM_MAP]>>
+      metis_tac[SND])
     >- (
       Cases_on`ALOOKUP (ZIP (vs,xs)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
@@ -2253,13 +2434,19 @@ Proof
         drule ALOOKUP_MEM>>
         rw[MEM_ZIP,MEM_EL]>>
         metis_tac[])>>
-      simp[assign_def]>>
-      TOP_CASE_TAC>>simp[]
+      Cases_on`yy`>>simp[]>>
+      TOP_CASE_TAC>>simp[mk_bit_lit_def,mk_lit_def]
       >- (
-        DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]>>metis_tac[])>>
+        rw[]>>
+        DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+        gvs[MEM_MAP]>>
+        metis_tac[SND])>>
       TOP_CASE_TAC>>simp[]>>
       TOP_CASE_TAC>>simp[]>>
-      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]>>metis_tac[])
+      rw[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      gvs[MEM_MAP]>>
+      metis_tac[SND])
     >- (
       Cases_on`ALOOKUP (ZIP (as,vvv)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
@@ -2282,31 +2469,106 @@ Proof
   metis_tac[SUBSET_REFL,npbf_vars_satisfies]
 QED
 
+Theorem sat_implies_more_left_spec:
+  (∀a. a ∈ set as ⇒
+    a ∉ npbf_vars fml ∧
+    a ∉ set (MAP SND xs) ∧
+    (∀n. w n ≠ SOME (INR (Pos a))) ∧
+    (∀n. w n ≠ SOME (INR (Neg a))) ∧
+    a ∉ npbf_vars rhs) ∧
+  good_aord (f,g,us,vs,as) ∧
+  LENGTH xs = LENGTH us ∧
+  sub_leq =
+    (λn.
+      case ALOOKUP (ZIP (us,xs)) n of
+        SOME (b,v) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
+  fml ∪ (set g) ⇂ sub_leq ⊨ rhs ⇒
+  fml ⊨ rhs
+Proof
+  rw[]>>
+  qmatch_asmsub_abbrev_tac`set g ⇂ sub_leq`>>
+  irule sat_implies_more_left>>
+  first_x_assum (irule_at Any)>>
+  gvs[good_aspo_def]>>
+  qexists_tac`set as`>>
+  rw[]
+  >- (
+    rename1`ww _ ⇔ _`>>
+    gvs[good_aord_def,is_spec_def,ALL_DISTINCT_APPEND]>>
+    first_x_assum (qspec_then `assign sub_leq ww` mp_tac)>>
+    rw[]>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[the_spec_assign]>>
+    CONJ_TAC>- (
+      simp[]>>
+      reverse CONJ_TAC >- metis_tac[]>>
+      rw[Abbr`sub_leq`]
+      >- (
+        DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+        simp[]>>
+        metis_tac[])
+      >- (
+        CCONTR_TAC>>gvs[AllCaseEqs()]>>
+        drule ALOOKUP_MEM>> strip_tac>>
+        drule_at Any MEM_ZIP_MEM_MAP>>
+        gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def])
+      >- (
+        CCONTR_TAC>>gvs[AllCaseEqs()]>>
+        drule ALOOKUP_MEM>> strip_tac>>
+        drule_at Any MEM_ZIP_MEM_MAP>>
+        gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]))>>
+    rw[the_spec_def]>>
+    first_x_assum (irule_at Any)>>
+    rw[assign_def]>>
+    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+    simp[])>>
+  gvs[EXTENSION]>>metis_tac[]
+QED
+
 (*
-  The requirement on fml and xs must be enforced as an invariant upon
-  loading an order.
-  The requirement on w and c must be enforced upon rule application.
-  Technically, the constraint on obj can be enforced either way.
-  In the current phrasing, it is enforced on application (when w is known)
+  The freshness requirements on as can be enforced at any time.
+  One easy way is to enforce it upon rule application using the variable
+  mappings for the database and for the objective.
 *)
 Theorem substitution_redundancy_obj_po:
-  (∀a. MEM a as ⇒
+  (∀a. a ∈ set as ⇒
     a ∉ npbf_vars fml ∧
-    a ∉ npbc_vars (not c) ∧
-    ¬MEM a xs ∧
-    (∀n. w n ≠ SOME (INR (Pos a))) ∧ ∀n. w n ≠ SOME (INR (Neg a))) ∧
-  (!a. MEM a as ⇒
-    (case obj of
+    a ∉ npbc_vars c ∧
+    a ∉ set (MAP SND xs) ∧
+    (∀n. w n ≠ SOME (INR (Pos a))) ∧
+    (∀n. w n ≠ SOME (INR (Neg a)))) ∧
+  (∀a. a ∈ set as ⇒
+    case obj of
       NONE => T
-    | SOME obj => a ∉ npbc_vars (obj_constraint w obj))) ∧
+    | SOME obj => a ∉ set (MAP SND (FST obj))) ∧
   good_aspo (((f,g,us,vs,as),xs)) ∧
   (∀x. x ∈ pres ⇒ w x = NONE) ∧
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
-        SOME v =>
-          (case w v of NONE => SOME (INR (Pos v)) | r => r)
-      | NONE => ALOOKUP (ZIP (vs, MAP (INR o Pos) xs)) n) ∧
+        SOME (b,v) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
+  sub_geq =
+    (λn.
+      case ALOOKUP (ZIP (vs,xs)) n of
+        SOME (b,v) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (us, xs)) n)) ∧
   fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ ((fml ∪ {c}) ⇂ w ∪
     (case obj of NONE => {}
       | SOME obj => {obj_constraint w obj})) ∧
@@ -2339,34 +2601,21 @@ Proof
   pop_assum drule_all>>
   disch_then (irule_at Any)>>
   simp[assign_def]>>
-  drule_at (Pos last) sat_implies_more_left>>
-  disch_then(qspec_then `set as` mp_tac)>>
+  drule_at (Pos last) sat_implies_more_left_spec>>
+  rpt (disch_then (drule_at Any))>>
+  disch_then (qspec_then `w` mp_tac)>>simp[]>>
   impl_tac >- (
     rw[]
     >- (
-      gvs[good_aord_def,is_spec_def]>>
-      first_x_assum (qspec_then `s` mp_tac)>>
-      rw[the_spec_def]>>
-      simp[satisfies_subst_thm]>>
-      irule_at Any (GEN_ALL npbf_vars_satisfies)>>
-      first_x_assum (irule_at Any)>>
-      qexists_tac`assign (ALOOKUP (ZIP (as,MAP INL vs'))) w'`>>
-      simp[]>>
-      first_x_assum (irule_at Any)>>
-      rw[assign_def]
-      >-
-        cheat
-      >-
-        cheat
-      >-
-        cheat
-      >-
-        (DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]))
-    >- (
       gvs[EXTENSION,npbf_vars_def]>>
       metis_tac[])
-    >-
-      cheat)>>
+    >- metis_tac[npbf_vars_subst]
+    >- (simp[npbf_vars_def] >> metis_tac[npbc_vars_subst])
+    >- (
+      TOP_CASE_TAC>>gvs[npbf_vars_def]>>
+      metis_tac[npbc_vars_obj_constraint]
+    )
+  )>>
   simp[sat_implies_def,not_thm]>>
   disch_then drule_all>>
   rw[]
@@ -2381,13 +2630,16 @@ Proof
 QED
 
 Theorem good_aspo_dominance:
-  (∀a. MEM a as ⇒
-    a ∉ npbf_vars fml ∧ a ∉ npbc_vars (not c) ∧ ¬MEM a xs ∧
-    (∀n. w n ≠ SOME (INR (Pos a))) ∧ ∀n. w n ≠ SOME (INR (Neg a))) ∧
-  (!a. MEM a as ⇒
-    (case obj of
+  (∀a. a ∈ set as ⇒
+    a ∉ npbf_vars fml ∧
+    a ∉ npbc_vars (not c) ∧
+    a ∉ set (MAP SND xs) ∧
+    (∀n. w n ≠ SOME (INR (Pos a))) ∧
+    (∀n. w n ≠ SOME (INR (Neg a)))) ∧
+  (∀a. a ∈ set as ⇒
+    case obj of
       NONE => T
-    | SOME obj => a ∉ npbc_vars (obj_constraint w obj))) ∧
+    | SOME obj => a ∉ set (MAP SND (FST obj))) ∧
   good_aspo (((f,g,us,vs,as),xs)) ∧
   (∀x. x ∈ pres ⇒ w x = NONE) ∧
   C ⊆ fml ∧
@@ -2401,15 +2653,23 @@ Theorem good_aspo_dominance:
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
-        SOME v =>
-          (case w v of NONE => SOME (INR (Pos v)) | r => r)
-      | NONE => ALOOKUP (ZIP (vs, MAP (INR o Pos) xs)) n) ∧
+        SOME (b,v) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
   sub_geq =
     (λn.
       case ALOOKUP (ZIP (vs,xs)) n of
-        SOME v =>
-          (case w v of NONE => SOME (INR (Pos v)) | r => r)
-      | NONE => ALOOKUP (ZIP (us, MAP (INR o Pos) xs)) n) ∧
+        SOME (b,v) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (us, xs)) n)) ∧
   fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ C ⇂ w ∧
   fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ (set f) ⇂ sub_leq ∧
   unsatisfiable (
@@ -2442,23 +2702,34 @@ Proof
     fs[EXTENSION,SUBSET_DEF]>>
     metis_tac[])>>
   disch_then (drule_at Any)>>
-  disch_then (qspec_then`set xs` mp_tac)>>
+  disch_then (qspec_then`set (MAP SND xs)` mp_tac)>>
   simp[finite_support_po_of_aspo]>>
   disch_then (qspec_then`c` mp_tac)>>
   impl_tac>- (
     fs[good_aspo_def]>>
     CONJ_TAC >- (
-      irule sat_implies_more_left>>
-      first_x_assum (irule_at Any)>>
-      qexists_tac`set as`>>cheat)>>
+      irule_at Any sat_implies_more_left_spec>>
+      rpt(first_x_assum (irule_at Any))>>
+      qexists_tac`w`>>simp[]>>
+      rw[]
+      >- (
+        gvs[EXTENSION,npbf_vars_def]>>
+        metis_tac[])
+      >- (
+        CCONTR_TAC>>
+        gvs[]>> drule npbf_vars_subst>>
+        gvs[SUBSET_DEF,npbf_vars_def]>>
+        metis_tac[]))>>
     CONJ_TAC >- (
       irule imp_sat_strict_ord_po_of_aspo>>
       gvs[])>>
     gvs[AllCasePreds()]>>
-    irule sat_implies_more_left>>
-    first_x_assum (irule_at Any)>>
-    qexists_tac`set as`>>
-    cheat)>>
+    irule_at Any sat_implies_more_left_spec>>
+    rpt(first_x_assum (irule_at Any))>>
+    qexists_tac`w`>>simp[]>>
+    rw[]>>
+    gvs[EXTENSION,npbf_vars_def]>>
+    metis_tac[npbc_vars_obj_constraint])>>
   simp[conf_valid'_def]>>
   rw[]>>
   pop_assum drule>>
@@ -2569,10 +2840,5 @@ Definition weaken_spt_def:
   | SOME c =>
     (delete v l, n-Num(ABS c))
 End
-
-
-
-
-
 
 val _ = export_theory();
