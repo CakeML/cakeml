@@ -709,12 +709,42 @@ Proof
 QED
 
 Triviality state_rel_with_locals:
-  ∀s t m cnt u s' t'.
-    state_rel s t m cnt ∧ u with locals := s.locals = s' ∧
-    u with locals := t.locals = t' ⇒
+  ∀s t m cnt u.
+    state_rel s t m cnt ⇒
+    state_rel (u with locals := s.locals) (u with locals := t.locals) m cnt
+Proof
+  rpt strip_tac \\ gvs [state_rel_def]
+QED
+
+Triviality state_rel_dec_clock:
+  ∀s t m cnt.
+    state_rel s t m cnt ⇒ state_rel (dec_clock s) (dec_clock t) m cnt
+Proof
+  rpt strip_tac \\ gvs [state_rel_def, dec_clock_def]
+QED
+
+Triviality locals_rel_same_map_imp:
+  ∀ss m ts cnt ss' ts' cnt'.
+    locals_rel ss m ts cnt ∧ locals_rel ss' m ts' cnt' ⇒
+    locals_rel ss' m ts' cnt
+Proof
+  rpt strip_tac
+  \\ namedCases_on ‘ss’ ["", "sl ss"] \\ namedCases_on ‘m’ ["", "ml ms"]
+  \\ namedCases_on ‘ts’ ["", "tl ts"] \\ gvs [locals_rel_def]
+  \\ namedCases_on ‘ss'’ ["", "sl' ss'"] \\ namedCases_on ‘ts'’ ["", "tl' ts'"]
+  \\ gvs [locals_rel_def] \\ PairCases_on ‘tl'’ \\ gvs [locals_rel_def]
+  \\ PairCases_on ‘tl’ \\ gvs [locals_rel_def]
+  \\ PairCases_on ‘ml’ \\ gvs [locals_rel_def]
+  \\ PairCases_on ‘sl’ \\ PairCases_on ‘sl'’ \\ gvs [locals_rel_def]
+QED
+
+Triviality state_rel_same_map_imp:
+  ∀s t m cnt s' t' cnt'.
+    state_rel s t m cnt ∧ state_rel s' t' m cnt' ⇒
     state_rel s' t' m cnt
 Proof
   rpt strip_tac \\ gvs [state_rel_def]
+  \\ rev_dxrule_all locals_rel_same_map_imp \\ gvs []
 QED
 
 Theorem correct_freshen_stmt:
@@ -798,7 +828,6 @@ Proof
          assign_values_state_rel \\ gvs []
     \\ disch_then $ drule_all \\ rpt strip_tac \\ gvs [])
   >~ [‘MetCall lhss name args’] >-
-
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_stmt_def]
@@ -832,16 +861,49 @@ Proof
     \\ gvs [restore_locals_def]
     \\ namedCases_on
        ‘assign_values (s₂ with locals := s₁.locals) env lhss out_vs’ ["st₃ r"]
-    \\ gvs []
-
-   (* We can probably now write a helper lemma that gives us
-      state_rel (s₂ with locals := s₁.locals) m (s₂ with locals := t₁.locals),
-      then use assign_values_state_rel, and then skibidi *)
-
-   )
-
+    \\ gvs [] \\ namedCases_on ‘r’ ["", "err"] \\ gvs []
+    \\ qspecl_then [‘s₁’, ‘t₁’, ‘m’, ‘cnt₁’, ‘s₂’] assume_tac
+         state_rel_with_locals
+    \\ drule assign_values_state_rel
+    >- (gvs [] \\ disch_then $ drule_all \\ rpt strip_tac \\ gvs []
+        \\ imp_res_tac state_rel_mono)
+    \\ Cases_on ‘err’ \\ gvs []
+    \\ disch_then drule_all \\ rpt strip_tac \\ gvs []
+    \\ imp_res_tac state_rel_mono)
   >~ [‘While grd invs decrs mods body’] >-
-   cheat
+   (gvs [evaluate_stmt_def, freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [evaluate_stmt_def]
+    \\ namedCases_on ‘evaluate_exp s env grd’ ["s₁ r"] \\ gvs []
+    \\ drule (cj 1 correct_freshen_exp)
+    \\ reverse $ namedCases_on ‘r’ ["grd_v", "err"] \\ gvs []
+    \\ disch_then drule_all \\ rpt strip_tac \\ gvs []
+    \\ rename [‘evaluate_exp t env grd' = (t₁, _)’]
+    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac freshen_stmt_mono
+        \\ imp_res_tac state_rel_mono \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac freshen_stmt_mono
+        \\ imp_res_tac state_rel_mono \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    \\ namedCases_on ‘evaluate_stmt s₁ env body’ ["s₂ r"] \\ gvs []
+    \\ rename [‘freshen_stmt m cnt₅ body = (cnt', body')’]
+    \\ ‘state_rel s₁ t₁ m cnt₅’ by
+         (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono)
+    \\ first_x_assum $ drule_at $ Pos $ el 2
+    \\ reverse $ namedCases_on ‘r’ ["", "stp"] \\ gvs []
+    \\ disch_then drule_all \\ rpt strip_tac \\ gvs []
+    \\ rename [‘evaluate_stmt _ _ _ = (t₂,_)’]
+    \\ ‘s₂.clock = t₂.clock’ by gvs [state_rel_def]
+    \\ IF_CASES_TAC \\ gvs [STOP_def]
+    \\ drule_then assume_tac state_rel_dec_clock
+    \\ rev_drule state_rel_same_map_imp \\ disch_then dxrule \\ strip_tac
+    \\ last_x_assum drule
+    \\ disch_then $
+         qspecl_then [‘cnt'’, ‘While grd' invs' decrs' mods' body'’] mp_tac
+    \\ impl_tac >- gvs [freshen_stmt_def]
+    \\ rpt strip_tac \\ gvs [])
+
+
   >~ [‘Print ets’] >-
    cheat
   >~ [‘Assert e’] >-
