@@ -1291,7 +1291,7 @@ Triviality v_rel_store_assign':
    store_assign lnum a refs1 = A ==>
    ref_rel a b /\ LIST_REL ref_rel refs1 refs2 ==>
    ?B. store_assign lnum b  refs2 = B /\
-   OPTREL (LIST_REL ref_rel) A B 
+   OPTREL (LIST_REL ref_rel) A B
 Proof
   rw[] >>
   imp_res_tac LIST_REL_LENGTH >> gs[] >>
@@ -1304,14 +1304,14 @@ Proof
   gs[oneline ref_rel_def,AllCasePreds()] >>
   fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
   rw[] >>
-  fs[LIST_REL_EL_EQN] 
+  fs[LIST_REL_EL_EQN]
 QED
 
 Triviality v_rel_store_lookup':
    store_lookup lnum refs1 = A ==>
    LIST_REL ref_rel refs1 refs2 ==>
    ?B. store_lookup lnum refs2 = B /\
-   OPTREL (ref_rel) A B 
+   OPTREL (ref_rel) A B
 Proof
   rw[] >>
   imp_res_tac LIST_REL_LENGTH >> gs[] >>
@@ -1347,7 +1347,7 @@ Theorem do_app_thm:
     OPTREL (λ((r1,f1),v1) ((r2,f2),v2).
              f1 = f2 ∧ res1_rel v1 v2 ∧ LIST_REL ref_rel r1 r2)
            (do_app (refs1,ffi) op a1) (do_app (refs2,ffi) op a2)
-Proof[exclude_simps = IF_NONE_EQUALS_OPTION]  
+Proof[exclude_simps = IF_NONE_EQUALS_OPTION]
   rpt strip_tac >> imp_res_tac LIST_REL_LENGTH >>
   Cases_on `(do_app (refs1,ffi) op a1)` >> gs[OPTREL_SOME] >>
   pop_assum mp_tac
@@ -1361,11 +1361,11 @@ Proof[exclude_simps = IF_NONE_EQUALS_OPTION]
       >>~-([`fp_translate`],
          rpt $ dxrule_then (drule_all_then SUBST_ALL_TAC) v_rel_fp_translate' >>
          EVAL_TAC)
-      >>  rpt (dxrule_then (drule_all_then strip_assume_tac) 
-          v_rel_store_lookup' >> 
+      >>  rpt (dxrule_then (drule_all_then strip_assume_tac)
+          v_rel_store_lookup' >>
           gs[OPTREL_SOME,oneline ref_rel_def,AllCasePreds(),
           Excl "IF_NONE_EQUALS_OPTION"])
-      >>  rpt (dxrule v_rel_store_assign' >> 
+      >>  rpt (dxrule v_rel_store_assign' >>
           gs[OPTREL_SOME,oneline ref_rel_def,AllCasePreds(),
           Excl "IF_NONE_EQUALS_OPTION"])
       >- (imp_res_tac $ GSYM v_rel_v_to_char_list >> gs[])
@@ -1411,12 +1411,12 @@ Proof[exclude_simps = IF_NONE_EQUALS_OPTION]
       >>~-([`store_alloc`],
           gvs[store_alloc_def] >>
           fs[LIST_REL_REPLICATE_same])
-      >>  rpt (dxrule_then (drule_all_then strip_assume_tac) 
-          v_rel_store_lookup' >> 
+      >>  rpt (dxrule_then (drule_all_then strip_assume_tac)
+          v_rel_store_lookup' >>
           gs[OPTREL_SOME,oneline ref_rel_def,AllCasePreds(),
           Excl "IF_NONE_EQUALS_OPTION"])
       >>  rpt (dxrule_then (drule_at_then (Pos (el 2)) mp_tac)
-           v_rel_store_assign' >> 
+           v_rel_store_assign' >>
           gs[OPTREL_SOME,oneline ref_rel_def,AllCasePreds(),
           Excl "IF_NONE_EQUALS_OPTION"])
       >>~ [`store_assign`]
