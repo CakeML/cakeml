@@ -2113,11 +2113,12 @@ QED
 
 (* Any installed aspo must satisfy these conditions *)
 Definition good_aspo_def:
-  good_aspo aspo ⇔
-  good_aord (FST aspo) ∧
-  reflexive (po_of_aspo aspo) ∧
-  transitive (po_of_aspo aspo) ∧
-  LENGTH (SND aspo) = LENGTH (FST (SND (SND (FST aspo))))
+  good_aspo ((f,g,us,vs,as),xs) ⇔
+  good_aord (f,g,us,vs,as) ∧
+  reflexive (po_of_aspo ((f,g,us,vs,as),xs)) ∧
+  transitive (po_of_aspo ((f,g,us,vs,as),xs)) ∧
+  LENGTH xs = LENGTH us ∧
+  set as ∩ set (MAP SND xs) = {}
 End
 
 Theorem the_spec_assign:
@@ -2208,11 +2209,11 @@ Theorem imp_sat_ord_po_of_aspo:
   (∀a. a ∈ set as ⇒
     a ∉ npbf_vars fml ∧
     a ∉ npbc_vars c ∧
-    a ∉ set (MAP SND xs) ∧
     (∀n. w n ≠ SOME (INR (Pos a))) ∧
     (∀n. w n ≠ SOME (INR (Neg a)))) ∧
   good_aord (f,g,us,vs,as) ∧
   LENGTH xs = LENGTH us ∧
+  set as ∩ set (MAP SND xs) = {} ∧
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
@@ -2229,7 +2230,7 @@ Proof
   rw[sat_ord_def,po_of_aspo_def]>>
   rename1`satisfies s fml`>>
   gvs[sat_implies_def]>>
-  fs[good_aord_def,ALL_DISTINCT_APPEND,is_spec_def]>>
+  fs[good_aord_def,ALL_DISTINCT_APPEND,is_spec_def,EXTENSION]>>
   qmatch_asmsub_abbrev_tac`set f ⇂ sub_leq`>>
   last_x_assum (qspec_then `assign sub_leq s` assume_tac)>>
   gvs[]>>
@@ -2245,12 +2246,14 @@ Proof
       CCONTR_TAC>>gvs[AllCaseEqs()]>>
       drule ALOOKUP_MEM>> strip_tac>>
       drule_at Any MEM_ZIP_MEM_MAP>>
-      gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def])
+      gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
+      metis_tac[SND])
     >- (
       CCONTR_TAC>>gvs[AllCaseEqs()]>>
       drule ALOOKUP_MEM>> strip_tac>>
       drule_at Any MEM_ZIP_MEM_MAP>>
-      gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]))>>
+      gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
+      metis_tac[SND]))>>
   strip_tac>>
   gvs[the_spec_def]>>
   first_x_assum (drule_at (Pos last))>>
@@ -2325,11 +2328,11 @@ Theorem imp_sat_strict_ord_po_of_aspo:
   (∀a. a ∈ set as ⇒
     a ∉ npbf_vars fml ∧
     a ∉ npbc_vars c ∧
-    a ∉ set (MAP SND xs) ∧
     (∀n. w n ≠ SOME (INR (Pos a))) ∧
     (∀n. w n ≠ SOME (INR (Neg a)))) ∧
   good_aord (f,g,us,vs,as) ∧
   LENGTH xs = LENGTH us ∧
+  set as ∩ set (MAP SND xs) = {} ∧
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
@@ -2398,7 +2401,7 @@ Proof
     DEP_REWRITE_TAC[satisfies_assign_skip,satisfies_npbc_assign_skip]>>
     rw[]>>
     DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>gvs[]>>metis_tac[])>>
-  gvs[good_aord_def,ALL_DISTINCT_APPEND]>>
+  gvs[good_aord_def,ALL_DISTINCT_APPEND,EXTENSION]>>
   `∀n.
     n ∈ set us ∪ set vs ∪ set as ⇒
     (assign
@@ -2472,12 +2475,12 @@ QED
 Theorem sat_implies_more_left_spec:
   (∀a. a ∈ set as ⇒
     a ∉ npbf_vars fml ∧
-    a ∉ set (MAP SND xs) ∧
     (∀n. w n ≠ SOME (INR (Pos a))) ∧
     (∀n. w n ≠ SOME (INR (Neg a))) ∧
     a ∉ npbf_vars rhs) ∧
   good_aord (f,g,us,vs,as) ∧
   LENGTH xs = LENGTH us ∧
+  set as ∩ set (MAP SND xs) = {} ∧
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
@@ -2500,7 +2503,7 @@ Proof
   rw[]
   >- (
     rename1`ww _ ⇔ _`>>
-    gvs[good_aord_def,is_spec_def,ALL_DISTINCT_APPEND]>>
+    gvs[good_aord_def,is_spec_def,ALL_DISTINCT_APPEND,EXTENSION]>>
     first_x_assum (qspec_then `assign sub_leq ww` mp_tac)>>
     rw[]>>
     pop_assum mp_tac>>
@@ -2517,12 +2520,14 @@ Proof
         CCONTR_TAC>>gvs[AllCaseEqs()]>>
         drule ALOOKUP_MEM>> strip_tac>>
         drule_at Any MEM_ZIP_MEM_MAP>>
-        gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def])
+        gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
+        metis_tac[SND])
       >- (
         CCONTR_TAC>>gvs[AllCaseEqs()]>>
         drule ALOOKUP_MEM>> strip_tac>>
         drule_at Any MEM_ZIP_MEM_MAP>>
-        gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]))>>
+        gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
+        metis_tac[SND]))>>
     rw[the_spec_def]>>
     first_x_assum (irule_at Any)>>
     rw[assign_def]>>
@@ -2532,21 +2537,23 @@ Proof
 QED
 
 (*
-  The freshness requirements on as can be enforced at any time.
-  One easy way is to enforce it upon rule application using the variable
-  mappings for the database and for the objective.
-*)
-Theorem substitution_redundancy_obj_po:
-  (∀a. a ∈ set as ⇒
+  The freshness requirements on the auxiliaries 'as' can be enforced at any time.
+  An easy way is to enforce it upon rule application using the variable
+  mappings for the database and for the objective. *)
+Definition fresh_aux_def:
+  fresh_aux as fml c obj w ⇔
+  ∀a. a ∈ set as ⇒
     a ∉ npbf_vars fml ∧
     a ∉ npbc_vars c ∧
-    a ∉ set (MAP SND xs) ∧
-    (∀n. w n ≠ SOME (INR (Pos a))) ∧
-    (∀n. w n ≠ SOME (INR (Neg a)))) ∧
-  (∀a. a ∈ set as ⇒
-    case obj of
+    (case obj of
       NONE => T
     | SOME obj => a ∉ set (MAP SND (FST obj))) ∧
+    (∀n. w n ≠ SOME (INR (Pos a))) ∧
+    (∀n. w n ≠ SOME (INR (Neg a)))
+End
+
+Theorem substitution_redundancy_obj_po:
+  fresh_aux as fml c obj w ∧
   good_aspo (((f,g,us,vs,as),xs)) ∧
   (∀x. x ∈ pres ⇒ w x = NONE) ∧
   sub_leq =
@@ -2559,16 +2566,6 @@ Theorem substitution_redundancy_obj_po:
                 NONE => INR (Pos v)
               | SOME res => res))
       | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
-  sub_geq =
-    (λn.
-      case ALOOKUP (ZIP (vs,xs)) n of
-        SOME (b,v) =>
-          SOME (
-            mk_bit_lit b
-              (case w v of
-                NONE => INR (Pos v)
-              | SOME res => res))
-      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (us, xs)) n)) ∧
   fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ ((fml ∪ {c}) ⇂ w ∪
     (case obj of NONE => {}
       | SOME obj => {obj_constraint w obj})) ∧
@@ -2590,11 +2587,14 @@ Proof
     qexists_tac`s`>>simp[]>>
     gvs[good_aspo_def]>>
     metis_tac[reflexive_def])>>
-  gvs[good_aspo_def]>>
+  gvs[good_aspo_def,fresh_aux_def]>>
   drule_at (Pos last) imp_sat_ord_po_of_aspo>>
-  disch_then drule>>
-  disch_then drule>>
-  simp[]>>
+  disch_then (drule_at Any)>>
+  disch_then (drule_at Any)>>
+  disch_then (drule_at Any)>>
+  disch_then(qspec_then`w` mp_tac)>>
+  impl_tac >-
+    rw[]>>
   rw[sat_ord_def]>>
   qpat_x_assum`_ ⊨ (set f  ⇂ _)` kall_tac>>
   gvs[not_thm]>>
@@ -2630,16 +2630,7 @@ Proof
 QED
 
 Theorem good_aspo_dominance:
-  (∀a. a ∈ set as ⇒
-    a ∉ npbf_vars fml ∧
-    a ∉ npbc_vars (not c) ∧
-    a ∉ set (MAP SND xs) ∧
-    (∀n. w n ≠ SOME (INR (Pos a))) ∧
-    (∀n. w n ≠ SOME (INR (Neg a)))) ∧
-  (∀a. a ∈ set as ⇒
-    case obj of
-      NONE => T
-    | SOME obj => a ∉ set (MAP SND (FST obj))) ∧
+  fresh_aux as fml c obj w ∧
   good_aspo (((f,g,us,vs,as),xs)) ∧
   (∀x. x ∈ pres ⇒ w x = NONE) ∧
   C ⊆ fml ∧
@@ -2706,7 +2697,7 @@ Proof
   simp[finite_support_po_of_aspo]>>
   disch_then (qspec_then`c` mp_tac)>>
   impl_tac>- (
-    fs[good_aspo_def]>>
+    fs[good_aspo_def,fresh_aux_def]>>
     CONJ_TAC >- (
       irule_at Any sat_implies_more_left_spec>>
       rpt(first_x_assum (irule_at Any))>>

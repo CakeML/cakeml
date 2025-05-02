@@ -809,29 +809,74 @@ QED
 
 Type subst_raw = ``:(num , bool + num lit) alist``;
 
+(*
+  The subproof type is complicated and explained as follows:
+
+  1) At the outermost layer, we have an alist indexed by
+    num option:
+      NONE   -> no scope
+      SOME n -> the n-th scope
+
+  2) Within each of the scopes we again have an alist indexed by
+    ((num + num) # num) option:
+      NONE   -> "top-level" step in that scope
+      SOME (INL n, id) -> database proofgoal n, contradiction at id
+      SOME (INR n, id) -> # proofgoal n, contradiction at id
+*)
+Type subproof = ``:(num option, (( ((num + num) # num) option, (lstep list)) alist)) alist``;
+
 (* Steps that preserve satisfiability modulo
   a preserved set of variables *)
 Datatype:
   sstep =
   | Lstep lstep (* Id representing a contradiction *)
-  | Red npbc subst_raw
-      (( ((num + num) # num) option, (lstep list)) alist)
-      (num option)
-  (* the alist represents a subproof
-    NONE -> top level step
-    SOME (INL n,id) -> database proofgoals, contradiction at id
-    SOME (INR n,id) -> # proofgoals, contradiction at id *)
+  | Red npbc subst_raw subproof (num option)
 End
 
-(* The list of subgoals for redundancy
-  numbered #0 ... *)
+Definition list_list_insert_def:
+  list_list_insert [] ys = LN ∧
+  list_list_insert xs [] = LN ∧
+  list_list_insert (x::xs) (y::ys) = insert x y (list_list_insert xs ys)
+End
+
+Theorem lookup_list_list_insert:
+  ∀xs ys. lookup n (list_list_insert xs ys) = ALOOKUP (ZIP(xs,ys)) n
+Proof
+  Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ fs [list_list_insert_def,ZIP_def]
+  \\ rw [lookup_insert]
+QED
+
+Definition dom_subst_def:
+  (dom_subst w NONE = ([],[])) ∧
+  (dom_subst w (SOME ((f,g,us,vs,as),xs)) =
+  let us_xs = list_list_insert us xs in
+  let vs_xs = list_list_insert vs xs in
+  let ww = (λn.
+    case lookup n us_xs of
+      SOME (b,v) =>
+        SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+    | NONE =>
+        OPTION_MAP (INR o mk_lit) (lookup n vs_xs)) in
+  (MAP (subst ww) f, MAP (subst ww) g))
+End
+
+(* The list of # subgoals for redundancy
+  internally implicitly numbered by the list order, i.e.,
+  #0, #1, ...,
+  and the list of scopes (just one) *)
 Definition red_subgoals_def:
   red_subgoals ord s def obj =
+  let (fs,gs) = dom_subst s ord in
   let c0 = subst s def in (**)
   let cobj =
     case obj of NONE => []
     | SOME l => [[not (obj_constraint s l)]] in
-  [not c0]::(MAP (λc. [not c]) (dom_subst s ord)) ++ cobj
+  ([not c0]::(MAP (λc. [not c]) fs) ++ cobj,
+    [gs])
 End
 
 (* Apply a substitution where needed *)
@@ -866,6 +911,32 @@ Proof
   rw[]
 QED
 
+Definition mk_scope_def:
+  mk_scope scopes sc =
+  case sc of
+    NONE => (* no scope *)
+      SOME NONE
+  | SOME n =>
+    if n < LENGTH scopes then
+      SOME (SOME (EL n scopes))
+    else NONE
+End
+
+(* add the scoping for each proof *)
+Definition extract_scopes_def:
+  (extract_scopes scopes [] f b fml rsubs = SOME []) ∧
+  (extract_scopes scopes ((sc,pfs)::rest) f b fml rsubs =
+    case mk_scope scopes sc of NONE => NONE
+    | SOME scs =>
+      case extract_clauses f b fml rsubs pfs [] of
+        NONE => NONE
+      | SOME cpfs =>
+        case extract_scopes scopes rest f b fml rsubs of
+          NONE => NONE
+        | SOME crest =>
+          SOME ((scs,cpfs)::crest))
+End
+
 Definition list_insert_fml_def:
   (list_insert_fml b fml id [] =
     (fml,id)) ∧
@@ -880,7 +951,7 @@ Definition check_subproofs_def:
   (check_subproofs [] b fml id = SOME (fml,id)) ∧
   (check_subproofs ((cnopt,pf)::pfs) b fml id =
     case cnopt of
-      NONE => (* no clause given *)
+      NONE => (* no clause given, continue  *)
       (case check_lsteps pf b fml id of
         SOME (fml',id') =>
           check_subproofs pfs b fml' id'
@@ -893,6 +964,24 @@ Definition check_subproofs_def:
         then check_subproofs pfs b fml id'
         else NONE
       | res => NONE))
+End
+
+(* Check a list of scoped subproofs *)
+Definition check_scopes_def:
+  (check_scopes [] b fml id = SOME (fml,id)) ∧
+  (check_scopes ((scopt,pf)::scpfs) b fml id =
+    case scopt of
+      NONE =>
+        (case check_subproofs pf b fml id of
+          NONE => NONE
+        | SOME (fml',id') =>
+            check_scopes scpfs b fml' id')
+    | SOME sc =>
+    let (cfml,cid) = list_insert_fml b fml id sc in
+    case check_subproofs pf b cfml cid of
+      NONE => NONE
+    | SOME (fml',id') =>
+        check_scopes scpfs b fml id')
 End
 
 Type subst = ``:(num # (bool + num lit)) + (bool + num lit) option vector``;
@@ -1023,36 +1112,41 @@ Definition check_pres_def:
   | SOME pres => EVERY (λx. lookup (FST x) pres = NONE) s
 End
 
-(* The tcb flag indicates we're in to-core mode
-  where it is guaranteed that the core formula implies derived *)
+(*
+  The tcb flag indicates we're in to-core mode
+  where it is guaranteed that the core formula implies
+  the derived set
+*)
 Definition check_red_def:
-  check_red pres ord obj b tcb fml id c s pfs idopt =
+  check_red pres ord obj b tcb fml id c s
+    (pfs:subproof) idopt =
   if check_pres pres s then
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml b fml id (not c) in
       let s = mk_subst s in
       let w = subst_fun s in
-      let rsubs = red_subgoals ord w c obj in
-      case extract_clauses w b fml rsubs pfs [] of
+      let (rsubs,rscopes) = red_subgoals ord w c obj in
+      case extract_scopes rscopes pfs w b fml rsubs of
         NONE => NONE
       | SOME cpfs =>
-      (case check_subproofs cpfs b fml_not_c id1 of
+      (case check_scopes cpfs b fml_not_c id1 of
         NONE => NONE
       | SOME (fml',id') =>
         let chk =
-          (case idopt of NONE =>
-            (
-            let gfml = mk_core_fml (b ∨ tcb) fml in
-            let goals = toAList (map_opt (subst_opt w) gfml) in
-            let (l,r) = extract_pids pfs LN LN in
-              split_goals gfml nc l goals ∧
-              EVERY (λ(id,cs).
-                lookup id r ≠ NONE ∨
-                check_hash_triv nc cs
-                )
-                (enumerate 0 rsubs))
-          | SOME cid =>
-            check_contradiction_fml b fml' cid) in
+          (case idopt of
+            NONE => T
+              (* TODO
+              let gfml = mk_core_fml (b ∨ tcb) fml in
+              let goals = toAList (map_opt (subst_opt w) gfml) in
+              let (l,r) = extract_pids pfs LN LN in
+                split_goals gfml nc l goals ∧
+                EVERY (λ(id,cs).
+                  lookup id r ≠ NONE ∨
+                  check_hash_triv nc cs
+                  )
+                  (enumerate 0 rsubs)*)
+            | SOME cid =>
+              check_contradiction_fml b fml' cid) in
         if chk then
           SOME id'
         else NONE) )
@@ -1112,7 +1206,7 @@ Theorem check_subproofs_correct:
   id_ok fml id ⇒
   case check_subproofs pfs b fml id of
     SOME (fml',id') =>
-     id ≤ id' ∧
+     id ≤ id' ∧ id_ok fml' id' ∧
      (core_only_fml b fml) ⊨ (core_only_fml b fml') ∧
      EVERY (λ(cnopt,pf).
        case cnopt of
@@ -1124,12 +1218,13 @@ Theorem check_subproofs_correct:
 Proof
   Induct>-
     rw[check_subproofs_def]>>
-  Cases>>rw[check_subproofs_def]>>
-  Cases_on`q`>>fs[]
+  namedCases ["cnopt pf"]>>
+  rw[check_subproofs_def]>>
+  Cases_on`cnopt`>>fs[]
   >- (
     every_case_tac>>fs[]>>
     drule (CONJUNCT2 check_lstep_correct)>>
-    disch_then (qspecl_then[`r`,`b`] assume_tac)>>
+    disch_then (qspecl_then[`pf`,`b`] assume_tac)>>
     gs[]>>
     first_x_assum drule>>simp[]>>
     disch_then(qspec_then`b` mp_tac)>> simp[]>>
@@ -1149,7 +1244,7 @@ Proof
   drule_all list_insert_fml_ok>>
   strip_tac>>
   drule (CONJUNCT2 check_lstep_correct)>>
-  disch_then (qspecl_then[`r`,`b`] assume_tac)>>
+  disch_then (qspecl_then[`pf`,`b`] assume_tac)>>
   gs[SUBSET_DEF]>>
   rename1 `cid ≤ n`>>
   `id_ok fml n` by (
@@ -1161,6 +1256,66 @@ Proof
   drule check_contradiction_fml_unsat>>
   fs[unsatisfiable_def,sat_implies_def,satisfiable_def]>>
   metis_tac[]
+QED
+
+Theorem check_scopes_correct:
+  ∀scpfs b fml id.
+  id_ok fml id ⇒
+  case check_scopes scpfs b fml id of
+    SOME (fml',id') =>
+     id ≤ id' ∧ id_ok fml' id' ∧
+     (core_only_fml b fml) ⊨ (core_only_fml b fml') ∧
+     EVERY (λ(scopt,pfs).
+       let sc = case scopt of NONE => [] | SOME sc => sc in
+       EVERY (λ(cnopt,pf).
+       case cnopt of
+         NONE => T
+       | SOME (cs,n) =>
+        unsatisfiable (core_only_fml b fml ∪ set sc ∪ set cs)
+     ) pfs) scpfs
+  | NONE => T
+Proof
+  Induct>-
+    rw[check_scopes_def]>>
+  namedCases ["scopt pf"]>>
+  rw[check_scopes_def]>>
+  Cases_on`scopt`>>fs[]
+  >- (
+    every_case_tac>>fs[]>>
+    drule check_subproofs_correct>>
+    disch_then (qspecl_then[`pf`,`b`] assume_tac)>>
+    gs[]>>
+    first_x_assum drule>>simp[]>>
+    disch_then(qspec_then`b` mp_tac)>> simp[]>>
+    rw[]
+    >-
+      metis_tac[sat_implies_def]>>
+    pop_assum mp_tac>>
+    match_mp_tac MONO_EVERY>>
+    simp[FORALL_PROD]>>
+    ntac 2 strip_tac>>
+    match_mp_tac MONO_EVERY>>
+    simp[FORALL_PROD]>>
+    rw[]>>
+    every_case_tac>>
+    fs[unsatisfiable_def,sat_implies_def,satisfiable_def]>>
+    metis_tac[])>>
+  every_case_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  every_case_tac>>fs[]>>
+  drule_all list_insert_fml_ok>>
+  strip_tac>>
+  drule check_subproofs_correct>>
+  disch_then (qspecl_then[`pf`,`b`] assume_tac)>>
+  gs[SUBSET_DEF]>>
+  rename1 `cid ≤ n`>>
+  `id_ok fml n` by (
+    fs[id_ok_def,SUBSET_DEF])>>
+  first_x_assum drule>>
+  disch_then(qspec_then`b` mp_tac)>> simp[]>>
+  gs[range_insert,id_ok_def,unsat_iff_implies]>>
+  rw[]>>
+  metis_tac[UNION_COMM]
 QED
 
 Theorem implies_explode:
@@ -1253,19 +1408,6 @@ Definition opt_le_def:
   (opt_le x y ⇔ x = y ∨ opt_lt x y)
 End
 
-Theorem sat_obj_po_fml_SUBSET:
-  sat_obj_po pres ord obj a y ∧
-  x ⊆ y ⇒
-  sat_obj_po pres ord obj a x
-Proof
-  rw[sat_obj_po_def]>>
-  first_x_assum drule>>
-  rw[]>>
-  drule_all satisfies_SUBSET>>
-  rw[]>>
-  metis_tac[]
-QED
-
 Theorem lookup_extract_pids_l:
   ∀ls accl accr l r.
   extract_pids ls accl accr = (l,r) ∧
@@ -1338,22 +1480,6 @@ Proof
     first_x_assum drule>>rw[]>>
     pairarg_tac>>gvs[]>>
     metis_tac[])
-QED
-
-Theorem sat_obj_po_insert_contr:
-  unsatisfiable (rf ∪ {not c}) ∧
-  (ord ≠ NONE ⇒ reflexive (po_of_spo (THE ord)))
-  ⇒
-  sat_obj_po pres ord obj rf (c INSERT rf)
-Proof
-  rw[sat_obj_po_def,unsatisfiable_def,satisfiable_def]>>
-  first_assum (irule_at Any)>>
-  rw[]
-  >-
-    metis_tac[not_thm]>>
-  Cases_on`ord`>>
-  fs[]>>
-  metis_tac[reflexive_def,PAIR]
 QED
 
 Theorem range_mk_core_fml:
@@ -1482,12 +1608,126 @@ Proof
   gvs[vec_lookup_def]
 QED
 
+Definition sat_obj_po_def:
+  sat_obj_po pres aspoopt fopt s t ⇔
+  ∀w.
+    satisfies w s ⇒
+    ∃w'.
+      (∀x. x ∈ pres ⇒ w x = w' x) ∧
+      satisfies w' t ∧
+      OPTION_ALL (λaspo. (po_of_aspo aspo) w' w) aspoopt ∧
+      eval_obj fopt w' ≤ eval_obj fopt w
+End
+
+Theorem sat_obj_po_fml_SUBSET:
+  sat_obj_po pres ord obj a y ∧
+  x ⊆ y ⇒
+  sat_obj_po pres ord obj a x
+Proof
+  rw[sat_obj_po_def]>>
+  first_x_assum drule>>
+  rw[]>>
+  drule_all satisfies_SUBSET>>
+  rw[]>>
+  metis_tac[]
+QED
+
+Theorem sat_obj_po_insert_contr:
+  unsatisfiable (rf ∪ {not c}) ∧
+  (ord ≠ NONE ⇒ reflexive (po_of_aspo (THE ord)))
+  ⇒
+  sat_obj_po pres ord obj rf (c INSERT rf)
+Proof
+  rw[sat_obj_po_def,unsatisfiable_def,satisfiable_def]>>
+  first_assum (irule_at Any)>>
+  rw[]
+  >-
+    metis_tac[not_thm]>>
+  Cases_on`ord`>>
+  fs[]>>
+  metis_tac[reflexive_def,PAIR]
+QED
+
+Definition redundant_wrt_obj_po_def:
+  redundant_wrt_obj_po f pres ord obj c ⇔
+    sat_obj_po pres ord obj f (f ∪ {c})
+End
+
+Definition fresh_aux_aspo_def:
+  fresh_aux_aspo fml c obj w ((f,g,us,vs,as),xs) ⇔
+    fresh_aux as fml c obj w
+End
+
+Theorem dom_subst_eq:
+  dom_subst w (SOME ((f,g,us,vs,as),xs)) = (fs,gs) ∧
+  sub_leq =
+    (λn.
+      case ALOOKUP (ZIP (us,xs)) n of
+        SOME (b,v) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ⇒
+  set f ⇂ sub_leq = set fs ∧
+  set g ⇂ sub_leq = set gs
+Proof
+  rw[EXTENSION]>>
+  gvs[dom_subst_def,LIST_TO_SET_MAP,lookup_list_list_insert]
+QED
+
+Theorem substitution_redundancy_obj_po_spec:
+  OPTION_ALL (fresh_aux_aspo f c obj w) ord ∧
+  OPTION_ALL good_aspo ord ∧
+  (∀x. x ∈ pres ⇒ w x = NONE) ∧
+  dom_subst w ord = (fs,gs) ∧
+  f ∪ {not c} ∪ set gs ⊨ ((f ∪ {c}) ⇂ w ∪
+    (case obj of NONE => {}
+      | SOME obj => {obj_constraint w obj})) ∧
+  f ∪ {not c} ∪ set gs ⊨ set fs
+  ⇒
+  redundant_wrt_obj_po f pres ord obj c
+Proof
+  simp[Once sat_implies_def]
+  \\ rw[redundant_wrt_obj_po_def, sat_obj_po_def,not_thm]
+  \\ rename1`satisfies s f`
+  \\ Cases_on ‘satisfies_npbc s c’
+  >- (
+    qexists_tac`s`>>simp[]>>
+    Cases_on`ord`>>
+    fs[]>>
+    rename1`good_aspo xx`>>PairCases_on`xx`>>gvs[good_aspo_def]>>
+    metis_tac[reflexive_def])>>
+  Cases_on`ord`>>gvs[dom_subst_def]
+  >- (
+    first_x_assum drule_all>>
+    rw[satisfies_subst_thm]>>
+    first_x_assum (irule_at Any)>>
+    gvs[subst_thm,assign_def]>>
+    every_case_tac
+    >- fs [eval_obj_def] >>
+    fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint])>>
+  rename1`good_aspo xx`>>PairCases_on`xx`>>
+  drule dom_subst_eq>>
+  rw[]>>gvs[fresh_aux_aspo_def]>>
+  drule substitution_redundancy_obj_po>>
+  fs[]>>
+  rpt (disch_then drule)>>
+  gvs[]>>
+  disch_then (drule_at Any)>>
+  impl_tac >- (
+    gvs[sat_implies_def]>>
+    metis_tac[not_thm])>>
+  rw[]>>metis_tac[]
+QED
+
 Theorem check_red_correct:
   id_ok fml id ∧
-  OPTION_ALL good_spo ord ∧
+  OPTION_ALL good_aspo ord ∧
   (tcb ⇒ core_only_fml T fml ⊨ core_only_fml b fml) ∧
   check_red (pres: num_set option) ord obj b tcb fml id
-    c s pfs idopt = SOME id' ⇒
+    c s (pfs:subproof) idopt = SOME id' ⇒
   id ≤ id' ∧
   case idopt of
     SOME u =>
@@ -1499,13 +1739,14 @@ Theorem check_red_correct:
 Proof
   simp[check_red_def]>>
   pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
   TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[]>>
   strip_tac>>
   `id_ok fml_not_c id1 ∧ id ≤ id1` by
     gvs[insert_fml_def,id_ok_def]>>
-  drule check_subproofs_correct>>
+  drule check_scopes_correct>>
   `core_only_fml b fml_not_c =
     not c INSERT (core_only_fml b fml)` by (
     gvs[insert_fml_def]>>
@@ -1530,10 +1771,10 @@ Proof
     \\ irule sat_obj_po_fml_SUBSET
     \\ pop_assum $ irule_at Any
     \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])
-  \\ pairarg_tac \\ fs[]
-  \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po)
+  \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po_spec)
   \\ simp[]
   \\ qexists_tac ‘subst_fun (mk_subst s)’ \\ fs []
+  (* TODO *)
   \\ CONJ_TAC >-
     metis_tac[check_pres_subst_fun]
   \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]
