@@ -956,4 +956,204 @@ Proof
   \\ gvs [evaluate_stmt_def, freshen_stmt_def]
 QED
 
+Definition map_add_fresh_def:
+  map_add_fresh m cnt [] = (cnt, m, []) ∧
+  map_add_fresh m cnt (old::olds) =
+  let (cnt, m) = add_fresh m cnt old in
+  let (cnt, m, news) = map_add_fresh m cnt olds in
+    (cnt, m, lookup m old::news)
+End
+
+Definition freshen_member_def:
+  freshen_member (Method name ins reqs ens reads decrs outs mods body) =
+  (let m = []; cnt = 0 in
+   let (in_ns, in_ts) = UNZIP ins in
+   let (cnt, m, in_ns) = map_add_fresh m cnt in_ns in
+   let (out_ns, out_ts) = UNZIP outs in
+   let (cnt, m, out_ns) = map_add_fresh m cnt out_ns in
+   let (cnt, reqs) = freshen_exps m cnt reqs in
+   let (cnt, reqs) = freshen_exps m cnt ens in
+   let (cnt, reads) = freshen_exps m cnt reads in
+   let (cnt, decrs) = freshen_exps m cnt decrs in
+   let (cnt, mods) = freshen_exps m cnt mods in
+   let (cnt, body) = freshen_stmt m cnt body in
+     Method name (ZIP (in_ns, in_ts)) reqs ens reads
+            decrs (ZIP (out_ns, out_ts)) mods body) ∧
+  freshen_member (Function name ins res_t reqs reads decrs body) =
+  (let m = []; cnt = 0 in
+   let (in_ns, in_ts) = UNZIP ins in
+   let (cnt, m, in_ns) = map_add_fresh m cnt in_ns in
+   let (cnt, reqs) = freshen_exps m cnt reqs in
+   let (cnt, reads) = freshen_exps m cnt reads in
+   let (cnt, decrs) = freshen_exps m cnt decrs in
+   let (cnt, body) = freshen_exp m cnt body in
+     Function name (ZIP (in_ns, in_ts)) res_t reqs reads decrs body)
+End
+
+Triviality map_add_fresh_len_eq:
+  ∀m cnt ns cnt' m' ns'.
+    map_add_fresh m cnt ns = (cnt', m', ns') ⇒ LENGTH ns = LENGTH ns'
+Proof
+  Induct_on ‘ns’ \\ rpt strip_tac
+  \\ gvs [map_add_fresh_def] \\ rpt (pairarg_tac \\ gvs[]) \\ res_tac
+QED
+
+(* Triviality add_member_some_freshen: *)
+(*   ∀env member env₁. *)
+(*     add_member env member = SOME env₁ ⇒ *)
+(*     ∃env₁'. *)
+(*       add_member env (freshen_member member) = SOME env₁' *)
+(* Proof *)
+(*   Cases_on ‘member’ \\ rpt strip_tac *)
+(*   \\ gvs [freshen_member_def] \\ rpt (pairarg_tac \\ gvs []) *)
+(*   \\ gvs [add_member_def] *)
+(* QED *)
+
+Triviality add_method_env_functions_eq:
+  ∀env name ins reqs ens reads decrs outs mods body env'.
+    add_member env
+      (Method name ins reqs ens reads decrs outs mods body) = SOME env' ⇒
+    env.functions = env'.functions
+Proof
+  gvs [add_member_def]
+QED
+
+Triviality eq_len_safe_zip_some:
+  ∀ns vs. LENGTH ns = LENGTH vs ⇒ ∃params. safe_zip ns vs = SOME params
+Proof
+  gvs [safe_zip_def]
+QED
+
+Triviality safe_zip_some_eq_len:
+  ∀ns vs params. safe_zip ns vs = SOME params ⇒ LENGTH ns = LENGTH vs
+Proof
+  gvs [safe_zip_def]
+QED
+
+(* Triviality map_add_fresh_locals_rel: *)
+(*   map_add_fresh m cnt ns = (cnt', m', ns') ∧ *)
+(*   safe_zip (FST m) vs = SOME locals ∧ *)
+(*   safe_zip (MAP (lookup m) (FST m)) vs = SOME locals' *)
+(*   locals_rel locals m locals' cnt *)
+(* Proof *)
+(*   Induct_on ‘ns’ \\ rpt strip_tac *)
+(*   \\ gvs [map_add_fresh_def, safe_zip_def, locals_rel_def] *)
+(*   \\ rpt (pairarg_tac \\ gvs []) *)
+(* QED *)
+
+Theorem evaluate_exp_freshen_member:
+  (∀s env₁ e s' res env member env₁'.
+     evaluate_exp s env₁ e = (s', res) ∧
+     add_member env member = SOME env₁ ∧
+     add_member env (freshen_member member) = SOME env₁' ∧
+     res ≠ Rerr Rtype_error ⇒
+     evaluate_exp s env₁' e = (s', res)) ∧
+  (∀s env₁ es s' res env member env₁'.
+     evaluate_exps s env₁ es = (s', res) ∧
+     add_member env member = SOME env₁ ∧
+     add_member env (freshen_member member) = SOME env₁' ∧
+     res ≠ Rerr Rtype_error ⇒
+     evaluate_exps s env₁' es = (s', res))
+Proof
+  ho_match_mp_tac evaluate_exp_ind \\ rpt strip_tac
+  >~ [‘FunCall name args’] >-
+
+   (gvs [evaluate_exp_def]
+    \\ Cases_on ‘member’
+    >~ [‘Method added_name ins reqs ens reads decrs outs mods body’] >-
+     (gvs [freshen_member_def] \\ rpt (pairarg_tac \\ gvs [])
+      \\ drule add_method_env_functions_eq
+      \\ rev_drule add_method_env_functions_eq \\ rpt strip_tac \\ gvs []
+      \\ rename [‘FLOOKUP env₁.functions name’]
+      \\ namedCases_on ‘FLOOKUP env₁.functions name’ ["", "r"] \\ gvs []
+      \\ namedCases_on ‘r’ ["in_ns body"] \\ gvs []
+      \\ namedCases_on ‘evaluate_exps s env₁ args’ ["s₁ r"] \\ gvs []
+      \\ reverse $ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
+      \\ last_x_assum drule \\ rpt strip_tac \\ gvs [freshen_member_def]
+      \\ rename [‘set_up_call s₁ in_ns in_vs []’]
+      \\ namedCases_on ‘set_up_call s₁ in_ns in_vs []’ ["", "r"] \\ gvs []
+      \\ namedCases_on ‘r’ ["old_locals s₂"] \\ gvs []
+      \\ IF_CASES_TAC \\ gvs []
+      \\ rename [‘evaluate_exp (dec_clock s₂) env₁ body (* sa *)’]
+      \\ namedCases_on ‘evaluate_exp (dec_clock s₂) env₁ body’ ["s₃ r"]
+      \\ gvs [] \\ namedCases_on ‘r’ ["v", "err"] \\ gvs []
+      \\ last_x_assum drule \\ rpt strip_tac \\ gvs [freshen_member_def])
+    >~ [‘Function added_name ins res_t reqs reads decrs body’] >-
+
+     (gvs [freshen_member_def] \\ rpt (pairarg_tac \\ gvs [])
+      \\ namedCases_on ‘FLOOKUP env₁.functions name’ ["", "r"] \\ gvs []
+      \\ namedCases_on ‘r’ ["in_ns body"] \\ gvs []
+      \\ namedCases_on ‘evaluate_exps s env₁ args’ ["s₁ r"] \\ gvs []
+      \\ reverse $ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
+      \\ last_x_assum drule \\ rpt strip_tac \\ gvs [freshen_member_def]
+      \\ gvs [add_member_def, UNZIP_MAP, FLOOKUP_UPDATE]
+      \\ drule map_add_fresh_len_eq \\ rpt strip_tac \\ gvs [MAP_ZIP]
+      \\ IF_CASES_TAC \\ gvs [set_up_call_def]
+
+      >-
+       (namedCases_on ‘safe_zip (MAP FST ins) (MAP SOME in_vs)’ ["", "params"]
+        \\ gvs [] \\ drule safe_zip_some_eq_len \\ rpt strip_tac \\ gvs []
+        \\ ‘LENGTH in_ns' = LENGTH (MAP SOME in_vs)’ by gvs []
+        \\ drule eq_len_safe_zip_some \\ rpt strip_tac \\ gvs []
+        \\ IF_CASES_TAC \\ gvs [restore_locals_def]
+        \\ cheat)
+
+      \\ rename [‘safe_zip in_ns (MAP SOME in_vs)’]
+      \\ namedCases_on ‘safe_zip in_ns (MAP SOME in_vs)’ ["", "params"]
+      \\ gvs [] \\ IF_CASES_TAC \\ gvs []
+      \\ cheat
+
+
+
+     )
+   )
+  >~ [‘Forall (v,ty) e’] >-
+   cheat
+  \\ cheat
+QED
+
+Theorem evaluate_stmt_freshen_member:
+  ∀s env₁ stmt s' res env member.
+    evaluate_stmt s env₁ stmt = (s', res) ∧
+    add_member env member = SOME env₁ ∧
+    res ≠ Rstop (Serr Rtype_error) ⇒
+    ∃env₁'.
+      evaluate_stmt s env₁' stmt = (s', res) ∧
+      add_member env (freshen_member member) = SOME env₁'
+
+Proof
+  ho_match_mp_tac evaluate_stmt_ind \\ rpt strip_tac
+  \\ cheat
+  (* Cases_on ‘member’ \\ rpt strip_tac *)
+  (* >~ [‘Method name ins reqs ens reads decrs outs mods body’] >- *)
+
+  (*  (gvs [freshen_member_def] *)
+  (*   \\ rpt (pairarg_tac \\ gvs []) *)
+  (*   \\ gvs [add_member_def, UNZIP_MAP] *)
+  (*   \\ drule_then assume_tac map_add_fresh_len_eq *)
+  (*   \\ rev_drule_then assume_tac map_add_fresh_len_eq *)
+  (*   \\ gvs [MAP_ZIP] \\ rpt $ qpat_x_assum ‘LENGTH _ = _’ kall_tac *)
+  (*   \\ Cases_on ‘stmt’ \\ gvs [evaluate_stmt_def] *)
+  (*   \\ cheat *)
+  (*  ) *)
+
+  (* >~ [‘Function name ins res_t reqs reads decrs body’] >- *)
+  (*  cheat *)
+QED
+
+Definition freshen_program_def:
+  freshen_program (Program members) =
+    Program (MAP freshen_member members)
+End
+
+Theorem correct_freshen_program:
+  ∀is_running prog.
+    evaluate_program is_running prog =
+    evaluate_program is_running (freshen_program prog)
+Proof
+  Cases_on ‘prog’ \\ rpt strip_tac
+  \\ gvs [evaluate_program_def, freshen_program_def]
+  \\ cheat
+QED
+
 val _ = export_theory ();

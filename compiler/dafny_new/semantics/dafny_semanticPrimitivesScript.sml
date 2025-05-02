@@ -70,12 +70,12 @@ Datatype:
   | Rstop stop
 End
 
-Definition empty_env:
+Definition empty_env_def:
   empty_env is_running =
     <| is_running := is_running; methods := FEMPTY; functions := FEMPTY |>
 End
 
-Definition add_member:
+Definition add_member_def:
   (add_member env (Method name ins _ _ _ _ outs _ body) =
    if name IN (FDOM env.methods) then NONE else
      SOME (env with methods :=
@@ -85,7 +85,7 @@ Definition add_member:
      SOME (env with functions := env.functions |+ (name, (MAP FST ins, body))))
 End
 
-Definition add_members:
+Definition add_members_def:
   add_members env [] = SOME env ∧
   add_members env (member::members) =
   (case add_member env member of

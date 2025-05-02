@@ -386,7 +386,7 @@ Theorem evaluate_stmt_def[compute] =
 Theorem evaluate_stmt_ind =
   REWRITE_RULE [fix_clock_evaluate_stmt] evaluate_stmt_ann_ind
 
-Definition evaluate_program:
+Definition evaluate_program_def:
   evaluate_program is_running (Program members) =
   let st = init_state in
   let main_name = «Main» in
