@@ -1279,149 +1279,204 @@ val mem_tac =
   >> first_x_assum $ qspec_then ‘n’ assume_tac >> gs[]
   >> Cases_on ‘EL n refs2’ >> gs[ref_rel_def];
 
+Triviality v_rel_do_eq':
+   do_eq a b = A ==>
+   v_rel a c /\ v_rel b d ==>
+   do_eq c d = A
+Proof
+  rw[] >> imp_res_tac v_rel_do_eq >> fs[]
+QED
+
+Triviality v_rel_store_assign':
+   store_assign lnum a refs1 = A ==>
+   ref_rel a b /\ LIST_REL ref_rel refs1 refs2 ==>
+   ?B. store_assign lnum b  refs2 = B /\
+   OPTREL (LIST_REL ref_rel) A B
+Proof
+  rw[] >>
+  imp_res_tac LIST_REL_LENGTH >> gs[] >>
+  imp_res_tac LIST_REL_EL_EQN >> gs[] >>
+  first_x_assum $ qspec_then `lnum` assume_tac >> gs[] >>
+  gs[store_assign_def] >>
+  Cases_on `lnum < LENGTH refs2` >> gs[] >>
+  IF_CASES_TAC >> fs[] >>
+  gs[oneline store_v_same_type_def,AllCasePreds()] >>
+  gs[oneline ref_rel_def,AllCasePreds()] >>
+  fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
+  rw[] >>
+  fs[LIST_REL_EL_EQN]
+QED
+
+Triviality v_rel_store_lookup':
+   store_lookup lnum refs1 = A ==>
+   LIST_REL ref_rel refs1 refs2 ==>
+   ?B. store_lookup lnum refs2 = B /\
+   OPTREL (ref_rel) A B
+Proof
+  rw[] >>
+  imp_res_tac LIST_REL_LENGTH >> gs[] >>
+  imp_res_tac LIST_REL_EL_EQN >> gs[] >>
+  first_x_assum $ qspec_then `lnum` assume_tac >> gs[] >>
+  gs[store_lookup_def] >>
+  Cases_on `lnum < LENGTH refs2` >> gs[] >>
+  IF_CASES_TAC >> fs[]
+QED
+
+Triviality v_rel_fp_translate':
+   fp_translate a = A ==>
+   v_rel a b ==>
+   fp_translate b = A
+Proof
+  rw[] >> imp_res_tac v_rel_fp_translate >> simp[]
+QED
+
+val RESTR_EVAL_TAC = computeLib.RESTR_EVAL_TAC;
+val LENGTH_EQ_NUM_compute' = LIST_CONJ $ map (GEN_ALL o CONV_RULE (LHS_CONV SYM_CONV) o SPEC_ALL) (CONJUNCTS LENGTH_EQ_NUM_compute)
+val trivial_tac =  gs[AllCaseEqs(),UNCURRY_EQ,Once $ oneline do_app_def,
+                    Excl "IF_NONE_EQUALS_OPTION"] >>
+                   strip_tac >>
+                   rveq >> gs[LENGTH_EQ_NUM_compute,LENGTH_EQ_NUM_compute'] >>
+                   RESTR_EVAL_TAC[``store_assign``,``store_lookup``,
+                   ``store_alloc``,
+                   ``copy_array``,``ws_to_chars``,``chars_to_ws``,
+                   ``EXPLODE``,``call_FFI``];
+
 Theorem do_app_thm:
   ∀op a1 a2 refs1 refs2 ffi.
     LIST_REL v_rel a1 a2 ∧ LIST_REL ref_rel refs1 refs2 ⇒
     OPTREL (λ((r1,f1),v1) ((r2,f2),v2).
              f1 = f2 ∧ res1_rel v1 v2 ∧ LIST_REL ref_rel r1 r2)
            (do_app (refs1,ffi) op a1) (do_app (refs2,ffi) op a2)
-Proof
-  Cases_on ‘op’ >> gs[Once do_app_def, OPTREL_def]
-  >- trivial_tac
-  >- trivial_tac
-  >- trivial_tac
-  >- trivial_tac
+Proof[exclude_simps = IF_NONE_EQUALS_OPTION]
+  rpt strip_tac >> imp_res_tac LIST_REL_LENGTH >>
+  Cases_on `(do_app (refs1,ffi) op a1)` >> gs[OPTREL_SOME] >>
+  pop_assum mp_tac
+  (*NONE Case*)
   >- (
-    rpt strip_tac
-    >> ‘LENGTH a1 = LENGTH a2’ by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
-    >> ntac 3 (TOP_CASE_TAC >> gs[do_app_def])
-    >> imp_res_tac $ GSYM v_rel_do_eq
-    >> TOP_CASE_TAC >> gs[Boolv_def]
-    >> COND_CASES_TAC >> gs[])
-  >- fp_tac
-  >- fp_tac
-  >- fp_tac
-  >- fp_tac
-  >- trivial_tac
-  >- trivial_tac
-  >- trivial_tac
-  >- trivial_tac
-  >- trivial_tac
-  >- trivial_tac
-  >- trivial_tac
+      trivial_tac
+      >>~ [`do_eq`]
+      >- (
+         dxrule_then (drule_all_then SUBST_ALL_TAC) v_rel_do_eq' >>
+         EVAL_TAC)
+      >>~-([`fp_translate`],
+         rpt $ dxrule_then (drule_all_then SUBST_ALL_TAC) v_rel_fp_translate' >>
+         EVAL_TAC)
+      >>  rpt (dxrule_then (drule_all_then strip_assume_tac)
+          v_rel_store_lookup' >>
+          gs[OPTREL_SOME,oneline ref_rel_def,AllCasePreds(),
+          Excl "IF_NONE_EQUALS_OPTION"])
+      >>  rpt (dxrule v_rel_store_assign' >>
+          gs[OPTREL_SOME,oneline ref_rel_def,AllCasePreds(),
+          Excl "IF_NONE_EQUALS_OPTION"])
+      >- (imp_res_tac $ GSYM v_rel_v_to_char_list >> gs[])
+      >- (imp_res_tac v_rel_v_to_list >> gs[])
+      >- (
+          imp_res_tac v_rel_v_to_list >> gs[OPTREL_SOME] >>
+          imp_res_tac v_rel_vs_to_string >> gs[])
+      >- (imp_res_tac v_rel_v_to_list >> gs[])
+      >- (
+          imp_res_tac LIST_REL_LENGTH >> fs[] >>
+          qmatch_goalsub_abbrev_tac `store_assign _ VARRAY _` >>
+          disch_then (drule_at (Pos (el 2))) >>
+          simp[oneline ref_rel_def,AllCasePreds()] >>
+          disch_then (qspec_then `VARRAY` mp_tac) >>
+          simp[Abbr `VARRAY`] >>
+          impl_tac >- (irule EVERY2_LUPDATE_same >> fs[]) >>
+          fs[])
+      >- (imp_res_tac LIST_REL_LENGTH >> fs[])
+      >- (imp_res_tac LIST_REL_LENGTH >> fs[])
+      >- (
+          imp_res_tac LIST_REL_LENGTH >> fs[] >>
+          qmatch_goalsub_abbrev_tac `store_assign _ VARRAY _` >>
+          disch_then (drule_at (Pos (el 2))) >>
+          simp[oneline ref_rel_def,AllCasePreds()] >>
+          disch_then (qspec_then `VARRAY` mp_tac) >>
+          simp[Abbr `VARRAY`] >>
+          impl_tac >- (irule EVERY2_LUPDATE_same >> fs[]) >>
+          fs[])
+      >- (imp_res_tac v_rel_v_to_list >> gs[])
+      >- (
+          imp_res_tac v_rel_v_to_list >> gs[OPTREL_SOME] >>
+          imp_res_tac v_rel_vs_to_string >> gs[]))
   >- (
-    rpt strip_tac
-    >> ‘LENGTH a1 = LENGTH a2’ by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
-    >> ‘LENGTH refs1 = LENGTH refs2’ by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
-    >> rpt (TOP_CASE_TAC >> gs[])
-    >> gs[do_app_def]
-    >> gs[store_assign_def, store_v_same_type_def]
-    >> Cases_on ‘n < LENGTH refs2’ >> gs[]
-    >> Cases_on ‘EL n refs1’ >> gs[]
-    >> imp_res_tac LIST_REL_EL_EQN
-    >> first_x_assum $ qspec_then ‘n’ assume_tac
-    >> Cases_on ‘EL n refs2’ >> rveq >> gs[ref_rel_def]
-    >> irule EVERY2_LUPDATE_same
-    >> gs[ref_rel_def])
-  >- mem_tac
-  >- mem_tac
-  >- mem_tac
-  >- mem_tac
-  >- mem_tac
-  >- (
-    mem_tac
-    >> rveq >> irule EVERY2_LUPDATE_same >> gs[ref_rel_def])
-  >- trivial_tac
-  >- trivial_tac
-  >- mem_tac
-  >- (
-    mem_tac
-    >> rveq >> irule EVERY2_LUPDATE_same >> gs[ref_rel_def])
-  >- mem_tac
-  >- (
-    mem_tac
-    >> imp_res_tac LIST_REL_EL_EQN
-    >> first_x_assum $ qspec_then ‘n'’ assume_tac >> gs[]
-    >> Cases_on ‘EL n' refs2’ >> gs[ref_rel_def]
-    >> rveq >> irule EVERY2_LUPDATE_same >> gs[ref_rel_def])
-  >- trivial_tac
-  >- trivial_tac
-  >- trivial_tac
-  >- (
-    mem_tac
-    >> imp_res_tac $ GSYM v_rel_v_to_char_list >> gs[])
-  >- mem_tac
-  >- mem_tac
-  >- mem_tac
-  >- (
-    mem_tac
-    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def]
-    >> imp_res_tac $ GSYM v_rel_vs_to_string >> gs[])
-  >- (
-    mem_tac
-    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def])
-  >- (
-    mem_tac
-    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def])
-  >- (
-    mem_tac
-    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def])
-  >- (
-    mem_tac
-    >> rewrite_tac $ single LIST_REL_REPLICATE_same
-    >> strip_tac >> gs[])
-  >- mem_tac
-  >- mem_tac
-  >- (
-    mem_tac
-    >> TOP_CASE_TAC >> gs[]
-    >> ‘LENGTH l = LENGTH l'’
-      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
-    >> gs $ single LIST_REL_EL_EQN)
-  >- ( mem_tac >> gs $ single LIST_REL_EL_EQN)
-  >- (
-    mem_tac
-    >> ‘LIST_REL v_rel l l'’ by (gs $ single LIST_REL_EL_EQN)
-    >> ‘LENGTH l = LENGTH l'’
-      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
-    >> TOP_CASE_TAC >> gs[store_v_same_type_def]
-    >> rveq >> irule EVERY2_LUPDATE_same >> gs[]
-    >> irule EVERY2_LUPDATE_same >> gs[])
-  >- (
-    mem_tac >> TOP_CASE_TAC >> gs[]
-    >> ‘LENGTH l = LENGTH l'’
-      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
-    >> gs[LIST_REL_EL_EQN])
-  >- (
-    mem_tac >> TOP_CASE_TAC >> gs[]
-    >> ‘LENGTH l = LENGTH l'’
-      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
-    >> gs[LIST_REL_EL_EQN]
-    >> COND_CASES_TAC  >> gs[store_v_same_type_def]
-    >> Cases_on ‘i < 0’ >> gs[] >> rveq
-    >> gs[LENGTH_LUPDATE]
-    >> rpt strip_tac >> gs[LIST_REL_EL_EQN]
-    >> res_tac >> rewrite_tac [EL_LUPDATE]
-    >> COND_CASES_TAC >> gs[]
-    >> irule EVERY2_LUPDATE_same >> gs[]
-    >> res_tac >> pop_assum $ mp_tac
-    >> asm_rewrite_tac [] >> gs[ref_rel_def])
-  >- mem_tac
-  >- (
-    mem_tac
-    >> Cases_on ‘i < 0’ >> gs[]
-    >> rveq >> gs[LIST_REL_EL_EQN]
-    >> rpt strip_tac
-    >> res_tac >> rewrite_tac [EL_LUPDATE]
-    >> COND_CASES_TAC >> gs[])
-  >- (
-    mem_tac
-    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def]
-    >> irule v_rel_list_to_v_app >> gs[])
-  >- trivial_tac
-  >- (mem_tac >> rveq >> irule EVERY2_LUPDATE_same >> gs[])
-  >- (mem_tac >> rveq >> irule EVERY2_LUPDATE_same >> gs[])
-  >> fp_tac >> simp[nat_to_v_def]
+      trivial_tac >> fs[]
+      >>~ [`do_eq`]
+      >- (
+      imp_res_tac v_rel_do_eq >> fs[]
+      >> fs[COND_RAND])
+      >>~-([`fp_translate`],
+         rpt $ dxrule_then (drule_all_then SUBST_ALL_TAC) v_rel_fp_translate' >>
+         EVAL_TAC >>
+         fs[])
+      >>~-([`store_alloc`],
+          gvs[store_alloc_def] >>
+          fs[LIST_REL_REPLICATE_same])
+      >>  rpt (dxrule_then (drule_all_then strip_assume_tac)
+          v_rel_store_lookup' >>
+          gs[OPTREL_SOME,oneline ref_rel_def,AllCasePreds(),
+          Excl "IF_NONE_EQUALS_OPTION"])
+      >>  rpt (dxrule_then (drule_at_then (Pos (el 2)) mp_tac)
+           v_rel_store_assign' >>
+          gs[OPTREL_SOME,oneline ref_rel_def,AllCasePreds(),
+          Excl "IF_NONE_EQUALS_OPTION"])
+      >>~ [`store_assign`]
+      >- (
+          qmatch_goalsub_abbrev_tac `store_assign _ VARRAY _` >>
+          disch_then (qspec_then `VARRAY` mp_tac) >>
+          simp[Abbr `VARRAY`] >>
+          strip_tac >> fs[])
+      >- (fs[PULL_EXISTS])
+      >- (fs[PULL_EXISTS])
+      >- (fs[PULL_EXISTS])
+      >- (imp_res_tac LIST_REL_LENGTH >> fs[])
+      >- (
+          imp_res_tac LIST_REL_LENGTH >> fs[] >>
+          qmatch_goalsub_abbrev_tac `store_assign _ VARRAY _` >>
+          disch_then (qspec_then `VARRAY` mp_tac) >>
+          simp[Abbr `VARRAY`] >>
+          impl_tac >- (irule EVERY2_LUPDATE_same >> fs[]) >>
+          strip_tac >> fs[])
+      >- (
+          imp_res_tac LIST_REL_LENGTH >> fs[] >>
+          qmatch_goalsub_abbrev_tac `store_assign _ VARRAY _` >>
+          disch_then (qspec_then `VARRAY` mp_tac) >>
+          simp[Abbr `VARRAY`] >>
+          impl_tac >- (irule EVERY2_LUPDATE_same >> fs[]) >>
+          strip_tac >> fs[])
+      >- (fs[PULL_EXISTS])
+      >- (fs[PULL_EXISTS])
+      >>~ [`v_to_char_list`]
+      >- (imp_res_tac $ GSYM v_rel_v_to_char_list >> gs[])
+      >>~ [`v_to_list`,`vs_to_string`]
+      >- (
+          imp_res_tac v_rel_v_to_list >> gs[OPTREL_SOME] >>
+          imp_res_tac v_rel_vs_to_string >> gs[])
+      >>~ [`v_to_list`,`list_to_v`]
+      >- (imp_res_tac v_rel_v_to_list >> gs[OPTREL_SOME]
+         >> irule v_rel_list_to_v >> fs[]
+         >> irule LIST_REL_APPEND_suff >> fs[])
+      >>~ [`v_to_list`]
+      >- (imp_res_tac v_rel_v_to_list >> gs[OPTREL_SOME])
+      >>~ [`list_to_v`]
+      >- fs[v_rel_list_to_v_char]
+      (*TODO figure out a way to automate this*)
+      >- (Cases_on `n2 = 0` >> gvs[])
+      >- (fs[COND_RAND])
+      >- (fs[COND_RAND])
+      >- (TOP_CASE_TAC >> fs[])
+      >- (TOP_CASE_TAC >> fs[])
+      >- (TOP_CASE_TAC >> fs[])
+      >- (TOP_CASE_TAC >> fs[])
+     >- (imp_res_tac LIST_REL_LENGTH >> fs[])
+     >- (imp_res_tac LIST_REL_LENGTH >> fs[] >>
+        fs[LIST_REL_EL_EQN])
+     >- (imp_res_tac LIST_REL_LENGTH >> fs[])
+     >- (imp_res_tac LIST_REL_LENGTH >> fs[])
+     >- (imp_res_tac LIST_REL_LENGTH >> fs[] >>
+        fs[LIST_REL_EL_EQN])
+     >- (imp_res_tac LIST_REL_LENGTH >> fs[])
+     >- (imp_res_tac LIST_REL_LENGTH >> fs[] >>
+        fs[LIST_REL_EL_EQN]))
 QED
 
 
@@ -1942,7 +1997,7 @@ Theorem ALL_DISTINCT_MAP:
 Proof
   Induct_on ‘funs’ >> gs[]
   >> rpt strip_tac >> Cases_on ‘h’ >> gs[]
-  >> Cases_on ‘r’ >> gs[MEM_MAP] >> EQ_TAC >> rpt strip_tac
+  >> gs[MEM_MAP] >> EQ_TAC >> rpt strip_tac
   >- (rveq >> Cases_on ‘y'’ >> gs[]
       >> Cases_on ‘r’ >> gs[])
   >- (gs[])
