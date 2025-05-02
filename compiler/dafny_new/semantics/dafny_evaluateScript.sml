@@ -386,4 +386,20 @@ Theorem evaluate_stmt_def[compute] =
 Theorem evaluate_stmt_ind =
   REWRITE_RULE [fix_clock_evaluate_stmt] evaluate_stmt_ann_ind
 
+Definition evaluate_program:
+  evaluate_program is_running (Program members) =
+  let st = init_state in
+  let main_name = «Main» in
+    (case add_members (empty_env is_running) members of
+     | NONE => (st, Rstop (Serr Rtype_error))
+     | SOME env =>
+       (case FLOOKUP env.methods main_name of
+        | NONE => (st, Rstop (Serr Rtype_error))
+        | SOME (in_ns, out_ns, body) =>
+          (* Main does not take any input, and does not produce outputs *)
+          if ¬NULL in_ns ∨ ¬NULL out_ns then (st, Rstop (Serr Rtype_error))
+          else
+            evaluate_stmt st env (MetCall [] main_name [])))
+End
+
 val _ = export_theory ();

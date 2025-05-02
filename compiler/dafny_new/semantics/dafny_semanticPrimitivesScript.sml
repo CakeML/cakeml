@@ -70,6 +70,33 @@ Datatype:
   | Rstop stop
 End
 
+Definition empty_env:
+  empty_env is_running =
+    <| is_running := is_running; methods := FEMPTY; functions := FEMPTY |>
+End
+
+Definition add_member:
+  (add_member env (Method name ins _ _ _ _ outs _ body) =
+   if name IN (FDOM env.methods) then NONE else
+     SOME (env with methods :=
+             env.methods |+ (name, (MAP FST ins, MAP FST outs, body)))) ∧
+  (add_member env (Function name ins _ _ _ _ body) =
+   if name IN (FDOM env.functions) then NONE else
+     SOME (env with functions := env.functions |+ (name, (MAP FST ins, body))))
+End
+
+Definition add_members:
+  add_members env [] = SOME env ∧
+  add_members env (member::members) =
+  (case add_member env member of
+   | NONE => NONE
+   | SOME env => add_members env members)
+End
+
+Definition init_state_def:
+  init_state = <| clock := 424242; locals := []; heap := []; cout := [] |>
+End
+
 Definition safe_zip_def:
   safe_zip xs ys =
   if LENGTH xs ≠ LENGTH ys then NONE
