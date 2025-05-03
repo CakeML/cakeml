@@ -990,10 +990,7 @@ Definition subst_fun_def:
   subst_fun (s:subst) n =
   case s of
     INL (m,v) => if n = m then SOME v else NONE
-  | INR s =>
-  if n < length s then
-    sub s n
-  else NONE
+  | INR s => vec_lookup s n
 End
 
 Definition map_opt_def:
@@ -1006,7 +1003,8 @@ Definition map_opt_def:
     | SOME a => mk_BS (map_opt f t1) a (map_opt f t2)
 End
 
-(* Extract the INL and INR
+(*
+  Extract the INL and INR
   ids which were proved by a list of proofs *)
 Definition extract_pids_def:
   (extract_pids [] l r = (l,r)) ∧
@@ -1017,6 +1015,24 @@ Definition extract_pids_def:
     (case i of
       INL i => extract_pids pfs (insert i () l) r
     | INR i => extract_pids pfs l (insert i () r)))
+End
+
+(* Extract the zero-th scope (this is simply hard-coded for now, as that's the
+  only one we will need) *)
+Definition extract_scope_val_def:
+  extract_scope_val scopt ⇔
+  scopt = NONE ∨ scopt = SOME 0
+End
+
+(* For a fixed scope value, extract the pids up to that scope *)
+Definition extract_scoped_pids_def:
+  (extract_scoped_pids [] l r = (l,r)) ∧
+  (extract_scoped_pids ((scopt,pf)::scpfs) l r =
+  if extract_scope_val scopt
+  then
+      let (l,r) = extract_pids pf l r in
+        extract_scoped_pids scpfs l r
+  else extract_scoped_pids scpfs l r)
 End
 
 Definition list_pair_eq_def:
@@ -1095,6 +1111,7 @@ Definition mk_core_fml_def:
 End
 
 Definition mk_subst_def:
+  (mk_subst [] = INR (Vector [])) ∧
   (mk_subst [(n,v)] = INL (n,v)) ∧
   (mk_subst xs = INR (spt_to_vec (fromAList xs)))
 End
@@ -1112,6 +1129,122 @@ Definition check_pres_def:
   | SOME pres => EVERY (λx. lookup (FST x) pres = NONE) s
 End
 
+Definition fresh_aux_aspo_def:
+  fresh_aux_aspo fml c obj w ((f,g,us,vs,as),xs) ⇔
+    fresh_aux as fml c obj w
+End
+
+(* These are placeholders for refinement later using vimap/vomap *)
+Definition check_fresh_aux_fml_def:
+  check_fresh_aux_fml as fml ⇔
+  EVERY (λx.
+    ∀c.
+    c ∈ misc$range fml ⇒
+    ¬ MEM x (MAP SND (FST (FST c)))
+  ) as
+End
+
+Definition check_fresh_aux_obj_def:
+  check_fresh_aux_obj as obj ⇔
+  case obj of NONE => T
+  | SOME l =>
+  EVERY (λx.
+    ¬ MEM x (MAP SND (FST l))) as
+End
+
+Definition filter_map_inr_def:
+  (filter_map_inr [] acc = acc) ∧
+  (filter_map_inr ((v,m)::ms) acc =
+    case m of
+      INL _ => filter_map_inr ms acc
+    | INR (Pos r) => filter_map_inr ms (r::acc)
+    | INR (Neg r) => filter_map_inr ms (r::acc))
+End
+
+(* directly check the raw subst *)
+Definition check_fresh_aux_subst_def:
+  check_fresh_aux_subst as s ⇔
+  let mss = filter_map_inr s [] in
+  EVERY (λx. ~MEM x mss) as
+End
+
+(* directly check the raw constraint *)
+Definition check_fresh_aux_constr_def:
+  check_fresh_aux_constr as c ⇔
+  let mss = MAP SND (FST c) in
+  EVERY (λx. ~MEM x mss) as
+End
+
+Definition check_fresh_aspo_def:
+  check_fresh_aspo fml c obj s ord ⇔
+  case ord of NONE => T
+  | SOME ((f,g,us,vs,as),xs) =>
+    check_fresh_aux_fml as fml ∧
+    check_fresh_aux_obj as obj ∧
+    check_fresh_aux_constr as c ∧
+    check_fresh_aux_subst as s
+End
+
+Theorem MEM_filter_map_inr:
+  ∀s acc.
+  MEM x (filter_map_inr s acc) ⇔
+  MEM x acc ∨ ∃n. MEM (n,INR (Pos x)) s ∨ MEM (n, INR (Neg x)) s
+Proof
+  ho_match_mp_tac filter_map_inr_ind>>rw[filter_map_inr_def]>>
+  every_case_tac>>gvs[]>>
+  metis_tac[]
+QED
+
+Theorem subst_fun_mk_subst_neq:
+  ∀s.
+  (∀n. ¬MEM (n,v) s) ⇒
+  subst_fun (mk_subst s) n ≠ SOME v
+Proof
+  ho_match_mp_tac mk_subst_ind>>
+  rw[mk_subst_def,subst_fun_def]>>
+  CCONTR_TAC>>gvs[]
+  >-
+    gvs[vec_lookup_def,length_def]>>
+  gvs[vec_lookup_num_man_to_vec,lookup_fromAList]>>
+  drule ALOOKUP_MEM>>
+  rw[]
+QED
+
+Theorem check_fresh_aux_subst_imp:
+  check_fresh_aux_subst as s ⇒
+  ∀n a.
+    a ∈ set as ⇒
+    subst_fun (mk_subst s) n ≠ SOME (INR (Pos a)) ∧
+    subst_fun (mk_subst s) n ≠ SOME (INR (Neg a))
+Proof
+  strip_tac>>
+  gvs[check_fresh_aux_subst_def,MEM_filter_map_inr,EVERY_MEM]>>
+  metis_tac[subst_fun_mk_subst_neq]
+QED
+
+Theorem check_fresh_aspo_fresh:
+  check_fresh_aspo fml c obj s ord ⇒
+  OPTION_ALL
+    (fresh_aux_aspo (core_only_fml (b ∨ tcb) fml) c obj
+       (subst_fun (mk_subst s))) ord
+Proof
+  simp[check_fresh_aspo_def]>>
+  every_case_tac>>rw[fresh_aux_aspo_def,fresh_aux_def]
+  >- (
+    gvs[check_fresh_aux_fml_def,core_only_fml_def,range_def,FORALL_PROD,MEM_MAP,EVERY_MEM]>>
+    first_x_assum drule>>
+    rw[npbf_vars_def,npbc_vars_def,FORALL_PROD,EXTENSION,MEM_MAP]>>
+    metis_tac[SND,PAIR])
+  >- (
+    gvs[check_fresh_aux_constr_def]>>
+    Cases_on`c`>>gvs[EVERY_MEM,npbc_vars_def])
+  >- (
+    gvs[check_fresh_aux_obj_def]>>
+    TOP_CASE_TAC>>gvs[EVERY_MEM])
+  >>
+  metis_tac[check_fresh_aux_subst_imp]
+QED
+
 (*
   The tcb flag indicates we're in to-core mode
   where it is guaranteed that the core formula implies
@@ -1120,7 +1253,8 @@ End
 Definition check_red_def:
   check_red pres ord obj b tcb fml id c s
     (pfs:subproof) idopt =
-  if check_pres pres s then
+  if check_pres pres s ∧
+    check_fresh_aspo fml c obj s ord then
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml b fml id (not c) in
       let s = mk_subst s in
@@ -1134,17 +1268,18 @@ Definition check_red_def:
       | SOME (fml',id') =>
         let chk =
           (case idopt of
-            NONE => T
-              (* TODO
+            NONE =>
               let gfml = mk_core_fml (b ∨ tcb) fml in
               let goals = toAList (map_opt (subst_opt w) gfml) in
-              let (l,r) = extract_pids pfs LN LN in
-                split_goals gfml nc l goals ∧
+              let (l,r) = extract_scoped_pids pfs LN LN in
+                (* Every goal from the formula is checked *)
+                split_goals gfml nc l goals  ∧
+                (* Every # goal is checked *)
                 EVERY (λ(id,cs).
                   lookup id r ≠ NONE ∨
                   check_hash_triv nc cs
                   )
-                  (enumerate 0 rsubs)*)
+                  (enumerate 0 rsubs)
             | SOME cid =>
               check_contradiction_fml b fml' cid) in
         if chk then
@@ -1601,11 +1736,8 @@ Proof
   rw[pres_set_spt_def,mk_subst_def,subst_fun_def,check_pres_def,domain_lookup]
   >-
     (pop_assum mp_tac>>EVAL_TAC)>>
-  qmatch_goalsub_abbrev_tac`sub vv yy`>>
-  `vec_lookup vv yy = NONE` by
-    (gvs[Abbr`vv`,Abbr`yy`,vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,EVERY_MEM,MEM_MAP]>>
-    metis_tac[NOT_SOME_NONE])>>
-  gvs[vec_lookup_def]
+  gvs[vec_lookup_num_man_to_vec,lookup_fromAList,EVERY_MEM,ALOOKUP_NONE,MEM_MAP]>>
+  metis_tac[NOT_SOME_NONE]
 QED
 
 Definition sat_obj_po_def:
@@ -1651,11 +1783,6 @@ QED
 Definition redundant_wrt_obj_po_def:
   redundant_wrt_obj_po f pres ord obj c ⇔
     sat_obj_po pres ord obj f (f ∪ {c})
-End
-
-Definition fresh_aux_aspo_def:
-  fresh_aux_aspo fml c obj w ((f,g,us,vs,as),xs) ⇔
-    fresh_aux as fml c obj w
 End
 
 Theorem dom_subst_eq:
@@ -1774,9 +1901,14 @@ Proof
   \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po_spec)
   \\ simp[]
   \\ qexists_tac ‘subst_fun (mk_subst s)’ \\ fs []
-  (* TODO *)
+  \\ gvs[red_subgoals_def]
+  \\ pairarg_tac \\ gvs[]
+  \\ pairarg_tac \\ gvs[]
+  \\ CONJ_TAC >-
+    metis_tac[check_fresh_aspo_fresh]
   \\ CONJ_TAC >-
     metis_tac[check_pres_subst_fun]
+  (* TODO *)
   \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]
   \\ `id ∉ domain fml` by fs[id_ok_def]
   \\

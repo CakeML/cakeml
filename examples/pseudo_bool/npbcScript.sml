@@ -2548,8 +2548,7 @@ Definition fresh_aux_def:
     (case obj of
       NONE => T
     | SOME obj => a ∉ set (MAP SND (FST obj))) ∧
-    (∀n. w n ≠ SOME (INR (Pos a))) ∧
-    (∀n. w n ≠ SOME (INR (Neg a)))
+    (∀n. w n ≠ SOME (INR (Pos a)) ∧ w n ≠ SOME (INR (Neg a)))
 End
 
 Theorem substitution_redundancy_obj_po:
