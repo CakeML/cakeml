@@ -85,7 +85,6 @@ Theorem data_compile_correct:
          | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)
 Proof
-
   recInduct dataSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   >~ [‘evaluate (Skip,s)’] >-
    (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
@@ -210,7 +209,6 @@ Proof
     \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
     \\ fs [add_space_def] \\ fs [state_rel_thm] \\ rfs [] \\ fs []
     \\ fs [wordSemTheory.write_bytearray_def])
-
   >~ [‘evaluate (Raise _,s)’] >-
    (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ fs [] \\ srw_tac[][]
@@ -336,9 +334,8 @@ Proof
     \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
            wordSemTheory.dec_clock_def]
     \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def])
-  \\ cheat (*
   \\ Cases_on `x` \\ full_simp_tac(srw_ss())[LET_DEF]
-  \\ `domain (adjust_set r) <> {}` by fs[adjust_set_def,domain_fromAList]
+  \\ `domain (FST (adjust_sets r)) <> {}` by fs[adjust_sets_def,domain_fromAList]
   \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[wordSemTheory.evaluate_def]
   \\ Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac state_rel_get_vars_IMP \\ full_simp_tac(srw_ss())[]
@@ -352,9 +349,11 @@ Proof
       (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]>>
       imp_res_tac get_vars_IMP_LENGTH>>
       metis_tac[LENGTH_NIL])
-    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest xs s.code s.stack_frame_sizes =SOME (ys,prog,ss)`
+    \\ Q.MATCH_ASSUM_RENAME_TAC
+         `find_code dest xs s.code s.stack_frame_sizes =SOME (ys,prog,ss)`
     \\ Cases_on `dataSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ drule cut_env_IMP_cut_envs \\ strip_tac \\ gvs []
     \\ `t.clock = s.clock /\
         t.stack_size = s.stack_frame_sizes` by full_simp_tac(srw_ss())[state_rel_def]
     \\ full_simp_tac(srw_ss())[]
@@ -398,9 +397,11 @@ Proof
       \\ imp_res_tac LASTN_TL \\ full_simp_tac(srw_ss())[]
       \\ fs [jump_exc_push_env_NONE])
     \\ Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ gvs [set_vars_sing]
     \\ rpt_drule state_rel_pop_env_set_var_IMP \\ fs []
     \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
     \\ imp_res_tac evaluate_IMP_domain_EQ \\ full_simp_tac(srw_ss()) []
+    \\ gvs [wordSemTheory.set_vars_def,sptreeTheory.alist_insert_def]
     \\ fs [state_rel_def,wordSemTheory.set_var_def,set_var_def])
   (* with handler *)
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
@@ -412,9 +413,11 @@ Proof
       (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]>>
       imp_res_tac get_vars_IMP_LENGTH>>
       metis_tac[LENGTH_NIL])
-  \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest xs s.code s.stack_frame_sizes = SOME (ys,prog,ss)`
+  \\ Q.MATCH_ASSUM_RENAME_TAC
+       `find_code dest xs s.code s.stack_frame_sizes = SOME (ys,prog,ss)`
   \\ Cases_on `dataSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ drule cut_env_IMP_cut_envs \\ strip_tac \\ gvs []
   \\ rpt_drule find_code_thm_handler \\ fs []
   \\ disch_then (qspecl_then [`x0`,`n`,`prog1`,`n`,`l`] strip_assume_tac) \\ fs []
   \\ `t.stack_size = s.stack_frame_sizes` by fs [state_rel_def]
@@ -450,7 +453,8 @@ Proof
              CaseEq"list",CaseEq"stack"] \\ rveq \\ fs [set_var_def]
       \\ imp_res_tac evaluate_safe_for_space_mono \\ fs [])
     \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[set_var_def]
+    \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono
+    \\ full_simp_tac(srw_ss())[set_var_def]
     \\ imp_res_tac wordPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac dataPropsTheory.pop_env_const
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
@@ -466,7 +470,7 @@ Proof
     \\ imp_res_tac backendPropsTheory.option_le_trans \\ full_simp_tac(srw_ss())[])
   \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[] THEN1
    (Cases_on `pop_env r'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
+    \\ rpt strip_tac \\ full_simp_tac(srw_ss())[set_vars_sing]
     \\ rpt_drule state_rel_pop_env_set_var_IMP \\ fs []
     \\ disch_then (qspec_then `q` strip_assume_tac) \\ fs []
     \\ imp_res_tac evaluate_IMP_domain_EQ \\ full_simp_tac(srw_ss())[]
@@ -510,7 +514,7 @@ Proof
   \\ imp_res_tac mk_loc_eq_push_env_exc_Exception \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac eval_push_env_SOME_exc_IMP_s_key_eq
   \\ imp_res_tac s_key_eq_handler_eq_IMP
-  \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac [] *)
+  \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac []
 QED
 
 Theorem compile_correct_lemma:

@@ -4766,6 +4766,20 @@ Proof
   \\ Cases_on ‘lookup (adjust_var a) t.locals’ \\ gvs []
 QED
 
+Theorem cut_env_IMP_cut_envs:
+  wordSem$cut_env t l = SOME y ⇒
+  ∃y1 y2. wordSem$cut_envs t l = SOME (y1,y2) ∧ y = union y2 y1
+Proof
+  gvs [wordSemTheory.cut_env_def,AllCaseEqs()] \\ rw [] \\ gvs []
+QED
+
+Theorem set_vars_sing:
+  wordSem$set_vars [q] [w] s = set_var q w s
+Proof
+  gvs [wordSemTheory.set_vars_def,wordSemTheory.set_var_def]
+  \\ EVAL_TAC
+QED
+
 Theorem jump_exc_call_env:
    wordSem$jump_exc (call_env x y s) =
    jump_exc (s with stack_max :=
@@ -5389,7 +5403,6 @@ Proof
 QED
 *)
 
-(*
 Theorem find_code_thm_ret = Q.prove(`
   !s (t:('a,'c,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
@@ -5397,12 +5410,11 @@ Theorem find_code_thm_ret = Q.prove(`
       get_vars (MAP adjust_var args) t = SOME ws /\
       find_code dest xs s.code fs = SOME (ys,prog,ss) /\
       dataSem$cut_env r s.locals = SOME x /\
-      wordSem$cut_env (adjust_sets r) t.locals = SOME y ==>
+      wordSem$cut_envs (adjust_sets r) t.locals = SOME y ==>
       ?args1 n1 n2.
         find_code dest (Loc q l::ws) t.code fs = SOME (args1,FST (comp c n1 n2 prog),ss) /\
         state_rel c q l (call_env ys ss (push_env x F (dec_clock s)))
-          (call_env args1 ss (push_env y
-             (NONE:(num # ('a wordLang$prog) # num # num) option)
+          (call_env args1 ss (push_env y NONE
           (dec_clock t))) [] ((l1,l2)::locs)`,
   cheat (*
   reverse (Cases_on `dest`) \\ srw_tac[][] \\ full_simp_tac(srw_ss())[find_code_def]
@@ -5431,9 +5443,8 @@ Theorem find_code_thm_ret = Q.prove(`
   \\ full_simp_tac(srw_ss())[] \\ metis_tac [] *)) |> SPEC_ALL;
 Theorem find_code_thm_ret[allow_rebind] =
   find_code_thm_ret
-*)
 
-(*
+
 Theorem find_code_thm_handler = Q.prove(`
   !s (t:('a,'c,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
@@ -5441,14 +5452,14 @@ Theorem find_code_thm_handler = Q.prove(`
       get_vars (MAP adjust_var args) t = SOME ws /\
       find_code dest xs s.code fs = SOME (ys,prog,ss) /\
       dataSem$cut_env r s.locals = SOME x /\
-      wordSem$cut_env (adjust_set r) t.locals = SOME y ==>
+      wordSem$cut_envs (adjust_sets r) t.locals = SOME y ==>
       ?args1 n1 n2.
         find_code dest (Loc q l::ws) t.code fs = SOME (args1,FST (comp c n1 n2 prog),ss) /\
         state_rel c q l (call_env ys ss (push_env x T (dec_clock s)))
           (call_env args1 ss (push_env y
              (SOME (adjust_var x0,(prog1:'a wordLang$prog),nn,l + 1))
           (dec_clock t))) [] ((l1,l2)::locs)`,
-  reverse (Cases_on `dest`) \\ srw_tac[][] \\ full_simp_tac(srw_ss())[find_code_def]
+  cheat (* reverse (Cases_on `dest`) \\ srw_tac[][] \\ full_simp_tac(srw_ss())[find_code_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[wordSemTheory.find_code_def] \\ srw_tac[][]
   \\ `code_rel c s.code t.code` by full_simp_tac(srw_ss())[state_rel_def]
   \\ full_simp_tac(srw_ss())[code_rel_def] \\ res_tac \\ full_simp_tac(srw_ss())[ADD1]
@@ -5470,10 +5481,9 @@ Theorem find_code_thm_handler = Q.prove(`
   \\ full_simp_tac bool_ss [FRONT_SNOC]
   \\ match_mp_tac (state_rel_call_env_push_env |> Q.SPEC `SOME xx`
                    |> SIMP_RULE std_ss [] |> GEN_ALL)
-  \\ full_simp_tac(srw_ss())[] \\ metis_tac []) |> SPEC_ALL;
+  \\ full_simp_tac(srw_ss())[] \\ metis_tac [] *)) |> SPEC_ALL;
 Theorem find_code_thm_handler[allow_rebind] =
   find_code_thm_handler
-*)
 
 Theorem data_find_code:
    dataSem$find_code dest xs code fs = SOME(ys,prog,ss) ⇒ ¬bad_dest_args dest xs
