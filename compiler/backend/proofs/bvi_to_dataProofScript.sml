@@ -474,7 +474,8 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on)
+      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem data_to_bvi_do_app:
   ∀op t r z res s1.
@@ -544,10 +545,11 @@ Proof
         ,data_to_bvi_v_Unit
         ,data_to_bvi_v_Boolv]
   >- (rename1 `Label` \\ rfs [code_rel_def])
-  >- (rename1 `FFI` \\ Cases_on `z` \\ Cases_on `z'` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
+  >- (rename1 `Label` \\ rfs [code_rel_def])
+  >- (rename1 `FFI ""` \\ Cases_on `z` \\ Cases_on `z'` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
      \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
      \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert])
-  >- (rename1 `FFI ""` \\ Cases_on `z` \\ Cases_on `z'` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
+  >- (rename1 `FFI` \\ Cases_on `z` \\ Cases_on `z'` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
      \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
      \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert])
   >- (rename1 `Cons` \\ Cases_on `z`

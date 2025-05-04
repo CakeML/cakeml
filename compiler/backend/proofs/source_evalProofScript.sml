@@ -622,13 +622,23 @@ Theorem do_app_sim:
   LIST_REL (sv_rel (v_rel es)) refs refs' /\
   result_rel (v_rel es) (v_rel es) r r'
 Proof
-  cheat (*
   rw [s_rel_def]
   \\ fs []
   \\ last_x_assum mp_tac
   \\ simp [Once do_app_cases] \\ rw [listTheory.SWAP_REVERSE_SYM]
   \\ fs [CaseEq "ffi_result", option_case_eq] \\ rveq \\ fs []
   \\ simp [do_app_def]
+  >>~ [`thunk_op`]
+  >- gvs [thunk_op_def]
+  >- (
+    gvs [AllCaseEqs(), thunk_op_def]
+    >- (
+      rpt (pairarg_tac \\ gvs [])
+      \\ gvs [store_alloc_def, LIST_REL_EL_EQN])
+    \\ drule_then (drule_then (qsubterm_then `store_assign _ _` mp_tac))
+         store_assign
+    \\ rw [EVERY2_LUPDATE_same]
+    \\ gvs [LIST_REL_EL_EQN])
   \\ simp [div_exn_v_def, sub_exn_v_def, chr_exn_v_def,
         EVERY2_refl, MEM_MAP, PULL_EXISTS]
   \\ TRY (drule_then imp_res_tac (CONJUNCT1 do_eq))
@@ -653,7 +663,7 @@ Proof
   \\ fs [LIST_REL_REPLICATE_same, EVERY2_LUPDATE_same, LIST_REL_APPEND_EQ]
   \\ TRY (Cases_on ‘ys’ using SNOC_CASES \\ gs[SNOC_APPEND, REVERSE_APPEND])
   \\ TRY (fs [LIST_REL_EL_EQN, EVERY2_REVERSE1] \\ NO_TAC)
-  \\ imp_res_tac fpSemPropsTheory.fp_translate_cases \\ rveq \\ gs[] *)
+  \\ imp_res_tac fpSemPropsTheory.fp_translate_cases \\ rveq \\ gs[]
 QED
 
 Theorem pairarg_to_pair_map:
@@ -966,10 +976,9 @@ val eval_simulation_setup = setup (`
   \\ rveq \\ fs []
   );
 
-Triviality eval_simulation_App:
+Theorem eval_simulation_App:
   ^(#get_goal eval_simulation_setup `Case ([App _ _])`)
 Proof
-  cheat (*
   rw []
   \\ reverse (fs [pair_case_eq, result_case_eq] \\ rveq \\ fs [])
   \\ insts_tac
@@ -1059,12 +1068,94 @@ Proof
       \\ TOP_CASE_TAC \\ gs[Boolv_def]
       \\ COND_CASES_TAC \\ gs[v_to_env_id_def])
     \\ gs[shift_fp_opts_def, state_component_equality])
+  >~ [`getOpClass op = Force`]
+  >- (
+    gvs [AllCaseEqs(), dec_clock_def]
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
+      \\ gvs [s_rel_def, LIST_REL_EL_EQN]
+      \\ `∃a. EL n refs'' = Thunk Evaluated a ∧
+              v_rel orac_s'' v a` by (
+        first_x_assum drule \\ rw []
+        \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs []
+      \\ simp [state_component_equality])
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
+      \\ gvs [s_rel_def, LIST_REL_EL_EQN]
+      \\ `∃a. EL n refs'' = Thunk NotEvaluated a ∧
+              v_rel orac_s'' f a` by (
+        first_x_assum drule \\ rw []
+        \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs []
+      \\ simp [state_component_equality])
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
+      \\ `n < LENGTH t''.refs ∧
+          ∃a. EL n t''.refs = Thunk NotEvaluated a ∧
+          v_rel (orac_s t''.eval_state) f a` by (
+        gvs [s_rel_def, LIST_REL_EL_EQN]
+        \\ first_x_assum drule \\ rw []
+        \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs []
+      \\ drule_then assume_tac s_rel_clock \\ gvs [dec_clock_def]
+      \\ last_x_assum $ drule_then assume_tac
+      \\ pop_assum $ qspec_then `sing_env "f" a` assume_tac \\ gvs []
+      \\ pop_assum mp_tac \\ impl_tac
+      >- (
+        rw [env_rel_def, sing_env_def, namespaceTheory.nsEmpty_def]
+        \\ Cases_on `nm`
+        \\ gvs [namespaceTheory.nsLookup_def, namespaceTheory.nsBind_def])
+      \\ rw [] \\ gvs [abort_def]
+      \\ simp [PULL_EXISTS]
+      \\ gvs [es_forward_def, es_stack_forward_def]
+      \\ gvs [oneline update_thunk_def, AllCaseEqs()]
+      \\ gvs [oneline store_assign_def] \\ rw []
+      >- (
+        gvs [oneline dest_thunk_def]
+        \\ qpat_x_assum `v_rel _ v y` mp_tac
+        \\ Cases_on `v` \\ Cases_on `y` \\ rw [Once v_rel_cases]
+        >- (
+          gvs [oneline store_v_same_type_def]
+          \\ gvs [oneline store_lookup_def]
+          \\ gvs [s_rel_def, LIST_REL_EL_EQN]
+          \\ IF_CASES_TAC \\ gvs []
+          \\ first_x_assum drule \\ rw []
+          \\ Cases_on `EL n' st2.refs` \\ Cases_on `EL n' refs'4'`
+          \\ gvs [sv_rel_def]
+          \\ Cases_on `t` \\ gvs [])
+        >- gvs [v_to_env_id_def])
+      >- gvs [s_rel_def, LIST_REL_EL_EQN]
+      >- (
+        gvs [oneline store_v_same_type_def]
+        \\ gvs [s_rel_def, LIST_REL_EL_EQN]
+        \\ first_x_assum drule \\ rw []
+        \\ Cases_on `EL n st2.refs` \\ Cases_on `EL n refs'4'`
+        \\ gvs [sv_rel_def])
+      >- (
+        gvs [s_rel_def, state_component_equality, LIST_REL_EL_EQN, EL_LUPDATE]
+        \\ rw []))
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
+      \\ `n < LENGTH t''.refs ∧
+          ∃a. EL n t''.refs = Thunk NotEvaluated a ∧
+          v_rel (orac_s t''.eval_state) f a` by (
+        gvs [s_rel_def, LIST_REL_EL_EQN]
+        \\ first_x_assum drule \\ rw []
+        \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs []
+      \\ drule_then assume_tac s_rel_clock \\ gvs [dec_clock_def]
+      \\ last_x_assum $ drule_then assume_tac
+      \\ pop_assum $ qspec_then `sing_env "f" a` assume_tac \\ gvs []
+      \\ pop_assum mp_tac \\ impl_tac
+      >- (
+        rw [env_rel_def, sing_env_def, namespaceTheory.nsEmpty_def]
+        \\ Cases_on `nm`
+        \\ gvs [namespaceTheory.nsLookup_def, namespaceTheory.nsBind_def])
+      \\ rw [] \\ gvs [abort_def]
+      \\ gvs [es_forward_def, es_stack_forward_def]))
   \\ eval_cases_tac
   \\ drule_then (drule_then assume_tac) do_app_sim
   \\ insts_tac
   \\ fs [s_rel_def] \\ rveq \\ fs []
   \\ simp [state_component_equality]
-  \\ rw [] \\ fs [] *)
+  \\ rw [] \\ fs []
 QED
 
 Triviality eval_simulation_Denv:
@@ -1550,7 +1641,6 @@ Theorem evaluate_is_record_forward:
     recorded_orac_wf (ci_comp ci) (orac_s s'.eval_state).oracle)
   )
 Proof
-  cheat (*
   then_select_goals [``Case [App _ _]``] (
   ho_match_mp_tac (name_ind_cases [] full_evaluate_ind)
   \\ rpt conj_tac
@@ -1562,6 +1652,12 @@ Proof
   \\ simp [record_forward_refl]
   >- (
     Cases_on ‘getOpClass op’ \\ fs[]
+    >~ [`getOpClass op = Force`] >- (
+      full_simp_tac bool_ss [do_eval_res_def, bool_case_eq, pair_case_eq,
+          option_case_eq, result_case_eq, dec_clock_def]
+      \\ rveq \\ full_simp_tac bool_ss [PAIR_EQ]
+      \\ gvs [AllCaseEqs()]
+      \\ imp_res_tac record_forward_trans_sym)
     \\ full_simp_tac bool_ss [do_eval_res_def, bool_case_eq, pair_case_eq,
         option_case_eq, result_case_eq, dec_clock_def]
     \\ rveq \\ full_simp_tac bool_ss [PAIR_EQ]
@@ -1585,7 +1681,7 @@ Proof
   \\ eval_cases_tac
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
   \\ rpt (drule_then irule record_forward_trans_sym)
-  \\ simp [record_forward_refl] *)
+  \\ simp [record_forward_refl]
 QED
 
 val agrees_tac = (drule_then irule orac_agrees_backward)
@@ -1654,7 +1750,6 @@ val insert_oracle_correct_setup = setup (
 Triviality insert_oracle_correct_App:
   ^(#get_goal insert_oracle_correct_setup `Case (_, [App _ _])`)
 Proof
-  cheat (*
   rw []
   \\ fs [pair_case_eq, result_case_eq] \\ rveq \\ fs []
   \\ fs [bool_case_eq] \\ rveq \\ fs [] \\ Cases_on ‘getOpClass op’ \\ gs[]
@@ -1691,8 +1786,15 @@ Proof
     \\ agrees_impl_tac
     \\ simp []
   )
+  >~ [`getOpClass op = Force`] >- (
+    gvs [AllCaseEqs(), dec_clock_def]
+    \\ eval_cases_tac
+    \\ imp_res_simp_tac evaluate_is_record_forward
+    \\ imp_res_simp_tac insert_declare_env
+    \\ agrees_impl_tac
+    \\ simp [])
   \\ eval_cases_tac
-  \\ Cases_on ‘st'.fp_state.canOpt = FPScope fpValTree$Opt’ \\ gs[shift_fp_opts_def] *)
+  \\ Cases_on ‘st'.fp_state.canOpt = FPScope fpValTree$Opt’ \\ gs[shift_fp_opts_def]
 QED
 
 Triviality insert_oracle_correct_Denv:
@@ -1797,7 +1899,6 @@ Theorem evaluate_record_suffix:
   record_forward s''.eval_state s'.eval_state
   ))
 Proof
-  cheat (*
   ho_match_mp_tac full_evaluate_ind
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
@@ -1822,8 +1923,19 @@ Proof
             \\ drule_then irule record_forward_trans)
         \\ NO_TAC)
   \\ simp [combine_dec_result_def, shift_fp_opts_def]
+  >>~ [`getOpClass op = Force`]
+  >- (
+    gvs [AllCaseEqs(), dec_clock_def]
+    \\ drule_then (drule_then assume_tac) less_sub_1_cases \\ gvs []
+    \\ imp_res_simp_tac evaluate_is_record_forward \\ gvs [])
+  >- (
+    gvs [AllCaseEqs(), dec_clock_def]
+    \\ imp_res_simp_tac evaluate_is_record_forward \\ gvs []
+    >- (drule_then irule record_forward_trans \\ gvs [])
+    >- (drule_then irule record_forward_trans \\ gvs [])
+    >- (disj2_tac \\ drule_then irule record_forward_trans \\ gvs []))
   \\ rename1 ‘st2.fp_state.canOpt = FpScope fpValTree$Opt’
-  \\ Cases_on ‘st2.fp_state.canOpt = FpScope fpValTree$Opt’ \\ gs[shift_fp_opts_def] *)
+  \\ Cases_on ‘st2.fp_state.canOpt = FpScope fpValTree$Opt’ \\ gs[shift_fp_opts_def]
 QED
 
 (* Constructs the oracle from an evaluation by using the recorded
@@ -2335,7 +2447,6 @@ Theorem adjust_oracle_evaluate:
       evaluate_decs (s_adjust_oracle ci (compile_decs o f) s) env ds =
           (s_adjust_oracle ci (compile_decs o f) s', res))
 Proof
-  cheat (*
   disch_tac
   \\ ho_match_mp_tac (name_ind_cases [] full_evaluate_ind)
   \\ fs [full_evaluate_def]
@@ -2349,12 +2460,12 @@ Proof
       fs [astTheory.op_class_case_eq]
       \\ fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
       \\ gvs []
+      >~ [`getOpClass op = Force`] >- gvs [AllCaseEqs(), dec_clock_def]
       \\ fs [option_case_eq, pair_case_eq, bool_case_eq, result_case_eq]
       \\ insts_tac
       \\ fs [dec_clock_def]
       (* sigh @ fp cases *)
-      \\ rw [] \\ fs [shift_fp_opts_def]
-    )
+      \\ rw [] \\ fs [shift_fp_opts_def])
     (* Eval *)
     \\ fs [do_eval_res_def]
     \\ fs [pair_case_eq, result_case_eq, option_case_eq] \\ gvs []
@@ -2385,7 +2496,7 @@ Proof
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, combine_dec_result_eq_Rerr]
   \\ try (drule_then drule declare_env_is_insert)
-  \\ fs [declare_env_adjust] *)
+  \\ fs [declare_env_adjust]
 QED
 
 Triviality adjust_oracle_ev_decs =

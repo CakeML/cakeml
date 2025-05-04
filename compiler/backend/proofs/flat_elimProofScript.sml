@@ -218,6 +218,8 @@ Definition find_refs_globals_def:
         union (find_v_globals a) (find_refs_globals t)) ∧
     (find_refs_globals (Varray l::t) =
         union (find_v_globalsL l) (find_refs_globals t)) ∧
+    (find_refs_globals (Thunk _ a::t) =
+        union (find_v_globals a) (find_refs_globals t)) ∧
     (find_refs_globals (_::t) = find_refs_globals t) ∧
     (find_refs_globals [] = LN)
 End
@@ -230,10 +232,13 @@ Theorem find_refs_globals_MEM:
       ⇒ (∀ a . MEM (Refv a) refs
             ⇒ domain (find_v_globals a) ⊆ R) ∧
         (∀ vs . MEM (Varray vs) refs
-            ⇒ domain (find_v_globalsL vs) ⊆ R)
+            ⇒ domain (find_v_globalsL vs) ⊆ R) ∧
+        (∀ m a . MEM (Thunk m a) refs
+            ⇒ domain (find_v_globals a) ⊆ R)
 Proof
     Induct >> rw[] >> fs[find_refs_globals_def, domain_union] >>
-    Cases_on `h` >> fs[find_refs_globals_def, domain_union]
+    Cases_on `h` >> fs[find_refs_globals_def, domain_union] >>
+    first_x_assum drule >> gvs []
 QED
 
 Theorem find_refs_globals_EL:
@@ -241,7 +246,9 @@ Theorem find_refs_globals_EL:
     (∀ a . EL n refs = Refv a
             ⇒ domain (find_v_globals a) ⊆ R) ∧
     (∀ vs . EL n refs = Varray vs
-            ⇒ domain (find_v_globalsL vs) ⊆ R)
+            ⇒ domain (find_v_globalsL vs) ⊆ R) ∧
+    (∀ m a . EL n refs = Thunk m a
+            ⇒ domain (find_v_globals a) ⊆ R)
 Proof
   metis_tac [EL_MEM, find_refs_globals_MEM]
 QED
@@ -257,7 +264,10 @@ Theorem find_refs_globals_LUPDATE:
         ⇒ domain (find_refs_globals (LUPDATE (Varray vs) n  refs))
             ⊆ domain reachable) ∧
     (∀ ws. domain (find_refs_globals (LUPDATE (W8array ws) n refs))
-        ⊆ domain reachable)
+        ⊆ domain reachable) ∧
+    (∀ m a. domain (find_v_globals a) ⊆ domain reachable
+        ⇒ domain (find_refs_globals (LUPDATE (Thunk m a) n refs))
+            ⊆ domain reachable)
 Proof
     Induct_on `refs` >> rw[] >> Cases_on `h` >>
     fs[find_refs_globals_def, domain_union] >>
@@ -509,7 +519,6 @@ Theorem do_app_SOME_flat_state_rel:
                     domain reachable ∧
                 EVERY ($~ ∘ v_has_Eval) (result_vs (evaluate$list_result result))
 Proof
-  cheat (*
   rw []
   \\ qpat_assum `flat_state_rel _ _ _` (mp_tac o REWRITE_RULE [flat_state_rel_def])
   \\ rw []
@@ -629,7 +638,7 @@ Proof
     \\ fs [flat_state_rel_def, globals_rel_def, IS_SOME_EXISTS]
     \\ rfs []
     \\ metis_tac []
-  ) *)
+  )
 QED
 
 
@@ -746,7 +755,6 @@ Theorem evaluate_keep_flat_state_rel_eq_lemma:
         domain (find_sem_prim_res_globals result) ⊆ domain reachable ∧
         EVERY (($~) ∘ v_has_Eval) (result_vs result))
 Proof
-  cheat (*
   ho_match_mp_tac evaluate_exp_ind >> rpt CONJ_TAC >> rpt GEN_TAC >>
   TRY strip_tac >>
   TRY (simp [] >> NO_TAC)
@@ -965,6 +973,55 @@ Proof
         )
       )
     >- (
+      Cases_on `op = ThunkOp ForceThunk` >> gvs []
+      >- (
+        gvs [AllCaseEqs(), dec_clock_def, dest_GlobalVarLookup_def]
+        >- (
+          gvs [oneline dest_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def,
+               EVERY_EL] >>
+          first_x_assum drule >> gvs [] >> rw [] >>
+          gvs [find_sem_prim_res_globals_def, find_v_globals_def] >>
+          drule_all find_refs_globals_EL >> rw [])
+        >- gvs [oneline dest_thunk_def, AllCaseEqs(),
+                semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def,
+                find_sem_prim_res_globals_def, find_result_globals_def]
+        >- (
+          gvs [oneline dest_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def] >>
+          simp [PULL_EXISTS] >>
+          last_x_assum $ qspecl_then
+            [`reachable`, `new_removed_state with clock :=
+                           new_removed_state.clock - 1`] mp_tac >>
+          impl_tac
+          >- (
+            gvs [AppUnit_def, find_lookups_def, dest_GlobalVarLookup_def,
+                 find_env_globals_def, find_v_globals_def, has_Eval_def,
+                 EVERY_EL] >>
+            first_x_assum drule >> rw [] >>
+            drule_all find_refs_globals_EL >> rw []) >>
+          rw [] >>
+          goal_assum drule >> simp [] >>
+          gvs [oneline update_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_assign_def,
+               find_sem_prim_res_globals_def, find_v_globals_def] >>
+          rw []
+          >- (drule_all find_refs_globals_LUPDATE >> gvs []) >>
+          gvs [EVERY_EL, EL_LUPDATE] >> rw [])
+        >- (
+          gvs [oneline dest_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def] >>
+          last_x_assum $ qspecl_then
+            [`reachable`, `new_removed_state with clock :=
+                           new_removed_state.clock - 1`] mp_tac >>
+          impl_tac
+          >- (
+            gvs [AppUnit_def, find_lookups_def, dest_GlobalVarLookup_def,
+                 find_env_globals_def, find_v_globals_def, has_Eval_def,
+                 EVERY_EL] >>
+            first_x_assum drule >> rw [] >>
+            drule_all find_refs_globals_EL >> rw []) >>
+          rw [])) >>
       Cases_on `do_app q op (REVERSE a)` >> fs[] >>
       PairCases_on `x` >> fs[] >> rveq >>
       drule (GEN_ALL do_app_SOME_flat_state_rel) >>
@@ -1063,7 +1120,7 @@ Proof
     fs [ELIM_UNCURRY, o_DEF, v_has_Eval_def, EVERY_MAP] >>
     simp [find_v_globals_MAP_Recclosure] >>
     rw [o_DEF]
-  ) *)
+  )
 QED
 
 (******** EVALUATE SPECIALISATION ********)

@@ -11,6 +11,7 @@ val _ = new_theory"closSem"
 Datatype:
   ref = ValueArray ('a list)
       | ByteArray (word8 list)
+      | Thunk thunk_mode 'a
 End
 
 (* --- Semantics of ClosLang --- *)
@@ -415,6 +416,17 @@ Definition do_app_def:
     | (IntOp (LessConstSmall n),[Number i]) =>
         (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then Rval (Boolv (i < &n),s) else Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
+    | (ThunkOp th_op, vs) =>
+        (case (th_op,vs) of
+         | (AllocThunk m, [v]) =>
+             (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+                Rval (RefPtr F ptr, s with refs := s.refs |+ (ptr,Thunk m v)))
+         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
+             (case FLOOKUP s.refs ptr of
+              | SOME (Thunk NotEvaluated _) =>
+                 Rval (Unit, s with refs := s.refs |+ (ptr,Thunk m v))
+              | _ => Error)
+         | _ => Error)
     | _ => Error
 End
 
@@ -545,7 +557,8 @@ Theorem case_eq_thms = LIST_CONJ (
   closLangTheory.word_op_case_eq ::
   closLangTheory.block_op_case_eq ::
   closLangTheory.glob_op_case_eq ::
-  closLangTheory.mem_op_case_eq :: map CaseEq
+  closLangTheory.mem_op_case_eq ::
+  astTheory.thunk_op_case_eq :: map CaseEq
   ["list","option","v","ref",
    "result","error_result","eq_result","app_kind","word_size"]);
 
@@ -562,6 +575,35 @@ Proof
   rw[do_install_def,case_eq_thms] \\ fs []
   \\ pairarg_tac \\ gvs[case_eq_thms,pair_case_eq,bool_case_eq]
 QED
+
+Definition dest_thunk_def:
+  dest_thunk [RefPtr _ ptr] refs =
+    (case FLOOKUP refs ptr of
+     | SOME (Thunk Evaluated v) => SOME (INL v)
+     | SOME (Thunk NotEvaluated v) => SOME (INR v)
+     | _ => NONE) ∧
+  dest_thunk vs refs = NONE
+End
+
+Definition store_thunk_def:
+  store_thunk ptr v refs =
+    case FLOOKUP refs ptr of
+    | SOME (Thunk NotEvaluated _) => SOME (refs |+ (ptr,v))
+    | _ => NONE
+End
+
+Definition update_thunk_def:
+  update_thunk [RefPtr _ ptr] refs [v] =
+    (if dest_thunk [v] refs = NONE then
+       store_thunk ptr (Thunk Evaluated v) refs
+     else
+       NONE) ∧
+  update_thunk _ _ _ = NONE
+End
+
+Definition AppUnit_def:
+  AppUnit x = closLang$App None NONE x [Op None (BlockOp (Cons 0)) []]
+End
 
 Definition evaluate_def[nocompute]:
   (evaluate ([],env:closSem$v list,^s) = (Rval [],s)) /\
@@ -603,6 +645,20 @@ Definition evaluate_def[nocompute]:
              | (Rval vs,s) => (Rval [LAST vs],s)
              | res => res)
         | (Rerr err,s) => (Rerr err,s))
+       else if op = ThunkOp ForceThunk then
+         (case dest_thunk vs s.refs of
+          | NONE => (Rerr (Rabort Rtype_error),s)
+          | SOME (INL v) => (Rval [v],s)
+          | SOME (INR f) =>
+             if s.clock = 0 then
+               (Rerr (Rabort Rtimeout_error),s)
+             else
+               case evaluate ([AppUnit (Var None 0)],[f],(dec_clock 1 s)) of
+               | (Rval vs2,s) =>
+                   (case update_thunk vs s.refs vs2 of
+                    | NONE => (Rerr (Rabort Rtype_error),s)
+                    | SOME refs => (Rval vs2,s with refs := refs))
+               | (Rerr e,s) => (Rerr e,s))
        else
        (case do_app op (REVERSE vs) s of
         | Rerr err => (Rerr err,s)

@@ -117,6 +117,7 @@ Datatype:
      | GlobOp glob_op
      | MemOp mem_op
      | Install       (* installs new code at runtime *)
+     | ThunkOp thunk_op
 End
 
 Datatype:
@@ -180,6 +181,7 @@ Definition pure_op_def:
     | MemOp Ref => F
     | MemOp Update => F
     | Install => F
+    | ThunkOp _ => F
     | _ => T
 End
 

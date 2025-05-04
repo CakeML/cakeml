@@ -65,7 +65,11 @@ Definition dest_thunk_def:
 End
 
 Definition update_thunk_def:
-  update_thunk [Loc _ n] st [v] = store_assign n (Thunk Evaluated v) st ∧
+  update_thunk [Loc _ n] st [v] =
+    (if dest_thunk [v] st = NONE then
+       store_assign n (Thunk Evaluated v) st
+     else
+       NONE) ∧
   update_thunk _ st _ = NONE
 End
 

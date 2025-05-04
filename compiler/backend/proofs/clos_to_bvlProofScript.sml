@@ -1516,7 +1516,8 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on)
+      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem do_app[local]:
    (do_app op xs s1 = Rval (v,s2)) /\
@@ -1566,6 +1567,7 @@ Proof
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac
      \\ gvs [bvlSemTheory.do_app_def,v_rel_SIMP])
   \\ Cases_on `op = Install` THEN1 fs[closSemTheory.do_app_def]
+  \\ Cases_on `∃t. op = ThunkOp t` THEN1 cheat
   \\ Cases_on `op = BlockOp Equal` THEN1
    (srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def,
                             bvlSemTheory.do_eq_def]
@@ -1809,7 +1811,7 @@ Proof
   \\ TRY (fs[case_eq_thms,bool_case_eq,v_case_eq_thms] \\ NO_TAC)
   \\ spose_not_then strip_assume_tac \\ fs[]
   \\ rpt (pop_assum mp_tac)
-  \\ rpt (PURE_CASE_TAC \\ fs []) \\ fs []
+  \\ gvs [AllCaseEqs()]
   \\ TRY(rpt strip_tac \\ fs[v_rel_cases] \\ fs[state_rel_def] \\ NO_TAC)
 QED
 
@@ -3933,6 +3935,7 @@ Proof
       \\ disj2_tac \\ CCONTR_TAC \\ fs []
       )
     \\ srw_tac[][]
+    \\ Cases_on `op = ThunkOp ForceThunk` THEN1 cheat
     \\ full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
     \\ `?p. evaluate (xs,env,s) = p` by full_simp_tac(srw_ss())[] \\ PairCases_on `p` \\ full_simp_tac(srw_ss())[]
     \\ `?cc. compile_exps s.max_app xs aux1 = cc` by full_simp_tac(srw_ss())[] \\ PairCases_on `cc` \\ full_simp_tac(srw_ss())[]

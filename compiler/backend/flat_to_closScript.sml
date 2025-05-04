@@ -194,23 +194,7 @@ Definition compile_op_def:
     | Shift x1 x2 x3 => Op t (WordOp (WordShift x1 x2 x3)) xs
     | Opw x1 x2 => Op t (WordOp (WordOpw x1 x2)) xs
     | Eval => Op t Install xs (* if need to flip:  Let t xs (Op t Install [Var t 1; Var t 0]) *)
-    | ThunkOp t =>
-        (dtcase t of
-         | AllocThunk m =>
-              Let None xs (Op None (MemOp Ref) [
-                 Op None (BlockOp (Cons (thunk_mode_to_digit m))) [];
-                 Var None 0])
-         | UpdateThunk m =>
-              Let None xs (Let None
-                [Op None (MemOp Update) [
-                   Var None 0; Op None (IntOp (Const 0)) [];
-                   Op None (BlockOp (Cons (thunk_mode_to_digit m))) []];
-                   Op None (MemOp Update) [
-                     Var None 0; Op None (IntOp (Const 1)) [];
-                     Var None 1]]
-                (Var None 0))
-         | ForceThunk =>
-              Let None xs (Var None 0))
+    | ThunkOp op => Op t (ThunkOp op) xs
     | _ => Let None xs (Var None 0)
 End
 

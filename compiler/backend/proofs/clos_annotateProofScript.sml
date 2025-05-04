@@ -238,6 +238,12 @@ Proof
   \\ fs [rich_listTheory.EL_APPEND2]
 QED
 
+Definition opt_rel_def[simp]:
+  opt_rel f NONE NONE = T /\
+  opt_rel f (SOME x) (SOME y) = f x y /\
+  opt_rel f _ _ = F
+End
+
 Definition state_rel_def:
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\
@@ -337,6 +343,10 @@ val do_app_lemma = prove(
     \\ fs [] \\ rw [] \\ fs [])
   \\ fs [simple_state_rel_def,state_rel_def]
   \\ rpt strip_tac \\ fs [FLOOKUP_DEF]
+  THEN1
+   (`ref_rel v_rel (s.refs ' ptr) (t.refs ' ptr)` by fs []
+    \\ rpt (qpat_x_assum `!x. _` kall_tac) \\ rfs []
+    \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
   THEN1
    (`ref_rel v_rel (s.refs ' ptr) (t.refs ' ptr)` by fs []
     \\ rpt (qpat_x_assum `!x. _` kall_tac) \\ rfs []
@@ -578,6 +588,42 @@ val code_tac =
           ALL_DISTINCT_FEVERY_alist_to_fmap,EVERY_FLAT,
           EVERY_MAP,EVERY_GENLIST,shift_seq_def]
     \\ fs[every_Fn_vs_NONE_EVERY_MAP,o_DEF];
+
+Triviality state_rel_opt_rel_refs:
+  (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
+     ∃r2. FLOOKUP s2.refs n = r2 ∧ opt_rel (ref_rel v_rel) r1 r2) ∧
+  (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
+     ∃r1. FLOOKUP s1.refs n = r1 ∧ opt_rel (ref_rel v_rel) r1 r2)
+Proof
+  rw [] \\ gvs [state_rel_def, FLOOKUP_DEF] \\ rw []
+QED
+
+Triviality state_rel_clocks_eqs:
+  state_rel s t ⇒ s.clock = t.clock
+Proof
+  gvs [state_rel_def]
+QED
+
+Triviality rel_update_thunk:
+  state_rel s1 s2 ∧
+  LIST_REL v_rel vs ys ⇒
+    (update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ⇒
+       ∃refs2. update_thunk [RefPtr v ptr] s2.refs ys = SOME refs2 ∧
+               state_rel (s1 with refs := refs1) (s2 with refs := refs2))
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs()] \\ rw []
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+  \\ (
+    gvs [Once v_rel_cases, oneline store_thunk_def, AllCaseEqs(), PULL_EXISTS]
+    \\ rpt (
+      imp_res_tac state_rel_opt_rel_refs \\ rw []
+      \\ gvs [oneline opt_rel_def]
+      \\ FULL_CASE_TAC \\ gvs [])
+    \\ gvs [state_rel_def, FLOOKUP_UPDATE] \\ rw []
+    \\ simp [ref_rel_def, Once v_rel_cases]
+    \\ metis_tac [])
+QED
 
 Triviality shift_correct:
   (!xs env (s1:('c,'ffi) closSem$state) env' t1 res s2 m l i.
@@ -833,6 +879,25 @@ Proof
       \\ fs[shift_LENGTH_LEMMA, LENGTH_FST_alt_free]
       \\ Q.ISPEC_THEN`vs'`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[]
       \\ fs[LIST_REL_SNOC] )
+    >- ( (* ThunkOp ThunkForce case *)
+      gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+      \\ rgs [Once v_rel_cases]
+      \\ imp_res_tac (cj 1 state_rel_opt_rel_refs)
+      \\ qpat_x_assum `opt_rel (ref_rel v_rel) _ _` mp_tac
+      \\ simp [oneline opt_rel_def] \\ CASE_TAC \\ gvs [PULL_EXISTS]
+      \\ imp_res_tac state_rel_clocks_eqs \\ gvs [PULL_EXISTS]
+      \\ last_x_assum
+          $ qspecl_then [`[b]`, `dec_clock 1 t2`, `0`, `1`, `i`] mp_tac
+      \\ (
+        gvs [] \\ impl_tac
+        >- (
+          gvs [AppUnit_def, alt_fv, alt_fv1_thm, SUBSET_DEF, IN_DEF, env_ok_def,
+               dec_clock_def]
+          \\ code_tac
+          \\ gvs [state_rel_def])
+        \\ rw [AppUnit_def, alt_free_def, shift_def, get_var_def]
+        \\ goal_assum drule \\ rw []
+        \\ drule_all rel_update_thunk \\ rw []))
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] >>
     last_x_assum mp_tac >>
     reverse BasicProvers.CASE_TAC >- (

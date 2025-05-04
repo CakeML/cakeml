@@ -449,7 +449,15 @@ Proof
                                    is_clock_io_mono_do_app_simple]), CASE_TAC])
     \\ ho_match_mp_tac is_clock_io_mono_check \\ gs[] \\ rpt strip_tac
     \\ res_tac \\ gs[dec_inc_clock])
-  >- cheat (* Force *)
+  >- (
+    gvs [AllCaseEqs()]
+    \\ step_tac
+    \\ fs[is_clock_io_mono_def, dec_clock_def]
+    \\ Cases_on `a` \\ gvs[update_thunk_def]
+    \\ Cases_on `h` \\ gvs[update_thunk_def]
+    \\ Cases_on `t` \\ gvs[update_thunk_def]
+    \\ Cases_on `a'` \\ gvs[update_thunk_def]
+    \\ Cases_on `t` \\ gvs[update_thunk_def, store_assign_def])
   >- (assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_simple) \\ fs[])
   >- (assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_icing) \\ gs[])
   \\ assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_real) \\ fs[])
@@ -894,7 +902,14 @@ Proof
   \\ strip_tac
   \\ fs [evaluate_case_eqs, dec_clock_def, do_eval_res_def, shift_fp_opts_def]
   >~ [‘op:op’] >-
-   (Cases_on ‘getOpClass op = Force’ >- cheat
+   (Cases_on ‘getOpClass op = Force’ >-
+      (gvs []
+       \\ Cases_on `op` \\ gvs [] \\ Cases_on `t` \\ gvs []
+       \\ gvs [AllCaseEqs()]
+       \\ imp_res_tac evaluate_next_type_stamp_mono
+       \\ imp_res_tac evaluate_next_exn_stamp_mono
+       \\ rw []
+       \\ fs [build_tdefs_def])
     \\ Cases_on ‘getOpClass op’ \\ fs []
     \\ fs [evaluate_case_eqs, dec_clock_def, do_eval_res_def]
     \\ rveq \\ fs []
@@ -1062,7 +1077,16 @@ Proof
                      `evaluate (dec_clock s2) _ _ = (s3, _)`]
           \\ fs[dec_clock_def]
           \\ by_eq)
-      >- cheat (* Force *)
+      >- (
+        Cases_on `op` \\ gvs[] \\ Cases_on `t` \\ gvs[]
+        \\ gvs[AllCaseEqs(), dec_clock_def]
+        \\ rpt strip_tac \\ gvs[] \\ rveq
+        \\ imp_res_tac evaluate_fp_opts_inv \\ gvs[]
+        \\ gvs[state_component_equality,fpState_component_equality, FUN_EQ_THM]
+        \\ qpat_x_assum `∀x. q.fp_state.opts _ = _` $ gs o single o GSYM
+        \\ rename1 `sa.fp_state.choices ≤ q.fp_state.choices`
+        \\ ‘sa.fp_state.choices = q.fp_state.choices’ by gs[]
+        \\ pop_assum $ fs o single)
       >- (
         ntac 2 (TOP_CASE_TAC \\ fs[]) >- (trivial)
         \\ ntac 2 (TOP_CASE_TAC \\ fs[])
@@ -1203,7 +1227,16 @@ Proof
                   `evaluate (dec_clock s2) _ _ = (s3, _)`]
        \\ fs[dec_clock_def]
        \\ by_eq)
-   >- cheat (* Force *)
+   >- (
+    Cases_on `op` \\ gvs[] \\ Cases_on `t` \\ gvs[]
+    \\ gvs [AllCaseEqs(), dec_clock_def]
+    \\ rpt strip_tac \\ gvs[] \\ rveq
+    \\ imp_res_tac evaluate_fp_opts_inv \\ gvs[]
+    \\ gvs[state_component_equality,fpState_component_equality, FUN_EQ_THM]
+    \\ qpat_x_assum `∀x. q.fp_state.opts _ = _` $ gs o single o GSYM
+    \\ rename1 `sa.fp_state.choices ≤ q.fp_state.choices`
+    \\ ‘sa.fp_state.choices = q.fp_state.choices’ by gs[]
+    \\ pop_assum $ fs o single)
    >- (
     ntac 2 (TOP_CASE_TAC \\ fs[]) >- (trivial)
     \\ ntac 2 (TOP_CASE_TAC \\ fs[])
@@ -1362,7 +1395,16 @@ Proof
                      `evaluate (dec_clock s2) _ _ = (s3, _)`]
           \\ fs[dec_clock_def]
           \\ by_eq)
-    >- cheat (* Force *)
+    >- (
+      Cases_on `op` \\ gvs[] \\ Cases_on `t` \\ gvs[]
+      \\ gvs [AllCaseEqs(), dec_clock_def]
+      \\ rpt strip_tac \\ gvs[] \\ rveq
+      \\ imp_res_tac evaluate_fp_opts_inv \\ gvs[]
+      \\ gvs[state_component_equality,fpState_component_equality, FUN_EQ_THM]
+      \\ qpat_x_assum `∀x. q.fp_state.opts _ = _` $ gs o single o GSYM
+      \\ rename1 `sa.fp_state.choices ≤ q.fp_state.choices`
+      \\ ‘sa.fp_state.choices = q.fp_state.choices’ by gs[]
+      \\ pop_assum $ fs o single)
       >- (
         ntac 2 (TOP_CASE_TAC \\ fs[]) >- (trivial)
         \\ ntac 2 (TOP_CASE_TAC \\ fs[])
@@ -1497,7 +1539,10 @@ Proof
           \\ qpat_x_assum ‘∀ outcome. _ ≠ Rerr (Rabort _)’ mp_tac
           \\ ntac 4 TOP_CASE_TAC \\ gs[shift_fp_opts_def])
   \\ TRY (rename1 ‘_ = Force’
-          \\ cheat)
+          \\ Cases_on `op` \\ gvs[] \\ Cases_on `t` \\ gvs[]
+          \\ gvs [AllCaseEqs()]
+          \\ imp_res_tac evaluate_io_events_mono_imp \\ gvs[]
+          \\ drule_all io_events_mono_antisym \\ gvs[])
   \\ TRY (imp_res_tac do_app_io_events_mono
     \\ imp_res_tac io_events_mono_trans
     \\ CHANGED_TAC (rpt
@@ -1694,7 +1739,9 @@ Proof
   \\ TRY (rename [`Case ([App _ _])`] ORELSE cheat)
   *)
   \\ TRY (rename [`Case ([App _ _])`]
-    \\ Cases_on ‘getOpClass op = Force’ >- cheat
+    \\ Cases_on ‘getOpClass op = Force’ >- (
+      Cases_on `op` \\ gvs[] \\ Cases_on `t` \\ gvs[]
+      \\ gvs[AllCaseEqs(), dec_clock_def])
     \\ Cases_on ‘getOpClass op’ \\ gs[]
     \\ rpt (MAP_FIRST (dxrule_then (strip_assume_tac o SIMP_RULE bool_ss []))
       [hd (RES_CANON pair_case_eq), hd (RES_CANON result_case_eq), hd (RES_CANON bool_case_eq)]

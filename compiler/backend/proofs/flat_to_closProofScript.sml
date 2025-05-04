@@ -76,20 +76,12 @@ Definition opt_rel_def[simp]:
   opt_rel f _ _ = F
 End
 
-Definition thunk_mode_to_digit_def[simp]:
-  thunk_mode_to_digit NotEvaluated = 0 /\
-  thunk_mode_to_digit Evaluated = 1
-End
-
 Definition store_rel_def:
   store_rel refs t_refs =
     !i. if LENGTH refs <= i then FLOOKUP t_refs i = NONE else
           case EL i refs of
           | Refv v => (?x. FLOOKUP t_refs i = SOME (ValueArray [x]) /\ v_rel v x)
-          | Thunk m v =>
-              (?x. FLOOKUP t_refs i = SOME (ValueArray [
-                     Block (thunk_mode_to_digit m) []; x]) /\
-                   v_rel v x)
+          | Thunk m v => (?x. FLOOKUP t_refs i = SOME (Thunk m x) /\ v_rel v x)
           | Varray vs => (?xs. FLOOKUP t_refs i = SOME (ValueArray xs) /\
                                LIST_REL v_rel vs xs)
           | W8array bs => FLOOKUP t_refs i = SOME (ByteArray bs)
@@ -154,6 +146,15 @@ Proof
   fs [state_rel_def,store_rel_def] \\ rw []
   \\ fs [store_lookup_def]
   \\ first_x_assum (qspec_then `i` mp_tac) \\ fs []
+QED
+
+Theorem lookup_thunk:
+  state_rel s1 t1 /\ store_lookup i s1.refs = SOME (Thunk m v) ==>
+  ?w. FLOOKUP t1.refs i = SOME (Thunk m w) /\ v_rel v w
+Proof
+  gvs [state_rel_def,store_rel_def] \\ rw []
+  \\ gvs [store_lookup_def]
+  \\ first_x_assum (qspec_then `i` mp_tac) \\ gvs []
 QED
 
 Triviality env_rel_CONS_upd:
@@ -1265,7 +1266,41 @@ QED
 Theorem op_thunk:
   ∀th_op. op = ThunkOp th_op ==> ^op_goal
 Proof
-  cheat
+  rpt strip_tac \\ rveq
+  \\ gvs [flatSemTheory.do_app_def, compile_op_def, evaluate_def, do_app_def]
+  \\ Cases_on `vs` \\ gvs []
+  \\ Cases_on `th_op` \\ gvs []
+  >- (
+    Cases_on `t'` \\ gvs []
+    \\ pairarg_tac \\ gvs []
+    \\ rw []
+    >- (
+      gvs [store_alloc_def]
+      \\ drule state_rel_LEAST \\ rw []
+      \\ gvs [state_rel_def, store_rel_def] \\ rw []
+      >- (
+        gvs [FLOOKUP_UPDATE]
+        \\ last_x_assum $ qspec_then `i` assume_tac \\ gvs [])
+    \\ rw [EL_APPEND, FLOOKUP_UPDATE] \\ gvs []
+    \\ last_x_assum $ qspec_then `i` assume_tac \\ gvs [])
+    >- (simp [Once v_rel_cases] \\ gvs [store_alloc_def, state_rel_LEAST]))
+  \\ gvs [AllCaseEqs(), PULL_EXISTS]
+  \\ qpat_x_assum `v_rel (Loc _ _) _` mp_tac
+  \\ rw [Once v_rel_cases]
+  \\ qpat_x_assum `store_assign _ _ _ = _` mp_tac
+  \\ simp [store_assign_def, store_v_same_type_def]
+  \\ ntac 2 CASE_TAC \\ rw [GSYM PULL_EXISTS]
+  >- (
+    gvs [state_rel_def, store_rel_def]
+    \\ first_x_assum (qspec_then `lnum` mp_tac) \\ gvs [] \\ rw []
+    \\ simp [SF SFY_ss])
+  >- (
+    gvs [state_rel_def, store_rel_def]
+    \\ rw [FLOOKUP_UPDATE, EL_LUPDATE]
+    >- (last_x_assum $ qspec_then `i` assume_tac \\ gvs [])
+    \\ CASE_TAC \\ rw []
+    \\ last_x_assum $ qspec_then `i` assume_tac \\ gvs [])
+  >- simp [Once v_rel_cases, Unit_def, EVAL ``tuple_tag``]
 QED
 
 Theorem compile_op_correct:
@@ -1389,6 +1424,40 @@ Proof
   \\ fs [LENGTH_EQ_NUM_compute]
 QED
 
+Triviality rel_update_thunk:
+  state_rel s1 s2 ∧
+  LIST_REL v_rel vs ys ⇒
+    (update_thunk [Loc v ptr] s1.refs vs = SOME refs1 ⇒
+       ∃refs2. update_thunk [RefPtr v ptr] s2.refs ys = SOME refs2 ∧
+               state_rel (s1 with refs := refs1) (s2 with refs := refs2))
+Proof
+  rw []
+  \\ gvs [oneline flatSemTheory.update_thunk_def, oneline update_thunk_def,
+          AllCaseEqs()] \\ rw []
+  \\ gvs [store_assign_def, store_v_same_type_def]
+  \\ Cases_on `EL ptr s1.refs` \\ gvs []
+  \\ Cases_on `t` \\ gvs []
+  \\ `∃b. FLOOKUP s2.refs ptr = SOME (Thunk NotEvaluated b)` by (
+    gvs [state_rel_def, store_rel_def]
+    \\ last_x_assum $ qspec_then `ptr` assume_tac \\ gvs [])
+  \\ gvs [oneline flatSemTheory.dest_thunk_def, oneline dest_thunk_def,
+          AllCaseEqs()]
+  \\ gvs [Once v_rel_cases, store_thunk_def, AllCaseEqs(), PULL_EXISTS]
+  \\ (
+    gvs [state_rel_def, store_rel_def, FLOOKUP_UPDATE, EL_LUPDATE] \\ rw []
+    \\ TRY (
+      gvs [store_lookup_def]
+      \\ last_x_assum $ qspec_then `n` assume_tac \\ gvs []
+      \\ NO_TAC)
+    >- (
+      rename1 `FLOOKUP s2.refs idx = _`
+      \\ last_x_assum $ qspec_then `idx` assume_tac \\ gvs [])
+    >- (simp [Once v_rel_cases] \\ metis_tac [])
+    >- (
+      rename1 `EL idx s1.refs`
+      \\ last_x_assum $ qspec_then `idx` assume_tac \\ gvs []))
+QED
+
 Theorem compile_App:
   ^(get_goal "flatLang$App")
 Proof
@@ -1400,7 +1469,22 @@ Proof
   \\ disch_then drule
   \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
   \\ strip_tac
-  \\ Cases_on `op = ThunkOp ForceThunk` >- cheat
+  \\ Cases_on `op = ThunkOp ForceThunk` >- (
+    gvs [dest_nop_def, compile_op_def, evaluate_def, AllCaseEqs(), PULL_EXISTS]
+    \\ gvs [oneline flatSemTheory.dest_thunk_def, oneline dest_thunk_def,
+            AllCaseEqs(), PULL_EXISTS]
+    \\ rgs [Once v_rel_cases]
+    \\ drule_all lookup_thunk \\ rw [] \\ gvs []
+    \\ imp_res_tac state_rel_IMP_clock \\ gvs [PULL_EXISTS]
+    \\ imp_res_tac state_rel_dec_clock
+    \\ last_x_assum $ drule_then $ qspecl_then [`[SOME "f"]`, `[w]`] mp_tac
+    \\ (
+      impl_tac
+      >- gvs [env_rel_def, findi_def, flatSemTheory.AppUnit_def]
+      \\ rw [AppUnit_def, flatSemTheory.AppUnit_def, dest_nop_def, compile_op_def,
+             arg2_def, findi_def, SmartCons_def, compile_def]
+      \\ goal_assum drule \\ gvs []
+      \\ drule_all rel_update_thunk \\ rw []))
   \\ Cases_on `op = Opapp` \\ fs []
   THEN1
    (fs [compile_op_def,dest_nop_def] \\ rveq
@@ -1883,7 +1967,8 @@ Proof
 QED
 
 val cases_op = Cases >|
-  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on)
+      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem clos_FINITE_BAG_set_globals[simp]:
   (∀e. FINITE_BAG (closProps$set_globals e)) ∧
@@ -2114,6 +2199,7 @@ Proof
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
   \\ simp [arg1_def, arg2_def]
   \\ EVERY_CASE_TAC
+  \\ TRY (Cases_on `t'` \\ gvs [])
   \\ fs props_defs
   \\ imp_res_tac EVERY_IMP_HD
   \\ fs [NULL_LENGTH, EVERY_REVERSE]

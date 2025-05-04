@@ -1957,7 +1957,8 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on)
+      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem do_app_aux_safe_for_space_mono:
   (do_app_aux op xs s = Rval (r,s1)) /\ s1.safe_for_space ==> s.safe_for_space

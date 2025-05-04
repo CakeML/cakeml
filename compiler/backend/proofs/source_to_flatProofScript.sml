@@ -711,7 +711,11 @@ Inductive sv_rel:
   (!genv vs vs'.
     LIST_REL (v_rel genv) vs vs'
     ⇒
-    sv_rel genv (Varray vs) (Varray vs'))
+    sv_rel genv (Varray vs) (Varray vs')) ∧
+  (!genv m v v'.
+    v_rel genv v v'
+    ⇒
+    sv_rel genv (Thunk m v) (Thunk m v'))
 End
 
 Triviality sv_rel_weak:
@@ -985,7 +989,6 @@ val do_app = time Q.prove (
        TAKE 1 s1_i1.refs = TAKE 1 s2_i1.refs ∧
        result_rel v_rel genv r r_i1 ∧
        do_app s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)`,
-  cheat (*
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i1.refs` >> simp [] >>
@@ -1357,6 +1360,26 @@ val do_app = time Q.prove (
       fsrw_tac[][] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][v_rel_lems] >> CCONTR_TAC >> rfs [] >> rveq >> fs [])
+  >- ((* ThunkOp *)
+    srw_tac[][semanticPrimitivesPropsTheory.do_app_cases,
+              flatSemTheory.do_app_def, thunk_op_def] >>
+    gvs[AllCaseEqs(), PULL_EXISTS]
+    >- (
+      ntac 2 (pairarg_tac >> gvs[]) >>
+      gvs[store_alloc_def] >>
+      srw_tac[][sv_rel_cases, result_rel_cases, v_rel_eqns] >>
+      gvs[LIST_REL_EL_EQN])
+    >- (
+      gvs[store_assign_def, store_v_same_type_def] >>
+      Cases_on `EL lnum q` >> gvs[] >> Cases_on `t'` >> gvs[] >>
+      qpat_x_assum `v_rel _ (Loc _ _) y` mp_tac >> rw[Once v_rel_cases] >>
+      gvs [LIST_REL_EL_EQN, REWRITE_RULE [ADD1] LUPDATE_def, EL_LUPDATE]
+      >- (rw[] >> simp [Once sv_rel_cases])
+      >- simp[Once result_rel_cases, Once v_rel_cases]
+      >- (
+        rw[REWRITE_RULE [ADD1] EL] >>
+        first_x_assum drule >> gvs[] >>
+        CASE_TAC >> rw[Once sv_rel_cases])))
   >- ((* ListAppend *)
     simp [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
     rw [] >>
@@ -1384,7 +1407,7 @@ val do_app = time Q.prove (
       \\ rw[sv_rel_cases, result_rel_cases, v_rel_eqns])
   >- ((* Eval *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
-  ) *));
+  ));
 
 Triviality find_recfun:
   !x funs e comp_map y t.
@@ -4074,10 +4097,9 @@ Proof
   \\ fs []
 QED
 
-Triviality compile_correct_App:
+Theorem compile_correct_App:
   ^(#get_goal compile_correct_setup `Case [App _ _]`)
 Proof
-  cheat (*
   rpt disch_tac
   \\ fs [pair_case_eq] \\ fs []
   \\ first_x_assum (drule_then (drule_then drule))
@@ -4259,14 +4281,170 @@ Proof
     \\ fs [invariant_def, s_rel_cases]
   ) >>
   Cases_on ‘getOpClass op’ >> gs[]
-  >- (Cases_on ‘op’ >> gs[astTheory.getOpClass_def])
-  >- (Cases_on ‘op’ >> gs[astTheory.getOpClass_def])
+  >- (
+    Cases_on ‘op’ >> gs[astTheory.getOpClass_def] >>
+    Cases_on ‘t'’ >> gvs[])
+  >- (
+    Cases_on ‘op’ >> gs[astTheory.getOpClass_def] >>
+    Cases_on ‘t'’ >> gvs[])
   >~ [‘getOpClass op = Reals’]
   >- (
     fs[s_rel_cases] >>
     ‘~ st'.fp_state.real_sem’
       by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv >> gs[]) >>
-    gs[]) >>
+    gs[])
+  >~ [‘getOpClass op = Force’]
+  >- (
+    Cases_on ‘op’ >> gvs[astTheory.getOpClass_def] >>
+    Cases_on ‘t'’ >> gvs[] >>
+    gvs[AllCaseEqs(), dec_clock_def, PULL_EXISTS] >> rw[]
+    >- (
+      gvs[astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
+          AllCaseEqs()] >>
+      qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >>
+      rw[Once result_rel_cases] >>
+      gvs[oneline evaluateTheory.dest_thunk_def, AllCaseEqs()] >>
+      rgs[Once v_rel_cases] >> gvs[] >>
+      simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
+      gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
+      `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
+      gvs[] >>
+      `∃v''. EL n (TL s'_i1.refs) = Thunk Evaluated v'' ∧
+             v_rel genv' v v''` by (
+        first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
+      simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases] >>
+      goal_assum drule >> rw[])
+    >- (
+      gvs[astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
+          AllCaseEqs()] >>
+      qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >>
+      rw[Once result_rel_cases] >>
+      gvs[oneline evaluateTheory.dest_thunk_def, AllCaseEqs()] >>
+      rgs[Once v_rel_cases] >> gvs[] >>
+      simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
+      gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
+      `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
+      gvs[] >>
+      `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
+             v_rel genv' f v'` by (
+        first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
+      simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases] >>
+      goal_assum drule >> rw[])
+    >- (
+      gvs[astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
+          AllCaseEqs()] >>
+      qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >>
+      rw[Once result_rel_cases] >>
+      gvs[oneline evaluateTheory.dest_thunk_def, AllCaseEqs()] >>
+      rgs[Once v_rel_cases] >> gvs[] >>
+      simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
+      gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
+      `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
+      gvs[] >>
+      `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
+             v_rel genv' f v'` by (
+        first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
+      simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
+      last_x_assum mp_tac >>
+      disch_then $ qspecl_then [
+        `genv'`, `<|c := nsEmpty; v := nsSing "f" (Local None "f")|>`,
+        `<|v := [("f",v')]|>`, `dec_clock s'_i1`, `["f"]`, `t`, `[None]`, `gen`,
+        `idxs`] mp_tac >>
+      impl_tac
+      >- (
+        gvs[invariant_def, evaluateTheory.dec_clock_def, dec_clock_def] >>
+        gvs[s_rel_cases] >>
+        gvs[env_all_rel_cases] >> rw[] >>
+        qexistsl [`nsBind "f" f nsEmpty`, `<|c := nsEmpty; v := nsEmpty|>`] >>
+        rw[evaluateTheory.sing_env_def]
+        >- (qexists `[("f",f)]` >> rw[])
+        >- simp[Once v_rel_cases]
+        >- ntac 2 (simp[Once v_rel_cases])) >>
+      rw[] >> gvs[] >>
+      gvs[evaluateTheory.AppUnit_def, compile_exp_def, astOp_to_flatOp_def,
+          bind_locals_def, namespaceTheory.nsBindList_def, compile_var_def] >>
+      simp[AppUnit_def] >>
+      qpat_x_assum `result_rel _ _ (Rval _) _` mp_tac >>
+      rw[Once result_rel_cases] >>
+      gvs[oneline evaluateTheory.update_thunk_def, AllCaseEqs()] >>
+      simp[update_thunk_def] >>
+      `dest_thunk [y] s'_i1'.refs = NONE` by (
+        qpat_x_assum `v_rel _ v y` mp_tac >>
+        Cases_on `v` >> Cases_on `y` >>
+        rw[Once v_rel_cases, dest_thunk_def, Boolv_def] >>
+        gvs[evaluateTheory.dest_thunk_def, store_lookup_def] >> rw[] >>
+        `n' < LENGTH (TL s'_i1'.refs)` by (Cases_on `s'_i1'.refs` >> gvs[]) >>
+        gvs[] >>
+        first_x_assum drule >> simp[REWRITE_RULE [ADD1] EL] >>
+        Cases_on `EL n' st2.refs` >> Cases_on `EL n' (TL s'_i1'.refs)` >>
+        rw[Once sv_rel_cases] >> gvs[] >> Cases_on `t'` >> gvs[]) >> gvs[] >>
+      Cases_on `s'_i1'.refs` >> gvs[] >>
+      qexists `genv'3'` >> gvs[] >>
+      imp_res_tac SUBMAP_TRANS >> gvs[] >>
+      imp_res_tac subglobals_trans >> gvs[] >>
+      gvs[store_assign_def, store_v_same_type_def, REWRITE_RULE [ADD1] EL] >>
+      rw[]
+      >- (
+        first_x_assum drule >>
+        Cases_on `EL n st2.refs` >> Cases_on `EL n t'` >> gvs[] >>
+        rw[Once sv_rel_cases])
+      >- rw[REWRITE_RULE [ADD1] LUPDATE_def]
+      >- rw[REWRITE_RULE [ADD1] LUPDATE_def]
+      >- (
+        rw[REWRITE_RULE [ADD1] LUPDATE_def, EL_LUPDATE] >>
+        simp[Once sv_rel_cases])
+      >- (
+        rw[REWRITE_RULE [ADD1] LUPDATE_def] >>
+        gvs[invariant_def] >>
+        rw[REWRITE_RULE [ADD1] LUPDATE_def] >>
+        gvs[s_rel_cases, LIST_REL_EL_EQN] >>
+        rw[EL_LUPDATE] >> simp[Once sv_rel_cases])
+      >- (
+        gvs[evaluateTheory.dec_clock_def] >>
+        drule_then irule orac_forward_rel_trans >> gvs[]))
+    >- (
+      gvs[astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
+          AllCaseEqs()] >>
+      qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >>
+      rw[Once result_rel_cases] >>
+      gvs[oneline evaluateTheory.dest_thunk_def, AllCaseEqs()] >>
+      rgs[Once v_rel_cases] >> gvs[] >>
+      simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
+      gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
+      `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
+      gvs[] >>
+      `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
+             v_rel genv' f v'` by (
+        first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
+      simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
+      last_x_assum mp_tac >>
+      disch_then $ qspecl_then [
+        `genv'`, `<|c := nsEmpty; v := nsSing "f" (Local None "f")|>`,
+        `<|v := [("f",v')]|>`, `dec_clock s'_i1`, `["f"]`, `t`, `[None]`, `gen`,
+        `idxs`] mp_tac >>
+      impl_tac
+      >- (
+        gvs[invariant_def, evaluateTheory.dec_clock_def, dec_clock_def] >>
+        gvs[s_rel_cases] >>
+        gvs[env_all_rel_cases] >> rw[] >>
+        qexistsl [`nsBind "f" f nsEmpty`, `<|c := nsEmpty; v := nsEmpty|>`] >>
+        rw[evaluateTheory.sing_env_def]
+        >- (qexists `[("f",f)]` >> rw[])
+        >- simp[Once v_rel_cases]
+        >- ntac 2 (simp[Once v_rel_cases])) >>
+      rw[] >> gvs[] >>
+      gvs[evaluateTheory.AppUnit_def, compile_exp_def, astOp_to_flatOp_def,
+          bind_locals_def, namespaceTheory.nsBindList_def, compile_var_def] >>
+      simp[AppUnit_def] >>
+      qpat_x_assum `result_rel _ _ (Rerr _) _` mp_tac >>
+      rw[Once result_rel_cases]
+      >- (
+        qexists `genv'3'` >> gvs[] >>
+        imp_res_tac SUBMAP_TRANS >> gvs[] >>
+        imp_res_tac subglobals_trans >> gvs[] >>
+        gvs[evaluateTheory.dec_clock_def] >>
+        imp_res_tac orac_forward_rel_trans)
+      >- metis_tac[])) >>
   fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq, pair_case_eq] >>
   rw [] >>
   rveq >> fs [] >>
@@ -4277,12 +4455,14 @@ Proof
   rpt (disch_then drule) >>
   (impl_tac >- fs [invariant_def, s_rel_cases]) >>
   rw [] >>
-  `astOp_to_flatOp op ≠ Opapp ∧ astOp_to_flatOp op ≠ Eval`
+  `astOp_to_flatOp op ≠ Opapp ∧ astOp_to_flatOp op ≠ Eval ∧
+   astOp_to_flatOp op ≠ ThunkOp ForceThunk`
   by (
     rw [astOp_to_flatOp_def] >>
     Cases_on `op` >>
     simp [] >>
-    fs []) >>
+    fs [astTheory.getOpClass_def] >>
+    Cases_on `t'` >> gvs []) >>
   fs [evaluate_def, compile_exps_reverse] >>
   imp_res_tac do_app_state_unchanged >>
   imp_res_tac do_app_const >>
@@ -4293,7 +4473,7 @@ Proof
   fs [invariant_def, s_rel_cases] >>
   rpt (TOP_CASE_TAC >> gs[result_rel_cases, semanticPrimitivesTheory.Boolv_def, Boolv_def, v_rel_eqns]) >>
   TRY COND_CASES_TAC >> gs[] >>
-  simp[ Once v_rel_rules] *)
+  simp[ Once v_rel_rules]
 QED
 
 Triviality compile_correct_Scope:

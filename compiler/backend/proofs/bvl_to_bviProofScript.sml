@@ -292,7 +292,8 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on)
+      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem do_app_ok_lemma[local]:
   state_ok r /\ EVERY (bv_ok r.refs) a /\
@@ -335,6 +336,21 @@ Proof
   \\ TRY (SRW_TAC [] [] \\ full_simp_tac(srw_ss())[bv_ok_def,EVERY_EL] \\ NO_TAC)
   \\ TRY (SRW_TAC [] [] \\ full_simp_tac(srw_ss())[bv_ok_def,EVERY_MEM] \\ NO_TAC)
   \\ STRIP_TAC \\ full_simp_tac(srw_ss())[LET_THM] \\ rpt BasicProvers.VAR_EQ_TAC
+  >- (rename1 `FFI` >>
+    full_simp_tac(srw_ss())[state_ok_def] \\ srw_tac[][] >-
+     (full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
+      \\ BasicProvers.EVERY_CASE_TAC
+      \\ RES_TAC \\ full_simp_tac(srw_ss())[]
+      \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
+      \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
+    \\ simp[FLOOKUP_UPDATE] >> srw_tac[][] >>
+    BasicProvers.CASE_TAC >>
+    BasicProvers.CASE_TAC >>
+    first_x_assum(qspec_then`k`mp_tac) >> srw_tac[][] >>
+    full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
+    \\ RES_TAC \\ full_simp_tac(srw_ss())[]
+    \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
+    \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
   >- (rename1 `FFI` >>
     full_simp_tac(srw_ss())[state_ok_def] \\ srw_tac[][] >-
      (full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
