@@ -6112,12 +6112,17 @@ Proof
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[isWord_def]
 QED
 
-(*
+Definition loc_ok_def[simp]:
+  loc_ok (Loc m n) = (n = 0) ∧
+  loc_ok _ = T
+End
+
 Triviality word_gc_move_roots_IMP_FILTER0:
-  !ws i pa old m dm ws2 i2 pa2 m2 c2 c.
-      word_gc_move_roots c (ws,i,pa,old,m,dm) = (ws2,i2,pa2,m2,c2) ==>
-      word_gc_move_roots c (FILTER isWord ws,i,pa,old,m,dm) =
-                           (FILTER isWord ws2,i2,pa2,m2,c2)
+  ∀ws i pa old m dm ws2 i2 pa2 m2 c2 c.
+    word_gc_move_roots c (ws,i,pa,old,m,dm) = (ws2,i2,pa2,m2,c2) ∧
+    EVERY loc_ok ws ⇒
+    word_gc_move_roots c (FILTER isWord ws,i,pa,old,m,dm) =
+                         (FILTER isWord ws2,i2,pa2,m2,c2)
 Proof
   Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def]
   \\ Cases \\ full_simp_tac(srw_ss())[]
@@ -6133,11 +6138,12 @@ Proof
 QED
 
 Triviality word_gen_gc_move_roots_IMP_FILTER0:
-  !ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
-      word_gen_gc_move_roots c (ws,i,pa,ib,pb,old,m,dm) =
-         (ws2,i2,pa2,ib2,pb2,m2,c2) ==>
-      word_gen_gc_move_roots c (FILTER isWord ws,i,pa,ib,pb,old,m,dm) =
-                               (FILTER isWord ws2,i2,pa2,ib2,pb2,m2,c2)
+  ∀ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
+    word_gen_gc_move_roots c (ws,i,pa,ib,pb,old,m,dm) =
+                             (ws2,i2,pa2,ib2,pb2,m2,c2) ∧
+    EVERY loc_ok ws ⇒
+    word_gen_gc_move_roots c (FILTER isWord ws,i,pa,ib,pb,old,m,dm) =
+                             (FILTER isWord ws2,i2,pa2,ib2,pb2,m2,c2)
 Proof
   Induct \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def]
   \\ Cases \\ full_simp_tac(srw_ss())[]
@@ -6153,11 +6159,12 @@ Proof
 QED
 
 Theorem word_gen_gc_partial_move_roots_IMP_FILTER:
-   !ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
-      word_gen_gc_partial_move_roots c (ws,i,pa,old,m,dm,gs,rs) =
-         (ws2,i2,pa2,m2,c2) ==>
-      word_gen_gc_partial_move_roots c (FILTER isWord ws,i,pa,old,m,dm,gs,rs) =
-                                       (FILTER isWord ws2,i2,pa2,m2,c2)
+  ∀ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
+    word_gen_gc_partial_move_roots c (ws,i,pa,old,m,dm,gs,rs) =
+                                     (ws2,i2,pa2,m2,c2) ∧
+    EVERY loc_ok ws ⇒
+    word_gen_gc_partial_move_roots c (FILTER isWord ws,i,pa,old,m,dm,gs,rs) =
+                                     (FILTER isWord ws2,i2,pa2,m2,c2)
 Proof
   Induct \\ full_simp_tac(srw_ss())[word_gen_gc_partial_move_roots_def]
   \\ Cases \\ full_simp_tac(srw_ss())[]
@@ -6171,14 +6178,13 @@ Proof
   \\ rpt (pairarg_tac \\ fs []) \\ fs [] \\ rveq
   \\ res_tac \\ fs [isWord_def]
 QED
-*)
 
 val IMP_EQ_DISJ = METIS_PROVE [] ``(b1 ==> b2) <=> ~b1 \/ b2``
 
-(*
 Theorem word_gc_fun_IMP_FILTER:
-   word_gc_fun c (xs,m,dm,s) = SOME (stack1,m1,s1) ==>
-    word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (FILTER isWord stack1,m1,s1)
+  word_gc_fun c (xs,m,dm,s) = SOME (stack1,m1,s1) ∧
+  EVERY loc_ok xs ⇒
+  word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (FILTER isWord stack1,m1,s1)
 Proof
   full_simp_tac(srw_ss())[word_gc_fun_def,LET_THM,word_gc_fun_def,
     word_full_gc_def,word_gen_gc_def,word_gen_gc_partial_def,
@@ -6190,7 +6196,7 @@ Proof
     \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
     \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac word_gc_move_roots_IMP_FILTER0
+    \\ drule_all word_gc_move_roots_IMP_FILTER0
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
   \\ TOP_CASE_TAC \\ fs []
@@ -6210,11 +6216,10 @@ Proof
     \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def,LET_THM]
     \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac word_gen_gc_move_roots_IMP_FILTER0
+    \\ drule_all word_gen_gc_move_roots_IMP_FILTER0
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
 QED
-*)
 
 Definition loc_merge_def:
   (loc_merge [] ys = []) /\
@@ -6224,18 +6229,18 @@ Definition loc_merge_def:
 End
 
 Theorem LENGTH_loc_merge:
-   !xs ys. LENGTH (loc_merge xs ys) = LENGTH xs
+  ∀xs ys. LENGTH (loc_merge xs ys) = LENGTH xs
 Proof
   Induct \\ Cases_on `ys` \\ full_simp_tac(srw_ss())[loc_merge_def]
   \\ Cases_on `h` \\ full_simp_tac(srw_ss())[loc_merge_def]
   \\ Cases_on `h'` \\ full_simp_tac(srw_ss())[loc_merge_def]
 QED
 
-(*
 Theorem word_gc_move_roots_IMP_FILTER:
    !ws i pa old m dm ws2 i2 pa2 m2 c2 c.
       word_gc_move_roots c (FILTER isWord ws,i,pa,old,m,dm) =
-                           (ws2,i2,pa2,m2,c2) ==>
+                           (ws2,i2,pa2,m2,c2) ∧
+      EVERY loc_ok ws ==>
       word_gc_move_roots c (ws,i,pa,old,m,dm) =
                            (loc_merge ws ws2,i2,pa2,m2,c2)
 Proof
@@ -6252,7 +6257,8 @@ QED
 Theorem word_gen_gc_move_roots_IMP_FILTER:
    !ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
       word_gen_gc_move_roots c (FILTER isWord ws,i,pa,ib,pb,old,m,dm) =
-        (ws2,i2,pa2,ib2,pb2,m2,c2) ==>
+        (ws2,i2,pa2,ib2,pb2,m2,c2) ∧
+      EVERY loc_ok ws ==>
       word_gen_gc_move_roots c (ws,i,pa,ib,pb,old,m,dm) =
                            (loc_merge ws ws2,i2,pa2,ib2,pb2,m2,c2)
 Proof
@@ -6269,7 +6275,8 @@ QED
 Theorem word_gen_gc_partial_move_roots_IMP_FILTER[allow_rebind]:
    !ws i pa old m dm gs rs ws2 i2 pa2 m2 c2 c.
       word_gen_gc_partial_move_roots c (FILTER isWord ws,i,pa,old,m,dm,gs,rs) =
-                                       (ws2,i2,pa2,m2,c2) ==>
+                                       (ws2,i2,pa2,m2,c2) ∧
+      EVERY loc_ok ws ==>
       word_gen_gc_partial_move_roots c (ws,i,pa,old,m,dm,gs,rs) =
                                        (loc_merge ws ws2,i2,pa2,m2,c2)
 Proof
@@ -6282,7 +6289,6 @@ Proof
   \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ res_tac \\ fs [] \\ rveq \\ fs [loc_merge_def]
 QED
-*)
 
 Theorem loc_merge_FILTER_isWord:
    !xs. loc_merge xs (FILTER isWord xs) = xs
@@ -6290,47 +6296,46 @@ Proof
   Induct \\ fs [loc_merge_def] \\ Cases \\ fs [loc_merge_def,isWord_def]
 QED
 
-(*
 Theorem word_gc_fun_loc_merge:
-   word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (ys,m1,s1) ==>
-    word_gc_fun c (xs,m,dm,s) = SOME (loc_merge xs ys,m1,s1)
+  word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (ys,m1,s1) ∧
+  EVERY loc_ok xs ⇒
+  word_gc_fun c (xs,m,dm,s) = SOME (loc_merge xs ys,m1,s1)
 Proof
-  full_simp_tac(srw_ss())[word_gc_fun_def,LET_THM,word_gc_fun_def,
+  fs [word_gc_fun_def,LET_THM,word_gc_fun_def,
      word_full_gc_def,word_gen_gc_def,word_gen_gc_partial_def,
      word_gen_gc_partial_full_def]
   \\ TOP_CASE_TAC \\ fs [loc_merge_FILTER_isWord]
   THEN1 (rw [] \\ fs [loc_merge_FILTER_isWord])
   THEN1
-   (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-    \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
-    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+   (rpt (pairarg_tac \\ fs [])
+    \\ strip_tac \\ rpt var_eq_tac \\ fs []
+    \\ fs [word_gc_move_roots_def,LET_THM]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rpt var_eq_tac \\ fs []
     \\ imp_res_tac word_gc_move_roots_IMP_FILTER
-    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
+    \\ fs [] \\ srw_tac[][]
+    \\ gvs [] \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
   THEN1
-   (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-    \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[word_gen_gc_partial_move_roots_def,LET_THM]
-    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+   (rpt (pairarg_tac \\ fs [])
+    \\ strip_tac \\ rpt var_eq_tac \\ fs []
+    \\ fs [word_gen_gc_partial_move_roots_def,LET_THM]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rpt var_eq_tac \\ fs []
     \\ imp_res_tac word_gen_gc_partial_move_roots_IMP_FILTER
-    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
+    \\ fs [] \\ srw_tac[][]
+    \\ gvs []
     \\ rveq \\ fs [])
   THEN1
-   (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-    \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def,LET_THM]
-    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+   (rpt (pairarg_tac \\ fs [])
+    \\ strip_tac \\ rpt var_eq_tac \\ fs []
+    \\ fs [word_gen_gc_move_roots_def,LET_THM]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rpt var_eq_tac \\ fs []
     \\ imp_res_tac word_gen_gc_move_roots_IMP_FILTER
-    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
+    \\ fs [] \\ srw_tac[][]
+    \\ gvs [])
 QED
-*)
 
 Theorem word_gc_fun_IMP:
    word_gc_fun c (xs,m,dm,s) = SOME (ys,m1,s1) ==>
@@ -6340,6 +6345,7 @@ Theorem word_gc_fun_IMP:
     FLOOKUP s1 CodeBufferEnd = FLOOKUP s CodeBufferEnd /\
     FLOOKUP s1 BitmapBuffer = FLOOKUP s BitmapBuffer /\
     FLOOKUP s1 BitmapBufferEnd = FLOOKUP s BitmapBufferEnd /\
+    FLOOKUP s1 (Temp 29w) = FLOOKUP s (Temp 29w) /\
     FLOOKUP s1 HeapLength = FLOOKUP s HeapLength /\
     Globals IN FDOM s1
 Proof
@@ -6384,35 +6390,35 @@ Theorem word_gc_fun_APPEND_IMP:
    word_gc_fun c (xs ++ ys,m,dm,s) = SOME (zs,m1,s1) ==>
     ?zs1 zs2. zs = zs1 ++ zs2 /\ LENGTH xs = LENGTH zs1 /\ LENGTH ys = LENGTH zs2
 Proof
-  srw_tac[][] \\ imp_res_tac word_gc_fun_LENGTH \\ full_simp_tac(srw_ss())[LENGTH_APPEND]
+  srw_tac[][] \\ imp_res_tac word_gc_fun_LENGTH \\ fs [LENGTH_APPEND]
   \\ pop_assum mp_tac \\ pop_assum (K all_tac)
   \\ qspec_tac (`zs`,`zs`) \\ qspec_tac (`ys`,`ys`) \\ qspec_tac (`xs`,`xs`)
-  \\ Induct \\ full_simp_tac(srw_ss())[] \\ Cases_on `zs` \\ full_simp_tac(srw_ss())[LENGTH_NIL] \\ srw_tac[][]
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ full_simp_tac(srw_ss())[LENGTH_NIL]
-  \\ full_simp_tac(srw_ss())[ADD_CLAUSES] \\ res_tac
-  \\ full_simp_tac(srw_ss())[] \\ Q.LIST_EXISTS_TAC [`h::zs1`,`zs2`] \\ full_simp_tac(srw_ss())[]
+  \\ Induct \\ fs [] \\ Cases_on `zs` \\ fs [LENGTH_NIL] \\ srw_tac[][]
+  \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [LENGTH_NIL]
+  \\ fs [ADD_CLAUSES] \\ res_tac
+  \\ fs [] \\ Q.LIST_EXISTS_TAC [`h::zs1`,`zs2`] \\ fs []
 QED
 
 Theorem IMP_loc_merge_APPEND[allow_rebind] = Q.prove(`
   !ts qs xs ys.
       LENGTH (FILTER isWord ts) = LENGTH qs ==>
       loc_merge (ts ++ xs) (qs ++ ys) = loc_merge ts qs ++ loc_merge xs ys`,
-  Induct \\ full_simp_tac(srw_ss())[] THEN1 (full_simp_tac(srw_ss())[LENGTH,loc_merge_def])
-  \\ Cases \\ full_simp_tac(srw_ss())[isWord_def,loc_merge_def]
-  \\ Cases \\ full_simp_tac(srw_ss())[loc_merge_def]) |> SPEC_ALL
+  Induct \\ fs [] THEN1 (fs [LENGTH,loc_merge_def])
+  \\ Cases \\ fs [isWord_def,loc_merge_def]
+  \\ Cases \\ fs [loc_merge_def]) |> SPEC_ALL
 
 Theorem TAKE_DROP_loc_merge_APPEND:
-   TAKE (LENGTH q) (loc_merge (MAP SND q) xs ++ ys) = loc_merge (MAP SND q) xs /\
-    DROP (LENGTH q) (loc_merge (MAP SND q) xs ++ ys) = ys
+  TAKE (LENGTH q) (loc_merge (MAP SND q) xs ++ ys) = loc_merge (MAP SND q) xs /\
+  DROP (LENGTH q) (loc_merge (MAP SND q) xs ++ ys) = ys
 Proof
-  `LENGTH q = LENGTH (loc_merge (MAP SND q) xs)` by full_simp_tac(srw_ss())[LENGTH_loc_merge]
-  \\ full_simp_tac(srw_ss())[TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
+  `LENGTH q = LENGTH (loc_merge (MAP SND q) xs)` by fs [LENGTH_loc_merge]
+  \\ fs [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
 QED
 
 Theorem loc_merge_NIL:
-   !xs. loc_merge xs [] = xs
+  ∀xs. loc_merge xs [] = xs
 Proof
-  Induct \\ full_simp_tac(srw_ss())[loc_merge_def] \\ Cases \\ full_simp_tac(srw_ss())[loc_merge_def]
+  Induct \\ fs [loc_merge_def] \\ Cases \\ fs [loc_merge_def]
 QED
 
 Theorem loc_merge_APPEND:
@@ -6475,38 +6481,36 @@ Theorem stack_rel_dec_stack_IMP_stack_rel:
       dec_stack (loc_merge (enc_stack xs) ys) xs = SOME stack ==>
       LIST_REL stack_rel ts stack /\ LIST_REL contains_loc stack locs
 Proof
-  cheat (*
   Induct_on `ts` \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[]
-  THEN1 (full_simp_tac(srw_ss())[wordSemTheory.enc_stack_def,loc_merge_def,wordSemTheory.dec_stack_def])
+  THEN1 (fs [wordSemTheory.enc_stack_def,loc_merge_def,wordSemTheory.dec_stack_def])
   \\ full_simp_tac(srw_ss())[PULL_EXISTS] \\ srw_tac[][]
-  \\ Cases_on `h` \\ Cases_on `o0` \\ TRY (PairCases_on `x`) \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on ‘h’ \\ rename [‘StackFrame opt l l0 xs’] \\ Cases_on ‘xs’
+  \\ TRY (PairCases_on ‘x’) \\ gvs []
   \\ full_simp_tac(srw_ss())[wordSemTheory.enc_stack_def,wordSemTheory.dec_stack_def]
-  \\ qspecl_then [`MAP SND l`,`enc_stack t`,`ys`] mp_tac loc_merge_APPEND
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ pop_assum (fn th => full_simp_tac(srw_ss())[GSYM th] THEN assume_tac th)
-  \\ full_simp_tac(srw_ss())[DROP_LENGTH_APPEND,TAKE_LENGTH_APPEND]
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-  \\ pop_assum (fn th => full_simp_tac(srw_ss())[GSYM th])
-  \\ res_tac \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `h'` \\ full_simp_tac(srw_ss())[stack_rel_def]
-  \\ full_simp_tac(srw_ss())[lookup_fromAList,IS_SOME_ALOOKUP_EQ]
-  \\ full_simp_tac(srw_ss())[EVERY_MEM,FORALL_PROD] \\ Cases_on `y`
-  \\ full_simp_tac(srw_ss())[contains_loc_def]
-  \\ qspecl_then [`MAP SND l ++ enc_stack t`,`ys`] mp_tac EVERY2_loc_merge
-  \\ full_simp_tac(srw_ss())[] \\ strip_tac
-  \\ `LENGTH (MAP SND l) = LENGTH zs1` by full_simp_tac(srw_ss())[]
-  \\ imp_res_tac LIST_REL_APPEND_IMP \\ full_simp_tac(srw_ss())[MAP_ZIP]
-  \\ full_simp_tac(srw_ss())[AND_IMP_INTRO]
-  \\ `ALOOKUP (ZIP (MAP FST l,zs1)) 0 = SOME (Loc q r)` by
-   (`LENGTH (MAP SND l) = LENGTH zs1` by full_simp_tac(srw_ss())[]
-    \\ imp_res_tac LIST_REL_APPEND_IMP \\ full_simp_tac(srw_ss())[MAP_ZIP]
-    \\ imp_res_tac ALOOKUP_ZIP \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
-  \\ full_simp_tac(srw_ss())[] \\ NTAC 3 strip_tac \\ first_x_assum match_mp_tac
-  \\ rev_full_simp_tac(srw_ss())[MEM_ZIP] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[EL_MAP]
-  \\ Q.MATCH_ASSUM_RENAME_TAC `isWord (EL k zs1)`
-  \\ full_simp_tac(srw_ss())[MEM_EL,PULL_EXISTS] \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[FST_PAIR_EQ]
-  \\ imp_res_tac EVERY2_IMP_EL \\ rev_full_simp_tac(srw_ss())[EL_MAP] *)
+  \\ qspecl_then [`MAP SND l0`,`enc_stack t`,`ys`] mp_tac loc_merge_APPEND
+  \\ strip_tac \\ fs []
+  \\ ‘DROP (LENGTH l0) (zs1 ++ zs2) = zs2 ∧
+      TAKE (LENGTH l0) (zs1 ++ zs2) = zs1’ by
+        metis_tac [DROP_LENGTH_APPEND,TAKE_LENGTH_APPEND]
+  \\ fs [] \\ ntac 2 $ pop_assum kall_tac \\ gvs []
+  \\ gvs [CaseEq "option"]
+  \\ last_x_assum drule_all \\ strip_tac \\ fs []
+  \\ PairCases_on ‘y’
+  \\ gvs [contains_loc_def]
+  \\ rename [‘stack_rel hh’] \\ Cases_on ‘hh’
+  \\ gvs [stack_rel_def,MAP_ZIP,lookup_fromAList,IS_SOME_ALOOKUP_EQ]
+  \\ gvs [EVERY_EL,EL_ZIP,EL_MAP]
+  \\ gen_tac \\ disch_tac
+  \\ last_x_assum drule
+  \\ pairarg_tac \\ gvs []
+  \\ strip_tac \\ gvs []
+  \\ strip_tac
+  \\ qsuff_tac ‘isWord x2’ >- gvs []
+  \\ qspecl_then [‘MAP SND l0 ++ enc_stack t’,‘ys’] mp_tac EVERY2_loc_merge
+  \\ gvs [LIST_REL_EL_EQN]
+  \\ strip_tac \\ gvs []
+  \\ pop_assum $ qspec_then ‘n’ mp_tac \\ gvs []
+  \\ gvs [EL_APPEND1,EL_MAP]
 QED
 
 Theorem join_env_NIL:
@@ -7108,8 +7112,17 @@ Theorem state_rel_gc:
       state_rel c l1 l2 (s with space := 0)
         (t with <|stack := stack; store := st; memory := m|>) [] locs
 Proof
-  cheat (*
   full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][]
+  \\ ‘EVERY loc_ok (MAP SND (flat s.stack t.stack)) ∧
+      EVERY loc_ok (enc_stack t.stack)’ by
+    (‘word_ml_inv (heap,t.be,a,sp,sp1,gens) limit (THE s.tstamps) c s.refs
+      (flat s.stack t.stack)’ by
+        (first_x_assum (fn th => mp_tac th \\ match_mp_tac word_ml_inv_rearrange)
+         \\ gvs [])
+     \\ pop_assum mp_tac
+     \\ simp [word_ml_inv_def]
+     \\ strip_tac \\ gvs []
+     \\ cheat)
   \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
   \\ rev_full_simp_tac(srw_ss())[lookup_def] \\ srw_tac[][]
   \\ qhdtm_x_assum `word_ml_inv` mp_tac
@@ -7122,21 +7135,14 @@ Proof
          first_x_assum (fn th3 =>
              mp_tac (MATCH_MP word_gc_fun_correct (CONJ th1 (CONJ th2 th3 ))))))
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac word_gc_fun_IMP_FILTER
+  \\ drule_all word_gc_fun_IMP_FILTER
+  \\ strip_tac
   \\ imp_res_tac FILTER_enc_stack_lemma \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac word_gc_fun_loc_merge \\ full_simp_tac(srw_ss())[FILTER_APPEND]
   \\ imp_res_tac word_gc_fun_IMP \\ full_simp_tac(srw_ss())[]
   \\ `?stack. dec_stack (loc_merge (enc_stack t.stack) (FILTER isWord stack1))
         t.stack = SOME stack` by metis_tac [dec_stack_loc_merge_enc_stack]
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
-  \\ conj_tac
-  THEN1 (fs [word_gc_fun_def]
-         \\ Cases_on `c.gc_kind` \\ fs []
-         \\ rveq \\ fs []
-         \\ rpt (pairarg_tac \\ fs []) \\ rveq
-         \\ rpt (pairarg_tac \\ fs []) \\ rveq
-         \\ every_case_tac \\ fs [] \\ rveq
-         \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST] \\ EVAL_TAC)
   \\ imp_res_tac stack_rel_dec_stack_IMP_stack_rel \\ full_simp_tac(srw_ss())[]
   \\ `flat s.stack stack = ZIP (MAP FST (flat s.stack t.stack),stack1)` by
    (match_mp_tac (GEN_ALL word_gc_fun_EL_lemma)
@@ -7159,7 +7165,8 @@ Proof
     \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][])
   \\ Cases_on `c.gc_kind = Simple` \\ fs []
   THEN1
-   (fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
+   (fs [wordSemTheory.has_space_def,wordSemTheory.get_store_def]
+    \\ strip_tac \\ fs []
     \\ rename [`c.gc_kind = Simple`] (* only one case left *)
     \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
     \\ `s.limits.arch_64_bit ⇔ dimindex (:α) = 64` by
@@ -7212,7 +7219,8 @@ Proof
     \\ pop_assum drule \\ simp [Once IN_DEF] \\ strip_tac
     \\ drule (GEN_ALL traverse_heap_reachable)
     \\ disch_then drule \\ simp [])
-  \\ fs [wordSemTheory.has_space_def] \\ strip_tac \\ fs []
+  \\ fs [wordSemTheory.has_space_def,wordSemTheory.get_store_def]
+  \\ strip_tac \\ fs []
   \\ fs [option_case_eq,CaseEq"word_loc"] \\ rveq \\ fs []
   \\ `s.limits.arch_64_bit ⇔ dimindex (:α) = 64` by
    (fs [limits_inv_def])
@@ -7262,7 +7270,7 @@ Proof
   \\ fs [all_reachable_from_roots_def]
   \\ pop_assum drule \\ simp [Once IN_DEF] \\ strip_tac
   \\ drule (GEN_ALL traverse_heap_reachable)
-  \\ disch_then drule \\ simp [] *)
+  \\ disch_then drule \\ simp []
 QED
 
 Definition cut_locals_def:
@@ -7302,24 +7310,23 @@ Theorem gc_lemma:
              (size_of_stack (Env s.locals_size x::s.stack)))
           (OPTION_MAP2 $+ (size_of_stack (Env s.locals_size x::s.stack)) ss) |>) t2 [] locs
 Proof
-  cheat (*
-  srw_tac[][] \\ full_simp_tac(srw_ss())[LET_DEF]
-  \\ Q.UNABBREV_TAC `t0` \\ full_simp_tac(srw_ss())[]
+  srw_tac[][] \\ fs [LET_DEF]
+  \\ Q.UNABBREV_TAC `t0` \\ fs []
   \\ imp_res_tac (state_rel_call_env_push_env
       |> Q.SPEC `NONE` |> Q.INST [`args`|->`[]`] |> GEN_ALL
       |> SIMP_RULE std_ss [MAP,get_vars_def,wordSemTheory.get_vars_def]
       |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
       |> (fn th => MATCH_MP th (UNDISCH state_rel_inc_clock))
       |> SIMP_RULE (srw_ss()) [dec_clock_inc_clock] |> DISCH_ALL)
-  \\ full_simp_tac(srw_ss())[]
+  \\ fs []
   \\ pop_assum (qspecl_then [`ss`,`l1`,`l2`] mp_tac) \\ srw_tac[][]
   \\ pop_assum (mp_tac o MATCH_MP state_rel_gc)
   \\ impl_tac THEN1
-   (full_simp_tac(srw_ss())[wordSemTheory.call_env_def,call_env_def,
+   (fs [wordSemTheory.call_env_def,call_env_def,
         wordSemTheory.push_env_def,fromList_def]
-    \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ full_simp_tac(srw_ss())[fromList2_def,Once insert_def])
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[wordSemTheory.call_env_def]
+    \\ Cases_on `env_to_list (SND y) t.permute` \\ fs [LET_DEF]
+    \\ fs [fromList2_def,Once insert_def])
+  \\ srw_tac[][] \\ fs [wordSemTheory.call_env_def]
   \\ pop_assum (mp_tac o MATCH_MP
       (state_rel_pop_env_IMP |> REWRITE_RULE [GSYM AND_IMP_INTRO]
          |> Q.GEN `s2`)) \\ srw_tac[][]
@@ -7344,17 +7351,17 @@ Proof
   \\ impl_tac THEN1
    (fs[pop_env_def,push_env_def,call_env_def,
       dataSemTheory.state_component_equality,AC CONJ_COMM CONJ_ASSOC])
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[wordSemTheory.pop_env_def,wordSemTheory.push_env_def]
-  \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ fs [wordSemTheory.has_space_def]
+  \\ srw_tac[][] \\ fs []
+  \\ fs [wordSemTheory.pop_env_def,wordSemTheory.push_env_def]
+  \\ Cases_on `env_to_list (SND y) t.permute` \\ fs [LET_DEF]
+  \\ every_case_tac \\ fs []
+  \\ srw_tac[][] \\ fs []
+  \\ fs [wordSemTheory.has_space_def,wordSemTheory.get_store_def]
   \\ drule size_of_heap_call_push_env \\ strip_tac \\ fs []
   \\ `(call_env [] ss (push_env x F s)).limits.heap_limit = s.limits.heap_limit`
         by fs [call_env_def,push_env_def] \\ fs []
   \\ qpat_x_assum `state_rel c l1 l2 _ _ _ _` mp_tac
-  \\ simp [state_rel_thm] \\ rpt strip_tac \\ rveq \\ fs [] *)
+  \\ simp [state_rel_thm] \\ rpt strip_tac \\ rveq \\ fs []
 QED
 
 Theorem gc_add_call_env:
@@ -7378,26 +7385,25 @@ Proof
 QED
 
 Theorem has_space_state_rel:
-   has_space (Word ((alloc_size k):'a word)) (r:('a,'c,'ffi) state) = SOME T /\
-    state_rel c l1 l2 s r [] locs ==>
-    state_rel c l1 l2 (s with space := k) r [] locs
+  has_space (Word ((alloc_size k):'a word)) (r:('a,'c,'ffi) state) = SOME T /\
+  state_rel c l1 l2 s r [] locs ==>
+  state_rel c l1 l2 (s with space := k) r [] locs
 Proof
-  cheat (*
-  full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][]
-  \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[heap_in_memory_store_def,wordSemTheory.has_space_def]
-  \\ full_simp_tac(srw_ss())[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-  \\ full_simp_tac(srw_ss())[alloc_size_def,bytes_in_word_def]
+  fs [state_rel_def] \\ srw_tac[][]
+  \\ asm_exists_tac \\ fs []
+  \\ fs [heap_in_memory_store_def,wordSemTheory.has_space_def,wordSemTheory.get_store_def]
+  \\ last_x_assum assume_tac
+  \\ gvs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ gvs [alloc_size_def,bytes_in_word_def]
   \\ `((sp+3) * (dimindex (:'a) DIV 8)) + 1 < dimword (:'a)` by
    (imp_res_tac word_ml_inv_SP_LIMIT
     \\ match_mp_tac LESS_EQ_LESS_TRANS
     \\ once_rewrite_tac [CONJ_COMM]
-    \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
+    \\ asm_exists_tac \\ fs [])
   \\ `((sp+3) * (dimindex (:'a) DIV 8)) < dimword (:'a)` by decide_tac
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[word_mul_n2w]
-  \\ full_simp_tac(srw_ss())[good_dimindex_def]
-  \\ full_simp_tac(srw_ss())[w2n_minus1] \\ rev_full_simp_tac(srw_ss())[]
-  \\ fs [] *)
+  \\ every_case_tac
+  \\ fs [word_mul_n2w]
+  \\ gvs [good_dimindex_def,dimword_def,w2n_minus1]
 QED
 
 Theorem evaluate_IMP_inc_clock:
@@ -7486,7 +7492,6 @@ Theorem alloc_lemma:
      r.compile_oracle = t.compile_oracle /\
      q = NONE)
 Proof
-  cheat (*
   strip_tac
   \\ full_simp_tac(srw_ss())[wordSemTheory.alloc_def,
        LET_DEF,addressTheory.CONTAINER_def]
@@ -7494,27 +7499,27 @@ Proof
   \\ qmatch_goalsub_abbrev_tac`push_env _ NONE t5`
   \\ strip_tac
   \\ imp_res_tac cut_env_IMP_cut_env
-  \\ full_simp_tac(srw_ss())[cut_env_adjust_set_insert_1] \\ rveq
+  \\ imp_res_tac cut_env_IMP_cut_envs
+  \\ full_simp_tac(srw_ss())[] \\ rveq
   \\ first_x_assum (assume_tac o HO_MATCH_MP gc_add_call_env)
   \\ `FLOOKUP t5.store AllocSize = SOME (Word (alloc_size k)) /\
-      wordSem$cut_env (adjust_set names) t5.locals = SOME y /\
+      wordSem$cut_envs (adjust_sets names) t5.locals = SOME (y1,y2) /\
       state_rel c l1 l2 s t5 [] locs` by
    (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[state_rel_set_store_AllocSize]
-    \\ full_simp_tac(srw_ss())[cut_env_adjust_set_insert_1,
-         wordSemTheory.set_store_def] \\ srw_tac[][]
+    \\ full_simp_tac(srw_ss())[wordSemTheory.set_store_def] \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[SUBSET_DEF,state_rel_insert_1,FLOOKUP_DEF])
   \\ strip_tac
-  \\ mp_tac (gc_lemma |> Q.INST [`t`|->`t5`,`ss`|->`SOME 0`] |> SIMP_RULE std_ss [LET_DEF])
+  \\ mp_tac (gc_lemma |> Q.INST [`t`|->`t5`,`ss`|->`SOME 0`,‘y’|->‘(y1,y2)’] |> SIMP_RULE std_ss [LET_DEF])
   \\ full_simp_tac(srw_ss())[] \\ strip_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[wordSemTheory.gc_def,wordSemTheory.call_env_def,
          wordSemTheory.push_env_def]
-  \\ Cases_on `env_to_list y t5.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
+  \\ Cases_on `env_to_list y2 t5.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ `IS_SOME (has_space (Word (alloc_size k):'a word_loc) t2)` by
-       full_simp_tac(srw_ss())[wordSemTheory.has_space_def,
+       full_simp_tac(srw_ss())[wordSemTheory.has_space_def,wordSemTheory.get_store_def,
           state_rel_def,heap_in_memory_store_def]
   \\ `option_le r.stack_max s.stack_max` by
     (`r.stack_max = OPTION_MAP2 MAX t5.stack_max
-       (stack_size (StackFrame t5.locals_size q' NONE::t5.stack))` by
+       (stack_size (StackFrame t5.locals_size (toAList y1) q' NONE::t5.stack))` by
       (imp_res_tac wordPropsTheory.pop_env_const \\ fs []
        \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"] \\ rveq \\ fs []
        \\ fs [wordSemTheory.flush_state_def])
@@ -7527,6 +7532,8 @@ Proof
      \\ Cases_on `t5.stack_max` \\ fs []
      \\ Cases_on `s.locals_size` \\ fs []
      \\ Cases_on `pat` \\ fs [])
+  \\ cheat
+(*
   \\ Cases_on `has_space (Word (alloc_size k):'a word_loc) t2`
   \\ full_simp_tac(srw_ss())[]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
@@ -7556,7 +7563,8 @@ Proof
   \\ rfs [heap_in_memory_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ rfs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w,w2n_minus_1_LESS_EQ]
   \\ rfs [bytes_in_word_ADD_1_NOT_ZERO]
-  \\ fs [OPTION_MAP2_ADD_SOME_0,OPTION_MAP2_MAX_CANCEL] \\ rfs [] *)
+  \\ fs [OPTION_MAP2_ADD_SOME_0,OPTION_MAP2_MAX_CANCEL] \\ rfs []
+*)
 QED
 
 Theorem cut_names_adjust_set_insert_ODD:
