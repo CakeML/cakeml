@@ -4413,7 +4413,7 @@ End
 
 Definition stack_rel_def:
   (stack_rel (Env s1 env) (StackFrame s2 ws vs NONE) <=>
-     EVERY (\(x1,x2). x1 <> 0 /\ (isWord x2 ==> EVEN x1)) vs /\ s1 = s2 /\
+     EVERY (\(x1,x2). x1 <> 0 /\ EVEN x1) vs /\ s1 = s2 /\
      EVERY (\(x1,x2). x1 = 0) ws /\
      ALL_DISTINCT (MAP FST vs) /\
      !n. IS_SOME (lookup n env) <=>
@@ -6117,6 +6117,14 @@ Definition loc_ok_def[simp]:
   loc_ok _ = T
 End
 
+Theorem loc_ok_word_addr:
+  loc_ok (word_addr c w)
+Proof
+  Cases_on ‘w’ \\ gvs [word_addr_def]
+  \\ rename [‘Data a’] \\ Cases_on ‘a’
+  \\ gvs [word_addr_def]
+QED
+
 Triviality word_gc_move_roots_IMP_FILTER0:
   ∀ws i pa old m dm ws2 i2 pa2 m2 c2 c.
     word_gc_move_roots c (ws,i,pa,old,m,dm) = (ws2,i2,pa2,m2,c2) ∧
@@ -6503,14 +6511,6 @@ Proof
   \\ gen_tac \\ disch_tac
   \\ last_x_assum drule
   \\ pairarg_tac \\ gvs []
-  \\ strip_tac \\ gvs []
-  \\ strip_tac
-  \\ qsuff_tac ‘isWord x2’ >- gvs []
-  \\ qspecl_then [‘MAP SND l0 ++ enc_stack t’,‘ys’] mp_tac EVERY2_loc_merge
-  \\ gvs [LIST_REL_EL_EQN]
-  \\ strip_tac \\ gvs []
-  \\ pop_assum $ qspec_then ‘n’ mp_tac \\ gvs []
-  \\ gvs [EL_APPEND1,EL_MAP]
 QED
 
 Theorem join_env_NIL:
@@ -6539,7 +6539,7 @@ Proof
   \\ Cases \\ Cases_on `h` \\ fs [] \\ Cases_on `o0`
   \\ TRY (PairCases_on `x`) \\ fs [stack_rel_def] \\ srw_tac[][]
   \\ fs [wordSemTheory.enc_stack_def,flat_def,FILTER_APPEND]
-  \\ qpat_x_assum `EVERY (\(x1,x2). x1 <> 0 /\ (isWord x2 ==> EVEN x1)) l0` mp_tac
+  \\ qpat_x_assum `EVERY (\(x1,x2). x1 <> 0 /\ EVEN x1) l0` mp_tac
   \\ rpt (pop_assum (K all_tac))
   \\ Induct_on `l0` \\ fs [] \\ fs [join_env_NIL]
   \\ Cases \\ fs [join_env_CONS] \\ srw_tac[][]
@@ -6561,7 +6561,7 @@ QED
 
 Theorem join_env_EQ_ZIP:
    !vs s zs1.
-      EVERY (\(x1,x2). x1 <> 0 /\ (isWord x2 ==> EVEN x1)) vs /\
+      EVERY (\(x1,x2). x1 <> 0 /\ EVEN x1) vs /\
       LENGTH (join_env s vs) = LENGTH zs1 /\
       LIST_REL (\x y. isWord x = isWord y /\ (~isWord x ==> x = y))
          (MAP SND (join_env s vs)) zs1 ==>
@@ -6581,7 +6581,7 @@ Theorem LENGTH_MAP_SND_join_env_IMP:
    !vs zs1 s.
       LIST_REL (\x y. (isWord x = isWord y) /\ (~isWord x ==> x = y))
         (MAP SND (join_env s vs)) zs1 /\
-      EVERY (\(x1,x2). x1 <> 0 /\ (isWord x2 ==> EVEN x1)) vs /\
+      EVERY (\(x1,x2). x1 <> 0 /\ EVEN x1) vs /\
       LENGTH (join_env s vs) = LENGTH zs1 ==>
       LENGTH (FILTER isWord (MAP SND vs)) = LENGTH (FILTER isWord zs1)
 Proof
@@ -7095,6 +7095,25 @@ Proof
   \\ metis_tac []
 QED
 
+Triviality stack_rel_imp_subset:
+  ∀xs ys.
+    LIST_REL stack_rel xs ys ⇒
+    set (enc_stack ys) ⊆ set (MAP SND (flat xs ys))
+Proof
+  Induct \\ gvs [wordSemTheory.enc_stack_def,PULL_EXISTS]
+  \\ Cases \\ Cases_on ‘y’ \\ gvs [stack_rel_def]
+  \\ rw [] \\ rename [‘StackFrame opt l1 l2 han’]
+  \\ Cases_on ‘han’ \\ TRY (PairCases_on ‘x’)
+  \\ gvs [wordSemTheory.enc_stack_def,flat_def,stack_rel_def]
+  \\ last_x_assum drule \\ strip_tac \\ gvs []
+  \\ (qsuff_tac ‘set (MAP SND l2) ⊆ set (MAP SND (join_env s l2))’
+      >- gvs [SUBSET_DEF])
+  \\ gvs [SUBSET_DEF,join_env_def,MAP_MAP_o,o_DEF]
+  \\ gvs [LAMBDA_PROD]
+  \\ gvs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+  \\ gvs [MEM_FILTER] \\ metis_tac []
+QED
+
 Theorem state_rel_gc:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
     FLOOKUP t.store AllocSize = SOME (Word (alloc_size k)) /\
@@ -7122,7 +7141,14 @@ Proof
      \\ pop_assum mp_tac
      \\ simp [word_ml_inv_def]
      \\ strip_tac \\ gvs []
-     \\ cheat)
+     \\ conj_asm1_tac
+     >- (gvs [LIST_REL_EL_EQN,EVERY_EL]
+         \\ rw [] \\ first_x_assum drule
+         \\ disch_then (fn th => simp [GSYM th])
+         \\ simp [loc_ok_word_addr])
+     \\ qsuff_tac ‘set (enc_stack t.stack) ⊆ set (MAP SND (flat s.stack t.stack))’
+     >- gvs [EVERY_MEM,SUBSET_DEF]
+     \\ irule stack_rel_imp_subset \\ gvs [])
   \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
   \\ rev_full_simp_tac(srw_ss())[lookup_def] \\ srw_tac[][]
   \\ qhdtm_x_assum `word_ml_inv` mp_tac
@@ -7532,8 +7558,7 @@ Proof
      \\ Cases_on `t5.stack_max` \\ fs []
      \\ Cases_on `s.locals_size` \\ fs []
      \\ Cases_on `pat` \\ fs [])
-  \\ cheat
-(*
+  \\ gvs [wordSemTheory.get_store_def]
   \\ Cases_on `has_space (Word (alloc_size k):'a word_loc) t2`
   \\ full_simp_tac(srw_ss())[]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
@@ -7559,12 +7584,13 @@ Proof
     \\ fs [wordSemTheory.stack_size_def,wordSemTheory.stack_size_frame_def]
     \\ rpt (pop_assum kall_tac)
     \\ rw [OPTION_MAP2_DEF] \\ fs [IS_SOME_EXISTS] \\ fs [])
-  \\ CCONTR_TAC \\ fs [wordSemTheory.has_space_def]
+  \\ simp [FLOOKUP_SIMP]
+  \\ CCONTR_TAC \\ fs [wordSemTheory.has_space_def,wordSemTheory.get_store_def]
+  \\ fs [AllCaseEqs()]
   \\ rfs [heap_in_memory_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+  \\ gvs []
   \\ rfs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w,w2n_minus_1_LESS_EQ]
   \\ rfs [bytes_in_word_ADD_1_NOT_ZERO]
-  \\ fs [OPTION_MAP2_ADD_SOME_0,OPTION_MAP2_MAX_CANCEL] \\ rfs []
-*)
 QED
 
 Theorem cut_names_adjust_set_insert_ODD:
@@ -7827,6 +7853,21 @@ Proof
   \\ gvs [FUPDATE_LIST,FAPPLY_FUPDATE_THM,FLOOKUP_DEF,word_full_gc_def]
 QED
 
+Triviality alloc_with_locals_1_3:
+  alloc (-1w) (adjust_sets names)
+             (t with locals := insert 1 w1 (insert 3 w2 t.locals)) =
+  alloc (-1w) (adjust_sets names) t
+Proof
+  gvs [wordSemTheory.alloc_def]
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ gvs [adjust_sets_def,wordSemTheory.cut_envs_def]
+  \\ gvs [cut_names_adjust_set_insert_ODD]
+  \\ gvs [wordSemTheory.cut_names_def]
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw [] \\ gvs [lookup_inter_alt]
+  \\ rw [] \\ gvs [lookup_insert]
+QED
+
 Theorem AllocVar_thm:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ∧
     dataSem$cut_env names s.locals = SOME x ∧
@@ -7846,7 +7887,7 @@ Theorem AllocVar_thm:
       r.compile_oracle = t.compile_oracle /\
       q = NONE)
 Proof
-  cheat (*
+
   fs [wordSemTheory.evaluate_def,AllocVar_def,list_Seq_def] \\ strip_tac
   \\ `limit < dimword (:'a)` by
         (rfs [EVAL ``good_dimindex (:'a)``,state_rel_def,dimword_def] \\ rfs [])
@@ -7864,7 +7905,6 @@ Proof
   \\ fs [asmTheory.word_cmp_def]
   \\ fs [WORD_LO,w2n_lsr] \\ rfs []
   \\ reverse (Cases_on `w2n w DIV 4 < limit`) \\ fs [] THEN1
-
    (rfs [word_exp_rw,wordSemTheory.set_var_def,lookup_insert]
     \\ reverse FULL_CASE_TAC
     \\ qpat_assum `state_rel c l1 l2 s t [] locs` mp_tac
@@ -7877,15 +7917,12 @@ Proof
       \\ fs [NOT_LESS,w2n_minus_1_LESS_EQ,bytes_in_word_ADD_1_NOT_ZERO])
     \\ reverse (Cases_on `c.call_empty_ffi`)
     THEN1
-     (fs [SilentFFI_def,wordSemTheory.evaluate_def]
+     (fs [SilentFFI_def,wordSemTheory.evaluate_def,lookup_insert]
       \\ match_mp_tac (GEN_ALL alloc_fail) \\ fs []
-      \\ `state_rel c l1 l2 s (t with locals :=
-             insert 3 (Word (end + -1w * next)) t.locals) [] locs` by
-            fs [state_rel_insert_3]
       \\ asm_exists_tac \\ fs []
       \\ asm_exists_tac \\ fs [insert_insert_3_1]
-      \\ qmatch_goalsub_abbrev_tac `alloc _ p2 p3`
-      \\ Cases_on `alloc (-1w) p2 p3` \\ fs [bool_case_eq])
+      \\ gvs [alloc_with_locals_1_3]
+      \\ pairarg_tac \\ gvs [CaseEq"bool"])
     \\ fs [Once SilentFFI_def,wordSemTheory.evaluate_def]
     \\ fs [wordSemTheory.evaluate_def,SilentFFI_def,wordSemTheory.word_exp_def,
            wordSemTheory.set_var_def,EVAL ``read_bytearray a 0 m``,
@@ -7897,10 +7934,10 @@ Proof
            Q.SPECL [`7`,`1`] insert_insert |> SIMP_RULE std_ss [],
            Q.SPECL [`9`,`1`] insert_insert |> SIMP_RULE std_ss []]
     \\ fs [cut_names_insert_1_insert_1,cut_names_adjust_set_insert_ODD]
+    \\ cheat (*
     \\ drule (GEN_ALL cut_env_IMP_cut_env)
     \\ disch_then drule \\ strip_tac \\ fs []
     \\ fs [] \\ pairarg_tac \\ fs []
-
     \\ drule (GEN_ALL state_rel_cut_rnv)
     \\ disch_then drule \\ strip_tac
     \\ `s.ffi = (s with locals := x).ffi` by fs []
@@ -7938,8 +7975,7 @@ Proof
     \\ `t5 = t with locals := insert 1 (Word (-1w)) y` by
         (unabbrev_all_tac
          \\ fs [wordSemTheory.state_component_equality]) \\ fs []
-    \\ fs [wordSemTheory.state_component_equality])
-
+    \\ fs [wordSemTheory.state_component_equality] *))
   \\ qpat_assum `_ = (q,r)` mp_tac
   \\ IF_CASES_TAC THEN1
     (fs [state_rel_def,EVAL ``good_dimindex (:α)``,shift_def])
@@ -7958,13 +7994,17 @@ Proof
   \\ reverse IF_CASES_TAC
   THEN1
    (fs [] \\ strip_tac \\ rveq \\ fs []
-    \\ match_mp_tac state_rel_cut_names \\ reverse (srw_tac[][]) \\ fs []
     \\ fs[state_rel_insert_3_1]
-    \\ match_mp_tac has_space_state_rel \\ fs []
-    \\ fs [wordSemTheory.has_space_def])
+    \\ last_x_assum assume_tac
+    \\ drule_all state_rel_cut_env \\ strip_tac
+    \\ drule_at Any has_space_state_rel
+    \\ gvs [] \\ disch_then irule
+    \\ fs [wordSemTheory.has_space_def,wordSemTheory.get_store_def])
   \\ `~(shift (:α) ≥ dimindex (:α))` by
     (fs [good_dimindex_def,shift_def,state_rel_def] \\ fs [])
   \\ fs [lookup_insert]
+  \\ cheat (*
+
   \\ reverse (Cases_on `c.call_empty_ffi`)
   THEN1
    (fs [SilentFFI_def,wordSemTheory.evaluate_def,lookup_insert]
