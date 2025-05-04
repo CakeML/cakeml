@@ -1515,6 +1515,50 @@ Proof
   metis_tac[]
 QED
 
+Theorem extract_scopes_MEM_INL:
+  ∀scopes pfs s b fml sg res id pf n.
+  extract_scopes scopes pfs s b fml sg = SOME res ∧
+  MEM (sc,spf) pfs ∧
+  MEM (SOME (INL id,n), pf) spf ⇒
+  ∃scs cpfs c.
+    mk_scope scopes sc = SOME scs ∧
+    lookup_core_only b fml id = SOME c ∧
+    MEM (scs,cpfs) res ∧
+    MEM (SOME ([not (subst s c)],n),pf) cpfs
+Proof
+  ho_match_mp_tac extract_scopes_ind>>
+  rw[extract_scopes_def]>>
+  gvs[AllCaseEqs()]
+  >- (
+    drule extract_clauses_MEM_INL>>
+    disch_then drule>>
+    strip_tac>>simp[]>>
+    metis_tac[])>>
+  metis_tac[]
+QED
+
+Theorem extract_scopes_MEM_INR:
+  ∀scopes pfs s b fml sg res id pf n.
+  extract_scopes scopes pfs s b fml sg = SOME res ∧
+  MEM (sc,spf) pfs ∧
+  MEM (SOME (INR id,n), pf) spf ⇒
+  ∃scs cpfs.
+    id < LENGTH sg ∧
+    mk_scope scopes sc = SOME scs ∧
+    MEM (scs,cpfs) res ∧
+    MEM (SOME (EL id sg,n),pf) cpfs
+Proof
+  ho_match_mp_tac extract_scopes_ind>>
+  rw[extract_scopes_def]>>
+  gvs[AllCaseEqs()]
+  >- (
+    drule extract_clauses_MEM_INR>>
+    disch_then drule>>
+    simp[]>>
+    metis_tac[])>>
+  metis_tac[]
+QED
+
 Theorem lookup_mk_BS:
   sptree$lookup i (mk_BS t1 a t2) = lookup i (BS t1 a t2)
 Proof
@@ -1569,6 +1613,42 @@ Proof
   gvs[AllCaseEqs()]>>
   first_x_assum drule>>rw[lookup_insert]>>
   metis_tac[PAIR]
+QED
+
+Theorem lookup_extract_scoped_pids_l:
+  ∀ls accl accr l r.
+  extract_scoped_pids ls accl accr = (l,r) ∧
+  lookup i l ≠ NONE ⇒
+  lookup i accl ≠ NONE ∨
+  ∃scopt spf n pf.
+    extract_scope_val scopt ∧
+    MEM (scopt,spf) ls ∧
+    MEM (SOME (INL i,n),pf) spf
+Proof
+  ho_match_mp_tac extract_scoped_pids_ind>>
+  rw[extract_scoped_pids_def]
+  >- (
+    pairarg_tac>>gvs[]>>
+    metis_tac[lookup_extract_pids_l,PAIR])>>
+  metis_tac[lookup_extract_pids_l,PAIR]
+QED
+
+Theorem lookup_extract_scoped_pids_r:
+  ∀ls accl accr l r.
+  extract_scoped_pids ls accl accr = (l,r) ∧
+  lookup i r ≠ NONE ⇒
+  lookup i accr ≠ NONE ∨
+  ∃scopt spf n pf.
+    extract_scope_val scopt ∧
+    MEM (scopt,spf) ls ∧
+    MEM (SOME (INR i,n),pf) spf
+Proof
+  ho_match_mp_tac extract_scoped_pids_ind>>
+  rw[extract_scoped_pids_def]
+  >- (
+    pairarg_tac>>gvs[]>>
+    metis_tac[lookup_extract_pids_r,PAIR])>>
+  metis_tac[lookup_extract_pids_r,PAIR]
 QED
 
 Theorem sat_implies_EL:
@@ -1804,6 +1884,14 @@ Proof
   gvs[dom_subst_def,LIST_TO_SET_MAP,lookup_list_list_insert]
 QED
 
+Theorem good_aspo_imp_po_of_aspo_refl:
+  good_aspo x ⇒
+  po_of_aspo x w w
+Proof
+  PairCases_on`x`>>rw[good_aspo_def]>>
+  gvs[reflexive_def]
+QED
+
 Theorem substitution_redundancy_obj_po_spec:
   OPTION_ALL (fresh_aux_aspo f c obj w) ord ∧
   OPTION_ALL good_aspo ord ∧
@@ -1824,8 +1912,7 @@ Proof
     qexists_tac`s`>>simp[]>>
     Cases_on`ord`>>
     fs[]>>
-    rename1`good_aspo xx`>>PairCases_on`xx`>>gvs[good_aspo_def]>>
-    metis_tac[reflexive_def])>>
+    metis_tac[ good_aspo_imp_po_of_aspo_refl])>>
   Cases_on`ord`>>gvs[dom_subst_def]
   >- (
     first_x_assum drule_all>>
@@ -1908,17 +1995,17 @@ Proof
     metis_tac[check_fresh_aspo_fresh]
   \\ CONJ_TAC >-
     metis_tac[check_pres_subst_fun]
-  (* TODO *)
-  \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]
+  \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,LAMBDA_PROD,FORALL_PROD]
   \\ `id ∉ domain fml` by fs[id_ok_def]
   \\
-    `(core_only_fml (b ∨ tcb) fml ∪ {not c}) ⊨
-    (core_only_fml b fml ∪ {not c})` by
+    `(core_only_fml (b ∨ tcb) fml ∪ {not c} ∪ set gs) ⊨
+    (core_only_fml b fml ∪ {not c} ∪ set gs)` by
     metis_tac[sat_implies_tcb,sat_implies_union_right]
   \\ drule sat_implies_transitive
   \\ disch_then (fn th => DEP_REWRITE_TAC[th])
+
   \\ simp [Once implies_explode]
-  \\ gvs[red_subgoals_def,MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]
+  \\ gvs[MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]
   \\ reverse (rw [])
   >- (
     (* dominance *)
@@ -1928,45 +2015,51 @@ Proof
     PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
     strip_tac
     >- (
-      drule_all lookup_extract_pids_r>> rw[]
-      \\ drule extract_clauses_MEM_INR
-      \\ disch_then drule
+      drule_all lookup_extract_scoped_pids_r>> rw[]
+      \\ drule_all extract_scopes_MEM_INR
       \\ fs[EL]
       \\ DEP_REWRITE_TAC [EL_APPEND_EQN] \\ simp[]
       \\ rw[]
-      \\ first_x_assum drule \\ strip_tac
+      \\ first_x_assum drule_all
+      \\ strip_tac
       \\ gs[EL_MAP]
+      \\ pairarg_tac \\ gvs[]
       \\ drule unsatisfiable_not_sat_implies
+      \\ gvs[mk_scope_def,AllCaseEqs()]
       \\ simp[range_insert]
-      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM,sat_implies_subset,sat_implies_transitive,SUBSET_UNION])
    >- (
       fs[check_hash_triv_def]
       \\ pop_assum mp_tac
       \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
       \\ simp[EL_MAP]
+      \\ pairarg_tac \\ gvs[]
       \\ strip_tac
       \\ match_mp_tac unsatisfiable_not_sat_implies
-      \\ metis_tac[check_triv_unsatisfiable]) )
+      \\ irule check_triv_unsatisfiable_2
+      \\ simp[]
+      \\ metis_tac[]) )
   >- (
     (* objective *)
     Cases_on`obj`>> gvs[]>>
-    last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun (mk_subst s)) ord))` mp_tac)>>
+    pairarg_tac >> gvs[]>>
+    last_x_assum(qspec_then`SUC(LENGTH fs)` mp_tac)>>
     gvs[]>>
     PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
     strip_tac
     >- (
-      drule_all lookup_extract_pids_r>>rw[]
-      \\ drule extract_clauses_MEM_INR
-      \\ disch_then drule
+      drule_all lookup_extract_scoped_pids_r>> rw[]
+      \\ drule_all extract_scopes_MEM_INR
       \\ fs[EL]
-      \\ DEP_REWRITE_TAC [EL_APPEND2]
-      \\ simp[]
+      \\ DEP_REWRITE_TAC [EL_APPEND_EQN] \\ simp[]
       \\ rw[]
-      \\ first_x_assum drule \\ strip_tac
-      \\ gs[]
+      \\ first_x_assum drule_all
+      \\ strip_tac
+      \\ gs[EL_MAP]
       \\ drule unsatisfiable_not_sat_implies
+      \\ gvs[mk_scope_def,AllCaseEqs()]
       \\ simp[range_insert]
-      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM,sat_implies_subset,sat_implies_transitive,SUBSET_UNION])
     >- (
       fs[check_hash_triv_def]
       \\ pop_assum mp_tac
@@ -1974,8 +2067,9 @@ Proof
       \\ simp[EL_MAP]
       \\ strip_tac
       \\ match_mp_tac unsatisfiable_not_sat_implies
-      \\ metis_tac[check_triv_unsatisfiable])
-    )
+      \\ irule check_triv_unsatisfiable_2
+      \\ simp[]
+      \\ metis_tac[]))
   >- (
     (* redundancy #0 *)
     last_x_assum(qspec_then`0` mp_tac)>>
@@ -1983,27 +2077,28 @@ Proof
     PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
     strip_tac
     >- (
-      drule_all lookup_extract_pids_r>>rw[]
-      \\ drule extract_clauses_MEM_INR
-      \\ disch_then drule
-      \\ fs[]
+      drule_all lookup_extract_scoped_pids_r>>rw[]
+      \\ drule_all extract_scopes_MEM_INR
+      \\ simp[]
       \\ rw[]
-      \\ first_x_assum drule \\ strip_tac
+      \\ first_x_assum drule_all \\ strip_tac
       \\ fs[]
       \\ drule unsatisfiable_not_sat_implies
+      \\ gvs[mk_scope_def,AllCaseEqs()]
       \\ simp[range_insert]
-      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM,sat_implies_subset,sat_implies_transitive,SUBSET_UNION])
     >- (
       fs[check_hash_triv_def]
       \\ pop_assum mp_tac
-      \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
       \\ simp[EL_MAP]
       \\ strip_tac
       \\ match_mp_tac unsatisfiable_not_sat_implies
-      \\ metis_tac[check_triv_unsatisfiable]))
-  (* rest of redundancy *)
+      \\ irule check_triv_unsatisfiable_2
+      \\ simp[]
+      \\ metis_tac[]))
   \\ gvs [GSYM unsat_iff_implies]
-  \\ Cases_on ‘subst_opt (subst_fun (mk_subst s)) x'’ \\ fs []
+  \\ rename1 `cc ∈ _ _ _`
+  \\ Cases_on ‘subst_opt (subst_fun (mk_subst s)) cc’ \\ fs []
   >- (
     imp_res_tac subst_opt_NONE
     \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
@@ -2013,7 +2108,7 @@ Proof
   \\ qpat_x_assum`_ ∈ range _` mp_tac
   \\ simp[Once range_def]
   \\ strip_tac
-  \\ rename1`lookup nn _ = SOME xx`
+  \\ rename1`lookup nn _ = SOME cc`
   \\ rename1`subst_opt _ _ = SOME yy`
   \\ `MEM (nn,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst s)))
       (mk_core_fml (b ∨ tcb) fml)))` by
@@ -2029,14 +2124,15 @@ Proof
     fs[unsatisfiable_def,satisfiable_def,not_thm,satisfies_def]>>
     drule subst_opt_SOME >>
     metis_tac[not_thm,imp_thm,in_core_only_fml_or_left])
-  \\ drule_all lookup_extract_pids_l>>rw[]
-  \\ drule extract_clauses_MEM_INL
-  \\ disch_then drule
+  \\ drule_all lookup_extract_scoped_pids_l>>rw[]
+  \\ drule_all extract_scopes_MEM_INL
   \\ strip_tac
-  \\ first_x_assum drule
+  \\ first_x_assum drule_all
   \\ gvs[unsatisfiable_def, MEM_toAList,lookup_map_opt,AllCaseEqs()]
   \\ fs[GSYM lookup_mk_core_fml]
-  \\ metis_tac[INSERT_SING_UNION,UNION_COMM,subst_opt_SOME,lookup_mk_core_fml_inj]
+  \\ gvs[mk_scope_def,AllCaseEqs()]
+  \\ rw[CONTRAPOS_THM,satisfiable_def]
+  \\ metis_tac[subst_opt_SOME,lookup_mk_core_fml_inj]
 QED
 
 Theorem core_only_fml_T_cong:
@@ -2049,14 +2145,14 @@ Proof
 QED
 
 Theorem sat_obj_po_refl:
-  OPTION_ALL good_spo ord ⇒
+  OPTION_ALL good_aspo ord ⇒
   sat_obj_po pres ord obj f f
 Proof
   rw[sat_obj_po_def]>>
-  qexists_tac`w`>>
+  first_x_assum (irule_at Any)>>
   simp[opt_le_def]>>
-  Cases_on`ord`>>gs[good_spo_def]>>
-  metis_tac[reflexive_def,reflexive_po_of_spo,PAIR]
+  Cases_on`ord`>>gs[]>>
+  metis_tac[good_aspo_imp_po_of_aspo_refl]
 QED
 
 Theorem core_only_fml_T_insert_F:
@@ -2108,7 +2204,7 @@ Proof
 QED
 
 Theorem sat_obj_po_SUBSET:
-  OPTION_ALL good_spo ord ∧
+  OPTION_ALL good_aspo ord ∧
   b ⊆ a ⇒
   sat_obj_po pres ord obj a b
 Proof
@@ -2116,14 +2212,14 @@ Proof
   imp_res_tac satisfies_SUBSET>>
   first_x_assum (irule_at Any)>>
   simp[]>>
-  Cases_on`ord`>>fs[good_spo_def]>>
-  metis_tac[reflexive_def,reflexive_po_of_spo,PAIR]
+  Cases_on`ord`>>fs[]>>
+  metis_tac[ good_aspo_imp_po_of_aspo_refl]
 QED
 
 Theorem check_sstep_correct:
   ∀step pres ord obj fml id.
   id_ok fml id ∧
-  OPTION_ALL good_spo ord ∧
+  OPTION_ALL good_aspo ord ∧
   (tcb ⇒ core_only_fml T fml ⊨ core_only_fml F fml) ⇒
   case check_sstep step pres ord obj tcb fml id of
   | SOME (fml',id') =>
@@ -2154,7 +2250,7 @@ Proof
       first_x_assum (irule_at Any)>> simp[]>>
       Cases_on`ord`>>
       fs[]>>
-      metis_tac[good_spo_def,reflexive_def,reflexive_po_of_spo,PAIR])>>
+      metis_tac[ good_aspo_imp_po_of_aspo_refl])>>
     CONJ_TAC >-
       metis_tac[sat_obj_po_refl]>>
     rw[]>>fs[]>>
@@ -2181,12 +2277,12 @@ Proof
         rw[]>>qexists_tac`w`>>fs[]>>
         Cases_on`ord`>>
         fs[]>>
-        metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F,good_spo_def,reflexive_def,reflexive_po_of_spo,PAIR])
+        metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F, good_aspo_imp_po_of_aspo_refl])
       >- (
         rw[]>>qexists_tac`w`>>fs[]>>
         Cases_on`ord`>>
         fs[]>>
-        metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F,good_spo_def,reflexive_def,reflexive_po_of_spo,PAIR]))>>
+        metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F, good_aspo_imp_po_of_aspo_refl]))>>
     CONJ_TAC >- (
       match_mp_tac sat_obj_po_SUBSET>>
       rw[SUBSET_DEF])>>
@@ -2194,6 +2290,7 @@ Proof
     metis_tac[sat_implies_INSERT])
 QED
 
+(* TODO *)
 (*
 Definition sstep_ok_def[simp]:
   (sstep_ok (Lstep l) ⇔ lstep_ok l) ∧
