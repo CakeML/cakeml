@@ -1651,32 +1651,6 @@ Proof
   TOP_CASE_TAC >> fs [] >>
   fs [state_rel_def]
 QED
-
-Theorem compile_Store32:
-  ^(get_goal "compile _ (panLang$Store32 _ _)")
-Proof
-  rpt gen_tac >> rpt strip_tac >>
-  fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab"] >>
-  rveq >>
-  fs [compile_def] >>
-  TOP_CASE_TAC >>
-  qpat_x_assum ‘eval s src = _’ mp_tac >>
-  drule compile_exp_val_rel >>
-  disch_then drule_all >>
-  strip_tac >> fs [shape_of_def] >> rveq >>
-  fs [panLangTheory.size_of_shape_def] >>
-  TOP_CASE_TAC >> fs [flatten_def] >> rveq >>
-  strip_tac >>
-  TOP_CASE_TAC >>
-  drule compile_exp_val_rel >>
-  disch_then drule_all >>
-  strip_tac >> fs [shape_of_def] >> rveq >>
-  fs [panLangTheory.size_of_shape_def] >>
-  fs [flatten_def] >> rveq >>
-  fs [evaluate_def] >> TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
-  fs [state_rel_def]
-QED
 Theorem compile_StoreByte:
   ^(get_goal "compile _ (panLang$StoreByte _ _)")
 Proof
