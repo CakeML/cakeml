@@ -82,21 +82,27 @@ Definition evaluate_exp_ann_def[nocompute]:
          | NONE => (st₂, Rerr Rtype_error)
          | SOME v => (st₂, Rval v)))) ∧
   evaluate_exp st₀ env (FunCall name args) =
-  (case FLOOKUP env.functions name of
+  (case get_member name env.prog of
    | NONE => (st₀, Rerr Rtype_error)
-   | SOME (in_names, body) =>
-     (case fix_clock st₀ (evaluate_exps st₀ env args) of
-      | (st₁, Rerr err) => (st₁, Rerr err)
-      | (st₁, Rval in_vs) =>
-        (case set_up_call st₁ in_names in_vs [] of
-         | NONE => (st₁, Rerr Rtype_error)
-         | SOME (old_locals, st₂) =>
-           if st₂.clock = 0
-           then (restore_locals st₂ old_locals, Rerr Rtimeout_error)
-           else
-             (case evaluate_exp (dec_clock st₂) env body of
-              | (st₃, Rerr err) => (restore_locals st₃ old_locals, Rerr err)
-              | (st₃, Rval v) => (restore_locals st₃ old_locals, Rval v))))) ∧
+   | SOME member =>
+     (case member of
+      | Method _ _ _ _ _ _ _ _ _ => (st₀, Rerr Rtype_error)
+      | Function _ ins _ _ _ _ body =>
+        (let in_names = MAP FST ins in
+         (case fix_clock st₀ (evaluate_exps st₀ env args) of
+          | (st₁, Rerr err) => (st₁, Rerr err)
+          | (st₁, Rval in_vs) =>
+            (case set_up_call st₁ in_names in_vs [] of
+             | NONE => (st₁, Rerr Rtype_error)
+             | SOME (old_locals, st₂) =>
+               if st₂.clock = 0
+               then (restore_locals st₂ old_locals, Rerr Rtimeout_error)
+               else
+                 (case evaluate_exp (dec_clock st₂) env body of
+                  | (st₃, Rerr err) =>
+                      (restore_locals st₃ old_locals, Rerr err)
+                  | (st₃, Rval v) =>
+                      (restore_locals st₃ old_locals, Rval v))))))) ∧
   evaluate_exp st env (Forall (vn, vt) e) =
   (if env.is_running then (st, Rerr Rtype_error)
    else if st.clock = 0 then (st, Rerr Rtimeout_error) else
@@ -315,36 +321,40 @@ Definition evaluate_stmt_ann_def[nocompute]:
          | NONE => (st₁, Rstop (Serr Rtype_error))
          | SOME st₂ => (st₂, Rcont)))) ∧
   evaluate_stmt st₀ env (MetCall lhss name args) =
-  (case FLOOKUP env.methods name of
+  (case get_member name env.prog of
    | NONE => (st₀, Rstop (Serr Rtype_error))
-   | SOME (in_ns, out_ns, body) =>
-     (case evaluate_exps st₀ env args of
-      | (st₁, Rerr err) => (st₁, Rstop (Serr err))
-      | (st₁, Rval in_vs) =>
-        (case set_up_call st₁ in_ns in_vs out_ns of
-         | NONE => (st₁, Rstop (Serr Rtype_error))
-         | SOME (old_locals, st₂) =>
-           if st₂.clock = 0
-           then (restore_locals st₂ old_locals, Rstop (Serr Rtimeout_error))
-           else
-             (case evaluate_stmt (dec_clock st₂) env body of
-              | (st₃, Rcont) =>
-                  (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
-              | (st₃, Rstop (Serr err)) =>
-                  (restore_locals st₃ old_locals, Rstop (Serr err))
-              | (st₃, Rstop Sret) =>
-                (case OPT_MMAP (read_local st₃.locals) out_ns of
-                 | NONE =>
-                     (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
-                 | SOME out_vs =>
-                   (let st₄ = restore_locals st₃ old_locals in
-                      (case assign_values st₄ env lhss out_vs of
-                       | (st₅, Rstop (Serr err)) =>
-                           (st₄, Rstop (Serr err))
-                       | (st₅, Rstop Sret) =>
-                           (st₄, Rstop (Serr Rtype_error))
-                       | (st₅, Rcont) =>
-                           (st₄, Rcont)))))))) ∧
+   | SOME member =>
+     (case member of
+      | Function _ _ _ _ _ _ _ => (st₀, Rstop (Serr Rtype_error))
+      | Method _ ins _ _ _ _ outs _ body =>
+        (let in_ns = MAP FST ins; out_ns = MAP FST outs in
+         (case evaluate_exps st₀ env args of
+          | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+          | (st₁, Rval in_vs) =>
+            (case set_up_call st₁ in_ns in_vs out_ns of
+             | NONE => (st₁, Rstop (Serr Rtype_error))
+             | SOME (old_locals, st₂) =>
+               if st₂.clock = 0
+               then (restore_locals st₂ old_locals, Rstop (Serr Rtimeout_error))
+               else
+                 (case evaluate_stmt (dec_clock st₂) env body of
+                  | (st₃, Rcont) =>
+                      (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
+                  | (st₃, Rstop (Serr err)) =>
+                      (restore_locals st₃ old_locals, Rstop (Serr err))
+                  | (st₃, Rstop Sret) =>
+                    (case OPT_MMAP (read_local st₃.locals) out_ns of
+                     | NONE =>
+                       (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
+                     | SOME out_vs =>
+                       (let st₄ = restore_locals st₃ old_locals in
+                        (case assign_values st₄ env lhss out_vs of
+                         | (st₅, Rstop (Serr err)) =>
+                             (st₄, Rstop (Serr err))
+                         | (st₅, Rstop Sret) =>
+                             (st₄, Rstop (Serr Rtype_error))
+                         | (st₅, Rcont) =>
+                             (st₄, Rcont)))))))))) ∧
   evaluate_stmt st env Return = (st, Rstop Sret)
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
@@ -387,19 +397,20 @@ Theorem evaluate_stmt_ind =
   REWRITE_RULE [fix_clock_evaluate_stmt] evaluate_stmt_ann_ind
 
 Definition evaluate_program_def:
-  evaluate_program is_running (Program members) =
-  let st = init_state in
+  evaluate_program is_running prog =
+  let st = init_state; env = mk_env is_running prog in
   let main_name = «Main» in
-    (case add_members (empty_env is_running) members of
-     | NONE => (st, Rstop (Serr Rtype_error))
-     | SOME env =>
-       (case FLOOKUP env.methods main_name of
-        | NONE => (st, Rstop (Serr Rtype_error))
-        | SOME (in_ns, out_ns, body) =>
-          (* Main does not take any input, and does not produce outputs *)
-          if ¬NULL in_ns ∨ ¬NULL out_ns then (st, Rstop (Serr Rtype_error))
-          else
-            evaluate_stmt st env (MetCall [] main_name [])))
+  (case get_member main_name env.prog of
+   | NONE => (st, Rstop (Serr Rtype_error))
+   | SOME member =>
+     (case member of
+      | Function _ _ _ _ _ _ _ => (st, Rstop (Serr Rtype_error))
+      | Method _ ins _ _ _ _ outs _ body =>
+        (let in_ns = MAP FST ins; out_ns = MAP FST outs in
+           (* Main does not take any input, and does not produce outputs *)
+           if ¬NULL in_ns ∨ ¬NULL out_ns then (st, Rstop (Serr Rtype_error))
+           else
+             evaluate_stmt st env (MetCall [] main_name []))))
 End
 
 val _ = export_theory ();

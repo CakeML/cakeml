@@ -15,10 +15,8 @@ Datatype:
   <|
     (* Determines whether evaluate is actually running; relevant for Forall *)
     is_running : bool;
-    (* methods : method_name |-> (param_names, out_names, body) *)
-    methods : (mlstring |-> (mlstring list # mlstring list # statement));
-    (* functions : function_name |-> (param_names, body) *)
-    functions : (mlstring |-> (mlstring list # exp))
+    (* Store functions and methods *)
+    prog : program
   |>;
 End
 
@@ -71,26 +69,27 @@ Datatype:
 End
 
 Definition empty_env_def:
-  empty_env is_running =
-    <| is_running := is_running; methods := FEMPTY; functions := FEMPTY |>
+  mk_env is_running program =
+    <| is_running := is_running; prog := program |>
 End
 
-Definition add_member_def:
-  (add_member env (Method name ins _ _ _ _ outs _ body) =
-   if name IN (FDOM env.methods) then NONE else
-     SOME (env with methods :=
-             env.methods |+ (name, (MAP FST ins, MAP FST outs, body)))) ∧
-  (add_member env (Function name ins _ _ _ _ body) =
-   if name IN (FDOM env.functions) then NONE else
-     SOME (env with functions := env.functions |+ (name, (MAP FST ins, body))))
+Definition get_member_aux_def:
+  get_member_aux name [] = NONE ∧
+  get_member_aux name (member::members) =
+  (case member of
+   | Function name' _ _ _ _ _ _ =>
+       if name' = name
+       then SOME member
+       else get_member_aux name members
+   | Method name' _ _ _ _ _ _ _ _ =>
+       if name' = name
+       then SOME member
+       else get_member_aux name members)
 End
 
-Definition add_members_def:
-  add_members env [] = SOME env ∧
-  add_members env (member::members) =
-  (case add_member env member of
-   | NONE => NONE
-   | SOME env => add_members env members)
+Definition get_member_def:
+  get_member name (Program members) =
+    get_member_aux name members
 End
 
 Definition init_state_def:
@@ -99,8 +98,7 @@ End
 
 Definition safe_zip_def:
   safe_zip xs ys =
-  if LENGTH xs ≠ LENGTH ys then NONE
-  else SOME (ZIP (xs, ys))
+    if LENGTH xs ≠ LENGTH ys then NONE else SOME (ZIP (xs, ys))
 End
 
 Definition set_up_call_def:
