@@ -1490,7 +1490,7 @@ Definition expsexp_def:
    expsexp e⟫ ∧
   expsexp (Tannot e t) = ⟪SX_SYM "Tannot"; expsexp e; typesexp t⟫ ∧
   expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫ ∧
-  expsexp (FpOptimise sc e) = listsexp [SX_SYM "FpOptimise"; scsexp sc; expsexp e]
+  expsexp (FpOptimise fpopt e) = listsexp [SX_SYM "FpOptimise"; scsexp fpopt; expsexp e]
 Termination
   WF_REL_TAC`measure exp_size`
 End
@@ -1804,9 +1804,9 @@ Proof
 QED
 
 Theorem sexpsc_scsexp[simp]:
-  sexpsc (scsexp sc) = SOME sc
+  sexpsc (scsexp se) = SOME se
 Proof
-  Cases_on `sc` >> fs[sexpsc_def, scsexp_def]
+  Cases_on `se` >> fs[sexpsc_def, scsexp_def]
 QED
 
 Theorem sexpexp_expsexp[simp]:
@@ -1999,7 +1999,7 @@ Proof
 QED
 
 Theorem scsexp_sexpsc:
-  sexpsc s = SOME sc ==> scsexp sc = s
+  sexpsc s = SOME se ==> scsexp se = s
 Proof
   Cases_on `s` \\ fs[sexpsc_def, scsexp_def]
   \\ TOP_CASE_TAC
@@ -2178,7 +2178,7 @@ Proof
 QED
 
 Theorem scsexp_valid[simp]:
-  ! sc. valid_sexp (scsexp sc)
+  ! se. valid_sexp (scsexp se)
 Proof
   Cases \\ EVAL_TAC
 QED

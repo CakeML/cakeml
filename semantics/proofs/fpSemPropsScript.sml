@@ -9,8 +9,8 @@ open preamble;
 val _ = new_theory "fpSemProps";
 
 Theorem do_fpoptimise_cons:
-  do_fpoptimise sc (v1 :: vs) =
-    do_fpoptimise sc [v1] ++ do_fpoptimise sc vs
+  do_fpoptimise fpopt (v1 :: vs) =
+    do_fpoptimise fpopt [v1] ++ do_fpoptimise fpopt vs
 Proof
   Cases_on `vs` \\ fs[do_fpoptimise_def]
 QED
