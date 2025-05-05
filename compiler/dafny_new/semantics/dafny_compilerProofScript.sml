@@ -26,33 +26,48 @@ Definition env_rel_def:
     nsLookup env_cml.c (Short "False") = SOME (0, TypeStamp "False" 0)
 End
 
+(* TODO Define as inductive *)
 Definition val_rel_def:
-  (val_rel (BoolV b) v_cml ⇔ v_cml = Boolv b) ∧
-  (val_rel (IntV i₀) (Litv (IntLit i₁)) ⇔ i₀ = i₁) ∧
-  (val_rel (StrV ms) (Litv (StrLit s)) ⇔ (explode ms) = s) ∧
-  (val_rel _ _ ⇔ F)
+  (val_rel m (BoolV b) v_cml ⇔ v_cml = Boolv b) ∧
+  (val_rel m (IntV i₀) (Litv (IntLit i₁)) ⇔ i₀ = i₁) ∧
+  (val_rel m (StrV ms) (Litv (StrLit s)) ⇔ (explode ms) = s) ∧
+  (val_rel m (ArrV len loc) (Conv NONE [Litv (IntLit (len')); Loc T loc']) ⇔
+     len' = &len ∧ FLOOKUP m loc = SOME loc')
+  (val_rel _ _ _ ⇔ F)
 End
 
-Definition oval_ref_eq_def:
+Definition oval_ref_rel_def:
   oval_ref_eq (SOME dval) (Refv cval) = val_rel dval cval ∧
   oval_ref_eq _ _ = F
 End
 
+(* TODO Should be more like locals_rel_def *)
+Inductive array_rel:
+[~nil:]
+  array_rel m [] []
+[~array:]
+  LIST_REL (val_rel m) vs vs' ∧ array_rel m rest rest' ⇒
+    array_rel m ((HArr vs)::rest) ((Varray vs')::rest')
+[~ref:]
+  array_rel m rest rest' ⇒ array_rel m rest ((Refv v)::rest')
+End
+
+Definition locals_rel_def:
+  local_rel m (l: mlstring |-> num) s_locals t_refs cml_env ⇔
+    INJ (λx. l ' x) (FDOM l) 𝕌(:num) ∧
+    ∀var val.
+      ALOOKUP s_locals var = SOME val ⇒
+      ∃loc val'.
+        FLOOKUP l var = SOME loc ∧
+        store_lookup loc t_refs = SOME val' ∧
+        val_rel m val val' ∧
+        nsLookup cml_env (Short var) = SOME (Loc T loc)
+End
+
 Definition state_rel_def:
-  state_rel s t ⇔
-    (∃locals_to_cml heap_to_cml.
-       let heap_dom = count (LENGTH s.heap) in
-       let locals_dom = set (MAP FST s.locals) in
-         INJ locals_to_cml locals_dom 𝕌(:num) ∧
-         INJ heap_to_cml heap_dom 𝕌(:num) ∧
-         DISJOINT (IMAGE locals_to_cml locals_dom)
-                  (IMAGE heap_to_cml heap_dom) ∧
-         ∀var.
-           var ∈ locals_dom ⇒
-           ∃ref oval.
-             store_lookup (locals_to_cml var) t.refs = SOME ref ∧
-             ALOOKUP s.locals var = SOME oval ∧
-             oval_ref_eq oval ref)
+  state_rel m l s t cml_env ⇔
+    array_rel m s.heap t.refs ∧
+    locals_rel m l s.locals t.refs cml_env
     (* TODO How to do state rel between cout? *)
 End
 
