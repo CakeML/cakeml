@@ -24,7 +24,7 @@ QED
 
 Definition gather_constants_exp_def:
   gather_constants_exp (Lit (Word64 w)) = [w] ∧
-  gather_constants_exp (FpOptimise sc e) = gather_constants_exp e ∧
+  gather_constants_exp (FpOptimise fpopt e) = gather_constants_exp e ∧
   gather_constants_exp (Lit l) = [] ∧
   gather_constants_exp (Var x) = [] ∧
   gather_constants_exp (Raise e) = gather_constants_exp e ∧
@@ -85,7 +85,7 @@ Termination
 End
 
 Definition gather_used_identifiers_exp_def:
-  gather_used_identifiers_exp (FpOptimise sc e) =
+  gather_used_identifiers_exp (FpOptimise fpopt e) =
     gather_used_identifiers_exp e ∧
   gather_used_identifiers_exp (Lit l) = [] ∧
   gather_used_identifiers_exp (Var x) =
@@ -139,8 +139,8 @@ Definition replace_constants_exp_def:
     (case (ALOOKUP al w) of
     | NONE => Lit (Word64 w)
     | SOME v => (Var (Short v))) ∧
-  replace_constants_exp al (FpOptimise sc e) =
-    FpOptimise sc (replace_constants_exp al e) ∧
+  replace_constants_exp al (FpOptimise fpopt e) =
+    FpOptimise fpopt (replace_constants_exp al e) ∧
   replace_constants_exp al (Lit l) = (Lit l) ∧
   replace_constants_exp al (Var x) = (Var x) ∧
   replace_constants_exp al (Raise e) = Raise (replace_constants_exp al e) ∧

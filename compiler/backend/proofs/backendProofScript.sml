@@ -1393,7 +1393,7 @@ QED
 
 Theorem MAP_Section_num_stack_to_lab_SUBSET:
   set (MAP FST prog) ⊆ labs /\ count (SUC gc_stub_location) ⊆ labs ==>
-  set (MAP Section_num (compile sc dc max_heap sp offset prog)) ⊆ labs
+  set (MAP Section_num (compile scc dc max_heap sp offset prog)) ⊆ labs
 Proof
   simp [stack_to_labTheory.compile_def, MAP_prog_to_section_Section_num]
   \\ simp [stack_removeTheory.compile_def,

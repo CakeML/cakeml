@@ -318,22 +318,22 @@ evaluate ck env s (Tannot e t) bv)
 ==>
 evaluate ck env s (Lannot e l) bv)
 
-/\ (! ck env s1 s2 s3 newFp e sc v vsc.
+/\ (! ck env s1 s2 s3 newFp e fpopt v vfpopt.
 (evaluate ck env (s1 with fp_state := newFp) e (s2, Rval v) /\
 (newFp = if (s1.fp_state.canOpt = Strict) then s1.fp_state
-          else s1.fp_state with <| canOpt := FPScope sc |>) /\
+          else s1.fp_state with <| canOpt := FPScope fpopt |>) /\
 (s3 = s2 with fp_state := s2.fp_state with canOpt := s1.fp_state.canOpt) /\
-(vsc = HD (do_fpoptimise sc [v])))
+(vfpopt = HD (do_fpoptimise fpopt [v])))
 ==>
-evaluate ck env s1 (FpOptimise sc e) (s3, Rval vsc))
+evaluate ck env s1 (FpOptimise fpopt e) (s3, Rval vfpopt ))
 
-/\ (! ck env s1 s2 s3 newFp e sc err.
+/\ (! ck env s1 s2 s3 newFp e fpopt err.
 (evaluate ck env (s1 with fp_state := newFp) e (s2, Rerr err) /\
 (newFp = if (s1.fp_state.canOpt = Strict) then s1.fp_state
-          else s1.fp_state with <| canOpt := FPScope sc |>) /\
+          else s1.fp_state with <| canOpt := FPScope fpopt |>) /\
 (s3 = s2 with fp_state := s2.fp_state with canOpt := s1.fp_state.canOpt))
 ==>
-evaluate ck env s1 (FpOptimise sc e) (s3, Rerr err))
+evaluate ck env s1 (FpOptimise fpopt e) (s3, Rerr err))
 
 /\ (! ck env s.
 T

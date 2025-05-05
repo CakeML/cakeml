@@ -317,7 +317,7 @@ Theorem run_eval_def:
      =
      run_eval env e) ∧
   (!env e.
-     run_eval env (FpOptimise sc e) =
+     run_eval env (FpOptimise fpopt e) =
      (** We expand the monad here as we need to alter the state
      even if evaluation fails to leave the optimizer in a consistent state **)
      λ ^st.
@@ -328,7 +328,7 @@ Theorem run_eval_def:
          case run_eval env e newSt of
          (st', Rval v) =>
            (st' with <| fp_state := st'.fp_state with <| canOpt := st.fp_state.canOpt |> |>,
-            Rval (HD (do_fpoptimise sc [v])))
+            Rval (HD (do_fpoptimise fpopt [v])))
          | (st', Rerr e) =>
              (st' with<| fp_state := st'.fp_state with <| canOpt := st.fp_state.canOpt |> |>,
               Rerr e)) ∧

@@ -886,7 +886,7 @@ Proof
          by gs[to_small_st_def, state_component_equality]
        >> gs[]
        >> first_x_assum $ mp_then Any mp_tac e_step_add_ctxt
-       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt sc (), env)]’ mp_tac
+       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt fpopt (), env)]’ mp_tac
        >> simp[] >> strip_tac
        >> simp[Once RTC_CASES1, e_step_reln_def, e_step_def, push_def]
        >> simp[Once RTC_CASES2]
@@ -897,7 +897,7 @@ Proof
          by gs[to_small_st_def, state_component_equality]
        >> gs[]
        >> first_x_assum $ mp_then Any mp_tac e_step_add_ctxt
-       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt sc (), env)]’ mp_tac
+       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt fpopt (), env)]’ mp_tac
        >> simp[] >> strip_tac
        >> simp[Once RTC_CASES1, e_step_reln_def, e_step_def, push_def]
        >> simp[Once RTC_CASES2]
@@ -909,19 +909,19 @@ Proof
        >> gs[]
        >- (
         first_x_assum $ mp_then Any mp_tac e_step_add_ctxt
-        >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt sc (), env)]’ mp_tac
+        >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt fpopt (), env)]’ mp_tac
         >> simp[] >> strip_tac
         >> simp[Once RTC_CASES1, e_step_reln_def, e_step_def, push_def]
         >> simp[Once RTC_CASES2]
         >> first_x_assum $ irule_at Any
         >> simp[e_step_reln_def, e_step_def, continue_def])
        >> first_x_assum $ mp_then Any mp_tac e_step_add_ctxt
-       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt sc (), env)]’ mp_tac
+       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt fpopt (), env)]’ mp_tac
        >> simp[] >> strip_tac
        >> simp[Once RTC_CASES1, e_step_reln_def, Once e_step_def, push_def]
        >> first_x_assum $ mp_then Any mp_tac e_single_error_add_ctxt_optimise
-       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt sc (), env)]’ assume_tac
-       >> qexistsl_tac [‘env'’, ‘e'’, ‘c' ++ [(Coptimise s.fp_state.canOpt sc (), env)]’, ‘fp''’]
+       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt fpopt (), env)]’ assume_tac
+       >> qexistsl_tac [‘env'’, ‘e'’, ‘c' ++ [(Coptimise s.fp_state.canOpt fpopt (), env)]’, ‘fp''’]
        >> gs[fix_fp_state_def])
    >- (Cases_on ‘err’ >> gs[small_eval_def]
        >> ‘∀ fp (s:'ffi state). to_small_st (s with fp_state := fp) = to_small_st s’
@@ -929,19 +929,19 @@ Proof
        >> gs[]
        >- (
         first_x_assum $ mp_then Any mp_tac e_step_add_ctxt
-        >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt sc (), env)]’ mp_tac
+        >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt fpopt (), env)]’ mp_tac
         >> simp[] >> strip_tac
         >> simp[Once RTC_CASES1, e_step_reln_def, e_step_def, push_def]
         >> simp[Once RTC_CASES2]
         >> first_x_assum $ irule_at Any
         >> simp[e_step_reln_def, e_step_def, continue_def])
        >> first_x_assum $ mp_then Any mp_tac e_step_add_ctxt
-       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt sc (), env)]’ mp_tac
+       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt fpopt (), env)]’ mp_tac
        >> simp[] >> strip_tac
        >> simp[Once RTC_CASES1, e_step_reln_def, Once e_step_def, push_def]
        >> first_x_assum $ mp_then Any mp_tac e_single_error_add_ctxt_optimise
-       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt sc (), env)]’ assume_tac
-       >> qexistsl_tac [‘env'’, ‘e'’, ‘c' ++ [(Coptimise s.fp_state.canOpt sc (), env)]’, ‘fp''’]
+       >> disch_then $ qspec_then ‘[(Coptimise s.fp_state.canOpt fpopt (), env)]’ assume_tac
+       >> qexistsl_tac [‘env'’, ‘e'’, ‘c' ++ [(Coptimise s.fp_state.canOpt fpopt (), env)]’, ‘fp''’]
        >> gs[fix_fp_state_def])
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
        metis_tac [APPEND,e_step_add_ctxt, small_eval_list_rules])
@@ -975,11 +975,11 @@ Theorem evaluate_ctxts_cons:
         (res1 = Rerr err) ∧
         (f = (c,env)) ∧
         ((∀pes. c ≠ Chandle () pes) ∨ (∀v. err ≠ Rraise v)) ∧
-        (∀ oldSc sc. c ≠ Coptimise oldSc sc ()) ∧
+        (∀ oldSc sc. c ≠ Coptimise oldSc fpopt ()) ∧
         evaluate_ctxts ck s1 cs res1 bv) ∨
-     (? env oldSc sc err.
+     (? env oldSc fpopt err.
         (res1 = Rerr err) ∧
-        (f = (Coptimise oldSc sc (),env)) ∧
+        (f = (Coptimise oldSc fpopt (),env)) ∧
         evaluate_ctxts ck (s1 with fp_state := s1.fp_state with canOpt := oldSc) cs res1 bv) ∨
      (?pes s2 env v' res2 v.
         (res1 = Rerr (Rraise v)) ∧
@@ -2134,7 +2134,7 @@ Proof
   >- ( (* FpOptimise *)
     irule_at Any $ cj 2 RTC_rules >> simp[e_step_reln_def, e_step_def, push_def] >>
     dxrule e_step_add_ctxt >> simp[SF SFY_ss] >>
-    disch_then $ qspec_then `[Coptimise Strict sc (),env]` assume_tac >>
+    disch_then $ qspec_then `[Coptimise Strict fpopt (),env]` assume_tac >>
     ‘to_small_st (s2 with fp_state := s2.fp_state with canOpt := Strict) = to_small_st s2’ by
       gs[to_small_st_def, state_component_equality, fpState_component_equality] >>
     gs[] >> goal_assum dxrule
@@ -2142,7 +2142,7 @@ Proof
   >- ( (* FpOptimise 2 *)
     irule_at Any $ cj 2 RTC_rules >> simp[e_step_reln_def, e_step_def, push_def] >>
     dxrule e_step_add_ctxt >> simp[SF SFY_ss] >>
-    disch_then $ qspec_then `[Coptimise s.fp_state.canOpt sc (),env]` assume_tac >>
+    disch_then $ qspec_then `[Coptimise s.fp_state.canOpt fpopt (),env]` assume_tac >>
     ‘∀ fps. to_small_st (s with fp_state := fps) = to_small_st s’ by
       gs[to_small_st_def, state_component_equality] >>
     gs[] >>
@@ -2531,7 +2531,7 @@ Proof
   >- (Cases_on `e` >> gvs[] >>
       Cases_on `can_pmatch_all h1.c s.refs (MAP FST pes) a` >> gvs[] >>
       metis_tac[evaluate_match_T_total, PAIR]) >>
-  Cases_on ‘∃ oldSc sc. h0 = Coptimise oldSc sc ()’ >> gvs[]
+  Cases_on ‘∃ oldSc sc. h0 = Coptimise oldSc fpopt ()’ >> gvs[]
 QED
 
 Theorem evaluate_state_T_total:

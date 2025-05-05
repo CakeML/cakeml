@@ -40,7 +40,7 @@ fun op by1 (q,tac) = q by (tac \\ NO_TAC)
 infix 8 by1
 
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
-fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
+fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (dich_then drule \\ fs [])
 
 Theorem LESS_EQ_IMP_APPEND_ALT:
    ∀n xs. n ≤ LENGTH xs ⇒ ∃ys zs. xs = ys ++ zs ∧ LENGTH zs = n
@@ -4456,8 +4456,8 @@ Definition code_oracle_rel_def:
 End
 
 Theorem code_oracle_rel_NextFree[simp]:
-   code_oracle_rel c sc sco (ts |+ (NextFree,x)) tcc tco cb db ⇔
-   code_oracle_rel c sc sco ts tcc tco cb db
+   code_oracle_rel c scc sco (ts |+ (NextFree,x)) tcc tco cb db ⇔
+   code_oracle_rel c scc sco ts tcc tco cb db
 Proof
   rw[code_oracle_rel_def,FLOOKUP_UPDATE]
 QED

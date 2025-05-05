@@ -147,12 +147,12 @@ Inductive evaluate_ctxt:
   evaluate_ctxt ck env s (Clannot () l) v (s, Rval v) ∧
 
   (oldSc = Strict ⇒
-   evaluate_ctxt ck env s (Coptimise oldSc sc ()) v (s with fp_state := s.fp_state with canOpt := oldSc,
-                                                     Rval (HD (do_fpoptimise sc [v])))) ∧
+   evaluate_ctxt ck env s (Coptimise oldSc fpopt ()) v (s with fp_state := s.fp_state with canOpt := oldSc,
+                                                     Rval (HD (do_fpoptimise fpopt [v])))) ∧
 
   (oldSc ≠ Strict ⇒
-   evaluate_ctxt ck env s (Coptimise oldSc sc ()) v (s with fp_state := s.fp_state with canOpt := oldSc,
-                                                     Rval (HD (do_fpoptimise sc [v]))))
+   evaluate_ctxt ck env s (Coptimise oldSc fpopt ()) v (s with fp_state := s.fp_state with canOpt := oldSc,
+                                                     Rval (HD (do_fpoptimise fpopt [v]))))
 End
 
 Inductive evaluate_ctxts:
@@ -164,11 +164,11 @@ Inductive evaluate_ctxts:
 
   (evaluate_ctxts ck s cs (Rerr err) bv ∧
   ((∀pes. c ≠ Chandle () pes) ∨ (∀v. err ≠ Rraise v)) ∧
-   (∀ oldSc sc. c ≠ Coptimise oldSc sc ())
+   (∀ oldSc fpopt. c ≠ Coptimise oldSc fpopt ())
       ⇒ evaluate_ctxts ck s ((c,env)::cs) (Rerr err) bv) ∧
 
   (evaluate_ctxts ck (s with fp_state := s.fp_state with canOpt := oldSc) cs (Rerr err) bv ⇒
-   evaluate_ctxts ck s ((Coptimise oldSc sc (),env)::cs) (Rerr err) bv) ∧
+   evaluate_ctxts ck s ((Coptimise oldSc fpopt (),env)::cs) (Rerr err) bv) ∧
 
   (¬can_pmatch_all env.c s.refs (MAP FST pes) v ∧
    evaluate_ctxts ck s cs (Rerr (Rabort Rtype_error)) res2
