@@ -33,25 +33,28 @@ Definition val_rel_def:
   (val_rel _ _ ⇔ F)
 End
 
-Definition val_opt_ref_def:
-  val_opt_ref val_opt ref = T
+Definition oval_ref_eq_def:
+  oval_ref_eq (SOME dval) (Refv cval) = val_rel dval cval ∧
+  oval_ref_eq _ _ = F
 End
 
-(* Definition state_rel_def: *)
-(*   state_rel s t ⇔ *)
-(*   ∃params decs locals_to_cml heap_to_cml. *)
-(*     s.locals = [params; decs] ∧ *)
-(*     (let *)
-(*        locals = params ⊌ decs; *)
-(*        heap_dom = count (LENGTH s.heap) *)
-(*      in *)
-(*        INJ locals_to_cml (FDOM locals) 𝕌(:num) ∧ *)
-(*        INJ heap_to_cml heap_dom 𝕌(:num) ∧ *)
-(*        ∀var ref. *)
-(*          var ∈ (FDOM locals) ⇒ *)
-(*          store_lookup (locals_to_cml var) t.refs = SOME ref ∧ *)
-(*          val_opt_ref (locals ' var) ref) *)
-(* End *)
+Definition state_rel_def:
+  state_rel s t ⇔
+    (∃locals_to_cml heap_to_cml.
+       let heap_dom = count (LENGTH s.heap) in
+       let locals_dom = set (MAP FST s.locals) in
+         INJ locals_to_cml locals_dom 𝕌(:num) ∧
+         INJ heap_to_cml heap_dom 𝕌(:num) ∧
+         DISJOINT (IMAGE locals_to_cml locals_dom)
+                  (IMAGE heap_to_cml heap_dom) ∧
+         ∀var.
+           var ∈ locals_dom ⇒
+           ∃ref oval.
+             store_lookup (locals_to_cml var) t.refs = SOME ref ∧
+             ALOOKUP s.locals var = SOME oval ∧
+             oval_ref_eq oval ref)
+    (* TODO How to do state rel between cout? *)
+End
 
 Definition exp_res_rel_def:
   exp_res_rel (Rval (v_dfy : value)) (Rval [v_cml] : cml_res) ⇔
