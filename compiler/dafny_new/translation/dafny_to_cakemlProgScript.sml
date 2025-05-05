@@ -23,6 +23,7 @@ val r = translate dafny_to_cakemlTheory.cml_fapp_def;
 val r = translate dafny_to_cakemlTheory.cml_read_var_def;
 val r = translate dafny_to_cakemlTheory.cml_tup_vname_def;
 val r = translate dafny_to_cakemlTheory.cml_tup_case_def;
+val r = translate dafny_to_cakemlTheory.cml_init_value_def;
 val r = translate dafny_to_cakemlTheory.cml_tup_select_def;
 val r = translate dafny_to_cakemlTheory.cml_new_refs_in_def;
 val r = translate dafny_to_cakemlTheory.cml_fun_aux_def;

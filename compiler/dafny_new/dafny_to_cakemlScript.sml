@@ -52,9 +52,7 @@ Definition cml_fapp_def:
 End
 
 Definition cml_read_var_def:
-  cml_read_var v =
-  let deref = App Opderef [Var (Short (explode v))] in
-    cml_fapp ["Option"] "valOf" [deref]
+  cml_read_var v = App Opderef [Var (Short (explode v))]
 End
 
 (* Generates strings of the form _0, _1, etc., to be used for matching tuples *)
@@ -75,12 +73,22 @@ Definition cml_tup_select_def:
   cml_tup_case len cml_te (Var (Short (cml_tup_vname idx)))
 End
 
+Definition cml_init_value_def:
+  init_value t =
+  (case t of
+   | BoolT => False
+   | IntT => Lit (IntLit 0)
+   | StrT => Lit (StrLit "")
+   | ArrT _ => Tuple [Lit (IntLit 0); App AallocEmpty [Unit]])
+End
+
 Definition cml_new_refs_in_def:
-  cml_new_refs_in ns cml_e =
-  (case ns of
+  cml_new_refs_in nts cml_e =
+  (case nts of
    | [] => cml_e
-   | (n::ns) =>
-     Let (SOME n) (App Opref [None]) (cml_new_refs_in ns cml_e))
+   | ((n,t)::nts) =>
+     Let (SOME (explode n))
+         (App Opref [init_value t]) (cml_new_refs_in nts cml_e))
 End
 
 (* Generates fn i₀ => fn i₁ => ... => body from ins *)
@@ -148,9 +156,7 @@ End
    - we might get blocked by a dimension with length zero on the way. *)
 
 Definition cml_alloc_arr_def:
-  cml_alloc_arr len init =
-  let data = cml_fapp ["Array"] "array" [len; init] in
-    Tuple [len; data]
+  cml_alloc_arr len init = Tuple [len; App Aalloc [len; init]]
 End
 
 Definition cml_get_arr_dim_def:
@@ -162,8 +168,7 @@ Definition cml_get_arr_data_def:
 End
 
 Definition cml_arr_sel_def:
-  cml_arr_sel cml_arr cml_idx =
-  cml_fapp ["Array"] "sub" [cml_get_arr_data cml_arr; cml_idx]
+  cml_arr_sel cml_arr cml_idx = App Asub [cml_get_arr_data cml_arr; cml_idx]
 End
 
 Definition from_exp_def:
@@ -247,14 +252,13 @@ Definition assign_def:
   assign lhs cml_rhs =
   (case lhs of
    | VarLhs v =>
-     (let cml_lhs = Var (Short (explode v)) in
-        return (App Opassign [cml_lhs; Some cml_rhs]))
+       return (App Opassign [Var (Short (explode v)); cml_rhs])
    | ArrSelLhs arr idx =>
      do
        cml_idx <- from_exp idx;
        cml_arr <- from_exp arr;
        cml_arr <<- cml_get_arr_data cml_arr;
-       return (cml_fapp ["Array"] "update" [cml_arr; cml_idx; cml_rhs])
+       return (App Aupdate [cml_arr; cml_idx; cml_rhs])
      od)
 End
 
@@ -315,11 +319,10 @@ Definition from_statement_def:
        cml_els <- from_statement els lvl;
        return (If cml_tst cml_thn cml_els)
      od
-   | Dec locals scope =>
+   | Dec lcl scope =>
      do
        cml_scope <- from_statement scope lvl;
-       cml_name <<- explode (FST locals);
-       return (cml_new_refs_in [cml_name] cml_scope)
+       return (cml_new_refs_in [lcl] cml_scope)
      od
    | Assign lhss rhss =>
      do
@@ -378,7 +381,7 @@ Definition set_up_cml_fun_def:
     init_ins <- par_assign (MAP VarLhs in_ref_ns)
                            (MAP (Var ∘ Short ∘ explode) in_param_ns);
     cml_body <<- Let NONE init_ins cml_body;
-    cml_body <<- cml_new_refs_in (MAP explode in_ref_ns) cml_body;
+    cml_body <<- cml_new_refs_in ins cml_body;
     (cml_param, cml_body) <<- cml_fun (MAP explode in_param_ns) cml_body;
     return (explode n, cml_param, cml_body)
   od
@@ -396,7 +399,7 @@ Definition from_member_decl_def:
        cml_tup <<- Tuple (MAP cml_read_var out_ns);
        cml_body <<- Handle cml_body
                 [(Pcon (SOME (mk_id ["Dafny"] "Return")) [], cml_tup)];
-       cml_body <<- cml_new_refs_in (MAP explode out_ns) cml_body;
+       cml_body <<- cml_new_refs_in outs cml_body;
        set_up_cml_fun n ins cml_body
      od
    | Function n ins _ _ _ _ body =>
