@@ -3693,9 +3693,9 @@ End
 
 Definition init_memory_words_def:
   init_memory_words code data ffis cl stdin =
-  let sc = startup_code (LENGTH ffis) (LENGTH code) (LENGTH data) in
+  let startup = startup_code (LENGTH ffis) (LENGTH code) (LENGTH data) in
   (* startup code *)
-  words_of_bytes F sc ++
+  words_of_bytes F startup ++
   (* pad startup code to size *)
   REPLICATE ((startup_code_size - LENGTH sc) DIV 4) 0w ++
   (* command line *)
