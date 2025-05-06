@@ -286,17 +286,25 @@ Theorem dec_clock_const[simp]:
    (dec_clock z).use_alloc = z.use_alloc ∧
    (dec_clock z).use_store = z.use_store ∧
    (dec_clock z).use_stack = z.use_stack ∧
+   (dec_clock z).stack = z.stack ∧
+   (dec_clock z).store = z.store ∧
    (dec_clock z).code = z.code ∧
+   (dec_clock z).data_buffer = z.data_buffer ∧
+   (dec_clock z).code_buffer = z.code_buffer ∧
+   (dec_clock z).fp_regs = z.fp_regs ∧
    (dec_clock z).be = z.be ∧
    (dec_clock z).gc_fun = z.gc_fun ∧
+   (dec_clock z).memory = z.memory ∧
    (dec_clock z).mdomain = z.mdomain ∧
    (dec_clock z).sh_mdomain = z.sh_mdomain ∧
    (dec_clock z).bitmaps = z.bitmaps ∧
+   (dec_clock z).stack_space = z.stack_space ∧
    (dec_clock z).compile = z.compile ∧
    (dec_clock z).compile_oracle = z.compile_oracle
 Proof
   EVAL_TAC
 QED
+
 
 Theorem sh_mem_op_const[simp]:
    sh_mem_op op a r s = (res,t) ⇒
@@ -333,6 +341,12 @@ Theorem evaluate_consts:
       s1.sh_mdomain = s.sh_mdomain /\
       s1.compile = s.compile
 Proof
+  recInduct evaluate_ind >>
+  rpt conj_tac >>
+  simp[evaluate_def] >>
+  rpt gen_tac >>
+  rpt (
+    (strip_tac >> CHANGED_TAC(imp_res_tac alloc_const) >> full_simp_tac(srw_ss())[]) ORELSE
   recInduct evaluate_ind >>
   rpt conj_tac >>
   simp[evaluate_def] >>
@@ -1108,12 +1122,6 @@ Definition stack_good_handler_labels_def:
   restrict_nonzero (BIGUNION (IMAGE get_code_labels (set (MAP SND p)))) ⊆
   BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
   IMAGE (λn. n,1) (set (MAP FST p))
-End
-
-Definition no_install_def:
-  (no_install (Call r d h) =
-    ((case r of SOME (x,_,_) => no_install x | _ => T) /\
-    (case h of SOME (x,_,_) => no_install x | _ => T))) /\
   (no_install (Seq p1 p2) = (no_install p1 /\ no_install p2)) /\
   (no_install (If _ _ _ p1 p2) = (no_install p1 /\ no_install p2)) /\
   (no_install (While _ _ _ p) = no_install p) /\
