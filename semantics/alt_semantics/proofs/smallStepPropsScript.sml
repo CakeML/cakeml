@@ -96,7 +96,7 @@ Proof
 QED
 
 Theorem fix_fp_state_no_optimise_id:
-  EVERY (\c. (~∃ oldSc sc env. c = (Coptimise oldSc sc (), env))) c ⇒
+  EVERY (\c. (~∃ oldSc fpopt env. c = (Coptimise oldSc fpopt (), env))) c ⇒
   fix_fp_state c fp = fp
 Proof
   Induct_on ‘c’ >> gs[fix_fp_state_def]
@@ -111,7 +111,7 @@ Proof
 QED
 
 Theorem fix_fp_state_no_optimise_app:
-  EVERY (\c. (~∃ oldSc sc env. c = (Coptimise oldSc sc (), env))) c' ⇒
+  EVERY (\c. (~∃ oldSc fpopt env. c = (Coptimise oldSc fpopt (), env))) c' ⇒
   fix_fp_state (c ++ c') fp = fix_fp_state c fp
 Proof
   gs[fix_fp_state_app, fix_fp_state_no_optimise_id]
@@ -119,7 +119,7 @@ QED
 
 Theorem e_single_error_add_ctxt:
   !env s fp e c c'.
-    EVERY (\c. (∀ oldSc sc env. c ≠ (Coptimise oldSc sc (), env))) c' ∧
+    EVERY (\c. (∀ oldSc fpopt env. c ≠ (Coptimise oldSc fpopt (), env))) c' ∧
     (e_step (env,s,fp,e,c) = Eabort a)
     ⇒
     (e_step (env,s,fp,e,c++c') = Eabort a)
@@ -228,7 +228,7 @@ QED
 Theorem e_step_raise_lemma:
   !s env fp c v.
     EVERY (\c. (¬?pes env. c = (Chandle () pes, env)) ∧
-               (~∃oldSc sc env. c = (Coptimise oldSc sc (), env))) c ∧
+               (~∃oldSc fpopt env. c = (Coptimise oldSc fpopt (), env))) c ∧
     (c ≠ [])
     ⇒
     e_step_reln^* (env,s,fp,Exn v,c) (env,s,fp,Exn v,[])
@@ -247,7 +247,7 @@ QED
 
 Theorem small_eval_err_add_ctxt:
   !s env fp e c err c' s' fp'.
-    EVERY (\c. (¬?pes env. c = (Chandle () pes, env)) ∧ (~∃ oldSc sc env. c = (Coptimise oldSc sc (), env))) c'
+    EVERY (\c. (¬?pes env. c = (Chandle () pes, env)) ∧ (~∃ oldSc fpopt env. c = (Coptimise oldSc fpopt (), env))) c'
     ⇒
     small_eval env s fp e c (s', fp', Rerr err) ⇒ small_eval env s fp e (c++c') (s', fp', Rerr err)
 Proof
@@ -255,7 +255,7 @@ Proof
   `?a. err = Rabort a ∨ ?v. err = Rraise v`
                             by (cases_on `err` >> srw_tac[][]) >>
   srw_tac[][] >>
-  ‘EVERY (\c. (~∃ oldSc sc env. c = (Coptimise oldSc sc (), env))) c'’ by (
+  ‘EVERY (\c. (~∃ oldSc fpopt env. c = (Coptimise oldSc fpopt (), env))) c'’ by (
     irule MONO_EVERY >> first_x_assum $ irule_at Any >> gs[]) >>
   ‘EVERY (\c. (~∃ pes env. c = (Chandle () pes, env))) c'’ by (
     irule MONO_EVERY >> last_x_assum $ irule_at Any >> gs[]) >>
@@ -440,11 +440,11 @@ Proof
 QED
 
 Theorem small_eval_fpoptimise:
-  !env s fp e1 sc c r.
-    small_eval env s fp (FpOptimise sc e1) c r =
+  !env s fp e1 fpopt c r.
+    small_eval env s fp (FpOptimise fpopt e1) c r =
     small_eval env s
-               (if fp.canOpt = Strict then fp else fp with canOpt := FPScope sc)
-               e1 ((Coptimise fp.canOpt sc (),env)::c) r
+               (if fp.canOpt = Strict then fp else fp with canOpt := FPScope fpopt)
+               e1 ((Coptimise fp.canOpt fpopt (),env)::c) r
 Proof
   srw_tac[][] >>
   small_eval_step_tac

@@ -291,6 +291,9 @@ Proof
   \\ first_x_assum $ irule_at Any \\ fs []
 QED
 
+fun cases_on_op q = Cases_on q >|
+  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+
 Theorem do_app_ok_lemma[local]:
   state_ok r /\ EVERY (bv_ok r.refs) a /\
   (do_app op a r = Rval (q,t)) ==>
@@ -301,30 +304,30 @@ Proof
    (rw [] \\ fs [bvlSemTheory.do_app_def,bvlSemTheory.do_install_def,
       case_eq_thms,UNCURRY] \\ rveq \\ fs [state_ok_def]
     \\ fs [bv_ok_def])
-  \\ Cases_on ‘∃parts. op = Build parts’ THEN1
+  \\ Cases_on ‘∃parts. op = BlockOp (Build parts)’ THEN1
    (gvs [bvlSemTheory.do_app_def,AllCaseEqs()]
     \\ pairarg_tac \\ gvs [] \\ strip_tac \\ gvs []
     \\ gvs [do_build_const_def]
     \\ drule do_build_ok \\ fs []
     \\ disch_then irule \\ fs [bv_ok_def])
-  \\ Cases_on `op = El` THEN1
+  \\ Cases_on `op = MemOp El` THEN1
    (full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
     \\ BasicProvers.EVERY_CASE_TAC \\ rw [] \\ fs []
     \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
     \\ fs [bv_ok_def,EVERY_EL,state_ok_def]
     \\ first_x_assum (qspec_then `n` mp_tac) \\ fs [])
-  \\ Cases_on `∃n. op = ElemAt n` THEN1
+  \\ Cases_on `∃n. op = BlockOp (ElemAt n)` THEN1
    (full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
     \\ BasicProvers.EVERY_CASE_TAC \\ rw [] \\ fs []
     \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
     \\ fs [bv_ok_def,EVERY_EL,state_ok_def]
     \\ first_x_assum (qspec_then `n'` mp_tac) \\ fs [])
-  \\ Cases_on `∃n. op = Global n` THEN1
+  \\ Cases_on `∃n. op = GlobOp (Global n)` THEN1
    (full_simp_tac(srw_ss())[closSemTheory.get_global_def,state_ok_def,EVERY_EL]
     \\ rw []
     \\ gvs [bvlSemTheory.do_app_def,AllCaseEqs(),closSemTheory.get_global_def]
     \\ last_x_assum drule \\ gvs [])
-  \\ Cases_on `op` \\ full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
+  \\ cases_on_op `op` \\ full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC
   \\ TRY (full_simp_tac(srw_ss())[] \\ SRW_TAC [] [bv_ok_def]
     \\ full_simp_tac(srw_ss())[closSemTheory.get_global_def]
@@ -332,146 +335,7 @@ Proof
   \\ TRY (SRW_TAC [] [] \\ full_simp_tac(srw_ss())[bv_ok_def,EVERY_EL] \\ NO_TAC)
   \\ TRY (SRW_TAC [] [] \\ full_simp_tac(srw_ss())[bv_ok_def,EVERY_MEM] \\ NO_TAC)
   \\ STRIP_TAC \\ full_simp_tac(srw_ss())[LET_THM] \\ rpt BasicProvers.VAR_EQ_TAC
-  THEN1
-   (SRW_TAC [] [bv_ok_def] \\ full_simp_tac(srw_ss())[LET_DEF,state_ok_def]
-    \\ MATCH_MP_TAC IMP_EVERY_LUPDATE \\ full_simp_tac(srw_ss())[])
-  >- (
-    rw [bv_ok_def]
-    >- fs [EVERY_MEM] >>
-    irule EVERY_TAKE >>
-    simp [] >>
-    irule EVERY_DROP >>
-    rw [] >>
-    fs [bv_ok_def])
-  THEN1
-   (rename [‘RefByte’] >> srw_tac[][bv_ok_def] \\ full_simp_tac(srw_ss())[state_ok_def] >>
-    srw_tac[][FLOOKUP_UPDATE] >> full_simp_tac(srw_ss())[EVERY_MEM] >> srw_tac[][] >>
-    BasicProvers.CASE_TAC >> TRY BasicProvers.CASE_TAC >> srw_tac[][] >>
-    Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP >>
-    first_x_assum(qspec_then`k`strip_assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    simp[] >> res_tac >> full_simp_tac(srw_ss())[] >>
-    simp[SUBSET_DEF])
-  THEN1
-   (rename [‘RefArray’] >> srw_tac[][bv_ok_def] \\ full_simp_tac(srw_ss())[state_ok_def] >>
-    srw_tac[][FLOOKUP_UPDATE] >> full_simp_tac(srw_ss())[EVERY_MEM] >> srw_tac[][] >>
-    rpt BasicProvers.CASE_TAC >> srw_tac[][] >>
-    rpt disj2_tac >>
-    Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP >>
-    first_x_assum(qspec_then`k`strip_assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    simp[] >> res_tac >>
-    full_simp_tac(srw_ss())[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >>
-    simp[SUBSET_DEF])
-  THEN1
-   (rename [‘UpdateByte’] \\ srw_tac[][bv_ok_def] \\ full_simp_tac(srw_ss())[state_ok_def] >>
-    srw_tac[][FLOOKUP_UPDATE] >> full_simp_tac(srw_ss())[EVERY_MEM] >> srw_tac[][] >>
-    every_case_tac >> srw_tac[][] >>
-    Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP >>
-    first_x_assum(qspec_then`k`strip_assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    simp[] >> res_tac >> full_simp_tac(srw_ss())[] >>
-    simp[SUBSET_DEF])
-  THEN1 (
-    rename [‘ConcatByteVec’] \\ fs[state_ok_def,FLOOKUP_UPDATE,EVERY_MEM] \\ rw[]
-    \\ TRY CASE_TAC \\ fs[]
-    \\ TRY CASE_TAC \\ rw[]
-    \\ match_mp_tac bv_ok_SUBSET_IMP
-    \\ res_tac \\ fs[]
-    \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
-    \\ res_tac
-    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
-    \\ qmatch_goalsub_abbrev_tac`bv_ok _ (RefPtr _ ptr)`
-    \\ qexists_tac`r.refs |+ (ptr,X)`
-    \\ simp[bv_ok_def] )
-  THEN1 (
-    rename [‘CopyByte’]
-    \\ fs[state_ok_def,FLOOKUP_UPDATE,EVERY_MEM] \\ rw[]
-    \\ TRY CASE_TAC \\ fs[]
-    \\ TRY CASE_TAC \\ rw[]
-    \\ match_mp_tac bv_ok_SUBSET_IMP
-    \\ res_tac \\ fs[]
-    \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
-    \\ res_tac
-    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
-    \\ qmatch_goalsub_abbrev_tac`bv_ok _ (RefPtr _ ptr)`
-    \\ qexists_tac`r.refs |+ (ptr,X)`
-    \\ simp[bv_ok_def] )
-  THEN1 (
-    rename [‘CopyByte’]
-    \\ fs[state_ok_def,FLOOKUP_UPDATE,EVERY_MEM] \\ rw[]
-    \\ TRY CASE_TAC \\ fs[]
-    \\ TRY CASE_TAC \\ rw[]
-    \\ match_mp_tac bv_ok_SUBSET_IMP
-    \\ res_tac \\ fs[]
-    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
-    \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
-    \\ res_tac
-    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF] )
-  >-
-   (rename [‘ListAppend’]
-    \\ metis_tac [v_to_list_ok, list_to_v_ok, list_to_v_ok_APPEND])
-  THEN1 (
-    rename1 `_ () = FromList n`
-    \\ simp[bv_ok_def] >>
-    imp_res_tac v_to_list_ok >>
-    full_simp_tac(srw_ss())[EVERY_MEM])
-  THEN1 (
-    rename1` _ () = FromListByte`
-    \\ qpat_x_assum`_ = SOME _`mp_tac
-    \\ DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac
-    \\ imp_res_tac v_to_list_ok
-    \\ fs[state_ok_def,bv_ok_def,EVERY_MEM,FLOOKUP_UPDATE]
-    \\ rw[]
-    \\ CASE_TAC \\ fs[]
-    \\ TRY CASE_TAC \\ fs[] \\ rw[]
-    \\ match_mp_tac bv_ok_SUBSET_IMP
-    \\ TRY (first_x_assum(qspec_then`k`mp_tac) \\ rw[])
-    \\ TRY (first_x_assum(qspec_then`k`mp_tac) \\ rw[])
-    \\ res_tac \\ fs[bv_ok_def]
-    \\ asm_exists_tac \\ fs[]
-    \\ fs[SUBSET_DEF] )
-  THEN1 (
-    rename1` _ () = ToListByte`
-    \\ qspec_tac (`l`,`l`)
-    \\ Induct \\ fs [bv_ok_def,list_to_v_def] )
-  THEN1
-   (rename1 `_ () = Ref`
-    \\ full_simp_tac(srw_ss())[LET_DEF,state_ok_def]
-    \\ SRW_TAC [] [bv_ok_def,FLOOKUP_DEF,EVERY_MEM]
-    \\ BasicProvers.EVERY_CASE_TAC
-    \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ RES_TAC \\ full_simp_tac(srw_ss())[]
-    \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs []
-    THEN1 (match_mp_tac bv_ok_SUBSET_IMP
-           \\ asm_exists_tac \\ fs [] \\ fs [SUBSET_DEF])
-    \\ rw [] \\ fs [] \\ fs [FAPPLY_FUPDATE_THM]
-    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-    \\ first_x_assum (qspec_then `k` mp_tac)
-    \\ fs [FLOOKUP_DEF] \\ rw [] \\ res_tac
-    \\ match_mp_tac bv_ok_SUBSET_IMP
-    \\ TRY (asm_exists_tac \\ fs [] \\ fs [SUBSET_DEF])
-    \\ every_case_tac \\ fs[FAPPLY_FUPDATE_THM]
-    \\ every_case_tac \\ fs[LEAST_NOTIN_FDOM] \\ rw[] )
-  THEN1
-   (rename1 `_ () = Update`
-    \\ full_simp_tac(srw_ss())[state_ok_def] \\ SRW_TAC [] [] THEN1
-     (full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
-      \\ BasicProvers.EVERY_CASE_TAC
-      \\ RES_TAC \\ full_simp_tac(srw_ss())[]
-      \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
-      \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
-    THEN1
-     (full_simp_tac(srw_ss())[FLOOKUP_UPDATE] \\ Cases_on `k = n` \\ full_simp_tac(srw_ss())[] THEN1
-       (MATCH_MP_TAC IMP_EVERY_LUPDATE \\ REPEAT STRIP_TAC
-        THEN1 (bv_ok_SUBSET_IMP |> Q.ISPEC_THEN `r.refs`MATCH_MP_TAC
-          \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
-        \\ Q.PAT_X_ASSUM `!k:num. bbb` (MP_TAC o Q.SPEC `n`) \\ full_simp_tac(srw_ss())[]
-        \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC \\ RES_TAC
-        \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
-        \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
-      \\ Q.PAT_X_ASSUM `!k:num. bbb` (MP_TAC o Q.SPEC `k`) \\ full_simp_tac(srw_ss())[]
-      \\ BasicProvers.EVERY_CASE_TAC
-      \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC \\ RES_TAC
-      \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
-      \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF]))
-  THEN1 (
+  >- (rename1 `FFI` >>
     full_simp_tac(srw_ss())[state_ok_def] \\ srw_tac[][] >-
      (full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ BasicProvers.EVERY_CASE_TAC
@@ -486,6 +350,144 @@ Proof
     \\ RES_TAC \\ full_simp_tac(srw_ss())[]
     \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
     \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
+  >- (rename [‘ConsExtend’] >>
+    rw [bv_ok_def]
+    >- fs [EVERY_MEM] >>
+    irule EVERY_TAKE >>
+    simp [] >>
+    irule EVERY_DROP >>
+    rw [] >>
+    fs [bv_ok_def])
+  >- (rename1 `FromList` >>
+    simp[bv_ok_def] >>
+    imp_res_tac v_to_list_ok >>
+    full_simp_tac(srw_ss())[EVERY_MEM])
+  >-
+   (rename [‘ListAppend’]
+    \\ metis_tac [v_to_list_ok, list_to_v_ok, list_to_v_ok_APPEND])
+  >-
+   (rename [‘SetGlobal’] >> SRW_TAC [] [bv_ok_def] \\ full_simp_tac(srw_ss())[LET_DEF,state_ok_def]
+    \\ MATCH_MP_TAC IMP_EVERY_LUPDATE \\ full_simp_tac(srw_ss())[])
+  >-
+   (rename1 `Ref`
+    \\ full_simp_tac(srw_ss())[LET_DEF,state_ok_def]
+    \\ SRW_TAC [] [bv_ok_def,FLOOKUP_DEF,EVERY_MEM]
+    \\ BasicProvers.EVERY_CASE_TAC
+    \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ RES_TAC \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs []
+    >- (match_mp_tac bv_ok_SUBSET_IMP
+           \\ asm_exists_tac \\ fs [] \\ fs [SUBSET_DEF])
+    \\ rw [] \\ fs [] \\ fs [FAPPLY_FUPDATE_THM]
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+    \\ first_x_assum (qspec_then `k` mp_tac)
+    \\ fs [FLOOKUP_DEF] \\ rw [] \\ res_tac
+    \\ match_mp_tac bv_ok_SUBSET_IMP
+    \\ TRY (asm_exists_tac \\ fs [] \\ fs [SUBSET_DEF])
+    \\ every_case_tac \\ fs[FAPPLY_FUPDATE_THM]
+    \\ every_case_tac \\ fs[LEAST_NOTIN_FDOM] \\ rw[] )
+  >-
+   (rename1 `Update`
+    \\ full_simp_tac(srw_ss())[state_ok_def] \\ SRW_TAC [] [] >-
+     (full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
+      \\ BasicProvers.EVERY_CASE_TAC
+      \\ RES_TAC \\ full_simp_tac(srw_ss())[]
+      \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
+      \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
+    >-
+     (full_simp_tac(srw_ss())[FLOOKUP_UPDATE] \\ Cases_on `k = n` \\ full_simp_tac(srw_ss())[] >-
+       (MATCH_MP_TAC IMP_EVERY_LUPDATE \\ REPEAT STRIP_TAC
+        >- (bv_ok_SUBSET_IMP |> Q.ISPEC_THEN `r.refs`MATCH_MP_TAC
+          \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
+        \\ Q.PAT_X_ASSUM `!k:num. bbb` (MP_TAC o Q.SPEC `n`) \\ full_simp_tac(srw_ss())[]
+        \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC \\ RES_TAC
+        \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
+        \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
+      \\ Q.PAT_X_ASSUM `!k:num. bbb` (MP_TAC o Q.SPEC `k`) \\ full_simp_tac(srw_ss())[]
+      \\ BasicProvers.EVERY_CASE_TAC
+      \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC \\ RES_TAC
+      \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
+      \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF]))
+  >-
+   (rename [‘RefByte’] >> srw_tac[][bv_ok_def] \\ full_simp_tac(srw_ss())[state_ok_def] >>
+    srw_tac[][FLOOKUP_UPDATE] >> full_simp_tac(srw_ss())[EVERY_MEM] >> srw_tac[][] >>
+    BasicProvers.CASE_TAC >> TRY BasicProvers.CASE_TAC >> srw_tac[][] >>
+    Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP >>
+    first_x_assum(qspec_then`k`strip_assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
+    simp[] >> res_tac >> full_simp_tac(srw_ss())[] >>
+    simp[SUBSET_DEF])
+  >-
+   (rename [‘RefArray’] >> srw_tac[][bv_ok_def] \\ full_simp_tac(srw_ss())[state_ok_def] >>
+    srw_tac[][FLOOKUP_UPDATE] >> full_simp_tac(srw_ss())[EVERY_MEM] >> srw_tac[][] >>
+    rpt BasicProvers.CASE_TAC >> srw_tac[][] >>
+    rpt disj2_tac >>
+    Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP >>
+    first_x_assum(qspec_then`k`strip_assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
+    simp[] >> res_tac >>
+    full_simp_tac(srw_ss())[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >>
+    simp[SUBSET_DEF])
+  >-
+   (rename [‘UpdateByte’] \\ srw_tac[][bv_ok_def] \\ full_simp_tac(srw_ss())[state_ok_def] >>
+    srw_tac[][FLOOKUP_UPDATE] >> full_simp_tac(srw_ss())[EVERY_MEM] >> srw_tac[][] >>
+    every_case_tac >> srw_tac[][] >>
+    Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP >>
+    first_x_assum(qspec_then`k`strip_assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
+    simp[] >> res_tac >> full_simp_tac(srw_ss())[] >>
+    simp[SUBSET_DEF])
+  >- (
+    rename [‘ConcatByteVec’] \\ fs[state_ok_def,FLOOKUP_UPDATE,EVERY_MEM] \\ rw[]
+    \\ TRY CASE_TAC \\ fs[]
+    \\ TRY CASE_TAC \\ rw[]
+    \\ match_mp_tac bv_ok_SUBSET_IMP
+    \\ res_tac \\ fs[]
+    \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
+    \\ res_tac
+    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
+    \\ qmatch_goalsub_abbrev_tac`bv_ok _ (RefPtr _ ptr)`
+    \\ qexists_tac`r.refs |+ (ptr,X)`
+    \\ simp[bv_ok_def] )
+  >- (
+    rename [‘CopyByte T’]
+    \\ fs[state_ok_def,FLOOKUP_UPDATE,EVERY_MEM] \\ rw[]
+    \\ TRY CASE_TAC \\ fs[]
+    \\ TRY CASE_TAC \\ rw[]
+    \\ match_mp_tac bv_ok_SUBSET_IMP
+    \\ res_tac \\ fs[]
+    \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
+    \\ res_tac
+    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
+    \\ qmatch_goalsub_abbrev_tac`bv_ok _ (RefPtr _ ptr)`
+    \\ qexists_tac`r.refs |+ (ptr,X)`
+    \\ simp[bv_ok_def] )
+  >- (
+    rename [‘CopyByte F’]
+    \\ fs[state_ok_def,FLOOKUP_UPDATE,EVERY_MEM] \\ rw[]
+    \\ TRY CASE_TAC \\ fs[]
+    \\ TRY CASE_TAC \\ rw[]
+    \\ match_mp_tac bv_ok_SUBSET_IMP
+    \\ res_tac \\ fs[]
+    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
+    \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
+    \\ res_tac
+    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF] )
+  >- (
+    rename1 `FromListByte`
+    \\ qpat_x_assum`_ = SOME _`mp_tac
+    \\ DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac
+    \\ imp_res_tac v_to_list_ok
+    \\ fs[state_ok_def,bv_ok_def,EVERY_MEM,FLOOKUP_UPDATE]
+    \\ rw[]
+    \\ CASE_TAC \\ fs[]
+    \\ TRY CASE_TAC \\ fs[] \\ rw[]
+    \\ match_mp_tac bv_ok_SUBSET_IMP
+    \\ TRY (first_x_assum(qspec_then`k`mp_tac) \\ rw[])
+    \\ TRY (first_x_assum(qspec_then`k`mp_tac) \\ rw[])
+    \\ res_tac \\ fs[bv_ok_def]
+    \\ asm_exists_tac \\ fs[]
+    \\ fs[SUBSET_DEF] )
+  >- (
+    rename1 `ToListByte`
+    \\ qspec_tac (`l`,`l`)
+    \\ Induct \\ fs [bv_ok_def,list_to_v_def] )
 QED
 
 Theorem do_app_ok:
@@ -603,8 +605,8 @@ val iEval_def = bviSemTheory.evaluate_def;
 val bEvalOp_def = bvlSemTheory.do_app_def;
 val iEvalOp_def = bviSemTheory.do_app_def;
 
-val evaluate_CopyGlobals_code = Q.prove(
-  `∀n l1 s.
+Triviality evaluate_CopyGlobals_code:
+  ∀n l1 s.
    lookup CopyGlobals_location s.code = SOME (3,SND CopyGlobals_code) ∧
    FLOOKUP s.refs p = SOME (ValueArray ls) ∧
    FLOOKUP s.refs p1 = SOME (ValueArray l1) ∧
@@ -615,7 +617,8 @@ val evaluate_CopyGlobals_code = Q.prove(
      evaluate ([SND CopyGlobals_code],
                [RefPtr b1 p1; RefPtr b p; Number &n],
                inc_clock c s) =
-     (Rval [Unit], s with refs := s.refs |+ (p1, ValueArray (TAKE (SUC n) ls ++ DROP (SUC n) l1)))`,
+     (Rval [Unit], s with refs := s.refs |+ (p1, ValueArray (TAKE (SUC n) ls ++ DROP (SUC n) l1)))
+Proof
   Induct >> srw_tac[][] >> srw_tac[][CopyGlobals_code_def] >>
   srw_tac[][iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,bvl_to_bvi_id,backend_commonTheory.small_enough_int_def,bvl_to_bvi_with_refs] >- (
     qexists_tac`0`>>simp[inc_clock_ZERO,state_component_equality] >>
@@ -647,9 +650,10 @@ val evaluate_CopyGlobals_code = Q.prove(
   simp[LIST_EQ_REWRITE,Abbr`l2`] >> srw_tac[][] >>
   Cases_on`x < SUC n` >> simp[EL_APPEND1,EL_TAKE] >>
   simp[EL_APPEND2,EL_DROP,EL_LUPDATE] >>
-  Cases_on`x = SUC n` >> simp[EL_APPEND1,EL_TAKE,EL_APPEND2,EL_DROP])
-  |> Q.GEN`ls`;
-val _ = print "Proved evaluate_CopyGlobals_code\n"
+  Cases_on`x = SUC n` >> simp[EL_APPEND1,EL_TAKE,EL_APPEND2,EL_DROP]
+QED
+val evaluate_CopyGlobals_code = Q.GEN `ls` evaluate_CopyGlobals_code;
+val _ = print "Proved evaluate_CopyGlobals_code\n";
 
 Theorem evaluate_AllocGlobal_code[local]:
    FLOOKUP s.refs p = SOME (ValueArray (Number(&(SUC n))::ls)) ∧ n ≤ LENGTH ls ∧
@@ -680,7 +684,7 @@ Proof
   \\ simp [EVAL “small_enough_int 0”]
   \\ simp [Once iEval_def,iEvalOp_def,inc_clock_def,do_app_aux_def,bvlSemTheory.do_app_def]
   \\ rename [‘evaluate
-                ([Op Add [Var 0; Var 2]],
+                ([Op (IntOp Add) [Var 0; Var 2]],
                  [Number (&SUC n); RefPtr T p; Number (&k)],_)’]
   \\ simp [Once iEval_def]
   \\ simp [Once iEval_def]
@@ -752,14 +756,14 @@ Proof
   HO_MATCH_MP_TAC v_to_list_ind \\ rw [] \\ fs [v_to_list_def] \\ rveq
   \\ fs [ListLength_code_def] THEN1
    (fs [bviSemTheory.evaluate_def,EVAL ``Boolv T``,
-        EVAL ``bviSem$do_app (TagLenEq nil_tag 0) [Block nil_tag []] s``]
+        EVAL ``bviSem$do_app (BlockOp (TagLenEq nil_tag 0)) [Block nil_tag []] s``]
     \\ fs [inc_clock_def,bviSemTheory.state_component_equality])
   \\ simp [bviSemTheory.evaluate_def,EVAL ``Boolv T``]
-  \\ fs [EVAL ``bviSem$do_app (TagLenEq nil_tag 0) [Block cons_tag [h; lv]] s``,
-         EVAL ``bviSem$do_app (Const 1) [] s``,
-         EVAL ``bviSem$do_app (Const 0) [] s``,EVAL ``Boolv F``,
-         EVAL ``bviSem$do_app El [Block cons_tag [h; lv]; Number 1] s``,
-         EVAL ``bviSem$do_app Add [Number (&n); Number (&m)] s``,
+  \\ fs [EVAL ``bviSem$do_app (BlockOp (TagLenEq nil_tag 0)) [Block cons_tag [h; lv]] s``,
+         EVAL ``bviSem$do_app (IntOp (Const 1)) [] s``,
+         EVAL ``bviSem$do_app (IntOp (Const 0)) [] s``,EVAL ``Boolv F``,
+         EVAL ``bviSem$do_app (MemOp El) [Block cons_tag [h; lv]; Number 1] s``,
+         EVAL ``bviSem$do_app (IntOp Add) [Number (&n); Number (&m)] s``,
          bvlSemTheory.find_code_def]
   \\ Cases_on `v_to_list lv` \\ fs [] \\ rw [] \\ fs []
   \\ first_x_assum (qspec_then `n+1` mp_tac) \\ strip_tac
@@ -980,7 +984,7 @@ QED
 val compile_string_thm = Q.prove(
   `∀str s ls vs.
    FLOOKUP s.refs ptr = SOME (ByteArray T ls) ∧ LENGTH vs + LENGTH str = LENGTH ls ⇒
-   evaluate (MAPi (λn c. Op UpdateByte [Op (Const (&ORD c)) []; compile_int (&(n + LENGTH vs)); Var 0]) str,
+   evaluate (MAPi (λn c. Op (MemOp UpdateByte) [Op (IntOp (Const (&ORD c))) []; compile_int (&(n + LENGTH vs)); Var 0]) str,
     RefPtr b ptr::env, s) = (Rval (REPLICATE (LENGTH str) Unit),
       s with refs := s.refs |+ (ptr, ByteArray T (TAKE (LENGTH vs) ls ++ (MAP (n2w o ORD) str))))`,
   Induct \\ rw[evaluate_def,REPLICATE]
@@ -1073,8 +1077,8 @@ Proof
      (fs [compile_op_def] \\ IF_CASES_TAC \\ fs []
       THEN1
        (once_rewrite_tac [evaluate_def]
-        \\ `evaluate ([Let c1 (Op (Const 0) []); Op (Const 0) []],vs ⧺ env,s) =
-           evaluate ([Let c1 (Op (Const 0) []); Op (Const 0) []],vs,s)` by
+        \\ `evaluate ([Let c1 (Op (IntOp (Const 0)) []); Op (IntOp (Const 0)) []],vs ⧺ env,s) =
+           evaluate ([Let c1 (Op (IntOp (Const 0)) []); Op (IntOp (Const 0)) []],vs,s)` by
           (fs [evaluate_def]
            \\ first_x_assum (qspecl_then [`n`,`vs`] mp_tac) \\ fs [])
         \\ fs [] \\ CASE_TAC \\ simp [case_eq_thms]
@@ -1093,54 +1097,54 @@ Proof
         \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
         \\ Cases_on `a` \\ fs [] \\ rveq \\ fs []
         \\ Cases_on `t` \\ fs [] \\ fs [evaluate_def]))
-    \\ Cases_on `(?t. op = FromList t) ∨
-       op = FromListByte ∨ op = ToListByte ∨ op = ConcatByteVec` THEN1
+    \\ Cases_on `(?t. op = BlockOp (FromList t)) ∨
+       op = MemOp FromListByte ∨ op = MemOp ToListByte ∨ op = MemOp ConcatByteVec` THEN1
      (fs [] \\ rw[] \\ fs [compile_op_def]
       \\ once_rewrite_tac [bviSemTheory.evaluate_def]
       \\ (IF_CASES_TAC THEN1
-           (fs [bviSemTheory.evaluate_def,EVAL ``bviSem$do_app (Const 0) [] s``]))
+           (fs [bviSemTheory.evaluate_def,EVAL ``bviSem$do_app (IntOp (Const 0)) [] s``]))
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`])
       \\ full_simp_tac(srw_ss())[]
       \\ CASE_TAC \\ fs [] \\ CASE_TAC \\ fs []
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ Cases_on `a` \\ fs [LENGTH_NIL]
       \\ fs [bviSemTheory.evaluate_def])
-    \\ Cases_on`op = CopyByte T`
+    \\ Cases_on`op = MemOp (CopyByte T)`
     >- (
-     fs[compile_op_def]
-     \\ first_x_assum drule
-     \\ disch_then(qspecl_then[`n`,`s`,`env`]mp_tac) \\ simp[]
-     \\ IF_CASES_TAC
-     >- (
-       rw[Once bviSemTheory.evaluate_def]
-       \\ rw[evaluate_APPEND]
-       \\ rw[Once bviSemTheory.evaluate_def,SimpRHS]
-       \\ rw[evaluate_APPEND,REPLICATE_compute]
-       \\ CASE_TAC \\  simp[]
-       \\ Cases_on`q` \\ simp[]
-       \\ rw[bviSemTheory.evaluate_def,REPLICATE_compute,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,HD_APPEND3]
-       \\ CASE_TAC \\ simp[]
-       \\ imp_res_tac evaluate_IMP_LENGTH
-       \\ rewrite_tac[GSYM APPEND_ASSOC,GSYM EL]
-       \\ simp[EL_APPEND1]
-       \\ CASE_TAC \\ fs[EL_APPEND1]) \\
-     rw[Once bviSemTheory.evaluate_def]
-     \\ rw[evaluate_APPEND]
-     \\ rw[Once bviSemTheory.evaluate_def,SimpRHS]
-     \\ rw[evaluate_APPEND,REPLICATE_compute]
-     \\ CASE_TAC \\  simp[]
-     \\ Cases_on`q` \\ simp[]
-     \\ imp_res_tac evaluate_IMP_LENGTH
-     \\ Cases_on`a` \\ fs[]
-     \\ Cases_on`t` \\ fs[]
-     \\ rename1`SUC (LENGTH t)`
-     \\ Cases_on`t` \\ fs[]
-     \\ rw[bviSemTheory.evaluate_def,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
-     \\ CASE_TAC \\ simp[]
-     \\ CASE_TAC \\ simp[]
-     \\ CASE_TAC \\ simp[]
-     \\ CASE_TAC \\ simp[])
-    \\ Cases_on ‘∃n. op = Global n’ >-
+      fs[compile_op_def]
+      \\ first_x_assum drule
+      \\ disch_then(qspecl_then[`n`,`s`,`env`]mp_tac) \\ simp[]
+      \\ IF_CASES_TAC
+      >- (
+        rw[Once bviSemTheory.evaluate_def]
+        \\ rw[evaluate_APPEND]
+        \\ rw[Once bviSemTheory.evaluate_def,SimpRHS]
+        \\ rw[evaluate_APPEND,REPLICATE_compute]
+        \\ CASE_TAC \\  simp[]
+        \\ Cases_on`q` \\ simp[]
+        \\ rw[bviSemTheory.evaluate_def,REPLICATE_compute,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,HD_APPEND3]
+        \\ CASE_TAC \\ simp[]
+        \\ imp_res_tac evaluate_IMP_LENGTH
+        \\ rewrite_tac[GSYM APPEND_ASSOC,GSYM EL]
+        \\ simp[EL_APPEND1]
+        \\ CASE_TAC \\ fs[EL_APPEND1]) \\
+      rw[Once bviSemTheory.evaluate_def]
+      \\ rw[evaluate_APPEND]
+      \\ rw[Once bviSemTheory.evaluate_def,SimpRHS]
+      \\ rw[evaluate_APPEND,REPLICATE_compute]
+      \\ CASE_TAC \\  simp[]
+      \\ Cases_on`q` \\ simp[]
+      \\ imp_res_tac evaluate_IMP_LENGTH
+      \\ Cases_on`a` \\ fs[]
+      \\ Cases_on`t` \\ fs[]
+      \\ rename1`SUC (LENGTH t)`
+      \\ Cases_on`t` \\ fs[]
+      \\ rw[bviSemTheory.evaluate_def,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
+      \\ CASE_TAC \\ simp[]
+      \\ CASE_TAC \\ simp[]
+      \\ CASE_TAC \\ simp[]
+      \\ CASE_TAC \\ simp[])
+    \\ Cases_on ‘∃n. op = GlobOp (Global n)’ >-
      (gvs [compile_op_def,iEval_def,compile_int_thm]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
       \\ IF_CASES_TAC \\ fs []
@@ -1151,7 +1155,7 @@ Proof
       \\ Cases_on ‘c1’ \\ fs []
       \\ Cases_on ‘a’ \\ gvs [])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `op`
+    \\ cases_on_op `op`
     \\ full_simp_tac(srw_ss())[compile_op_def,iEval_def,compile_int_thm]
     \\ simp[iEval_def]
     \\ simp[iEval_append,iEval_def,compile_int_thm]
@@ -1247,21 +1251,22 @@ Proof
 QED
 
 Theorem do_app_adjust[local]:
-   state_rel b2 s5 t2 /\
-   (!i. op <> Const i) /\ (op <> Ref) /\ (∀flag. op ≠ RefByte flag) ∧ (op ≠ RefArray) ∧
-   (∀n. op ≠ Global n) ∧ (∀n. op ≠ SetGlobal n) ∧ (op ≠ AllocGlobal) ∧
-   op <> Install /\
-   (∀n. op ≠ FromList n) ∧ (op ≠ FromListByte) ∧
-   (op ≠ ToListByte) ∧ (∀c. op ≠ Build c) ∧
-   (∀b. op ≠ CopyByte b) ∧ (op ≠ ConcatByteVec) ∧ (∀n. op ≠ Label n) ∧
-   (do_app op (REVERSE a) s5 = Rval (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
-   ?t3. (do_app op (MAP (adjust_bv b2) (REVERSE a)) t2 =
-          Rval (adjust_bv b2 q,t3)) /\
-        state_rel b2 r t3
+  state_rel b2 s5 t2 /\
+  (!i. op ≠ IntOp (Const i)) /\ (op ≠ MemOp Ref) /\
+  (∀flag. op ≠ MemOp (RefByte flag)) ∧ (op ≠ MemOp RefArray) ∧
+  (∀n. op ≠ GlobOp (Global n)) ∧ (∀n. op ≠ GlobOp (SetGlobal n)) ∧ (op ≠ GlobOp AllocGlobal) ∧
+  op ≠ Install /\
+  (∀n. op ≠ BlockOp (FromList n)) ∧ (op ≠ MemOp FromListByte) ∧
+  (op ≠ MemOp ToListByte) ∧ (∀c. op ≠ BlockOp (Build c)) ∧
+  (∀b. op ≠ MemOp (CopyByte b)) ∧ (op ≠ MemOp ConcatByteVec) ∧ (∀n. op ≠ Label n) ∧
+  (do_app op (REVERSE a) s5 = Rval (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
+  ?t3. (do_app op (MAP (adjust_bv b2) (REVERSE a)) t2 =
+        Rval (adjust_bv b2 q,t3)) /\
+      state_rel b2 r t3
 Proof
   `?debug. debug () = op` by (qexists_tac `K op` \\ fs [])
   \\ SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,do_app_aux_def]
-  \\ Cases_on `op = El` \\ fs [] THEN1
+  \\ Cases_on `op = MemOp El` \\ fs [] THEN1
    (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
     \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs [] \\ rfs []
     \\ rveq \\ fs [listTheory.SWAP_REVERSE_SYM] \\ rveq \\ fs []
@@ -1275,7 +1280,7 @@ Proof
         last_x_assum(qspec_then`n`mp_tac) >>
         simp[] ) >> fs [CaseEq"bool"] >> rveq
     \\ rfs [EL_MAP,bvl_to_bvi_id])
-  \\ Cases_on `∃i. op = ElemAt i` \\ fs [] THEN1
+  \\ Cases_on `∃i. op = BlockOp (ElemAt i)` \\ fs [] THEN1
    (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
     \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs [] \\ rfs []
     \\ rveq \\ fs [listTheory.SWAP_REVERSE_SYM] \\ rveq \\ fs []
@@ -1289,14 +1294,14 @@ Proof
         last_x_assum(qspec_then`n`mp_tac) >>
         simp[] ) >> fs [CaseEq"bool"] >> rveq
     \\ rfs [EL_MAP,bvl_to_bvi_id])
-  \\ Cases_on `op = ListAppend` \\ fs []
+  \\ Cases_on `op = BlockOp ListAppend` \\ fs []
   >-
    (fs [case_eq_thms, case_elim_thms, PULL_EXISTS, SWAP_REVERSE_SYM]
     \\ rw [] \\ fs []
     \\ fs [bvlSemTheory.do_app_def, case_eq_thms, PULL_EXISTS, bvl_to_bvi_id]
     \\ fs [v_to_list_adjust]
     \\ metis_tac [list_to_v_adjust, list_to_v_adjust_APPEND, MAP_APPEND])
-  \\ Cases_on `op = Length` \\ fs [] THEN1
+  \\ Cases_on `op = MemOp Length` \\ fs [] THEN1
    (every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[bEvalOp_def] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -1306,7 +1311,7 @@ Proof
     spose_not_then strip_assume_tac >> srw_tac[][] >>
     full_simp_tac(srw_ss())[bvi_to_bvl_def,state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> srw_tac[][])
-  \\ Cases_on `op = LengthByte` \\ fs [] THEN1
+  \\ Cases_on `op = MemOp LengthByte` \\ fs [] THEN1
    (every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[bEvalOp_def] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -1316,7 +1321,7 @@ Proof
     spose_not_then strip_assume_tac >> srw_tac[][] >>
     full_simp_tac(srw_ss())[bvi_to_bvl_def,state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> srw_tac[][])
-  \\ Cases_on `op = DerefByte` \\ fs [] THEN1
+  \\ Cases_on `op = MemOp DerefByte` \\ fs [] THEN1
    (Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>
@@ -1329,7 +1334,7 @@ Proof
     full_simp_tac(srw_ss())[state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
     spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
-  \\ Cases_on `op = Update` \\ fs [] THEN1
+  \\ Cases_on `op = MemOp Update` \\ fs [] THEN1
    (fs [AllCaseEqs(),PULL_EXISTS] \\ rw []
     \\ rename [`FLOOKUP s5.refs n = _`]
     \\ rename [‘i < _:int’]
@@ -1389,7 +1394,7 @@ Proof
     TRY BasicProvers.CASE_TAC >>
     full_simp_tac(srw_ss())[FLOOKUP_DEF,bvl_to_bvi_def] >>
     METIS_TAC[INJ_DEF])
-  \\ Cases_on `op = UpdateByte` \\ fs [] THEN1
+  \\ Cases_on `op = MemOp UpdateByte` \\ fs [] THEN1
    (strip_tac
     \\ `?n i i' b. REVERSE a = [RefPtr b n; Number i; Number i']` by
           (every_case_tac \\ fs [] \\ NO_TAC) \\ fs [] >>
@@ -1423,7 +1428,7 @@ Proof
       `k ∈ FDOM s5.refs ∧ n ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
       metis_tac[INJ_DEF]) >>
     METIS_TAC[])
-  \\ Cases_on `∃p. op = EqualConst p` \\ fs [] THEN1
+  \\ Cases_on `∃p. op = BlockOp (EqualConst p)` \\ fs [] THEN1
    (strip_tac
     \\ `?x1. REVERSE a = [x1]` by (every_case_tac \\ fs [] \\ NO_TAC)
     \\ gvs [AllCaseEqs()]
@@ -1434,7 +1439,7 @@ Proof
     \\ qpat_x_assum ‘FLOOKUP r.refs p2 = _’ mp_tac
     \\ simp_tac (srw_ss()) [] \\ gvs []
     \\ metis_tac [])
-  \\ Cases_on `op = Equal` \\ fs [] THEN1
+  \\ Cases_on `op = BlockOp Equal` \\ fs [] THEN1
    (strip_tac
     \\ `?x1 x2. REVERSE a = [x1;x2]` by (every_case_tac \\ fs [] \\ NO_TAC)
     \\ fs [] \\ Cases_on `do_eq s5.refs x1 x2` \\ fs [] \\ rw []
@@ -1442,7 +1447,7 @@ Proof
     \\ drule do_eq_adjust \\ fs []
     \\ fs [SWAP_REVERSE_SYM]
     \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def])
-  \\ Cases_on `op = BoundsCheckArray` THEN1
+  \\ Cases_on `op = MemOp BoundsCheckArray` THEN1
    (fs [] \\ strip_tac
     \\ `?x1 x2. REVERSE a = [x1;x2]` by (every_case_tac \\ fs [] \\ NO_TAC)
     \\ Cases_on `x1` \\ fs []
@@ -1457,7 +1462,7 @@ Proof
     srw_tac[][adjust_bv_def,bvl_to_bvi_id] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> simp[])
-  \\ Cases_on `∃b. op = BoundsCheckByte b` THEN1
+  \\ Cases_on `∃b. op = MemOp (BoundsCheckByte b)` THEN1
    (fs [] \\ strip_tac
     \\ `?x1 x2. REVERSE a = [x1;x2]` by (every_case_tac \\ fs [] \\ NO_TAC)
     \\ Cases_on `x1` \\ fs []
@@ -1471,8 +1476,8 @@ Proof
     every_case_tac >> full_simp_tac(srw_ss())[] >>srw_tac[][] >>
     srw_tac[][adjust_bv_def,bvl_to_bvi_id] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
-    last_x_assum(qspec_then`n`mp_tac) >> simp[]) >>
-  Cases_on `?tag. op = ConsExtend tag`
+    last_x_assum(qspec_then`n`mp_tac) >> simp[])
+  \\ Cases_on `?tag. op = BlockOp (ConsExtend tag)`
   >- (
     rw [] >>
     fs [] >>
@@ -1482,7 +1487,7 @@ Proof
     fs [adjust_bv_def, bvlSemTheory.do_app_def] >>
     rw [MAP_TAKE, MAP_DROP] >>
     metis_tac [bvl_to_bvi_id])
-  \\ Cases_on `op` \\ full_simp_tac(srw_ss())[]
+  \\ cases_on_op `op` \\ full_simp_tac(srw_ss())[]
   \\ TRY (full_simp_tac(srw_ss())[bEvalOp_def]
           \\ every_case_tac \\ fs [adjust_bv_def]
           \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id] \\ rveq \\ rw []
@@ -1569,7 +1574,7 @@ Proof
 QED
 
 Triviality do_app_Ref:
-  do_app Ref vs s =
+  do_app (MemOp Ref) vs s =
      Rval
       (RefPtr T (LEAST ptr. ptr ∉ FDOM s.refs),
        bvl_to_bvi
@@ -2352,12 +2357,12 @@ Proof
        (fs[compile_op_def]
         \\ qexists_tac`c` \\ simp[] \\ rw []
         \\ fs [evaluate_def])
-      \\ Cases_on`op = CopyByte T`
+      \\ Cases_on`op = MemOp (CopyByte T)`
       >- (note_tac "Op: CopyByte" \\
         fs[compile_op_def]
         \\ qexists_tac`c` \\ simp[]
         \\ rw[evaluate_APPEND,bviSemTheory.evaluate_def] )
-      \\ Cases_on `op`
+      \\ cases_on_op `op`
       \\ fs[compile_op_def,iEval_def,compile_int_thm,iEval_append]
       \\ qexists_tac`c`>>simp[]>>
          every_case_tac \\ full_simp_tac(srw_ss())[iEval_def,compile_int_thm]
@@ -2416,7 +2421,7 @@ Proof
       \\ drule bviPropsTheory.evaluate_add_clock
       \\ disch_then (qspec_then `c'+1` assume_tac)
       \\ fs [inc_clock_ADD]
-      \\ fs [evaluate_def,EVAL ``bviSem$do_app (Const 0) [] t2``,
+      \\ fs [evaluate_def,EVAL ``bviSem$do_app (IntOp (Const 0)) [] t2``,
              bvlSemTheory.find_code_def,dec_clock_inc_clock]
       \\ fs [do_install_def,do_app_def]
       \\ imp_res_tac IMP_v_to_bytes \\ fs []
@@ -2513,13 +2518,13 @@ Proof
       \\ fs [names_ok_def]
       \\ qpat_x_assum `!n k. _` (qspec_then `0` mp_tac) \\ fs []
       \\ fs [EVERY_MEM,FORALL_PROD] \\ metis_tac[])
-    \\ Cases_on `?i. op = Const i` \\ full_simp_tac(srw_ss())[] THEN1
+    \\ Cases_on `?i. op = IntOp (Const i)` \\ full_simp_tac(srw_ss())[] THEN1
      (note_tac "Op: Const" \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b2`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
       \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[compile_op_def] \\ Cases_on `c1`
       \\ full_simp_tac(srw_ss())[compile_int_thm,bEvalOp_def,iEval_def]
       \\ Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[iEval_def,iEvalOp_def]
-      \\ full_simp_tac(srw_ss())[EVAL ``do_app_aux (Const 0) [] t2``]
+      \\ full_simp_tac(srw_ss())[EVAL ``do_app_aux (IntOp (Const 0)) [] t2``]
       \\ SRW_TAC [] [adjust_bv_def])
     \\ Cases_on `∃n. op = Label n` THEN1
      (note_tac "Op: Label" \\
@@ -2534,7 +2539,7 @@ Proof
       \\ res_tac \\ fs []
       \\ Cases_on`v` \\ res_tac
       \\ pairarg_tac \\ fs[])
-    \\ Cases_on `?i. op = FromList i` \\ full_simp_tac(srw_ss())[] THEN1
+    \\ Cases_on `?i. op = BlockOp (FromList i)` \\ full_simp_tac(srw_ss())[] THEN1
      (note_tac "Op: FromList" \\ fs [compile_op_def] \\ rveq
       \\ fs [bvlSemTheory.do_app_def]
       \\ Cases_on `REVERSE a` \\ fs [] \\ Cases_on `t` \\ fs [] \\ rveq \\ fs []
@@ -2553,7 +2558,7 @@ Proof
       \\ disch_then drule \\ fs []
       \\ disch_then (qspec_then `0` strip_assume_tac)
       \\ qexists_tac `c+1+c'`
-      \\ fs [bviSemTheory.evaluate_def,EVAL ``bviSem$do_app (Const 0) [] t2``]
+      \\ fs [bviSemTheory.evaluate_def,EVAL ``bviSem$do_app (IntOp (Const 0)) [] t2``]
       \\ qpat_assum `evaluate ([h'],_) = _` assume_tac
       \\ drule evaluate_add_clock \\ fs []
       \\ disch_then (qspec_then `1+c'` assume_tac)
@@ -2564,7 +2569,7 @@ Proof
                  bviSemTheory.state_component_equality] \\ NO_TAC)
       \\ fs [] \\ fs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
       \\ fs [adjust_bv_def] \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-    \\ Cases_on `op = ToListByte` \\ full_simp_tac(srw_ss())[] THEN1
+    \\ Cases_on `op = MemOp ToListByte` \\ full_simp_tac(srw_ss())[] THEN1
      (note_tac "Op: ToListByte" \\ fs [compile_op_def] \\ rveq
       \\ fs [bvlSemTheory.do_app_def]
       \\ Cases_on `REVERSE a` \\ fs [] \\ Cases_on `t` \\ fs [] \\ rveq \\ fs []
@@ -2596,7 +2601,7 @@ Proof
       THEN1 (qid_spec_tac `l` \\ Induct \\ fs [list_to_v_def,adjust_bv_def])
       \\ fs [FLOOKUP_EXT,state_component_equality,FLOOKUP_UPDATE,FUN_EQ_THM]
       \\ rw [] \\ fs [])
-    \\ Cases_on `op = Ref` \\ full_simp_tac(srw_ss())[] THEN1
+    \\ Cases_on `op = MemOp Ref` \\ full_simp_tac(srw_ss())[] THEN1
      (note_tac "Op: Ref" \\ rw [] \\
       full_simp_tac(srw_ss())[compile_op_def,iEval_def]
       \\ Q.ABBREV_TAC `b3 = ((LEAST ptr. ptr NOTIN FDOM s5.refs) =+
@@ -2700,7 +2705,7 @@ Proof
       \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
-    \\ Cases_on `op = RefArray` \\ full_simp_tac(srw_ss())[] THEN1
+    \\ Cases_on `op = MemOp RefArray` \\ full_simp_tac(srw_ss())[] THEN1
      (note_tac "Op: RefArray" \\
       full_simp_tac(srw_ss())[compile_op_def,iEval_def]
       \\ Q.ABBREV_TAC `b3 = ((LEAST ptr. ptr NOTIN FDOM s5.refs) =+
@@ -2795,7 +2800,7 @@ Proof
       \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
-    \\ Cases_on`∃flag. op = RefByte flag` \\ full_simp_tac(srw_ss())[] THEN1
+    \\ Cases_on`∃flag. op = MemOp (RefByte flag)` \\ full_simp_tac(srw_ss())[] THEN1
      (note_tac "RefByte" \\ full_simp_tac(srw_ss())[compile_op_def,iEval_def]
       \\ Q.ABBREV_TAC `b3 = ((LEAST ptr. ptr NOTIN FDOM s5.refs) =+
            (LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs)) b2`
@@ -2897,60 +2902,60 @@ Proof
       \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
-    \\ Cases_on`∃n. op = Global n` \\ full_simp_tac(srw_ss())[]
-    THEN1 (
-         note_tac "Global" >> simp[compile_op_def] >>
-         full_simp_tac(srw_ss())[bEvalOp_def] >>
-         Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]
-         >-
-          (imp_res_tac evaluate_IMP_LENGTH >>
-           full_simp_tac(srw_ss())[LENGTH_NIL] >> gvs [] >>
-           simp[iEval_def,compile_int_thm] >>
-           Q.LIST_EXISTS_TAC[`t2`,`b2`,`c`] >>
-           simp[iEvalOp_def,do_app_aux_def] >>
-           BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-           simp[bEvalOp_def] >>
-           full_simp_tac(srw_ss())[closSemTheory.get_global_def] >>
-           gvs [AllCaseEqs(),PULL_EXISTS] >>
-           imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH >>
-           full_simp_tac(srw_ss())[LENGTH_NIL] >>
-           full_simp_tac(srw_ss())[bEval_def] >> rpt var_eq_tac >>
-           full_simp_tac(srw_ss())[iEval_def] >> rpt var_eq_tac >>
-           last_x_assum mp_tac >>
-           simp[Once state_rel_def] >> strip_tac >>
-           simp[LENGTH_REPLICATE,ADD1] >>
-           simp[EL_CONS,PRE_SUB1,GSYM ADD1] >>
-           simp[EL_APPEND1,EL_MAP,miscTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id] >>
-           MATCH_MP_TAC (GEN_ALL bv_ok_IMP_adjust_bv_eq) >>
-           qexists_tac`r.refs`>>simp[] >>
-           full_simp_tac(srw_ss())[state_ok_def,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
-           first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-           simp[])
-         \\ gvs [AllCaseEqs()]
-         \\ imp_res_tac evaluate_IMP_LENGTH \\ gvs []
-         \\ gvs [LENGTH_EQ_NUM_compute]
-         \\ qpat_assum ‘state_rel b2 r t2’ $ irule_at Any
-         \\ qpat_x_assum ‘state_rel b2 r t2’ mp_tac
-         \\ simp [Once state_rel_def] \\ strip_tac
-         \\ qexists_tac ‘c’ \\ fs []
-         \\ gvs [iEval_def,EVAL “bviSem$do_app (Const 2) [] s”,adjust_bv_def]
-         \\ gvs [iEval_def,EVAL “bviSem$do_app Add [Number i; Number j] s”,adjust_bv_def]
-         \\ gvs [iEval_def,EVAL “bviSem$do_app GlobalsPtr [] s”,adjust_bv_def]
-         \\ Cases_on ‘t2.global’
-         >- (fs [] \\ imp_res_tac evaluate_global_mono \\ gvs [inc_clock_def])
-         \\ gvs []
-         \\ gvs [closSemTheory.get_global_def,EVAL “num_added_globals”]
-         \\ ‘∃j. i = & j’ by (Cases_on ‘i’ \\ fs []) \\ gvs []
-         \\ gvs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
-         \\ gvs [bvlSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
-         \\ simp [AllCaseEqs()]
-         \\ simp[EL_APPEND1,EL_MAP,miscTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id]
-         \\ ‘&j + 2 = &(j + 2):int’ by intLib.COOPER_TAC \\ fs []
-         \\ simp [DECIDE “j+2 = SUC (j+1)”,EL]
-         \\ reverse conj_tac
-         >- simp [state_component_equality]
-         \\ simp [rich_listTheory.EL_APPEND1,EL_MAP,miscTheory.the_def])
-    \\ Cases_on`∃n. op = SetGlobal n` \\ full_simp_tac(srw_ss())[] THEN1 (
+    \\ Cases_on`∃n. op = GlobOp (Global n)` \\ full_simp_tac(srw_ss())[]
+    >- (
+      note_tac "Global" >> simp[compile_op_def] >>
+      full_simp_tac(srw_ss())[bEvalOp_def] >>
+      Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]
+      >-
+      (imp_res_tac evaluate_IMP_LENGTH >>
+        full_simp_tac(srw_ss())[LENGTH_NIL] >> gvs [] >>
+        simp[iEval_def,compile_int_thm] >>
+        Q.LIST_EXISTS_TAC[`t2`,`b2`,`c`] >>
+        simp[iEvalOp_def,do_app_aux_def] >>
+        BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+        simp[bEvalOp_def] >>
+        full_simp_tac(srw_ss())[closSemTheory.get_global_def] >>
+        gvs [AllCaseEqs(),PULL_EXISTS] >>
+        imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH >>
+        full_simp_tac(srw_ss())[LENGTH_NIL] >>
+        full_simp_tac(srw_ss())[bEval_def] >> rpt var_eq_tac >>
+        full_simp_tac(srw_ss())[iEval_def] >> rpt var_eq_tac >>
+        last_x_assum mp_tac >>
+        simp[Once state_rel_def] >> strip_tac >>
+        simp[LENGTH_REPLICATE,ADD1] >>
+        simp[EL_CONS,PRE_SUB1,GSYM ADD1] >>
+        simp[EL_APPEND1,EL_MAP,miscTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id] >>
+        MATCH_MP_TAC (GEN_ALL bv_ok_IMP_adjust_bv_eq) >>
+        qexists_tac`r.refs`>>simp[] >>
+        full_simp_tac(srw_ss())[state_ok_def,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+        first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+        simp[])
+      \\ gvs [AllCaseEqs()]
+      \\ imp_res_tac evaluate_IMP_LENGTH \\ gvs []
+      \\ gvs [LENGTH_EQ_NUM_compute]
+      \\ qpat_assum ‘state_rel b2 r t2’ $ irule_at Any
+      \\ qpat_x_assum ‘state_rel b2 r t2’ mp_tac
+      \\ simp [Once state_rel_def] \\ strip_tac
+      \\ qexists_tac ‘c’ \\ fs []
+      \\ gvs [iEval_def,EVAL “bviSem$do_app (IntOp (Const 2)) [] s”,adjust_bv_def]
+      \\ gvs [iEval_def,EVAL “bviSem$do_app (IntOp Add) [Number i; Number j] s”,adjust_bv_def]
+      \\ gvs [iEval_def,EVAL “bviSem$do_app (GlobOp GlobalsPtr) [] s”,adjust_bv_def]
+      \\ Cases_on ‘t2.global’
+      >- (fs [] \\ imp_res_tac evaluate_global_mono \\ gvs [inc_clock_def])
+      \\ gvs []
+      \\ gvs [closSemTheory.get_global_def,EVAL “num_added_globals”]
+      \\ ‘∃j. i = & j’ by (Cases_on ‘i’ \\ fs []) \\ gvs []
+      \\ gvs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
+      \\ gvs [bvlSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
+      \\ simp [AllCaseEqs()]
+      \\ simp[EL_APPEND1,EL_MAP,miscTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id]
+      \\ ‘&j + 2 = &(j + 2):int’ by intLib.COOPER_TAC \\ fs []
+      \\ simp [DECIDE “j+2 = SUC (j+1)”,EL]
+      \\ reverse conj_tac
+      >- simp [state_component_equality]
+      \\ simp [rich_listTheory.EL_APPEND1,EL_MAP,miscTheory.the_def])
+    \\ Cases_on`∃n. op = GlobOp (SetGlobal n)` \\ full_simp_tac(srw_ss())[] THEN1 (
          note_tac "Op: SetGlobal" >> simp[compile_op_def] >>
          full_simp_tac(srw_ss())[bEvalOp_def] >>
          Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[] >>
@@ -2979,7 +2984,7 @@ Proof
          srw_tac[][] >- ( full_simp_tac(srw_ss())[FLOOKUP_DEF] >> srw_tac[][] >> METIS_TAC[] ) >>
          qexists_tac`z` >> simp[ADD1,LUPDATE_MAP] >>
          simp[miscTheory.the_def])
-    \\ Cases_on`op = AllocGlobal` \\ full_simp_tac(srw_ss())[] THEN1
+    \\ Cases_on`op = GlobOp AllocGlobal` \\ full_simp_tac(srw_ss())[] THEN1
         (note_tac "Op: AllocGlobal" \\ simp[compile_op_def]
          \\ gvs [bvlSemTheory.do_app_def,AllCaseEqs()]
          \\ rename [‘~(ii < 0:int)’]
@@ -3036,7 +3041,7 @@ Proof
          irule_at Any (METIS_PROVE [] “k = n ⇒ REPLICATE k x = REPLICATE n x”) >>
          fs [ADD1] >>
          qexists_tac ‘extra+z’ >> fs [])
-    \\ Cases_on`∃part. op = EqualConst part` \\ fs[] >- (
+    \\ Cases_on`∃part. op = BlockOp (EqualConst part)` \\ fs[] >- (
       note_tac "Op: EqualConst" \\ gvs[compile_op_def,bEvalOp_def]
       \\ Cases_on`REVERSE a` \\ fs[] \\ rw[]
       \\ Cases_on`t` \\ fs[] \\ rw[]
@@ -3054,7 +3059,7 @@ Proof
       \\ ntac 3 (qpat_x_assum ‘∀x._’ mp_tac)
       \\ first_assum (qspec_then ‘p’ assume_tac)
       \\ qpat_x_assum ‘FLOOKUP _ _ = _’ assume_tac \\ fs [])
-    \\ Cases_on`∃parts. op = Build parts` \\ fs[] >- (
+    \\ Cases_on`∃parts. op = BlockOp (Build parts)` \\ fs[] >- (
       note_tac "Op: Build" \\ gvs[compile_op_def,bEvalOp_def]
       \\ Cases_on`REVERSE a` \\ fs[] \\ rw[]
       \\ pairarg_tac \\ gvs []
@@ -3150,7 +3155,7 @@ Proof
         \\ Cases_on ‘new_s = a’ \\ fs [APPLY_UPDATE_THM])
       \\ qpat_x_assum ‘state_rel _ _ _’ mp_tac
       \\ simp [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,inc_clock_def])
-    \\ Cases_on`∃str. op = FromListByte` \\ fs[] >- (
+    \\ Cases_on`∃str. op = MemOp FromListByte` \\ fs[] >- (
       note_tac "Op: FromListByte" \\ fs[compile_op_def,bEvalOp_def]
       \\ `∃lv. REVERSE a = [lv]` by (every_case_tac \\ fs[]) \\ fs[]
       \\ qpat_x_assum`_ = Rval _`mp_tac
@@ -3269,7 +3274,7 @@ Proof
       \\ fs[state_ok_def,EVERY_MEM]
       \\ res_tac \\ fs[] \\ rw[]
       \\ fs[Abbr`a`,LEAST_NOTIN_FDOM,Abbr`p`] )
-    \\ Cases_on`op = ConcatByteVec` \\ fs[] >- (
+    \\ Cases_on`op = MemOp ConcatByteVec` \\ fs[] >- (
       note_tac "Op: ConcatByteVec" \\
       fs[compile_op_def,bEvalOp_def,case_eq_thms]
       \\ imp_res_tac evaluate_IMP_LENGTH
@@ -3364,7 +3369,7 @@ Proof
       \\ rpt(qhdtm_x_assum`lookup`kall_tac)
       \\ match_mp_tac state_rel_add_bytearray
       \\ METIS_TAC[LEAST_NOTIN_FDOM])
-    \\ Cases_on`op = CopyByte F` \\ fs[] >- (
+    \\ Cases_on`op = MemOp (CopyByte F)` \\ fs[] >- (
       note_tac "Op: CopyByte F" \\
       CONV_TAC(RESORT_EXISTS_CONV List.rev)
       \\ qabbrev_tac`pp = LEAST ptr. ptr ∉ FDOM s5.refs`
@@ -3407,7 +3412,7 @@ Proof
       >- (TOP_CASE_TAC \\ fs[FLOOKUP_DEF] \\ METIS_TAC[INJ_DEF])
       >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[] )
       \\ METIS_TAC[] )
-    \\ Cases_on`op = CopyByte T` \\ fs[] >- (
+    \\ Cases_on`op = MemOp (CopyByte T)` \\ fs[] >- (
         note_tac "Op: CopyByte T" \\
         CONV_TAC(RESORT_EXISTS_CONV List.rev)
         \\ qexists_tac`c`
@@ -3459,9 +3464,9 @@ Proof
         \\ rw[]
         \\ imp_res_tac evaluate_refs_SUBSET
         \\ METIS_TAC[SUBSET_DEF,LEAST_NOTIN_FDOM] )
-    \\ Cases_on`∃b. op = CopyByte b` \\ fs[] >- (Cases_on`b` \\ fs[])
+    \\ Cases_on`∃b. op = MemOp (CopyByte b)` \\ fs[] >- (Cases_on`b` \\ fs[])
     \\ `compile_op op c1 = Op op c1` by
-      (Cases_on `op` \\ full_simp_tac(srw_ss())[compile_op_def] \\ NO_TAC)
+      (cases_on_op `op` \\ full_simp_tac(srw_ss())[compile_op_def] \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[iEval_def]
     \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b2`
     \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
@@ -3652,7 +3657,7 @@ Proof
 QED
 
 Triviality evaluate_REPLICATE_0:
-  !n. evaluate (REPLICATE n (Op (Const 0) []),env,s) =
+  !n. evaluate (REPLICATE n (Op (IntOp (Const 0)) []),env,s) =
           (Rval (REPLICATE n (Number 0)),s)
 Proof
   Induct \\ fs [evaluate_def,REPLICATE]

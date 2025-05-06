@@ -42,7 +42,7 @@ Definition fp_top_comp_def:
 End
 
 Definition fp_opt_comp_def:
-  fp_opt_comp sc v = (case sc of Opt => v | NoOpt => v)
+  fp_opt_comp fpopt v = (case fpopt of Opt => v | NoOpt => v)
 End
 
 (* Compression function for value trees,
@@ -53,13 +53,13 @@ Definition compress_word_def:
  compress_word (Fp_bop b v1 v2) = (fp_bop_comp b (compress_word v1) (compress_word v2)) ∧
  compress_word (Fp_top t v1 v2 v3) =
    (fp_top_comp t (compress_word v1) (compress_word v2) (compress_word v3)) ∧
- compress_word (Fp_wopt sc v) =  (compress_word v)
+ compress_word (Fp_wopt fpopt v) =  (compress_word v)
 End
 
 Definition compress_bool_def:
   compress_bool (Fp_cmp cmp v1 v2) =
     (fp_cmp_comp cmp (compress_word v1) (compress_word v2)) ∧
-  compress_bool (Fp_bopt sc v)=  (compress_bool v)
+  compress_bool (Fp_bopt fpopt v)=  (compress_bool v)
 End
 
 val _ = export_theory();

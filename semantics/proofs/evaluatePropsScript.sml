@@ -396,10 +396,10 @@ Theorem is_clock_io_mono_fp_optimise:
   ! (s:'ffi state) env es.
     is_clock_io_mono (\ s. evaluate s env [e])
       (s with fp_state :=
-        (if s.fp_state.canOpt = Strict then s.fp_state else s.fp_state with canOpt := FPScope sc)) ==>
-    is_clock_io_mono (\ s. evaluate s env [FpOptimise sc e]) s
+        (if s.fp_state.canOpt = Strict then s.fp_state else s.fp_state with canOpt := FPScope fpopt)) ==>
+    is_clock_io_mono (\ s. evaluate s env [FpOptimise fpopt e]) s
 Proof
-  Cases_on `sc` \\ fs[is_clock_io_mono_def, evaluate_def]
+  Cases_on `fpopt` \\ fs[is_clock_io_mono_def, evaluate_def]
   \\ rpt gen_tac
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ rename [`evaluate _ env [e] = (s1, r1)`]
@@ -562,7 +562,7 @@ QED
 Theorem do_fpoptimise_list_length[local]:
   ! vs.
     LENGTH vs = n ==>
-    LENGTH (do_fpoptimise sc vs) = n
+    LENGTH (do_fpoptimise fpopt vs) = n
 Proof
   Induct_on `n` \\ fs[do_fpoptimise_def] \\ rpt strip_tac
   \\ Cases_on `vs` \\ fs[] \\ res_tac \\ fs[do_fpoptimise_def, Once do_fpoptimise_cons]

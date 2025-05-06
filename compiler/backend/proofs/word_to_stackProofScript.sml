@@ -7387,46 +7387,47 @@ Theorem evaluate_ShareInst_Load:
     (res = NONE /\ state_rel ac k f f' s1 t1 lens 0))
 Proof
   rpt strip_tac >>
-  gvs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
-  (pairarg_tac >>
-  gvs[word_exp_def,AllCaseEqs(),the_words_def,GSYM get_var_def] >>
-  simp[evaluate_wStackLoad_seq]>>
-  simp[stackSemTheory.evaluate_def] >>
-  simp[evaluate_wStackLoad_clock]>>
-  `EVEN (2 * ad)` by simp[EVEN_DOUBLE] >>
-  drule_all $ GEN_ALL evaluate_wStackLoad_wReg1>>
-  rpt strip_tac >>
-  gvs[] >>
-  simp[wRegWrite1_def] >>
-  IF_CASES_TAC >>
-  simp[stackSemTheory.evaluate_def,
-    stackSemTheory.dec_clock_def,AllCaseEqs()] >>
-  gvs[stackSemTheory.word_exp_def,
-    stackSemTheory.get_var_def,AllCaseEqs()]
-  >- (
-    drule $ GEN_ALL share_load_lemma2 >>
+  gvs[evaluate_def,wShareInst_def,AllCaseEqs()]
+  >> (
+    pairarg_tac >>
+    gvs[word_exp_def,AllCaseEqs(),the_words_def,GSYM get_var_def] >>
+    simp[evaluate_wStackLoad_seq]>>
+    simp[stackSemTheory.evaluate_def] >>
+    simp[evaluate_wStackLoad_clock]>>
+    `EVEN (2 * ad)` by simp[EVEN_DOUBLE] >>
+    drule_all $ GEN_ALL evaluate_wStackLoad_wReg1>>
+    rpt strip_tac >>
+    gvs[] >>
+    simp[wRegWrite1_def] >>
+    IF_CASES_TAC >>
+    simp[stackSemTheory.evaluate_def,
+      stackSemTheory.dec_clock_def,AllCaseEqs()] >>
+    gvs[stackSemTheory.word_exp_def,
+      stackSemTheory.get_var_def,AllCaseEqs()]
+    >- (
+      drule $ GEN_ALL share_load_lemma2 >>
+      simp[] >>
+      disch_then drule >>
+      simp[] >>
+      rpt strip_tac >>
+      gvs[]
+      >- (
+        irule_at (Pos last) EQ_REFL >>
+        simp[] >>
+        qexists_tac `1` >>
+        simp[] ) >>
+      first_x_assum $ irule_at (Pos last) >>
+      qexists_tac `1` >>
+      simp[] ) >>
+    drule $ GEN_ALL share_load_lemma1 >>
     simp[] >>
     disch_then drule >>
     simp[] >>
     rpt strip_tac >>
-    gvs[]
-    >- (
-      irule_at (Pos last) EQ_REFL >>
-      simp[] >>
-      qexists_tac `1` >>
-      simp[] ) >>
-    first_x_assum $ irule_at (Pos last) >>
     qexists_tac `1` >>
-    simp[] ) >>
-  drule $ GEN_ALL share_load_lemma1 >>
-  simp[] >>
-  disch_then drule >>
-  simp[] >>
-  rpt strip_tac >>
-  qexists_tac `1` >>
-  simp[] >>
-  first_assum $ irule_at (Pos last) >>
-  gvs[state_rel_def,state_component_equality] )
+    simp[] >>
+    first_assum $ irule_at (Pos last) >>
+    gvs[state_rel_def,state_component_equality] )
 QED
 
 Theorem evaluate_ShareInst_Store:
@@ -7676,6 +7677,9 @@ fun uncurry_case_rand x = x
                          |> GEN ``(A:'uniquea -> 'uniqueb -> 'uniquec)``;
 
 val _ = get_time timer;
+
+fun note_tac s g = (print ("comp_Call_correct: " ^ s ^ "\n"); ALL_TAC g);
+
 Theorem comp_Call_correct:
   ^(get_goal "wordLang$Call")
 Proof
@@ -7686,7 +7690,7 @@ Proof
   Cases_on `ret` \\ fs[] \\ rveq \\
   fs[get_labels_def]
   THEN1 (
-    goalStack.print_tac "comp_correct tail call case"
+    note_tac "comp_correct tail call case"
     \\ fs[AllCaseEqs()] \\ rveq
     \\ qpat_x_assum `_ = (res,s1)` mp_tac
     \\ simp[wordSemTheory.evaluate_def,Ntimes (AllCaseEqs()) 6,PULL_EXISTS]
@@ -7903,7 +7907,7 @@ Proof
     \\ `ck + (s.clock - 1) = ck + s.clock - 1` by decide_tac
     \\ qexists_tac `ck` \\ fsrw_tac[] []
     \\ Cases_on `res1` \\ fsrw_tac[] [PULL_EXISTS])
-  \\ goalStack.print_tac "comp_correct returning call case(s)"
+  \\ note_tac "comp_correct returning call case(s)"
   \\ fs[UNCURRY_EQ,TypeBase.case_eq_of ``:'a # 'b``] \\ rveq
   \\ qpat_x_assum `_ = (res,s1)` mp_tac
   \\ simp[wordSemTheory.evaluate_def,Ntimes (AllCaseEqs()) 7,PULL_EXISTS]
@@ -7985,7 +7989,7 @@ Proof
   pop_assum (qspec_then`t4` assume_tac)>>
   Cases_on`handler`>> fs[] >> rveq >> fs[]
   THEN1 (
-    goalStack.print_tac"No handler case">>
+    note_tac "No handler case">>
     simp[Ntimes stackSemTheory.evaluate_def 2]>>
     imp_res_tac compile_prog_stack_size >>
     qhdtm_x_assum `compile_prog` mp_tac >>
@@ -8698,7 +8702,7 @@ Proof
       fsrw_tac[][]>>
       strip_tac>>
       fsrw_tac[][state_rel_def])) >>
-  goalStack.print_tac"Handler case">>
+  note_tac "Handler case">>
   rename1 `push_env _ (SOME handler)` >>
   PairCases_on`handler` >> fs[] >>
   pairarg_tac >> fs[]>>

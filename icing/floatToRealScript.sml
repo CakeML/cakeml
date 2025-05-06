@@ -67,7 +67,7 @@ Definition realify_def:
     Letrec (MAP (λ (s1,s2,e). (s1, s2, realify e)) ses) (realify e) ∧
   realify (Tannot e t) = Tannot (realify e) t ∧
   realify (Lannot e l) = Lannot (realify e) l ∧
-  realify (FpOptimise sc e) = FpOptimise sc (realify e)
+  realify (FpOptimise fpopt e) = FpOptimise fpopt (realify e)
 Termination
   wf_rel_tac ‘measure exp_size’
 End

@@ -656,7 +656,7 @@ Proof
 QED
 
 Theorem handle_ok_Var_Const_list:
-   EVERY (\x. ?v i. x = Var v \/ x = Op (Const i) []) xs ==> handle_ok xs
+   EVERY (\x. ?v i. x = Var v \/ x = Op (IntOp (Const i)) []) xs ==> handle_ok xs
 Proof
   Induct_on `xs` \\ fs [handle_ok_def,PULL_EXISTS] \\ rw []
   \\ Cases_on `xs` \\ fs [handle_ok_def]
