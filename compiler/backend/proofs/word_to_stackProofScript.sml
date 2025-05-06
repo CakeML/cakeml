@@ -8411,17 +8411,27 @@ Proof
       qpat_x_assum `_ = (res,s1)` mp_tac >>
       ntac 3 (PURE_TOP_CASE_TAC >> fsrw_tac[][]) >>
       rveq >> fsrw_tac[][] >>
+      Q.ISPECL_THEN [`prog`,`word_state`] mp_tac evaluate_stack_swap>>
+      simp[] >> simp[Abbr`word_state`] >>
+      simp[push_env_def,ELIM_UNCURRY,s_key_eq_def2] >>
+      strip_tac >>
+      qpat_x_assum `s_frame_key_eq (StackFrame _ _ _ _) _` mp_tac
+      simp[oneline s_frame_key_eq_def2] >> TOP_CASE_TAC >> fs[] >>
+      strip_tac >> gvs[] >>
+      qpat_x_assum `state_rel _ _ 0 0 _ _ _ _` (strip_assume_tac o SRULE[state_rel_def]) >>
+      rfs[] >>
+      drule_then assume_tac stack_rel_cons_LEN_NONE >>
+      fs[] >>
       simp[evaluate_copy_ret_Seq'] >>
       simp[num_stack_ret_def] >>
       qmatch_goalsub_abbrev_tac `copy_ret_aux k f num_stack_ret'` >>
       Q.ISPECL_THEN [`k`,`f`,`num_stack_ret'`,`t1`] mp_tac evaluate_copy_ret_aux >>
       impl_tac >- (
         fs[Abbr`num_stack_ret'`] >>
-goal
-print_apropos ``t.stack_space``
         CONJ_TAC >- fsrw_tac[][state_rel_def] >>
-        fsrw_tac[][state_rel_def]
-        fs[]
+        fsrw_tac[][state_rel_def] >>
+        full_simp_tac(srw_ss())[] >>
+        Cases_on `f' = 0` >>
         qpat_x_assum `_ < 2 * f' + 2 * k` mp_tac >>
         pure_rewrite_tac[wordLangTheory.max_var_def] >>
         `!x y z. max3 x y z = MAX x (MAX y z)`
@@ -8433,9 +8443,6 @@ print_apropos ``t.stack_space``
         fsrw_tac[][list_max_GENLIST_evens2]>>
         fsrw_tac[][GSYM LEFT_ADD_DISTRIB]
         fsrw_tac[]
-[state_rel_def]
-gvs[]
-`LENGTH vs > (k - 1)`
 
         rveq >>
         Cases_on `f' = 0` >> fsrw_tac[][] >>
@@ -8444,15 +8451,11 @@ gvs[]
         srw_tac[][] >> Cases_on `r'.stack_max` >> fsrw_tac[][]
        rev_full_simp_tac(bool_ss)[]
 
-state_rel_def
-stack_size_rel_def
        Cases_on `dest'` >>
        fsrw_tac[][stack_arg_count_def] >>
        fsrw_tac[][Abbr`stack_arg_count'`] >>
        (*TODO this very slow*)
        gvs[]) >>
-
-evaluate_stack_move
       qpat_x_assum `_ = (res,s1)` mp_tac >>
       IF_CASES_TAC>>fsrw_tac[][]>>
       Cases_on`pop_env r'`>>fsrw_tac[][]>>
@@ -8460,7 +8463,6 @@ evaluate_stack_move
 
       strip_tac>>
       rfs[] >> gvs[]
-copy_ret_def
       imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
       qpat_x_assum`if A then B else C` mp_tac>>
       IF_CASES_TAC>>fsrw_tac[][]
