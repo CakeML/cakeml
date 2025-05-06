@@ -5711,11 +5711,9 @@ val goal = ``
             the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit
        else
          case res of
-         | NONE => state_rel ac k f f' s1 t1 lens 0 /\
-            t1.stack_space = t.stack_space
+         | NONE => state_rel ac k f f' s1 t1 lens 0
          | SOME (Result _ ys) =>
             state_rel ac k 0 0 s1 t1 lens (LENGTH ys - (k - 1)) /\
-            t1.stack_space = t.stack_space + f - (LENGTH ys - (k - 1)) /\
             (*
               list positions:  0 1 2 3 ... k-2 k-1 k  k+1 ...
               registers:       1 2 3 4 ... k-1
@@ -6532,17 +6530,6 @@ Proof
         gvs[IS_SOME_EXISTS,the_eqn] >>
         Cases_on `f' = 0` >> fs[]) >>
       simp[lookup_def]) \\
-  CONJ_TAC >-
-    (gvs[skip_free_def,num_stack_ret_def] >>
-    imp_res_tac get_vars_length_lemma >>
-    fsrw_tac[][state_rel_def] >>
-    fs[list_max_def, wordLangTheory.max_var_def,GSYM MAX_DEF] >>
-    fs[convs_def] >>
-    qpat_x_assum `ms = _` SUBST_ALL_TAC >>
-    fs[list_max_GENLIST_evens2] >>
-    fs[GSYM LEFT_ADD_DISTRIB] >>
-    gvs[IS_SOME_EXISTS,the_eqn] >>
-    Cases_on `f' = 0` >> fs[]) >>
   rpt strip_tac \\
   `get_var (EL i ms) s = SOME (EL i ys)`
     by(
