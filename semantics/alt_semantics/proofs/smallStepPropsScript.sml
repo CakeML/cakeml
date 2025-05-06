@@ -443,7 +443,7 @@ Theorem small_eval_fpoptimise:
   !env s fp e1 fpopt c r.
     small_eval env s fp (FpOptimise fpopt e1) c r =
     small_eval env s
-               (if fp.canOpt = Strict then fp else fp with canOpt := FPScope sc)
+               (if fp.canOpt = Strict then fp else fp with canOpt := FPScope fpopt)
                e1 ((Coptimise fp.canOpt fpopt (),env)::c) r
 Proof
   srw_tac[][] >>
