@@ -7532,12 +7532,12 @@ Proof
         \\ `sz DIV 4 + (startup_code_size - sz) DIV 4 = startup_code_size DIV 4`
         by (
           DEP_REWRITE_TAC[GSYM ADD_DIV_RWT]
-          \\ simp[LENGTH_startup_code_MOD_4, Abbr`sz`, Abbr`scc`]
+          \\ simp[LENGTH_startup_code_MOD_4, Abbr`sz`, Abbr`startup`]
           \\ once_rewrite_tac[ADD_COMM]
           \\ DEP_REWRITE_TAC[SUB_ADD]
           \\ simp[LENGTH_startup_code])
         \\ rewrite_tac[ADD_ASSOC] \\ pop_assum SUBST1_TAC
-        \\ simp[Abbr`sz`,Abbr`scc`]
+        \\ simp[Abbr`sz`, Abbr`startup`]
         \\ qpat_abbrev_tac`cz = if _ < cline_size then _ else _`
         \\ `cz = cline_size` by (rw[Abbr`cz`])
         \\ qpat_x_assum`Abbrev(cz = _)`kall_tac
@@ -7675,12 +7675,12 @@ Proof
       \\ `sz DIV 4 + (startup_code_size - sz) DIV 4 = startup_code_size DIV 4`
       by (
         DEP_REWRITE_TAC[GSYM ADD_DIV_RWT]
-        \\ simp[LENGTH_startup_code_MOD_4, Abbr`sz`, Abbr`scc`]
+        \\ simp[LENGTH_startup_code_MOD_4, Abbr`sz`, Abbr`startup`]
         \\ once_rewrite_tac[ADD_COMM]
         \\ DEP_REWRITE_TAC[SUB_ADD]
         \\ simp[LENGTH_startup_code])
       \\ rewrite_tac[ADD_ASSOC] \\ pop_assum SUBST1_TAC
-      \\ simp[Abbr`sz`,Abbr`scc`]
+      \\ simp[Abbr`sz`,Abbr`startup`]
       \\ simp[LENGTH_startup_code_MOD_4] \\ EVAL_TAC )
     \\ rewrite_tac[GSYM APPEND_ASSOC] \\ DEP_ONCE_REWRITE_TAC[EL_APPEND2]
     \\ simp[]

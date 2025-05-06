@@ -786,7 +786,7 @@ QED
 
 Theorem init_memory_startup_bytes_in_memory:
    i < LENGTH scc  ∧
-   (sc = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * (LENGTH data)))) ⇒
+   (scc = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * (LENGTH data)))) ⇒
    bytes_in_memory (n2w (SUM (MAP (LENGTH o ag32_enc) (TAKE i scc)))) (ag32_enc (EL i scc))
      (init_memory code data ffis inputs) ag32_startup_addresses
 Proof
