@@ -1994,7 +1994,7 @@ Proof
       \\ COND_CASES_TAC \\ strip_tac \\ rveq \\ fsrw_tac [SATISFY_ss] []
       \\ COND_CASES_TAC \\ rveq \\ TRY (Cases_on ‘q’
                                         \\ fsrw_tac [SATISFY_ss] [perform_rewrites_def])
-      \\ first_x_assum $ qspecl_then [‘cfg’, ‘sc’, ‘perform_rewrites (cfg with canOpt := (fpopt = Opt)) o' r e’] strip_assume_tac
+      \\ first_x_assum $ qspecl_then [‘cfg’, ‘fpopt’, ‘perform_rewrites (cfg with canOpt := (fpopt = Opt)) o' r e’] strip_assume_tac
       \\ fs[]
       \\ COND_CASES_TAC \\ rveq \\ fsrw_tac [SATISFY_ss] [])
     \\ fs[optimise_with_plan_def] \\ metis_tac[])
@@ -2008,7 +2008,7 @@ Proof
   >- fs[optimise_with_plan_empty_sing, stos_pass_with_plans_empty,
         no_optimise_pass_def]
   \\ simp[Once stos_pass_with_plans_cons, stos_pass_with_plans_def]
-  \\ qspecl_then [‘cfg’, ‘h’, ‘sc’, ‘e’] strip_assume_tac
+  \\ qspecl_then [‘cfg’, ‘h’, ‘fpopt’, ‘e’] strip_assume_tac
                  (SIMP_RULE std_ss [PULL_EXISTS] optimise_with_plan_scope)
   \\ fs[no_optimise_pass_def]
 QED
