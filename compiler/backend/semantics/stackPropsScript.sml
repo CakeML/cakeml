@@ -1136,6 +1136,9 @@ Definition stack_good_handler_labels_def:
   restrict_nonzero (BIGUNION (IMAGE get_code_labels (set (MAP SND p)))) ⊆
   BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
   IMAGE (λn. n,1) (set (MAP FST p))
+End
+
+Definition no_install_def:
   (no_install (Seq p1 p2) = (no_install p1 /\ no_install p2)) /\
   (no_install (If _ _ _ p1 p2) = (no_install p1 /\ no_install p2)) /\
   (no_install (While _ _ _ p) = no_install p) /\
