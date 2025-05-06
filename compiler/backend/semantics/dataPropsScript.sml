@@ -204,7 +204,6 @@ Proof
 QED
 
 fun cases_on_op_fs q = Cases_on q \\ fs []
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘IntOp i_’]) (Cases_on `i_`)
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘WordOp w_’]) (Cases_on `w_`)
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`)
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp g_’]) (Cases_on `g_`)
@@ -2571,7 +2570,21 @@ Theorem do_app_cc_co_only_diff_rval:
     ?t1. dataSem$do_app op vs t = Rval (v,t1) /\ cc_co_only_diff s1 t1
 Proof
   rpt strip_tac >>
-  cases_on_op_fs ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs [] >>
+  cases_on_op_fs ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs []
+  >~[`IntOp`]
+  >-(
+   qpat_x_assum `do_app _ _ _ = _` mp_tac >>
+   simp[Once do_app_def,AllCaseEqs(),do_app_aux_def,
+   Once $ oneline do_int_app_def] >>
+   strip_tac  >> rveq >>
+   fs[do_stack_def,do_space_def,do_app_def,consume_space_def,
+   op_space_reset_def,data_spaceTheory.op_space_req_def,
+   space_consumed_def,stack_consumed_def,size_of_heap_def,
+   stack_to_vs_def] >>
+   rveq >>
+   simp[do_app_aux_def,do_int_app_def] >>
+   fs[cc_co_only_diff_def] >>
+   gvs[]) >>
   ntac 2(
   fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,

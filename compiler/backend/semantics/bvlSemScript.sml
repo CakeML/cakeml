@@ -171,6 +171,25 @@ End
 Definition do_build_const_def:
   do_build_const xs refs = do_build (λx. Number 0) 0 xs refs
 End
+(* same as closSem$do_int_app *)
+Definition do_int_app_def:
+  do_int_app (Const n) [] = SOME (Number n) /\
+  do_int_app (Add) [Number n1;Number n2] = SOME (Number (n1 + n2)) /\
+  do_int_app (Sub) [Number n1;Number n2] = SOME (Number (n1 - n2)) /\
+  do_int_app (Mult) [Number n1;Number n2] = SOME (Number (n1 * n2)) /\
+  do_int_app (Div) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 / n2))) /\
+  do_int_app (Mod) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 % n2))) /\
+  do_int_app (Less) [Number n1;Number n2] = SOME (Boolv (n1 < n2)) /\
+  do_int_app (LessEq) [Number n1;Number n2] = SOME (Boolv (n1 <= n2)) /\
+  do_int_app (Greater) [Number n1;Number n2] = SOME (Boolv (n1 > n2)) /\
+  do_int_app (GreaterEq) [Number n1;Number n2] = SOME (Boolv (n1 >= n2)) /\
+  do_int_app (LessConstSmall n) [Number i] =
+        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
+          SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (op:closLang$int_op) (vs:bvlSem$v list) = NONE
+End
 
 (* same as closSem$do_app, except:
     - LengthByteVec and DerefByteVec are removed
@@ -200,7 +219,6 @@ Definition do_app_def:
         (if i < 0 then Error
          else Rval (Unit, s with globals := s.globals ++ REPLICATE (Num i) NONE))
     | (Install,vs) => do_install vs s
-    | (IntOp (Const i),[]) => Rval (Number i, s)
     | (BlockOp (Cons tag),xs) => Rval (Block tag xs, s)
     | (BlockOp (Build parts),[]) =>
         (let (v,rs) = do_build_const parts s.refs in Rval (v, s with refs := rs))
@@ -348,21 +366,10 @@ Definition do_app_def:
          | _ => Error)
     | (Label n,[]) =>
         if n IN domain s.code then Rval (CodePtr n, s) else Error
-    | (IntOp Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
-    | (IntOp Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
-    | (IntOp Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
-    | (IntOp Div,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 / n2),s)
-    | (IntOp Mod,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 % n2),s)
-    | (IntOp Less,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 < n2),s)
-    | (IntOp LessEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 <= n2),s)
-    | (IntOp Greater,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 > n2),s)
-    | (IntOp GreaterEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 >= n2),s)
+    | (IntOp intop, vs) =>
+        (case do_int_app intop vs of
+        | SOME res => Rval (res ,s)
+        | _ => Error)
     | (WordOp (WordOpw W8 opw),[Number n1; Number n2]) =>
        (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
         | NONE => Error
@@ -433,11 +440,6 @@ Definition do_app_def:
            | SOME (ValueArray ws) =>
                Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
            | _ => Error)
-         | _ => Error)
-    | (IntOp (LessConstSmall n),xs) =>
-        (case xs of
-         | [Number i] => if 0 <= i /\ i <= 1000000 /\ n < 1000000
-                         then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Error
