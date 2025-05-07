@@ -1036,7 +1036,7 @@ Theorem from_pan_to_lab_no_install:
   pan_to_word_compile_prog isa pan_code = wprog0 ∧
   word_to_word_compile wc ac wprog0 = (col, wprog) ∧
   word_to_stack_compile ac wprog = (bm, c, fs, p) ⇒
-  no_install (stack_to_lab_compile sc dc lim regc off p)
+  no_install (stack_to_lab_compile scc dc lim regc off p)
 Proof
   strip_tac>>
   imp_res_tac first_compile_prog_all_distinct>>

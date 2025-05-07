@@ -777,19 +777,19 @@ Definition safe_div_def:
 End
 
 Definition st_ex_list_MIN_cost_def:
-  (st_ex_list_MIN_cost sc [] d k v acc = return (k,acc)) ∧
-  (st_ex_list_MIN_cost sc (x::xs) d k v acc =
+  (st_ex_list_MIN_cost scost [] d k v acc = return (k,acc)) ∧
+  (st_ex_list_MIN_cost scost (x::xs) d k v acc =
   if x < d then
     do
       xv <- degrees_sub x;
-      cost <- return (safe_div (lookup_any x sc 0n) xv);
+      cost <- return (safe_div (lookup_any x scost 0n) xv);
       if v > cost then
-        st_ex_list_MIN_cost sc xs d x cost (k::acc)
+        st_ex_list_MIN_cost scost xs d x cost (k::acc)
       else
-        st_ex_list_MIN_cost sc xs d k v (x::acc)
+        st_ex_list_MIN_cost scost xs d k v (x::acc)
     od
   else
-    st_ex_list_MIN_cost sc xs d k v acc)
+    st_ex_list_MIN_cost scost xs d k v acc)
 End
 
 Definition st_ex_list_MAX_deg_def:
@@ -808,7 +808,7 @@ Definition st_ex_list_MAX_deg_def:
 End
 
 Definition do_spill_def:
-  do_spill scopt k =
+  do_spill scostopt k =
   do
     spills <- get_spill_wl;
     d <- get_dim;
@@ -817,9 +817,9 @@ Definition do_spill_def:
     | (x::xs) =>
       do
         xv <- degrees_sub x;
-        (y,ys) <- case scopt of
+        (y,ys) <- case scostopt of
               NONE => st_ex_list_MAX_deg xs d x xv []
-            | SOME sc => st_ex_list_MIN_cost sc xs d x (safe_div (lookup_any x sc 0n) xv) [];
+            | SOME scost => st_ex_list_MIN_cost scost xs d x (safe_div (lookup_any x scost 0n) xv) [];
         dec_deg y;
         push_stack y;
         set_spill_wl ys;
@@ -830,7 +830,7 @@ Definition do_spill_def:
 End
 
 Definition do_step_def:
-  do_step sc k =
+  do_step scost k =
   do
     b <- do_simplify k;
     if b then return b
@@ -849,7 +849,7 @@ Definition do_step_def:
             return b
           else
             do
-              b <- do_spill sc k;
+              b <- do_spill scost k;
               return b
             od
         od
@@ -859,11 +859,11 @@ Definition do_step_def:
 End
 
 Definition rpt_do_step_def:
-  (rpt_do_step sc k 0 = return ()) ∧
-  (rpt_do_step sc k (SUC c) =
+  (rpt_do_step scost k 0 = return ()) ∧
+  (rpt_do_step scost k (SUC c) =
   do
-    b <- do_step sc k;
-    if b then rpt_do_step sc k c else return ()
+    b <- do_step scost k;
+    if b then rpt_do_step scost k c else return ()
   od)
 End
 
@@ -1287,11 +1287,11 @@ Definition init_alloc1_heu_def:
 End
 
 Definition do_alloc1_def:
-  do_alloc1 moves sc k =
+  do_alloc1 moves scost k =
   do
     d <- get_dim;
     l <- init_alloc1_heu moves d k;
-    rpt_do_step sc k l;
+    rpt_do_step scost k l;
     st <- get_stack;
     return st
   od
@@ -1430,12 +1430,12 @@ End
 
 (* Putting everything together in one call *)
 Definition do_reg_alloc_def:
-  do_reg_alloc alg sc k moves ct forced fs (ta,fa,n) =
+  do_reg_alloc alg scost k moves ct forced fs (ta,fa,n) =
   do
     init_ra_state ct forced fs (ta,fa,n);
     moves0 <- return (MAP (update_move (sp_default ta)) moves);
     moves <- st_ex_FILTER (λ(_,(x,y)).full_consistency_ok k x y) moves0 [];
-    ls <- do_alloc1 (if alg = Simple then [] else moves) sc k;
+    ls <- do_alloc1 (if alg = Simple then [] else moves) scost k;
     mvs <- return (resort_moves (moves_to_sp moves0 LN));
     assign_Atemps k ls (biased_pref mvs);
     assign_Stemps k (neg_biased_pref k mvs);
@@ -1454,8 +1454,8 @@ val run_ira_state_def = define_run ``:ra_state``
    the translator's requirements *)
 
 Definition reg_alloc_aux_def:
-  reg_alloc_aux alg sc k moves ct forced fs (ta,fa,n) =
-    run_ira_state (do_reg_alloc alg sc k moves ct forced fs (ta,fa,n))
+  reg_alloc_aux alg scost k moves ct forced fs (ta,fa,n) =
+    run_ira_state (do_reg_alloc alg scost k moves ct forced fs (ta,fa,n))
                       <| adj_ls    := (n, [])
                        ; node_tag  := (n, Atemp)
                        ; degrees   := (n, 0)
@@ -1471,8 +1471,8 @@ Definition reg_alloc_aux_def:
 End
 
 Definition reg_alloc_def:
-  reg_alloc alg sc k moves ct forced fs =
-    reg_alloc_aux alg sc k moves ct forced fs (mk_bij ct)
+  reg_alloc alg scost k moves ct forced fs =
+    reg_alloc_aux alg scost k moves ct forced fs (mk_bij ct)
 End
 
 val _ = export_theory();

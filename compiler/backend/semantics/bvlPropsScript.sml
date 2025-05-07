@@ -35,8 +35,10 @@ val case_eq_thms = LIST_CONJ
   (CaseEq "eq_result" :: CaseEq "const_part" :: CaseEq "word_size" ::
    CaseEq "result" :: CaseEq "error_result" ::
    map (prove_case_eq_thm o get_thms)
-  [``:v``,``:'a ref``,``:'a option``,``:'a list``,``:'a + 'b``,
-   ``:closLang$op``,``:'a ffi_result``])
+  [``:v``, ``:'a ref``, ``:'a option``, ``:'a list``, ``:'a + 'b``,
+   ``:closLang$op``, ``:closLang$mem_op``, ``:closLang$int_op``,
+   ``:closLang$word_op``, ``:closLang$block_op``, ``:closLang$glob_op``,
+   ``:'a ffi_result``])
 val case_eq_thms = CONJ bool_case_eq (CONJ pair_case_eq case_eq_thms)
 
 Theorem case_eq_thms =
@@ -60,14 +62,14 @@ Theorem do_app_cases_val =
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV)
+   ALL_CONV);
 
 Theorem do_app_cases_err =
   ``do_app op vs s = Rerr err`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
-   ALL_CONV)
+   ALL_CONV);
 
 Theorem do_app_Rval_swap:
    do_app op a (s1:('a,'b) bvlSem$state) = Rval (x0,x1) /\ op <> Install /\
@@ -311,8 +313,7 @@ Proof
    (reverse (fs [case_eq_thms] \\ rw [] \\ fs [])
     THEN1 metis_tac []
     THEN1 metis_tac []
-    \\ pop_assum (assume_tac o GSYM) \\ fs []
-    \\ qexists_tac `n'+n`
+    \\ qexists_tac `n + n'`
     \\ rewrite_tac [GENLIST_APPEND,FOLDL_APPEND,MAP_APPEND]
     \\ fs [shift_seq_def]
     \\ simp_tac std_ss [Once ADD_COMM] \\ fs [])
@@ -324,8 +325,7 @@ Proof
    (reverse (fs [case_eq_thms] \\ rw [] \\ fs [])
     THEN1 metis_tac []
     THEN1 metis_tac []
-    \\ pop_assum (assume_tac o GSYM) \\ fs []
-    \\ qexists_tac `n'+n`
+    \\ qexists_tac `n + n'`
     \\ rewrite_tac [GENLIST_APPEND,FOLDL_APPEND,MAP_APPEND]
     \\ fs [shift_seq_def]
     \\ simp_tac std_ss [Once ADD_COMM] \\ fs [])
@@ -356,7 +356,7 @@ Proof
   \\ TRY (qexists_tac `n` \\ fs [] \\ NO_TAC)
   \\ pop_assum (assume_tac o GSYM) \\ fs []
   \\ fs [dec_clock_def]
-  \\ qexists_tac `n'+n`
+  \\ qexists_tac `n + n'`
   \\ rewrite_tac [GENLIST_APPEND,FOLDL_APPEND,MAP_APPEND]
   \\ fs [dec_clock_def,shift_seq_def,FUN_EQ_THM]
   \\ simp_tac std_ss [Once ADD_COMM] \\ fs []
@@ -390,7 +390,7 @@ QED
 
 Theorem evaluate_MAP_Const:
    !exps.
-      evaluate (MAP (K (Op (Const i) [])) (exps:'a list),env,t1) =
+      evaluate (MAP (K (Op (IntOp (Const i)) [])) (exps:'a list),env,t1) =
         (Rval (MAP (K (Number i)) exps),t1)
 Proof
   Induct \\ full_simp_tac(srw_ss())[evaluate_def,evaluate_CONS,do_app_def]
@@ -427,13 +427,13 @@ Definition inc_clock_def:
   inc_clock ck s = s with clock := s.clock + ck
 End
 
-Theorem inc_clock_code:
+Theorem inc_clock_code[simp]:
    !n ^s. (inc_clock n s).code = s.code
 Proof
   srw_tac[][inc_clock_def]
 QED
 
-Theorem inc_clock_refs:
+Theorem inc_clock_refs[simp]:
    !n ^s. (inc_clock n s).refs = s.refs
 Proof
   srw_tac[][inc_clock_def]
@@ -451,13 +451,11 @@ Proof
   srw_tac[][inc_clock_def]
 QED
 
-Theorem inc_clock0:
+Theorem inc_clock0[simp]:
    !n ^s. inc_clock 0 s = s
 Proof
   simp [inc_clock_def, state_component_equality]
 QED
-
-val _ = export_rewrites ["inc_clock_refs", "inc_clock_code", "inc_clock0"];
 
 Theorem inc_clock_add:
    inc_clock k1 (inc_clock k2 s) = inc_clock (k1 + k2) s
@@ -465,13 +463,13 @@ Proof
   simp[inc_clock_def,state_component_equality]
 QED
 
-Theorem dec_clock_code:
+Theorem dec_clock_code[simp]:
    !n ^s. (dec_clock n s).code = s.code
 Proof
   srw_tac[][dec_clock_def]
 QED
 
-Theorem dec_clock_refs:
+Theorem dec_clock_refs[simp]:
    !n ^s. (dec_clock n s).refs = s.refs
 Proof
   srw_tac[][dec_clock_def]
@@ -483,13 +481,11 @@ Proof
   srw_tac[][dec_clock_def]
 QED
 
-Theorem dec_clock0:
+Theorem dec_clock0[simp]:
    !n ^s. dec_clock 0 s = s
 Proof
   simp [dec_clock_def, state_component_equality]
 QED
-
-val _ = export_rewrites ["dec_clock_refs", "dec_clock_code", "dec_clock0"];
 
 Theorem do_app_change_clock:
    (do_app op args s1 = Rval (res,s2)) ==>
@@ -805,7 +801,7 @@ Proof
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[destVar_def]
 QED
 
-Definition bVarBound_def:
+Definition bVarBound_def[simp]:
   (bVarBound n [] <=> T) /\
   (bVarBound n ((x:bvl$exp)::y::xs) <=>
      bVarBound n [x] /\ bVarBound n (y::xs)) /\
@@ -826,7 +822,7 @@ Termination
    \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
 End
 
-Definition bEvery_def:
+Definition bEvery_def[simp]:
   (bEvery P [] <=> T) /\
   (bEvery P ((x:bvl$exp)::y::xs) <=>
      bEvery P [x] /\ bEvery P (y::xs)) /\
@@ -846,8 +842,6 @@ Termination
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
    \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
 End
-
-val _ = export_rewrites["bEvery_def","bVarBound_def"];
 
 Theorem bVarBound_EVERY:
    ∀ls. bVarBound P ls ⇔ EVERY (λe. bVarBound P [e]) ls

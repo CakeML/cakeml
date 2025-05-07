@@ -14,7 +14,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars cfHeapsBaseTheory.cfHeapsBase_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname = "cfHeapsBase"}
   end
   open Parse
 in

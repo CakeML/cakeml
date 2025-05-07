@@ -11,7 +11,7 @@ open optionLib
 structure Parse = struct
   open Parse
   val (Type, Term) =
-    parse_from_grammars ag32_targetTheory.ag32_target_grammars
+    parse_from_grammars $ valOf $ grammarDB {thyname = "ag32_target"}
 end
 open Parse
 

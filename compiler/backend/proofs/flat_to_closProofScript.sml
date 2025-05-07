@@ -425,9 +425,9 @@ QED
 
 Theorem dest_Constant_IMP:
   dest_Constant x = SOME c ⇔
-    (∃t. x = Op t (Constant c) []) ∨
-    (∃t i. x = Op t (Const i) [] ∧ c = ConstInt i) ∨
-    (∃t n. x = Op t (Cons n) [] ∧ c = ConstCons n [])
+    (∃t. x = Op t (BlockOp (Constant c)) []) ∨
+    (∃t i. x = Op t (IntOp (Const i)) [] ∧ c = ConstInt i) ∨
+    (∃t n. x = Op t (BlockOp (Cons n)) [] ∧ c = ConstCons n [])
 Proof
   fs [DefnBase.one_line_ify NONE dest_Constant_def, AllCaseEqs()]
   \\ Cases_on ‘x’ \\ fs []
@@ -466,7 +466,7 @@ Proof
 QED
 
 Theorem evaluate_SmartCons:
-  evaluate ([SmartCons t tag xs],db,s) = evaluate ([Op t (Cons tag) xs],db,s)
+  evaluate ([SmartCons t tag xs],db,s) = evaluate ([Op t (BlockOp (Cons tag)) xs],db,s)
 Proof
   rw [SmartCons_def] \\ TRY CASE_TAC \\ fs [NULL_EQ]
   \\ fs [evaluate_def,do_app_def,make_const_def]
@@ -1179,7 +1179,6 @@ Proof
   \\ `Num (ABS i7) = Num i7 /\
       (i7 < &LENGTH ws <=> Num i7 < LENGTH ws)` by intLib.COOPER_TAC
   \\ fs [] \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-  \\ qpat_x_assum `SOME (s2,res2) = _` (assume_tac o GSYM)
   \\ fs [option_case_eq] \\ rveq \\ fs [v_rel_def,Unit_def,EVAL ``tuple_tag``]
   \\ fs [state_rel_def,store_rel_def,EL_LUPDATE]
   \\ strip_tac
@@ -1865,13 +1864,16 @@ Proof
   \\ Cases \\ fs [flatPropsTheory.op_gbag_def]
 QED
 
+val cases_op = Cases >|
+  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+
 Theorem clos_FINITE_BAG_set_globals[simp]:
   (∀e. FINITE_BAG (closProps$set_globals e)) ∧
   (∀e. FINITE_BAG (closProps$elist_globals e))
 Proof
   ho_match_mp_tac closPropsTheory.set_globals_ind
   \\ fs [closPropsTheory.set_globals_def]
-  \\ Cases \\ fs [closPropsTheory.op_gbag_def]
+  \\ cases_op \\ fs [closPropsTheory.op_gbag_def]
 QED
 
 Theorem BAG_IMAGE_FOLDR_lemma[local]:
