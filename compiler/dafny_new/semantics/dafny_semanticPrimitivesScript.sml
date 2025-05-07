@@ -68,7 +68,7 @@ Datatype:
   | Rstop stop
 End
 
-Definition empty_env_def:
+Definition mk_env_def:
   mk_env is_running program =
     <| is_running := is_running; prog := program |>
 End
@@ -107,7 +107,7 @@ Definition set_up_call_def:
    | NONE => NONE
    | SOME params =>
      (let old_locals = st.locals in
-      let new_locals = params ++ (MAP (λn. (n, NONE)) outs) in
+      let new_locals = params ++ ZIP (outs, REPLICATE (LENGTH outs) NONE) in
         SOME (old_locals, st with locals := new_locals)))
 End
 

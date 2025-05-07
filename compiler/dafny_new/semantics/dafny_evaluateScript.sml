@@ -398,19 +398,7 @@ Theorem evaluate_stmt_ind =
 
 Definition evaluate_program_def:
   evaluate_program is_running prog =
-  let st = init_state; env = mk_env is_running prog in
-  let main_name = «Main» in
-  (case get_member main_name env.prog of
-   | NONE => (st, Rstop (Serr Rtype_error))
-   | SOME member =>
-     (case member of
-      | Function _ _ _ _ _ _ _ => (st, Rstop (Serr Rtype_error))
-      | Method _ ins _ _ _ _ outs _ body =>
-        (let in_ns = MAP FST ins; out_ns = MAP FST outs in
-           (* Main does not take any input, and does not produce outputs *)
-           if ¬NULL in_ns ∨ ¬NULL out_ns then (st, Rstop (Serr Rtype_error))
-           else
-             evaluate_stmt st env (MetCall [] main_name []))))
+    evaluate_stmt init_state (mk_env is_running prog) (MetCall [] «Main» [])
 End
 
 val _ = export_theory ();
