@@ -299,10 +299,9 @@ Proof
   \\ last_x_assum drule
   \\ impl_tac \\ gvs []
   \\ rename [‘map_add_fresh ((n,_)::_)’]
-  \\ ‘MAP FST m ++ n::ns = MAP FST m ++ [n] ++ ns’ by gvs []
-  \\ rfs []
-
-
+  \\ gvs [ALL_DISTINCT_APPEND]
+  \\ spose_not_then assume_tac
+  \\ first_x_assum drule \\ gvs []
 QED
 
 Triviality map_add_fresh_ins_locals_rel:
