@@ -3697,7 +3697,7 @@ Definition init_memory_words_def:
   (* startup code *)
   words_of_bytes F startup ++
   (* pad startup code to size *)
-  REPLICATE ((startup_code_size - LENGTH sc) DIV 4) 0w ++
+  REPLICATE ((startup_code_size - LENGTH startup) DIV 4) 0w ++
   (* command line *)
   [n2w (LENGTH cl)] ++
   words_of_bytes F (PAD_RIGHT 0w cline_size (FLAT (MAP (SNOC 0w) (MAP (MAP (n2w o ORD) o explode) cl)))) ++

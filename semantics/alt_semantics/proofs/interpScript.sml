@@ -323,7 +323,7 @@ Theorem run_eval_def:
      λ ^st.
        let newSt = st with fp_state :=
                    (if (st.fp_state.canOpt = Strict) then st.fp_state
-                   else st.fp_state with <| canOpt := FPScope sc|>)
+                   else st.fp_state with <| canOpt := FPScope fpopt|>)
        in
          case run_eval env e newSt of
          (st', Rval v) =>

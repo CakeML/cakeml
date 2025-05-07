@@ -75,7 +75,7 @@ Inductive ctxt_frame_rel:
   ctxt_frame_rel (Ccon idopt vs es) (Ccon idopt vs () es) ∧
   ctxt_frame_rel (Ctannot ty) (Ctannot () ty) ∧
   ctxt_frame_rel (Clannot ls) (Clannot () ls) ∧
-  ctxt_frame_rel (Coptimise oldSc sc) (Coptimise oldSc fpopt ())
+  ctxt_frame_rel (Coptimise oldfpopt fpopt) (Coptimise oldfpopt fpopt ())
 End
 
 Definition ctxt_rel_def:

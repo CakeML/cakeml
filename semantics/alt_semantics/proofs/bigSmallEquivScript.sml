@@ -975,12 +975,12 @@ Theorem evaluate_ctxts_cons:
         (res1 = Rerr err) ∧
         (f = (c,env)) ∧
         ((∀pes. c ≠ Chandle () pes) ∨ (∀v. err ≠ Rraise v)) ∧
-        (∀ oldSc sc. c ≠ Coptimise oldSc fpopt ()) ∧
+        (∀ oldfpopt fpopt. c ≠ Coptimise oldfpopt fpopt ()) ∧
         evaluate_ctxts ck s1 cs res1 bv) ∨
-     (? env oldSc fpopt err.
+     (? env oldfpopt fpopt err.
         (res1 = Rerr err) ∧
-        (f = (Coptimise oldSc fpopt (),env)) ∧
-        evaluate_ctxts ck (s1 with fp_state := s1.fp_state with canOpt := oldSc) cs res1 bv) ∨
+        (f = (Coptimise oldfpopt fpopt (),env)) ∧
+        evaluate_ctxts ck (s1 with fp_state := s1.fp_state with canOpt := oldfpopt) cs res1 bv) ∨
      (?pes s2 env v' res2 v.
         (res1 = Rerr (Rraise v)) ∧
         (f = (Chandle () pes,env)) ∧
@@ -2531,7 +2531,7 @@ Proof
   >- (Cases_on `e` >> gvs[] >>
       Cases_on `can_pmatch_all h1.c s.refs (MAP FST pes) a` >> gvs[] >>
       metis_tac[evaluate_match_T_total, PAIR]) >>
-  Cases_on ‘∃ oldSc sc. h0 = Coptimise oldSc fpopt ()’ >> gvs[]
+  Cases_on ‘∃ oldfpopt fpopt. h0 = Coptimise oldfpopt fpopt ()’ >> gvs[]
 QED
 
 Theorem evaluate_state_T_total:
