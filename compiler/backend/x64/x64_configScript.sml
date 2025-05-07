@@ -22,9 +22,9 @@ Definition x64_names_def:
      insert 4 1 o
      insert 5 8 o
      insert 6 9 o
-     insert 11 12 o
+     insert 11 14 o
      insert 12 13 o
-     insert 13 14 o
+     insert 13 12 o
      (* the rest just ensures that the mapping is well-formed *)
      insert 7 3 o
      insert 8 15 o

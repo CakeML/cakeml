@@ -121,14 +121,13 @@ Theorem fbs_sem_div_compos_thm:
 Proof
   rpt strip_tac>>
   fs[fbs_semantics_beh_def,Once evaluate_def] >>
-  fs[bool_case_eq]>-
-  rpt (FULL_CASE_TAC>>fs[])>>
-  disj2_tac>>
+  fs[bool_case_eq] >>
+  fs[option_case_eq,pair_case_eq,result_case_eq] >>
   conj_tac>-
    (strip_tac>>first_x_assum $ qspec_then ‘k’ assume_tac>>
     FULL_CASE_TAC>>fs[]>>
     pairarg_tac>>fs[]>>gvs[panPropsTheory.eval_upd_clock_eq,panItreeSemTheory.reclock_def])>>
-  irule lprefix_lubTheory.IMP_build_lprefix_lub_EQ>>
+  rveq >> irule lprefix_lubTheory.IMP_build_lprefix_lub_EQ>>
   conj_asm1_tac>-
    (simp[lprefix_chain_def]>>
     rpt strip_tac>>fs[]>>
@@ -167,13 +166,13 @@ Proof
     simp[Once evaluate_def,
          panItreeSemTheory.reclock_def,
          panPropsTheory.eval_upd_clock_eq]>>
-    pairarg_tac>>fs[]>>
-    qexists_tac ‘k’>>fs[])>>
+    qexists_tac `k` >> fs[] >>
+    pairarg_tac>>fs[])>>
   simp[lprefix_rel_def]>>
   rpt strip_tac>>
   simp[PULL_EXISTS]>>
   simp[LPREFIX_def,from_toList]>>
-  simp[SimpR “isPREFIX”, Once evaluate_def,
+  simp[Once evaluate_def,
        panItreeSemTheory.reclock_def,
        panPropsTheory.eval_upd_clock_eq]>>
   qexists_tac ‘k’>>

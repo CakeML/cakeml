@@ -803,12 +803,6 @@ Proof
   metis_tac[ALOOKUP_ALL_DISTINCT_MEM]
 QED
 
-Theorem IS_SOME_EXISTS:
-   ∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x
-Proof
-  Cases >> simp[]
-QED
-
 Type num_set = ``:unit spt``
 Type num_map = ``:'a spt``
 
@@ -2254,12 +2248,6 @@ Proof
     rw[MAP_MAP_o,combinTheory.o_DEF] ) >>
   fs[] >>
   metis_tac[sortingTheory.PERM_MAP]
-QED
-
-Theorem bool_case_eq:
-   COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f
-Proof
-  srw_tac[][] >> metis_tac[]
 QED
 
 Theorem lookup_fromList2:

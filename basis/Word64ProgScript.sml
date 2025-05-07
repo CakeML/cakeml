@@ -98,8 +98,8 @@ Theorem var_word_asr_thm[simp]:
    var_word_asr w n = word_asr w n
 Proof
   ntac 32 (
-    Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD])
-    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD]))
+    Cases_on `n` \\ fs [ADD1] THEN1 (rw [] \\ EVAL_TAC \\ fs [ASR_ADD])
+    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (rw [] \\ EVAL_TAC \\ fs [ASR_ADD]))
   \\ ntac 9 (once_rewrite_tac [var_word_asr_def] \\ fs [])
 QED
 

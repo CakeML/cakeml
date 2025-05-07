@@ -7,47 +7,27 @@ open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
      closLangTheory db_varsTheory backendPropsTheory clos_opProofTheory
 local open clos_letopProofTheory clos_ticksProofTheory clos_fvsProofTheory in end
 
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
 
 val _ = new_theory "clos_knownProof";
-val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
+val _ = diminish_srw_ss ["ABBREV"];
+val _ = set_trace "BasicProvers.var_eq_old" 1;
 
 val _ = set_grammar_ancestry
   [ "closLang", "closSem", "closProps", "clos_known", "clos_knownProps" ];
 val _ = temp_bring_to_front_overload "domain" {Name = "domain", Thy = "sptree"};
 
-fun patresolve p f th = Q.PAT_ASSUM p (mp_then (Pos f) mp_tac th)
-fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
+fun patresolve p f th = Q.PAT_ASSUM p (mp_then (Pos f) mp_tac th);
+fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g);
 
 (* fixeqs flips any equations in the assumption that have evaluate on the rhs *)
-val evaluate_t = ``closSem$evaluate``
-val fixeqs = let
-  fun c t =
-    let
-      val r = rhs t
-      val (f, _) = strip_comb r
-    in
-      if same_const evaluate_t f then REWR_CONV EQ_SYM_EQ
-      else NO_CONV
-    end t
-in
-  RULE_ASSUM_TAC (CONV_RULE (TRY_CONV c))
-end
+val evaluate_t = ``closSem$evaluate``;
 
-val va_case_eq =
-    prove_case_eq_thm{case_def = TypeBase.case_def_of ``:val_approx``,
-                      nchotomy = TypeBase.nchotomy_of ``:val_approx``}
+val va_case_eq = TypeBase.case_eq_of ``:val_approx``;
 
-val inlD_case_eq =
-    prove_case_eq_thm{case_def = TypeBase.case_def_of ``:inliningDecision``,
-                      nchotomy = TypeBase.nchotomy_of ``:inliningDecision``}
+val inlD_case_eq = TypeBase.case_eq_of ``:inliningDecision``;
 
-val result_ty = ``:(α,β)semanticPrimitives$result``
-val result_CASES = TypeBase.nchotomy_of result_ty
-val result_case_eq =
-    prove_case_eq_thm{case_def = TypeBase.case_def_of result_ty,
-                      nchotomy = result_CASES}
+val result_case_eq = TypeBase.case_eq_of ``:(α,β)semanticPrimitives$result``;
 
 (* simple properties of constants from clos_known: i.e., merge and known *)
 
@@ -57,7 +37,8 @@ Theorem known_op_changed_globals:
      !i. i ∈ domain g /\ (i ∈ domain g0 ==> lookup i g <> lookup i g0) ==>
          i ∈ SET_OF_BAG (op_gbag opn)
 Proof
-  rpt gen_tac \\ Cases_on `opn`
+  rpt gen_tac \\ Cases_on `opn` \\ simp [known_op_def]
+  >| map Cases_on [`i`,`b`,`g'`,`m`]
   \\ simp [known_op_def, case_eq_thms, op_gbag_def,
            pair_case_eq, bool_case_eq, va_case_eq]
   \\ rw []
@@ -97,12 +78,13 @@ Proof
   \\ simp [known_def]
   \\ rpt strip_tac
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
-  THEN1 (Cases_on `op`
-         \\ fs [known_op_def, bool_case_eq,
-                case_eq_thms, va_case_eq, op_gbag_def])
-  THEN1 (fs [inlD_case_eq]
-         \\ rpt (pairarg_tac \\ fs [])
-         \\ fs [bool_case_eq])
+  >- (Cases_on `op` \\ fs [known_op_def]
+    >| map Cases_on [`i`,`b`,`g''`,`m`]
+    \\ fs [known_op_def, bool_case_eq,
+           case_eq_thms, va_case_eq, op_gbag_def])
+  >- (fs [inlD_case_eq]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ fs [bool_case_eq])
 QED
 
 
@@ -111,7 +93,8 @@ Theorem known_op_changed_globals_alt:
      known_op opn aenv g0 = (a, g) ==>
        BAG_OF_SET (domain g) ≤ BAG_OF_SET (domain g0) ⊎ (op_gbag opn)
 Proof
-  rpt gen_tac \\ Cases_on `opn`
+  rpt gen_tac \\ Cases_on `opn` \\ simp [known_op_def]
+  >| map Cases_on [`i`,`b`,`g'`,`m`]
   \\ simp [known_op_def, case_eq_thms, op_gbag_def,
            pair_case_eq, bool_case_eq, va_case_eq]
   \\ rw []
@@ -361,11 +344,9 @@ Theorem do_install_IMP_shift_seq:
      ?k. s.compile_oracle = shift_seq k s0.compile_oracle
 Proof
    rpt strip_tac  \\ fs [do_install_def]
-   \\ fs [case_eq_thms]
+   \\ fs [case_eq_thms,bool_case_eq,pair_case_eq,UNCURRY_EQ]
    \\ TRY (qexists_tac `0` \\ simp [] \\ NO_TAC)
-   \\ pairarg_tac \\ fs []
-   \\ fs [bool_case_eq, case_eq_thms, pair_case_eq]
-   \\ TRY (qexists_tac `0` \\ simp [] \\ NO_TAC)
+   \\ rveq \\ fs[]
    \\ metis_tac []
 QED
 
@@ -627,6 +608,13 @@ Proof
   simp [fv_max_def] \\ rw [] \\ res_tac \\ fs []
 QED
 
+fun cases_on_op q = Cases_on q
+  >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘IntOp i_’]) (Cases_on `i_`))
+  >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘WordOp w_’]) (Cases_on `w_`))
+  >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`))
+  >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp g_’]) (Cases_on `g_`))
+  >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘MemOp m_’]) (Cases_on `m_`));
+
 Theorem known_op_correct_approx:
   ∀opn args g0 a g vs s0 v s.
     known_op opn args g0 = (a, g) /\ do_app opn vs s0 = Rval (v, s) /\
@@ -635,34 +623,27 @@ Theorem known_op_correct_approx:
 Proof
   rpt gen_tac
   \\ `?this_is_case. this_is_case opn` by (qexists_tac `K T` \\ fs [])
-  \\ Cases_on `opn`
+  \\ cases_on_op `opn`
   \\ simp [known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
            pair_case_eq]
   \\ rpt strip_tac \\ rveq \\ fs[]
-  THEN1
-   (fs [state_globals_approx_def] \\ res_tac \\ rfs [])
-  THEN1
-   (fs [state_globals_approx_def] \\ res_tac \\ rfs [])
-  THEN1
-   (fs [state_globals_approx_def] \\ rw []
+  >- (rveq \\ fs [LIST_REL_EL_EQN])
+  >- (fs [state_globals_approx_def] \\ res_tac \\ rfs [])
+  >- (fs [state_globals_approx_def] \\ res_tac \\ rfs [])
+  >- (fs [state_globals_approx_def] \\ rw []
     \\ fs [lookup_insert, get_global_def, EL_LUPDATE]
     \\ fs [bool_case_eq] \\ rveq \\ fs []
     \\ metis_tac [])
-  THEN1
-   (fs [state_globals_approx_def] \\ rw []
+  >- (fs [state_globals_approx_def] \\ rw []
     \\ fs [lookup_insert, get_global_def, EL_LUPDATE, bool_case_eq] \\ rveq \\ fs []
-    THEN1 (first_x_assum (qspecl_then [`k`, `v`, `merge other a'`] assume_tac)
+    >- (first_x_assum (qspecl_then [`k`, `v`, `merge other a'`] assume_tac)
            \\ fs [] \\ metis_tac [val_approx_val_merge_I])
-    THEN1 metis_tac [])
-  THEN1
-   (fs [state_globals_approx_def, get_global_def,
+    >- metis_tac [])
+  >- (fs [state_globals_approx_def, get_global_def,
         EL_APPEND_EQN, bool_case_eq]
-    \\ rw [] THEN1 (metis_tac [])
+    \\ rw [] >- (metis_tac [])
     \\ gvs [EL_REPLICATE])
-  THEN1
-   (rveq \\ fs [LIST_REL_EL_EQN])
-  THEN1
-   (fs [CaseEq"ffi_result"] \\ rveq
+  >- (fs [CaseEq"ffi_result"] \\ rveq
     \\ fs [state_globals_approx_def] \\ metis_tac [])
 QED
 
@@ -721,12 +702,6 @@ val value_ind =
    |> SIMP_RULE (srw_ss()) []
    |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`;
 
-Triviality not_less_zoer_imp:
-  ~(i < 0) ⇒ ∃k. (i:int) = & k
-Proof
-  Cases_on ‘i’ \\ gvs []
-QED
-
 Triviality not_less_zero_imp:
   ~(i < 0:int) ⇒ ∃k. i = & k
 Proof
@@ -745,47 +720,27 @@ Theorem do_app_ssgc:
 Proof
   gen_tac >>
   `?this_is_case. this_is_case = opn` by metis_tac [] >>
-  Cases_on `opn` >>
+  cases_on_op `opn` >>
   simp[do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
-  >- ((* GetGlobal *)
-      simp[get_global_def, ssgc_free_def]
-      \\ rw [] \\ imp_res_tac not_less_zoer_imp \\ gvs []
-      \\ metis_tac[MEM_EL])
-  >- ((* SetGlobal *)
-      simp[ssgc_free_def, mglobals_extend_def, mapped_globals_def] >>
+  >>~- ([`WordOp`], dsimp[])
+  >>~- ([`WordShift`], dsimp[])
+  >>~- ([`WordFromWord`], dsimp[])
+  >>~- ([`BoundsCheckByte`], dsimp[])
+  >- (rename [‘Ref’]
+      \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
+  >- (rename [‘Update’] \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
       rpt strip_tac
       >- metis_tac[]
+      >- (irule IMP_EVERY_LUPDATE >> simp[] >> metis_tac[])
       >- metis_tac[]
-      >- (fs[MEM_LUPDATE] >> metis_tac[MEM_EL])
       >- metis_tac[]
-      >- metis_tac[]
-      >- (dsimp[SUBSET_DEF, get_global_def,
-                EL_LUPDATE, bool_case_eq] >> metis_tac[])
-      >- (fs[get_global_def, EL_LUPDATE]))
-  >- ((* AllocGlobal *)
-      dsimp[ssgc_free_def, mglobals_extend_def, mapped_globals_def, SUBSET_DEF,
-            get_global_def, EL_APPEND_EQN, bool_case_eq] >>
-      reverse (rpt strip_tac) >>
-      imp_res_tac not_less_zero_imp >> gvs [] >>
-      gvs [EL_REPLICATE,SF CONJ_ss]
-      >- (CCONTR_TAC >> gvs [EL_REPLICATE])
-      >- (CCONTR_TAC >> gvs [EL_REPLICATE])
-      \\ metis_tac[])
-  >- (rename [‘ConsExtend’] >>
-    dsimp [] >>
-    rw [] >>
-    irule EVERY_TAKE >>
-    irule EVERY_DROP >>
-    simp [])
+      >- metis_tac[])
   >- (rename [‘El’] \\ simp[PULL_FORALL] \\ rw []
       \\ fs [ssgc_free_def] \\ res_tac
       \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
       \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
-  >- (simp[PULL_FORALL] \\ rw []
-      \\ fs [ssgc_free_def] \\ res_tac
-      \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
-  >- (simp[ssgc_free_def] >>
+  >- (rename [‘RefByte’] \\ simp[ssgc_free_def] >>
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
       >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
       simp[FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
@@ -799,12 +754,41 @@ Proof
       dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
   >- (rename [‘CopyByte’]
       \\ dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
-  >- (rename [‘ListAppend’] \\
-      rw [] \\ fs []
-      \\ match_mp_tac list_to_v_EVERY_APPEND
-      \\ simp [vsgc_free_def]
-      \\ asm_exists_tac \\ fs []
-      \\ asm_exists_tac \\ fs [])
+  >- (rename [‘ToListByte’] \\ rw [] \\ rpt (pop_assum kall_tac)
+      \\ Induct_on `bs` \\ fs [list_to_v_def])
+  >- (rename [‘Global’]
+      \\ simp[get_global_def, ssgc_free_def]
+      \\ rw [] \\ imp_res_tac not_less_zero_imp \\ gvs []
+      \\ metis_tac[MEM_EL])
+  >- (rename [‘SetGlobal’]
+      \\ simp[ssgc_free_def, mglobals_extend_def, mapped_globals_def]
+      \\ rpt strip_tac
+      >- metis_tac[]
+      >- metis_tac[]
+      >- (fs[MEM_LUPDATE] >> metis_tac[MEM_EL])
+      >- metis_tac[]
+      >- metis_tac[]
+      >- (dsimp[SUBSET_DEF, get_global_def,
+                EL_LUPDATE, bool_case_eq] >> metis_tac[])
+      >- (fs[get_global_def, EL_LUPDATE]))
+  >- (rename [‘AllocGlobal’]
+      \\ dsimp[ssgc_free_def, mglobals_extend_def, mapped_globals_def, SUBSET_DEF,
+            get_global_def, EL_APPEND_EQN, bool_case_eq] >>
+      reverse (rpt strip_tac) >>
+      imp_res_tac not_less_zero_imp >> gvs [] >>
+      gvs [EL_REPLICATE,SF CONJ_ss]
+      >- (CCONTR_TAC >> gvs [EL_REPLICATE])
+      >- (CCONTR_TAC >> gvs [EL_REPLICATE])
+      \\ metis_tac[])
+  >- (rename [‘ElemAt’] \\ simp[PULL_FORALL] \\ rw []
+      \\ fs [ssgc_free_def] \\ res_tac
+      \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
+  >- (rename [‘ConsExtend’] >>
+    dsimp [] >>
+    rw [] >>
+    irule EVERY_TAKE >>
+    irule EVERY_DROP >>
+    simp [])
   >- (rename [‘FromList’] \\
       simp[PULL_FORALL] >> rpt gen_tac >> rename1 `v_to_list v = SOME vs` >>
       map_every qid_spec_tac [`vs`, `v`] >> ho_match_mp_tac value_ind >>
@@ -814,17 +798,18 @@ Proof
       simp[v_to_list_def] >>
       rename1 `closSem$Block _ (v1::v2::vs)` >> Cases_on `vs` >>
       simp[v_to_list_def, case_eq_thms, PULL_EXISTS, PULL_FORALL])
-  >- (rename [‘ToListByte’] \\ rw [] \\ rpt (pop_assum kall_tac)
-      \\ Induct_on `bs` \\ fs [list_to_v_def])
-  >- (rename [‘Ref’]
-      \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-  >- (rename [‘Update’] \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
-      rpt strip_tac
-      >- metis_tac[]
-      >- (irule IMP_EVERY_LUPDATE >> simp[] >> metis_tac[])
-      >- metis_tac[]
-      >- metis_tac[]
-      >- metis_tac[])
+  >- (rename [‘ListAppend’] \\
+      rw [] \\ fs []
+      \\ match_mp_tac list_to_v_EVERY_APPEND
+      \\ simp [vsgc_free_def]
+      \\ asm_exists_tac \\ fs []
+      \\ asm_exists_tac \\ fs [])
+  >- (rename [‘Constant c’]
+      \\ rw [] \\ qid_spec_tac ‘c’
+      \\ ho_match_mp_tac make_const_ind
+      \\ fs [make_const_def,EVERY_MEM,MEM_MAP,PULL_EXISTS])
+  >- (rename [‘EqualConst’]
+      \\ rw [] \\ fs [Boolv_def])
   >- (rename [‘FFI’] \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>
       rpt strip_tac >> PURE_FULL_CASE_TAC >> fs [] >> rveq
       >- (first_x_assum match_mp_tac >> fs[FLOOKUP_UPDATE,bool_case_eq] >> metis_tac[])
@@ -833,13 +818,6 @@ Proof
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
       \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq])
-  >- (rename [‘EqualConst’]
-      \\ rw [] \\ fs [Boolv_def])
-  >- (rename [‘Constant c’]
-      \\ rw [] \\ qid_spec_tac ‘c’
-      \\ ho_match_mp_tac make_const_ind
-      \\ fs [make_const_def,EVERY_MEM,MEM_MAP,PULL_EXISTS])
-  >> dsimp[]
 QED
 
 Theorem dest_closure_Full_sgc_free:
@@ -922,7 +900,7 @@ Proof
     \\ metis_tac [UNION_ASSOC, UNION_COMM])
   THEN1
    (say "Var"
-    \\ fs [evaluate_def, bool_case_eq, EVERY_EL]
+    \\ fs [evaluate_def, bool_case_eq, EVERY_EL] \\ rveq \\ fs[]
     \\ qexists_tac `0` \\ simp [])
   THEN1
    (say "If"
@@ -1058,7 +1036,7 @@ Proof
     \\ qexists_tac `0` \\ simp [])
   THEN1
    (say "Letrec"
-    \\ reverse (fs [evaluate_def, bool_case_eq])
+    \\ reverse (fs [evaluate_def, bool_case_eq]) \\ rveq \\ fs[]
     THEN1 (qexists_tac `0` \\ simp [])
     \\ fs [Once case_eq_thms] \\ rveq \\ fs []
     THEN1 (qexists_tac `0` \\ simp [])
@@ -1101,15 +1079,14 @@ Proof
    (say "Tick"
     \\ fs [evaluate_def, bool_case_eq] \\ rveq \\ fs []
     THEN1 (qexists_tac `0` \\ simp [])
-    \\ qpat_x_assum `_ = evaluate _` (assume_tac o GSYM)
     \\ fs [dec_clock_def]
     \\ qexists_tac `n` \\ simp [])
   THEN1
    (say "Call"
     \\ fs [evaluate_def, pair_case_eq, case_eq_thms, bool_case_eq]
     \\ rveq \\ fs []
-    \\ qpat_x_assum `_ = evaluate _` (assume_tac o GSYM)
     \\ fs [dec_clock_def]
+    >- metis_tac[]
     \\ rename [`find_code _ _ s1.code = SOME (args, code)`]
     \\ fs [find_code_def, case_eq_thms, pair_case_eq, bool_case_eq]
     \\ rveq \\ fs []
@@ -1231,17 +1208,17 @@ Theorem known_op_preserves_esgc_free:
      val_approx_sgc_free a /\ globals_approx_sgc_free g
 Proof
   rpt gen_tac \\ strip_tac
-  \\ Cases_on `opn`
+  \\ cases_on_op `opn`
   \\ fs [known_op_def] \\ rveq \\ fs []
-  THEN1 (fs [bool_case_eq, case_eq_thms] \\ rveq \\ fs []
-         \\ metis_tac [globals_approx_sgc_free_def])
-  THEN1 (fs [case_eq_thms] \\ rveq \\ fs []
-         \\ fs [globals_approx_sgc_free_def]
-         \\ rw [] \\ fs [lookup_insert, bool_case_eq]
-         \\ metis_tac [val_approx_sgc_free_merge])
-  THEN1 (fs [case_eq_thms, va_case_eq, bool_case_eq] \\ rveq \\ fs []
-         \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ fs []
-         \\ fs [EVERY_EL])
+  >- (fs [case_eq_thms, va_case_eq, bool_case_eq] \\ rveq \\ fs []
+    \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ fs []
+    \\ fs [EVERY_EL])
+  >- (fs [bool_case_eq, case_eq_thms] \\ rveq \\ fs []
+    \\ metis_tac [globals_approx_sgc_free_def])
+  >- (fs [case_eq_thms] \\ rveq \\ fs []
+    \\ fs [globals_approx_sgc_free_def]
+    \\ rw [] \\ fs [lookup_insert, bool_case_eq]
+    \\ metis_tac [val_approx_sgc_free_merge])
 QED
 
 Theorem elist_globals_empty:
@@ -1311,8 +1288,9 @@ Proof
          \\ simp [EVERY_REVERSE]
          \\ strip_tac
          \\ every_case_tac \\ simp [SmartOp_simp]
-         \\ rename [`isGlobal opn`] \\ Cases_on `opn` \\ fs [isGlobal_def]
-         \\ fs [known_op_def, op_gbag_def])
+         \\ rename [`isGlobal opn`]
+         \\ Cases_on `opn` \\ fs [isGlobal_def] \\ Cases_on `g''`
+         \\ fs [isGlobal_def, known_op_def, op_gbag_def])
   THEN1 (fs [inlD_case_eq]
          \\ rpt (pairarg_tac \\ fs []) \\ rveq
          \\ fs [bool_case_eq, SUB_BAG_UNION]
@@ -1489,7 +1467,7 @@ Proof
     \\ rpt (pairarg_tac \\ fs [])
     \\ imp_res_tac known_sing_EQ_E
     \\ imp_res_tac decide_inline_LetInline_IMP_Clos_fv_max
-    \\ fs [bool_case_eq, fv_max_rw] \\ rveq
+    \\ fs [bool_case_eq] \\ rveq \\ fs[fv_max_rw]
     \\ res_tac
     \\ qspec_then`MAP FST ea2`(fn th => rw[th])(Q.GEN`t`fv_max_cons)
     \\ match_mp_tac fv_max_less
@@ -1901,7 +1879,7 @@ Proof
     \\ simp [] \\ strip_tac
     \\ patresolve `known _ _ _ g1 = _` (el 1) known_preserves_esgc_free
     \\ simp [] \\ strip_tac
-    \\ reverse (fs [bool_case_eq]) \\ fixeqs \\ rveq
+    \\ reverse (fs [bool_case_eq]) \\ rveq
     THEN1
      (irule state_globals_approx_known_mglobals_disjoint
       \\ `?eaunused. known c [x2; x3] aenv g1 = (eaunused, g)` by simp [known_def]
@@ -2082,11 +2060,11 @@ Proof
     >-(
       rw[]
       \\ fs[result_case_eq, option_case_eq, pair_case_eq, bool_case_eq]
-      \\ rveq \\ fs[] \\ fixeqs
+      \\ rveq \\ fs[]
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ fs[LENGTH_EQ_NUM_compute])
     \\ fs[result_case_eq, option_case_eq, pair_case_eq, bool_case_eq]
-    \\ rveq \\ fs[] \\ fixeqs
+    \\ rveq \\ fs[]
     \\ fs[mglobals_disjoint_rw]
     \\ rename1 `evaluate (_, _, s0) = (Rval vs, s1)`
     \\ patresolve `known _ _ _ g0 = _` (el 1) known_preserves_esgc_free
@@ -2846,19 +2824,18 @@ Theorem known_op_subspt:
      BAG_OF_SET (domain g) ≤ BAG_OF_SET (domain g0) ⊎ op_gbag opn /\
      subspt g0 g
 Proof
-  Cases_on `opn` \\ fs [known_op_def]
+  cases_on_op `opn` \\ fs [known_op_def]
   \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
-  THEN1 fs [bool_case_eq, option_case_eq]
-  THEN1
-   (fs [list_case_eq, option_case_eq] \\ rveq
-    \\ fs [BAG_DISJOINT, DISJOINT_ALT, domain_lookup, PULL_EXISTS]
-    \\ fs [op_gbag_def]
-    \\ reverse conj_tac
-    THEN1 (rw [subspt_lookup, lookup_insert] \\ rw [] \\ fs [])
-    \\ rw [SUB_BAG, BAG_INN, BAG_OF_SET]
-    \\ Cases_on `x = n ∨ x ∈ domain g0` \\ fs [] \\ rveq
-    \\ fs [BAG_UNION, BAG_INSERT, domain_lookup])
-  THEN1 fs [list_case_eq, va_case_eq, bool_case_eq]
+  >- fs [list_case_eq, va_case_eq, bool_case_eq]
+  >- fs [bool_case_eq, option_case_eq]
+  \\ fs [list_case_eq, option_case_eq] \\ rveq
+  \\ fs [BAG_DISJOINT, DISJOINT_ALT, domain_lookup, PULL_EXISTS]
+  \\ fs [op_gbag_def]
+  \\ reverse conj_tac
+  >- (rw [subspt_lookup, lookup_insert] \\ rw [] \\ fs [])
+  \\ rw [SUB_BAG, BAG_INN, BAG_OF_SET]
+  \\ Cases_on `x = n ∨ x ∈ domain g0` \\ fs [] \\ rveq
+  \\ fs [BAG_UNION, BAG_INSERT, domain_lookup]
 QED
 
 Theorem known_subspt:
@@ -3146,8 +3123,8 @@ Proof
        by simp [next_g_def, shift_seq_def, oracle_gapprox_subspt_alt]
     \\ fs [bool_case_eq] \\ rveq \\ fs []
     THEN
-     (fixeqs
-      \\ first_x_assum drule
+     (
+      first_x_assum drule
       \\ rpt (disch_then drule \\ simp [])
       \\ simp [co_every_Fn_vs_NONE_shift_seq,
                oracle_state_sgc_free_shift_seq,
@@ -3284,28 +3261,30 @@ Proof
     \\ fs [pair_case_eq]
     \\ drule subspt_known_op_elist_globals
     \\ rpt (disch_then drule)
-    \\ impl_tac THEN1 (imp_res_tac unique_set_globals_IMP_es_distinct_elist_globals
-                       \\ fs [BAG_ALL_DISTINCT_BAG_UNION])
+    \\ impl_tac >- (
+      imp_res_tac unique_set_globals_IMP_es_distinct_elist_globals
+      \\ fs [BAG_ALL_DISTINCT_BAG_UNION])
     \\ strip_tac
     \\ `subspt g1 (next_g s0)` by metis_tac [subspt_trans]
     \\ rename [`isGlobal opn`, `gO_destApx apx`]
     \\ first_x_assum drule \\ rpt (disch_then drule \\ simp [])
     \\ disch_then (qspec_then `xenv2` mp_tac)
     \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
-    THEN1 (strip_tac \\ rveq \\ fs []
-           \\ Cases_on `opn` \\ simp [isGlobal_def, evaluate_def]
-           \\ Cases_on `apx` \\ simp [gO_destApx_def] \\ rveq
-           \\ TRY (irule_at Any SmartOp_thm)
-           \\ fs [known_op_def, NULL_EQ, bool_case_eq] \\ rveq
-           \\ fs [evaluate_def]
-           \\ strip_tac \\ gvs [])
+    >- (strip_tac \\ rveq \\ fs []
+      \\ Cases_on `opn` \\ simp [isGlobal_def, evaluate_def]
+      \\ TRY (Cases_on `g'` \\ simp [isGlobal_def, evaluate_def])
+      \\ Cases_on `apx` \\ simp [gO_destApx_def] \\ rveq
+      \\ TRY (irule_at Any SmartOp_thm)
+      \\ fs [known_op_def, NULL_EQ, bool_case_eq] \\ rveq
+      \\ fs [evaluate_def]
+      \\ strip_tac \\ gvs [])
     \\ rename1 `evaluate (_, _, s0) = (_, s1)`
     \\ strip_tac
     \\ `state_oracle_mglobals_disjoint s1`
        by (match_mp_tac state_oracle_mglobals_disjoint_evaluate_suff
            \\ goal_assum drule \\ simp [])
     \\ Cases_on `opn = Install` \\ fs []
-    THEN1
+    >-
      (drule EVERY2_REVERSE \\ strip_tac
       \\ rename1 `evaluate (_, _, s0) = (Rval vs1, _)`
       \\ rename1 `LIST_REL _ vs1 vs2`
@@ -3536,6 +3515,7 @@ Proof
     THEN1
      (fs []
       \\ Cases_on `opn` \\ fs [isGlobal_def]
+      \\ Cases_on `g'` \\ fs [isGlobal_def]
       \\ Cases_on `apx` \\ fs[gO_destApx_def] \\ rveq
       \\ fs [known_op_def, NULL_EQ, bool_case_eq] \\ rveq
       \\ imp_res_tac known_LENGTH_EQ_E \\ fs [LENGTH_NIL_SYM] \\ rveq
@@ -3581,11 +3561,11 @@ Proof
              \\ simp [] \\ strip_tac)
       \\ patresolve `do_app _ _ s1 = _` hd do_app_ssgc
       \\ simp [EVERY_REVERSE] \\ strip_tac
-      \\ reverse (Cases_on `?n. opn = SetGlobal n`)
-      THEN1 (Cases_on `opn`
-             \\ fs [op_gbag_def, mglobals_extend_def]
-             \\ fs [state_globals_approx_def] \\ rw []
-             \\ res_tac)
+      \\ reverse (Cases_on `?n. opn = GlobOp (SetGlobal n)`)
+      >- (Cases_on `opn` \\ TRY (Cases_on `g'`)
+        \\ fs [op_gbag_def, mglobals_extend_def]
+        \\ fs [state_globals_approx_def] \\ rw []
+        \\ res_tac)
       \\ rw [] \\ fs [op_gbag_def, mglobals_extend_def]
       \\ fs [state_globals_approx_def] \\ rw []
       \\ res_tac
@@ -3627,7 +3607,6 @@ Proof
     \\ fs [known_def]
     \\ rpt (pairarg_tac \\ fs []) \\ rveq
     \\ fs [evaluate_def, bool_case_eq]
-    \\ fixeqs
     \\ first_x_assum drule
     \\ rpt (disch_then drule \\ simp [])
     \\ qmatch_asmsub_abbrev_tac `evaluate (_, rcs1 ++ env1 ++ xenv1, _)`
@@ -4049,8 +4028,8 @@ Proof
   THEN1
    (say "evaluate_app NIL"
     \\ fs [evaluate_def, v_rel_app_NONE] \\ rveq \\ fs [])
-  THEN
-    say "evaluate_app CONS"
+  THEN1
+   (say "evaluate_app CONS"
     \\ fs [evaluate_def]
     \\ fs [dec_clock_def, ADD1]
     \\ `t0.max_app = s0.max_app /\ s0.clock = t0.clock` by fs [state_rel_def]
@@ -4079,7 +4058,7 @@ Proof
       \\ pop_assum (qspec_then `ii` mp_tac)
       \\ simp [f_rel_def]
       \\ strip_tac
-      \\ fs [bool_case_eq]
+      \\ fs [bool_case_eq] \\ rveq
       THEN1
        (fs [state_rel_def, next_g_def, loptrel_def, check_loc_def]
         \\ Cases_on `lopt2` \\ fs []
@@ -4499,7 +4478,7 @@ Proof
           \\ fs [result_case_eq] \\ rveq \\ fs [] \\ rveq
           \\ imp_res_tac evaluate_SING \\ rveq \\ fs [] \\ rveq \\ fs []
           \\ fs [CONV_RULE (LHS_CONV SYM_CONV) REVERSE_EQ_NIL, DROP_NIL]
-          \\ simp [DROP_LENGTH_TOO_LONG])))
+          \\ simp [DROP_LENGTH_TOO_LONG]))))
 QED
 
 Theorem semantics_known:
@@ -4935,20 +4914,21 @@ Definition globals_approx_every_Fn_SOME_def:
 End
 
 Theorem known_op_every_Fn_SOME:
-   known_op op x y = (a,b) ∧
+  known_op op x y = (a,b) ∧
   EVERY val_approx_every_Fn_SOME x ∧
   globals_approx_every_Fn_SOME y
    ⇒ val_approx_every_Fn_SOME a ∧
      globals_approx_every_Fn_SOME b
 Proof
-  Cases_on`op` \\ fs[known_op_def]
-  \\ rw[] \\ fsrw_tac[ETA_ss][CaseEq"prod",CaseEq"option",NULL_EQ,CaseEq"list",CaseEq"val_approx",CaseEq"bool"]
-  \\ rw[] \\ fs[]
-  \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,globals_approx_every_Fn_SOME_def,lookup_insert]
-  \\ rw[] \\ fs[]
-  \\ TRY ( match_mp_tac val_approx_every_Fn_SOME_merge \\ fs[] )
-  \\ last_x_assum match_mp_tac \\ fs[]
-  \\ TRY asm_exists_tac \\ fs[]
+  cases_on_op `op` \\ fs [known_op_def]
+  \\ rw [] \\ fsrw_tac [ETA_ss] [CaseEq"prod", CaseEq"option", NULL_EQ,
+    CaseEq"list", CaseEq"val_approx", CaseEq"bool"]
+  \\ rw [] \\ fs []
+  \\ fs [EVERY_MEM, MEM_EL, PULL_EXISTS, globals_approx_every_Fn_SOME_def, lookup_insert]
+  \\ rw [] \\ fs []
+  \\ TRY ( match_mp_tac val_approx_every_Fn_SOME_merge \\ fs [] )
+  \\ last_x_assum match_mp_tac \\ fs []
+  \\ TRY asm_exists_tac \\ fs []
   \\ intLib.COOPER_TAC
 QED
 
@@ -5061,7 +5041,7 @@ Theorem known_op_every_Fn_vs_NONE:
    ⇒ val_approx_every_Fn_vs_NONE a ∧
      globals_approx_every_Fn_vs_NONE b
 Proof
-  Cases_on`op` \\ fs[clos_knownTheory.known_op_def]
+  cases_on_op `op` \\ fs[clos_knownTheory.known_op_def]
   \\ rw[] \\ fsrw_tac[ETA_ss][CaseEq"prod",CaseEq"option",NULL_EQ,CaseEq"list",CaseEq"val_approx",CaseEq"bool"]
   \\ rw[] \\ fs[]
   \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,globals_approx_every_Fn_vs_NONE_def,lookup_insert]
@@ -5178,13 +5158,13 @@ Proof
 QED
 
 Theorem known_op_no_Labels:
-   known_op op x y = (a,b) ∧
+  known_op op x y = (a,b) ∧
   EVERY val_approx_no_Labels x ∧
   globals_approx_no_Labels y
    ⇒ val_approx_no_Labels a ∧
      globals_approx_no_Labels b
 Proof
-  Cases_on`op` \\ fs[clos_knownTheory.known_op_def] \\ rw[]
+  cases_on_op `op` \\ fs[clos_knownTheory.known_op_def] \\ rw[]
   \\ fsrw_tac[ETA_ss][CaseEq"prod",CaseEq"option",NULL_EQ,
                       CaseEq"list",CaseEq"val_approx",CaseEq"bool"]
   \\ rw[] \\ fs[val_approx_no_Labels_def]
@@ -5338,7 +5318,7 @@ Theorem known_op_obeys_max_app:
    ⇒ val_approx_obeys_max_app k a ∧
      globals_approx_obeys_max_app k b
 Proof
-  Cases_on`op` \\ fs[clos_knownTheory.known_op_def] \\ rw[]
+  cases_on_op `op` \\ fs[clos_knownTheory.known_op_def] \\ rw[]
   \\ fsrw_tac[ETA_ss][CaseEq"prod",CaseEq"option",NULL_EQ,
                       CaseEq"list",CaseEq"val_approx",CaseEq"bool"]
   \\ rw[] \\ fs[val_approx_obeys_max_app_def]

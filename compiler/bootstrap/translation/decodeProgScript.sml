@@ -88,6 +88,7 @@ Proof
   \\ rpt $ irule_at Any (fetch_v_fun “:clos_known$val_approx” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$exp” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$op” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:closLang$block_op” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:unit” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:num” |> snd |> hd) \\ fs []

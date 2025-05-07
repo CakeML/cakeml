@@ -27,7 +27,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars ml_translatorTheory.ml_translator_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname="ml_translator"}
   end
   open Parse
   val prim_exn_list = let
@@ -1592,29 +1592,6 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
 fun domain ty = ty |> dest_fun_type |> fst
 fun codomain ty = ty |> dest_fun_type |> snd
 
-fun persistent_skip_case_const const = let
-  val ty = (domain (type_of const))
-  fun thy_name_to_string thy name =
-    if thy = current_theory() then name else thy ^ "Theory." ^ name
-  val thm_name = if ty = bool then "COND_DEF" else
-    DB.match [] (concl (TypeBase.case_def_of ty))
-    |> map (fn ((thy,name),_) => thy_name_to_string thy name) |> hd
-  val str = thm_name
-  val str = "(Drule.CONJUNCTS " ^ str ^ ")"
-  val str = "(List.hd " ^ str ^ ")"
-  val str = "(Drule.SPEC_ALL " ^ str ^ ")"
-  val str = "(Thm.concl " ^ str ^ ")"
-  val str = "(boolSyntax.dest_eq " ^ str ^ ")"
-  val str = "(Lib.fst " ^ str ^ ")"
-  val str = "(Lib.repeat Term.rator " ^ str ^ ")"
-  val str = "val () = computeLib.set_skip computeLib.the_compset" ^
-            " " ^ str ^ " (SOME 1);\n"
-  val _ = adjoin_to_theory
-     {sig_ps = NONE, struct_ps = SOME(fn _ => PP.add_string str)}
-  in computeLib.set_skip computeLib.the_compset const (SOME 1) end
-
-val _ = persistent_skip_case_const (get_term "COND");
-
 val (FILTER_ASSUM_TAC : (term -> bool) -> tactic) = let
   fun sing f [x] = f x
     | sing f _ = raise ERR "sing" "Bind Error"
@@ -1778,7 +1755,6 @@ val th = inv_defs |> map #2 |> hd
     val (x1,x2) = cases_th |> CONJUNCTS |> hd |> concl |> repeat (snd o dest_forall)
                            |> dest_eq
     val case_const = x1 |> repeat rator
-    (* val _ = persistent_skip_case_const case_const *)
     val ty1 = case_const |> type_of |> domain
     val ty2 = x2 |> type_of
     val cases_th = INST_TYPE [ty2 |-> mk_vartype "'return_type"] cases_th

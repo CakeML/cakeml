@@ -313,7 +313,7 @@ Definition error_to_str_def:
   (error_to_str (StaticError e) =
     case e of
       ScopeErr   s => concat [strlit "### ERROR: scope error\n";  s; strlit "\n"]
-    | WarningErr s => concat [strlit "### WARNING:\n";            s; strlit "\n"]
+    | WarningErr s => concat [strlit "# WARNING:\n";              s; strlit "\n"]
     | GenErr     s => concat [strlit "### ERROR: static error\n"; s; strlit "\n"]
     | ShapeErr   s => concat [strlit "### ERROR: shape error\n";  s; strlit "\n"])
 End
