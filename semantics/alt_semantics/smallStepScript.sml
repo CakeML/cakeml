@@ -84,7 +84,7 @@ End
 
 Definition fix_fp_state_def:
   fix_fp_state [] fp = fp ∧
-  fix_fp_state ((Coptimise oldSc sc (),env)::cs) fp = fix_fp_state cs (fp with canOpt := oldSc) ∧
+  fix_fp_state ((Coptimise oldSc fpopt (),env)::cs) fp = fix_fp_state cs (fp with canOpt := oldSc) ∧
   fix_fp_state (c :: cs) fp = fix_fp_state cs fp
 End
 
@@ -204,8 +204,8 @@ Definition continue_def:
         return env s fp v c
     | (Clannot ()  l, env) :: c =>
         return env s fp v c
-    | (Coptimise oldSc sc (), env) :: c =>
-        return env s (fp with canOpt := oldSc) (HD (do_fpoptimise sc [v])) c
+    | (Coptimise oldSc fpopt (), env) :: c =>
+        return env s (fp with canOpt := oldSc) (HD (do_fpoptimise fpopt [v])) c
   )))
 End
 
@@ -266,16 +266,16 @@ Definition e_step_def:
                        s, fp, Exp e, c)
           | Tannot e t => push env s fp e (Ctannot ()  t) c
           | Lannot e l => push env s fp e (Clannot ()  l) c
-          | FpOptimise sc e =>
-              let fpN = if fp.canOpt = Strict then fp else fp with canOpt := FPScope sc in
-              push env s fpN e (Coptimise fp.canOpt sc ()) c
+          | FpOptimise fpopt e =>
+              let fpN = if fp.canOpt = Strict then fp else fp with canOpt := FPScope fpopt in
+              push env s fpN e (Coptimise fp.canOpt fpopt ()) c
         )
     | Exn v =>
        case c of
        | [] => Estuck
        | (Chandle () pes, env') :: c =>
             Estep (env, s, fp, Val v, (Cmat_check () pes v, env') :: c)
-       | (Coptimise oldSc sc (), env') :: c =>
+       | (Coptimise oldSc fpopt (), env') :: c =>
            Estep (env, s, fp with canOpt := oldSc , Exn v, c)
        | _ :: c => Estep (env, s, fp, Exn v, c)
   )))

@@ -2397,7 +2397,7 @@ Proof
 QED
 
 Triviality opt_case_bool_eq:
-  option_CASE opt nc sc <=> (opt = NONE /\ nc) \/ (?x. opt = SOME x /\ sc x)
+  option_CASE opt nc scc <=> (opt = NONE /\ nc) \/ (?x. opt = SOME x /\ scc x)
 Proof
   Cases_on `opt` \\ simp []
 QED
