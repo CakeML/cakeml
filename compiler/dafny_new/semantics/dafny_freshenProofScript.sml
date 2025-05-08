@@ -268,13 +268,6 @@ Proof
   rpt strip_tac \\ gvs [safe_zip_def]
 QED
 
-Triviality safe_zip_cons_cons:
-  safe_zip (x::xs) (y::ys) = SOME (z::zs) ⇔
-    z = (x, y) ∧ safe_zip xs ys = SOME zs
-Proof
-  cheat
-QED
-
 Triviality map_add_fresh_map_inv:
   map_add_fresh m cnt ns = (cnt', m') ∧ map_inv m cnt ⇒
   map_inv m' cnt'
@@ -535,78 +528,105 @@ Proof
   \\ drule get_member_aux_some \\ gvs []
 QED
 
-Triviality a:
-  ∀m ns.
-    MAP FST m = ns ∧ ALL_DISTINCT ns ⇒
-    MAP (lookup m) ns =
-    MAP (λi. «v» ^ num_to_str i) (MAP SND m)
-Proof
-  Induct_on ‘m’ \\ rpt strip_tac \\ gvs []
-  \\ rename [‘lookup (h::m')’]
-  \\ namedCases_on ‘h’ ["snam tnum"] \\ gvs []
-  \\ drule_all distinct_names_map_lookup \\ gvs []
-QED
+(** **)
 
-Triviality distinct_new_names_iff:
-  ALL_DISTINCT (MAP (λi. «v» ^ toString i) xs) ⇔ ALL_DISTINCT xs
-Proof
-  eq_tac \\ Induct_on ‘xs’ \\ gvs []
-  \\ rpt strip_tac
-  \\ cheat
-QED
-
-Triviality map_inv_distinct_snd:
+Triviality map_inv_distinct:
+  (* This should follow from sortedness in a strict order *)
   map_inv m cnt ⇒ ALL_DISTINCT (MAP SND m)
 Proof
-  strip_tac \\ gvs [map_inv_def]
-  \\ irule SORTED_ALL_DISTINCT
-  \\ qexists ‘$>’ \\ gvs []
-  \\ cheat
+  cheat
 QED
 
-(* TODO Consolidate following lemmas? *)
-Triviality distinct_map_lookup:
-  ∀m cnt ns.
-    map_inv m cnt ∧ MAP FST m = ns ∧ ALL_DISTINCT ns ⇒
-    ALL_DISTINCT (MAP (lookup m) ns)
+(** **)
+
+Triviality lemma:
+  ∀m₀ cnt ns cnt' m'.
+    map_add_fresh m₀ cnt ns = (cnt', m') ∧
+    map_inv m₀ cnt ⇒
+    ∃m₁.
+      m' = m₁ ++ m₀ ∧ MAP FST m₁ = REVERSE ns ∧
+      ALL_DISTINCT (MAP SND m₀ ++ MAP SND m₁)
+Proof
+  Induct_on ‘ns’ \\ rpt strip_tac
+  \\ gvs [map_add_fresh_def, add_fresh_def]
+  >- (drule map_inv_distinct \\ gvs [])
+  \\ last_x_assum drule \\ impl_tac
+  >- (gvs [map_inv_def] \\ cheat)
+  \\ rpt strip_tac
+  \\ rename [‘(h, cnt)’]
+  \\ qexists ‘m₁ ++ [(h, cnt)]’ \\ gvs [ALL_DISTINCT_APPEND]
+QED
+
+(* TODO Check whether something like this already exists *)
+Triviality MEM_ALOOKUP:
+  ∀l x. MEM x (MAP FST l) ⇒ ∃v. ALOOKUP l x = SOME v
+Proof
+  Induct_on ‘l’ \\ rpt strip_tac \\ gvs []
+  \\ rename [‘h::l’] \\ namedCases_on ‘h’ ["k v"] \\ gvs []
+  \\ Cases_on ‘k = x’ \\ gvs []
+QED
+
+Triviality lemma0:
+  ∀n m₁ m₀.
+    MEM n (MAP FST m₁) ⇒ lookup (m₁ ++ m₀) n = lookup m₁ n
 Proof
   rpt strip_tac
-  \\ drule_all a \\ strip_tac \\ gvs []
-  \\ gvs [a'] \\ drule map_inv_distinct_snd \\ gvs []
+  \\ gvs [lookup_def, ALOOKUP_APPEND]
+  \\ drule MEM_ALOOKUP \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality distinct_map_lookup':
-    map_inv (m₁ ++ m₀) cnt ∧ MAP FST m₁ = ns ∧ ALL_DISTINCT ns ⇒
-    ALL_DISTINCT (MAP (lookup (m₁ ++ m₀)) ns)
+Triviality lemma1:
+  ∀ns m₁ m₀.
+    (∀n. MEM n ns ⇒ MEM n (MAP FST m₁)) ⇒
+    MAP (lookup (m₁ ++ m₀)) ns = MAP (lookup m₁) ns
+Proof
+  rpt strip_tac
+  \\ irule MAP_CONG \\ gvs []
+  \\ metis_tac [lemma0]
+QED
+
+Triviality lemma1_2:
+  MAP FST m₁ = REVERSE ns ⇒
+  MAP (lookup (m₁ ++ m₀)) ns = MAP (lookup m₁) ns
+Proof
+  rpt strip_tac
+  \\ irule lemma1
+  \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality lemma2:
+  ∀m₁ ns m₀.
+    MAP FST m₁ = REVERSE ns ⇒
+    MAP (lookup (m₁ ++ m₀)) ns =
+    MAP (λi. «v» ^ num_to_str i) (MAP SND m₁)
 Proof
   cheat
 QED
 
-Triviality sketch:
-  map_add_fresh m cnt ns = (cnt', m') ∧
-  ALL_DISTINCT (MAP FST m ++ ns) ⇒
-  ALL_DISTINCT (MAP FST m')
+Triviality lemma3:
+  ALL_DISTINCT (MAP (λi. «v» ^ toString i) (MAP SND m)) ⇔
+    ALL_DISTINCT (MAP SND m)
 Proof
   cheat
 QED
 
-Triviality map_inv_drop_tail:
-  ∀m tl cnt. map_inv (m ++ tl) cnt ⇒ map_inv m cnt
+Triviality lemma4:
+  ALL_DISTINCT
+    (MAP (λi. «v» ^ toString i) (MAP SND m₀) ++
+     MAP (λi. «v» ^ toString i) (MAP SND m₁)) ⇔
+  ALL_DISTINCT (MAP SND m₀ ++ MAP SND m₁)
 Proof
-  Induct_on ‘m’ \\ rpt strip_tac \\ gvs [map_inv_def]
-  \\ cheat
+  cheat
 QED
 
-Triviality map_add_fresh_distinct_map_lookup:
+Triviality distinct_ins_lookup:
   map_add_fresh [] 0 ns = (cnt, m) ∧ ALL_DISTINCT ns ⇒
   ALL_DISTINCT (MAP (lookup m) ns)
 Proof
   rpt strip_tac
-  \\ drule map_add_fresh_exists \\ rpt strip_tac \\ gvs []
-  \\ drule map_add_fresh_map_inv
-  \\ impl_tac >- gvs [map_inv_def] \\ strip_tac
-  \\ drule distinct_map_lookup
-  \\ disch_then drule \\ rpt strip_tac \\ gvs [MAP_REVERSE]
+  \\ drule lemma \\ rpt strip_tac \\ gvs []
+  \\ drule lemma2 \\ disch_then $ qspec_then ‘[]’ assume_tac \\ gvs []
+  \\ gvs [lemma3]
 QED
 
 Triviality distinct_ins_out_lookup:
@@ -617,29 +637,11 @@ Triviality distinct_ins_out_lookup:
     (MAP (lookup m₀) (MAP FST ins) ++ MAP (lookup m₁) (MAP FST outs))
 Proof
   rpt strip_tac
-  \\ rev_drule map_add_fresh_exists \\ rpt strip_tac \\ gvs []
-  \\ rev_drule map_add_fresh_map_inv
-  \\ impl_tac >- gvs [map_inv_def] \\ strip_tac
-  \\ drule distinct_map_lookup \\ disch_then drule
-  \\ impl_tac >- gvs [ALL_DISTINCT_APPEND] \\ strip_tac
-  \\ gvs [MAP_REVERSE]
-
-  \\ drule map_add_fresh_exists \\ rpt strip_tac \\ gvs []
-  \\ drule map_add_fresh_map_inv \\ strip_tac \\ gvs []
-
-  \\ drule distinct_map_lookup' \\ disch_then drule
-  \\ impl_tac >- gvs [ALL_DISTINCT_APPEND] \\ strip_tac
-  \\ gvs [ALL_DISTINCT_APPEND, MAP_REVERSE]
-  \\ ntac 2 (strip_tac)
-  \\ drule map_inv_drop_tail \\ strip_tac \\ gvs []
-
-  \\ drule distinct_map_lookup \\ disch_then drule
-  \\ impl_tac >- gvs [ALL_DISTINCT_APPEND] \\ strip_tac
-  \\ gvs [MAP_REVERSE]
-
-  \\ drule map_lookup_append
-  \\ disch_then $ qspec_then ‘m₀’ (assume_tac o GSYM)
-  \\ gvs []
+  \\ rev_drule lemma \\ rpt strip_tac \\ gvs []
+  \\ drule lemma \\ rpt strip_tac \\ gvs []
+  \\ drule lemma2 \\ disch_then $ qspec_then ‘m₀’ assume_tac \\ gvs []
+  \\ rev_drule lemma2 \\ disch_then $ qspec_then ‘[]’ assume_tac \\ gvs []
+  \\ gvs [lemma4]
 QED
 
 Theorem correct_freshen_exp:
@@ -674,7 +676,7 @@ Proof
     \\ rename [‘UNZIP ins = _’]
     \\ gvs [UNZIP_MAP, MAP_ZIP]
     \\ Cases_on ‘ALL_DISTINCT (MAP FST ins)’ \\ gvs []
-    \\ drule map_add_fresh_distinct_map_lookup \\ strip_tac \\ gvs []
+    \\ drule distinct_ins_lookup \\ strip_tac \\ gvs []
     \\ gvs [safe_zip_def]
     \\ Cases_on ‘LENGTH ins ≠ LENGTH in_vs’ \\ gvs []
     \\ qabbrev_tac
