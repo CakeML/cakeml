@@ -906,11 +906,22 @@ Proof
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
-Theorem first_compile_prog_all_distinct:
-  ALL_DISTINCT (MAP FST prog) ==>
-  ALL_DISTINCT (MAP FST (pan_simp$compile_prog prog))
+Theorem functions_compile_prog:
+  functions(pan_simp$compile_prog prog) =
+  MAP (λ(x,y,z). (x,y,compile z)) (functions prog)
 Proof
-  rw [] >>
+  Induct_on ‘prog’ using panLangTheory.functions_ind >> rw[] >>
+  gvs[compile_prog_def,panLangTheory.functions_def]
+QED
+
+Theorem first_compile_prog_all_distinct:
+  ALL_DISTINCT (MAP FST (functions prog)) ==>
+  ALL_DISTINCT (MAP FST (functions (pan_simp$compile_prog prog)))
+Proof
+  rw [functions_compile_prog] >>
+  qpat_abbrev_tac ‘a1 = functions prog’ >>
+  pop_assum kall_tac >>
+  rename1 ‘MAP _ (MAP _ prog)’ >>
   fs [pan_simpTheory.compile_prog_def] >>
   fs [MAP_MAP_o] >>
   qmatch_goalsub_abbrev_tac ‘MAP ls _’ >>
@@ -926,70 +937,35 @@ QED
 
 Theorem el_compile_prog_el_prog_eq:
   !prog n start pprog p.
-   EL n (compile_prog prog) = (start,[],pprog) /\
-   ALL_DISTINCT (MAP FST prog) /\ n < LENGTH prog /\
-   ALOOKUP prog start = SOME ([],p) ==>
-     EL n prog = (start,[],p)
+   EL n (functions(compile_prog prog)) = (start,[],pprog) /\
+   ALL_DISTINCT (MAP FST(functions prog)) /\ n < LENGTH(functions prog) /\
+   ALOOKUP (functions prog) start = SOME ([],p) ==>
+     EL n (functions prog) = (start,[],p)
 Proof
-  Induct >> rw [] >>
-  fs [compile_prog_def] >>
-  cases_on ‘n’ >> fs [] >> rveq >> fs []
-  >- (
-   cases_on ‘h’ >> rfs [] >>
-   cases_on ‘r’ >> rfs [] >> rveq >> fs []) >>
-  last_x_assum match_mp_tac >>
-  qexists_tac ‘pprog’ >> fs [] >>
-  cases_on ‘h’ >> fs [] >>
-  cases_on ‘q = start’ >> fs [] >> rveq >> fs [] >>
-  fs [MEM_EL] >>
-  first_x_assum (qspec_then ‘n'’ mp_tac) >>
-  fs [] >>
+  rw[functions_compile_prog] >>
+  gvs[EL_MAP,UNCURRY_eq_pair] >>
+  imp_res_tac ALOOKUP_MEM >>
+  drule EL_MEM >>
   strip_tac >>
-  qmatch_asmsub_abbrev_tac ‘EL _ (MAP ff _) = _’ >>
-  ‘EL n' (MAP ff prog) = ff (EL n' prog)’ by (
-    match_mp_tac EL_MAP >> fs []) >>
-  fs [] >>
-  fs [Abbr ‘ff’] >>
-  cases_on ‘EL n' prog’ >> fs [] >>
-  cases_on ‘r’ >> fs [] >> rveq >> rfs [] >>
-  metis_tac [pan_commonPropsTheory.el_pair_map_fst_el]
+  gvs[MEM_SPLIT] >>
+  gvs[ALL_DISTINCT_APPEND,APPEND_EQ_APPEND_MID, APPEND_EQ_CONS, SF DNF_ss]
 QED
 
 
 Theorem compile_prog_distinct_params:
   ∀prog.
-    EVERY (λ(name,params,body). ALL_DISTINCT params) prog ⇒
-    EVERY (λ(name,params,body). ALL_DISTINCT params) (compile_prog prog)
+    EVERY (λ(name,params,body). ALL_DISTINCT params) (functions prog) ⇒
+    EVERY (λ(name,params,body). ALL_DISTINCT params) (functions(compile_prog prog))
 Proof
-  rw [] >>
-  fs [EVERY_MEM] >>
-  rw [] >>
-  PairCases_on ‘e’ >> fs [] >>
-  fs [compile_prog_def] >>
-  fs [MEM_EL] >>
-  qmatch_asmsub_abbrev_tac ‘MAP ff _’ >>
-  ‘EL n (MAP ff prog) = ff (EL n prog)’ by (
-    match_mp_tac EL_MAP >>
-    fs []) >>
-  fs [] >> rveq >> fs [] >>
-  pop_assum kall_tac >>
-  fs [Abbr ‘ff’] >>
-  cases_on ‘EL n prog’ >>
-  cases_on ‘r’ >> fs [] >> rveq >>
-  last_x_assum (qspec_then ‘(e0,e1,r')’ mp_tac) >>
-  fs [] >>
-  impl_tac
-  >- metis_tac [] >>
-  fs []
+  rw[functions_compile_prog,EVERY_MAP,ELIM_UNCURRY]
 QED
 
 
 Theorem state_rel_imp_semantics:
-  !s t pan_code start prog. state_rel s t t.code ∧
-  ALL_DISTINCT (MAP FST pan_code) ∧
-  s.code = alist_to_fmap pan_code ∧
-  t.code = alist_to_fmap (pan_simp$compile_prog pan_code) ∧
-  ALOOKUP pan_code start = SOME ([],prog) ∧
+  !s t pan_code start. state_rel s t t.code ∧
+  ALL_DISTINCT (MAP FST (functions pan_code)) ∧
+  s.code = alist_to_fmap (functions pan_code) ∧
+  t.code = alist_to_fmap (functions (pan_simp$compile_prog pan_code)) ∧
   semantics s start <> Fail ==>
   semantics t start = semantics s start
 Proof
@@ -1149,13 +1125,13 @@ Proof
                           ``:'b``|->``:'b``]
                panPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_assum (qspecl_then
-                [‘TailCall (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
+                [‘TailCall start []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘TailCall (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
+                [‘TailCall start []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘TailCall (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
+                [‘TailCall start []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘TailCall (Label start) []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
+                [‘TailCall start []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
    fs []) >>
   simp [equiv_lprefix_chain_thm] >>
   fs [Abbr ‘l1’, Abbr ‘l2’]  >> simp[PULL_EXISTS] >>
@@ -1191,7 +1167,7 @@ Proof
                           ``:'b``|->``:'b``]
                panPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_x_assum (qspecl_then
-                  [‘TailCall (Label start) []’,
+                  [‘TailCall start []’,
                    ‘t with clock := k’, ‘ck’] mp_tac) >>
    strip_tac >> rfs [] >>
    rfs [state_rel_def, state_component_equality, IS_PREFIX_THM]) >>
@@ -1213,6 +1189,49 @@ Proof
   qexists_tac ‘k’ >>
   fs [] >>
   fs [state_rel_def, state_component_equality, IS_PREFIX_THM]
+QED
+
+Theorem state_rel_imp_evaluate_decls:
+  !s pan_code t s' start. state_rel s t t.code ∧
+  ALL_DISTINCT (MAP FST (functions pan_code)) ∧
+  evaluate_decls s pan_code = SOME s' ⇒
+  ∃t'. evaluate_decls t (pan_simp$compile_prog pan_code) = SOME t' ∧
+      state_rel s' t' t'.code
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[compile_prog_def,panLangTheory.functions_def, evaluate_decls_def] >>
+  gvs[AllCaseEqs(),PULL_EXISTS]
+  >- (irule_at (Pos hd) compile_eval_correct >>
+      first_assum $ irule_at $ Pos hd >>
+      simp[GSYM PULL_EXISTS] >>
+      conj_tac
+      >- (gvs[state_rel_def,state_component_equality]) >>
+      first_x_assum match_mp_tac >>
+      gvs[state_rel_def,state_component_equality]) >>
+  first_x_assum match_mp_tac >>
+  gvs[state_rel_def,state_component_equality,FLOOKUP_UPDATE] >>
+  rw[]
+QED
+
+Theorem state_rel_imp_semantics_decls:
+  !s t pan_code start prog. state_rel s t t.code ∧
+  ALL_DISTINCT (MAP FST (functions pan_code)) ∧
+  s.code = FEMPTY ∧
+  t.code = FEMPTY ∧
+  semantics_decls s start pan_code <> Fail ==>
+  semantics_decls s start pan_code = semantics_decls t start (pan_simp$compile_prog pan_code)
+Proof
+  rw [semantics_decls_def] >>
+  gvs[AllCaseEqs(),GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
+  drule_at (Pos last) state_rel_imp_evaluate_decls >>
+  disch_then $ qspec_then ‘t’ mp_tac >>
+  simp[] >>
+  strip_tac >>
+  simp[] >>
+  irule state_rel_imp_semantics >>
+  simp[] >>
+  first_x_assum $ irule_at $ Pos hd >>
+  cheat
 QED
 
 val _ = export_theory();

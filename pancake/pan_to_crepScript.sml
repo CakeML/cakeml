@@ -340,7 +340,6 @@ Definition get_eids_def:
     alist_to_fmap es
 End
 
-
 Definition make_funcs_def:
   make_funcs prog =
   let fnames = MAP FST prog;
@@ -360,7 +359,8 @@ End
 
 Definition compile_prog_def:
   compile_prog prog =
-  let comp = comp_func (make_funcs prog) (get_eids prog) in
+  let prog = functions prog;
+      comp = comp_func (make_funcs prog) (get_eids prog) in
     MAP (λ(name, params, body).
           (name,
            crep_vars params,

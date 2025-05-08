@@ -199,4 +199,16 @@ Definition store_op_def:
   store_op Op32 = Store32
 End
 
+Definition is_function_def:
+  is_function(Function _ _ _ _) = T ∧
+  is_function _ = F
+End
+
+Definition functions_def:
+  functions [] = [] ∧
+  functions(Function name export params body::fs) =
+  (name,params,body)::functions fs ∧
+  functions(Decl _ _ _::fs) = functions fs
+End
+
 val _ = export_theory();

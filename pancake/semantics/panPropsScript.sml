@@ -985,4 +985,13 @@ Proof
   irule eval_upd_code_eq
 QED
 
+Theorem functions_eq_FILTER:
+  functions prog =
+  MAP (λx. case x of Function f x y z => (f,y,z) | Decl _ _ _ => ARB)
+  $ FILTER is_function prog
+Proof
+  Induct_on ‘prog’ using functions_ind >>
+  rw[functions_def,is_function_def]
+QED
+
 val _ = export_theory();
