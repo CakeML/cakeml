@@ -221,6 +221,28 @@ Definition env_rel_def:
     env'.prog = freshen_program env.prog
 End
 
+(* simps *)
+
+Theorem with_same_locals[simp]:
+  ∀s. s with locals := s.locals = s
+Proof
+  gvs [state_component_equality]
+QED
+
+Triviality lookup_not_head[simp]:
+  ∀v v' n ms.
+    v ≠ v' ⇒ lookup ((v,n)::ms) v' = lookup ms v'
+Proof
+  rpt strip_tac \\ gvs [lookup_def]
+QED
+
+Triviality lookup_head[simp]:
+  ∀v n ms.
+    lookup ((v,n)::ms) v = «v» ^ toString n
+Proof
+  rpt strip_tac \\ gvs [lookup_def]
+QED
+
 Triviality locals_rel_pop:
   ∀sl ss ml ms tl ts.
     locals_rel (sl::ss) (ml::ms) (tl::ts) ⇒ locals_rel ss ms ts
@@ -275,7 +297,7 @@ Proof
 QED
 
 Triviality locals_rel_from_map:
-  ∀vs m cnt.
+  ∀(vs: (value option) list) (m: (mlstring # num) list).
     ALL_DISTINCT (MAP FST m) ∧ LENGTH vs = LENGTH m ⇒
     locals_rel (ZIP (MAP FST m, vs)) m
       (ZIP (MAP (lookup m) (MAP FST m), vs))
@@ -304,29 +326,92 @@ Proof
   \\ first_x_assum drule \\ gvs []
 QED
 
+Triviality map_add_fresh_len:
+  ∀m cnt ns cnt' ms' m'.
+    map_add_fresh m cnt ns = (cnt', m') ⇒
+    LENGTH m' = LENGTH m + LENGTH ns
+Proof
+  Induct_on ‘ns’ \\ rpt strip_tac
+  \\ gvs [map_add_fresh_def, add_fresh_def]
+  \\ res_tac \\ gvs []
+QED
+
+Triviality map_add_fresh_exists:
+  ∀m cnt ns cnt' m'.
+    map_add_fresh m cnt ns = (cnt', m') ⇒
+    ∃m₁. m' = m₁ ++ m ∧ MAP FST m₁ = REVERSE ns
+Proof
+  Induct_on ‘ns’ \\ rpt strip_tac
+  \\ gvs [map_add_fresh_def, add_fresh_def]
+  \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs []
+QED
+
 Triviality map_add_fresh_ins_locals_rel:
-  ∀ins in_vs cnt m.
+  ∀ins (in_vs: value list) cnt m.
     map_add_fresh [] 0 (MAP FST ins) = (cnt, m) ∧
+    ALL_DISTINCT (MAP FST ins) ∧
     LENGTH ins = LENGTH in_vs ⇒
     locals_rel
-      (ZIP (MAP FST ins, MAP SOME in_vs)) m
-      (ZIP (MAP (lookup m) (MAP FST ins), MAP SOME in_vs))
+      (REVERSE (ZIP (MAP FST ins, MAP SOME in_vs))) m
+      (REVERSE (ZIP (MAP (lookup m) (MAP FST ins), MAP SOME in_vs)))
+Proof
+  rpt strip_tac
+  \\ drule_then assume_tac map_add_fresh_distinct \\ gvs []
+  \\ drule map_add_fresh_len \\ strip_tac \\ gvs []
+  \\ drule locals_rel_from_map
+  \\ disch_then $ qspec_then ‘REVERSE (MAP SOME in_vs)’ mp_tac
+  \\ strip_tac \\ gvs []
+  \\ drule map_add_fresh_exists \\ rpt strip_tac \\ gvs []
+  \\ gvs [MAP_REVERSE, REVERSE_ZIP]
+QED
+
+Triviality locals_rel_append:
+  locals_rel xs ys zs ∧
+  locals_rel xs' ys' zs' ⇒
+  locals_rel (xs' ++ xs) (ys' ++ ys) (zs' ++ zs)
+Proof
+  cheat
+QED
+
+(* The precondition is a bit strong, but good enough for our purposes. *)
+Triviality map_lookup_append:
+  MAP FST m = REVERSE ns ⇒
+  MAP (lookup m) ns =
+  MAP (lookup (m ++ xs)) ns
 Proof
   cheat
 QED
 
 Triviality map_add_fresh_ins_outs_locals_rel:
-  ∀ins in_vs cnt₁ m outs cnt₂ m'.
+  ∀ins (in_vs: value list) cnt₁ m outs cnt₂ m'.
     map_add_fresh [] 0 (MAP FST ins) = (cnt₁,m) ∧
     map_add_fresh m cnt₁ (MAP FST outs) = (cnt₂,m') ∧
+    ALL_DISTINCT (MAP FST ins ++ MAP FST outs) ∧
     LENGTH ins = LENGTH in_vs ⇒
     locals_rel
-      (ZIP (MAP FST ins, MAP SOME in_vs) ++
-       ZIP (MAP FST outs, REPLICATE (LENGTH outs) NONE)) m'
-      (ZIP (MAP (lookup m) (MAP FST ins),MAP SOME in_vs) ++
-       ZIP (MAP (lookup m') (MAP FST outs),REPLICATE (LENGTH outs) NONE))
+      (REVERSE
+         (ZIP (MAP FST ins, MAP SOME in_vs) ++
+          ZIP (MAP FST outs, REPLICATE (LENGTH outs) NONE))) m'
+      (REVERSE
+         (ZIP (MAP (lookup m) (MAP FST ins),MAP SOME in_vs) ++
+          ZIP
+            (MAP (lookup m') (MAP FST outs),
+             REPLICATE (LENGTH outs) NONE)))
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [ALL_DISTINCT_APPEND]
+  \\ drule_all map_add_fresh_ins_locals_rel \\ strip_tac
+  \\ drule map_add_fresh_exists \\ rpt strip_tac
+  \\ rename [‘m' = m₁ ++ m’]
+  \\ ‘LENGTH m₁ = LENGTH outs’ by metis_tac [LENGTH_MAP, LENGTH_REVERSE]
+  \\ qspecl_then [‘REPLICATE (LENGTH outs) NONE’, ‘m₁’] mp_tac
+       locals_rel_from_map
+  \\ strip_tac \\ gvs []
+  \\ rev_dxrule locals_rel_append
+  \\ disch_then dxrule \\ strip_tac
+  \\ gvs [REVERSE_APPEND, MAP_REVERSE, REVERSE_ZIP]
+  \\ drule map_lookup_append
+  \\ disch_then $ qspec_then ‘m’ assume_tac \\ gvs []
 QED
 
 Triviality freshen_exp_mono:
@@ -387,7 +472,7 @@ Proof
   \\ irule MONO_EVERY \\ qexists ‘λi. i < cnt’ \\ gvs []
 QED
 
-Triviality lookup_neq:
+Triviality map_inv_lookup_neq:
   ∀m tnum var.
     map_inv m tnum ⇒ lookup m var ≠ «v» ^ toString tnum
 Proof
@@ -409,10 +494,11 @@ Proof
   recInduct locals_rel_ind \\ rpt strip_tac
   \\ gvs [locals_rel_def, read_local_def]
   \\ rename [‘lookup ((snam,tnum)::m')’]
-  \\ Cases_on ‘snam = var’ \\ gvs [] >- gvs [lookup_def]
+  \\ Cases_on ‘snam = var’ \\ gvs []
   \\ gvs [lookup_pop]
   \\ drule_then assume_tac map_inv_pair_pop
-  \\ drule lookup_neq \\ disch_then $ qspec_then ‘var’ assume_tac \\ gvs []
+  \\ drule map_inv_lookup_neq
+  \\ disch_then $ qspec_then ‘var’ assume_tac \\ gvs []
   \\ last_x_assum drule_all \\ gvs []
 QED
 
@@ -421,12 +507,6 @@ Triviality state_rel_mono:
     state_rel s t m cnt ∧ cnt ≤ cnt' ⇒ state_rel s t m cnt'
 Proof
   gvs [state_rel_def] \\ rpt strip_tac \\ imp_res_tac map_inv_mono
-QED
-
-Theorem with_same_locals[simp]:
-  ∀s. s with locals := s.locals = s
-Proof
-  gvs [state_component_equality]
 QED
 
 Triviality get_member_aux_some:
@@ -455,10 +535,111 @@ Proof
   \\ drule get_member_aux_some \\ gvs []
 QED
 
-Triviality eq_len_safe_zip_some:
-  ∀ns vs. LENGTH ns = LENGTH vs ⇒ ∃params. safe_zip ns vs = SOME params
+Triviality a:
+  ∀m ns.
+    MAP FST m = ns ∧ ALL_DISTINCT ns ⇒
+    MAP (lookup m) ns =
+    MAP (λi. «v» ^ num_to_str i) (MAP SND m)
 Proof
-  gvs [safe_zip_def]
+  Induct_on ‘m’ \\ rpt strip_tac \\ gvs []
+  \\ rename [‘lookup (h::m')’]
+  \\ namedCases_on ‘h’ ["snam tnum"] \\ gvs []
+  \\ drule_all distinct_names_map_lookup \\ gvs []
+QED
+
+Triviality distinct_new_names_iff:
+  ALL_DISTINCT (MAP (λi. «v» ^ toString i) xs) ⇔ ALL_DISTINCT xs
+Proof
+  eq_tac \\ Induct_on ‘xs’ \\ gvs []
+  \\ rpt strip_tac
+  \\ cheat
+QED
+
+Triviality map_inv_distinct_snd:
+  map_inv m cnt ⇒ ALL_DISTINCT (MAP SND m)
+Proof
+  strip_tac \\ gvs [map_inv_def]
+  \\ irule SORTED_ALL_DISTINCT
+  \\ qexists ‘$>’ \\ gvs []
+  \\ cheat
+QED
+
+(* TODO Consolidate following lemmas? *)
+Triviality distinct_map_lookup:
+  ∀m cnt ns.
+    map_inv m cnt ∧ MAP FST m = ns ∧ ALL_DISTINCT ns ⇒
+    ALL_DISTINCT (MAP (lookup m) ns)
+Proof
+  rpt strip_tac
+  \\ drule_all a \\ strip_tac \\ gvs []
+  \\ gvs [a'] \\ drule map_inv_distinct_snd \\ gvs []
+QED
+
+Triviality distinct_map_lookup':
+    map_inv (m₁ ++ m₀) cnt ∧ MAP FST m₁ = ns ∧ ALL_DISTINCT ns ⇒
+    ALL_DISTINCT (MAP (lookup (m₁ ++ m₀)) ns)
+Proof
+  cheat
+QED
+
+Triviality sketch:
+  map_add_fresh m cnt ns = (cnt', m') ∧
+  ALL_DISTINCT (MAP FST m ++ ns) ⇒
+  ALL_DISTINCT (MAP FST m')
+Proof
+  cheat
+QED
+
+Triviality map_inv_drop_tail:
+  ∀m tl cnt. map_inv (m ++ tl) cnt ⇒ map_inv m cnt
+Proof
+  Induct_on ‘m’ \\ rpt strip_tac \\ gvs [map_inv_def]
+  \\ cheat
+QED
+
+Triviality map_add_fresh_distinct_map_lookup:
+  map_add_fresh [] 0 ns = (cnt, m) ∧ ALL_DISTINCT ns ⇒
+  ALL_DISTINCT (MAP (lookup m) ns)
+Proof
+  rpt strip_tac
+  \\ drule map_add_fresh_exists \\ rpt strip_tac \\ gvs []
+  \\ drule map_add_fresh_map_inv
+  \\ impl_tac >- gvs [map_inv_def] \\ strip_tac
+  \\ drule distinct_map_lookup
+  \\ disch_then drule \\ rpt strip_tac \\ gvs [MAP_REVERSE]
+QED
+
+Triviality distinct_ins_out_lookup:
+  map_add_fresh [] 0 (MAP FST ins) = (cnt, m₀) ∧
+  map_add_fresh m₀ cnt (MAP FST outs) = (cnt', m₁) ∧
+  ALL_DISTINCT (MAP FST ins ++ MAP FST outs) ⇒
+  ALL_DISTINCT
+    (MAP (lookup m₀) (MAP FST ins) ++ MAP (lookup m₁) (MAP FST outs))
+Proof
+  rpt strip_tac
+  \\ rev_drule map_add_fresh_exists \\ rpt strip_tac \\ gvs []
+  \\ rev_drule map_add_fresh_map_inv
+  \\ impl_tac >- gvs [map_inv_def] \\ strip_tac
+  \\ drule distinct_map_lookup \\ disch_then drule
+  \\ impl_tac >- gvs [ALL_DISTINCT_APPEND] \\ strip_tac
+  \\ gvs [MAP_REVERSE]
+
+  \\ drule map_add_fresh_exists \\ rpt strip_tac \\ gvs []
+  \\ drule map_add_fresh_map_inv \\ strip_tac \\ gvs []
+
+  \\ drule distinct_map_lookup' \\ disch_then drule
+  \\ impl_tac >- gvs [ALL_DISTINCT_APPEND] \\ strip_tac
+  \\ gvs [ALL_DISTINCT_APPEND, MAP_REVERSE]
+  \\ ntac 2 (strip_tac)
+  \\ drule map_inv_drop_tail \\ strip_tac \\ gvs []
+
+  \\ drule distinct_map_lookup \\ disch_then drule
+  \\ impl_tac >- gvs [ALL_DISTINCT_APPEND] \\ strip_tac
+  \\ gvs [MAP_REVERSE]
+
+  \\ drule map_lookup_append
+  \\ disch_then $ qspec_then ‘m₀’ (assume_tac o GSYM)
+  \\ gvs []
 QED
 
 Theorem correct_freshen_exp:
@@ -492,12 +673,15 @@ Proof
     \\ gvs [set_up_call_def]
     \\ rename [‘UNZIP ins = _’]
     \\ gvs [UNZIP_MAP, MAP_ZIP]
+    \\ Cases_on ‘ALL_DISTINCT (MAP FST ins)’ \\ gvs []
+    \\ drule map_add_fresh_distinct_map_lookup \\ strip_tac \\ gvs []
     \\ gvs [safe_zip_def]
     \\ Cases_on ‘LENGTH ins ≠ LENGTH in_vs’ \\ gvs []
     \\ qabbrev_tac
          ‘in_locals = ZIP (MAP FST ins, MAP SOME in_vs)’
     \\ qabbrev_tac
-         ‘in_locals' = ZIP (MAP (lookup m') (MAP FST ins), MAP SOME in_vs)’
+         ‘in_locals' =
+            ZIP (MAP (lookup m') (MAP FST ins), MAP SOME in_vs)’
     \\ ‘s₁.clock = t₁.clock’ by gvs [state_rel_def]
     \\ Cases_on ‘s₁.clock = 0’ \\ gvs [] >- gvs [restore_locals_def]
     \\ gvs [CaseEq "prod"]
@@ -506,12 +690,12 @@ Proof
     \\ last_x_assum $ drule_at $ Pos last
     \\ disch_then $ drule_at $ Pos last
     \\ disch_then $
-         qspec_then ‘dec_clock (t₁ with locals := in_locals')’ mp_tac
+         qspec_then ‘dec_clock (t₁ with locals := REVERSE in_locals')’ mp_tac
     \\ impl_tac
     >- (gvs [state_rel_def, dec_clock_def]
-        \\ drule_all map_add_fresh_ins_locals_rel \\ strip_tac \\ gvs []
         \\ drule map_add_fresh_map_inv
         \\ impl_tac >- gvs [map_inv_def] \\ strip_tac
+        \\ drule_all map_add_fresh_ins_locals_rel \\ strip_tac \\ gvs []
         \\ imp_res_tac freshen_exp_mono
         \\ imp_res_tac map_inv_mono)
     \\ rpt strip_tac \\ gvs []
@@ -796,20 +980,6 @@ Proof
   \\ gvs [add_fresh_def]
 QED
 
-Triviality lookup_not_head[simp]:
-  ∀v v' n ms.
-    v ≠ v' ⇒ lookup ((v,n)::ms) v' = lookup ms v'
-Proof
-  rpt strip_tac \\ gvs [lookup_def]
-QED
-
-Triviality lookup_head[simp]:
-  ∀v n ms.
-    lookup ((v,n)::ms) v = «v» ^ toString n
-Proof
-  rpt strip_tac \\ gvs [lookup_def]
-QED
-
 Triviality update_local_aux_locals_rel:
   ∀ss var val ss' m ts cnt.
     update_local_aux ss var val = SOME ss' ∧
@@ -830,7 +1000,7 @@ Proof
   \\ Cases_on ‘snam = var’ \\ gvs []
   >- (drule_all locals_rel_push \\ gvs [lookup_def])
   \\ drule_then assume_tac map_inv_pair_pop
-  \\ drule lookup_neq
+  \\ drule map_inv_lookup_neq
   \\ disch_then $ qspec_then ‘var’ assume_tac \\ gvs []
   \\ namedCases_on ‘update_local_aux ss var val’ ["", "new_ss"] \\ gvs []
   \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs []
@@ -1035,7 +1205,10 @@ Proof
     \\ rename [‘evaluate_exps _ _ _ = (t₁, _)’]
     \\ rename [‘set_up_call _ (MAP FST ins) in_vs (MAP FST outs) (* sa *)’]
     \\ gvs [UNZIP_MAP, MAP_ZIP]
-    \\ gvs [set_up_call_def] \\ gvs [safe_zip_def]
+    \\ gvs [set_up_call_def]
+    \\ Cases_on ‘ALL_DISTINCT (MAP FST ins ++ MAP FST outs)’ \\ gvs []
+    \\ drule_all distinct_ins_out_lookup \\ rpt strip_tac \\ gvs []
+    \\ gvs [safe_zip_def]
     \\ Cases_on ‘LENGTH ins ≠ LENGTH in_vs’ \\ gvs []
     \\ ‘t₁.clock = s₁.clock’ by gvs [state_rel_def] \\ gvs []
     \\ Cases_on ‘s₁.clock = 0’ \\ gvs [] >- (gvs [restore_locals_def])
@@ -1055,7 +1228,8 @@ Proof
     \\ disch_then $ drule_at $ Pos last
     \\ disch_then $
          qspec_then
-           ‘dec_clock (t₁ with locals := in_locals' ++ out_locals')’ mp_tac
+           ‘dec_clock (t₁ with locals := REVERSE (in_locals' ++ out_locals'))’
+           mp_tac
     \\ impl_tac
     >- (gvs [state_rel_def, dec_clock_def]
         \\ drule_all map_add_fresh_ins_outs_locals_rel \\ strip_tac \\ gvs []

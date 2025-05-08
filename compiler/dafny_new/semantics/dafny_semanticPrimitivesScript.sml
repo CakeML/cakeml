@@ -101,14 +101,19 @@ Definition safe_zip_def:
     if LENGTH xs ≠ LENGTH ys then NONE else SOME (ZIP (xs, ys))
 End
 
+(* Given input parameters i₁, i₂, and output variables o₁, o₂, we enforce that
+   all of their names are different, and prepare locals to be [o₂, o₁, i₂, i₁],
+   which  intuitively corresponds to pushing the parameters and variables from
+   left to right. *)
 Definition set_up_call_def:
   set_up_call st in_ns in_vs outs =
+  if ¬ALL_DISTINCT (in_ns ++ outs) then NONE else
   (case (safe_zip in_ns (MAP SOME in_vs)) of
    | NONE => NONE
    | SOME params =>
      (let old_locals = st.locals in
       let new_locals = params ++ ZIP (outs, REPLICATE (LENGTH outs) NONE) in
-        SOME (old_locals, st with locals := new_locals)))
+        SOME (old_locals, st with locals := REVERSE new_locals)))
 End
 
 Theorem set_up_call_clock:
