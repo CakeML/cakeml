@@ -366,13 +366,47 @@ Proof
   cheat
 QED
 
-(* The precondition is a bit strong, but good enough for our purposes. *)
-Triviality map_lookup_append:
-  MAP FST m = REVERSE ns ⇒
-  MAP (lookup m) ns =
-  MAP (lookup (m ++ xs)) ns
+(* TODO Check whether something like this already exists *)
+Triviality MEM_ALOOKUP:
+  ∀l x. MEM x (MAP FST l) ⇒ ∃v. ALOOKUP l x = SOME v
 Proof
-  cheat
+  Induct_on ‘l’ \\ rpt strip_tac \\ gvs []
+  \\ rename [‘h::l’] \\ namedCases_on ‘h’ ["k v"] \\ gvs []
+  \\ Cases_on ‘k = x’ \\ gvs []
+QED
+
+Triviality lookup_append_eq:
+  ∀n m₁ m₀.
+    MEM n (MAP FST m₁) ⇒ lookup (m₁ ++ m₀) n = lookup m₁ n
+Proof
+  rpt strip_tac
+  \\ gvs [lookup_def, ALOOKUP_APPEND]
+  \\ drule MEM_ALOOKUP \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality map_lookup_append_eq:
+  ∀ns m₁ m₀.
+    (∀n. MEM n ns ⇒ MEM n (MAP FST m₁)) ⇒
+    MAP (lookup (m₁ ++ m₀)) ns = MAP (lookup m₁) ns
+Proof
+  rpt strip_tac
+  \\ irule MAP_CONG \\ gvs []
+  \\ metis_tac [lookup_append_eq]
+QED
+
+Triviality map_lookup_append_eq:
+  MAP FST m₁ = REVERSE ns ⇒
+  MAP (lookup (m₁ ++ m₀)) ns = MAP (lookup m₁) ns
+Proof
+  rpt strip_tac
+  \\ irule map_lookup_append_eq
+  \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality map_fst_reverse_imp:
+  MAP FST m = REVERSE ns ⇒ (∀n. MEM n ns ⇒ MEM n (MAP FST m))
+Proof
+  gvs []
 QED
 
 Triviality map_add_fresh_ins_outs_locals_rel:
@@ -403,7 +437,8 @@ Proof
   \\ rev_dxrule locals_rel_append
   \\ disch_then dxrule \\ strip_tac
   \\ gvs [REVERSE_APPEND, MAP_REVERSE, REVERSE_ZIP]
-  \\ drule map_lookup_append
+  \\ drule_then assume_tac map_fst_reverse_imp
+  \\ drule map_lookup_append_eq
   \\ disch_then $ qspec_then ‘m’ assume_tac \\ gvs []
 QED
 
@@ -557,43 +592,6 @@ Proof
   \\ qexists ‘m₁ ++ [(h, cnt)]’ \\ gvs [ALL_DISTINCT_APPEND]
 QED
 
-(* TODO Check whether something like this already exists *)
-Triviality MEM_ALOOKUP:
-  ∀l x. MEM x (MAP FST l) ⇒ ∃v. ALOOKUP l x = SOME v
-Proof
-  Induct_on ‘l’ \\ rpt strip_tac \\ gvs []
-  \\ rename [‘h::l’] \\ namedCases_on ‘h’ ["k v"] \\ gvs []
-  \\ Cases_on ‘k = x’ \\ gvs []
-QED
-
-Triviality lemma0:
-  ∀n m₁ m₀.
-    MEM n (MAP FST m₁) ⇒ lookup (m₁ ++ m₀) n = lookup m₁ n
-Proof
-  rpt strip_tac
-  \\ gvs [lookup_def, ALOOKUP_APPEND]
-  \\ drule MEM_ALOOKUP \\ rpt strip_tac \\ gvs []
-QED
-
-Triviality lemma1:
-  ∀ns m₁ m₀.
-    (∀n. MEM n ns ⇒ MEM n (MAP FST m₁)) ⇒
-    MAP (lookup (m₁ ++ m₀)) ns = MAP (lookup m₁) ns
-Proof
-  rpt strip_tac
-  \\ irule MAP_CONG \\ gvs []
-  \\ metis_tac [lemma0]
-QED
-
-Triviality lemma1_2:
-  MAP FST m₁ = REVERSE ns ⇒
-  MAP (lookup (m₁ ++ m₀)) ns = MAP (lookup m₁) ns
-Proof
-  rpt strip_tac
-  \\ irule lemma1
-  \\ rpt strip_tac \\ gvs []
-QED
-
 Triviality lemma2:
   ∀m₁ ns m₀.
     MAP FST m₁ = REVERSE ns ⇒
@@ -624,7 +622,7 @@ Triviality distinct_ins_lookup:
   ALL_DISTINCT (MAP (lookup m) ns)
 Proof
   rpt strip_tac
-  \\ drule lemma \\ rpt strip_tac \\ gvs []
+  \\ drule lemma \\ rpt strip_tac \\ gvs [map_inv_def]
   \\ drule lemma2 \\ disch_then $ qspec_then ‘[]’ assume_tac \\ gvs []
   \\ gvs [lemma3]
 QED
@@ -637,7 +635,12 @@ Triviality distinct_ins_out_lookup:
     (MAP (lookup m₀) (MAP FST ins) ++ MAP (lookup m₁) (MAP FST outs))
 Proof
   rpt strip_tac
-  \\ rev_drule lemma \\ rpt strip_tac \\ gvs []
+  \\ rev_drule lemma
+  \\ impl_tac >- gvs [map_inv_def]
+  \\ rpt strip_tac \\ gvs []
+  \\ rev_drule map_add_fresh_map_inv
+  \\ impl_tac >- gvs [map_inv_def]
+  \\ rpt strip_tac \\ gvs []
   \\ drule lemma \\ rpt strip_tac \\ gvs []
   \\ drule lemma2 \\ disch_then $ qspec_then ‘m₀’ assume_tac \\ gvs []
   \\ rev_drule lemma2 \\ disch_then $ qspec_then ‘[]’ assume_tac \\ gvs []
