@@ -4416,21 +4416,10 @@ Proof
 QED
 
 Theorem first_compile_prog_all_distinct:
-  ALL_DISTINCT (MAP FST prog) ==>
+  ALL_DISTINCT (MAP FST (functions prog)) ==>
   ALL_DISTINCT (MAP FST (pan_to_crep$compile_prog prog))
 Proof
-  rw [] >>
-  fs [pan_to_crepTheory.compile_prog_def] >>
-  fs [MAP_MAP_o] >>
-  qmatch_goalsub_abbrev_tac ‘MAP ls _’ >>
-  ‘MAP ls prog = MAP FST prog’ suffices_by fs [] >>
-  fs [Abbr ‘ls’] >>
-  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-  rw [] >>
-  cases_on ‘EL n prog’ >>
-  fs [] >>
-  cases_on ‘r’ >>
-  fs []
+  fs [pan_to_crepTheory.compile_prog_def,MAP_MAP_o,ELIM_UNCURRY,o_DEF,ETA_AX]
 QED
 
 Theorem alookup_compile_prog_code:
