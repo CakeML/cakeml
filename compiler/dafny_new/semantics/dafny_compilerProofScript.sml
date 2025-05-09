@@ -27,64 +27,64 @@ Definition env_rel_def:
 End
 
 (* TODO Define as inductive *)
-Definition val_rel_def:
-  (val_rel m (BoolV b) v_cml ⇔ v_cml = Boolv b) ∧
-  (val_rel m (IntV i₀) (Litv (IntLit i₁)) ⇔ i₀ = i₁) ∧
-  (val_rel m (StrV ms) (Litv (StrLit s)) ⇔ (explode ms) = s) ∧
-  (val_rel m (ArrV len loc) (Conv NONE [Litv (IntLit (len')); Loc T loc']) ⇔
-     len' = &len ∧ FLOOKUP m loc = SOME loc')
-  (val_rel _ _ _ ⇔ F)
-End
+(* Definition val_rel_def: *)
+(*   (val_rel m (BoolV b) v_cml ⇔ v_cml = Boolv b) ∧ *)
+(*   (val_rel m (IntV i₀) (Litv (IntLit i₁)) ⇔ i₀ = i₁) ∧ *)
+(*   (val_rel m (StrV ms) (Litv (StrLit s)) ⇔ (explode ms) = s) ∧ *)
+(*   (val_rel m (ArrV len loc) (Conv NONE [Litv (IntLit (len')); Loc T loc']) ⇔ *)
+(*      len' = &len ∧ FLOOKUP m loc = SOME loc') *)
+(*   (val_rel _ _ _ ⇔ F) *)
+(* End *)
 
-Definition oval_ref_rel_def:
-  oval_ref_eq (SOME dval) (Refv cval) = val_rel dval cval ∧
-  oval_ref_eq _ _ = F
-End
+(* Definition oval_ref_rel_def: *)
+(*   oval_ref_eq (SOME dval) (Refv cval) = val_rel dval cval ∧ *)
+(*   oval_ref_eq _ _ = F *)
+(* End *)
 
 (* TODO Should be more like locals_rel_def *)
-Inductive array_rel:
-[~nil:]
-  array_rel m [] []
-[~array:]
-  LIST_REL (val_rel m) vs vs' ∧ array_rel m rest rest' ⇒
-    array_rel m ((HArr vs)::rest) ((Varray vs')::rest')
-[~ref:]
-  array_rel m rest rest' ⇒ array_rel m rest ((Refv v)::rest')
-End
+(* Inductive array_rel: *)
+(* [~nil:] *)
+(*   array_rel m [] [] *)
+(* [~array:] *)
+(*   LIST_REL (val_rel m) vs vs' ∧ array_rel m rest rest' ⇒ *)
+(*     array_rel m ((HArr vs)::rest) ((Varray vs')::rest') *)
+(* [~ref:] *)
+(*   array_rel m rest rest' ⇒ array_rel m rest ((Refv v)::rest') *)
+(* End *)
 
-Definition locals_rel_def:
-  local_rel m (l: mlstring |-> num) s_locals t_refs cml_env ⇔
-    INJ (λx. l ' x) (FDOM l) 𝕌(:num) ∧
-    ∀var val.
-      ALOOKUP s_locals var = SOME val ⇒
-      ∃loc val'.
-        FLOOKUP l var = SOME loc ∧
-        store_lookup loc t_refs = SOME val' ∧
-        val_rel m val val' ∧
-        nsLookup cml_env (Short var) = SOME (Loc T loc)
-End
+(* Definition locals_rel_def: *)
+(*   local_rel m (l: mlstring |-> num) s_locals t_refs cml_env ⇔ *)
+(*     INJ (λx. l ' x) (FDOM l) 𝕌(:num) ∧ *)
+(*     ∀var val. *)
+(*       ALOOKUP s_locals var = SOME val ⇒ *)
+(*       ∃loc val'. *)
+(*         FLOOKUP l var = SOME loc ∧ *)
+(*         store_lookup loc t_refs = SOME val' ∧ *)
+(*         val_rel m val val' ∧ *)
+(*         nsLookup cml_env (Short var) = SOME (Loc T loc) *)
+(* End *)
 
-Definition state_rel_def:
-  state_rel m l s t cml_env ⇔
-    array_rel m s.heap t.refs ∧
-    locals_rel m l s.locals t.refs cml_env
-    (* TODO How to do state rel between cout? *)
-End
+(* Definition state_rel_def: *)
+(*   state_rel m l s t cml_env ⇔ *)
+(*     array_rel m s.heap t.refs ∧ *)
+(*     locals_rel m l s.locals t.refs cml_env *)
+(*     (* TODO How to do state rel between cout? *) *)
+(* End *)
 
-Definition exp_res_rel_def:
-  exp_res_rel (Rval (v_dfy : value)) (Rval [v_cml] : cml_res) ⇔
-    val_rel v_dfy v_cml
-End
+(* Definition exp_res_rel_def: *)
+(*   exp_res_rel (Rval (v_dfy : value)) (Rval [v_cml] : cml_res) ⇔ *)
+(*     val_rel v_dfy v_cml *)
+(* End *)
 
-Definition exps_res_rel_def:
-  exps_res_rel (Rval vs_dfy) (Rval vs_cml : cml_res) ⇔
-    LIST_REL val_rel vs_dfy vs_cml
-End
+(* Definition exps_res_rel_def: *)
+(*   exps_res_rel (Rval vs_dfy) (Rval vs_cml : cml_res) ⇔ *)
+(*     LIST_REL val_rel vs_dfy vs_cml *)
+(* End *)
 
-Definition is_exp_fail_def[simp]:
-  is_exp_fail (Rerr _) = T ∧
-  is_exp_fail _ = F
-End
+(* Definition is_exp_fail_def[simp]: *)
+(*   is_exp_fail (Rerr _) = T ∧ *)
+(*   is_exp_fail _ = F *)
+(* End *)
 
 (* Theorem correct_exp: *)
 (*   (∀s₁ env_dfy e_dfy s₂ r_dfy t₁ env_cml e_cml. *)

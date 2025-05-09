@@ -9,6 +9,9 @@ Abstract Syntax Tree for a subset of Dafny.
 [dafny_compilerScript.sml](dafny_compilerScript.sml):
 Definition of the Dafny to CakeML compiler.
 
+[dafny_freshenScript.sml](dafny_freshenScript.sml):
+Implements the freshen pass, where names are updated to be unique.
+
 [dafny_sexpScript.sml](dafny_sexpScript.sml):
 Definitions to lex and parse S-expressions.
 

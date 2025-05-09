@@ -7,6 +7,7 @@ open result_monadTheory
 open dafny_sexpTheory
 open sexp_to_dafnyTheory
 open dafny_to_cakemlTheory
+open dafny_freshenTheory
 open fromSexpTheory
 open simpleSexpParseTheory
 
@@ -18,6 +19,7 @@ Definition dfy_to_cml_def:
     dfy_sexp <- lex dfy_sexp;
     dfy_sexp <- parse dfy_sexp;
     dfy <- to_program dfy_sexp;
+    dfy <<- freshen_program dfy;
     from_program dfy
   od
 End
