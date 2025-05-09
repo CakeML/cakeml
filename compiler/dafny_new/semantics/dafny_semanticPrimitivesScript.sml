@@ -103,7 +103,7 @@ End
 
 (* Given input parameters i₁, i₂, and output variables o₁, o₂, we enforce that
    all of their names are different, and prepare locals to be [o₂, o₁, i₂, i₁],
-   which  intuitively corresponds to pushing the parameters and variables from
+   which intuitively corresponds to pushing the parameters and variables from
    left to right. *)
 Definition set_up_call_def:
   set_up_call st in_ns in_vs outs =
