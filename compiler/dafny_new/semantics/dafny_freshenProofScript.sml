@@ -277,7 +277,7 @@ Proof
   \\ qexists ‘λi. i < ub’ \\ gvs []
 QED
 
-(* TODO Move to sorting theory? *)
+(* TODO Check status of HOL#1492 *)
 Triviality greater_sorted_eq:
   SORTED $> ((x: num)::L) ⇔ SORTED $> L ∧ ∀y. MEM y L ⇒ y < x
 Proof
@@ -301,20 +301,11 @@ Proof
   \\ irule MONO_EVERY \\ qexists ‘λi. i < h’ \\ gvs []
 QED
 
-(* TODO Move to mlstring? *)
+(* TODO Check status of CakeML#1174 *)
 Theorem mlstring_common_prefix:
   ∀s t1 t2. s ^ t1 = s ^ t2 ⇔ t1 = t2
 Proof
   rpt Cases \\ gvs [strcat_thm, implode_def]
-QED
-
-(* TODO Check whether something like this already exists *)
-Triviality MEM_ALOOKUP:
-  ∀l x. MEM x (MAP FST l) ⇒ ∃v. ALOOKUP l x = SOME v
-Proof
-  Induct_on ‘l’ \\ rpt strip_tac \\ gvs []
-  \\ rename [‘h::l’] \\ namedCases_on ‘h’ ["k v"] \\ gvs []
-  \\ Cases_on ‘k = x’ \\ gvs []
 QED
 
 (* lookup *)
@@ -331,7 +322,8 @@ Triviality lookup_append_eq:
 Proof
   rpt strip_tac
   \\ gvs [lookup_def, ALOOKUP_APPEND]
-  \\ drule MEM_ALOOKUP \\ rpt strip_tac \\ gvs []
+  \\ Cases_on ‘ALOOKUP m₁ n’
+  \\ gvs [ALOOKUP_NONE]
 QED
 
 Triviality gen_map_lookup_append_eq:
