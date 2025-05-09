@@ -1234,8 +1234,10 @@ Proof
   first_assum $ irule_at $ Pos hd >>
   imp_res_tac evaluate_decls_functions >>
   simp[] >>
+  ‘ALL_DISTINCT(MAP FST (functions (compile_prog pan_code)))’
+    by gvs[functions_compile_prog,ELIM_UNCURRY,MAP_MAP_o,o_DEF,ETA_THM] >>
   rw[fmap_eq_flookup,flookup_fupdate_list,alookup_distinct_reverse] >>
-  TOP_CASE_TAC >> simp[]
+  TOP_CASE_TAC >> gvs[alookup_distinct_reverse]
 QED
 
 val _ = export_theory();
