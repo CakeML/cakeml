@@ -1219,7 +1219,8 @@ Theorem state_rel_imp_semantics_decls:
   s.code = FEMPTY ∧
   t.code = FEMPTY ∧
   semantics_decls s start pan_code <> Fail ==>
-  semantics_decls s start pan_code = semantics_decls t start (pan_simp$compile_prog pan_code)
+  semantics_decls s start pan_code =
+  semantics_decls t start (pan_simp$compile_prog pan_code)
 Proof
   rw [semantics_decls_def] >>
   gvs[AllCaseEqs(),GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
@@ -1230,8 +1231,11 @@ Proof
   simp[] >>
   irule state_rel_imp_semantics >>
   simp[] >>
-  first_x_assum $ irule_at $ Pos hd >>
-  cheat
+  first_assum $ irule_at $ Pos hd >>
+  imp_res_tac evaluate_decls_functions >>
+  simp[] >>
+  rw[fmap_eq_flookup,flookup_fupdate_list,alookup_distinct_reverse] >>
+  TOP_CASE_TAC >> simp[]
 QED
 
 val _ = export_theory();

@@ -994,4 +994,14 @@ Proof
   rw[functions_def,is_function_def]
 QED
 
+Theorem evaluate_decls_functions:
+  ∀s pan_code s'.
+    evaluate_decls s pan_code = SOME s' ⇒
+    s'.code = s.code |++ functions pan_code
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,functions_def,FUPDATE_LIST_THM] >>
+  gvs[AllCaseEqs()]
+QED
+
 val _ = export_theory();
