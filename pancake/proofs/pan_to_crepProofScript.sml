@@ -4478,57 +4478,37 @@ Proof
   rfs [arithmeticTheory.LESS_MOD]
 QED
 
+Triviality pair_map_I:
+  (λ(x,y). (x,y)) = I
+Proof
+  rw[FUN_EQ_THM,ELIM_UNCURRY]
+QED
+
+(* TODO: move *)
+Theorem size_of_eids_eq:
+  size_of_eids pc = LENGTH(nub (FLAT (MAP (exp_ids ∘ SND ∘ SND) (functions pc))))
+Proof
+  rw[panLangTheory.size_of_eids_def] >>
+  Induct_on ‘pc’ using panLangTheory.functions_ind >>
+  rw[panLangTheory.functions_def] >>
+  rw[nub_append] >>
+  ntac 2 AP_TERM_TAC >>
+  rw[FILTER_EQ,EQ_IMP_THM,MEM_FLAT,MEM_MAP,functions_eq_FILTER,PULL_EXISTS,MEM_FILTER] >>
+  PURE_FULL_CASE_TAC >> gvs[panLangTheory.is_function_def] >>
+  first_assum $ irule_at $ Pat ‘MEM _ _’ >>
+  gvs[panLangTheory.is_function_def]
+QED
 
 Theorem get_eids_imp_excp_rel:
   !seids pc.
    panLang$size_of_eids pc < dimword (:'a) /\
-   FDOM seids =  FDOM ((get_eids pc):mlstring |-> 'a word) ==>
-     excp_rel ((get_eids pc):mlstring |-> 'a word) seids
+   FDOM seids =  FDOM ((get_eids(functions pc)):mlstring |-> 'a word) ==>
+     excp_rel ((get_eids(functions pc):mlstring |-> 'a word)) seids
 Proof
-  rw [] >>
-  fs [excp_rel_def] >>
-  rw [] >>
-  fs [get_eids_def] >>
-  qmatch_asmsub_abbrev_tac ‘ALOOKUP f e' = SOME n'’ >>
-  dxrule ALOOKUP_MEM >>
-  dxrule ALOOKUP_MEM >>
-  strip_tac >>
-  strip_tac >>
-  fs [MEM_EL] >> rveq >>
-  fs [Abbr ‘f’] >>
-  qmatch_asmsub_abbrev_tac ‘ EL n'' (MAP2 f xs ys)’ >>
-  ‘n < MIN (LENGTH xs) (LENGTH ys)’ by fs [Abbr ‘xs’, Abbr ‘ys’] >>
-  ‘n'' < MIN (LENGTH xs) (LENGTH ys)’ by fs [Abbr ‘xs’, Abbr ‘ys’] >>
-  dxrule (INST_TYPE [“:'a”|->“:mlstring”,
-                    “:'b”|->“:'a word”,
-                    “:'c”|-> “:mlstring # 'a word”] EL_MAP2) >>
-  dxrule (INST_TYPE [“:'a”|->“:mlstring”,
-                    “:'b”|->“:'a word”,
-                    “:'c”|-> “:mlstring # 'a word”] EL_MAP2) >>
-  disch_then (qspec_then ‘f’ assume_tac) >>
-  disch_then (qspec_then ‘f’ assume_tac) >>
-  fs [Abbr ‘f’, Abbr ‘xs’, Abbr ‘ys’] >> rveq >> fs [] >>
-  pop_assum kall_tac >>
-  pop_assum kall_tac >>
-  qsuff_tac ‘n'' = n’
-  >- fs [] >>
-  pop_assum mp_tac >>
-
-
-  drule (INST_TYPE [“:'a”|->“:'a word”] EL_GENLIST) >>
-  disch_then (qspec_then ‘λx. (n2w x):'a word’ assume_tac) >>
-  fs [] >> pop_assum kall_tac >>
-  strip_tac >>
-  fs [panLangTheory.size_of_eids_def] >>
-  assume_tac (GSYM n2w_11) >>
-  pop_assum (qspecl_then [‘n''’, ‘n’] assume_tac) >>
-  fs [] >>
-  ‘MOD_2EXP_EQ (dimindex (:α)) n'' n’ by
-    metis_tac [n2w_11, word_eq_n2w] >>
-  fs [bitTheory.MOD_2EXP_EQ_def] >>
-  fs [GSYM MOD_2EXP_DIMINDEX] >>
-  ‘n'' < dimword (:α) /\ n < dimword (:α)’ by rfs [] >>
-  fs [mod_eq_lt_eq]
+  rw [excp_rel_def, get_eids_def] >>
+  gvs[MAP2_MAP,pair_map_I] >>
+  imp_res_tac ALOOKUP_MEM >>
+  gvs[MEM_ZIP,size_of_eids_eq]
 QED
 
 Theorem mk_ctxt_imp_locals_rel:
