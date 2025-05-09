@@ -7607,6 +7607,21 @@ Proof
   \\ rw [] \\ fs []
 QED
 
+Theorem cut_env_adjust_sets_ODD:
+  ODD n ⇒ cut_env (adjust_sets names) (insert n w s) =
+          cut_env (adjust_sets names) s
+Proof
+  gvs [wordSemTheory.cut_env_def,adjust_sets_def]
+  \\ gvs [wordSemTheory.cut_envs_def]
+  \\ gvs [cut_names_adjust_set_insert_ODD]
+  \\ gvs [wordSemTheory.cut_names_def]
+  \\ rw [] \\ gvs []
+  \\ AP_TERM_TAC
+  \\ gvs [lookup_inter_alt]
+  \\ gvs [lookup_insert]
+  \\ rw [] \\ gvs []
+QED
+
 Theorem alloc_locals_insert_1:
   alloc k (adjust_sets names) (t with locals := insert 1 w t.locals) =
   alloc k (adjust_sets names) t
@@ -7709,61 +7724,30 @@ Proof
   fs[wordSemTheory.get_var_def,wordSemTheory.set_var_def,lookup_insert]
 QED
 
-Theorem alloc_NONE_IMP_cut_env:
-   alloc w (adjust_sets names) t = (NONE,s1) ==>
-    wordSem$cut_env (adjust_sets names) s1.locals = SOME s1.locals /\
-    t.locals_size = s1.locals_size
-Proof
-  fs [wordSemTheory.alloc_def,wordSemTheory.gc_def]
-  \\ fs [case_eq_thms] \\ rw []
-  \\ fs [wordSemTheory.push_env_def,wordSemTheory.pop_env_def,
-         wordSemTheory.set_store_def]
-  \\ pairarg_tac \\ fs [wordSemTheory.dec_stack_def]
-  \\ gvs [AllCaseEqs()]
-  \\ fs [wordSemTheory.cut_env_def,adjust_sets_def]
-  \\ fs [wordSemTheory.cut_envs_def,wordSemTheory.cut_names_def]
-  \\ gvs [AllCaseEqs()]
-  \\ fs [spt_eq_thm,wf_fromAList,lookup_inter_alt]
-  \\ cheat (*
-  \\ fs [domain_fromAList] \\ fs [MAP_ZIP]
-  \\ drule env_to_list_lookup_equiv
-  \\ rveq \\ fs [lookup_inter_alt]
-  \\ fs [SUBSET_DEF] \\ rw []
-  THEN1
-   (CCONTR_TAC \\ fs [GSYM ALOOKUP_NONE]
-    \\ qpat_x_assum `!x. _ = _` (qspec_then `x` mp_tac)
-    \\ fs [] \\ res_tac \\ fs [domain_lookup])
-  \\ rw [] \\ fs [lookup_fromAList]
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ fs [ALOOKUP_NONE]
-  \\ fs [MAP_ZIP]
-  \\ qpat_x_assum `!x. _ = _` (qspec_then `n` mp_tac)
-  \\ fs [ALOOKUP_NONE] *)
-QED
-
 Theorem state_rel_cut_env_cut_env:
    state_rel c l1 l2 s t [] locs /\
     dataSem$cut_env names s.locals = SOME x /\
     wordSem$cut_env (adjust_sets names) t.locals = SOME y ==>
     state_rel c l1 l2 (s with locals := x) (t with locals := y) [] locs
 Proof
-  cheat (*
   rpt strip_tac
   \\ drule (GEN_ALL state_rel_cut_env)
   \\ disch_then drule
   \\ simp [state_rel_thm]
-  \\ rw [] THEN1
-   (fs [wordSemTheory.cut_env_def] \\ rveq
-    \\ fs [lookup_inter_alt,adjust_set_def]
-    \\ fs [domain_lookup,lookup_fromAList])
-  THEN1
-   (res_tac \\ fs []
-    \\ fs [wordSemTheory.cut_env_def] \\ rveq
-    \\ Cases_on `lookup (adjust_var n) t.locals` \\ fs [lookup_inter_alt]
-    \\ Cases_on `lookup n x` \\ fs [] \\ rw []
-    \\ fs [domain_lookup,cut_env_def] \\ rveq \\ fs []
-    \\ fs [lookup_adjust_var_adjust_set,lookup_inter_alt]
-    \\ fs [domain_lookup])
+  \\ rw []
+  >-
+   (gvs [wordSemTheory.cut_env_def,adjust_sets_def,AllCaseEqs()]
+    \\ gvs [lookup_union,AllCaseEqs()]
+    \\ gvs [wordSemTheory.cut_envs_def,AllCaseEqs()]
+    \\ gvs [wordSemTheory.cut_names_def,lookup_inter_alt])
+  >-
+   (gvs [wordSemTheory.cut_env_def,wordSemTheory.cut_envs_def,
+         adjust_sets_def,AllCaseEqs(),
+         dataSemTheory.cut_env_def,wordSemTheory.cut_names_def]
+    \\ pop_assum mp_tac
+    \\ simp [IS_SOME_EXISTS,GSYM domain_lookup]
+    \\ simp [Once $ GSYM adjust_var_IN_adjust_set]
+    \\ gvs [SUBSET_DEF])
   \\ fs []
   \\ pop_assum mp_tac
   \\ match_mp_tac (METIS_PROVE [] ``x = y ==> f x ==> f y``)
@@ -7776,7 +7760,12 @@ Proof
   \\ rveq \\ fs [lookup_inter_alt]
   \\ rw []
   \\ fs [dataSemTheory.cut_env_def] \\ rveq \\ fs []
-  \\ fs [adjust_set_inter,domain_inter] *)
+  \\ fs [adjust_set_inter,domain_inter]
+  \\ gvs [adjust_sets_def,wordSemTheory.cut_envs_def,AllCaseEqs(),lookup_union,
+          lookup_inter_alt,wordSemTheory.cut_names_def,SF CONJ_ss]
+  \\ gvs [SUBSET_DEF]
+  \\ res_tac \\ gvs [domain_lookup]
+  \\ res_tac \\ fs []
 QED
 
 Theorem domain_adjust_set_EVEN:
@@ -7854,9 +7843,9 @@ Proof
 QED
 
 Triviality alloc_with_locals_1_3:
-  alloc (-1w) (adjust_sets names)
+  alloc k (adjust_sets names)
              (t with locals := insert 1 w1 (insert 3 w2 t.locals)) =
-  alloc (-1w) (adjust_sets names) t
+  alloc k (adjust_sets names) t
 Proof
   gvs [wordSemTheory.alloc_def]
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC
@@ -7866,6 +7855,43 @@ Proof
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC
   \\ rw [] \\ gvs [lookup_inter_alt]
   \\ rw [] \\ gvs [lookup_insert]
+QED
+
+Theorem cut_names_imp_wf:
+  cut_names s t = SOME x ⇒ wf x
+Proof
+  rw [wordSemTheory.cut_names_def] \\ rw []
+QED
+
+Theorem cut_env_insert_1:
+  cut_env (FST (adjust_sets names), insert 1 () (SND (adjust_sets names))) (insert 1 w t) =
+  case cut_env (adjust_sets names) t of NONE => NONE | SOME v => SOME (insert 1 w v)
+Proof
+  gvs [wordSemTheory.cut_env_def,wordSemTheory.cut_envs_def,adjust_sets_def]
+  \\ ‘cut_names (LS ()) (insert 1 w t) = cut_names (LS ()) t’ by
+    (rw [wordSemTheory.cut_names_def]
+     \\ rw [lookup_inter_alt] \\ gvs [lookup_insert])
+  \\ gvs []
+  \\ qsuff_tac ‘cut_names (insert 1 () (adjust_set names)) (insert 1 w t) =
+                case cut_names (adjust_set names) t of
+                | NONE => NONE
+                | SOME r => SOME (insert 1 w r)’ \\ gvs []
+  >- (every_case_tac \\ gvs [] \\ rw []
+      \\ DEP_REWRITE_TAC [spt_eq_thm]
+      \\ gvs [lookup_insert,lookup_union] \\ rw []
+      \\ rpt $ irule_at Any wf_insert
+      \\ rpt $ irule_at Any wf_union
+      \\ imp_res_tac cut_names_imp_wf \\ gvs [])
+  \\ gvs [wordSemTheory.cut_names_def]
+  \\ ‘domain (adjust_set names) ⊆ 1 INSERT domain t ⇔
+      domain (adjust_set names) ⊆ domain t’ by
+   (eq_tac \\ gvs [SUBSET_DEF] \\ rw []
+    \\ res_tac \\ gvs [NOT_1_domain])
+  \\ gvs [] \\ IF_CASES_TAC \\ gvs []
+  \\ DEP_REWRITE_TAC [spt_eq_thm]
+  \\ gvs [] \\ irule_at Any wf_insert \\ gvs []
+  \\ gvs [lookup_inter_alt,lookup_insert]
+  \\ strip_tac \\ Cases_on ‘n = 1’ \\ gvs []
 QED
 
 Theorem AllocVar_thm:
@@ -7887,7 +7913,6 @@ Theorem AllocVar_thm:
       r.compile_oracle = t.compile_oracle /\
       q = NONE)
 Proof
-
   fs [wordSemTheory.evaluate_def,AllocVar_def,list_Seq_def] \\ strip_tac
   \\ `limit < dimword (:'a)` by
         (rfs [EVAL ``good_dimindex (:'a)``,state_rel_def,dimword_def] \\ rfs [])
@@ -7934,48 +7959,32 @@ Proof
            Q.SPECL [`7`,`1`] insert_insert |> SIMP_RULE std_ss [],
            Q.SPECL [`9`,`1`] insert_insert |> SIMP_RULE std_ss []]
     \\ fs [cut_names_insert_1_insert_1,cut_names_adjust_set_insert_ODD]
-    \\ cheat (*
     \\ drule (GEN_ALL cut_env_IMP_cut_env)
     \\ disch_then drule \\ strip_tac \\ fs []
+    \\ drule cut_env_IMP_cut_envs \\ strip_tac \\ gvs []
+    \\ gvs [cut_env_insert_1,cut_env_adjust_sets_ODD]
     \\ fs [] \\ pairarg_tac \\ fs []
-    \\ drule (GEN_ALL state_rel_cut_rnv)
+    \\ drule (GEN_ALL state_rel_cut_env)
     \\ disch_then drule \\ strip_tac
     \\ `s.ffi = (s with locals := x).ffi` by fs []
     \\ pop_assum (fn th => rewrite_tac [th])
     \\ `s.stack_max = (s with locals := x).stack_max` by fs []
     \\ pop_assum (fn th => rewrite_tac [th])
-    \\ match_mp_tac (GEN_ALL alloc_fail) \\ fs []
-    \\ drule (GEN_ALL state_rel_cut_env_cut_env)
-    \\ fs []
-    \\ `dataSem$cut_names names x = SOME x` by
-      (fs [dataSemTheory.cut_names_def] \\ rveq
+    \\ `dataSem$cut_env names x = SOME x` by
+      (fs [dataSemTheory.cut_env_def] \\ rveq
        \\ fs [lookup_inter_alt,domain_inter])
-    \\ disch_then drule
-    \\ disch_then drule
+    \\ drule_all state_rel_cut_env_cut_env
     \\ strip_tac
-    \\ asm_exists_tac \\ fs []
-    \\ asm_exists_tac \\ fs []
-    \\ reverse (Cases_on `res` \\ fs [] \\ rveq \\ fs [])
-    THEN1
-     (qpat_x_assum `_ = (SOME _,r)` (fn th => rewrite_tac [GSYM th])
-      \\ AP_TERM_TAC
-      \\ fs [wordSemTheory.state_component_equality])
-    \\ fs [cut_names_adjust_set_insert_3]
-    \\ drule alloc_NONE_IMP_cut_env
-    \\ strip_tac \\ fs [] \\ rveq \\ fs []
-    \\ ‘t.gc_fun = word_gc_fun c’ by fs [state_rel_def]
-    \\ drule (GEN_ALL alloc_store) \\ fs []
-    \\ disch_then $ qspec_then ‘c’ strip_assume_tac
-    \\ gvs [lookup_insert]
-    \\ gvs [cut_names_adjust_set_insert_ODD]
-    \\ fs [cut_names_adjust_set_insert_3]
-    \\ gvs [wordSemTheory.set_var_def,EVAL ``read_bytearray a 0 m``,
-            ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``]
-    \\ qmatch_asmsub_abbrev_tac `alloc _ _ t5 = _`
-    \\ `t5 = t with locals := insert 1 (Word (-1w)) y` by
-        (unabbrev_all_tac
-         \\ fs [wordSemTheory.state_component_equality]) \\ fs []
-    \\ fs [wordSemTheory.state_component_equality] *))
+    \\ drule_at (Pos $ el 2) alloc_fail \\ gvs []
+    \\ disch_then drule
+    \\ qabbrev_tac ‘t1 = t with locals := union y2 y1’
+    \\ ‘t with
+        <|locals := insert 1 (Word (-1w)) (union y2 y1);
+          memory := t.memory; ffi := s.ffi|> =
+        t1 with locals := insert 1 (Word (-1w)) t1.locals’ by
+          gvs [Abbr‘t1’,wordSemTheory.state_component_equality]
+    \\ gvs [alloc_locals_insert_1]
+    \\ strip_tac \\ gvs [])
   \\ qpat_assum `_ = (q,r)` mp_tac
   \\ IF_CASES_TAC THEN1
     (fs [state_rel_def,EVAL ``good_dimindex (:α)``,shift_def])
@@ -8003,77 +8012,63 @@ Proof
   \\ `~(shift (:α) ≥ dimindex (:α))` by
     (fs [good_dimindex_def,shift_def,state_rel_def] \\ fs [])
   \\ fs [lookup_insert]
-  \\ cheat (*
-
   \\ reverse (Cases_on `c.call_empty_ffi`)
   THEN1
    (fs [SilentFFI_def,wordSemTheory.evaluate_def,lookup_insert]
-    \\ qabbrev_tac `t1 = t with locals := insert 3 (Word (end + -1w * next)) t.locals`
-    \\ (fn (tl,t) => suff_tac (subst [``t:('a,'c,'ffi) wordSem$state``|->``t1:('a,'c,'ffi) wordSem$state``] t) (tl,t))
-    >- fs [Abbr`t1`]
-    \\ match_mp_tac (alloc_alt |> SPEC_ALL
-          |> DISCH ``(t1:('a,'c,'ffi) wordSem$state).store = st``
-          |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)
-    \\ qexists_tac `t1` \\ fs [Abbr`t1`]
-    \\ fs [state_rel_insert_3]
-    \\ qpat_assum `_ = (q,r)` (fn th => fs [GSYM th])
-    \\ simp [insert_insert_3_1]
-    \\ pairarg_tac \\ fs []
-    \\ rw[] \\ fs [])
+    \\ fs [insert_insert_3_1,alloc_with_locals_1_3]
+    \\ pairarg_tac \\ gvs []
+    \\ ‘res = q ∧ s1 = r’ by gvs [CaseEq"bool"] \\ gvs []
+    \\ drule_all alloc_alt \\ gvs [])
   \\ fs [SilentFFI_def,wordSemTheory.evaluate_def,lookup_insert]
   \\ fs [wordSemTheory.evaluate_def,SilentFFI_def,wordSemTheory.word_exp_def,
          wordSemTheory.set_var_def,EVAL ``read_bytearray a 0 m``,
          ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``,
          wordSemTheory.get_var_def,lookup_insert,list_Seq_def,
-         wordSemTheory.the_words_def,wordLangTheory.word_op_def]
+         wordSemTheory.the_words_def,wordLangTheory.word_op_def,
+         wordSemTheory.get_store_def]
   \\ fs [Q.SPECL [`3`,`1`] insert_insert |> SIMP_RULE std_ss [],
          Q.SPECL [`7`,`1`] insert_insert |> SIMP_RULE std_ss [],
-         Q.SPECL [`9`,`1`] insert_insert |> SIMP_RULE std_ss []]
-  \\ fs [cut_names_insert_1_insert_1,cut_names_adjust_set_insert_ODD]
-  \\ drule (GEN_ALL cut_names_IMP_cut_names)
-  \\ disch_then drule \\ strip_tac \\ fs []
+         Q.SPECL [`9`,`1`] insert_insert |> SIMP_RULE std_ss [],
+         cut_env_insert_1,cut_env_adjust_sets_ODD]
+  \\ drule_all cut_env_IMP_cut_env
+  \\ strip_tac \\ gvs []
+  \\ qabbrev_tac ‘t1 = t with locals := y’
+  \\ qabbrev_tac ‘nw = alloc_size (w2n w DIV 4 + 1) : 'a word’
+  \\ ‘t with
+      <|locals := insert 1 (Word nw) y;
+        memory := t.memory; ffi := t.ffi|> =
+      t1 with locals := insert 1 (Word nw) t1.locals’ by
+    gvs [Abbr‘t1’,wordSemTheory.state_component_equality]
+  \\ qunabbrev_tac ‘nw’
+  \\ gvs [alloc_locals_insert_1]
   \\ fs [cut_locals_def]
-  \\ match_mp_tac (alloc_alt |> SPEC_ALL
-        |> Q.INST [`s`|->`s with locals := z`]
-        |> SIMP_RULE (srw_ss()) []
-        |> DISCH ``(t:('a,'c,'ffi) wordSem$state).store = st``
-        |> DISCH ``(t:('a,'c,'ffi) wordSem$state).code = c1``
-        |> DISCH ``(t:('a,'c,'ffi) wordSem$state).code_buffer = c2``
-        |> DISCH ``(t:('a,'c,'ffi) wordSem$state).data_buffer = c2``
-        |> DISCH ``(t:('a,'c,'ffi) wordSem$state).compile = c3``
-        |> DISCH ``(t:('a,'c,'ffi) wordSem$state).compile_oracle = c4``
-        |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,cut_locals_def] |> GEN_ALL) \\ fs []
-  \\ qexists_tac `x`
-  \\ qexists_tac `t with locals := y` \\ fs []
-  \\ simp [GSYM PULL_EXISTS]
-  \\ conj_tac
-  THEN1 (match_mp_tac state_rel_cut_env_cut_env \\ fs [])
-  \\ qexists_tac `names`
-  \\ conj_tac
-  THEN1 (fs [cut_names_def] \\ rveq \\ fs [lookup_inter_alt,domain_inter])
-  \\ pairarg_tac \\ fs []
-  \\ reverse (Cases_on `res` \\ fs [] \\ rveq \\ fs [])
-  THEN1
-   (pop_assum (fn th => rewrite_tac [GSYM th])
-    \\ AP_TERM_TAC
-    \\ fs [wordSemTheory.state_component_equality])
-  \\ drule (GEN_ALL alloc_store) \\ fs []
-  \\ disch_then $ qspec_then ‘c’ strip_assume_tac
-  \\ ‘t.gc_fun = word_gc_fun c’ by fs [state_rel_def]
-  \\ gvs [lookup_insert]
-  \\ gvs [cut_names_adjust_set_insert_ODD]
-  \\ fs [cut_names_adjust_set_insert_3]
-  \\ drule alloc_NONE_IMP_cut_env
-  \\ strip_tac \\ fs [] \\ rveq \\ fs []
-  \\ gvs [wordSemTheory.set_var_def,EVAL ``read_bytearray a 0 m``,
+  \\ `dataSem$cut_env names x = SOME x` by
+    (fs [dataSemTheory.cut_env_def] \\ rveq
+     \\ fs [lookup_inter_alt,domain_inter])
+  \\ drule_all state_rel_cut_env_cut_env
+  \\ strip_tac
+  \\ drule alloc_alt \\ gvs []
+  \\ disch_then drule
+  \\ pairarg_tac \\ gvs []
+  \\ disch_then drule
+  \\ strip_tac \\ gvs []
+  \\ Cases_on ‘res = SOME NotEnoughSpace’ \\ gvs []
+  >- gvs [cut_locals_def]
+  \\ qpat_assum ‘state_rel c l1 l2 _ _ _ _’ mp_tac
+  \\ simp_tac bool_ss [Once state_rel_def]
+  \\ strip_tac
+  \\ gvs [heap_in_memory_store_def,lookup_insert,
+          wordSemTheory.set_var_def,EVAL ``read_bytearray a 0 m``,
           ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``]
-  \\ drule alloc_NONE_IMP_cut_env
-  \\ strip_tac \\ fs [] \\ rveq \\ fs []
-  \\ qmatch_asmsub_abbrev_tac `alloc _ _ t5 = _`
-  \\ `t5 = t with locals := insert 1 (Word (alloc_size (w2n w DIV 4 + 1))) y` by
-      (unabbrev_all_tac
-       \\ fs [wordSemTheory.state_component_equality]) \\ fs []
-  \\ fs [wordSemTheory.state_component_equality] *)
+  \\ gvs [cut_env_adjust_sets_ODD]
+  \\ qabbrev_tac ‘s0 = s with <|locals := x; space := w2n w DIV 4 + 1|>’
+  \\ `dataSem$cut_env names s0.locals = SOME x` by
+    (fs [dataSemTheory.cut_env_def,Abbr‘s0’] \\ rveq
+     \\ fs [lookup_inter_alt,domain_inter])
+  \\ drule_all cut_env_IMP_cut_env \\ strip_tac \\ gvs []
+  \\ drule_all state_rel_cut_env_cut_env
+  \\ unabbrev_all_tac
+  \\ gvs [] \\ gvs [state_rel_def]
 QED
 
 Theorem state_rel_with_clock_0:
