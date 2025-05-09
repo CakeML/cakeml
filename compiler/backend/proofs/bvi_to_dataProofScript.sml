@@ -1000,63 +1000,63 @@ Proof
     \\ simp[]
     \\ Cases_on`op = Install`
     >- (
-     fs[dataLangTheory.op_requires_names_def,domain_map]
-     \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
-     \\ fs[bviSemTheory.do_app_def,dataSemTheory.do_app_def]
-     \\ fs[bviSemTheory.do_install_def,dataSemTheory.do_install_def]
-     \\ fs[case_eq_thms,GSYM MAP_REVERSE,bvlSemTheory.case_eq_thms]
-     \\ ntac 4 (rfs [MAP_EQ_CONS])
-     \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
-     \\ rveq
-     \\ fs[bvlPropsTheory.case_eq_thms,case_eq_thms]
-     \\ rpt(pairarg_tac \\ fs[])
-     \\ fs[Once SWAP_REVERSE_SYM]
-     \\ rveq \\ fs[]
-     \\ fs[bvlPropsTheory.case_eq_thms,case_eq_thms] \\ rveq
-     \\ Cases_on`progs` \\ fs[]
-     >- (
-       rfs[state_rel_def] \\ fs[]
-       \\ fs[compile_prog_def] )
-     \\ `r.compile = λcfg prog. t2.compile cfg (compile_prog prog)` by fs[state_rel_def]
-     \\ `t2.compile_oracle = (I ## compile_prog) o r.compile_oracle` by fs[state_rel_def]
-     \\ fs[] \\ rveq \\ fs[shift_seq_def]
-     \\ Cases_on`h` \\ fs[set_var_def,lookup_insert,var_corr_def,state_rel_def,o_DEF,get_var_def,lookup_insert,lookup_map]
-     \\ qmatch_goalsub_abbrev_tac`fromAList progs1`
-     \\ qmatch_goalsub_abbrev_tac`union t2.code (fromAList progs2)`
-     \\ conj_tac
-     >- (
-       ntac 2 (pop_assum kall_tac) \\ rveq \\
-       fs[code_rel_def,wf_union,wf_fromAList,domain_union,compile_prog_def,domain_fromAList,
-          compile_part_thm,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX] \\
-       fs[lookup_union,lookup_fromAList, ALOOKUP_MAP]
-       \\ rpt gen_tac
-       \\ TOP_CASE_TAC \\ fs[]
-       >- (
-         TOP_CASE_TAC \\ fs[]
-         \\ fs[EXTENSION,domain_lookup]
-         \\ metis_tac[NOT_SOME_NONE] )
-       \\ rw[] \\ res_tac \\ fs[] )
-     \\ rveq \\ fs[] \\ rveq
-     \\ conj_tac
-     >- ( simp[Abbr`env1`] \\ fs[lookup_inter_alt] )
-     \\ conj_tac >- (
-       fs[LIST_REL_EL_EQN]
-       \\ rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
-       >- ( res_tac \\ fs[] )
-       \\ METIS_TAC[MEM_EL] )
-     \\ conj_tac >- (
-       rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
-       \\ res_tac \\ fs[] )
-     \\ conj_tac >- (
-       rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
-       \\ METIS_TAC[] )
-     \\ reverse conj_tac >- (
-       fs[compile_prog_def,compile_part_thm,Abbr`progs1`,data_to_bvi_v_def]
-       \\ fs[markerTheory.Abbrev_def] )
-     \\ rw[] \\ res_tac
-     \\ fs[jump_exc_def]
-     \\ TOP_CASE_TAC \\ fs[]
-     \\ TOP_CASE_TAC \\ fs[])
+      fs[dataLangTheory.op_requires_names_def,domain_map]
+      \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
+      \\ fs[bviSemTheory.do_app_def,dataSemTheory.do_app_def]
+      \\ fs[bviSemTheory.do_install_def,dataSemTheory.do_install_def]
+      \\ fs[case_eq_thms,GSYM MAP_REVERSE,bvlSemTheory.case_eq_thms]
+      \\ ntac 4 (rfs [MAP_EQ_CONS])
+      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ rveq
+      \\ fs[bvlPropsTheory.case_eq_thms,case_eq_thms]
+      \\ rpt(pairarg_tac \\ fs[])
+      \\ fs[Once SWAP_REVERSE_SYM]
+      \\ rveq \\ fs[]
+      \\ fs[bvlPropsTheory.case_eq_thms,case_eq_thms] \\ rveq
+      \\ Cases_on`progs` \\ fs[]
+      >- (
+        rfs[state_rel_def]
+        \\ gvs[compile_prog_def] )
+      \\ `r.compile = λcfg prog. t2.compile cfg (compile_prog prog)` by fs[state_rel_def]
+      \\ `t2.compile_oracle = (I ## compile_prog) o r.compile_oracle` by fs[state_rel_def]
+      \\ fs[] \\ rveq \\ fs[shift_seq_def]
+      \\ Cases_on`h` \\ fs[set_var_def,lookup_insert,var_corr_def,state_rel_def,o_DEF,get_var_def,lookup_insert,lookup_map]
+      \\ qmatch_goalsub_abbrev_tac`fromAList progs1`
+      \\ qmatch_goalsub_abbrev_tac`union t2.code (fromAList progs2)`
+      \\ conj_tac
+      >- (
+        ntac 2 (pop_assum kall_tac) \\ rveq \\
+        fs[code_rel_def,wf_union,wf_fromAList,domain_union,compile_prog_def,domain_fromAList,
+           compile_part_thm,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX] \\
+        fs[lookup_union,lookup_fromAList, ALOOKUP_MAP]
+        \\ rpt gen_tac
+        \\ TOP_CASE_TAC \\ fs[]
+        >- (
+          TOP_CASE_TAC \\ fs[]
+          \\ fs[EXTENSION,domain_lookup]
+          \\ metis_tac[NOT_SOME_NONE] )
+        \\ rw[] \\ res_tac \\ fs[] )
+      \\ rveq \\ fs[] \\ rveq
+      \\ conj_tac
+      >- ( simp[Abbr`env1`] \\ fs[lookup_inter_alt] )
+      \\ conj_tac >- (
+        fs[LIST_REL_EL_EQN]
+        \\ rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        >- ( res_tac \\ fs[] )
+        \\ METIS_TAC[MEM_EL] )
+      \\ conj_tac >- (
+        rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ res_tac \\ fs[] )
+      \\ conj_tac >- (
+        rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ METIS_TAC[] )
+      \\ reverse conj_tac >- (
+        fs[compile_prog_def,compile_part_thm,Abbr`progs1`,data_to_bvi_v_def]
+        \\ fs[markerTheory.Abbrev_def] )
+      \\ rw[] \\ res_tac
+      \\ fs[jump_exc_def]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[])
     \\ Cases_on `op = IntOp Greater \/ op = IntOp GreaterEq` THEN1
      (fs []
       \\ (fs [dataLangTheory.op_requires_names_def
