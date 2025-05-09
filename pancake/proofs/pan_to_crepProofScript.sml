@@ -4423,162 +4423,49 @@ Proof
 QED
 
 Theorem alookup_compile_prog_code:
-  ALL_DISTINCT (MAP FST pan_code) ∧
-  ALOOKUP pan_code start = SOME ([],prog) ==>
+  ALL_DISTINCT (MAP FST (functions pan_code)) ∧
+  ALOOKUP (functions pan_code) start = SOME ([],prog) ==>
   ALOOKUP (compile_prog pan_code) start =
   SOME ([],
-        comp_func (make_funcs pan_code) (get_eids pan_code) [] prog)
+        comp_func (make_funcs(functions pan_code))
+                  (get_eids(functions pan_code)) [] prog)
 Proof
-  rw [] >>
-  fs [compile_prog_def, ctxt_fc_def] >>
-  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
-  conj_tac
-  >- (
-   fs [MAP_MAP_o] >>
-   qmatch_goalsub_abbrev_tac ‘MAP ff _’ >>
-   ‘MAP ff pan_code = MAP FST pan_code’ suffices_by fs [] >>
-    fs [Abbr ‘ff’, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-    rw [] >>
-    fs []  >>
-    cases_on ‘EL n pan_code’ >>
-    cases_on ‘r’ >> fs []) >>
-  drule ALOOKUP_MEM >>
-  strip_tac >>
-  fs [MEM_EL] >> rveq >>
-  qexists_tac ‘n’ >>
-  fs [] >>
-  qmatch_goalsub_abbrev_tac ‘MAP ff pan_code’ >>
-  drule (INST_TYPE [“:'a”|->“:mlstring # (mlstring # shape) list # α panLang$prog”,
-                    “:'b”|->“:mlstring # num list # α prog”] EL_MAP) >>
-  disch_then (qspec_then ‘ff’ mp_tac) >>
-  strip_tac >> fs [] >>
-  fs [Abbr ‘ff’] >>
-  qpat_x_assum ‘_ = EL n pan_code’ (assume_tac o GSYM) >>
-  fs [crep_vars_def, panLangTheory.size_of_shape_def]
+  rw[compile_prog_def, ctxt_fc_def,ELIM_UNCURRY,
+     SIMP_RULE std_ss [ELIM_UNCURRY] ALOOKUP_MAP, crep_vars_def,
+     panLangTheory.size_of_shape_def]
 QED
 
 
 Theorem el_compile_prog_el_prog_eq:
   !prog n start cprog p.
    EL n (compile_prog prog) = (start,[],cprog) /\
-   ALL_DISTINCT (MAP FST prog) /\ n < LENGTH prog /\
-   ALOOKUP prog start = SOME ([],p) ==>
-     EL n prog = (start,[],p)
+   ALL_DISTINCT (MAP FST (functions prog)) /\ n < LENGTH(functions prog) /\
+   ALOOKUP (functions prog) start = SOME ([],p) ==>
+     EL n (functions prog) = (start,[],p)
 Proof
-  rw [] >>
-  fs [compile_prog_def] >>
-  qmatch_asmsub_abbrev_tac ‘EL _ (MAP ff _) = _’ >>
-  ‘EL n (MAP ff prog) = ff (EL n prog)’ by (
-    match_mp_tac EL_MAP >> fs []) >>
-  cases_on ‘EL n prog’ >>
-  cases_on ‘r’ >> fs [] >>
-  fs [Abbr ‘ff’] >> rveq >> rfs [] >>
+  rw[] >>
   drule ALOOKUP_MEM >>
   strip_tac >>
-  fs [MEM_EL] >>
-  pop_assum (assume_tac o GSYM) >>
-  fs [] >>
-  ‘n = n'’ by (
-    drule pan_commonPropsTheory.all_distinct_el_fst_same_eq >>
-    disch_then (qspecl_then [‘n’, ‘n'’, ‘q’, ‘(q',r')’, ‘([],p)’] mp_tac) >>
-    fs []) >>
-  fs []
+  gvs[compile_prog_def,EL_MAP,UNCURRY_eq_pair,
+      MEM_EL,EL_ALL_DISTINCT_EL_EQ,EL_MAP,SF DNF_ss] >>
+  metis_tac[FST,SND,PAIR]
 QED
 
 Theorem mk_ctxt_code_imp_code_rel:
-  ∀pan_code start p. ALL_DISTINCT (MAP FST pan_code) ∧
-   EVERY (localised_prog o SND o SND) pan_code
+  ∀pan_code start p. ALL_DISTINCT (MAP FST (functions pan_code)) ∧
+   EVERY (localised_prog o SND o SND) (functions pan_code)
   ⇒
-  code_rel (mk_ctxt FEMPTY (make_funcs pan_code) 0 (get_eids pan_code))
-           (alist_to_fmap pan_code)
+  code_rel (mk_ctxt FEMPTY (make_funcs (functions pan_code)) 0 (get_eids (functions pan_code)))
+           (alist_to_fmap (functions pan_code))
            (alist_to_fmap (pan_to_crep$compile_prog pan_code))
 Proof
-  rw [] >>
-  fs [code_rel_def, mk_ctxt_def] >>
-  rpt gen_tac >>
-  strip_tac >>
-  conj_tac
-  >- (imp_res_tac ALOOKUP_MEM >>
-      gvs[EVERY_MEM] >>
-      res_tac >> fs[]) >>
-  conj_tac
-  >- (
-   fs [make_funcs_def] >>
-   match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
-   conj_tac
-   >- (
-    qmatch_goalsub_abbrev_tac ‘MAP FST ls’ >>
-    ‘MAP FST ls = MAP FST pan_code’ suffices_by fs [] >>
-    fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-    conj_tac >- fs [Abbr ‘ls’] >>
-    conj_tac >- fs [Abbr ‘ls’] >>
-    rw [] >>
-    fs [Abbr ‘ls’] >>
-    qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
-    ‘n < MIN (LENGTH (MAP FST pan_code)) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
-    drule (INST_TYPE [“:'a”|->“:mlstring”,
-                      “:'b”|->“:(mlstring # shape) list”,
-                      “:'c”|-> “:mlstring # (mlstring # shape) list”] EL_MAP2) >>
-    disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
-    strip_tac >> fs [] >>
-    match_mp_tac EL_MAP >>
-    fs []) >>
-   drule ALOOKUP_MEM >>
-   strip_tac >>
-   fs [MEM_EL] >> rveq >>
-   qexists_tac ‘n’ >>
-   fs [] >>
-   qmatch_goalsub_abbrev_tac ‘MAP2 _ _ ps’ >>
-   ‘n < MIN (LENGTH (MAP FST pan_code)) (LENGTH ps)’ by fs [Abbr ‘ps’] >>
-   drule (INST_TYPE [“:'a”|->“:mlstring”,
-                     “:'b”|->“:(mlstring # shape) list”,
-                     “:'c”|-> “:mlstring # (mlstring # shape) list”] EL_MAP2) >>
-   disch_then (qspec_then ‘λx y. (x,y)’ mp_tac) >>
-   strip_tac >> fs [] >>
-   fs [Abbr ‘ps’] >>
-   conj_tac
-   >- (
-    drule (INST_TYPE [“:'a”|->“:mlstring # (mlstring # shape) list # α panLang$prog”,
-                      “:'b”|->“:mlstring”] EL_MAP) >>
-    disch_then (qspec_then ‘FST’ mp_tac) >>
-    strip_tac >> fs [] >>
-    qpat_x_assum ‘_ = EL n pan_code’ (assume_tac o GSYM) >>
-    fs []) >>
-   drule (INST_TYPE [“:'a”|->“:mlstring # (mlstring # shape) list # α panLang$prog”,
-                     “:'b”|->“:(mlstring # shape) list”] EL_MAP) >>
-   disch_then (qspec_then ‘FST ∘ SND’ mp_tac) >>
-   strip_tac >> fs [] >>
-   qpat_x_assum ‘_ = EL n pan_code’ (assume_tac o GSYM) >>
-   fs []) >>
-  fs [compile_prog_def, ctxt_fc_def] >>
-  match_mp_tac ALOOKUP_ALL_DISTINCT_MEM >>
-  conj_tac
-  >- (
-   fs [MAP_MAP_o] >>
-   qmatch_goalsub_abbrev_tac ‘MAP ff _’ >>
-   ‘MAP ff pan_code = MAP FST pan_code’ suffices_by fs [] >>
-    fs [Abbr ‘ff’, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-    rw [] >>
-    fs []  >>
-    cases_on ‘EL n pan_code’ >>
-    cases_on ‘r’ >> fs []) >>
-  drule ALOOKUP_MEM >>
-  strip_tac >>
-  fs [MEM_EL] >> rveq >>
-  qexists_tac ‘n’ >>
-  fs [] >>
-  qmatch_goalsub_abbrev_tac ‘MAP ff pan_code’ >>
-  drule (INST_TYPE [“:'a”|->“:mlstring # (mlstring # shape) list # α panLang$prog”,
-                    “:'b”|->“:mlstring # num list # α prog”] EL_MAP) >>
-  disch_then (qspec_then ‘ff’ mp_tac) >>
-  strip_tac >> fs [] >>
-  fs [Abbr ‘ff’] >>
-  qpat_x_assum ‘_ = EL n pan_code’ (assume_tac o GSYM) >>
-  fs [] >>
-  conj_tac
-  >- fs [crep_vars_def] >>
-  fs [comp_func_def, mk_ctxt_def] >>
-  fs [make_vmap_def, list_max_i_genlist]
+  rw [code_rel_def, mk_ctxt_def] >>
+  imp_res_tac ALOOKUP_MEM >>
+  gvs[make_funcs_def,MAP2_MAP,ZIP_MAP_MAP,MAP_MAP_o,o_DEF,
+      SIMP_RULE std_ss [ELIM_UNCURRY] ALOOKUP_MAP,ELIM_UNCURRY,
+      compile_prog_def,crep_vars_def,EVERY_MEM,comp_func_def,
+      mk_ctxt_def,ctxt_fc_def,make_vmap_def,list_max_i_genlist,EVERY_MEM] >>
+  res_tac >> fs[]
 QED
 
 
