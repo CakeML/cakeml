@@ -4452,7 +4452,7 @@ Proof
 QED
 
 Theorem mk_ctxt_code_imp_code_rel:
-  ∀pan_code start p. ALL_DISTINCT (MAP FST (functions pan_code)) ∧
+  ∀pan_code. ALL_DISTINCT (MAP FST (functions pan_code)) ∧
    EVERY (localised_prog o SND o SND) (functions pan_code)
   ⇒
   code_rel (mk_ctxt FEMPTY (make_funcs (functions pan_code)) 0 (get_eids (functions pan_code)))
@@ -4467,7 +4467,6 @@ Proof
       mk_ctxt_def,ctxt_fc_def,make_vmap_def,list_max_i_genlist,EVERY_MEM] >>
   res_tac >> fs[]
 QED
-
 
 Theorem mod_eq_lt_eq:
   !n x m.
@@ -4505,7 +4504,7 @@ Theorem get_eids_imp_excp_rel:
    FDOM seids =  FDOM ((get_eids(functions pc)):mlstring |-> 'a word) ==>
      excp_rel ((get_eids(functions pc):mlstring |-> 'a word)) seids
 Proof
-  rw [excp_rel_def, get_eids_def] >>
+  rw[excp_rel_def, get_eids_def] >>
   gvs[MAP2_MAP,pair_map_I] >>
   imp_res_tac ALOOKUP_MEM >>
   gvs[MEM_ZIP,size_of_eids_eq]
@@ -4515,59 +4514,37 @@ Theorem mk_ctxt_imp_locals_rel:
   !pc lcl.
     locals_rel (mk_ctxt FEMPTY (make_funcs pc) 0 (get_eids pc)) FEMPTY lcl
 Proof
-  rw [] >> fs [] >>
-  fs [locals_rel_def] >>
-  conj_tac
-  >- rw [no_overlap_def, mk_ctxt_def] >>
-  fs [ctxt_max_def, mk_ctxt_def]
+  rw[locals_rel_def,no_overlap_def,mk_ctxt_def,ctxt_max_def]
 QED
 
-
 Theorem compile_prog_distinct_params:
-  ∀prog.
-    EVERY (λ(name,params,body). ALL_DISTINCT params) prog ⇒
     EVERY (λ(name,params,body). ALL_DISTINCT params) (compile_prog prog)
 Proof
-  rw [] >>
-  fs [EVERY_MEM] >>
-  rw [] >>
-  PairCases_on ‘e’ >> fs [] >>
-  fs [compile_prog_def] >>
-  fs [MEM_EL] >>
-  qmatch_asmsub_abbrev_tac ‘MAP ff _’ >>
-  ‘EL n (MAP ff prog) = ff (EL n prog)’ by (
-    match_mp_tac EL_MAP >>
-    fs []) >>
-  fs [] >>
-  pop_assum kall_tac >>
-  fs [Abbr ‘ff’] >>
-  cases_on ‘EL n prog’ >>
-  cases_on ‘r’ >> fs [] >> rveq >>
-  fs [crep_vars_def, ALL_DISTINCT_GENLIST]
+  rw[EVERY_MEM] >>
+  gvs[compile_prog_def,MEM_MAP,UNCURRY_eq_pair,crep_vars_def,ALL_DISTINCT_GENLIST]
 QED
 
 Theorem state_rel_imp_semantics:
   !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start prog.
     state_rel s t ∧
-    ALL_DISTINCT (MAP FST pan_code) ∧
-    s.code = alist_to_fmap pan_code ∧
+    ALL_DISTINCT (MAP FST (functions pan_code)) ∧
+    s.code = alist_to_fmap(functions pan_code) ∧
     t.code = alist_to_fmap (pan_to_crep$compile_prog pan_code) ∧
     s.locals = FEMPTY ∧
+    EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
-    FDOM s.eshapes =  FDOM ((get_eids pan_code):mlstring |-> 'a word) ∧
-    ALOOKUP pan_code start = SOME ([],prog) ∧
+    FDOM s.eshapes =  FDOM ((get_eids(functions pan_code)):mlstring |-> 'a word) ∧
+    ALOOKUP (functions pan_code) start = SOME ([],prog) ∧
     semantics s start <> Fail ==>
       semantics t start = semantics s start
 Proof
   rw [] >>
-  fs [] >>
   drule mk_ctxt_code_imp_code_rel >>
-  disch_then (qspecl_then [‘start’, ‘prog’] mp_tac) >>
-  fs [] >> strip_tac >>
-  ‘excp_rel ((get_eids pan_code):mlstring |-> 'a word) s.eshapes’ by (
+  fs[] >> strip_tac >>
+  ‘excp_rel ((get_eids(functions pan_code)):mlstring |-> 'a word) s.eshapes’ by (
     match_mp_tac get_eids_imp_excp_rel >> fs []) >>
-  ‘locals_rel (mk_ctxt FEMPTY (make_funcs pan_code) 0
-               ((get_eids pan_code):mlstring |-> 'a word)) FEMPTY t.locals’ by (
+  ‘locals_rel (mk_ctxt FEMPTY (make_funcs(functions pan_code)) 0
+               ((get_eids(functions pan_code)):mlstring |-> 'a word)) FEMPTY t.locals’ by (
     fs [locals_rel_def] >>
     conj_tac
     >- rw [no_overlap_def, mk_ctxt_def] >>
@@ -4599,7 +4576,7 @@ Proof
     >- (
       fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
       cases_on ‘q’ >> fs [] >>
-      cases_on ‘x’ >> fs []) >>
+      cases_on ‘x’ >> fs [localised_prog_def]) >>
     CCONTR_TAC >>
     fs [] >>
     fs [compile_def] >>
@@ -4622,7 +4599,7 @@ Proof
     fs [] >>
     disch_then (qspecl_then [‘t with clock := k’, ‘nctxt’] mp_tac) >>
     impl_tac
-    >- fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def] >>
+    >- fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def,localised_prog_def] >>
     strip_tac >> fs [] >>
     fs [compile_def] >>
     fs [compile_exp_def] >>
@@ -4652,7 +4629,7 @@ Proof
    Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
    conj_tac
    >- (
-    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
+    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def, localised_prog_def] >>
     cases_on ‘q’ >> fs [] >>
     cases_on ‘x’ >> fs []) >>
    CCONTR_TAC >> fs [] >>
@@ -4680,7 +4657,7 @@ Proof
    Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
    conj_tac
    >- (
-    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
+    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def, localised_prog_def] >>
     cases_on ‘q’ >> fs [] >>
     cases_on ‘x’ >> fs []) >>
    CCONTR_TAC >>
@@ -4706,7 +4683,7 @@ Proof
    Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS] >>
    conj_tac
    >- (
-    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def] >>
+    fs [state_rel_def, Abbr ‘nctxt’, mk_ctxt_def,localised_prog_def] >>
     last_x_assum (qspec_then ‘k’ assume_tac) >>
     rfs [] >>
     cases_on ‘q’ >> fs [] >>
@@ -4742,13 +4719,13 @@ Proof
                           ``:'b``|->``:'b``]
                crepPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_assum (qspecl_then
-                [‘Call NONE (Label start) []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
+                [‘Call NONE start []’, ‘t with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘Call NONE (Label start) []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
+                [‘Call NONE start []’, ‘t with clock := k2’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘Call NONE (Label start) []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
+                [‘Call NONE start []’, ‘s with clock := k1’, ‘p’] mp_tac) >>
    first_assum (qspecl_then
-                [‘Call NONE (Label start) []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
+                [‘Call NONE start []’, ‘s with clock := k2’, ‘p’] mp_tac) >>
    fs []) >>
   simp [equiv_lprefix_chain_thm] >>
   fs [Abbr ‘l1’, Abbr ‘l2’]  >> simp[PULL_EXISTS] >>
@@ -4769,7 +4746,7 @@ Proof
    fs [] >>
    disch_then (qspecl_then [‘t with clock := k’, ‘nctxt’] mp_tac) >>
    impl_tac
-   >- fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def] >>
+   >- fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def, localised_prog_def] >>
    strip_tac >> fs [] >>
    qexists_tac ‘ck+k’ >> simp[] >>
    fs [compile_def, compile_def] >>
@@ -4785,7 +4762,7 @@ Proof
                           ``:'b``|->``:'b``]
                crepPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_x_assum (qspecl_then
-                  [‘Call NONE (Label start) []’,
+                  [‘Call NONE start []’,
                    ‘t with clock := k’, ‘ck’] mp_tac) >>
    strip_tac >> rfs [] >>
    fs [state_rel_def, IS_PREFIX_THM]) >>
@@ -4800,7 +4777,7 @@ Proof
   fs [] >>
   disch_then (qspecl_then [‘t with clock := k’, ‘nctxt’] mp_tac) >>
   impl_tac
-  >- fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def] >>
+  >- fs [Abbr ‘nctxt’, mk_ctxt_def, state_rel_def, localised_prog_def] >>
   strip_tac >> fs [] >>
   fs [compile_def] >>
   fs [compile_exp_def] >>
