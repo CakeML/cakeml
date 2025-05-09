@@ -40,7 +40,7 @@ Theorem list_result_INJ[simp]:
   list_result x = list_result y <=>
   x = y
 Proof
-  rw[oneline list_result_def] >> EVERY_CASE_TAC >> fs[] 
+  rw[oneline list_result_def] >> EVERY_CASE_TAC >> fs[]
 QED
 
 Theorem evaluate_eq_run_eval_list:
