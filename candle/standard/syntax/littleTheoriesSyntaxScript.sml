@@ -78,59 +78,59 @@ val _ = Parse.add_infix("|-'",450,Parse.NONASSOC)
 Inductive proves':
 [~ABS:]
   (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧ type_ok thy.ctys ty ∧
-   (thy, es, h) |-' l === r
-   ⇒ (thy, es, h) |-' (Abs (Var x ty) l) === (Abs (Var x ty) r))
+   (thy, {}, h) |-' l === r
+   ⇒ (thy, {}, h) |-' (Abs (Var x ty) l) === (Abs (Var x ty) r))
 
 [~ASSUME:]
   (theory_ok' thy ∧ p has_type Bool ∧ term_ok' thy p
-   ⇒ (thy, es, [p]) |-' p)
+   ⇒ (thy, {}, [p]) |-' p)
 
 [~BETA:]
   (theory_ok' thy ∧ type_ok thy.ctys ty
    ∧ term_ok' thy t
-   ⇒ (thy, es, []) |-' Comb (Abs (Var x ty) t) (Var x ty) === t)
+   ⇒ (thy, {}, []) |-' Comb (Abs (Var x ty) t) (Var x ty) === t)
 
 [~DEDUCT_ANTISYM:]
-  ((thy, es, h1) |-' c1 ∧
-   (thy, es, h2) |-' c2
-   ⇒ (thy, es, term_union (term_remove c2 h1)
+  ((thy, {}, h1) |-' c1 ∧
+   (thy, {}, h2) |-' c2
+   ⇒ (thy, {}, term_union (term_remove c2 h1)
                           (term_remove c1 h2))
      |-' c1 === c2)
 
 [~EQ_MP:]
-  ((thy, es, h1) |-' p === q ∧
-   (thy, es, h2) |-' p' ∧ ACONV p p'
-   ⇒ (thy, es, term_union h1 h2) |-' q)
+  ((thy, {}, h1) |-' p === q ∧
+   (thy, {}, h2) |-' p' ∧ ACONV p p'
+   ⇒ (thy, {}, term_union h1 h2) |-' q)
 
 [~INST:]
   ((∀s s'. MEM (s',s) ilist ⇒
            ∃x ty. (s = Var x ty) ∧ s' has_type ty
                   ∧ term_ok' thy s') ∧
-   (thy, es, h) |-' c
-   ⇒ (thy, es, term_image (VSUBST ilist) h) |-' VSUBST ilist c)
+   (thy, {}, h) |-' c
+   ⇒ (thy, {}, term_image (VSUBST ilist) h) |-' VSUBST ilist c)
 
 [~INST_TYPE:]
   ((EVERY (type_ok thy.ctys) (MAP FST tyin)) ∧
-   (thy, es, h) |-' c
-   ⇒ (thy, es, term_image (INST tyin) h) |-' INST tyin c)
+   (thy, {}, h) |-' c
+   ⇒ (thy, {}, term_image (INST tyin) h) |-' INST tyin c)
 
 [~MK_COMB:]
-  ((thy, es, h1) |-' l1 === r1 ∧
-   (thy, es, h2) |-' l2 === r2 ∧
+  ((thy, {}, h1) |-' l1 === r1 ∧
+   (thy, {}, h2) |-' l2 === r2 ∧
    welltyped(Comb l1 l2)
-   ⇒ (thy, es, term_union h1 h2) |-' Comb l1 l2 === Comb r1 r2)
+   ⇒ (thy, {}, term_union h1 h2) |-' Comb l1 l2 === Comb r1 r2)
 
 [~REFL:]
   (theory_ok' thy ∧ term_ok' thy t
-   ⇒ (thy, es, []) |-' t === t)
+   ⇒ (thy, {}, []) |-' t === t)
 
 [~axioms:]
   (theory_ok' thy ∧ c ∈ thy.axs
-   ⇒ (thy, es, []) |-' c)
+   ⇒ (thy, {}, []) |-' c)
 
 [~elim_discharge:]
   (thy, es1, []) |-' c1 ∧ (thy, es2, h2) |-' c2
-⇒ (thy, term_union (term_remove c1 es2) es1, h2) |-' c2
+⇒ (thy, (es2 DIFF {c}) ∪ es1, h2) |-' c2
 
 (* have to define SUBST and SUBSTL first
 [~elim_inst:]
@@ -140,16 +140,16 @@ Inductive proves':
 
 [~elim_axioms:]
   (theory_ok' thy ∧ c ∈ thy.eaxs
-   ⇒ (thy, [c], []) |-' c)
+   ⇒ (thy, {c}, []) |-' c)
 End
 
 Definition lift_thy_def:
   lift_thy (thy:thy) = <| tms := tmsof thy;
-                    tys := tysof thy;
-                    etms := FEMPTY;
-                    etys := FEMPTY;
-                    axs := axsof thy;
-                    eaxs := {} |>
+                          tys := tysof thy;
+                          etms := FEMPTY;
+                          etys := FEMPTY;
+                          axs := axsof thy;
+                          eaxs := {} |>
 End
 
 Theorem tmsof_lift_thy[simp]:
@@ -212,16 +212,15 @@ Proof
   rw[theory_ok_def, theory_ok'_def, lift_thy_def]
 QED
 
-        
 Theorem term_ok'_lift_thy[simp]:
   term_ok' (lift_thy thy) tm ⇔ term_ok (sigof thy) tm
 Proof
   Induct_on ‘tm’
   >> rw[term_ok_def, term_ok'_def, lift_thy_def]
 QED
-        
+
 Theorem proves_imp_proves':
- ∀h. (thy, h) |- c ⇒ (lift_thy thy, [], h) |-' c
+  ∀h. (thy, h) |- c ⇒ (lift_thy thy, {}, h) |-' c
 Proof
   Induct_on ‘$|-’ >> rw[]
   >- (irule proves'_ABS >> rw[])
@@ -273,188 +272,14 @@ Definition tyconsts_of_tms[simp]:
   tyconsts_of_tms A = BIGUNION (IMAGE tyconsts_of_tm A)
 End
 
-Definition remove_tysig_def:
-  remove_tysig ty (tys, tms) = (tys \\ ty, tms)
-End
-
 Theorem type_ind =
-  TypeBase.induction_of``:holSyntax$type``
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> SIMP_RULE std_ss [EVERY_DEF]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> Q.GEN`P`
-
-Theorem flookup_tysof_remove_tysig:
-  FLOOKUP (tysof (remove_tysig n sig)) m =
-  (if m = n then NONE else FLOOKUP (tysof sig) m)
-Proof
-  rw[] >> Cases_on ‘sig’ >> rw[remove_tysig_def, FLOOKUP_DEF, DOMSUB_FAPPLY_NEQ]
-QED
-
-Theorem flookup_tmsof_remove_tysig:
-  FLOOKUP (tmsof (remove_tysig n sig)) m = FLOOKUP (tmsof sig) m
-Proof
-  rw[] >> Cases_on ‘sig’ >> rw[remove_tysig_def]
-QED
-
-Theorem notin_foldr_tyconsts:
-  tyn ∉ FOLDR (λx acc. tyconsts_of x ∪ acc) ∅ l
-  ⇒ ∀ty. MEM ty l ⇒ tyn ∉ tyconsts_of ty
-Proof
-  rw[] >> metis_tac[]
-QED
-
-Theorem remove_tysig_type_ok_alt:
-  tyn ∉ tyconsts_of ty ∧ type_ok (tysof sig) ty
-  ⇒ type_ok (tysof (remove_tysig tyn sig)) ty
-Proof
-  Induct_on ‘ty’ using type_ind >> gvs[type_ok_def]
-  >> rw[] >> gvs[tyconsts_of]
-  >- rw[flookup_tysof_remove_tysig]
-  >> gvs[EVERY_MEM] >> drule notin_foldr_tyconsts
-  >> metis_tac[]
-QED
-
-Theorem remove_tysig_term_ok_alt:
-  tyn ∉ tyconsts_of_tm tm ∧ term_ok sig tm
-  ⇒ term_ok (remove_tysig tyn sig) tm
-Proof
-  Induct_on ‘tm’
-  >> rw[tyconsts_of_tm, term_ok_def, type_ok_def, remove_tysig_type_ok_alt]
-  >- (Induct_on ‘TYPE_SUBST i ty0’ using type_ind
-      >> rw[flookup_tmsof_remove_tysig, remove_tysig_type_ok_alt]
-      >> metis_tac[])
-  >- (Induct_on ‘ty’ using type_ind
-      >> rw[type_ok_def, tyconsts_of, flookup_tysof_remove_tysig]
-      >> gvs[EVERY_MEM] >> drule notin_foldr_tyconsts >> rw[]
-      >> irule remove_tysig_type_ok_alt >> rw[])
-QED
-
-Theorem in_frange_cases:
-  ty ∈ FRANGE (tmsof (remove_tysig tyn sig)) ∧ tyn ∉ tyconsts_of ty
-  ⇒ ty ∈ FRANGE (tmsof sig)
-Proof
-  Cases_on ‘sig’ >> Cases_on ‘ty’ >> rw[tyconsts_of, remove_tysig_def]
-QED
-
-Theorem frange_remove_tysig_subset:
-  FRANGE (tmsof (remove_tysig tyn sig)) ⊆ FRANGE (tmsof sig)
-Proof
-  rw[] >> Cases_on ‘sig’ >> rw[remove_tysig_def]
-QED
-
-Theorem forall_subset:
-  ∀P s1 s2. (∀x. x ∈ s1 ⇒ P x) ∧ s2 ⊆ s1 ⇒ (∀x. x ∈ s2 ⇒ P x)
-Proof
-  metis_tac[SUBSET_DEF]
-QED
-
-Theorem remove_tysig_theory_ok:
-  theory_ok (sig, axs) ∧ tyn ∉ tyconsts_of_tms axs
-  ∧ (∀ty. ty ∈ FRANGE (tmsof sig) ⇒ tyn ∉ tyconsts_of ty)
-  ∧ is_std_sig (remove_tysig tyn sig)
-  ⇒ theory_ok (remove_tysig tyn sig, axs)
-Proof
-  gvs[theory_ok_def] >> rw[]
-  >- (irule remove_tysig_type_ok_alt >> gvs[] >> rw[]
-      >> first_assum irule >> irule in_frange_cases >> qexists ‘tyn’
-      >> rw[frange_remove_tysig_subset]
-      >> qspecl_then [‘λty. tyn ∉ tyconsts_of ty’,
-                      ‘FRANGE (tmsof sig)’,
-                      ‘FRANGE (tmsof (remove_tysig tyn sig))’]
-                     assume_tac forall_subset
-      >> gvs[frange_remove_tysig_subset])
-  >- (first_x_assum drule_all >> rw[] >> irule remove_tysig_term_ok_alt
-      >> rw[] >> metis_tac[])
-QED
-
-Theorem tyconsts_of_term_union:
-  tyn ∉ tyconsts_of_tml (term_union h1 h2) ⇒
-  tyn ∉ tyconsts_of_tml h1 ∧ tyn ∉ tyconsts_of_tml h2
-Proof
-  cheat
-QED
-
-Theorem tyconsts_of_term_remove:
-  tyn ∉ tyconsts_of_tm c ∧ tyn ∉ tyconsts_of_tml (term_remove c h)
-  ⇒ tyn ∉ tyconsts_of_tml h
-Proof
-  cheat
-QED
-
-Theorem tyconsts_of_codomain:
-  ∀t. tyconsts_of (codomain t) ⊆ tyconsts_of t
-Proof
-  cheat
-QED
-
-Theorem notin_tyconsts_typeof:
-  tyn ≠ «fun» ∧ tyn ∉ tyconsts_of_tm tm  ⇒ tyn ∉ tyconsts_of (typeof tm)
-Proof
-  Induct_on ‘tm’ >> rw[tyconsts_of_tm, typeof_def, tyconsts_of]
-  >> gvs[] >> metis_tac[tyconsts_of_codomain, SUBSET_DEF]
-QED
-
-Theorem tyn_notin_mk_comb:
-  tyn ∉ tyconsts_of_tm (Comb l1 l2 === Comb r1 r2)
-  ⇒ tyn ∉ tyconsts_of_tm (l1 === r1) ∧ tyn ∉ tyconsts_of_tm (l2 === r2)
-Proof
-  rw[equation_def, tyconsts_of_tm, tyconsts_of, notin_tyconsts_typeof]
-  >> metis_tac[tyconsts_of_codomain, notin_tyconsts_typeof, SUBSET_DEF]
-QED
-
-(*Theorem strip_redun_ty_consts:
-  ∀sig axs h c tyn.
-    ((sig, axs), h) |- c
-    ∧ tyn ∉ tyconsts_of_tm c
-    ∧ tyn ∉ tyconsts_of_tms axs
-    ∧ (∀ty. ty ∈ FRANGE (tmsof sig) ⇒ tyn ∉ tyconsts_of ty)
-    ∧ tyn ∉ tyconsts_of_tml h
-    ∧ is_std_sig (remove_tysig tyn sig)
-    ⇒ ((remove_tysig tyn sig, axs), h) |- c
-Proof
-  Induct_on ‘$|-’ >> rw[]
-  >- (irule proves_ABS >> gvs[equation_def, tyconsts_of_tm, tyconsts_of]
-      >> rw[remove_tysig_type_ok_alt])
-  >- (irule proves_ASSUME >> gvs[] >> rw[remove_tysig_type_ok_alt,
-                                         remove_tysig_term_ok_alt,
-                                         remove_tysig_theory_ok])
-  >- (irule proves_BETA >> gvs[equation_def, tyconsts_of_tm, tyconsts_of]
-      >> rw[remove_tysig_type_ok_alt, remove_tysig_term_ok_alt,
-            remove_tysig_theory_ok])
-  >- (irule proves_DEDUCT_ANTISYM >> rw[]
-      >> gvs[equation_def, tyconsts_of_tm, tyconsts_of]
-      >> dxrule_at Any tyconsts_of_term_union >> rw[]
-      >> metis_tac[tyconsts_of_term_remove])
-  >- (irule proves_EQ_MP >> qexistsl [‘p’, ‘c’] >> rw[]
-      >- cheat
-      >- metis_tac[tyconsts_of_term_union]
-      >> cheat)
-  >- (irule proves_INST >> cheat)
-  >- (irule proves_INST_TYPE >> cheat)
-  >- (irule proves_MK_COMB >> metis_tac[tyn_notin_mk_comb, tyconsts_of_term_union])
-  >- (irule proves_REFL >> rw[]
-      >- (irule remove_tysig_theory_ok >> rw[])
-      >- (irule remove_tysig_term_ok_alt
-          >> gvs[equation_def, tyconsts_of_tm, tyconsts_of]))
-  >- (irule proves_axioms >> gvs[remove_tysig_theory_ok])
-QED*)
-
-Theorem var_vfree_in:
-  EVERY ($¬ ∘ VFREE_IN (Var x ty')) h ⇒ ¬(MEM (Var x ty') h)
-Proof
-  Induct_on ‘h’ >> rw[] >> Cases_on ‘h'’ >> gvs[VFREE_IN_def]
-QED
-
-(*Theorem strip_redun_tm_consts:
-  ∀thy h. (thy, h) |- c ∧ tm ∉ tmset c ∧ tm ∉ tmsetl h
-          ∧ tm ∉ tmsets (axsof thy)
-          ⇒ (remove_tmsig tm thy, h) |- c
-Proof
-  cheat
-QED*)
+        TypeBase.induction_of``:holSyntax$type``
+          |> Q.SPECL[`P`,`EVERY P`]
+          |> SIMP_RULE std_ss [EVERY_DEF]
+          |> UNDISCH_ALL
+          |> CONJUNCT1
+          |> DISCH_ALL
+          |> Q.GEN`P`
 
 Theorem proves_theory_ok:
   ∀thy h c. (thy, h) |- c ⇒ theory_ok thy
@@ -490,9 +315,10 @@ Proof
 QED
 
 Theorem axioms_eliminable:
-  ∀thy1 thy2 h2 c1 c2. (thy2, h2) |- c2 ∧ (thy1, []) |- c1
-  ∧ sigof thy1 = sigof thy2
-  ⇒ ((sigof thy1, (axsof thy2 DIFF {c1}) UNION axsof thy1), h2) |- c2
+  ∀thy1 thy2 h2 c1 c2.
+    (thy2, h2) |- c2 ∧ (thy1, []) |- c1
+    ∧ sigof thy1 = sigof thy2
+    ⇒ ((sigof thy1, (axsof thy2 DIFF {c1}) UNION axsof thy1), h2) |- c2
 Proof
   Induct_on ‘$|-’ >> rw[]
   >- (irule proves_ABS >> rw[])
@@ -510,139 +336,81 @@ Proof
       >- (irule proves_axioms >> rw[] >> metis_tac[proves_theory_ok_ext]))
 QED
 
-Definition insert_sig_def:
-  insert_sig thy'
-  = (((tys ⊌ thy'.etys, tms ⊌ thy'.etms), axs):thy)
-End
-
-Theorem insert_sig_type_ok:
-  type_ok (tysof (sigof (thy,esig,eaxs)) ⊌
-                 tysof (elimsigof (thy,esig,eaxs))) ty
-  ⇔ type_ok (tysof (sigof (insert_sig esig thy))) ty
-Proof
-  Cases_on ‘thy’ >> Cases_on ‘esig’ >> Cases_on ‘q’
-  >> rw[insert_sig_def]
-QED
-
-Theorem is_std_sig_ext:
-  is_std_sig (p, q) ⇒ is_std_sig (p ⊌ p', q ⊌ q')
-Proof
-  Induct_on ‘p’ >> rw[is_std_sig_def] >> gvs[is_std_sig_def]
-  >> Cases_on ‘FLOOKUP f1 k’ >> rw[FLOOKUP_FUNION]
-QED
-
-Theorem every_monotonic_rw:
-  ∀P Q. EVERY (λa. P a ⇒ Q a) l ∧ EVERY (λa. P a) l ⇒
-        EVERY (λa. Q a) l
-Proof
-  Induct_on ‘l’ >> rw[] >> metis_tac[]
-QED
-
-Theorem type_ok_ext:
-  ∀ty. type_ok p ty ⇒ type_ok (FUNION p q) ty
-Proof
-  ho_match_mp_tac type_ind >> rw[type_ok_def, FLOOKUP_FUNION]
-  >> metis_tac[every_monotonic_rw]
-QED
-
-Theorem every_type_ok_ext:
-  EVERY (λa. type_ok p a) l ⇒ EVERY (λa. type_ok (p ⊌ p') a) l
-Proof
-  metis_tac[type_ok_ext, EVERY_MONOTONIC]
-QED
-
-Theorem term_ok_ext:
-  term_ok (p, q) c ⇒ term_ok (FUNION p p', FUNION q q') c
-Proof
-  Induct_on ‘c’ >> rw[term_ok_def] >> gvs[term_ok_def]
-  >> rw[type_ok_ext] >> qexists ‘ty0’ >> rw[FLOOKUP_FUNION]
-  >> metis_tac[]
-QED
-
-Theorem insert_sig_theory_ok:
-  theory_ok' (thy,esig,eaxs) ⇒ theory_ok (insert_sig esig thy)
-Proof
-  Cases_on ‘esig’ >> Cases_on ‘thy’ >> Cases_on ‘q'’
-  >> rw[theory_ok_def, insert_sig_def] >> gvs[theory_ok'_def]
-  >- (drule_all IN_FRANGE_FUNION_suff >> rw[])
-  >- rw[term_ok_ext]
-  >- rw[is_std_sig_ext]
-QED
-
-Theorem term_ok'_imp_insert_sig:
-  term_ok' (sigof (thy',esig,eaxs)) (elimsigof (thy',esig,eaxs)) c
-  ⇒ term_ok (sigof (insert_sig esig thy')) c
-Proof
-  Induct_on ‘c’ >> Cases_on ‘thy'’ >> rw[term_ok_def] >> gvs[term_ok'_def]
-  >> Cases_on ‘esig’ >> Cases_on ‘q’ >> rw[insert_sig_def] >> gvs[] >> metis_tac[]
-QED
-
-Theorem insert_sig_every_type_ok:
-  EVERY (type_ok (tysof (sigof (thy',esig,eaxs)) ⊌
-                        tysof (elimsigof (thy',esig,eaxs)))) (MAP FST tyin)
-  ⇒ EVERY (type_ok (tysof (insert_sig esig thy'))) (MAP FST tyin)
-Proof
-  match_mp_tac EVERY_MONOTONIC >> rw[insert_sig_type_ok]
-QED
-
-Theorem insert_sig_axsof:
-  c ∈ axsof (thy, esig, eaxs) ⇒ c ∈ axsof (insert_sig esig thy)
-Proof
-  Cases_on ‘thy’ >> rw[] >> Cases_on ‘q’ >> Cases_on ‘q'’ >> Cases_on ‘esig’
-  >> rw[insert_sig_def]
-QED
-
-Definition insert_eaxs:
-  insert_eaxs eaxs (thy:thy):thy = (sigof thy, (axsof thy) UNION eaxs)
-End
-
-Theorem sigof_insert_sig[simp]:
-  sigof (insert_sig esig thy) = (tysof thy ⊌ FST esig, tmsof thy ⊌ SND esig)
-Proof
-  PairCases_on ‘thy’ >> Cases_on ‘esig’ >> rw[insert_sig_def]
-QED
-
-Theorem axsof_insert_sig[simp]:
-  axsof (insert_sig esig thy) = axsof thy
-Proof
-  PairCases_on ‘thy’ >> Cases_on ‘esig’ >> rw[insert_sig_def]
-QED
-
 Definition drop_thy:
-  drop_thy used_eaxs thy' : thy = ((thy'.ctys, thy'.ctms), thy'.axs UNION used_eaxs)
+  (drop_thy used_eaxs thy'):thy = ((thy'.ctys, thy'.ctms), thy'.axs UNION used_eaxs)
 End
 
 Theorem sigof_drop_thy[simp]:
-  sigof (drop_thy (set es) thy) = (thy.ctys, thy.ctms)
+  sigof (drop_thy es thy) = (thy.ctys, thy.ctms)
 Proof
   rw[drop_thy]
 QED
 
-Theorem theory_ok_drop_thy[simp]:
-  theory_ok' thy ⇒ theory_ok (drop_thy (set es) thy)
+Theorem axsof_drop_thy:
+  thy.axs ⊆ axsof (drop_thy es thy)
 Proof
-  rw[theory_ok'_def, theory_ok_def, drop_thy] >> gvs[ctys_def, ctms_def]
+  rw[drop_thy]
 QED
-        
+
+Theorem type_ok_weakening:
+  ∀ty. type_ok ts1 ty ⇒ type_ok (ts1 ⊌ ts2) ty
+Proof
+  Induct_on ‘ty’ using type_ind >> gvs[type_ok_def, FLOOKUP_FUNION, EVERY_MEM]
+QED
+
+Theorem term_ok_weakening:
+  ∀tm. term_ok (tys, tms) tm ⇒ term_ok (tys ⊌ tys1, tms ⊌ tms1) tm
+Proof
+  Induct_on ‘tm’ >> rw[term_ok_def, type_ok_weakening]
+  >> qexists ‘ty0’ >> rw[FLOOKUP_FUNION, type_ok_weakening] >> metis_tac[]
+QED
+
+Theorem is_std_sig_funion:
+  is_std_sig (tys, tms) ⇒ is_std_sig (tys ⊌ tys1, tms ⊌ tms1)
+Proof
+  rw[is_std_sig_def, FLOOKUP_FUNION]
+QED
+
+Theorem theory_ok_drop_thy:
+  ∀es. theory_ok' thy ∧ (∀a. a ∈ es ⇒ term_ok thy.sig a ∧ a has_type Bool) ⇒
+       theory_ok (drop_thy es thy)
+Proof
+  rw[theory_ok'_def, theory_ok_def, drop_thy]
+  >> gvs[ctys_def, ctms_def, sigof'_def, FRANGE_FUNION,
+         type_ok_weakening, term_ok_weakening, is_std_sig_funion]
+QED
+
+Theorem term_ok'_imp_term_ok:
+  term_ok' thy c ⇒ term_ok (thy.ctys, thy.ctms) c
+Proof
+  Induct_on ‘c’ >> rw[term_ok'_def, term_ok_def]
+QED
+
+Theorem proves_imp_theory_ok':
+  ∀thy h es c. (thy, es, h) |-' c ⇒ theory_ok' thy
+Proof
+  Induct_on ‘$|-'’ >> rw[] >> rw[]
+QED
 
 Theorem proves'_imp_proves:
   ∀thy' c h used_eaxs.
-    (thy', used_eaxs, h) |-' c ⇒ (drop_thy (set used_eaxs) thy', h) |- c
+    (thy', used_eaxs, h) |-' c ⇒ (drop_thy used_eaxs thy', h) |- c
 Proof
   Induct_on ‘$|-'’ >> rw[]
   >- (irule proves_ABS >> rw[])
-  >- (irule proves_ASSUME >> rw[])
-  >- (irule proves_BETA >> rw[] >> metis_tac[
-          insert_sig_theory_ok, term_ok'_imp_insert_sig, insert_sig_type_ok])
-  >- (irule proves_DEDUCT_ANTISYM >> rw[])
+  >- (irule proves_ASSUME >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok])
+  >- (irule proves_BETA >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok])
+  >- (irule proves_DEDUCT_ANTISYM >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok])
   >- (irule proves_EQ_MP >> metis_tac[])
-  >- (irule proves_INST >> metis_tac[term_ok'_imp_insert_sig])
-  >- (irule proves_INST_TYPE >> metis_tac[insert_sig_every_type_ok])
+  >- (irule proves_INST >> rw[] >> first_x_assum drule
+      >> metis_tac[term_ok'_imp_term_ok])
+  >- (irule proves_INST_TYPE >> rw[] >> first_x_assum drule
+      >> metis_tac[term_ok'_imp_term_ok])
   >- (irule proves_MK_COMB >> rw[])
-  >- (irule proves_REFL >> rw[]
-      >> metis_tac[insert_sig_theory_ok, term_ok'_imp_insert_sig])
-  >- (irule proves_axioms >> rw[] >> metis_tac[insert_sig_theory_ok, insert_sig_axsof])
-  >- cheat
+  >- (irule proves_REFL >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok])
+  >- (irule proves_axioms >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok]
+      >> metis_tac[axsof_drop_thy, SUBSET_DEF])
+  >- (gvs[drop_thy])
 QED
 
 
