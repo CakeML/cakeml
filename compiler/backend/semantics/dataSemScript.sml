@@ -699,14 +699,31 @@ Definition do_build_const_def:
   do_build_const xs s ts = do_build (λx. Number 0) 0 xs s ts
 End
 
+Definition do_int_app_def:
+  do_int_app (Const n) [] =
+    (if small_enough_int n then SOME (Number n)
+    else NONE) /\
+  do_int_app (Add) [Number n1;Number n2] = SOME (Number (n1 + n2)) /\
+  do_int_app (Sub) [Number n1;Number n2] = SOME (Number (n1 - n2)) /\
+  do_int_app (Mult) [Number n1;Number n2] = SOME (Number (n1 * n2)) /\
+  do_int_app (Div) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 / n2))) /\
+  do_int_app (Mod) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 % n2))) /\
+  do_int_app (Less) [Number n1;Number n2] = SOME (Boolv (n1 < n2)) /\
+  do_int_app (LessEq) [Number n1;Number n2] = SOME (Boolv (n1 <= n2)) /\
+  do_int_app (Greater) [Number n1;Number n2] = SOME (Boolv (n1 > n2)) /\
+  do_int_app (GreaterEq) [Number n1;Number n2] = SOME (Boolv (n1 >= n2)) /\
+  do_int_app (LessConstSmall n) [Number i] =
+        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
+          SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (op:closLang$int_op) (vs:dataSem$v list) = NONE
+End
+
 Definition do_app_aux_def:
   do_app_aux op ^vs ^s =
     case (op,vs) of
     (* bvi part *)
-    | (IntOp (Const i),xs) =>
-      if small_enough_int i then
-        Rval (Number i : v, s)
-      else Error
     | (Label l,xs) =>
         (case xs of
          | [] => if l IN domain s.code then
@@ -893,21 +910,10 @@ Definition do_app_aux_def:
                               (ValueArray (LUPDATE x (Num i) xs)) s.refs)
              else Error)
          | _ => Error)
-    | (IntOp Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
-    | (IntOp Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
-    | (IntOp Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
-    | (IntOp Div,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 / n2),s)
-    | (IntOp Mod,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 % n2),s)
-    | (IntOp Less,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 < n2),s)
-    | (IntOp LessEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 <= n2),s)
-    | (IntOp Greater,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 > n2),s)
-    | (IntOp GreaterEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 >= n2),s)
+    | (IntOp intop, vs) =>
+        (case do_int_app intop vs of
+        | SOME res => Rval (res ,s)
+        | _ => Error)
     | (WordOp (WordOpw W8 opw),[Number n1; Number n2]) =>
        (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
         | NONE => Error
@@ -978,11 +984,6 @@ Definition do_app_aux_def:
            | SOME (ValueArray ws) =>
                Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
            | _ => Error)
-         | _ => Error)
-    | (IntOp (LessConstSmall n),xs) =>
-        (case xs of
-         | [Number i] => if 0 <= i /\ i <= 1000000 /\ n < 1000000
-                         then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Error

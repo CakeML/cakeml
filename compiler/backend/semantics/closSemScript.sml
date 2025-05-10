@@ -174,6 +174,25 @@ Termination
   \\ pop_assum (qspec_then ‘t’ assume_tac) \\ fs []
 End
 
+Definition do_int_app_def:
+  do_int_app (Const n) [] = SOME (Number n) /\
+  do_int_app (Add) [Number n1;Number n2] = SOME (Number (n1 + n2)) /\
+  do_int_app (Sub) [Number n1;Number n2] = SOME (Number (n1 - n2)) /\
+  do_int_app (Mult) [Number n1;Number n2] = SOME (Number (n1 * n2)) /\
+  do_int_app (Div) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 / n2))) /\
+  do_int_app (Mod) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 % n2))) /\
+  do_int_app (Less) [Number n1;Number n2] = SOME (Boolv (n1 < n2)) /\
+  do_int_app (LessEq) [Number n1;Number n2] = SOME (Boolv (n1 <= n2)) /\
+  do_int_app (Greater) [Number n1;Number n2] = SOME (Boolv (n1 > n2)) /\
+  do_int_app (GreaterEq) [Number n1;Number n2] = SOME (Boolv (n1 >= n2)) /\
+  do_int_app (LessConstSmall n) [Number i] =
+        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
+          SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (op:closLang$int_op) (vs:closSem$v list) = NONE
+End
+
 Definition do_app_def:
   do_app (op:closLang$op) (vs:closSem$v list) ^s =
     case (op,vs) of
@@ -194,7 +213,6 @@ Definition do_app_def:
     | (GlobOp AllocGlobal,[Number i]) =>
         (if i < 0 then Error
          else Rval (Unit, s with globals := s.globals ++ REPLICATE (Num i) NONE))
-    | (IntOp (Const i),[]) => Rval (Number i, s)
     | (BlockOp (Constant c),[]) => Rval (make_const c, s)
     | (BlockOp (Cons tag),xs) => Rval (Block tag xs, s)
     | (BlockOp (ConsExtend tag), Block _ xs'::Number lower::Number len::Number tot::xs) =>
@@ -333,21 +351,10 @@ Definition do_app_def:
                               (ptr,ValueArray (LUPDATE x (Num i) xs)))
              else Error)
          | _ => Error)
-    | (IntOp Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
-    | (IntOp Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
-    | (IntOp Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
-    | (IntOp Div,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 / n2),s)
-    | (IntOp Mod,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 % n2),s)
-    | (IntOp Less,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 < n2),s)
-    | (IntOp LessEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 <= n2),s)
-    | (IntOp Greater,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 > n2),s)
-    | (IntOp GreaterEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 >= n2),s)
+    | (IntOp int_op, vs) =>
+        (case do_int_app int_op vs of
+        | SOME res => Rval (res ,s)
+        | _ => Error)
     | (WordOp (WordOpw W8 opw),[Number n1; Number n2]) =>
        (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
         | NONE => Error
@@ -412,8 +419,6 @@ Definition do_app_def:
          | SOME (ValueArray ws) =>
              Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
          | _ => Error)
-    | (IntOp (LessConstSmall n),[Number i]) =>
-        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then Rval (Boolv (i < &n),s) else Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Error
 End

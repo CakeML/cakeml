@@ -40,21 +40,16 @@ Definition state_rel_1_def:
     t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle
 End
 
-Triviality LIST_REL_eq:
-  ∀xs ys. LIST_REL (λv1 v2. v1 = v2) xs ys ⇔ xs = ys
+Triviality LIST_REL_eq':
+  ∀xs ys. LIST_REL (λv1 v2. v1 = v2) = (\xs ys. xs = ys)
 Proof
-  Induct \\ fs [] \\ rpt gen_tac \\ eq_tac \\ simp []
+  fs[LIST_REL_eq ,SF ETA_ss]
 QED
 
-Triviality LIST_REL_OPTREL_eq:
-  ∀xs ys. LIST_REL (OPTREL (λv1 v2. v1 = v2)) xs ys ⇔ xs = ys
+Triviality OPTREL_eq':
+  (OPTREL (λv1 v2. v1 = v2)) =  (\x y. x = y)
 Proof
-  Induct \\ fs []
-  \\ Cases_on ‘ys’ \\ fs []
-  \\ rw [] \\ eq_tac \\ rw []
-  \\ Cases_on ‘h’
-  \\ Cases_on ‘h'’
-  \\ gvs []
+  fs[OPTREL_eq,SF ETA_ss]
 QED
 
 Theorem do_app_oHD_globals:
@@ -144,7 +139,8 @@ Proof
   \\ Cases \\ fs [] \\ rw [] \\ fs []
   \\ fs [list_to_v_def,clos_interp_el_def]
   \\ Q.REFINE_EXISTS_TAC ‘c+2’ \\ fs []
-  \\ ntac 16 $ simp [Once evaluate_def,do_app_def,ADD1,dest_closure_def,
+  \\ ntac 16 $ simp [Once evaluate_def,do_app_def,do_int_app_def,
+                     ADD1,dest_closure_def,
                     check_loc_def,dec_clock_def]
   \\ gvs [AllCaseEqs()]
   \\ ‘&(n + 1) − 1 = &n:int’ by intLib.COOPER_TAC
@@ -520,7 +516,7 @@ Proof
   \\ Cases_on ‘∃i. p = IntOp (Const i)’
   \\ gvs [can_interpret_def,can_interpret_op_def,
           to_constant_def,to_constant_op_def,make_const_def]
-  >- (init0_tac \\ qexists_tac ‘0’ \\ gvs [evaluate_def,do_app_def])
+  >- (init0_tac \\ qexists_tac ‘0’ \\ gvs [evaluate_def,do_app_def,do_int_app_def])
   \\ reverse $ Cases_on ‘∃tag. p = BlockOp (Cons tag)’
   >- (Cases_on ‘p’ \\ fs [can_interpret_op_def]
     >| map Cases_on [‘i’, ‘b’, ‘g’] \\ fs [can_interpret_op_def])
@@ -958,7 +954,7 @@ Proof
    (qabbrev_tac ‘vr = λv1 v2. v1 = v2:closSem$v’
     \\ ‘simple_val_rel vr’ by
       (fs [simple_val_rel_def]
-       \\ rw [] \\ fs [Abbr‘vr’] \\ gvs [LIST_REL_eq])
+       \\ rw [] \\ fs [Abbr‘vr’] \\ gvs [LIST_REL_eq'])
     \\ rename [‘state_rel s3 t3’]
     \\ ‘state_rel_1 s3 t3’ by fs [state_rel_def,state_rel_1_def]
     \\ drule_at (Pos $ el 3) simple_val_rel_do_app
@@ -969,7 +965,7 @@ Proof
      (reverse conj_tac >- (qid_spec_tac ‘vs’ \\ Induct \\ gvs [Abbr‘vr’])
       \\ fs [simple_state_rel_def] \\ simp [Abbr‘vr’] \\ rpt $ pop_assum kall_tac
       \\ rw [] \\ gvs [state_rel_1_def]
-      \\ TRY $ drule_all FEVERY_FLOOKUP \\ fs [LIST_REL_eq,LIST_REL_OPTREL_eq])
+      \\ TRY $ drule_all FEVERY_FLOOKUP \\ fs [LIST_REL_eq',OPTREL_eq'])
     \\ strip_tac
     \\ qexists_tac ‘ck’ \\ fs []
     \\ reverse $ gvs [AllCaseEqs()]
@@ -1284,7 +1280,8 @@ Proof
     \\ last_x_assum kall_tac
     \\ last_x_assum mp_tac
     \\ once_rewrite_tac [evaluate_CONS]
-    \\ fs [compile_init_def,evaluate_def,do_app_def,init_globals,get_global_def,
+    \\ fs [compile_init_def,evaluate_def,do_app_def,do_int_app_def,
+           init_globals,get_global_def,
            LUPDATE_def,EVAL “REPLICATE 1 x”]
     \\ qmatch_goalsub_abbrev_tac ‘evaluate (_,_,iis)’
     \\ CASE_TAC \\ strip_tac

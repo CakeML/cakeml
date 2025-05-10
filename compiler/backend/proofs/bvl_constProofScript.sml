@@ -78,8 +78,8 @@ Proof
   \\ res_tac \\ fs []
   \\ Cases_on `h` \\ fs [delete_var_def]
   \\ rw [] \\ fs []
-  \\ fs [evaluate_def,do_app_def] \\ rw []
-  \\ every_case_tac \\ fs [] \\ rw []
+  \\ fs [evaluate_def,do_app_def,do_int_app_def] \\ rw []
+  \\ fs[AllCaseEqs()]
 QED
 
 Triviality evaluate_delete_var_Rval:
@@ -96,8 +96,8 @@ Proof
   \\ Cases_on `q` \\ fs []
   \\ Cases_on `?i. h = Var i` \\ fs []
   THEN1
-   (rw [] \\ fs [delete_var_def,evaluate_def,do_app_def]
-    \\ every_case_tac \\ fs [] \\ rw []
+   (rw [] \\ fs [delete_var_def,evaluate_def,do_app_def,do_int_app_def]
+   \\ gvs[AllCaseEqs()]
     \\ res_tac \\ fs [extract_def,env_rel_def] \\ rw []
     \\ fs [v_rel_def,LLOOKUP_EQ_EL]
     \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
@@ -112,8 +112,8 @@ Proof
   \\ Cases_on `opp` \\ fs [extract_def]
   >| map Cases_on [`i`,`b'`] \\ fs [extract_def] \\ rw []
   \\ every_case_tac \\ fs []
-  \\ fs [v_rel_def,NULL_EQ,evaluate_def,do_app_def]
-  \\ every_case_tac \\ fs []
+  \\ fs [v_rel_def,NULL_EQ,evaluate_def,do_app_def,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
 QED
 
 Theorem evaluate_EQ_NIL:
@@ -155,9 +155,7 @@ Proof
     Cases_on `dest_simple x1` \\
     fs [SmartOp_flip_def, dest_simple_eq] \\
     fs [dest_simple_eq] \\
-    fs [evaluate_def, do_app_def] \\
-    fs [case_eq_thms] \\
-    rveq \\ fs [] \\ rveq \\ fs [REVERSE_DEF] \\ rveq \\ fs [] \\
+    gvs [evaluate_def, do_app_def,oneline do_int_app_def,AllCaseEqs()] \\
     intLib.COOPER_TAC
   ) \\
   Cases_on `op` \\
@@ -181,17 +179,18 @@ Proof
     rveq \\
     rw [case_eq_thms] \\
     qpat_x_assum `evaluate _ = _` mp_tac \\
-
-    simp [evaluate_def, do_app_def] \\
+    fs [dest_simple_eq, case_op_const_eq] \\
+    simp [evaluate_def, do_app_def,oneline do_int_app_def] \\
     fsrw_tac [DNF_ss] [case_eq_thms] \\
     rw [REVERSE_DEF] \\
     imp_res_tac evaluate_SING  \\
-    fs [] \\
+    fs [] \\ rveq \\
     intLib.COOPER_TAC)
   \\ fs []
   \\ every_case_tac \\ fs []
   \\ fs [dest_simple_eq] \\ rveq
-  \\ fs [evaluate_def,do_app_def] \\ rw []
+  \\ fs [evaluate_def,do_app_def,oneline do_int_app_def]
+  \\ rw []
   \\ qpat_x_assum `_ = (res,_)` mp_tac
   \\ CASE_TAC \\ fs []
   \\ Cases_on `q`
@@ -214,7 +213,7 @@ Proof
   \\ rename [‘EqualConst cc’]
   \\ Cases_on ‘cc’ \\ gvs [dest_EqualInt_def]
   \\ gvs [dest_simple_eq]
-  \\ gvs [evaluate_def,do_app_def]
+  \\ gvs [evaluate_def,do_app_def,do_int_app_def]
   \\ rw [] \\ gvs [] \\ eq_tac \\ rw []
 QED
 

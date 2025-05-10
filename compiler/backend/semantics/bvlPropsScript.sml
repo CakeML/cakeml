@@ -393,7 +393,7 @@ Theorem evaluate_MAP_Const:
       evaluate (MAP (K (Op (IntOp (Const i)) [])) (exps:'a list),env,t1) =
         (Rval (MAP (K (Number i)) exps),t1)
 Proof
-  Induct \\ full_simp_tac(srw_ss())[evaluate_def,evaluate_CONS,do_app_def]
+  Induct \\ full_simp_tac(srw_ss())[evaluate_def,evaluate_CONS,do_app_def,do_int_app_def]
 QED
 
 Theorem evaluate_Bool[simp]:

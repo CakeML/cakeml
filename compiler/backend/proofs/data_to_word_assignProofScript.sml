@@ -9,6 +9,7 @@ open preamble int_bitwiseTheory dataSemTheory dataPropsTheory copying_gcTheory
      word_bignumTheory wordLangTheory word_bignumProofTheory
      gen_gc_partialTheory gc_sharedTheory word_gcFunctionsTheory;
 local open gen_gcTheory in end
+local open bvi_to_dataTheory in end
 
 val _ = new_theory "data_to_word_assignProof";
 
@@ -1957,7 +1958,7 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on) [[], [], [], [`w`], [`b`], [`g`], [`m`], []];
 
 Theorem do_app_aux_safe_for_space_mono:
   (do_app_aux op xs s = Rval (r,s1)) /\ s1.safe_for_space ==> s.safe_for_space
@@ -7021,8 +7022,8 @@ Proof
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ drule state_rel_IMP_arch_64_bit \\ strip_tac
   \\ fs [EVAL ``op_requires_names (IntOp Add)``]
-  \\ fs [do_app]
-  \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -7139,7 +7140,8 @@ Proof
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ drule state_rel_IMP_arch_64_bit \\ strip_tac
   \\ fs [EVAL ``op_requires_names (IntOp Sub)``]
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -7256,7 +7258,8 @@ Proof
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ drule state_rel_IMP_arch_64_bit \\ strip_tac
   \\ fs [EVAL ``op_requires_names (IntOp Mult)``]
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -7430,7 +7433,8 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [EVAL ``op_requires_names (IntOp Div)``]
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -7696,7 +7700,8 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [EVAL ``op_requires_names (IntOp Mod)``]
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -8362,7 +8367,8 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_1] \\ clean_tac
@@ -8643,7 +8649,8 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -8803,7 +8810,9 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
+  \\ rename [`Boolv (i <= i')`]
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -11742,7 +11751,8 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rpt var_eq_tac
   \\ fs [assign_def]
   \\ Cases_on `i` \\ fs []
