@@ -20,3 +20,7 @@ Defines the HOL inference system.
 [holSyntaxSyntax.sml](holSyntaxSyntax.sml):
 ML functions for constructing and picking apart terms arising from
 holSyntaxTheory.
+
+[littleTheoriesSyntaxScript.sml](littleTheoriesSyntaxScript.sml):
+Defines the HOL inference system extended with the little theories
+module system.

@@ -1,5 +1,6 @@
 (*
-  Defines the HOL inference system.
+  Defines the HOL inference system extended with the little theories
+  module system.
 *)
 open preamble holSyntaxLibTheory mlstringTheory totoTheory holSyntaxTheory
 
@@ -17,7 +18,6 @@ Datatype: ethy = <| tms: mlstring |-> type;
                     etys: mlstring |-> num;
                     eaxs: term set |>
 End
-
 
 Definition ctys_def:
   ctys thy = thy.tys ⊌ thy.etys
