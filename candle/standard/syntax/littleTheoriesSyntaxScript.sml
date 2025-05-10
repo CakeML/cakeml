@@ -75,6 +75,18 @@ End
 
 val _ = Parse.add_infix("|-'",450,Parse.NONASSOC)
 
+Definition esubst_def:
+  (esubst sigma (Var x ty) =
+   if (Var x ty) ∈ FDOM (SND sigma) then (SND sigma ' (Var x ty)) 
+   else if ty ∈ FDOM (FST sigma) then Var x (FST sigma ' ty)
+   else Var x ty) ∧
+  (esubst sigma (Const n ty) =
+   Const n (if ty ∈ FDOM (FST sigma) then FST sigma ' ty
+            else ty)) ∧
+  (esubst sigma (Comb tm1 tm2) = (Comb (esubst sigma tm1) (esubst sigma tm2))) ∧
+  (esubst sigma (Abs v body) = (Abs (esubst sigma v) (esubst sigma body)))
+End
+    
 Inductive proves':
 [~ABS:]
   (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧ type_ok thy.ctys ty ∧
@@ -129,14 +141,15 @@ Inductive proves':
    ⇒ (thy, {}, []) |-' c)
 
 [~elim_discharge:]
-  (thy, es1, []) |-' c1 ∧ (thy, es2, h2) |-' c2
-⇒ (thy, (es2 DIFF {c1}) ∪ es1, h2) |-' c2
+  ((thy, es1, []) |-' c1 ∧ (thy, es2, h2) |-' c2
+   ⇒ (thy, (es2 DIFF {c1}) ∪ es1, h2) |-' c2)
 
-(* have to define SUBST and SUBSTL first
 [~elim_inst:]
-  (thy, es1, h1) |-' c
-⇒ (thy, SUBSTL es sigma, SUBSTL es h1) |-' SUBST c sigma
- *)
+  ((thy, es, h) |-' c
+   ∧ (∀p. p ∈ IMAGE (esubst sigma) es ⇒ p has_type Bool ∧ term_ok thy.sig p)
+   ∧ (∀p. MEM p (MAP (esubst sigma) h) ⇒ p has_type Bool ∧ term_ok thy.sig p)
+   ∧ (esubst sigma c) has_type Bool ∧ term_ok thy.sig p
+   ⇒ (thy, IMAGE (esubst sigma) es, MAP (esubst sigma) h) |-' esubst sigma c)
 
 [~elim_axioms:]
   (theory_ok' thy ∧ c ∈ thy.eaxs
@@ -422,10 +435,25 @@ Proof
   Induct_on ‘$|-'’ >> rw[] >> rw[]
 QED
 
-Theorem used_eaxs_in_eaxs:
-  ∀thy es h c. (thy, es, h) |-' c ⇒ ∀e. e ∈ es ⇒ e ∈ thy.eaxs
+Theorem proves'_used_eaxs_term_ok:
+  ∀thy used_eaxs h c e.
+    (thy, used_eaxs, h) |-' c ∧ e ∈ used_eaxs
+    ⇒ e has_type Bool ∧ term_ok (thy.ctys, thy.ctms) e
 Proof
   Induct_on ‘$|-'’ >> rw[] >> rw[]
+  >- metis_tac[ctys_def, ctms_def, sigof'_def, term_ok_weakening]
+  >> gvs[theory_ok'_def, term_ok'_imp_term_ok]
+QED
+
+Theorem proves_substitutable:
+  ∀sig c h.
+    ((sig, axs ∪ es), h) |- c
+    ∧ (∀p. p ∈ IMAGE (esubst sigma) es ⇒ p has_type Bool ∧ term_ok sig p)
+    ∧ (∀p. MEM p (MAP (esubst sigma) h) ⇒ p has_type Bool ∧ term_ok sig p)
+    ∧ (esubst sigma c) has_type Bool
+    ⇒ ((sig, axs ∪ IMAGE (esubst sigma) es), MAP (esubst sigma) h) |- esubst sigma c
+Proof
+  cheat
 QED
 
 Theorem proves'_imp_proves:
@@ -449,13 +477,15 @@ Proof
   >- (Cases_on ‘c ∈ thy.axs’ >> gvs[drop_thy]
       >- (rw[thy_axs_diff_alt, UNION_COMM] >> irule axiom_weakening
           >> drule proves'_imp_theory_ok >> rw[]
-          >> metis_tac[theory_ok'_def, used_eaxs_in_eaxs, term_ok'_imp_term_ok, UNION_COMM])
+          >> metis_tac[theory_ok'_def, proves'_used_eaxs_term_ok, UNION_COMM])
       >- (rw[thy_axs_diff]
           >> qspecl_then [‘((thy.ctys, thy.ctms), thy.axs ∪ es1)’,
                           ‘((thy.ctys, thy.ctms), thy.axs ∪ es2)’,
                           ‘h2’, ‘c’, ‘c'’]
                          assume_tac axioms_eliminable
           >> gvs[]))
+  >- (gvs[drop_thy] >> irule proves_substitutable >> rw[]
+      >> metis_tac[sigof'_def, ctys_def, ctms_def, term_ok_weakening])
   >- (irule proves_axioms >> rw[]
       >- (irule theory_ok_drop_thy_alt >> gvs[theory_ok'_def])
       >> rw[drop_thy])
