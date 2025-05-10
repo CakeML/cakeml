@@ -3699,8 +3699,10 @@ Proof
   \\ irule COND_CONG
   \\ rw []
   >- (
-    simp [pairTheory.PAIR_MAP]
-    \\ EQ_TAC \\ rw [] \\ qexists_tac `k` \\ every_case_tac \\ fs []
+    ho_match_mp_tac ConseqConvTheory.exists_eq_thm>>
+    strip_tac>>
+    simp[totoTheory.SPLIT_PAIRS,AllCasePreds()]>>
+    simp[AllCaseEqs()]
   )
   >- (
     irule optionTheory.option_case_cong
@@ -3737,9 +3739,8 @@ Proof
   >- (
     simp []
     \\ AP_TERM_TAC \\ rw [FUN_EQ_THM]
-    \\ simp [pairTheory.PAIR_MAP]
-    \\ rpt (TOP_CASE_TAC \\ fs [])
-  )
+    \\ simp[totoTheory.SPLIT_PAIRS,AllCasePreds()]
+    \\ simp[AllCaseEqs()])
   >- (
     irule optionTheory.option_case_cong
     \\ rw []
@@ -3886,7 +3887,7 @@ Proof
   \\ rw []
   \\ qpat_x_assum `_ <> Fail` kall_tac
   >- (
-    fs [PAIR_MAP_EQ_UNCURRY, UNCURRY_eq_pair]
+    fs []
     \\ drule_all mk_ctxt_code_imp_code_rel2
     \\ disch_then (qspec_then `c` mp_tac)
     \\ rw []
@@ -3904,8 +3905,7 @@ Proof
     \\ rw []
     \\ gs [find_lab_def, mk_ctxt_def]
     \\ qexists_tac `k'` \\ simp []
-    \\ TOP_CASE_TAC \\ fs []
-    \\ fs [CaseEq "option", CaseEq "crepSem$result"] \\ gvs []
+    \\ gvs[AllCaseEqs(),totoTheory.SPLIT_PAIRS]
     \\ fs [state_rel_def]
   )
   >- (
@@ -3921,17 +3921,15 @@ Proof
     \\ simp []
   )
   >- (
-    fs [PAIR_MAP]
-    \\ gvs []
+    gvs[totoTheory.SPLIT_PAIRS]
+    \\ gvs[AllCaseEqs()]
     \\ simp [evaluate_io_mono_rephrases]
   )
   >- (
-    fs [PAIR_MAP]
-    \\ gvs []
-    \\ simp [evaluate_io_mono_rephrases]
-  )
+    gvs[totoTheory.SPLIT_PAIRS]
+    \\ gvs[AllCaseEqs()]
+    \\ simp [evaluate_io_mono_rephrases])
 QED
-
 
 (* first_name offset *)
 
