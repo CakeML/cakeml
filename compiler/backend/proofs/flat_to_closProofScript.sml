@@ -735,7 +735,7 @@ Proof
   \\ rpt strip_tac \\ rveq \\ fs [do_word_op_def]
   \\ rveq \\ fs [compile_op_def,arg1_def]
   \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
-  \\ simp [evaluate_def,do_app_def,do_int_app_def]
+  \\ simp [evaluate_def,do_app_def,do_word_app_def,do_int_app_def]
   \\ fs [some_def,EXISTS_PROD]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ `!x. b = FST x ∧ b' = SND x <=> x = (b,b')` by (fs [FORALL_PROD] \\ metis_tac [])
@@ -753,7 +753,7 @@ Proof
   \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
   \\ rename [`v_rel (Litv ww) y`] \\ Cases_on `ww`
   \\ fs [v_rel_def,do_shift_def] \\ rveq \\ fs []
-  \\ fs [compile_op_def,evaluate_def,do_app_def,v_rel_def]
+  \\ fs [compile_op_def,evaluate_def,do_app_def,do_word_app_def,v_rel_def]
 QED
 
 Theorem op_floats:
@@ -768,7 +768,7 @@ Proof
          CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
   \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
   \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
-  \\ simp [compile_op_def,evaluate_def,do_app_def]
+  \\ simp [compile_op_def,evaluate_def,do_app_def,do_word_app_def]
 QED
 
 Theorem op_byte_arrays:
@@ -2086,7 +2086,7 @@ Proof
   \\ simp ([compile_def] @ props_defs)
   \\ simp [contains_App_SOME_APPEND, EVERY_REVERSE,contains_App_SOME_SmartCons,
            no_mti_SmartCons, every_Fn_vs_NONE_SmartCons]
-  \\ rw []
+  \\ rpt CONJ_TAC \\ rpt (GEN_TAC ORELSE DISCH_THEN STRIP_ASSUME_TAC)
   \\ TRY
     (rename [‘dest_nop op es’] \\ reverse (Cases_on ‘dest_nop op es’) \\ fs [])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`

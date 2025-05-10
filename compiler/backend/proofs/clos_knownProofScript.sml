@@ -609,7 +609,6 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q
-  >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘WordOp w_’]) (Cases_on `w_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp g_’]) (Cases_on `g_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘MemOp m_’]) (Cases_on `m_`));
@@ -727,7 +726,8 @@ Proof
        pair_case_eq]
   >~ [`IntOp`]
   >- (Cases_on `i` >> simp[oneline do_int_app_def,case_eq_thms,PULL_EXISTS])
-  >>~- ([`WordOp`], dsimp[])
+  >~ [`WordOp`]
+  >- (Cases_on `w` >> dsimp[oneline do_word_app_def,AllCaseEqs(),PULL_EXISTS])
   >>~- ([`WordShift`], dsimp[])
   >>~- ([`WordFromWord`], dsimp[])
   >>~- ([`BoundsCheckByte`], dsimp[])

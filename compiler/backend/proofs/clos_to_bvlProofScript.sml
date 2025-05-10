@@ -1521,7 +1521,7 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [], [`w`], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], []];
 
 Theorem do_app[local]:
    (do_app op xs s1 = Rval (v,s2)) /\
@@ -1664,6 +1664,11 @@ Proof
    fsrw_tac[][closSemTheory.do_app_def,oneline closSemTheory.do_int_app_def] >>
    rw[AllCaseEqs()] >> gvs[v_rel_SIMP] >>
    simp[bvlSemTheory.do_app_def,bvlSemTheory.do_int_app_def])
+  >~ [`WordOp`]
+  >-(
+   fsrw_tac[][closSemTheory.do_app_def,oneline closSemTheory.do_word_app_def] >>
+   rw[AllCaseEqs()] >> gvs[v_rel_SIMP] >>
+   simp[bvlSemTheory.do_app_def,bvlSemTheory.do_word_app_def])
   \\ srw_tac [] [closSemTheory.do_app_def,
     bvlSemTheory.do_app_def, bvlSemTheory.do_eq_def]
   >>~- ([`Global`],
