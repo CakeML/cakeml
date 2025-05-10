@@ -70,7 +70,7 @@ Proof
     \\ gvs [DISJ_IMP_THM, FORALL_AND_THM, OPT_MMAP_MAP_o, combinTheory.o_DEF]
     \\ every_case_tac \\ fs []
     \\ imp_res_tac dest_const_thm
-    \\ irule EQ_TRANS \\ irule_at Any eval_mul_const
+    \\ TRY (irule EQ_TRANS \\ irule_at Any eval_mul_const)
     \\ Cases_on `op` \\ fs [crep_op_def, eval_def]
   )
 QED

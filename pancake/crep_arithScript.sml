@@ -64,6 +64,7 @@ Definition simp_exp_def:
     case (op, exps) of
     | (Mul, [exp1; exp2]) => (
         case (dest_const exp1, dest_const exp2) of
+        | (SOME c, SOME c2) => Const (c * c2)
         | (SOME c, _) => mul_const exp2 c
         | (_, SOME c) => mul_const exp1 c
         | _ => Crepop op exps
