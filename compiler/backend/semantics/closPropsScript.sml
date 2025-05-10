@@ -952,7 +952,6 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘WordOp’]) (Cases_on `w`)
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp’]) (Cases_on `b`)
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp’]) (Cases_on `g`)
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘MemOp’]) (Cases_on `m`);
@@ -2386,8 +2385,17 @@ Proof
     \\ rw [Once $oneline  do_int_app_def, AllCaseEqs(), PULL_EXISTS]
     \\ fs[] \\ rveq \\ simp[oneline do_int_app_def]
     \\ res_tac >> fs[isClos_cases])
-  \\ Cases_on `(?n. opp = Label n) \/
-    (?w. opp = WordOp w) \/ opp = Install`
+  \\ Cases_on `?w. opp = WordOp w`
+  THEN1
+   (Cases_on `do_app opp ys t` \\ fs[] \\ rveq \\ pop_assum mp_tac
+    \\ rw [Once do_app_def, AllCaseEqs(), PULL_EXISTS]
+    \\ fs[] \\ rveq \\ simp[do_app_def]
+    \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt
+    \\ qpat_x_assum `do_word_app _ _ = _` mp_tac
+    \\ rw [Once $oneline  do_word_app_def, AllCaseEqs(), PULL_EXISTS]
+    \\ fs[] \\ rveq \\ simp[oneline do_word_app_def]
+    \\ res_tac >> fs[isClos_cases])
+  \\ Cases_on `(?n. opp = Label n) \/ opp = Install`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs[] \\ rveq \\ pop_assum mp_tac
     \\ rw [Once do_app_def, AllCaseEqs(), PULL_EXISTS]
