@@ -130,7 +130,7 @@ Inductive proves':
 
 [~elim_discharge:]
   (thy, es1, []) |-' c1 ∧ (thy, es2, h2) |-' c2
-⇒ (thy, (es2 DIFF {c}) ∪ es1, h2) |-' c2
+⇒ (thy, (es2 DIFF {c1}) ∪ es1, h2) |-' c2
 
 (* have to define SUBST and SUBSTL first
 [~elim_inst:]
@@ -386,8 +386,44 @@ Proof
   Induct_on ‘c’ >> rw[term_ok'_def, term_ok_def]
 QED
 
+Theorem theory_ok_drop_thy_alt:
+  ∀es. theory_ok' thy ∧ (∀a. a ∈ es ⇒ term_ok' thy a ∧ a has_type Bool) ⇒
+       theory_ok (drop_thy es thy)
+Proof
+  rw[theory_ok'_def, theory_ok_def, drop_thy]
+  >> gvs[ctys_def, ctms_def, sigof'_def, FRANGE_FUNION,
+         type_ok_weakening, term_ok_weakening, is_std_sig_funion]
+  >> metis_tac[term_ok'_imp_term_ok, ctys_def, ctms_def]
+QED
+
 Theorem proves_imp_theory_ok':
   ∀thy h es c. (thy, es, h) |-' c ⇒ theory_ok' thy
+Proof
+  Induct_on ‘$|-'’ >> rw[] >> rw[]
+QED
+
+Theorem thy_axs_diff:
+  c ∉ a ⇒
+  a ∪ (b DIFF {c} ∪ d) = ((a ∪ b) DIFF {c}) ∪ (a ∪ d)
+Proof
+  rw[UNION_DEF, EXTENSION, EQ_IMP_THM] >> metis_tac[]
+QED
+
+Theorem thy_axs_diff_alt:
+  c ∈ a ⇒
+  a ∪ (b DIFF {c} ∪ d) = a ∪ b ∪ d
+Proof
+  rw[UNION_DEF, EXTENSION, EQ_IMP_THM] >> metis_tac[]
+QED
+
+Theorem proves'_imp_theory_ok:
+  ∀thy es h c. (thy, es, h) |-' c ⇒ theory_ok' thy
+Proof
+  Induct_on ‘$|-'’ >> rw[] >> rw[]
+QED
+
+Theorem used_eaxs_in_eaxs:
+  ∀thy es h c. (thy, es, h) |-' c ⇒ ∀e. e ∈ es ⇒ e ∈ thy.eaxs
 Proof
   Induct_on ‘$|-'’ >> rw[] >> rw[]
 QED
@@ -410,9 +446,20 @@ Proof
   >- (irule proves_REFL >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok])
   >- (irule proves_axioms >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok]
       >> metis_tac[axsof_drop_thy, SUBSET_DEF])
-  >- (gvs[drop_thy])
+  >- (Cases_on ‘c ∈ thy.axs’ >> gvs[drop_thy]
+      >- (rw[thy_axs_diff_alt, UNION_COMM] >> irule axiom_weakening
+          >> drule proves'_imp_theory_ok >> rw[]
+          >> metis_tac[theory_ok'_def, used_eaxs_in_eaxs, term_ok'_imp_term_ok, UNION_COMM])
+      >- (rw[thy_axs_diff]
+          >> qspecl_then [‘((thy.ctys, thy.ctms), thy.axs ∪ es1)’,
+                          ‘((thy.ctys, thy.ctms), thy.axs ∪ es2)’,
+                          ‘h2’, ‘c’, ‘c'’]
+                         assume_tac axioms_eliminable
+          >> gvs[]))
+  >- (irule proves_axioms >> rw[]
+      >- (irule theory_ok_drop_thy_alt >> gvs[theory_ok'_def])
+      >> rw[drop_thy])
 QED
-
 
 (* A context is a sequence of updates *)
 
