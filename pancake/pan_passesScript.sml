@@ -132,6 +132,8 @@ Definition pan_exp_to_display_def:
     = Item NONE (strlit "MemLoad")
            [String (shape_to_str shape);
             pan_exp_to_display exp2]) ∧
+  (pan_exp_to_display (panLang$Load32 exp2)
+    = Item NONE (strlit "MemLoad32") [pan_exp_to_display exp2]) ∧
   (pan_exp_to_display (panLang$LoadByte exp2)
     = Item NONE (strlit "MemLoadByte") [pan_exp_to_display exp2]) ∧
   (pan_exp_to_display (Struct xs)
@@ -216,6 +218,9 @@ Definition pan_prog_to_display_def:
   (pan_prog_to_display (Store e1 e2) = Tuple
     [String (strlit "mem"); pan_exp_to_display e1;
      String (strlit ":="); pan_exp_to_display e2]) ∧
+  (pan_prog_to_display (Store32 e1 e2) = Tuple
+    [String (strlit "mem"); pan_exp_to_display e1;
+     String (strlit ":="); String (strlit "32bit"); pan_exp_to_display e2]) ∧
   (pan_prog_to_display (StoreByte e1 e2) = Tuple
     [String (strlit "mem"); pan_exp_to_display e1;
      String (strlit ":="); String (strlit "byte"); pan_exp_to_display e2]) ∧
@@ -300,6 +305,8 @@ Definition crep_exp_to_display_def:
     = Item NONE (strlit "BaseAddr") []) ∧
   (crep_exp_to_display (crepLang$Load exp2)
     = Item NONE (strlit "MemLoad") [crep_exp_to_display exp2]) ∧
+  (crep_exp_to_display (crepLang$Load32 exp2)
+    = Item NONE (strlit "MemLoad32") [crep_exp_to_display exp2]) ∧
   (crep_exp_to_display (crepLang$LoadByte exp2)
     = Item NONE (strlit "MemLoadByte") [crep_exp_to_display exp2]) ∧
   (crep_exp_to_display (Cmp cmp x1 x2)
@@ -376,6 +383,9 @@ Definition crep_prog_to_display_def:
   (crep_prog_to_display (Store e1 e2) = Tuple
     [String (strlit "mem"); crep_exp_to_display e1;
      String (strlit ":="); crep_exp_to_display e2]) ∧
+  (crep_prog_to_display (Store32 e1 e2) = Tuple
+    [String (strlit "mem"); crep_exp_to_display e1;
+     String (strlit ":="); String (strlit "32bit"); crep_exp_to_display e2]) ∧
   (crep_prog_to_display (StoreByte e1 e2) = Tuple
     [String (strlit "mem"); crep_exp_to_display e1;
      String (strlit ":="); String (strlit "byte"); crep_exp_to_display e2]) ∧
@@ -507,8 +517,12 @@ Definition loop_prog_to_display_def:
   (loop_prog_to_display ns Break = empty_item (strlit "break")) ∧
   (loop_prog_to_display ns Continue = empty_item (strlit "continue")) ∧
   (loop_prog_to_display ns Fail = empty_item (strlit "fail")) ∧
+  (loop_prog_to_display ns (Load32 n1 n2) =
+    item_with_nums (strlit "load_32") [n1;n2]) ∧
   (loop_prog_to_display ns (LoadByte n1 n2) =
     item_with_nums (strlit "load_byte") [n1;n2]) ∧
+  (loop_prog_to_display ns (Store32 n1 n2) =
+    item_with_nums (strlit "store_32") [n1;n2]) ∧
   (loop_prog_to_display ns (StoreByte n1 n2) =
     item_with_nums (strlit "store_byte") [n1;n2]) ∧
   (loop_prog_to_display ns (LocValue n1 n2) =

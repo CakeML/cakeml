@@ -70,6 +70,7 @@ Definition simp_exp_def:
     )
     | _ => Crepop op exps
   ) /\
+  simp_exp (Load32 exp) = Load32 (simp_exp exp) /\
   simp_exp (LoadByte exp) = LoadByte (simp_exp exp) /\
   simp_exp (Load exp) = Load (simp_exp exp) /\
   simp_exp (Op bop exps) = Op bop (MAP simp_exp exps) /\
@@ -84,6 +85,7 @@ Definition simp_prog_def:
   simp_prog (Dec v exp p) = Dec v (simp_exp exp) (simp_prog p) /\
   simp_prog (Assign v exp) = Assign v (simp_exp exp) /\
   simp_prog (Store exp1 exp2) = Store (simp_exp exp1) (simp_exp exp2) /\
+  simp_prog (Store32 exp1 exp2) = Store32 (simp_exp exp1) (simp_exp exp2) /\
   simp_prog (StoreByte exp1 exp2) = StoreByte (simp_exp exp1) (simp_exp exp2) /\
   simp_prog (StoreGlob g exp) = StoreGlob g (simp_exp exp) /\
   simp_prog (Seq p1 p2) = Seq (simp_prog p1) (simp_prog p2) /\

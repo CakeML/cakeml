@@ -133,6 +133,22 @@ val ex4 = ‘
 
 val treeEx4 = check_success $ parse_pancake ex4;
 
+val ex4' = ‘
+  fun loopy() {
+    while b | c {
+      if x >= 5 {
+        break;
+      } else {
+        st32 y, 8; // store byte
+        @foo(x,y,k,z); // ffi function call with pointer args
+        x = x + 1;
+        y = x + 1;
+      }
+    }
+  }’;
+
+val treeEx4' = check_success $ parse_pancake ex4';
+
 (** Declarations: intended semantics is the variable scope extends as
     far left as possible. *)
 
@@ -344,8 +360,10 @@ val locmem_ex = ‘
     var v = 12;
     st 1000, 1 + 1; // store 1 + 1 (ie 2) at local memory address 1000
     st8 1000 + 4, v; // store byte from variable v (12) to local memory address 1004
+    st32 1000 + 4, v; // store word32 from variable v (12) to local memory address 1004
     v = lds 1 1000 + 8; // load word from local address 1008 and assign to variable v
     v = ld8 1000 + 4 * 3; // load byte from local address 1012 and assign to variable v
+    v = ld32 1000 + 4 * 3; // load word32 from local address 1012 and assign to variable v
   }’;
 
 val locmem_ex_parse =  check_success $ parse_pancake locmem_ex;

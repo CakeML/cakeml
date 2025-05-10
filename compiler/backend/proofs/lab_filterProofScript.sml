@@ -718,7 +718,7 @@ Proof
         metis_tac[ADD_ASSOC]))
       >-
         (Cases_on`a`>>Cases_on`m`>>
-        fs[mem_op_def,mem_load_def,labSemTheory.addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def]>>
+        fs[mem_op_def,mem_load_def,labSemTheory.addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def,mem_load32_def,mem_store32_def]>>
         EVERY_CASE_TAC>>
         fs[upd_reg_def,inc_pc_def,dec_clock_def,assert_def]>>
         rw[]>>fs[]>>

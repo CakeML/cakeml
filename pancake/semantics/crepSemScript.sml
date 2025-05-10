@@ -99,6 +99,13 @@ Definition eval_def:
     case eval s addr of
      | SOME (Word w) => mem_load w s
      | _ => NONE) /\
+  (eval s (Load32 addr) =
+    case eval s addr of
+     | SOME (Word w) =>
+        (case mem_load_32 s.memory s.memaddrs s.be w of
+           | NONE => NONE
+           | SOME w => SOME (Word (w2w w)))
+     | _ => NONE) /\
   (eval s (LoadByte addr) =
     case eval s addr of
      | SOME (Word w) =>
@@ -231,6 +238,13 @@ Definition evaluate_def:
     case (eval s dst, eval s src) of
      | (SOME (Word adr), SOME w) =>
         (case mem_store adr w s.memaddrs s.memory of
+          | SOME m => (NONE, s with memory := m)
+          | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (Store32 dst src,s) =
+    case (eval s dst, eval s src) of
+     | (SOME (Word adr), SOME (Word w)) =>
+        (case mem_store_32 s.memory s.memaddrs s.be adr (w2w w) of
           | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\

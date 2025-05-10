@@ -57,6 +57,11 @@ Definition compile_exp_def:
    case cexp of
    | e::es => (load_shape (0w) (size_of_shape sh) e, sh)
    | _ => ([Const 0w], One)) /\
+  (compile_exp ctxt (Load32 e) =
+   let (cexp, shape) = compile_exp ctxt e in
+   case (cexp, shape) of
+   | (e::es, One) => ([Load32 e], One)
+   | (_, _) => ([Const 0w], One)) /\
   (compile_exp ctxt (LoadByte e) =
    let (cexp, shape) = compile_exp ctxt e in
    case (cexp, shape) of
@@ -159,6 +164,10 @@ Definition compile_def:
                  (nested_seq (stores (Var adv) (MAP Var temps) 0w))
             else Skip
     | (_,_) => Skip) /\
+  (compile ctxt (Store32 dest src) =
+   case (compile_exp ctxt dest, compile_exp ctxt src) of
+    | (ad::ads, _), (e::es, _) => Store32 ad e
+    | _ => Skip) /\
   (compile ctxt (StoreByte dest src) =
    case (compile_exp ctxt dest, compile_exp ctxt src) of
     | (ad::ads, _), (e::es, _) => StoreByte ad e

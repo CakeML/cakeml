@@ -58,6 +58,9 @@ Definition compile_exp_def:
                                        Var tmp, tmp + 1, insert tmp () l)) /\
   (compile_exp ctxt tmp l (Load ad) =
    let (p, le, tmp, l) = compile_exp ctxt tmp l ad in (p, Load le, tmp, l)) /\
+  (compile_exp ctxt tmp l (Load32 ad) =
+   let (p, le, tmp, l) = compile_exp ctxt tmp l ad in
+    (p ++ [Assign tmp le; Load32 tmp tmp], Var tmp, tmp + 1, insert tmp () l)) /\
   (compile_exp ctxt tmp l (LoadByte ad) =
    let (p, le, tmp, l) = compile_exp ctxt tmp l ad in
     (p ++ [Assign tmp le; LoadByte tmp tmp], Var tmp, tmp + 1, insert tmp () l)) /\
@@ -136,6 +139,12 @@ Definition compile_def:
     let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l dst in
       let (p', le', tmp, l) = compile_exp ctxt tmp l src in
         nested_seq (p ++ p' ++ [Assign tmp le'; Store le tmp])) /\
+  (compile ctxt l (Store32 dst src) =
+    let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l dst in
+      let (p', le', tmp, l) = compile_exp ctxt tmp l src in
+        nested_seq (p ++ p' ++
+                     [Assign tmp le; Assign (tmp + 1) le';
+                      Store32 tmp (tmp + 1)])) /\
   (compile ctxt l (StoreByte dst src) =
     let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l dst in
       let (p', le', tmp, l) = compile_exp ctxt tmp l src in

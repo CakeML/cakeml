@@ -27,6 +27,7 @@ Datatype:
       | Var varname
       | Label funname
       | Load exp
+      | Load32 exp
       | LoadByte exp
       | LoadGlob  (5 word)
       | Op binop (exp list)
@@ -41,6 +42,7 @@ Datatype:
        | Dec varname ('a exp) prog
        | Assign    varname  ('a exp)   (* dest, source *)
        | Store     ('a exp) ('a exp)   (* dest, source *)
+       | Store32 ('a exp) ('a exp)   (* dest, source *)
        | StoreByte ('a exp) ('a exp)   (* dest, source *)
        | StoreGlob (5 word) ('a exp)   (* dest, source *)
        | Seq prog prog
@@ -123,6 +125,7 @@ Definition var_cexp_def:
   (var_cexp (Var v) = [v]) ∧
   (var_cexp (Label f) = []) ∧
   (var_cexp (Load e) = var_cexp e) ∧
+  (var_cexp (Load32 e) = var_cexp e) ∧
   (var_cexp (LoadByte e) = var_cexp e) ∧
   (var_cexp (LoadGlob a) = []) ∧
   (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
@@ -191,6 +194,7 @@ Definition exps_def:
   (exps (Var v) = [Var v]) ∧
   (exps (Label f) = [Label f]) ∧
   (exps (Load e) = exps e) ∧
+  (exps (Load32 e) = exps e) ∧
   (exps (LoadByte e) = exps e) ∧
   (exps (LoadGlob a) = [LoadGlob a]) ∧
   (exps (Op bop es) = FLAT (MAP exps es)) ∧
@@ -212,6 +216,7 @@ Definition acc_vars_def:
   (acc_vars (Dec n e p) l = acc_vars p (list_insert (n::var_cexp e) l)) ∧
   (acc_vars (Assign n e) l = list_insert (n::var_cexp e) l) ∧
   (acc_vars (Store e1 e2) l = list_insert (var_cexp e1 ++ var_cexp e2) l) ∧
+  (acc_vars (Store32 e1 e2) l = list_insert (var_cexp e1 ++ var_cexp e2) l) ∧
   (acc_vars (StoreByte e1 e2) l = list_insert (var_cexp e1 ++ var_cexp e2) l) ∧
   (acc_vars (StoreGlob _ e) l = list_insert (var_cexp e) l) ∧
   (acc_vars (Seq p q) l = acc_vars p (acc_vars q l)) ∧

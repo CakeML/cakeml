@@ -271,11 +271,25 @@ Definition evaluate_def:
      case eval s exp of
      | SOME w => (NONE, set_globals dst w s)
      | _ => (SOME Error, s)) /\
+  (evaluate (Load32 a v,s) =
+     case lookup a s.locals of
+     | SOME (Word w) =>
+        (case mem_load_32 s.memory s.mdomain s.be w of
+         | SOME b => (NONE, set_var v (Word (w2w b)) s)
+         | _ => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
   (evaluate (LoadByte a v,s) =
      case lookup a s.locals of
      | SOME (Word w) =>
         (case mem_load_byte_aux s.memory s.mdomain s.be w of
          | SOME b => (NONE, set_var v (Word (w2w b)) s)
+         | _ => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (Store32 a w,s) =
+     case lookup a s.locals, lookup w s.locals of
+     | (SOME (Word w), SOME (Word b)) =>
+        (case mem_store_32 s.memory s.mdomain s.be w (w2w b) of
+         | SOME m => (NONE, s with memory := m)
          | _ => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (StoreByte a w,s) =

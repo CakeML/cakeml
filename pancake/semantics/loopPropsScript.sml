@@ -69,6 +69,7 @@ Definition cut_sets_def:
   (cut_sets l Skip = l) ∧
   (cut_sets l (LocValue n m) = insert n () l) ∧
   (cut_sets l (Assign n e) = insert n () l) ∧
+  (cut_sets l (Load32 n m) = insert m () l) ∧
   (cut_sets l (LoadByte n m) = insert m () l) ∧
   (cut_sets l (Seq p q) = cut_sets (cut_sets l p) q) ∧
   (cut_sets l (If _ _ _ p q nl) = nl) ∧
@@ -88,6 +89,7 @@ Definition comp_syntax_ok_def:
   (comp_syntax_ok l (Arith arith) = T) ∧
   (comp_syntax_ok l Break = T) ∧
   (comp_syntax_ok l (LocValue n m) = T) ∧
+  (comp_syntax_ok l (Load32 n m) = T) ∧
   (comp_syntax_ok l (LoadByte n m) = T) ∧
   (comp_syntax_ok l (Seq p q) = (comp_syntax_ok l p ∧ comp_syntax_ok (cut_sets l p) q)) ∧
   (comp_syntax_ok l (If c n r p q nl) =

@@ -742,6 +742,16 @@ Proof
             >> fs[dest_word_loc_def])
         )
       >-(
+        fs[word_state_rel_def] >> gvs[] >>
+        CONJ_TAC >- (fs[set_var_def])
+          >- (fs[domain_find_loc_state]
+            >> fs[set_var_def]
+            >> irule SUBSET_TRANS
+            >> irule_at Any get_locals_insert
+            >> fs[UNION_SUBSET]
+            >> fs[dest_word_loc_def])
+        )
+      >-(
         fs[word_state_rel_def] >>
         (rpt strip_tac)
         (*can this use mem_store_const*)
@@ -772,26 +782,35 @@ Proof
             >> irule SUBSET_TRANS
             >> irule_at Any get_memory_update
             >> fs[dest_word_loc_def]))
-      )
-    >-(
-      Cases_on `f` >> fs[] >>
-      every_case_tac >> fs[] >>
-      rw[] >> gvs []
-      >> fs[word_state_rel_def] >>
-      (rpt strip_tac) >>
-      TRY (fs[set_fp_var_def,set_var_def] >> NO_TAC)
-           >> (fs[domain_find_loc_state]
-           >> fs[set_var_def]
-           >> irule SUBSET_TRANS
-           >> irule_at Any get_locals_insert
-           >> fs[UNION_SUBSET]
-           >> fs[dest_word_loc_def]
-           >> fs[set_var_def]
-           >> irule SUBSET_TRANS
-           >> irule_at Any get_locals_insert
-           >> fs[UNION_SUBSET]
-           >> fs[dest_word_loc_def])
-        )
+      >> (***)
+        fs[word_state_rel_def] >>
+        (rpt strip_tac) >>
+        TRY (fs[set_var_def] >> NO_TAC)
+       >- (gvs[])
+          >- (fs[domain_find_loc_state]
+            >> fs[mem_store_32_def]
+            >> ntac 4 (FULL_CASE_TAC >> fs[]) >> gvs[]
+            >> irule SUBSET_TRANS
+            >> irule_at Any get_memory_update
+            >> fs[dest_word_loc_def])
+      ) >>
+    Cases_on `f` >> fs[] >>
+    every_case_tac >> fs[] >>
+    rw[] >> gvs []
+    >> fs[word_state_rel_def] >>
+    (rpt strip_tac) >>
+    TRY (fs[set_fp_var_def,set_var_def] >> NO_TAC)
+    >> (fs[domain_find_loc_state]
+        >> fs[set_var_def]
+        >> irule SUBSET_TRANS
+        >> irule_at Any get_locals_insert
+        >> fs[UNION_SUBSET]
+        >> fs[dest_word_loc_def]
+        >> fs[set_var_def]
+        >> irule SUBSET_TRANS
+        >> irule_at Any get_locals_insert
+        >> fs[UNION_SUBSET]
+        >> fs[dest_word_loc_def])
 QED
 
 Theorem word_state_rel_jump_exc:

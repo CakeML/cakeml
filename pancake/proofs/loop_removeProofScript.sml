@@ -394,7 +394,7 @@ Proof
          \\ rw [] \\ res_tac)
       \\ ‘breaks_ok (Fail:'a loopLang$prog,Fail:'a loopLang$prog) ∧
           break_ok (Fail:'a loopLang$prog)’ by EVAL_TAC
-      \\ fs [CaseEq"prod",CaseEq"result",CaseEq"option"] \\ rveq \\ fs []
+      \\ fs [CaseEq"prod",CaseEq"loopSem$result",CaseEq"option"] \\ rveq \\ fs []
       \\ first_x_assum drule \\ disch_then drule \\ rewrite_tac [GSYM AND_IMP_INTRO]
       \\ disch_then drule \\ fs [dec_clock_def] \\ fs [])
     \\ PairCases_on ‘x'’ \\ fs []
@@ -915,7 +915,9 @@ QED
 
 Theorem compile_Store:
   ^(get_goal "loopLang$Store") ∧
+  ^(get_goal "loopLang$Store32") ∧
   ^(get_goal "loopLang$StoreByte") ∧
+  ^(get_goal "loopLang$Load32") ∧
   ^(get_goal "loopLang$LoadByte")
 Proof
   fs [syntax_ok_def,no_Loop_def,every_prog_def]

@@ -794,6 +794,56 @@ Proof
     imp_res_tac mem_store_upd_mem >>
     qpat_x_assum`Word _ = _`(assume_tac o SYM) >> fs[]>> rfs[]) >>
   TRY (
+    rename1`mem_store32`
+    \\ fs[wordSemTheory.mem_store_32_def]
+    \\ every_case_tac \\ fs[]
+    \\ fs[mem_store32_def,addr_def]
+    \\ fs[word_exp_def,wordLangTheory.word_op_def]
+    \\ qpat_x_assum`IS_SOME _`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ disch_then old_drule
+    \\ disch_then (assume_tac o SYM)
+    \\ fs[]
+    \\ fs[get_var_def]
+    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ qhdtm_x_assum`FLOOKUP`mp_tac
+    \\ match_mp_tac SWAP_IMP
+    \\ disch_then old_drule
+    \\ disch_then (assume_tac o SYM)
+    \\ simp[wordSemTheory.mem_store_32_def]
+    \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
+    \\ fs[] \\ strip_tac
+    \\ TRY (qpat_x_assum`Word _ = read_reg _ _`(assume_tac o SYM)\\ fs[])
+    \\ rveq
+    \\ fs[GSYM upd_mem_def]
+    \\ match_mp_tac (GEN_ALL mem_store_upd_mem)
+    \\ asm_exists_tac
+    \\ simp[stackSemTheory.mem_store_def]
+    \\ simp[stackSemTheory.state_component_equality]
+    \\ rveq \\ simp[]) >>
+  TRY (
+    qhdtm_x_assum`mem_load_32`mp_tac
+    \\ fs[wordSemTheory.mem_load_32_def,labSemTheory.mem_load32_def,labSemTheory.addr_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ fs[word_exp_def,wordLangTheory.word_op_def]
+    \\ qpat_x_assum`IS_SOME _`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ disch_then old_drule
+    \\ disch_then (assume_tac o SYM) \\ fs[]
+    \\ fs[get_var_def]
+    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ qhdtm_x_assum`FLOOKUP`mp_tac
+    \\ match_mp_tac SWAP_IMP
+    \\ TRY (
+         disch_then old_drule
+         \\ disch_then (assume_tac o SYM) \\ fs[] )
+    \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
+    \\ fs[] \\ strip_tac) >>
+  TRY (
     rename1`mem_store_byte_aux`
     \\ fs[wordSemTheory.mem_store_byte_aux_def]
     \\ every_case_tac \\ fs[]
