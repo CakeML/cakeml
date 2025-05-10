@@ -193,6 +193,49 @@ Definition do_int_app_def:
   do_int_app (op:closLang$int_op) (vs:closSem$v list) = NONE
 End
 
+Definition do_word_app_def:
+  (do_word_app (WordOpw W8 opw) [Number n1; Number n2] =
+       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
+        | NONE => NONE
+        | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
+  do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
+        SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordShift W8 sh n) [Number i] =
+       (case some (w:word8). i = &(w2n w) of
+        | NONE => NONE
+        | SOME w => SOME (Number &(w2n (shift_lookup sh w n)))) /\
+  do_word_app (WordShift W64 sh n) [Word64 w] =
+       SOME (Word64 (shift_lookup sh w n)) /\
+  do_word_app (WordFromInt) [Number i] =
+       SOME (Word64 (i2w i)) /\
+  do_word_app WordToInt [Word64 w] =
+       SOME (Number (&(w2n w))) /\
+  do_word_app (WordFromWord T) [Word64 w] =
+       SOME (Number (&(w2n ((w2w:word64->word8) w)))) /\
+  do_word_app (WordFromWord F) [Number n] =
+       (case some (w:word8). n = &(w2n w) of
+        | NONE => NONE
+        | SOME w => SOME (Word64 (w2w w))) /\
+  do_word_app (FP_top t_op) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2; Word64 w3] =>
+             (SOME (Word64 (fp_top_comp t_op w1 w2 w3)))
+         | _ => NONE) /\
+  do_word_app (FP_bop bop) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2] => (SOME (Word64 (fp_bop_comp bop w1 w2)))
+         | _ => NONE) /\
+  do_word_app (FP_uop uop) ws =
+        (case ws of
+         | [Word64 w] => (SOME (Word64 (fp_uop_comp uop w)))
+         | _ => NONE) /\
+  do_word_app (FP_cmp cmp) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2] => (SOME (Boolv (fp_cmp_comp cmp w1 w2)))
+         | _ => NONE) /\
+  do_word_app (op:closLang$word_op) (vs:closSem$v list) = NONE
+End
+
 Definition do_app_def:
   do_app (op:closLang$op) (vs:closSem$v list) ^s =
     case (op,vs) of
@@ -355,28 +398,10 @@ Definition do_app_def:
         (case do_int_app int_op vs of
         | SOME res => Rval (res ,s)
         | _ => Error)
-    | (WordOp (WordOpw W8 opw),[Number n1; Number n2]) =>
-       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
-        | NONE => Error
-        | SOME (w1,w2) => Rval (Number &(w2n (opw_lookup opw w1 w2)),s))
-    | (WordOp (WordOpw W64 opw),[Word64 w1; Word64 w2]) =>
-        Rval (Word64 (opw_lookup opw w1 w2),s)
-    | (WordOp (WordShift W8 sh n), [Number i]) =>
-       (case some (w:word8). i = &(w2n w) of
-        | NONE => Error
-        | SOME w => Rval (Number &(w2n (shift_lookup sh w n)),s))
-    | (WordOp (WordShift W64 sh n), [Word64 w]) =>
-        Rval (Word64 (shift_lookup sh w n),s)
-    | (WordOp WordFromInt, [Number i]) =>
-        Rval (Word64 (i2w i),s)
-    | (WordOp WordToInt, [Word64 w]) =>
-        Rval (Number (&(w2n w)),s)
-    | (WordOp (WordFromWord T), [Word64 w]) =>
-        Rval (Number (&(w2n ((w2w:word64->word8) w))),s)
-    | (WordOp (WordFromWord F), [Number n]) =>
-       (case some (w:word8). n = &(w2n w) of
-        | NONE => Error
-        | SOME w => Rval (Word64 (w2w w),s))
+    | (WordOp word_op, vs) =>
+        (case do_word_app word_op vs of
+        | SOME res => Rval (res ,s)
+        | _ => Error)
     | (FFI n, [ByteVector conf; RefPtr _ ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
@@ -387,23 +412,6 @@ Definition do_app_def:
                               ; ffi   := ffi'|>)
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
-         | _ => Error)
-    | (WordOp (FP_top t_op), ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2; Word64 w3] =>
-             (Rval (Word64 (fp_top_comp t_op w1 w2 w3),s))
-         | _ => Error)
-    | (WordOp (FP_bop bop), ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop_comp bop w1 w2),s))
-         | _ => Error)
-    | (WordOp (FP_uop uop), ws) =>
-        (case ws of
-         | [Word64 w] => (Rval (Word64 (fp_uop_comp uop w),s))
-         | _ => Error)
-    | (WordOp (FP_cmp cmp), ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp_comp cmp w1 w2),s))
          | _ => Error)
     | (BlockOp BoundsCheckBlock,[Block tag ys; Number i]) =>
         Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
