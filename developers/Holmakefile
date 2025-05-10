@@ -15,3 +15,5 @@ readme_gen: readme_gen.sml
 
 lint_build_dirs: lint_build_dirs.sml
 	$(POLYC) lint_build_dirs.sml -o lint_build_dirs
+
+EXTRA_CLEANS = lint_build_dirs readme_gen
