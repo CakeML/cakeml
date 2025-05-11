@@ -293,7 +293,7 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [], [`w`], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], []];
 
 Theorem do_app_ok_lemma[local]:
   state_ok r /\ EVERY (bv_ok r.refs) a /\
@@ -330,6 +330,11 @@ Proof
     \\ last_x_assum drule \\ gvs [])
   \\ Cases_on `∃i. op = IntOp i` THEN1
    (full_simp_tac(srw_ss())[bvlSemTheory.do_app_def,oneline bvlSemTheory.do_int_app_def]
+    \\ rpt (disch_then strip_assume_tac)
+    \\ gvs[AllCaseEqs()]
+    \\ fs[bv_ok_def])
+  \\ Cases_on `∃w. op = WordOp w` THEN1
+   (full_simp_tac(srw_ss())[bvlSemTheory.do_app_def,oneline bvlSemTheory.do_word_app_def]
     \\ rpt (disch_then strip_assume_tac)
     \\ gvs[AllCaseEqs()]
     \\ fs[bv_ok_def])
@@ -1494,6 +1499,12 @@ Proof
      disch_then (mp_tac o SRULE[AllCaseEqs(),oneline do_int_app_def]) >>
      strip_tac >> rveq >>
      full_simp_tac(srw_ss())[bEvalOp_def,adjust_bv_def,do_int_app_def] >>
+     asm_simp_tac(srw_ss())[bvl_to_bvi_id])
+  >~ [`WordOp`]
+  >- (
+     disch_then (mp_tac o SRULE[AllCaseEqs(),oneline do_word_app_def]) >>
+     strip_tac >> rveq >>
+     full_simp_tac(srw_ss())[bEvalOp_def,adjust_bv_def,do_word_app_def] >>
      asm_simp_tac(srw_ss())[bvl_to_bvi_id])
   \\ TRY (full_simp_tac(srw_ss())[bEvalOp_def]
           \\ every_case_tac \\ fs [adjust_bv_def]
