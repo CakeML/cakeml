@@ -3212,7 +3212,7 @@ Proof
 QED
 
 Triviality evaluate_AppendMainLoop_code:
-  ``!xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free ts v.
+    !xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free ts v.
       memory_rel c t.be ts (s:('c,'ffi) dataSem$state).refs sp t.store t.memory t.mdomain
          ((v,Word ww)::vars) /\ xs <> [] /\
       v_to_list v = SOME xs /\
@@ -3253,7 +3253,7 @@ Triviality evaluate_AppendMainLoop_code:
         (word_list next_free (append_writes c ptr hdr ws tmp0) * frame)
           (fun2set (m1,t.mdomain)) /\
         memory_rel c t.be ts s.refs sp t.store m1 t.mdomain
-          (ZIP (xs,ws)++vars)``
+          (ZIP (xs,ws)++vars)
 Proof
   cheat (*
   strip_tac
