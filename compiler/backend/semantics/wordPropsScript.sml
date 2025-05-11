@@ -107,7 +107,7 @@ QED
 Theorem PAIR_MAP_EQ_PAIR[simp]:
   (f ## g) p = (a,b) ⇔ ∃x y. p = (x,y) ∧ f x = a ∧ g y = b
 Proof
-  Cases_on `p` >> fs[]
+  Cases_on `p` >> fs[] \\ eq_tac \\ gvs []
 QED
 
 (*TODO Weaken this simplification
