@@ -1321,7 +1321,7 @@ Theorem collect_apps_preserves_set_globals:
 Proof
   ho_match_mp_tac clos_mtiTheory.collect_apps_ind >>
   simp[clos_mtiTheory.collect_apps_def, bool_case_eq] >> rpt strip_tac
-  >- (pop_assum (assume_tac o SYM) >> fs[elist_globals_append] >>
+  >- (fs[elist_globals_append] >>
       metis_tac[bagTheory.COMM_BAG_UNION, bagTheory.ASSOC_BAG_UNION])
   >- (rveq >> simp[])
 QED
