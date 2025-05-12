@@ -16,13 +16,45 @@ Definition state_rel_def:
   s.top_addr = t.top_addr - ctxt.globals_size ∧
   s.locals = t.locals ∧
   s.base_addr = t.base_addr ∧
+  s.be = t.be ∧
   (∀v val.
      FLOOKUP s.globals v = SOME val ⇒
      ∃addr. FLOOKUP ctxt.globals v = SOME(shape_of val, addr) ∧
             mem_load (shape_of val) (t.top_addr - addr) t.memaddrs t.memory = SOME val
   ) ∧
-  s.memaddrs ⊆ t.memaddrs
+  s.memaddrs ⊆ t.memaddrs ∧
+  (∀addr. addr ∈ s.memaddrs ⇒ s.memory addr = t.memory addr) ∧
+  s.ffi = t.ffi
 End
+
+Theorem state_rel_mem_load:
+  state_rel ctxt ^s t ∧
+  mem_load shape w s.memaddrs s.memory = SOME v ⇒
+  mem_load shape w t.memaddrs t.memory = SOME v
+Proof
+  ‘(∀shape w sa sm ctxt ^s t v.
+      state_rel ctxt s t ∧
+      sa = s.memaddrs ∧
+      sm = s.memory ∧
+      mem_load shape w sa sm = SOME v ⇒
+      mem_load shape w t.memaddrs t.memory = SOME v) ∧
+   (∀shapes w sa sm ctxt ^s t v.
+      state_rel ctxt s t ∧
+      sa = s.memaddrs ∧
+      sm = s.memory ∧
+      mem_loads shapes w sa sm = SOME v ⇒
+      mem_loads shapes w t.memaddrs t.memory = SOME v)
+  ’ suffices_by metis_tac[] >>
+  ho_match_mp_tac mem_load_ind >>
+  rw[] >>
+  gvs[mem_load_def,AllCaseEqs()]
+  >- gvs[state_rel_def,SUBSET_DEF]
+  >- metis_tac[]
+  >- (conj_tac >- gvs[state_rel_def,SUBSET_DEF] >>
+      reverse conj_tac >- gvs[state_rel_def,SUBSET_DEF] >>
+      metis_tac[]) >>
+  metis_tac[]
+QED
 
 Theorem compile_exp_correct:
   ∀s e v ctxt t.
@@ -47,11 +79,11 @@ Proof
       drule_all pan_commonPropsTheory.opt_mmap_mem_func >>
       strip_tac >> gvs[])
   >~ [‘Load’]
-  >- (cheat (* memory *)
-     )
+  >- (gvs[eval_def,compile_exp_def,AllCaseEqs()] >>
+      metis_tac[state_rel_mem_load])
   >~ [‘LoadByte’]
-  >- (cheat (* memory *)
-     )
+  >- gvs[eval_def,compile_exp_def,AllCaseEqs(),mem_load_byte_def,
+         state_rel_def,SUBSET_DEF]
   >~ [‘Op’]
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs()] >>
       first_assum $ irule_at $ Pos last >>
