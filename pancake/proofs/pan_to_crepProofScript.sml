@@ -4525,7 +4525,7 @@ Proof
 QED
 
 Theorem state_rel_imp_semantics:
-  !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start prog.
+  !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start.
     state_rel s t ∧
     ALL_DISTINCT (MAP FST (functions pan_code)) ∧
     s.code = alist_to_fmap(functions pan_code) ∧
@@ -4534,7 +4534,6 @@ Theorem state_rel_imp_semantics:
     EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
     FDOM s.eshapes =  FDOM ((get_eids(functions pan_code)):mlstring |-> 'a word) ∧
-    ALOOKUP (functions pan_code) start = SOME ([],prog) ∧
     semantics s start <> Fail ==>
       semantics t start = semantics s start
 Proof
@@ -4794,5 +4793,32 @@ Proof
    fs [state_rel_def, IS_PREFIX_THM]
 QED
 
+Theorem state_rel_imp_semantics_decls:
+  !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start prog.
+    state_rel s t ∧
+    ALL_DISTINCT (MAP FST (functions pan_code)) ∧
+    s.code = FEMPTY ∧
+    t.code = alist_to_fmap (pan_to_crep$compile_prog pan_code) ∧
+    s.locals = FEMPTY ∧
+    EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
+    EVERY is_function pan_code ∧
+    panLang$size_of_eids pan_code < dimword (:'a) /\
+    FDOM s.eshapes =  FDOM ((get_eids(functions pan_code)):mlstring |-> 'a word) ∧
+    semantics_decls s start pan_code <> Fail ==>
+      semantics t start = semantics_decls s start pan_code
+Proof
+  rw [semantics_decls_def] >>
+  gvs[AllCaseEqs(), GSYM IS_SOME_EQ_NOT_NONE, IS_SOME_EXISTS] >>
+  drule_all_then (gvs o single) evaluate_decls_only_functions >>
+  irule EQ_SYM >>
+  irule state_rel_imp_semantics >>
+  simp[PULL_EXISTS] >>
+  first_assum $ irule_at $ Pos hd >>
+  simp[] >>
+  conj_tac
+  >- (rw[fmap_eq_flookup,FLOOKUP_FUPDATE_LIST,alookup_distinct_reverse] >>
+      TOP_CASE_TAC >> simp[]) >>
+  gvs[state_rel_def]
+QED
 
 val _ = export_theory();
