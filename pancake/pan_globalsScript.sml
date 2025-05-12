@@ -12,7 +12,7 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 Datatype:
   context =
-  <| globals  : varname |-> shape # 'a word;
+  <| globals  : varname |-> shape # 'a word # 'a exp;
      globals_size : 'a word
    |>
 End
@@ -22,7 +22,7 @@ Definition compile_exp_def:
   (compile_exp ctxt (Var Global vname) =
    case FLOOKUP ctxt.globals vname of
      NONE => Const 0w (* should never happen *)
-   | SOME(sh,addr) => Load sh (Op Sub [TopAddr; Const addr])) ∧
+   | SOME(sh,addr,_) => Load sh (Op Sub [TopAddr; Const addr])) ∧
   (compile_exp ctxt (Struct es) = Struct (MAP (compile_exp ctxt) es)) ∧
   (compile_exp ctxt (Field index e) =
    Field index (compile_exp ctxt e)) ∧
@@ -56,7 +56,7 @@ Definition compile_def:
   (compile ctxt (Assign Global v e) =
    case FLOOKUP ctxt.globals v of
      NONE => Skip (* shouldn't happen *)
-   | SOME (sh, addr) => Store (Op Sub [TopAddr; Const addr]) (compile_exp ctxt e)
+   | SOME (sh, addr, _) => Store (Op Sub [TopAddr; Const addr]) (compile_exp ctxt e)
    ) ∧
   (compile ctxt (Store ad v) =
    Store (compile_exp ctxt ad) (compile_exp ctxt v)) /\
@@ -100,17 +100,18 @@ Definition compile_def:
 End
 
 Definition compile_decs_def:
-    compile_decs ctxt [] = [] ∧
+    compile_decs ctxt [] = ([],[]) ∧
     (compile_decs ctxt (Decl sh v e::ds) =
      let
        s = ctxt.globals_size + n2w(size_of_shape sh);
        ctxt' = ctxt with <|globals  := ctxt.globals |+ (v,sh,s);
-                           globals_size := s|>
+                           globals_size := s|>;
+       (decs,funs) = compile_decs ctxt' ds
      in
-       Decl sh v (compile_exp ctxt e)::
-            compile_decs ctxt' ds) ∧
-    compile_decs ctxt (Function f xp args body::ds) =
-    Function f xp args (compile ctxt body)::ds
+        (Store (Op Sub [TopAddr; Const s]) (compile_exp ctxt e)::decs,funs)) ∧
+    (compile_decs ctxt (Function f xp args body::ds) =
+     let (decs,funs) = compile_decs ctxt ds
+     in (decs,Function f xp args (compile ctxt body)::funs))
 End
 
 Definition resort_decls_def:
@@ -118,10 +119,21 @@ Definition resort_decls_def:
   FILTER ($¬ o is_function) decs ++ FILTER is_function decs
 End
 
+(* TODO: alpha-conversion *)
 Definition compile_top_def:
-  compile_top decs =
-  compile_decs <| globals := FEMPTY; globals_size := 0w |>
-  $ resort_decls decs
+  compile_top decs start =
+  case ALOOKUP (functions decs) start of
+    NONE => []
+  | SOME (args, body) =>
+      let nds = resort_decls decs;
+          (decls,funs) = compile_decs <| globals := FEMPTY; globals_size := 0w |> nds;
+          params = MAP (Var Local o FST) args;
+          new_main = Function start
+                              F
+                              args
+                              (Seq (nested_seq decls) (TailCall start params))
+      in
+        new_main::funs
 End
 
 val _ = export_theory();
