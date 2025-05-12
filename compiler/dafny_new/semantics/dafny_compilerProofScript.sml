@@ -7,6 +7,7 @@ open semanticPrimitivesTheory
 open evaluateTheory
 open dafny_semanticPrimitivesTheory
 open dafny_evaluateTheory
+open namespaceTheory
 
 (* For compiler definitions *)
 open result_monadTheory
@@ -89,7 +90,7 @@ Definition from_bin_op_def:
   from_bin_op Or cml_e₀ cml_e₁ =
     Log Or cml_e₀ cml_e₁ ∧
   from_bin_op Imp cml_e₀ cml_e₁ =
-    from_bin_op Or (from_un_op Not cml_e₀) cml_e₁ ∧
+    If cml_e₀ cml_e₁ True ∧
   from_bin_op Div cml_e₀ cml_e₁ =
     cml_fapp ["Dafny"] "ediv" [cml_e₀; cml_e₁]
 Termination
@@ -124,7 +125,10 @@ Definition from_exp_def:
   do
     cml_e₀ <- from_exp e₀;
     cml_e₁ <- from_exp e₁;
-    return (from_bin_op bop cml_e₀ cml_e₁)
+    (* Force left-to-right order *)
+    n_e₀ <<- "_e0";
+    return (Let (SOME n_e₀) cml_e₀
+             (from_bin_op bop (Var (Short n_e₀)) cml_e₁))
   od ∧
   from_exp (ArrLen arr) =
   do
@@ -255,14 +259,25 @@ QED
 Triviality exp_res_rel_rval:
   exp_res_rel m (Rval dfy_v) r_cml ⇒ ∃cml_v. r_cml = Rval [cml_v]
 Proof
-  cheat
+  namedCases_on ‘r_cml’ ["vs", "err"] \\ gvs []
+  \\ namedCases_on ‘vs’ ["", "v rest"] \\ gvs []
+  \\ Cases_on ‘rest’ \\ gvs []
 QED
 
 Triviality exp_res_rel_rerr:
   exp_res_rel m (Rerr dfy_err) r_cml ⇒
   dfy_err = Rtimeout_error ∧ r_cml = (Rerr (Rabort Rtimeout_error))
 Proof
-  cheat
+  namedCases_on ‘r_cml’ ["vs", "err"] \\ gvs []
+  \\ namedCases_on ‘err’ ["raise", "abort"] \\ gvs []
+  \\ Cases_on ‘abort’ \\ gvs []
+  \\ Cases_on ‘dfy_err’ \\ gvs []
+QED
+
+Triviality nsLookup_nsOptBind[simp]:
+  nsLookup (nsOptBind (SOME n) v env_v) (Short n) = SOME v
+Proof
+  Cases_on ‘env_v’ \\ gvs [nsOptBind_def, nsBind_def, nsLookup_def]
 QED
 
 Theorem correct_exp:
@@ -323,9 +338,21 @@ Proof
     \\ namedCases_on ‘evaluate_exp s env_dfy e₀’ ["s₁ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
-
+    \\ rename [‘evaluate _ _ _ = (t₂, _)’]
+    \\ gvs [evaluate_def]
     \\ reverse $ Cases_on ‘r’ \\ gvs []
-    >- (Cases_on ‘bop’ \\ gvs [from_bin_op_def, evaluate_def] \\ cheat)
+    >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs [])
+    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ rename [‘val_rel _ dfy_v _’]
+    \\ reverse $ Cases_on ‘try_sc bop dfy_v’ \\ gvs []
+    >- (* Short-circuiting *)
+     (Cases_on ‘bop’ \\ gvs [try_sc_def]
+      \\ gvs [val_rel_cases]
+      \\ gvs [from_bin_op_def, evaluate_def, do_log_def, Boolv_def,
+              do_if_def, do_con_check_def, env_rel_def, build_conv_def,
+              val_rel_cases, bool_type_num_def])
+    \\ namedCases_on ‘evaluate_exp s₁ env_dfy e₁’ ["s₂ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     \\ cheat)
   \\ cheat
 QED
