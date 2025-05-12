@@ -12,7 +12,7 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 Datatype:
   context =
-  <| globals  : varname |-> shape # 'a word # 'a exp;
+  <| globals  : varname |-> shape # 'a word;
      globals_size : 'a word
    |>
 End
@@ -22,7 +22,7 @@ Definition compile_exp_def:
   (compile_exp ctxt (Var Global vname) =
    case FLOOKUP ctxt.globals vname of
      NONE => Const 0w (* should never happen *)
-   | SOME(sh,addr,_) => Load sh (Op Sub [TopAddr; Const addr])) ∧
+   | SOME(sh,addr) => Load sh (Op Sub [TopAddr; Const addr])) ∧
   (compile_exp ctxt (Struct es) = Struct (MAP (compile_exp ctxt) es)) ∧
   (compile_exp ctxt (Field index e) =
    Field index (compile_exp ctxt e)) ∧
@@ -56,7 +56,7 @@ Definition compile_def:
   (compile ctxt (Assign Global v e) =
    case FLOOKUP ctxt.globals v of
      NONE => Skip (* shouldn't happen *)
-   | SOME (sh, addr, _) => Store (Op Sub [TopAddr; Const addr]) (compile_exp ctxt e)
+   | SOME (sh, addr) => Store (Op Sub [TopAddr; Const addr]) (compile_exp ctxt e)
    ) ∧
   (compile ctxt (Store ad v) =
    Store (compile_exp ctxt ad) (compile_exp ctxt v)) /\
