@@ -391,7 +391,7 @@ Definition evaluate_def:
     case eval s ad of
     | SOME (ValWord addr) =>
         (case lookup_kvar s vk v of
-           SOME (Val _) => sh_mem_load vk v addr (nb_op op) s
+           SOME (ValWord _) => sh_mem_load vk v addr (nb_op op) s
          | _ => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (ShMemStore op ad e,s) =
