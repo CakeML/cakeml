@@ -8,8 +8,6 @@ val _ = new_theory "pan_globals"
 
 val _ = set_grammar_ancestry ["panLang","backend_common"];
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
 Datatype:
   context =
   <| globals  : varname |-> shape # 'a word;
@@ -96,6 +94,15 @@ Definition compile_def:
    ShMemStore op (compile_exp ctxt r) (compile_exp ctxt ad)) ∧
   (compile ctxt (ShMemLoad op Local r ad) =
    ShMemLoad op Local r (compile_exp ctxt ad)) ∧
+  (compile ctxt (ShMemLoad op Global r ad) =
+   case FLOOKUP ctxt.globals r of
+     _ => Skip (* shouldn't happen *)
+   | SOME (One, addr) =>
+       let r' = strcat r «'» in
+         Dec r' (Const 0w) $
+         Dec r (compile_exp ctxt ad) $
+         Seq (ShMemLoad op Local r' (Var Local r)) $
+         Store (Op Sub [TopAddr; Const addr]) (Var Local r')) ∧
   (compile _ p = p)
 End
 
