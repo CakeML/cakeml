@@ -96,13 +96,13 @@ Definition compile_def:
    ShMemLoad op Local r (compile_exp ctxt ad)) ∧
   (compile ctxt (ShMemLoad op Global r ad) =
    case FLOOKUP ctxt.globals r of
-     _ => Skip (* shouldn't happen *)
    | SOME (One, addr) =>
-       let r' = strcat r «'» in
-         Dec r' (Const 0w) $
-         Dec r (compile_exp ctxt ad) $
-         Seq (ShMemLoad op Local r' (Var Local r)) $
-         Store (Op Sub [TopAddr; Const addr]) (Var Local r')) ∧
+       (let r' = strcat r «'» in
+          Dec r' (Const 0w) $
+              Dec r (compile_exp ctxt ad) $
+              Seq (ShMemLoad op Local r' (Var Local r)) $
+              Store (Op Sub [TopAddr; Const addr]) (Var Local r'))
+   | _ => Skip (* Should never happen *)) ∧
   (compile _ p = p)
 End
 
