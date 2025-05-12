@@ -98,8 +98,8 @@ Definition compile_def:
    case FLOOKUP ctxt.globals r of
    | SOME (One, addr) =>
        (let r' = strcat r «'» in
-          Dec r' (Const 0w) $
-              Dec r (compile_exp ctxt ad) $
+          Dec r (compile_exp ctxt ad) $
+              Dec r' (Const 0w) $
               Seq (ShMemLoad op Local r' (Var Local r)) $
               Store (Op Sub [TopAddr; Const addr]) (Var Local r'))
    | _ => Skip (* Should never happen *)) ∧
