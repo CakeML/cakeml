@@ -39,7 +39,7 @@ Datatype:
   <| clock: num;
      locals: (mlstring, (value option)) alist;
      heap: heap_value list;
-     cout: mlstring list |>
+     output: mlstring list |>
 End
 
 Datatype:
@@ -93,7 +93,7 @@ Definition get_member_def:
 End
 
 Definition init_state_def:
-  init_state = <| clock := 424242; locals := []; heap := []; cout := [] |>
+  init_state = <| clock := 424242; locals := []; heap := []; output := [] |>
 End
 
 Definition safe_zip_def:
@@ -321,7 +321,7 @@ Definition print_string_def:
   print_string st vs =
   (case OPT_MMAP (val_to_string st) vs of
    | NONE => NONE
-   | SOME ss => SOME (st with cout := SNOC (concat ss) st.cout))
+   | SOME ss => SOME (st with output := SNOC (concat ss) st.output))
 End
 
 val _ = export_theory ();

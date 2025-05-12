@@ -29,7 +29,7 @@ End
 
 Definition state_rel_def:
   state_rel s t m cnt ⇔
-  s.clock = t.clock ∧ s.heap = t.heap ∧ s.cout = t.cout ∧
+  s.clock = t.clock ∧ s.heap = t.heap ∧ s.output = t.output ∧
   locals_rel s.locals m t.locals ∧ map_inv m cnt
 End
 
