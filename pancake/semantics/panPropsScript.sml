@@ -976,8 +976,8 @@ Definition localised_prog_def:
 End
 
 Theorem evaluate_decl_commute:
-  evaluate_decls s (Function v export args body::Decl sh v e::ds) =
-  evaluate_decls s (Decl sh v e::Function v export args body::ds)
+  evaluate_decls s (Function v export args body::Decl sh v' e::ds) =
+  evaluate_decls s (Decl sh v' e::Function v export args body::ds)
 Proof
   rw[evaluate_decls_def] >>
   irule option_case_cong >> simp[] >>
@@ -1014,6 +1014,18 @@ Proof
   rw[evaluate_decls_def,functions_def,FUPDATE_LIST_THM] >>
   gvs[AllCaseEqs(),is_function_def] >>
   simp[state_component_equality]
+QED
+
+Theorem evaluate_decls_append:
+  ∀s ds1 ds2.
+    evaluate_decls s (ds1 ++ ds2) =
+    case evaluate_decls s ds1 of
+      NONE => NONE
+    | SOME s' => evaluate_decls s' ds2
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def] >>
+  ntac 2 (TOP_CASE_TAC >> gvs[])
 QED
 
 val _ = export_theory();
