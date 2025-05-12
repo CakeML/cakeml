@@ -13,7 +13,8 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 Datatype:
   context =
   <| globals  : varname |-> shape # 'a word;
-     globals_size : 'a word |>
+     globals_size : 'a word
+   |>
 End
 
 Definition compile_exp_def:
@@ -21,7 +22,7 @@ Definition compile_exp_def:
   (compile_exp ctxt (Var Global vname) =
    case FLOOKUP ctxt.globals vname of
      NONE => Const 0w (* should never happen *)
-   | SOME(sh,addr) => Load sh (Const addr)) ∧
+   | SOME(sh,addr) => Load sh (Op Sub [TopAddr; Const addr])) ∧
   (compile_exp ctxt (Struct es) = Struct (MAP (compile_exp ctxt) es)) ∧
   (compile_exp ctxt (Field index e) =
    Field index (compile_exp ctxt e)) ∧
@@ -55,7 +56,7 @@ Definition compile_def:
   (compile ctxt (Assign Global v e) =
    case FLOOKUP ctxt.globals v of
      NONE => Skip (* shouldn't happen *)
-   | SOME (sh, addr) => Store (Const addr) (compile_exp ctxt e)
+   | SOME (sh, addr) => Store (Op Sub [TopAddr; Const addr]) (compile_exp ctxt e)
    ) ∧
   (compile ctxt (Store ad v) =
    Store (compile_exp ctxt ad) (compile_exp ctxt v)) /\
@@ -98,21 +99,29 @@ Definition compile_def:
   (compile _ p = p)
 End
 
-(* Assumes that all globals are declared before all functions.
-   TODO: shapes
- *)
 Definition compile_decs_def:
     compile_decs ctxt [] = [] ∧
-    compile_decs ctxt (Decl sh v e::ds) =
-    Decl sh v (compile_exp ctxt e)::
-         compile_decs (ctxt with globals := ctxt.globals |+ (v, (sh,ARB))) ds ∧
+    (compile_decs ctxt (Decl sh v e::ds) =
+     let
+       s = ctxt.globals_size + n2w(size_of_shape sh);
+       ctxt' = ctxt with <|globals  := ctxt.globals |+ (v,sh,s);
+                           globals_size := s|>
+     in
+       Decl sh v (compile_exp ctxt e)::
+            compile_decs ctxt' ds) ∧
     compile_decs ctxt (Function f xp args body::ds) =
     Function f xp args (compile ctxt body)::ds
 End
 
+Definition resort_decls_def:
+  resort_decls decs =
+  FILTER ($¬ o is_function) decs ++ FILTER is_function decs
+End
+
 Definition compile_top_def:
   compile_top decs =
-  compile_decs <| globals := FEMPTY; globals_size := 0w |> decs
+  compile_decs <| globals := FEMPTY; globals_size := 0w |>
+  $ resort_decls decs
 End
 
 val _ = export_theory();
