@@ -1004,4 +1004,16 @@ Proof
   gvs[AllCaseEqs()]
 QED
 
+Theorem evaluate_decls_only_functions:
+  ∀s pan_code s'.
+    EVERY is_function pan_code ∧
+    evaluate_decls s pan_code = SOME s' ⇒
+    s' = s with code := s.code |++ functions pan_code
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,functions_def,FUPDATE_LIST_THM] >>
+  gvs[AllCaseEqs(),is_function_def] >>
+  simp[state_component_equality]
+QED
+
 val _ = export_theory();
