@@ -55,9 +55,10 @@ Definition evaluate_exp_ann_def[nocompute]:
   (case fix_clock st₀ (evaluate_exp st₀ env e₀) of
    | (st₁, Rerr err) => (st₁, Rerr err)
    | (st₁, Rval v₀) =>
-     (case try_sc bop v₀ of
-      | SOME v => (st₁, Rval v)
-      | NONE =>
+     (case do_sc bop v₀ of
+      | Abort => (st₁, Rerr Rtype_error)
+      | Done v => (st₁, Rval v)
+      | Continue =>
         (case evaluate_exp st₁ env e₁ of
          | (st₂, Rerr err) => (st₂, Rerr err)
          | (st₂, Rval v₁) =>
@@ -133,7 +134,7 @@ Termination
                        (s.clock, list_size exp_size exps))’
   >> rpt strip_tac
   >> imp_res_tac fix_clock_IMP
-  >> gvs [try_sc_def, dec_clock_def, set_up_call_def, push_local_def,
+  >> gvs [do_sc_def, dec_clock_def, set_up_call_def, push_local_def,
           oneline do_cond_def, AllCaseEqs ()]
 End
 
@@ -271,6 +272,7 @@ Definition STOP_def:
   STOP = I
 End
 
+(* TODO Have separate eror for assert failure *)
 Definition evaluate_stmt_ann_def[nocompute]:
   evaluate_stmt st env Skip = (st, Rcont) ∧
   evaluate_stmt st₀ env (Assert e) =

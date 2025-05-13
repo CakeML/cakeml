@@ -120,7 +120,7 @@ Theorem set_up_call_clock:
   ∀ st₀ ins ivs os locals st₁.
     set_up_call st₀ ins ivs os = SOME (locals, st₁) ⇒ st₁.clock = st₀.clock
 Proof
-  rpt strip_tac >> gvs [set_up_call_def, CaseEq "option"]
+  rpt strip_tac \\ gvs [set_up_call_def, CaseEq "option"]
 QED
 
 Definition restore_locals_def:
@@ -131,7 +131,7 @@ Theorem restore_locals_clock:
   ∀ st₀ old_locals st₁.
     restore_locals st₀ old_locals = st₁ ⇒ st₁.clock = st₀.clock
 Proof
-  rpt strip_tac >> gvs [restore_locals_def]
+  rpt strip_tac \\ gvs [restore_locals_def]
 QED
 
 Definition read_local_def:
@@ -141,21 +141,44 @@ Definition read_local_def:
    | SOME ov => ov)
 End
 
-(* Returns the value in case it is already known due to short-circuiting. *)
-Definition try_sc_def:
-  try_sc And v = (if (v = BoolV F) then (SOME v) else NONE) ∧
-  try_sc Or v = (if (v = BoolV T) then (SOME v) else NONE) ∧
-  try_sc Imp v = (if (v = BoolV F) then (SOME (BoolV T)) else NONE) ∧
-  try_sc _ _ = NONE
+(* Short-circuiting *)
+Datatype:
+  sc_res = Done value | Continue | Abort
+End
+
+Definition do_sc_def:
+  do_sc And v =
+    (if (v = BoolV F) then (Done v)
+     else if (v = BoolV T) then Continue
+     else Abort) ∧
+  do_sc Or v =
+    (if (v = BoolV T) then (Done v)
+     else if (v = BoolV F) then Continue
+     else Abort) ∧
+  do_sc Imp v =
+    (if (v = BoolV F) then (Done (BoolV T))
+     else if (v = BoolV T) then Continue
+     else Abort) ∧
+  do_sc _ _ = Continue
 End
 
 Definition do_uop_def:
   do_uop Not v = case v of BoolV b => SOME (BoolV ¬b) | _ => NONE
 End
 
+Definition value_same_type_def[simp]:
+  (value_same_type (IntV _) (IntV _) ⇔ T) ∧
+  (value_same_type (BoolV _) (BoolV _) ⇔ T) ∧
+  (value_same_type (StrV _) (StrV _) ⇔ T) ∧
+  (value_same_type (ArrV _ _) (ArrV _ _) ⇔ T) ∧
+  (value_same_type _ _ ⇔ F)
+End
+
 Definition do_bop_def:
-  do_bop Eq v₀ v₁ = SOME (BoolV (v₀ = v₁)) ∧
-  do_bop Neq v₀ v₁ = SOME (BoolV (v₀ ≠ v₁)) ∧
+  do_bop Eq v₀ v₁ =
+    (if value_same_type v₀ v₁ then SOME (BoolV (v₀ = v₁)) else NONE) ∧
+  do_bop Neq v₀ v₁ =
+    (if value_same_type v₀ v₁ then SOME (BoolV (v₀ ≠ v₁)) else NONE) ∧
   do_bop And v₀ v₁ =
   (case (v₀, v₁) of
    | (BoolV b₀, BoolV b₁) => SOME (BoolV (b₀ ∧ b₁))

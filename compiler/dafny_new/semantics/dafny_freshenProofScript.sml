@@ -852,8 +852,8 @@ Proof
     \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
     >- (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono)
     \\ rename [‘evaluate_exp t₁ env' e₁'’]
-    \\ reverse $ namedCases_on ‘try_sc bop v₀’ ["", "r"] \\ gvs []
-    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono)
+    \\ namedCases_on ‘do_sc bop v₀’ ["r", "", ""] \\ gvs []
+    \\ imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono
     \\ namedCases_on ‘evaluate_exp s₁ env e₁’ ["s₂ r"] \\ gvs []
     \\ reverse $ namedCases_on ‘r’ ["v₁", "err"] \\ gvs []
     \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []

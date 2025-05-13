@@ -9,6 +9,7 @@ open dafny_semanticPrimitivesTheory
 open dafny_evaluateTheory
 open namespaceTheory
 open mlstringTheory
+open integerTheory
 
 (* For compiler definitions *)
 open result_monadTheory
@@ -79,7 +80,11 @@ Definition from_bin_op_def:
   from_bin_op Eq cml_e₀ cml_e₁ =
     App Equality [cml_e₀; cml_e₁] ∧
   from_bin_op Neq cml_e₀ cml_e₁ =
-    If (App Equality [cml_e₀; cml_e₁]) False True ∧
+  (* Make sure that cml_e₁ is evaluated before the rest of the computation as
+     the semantics demand *)
+  (let n_e₁ = " r" in
+     Let (SOME n_e₁) cml_e₁
+         (If (App Equality [cml_e₀; Var (Short n_e₁)]) False True)) ∧
   from_bin_op Sub cml_e₀ cml_e₁ =
     App (Opn Minus) [cml_e₀; cml_e₁] ∧
   from_bin_op Add cml_e₀ cml_e₁ =
@@ -93,12 +98,16 @@ Definition from_bin_op_def:
   from_bin_op Imp cml_e₀ cml_e₁ =
     If cml_e₀ cml_e₁ True ∧
   from_bin_op Div cml_e₀ cml_e₁ =
+  (* Make sure that cml_e₁ is evaluated before the rest of the computation as
+     the semantics demand *)
+  let n_e₁ = " r" in
   (* See HOL's EDIV_DEF: if 0 < j then i div j else ~(i div ~j) *)
-  let neg_cml_e₁ = App (Opn Minus) [Lit (IntLit 0); cml_e₁] in
-    If (App (Opb Lt) [Lit (IntLit 0); cml_e₁])
-       (App (Opn Divide) [cml_e₀; cml_e₁])
-       (App (Opn Minus)
-            [Lit (IntLit 0); App (Opn Divide) [cml_e₀; neg_cml_e₁]])
+  let neg_cml_e₁ = App (Opn Minus) [Lit (IntLit 0); Var (Short n_e₁)] in
+    Let (SOME n_e₁) cml_e₁
+        (If (App (Opb Lt) [Lit (IntLit 0); Var (Short n_e₁)])
+            (App (Opn Divide) [cml_e₀; Var (Short n_e₁)])
+            (App (Opn Minus)
+                 [Lit (IntLit 0); App (Opn Divide) [cml_e₀; neg_cml_e₁]]))
 Termination
   wf_rel_tac ‘measure (λx. case x of
                            | (Neq, _, _) => bin_op_size Neq + 1
@@ -195,6 +204,12 @@ Inductive val_rel:
   len' = &len ∧ FLOOKUP m loc = SOME loc' ⇒
   val_rel m (ArrV len loc) (Conv NONE [Litv (IntLit (len')); Loc T loc'])
 End
+
+Theorem val_rel_simp[simp] = LIST_CONJ $
+  map (SCONV [val_rel_cases]) [“val_rel m (BoolV b) v”,
+                               “val_rel m (IntV i) v”,
+                               “val_rel m (StrV s) v”,
+                               “val_rel m (ArrV len loc) v”];
 
 Definition array_rel_def:
   array_rel m s_heap c_store ⇔
@@ -347,6 +362,28 @@ Proof
   cheat
 QED
 
+Triviality boolv_conv:
+  Boolv b =
+    Conv (SOME (TypeStamp (if b then "True" else "False") bool_type_num)) []
+Proof
+  Cases_on ‘b’ \\ gvs [Boolv_def]
+QED
+
+Triviality with_same_refs_ffi[simp]:
+  t with <| refs := t.refs; ffi := t.ffi |> = t
+Proof
+  gvs [semanticPrimitivesTheory.state_component_equality]
+QED
+
+Triviality state_rel_flookup_m:
+  state_rel m l s' t' env_cml ∧
+  FLOOKUP m dfy_loc = SOME cml_loc ∧
+  FLOOKUP m dfy_loc' = SOME cml_loc' ⇒
+  ((cml_loc' = cml_loc) ⇔ (dfy_loc' = dfy_loc))
+Proof
+  cheat
+QED
+
 Theorem correct_from_exp:
   (∀s env_dfy e_dfy s' r_dfy t env_cml e_cml m l.
      evaluate_exp s env_dfy e_dfy = (s', r_dfy) ∧
@@ -401,7 +438,6 @@ Proof
     \\ gvs [evaluate_def, do_con_check_def, build_conv_def, env_rel_def,
             val_rel_cases, Boolv_def, bool_type_num_def])
   >~ [‘BinOp bop e₀ e₁’] >-
-
    (gvs [from_exp_def, oneline bind_def, AllCaseEqs()]
     \\ gvs [evaluate_exp_def]
     \\ namedCases_on ‘evaluate_exp s env_dfy e₀’ ["s₁ r"] \\ gvs []
@@ -412,32 +448,85 @@ Proof
     \\ reverse $ Cases_on ‘r’ \\ gvs []
     >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs [])
     \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
-    \\ rename [‘val_rel _ dfy_v cml_v’]
-    \\ reverse $ Cases_on ‘try_sc bop dfy_v’ \\ gvs []
+    \\ rename [‘val_rel _ dfy_v₀ cml_v₀’]
+    \\ Cases_on ‘do_sc bop dfy_v₀’ \\ gvs []
     >- (* Short-circuiting *)
-     (Cases_on ‘bop’ \\ gvs [try_sc_def]
-      \\ gvs [val_rel_cases]
-      \\ gvs [from_bin_op_def, evaluate_def, do_log_def, Boolv_def,
-              do_if_def, do_con_check_def, env_rel_def, build_conv_def,
-              val_rel_cases, bool_type_num_def])
+     (gvs [oneline do_sc_def, val_rel_cases, evaluate_def, from_bin_op_def,
+           do_log_def, Boolv_def, do_if_def, do_con_check_def, env_rel_def,
+           build_conv_def, bool_type_num_def, AllCaseEqs()])
     \\ namedCases_on ‘evaluate_exp s₁ env_dfy e₁’ ["s₂ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     \\ ‘" " ≼ " l"’ by gvs []  \\ drule_all state_rel_env_push_internal
-    \\ disch_then $ qspec_then ‘cml_v’ assume_tac
+    \\ disch_then $ qspec_then ‘cml_v₀’ assume_tac
     \\ last_x_assum drule
     \\ impl_tac >- gvs [env_rel_def]
     \\ rpt strip_tac
     \\ drule_all state_rel_env_pop_internal \\ rpt strip_tac \\ gvs []
     \\ reverse $ Cases_on ‘r’ \\ gvs []
     >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ Cases_on ‘bop’
-        \\ gvs [from_bin_op_def, evaluate_def]
-        \\ gvs [do_log_def, try_sc_def]
-        \\ gvs [val_rel_cases]
-        (* Don't think this is provable with current semantics; we continue
-           evaluating even if in (And l r), l is an integer, while CakeML
-           returns a type error. *)
-        \\ cheat)
-    \\ cheat)
+        \\ gvs [oneline do_sc_def, val_rel_cases, from_bin_op_def,
+                evaluate_def, do_log_def, do_if_def, AllCaseEqs()])
+    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ rename [‘val_rel _ dfy_v₁ cml_v₁’]
+    \\ Cases_on ‘do_bop bop dfy_v₀ dfy_v₁’ \\ gvs []
+    \\ Cases_on ‘bop = Div’ \\ gvs [] >-
+     (gvs [do_bop_def, AllCaseEqs()]
+      \\ gvs [from_bin_op_def, EDIV_DEF]
+      \\ gvs [evaluate_def, do_app_def, do_if_def, opb_lookup_def]
+      \\ Cases_on ‘0 < i₁’
+      \\ gvs [evaluate_def, do_app_def, opn_lookup_def, Boolv_def])
+    \\ Cases_on ‘bop = Eq’ \\ gvs [] >-
+     (gvs [do_bop_def]
+      \\ gvs [from_bin_op_def]
+      \\ gvs [evaluate_def, do_app_def]
+      \\ namedCases_on ‘dfy_v₀’ ["i", "b", "str", "len dfy_loc"] \\ gvs []
+      \\ namedCases_on ‘dfy_v₁’ ["i'", "b'", "str'", "len' dfy_loc'"] \\ gvs []
+      >~ [‘do_eq (Boolv _) (Boolv _)’] >-
+       (Cases_on ‘b’ \\ Cases_on ‘b'’
+        \\ gvs [do_eq_def, lit_same_type_def, Boolv_def, ctor_same_type_def,
+                same_type_def])
+      >~ [‘do_eq (Conv _ _) (Conv _ _)’] >-
+       (drule state_rel_flookup_m
+        \\ disch_then drule \\ disch_then rev_drule \\ rpt strip_tac
+        \\ gvs [do_eq_def, lit_same_type_def]
+        \\ Cases_on ‘len = len'’ \\ gvs []
+        \\ Cases_on ‘dfy_loc = dfy_loc'’ \\ gvs [])
+      \\ gvs [do_eq_def, lit_same_type_def])
+    \\ Cases_on ‘bop = Neq’ \\ gvs [] >-
+     (gvs [do_bop_def]
+      \\ gvs [from_bin_op_def]
+      \\ gvs [evaluate_def, do_app_def]
+      \\ namedCases_on
+           ‘dfy_v₀’ ["i", "b", "dfy_str", "len dfy_loc"] \\ gvs []
+      \\ namedCases_on
+           ‘dfy_v₁’ ["i'", "b'", "dfy_str'", "len' dfy_loc'"] \\ gvs []
+      >~ [‘do_eq (Boolv _) (Boolv _)’] >-
+       (Cases_on ‘b’ \\ Cases_on ‘b'’
+        \\ gvs [evaluate_def, do_eq_def, lit_same_type_def, Boolv_def,
+                ctor_same_type_def, same_type_def, do_if_def, do_con_check_def,
+                build_conv_def, env_rel_def, bool_type_num_def])
+      >~ [‘do_eq (Conv _ _) (Conv _ _)’] >-
+       (drule state_rel_flookup_m
+        \\ disch_then drule \\ disch_then rev_drule \\ rpt strip_tac
+        \\ gvs [do_eq_def, lit_same_type_def]
+        \\ Cases_on ‘len = len'’ \\ gvs []
+        \\ Cases_on ‘dfy_loc = dfy_loc'’
+        \\ gvs [do_if_def, evaluate_def, do_con_check_def, env_rel_def,
+                build_conv_def, Boolv_def, bool_type_num_def])
+      >~ [‘do_eq (Litv (IntLit _)) (Litv (IntLit _))’] >-
+       (gvs [do_eq_def, lit_same_type_def, do_if_def]
+        \\ Cases_on ‘i' = i’
+        \\ gvs [evaluate_def, do_con_check_def, build_conv_def, env_rel_def,
+                Boolv_def, bool_type_num_def])
+      >~ [‘do_eq (Litv (StrLit _)) (Litv (StrLit _))’] >-
+       (gvs [do_eq_def, lit_same_type_def, do_if_def]
+        \\ Cases_on ‘dfy_str = dfy_str'’
+        \\ gvs [evaluate_def, do_con_check_def, build_conv_def, env_rel_def,
+                Boolv_def, bool_type_num_def]))
+      \\ gvs [oneline do_bop_def, do_sc_def, AllCaseEqs()]
+      \\ gvs [from_bin_op_def]
+      \\ gvs [evaluate_def, do_app_def, opb_lookup_def, opn_lookup_def,
+              do_log_def, do_if_def])
   \\ cheat
 QED
 
