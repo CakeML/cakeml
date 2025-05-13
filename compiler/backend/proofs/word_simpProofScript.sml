@@ -840,6 +840,9 @@ Proof
       >- (* Load8 *)
       (every_case_tac \\ fs [mem_store_def] \\ rw [] \\
       metis_tac [cs_delete_if_set, cs_delete_if_set])
+      >- (* Load32 *)
+      (every_case_tac \\ fs [mem_store_def] \\ rw [] \\
+      metis_tac [cs_delete_if_set, cs_delete_if_set])
       \\ (* Otherwise *)
       every_case_tac \\ fs [mem_store_def, get_var_def] \\ rw [])
     >- (*Float*)

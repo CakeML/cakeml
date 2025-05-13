@@ -75,8 +75,14 @@ Definition comp_def:
      (Store (comp_exp ctxt e) (find_var ctxt v), l)) /\
   (comp ctxt (SetGlobal a e) l =
      (Set (Temp a) (comp_exp ctxt e), l)) /\
+  (comp ctxt (Load32 a v) l =
+     (Inst (Mem Load32 (find_var ctxt v)
+            (Addr (find_var ctxt a) 0w)), l)) /\
   (comp ctxt (LoadByte a v) l =
      (Inst (Mem Load8 (find_var ctxt v)
+            (Addr (find_var ctxt a) 0w)), l)) /\
+  (comp ctxt (Store32 a v) l =
+     (Inst (Mem Store32 (find_var ctxt v)
             (Addr (find_var ctxt a) 0w)), l)) /\
   (comp ctxt (StoreByte a v) l =
      (Inst (Mem Store8 (find_var ctxt v)
