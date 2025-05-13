@@ -272,7 +272,7 @@ Definition STOP_def:
   STOP = I
 End
 
-(* TODO Have separate eror for assert failure *)
+(* TODO Have separate error for assert failure *)
 Definition evaluate_stmt_ann_def[nocompute]:
   evaluate_stmt st env Skip = (st, Rcont) ∧
   evaluate_stmt st₀ env (Assert e) =

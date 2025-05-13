@@ -335,6 +335,7 @@ Proof
   Cases_on ‘env’ \\ gvs [nsOptBind_def, nsBind_def, nsLookup_def]
 QED
 
+(* TODO Move to mlstring? *)
 Triviality isprefix_isprefix:
   isPrefix s₁ s₂ ⇔ explode s₁ ≼ explode s₂
 Proof
@@ -360,13 +361,6 @@ Triviality state_rel_env_pop_internal:
   state_rel m l s t env
 Proof
   cheat
-QED
-
-Triviality boolv_conv:
-  Boolv b =
-    Conv (SOME (TypeStamp (if b then "True" else "False") bool_type_num)) []
-Proof
-  Cases_on ‘b’ \\ gvs [Boolv_def]
 QED
 
 Triviality with_same_refs_ffi[simp]:
