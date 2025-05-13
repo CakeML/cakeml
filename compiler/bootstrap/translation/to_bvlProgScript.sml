@@ -184,7 +184,7 @@ Theorem bvl_const_smartop2_size:
 Proof
   PairCases_on ‘v’
   \\ fs [fetch "-" "bvl_const_smartop2_side_def"]
-  \\ Cases_on ‘v0 = El’ \\ fs []
+  \\ rpt strip_tac \\ gvs []
   \\ rw [] \\ intLib.COOPER_TAC
 QED
 

@@ -48,6 +48,9 @@ Proof
   \\ SRW_TAC [] [] \\ fs [state_rel_def]
 QED
 
+fun cases_on_op q = Cases_on q >|
+  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+
 Triviality state_rel_IMP_do_app_aux:
   (do_app_aux op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
@@ -64,7 +67,7 @@ Triviality state_rel_IMP_do_app_aux:
                             |>))
 Proof
   STRIP_TAC
-  \\ Cases_on `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  \\ cases_on_op `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def,state_rel_def,check_lim_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
@@ -103,7 +106,7 @@ Triviality state_rel_IMP_do_app_aux_err:
     (do_app_aux op args t1 = Rerr e)
 Proof
   STRIP_TAC
-  \\ Cases_on `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  \\ cases_on_op `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
@@ -144,7 +147,7 @@ Triviality is_pure_do_app_Rerr_IMP:
   is_pure op /\ do_app op xs s = Rerr e ==>
     Rabort Rtype_error = e
 Proof
-  Cases_on `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  cases_on_op `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ fs [is_pure_def,do_app_def,do_app_aux_def]
   \\ simp[do_space_def,data_spaceTheory.op_space_req_def,
           case_eq_thms,do_install_def,UNCURRY] \\ rw[]
@@ -155,7 +158,7 @@ Triviality is_pure_do_app_Rval_IMP:
    ⇒  ∃safe smax. r = s with <| safe_for_space := safe;
                                 stack_max := smax |>
 Proof
-  Cases_on `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  cases_on_op `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ fs [is_pure_def,do_app_def,do_app_aux_def]
   \\ simp[do_space_def,dataLangTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
           consume_space_def,do_install_def,UNCURRY,case_eq_thms]

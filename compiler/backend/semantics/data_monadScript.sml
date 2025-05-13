@@ -201,13 +201,13 @@ Overload return[local] = ``return``
 val _ = monadsyntax.temp_add_monadsyntax()
 
 val challenge_program =
-  ``Seq (Assign 2 (TagLenEq 0 0) [0] NONE)
+  ``Seq (Assign 2 (BlockOp (TagLenEq 0 0)) [0] NONE)
         (If 2 (Return 1)
-              (Seq (Assign 5 (Const 0) [] NONE)
-              (Seq (Assign 3 El [0; 5] NONE)
-              (Seq (Assign 5 (Const 1) [] NONE)
-              (Seq (Assign 6 El [0; 5] NONE)
-              (Seq (Assign 4 (Cons 0) [5; 1] NONE)
+              (Seq (Assign 5 (IntOp (Const 0)) [] NONE)
+              (Seq (Assign 3 (MemOp El) [0; 5] NONE)
+              (Seq (Assign 5 (IntOp (Const 1)) [] NONE)
+              (Seq (Assign 6 (MemOp El) [0; 5] NONE)
+              (Seq (Assign 4 (BlockOp (Cons 0)) [5; 1] NONE)
                    (Call NONE (SOME 500) [6; 4] NONE)))))))``
 
 val to_shallow_thm =

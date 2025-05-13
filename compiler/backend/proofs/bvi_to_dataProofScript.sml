@@ -473,9 +473,12 @@ Proof
   \\ rw [FLOOKUP_UPDATE,data_to_bvi_ref_def,lookup_insert]
 QED
 
+fun cases_on_op q = Cases_on q >|
+  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+
 Theorem data_to_bvi_do_app:
   ∀op t r z res s1.
-    op ≠ Install ∧ op ≠ Greater ∧ op ≠ GreaterEq ∧ (∀b. op ≠ CopyByte b) ∧
+    op ≠ Install ∧ op ≠ IntOp Greater ∧ op ≠ IntOp GreaterEq ∧ (∀b. op ≠ MemOp (CopyByte b)) ∧
     state_rel r t ∧
     do_app op (MAP data_to_bvi_v z) r = Rval (res,s1)
     ⇒ ∃s2 pres.
@@ -485,7 +488,7 @@ Theorem data_to_bvi_do_app:
 Proof
   strip_tac
   \\ ‘∃this_is_case. this_is_case op’ by (qexists_tac ‘K T’ \\ fs [])
-  \\ Cases_on `op`
+  \\ cases_on_op `op`
   \\ ntac 2 (fs [ do_app_aux_def
                 , bvlSemTheory.do_app_def
                 , bviSemTheory.do_app_def
@@ -540,78 +543,79 @@ Proof
         ,FLOOKUP_UPDATE
         ,data_to_bvi_v_Unit
         ,data_to_bvi_v_Boolv]
-  >- (qpat_x_assum ‘SOME _ = _’ (assume_tac o GSYM) \\ fs []
-      \\ Cases_on ‘z’ \\ fs [data_to_bvi_ref_def] \\ gvs [] \\ gs [EL_MAP])
-  >- (qpat_x_assum ‘SOME _ = _’ (assume_tac o GSYM) \\ fs []
-      \\ Cases_on ‘z’ \\ fs [data_to_bvi_ref_def] \\ gvs []
-      \\ gs [EL_MAP,lookup_insert]
-      \\ conj_tac THEN1 EVAL_TAC
-      \\ rw [] \\ fs [data_to_bvi_ref_def,LUPDATE_MAP])
-  >- METIS_TAC [data_to_bvi_v_def]
-  >- (Cases_on `z`
+  >- (rename1 `Label` \\ rfs [code_rel_def])
+  >- (rename1 `FFI` \\ Cases_on `z` \\ Cases_on `z'` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
+     \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
+     \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert])
+  >- (rename1 `FFI ""` \\ Cases_on `z` \\ Cases_on `z'` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
+     \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
+     \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert])
+  >- (rename1 `Cons` \\ Cases_on `z`
      \\ Cases_on `t.tstamps`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
-  >- (Cases_on `t.tstamps`
+  >- (rename1 `ElemAt` \\ Cases_on `z` \\ fs [data_to_bvi_ref_def]
+      \\ rw [EL_MAP] \\ fs [] \\ rw [EL_MAP] \\ fs [])
+  >- (rename1 `ConsExtend` \\ Cases_on `t.tstamps`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
-  >- (`Num i < LENGTH l`
-      by ((drule o GEN_ALL o GSYM) integerTheory.NUM_LT \\ strip_tac \\ fs [])
-      \\ Cases_on `z` \\ fs [data_to_bvi_ref_def]
-      \\ rw [EL_MAP] \\ fs [] \\ rw [EL_MAP] \\ fs [])
-  >- (Cases_on `z` \\ fs [data_to_bvi_ref_def]
-      \\ rw [EL_MAP] \\ fs [] \\ rw [EL_MAP] \\ fs [])
-  >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def])
-  >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def])
-  >- (rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map])
-  >- (rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,map_replicate])
-  >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
-     \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
-     \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert])
-  >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
-     \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
-     \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert])
-  >- (drule data_to_bvi_v_list_to_v_APPEND \\ strip_tac
+  >- (rename1 `FromList` \\ Cases_on `t.tstamps`
+     \\ Cases_on `z`
+     \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
+     \\ METIS_TAC [])
+  >- (rename1 `ListAppend` \\ drule data_to_bvi_v_list_to_v_APPEND \\ strip_tac
      \\ Cases_on `t.tstamps` \\ rw []
      \\ ONCE_REWRITE_TAC [GSYM MAP_APPEND]
      \\ ONCE_REWRITE_TAC [list_to_v_MAP]
      \\ ONCE_ASM_REWRITE_TAC []
      \\ rw [data_to_bvi_v_list_to_v_EQ_TS])
-  >- (Cases_on `t.tstamps`
-     \\ Cases_on `z`
-     \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
-     \\ METIS_TAC [])
-  >- (rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,map_replicate])
-  >- (Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
-     \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
-     \\ rw [data_to_bvi_ref_def]
-     \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert,LUPDATE_MAP])
-  >- rfs [code_rel_def]
-  >- (Cases_on `z` \\ Cases_on `z'` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
-     \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
-     \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert])
-  >- (Cases_on `z` \\ Cases_on `z'` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
-     \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
-     \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert])
-  >- (Q.EXISTS_TAC `t`
+  >- (rename1 `Equal` \\ Q.EXISTS_TAC `t`
      \\ Q.EXISTS_TAC `Boolv b`
      \\ rw [data_to_bvi_v_Boolv]
      \\ drule_then (assume_tac o GSYM)
                    (data_to_bvi_do_eq |> SIMP_RULE std_ss [lookup_map]
                                       |> CONJUNCTS |> hd)
      \\ rw [])
-  >- (rename [‘EqualConst (Str m)’]
+  >- (rename1 ‘EqualConst (Str m)’
      \\ Q.EXISTS_TAC `t`
      \\ Cases_on ‘z’ \\ gvs [data_to_bvi_ref_def,data_to_bvi_v_Boolv])
-  >- (rename [‘Build parts’]
-      \\ ‘domain t.code = domain r.code’ by fs [code_rel_def]
-      \\ pairarg_tac \\ gvs [PULL_EXISTS]
-      \\ fs [dataSemTheory.do_build_const_def,bvlSemTheory.do_build_const_def]
-      \\ irule do_build_thm
-      \\ pop_assum $ irule_at Any \\ fs [data_to_bvi_v_def])
-  \\ Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
-  \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def
-          ,data_to_bvi_ref_def,Boolv_def,bvlSemTheory.Boolv_def]
+  >- (rename1 ‘Build parts’
+     \\ ‘domain t.code = domain r.code’ by fs [code_rel_def]
+     \\ pairarg_tac \\ gvs [PULL_EXISTS]
+     \\ fs [dataSemTheory.do_build_const_def,bvlSemTheory.do_build_const_def]
+     \\ irule do_build_thm
+     \\ pop_assum $ irule_at Any \\ fs [data_to_bvi_v_def])
+  >- (rename1 `Global` \\ qpat_x_assum ‘SOME _ = _’ (assume_tac o GSYM) \\ fs []
+      \\ Cases_on ‘z’ \\ fs [data_to_bvi_ref_def] \\ gvs [] \\ gs [EL_MAP])
+  >- (rename1 `SetGlobal` \\ qpat_x_assum ‘SOME _ = _’ (assume_tac o GSYM) \\ fs []
+      \\ Cases_on ‘z’ \\ fs [data_to_bvi_ref_def] \\ gvs []
+      \\ gs [EL_MAP,lookup_insert]
+      \\ conj_tac THEN1 EVAL_TAC
+      \\ rw [] \\ fs [data_to_bvi_ref_def,LUPDATE_MAP])
+  >- (rename1 `GlobalsPtr` \\ METIS_TAC [data_to_bvi_v_def])
+  >- (rename1 `Ref` \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,map_replicate])
+  >- (rename1 `Update` \\ Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
+     \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
+     \\ rw [data_to_bvi_ref_def]
+     \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert,LUPDATE_MAP])
+  >- (rename1 `El` \\ `Num i < LENGTH l`
+      by ((drule o GEN_ALL o GSYM) integerTheory.NUM_LT \\ strip_tac \\ fs [])
+      \\ Cases_on `z` \\ fs [data_to_bvi_ref_def]
+      \\ rw [EL_MAP] \\ fs [] \\ rw [EL_MAP] \\ fs [])
+  >- (rename1 `Length` \\ Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def])
+  >- (rename1 `LengthByte` \\ Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def])
+  >- (rename1 `RefByte` \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map])
+  >- (rename1 `RefArray` \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,map_replicate])
+  >- (rename1 `DerefByte` \\ Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
+     \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
+     \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert])
+  >- (rename1 `UpdateByte` \\ Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
+     \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def]
+     \\ rw [data_to_bvi_ref_def] \\ rfs [refs_rel_LEAST_eq,lookup_map,lookup_insert])
+  \\ (MAP_FIRST rename1 [`BoundsCheckArray`, `BoundsCheckByte`]
+     \\ Cases_on `z` \\ fs [data_to_bvi_ref_def,data_to_bvi_v_def]
+     \\ rfs [data_to_bvi_v_def,Unit_def,bvlSemTheory.Unit_def
+            ,data_to_bvi_ref_def,Boolv_def,bvlSemTheory.Boolv_def])
 QED
 
 Theorem state_rel_peak_safe:
@@ -996,64 +1000,64 @@ Proof
     \\ simp[]
     \\ Cases_on`op = Install`
     >- (
-     fs[dataLangTheory.op_requires_names_def,domain_map]
-     \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
-     \\ fs[bviSemTheory.do_app_def,dataSemTheory.do_app_def]
-     \\ fs[bviSemTheory.do_install_def,dataSemTheory.do_install_def]
-     \\ fs[case_eq_thms,GSYM MAP_REVERSE,bvlSemTheory.case_eq_thms]
-     \\ ntac 4 (rfs [MAP_EQ_CONS])
-     \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
-     \\ rveq
-     \\ fs[bvlPropsTheory.case_eq_thms,case_eq_thms]
-     \\ rpt(pairarg_tac \\ fs[])
-     \\ fs[Once SWAP_REVERSE_SYM]
-     \\ rveq \\ fs[]
-     \\ fs[bvlPropsTheory.case_eq_thms,case_eq_thms] \\ rveq
-     \\ Cases_on`progs` \\ fs[]
-     >- (
-       rfs[state_rel_def] \\ fs[]
-       \\ fs[compile_prog_def] )
-     \\ `r.compile = λcfg prog. t2.compile cfg (compile_prog prog)` by fs[state_rel_def]
-     \\ `t2.compile_oracle = (I ## compile_prog) o r.compile_oracle` by fs[state_rel_def]
-     \\ fs[] \\ rveq \\ fs[shift_seq_def]
-     \\ Cases_on`h` \\ fs[set_var_def,lookup_insert,var_corr_def,state_rel_def,o_DEF,get_var_def,lookup_insert,lookup_map]
-     \\ qmatch_goalsub_abbrev_tac`fromAList progs1`
-     \\ qmatch_goalsub_abbrev_tac`union t2.code (fromAList progs2)`
-     \\ conj_tac
-     >- (
-       ntac 2 (pop_assum kall_tac) \\ rveq \\
-       fs[code_rel_def,wf_union,wf_fromAList,domain_union,compile_prog_def,domain_fromAList,
-          compile_part_thm,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX] \\
-       fs[lookup_union,lookup_fromAList, ALOOKUP_MAP]
-       \\ rpt gen_tac
-       \\ TOP_CASE_TAC \\ fs[]
-       >- (
-         TOP_CASE_TAC \\ fs[]
-         \\ fs[EXTENSION,domain_lookup]
-         \\ metis_tac[NOT_SOME_NONE] )
-       \\ rw[] \\ res_tac \\ fs[] )
-     \\ rveq \\ fs[] \\ rveq
-     \\ conj_tac
-     >- ( simp[Abbr`env1`] \\ fs[lookup_inter_alt] )
-     \\ conj_tac >- (
-       fs[LIST_REL_EL_EQN]
-       \\ rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
-       >- ( res_tac \\ fs[] )
-       \\ METIS_TAC[MEM_EL] )
-     \\ conj_tac >- (
-       rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
-       \\ res_tac \\ fs[] )
-     \\ conj_tac >- (
-       rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
-       \\ METIS_TAC[] )
-     \\ reverse conj_tac >- (
-       fs[compile_prog_def,compile_part_thm,Abbr`progs1`,data_to_bvi_v_def]
-       \\ fs[markerTheory.Abbrev_def] )
-     \\ rw[] \\ res_tac
-     \\ fs[jump_exc_def]
-     \\ TOP_CASE_TAC \\ fs[]
-     \\ TOP_CASE_TAC \\ fs[])
-    \\ Cases_on `op = Greater \/ op = GreaterEq` THEN1
+      fs[dataLangTheory.op_requires_names_def,domain_map]
+      \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
+      \\ fs[bviSemTheory.do_app_def,dataSemTheory.do_app_def]
+      \\ fs[bviSemTheory.do_install_def,dataSemTheory.do_install_def]
+      \\ fs[case_eq_thms,GSYM MAP_REVERSE,bvlSemTheory.case_eq_thms]
+      \\ ntac 4 (rfs [MAP_EQ_CONS])
+      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ rveq
+      \\ fs[bvlPropsTheory.case_eq_thms,case_eq_thms]
+      \\ rpt(pairarg_tac \\ fs[])
+      \\ fs[Once SWAP_REVERSE_SYM]
+      \\ rveq \\ fs[]
+      \\ fs[bvlPropsTheory.case_eq_thms,case_eq_thms] \\ rveq
+      \\ Cases_on`progs` \\ fs[]
+      >- (
+        rfs[state_rel_def]
+        \\ gvs[compile_prog_def] )
+      \\ `r.compile = λcfg prog. t2.compile cfg (compile_prog prog)` by fs[state_rel_def]
+      \\ `t2.compile_oracle = (I ## compile_prog) o r.compile_oracle` by fs[state_rel_def]
+      \\ fs[] \\ rveq \\ fs[shift_seq_def]
+      \\ Cases_on`h` \\ fs[set_var_def,lookup_insert,var_corr_def,state_rel_def,o_DEF,get_var_def,lookup_insert,lookup_map]
+      \\ qmatch_goalsub_abbrev_tac`fromAList progs1`
+      \\ qmatch_goalsub_abbrev_tac`union t2.code (fromAList progs2)`
+      \\ conj_tac
+      >- (
+        ntac 2 (pop_assum kall_tac) \\ rveq \\
+        fs[code_rel_def,wf_union,wf_fromAList,domain_union,compile_prog_def,domain_fromAList,
+           compile_part_thm,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX] \\
+        fs[lookup_union,lookup_fromAList, ALOOKUP_MAP]
+        \\ rpt gen_tac
+        \\ TOP_CASE_TAC \\ fs[]
+        >- (
+          TOP_CASE_TAC \\ fs[]
+          \\ fs[EXTENSION,domain_lookup]
+          \\ metis_tac[NOT_SOME_NONE] )
+        \\ rw[] \\ res_tac \\ fs[] )
+      \\ rveq \\ fs[] \\ rveq
+      \\ conj_tac
+      >- ( simp[Abbr`env1`] \\ fs[lookup_inter_alt] )
+      \\ conj_tac >- (
+        fs[LIST_REL_EL_EQN]
+        \\ rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        >- ( res_tac \\ fs[] )
+        \\ METIS_TAC[MEM_EL] )
+      \\ conj_tac >- (
+        rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ res_tac \\ fs[] )
+      \\ conj_tac >- (
+        rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ METIS_TAC[] )
+      \\ reverse conj_tac >- (
+        fs[compile_prog_def,compile_part_thm,Abbr`progs1`,data_to_bvi_v_def]
+        \\ fs[markerTheory.Abbrev_def] )
+      \\ rw[] \\ res_tac
+      \\ fs[jump_exc_def]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[])
+    \\ Cases_on `op = IntOp Greater \/ op = IntOp GreaterEq` THEN1
      (fs []
       \\ (fs [dataLangTheory.op_requires_names_def
               ,dataLangTheory.op_space_reset_def]
@@ -1082,8 +1086,8 @@ Proof
           \\ qpat_x_assum `Number _ = _` (ASSUME_TAC o GSYM)
           \\ qpat_x_assum `Number _ = _` (ASSUME_TAC o GSYM)
           \\ IMP_RES_TAC data_to_bvi_eq_Number \\ rveq
-          \\ fs [EVAL ``dataSem$do_app Less [Number i'; Number i] t``]
-          \\ fs [EVAL ``dataSem$do_app LessEq [Number i'; Number i] t``]
+          \\ fs [EVAL ``dataSem$do_app (IntOp Less) [Number i'; Number i] t``]
+          \\ fs [EVAL ``dataSem$do_app (IntOp LessEq) [Number i'; Number i] t``]
           \\ fs [set_var_def,lookup_insert,integerTheory.int_gt,integerTheory.int_ge]
           \\ fs [state_rel_def]
           \\ fs [EVAL ``(bvl_to_bvi (bvi_to_bvl r) r).refs``]
@@ -1123,51 +1127,51 @@ Proof
                  \\ IMP_RES_TAC jump_exc_IMP
                  \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
                  \\ full_simp_tac(srw_ss())[jump_exc_def])))
-    \\ Cases_on`∃b. op = CopyByte b` >- (
-     fs[dataLangTheory.op_requires_names_def]
-     \\ qhdtm_x_assum`bviSem$do_app`mp_tac
-     \\ simp[bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,closSemTheory.case_eq_thms]
-     \\ strip_tac \\ rveq \\ fs[pair_case_eq,domain_map] \\ rw[]
-     \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
-     \\ fs[dataSemTheory.do_app_def,do_space_def,dataLangTheory.op_space_reset_def,
-           data_spaceTheory.op_space_req_def,do_app_aux_def]
-     \\ fs[state_rel_def,code_rel_def]
-     \\ fs [ bvlSemTheory.do_app_def
-             , bvlSemTheory.case_eq_thms
-             , case_eq_thms
-             , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
-     \\ ntac 5 (rfs [MAP_EQ_CONS])
-     \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
-     \\ qpat_x_assum `Number _ = _` (ASSUME_TAC o GSYM)
-     \\ IMP_RES_TAC data_to_bvi_v_eq \\ rveq
-     \\ fs [lookup_map,case_eq_thms]
-     \\ IMP_RES_TAC data_to_bvi_eq_ByteArray \\ rveq
-     \\ fs [ set_var_def,bvl_to_bvi_id,lookup_insert
-             , lookup_map,map_insert]
-     \\ fs[bvi_to_bvl_def,bvl_to_bvi_def
-           ,bviSemTheory.state_component_equality
-           , data_to_bvi_ref_def]
-     \\ conj_tac >- rw [FLOOKUP_UPDATE, data_to_bvi_ref_def]
-     \\ conj_tac >- ( rw[Abbr`env1`,lookup_inter_EQ] )
-     \\ fs [ var_corr_def,data_to_bvi_v_Unit,get_var_def,lookup_insert
-             , lookup_map,bvlPropsTheory.case_eq_thms
-             , LENGTH_MAP,LIST_REL_LENGTH,lookup_map]
-     \\ fs[] \\ rveq
-     \\ fs[] \\ rveq
-     \\ conj_tac >- (
-       fs[LIST_REL_EL_EQN]
-       \\ rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
-       \\ METIS_TAC[MEM_EL,prim_recTheory.LESS_REFL] )
-     \\ conj_tac >- (
-       rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
-       \\ res_tac \\ fs[] )
-     \\ conj_tac >- (
-       fs[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
-       \\ METIS_TAC[prim_recTheory.LESS_REFL] )
-     \\ rw[] \\ res_tac
-     \\ fs[jump_exc_def]
-     \\ TOP_CASE_TAC \\ fs[]
-     \\ TOP_CASE_TAC \\ fs[])
+    \\ Cases_on`∃b. op = MemOp (CopyByte b)` >- (
+      fs[dataLangTheory.op_requires_names_def]
+      \\ qhdtm_x_assum`bviSem$do_app`mp_tac
+      \\ simp[bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,closSemTheory.case_eq_thms]
+      \\ strip_tac \\ rveq \\ fs[pair_case_eq,domain_map] \\ rw[]
+      \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
+      \\ fs[dataSemTheory.do_app_def,do_space_def,dataLangTheory.op_space_reset_def,
+            data_spaceTheory.op_space_req_def,do_app_aux_def]
+      \\ fs[state_rel_def,code_rel_def]
+      \\ fs [ bvlSemTheory.do_app_def
+              , bvlSemTheory.case_eq_thms
+              , case_eq_thms
+              , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
+      \\ ntac 5 (rfs [MAP_EQ_CONS])
+      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ qpat_x_assum `Number _ = _` (ASSUME_TAC o GSYM)
+      \\ IMP_RES_TAC data_to_bvi_v_eq \\ rveq
+      \\ fs [lookup_map,case_eq_thms]
+      \\ IMP_RES_TAC data_to_bvi_eq_ByteArray \\ rveq
+      \\ fs [ set_var_def,bvl_to_bvi_id,lookup_insert
+              , lookup_map,map_insert]
+      \\ fs[bvi_to_bvl_def,bvl_to_bvi_def
+            ,bviSemTheory.state_component_equality
+            , data_to_bvi_ref_def]
+      \\ conj_tac >- rw [FLOOKUP_UPDATE, data_to_bvi_ref_def]
+      \\ conj_tac >- ( rw[Abbr`env1`,lookup_inter_EQ] )
+      \\ fs [ var_corr_def,data_to_bvi_v_Unit,get_var_def,lookup_insert
+              , lookup_map,bvlPropsTheory.case_eq_thms
+              , LENGTH_MAP,LIST_REL_LENGTH,lookup_map]
+      \\ fs[] \\ rveq
+      \\ fs[] \\ rveq
+      \\ conj_tac >- (
+        fs[LIST_REL_EL_EQN]
+        \\ rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ METIS_TAC[MEM_EL,prim_recTheory.LESS_REFL] )
+      \\ conj_tac >- (
+        rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ res_tac \\ fs[] )
+      \\ conj_tac >- (
+        fs[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ METIS_TAC[prim_recTheory.LESS_REFL] )
+      \\ rw[] \\ res_tac
+      \\ fs[jump_exc_def]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[])
     \\ fs []
     \\ fs[bviSemTheory.state_component_equality] \\ rveq
     \\ Cases_on `op_requires_names op`
@@ -1653,45 +1657,45 @@ Proof
                                      safe_for_space := safe; peak_heap_length := peak |>) =
          set_var n1 z' t2' with <| locals_size := ls'; stack_max := smx;
                                    safe_for_space := safe; peak_heap_length := peak |>`
-                                                           by rw [set_var_def]
-                                                           \\ fs []
-                                                           \\ qmatch_asmsub_abbrev_tac `evaluate (c2,z0)`
-                                                           \\ qmatch_goalsub_abbrev_tac `evaluate (c2,z1)`
-                                                           \\ reverse (Cases_on `isException res`)
-                                                           THEN1
-                                                            (drule_then (qspecl_then [`ls'`] ASSUME_TAC) evaluate_swap_local_sizes
-                                                             \\ fs []
-                                                             \\ qmatch_asmsub_abbrev_tac `evaluate (c2,z2)`
-                                                             \\ `z1 = z2` by (UNABBREV_ALL_TAC \\ fs [state_component_equality])
-                                                             \\ fs [] \\ fs [state_rel_def])
-                                                           \\ fs []
-                                                           \\ Cases_on `x'` \\ fs [data_to_bvi_result_def,
-                                                                                   semanticPrimitivesPropsTheory.map_result_def]
-                                                           \\ Cases_on `e` \\ fs [data_to_bvi_result_def]
-                                                           \\ qspecl_then [`c2`,`z0`] (assume_tac o RW []) evaluate_stack_and_locals_swap
-                                                           \\ rfs []
-                                                           \\ drule_then (qspec_then `ls'` assume_tac) jump_exc_lss
-                                                           \\ rfs [] \\ first_x_assum (qspecl_then [`z0.stack`,`s2'`,`ls'`] assume_tac)
-                                                           \\ `stack_fupd (K z0.stack) z0 = z0` by fs [state_component_equality]
-                                                           \\ fs [] \\ pop_assum kall_tac \\ rfs []
-                                                           \\ qexists_tac `ls''`
-                                                           \\ conj_tac >- fs [state_rel_def]
-                                                           \\ conj_tac >- fs [data_to_bvi_result_def]
-                                                           \\ pop_assum kall_tac \\ unabbrev_all_tac \\ fs [] \\ rveq
-                                                           \\ `t2'.stack = t2.stack ∧ t2'.handler = t2.handler`
-                                                             by fs [jump_exc_def,state_component_equality,set_var_def,
-                                                                    call_env_def,push_env_def,dataSemTheory.dec_clock_def,
-                                                                    flush_state_def,LET_DEF,
-                                                                    LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
-                                                           \\ rfs [set_var_def] \\ rveq \\ fs []
-                                                           \\ qpat_x_assum `jump_exc (_ r') = SOME (_ r')` assume_tac
-                                                           \\ drule_then (qspecl_then [`sfs`,`phl`,`lss`,`smx''`] ASSUME_TAC)
-                                                                         jump_exc_peak_safe
-                                                           \\ fs [state_fupdcanon]
-                                                           \\ qmatch_asmsub_abbrev_tac `jump_exc z0`
-                                                           \\ qmatch_goalsub_abbrev_tac `jump_exc z1`
-                                                           \\ `z1 = z0` by (UNABBREV_ALL_TAC \\ fs [state_component_equality])
-                                                           \\ fs [] \\ UNABBREV_ALL_TAC \\ fs [state_component_equality])
+        by rw [set_var_def]
+      \\ fs []
+      \\ qmatch_asmsub_abbrev_tac `evaluate (c2,z0)`
+      \\ qmatch_goalsub_abbrev_tac `evaluate (c2,z1)`
+      \\ reverse (Cases_on `isException res`)
+      THEN1
+      (drule_then (qspecl_then [`ls'`] ASSUME_TAC) evaluate_swap_local_sizes
+        \\ fs []
+        \\ qmatch_asmsub_abbrev_tac `evaluate (c2,z2)`
+        \\ `z1 = z2` by (UNABBREV_ALL_TAC \\ fs [state_component_equality])
+        \\ fs [] \\ fs [state_rel_def])
+      \\ fs []
+      \\ Cases_on `x'` \\ fs [data_to_bvi_result_def,
+                              semanticPrimitivesPropsTheory.map_result_def]
+      \\ Cases_on `e` \\ fs [data_to_bvi_result_def]
+      \\ qspecl_then [`c2`,`z0`] (assume_tac o RW []) evaluate_stack_and_locals_swap
+      \\ rfs []
+      \\ drule_then (qspec_then `ls'` assume_tac) jump_exc_lss
+      \\ rfs [] \\ first_x_assum (qspecl_then [`z0.stack`,`s2'`,`ls'`] assume_tac)
+      \\ `stack_fupd (K z0.stack) z0 = z0` by fs [state_component_equality]
+      \\ fs [] \\ pop_assum kall_tac \\ rfs []
+      \\ qexists_tac `ls''`
+      \\ conj_tac >- fs [state_rel_def]
+      \\ conj_tac >- fs [data_to_bvi_result_def]
+      \\ pop_assum kall_tac \\ unabbrev_all_tac \\ fs [] \\ rveq
+      \\ `t2'.stack = t2.stack ∧ t2'.handler = t2.handler`
+        by fs [jump_exc_def,state_component_equality,set_var_def,
+              call_env_def,push_env_def,dataSemTheory.dec_clock_def,
+              flush_state_def,LET_DEF,
+              LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
+      \\ rfs [set_var_def] \\ rveq \\ fs []
+      \\ qpat_x_assum `jump_exc (_ r') = SOME (_ r')` assume_tac
+      \\ drule_then (qspecl_then [`sfs`,`phl`,`lss`,`smx''`] ASSUME_TAC)
+                    jump_exc_peak_safe
+      \\ fs [state_fupdcanon]
+      \\ qmatch_asmsub_abbrev_tac `jump_exc z0`
+      \\ qmatch_goalsub_abbrev_tac `jump_exc z1`
+      \\ `z1 = z0` by (UNABBREV_ALL_TAC \\ fs [state_component_equality])
+      \\ fs [] \\ UNABBREV_ALL_TAC \\ fs [state_component_equality])
     \\ Cases_on `res` \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac compile_SING_IMP
     \\ fs[var_corr_def,set_var_def]

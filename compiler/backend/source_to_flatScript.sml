@@ -238,7 +238,7 @@ Definition compile_exp_def:
   (* When encountering a Lannot, we update the trace we are passing *)
   (compile_exp t env (Lannot e (Locs st en)) = compile_exp t env e) ∧
   (* remove FPOptimise annotations *)
-  (compile_exp t env (FpOptimise sc e) = compile_exp t env e) /\
+  (compile_exp t env (FpOptimise fpopt e) = compile_exp t env e) /\
   (compile_exps t env [] = []) ∧
   (compile_exps t env (e::es) =
      compile_exp t env e :: compile_exps t env es) ∧

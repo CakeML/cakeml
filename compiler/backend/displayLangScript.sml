@@ -31,8 +31,8 @@ Definition trace_to_json_def:
       (strlit "trace1", trace_to_json tra1);
       (strlit "trace2", trace_to_json tra2)])
   /\
-  (trace_to_json (SourceLoc sr sc er ec) =
-    let arr = MAP Int (MAP (&)  [ sr; sc; er; ec ]) in
+  (trace_to_json (SourceLoc sr scc er ec) =
+    let arr = MAP Int (MAP (&)  [ sr; scc; er; ec ]) in
       Object [(strlit "name", String (strlit "SourcePos"));
         (strlit "pos", Array arr)])
   /\

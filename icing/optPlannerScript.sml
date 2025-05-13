@@ -58,11 +58,11 @@ Termination
 End
 
 Definition canonicalize_def:
-  canonicalize (cfg: config) (FpOptimise sc e) = (
+  canonicalize (cfg: config) (FpOptimise fpopt e) = (
   let (e_can, plan: fp_plan) =
-      canonicalize (cfg with canOpt := if sc = Opt then T else F) e
+      canonicalize (cfg with canOpt := if fpopt = Opt then T else F) e
   in
-    (FpOptimise sc e_can, MAP_plan_to_path center plan)) ∧
+    (FpOptimise fpopt e_can, MAP_plan_to_path center plan)) ∧
   canonicalize cfg (App op exps) = (
     let individuals = MAP (canonicalize cfg) exps in
       let exps_can = MAP FST individuals;
@@ -132,9 +132,9 @@ Termination
 End
 
 Definition post_order_dfs_for_plan_def:
-  post_order_dfs_for_plan (f: config -> exp -> (exp # fp_plan) option) (cfg: config) (FpOptimise sc e) = (
-  let (e_can, plan: fp_plan) = post_order_dfs_for_plan f (cfg with canOpt := if sc = Opt then T else F) e in
-    ((FpOptimise sc e_can), MAP_plan_to_path center plan)
+  post_order_dfs_for_plan (f: config -> exp -> (exp # fp_plan) option) (cfg: config) (FpOptimise fpopt e) = (
+  let (e_can, plan: fp_plan) = post_order_dfs_for_plan f (cfg with canOpt := if fpopt = Opt then T else F) e in
+    ((FpOptimise fpopt e_can), MAP_plan_to_path center plan)
   ) ∧
   post_order_dfs_for_plan f cfg (App op exps) = (
     let individuals = MAP (post_order_dfs_for_plan f cfg) exps in
