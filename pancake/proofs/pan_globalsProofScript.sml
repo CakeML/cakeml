@@ -4,10 +4,11 @@
 
 open preamble
      panSemTheory panLangTheory pan_globalsTheory panPropsTheory
+     stack_removeProofTheory (* TODO: just for addresses_def. should this be moved? *)
 
 val _ = new_theory "pan_globalsProof";
 
-val _ = set_grammar_ancestry  ["panSem", "pan_globals", "panProps", "panLang"];
+val _ = set_grammar_ancestry  ["panSem", "pan_globals", "panProps", "panLang", "stack_removeProof"];
 
 val s = ``s:('a,'ffi) panSem$state``
 
@@ -22,7 +23,8 @@ Definition state_rel_def:
   (∀v val.
      FLOOKUP s.globals v = SOME val ⇒
      ∃addr. FLOOKUP ctxt.globals v = SOME(shape_of val, addr) ∧
-            mem_load (shape_of val) (t.top_addr - addr) t.memaddrs t.memory = SOME val
+            mem_load (shape_of val) (t.top_addr - addr) t.memaddrs t.memory = SOME val ∧
+            DISJOINT s.memaddrs (addresses (t.top_addr - addr) $ size_of_shape $ shape_of val)
   ) ∧
   s.memaddrs ⊆ t.memaddrs ∧
   s.sh_memaddrs = t.sh_memaddrs ∧
@@ -169,10 +171,107 @@ Proof
   gvs[state_rel_def]
 QED
 
+(* TODO: move? *)
+Theorem mem_stores_append:
+  ∀addr vs addrs memory vs'.
+    mem_stores addr (vs ++ vs') addrs memory =
+    case mem_stores addr vs addrs memory of
+    NONE => NONE
+    | SOME memory' => mem_stores (addr + bytes_in_word * n2w(LENGTH vs)) vs' addrs memory'
+Proof
+  Induct_on ‘vs’ >>
+  rw[mem_stores_def] >>
+  rpt (TOP_CASE_TAC >> gvs[n2w_SUC,WORD_LEFT_ADD_DISTRIB])
+QED
+
+Theorem mem_stores_memory_swap:
+  ∀addr vs addrs memory memory' m.
+    mem_stores addr vs addrs memory = SOME m ⇒
+    ∃m'. mem_stores addr vs addrs memory' = SOME m'
+Proof
+  Induct_on ‘vs’ >> rw[mem_stores_def,AllCaseEqs(), mem_store_def] >>
+  metis_tac[]
+QED
+
+Theorem mem_load_mem_store:
+  (∀s (addr:'a word) addrs memory v w.
+     mem_load s addr addrs memory = SOME v ∧
+     shape_of w = s ⇒
+     ∃m. mem_stores addr (flatten w) addrs memory = SOME m) ∧
+  (∀ss (addr:'a word) addrs memory vs ws.
+     mem_loads ss addr addrs memory = SOME vs ∧
+     ss = MAP shape_of ws ⇒
+     ∃m. mem_stores addr (FLAT (MAP (λa. flatten a) ws)) addrs memory = SOME m)
+Proof
+  ho_match_mp_tac mem_load_ind >>
+  rw[mem_load_def,AllCaseEqs()]
+  >- (gvs[Once $ oneline shape_of_def] >>
+      gvs[AllCaseEqs(),mem_stores_def,flatten_def,mem_store_def])
+  >- (first_x_assum $ drule_then drule >>
+      strip_tac >>
+      gvs[Once $ oneline shape_of_def,AllCaseEqs(),ETA_THM,flatten_def])
+  >- simp[mem_stores_def]
+  >- (gvs[MAP_EQ_CONS |> CONV_RULE $ LHS_CONV SYM_CONV] >>
+      first_x_assum drule >> simp[] >>
+      strip_tac >>
+      simp[mem_stores_append] >>
+      gvs[Once $ oneline shape_of_def, AllCaseEqs(), flatten_def, size_of_shape_def, ETA_THM] >>
+      gvs[mem_stores_def,mem_store_def,AllCaseEqs()] >>
+      metis_tac[mem_stores_memory_swap])
+  >- (gvs[MAP_EQ_CONS |> CONV_RULE $ LHS_CONV SYM_CONV] >>
+      first_x_assum $ resolve_then Any mp_tac EQ_REFL >>
+      strip_tac >>
+      simp[mem_stores_append] >>
+      qpat_x_assum ‘_ = shape_of _’ $ assume_tac o GSYM >>
+      gvs[Once $ oneline shape_of_def, AllCaseEqs(), flatten_def, size_of_shape_def, ETA_THM, LENGTH_FLAT] >>
+      gvs[MAP_MAP_o,o_DEF,length_flatten_eq_size_of_shape] >>
+      metis_tac[mem_stores_memory_swap])
+QED
+
+Theorem mem_stores_mem_load_back:
+  (∀val (addr:'a word) addrs memory m.
+    mem_stores addr (flatten val) addrs memory = SOME m ⇒
+    mem_load (shape_of val) addr addrs m =
+    SOME val) ∧
+  (∀vals (addr:'a word) addrs memory m.
+    mem_stores addr (FLAT (MAP (λa. flatten a) vals)) addrs memory = SOME m ⇒
+    mem_loads (MAP shape_of vals) addr addrs m =
+    SOME vals)
+Proof
+  ho_match_mp_tac v_induction >>
+  rw[flatten_def,shape_of_def,mem_stores_def,AllCaseEqs(),
+     mem_store_def,mem_load_def
+    ] >>
+  rw[UPDATE_APPLY]
+  >- (rw[Once $ oneline shape_of_def] >> PURE_CASE_TAC >> simp[])
+  >- metis_tac[]
+  >- (gvs[mem_stores_append,AllCaseEqs()] >>
+      res_tac >>
+      fs[] >>
+      gvs[] >>
+
+
+     )
+     )
+  >- ()
+
+QED
+
 Theorem compile_Assign_Global:
   ^(get_goal "compile _ (Assign Global _ _)")
 Proof
-  cheat
+  rw[evaluate_def,compile_def,AllCaseEqs(),
+     is_valid_value_def,good_res_def
+    ] >>
+  drule_all_then strip_assume_tac compile_exp_correct >>
+  gvs[state_rel_def] >>
+  res_tac >>
+  fs[evaluate_def,eval_def,wordLangTheory.word_op_def] >>
+  drule $ cj 1 mem_load_mem_store >>
+  disch_then drule >>
+  strip_tac >>
+  simp[] >>
+  cheat (* unprovable *)
 QED
 
 Theorem state_rel_res_var[local]:
@@ -198,16 +297,56 @@ Proof
   gvs[state_rel_def]
 QED
 
+Theorem state_rel_memory_update:
+  state_rel T ctxt s t ∧ addr ∈ s.memaddrs ⇒
+  state_rel T ctxt (s with memory := s.memory⦇addr ↦ h⦈) (t with memory := t.memory⦇addr ↦ h⦈)
+Proof
+  rw[] >>
+  gvs[state_rel_def] >>
+  reverse conj_tac >- rw[APPLY_UPDATE_THM] >>
+  rw[] >>
+  res_tac >>
+  first_assum $ irule_at $ Pos hd >>
+  simp[] >>
+  cheat (* provable*)
+QED
+
 Theorem compile_Store:
   ^(get_goal "compile _ (Store _ _)")
 Proof
-  cheat
+  rw[evaluate_def,compile_def,AllCaseEqs(),UNCURRY_eq_pair,SF DNF_ss] >>
+  imp_res_tac compile_exp_correct >>
+  simp[] >>
+  gvs[good_res_def] >>
+  rpt $ qpat_x_assum ‘eval _ _ = _’ kall_tac >>
+  rename1 ‘mem_stores _ v’ >>
+  rpt $ pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [‘v’,‘s’,‘t’,‘addr’,‘m’] >>
+  Induct_on ‘v’
+  >- (rw[mem_stores_def] >>
+      ‘s with memory := s.memory = s’ by simp[state_component_equality] >>
+      ‘t with memory := t.memory = t’ by simp[state_component_equality] >>
+      simp[]) >>
+  rw[mem_stores_def,AllCaseEqs(),mem_store_def] >>
+  ‘addr ∈ t.memaddrs’ by(gvs[state_rel_def,SUBSET_DEF]) >>
+  simp[] >>
+  drule_all state_rel_memory_update >>
+  strip_tac >>
+  first_x_assum (fn thm => first_x_assum $ resolve_then Any mp_tac thm) >>
+  simp[]
 QED
 
 Theorem compile_StoreByte:
   ^(get_goal "compile _ (StoreByte _ _)")
 Proof
-  cheat
+  rw[evaluate_def,compile_def,AllCaseEqs(),UNCURRY_eq_pair,SF DNF_ss, mem_store_byte_def,
+     good_res_def] >>
+  imp_res_tac compile_exp_correct >>
+  ‘s.be = t.be’ by gvs[state_rel_def] >>
+  simp[] >>
+  irule_at (Pos last) state_rel_memory_update >>
+  simp[] >>
+  gvs[state_rel_def,SUBSET_DEF]
 QED
 
 Triviality v_neq_v':
@@ -231,7 +370,8 @@ Proof
       drule_all_then strip_assume_tac compile_exp_correct >>
       rename1 ‘FLOOKUP _ _ = SOME(Val vv)’ >>
       ‘∃addr. FLOOKUP ctxt.globals v = SOME(shape_of(Val vv), addr) ∧
-              mem_load (shape_of(Val vv)) (t.top_addr - addr) t.memaddrs t.memory = SOME(Val vv)’
+              mem_load (shape_of(Val vv)) (t.top_addr - addr) t.memaddrs t.memory = SOME(Val vv) ∧
+              DISJOINT s.memaddrs (addresses (t.top_addr - addr) (size_of_shape(shape_of(Val vv))))’
         by gvs[state_rel_def] >>
       ‘s.locals = t.locals’ by gvs[state_rel_def] >>
       ‘s.sh_memaddrs = t.sh_memaddrs’ by gvs[state_rel_def] >>
@@ -244,10 +384,34 @@ Proof
           lookup_kvar_def,sh_mem_load_def,AllCaseEqs(),
           wordLangTheory.word_op_def,set_kvar_def,set_var_def,set_global_def,
           mem_stores_def,mem_store_def,mem_load_def,flatten_def]
-      >- cheat
+      >- (gvs[state_rel_def,good_res_def] >>
+          conj_tac
+          >- (rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm,FLOOKUP_UPDATE] >> rw[]) >>
+          conj_tac
+          >- (cheat (* unprovable? *)) >>
+          rw[] >>
+          gvs[SUBSET_DEF] >>
+          res_tac >>
+          gvs[size_of_shape_def,shape_of_def] >>
+          qhdtm_x_assum ‘DISJOINT’ mp_tac >>
+          rw[Once $ oneline addresses_def, addresses_def] >>
+          rw[APPLY_UPDATE_THM] >>
+          gvs[])
       >- (gvs[state_rel_def,empty_locals_def,good_res_def] >>
           rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm,FLOOKUP_UPDATE])
-      >- cheat
+      >- (gvs[state_rel_def,good_res_def] >>
+          conj_tac
+          >- (rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm,FLOOKUP_UPDATE] >> rw[]) >>
+          conj_tac
+          >- (cheat (* unprovable? *)) >>
+          rw[] >>
+          gvs[SUBSET_DEF] >>
+          res_tac >>
+          gvs[size_of_shape_def,shape_of_def] >>
+          qhdtm_x_assum ‘DISJOINT’ mp_tac >>
+          rw[Once $ oneline addresses_def, addresses_def] >>
+          rw[APPLY_UPDATE_THM] >>
+          gvs[])
       >- (gvs[state_rel_def,empty_locals_def,good_res_def] >>
           rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm,FLOOKUP_UPDATE]))
 QED
