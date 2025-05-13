@@ -18,6 +18,7 @@ Datatype:
                   F = compare-by-pointer, mutable *)
                (* in closLang all are ByteArray F,
                   ByteArray T introduced in BVL to implement ByteVector *)
+      | Thunk thunk_mode 'a
 End
 
 (* these parts are shared by bytecode and, if bytecode is to be supported, need
@@ -440,6 +441,17 @@ Definition do_app_def:
                          then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
+    | (ThunkOp th_op, vs) =>
+        (case (th_op,vs) of
+         | (AllocThunk m, [v]) =>
+             (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+                Rval (RefPtr F ptr, s with refs := s.refs |+ (ptr,Thunk m v)))
+         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
+             (case FLOOKUP s.refs ptr of
+              | SOME (Thunk NotEvaluated _) =>
+                 Rval (Unit, s with refs := s.refs |+ (ptr,Thunk m v))
+              | _ => Error)
+         | _ => Error)
     | _ => Error
 End
 
@@ -465,6 +477,51 @@ Definition find_code_def:
                                   then SOME (FRONT args,exp)
                                   else NONE)
        | other => NONE)
+End
+
+(* Functions for working with thunks *)
+
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [RefPtr _ ptr] refs =
+    (case FLOOKUP refs ptr of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs refs = NotThunk
+End
+
+Definition store_thunk_def:
+  store_thunk ptr v refs =
+    case FLOOKUP refs ptr of
+    | SOME (Thunk NotEvaluated _) => SOME (refs |+ (ptr,v))
+    | _ => NONE
+End
+
+Definition update_thunk_def:
+  update_thunk [RefPtr _ ptr] refs [v] =
+    (case dest_thunk [v] refs of
+     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
+     | _ => NONE) ∧
+  update_thunk _ _ _ = NONE
+End
+
+Definition mk_unit_def:
+  mk_unit = bvl$Op (BlockOp (Cons 0)) []
+End
+
+Definition AppUnit_def:
+  AppUnit =
+    If (Op (BlockOp Equal) [mk_const 0; mk_el (Var 0) (mk_const 1)])
+       (Call 0 NONE [mk_unit; Var 0; mk_el (Var 0) (mk_const 0)])
+       (Call 0 (SOME 0) [mk_unit; Var 0])
 End
 
 (* The evaluation is defined as a clocked functional version of
@@ -520,10 +577,27 @@ Definition evaluate_def:
      | (Rerr(Rraise v),s) => evaluate ([x2],v::env,s)
      | res => res) /\
   (evaluate ([Op op xs],env,s) =
-     case evaluate (xs,env,s) of
-     | (Rval vs,s) => (case do_app op (REVERSE vs) s of
-                          | Rerr err => (Rerr err,s)
-                          | Rval (v,s) => (Rval [v],s))
+     case fix_clock s (evaluate (xs,env,s)) of
+     | (Rval vs,s) =>
+          if op = ThunkOp ForceThunk then
+            (case dest_thunk vs s.refs of
+             | BadRef => (Rerr (Rabort Rtype_error),s)
+             | NotThunk => (Rerr (Rabort Rtype_error),s)
+             | IsThunk Evaluated v => (Rval [v],s)
+             | IsThunk NotEvaluated f =>
+                if s.clock = 0 then
+                  (Rerr (Rabort Rtimeout_error),s)
+                else
+                  case evaluate ([AppUnit],[f],(dec_clock 1 s)) of
+                  | (Rval vs2,s) =>
+                      (case update_thunk vs s.refs vs2 of
+                       | NONE => (Rerr (Rabort Rtype_error),s)
+                       | SOME refs => (Rval vs2,s with refs := refs))
+                  | (Rerr e,s) => (Rerr e,s))
+          else
+            (case do_app op (REVERSE vs) s of
+             | Rerr err => (Rerr err,s)
+             | Rval (v,s) => (Rval [v],s))
      | res => res) /\
   (evaluate ([Tick x],env,s) =
      if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else evaluate ([x],env,dec_clock 1 s)) /\

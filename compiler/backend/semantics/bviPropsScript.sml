@@ -128,7 +128,8 @@ val evaluate_LENGTH = Q.prove(
   HO_MATCH_MP_TAC evaluate_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [evaluate_def,case_elim_thms]
   \\ rw[] \\ fs[]
-  \\ every_case_tac \\ fs[])
+  \\ every_case_tac \\ fs[]
+  \\ first_x_assum drule \\ rw [])
   |> SIMP_RULE std_ss [];
 
 Theorem evaluate_LENGTH =
@@ -343,7 +344,9 @@ Proof
     \\ `(inc_clock n s).clock <> 0` by (EVAL_TAC \\ DECIDE_TAC)
     \\ full_simp_tac(srw_ss())[dec_clock_inv_clock1] \\ NO_TAC)
   THEN1
-   (`?res5 s5. evaluate (xs,env,s) = (res5,s5)` by METIS_TAC [PAIR]
+   (Cases_on `op = ThunkOp ForceThunk`
+    >- gvs [AllCaseEqs(), dec_clock_def, inc_clock_def]
+    \\ `?res5 s5. evaluate (xs,env,s) = (res5,s5)` by METIS_TAC [PAIR]
     \\ full_simp_tac(srw_ss())[] \\ Cases_on `res5` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ TRY (Cases_on`e` \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
     \\ MP_TAC (do_app_inv_clock |> Q.INST [`s`|->`s5`])
@@ -409,6 +412,15 @@ Proof
        qmatch_goalsub_rename_tac`a1 + (a2 + a3)`
     \\ qexists_tac`a3+a2+a1`
     \\ simp[GENLIST_APPEND,FOLDL_APPEND] \\ NO_TAC)
+  >- (
+    gvs [AllCaseEqs(), FUN_EQ_THM]
+    >~ [`dest_thunk _ _ = BadRef`] >- (qexists `n` \\ gvs [])
+    >~ [`dest_thunk _ _ = NotThunk`] >- (qexists `n` \\ gvs [])
+    >~ [`dest_thunk _ _ = IsThunk Evaluated _`] >- (qexists `n` \\ gvs [])
+    >~ [`dest_thunk _ _ = IsThunk NotEvaluated _`] >- (qexists `n` \\ gvs [])
+    \\ qexists `n' + n`
+    \\ rewrite_tac [GENLIST_APPEND,FOLDL_APPEND,MAP_APPEND]
+    \\ gvs [])
   \\ Cases_on`op=Install`
   >- (
     fs[do_app_def,do_install_def,case_eq_thms,bool_case_eq]
@@ -472,6 +484,7 @@ Theorem do_app_with_code:
    do_app op vs (s with code := c) = Rval (r,s' with code := c)
 Proof
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
+  >~ [`ThunkOp`] >- gvs[bvlSemTheory.do_app_def, AllCaseEqs(), bvl_to_bvi_def]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
   \\ TRY (pairarg_tac \\ fs [])
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
@@ -484,6 +497,7 @@ Theorem do_app_with_code_err:
    do_app op vs (s with code := c) = Rerr e
 Proof
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
+  >>~- ([`ThunkOp`], gvs [bvlSemTheory.do_app_def, AllCaseEqs()])
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
   \\ TRY (pairarg_tac \\ fs [])
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
@@ -544,7 +558,9 @@ Proof
       srw_tac[][] >> full_simp_tac(srw_ss())[])
   >- (Cases_on `evaluate ([x1],env,s)` >> full_simp_tac(srw_ss())[] >>
       Cases_on `q` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[])
-  >- (Cases_on `evaluate (xs,env,s)` >> full_simp_tac(srw_ss())[] >>
+  >- (Cases_on `op = ThunkOp ForceThunk`
+      >- gvs [AllCaseEqs(), dec_clock_def, inc_clock_def] >>
+      Cases_on `evaluate (xs,env,s)` >> full_simp_tac(srw_ss())[] >>
       Cases_on `q` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
       srw_tac[][inc_clock_def] >>
       BasicProvers.EVERY_CASE_TAC >>

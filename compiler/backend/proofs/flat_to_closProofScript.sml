@@ -130,6 +130,15 @@ Proof
   \\ fs [flatSemTheory.list_to_v_def,list_to_v_def,v_rel_def]
 QED
 
+Theorem lookup_refv:
+  state_rel s1 t1 /\ store_lookup i s1.refs = SOME (Refv v) ==>
+  ?w. FLOOKUP t1.refs i = SOME (ValueArray [w]) /\ v_rel v w
+Proof
+  gvs [state_rel_def,store_rel_def] \\ rw []
+  \\ gvs [store_lookup_def]
+  \\ first_x_assum (qspec_then `i` mp_tac) \\ gvs []
+QED
+
 Theorem lookup_byte_array:
   state_rel s1 t1 /\ store_lookup i s1.refs = SOME (W8array bytes) ==>
   FLOOKUP t1.refs i = SOME (ByteArray bytes)
@@ -1444,11 +1453,10 @@ Proof
           AllCaseEqs()]
   \\ gvs [Once v_rel_cases, store_thunk_def, AllCaseEqs(), PULL_EXISTS]
   \\ (
-    gvs [state_rel_def, store_rel_def, FLOOKUP_UPDATE, EL_LUPDATE] \\ rw []
-    \\ TRY (
-      gvs [store_lookup_def]
-      \\ last_x_assum $ qspec_then `n` assume_tac \\ gvs []
-      \\ NO_TAC)
+    TRY (drule_all lookup_refv \\ rw [] \\ gvs [])
+    \\ TRY (drule_all lookup_byte_array \\ rw [] \\ gvs [])
+    \\ TRY (drule_all lookup_array \\ rw [] \\ gvs [])
+    \\ gvs [state_rel_def, store_rel_def, FLOOKUP_UPDATE, EL_LUPDATE] \\ rw []
     >- (
       rename1 `FLOOKUP s2.refs idx = _`
       \\ last_x_assum $ qspec_then `idx` assume_tac \\ gvs [])

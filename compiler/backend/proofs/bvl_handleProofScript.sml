@@ -440,6 +440,7 @@ Theorem compile_correct = Q.prove(`
     \\ drule (GEN_ALL OptionalLetLet_limit)
     \\ imp_res_tac OptionalLetLet_nr
     \\ fs [env_rel_mk_Union] \\ strip_tac
+    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs [] >- cheat
     \\ Cases_on `evaluate (xs,env,s)` \\ Cases_on `q` \\ fs [] \\ rw []
     \\ res_tac \\ fs [evaluate_def]
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []

@@ -1097,6 +1097,7 @@ End
 
 Definition ref_rel_def:
   (ref_rel R (closSem$ValueArray vs) (bvlSem$ValueArray ws) ⇔ LIST_REL R vs ws) ∧
+  (ref_rel R (closSem$Thunk m1 v) (bvlSem$Thunk m2 w) ⇔ m1 = m2 ∧ R v w) ∧
   (ref_rel R (ByteArray as) (ByteArray g bs) ⇔ ~g ∧ as = bs) ∧
   (ref_rel _ _ _ = F)
 End
@@ -1104,6 +1105,7 @@ val _ = export_rewrites["ref_rel_def"];
 
 Theorem ref_rel_simp[simp]:
    (ref_rel R (ValueArray vs) y ⇔ ∃ws. y = ValueArray ws ∧ LIST_REL R vs ws) ∧
+   (ref_rel R (Thunk m v) y ⇔ ∃w. y = Thunk m w ∧ R v w) ∧
    (ref_rel R (ByteArray bs) y ⇔ y = ByteArray F bs)
 Proof
   Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM]
@@ -1365,27 +1367,37 @@ Proof
   >- (
     pop_assum mp_tac \\ rw[] \\ rw[]
     >- (
-      Cases_on`v` \\ fs[ref_rel_def] \\
+      Cases_on`v` \\ fs[ref_rel_def]
+      >- (
+        match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) \\
+        ONCE_REWRITE_TAC[CONJ_COMM] >>
+        first_assum(match_exists_tac o concl) >> simp[] >>
+        rpt strip_tac >>
+        match_mp_tac v_rel_UPDATE_REF >>
+        fs[IN_FRANGE_FLOOKUP]
+        \\ asm_exists_tac \\ fs[])
+      >- (
+        match_mp_tac v_rel_UPDATE_REF
+        \\ gvs [IN_FRANGE_FLOOKUP]
+        \\ goal_assum drule))
+    \\ res_tac \\ fs[]
+    \\ rw[] \\ fs[]
+    >- (
+      fs[INJ_DEF,FLOOKUP_DEF]
+      \\ metis_tac[] )
+    \\ Cases_on`x` \\ fs[ref_rel_def] \\ rw[]
+    >- (
       match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) \\
       ONCE_REWRITE_TAC[CONJ_COMM] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       rpt strip_tac >>
       match_mp_tac v_rel_UPDATE_REF >>
       fs[IN_FRANGE_FLOOKUP]
-      \\ asm_exists_tac \\ fs[] )
-    \\ res_tac \\ fs[]
-    \\ rw[] \\ fs[]
+      \\ asm_exists_tac \\ fs[])
     >- (
-      fs[INJ_DEF,FLOOKUP_DEF]
-      \\ metis_tac[] )
-    \\ Cases_on`x` \\ fs[ref_rel_def] \\ rw[] \\
-    match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) \\
-    ONCE_REWRITE_TAC[CONJ_COMM] >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    rpt strip_tac >>
-    match_mp_tac v_rel_UPDATE_REF >>
-    fs[IN_FRANGE_FLOOKUP]
-    \\ asm_exists_tac \\ fs[] )
+      match_mp_tac v_rel_UPDATE_REF
+      \\ gvs [IN_FRANGE_FLOOKUP]
+      \\ goal_assum drule))
 QED
 
 Theorem state_rel_NEW_REF:
@@ -1408,13 +1420,17 @@ Proof
   >- ( fs[SUBSET_DEF] )
   \\ res_tac \\ rw[]
   >- fs[FLOOKUP_DEF]
-  \\ Cases_on`x` \\ fs[ref_rel_def] \\ rw[] \\
-  match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) \\
-  ONCE_REWRITE_TAC[CONJ_COMM] >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  rpt strip_tac >>
-  match_mp_tac v_rel_NEW_REF >>
-  fs[IN_FRANGE_FLOOKUP]
+  \\ Cases_on`x` \\ fs[ref_rel_def] \\ rw[]
+  >- (
+    match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) \\
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    rpt strip_tac >>
+    match_mp_tac v_rel_NEW_REF >>
+    fs[IN_FRANGE_FLOOKUP])
+  >- (
+    match_mp_tac v_rel_NEW_REF
+    \\ gvs [IN_FRANGE_FLOOKUP])
 QED
 
 (* semantic functions respect relation *)
@@ -1528,7 +1544,8 @@ Theorem do_app[local]:
    (op ≠ MemOp RefArray) ∧ (∀f. op ≠ MemOp (RefByte f)) ∧ (op ≠ MemOp UpdateByte) ∧
    (op ≠ MemOp FromListByte) ∧ op ≠ MemOp ConcatByteVec ∧
    (∀b. op ≠ MemOp (CopyByte b)) ∧ (∀c. op ≠ BlockOp (Constant c)) ∧
-   (∀n. op ≠ (FFI n)) ==>
+   (∀n. op ≠ (FFI n)) ∧
+   (∀t. op ≠ (ThunkOp t)) ==>
    ?w t2.
      (do_app (compile_op op) ys t1 = Rval (w,t2)) /\
      v_rel s1.max_app f t1.refs t1.code v w /\
@@ -1567,7 +1584,6 @@ Proof
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac
      \\ gvs [bvlSemTheory.do_app_def,v_rel_SIMP])
   \\ Cases_on `op = Install` THEN1 fs[closSemTheory.do_app_def]
-  \\ Cases_on `∃t. op = ThunkOp t` THEN1 cheat
   \\ Cases_on `op = BlockOp Equal` THEN1
    (srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def,
                             bvlSemTheory.do_eq_def]
@@ -3354,12 +3370,32 @@ Proof
   rw[FLOOKUP_UPDATE] \\
   first_x_assum drule \\ rw[] \\ simp[] \\
   rw[] >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[LEAST_NOTIN_FDOM] ) \\
-  Cases_on`x` \\ fs[] \\
-  match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
-  ONCE_REWRITE_TAC[CONJ_COMM] >>
-  asm_exists_tac \\ fs[] \\ rw[] \\
-  match_mp_tac v_rel_NEW_REF \\
-  simp[LEAST_NOTIN_FDOM]
+  Cases_on`x` \\ fs[]
+  >- (
+    match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    asm_exists_tac \\ fs[] \\ rw[] \\
+    match_mp_tac v_rel_NEW_REF \\
+    simp[LEAST_NOTIN_FDOM])
+  >- (match_mp_tac v_rel_NEW_REF \\ simp [LEAST_NOTIN_FDOM])
+QED
+
+Theorem rel_dest_thunk:
+  state_rel f s t ∧
+  LIST_REL (v_rel s.max_app f t.refs t.code) vs ys ∧
+  dest_thunk vs s.refs = IsThunk m r1 ⇒
+    ∃r2. dest_thunk ys t.refs = IsThunk m r2 ∧
+    v_rel s.max_app f t.refs t.code r1 r2
+Proof
+  rw []
+  \\ gvs [oneline closSemTheory.dest_thunk_def, oneline dest_thunk_def,
+          AllCaseEqs(), PULL_EXISTS]
+  \\ (
+    qpat_x_assum `v_rel _ _ _ _ (RefPtr _ _) y` mp_tac
+    \\ reverse $ rw [Once v_rel_cases]
+    >- gvs [add_args_F]
+    >- rgs [Once cl_rel_cases]
+    \\ drule_all state_rel_refs_lookup \\ rw [] \\ gvs [])
 QED
 
 Theorem compile_exps_correct:
@@ -3723,8 +3759,10 @@ Proof
           \\ rename1 `_ x2 x3`
           \\ Cases_on `x3` \\ fs []
           \\ Cases_on `x2` \\ fs [ref_rel_def]
-          \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
-          \\ rpt strip_tac \\ match_mp_tac v_rel_union \\ simp [])
+          >- (
+            first_x_assum (fn th => mp_tac th \\ match_mp_tac LIST_REL_mono)
+            \\ rpt strip_tac \\ match_mp_tac v_rel_union \\ simp [])
+          >- (match_mp_tac v_rel_union \\ simp []))
         THEN1
          (fs [compile_oracle_inv_def]
           \\ fs [FUN_EQ_THM,shift_seq_def]
@@ -3935,7 +3973,134 @@ Proof
       \\ disj2_tac \\ CCONTR_TAC \\ fs []
       )
     \\ srw_tac[][]
-    \\ Cases_on `op = ThunkOp ForceThunk` THEN1 cheat
+    \\ Cases_on `op = ThunkOp ForceThunk` >- (
+      gvs [closSemTheory.evaluate_def, compile_exps_def]
+      \\ pairarg_tac \\ gvs [evaluate_def]
+      \\ gvs [AllCaseEqs(), PULL_EXISTS]
+      >- (
+        first_x_assum drule_all \\ rw [] \\ gvs []
+        \\ goal_assum drule \\ gvs []
+        \\ imp_res_tac evaluate_const \\ gvs []
+        \\ drule (GEN_ALL rel_dest_thunk) \\ simp []
+        \\ disch_then drule \\ rw [] \\ gvs []
+        \\ goal_assum drule \\ gvs [])
+      >- (
+        first_x_assum drule_all \\ rw [] \\ gvs []
+        \\ goal_assum drule \\ gvs []
+        \\ imp_res_tac evaluate_const \\ gvs []
+        \\ drule (GEN_ALL rel_dest_thunk) \\ simp []
+        \\ disch_then drule \\ rw [] \\ gvs []
+        \\ goal_assum drule \\ gvs [])
+      >- (
+        first_x_assum drule_all \\ rw [] \\ gvs []
+        \\ `∀ck'. evaluate (c1,env'',t1 with clock := ck' + ck + s.clock) =
+                    (Rval v', t2 with clock := t2.clock + ck')` by (
+          rw [] \\ drule evaluate_add_clock \\ rw [inc_clock_def]) \\ gvs []
+        \\ qrefine `ck + ck'` \\ gvs []
+        \\ imp_res_tac evaluate_const \\ gvs []
+        \\ drule (GEN_ALL rel_dest_thunk) \\ simp []
+        \\ disch_then drule \\ rw [] \\ gvs [PULL_EXISTS]
+        \\ `state_rel f2 (dec_clock 1 s') (dec_clock 1 t2)` by (
+          gvs [state_rel_def, closSemTheory.dec_clock_def, dec_clock_def]
+          \\ rw [] \\ first_x_assum drule \\ rw []) \\ gvs []
+        \\ first_x_assum $ drule_at (Pat `state_rel _ _`)
+        \\ simp [closSemTheory.AppUnit_def, compile_exps_def]
+        \\ disch_then $ qspecl_then [`aux1`, `[r2]`] mp_tac
+        \\ impl_tac >- (
+          gvs [closSemTheory.dec_clock_def] \\ rw []
+          >- (
+            drule_all (GEN_ALL compile_exps_IMP_code_installed) \\ rw []
+            \\ drule evaluate_mono \\ rw []
+            \\ gvs [code_installed_def, subspt_def, EVERY_EL] \\ rw []
+            \\ pairarg_tac \\ gvs []
+            \\ first_x_assum drule \\ rw []
+            \\ gvs [domain_lookup])
+          >- gvs [env_rel_def])
+        \\ rw [] \\ simp []
+        \\ gvs [closSemTheory.dec_clock_def, dec_clock_def]
+        \\ qrefinel [`_`, `f2'`, `v''`, `t2'`] \\ rw [GSYM PULL_EXISTS]
+        >- (
+         gvs [AppUnit_def]
+         \\ gvs [evaluate_def, clos_tag_shift_def, mk_cl_call_def, do_app_def]
+         \\ Cases_on `r2`
+         \\ gvs [AllCaseEqs(), PULL_EXISTS, mk_unit_def, evaluate_def,
+                 generic_app_fn_location_def]
+         \\ goal_assum drule \\ gvs [])
+        \\ gvs [oneline closSemTheory.update_thunk_def, oneline update_thunk_def,
+                AllCaseEqs(), PULL_EXISTS]
+        \\ qpat_x_assum `v_rel _ _ _ _ _ y` mp_tac
+        \\ reverse $ rw [Once v_rel_cases]
+        >- gvs [add_args_F]
+        >- gvs [Once cl_rel_cases]
+        \\ gvs [closSemTheory.store_thunk_def, store_thunk_def, AllCaseEqs(),
+                PULL_EXISTS]
+        \\ gvs [dest_thunk_def, closSemTheory.dest_thunk_def, AllCaseEqs()]
+        \\ reverse $ rw [GSYM PULL_EXISTS]
+        >- (
+          `r2' ∈ (FRANGE f2')` by (
+            gvs [TO_FLOOKUP] \\ first_x_assum drule \\ rw [SF SFY_ss])
+          \\ gvs [FDIFF_FUPDATE] \\ rw []
+          \\ imp_res_tac SUBMAP_TRANS)
+        >- imp_res_tac SUBMAP_TRANS
+        >- (
+         irule state_rel_UPDATE_REF \\ rw []
+         \\ gvs [FLOOKUP_DEF, SUBMAP_DEF])
+        >- (
+          irule v_rel_UPDATE_REF \\ rw []
+          \\ gvs [FLOOKUP_DEF]
+          \\ irule (iffRL IN_FRANGE)
+          \\ qexists `ptr` \\ gvs [SUBMAP_DEF])
+        >- (
+          drule_then drule (GEN_ALL state_rel_refs_lookup) \\ rw []
+          \\ gvs [FLOOKUP_DEF, SUBMAP_DEF])
+        \\ gvs [oneline closSemTheory.dest_thunk_def, oneline dest_thunk_def,
+                AllCaseEqs(), PULL_EXISTS]
+        \\ qpat_x_assum `v_rel _ _ _ _ _ y'` mp_tac
+        \\ rw [Once v_rel_cases]
+        \\ drule_all state_rel_refs_lookup \\ rw [] \\ gvs [])
+      >- (
+        first_x_assum drule_all \\ rw [] \\ gvs []
+        \\ `∀ck'. evaluate (c1,env'',t1 with clock := ck' + ck + s.clock) =
+                    (Rval v', t2 with clock := t2.clock + ck')` by (
+          rw [] \\ drule evaluate_add_clock \\ rw [inc_clock_def]) \\ gvs []
+        \\ qrefine `ck + ck'` \\ gvs []
+        \\ imp_res_tac evaluate_const \\ gvs []
+        \\ drule (GEN_ALL rel_dest_thunk) \\ simp []
+        \\ disch_then drule \\ rw [] \\ gvs [PULL_EXISTS]
+        \\ `state_rel f2 (dec_clock 1 s') (dec_clock 1 t2)` by (
+          gvs [state_rel_def, closSemTheory.dec_clock_def, dec_clock_def]
+          \\ rw [] \\ first_x_assum drule \\ rw []) \\ gvs []
+        \\ first_x_assum $ drule_at (Pat `state_rel _ _`)
+        \\ simp [closSemTheory.AppUnit_def, compile_exps_def]
+        \\ disch_then $ qspecl_then [`aux1`, `[r2]`] mp_tac
+        \\ impl_tac >- (
+          gvs [closSemTheory.dec_clock_def] \\ rw []
+          >- (
+            drule_all (GEN_ALL compile_exps_IMP_code_installed) \\ rw []
+            \\ drule evaluate_mono \\ rw []
+            \\ gvs [code_installed_def, subspt_def, EVERY_EL] \\ rw []
+            \\ pairarg_tac \\ gvs []
+            \\ first_x_assum drule \\ rw []
+            \\ gvs [domain_lookup])
+          >- gvs [env_rel_def])
+        \\ rw [] \\ simp []
+        \\ gvs [closSemTheory.dec_clock_def, dec_clock_def]
+        \\ rpt (goal_assum $ drule_at Any \\ gvs [])
+        \\ qrefinel [`_`, `Rerr e'`, `t2'`] \\ rw [GSYM PULL_EXISTS]
+        >- (
+         gvs [AppUnit_def]
+         \\ gvs [evaluate_def, clos_tag_shift_def, mk_cl_call_def, do_app_def]
+         \\ rpt (
+           CASE_TAC
+           \\ gvs [mk_unit_def, evaluate_def, generic_app_fn_location_def])
+         \\ gvs [AllCaseEqs()]
+         \\ qexists `ck'` \\ gvs [])
+        \\ imp_res_tac SUBMAP_TRANS)
+      >- (
+        first_x_assum drule_all \\ rw [] \\ gvs []
+        \\ goal_assum drule \\ rw [PULL_EXISTS]
+        \\ goal_assum drule \\ gvs []))
+    \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
     \\ `?p. evaluate (xs,env,s) = p` by full_simp_tac(srw_ss())[] \\ PairCases_on `p` \\ full_simp_tac(srw_ss())[]
     \\ `?cc. compile_exps s.max_app xs aux1 = cc` by full_simp_tac(srw_ss())[] \\ PairCases_on `cc` \\ full_simp_tac(srw_ss())[]
@@ -3950,6 +4115,11 @@ Proof
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ fs []
     \\ qexists_tac `ck` >> simp[]
+    \\ `compile_op op ≠ ThunkOp ForceThunk` by (
+      CCONTR_TAC \\ gvs []
+      \\ gvs [oneline compile_op_def, AllCaseEqs()]
+      \\ gvs [oneline compile_const_def, AllCaseEqs()]
+      \\ pairarg_tac \\ gvs [])
     \\ reverse(Cases_on `do_app op (REVERSE a) p1`) \\ full_simp_tac(srw_ss())[] >- (
       srw_tac[][] >>
       first_x_assum(mp_tac o INST_TYPE[beta|->gamma] o MATCH_MP
@@ -4033,11 +4203,15 @@ Proof
         \\ RES_TAC \\ full_simp_tac(srw_ss())[]
         \\ `qq <> m` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[FLOOKUP_DEF] \\ SRW_TAC [] [])
         \\ Cases_on`x`>>full_simp_tac(srw_ss())[]
-        \\ Q.PAT_X_ASSUM `LIST_REL (v_rel _ f2 t2.refs t2.code) xs' ys'` MP_TAC
-        \\ MATCH_MP_TAC listTheory.LIST_REL_mono
-        \\ REPEAT STRIP_TAC
-        \\ MATCH_MP_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[]
-        \\ MATCH_MP_TAC v_rel_NEW_F \\ full_simp_tac(srw_ss())[])
+        >- (
+          Q.PAT_X_ASSUM `LIST_REL (v_rel _ f2 t2.refs t2.code) xs' ys'` MP_TAC
+          \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[]
+          \\ MATCH_MP_TAC v_rel_NEW_F \\ full_simp_tac(srw_ss())[])
+        >- (
+          MATCH_MP_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[]
+          \\ MATCH_MP_TAC v_rel_NEW_F \\ full_simp_tac(srw_ss())[]))
       \\ conj_tac >-
        (full_simp_tac(srw_ss())[SUBMAP_DEF,FAPPLY_FUPDATE_THM] \\ SRW_TAC [][] \\ METIS_TAC [] ) >>
       full_simp_tac(srw_ss())[SUBMAP_DEF,FAPPLY_FUPDATE_THM,FDIFF_def,DRESTRICT_DEF] >> srw_tac[][] >> METIS_TAC[])
@@ -4093,11 +4267,15 @@ Proof
         \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
         \\ qmatch_rename_tac`ref_rel _ ref _`
         \\ Cases_on`ref` >> full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-        \\ Q.PAT_X_ASSUM `LIST_REL pp xs' ws''` MP_TAC
-        \\ MATCH_MP_TAC listTheory.LIST_REL_mono
-        \\ REPEAT STRIP_TAC
-        \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
-        \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+        >- (
+          Q.PAT_X_ASSUM `LIST_REL pp xs' ws''` MP_TAC
+          \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
+          \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+        >- (
+          MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
+          \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC []))
       \\ `m IN FRANGE f2` by (full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ full_simp_tac(srw_ss())[SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def])
     \\ Cases_on `op = MemOp RefArray` \\ full_simp_tac(srw_ss())[] THEN1 (
@@ -4149,16 +4327,23 @@ Proof
             full_simp_tac(srw_ss())[SUBSET_DEF] >> res_tac >>
             var_eq_tac >>
             full_simp_tac(srw_ss())[Abbr`m`,LEAST_NOTIN_FDOM] ) >>
-          Cases_on`x`>>full_simp_tac(srw_ss())[] >>
-          match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
-          ONCE_REWRITE_TAC[CONJ_COMM] >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          rpt strip_tac >>
-          match_mp_tac v_rel_NEW_REF >>
-          reverse conj_tac >- (
-            simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
-          match_mp_tac v_rel_NEW_F >>
-          simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] ) >>
+          Cases_on`x`>>full_simp_tac(srw_ss())[]
+          >- (
+            match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+            ONCE_REWRITE_TAC[CONJ_COMM] >>
+            first_assum(match_exists_tac o concl) >> simp[] >>
+            rpt strip_tac >>
+            match_mp_tac v_rel_NEW_REF >>
+            reverse conj_tac >- (
+              simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
+            match_mp_tac v_rel_NEW_F >>
+            simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM])
+          >- (
+            match_mp_tac v_rel_NEW_REF >>
+            reverse conj_tac >- (
+              simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
+            match_mp_tac v_rel_NEW_F >>
+            simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM])) >>
         strip_tac >> var_eq_tac >> simp[] >>
         simp[LIST_REL_REPLICATE_same] >> srw_tac[][] >>
         match_mp_tac v_rel_NEW_REF >>
@@ -4231,16 +4416,23 @@ Proof
             full_simp_tac(srw_ss())[SUBSET_DEF] >> res_tac >>
             var_eq_tac >>
             full_simp_tac(srw_ss())[Abbr`m`,LEAST_NOTIN_FDOM] ) >>
-          Cases_on`x`>>full_simp_tac(srw_ss())[] >>
-          match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
-          ONCE_REWRITE_TAC[CONJ_COMM] >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          rpt strip_tac >>
-          match_mp_tac v_rel_NEW_REF >>
-          reverse conj_tac >- (
-            simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
-          match_mp_tac v_rel_NEW_F >>
-          simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] ) >>
+          Cases_on`x`>>full_simp_tac(srw_ss())[]
+          >- (
+            match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+            ONCE_REWRITE_TAC[CONJ_COMM] >>
+            first_assum(match_exists_tac o concl) >> simp[] >>
+            rpt strip_tac >>
+            match_mp_tac v_rel_NEW_REF >>
+            reverse conj_tac >- (
+              simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
+            match_mp_tac v_rel_NEW_F >>
+            simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM])
+          >- (
+             match_mp_tac v_rel_NEW_REF >>
+            reverse conj_tac >- (
+              simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
+            match_mp_tac v_rel_NEW_F >>
+            simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM])) >>
         strip_tac >> var_eq_tac >> simp[]) >>
       conj_tac >- (
         match_mp_tac SUBMAP_TRANS >>
@@ -4291,11 +4483,15 @@ Proof
           \\ SIMP_TAC std_ss [INJ_DEF,FRANGE_DEF] \\ full_simp_tac(srw_ss())[FLOOKUP_DEF]
           \\ METIS_TAC [])
         \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ Cases_on`x` >> full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-        \\ Q.PAT_X_ASSUM `LIST_REL pp xs' ws''` MP_TAC
-        \\ MATCH_MP_TAC listTheory.LIST_REL_mono
-        \\ REPEAT STRIP_TAC
-        \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
-        \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+        >- (
+          Q.PAT_X_ASSUM `LIST_REL pp xs' ws''` MP_TAC
+          \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
+          \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+        >- (
+          MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
+          \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC []))
       \\ `m IN FRANGE f2` by (full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ full_simp_tac(srw_ss())[SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def])
     \\ Cases_on `∃n. op = FFI n` \\ full_simp_tac(srw_ss())[] THEN1 (
@@ -4315,6 +4511,9 @@ Proof
       >- (fs[state_rel_def] >> res_tac >> fs[] >> rfs[])
       \\ Cases_on`x` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on`x'` \\ full_simp_tac(srw_ss())[]
+      >~ [`FLOOKUP _ _ = SOME (ValueArray _)`]
+      >- (fs[state_rel_def] >> res_tac >> fs[] >> rfs[] >> rveq)
+      >~ [`FLOOKUP _ _ = SOME (Thunk _ _)`]
       >- (fs[state_rel_def] >> res_tac >> fs[] >> rfs[] >> rveq)
       \\ Cases_on`call_FFI p1.ffi (ExtCall n) l l''`
       \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -4355,11 +4554,15 @@ Proof
           \\ SIMP_TAC std_ss [INJ_DEF,FRANGE_DEF] \\ full_simp_tac(srw_ss())[FLOOKUP_DEF]
           \\ rveq \\ METIS_TAC [])
         \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ Cases_on`x` >> full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-        \\ Q.PAT_X_ASSUM `LIST_REL pp xs' ws''` MP_TAC
-        \\ MATCH_MP_TAC listTheory.LIST_REL_mono
-        \\ REPEAT STRIP_TAC
-        \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
-        \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+        >- (
+          Q.PAT_X_ASSUM `LIST_REL pp xs' ws''` MP_TAC
+          \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+          \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
+          \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
+        >- (
+          MATCH_MP_TAC v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
+          \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC []))
       \\ `m IN FRANGE f2` by (full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ full_simp_tac(srw_ss())[SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def]
       \\ rveq \\ fs[])
@@ -4407,12 +4610,16 @@ Proof
         rw[FLOOKUP_UPDATE] \\
         first_x_assum drule \\ rw[] \\ simp[] \\
         rw[] >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[LEAST_NOTIN_FDOM] ) \\
-        Cases_on`x''` \\ fs[] \\
-        match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
-        ONCE_REWRITE_TAC[CONJ_COMM] >>
-        asm_exists_tac \\ fs[] \\ rw[] \\
-        match_mp_tac v_rel_NEW_REF \\
-        simp[LEAST_NOTIN_FDOM])
+        Cases_on`x''` \\ fs[]
+        >- (
+          match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+          ONCE_REWRITE_TAC[CONJ_COMM] >>
+          asm_exists_tac \\ fs[] \\ rw[] \\
+          match_mp_tac v_rel_NEW_REF \\
+          simp[LEAST_NOTIN_FDOM])
+        >- (
+          match_mp_tac v_rel_NEW_REF
+          \\ simp [LEAST_NOTIN_FDOM]))
       \\ simp[]
       \\ qmatch_goalsub_abbrev_tac`t2.refs |+ (ptr,_)`
       \\ `ptr ∉ FRANGE f2`
@@ -4472,11 +4679,15 @@ Proof
       \\ res_tac \\ simp[]
       \\ rw[] \\ fs[] \\ rfs[IN_FRANGE_FLOOKUP] \\ rw[]
       \\ Cases_on`x` \\ fs[]
-      \\ match_mp_tac (MP_CANON(GEN_ALL LIST_REL_mono))
-      \\ ONCE_REWRITE_TAC[CONJ_COMM] >>
-      asm_exists_tac \\ fs[] \\ rw[] \\
-      match_mp_tac v_rel_NEW_REF
-      \\ fs[Abbr`ptr`,LEAST_NOTIN_FDOM] )
+      >- (
+        match_mp_tac (MP_CANON(GEN_ALL LIST_REL_mono))
+        \\ ONCE_REWRITE_TAC[CONJ_COMM] >>
+        asm_exists_tac \\ fs[] \\ rw[] \\
+        match_mp_tac v_rel_NEW_REF
+        \\ fs[Abbr`ptr`,LEAST_NOTIN_FDOM])
+      >- (
+        match_mp_tac v_rel_NEW_REF
+        \\ fs[Abbr`ptr`,LEAST_NOTIN_FDOM]))
     \\ Cases_on`∃fl. op = MemOp (CopyByte fl)` \\ fs[] >- (
       fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def,PULL_EXISTS]
       \\ Cases_on`fl`
@@ -4514,6 +4725,81 @@ Proof
       \\ fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
       \\ rw[DRESTRICT_DEF,FAPPLY_FUPDATE_THM] \\ rw[]
       \\ fs[IN_FRANGE_FLOOKUP] )
+    \\ Cases_on `∃t. op = ThunkOp t` \\ gvs [] >- (
+      Cases_on `t` \\ gvs []
+      >- (
+        gvs [closSemTheory.do_app_def, do_app_def, AllCaseEqs(), PULL_EXISTS]
+        \\ qabbrev_tac `pp = LEAST ptr. ptr NOTIN FDOM p1.refs`
+        \\ qabbrev_tac `qq = LEAST ptr. ptr NOTIN FDOM t2.refs`
+        \\ qexists `f2 |+ (pp,qq)` \\ gvs []
+        \\ `¬(pp ∈ FDOM p1.refs)` by (unabbrev_all_tac \\ rw [LEAST_NOTIN_FDOM])
+        \\ `¬(qq ∈ FDOM t2.refs)` by (unabbrev_all_tac \\ rw [LEAST_NOTIN_FDOM])
+        \\ `¬(pp ∈ FDOM f2)` by gvs [state_rel_def]
+        \\ `¬(qq ∈ FRANGE f2)` by
+          (rpt strip_tac \\ gvs [state_rel_def, SUBSET_DEF] \\ res_tac)
+        \\ `FRANGE (f2 \\ pp) = FRANGE f2` by
+          (gvs [FRANGE_DEF, finite_mapTheory.DOMSUB_FAPPLY_THM, EXTENSION]
+           \\ metis_tac [])
+        \\ gvs []
+        \\ fs [list_CASE_same] \\ rveq
+        \\ conj_tac >- (gvs [v_rel_cases, FLOOKUP_UPDATE])
+        \\ conj_tac
+        >- (
+          gvs [state_rel_def, FLOOKUP_UPDATE]
+          \\ rpt strip_tac
+          >- (
+            qpat_x_assum `LIST_REL ppp qqq rrr` mp_tac
+            \\ match_mp_tac listTheory.LIST_REL_mono
+            \\ rpt strip_tac
+            \\ match_mp_tac OPTREL_v_rel_NEW_REF \\ gvs []
+            \\ match_mp_tac OPTREL_v_rel_NEW_F \\ gvs [])
+          >- (
+            qpat_x_assum `INJ ($' f2) (FDOM _) (FRANGE f2)` mp_tac
+            \\ rpt (qpat_x_assum `INJ xx yy zz` (K all_tac))
+            \\ gvs [INJ_DEF,FAPPLY_FUPDATE_THM,FRANGE_DEF]
+            \\ rpt strip_tac \\ metis_tac [])
+          >- (
+            ntac 2 (pop_assum mp_tac) \\ rw[]
+            \\ first_x_assum match_mp_tac \\ asm_exists_tac \\ rw[])
+          \\ Cases_on `n = pp` \\ gvs []
+          >- (
+            gvs []
+            \\ imp_res_tac evaluate_const
+            \\ match_mp_tac v_rel_NEW_REF \\ gvs []
+            \\ match_mp_tac v_rel_NEW_F \\ gvs [])
+          \\ res_tac \\ gvs []
+          \\ `qq ≠ m` by (strip_tac \\ gvs [FLOOKUP_DEF])
+          \\ Cases_on `x` \\ gvs []
+          >- (
+            qpat_x_assum `LIST_REL (v_rel _ f2 t2.refs t2.code) l ws` mp_tac
+            \\ match_mp_tac LIST_REL_mono
+            \\ rpt strip_tac
+            \\ match_mp_tac v_rel_NEW_REF \\ gvs []
+            \\ match_mp_tac v_rel_NEW_F \\ gvs [])
+          >- (
+            match_mp_tac v_rel_NEW_REF \\ gvs []
+            \\ match_mp_tac v_rel_NEW_F \\ gvs []))
+        \\ conj_tac
+        >- (gvs [SUBMAP_DEF, FAPPLY_FUPDATE_THM] \\ metis_tac [])
+        \\ gvs [SUBMAP_DEF, FAPPLY_FUPDATE_THM, FDIFF_def, DRESTRICT_DEF]
+        \\ metis_tac [])
+      >- (
+        gvs [closSemTheory.do_app_def, do_app_def, AllCaseEqs(), PULL_EXISTS]
+        \\ Cases_on `a` \\ gvs []
+        \\ qpat_x_assum `v_rel _ _ _ _ (RefPtr _ _) y'` mp_tac
+        \\ reverse $ rw [Once v_rel_cases]
+        >- gvs [add_args_F]
+        >- rgs [Once cl_rel_cases]
+        \\ drule_all (GEN_ALL state_rel_refs_lookup) \\ rw [] \\ gvs []
+        \\ goal_assum $ drule_at Any \\ gvs [] \\ rw []
+        >- (
+          drule (GEN_ALL state_rel_UPDATE_REF)
+          \\ rpt (disch_then drule)
+          \\ disch_then irule \\ gvs []
+          \\ imp_res_tac evaluate_const \\ gvs [])
+        >- (
+          `r2 ∈ (FRANGE f2)` by (rgs [TO_FLOOKUP] \\ rw [SF SFY_ss])
+          \\ gvs [FDIFF_FUPDATE] \\ rw [])))
     \\ imp_res_tac closSemTheory.do_app_const
     \\ first_x_assum(mp_tac o INST_TYPE[beta|->gamma] o MATCH_MP
          (GEN_ALL(REWRITE_RULE[GSYM AND_IMP_INTRO]do_app)))
@@ -4718,9 +5004,11 @@ Proof
         \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[FLOOKUP_UPDATE]
         \\ `m <> rr` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[FLOOKUP_DEF]) \\ full_simp_tac(srw_ss())[]
         \\ Cases_on`x'''`>>full_simp_tac(srw_ss())[]
-        \\ Q.PAT_X_ASSUM `LIST_REL ppp xs ys'` MP_TAC
-        \\ MATCH_MP_TAC listTheory.LIST_REL_mono
-        \\ IMP_RES_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[])
+        >- (
+          Q.PAT_X_ASSUM `LIST_REL ppp xs ys'` MP_TAC
+          \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+          \\ IMP_RES_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[])
+        >- (IMP_RES_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[]))
       \\ TRY (simp[] \\ NO_TAC)
       \\ MATCH_MP_TAC env_rel_APPEND
       \\ reverse STRIP_TAC THEN1

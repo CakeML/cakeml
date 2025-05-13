@@ -161,6 +161,51 @@ Definition do_app_def:
                     | Rval (v,t) => Rval (v, bvl_to_bvi t s))
 End
 
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [RefPtr _ ptr] refs =
+    (case FLOOKUP refs ptr of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs refs = NotThunk
+End
+
+Definition store_thunk_def:
+  store_thunk ptr v refs =
+    case FLOOKUP refs ptr of
+    | SOME (Thunk NotEvaluated _) => SOME (refs |+ (ptr,v))
+    | _ => NONE
+End
+
+Definition update_thunk_def:
+  update_thunk [RefPtr _ ptr] refs [v] =
+    (case dest_thunk [v] refs of
+     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
+     | _ => NONE) ∧
+  update_thunk _ _ _ = NONE
+End
+
+Definition AppUnit_def:
+  AppUnit =
+    If (Op (BlockOp Equal)
+           [Op (IntOp (Const 0)) [];
+            Op (MemOp El) [Op (IntOp (Const 1)) []; Var 0]])
+       (Call 0 NONE
+             [Op (BlockOp (Cons 0)) []; Var 0;
+              Op (MemOp El) [Op (IntOp (Const 0)) []; Var 0]]
+             NONE)
+       (Call 0 (SOME num_stubs) [Op (BlockOp (Cons 0)) []; Var 0] NONE)
+End
+
+
 (* The evaluation is defined as a clocked functional version of
    a conventional big-step operational semantics. *)
 
@@ -205,10 +250,27 @@ Definition evaluate_def:
      | (Rval vs,s) => (Rerr(Rraise (HD vs)),s)
      | res => res) /\
   (evaluate ([Op op xs],env,s) =
-     case evaluate (xs,env,s) of
-     | (Rval vs,s) => (case do_app op (REVERSE vs) s of
-                          | Rerr e => (Rerr e,s)
-                          | Rval (v,s) => (Rval [v],s))
+     case fix_clock s (evaluate (xs,env,s)) of
+     | (Rval vs,s) =>
+          if op = ThunkOp ForceThunk then
+            (case dest_thunk vs s.refs of
+             | BadRef => (Rerr (Rabort Rtype_error),s)
+             | NotThunk => (Rerr (Rabort Rtype_error),s)
+             | IsThunk Evaluated v => (Rval [v],s)
+             | IsThunk NotEvaluated f =>
+                if s.clock = 0 then
+                  (Rerr (Rabort Rtimeout_error),s)
+                else
+                  case evaluate ([AppUnit],[f],(dec_clock 1 s)) of
+                  | (Rval vs2,s) =>
+                      (case update_thunk vs s.refs vs2 of
+                       | NONE => (Rerr (Rabort Rtype_error),s)
+                       | SOME refs => (Rval vs2,s with refs := refs))
+                  | (Rerr e,s) => (Rerr e,s))
+          else
+            (case do_app op (REVERSE vs) s of
+             | Rerr e => (Rerr e,s)
+             | Rval (v,s) => (Rval [v],s))
      | res => res) /\
   (evaluate ([Tick x],env,s) =
      if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else

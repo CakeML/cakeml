@@ -1036,7 +1036,6 @@ Proof
     THEN1
      (
       gvs [oneline dest_thunk_def, AllCaseEqs()]
-      >- goal_assum drule
       \\ TRY (
         qexists `n` \\ gvs [SET_OF_BAG_UNION]
         \\ metis_tac [mglobals_extend_SUBSET, UNION_ASSOC, SUBSET_UNION])
@@ -1047,7 +1046,7 @@ Proof
         \\ metis_tac [mglobals_extend_SUBSET, UNION_ASSOC, SUBSET_UNION])
       >- (
         gvs [Once AppUnit_def]
-        \\ `vsgc_free f` by (
+        \\ `vsgc_free v` by (
           gvs [ssgc_free_def]
           \\ rpt (first_x_assum drule \\ rw [])) \\ gvs [dec_clock_def]
         \\ qexists `n' + n`
@@ -1065,7 +1064,7 @@ Proof
         \\ metis_tac [UNION_ASSOC, UNION_COMM, SUBSET_UNION])
       >- (
         gvs [Once AppUnit_def]
-        \\ `vsgc_free f` by (
+        \\ `vsgc_free v` by (
           gvs [ssgc_free_def]
           \\ rpt (first_x_assum drule \\ rw [])) \\ gvs [dec_clock_def]
         \\ conj_tac >- (drule_all update_thunk_ssgc_free \\ gvs [])
@@ -1084,7 +1083,7 @@ Proof
         \\ metis_tac [UNION_ASSOC, UNION_COMM, SUBSET_UNION])
       >- (
         gvs [Once AppUnit_def]
-        \\ `vsgc_free f` by (
+        \\ `vsgc_free v` by (
           gvs [ssgc_free_def]
           \\ rpt (first_x_assum drule \\ rw [])) \\ gvs [dec_clock_def]
         \\ qexists `n' + n`
@@ -3149,7 +3148,7 @@ Proof
   \\ (
     gvs [oneline store_thunk_def, AllCaseEqs(), PULL_EXISTS]
     \\ TRY (
-      rename1 `FLOOKUP s2.refs pf = NONE ∨ _`
+      rename1 `FLOOKUP s2.refs pf = SOME _ ∧ _`
       \\ qpat_x_assum `FLOOKUP s1.refs pf = _` assume_tac
       \\ drule_all (cj 1 state_rel_opt_rel_refs) \\ rw [OPTREL_def] \\ gvs [])
     \\ TRY (
@@ -3731,13 +3730,13 @@ Proof
           \\ first_x_assum drule \\ rw []) \\ gvs [])
       >- (
         `∃w. FLOOKUP t.refs ptr = SOME (Thunk NotEvaluated w) ∧
-                 v_rel c (next_g s) f w` by (
+                 v_rel c (next_g s) v w` by (
           gvs [state_rel_def, fmap_rel_def, FLOOKUP_DEF]
           \\ first_x_assum drule \\ rw []) \\ gvs []
         \\ `t.clock = 0` by gvs [state_rel_def] \\ gvs [])
       >- (
         `∃w. FLOOKUP t.refs ptr = SOME (Thunk NotEvaluated w) ∧
-                 v_rel c (next_g s1) f w` by (
+                 v_rel c (next_g s1) v w` by (
           gvs [state_rel_def, fmap_rel_def, FLOOKUP_DEF]
           \\ first_x_assum drule \\ rw []) \\ gvs [PULL_EXISTS]
         \\ simp [GSYM PULL_EXISTS] \\ rw []
@@ -3757,7 +3756,7 @@ Proof
             \\ gvs [clos_opTheory.SmartOp_def, clos_opTheory.SmartOp'_def])
         \\ gvs []
         \\ disch_then drule \\ gvs []
-        \\ disch_then $ qspec_then `[f]` mp_tac \\ gvs []
+        \\ disch_then $ qspec_then `[v]` mp_tac \\ gvs []
         \\ disch_then $ qspecl_then [`[w]`, `[]`] mp_tac \\ gvs []
         \\ impl_tac >- (
           rw []
@@ -3802,8 +3801,8 @@ Proof
           >- (
             gvs [AppUnit_def, fv_max_def] \\ rw []
             \\ CCONTR_TAC
-            \\ qmatch_asmsub_abbrev_tac `fv1 v exp`
-            \\ `fv v [exp] ⇔ v = 0` by (unabbrev_all_tac \\ gvs [fv_def])
+            \\ qmatch_asmsub_abbrev_tac `fv1 v' exp`
+            \\ `fv v' [exp] ⇔ v' = 0` by (unabbrev_all_tac \\ gvs [fv_def])
             \\ gvs [])
           >- gvs [next_g_def]
           >- (
@@ -3820,7 +3819,7 @@ Proof
         \\ drule_all rel_update_thunk \\ rw [])
       >- (
         `∃w. FLOOKUP t.refs ptr = SOME (Thunk NotEvaluated w) ∧
-           v_rel c (next_g s1) f w` by (
+           v_rel c (next_g s1) v w` by (
           gvs [state_rel_def, fmap_rel_def, FLOOKUP_DEF]
           \\ first_x_assum drule \\ rw []) \\ gvs [PULL_EXISTS]
         \\ simp [GSYM PULL_EXISTS] \\ rw []
@@ -3839,7 +3838,7 @@ Proof
             \\ gvs [clos_opTheory.SmartOp_def, clos_opTheory.SmartOp'_def])
         \\ gvs []
         \\ disch_then drule \\ gvs []
-        \\ disch_then $ qspec_then `[f]` mp_tac \\ gvs []
+        \\ disch_then $ qspec_then `[v]` mp_tac \\ gvs []
         \\ disch_then $ qspecl_then [`[w]`, `[]`] mp_tac \\ gvs []
         \\ impl_tac >- (
           rw []
@@ -3884,8 +3883,8 @@ Proof
           >- (
             gvs [AppUnit_def, fv_max_def] \\ rw []
             \\ CCONTR_TAC
-            \\ qmatch_asmsub_abbrev_tac `fv1 v exp`
-            \\ `fv v [exp] ⇔ v = 0` by (unabbrev_all_tac \\ gvs [fv_def])
+            \\ qmatch_asmsub_abbrev_tac `fv1 v' exp`
+            \\ `fv v' [exp] ⇔ v' = 0` by (unabbrev_all_tac \\ gvs [fv_def])
             \\ gvs [])
           >- gvs [next_g_def]
           >- (

@@ -33,6 +33,7 @@ Theorem op_space_reset_pmatch:
     | MemOp (CopyByte new_flag) => new_flag
     | MemOp ConfigGC => T
     | FFI _ => T
+    | ThunkOp ForceThunk => T
     | _ => F
 Proof
   rpt strip_tac

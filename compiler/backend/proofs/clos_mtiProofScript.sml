@@ -772,6 +772,7 @@ Proof
     \\ Cases_on `opp = ThunkOp ForceThunk` \\ gvs [] \\ rveq
     >- (
       Cases_on `res1` \\ gvs []
+      \\ gvs [AllCaseEqs()]
       \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
       \\ drule_all (cj 2 state_rel_opt_rel_refs) \\ rw [OPTREL_def]
       \\ rgs [Once ref_rel_cases]
@@ -781,7 +782,7 @@ Proof
         `state_rel (dec_clock 1 s2) (dec_clock 1 s')` by (
           gvs [state_rel_def, dec_clock_def]) \\ gvs []
         \\ last_x_assum $ drule_at (Pat `state_rel _ _`) \\ gvs []
-        \\ disch_then $ qspecl_then [`[AppUnit (Var None 0)]`, `v`] mp_tac
+        \\ disch_then $ qspecl_then [`[AppUnit (Var None 0)]`, `v'`] mp_tac
         \\ gvs [] \\ impl_tac
         >- gvs [state_rel_def, dec_clock_def, AppUnit_def, no_mti_def,
                 intro_multi_def, collect_apps_def]

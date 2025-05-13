@@ -3153,7 +3153,8 @@ Proof
       \\ rfs []
       \\ fs [code_includes_def])
     >~ [`ThunkOp ForceThunk`] >- (
-      gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+      gvs [AllCaseEqs(), PULL_EXISTS]
+      \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
       >- (
         gvs [v_rel_def]
         \\ rpt (goal_assum drule \\ gvs [])

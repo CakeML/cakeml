@@ -102,6 +102,8 @@ Definition state_rel_def:
          | NONE => T
          | SOME (ValueArray vs) =>
              (FLOOKUP t.refs (b k) = SOME (ValueArray (MAP (adjust_bv b) vs)))
+         | SOME (Thunk m v) =>
+             (FLOOKUP t.refs (b k) = SOME (Thunk m (adjust_bv b v)))
          | SOME res => (FLOOKUP t.refs (b k) = SOME res)) /\
     (s.ffi = t.ffi) /\
     (∀p. t.global = SOME p ⇒
@@ -140,6 +142,24 @@ Proof
   rpt strip_tac >> fs[state_rel_def]
   >> rpt(first_x_assum(qspec_then `n` assume_tac))
   >> rfs[]
+QED
+
+Theorem state_rel_FLOOKUP_valueArray:
+  state_rel b s t ∧
+  FLOOKUP s.refs ptr = SOME (ValueArray vs) ⇒
+    FLOOKUP t.refs (b ptr) = SOME (ValueArray (MAP (adjust_bv b) vs))
+Proof
+  rw [state_rel_def]
+  \\ rpt (first_x_assum $ qspec_then `ptr` assume_tac \\ gvs [])
+QED
+
+Theorem state_rel_FLOOKUP_Thunk:
+  state_rel b s t ∧
+  FLOOKUP s.refs ptr = SOME (Thunk m v) ⇒
+    FLOOKUP t.refs (b ptr) = SOME (Thunk m (adjust_bv b v))
+Proof
+  rw [state_rel_def]
+  \\ rpt (first_x_assum $ qspec_then `ptr` assume_tac \\ gvs [])
 QED
 
 Definition bv_ok_def:
@@ -190,6 +210,7 @@ Definition state_ok_def:
     EVERY (\x. case x of NONE => T | SOME v => bv_ok s.refs v) s.globals /\
     !k. case FLOOKUP s.refs k of
         | SOME (ValueArray vs) => EVERY (bv_ok s.refs) vs
+        | SOME (Thunk _ v) => bv_ok s.refs v
         | _ => T
 End
 
@@ -504,6 +525,50 @@ Proof
     rename1 `ToListByte`
     \\ qspec_tac (`l`,`l`)
     \\ Induct \\ fs [bv_ok_def,list_to_v_def] )
+  >- (
+    rename1 `AllocThunk` \\ gvs [] \\ rw []
+    >- (
+      gvs [state_ok_def, bvlSemTheory.state_component_equality] \\ rw []
+      >- (
+        gvs [EVERY_EL] \\ rw []
+        \\ first_x_assum drule \\ rw []
+        \\ CASE_TAC \\ gvs []
+        \\ irule bv_ok_SUBSET_IMP \\ gvs []
+        \\ goal_assum $ drule_at Any \\ gvs [LEAST_NOTIN_FDOM])
+      >- (
+        gvs [FLOOKUP_DEF, FAPPLY_FUPDATE_THM] \\ rw []
+        >- (
+          irule bv_ok_SUBSET_IMP \\ gvs []
+          \\ goal_assum $ drule_at Any \\ gvs [LEAST_NOTIN_FDOM])
+        \\ first_x_assum $ qspec_then `k` assume_tac \\ gvs []
+        \\ CASE_TAC \\ gvs [EVERY_EL] \\ rw []
+        \\ rpt (first_x_assum drule \\ rw [])
+        \\ irule bv_ok_SUBSET_IMP \\ gvs []
+        \\ goal_assum $ drule_at Any \\ gvs [LEAST_NOTIN_FDOM]))
+    >- (
+      gvs [state_ok_def, bvlSemTheory.state_component_equality] \\ rw []
+      \\ simp [bv_ok_def]))
+  >- (
+    rename1 `UpdateThunk` \\ gvs []
+    \\ gvs [bv_ok_def, state_ok_def, bvlSemTheory.state_component_equality]
+    \\ rw []
+    >- (
+      gvs [EVERY_EL] \\ rw []
+      \\ first_x_assum drule \\ rw []
+      \\ CASE_TAC \\ gvs []
+      \\ irule bv_ok_SUBSET_IMP \\ gvs []
+      \\ goal_assum $ drule_at Any \\ gvs [ABSORPTION])
+    >- (
+      simp [FLOOKUP_UPDATE] \\ rw []
+      >- (
+        irule bv_ok_SUBSET_IMP \\ gvs []
+        \\ goal_assum $ drule_at Any \\ gvs [ABSORPTION])
+      \\ first_x_assum $ qspec_then `k` assume_tac \\ gvs []
+      \\ rpt (CASE_TAC \\ gvs [])
+      \\ gvs [EVERY_EL] \\ rw []
+      \\ rpt (first_x_assum drule \\ rw [])
+      \\ irule bv_ok_SUBSET_IMP \\ gvs []
+      \\ goal_assum $ drule_at Any \\ gvs [ABSORPTION]))
 QED
 
 Theorem do_app_ok:
@@ -547,6 +612,133 @@ Theorem evaluate_ok:
       EVERY (bv_ok t.refs) env
 Proof
   recInduct bvlSemTheory.evaluate_ind \\ rpt strip_tac
+  >>~ [`ForceThunk`]
+  >- (
+    Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+    >- (
+      fs [bvlSemTheory.evaluate_def] \\ rw [] \\ fs []
+      \\ fs [case_eq_thms] \\ rveq \\ fs []
+      \\ `state_ok (dec_clock 1 s')` by
+        gvs [state_ok_def, bvlSemTheory.dec_clock_def]
+      \\ gvs [AllCaseEqs()]
+      \\ `bv_ok s'.refs v` by (
+        gvs [oneline bvlSemTheory.dest_thunk_def, AllCaseEqs(), state_ok_def]
+        \\ rpt (first_x_assum $ qspec_then `ptr` assume_tac \\ gvs []))
+      \\ gvs [oneline bvlSemTheory.update_thunk_def, AllCaseEqs(),
+              bvlSemTheory.store_thunk_def]
+      \\ qpat_x_assum `state_ok s''` mp_tac
+      \\ rw [state_ok_def]
+      >- (
+        gvs [EVERY_EL] \\ rw []
+        \\ first_x_assum drule \\ rw []
+        \\ CASE_TAC \\ gvs []
+        \\ irule bv_ok_SUBSET_IMP \\ gvs []
+        \\ goal_assum $ drule_at Any \\ gvs [FLOOKUP_DEF, ABSORPTION])
+      >- (
+        gvs [FLOOKUP_UPDATE] \\ rw []
+        >- (
+          irule bv_ok_SUBSET_IMP \\ gvs []
+          \\ goal_assum $ drule_at Any \\ gvs [FLOOKUP_DEF, ABSORPTION])
+        \\ first_x_assum $ qspec_then `k` assume_tac \\ gvs []
+        \\ rpt (CASE_TAC \\ gvs [])
+        >- (
+          gvs [EVERY_EL] \\ rw []
+          \\ first_x_assum drule \\ rw []
+          \\ irule bv_ok_SUBSET_IMP \\ gvs []
+          \\ goal_assum $ drule_at Any \\ gvs [FLOOKUP_DEF, ABSORPTION])
+        >- (
+          irule bv_ok_SUBSET_IMP \\ gvs []
+          \\ goal_assum $ drule_at Any \\ gvs [FLOOKUP_DEF, ABSORPTION])))
+    \\ fs[bvlSemTheory.evaluate_def] \\ rw [] \\ fs []
+    \\ fs [case_eq_thms] \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_IMP_bv_ok \\ fs []
+    \\ (
+      do_app_ok
+      |> REWRITE_RULE [CONJ_ASSOC]
+      |> ONCE_REWRITE_RULE [CONJ_COMM] |> GEN_ALL |> drule)
+    \\ fs [EVERY_REVERSE])
+  >- (
+    Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+    >- (
+      fs [bvlSemTheory.evaluate_def] \\ rw [] \\ fs []
+      \\ fs [case_eq_thms] \\ rveq \\ fs []
+      \\ gvs [AllCaseEqs()]
+      >- (
+        gvs [oneline bvlSemTheory.dest_thunk_def, AllCaseEqs()]
+        \\ qpat_x_assum `state_ok s'` mp_tac \\ rw [state_ok_def]
+        \\ pop_assum $ qspec_then `ptr` assume_tac \\ gvs [])
+      >- (
+        `state_ok (dec_clock 1 s')` by
+          gvs [state_ok_def, bvlSemTheory.dec_clock_def]
+        \\ gvs []
+        \\ `bv_ok s'.refs v` by (
+          gvs [oneline bvlSemTheory.dest_thunk_def, AllCaseEqs(), state_ok_def]
+          \\ rpt (first_x_assum $ qspec_then `ptr` assume_tac \\ gvs []))
+        \\ gvs [oneline bvlSemTheory.update_thunk_def, AllCaseEqs(),
+                bvlSemTheory.store_thunk_def]
+        \\ irule bv_ok_SUBSET_IMP \\ gvs []
+        \\ goal_assum $ drule_at Any \\ gvs [FLOOKUP_DEF, ABSORPTION])
+      >- (
+        CASE_TAC \\ gvs []
+        \\ pop_assum mp_tac \\ impl_tac
+        >- (
+          rw []
+          >- gvs [state_ok_def, bvlSemTheory.dec_clock_def]
+          >- (
+            gvs [oneline bvlSemTheory.dest_thunk_def, AllCaseEqs(),
+                 state_ok_def]
+            \\ rpt (first_x_assum $ qspec_then `ptr` assume_tac \\ gvs [])))
+        \\ gvs []))
+    \\ fs [bvlSemTheory.evaluate_def] \\ rw [] \\ fs []
+    \\ fs [case_eq_thms] \\ rveq \\ fs []
+    >- (
+      imp_res_tac evaluate_IMP_bv_ok \\ fs []
+      \\ (
+        do_app_ok
+        |> REWRITE_RULE [CONJ_ASSOC]
+        |> ONCE_REWRITE_RULE [CONJ_COMM] |> GEN_ALL |> drule)
+      \\ fs [EVERY_REVERSE])
+    >- (
+      imp_res_tac evaluate_IMP_bv_ok \\ fs []
+      \\ every_case_tac \\ fs []
+      \\ imp_res_tac bvlPropsTheory.do_app_err \\ fs[evaluate_ok_lemma]))
+  >- (
+    Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+    >- (
+      fs [bvlSemTheory.evaluate_def] \\ rw [] \\ fs []
+      \\ fs [case_eq_thms] \\ rveq \\ fs []
+      \\ gvs [AllCaseEqs()]
+      >- (
+        imp_res_tac evaluate_refs_SUBSET
+        \\ gvs [EVERY_EL] \\ rw []
+        \\ irule bv_ok_SUBSET_IMP
+        \\ goal_assum drule \\ gvs [])
+      >- (
+        gvs [EVERY_EL] \\ rw []
+        \\ rpt (first_x_assum drule \\ rw [])
+        \\ gvs [oneline bvlSemTheory.update_thunk_def, AllCaseEqs(),
+                bvlSemTheory.store_thunk_def]
+        \\ `bv_ok s''.refs (EL n env)` by (
+          imp_res_tac evaluate_refs_SUBSET
+          \\ gvs [dec_clock_def]
+          \\ irule bv_ok_SUBSET_IMP
+          \\ goal_assum drule \\ gvs [])
+        \\ gvs []
+        \\ irule bv_ok_SUBSET_IMP \\ rw []
+        \\ goal_assum $ drule_at Any \\ gvs [FLOOKUP_DEF, ABSORPTION])
+      >- (
+        imp_res_tac evaluate_refs_SUBSET
+        \\ gvs [EVERY_EL] \\ rw []
+        \\ irule bv_ok_SUBSET_IMP
+        \\ goal_assum drule \\ gvs []))
+    \\ fs [bvlSemTheory.evaluate_def] \\ rw [] \\ fs []
+    \\ fs [case_eq_thms] \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_IMP_bv_ok \\ fs []
+    \\ (
+      do_app_ok
+      |> REWRITE_RULE [CONJ_ASSOC]
+      |> ONCE_REWRITE_RULE [CONJ_COMM] |> GEN_ALL |> drule)
+    \\ fs [EVERY_REVERSE])
   \\ fs[bvlSemTheory.evaluate_def] \\ rw [] \\ fs []
   \\ fs [case_eq_thms] \\ rveq \\ fs []
   \\ imp_res_tac evaluate_SING \\ fs[] \\ rveq \\ fs []
@@ -1272,6 +1464,7 @@ Theorem do_app_adjust[local]:
   (∀flag. op ≠ MemOp (RefByte flag)) ∧ (op ≠ MemOp RefArray) ∧
   (∀n. op ≠ GlobOp (Global n)) ∧ (∀n. op ≠ GlobOp (SetGlobal n)) ∧ (op ≠ GlobOp AllocGlobal) ∧
   op ≠ Install /\
+  (∀t. op ≠ ThunkOp t) ∧
   (∀n. op ≠ BlockOp (FromList n)) ∧ (op ≠ MemOp FromListByte) ∧
   (op ≠ MemOp ToListByte) ∧ (∀c. op ≠ BlockOp (Build c)) ∧
   (∀b. op ≠ MemOp (CopyByte b)) ∧ (op ≠ MemOp ConcatByteVec) ∧ (∀n. op ≠ Label n) ∧
@@ -1546,7 +1739,14 @@ Theorem eval_ind_alt:
            P ([x2],v::env,s)) ∧
         (∀xs env. exp1_size xs <= exp_size x1 ⇒ P (xs,env,s1)) ⇒
         P ([Handle x1 x2],env,s1)) ∧
-     (∀op xs env s. P (xs,env,s) ⇒ P ([Op op xs],env,s)) ∧
+     (∀op xs env s.
+        (∀v6 s' vs v1 v.
+           evaluate (xs,env,s) = (v6,s') ∧ v6 = Rval vs ∧
+           op = ThunkOp ForceThunk ∧
+           dest_thunk vs s'.refs = IsThunk v1 v ∧ v1 = NotEvaluated ∧
+           s'.clock ≠ 0 ⇒
+           P ([AppUnit],[v],dec_clock 1 s')) ∧ P (xs,env,s) ⇒
+        P ([Op op xs],env,s)) ∧
      (∀x env s.
         (s.clock ≠ 0 ⇒ P ([x],env,dec_clock 1 s)) ⇒
         P ([Tick x],env,s)) ∧
@@ -1650,6 +1850,85 @@ Proof
   \\ res_tac \\ fs[]
   \\ rw[]
   \\ metis_tac[INJ_DEF]
+QED
+
+Theorem state_rel_add_thunk:
+   state_rel b s (t:('c,'ffi) bviSem$state) ∧
+   state_ok s ∧
+   pp ∉ FDOM s.refs ∧
+   qq ∉ FDOM t.refs ⇒
+   state_rel ((pp =+ qq) b)
+     (s with refs := s.refs |+ (pp,Thunk m v))
+     (t with refs := t.refs |+ (qq,Thunk m (adjust_bv ((pp =+ qq) b) v)))
+Proof
+  strip_tac
+  \\ fs [state_rel_def, FLOOKUP_UPDATE]
+  \\ conj_tac >- (match_mp_tac INJ_EXTEND \\ fs [])
+  \\ conj_tac >- (
+    fs [APPLY_UPDATE_THM]
+    \\ gen_tac
+    \\ IF_CASES_TAC \\ fs[]
+    \\ qpat_x_assum `∀k. option_CASE (FLOOKUP s.refs k) _ _`
+         $ qspec_then `k` mp_tac
+    \\ TOP_CASE_TAC \\ simp []
+    \\ `qq ≠ b k`
+      by (pop_assum mp_tac \\ rw [FLOOKUP_DEF] \\ metis_tac [INJ_DEF])
+    \\ simp[]
+    \\ TOP_CASE_TAC \\ rw [MAP_EQ_f]
+    \\ match_mp_tac (bv_ok_IMP_adjust_bv_eq |> GEN_ALL)
+    \\ qexists_tac `s.refs`
+    \\ fs [state_ok_def]
+    \\ first_x_assum$ qspec_then `k` mp_tac
+    \\ simp [EVERY_MEM]
+    \\ rw [APPLY_UPDATE_THM]
+    \\ metis_tac [])
+  \\ simp [APPLY_UPDATE_THM]
+  \\ gen_tac \\ strip_tac
+  \\ `qq ≠ p` by (
+    fs []
+    \\ `p ∈ FDOM t.refs` by fs [FLOOKUP_DEF]
+    \\ metis_tac [])
+  \\ fs [] \\ conj_tac >- rw []
+  \\ simp [APPLY_UPDATE_THM]
+  \\ qexists `z` \\ simp [MAP_EQ_f]
+  \\ Cases \\ rw [miscTheory.the_def]
+  \\ match_mp_tac (GEN_ALL bv_ok_IMP_adjust_bv_eq)
+  \\ qexists `s.refs`
+  \\ simp [APPLY_UPDATE_THM]
+  \\ fs [state_ok_def, EVERY_MEM]
+  \\ res_tac \\ fs []
+  \\ rw []
+  \\ metis_tac [INJ_DEF]
+QED
+
+Theorem state_rel_update_thunk:
+   state_rel b s (t:('c,'ffi) bviSem$state) ∧
+   state_ok s ∧
+   ptr ∈ FDOM s.refs ⇒
+   state_rel b
+     (s with refs := s.refs |+ (ptr,Thunk m v))
+     (t with refs := t.refs |+ (b ptr,Thunk m (adjust_bv b v)))
+Proof
+  rw []
+  \\ gvs [state_rel_def] \\ rw [] \\ gvs []
+  >- (
+    gvs [INJ_DEF]
+    \\ rw []
+    \\ ntac 2 (last_x_assum drule \\ strip_tac) \\ gvs [])
+  >- (
+    gvs [FLOOKUP_UPDATE] \\ rw []
+    \\ last_x_assum $ qspec_then `k` assume_tac \\ gvs []
+    \\ ntac 2 (CASE_TAC \\ gvs [])
+    \\ gvs [INJ_DEF, FLOOKUP_DEF])
+  >- metis_tac []
+  >- (
+    gvs [FLOOKUP_UPDATE] \\ rw []
+    >- (
+      gvs [INJ_DEF]
+      \\ last_x_assum drule \\ strip_tac
+      \\ qpat_x_assum `∀x. b ptr ≠ b _ ∨ _`
+           $ qspec_then `ptr` assume_tac \\ gvs [])
+    >- metis_tac [])
 QED
 
 val iEval_bVarBound_extra = prove(
@@ -2373,6 +2652,11 @@ Proof
        (fs[compile_op_def]
         \\ qexists_tac`c` \\ simp[] \\ rw []
         \\ fs [evaluate_def])
+      \\ Cases_on `op = ThunkOp ForceThunk`
+      >- (
+        gvs [compile_op_def]
+        \\ qexists `c` \\ gvs []
+        \\ gvs [evaluate_def])
       \\ Cases_on`op = MemOp (CopyByte T)`
       >- (note_tac "Op: CopyByte" \\
         fs[compile_op_def]
@@ -2385,6 +2669,143 @@ Proof
       \\ imp_res_tac compile_exps_LENGTH
       \\ fs [NULL_EQ,LENGTH_NIL]
       \\ Cases_on `xs` \\ fs [bviSemTheory.evaluate_def])
+    \\ Cases_on `op = ThunkOp ForceThunk`
+    >- (
+      gvs [] \\ rw [GSYM PULL_FORALL]
+      \\ gvs [compile_op_def, evaluate_def]
+      \\ qrefinel [`_`, `_`, `c + c'`] \\ gvs [inc_clock_def]
+      \\ `∀c'. evaluate (c1,MAP (adjust_bv b2) env,
+                         t1 with clock := c + t1.clock + c') =
+               (Rval (MAP (adjust_bv b2) a),
+                t2 with clock := t2.clock + c')` by (
+        rw [] \\ drule evaluate_add_clock \\ rw [inc_clock_def])
+      \\ gvs [AllCaseEqs(), PULL_EXISTS]
+      \\ gvs [oneline bvlSemTheory.dest_thunk_def, dest_thunk_def, AllCaseEqs(),
+              adjust_bv_def, PULL_EXISTS]
+      \\ drule_all state_rel_FLOOKUP_Thunk \\ gvs [PULL_EXISTS] \\ strip_tac
+      >- (
+        qrefinel [`0`, `_`, `b2`] \\ gvs [dest_thunk_def]
+        \\ `t2 with clock := t2.clock = t2` by gvs [state_component_equality]
+        \\ gvs [])
+      >- (
+        qrefinel [`0`, `t2`, `b2`] \\ gvs [dest_thunk_def]
+        \\ gvs [state_component_equality, state_rel_def])
+      >- (
+        rename1 `state_rel b2 s2 t2`
+        \\ `s2.clock = t2.clock` by gvs [state_rel_def] \\ gvs []
+        \\ `state_rel b2 (dec_clock 1 s2) (dec_clock 1 t2)` by
+          gvs [state_rel_def, bvlSemTheory.dec_clock_def, dec_clock_def] \\ gvs []
+        \\ last_x_assum $ drule_at (Pat `state_rel _ _ _`)
+        \\ simp [bvlSemTheory.AppUnit_def, compile_exps_def, compile_op_def,
+                 compile_int_def, bvlSemTheory.mk_unit_def]
+        \\ impl_tac
+        >- (
+          rw [handle_ok_def, aux_code_installed_def]
+          >- (
+            qpat_x_assum `evaluate _ = (_,s2)` assume_tac
+            \\ drule evaluate_ok \\ rw []
+            \\ gvs [state_ok_def, bvlSemTheory.dec_clock_def])
+          >- (
+            `state_ok s2` by (
+              qpat_x_assum `evaluate _ = (_,s2)` assume_tac
+              \\ drule evaluate_ok \\ rw []) \\ gvs []
+            \\ pop_assum mp_tac
+            \\ rw [state_ok_def]
+            \\ pop_assum $ qspec_then `ptr` assume_tac \\ gvs [])
+          >- (
+            irule evaluate_global_mono
+            \\ goal_assum $ drule_at Any \\ gvs []))
+        \\ rw []
+        \\ gvs [GSYM PULL_FORALL, dec_clock_def]
+        \\ gvs [GSYM AppUnit_def]
+        \\ qrefinel [`c'`, `_`, `b2'`] \\ gvs []
+        \\ `MAP (adjust_bv b2) env = MAP (adjust_bv b2') env` by (
+          full_simp_tac(srw_ss())[MAP_EQ_f] \\ REPEAT STRIP_TAC
+          \\ MATCH_MP_TAC (GEN_ALL bv_ok_IMP_adjust_bv_eq)
+          \\ qexists_tac `s2.refs`
+          \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ RES_TAC
+          \\ IMP_RES_TAC evaluate_refs_SUBSET
+          \\ REPEAT STRIP_TAC THEN1 METIS_TAC [bv_ok_SUBSET_IMP])
+        \\ gvs [dest_thunk_def, PULL_EXISTS]
+        \\ `∀a. a ∈ FDOM s.refs ⇒ b2 a = b2' a` by (
+          rw []
+          \\ first_x_assum irule \\ gvs []
+          \\ imp_res_tac evaluate_refs_SUBSET \\ metis_tac [SUBSET_THM])
+        \\ gvs []
+        \\ imp_res_tac evaluate_SING \\ gvs []
+        \\ `state_ok s''` by (
+          qpat_x_assum `evaluate _ = (_,s2)` assume_tac
+          \\ drule evaluate_ok \\ impl_tac
+          >- gvs []
+          \\ rw []
+          \\ qpat_x_assum `evaluate _ = (_,s'')` assume_tac
+          \\ drule evaluate_ok \\ impl_tac
+          >- (
+            rw []
+            >- gvs [evaluate_ok_lemma]
+            >- (
+              qpat_x_assum `state_ok s2` mp_tac
+              \\ rw [state_ok_def]
+              \\ pop_assum $ qspec_then `ptr` assume_tac \\ gvs []))
+          \\ gvs [])
+        \\ gvs [bvlSemTheory.update_thunk_def, update_thunk_def]
+        \\ gvs [AllCaseEqs()]
+        \\ gvs [oneline bvlSemTheory.dest_thunk_def, oneline dest_thunk_def,
+                AllCaseEqs(), adjust_bv_def, PULL_EXISTS]
+        \\ (
+          `ptr ∈ FDOM s2.refs` by gvs [FLOOKUP_DEF]
+          \\ first_x_assum drule \\ strip_tac \\ gvs []
+          \\ gvs [bvlSemTheory.store_thunk_def, store_thunk_def, AllCaseEqs(),
+                  PULL_EXISTS, SF ETA_ss]
+          \\ drule_all state_rel_FLOOKUP_Thunk \\ strip_tac \\ gvs []
+          \\ TRY (drule_all state_rel_FLOOKUP_valueArray \\ rw [])
+          \\ TRY (drule_all state_rel_FLOOKUP_byteArray \\ rw [])
+          \\ `ptr ∈ FDOM s''.refs` by gvs [FLOOKUP_DEF]
+          \\ drule_all state_rel_update_thunk \\ rw []
+          \\ qmatch_goalsub_abbrev_tac
+               `state_rel _ (_ with refs := _ |+ (_,Thunk mo va)) _`
+          \\ first_x_assum $ qspecl_then [`va`, `mo`] assume_tac \\ gvs []
+          \\ unabbrev_all_tac \\ gvs [adjust_bv_def, SF ETA_ss]))
+        >- (
+          rename1 `state_rel b2 s2 t2`
+          \\ `s2.clock = t2.clock` by gvs [state_rel_def] \\ gvs []
+          \\ `state_rel b2 (dec_clock 1 s2) (dec_clock 1 t2)` by
+            gvs [state_rel_def, bvlSemTheory.dec_clock_def, dec_clock_def] \\ gvs []
+          \\ last_x_assum $ drule_at (Pat `state_rel _ _ _`)
+          \\ simp [bvlSemTheory.AppUnit_def, compile_exps_def, compile_op_def,
+                   compile_int_def, bvlSemTheory.mk_unit_def]
+          \\ impl_tac
+          >- (
+            rw [handle_ok_def, aux_code_installed_def]
+            >- (
+              qpat_x_assum `evaluate _ = (_,s2)` assume_tac
+              \\ drule evaluate_ok \\ rw []
+              \\ gvs [state_ok_def, bvlSemTheory.dec_clock_def])
+            >- (
+              `state_ok s2` by (
+                qpat_x_assum `evaluate _ = (_,s2)` assume_tac
+                \\ drule evaluate_ok \\ rw []) \\ gvs []
+              \\ pop_assum mp_tac
+              \\ rw [state_ok_def]
+              \\ pop_assum $ qspec_then `ptr` assume_tac \\ gvs [])
+            >- (
+              irule evaluate_global_mono
+              \\ goal_assum $ drule_at Any \\ gvs []))
+          \\ rw []
+          \\ gvs [GSYM PULL_FORALL, dec_clock_def]
+          \\ gvs [GSYM AppUnit_def]
+          \\ qrefinel [`c'`, `_`, `b2'`] \\ gvs []
+          \\ `MAP (adjust_bv b2) env = MAP (adjust_bv b2') env` by (
+            full_simp_tac(srw_ss())[MAP_EQ_f] \\ REPEAT STRIP_TAC
+            \\ MATCH_MP_TAC (GEN_ALL bv_ok_IMP_adjust_bv_eq)
+            \\ qexists_tac `s2.refs`
+            \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ RES_TAC
+            \\ IMP_RES_TAC evaluate_refs_SUBSET
+            \\ REPEAT STRIP_TAC THEN1 METIS_TAC [bv_ok_SUBSET_IMP])
+          \\ gvs [dest_thunk_def, PULL_EXISTS]
+          \\ rw []
+          \\ first_x_assum irule \\ gvs []
+          \\ imp_res_tac evaluate_refs_SUBSET \\ metis_tac [SUBSET_THM]))
     \\ REPEAT STRIP_TAC \\ Cases_on `do_app op (REVERSE a) s5`
     \\ full_simp_tac(srw_ss())[]
     \\ TRY(
@@ -2534,6 +2955,74 @@ Proof
       \\ fs [names_ok_def]
       \\ qpat_x_assum `!n k. _` (qspec_then `0` mp_tac) \\ fs []
       \\ fs [EVERY_MEM,FORALL_PROD] \\ metis_tac[])
+    \\ Cases_on `∃m. op = ThunkOp (AllocThunk m)` >- (
+      rw [] \\ gvs []
+      \\ gvs [compile_op_def, evaluate_def, AllCaseEqs(), PULL_EXISTS]
+      \\ gvs [do_app_def, do_app_aux_def, AllCaseEqs(), PULL_EXISTS]
+      \\ qabbrev_tac `b3 = ((LEAST ptr. ptr ∉ FDOM s5.refs) =+
+           (LEAST ptr. ptr ∉ FDOM (bvi_to_bvl t2).refs)) b2`
+      \\ qexistsl [`b3`, `c`] \\ gvs []
+      \\ qabbrev_tac `x = (LEAST ptr. ptr ∉ FDOM s5.refs)`
+      \\ qabbrev_tac `y = LEAST ptr. ptr ∉ FDOM (bvi_to_bvl t2).refs`
+      \\ gvs []
+      \\ `x ∉ FDOM s5.refs` by (
+        `∃p. (\ptr. ptr ∉ FDOM s5.refs) p` by
+          (rw [] \\ metis_tac [NUM_NOT_IN_FDOM])
+        \\ imp_res_tac whileTheory.LEAST_INTRO \\ gvs [])
+      \\ `y ∉ FDOM t2.refs` by (
+        `∃p. (\ptr. ptr ∉ FDOM t2.refs) p` by
+          (rw [] \\ metis_tac [NUM_NOT_IN_FDOM])
+        \\ imp_res_tac whileTheory.LEAST_INTRO \\ gvs [])
+      \\ gvs []
+      \\ gvs [bvlSemTheory.do_app_def, AllCaseEqs(), PULL_EXISTS]
+      \\ rw [adjust_bv_def]
+      \\ `MAP (adjust_bv b3) env = MAP (adjust_bv b2) env` by (
+        gvs [MAP_EQ_f] \\ rpt strip_tac
+        \\ match_mp_tac (GEN_ALL bv_ok_IMP_adjust_bv_eq)
+        \\ qexists_tac `s5.refs`
+        \\ gvs [EVERY_MEM] \\ res_tac
+        \\ imp_res_tac evaluate_refs_SUBSET
+        \\ rpt strip_tac >- metis_tac [bv_ok_SUBSET_IMP]
+        \\ qunabbrev_tac `b3` \\ gvs [APPLY_UPDATE_THM]
+        \\ rw [] \\ gvs [])
+      \\ `adjust_bv b2 v = adjust_bv b3 v` by (
+        match_mp_tac (GEN_ALL bv_ok_IMP_adjust_bv_eq)
+        \\ qexists `s5.refs`
+        \\ imp_res_tac evaluate_ok \\ gvs []
+        \\ qunabbrev_tac `b3` \\ gvs [APPLY_UPDATE_THM]
+        \\ rw [] \\ gvs [])
+      \\ gvs []
+      \\ conj_tac >- (qunabbrev_tac `b3` \\ rw [])
+      \\ reverse conj_tac >- (
+        rpt strip_tac \\ unabbrev_all_tac
+        \\ gvs [APPLY_UPDATE_THM] \\ rw []
+        \\ imp_res_tac evaluate_refs_SUBSET
+        \\ gvs [SUBSET_DEF])
+      \\ gvs [bvl_to_bvi_def, bvi_to_bvl_def]
+      \\ qmatch_goalsub_abbrev_tac `state_rel _ _ tt`
+      \\ `tt = t2 with refs := t2.refs |+ (b3 x,Thunk m (adjust_bv b2 v))` by (
+        unabbrev_all_tac \\ gvs [state_component_equality])
+      \\ simp [Abbr `tt`, Abbr `b3`]
+      \\ irule state_rel_add_thunk \\ gvs []
+      \\ imp_res_tac evaluate_ok)
+    \\ Cases_on `∃m. op = ThunkOp (UpdateThunk m)` \\ gvs [] >- (
+      rw [] \\ gvs []
+      \\ gvs [compile_op_def, evaluate_def, AllCaseEqs(), PULL_EXISTS]
+      \\ gvs [do_app_def, do_app_aux_def, AllCaseEqs(), PULL_EXISTS]
+      \\ goal_assum drule
+      \\ gvs [bvlSemTheory.do_app_def, AllCaseEqs(), PULL_EXISTS]
+      \\ Cases_on `a` \\ gvs [adjust_bv_def]
+      \\ drule_all state_rel_FLOOKUP_Thunk \\ rw []
+      \\ simp [bvl_to_bvi_def, bvi_to_bvl_def]
+      \\ qmatch_goalsub_abbrev_tac `state_rel _ _ tt`
+      \\ `tt = t2 with refs := t2.refs |+ (b2 ptr,Thunk m (adjust_bv b2 h))` by (
+        unabbrev_all_tac \\ gvs [state_component_equality])
+      \\ qunabbrev_tac `tt` \\ gvs []
+      \\ irule state_rel_update_thunk \\ gvs []
+      \\ imp_res_tac evaluate_ok \\ gvs [FLOOKUP_DEF])
+    \\ `∀thunk_op. op ≠ ThunkOp thunk_op` by (
+      qx_gen_tac `t` \\ Cases_on `t` \\ gvs [])
+    \\ gvs []
     \\ Cases_on `?i. op = IntOp (Const i)` \\ full_simp_tac(srw_ss())[] THEN1
      (note_tac "Op: Const" \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b2`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
@@ -3272,7 +3761,8 @@ Proof
         \\ simp[MAP_EQ_f] \\ rw[] \\ fs[EVERY_MEM]
         \\ match_mp_tac (GEN_ALL bv_ok_IMP_adjust_bv_eq) \\ qexists_tac `s5.refs`
         \\ simp[APPLY_UPDATE_THM] \\ rw[]
-        \\ fs[Abbr`a`,LEAST_NOTIN_FDOM] )
+        >- fs[Abbr`a`,LEAST_NOTIN_FDOM]
+        >- fs[Abbr`a'`,LEAST_NOTIN_FDOM])
       \\ simp[FLOOKUP_UPDATE,APPLY_UPDATE_THM]
       \\ ntac 2 strip_tac
       \\ first_x_assum drule

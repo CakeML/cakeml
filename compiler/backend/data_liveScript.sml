@@ -43,6 +43,7 @@ Definition is_pure_def:
   (is_pure (MemOp (CopyByte _)) = F) /\
   (is_pure (MemOp ConfigGC) = F) /\
   (is_pure Install = F) /\
+  (is_pure (ThunkOp _) = F) /\
   (is_pure _ = T)
 End
 
@@ -83,6 +84,7 @@ Theorem is_pure_pmatch:
     | IntOp LessEq => F
     | Install => F
     | MemOp ConfigGC => F
+    | ThunkOp _ => F
     | _ => T
 Proof
   rpt strip_tac

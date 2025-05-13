@@ -50,6 +50,7 @@ Definition op_space_reset_def:
   (op_space_reset (MemOp (CopyByte new_flag)) = new_flag) /\
   (op_space_reset (MemOp ConfigGC) = T) /\
   (op_space_reset (FFI _) = T) /\
+  (op_space_reset (ThunkOp ForceThunk) = T) /\
   (op_space_reset _ = F)
 End
 

@@ -512,16 +512,18 @@ Proof
       \\ fs [])
     \\ IF_CASES_TAC \\ rveq \\ fs []
     THEN1 (* Op = ThunkOp ForceThunk *)
-     (gvs [oneline dest_thunk_def, AllCaseEqs()]
-      \\ imp_res_tac (cj 1 state_rel_opt_rel_refs)
-      \\ qpat_x_assum `opt_rel ref_rel _ _` mp_tac
-      \\ simp [oneline opt_rel_def] \\ CASE_TAC \\ gvs [PULL_EXISTS]
-      \\ rgs [Once ref_rel_cases]
-      \\ imp_res_tac state_rel_clocks_eqs \\ gvs [PULL_EXISTS]
-      \\ imp_res_tac state_rel_dec_clock \\ gvs []
-      \\ last_x_assum drule_all \\ rw [AppUnit_def, let_op_def]
-      \\ goal_assum drule \\ rw []
-      \\ drule_all rel_update_thunk \\ rw [])
+     (gvs [AllCaseEqs()]
+      \\ (
+        gvs [oneline dest_thunk_def, AllCaseEqs()]
+        \\ imp_res_tac (cj 1 state_rel_opt_rel_refs)
+        \\ qpat_x_assum `opt_rel ref_rel _ _` mp_tac
+        \\ simp [oneline opt_rel_def] \\ CASE_TAC \\ gvs [PULL_EXISTS]
+        \\ rgs [Once ref_rel_cases]
+        \\ imp_res_tac state_rel_clocks_eqs \\ gvs [PULL_EXISTS]
+        \\ imp_res_tac state_rel_dec_clock \\ gvs []
+        \\ last_x_assum drule_all \\ rw [AppUnit_def, let_op_def]
+        \\ goal_assum drule \\ rw []
+        \\ drule_all rel_update_thunk \\ rw []))
    (* op <> Install /\ op <> ThunkOp ForceThunk *)
    \\ drule EVERY2_REVERSE \\ disch_tac
    \\ drule (GEN_ALL do_app_lemma)

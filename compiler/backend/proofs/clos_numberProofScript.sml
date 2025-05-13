@@ -825,6 +825,7 @@ Proof
       \\ imp_res_tac state_rel_max_app \\ gvs []
       \\ imp_res_tac evaluate_const \\ gvs []
       \\ imp_res_tac state_rel_clock \\ gvs []
+      \\ gvs [AllCaseEqs()]
       \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
       \\ rgs [Once v_rel_cases]
       \\ imp_res_tac state_rel_refs \\ gvs [fmap_rel_def, FLOOKUP_DEF]

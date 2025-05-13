@@ -641,6 +641,7 @@ Proof
     \\ `∀ck'. evaluate (es,env1,s1 with clock := ck + (ck' + s1.clock)) =
          (Rval a,s2 with clock := s2.clock + ck')` by (
       rw [] \\ drule evaluate_add_clock \\ gvs []) \\ gvs []
+    \\ gvs [AllCaseEqs()]
     \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
     \\ TRY (qexists `0` \\ gvs [state_rel_def] \\ NO_TAC)
     \\ imp_res_tac (cj 2 state_rel_opt_rel_refs)

@@ -1050,7 +1050,8 @@ Proof
     \\ gvs [FUPDATE_LIST]
     \\ gvs [AllCaseEqs()])
   >~ [`ThunkOp ForceThunk`] >- (
-    gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+    gvs [AllCaseEqs()]
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
     \\ qrefine `ck + ck'` \\ gvs []
     \\ `∀ck'. evaluate (xs,env,t1 with clock := ck + (ck' + t1.clock)) =
           (Rval [RefPtr v0 ptr],t2 with clock := ck' + t2.clock)` by (
@@ -1064,10 +1065,11 @@ Proof
       \\ gvs [GSYM PULL_FORALL]
       \\ impl_tac
       >- (imp_res_tac evaluate_clock \\ gvs [])
-      \\ disch_then $ qspec_then `[f]` mp_tac \\ gvs [dec_clock_def]
+      \\ disch_then $ qspec_then `[v]` mp_tac \\ gvs [dec_clock_def]
       \\ disch_then $ qspec_then `dec_clock 1 t2` mp_tac \\ gvs [dec_clock_def]
       \\ impl_tac
-      >- gvs [state_rel_def] \\ rw []
+      >- gvs [state_rel_def]
+      \\ rw []
       \\ goal_assum drule \\ gvs []
       \\ imp_res_tac state_rel_update_thunk \\ rw []))
 QED

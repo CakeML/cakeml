@@ -187,6 +187,7 @@ Proof
     rw [REVERSE_DEF] \\
     imp_res_tac evaluate_SING  \\
     fs [] \\
+    gvs [oneline dest_thunk_def, AllCaseEqs()] \\
     intLib.COOPER_TAC)
   \\ fs []
   \\ every_case_tac \\ fs []
@@ -294,6 +295,8 @@ Proof
     \\ res_tac \\ rw [] \\ Cases_on `e` \\ fs [] \\ rw [] \\ fs []
     \\ first_x_assum match_mp_tac
     \\ fs [env_rel_def])
+  \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+  >- (gvs [AllCaseEqs()] \\ irule SmartOp_thm \\ rw [evaluate_def])
   \\ TRY (match_mp_tac SmartOp_thm)
   \\ fs [evaluate_def] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs []

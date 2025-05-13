@@ -1777,7 +1777,7 @@ Proof
              store_lookup_def]
         \\ rgs [Once v_rel_cases]
         \\ `∃a. EL n t2.refs = Thunk NotEvaluated a ∧
-                v_rel f a` by (
+                v_rel v a` by (
           gvs [state_rel_def, LIST_REL_EL_EQN]
           \\ qpat_x_assum `∀n. n < LENGTH t2.refs ⇒ _` drule \\ rw []
           \\ Cases_on `EL n t2.refs` \\ gvs []) \\ gvs []
@@ -1793,7 +1793,7 @@ Proof
         \\ gvs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE]
         \\ rw []
         >- (
-          qpat_x_assum `v_rel v y` mp_tac
+          qpat_x_assum `v_rel v'' y` mp_tac
           \\ gvs [oneline dest_thunk_def, AllCaseEqs()]
           \\ rw [Once v_rel_cases]
           \\ gvs [store_lookup_def]
@@ -1808,7 +1808,7 @@ Proof
              store_lookup_def]
         \\ rgs [Once v_rel_cases]
         \\ `∃a. EL n t2.refs = Thunk NotEvaluated a ∧
-                v_rel f a` by (
+                v_rel v a` by (
           gvs [state_rel_def, LIST_REL_EL_EQN]
           \\ qpat_x_assum `∀n. n < LENGTH t2.refs ⇒ _` drule \\ rw []
           \\ Cases_on `EL n t2.refs` \\ gvs []) \\ gvs []

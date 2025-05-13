@@ -1083,7 +1083,7 @@ Proof
       gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
       \\ gvs [s_rel_def, LIST_REL_EL_EQN]
       \\ `∃a. EL n refs'' = Thunk NotEvaluated a ∧
-              v_rel orac_s'' f a` by (
+              v_rel orac_s'' v a` by (
         first_x_assum drule \\ rw []
         \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs []
       \\ simp [state_component_equality])
@@ -1091,7 +1091,7 @@ Proof
       gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
       \\ `n < LENGTH t''.refs ∧
           ∃a. EL n t''.refs = Thunk NotEvaluated a ∧
-          v_rel (orac_s t''.eval_state) f a` by (
+          v_rel (orac_s t''.eval_state) v a` by (
         gvs [s_rel_def, LIST_REL_EL_EQN]
         \\ first_x_assum drule \\ rw []
         \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs []
@@ -1110,8 +1110,8 @@ Proof
       \\ gvs [oneline store_assign_def] \\ rw []
       >- (
         gvs [oneline dest_thunk_def]
-        \\ qpat_x_assum `v_rel _ v y` mp_tac
-        \\ Cases_on `v` \\ Cases_on `y` \\ rw [Once v_rel_cases]
+        \\ qpat_x_assum `v_rel _ v'' y` mp_tac
+        \\ Cases_on `v''` \\ Cases_on `y` \\ rw [Once v_rel_cases]
         >- (
           gvs [oneline store_v_same_type_def]
           \\ gvs [oneline store_lookup_def]
@@ -1136,7 +1136,7 @@ Proof
       gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
       \\ `n < LENGTH t''.refs ∧
           ∃a. EL n t''.refs = Thunk NotEvaluated a ∧
-          v_rel (orac_s t''.eval_state) f a` by (
+          v_rel (orac_s t''.eval_state) v a` by (
         gvs [s_rel_def, LIST_REL_EL_EQN]
         \\ first_x_assum drule \\ rw []
         \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs []

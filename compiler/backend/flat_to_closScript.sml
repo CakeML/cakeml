@@ -96,11 +96,6 @@ Definition CopyByteAw8_def:
   CopyByteAw8 t = ^checkF
 End
 
-Definition thunk_mode_to_digit_def[simp]:
-  thunk_mode_to_digit NotEvaluated : num = 0 ∧
-  thunk_mode_to_digit Evaluated = 1
-End
-
 Definition compile_op_def:
   compile_op t op xs =
     dtcase op of

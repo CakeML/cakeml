@@ -213,6 +213,37 @@ Proof
     \\ drule evaluate_add_clock \\ fs [inc_clock_def])
   THEN1 (* Op *)
    (fs [remove_ticks_def,evaluate_def]
+    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+    >- (
+      Cases_on `evaluate (remove_ticks xs,env,s)` \\ gvs []
+      \\ reverse $ Cases_on `q` \\ gvs []
+      >- (
+        first_x_assum drule \\ gvs []
+        \\ disch_then drule \\ strip_tac
+        \\ qexists `ck` \\ gvs [])
+      \\ first_x_assum drule \\ gvs []
+      \\ disch_then drule \\ strip_tac
+      \\ `t'.refs = r.refs` by gvs [state_rel_def]
+      \\ `t'.clock = r.clock` by gvs [state_rel_def]
+      \\ gvs [AllCaseEqs(), PULL_EXISTS]
+      \\ TRY (qexists `ck` \\ gvs [] \\ NO_TAC)
+      \\ (
+        qrefine `ck' + ck`
+        \\ `∀ck'. evaluate (xs,env,t with clock := ck' + ck + t.clock) =
+                    (Rval a,t' with clock := ck' + t'.clock)` by (
+          imp_res_tac evaluate_add_clock \\ gvs [inc_clock_def])
+        \\ gvs [PULL_EXISTS]
+        \\ `evaluate (remove_ticks [AppUnit],[v],dec_clock 1 r) =
+           evaluate ([AppUnit],[v],dec_clock 1 r)`
+          by gvs [AppUnit_def, mk_unit_def, remove_ticks_def]
+        \\ gvs []
+        \\ `(dec_clock 1 r).clock < s.clock` by (
+          imp_res_tac evaluate_clock \\ gvs [dec_clock_def])
+        \\ `state_rel (dec_clock 1 t') (dec_clock 1 r)` by (
+          gvs [state_rel_def, dec_clock_def])
+        \\ last_x_assum drule_all \\ rw [dec_clock_def]
+        \\ goal_assum drule \\ gvs []
+        \\ gvs [state_rel_def]))
     \\ FULL_CASE_TAC \\ fs []
     \\ first_x_assum drule \\ fs []
     \\ disch_then drule \\ strip_tac
@@ -907,6 +938,16 @@ Proof
   \\ imp_res_tac do_app_const \\ fs []
 QED
 
+Theorem exp_rel_refl:
+   !cs xs. exp_rel cs xs xs
+Proof
+  ho_match_mp_tac tick_inline_ind \\ rw []
+  \\ once_rewrite_tac [exp_rel_cases] \\ fs []
+  \\ Cases_on `dest` \\ fs []
+  \\ Cases_on `lookup x cs` \\ fs []
+  \\ Cases_on `x'` \\ fs []
+QED
+
 Theorem evaluate_inline:
    !es env s1 res t1 s2 es2.
       in_state_rel limit s1 t1 /\ exp_rel s1.code es es2 /\
@@ -965,7 +1006,20 @@ Proof
     \\ drule subspt_exp_rel \\ disch_then drule \\ rw []
     \\ pop_assum drule \\ rw [] \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs []
+   (Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+    >- (
+      gvs [evaluate_def]
+      \\ gvs [AllCaseEqs(), PULL_EXISTS]
+      \\ (
+        first_x_assum drule_all \\ rw [] \\ gvs [PULL_EXISTS]
+        \\ `s'.refs = t2.refs` by gvs [in_state_rel_def] \\ gvs [PULL_EXISTS]
+        \\ `s'.clock = t2.clock` by gvs [in_state_rel_def] \\ gvs []
+        \\ `in_state_rel limit (dec_clock 1 s') (dec_clock 1 t2)`
+           by gvs [in_state_rel_def, dec_clock_def]
+        \\ last_x_assum drule
+        \\ disch_then $ qspec_then `[AppUnit]` assume_tac
+        \\ gvs [exp_rel_refl, in_state_rel_def]))
+    \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ first_x_assum drule
     \\ disch_then drule \\ strip_tac
     \\ fs [evaluate_def]
@@ -1022,16 +1076,6 @@ Proof
   \\ `FST (evaluate ([y],args,dec_clock (ticks + 1) t2)) <>
       Rerr (Rabort Rtype_error)` by fs []
   \\ drule evaluate_expand_env \\ fs []
-QED
-
-Theorem exp_rel_refl:
-   !cs xs. exp_rel cs xs xs
-Proof
-  ho_match_mp_tac tick_inline_ind \\ rw []
-  \\ once_rewrite_tac [exp_rel_cases] \\ fs []
-  \\ Cases_on `dest` \\ fs []
-  \\ Cases_on `lookup x cs` \\ fs []
-  \\ Cases_on `x'` \\ fs []
 QED
 
 Definition in_co_def:
@@ -1526,6 +1570,14 @@ Proof
      (first_x_assum drule \\ rw [] \\ fs []
       \\ TOP_CASE_TAC \\ fs []
       \\ fs [evaluate_def]
+      \\ Cases_on `x = ThunkOp ForceThunk` \\ gvs [] >- (
+        Cases_on `HD (let_op [x2])` \\ gvs [dest_op_def]
+        \\ drule (GEN_ALL var_list_IMP_evaluate) \\ fs [LENGTH_let_op]
+        \\ imp_res_tac evaluate_IMP_LENGTH
+        \\ disch_then drule \\ rw []
+        \\ qsuff_tac `let_op [x2] = [Op (ThunkOp ForceThunk) l]`
+        >- (rw [] \\ gvs [evaluate_def])
+        \\ once_rewrite_tac [GSYM HD_let_op] \\ gvs [])
       \\ Cases_on `HD (let_op [x2])` \\ fs [dest_op_def] \\ rveq
       \\ drule (GEN_ALL var_list_IMP_evaluate) \\ fs [LENGTH_let_op]
       \\ imp_res_tac evaluate_IMP_LENGTH
@@ -1543,7 +1595,19 @@ Proof
    (fs [case_eq_thms] \\ rveq \\ fs []
    \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs []
+   (Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+    >- (
+      gvs [AllCaseEqs(), PULL_EXISTS]
+      \\ (
+        first_x_assum drule \\ rw [] \\ gvs [PULL_EXISTS]
+        \\ `s'.refs = t2.refs` by gvs [let_state_rel_def] \\ gvs [PULL_EXISTS]
+        \\ `s'.clock = t2.clock` by gvs [let_state_rel_def] \\ gvs []
+        \\ `let_state_rel q4 l4 (dec_clock 1 s') (dec_clock 1 t2)`
+          by gvs [let_state_rel_def, dec_clock_def]
+        \\ last_x_assum drule \\ rw [AppUnit_def, let_op_def, mk_unit_def]
+        \\ gvs []
+        \\ gvs [let_state_rel_def]))
+    \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ res_tac \\ fs [] \\ res_tac \\ fs []
     \\ rveq \\ fs []
     \\ drule (do_app_lemma |> Q.GEN `a` |> Q.SPEC `REVERSE vs`)

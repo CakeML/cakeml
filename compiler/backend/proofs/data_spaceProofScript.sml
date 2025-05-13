@@ -1,7 +1,7 @@
 (*
   Correctness proof for data_space
 *)
-open preamble data_spaceTheory dataSemTheory dataPropsTheory;
+open preamble dataLangTheory data_spaceTheory dataSemTheory dataPropsTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -32,8 +32,6 @@ Proof
   Induct \\ fs [get_vars_def] \\ rw [] \\ every_case_tac \\ fs []
   \\ rw [] \\ fs [] \\ res_tac \\ fs []
 QED
-
-val case_eq_thms = bvlPropsTheory.case_eq_thms;
 
 Theorem do_stack_with_space:
   ∀op vs s z . do_stack op vs (s with space := z) = (do_stack op vs s) with space := z
@@ -77,7 +75,21 @@ Proof
     \\ fs[lookup_insert,state_component_equality]
     \\ METIS_TAC [])
   THEN1 (* Assign *)
-   (BasicProvers.TOP_CASE_TAC \\ fs[cut_state_opt_def]
+   (Cases_on `op = ThunkOp ForceThunk` >- (
+      gvs [op_requires_names_def, op_space_reset_def, cut_state_opt_def,
+           cut_state_def, AllCaseEqs(), PULL_EXISTS]
+      \\ imp_res_tac locals_ok_cut_env \\ gvs []
+      \\ (
+        (qmatch_goalsub_abbrev_tac `locals_ok ss.locals _`)
+           ORELSE (qabbrev_tac `ss = s`)
+        \\ qexistsl [`ss.locals`, `ss.safe_for_space`, `ss.peak_heap_length`,
+                     `ss.stack_max`] \\ gvs [Abbr `ss`, state_component_equality]
+        \\ gvs [cut_env_def]
+        \\ `locals_ok s.locals s.locals` by gvs [locals_ok_refl]
+        \\ gvs [locals_ok_def] \\ rw []
+        \\ gvs [lookup_inter_alt]))
+    \\ gvs []
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[cut_state_opt_def]
     \\ BasicProvers.CASE_TAC \\ fs[]
     THEN1 (Cases_on `get_vars args s.locals`
       \\ fs[cut_state_opt_def]
@@ -212,7 +224,8 @@ Proof
       \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe'''`,`peak'''`,`smx'''`]
       \\ IF_CASES_TAC \\ fs [])
     THEN1 (* Assign *)
-     (fs[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
+     (Cases_on `o' = ThunkOp ForceThunk` >- cheat \\ gvs []
+      \\ fs[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
       \\ fs[evaluate_def,cut_state_opt_def]
       THEN1
        (fs[pMakeSpace_def,space_def,evaluate_def,

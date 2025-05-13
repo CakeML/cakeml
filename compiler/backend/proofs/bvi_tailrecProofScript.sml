@@ -570,7 +570,15 @@ Proof
     \\ rfs [EL_APPEND1, EL_APPEND2, EL_LENGTH_APPEND])
   \\ CASE_TAC \\ fs []
   >-
-   (rw [case_eq_thms, case_elim_thms, IS_SOME_EXISTS, PULL_EXISTS, bool_case_eq,
+   (Cases_on `op = ThunkOp ForceThunk`
+    >- (
+      gvs [AllCaseEqs()]
+      >- gvs [ty_rel_def]
+      \\ qspecl_then
+           [`[AppUnit]`, `[v]`, `dec_clock 1 s'`] assume_tac evaluate_LENGTH
+      \\ gvs []
+      \\ Cases_on `vs` \\ gvs [ty_rel_def])
+    \\ rw [case_eq_thms, case_elim_thms, IS_SOME_EXISTS, PULL_EXISTS, bool_case_eq,
         pair_case_eq, from_op_def, arg_ty_def, op_ty_def]
     \\ fs [pair_case_eq, case_elim_thms, case_eq_thms] \\ rw [] \\ fs []
     \\ fs [op_type_def, arg_ty_def, ty_rel_def, get_bin_args_def, case_elim_thms,
@@ -595,6 +603,7 @@ Proof
   \\ rpt (PURE_TOP_CASE_TAC \\ fs []) \\ rveq
   \\ fs [evaluate_def, bool_case_eq, pair_case_eq, case_eq_thms, case_elim_thms] \\ rveq
   \\ fs [] \\ rveq \\ rfs []
+  \\ imp_res_tac evaluate_SING_IMP \\ gvs []
   \\ metis_tac []
 QED
 
@@ -1260,6 +1269,12 @@ Proof
   Cases_on `op` \\ fs [op_type_def]
 QED
 
+Triviality to_op_not_ForceThunk[simp]:
+  ∀op. to_op op ≠ ThunkOp ForceThunk
+Proof
+  strip_tac \\ gvs [oneline to_op_def, AllCaseEqs()]
+QED
+
 Theorem evaluate_rewrite_tail:
    ∀xs ^s env1 r t opt s' acc env2 loc ts ty.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -1625,7 +1640,36 @@ Proof
     \\ simp [LEFT_EXISTS_AND_THM, CONJ_ASSOC]
     \\ conj_tac
     >-
-     (first_x_assum (qspecl_then [`xs`, `s`] mp_tac)
+     (Cases_on `op = ThunkOp ForceThunk`
+      >- (
+        gvs []
+        \\ last_assum $ qspecl_then [`xs`, `s`] mp_tac \\ gvs[]
+        \\ impl_tac
+        >- simp [bviTheory.exp_size_def]
+        \\ `env_rel ty F acc env1 env2` by fs [env_rel_def] \\ gvs []
+        \\ rpt (disch_then drule) \\ rw []
+        \\ gvs [AllCaseEqs(), PULL_EXISTS]
+        \\ `r'.refs = t'.refs` by gvs [state_rel_def]
+        \\ `r'.clock = t'.clock` by gvs [state_rel_def]
+        \\ gvs []
+        \\ (
+          gvs [PULL_EXISTS]
+          \\ last_x_assum $ qspecl_then [`[AppUnit]`, `dec_clock 1 r'`] mp_tac
+          \\ impl_tac
+          >- (imp_res_tac evaluate_clock \\ gvs [dec_clock_def])
+          \\ disch_then drule \\ gvs []
+          \\ `env_rel ty F acc [v] [v]` by gvs [env_rel_def]
+          \\ disch_then drule \\ gvs []
+          \\ `state_rel (dec_clock 1 r') (dec_clock 1 t')` by
+            gvs [state_rel_def, dec_clock_def]
+          \\ disch_then drule \\ gvs []
+          \\ `ty_rel [v] [Any]` by gvs [ty_rel_def]
+          \\ disch_then drule \\ gvs [] \\ rw []
+          \\ goal_assum drule \\ gvs []
+          \\ `s''.refs = t''.refs` by gvs [state_rel_def] \\ gvs []
+          \\ gvs [state_rel_def]))
+      \\ gvs []
+      \\ first_x_assum (qspecl_then [`xs`, `s`] mp_tac)
       \\ simp [bviTheory.exp_size_def]
       \\ `env_rel ty F acc env1 env2` by fs [env_rel_def]
       \\ rpt (disch_then drule) \\ fs []

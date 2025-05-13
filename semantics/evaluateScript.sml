@@ -55,21 +55,36 @@ Definition do_real_check_def:
          | _ => SOME r))
 End
 
+(* With `dest_thunk` we check 3 things:
+     - The values contain exactly one reference
+     - The reference is valid
+     - The reference points to a thunk
+   We distinguish between `BadRef` and `NotThunk` instead of returning an option
+   with `NONE` for both, because we want `update_thunk` to succeed when
+   `dest_thunk` fails but only when the reference actually exists and points to
+   something other than a thunk. *)
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
 Definition dest_thunk_def:
   dest_thunk [Loc _ n] st =
     (case store_lookup n st of
-     | SOME (Thunk Evaluated v) => SOME (INL v)
-     | SOME (Thunk NotEvaluated v) => SOME (INR v)
-     | _ => NONE) ∧
-  dest_thunk vs st = NONE
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs st = NotThunk
 End
 
 Definition update_thunk_def:
   update_thunk [Loc _ n] st [v] =
-    (if dest_thunk [v] st = NONE then
-       store_assign n (Thunk Evaluated v) st
-     else
-       NONE) ∧
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
   update_thunk _ st _ = NONE
 End
 
@@ -141,9 +156,10 @@ Definition evaluate_def[nocompute]:
         )
      | Force =>
         (case dest_thunk vs st'.refs of
-         | NONE => (st', Rerr (Rabort Rtype_error))
-         | SOME (INL v) => (st', Rval [v])
-         | SOME (INR f) =>
+         | BadRef => (st', Rerr (Rabort Rtype_error))
+         | NotThunk => (st', Rerr (Rabort Rtype_error))
+         | IsThunk Evaluated v => (st', Rval [v])
+         | IsThunk NotEvaluated f =>
             if st'.clock = 0 then
               (st', Rerr (Rabort Rtimeout_error))
             else

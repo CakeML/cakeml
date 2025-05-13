@@ -15,7 +15,7 @@ Definition can_raise_def:
   (can_raise (Let xs x2) = (can_raise x2 ∨ can_raise1 xs)) ∧
   (can_raise (Handle x1 x2) = can_raise x2) ∧
   (can_raise (Raise x1) = T) ∧
-  (can_raise (Op op xs) = can_raise1 xs) ∧
+  (can_raise (Op op xs) = (op = ThunkOp ForceThunk ∨ can_raise1 xs)) ∧
   (can_raise (Tick x) = can_raise x) ∧
   (can_raise (Call t dest xs) = T) ∧
   (can_raise1 [] = F) ∧

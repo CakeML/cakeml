@@ -4326,7 +4326,7 @@ Proof
       `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
       gvs[] >>
       `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
-             v_rel genv' f v'` by (
+             v_rel genv' v v'` by (
         first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases] >>
       goal_assum drule >> rw[])
@@ -4342,7 +4342,7 @@ Proof
       `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
       gvs[] >>
       `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
-             v_rel genv' f v'` by (
+             v_rel genv' v v'` by (
         first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
       last_x_assum mp_tac >>
@@ -4355,9 +4355,9 @@ Proof
         gvs[invariant_def, evaluateTheory.dec_clock_def, dec_clock_def] >>
         gvs[s_rel_cases] >>
         gvs[env_all_rel_cases] >> rw[] >>
-        qexistsl [`nsBind "f" f nsEmpty`, `<|c := nsEmpty; v := nsEmpty|>`] >>
+        qexistsl [`nsBind "f" v nsEmpty`, `<|c := nsEmpty; v := nsEmpty|>`] >>
         rw[evaluateTheory.sing_env_def]
-        >- (qexists `[("f",f)]` >> rw[])
+        >- (qexists `[("f",v)]` >> rw[])
         >- simp[Once v_rel_cases]
         >- ntac 2 (simp[Once v_rel_cases])) >>
       rw[] >> gvs[] >>
@@ -4368,11 +4368,13 @@ Proof
       rw[Once result_rel_cases] >>
       gvs[oneline evaluateTheory.update_thunk_def, AllCaseEqs()] >>
       simp[update_thunk_def] >>
-      `dest_thunk [y] s'_i1'.refs = NONE` by (
-        qpat_x_assum `v_rel _ v y` mp_tac >>
-        Cases_on `v` >> Cases_on `y` >>
+      `dest_thunk [y] s'_i1'.refs = NotThunk` by (
+        qpat_x_assum `v_rel _ v'3' y` mp_tac >>
+        Cases_on `v'3'` >> Cases_on `y` >>
         rw[Once v_rel_cases, dest_thunk_def, Boolv_def] >>
-        gvs[evaluateTheory.dest_thunk_def, store_lookup_def] >> rw[] >>
+        gvs[evaluateTheory.dest_thunk_def, store_lookup_def] >>
+        reverse $ rw []
+        >- (Cases_on `s'_i1'.refs` >> gvs []) >>
         `n' < LENGTH (TL s'_i1'.refs)` by (Cases_on `s'_i1'.refs` >> gvs[]) >>
         gvs[] >>
         first_x_assum drule >> simp[REWRITE_RULE [ADD1] EL] >>
@@ -4414,7 +4416,7 @@ Proof
       `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
       gvs[] >>
       `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
-             v_rel genv' f v'` by (
+             v_rel genv' v v'` by (
         first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
       last_x_assum mp_tac >>
@@ -4427,9 +4429,9 @@ Proof
         gvs[invariant_def, evaluateTheory.dec_clock_def, dec_clock_def] >>
         gvs[s_rel_cases] >>
         gvs[env_all_rel_cases] >> rw[] >>
-        qexistsl [`nsBind "f" f nsEmpty`, `<|c := nsEmpty; v := nsEmpty|>`] >>
+        qexistsl [`nsBind "f" v nsEmpty`, `<|c := nsEmpty; v := nsEmpty|>`] >>
         rw[evaluateTheory.sing_env_def]
-        >- (qexists `[("f",f)]` >> rw[])
+        >- (qexists `[("f",v)]` >> rw[])
         >- simp[Once v_rel_cases]
         >- ntac 2 (simp[Once v_rel_cases])) >>
       rw[] >> gvs[] >>

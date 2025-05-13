@@ -36,6 +36,7 @@ Definition op_space_req_def:
   (op_space_req (WordOp (FP_uop _)) _ = 3) /\
   (op_space_req (WordOp (FP_bop _)) _ = 3) /\
   (op_space_req (WordOp (FP_top _)) _ = 3) /\
+  (op_space_req (ThunkOp (AllocThunk _)) l = l + 1) /\
   (op_space_req _ _ = 0)
 End
 

@@ -452,12 +452,9 @@ Proof
   >- (
     gvs [AllCaseEqs()]
     \\ step_tac
-    \\ fs[is_clock_io_mono_def, dec_clock_def]
-    \\ Cases_on `a` \\ gvs[update_thunk_def]
-    \\ Cases_on `h` \\ gvs[update_thunk_def]
-    \\ Cases_on `t` \\ gvs[update_thunk_def]
-    \\ Cases_on `a'` \\ gvs[update_thunk_def]
-    \\ Cases_on `t` \\ gvs[update_thunk_def, store_assign_def])
+    \\ fs [is_clock_io_mono_def, dec_clock_def]
+    \\ gvs [oneline update_thunk_def, oneline dest_thunk_def, store_assign_def,
+            AllCaseEqs()])
   >- (assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_simple) \\ fs[])
   >- (assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_icing) \\ gs[])
   \\ assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_real) \\ fs[])

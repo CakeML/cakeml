@@ -576,13 +576,21 @@ Proof
   \\ pairarg_tac \\ gvs[case_eq_thms,pair_case_eq,bool_case_eq]
 QED
 
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
 Definition dest_thunk_def:
   dest_thunk [RefPtr _ ptr] refs =
     (case FLOOKUP refs ptr of
-     | SOME (Thunk Evaluated v) => SOME (INL v)
-     | SOME (Thunk NotEvaluated v) => SOME (INR v)
-     | _ => NONE) ∧
-  dest_thunk vs refs = NONE
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs refs = NotThunk
 End
 
 Definition store_thunk_def:
@@ -594,10 +602,9 @@ End
 
 Definition update_thunk_def:
   update_thunk [RefPtr _ ptr] refs [v] =
-    (if dest_thunk [v] refs = NONE then
-       store_thunk ptr (Thunk Evaluated v) refs
-     else
-       NONE) ∧
+    (case dest_thunk [v] refs of
+     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
+     | _ => NONE) ∧
   update_thunk _ _ _ = NONE
 End
 
@@ -647,9 +654,10 @@ Definition evaluate_def[nocompute]:
         | (Rerr err,s) => (Rerr err,s))
        else if op = ThunkOp ForceThunk then
          (case dest_thunk vs s.refs of
-          | NONE => (Rerr (Rabort Rtype_error),s)
-          | SOME (INL v) => (Rval [v],s)
-          | SOME (INR f) =>
+          | BadRef => (Rerr (Rabort Rtype_error),s)
+          | NotThunk => (Rerr (Rabort Rtype_error),s)
+          | IsThunk Evaluated v => (Rval [v],s)
+          | IsThunk NotEvaluated f =>
              if s.clock = 0 then
                (Rerr (Rabort Rtimeout_error),s)
              else
