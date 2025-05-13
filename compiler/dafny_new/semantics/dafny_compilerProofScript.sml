@@ -8,6 +8,7 @@ open evaluateTheory
 open dafny_semanticPrimitivesTheory
 open dafny_evaluateTheory
 open namespaceTheory
+open mlstringTheory
 
 (* For compiler definitions *)
 open result_monadTheory
@@ -21,12 +22,12 @@ Overload Unit = “Con NONE []”
 Overload False = “Con (SOME (Short "False")) []”
 Overload True = “Con (SOME (Short "True")) []”
 
-(* Generates strings of the form _0, _1, etc., to be used for matching tuples *)
+(* Generates strings of the form  0,  1, etc., to be used for matching tuples *)
 Definition cml_tup_vname_def:
-  cml_tup_vname (idx : num) = explode («_» ^ (num_to_str idx))
+  cml_tup_vname (idx : num) = explode (« » ^ (num_to_str idx))
 End
 
-(* Generates code of the form: case cml_te of (_0, _1, ...) => cml_e *)
+(* Generates code of the form: case cml_te of ( 0,  1, ...) => cml_e *)
 Definition cml_tup_case_def:
   cml_tup_case len cml_te cml_e =
   let tup_pvars = GENLIST (λn. Pvar (cml_tup_vname n)) len in
@@ -78,7 +79,7 @@ Definition from_bin_op_def:
   from_bin_op Eq cml_e₀ cml_e₁ =
     App Equality [cml_e₀; cml_e₁] ∧
   from_bin_op Neq cml_e₀ cml_e₁ =
-    from_un_op Not (from_bin_op Eq cml_e₀ cml_e₁) ∧
+    If (App Equality [cml_e₀; cml_e₁]) False True ∧
   from_bin_op Sub cml_e₀ cml_e₁ =
     App (Opn Minus) [cml_e₀; cml_e₁] ∧
   from_bin_op Add cml_e₀ cml_e₁ =
@@ -92,7 +93,12 @@ Definition from_bin_op_def:
   from_bin_op Imp cml_e₀ cml_e₁ =
     If cml_e₀ cml_e₁ True ∧
   from_bin_op Div cml_e₀ cml_e₁ =
-    cml_fapp ["Dafny"] "ediv" [cml_e₀; cml_e₁]
+  (* See HOL's EDIV_DEF: if 0 < j then i div j else ~(i div ~j) *)
+  let neg_cml_e₁ = App (Opn Minus) [Lit (IntLit 0); cml_e₁] in
+    If (App (Opb Lt) [Lit (IntLit 0); cml_e₁])
+       (App (Opn Divide) [cml_e₀; cml_e₁])
+       (App (Opn Minus)
+            [Lit (IntLit 0); App (Opn Divide) [cml_e₀; neg_cml_e₁]])
 Termination
   wf_rel_tac ‘measure (λx. case x of
                            | (Neq, _, _) => bin_op_size Neq + 1
@@ -126,7 +132,7 @@ Definition from_exp_def:
     cml_e₀ <- from_exp e₀;
     cml_e₁ <- from_exp e₁;
     (* Force left-to-right order *)
-    n_e₀ <<- "_e0";
+    n_e₀ <<- " l";
     return (Let (SOME n_e₀) cml_e₀
              (from_bin_op bop (Var (Short n_e₀)) cml_e₁))
   od ∧
@@ -206,7 +212,9 @@ Definition locals_rel_def:
     INJ (λx. l ' x) (FDOM l) 𝕌(:num) ∧
     ∀var dfy_v.
       (* SOME dfy_v means that the local was initialized *)
-      read_local s_locals var = (SOME dfy_v) ⇒
+      read_local s_locals var = (SOME dfy_v) ∧
+      (* Names starting with space are reserved for the compiler *)
+      ¬(isPrefix « » var) ⇒
       ∃loc cml_v.
         FLOOKUP l var = SOME loc ∧
         (* locals map to references in CakeML *)
@@ -246,6 +254,7 @@ End
 
 Triviality read_local_some_imp:
   read_local s.locals name = SOME dfy_v ∧
+  ¬(isPrefix « » name) ∧
   state_rel m l s t env_cml ⇒
   ∃loc cml_v.
     FLOOKUP l name = SOME loc ∧
@@ -274,24 +283,84 @@ Proof
   \\ Cases_on ‘dfy_err’ \\ gvs []
 QED
 
-Triviality nsLookup_nsOptBind[simp]:
-  nsLookup (nsOptBind (SOME n) v env_v) (Short n) = SOME v
+(* NOTE If we have multiple of these, can abstract aways into a function that
+   takes a predicate, and walks the AST *)
+Definition valid_name_def[simp]:
+  (valid_name (Lit _) ⇔ T) ∧
+  (valid_name (Var name) ⇔ ¬(isPrefix « » name)) ∧
+  (valid_name (If tst thn els) ⇔
+     valid_name tst ∧ valid_name thn ∧ valid_name els) ∧
+  (valid_name (UnOp _ e) ⇔ valid_name e) ∧
+  (valid_name (BinOp _ e₀ e₁) ⇔
+     valid_name e₀ ∧ valid_name e₁) ∧
+  (valid_name (ArrLen arr) ⇔ valid_name arr) ∧
+  (valid_name (ArrSel arr idx) ⇔
+     valid_name arr ∧ valid_name idx) ∧
+  (valid_name (FunCall name es) ⇔
+     ¬(isPrefix « » name) ∧ EVERY valid_name es) ∧
+  (valid_name (Forall (name, _) term) ⇔
+     ¬(isPrefix « » name) ∧ valid_name term)
+Termination
+  wf_rel_tac ‘measure $ exp_size’
+End
+
+(* TODO Is there a better way to write these nsLookup lemmas? Maybe in a more
+     general form? *)
+Triviality nslookup_nsoptbind[simp]:
+  nsLookup (nsOptBind (SOME n) v env) (Short n) = SOME v
 Proof
-  Cases_on ‘env_v’ \\ gvs [nsOptBind_def, nsBind_def, nsLookup_def]
+  Cases_on ‘env’ \\ gvs [nsOptBind_def, nsBind_def, nsLookup_def]
 QED
 
-Theorem correct_exp:
+Triviality neq_nslookup_nsoptbind[simp]:
+  n ≠ n' ⇒
+  nsLookup (nsOptBind (SOME n') v env) (Short n) =
+  nsLookup env (Short n)
+Proof
+  Cases_on ‘env’ \\ gvs [nsOptBind_def, nsBind_def, nsLookup_def]
+QED
+
+Triviality isprefix_isprefix:
+  isPrefix s₁ s₂ ⇔ explode s₁ ≼ explode s₂
+Proof
+  cheat
+QED
+
+Triviality prefix_space_imp:
+  ¬isPrefix « » n ∧ " " ≼ n' ⇒ n' ≠ explode n
+Proof
+  rpt strip_tac \\ gvs [isprefix_isprefix]
+QED
+
+Triviality state_rel_env_push_internal:
+  " " ≼ n ∧ state_rel m l s t env ⇒
+  state_rel m l s t (env with v := nsOptBind (SOME n) v env.v)
+Proof
+  cheat
+QED
+
+Triviality state_rel_env_pop_internal:
+  " " ≼ n ∧
+  state_rel m l s t (env with v := nsOptBind (SOME n) v env.v) ⇒
+  state_rel m l s t env
+Proof
+  cheat
+QED
+
+Theorem correct_from_exp:
   (∀s env_dfy e_dfy s' r_dfy t env_cml e_cml m l.
      evaluate_exp s env_dfy e_dfy = (s', r_dfy) ∧
      from_exp e_dfy = INR e_cml ∧ state_rel m l s t env_cml ∧
-     env_rel env_dfy env_cml ∧ r_dfy ≠ Rerr Rtype_error
+     env_rel env_dfy env_cml ∧ valid_name e_dfy ∧
+     r_dfy ≠ Rerr Rtype_error
      ⇒ ∃t' r_cml.
          evaluate$evaluate t env_cml [e_cml] = (t', r_cml) ∧
          state_rel m l s' t' env_cml ∧ exp_res_rel m r_dfy r_cml) ∧
   (∀s env_dfy es_dfy s' rs_dfy t env_cml es_cml m l.
      evaluate_exps s env_dfy es_dfy = (s', rs_dfy) ∧
      map_from_exp es_dfy = INR es_cml ∧ state_rel m l s t env_cml ∧
-     env_rel env_dfy env_cml ∧ rs_dfy ≠ Rerr Rtype_error
+     env_rel env_dfy env_cml ∧ EVERY valid_name es_dfy ∧
+     rs_dfy ≠ Rerr Rtype_error
      ⇒ ∃t' rs_cml.
          evaluate$evaluate t env_cml es_cml = (t', rs_cml) ∧
          state_rel m l s' t' env_cml ∧ exp_ress_rel m rs_dfy rs_cml)
@@ -338,12 +407,12 @@ Proof
     \\ namedCases_on ‘evaluate_exp s env_dfy e₀’ ["s₁ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
-    \\ rename [‘evaluate _ _ _ = (t₂, _)’]
+    \\ rename [‘evaluate _ _ _ = (t₁, _)’]
     \\ gvs [evaluate_def]
     \\ reverse $ Cases_on ‘r’ \\ gvs []
     >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs [])
     \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
-    \\ rename [‘val_rel _ dfy_v _’]
+    \\ rename [‘val_rel _ dfy_v cml_v’]
     \\ reverse $ Cases_on ‘try_sc bop dfy_v’ \\ gvs []
     >- (* Short-circuiting *)
      (Cases_on ‘bop’ \\ gvs [try_sc_def]
@@ -353,6 +422,21 @@ Proof
               val_rel_cases, bool_type_num_def])
     \\ namedCases_on ‘evaluate_exp s₁ env_dfy e₁’ ["s₂ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ ‘" " ≼ " l"’ by gvs []  \\ drule_all state_rel_env_push_internal
+    \\ disch_then $ qspec_then ‘cml_v’ assume_tac
+    \\ last_x_assum drule
+    \\ impl_tac >- gvs [env_rel_def]
+    \\ rpt strip_tac
+    \\ drule_all state_rel_env_pop_internal \\ rpt strip_tac \\ gvs []
+    \\ reverse $ Cases_on ‘r’ \\ gvs []
+    >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ Cases_on ‘bop’
+        \\ gvs [from_bin_op_def, evaluate_def]
+        \\ gvs [do_log_def, try_sc_def]
+        \\ gvs [val_rel_cases]
+        (* Don't think this is provable with current semantics; we continue
+           evaluating even if in (And l r), l is an integer, while CakeML
+           returns a type error. *)
+        \\ cheat)
     \\ cheat)
   \\ cheat
 QED
