@@ -705,7 +705,7 @@ Definition FV_def:
   (FV (Letrec defs b) = FV_defs defs ∪ FV b DIFF set (MAP (Short o FST) defs)) ∧
   (FV (Tannot e t) = FV e) ∧
   (FV (Lannot e l) = FV e) ∧
-  (FV (FpOptimise sc e) = FV e) ∧
+  (FV (FpOptimise fpopt e) = FV e) ∧
   (FV_list [] = {}) ∧
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧

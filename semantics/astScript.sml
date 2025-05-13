@@ -315,8 +315,8 @@ Definition every_exp_def[simp]:
              p (Tannot e a) ∧ every_exp p e) ∧
   (every_exp p (Lannot e a) ⇔
              p (Lannot e a) ∧ every_exp p e) ∧
-  (every_exp p (FpOptimise sc e) ⇔
-             p (FpOptimise sc e) ∧ every_exp p e) ∧
+  (every_exp p (FpOptimise fpopt e) ⇔
+             p (FpOptimise fpopt e) ∧ every_exp p e) ∧
   (every_exp p (Letrec funs e) ⇔
              p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs)
 Termination

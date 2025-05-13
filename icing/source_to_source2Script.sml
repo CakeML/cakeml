@@ -116,7 +116,7 @@ Definition no_optimisations_def:
     Tannot (no_optimisations cfg e) t /\
   no_optimisations cfg (Lannot e l) =
     Lannot (no_optimisations cfg e) l /\
-  no_optimisations cfg (FpOptimise sc e) = FpOptimise NoOpt (no_optimisations cfg e)
+  no_optimisations cfg (FpOptimise fpopt e) = FpOptimise NoOpt (no_optimisations cfg e)
 Termination
   WF_REL_TAC `measure (\ (c,e). exp_size e)`
 End
@@ -187,8 +187,8 @@ Definition perform_rewrites_def:
     Tannot (perform_rewrites cfg path rewrites e) t ∧
   perform_rewrites cfg (Center path) rewrites (Lannot e l) =
     Lannot (perform_rewrites cfg path rewrites e) l ∧
-  perform_rewrites cfg (Center path) rewrites (FpOptimise sc e) =
-    FpOptimise sc (perform_rewrites (cfg with canOpt := if sc = Opt then T else F) path rewrites e) ∧
+  perform_rewrites cfg (Center path) rewrites (FpOptimise fpopt e) =
+    FpOptimise fpopt (perform_rewrites (cfg with canOpt := if fpopt = Opt then T else F) path rewrites e) ∧
   perform_rewrites cfg _ _ e = e
 End
 

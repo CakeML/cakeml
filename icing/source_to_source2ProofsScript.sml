@@ -510,8 +510,8 @@ Definition freeVars_arithExp_bound_def:
                           (Center path) (Lannot e l) =
     freeVars_arithExp_bound st1 st2 env cfg path  e ∧
   freeVars_arithExp_bound (st1:'a semanticPrimitives$state) st2 env cfg
-                          (Center path) (FpOptimise sc e) =
-    freeVars_arithExp_bound st1 st2 env (cfg with canOpt := if sc = Opt then T else F) path e ∧
+                          (Center path) (FpOptimise fpopt e) =
+    freeVars_arithExp_bound st1 st2 env (cfg with canOpt := if fpopt = Opt then T else F) path e ∧
   freeVars_arithExp_bound (st1:'a semanticPrimitives$state) st2 env cfg _ e = T
 End
 
@@ -550,7 +550,7 @@ Definition isDoubleExp_def:
     | FP_bop _ => isDoubleExpList exps
     | FP_top _ => isDoubleExpList exps
     | _ => F) ∧
-  isDoubleExp (FpOptimise sc e) = isDoubleExp e ∧
+  isDoubleExp (FpOptimise fpopt e) = isDoubleExp e ∧
   isDoubleExp _ = F
   ∧
   isDoubleExpList [] = T ∧
@@ -595,7 +595,7 @@ Proof
     gs[evaluate_def, CaseEq"prod", CaseEq"result", do_app_def,
        astTheory.getOpClass_def, astTheory.isFpBool_def]
     \\ rveq \\ gs[])
-  >~ [‘FpOptimise sc e’]
+  >~ [‘FpOptimise fpopt e’]
   >- (
     qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
     \\ gs[evaluate_def, CaseEq"prod", CaseEq"result", do_app_def,
@@ -660,7 +660,7 @@ Proof
        astTheory.getOpClass_def, astTheory.isFpBool_def]
     \\ Cases_on ‘st1.fp_state.real_sem’ \\ gs[]
     \\ rveq \\ gs[])
-  >~ [‘FpOptimise sc e’]
+  >~ [‘FpOptimise fpopt e’]
   >- (
     qpat_x_assum ‘evaluate _ _ _ = _’ mp_tac
     \\ gs[evaluate_def, CaseEq"prod", CaseEq"result", do_app_def,
@@ -1980,8 +1980,8 @@ Proof
 QED
 
 Theorem optimise_with_plan_scope:
-  ! cfg plan sc e x. optimise_with_plan cfg plan (FpOptimise sc e) = x ==>
-  ?e' res. x = (FpOptimise sc e', res)
+  ! cfg plan fpopt e x. optimise_with_plan cfg plan (FpOptimise fpopt e) = x ==>
+  ?e' res. x = (FpOptimise fpopt e', res)
 Proof
   Induct_on ‘plan’
   >- fs[optimise_with_plan_empty_sing]
@@ -1995,21 +1995,21 @@ Proof
       \\ COND_CASES_TAC \\ strip_tac \\ rveq \\ fsrw_tac [SATISFY_ss] []
       \\ COND_CASES_TAC \\ rveq \\ TRY (Cases_on ‘q’
                                         \\ fsrw_tac [SATISFY_ss] [perform_rewrites_def])
-      \\ first_x_assum $ qspecl_then [‘cfg’, ‘sc’, ‘perform_rewrites (cfg with canOpt := (sc = Opt)) o' r e’] strip_assume_tac
+      \\ first_x_assum $ qspecl_then [‘cfg’, ‘fpopt’, ‘perform_rewrites (cfg with canOpt := (fpopt = Opt)) o' r e’] strip_assume_tac
       \\ fs[]
       \\ COND_CASES_TAC \\ rveq \\ fsrw_tac [SATISFY_ss] [])
     \\ fs[optimise_with_plan_def] \\ metis_tac[])
 QED
 
 Theorem opt_pass_with_plans_scope_unfold:
-  no_optimise_pass cfg [FST (HD (stos_pass_with_plans cfg plans [FpOptimise sc e]))] =
-  [no_optimisations cfg (FST (optimise_with_plan cfg (case plans of |[] => [] | _ => HD plans) (FpOptimise sc e)))]
+  no_optimise_pass cfg [FST (HD (stos_pass_with_plans cfg plans [FpOptimise fpopt e]))] =
+  [no_optimisations cfg (FST (optimise_with_plan cfg (case plans of |[] => [] | _ => HD plans) (FpOptimise fpopt e)))]
 Proof
   Cases_on ‘plans’
   >- fs[optimise_with_plan_empty_sing, stos_pass_with_plans_empty,
         no_optimise_pass_def]
   \\ simp[Once stos_pass_with_plans_cons, stos_pass_with_plans_def]
-  \\ qspecl_then [‘cfg’, ‘h’, ‘sc’, ‘e’] strip_assume_tac
+  \\ qspecl_then [‘cfg’, ‘h’, ‘fpopt’, ‘e’] strip_assume_tac
                  (SIMP_RULE std_ss [PULL_EXISTS] optimise_with_plan_scope)
   \\ fs[no_optimise_pass_def]
 QED

@@ -143,8 +143,8 @@ Definition freeVars_realExp_bound_def:
                           (Center path) (Lannot e l) =
     freeVars_realExp_bound st1 st2 env cfg path e ∧
   freeVars_realExp_bound (st1:'a semanticPrimitives$state) st2 env cfg
-                          (Center path) (FpOptimise sc e) =
-    freeVars_realExp_bound st1 st2 env (cfg with canOpt := if sc = Opt then T else F) path e ∧
+                          (Center path) (FpOptimise fpopt e) =
+    freeVars_realExp_bound st1 st2 env (cfg with canOpt := if fpopt = Opt then T else F) path e ∧
   freeVars_realExp_bound (st1:'a semanticPrimitives$state) st2 env cfg _ e = T
 End
 

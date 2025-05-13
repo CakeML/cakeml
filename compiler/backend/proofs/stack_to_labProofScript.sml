@@ -3589,7 +3589,7 @@ Theorem IMP_init_state_ok:
         (compile_word_to_stack
            ac kkk progs
            (Nil, bm0))) (word_oracle n)) ∧
-    (full_make_init sc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
+    (full_make_init scc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
     ==>
     init_state_ok ac kkk fmis word_oracle
 Proof

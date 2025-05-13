@@ -623,9 +623,9 @@ Proof
 QED
 
 Theorem EVERY_perms_ok_optimise[local]:
-  ∀ sc vs ps.
+  ∀ fpopt vs ps.
     EVERY (perms_ok ps) vs ⇒
-    EVERY (perms_ok ps) (do_fpoptimise sc vs)
+    EVERY (perms_ok ps) (do_fpoptimise fpopt vs)
 Proof
   ho_match_mp_tac do_fpoptimise_ind \\ rpt conj_tac
   \\ gs[do_fpoptimise_def, perms_ok_def]
@@ -890,7 +890,7 @@ Proof
     gvs [evaluate_def, CaseEqs ["result", "prod"]])
   >~ [‘Lannot x l’] >- (
     gvs [evaluate_def, CaseEqs ["result", "prod"]])
-  >~ [‘FpOptimise sc e’] >- (
+  >~ [‘FpOptimise fpopt e’] >- (
     gvs [evaluate_def, CaseEqs ["result", "prod"]]
     \\ last_x_assum mp_tac \\ reverse impl_tac
     \\ TRY (

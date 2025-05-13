@@ -1347,11 +1347,28 @@ Theorem do_app_thm:
     OPTREL (λ((r1,f1),v1) ((r2,f2),v2).
              f1 = f2 ∧ res1_rel v1 v2 ∧ LIST_REL ref_rel r1 r2)
            (do_app (refs1,ffi) op a1) (do_app (refs2,ffi) op a2)
+<<<<<<< HEAD
+Proof
+  cheat (*
+  Cases_on ‘op’ >> gs[Once do_app_def, OPTREL_def]
+  >- trivial_tac
+  >- trivial_tac
+  >- trivial_tac
+  >- trivial_tac
+||||||| 3d7e93912
+Proof
+  Cases_on ‘op’ >> gs[Once do_app_def, OPTREL_def]
+  >- trivial_tac
+  >- trivial_tac
+  >- trivial_tac
+  >- trivial_tac
+=======
 Proof[exclude_simps = IF_NONE_EQUALS_OPTION]
   rpt strip_tac >> imp_res_tac LIST_REL_LENGTH >>
   Cases_on `(do_app (refs1,ffi) op a1)` >> gs[OPTREL_SOME] >>
   pop_assum mp_tac
   (*NONE Case*)
+>>>>>>> origin/master
   >- (
       trivial_tac
       >>~ [`do_eq`]
@@ -1399,6 +1416,233 @@ Proof[exclude_simps = IF_NONE_EQUALS_OPTION]
           imp_res_tac v_rel_v_to_list >> gs[OPTREL_SOME] >>
           imp_res_tac v_rel_vs_to_string >> gs[]))
   >- (
+<<<<<<< HEAD
+    rpt strip_tac
+    >> ‘LENGTH a1 = LENGTH a2’ by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> ‘LENGTH refs1 = LENGTH refs2’ by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> rpt (TOP_CASE_TAC >> gs[])
+    >> gs[do_app_def]
+    >> gs[store_assign_def, store_v_same_type_def]
+    >> Cases_on ‘n < LENGTH refs2’ >> gs[]
+    >> Cases_on ‘EL n refs1’ >> gs[]
+    >> imp_res_tac LIST_REL_EL_EQN
+    >> first_x_assum $ qspec_then ‘n’ assume_tac
+    >> Cases_on ‘EL n refs2’ >> rveq >> gs[ref_rel_def]
+    >> irule EVERY2_LUPDATE_same
+    >> gs[ref_rel_def])
+  >- mem_tac
+  >- mem_tac
+  >- mem_tac
+  >- mem_tac
+  >- mem_tac
+  >- (
+    mem_tac
+    >> rveq >> irule EVERY2_LUPDATE_same >> gs[ref_rel_def])
+  >- trivial_tac
+  >- trivial_tac
+  >- mem_tac
+  >- (
+    mem_tac
+    >> rveq >> irule EVERY2_LUPDATE_same >> gs[ref_rel_def])
+  >- mem_tac
+  >- (
+    mem_tac
+    >> imp_res_tac LIST_REL_EL_EQN
+    >> first_x_assum $ qspec_then ‘n'’ assume_tac >> gs[]
+    >> Cases_on ‘EL n' refs2’ >> gs[ref_rel_def]
+    >> rveq >> irule EVERY2_LUPDATE_same >> gs[ref_rel_def])
+  >- trivial_tac
+  >- trivial_tac
+  >- trivial_tac
+  >- (
+    mem_tac
+    >> imp_res_tac $ GSYM v_rel_v_to_char_list >> gs[])
+  >- mem_tac
+  >- mem_tac
+  >- mem_tac
+  >- (
+    mem_tac
+    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def]
+    >> imp_res_tac $ GSYM v_rel_vs_to_string >> gs[])
+  >- (
+    mem_tac
+    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def])
+  >- (
+    mem_tac
+    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def])
+  >- (
+    mem_tac
+    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def])
+  >- (
+    mem_tac
+    >> rewrite_tac $ single LIST_REL_REPLICATE_same
+    >> strip_tac >> gs[])
+  >- mem_tac
+  >- mem_tac
+  >- (
+    mem_tac
+    >> TOP_CASE_TAC >> gs[]
+    >> ‘LENGTH l = LENGTH l'’
+      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> gs $ single LIST_REL_EL_EQN)
+  >- ( mem_tac >> gs $ single LIST_REL_EL_EQN)
+  >- (
+    mem_tac
+    >> ‘LIST_REL v_rel l l'’ by (gs $ single LIST_REL_EL_EQN)
+    >> ‘LENGTH l = LENGTH l'’
+      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> TOP_CASE_TAC >> gs[store_v_same_type_def]
+    >> rveq >> irule EVERY2_LUPDATE_same >> gs[]
+    >> irule EVERY2_LUPDATE_same >> gs[])
+  >- (
+    mem_tac >> TOP_CASE_TAC >> gs[]
+    >> ‘LENGTH l = LENGTH l'’
+      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> gs[LIST_REL_EL_EQN])
+  >- (
+    mem_tac >> TOP_CASE_TAC >> gs[]
+    >> ‘LENGTH l = LENGTH l'’
+      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> gs[LIST_REL_EL_EQN]
+    >> COND_CASES_TAC  >> gs[store_v_same_type_def]
+    >> Cases_on ‘i < 0’ >> gs[] >> rveq
+    >> gs[LENGTH_LUPDATE]
+    >> rpt strip_tac >> gs[LIST_REL_EL_EQN]
+    >> res_tac >> rewrite_tac [EL_LUPDATE]
+    >> COND_CASES_TAC >> gs[]
+    >> irule EVERY2_LUPDATE_same >> gs[]
+    >> res_tac >> pop_assum $ mp_tac
+    >> asm_rewrite_tac [] >> gs[ref_rel_def])
+  >- mem_tac
+  >- (
+    mem_tac
+    >> Cases_on ‘i < 0’ >> gs[]
+    >> rveq >> gs[LIST_REL_EL_EQN]
+    >> rpt strip_tac
+    >> res_tac >> rewrite_tac [EL_LUPDATE]
+    >> COND_CASES_TAC >> gs[])
+  >- (
+    mem_tac
+    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def]
+    >> irule v_rel_list_to_v_app >> gs[])
+  >- trivial_tac
+  >- (mem_tac >> rveq >> irule EVERY2_LUPDATE_same >> gs[])
+  >- (mem_tac >> rveq >> irule EVERY2_LUPDATE_same >> gs[])
+  >> fp_tac >> simp[nat_to_v_def] *)
+||||||| 3d7e93912
+    rpt strip_tac
+    >> ‘LENGTH a1 = LENGTH a2’ by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> ‘LENGTH refs1 = LENGTH refs2’ by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> rpt (TOP_CASE_TAC >> gs[])
+    >> gs[do_app_def]
+    >> gs[store_assign_def, store_v_same_type_def]
+    >> Cases_on ‘n < LENGTH refs2’ >> gs[]
+    >> Cases_on ‘EL n refs1’ >> gs[]
+    >> imp_res_tac LIST_REL_EL_EQN
+    >> first_x_assum $ qspec_then ‘n’ assume_tac
+    >> Cases_on ‘EL n refs2’ >> rveq >> gs[ref_rel_def]
+    >> irule EVERY2_LUPDATE_same
+    >> gs[ref_rel_def])
+  >- mem_tac
+  >- mem_tac
+  >- mem_tac
+  >- mem_tac
+  >- mem_tac
+  >- (
+    mem_tac
+    >> rveq >> irule EVERY2_LUPDATE_same >> gs[ref_rel_def])
+  >- trivial_tac
+  >- trivial_tac
+  >- mem_tac
+  >- (
+    mem_tac
+    >> rveq >> irule EVERY2_LUPDATE_same >> gs[ref_rel_def])
+  >- mem_tac
+  >- (
+    mem_tac
+    >> imp_res_tac LIST_REL_EL_EQN
+    >> first_x_assum $ qspec_then ‘n'’ assume_tac >> gs[]
+    >> Cases_on ‘EL n' refs2’ >> gs[ref_rel_def]
+    >> rveq >> irule EVERY2_LUPDATE_same >> gs[ref_rel_def])
+  >- trivial_tac
+  >- trivial_tac
+  >- trivial_tac
+  >- (
+    mem_tac
+    >> imp_res_tac $ GSYM v_rel_v_to_char_list >> gs[])
+  >- mem_tac
+  >- mem_tac
+  >- mem_tac
+  >- (
+    mem_tac
+    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def]
+    >> imp_res_tac $ GSYM v_rel_vs_to_string >> gs[])
+  >- (
+    mem_tac
+    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def])
+  >- (
+    mem_tac
+    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def])
+  >- (
+    mem_tac
+    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def])
+  >- (
+    mem_tac
+    >> rewrite_tac $ single LIST_REL_REPLICATE_same
+    >> strip_tac >> gs[])
+  >- mem_tac
+  >- mem_tac
+  >- (
+    mem_tac
+    >> TOP_CASE_TAC >> gs[]
+    >> ‘LENGTH l = LENGTH l'’
+      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> gs $ single LIST_REL_EL_EQN)
+  >- ( mem_tac >> gs $ single LIST_REL_EL_EQN)
+  >- (
+    mem_tac
+    >> ‘LIST_REL v_rel l l'’ by (gs $ single LIST_REL_EL_EQN)
+    >> ‘LENGTH l = LENGTH l'’
+      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> TOP_CASE_TAC >> gs[store_v_same_type_def]
+    >> rveq >> irule EVERY2_LUPDATE_same >> gs[]
+    >> irule EVERY2_LUPDATE_same >> gs[])
+  >- (
+    mem_tac >> TOP_CASE_TAC >> gs[]
+    >> ‘LENGTH l = LENGTH l'’
+      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> gs[LIST_REL_EL_EQN])
+  >- (
+    mem_tac >> TOP_CASE_TAC >> gs[]
+    >> ‘LENGTH l = LENGTH l'’
+      by (irule LIST_REL_LENGTH >> asm_exists_tac >> gs[])
+    >> gs[LIST_REL_EL_EQN]
+    >> COND_CASES_TAC  >> gs[store_v_same_type_def]
+    >> Cases_on ‘i < 0’ >> gs[] >> rveq
+    >> gs[LENGTH_LUPDATE]
+    >> rpt strip_tac >> gs[LIST_REL_EL_EQN]
+    >> res_tac >> rewrite_tac [EL_LUPDATE]
+    >> COND_CASES_TAC >> gs[]
+    >> irule EVERY2_LUPDATE_same >> gs[]
+    >> res_tac >> pop_assum $ mp_tac
+    >> asm_rewrite_tac [] >> gs[ref_rel_def])
+  >- mem_tac
+  >- (
+    mem_tac
+    >> Cases_on ‘i < 0’ >> gs[]
+    >> rveq >> gs[LIST_REL_EL_EQN]
+    >> rpt strip_tac
+    >> res_tac >> rewrite_tac [EL_LUPDATE]
+    >> COND_CASES_TAC >> gs[])
+  >- (
+    mem_tac
+    >> imp_res_tac v_rel_v_to_list >> gs[OPTREL_def]
+    >> irule v_rel_list_to_v_app >> gs[])
+  >- trivial_tac
+  >- (mem_tac >> rveq >> irule EVERY2_LUPDATE_same >> gs[])
+  >- (mem_tac >> rveq >> irule EVERY2_LUPDATE_same >> gs[])
+  >> fp_tac >> simp[nat_to_v_def]
+=======
       trivial_tac >> fs[]
       >>~ [`do_eq`]
       >- (
@@ -1477,6 +1721,7 @@ Proof[exclude_simps = IF_NONE_EQUALS_OPTION]
      >- (imp_res_tac LIST_REL_LENGTH >> fs[])
      >- (imp_res_tac LIST_REL_LENGTH >> fs[] >>
         fs[LIST_REL_EL_EQN]))
+>>>>>>> origin/master
 QED
 
 

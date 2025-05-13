@@ -430,7 +430,7 @@ End
 
 Definition fix_fp_state_def:
   fix_fp_state ([]:ctxt list) fp = fp ∧
-  fix_fp_state ((Coptimise oldSc sc,env)::ctxt) fp =
+  fix_fp_state ((Coptimise oldSc fpopt,env)::ctxt) fp =
   fix_fp_state ctxt (fp with canOpt := oldSc) ∧
   fix_fp_state (c::ctxt) fp = fix_fp_state ctxt fp
 End
@@ -570,15 +570,15 @@ Definition continue_def:
     else Etype_error (fix_fp_state c fp)) ∧
   continue s fp v ((Ctannot t, env) :: c) = return env s fp v c ∧
   continue s fp v ((Clannot l, env) :: c) = return env s fp v c ∧
-  continue s fp v ((Coptimise oldSc sc, env) :: c) =
-    return env s (fp with canOpt := oldSc) (HD (do_fpoptimise sc [v])) c
+  continue s fp v ((Coptimise oldSc fpopt, env) :: c) =
+    return env s (fp with canOpt := oldSc) (HD (do_fpoptimise fpopt [v])) c
 End
 
 Definition exn_continue_def:
   exn_continue env s fp v [] = Edone ∧
   exn_continue env s fp v ((Chandle pes, env') :: c) =
     return env s fp v ((Cmat_check pes v, env') :: c) ∧
-  exn_continue env s fp v ((Coptimise oldSc sc, env') :: c) =
+  exn_continue env s fp v ((Coptimise oldSc fpopt, env') :: c) =
     Estep (env, s, fp with canOpt := oldSc, Exn v, c) ∧
   exn_continue env s fp v (_ :: c) = Estep (env, s, fp, Exn v, c)
 End
@@ -615,9 +615,9 @@ Definition estep_def:
     else Estep (env with <| v := build_rec_env funs env env.v |>, s, fp, Exp e, c)) ∧
   estep (env, s, fp, Exp $ Tannot e t, c) = push env s fp e (Ctannot t) c ∧
   estep (env, s, fp, Exp $ Lannot e l, c) = push env s fp e (Clannot l) c ∧
-  estep (env, s, fp, Exp $ FpOptimise sc e, c) =
-    (let fpN = if fp.canOpt = Strict then fp else fp with canOpt := FPScope sc in
-      push env s fpN e (Coptimise fp.canOpt sc) c) ∧
+  estep (env, s, fp, Exp $ FpOptimise fpopt e, c) =
+    (let fpN = if fp.canOpt = Strict then fp else fp with canOpt := FPScope fpopt in
+      push env s fpN e (Coptimise fp.canOpt fpopt) c) ∧
   estep (env, s, fp, Exn v, c) = exn_continue env s fp v c
 End
 

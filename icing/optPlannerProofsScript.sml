@@ -331,7 +331,7 @@ Proof
   ho_match_mp_tac post_order_dfs_for_plan_ind >> rw[]
   >> gs[post_order_dfs_for_plan_def]
   >- (
-    Cases_on ‘post_order_dfs_for_plan f (cfg with canOpt := (sc = Opt)) e’
+    Cases_on ‘post_order_dfs_for_plan f (cfg with canOpt := (fpopt = Opt)) e’
     >> gs[] >> rveq
     >> imp_res_tac MEM_MAP_plan_to_path_center
     >> first_x_assum drule >> disch_then drule >> gs[])
