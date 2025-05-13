@@ -53,7 +53,7 @@ Definition do_app_aux_def:
   do_app_aux op (vs:bvlSem$v list) ^s =
     case (op,vs) of
     | (IntOp (Const i),xs) =>
-      if small_enough_int i then
+      if small_enough_int i /\ NULL xs then
         SOME (SOME (Number i, s))
       else NONE
     | (Label l,xs) => (case xs of
