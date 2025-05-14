@@ -251,8 +251,6 @@ Definition state_rel_def:
     print_rel s.output t.ffi.io_events
 End
 
-(* We don't define the relation to be true between type errors, as we could
-   otherwise define a "verified" compiler that always outputs garbage. *)
 Definition exp_res_rel_def[simp]:
   (exp_res_rel m (Rval dfy_v) (Rval [cml_v]) ⇔ val_rel m dfy_v cml_v) ∧
   (exp_res_rel m (Rerr Rtimeout_error) (Rerr (Rabort Rtimeout_error)) ⇔
