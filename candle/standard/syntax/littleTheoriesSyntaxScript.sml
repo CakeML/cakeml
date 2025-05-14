@@ -10,7 +10,6 @@ val _ = new_theory "littleTheoriesSyntax"
    the types of the constants are all ok, the axioms are all ok terms of type
    bool, and the signature is standard. *)
 
-Type thy' = ``:(sig # term set) # (sig # term set)``
 Datatype: ethy = <| tms: mlstring |-> type;
                     tys: mlstring |-> num;
                     axs: term set;
@@ -75,18 +74,37 @@ End
 
 val _ = Parse.add_infix("|-'",450,Parse.NONASSOC)
 
-Definition esubst_def:
-  (esubst sigma (Var x ty) =
-   if (Var x ty) ∈ FDOM (SND sigma) then (SND sigma ' (Var x ty)) 
-   else if ty ∈ FDOM (FST sigma) then Var x (FST sigma ' ty)
-   else Var x ty) ∧
-  (esubst sigma (Const n ty) =
-   Const n (if ty ∈ FDOM (FST sigma) then FST sigma ' ty
-            else ty)) ∧
-  (esubst sigma (Comb tm1 tm2) = (Comb (esubst sigma tm1) (esubst sigma tm2))) ∧
-  (esubst sigma (Abs v body) = (Abs (esubst sigma v) (esubst sigma body)))
+Definition ty_esubst_def:
+  (ty_esubst sigma (Tyvar n) = if n ∈ FDOM (FST sigma) then
+                                 FST sigma ' n
+                               else Tyvar n) ∧
+  (ty_esubst sigma (Tyapp n ts) = Tyapp n (MAP (ty_esubst sigma) ts))
+Termination
+  cheat
 End
-    
+
+Definition esubst_def:
+  (esubst sigma (Var n ty) = Var n (ty_esubst sigma ty)) ∧
+  (esubst sigma (Const n ty) = if (n, ty) ∈ FDOM (SND sigma) then
+                                 SND sigma ' (n, ty)
+                               else Const n ty) ∧
+  (esubst sigma (Comb tm1 tm2) = Comb (esubst sigma tm1) (esubst sigma tm2)) ∧
+  (esubst sigma (Abs v body) = Abs (esubst sigma v) (esubst sigma body))
+End
+
+(* the things we are going to esubst are actually
+   the eliminable types or the eliminable terms *)
+Definition esubsts_ok_def:
+  esubsts_ok thy sigma ⇔
+    (∀(n, ty). (n, ty) ∈ FDOM (SND sigma) ⇒
+               (n ∈ FDOM (thy.etms) ∧
+                typeof (SND sigma ' (n, ty)) = ty_esubst sigma ty ∧
+                term_ok thy.sig (SND sigma ' (n, ty)))) ∧
+    DISJOINT (FDOM thy.tys) (FDOM thy.etys) ∧
+    (∀tyn. tyn ∈ FDOM (FST sigma) ⇒ tyn ∈ FDOM (thy.etys)) ∧
+    DISJOINT (FDOM thy.tms) (FDOM thy.etms)
+End
+
 Inductive proves':
 [~ABS:]
   (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧ type_ok thy.ctys ty ∧
@@ -146,9 +164,13 @@ Inductive proves':
 
 [~elim_inst:]
   ((thy, es, h) |-' c
-   ∧ (∀p. p ∈ IMAGE (esubst sigma) es ⇒ p has_type Bool ∧ term_ok thy.sig p)
-   ∧ (∀p. MEM p (MAP (esubst sigma) h) ⇒ p has_type Bool ∧ term_ok thy.sig p)
-   ∧ (esubst sigma c) has_type Bool ∧ term_ok thy.sig p
+   ∧ esubsts_ok thy sigma 
+   ∧ (∀p. p ∈ es ⇒ (esubst sigma p) has_type Bool
+                   ∧ term_ok thy.sig (esubst sigma p))
+   ∧ EVERY (λp. (esubst sigma p) has_type Bool
+                ∧ term_ok thy.sig (esubst sigma p)) h
+   ∧ (esubst sigma c) has_type Bool
+   ∧ term_ok thy.sig (esubst sigma c)
    ⇒ (thy, IMAGE (esubst sigma) es, MAP (esubst sigma) h) |-' esubst sigma c)
 
 [~elim_axioms:]
@@ -200,7 +222,7 @@ Theorem etysof_lift_thy[simp]:
 Proof
   simp[lift_thy_def]
 QED
-
+        
 Theorem sigof_lift_thy[simp]:
   (lift_thy thy).sig = sigof thy
 Proof
@@ -247,43 +269,6 @@ Proof
   >- (irule proves'_REFL >> rw[])
   >- (irule proves'_axioms >> rw[])
 QED
-
-Definition consts_of:
-  (consts_of (Var _ _) = {}) ∧
-  (consts_of (Const n ty) = {(n, ty)}) ∧
-  (consts_of (Comb s t) = consts_of s UNION consts_of t) ∧
-  (consts_of (Abs _ body) = consts_of body)
-End
-
-Definition tyconsts_of:
-  (tyconsts_of (Tyvar n) = {}) ∧
-  (tyconsts_of (Tyapp n ts) = n INSERT (FOLDR (λx acc. tyconsts_of x ∪ acc) {} ts))
-Termination
-  WF_REL_TAC ‘measure type_size’
-End
-
-Theorem tyconsts_foldr_rw[simp]:
-  FOLDR (λx acc. tyconsts_of x ∪ acc) {} l
-  = BIGUNION (IMAGE tyconsts_of (set l))
-Proof
-  Induct_on ‘l’ >> rw[]
-QED
-
-Definition tyconsts_of_tm[simp]:
-  (tyconsts_of_tm (Var _ ty) = tyconsts_of ty) ∧
-  (tyconsts_of_tm (Const n ty) = tyconsts_of ty) ∧
-  (tyconsts_of_tm (Comb s t) = tyconsts_of_tm s ∪ tyconsts_of_tm t) ∧
-  (tyconsts_of_tm (Abs v body) = tyconsts_of_tm v ∪ tyconsts_of_tm body)
-End
-
-Definition tyconsts_of_tml[simp]:
-  (tyconsts_of_tml [] = {}) ∧
-  (tyconsts_of_tml (x::xs) = tyconsts_of_tm x ∪ tyconsts_of_tml xs)
-End
-
-Definition tyconsts_of_tms[simp]:
-  tyconsts_of_tms A = BIGUNION (IMAGE tyconsts_of_tm A)
-End
 
 Theorem type_ind =
         TypeBase.induction_of``:holSyntax$type``
@@ -445,15 +430,40 @@ Proof
   >> gvs[theory_ok'_def, term_ok'_imp_term_ok]
 QED
 
+Theorem flookup_imp_fdom:
+  FLOOKUP m x = SOME v ⇒ x ∈ FDOM m
+Proof
+  rw[FDOM_FLOOKUP]
+QED
+        
+Theorem esubst_equation:
+  (∀tyn. tyn ∈ FDOM (thy.tys) ⇒ tyn ∉ FDOM (FST σ))
+  ∧ (∀(n, ty). n ∈ FDOM (thy.tms) ⇒ (n, ty) ∉ FDOM (SND σ)) 
+  ∧ is_std_sig thy.sig ⇒ 
+  esubst σ (a === b) = esubst σ a === esubst σ b
+Proof
+  rw[]
+  >> gvs[equation_def, esubst_def, is_std_sig_def, sigof'_def]
+  >> rpt $ dxrule_all flookup_imp_fdom >> rw[]
+  >> cheat
+QED
+
+Theorem esubst_var:
+  ∀ty. ∃ty'. esubst σ (Var x ty) = Var x ty'
+Proof
+  rw[esubst_def]
+QED
+
 Theorem proves_substitutable:
   ∀sig c h.
     ((sig, axs ∪ es), h) |- c
-    ∧ (∀p. p ∈ IMAGE (esubst sigma) es ⇒ p has_type Bool ∧ term_ok sig p)
-    ∧ (∀p. MEM p (MAP (esubst sigma) h) ⇒ p has_type Bool ∧ term_ok sig p)
-    ∧ (esubst sigma c) has_type Bool
-    ⇒ ((sig, axs ∪ IMAGE (esubst sigma) es), MAP (esubst sigma) h) |- esubst sigma c
+    ∧ (∀p. p ∈ es ⇒ (esubst σ p) has_type Bool ∧ term_ok sig (esubst σ p))
+    ∧ EVERY (λp. (esubst σ p) has_type Bool ∧ term_ok sig (esubst σ p)) h
+    ∧ (esubst σ c) has_type Bool
+    ∧ esubsts_ok thy σ
+    ⇒ ((sig, axs ∪ IMAGE (esubst σ) es), MAP (esubst σ) h) |- esubst σ c
 Proof
-  cheat
+  Induct_on ‘$|-’ >> rw[] >> cheat
 QED
 
 Theorem proves'_imp_proves:
@@ -484,7 +494,7 @@ Proof
                           ‘h2’, ‘c’, ‘c'’]
                          assume_tac axioms_eliminable
           >> gvs[]))
-  >- (gvs[drop_thy] >> irule proves_substitutable >> rw[]
+  >- (gvs[drop_thy] >> irule proves_substitutable >> rw[] >> gvs[EVERY_MEM]
       >> metis_tac[sigof'_def, ctys_def, ctms_def, term_ok_weakening])
   >- (irule proves_axioms >> rw[]
       >- (irule theory_ok_drop_thy_alt >> gvs[theory_ok'_def])
