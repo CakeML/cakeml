@@ -207,6 +207,14 @@ Definition ssa_cc_trans_inst_def:
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
       (Inst (Mem Store r' (Addr a' w)),ssa,na)) ∧
+  (ssa_cc_trans_inst (Mem Load32 r (Addr a w)) ssa na =
+    let a' = option_lookup ssa a in
+    let (r',ssa',na') = next_var_rename r ssa na in
+      (Inst (Mem Load32 r' (Addr a' w)),ssa',na')) ∧
+  (ssa_cc_trans_inst (Mem Store32 r (Addr a w)) ssa na =
+    let a' = option_lookup ssa a in
+    let r' = option_lookup ssa r in
+      (Inst (Mem Store32 r' (Addr a' w)),ssa,na)) ∧
   (ssa_cc_trans_inst (Mem Load8 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
@@ -538,6 +546,10 @@ Definition apply_colour_inst_def:
     Mem Load (f r) (Addr (f a) w)) ∧
   (apply_colour_inst f (Mem Store r (Addr a w)) =
     Mem Store (f r) (Addr (f a) w)) ∧
+  (apply_colour_inst f (Mem Load32 r (Addr a w)) =
+    Mem Load32 (f r) (Addr (f a) w)) ∧
+  (apply_colour_inst f (Mem Store32 r (Addr a w)) =
+    Mem Store32 (f r) (Addr (f a) w)) ∧
   (apply_colour_inst f (Mem Load8 r (Addr a w)) =
     Mem Load8 (f r) (Addr (f a) w)) ∧
   (apply_colour_inst f (Mem Store8 r (Addr a w)) =
@@ -611,6 +623,7 @@ Definition get_writes_inst_def:
   (get_writes_inst (Arith (LongMul r1 r2 r3 r4)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst (Mem Load r (Addr a w)) = insert r () LN) ∧
+  (get_writes_inst (Mem Load32 r (Addr a w)) = insert r () LN) ∧
   (get_writes_inst (Mem Load8 r (Addr a w)) = insert r () LN) ∧
   (get_writes_inst (FP (FPLess r f1 f2)) = insert r () LN) ∧
   (get_writes_inst (FP (FPLessEqual r f1 f2)) = insert r () LN) ∧
@@ -648,6 +661,10 @@ Definition get_live_inst_def:
   (get_live_inst (Mem Load r (Addr a w)) live =
     insert a () (delete r live)) ∧
   (get_live_inst (Mem Store r (Addr a w)) live =
+    insert a () (insert r () live)) ∧
+  (get_live_inst (Mem Load32 r (Addr a w)) live =
+    insert a () (delete r live)) ∧
+  (get_live_inst (Mem Store32 r (Addr a w)) live =
     insert a () (insert r () live)) ∧
   (get_live_inst (Mem Load8 r (Addr a w)) live =
     insert a () (delete r live)) ∧
@@ -774,6 +791,7 @@ Definition remove_dead_inst_def:
   (remove_dead_inst (Arith (LongDiv r1 r2 r3 r4 r5)) live =
     (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
   (remove_dead_inst (Mem Load r (Addr a w)) live = (lookup r live = NONE)) ∧
+  (remove_dead_inst (Mem Load32 r (Addr a w)) live = (lookup r live = NONE)) ∧
   (remove_dead_inst (Mem Load8 r (Addr a w)) live = (lookup r live = NONE)) ∧
   (remove_dead_inst (FP (FPLess r f1 f2)) live = (lookup r live = NONE)) ∧
   (remove_dead_inst (FP (FPLessEqual r f1 f2)) live = (lookup r live = NONE)) ∧
@@ -954,6 +972,8 @@ Definition get_delta_inst_def:
   (get_delta_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = Delta [r1;r2] [r5;r4;r3]) ∧
   (get_delta_inst (Mem Load r (Addr a w)) = Delta [r] [a]) ∧
   (get_delta_inst (Mem Store r (Addr a w)) = Delta [] [r;a]) ∧
+  (get_delta_inst (Mem Load32 r (Addr a w)) = Delta [r] [a]) ∧
+  (get_delta_inst (Mem Store32 r (Addr a w)) = Delta [] [r;a]) ∧
   (get_delta_inst (Mem Load8 r (Addr a w)) = Delta [r] [a]) ∧
   (get_delta_inst (Mem Store8 r (Addr a w)) = Delta [] [r;a]) ∧
   (get_delta_inst (FP (FPLess r f1 f2)) = Delta [r] []) ∧
@@ -1184,8 +1204,12 @@ Definition get_heu_inst_def:
      (add1_lhs_mem r lr)) ∧
   (get_heu_inst (Mem Store r (Addr a w)) lr =
      (add1_rhs_mem r lr)) ∧
+  (get_heu_inst (Mem Load32 r (Addr a w)) lr =
+     (add1_lhs_mem r lr)) ∧
   (get_heu_inst (Mem Load8 r (Addr a w)) lr =
      (add1_lhs_mem r lr)) ∧
+  (get_heu_inst (Mem Store32 r (Addr a w)) lr =
+     (add1_rhs_mem r lr)) ∧
   (get_heu_inst (Mem Store8 r (Addr a w)) lr =
      (add1_rhs_mem r lr)) ∧
   (get_heu_inst (FP (FPLess r f1 f2)) lr =

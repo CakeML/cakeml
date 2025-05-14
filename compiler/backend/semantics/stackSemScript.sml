@@ -458,7 +458,13 @@ Definition inst_def:
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
-    | Mem Load32 _ _ => NONE
+    | Mem Load32 r (Addr a w) =>
+       (case word_exp s (Op Add [Var a; Const w]) of
+        | SOME w =>
+           (case mem_load_32 s.memory s.mdomain s.be w of
+            | NONE => NONE
+            | SOME w => SOME (set_var r (Word (w2w w)) s))
+        | _ => NONE)
     | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME w) =>
@@ -473,7 +479,13 @@ Definition inst_def:
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
-    | Mem Store32 _ _ => NONE
+    | Mem Store32 r (Addr a w) =>
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+        | (SOME a, SOME (Word w)) =>
+            (case mem_store_32 s.memory s.mdomain s.be a (w2w w) of
+             | SOME new_m => SOME (s with memory := new_m)
+             | NONE => NONE)
+        | _ => NONE)
     | FP (FPLess r d1 d2) =>
       (case (get_fp_var d1 s,get_fp_var d2 s) of
       | (SOME f1 ,SOME f2) =>

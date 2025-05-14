@@ -52,6 +52,54 @@ Proof
   Cases_on`x` \\ rw[isWord_def]
 QED
 
+Definition mem_load_32_def:
+  mem_load_32 m dm be (w:'a word) =
+  if aligned 2 w
+  then case m (byte_align w) of
+       | Loc _ _ => NONE
+       | Word v =>
+           if byte_align w IN dm
+           then
+             let b0 = get_byte w v be in
+             let b1 = get_byte (w + 1w) v be in
+             let b2 = get_byte (w + 2w) v be in
+             let b3 = get_byte (w + 3w) v be in
+               let v' =
+                   (if be
+                    then
+                      (w2w b0) ≪ 24 ‖ (w2w b1) ≪ 16 ‖ (w2w b2) ≪ 8 ‖ (w2w b3)
+                    else
+                      (w2w b0) ‖ (w2w b1) ≪ 8 ‖ (w2w b2) ≪ 16 ‖ (w2w b3) ≪ 24)
+             in SOME (v': word32)
+           else NONE
+  else NONE
+End
+
+Definition mem_store_32_def:
+  mem_store_32 m dm be (w:'a word) (hw: word32) =
+  if aligned 2 w
+  then case m (byte_align w) of
+       | Word v =>
+           if byte_align w IN dm
+           then
+             if be
+             then
+               let v0 = set_byte w (w2w (hw ⋙  24)) v be in
+               let v1 = set_byte (w + 1w) (w2w (hw ⋙  16)) v0 be in
+               let v2 = set_byte (w + 2w) (w2w (hw ⋙  8)) v1 be in
+               let v3 = set_byte (w + 3w) (w2w hw) v2 be in
+                 SOME ((byte_align w =+ Word v3) m)
+             else
+               let v0 = set_byte w (w2w hw) v be in
+               let v1 = set_byte (w + 1w) (w2w (hw ⋙  8)) v0 be in
+               let v2 = set_byte (w + 2w) (w2w (hw ⋙  16)) v1 be in
+               let v3 = set_byte (w + 3w) (w2w (hw ⋙  24)) v2 be in
+                 SOME ((byte_align w =+ Word v3) m)
+           else NONE
+       | _ => NONE
+  else NONE
+End
+
 Definition mem_load_byte_aux_def:
   mem_load_byte_aux m dm be w =
     case m (byte_align w) of
@@ -659,7 +707,13 @@ Definition inst_def:
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
-    | Mem Load32 _ _ => NONE
+    | Mem Load32 r (Addr a w) =>
+       (case word_exp s (Op Add [Var a; Const w]) of
+        | SOME (Word w) =>
+           (case mem_load_32 s.memory s.mdomain s.be w of
+            | NONE => NONE
+            | SOME w => SOME (set_var r (Word (w2w w)) s))
+        | _ => NONE)
     | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME w) =>
@@ -674,7 +728,13 @@ Definition inst_def:
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
-    | Mem Store32 _ _ => NONE
+    | Mem Store32 r (Addr a w) =>
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+        | (SOME (Word a), SOME (Word w)) =>
+            (case mem_store_32 s.memory s.mdomain s.be a (w2w w) of
+             | SOME new_m => SOME (s with memory := new_m)
+             | NONE => NONE)
+        | _ => NONE)
     | FP (FPLess r d1 d2) =>
       (case (get_fp_var d1 s,get_fp_var d2 s) of
       | (SOME f1 ,SOME f2) =>

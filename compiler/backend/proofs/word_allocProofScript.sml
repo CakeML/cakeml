@@ -862,6 +862,20 @@ Proof
       fs[domain_union,get_writes_def,get_writes_inst_def]>>
       metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT,strong_locals_rel_insert])
     >-
+      (qpat_abbrev_tac`expr=((Op Add [Var n';A]))`>>
+      setup_tac>>
+      impl_tac>-
+        (full_simp_tac(srw_ss())[get_live_exp_def,big_union_def]>>
+        `{n'} ⊆ n' INSERT domain live DELETE n` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
+        metis_tac[strong_locals_rel_subset])>>
+      full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
+      Cases_on`x`>>simp[]>>
+      fs[mem_load_32_def]>>
+      Cases_on`st.memory (byte_align c')`>>fs[]>>
+      ntac 2 (IF_CASES_TAC>>fs[]) >> gvs[] >>
+      fs[domain_union,get_writes_def,get_writes_inst_def]>>
+      metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT,strong_locals_rel_insert])
+    >-
       (qpat_abbrev_tac`expr=Op Add [Var n';A]`>>
       setup_tac>>
       impl_tac>-
@@ -875,6 +889,21 @@ Proof
       imp_res_tac strong_locals_rel_get_var>>
       Cases_on`mem_store c x' st`>>fs[mem_store_def]>>IF_CASES_TAC>>fs[]>>
       metis_tac[strong_locals_rel_subset,SUBSET_OF_INSERT])
+    >-
+      (qpat_abbrev_tac`expr=Op Add [Var n';A]`>>
+      setup_tac>>
+      impl_tac>-
+        (full_simp_tac(srw_ss())[get_live_exp_def,big_union_def]>>
+        `{n'} ⊆ n' INSERT n INSERT domain live` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
+        metis_tac[strong_locals_rel_subset])>>
+      full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
+      Cases_on`x`>>simp[]>>
+      srw_tac[][]>>
+      Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>
+      imp_res_tac strong_locals_rel_get_var>>
+      fs[]>>
+      Cases_on`x`>>fs[]>>
+      FULL_CASE_TAC>>fs[strong_locals_rel_def])
     >-
       (qpat_abbrev_tac`expr=Op Add [Var n';A]`>>
       setup_tac>>
@@ -5487,6 +5516,16 @@ Proof
       IF_CASES_TAC>>fs[]>>
       match_mp_tac ssa_locals_rel_set_var>>
       fs[every_var_inst_def,every_var_def])
+    >~[`Mem Load32 _ (Addr _ _)`]
+    >- (
+      qpat_abbrev_tac`expr=((Op Add [Var n';A]))`>>
+      setup_tac>>
+      Cases_on`x`>>
+      full_simp_tac(srw_ss())[mem_load_32_def]>>
+      Cases_on`st.memory (byte_align c')`>>fs[]>>
+      ntac 2 (IF_CASES_TAC>>fs[])>> gvs[] >>
+      match_mp_tac ssa_locals_rel_set_var>>
+      fs[every_var_inst_def,every_var_def])
     >~[`Mem Store _ (Addr _ _)`]
     >- (
       qpat_abbrev_tac`expr=Op Add [Var n';A]`>>
@@ -5499,6 +5538,16 @@ Proof
       fs[mem_store_def]>>
       IF_CASES_TAC>>fs[])
     >~[`Mem Store8 _ (Addr _ _)`]
+    >- (
+      qpat_abbrev_tac`expr=Op Add [Var n';A]`>>
+      fs[]>>
+      setup_tac>>
+      Cases_on`x`>>fs[]>>
+      Cases_on`get_var n st`>>
+      fs[]>>imp_res_tac ssa_locals_rel_get_var>>
+      Cases_on`x`>>fs[option_lookup_def]>>
+      CASE_TAC>>fs[])
+    >~[`Mem Store32 _ (Addr _ _)`]
     >- (
       qpat_abbrev_tac`expr=Op Add [Var n';A]`>>
       fs[]>>

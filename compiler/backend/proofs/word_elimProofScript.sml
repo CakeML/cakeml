@@ -644,6 +644,14 @@ Proof
    fs[word_state_rel_def, mem_load_def]
 QED
 
+Theorem word_state_rel_mem_load_32:
+  word_state_rel reachable s t ⇒
+  mem_load_32 s.memory s.mdomain s.be c =
+  mem_load_32 t.memory t.mdomain t.be c
+Proof
+  gvs[word_state_rel_def]
+QED
+
 Theorem word_state_rel_get_fp_var:
     word_state_rel reachable s t
     ⇒ get_fp_var v s = get_fp_var v t
@@ -661,8 +669,8 @@ Proof
 QED
 
 Theorem word_state_rel_inst_NONE:
-     ∀ reachable s t i . word_state_rel reachable s t
-    ⇒ (inst i s = NONE ⇔ inst i t = NONE)
+  ∀ reachable s t i . word_state_rel reachable s t
+  ⇒ (inst i s = NONE ⇔ inst i t = NONE)
 Proof
    rw[] >>
    drule_then assume_tac word_state_rel_assign_NONE >>
@@ -687,8 +695,8 @@ Proof
 QED
 
 Theorem word_state_rel_assign_SOME:
-     word_state_rel reachable s t
-    ⇒ ( assign reg exp s = (SOME s1) ∧ assign reg exp t = SOME t1
+  word_state_rel reachable s t ⇒
+  ( assign reg exp s = (SOME s1) ∧ assign reg exp t = SOME t1
     ⇒ word_state_rel reachable s1 t1)
 Proof
   disch_tac >>
@@ -739,95 +747,67 @@ Proof
 QED
 
 Theorem word_state_rel_inst_SOME:
-     ∀ reachable s t i s1 t1 . word_state_rel reachable s t ⇒
-    (inst i s = SOME s1 ∧ inst i t = SOME t1 ⇒ word_state_rel reachable s1 t1)
+  ∀ reachable s t i s1 t1 . word_state_rel reachable s t ⇒
+  (inst i s = SOME s1 ∧ inst i t = SOME t1 ⇒ word_state_rel reachable s1 t1)
 Proof
-    rpt gen_tac >> disch_tac >>
-   drule_then assume_tac word_state_rel_assign_SOME >>
-   drule_then assume_tac word_state_rel_get_vars >>
-   drule_then assume_tac word_state_rel_get_var >>
-   drule_then assume_tac word_state_rel_word_exp >>
-   drule_then assume_tac word_state_rel_mem_load >>
-   drule_then assume_tac word_state_rel_get_fp_var >>
-    fs[inst_def] >> Cases_on `i` >> fs[]
-    >- (rw[] >> gvs[])
+  rpt gen_tac >> disch_tac >>
+  drule_then assume_tac word_state_rel_assign_SOME >>
+  drule_then assume_tac word_state_rel_get_vars >>
+  drule_then assume_tac word_state_rel_get_var >>
+  drule_then assume_tac word_state_rel_word_exp >>
+  drule_then assume_tac word_state_rel_mem_load >>
+  drule_then assume_tac word_state_rel_get_fp_var >>
+  fs[inst_def] >> Cases_on `i` >> fs[]
+  >- (rw[] >> gvs[])
+  >- (first_x_assum MATCH_ACCEPT_TAC)
+  >- (
+    Cases_on `a` >> fs[]
     >- (first_x_assum MATCH_ACCEPT_TAC)
-    >-(
-      Cases_on `a` >> fs[]
-      >- (first_x_assum MATCH_ACCEPT_TAC)
-      >- (first_x_assum MATCH_ACCEPT_TAC)
-      (*6 subgoals*)
-      >>(rpt (TOP_CASE_TAC >> fs[]) >>
-         rw[] >> gvs[] >>
-         rpt (irule word_state_rel_set_var_word) >>
-         TRY $ first_x_assum MATCH_ACCEPT_TAC))
-    >-(
-      Cases_on `a` >> fs[] >>
-      Cases_on `m` >> fs[]
-      (*4 subgoals*)
-      >>(rpt (TOP_CASE_TAC >> fs[]) >>
-         rw[] >> gvs[])
-      (*4 subgoals*)
-      >-(
-        fs[word_state_rel_def] >> gvs[] >>
-        CONJ_TAC >- (fs[set_var_def])
-          >- (fs[domain_find_loc_state]
-            >> fs[set_var_def]
-            >> irule SUBSET_TRANS
-            >> irule_at Any get_locals_insert
-            >> fs[]
-            >> Cases_on `x`
-            >> fs[dest_word_loc_def]
-            >> fs[mem_load_def]
-            >> irule SUBSET_THM
-            >> qpat_assum `domain (get_memory _ _) ⊆ domain reachable` (irule_at Any)
-            >> fs[domain_get_memory]
-            >> gvs[] >> METIS_TAC[]
-            )
-        )
-      >-(
-        qpat_assum `word_state_rel _ _ _` (strip_assume_tac o SRULE[word_state_rel_def]) >>
-        fs[] >>
-        rpt (irule word_state_rel_set_var_word) >>
-        first_x_assum MATCH_ACCEPT_TAC)
-      >-(
-        fs[word_state_rel_def] >>
-        (rpt strip_tac)
-        (*can this use mem_store_const*)
-        >> TRY (fs[set_var_def]
-        >> fs[mem_store_def]
-        >> gvs[] >> NO_TAC)
-          >- (fs[domain_find_loc_state]
-            >>  fs[mem_store_def] >> gvs[]
-            >> irule SUBSET_TRANS
-            >> irule_at Any get_memory_update
-            >> fs[]
-            >> Cases_on `x` >> fs[dest_word_loc_def]
-            >> fs[get_var_def]
-            >> irule SUBSET_THM
-            >> qpat_assum `domain (get_locals _) ⊆ domain reachable` (irule_at Any)
-            >> gvs[]
-            >> fs[domain_get_locals_lookup]
-            >> METIS_TAC[]))
-      >-(
-        fs[word_state_rel_def] >>
-        (rpt strip_tac) >>
-        TRY (fs[set_var_def] >> NO_TAC)
-       >- (gvs[])
-          >- (fs[domain_find_loc_state]
-            >> fs[mem_store_byte_aux_def]
-            >> every_case_tac >> fs[] >> gvs[]
-            >> irule SUBSET_TRANS
-            >> irule_at Any get_memory_update
-            >> fs[dest_word_loc_def]))
-      )
-    >-(
-      Cases_on `f` >> fs[]
-      >>(rpt (TOP_CASE_TAC >> fs[]) >>
-         strip_tac >> gvs[] >>
-         rpt (irule word_state_rel_set_var_word ORELSE irule word_state_rel_set_fp_var) >>
-         TRY $ first_x_assum MATCH_ACCEPT_TAC)
-      )
+    >- (first_x_assum MATCH_ACCEPT_TAC)
+    (* 6 subgoals *)
+    >>(rpt (TOP_CASE_TAC >> fs[]) >>
+       rw[] >> gvs[] >>
+       rpt (irule word_state_rel_set_var_word) >>
+       TRY $ first_x_assum MATCH_ACCEPT_TAC))
+  >- (
+    (* memory cases *)
+    rw[AllCaseEqs()]>>
+    gvs[word_state_rel_def,mem_store_def,domain_find_loc_state,domain_get_memory,set_var_def,mem_store_byte_aux_def,mem_store_32_def,AllCaseEqs()]
+    >>~-(
+      [`domain (get_locals (insert _ _ _))`],
+      irule SUBSET_TRANS
+      >> irule_at Any get_locals_insert
+      >> fs[]
+      >> fs[dest_word_loc_def]
+      >> fs[mem_load_def]
+      >> rename1`dest_word_loc ww`
+      >> Cases_on `ww`
+      >> fs[dest_word_loc_def]
+      >> irule SUBSET_THM
+      >> qpat_assum `domain (get_memory _ _) ⊆ domain reachable` (irule_at Any)
+      >> fs[domain_get_memory]
+      >> gvs[] >> METIS_TAC[])
+    >>~- (
+      [`domain (get_memory _ _) ⊆ domain reachable`],
+      irule SUBSET_TRANS
+      >> irule_at Any get_memory_update
+      >> fs[dest_word_loc_def]
+      >> rename1`dest_word_loc ww`
+      >> Cases_on `ww`
+      >> fs[dest_word_loc_def]
+      >> fs[get_var_def]
+      >> irule SUBSET_THM
+      >> qpat_assum `domain (get_locals _) ⊆ domain reachable` (irule_at Any)
+      >> gvs[]
+      >> fs[domain_get_locals_lookup]
+      >> METIS_TAC[]))
+  >- (
+    Cases_on `f` >> fs[]
+    >>(rpt (TOP_CASE_TAC >> fs[]) >>
+       strip_tac >> gvs[] >>
+       rpt (irule word_state_rel_set_var_word ORELSE irule word_state_rel_set_fp_var) >>
+       TRY $ first_x_assum MATCH_ACCEPT_TAC)
+  )
 QED
 
 Theorem word_state_rel_pop_env_NONE:

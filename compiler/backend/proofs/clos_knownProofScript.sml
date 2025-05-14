@@ -609,8 +609,6 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q
-  >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘IntOp i_’]) (Cases_on `i_`))
-  >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘WordOp w_’]) (Cases_on `w_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp g_’]) (Cases_on `g_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘MemOp m_’]) (Cases_on `m_`));
@@ -645,6 +643,9 @@ Proof
     \\ gvs [EL_REPLICATE])
   >- (fs [CaseEq"ffi_result"] \\ rveq
     \\ fs [state_globals_approx_def] \\ metis_tac [])
+  >-(Cases_on `i` >> gvs[known_op_def])
+  >-(Cases_on `i` >> gvs[known_op_def] >>
+    gvs[oneline do_int_app_def,AllCaseEqs()])
 QED
 
 Theorem ssgc_free_co_shift_seq:
@@ -723,7 +724,10 @@ Proof
   cases_on_op `opn` >>
   simp[do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
-  >>~- ([`WordOp`], dsimp[])
+  >~ [`IntOp`]
+  >- (Cases_on `i` >> simp[oneline do_int_app_def,case_eq_thms,PULL_EXISTS])
+  >~ [`WordOp`]
+  >- (Cases_on `w` >> dsimp[oneline do_word_app_def,AllCaseEqs(),PULL_EXISTS])
   >>~- ([`WordShift`], dsimp[])
   >>~- ([`WordFromWord`], dsimp[])
   >>~- ([`BoundsCheckByte`], dsimp[])
@@ -1210,6 +1214,8 @@ Proof
   rpt gen_tac \\ strip_tac
   \\ cases_on_op `opn`
   \\ fs [known_op_def] \\ rveq \\ fs []
+  >~ [`IntOp`]
+  >- (Cases_on `i` >> fs[known_op_def] \\ rveq \\ fs[])
   >- (fs [case_eq_thms, va_case_eq, bool_case_eq] \\ rveq \\ fs []
     \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ fs []
     \\ fs [EVERY_EL])
@@ -2826,6 +2832,8 @@ Theorem known_op_subspt:
 Proof
   cases_on_op `opn` \\ fs [known_op_def]
   \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
+  >~ [`IntOp`]
+  >- (Cases_on `i` >> fs[known_op_def])
   >- fs [list_case_eq, va_case_eq, bool_case_eq]
   >- fs [bool_case_eq, option_case_eq]
   \\ fs [list_case_eq, option_case_eq] \\ rveq
@@ -3519,7 +3527,7 @@ Proof
       \\ Cases_on `apx` \\ fs[gO_destApx_def] \\ rveq
       \\ fs [known_op_def, NULL_EQ, bool_case_eq] \\ rveq
       \\ imp_res_tac known_LENGTH_EQ_E \\ fs [LENGTH_NIL_SYM] \\ rveq
-      \\ fs [evaluate_def, do_app_def] \\ rveq \\ fs []
+      \\ fs [evaluate_def, do_app_def,do_int_app_def] \\ rveq \\ fs []
       \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs []
       \\ rename1 `lookup nn gg`
       \\ Cases_on `lookup nn gg` \\ fs [] \\ rveq
@@ -4920,10 +4928,9 @@ Theorem known_op_every_Fn_SOME:
    ⇒ val_approx_every_Fn_SOME a ∧
      globals_approx_every_Fn_SOME b
 Proof
-  cases_on_op `op` \\ fs [known_op_def]
-  \\ rw [] \\ fsrw_tac [ETA_ss] [CaseEq"prod", CaseEq"option", NULL_EQ,
-    CaseEq"list", CaseEq"val_approx", CaseEq"bool"]
-  \\ rw [] \\ fs []
+  rpt (disch_then strip_assume_tac) \\
+  gvs[oneline known_op_def,AllCaseEqs()]
+  \\ rw [] \\ fsrw_tac [ETA_ss] []
   \\ fs [EVERY_MEM, MEM_EL, PULL_EXISTS, globals_approx_every_Fn_SOME_def, lookup_insert]
   \\ rw [] \\ fs []
   \\ TRY ( match_mp_tac val_approx_every_Fn_SOME_merge \\ fs [] )
@@ -5041,10 +5048,14 @@ Theorem known_op_every_Fn_vs_NONE:
    ⇒ val_approx_every_Fn_vs_NONE a ∧
      globals_approx_every_Fn_vs_NONE b
 Proof
-  cases_on_op `op` \\ fs[clos_knownTheory.known_op_def]
-  \\ rw[] \\ fsrw_tac[ETA_ss][CaseEq"prod",CaseEq"option",NULL_EQ,CaseEq"list",CaseEq"val_approx",CaseEq"bool"]
+  rpt $ disch_then strip_assume_tac >>
+  gvs[oneline clos_knownTheory.known_op_def,AllCaseEqs()]
+  \\ rw[] \\ fsrw_tac[ETA_ss][]
   \\ rw[] \\ fs[]
-  \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,globals_approx_every_Fn_vs_NONE_def,lookup_insert]
+  \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,
+    globals_approx_every_Fn_vs_NONE_def,
+    globals_approx_every_Fn_SOME_def,
+    lookup_insert]
   \\ rw[] \\ fs[]
   \\ TRY ( match_mp_tac val_approx_every_Fn_vs_NONE_merge \\ fs[] )
   \\ last_x_assum match_mp_tac \\ fs[]
@@ -5132,6 +5143,18 @@ Definition val_approx_no_Labels_def:
 Termination
   WF_REL_TAC `measure val_approx_size`
 End
+fun trivial x = x
+              |> concl
+              |> strip_forall
+              |> snd
+              |> dest_eq
+              |> snd
+              |> aconv T
+
+Triviality val_approx_no_Labels_simp[simp] = (val_approx_no_Labels_def
+                                            |> CONJUNCTS
+                                            |> (filter trivial)
+                                            |> LIST_CONJ)
 
 Theorem decide_inline_no_Labels:
    val_approx_no_Labels b ∧ decide_inline a b c d = inlD_LetInline e ⇒
@@ -5164,10 +5187,9 @@ Theorem known_op_no_Labels:
    ⇒ val_approx_no_Labels a ∧
      globals_approx_no_Labels b
 Proof
-  cases_on_op `op` \\ fs[clos_knownTheory.known_op_def] \\ rw[]
-  \\ fsrw_tac[ETA_ss][CaseEq"prod",CaseEq"option",NULL_EQ,
-                      CaseEq"list",CaseEq"val_approx",CaseEq"bool"]
-  \\ rw[] \\ fs[val_approx_no_Labels_def]
+  rpt $ disch_then strip_assume_tac >>
+  gvs[oneline clos_knownTheory.known_op_def,AllCaseEqs()]
+  \\ fsrw_tac[ETA_ss][val_approx_no_Labels_def]
   \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,globals_approx_no_Labels_def,lookup_insert]
   \\ rw[] \\ fs[]
   \\ TRY ( match_mp_tac val_approx_no_Labels_merge \\ fs[] )
@@ -5318,10 +5340,10 @@ Theorem known_op_obeys_max_app:
    ⇒ val_approx_obeys_max_app k a ∧
      globals_approx_obeys_max_app k b
 Proof
-  cases_on_op `op` \\ fs[clos_knownTheory.known_op_def] \\ rw[]
-  \\ fsrw_tac[ETA_ss][CaseEq"prod",CaseEq"option",NULL_EQ,
-                      CaseEq"list",CaseEq"val_approx",CaseEq"bool"]
-  \\ rw[] \\ fs[val_approx_obeys_max_app_def]
+  rpt (disch_then strip_assume_tac)
+  \\ gvs[val_approx_obeys_max_app_def,
+     oneline clos_knownTheory.known_op_def,AllCaseEqs()]
+  \\ fsrw_tac[ETA_ss][]
   \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,globals_approx_obeys_max_app_def,lookup_insert]
   \\ rw[] \\ fs[]
   \\ TRY ( match_mp_tac val_approx_obeys_max_app_merge \\ fs[] )

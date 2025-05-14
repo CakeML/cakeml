@@ -106,6 +106,8 @@ Definition every_var_inst_def:
   (every_var_inst P (Arith (LongDiv r1 r2 r3 r4 r5)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ P r5)) ∧
   (every_var_inst P (Mem Load r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Store r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst P (Mem Load32 r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst P (Mem Store32 r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Load8 r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Store8 r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (FP (FPLess r d1 d2)) = P r) ∧
@@ -223,6 +225,8 @@ Definition max_var_inst_def:
   (max_var_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧
   (max_var_inst (Mem Load r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Store r (Addr a w)) = MAX a r) ∧
+  (max_var_inst (Mem Load32 r (Addr a w)) = MAX a r) ∧
+  (max_var_inst (Mem Store32 r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Load8 r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Store8 r (Addr a w)) = MAX a r) ∧
   (max_var_inst (FP (FPLess r f1 f2)) = r) ∧

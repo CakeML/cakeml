@@ -76,7 +76,7 @@ Proof
   \\ reverse (Cases_on ‘eq_direct_const x y’) \\ fs []
   THEN1
    (gvs [eq_direct_const_def,AllCaseEqs(),dest_Op_Nil_thm,dest_Const_thm]
-    \\ fs [evaluate_def,do_app_def]
+    \\ fs [evaluate_def,do_app_def,do_int_app_def]
     THEN1
      (Cases_on ‘evaluate ([x],env,s)’ \\ fs [] \\ Cases_on ‘q’ \\ fs []
       \\ rw [] \\ fs [evaluate_def]
@@ -667,7 +667,7 @@ Proof
     \\ Cases_on ‘i'’ \\ fs [dest_Op_Consts_def,dest_Op_def,dest_Const_def]
     \\ Cases_on ‘l’ \\ gvs []
     \\ gvs [int_op_def,AllCaseEqs(),MakeInt_def]
-    \\ gvs [evaluate_def,AllCaseEqs(),do_app_def,evaluate_MakeBool]
+    \\ gvs [evaluate_def,AllCaseEqs(),do_app_def,do_int_app_def,evaluate_MakeBool]
     \\ gvs [do_eq_def] \\ intLib.COOPER_TAC)
   \\ last_x_assum mp_tac
   \\ simp [eq_op_def,GSYM AND_IMP_INTRO]
