@@ -233,8 +233,8 @@ Definition get_array_len_def:
   get_array_len _ = NONE
 End
 
-Definition val_to_num:
-  val_to_num (IntV i) = (if i ≥ 0i then SOME (Num i) else NONE) ∧
+Definition val_to_num_def:
+  val_to_num (IntV i) = (if i < 0i then NONE else SOME (Num i)) ∧
   val_to_num _ = NONE
 End
 
