@@ -232,6 +232,65 @@ Definition seq_last_stmt_def:
 End
 
 
+(* Error message helpers *)
+
+Definition get_scope_msg_def:
+  get_scope_msg is_var loc id fname = 
+    let id_type = strlit $ (if is_var then "variable " else "function ") in
+    concat [loc; id_type; id;
+      strlit " is not in scope in function ";
+      fname; strlit "\n"]
+End
+
+Definition get_revar_msg_def:
+  get_revar_msg loc id fname = 
+    concat [loc; strlit "variable "; id;
+      strlit " is redeclared in function ";
+      fname; strlit "\n"]
+End
+
+Definition get_memop_msg_def:
+  get_memop_msg is_local is_load is_untrust loc fname = 
+    let mem_type = strlit $ (if is_local then "local " else "shared ") in
+    let op_type  = strlit $ (if is_load  then "load "  else "store ")  in
+    let issue = strlit $ (case (is_local, is_untrust) of
+      | (F, F) => "is "
+      | (F, T) => "may be "
+      | (T, F) => "is not "
+      | (T, T) => "may not be ") in
+    concat [loc; mem_type; op_type;
+      strlit "address "; issue; strlit "calculated from base in function ";
+      fname; strlit "\n"]
+End
+
+Definition get_oparg_msg_def:
+  get_oparg_msg is_exact n_expected n_given loc op fname = 
+    let issue = strlit $ (if is_exact then " only accepts " else " requires at least ") in
+    concat
+      [loc; strlit "operation "; op;
+        issue; n_expected; strlit " operands, ";
+        n_given; strlit " provided in function ";
+        fname; strlit "\n"]
+End
+
+Definition get_unreach_msg_def:
+  get_unreach_msg loc last fname =
+    concat
+      [loc;
+        strlit "unreachable statement(s) after "; last;
+        strlit " in function " ; fname; strlit "\n"]
+End
+
+Definition get_rogue_msg_def:
+  get_rogue_msg is_break loc fname =
+    let stmt = strlit $ (if is_break then "break " else "continue ") in
+    concat
+      [loc; stmt;
+        strlit "statement outside loop in function ";
+        fname; strlit "\n"]
+End
+
+
 (* Misc functions *)
 
 (* Find the first element in a sorted list that is repeated *)
@@ -277,19 +336,13 @@ Definition static_check_exp_def:
   static_check_exp ctxt (Var vname) =
     (* check for out of scope var *)
     (case lookup ctxt.vars vname of
-      NONE => error (ScopeErr $ concat
-        [ctxt.loc;
-         strlit "variable "; vname;  strlit " is not in scope in function ";
-         ctxt.fname; strlit "\n"])
+      NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.fname)
       (* return stored based-ness *)
     | SOME x => return x) ∧
   static_check_exp ctxt (Label fname) =
     (* check for out of scope func *)
     (if ¬MEM fname ctxt.funcs
-      then error (ScopeErr $ concat
-        [ctxt.loc;
-         strlit "function "; fname; strlit " is not in scope in function ";
-         ctxt.fname; strlit "\n"])
+      then error (ScopeErr $ get_scope_msg F ctxt.loc fname ctxt.fname)
     (* return based-ness *)
     else return (NotBased)) ∧
   static_check_exp ctxt (Struct es) =
@@ -314,14 +367,8 @@ Definition static_check_exp_def:
       b <- static_check_exp ctxt addr;
       (* check address references base *)
       case b of
-      | NotBased   => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local load address is not calculated from base in function ";
-           ctxt.fname; strlit "\n"])
-      | NotTrusted => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local load address may not be calculated from base in function ";
-           ctxt.fname; strlit "\n"])
+      | NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.fname)
+      | NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.fname)
       | _          => return ();
       (* return based-ness *)
       return (Trusted)
@@ -332,16 +379,9 @@ Definition static_check_exp_def:
       b <- static_check_exp ctxt addr;
       (* check address references base *)
       case b of
-      | NotBased   => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local load address is not calculated from base in function ";
-           ctxt.fname; strlit "\n"])
-      | NotTrusted => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local load address may not be calculated from base in function ";
-           ctxt.fname; strlit "\n"])
-      | Based      => return ()
-      | Trusted    => return ();
+      | NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.fname)
+      | NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.fname)
+      | _          => return ();
       (* return based-ness *)
       return (Trusted)
     od ∧
@@ -351,16 +391,9 @@ Definition static_check_exp_def:
       b <- static_check_exp ctxt addr;
       (* check address references base *)
       case b of
-      | NotBased   => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local load address is not calculated from base in function ";
-           ctxt.fname; strlit "\n"])
-      | NotTrusted => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local load address may not be calculated from base in function ";
-           ctxt.fname; strlit "\n"])
-      | Based      => return ()
-      | Trusted    => return ();
+      | NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.fname)
+      | NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.fname)
+      | _          => return ();
       (* return based-ness *)
       return (Trusted)
     od ∧
@@ -370,18 +403,12 @@ Definition static_check_exp_def:
       nargs <<- LENGTH es;
       case bop of
       | Sub  => if ~(nargs = 2)
-                  then error (GenErr $ concat
-                    [ctxt.loc;
-                     strlit "operation "; binop_to_str bop;
-                     strlit " only accepts 2 operands, ";
-                     num_to_str nargs; strlit " provided\n"])
+                  then error (GenErr $ get_oparg_msg T (strlit "2")
+                    (num_to_str nargs) ctxt.loc (binop_to_str bop) ctxt.fname)
                 else return ()
       | _    => if nargs < 2
-                  then error (GenErr $ concat
-                    [ctxt.loc;
-                     strlit "operation "; binop_to_str bop;
-                     strlit " requires at least 2 operands, ";
-                     num_to_str nargs; strlit " provided\n"])
+                  then error (GenErr $ get_oparg_msg F (strlit "2")
+                    (num_to_str nargs) ctxt.loc (binop_to_str bop) ctxt.fname)
                 else return ();
       (* return combined based-ness of checked op args *)
       static_check_exps ctxt es
@@ -392,11 +419,8 @@ Definition static_check_exp_def:
       nargs <<- LENGTH es;
       case pop of
       | Mul  => if ~(nargs = 2)
-                  then error (GenErr $ concat
-                    [ctxt.loc;
-                     strlit "operation "; panop_to_str pop;
-                     strlit " only accepts 2 operands, ";
-                     num_to_str nargs; strlit " provided\n"])
+                  then error (GenErr $ get_oparg_msg T (strlit "2")
+                    (num_to_str nargs) ctxt.loc (panop_to_str pop) ctxt.fname)
                 else return ();
       (* return combined based-ness of checked op args *)
       static_check_exps ctxt es
@@ -449,10 +473,11 @@ Definition static_check_prog_def:
     do
       (* check for reclaration *)
       case lookup ctxt.vars v of
-        SOME _ => log (WarningErr $ concat
+        (* SOME _ => log (WarningErr $ concat
           [ctxt.loc;
            strlit "variable "; v; strlit " is redeclared in function ";
-           ctxt.fname; strlit "\n"])
+           ctxt.fname; strlit "\n"]) *)
+        SOME _ => log (WarningErr $ get_revar_msg ctxt.loc v ctxt.fname)
       | NONE => return ();
       (* check initialising exp *)
       b <- static_check_exp ctxt e;
@@ -471,10 +496,11 @@ Definition static_check_prog_def:
     do
       (* check for redeclaration *)
       case lookup ctxt.vars v of
-        SOME _ => log (WarningErr $ concat
+        (* SOME _ => log (WarningErr $ concat
           [ctxt.loc;
           strlit "variable "; v; strlit " is redeclared in function ";
-          ctxt.fname; strlit "\n"])
+          ctxt.fname; strlit "\n"]) *)
+        SOME _ => log (WarningErr $ get_revar_msg ctxt.loc v ctxt.fname)
       | NONE => return ();
       (* check func ptr exp and arg exps *)
       static_check_exp ctxt e;
@@ -494,10 +520,7 @@ Definition static_check_prog_def:
     do
       (* check for out of scope assignment *)
       case lookup ctxt.vars v of
-        NONE => error (ScopeErr $ concat
-          [ctxt.loc;
-          strlit "variable "; v; strlit " is not in scope in function ";
-          ctxt.fname; strlit "\n"])
+        NONE => error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.fname)
       | SOME _ => return ();
       (* check assigning exp *)
       b <- static_check_exp ctxt e;
@@ -515,14 +538,8 @@ Definition static_check_prog_def:
       static_check_exp ctxt exp;
       (* check address references base *)
       case b of
-      | NotBased   => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local store address is not calculated from base in function ";
-           ctxt.fname; strlit "\n"])
-      | NotTrusted => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local store address may not be calculated from base in function ";
-           ctxt.fname; strlit "\n"])
+      | NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.fname)
+      | NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.fname)
       | Based      => return ()
       | Trusted    => return ();
       (* return prog info *)
@@ -539,14 +556,8 @@ Definition static_check_prog_def:
       static_check_exp ctxt exp;
       (* check address references base *)
       case b of
-      | NotBased   => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local store address is not calculated from base in function ";
-           ctxt.fname; strlit "\n"])
-      | NotTrusted => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local store address may not be calculated from base in function ";
-           ctxt.fname; strlit "\n"])
+      | NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.fname)
+      | NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.fname)
       | _          => return ();
       (* return prog info *)
       return <| exits_fun  := F
@@ -562,14 +573,8 @@ Definition static_check_prog_def:
       static_check_exp ctxt exp;
       (* check address references base *)
       case b of
-      | NotBased   => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local store address is not calculated from base in function ";
-           ctxt.fname; strlit "\n"])
-      | NotTrusted => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "local store address may not be calculated from base in function ";
-           ctxt.fname; strlit "\n"])
+      | NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.fname)
+      | NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.fname)
       | _          => return ();
       (* return prog info *)
       return <| exits_fun  := F
@@ -583,10 +588,7 @@ Definition static_check_prog_def:
       (* check for prior warnable unreachability *)
       (warn_p1, ctxt1) <<- reached_warnable p1 ctxt;
       case warn_p1 of
-      | SOME ls => log (WarningErr $ concat
-          [ctxt1.loc;
-           strlit "unreachable statement(s) after "; last_to_str ls;
-           strlit " in function " ; ctxt1.fname; strlit "\n"])
+      | SOME ls => log (WarningErr $ get_unreach_msg ctxt1.loc (last_to_str ls) ctxt1.fname)
       | NONE   => return ();
       (* check first prog *)
       pret1 <- static_check_prog ctxt1 p1;
@@ -603,10 +605,7 @@ Definition static_check_prog_def:
       (* check for warnable unreachability after first prog *)
       (warn_p2, ctxt3) <<- reached_warnable p2 ctxt2;
       case warn_p2 of
-      | SOME ls => log (WarningErr $ concat
-          [ctxt3.loc;
-           strlit "unreachable statement(s) after "; last_to_str ls;
-           strlit " in function " ; ctxt1.fname; strlit "\n"])
+      | SOME ls => log (WarningErr $ get_unreach_msg ctxt3.loc (last_to_str ls) ctxt1.fname)
       | NONE   => return ();
       (* check second prog *)
       pret2 <- static_check_prog ctxt3 p2;
@@ -653,10 +652,7 @@ Definition static_check_prog_def:
     do
       (* check for rogueness *)
       if ~ctxt.in_loop
-        then error (GenErr $ concat
-          [ctxt.loc;
-           strlit "break statement outside loop in function ";
-           ctxt.fname; strlit "\n"])
+        then error (GenErr $ get_rogue_msg T ctxt.loc ctxt.fname)
       else return ();
       (* return prog info *)
       return <| exits_fun  := F
@@ -669,10 +665,7 @@ Definition static_check_prog_def:
     do
       (* check for rogueness *)
       if ~ctxt.in_loop
-        then error (GenErr $ concat
-          [ctxt.loc;
-           strlit "continue statement outside loop in function ";
-           ctxt.fname; strlit "\n"])
+        then error (GenErr $ get_rogue_msg F ctxt.loc ctxt.fname)
       else return ();
       (* return prog info *)
       return <| exits_fun  := F
@@ -697,10 +690,7 @@ Definition static_check_prog_def:
     do
       (* check for out of scope assignment *)
       case lookup ctxt.vars rt of
-        NONE => error (ScopeErr $ concat
-          [ctxt.loc;
-           strlit "variable "; rt; strlit " is not in scope in function ";
-           ctxt.fname; strlit "\n"])
+        NONE => error (ScopeErr $ get_scope_msg T ctxt.loc rt ctxt.fname)
       | SOME _ => return ();
       (* check func ptr exp and arg exps *)
       static_check_exp ctxt trgt;
@@ -711,10 +701,7 @@ Definition static_check_prog_def:
         (* check for out of scope exception variable *)
       | SOME (eid, evar, p) =>
         case lookup ctxt.vars evar of
-          NONE => error (ScopeErr $ concat
-            [ctxt.loc;
-             strlit "variable "; evar; strlit " is not in scope in function ";
-             ctxt.fname; strlit "\n"])
+          NONE => error (ScopeErr $ get_scope_msg T ctxt.loc evar ctxt.fname)
           (* check handler prog *)
         | SOME _ =>
             do
@@ -739,10 +726,7 @@ Definition static_check_prog_def:
         (* check for out of scope exception variable *)
       | SOME (eid, evar, p) =>
         case lookup ctxt.vars evar of
-          NONE => error (ScopeErr $ concat
-            [ctxt.loc;
-             strlit "variable "; evar; strlit " is not in scope in function ";
-             ctxt.fname; strlit "\n"])
+          NONE => error (ScopeErr $ get_scope_msg T ctxt.loc evar ctxt.fname)
           (* check handler prog *)
         | SOME _ =>
             do
@@ -793,23 +777,14 @@ Definition static_check_prog_def:
     do
       (* check for out of scope var *)
       case lookup ctxt.vars v of
-        NONE => error (ScopeErr $ concat
-          [ctxt.loc;
-           strlit "variable "; v; strlit " is not in scope in function ";
-           ctxt.fname; strlit "\n"])
+        NONE => error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.fname)
       | SOME _ => return ();
       (* check address exp *)
       b <- static_check_exp ctxt e;
       (* check address does not reference base *)
       case b of
-      | Based      => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "shared load address is calculated from base in function ";
-           ctxt.fname; strlit "\n"])
-      | NotTrusted => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "shared load address may be calculated from base in function ";
-           ctxt.fname; strlit "\n"])
+      | Based      => log (WarningErr $ get_memop_msg F T F ctxt.loc ctxt.fname)
+      | NotTrusted => log (WarningErr $ get_memop_msg F T T ctxt.loc ctxt.fname)
       | _          => return ();
       (* return prog info with updated var *)
       return <| exits_fun  := F
@@ -825,14 +800,8 @@ Definition static_check_prog_def:
       static_check_exp ctxt e;
       (* check address does not reference base *)
       case b of
-      | Based      => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "shared store address is calculated from base in function ";
-           ctxt.fname; strlit "\n"])
-      | NotTrusted => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "shared store address may be calculated from base in function ";
-           ctxt.fname; strlit "\n"])
+      | Based      => log (WarningErr $ get_memop_msg F F F ctxt.loc ctxt.fname)
+      | NotTrusted => log (WarningErr $ get_memop_msg F F T ctxt.loc ctxt.fname)
       | _          => return ();
       (* return prog info *)
       return <| exits_fun  := F
