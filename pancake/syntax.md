@@ -31,7 +31,7 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Bitwise | `&`, `\|`, `^`, `<<`, `>>>`, `>>`, `#>>` | And, or, xor, logical left shift, logical right shift, arithmetic right shift, circular right shift |
 | Logical | `!`, `&&`, `\|\|` | Not, and, or |
 | Comparison | `==`, `!=`, `<`, `>`, `<=`, `>=`, `<+`, `>+`, `<=+`, `>=+`| Equal, not equal, less than, greater than, less or equal, greater or equal, signed less than, signed greater than, signed less or equal, signed greater or equal |
-| Pointer | `&`, `*` | Get function pointer, dereference function pointer |
+| Pointer | `&FUNC`, `*EXP()` | Get function pointer, dereference function pointer (may be an expression); deprecated |
 | Memory load | `lds SHAPE ADDR`, `ld8 ADDR` | Note that local memory loads are expressions, unlike shared loads. For loading a single word, use `lds 1 ADDR` |
 
 ## Shapes and Structs
