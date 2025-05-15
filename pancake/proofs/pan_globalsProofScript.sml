@@ -268,6 +268,21 @@ Proof
 QED
 *)
 
+(* TODO: move *)
+Theorem mem_stores_lookup:
+  ∀addr vs addrs memory m addr'.
+    mem_stores addr vs addrs memory = SOME m ∧
+    addr' ∉ addresses addr (LENGTH vs) ⇒
+    m addr' = memory addr'
+Proof
+  Induct_on ‘vs’ >>
+  rw[mem_stores_def,AllCaseEqs(),addresses_def] >>
+  res_tac >>
+  simp[] >>
+  gvs[mem_store_def,APPLY_UPDATE_THM]
+QED
+
+
 Theorem compile_Assign_Global:
   ^(get_goal "compile _ (Assign Global _ _)")
 Proof
@@ -282,7 +297,18 @@ Proof
   disch_then drule >>
   strip_tac >>
   simp[] >>
-  cheat (* unprovable *)
+  conj_tac
+  >- (cheat (* unprovable *)
+     ) >>
+  conj_tac
+  >- (rw[] >>
+      gvs[DISJOINT_ALT] >>
+      drule mem_stores_lookup >>
+      simp[length_flatten_eq_size_of_shape]) >>
+  gvs[disjoint_globals_def,FLOOKUP_UPDATE,IS_SOME_EXISTS,PULL_EXISTS] >>
+  rw[] >>
+  res_tac >>
+  fs[]
 QED
 
 Theorem state_rel_res_var[local]:
