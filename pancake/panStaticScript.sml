@@ -498,10 +498,6 @@ Definition static_check_prog_def:
     do
       (* check for reclaration *)
       case lookup ctxt.vars v of
-        (* SOME _ => log (WarningErr $ concat
-          [ctxt.loc;
-           strlit "variable "; v; strlit " is redeclared in function ";
-           ctxt.fname; strlit "\n"]) *)
         SOME _ => log (WarningErr $ get_revar_msg ctxt.loc v (SOME ctxt.fname))
       | NONE => return ();
       (* check initialising exp *)
@@ -521,10 +517,6 @@ Definition static_check_prog_def:
     do
       (* check for redeclaration *)
       case lookup ctxt.vars v of
-        (* SOME _ => log (WarningErr $ concat
-          [ctxt.loc;
-          strlit "variable "; v; strlit " is redeclared in function ";
-          ctxt.fname; strlit "\n"]) *)
         SOME _ => log (WarningErr $ get_revar_msg ctxt.loc v (SOME ctxt.fname))
       | NONE => return ();
       (* check func ptr exp and arg exps *)
