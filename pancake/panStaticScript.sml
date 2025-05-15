@@ -234,38 +234,58 @@ End
 
 (* Error message helpers *)
 
+(*
+  Get message for out of scope identifiers
+  is_var: variable vs function
+*)
 Definition get_scope_msg_def:
-  get_scope_msg is_var loc id fname = 
-    let id_type = strlit $ (if is_var then "variable " else "function ") in
+  get_scope_msg is_var loc id fname =
+    let id_type = if is_var then strlit "variable " else strlit "function " in
     concat [loc; id_type; id;
       strlit " is not in scope in function ";
       fname; strlit "\n"]
 End
 
+(*
+  Get message for redefined variables
+  fname_opt: local vs global
+*)
 Definition get_revar_msg_def:
-  get_revar_msg loc id fname = 
+  get_revar_msg loc id fname_opt =
+    let in_func = (case fname_opt of
+      | SOME fname => concat [strlit " in function "; fname]
+      | NONE       => strlit "") in
     concat [loc; strlit "variable "; id;
-      strlit " is redeclared in function ";
-      fname; strlit "\n"]
+      strlit " is redeclared"; in_func; strlit "\n"]
 End
 
+(*
+  Get message for memory op addresses
+  is_local: local vs shared
+  is_local: load vs store
+  is_untrust: NotTrusted vs other
+*)
 Definition get_memop_msg_def:
-  get_memop_msg is_local is_load is_untrust loc fname = 
-    let mem_type = strlit $ (if is_local then "local " else "shared ") in
-    let op_type  = strlit $ (if is_load  then "load "  else "store ")  in
-    let issue = strlit $ (case (is_local, is_untrust) of
-      | (F, F) => "is "
-      | (F, T) => "may be "
-      | (T, F) => "is not "
-      | (T, T) => "may not be ") in
+  get_memop_msg is_local is_load is_untrust loc fname =
+    let mem_type = if is_local then strlit "local " else strlit "shared " in
+    let op_type  = if is_load  then strlit "load "  else strlit "store "  in
+    let issue = case (is_local, is_untrust) of
+      | (F, F) => strlit "is "
+      | (F, T) => strlit "may be "
+      | (T, F) => strlit "is not "
+      | (T, T) => strlit "may not be " in
     concat [loc; mem_type; op_type;
       strlit "address "; issue; strlit "calculated from base in function ";
       fname; strlit "\n"]
 End
 
+(*
+  Get message for op argument number
+  is_exact: exactly vs at least
+*)
 Definition get_oparg_msg_def:
-  get_oparg_msg is_exact n_expected n_given loc op fname = 
-    let issue = strlit $ (if is_exact then " only accepts " else " requires at least ") in
+  get_oparg_msg is_exact n_expected n_given loc op fname =
+    let issue = if is_exact then strlit " only accepts " else strlit " requires at least " in
     concat
       [loc; strlit "operation "; op;
         issue; n_expected; strlit " operands, ";
@@ -273,6 +293,7 @@ Definition get_oparg_msg_def:
         fname; strlit "\n"]
 End
 
+(* Get message for unreachable statement *)
 Definition get_unreach_msg_def:
   get_unreach_msg loc last fname =
     concat
@@ -281,9 +302,13 @@ Definition get_unreach_msg_def:
         strlit " in function " ; fname; strlit "\n"]
 End
 
+(*
+  Get message for rogue loop exit
+  is_break: break vs continue
+*)
 Definition get_rogue_msg_def:
   get_rogue_msg is_break loc fname =
-    let stmt = strlit $ (if is_break then "break " else "continue ") in
+    let stmt = if is_break then strlit "break " else strlit "continue " in
     concat
       [loc; stmt;
         strlit "statement outside loop in function ";
@@ -477,7 +502,7 @@ Definition static_check_prog_def:
           [ctxt.loc;
            strlit "variable "; v; strlit " is redeclared in function ";
            ctxt.fname; strlit "\n"]) *)
-        SOME _ => log (WarningErr $ get_revar_msg ctxt.loc v ctxt.fname)
+        SOME _ => log (WarningErr $ get_revar_msg ctxt.loc v (SOME ctxt.fname))
       | NONE => return ();
       (* check initialising exp *)
       b <- static_check_exp ctxt e;
@@ -500,7 +525,7 @@ Definition static_check_prog_def:
           [ctxt.loc;
           strlit "variable "; v; strlit " is redeclared in function ";
           ctxt.fname; strlit "\n"]) *)
-        SOME _ => log (WarningErr $ get_revar_msg ctxt.loc v ctxt.fname)
+        SOME _ => log (WarningErr $ get_revar_msg ctxt.loc v (SOME ctxt.fname))
       | NONE => return ();
       (* check func ptr exp and arg exps *)
       static_check_exp ctxt e;
