@@ -267,6 +267,7 @@ Proof
   >- ()
 QED
 *)
+
 Theorem compile_Assign_Global:
   ^(get_goal "compile _ (Assign Global _ _)")
 Proof
@@ -437,7 +438,17 @@ Proof
           conj_tac
           >- (rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm,FLOOKUP_UPDATE] >> rw[]) >>
           conj_tac
-          >- (cheat (* unprovable? *)) >>
+          >- (rw[FLOOKUP_UPDATE]
+              >- (res_tac >> fs[shape_of_def,mem_load_def]) >>
+              res_tac >>
+              simp[] >>
+              irule $ cj 1 mem_load_disjoint >>
+              simp[] >>
+              gvs[disjoint_globals_def] >>
+              res_tac >>
+              fs[DISJOINT_ALT,size_of_shape_def,IS_SOME_EXISTS,PULL_EXISTS] >>
+              gvs[size_of_shape_def,
+                  CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def]) >>
           conj_tac
           >- (rw[] >>
               gvs[SUBSET_DEF] >>
@@ -458,7 +469,17 @@ Proof
           conj_tac
           >- (rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm,FLOOKUP_UPDATE] >> rw[]) >>
           conj_tac
-          >- (cheat (* unprovable? *)) >>
+          >- (rw[FLOOKUP_UPDATE]
+              >- (res_tac >> fs[shape_of_def,mem_load_def]) >>
+              res_tac >>
+              simp[] >>
+              irule $ cj 1 mem_load_disjoint >>
+              simp[] >>
+              gvs[disjoint_globals_def] >>
+              res_tac >>
+              fs[DISJOINT_ALT,size_of_shape_def,IS_SOME_EXISTS,PULL_EXISTS] >>
+              gvs[size_of_shape_def,
+                  CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def]) >>
           conj_tac
           >- (rw[] >>
               gvs[SUBSET_DEF] >>
@@ -643,6 +664,144 @@ Proof
   strip_tac >>
   simp[] >>
   gvs[state_rel_def]
+QED
+
+Theorem compile_DecCall:
+  ^(get_goal "compile _ (DecCall _ _ _ _ _)")
+Proof
+  rw[evaluate_def,compile_def] >>
+  gvs[CaseEq "option"] >>
+  gvs[CaseEq "prod"] >>
+  drule_all OPT_MMAP_eval_correct >>
+  drule_all state_rel_lookup_code >>
+  rpt strip_tac >> gvs[] >>
+  ‘s.clock = t.clock’ by fs[state_rel_def] >>
+  gvs[CaseEq "bool", good_res_def,state_rel_empty_locals] >>
+  drule state_rel_dec_clock >>
+  strip_tac >>
+  dxrule $ cj 1 state_rel_change_locals >>
+  disch_then $ qspecl_then [‘newlocals’,‘T’] strip_assume_tac >>
+  first_x_assum $ drule_at $ Pos hd >>
+  strip_tac >>
+  gvs[AllCaseEqs(), SF DNF_ss,UNCURRY_eq_pair,good_res_def,state_rel_empty_locals] >>
+  irule_at Any state_rel_res_var >>
+  simp[Once CONJ_SYM] >>
+  first_x_assum irule >>
+  irule state_rel_set_var >>
+  gvs[state_rel_def]
+QED
+
+Theorem state_rel_read_bytearray:
+  ∀ls ctxt s t bytes sz ad.
+    state_rel ls ctxt s t ∧
+    read_bytearray sz ad (mem_load_byte s.memory s.memaddrs s.be) = SOME bytes ⇒
+    read_bytearray sz ad (mem_load_byte t.memory t.memaddrs t.be) = SOME bytes
+Proof
+  Induct_on ‘ad’ >>
+  rw[read_bytearray_def,AllCaseEqs(),mem_load_byte_def,PULL_EXISTS] >>
+  first_x_assum $ irule_at $ Any >>
+  first_assum $ irule_at $ Pos hd >>
+  first_assum $ irule_at $ Any >>
+  gvs[state_rel_def,SUBSET_DEF]
+QED
+
+Theorem state_rel_mem_store_byte:
+  state_rel ls ctxt s t ∧
+  mem_store_byte s.memory s.memaddrs s.be addr b = SOME m' ⇒
+  ∃m''. mem_store_byte t.memory t.memaddrs t.be addr b = SOME m'' ∧
+       state_rel ls ctxt (s with memory := m') (t with memory := m'')
+Proof
+  rw[mem_store_byte_def,AllCaseEqs(),PULL_EXISTS,state_rel_def,SUBSET_DEF] >>
+  res_tac >>
+  gvs[] >>
+  rw[APPLY_UPDATE_THM] >>
+  res_tac >>
+  fs[] >>
+  drule_at_then Any irule $ cj 1 mem_load_disjoint >>
+  gvs[DISJOINT_ALT]
+QED
+
+Theorem state_rel_mem_store_byte:
+  state_rel ls ctxt s t ∧
+  mem_store_byte s.memory s.memaddrs s.be addr b = SOME m' ⇒
+  ∃m''. mem_store_byte t.memory t.memaddrs t.be addr b = SOME m'' ∧
+       state_rel ls ctxt (s with memory := m') (t with memory := m'')
+Proof
+  rw[mem_store_byte_def,AllCaseEqs(),PULL_EXISTS,state_rel_def,SUBSET_DEF] >>
+  res_tac >>
+  gvs[] >>
+  rw[APPLY_UPDATE_THM] >>
+  res_tac >>
+  fs[] >>
+  drule_at_then Any irule $ cj 1 mem_load_disjoint >>
+  gvs[DISJOINT_ALT]
+QED
+
+Theorem state_rel_change_ffi:
+  (state_rel ls' ctxt s t ⇒ state_rel ls' ctxt (s with ffi := x) (t with ffi := x))
+Proof
+  rw[] >>
+  gvs[state_rel_def]
+QED
+
+Theorem state_rel_write_bytearray:
+  ∀a ls ctxt s t sz nbw bs.
+    state_rel ls ctxt s t ∧
+    read_bytearray sz (LENGTH nbw) (mem_load_byte s.memory s.memaddrs s.be) = SOME bs
+    ⇒
+    state_rel ls ctxt (s with memory := write_bytearray sz nbw s.memory s.memaddrs s.be)
+              (t with memory := write_bytearray sz nbw t.memory t.memaddrs t.be)
+Proof
+  Induct_on ‘nbw’ >>
+  rw[write_bytearray_def,read_bytearray_def,mem_load_byte_def,AllCaseEqs()]
+  >- gvs[state_rel_def] >>
+  TOP_CASE_TAC
+  >- gvs[mem_store_byte_def,AllCaseEqs()] >>
+  first_x_assum drule >>
+  disch_then $ qspec_then ‘sz + 1w’ mp_tac >>
+  disch_then drule >>
+  strip_tac >>
+  drule state_rel_mem_store_byte >>
+  simp[] >>
+  disch_then drule >>
+  strip_tac >>
+  simp[]
+QED
+
+Theorem compile_ExtCall:
+  ^(get_goal "compile _ (ExtCall _ _ _ _ _)")
+Proof
+  rw[compile_def,evaluate_def,AllCaseEqs(), PULL_EXISTS] >>
+  imp_res_tac compile_exp_correct >>
+  simp[] >>
+  imp_res_tac state_rel_read_bytearray >>
+  simp[] >>
+  ‘s.ffi = t.ffi’ by fs[state_rel_def] >>
+  gvs[state_rel_empty_locals] >>
+  imp_res_tac read_bytearray_LENGTH >>
+  imp_res_tac call_FFI_LENGTH >>
+  ntac 3 $ pop_assum $ mp_tac o GSYM >>
+  ntac 3 strip_tac >>
+  gvs[] >>
+  drule_then (qspec_then ‘new_ffi’ strip_assume_tac) state_rel_change_ffi >>
+  drule state_rel_write_bytearray >>
+  simp[] >>
+  disch_then drule >>
+  simp[good_res_def]
+QED
+
+Theorem compile_correct:
+   ^(compile_tm ())
+Proof
+  match_mp_tac $ the_ind_thm() >>
+  EVERY (map strip_assume_tac
+         [compile_Skip_Break_Continue_Annot_Tick,
+          compile_Dec, compile_ShMemLoad, compile_ShMemStore,
+          compile_Assign_Local, compile_Store, compile_StoreByte, compile_Seq,
+          compile_Assign_Global,
+          compile_If, compile_While, compile_Call, compile_ExtCall,
+          compile_Raise, compile_Return, compile_DecCall]) >>
+  asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
 Theorem resort_decls_evaluate:
