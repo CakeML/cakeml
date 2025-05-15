@@ -228,6 +228,8 @@ Proof
       metis_tac[mem_stores_memory_swap])
 QED
 
+(* unprovable *)
+(*
 Theorem mem_stores_mem_load_back:
   (∀val (addr:'a word) addrs memory m.
     mem_stores addr (flatten val) addrs memory = SOME m ⇒
@@ -254,9 +256,8 @@ Proof
      )
      )
   >- ()
-
 QED
-
+*)
 Theorem compile_Assign_Global:
   ^(get_goal "compile _ (Assign Global _ _)")
 Proof
@@ -297,6 +298,43 @@ Proof
   gvs[state_rel_def]
 QED
 
+Theorem mem_load_disjoint:
+  (∀val addr' memory v addr addrs.
+     (addr':'a word) ∉ addresses addr (size_of_shape(shape_of val)) ∧
+     mem_load (shape_of val) addr addrs memory = SOME val ⇒
+     mem_load (shape_of val) addr addrs memory⦇addr' ↦ v⦈ = SOME val) ∧
+  (∀vals addr' memory v addr addrs.
+     (addr':'a word) ∉ addresses addr (SUM(MAP (size_of_shape o shape_of) vals)) ∧
+     mem_loads (MAP shape_of vals) addr addrs memory = SOME vals ⇒
+     mem_loads (MAP shape_of vals) addr addrs memory⦇addr' ↦ v⦈ = SOME vals)
+Proof
+  Induct
+  >- (Cases >>
+      rw[mem_load_def,AllCaseEqs(),shape_of_def,size_of_shape_def,
+         CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,
+         APPLY_UPDATE_THM
+        ])
+  >- (rw[mem_load_def,AllCaseEqs(),shape_of_def,size_of_shape_def,
+         CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,
+         APPLY_UPDATE_THM,MAP_MAP_o,o_DEF,ETA_AX
+        ])
+  >- (rw[mem_load_def,shape_of_def]) >>
+  rw[cj 3 mem_load_def,AllCaseEqs()]
+  >- (first_x_assum irule >>
+      gvs[addresses_thm] >>
+      rw[] >>
+      first_x_assum $ resolve_then Any mp_tac EQ_REFL >>
+      simp[]) >>
+  first_x_assum irule >>
+  simp[] >>
+  gvs[addresses_thm] >>
+  rw[] >>
+  first_x_assum $ qspec_then ‘i + size_of_shape (shape_of val)’ mp_tac >>
+  impl_tac
+  >- simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB] >>
+  simp[]
+QED
+
 Theorem state_rel_memory_update:
   state_rel T ctxt s t ∧ addr ∈ s.memaddrs ⇒
   state_rel T ctxt (s with memory := s.memory⦇addr ↦ h⦈) (t with memory := t.memory⦇addr ↦ h⦈)
@@ -308,7 +346,9 @@ Proof
   res_tac >>
   first_assum $ irule_at $ Pos hd >>
   simp[] >>
-  cheat (* provable*)
+  irule $ cj 1 mem_load_disjoint >>
+  simp[] >>
+  gvs[DISJOINT_ALT]
 QED
 
 Theorem compile_Store:
