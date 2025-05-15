@@ -21,7 +21,7 @@ Definition disjoint_globals_def:
 End
 
 Definition state_rel_def:
-  state_rel ls ctxt s t ⇔
+  state_rel ls ctxt ^s t ⇔
   s.top_addr = t.top_addr - ctxt.globals_size ∧
   (ls ⇒ s.locals = t.locals) ∧
   s.base_addr = t.base_addr ∧
@@ -32,7 +32,8 @@ Definition state_rel_def:
      FLOOKUP s.globals v = SOME val ⇒
      ∃addr. FLOOKUP ctxt.globals v = SOME(shape_of val, addr) ∧
             mem_load (shape_of val) (t.top_addr - addr) t.memaddrs t.memory = SOME val ∧
-            DISJOINT s.memaddrs (addresses (t.top_addr - addr) $ size_of_shape $ shape_of val)
+            DISJOINT s.memaddrs (addresses (t.top_addr - addr) $ size_of_shape $ shape_of val) ∧
+            byte_aligned addr
   ) ∧
   s.memaddrs ⊆ t.memaddrs ∧
   s.sh_memaddrs = t.sh_memaddrs ∧
@@ -40,7 +41,10 @@ Definition state_rel_def:
   s.ffi = t.ffi ∧
   (∀fname vshapes prog. FLOOKUP s.code fname = SOME (vshapes,prog) ⇒
            FLOOKUP t.code fname = SOME (vshapes, compile ctxt prog)) ∧
-  disjoint_globals t.top_addr ctxt.globals s.globals
+  disjoint_globals t.top_addr ctxt.globals s.globals ∧
+  t.top_addr ∉ t.memaddrs ∧
+  byte_aligned t.top_addr ∧
+  good_dimindex(:'a)
 End
 
 Theorem state_rel_mem_load:
@@ -237,37 +241,6 @@ Proof
       metis_tac[mem_stores_memory_swap])
 QED
 
-(* unprovable *)
-(*
-Theorem mem_stores_mem_load_back:
-  (∀val (addr:'a word) addrs memory m.
-    mem_stores addr (flatten val) addrs memory = SOME m ⇒
-    mem_load (shape_of val) addr addrs m =
-    SOME val) ∧
-  (∀vals (addr:'a word) addrs memory m.
-    mem_stores addr (FLAT (MAP (λa. flatten a) vals)) addrs memory = SOME m ⇒
-    mem_loads (MAP shape_of vals) addr addrs m =
-    SOME vals)
-Proof
-  ho_match_mp_tac v_induction >>
-  rw[flatten_def,shape_of_def,mem_stores_def,AllCaseEqs(),
-     mem_store_def,mem_load_def
-    ] >>
-  rw[UPDATE_APPLY]
-  >- (rw[Once $ oneline shape_of_def] >> PURE_CASE_TAC >> simp[])
-  >- metis_tac[]
-  >- (gvs[mem_stores_append,AllCaseEqs()] >>
-      res_tac >>
-      fs[] >>
-      gvs[] >>
-
-
-     )
-     )
-  >- ()
-QED
-*)
-
 (* TODO: move *)
 Theorem mem_stores_lookup:
   ∀addr vs addrs memory m addr'.
@@ -282,6 +255,208 @@ Proof
   gvs[mem_store_def,APPLY_UPDATE_THM]
 QED
 
+Theorem mem_stores_load_disjoint:
+  (∀sh (addr:'a word) vs addrs memory m addr'.
+    mem_stores addr vs addrs memory = SOME m ∧
+    DISJOINT (addresses addr' (size_of_shape sh)) (addresses addr (LENGTH vs)) ⇒
+    mem_load sh addr' addrs m = mem_load sh addr' addrs memory) ∧
+  (∀shs (addr:'a word) vs addrs memory m addr'.
+    mem_stores addr vs addrs memory = SOME m ∧
+    DISJOINT (addresses addr' (SUM(MAP size_of_shape shs))) (addresses addr (LENGTH vs)) ⇒
+    mem_loads shs addr' addrs m = mem_loads shs addr' addrs memory)
+Proof
+  Induct >>
+  PURE_ONCE_REWRITE_TAC[mem_load_def] >>
+  rw[addresses_def,size_of_shape_def,
+     CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,
+     ETA_THM]
+  >- metis_tac[mem_stores_lookup]
+  >- metis_tac[] >>
+  ntac 2 $ first_x_assum drule >>
+  disch_then $ qspec_then ‘addr'’ mp_tac >>
+  impl_tac
+  >- (gvs[addresses_thm,DISJOINT_ALT,PULL_EXISTS] >>
+      rpt strip_tac >>
+      first_x_assum $ qspec_then ‘i’ mp_tac >>
+      simp[] >>
+      metis_tac[]) >>
+  strip_tac >>
+  simp[] >>
+  qmatch_goalsub_abbrev_tac ‘mem_loads _ a1’ >>
+  disch_then $ qspec_then ‘a1’ mp_tac >>
+  impl_tac
+  >- (gvs[addresses_thm,DISJOINT_ALT,PULL_EXISTS, Abbr ‘a1’] >>
+      rpt strip_tac >>
+      first_x_assum $ qspec_then ‘i + size_of_shape sh’ mp_tac >>
+      simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB] >>
+      metis_tac[]) >>
+  strip_tac >>
+  simp[]
+QED
+
+Theorem mem_stores_mem_load_back:
+  (∀val (addr:'a word) addrs memory m.
+    mem_stores addr (flatten val) addrs memory = SOME m ∧
+    LENGTH(flatten val)*w2n(bytes_in_word:'a word) < dimword(:'a) ∧
+    good_dimindex(:'a)
+    ⇒
+    mem_load (shape_of val) addr addrs m =
+    SOME val) ∧
+  (∀vals (addr:'a word) addrs memory m.
+    mem_stores addr (FLAT (MAP (λa. flatten a) vals)) addrs memory = SOME m ∧
+    LENGTH(FLAT (MAP (λa. flatten a) vals))*w2n(bytes_in_word:'a word) < dimword(:'a) ∧
+    good_dimindex(:'a) ⇒
+    mem_loads (MAP shape_of vals) addr addrs m =
+    SOME vals)
+Proof
+  ho_match_mp_tac v_induction >>
+  rw[flatten_def,shape_of_def,mem_stores_def,AllCaseEqs(),
+     mem_store_def,mem_load_def] >>
+  rw[UPDATE_APPLY]
+  >- (rw[Once $ oneline shape_of_def] >> PURE_CASE_TAC >> simp[])
+  >- (first_x_assum drule >> gvs[ETA_THM])
+  >- (gvs[mem_stores_append,AllCaseEqs()] >>
+      res_tac >>
+      fs[] >>
+      gvs[]
+      >- (gvs[] >>
+          irule mem_stores_lookup >>
+          first_assum $ irule_at (Pos last) >>
+          simp[addresses_thm] >>
+          gvs[oneline shape_of_def,AllCaseEqs(),flatten_def] >>
+          SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
+          rpt strip_tac >>
+          gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def]) >>
+      simp[mem_load_def] >>
+      drule $ cj 2 mem_stores_load_disjoint >>
+      disch_then $ qspecl_then [‘shapes’,‘addr’] mp_tac >>
+      reverse impl_tac >- pop_assum $ simp o single >>
+      gvs[shape_of_def,ETA_THM,LENGTH_FLAT,
+          MAP_MAP_o,o_DEF,length_flatten_eq_size_of_shape,
+          size_of_shape_def
+         ] >>
+      gvs[DISJOINT_ALT,addresses_thm,PULL_EXISTS] >>
+      rw[] >>
+      gvs[ETA_THM] >>
+      FULL_SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
+      spose_not_then strip_assume_tac >>
+      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,
+          LEFT_ADD_DISTRIB,shape_of_def]) >>
+  gvs[mem_stores_append,AllCaseEqs()] >>
+  first_x_assum drule >> simp[] >>
+  strip_tac >>
+  gvs[length_flatten_eq_size_of_shape]
+QED
+
+Theorem LESS_MULT_MONO'[local]:
+  0:num < a ⇒ (a * m < a * n ⇔ m < n)
+Proof
+  rw[]
+QED
+
+Theorem byte_aligned_mul_bytes_in_word:
+  good_dimindex(:'a) ∧
+  byte_aligned(a:'a word) ⇒
+  ∃b. a = b*bytes_in_word ∧ w2n b * w2n(bytes_in_word:'a word) < dimword(:'a)
+Proof
+  rpt strip_tac >>
+  gvs[byte_aligned_def,aligned_def,align_w2n] >>
+  qexists_tac ‘n2w(w2n a DIV w2n(bytes_in_word:'a word))’ >>
+  irule_at Any EQ_TRANS >>
+  first_x_assum $ irule_at Any o GSYM >>
+  gvs[good_dimindex_def,bytes_in_word_def,word_mul_n2w,word_add_n2w,dimword_def] >>
+  Cases_on ‘a’ >>
+  simp[DIV_MOD_MOD_DIV] >>
+  gvs[dimword_def] >>
+  intLib.COOPER_TAC
+QED
+
+Theorem w2n_add_alt:
+  ∀a b.
+    w2n(a:'a word) + w2n(b:'a word) < dimword(:'a) ⇒
+    w2n a + w2n b = w2n(a+b)
+Proof
+  Cases >> Cases >>
+  gvs[word_add_n2w, word_ls_n2w, w2n_n2w, word_L_def, dimword_def,
+       INT_MIN_def, WORD_MSB_INT_MIN_LS, DIMINDEX_GT_0]
+QED
+
+Theorem good_dimindex_w2n_add:
+  good_dimindex(:'a) ∧
+  byte_aligned(a:'a word) ∧
+  a ≠ -1w * bytes_in_word
+  ⇒
+  w2n a + w2n(bytes_in_word:'a word) = w2n(a+bytes_in_word)
+Proof
+  rpt strip_tac >>
+  irule w2n_add_alt >>
+  drule_all byte_aligned_mul_bytes_in_word >>
+  strip_tac >>
+  gvs[] >>
+  Cases_on ‘b’ >>
+  gvs[word_add_n2w, word_ls_n2w, w2n_n2w, word_L_def, dimword_def, word_mul_n2w,
+       INT_MIN_def, WORD_MSB_INT_MIN_LS, DIMINDEX_GT_0,good_dimindex_def,bytes_in_word_def] >>
+  simp[GSYM SUB_LEFT_LESS]
+  >- (gvs[LT_EXISTS] >>
+      ntac 4 (rename [‘SUC dd’] >>
+              Cases_on ‘dd’ >> gvs[ADD_EQ_SUB] >>
+              gvs[Once ADD1])
+      >- (ntac 2 $ pop_assum mp_tac >>
+          EVAL_TAC >> simp[dimword_def]) >>
+      intLib.COOPER_TAC)
+  >- (gvs[LT_EXISTS] >>
+      ntac 8 (rename [‘SUC dd’] >>
+              Cases_on ‘dd’ >> gvs[ADD_EQ_SUB] >>
+              gvs[Once ADD1])
+      >- (ntac 2 $ pop_assum mp_tac >>
+          EVAL_TAC >> simp[dimword_def]) >>
+      intLib.COOPER_TAC)
+QED
+
+Theorem mem_stores_bounded_length:
+  ∀addr ws addrs memory m addr'.
+    mem_stores addr ws addrs memory = SOME m ∧
+    addr' ∉ addrs ∧
+    byte_aligned addr ∧
+    byte_aligned(addr':'a word) ∧
+    good_dimindex(:'a)
+    ⇒
+    w2n(bytes_in_word:'a word)*LENGTH ws ≤ w2n(addr' - addr)
+Proof
+  Induct_on ‘ws’ >>
+  rw[mem_stores_def,mem_store_def,AllCaseEqs()] >>
+  first_x_assum drule >>
+  simp[] >>
+  disch_then $ qspec_then ‘addr'’ mp_tac >>
+  simp[] >>
+  impl_keep_tac
+  >- (irule byte_aligned_add >>
+      simp[] >>
+      gvs[good_dimindex_def,bytes_in_word_def,byte_aligned_def,aligned_def,align_def] >>
+      EVAL_TAC >> simp[dimword_def] >> EVAL_TAC >> simp[dimword_def] >> EVAL_TAC) >>
+  Cases_on ‘addr = addr'’ >> gvs[] >>
+  simp[ADD1,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+  strip_tac >>
+  Cases_on ‘-1w * addr + addr' + -1w * bytes_in_word = -1w * bytes_in_word’
+  >- gvs[WORD_SUM_ZERO] >>
+  dxrule $ iffRL ADD_MONO_LESS_EQ >>
+  disch_then $ qspec_then ‘w2n(bytes_in_word:'a word)’ mp_tac >>
+  strip_tac >>
+  irule LESS_EQ_TRANS >>
+  first_x_assum $ irule_at $ Pos hd >>
+  PURE_ONCE_REWRITE_TAC[ADD_COMM] >>
+  dep_rewrite.DEP_ONCE_REWRITE_TAC[good_dimindex_w2n_add] >>
+  simp[] >>
+  irule byte_aligned_add >>
+  reverse conj_tac
+  >- (EVAL_TAC >> gvs[good_dimindex_def,dimword_def] >> EVAL_TAC >> simp[dimword_def] >> EVAL_TAC) >>
+  irule byte_aligned_add >>
+  simp[] >>
+  rw[byte_aligned_def] >>
+  irule $ SIMP_RULE (srw_ss()) [] $ Q.SPECL [‘p’,‘0w’] aligned_add_sub_cor >>
+  simp[aligned_0] >>
+  gvs[byte_aligned_def]
+QED
 
 Theorem compile_Assign_Global:
   ^(get_goal "compile _ (Assign Global _ _)")
@@ -298,8 +473,37 @@ Proof
   strip_tac >>
   simp[] >>
   conj_tac
-  >- (cheat (* unprovable *)
-     ) >>
+  >- (rw[FLOOKUP_UPDATE]
+      >- (res_tac >> fs[] >>
+          qpat_x_assum ‘shape_of _ = shape_of _’ $ assume_tac o GSYM >>
+          simp[] >>
+          irule $ cj 1 mem_stores_mem_load_back >>
+          first_assum $ irule_at $ Pos last >>
+          gvs[] >>
+          drule mem_stores_bounded_length >>
+          disch_then drule >>
+          impl_tac
+          >- (gvs[state_rel_def] >>
+              irule byte_aligned_add >>
+              simp[] >>
+              rw[byte_aligned_def] >>
+              irule $ SIMP_RULE (srw_ss()) [] $ Q.SPECL [‘p’,‘0w’] aligned_add_sub_cor >>
+              simp[aligned_0] >>
+              gvs[byte_aligned_def]) >>
+          simp[] >>
+          strip_tac >>
+          irule LESS_EQ_LESS_TRANS >>
+          first_x_assum $ irule_at (Pos last) >>
+          simp[w2n_lt]) >>
+      res_tac >> fs[] >>
+      drule $ cj 1 mem_stores_load_disjoint >>
+      simp[length_flatten_eq_size_of_shape] >>
+      strip_tac >>
+      irule EQ_TRANS >>
+      first_x_assum $ irule_at $ Pos last >>
+      first_x_assum irule >>
+      gvs[disjoint_globals_def,IS_SOME_EXISTS,PULL_EXISTS] >>
+      res_tac >> fs[]) >>
   conj_tac
   >- (rw[] >>
       gvs[DISJOINT_ALT] >>
@@ -447,7 +651,8 @@ Proof
       rename1 ‘FLOOKUP _ _ = SOME(Val vv)’ >>
       ‘∃addr. FLOOKUP ctxt.globals v = SOME(shape_of(Val vv), addr) ∧
               mem_load (shape_of(Val vv)) (t.top_addr - addr) t.memaddrs t.memory = SOME(Val vv) ∧
-              DISJOINT s.memaddrs (addresses (t.top_addr - addr) (size_of_shape(shape_of(Val vv))))’
+              DISJOINT s.memaddrs (addresses (t.top_addr - addr) (size_of_shape(shape_of(Val vv)))) ∧
+              byte_aligned addr’
         by gvs[state_rel_def] >>
       ‘s.locals = t.locals’ by gvs[state_rel_def] >>
       ‘s.sh_memaddrs = t.sh_memaddrs’ by gvs[state_rel_def] >>
