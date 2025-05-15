@@ -247,15 +247,17 @@ Definition get_scope_msg_def:
 End
 
 (*
-  Get message for redefined variables
-  fname_opt: local vs global
+  Get message for redefined identifiers
+  is_var: variable vs function
+  fname_opt: local var vs global var/function
 *)
-Definition get_revar_msg_def:
-  get_revar_msg loc id fname_opt =
+Definition get_redec_msg_def:
+  get_redec_msg is_var loc id fname_opt =
+    let id_type = if is_var then strlit "variable " else strlit "function " in
     let in_func = (case fname_opt of
       | SOME fname => concat [strlit " in function "; fname]
       | NONE       => strlit "") in
-    concat [loc; strlit "variable "; id;
+    concat [loc; id_type; id;
       strlit " is redeclared"; in_func; strlit "\n"]
 End
 
@@ -498,7 +500,7 @@ Definition static_check_prog_def:
     do
       (* check for reclaration *)
       case lookup ctxt.vars v of
-        SOME _ => log (WarningErr $ get_revar_msg ctxt.loc v (SOME ctxt.fname))
+        SOME _ => log (WarningErr $ get_redec_msg T ctxt.loc v (SOME ctxt.fname))
       | NONE => return ();
       (* check initialising exp *)
       b <- static_check_exp ctxt e;
@@ -517,7 +519,7 @@ Definition static_check_prog_def:
     do
       (* check for redeclaration *)
       case lookup ctxt.vars v of
-        SOME _ => log (WarningErr $ get_revar_msg ctxt.loc v (SOME ctxt.fname))
+        SOME _ => log (WarningErr $ get_redec_msg T ctxt.loc v (SOME ctxt.fname))
       | NONE => return ();
       (* check func ptr exp and arg exps *)
       static_check_exp ctxt e;
@@ -913,6 +915,7 @@ Definition static_check_def:
       (* check func name uniqueness *)
       fnames <<- MAP FST funs;
       case first_repeat $ QSORT mlstring_lt fnames of
+        (* TODO: swap this to `get_redec_msg F <loc> f NONE` once function locations exist *)
         SOME f => error (GenErr $ concat
           [strlit "function "; f; strlit " is redeclared\n"])
       | NONE => return ();
