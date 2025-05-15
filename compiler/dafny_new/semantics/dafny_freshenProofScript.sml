@@ -41,12 +41,6 @@ End
 
 (* simps *)
 
-Theorem with_same_locals[simp]:
-  ∀s. s with locals := s.locals = s
-Proof
-  gvs [state_component_equality]
-QED
-
 Triviality lookup_not_head[simp]:
   ∀v v' n ms.
     v ≠ v' ⇒ lookup ((v,n)::ms) v' = lookup ms v'

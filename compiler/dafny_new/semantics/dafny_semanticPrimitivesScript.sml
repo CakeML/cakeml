@@ -68,6 +68,12 @@ Datatype:
   | Rstop stop
 End
 
+Theorem with_same_locals[simp]:
+  ∀s. s with locals := s.locals = s
+Proof
+  gvs [theorem "state_component_equality"]
+QED
+
 Definition mk_env_def:
   mk_env is_running program =
     <| is_running := is_running; prog := program |>
