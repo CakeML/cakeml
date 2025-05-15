@@ -12,6 +12,14 @@ val _ = set_grammar_ancestry  ["panSem", "pan_globals", "panProps", "panLang", "
 
 val s = ``s:('a,'ffi) panSem$state``
 
+Definition disjoint_globals_def:
+  disjoint_globals top_addr cglobals globals ⇔
+  ∀v v' sh addr sh' addr'. v ≠ v' ∧ IS_SOME(FLOOKUP globals v) ∧ IS_SOME(FLOOKUP globals v') ∧
+         FLOOKUP cglobals v =  SOME(sh, addr) ∧
+         FLOOKUP cglobals v' = SOME(sh', addr') ⇒
+         DISJOINT (addresses (top_addr - addr) (size_of_shape sh)) (addresses (top_addr - addr') (size_of_shape sh'))
+End
+
 Definition state_rel_def:
   state_rel ls ctxt s t ⇔
   s.top_addr = t.top_addr - ctxt.globals_size ∧
@@ -31,7 +39,8 @@ Definition state_rel_def:
   (∀addr. addr ∈ s.memaddrs ⇒ s.memory addr = t.memory addr) ∧
   s.ffi = t.ffi ∧
   (∀fname vshapes prog. FLOOKUP s.code fname = SOME (vshapes,prog) ⇒
-           FLOOKUP t.code fname = SOME (vshapes, compile ctxt prog))
+           FLOOKUP t.code fname = SOME (vshapes, compile ctxt prog)) ∧
+  disjoint_globals t.top_addr ctxt.globals s.globals
 End
 
 Theorem state_rel_mem_load:
@@ -396,7 +405,7 @@ Proof
   rw[mlstringTheory.strcat_def,mlstringTheory.concat_def]
 QED
 
-Theorem compile_ShMemLoad_Local:
+Theorem compile_ShMemLoad:
   ^(get_goal "compile _ (ShMemLoad _ _ _ _)")
 Proof
   strip_tac >> Cases
@@ -429,14 +438,20 @@ Proof
           >- (rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm,FLOOKUP_UPDATE] >> rw[]) >>
           conj_tac
           >- (cheat (* unprovable? *)) >>
-          rw[] >>
-          gvs[SUBSET_DEF] >>
-          res_tac >>
-          gvs[size_of_shape_def,shape_of_def] >>
-          qhdtm_x_assum ‘DISJOINT’ mp_tac >>
-          rw[Once $ oneline addresses_def, addresses_def] >>
-          rw[APPLY_UPDATE_THM] >>
-          gvs[])
+          conj_tac
+          >- (rw[] >>
+              gvs[SUBSET_DEF] >>
+              res_tac >>
+              gvs[size_of_shape_def,shape_of_def] >>
+              qhdtm_x_assum ‘DISJOINT’ mp_tac >>
+              rw[Once $ oneline addresses_def, addresses_def] >>
+              rw[APPLY_UPDATE_THM] >>
+              gvs[])
+          >- (gvs[disjoint_globals_def,FLOOKUP_UPDATE,IS_SOME_EXISTS, SF DNF_ss] >>
+              rw[] >>
+              res_tac >>
+              fs[])
+         )
       >- (gvs[state_rel_def,empty_locals_def,good_res_def] >>
           rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm,FLOOKUP_UPDATE])
       >- (gvs[state_rel_def,good_res_def] >>
@@ -444,14 +459,19 @@ Proof
           >- (rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm,FLOOKUP_UPDATE] >> rw[]) >>
           conj_tac
           >- (cheat (* unprovable? *)) >>
-          rw[] >>
-          gvs[SUBSET_DEF] >>
-          res_tac >>
-          gvs[size_of_shape_def,shape_of_def] >>
-          qhdtm_x_assum ‘DISJOINT’ mp_tac >>
-          rw[Once $ oneline addresses_def, addresses_def] >>
-          rw[APPLY_UPDATE_THM] >>
-          gvs[])
+          conj_tac
+          >- (rw[] >>
+              gvs[SUBSET_DEF] >>
+              res_tac >>
+              gvs[size_of_shape_def,shape_of_def] >>
+              qhdtm_x_assum ‘DISJOINT’ mp_tac >>
+              rw[Once $ oneline addresses_def, addresses_def] >>
+              rw[APPLY_UPDATE_THM] >>
+              gvs[])
+          >- (gvs[disjoint_globals_def,FLOOKUP_UPDATE,IS_SOME_EXISTS, SF DNF_ss] >>
+              rw[] >>
+              res_tac >>
+              fs[]))
       >- (gvs[state_rel_def,empty_locals_def,good_res_def] >>
           rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm,FLOOKUP_UPDATE]))
 QED
