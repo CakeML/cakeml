@@ -17,10 +17,10 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | --- | --- | --- |
 | Variable declaration | `var VNAME = EXP;`, `var SHAPE VNAME = FUNC(ARGS);` | Note that declaration via function call needs shape annotation. `FUNC` can be an expression <!-- !TODO: remove former note after shape annotations added --> |
 | Assignment | `VNAME = EXP;`, `VNAME = FUNC(ARGS);` | Variable assignment only; no struct field assignment yet. `FUNC` can be an expression |
-| Memory store | `st ADDR, VAR;`, `st8 ADDR, VAR;` |  |
+| Memory store | `st ADDR, VAR;`, `st8 ADDR, VAR;`, `st32 ADDR, VAR;` |  |
 | Shared memory store | `!stw ADDR, VAR;`, `!st8 ADDR, VAR;`, `!st32 ADDR, VAR;` | |
 | Shared memory load | `!ldw VAR, ADDR;`, `!ld8 VAR, ADDR;`, `!ld32 VAR, ADDR;` | Note that shared memory loads are statements, unlike local loads |
-| Stand-alone function call | `FUNC(ARGS);` | `FUNC` can be an expression |
+| Stand-alone function call | `FUNC(ARGS);` | `FUNC` can be an expression (see Pointer operator; deprecated) |
 | Function return | `return EXP;`, `return FUNC(ARGS);` | `FUNC` can be an expression |
 
 ## Operators
@@ -32,7 +32,7 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Logical | `!`, `&&`, `\|\|` | Not, and, or |
 | Comparison | `==`, `!=`, `<`, `>`, `<=`, `>=`, `<+`, `>+`, `<=+`, `>=+`| Equal, not equal, less than, greater than, less or equal, greater or equal, signed less than, signed greater than, signed less or equal, signed greater or equal |
 | Pointer | `&FUNC`, `*EXP()` | Get function pointer, dereference function pointer (may be an expression); deprecated |
-| Memory load | `lds SHAPE ADDR`, `ld8 ADDR` | Note that local memory loads are expressions, unlike shared loads. For loading a single word, use `lds 1 ADDR` |
+| Memory load | `lds SHAPE ADDR`, `ld8 ADDR`, `ld32 ADDR` | Note that local memory loads are expressions, unlike shared loads. For loading a single word, use `lds 1 ADDR` |
 
 ## Shapes and Structs
 
@@ -53,4 +53,4 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Single line comments | `// COMMENT` | |
 | Block comments | `/* COMMENT */` | Non-recursive |
 | Annotation comments | `/@ COMMENT @/` | Non-recursive. For adding tool-specific annotations in the underlying code representation; the same as block comments otherwise. Will not be ignored by CPP |
-| Booleans | `true`/`false`| Equivalent to `1`/`0`, respectively |
+| Booleans | `true`/`false` | Equivalent to `1`/`0`, respectively |
