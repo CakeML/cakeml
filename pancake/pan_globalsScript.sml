@@ -48,7 +48,7 @@ End
 
 Definition compile_def:
   (compile ctxt (Dec v e p) =
-   Dec v (compile_exp ctxt e) (compile ctxt p)) /\
+   Dec v (compile_exp ctxt e) (compile ctxt p)) ∧
   (compile ctxt (Assign Local v e) =
    Assign Local v (compile_exp ctxt e)) ∧
   (compile ctxt (Assign Global v e) =
@@ -57,19 +57,19 @@ Definition compile_def:
    | SOME (sh, addr) => Store (Op Sub [TopAddr; Const addr]) (compile_exp ctxt e)
    ) ∧
   (compile ctxt (Store ad v) =
-   Store (compile_exp ctxt ad) (compile_exp ctxt v)) /\
+   Store (compile_exp ctxt ad) (compile_exp ctxt v)) ∧
   (compile ctxt (StoreByte dest src) =
-   StoreByte (compile_exp ctxt dest) (compile_exp ctxt src)) /\
+   StoreByte (compile_exp ctxt dest) (compile_exp ctxt src)) ∧
   (compile ctxt (Return rt) =
-   Return (compile_exp ctxt rt)) /\
+   Return (compile_exp ctxt rt)) ∧
   (compile ctxt (Raise eid excp) =
-   Raise eid (compile_exp ctxt excp)) /\
+   Raise eid (compile_exp ctxt excp)) ∧
   (compile ctxt (Seq p p') =
-   Seq (compile ctxt p) (compile ctxt p')) /\
+   Seq (compile ctxt p) (compile ctxt p')) ∧
   (compile ctxt (If e p p') =
-   If (compile_exp ctxt e) (compile ctxt p) (compile ctxt p')) /\
+   If (compile_exp ctxt e) (compile ctxt p) (compile ctxt p')) ∧
   (compile ctxt (While e p) =
-   While (compile_exp ctxt e) (compile ctxt p)) /\
+   While (compile_exp ctxt e) (compile ctxt p)) ∧
   (compile ctxt (Call rtyp e es) =
    let cexps = MAP (compile_exp ctxt) es in
      Call (case rtyp of
@@ -81,15 +81,15 @@ Definition compile_def:
                      | SOME (eid, evar, p) =>
                          SOME (eid, evar, compile ctxt p)))
           e
-          cexps) /\
+          cexps) ∧
   (compile ctxt (DecCall v s e es p) =
-   DecCall v s e (MAP (compile_exp ctxt) es) (compile ctxt p)) /\
+   DecCall v s e (MAP (compile_exp ctxt) es) (compile ctxt p)) ∧
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    ExtCall f
            (compile_exp ctxt ptr1)
            (compile_exp ctxt len1)
            (compile_exp ctxt ptr2)
-           (compile_exp ctxt len2)) /\
+           (compile_exp ctxt len2)) ∧
   (compile ctxt (ShMemStore op r ad) =
    ShMemStore op (compile_exp ctxt r) (compile_exp ctxt ad)) ∧
   (compile ctxt (ShMemLoad op Local r ad) =
@@ -126,6 +126,49 @@ Definition resort_decls_def:
   FILTER ($¬ o is_function) decs ++ FILTER is_function decs
 End
 
+Definition fperm_name_def:
+  fperm_name f g h =
+  if f = h then g
+  else if g = h then f
+  else h
+End
+
+Definition fperm_def:
+  (fperm f g (Dec v e p) =
+   Dec v e (fperm f g p)) ∧
+  (fperm f g (Seq p p') =
+   Seq (fperm f g p) (fperm f g p')) ∧
+  (fperm f g (If e p p') =
+   If e (fperm f g p) (fperm f g p')) ∧
+  (fperm f g (While e p) =
+   While e (fperm f g p)) ∧
+  (fperm f g (Call rtyp e es) =
+   Call (case rtyp of
+         | NONE => NONE
+         | SOME (tl, hdl) =>
+             SOME (tl,
+                   case hdl of
+                   | NONE => NONE
+                   | SOME (eid, evar, p) =>
+                       SOME (eid, evar, fperm f g p)))
+        (fperm_name f g e)
+        es) ∧
+  (fperm f g (DecCall v s e es p) =
+   DecCall v s e es (fperm f g p)) ∧
+  (fperm _ _ p = p)
+End
+
+Definition fperm_decs_def:
+  (fperm_decs f g [] = []) ∧
+  (fperm_decs f g (Function h b params body::decs) =
+   Function (fperm_name f g h) b params (fperm f g body)::fperm_decs f g decs) ∧
+  (fperm_decs f g (d::decs) = d::fperm_decs f g decs)
+End
+
+Definition new_main_name_def:
+  new_main_name decls = ARB
+End
+
 (* TODO: alpha-conversion *)
 Definition compile_top_def:
   compile_top decs start =
@@ -133,12 +176,14 @@ Definition compile_top_def:
     NONE => []
   | SOME (args, body) =>
       let nds = resort_decls decs;
-          (decls,funs) = compile_decs <| globals := FEMPTY; globals_size := 0w |> nds;
+          start' = new_main_name decs;
+          nds' = fperm_decs start start' decs;
+          (decls,funs) = compile_decs <| globals := FEMPTY; globals_size := 0w |> nds';
           params = MAP (Var Local o FST) args;
           new_main = Function start
                               F
                               args
-                              (Seq (nested_seq decls) (TailCall start params))
+                              (Seq (nested_seq decls) (TailCall start' params))
       in
         new_main::funs
 End
