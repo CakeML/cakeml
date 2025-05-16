@@ -1016,6 +1016,17 @@ Proof
   simp[state_component_equality]
 QED
 
+Theorem evaluate_decls_only_functions':
+  ∀s pan_code.
+    EVERY is_function pan_code ⇒
+    evaluate_decls s pan_code = SOME(s with code := s.code |++ functions pan_code)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,functions_def,FUPDATE_LIST_THM] >>
+  gvs[AllCaseEqs(),is_function_def] >>
+  simp[state_component_equality]
+QED
+
 Theorem evaluate_decls_append:
   ∀s ds1 ds2.
     evaluate_decls s (ds1 ++ ds2) =
@@ -1026,6 +1037,23 @@ Proof
   recInduct evaluate_decls_ind >>
   rw[evaluate_decls_def] >>
   ntac 2 (TOP_CASE_TAC >> gvs[])
+QED
+
+Theorem eval_empty_locals_IMP:
+  ∀s e v.
+    eval (s with locals := FEMPTY) e = SOME v ⇒
+    eval s e = SOME v
+Proof
+  recInduct eval_ind >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS] >>
+  res_tac >> gvs[] >>
+  rpt $ first_assum $ irule_at(Pos last) >>
+  irule EQ_TRANS >>
+  first_assum $ irule_at $ Pos last >>
+  irule OPT_MMAP_CONG >>
+  rw[] >>
+  drule_all pan_commonPropsTheory.opt_mmap_mem_func >>
+  strip_tac >> gvs[]
 QED
 
 val _ = export_theory();

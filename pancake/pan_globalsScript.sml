@@ -2,16 +2,17 @@
   Allocate globals at the end of heap.
 *)
 
-open preamble panLangTheory
+open preamble panLangTheory byteTheory
 
 val _ = new_theory "pan_globals"
 
-val _ = set_grammar_ancestry ["panLang","backend_common"];
+val _ = set_grammar_ancestry ["panLang","backend_common","byte"];
 
 Datatype:
   context =
   <| globals  : varname |-> shape # 'a word;
-     globals_size : 'a word
+     globals_size : 'a word;
+     max_globals_size : 'a word
    |>
 End
 
@@ -36,7 +37,7 @@ Definition compile_exp_def:
    Cmp cmp (compile_exp ctxt e) (compile_exp ctxt e')) ∧
   (compile_exp ctxt (Shift sh e n) =
    Shift sh (compile_exp ctxt e) n) ∧
-  (compile_exp ctxt TopAddr = Op Sub [TopAddr; Const ctxt.globals_size]) ∧
+  (compile_exp ctxt TopAddr = Op Sub [TopAddr; Const ctxt.max_globals_size]) ∧
   (compile_exp ctxt e = e)
 Termination
   wf_rel_tac `measure (\e. panLang$exp_size ARB (SND e))` >>
@@ -107,18 +108,18 @@ Definition compile_def:
 End
 
 Definition compile_decs_def:
-    compile_decs ctxt [] = ([],[]) ∧
+    compile_decs ctxt [] = ([],[],ctxt) ∧
     (compile_decs ctxt (Decl sh v e::ds) =
      let
-       s = ctxt.globals_size + n2w(size_of_shape sh);
+       s = ctxt.globals_size + bytes_in_word*n2w(size_of_shape sh);
        ctxt' = ctxt with <|globals  := ctxt.globals |+ (v,sh,s);
                            globals_size := s|>;
-       (decs,funs) = compile_decs ctxt' ds
+       (decs,funs,ctxt'') = compile_decs ctxt' ds
      in
-        (Store (Op Sub [TopAddr; Const s]) (compile_exp ctxt e)::decs,funs)) ∧
+        (Store (Op Sub [TopAddr; Const s]) (compile_exp ctxt e)::decs,funs,ctxt'')) ∧
     (compile_decs ctxt (Function f xp args body::ds) =
-     let (decs,funs) = compile_decs ctxt ds
-     in (decs,Function f xp args (compile ctxt body)::funs))
+     let (decs,funs,ctxt'') = compile_decs ctxt ds
+     in (decs,Function f xp args (compile ctxt body)::funs,ctxt''))
 End
 
 Definition resort_decls_def:
@@ -154,7 +155,7 @@ Definition fperm_def:
         (fperm_name f g e)
         es) ∧
   (fperm f g (DecCall v s e es p) =
-   DecCall v s e es (fperm f g p)) ∧
+   DecCall v s (fperm_name f g e) es (fperm f g p)) ∧
   (fperm _ _ p = p)
 End
 
@@ -169,6 +170,12 @@ Definition new_main_name_def:
   new_main_name decls = ARB
 End
 
+Definition dec_shapes_def:
+  dec_shapes(Function _ _ _ _::ds) = dec_shapes ds ∧
+  dec_shapes(Decl sh _ _::ds) = sh::dec_shapes ds ∧
+  dec_shapes [] = []
+End
+
 (* TODO: alpha-conversion *)
 Definition compile_top_def:
   compile_top decs start =
@@ -177,8 +184,11 @@ Definition compile_top_def:
   | SOME (args, body) =>
       let nds = resort_decls decs;
           start' = new_main_name decs;
-          nds' = fperm_decs start start' decs;
-          (decls,funs) = compile_decs <| globals := FEMPTY; globals_size := 0w |> nds';
+          nds' = fperm_decs start start' nds;
+          (decls,funs,ctxt) = compile_decs
+                              <| globals := FEMPTY; globals_size := 0w;
+                                 max_globals_size := n2w(SUM(MAP size_of_shape(dec_shapes nds')))
+                              |> nds';
           params = MAP (Var Local o FST) args;
           new_main = Function start
                               F

@@ -211,4 +211,15 @@ Definition functions_def:
   functions(Decl _ _ _::fs) = functions fs
 End
 
+Definition fun_ids_def:
+  (fun_ids (Dec _ _ p) = fun_ids p) ∧
+  (fun_ids (Seq p q) = fun_ids p ++ fun_ids q) ∧
+  (fun_ids (If _ p q) = fun_ids p ++ fun_ids q) ∧
+  (fun_ids (While _ p) = fun_ids p) ∧
+  (fun_ids (Call (SOME (_ , (SOME (_ ,  _ , ep)))) nm _) = nm::fun_ids ep) ∧
+  (fun_ids (Call _ nm _) = [nm]) ∧
+  (fun_ids (DecCall _ _ nm _ p) = nm::fun_ids p) ∧
+  (fun_ids _ = [])
+End
+
 val _ = export_theory();
