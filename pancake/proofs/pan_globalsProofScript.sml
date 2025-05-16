@@ -952,22 +952,6 @@ Proof
   gvs[DISJOINT_ALT]
 QED
 
-Theorem state_rel_mem_store_byte:
-  state_rel ls ctxt s t ∧
-  mem_store_byte s.memory s.memaddrs s.be addr b = SOME m' ⇒
-  ∃m''. mem_store_byte t.memory t.memaddrs t.be addr b = SOME m'' ∧
-       state_rel ls ctxt (s with memory := m') (t with memory := m'')
-Proof
-  rw[mem_store_byte_def,AllCaseEqs(),PULL_EXISTS,state_rel_def,SUBSET_DEF] >>
-  res_tac >>
-  gvs[] >>
-  rw[APPLY_UPDATE_THM] >>
-  res_tac >>
-  fs[] >>
-  drule_at_then Any irule $ cj 1 mem_load_disjoint >>
-  gvs[DISJOINT_ALT]
-QED
-
 Theorem state_rel_change_ffi:
   (state_rel ls' ctxt s t ⇒ state_rel ls' ctxt (s with ffi := x) (t with ffi := x))
 Proof
