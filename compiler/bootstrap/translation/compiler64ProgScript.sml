@@ -44,7 +44,7 @@ val res = translate $ panStaticTheory.branch_last_stmt_def;
 val res = translate $ panStaticTheory.seq_last_stmt_def;
 
 val res = translate $ panStaticTheory.get_scope_msg_def;
-val res = translate $ panStaticTheory.get_revar_msg_def;
+val res = translate $ panStaticTheory.get_redec_msg_def;
 val res = translate $ panStaticTheory.get_memop_msg_def;
 val res = translate $ panStaticTheory.get_oparg_msg_def;
 val res = translate $ panStaticTheory.get_unreach_msg_def;
