@@ -43,6 +43,13 @@ val res = translate $ spec64 $ panStaticTheory.reached_warnable_def;
 val res = translate $ panStaticTheory.branch_last_stmt_def;
 val res = translate $ panStaticTheory.seq_last_stmt_def;
 
+val res = translate $ panStaticTheory.get_scope_msg_def;
+val res = translate $ panStaticTheory.get_redec_msg_def;
+val res = translate $ panStaticTheory.get_memop_msg_def;
+val res = translate $ panStaticTheory.get_oparg_msg_def;
+val res = translate $ panStaticTheory.get_unreach_msg_def;
+val res = translate $ panStaticTheory.get_rogue_msg_def;
+
 val res = translate $ panStaticTheory.first_repeat_def;
 val res = translate $ panStaticTheory.binop_to_str_def;
 val res = translate $ panStaticTheory.panop_to_str_def;
