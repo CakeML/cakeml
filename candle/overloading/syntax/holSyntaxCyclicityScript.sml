@@ -1260,7 +1260,8 @@ Proof
     >> qpat_x_assum `EVERY _ _` $ imp_res_tac o REWRITE_RULE[EVERY_MEM]
     >> gvs[]
     >> drule_then assume_tac $ Q.ISPEC `FST` MEM_MAP_f
-    >> fs[Once $ GSYM FST_SWAP_SND,GSYM MAP_MAP_o]
+    >> fs[]
+    >> full_simp_tac(bool_ss)[Once $ GSYM FST_SWAP_SND,GSYM MAP_MAP_o]
     >> drule_then strip_assume_tac TYPE_SUBST_MEM_MAP_SND
     >> fs[MEM_MAP_SWAP',SWAP_def,MAP_MAP_o,FST_SWAP_SND]
     >> drule_then match_mp_tac ALL_DISTINCT_FST_MEMs
@@ -1526,8 +1527,8 @@ Proof
       >> `MEM z vars /\ MEM zz vars` by fs[MEM_FILTER,Abbr`s''`,MEM_Tyvar_MAP_Tyvar]
       >> qpat_x_assum `!x y. _` $ drule_then $ rev_drule_then assume_tac
       >> `!x. MEM x vars ==> TYPE_SUBST s'' (Tyvar x) = TYPE_SUBST s' (Tyvar x)` by (
-        rw[REV_ASSOCD_ALOOKUP,Abbr`s''`,GSYM SWAP_eq,Once $ GSYM FST_SWAP_SND]
-        >> REWRITE_TAC[o_ASSOC,GSYM FILTER_MAP]
+        srw_tac[][REV_ASSOCD_ALOOKUP,Abbr`s''`,GSYM SWAP_eq]
+        >> REWRITE_TAC[o_ASSOC,GSYM FILTER_MAP,Once $ GSYM FST_SWAP_SND]
         >> fs[ALOOKUP_FILTER,o_DEF,LAMBDA_PROD,MEM_Tyvar_MAP_Tyvar]
       )
       >> pop_assum imp_res_tac
@@ -2882,6 +2883,7 @@ Proof
     >> fs[LR_TYPE_SUBST_compose,Abbr`fs`,Abbr`rn_qn`]
     >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
     >> fs[MAP_MAP_o,MAP_EQ_f,TYPE_SUBST_compose,o_DEF,PAIR_MAP]
+    >> rw[] >> Cases_on `x` >> fs[]
   )
   >> qexists_tac `MAP (TYPE_SUBST ρ' ## I) σ ++ ρ'`
   >> qmatch_asmsub_abbrev_tac `sol_seq (rhat' ++ [[]]) _`
@@ -2889,6 +2891,7 @@ Proof
   >> `rhat = rhat'` by (
     map_every qunabbrev_tac [`rt`,`rhat'`,`rhat`]
     >> fs[MAP_MAP_o,o_DEF,TYPE_SUBST_compose,ETA_THM,MAP_EQ_f,TYPE_SUBST_compose,PAIR_MAP]
+    >> rw[] >> Cases_on `x'` >> fs[]
   )
   >> VAR_EQ_TAC
   >> qpat_x_assum `Abbrev (rhat = _)` kall_tac
