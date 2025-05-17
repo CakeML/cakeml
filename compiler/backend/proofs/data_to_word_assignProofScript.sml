@@ -9,6 +9,7 @@ open preamble int_bitwiseTheory dataSemTheory dataPropsTheory copying_gcTheory
      word_bignumTheory wordLangTheory word_bignumProofTheory
      gen_gc_partialTheory gc_sharedTheory word_gcFunctionsTheory;
 local open gen_gcTheory in end
+local open bvi_to_dataTheory in end
 
 val _ = new_theory "data_to_word_assignProof";
 
@@ -1957,7 +1958,7 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], []];
 
 Theorem do_app_aux_safe_for_space_mono:
   (do_app_aux op xs s = Rval (r,s1)) /\ s1.safe_for_space ==> s.safe_for_space
@@ -2618,7 +2619,7 @@ Proof
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ Cases_on `b`
   THEN1
-   (fs[do_app,case_eq_thms,allowed_op_def]
+   (fs[do_app,oneline do_word_app_def,case_eq_thms,allowed_op_def]
     \\ every_case_tac \\ fs[]
     \\ clean_tac
     \\ drule state_rel_get_vars_IMP
@@ -2648,20 +2649,20 @@ Proof
     \\ match_mp_tac memory_rel_insert
     \\ fs []
     \\ qmatch_goalsub_abbrev_tac`Number i,Word sn`
-    \\ qsuff_tac `sn = Smallnum i /\ small_int (:'a) i`
-    \\ TRY (rw [] \\ fs []
-            \\ match_mp_tac IMP_memory_rel_Number  \\ fs [good_dimindex_def])
+    \\ (qsuff_tac `sn = Smallnum i /\ small_int (:'a) i`
+       >-(rw [] \\ fs []
+            \\ match_mp_tac IMP_memory_rel_Number  \\ fs [good_dimindex_def]))
     \\ unabbrev_all_tac
-    \\ fs [small_int_def,dimword_def,w2w_def,Smallnum_def]
+    \\ irule_at (Pos (el 2))small_int_w2n
+    \\ fs [good_dimindex_def,dimword_def,w2w_def,Smallnum_def]
     \\ Cases_on `c'` \\ fs [word_extract_n2w]
     \\ rewrite_tac [LSL_BITWISE]
     \\ rewrite_tac [WORD_AND_EXP_SUB1 |> Q.SPEC `8` |> SIMP_RULE (srw_ss()) []]
     \\ fs [WORD_MUL_LSL,word_mul_n2w,dimword_def]
     \\ fs [bitTheory.BITS_THM]
-    \\ rw [] \\ TRY (match_mp_tac LESS_TRANS \\ qexists_tac `256` \\ fs [])
-    \\ rewrite_tac [GSYM (EVAL ``256n * 16777216``)]
+    \\ rw [] \\ rewrite_tac [GSYM (EVAL ``256n * 16777216``)]
     \\ rewrite_tac [MATCH_MP MOD_MULT_MOD (DECIDE ``0 < 256n /\ 0 < 16777216n``)])
-  \\ fs[do_app,allowed_op_def,case_eq_thms]
+  \\ fs[do_app,oneline do_word_app_def, allowed_op_def,case_eq_thms]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -4596,7 +4597,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app,allowed_op_def]
+  \\ fs[do_app,oneline do_word_app_def,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -5990,7 +5991,7 @@ Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app,allowed_op_def]
+  \\ fs[do_app,oneline do_word_app_def,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -7021,8 +7022,8 @@ Proof
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ drule state_rel_IMP_arch_64_bit \\ strip_tac
   \\ fs [EVAL ``op_requires_names (IntOp Add)``]
-  \\ fs [do_app]
-  \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -7139,7 +7140,8 @@ Proof
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ drule state_rel_IMP_arch_64_bit \\ strip_tac
   \\ fs [EVAL ``op_requires_names (IntOp Sub)``]
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -7256,7 +7258,8 @@ Proof
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ drule state_rel_IMP_arch_64_bit \\ strip_tac
   \\ fs [EVAL ``op_requires_names (IntOp Mult)``]
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -7430,7 +7433,8 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [EVAL ``op_requires_names (IntOp Div)``]
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -7696,7 +7700,8 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [EVAL ``op_requires_names (IntOp Mod)``]
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -8362,7 +8367,8 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_1] \\ clean_tac
@@ -8643,7 +8649,8 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -8803,7 +8810,9 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ fs [do_app,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
+  \\ rename [`Boolv (i <= i')`]
   \\ clean_tac \\ fs []
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -9747,7 +9756,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app,allowed_op_def]
+  \\ fs[do_app,oneline do_word_app_def,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -10084,7 +10093,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app,allowed_op_def]
+  \\ fs[do_app,oneline do_word_app_def,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -10184,7 +10193,7 @@ Proof
   \\ fs [Abbr`t1`]
   \\ fs [WORD_MUL_LSL]
   \\ ntac 8 (once_rewrite_tac [list_Seq_def] \\ eval_tac \\ fs [lookup_insert])
-  \\ assume_tac evaluate_WordOp64_on_32 \\ rfs []
+  \\ assume_tac (GEN_ALL evaluate_WordOp64_on_32) \\ rfs []
   \\ SEP_I_TAC "evaluate"
   \\ fs [] \\ pop_assum kall_tac
   \\ rpt strip_tac
@@ -10195,7 +10204,7 @@ Proof
   \\ fs [inter_insert_ODD_adjust_set_alt]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ disch_then drule0
-  \\ disch_then (qspec_then `opw_lookup opw c' c''` mp_tac)
+  \\ disch_then (qspec_then `opw_lookup opw c'' c'` mp_tac)
   \\ simp []
   \\ impl_tac
   THEN1 (fs [consume_space_def,good_dimindex_def] \\ rw [] \\ fs [])
@@ -10214,7 +10223,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app,allowed_op_def]
+  \\ fs[do_app,oneline do_word_app_def,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ fs[LENGTH_EQ_NUM_compute]
@@ -10569,7 +10578,7 @@ Proof
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app,allowed_op_def]
+  \\ fs[do_app,oneline do_word_app_def,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -10767,7 +10776,7 @@ Proof
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app,allowed_op_def]
+  \\ fs[do_app,oneline do_word_app_def,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -10867,7 +10876,7 @@ Proof
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app,allowed_op_def,space_consumed_def]
+  \\ fs[do_app,oneline do_word_app_def,allowed_op_def,space_consumed_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -11014,7 +11023,7 @@ Proof
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app,allowed_op_def]
+  \\ fs[do_app,oneline do_word_app_def,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -11145,7 +11154,7 @@ Proof
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app,allowed_op_def]
+  \\ fs[do_app,oneline do_word_app_def,allowed_op_def]
   \\ every_case_tac \\ fs[]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
@@ -11742,7 +11751,8 @@ Proof
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
+  \\ fs [do_app,allowed_op_def,oneline do_int_app_def]
+  \\ gvs[AllCaseEqs()]
   \\ rpt var_eq_tac
   \\ fs [assign_def]
   \\ Cases_on `i` \\ fs []

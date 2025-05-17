@@ -146,6 +146,15 @@ Definition wInst_def:
     let (l2,n1) = wReg2 n1 kf in
       wStackLoad (l1 ++ l2)
         (Inst (Mem Store8 n1 (Addr n2 offset)))) /\
+  (wInst (Mem Load32 n1 (Addr n2 offset)) kf =
+    let (l,n2) = wReg1 n2 kf in
+    wStackLoad l
+      (wRegWrite1 (\n1. Inst (Mem Load32 n1 (Addr n2 offset))) n1 kf)) /\
+  (wInst (Mem Store32 n1 (Addr n2 offset)) kf =
+    let (l1,n2) = wReg1 n2 kf in
+    let (l2,n1) = wReg2 n1 kf in
+      wStackLoad (l1 ++ l2)
+        (Inst (Mem Store32 n1 (Addr n2 offset)))) /\
   (wInst (FP (FPLess r f1 f2)) kf =
     wRegWrite1 (\r. Inst (FP (FPLess r f1 f2))) r kf) /\
   (wInst (FP (FPLessEqual r f1 f2)) kf =

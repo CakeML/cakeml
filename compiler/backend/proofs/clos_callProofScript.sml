@@ -1132,7 +1132,6 @@ Proof
     \\ pairmaparg_tac \\ fs[]
     \\ strip_tac \\ rveq \\ fs[]
     \\ pairmaparg_tac \\ fs[]
-    \\ pairmaparg_tac \\ fs[]
     \\ fsrw_tac[DNF_ss][APPEND_EQ_APPEND]
     \\ first_x_assum(qspecl_then[`r''`,`[]`]mp_tac)
     \\ simp[]
@@ -1147,13 +1146,11 @@ Proof
     \\ strip_tac \\ rveq \\ fs[]
     \\ pairmaparg_tac \\ fs[]
     \\ pairmaparg_tac \\ fs[]
-    \\ pairmaparg_tac \\ fs[]
     \\ fs[bool_case_eq] \\ rveq \\ fs[]
     \\ first_x_assum(qspecl_then[`r'`,`r`]mp_tac)
     \\ simp[] )
   >- (
     pairmaparg_tac \\ fs[]
-    \\ pairmaparg_tac \\ fs[]
     \\ first_x_assum drule
     \\ pairmaparg_tac \\ fs[]
     \\ strip_tac \\ rveq \\ fs[]
@@ -1167,7 +1164,6 @@ Proof
     pairmaparg_tac \\ fs[]
     \\ pairmaparg_tac \\ fs[]
     \\ first_x_assum drule
-    \\ pairmaparg_tac \\ fs[]
     \\ strip_tac \\ rveq \\ fs[]
     \\ qmatch_asmsub_abbrev_tac`insert_each p s (FST g, x)`
     \\ `insert_each p s (FST g, x) = (FST (insert_each p s g), x)` by metis_tac[insert_each_pair_arg, PAIR]
@@ -1178,9 +1174,8 @@ Proof
       \\ pairmaparg_tac \\ fs[]
       \\ rveq \\ fs[]
       \\ pairmaparg_tac \\ fs[]
-      \\ pairmaparg_tac \\ fs[]
       \\ strip_tac \\ rveq \\ fs[]
-      \\ first_x_assum(qspecl_then[`r'`,`r`]mp_tac)
+      \\ first_x_assum(qspecl_then[`r'''`,`r`]mp_tac)
       \\ simp[] )
     \\ pairmaparg_tac \\ fs[]
     \\ qmatch_asmsub_abbrev_tac`code_list p ff`
@@ -1192,7 +1187,6 @@ Proof
     \\ strip_tac \\ fs[]
     \\ first_x_assum(qspecl_then[`ls++r'`,`r`]mp_tac)
     \\ simp[]
-    \\ pairmaparg_tac \\ fs[]
     \\ strip_tac \\ rveq \\ fs[]
     \\ pairmaparg_tac \\ fs[]
     \\ `q'' = q` by metis_tac[FST_code_list, FST]
