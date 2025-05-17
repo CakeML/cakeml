@@ -23,13 +23,6 @@ Proof
   Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []
 QED
 
-(* TODO defined in bviSemTheory, should be moved to bviTheory?
-   On the other hand: its use here is temporary.
-*)
-Definition small_int_def:
-  small_int (i:int) <=> -268435457 <= i /\ i <= 268435457
-End
-
 Definition is_rec_def:
   (is_rec name (bvi$Call _ d _ NONE) ⇔ d = SOME name) ∧
   (is_rec _    _                     ⇔ F)
@@ -48,14 +41,14 @@ Proof
 QED
 
 Definition is_const_def:
-  (is_const (IntOp (Const i)) <=> small_int i) /\
+  (is_const (IntOp (Const i)) <=> small_enough_int i) /\
   (is_const _                 <=> F)
 End
 
 Theorem is_const_PMATCH:
    !op. is_const op =
     case op of
-      IntOp (Const i) => small_int i
+      IntOp (Const i) => small_enough_int i
     | _               => F
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
@@ -419,7 +412,7 @@ Definition update_context_def:
 End
 
 Definition arg_ty_def:
-  arg_ty (IntOp (Const i))    = (if small_int i then Int else Any) /\
+  arg_ty (IntOp (Const i))    = (if small_enough_int i then Int else Any) /\
   arg_ty (IntOp Add)          = Int /\
   arg_ty (IntOp Sub)          = Int /\
   arg_ty (IntOp Mult)         = Int /\
@@ -446,7 +439,7 @@ Theorem arg_ty_PMATCH:
        | IntOp Less         => Int
        | IntOp Greater      => Int
        | IntOp GreaterEq    => Int
-       | IntOp (Const i)    => if small_int i then Int else Any
+       | IntOp (Const i)    => if small_enough_int i then Int else Any
        | BlockOp ListAppend => List
        | _                  => Any
 Proof
@@ -461,7 +454,7 @@ Definition op_ty_def:
   (op_ty (IntOp Mod)          = Int) /\
   (op_ty (BlockOp ListAppend) = List) /\
   (op_ty (BlockOp (Cons tag)) = if tag = nil_tag \/ tag = cons_tag then List else Any) /\
-  (op_ty (IntOp (Const i))    = if small_int i then Int else Any) /\
+  (op_ty (IntOp (Const i))    = if small_enough_int i then Int else Any) /\
   (op_ty _          = Any)
 End
 
@@ -476,7 +469,7 @@ Theorem op_ty_PMATCH:
        | IntOp Mod          => Int
        | BlockOp ListAppend => List
        | BlockOp (Cons tag) => if tag = cons_tag \/ tag = nil_tag then List else Any
-       | IntOp (Const i)    => if small_int i then Int else Any
+       | IntOp (Const i)    => if small_enough_int i then Int else Any
        | _                  => Any
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ strip_tac \\ rpt CASE_TAC \\ rw [op_ty_def]
