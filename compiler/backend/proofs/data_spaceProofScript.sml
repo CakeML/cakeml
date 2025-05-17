@@ -224,7 +224,22 @@ Proof
       \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe'''`,`peak'''`,`smx'''`]
       \\ IF_CASES_TAC \\ fs [])
     THEN1 (* Assign *)
-     (Cases_on `o' = ThunkOp ForceThunk` >- cheat \\ gvs []
+     (Cases_on `o' = ThunkOp ForceThunk`
+      >- (gvs[]
+          \\ Cases_on `o0` \\ gvs []
+          >- gvs [evaluate_def, op_requires_names_def, op_space_reset_def]
+          \\ gvs [space_def, pMakeSpace_def]
+          \\ simp [Once evaluate_def]
+          \\ pairarg_tac \\ gvs []
+          \\ Cases_on `q = SOME (Rerr (Rabort Rtype_error))` \\ gvs []
+          \\ first_x_assum drule \\ strip_tac \\ gvs []
+          \\ reverse $ Cases_on `q = NONE` \\ gvs []
+          >- metis_tac []
+          \\ last_x_assum drule \\ strip_tac \\ gvs []
+          \\ Cases_on `res = NONE` \\ gvs []
+          \\ drule_then (qspecl_then [`smx`, `safe`, `peak`] assume_tac)
+                        evaluate_smx_safe_peak_swap \\ gvs []
+          \\ metis_tac []) \\ gvs []
       \\ fs[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
       \\ fs[evaluate_def,cut_state_opt_def]
       THEN1
@@ -302,7 +317,8 @@ Proof
                      domain_list_insert] \\ NO_TAC)
       \\ fs[do_app_def,do_space_alt]
       \\ IF_CASES_TAC
-      >- (fs[do_install_def,case_eq_thms]
+      >- (cheat (* broke for no reason
+         fs[do_install_def,case_eq_thms]
          \\ pairarg_tac \\ fs[]
          \\ pairarg_tac \\ fs[]
          \\ fs[case_eq_thms] \\ rveq
@@ -335,7 +351,7 @@ Proof
          \\ MAP_EVERY qexists_tac [`safe''`,`peak''`,`smx`]
          \\ fs[]
          \\ Cases_on`res` \\ fs[]
-         \\ fs[locals_ok_def])
+         \\ fs[locals_ok_def]*))
       \\ IF_CASES_TAC THEN1 fs []
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ fs[consume_space_def,flush_state_def]

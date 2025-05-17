@@ -73,6 +73,8 @@ Proof
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
   \\ SRW_TAC [] [] \\ fs[]
+  \\ gvs [AllCaseEqs()]
+  \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
 QED
 
 Triviality state_rel_IMP_do_app:
@@ -112,6 +114,8 @@ Proof
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
   \\ SRW_TAC [] [] \\ fs[]
+  \\ gvs [AllCaseEqs()]
+  \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
 QED
 
 Triviality state_rel_IMP_do_app_err:
@@ -188,7 +192,69 @@ Proof
      \\ Cases_on `lookup src t1.locals`
      \\ fs [set_var_def,lookup_insert])
   THEN1 (* Assign *)
-    (Cases_on `names_opt` THEN1
+    (Cases_on `op = ThunkOp ForceThunk`
+     >- (gvs []
+         \\ Cases_on `names_opt` \\ gvs []
+         >- (qpat_x_assum `_ = compile (Assign _ _ _ _) _` mp_tac
+             \\ rw [compile_def, is_pure_def]
+             \\ gvs [evaluate_def, dataLangTheory.op_requires_names_def,
+                     dataLangTheory.op_space_reset_def])
+         \\ qpat_x_assum `_ = compile (Assign _ _ _ _) _` mp_tac
+         \\ rw [compile_def]
+         \\ gvs [evaluate_def, dataLangTheory.op_requires_names_def,
+                 dataLangTheory.op_space_reset_def, cut_state_opt_def,
+                 cut_state_def, cut_env_def]
+         \\ `s.refs = t1.refs` by gvs [state_rel_def] \\ gvs []
+         \\ Cases_on `domain x ⊆ domain s.locals` \\ gvs []
+         \\ `domain x ∩ domain (list_insert args (delete dest l2)) ⊆
+                 domain t1.locals` by
+           (gvs [domain_inter, domain_list_insert, SUBSET_DEF, state_rel_def]
+            \\ gvs [domain_lookup]
+            \\ gvs [PULL_EXISTS, oneTheory.one] \\ metis_tac [])
+         \\ gvs []
+         \\ Cases_on `get_vars args (inter s.locals x)` \\ gvs []
+         \\ `get_vars
+               args
+               (inter t1.locals (inter x (list_insert args (delete dest l2)))) =
+                 SOME x'` by
+            (qpat_x_assum `xx = SOME vs` (fn th => once_rewrite_tac [GSYM th])
+             \\ match_mp_tac EVERY_get_vars
+             \\ gvs [EVERY_MEM, lookup_inter_alt, domain_inter,
+                     domain_list_insert]
+             \\ rw [] \\ gvs [state_rel_def]
+             \\ first_x_assum (match_mp_tac o GSYM)
+             \\ gvs [domain_inter, domain_list_insert]) \\ gvs []
+         \\ Cases_on `dest_thunk x' t1.refs` \\ gvs []
+         \\ Cases_on `t` \\ gvs []
+         >- (gvs [state_rel_def, set_var_def, lookup_insert]
+             \\ rpt strip_tac \\ rw [call_env_def, flush_state_def]
+             \\ gvs [domain_inter, domain_list_insert, domain_delete]
+             \\ gvs [lookup_inter_alt, domain_inter, domain_list_insert,
+                     domain_delete])
+         \\ `s.clock = t1.clock` by gvs [state_rel_def] \\ gvs []
+         \\ Cases_on `t1.clock = 0` \\ gvs []
+         >- gvs [state_rel_def, flush_state_def]
+         \\ Cases_on `evaluate (AppUnit, s with <|locals := insert 0 v LN;
+                                                  clock := t1.clock − 1|>)`
+         \\ gvs []
+         \\ qmatch_asmsub_abbrev_tac `state_rel s t1 xx`
+         \\ `state_rel
+               (s with <|locals := insert 0 v LN; clock := t1.clock - 1|>)
+               (t1 with <|locals := insert 0 v LN; clock := t1.clock - 1|>) xx`
+           by gvs [state_rel_def] \\ gvs []
+         \\ last_x_assum $ drule_then $ qspec_then `xx` assume_tac \\ gvs []
+         \\ `(AppUnit,xx) = compile AppUnit xx` by cheat \\ gvs []
+         \\ unabbrev_all_tac \\ gvs []
+         \\ first_x_assum drule \\ rw []
+         \\ Cases_on `q = SOME (Rerr (Rabort Rtype_error))` \\ gvs []
+         \\ qpat_x_assum `_ ⇒ _` mp_tac
+         \\ impl_tac
+         >- (rw [] \\ gvs [jump_exc_def, AllCaseEqs(), state_rel_def])
+         \\ rw [] \\ gvs []
+         \\ gvs [AllCaseEqs(), PULL_EXISTS]
+         \\ first_x_assum (irule_at Any o GSYM) \\ gvs [PULL_EXISTS]
+         \\ cheat)
+     \\ Cases_on `names_opt` THEN1
       (fs [compile_def]
        \\ Cases_on `lookup dest l2 = NONE ∧ is_pure op` \\ fs []
        THEN1

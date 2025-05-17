@@ -987,6 +987,18 @@ Definition do_app_aux_def:
                          then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
+    | (ThunkOp th_op,vs) =>
+        (case (th_op,vs) of
+         | (AllocThunk m, [v]) =>
+             (let ptr = (LEAST ptr. ptr ∉ domain s.refs) in
+                Rval (RefPtr F ptr,
+                      s with refs := insert ptr (Thunk m v) s.refs))
+         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
+             (case lookup ptr s.refs of
+              | SOME (Thunk NotEvaluated _) =>
+                 Rval (Unit,s with refs := insert ptr (Thunk m v) s.refs)
+              | _ => Error)
+         | _ => Error)
     | _ => Error
 End
 
@@ -1240,10 +1252,10 @@ Definition evaluate_def:
             (case dest_thunk xs s.refs of
              | BadRef => (SOME (Rerr (Rabort Rtype_error)),s)
              | NotThunk => (SOME (Rerr (Rabort Rtype_error)),s)
-             | IsThunk Evaluated v => (SOME (Rval v),s)
+             | IsThunk Evaluated v => (NONE,set_var dest v s)
              | IsThunk NotEvaluated f =>
                 if s.clock = 0 then
-                  (SOME (Rerr (Rabort Rtimeout_error)),s)
+                  (SOME (Rerr (Rabort Rtimeout_error)), flush_state T s)
                 else
                   case evaluate (
                     AppUnit,s with <| locals := (insert 0 f LN);
@@ -1251,7 +1263,8 @@ Definition evaluate_def:
                   | (SOME (Rval x),s) =>
                       (case update_thunk xs s.refs [x] of
                        | NONE => (SOME (Rerr (Rabort Rtype_error)),s)
-                       | SOME refs => (SOME (Rval x),s with refs := refs))
+                       | SOME refs =>
+                           (NONE,set_var dest x (s with refs := refs)))
                   | (err,s) => (err,s))
            else
             (case do_app op xs s of
