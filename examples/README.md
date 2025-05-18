@@ -66,9 +66,6 @@ Implementation of an OpenTheory reader based on the Candle kernel.
 [patchProgScript.sml](patchProgScript.sml):
 patch example: apply a patch to a file.
 
-[pkc_checker2](pkc_checker2):
-A checker for SCPOG format in CakeML
-
 [pseudo_bool](pseudo_bool):
 A checker for pseudo-boolean constraints
 
