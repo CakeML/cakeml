@@ -161,23 +161,14 @@ Proof
     impl_tac >- (
       drule parse_xlrups_wf>>
       fs[EVERY_MEM,conv_cfml_def,MEM_MAP,wf_clause_def,PULL_EXISTS,conv_bfml_def]>>
-      rw[]
-      >- (
-        first_x_assum drule>>
-        rw[]>>CCONTR_TAC>>fs[]>>first_x_assum drule>>
-        rename1`nz_lit l`>>
-        Cases_on`l`>>fs[conv_lit_def])
-      >- (
-        first_x_assum drule>>
-        pairarg_tac>>rw[]>>
-        drule conv_bnn_sound>>
-        gvs[EVERY_MEM]
-      )
-    )>>
+      rw[]>>
+      first_x_assum drule>>
+      rw[]>>CCONTR_TAC>>fs[]>>first_x_assum drule>>
+      rename1`nz_lit l`>>
+      Cases_on`l`>>fs[conv_lit_def])>>
     rw[sols_def,EXTENSION,sat_fml_def]>>
     qpat_x_assum`EVERY _ xfml` kall_tac>>
     drule conv_cfml_sound>>
-    drule conv_bfml_sound>>
     rw[]>>gvs[])>>
   qexists_tac`err`>>rw[]>>
   metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]
