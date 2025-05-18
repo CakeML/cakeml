@@ -1,8 +1,8 @@
 (*
   This builds the cake_scpog proof checker
 *)
-open preamble basis UnsafeProofTheory cnf_scpogTheory scpog_listTheory
-  lpr_parsingTheory scpog_parsingTheory scpog_arrayProgTheory;
+open preamble basis UnsafeProofTheory cnf_scpogSemTheory scpogTheory
+  scpog_listTheory lpr_parsingTheory scpog_parsingTheory scpog_arrayProgTheory;
 
 val _ = new_theory "scpog_arrayFullProg"
 
@@ -383,8 +383,6 @@ Proof
     asm_exists_tac>>simp[]>>
     fs[FILENAME_def,validArg_def]>>
     asm_exists_tac>>simp[]>>
-    first_x_assum (irule_at Any)>>
-    first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>

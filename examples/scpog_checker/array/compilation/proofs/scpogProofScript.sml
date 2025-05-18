@@ -7,7 +7,7 @@ open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      TextIOProofTheory
      x64_configTheory blastLib
-     cnf_scpogTheory scpog_listTheory scpog_arrayFullProgTheory
+     cnf_scpogSemTheory scpogTheory scpog_listTheory scpog_arrayFullProgTheory
      scpog_parsingTheory scpogCompileTheory;
 
 val _ = new_theory"scpogProof";

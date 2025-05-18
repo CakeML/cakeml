@@ -1,7 +1,8 @@
 (*
   This refines scpog_list to use arrays
 *)
-open preamble basis UnsafeProofTheory cnf_scpogTheory scpog_listTheory lpr_parsingTheory scpog_parsingTheory blastLib;
+open preamble basis UnsafeProofTheory cnf_scpogSemTheory scpogTheory
+  scpog_listTheory lpr_parsingTheory scpog_parsingTheory blastLib;
 
 val _ = new_theory "scpog_arrayProg"
 
@@ -844,7 +845,7 @@ val res = translate mk_Ev_def; *)
 
 val res = translate declare_sum_def;
 
-val res = translate is_proj_lit_run_def;
+val res = translate is_forget_lit_run_def;
 val res = translate check_sko_def;
 val res = translate declare_sko_def;
 
@@ -909,7 +910,7 @@ val check_scpstep_arr = process_topdecs`
       raise Fail (format_failure lno "Skolem node freshness/variable checks failed"))`
   |> append_prog;
 
-val CNF_SCPOG_SCPSTEP_TYPE_def = fetch "-" "CNF_SCPOG_SCPSTEP_TYPE_def";
+val SCPOG_SCPSTEP_TYPE_def = fetch "-" "SCPOG_SCPSTEP_TYPE_def";
 
 Theorem PAIR_TYPE_SPLIT:
   PAIR_TYPE a b x v ⇔
@@ -1022,9 +1023,9 @@ QED
 
 Theorem check_scpstep_arr_spec:
   NUM lno lnov ∧
-  CNF_SCPOG_SCPSTEP_TYPE scpstep scpstepv ∧
-  CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
-  CNF_SCPOG_SCPOG_CONF_TYPE sc scv ∧
+  SCPOG_SCPSTEP_TYPE scpstep scpstepv ∧
+  SCPOG_PROB_CONF_TYPE pc pcv ∧
+  SCPOG_SCPOG_CONF_TYPE sc scv ∧
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls ⇒
   app (p : 'ffi ffi_proj)
@@ -1048,7 +1049,7 @@ Theorem check_scpstep_arr_spec:
             | SOME (fmlls', sc' , Clist') =>
                 bounded_fml (LENGTH Clist') fmlls' ∧
                 LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv' ∧
-                CNF_SCPOG_SCPOG_CONF_TYPE sc' v2 ∧
+                SCPOG_SCPOG_CONF_TYPE sc' v2 ∧
                 Clist' = clist' ∧
                 LENGTH Clist ≤ LENGTH Clist'
             ))
@@ -1061,7 +1062,7 @@ Theorem check_scpstep_arr_spec:
 Proof
   rw[check_scpstep_list_def]>>
   xcf "check_scpstep_arr" (get_ml_prog_state ())>>
-  Cases_on`scpstep`>>fs[CNF_SCPOG_SCPSTEP_TYPE_def]
+  Cases_on`scpstep`>>fs[SCPOG_SCPSTEP_TYPE_def]
   >- ( (* Skip *)
     xmatch >>
     xcon>>xsimpl)
@@ -1308,8 +1309,8 @@ val parse_and_run_arr = process_topdecs`
 Theorem parse_and_run_arr_spec:
   NUM lno lnov ∧
   LIST_TYPE (SUM_TYPE STRING_TYPE INT) l lv ∧
-  CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
-  CNF_SCPOG_SCPOG_CONF_TYPE sc scv ∧
+  SCPOG_PROB_CONF_TYPE pc pcv ∧
+  SCPOG_SCPOG_CONF_TYPE sc scv ∧
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls
   ⇒
@@ -1334,7 +1335,7 @@ Theorem parse_and_run_arr_spec:
             | SOME (fmlls', sc' , Clist') =>
                 bounded_fml (LENGTH Clist') fmlls' ∧
                 LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv' ∧
-                CNF_SCPOG_SCPOG_CONF_TYPE sc' v2 ∧
+                SCPOG_SCPOG_CONF_TYPE sc' v2 ∧
                 Clist' = clist' ∧
                 LENGTH Clist ≤ LENGTH Clist'
             ))
@@ -1438,8 +1439,8 @@ val b_inputLineTokens_specialize =
 Theorem check_unsat''_spec:
   !lines fs fmlv fmlls fmllsv Clist Carrv lno lnov pc pcv sc scv.
   NUM lno lnov ∧
-  CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
-  CNF_SCPOG_SCPOG_CONF_TYPE sc scv ∧
+  SCPOG_PROB_CONF_TYPE pc pcv ∧
+  SCPOG_SCPOG_CONF_TYPE sc scv ∧
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
   bounded_fml (LENGTH Clist) fmlls
   ⇒
@@ -1461,7 +1462,7 @@ Theorem check_unsat''_spec:
                  (parse_and_run_file_list lines pc fmlls sc Clist) fmllsv' ∧
               unwrap_TYPE
               (λv fv.
-                CNF_SCPOG_SCPOG_CONF_TYPE (SND v) fv)
+                SCPOG_SCPOG_CONF_TYPE (SND v) fv)
                  (parse_and_run_file_list lines pc fmlls sc Clist) v2
               ))
       )
@@ -1914,7 +1915,7 @@ QED
 Theorem app_efalsify_vec_sat_scpv_v:
   NUM w wv ∧
   NUM x xv ∧
-  VECTOR_TYPE (OPTION_TYPE CNF_SCPOG_SCPNV_TYPE) y yv ∧
+  VECTOR_TYPE (OPTION_TYPE SCPOG_SCPNV_TYPE) y yv ∧
   VECTOR_TYPE (OPTION_TYPE (VECTOR_TYPE (OPTION_TYPE UNIT_TYPE))) z zv ⇒
   app (p : 'ffi ffi_proj) efalsify_vec_sat_scpv_v [wv;xv;yv;zv] emp
     (POSTv v.
@@ -1965,10 +1966,10 @@ QED
 *)
 
 Theorem app_falsify_top_v:
-  CNF_SCPOG_PROB_CONF_TYPE u uv ∧
+  SCPOG_PROB_CONF_TYPE u uv ∧
   NUM w wv ∧
   NUM x xv ∧
-  VECTOR_TYPE (OPTION_TYPE CNF_SCPOG_SCPNV_TYPE) y yv ⇒
+  VECTOR_TYPE (OPTION_TYPE SCPOG_SCPNV_TYPE) y yv ⇒
   app (p : 'ffi ffi_proj) falsify_top_v [uv;wv;xv;yv] emp
     (POSTv v.
        &(LIST_TYPE INT --> BOOL)
@@ -2024,12 +2025,12 @@ Definition check_inputs_scp_list_err_def:
   | SOME res => INR res
 End
 
-Overload "res_TYPE" = ``SUM_TYPE UNIT_TYPE (PAIR_TYPE INT (LIST_TYPE (PAIR_TYPE NUM CNF_SCPOG_SCPN_TYPE)))``
+Overload "res_TYPE" = ``SUM_TYPE UNIT_TYPE (PAIR_TYPE INT (LIST_TYPE (PAIR_TYPE NUM CNF_SCPOGSEM_SCPN_TYPE)))``
 
 Theorem check_inputs_scp_arr_spec:
   INT r rv ∧
-  CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
-  LIST_TYPE (PAIR_TYPE NUM CNF_SCPOG_SCPN_TYPE) scp scpv ∧
+  SCPOG_PROB_CONF_TYPE pc pcv ∧
+  LIST_TYPE (PAIR_TYPE NUM CNF_SCPOGSEM_SCPN_TYPE) scp scpv ∧
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
@@ -2157,8 +2158,8 @@ QED
 
 Theorem check_final_arr_spec:
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
-  CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
-  CNF_SCPOG_SCPOG_CONF_TYPE sc scv
+  SCPOG_PROB_CONF_TYPE pc pcv ∧
+  SCPOG_SCPOG_CONF_TYPE sc scv
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_final_arr"(get_ml_prog_state()))
   [pcv; scv; fmlv]
@@ -2246,8 +2247,8 @@ Theorem check_unsat'_spec:
   LIST_REL (OPTION_TYPE ctag_TYPE) fmlls fmllsv ∧
   FILENAME f fv ∧
   hasFreeFD fs ∧
-  CNF_SCPOG_PROB_CONF_TYPE pc pcv ∧
-  CNF_SCPOG_SCPOG_CONF_TYPE sc scv ∧
+  SCPOG_PROB_CONF_TYPE pc pcv ∧
+  SCPOG_SCPOG_CONF_TYPE sc scv ∧
   bounded_fml n fmlls
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat'"(get_ml_prog_state()))
@@ -2311,7 +2312,7 @@ Proof
       | SOME(fmlls',sc') =>
         resv = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]] ∧
         v1 = fmlv' ∧
-        CNF_SCPOG_SCPOG_CONF_TYPE sc' v2 ∧
+        SCPOG_SCPOG_CONF_TYPE sc' v2 ∧
         LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv'
     )`
   >- (
@@ -2379,7 +2380,7 @@ Proof
              (λv fv. LIST_REL (OPTION_TYPE ctag_TYPE) (FST v) fv)
                 (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist) fmllsv' ∧
              unwrap_TYPE
-             (λv fv. CNF_SCPOG_SCPOG_CONF_TYPE (SND v) fv)
+             (λv fv. SCPOG_SCPOG_CONF_TYPE (SND v) fv)
                 (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist ) v2)))`
     >- (
         xlet `POSTv v.
@@ -2393,7 +2394,7 @@ Proof
                      (λv fv. LIST_REL (OPTION_TYPE ctag_TYPE) (FST v) fv)
                         (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist) fmllsv' ∧
                      unwrap_TYPE
-                     (λv fv. CNF_SCPOG_SCPOG_CONF_TYPE (SND v) fv)
+                     (λv fv. SCPOG_SCPOG_CONF_TYPE (SND v) fv)
                         (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist ) v2))`
         THEN1
          (xapp_spec check_unsat''_spec

@@ -1,7 +1,7 @@
 (*
   This refines the SCPOG checker to a fixed-size, list-based implementation.
 *)
-open preamble basis cnf_scpogTheory mlvectorTheory;
+open preamble basis cnf_scpogSemTheory scpogTheory mlvectorTheory;
 
 val _ = new_theory "scpog_list"
 
@@ -504,8 +504,9 @@ Proof
       rw[resize_Clist_def]>>
     drule_all fml_rel_is_rup_list>>
     disch_then (qspecl_then [`l0`,`b`,`l`] assume_tac)>>
-    every_case_tac>>gvs[]>>
-    metis_tac[fml_rel_insert_one_list])
+    gvs[AllCasePreds()]>>
+    drule_all fml_rel_insert_one_list>>
+    rw[])
   >- (
     simp[OPTION_MAP_CASE,o_DEF]>>
     TOP_CASE_TAC>>gvs[AllCaseEqs()]>>

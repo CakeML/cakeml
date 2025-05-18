@@ -1,7 +1,7 @@
 (*
    Parsing interface for CNF and SCPOG files
 *)
-open preamble miscTheory lpr_parsingTheory mlintTheory cnf_scpogTheory;
+open preamble miscTheory lpr_parsingTheory mlintTheory scpogTheory;
 
 val _ = new_theory "scpog_parsing";
 
@@ -43,7 +43,8 @@ Definition parse_show_def:
   (parse_show vs _ = NONE)
 End
 
-(* Parses extended DIMACS including support for "c p show ... 0" lines. Produces the list of clauses in order they are read.
+(* Parses extended DIMACS including support for "c p show ... 0" lines.
+  Produces the list of clauses in order they are read.
   Comments are filtered. *)
 Definition parse_one_def:
   parse_one maxvar s (vs:sptree$num_set option) acc =
