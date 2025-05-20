@@ -187,7 +187,7 @@ Definition compile_top_def:
           nds' = fperm_decs start start' nds;
           (decls,funs,ctxt) = compile_decs
                               <| globals := FEMPTY; globals_size := 0w;
-                                 max_globals_size := n2w(SUM(MAP size_of_shape(dec_shapes nds')))
+                                 max_globals_size := bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes nds')))
                               |> nds';
           params = MAP (Var Local o FST) args;
           new_main = Function start
