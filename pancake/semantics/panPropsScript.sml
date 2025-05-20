@@ -994,6 +994,20 @@ Proof
   rw[functions_def,is_function_def]
 QED
 
+Theorem functions_append:
+  functions(prog1 ++ prog2) = functions prog1 ++ functions prog2
+Proof
+  rw[functions_eq_FILTER,MAP_APPEND,FILTER_APPEND]
+QED
+
+Theorem functions_FILTER:
+  ∀prog.
+    functions(FILTER is_function prog) = functions prog
+Proof
+  Induct_on ‘prog’ using functions_ind >>
+  rw[functions_def,is_function_def]
+QED
+
 Theorem evaluate_decls_functions:
   ∀s pan_code s'.
     evaluate_decls s pan_code = SOME s' ⇒
@@ -1054,6 +1068,184 @@ Proof
   rw[] >>
   drule_all pan_commonPropsTheory.opt_mmap_mem_func >>
   strip_tac >> gvs[]
+QED
+
+Theorem semantics_decls_has_main:
+  semantics_decls s start code <> Fail ⇒
+  ∃args body.
+    FLOOKUP (s.code |++ functions code) start = SOME (args,body)
+Proof
+  rw[semantics_decls_def] >>
+  PURE_FULL_CASE_TAC >> gvs[] >>
+  imp_res_tac evaluate_decls_functions >>
+  gvs[semantics_def] >>
+  PURE_FULL_CASE_TAC >>
+  gvs[AllCaseEqs()] >>
+  PRED_ASSUM is_forall mp_tac >>
+  simp[Once evaluate_def] >>
+  disch_then $ qspec_then ‘0’ mp_tac >>
+  every_case_tac >> gvs[lookup_code_def,AllCaseEqs()]
+QED
+
+Theorem semantics_decls_has_main':
+  semantics_decls s start code <> Fail ⇒
+  ∃body.
+    FLOOKUP (s.code |++ functions code) start = SOME ([],body)
+Proof
+  rw[semantics_decls_def] >>
+  PURE_FULL_CASE_TAC >> gvs[] >>
+  imp_res_tac evaluate_decls_functions >>
+  gvs[semantics_def] >>
+  PURE_FULL_CASE_TAC >>
+  gvs[AllCaseEqs()] >>
+  PRED_ASSUM is_forall mp_tac >>
+  simp[Once evaluate_def] >>
+  disch_then $ qspec_then ‘0’ mp_tac >>
+  every_case_tac >> gvs[lookup_code_def,AllCaseEqs()]
+QED
+
+Theorem evaluate_decls_swap_locals:
+  ∀s prog s' locals.
+    evaluate_decls s prog = SOME s' ⇒
+    evaluate_decls (s with locals := locals) prog = SOME(s' with locals := locals)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,AllCaseEqs()] >>
+  res_tac >>
+  fs[]
+QED
+
+Theorem mem_load_swap_memory:
+  (∀sh (addr:'a word) addrs memory1 v memory2.
+    mem_load sh addr addrs memory1 = SOME v ∧
+    (∀addr. addr ∈ addrs ⇒ memory1 addr = memory2 addr)
+    ⇒
+    mem_load sh addr addrs memory2 = SOME v) ∧
+  (∀shs (addr:'a word) addrs memory1 v memory2.
+    mem_loads shs addr addrs memory1 = SOME v ∧
+    (∀addr. addr ∈ addrs ⇒ memory1 addr = memory2 addr)
+    ⇒
+    mem_loads shs addr addrs memory2 = SOME v)
+Proof
+  Induct >>
+  simp[cj 1 mem_load_def] >>
+  simp[cj 2 mem_load_def, cj 3 mem_load_def] >>
+  rw[AllCaseEqs()] >>
+  res_tac >>
+  fs[]
+QED
+
+Theorem mem_load_swap_memaddrs:
+  (∀sh (addr:'a word) addrs memory v addrs2.
+    mem_load sh addr addrs memory = SOME v ∧
+    addrs ⊆ addrs2
+    ⇒
+    mem_load sh addr addrs2 memory = SOME v) ∧
+  (∀shs (addr:'a word) addrs memory v addrs2.
+    mem_loads shs addr addrs memory = SOME v ∧
+    addrs ⊆ addrs2
+    ⇒
+    mem_loads shs addr addrs2 memory = SOME v)
+Proof
+  Induct >>
+  simp[cj 1 mem_load_def] >>
+  simp[cj 2 mem_load_def, cj 3 mem_load_def] >>
+  rw[AllCaseEqs()] >>
+  res_tac >>
+  fs[SUBSET_DEF]
+QED
+
+Theorem eval_swap_memaddrs:
+  ∀s exp v memaddrs.
+    eval s exp = SOME v ∧
+    s.memaddrs ⊆ memaddrs
+    ⇒
+    eval (s with memaddrs := memaddrs) exp = SOME v
+Proof
+  recInduct eval_ind >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def] >>
+  rpt $ irule_at (Pos last) EQ_REFL >>
+  rpt $ first_assum $ irule_at (Pos last) >>
+  fs[]
+  >~ [‘mem_load’]
+  >- (irule $ cj 1 mem_load_swap_memaddrs >> metis_tac[]) >>
+  fs[SUBSET_DEF] >>
+  irule EQ_TRANS >>
+  first_assum $ irule_at $ Pos last >>
+  irule OPT_MMAP_CONG >>
+  rw[] >>
+  drule_all_then strip_assume_tac pan_commonPropsTheory.opt_mmap_mem_func >>
+  gvs[]
+QED
+
+Theorem evaluate_decls_swap_memaddrs:
+  ∀s prog s' memaddrs.
+    evaluate_decls s prog = SOME s' ∧
+    s.memaddrs ⊆ memaddrs ⇒
+    evaluate_decls (s with memaddrs := memaddrs) prog = SOME(s' with memaddrs := memaddrs)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,AllCaseEqs()] >>
+  first_x_assum drule >>
+  simp[] >>
+  disch_then $ irule_at Any >>
+  simp[] >>
+  drule eval_swap_memaddrs >>
+  simp[]
+QED
+
+Theorem eval_swap_memory:
+  ∀s exp v mry.
+    eval s exp = SOME v ∧
+    (∀addr. addr ∈ s.memaddrs ⇒ s.memory addr = mry addr)
+    ⇒
+    eval (s with memory := mry) exp = SOME v
+Proof
+  recInduct eval_ind >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def] >>
+  rpt $ irule_at (Pos last) EQ_REFL >>
+  rpt $ first_assum $ irule_at (Pos last) >>
+  fs[]
+  >~ [‘mem_load’]
+  >- (irule $ cj 1 mem_load_swap_memory >> metis_tac[]) >>
+  irule EQ_TRANS >>
+  first_assum $ irule_at $ Pos last >>
+  irule OPT_MMAP_CONG >>
+  rw[] >>
+  drule_all_then strip_assume_tac pan_commonPropsTheory.opt_mmap_mem_func >>
+  gvs[]
+QED
+
+Theorem evaluate_decls_swap_memory:
+  ∀s prog s' mry.
+    evaluate_decls s prog = SOME s' ∧
+    (∀addr. addr ∈ s.memaddrs ⇒ s.memory addr = mry addr) ⇒
+    evaluate_decls (s with memory := mry) prog = SOME(s' with memory := mry)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,AllCaseEqs()] >>
+  first_x_assum drule >>
+  simp[] >>
+  disch_then $ irule_at Any >>
+  simp[] >>
+  drule eval_swap_memory >>
+  simp[]
+QED
+
+Theorem evaluate_decls_memaddrs_mono:
+  ∀s prog s' memaddrs.
+    evaluate_decls s prog = SOME s' ∧
+    s.memaddrs ⊆ memaddrs ⇒
+    evaluate_decls (s with memaddrs := memaddrs) prog = SOME(s' with memaddrs := memaddrs)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,AllCaseEqs()] >>
+  first_x_assum drule >>
+  simp[] >>
+  disch_then $ irule_at Any >>
+  simp[] >>
+  drule eval_swap_memaddrs >>
+  simp[]
 QED
 
 val _ = export_theory();
