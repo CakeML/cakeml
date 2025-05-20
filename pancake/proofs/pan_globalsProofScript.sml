@@ -1065,6 +1065,15 @@ Proof
   rw[fmap_eq_flookup,FLOOKUP_fperm_code']
 QED
 
+Theorem fperm_decs_append:
+  ∀f g xs ys.
+    fperm_decs f g (xs ++ ys) =
+    fperm_decs f g xs ++ fperm_decs f g ys
+Proof
+  recInduct fperm_decs_ind >>
+  rw[fperm_decs_def]
+QED
+
 Theorem fperm_code_FUPDATE_LIST_functions:
   ∀code.
     fperm_code f g (fm |++ functions code) = fperm_code f g fm |++ functions (fperm_decs f g code)
@@ -1315,15 +1324,6 @@ Proof
   recInduct compile_decs_ind >>
   rw[UNCURRY_eq_pair,compile_decs_def,PULL_EXISTS] >>
   metis_tac[FST,SND,PAIR]
-QED
-
-Theorem fperm_decs_append:
-  ∀f g xs ys.
-    fperm_decs f g (xs ++ ys) =
-    fperm_decs f g xs ++ fperm_decs f g ys
-Proof
-  recInduct fperm_decs_ind >>
-  rw[fperm_decs_def]
 QED
 
 Theorem fperm_decs_decls:
