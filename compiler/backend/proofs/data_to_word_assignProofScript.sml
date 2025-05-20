@@ -4508,29 +4508,29 @@ QED
 Theorem assign_ConfigGC:
    op = MemOp ConfigGC ==> ^assign_thm_goal
 Proof
-  cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ fs[do_app,allowed_op_def]
-  \\ every_case_tac \\ fs[]
-  \\ clean_tac
-  \\ imp_res_tac state_rel_get_vars_IMP
-  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+  \\ fs [do_app,allowed_op_def,AllCaseEqs()] \\ gvs []
+  \\ drule_all state_rel_get_vars_IMP
+  \\ strip_tac
+  \\ gvs [LENGTH_EQ_NUM_compute]
   \\ fs[assign_def,EVAL ``op_requires_names (MemOp ConfigGC)``]
   \\ fs [list_Seq_def,eq_eval]
+  \\ gvs [data_to_word_gcProofTheory.alloc_locals_insert_1]
   \\ reverse (Cases_on `c.call_empty_ffi`)
   THEN1
    (fs [SilentFFI_def,wordSemTheory.evaluate_def]
-    \\ fs [case_eq_thms]
+    \\ gvs [CaseEq"option"]
     \\ qpat_abbrev_tac `alll = alloc _ _ _`
     \\ `?x1 x2. alll = (x1,x2)` by (Cases_on `alll` \\ fs [])
     \\ unabbrev_all_tac \\ fs []
     \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` assume_tac
     \\ Cases_on `names_opt`
-    \\ fs [cut_state_opt_def,cut_state_def,case_eq_thms] \\ rveq \\ fs []
+    \\ fs [cut_state_opt_def,cut_state_def] \\ rveq \\ fs []
+    \\ gvs [CaseEq"option"]
     \\ rpt_drule0 (alloc_lemma |> Q.INST [`k`|->`0`])
     \\ fs [EVAL ``alloc_size 0``,get_names_def]
     \\ strip_tac \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
@@ -4554,12 +4554,12 @@ Proof
          ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``,
          wordSemTheory.get_var_def,lookup_insert,list_Seq_def,
          wordSemTheory.the_words_def,wordLangTheory.word_op_def,
-         cut_env_adjust_sets_insert_ODD]
+         cut_env_adjust_sets_insert_ODD,wordSemTheory.get_store_def]
   \\ Cases_on `names_opt`
-  \\ fs [cut_state_opt_def,cut_state_def,case_eq_thms] \\ rveq \\ fs []
+  \\ fs [cut_state_opt_def,cut_state_def] \\ rveq \\ fs []
+  \\ gvs [CaseEq"option"]
   \\ fs [get_names_def]
   \\ fs [cut_names_adjust_set_insert_3]
-  \\ cheat (*
   \\ drule0 (GEN_ALL cut_env_IMP_cut_env) \\ fs []
   \\ `dataSem$cut_env x' env = SOME env` by
     (fs [dataSemTheory.cut_env_def] \\ rveq \\ fs[domain_inter,lookup_inter_alt])
@@ -4574,10 +4574,11 @@ Proof
   \\ strip_tac
   \\ rpt_drule0 (alloc_lemma |> Q.INST [`k`|->`0`]) \\ fs []
   \\ disch_then drule0
-  \\ qmatch_assum_abbrev_tac `alloc _ _ t6 = _`
-  \\ `t6 = t with locals := insert 1 (Word (alloc_size 0)) y` by
-   (unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality]
-    \\ fs [EVAL ``alloc_size 0``,ZERO_LT_dimword])
+  \\ rename [‘alloc _ (adjust_sets x8)’]
+  \\ ‘alloc (alloc_size 0) (adjust_sets x8) (t with locals := y) = (x1,x2)’ by
+      (qpat_x_assum ‘_ = (x1,x2)’ (rewrite_tac o single o GSYM)
+       \\ simp [EVAL “alloc_size 0”] \\ AP_TERM_TAC
+       \\ gvs [wordSemTheory.state_component_equality])
   \\ fs [] \\ fs [EVAL ``alloc_size 0``,ZERO_LT_dimword]
   \\ strip_tac
   \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
@@ -4594,15 +4595,22 @@ Proof
          ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``,
          wordSemTheory.get_var_def,lookup_insert,list_Seq_def,
          wordSemTheory.the_words_def,wordLangTheory.word_op_def,
-         cut_env_adjust_sets_insert_ODD]
+         cut_env_adjust_sets_insert_ODD,wordSemTheory.get_store_def]
   \\ rveq \\ fs []
-  \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
+  \\ drule cut_env_IMP_cut_env \\ simp []
+  \\ ‘dataSem$cut_env x8 env = SOME env’ by
+    gvs [dataSemTheory.cut_env_def,AllCaseEqs()]
+  \\ disch_then drule
+  \\ strip_tac \\ gvs []
+  \\ drule state_rel_cut_env_cut_env \\ gvs []
+  \\ disch_then drule_all
+  \\ strip_tac
   \\ fs [state_rel_thm,set_var_def]
   \\ fs [lookup_insert,adjust_var_11,option_le_max_right]
-  \\ strip_tac \\ rw [option_le_max_right]
+  \\ conj_tac >- (rw [] \\ gvs [])
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert
-  \\ fs [] \\ match_mp_tac memory_rel_Unit \\ fs [] *) *)
+  \\ fs [] \\ match_mp_tac memory_rel_Unit \\ fs []
 QED
 
 Theorem assign_WordToInt:
