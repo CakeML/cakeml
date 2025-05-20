@@ -1987,10 +1987,10 @@ QED
 Theorem compile_top_semantics_decls:
   ALL_DISTINCT (MAP FST (functions code)) ∧
   t = s with <| top_addr := s.top_addr + mgs:'a word;
-                  memaddrs := (s.memaddrs ∪ free_addrs);
-                  memory   := tmem;
-                  locals := tlocals
-                |> ∧
+                memaddrs := (s.memaddrs ∪ free_addrs);
+                memory   := tmem;
+                locals   := tlocals
+             |> ∧
   s.code = FEMPTY ∧
   s.globals = FEMPTY ∧
   byte_aligned(s.top_addr) ∧
