@@ -105,11 +105,21 @@ Definition cml_get_arr_data_def:
   cml_get_arr_data cml_e = cml_tup_select 2 cml_e 1
 End
 
-Definition cml_fapp_aux_def:
-  cml_fapp_aux id [] = App Opapp [id; Unit] ∧
-  cml_fapp_aux id [cml_e] = App Opapp [id; cml_e] ∧
-  cml_fapp_aux id (cml_e::rest) = App Opapp [id; cml_e]
+Definition apps_def:
+  apps f [] = f ∧
+  apps f (x::xs) = apps (App Opapp [f; x]) xs
 End
+
+Definition cml_apps_def:
+  cml_apps id [] = App Opapp [id; Unit] ∧
+  cml_apps id args = apps id args
+End
+
+(* Definition cml_fapp_aux_def: *)
+(*   cml_fapp_aux id [] = App Opapp [id; Unit] ∧ *)
+(*   cml_fapp_aux id [cml_e] = App Opapp [id; cml_e] ∧ *)
+(*   cml_fapp_aux id (cml_e::rest) = App Opapp [id; cml_e] *)
+(* End *)
 
 (* Creates nested lets. *)
 Definition cml_lets_def:
@@ -122,8 +132,13 @@ Definition cml_lets_def:
   cml_lets _ _ _ = fail «cml_lets: Length mismatch»
 End
 
+Definition cml_bind_def:
+  cml_bind ns cml_rhss cml_e =
+    Mat (Tuple (REVERSE cml_rhss)) [(Pcon NONE (MAP Pvar (REVERSE ns)), cml_e)]
+End
+
 Definition cml_fapp_def:
-  cml_fapp mns n cml_es = cml_fapp_aux (Var (mk_id mns n)) (REVERSE cml_es)
+  cml_fapp mns n cml_es = cml_apps (Var (mk_id mns n)) cml_es
 End
 
 Definition cml_read_var_def:
@@ -187,7 +202,7 @@ End
 
 Definition gen_arg_names_def:
   gen_arg_names args =
-    GENLIST (λn. " arg" ++ (explode (num_to_str n))) (LENGTH args)
+    GENLIST (λn. "a" ++ (explode (num_to_str n))) (LENGTH args)
 End
 
 Definition from_exp_def:
@@ -233,7 +248,9 @@ Definition from_exp_def:
     cml_args <- map_from_exp args;
     (* Force left-to-right evaluation order *)
     n_args <<- gen_arg_names cml_args;
-    cml_lets n_args cml_args (cml_fapp [] ("dfy_" ++ (explode n)) cml_args)
+    return
+      (cml_bind n_args cml_args
+                (cml_apps (Var (Short ("dfy_" ++ (explode n)))) (MAP (Var ∘ Short) n_args)))
   od ∧
   from_exp (Forall _ _) = fail «from_exp:Forall: Unsupported» ∧
   map_from_exp [] = return [] ∧
@@ -816,6 +833,95 @@ Proof
   \\ qexists ‘member’ \\ gvs [get_member_def, dest_program_def]
 QED
 
+Definition refv_same_rel_def[simp]:
+  (refv_same_rel [] ys ⇔ T) ∧
+  (refv_same_rel ((Refv v)::xs) (y::ys) ⇔
+     (y = Refv v) ∧ (refv_same_rel xs ys)) ∧
+  (refv_same_rel ((Varray vs)::xs) (y::ys) ⇔
+     (refv_same_rel xs ys)) ∧
+  (refv_same_rel _ _ ⇔ F)
+End
+
+Triviality refv_same_rel_len:
+  ∀xs ys. refv_same_rel xs ys ⇒ LENGTH xs ≤ LENGTH ys
+Proof
+  Induct_on ‘xs’ \\ gvs []
+  \\ qx_genl_tac [‘hd’, ‘ys’]
+  \\ Cases_on ‘ys’ \\ gvs []
+  \\ rpt strip_tac
+  \\ Cases_on ‘hd’ \\ gvs []
+QED
+
+Triviality refv_same_rel_store_lookup:
+  ∀xs ys loc v.
+    refv_same_rel xs ys ∧
+    store_lookup loc xs = SOME (Refv v) ⇒
+    store_lookup loc ys = SOME (Refv v)
+Proof
+  ho_match_mp_tac refv_same_rel_ind
+  \\ rpt strip_tac
+  \\ gvs [refv_same_rel_def, store_lookup_def, AllCaseEqs()]
+  \\ Cases_on ‘loc’ \\ gvs []
+QED
+
+Triviality state_rel_restore_locals:
+  state_rel m l s t env ∧
+  state_rel m l s' t' env' ∧
+  refv_same_rel t.refs t'.refs ⇒
+  state_rel m l (restore_locals s' s.locals) t' env
+Proof
+  rpt strip_tac
+  \\ gvs [restore_locals_def, state_rel_def]
+  \\ rpt $ qpat_x_assum ‘_ = _’ kall_tac
+  \\ rpt $ qpat_x_assum ‘print_rel _ _’ kall_tac
+  \\ gvs [locals_rel_def] \\ rpt strip_tac
+  \\ last_x_assum drule \\ rpt strip_tac
+  \\ pop_assum $ irule_at Any \\ gvs []
+  \\ pop_assum $ irule_at Any
+  \\ drule_all refv_same_rel_store_lookup \\ gvs []
+QED
+
+Triviality gen_arg_names_len[simp]:
+  LENGTH (gen_arg_names xs) = LENGTH xs
+Proof
+  cheat
+QED
+
+Triviality pmatch_list_map_pvar:
+  LENGTH xs = LENGTH ys ⇒
+  pmatch_list cs refs (MAP Pvar xs) ys acc = Match (ZIP (xs, ys) ++ acc)
+Proof
+  cheat
+QED
+
+Triviality nsAppend_empty[simp]:
+  nsAppend (Bind [] []) b = b
+Proof
+  Cases_on ‘b’ \\ gvs [nsAppend_def]
+QED
+
+Triviality with_same_v[simp]:
+  (env with v := env.v) = env
+Proof
+  gvs [semanticPrimitivesTheory.sem_env_component_equality]
+QED
+
+Triviality with_same_clock[simp]:
+  (t: 'ffi cml_state) with clock := t.clock = t
+Proof
+  gvs [semanticPrimitivesTheory.state_component_equality]
+QED
+
+Triviality env_rel_nsLookup:
+  env_rel env_dfy env_cml ∧
+  get_member name env_dfy.prog = SOME member ⇒
+  is_fresh_member member ∧
+  ∃reclos.
+    nsLookup env_cml.v (Short ("dfy_" ++ (explode name))) = SOME reclos ∧
+    callable_rel env_dfy.prog name reclos
+Proof
+  rpt strip_tac \\ gvs [env_rel_def] \\ res_tac
+QED
 
 Theorem correct_from_exp:
   (∀s env_dfy e_dfy s' r_dfy (t: 'ffi cml_state) env_cml e_cml m l.
@@ -823,17 +929,21 @@ Theorem correct_from_exp:
      from_exp e_dfy = INR e_cml ∧ state_rel m l s t env_cml ∧
      env_rel env_dfy env_cml ∧ is_fresh_exp e_dfy ∧
      r_dfy ≠ Rerr Rtype_error
-     ⇒ ∃(t': 'ffi cml_state) r_cml.
-         evaluate$evaluate t env_cml [e_cml] = (t', r_cml) ∧
-         state_rel m l s' t' env_cml ∧ exp_res_rel m r_dfy r_cml) ∧
+     ⇒ ∃ck (t': 'ffi cml_state) r_cml.
+         evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
+           (t', r_cml) ∧
+         refv_same_rel t.refs t'.refs ∧ state_rel m l s' t' env_cml ∧
+         exp_res_rel m r_dfy r_cml) ∧
   (∀s env_dfy es_dfy s' rs_dfy (t: 'ffi cml_state) env_cml es_cml m l.
      evaluate_exps s env_dfy es_dfy = (s', rs_dfy) ∧
      map_from_exp es_dfy = INR es_cml ∧ state_rel m l s t env_cml ∧
      env_rel env_dfy env_cml ∧ EVERY (λe. is_fresh_exp e) es_dfy ∧
      rs_dfy ≠ Rerr Rtype_error
-     ⇒ ∃(t': 'ffi cml_state) rs_cml.
-         evaluate$evaluate t env_cml es_cml = (t', rs_cml) ∧
-         state_rel m l s' t' env_cml ∧ exp_ress_rel m rs_dfy rs_cml)
+     ⇒ ∃ck (t': 'ffi cml_state) rs_cml.
+         evaluate$evaluate (t with clock := t.clock + ck) env_cml es_cml =
+           (t', rs_cml) ∧
+         refv_same_rel t.refs t'.refs ∧ state_rel m l s' t' env_cml ∧
+         exp_ress_rel m rs_dfy rs_cml)
 Proof
   ho_match_mp_tac evaluate_exp_ind
   \\ rpt strip_tac
@@ -848,6 +958,63 @@ Proof
     \\ namedCases_on ‘evaluate_exps s env_dfy args’ ["s₁ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs []
+
+    \\ rename [‘_ with clock := ck + _’] \\ qexists ‘ck’
+    \\ gvs [cml_bind_def, evaluate_def, do_con_check_def, build_conv_def]
+    \\ reverse $ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
+    >- (drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs [])
+    \\ drule exp_ress_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ gvs [can_pmatch_all_def, pmatch_def]
+    \\ ‘LENGTH cml_args = LENGTH cml_vs’ by cheat \\ gvs []
+    \\ DEP_REWRITE_TAC [pmatch_list_map_pvar] \\ gvs []
+    \\ reverse $ IF_CASES_TAC
+    >- cheat
+    \\ Cases_on ‘args = []’ \\ gvs []
+    >- (gvs [evaluate_exp_def, from_exp_def]
+        \\ gvs [gen_arg_names_def, alist_to_ns_def, cml_apps_def,
+                evaluate_def, do_con_check_def, build_conv_def]
+        \\ namedCases_on
+           ‘set_up_call s (MAP FST ins) [] []’ ["", "old_locals s₂"]
+        \\ gvs [set_up_call_def, safe_zip_def]
+        \\ Cases_on ‘ins = []’ \\ gvs []
+        \\ ‘ck = 0’ by gvs [state_rel_def] \\ gvs []
+        \\ ‘t.clock = s.clock’ by gvs [state_rel_def] \\ gvs []
+        \\ Cases_on ‘s.clock = 0’ \\ gvs []
+        \\ drule_all env_rel_nsLookup \\ rpt strip_tac \\ gvs []
+        \\ gvs [do_opapp_def, callable_rel_cases]
+        \\ drule_all find_recfun_some \\ rpt strip_tac \\ gvs []
+        >- gvs [restore_locals_def]
+        \\ namedCases_on
+             ‘evaluate_exp (dec_clock (s with locals := [])) env_dfy body’
+             ["s₃ r"]
+        \\ gvs []
+        \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+        \\ gvs [from_member_decl_def, set_up_cml_fun_def, cml_fun_def,
+                cml_new_refs_in_def, par_assign_def, assign_mult_def,
+                cml_lets_def, oneline bind_def, CaseEq "sum"]
+        \\ rename [‘Recclosure basic_env _ _’]
+        \\ last_x_assum $
+             qspecl_then
+             [‘dec_clock t’,
+                ‘basic_env with
+                 v :=
+                   nsBind "" (Conv NONE [])
+                     (build_rec_env cml_funs basic_env basic_env.v)’,
+                ‘m’, ‘l’]
+               mp_tac
+        \\ impl_tac
+        >- (gvs [state_rel_def, dec_clock_def, evaluateTheory.dec_clock_def,
+                 locals_rel_def, read_local_def, nsLookup_def]
+            \\ gvs [env_rel_def] \\ rpt strip_tac
+            >- gvs [has_basic_cons_def]
+            >- res_tac
+            \\ drule_all nslookup_build_rec_env_some
+            \\ rpt strip_tac \\ gvs [])
+        \\ rpt strip_tac \\ gvs []
+
+        \\ gvs [evaluateTheory.dec_clock_def]
+
+
     \\ Induct_on ‘args’ \\ rpt strip_tac \\ gvs []
     >- (gvs [evaluate_exp_def, from_exp_def]
         \\ gvs [gen_arg_names_def, cml_lets_def]
@@ -871,26 +1038,14 @@ Proof
         \\ drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
         \\ gvs [do_opapp_def]
         \\ drule_all find_recfun_some \\ rpt strip_tac \\ gvs []
-        \\ namedCases_on
-             ‘evaluate_exp (dec_clock (s with locals := [])) env_dfy body’
-             ["s₃ r"]
-        \\ gvs []
+
         \\ gvs [from_member_decl_def, oneline bind_def, set_up_cml_fun_def,
                 cml_fun_def, cml_new_refs_in_def, par_assign_def,
                 assign_mult_def, cml_lets_def, CaseEq "sum"]
         \\ gvs [evaluate_def, do_con_check_def, build_conv_def, nsOptBind_def]
-        \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+
         \\ rename [‘Recclosure basic_env _ _’]
-        \\ last_x_assum $
-             qspecl_then
-               [‘dec_clock t’,
-                ‘basic_env with
-                   v :=
-                     nsBind "" (Conv NONE [])
-                       (build_rec_env cml_funs basic_env basic_env.v)’,
-                ‘m’, ‘l’]
-               mp_tac
-        \\ impl_tac
+
         >- (gvs [state_rel_def, dec_clock_def, evaluateTheory.dec_clock_def,
                  locals_rel_def, read_local_def, nsLookup_def]
             \\ rpt strip_tac \\ gvs []
@@ -900,14 +1055,21 @@ Proof
             \\ rpt strip_tac \\ gvs [])
         \\ rpt strip_tac \\ gvs []
         \\ reverse $ namedCases_on ‘r’ ["v", "err"] \\ gvs []
-        >- (gvs [restore_locals_def, state_rel_def, locals_rel_def]
-            \\ rpt strip_tac \\ gvs []
-            \\ qpat_x_assum ‘∀_ _. read_local _ _ = _ ⇒ _’ kall_tac
-            \\ first_x_assum drule \\ rpt strip_tac \\ gvs []
-            \\ gvs [store_lookup_def]
-            \\ cheat)
-        \\ cheat)
-    \\ cheat)
+        \\ gvs [evaluateTheory.dec_clock_def]
+        \\ drule_all state_rel_restore_locals \\ gvs [])
+
+
+    \\ rename [‘map_from_exp (arg::args') = _’]
+    \\ reverse $ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
+    >- (gvs [from_exp_def, oneline bind_def, CaseEq "sum"]
+        \\ gvs [gen_arg_names_def, cml_fapp_def, cml_fapp_aux_def])
+
+    \\ gvs [from_exp_def, oneline bind_def, CaseEq "sum"]
+
+
+   )
+
+
   \\ cheat
   (* >~ [‘Forall var term’] >- *)
   (*  (gvs [from_exp_def]) *)
