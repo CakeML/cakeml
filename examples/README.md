@@ -82,6 +82,9 @@ The CakeML REPL
 [sat_encodings](sat_encodings):
 Encodings of puzzles to CNF, to use as SAT-solver input.
 
+[scpog_checker](scpog_checker):
+A checker for SCPOG format in CakeML
+
 [sortProgScript.sml](sortProgScript.sml):
 Program to sort the lines in a file, built on top of the quick sort example.
 

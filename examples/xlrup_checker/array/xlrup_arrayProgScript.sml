@@ -9,49 +9,6 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-(* TODO: move *)
-Theorem ALL_DISTINCT_MAP_FST_toSortedAList:
-  ALL_DISTINCT (MAP FST (toSortedAList t))
-Proof
-  `SORTED $< (MAP FST (toSortedAList t))` by
-    simp[SORTED_toSortedAList]>>
-  pop_assum mp_tac>>
-  match_mp_tac SORTED_ALL_DISTINCT>>
-  simp[irreflexive_def]
-QED
-
-Theorem MAP_FST_enumerate:
-  MAP FST (enumerate k ls) = GENLIST ($+ k) (LENGTH ls)
-Proof
-  rw[LIST_EQ_REWRITE,LENGTH_enumerate]>>
-  simp[EL_MAP,LENGTH_enumerate,EL_enumerate]
-QED
-
-Theorem ALL_DISTINCT_MAP_FST_enumerate:
-  ALL_DISTINCT (MAP FST (enumerate k ls))
-Proof
-  simp[MAP_FST_enumerate,ALL_DISTINCT_GENLIST]
-QED
-
-(* replace in miscTheory *)
-Theorem MEM_enumerate_IMP:
-  ∀ls k.
-  MEM (i,e) (enumerate k ls) ⇒ MEM e ls
-Proof
-  Induct_on`ls`>>fs[miscTheory.enumerate_def]>>rw[]>>
-  metis_tac[]
-QED
-
-Theorem ALOOKUP_enumerate:
-  ∀ls k x.
-  ALOOKUP (enumerate k ls) x =
-  if k ≤ x ∧ x < LENGTH ls + k then SOME (EL (x-k) ls) else NONE
-Proof
-  Induct>>rw[miscTheory.enumerate_def]>>
-  `x-k = SUC(x-(k+1))` by DECIDE_TAC>>
-  simp[]
-QED
-
 val _ = translation_extends"UnsafeProg";
 
 (* Pure translation of LPR checker *)
