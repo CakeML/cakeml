@@ -923,6 +923,15 @@ Proof
   rpt strip_tac \\ gvs [env_rel_def] \\ res_tac
 QED
 
+(* Triviality evaluate_with_more_ticks: *)
+(*   evaluate (t with clock := clk) env_cml cml_args = (t', Rval cml_vs) ⇒ *)
+(*   ∃ck. *)
+(*     evaluate (t with clock := ck + clk) env_cml cml_args = *)
+(*       (t' with clock := ck + t'.clock, Rval cml_vs) *)
+(* Proof *)
+(*   cheat *)
+(* QED *)
+
 Theorem correct_from_exp:
   (∀s env_dfy e_dfy s' r_dfy (t: 'ffi cml_state) env_cml e_cml m l.
      evaluate_exp s env_dfy e_dfy = (s', r_dfy) ∧
@@ -954,10 +963,51 @@ Proof
     \\ Cases_on ‘member’ \\ gvs []
     \\ rename [‘Function name ins res_t _ _ _ body’]
     \\ gvs [get_member_some_fun]
-    \\ drule get_member_some_fun \\ strip_tac \\ gvs []
+    \\ drule get_member_some_fun \\ rpt strip_tac \\ gvs []
+    \\ drule_all env_rel_nsLookup \\ rpt strip_tac
+    \\ gvs [callable_rel_cases]
+    \\ drule_all find_recfun_some \\ rpt strip_tac \\ gvs []
     \\ namedCases_on ‘evaluate_exps s env_dfy args’ ["s₁ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs []
+
+    \\ rename [‘_ with clock := ck + _’]
+    \\ reverse $ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
+    >- (qexists ‘ck’
+        \\ gvs [cml_bind_def, evaluate_def, do_con_check_def, build_conv_def]
+        \\ drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs [])
+    \\ drule exp_ress_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ namedCases_on
+         ‘set_up_call s₁ (MAP FST ins) in_vs []’ ["", "r"]
+    \\ gvs [set_up_call_def, safe_zip_def]
+    \\ Cases_on ‘LENGTH ins ≠ LENGTH in_vs’ \\ gvs []
+    \\ gvs [cml_bind_def, evaluate_def, do_con_check_def, build_conv_def]
+    \\ Cases_on ‘s₁.clock = 0’ \\ gvs []
+    >- (qexists ‘ck’
+        \\ gvs [can_pmatch_all_def, pmatch_def]
+        \\ ‘LENGTH cml_args = LENGTH cml_vs’ by cheat \\ gvs []
+        \\ DEP_REWRITE_TAC [pmatch_list_map_pvar] \\ gvs []
+        \\ reverse $ IF_CASES_TAC
+        >- cheat
+        \\ Cases_on ‘args = []’ \\ gvs []
+        >- (gvs [evaluate_exp_def, from_exp_def]
+            \\ gvs [gen_arg_names_def, alist_to_ns_def, cml_apps_def,
+                    evaluate_def, do_con_check_def, build_conv_def]
+            \\ gvs [do_opapp_def, callable_rel_cases]
+            \\ ‘ck = 0 ∧ t.clock = 0’ by gvs [state_rel_def]
+            \\ gvs [restore_locals_def])
+        \\ cheat  (* TODO: s₁.clock = 0 ∧ args ≠ []*))
+    \\ namedCases_on
+       ‘evaluate_exp
+          (dec_clock
+            (s₁ with locals := REVERSE (ZIP (MAP FST ins,MAP SOME in_vs))))
+          env_dfy body’ ["s₃ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ gvs [from_member_decl_def, oneline bind_def, CaseEq "sum"]
+
+    \\ qrefine ‘ck' + ck’
+
+
 
     \\ rename [‘_ with clock := ck + _’] \\ qexists ‘ck’
     \\ gvs [cml_bind_def, evaluate_def, do_con_check_def, build_conv_def]
