@@ -6,12 +6,15 @@ open preamble
 open astTheory
 open semanticPrimitivesTheory
 open evaluateTheory
+open evaluatePropsTheory
 open dafny_semanticPrimitivesTheory
 open dafny_evaluateTheory
 open namespaceTheory
 open mlstringTheory
 open integerTheory
 open mlintTheory
+
+(* TODO Remove unused definition / trivialities *)
 
 (* For compiler definitions *)
 open result_monadTheory
@@ -132,10 +135,10 @@ Definition cml_lets_def:
   cml_lets _ _ _ = fail «cml_lets: Length mismatch»
 End
 
-Definition cml_bind_def:
-  cml_bind ns cml_rhss cml_e =
-    Mat (Tuple (REVERSE cml_rhss)) [(Pcon NONE (MAP Pvar (REVERSE ns)), cml_e)]
-End
+(* Definition cml_bind_def: *)
+(*   cml_bind ns cml_rhss cml_e = *)
+(*     Mat (Tuple (REVERSE cml_rhss)) [(Pcon NONE (MAP Pvar (REVERSE ns)), cml_e)] *)
+(* End *)
 
 Definition cml_fapp_def:
   cml_fapp mns n cml_es = cml_apps (Var (mk_id mns n)) cml_es
@@ -246,11 +249,11 @@ Definition from_exp_def:
   from_exp (FunCall n args) =
   do
     cml_args <- map_from_exp args;
-    (* Force left-to-right evaluation order *)
-    n_args <<- gen_arg_names cml_args;
-    return
-      (cml_bind n_args cml_args
-                (cml_apps (Var (Short ("dfy_" ++ (explode n)))) (MAP (Var ∘ Short) n_args)))
+    (* A Dafny function `foo a b c` is compiled to `dfy_foo c b a` to enforce
+       left-to-right evaluation order (since CakeML evaluate right to left).
+       This shouldn't be a problem, as Dafny does not support partial
+       application without defining a new function/lambda. *)
+    return (cml_fapp [] ("dfy_" ++ (explode n)) (REVERSE cml_args))
   od ∧
   from_exp (Forall _ _) = fail «from_exp:Forall: Unsupported» ∧
   map_from_exp [] = return [] ∧
@@ -422,7 +425,8 @@ Definition set_up_cml_fun_def:
                            (MAP (Var ∘ Short ∘ explode) in_param_ns);
     cml_body <<- Let NONE init_ins cml_body;
     cml_body <<- cml_new_refs_in ins cml_body;
-    (cml_param, cml_body) <<- cml_fun (MAP explode in_param_ns) cml_body;
+    (cml_param, cml_body) <<-
+      cml_fun (REVERSE (MAP explode in_param_ns)) cml_body;
     return ("dfy_" ++ explode n, cml_param, cml_body)
   od
 End
@@ -720,7 +724,7 @@ QED
 (*   cheat *)
 (* QED *)
 
-Triviality get_member_some_fun:
+Triviality get_member_some_fun_name:
   get_member n p = SOME (Function n' ins res_t reqs rds decrs body) ⇒
   n' = n
 Proof
@@ -923,14 +927,178 @@ Proof
   rpt strip_tac \\ gvs [env_rel_def] \\ res_tac
 QED
 
-(* Triviality evaluate_with_more_ticks: *)
-(*   evaluate (t with clock := clk) env_cml cml_args = (t', Rval cml_vs) ⇒ *)
-(*   ∃ck. *)
-(*     evaluate (t with clock := ck + clk) env_cml cml_args = *)
-(*       (t' with clock := ck + t'.clock, Rval cml_vs) *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
+Triviality map_from_exp_empty[simp]:
+  map_from_exp [] = INR []
+Proof
+  gvs [from_exp_def]
+QED
+
+Triviality map_from_exp_not_empty:
+  map_from_exp es = INR cml_es ∧ es ≠ []⇒ cml_es ≠ []
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘es’
+  \\ gvs [from_exp_def, oneline bind_def, AllCaseEqs()]
+QED
+
+Triviality cml_apps_apps:
+  xs ≠ [] ⇒ cml_apps id xs = apps id xs
+Proof
+  Cases_on ‘xs’ \\ gvs [cml_apps_def]
+QED
+
+Triviality apps_reverse_concat:
+  ∀id es e.
+    apps id (REVERSE es ++ [e]) = App Opapp [apps id (REVERSE es); e]
+Proof
+  Induct_on ‘es’ using SNOC_INDUCT \\ gvs [apps_def, REVERSE_SNOC]
+QED
+
+Definition apply_aux_def:
+  apply_aux env e args =
+  case (e, args) of
+  | (Fun n e', arg::args') =>
+      apply_aux (env with v := nsBind n arg env.v) e' args'
+  | (e, []) => SOME (env, e)
+  | _ => NONE
+End
+
+Triviality apply_aux_empty[simp]:
+  apply_aux env e [] = SOME (env, e)
+Proof
+  gvs [apply_aux_def]
+QED
+
+Definition apply_def:
+  apply v (arg::args) =
+  (case do_opapp [v; arg] of
+   | NONE => NONE
+   | SOME (env, e) => apply_aux env e args) ∧
+  apply _ [] = NONE
+End
+
+Definition count_params_aux_def:
+  count_params_aux (Fun n e) = 1 + count_params_aux e ∧
+  count_params_aux _ = 0n
+End
+
+Definition count_params_def:
+  count_params v =
+  (case do_opapp [v; ARB] of
+   | NONE => NONE
+   | SOME (_, e) => SOME (1 + count_params_aux e))
+End
+
+Definition member_get_ins_def:
+  member_get_ins (Method _ ins _ _ _ _ _ _ _) = ins ∧
+  member_get_ins (Function _ ins _ _ _ _ _) = ins
+End
+
+Triviality count_params_aux_some:
+  ∀e args env.
+    LENGTH args ≤ count_params_aux e ⇒
+    ∃env' e'. apply_aux env e args = SOME (env', e')
+Proof
+  Induct_on ‘e’ \\ rpt strip_tac
+  \\ gvs [count_params_aux_def]
+  \\ namedCases_on ‘args’ ["", "arg args'"] \\ gvs []
+  \\ simp [Once apply_aux_def]
+QED
+
+Triviality count_params_apply_some:
+  count_params v = SOME cnt ∧ args ≠ [] ∧ LENGTH args ≤ cnt ⇒
+  ∃env e. apply v args = SOME (env, e)
+Proof
+  rpt strip_tac
+  \\ gvs [count_params_def, AllCaseEqs()]
+  \\ namedCases_on ‘args’ ["", "arg args'"] \\ gvs []
+  \\ gvs [apply_def, do_opapp_def, ADD1, AllCaseEqs()]
+  \\ irule count_params_aux_some \\ gvs []
+QED
+
+Triviality from_member_decl_count_params_aux:
+  from_member_decl member = INR (name, cml_param, cml_body) ⇒
+  LENGTH (member_get_ins member) ≤ count_params_aux cml_body + 1
+Proof
+  rpt strip_tac
+  \\ namedCases_on ‘member’ ["_ ins _ _ _ _ _ _ _", "_ ins _ _ _ _ _"]
+  \\ gvs [from_member_decl_def, set_up_cml_fun_def, member_get_ins_def,
+          oneline bind_def, AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs []
+  (* TODO Probably do case distinctions on ins twice, and then maybe
+     have a helper lemma mentioning cml_fun *)
+QED
+
+Triviality callable_rel_count_params:
+  get_member name prog = SOME member ∧
+  callable_rel prog name reclos ⇒
+  count_params reclos = SOME (LENGTH (member_get_ins member))
+Proof
+  rpt strip_tac
+  \\ gvs [callable_rel_cases]
+  \\ drule_all find_recfun_some \\ rpt strip_tac \\ gvs []
+  \\ gvs [count_params_def, do_opapp_def]
+  \\ irule from_member_decl_count_params_aux \\ gvs []
+QED
+
+Triviality apply_append_none:
+  apply v args₀ = NONE ⇒ apply v (args₀ ++ args₁) = NONE
+Proof
+  cheat
+QED
+
+(* TODO If general enough, move to evaluateProps *)
+Triviality evaluate_apps:
+  ∀(s: 'ffi cml_state) env args s₁ r f.
+    evaluate s env args = (s₁, r) ∧ args ≠ [] ⇒
+    evaluate s env [apps f (REVERSE args)] =
+    case r of
+    | Rerr err => (s₁, Rerr err)
+    | Rval arg_vs =>
+      (case evaluate s₁ env [f] of
+       | (s₂, Rerr err) => (s₂, Rerr err)
+       | (s₂, Rval f_v) =>
+         (case apply (HD f_v) (REVERSE arg_vs) of
+          | NONE => (s₂, Rerr (Rabort Rtype_error))
+          | SOME (call_env, call_e) =>
+              if s₂.clock = 0 then
+                (s₂, Rerr (Rabort Rtimeout_error))
+              else
+                evaluate (dec_clock s₂) call_env [call_e]))
+Proof
+  Induct_on ‘args’ \\ gvs []
+  \\ qx_gen_tac ‘arg’ \\ rpt strip_tac
+  \\ pop_assum mp_tac \\ simp [Once evaluate_cons] \\ strip_tac
+  \\ gvs [apps_reverse_concat, evaluate_def]
+  \\ namedCases_on ‘evaluate s env [arg]’ ["s₁' r'"] \\ gvs []
+  \\ namedCases_on ‘r'’ ["arg_v", "err"] \\ gvs []
+  \\ namedCases_on ‘evaluate s₁' env args’ ["s₂' r'"] \\ gvs []
+  \\ reverse $ namedCases_on ‘r'’ ["arg_vs'", "err"] \\ gvs []
+  >- (Cases_on ‘args = []’ \\ gvs []
+      \\ last_x_assum drule
+      \\ disch_then $ qspec_then ‘f’ assume_tac \\ gvs [])
+  \\ Cases_on ‘args = []’ \\ gvs []
+  >- (gvs [apps_def]
+      \\ namedCases_on ‘evaluate s₁ env [f]’ ["s₂ r"] \\ gvs []
+      \\ namedCases_on ‘r’ ["f_v", "err"] \\ gvs []
+      \\ imp_res_tac evaluate_sing
+      \\ gvs [apply_def, apply_aux_def]
+      \\ rename [‘do_opapp [f_v; arg_v]’]
+      \\ namedCases_on ‘do_opapp [f_v; arg_v]’ ["", "r"] \\ gvs []
+      \\ namedCases_on ‘r’ ["env' e"] \\ gvs [])
+  \\ last_x_assum drule
+  \\ disch_then $ qspec_then ‘f’ assume_tac \\ gvs []
+  \\ namedCases_on ‘evaluate s₁ env [f]’ ["s₂ r"] \\ gvs []
+  \\ namedCases_on ‘r’ ["f_v", "err"] \\ gvs []
+  \\ namedCases_on ‘apply (HD f_v) (REVERSE arg_vs')’ ["", "r"] \\ gvs []
+  >- (gvs [REVERSE_APPEND]
+      \\ drule apply_append_none
+      \\ disch_then $ qspec_then ‘REVERSE arg_v’ assume_tac \\ gvs [])
+  \\ namedCases_on ‘r’ ["env' e"] \\ gvs []
+  \\ Cases_on ‘s₂.clock = 0’ \\ gvs []
+  \\ cheat
+QED
 
 Theorem correct_from_exp:
   (∀s env_dfy e_dfy s' r_dfy (t: 'ffi cml_state) env_cml e_cml m l.
@@ -962,30 +1130,108 @@ Proof
     \\ namedCases_on ‘get_member name env_dfy.prog’ ["", "member"] \\ gvs []
     \\ Cases_on ‘member’ \\ gvs []
     \\ rename [‘Function name ins res_t _ _ _ body’]
-    \\ gvs [get_member_some_fun]
-    \\ drule get_member_some_fun \\ rpt strip_tac \\ gvs []
+    \\ drule get_member_some_fun_name \\ rpt strip_tac \\ gvs []
     \\ drule_all env_rel_nsLookup \\ rpt strip_tac
-    \\ gvs [callable_rel_cases]
-    \\ drule_all find_recfun_some \\ rpt strip_tac \\ gvs []
+    \\ gvs [cml_fapp_def, mk_id_def]
+    \\ qabbrev_tac ‘fname = "dfy_" ++ (explode name)’ \\ gvs []
     \\ namedCases_on ‘evaluate_exps s env_dfy args’ ["s₁ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs []
-
-    \\ rename [‘_ with clock := ck + _’]
+    \\ rename [‘evaluate (_ with clock := ck + _) _ _ = (t₁,_)’]
     \\ reverse $ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
-    >- (qexists ‘ck’
-        \\ gvs [cml_bind_def, evaluate_def, do_con_check_def, build_conv_def]
-        \\ drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs [])
+    >- (drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs []
+        \\ qexists ‘ck’
+        \\ Cases_on ‘args = []’ \\ gvs []
+        \\ drule_all map_from_exp_not_empty \\ strip_tac
+        \\ ‘REVERSE cml_args ≠ []’ by gvs []
+        \\ drule cml_apps_apps
+        \\ disch_then $ qspec_then ‘Var (Short fname)’ assume_tac \\ gvs []
+        \\ drule_all evaluate_apps
+        \\ disch_then $ qspec_then ‘Var (Short fname)’ assume_tac \\ gvs [])
     \\ drule exp_ress_rel_rval \\ rpt strip_tac \\ gvs []
     \\ namedCases_on
-         ‘set_up_call s₁ (MAP FST ins) in_vs []’ ["", "r"]
+         ‘set_up_call s₁ (MAP FST ins) in_vs []’ ["", "r"] \\ gvs []
     \\ gvs [set_up_call_def, safe_zip_def]
     \\ Cases_on ‘LENGTH ins ≠ LENGTH in_vs’ \\ gvs []
+    \\ Cases_on ‘s₁.clock = 0’ \\ gvs []
+    >- (qexists ‘ck’
+        \\ Cases_on ‘args = []’ \\ gvs []
+        >- (gvs [cml_apps_def, evaluate_def, do_con_check_def, build_conv_def,
+                 do_opapp_def]
+            \\ gvs [callable_rel_cases]
+            \\ drule_all find_recfun_some \\ rpt strip_tac \\ gvs []
+            \\ ‘ck = 0 ∧ t.clock = 0’ by gvs [state_rel_def] \\ gvs []
+            \\ gvs [restore_locals_def])
+        \\ drule_all map_from_exp_not_empty \\ strip_tac
+        \\ ‘REVERSE cml_args ≠ []’ by gvs []
+        \\ drule cml_apps_apps
+        \\ disch_then $ qspec_then ‘Var (Short fname)’ assume_tac \\ gvs []
+        \\ drule_all evaluate_apps
+        \\ disch_then $ qspec_then ‘Var (Short fname)’ assume_tac \\ gvs []
+        \\ gvs [evaluate_def]
+       )
+
+    (****)
+
+    \\ drule_all env_rel_nsLookup \\ rpt strip_tac
+    \\ gvs [callable_rel_cases]
+    \\ drule_all find_recfun_some \\ rpt strip_tac \\ gvs []
+    \\ gvs [cml_fapp_def, mk_id_def]
+    \\ qabbrev_tac ‘fname = "dfy_" ++ (explode name)’ \\ gvs []
+    \\ namedCases_on ‘evaluate_exps s env_dfy args’ ["s₁ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs []
+    \\ rename [‘evaluate (_ with clock := ck + _) _ _ = (t₁,_)’]
+    \\ reverse $ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
+    >- (drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs []
+        \\ qexists ‘ck’
+        \\ Cases_on ‘args = []’ \\ gvs []
+        \\ drule_all map_from_exp_not_empty \\ strip_tac
+        \\ ‘REVERSE cml_args ≠ []’ by gvs []
+        \\ drule cml_apps_apps
+        \\ disch_then $ qspec_then ‘Var (Short fname)’ assume_tac \\ gvs []
+        \\ drule_all evaluate_apps
+        \\ disch_then $ qspec_then ‘Var (Short fname)’ assume_tac \\ gvs [])
+    \\ drule exp_ress_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ namedCases_on
+         ‘set_up_call s₁ (MAP FST ins) in_vs []’ ["", "r"] \\ gvs []
+    \\ gvs [set_up_call_def, safe_zip_def]
+    \\ Cases_on ‘LENGTH ins ≠ LENGTH in_vs’ \\ gvs []
+    \\ Cases_on ‘s₁.clock = 0’ \\ gvs []
+    >- (qexists ‘ck’
+        \\ Cases_on ‘args = []’ \\ gvs []
+        >- (gvs [cml_apps_def, evaluate_def, do_con_check_def, build_conv_def,
+                 do_opapp_def]
+            \\ ‘ck = 0 ∧ t.clock = 0’ by gvs [state_rel_def] \\ gvs []
+            \\ gvs [restore_locals_def])
+        \\ drule_all map_from_exp_not_empty \\ strip_tac
+        \\ ‘REVERSE cml_args ≠ []’ by gvs []
+        \\ drule cml_apps_apps
+        \\ disch_then $ qspec_then ‘Var (Short fname)’ assume_tac \\ gvs []
+        \\ drule_all evaluate_apps
+        \\ disch_then $ qspec_then ‘Var (Short fname)’ assume_tac \\ gvs []
+
+        \\ gvs [evaluate_def]
+
+        \\ namedCases_on ‘evaluate t₁ env_cml [Var (Short fname)]’ ["t₂ r"]
+        \\ gvs []
+        \\ reverse $ namedCases_on ‘r’ ["f_v", "err"] \\ gvs []
+        >- gvs [evaluate_def]
+        \\ namedCases_on ‘apply (HD f_v) (REVERSE cml_vs)’ ["", "r"] \\ gvs []
+        )
+    \\ namedCases_on
+       ‘evaluate_exp
+          (dec_clock
+            (s₁ with locals := REVERSE (ZIP (MAP FST ins,MAP SOME in_vs))))
+          env_dfy body’ ["s₃ r"] \\ gvs []
+
+
+
+    \\ ‘LENGTH cml_args = LENGTH cml_vs’ by cheat \\ gvs []
     \\ gvs [cml_bind_def, evaluate_def, do_con_check_def, build_conv_def]
     \\ Cases_on ‘s₁.clock = 0’ \\ gvs []
     >- (qexists ‘ck’
         \\ gvs [can_pmatch_all_def, pmatch_def]
-        \\ ‘LENGTH cml_args = LENGTH cml_vs’ by cheat \\ gvs []
         \\ DEP_REWRITE_TAC [pmatch_list_map_pvar] \\ gvs []
         \\ reverse $ IF_CASES_TAC
         >- cheat
@@ -1004,9 +1250,41 @@ Proof
           env_dfy body’ ["s₃ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     \\ gvs [from_member_decl_def, oneline bind_def, CaseEq "sum"]
+    \\ Cases_on ‘args = []’ \\ gvs []
+    >- (last_x_assum $
+          qspecl_then
+            [‘t’,
+             ‘(env with
+                 v := nsBind "" (Conv NONE [])
+                        (build_rec_env cml_funs env env.v))’,
+             ‘m’, ‘l’] mp_tac
+        \\ impl_tac
+        >- cheat
+        \\ strip_tac
+        \\ rename [‘_ with clock := ck' + _’]
 
-    \\ qrefine ‘ck' + ck’
+        \\ drule evaluate_add_to_clock
+        \\ disch_then $ qspec_then ‘ck’ assume_tac
 
+        \\ rev_drule evaluate_add_to_clock
+        \\ disch_then $ qspec_then ‘ck'’ assume_tac
+
+        \\ qexists ‘ck + ck'’ \\ gvs []
+        \\ gvs [can_pmatch_all_def, pmatch_def]
+        \\ DEP_REWRITE_TAC [pmatch_list_map_pvar] \\ gvs []
+        \\ reverse $ IF_CASES_TAC
+        >- cheat
+        \\ gvs [Once from_exp_def]
+        \\ ‘cml_args = []’ by gvs [from_exp_def]
+
+        \\ gvs [gen_arg_names_def, cml_apps_def, evaluate_def, do_con_check_def,
+                build_conv_def, do_opapp_def]
+        \\ IF_CASES_TAC >- gvs [state_rel_def]
+        \\ gvs [set_up_cml_fun_def, par_assign_def, assign_mult_def,
+                cml_lets_def, cml_fun_def, cml_new_refs_in_def,
+                oneline bind_def, CaseEq "sum"]
+        \\ gvs [evaluate_def, do_con_check_def, build_conv_def, nsOptBind_def]
+        )
 
 
     \\ rename [‘_ with clock := ck + _’] \\ qexists ‘ck’
