@@ -1984,6 +1984,22 @@ Proof
   gvs[state_rel_def]
 QED
 
+Theorem fresh_name_correct:
+  ∀name names.
+    MEM (fresh_name name names) names ⇒ F
+Proof
+  recInduct fresh_name_ind >>
+  rw[] >>
+  simp[Once fresh_name_def] >>
+  rw[]
+QED
+
+Theorem new_main_name_correct:
+  MEM (new_main_name code) (MAP FST (functions code)) ⇒ F
+Proof
+  rw[new_main_name_def,fresh_name_correct]
+QED
+
 Theorem compile_top_semantics_decls:
   ALL_DISTINCT (MAP FST (functions code)) ∧
   t = s with <| top_addr := s.top_addr + mgs:'a word;
@@ -2034,8 +2050,10 @@ Proof
                  (functions
                   (fperm_decs start (new_main_name code)
                               code)))) start = NONE’
-    by(‘new_main_name code ≠ start’ by cheat >>
-       ‘¬MEM (new_main_name code) (MAP FST (functions code))’ by cheat >>
+    by(‘¬MEM (new_main_name code) (MAP FST (functions code))’
+         by (rw[new_main_name_correct]) >>
+       ‘new_main_name code ≠ start’
+         by(imp_res_tac ALOOKUP_MEM >> strip_tac >> gvs[MEM_MAP]) >>
        rw[ALOOKUP_NONE,MEM_MAP,functions_fperm_decs,MEM_FILTER,UNCURRY_eq_pair,SF DNF_ss] >>
        gvs[fperm_name_def,AllCaseEqs()] >>
        gvs[MEM_MAP]) >>
