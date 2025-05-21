@@ -193,10 +193,7 @@ Proof
     \\ drule_then (drule_at $ Pos last) alloc_lemma
     \\ simp []
     \\ strip_tac \\ Cases_on `res1 = SOME NotEnoughSpace`
-    >- (fs []
-        \\ rveq \\ rfs [add_space_def,cut_locals_def] \\ fs [GSYM NOT_LESS]
-        \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
-        \\ fs [add_space_def] \\ fs [state_rel_thm] \\ rfs [] \\ fs [])
+    >- (fs [] \\ rveq \\ rfs [add_space_def,cut_locals_def] \\ fs [GSYM NOT_LESS] \\ gvs [])
     \\ `?end next hlen curr.
           FLOOKUP s1.store CurrHeap = SOME (Word curr) /\
           FLOOKUP s1.store HeapLength = SOME (Word hlen) /\
@@ -206,9 +203,12 @@ Proof
     \\ rfs [lookup_insert,EVAL ``read_bytearray a 0 m``,
             cut_env_adjust_sets_insert_ODD]
     \\ rveq \\ rfs [add_space_def,cut_locals_def] \\ fs [GSYM NOT_LESS]
-    \\ imp_res_tac alloc_NONE_IMP_cut_env \\ fs []
-    \\ fs [add_space_def] \\ fs [state_rel_thm] \\ rfs [] \\ fs []
-    \\ fs [wordSemTheory.write_bytearray_def])
+    \\ drule cut_env_IMP_cut_env \\ simp []
+    \\ disch_then drule \\ strip_tac \\ gvs []
+    \\ gvs [EVAL ``write_bytearray a [] m dm b``]
+    \\ drule state_rel_cut_env_cut_env \\ simp []
+    \\ disch_then drule \\ strip_tac \\ gvs []
+    \\ gvs [state_rel_thm])
   >~ [‘evaluate (Raise _,s)’] >-
    (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ fs [] \\ srw_tac[][]
