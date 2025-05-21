@@ -3639,17 +3639,16 @@ Definition hash_str_def:
         l + ORD (strsub s (l-1))
 End
 
+(* not used
 Definition normalise_full_def:
   normalise_full prob =
   let s = init_state hash_str compare in
   let (prob',t) = name_to_num_prob prob s in
   (normalise_prob prob', t)
-End
+End *)
 
 val res = translate init_state_def;
 val res = translate hash_str_def;
-
-val res = translate normalise_full_def;
 
 Definition normalise_full_2_def:
   normalise_full_2 prob probt =
@@ -3764,37 +3763,32 @@ Proof
   metis_tac[normalise_prob_sem_concl,normalise_prob_sem_output]
 QED
 
-(* printing a string pbf *)
-Definition obj_string_def:
-  obj_string (f,c:int) =
-  let c_string =
-    if c = 0 then strlit"" else
-    strlit " " ^
-      int_to_string #"-" c in
-  strlit"min: " ^ lhs_string f ^ c_string ^ strlit" ;\n"
-End
+Overload "annot_prob_TYPE" = ``
+  PAIR_TYPE
+  (OPTION_TYPE
+    (LIST_TYPE STRING_TYPE))
+  (PAIR_TYPE
+  (OPTION_TYPE
+    (PAIR_TYPE
+    (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
+    INT))
+  (LIST_TYPE
+    (PAIR_TYPE (OPTION_TYPE STRING_TYPE)
+    ((PAIR_TYPE PBC_PBOP_TYPE
+      (PAIR_TYPE
+        (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
+        INT))))))``
 
-Definition pres_string_def:
-  pres_string pres =
-  let c_string =
-    concatWith (strlit" ") pres in
-  strlit"preserve_init " ^ c_string ^ strlit" \n"
-End
-
-Definition print_prob_def:
-  print_prob (pres,obj,fml) =
-  let obstr = case obj of NONE => [] | SOME fc => [obj_string fc] in
-  let presstr = case pres of NONE => [] | SOME p => [pres_string p] in
-    obstr ++ presstr ++ MAP pbc_string fml
-End
-
-val res = translate pb_parseTheory.lit_string_def;
-val res = translate pb_parseTheory.lhs_string_def;
-val res = translate pb_parseTheory.op_string_def;
-val res = translate pb_parseTheory.pbc_string_def;
+val res = translate lit_string_def;
+val res = translate lhs_string_def;
+val res = translate op_string_def;
+val res = translate pbc_string_def;
+val res = translate annot_pbc_string_def;
 val res = translate obj_string_def;
-val res = translate pres_string_def;
+val res = translate pb_parseTheory.pres_string_def;
 val res = translate print_prob_def;
+val res = translate print_annot_prob_def;
+val res = translate strip_annot_prob_def;
 
 (* An empty formula *)
 Definition default_prob_def:

@@ -77,7 +77,7 @@ Theorem machine_code_sound:
         get_graph_dimacs fs (EL 1 cl) = SOME g ∧
         (
           (LENGTH cl = 2 ∧
-            out = concat (print_prob (mk_prob (full_encode g)))) ∨
+            out = concat (print_annot_prob (mk_prob (full_encode g)))) ∨
           (LENGTH cl = 3 ∧
             (
               out = clique_eq_str (max_clique_size g) ∨

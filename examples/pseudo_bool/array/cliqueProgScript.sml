@@ -13,6 +13,7 @@ val res = translate enc_string_def;
 val res = translate pbcTheory.map_obj_def;
 val res = translate clique_obj_def;
 val res = translate FOLDN_def;
+val res = translate annot_string_def;
 
 val res = translate full_encode_eq;
 
@@ -40,7 +41,10 @@ Theorem parse_and_enc_spec:
             (OPTION_TYPE (PAIR_TYPE
               (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
             INT))
-            (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
+            (LIST_TYPE
+              (PAIR_TYPE
+              (OPTION_TYPE STRING_TYPE)
+              (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT))))
             )) res v ∧
        case res of
         INL err =>
@@ -128,7 +132,7 @@ val res = translate map_concl_to_string_def;
 Definition mk_prob_def:
   mk_prob objf = (NONE,objf):mlstring list option #
     ((int # mlstring lit) list # int) option #
-    (pbop # (int # mlstring lit) list # int) list
+    (mlstring option # (pbop # (int # mlstring lit) list # int)) list
 End
 
 val res = translate mk_prob_def;
@@ -140,6 +144,7 @@ val check_unsat_2 = (append_prog o process_topdecs) `
   | Inr (n,objf) =>
     let
       val prob = mk_prob objf
+      val prob = strip_annot_prob prob
       val probt = default_prob in
       (case
         map_concl_to_string n
@@ -179,6 +184,7 @@ Proof
   Cases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
+  xlet_autop>>
   assume_tac npbc_parseProgTheory.default_prob_v_thm>>
   xlet`POSTv v.
     STDIO fs *
@@ -189,7 +195,7 @@ Proof
   >-
     (xcon>>xsimpl)>>
   drule npbc_parseProgTheory.check_unsat_top_norm_spec>>
-  qpat_x_assum`prob_TYPE (mk_prob _) _`assume_tac>>
+  qpat_x_assum`prob_TYPE (strip_annot_prob (mk_prob _)) _`assume_tac>>
   disch_then drule>>
   qpat_x_assum`prob_TYPE default_prob _`assume_tac>>
   disch_then drule>>
@@ -242,14 +248,14 @@ Proof
     >- (
       gvs[]>>
       (drule_at Any) full_encode_sem_concl_check>>
-      disch_then (drule_at Any)>>simp[]>>
       disch_then match_mp_tac>>
-      gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def]>>
+      Cases_on`full_encode g`>>
+      gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def,pb_parseTheory.strip_annot_prob_def]>>
       metis_tac[parse_dimacs_good_graph])>>
     (drule_at Any) full_encode_sem_concl>>
-    disch_then (drule_at Any)>>simp[]>>
     disch_then match_mp_tac>>
-    gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def]>>
+    Cases_on`full_encode g`>>
+    gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def,pb_parseTheory.strip_annot_prob_def]>>
     metis_tac[parse_dimacs_good_graph])
 QED
 
@@ -410,7 +416,7 @@ Definition check_unsat_1_sem_def:
   case get_graph_dimacs fs f1 of
     NONE => out = strlit ""
   | SOME g =>
-    out = concat (print_prob (mk_prob (full_encode g)))
+    out = concat (print_annot_prob (mk_prob (full_encode g)))
 End
 
 val check_unsat_1 = (append_prog o process_topdecs) `
@@ -418,7 +424,7 @@ val check_unsat_1 = (append_prog o process_topdecs) `
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    TextIO.print_list (print_prob (mk_prob objf))`
+    TextIO.print_list (print_annot_prob (mk_prob objf))`
 
 Theorem check_unsat_1_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧

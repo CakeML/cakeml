@@ -3787,7 +3787,7 @@ Definition check_implies_fml_list_def:
   (case any_el n fml NONE of
       NONE => F
     | SOME (ci,_) =>
-      imp ci c)
+      check_triv2 ci c)
 End
 
 Definition check_hconcl_list_def:

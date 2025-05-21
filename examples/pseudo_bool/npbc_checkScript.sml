@@ -4074,12 +4074,18 @@ Datatype:
   | HOBounds (int option) (int option) num (assg_raw option)
 End
 
+(* Either c is already contradictory, or it implies c' *)
+Definition check_triv2_def:
+  check_triv2 ci c =
+  (check_contradiction ci ∨ imp ci c)
+End
+
 Definition check_implies_fml_def:
   check_implies_fml fml n c =
   (case lookup n fml of
       NONE => F
     | SOME (ci,b) =>
-      imp ci c)
+      check_triv2 ci c)
 End
 
 (* if lower bound is infinity, must prove infeasibility *)
@@ -4146,6 +4152,17 @@ Definition init_conf_def:
     |>
 End
 
+Theorem check_triv2_imp:
+  check_triv2 c1 c2 ∧
+  satisfies_npbc w c1 ⇒
+  satisfies_npbc w c2
+Proof
+  rw[check_triv2_def]
+  >-
+    metis_tac[check_contradiction_unsat]>>
+  metis_tac[imp_thm]
+QED
+
 Theorem check_csteps_check_hconcl:
   id_ok fml id ∧
   check_csteps csteps
@@ -4183,7 +4200,8 @@ Proof
   >- ( (* HOBound *)
     CONJ_TAC >- (
       qpat_x_assum`_ o1 _ _` kall_tac>>
-      fs[check_implies_fml_def]>>every_case_tac>>
+      fs[check_implies_fml_def]>>
+      every_case_tac>>
       fs[lower_bound_def]
       >- (
         Cases_on`pc'.dbound`>>fs[opt_le_def,opt_lt_def]>>
@@ -4210,7 +4228,7 @@ Proof
         simp[sat_obj_le_def]>>
         qexists_tac`w`>>gvs[all_core_core_only_fml_eq])>>
       strip_tac>>fs[sat_obj_le_def,satisfies_def,range_def]>>
-      drule imp_thm>>
+      drule check_triv2_imp>>
       disch_then(qspec_then `w'` mp_tac)>>
       impl_tac>- (
         first_x_assum match_mp_tac>>

@@ -5154,11 +5154,13 @@ Proof
     fs[change_pres_update_def])
 QED
 
+val res = translate npbc_checkTheory.check_triv2_def;
+
 val check_implies_fml_arr = process_topdecs`
   fun check_implies_fml_arr fml n c =
   case Array.lookup fml None n of
     None => False
-  | Some (ci,b) => imp ci c
+  | Some (ci,b) => check_triv2 ci c
 ` |> append_prog
 
 Theorem check_implies_fml_arr_spec:
