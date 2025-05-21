@@ -4908,6 +4908,23 @@ Proof
         fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2] >>
         gvs[AllCaseEqs()] >>
         simp[wInst_def] >>
+        ntac 1 (pairarg_tac >> fs[]) >>
+        simp[evaluate_wStackLoad_seq] >>
+        dxrule_all evaluate_wStackLoad_wReg1_with_const >>
+        strip_tac >> simp[Once stackSemTheory.evaluate_def] >>
+        simp[evaluate_wRegWrite1_seq] >>
+        pairarg_tac >> simp[] >>
+        fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def] >>
+        `t'.memory = s.memory /\ t'.mdomain =
+         s.mdomain /\ t'.be = s.be`
+           by fs[state_rel_def] >>
+        fs[] >>
+        match_mp_tac evaluate_wStackStore_wReg1 >>
+        fs[])
+    >-(
+        fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2] >>
+        gvs[AllCaseEqs()] >>
+        simp[wInst_def] >>
         ntac 2 (pairarg_tac >> fs[]) >>
         simp[wStackLoad_append] >>
         simp[evaluate_wStackLoad_seq] >>
@@ -4921,6 +4938,23 @@ Proof
         strip_tac >> fs[] >>
         (*TODO write mem_store_const theorem*)
         gvs[stackSemTheory.mem_store_def,AllCaseEqs()])
+    >-(
+        fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2] >>
+        gvs[AllCaseEqs()] >>
+        simp[wInst_def] >>
+        ntac 2 (pairarg_tac >> fs[]) >>
+        simp[wStackLoad_append] >>
+        simp[evaluate_wStackLoad_seq] >>
+        dxrule_all evaluate_wStackLoad_wReg1_with_const >>
+        strip_tac >> simp[Once stackSemTheory.evaluate_def] >>
+        simp[evaluate_wStackLoad_seq] >>
+        dxrule_all evaluate_wStackLoad_wReg2 >>
+        strip_tac >> simp[Once stackSemTheory.evaluate_def] >>
+        fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def] >>
+        `t''.memory = s.memory /\ t''.mdomain = s.mdomain /\
+        t''.be = s.be` by fs[state_rel_def] >>
+        fs[] >>
+        irule state_rel_with_memory >> fs[])
     >-(
         fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2] >>
         gvs[AllCaseEqs()] >>
