@@ -166,8 +166,22 @@ Definition fperm_decs_def:
   (fperm_decs f g (d::decs) = d::fperm_decs f g decs)
 End
 
+Definition fresh_name_def:
+  fresh_name name names =
+  if MEM name names then
+    fresh_name (strcat name «'») names
+  else
+    name
+Termination
+  qexists ‘measure $ λ(name,names). 1 + MAX_SET(IMAGE strlen (set names)) - strlen name’ >>
+  rw[] >>
+  ‘strlen name <= MAX_SET (IMAGE strlen (set names))’
+    by(irule MAX_SET_PROPERTY >> rw[]) >>
+  simp[]
+End
+
 Definition new_main_name_def:
-  new_main_name decls = ARB
+  new_main_name decls = fresh_name «main» (MAP FST (functions decls))
 End
 
 Definition dec_shapes_def:
@@ -176,7 +190,6 @@ Definition dec_shapes_def:
   dec_shapes [] = []
 End
 
-(* TODO: alpha-conversion *)
 Definition compile_top_def:
   compile_top decs start =
   case ALOOKUP (functions decs) start of
