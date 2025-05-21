@@ -46,8 +46,8 @@ QED
 Theorem h_prog_not_Tau:
   ∀prog s t. h_prog (prog, s) ≠ Tau t
 Proof
-  Induct>>
-  fs[h_prog_def,
+  Induct >> rpt strip_tac >> spose_not_then strip_assume_tac >>
+  gvs[h_prog_def,
      h_prog_dec_def,
      h_prog_return_def,
      h_prog_raise_def,
@@ -59,15 +59,13 @@ Proof
      h_prog_seq_def,
      h_prog_store_def,
      h_prog_store_byte_def,
-     h_prog_assign_def]>>
-  rpt gen_tac>>
-  rpt (CASE_TAC>>fs[])>>
-  simp[Once itree_iter_thm]>>
-  rpt (PURE_CASE_TAC>>fs[])>>
-  Cases_on ‘o'’>>
-  simp[h_prog_sh_mem_load_def,
-       h_prog_sh_mem_store_def,nb_op_def]>>
-  rpt (CASE_TAC>>fs[])
+     oneline h_prog_assign_def,
+     oneline h_prog_sh_mem_load_def,
+     oneline h_prog_sh_mem_store_def,
+     AllCaseEqs()
+     ] >>
+  gvs[Once itree_iter_thm] >>
+  rpt(PURE_FULL_CASE_TAC >> gvs[])
 QED
 
 Theorem wbisim_Ret_unique:
