@@ -11,3 +11,6 @@ Correctness proof for the freshen pass.
 
 [dafny_semanticPrimitivesScript.sml](dafny_semanticPrimitivesScript.sml):
 Defines semantic primitives used in Dafny's semantics.
+
+[evaluate_appsScript.sml](evaluate_appsScript.sml):
+Properties of the operational semantics.
