@@ -8692,16 +8692,6 @@ Proof
         fsrw_tac[][stack_rel_def]>>qpat_x_assum`A=SOME stack` mp_tac>>
         qpat_abbrev_tac`ls = DROP A B`>>
         Cases_on`ls`>>simp[abs_stack_def]>>
-        (*useless fact i think
-        `DROP f' t' = DROP f (DROP (num_stack_ret' + t1.stack_space) t'_stack')`
-           by (`t' = TL (DROP (num_stack_ret' + t1.stack_space) t1.stack)` 
-              by simp[] >>
-            pop_assum SUBST_ALL_TAC >>
-            DEP_REWRITE_TAC[TAIL_BY_DROP] >>
-            CONJ_TAC >- simp[] >>
-            simp[DROP_DROP_T]) >>
-        POP_ASSUM SUBST_ALL_TAC >>
-        *)
         POP_ASSUM (ASSUME_NAMED_TAC "DROP_NOT_NIL") >>
         DISCH_THEN (strip_assume_tac o SRULE[AllCaseEqs()]) >>
         rveq >> fs[] >>
@@ -8732,7 +8722,7 @@ Proof
         simp[EL_TAKE] >>
         `t' = TL (DROP (num_stack_ret' + t1.stack_space) t1.stack)`
            by (LABEL_X_ASSUM "DROP_NOT_NIL" assume_tac >> TIDY_ABBREVS >> simp[]) >>
-        LABEL_X_ASSUM "DROP_NOT_NIL" (assume_tac o SRULE[markerTheory.Abbrev_def])
+        LABEL_X_ASSUM "DROP_NOT_NIL" (assume_tac o SRULE[markerTheory.Abbrev_def]) >>
         fs[] >>
         simp[GSYM EL,ADD1] >>
         qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` kall_tac >> 
@@ -8743,12 +8733,47 @@ Proof
            simp[Abbr`M`,Abbr`num_stack_ret'`] >>
            (*should be correct I hope*)
            cheat) >>
+        simp[])
         (*NON-GC cutset*)
         strip_tac >>
         qhdtm_x_assum  `cut_envs`
         (strip_assume_tac o SRULE[AllCaseEqs(),cut_envs_def,cut_names_def]) >> 
-        rveq >> full_simp_tac(srw_ss())[domain_inter] >>
-        fs[lookup_inter]
+        rveq >> full_simp_tac(srw_ss())[domain_inter]  >>
+        strip_tac >>
+        rename [`EVEN nn`] >>
+        `nn ∈ domain (inter s.locals (FST live))`
+           by (fs[domain_lookup]) >>
+        `nn ∈ domain (FST live) ∧ nn ∈ domain s.locals` by (
+            full_simp_tac(srw_ss())[domain_inter]) >>
+        fsrw_tac[][domain_lookup]>>
+        first_x_assum (qspecl_then [`nn`,`v''`]mp_tac)>>
+        simp[]>>
+        strip_tac>>
+        rveq >> fs[] >>
+        fsrw_tac[][stack_rel_def]>>qpat_x_assum`A=SOME stack` mp_tac>>
+        qpat_abbrev_tac`ls = DROP A B`>>
+        Cases_on`ls`>>simp[abs_stack_def]>>
+        POP_ASSUM (ASSUME_NAMED_TAC "DROP_NOT_NIL") >>
+        DISCH_THEN (strip_assume_tac o SRULE[AllCaseEqs()]) >>
+        rveq >> fs[] >>
+        ntac 4 $ qpat_x_assum`stack_rel_aux A B C D` mp_tac>>
+        rveq>>simp[stack_rel_aux_def]>>
+        ntac 4 strip_tac>>
+        PRED_ASSUM is_forall mp_tac >>  
+        simp[ALOOKUP_toAList] >>
+        disch_then (qspec_then `nn` mp_tac) >>
+        simp[] >>
+        res_tac >> fs[] >>
+        simp[ALOOKUP_index_list] >>
+        `t' = TL (DROP (num_stack_ret' + t1.stack_space) t1.stack)`
+           by (LABEL_X_ASSUM "DROP_NOT_NIL" assume_tac >> TIDY_ABBREVS >> simp[]) >>
+        LABEL_X_ASSUM "DROP_NOT_NIL" (assume_tac o SRULE[markerTheory.Abbrev_def]) >>
+        fs[] >>
+        simp[LLOOKUP_TAKE,TL_DROP_SUC,DROP_SUC] >>
+        simp[Once LLOOKUP_DROP] >>
+        simp[] >>
+        simp[LLOOKUP_THM] >>
+        cheat
 (*
         ntac 2 strip_tac>>
         fsrw_tac[][lookup_insert,convs_def]>>
@@ -8801,52 +8826,6 @@ Proof
         match_mp_tac EL_TAKE >>
         intLib.COOPER_TAC
 *)
-        rename1`EVEN nn`>>
-        `nn ∈ domain (fromAList l)` by metis_tac[domain_lookup]>>
-        `nn ∈ domain x1 ∧ nn ∈ domain s.locals` by (
-          fsrw_tac[][cut_env_def]>>
-          `nn ∈ domain x'` by rfs[]>>
-          rveq>>
-          fsrw_tac[][domain_inter])>>
-        res_tac>>simp[]>>
-        fsrw_tac[][domain_lookup]>>
-        last_x_assum (qspecl_then [`nn`,`v''`]mp_tac)>>
-        simp[LLOOKUP_THM]>>
-        strip_tac>>
-        fsrw_tac[][stack_rel_def]>>qpat_x_assum`A=SOME stack'''''` mp_tac>>
-        qpat_abbrev_tac`ls = DROP A B`>>
-        Cases_on`ls`>>simp[abs_stack_def]>>
-        rpt (TOP_CASE_TAC >>simp[])>>
-        strip_tac>>
-        qpat_x_assum`stack_rel_aux A B C D` mp_tac>>
-        rveq>>simp[stack_rel_aux_def]>>
-        strip_tac>>
-        fsrw_tac[][lookup_fromAList]>>
-        `MEM (nn,v) l` by metis_tac[ALOOKUP_MEM]>>
-        `MEM (nn DIV 2,v) (MAP_FST adjust_names l)` by
-          (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
-          metis_tac[])>>
-        simp[LLOOKUP_THM]>>
-        imp_res_tac filter_bitmap_MEM>>
-        imp_res_tac MEM_index_list_EL>>
-        pop_assum mp_tac>>
-        simp[LENGTH_TAKE,EL_TAKE]>>
-        Cases_on`LENGTH x''`>>
-        fsrw_tac[][]>>simp[]>>
-        fsrw_tac[][state_rel_def]>>
-        `k + SUC n'' - nn DIV 2 = SUC (k+ SUC n'' - (nn DIV 2+1))` by intLib.COOPER_TAC>>
-        pop_assum mp_tac >>
-        qpat_x_assum `if x'' = [] then f = 0 else f = SUC n'' + 1` mp_tac >>
-        pop_assum mp_tac >>
-        qpat_x_assum `nn DIV 2 < _` mp_tac >>
-        qpat_x_assum `_ <= nn DIV 2` mp_tac >>
-        qpat_x_assum `¬(LENGTH _ < SUC n'')` mp_tac >>
-        rpt(pop_assum kall_tac) >> rpt strip_tac >>
-        rev_full_simp_tac(std_ss ++ ARITH_ss)[GSYM LENGTH_NIL] >>
-        simp[EL_TAKE] >>
-        rw[EL_CONS_IF,PRE_SUB1] >>
-        match_mp_tac EL_TAKE >>
-        intLib.COOPER_TAC
         )>>
       LABEL_X_ASSUM "IND" mp_tac \\ simp[] \\
       disch_then drule \\
