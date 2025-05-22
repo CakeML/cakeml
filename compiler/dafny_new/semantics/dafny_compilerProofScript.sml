@@ -338,10 +338,10 @@ Definition from_statement_def:
        cml_els <- from_statement els lvl;
        return (If cml_tst cml_thn cml_els)
      od
-   | Dec lcl scope =>
+   | Dec (n, t) scope =>
      do
        cml_scope <- from_statement scope lvl;
-       return (cml_new_refs_in [lcl] cml_scope)
+       return (Let (SOME (explode n)) (App Opref [init_value t]) cml_scope)
      od
    | Assign lhss rhss =>
      do
@@ -947,10 +947,23 @@ Proof
   cheat
 QED
 
-(* Triviality exp_res_rel_not_type_err: *)
-(*   exp_res_rel m r_dfy r_cml ⇒ r_cml ≠ Rerr (Rabort Rtype_error) *)
+(* Triviality evaluate_cml_new_refs_in: *)
+(*   evaluate s env [cml_new_refs_in nts cml_e] = *)
+(*   if s.clock < LENGTH nts then *)
+(*     (s with clock := 0, Rerr (Rabort Rimeout_error)) *)
+(*   else *)
+(*     evaluate *)
+(*     (s with *)
+(*        <| clock := s.clock - LENGTH nts; *)
+(*           refs := s.refs ++ MAP (Refv ∘ init_value ∘ SND) nts |>) *)
+(*     (env with *)
+(*        v := nsAppend *)
+(*               (alist_to_ns *)
+(*                  (ZIP (MAP (explode ∘ FST) nts, *)
+(*                        (GENLIST ($+ (LENGTH s.refs)) (LENGTH nts))))) *)
+(*               env.v) *)
+(*       [cml_e] *)
 (* Proof *)
-(*   rpt strip_tac \\ Cases_on ‘r_dfy’ \\ gvs [] *)
 (* QED *)
 
 Theorem correct_from_exp:
@@ -997,9 +1010,7 @@ Proof
      (drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs []
       \\ qexists ‘ck’
       \\ Cases_on ‘cml_args = []’ \\ gvs []
-      \\ qspecl_then
-           [‘REVERSE cml_args’, ‘(Var (Short fname))’] assume_tac cml_apps_apps
-      \\ gvs []
+      \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
       \\ drule_all evaluate_apps_Rerr
       \\ disch_then $ qspec_then ‘Var (Short fname)’ assume_tac \\ gvs [])
     \\ drule exp_ress_rel_rval \\ rpt strip_tac \\ gvs []
@@ -1074,19 +1085,18 @@ Proof
              mp_tac
       \\ impl_tac
       >-
-       (gvs [state_rel_def, dec_clock_def, evaluateTheory.dec_clock_def]
-        \\ unabbrev_all_tac \\ gvs [locals_rel_def, read_local_def]
-        \\ gvs [env_rel_def]
+       (unabbrev_all_tac
+        \\ gvs [state_rel_def, dec_clock_def, evaluateTheory.dec_clock_def,
+                locals_rel_def, read_local_def, env_rel_def]
         \\ rpt strip_tac
         >- gvs [has_basic_cons_def]
         >- res_tac
-        >- (drule_all nslookup_build_rec_env_some \\ rpt strip_tac \\ gvs []))
+        >- (drule_all nslookup_build_rec_env_some \\ gvs []))
       \\ rpt strip_tac
       \\ rename [‘evaluate (_ with clock := ck' + _) _ _ = _’]
       \\ qexists ‘ck'’
       \\ gvs [cml_apps_def, evaluate_def, do_con_check_def, build_conv_def,
               do_opapp_def]
-
       \\ gvs [set_up_cml_fun_def, par_assign_def, cml_fun_def,
               cml_new_refs_in_def, assign_mult_def, cml_lets_def,
               oneline bind_def, CaseEq "sum"]
@@ -1094,7 +1104,64 @@ Proof
               evaluateTheory.dec_clock_def]
       \\ Cases_on ‘r’ \\ gvs []
       \\ drule_all state_rel_restore_locals \\ gvs [])
-    \\ cheat
+    (* Evaluating (non-empty) args succeeded *)
+    \\ Cases_on ‘cml_args = []’ \\ gvs []
+    \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
+    (* TODO In case this works, perhaps we should case distinction on args earlier. *)
+    (* Preparing ns for evaluate_apps *)
+    \\ qabbrev_tac
+         ‘params = REVERSE (MAP (explode ∘ (strcat «_») ∘ FST) ins)’
+    \\ ‘LENGTH params = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
+    \\ ‘SUC (LENGTH (TL params)) = LENGTH ins’ by (Cases_on ‘params’ \\ gvs [])
+    (* Preparing clos_v for evaluate_apps *)
+    \\ drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
+    (* Preparing env1 for evaluate_apps *)
+    \\ drule find_recfun_some \\ rpt strip_tac \\ gvs []
+    \\ qabbrev_tac
+         ‘call_env =
+            env with v :=
+              nsBind cml_param (LAST cml_vs) (build_rec_env cml_funs env env.v)’
+    (* Preparing e for evaluate_apps *)
+    \\ gvs [from_member_decl_def, set_up_cml_fun_def, oneline bind_def,
+            CaseEq "sum"]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘Let NONE init_ins cml_body'’]
+    \\ qabbrev_tac
+         ‘call_body = cml_new_refs_in ins (Let NONE init_ins cml_body')’
+
+    (* Instantiating IH *)
+    \\ qabbrev_tac
+         ‘call_env' =
+            call_env with v :=
+              nsAppend
+                (alist_to_ns (ZIP (REVERSE (TL params),FRONT cml_vs)))
+                call_env.v’
+
+    \\ last_x_assum $
+         qspecl_then
+           [‘t’,
+            ‘call_env'’,
+            ‘m’, ‘l’]
+           mp_tac
+    \\ impl_tac
+    >- cheat
+    \\ rpt strip_tac
+    (* Fixing clocks *)
+    \\ qexists ‘ck + ck' + LENGTH ins’
+    \\ rev_dxrule evaluate_add_to_clock \\ gvs []
+    \\ disch_then $ qspec_then ‘ck' + LENGTH ins’ assume_tac \\ gvs []
+    (* Instantiating evaluate_apps *)
+    \\ drule evaluate_apps
+    \\ disch_then $ qspec_then ‘TL params’ mp_tac \\ gvs []
+    \\ disch_then $ drule
+    \\ disch_then $ qspecl_then [‘call_env’, ‘call_body’] mp_tac
+    \\ impl_tac >- gvs [do_opapp_def, cml_fun_def, MAP_MAP_o, AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ pop_assum $ kall_tac
+    (* Finished instantiating evaluate_apps *)
+    \\ gvs [evaluateTheory.dec_clock_def]
+
+
 
    )
 
