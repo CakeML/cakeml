@@ -1,6 +1,5 @@
 (*
   Correctness proof for word_to_stack
-r
 *)
 open preamble semanticsPropsTheory stackSemTheory wordSemTheory
      word_to_stackTheory wordPropsTheory wordConvsTheory stackPropsTheory
@@ -297,7 +296,7 @@ QED
 
 Theorem LLOOKUP_TAKE:
   n < f ==>
-  LLOOKUP (TAKE f xs) (n) = LLOOKUP xs (n) 
+  LLOOKUP (TAKE f xs) (n) = LLOOKUP xs (n)
 Proof
   fs[LLOOKUP_THM,LENGTH_TAKE_EQ_MIN] >>
   rw[] >>DEP_REWRITE_TAC[EL_TAKE] >> simp[]
@@ -1017,7 +1016,7 @@ Proof
   Cases_on `xs` >- fs [list_LUPDATE_NIL]
   \\ full_simp_tac(srw_ss()) [write_bitmap_def,LET_DEF,Once word_list_def]
   \\ strip_tac \\ `~(dimindex (:'a) <= 1)` by decide_tac \\ fs []
-  \\ IF_CASES_TAC \\ simp[list_LUPDATE_def] 
+  \\ IF_CASES_TAC \\ simp[list_LUPDATE_def]
   \\ simp[GSYM SNOC_APPEND,bits_to_word_SNOC,Excl "LIST_EQ_SIMP_CONV"]
   \\ simp[word_or_eq_0,EXP_EQ_0]
   \\ simp[word_1_lsl] \\simp[dimword_def]
@@ -5812,7 +5811,7 @@ Proof
   qexists_tac `0`
   \\ fs [wordSemTheory.evaluate_def,stackSemTheory.evaluate_def,comp_def]
   \\ gvs[AllCaseEqs(),UNCURRY_EQ]
-  \\ `n = 2` by (fs [convs_def]) \\ rveq 
+  \\ `n = 2` by (fs [convs_def]) \\ rveq
   \\ `1 < k` by fs[state_rel_def]
   \\ `get_var 1 t = get_var 2 s`
      by (`EVEN 2` by fs[]  \\
@@ -7695,8 +7694,8 @@ Theorem evaluate_copy_ret_aux:
    EL m (DROP (n + t'.stack_space) t'_stack) =
    EL m (DROP (n + t.stack_space) t.stack)) /\
    (let
-     stack' = DROP (t'.stack_space) t'_stack; 
-     stack  = DROP (t.stack_space) t.stack; 
+     stack' = DROP (t'.stack_space) t'_stack;
+     stack  = DROP (t.stack_space) t.stack;
    in
      ∀x. x < n ⇒ EL (x + f) stack' = EL x stack)
 Proof
@@ -7721,7 +7720,7 @@ Proof
   CONJ_TAC >-
   (rw[] >>
    `SUC m < f - n` by fs[] >>
-   res_tac >> 
+   res_tac >>
    rpt $ PRED_ASSUM is_forall kall_tac >>
    pop_assum mp_tac >>
    simp[DROP_LUPDATE,EL_LUPDATE] >>
@@ -8365,7 +8364,7 @@ Proof
         stackSemTheory.get_var_def]>>
         metis_tac[])>>
        `f'' = stack_var_count + 1`
-         by ( 
+         by (
          `k ≤ LENGTH args1` by (
           fsrw_tac[][lookup_fromList2,lookup_fromList]
           \\ rpt(qpat_x_assum`nn DIV 2 < _`mp_tac)
@@ -8551,7 +8550,7 @@ Proof
         qmatch_goalsub_abbrev_tac `P` >>
         rpt $ qhdtm_x_assum `state_rel` mp_tac >>
         simp[AND_IMP_INTRO] >>
-        disch_then (ASSUME_NAMED_TAC "old_state_rels") >> 
+        disch_then (ASSUME_NAMED_TAC "old_state_rels") >>
         Q.UNABBREV_TAC `P` >>
         rpt strip_tac >>
         fsrw_tac[][state_rel_def,set_vars_def,Abbr`stack_state2`]>>
@@ -8604,10 +8603,10 @@ Proof
          (full_simp_tac(srw_ss())[] >>DECIDE_TAC) >>
          simp[LLOOKUP_DROP] >>
          fsrw_tac[][Abbr`num_stack_ret'`] >>
-         `LENGTH vs + 1 >= k` by 
+         `LENGTH vs + 1 >= k` by
          (full_simp_tac(srw_ss())[] >>DECIDE_TAC) >>
          simp[] >>
-         `LENGTH vs + (t1.stack_space + 1) >= k` by 
+         `LENGTH vs + (t1.stack_space + 1) >= k` by
          (full_simp_tac(srw_ss())[] >>DECIDE_TAC) >>
          reverse CONJ_ASM2_TAC >-
            (qpat_x_assum `_ < 2 * f' + 2 * k` mp_tac >>
@@ -8620,7 +8619,7 @@ Proof
          `f + k >= n''' + 2`
              by (
              Cases_on `f' = 0` >> full_simp_tac(srw_ss())[] >> simp[]) >>
-         `f = f' + 1` by (Cases_on `f' = 0` >> full_simp_tac(srw_ss())[]) >> 
+         `f = f' + 1` by (Cases_on `f' = 0` >> full_simp_tac(srw_ss())[]) >>
          full_simp_tac(srw_ss())[] >>
          qpat_x_assum `!_. _ ==> _ = _` mp_tac >>
          disch_then (qspec_then `LENGTH vs - (n''' + 1)` mp_tac) >>
@@ -8671,10 +8670,10 @@ Proof
         `MEM nn (MAP FST (toAList (SND envs)))`
            by (pop_assum mp_tac >>
            rpt (pop_assum $ K ALL_TAC) >>
-           simp[MEM_MAP,env_to_list_def,PULL_EXISTS,mem_list_rearrange,QSORT_MEM] >> 
+           simp[MEM_MAP,env_to_list_def,PULL_EXISTS,mem_list_rearrange,QSORT_MEM] >>
            METIS_TAC[]) >>
         qhdtm_x_assum  `cut_envs`
-        (strip_assume_tac o SRULE[AllCaseEqs(),cut_envs_def,cut_names_def]) >> 
+        (strip_assume_tac o SRULE[AllCaseEqs(),cut_envs_def,cut_names_def]) >>
         rveq >> full_simp_tac(srw_ss())[domain_inter]  >>
         `nn ∈ domain (inter s.locals (SND live))`
            by (fs[toAList_domain]) >>
@@ -8709,7 +8708,7 @@ Proof
         fs[LLOOKUP_TAKE] >>
         qmatch_goalsub_abbrev_tac `EL A B` >>
         `SOME (EL A B) = LLOOKUP B A`
-          by 
+          by
            (fs[LLOOKUP_THM,Abbr`A`,Abbr`B`] >>
            fs[LENGTH_TAKE_EQ_MIN] >>
            fs[MIN_DEF]) >>
@@ -8725,10 +8724,10 @@ Proof
         LABEL_X_ASSUM "DROP_NOT_NIL" (assume_tac o SRULE[markerTheory.Abbrev_def]) >>
         fs[] >>
         simp[GSYM EL,ADD1] >>
-        qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` kall_tac >> 
+        qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` kall_tac >>
         qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` mp_tac >>
         qmatch_goalsub_abbrev_tac `EL M _` >>
-        disch_then (qspec_then `M` mp_tac) >> 
+        disch_then (qspec_then `M` mp_tac) >>
         impl_tac >- (
            simp[Abbr`M`,Abbr`num_stack_ret'`] >>
            `nn > 0`
@@ -8741,7 +8740,7 @@ Proof
         (*NON-GC cutset*)
         strip_tac >>
         qhdtm_x_assum  `cut_envs`
-        (strip_assume_tac o SRULE[AllCaseEqs(),cut_envs_def,cut_names_def]) >> 
+        (strip_assume_tac o SRULE[AllCaseEqs(),cut_envs_def,cut_names_def]) >>
         rveq >> full_simp_tac(srw_ss())[domain_inter]  >>
         strip_tac >>
         rename [`EVEN nn`] >>
@@ -8763,7 +8762,7 @@ Proof
         ntac 4 $ qpat_x_assum`stack_rel_aux A B C D` mp_tac>>
         rveq>>simp[stack_rel_aux_def]>>
         ntac 4 strip_tac>>
-        PRED_ASSUM is_forall mp_tac >>  
+        PRED_ASSUM is_forall mp_tac >>
         simp[ALOOKUP_toAList] >>
         disch_then (qspec_then `nn` mp_tac) >>
         simp[] >>
@@ -8785,11 +8784,11 @@ Proof
            fs[]) >>
         simp[Abbr`A`,Abbr`B`] >>
         simp[LLOOKUP_THM] >>
-        disch_then sym_sub_tac >> 
-        qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` kall_tac >> 
-        qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` mp_tac >> 
+        disch_then sym_sub_tac >>
+        qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` kall_tac >>
+        qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` mp_tac >>
         qmatch_goalsub_abbrev_tac `EL M _` >>
-        disch_then (qspec_then `M` mp_tac) >> 
+        disch_then (qspec_then `M` mp_tac) >>
         impl_tac >-
            (
            simp[Abbr`M`,Abbr`num_stack_ret'`] >>
