@@ -8731,8 +8731,12 @@ Proof
         disch_then (qspec_then `M` mp_tac) >> 
         impl_tac >- (
            simp[Abbr`M`,Abbr`num_stack_ret'`] >>
-           (*should be correct I hope*)
-           cheat) >>
+           `nn > 0`
+             by (
+              `EVEN nn` by fs[] >>
+              fs[EVEN_EXISTS] >>
+              rveq >> fs[]) >>
+           fs[]) >>
         simp[])
         (*NON-GC cutset*)
         strip_tac >>
