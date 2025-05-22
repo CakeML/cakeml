@@ -7691,6 +7691,9 @@ Theorem evaluate_copy_ret_aux:
    DROP (f + n + t'.stack_space) t'_stack =
    DROP (f + n + t.stack_space) t.stack /\
    (!i. i <> k ==> get_var i t' = get_var i t) /\
+   (!m. m < f - n ==>
+   EL m (DROP (n + t'.stack_space) t'_stack) =
+   EL m (DROP (n + t.stack_space) t.stack)) /\
    (let
      stack' = DROP (t'.stack_space) t'_stack; 
      stack  = DROP (t.stack_space) t.stack; 
@@ -7715,6 +7718,14 @@ Proof
   CONJ_TAC >- simp[DROP_LUPDATE] >>
   CONJ_TAC >- fs[stackSemTheory.get_var_def,
     stackSemTheory.set_var_def,FLOOKUP_UPDATE] >>
+  CONJ_TAC >-
+  (rw[] >>
+   `SUC m < f - n` by fs[] >>
+   res_tac >> 
+   rpt $ PRED_ASSUM is_forall kall_tac >>
+   pop_assum mp_tac >>
+   simp[DROP_LUPDATE,EL_LUPDATE] >>
+   simp[TAIL_BY_DROP ,EL]) >>
   rw[] >>
   Cases_on `n = x` >> gvs[]
   >- (
@@ -8536,6 +8547,13 @@ Proof
          \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t7)`) g
          |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g) >>
       `state_rel ac k f f' (set_vars vs l x) stack_state2 lens 0` by (
+        ntac 2 $ qpat_x_assum `state_rel ac k _ _ _ t5 _ _` mp_tac >>
+        qmatch_goalsub_abbrev_tac `P` >>
+        rpt $ qhdtm_x_assum `state_rel` mp_tac >>
+        simp[AND_IMP_INTRO] >>
+        disch_then (ASSUME_NAMED_TAC "old_state_rels") >> 
+        Q.UNABBREV_TAC `P` >>
+        rpt strip_tac >>
         fsrw_tac[][state_rel_def,set_vars_def,Abbr`stack_state2`]>>
         qhdtm_x_assum `pop_env` mp_tac >>
         simp[pop_env_def] >> strip_tac >> rveq >>
@@ -8667,17 +8685,29 @@ Proof
         fsrw_tac[][domain_inter] >>
         fsrw_tac[][domain_lookup]>>
         `v' = v` by fs[lookup_fromAList] >>
-        last_x_assum (qspecl_then [`nn`,`v''`]mp_tac)>>
+        first_x_assum (qspecl_then [`nn`,`v''`]mp_tac)>>
         simp[]>>
         strip_tac>>
-        fsrw_tac[][stack_rel_def]>>qpat_x_assum`A=SOME stack'''''` mp_tac>>
+        rveq >> fs[] >>
+        fsrw_tac[][stack_rel_def]>>qpat_x_assum`A=SOME stack` mp_tac>>
         qpat_abbrev_tac`ls = DROP A B`>>
         Cases_on`ls`>>simp[abs_stack_def]>>
+        (*useless fact i think
+        `DROP f' t' = DROP f (DROP (num_stack_ret' + t1.stack_space) t'_stack')`
+           by (`t' = TL (DROP (num_stack_ret' + t1.stack_space) t1.stack)` 
+              by simp[] >>
+            pop_assum SUBST_ALL_TAC >>
+            DEP_REWRITE_TAC[TAIL_BY_DROP] >>
+            CONJ_TAC >- simp[] >>
+            simp[DROP_DROP_T]) >>
+        POP_ASSUM SUBST_ALL_TAC >>
+        *)
+        POP_ASSUM (ASSUME_NAMED_TAC "DROP_NOT_NIL") >>
         DISCH_THEN (strip_assume_tac o SRULE[AllCaseEqs()]) >>
         rveq >> fs[] >>
-        ntac 2 $ qpat_x_assum`stack_rel_aux A B C D` mp_tac>>
+        ntac 4 $ qpat_x_assum`stack_rel_aux A B C D` mp_tac>>
         rveq>>simp[stack_rel_aux_def]>>
-        ntac 2 strip_tac>>
+        ntac 4 strip_tac>>
         `MEM (nn DIV 2,v) (MAP_FST adjust_names l0)` by
           (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
           metis_tac[])>>
@@ -8701,23 +8731,18 @@ Proof
         IF_CASES_TAC >> simp[] >>
         simp[EL_TAKE] >>
         `t' = TL (DROP (num_stack_ret' + t1.stack_space) t1.stack)`
-           by (TIDY_ABBREVS >> simp[]) >>
-        POP_ASSUM (SUBST_ALL_TAC) >>
-        TIDY_ABBREVS >>
-        qpat_x_assum `DROP (num_stack_ret' + t1.stack_space) t1.stack = h :: _` kall_tac >>
+           by (LABEL_X_ASSUM "DROP_NOT_NIL" assume_tac >> TIDY_ABBREVS >> simp[]) >>
+        LABEL_X_ASSUM "DROP_NOT_NIL" (assume_tac o SRULE[markerTheory.Abbrev_def])
+        fs[] >>
         simp[GSYM EL,ADD1] >>
-        `nn > 0` by 
-           (`EVEN nn` by fs[] >>
-            fs[EVEN_EXISTS] >>
-            simp[DECIDE ``2 * (m :num) > 0 <=> m > 0``] >>
-            fs[])
-        fs[] >>
-        fs[LLOOKUP_THM,LENGTH_TAKE_EQ_MIN,MIN_ADD, ONCE_REWRITE_RULE[ADD_SYM] MIN_ADD] >>
-        qpat_x_assum `DROP _ _ = DROP _ _` mp_tac
-        simp[Abbr`num_stack_ret'`,EL_DROP] >>
-        fs[] >>
-        cheat
-        )
+        qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` kall_tac >> 
+        qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` mp_tac >>
+        qmatch_goalsub_abbrev_tac `EL M _` >>
+        disch_then (qspec_then `M` mp_tac) >> 
+        impl_tac >- (
+           simp[Abbr`M`,Abbr`num_stack_ret'`] >>
+           (*should be correct I hope*)
+           cheat) >>
         (*NON-GC cutset*)
         strip_tac >>
         qhdtm_x_assum  `cut_envs`
