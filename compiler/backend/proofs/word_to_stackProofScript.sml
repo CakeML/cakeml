@@ -8737,7 +8737,7 @@ Proof
               fs[EVEN_EXISTS] >>
               rveq >> fs[]) >>
            fs[]) >>
-        simp[])
+        simp[]) >>
         (*NON-GC cutset*)
         strip_tac >>
         qhdtm_x_assum  `cut_envs`
@@ -8776,8 +8776,29 @@ Proof
         simp[LLOOKUP_TAKE,TL_DROP_SUC,DROP_SUC] >>
         simp[Once LLOOKUP_DROP] >>
         simp[] >>
+       qmatch_goalsub_abbrev_tac `LLOOKUP (DROP _ _) A = _ ==> LLOOKUP (DROP _ _) B = _` >>
+       `A = B`
+         by (
+           fs[Abbr`A`,Abbr`B`] >>
+           `LENGTH bits = f - 1`
+             by (Cases_on `f = 0` >> fs[]) >>
+           fs[]) >>
+        simp[Abbr`A`,Abbr`B`] >>
         simp[LLOOKUP_THM] >>
-        cheat
+        disch_then sym_sub_tac >> 
+        qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` kall_tac >> 
+        qpat_x_assum `!m. _ _ ==> EL _ _ = EL _ _` mp_tac >> 
+        qmatch_goalsub_abbrev_tac `EL M _` >>
+        disch_then (qspec_then `M` mp_tac) >> 
+        impl_tac >-
+           (
+           simp[Abbr`M`,Abbr`num_stack_ret'`] >>
+           Cases_on `f = 0` >> fs[] >>
+           rveq >>
+           fs[EVEN_EXISTS] >>
+           rveq >>
+           fs[]) >>
+         simp[]) >>
 (*
         ntac 2 strip_tac>>
         fsrw_tac[][lookup_insert,convs_def]>>
@@ -8830,7 +8851,6 @@ Proof
         match_mp_tac EL_TAKE >>
         intLib.COOPER_TAC
 *)
-        )>>
       LABEL_X_ASSUM "IND" mp_tac \\ simp[] \\
       disch_then drule \\
       disch_then (drule_at (Pos (el 3))) \\
