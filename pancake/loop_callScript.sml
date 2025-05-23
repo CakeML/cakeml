@@ -35,6 +35,10 @@ Definition comp_def:
                            | NONE => l
                            | _ => delete n l)) /\
   (comp l (ShMem op n e) = (ShMem op n e, LN)) /\
+  (comp l (Load32 m n) = (Load32 m n,
+                            case lookup n l of
+                             | NONE => l
+                             | _ => delete n l)) /\
   (comp l (LoadByte m n) = (LoadByte m n,
                             case lookup n l of
                              | NONE => l

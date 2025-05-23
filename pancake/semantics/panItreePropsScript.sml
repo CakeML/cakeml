@@ -58,6 +58,7 @@ Proof
      h_prog_cond_def,
      h_prog_seq_def,
      h_prog_store_def,
+     h_prog_store_32_def,
      h_prog_store_byte_def,
      oneline h_prog_assign_def,
      oneline h_prog_sh_mem_load_def,

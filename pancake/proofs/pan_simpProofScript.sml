@@ -285,6 +285,7 @@ Theorem ret_to_tail_Others:
   ^(get_goal "panLang$Assign Local") /\
   ^(get_goal "panLang$Assign Global") /\
   ^(get_goal "panLang$Store") /\
+  ^(get_goal "panLang$Store32") /\
   ^(get_goal "panLang$StoreByte") /\
   ^(get_goal "panLang$Break") /\
   ^(get_goal "panLang$Continue") /\
@@ -393,6 +394,12 @@ Proof
        CaseEq "word_lab"] >> rveq >> fs [] >>
    fs [state_rel_def, state_component_equality])
   >- (
+   rename [‘eval s (Load32 e)’] >>
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab", option_case_eq] >> rveq >> fs [] >>
+   fs [state_rel_def, state_component_equality])
+  >- (
    rename [‘eval s (LoadByte e)’] >>
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
@@ -493,6 +500,14 @@ Proof
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
        CaseEq "word_lab"] >> rveq >> fs [] >>
+   imp_res_tac compile_eval_correct >>
+   fs [] >>
+   fs [state_rel_def, state_component_equality])
+  >- (
+   rename [‘eval s (Load32 e)’] >>
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab", option_case_eq] >> rveq >> fs [] >>
    imp_res_tac compile_eval_correct >>
    fs [] >>
    fs [state_rel_def, state_component_equality])
@@ -877,6 +892,7 @@ Theorem compile_Others:
   ^(get_goal "panLang$Assign Local") /\
   ^(get_goal "panLang$Assign Global") /\
   ^(get_goal "panLang$Store") /\
+  ^(get_goal "panLang$Store32") /\
   ^(get_goal "panLang$StoreByte") /\
   ^(get_goal "panLang$Break") /\
   ^(get_goal "panLang$Continue") /\

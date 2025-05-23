@@ -260,6 +260,29 @@ Definition mem_load_def:
                   (upd_reg r (s.mem w) s)
 End
 
+Definition mem_load32_def:
+  mem_load32 r a (s:('a,'c,'ffi) labSem$state) =
+    case addr a s of
+    | NONE => assert F s
+    | SOME w =>
+        case mem_load_32 s.mem s.mem_domain s.be w of
+        | SOME v => upd_reg r (Word (w2w v)) s
+        | NONE => assert F s
+End
+
+Definition mem_store32_def:
+  mem_store32 r a (s:('a,'c,'ffi) labSem$state) =
+    case addr a s of
+    | NONE => assert F s
+    | SOME w =>
+        case read_reg r s of
+        | Word b =>
+           (case mem_store_32 s.mem s.mem_domain s.be w (w2w b) of
+            | SOME m => (s with mem := m)
+            | NONE => assert F s)
+        | _ => assert F s
+End
+
 Definition mem_load_byte_def:
   mem_load_byte r a (s:('a,'c,'ffi) labSem$state) =
     case addr a s of
@@ -286,6 +309,8 @@ End
 Definition mem_op_def:
   (mem_op Load r a = mem_load r a) /\
   (mem_op Store r a = mem_store r a) /\
+  (mem_op Load32 r a = mem_load32 r a) /\
+  (mem_op Store32 r a = mem_store32 r a) /\
   (mem_op Load8 r a = mem_load_byte r a) /\
   (mem_op Store8 r a = mem_store_byte r a) /\
   (mem_op Load32 r (a:'a addr) = assert F) /\
@@ -370,6 +395,7 @@ Proof
   >-
     (Cases_on `m`
     \\ fs [mem_op_def,mem_load_def,LET_DEF,mem_load_byte_def,upd_mem_def,
+         mem_load32_def,mem_store32_def,
          assert_def,upd_reg_def,mem_store_def,mem_store_byte_def,
          mem_store_byte_aux_def,addr_def]
     \\ BasicProvers.EVERY_CASE_TAC \\ fs [])

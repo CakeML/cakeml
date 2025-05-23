@@ -30,7 +30,9 @@ Datatype:
        | Arith loop_arith
        | Store ('a exp) num            (* dest, source *)
        | SetGlobal (5 word) ('a exp)   (* dest, source *)
+       | Load32 num num               (* TODISC: have removed imm, why num num? *)
        | LoadByte num num               (* TODISC: have removed imm, why num num? *)
+       | Store32 num num
        | StoreByte num num
        | Seq prog prog
        | If cmp num ('a reg_imm) prog prog num_set
@@ -93,6 +95,7 @@ Definition assigned_vars_def:
      LLongMul v1 v2 v3 v4 => [v1;v2]
    | LLongDiv v1 v2 v3 v4 v5 => [v1;v2]
    | LDiv v1 v2 v3 => [v1]) ∧
+  (assigned_vars (Load32 n m) = [m]) ∧
   (assigned_vars (LoadByte n m) = [m]) ∧
   (assigned_vars (Seq p q) = assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars (If cmp n r p q ns) = assigned_vars p ++ assigned_vars q) ∧
@@ -138,7 +141,9 @@ Definition acc_vars_def:
   (acc_vars (ShMem op n exp) l = insert n () l) /\
   (acc_vars (Store exp n) l = l) /\
   (acc_vars (SetGlobal w exp) l = l) /\
+  (acc_vars (Load32 n m) l = insert m () l) /\
   (acc_vars (LoadByte n m) l = insert m () l) /\
+  (acc_vars (Store32 n m) l = l) /\
   (acc_vars (StoreByte n m) l = l) /\
   (acc_vars (FFI name n1 n2 n3 n4 live) l = l)
 End

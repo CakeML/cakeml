@@ -296,6 +296,16 @@ Definition h_prog_store_byte_def:
    | _ => Ret (SOME Error,s)
 End
 
+Definition h_prog_store_32_def:
+  h_prog_store_32 dst src s =
+  case (eval (reclock s) dst,eval (reclock s) src) of
+   | (SOME (ValWord addr),SOME (ValWord w)) =>
+      (case mem_store_32 s.memory s.memaddrs s.be addr (w2w w) of
+        | SOME m => Ret (NONE,s with memory := m)
+        | NONE => Ret (SOME Error,s))
+   | _ => Ret (SOME Error,s)
+End
+
 Definition h_prog_cond_def:
   h_prog_cond gexp p1 p2 s =
   case (eval (reclock s) gexp) of
@@ -497,6 +507,7 @@ Definition h_prog_def:
   (h_prog (Dec vname e p,s) = h_prog_dec vname e p s) ∧
   (h_prog (Assign vk vname e,s) = h_prog_assign vk vname e s) ∧
   (h_prog (Store dst src,s) = h_prog_store dst src s) ∧
+  (h_prog (Store32 dst src,s) = h_prog_store_32 dst src s) ∧
   (h_prog (StoreByte dst src,s) = h_prog_store_byte dst src s) ∧
   (h_prog (ShMemLoad op vk v ad,s) = h_prog_sh_mem_load op vk v ad s) ∧
   (h_prog (ShMemStore op ad e,s) = h_prog_sh_mem_store op ad e s) ∧

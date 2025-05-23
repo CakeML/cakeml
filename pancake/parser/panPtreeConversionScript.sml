@@ -271,6 +271,10 @@ Definition conv_Exp_def:
       case args of
         [t] => lift LoadByte (conv_Exp t)
       | _ => NONE
+    else if isNT nodeNT ELoad32NT then
+      case args of
+        [t] => lift Load32 (conv_Exp t)
+      | _ => NONE
     else if isNT nodeNT ELoadNT then
       case args of
         [t1; t2] => do s <- conv_Shape t1;
@@ -371,6 +375,10 @@ Definition conv_NonRecStmt_def:
     else if isNT nodeNT StoreByteNT then
       case args of
         [dst; src] => lift2 StoreByte (conv_Exp dst) (conv_Exp src)
+      | _ => NONE
+    else if isNT nodeNT Store32NT then
+      case args of
+        [dst; src] => lift2 Store32 (conv_Exp dst) (conv_Exp src)
       | _ => NONE
     else if isNT nodeNT SharedLoadNT then
       case args of

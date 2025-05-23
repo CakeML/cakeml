@@ -46,6 +46,7 @@ Datatype:
       | Struct (exp list)
       | Field index exp
       | Load shape exp (* exp: start addr of value with given shape *)
+      | Load32 exp
       | LoadByte exp
       | Op binop (exp list)
       | Panop panop (exp list)
@@ -64,8 +65,9 @@ Datatype:
   prog = Skip
        | Dec varname ('a exp) prog
        | Assign varkind varname ('a exp)  (* dest, source *)
-       | Store        ('a exp) ('a exp)   (* dest, source *)
-       | StoreByte    ('a exp) ('a exp)   (* dest, source *)
+       | Store     ('a exp) ('a exp) (* dest, source *)
+       | Store32   ('a exp) ('a exp) (* dest, source *)
+       | StoreByte ('a exp) ('a exp) (* dest, source *)
        | Seq prog prog
        | If    ('a exp) prog prog
        | While ('a exp) prog
@@ -154,6 +156,7 @@ Definition var_exp_def:
   (var_exp (Struct es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Field i e) = var_exp e) ∧
   (var_exp (Load sh e) = var_exp e) ∧
+  (var_exp (Load32 e) = var_exp e) ∧
   (var_exp (LoadByte e) = var_exp e) ∧
   (var_exp (Op bop es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Panop op es) = FLAT (MAP var_exp es)) ∧

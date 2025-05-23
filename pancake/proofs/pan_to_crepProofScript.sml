@@ -240,6 +240,17 @@ Proof
     cases_on ‘cexp’ >> fs [panLangTheory.size_of_shape_def, flatten_def] >> rveq >>
     fs [panLangTheory.size_of_shape_def] >>
     fs [eval_def, state_rel_def])
+  >~ [‘eval s (Load32 e)’] >-
+   (rpt gen_tac >> strip_tac >>
+    fs [panSemTheory.eval_def, option_case_eq, v_case_eq, localised_exp_def,
+        CaseEq "word_lab", option_case_eq] >> rveq >>
+    fs [compile_exp_def] >> rveq >>
+    pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
+    first_x_assum drule_all >> fs [shape_of_def] >>
+    strip_tac >> fs [] >> rveq >>
+    cases_on ‘cexp’ >> fs [panLangTheory.size_of_shape_def, flatten_def] >> rveq >>
+    fs [panLangTheory.size_of_shape_def] >>
+    fs [eval_def, state_rel_def])
   >~ [‘eval s (Op op es)’] >-
    (rpt gen_tac >> strip_tac >>
     fs [panSemTheory.eval_def, option_case_eq, v_case_eq, localised_exp_def,
@@ -732,6 +743,21 @@ Proof
    drule var_exp_load_shape >>
    strip_tac >> fs[] >>
    metis_tac[])
+  >~ [‘Load32’] >-
+   (rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab", localised_exp_def] >> rveq >>
+   fs [compile_exp_def] >> rveq >>
+   pairarg_tac >> fs [CaseEq "shape"] >> rveq >>
+   cases_on ‘cexp’ >> fs [] >> rveq
+   >- (rw [] >> fs [MEM_FLAT, MEM_MAP, var_cexp_def]) >>
+   reverse (cases_on ‘shape’) >> fs [] >> rveq
+   >- (rw [] >> fs [MEM_FLAT, MEM_MAP, var_cexp_def]) >>
+   rw [] >>
+   fs [var_cexp_def] >>
+   last_x_assum drule >>
+   disch_then (qspec_then ‘ct’ mp_tac) >>
+   cases_on ‘compile_exp ct e’ >> fs [])
   >- (
    rpt strip_tac >>
    gvs[panSemTheory.eval_def, AllCaseEqs(),MEM_FLAT,MEM_MAP,
@@ -1033,6 +1059,9 @@ Proof
    rw[MEM_FILTER,DISJ_EQ_IMP] >>
    gvs[MEM_GENLIST] >>
    gvs[assigned_free_vars_seq_store_empty])
+  >- (
+   fs [compile_def] >>
+   rpt (TOP_CASE_TAC >> fs [assigned_free_vars_def]))
   >- (
    fs [compile_def] >>
    rpt (TOP_CASE_TAC >> fs [assigned_free_vars_def]))
@@ -1540,6 +1569,32 @@ Proof
    fs []
 QED
 
+Theorem compile_Store32:
+  ^(get_goal "compile _ (panLang$Store32 _ _)")
+Proof
+  rpt gen_tac >> rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab",
+      localised_prog_def] >>
+  rveq >>
+  fs [compile_def] >>
+  TOP_CASE_TAC >>
+  qpat_x_assum ‘eval s src = _’ mp_tac >>
+  drule compile_exp_val_rel >>
+  disch_then drule_all >>
+  strip_tac >> fs [shape_of_def] >> rveq >>
+  fs [panLangTheory.size_of_shape_def] >>
+  TOP_CASE_TAC >> fs [flatten_def] >> rveq >>
+  strip_tac >>
+  TOP_CASE_TAC >>
+  drule compile_exp_val_rel >>
+  disch_then drule_all >>
+  strip_tac >> fs [shape_of_def] >> rveq >>
+  fs [panLangTheory.size_of_shape_def] >>
+  fs [flatten_def] >> rveq >>
+  fs [evaluate_def] >> TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  fs [state_rel_def]
+QED
 Theorem compile_StoreByte:
   ^(get_goal "compile _ (panLang$StoreByte _ _)")
 Proof
@@ -1704,6 +1759,7 @@ Proof
       rpt(PURE_FULL_CASE_TAC >> gvs[EL_CONS_IF]) >>
       metis_tac[])
   >- metis_tac [PAIR]
+  >- metis_tac [PAIR]
   >- (gvs[cexp_heads_eq,cexp_heads_simp_def,AllCaseEqs(),MEM_MAP, SF DNF_ss] >>
       first_x_assum irule >>
       ntac 3 $ first_x_assum $ irule_at $ Pos last >>
@@ -1718,7 +1774,6 @@ Proof
       metis_tac[]) >>
   metis_tac[MEM,PAIR]
 QED
-
 
 Theorem compile_Return:
   ^(get_goal "compile _ (panLang$Return _)")
@@ -4407,7 +4462,7 @@ Theorem pc_compile_correct:
 Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
-         [compile_Skip_Break_Continue_Annot_Global,
+         [compile_Skip_Break_Continue_Annot_Global,compile_Store32,
           compile_Dec, compile_ShMemLoad, compile_ShMemStore,
           compile_Assign, compile_Store, compile_StoreByte, compile_Seq,
           compile_If, compile_While, compile_Call, compile_ExtCall,

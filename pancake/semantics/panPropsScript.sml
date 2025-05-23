@@ -896,6 +896,7 @@ Definition every_exp_def:
   (every_exp P (Struct es) = (P(Struct es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Field i e) = (P(Field i e) ∧ every_exp P e)) ∧
   (every_exp P (Load sh e) = (P(Load sh e) ∧ every_exp P e)) ∧
+  (every_exp P (Load32 e) = (P(Load32 e) ∧ every_exp P e)) ∧
   (every_exp P (LoadByte e) = (P(LoadByte e) ∧ every_exp P e)) ∧
   (every_exp P (Op bop es) = (P(Op bop es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Panop op es) = (P(Panop op es) ∧ EVERY (every_exp P) es)) ∧
@@ -922,6 +923,7 @@ Definition exps_of_def:
   (exps_of (Call (SOME (_ , NONE)) _ es) = es) ∧
   (exps_of (DecCall _ _ _ es p) = es++exps_of p) ∧
   (exps_of (Store e1 e2) = [e1;e2]) ∧
+  (exps_of (Store32 e1 e2) = [e1;e2]) ∧
   (exps_of (StoreByte e1 e2) = [e1;e2]) ∧
   (exps_of (Return e) = [e]) ∧
   (exps_of (ExtCall _ e1 e2 e3 e4) = [e1;e2;e3;e4]) ∧
@@ -938,6 +940,7 @@ Definition localised_exp_def:
   (localised_exp (Struct es) = EVERY localised_exp es) ∧
   (localised_exp (Field i e) = localised_exp e) ∧
   (localised_exp (Load sh e) = localised_exp e) ∧
+  (localised_exp (Load32 e) = localised_exp e) ∧
   (localised_exp (LoadByte e) = localised_exp e) ∧
   (localised_exp (Op bop es) = EVERY localised_exp es) ∧
   (localised_exp (Panop op es) = EVERY localised_exp es) ∧
@@ -958,6 +961,7 @@ Definition localised_prog_def:
   (localised_prog (If e p q) ⇔ localised_exp e ∧ localised_prog p ∧ localised_prog q) ∧
   (localised_prog (While e p) ⇔ localised_exp e ∧ localised_prog p) ∧
   (localised_prog (Store e1 e2) ⇔ localised_exp e1 ∧ localised_exp e2) ∧
+  (localised_prog (Store32 e1 e2) ⇔ localised_exp e1 ∧ localised_exp e2) ∧
   (localised_prog (StoreByte e1 e2) ⇔ localised_exp e1 ∧ localised_exp e2) ∧
   (localised_prog (ExtCall fn e1 e2 e3 e4) ⇔ localised_exp e1 ∧ localised_exp e2 ∧ localised_exp e3 ∧ localised_exp e4) ∧
   (localised_prog (Return e) ⇔ localised_exp e) ∧
@@ -1163,7 +1167,7 @@ Theorem eval_swap_memaddrs:
     eval (s with memaddrs := memaddrs) exp = SOME v
 Proof
   recInduct eval_ind >>
-  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def] >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_def] >>
   rpt $ irule_at (Pos last) EQ_REFL >>
   rpt $ first_assum $ irule_at (Pos last) >>
   fs[]
@@ -1202,7 +1206,7 @@ Theorem eval_swap_memory:
     eval (s with memory := mry) exp = SOME v
 Proof
   recInduct eval_ind >>
-  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def] >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_def] >>
   rpt $ irule_at (Pos last) EQ_REFL >>
   rpt $ first_assum $ irule_at (Pos last) >>
   fs[]

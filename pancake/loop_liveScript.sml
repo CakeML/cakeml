@@ -123,8 +123,12 @@ Definition shrink_def:
   (shrink b (FFI n r1 r2 r3 r4 l1) l =
    (FFI n r1 r2 r3 r4 (inter l1 l),
       insert r1 () (insert r2 () (insert r3 () (insert r4 () (inter l1 l)))))) ∧
+  (shrink b (Load32 x y) l =
+    (Load32 x y, insert x () (delete y l))) ∧
   (shrink b (LoadByte x y) l =
     (LoadByte x y, insert x () (delete y l))) ∧
+  (shrink b (Store32 x y) l =
+    (Store32 x y, insert x () (insert y () l))) ∧
   (shrink b (StoreByte x y) l =
     (StoreByte x y, insert x () (insert y () l))) ∧
   (shrink b prog l = (prog,l)) /\

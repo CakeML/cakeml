@@ -49,7 +49,7 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], []];
 
 Triviality state_rel_IMP_do_app_aux:
   (do_app_aux op args s1 = Rval (v,s2)) /\
@@ -159,12 +159,15 @@ Triviality is_pure_do_app_Rval_IMP:
                                 stack_max := smax |>
 Proof
   cases_on_op `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
-  \\ fs [is_pure_def,do_app_def,do_app_aux_def]
-  \\ simp[do_space_def,dataLangTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
-          consume_space_def,do_install_def,UNCURRY,case_eq_thms]
+  \\ dsimp[oneline is_pure_def,do_app_def,do_app_aux_def,AllCaseEqs(),
+    AllCasePreds()]
+  \\ simp[do_space_def,dataLangTheory.op_space_reset_def,
+          data_spaceTheory.op_space_req_def,
+          consume_space_def,do_install_def,UNCURRY,AllCaseEqs()]
   \\ rw[] \\ fs [state_component_equality,is_pure_def
+                ,dataLangTheory.op_space_reset_def
                 ,data_spaceTheory.op_space_req_def,allowed_op_def
-                ,do_stack_def]
+                ,do_stack_def,AllCaseEqs()]
 QED
 
 Triviality evaluate_compile:

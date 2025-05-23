@@ -104,6 +104,9 @@ Proof
   >~ [‘LoadByte’]
   >- gvs[eval_def,compile_exp_def,AllCaseEqs(),mem_load_byte_def,
          state_rel_def,SUBSET_DEF]
+  >~ [‘Load32’]
+  >- (gvs[eval_def,compile_exp_def,AllCaseEqs(),mem_load_32_def,
+          state_rel_def,SUBSET_DEF])
   >~ [‘Op’]
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs()] >>
       first_assum $ irule_at $ Pos last >>
@@ -616,6 +619,19 @@ Proof
   simp[]
 QED
 
+Theorem compile_Store32:
+  ^(get_goal "compile _ (Store32 _ _)")
+Proof
+  rw[evaluate_def,compile_def,AllCaseEqs(),UNCURRY_eq_pair,SF DNF_ss] >>
+  imp_res_tac compile_exp_correct >>
+  simp[] >>
+  qpat_x_assum ‘mem_store_32 _ _ _ _ _ = _’ (assume_tac o REWRITE_RULE [mem_store_32_def]) >>
+  gvs[AllCaseEqs(),good_res_def] >>
+  drule_all state_rel_memory_update >>
+  disch_then $ irule_at $ Pos last >>
+  gvs[state_rel_def,mem_store_32_def,SUBSET_DEF]
+QED
+
 Theorem compile_StoreByte:
   ^(get_goal "compile _ (StoreByte _ _)")
 Proof
@@ -1013,7 +1029,7 @@ Proof
          [compile_Skip_Break_Continue_Annot_Tick,
           compile_Dec, compile_ShMemLoad, compile_ShMemStore,
           compile_Assign_Local, compile_Store, compile_StoreByte, compile_Seq,
-          compile_Assign_Global,
+          compile_Assign_Global, compile_Store32,
           compile_If, compile_While, compile_Call, compile_ExtCall,
           compile_Raise, compile_Return, compile_DecCall]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)

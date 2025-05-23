@@ -29,6 +29,8 @@ Definition compile_exp_def:
    Load sh (compile_exp ctxt e)) ∧
   (compile_exp ctxt (LoadByte e) =
    LoadByte (compile_exp ctxt e)) ∧
+  (compile_exp ctxt (Load32 e) =
+   Load32 (compile_exp ctxt e)) ∧
   (compile_exp ctxt (Op bop es) =
    Op bop (MAP (compile_exp ctxt) es)) ∧
   (compile_exp ctxt (Panop pop es) =
@@ -59,6 +61,8 @@ Definition compile_def:
    ) ∧
   (compile ctxt (Store ad v) =
    Store (compile_exp ctxt ad) (compile_exp ctxt v)) ∧
+  (compile ctxt (Store32 ad v) =
+   Store32 (compile_exp ctxt ad) (compile_exp ctxt v)) ∧
   (compile ctxt (StoreByte dest src) =
    StoreByte (compile_exp ctxt dest) (compile_exp ctxt src)) ∧
   (compile ctxt (Return rt) =

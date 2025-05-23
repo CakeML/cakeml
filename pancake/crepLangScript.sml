@@ -26,6 +26,7 @@ Datatype:
   exp = Const ('a word)
       | Var varname
       | Load exp
+      | Load32 exp
       | LoadByte exp
       | LoadGlob  (5 word)
       | Op binop (exp list)
@@ -41,6 +42,7 @@ Datatype:
        | Dec varname ('a exp) prog
        | Assign    varname  ('a exp)   (* dest, source *)
        | Store     ('a exp) ('a exp)   (* dest, source *)
+       | Store32 ('a exp) ('a exp)   (* dest, source *)
        | StoreByte ('a exp) ('a exp)   (* dest, source *)
        | StoreGlob (5 word) ('a exp)   (* dest, source *)
        | Seq prog prog
@@ -122,6 +124,7 @@ Definition var_cexp_def:
   (var_cexp (Const w) = ([]:num list)) ∧
   (var_cexp (Var v) = [v]) ∧
   (var_cexp (Load e) = var_cexp e) ∧
+  (var_cexp (Load32 e) = var_cexp e) ∧
   (var_cexp (LoadByte e) = var_cexp e) ∧
   (var_cexp (LoadGlob a) = []) ∧
   (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
@@ -190,6 +193,7 @@ Definition exps_def:
   (exps (Const w) = [Const w]) ∧
   (exps (Var v) = [Var v]) ∧
   (exps (Load e) = exps e) ∧
+  (exps (Load32 e) = exps e) ∧
   (exps (LoadByte e) = exps e) ∧
   (exps (LoadGlob a) = [LoadGlob a]) ∧
   (exps (Op bop es) = FLAT (MAP exps es)) ∧
