@@ -91,6 +91,9 @@ End
 (* Type for holding var state *)
 Type var_info = ``:(varname, based) map``
 
+(* Type for global var state *)
+Type global_info = ``:(varname, unit) map``
+
 Datatype:
   scope =
     FunScope  funname   (* in a function *)
@@ -101,7 +104,7 @@ End
 Datatype:
   context = <|
     vars         : var_info     (* tracked var state *)
-  ; globals      : varname list (* declared globals *)
+  ; globals      : global_info  (* declared globals *)
   ; funcs        : funname list (* all function info *)
   ; scope        : scope        (* current scope info *)
   ; in_loop      : bool         (* loop status *)
@@ -268,13 +271,13 @@ End
 (*
   Get message for redefined identifiers
   is_var: variable vs function
-  scope_opt: local var vs global var/function
+  scope_opt: local var vs global var vs function
 *)
 Definition get_redec_msg_def:
   get_redec_msg is_var loc id scope_opt =
     let id_type = if is_var then strlit "variable " else strlit "function " in
     let in_scope = (case scope_opt of
-      | SOME scope => concat[strlit "in"; get_scope_desc scope]
+      | SOME scope => concat [strlit " in"; get_scope_desc scope]
       | NONE       => strlit "") in
     concat [loc; id_type; id;
       strlit " is redeclared"; in_scope; strlit "\n"]
@@ -387,10 +390,9 @@ Definition static_check_exp_def:
     | SOME x => return x) ∧
   static_check_exp ctxt (Var Global vname) =
     (* check for out of scope var *)
-    (if MEM vname ctxt.globals then
-       return Trusted
-     else
-       error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)) ∧
+    (case lookup ctxt.globals vname of
+       NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
+     | SOME () => return Trusted) ∧
   static_check_exp ctxt (Struct es) =
     do
       (* check struct field exps *)
@@ -578,10 +580,9 @@ Definition static_check_prog_def:
              NONE => error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.scope)
            | SOME _ => return ())
       | Global =>
-          (if MEM v ctxt.globals then
-             return ()
-           else
-             error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.scope));
+          (case lookup ctxt.globals v of
+             NONE => error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.scope)
+           | SOME () => return ());
       (* check assigning exp *)
       b <- static_check_exp ctxt e;
       (* return prog info with updated var *)
@@ -842,10 +843,9 @@ Definition static_check_prog_def:
              NONE => error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.scope)
            | SOME _ => return ())
       | Global =>
-          (if MEM v ctxt.globals then
-             return ()
-           else
-             error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.scope));
+          (case lookup ctxt.globals v of
+             NONE => error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.scope)
+           | SOME () => return ());
       (* check address exp *)
       b <- static_check_exp ctxt e;
       (* check address does not reference base *)
@@ -903,7 +903,7 @@ End
 *)
 Definition static_check_funs_def:
   static_check_funs fnames gnames [] =
-    (* no more functions *)
+    (* no more decls *)
     return () ∧
   static_check_funs fnames gnames (Decl _ _ _::decls) =
     (* not a function *)
@@ -955,7 +955,7 @@ End
 
 Definition static_check_globals_def:
   static_check_globals gnames [] =
-    (* no more functions *)
+    (* no more decls *)
     return gnames ∧
   static_check_globals gnames (Decl shape vname exp::decls) =
     do
@@ -971,7 +971,7 @@ Definition static_check_globals_def:
       (* check initialisation expression *)
       static_check_exp ctxt exp;
       (* check remaining globals *)
-      static_check_globals (vname::gnames) decls
+      static_check_globals (insert gnames vname ()) decls
     od ∧
   static_check_globals gnames (Function _ _ _ _::funs) =
     (* not a global variable declaration *)
@@ -996,7 +996,7 @@ Definition static_check_def:
         SOME f => error (GenErr $ concat
           [strlit "function "; f; strlit " is redeclared\n"])
       | NONE => return ();
-      gnames <- static_check_globals [] decls;
+      gnames <- static_check_globals (empty mlstring$compare) decls;
       (* check functions *)
       static_check_funs fnames gnames decls
     od
