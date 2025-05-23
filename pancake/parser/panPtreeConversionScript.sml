@@ -257,14 +257,6 @@ Definition conv_Exp_def:
         [] => NONE
       | [t] => conv_const t ++ conv_var t ++ conv_Exp t
       | t::ts => FOLDL (λe t. lift2 Field (conv_nat t) e) (conv_var t ++ conv_Exp t) ts
-    else if isNT nodeNT LabelNT then
-      case args of
-        [t] => lift Label (conv_ident t)
-      | _ => NONE
-    else if isNT nodeNT FLabelNT then
-      case args of
-        [t] => lift Label (conv_ident t)
-      | _ => NONE
     else if isNT nodeNT StructNT then
       case args of
         [ts] => do es <- conv_ArgList ts;
@@ -536,9 +528,9 @@ Definition conv_DecCall_def:
        s::i::e::ts =>
          do s' <- conv_Shape s;
             i' <- conv_ident i;
-            e' <- conv_Exp e;
+            e' <- conv_ident e;
             args' <- (case ts of [] => SOME [] | args::_ => conv_ArgList args);
-            SOME (s',i',e':'a exp,args': 'a exp list)
+            SOME (s',i',e',args': 'a exp list)
          od
      | _ => NONE
    else
@@ -649,7 +641,7 @@ Definition conv_Prog_def:
                 (case ts of
                    [] => NONE
                  | r::ts =>
-                     do e' <- conv_Exp r;
+                     do e' <- conv_ident r;
                         args' <- (case ts of [] => SOME []
                                           | args::_ => conv_ArgList args);
                         SOME $ add_locs_annot nd $ TailCall e' args'
@@ -657,7 +649,7 @@ Definition conv_Prog_def:
             | NONE =>
                 (case conv_Handle r of
                    NONE =>
-                     do e' <- conv_Exp r;
+                     do e' <- conv_ident r;
                         args' <- (case ts of [] => SOME []
                                           | args::_ => conv_ArgList args);
                         SOME $ add_locs_annot nd $ StandAloneCall NONE e' args'
@@ -666,7 +658,7 @@ Definition conv_Prog_def:
                      (case ts of
                       | [] => NONE
                       | r::ts =>
-                          do e' <- conv_Exp r;
+                          do e' <- conv_ident r;
                              args' <- (case ts of [] => SOME []
                                                | args::_ => conv_ArgList args);
                              SOME $ add_locs_annot nd $ StandAloneCall h e' args'
@@ -675,7 +667,7 @@ Definition conv_Prog_def:
                 (case ts of
                    [] => NONE
                  | e::xs =>
-                     do e' <- conv_Exp e;
+                     do e' <- conv_ident e;
                         args' <- (case xs of [] => SOME []
                                           | args::_ => conv_ArgList args);
                         SOME $ add_locs_annot nd $ panLang$Call (SOME r') e' args'
@@ -826,15 +818,15 @@ Definition localise_prog_def:
   localise_prog ls (While exp prog) =
   While (localise_exp ls exp)
         (localise_prog ls prog) ∧
-  localise_prog ls (Call call exp exps) =
+  localise_prog ls (Call call name exps) =
   Call (OPTION_MAP
           (λ(x,y). (x, OPTION_MAP (λ(x,y,z). (x,y,localise_prog (insert ls y ()) z)) y))
           call)
-       (localise_exp ls exp)
+       name
        (MAP (localise_exp ls) exps) ∧
-  localise_prog ls (DecCall varname shape exp exps prog) =
+  localise_prog ls (DecCall varname shape fname exps prog) =
   DecCall varname shape
-          (localise_exp ls exp)
+          fname
           (MAP (localise_exp ls) exps)
           (localise_prog (insert ls varname ()) prog) ∧
   localise_prog ls (ExtCall funname exp1 exp2 exp3 exp4) =

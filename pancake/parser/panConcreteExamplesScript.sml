@@ -402,23 +402,6 @@ val error_line_ex2 =
 
 val error_line_ex2_parse = check_failure $ parse_pancake error_line_ex2
 
-(** Function pointers
-
-    & can only be used to get the address of functions.
-    Function pointers can be stored in variables, in shapes, passed as arguments,
-    stored on the heap, and invoked.
-    Any other use of them---including but not limited to arithmetic and
-    shared memory operations---is considered undefined behaviour.
- *)
-val fun_pointer_ex1 =
-  ‘fun main () {
-     var x = &main;
-     return *x(); //  this is a recursive call
-   }
-  ’
-
-val fun_pointer_ex1_parse = check_success $ parse_pancake fun_pointer_ex1;
-
 (* Exporting a function, that is, making a function callable for external entry into Pancake,
    uses the `export` keyword. Functions without this keyword are not callable in this way *)
 val entry_fun =
