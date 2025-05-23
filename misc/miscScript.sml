@@ -11,7 +11,7 @@ open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
      bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory BasicProvers
      indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
      integer_wordTheory
-local open bagLib addressTheory blastLib in end
+local open bagLib addressTheory blastLib pathTheory in end
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
@@ -1101,7 +1101,8 @@ QED
 Theorem find_index_NOT_MEM:
    ∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)
 Proof
-  Induct >> srw_tac[][find_index_def]
+  Induct >> srw_tac[][find_index_def]>>
+  metis_tac[]
 QED
 
 Theorem find_index_MEM:
@@ -3684,8 +3685,6 @@ Proof
   \\ drule DIVISION \\ disch_then (qspec_then `m` (strip_assume_tac o GSYM))
   \\ rfs [] \\ metis_tac [LT_MULT_LCANCEL]
 QED
-
-open pathTheory
 
 Theorem toPath_fromList:
    (toPath (x, fromList []) = stopped_at x) ∧

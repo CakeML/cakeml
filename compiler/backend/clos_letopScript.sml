@@ -104,8 +104,8 @@ Definition let_op_sing_def:
 Termination
   wf_rel_tac ‘measure $ λx. case x of
                             | INL x => exp_size x
-                            | INR(INL x) => exp3_size x
-                            | INR(INR x) => exp1_size x’
+                            | INR(INL x) => list_size exp_size x
+                            | INR(INR x) => list_size (pair_size (λx. x) exp_size) x’
 End
 
 Theorem let_op_sing_eq:

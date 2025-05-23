@@ -56,9 +56,6 @@ Definition free_def:
   (free [Call t ticks dest xs] =
      let (c1,l1) = free xs in
        ([Call t ticks dest c1],l1))
-Termination
-  WF_REL_TAC `measure exp3_size`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC
 End
 
 val free_ind = theorem "free_ind";
@@ -113,9 +110,6 @@ Definition free_sing_def:
      let (c1,l1) = free_sing x in
      let (c2,l2) = free_list xs in
        (c1 :: c2,mk_Union l1 l2))
-Termination
-  WF_REL_TAC `measure $ λx. case x of INL e => exp_size e
-                                    | INR es => exp3_size es`
 End
 
 Theorem free_sing_eq:
@@ -313,7 +307,7 @@ Definition calls_def:
 Termination
   WF_REL_TAC `measure (exp3_size o FST)`
   \\ REPEAT STRIP_TAC
-  \\ fs [GSYM NOT_LESS]
+  \\ fs [GSYM NOT_LESS,exp_size_def]
   \\ IMP_RES_TAC EL_MEM_LEMMA
   \\ IMP_RES_TAC exp1_size_lemma
   \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)

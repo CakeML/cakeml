@@ -44,8 +44,6 @@ Definition is_hidden_def:
     (is_hidden (Letrec t funs e) = is_hidden e) ∧
         (* local def of mutually recursive funs *)
     (is_hidden _ = F)
-Termination
-  WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def]
 End
 
 Definition total_pat_def:
@@ -56,9 +54,6 @@ Definition total_pat_def:
   total_pat _ = F /\
   total_pat_list [] = T /\
   total_pat_list (p::ps) = (total_pat p /\ total_pat_list ps)
-Termination
-  WF_REL_TAC `measure (\x. case x of INL p => pat_size p
-                                   | INR ps => pat1_size ps)`
 End
 
 (* check if expression is pure in that it does not make any visible changes
@@ -79,7 +74,8 @@ Definition is_pure_def:
 Termination
   WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >> fs[] >>
   fs [MEM_MAP, EXISTS_PROD] >>
-  fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]
+  fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]>>
+  simp[list_size_append,list_size_def,basicSizeTheory.pair_size_def]
 End
 
 Theorem is_pure_def1 = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def
@@ -101,11 +97,6 @@ Definition has_Eval_def:
   (has_Eval_pats ((p,e)::pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
   (has_Eval_funs [] ⇔ F) ∧
   (has_Eval_funs ((_,_,e)::fs) ⇔ has_Eval e ∨ has_Eval_funs fs)
-Termination
-  wf_rel_tac `inv_image $< (\x. case x of INL e => exp_size e
-                                | INR (INL es) => exp6_size es
-                                | INR (INR (INL pes)) => exp3_size pes
-                                | INR (INR (INR funs)) => exp1_size funs)`
 End
 
 Definition dest_GlobalVarInit_def:
