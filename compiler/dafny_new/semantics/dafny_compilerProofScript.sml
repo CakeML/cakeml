@@ -37,22 +37,13 @@ Definition cml_list_def:
    Con (SOME (Short "::")) [x; cml_list rest])
 End
 
-Definition init_value_def:
-  init_value t =
-  (case t of
-   | BoolT => False
-   | IntT => Lit (IntLit 0)
-   | StrT => Lit (StrLit "")
-   | ArrT _ => Tuple [Lit (IntLit 0); App AallocEmpty [Unit]])
-End
-
-Definition cml_new_refs_in_def:
-  cml_new_refs_in nts cml_e =
-  (case nts of
-   | [] => cml_e
-   | ((n,t)::nts) =>
-     Let (SOME (explode n))
-         (App Opref [init_value t]) (cml_new_refs_in nts cml_e))
+(* Creates new references initialized with 0. *)
+(* Note that we will use these for references of all types. It doesn't matter
+   that this does not type check, as we are proving correctness anyway. *)
+Definition cml_new_refs_def:
+  cml_new_refs [] cml_e = cml_e ∧
+  cml_new_refs (n::ns) cml_e =
+    Let (SOME n) (App Opref [Lit (IntLit 0)]) (cml_new_refs ns cml_e)
 End
 
 (* Deals with the fact that the first (optional) parameter is treated
@@ -121,7 +112,7 @@ Definition cml_fapp_def:
 End
 
 Definition cml_read_var_def:
-  cml_read_var v = App Opderef [Var (Short (explode v))]
+  cml_read_var v = App Opderef [Var (Short v)]
 End
 
 Definition from_un_op_def:
@@ -186,7 +177,7 @@ End
 
 Definition from_exp_def:
   from_exp (Lit l) = return (from_lit l) ∧
-  from_exp (Var v) = return (cml_read_var v) ∧
+  from_exp (Var v) = return (cml_read_var (explode v)) ∧
   from_exp (If tst thn els) =
   do
     cml_tst <- from_exp tst;
@@ -338,10 +329,10 @@ Definition from_statement_def:
        cml_els <- from_statement els lvl;
        return (If cml_tst cml_thn cml_els)
      od
-   | Dec (n, t) scope =>
+   | Dec (n, _) scope =>
      do
        cml_scope <- from_statement scope lvl;
-       return (Let (SOME (explode n)) (App Opref [init_value t]) cml_scope)
+       return (cml_new_refs [explode n] cml_scope)
      od
    | Assign lhss rhss =>
      do
@@ -385,45 +376,46 @@ Definition from_statement_def:
    | Return => return (Raise (Con (SOME (mk_id ["Dafny"] "Return")) [])))
 End
 
-(* The members are going to have parameters with the names in ins_ns prefixed
-   with _. These are then assigned to references to names without the
-   underscore. This way, we can keep the Var implementation the same for
-   mutable and immutable variables. *)
-(* TODO Optimize above by adding mutability information, and then using
-   references only for mutable variables? *)
+(* Shadows the parameters with references with the same name (and value). *)
+Definition set_up_in_refs_def:
+  set_up_in_refs [] cml_e = cml_e ∧
+  set_up_in_refs (n::ns) cml_e =
+    Let (SOME n) (Var (Short n)) (set_up_in_refs ns cml_e)
+End
 
+(* Sets up the in parameters. *)
 Definition set_up_cml_fun_def:
   set_up_cml_fun n ins cml_body =
-  do
-    in_ref_ns <<- MAP FST ins;
-    in_param_ns <<- MAP (strcat «_») in_ref_ns;
-    init_ins <- par_assign (MAP VarLhs in_ref_ns)
-                           (MAP (Var ∘ Short ∘ explode) in_param_ns);
-    cml_body <<- Let NONE init_ins cml_body;
-    cml_body <<- cml_new_refs_in ins cml_body;
-    (cml_param, cml_body) <<-
-      cml_fun (REVERSE (MAP explode in_param_ns)) cml_body;
-    return ("dfy_" ++ explode n, cml_param, cml_body)
-  od
+  (* Reversing the parameters is an easy way to get left-to-right evaluation
+     on them *)
+    let in_ns = REVERSE (MAP (explode ∘ FST) ins) in
+    let cml_body = set_up_in_refs in_ns cml_body in
+    let (cml_param, cml_body) = cml_fun in_ns cml_body in
+      (* Prepending functions with "dfy_" avoids naming issues. *)
+      ("dfy_" ++ (explode n), cml_param, cml_body)
 End
 
 Definition from_member_decl_def:
   from_member_decl mem : (string # string # ast$exp) result =
-  (case mem of
-   (* Constructing methods and functions from bottom to top *)
-   | Method n ins _ _ _ _ outs _ body =>
-     do
-       cml_body <- from_statement body 0;
-       (* Method returns a tuple containing the value of the out variables *)
-       out_ns <<- MAP FST outs;
-       cml_tup <<- Tuple (MAP cml_read_var out_ns);
-       cml_body <<- Handle cml_body
-                [(Pcon (SOME (mk_id ["Dafny"] "Return")) [], cml_tup)];
-       cml_body <<- cml_new_refs_in outs cml_body;
-       set_up_cml_fun n ins cml_body
-     od
-   | Function n ins _ _ _ _ body =>
-     do cml_body <- from_exp body; set_up_cml_fun n ins cml_body od)
+  case mem of
+  (* Constructing methods and functions from bottom to top *)
+  | Method n ins _ _ _ _ outs _ body =>
+    do
+      cml_body <- from_statement body 0;
+      (* Method returns a tuple containing the value of the out variables *)
+      out_ns <<- MAP (explode ∘ FST) outs;
+      cml_tup <<- Tuple (MAP cml_read_var out_ns);
+      cml_body <<-
+        Handle cml_body
+          [(Pcon (SOME (mk_id ["Dafny"] "Return")) [], cml_tup)];
+      cml_body <<- cml_new_refs out_ns cml_body;
+      return (set_up_cml_fun n ins cml_body)
+    od
+  | Function n ins _ _ _ _ body =>
+    do
+      cml_body <- from_exp body;
+      return (set_up_cml_fun n ins cml_body)
+    od
 End
 
 (* ************************************************************************** *)
@@ -770,7 +762,8 @@ Proof
   Cases_on ‘b’ \\ gvs [nsLookup_def, nsBind_def]
 QED
 
-Triviality nslookup_build_rec_env_some_aux:
+(* TODO Can we do this without manually unfolding? *)
+Triviality nslookup_build_rec_env_reclos_aux:
   ∀name members member cml_funs' cml_funs env.
     get_member_aux name members = SOME member ∧
     result_mmap from_member_decl members = INR cml_funs ⇒
@@ -790,23 +783,23 @@ Proof
   \\ gvs [build_rec_env_def, nsLookup_nsBind, nsLookup_nsBind_neq]
 QED
 
-Triviality nslookup_build_rec_env_some:
+Triviality nslookup_build_rec_env_reclos:
   get_member name prog = SOME member ∧
   result_mmap from_member_decl (dest_program prog) = INR cml_funs ∧
   ALL_DISTINCT (MAP (λ(f,x,e). f) cml_funs) ∧
   has_basic_cons env ⇒
   ∃reclos.
     nsLookup
-      (nsBind "" (Conv NONE []) (build_rec_env cml_funs env env.v))
+      (build_rec_env cml_funs env env.v)
       (Short ("dfy_" ++ (explode name))) = SOME reclos ∧
     callable_rel prog name reclos ∧
     reclos = Recclosure env cml_funs ("dfy_" ++ (explode name))
 Proof
   rpt strip_tac
   \\ namedCases_on ‘prog’ ["members"]
-  \\ gvs [build_rec_env_def, nsLookup_nsBind_neq]
+  \\ gvs [build_rec_env_def]
   \\ gvs [get_member_def, dest_program_def]
-  \\ drule_all nslookup_build_rec_env_some_aux
+  \\ drule_all nslookup_build_rec_env_reclos_aux
   \\ disch_then $ qspecl_then [‘cml_funs’, ‘env’] mp_tac
   \\ rpt strip_tac \\ gvs []
   \\ gvs [callable_rel_cases]
@@ -845,8 +838,8 @@ Proof
 QED
 
 Triviality state_rel_restore_locals:
-  state_rel m l s t env ∧
-  state_rel m l s' t' env' ∧
+  state_rel m l s (t: 'ffi cml_state) env ∧
+  state_rel m l s' (t': 'ffi cml_state) env' ∧
   refv_same_rel t.refs t'.refs ⇒
   state_rel m l (restore_locals s' s.locals) t' env
 Proof
@@ -947,24 +940,68 @@ Proof
   cheat
 QED
 
-(* Triviality evaluate_cml_new_refs_in: *)
-(*   evaluate s env [cml_new_refs_in nts cml_e] = *)
-(*   if s.clock < LENGTH nts then *)
-(*     (s with clock := 0, Rerr (Rabort Rimeout_error)) *)
-(*   else *)
-(*     evaluate *)
-(*     (s with *)
-(*        <| clock := s.clock - LENGTH nts; *)
-(*           refs := s.refs ++ MAP (Refv ∘ init_value ∘ SND) nts |>) *)
-(*     (env with *)
-(*        v := nsAppend *)
-(*               (alist_to_ns *)
-(*                  (ZIP (MAP (explode ∘ FST) nts, *)
-(*                        (GENLIST ($+ (LENGTH s.refs)) (LENGTH nts))))) *)
-(*               env.v) *)
-(*       [cml_e] *)
-(* Proof *)
-(* QED *)
+Definition shadow_with_refs_def:
+  shadow_with_refs env_v ns offset =
+    nsAppend (alist_to_ns (MAPi (λi n. (n, Loc T (offset + i))) ns)) env_v
+End
+
+Triviality evaluate_set_up_in_refs:
+  LIST_REL (λn v. nsLookup env.v (Short n) = SOME v) params vs ⇒
+  evaluate (s: 'ffi cml_state) env [set_up_in_refs params body] =
+  evaluate
+    (s with refs := s.refs ++ (MAP Refv vs))
+    (env with v := shadow_with_refs env.v params (LENGTH s.refs))
+    [body]
+Proof
+  cheat
+QED
+
+Triviality refv_same_rel_append_imp:
+  ∀xs ys zs.
+    refv_same_rel (xs ++ ys) zs ⇒ refv_same_rel xs zs
+Proof
+  Induct_on ‘xs’ \\ gvs []
+  \\ qx_gen_tac ‘x’ \\ rpt strip_tac
+  \\ namedCases_on ‘zs’ ["", "z zs'"] \\ gvs []
+  \\ Cases_on ‘x’ \\ Cases_on ‘z’ \\ gvs []
+  \\ res_tac
+QED
+
+Triviality refv_same_rel_trans:
+  ∀xs ys zs.
+    refv_same_rel xs ys ∧ refv_same_rel ys zs ⇒ refv_same_rel xs zs
+Proof
+  ho_match_mp_tac refv_same_rel_ind \\ rpt strip_tac
+  \\ gvs []
+  \\ Cases_on ‘zs’ \\ gvs []
+  \\ rename [‘refv_same_rel (y::ys) (z::zs)’]
+  \\ Cases_on ‘y’ \\ Cases_on ‘z’ \\ gvs []
+QED
+
+Triviality nslookup_nsappend_alist_neq:
+  EVERY (λy. x ≠ y) (MAP FST ys) ⇒
+  nsLookup (nsAppend (alist_to_ns ys) ns) (Short x) = nsLookup ns (Short x)
+Proof
+  cheat
+QED
+
+Triviality store_lookup_append:
+  store_lookup l st = SOME v ⇒ store_lookup l (st ++ st') = SOME v
+Proof
+  rpt strip_tac \\ gvs [store_lookup_def, rich_listTheory.EL_APPEND1]
+QED
+
+Triviality array_rel_append:
+  array_rel m s_heap t_heap ⇒
+  array_rel m s_heap (t_heap ++ xs)
+Proof
+  gvs [array_rel_def]
+  \\ rpt strip_tac
+  \\ last_x_assum drule \\ rpt strip_tac
+  \\ drule store_lookup_append
+  \\ disch_then $ qspec_then ‘xs’ assume_tac
+  \\ gvs []
+QED
 
 Theorem correct_from_exp:
   (∀s env_dfy e_dfy s' r_dfy (t: 'ffi cml_state) env_cml e_cml m l.
@@ -1030,8 +1067,7 @@ Proof
       \\ Cases_on ‘cml_args = []’ \\ gvs []
       \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
       (* Preparing ns for evaluate_apps *)
-      \\ qabbrev_tac
-           ‘params = REVERSE (MAP (explode ∘ (strcat «_») ∘ FST) ins)’
+      \\ qabbrev_tac ‘params = REVERSE (MAP (explode ∘ FST) ins)’
       \\ ‘LENGTH params = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
       \\ ‘SUC (LENGTH (TL params)) = LENGTH ins’ by (Cases_on ‘params’ \\ gvs [])
       (* Preparing clos_v for evaluate_apps *)
@@ -1046,9 +1082,7 @@ Proof
       \\ gvs [from_member_decl_def, set_up_cml_fun_def, oneline bind_def,
               CaseEq "sum"]
       \\ rpt (pairarg_tac \\ gvs [])
-      \\ rename [‘Let NONE init_ins cml_body'’]
-      \\ qabbrev_tac
-           ‘call_body = cml_new_refs_in ins (Let NONE init_ins cml_body')’
+      \\ qabbrev_tac ‘call_body = set_up_in_refs params cml_body'’
       (* Instantiating evaluate_apps *)
       \\ drule evaluate_apps
       \\ disch_then $ qspec_then ‘TL params’ mp_tac \\ gvs []
@@ -1091,15 +1125,13 @@ Proof
         \\ rpt strip_tac
         >- gvs [has_basic_cons_def]
         >- res_tac
-        >- (drule_all nslookup_build_rec_env_some \\ gvs []))
+        >- (drule_all nslookup_build_rec_env_reclos \\ gvs []))
       \\ rpt strip_tac
       \\ rename [‘evaluate (_ with clock := ck' + _) _ _ = _’]
       \\ qexists ‘ck'’
       \\ gvs [cml_apps_def, evaluate_def, do_con_check_def, build_conv_def,
               do_opapp_def]
-      \\ gvs [set_up_cml_fun_def, par_assign_def, cml_fun_def,
-              cml_new_refs_in_def, assign_mult_def, cml_lets_def,
-              oneline bind_def, CaseEq "sum"]
+      \\ gvs [set_up_cml_fun_def, cml_fun_def, set_up_in_refs_def]
       \\ gvs [evaluate_def, do_con_check_def, build_conv_def, nsOptBind_def,
               evaluateTheory.dec_clock_def]
       \\ Cases_on ‘r’ \\ gvs []
@@ -1109,8 +1141,7 @@ Proof
     \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
     (* TODO In case this works, perhaps we should case distinction on args earlier. *)
     (* Preparing ns for evaluate_apps *)
-    \\ qabbrev_tac
-         ‘params = REVERSE (MAP (explode ∘ (strcat «_») ∘ FST) ins)’
+    \\ qabbrev_tac ‘params = REVERSE (MAP (explode ∘ FST) ins)’
     \\ ‘LENGTH params = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
     \\ ‘SUC (LENGTH (TL params)) = LENGTH ins’ by (Cases_on ‘params’ \\ gvs [])
     (* Preparing clos_v for evaluate_apps *)
@@ -1118,38 +1149,64 @@ Proof
     (* Preparing env1 for evaluate_apps *)
     \\ drule find_recfun_some \\ rpt strip_tac \\ gvs []
     \\ qabbrev_tac
-         ‘call_env =
-            env with v :=
-              nsBind cml_param (LAST cml_vs) (build_rec_env cml_funs env env.v)’
+       ‘call_env =
+          env with v :=
+          nsBind cml_param (LAST cml_vs) (build_rec_env cml_funs env env.v)’
     (* Preparing e for evaluate_apps *)
     \\ gvs [from_member_decl_def, set_up_cml_fun_def, oneline bind_def,
             CaseEq "sum"]
     \\ rpt (pairarg_tac \\ gvs [])
-    \\ rename [‘Let NONE init_ins cml_body'’]
-    \\ qabbrev_tac
-         ‘call_body = cml_new_refs_in ins (Let NONE init_ins cml_body')’
-
+    \\ qabbrev_tac ‘call_body = set_up_in_refs params cml_body'’
     (* Instantiating IH *)
     \\ qabbrev_tac
-         ‘call_env' =
+         ‘call_env₁ =
             call_env with v :=
               nsAppend
-                (alist_to_ns (ZIP (REVERSE (TL params),FRONT cml_vs)))
+                (alist_to_ns (ZIP (REVERSE (TL params), FRONT cml_vs)))
                 call_env.v’
+    \\ qabbrev_tac
+         ‘call_env₂ =
+            call_env₁ with v :=
+              shadow_with_refs call_env₁.v params (LENGTH t₁.refs)’
 
     \\ last_x_assum $
          qspecl_then
-           [‘t’,
-            ‘call_env'’,
+           [‘dec_clock (t₁ with refs := t₁.refs ++ MAP Refv cml_vs)’,
+            ‘call_env₂’,
             ‘m’, ‘l’]
            mp_tac
     \\ impl_tac
-    >- cheat
+
+    >- (rpt strip_tac
+        >- (gvs [state_rel_def, dec_clock_def, evaluateTheory.dec_clock_def]
+            \\ irule_at Any array_rel_append \\ gvs []
+            \\ cheat (* TODO sketchy? *))
+        >- (gvs [env_rel_def]
+            \\ rpt strip_tac
+            >- (unabbrev_all_tac \\ gvs [has_basic_cons_def])
+            >- res_tac
+            >- (gvs [Abbr ‘call_env₂’]
+                \\ gvs [shadow_with_refs_def]
+                \\ DEP_REWRITE_TAC [nslookup_nsappend_alist_neq]
+                \\ gvs [Abbr ‘call_env₁’]
+                \\ DEP_REWRITE_TAC [nslookup_nsappend_alist_neq]
+                \\ gvs [Abbr ‘call_env’]
+                \\ DEP_REWRITE_TAC [nsLookup_nsBind_neq]
+                \\ drule_all nslookup_build_rec_env_reclos \\ gvs []
+                \\ gvs [MAP_ZIP]
+                \\ cheat)
+
+           ))
+
+
+
     \\ rpt strip_tac
     (* Fixing clocks *)
-    \\ qexists ‘ck + ck' + LENGTH ins’
-    \\ rev_dxrule evaluate_add_to_clock \\ gvs []
-    \\ disch_then $ qspec_then ‘ck' + LENGTH ins’ assume_tac \\ gvs []
+    \\ ‘t₁.clock ≠ 0’ by gvs [state_rel_def]
+    \\ qexists ‘ck + ck' + LENGTH ins - 1’
+    \\ rev_drule evaluate_add_to_clock \\ gvs []
+    \\ disch_then $ qspec_then ‘ck' + LENGTH ins - 1’ assume_tac
+    \\ gvs []
     (* Instantiating evaluate_apps *)
     \\ drule evaluate_apps
     \\ disch_then $ qspec_then ‘TL params’ mp_tac \\ gvs []
@@ -1158,12 +1215,27 @@ Proof
     \\ impl_tac >- gvs [do_opapp_def, cml_fun_def, MAP_MAP_o, AllCaseEqs()]
     \\ rpt strip_tac \\ gvs []
     \\ pop_assum $ kall_tac
+
+
     (* Finished instantiating evaluate_apps *)
+    \\ ‘cml_param = HD params’ by (Cases_on ‘params’ \\ gvs [cml_fun_def])
+    \\ gvs []
     \\ gvs [evaluateTheory.dec_clock_def]
+    \\ gvs [Abbr ‘call_body’]
 
+    \\ ‘LIST_REL (λn v. nsLookup call_env₁.v (Short n) = SOME v) params cml_vs’ by cheat
+    \\ drule evaluate_set_up_in_refs
+    \\ disch_then $
+         qspecl_then [‘t₁ with clock := ck' + t₁.clock - 1’, ‘cml_body'’] assume_tac
+    \\ gvs []
 
-
-   )
+    \\ irule_at Any refv_same_rel_trans
+    \\ qexists ‘t₁.refs’ \\ gvs []
+    \\ ‘refv_same_rel t₁.refs t''.refs’ by
+         (irule_at Any refv_same_rel_append_imp
+          \\ qexists ‘MAP Refv cml_vs’ \\ gvs [])
+    \\ namedCases_on ‘r’ ["", "v err"] \\ gvs []
+    \\ irule state_rel_restore_locals \\ gvs [SF SFY_ss])
 
   \\ cheat
   (* >~ [‘Forall var term’] >- *)
