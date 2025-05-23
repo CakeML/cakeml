@@ -940,17 +940,29 @@ Proof
   cheat
 QED
 
-Definition shadow_with_refs_def:
-  shadow_with_refs env_v ns offset =
+Definition add_refs_to_env_def:
+  add_refs_to_env env_v ns offset =
     nsAppend (alist_to_ns (MAPi (λi n. (n, Loc T (offset + i))) ns)) env_v
 End
+
+Definition mk_locals_map_def:
+  mk_locals_map (ns: mlstring list) offset =
+    alist_to_fmap ((MAPi (λi n. (n, offset + i))) ns)
+End
+
+Triviality inj_mk_locals_map:
+  INJ (λx. mk_locals_map ns offset ' x) (FDOM (mk_locals_map ns offset))
+    𝕌(:num)
+Proof
+  cheat
+QED
 
 Triviality evaluate_set_up_in_refs:
   LIST_REL (λn v. nsLookup env.v (Short n) = SOME v) params vs ⇒
   evaluate (s: 'ffi cml_state) env [set_up_in_refs params body] =
   evaluate
     (s with refs := s.refs ++ (MAP Refv vs))
-    (env with v := shadow_with_refs env.v params (LENGTH s.refs))
+    (env with v := add_refs_to_env env.v params (LENGTH s.refs))
     [body]
 Proof
   cheat
@@ -1001,6 +1013,32 @@ Proof
   \\ drule store_lookup_append
   \\ disch_then $ qspec_then ‘xs’ assume_tac
   \\ gvs []
+QED
+
+Triviality read_local_reverse_eq:
+  ALL_DISTINCT (MAP FST l) ⇒ read_local (REVERSE l) var = read_local l var
+Proof
+  rpt strip_tac
+  \\ drule alookup_distinct_reverse
+  \\ disch_then $ qspec_then ‘var’ assume_tac
+  \\ gvs [read_local_def]
+QED
+
+Triviality flookup_mk_locals_map:
+  ∀(s: 'ffi cml_state) env.
+    read_local (ZIP (MAP FST ins, MAP SOME in_vs)) var = SOME dfy_v ∧
+    LIST_REL (val_rel m) in_vs cml_vs ∧
+    LENGTH in_vs = LENGTH ins ⇒
+    ∃loc cml_v.
+      nsLookup
+        (add_refs_to_env env.v (REVERSE (MAP (explode ∘ FST) ins))
+           (LENGTH s.refs))
+        (Short (explode var)) = SOME (Loc T loc) ∧
+      FLOOKUP (mk_locals_map (MAP FST ins) (LENGTH s.refs)) var = SOME loc ∧
+      store_lookup loc (s.refs ++ MAP Refv cml_vs) = SOME (Refv cml_v) ∧
+      val_rel m dfy_v cml_v
+Proof
+  cheat
 QED
 
 Theorem correct_from_exp:
@@ -1167,39 +1205,47 @@ Proof
     \\ qabbrev_tac
          ‘call_env₂ =
             call_env₁ with v :=
-              shadow_with_refs call_env₁.v params (LENGTH t₁.refs)’
-
+              add_refs_to_env call_env₁.v params (LENGTH t₁.refs)’
     \\ last_x_assum $
          qspecl_then
            [‘dec_clock (t₁ with refs := t₁.refs ++ MAP Refv cml_vs)’,
             ‘call_env₂’,
-            ‘m’, ‘l’]
+            ‘m’,
+            ‘mk_locals_map (MAP FST ins) (LENGTH t₁.refs)’]
            mp_tac
     \\ impl_tac
 
     >- (rpt strip_tac
         >- (gvs [state_rel_def, dec_clock_def, evaluateTheory.dec_clock_def]
             \\ irule_at Any array_rel_append \\ gvs []
-            \\ cheat (* TODO sketchy? *))
-        >- (gvs [env_rel_def]
+            \\ gvs [locals_rel_def]
+            \\ irule_at Any inj_mk_locals_map
             \\ rpt strip_tac
-            >- (unabbrev_all_tac \\ gvs [has_basic_cons_def])
-            >- res_tac
-            >- (gvs [Abbr ‘call_env₂’]
-                \\ gvs [shadow_with_refs_def]
-                \\ DEP_REWRITE_TAC [nslookup_nsappend_alist_neq]
-                \\ gvs [Abbr ‘call_env₁’]
-                \\ DEP_REWRITE_TAC [nslookup_nsappend_alist_neq]
-                \\ gvs [Abbr ‘call_env’]
-                \\ DEP_REWRITE_TAC [nsLookup_nsBind_neq]
-                \\ drule_all nslookup_build_rec_env_reclos \\ gvs []
-                \\ gvs [MAP_ZIP]
-                \\ cheat)
-
-           ))
-
-
-
+            \\ gvs [Abbr ‘dfy_locals’]
+            \\ ‘ALL_DISTINCT (MAP FST (ZIP (MAP FST ins, MAP SOME in_vs)))’
+              by gvs [MAP_ZIP]
+            \\ drule read_local_reverse_eq
+            \\ disch_then $ qspec_then ‘var’ assume_tac
+            \\ gvs []
+            (* Delete rewriting assumptions we just made *)
+            \\ ntac 2 (pop_assum $ kall_tac)
+            \\ drule flookup_mk_locals_map
+            \\ disch_then drule \\ gvs []
+            \\ disch_then $ qspecl_then [‘t₁’, ‘call_env₁’] mp_tac
+            \\ rpt strip_tac \\ gvs [Abbr ‘call_env₂’, Abbr ‘params’])
+        \\ gvs [env_rel_def] \\ rpt strip_tac
+        >- (unabbrev_all_tac \\ gvs [has_basic_cons_def])
+        >- res_tac
+        \\ gvs [Abbr ‘call_env₂’]
+        \\ gvs [add_refs_to_env_def]
+        \\ DEP_REWRITE_TAC [nslookup_nsappend_alist_neq]
+        \\ gvs [Abbr ‘call_env₁’]
+        \\ DEP_REWRITE_TAC [nslookup_nsappend_alist_neq]
+        \\ gvs [Abbr ‘call_env’]
+        \\ DEP_REWRITE_TAC [nsLookup_nsBind_neq]
+        \\ drule_all nslookup_build_rec_env_reclos \\ gvs []
+        \\ gvs [MAP_ZIP]
+        \\ cheat)
     \\ rpt strip_tac
     (* Fixing clocks *)
     \\ ‘t₁.clock ≠ 0’ by gvs [state_rel_def]
@@ -1215,29 +1261,30 @@ Proof
     \\ impl_tac >- gvs [do_opapp_def, cml_fun_def, MAP_MAP_o, AllCaseEqs()]
     \\ rpt strip_tac \\ gvs []
     \\ pop_assum $ kall_tac
-
-
     (* Finished instantiating evaluate_apps *)
     \\ ‘cml_param = HD params’ by (Cases_on ‘params’ \\ gvs [cml_fun_def])
-    \\ gvs []
     \\ gvs [evaluateTheory.dec_clock_def]
     \\ gvs [Abbr ‘call_body’]
 
     \\ ‘LIST_REL (λn v. nsLookup call_env₁.v (Short n) = SOME v) params cml_vs’ by cheat
     \\ drule evaluate_set_up_in_refs
     \\ disch_then $
-         qspecl_then [‘t₁ with clock := ck' + t₁.clock - 1’, ‘cml_body'’] assume_tac
+         qspecl_then
+           [‘t₁ with clock := ck' + t₁.clock - 1’, ‘cml_body'’] assume_tac
     \\ gvs []
-
     \\ irule_at Any refv_same_rel_trans
     \\ qexists ‘t₁.refs’ \\ gvs []
     \\ ‘refv_same_rel t₁.refs t''.refs’ by
-         (irule_at Any refv_same_rel_append_imp
-          \\ qexists ‘MAP Refv cml_vs’ \\ gvs [])
+      (irule_at Any refv_same_rel_append_imp
+       \\ qexists ‘MAP Refv cml_vs’ \\ gvs [])
     \\ namedCases_on ‘r’ ["", "v err"] \\ gvs []
-    \\ irule state_rel_restore_locals \\ gvs [SF SFY_ss])
+    \\ irule state_rel_restore_locals
+    \\ gvs [SF SFY_ss]
+    \\ cheat
+    )
 
   \\ cheat
+
   (* >~ [‘Forall var term’] >- *)
   (*  (gvs [from_exp_def]) *)
   (* >~ [‘Lit l’] >- *)
