@@ -3,7 +3,7 @@
 *)
 
 open preamble wordLangTheory
-     word_elimTheory wordSemTheory wordPropsTheory spt_closureTheory
+     word_elimTheory wordSemTheory wordPropsTheory wordConvsTheory spt_closureTheory
 
 val _ = new_theory "word_elimProof";
 val _ = set_grammar_ancestry
@@ -528,9 +528,26 @@ Proof
     Induct_on `l` >> rw[]
 QED
 
+(**************************** WORD STATE REL ***************************)
+Theorem word_state_rel_get_var:
+    word_state_rel reachable s t
+    ⇒ get_var v t = get_var v s
+Proof
+   fs[word_state_rel_def, get_var_def]
+QED
+
+
+Theorem word_state_rel_get_vars:
+    word_state_rel reachable s t
+    ⇒ get_vars vs t = get_vars vs s
+Proof
+   rw[] >> Induct_on `vs` >> fs[get_vars_def]
+   >> drule word_state_rel_get_var >> fs[]
+QED
+
 Theorem word_state_rel_word_exp:
      ∀ s1 exp s2 reachable . word_state_rel reachable s1 s2
-        ⇒ word_exp s1 exp = word_exp s2 exp
+        ⇒ word_exp s2 exp = word_exp s1 exp
 Proof
     recInduct word_exp_ind >> rw[word_exp_def]
     >- (fs[word_state_rel_def]) >- (fs[word_state_rel_def])
@@ -541,217 +558,259 @@ Proof
     >- (first_x_assum drule >> rw[])
 QED
 
+Theorem word_state_rel_mem_load:
+    word_state_rel reachable s t
+    ⇒ mem_load addr t = mem_load addr s
+Proof
+   fs[word_state_rel_def, mem_load_def]
+QED
+
+Theorem word_state_rel_get_fp_var:
+    word_state_rel reachable s t
+    ⇒ get_fp_var v s = get_fp_var v t
+Proof
+   fs[word_state_rel_def, get_fp_var_def]
+QED
+
+Theorem word_state_rel_assign_NONE:
+     ∀ reg exp s reachable t . word_state_rel reachable s t
+    ⇒ (assign reg exp s = NONE ⇔  assign reg exp t = NONE)
+Proof
+    rw[] >>
+    drule_then (qspec_then `exp` assume_tac) word_state_rel_word_exp >>
+    gvs[assign_def,AllCaseEqs()]
+QED
+
 Theorem word_state_rel_inst_NONE:
      ∀ reachable s t i . word_state_rel reachable s t
     ⇒ (inst i s = NONE ⇔ inst i t = NONE)
 Proof
-    rw[] >> fs[word_state_rel_def] >> Cases_on `i` >> fs[inst_def]
-    >- (fs[assign_def] >>
-        `word_exp s (Const c) = word_exp t (Const c)`
-            by metis_tac[word_state_rel_word_exp, word_state_rel_def] >>
-        fs[] >> Cases_on `word_exp t (Const c)` >> rw[])
-    >- (fs[get_var_def, get_vars_def] >> EVERY_CASE_TAC >> fs[assign_def]
-       >- (`word_exp s (Op b [Var n0; Var n']) =
-                word_exp t (Op b [Var n0; Var n'])` by
-                metis_tac[word_state_rel_word_exp, word_state_rel_def] >>
-                fs[] >>
-            Cases_on `word_exp t (Op b [Var n0; Var n'])` >> fs[])
-       >- (`word_exp s (Op b [Var n0; Const c]) =
-                word_exp t (Op b [Var n0; Const c])` by
-                metis_tac[word_state_rel_word_exp, word_state_rel_def] >>
-                fs[] >>
-            Cases_on `word_exp t (Op b [Var n0; Const c])` >> fs[])
-       >- (`word_exp s (Shift s' (Var n0) n1) =
-            word_exp t (Shift s' (Var n0) n1)` by
-                metis_tac[word_state_rel_word_exp, word_state_rel_def] >>
-                fs[] >>
-            Cases_on `word_exp t (Shift s' (Var n0) n1)` >> fs[]))
-    >- (`∀ exp . word_exp t exp = word_exp s exp` by
-            metis_tac[word_state_rel_word_exp, word_state_rel_def] >>
-        fs[get_var_def, mem_load_def, set_var_def] >> EVERY_CASE_TAC >>
-        rfs[mem_store_def])
-    >- (fs[get_fp_var_def, set_var_def, set_fp_var_def, get_var_def] >>
-        EVERY_CASE_TAC >> fs[])
+   rw[] >>
+   drule_then assume_tac word_state_rel_assign_NONE >>
+   drule_then assume_tac word_state_rel_get_vars >>
+   drule_then assume_tac word_state_rel_get_var >>
+   drule_then assume_tac word_state_rel_word_exp >>
+   drule_then assume_tac word_state_rel_mem_load >>
+   drule_then assume_tac word_state_rel_get_fp_var >>
+   fs[word_state_rel_def] >> fs[inst_def] >>
+   Cases_on `i` >> fs[]
+   >-(
+     Cases_on `a` >> fs[] >> every_case_tac >> fs[]
+     )
+   >-(
+     Cases_on `a` >> fs[] >> Cases_on `m` >> fs[]
+     >> every_case_tac >> fs[mem_store_def] >> gvs[]
+     )
+   >-(
+     Cases_on `f` >> fs[]
+     >> every_case_tac >> fs[]
+     )
 QED
 
+Theorem word_state_rel_assign_SOME:
+     word_state_rel reachable s t
+    ⇒ ( assign reg exp s = (SOME s1) ∧ assign reg exp t = SOME t1
+    ⇒ word_state_rel reachable s1 t1)
+Proof
+  disch_tac >>
+  drule_then assume_tac word_state_rel_word_exp >>
+  fs[assign_def] >>
+  every_case_tac >> fs[] >>
+  rw[] >> gvs[] >>
+  fs[word_state_rel_def] >>
+  reverse (rpt strip_tac)
+    >-(fs[domain_find_loc_state]
+      >> fs[set_var_def]
+      >> irule SUBSET_TRANS
+      >> irule_at Any get_locals_insert
+      >> fs[UNION_SUBSET]
+      >> Cases_on `exp` >> fs[word_exp_def]
+      >> gvs[]
+        >- (fs[dest_word_loc_def])
+        >- (Cases_on `x` >>
+            fs[dest_word_loc_def]
+            >> irule SUBSET_IMP
+            >> qpat_x_assum `domain (get_locals _) ⊆ domain reachable` (irule_at Any)
+            >> fs[domain_get_locals_lookup]
+            >> first_x_assum (irule_at Any))
+        >- (Cases_on `x` >>
+            fs[dest_word_loc_def]
+            >> irule SUBSET_IMP
+            >> qpat_x_assum `domain (get_store _) ⊆ domain reachable` (irule_at Any)
+            >> fs[domain_get_store]
+            >> first_x_assum (irule_at Any))
+        >-(Cases_on `x` >>
+            fs[dest_word_loc_def]
+            >> every_case_tac >> fs[]
+            >> fs[mem_load_def]
+            >> irule SUBSET_IMP
+            >> qpat_x_assum `domain (get_memory _ _) ⊆ domain reachable` (irule_at Any)
+            >> fs[domain_get_memory]
+            >> gvs[]
+            >> first_x_assum (irule_at Any)
+            >> first_x_assum (irule_at Any))
+        >-(Cases_on `x` >>
+           fs[dest_word_loc_def]
+           >> every_case_tac >> fs[])
+        >-(Cases_on `x` >>
+           fs[dest_word_loc_def]
+           >> every_case_tac >> fs[])
+      )
+    >> (fs[set_var_def])
+QED
+(*FIXME this is slow because of word_state_rel_set_var_SOME not implemented*)
 Theorem word_state_rel_inst_SOME:
      ∀ reachable s t i s1 t1 . word_state_rel reachable s t ⇒
     (inst i s = SOME s1 ∧ inst i t = SOME t1 ⇒ word_state_rel reachable s1 t1)
 Proof
+    rpt gen_tac >> disch_tac >>
+    drule_then assume_tac word_state_rel_assign_SOME >>
+   drule_then assume_tac word_state_rel_get_vars >>
+   drule_then assume_tac word_state_rel_get_var >>
+   drule_then assume_tac word_state_rel_word_exp >>
+   drule_then assume_tac word_state_rel_mem_load >>
+   drule_then assume_tac word_state_rel_get_fp_var >>
     fs[inst_def] >> Cases_on `i` >> fs[]
-    >- (fs[assign_def] >> fs[word_exp_def] >> fs[set_var_def] >>
-        fs[word_state_rel_def] >> rw[] >> fs[domain_find_loc_state] >>
-        qspecl_then [`n`, `Word c`, `s.locals`] mp_tac get_locals_insert >>
-        rw[dest_word_loc_def] >> imp_res_tac SUBSET_TRANS)
-    >- (strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
-        strip_tac >>
-        fs[get_vars_def, get_var_def] >> Cases_on `a` >> fs[] >>
-        `s.locals = t.locals` by fs[word_state_rel_def] >> fs[]
-        >- (fs[assign_def] >>
-            `word_exp s (Op b [Var n0; case r of Reg r3 => Var r3
-                                               | Imm w => Const w]) =
-                word_exp t (Op b [Var n0; case r of Reg r3 => Var r3
-                                                  | Imm w => Const w])` by
-                    metis_tac[word_state_rel_word_exp] >> fs[] >>
-            Cases_on `word_exp t (Op b [Var n0; case r of Reg r3 => Var r3
-                                                        | Imm w => Const w])` >>
-            fs[] >> fs[set_var_def] >> rw[] >>
-            fs[word_state_rel_def, domain_find_loc_state] >> rw[] >>
-            fs[word_exp_def] >> fs[the_words_def] >> EVERY_CASE_TAC >> fs[] >>
-           qspecl_then [`n`, `Word z'`, `s.locals`] mp_tac get_locals_insert >>
-           rw[dest_word_loc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
-        >- (fs[assign_def] >>
-            `word_exp s (Shift s' (Var n0) n1) =
-                word_exp t (Shift s' (Var n0) n1)` by
-                    metis_tac[word_state_rel_word_exp] >> fs[] >>
-            Cases_on `word_exp t (Shift s' (Var n0) n1)` >> fs[] >>
-            fs[set_var_def] >> rw[] >>
-            fs[word_state_rel_def, domain_find_loc_state] >> rw[] >>
-            fs[word_exp_def] >> fs[the_words_def] >> EVERY_CASE_TAC >> fs[] >>
-            qspecl_then [`n`, `Word z'`, `s.locals`] mp_tac get_locals_insert >>
-            rw[dest_word_loc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
-        >- (EVERY_CASE_TAC >> fs[] >> fs[set_var_def] >>
-            fs[word_state_rel_def, domain_find_loc_state] >> rw[] >> fs[] >>
-            qspecl_then [`n`, `Word (c' / c)`, `s.locals`]
-                mp_tac get_locals_insert >> rw[dest_word_loc_def] >> rw[] >>
-            imp_res_tac SUBSET_TRANS)
-        >- (fs[set_var_def] >> fs[] >>
-            fs[] >> EVERY_CASE_TAC >> fs[] >>
-            fs[word_state_rel_def, domain_find_loc_state] >> rw[] >> fs[] >>
-            qspecl_then [`n`, `Word (n2w (w2n c * w2n c' DIV dimword (:α)))`,
-                `s.locals`] mp_tac get_locals_insert >> rw[dest_word_loc_def] >>
-            qspecl_then [`n0`, `Word (n2w (w2n c * w2n c'))`,
-            `insert n (Word (n2w (w2n c * w2n c' DIV dimword (:α)))) s.locals`]
-                mp_tac get_locals_insert >> rw[dest_word_loc_def] >> fs[] >>
-                rw[] >> imp_res_tac SUBSET_TRANS)
-        >- (EVERY_CASE_TAC >> fs[set_var_def] >>
-            fs[word_state_rel_def, domain_find_loc_state] >> rw[] >> fs[] >>
-            qspecl_then [`n0`,
-                `Word (n2w ((w2n c' + dimword (:α) * w2n c) MOD w2n c''))`,
-                `s.locals`] mp_tac get_locals_insert >>
-            rw[dest_word_loc_def] >>
-            qspecl_then [`n`,
-                `Word (n2w ((w2n c' + dimword (:α) * w2n c) DIV w2n c''))`,
-                `insert n0 (Word (n2w ((w2n c' + dimword (:α) * w2n c)
-                    MOD w2n c''))) s.locals`] mp_tac get_locals_insert >>
-                rw[dest_word_loc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
-        >- (EVERY_CASE_TAC >> fs[set_var_def] >>
-            fs[word_state_rel_def, domain_find_loc_state] >> rw[] >> fs[]
-            >| [
-                qspecl_then [`n`, `Word (n2w (w2n c + w2n c'))`, `s.locals`]
-                mp_tac get_locals_insert >>
-                qspecl_then [`n2`, `Word 1w`,
-                    `insert n (Word (n2w (w2n c + w2n c'))) s.locals`] mp_tac
-                    get_locals_insert,
-                qspecl_then [`n`, `Word (n2w (w2n c + w2n c'))`, `s.locals`]
-                    mp_tac get_locals_insert >>
-                qspecl_then [`n2`,
-                    `Word 0w`, `insert n (Word (n2w (w2n c + w2n c')))
-                    s.locals`] mp_tac get_locals_insert,
-                qspecl_then [`n`, `Word (n2w (w2n c + (w2n c' + 1)))`,
-                    `s.locals`] mp_tac get_locals_insert >>
-                qspecl_then [`n2`, `Word 1w`,
-                    `insert n (Word (n2w (w2n c + (w2n c' + 1)))) s.locals`]
-                    mp_tac get_locals_insert,
-                qspecl_then [`n`, `Word (n2w (w2n c + (w2n c' + 1)))`,
-                    `s.locals`] mp_tac get_locals_insert >>
-                qspecl_then [`n2`, `Word 0w`,
-                    `insert n (Word (n2w (w2n c + (w2n c' + 1)))) s.locals`]
-                    mp_tac get_locals_insert
-            ] >>
-            rw[dest_word_loc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
-        >- (EVERY_CASE_TAC >> fs[set_var_def] >>
-            fs[word_state_rel_def, domain_find_loc_state] >> rw[] >> fs[] >>
-            qspecl_then [`n`, `Word (c + c')`, `s.locals`]
-                mp_tac get_locals_insert
-            >| [
-                qspecl_then [`n2`, `Word 1w`,
-                    `insert n (Word (c + c')) s.locals`]
-                    mp_tac get_locals_insert  ,
-                qspecl_then [`n2`, `Word 0w`,
-                `insert n (Word (c + c')) s.locals`] mp_tac get_locals_insert
-              ] >>
-                rw[dest_word_loc_def] >> rw[] >> imp_res_tac SUBSET_TRANS)
-        >- (EVERY_CASE_TAC >> fs[set_var_def] >>
-            fs[word_state_rel_def, domain_find_loc_state] >> rw[] >> fs[] >>
-            qspecl_then [`n`, `Word (c + -1w * c')`, `s.locals`]
-                mp_tac get_locals_insert
-            >| [
-                qspecl_then [`n2`, `Word 1w`,
-                `insert n (Word (c + -1w * c')) s.locals`]
-                mp_tac get_locals_insert  ,
-                qspecl_then [`n2`, `Word 0w`,
-                    `insert n (Word (c + -1w * c')) s.locals`]
-                    mp_tac get_locals_insert
-              ] >>
-                rw[dest_word_loc_def] >> imp_res_tac SUBSET_TRANS))
-    >- (strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
-        strip_tac >> Cases_on `a` >> fs[] >>
-        `word_exp t (Op Add [Var n'; Const c]) =
-            word_exp s (Op Add [Var n'; Const c])` by
-                metis_tac[word_state_rel_word_exp] >>
-        Cases_on `m` >> fs[] >>
-        fs[word_exp_def, the_words_def, word_state_rel_def] >>
-        Cases_on `lookup n' s.locals` >> fs[] >>
-        Cases_on `x` >> fs[]
-        >- (fs[word_op_def, mem_load_def] >> Cases_on `c + c' ∈ s.mdomain` >>
-            fs[] >> fs[set_var_def] >> rw[] >> fs[] >>
-            fs[domain_find_loc_state] >>
-            qspecl_then [`n`, `s.memory (c + c')`, `s.locals`]
-                mp_tac get_locals_insert >> rw[] >>
-            Cases_on `s.memory (c + c')` >> fs[dest_word_loc_def] >> rw[]
-            >- imp_res_tac SUBSET_TRANS >>
-            `n'' ∈ domain reachable` by
-                metis_tac[SUBSET_DEF, domain_get_memory] >>
-                fs[SUBSET_DEF] >> metis_tac[])
-        >- (fs[word_op_def, mem_load_byte_aux_def] >>
-            Cases_on `s.memory (byte_align (c + c'))` >> fs[] >>
-            Cases_on `byte_align (c + c') ∈ s.mdomain` >> fs[] >>
-            fs[set_var_def] >> rw[] >> fs[domain_find_loc_state] >>
-            qspecl_then [`n`, `Word (w2w (get_byte (c + c') c'' s.be))`,
-                `s.locals`] mp_tac get_locals_insert >> rw[dest_word_loc_def] >>
-            rw[] >> imp_res_tac SUBSET_TRANS)
-        >- (fs[word_op_def, get_var_def] >>
-            Cases_on `lookup n s.locals` >> fs[] >> fs[mem_store_def] >>
-            Cases_on `c + c' ∈ s.mdomain` >> fs[] >> rw[] >>
-            fs[domain_find_loc_state] >>
-            qspecl_then [`c + c'`, `x`, `s.memory`, `s.mdomain`]
-                mp_tac get_memory_update >> rw[] >>
-            Cases_on `x` >> fs[dest_word_loc_def] >> rw[]
-            >- imp_res_tac SUBSET_TRANS >>
-            `n'' ∈ domain reachable` by
-                metis_tac[SUBSET_DEF, domain_get_locals_lookup] >>
-            fs[SUBSET_DEF] >> metis_tac[])
-        >- (fs[word_op_def, get_var_def] >>
-            Cases_on `lookup n s.locals` >> fs[] >> Cases_on `x` >> fs[] >>
-            fs[mem_store_byte_aux_def] >>
-            Cases_on `s.memory (byte_align (c + c'))` >> fs[] >>
-            Cases_on `byte_align (c + c') ∈ s.mdomain` >> fs[] >>
-            rw[] >> fs[domain_find_loc_state] >>
-            qspecl_then [`byte_align (c + c')`,
-                `Word(set_byte (c + c') (w2w c'') c''' s.be)`,
-                `s.memory`, `s.mdomain`] mp_tac get_memory_update >>
-            rw[] >> fs[dest_word_loc_def] >> rw[] >> imp_res_tac SUBSET_TRANS))
-    >- (strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
-        strip_tac >>
-        fs[get_var_def, get_fp_var_def, set_fp_var_def, set_var_def] >>
-        `t.fp_regs = s.fp_regs` by fs[word_state_rel_def] >>
-        EVERY_CASE_TAC >> fs[] >>
-        fs[word_state_rel_def, domain_find_loc_state] >>
-        rw[] >> fs[] >>
-        `∀ w . domain (get_locals (insert n (Word w) s.locals)) ⊆
-            domain reachable` by
-            (rw[] >>
-             qspecl_then [`n`, `Word w`, `s.locals`] mp_tac get_locals_insert >>
-             fs[dest_word_loc_def] >> rw[] >> imp_res_tac SUBSET_TRANS) >>
-             fs[] >>
-        rfs[] >>
-        qspecl_then [`n`, `Word ((31 >< 0) x)`, `s.locals`]
-            mp_tac get_locals_insert >>
-        qspecl_then [`n0`, `Word ((63 >< 32) x)`,
-            `insert n (Word ((31 >< 0) x)) s.locals`] mp_tac
-                get_locals_insert >>
-        rw[dest_word_loc_def] >> imp_res_tac SUBSET_TRANS)
+    >- (rw[] >> gvs[])
+    >- (
+    disch_tac
+    >> first_x_assum (irule_at Any)
+    >> metis_tac[]
+    )
+    >-(
+      Cases_on `a` >> fs[]
+      >-(
+        disch_tac
+        >> first_x_assum (irule_at Any)
+        >> metis_tac[])
+      >-(
+        disch_tac
+        >> first_x_assum (irule_at Any)
+        >> metis_tac[])
+      (*6 subgoals*)
+      >>(every_case_tac >> fs[] >>
+         rw[] >> gvs[])
+      (*11 subgoals*)
+      >> fs[word_state_rel_def] >>
+      (rpt strip_tac) >>
+      TRY (fs[set_var_def] >> NO_TAC)
+        >> (fs[domain_find_loc_state]
+           >> fs[set_var_def]
+           >> irule SUBSET_TRANS
+           >> irule_at Any get_locals_insert
+           >> fs[UNION_SUBSET]
+           >> fs[dest_word_loc_def]
+           >> irule SUBSET_TRANS
+           >> irule_at Any get_locals_insert
+           >> fs[UNION_SUBSET]
+           >> fs[dest_word_loc_def])
+      )
+    >-(
+      Cases_on `a` >> fs[] >>
+      Cases_on `m` >> fs[]
+      (*4 subgoals*)
+      >>(every_case_tac >> fs[] >>
+         rw[] >> gvs[])
+      (*4 subgoals*)
+      >-(
+        fs[word_state_rel_def] >> gvs[] >>
+        CONJ_TAC >- (fs[set_var_def])
+          >- (fs[domain_find_loc_state]
+            >> fs[set_var_def]
+            >> irule SUBSET_TRANS
+            >> irule_at Any get_locals_insert
+            >> fs[UNION_SUBSET]
+            >> Cases_on `x`
+            >> fs[dest_word_loc_def]
+            >> fs[mem_load_def]
+            >> irule SUBSET_IMP
+            >> qpat_x_assum `domain (get_memory _ _) ⊆ domain reachable` (irule_at Any)
+            >> fs[domain_get_memory]
+            >> gvs[]
+            >> first_x_assum (irule_at Any)
+            >> first_x_assum (irule_at Any)
+            )
+        )
+      >-(
+        fs[word_state_rel_def] >> gvs[] >>
+        CONJ_TAC >- (fs[set_var_def])
+          >- (fs[domain_find_loc_state]
+            >> fs[set_var_def]
+            >> irule SUBSET_TRANS
+            >> irule_at Any get_locals_insert
+            >> fs[UNION_SUBSET]
+            >> fs[dest_word_loc_def])
+        )
+      >-(
+        fs[word_state_rel_def] >> gvs[] >>
+        CONJ_TAC >- (fs[set_var_def])
+          >- (fs[domain_find_loc_state]
+            >> fs[set_var_def]
+            >> irule SUBSET_TRANS
+            >> irule_at Any get_locals_insert
+            >> fs[UNION_SUBSET]
+            >> fs[dest_word_loc_def])
+        )
+      >-(
+        fs[word_state_rel_def] >>
+        (rpt strip_tac)
+        (*can this use mem_store_const*)
+        >> TRY (fs[set_var_def]
+        >> fs[mem_store_def]
+        >> gvs[] >> NO_TAC)
+          >- (fs[domain_find_loc_state]
+            >>  fs[mem_store_def] >> gvs[]
+            >> irule SUBSET_TRANS
+            >> irule_at Any get_memory_update
+            >> fs[UNION_SUBSET]
+            >> Cases_on `x` >> fs[dest_word_loc_def]
+            >> fs[get_var_def]
+            >> irule SUBSET_IMP
+            >> qpat_x_assum `domain (get_locals _) ⊆ domain reachable` (irule_at Any)
+            >> gvs[]
+            >> fs[domain_get_locals_lookup]
+            >> first_x_assum (irule_at Any)
+            >> first_x_assum (irule_at Any)))
+      >-(
+        fs[word_state_rel_def] >>
+        (rpt strip_tac) >>
+        TRY (fs[set_var_def] >> NO_TAC)
+       >- (gvs[])
+          >- (fs[domain_find_loc_state]
+            >> fs[mem_store_byte_aux_def]
+            >> every_case_tac >> fs[] >> gvs[]
+            >> irule SUBSET_TRANS
+            >> irule_at Any get_memory_update
+            >> fs[dest_word_loc_def]))
+      >> (***)
+        fs[word_state_rel_def] >>
+        (rpt strip_tac) >>
+        TRY (fs[set_var_def] >> NO_TAC)
+       >- (gvs[])
+          >- (fs[domain_find_loc_state]
+            >> fs[mem_store_32_def]
+            >> ntac 4 (FULL_CASE_TAC >> fs[]) >> gvs[]
+            >> irule SUBSET_TRANS
+            >> irule_at Any get_memory_update
+            >> fs[dest_word_loc_def])
+      ) >>
+    Cases_on `f` >> fs[] >>
+    every_case_tac >> fs[] >>
+    rw[] >> gvs []
+    >> fs[word_state_rel_def] >>
+    (rpt strip_tac) >>
+    TRY (fs[set_fp_var_def,set_var_def] >> NO_TAC)
+    >> (fs[domain_find_loc_state]
+        >> fs[set_var_def]
+        >> irule SUBSET_TRANS
+        >> irule_at Any get_locals_insert
+        >> fs[UNION_SUBSET]
+        >> fs[dest_word_loc_def]
+        >> fs[set_var_def]
+        >> irule SUBSET_TRANS
+        >> irule_at Any get_locals_insert
+        >> fs[UNION_SUBSET]
+        >> fs[dest_word_loc_def])
 QED
 
 Theorem word_state_rel_jump_exc:

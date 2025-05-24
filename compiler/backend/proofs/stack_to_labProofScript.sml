@@ -10,7 +10,7 @@ open preamble
      stack_allocProofTheory
      stack_namesProofTheory
      semanticsPropsTheory
-local open word_to_stackProofTheory data_to_word_gcProofTheory in end
+local open word_to_stackProofTheory data_to_word_gcProofTheory stack_rawcallProofTheory in end
 
 val _ = new_theory"stack_to_labProof";
 
@@ -793,6 +793,56 @@ Proof
     simp[] >>
     imp_res_tac mem_store_upd_mem >>
     qpat_x_assum`Word _ = _`(assume_tac o SYM) >> fs[]>> rfs[]) >>
+  TRY (
+    rename1`mem_store32`
+    \\ fs[wordSemTheory.mem_store_32_def]
+    \\ every_case_tac \\ fs[]
+    \\ fs[mem_store32_def,addr_def]
+    \\ fs[word_exp_def,wordLangTheory.word_op_def]
+    \\ qpat_x_assum`IS_SOME _`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ disch_then old_drule
+    \\ disch_then (assume_tac o SYM)
+    \\ fs[]
+    \\ fs[get_var_def]
+    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ qhdtm_x_assum`FLOOKUP`mp_tac
+    \\ match_mp_tac SWAP_IMP
+    \\ disch_then old_drule
+    \\ disch_then (assume_tac o SYM)
+    \\ simp[wordSemTheory.mem_store_32_def]
+    \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
+    \\ fs[] \\ strip_tac
+    \\ TRY (qpat_x_assum`Word _ = read_reg _ _`(assume_tac o SYM)\\ fs[])
+    \\ rveq
+    \\ fs[GSYM upd_mem_def]
+    \\ match_mp_tac (GEN_ALL mem_store_upd_mem)
+    \\ asm_exists_tac
+    \\ simp[stackSemTheory.mem_store_def]
+    \\ simp[stackSemTheory.state_component_equality]
+    \\ rveq \\ simp[]) >>
+  TRY (
+    qhdtm_x_assum`mem_load_32`mp_tac
+    \\ fs[wordSemTheory.mem_load_32_def,labSemTheory.mem_load32_def,labSemTheory.addr_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ fs[word_exp_def,wordLangTheory.word_op_def]
+    \\ qpat_x_assum`IS_SOME _`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ disch_then old_drule
+    \\ disch_then (assume_tac o SYM) \\ fs[]
+    \\ fs[get_var_def]
+    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ qhdtm_x_assum`FLOOKUP`mp_tac
+    \\ match_mp_tac SWAP_IMP
+    \\ TRY (
+         disch_then old_drule
+         \\ disch_then (assume_tac o SYM) \\ fs[] )
+    \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
+    \\ fs[] \\ strip_tac) >>
   TRY (
     rename1`mem_store_byte_aux`
     \\ fs[wordSemTheory.mem_store_byte_aux_def]
@@ -3571,7 +3621,7 @@ Proof
 QED
 
 Theorem IMP_init_state_ok:
-   4 < kkk /\
+  4 < kkk /\
   (bitmaps:'a word list) = 4w::t ∧
   good_dimindex (:α) /\
   (∀n.
@@ -3587,11 +3637,11 @@ Theorem IMP_init_state_ok:
    (λ((bm0,cfg),progs).
       (λ(progs,fs,bm). (cfg,progs,append (FST bm)))
         (compile_word_to_stack
-           kkk progs
+           ac kkk progs
            (Nil, bm0))) (word_oracle n)) ∧
-    (full_make_init sc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
+    (full_make_init scc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
     ==>
-    init_state_ok kkk fmis word_oracle
+    init_state_ok ac kkk fmis word_oracle
 Proof
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def] \\ strip_tac

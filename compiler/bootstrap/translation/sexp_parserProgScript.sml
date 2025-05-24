@@ -12,6 +12,7 @@ val _ = translation_extends "decodeProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val monad_unitbind_assert = parserProgTheory.monad_unitbind_assert;
 
@@ -227,20 +228,7 @@ val r = fromSexpTheory.sexpid_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
         |> translate;
 
-val sexpid_side = Q.prove(
-  `∀x y. sexpid_side x y = T`,
-  ho_match_mp_tac fromSexpTheory.sexpid_ind \\ rw[] \\
-  rw[Once(theorem"sexpid_side_def")])
-|> update_precondition;
-
 val r = translate sexptype_alt_def;
-
-val sexptype_alt_side = Q.prove(
-  `(∀x. sexptype_alt_side x = T) ∧
-   (∀x. sexptype_list_side x = T)`,
-  ho_match_mp_tac sexptype_alt_ind \\ rw[] \\
-  rw[Once(theorem"sexptype_alt_side_def")])
-  |> update_precondition;
 
 val r = translate fromSexpTheory.sexppair_def;
 
@@ -284,13 +272,6 @@ val sexplit_side = Q.prove(
 
 val r = translate sexppat_alt_def;
 
-val sexppat_alt_side = Q.prove(
-  `(∀x. sexppat_alt_side x = T) ∧
-   (∀x. sexppat_list_side x = T)`,
-  ho_match_mp_tac sexppat_alt_ind \\ rw[] \\
-  rw[Once(theorem"sexppat_alt_side_def")])
-  |> update_precondition;
-
 val r = translate (fromSexpTheory.sexpop_def
                    |> REWRITE_RULE [decode_control_eq]);
 
@@ -299,17 +280,6 @@ val r = translate fromSexpTheory.sexplop_def;
 val r = translate fromSexpTheory.sexpsc_def;
 
 val r = translate sexpexp_alt_def;
-
-val sexpexp_alt_side = Q.prove(
-  `(∀x. sexpexp_alt_side x = T) ∧
-   (∀x. sexpexp_list_side x = T) ∧
-   (∀x. sexppes_side x = T) ∧
-   (∀x. sexpfuns_side x = T) ∧
-   (∀x. sexppatexp_side x = T) ∧
-   (∀x. sexpfun_side x = T)`,
-  ho_match_mp_tac sexpexp_alt_ind \\ rw[] \\
-  rw[Once(theorem"sexpexp_alt_side_def")])
-  |> update_precondition;
 
 val r = translate fromSexpTheory.sexpdec_alt_def
 
@@ -405,12 +375,6 @@ Proof
 QED
 
 val _ = translate print_sexp_alt_def;
-
-val print_sexp_alt_side = Q.prove(
-  `!x. print_sexp_alt_side x = T`,
-  ho_match_mp_tac print_sexp_ind >> rw[] >>
-  rw[Once(fetch "-" "print_sexp_alt_side_def")] >>
-  fs[LENGTH_EQ_NUM_compute]) |> update_precondition;
 
 val _ = translate print_sexp_alt_thm;
 

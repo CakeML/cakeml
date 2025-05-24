@@ -160,4 +160,7 @@ sig
     (* configure whether HOL_STRING_TYPE is to be used *)
     val use_string_type : bool -> unit
 
+    (* configure whether sub_check is default for num subtraction *)
+    val use_sub_check : bool -> unit
+
 end

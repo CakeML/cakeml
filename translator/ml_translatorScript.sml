@@ -1069,19 +1069,14 @@ Proof
 QED
 
 (* arithmetic for num *)
-
-Definition sub_nocheck_def:
-  sub_nocheck (n:num) m = n - m
-End
-
-Theorem Eval_NUM_SUB_nocheck =
+Theorem Eval_NUM_SUB =
   Eval_INT_SUB |> Q.SPECL [`&n`,`&m`]
   |> UNDISCH_ALL |> DISCH ``PRECONDITION ((m:num) <= n)``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_SUB,PRECONDITION_def]
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
   |> DISCH ``Eval env x2 (INT (&m))``
   |> DISCH ``Eval env x1 (INT (&n))``
-  |> SIMP_RULE std_ss [GSYM NUM_def,GSYM sub_nocheck_def]
+  |> SIMP_RULE std_ss [GSYM NUM_def]
 
 Theorem Eval_NUM_ADD =
   Eval_INT_ADD |> Q.SPECL [`&n1`,`&n2`]
@@ -1128,22 +1123,35 @@ val code =
 
 in
 
-Theorem Eval_NUM_SUB:
-   Eval env x1 (NUM m) ==>
-    Eval env x2 (NUM n) ==>
-    Eval env ^code (NUM (m - n))
+Definition sub_check_def:
+  sub_check (n:num) m = n - m
+End
+
+Theorem Eval_NUM_SUB_check:
+  Eval env x1 (NUM m) ==>
+  Eval env x2 (NUM n) ==>
+  Eval env ^code (NUM (sub_check m n))
 Proof
-  SIMP_TAC std_ss [NUM_def]
+  SIMP_TAC std_ss [NUM_def,sub_check_def]
   \\ `&(m - n:num) = let k = &m - &n in if k < 0 then 0 else k:int` by
    (FULL_SIMP_TAC std_ss [LET_DEF,INT_LT_SUB_RADD,INT_ADD,INT_LT]
     \\ Cases_on `m<n` \\ FULL_SIMP_TAC std_ss []
     THEN1 (`m - n = 0` by DECIDE_TAC \\ ASM_REWRITE_TAC [])
     \\ FULL_SIMP_TAC std_ss [NOT_LESS,INT_SUB])
-  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC \\ MATCH_MP_TAC (GEN_ALL Eval_Let)
+  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+  \\ MATCH_MP_TAC (GEN_ALL Eval_Let)
   \\ Q.EXISTS_TAC `INT` \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [Eval_INT_SUB]
   \\ MATCH_MP_TAC (GEN_ALL (DISCH_ALL th))
   \\ FULL_SIMP_TAC std_ss [Eval_Var_SIMP]
+QED
+
+Theorem Eval_NUM_SUB_check':
+  Eval env x1 (NUM m) ==>
+  Eval env x2 (NUM n) ==>
+  Eval env ^code (NUM (m - n))
+Proof
+  simp[GSYM sub_check_def,Eval_NUM_SUB_check]
 QED
 
 end;

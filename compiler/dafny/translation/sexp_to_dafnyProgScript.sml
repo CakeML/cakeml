@@ -22,7 +22,7 @@ val r = translate EL;
 val el_side = Q.prove(
   `!n xs. el_side n xs = (n < LENGTH xs)`,
   Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "el_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [])
+  THEN fs[])
   |> update_precondition;
 val r = translate optionTheory.OPTION_BIND_def;
 val r = translate sexp_to_dafnyTheory.sxsym_to_opt_def;
@@ -40,12 +40,12 @@ val r = translate sexp_to_dafnyTheory.sexp_ident_def;
 val r = translate sexp_to_dafnyTheory.sexp_attribute_def;
 val r = translate sexp_to_dafnyTheory.sexp_primitive_def;
 val r = translate sexp_to_dafnyTheory.sexp_collKind_def;
-val r = translate sexp_to_dafnyTheory.sexp_typeArgBound_def;
-val r = translate sexp_to_dafnyTheory.sexp_typeArgDecl_def;
+val r = translate sexp_to_dafnyTheory.sexp_typeParameterInfo_def;
+val r = translate sexp_to_dafnyTheory.sexp_equalitySupport_def;
 val r = translate sexp_to_dafnyTheory.sexp_newtypeRange_def;
 val r = translate sexp_to_dafnyTheory.sexp_unaryOp_def;
 val r = translate sexp_to_dafnyTheory.sexp_binOp_def;
-val r = translate sexp_to_dafnyTheory.sexp_datatypeType_def;
+val r = translate sexp_to_dafnyTheory.sexp_selectContext_def;
 val r = translate sexp_to_dafnyTheory.sexp_traitType_def;
 
 val r = sexp_to_dafnyTheory.sexp_type_def
@@ -78,6 +78,10 @@ QED
 
 val _ = sexp_type_ind |> update_precondition;
 
+val r = translate sexp_to_dafnyTheory.sexp_typedBinOp_def;
+val r = translate sexp_to_dafnyTheory.sexp_typeArgBound_def;
+val r = translate sexp_to_dafnyTheory.sexp_typeArgDecl_def;
+val r = translate sexp_to_dafnyTheory.sexp_fieldMutability_def;
 val r = translate sexp_to_dafnyTheory.sexp_newtypeType_def;
 val r = translate sexp_to_dafnyTheory.sexp_literal_def;
 val r = translate sexp_to_dafnyTheory.sexp_formal_def;
@@ -163,7 +167,6 @@ QED
 *)
 
 val r = translate sexp_to_dafnyTheory.sexp_method_def;
-val r = translate sexp_to_dafnyTheory.sexp_field_def;
 val r = translate sexp_to_dafnyTheory.sexp_classItem_def;
 val r = translate sexp_to_dafnyTheory.sexp_class_def;
 val r = translate sexp_to_dafnyTheory.sexp_trait_def;

@@ -7987,14 +7987,12 @@ Proof
   >- (
     fs[unify_types_invariant_def,EVERY_MEM]
     >> rw[MEM_MAP]
-    >> Cases_on `y`
+    >> rename [`MEM (q,r) l`]
     >> qpat_x_assum `!a b. (_ /\ _) \/ _ ==> _` (qspecl_then [`q`,`r`] mp_tac)
     >> rw[]
     >> NTAC 2 (
       qmatch_asmsub_rename_tac `subtype_at (TYPE_SUBST sigma x) _ = SOME in_x`
       >> qmatch_asmsub_rename_tac `subtype_at (TYPE_SUBST sigma y) _ = SOME in_y`
-      >> qmatch_asmsub_rename_tac `(subs_in_x, subs_in_y) = _ (in_x,in_y)`
-        ORELSE qmatch_asmsub_rename_tac `(subs_in_y, subs_in_x) = _ (in_y,in_x)`
       >> asm_exists_tac
       >> qexists_tac `p`
       >> rw[AC DISJ_ASSOC DISJ_COMM]
@@ -8010,7 +8008,6 @@ Proof
           qpat_x_assum `!x. MEM _ (tyvars (Tyvar a)) \/ _ ==> ~MEM _ _` (qspec_then `a` mp_tac)
           >> rw[MEM_MAP,tyvars_def]
         )
-        >- fs[o_PAIR_MAP]
         >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [INSERT_SING_UNION]))
         >> fs[AC UNION_ASSOC UNION_COMM]
       )
@@ -8048,7 +8045,6 @@ Proof
         >> qpat_x_assum `!x. MEM _ (tyvars (Tyvar a)) \/ _ ==> ~MEM _ _` $ qspec_then `a` mp_tac
         >> rw[MEM_MAP,tyvars_def]
       )
-      >- fs[o_PAIR_MAP]
       >> CONV_TAC $ RHS_CONV $ PURE_ONCE_REWRITE_CONV [INSERT_SING_UNION]
       >> fs[AC UNION_ASSOC UNION_COMM]
     )

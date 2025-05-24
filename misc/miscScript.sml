@@ -803,12 +803,6 @@ Proof
   metis_tac[ALOOKUP_ALL_DISTINCT_MEM]
 QED
 
-Theorem IS_SOME_EXISTS:
-   ∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x
-Proof
-  Cases >> simp[]
-QED
-
 Type num_set = ``:unit spt``
 Type num_map = ``:'a spt``
 
@@ -2254,19 +2248,6 @@ Proof
     rw[MAP_MAP_o,combinTheory.o_DEF] ) >>
   fs[] >>
   metis_tac[sortingTheory.PERM_MAP]
-QED
-
-Theorem bool_case_eq:
-   COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f
-Proof
-  srw_tac[][] >> metis_tac[]
-QED
-
-Theorem pair_case_eq:
- pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
-Proof
- Cases_on `x` >>
- srw_tac[][]
 QED
 
 Theorem lookup_fromList2:
@@ -4124,16 +4105,6 @@ Theorem TWOxDIV2:
 Proof
   ONCE_REWRITE_TAC[MULT_COMM]
   \\ simp[MULT_DIV]
-QED
-
-Theorem alist_insert_pull_insert:
-   ∀xs ys z. ¬MEM x xs ⇒
-   alist_insert xs ys (insert x y z) =
-   insert x y (alist_insert xs ys z)
-Proof
-  ho_match_mp_tac alist_insert_ind
-  \\ simp[alist_insert_def] \\ rw[] \\ fs[]
-  \\ metis_tac[insert_swap]
 QED
 
 Theorem alist_insert_REVERSE:

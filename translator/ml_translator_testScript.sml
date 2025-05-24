@@ -4,11 +4,10 @@
 *)
 
 open HolKernel Parse boolLib bossLib;
+open listTheory pairTheory ml_translatorLib ml_translatorTheory;
+open ml_progLib blastLib;
 
 val _ = new_theory "ml_translator_test";
-
-open listTheory pairTheory ml_translatorLib ml_translatorTheory;
-open ml_progLib;
 
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
@@ -621,5 +620,17 @@ End
 val res = translate TAKE_def;
 val res = translate DROP_def;
 val res = translate chop_str_def
+
+Definition foo_sub_def:
+  foo_sub (x:num) y = x - y
+End
+
+(* default: generates a precondition *)
+val res = translate foo_sub_def;
+
+val _ = use_sub_check true;
+
+(* no precondition *)
+val res = translate foo_sub_def;
 
 val _ = export_theory();

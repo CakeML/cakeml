@@ -33,7 +33,7 @@ Definition collect_conses_def:
      collect_conses (collect_conses p e2) e1) ∧
   (collect_conses p (Tannot e a) = collect_conses p e) ∧
   (collect_conses p (Lannot e a) = collect_conses p e) ∧
-  (collect_conses p (FpOptimise sc e) = collect_conses p e) ∧
+  (collect_conses p (FpOptimise fpopt e) = collect_conses p e) ∧
   (collect_conses p (Letrec funs e) =
      collect_conses_list3 (collect_conses p e) funs) ∧
   (collect_conses_list p [] = p) ∧
@@ -1048,6 +1048,24 @@ Proof
   gvs [FUN_EQ_THM,words_line_word_def,
        to_comma_cat_word_to_string,words_line_def]
 QED
+
+val _ = cv_trans word_unreachTheory.dest_Seq_Move_def;
+val _ = cv_auto_trans word_unreachTheory.merge_moves_def;
+val _ = cv_trans word_unreachTheory.SimpSeq_def;
+val _ = cv_trans word_unreachTheory.Seq_assoc_right_def;
+val _ = cv_trans word_unreachTheory.remove_unreach_def;
+
+val pre = cv_auto_trans_pre word_copyTheory.copy_prop_prog_def;
+
+Theorem word_copy_copy_prop_prog_pre[cv_pre]:
+  ∀v cs. word_copy_copy_prop_prog_pre v cs
+Proof
+  ho_match_mp_tac word_copyTheory.copy_prop_prog_ind >>
+  rw[]>>
+  simp[Once pre]
+QED
+
+val _ = cv_trans word_copyTheory.copy_prop_def;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();

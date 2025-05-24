@@ -5,8 +5,9 @@ open preamble dataSemTheory dataPropsTheory
      copying_gcTheory int_bitwiseTheory finite_mapTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
      data_to_word_bignumProofTheory data_to_word_assignProofTheory
-     data_to_wordTheory wordPropsTheory whileTheory
-     set_sepTheory semanticsPropsTheory word_to_wordProofTheory
+     data_to_wordTheory wordPropsTheory
+     wordConvsTheory wordConvsProofTheory
+     whileTheory set_sepTheory semanticsPropsTheory word_to_wordProofTheory
      helperLib alignmentTheory blastLib word_bignumTheory
      wordLangTheory word_bignumProofTheory gen_gc_partialTheory
      gc_sharedTheory;
@@ -1005,7 +1006,7 @@ Proof
     rveq >>
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
     every_case_tac >> fs[]) >>
-  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = ``k:num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = “k:num”}] (assert(has_pair_type)tm))`) (#2 g) g) >>
   old_drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
@@ -1233,7 +1234,7 @@ Proof
     rveq >>
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
     every_case_tac >> fs[]) >>
-  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = ``k:num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
+  (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = “k:num”}] (assert(has_pair_type)tm))`) (#2 g) g) >>
   old_drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
@@ -1423,7 +1424,7 @@ QED
 
 val _ = (max_print_depth := 15);
 
-val extract_labels_def = wordPropsTheory.extract_labels_def;
+val extract_labels_def = wordConvsTheory.extract_labels_def;
 
 Theorem extract_labels_MemEqList[simp]:
   ∀a x. extract_labels (MemEqList a x) = []
@@ -1466,7 +1467,7 @@ Proof
 QED
 
 Triviality extract_labels_assignWordOp:
-  assign a b c d (WordOp e f) g h = (i,j) ⇒
+  assign a b c d (WordOp (WordOpw e f)) g h = (i,j) ⇒
   extract_labels i = [] ∧ c ≤ j
 Proof
   simp[assign_def]>>
@@ -1479,7 +1480,7 @@ Proof
 QED
 
 Triviality extract_labels_assignWordShift:
-  assign a b c d (WordShift e f k) g h = (i,j) ⇒
+  assign a b c d (WordOp (WordShift e f k)) g h = (i,j) ⇒
   extract_labels i = [] ∧ c ≤ j
 Proof
   simp[assign_def]>>
@@ -1490,6 +1491,9 @@ Proof
     simp[extract_labels_def,list_Seq_def,extract_labels_WordShift64_on_32]>>
     EVAL_TAC
 QED
+
+fun cases_on_op q = Cases_on q >|
+  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b`], [`g`], [`m`], []];
 
 Theorem data_to_word_lab_pres_lem:
   ∀c n l p.
@@ -1509,13 +1513,13 @@ Proof
     CCONTR_TAC>>fs[]>>res_tac>>fs[])
   >-
     (qmatch_goalsub_rename_tac `assign _ _ _ _ opname _ _` >>
-    Cases_on `opname`>>
+    cases_on_op `opname`>>
     TRY(
-      rename1`WordOp _ _`>>
+      rename1`WordOp (WordOpw _ _)`>>
       pairarg_tac>>old_drule extract_labels_assignWordOp>>
       simp[])>>
     TRY(
-      rename1`WordShift _ _ _`>>
+      rename1`WordOp (WordShift _ _ _)`>>
       pairarg_tac>>old_drule extract_labels_assignWordShift>>
       simp[])>>
     fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras]>>
@@ -1538,7 +1542,7 @@ QED
 Triviality labels_rel_emp:
   labels_rel [] ls ⇒ ls = []
 Proof
-  fs[word_simpProofTheory.labels_rel_def]
+  fs[wordConvsTheory.labels_rel_def]
 QED
 
 Theorem stub_labels:
@@ -1606,7 +1610,7 @@ Proof
   rfs[EL_MAP]>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
-  rw[] >>fs[word_simpProofTheory.labels_rel_def,SUBSET_DEF,MEM_EL,PULL_EXISTS]>>
+  rw[] >>fs[wordConvsTheory.labels_rel_def,SUBSET_DEF,MEM_EL,PULL_EXISTS]>>
   first_x_assum(qspec_then`n'''` assume_tac)>>rfs[]>>
   res_tac>>fs[]>>
   pairarg_tac>>fs[]>>
@@ -1637,6 +1641,9 @@ Proof
   \\ fs [every_inst_def]
 QED
 
+fun cases_on_op q = Cases_on q >|
+  map (MAP_EVERY Cases_on) [[], [], [`i`], [`w`], [`b'`], [`g'`], [`m`], []];
+
 Theorem assign_no_inst[local]:
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
@@ -1646,7 +1653,7 @@ Theorem assign_no_inst[local]:
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))
 Proof
   fs[assign_def]>>
-  Cases_on`e`>>fs[every_inst_def]>>
+  cases_on_op`e`>>fs[every_inst_def]>>
   rw[]>>fs[every_inst_def,GiveUp_def]>>
   every_case_tac>>
   TRY(Cases_on`f'`)>>
@@ -1802,578 +1809,6 @@ QED
 
 Overload data_get_code_labels = ``dataProps$get_code_labels``
 Overload data_good_code_labels = ``dataProps$good_code_labels``
-Overload word_get_code_labels = ``wordProps$get_code_labels``
-Overload word_good_handlers = ``wordProps$good_handlers``
-Overload word_good_code_labels = ``wordProps$good_code_labels``
-
-(* word_to_word never introduces any labels, so the statements are easy *)
-local
-  open word_removeTheory word_allocTheory word_instTheory word_simpTheory word_to_wordTheory
-  open data_to_wordTheory
-in
-
-(* TODO: most of the following lemmas ought to be moved *)
-
-(* remove_must_terminate*)
-Triviality word_get_code_labels_remove_must_terminate:
-  ∀ps.
-  word_get_code_labels (remove_must_terminate ps) =
-  word_get_code_labels ps
-Proof
-  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
-  fs[remove_must_terminate_def]>>
-  every_case_tac>>fs[]
-QED
-
-Triviality word_good_handlers_remove_must_terminate:
-  ∀ps.
-  word_good_handlers n (remove_must_terminate ps) ⇔
-  word_good_handlers n ps
-Proof
-  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
-  fs[remove_must_terminate_def]>>
-  every_case_tac>>fs[]
-QED
-
-(* word_alloc *)
-
-Triviality word_get_code_labels_apply_colour:
-  ∀col ps.
-  word_get_code_labels (apply_colour col ps) =
-  word_get_code_labels ps
-Proof
-  ho_match_mp_tac apply_colour_ind>>rw[]>>
-  fs[apply_colour_def]>>
-  every_case_tac>>fs[]
-QED
-
-Triviality word_good_handlers_apply_colour:
-  ∀col ps.
-  word_good_handlers n (apply_colour col ps) ⇔
-  word_good_handlers n ps
-Proof
-  ho_match_mp_tac apply_colour_ind>>rw[]>>
-  fs[apply_colour_def]>>
-  every_case_tac>>fs[]
-QED
-
-Triviality word_get_code_labels_word_alloc:
-  word_get_code_labels (word_alloc fc c alg k prog col_opt) =
-  word_get_code_labels prog
-Proof
-  fs[word_alloc_def,oracle_colour_ok_def]>>
-  EVERY_CASE_TAC>>fs[]>>
-  TRY(pairarg_tac)>>fs[]>>
-  EVERY_CASE_TAC>>fs[]>>
-  metis_tac[word_get_code_labels_apply_colour]
-QED
-
-Triviality word_good_handlers_word_alloc:
-  word_good_handlers n (word_alloc fc c alg k prog col_opt) ⇔
-  word_good_handlers n prog
-Proof
-  fs[word_alloc_def,oracle_colour_ok_def]>>
-  EVERY_CASE_TAC>>fs[]>>
-  TRY(pairarg_tac)>>fs[]>>
-  EVERY_CASE_TAC>>fs[]>>
-  metis_tac[word_good_handlers_apply_colour]
-QED
-
-(* three to two *)
-Triviality word_get_code_labels_three_to_two_reg:
-  ∀ps.
-  word_get_code_labels (three_to_two_reg ps) =
-  word_get_code_labels ps
-Proof
-  ho_match_mp_tac three_to_two_reg_ind>>rw[]>>
-  fs[three_to_two_reg_def]>>
-  every_case_tac>>fs[]
-QED
-
-Triviality word_good_handlers_three_to_two_reg:
-  ∀ps.
-  word_good_handlers n (three_to_two_reg ps) ⇔
-  word_good_handlers n ps
-Proof
-  ho_match_mp_tac three_to_two_reg_ind>>rw[]>>
-  fs[three_to_two_reg_def]>>
-  every_case_tac>>fs[]
-QED
-
-(* remove_dead *)
-Triviality word_get_code_labels_remove_dead:
-  ∀ps live.
-  word_get_code_labels (FST (remove_dead ps live)) ⊆
-  word_get_code_labels ps
-Proof
-  ho_match_mp_tac remove_dead_ind>>rw[]>>
-  fs[remove_dead_def]>>
-  every_case_tac>>fs[]>>
-  rpt(pairarg_tac>>fs[])>>rw[]>>
-  fs[SUBSET_DEF]
-QED
-
-Triviality word_good_handlers_remove_dead:
-  ∀ps live.
-  word_good_handlers n ps ⇒
-  word_good_handlers n (FST (remove_dead ps live))
-Proof
-  ho_match_mp_tac remove_dead_ind>>rw[]>>
-  fs[remove_dead_def]>>
-  every_case_tac>>fs[]>>
-  rpt(pairarg_tac>>fs[])>>rw[]
-QED
-
-(* ssa *)
-
-Theorem word_get_code_labels_fake_moves:
-   ∀a b c d e f g h i.
-   fake_moves a b c d = (e,f,g,h,i) ⇒
-   word_get_code_labels e = {} ∧
-   word_get_code_labels f = {}
-Proof
-  Induct \\ rw[fake_moves_def] \\ rw[]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[CaseEq"option"] \\ rw[]
-  \\ first_x_assum old_drule \\ rw[]
-  \\ rw[fake_move_def]
-QED
-
-Theorem word_get_code_labels_ssa_cc_trans:
-   ∀x y z a b c.
-   ssa_cc_trans x y z = (a,b,c) ⇒
-   word_get_code_labels a = word_get_code_labels x
-Proof
-  recInduct ssa_cc_trans_ind
-  \\ rw[ssa_cc_trans_def] \\ fs[]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-  >- (
-    Cases_on`i` \\ fs[ssa_cc_trans_inst_def]
-    \\ rveq \\ fs[]
-    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-    \\ TRY(rename1`Arith arith` \\ Cases_on`arith`)
-    \\ TRY(rename1`Mem memop _ dst` \\ Cases_on`memop` \\ Cases_on`dst`)
-    \\ TRY(rename1`FP flop` \\ Cases_on`flop`)
-    \\ fs[ssa_cc_trans_inst_def,CaseEq"reg_imm",CaseEq"bool"]
-    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[] )
-  >- (
-    fs[fix_inconsistencies_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ imp_res_tac word_get_code_labels_fake_moves
-    \\ rw[])
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[CaseEq"option"] \\ rveq \\ fs[]
-    \\ fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ fs[CaseEq"prod", fix_inconsistencies_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ imp_res_tac word_get_code_labels_fake_moves
-    \\ fs[])
-QED
-
-Triviality word_get_code_labels_full_ssa_cc_trans:
-  ∀m p.
-  word_get_code_labels (full_ssa_cc_trans m p) =
-  word_get_code_labels p
-Proof
-  simp[full_ssa_cc_trans_def]
-  \\ rpt gen_tac
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[setup_ssa_def]
-  \\ pairarg_tac \\ fs[]
-  \\ rveq \\ fs[]
-  \\ old_drule word_get_code_labels_ssa_cc_trans
-  \\ rw[]
-QED
-
-Theorem word_good_handlers_fake_moves:
-   ∀a b c d e f g h i.
-   fake_moves a b c d = (e,f,g,h,i) ⇒
-   word_good_handlers n e ∧
-   word_good_handlers n f
-Proof
-  Induct \\ rw[fake_moves_def] \\ rw[]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[CaseEq"option"] \\ rw[]
-  \\ first_x_assum old_drule \\ rw[]
-  \\ rw[fake_move_def]
-QED
-
-Theorem word_good_handlers_ssa_cc_trans:
-   ∀x y z a b c.
-   ssa_cc_trans x y z = (a,b,c) ⇒
-   word_good_handlers n a = word_good_handlers n x
-Proof
-  recInduct ssa_cc_trans_ind
-  \\ rw[ssa_cc_trans_def] \\ fs[]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-  >- (
-    Cases_on`i` \\ fs[ssa_cc_trans_inst_def]
-    \\ rveq \\ fs[]
-    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-    \\ TRY(rename1`Arith arith` \\ Cases_on`arith`)
-    \\ TRY(rename1`Mem memop _ dst` \\ Cases_on`memop` \\ Cases_on`dst`)
-    \\ TRY(rename1`FP flop` \\ Cases_on`flop`)
-    \\ fs[ssa_cc_trans_inst_def,CaseEq"reg_imm",CaseEq"bool"]
-    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[] )
-  >- (
-    fs[fix_inconsistencies_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ imp_res_tac word_good_handlers_fake_moves
-    \\ rw[])
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[CaseEq"option"] \\ rveq \\ fs[]
-    \\ fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ fs[CaseEq"prod", fix_inconsistencies_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ imp_res_tac word_good_handlers_fake_moves
-    \\ fs[])
-QED
-
-Triviality word_good_handlers_full_ssa_cc_trans:
-  ∀m p.
-  word_good_handlers n (full_ssa_cc_trans m p) ⇔
-  word_good_handlers n p
-Proof
-  simp[full_ssa_cc_trans_def]
-  \\ rpt gen_tac
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[setup_ssa_def]
-  \\ pairarg_tac \\ fs[]
-  \\ rveq \\ fs[]
-  \\ old_drule word_good_handlers_ssa_cc_trans
-  \\ rw[]
-QED
-
-(* inst *)
-Triviality word_get_code_labels_inst_select_exp:
-  ∀a b c exp.
-  word_get_code_labels (inst_select_exp a b c exp) = {}
-Proof
-  ho_match_mp_tac inst_select_exp_ind>>rw[]>>
-  fs[inst_select_exp_def]>>
-  every_case_tac>>fs[inst_select_exp_def]
-QED
-
-Triviality word_get_code_labels_inst_select:
-  ∀ac v ps.
-  word_get_code_labels (inst_select ac v ps) =
-  word_get_code_labels ps
-Proof
-  ho_match_mp_tac inst_select_ind>>rw[]>>
-  fs[inst_select_def]>>
-  every_case_tac>>fs[word_get_code_labels_inst_select_exp]
-QED
-
-Triviality word_good_handlers_inst_select_exp:
-  ∀a b c exp.
-  word_good_handlers n (inst_select_exp a b c exp)
-Proof
-  ho_match_mp_tac inst_select_exp_ind>>rw[]>>
-  fs[inst_select_exp_def]>>
-  every_case_tac>>fs[inst_select_exp_def]
-QED
-
-Triviality word_good_handlers_inst_select:
-  ∀ac v ps.
-  word_good_handlers n (inst_select ac v ps) ⇔
-  word_good_handlers n ps
-Proof
-  ho_match_mp_tac inst_select_ind>>rw[]>>
-  fs[inst_select_def]>>
-  every_case_tac>>fs[word_good_handlers_inst_select_exp]
-QED
-
-(* simp *)
-Triviality word_get_code_labels_const_fp_loop:
-  ∀p l.
-  word_get_code_labels (FST (const_fp_loop p l)) ⊆ word_get_code_labels p
-Proof
-  ho_match_mp_tac const_fp_loop_ind \\ rw []
-  \\ fs [const_fp_loop_def]
-  \\ every_case_tac\\ fs[]
-  \\ rpt (pairarg_tac \\ fs[])
-  \\ fs[SUBSET_DEF] \\ metis_tac[]
-QED
-
-Triviality word_good_handlers_const_fp_loop:
-  ∀p l.
-  word_good_handlers n p ⇒
-  word_good_handlers n (FST (const_fp_loop p l))
-Proof
-  ho_match_mp_tac const_fp_loop_ind \\ rw []
-  \\ fs [const_fp_loop_def]
-  \\ every_case_tac\\ fs[]
-  \\ rpt (pairarg_tac \\ fs[])
-QED
-
-Triviality word_get_code_labels_Seq_assoc:
-  ∀p1 p2.
-  word_get_code_labels (Seq_assoc p1 p2) = word_get_code_labels p1 ∪ word_get_code_labels p2
-Proof
-  ho_match_mp_tac Seq_assoc_ind>>rw[]>>
-  fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
-  fs[UNION_ASSOC]>>
-  every_case_tac>>fs[]
-QED
-
-Triviality word_good_handlers_Seq_assoc:
-  ∀p1 p2.
-  word_good_handlers n (Seq_assoc p1 p2) ⇔
-  word_good_handlers n p1 ∧ word_good_handlers n p2
-Proof
-  ho_match_mp_tac Seq_assoc_ind>>rw[]>>
-  fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
-  every_case_tac>>fs[]>>metis_tac[]
-QED
-
-Triviality word_good_handlers_try_if_hoist2:
-  ! N p1 interm dummy p2 s.
-  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
-  word_good_handlers n p1 /\ word_good_handlers n p2 /\ word_good_handlers n interm ==>
-  word_good_handlers n p3
-Proof
-  ho_match_mp_tac try_if_hoist2_ind
-  \\ rpt gen_tac
-  \\ rpt disch_tac
-  \\ REWRITE_TAC [Once try_if_hoist2_def]
-  \\ rpt disch_tac
-  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
-        CaseEq "option", CaseEq "prod"]
-  \\ gvs []
-  \\ gs [word_simpProofTheory.dest_If_thm]
-  \\ simp [const_fp_def]
-  \\ irule word_good_handlers_const_fp_loop
-  \\ simp []
-QED
-
-Triviality word_good_handlers_simp_duplicate_if:
-  !p. word_good_handlers n p ==> word_good_handlers n (simp_duplicate_if p)
-Proof
-  ho_match_mp_tac simp_duplicate_if_ind
-  \\ rw []
-  \\ simp [Once simp_duplicate_if_def]
-  \\ Cases_on `p` \\ fs []
-  \\ simp []
-  \\ every_case_tac
-  \\ fs []
-  \\ fs [try_if_hoist1_def, CaseEq "option", CaseEq "prod", EXISTS_PROD]
-  \\ drule word_good_handlers_try_if_hoist2
-  \\ fs [word_good_handlers_Seq_assoc]
-QED
-
-Triviality word_get_code_labels_try_if_hoist2:
-  ! N p1 interm dummy p2 s.
-  try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
-  word_get_code_labels p3 SUBSET
-  (word_get_code_labels p1 UNION word_get_code_labels interm UNION word_get_code_labels p2)
-Proof
-  ho_match_mp_tac try_if_hoist2_ind
-  \\ rpt gen_tac
-  \\ rpt disch_tac
-  \\ REWRITE_TAC [Once try_if_hoist2_def]
-  \\ rpt disch_tac
-  \\ fs [CaseEq "bool", CaseEq "wordLang$prog",
-        CaseEq "option", CaseEq "prod"]
-  \\ gvs []
-  \\ gs [word_simpProofTheory.dest_If_thm]
-  >- (
-    drule_then irule SUBSET_TRANS
-    \\ simp [SUBSET_DEF]
-  )
-  >- (
-    irule_at (Pat `word_get_code_labels (const_fp _) SUBSET _`) SUBSET_TRANS
-    \\ simp [const_fp_def]
-    \\ irule_at Any word_get_code_labels_const_fp_loop
-    \\ simp [SUBSET_DEF, DISJ_IMP_THM]
-  )
-  >- (
-    irule_at (Pat `word_get_code_labels (const_fp _) SUBSET _`) SUBSET_TRANS
-    \\ simp [const_fp_def]
-    \\ irule_at Any word_get_code_labels_const_fp_loop
-    \\ simp [SUBSET_DEF, DISJ_IMP_THM]
-  )
-QED
-
-Triviality word_get_code_labels_simp_duplicate_if:
-  !p. word_get_code_labels (simp_duplicate_if p) SUBSET word_get_code_labels p
-Proof
-  ho_match_mp_tac simp_duplicate_if_ind
-  \\ rw []
-  \\ simp [Once simp_duplicate_if_def]
-  \\ Cases_on `p` \\ fs []
-  \\ simp []
-  \\ every_case_tac
-  \\ fs []
-  \\ fs [SUBSET_DEF]
-  \\ fs [try_if_hoist1_def, CaseEq "option", CaseEq "prod", EXISTS_PROD]
-  \\ drule word_get_code_labels_try_if_hoist2
-  \\ fs [word_get_code_labels_Seq_assoc, SUBSET_DEF]
-  \\ metis_tac []
-QED
-
-Triviality word_get_code_labels_word_simp:
-  ∀ps.
-  word_get_code_labels (word_simp$compile_exp ps) ⊆
-  word_get_code_labels ps
-Proof
-  rw [compile_exp_def]>>
-  irule SUBSET_TRANS >> irule_at Any word_get_code_labels_simp_duplicate_if >>
-  simp [const_fp_def] >>
-  irule SUBSET_TRANS >> irule_at Any word_get_code_labels_const_fp_loop >>
-  simp [word_get_code_labels_Seq_assoc]
-QED
-
-Triviality word_good_handlers_word_simp:
-  ∀ps.
-  word_good_handlers n ps ⇒
-  word_good_handlers n (word_simp$compile_exp ps)
-Proof
-  rw[compile_exp_def]>>
-  irule word_good_handlers_simp_duplicate_if >>
-  simp [const_fp_def] >>
-  match_mp_tac word_good_handlers_const_fp_loop>>
-  fs[word_good_handlers_Seq_assoc]
-QED
-
-Theorem word_good_handlers_word_to_word_incr_helper:
-  ∀oracles.
-  LENGTH progs = LENGTH oracles ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp)
-  (MAP (full_compile_single tra reg_count1
-        ralg asm_c) (ZIP (progs,oracles)))
-Proof
-  rw[]>>
-  rfs[EVERY_MAP,LENGTH_GENLIST,EVERY_MEM,MEM_ZIP,PULL_EXISTS]>>
-  rw[full_compile_single_def]>>
-  Cases_on`EL n progs`>>Cases_on`r`>>
-  fs[compile_single_def]>>
-  fs[word_good_handlers_remove_must_terminate,word_good_handlers_word_alloc]>>
-  simp[COND_RAND]>>
-  fs[word_good_handlers_three_to_two_reg]>>
-  match_mp_tac word_good_handlers_remove_dead>>
-  match_mp_tac word_cseProofTheory.word_good_handlers_word_common_subexp_elim >>
-  simp[word_good_handlers_full_ssa_cc_trans,word_good_handlers_inst_select]>>
-  match_mp_tac word_good_handlers_word_simp>>
-  fs[FORALL_PROD]>>
-  metis_tac[EL_MEM]
-QED
-
-Theorem word_get_code_labels_word_to_word_incr_helper:
-  ∀oracles.
-  LENGTH progs = LENGTH oracles ⇒
-  word_good_code_labels progs elabs ⇒
-  word_good_code_labels
-  (MAP (full_compile_single tra reg_count1
-        ralg asm_c) (ZIP (progs,oracles))) elabs
-Proof
-  fs[wordPropsTheory.good_code_labels_def]>>
-  rw[]
-  >-
-    metis_tac[word_good_handlers_word_to_word_incr_helper]
-  >>
-    fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP,MEM_ZIP]>>
-    rw[full_compile_single_def]>>
-    Cases_on`EL n progs`>>Cases_on`r`>>
-    fs[compile_single_def]>>
-    fs[word_get_code_labels_remove_must_terminate,word_get_code_labels_word_alloc]>>
-    fs[COND_RAND]>>
-    fs[word_get_code_labels_three_to_two_reg]>>
-    old_drule (word_get_code_labels_remove_dead|>SIMP_RULE std_ss [SUBSET_DEF])>>
-    simp[word_get_code_labels_full_ssa_cc_trans,word_get_code_labels_inst_select,
-         word_cseProofTheory.word_get_code_labels_word_common_subexp_elim]>>
-    strip_tac>>
-    old_drule (word_get_code_labels_word_simp|>SIMP_RULE std_ss [SUBSET_DEF])>>
-    rw[]>>fs[FORALL_PROD,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]>>
-    first_x_assum old_drule>>
-    disch_then(qspecl_then [`q`,`q'`] mp_tac)>>
-    impl_tac >-
-        metis_tac[EL_MEM]>>
-    rw[]>>simp[]>>
-    DISJ1_TAC>>
-    fs[MEM_EL]>>
-    qexists_tac`n'`>>simp[]>>
-    Cases_on`EL n' progs`>>Cases_on`r`>>fs[compile_single_def]
-QED;
-
-(* The actual incremental theorem to use in the backend *)
-Theorem word_get_code_labels_word_to_word_incr:
-  word_good_code_labels progs elabs ⇒
-  word_good_code_labels
-    (MAP (\p. full_compile_single tra reg_count1 ralg asm_c (p, NONE)) progs) elabs
-Proof
-  strip_tac>>
-  qspec_then `MAP (\p. NONE) progs` assume_tac word_get_code_labels_word_to_word_incr_helper>>
-  fs[ZIP_MAP,MAP_MAP_o,o_DEF]
-QED;
-
-Theorem word_get_code_labels_word_to_word:
-  word_good_code_labels progs elabs ⇒
-  word_good_code_labels (SND (compile wc ac progs)) elabs
-Proof
-  fs[word_to_wordTheory.compile_def]>>
-  rpt(pairarg_tac>>fs[])>>
-  match_mp_tac word_get_code_labels_word_to_word_incr_helper>>
-  fs[next_n_oracle_def]>>
-  every_case_tac>>fs[]>>
-  rveq>>fs[]
-QED;
-
-Theorem word_good_handlers_word_to_word_incr:
-  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp)
-    (MAP (\p. full_compile_single tra reg_count1 ralg asm_c (p, NONE)) progs)
-Proof
-  strip_tac>>
-  qspec_then `MAP (\p. NONE) progs` assume_tac word_good_handlers_word_to_word_incr_helper>>
-  fs[ZIP_MAP,MAP_MAP_o,o_DEF]
-QED;
-
-Theorem word_good_handlers_word_to_word:
-  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp) (SND (compile wc ac progs))
-Proof
-  fs[word_to_wordTheory.compile_def]>>
-  rpt(pairarg_tac>>fs[])>>
-  match_mp_tac word_good_handlers_word_to_word_incr_helper >>
-  fs[next_n_oracle_def]>>
-  every_case_tac>>fs[]>>
-  rveq>>fs[]
-QED;
 
 Triviality word_get_code_labels_StoreEach:
   ∀ls off.
@@ -2465,7 +1900,7 @@ QED
 Theorem const_parts_to_words_labels:
   const_parts_to_words c bs = SOME (q,r) ⇒
   word_get_code_labels (StoreAnyConsts (adjust_var w) 1 3 r q) ⊆
-  closLang$assign_get_code_label (Build bs)
+  closLang$assign_get_code_label (BlockOp (Build bs))
 Proof
   rw [] \\ drule word_get_code_labels_StoreAnyConsts \\ fs []
 QED
@@ -2587,8 +2022,8 @@ Proof
   `prog' = SND LHS` by (unabbrev_all_tac>>fs[])>>
   pop_assum SUBST_ALL_TAC>>
   fs[Abbr`LHS`]>>
-  match_mp_tac word_get_code_labels_word_to_word>>
-  fs[wordPropsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
+  match_mp_tac word_good_code_labels_word_to_word>>
+  fs[wordConvsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
   >-
     (EVAL_TAC>>rw[])
   >-
@@ -2632,7 +2067,7 @@ Theorem data_to_word_good_code_labels_incr:
   data_good_code_labels progs elabs ⇒
   word_good_code_labels (MAP (compile_part dc) progs) elabs
 Proof
-  fs[wordPropsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
+  fs[wordConvsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
   >-
     (simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
     fs[EVERY_MEM,FORALL_PROD])
@@ -2661,7 +2096,7 @@ Proof
   pop_assum SUBST_ALL_TAC>>
   fs[Abbr`LHS`]>>
   match_mp_tac word_good_handlers_word_to_word>>
-  fs[wordPropsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
+  fs[wordConvsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
   >-
     (EVAL_TAC>>rw[])
   >-
@@ -2785,7 +2220,7 @@ Theorem compile_no_share_inst:
 Proof
   rw[data_to_wordTheory.compile_def] >>
   gvs[ELIM_UNCURRY,word_to_wordTheory.compile_def,
-    EVERY_MAP,full_compile_single_def,
+    EVERY_MAP,word_to_wordTheory.full_compile_single_def,
     remove_must_terminate_no_share_inst] >>
   irule MONO_EVERY >>
   simp[] >>
@@ -2793,7 +2228,7 @@ Proof
   conj_tac
   >- (
     simp [FORALL_PROD, no_share_inst_subprogs_def]
-    \\ simp [compile_single_not_created |> GEN_ALL |> SIMP_RULE std_ss [PAIR_FST_SND_EQ]]
+    \\ simp [compile_single_not_created_subprogs |> GEN_ALL |> SIMP_RULE std_ss [PAIR_FST_SND_EQ]]
   )
   >>
   REWRITE_TAC [combinTheory.o_ASSOC] >>
@@ -2805,7 +2240,5 @@ Proof
   rw [EVERY_MEM, FORALL_PROD, compile_part_def] >>
   simp [comp_no_share_inst |> SIMP_RULE std_ss [PAIR_FST_SND_EQ]]
 QED
-
-end
 
 val _ = export_theory();

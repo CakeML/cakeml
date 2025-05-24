@@ -46,7 +46,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars ml_monadStoreTheory.ml_monadStore_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname="ml_monadStore"}
   end
   open Parse
   (* Information about the subscript exceptions *)

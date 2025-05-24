@@ -13,6 +13,7 @@ val _ = translation_extends "to_target64Prog";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_pancake64Prog");
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
 
 val RW = REWRITE_RULE
 
@@ -220,13 +221,6 @@ val _ = translate $ spec64 compile_prog_def;
 open loop_callTheory;
 
 val _ = translate $ spec64 comp_def;
-
-val loop_call_comp_side = Q.prove(
-  ‘∀spt prog. (loop_call_comp_side spt prog) ⇔ T’,
-  ho_match_mp_tac comp_ind
-  \\ rw[]
-  \\ simp[Once (fetch "-" "loop_call_comp_side_def")]
-  \\ TRY (metis_tac [])) |> update_precondition;
 
 open loop_liveTheory;
 
@@ -513,6 +507,11 @@ Definition conv_Exp_alt_def:
             [] => NONE
           | [t] => OPTION_MAP LoadByte (conv_Exp_alt t)
           | t::v6::v7 => NONE
+        else if isNT nodeNT ELoad32NT then
+          case args of
+            [] => NONE
+          | [t] => OPTION_MAP Load32 (conv_Exp_alt t)
+          | t::v6::v7 => NONE
         else if isNT nodeNT ELoadNT then
           case args of
             [] => NONE
@@ -658,18 +657,13 @@ Proof
       >- (fs[]>>ntac 2 (CASE_TAC>>fs[]) >> metis_tac[])>>
       IF_CASES_TAC
       >- (fs[]>>ntac 6 (CASE_TAC>>fs[]))>>
-      IF_CASES_TAC>>fs[]
-      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
-      IF_CASES_TAC>>fs[]
-      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])
-      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
-      IF_CASES_TAC>>fs[]
-      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
-      IF_CASES_TAC>>fs[]
-      >- (rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])>>
-      IF_CASES_TAC>>fs[]
-      >- (rpt (CASE_TAC>>fs[]))>>
-      IF_CASES_TAC>>fs[]>>rpt (CASE_TAC>>fs[]))>>
+      IF_CASES_TAC
+      >- (fs[]>>ntac 6 (CASE_TAC>>fs[]))>>
+      IF_CASES_TAC
+      >- (fs[]>>rpt (CASE_TAC>>fs[]))>>
+      IF_CASES_TAC
+      >- (fs[]>>rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES])
+      >- (fs[]>>rpt (CASE_TAC>>fs[])>>metis_tac[option_CASES]))>>
   (Cases_on ‘trees’>>fs[]
    >- simp[Once conv_Exp_alt_def, Once conv_Exp_def]>>
    rename1 ‘h::t’>>Cases_on ‘t’>>fs[]>>

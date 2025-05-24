@@ -28,13 +28,6 @@ val _ = ml_prog_update open_local_block;
 val result = translate toList_aux_def;
 val _ = ml_prog_update open_local_in_block;
 
-val toList_aux_side_def = theorem"tolist_aux_side_def"
-
-val toList_aux_side_thm = Q.prove(`∀vec n. tolist_aux_side vec n`,
-  ho_match_mp_tac toList_aux_ind
-  \\ metis_tac[GREATER_EQ,NOT_LESS_EQUAL,toList_aux_side_def])
-  |> update_precondition
-
 val _ = next_ml_names := ["toList"];
 val result = translate toList_def;
 

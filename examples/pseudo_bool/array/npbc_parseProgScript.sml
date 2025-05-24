@@ -7,6 +7,8 @@ val _ = new_theory "npbc_parseProg"
 
 val _ = translation_extends"npbc_arrayProg";
 
+val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
+
 val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 val r = translate strip_numbers_def;
@@ -45,12 +47,6 @@ val goodstring_side = Q.prove(
 
 val r = translate parse_lit_def;
 
-val parse_lit_side_def = definition"parse_lit_side_def";
-val parse_lit_side = Q.prove(
-  `∀x. parse_lit_side x <=> T`,
-  rw[parse_lit_side_def])
-  |> update_precondition;
-
 val r = translate apply_lit_def;
 val r = translate parse_lit_num_def;
 val r = translate parse_cutting_def;
@@ -72,51 +68,6 @@ val r = translate compact_lhs_def;
 val r = translate term_le_def;
 val r = translate mk_coeff_def;
 val r = translate normalise_lhs_def;
-
-val r = translate mergesortTheory.sort2_def;
-val r = translate mergesortTheory.sort3_def;
-val r = translate mergesortTheory.merge_def;
-val r = translate DROP_def;
-val r = translate (mergesortTheory.mergesortN_def |> SIMP_RULE std_ss [DIV2_def]);
-
-Triviality mergesortn_ind:
-  mergesortn_ind (:'a)
-Proof
-  once_rewrite_tac [fetch "-" "mergesortn_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD, DIV2_def]
-QED
-
-val _ = mergesortn_ind |> update_precondition;
-
-val r = translate mergesortTheory.mergesort_def;
-
-val r = translate mergesortTheory.sort2_tail_def;
-val r = translate mergesortTheory.sort3_tail_def;
-val r = translate mergesortTheory.merge_tail_def;
-val r = translate (mergesortTheory.mergesortN_tail_def |> SIMP_RULE std_ss [DIV2_def]);
-
-Triviality mergesortn_tail_ind:
-  mergesortn_tail_ind (:'a)
-Proof
-  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD, DIV2_def]
-QED
-
-val _ = mergesortn_tail_ind |> update_precondition;
-
-val r = translate mergesortTheory.mergesort_tail_def;
 
 val r = translate pbc_to_npbc_def;
 val pbc_to_npbc_side = Q.prove(
@@ -162,38 +113,64 @@ val r = translate blanks_def;
 open mlintTheory;
 
 (* TODO: Mostly copied from mlintTheory *)
-val result = translate fromChar_unsafe_def;
+val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 Definition fromChars_range_unsafe_tail_def:
-  fromChars_range_unsafe_tail l n       str mul acc =
-  if n ≤ l then acc
+  fromChars_range_unsafe_tail b n str mul acc =
+  if n ≤ b then acc
   else
-    let n1 = n - 1 in
-    fromChars_range_unsafe_tail l n1 str (mul * 10)  (acc + fromChar_unsafe (strsub str n1) * mul)
+    let m = n - 1 in
+    fromChars_range_unsafe_tail b m str (mul * 10)
+      (acc + fromChar_unsafe (strsub str m) * mul)
+Termination
+  WF_REL_TAC`measure (λ(b,n,_). n)`>>
+  rw[]
 End
 
 Theorem fromChars_range_unsafe_tail_eq:
   ∀n l s mul acc.
-  fromChars_range_unsafe_tail l (n+l) s mul acc = (fromChars_range_unsafe l n s) * mul + acc
+  fromChars_range_unsafe_tail l (n+l) s mul acc =
+  (fromChars_range_unsafe l n s) * mul + acc
 Proof
-  Induct>>rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
-  gvs[ADD1]
+  Induct
+  >-
+    rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
+  rw[]>>
+  simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def]>>
+  fs[ADD1]
 QED
 
 Theorem fromChars_range_unsafe_alt:
-  fromChars_range_unsafe l n s = fromChars_range_unsafe_tail l (n + l) s 1 0
+  fromChars_range_unsafe l n s =
+  fromChars_range_unsafe_tail l (n+l) s 1 0
 Proof
   rw[fromChars_range_unsafe_tail_eq]
 QED
 
 val result = translate fromChars_range_unsafe_tail_def;
 
+val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
+
+Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
+  ∀a1 a0 a2 a3 a4.
+  fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
+   ¬(a1 ≤ a0) ⇒
+   (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
+   fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
+     (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
+Proof
+  Induct>>
+  rw[Once fromchars_range_unsafe_tail_side_def]>>
+  simp[]>>eq_tac>>rw[ADD1]>>
+  gvs[]
+QED
+
 val result = translate fromChars_range_unsafe_alt;
 
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
-Triviality fromchars_unsafe_ind:
+Triviality fromChars_unsafe_ind:
   fromchars_unsafe_ind
 Proof
   rewrite_tac [fetch "-" "fromchars_unsafe_ind_def"]
@@ -204,16 +181,15 @@ Proof
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
   \\ fs [FORALL_PROD]
-  \\ fs[padLen_DEC_eq,ADD1]
+  \\ fs [padLen_DEC_eq,ADD1]
 QED
 
-val _ = fromchars_unsafe_ind |> update_precondition;
+val _ = fromChars_unsafe_ind |> update_precondition;
 
 val result = translate pb_parseTheory.fromString_unsafe_def;
 
 val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
 val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
-val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
 val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
 
 Theorem fromchars_unsafe_side_thm:
@@ -235,11 +211,6 @@ val fromString_unsafe_side = Q.prove(
 val _ = translate is_numeric_def;
 val _ = translate is_num_prefix_def;
 val _ = translate int_start_def;
-
-val int_start_side = Q.prove(
-  `∀x. int_start_side x = T`,
-  EVAL_TAC >> fs[]
-  ) |> update_precondition;
 
 val _ = translate tokenize_fast_def;
 
@@ -267,7 +238,7 @@ val parse_lsteps_aux = process_topdecs`
           case check_end s of
             None => raise Fail (format_failure lno' "subproof not terminated with contradiction id")
           | Some id =>
-            parse_lsteps_aux f_ns'' fd (lno'+1) (Con c pf id::acc))`
+            parse_lsteps_aux f_ns'' fd (lno') (Con c pf id::acc))`
     |> append_prog;
 
 val blanks_v_thm = theorem "blanks_v_thm";
@@ -542,13 +513,13 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED
 
-val r = translate parse_hash_num_def;
+val r = translate (parse_hash_num_def |> ONCE_REWRITE_RULE [GSYM sub_check_def]);
 
 val parse_hash_num_side_def = fetch "-" "parse_hash_num_side_def";
 val parse_hash_num_side = Q.prove(
   `∀x . parse_hash_num_side x <=> T`,
-  Induct>>rw[Once parse_hash_num_side_def]>>
-  intLib.ARITH_TAC) |> update_precondition;
+  Induct>>rw[Once parse_hash_num_side_def,sub_check_def]
+  ) |> update_precondition;
 
 val r = translate parse_subgoal_num_def;
 
@@ -2072,19 +2043,7 @@ val parse_delc_header_side = Q.prove(
 
 val r = translate strip_terminator_def;
 
-val strip_terminator_side_def = definition"strip_terminator_side_def";
-val strip_terminator_side = Q.prove(
-  `∀x. strip_terminator_side x <=> T`,
-  rw[strip_terminator_side_def])
-  |> update_precondition;
-
 val r = translate strip_term_def;
-
-val strip_term_side_def = definition"strip_term_side_def";
-val strip_term_side = Q.prove(
-  `∀x. strip_term_side x <=> T`,
-  rw[strip_term_side_def])
-  |> update_precondition;
 
 val res = translate insert_lit_def;
 val res = translate parse_assg_def;
@@ -2483,13 +2442,13 @@ QED
 
 Theorem check_unsat''_spec:
   ∀fns ss fmlls zeros inds vimap vomap pc
-    fnsv lno lnov fmllsv zerosv indsv pcv lines fs fmlv vimapv vomapv.
+    fnsv lno lnov fmllsv zerosv indsv pcv lines fs fmlv vimaplsv vimapv vomapv.
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   NPBC_CHECK_PROOF_CONF_TYPE pc pcv ∧
-  vimap_TYPE vimap vimapv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
   vomap_TYPE vomap vomapv ∧
   EVERY (λw. w = 0w) zeros ∧
   MAP toks_fast lines = ss
@@ -2498,7 +2457,8 @@ Theorem check_unsat''_spec:
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
     [fnsv; fdv; lnov; fmlv; zerosv; indsv; vimapv; vomapv; pcv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs *
-      ARRAY fmlv fmllsv * W8ARRAY zerosv zeros)
+      ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
+      ARRAY vimapv vimaplsv)
     (POSTve
       (λv.
          SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
@@ -2538,7 +2498,7 @@ Proof
       xapp>>xsimpl>>
       asm_exists_tac>>simp[]>>
       asm_exists_tac>>simp[]>>
-      qexists_tac`ARRAY fmlv fmllsv * W8ARRAY zerosv zeros`>>
+      qexists_tac`ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv`>>
       qexists_tac`lines`>>simp[]>>
       qexists_tac`fs`>>qexists_tac`fd`>>xsimpl>>
       rw[]>>
@@ -2553,7 +2513,7 @@ Proof
     SEP_EXISTS k lines' lno'.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
-         ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
+         ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv *
          &(
             case parse_cstep fns (MAP toks_fast lines) of
               NONE => F
@@ -2568,7 +2528,7 @@ Proof
     xapp>>xsimpl>>
     asm_exists_tac>>simp[]>>
     asm_exists_tac>>simp[]>>
-    qexists_tac`ARRAY fmlv fmllsv * W8ARRAY zerosv zeros`>>
+    qexists_tac`ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv`>>
     qexists_tac`lines`>>simp[]>>
     qexists_tac`fs`>>qexists_tac`fd`>>xsimpl>>
     PairCases_on`x`>>fs[]>>rw[]>>
@@ -2594,11 +2554,12 @@ Proof
   (* INR *)
   xmatch>>
   xlet`
-  POSTve
+    POSTve
     (λv'.
-         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+           vimapv' vimaplsv'.
            W8ARRAY zerosv' zeros' * ARRAY fmlv' fmllsv' *
-           STDIO (forwardFD fs fd k) *
+           ARRAY vimapv' vimaplsv' * STDIO (forwardFD fs fd k) *
            INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &case check_cstep_list y fmlls zeros inds vimap vomap pc of
              NONE => F
@@ -2610,11 +2571,14 @@ Proof
                (PAIR_TYPE
                   (λl v. l = zeros' ∧ v = zerosv' ∧ EVERY (λw. w = 0w) zeros')
                   (PAIR_TYPE (LIST_TYPE NUM)
-                     (PAIR_TYPE vimap_TYPE
+                     (PAIR_TYPE
+                       (λl v.
+                         LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+                         v = vimapv')
                         (PAIR_TYPE vomap_TYPE NPBC_CHECK_PROOF_CONF_TYPE))))
                res v')
     (λe.
-         SEP_EXISTS fmlv' fmllsv' zerosv' zeros'.
+         SEP_EXISTS fmlv' fmllsv'.
            ARRAY fmlv' fmllsv' *
            STDIO (forwardFD fs fd k) *
            INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
@@ -2623,7 +2587,8 @@ Proof
   >- (
     xapp>>
     xsimpl>>reverse (rw[])>>
-    rpt(first_x_assum (irule_at Any))>>xsimpl>>
+    rpt(first_x_assum (irule_at Any))>>
+    xsimpl>>
     CONJ_TAC >-
       metis_tac[ARRAY_W8ARRAY_refl]>>
     rw[]>>
@@ -2732,31 +2697,16 @@ Definition fold_update_vimap_enum_def:
   (fold_update_vimap_enum (k:num) [] acc = acc) ∧
   (fold_update_vimap_enum k (x::xs) acc =
     fold_update_vimap_enum (k+1)
-      xs (update_vimap_aux acc k (FST x)))
-End
-
-Definition fold_update_vimap_enum_full_def:
-  fold_update_vimap_enum_full k fml =
-  fold_update_vimap_enum k fml LN
+      xs (update_vimap acc k (FST x)))
 End
 
 Theorem fold_update_vimap_enum_FOLDL:
   ∀xs k acc.
   fold_update_vimap_enum k xs acc =
-  (FOLDL (λacc (i,v). update_vimap_aux acc i (FST v)) acc (enumerate k xs))
+  (FOLDL (λacc (i,v). update_vimap acc i (FST v)) acc (enumerate k xs))
 Proof
   Induct>>rw[fold_update_vimap_enum_def,miscTheory.enumerate_def]
 QED
-
-Theorem fold_update_vimap_enum_full_FOLDL:
-  fold_update_vimap_enum_full k xs =
-  (FOLDL (λacc (i,v). update_vimap_aux acc i (FST v)) LN (enumerate k xs))
-Proof
-  rw[fold_update_vimap_enum_full_def,fold_update_vimap_enum_FOLDL]
-QED
-
-val res = translate fold_update_vimap_enum_def;
-val res = translate fold_update_vimap_enum_full_def;
 
 val res = translate parse_unsat_def;
 
@@ -3058,19 +3008,42 @@ Proof
   xapp>>xsimpl
 QED
 
-Definition mk_vimap_fml_def:
-  mk_vimap_fml b fml =
-  if b then SOME (fold_update_vimap_enum_full 1 fml)
-  else NONE
-End
+val fold_update_vimap_enum_arr = process_topdecs `
+  fun fold_update_vimap_enum_arr k ls acc =
+  case ls of [] => acc
+  | (x::xs) =>
+    fold_update_vimap_enum_arr (k+1)
+      xs (update_vimap_arr acc k (fst x))` |> append_prog;
 
-Theorem mk_vimap_fml_eq:
-  mk_vimap_fml b fml = mk_vimap_opt b (enumerate 1 fml)
+Theorem fold_update_vimap_enum_arr_spec:
+  ∀ls lsv vimap vimapv vimaplsv k kv.
+  NUM k kv ∧
+  LIST_TYPE constraint_TYPE ls lsv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "fold_update_vimap_enum_arr" (get_ml_prog_state()))
+    [kv; lsv; vimapv]
+    (ARRAY vimapv vimaplsv)
+    (POSTv v.
+       SEP_EXISTS vimaplsv'.
+        ARRAY v vimaplsv' *
+        &(LIST_REL (OPTION_TYPE vimapn_TYPE)
+          (mk_vimap vimap (enumerate k ls)) vimaplsv'))
 Proof
-  rw[mk_vimap_fml_def,npbc_listTheory.mk_vimap_opt_def,fold_update_vimap_enum_full_FOLDL]
+  simp[npbc_listTheory.mk_vimap_def]>>
+  Induct>>rw[]>>
+  xcf "fold_update_vimap_enum_arr" (get_ml_prog_state ())>>
+  gvs[LIST_TYPE_def]>>
+  xmatch
+  >- (
+    xvar>>xsimpl>>
+    simp[miscTheory.enumerate_def])>>
+  simp[miscTheory.enumerate_def]>>
+  rpt xlet_autop>>
+  xapp>>
+  xsimpl
 QED
-
-val res = translate mk_vimap_fml_def;
 
 (* NOTE: 100000 just a random number *)
 val check_unsat' = process_topdecs `
@@ -3081,7 +3054,8 @@ val check_unsat' = process_topdecs `
     val arr = fill_arr arr 1 fml
     val zeros = Word8Array.array 100000 w8z
     val inds = rev_enum_full 1 fml
-    val vimap = mk_vimap_fml b fml
+    val vimap = Array.array 100000 None
+    val vimap = fold_update_vimap_enum_arr 1 fml vimap
     val vomap = mk_vomap_opt_arr obj
     val pc = init_conf id True pres obj
   in
@@ -3192,13 +3166,26 @@ Proof
     asm_exists_tac>>xsimpl)>>
   assume_tac w8z_v_thm>>
   rpt xlet_autop>>
-  qmatch_asmsub_abbrev_tac`LIST_REL _ fmlls fmllsv`>>
-  qmatch_asmsub_abbrev_tac`LIST_TYPE _ inds indsv`>>
-
+  qmatch_goalsub_abbrev_tac`ARRAY cv cvs * _`>>
+  `LIST_REL (OPTION_TYPE vimapn_TYPE) (REPLICATE 100000 NONE) cvs` by
+    simp[Abbr`cvs`,LIST_REL_REPLICATE_same,OPTION_TYPE_def,PAIR_TYPE_def]>>
+  xlet`POSTv vimapv. SEP_EXISTS vimaplsv.
+    ARRAY vimapv vimaplsv * W8ARRAY v' (REPLICATE 100000 w8z) *
+    ARRAY resv arrlsv' * STDIO fs *
+    INSTREAM_LINES #"\n" fd fdv lines fs *
+     &LIST_REL (OPTION_TYPE vimapn_TYPE)
+       (mk_vimap (REPLICATE 100000 NONE) (enumerate 1 fml)) vimaplsv`
+  >- (
+    xapp>>xsimpl>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    simp[])>>
+  rpt xlet_autop>>
   `BOOL T (Conv (SOME (TypeStamp "True" 0)) [])` by EVAL_TAC>>
   xlet_autop>>
-
-  qmatch_asmsub_abbrev_tac`vimap_TYPE vimap vimapv`>>
+  qmatch_asmsub_abbrev_tac`LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv`>>
+  qmatch_asmsub_abbrev_tac`LIST_TYPE _ inds indsv`>>
+  qmatch_asmsub_abbrev_tac`LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv`>>
   qmatch_asmsub_abbrev_tac`vomap_TYPE vomap vomapv`>>
   qmatch_goalsub_abbrev_tac`W8ARRAY zerosv zeros`>>
   `EVERY (λw. w = 0w) zeros` by
@@ -3346,13 +3333,13 @@ Proof
         match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_concl)>>
         first_x_assum (irule_at Any)>>
         unabbrev_all_tac>>
-        gs[rev_enum_full_rev_enumerate, mk_vimap_fml_eq]>>
+        gs[rev_enum_full_rev_enumerate]>>
         metis_tac[])>>
       simp[get_bound_def]>>
       match_mp_tac (GEN_ALL npbc_listTheory.check_csteps_list_output)>>
       first_x_assum (irule_at Any)>>
       unabbrev_all_tac>>
-      gs[rev_enum_full_rev_enumerate, mk_vimap_fml_eq]>>
+      gs[rev_enum_full_rev_enumerate]>>
       metis_tac[])>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   xsimpl
@@ -3661,11 +3648,6 @@ End
 
 val res = translate init_state_def;
 val res = translate hash_str_def;
-
-val hash_str_side = Q.prove(
-  `∀x. hash_str_side x <=> T`,
-  EVAL_TAC>>
-  intLib.ARITH_TAC) |> update_precondition;
 
 val res = translate normalise_full_def;
 

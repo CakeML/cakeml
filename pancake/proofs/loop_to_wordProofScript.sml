@@ -7,6 +7,7 @@ open preamble
      wordLangTheory wordSemTheory wordPropsTheory
      pan_commonTheory pan_commonPropsTheory
      loop_to_wordTheory loop_removeProofTheory
+     wordConvsTheory;
 
 val _ = new_theory "loop_to_wordProof";
 
@@ -512,6 +513,7 @@ QED
 
 Theorem compile_Store:
   ^(get_goal "loopLang$Store") ∧
+  ^(get_goal "loopLang$Store32") ∧
   ^(get_goal "loopLang$StoreByte")
 Proof
   rpt strip_tac >>
@@ -533,6 +535,32 @@ Proof
   fs [find_var_def, the_words_def, word_op_def] >>
   fs [get_var_def] >>
   fs [state_rel_def]
+QED
+
+Theorem compile_Load32:
+  ^(get_goal "loopLang$Load32")
+Proof
+  rpt strip_tac >>
+  fs [loopSemTheory.evaluate_def,
+      comp_def, evaluate_def] >>
+  fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
+  fs [inst_def, word_exp_def] >>
+  drule locals_rel_intro >>
+  strip_tac >>
+  res_tac >> fs [] >>
+  fs [find_var_def, the_words_def, word_op_def] >>
+  drule state_rel_intro >>
+  strip_tac >> fs [] >>
+  fs [loopSemTheory.set_var_def, set_var_def] >>
+  conj_tac >- fs [state_rel_def] >>
+  fs [loopLangTheory.acc_vars_def] >>
+  imp_res_tac find_var_neq_0 >>
+  fs [domain_lookup, lookup_insert, CaseEq "bool"] >>
+  conj_tac
+  >- (CCONTR_TAC >> res_tac >> fs []) >>
+  drule locals_rel_insert >>
+  disch_then (qspecl_then [‘Word (w2w b)’, ‘v’] mp_tac) >>
+  fs [domain_lookup, find_var_def]
 QED
 
 Theorem compile_LoadByte:
@@ -577,7 +605,7 @@ Proof
 QED
 
 Theorem acc_vars_acc'[local] =
-        acc_vars_acc |> CONV_RULE SWAP_FORALL_CONV |> SPEC “acc_vars q LN”;
+        acc_vars_acc |> CONV_RULE SWAP_FORALL_CONV |> SPEC “acc_vars (q:'a loopLang$prog) LN”;
 
 Theorem compile_If:
   ^(get_goal "loopLang$If")
@@ -1011,6 +1039,7 @@ Proof
        compile_Mark, compile_Return, compile_Assign, compile_Store,
        compile_SetGlobal, compile_Call, compile_Seq, compile_If,
        compile_FFI, compile_Loop, compile_LoadByte, compile_Arith,
+       compile_Load32,
        compile_ShMem])
   >> asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
@@ -1380,7 +1409,6 @@ Proof
   impl_tac >- fs [loopLangTheory.acc_vars_def] >>
   fs [comp_def] >>
   strip_tac >>
-  qmatch_assum_abbrev_tac`n < LENGTH (SND (wordSem$evaluate (exps,ss))).ffi.io_events` >>
   assume_tac (INST_TYPE [``:'a``|->``:'a``,
                          ``:'b``|->``:'c``,
                          ``:'c``|->``:'b``]
@@ -1526,10 +1554,10 @@ Proof
   disch_tac
   \\ recInduct comp_ind
   \\ rw [comp_def]
-  \\ gs [wordPropsTheory.not_created_subprogs_def]
+  \\ gs [not_created_subprogs_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ gs [AllCaseEqs (), UNCURRY_eq_pair]
-  \\ gvs [wordPropsTheory.not_created_subprogs_def]
+  \\ gvs [not_created_subprogs_def]
   \\ every_case_tac \\ fs []
 QED
 
@@ -1574,7 +1602,7 @@ Theorem loop_compile_no_install_code:
   no_install_code (fromAList (compile prog))
 Proof
   gs[compile_def]>>
-  rw[wordPropsTheory.no_install_code_def, wordPropsTheory.no_install_subprogs_def]>>
+  rw[no_install_code_def, no_install_subprogs_def]>>
   gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
   drule_then irule loop_to_word_compile_not_created_MEM>>
@@ -1585,7 +1613,7 @@ Theorem loop_compile_no_alloc_code:
   no_alloc_code (fromAList (compile prog))
 Proof
   gs[compile_def]>>
-  rw[wordPropsTheory.no_alloc_code_def, wordPropsTheory.no_alloc_subprogs_def]>>
+  rw[no_alloc_code_def, no_alloc_subprogs_def]>>
   gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
   drule_then irule loop_to_word_compile_not_created_MEM>>
@@ -1596,7 +1624,7 @@ Theorem loop_compile_no_mt_code:
   no_mt_code (fromAList (compile prog))
 Proof
   gs[compile_def]>>
-  rw[wordPropsTheory.no_mt_code_def, wordPropsTheory.no_mt_subprogs_def]>>
+  rw[no_mt_code_def, no_mt_subprogs_def]>>
   gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
   drule_then irule loop_to_word_compile_not_created_MEM>>
@@ -1617,7 +1645,7 @@ Theorem good_handlers_comp:
   ∀ctxt prog l. good_handlers (FST l) (FST (comp ctxt prog l))
 Proof
   ho_match_mp_tac comp_ind >>
-  rw[wordPropsTheory.good_handlers_def,
+  rw[good_handlers_def,
      comp_def] >>
   gvs[ELIM_UNCURRY] >>
   rpt(PURE_TOP_CASE_TAC >> gvs[]) >>
@@ -1662,27 +1690,27 @@ Theorem loop_to_word_comp_extract_labels_len:
 Proof
   ho_match_mp_tac loop_to_wordTheory.comp_ind>>
   rw[loop_to_wordTheory.comp_def]>>
-  gs[wordPropsTheory.extract_labels_def]
+  gs[extract_labels_def]
   >- gvs[AllCaseEqs(),extract_labels_def]
   >- (pairarg_tac>>gs[]>>
       pairarg_tac>>gs[]>>
-      rveq>>gs[wordPropsTheory.extract_labels_def]>>
+      rveq>>gs[extract_labels_def]>>
       drule loop_to_word_comp_SND_LE>>strip_tac>>
       qpat_x_assum ‘_= (_, l')’ assume_tac>>
       drule loop_to_word_comp_SND_LE>>strip_tac>>
       gs[])
   >- (pairarg_tac>>gs[]>>
       pairarg_tac>>gs[]>>
-      rveq>>gs[wordPropsTheory.extract_labels_def]>>
+      rveq>>gs[extract_labels_def]>>
       drule loop_to_word_comp_SND_LE>>strip_tac>>
       qpat_x_assum ‘_= (_, l')’ assume_tac>>
       drule loop_to_word_comp_SND_LE>>strip_tac>>
       gs[])>>
   rpt (FULL_CASE_TAC>>gs[])>>
-  rveq>>gs[wordPropsTheory.extract_labels_def]
+  rveq>>gs[extract_labels_def]
   >~[‘LENGTH _ = 1’]>- (Cases_on ‘l’>>gs[])>>
   pairarg_tac>>gs[]>>pairarg_tac>>gs[]>>
-  rveq>>gs[wordPropsTheory.extract_labels_def]>>
+  rveq>>gs[extract_labels_def]>>
   Cases_on ‘l’>>gs[]>>
   rename1 ‘comp _ _ l1 = (_, l1')’>>
   Cases_on ‘l1'’>>gs[]>>
@@ -1698,11 +1726,11 @@ Theorem loop_to_word_comp_extract_labels:
 Proof
   ho_match_mp_tac loop_to_wordTheory.comp_ind>>
   rw[loop_to_wordTheory.comp_def]>>
-  gs[wordPropsTheory.extract_labels_def]
+  gs[extract_labels_def]
   >- gvs[AllCaseEqs(),extract_labels_def]
   >- (pairarg_tac>>gs[]>>
       pairarg_tac>>gs[]>>
-      rveq>>gs[wordPropsTheory.extract_labels_def]>>
+      rveq>>gs[extract_labels_def]>>
       ‘FST l'' = FST l’ by metis_tac[comp_l_invariant]>>gs[]>>
       drule loop_to_word_comp_SND_LE>>strip_tac>>
       qpat_x_assum ‘_= (_, l'')’ assume_tac>>
@@ -1712,7 +1740,7 @@ Proof
       last_x_assum $ qspec_then ‘n’ assume_tac>>gs[])
   >- (pairarg_tac>>gs[]>>
       pairarg_tac>>gs[]>>
-      rveq>>gs[wordPropsTheory.extract_labels_def]>>
+      rveq>>gs[extract_labels_def]>>
       ‘FST l'' = FST l’ by metis_tac[comp_l_invariant]>>gs[]>>
       drule loop_to_word_comp_SND_LE>>strip_tac>>
       qpat_x_assum ‘_= (_, l'')’ assume_tac>>
@@ -1721,7 +1749,7 @@ Proof
       >- (first_x_assum $ qspec_then ‘n’ assume_tac>>gs[])>>
       last_x_assum $ qspec_then ‘n’ assume_tac>>gs[])>>
   gs[CaseEq"option",CaseEq"prod"]>>rpt (pairarg_tac>>gs[])>>
-  gvs[wordPropsTheory.extract_labels_def]>>
+  gvs[extract_labels_def]>>
   Cases_on ‘l’>>gs[]>>
   rename1 ‘comp _ _ l1 = (_, l1')’>>
   Cases_on ‘l1'’>>gs[]>>
@@ -1745,12 +1773,12 @@ Theorem loop_to_word_comp_ALL_DISTINCT:
 Proof
   ho_match_mp_tac loop_to_wordTheory.comp_ind>>
   rw[loop_to_wordTheory.comp_def]>>
-  gs[wordPropsTheory.extract_labels_def]
+  gs[extract_labels_def]
   >- gvs[AllCaseEqs(),extract_labels_def]
   >- (pairarg_tac>>gs[]>>
       pairarg_tac>>gs[]>>
       rveq>>
-      gs[wordPropsTheory.extract_labels_def,
+      gs[extract_labels_def,
          ALL_DISTINCT_APPEND]>>rpt strip_tac>>
       drule loop_to_word_comp_extract_labels>>strip_tac>>
       drule loop_to_word_comp_SND_LE>>strip_tac>>
@@ -1763,7 +1791,7 @@ Proof
   >- (pairarg_tac>>gs[]>>
       pairarg_tac>>gs[]>>
       rveq>>
-      gs[wordPropsTheory.extract_labels_def,
+      gs[extract_labels_def,
          ALL_DISTINCT_APPEND]>>rpt strip_tac>>
       drule loop_to_word_comp_extract_labels>>strip_tac>>
       drule loop_to_word_comp_SND_LE>>strip_tac>>
@@ -1776,7 +1804,7 @@ Proof
   rename1 ‘_ = (q, r)’>>
   gs[CaseEq"option", CaseEq"prod"]>>
   rpt (pairarg_tac>>gs[])>>
-  gvs[wordPropsTheory.extract_labels_def]>>
+  gvs[extract_labels_def]>>
   Cases_on ‘l’>>gs[]>>
   rename1 ‘comp _ _ l1 = (_, l1')’>>
   Cases_on ‘l1'’>>gs[]>>
@@ -1877,10 +1905,10 @@ Theorem full_imp_inst_ok_less:
     full_inst_ok_less c prog ⇒
     every_inst (inst_ok_less c) prog
 Proof
-  recInduct wordPropsTheory.full_inst_ok_less_ind>>
-  rw[wordPropsTheory.full_inst_ok_less_def,
-     wordPropsTheory.inst_ok_less_def,
-     wordPropsTheory.every_inst_def]>>
+  recInduct full_inst_ok_less_ind>>
+  rw[full_inst_ok_less_def,
+     inst_ok_less_def,
+     every_inst_def]>>
   Cases_on ‘ret’>-gs[]>>
   rename1 ‘SOME x’>>PairCases_on ‘x’>>gs[]>>
   Cases_on ‘handler’>-gs[]>>
@@ -1899,7 +1927,8 @@ End
 
 Theorem loop_to_word_comp_every_inst_ok_less:
   ∀ctxt prog l.
-    byte_offset_ok c 0w ∧ every_prog (loop_inst_ok c) prog ∧
+    byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
+    every_prog (loop_inst_ok c) prog ∧
     domain(acc_vars prog LN) ⊆ domain ctxt ∧
     INJ (find_var ctxt) (domain ctxt) 𝕌(:num) ∧
     (∀n m. lookup n ctxt = SOME m ⇒ m ≠ 0)
@@ -1908,8 +1937,8 @@ Theorem loop_to_word_comp_every_inst_ok_less:
 Proof
   ho_match_mp_tac loop_to_wordTheory.comp_ind >>
   rw[loop_to_wordTheory.comp_def,
-     wordPropsTheory.every_inst_def,
-     wordPropsTheory.inst_ok_less_def,
+     every_inst_def,
+     inst_ok_less_def,
      every_prog_def,DefnBase.one_line_ify NONE loop_inst_ok_def,
      loopLangTheory.acc_vars_def
      ]
@@ -1925,21 +1954,21 @@ Proof
     fs[GSYM lookup_NONE_domain] >>
     fs[find_var_def,domain_lookup] >>
     metis_tac[SOME_11]) >>
-  TRY (Cases_on ‘ret’>-gs[wordPropsTheory.every_inst_def]>>
+  TRY (Cases_on ‘ret’>-gs[every_inst_def]>>
        rename1 ‘SOME x’>>PairCases_on ‘x’>>gs[]>>
-       Cases_on ‘handler’>-gs[wordPropsTheory.every_inst_def]>>
+       Cases_on ‘handler’>-gs[every_inst_def]>>
        rename1 ‘SOME x’>>PairCases_on ‘x’)>>
   gs[]>>rpt (pairarg_tac>>gs[])>>
-  gs[wordPropsTheory.every_inst_def,
-     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars x (acc_vars y z))”,
-     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars x (insert y () z))”
+  gs[every_inst_def,
+     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:'a loopLang$prog) (acc_vars (y:'a loopLang$prog) z))”,
+     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:'a loopLang$prog) (insert y () z))”
      ]
 QED
 
 Theorem loop_to_word_comp_func_every_inst_ok_less:
   comp_func n params body = p ∧
   every_prog (loop_inst_ok c) body ∧
-  byte_offset_ok c 0w ⇒
+  addr_offset_ok c 0w ∧ byte_offset_ok c 0w ⇒
   every_inst (inst_ok_less c) p
 Proof
   strip_tac>>gs[loop_to_wordTheory.comp_func_def]>>
@@ -1955,7 +1984,7 @@ QED
 
 Theorem loop_to_word_compile_prog_every_inst_ok_less:
   compile_prog lprog = wprog0 ∧
-  byte_offset_ok c 0w ∧
+  byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
   EVERY (λ(n,params,body). every_prog (loop_inst_ok c) body) lprog
   ⇒
   EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
@@ -2063,7 +2092,7 @@ QED
 
 Theorem loop_to_word_every_inst_ok_less:
   compile lprog = wprog0 ∧
-  byte_offset_ok c 0w ∧
+  byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
   EVERY (λ(n,params,body). every_prog (loop_inst_ok c) body) lprog ⇒
   EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
 Proof

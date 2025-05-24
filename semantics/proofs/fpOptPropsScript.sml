@@ -223,12 +223,6 @@ Proof
   \\ fs[ADD1]
 QED
 
-Theorem option_map_compute_thm:
-  option_map f v = case v of |NONE => NONE | SOME x => SOME (f x)
-Proof
-  Cases_on `v` \\ fs[option_map_def]
-QED
-
 Theorem rwAllWordTree_empty_rewrites[simp]:
   ! insts v1 v2.
     rwAllWordTree insts [] v1 = SOME v2 ==>
@@ -316,7 +310,7 @@ Proof
   \\ first_x_assum (qspec_then `u` assume_tac) \\ fs[]
   \\ qexists_tac `(RewriteApp (Center f) n):: insts_new`
   \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_case_eq]
-  \\ qexists_tac `Fp_uop u vNew` \\ fs[option_map_def]
+  \\ qexists_tac `Fp_uop u vNew` \\ fs[]
 QED
 
 Theorem rwAllWordTree_comp_right:
@@ -333,7 +327,7 @@ Proof
   \\ first_x_assum (qspecl_then [`v1`, `b`] assume_tac)
   \\ fs[]
   \\ qexists_tac `(RewriteApp (Right f) n):: insts_new`
-  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_map_def]
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def]
 QED
 
 Theorem rwAllWordTree_comp_left:
@@ -350,7 +344,7 @@ Proof
   \\ first_x_assum (qspecl_then [`v2`, `b`] assume_tac)
   \\ fs[]
   \\ qexists_tac `(RewriteApp (Left f) n):: insts_new`
-  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_map_def]
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def]
 QED
 
 Theorem rwAllWordTree_comp_terop_l:
@@ -365,7 +359,7 @@ Proof
   \\ res_tac
   \\ first_x_assum (qspecl_then [`v3`, `v2`, `t`] assume_tac) \\ fs[]
   \\ qexists_tac `(RewriteApp (Left f) n)::insts_new`
-  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_map_def]
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def]
 QED
 
 Theorem rwAllWordTree_comp_terop_r:
@@ -380,7 +374,7 @@ Proof
   \\ res_tac
   \\ first_x_assum (qspecl_then [`v2`, `v1`, `t`] assume_tac) \\ fs[]
   \\ qexists_tac `(RewriteApp (Right f) n)::insts_new`
-  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_map_def]
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def]
 QED
 
 Theorem rwAllWordTree_comp_terop_c:
@@ -395,40 +389,40 @@ Proof
   \\ res_tac
   \\ first_x_assum (qspecl_then [`v2`, `v1`, `t`] assume_tac) \\ fs[]
   \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
-  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_map_def]
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def]
 QED
 
 Theorem rwAllWordTree_comp_scope_T:
-  ! sc v vres insts rws t.
+  ! fpopt v vres insts rws t.
     rwAllWordTree insts rws v = SOME vres ==>
     ? insts_new.
-      rwAllWordTree insts_new rws (Fp_wopt sc v) = SOME (Fp_wopt sc vres)
+      rwAllWordTree insts_new rws (Fp_wopt fpopt v) = SOME (Fp_wopt fpopt vres)
 Proof
   Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllWordTree_def]
   \\ Cases_on `h `\\ fs[rwAllWordTree_def, option_case_eq]
   \\ res_tac
-  \\ first_x_assum (qspecl_then [`sc`, `vNew`, `vres`, `rws`] assume_tac) \\ fs[]
+  \\ first_x_assum (qspecl_then [`fpopt`, `vNew`, `vres`, `rws`] assume_tac) \\ fs[]
   \\ res_tac
   \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
-  \\ Cases_on `sc`
-  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_map_def]
+  \\ Cases_on `fpopt`
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def]
 QED
 
 Theorem rwAllWordTree_comp_scope:
-  ! sc v vres insts rws t.
+  ! fpopt v vres insts rws t.
     rwAllWordTree insts rws v = SOME vres ==>
     ? insts_new.
-      rwAllWordTree insts_new rws (Fp_wopt sc v) = SOME (Fp_wopt sc vres)
+      rwAllWordTree insts_new rws (Fp_wopt fpopt v) = SOME (Fp_wopt fpopt vres)
 Proof
   Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllWordTree_def]
   \\ Cases_on `h `\\ fs[rwAllWordTree_def, option_case_eq]
   \\ res_tac
   \\ first_x_assum
-      (qspecl_then [`sc`, `vNew`, `vres`, `rws`] assume_tac) \\ fs[]
+      (qspecl_then [`fpopt`, `vNew`, `vres`, `rws`] assume_tac) \\ fs[]
   \\ res_tac
   \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
-  \\ Cases_on `sc`
-  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def, option_map_def]
+  \\ Cases_on `fpopt`
+  \\ fs[rwAllWordTree_def, rwFp_pathWordTree_def]
 QED
 
  (*
@@ -466,6 +460,9 @@ Proof
 QED
 
 (*
+NOTE that option_map has been deleted and replaced by OPTION_MAP
+so option_map_compute_thm and  option_map no longer exist
+
 Theorem rwFp_pathBoolTree_cond_T:
   ! p rw v v_opt.
     rwFp_pathBoolTree rw p v = SOME v_opt ==>
@@ -480,37 +477,37 @@ Proof
 QED
 
 Theorem rwAllBoolTree_comp_scope_T:
-  ! sc v vres insts rws t.
+  ! fpopt v vres insts rws t.
     rwAllBoolTree insts rws v = SOME vres ==>
     ? insts_new.
-      rwAllBoolTree insts_new rws (Fp_bopt sc v) = SOME (Fp_bopt sc vres)
+      rwAllBoolTree insts_new rws (Fp_bopt fpopt v) = SOME (Fp_bopt fpopt vres)
 Proof
   Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllBoolTree_def]
   \\ Cases_on `h `\\ fs[rwAllBoolTree_def, option_case_eq]
   \\ res_tac
-  \\ first_x_assum (qspecl_then [`sc`, `vNew`, `vres`, `rws`] assume_tac) \\ fs[]
+  \\ first_x_assum (qspecl_then [`fpopt`, `vNew`, `vres`, `rws`] assume_tac) \\ fs[]
   \\ res_tac
   \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
-  \\ Cases_on `sc`
+  \\ Cases_on `fpopt`
   \\ fs[rwAllBoolTree_def, rwFp_pathBoolTree_def, option_map_def]
 QED
 *)
 
 Theorem rwAllBoolTree_comp_scope:
-  ! sc v vres insts rws t.
+  ! fpopt v vres insts rws t.
     rwAllBoolTree insts rws v = SOME vres ==>
     ? insts_new.
-      rwAllBoolTree insts_new rws (Fp_bopt sc v) = SOME (Fp_bopt sc vres)
+      rwAllBoolTree insts_new rws (Fp_bopt fpopt v) = SOME (Fp_bopt fpopt vres)
 Proof
   Induct_on `insts` \\ rpt strip_tac \\ fs[rwAllBoolTree_def]
   \\ Cases_on `h `\\ fs[rwAllBoolTree_def, option_case_eq]
   \\ res_tac
   \\ first_x_assum
-      (qspecl_then [`sc`, `vNew`, `vres`, `rws`] assume_tac) \\ fs[]
+      (qspecl_then [`fpopt`, `vNew`, `vres`, `rws`] assume_tac) \\ fs[]
   \\ res_tac
   \\ qexists_tac `(RewriteApp (Center f) n)::insts_new`
-  \\ Cases_on `sc`
-  \\ fs[rwAllBoolTree_def, rwFp_pathBoolTree_def, option_map_def]
+  \\ Cases_on `fpopt`
+  \\ fs[rwAllBoolTree_def, rwFp_pathBoolTree_def]
 QED
 
 (*

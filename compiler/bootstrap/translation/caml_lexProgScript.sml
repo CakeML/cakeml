@@ -160,19 +160,10 @@ val _ = update_precondition scan_escseq_side;
 val r = translate scan_float1_def;
 val r = translate scan_float2_def
 val r = translate scan_float3_def
-val r = translate scan_number_def;
+val r = translate (scan_number_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate scan_float_or_int_def;
 
-val r = translate caml_lexTheory.next_sym_def;
-
-Theorem next_sym_side[local]:
-  ∀x y. next_sym_side x y
-Proof
-  ho_match_mp_tac next_sym_ind \\ rw []
-  \\ simp [Once (fetch "-" "next_sym_side_def")]
-QED
-
-val _ = update_precondition next_sym_side;
+val r = translate (caml_lexTheory.next_sym_def |> REWRITE_RULE [GSYM sub_check_def]);
 
 val r = translate caml_lexTheory.lexer_fun_def;
 

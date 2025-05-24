@@ -36,11 +36,6 @@ Definition wReg2_def:
       if r < k then ([],r) else ([(k+1,f-1 - (r - k))],k+1:num)
 End
 
-Definition wRegImm2_def:
-  (wRegImm2 (Reg r) kf = let (x,n) = wReg2 r kf in (x,Reg n)) /\
-  (wRegImm2 (Imm i) kf = ([],Imm i))
-End
-
 Definition wRegWrite1_def:
   wRegWrite1 g r (k,f,f':num) =
     let r = r DIV 2 in
@@ -151,6 +146,15 @@ Definition wInst_def:
     let (l2,n1) = wReg2 n1 kf in
       wStackLoad (l1 ++ l2)
         (Inst (Mem Store8 n1 (Addr n2 offset)))) /\
+  (wInst (Mem Load32 n1 (Addr n2 offset)) kf =
+    let (l,n2) = wReg1 n2 kf in
+    wStackLoad l
+      (wRegWrite1 (\n1. Inst (Mem Load32 n1 (Addr n2 offset))) n1 kf)) /\
+  (wInst (Mem Store32 n1 (Addr n2 offset)) kf =
+    let (l1,n2) = wReg1 n2 kf in
+    let (l2,n1) = wReg2 n1 kf in
+      wStackLoad (l1 ++ l2)
+        (Inst (Mem Store32 n1 (Addr n2 offset)))) /\
   (wInst (FP (FPLess r f1 f2)) kf =
     wRegWrite1 (\r. Inst (FP (FPLess r f1 f2))) r kf) /\
   (wInst (FP (FPLessEqual r f1 f2)) kf =
@@ -324,45 +328,56 @@ Definition const_words_to_bitmap_def:
         chunk_to_bitmap h ++ const_words_to_bitmap t (ws_len - (dimindex (:'a) - 1))
 End
 
+(* Store a large constant in the second temporary *)
 Definition comp_def:
-  (comp (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\
-  (comp (Move _ xs) bs kf = (wMove xs kf,bs)) /\
-  (comp (Inst i) bs kf = (wInst i kf,bs)) /\
-  (comp (Return v1 v2) bs kf =
+  (comp conf (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\
+  (comp conf (Move _ xs) bs kf = (wMove xs kf,bs)) /\
+  (comp conf (Inst i) bs kf = (wInst i kf,bs)) /\
+  (comp conf (Return v1 v2) bs kf =
      let (xs,x) = wReg1 v1 kf in
        (wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1)),bs)) /\
-  (comp (Raise v) bs kf = (Call NONE (INL raise_stub_location) NONE,bs)) /\
-  (comp (OpCurrHeap b dst src) bs kf =
+  (comp conf (Raise v) bs kf = (Call NONE (INL raise_stub_location) NONE,bs)) /\
+  (comp conf (OpCurrHeap b dst src) bs kf =
      let (xs,src_r) = wReg1 src kf in
        (wStackLoad xs (wRegWrite1 (\dst_r. OpCurrHeap b dst_r src_r) dst kf),bs)) /\
-  (comp (Tick) bs kf = (Tick,bs)) /\
-  (comp (MustTerminate p1) gs kf = comp p1 gs kf) /\
-  (comp (Seq p1 p2) bs kf =
-     let (q1,bs) = comp p1 bs kf in
-     let (q2,bs) = comp p2 bs kf in
+  (comp conf (Tick) bs kf = (Tick,bs)) /\
+  (comp conf (MustTerminate p1) gs kf = comp conf p1 gs kf) /\
+  (comp conf (Seq p1 p2) bs kf =
+     let (q1,bs) = comp conf p1 bs kf in
+     let (q2,bs) = comp conf p2 bs kf in
        (Seq q1 q2,bs)) /\
-  (comp (If cmp r ri p1 p2) bs kf =
+  (comp conf (If cmp r ri p1 p2) bs kf =
      let (x1,r') = wReg1 r kf in
-     let (x2,ri') = wRegImm2 ri kf in
-     let (q1,bs) = comp p1 bs kf in
-     let (q2,bs) = comp p2 bs kf in
-       (wStackLoad (x1++x2) (If cmp r' ri' q1 q2),bs)) /\
-  (comp (Set name exp) bs kf =
+     let (q1,bs) = comp conf p1 bs kf in
+     let (q2,bs) = comp conf p2 bs kf in
+     case ri of
+       Reg r =>
+         let (x2,n) = wReg2 r kf in
+          (wStackLoad (x1++x2) (If cmp r' (Reg n) q1 q2),bs)
+     | Imm i =>
+        if conf.valid_imm (INR cmp) i then
+          (wStackLoad x1 (If cmp r' (Imm i) q1 q2),bs)
+        else
+          let r = FST kf + 1 in
+          (Seq
+            (const_inst r i)
+            (wStackLoad x1 (If cmp r' (Reg r) q1 q2)),bs)) /\
+  (comp conf (Set name exp) bs kf =
     if name = BitmapBase then (Skip,bs) (*Impossible*)
     else
      case exp of
      | Var n => let (x1,r') = wReg1 n kf in (wStackLoad x1 (Set name r'),bs)
      | _ => (Skip,bs) (* impossible *)) /\
-  (comp (Get n name) bs kf =
+  (comp conf (Get n name) bs kf =
      (wRegWrite1 (\r. Get r name) n kf,bs)) /\
-  (comp (Call ret dest args handler) bs kf =
+  (comp conf (Call ret dest args handler) bs kf =
      let (q0,dest) = call_dest dest args kf in
      case ret of
      | NONE => (Seq q0 (SeqStackFree (stack_free dest (LENGTH args) kf)
                  (Call NONE dest NONE)),bs)
      | SOME (ret_var, live, ret_code, l1, l2) =>
          let (q1,bs) = wLive live bs kf in
-         let (q2,bs) = comp ret_code bs kf in
+         let (q2,bs) = comp conf ret_code bs kf in
            case handler of
            | NONE => (Seq q0
                      (Seq q1
@@ -370,40 +385,40 @@ Definition comp_def:
                           (Call (SOME (q2,0,l1,l2)) dest NONE))),
                       bs)
            | SOME (handle_var, handle_code, h1, h2) =>
-               let (q3,bs) = comp handle_code bs kf in
+               let (q3,bs) = comp conf handle_code bs kf in
                 (Seq q0
                 (Seq q1
                 (Seq (PushHandler h1 h2 kf)
                 (Seq (StackHandlerArgs dest (LENGTH args + 1) kf)
                      (Call (SOME (PopHandler kf q2,0,l1,l2)) dest (SOME (q3,h1,h2)))))),
                  bs)) /\
-  (comp (Alloc r live) bs kf =
+  (comp conf (Alloc r live) bs kf =
      let (q1,bs) = wLive live bs kf in
        (Seq q1 (Alloc 1),bs)) /\
-  (comp (StoreConsts a b c d ws) bs kf =
+  (comp conf (StoreConsts a b c d ws) bs kf =
      let (new_bs,i) = insert_bitmap (const_words_to_bitmap ws (LENGTH ws)) bs in
        (Seq (Inst (Const 1 (n2w i)))
             (StoreConsts (FST kf) (FST kf + 1) (SOME store_consts_stub_location)),new_bs)) /\
-  (comp (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
-  (comp (Install r1 r2 r3 r4 live) bs kf =
+  (comp conf (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
+  (comp conf (Install r1 r2 r3 r4 live) bs kf =
     let (l3,r3) = wReg1 r3 kf in
     let (l4,r4) = wReg2 r4 kf in
       (wStackLoad (l3++l4) (Install (r1 DIV 2) (r2 DIV 2) r3 r4 0),bs)) /\
-  (comp (CodeBufferWrite r1 r2) bs kf =
+  (comp conf (CodeBufferWrite r1 r2) bs kf =
     let (l1,r1) = wReg1 r1 kf in
     let (l2,r2) = wReg2 r2 kf in
       (wStackLoad (l1++l2) (CodeBufferWrite r1 r2),bs)) /\
-  (comp (DataBufferWrite r1 r2) bs kf =
+  (comp conf (DataBufferWrite r1 r2) bs kf =
     let (l1,r1) = wReg1 r1 kf in
     let (l2,r2) = wReg2 r2 kf in
       (wStackLoad (l1++l2) (DataBufferWrite r1 r2),bs)) /\
-  (comp (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
+  (comp conf (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
                                                 (r3 DIV 2) (r4 DIV 2) 0,bs)) /\
-  (comp (ShareInst op v exp) bs kf =
+  (comp conf (ShareInst op v exp) bs kf =
    (case exp_to_addr exp of
       NONE => (Skip, bs)
     | SOME addr => wShareInst op v addr kf,bs)) /\
-  (comp _ bs kf = (Skip,bs) (* impossible *))
+  (comp conf _ bs kf = (Skip,bs) (* impossible *))
 End
 
 Definition raise_stub_def:
@@ -426,26 +441,26 @@ End
 (*2*k and above are "stack" variables*)
 (*We always allocate enough space for the maximum stack var*)
 Definition compile_prog_def:
-  compile_prog (prog:'a wordLang$prog) arg_count reg_count bitmaps =
+  compile_prog asm_conf (prog:'a wordLang$prog) arg_count reg_count bitmaps =
     let stack_arg_count = arg_count - reg_count in
     let stack_var_count = MAX ((max_var prog DIV 2 + 1)- reg_count) stack_arg_count in
     let f = if stack_var_count = 0 then 0 else stack_var_count + 1 in
-    let (q1,bitmaps) = comp prog bitmaps (reg_count,f,stack_var_count) in
+    let (q1,bitmaps) = comp asm_conf prog bitmaps (reg_count,f,stack_var_count) in
       (Seq (StackAlloc (f - stack_arg_count)) q1, f, bitmaps)
 End
 
 Definition compile_word_to_stack_def:
-  (compile_word_to_stack k [] bitmaps = ([],[],bitmaps)) /\
-  (compile_word_to_stack k ((i,n,p)::progs) bitmaps =
-     let (prog,f,bitmaps) = compile_prog p n k bitmaps in
-     let (progs,fs,bitmaps) = compile_word_to_stack k progs bitmaps in
+  (compile_word_to_stack asm_conf k [] bitmaps = ([],[],bitmaps)) /\
+  (compile_word_to_stack asm_conf k ((i,n,p)::progs) bitmaps =
+     let (prog,f,bitmaps) = compile_prog asm_conf p n k bitmaps in
+     let (progs,fs,bitmaps) = compile_word_to_stack asm_conf k progs bitmaps in
        ((i,prog)::progs,f::fs,bitmaps))
 End
 
 Definition compile_def:
   compile asm_conf progs =
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
-    let (progs,fs,bitmaps) = compile_word_to_stack k progs (List [4w], 1) in
+    let (progs,fs,bitmaps) = compile_word_to_stack asm_conf k progs (List [4w], 1) in
     let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
       (append (FST bitmaps),
        <| bitmaps_length := SND bitmaps;

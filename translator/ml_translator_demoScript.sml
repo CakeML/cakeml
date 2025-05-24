@@ -2,13 +2,11 @@
   A small example of using the HOL to CakeML translator.
 *)
 open HolKernel Parse boolLib bossLib;
-
-val _ = new_theory "ml_translator_demo";
-
 open arithmeticTheory listTheory combinTheory pairTheory;
 open semanticPrimitivesTheory
 open ml_translatorLib ml_translatorTheory;
 
+val _ = new_theory "ml_translator_demo";
 
 (* --- qsort translation --- *)
 

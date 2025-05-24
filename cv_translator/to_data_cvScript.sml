@@ -515,7 +515,7 @@ Definition compile_exp_alt_def:
   (compile_exp_alt cfg (flatLang$Letrec t fs x) =
     let ys = compile_letexps_alt cfg fs in
     let (i, sgx, y) = compile_exp_alt cfg x in
-    let j = list_max (MAP (\(_,_,(j,_,_)). j) ys) in
+    let j = MAX_LIST (MAP (\(_,_,(j,_,_)). j) ys) in
     let sgfs = EXISTS (\(_,_,(_,sg,_)). sg) ys in
     let fs2 = MAP (\(a, b, (_, _, exp)). (a, b, exp)) ys in
     (MAX i j, sgfs \/ sgx, flatLang$Letrec t fs2 y)) /\
@@ -842,7 +842,7 @@ Definition flat_to_clos_compile_alt_def:
            (flat_to_clos_compile_alt m (x3)))) /\
   (flat_to_clos_compile_alt m (Let t vo e1 e2) =
      (Let t [flat_to_clos_compile_alt m (e1)] (flat_to_clos_compile_alt (vo::m) (e2)))) /\
-  (flat_to_clos_compile_alt m (Mat t e pes) = (Op t (Const 0) [])) /\
+  (flat_to_clos_compile_alt m (Mat t e pes) = (Op t (IntOp (Const 0)) [])) /\
   (flat_to_clos_compile_alt m (Handle t e pes) =
      case dest_pat pes of
      | SOME (v,h) => (Handle t (flat_to_clos_compile_alt m (e)) (flat_to_clos_compile_alt (SOME v::m) (h)))
@@ -1601,8 +1601,8 @@ Definition known_alt_def:
          (if isGlobal op then
            case gO_destApx a of
              | gO_None => SmartOp t op (MAP FST ea1)
-             | gO_Int i => Op t (Const i) (MAP FST ea1)
-             | gO_NullTuple tag => Op t (Cons tag) (MAP FST ea1)
+             | gO_Int i => Op t (IntOp (Const i)) (MAP FST ea1)
+             | gO_NullTuple tag => Op t (BlockOp (Cons tag)) (MAP FST ea1)
           else SmartOp t op (MAP FST ea1))
      in
        (((e,a)),g)) /\
@@ -1693,13 +1693,13 @@ Definition eq_pure_list_alt:
     | SOME z => List [z]
     | NONE =>
       case dest_Op dest_Cons x, dest_Op dest_Cons y of
-      | (NONE, NONE) => List [Op None Equal [x;y]]
+      | (NONE, NONE) => List [Op None (BlockOp Equal) [x;y]]
       | (SOME (t1,xs), SOME (t2,ys)) =>
            if t1 ≠ t2 ∨ LENGTH xs ≠ LENGTH ys then List [MakeBool F]
            else eq_pure_list_alt ck (ZIP (REVERSE xs, REVERSE ys))
       | (SOME (t1,xs), NONE) =>
-           Append (List [Op None (TagLenEq t1 (LENGTH xs)) [y]])
-                  (eq_pure_list_alt ck (MAPi (λi x. (x, Op None (ElemAt i) [y])) (REVERSE xs)))
+           Append (List [Op None (BlockOp (TagLenEq t1 (LENGTH xs))) [y]])
+                  (eq_pure_list_alt ck (MAPi (λi x. (x, Op None (BlockOp (ElemAt i)) [y])) (REVERSE xs)))
       | (NONE, SOME (t1,ys)) => eq_pure_list_alt ck [(y,x)]) ∧
   eq_pure_list_alt (SUC ck) (xy::xys) = Append (eq_pure_list_alt ck [xy]) (eq_pure_list_alt ck xys) ∧
   eq_pure_list_alt _ _ = Nil
@@ -2153,6 +2153,8 @@ Proof
   \\ rpt strip_tac \\ simp [Once pre]
 QED
 
+val _ = cv_trans (clos_to_bvlTheory.get_src_names_sing_eq |> CONJUNCT2);
+
 val _ = cv_auto_trans clos_to_bvlTheory.make_name_alist_eq;
 
 val pre = cv_auto_trans_pre clos_to_bvlTheory.recc_Lets_def;
@@ -2236,13 +2238,13 @@ val _ = cv_auto_trans backend_asmTheory.to_bvl_def;
 
 Definition mk_add_const_def:
   mk_add_const = λx1 c2.
-            if c2 = 0 then x1 else Op Add [x1; Op (Const c2) []]
+            if c2 = 0 then x1 else Op (IntOp Add) [x1; Op (IntOp (Const c2)) []]
 End
 
 Definition mk_add_def:
   mk_add = λx1 x2.
   (let
-     default = Op Add [x1; x2]
+     default = Op (IntOp Add) [x1; x2]
    in
      case dest_simple x2 of
        NONE =>
@@ -2254,31 +2256,31 @@ Definition mk_add_def:
             | SOME (op2,x21,n22) =>
               case v5 of
                 (op1,x11,n12) =>
-                  if op1 = Add ∧ op2 = Add then
-                    mk_add_const (Op Add [x11; x21]) (n22 + n12)
-                  else if op1 = Add ∧ op2 = Sub then
-                    Op Sub
-                      [Op Sub [x11; x21];
-                       Op (Const (n22 + n12)) []]
-                  else if op1 = Sub ∧ op2 = Add then
-                    mk_add_const (Op Sub [x11; x21]) (n22 + n12)
+                  if op1 = IntOp Add ∧ op2 = IntOp Add then
+                    mk_add_const (Op (IntOp Add) [x11; x21]) (n22 + n12)
+                  else if op1 = IntOp Add ∧ op2 = IntOp Sub then
+                    Op (IntOp Sub)
+                      [Op (IntOp Sub) [x11; x21];
+                       Op (IntOp (Const (n22 + n12))) []]
+                  else if op1 = IntOp Sub ∧ op2 = IntOp Add then
+                    mk_add_const (Op (IntOp Sub) [x11; x21]) (n22 + n12)
                   else default)
      | SOME n2 =>
        case case_op_const x1 of
          NONE =>
            (case dest_simple x1 of
               NONE => mk_add_const x1 n2
-            | SOME n1 => Op (Const (n2 + n1)) [])
-       | SOME (Add,x11,n12) => mk_add_const x11 (n2 + n12)
-       | SOME (Sub,x11,n12) =>
-         Op Sub [x11; Op (Const (n2 + n12)) []]
+            | SOME n1 => Op (IntOp (Const (n2 + n1))) [])
+       | SOME (IntOp Add,x11,n12) => mk_add_const x11 (n2 + n12)
+       | SOME (IntOp Sub,x11,n12) =>
+         Op (IntOp Sub) [x11; Op (IntOp (Const (n2 + n12))) []]
        | SOME (op,x11,n12) => default)
 End
 
 Definition mk_sub_def:
   mk_sub = λx1 x2.
   (let
-     default = Op Sub [x1; x2]
+     default = Op (IntOp Sub) [x1; x2]
    in
      case dest_simple x2 of
        NONE =>
@@ -2290,33 +2292,33 @@ Definition mk_sub_def:
             | SOME (op2,x21,n22) =>
               case v5 of
                 (op1,x11,n12) =>
-                  if op1 = Add ∧ op2 = Add then
-                    Op Add
-                      [Op Sub [x11; x21];
-                       Op (Const (n22 − n12)) []]
-                  else if op1 = Add ∧ op2 = Sub then
-                    Op Sub
-                      [Op Add [x11; x21];
-                       Op (Const (n22 − n12)) []]
-                  else if op1 = Sub ∧ op2 = Add then
-                    mk_add_const (Op Add [x11; x21]) (n22 − n12)
+                  if op1 = IntOp Add ∧ op2 = IntOp Add then
+                    Op (IntOp Add)
+                      [Op (IntOp Sub) [x11; x21];
+                       Op (IntOp (Const (n22 − n12))) []]
+                  else if op1 = IntOp Add ∧ op2 = IntOp Sub then
+                    Op (IntOp Sub)
+                      [Op (IntOp Add) [x11; x21];
+                       Op (IntOp (Const (n22 − n12))) []]
+                  else if op1 = IntOp Sub ∧ op2 = IntOp Add then
+                    mk_add_const (Op (IntOp Add) [x11; x21]) (n22 − n12)
                   else default)
      | SOME n2 =>
        case case_op_const x1 of
          NONE =>
            (case dest_simple x1 of
               NONE => default
-            | SOME n1 => Op (Const (n2 − n1)) [])
-       | SOME (Add,x11,n12) =>
-         Op Sub [x11; Op (Const (n2 − n12)) []]
-       | SOME (Sub,x11,n12) => mk_add_const x11 (n2 − n12)
+            | SOME n1 => Op (IntOp (Const (n2 − n1))) [])
+       | SOME (IntOp Add,x11,n12) =>
+         Op (IntOp Sub) [x11; Op (IntOp (Const (n2 − n12))) []]
+       | SOME (IntOp Sub,x11,n12) => mk_add_const x11 (n2 − n12)
        | SOME (op,x11,n12) => default)
 End
 
 Definition mk_mul_def:
   mk_mul = λx1 x2.
   (let
-     default = Op Mult [x1; x2]
+     default = Op (IntOp Mult) [x1; x2]
    in
      case dest_simple x2 of
        NONE =>
@@ -2328,10 +2330,10 @@ Definition mk_mul_def:
             | SOME (op2,x21,n22) =>
               case v5 of
                 (op1,x11,n12) =>
-                  if op1 = Mult ∧ op2 = Mult then
-                    Op Mult
-                      [Op (Const (n22 * n12)) [];
-                       Op Mult [x11; x21]]
+                  if op1 = IntOp Mult ∧ op2 = IntOp Mult then
+                    Op (IntOp Mult)
+                      [Op (IntOp (Const (n22 * n12))) [];
+                       Op (IntOp Mult) [x11; x21]]
                   else default)
      | SOME n2 =>
        case case_op_const x1 of
@@ -2341,22 +2343,22 @@ Definition mk_mul_def:
                 if n2 = 1 then x1
                 else if n2 = -1 then
                   (let
-                     default = Op Sub [x1; Op (Const 0) []]
+                     default = Op (IntOp Sub) [x1; Op (IntOp (Const 0)) []]
                    in
                      case case_op_const x1 of
                        NONE =>
                          (case dest_simple x1 of
                             NONE => default
-                          | SOME n1 => Op (Const (-n1)) [])
-                     | SOME (Add,x11,n12) =>
-                       Op Sub [x11; Op (Const (-n12)) []]
-                     | SOME (Sub,x11,n12) =>
+                          | SOME n1 => Op (IntOp (Const (-n1))) [])
+                     | SOME (IntOp Add,x11,n12) =>
+                       Op (IntOp Sub) [x11; Op (IntOp (Const (-n12))) []]
+                     | SOME (IntOp Sub,x11,n12) =>
                        mk_add_const x11 (-n12)
                      | SOME (op,x11,n12) => default)
                 else default
-            | SOME n1 => Op (Const (n2 * n1)) [])
-       | SOME (Mult,x11,n12) =>
-         Op Mult [x11; Op (Const (n2 * n12)) []]
+            | SOME n1 => Op (IntOp (Const (n2 * n1))) [])
+       | SOME (IntOp Mult,x11,n12) =>
+         Op (IntOp Mult) [x11; Op (IntOp (Const (n2 * n12))) []]
        | SOME (op,x11,n12) => default)
 End
 
@@ -2745,6 +2747,247 @@ val _ = cv_auto_trans rich_listTheory.COUNT_LIST_GENLIST;
 val _ = cv_trans bvi_to_dataTheory.compile_exp_eq;
 val _ = cv_auto_trans bvi_to_dataTheory.compile_prog_def;
 val _ = cv_trans to_data_def;
+
+val _ = cv_trans backend_asmTheory.to_flat_all_def;
+val _ = cv_trans backend_asmTheory.to_clos_all_def;
+val _ = cv_trans backend_asmTheory.to_bvl_all_def;
+val _ = cv_auto_trans (backend_asmTheory.to_bvi_all_def
+                         |> REWRITE_RULE [bvl_inlineTheory.remove_ticks_sing,HD]);
+
+Triviality bvi_to_data_compile_sing:
+  FST (bvi_to_data$compile n env t l [x]) = FST (compile_sing n env t l x)
+Proof
+  ‘∃y. compile_sing n env t l x = y’ by gvs []
+  \\ PairCases_on ‘y’ \\ gvs []
+  \\ imp_res_tac bvi_to_dataTheory.compile_sing_eq \\ gvs []
+QED
+
+val _ = cv_auto_trans (to_data_all_def |> REWRITE_RULE [bvi_to_data_compile_sing]);
+
+(* Explorer *)
+val _ = cv_auto_trans (str_treeTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
+
+Triviality dest_list_size_lemma:
+  ∀x v w.
+    (v,w) = dest_list x ⇒
+    list_size str_tree_size v + str_tree_size w ≤ str_tree_size x
+Proof
+  Induct \\ gvs [str_treeTheory.dest_list_def]
+  \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
+  \\ pairarg_tac \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
+QED
+
+Definition v2pretty_sing_def:
+  v2pretty_sing v =
+    (case v of
+     | Str s => String s
+     | GrabLine w => Size 100000 (v2pretty_sing w)
+     | Pair h t => let (rest,e) = dest_list t in
+              Parenthesis
+              (if e = Str «» then
+                 newlines (v2pretty_sing h :: v2pretty_list rest)
+               else
+                 Append (newlines (v2pretty_sing h :: v2pretty_list rest)) T
+                  (Append (String « . ») T (v2pretty_sing e)))) ∧
+  v2pretty_list [] = [] ∧
+  v2pretty_list (x::xs) = v2pretty_sing x :: v2pretty_list xs
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL e => str_tree$str_tree_size e
+                            | INR e => list_size str_tree$str_tree_size e’
+  \\ rw [] \\ gvs [str_treeTheory.dest_list_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac dest_list_size_lemma
+  \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
+End
+
+Theorem v2pretty_eq_v2pretty_sing:
+  (∀v. v2pretty v = v2pretty_sing v) ∧
+  (∀v. MAP v2pretty v = v2pretty_list v)
+Proof
+  ho_match_mp_tac v2pretty_sing_ind \\ rpt strip_tac
+  \\ once_rewrite_tac [v2pretty_sing_def] \\ fs []
+  \\ simp [Once str_treeTheory.v2pretty_def]
+  \\ TOP_CASE_TAC \\ gvs[]
+  \\ pairarg_tac \\ gvs [] \\ rw [SF ETA_ss]
+  \\ pairarg_tac >> gvs[str_treeTheory.dest_list_def]
+QED
+
+val _ = cv_trans str_treeTheory.dest_list_def;
+
+val cv_str_tree_dest_list_def = fetch "-" "cv_str_tree_dest_list_def";
+
+Theorem cv_size_cv_fst_snd:
+  cv_size (cv_fst z) + cv_size (cv_snd z) ≤ cv_size z
+Proof
+  Cases_on`z`>>cv_termination_tac
+QED
+
+Triviality cv_str_tree_dest_list_size:
+  ∀v x1 x2.
+    cv_str_tree_dest_list v = Pair x1 x2 ⇒
+    cv_size x1 < cv_size v ∧
+    cv_size x2 ≤ cv_size v
+Proof
+  ho_match_mp_tac (fetch "-" "cv_str_tree_dest_list_ind")
+  \\ rw[]
+  \\ pop_assum mp_tac
+  \\ simp [Once cv_str_tree_dest_list_def]
+  \\ rw[]
+  \\ cv_termination_tac
+  \\ Cases_on`k` \\ gvs[]
+  \\ assume_tac cv_size_cv_fst_snd
+  \\ gvs[]
+QED
+
+val pre = cv_auto_trans_pre_rec v2pretty_sing_def
+  (WF_REL_TAC ‘measure $ λx. case x of INL v => cv_size v | INR v => cv_size v’
+   \\ cv_termination_tac \\ Cases_on ‘k’ \\ gvs []
+   \\ imp_res_tac cv_str_tree_dest_list_size
+   \\ assume_tac cv_size_cv_fst_snd \\ gvs []);
+
+Theorem v2pretty_sing_pre[cv_pre]:
+  (∀v. v2pretty_sing_pre v) ∧
+  (∀v. v2pretty_list_pre v)
+Proof
+  ho_match_mp_tac v2pretty_sing_ind
+  \\ rw [] \\ simp [Once pre] \\ gvs []
+QED
+
+val _ = cv_trans (v2pretty_eq_v2pretty_sing |> CONJUNCT1);
+
+val _ = cv_auto_trans str_treeTheory.v2strs_def;
+
+val _ = cv_trans_pre jsonLangTheory.num_to_hex_digit_def;
+
+Theorem jsonLang_num_to_hex_digit_pre[cv_pre]:
+  ∀n. jsonLang_num_to_hex_digit_pre n
+Proof
+  rw[fetch "-" "jsonLang_num_to_hex_digit_pre_cases"]
+QED
+
+val pre = cv_trans_pre_rec presLangTheory.num_to_hex_def
+  (WF_REL_TAC ‘measure cv_size’
+   \\ cv_termination_tac
+   \\ Cases_on`cv_n`
+   \\ gvs[cvTheory.cv_div_def,cvTheory.c2b_def]
+   \\ intLib.ARITH_TAC);
+
+Theorem presLang_num_to_hex_pre[cv_pre]:
+  ∀n. presLang_num_to_hex_pre n
+Proof
+  completeInduct_on`n`>>
+  rw[Once pre]
+QED
+
+val _ = cv_auto_trans presLangTheory.ast_t_to_display_def;
+
+val _ = cv_auto_trans presLangTheory.pat_to_display_def;
+
+val pre = cv_auto_trans_pre presLangTheory.exp_to_display_def;
+
+Theorem presLang_exp_to_display_pre[cv_pre]:
+  (∀c. presLang_exp_to_display_pre c) ∧
+  (∀v. presLang_exp_to_display_list_pre v) ∧
+  (∀v. presLang_pat_exp_to_display_list_pre v) ∧
+  (∀v. presLang_fun_to_display_list_pre v)
+Proof
+  ho_match_mp_tac presLangTheory.exp_to_display_ind>>
+  rw[] \\ simp[Once pre]
+QED
+
+val _ = cv_auto_trans presLangTheory.source_to_display_dec_def;
+
+val _ = cv_auto_trans presLangTheory.flat_pat_to_display_def;
+
+val pre = cv_auto_trans_pre presLangTheory.flat_to_display_def;
+
+Theorem presLang_flat_to_display_pre[cv_pre]:
+  (∀v. presLang_flat_to_display_pre v) ∧
+  (∀v. presLang_flat_to_display_list_pre v) ∧
+  (∀v. presLang_pat_flat_to_display_list_pre v) ∧
+  (∀v. presLang_fun_flat_to_display_list_pre v)
+Proof
+  ho_match_mp_tac presLangTheory.flat_to_display_ind >>
+  rw[] \\ simp[Once pre]
+QED
+
+val _ = cv_auto_trans displayLangTheory.display_to_str_tree_def;
+
+val pre = cv_trans_pre_rec presLangTheory.num_to_varn_def
+  (WF_REL_TAC ‘measure cv_size’
+   \\ cv_termination_tac
+   \\ Cases_on`cv_n`
+   \\ gvs[cvTheory.cv_div_def,cvTheory.c2b_def]
+   \\ intLib.ARITH_TAC);
+
+Theorem presLang_num_to_varn_pre[cv_pre]:
+  ∀n. presLang_num_to_varn_pre n
+Proof
+  completeInduct_on`n`>>
+  rw[Once pre]
+  >- (
+    first_x_assum match_mp_tac>>
+    intLib.ARITH_TAC)>>
+  intLib.ARITH_TAC
+QED
+
+val pre = cv_trans_pre_rec presLangTheory.num_to_varn_list_def
+  (WF_REL_TAC ‘measure (cv_size o SND)’
+   \\ cv_termination_tac
+   \\ Cases_on`cv_n`
+   \\ gvs[cvTheory.cv_div_def,cvTheory.c2b_def]);
+
+Theorem presLang_num_to_varn_list_pre[cv_pre]:
+  ∀ls n. presLang_num_to_varn_list_pre ls n
+Proof
+  completeInduct_on`n`>>
+  rw[Once pre]
+QED
+
+val _ = cv_auto_trans presLangTheory.const_to_display_def;
+
+val pre = cv_auto_trans_pre presLangTheory.clos_to_display_def;
+
+Theorem presLang_clos_to_display_pre[cv_pre]:
+  (∀ns h v. presLang_clos_to_display_pre ns h v) ∧
+  (∀ns h v. presLang_clos_to_display_list_pre ns h v) ∧
+  (∀ns h i v. presLang_clos_to_display_lets_pre ns h i v) ∧
+  (∀ns h i len v. presLang_clos_to_display_letrecs_pre ns h i len v)
+Proof
+  ho_match_mp_tac presLangTheory.clos_to_display_ind \\
+  rw[] \\ simp[Once pre]
+QED
+
+val pre = cv_auto_trans_pre presLangTheory.bvl_to_display_def;
+
+Theorem presLang_bvl_to_display_pre[cv_pre]:
+  (∀ns h v. presLang_bvl_to_display_pre ns h v) ∧
+  (∀ns h v. presLang_bvl_to_display_list_pre ns h v) ∧
+  (∀ns h i v. presLang_bvl_to_display_lets_pre ns h i v)
+Proof
+  ho_match_mp_tac presLangTheory.bvl_to_display_ind \\
+  rw[] \\ simp[Once pre]
+QED
+
+val pre = cv_auto_trans_pre presLangTheory.bvi_to_display_def;
+
+Theorem presLang_bvi_to_display_pre[cv_pre]:
+  (∀ns h v. presLang_bvi_to_display_pre ns h v) ∧
+  (∀ns h v. presLang_bvi_to_display_list_pre ns h v) ∧
+  (∀ns h i v. presLang_bvi_to_display_lets_pre ns h i v)
+Proof
+  ho_match_mp_tac presLangTheory.bvi_to_display_ind \\
+  rw[] \\ simp[Once pre]
+QED
+
+val _ = cv_auto_trans presLangTheory.data_prog_to_display_def;
+
+val _ = cv_auto_trans presLangTheory.word_exp_to_display_def;
+
+val _ = cv_auto_trans presLangTheory.word_prog_to_display_def;
+
+val _ = cv_auto_trans presLangTheory.stack_prog_to_display_def;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();

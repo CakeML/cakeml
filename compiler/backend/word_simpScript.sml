@@ -59,8 +59,6 @@ Proof
   >> fs[Seq_assoc_def]
 QED
 
-val Seq_assoc_ind = fetch "-" "Seq_assoc_ind";
-
 (* optimise certain consequtive If statements that arise from data-to-word
 
    If something (q1 ; n := X) (q2 ; n := Y) ;
@@ -208,8 +206,6 @@ Termination
   WF_REL_TAC `measure (exp_size (\x.0) o FST)`
 End
 
-val const_fp_exp_ind = fetch "-" "const_fp_exp_ind";
-
 Definition const_fp_move_cs_def:
   (const_fp_move_cs [] _ cs = cs) /\
   (const_fp_move_cs (m::ms) ocs ncs =
@@ -232,6 +228,7 @@ Definition const_fp_inst_cs_def:
   (const_fp_inst_cs (Arith (LongDiv r1 r2 _ _ _)) cs = delete r1 (delete r2 cs)) /\
   (const_fp_inst_cs (Arith (Div r1 _ _)) cs = delete r1 cs) /\
   (const_fp_inst_cs (Mem Load r _) cs = delete r cs) /\
+  (const_fp_inst_cs (Mem Load32 r _) cs = delete r cs) /\
   (const_fp_inst_cs (Mem Load8 r _) cs = delete r cs) /\
   (const_fp_inst_cs (FP (FPLess r f1 f2)) cs = delete r cs) ∧
   (const_fp_inst_cs (FP (FPLessEqual r f1 f2)) cs = delete r cs) ∧
@@ -249,6 +246,15 @@ End
 
 Definition is_gc_const_def:
   is_gc_const c = ((c && 1w) = 0w)
+End
+
+(* We only drop constants that can potentially be in registers *)
+Definition drop_consts_def:
+  drop_consts cs [] = Skip ∧
+  drop_consts cs (n::ns) =
+    dtcase lookup n cs of
+    | NONE => drop_consts cs ns
+    | SOME w => SmartSeq (drop_consts cs ns) (Assign n (Const w))
 End
 
 Definition const_fp_loop_def:
@@ -274,22 +280,29 @@ Definition const_fp_loop_def:
         (if word_cmp cmp clhs crhs then const_fp_loop p1 cs else const_fp_loop p2 cs)
       | _ => (let (p1', p1cs) = const_fp_loop p1 cs in
               let (p2', p2cs) = const_fp_loop p2 cs in
-              (wordLang$If cmp lhs rhs p1' p2', inter_eq p1cs p2cs))) /\
+               (wordLang$If cmp lhs rhs p1' p2', inter_eq p1cs p2cs))) /\
   (const_fp_loop (Call ret dest args handler) cs =
     dtcase ret of
-      | NONE => (Call ret dest args handler, filter_v is_gc_const cs)
+      | NONE => (SmartSeq (drop_consts cs args) (Call ret dest args handler),
+                 filter_v is_gc_const cs)
       | SOME (n, names, ret_handler, l1, l2) =>
         (if handler = NONE then
            (let cs' = delete n (filter_v is_gc_const (inter cs names)) in
             let (ret_handler', cs'') = const_fp_loop ret_handler cs' in
-            (Call (SOME (n, names, ret_handler', l1, l2)) dest args handler, cs''))
+              (SmartSeq (drop_consts cs args)
+                (Call (SOME (n, names, ret_handler', l1, l2)) dest args handler), cs''))
          else
-           (Call ret dest args handler, LN))) /\
-  (const_fp_loop (FFI x0 x1 x2 x3 x4 names) cs = (FFI x0 x1 x2 x3 x4 names, inter cs names)) /\
+           (SmartSeq (drop_consts cs args)
+             (Call ret dest args handler), LN))) /\
+  (const_fp_loop (FFI x0 x1 x2 x3 x4 names) cs =
+    (SmartSeq (drop_consts cs [x1;x2;x3;x4]) (FFI x0 x1 x2 x3 x4 names), inter cs names)) /\
   (const_fp_loop (LocValue v x3) cs = (LocValue v x3, delete v cs)) /\
-  (const_fp_loop (Alloc n names) cs = (Alloc n names, filter_v is_gc_const (inter cs names))) /\
+  (const_fp_loop (Alloc n names) cs =
+    (SmartSeq (drop_consts cs [n]) (Alloc n names), filter_v is_gc_const (inter cs names))) /\
   (const_fp_loop (StoreConsts a b c d ws) cs = (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))) /\
-  (const_fp_loop (Install r1 r2 r3 r4 names) cs = (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))) /\
+  (const_fp_loop (Install r1 r2 r3 r4 names) cs =
+    (SmartSeq (drop_consts cs [r1;r2;r3;r4])
+      (Install r1 r2 r3 r4 names), delete r1 (filter_v is_gc_const (inter cs names)))) /\
   (const_fp_loop (Store e v) cs =
     (Store (const_fp_exp e cs) v, cs)) /\
   (const_fp_loop (ShareInst Load v e) cs =
@@ -306,80 +319,6 @@ Definition const_fp_loop_def:
     (ShareInst Store32 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop p cs = (p, cs))
 End
-
-Theorem const_fp_loop_pmatch:
-  !p cs.
-  const_fp_loop p cs =
-  case p of
-  | (Move pri moves) => (Move pri moves, const_fp_move_cs moves cs cs)
-  | (Inst i) => (Inst i, const_fp_inst_cs i cs)
-  | (Assign v e) =>
-    (case const_fp_exp e cs of
-       | Const c => (Assign v (Const c), insert v c cs)
-       | const_fp_e => (Assign v const_fp_e, delete v cs))
-  | (Get v name) => (Get v name, delete v cs)
-  | (OpCurrHeap b v w) => (OpCurrHeap b v w, delete v cs)
-  | (MustTerminate p) =>
-    (let (p', cs') = const_fp_loop p cs in
-      (MustTerminate p', cs'))
-  | (Seq p1 p2) =>
-   (let (p1', cs') = const_fp_loop p1 cs in
-    let (p2', cs'') = const_fp_loop p2 cs' in
-      (Seq p1' p2', cs''))
-  | (wordLang$If cmp lhs rhs p1 p2) =>
-    (case (lookup lhs cs, get_var_imm_cs rhs cs) of
-      | (SOME clhs, SOME crhs) =>
-        if word_cmp cmp clhs crhs then const_fp_loop p1 cs else const_fp_loop p2 cs
-      | _ => (let (p1', p1cs) = const_fp_loop p1 cs in
-              let (p2', p2cs) = const_fp_loop p2 cs in
-              (wordLang$If cmp lhs rhs p1' p2', inter_eq p1cs p2cs)))
-  | (Call ret dest args handler) =>
-    (case ret of
-      | NONE => (Call ret dest args handler, filter_v is_gc_const cs)
-      | SOME (n, names, ret_handler, l1, l2) =>
-        (if handler = NONE then
-           (let cs' = delete n (filter_v is_gc_const (inter cs names)) in
-            let (ret_handler', cs'') = const_fp_loop ret_handler cs' in
-            (Call (SOME (n, names, ret_handler', l1, l2)) dest args handler, cs''))
-         else
-           (Call ret dest args handler, LN)))
-  | (FFI x0 x1 x2 x3 x4 names) => (FFI x0 x1 x2 x3 x4 names, inter cs names)
-  | (LocValue v x3) => (LocValue v x3, delete v cs)
-  | (Alloc n names) => (Alloc n names, filter_v is_gc_const (inter cs names))
-  | (StoreConsts a b c d ws) => (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))
-  | (Install r1 r2 r3 r4 names) => (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))
-  | (Store e v) => (Store (const_fp_exp e cs) v, cs)
-  | (ShareInst Load v e) => (ShareInst Load v (const_fp_exp e cs), delete v cs)
-  | (ShareInst Load8 v e) => (ShareInst Load8 v (const_fp_exp e cs), delete v cs)
-  | (ShareInst Load32 v e) => (ShareInst Load32 v (const_fp_exp e cs), delete v cs)
-  | (ShareInst Store v e) => (ShareInst Store v (const_fp_exp e cs), cs)
-  | (ShareInst Store8 v e) => (ShareInst Store8 v (const_fp_exp e cs), cs)
-  | (ShareInst Store32 v e) => (ShareInst Store32 v (const_fp_exp e cs), cs)
-  | p => (p, cs)
-Proof
-  rpt strip_tac
-  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
-  >> rpt strip_tac
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
-     >> rpt strip_tac >> fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[])
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- (CONV_TAC(RAND_CONV(patternMatchesLib.PMATCH_ELIM_CONV))
-              >> every_case_tac >> fs[Once const_fp_loop_def])
-  >- (CONV_TAC(RAND_CONV(patternMatchesLib.PMATCH_ELIM_CONV))
-      >> every_case_tac >> fs[const_fp_loop_def])
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >> Cases_on `p` >> fs[const_fp_loop_def] >> every_case_tac >> fs[pairTheory.ELIM_UNCURRY] >>
-  Cases_on `m` >> fs[const_fp_loop_def]
-QED
-
-val const_fp_loop_ind = fetch "-" "const_fp_loop_ind";
 
 Definition const_fp_def:
   const_fp p = FST (const_fp_loop p LN)

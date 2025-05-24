@@ -625,7 +625,7 @@ in if Teq (rhs (concl th)) then th else fail () end
 
 val validate_pat_all_conv =
   REPEATC (
-    RAND_CONV validate_pat_conv THENC RW.RW_CONV [boolTheory.AND_CLAUSES]
+    RAND_CONV validate_pat_conv THENC PURE_REWRITE_CONV [boolTheory.AND_CLAUSES]
   )
 
 local

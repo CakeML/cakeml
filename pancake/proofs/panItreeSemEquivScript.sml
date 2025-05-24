@@ -121,14 +121,13 @@ Theorem fbs_sem_div_compos_thm:
 Proof
   rpt strip_tac>>
   fs[fbs_semantics_beh_def,Once evaluate_def] >>
-  fs[bool_case_eq]>-
-  rpt (FULL_CASE_TAC>>fs[])>>
-  disj2_tac>>
+  fs[bool_case_eq] >>
+  fs[option_case_eq,pair_case_eq,result_case_eq] >>
   conj_tac>-
    (strip_tac>>first_x_assum $ qspec_then ‘k’ assume_tac>>
     FULL_CASE_TAC>>fs[]>>
     pairarg_tac>>fs[]>>gvs[panPropsTheory.eval_upd_clock_eq,panItreeSemTheory.reclock_def])>>
-  irule lprefix_lubTheory.IMP_build_lprefix_lub_EQ>>
+  rveq >> irule lprefix_lubTheory.IMP_build_lprefix_lub_EQ>>
   conj_asm1_tac>-
    (simp[lprefix_chain_def]>>
     rpt strip_tac>>fs[]>>
@@ -167,13 +166,13 @@ Proof
     simp[Once evaluate_def,
          panItreeSemTheory.reclock_def,
          panPropsTheory.eval_upd_clock_eq]>>
-    pairarg_tac>>fs[]>>
-    qexists_tac ‘k’>>fs[])>>
+    qexists_tac `k` >> fs[] >>
+    pairarg_tac>>fs[])>>
   simp[lprefix_rel_def]>>
   rpt strip_tac>>
   simp[PULL_EXISTS]>>
   simp[LPREFIX_def,from_toList]>>
-  simp[SimpR “isPREFIX”, Once evaluate_def,
+  simp[Once evaluate_def,
        panItreeSemTheory.reclock_def,
        panPropsTheory.eval_upd_clock_eq]>>
   qexists_tac ‘k’>>
@@ -610,6 +609,7 @@ Proof
               ltree_lift_state_simps,empty_locals_defs])) >>
   rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
      h_prog_store_def,
+     h_prog_store_32_def,
      h_prog_store_byte_def,
      h_prog_assign_def,
      h_prog_raise_def,
@@ -1253,6 +1253,7 @@ Proof
       simp[to_stree_simps,stree_trace_simps,mrec_sem_simps,LAPPEND_NIL_2ND]) >>
   rw[ltree_lift_cases,h_prog_def,mrec_sem_simps,
      h_prog_store_def,
+     h_prog_store_32_def,
      h_prog_store_byte_def,
      h_prog_assign_def,
      h_prog_raise_def,
@@ -2256,6 +2257,13 @@ Theorem itree_semantics_beh_simps:
           NONE => SemFail
         | SOME m => SemTerminate (NONE,s with memory := m))
    | _ => SemFail) ∧
+  (itree_semantics_beh s (Store32 dst src) =
+   case (eval (reclock s) dst,eval (reclock s) src) of
+   | (SOME (ValWord addr),SOME (ValWord w)) =>
+       (case mem_store_32 s.memory s.memaddrs s.be addr (w2w w) of
+          NONE => SemFail
+        | SOME m => SemTerminate (NONE,s with memory := m))
+   | _ => SemFail) ∧
   (itree_semantics_beh s (Return e) =
    case eval (reclock s) e of
          NONE => SemFail
@@ -2337,6 +2345,19 @@ Proof
           fs [Once itree_wbisim_cases]) >>
       simp[EXISTS_PROD]>>
       fs [h_prog_def,h_prog_store_byte_def,
+          mrec_sem_simps] >>
+      rpt(PURE_CASE_TAC >> gvs[]) >>
+      fs [ltree_lift_cases, mrec_sem_simps] >>
+      fs [Once itree_wbisim_cases, ELIM_UNCURRY])
+  >- (rw [itree_semantics_beh_def] >>
+      DEEP_INTRO_TAC some_intro >> rw []
+      >- (rpt(PURE_CASE_TAC >> gvs[]) >>
+          fs [h_prog_def,h_prog_store_32_def,
+              mrec_sem_simps] >>
+          fs [ltree_lift_cases] >>
+          fs [Once itree_wbisim_cases]) >>
+      simp[EXISTS_PROD]>>
+      fs [h_prog_def,h_prog_store_32_def,
           mrec_sem_simps] >>
       rpt(PURE_CASE_TAC >> gvs[]) >>
       fs [ltree_lift_cases, mrec_sem_simps] >>
@@ -2672,6 +2693,21 @@ Proof
   >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
          ltree_lift_cases,ret_eq_funpow_tau,
          tau_eq_funpow_tau,h_prog_store_byte_def,
+         panPropsTheory.eval_upd_clock_eq
+        ] >>
+      rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >>
+          gvs[h_prog_def,mrec_sem_simps,
+              ltree_lift_cases,ret_eq_funpow_tau,
+              tau_eq_funpow_tau,
+              panPropsTheory.eval_upd_clock_eq,
+              mrec_sem_monad_law,
+              ltree_lift_monad_law
+             ]) >>
+      rw[state_component_equality])
+  >~ [‘Store32’]
+  >- (rw[Once evaluate_def,h_prog_def,mrec_sem_simps,
+         ltree_lift_cases,ret_eq_funpow_tau,
+         tau_eq_funpow_tau,h_prog_store_32_def,
          panPropsTheory.eval_upd_clock_eq
         ] >>
       rpt(IF_CASES_TAC ORELSE PURE_FULL_CASE_TAC >>
@@ -3787,6 +3823,7 @@ Proof
               h_prog_cond_def,
               h_prog_seq_def,
               h_prog_store_def,
+              h_prog_store_32_def,
               h_prog_store_byte_def,
               h_prog_assign_def,
               empty_locals_defs,
@@ -3814,6 +3851,7 @@ Proof
           h_prog_cond_def,
           h_prog_seq_def,
           h_prog_store_def,
+          h_prog_store_32_def,
           h_prog_store_byte_def,
           h_prog_assign_def,
           panPropsTheory.eval_upd_clock_eq]>>
@@ -4047,6 +4085,7 @@ Proof
           h_prog_cond_def,
           h_prog_seq_def,
           h_prog_store_def,
+          h_prog_store_32_def,
           h_prog_store_byte_def,
           h_prog_assign_def,
           panPropsTheory.eval_upd_clock_eq]>>
@@ -4492,6 +4531,7 @@ Proof
             h_prog_raise_def,
             h_prog_return_def,
             h_prog_store_def,
+            h_prog_store_32_def,
             h_prog_store_byte_def,
             panPropsTheory.eval_upd_clock_eq,
             LAPPEND_NIL_2ND,empty_locals_defs,
@@ -4861,6 +4901,7 @@ Proof
             h_prog_ext_call_def,
             h_prog_store_def,
             h_prog_dec_def,
+            h_prog_store_32_def,
             h_prog_store_byte_def,
             panPropsTheory.eval_upd_clock_eq,
             LAPPEND_NIL_2ND,empty_locals_defs,

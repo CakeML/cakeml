@@ -31,8 +31,8 @@ Definition trace_to_json_def:
       (strlit "trace1", trace_to_json tra1);
       (strlit "trace2", trace_to_json tra2)])
   /\
-  (trace_to_json (SourceLoc sr sc er ec) =
-    let arr = MAP Int (MAP (&)  [ sr; sc; er; ec ]) in
+  (trace_to_json (SourceLoc sr scc er ec) =
+    let arr = MAP Int (MAP (&)  [ sr; scc; er; ec ]) in
       Object [(strlit "name", String (strlit "SourcePos"));
         (strlit "pos", Array arr)])
   /\
@@ -70,16 +70,17 @@ End
 
 Definition display_to_str_tree_def:
   (display_to_str_tree (Item tra name es) =
-     mk_list (Str name :: MAP display_to_str_tree es)) ∧
+     mk_list (Str name :: display_to_str_tree_list es)) ∧
   (display_to_str_tree (String s : sExp) = Str s) /\
   (display_to_str_tree (Tuple es) =
      if NULL es then Str (strlit "()")
-     else mk_list (MAP display_to_str_tree es)) ∧
+     else mk_list (display_to_str_tree_list es)) ∧
   (display_to_str_tree (List es) =
      if NULL es then Str (strlit "()")
-     else mk_list (MAP GrabLine (MAP display_to_str_tree es)))
-Termination
-  WF_REL_TAC `measure sExp_size` \\ rw []
+     else mk_list (MAP GrabLine (display_to_str_tree_list es))) ∧
+  (display_to_str_tree_list [] = []) ∧
+  (display_to_str_tree_list (x::xs) =
+    display_to_str_tree x :: display_to_str_tree_list xs)
 End
 
 val _ = export_theory();
