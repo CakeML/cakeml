@@ -7,7 +7,11 @@ val _ = new_theory "pb_parse";
 
 val _ = numLib.temp_prefer_num();
 
-(* Print mlstring pbc *)
+(*
+  Printing for pseudo-Boolean problems in (extended) OPB format
+*)
+
+(* Printing mlstring pbc *)
 Definition lit_string_def:
   (lit_string (Pos v) = v) ∧
   (lit_string (Neg v) = strlit "~" ^ v)
@@ -82,7 +86,7 @@ Definition strip_annot_prob_def:
 End
 
 (*
-  Parse an OPB file as string pbc
+  Parse an OPB file as a string-variabled PB problem
 *)
 
 (* TODO: copied from lpr_parsing *)
@@ -126,14 +130,18 @@ End
 *)
 
 (* Parse the LHS of a constraint and returns the remainder of the line *)
-Definition parse_constraint_LHS_def:
-  (parse_constraint_LHS (INR n::INL v::rest) acc =
+Definition parse_constraint_LHS_aux_def:
+  (parse_constraint_LHS_aux (INR n::INL v::rest) acc =
     case parse_lit v of NONE => (INR n::INL v::rest,REVERSE acc)
-    | SOME lit => parse_constraint_LHS rest ((n,lit)::acc)) ∧
-  (parse_constraint_LHS ls acc = (ls,REVERSE acc))
+    | SOME lit => parse_constraint_LHS_aux rest ((n,lit)::acc)) ∧
+  (parse_constraint_LHS_aux ls acc = (ls,REVERSE acc))
 End
 
-(* strip ; from the end of a string/number *)
+Definition parse_constraint_LHS_def:
+  parse_constraint_LHS ss = parse_constraint_LHS_aux ss []
+End
+
+(* Strip ; terminator from the end of a string *)
 Definition strip_term_def:
   strip_term s =
   if strlen s ≥ 1 ∧ strsub s (strlen s - 1) = #";"
@@ -141,12 +149,33 @@ Definition strip_term_def:
   else NONE
 End
 
-Definition strip_terminator_def:
-  strip_terminator s =
-  if strlen s ≥ 1 ∧ strsub s (strlen s - 1) = #";"
-  then mlint$fromString (substring s 0 (strlen s - 1))
-  else NONE
+(* Strip ; from the end of a tokenized line and retokenize *)
+Definition strip_term_line_aux_def:
+  (strip_term_line_aux [] acc = NONE) ∧
+  (strip_term_line_aux [x] acc =
+    case x of INR n => NONE
+    | INL s =>
+    if s = strlit ";"
+    then SOME (REVERSE acc)
+    else
+        case strip_term s of
+          SOME s =>
+            SOME (REVERSE (tokenize s::acc))
+        | NONE => NONE) ∧
+  (strip_term_line_aux (x::xs) acc =
+    strip_term_line_aux xs (x::acc))
 End
+
+Definition strip_term_line_def:
+  strip_term_line ss = strip_term_line_aux ss []
+End
+
+(*
+  EVAL ``strip_term_line (toks (strlit "foo bar asdf;"))``
+  EVAL ``strip_term_line (toks (strlit "foo bar asdf ;"))``
+  EVAL ``strip_term_line (toks (strlit "foo bar ~1;"))``
+  EVAL ``strip_term_line (toks (strlit "foo bar 1 ;"))``
+*)
 
 Definition parse_op_def:
   parse_op cmp =
@@ -160,20 +189,16 @@ End
 
 Definition parse_constraint_def:
   parse_constraint line =
-  case parse_constraint_LHS line [] of (rest,lhs) =>
-  let cmpdeg =
+  case OPTION_MAP parse_constraint_LHS (strip_term_line line) of
+    NONE => NONE
+  | SOME(rest,lhs) =>
     (case rest of
-      [INL cmp; INR deg; INL term] =>
-        if term ≠ str #";" then NONE else SOME(cmp,deg)
-    | [INL cmp; INL degterm] =>
-      (case strip_terminator degterm of NONE => NONE
-      | SOME deg => SOME(cmp,deg))
-    | _ => NONE) in
-  case cmpdeg of NONE => NONE
-  | SOME (cmp, deg) =>
-    case parse_op cmp of NONE => NONE
-    | SOME op =>
-      SOME ((op,lhs,deg):mlstring pbc)
+      [INL cmp; INR deg] =>
+      (case parse_op cmp of
+        NONE => NONE
+      | SOME op =>
+        SOME ((op,lhs,deg):mlstring pbc))
+    | _ => NONE)
 End
 
 (* strips off the head of a line as an annotation *)
@@ -193,9 +218,12 @@ Definition parse_annot_constraint_def:
     OPTION_MAP (λres. (annot,res)) (parse_constraint line)
 End
 
-(* EVAL ``parse_annot (toks (strlit "2 ~x1 1 ~x3 >= 1;"))``; *)
-(* EVAL ``parse_constraint (toks (strlit "2 ~x1 1 ~x3 >= 1;"))``; *)
-(* EVAL ``parse_annot_constraint (toks (strlit "@asdf 2 ~x1 1 ~x3 >= 1;"))``; *)
+(*
+  EVAL ``parse_annot (toks (strlit "2 ~x1 1 ~x3 >= 1;"))``;
+  EVAL ``parse_constraint (toks (strlit "2 ~x1 1 ~x3 >= 1 ;"))``;
+  EVAL ``parse_annot_constraint (toks (strlit "@asdf 2 ~x1 1 ~x3 >= 1;"))``;
+*)
+
 Definition parse_constraints_def:
   (parse_constraints [] acc = SOME (REVERSE acc)) ∧
   (parse_constraints (s::ss) acc =
@@ -210,39 +238,29 @@ Definition nocomment_line_def:
   (nocomment_line _ = T)
 End
 
-(* Allow the min objective to end with either:
-  lin_term constant ;
-  lin_term constant;
-  lin_term ;
-  lin_term;
+(* Allow the min objective to end with either a constant or not:
+  lin_term constant
+  lin_term
 *)
 
 (* parse objective term in pbc ... ; *)
 Definition parse_obj_term_def:
   parse_obj_term xs =
-  case parse_constraint_LHS xs [] of
-  (rest,obj) =>
+  case OPTION_MAP parse_constraint_LHS (strip_term_line xs) of
+    NONE => NONE
+  | SOME(rest,obj) =>
   case rest of
-    [INL s] =>
-      if s = strlit";" then SOME (obj,0:int)
-      else
-        (case strip_terminator s of NONE => NONE
-        | SOME i => SOME (obj,i))
-  | [INR c;INL s] =>
-      if s = strlit";" then SOME (obj,c:int) else
-      (case strip_term s of NONE => NONE
-      | SOME v =>
-        case parse_lit v of NONE => NONE
-        | SOME lit =>
-          SOME(SNOC (c,lit) obj, 0))
+    [] => SOME (obj,0:int)
+  | [INR c] => SOME (obj,c:int)
   | _ => NONE
 End
 
 (*
-EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 ~5 ;"))``
-EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 ;"))``
-EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2;"))``
-EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 5;"))``
+  EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 ~5 ;"))``
+  EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 ~5;"))``
+  EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 ;"))``
+  EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2;"))``
+  EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 5;"))``
 *)
 
 (* parse objective line in PBF *)
@@ -274,9 +292,14 @@ Definition parse_pres_def:
   (parse_pres [] = NONE) ∧
   (parse_pres (x::xs) =
     if x = INL (strlit "preserve_init") then
-      parse_vars_raw xs
+      OPTION_BIND (strip_term_line xs) parse_vars_raw
     else NONE)
 End
+
+(*
+  EVAL``parse_pres (toks (strlit"preserve_init x1 x2 x2 a b c ;"))``
+  EVAL``parse_pres (toks (strlit"preserve_init x1 x2 x2 a b c;"))``
+*)
 
 (* parse optional objective line *)
 Definition parse_obj_maybe_def:
@@ -327,8 +350,51 @@ End
   Parsing a proof file
 *)
 
+(* Fast tokenization *)
+Definition fromString_unsafe_def:
+  fromString_unsafe str =
+    if strlen str = 0
+    then 0i
+    else if strsub str 0 = #"~" ∨
+            strsub str 0 = #"-"
+      then ~&fromChars_unsafe (strlen str - 1)
+                              (substring str 1 (strlen str - 1))
+      else &fromChars_unsafe (strlen str) str
+End
+
+Definition is_numeric_def:
+  is_numeric c =
+  let n = ORD c in
+  48 ≤ n ∧ n ≤ 57
+End
+
+Definition is_num_prefix_def:
+  is_num_prefix c =
+  (c = #"~" ∨ c = #"-")
+End
+
+Definition int_start_def:
+  int_start s =
+  ((strlen s > 0 ∧ is_numeric (strsub s 0)) ∨
+  (strlen s > 1 ∧
+    is_num_prefix (strsub s 0) ∧
+    is_numeric (strsub s 1)))
+End
+
+Definition tokenize_fast_def:
+  tokenize_fast (s:mlstring) =
+  if int_start s then
+    INR (fromString_unsafe s)
+  else INL s
+End
+
+Definition toks_fast_def:
+  toks_fast s = MAP tokenize_fast (tokens blanks s)
+End
+
 Type name_fun[pp] = “:(mlstring -> α -> (num # α) option) # α”
 
+(* String literals are automatically mapped to internal names *)
 Definition apply_lit_def:
   apply_lit ((f,ns):'a name_fun) (Pos x) =
     (case f x ns of
@@ -340,8 +406,20 @@ Definition apply_lit_def:
      | SOME (y,ns1) => SOME (Neg y,f,ns1))
 End
 
-(* The stack is formed from constraints, where factors and variables are
-  also encoded using Id *)
+(* Unused, but useful for testing
+Definition plainVar_nf_def:
+  plainVar_nf s (u:unit) =
+  if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
+    case mlint$fromNatString (substring s 1 (strlen s - 1)) of
+      NONE => NONE
+    | SOME n => SOME (n,())
+  else
+    NONE
+End
+*)
+
+(* The cutting planes polish notation stack is formed from constraints, where
+  factors and variables are also encoded using Id *)
 Definition parse_lit_num_def:
   parse_lit_num (f_ns:'a name_fun) s =
     case parse_lit s of
@@ -349,54 +427,121 @@ Definition parse_lit_num_def:
     | SOME l => apply_lit f_ns l
 End
 
-Definition parse_cutting_def:
-  (parse_cutting f_ns (x::xs) stack =
+(* Parsing cutting planes in polish notation (header "pol", ";" stripped) *)
+Definition parse_cutting_aux_def:
+  (parse_cutting_aux f_ns (x::xs) stack =
   case x of INR n =>
     if n ≥ 0 then
-      parse_cutting f_ns xs (Id (Num n) :: stack)
+      parse_cutting_aux f_ns xs (Id (Num n) :: stack)
     else NONE
   | INL s =>
   if s = str #"+" then
     (case stack of
-      a::b::rest => parse_cutting f_ns xs (Add b a::rest)
+      a::b::rest => parse_cutting_aux f_ns xs (Add b a::rest)
     | _ => NONE)
   else if s = str #"*" then
     (case stack of
-      Id a::b::rest => parse_cutting f_ns xs (Mul b a::rest)
+      Id a::b::rest => parse_cutting_aux f_ns xs (Mul b a::rest)
     | _ => NONE)
   else if s = str #"d" then
     (case stack of
-      Id a::b::rest => parse_cutting f_ns xs (Div b a::rest)
+      Id a::b::rest => parse_cutting_aux f_ns xs (Div b a::rest)
     | _ => NONE)
   else if s = str #"s" then
     (case stack of
-      a::rest => parse_cutting f_ns xs (Sat a::rest)
+      a::rest => parse_cutting_aux f_ns xs (Sat a::rest)
     | _ => NONE)
   else if s = str #"w" then
     (case stack of
-      Lit (Pos v)::a::rest => parse_cutting f_ns xs (Weak a [v]::rest)
+      Lit (Pos v)::a::rest => parse_cutting_aux f_ns xs (Weak a [v]::rest)
     | _ => NONE)
   else
     case parse_lit_num f_ns s of
-    | SOME (l,f_ns1)=> parse_cutting f_ns1 xs (Lit l::stack)
+    | SOME (l,f_ns1)=> parse_cutting_aux f_ns1 xs (Lit l::stack)
     | NONE => NONE) ∧
-  (parse_cutting f_ns [] [c] = SOME (c,f_ns)) ∧
-  (parse_cutting f_ns [] _ = NONE)
+  (parse_cutting_aux f_ns [] [c] = SOME (c,f_ns)) ∧
+  (parse_cutting_aux f_ns [] _ = NONE)
 End
 
-Definition strip_numbers_def:
-  (strip_numbers [] acc = SOME (REVERSE acc)) ∧
-  (strip_numbers (x::xs) acc =
+Definition parse_cutting_def:
+  parse_cutting f_ns ls = parse_cutting_aux f_ns ls []
+End
+
+(*
+  EVAL ``parse_cutting (plainVar_nf,()) (toks_fast (strlit "8 2 + 3 + 1 s + 9 2 d + x5 2 * +"))``;
+*)
+
+(* Parse a pseudo-Boolean constraint *)
+Definition map_f_ns_def:
+  (map_f_ns f_ns [] = SOME ([],f_ns)) ∧
+  (map_f_ns f_ns ((c,l)::xs) =
+  case apply_lit f_ns l of
+    NONE => NONE
+  | SOME (l',f_ns') =>
+    case map_f_ns f_ns' xs of NONE => NONE
+    | SOME (ys,f_ns'') =>
+      SOME ((c,l')::ys,f_ns''))
+End
+
+Definition parse_constraint_npbc_def:
+  parse_constraint_npbc f_ns line =
+  case parse_constraint_LHS line of (rest,lhs) =>
+  (case rest of (INL cmp :: INR deg :: rest) =>
+    if cmp = strlit">=" then
+      case map_f_ns f_ns lhs of NONE => NONE
+      | SOME (lhs',f_ns') =>
+        SOME (
+          pbc_to_npbc (GreaterEqual,lhs',deg),
+          rest,
+          f_ns')
+    else
+      NONE
+  | _ => NONE)
+End
+
+(* A rup hint must be a sequence of numbers *)
+Definition strip_rup_hint_def:
+  (strip_rup_hint [] acc = SOME (REVERSE acc)) ∧
+  (strip_rup_hint (x::xs) acc =
   case x of INR n =>
     if n ≥ 0 then
-      strip_numbers xs (Num n::acc)
+      strip_rup_hint xs (Num n::acc)
     else NONE
-  | INL _ => NONE)
+  | INL s =>
+    if s = strlit"~" then
+      strip_rup_hint xs (0::acc)
+    else NONE)
 End
 
+Definition parse_rup_hint_def:
+  (parse_rup_hint [] = NONE) ∧
+  (parse_rup_hint (x::xs) =
+    case x of
+      INL s =>
+      if s = strlit ":" then strip_rup_hint xs [] else NONE
+    | _ => NONE)
+End
+
+(* Parsing RUP step (header "rup", ";" stripped) *)
+Definition parse_rup_def:
+  parse_rup f_ns line =
+  case parse_constraint_npbc f_ns line of
+    SOME (constr,rest,f_ns') =>
+      (case parse_rup_hint rest of NONE => NONE
+      | SOME ns => SOME(constr,ns,f_ns'))
+  | _ => NONE
+End
+
+(*
+  EVAL ``parse_rup (plainVar_nf,()) (toks_fast (strlit "1 ~x5 1 x26 1 x27 1 x28 1 x29 >= 1 : 6 11 ~"))``
+*)
+
+(* TODO below --- rearrange how lsteps are parsed *)
 Definition parse_var_def:
   parse_var f_ns v =
-  case parse_lit_num f_ns v of SOME (Pos n,f_ns) => SOME (n,f_ns) | _ => NONE
+  case parse_lit_num f_ns v of
+    SOME (Pos n,f_ns) => SOME (n,f_ns)
+  | _ => NONE
 End
 
 (* Parse a substitution {var -> lit} *)
@@ -424,33 +569,6 @@ Definition parse_subst_def:
     (ls, acc, f_ns)
 End
 
-Definition map_f_ns_def:
-  (map_f_ns f_ns [] = SOME ([],f_ns)) ∧
-  (map_f_ns f_ns ((c,l)::xs) =
-  case apply_lit f_ns l of
-    NONE => NONE
-  | SOME (l',f_ns') =>
-    case map_f_ns f_ns' xs of NONE => NONE
-    | SOME (ys,f_ns'') =>
-      SOME ((c,l')::ys,f_ns''))
-End
-
-Definition parse_constraint_npbc_def:
-  parse_constraint_npbc f_ns line =
-  case parse_constraint_LHS line [] of (rest,lhs) =>
-  (case rest of (INL cmp :: INR deg :: INL term :: rest) =>
-    if term = str #";" ∧ cmp = strlit">=" then
-      case map_f_ns f_ns lhs of NONE => NONE
-      | SOME (lhs',f_ns') =>
-        SOME (
-          pbc_to_npbc (GreaterEqual,lhs',deg),
-          rest,
-          f_ns')
-    else
-      NONE
-  | _ => NONE)
-End
-
 Definition parse_red_header_def:
   parse_red_header f_ns line =
   case parse_constraint_npbc f_ns line of
@@ -467,56 +585,13 @@ End
 
 (* formatting
   rup constraint ; ID1 ID2 ... *)
-Definition parse_constraint_npbc_2_def:
-  parse_constraint_npbc_2 f_ns line =
-  case parse_constraint_LHS line [] of (rest,lhs) =>
-  (case rest of (INL cmp :: INR deg :: INL term :: rest) =>
-    if term = str #";" ∧ cmp = strlit">=" then
-      case map_f_ns f_ns lhs of NONE => NONE
-      | SOME (lhs',f_ns') =>
-        SOME (
-          pbc_to_npbc (GreaterEqual,lhs',deg),
-          rest,
-          f_ns')
-    else
-      NONE
-  | _ => NONE)
-End
-
-Definition strip_numbers_end_def:
-  (strip_numbers_end [] acc = SOME (REVERSE acc)) ∧
-  (strip_numbers_end (x::xs) acc =
-  case x of INR n =>
-    if n ≥ 0 then
-      strip_numbers_end xs (Num n::acc)
-    else NONE
-  | INL s =>
-    if s = strlit"~" then
-      strip_numbers_end xs (0::acc)
-    else NONE)
-End
-
-Definition parse_rup_def:
-  parse_rup f_ns line =
-  case parse_constraint_npbc_2 f_ns line of
-    SOME (constr,rest,f_ns') =>
-      (case strip_numbers_end rest [] of NONE => NONE
-      | SOME ns => SOME(constr,ns,f_ns'))
-  | _ => NONE
-End
-
-(*
-EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 ;"))``
-EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2;"))``
-EVAL``parse_obj_term (toks (strlit"1 ~x199 1 x2 5;"))``
-*)
 
 
 (* Parse a single line of an lstep,
   Except "Red", which will be handled later *)
 Definition parse_lstep_aux_def:
   (parse_lstep_aux f_ns s =
-    case s of [] => NONE
+    case s of
     | (r::rs) =>
       if r = INL (strlit "deld") then
         (case strip_numbers rs [] of NONE => NONE
@@ -541,7 +616,8 @@ Definition parse_lstep_aux_def:
             else NONE
           | _ => NONE)
       else if r = INL (strlit "*") then SOME (INL NoOp,f_ns)
-      else NONE)
+      else NONE
+    | [] => NONE)
 End
 
 Definition check_end_def:
@@ -733,47 +809,6 @@ Proof
   rw[]>>imp_res_tac parse_lsteps_aux_LENGTH>>
   fs[]
 QED
-
-Definition fromString_unsafe_def:
-  fromString_unsafe str =
-    if strlen str = 0
-    then 0i
-    else if strsub str 0 = #"~" ∨
-            strsub str 0 = #"-"
-      then ~&fromChars_unsafe (strlen str - 1)
-                              (substring str 1 (strlen str - 1))
-      else &fromChars_unsafe (strlen str) str
-End
-
-Definition is_numeric_def:
-  is_numeric c =
-  let n = ORD c in
-  48 ≤ n ∧ n ≤ 57
-End
-
-Definition is_num_prefix_def:
-  is_num_prefix c =
-  (c = #"~" ∨ c = #"-")
-End
-
-Definition int_start_def:
-  int_start s =
-  ((strlen s > 0 ∧ is_numeric (strsub s 0)) ∨
-  (strlen s > 1 ∧
-    is_num_prefix (strsub s 0) ∧
-    is_numeric (strsub s 1)))
-End
-
-Definition tokenize_fast_def:
-  tokenize_fast (s:mlstring) =
-  if int_start s then
-    INR (fromString_unsafe s)
-  else INL s
-End
-
-Definition toks_fast_def:
-  toks_fast s = MAP tokenize_fast (tokens blanks s)
-End
 
 val headertrm = rconc (EVAL``toks_fast (strlit"pseudo-Boolean proof version 2.0")``);
 
