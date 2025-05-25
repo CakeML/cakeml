@@ -77,20 +77,17 @@ Theorem machine_code_sound:
       (
         (LENGTH cl = 2 ∧
         ∃prob.
-          parse_pbf (all_lines fs (EL 1 cl)) = SOME prob ∧
-          out = concat (print_prob prob)) ∨
+          get_annot_fml fs (EL 1 cl) = SOME prob ∧
+          out = concat (print_annot_prob prob)) ∨
         (LENGTH cl = 3 ∧
         ∃pres obj fml concl.
-          parse_pbf (all_lines fs (EL 1 cl)) =
-            SOME (pres, obj, fml) ∧
+          get_fml fs (EL 1 cl) = SOME (pres, obj, fml) ∧
           out = concl_to_string concl ∧
           pbc$sem_concl (set fml) obj concl) ∨
         (LENGTH cl = 4 ∧
         ∃pres obj fml prest objt fmlt output bound concl.
-          parse_pbf (all_lines fs (EL 1 cl)) =
-            SOME (pres, obj, fml) ∧
-          parse_pbf (all_lines fs (EL 3 cl)) =
-            SOME (prest, objt, fmlt) ∧
+          get_fml fs (EL 1 cl) = SOME (pres, obj, fml) ∧
+          get_fml fs (EL 3 cl) = SOME (prest, objt, fmlt) ∧
           out =
             (concl_to_string concl ^
             output_to_string bound output) ∧
@@ -113,19 +110,21 @@ Proof
   every_case_tac>>fs[]
   >- (
     qexists_tac`out`>>qexists_tac`err`>>simp[]>>
-    fs[check_unsat_3_sem_def,get_fml_def]>>
-    strip_tac>>gvs[]>>
+    fs[check_unsat_3_sem_def]>>
+    strip_tac>>
+    gvs[get_fml_def,get_annot_fml_def]>>
     metis_tac[])
   >- (
     qexists_tac`out`>>qexists_tac`err`>>simp[]>>
-    fs[check_unsat_2_sem_def,get_fml_def]>>
-    strip_tac>>gvs[]>>
+    fs[check_unsat_2_sem_def]>>
+    strip_tac>>
+    gvs[get_fml_def,get_annot_fml_def]>>
     metis_tac[])
   >- (
     qexists_tac`out`>>qexists_tac`err`>>simp[]>>
-    fs[check_unsat_1_sem_def,get_fml_def]>>
+    fs[check_unsat_1_sem_def]>>
     strip_tac>>gvs[]>>
-    every_case_tac>>fs[])>>
+    gvs[get_fml_def,get_annot_fml_def,AllCasePreds()])>>
   metis_tac[]
 QED
 
