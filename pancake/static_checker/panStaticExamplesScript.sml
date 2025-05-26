@@ -1553,6 +1553,41 @@ val warns_redefined_global_var =
   check_static_has_warnings $ static_check_pancake parse_redefined_global_var;
 
 
+val ex_redefined_global_var_locally = `
+  var 1 x = 1;
+  fun f() {
+    var x = 1;
+    return x;
+  }
+`;
+
+val parse_redefined_global_var_locally =
+  check_parse_success $ parse_pancake ex_redefined_global_var_locally;
+
+val static_redefined_global_var_locally =
+  check_static_success $ static_check_pancake parse_redefined_global_var_locally;
+
+val warns_redefined_global_var_locally =
+  check_static_has_warnings $ static_check_pancake parse_redefined_global_var_locally;
+
+
+val ex_redefined_global_var_deccall = `
+  var 1 x = 1;
+  fun f() {
+    var 1 x = f();
+    return x;
+  }
+`;
+
+val parse_redefined_global_var_deccall =
+  check_parse_success $ parse_pancake ex_redefined_global_var_deccall;
+
+val static_redefined_global_var_deccall =
+  check_static_success $ static_check_pancake parse_redefined_global_var_deccall;
+
+val warns_redefined_global_var_deccall =
+  check_static_has_warnings $ static_check_pancake parse_redefined_global_var_deccall;
+
 
 (* Shape checks - TODO *)
 

@@ -546,6 +546,14 @@ Termination
                                    | INR(_,x) => exp1_size (K 0) x’
 End
 
+Definition check_redec_var_def:
+  check_redec_var ctxt vname scope =
+    case (lookup ctxt.vars vname,lookup ctxt.globals vname) of
+       (NONE,NONE) => return ()
+    |  _ => log (WarningErr $ get_redec_msg T ctxt.loc vname scope)
+End
+
+
 (*
   static_check_prog returns:
     (prog info (:prog_return)) static_result
@@ -561,9 +569,7 @@ Definition static_check_prog_def:
   static_check_prog ctxt (Dec v e p) =
     do
       (* check for reclaration *)
-      case lookup ctxt.vars v of
-        SOME _ => log (WarningErr $ get_redec_msg T ctxt.loc v (SOME ctxt.scope))
-      | NONE => return ();
+      check_redec_var ctxt v (SOME ctxt.scope);
       (* check initialising exp *)
       b <- static_check_exp ctxt e;
       (* check prog with declared var *)
@@ -580,9 +586,7 @@ Definition static_check_prog_def:
   static_check_prog ctxt (DecCall v s fname args p) =
     do
       (* check for redeclaration *)
-      case lookup ctxt.vars v of
-        SOME _ => log (WarningErr $ get_redec_msg T ctxt.loc v (SOME ctxt.scope))
-      | NONE => return ();
+      check_redec_var ctxt v (SOME ctxt.scope);
       (* check func ptr exp and arg exps *)
       scope_check_fun_name ctxt fname;
       static_check_exps ctxt args;
@@ -973,9 +977,7 @@ Definition static_check_globals_def:
       (* check initialisation expression *)
       static_check_exp ctxt exp;
       (* check for redeclaration *)
-      case lookup gnames vname of
-        NONE => return ()
-      | SOME _ => log (WarningErr $ get_redec_msg T ctxt.loc vname NONE);
+      check_redec_var ctxt vname NONE;
       (* check remaining globals *)
       static_check_globals (insert gnames vname ()) decls
     od ∧
