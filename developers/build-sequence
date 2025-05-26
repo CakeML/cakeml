@@ -114,6 +114,12 @@ compiler/dafny/translation
 compiler/dafny/compilation
 compiler/dafny/semantics
 
+# Scheme compiler
+compiler/scheme
+compiler/scheme/translation
+compiler/scheme/compilation
+compiler/scheme/proofs
+
 # examples and tests
 characteristic/examples
 tutorial/solutions
