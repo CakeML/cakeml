@@ -1491,8 +1491,6 @@ Definition expsexp_def:
   expsexp (Tannot e t) = ⟪SX_SYM "Tannot"; expsexp e; typesexp t⟫ ∧
   expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫ ∧
   expsexp (FpOptimise fpopt e) = listsexp [SX_SYM "FpOptimise"; scsexp fpopt; expsexp e]
-Termination
-  WF_REL_TAC`measure exp_size`
 End
 
 Theorem expsexp_11[simp]:
@@ -1568,8 +1566,6 @@ Definition decsexp_def:
   decsexp (Dlocal ldecs decs) =
     listsexp [SX_SYM "Dlocal"; listsexp (MAP decsexp ldecs);
               listsexp (MAP decsexp decs)]
-Termination
-  wf_rel_tac`measure dec_size`
 End
 
 Theorem decsexp_11[simp]:
