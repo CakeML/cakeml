@@ -972,6 +972,10 @@ Definition static_check_globals_def:
                 ; loc := strlit "" |>;
       (* check initialisation expression *)
       static_check_exp ctxt exp;
+      (* check for redeclaration *)
+      case lookup gnames vname of
+        NONE => return ()
+      | SOME _ => log (WarningErr $ get_redec_msg T ctxt.loc vname NONE);
       (* check remaining globals *)
       static_check_globals (insert gnames vname ()) decls
     od ∧
