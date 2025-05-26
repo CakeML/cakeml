@@ -216,7 +216,7 @@ Definition cons_ast_def:
     if w = "-" then INR (Lit (LitPrim SMinus)) else
     if w = "*" then INR (Lit (LitPrim SMul)) else
     if w = "eqv?" then INR (Lit (LitPrim SEqv)) else
-    if w = "callcc" then INR (Lit (LitPrim CallCC)) else
+    if w = "call/cc" then INR (Lit (LitPrim CallCC)) else
       INR (Ident (implode w))) ∧
   cons_ast Nil = INL "Empty S expression" ∧
   cons_ast (Pair x y) = (case pair_to_list y of

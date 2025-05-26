@@ -1,4 +1,3 @@
-all: hi.cake$(SUFF)
 .PHONY: all clean
 
 OS ?= $(shell uname)
@@ -21,11 +20,15 @@ ifeq ($(OS),Darwin)
 	EVALFLAG =
 endif
 
+ALL = $(patsubst %.scm,%.cake$(SUFF),$(wildcard *.scm))
+
 CFLAGS+=-O2
 LDLIBS+=-lm
 
 ARCH=x64
 WORD_SIZE=64
+
+all: $(ALL)
 
 %.cake.S: %.scm cake scheme_compiler$(SUFF)
 	cat $< | $(PREF)scheme_compiler$(SUFF) | $(PREF)cake$(SUFF) $(CAKEOPT) > $@
