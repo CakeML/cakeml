@@ -11,6 +11,7 @@ open evaluate_appsTheory
 open dafny_semanticPrimitivesTheory
 open dafny_evaluateTheory
 open namespaceTheory
+open namespacePropsTheory
 open mlstringTheory
 open integerTheory
 open mlintTheory
@@ -837,6 +838,21 @@ Proof
   \\ Cases_on ‘loc’ \\ gvs []
 QED
 
+Triviality state_rel_locals_rel:
+  locals_rel m l s.locals (t: 'ffi cml_state).refs env ∧
+  refv_same_rel t.refs (t': 'ffi cml_state).refs ⇒
+  locals_rel m l s.locals t'.refs env
+Proof
+  gvs [locals_rel_def]
+  \\ rpt strip_tac
+  \\ first_x_assum drule
+  \\ rpt strip_tac
+  \\ rename [‘store_lookup loc _ = SOME (Refv cml_v)’]
+  \\ qexistsl [‘loc’, ‘cml_v’]
+  \\ drule refv_same_rel_store_lookup
+  \\ gvs []
+QED
+
 Triviality state_rel_restore_locals:
   state_rel m l s (t: 'ffi cml_state) env ∧
   state_rel m l s' (t': 'ffi cml_state) env' ∧
@@ -845,24 +861,12 @@ Triviality state_rel_restore_locals:
 Proof
   rpt strip_tac
   \\ gvs [restore_locals_def, state_rel_def]
-  \\ rpt $ qpat_x_assum ‘_ = _’ kall_tac
-  \\ rpt $ qpat_x_assum ‘print_rel _ _’ kall_tac
-  \\ gvs [locals_rel_def] \\ rpt strip_tac
-  \\ last_x_assum drule \\ rpt strip_tac
-  \\ pop_assum $ irule_at Any \\ gvs []
-  \\ pop_assum $ irule_at Any
-  \\ drule_all refv_same_rel_store_lookup \\ gvs []
+  \\ irule state_rel_locals_rel
+  \\ gvs [SF SFY_ss]
 QED
 
 Triviality gen_arg_names_len[simp]:
   LENGTH (gen_arg_names xs) = LENGTH xs
-Proof
-  cheat
-QED
-
-Triviality pmatch_list_map_pvar:
-  LENGTH xs = LENGTH ys ⇒
-  pmatch_list cs refs (MAP Pvar xs) ys acc = Match (ZIP (xs, ys) ++ acc)
 Proof
   cheat
 QED
@@ -940,14 +944,20 @@ Proof
   cheat
 QED
 
+Definition enumerate_from_def:
+  enumerate_from offset ns = MAPi (λi n. (n, offset + i)) ns
+End
+
 Definition add_refs_to_env_def:
   add_refs_to_env env_v ns offset =
-    nsAppend (alist_to_ns (MAPi (λi n. (n, Loc T (offset + i))) ns)) env_v
+    nsAppend
+      (alist_to_ns (MAP (λ(n, i). (n, Loc T i)) (enumerate_from offset ns)))
+      env_v
 End
 
 Definition mk_locals_map_def:
   mk_locals_map (ns: mlstring list) offset =
-    alist_to_fmap ((MAPi (λi n. (n, offset + i))) ns)
+    alist_to_fmap (enumerate_from offset ns)
 End
 
 Triviality inj_mk_locals_map:
@@ -991,8 +1001,16 @@ Proof
 QED
 
 Triviality nslookup_nsappend_alist_neq:
-  EVERY (λy. x ≠ y) (MAP FST ys) ⇒
+  EVERY (λy. y ≠ x) (MAP FST ys) ⇒
   nsLookup (nsAppend (alist_to_ns ys) ns) (Short x) = nsLookup ns (Short x)
+Proof
+  cheat
+QED
+
+Triviality nslookup_add_refs_to_env_neq:
+  EVERY (λn. n ≠ x) ns ⇒
+  nsLookup (add_refs_to_env env_v ns offset) (Short x) =
+  nsLookup env_v (Short x)
 Proof
   cheat
 QED
@@ -1024,10 +1042,47 @@ Proof
   \\ gvs [read_local_def]
 QED
 
+Triviality read_local_EL:
+  ∀(ns: mlstring list) (vs: value list) var val.
+    read_local (ZIP (ns, MAP SOME vs)) var = SOME val ∧
+    ALL_DISTINCT ns ∧ LENGTH vs = LENGTH ns ⇒
+    ∃i. var = EL i ns ∧ val = EL i vs ∧ i < LENGTH ns
+Proof
+  rpt strip_tac
+  \\ gvs [read_local_def, AllCaseEqs()]
+  \\ drule ALOOKUP_find_index_SOME \\ rpt strip_tac
+  \\ qexists ‘i’
+  \\ gvs [EL_ZIP, find_index_ALL_DISTINCT_EL_eq, EL_MAP, MAP_ZIP]
+QED
+
+Triviality nsLookup_add_refs_to_env:
+  nsLookup
+    (add_refs_to_env env.v (REVERSE (MAP explode ns)) offset)
+    (Short (explode (EL i ns))) =
+  SOME (Loc T (i + offset))
+Proof
+  cheat
+QED
+
+Triviality FLOOKUP_mk_locals_map:
+  FLOOKUP (mk_locals_map ns offset) (EL i ns) = SOME (i + offset)
+Proof
+  cheat
+QED
+
+Triviality LIST_REL_store_lookup:
+  LIST_REL (val_rel m) in_vs cml_vs ⇒
+  store_lookup (i + LENGTH s.refs) (s.refs ++ MAP Refv cml_vs) =
+  SOME (Refv (EL i cml_vs)) ∧ val_rel m (EL i in_vs) (EL i cml_vs)
+Proof
+  cheat
+QED
+
 Triviality flookup_mk_locals_map:
-  ∀(s: 'ffi cml_state) env.
+  ∀(s: 'ffi cml_state) env ins in_vs var dfy_v m cml_vs.
     read_local (ZIP (MAP FST ins, MAP SOME in_vs)) var = SOME dfy_v ∧
     LIST_REL (val_rel m) in_vs cml_vs ∧
+    ALL_DISTINCT (MAP FST ins) ∧
     LENGTH in_vs = LENGTH ins ⇒
     ∃loc cml_v.
       nsLookup
@@ -1038,7 +1093,56 @@ Triviality flookup_mk_locals_map:
       store_lookup loc (s.refs ++ MAP Refv cml_vs) = SOME (Refv cml_v) ∧
       val_rel m dfy_v cml_v
 Proof
+  rpt strip_tac
+  \\ drule_then assume_tac read_local_EL \\ gvs []
+  \\ qexistsl [‘LENGTH s.refs + i’, ‘EL i cml_vs’]
+  \\ gvs [GSYM MAP_MAP_o]
+  \\ irule_at Any nsLookup_add_refs_to_env
+  \\ irule_at Any FLOOKUP_mk_locals_map
+  \\ irule LIST_REL_store_lookup
+  \\ gvs []
+QED
+
+Triviality is_fresh_not_dfy:
+  EVERY (λn. is_fresh n) ns ⇒
+  ∀sfx. EVERY (λn. n ≠ "dfy_" ++ (explode sfx)) (MAP explode ns)
+Proof
   cheat
+QED
+
+Triviality EVERY_TL:
+  EVERY P xs ∧ xs ≠ [] ⇒ EVERY P (TL xs)
+Proof
+  Cases_on ‘xs’ \\ gvs []
+QED
+
+Triviality nsappend_alist_to_ns_nsbind:
+  nsAppend (alist_to_ns (ZIP (ns, vs))) (nsBind n v env) =
+  nsAppend (alist_to_ns (ZIP (SNOC n ns, SNOC v vs))) env
+Proof
+  cheat
+QED
+
+Triviality list_rel_nslookup_nsappend:
+  ALL_DISTINCT ns ⇒
+  LIST_REL
+    (λn v.
+       nsLookup
+         (nsAppend (alist_to_ns (ZIP (REVERSE ns, vs))) env_v)
+         (Short n) =
+       SOME v)
+    params cml_vs
+Proof
+  cheat
+QED
+
+(* TODO Is this a good way to write this?/Upstream to HOL *)
+Triviality SNOC_HD_REVERSE_TL:
+  xs ≠ [] ⇒ SNOC (HD xs) (REVERSE (TL xs)) = REVERSE xs
+Proof
+  rpt strip_tac
+  \\ ‘(HD xs)::(TL xs) = xs’ by gvs []
+  \\ asm_rewrite_tac [GSYM (cj 2 REVERSE_SNOC_DEF)]
 QED
 
 Theorem correct_from_exp:
@@ -1115,7 +1219,7 @@ Proof
       \\ qabbrev_tac
          ‘call_env =
             env with v :=
-              nsBind cml_param (LAST cml_vs) (build_rec_env cml_funs env env.v)’
+            nsBind cml_param (LAST cml_vs) (build_rec_env cml_funs env env.v)’
       (* Preparing e for evaluate_apps *)
       \\ gvs [from_member_decl_def, set_up_cml_fun_def, oneline bind_def,
               CaseEq "sum"]
@@ -1176,12 +1280,17 @@ Proof
       \\ drule_all state_rel_restore_locals \\ gvs [])
     (* Evaluating (non-empty) args succeeded *)
     \\ Cases_on ‘cml_args = []’ \\ gvs []
+    \\ Cases_on ‘cml_vs = []’ \\ gvs []
     \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
     (* TODO In case this works, perhaps we should case distinction on args earlier. *)
     (* Preparing ns for evaluate_apps *)
     \\ qabbrev_tac ‘params = REVERSE (MAP (explode ∘ FST) ins)’
     \\ ‘LENGTH params = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
     \\ ‘SUC (LENGTH (TL params)) = LENGTH ins’ by (Cases_on ‘params’ \\ gvs [])
+    \\ ‘LENGTH cml_vs = LENGTH cml_args’ by
+      (drule (cj 1 evaluate_length) \\ gvs [])
+    \\ ‘LENGTH (REVERSE (TL params)) = LENGTH (FRONT cml_vs)’ by
+      (Cases_on ‘cml_vs = []’ \\ gvs [FRONT_LENGTH])
     (* Preparing clos_v for evaluate_apps *)
     \\ drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
     (* Preparing env1 for evaluate_apps *)
@@ -1214,7 +1323,6 @@ Proof
             ‘mk_locals_map (MAP FST ins) (LENGTH t₁.refs)’]
            mp_tac
     \\ impl_tac
-
     >- (rpt strip_tac
         >- (gvs [state_rel_def, dec_clock_def, evaluateTheory.dec_clock_def]
             \\ irule_at Any array_rel_append \\ gvs []
@@ -1236,16 +1344,22 @@ Proof
         \\ gvs [env_rel_def] \\ rpt strip_tac
         >- (unabbrev_all_tac \\ gvs [has_basic_cons_def])
         >- res_tac
+        \\ rename [‘get_member name' _ = SOME _’]
+        \\ ‘EVERY (λn. n ≠ STRCAT "dfy_" (explode name')) params’ by
+          (drule is_fresh_not_dfy
+           \\ disch_then $ qspec_then ‘name'’ assume_tac
+           \\ gvs [Abbr ‘params’, MAP_MAP_o])
         \\ gvs [Abbr ‘call_env₂’]
-        \\ gvs [add_refs_to_env_def]
-        \\ DEP_REWRITE_TAC [nslookup_nsappend_alist_neq]
+        \\ DEP_REWRITE_TAC [nslookup_add_refs_to_env_neq]
         \\ gvs [Abbr ‘call_env₁’]
         \\ DEP_REWRITE_TAC [nslookup_nsappend_alist_neq]
+        \\ gvs [MAP_ZIP]
+        \\ strip_tac >-
+         (irule EVERY_TL \\ Cases_on ‘params = []’ \\ gvs [])
         \\ gvs [Abbr ‘call_env’]
         \\ DEP_REWRITE_TAC [nsLookup_nsBind_neq]
-        \\ drule_all nslookup_build_rec_env_reclos \\ gvs []
-        \\ gvs [MAP_ZIP]
-        \\ cheat)
+        \\ strip_tac >- (Cases_on ‘params’ \\ gvs [cml_fun_def])
+        \\ drule_all nslookup_build_rec_env_reclos \\ gvs [])
     \\ rpt strip_tac
     (* Fixing clocks *)
     \\ ‘t₁.clock ≠ 0’ by gvs [state_rel_def]
@@ -1265,8 +1379,13 @@ Proof
     \\ ‘cml_param = HD params’ by (Cases_on ‘params’ \\ gvs [cml_fun_def])
     \\ gvs [evaluateTheory.dec_clock_def]
     \\ gvs [Abbr ‘call_body’]
-
-    \\ ‘LIST_REL (λn v. nsLookup call_env₁.v (Short n) = SOME v) params cml_vs’ by cheat
+    \\ ‘LIST_REL (λn v. nsLookup call_env₁.v (Short n) = SOME v) params cml_vs’ by
+      (gvs [Abbr ‘call_env₁’, Abbr ‘call_env’]
+       \\ DEP_REWRITE_TAC [nsappend_alist_to_ns_nsbind]
+       \\ Cases_on ‘params = []’ \\ gvs []
+       \\ gvs [SNOC_LAST_FRONT, REVERSE_TL, SNOC_HD_REVERSE_TL]
+       \\ irule list_rel_nslookup_nsappend
+       \\ gvs [Abbr ‘params’, GSYM MAP_MAP_o])
     \\ drule evaluate_set_up_in_refs
     \\ disch_then $
          qspecl_then
@@ -1278,10 +1397,9 @@ Proof
       (irule_at Any refv_same_rel_append_imp
        \\ qexists ‘MAP Refv cml_vs’ \\ gvs [])
     \\ namedCases_on ‘r’ ["", "v err"] \\ gvs []
-    \\ irule state_rel_restore_locals
-    \\ gvs [SF SFY_ss]
-    \\ cheat
-    )
+    \\ gvs [state_rel_def, restore_locals_def]
+    \\ irule state_rel_locals_rel
+    \\ gvs [SF SFY_ss])
 
   \\ cheat
 
