@@ -374,6 +374,40 @@ End
 
 (* Static checking functions *)
 
+Definition scope_check_fun_name_def:
+  scope_check_fun_name ctxt fname =
+    (* check for out of scope func *)
+    (if ¬MEM fname ctxt.funcs
+     then error (ScopeErr $ get_scope_msg F ctxt.loc fname ctxt.scope)
+     else return ())
+End
+
+Definition scope_check_global_var_def:
+  scope_check_global_var ctxt vname =
+    (* check for out of scope global *)
+    case lookup ctxt.globals vname of
+       NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
+     | SOME x => return ()
+End
+
+Definition scope_check_local_var_def:
+  scope_check_local_var ctxt vname =
+    (* check for out of scope local *)
+    case lookup ctxt.vars vname of
+       NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
+     | SOME x => return ()
+End
+
+Definition scope_check_var_def:
+  scope_check_var ctxt vk vname =
+    (* check for out of scope variable *)
+    case vk of
+      Local =>
+        scope_check_local_var ctxt vname
+    | Global =>
+        scope_check_global_var ctxt vname
+End
+
 (*
   static_check_exp[s] returns:
     (basedness of expression (:based)) static_result
@@ -390,9 +424,10 @@ Definition static_check_exp_def:
     | SOME x => return x) ∧
   static_check_exp ctxt (Var Global vname) =
     (* check for out of scope var *)
-    (case lookup ctxt.globals vname of
-       NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
-     | SOME () => return Trusted) ∧
+    do
+      scope_check_global_var ctxt vname;
+      return (Trusted)
+    od ∧
   static_check_exp ctxt (Struct es) =
     do
       (* check struct field exps *)
@@ -511,15 +546,6 @@ Termination
                                    | INR(_,x) => exp1_size (K 0) x’
 End
 
-Definition static_check_fun_name_def:
-  static_check_fun_name ctxt fname =
-    (* check for out of scope func *)
-    (if ¬MEM fname ctxt.funcs
-     then error (ScopeErr $ get_scope_msg F ctxt.loc fname ctxt.scope)
-                (* return based-ness *)
-     else return (NotBased))
-End
-
 (*
   static_check_prog returns:
     (prog info (:prog_return)) static_result
@@ -558,7 +584,7 @@ Definition static_check_prog_def:
         SOME _ => log (WarningErr $ get_redec_msg T ctxt.loc v (SOME ctxt.scope))
       | NONE => return ();
       (* check func ptr exp and arg exps *)
-      static_check_fun_name ctxt fname;
+      scope_check_fun_name ctxt fname;
       static_check_exps ctxt args;
       (* check prog with declared var *)
       ctxt' <<- ctxt with <| vars := insert ctxt.vars v Trusted
@@ -574,15 +600,7 @@ Definition static_check_prog_def:
   static_check_prog ctxt (Assign vk v e) =
     do
       (* check for out of scope assignment *)
-      case vk of
-        Local =>
-          (case lookup ctxt.vars v of
-             NONE => error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.scope)
-           | SOME _ => return ())
-      | Global =>
-          (case lookup ctxt.globals v of
-             NONE => error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.scope)
-           | SOME () => return ());
+      scope_check_var ctxt vk v;
       (* check assigning exp *)
       b <- static_check_exp ctxt e;
       (* return prog info with updated var *)
@@ -738,7 +756,7 @@ Definition static_check_prog_def:
   static_check_prog ctxt (TailCall trgt args) =
     do
       (* check func ptr exp and arg exps *)
-      static_check_fun_name ctxt trgt;
+      scope_check_fun_name ctxt trgt;
       static_check_exps ctxt args;
       (* return prog info *)
       return <| exits_fun  := T
@@ -750,25 +768,20 @@ Definition static_check_prog_def:
   static_check_prog ctxt (AssignCall rt hdl trgt args) =
     do
       (* check for out of scope assignment *)
-      case lookup ctxt.vars rt of
-        NONE => error (ScopeErr $ get_scope_msg T ctxt.loc rt ctxt.scope)
-      | SOME _ => return ();
+      scope_check_local_var ctxt rt;
       (* check func ptr exp and arg exps *)
-      static_check_fun_name ctxt trgt;
+      scope_check_fun_name ctxt trgt;
       static_check_exps ctxt args;
       (* check exception handling info *)
       case hdl of
         NONE => return ()
         (* check for out of scope exception variable *)
       | SOME (eid, evar, p) =>
-        case lookup ctxt.vars evar of
-          NONE => error (ScopeErr $ get_scope_msg T ctxt.loc evar ctxt.scope)
-          (* check handler prog *)
-        | SOME _ =>
-            do
-              static_check_prog (ctxt with vars := insert ctxt.vars evar Trusted) p;
-              return ()
-            od;
+          do
+            scope_check_local_var ctxt evar;
+            static_check_prog (ctxt with vars := insert ctxt.vars evar Trusted) p;
+            return ()
+          od;
       (* return prog info with updated var *)
       return <| exits_fun  := F
               ; exits_loop := F
@@ -779,21 +792,18 @@ Definition static_check_prog_def:
   static_check_prog ctxt (StandAloneCall hdl trgt args) =
     do
       (* check func ptr exp and arg exps *)
-      static_check_fun_name ctxt trgt;
+      scope_check_fun_name ctxt trgt;
       static_check_exps ctxt args;
       (* check exception handling info *)
       case hdl of
         NONE => return ()
         (* check for out of scope exception variable *)
       | SOME (eid, evar, p) =>
-        case lookup ctxt.vars evar of
-          NONE => error (ScopeErr $ get_scope_msg T ctxt.loc evar ctxt.scope)
-          (* check handler prog *)
-        | SOME _ =>
-            do
-              static_check_prog (ctxt with vars := insert ctxt.vars evar Trusted) p;
-              return ()
-            od;
+          do
+            scope_check_local_var ctxt evar;
+            static_check_prog (ctxt with vars := insert ctxt.vars evar Trusted) p;
+            return ()
+          od;
       (* return prog info *)
       return <| exits_fun  := F
               ; exits_loop := F
@@ -837,15 +847,7 @@ Definition static_check_prog_def:
   static_check_prog ctxt (ShMemLoad mop vk v e) =
     do
       (* check for out of scope var *)
-      case vk of
-      | Local =>
-          (case lookup ctxt.vars v of
-             NONE => error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.scope)
-           | SOME _ => return ())
-      | Global =>
-          (case lookup ctxt.globals v of
-             NONE => error (ScopeErr $ get_scope_msg T ctxt.loc v ctxt.scope)
-           | SOME () => return ());
+      scope_check_var ctxt vk v;
       (* check address exp *)
       b <- static_check_exp ctxt e;
       (* check address does not reference base *)
@@ -908,7 +910,7 @@ Definition static_check_funs_def:
   static_check_funs fnames gnames (Decl _ _ _::decls) =
     (* not a function *)
     static_check_funs fnames gnames decls ∧
-  static_check_funs fnames gnames (Function fname export vshapes body::funs) =
+  static_check_funs fnames gnames (Function fname export vshapes body::decls) =
     do
       (* check main function arguments *)
       if (fname = «main» /\ LENGTH vshapes > 0) then
@@ -949,7 +951,7 @@ Definition static_check_funs_def:
            fname; strlit "\n"])
       else return ();
       (* check remaining functions *)
-      static_check_funs fnames gnames funs
+      static_check_funs fnames gnames decls
     od
 End
 
