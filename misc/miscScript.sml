@@ -1101,7 +1101,7 @@ QED
 Theorem find_index_NOT_MEM:
    ∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)
 Proof
-  Induct >> srw_tac[][find_index_def]
+  simp[Once EQ_SYM_EQ] >> Induct >> simp[find_index_def] >> metis_tac[]
 QED
 
 Theorem find_index_MEM:
