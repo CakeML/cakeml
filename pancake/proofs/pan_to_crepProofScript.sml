@@ -4849,7 +4849,7 @@ Proof
 QED
 
 Theorem state_rel_imp_semantics_decls:
-  !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start prog.
+  !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start.
     state_rel s t ∧
     ALL_DISTINCT (MAP FST (functions pan_code)) ∧
     s.code = FEMPTY ∧
