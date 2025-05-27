@@ -98,6 +98,7 @@ Datatype:
   scope =
     FunScope  funname   (* in a function *)
   | DeclScope varname   (* in a global declaration *)
+  | TopLevel
 End
 
 (* Record for current (per-func) context *)
@@ -254,6 +255,8 @@ Definition get_scope_desc_def:
         concat [strlit "function "; fname]
     | DeclScope vname =>
         concat [strlit "initialisation of global variable "; vname]
+    | TopLevel =>
+        strlit "top-level declaration"
 End
 
 (*
@@ -271,16 +274,12 @@ End
 (*
   Get message for redefined identifiers
   is_var: variable vs function
-  scope_opt: local var vs global var vs function
 *)
 Definition get_redec_msg_def:
-  get_redec_msg is_var loc id scope_opt =
+  get_redec_msg is_var loc id scope =
     let id_type = if is_var then strlit "variable " else strlit "function " in
-    let in_scope = (case scope_opt of
-      | SOME scope => concat [strlit " in"; get_scope_desc scope]
-      | NONE       => strlit "") in
     concat [loc; id_type; id;
-      strlit " is redeclared"; in_scope; strlit "\n"]
+      strlit " is redeclared in"; get_scope_desc scope; strlit "\n"]
 End
 
 (*
@@ -547,10 +546,10 @@ Termination
 End
 
 Definition check_redec_var_def:
-  check_redec_var ctxt vname scope =
+  check_redec_var ctxt vname =
     case (lookup ctxt.vars vname,lookup ctxt.globals vname) of
        (NONE,NONE) => return ()
-    |  _ => log (WarningErr $ get_redec_msg T ctxt.loc vname scope)
+    |  _ => log (WarningErr $ get_redec_msg T ctxt.loc vname ctxt.scope)
 End
 
 
@@ -569,7 +568,7 @@ Definition static_check_prog_def:
   static_check_prog ctxt (Dec v e p) =
     do
       (* check for reclaration *)
-      check_redec_var ctxt v (SOME ctxt.scope);
+      check_redec_var ctxt v;
       (* check initialising exp *)
       b <- static_check_exp ctxt e;
       (* check prog with declared var *)
@@ -586,7 +585,7 @@ Definition static_check_prog_def:
   static_check_prog ctxt (DecCall v s fname args p) =
     do
       (* check for redeclaration *)
-      check_redec_var ctxt v (SOME ctxt.scope);
+      check_redec_var ctxt v;
       (* check func ptr exp and arg exps *)
       scope_check_fun_name ctxt fname;
       static_check_exps ctxt args;
@@ -977,7 +976,7 @@ Definition static_check_globals_def:
       (* check initialisation expression *)
       static_check_exp ctxt exp;
       (* check for redeclaration *)
-      check_redec_var ctxt vname NONE;
+      check_redec_var (ctxt with scope := TopLevel) vname;
       (* check remaining globals *)
       static_check_globals (insert gnames vname ()) decls
     od ∧
@@ -1000,7 +999,7 @@ Definition static_check_def:
       (* check func name uniqueness *)
       fnames <<- MAP FST (functions decls);
       case first_repeat $ QSORT mlstring_lt fnames of
-        (* TODO: swap this to `get_redec_msg F <loc> f NONE` once function locations exist *)
+        (* TODO: swap this to `get_redec_msg F <loc> f TopLevel` once function locations exist *)
         SOME f => error (GenErr $ concat
           [strlit "function "; f; strlit " is redeclared\n"])
       | NONE => return ();
