@@ -431,6 +431,7 @@ Type cml_env[pp] = “:v semanticPrimitives$sem_env”
 Type cml_exp[pp] = “:ast$exp”
 Type cml_res[pp] = “:(v list, v) semanticPrimitives$result”
 
+(* Returns whether the name comes from the freshen pass. *)
 Definition is_fresh_def:
   is_fresh name = isPrefix «v» name
 End
@@ -528,8 +529,8 @@ Definition locals_rel_def:
     INJ (λx. l ' x) (FDOM l) 𝕌(:num) ∧
     ∀var dfy_v.
       (* SOME dfy_v means that the local was initialized *)
-      read_local s_locals var = (SOME dfy_v) ⇒
-      (* TODO Do we need to add is_fresh somewhere here? *)
+      read_local s_locals var = (SOME dfy_v) ∧
+      is_fresh var ⇒
       ∃loc cml_v.
         FLOOKUP l var = SOME loc ∧
         (* locals map to references in CakeML *)
@@ -568,8 +569,8 @@ End
 
 Triviality read_local_some_imp:
   read_local s.locals name = SOME dfy_v ∧
-  ¬(isPrefix « » name) ∧
-  state_rel m l s t env_cml ⇒
+  state_rel m l s (t: 'ffi cml_state) env_cml ∧
+  is_fresh name ⇒
   ∃loc cml_v.
     FLOOKUP l name = SOME loc ∧
     store_lookup loc t.refs = SOME (Refv cml_v) ∧
@@ -633,11 +634,11 @@ Proof
 QED
 
 (* TODO Move to mlstring? *)
-(* Triviality isprefix_isprefix: *)
-(*   isPrefix s₁ s₂ ⇔ explode s₁ ≼ explode s₂ *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
+Triviality isprefix_isprefix:
+  isPrefix s₁ s₂ ⇔ explode s₁ ≼ explode s₂
+Proof
+  cheat
+QED
 
 (* Triviality prefix_space_imp: *)
 (*   ¬isPrefix « » n ∧ " " ≼ n' ⇒ n' ≠ explode n *)
@@ -645,35 +646,53 @@ QED
 (*   rpt strip_tac \\ gvs [isprefix_isprefix] *)
 (* QED *)
 
-(* Triviality state_rel_env_push_internal: *)
-(*   " " ≼ n ∧ state_rel m l s t env ⇒ *)
-(*   state_rel m l s t (env with v := nsOptBind (SOME n) v env.v) *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
+Triviality is_fresh_neq[simp]:
+  is_fresh n ∧ ¬is_fresh n' ⇒ n ≠ n'
+Proof
+  rpt strip_tac \\ gvs [is_fresh_def]
+QED
 
-(* Triviality state_rel_env_pop_internal: *)
-(*   " " ≼ n ∧ *)
-(*   state_rel m l s t (env with v := nsOptBind (SOME n) v env.v) ⇒ *)
-(*   state_rel m l s t env *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
+(* TODO Should push and pop be conditional rewrites instead? *)
+Triviality state_rel_env_push_not_fresh:
+  state_rel m l s (t: 'ffi cml_state) env ∧ ¬(is_fresh n) ⇒
+  state_rel m l s t (env with v := nsOptBind (SOME (explode n)) v env.v)
+Proof
+  gvs [state_rel_def, locals_rel_def]
+  \\ rpt strip_tac
+  \\ first_x_assum drule_all
+  \\ rpt strip_tac
+  \\ rename [‘store_lookup loc _ = SOME (Refv cml_v)’]
+  \\ qexistsl [‘loc’, ‘cml_v’] \\ gvs []
+QED
+
+Triviality state_rel_env_pop_not_fresh:
+  ¬(is_fresh n) ∧
+  state_rel m l s (t: 'ffi cml_state)
+    (env with v := nsOptBind (SOME (explode n)) v env.v) ⇒
+  state_rel m l s t env
+Proof
+  gvs [state_rel_def, locals_rel_def]
+  \\ rpt strip_tac
+  \\ first_x_assum drule_all
+  \\ rpt strip_tac
+  \\ rename [‘store_lookup loc _ = SOME (Refv cml_v)’]
+  \\ qexistsl [‘loc’, ‘cml_v’] \\ gvs []
+QED
 
 Triviality with_same_refs_ffi[simp]:
-  t with <| refs := t.refs; ffi := t.ffi |> = t
+  (t: 'ffi cml_state) with <| refs := t.refs; ffi := t.ffi |> = t
 Proof
   gvs [semanticPrimitivesTheory.state_component_equality]
 QED
 
-(* Triviality state_rel_flookup_m: *)
-(*   state_rel m l s t env_cml ∧ *)
-(*   FLOOKUP m dfy_loc = SOME cml_loc ∧ *)
-(*   FLOOKUP m dfy_loc' = SOME cml_loc' ⇒ *)
-(*   ((cml_loc' = cml_loc) ⇔ (dfy_loc' = dfy_loc)) *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
+Triviality state_rel_flookup_m:
+  state_rel m l s t env_cml ∧
+  FLOOKUP m dfy_loc = SOME cml_loc ∧
+  FLOOKUP m dfy_loc' = SOME cml_loc' ⇒
+  ((cml_loc' = cml_loc) ⇔ (dfy_loc' = dfy_loc))
+Proof
+  cheat
+QED
 
 (* Triviality state_rel_llookup: *)
 (*   state_rel m l s t env_cml ∧ *)
@@ -813,8 +832,24 @@ Definition refv_same_rel_def[simp]:
      (y = Refv v) ∧ (refv_same_rel xs ys)) ∧
   (refv_same_rel ((Varray vs)::xs) (y::ys) ⇔
      (refv_same_rel xs ys)) ∧
+  (refv_same_rel ((W8array ws)::xs) (y::ys) ⇔
+     (refv_same_rel xs ys)) ∧
   (refv_same_rel _ _ ⇔ F)
 End
+
+Triviality refv_same_rel_same_state_aux:
+  ∀s_refs. refv_same_rel s_refs s_refs
+Proof
+  Induct_on ‘s_refs’ \\ gvs []
+  \\ qx_gen_tac ‘hd’
+  \\ Cases_on ‘hd’ \\ gvs []
+QED
+
+Triviality refv_same_rel_same_state[simp]:
+  refv_same_rel s.refs s.refs
+Proof
+  qspec_then ‘s.refs’ mp_tac refv_same_rel_same_state_aux \\ gvs []
+QED
 
 Triviality refv_same_rel_len:
   ∀xs ys. refv_same_rel xs ys ⇒ LENGTH xs ≤ LENGTH ys
@@ -845,12 +880,11 @@ Triviality state_rel_locals_rel:
 Proof
   gvs [locals_rel_def]
   \\ rpt strip_tac
-  \\ first_x_assum drule
+  \\ first_x_assum drule \\ gvs []
   \\ rpt strip_tac
   \\ rename [‘store_lookup loc _ = SOME (Refv cml_v)’]
   \\ qexistsl [‘loc’, ‘cml_v’]
-  \\ drule refv_same_rel_store_lookup
-  \\ gvs []
+  \\ drule refv_same_rel_store_lookup \\ gvs []
 QED
 
 Triviality state_rel_restore_locals:
@@ -871,6 +905,7 @@ Proof
   cheat
 QED
 
+(* TODO Check if needed; add to namespaceTheory? *)
 Triviality nsAppend_empty[simp]:
   nsAppend (Bind [] []) b = b
 Proof
@@ -1055,13 +1090,30 @@ Proof
   \\ gvs [EL_ZIP, find_index_ALL_DISTINCT_EL_eq, EL_MAP, MAP_ZIP]
 QED
 
+Triviality ALOOKUP_enumerate_from:
+  ∀i xs offset.
+    ALL_DISTINCT xs ∧
+    i < LENGTH xs ⇒
+    ALOOKUP (enumerate_from offset (REVERSE xs)) (EL i xs) = SOME (i + offset)
+Proof
+  cheat
+QED
+
 Triviality nsLookup_add_refs_to_env:
+  ALL_DISTINCT ns ∧
+  i < LENGTH ns ⇒
   nsLookup
     (add_refs_to_env env.v (REVERSE (MAP explode ns)) offset)
     (Short (explode (EL i ns))) =
   SOME (Loc T (i + offset))
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [add_refs_to_env_def]
+  \\ gvs [nsLookup_nsAppend_some]
+  \\ disj1_tac
+  \\ gvs [nsLookup_alist_to_ns_some]
+  \\ gvs [ALOOKUP_MAP]
+  \\ gvs [ALOOKUP_enumerate_from, GSYM EL_MAP]
 QED
 
 Triviality FLOOKUP_mk_locals_map:
@@ -1097,10 +1149,9 @@ Proof
   \\ drule_then assume_tac read_local_EL \\ gvs []
   \\ qexistsl [‘LENGTH s.refs + i’, ‘EL i cml_vs’]
   \\ gvs [GSYM MAP_MAP_o]
-  \\ irule_at Any nsLookup_add_refs_to_env
-  \\ irule_at Any FLOOKUP_mk_locals_map
-  \\ irule LIST_REL_store_lookup
-  \\ gvs []
+  \\ irule_at Any nsLookup_add_refs_to_env \\ gvs []
+  \\ irule_at Any FLOOKUP_mk_locals_map \\ gvs []
+  \\ irule LIST_REL_store_lookup \\ gvs []
 QED
 
 Triviality is_fresh_not_dfy:
@@ -1143,6 +1194,20 @@ Proof
   rpt strip_tac
   \\ ‘(HD xs)::(TL xs) = xs’ by gvs []
   \\ asm_rewrite_tac [GSYM (cj 2 REVERSE_SNOC_DEF)]
+QED
+
+Triviality INJ_FLOOKUP_IMP:
+  INJ (λx. m ' x) (FDOM m) 𝕌(:β) ⇒
+  ∀x y. FLOOKUP m x = FLOOKUP m y ⇔ x = y
+Proof
+  cheat
+QED
+
+Triviality state_rel_array_loc_INJ:
+  state_rel m l s (t: 'ffi cml_state) env_cml ⇒
+  INJ (λx. m ' x) (FDOM m) 𝕌(:num)
+Proof
+  gvs [state_rel_def, array_rel_def]
 QED
 
 Theorem correct_from_exp:
@@ -1400,212 +1465,245 @@ Proof
     \\ gvs [state_rel_def, restore_locals_def]
     \\ irule state_rel_locals_rel
     \\ gvs [SF SFY_ss])
+  >~ [‘Forall var term’] >-
+   (gvs [from_exp_def])
+  >~ [‘Lit l’] >-
+   (qexists ‘0’
+    \\ Cases_on ‘l’
+    \\ gvs [evaluate_exp_def, from_lit_def, from_exp_def, evaluate_def]
+    \\ rename [‘BoolV b’]
+    \\ Cases_on ‘b’
+    \\ gvs [evaluate_def, do_con_check_def, env_rel_def, has_basic_cons_def,
+            build_conv_def, Boolv_def, bool_type_num_def])
+  >~ [‘Var name’] >-
+   (qexists ‘0’
+    \\ gvs [evaluate_exp_def, CaseEq "option"]
+    \\ drule_all read_local_some_imp \\ rpt strip_tac
+    \\ gvs [from_exp_def, cml_read_var_def]
+    \\ gvs [evaluate_def, do_app_def, state_rel_def])
+  >~ [‘If grd thn els’] >-
+   (gvs [evaluate_exp_def, from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ namedCases_on ‘evaluate_exp s env_dfy grd’ ["s₁ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ first_x_assum drule_all \\ rpt strip_tac
+    \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
+    \\ gvs [evaluate_def]
+    \\ reverse $ namedCases_on ‘r’ ["grd_v", "err"] \\ gvs []
+    >- (qexists ‘ck’ \\ drule exp_res_rel_rerr \\ gvs [])
+    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ namedCases_on ‘do_cond grd_v thn els’ ["", "branch"] \\ gvs []
+    \\ gvs [oneline do_cond_def, CaseEq "value"]
+    \\ rename [‘Boolv b’] \\ Cases_on ‘b’ \\ gvs []
+    \\ last_x_assum drule_all \\ rpt strip_tac
+    \\ rename [‘evaluate (_ with clock := ck' + _) _ _’]
+    \\ qexists ‘ck' + ck’
+    \\ rev_drule evaluate_add_to_clock \\ gvs []
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
+    \\ gvs [do_if_def]
+    \\ irule refv_same_rel_trans \\ gvs [SF SFY_ss])
+  >~ [‘UnOp uop e’] >-
+   (gvs [evaluate_exp_def, from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ namedCases_on ‘evaluate_exp s env_dfy e’ ["s₁ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ first_x_assum drule_all \\ rpt strip_tac
+    \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
+    \\ qexists ‘ck’
+    \\ Cases_on ‘uop’ \\ gvs [from_un_op_def, evaluate_def]
+    \\ reverse $ namedCases_on ‘r’ ["v", "err"] \\ gvs []
+    >- (drule exp_res_rel_rerr \\ gvs [])
+    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ gvs [do_uop_def, CaseEqs ["value", "option"]]
+    \\ rename [‘Boolv b’] \\ Cases_on ‘b’ \\ gvs []
+    \\ gvs [do_if_def, evaluate_def, do_con_check_def, build_conv_def,
+            env_rel_def, has_basic_cons_def, Boolv_def, bool_type_num_def])
+  >~ [‘BinOp bop e₀ e₁’] >-
+   (gvs [evaluate_exp_def, from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ namedCases_on ‘evaluate_exp s env_dfy e₀’ ["s₁ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
+    \\ rename [‘evaluate (_ with clock := ck + _) _ _ = (t₁, _)’]
+    \\ gvs [evaluate_def]
+    \\ reverse $ Cases_on ‘r’ \\ gvs []
+    >- (qexists ‘ck’ \\ drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs [])
+    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ rename [‘val_rel _ dfy_v₀ cml_v₀’]
+    \\ Cases_on ‘do_sc bop dfy_v₀’ \\ gvs []
+    >- (* Short-circuiting *)
+     (qexists ‘ck’
+      \\ gvs [oneline do_sc_def, val_rel_cases, evaluate_def, from_bin_op_def,
+              do_log_def, Boolv_def, do_if_def, do_con_check_def, env_rel_def,
+              build_conv_def, bool_type_num_def, env_rel_def,
+              has_basic_cons_def, AllCaseEqs()])
+    \\ namedCases_on ‘evaluate_exp s₁ env_dfy e₁’ ["s₂ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ ‘¬is_fresh « l»’ by gvs [is_fresh_def, isprefix_isprefix]
+    \\ drule_all state_rel_env_push_not_fresh
+    \\ disch_then $ qspec_then ‘cml_v₀’ assume_tac
+    \\ last_x_assum drule
+    \\ impl_tac >-
+     (gvs [env_rel_def, has_basic_cons_def] \\ rpt strip_tac \\ res_tac)
+    \\ rpt strip_tac
+    \\ rename [‘evaluate (_ with clock := ck' + _) _ _ = (t₂, _)’]
+    \\ ‘refv_same_rel t.refs t₂.refs’ by
+      (irule refv_same_rel_trans \\ gvs [SF SFY_ss])
+    \\ qexists ‘ck' + ck’
+    \\ rev_drule evaluate_add_to_clock
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
+    \\ drule state_rel_env_pop_not_fresh \\ gvs []
+    \\ disch_then $ drule \\ rpt strip_tac \\ gvs []
+    \\ reverse $ Cases_on ‘r’ \\ gvs []
+    >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ Cases_on ‘bop’
+        \\ gvs [oneline do_sc_def, val_rel_cases, from_bin_op_def,
+                evaluate_def, do_log_def, do_if_def, AllCaseEqs()])
+    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ rename [‘val_rel _ dfy_v₁ cml_v₁’]
+    \\ Cases_on ‘do_bop bop dfy_v₀ dfy_v₁’ \\ gvs []
+    \\ Cases_on ‘bop = Div’ \\ gvs [] >-
+     (gvs [do_bop_def, AllCaseEqs()]
+      \\ gvs [from_bin_op_def, EDIV_DEF]
+      \\ gvs [evaluate_def, do_app_def, do_if_def, opb_lookup_def]
+      \\ Cases_on ‘0 < i₁’
+      \\ gvs [evaluate_def, do_app_def, opn_lookup_def, Boolv_def])
+    \\ Cases_on ‘bop = Eq’ \\ gvs [] >-
+     (gvs [do_bop_def]
+      \\ gvs [from_bin_op_def]
+      \\ gvs [evaluate_def, do_app_def]
+      \\ namedCases_on ‘dfy_v₀’ ["i", "b", "str", "len dfy_loc"] \\ gvs []
+      \\ namedCases_on ‘dfy_v₁’ ["i'", "b'", "str'", "len' dfy_loc'"] \\ gvs []
+      >~ [‘do_eq (Boolv _) (Boolv _)’] >-
+       (Cases_on ‘b’ \\ Cases_on ‘b'’
+        \\ gvs [do_eq_def, lit_same_type_def, Boolv_def, ctor_same_type_def,
+                same_type_def])
+      >~ [‘do_eq (Conv _ _) (Conv _ _)’] >-
+       (drule_all state_rel_array_loc_INJ \\ rpt strip_tac
+        \\ drule (INST_TYPE [“:α” |-> “:num”, “:β” |-> “:num”] INJ_FLOOKUP_IMP)
+        \\ disch_then $ qspecl_then [‘dfy_loc’, ‘dfy_loc'’] assume_tac
+        \\ gvs [do_eq_def, lit_same_type_def]
+        \\ Cases_on ‘len = len'’ \\ gvs []
+        \\ Cases_on ‘dfy_loc = dfy_loc'’ \\ gvs [])
+      \\ gvs [do_eq_def, lit_same_type_def])
+    \\ Cases_on ‘bop = Neq’ \\ gvs [] >-
+     (gvs [do_bop_def]
+      \\ gvs [from_bin_op_def]
+      \\ gvs [evaluate_def, do_app_def]
+      \\ namedCases_on
+           ‘dfy_v₀’ ["i", "b", "dfy_str", "len dfy_loc"] \\ gvs []
+      \\ namedCases_on
+           ‘dfy_v₁’ ["i'", "b'", "dfy_str'", "len' dfy_loc'"] \\ gvs []
+      >~ [‘do_eq (Boolv _) (Boolv _)’] >-
+       (Cases_on ‘b’ \\ Cases_on ‘b'’
+        \\ gvs [evaluate_def, do_eq_def, lit_same_type_def, Boolv_def,
+                ctor_same_type_def, same_type_def, do_if_def, do_con_check_def,
+                build_conv_def, env_rel_def, has_basic_cons_def,
+                bool_type_num_def])
+      >~ [‘do_eq (Conv _ _) (Conv _ _)’] >-
+       (drule_all state_rel_array_loc_INJ \\ rpt strip_tac
+        \\ drule (INST_TYPE [“:α” |-> “:num”, “:β” |-> “:num”] INJ_FLOOKUP_IMP)
+        \\ disch_then $ qspecl_then [‘dfy_loc’, ‘dfy_loc'’] assume_tac
+        \\ gvs [do_eq_def, lit_same_type_def]
+        \\ Cases_on ‘len = len'’ \\ gvs []
+        \\ Cases_on ‘dfy_loc = dfy_loc'’
+        \\ gvs [do_if_def, evaluate_def, do_con_check_def, env_rel_def,
+                build_conv_def, Boolv_def, bool_type_num_def,
+                has_basic_cons_def])
+      >~ [‘do_eq (Litv (IntLit _)) (Litv (IntLit _))’] >-
+       (gvs [do_eq_def, lit_same_type_def, do_if_def]
+        \\ Cases_on ‘i' = i’
+        \\ gvs [evaluate_def, do_con_check_def, build_conv_def, env_rel_def,
+                Boolv_def, bool_type_num_def, has_basic_cons_def])
+      >~ [‘do_eq (Litv (StrLit _)) (Litv (StrLit _))’] >-
+       (gvs [do_eq_def, lit_same_type_def, do_if_def]
+        \\ Cases_on ‘dfy_str = dfy_str'’
+        \\ gvs [evaluate_def, do_con_check_def, build_conv_def, env_rel_def,
+                Boolv_def, bool_type_num_def, has_basic_cons_def]))
+      \\ gvs [oneline do_bop_def, do_sc_def, AllCaseEqs()]
+      \\ gvs [from_bin_op_def]
+      \\ gvs [evaluate_def, do_app_def, opb_lookup_def, opn_lookup_def,
+              do_log_def, do_if_def])
+  >~ [‘ArrLen arr’] >-
+   (gvs [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp s env_dfy arr’ ["s₁ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ last_x_assum drule_all \\ rpt strip_tac
+    \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
+    \\ qexists ‘ck’
+    \\ reverse $ namedCases_on ‘r’ ["arr_v",  "err"] \\ gvs []
+    >- (drule exp_res_rel_rerr
+        \\ gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def,
+                evaluate_def])
+    \\ namedCases_on ‘get_array_len arr_v’ ["", "len"] \\ gvs []
+    \\ gvs [oneline get_array_len_def, AllCaseEqs()]
+    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def]
+    \\ gvs [evaluate_def, can_pmatch_all_def, pmatch_def, pat_bindings_def,
+            cml_tup_vname_def, num_to_str_11]
+    \\ Cases_on ‘env_cml.v’
+    \\ gvs [alist_to_ns_def, nsAppend_def, nsLookup_def, num_to_str_11])
+  >~ [‘ArrSel arr idx’] >-
 
-  \\ cheat
+   (gvs [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp s env_dfy arr’ ["s₁ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ first_x_assum drule_all \\ rpt strip_tac
+    \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
+    \\ reverse $ namedCases_on ‘r’ ["arr_v",  "err"] \\ gvs []
+    >- (qexists ‘ck’
+        \\ drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs []
+        \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
+        \\ gvs [evaluate_def])
+    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ gvs [evaluate_def]
+    \\ rename [‘val_rel _ dfy_arr cml_arr’]
+    \\ namedCases_on ‘evaluate_exp s₁ env_dfy idx’ ["s₂ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
 
-  (* >~ [‘Forall var term’] >- *)
-  (*  (gvs [from_exp_def]) *)
-  (* >~ [‘Lit l’] >- *)
-  (*  (Cases_on ‘l’ *)
-  (*   \\ gvs [from_exp_def, from_lit_def, evaluate_def, do_con_check_def, *)
-  (*           env_rel_def, build_conv_def, exp_res_rel_def, evaluate_exp_def, *)
-  (*           val_rel_cases, Boolv_def, bool_type_num_def, AllCaseEqs()]) *)
-  (* >~ [‘Var name’] >- *)
-  (*  (gvs [evaluate_exp_def, AllCaseEqs()] *)
-  (*   \\ drule_all read_local_some_imp \\ rpt strip_tac *)
-  (*   \\ gvs [from_exp_def, cml_read_var_def] *)
-  (*   \\ gvs [evaluate_def, do_app_def, state_rel_def]) *)
-  (* >~ [‘If grd thn els’] >- *)
-  (*  (reverse $ *)
-  (*     gvs [evaluate_exp_def, from_exp_def, oneline bind_def, AllCaseEqs()] *)
-  (*   \\ first_x_assum drule_all \\ rpt strip_tac *)
-  (*   >- (gvs [evaluate_def] \\ TOP_CASE_TAC \\ gvs []) *)
-  (*   \\ rename [‘do_cond v _ _ = SOME _’] \\ Cases_on ‘v’ *)
-  (*   \\ gvs [do_cond_def] *)
-  (*   \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs [val_rel_cases] *)
-  (*   \\ gvs [evaluate_def, do_if_def] *)
-  (*   \\ rename [‘Boolv b’] \\ Cases_on ‘b’ *)
-  (*   \\ gvs [Boolv_def]) *)
-  (* >~ [‘UnOp uop e’] >- *)
-  (*  (reverse $ *)
-  (*     gvs [evaluate_exp_def, from_exp_def, oneline bind_def, *)
-  (*          oneline from_un_op_def, AllCaseEqs()] *)
-  (*   \\ first_x_assum drule_all \\ rpt strip_tac *)
-  (*   >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs [evaluate_def]) *)
-  (*   \\ gvs [oneline do_uop_def, AllCaseEqs()] *)
-  (*   \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs [val_rel_cases] *)
-  (*   \\ gvs [evaluate_def, do_if_def] *)
-  (*   \\ rename [‘Boolv b’] \\ Cases_on ‘b’ *)
-  (*   \\ gvs [evaluate_def, do_con_check_def, build_conv_def, env_rel_def, *)
-  (*           val_rel_cases, Boolv_def, bool_type_num_def]) *)
-  (* >~ [‘BinOp bop e₀ e₁’] >- *)
-  (*  (gvs [from_exp_def, oneline bind_def, AllCaseEqs()] *)
-  (*   \\ gvs [evaluate_exp_def] *)
-  (*   \\ namedCases_on ‘evaluate_exp s env_dfy e₀’ ["s₁ r"] \\ gvs [] *)
-  (*   \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs [] *)
-  (*   \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ rename [‘evaluate _ _ _ = (t₁, _)’] *)
-  (*   \\ gvs [evaluate_def] *)
-  (*   \\ reverse $ Cases_on ‘r’ \\ gvs [] *)
-  (*   >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs []) *)
-  (*   \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ rename [‘val_rel _ dfy_v₀ cml_v₀’] *)
-  (*   \\ Cases_on ‘do_sc bop dfy_v₀’ \\ gvs [] *)
-  (*   >- (* Short-circuiting *) *)
-  (*    (gvs [oneline do_sc_def, val_rel_cases, evaluate_def, from_bin_op_def, *)
-  (*          do_log_def, Boolv_def, do_if_def, do_con_check_def, env_rel_def, *)
-  (*          build_conv_def, bool_type_num_def, AllCaseEqs()]) *)
-  (*   \\ namedCases_on ‘evaluate_exp s₁ env_dfy e₁’ ["s₂ r"] \\ gvs [] *)
-  (*   \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs [] *)
-  (*   \\ ‘" " ≼ " l"’ by gvs []  \\ drule_all state_rel_env_push_internal *)
-  (*   \\ disch_then $ qspec_then ‘cml_v₀’ assume_tac *)
-  (*   \\ last_x_assum drule *)
-  (*   \\ impl_tac >- gvs [env_rel_def] *)
-  (*   \\ rpt strip_tac *)
-  (*   \\ drule_all state_rel_env_pop_internal \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ reverse $ Cases_on ‘r’ \\ gvs [] *)
-  (*   >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ Cases_on ‘bop’ *)
-  (*       \\ gvs [oneline do_sc_def, val_rel_cases, from_bin_op_def, *)
-  (*               evaluate_def, do_log_def, do_if_def, AllCaseEqs()]) *)
-  (*   \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ rename [‘val_rel _ dfy_v₁ cml_v₁’] *)
-  (*   \\ Cases_on ‘do_bop bop dfy_v₀ dfy_v₁’ \\ gvs [] *)
-  (*   \\ Cases_on ‘bop = Div’ \\ gvs [] >- *)
-  (*    (gvs [do_bop_def, AllCaseEqs()] *)
-  (*     \\ gvs [from_bin_op_def, EDIV_DEF] *)
-  (*     \\ gvs [evaluate_def, do_app_def, do_if_def, opb_lookup_def] *)
-  (*     \\ Cases_on ‘0 < i₁’ *)
-  (*     \\ gvs [evaluate_def, do_app_def, opn_lookup_def, Boolv_def]) *)
-  (*   \\ Cases_on ‘bop = Eq’ \\ gvs [] >- *)
-  (*    (gvs [do_bop_def] *)
-  (*     \\ gvs [from_bin_op_def] *)
-  (*     \\ gvs [evaluate_def, do_app_def] *)
-  (*     \\ namedCases_on ‘dfy_v₀’ ["i", "b", "str", "len dfy_loc"] \\ gvs [] *)
-  (*     \\ namedCases_on ‘dfy_v₁’ ["i'", "b'", "str'", "len' dfy_loc'"] \\ gvs [] *)
-  (*     >~ [‘do_eq (Boolv _) (Boolv _)’] >- *)
-  (*      (Cases_on ‘b’ \\ Cases_on ‘b'’ *)
-  (*       \\ gvs [do_eq_def, lit_same_type_def, Boolv_def, ctor_same_type_def, *)
-  (*               same_type_def]) *)
-  (*     >~ [‘do_eq (Conv _ _) (Conv _ _)’] >- *)
-  (*      (drule state_rel_flookup_m *)
-  (*       \\ disch_then drule \\ disch_then rev_drule \\ rpt strip_tac *)
-  (*       \\ gvs [do_eq_def, lit_same_type_def] *)
-  (*       \\ Cases_on ‘len = len'’ \\ gvs [] *)
-  (*       \\ Cases_on ‘dfy_loc = dfy_loc'’ \\ gvs []) *)
-  (*     \\ gvs [do_eq_def, lit_same_type_def]) *)
-  (*   \\ Cases_on ‘bop = Neq’ \\ gvs [] >- *)
-  (*    (gvs [do_bop_def] *)
-  (*     \\ gvs [from_bin_op_def] *)
-  (*     \\ gvs [evaluate_def, do_app_def] *)
-  (*     \\ namedCases_on *)
-  (*          ‘dfy_v₀’ ["i", "b", "dfy_str", "len dfy_loc"] \\ gvs [] *)
-  (*     \\ namedCases_on *)
-  (*          ‘dfy_v₁’ ["i'", "b'", "dfy_str'", "len' dfy_loc'"] \\ gvs [] *)
-  (*     >~ [‘do_eq (Boolv _) (Boolv _)’] >- *)
-  (*      (Cases_on ‘b’ \\ Cases_on ‘b'’ *)
-  (*       \\ gvs [evaluate_def, do_eq_def, lit_same_type_def, Boolv_def, *)
-  (*               ctor_same_type_def, same_type_def, do_if_def, do_con_check_def, *)
-  (*               build_conv_def, env_rel_def, bool_type_num_def]) *)
-  (*     >~ [‘do_eq (Conv _ _) (Conv _ _)’] >- *)
-  (*      (drule state_rel_flookup_m *)
-  (*       \\ disch_then drule \\ disch_then rev_drule \\ rpt strip_tac *)
-  (*       \\ gvs [do_eq_def, lit_same_type_def] *)
-  (*       \\ Cases_on ‘len = len'’ \\ gvs [] *)
-  (*       \\ Cases_on ‘dfy_loc = dfy_loc'’ *)
-  (*       \\ gvs [do_if_def, evaluate_def, do_con_check_def, env_rel_def, *)
-  (*               build_conv_def, Boolv_def, bool_type_num_def]) *)
-  (*     >~ [‘do_eq (Litv (IntLit _)) (Litv (IntLit _))’] >- *)
-  (*      (gvs [do_eq_def, lit_same_type_def, do_if_def] *)
-  (*       \\ Cases_on ‘i' = i’ *)
-  (*       \\ gvs [evaluate_def, do_con_check_def, build_conv_def, env_rel_def, *)
-  (*               Boolv_def, bool_type_num_def]) *)
-  (*     >~ [‘do_eq (Litv (StrLit _)) (Litv (StrLit _))’] >- *)
-  (*      (gvs [do_eq_def, lit_same_type_def, do_if_def] *)
-  (*       \\ Cases_on ‘dfy_str = dfy_str'’ *)
-  (*       \\ gvs [evaluate_def, do_con_check_def, build_conv_def, env_rel_def, *)
-  (*               Boolv_def, bool_type_num_def])) *)
-  (*     \\ gvs [oneline do_bop_def, do_sc_def, AllCaseEqs()] *)
-  (*     \\ gvs [from_bin_op_def] *)
-  (*     \\ gvs [evaluate_def, do_app_def, opb_lookup_def, opn_lookup_def, *)
-  (*             do_log_def, do_if_def]) *)
-  (* >~ [‘ArrLen arr’] >- *)
-  (*  (gvs [from_exp_def, oneline bind_def, AllCaseEqs()] *)
-  (*   \\ gvs [evaluate_exp_def] *)
-  (*   \\ namedCases_on ‘evaluate_exp s env_dfy arr’ ["s₁ r"] \\ gvs [] *)
-  (*   \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs [] *)
-  (*   \\ last_x_assum drule_all \\ rpt strip_tac *)
-  (*   \\ reverse $ namedCases_on ‘r’ ["arr_v",  "err"] \\ gvs [] *)
-  (*   >- (drule exp_res_rel_rerr *)
-  (*       \\ gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def, *)
-  (*               evaluate_def]) *)
-  (*   \\ namedCases_on ‘get_array_len arr_v’ ["", "len"] \\ gvs [] *)
-  (*   \\ gvs [oneline get_array_len_def, AllCaseEqs()] *)
-  (*   \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def] *)
-  (*   \\ gvs [evaluate_def, can_pmatch_all_def, pmatch_def, pat_bindings_def, *)
-  (*           cml_tup_vname_def, num_to_str_11] *)
-  (*   \\ Cases_on ‘env_cml.v’ *)
-  (*   \\ gvs [alist_to_ns_def, nsAppend_def, nsLookup_def, num_to_str_11]) *)
-  (* >~ [‘ArrSel arr idx’] >- *)
-  (*  (gvs [from_exp_def, oneline bind_def, AllCaseEqs()] *)
-  (*   \\ gvs [evaluate_exp_def] *)
-  (*   \\ namedCases_on ‘evaluate_exp s env_dfy arr’ ["s₁ r"] \\ gvs [] *)
-  (*   \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs [] *)
-  (*   \\ first_x_assum drule_all \\ rpt strip_tac *)
-  (*   \\ reverse $ namedCases_on ‘r’ ["arr_v",  "err"] \\ gvs [] *)
-  (*   >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs [] *)
-  (*       \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def] *)
-  (*       \\ gvs [evaluate_def]) *)
-  (*   \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ gvs [evaluate_def] *)
-  (*   \\ rename [‘val_rel _ dfy_arr cml_arr’] *)
-  (*   \\ namedCases_on ‘evaluate_exp s₁ env_dfy idx’ ["s₂ r"] \\ gvs [] *)
-  (*   \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs [] *)
-  (*   \\ ‘" " ≼ " arr"’ by gvs []  \\ drule_all state_rel_env_push_internal *)
-  (*   \\ disch_then $ qspec_then ‘cml_arr’ assume_tac *)
-  (*   \\ last_x_assum drule *)
-  (*   \\ impl_tac >- gvs [env_rel_def] *)
-  (*   \\ rpt strip_tac *)
-  (*   \\ drule_all state_rel_env_pop_internal \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ reverse $ namedCases_on ‘r’ ["idx_v",  "err"] \\ gvs [] *)
-  (*   >- (drule exp_res_rel_rerr \\ gvs []) *)
-  (*   \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ namedCases_on ‘index_array s₂ dfy_arr idx_v’ ["", "elem"] \\ gvs [] *)
-  (*   \\ gvs [oneline index_array_def, oneline val_to_num_def, CaseEq "value", *)
-  (*           CaseEq "option", CaseEq "heap_value"] *)
-  (*   \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def] *)
-  (*   \\ gvs [evaluate_def, can_pmatch_all_def, pmatch_def, cml_tup_vname_def, *)
-  (*           pat_bindings_def, num_to_str_11] *)
-  (*   \\ Cases_on ‘env_cml.v’ \\ gvs [] *)
-  (*   \\ gvs [nsOptBind_def, nsBind_def, alist_to_ns_def, nsAppend_def, *)
-  (*           nsLookup_def] *)
-  (*   \\ gvs [do_app_def] *)
-  (*   \\ drule_all state_rel_llookup \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ gvs [INT_ABS] *)
-  (*   \\ drule LIST_REL_LENGTH \\ rpt strip_tac *)
-  (*   \\ gvs [LLOOKUP_EQ_EL, LIST_REL_EL]) *)
-  (* >~ [‘map_from_exp []’] >- *)
-  (*  (gvs [from_exp_def, evaluate_exp_def, evaluate_def]) *)
-  (* >~ [‘map_from_exp (e::es)’] >- *)
-  (*  (gvs [from_exp_def, oneline bind_def, AllCaseEqs()] *)
-  (*   \\ gvs [evaluate_exp_def] *)
-  (*   \\ namedCases_on ‘evaluate_exp s env_dfy e’ ["s₁ r"] \\ gvs [] *)
-  (*   \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs [] *)
-  (*   \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ reverse $ namedCases_on ‘r’ ["cml_e",  "err"] \\ gvs [] *)
-  (*   >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs [] *)
-  (*       \\ rename [‘_::cml_es’] *)
-  (*       \\ Cases_on ‘cml_es’ \\ gvs [evaluate_def]) *)
-  (*   \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ namedCases_on ‘es’ ["", "e' es"] \\ gvs [] *)
-  (*   >- (gvs [evaluate_exp_def, from_exp_def]) *)
-  (*   \\ namedCases_on ‘evaluate_exps s₁ env_dfy (e'::es')’ ["s₂ r"] \\ gvs [] *)
-  (*   \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs [] *)
-  (*   \\ gvs [from_exp_def, oneline bind_def, CaseEq "sum"] *)
-  (*   \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ reverse $ Cases_on ‘r’ \\ gvs [] *)
-  (*   >- (drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs [evaluate_def]) *)
-  (*   \\ drule exp_ress_rel_rval \\ rpt strip_tac \\ gvs [evaluate_def]) *)
+    \\ drule state_rel_env_push_not_fresh \\ gvs []
+    \\ disch_then $ qspec_then ‘cml_arr’ assume_tac
+    \\ last_x_assum drule
+    \\ impl_tac >- gvs [env_rel_def]
+    \\ rpt strip_tac
+    \\ drule_all state_rel_env_pop_internal \\ rpt strip_tac \\ gvs []
+    \\ reverse $ namedCases_on ‘r’ ["idx_v",  "err"] \\ gvs []
+    >- (drule exp_res_rel_rerr \\ gvs [])
+    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ namedCases_on ‘index_array s₂ dfy_arr idx_v’ ["", "elem"] \\ gvs []
+    \\ gvs [oneline index_array_def, oneline val_to_num_def, CaseEq "value",
+            CaseEq "option", CaseEq "heap_value"]
+    \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
+    \\ gvs [evaluate_def, can_pmatch_all_def, pmatch_def, cml_tup_vname_def,
+            pat_bindings_def, num_to_str_11]
+    \\ Cases_on ‘env_cml.v’ \\ gvs []
+    \\ gvs [nsOptBind_def, nsBind_def, alist_to_ns_def, nsAppend_def,
+            nsLookup_def]
+    \\ gvs [do_app_def]
+    \\ drule_all state_rel_llookup \\ rpt strip_tac \\ gvs []
+    \\ gvs [INT_ABS]
+    \\ drule LIST_REL_LENGTH \\ rpt strip_tac
+    \\ gvs [LLOOKUP_EQ_EL, LIST_REL_EL])
+  >~ [‘map_from_exp []’] >-
+   (gvs [from_exp_def, evaluate_exp_def, evaluate_def])
+  >~ [‘map_from_exp (e::es)’] >-
+   (gvs [from_exp_def, oneline bind_def, AllCaseEqs()]
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp s env_dfy e’ ["s₁ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
+    \\ reverse $ namedCases_on ‘r’ ["cml_e",  "err"] \\ gvs []
+    >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs []
+        \\ rename [‘_::cml_es’]
+        \\ Cases_on ‘cml_es’ \\ gvs [evaluate_def])
+    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    \\ namedCases_on ‘es’ ["", "e' es"] \\ gvs []
+    >- (gvs [evaluate_exp_def, from_exp_def])
+    \\ namedCases_on ‘evaluate_exps s₁ env_dfy (e'::es')’ ["s₂ r"] \\ gvs []
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ gvs [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs []
+    \\ reverse $ Cases_on ‘r’ \\ gvs []
+    >- (drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs [evaluate_def])
+    \\ drule exp_ress_rel_rval \\ rpt strip_tac \\ gvs [evaluate_def])
 QED
 
 val _ = export_theory ();
