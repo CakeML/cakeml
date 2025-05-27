@@ -18,10 +18,17 @@ open mlintTheory
 
 (* TODO Remove unused definition / trivialities *)
 
+(* TODO Remove this when we move out the compiler *)
 (* For compiler definitions *)
 open result_monadTheory
 
 val _ = new_theory "dafny_compilerProof";
+val _ = set_grammar_ancestry
+          ["ast", "semanticPrimitives", "evaluate", "evaluateProps",
+           "evaluate_apps", "dafny_semanticPrimitives", "dafny_evaluate",
+           "namespace", "namespaceProps", "mlstring", "integer", "mlint",
+           (* TODO Remove this when we move out the compiler *)
+           "result_monad"];
 
 (* ************************************************************************** *)
 (* TODO Move definitions back to dafny_to_cakeml at the end *)
@@ -640,12 +647,6 @@ Proof
   cheat
 QED
 
-(* Triviality prefix_space_imp: *)
-(*   ¬isPrefix « » n ∧ " " ≼ n' ⇒ n' ≠ explode n *)
-(* Proof *)
-(*   rpt strip_tac \\ gvs [isprefix_isprefix] *)
-(* QED *)
-
 Triviality is_fresh_neq[simp]:
   is_fresh n ∧ ¬is_fresh n' ⇒ n ≠ n'
 Proof
@@ -685,32 +686,18 @@ Proof
   gvs [semanticPrimitivesTheory.state_component_equality]
 QED
 
-Triviality state_rel_flookup_m:
+Triviality state_rel_llookup:
   state_rel m l s t env_cml ∧
-  FLOOKUP m dfy_loc = SOME cml_loc ∧
-  FLOOKUP m dfy_loc' = SOME cml_loc' ⇒
-  ((cml_loc' = cml_loc) ⇔ (dfy_loc' = dfy_loc))
+  LLOOKUP s.heap dfy_loc = SOME (HArr dfy_arr) ∧
+  FLOOKUP m dfy_loc = SOME cml_loc ⇒
+  ∃cml_arr.
+    store_lookup cml_loc t.refs = SOME (Varray cml_arr) ∧
+    LIST_REL (val_rel m) dfy_arr cml_arr
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [state_rel_def, array_rel_def]
+  \\ last_x_assum drule \\ rpt strip_tac \\ gvs []
 QED
-
-(* Triviality state_rel_llookup: *)
-(*   state_rel m l s t env_cml ∧ *)
-(*   LLOOKUP s.heap dfy_loc = SOME (HArr dfy_arr) ∧ *)
-(*   FLOOKUP m dfy_loc = SOME cml_loc ⇒ *)
-(*   ∃cml_arr. *)
-(*     store_lookup cml_loc t.refs = SOME (Varray cml_arr) ∧ *)
-(*     LIST_REL (val_rel m) dfy_arr cml_arr *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
-
-(* TODO Upstream to HOL? *)
-(* Triviality LIST_REL_EL: *)
-(*   LIST_REL R l1 l2 ⇔ (∀i. i < LENGTH l1 ⇒ R (EL i l1) (EL i l2)) *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
 
 Triviality get_member_some_fun_name:
   get_member n p = SOME (Function n' ins res_t reqs rds decrs body) ⇒
@@ -1167,6 +1154,7 @@ Proof
   Cases_on ‘xs’ \\ gvs []
 QED
 
+(* TODO Is this useful to be in namespaceTheory? *)
 Triviality nsappend_alist_to_ns_nsbind:
   nsAppend (alist_to_ns (ZIP (ns, vs))) (nsBind n v env) =
   nsAppend (alist_to_ns (ZIP (SNOC n ns, SNOC v vs))) env
@@ -1196,6 +1184,7 @@ Proof
   \\ asm_rewrite_tac [GSYM (cj 2 REVERSE_SNOC_DEF)]
 QED
 
+(* TODO Should we upstream this to HOL? *)
 Triviality INJ_FLOOKUP_IMP:
   INJ (λx. m ' x) (FDOM m) 𝕌(:β) ⇒
   ∀x y. FLOOKUP m x = FLOOKUP m y ⇔ x = y
@@ -1641,7 +1630,6 @@ Proof
     \\ Cases_on ‘env_cml.v’
     \\ gvs [alist_to_ns_def, nsAppend_def, nsLookup_def, num_to_str_11])
   >~ [‘ArrSel arr idx’] >-
-
    (gvs [from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ gvs [evaluate_exp_def]
     \\ namedCases_on ‘evaluate_exp s env_dfy arr’ ["s₁ r"] \\ gvs []
@@ -1658,13 +1646,22 @@ Proof
     \\ rename [‘val_rel _ dfy_arr cml_arr’]
     \\ namedCases_on ‘evaluate_exp s₁ env_dfy idx’ ["s₂ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
-
-    \\ drule state_rel_env_push_not_fresh \\ gvs []
-    \\ disch_then $ qspec_then ‘cml_arr’ assume_tac
+    \\ ‘¬is_fresh « arr»’ by gvs [is_fresh_def, isprefix_isprefix]
+    \\ drule_all state_rel_env_push_not_fresh \\ gvs []
+    \\ disch_then $ qspec_then ‘cml_arr’ assume_tac \\ gvs []
     \\ last_x_assum drule
-    \\ impl_tac >- gvs [env_rel_def]
+    \\ impl_tac >-
+     (gvs [env_rel_def, has_basic_cons_def] \\ rpt strip_tac \\ res_tac)
     \\ rpt strip_tac
-    \\ drule_all state_rel_env_pop_internal \\ rpt strip_tac \\ gvs []
+    \\ rename [‘evaluate (_ with clock := ck' + _) _ _ = (t₂, _)’]
+    \\ qexists ‘ck' + ck’
+    \\ rev_drule evaluate_add_to_clock
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
+    \\ drule state_rel_env_pop_not_fresh \\ gvs []
+    \\ disch_then $ drule
+    \\ rpt strip_tac \\ gvs []
+    \\ ‘refv_same_rel t.refs t₂.refs’ by
+      (irule refv_same_rel_trans \\ gvs [SF SFY_ss])
     \\ reverse $ namedCases_on ‘r’ ["idx_v",  "err"] \\ gvs []
     >- (drule exp_res_rel_rerr \\ gvs [])
     \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
@@ -1681,26 +1678,34 @@ Proof
     \\ drule_all state_rel_llookup \\ rpt strip_tac \\ gvs []
     \\ gvs [INT_ABS]
     \\ drule LIST_REL_LENGTH \\ rpt strip_tac
-    \\ gvs [LLOOKUP_EQ_EL, LIST_REL_EL])
+    \\ gvs [LLOOKUP_EQ_EL, LIST_REL_EL_EQN])
   >~ [‘map_from_exp []’] >-
-   (gvs [from_exp_def, evaluate_exp_def, evaluate_def])
+   (qexists ‘0’ \\ gvs [from_exp_def, evaluate_exp_def, evaluate_def])
   >~ [‘map_from_exp (e::es)’] >-
    (gvs [from_exp_def, oneline bind_def, AllCaseEqs()]
     \\ gvs [evaluate_exp_def]
     \\ namedCases_on ‘evaluate_exp s env_dfy e’ ["s₁ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
+    \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
     \\ reverse $ namedCases_on ‘r’ ["cml_e",  "err"] \\ gvs []
-    >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs []
+    >- (qexists ‘ck’
+        \\ drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs []
         \\ rename [‘_::cml_es’]
         \\ Cases_on ‘cml_es’ \\ gvs [evaluate_def])
     \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
     \\ namedCases_on ‘es’ ["", "e' es"] \\ gvs []
-    >- (gvs [evaluate_exp_def, from_exp_def])
+    >- (qexists ‘ck’ \\ gvs [evaluate_exp_def, from_exp_def])
     \\ namedCases_on ‘evaluate_exps s₁ env_dfy (e'::es')’ ["s₂ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     \\ gvs [from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs []
+    \\ rename [‘evaluate (_ with clock := ck' + _) _ _ = (t₂, _)’]
+    \\ qexists ‘ck' + ck’
+    \\ rev_drule evaluate_add_to_clock
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
+    \\ ‘refv_same_rel t.refs t₂.refs’ by
+      (irule refv_same_rel_trans \\ gvs [SF SFY_ss])
     \\ reverse $ Cases_on ‘r’ \\ gvs []
     >- (drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs [evaluate_def])
     \\ drule exp_ress_rel_rval \\ rpt strip_tac \\ gvs [evaluate_def])
