@@ -32,9 +32,6 @@ Functional big-step semantics for evaluation of CakeML programs.
 Definition of CakeML's observational semantics, in particular traces of calls
 over the Foreign-Function Interface (FFI).
 
-[fpOptScript.sml](fpOptScript.sml):
-Model of floating-point optimizations
-
 [fpSemScript.sml](fpSemScript.sml):
 Definitions of the floating point operations used in CakeML.
 

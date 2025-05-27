@@ -140,20 +140,10 @@ Datatype:
     EvalOp (* Eval primitive *)
   | FunApp (* function application *)
   | Simple (* arithmetic operation, no finite-precision/reals *)
-  | Icing (* 64-bit floating-points *)
-  | Reals (* real numbers *)
 End
 Definition getOpClass_def[simp]:
  getOpClass op =
  case op of
-   FP_cmp _ => Icing
-  | FP_top _ => Icing
-  | FP_bop _ => Icing
-  | FP_uop _ => Icing
-  | Real_cmp _ => Reals
-  | Real_bop _ => Reals
-  | Real_uop _ => Reals
-  | RealFromFP => Reals
   | Opapp => FunApp
   | Eval => EvalOp
   | _ => Simple
@@ -228,8 +218,6 @@ Datatype:
   | Tannot exp ast_t
   (* Location annotated expressions, not expected in source programs *)
   | Lannot exp locs
-  (* Floating-point optimisations *)
-  | FpOptimise fp_opt exp
 End
 
 Type type_def = ``: ( tvarN list # typeN # (conN # ast_t list) list) list``
@@ -300,12 +288,8 @@ Definition every_exp_def[simp]:
              p (Tannot e a) ∧ every_exp p e) ∧
   (every_exp p (Lannot e a) ⇔
              p (Lannot e a) ∧ every_exp p e) ∧
-  (every_exp p (FpOptimise fpopt e) ⇔
-             p (FpOptimise fpopt e) ∧ every_exp p e) ∧
   (every_exp p (Letrec funs e) ⇔
              p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs)
-Termination
-  WF_REL_TAC ‘measure $ exp_size o SND’
 End
 
 val _ = export_theory()
