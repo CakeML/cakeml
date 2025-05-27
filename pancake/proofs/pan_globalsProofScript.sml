@@ -2025,7 +2025,7 @@ Theorem compile_top_semantics_decls:
              |> ∧
   s.code = FEMPTY ∧
   s.globals = FEMPTY ∧
-  byte_aligned(s.top_addr) ∧
+  byte_aligned s.top_addr ∧
   good_dimindex(:'a) ∧
   mgs = bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes code))) ∧
   free_addrs = addresses (s.top_addr) (SUM(MAP size_of_shape(dec_shapes code))) ∧
@@ -2033,7 +2033,6 @@ Theorem compile_top_semantics_decls:
   (∀addr. addr ∈ s.memaddrs ⇒ s.memory addr = tmem addr) ∧
   s.top_addr + mgs ∉ s.memaddrs ∧
   w2n(bytes_in_word:'a word)*SUM(MAP size_of_shape(dec_shapes code)) < dimword(:'a) ∧
-  byte_aligned s.top_addr ∧
   semantics_decls s start code <> Fail ==>
   semantics_decls s start code =
   semantics_decls t start (compile_top code start)
