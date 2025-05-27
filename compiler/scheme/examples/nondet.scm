@@ -3,20 +3,18 @@
       (lambda (fun)
           (call/cc
            (lambda (cc)
-               (letrec
-                   ((fail (lambda () (cc (- 1))))
-                    (choose
-                     (lambda (f n m)
-                         (letrec
-                             ((i n)
-                              (last fail))
+               (letrec ((k cc))
+                   (fun
+                    (lambda (f n m)
+                         (letrec ((i n)
+                                  (last k))
                              (begin
                               (call/cc
-                               (lambda (cc) (set! fail (lambda () (begin (set! i (+ i 1)) (cc (- 1)))))))
+                               (lambda (cc) (set! k (lambda (v) (begin (set! i (+ i 1)) (cc v))))))
                               (if (eqv? i m)
-                                  (begin (set! fail last) (fail))
-                                  (f i)))))))
-                   (fun choose (lambda () (fail))))))))
+                                  (begin (set! k last) (k (- 1)))
+                                  (f i)))))
+                    (lambda () (k (- 1)))))))))
 
      (triangle
       (lambda (n)
