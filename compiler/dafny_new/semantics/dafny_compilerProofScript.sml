@@ -17,6 +17,7 @@ open integerTheory
 open mlintTheory
 
 (* TODO Remove unused definition / trivialities *)
+(* TODO Should we simplify print to just be `Print exp type`? *)
 
 (* TODO Remove this when we move out the compiler *)
 (* For compiler definitions *)
@@ -318,28 +319,28 @@ Definition to_string_def:
    | _ => fail «to_string: Unsupported»)
 End
 
-Definition from_statement_def:
+Definition from_stmt_def:
   (* lvl keeps track of nested while loops to generate new unique names *)
-  from_statement stmt (lvl: num) =
+  from_stmt stmt (lvl: num) =
   (case stmt of
    | Skip => return Unit
    | Assert _ => return Unit
    | Then stmt₁ stmt₂ =>
      do
-       cml_stmt₁ <- from_statement stmt₁ lvl;
-       cml_stmt₂ <- from_statement stmt₂ lvl;
+       cml_stmt₁ <- from_stmt stmt₁ lvl;
+       cml_stmt₂ <- from_stmt stmt₂ lvl;
        return (Let NONE cml_stmt₁ cml_stmt₂)
      od
    | If tst thn els =>
      do
        cml_tst <- from_exp tst;
-       cml_thn <- from_statement thn lvl;
-       cml_els <- from_statement els lvl;
+       cml_thn <- from_stmt thn lvl;
+       cml_els <- from_stmt els lvl;
        return (If cml_tst cml_thn cml_els)
      od
    | Dec (n, _) scope =>
      do
-       cml_scope <- from_statement scope lvl;
+       cml_scope <- from_stmt scope lvl;
        return (cml_new_refs [explode n] cml_scope)
      od
    | Assign lhss rhss =>
@@ -350,7 +351,7 @@ Definition from_statement_def:
    | While grd _ _ _ body =>
      do
        cml_grd <- from_exp grd;
-       cml_body <- from_statement body (lvl + 1);
+       cml_body <- from_stmt body (lvl + 1);
        loop_name <<- explode («while» ^ (num_to_str lvl));
        run_loop <<- cml_fapp [] loop_name [Unit];
        (* Example (see The Definition of Standard ML, Appendix A):
@@ -409,7 +410,7 @@ Definition from_member_decl_def:
   (* Constructing methods and functions from bottom to top *)
   | Method n ins _ _ _ _ outs _ body =>
     do
-      cml_body <- from_statement body 0;
+      cml_body <- from_stmt body 0;
       (* Method returns a tuple containing the value of the out variables *)
       out_ns <<- MAP (explode ∘ FST) outs;
       cml_tup <<- Tuple (MAP cml_read_var out_ns);
@@ -464,9 +465,52 @@ Termination
   wf_rel_tac ‘measure $ exp_size’
 End
 
+Definition is_fresh_lhs_exp[simp]:
+  (is_fresh_lhs_exp (VarLhs name) ⇔ is_fresh name) ∧
+  (is_fresh_lhs_exp (ArrSelLhs arr idx) ⇔
+     is_fresh_exp arr ∧ is_fresh_exp idx)
+End
+
+Definition is_fresh_rhs_exp[simp]:
+  (is_fresh_rhs_exp (ExpRhs e) ⇔ is_fresh_exp e) ∧
+  (is_fresh_rhs_exp (ArrAlloc len init_e) ⇔
+     is_fresh_exp len ∧ is_fresh_exp init_e)
+End
+
+Definition is_fresh_stmt_def[simp]:
+  (is_fresh_stmt Skip ⇔ T) ∧
+  (is_fresh_stmt (Assert e) ⇔ is_fresh_exp e) ∧
+  (is_fresh_stmt (Then stmt₀ stmt₁) ⇔
+     is_fresh_stmt stmt₀ ∧ is_fresh_stmt stmt₁) ∧
+  (is_fresh_stmt (If cnd thn els) ⇔
+     is_fresh_exp cnd ∧ is_fresh_stmt thn ∧ is_fresh_stmt els) ∧
+  (is_fresh_stmt (Dec (n, _) scope) ⇔
+     is_fresh n ∧ is_fresh_stmt scope) ∧
+  (is_fresh_stmt (Assign lhss rhss) ⇔
+     EVERY (λlhs. is_fresh_lhs_exp lhs) lhss ∧
+     EVERY (λrhs. is_fresh_rhs_exp rhs) rhss) ∧
+  (is_fresh_stmt (While grd invs decrs mods body) ⇔
+     is_fresh_exp grd ∧
+     EVERY (λe. is_fresh_exp e) invs ∧
+     EVERY (λe. is_fresh_exp e) decrs ∧
+     EVERY (λe. is_fresh_exp e) mods ∧
+     is_fresh_stmt body) ∧
+  (* TODO Skipped Print for now *)
+  (is_fresh_stmt (MetCall lhss _ args) ⇔
+     EVERY (λlhs. is_fresh_lhs_exp lhs) lhss ∧
+     EVERY (λe. is_fresh_exp e) args) ∧
+  (is_fresh_stmt Return ⇔ T)
+End
+
 Definition is_fresh_member_def[simp]:
-  (* TODO Implement is_fresh_stmt, and then fix Methods *)
-  (is_fresh_member (Method _ ins req ens rds decrs outs mods body) ⇔ ARB) ∧
+  (is_fresh_member (Method _ ins reqs ens rds decrs outs mods body) ⇔
+     EVERY (λn. is_fresh n) (MAP FST ins) ∧
+     EVERY (λe. is_fresh_exp e) reqs ∧
+     EVERY (λe. is_fresh_exp e) ens ∧
+     EVERY (λe. is_fresh_exp e) rds ∧
+     EVERY (λe. is_fresh_exp e) decrs ∧
+     EVERY (λn. is_fresh n) (MAP FST outs) ∧
+     is_fresh_stmt body) ∧
   (is_fresh_member (Function _ ins _ reqs rds decrs body) ⇔
      EVERY (λn. is_fresh n) (MAP FST ins) ∧
      EVERY (λe. is_fresh_exp e) reqs ∧ EVERY (λe. is_fresh_exp e) rds ∧
@@ -572,6 +616,21 @@ Definition exp_ress_rel_def[simp]:
   (exp_ress_rel m (Rerr Rtimeout_error) (Rerr (Rabort Rtimeout_error)) ⇔
      T) ∧
   (exp_ress_rel _ _ _ ⇔ F)
+End
+
+Definition ret_stamp_def:
+  ret_stamp = ExnStamp 67  (* TODO Check *)
+End
+
+Definition is_ret_exn_def[simp]:
+  is_ret_exn val ⇔ val = Conv (SOME ret_stamp) []
+End
+
+Definition stmt_res_rel_def[simp]:
+  (stmt_res_rel Rcont (Rval _) ⇔ T) ∧
+  (stmt_res_rel (Rstop Sret) (Rval [val]) ⇔ is_ret_exn val) ∧
+  (stmt_res_rel (Rstop (Serr Rtimeout_error))
+     (Rerr (Rabort Rtimeout_error)) ⇔ T)
 End
 
 Triviality read_local_some_imp:
@@ -889,7 +948,7 @@ QED
 Triviality gen_arg_names_len[simp]:
   LENGTH (gen_arg_names xs) = LENGTH xs
 Proof
-  cheat
+  gvs [gen_arg_names_def]
 QED
 
 (* TODO Check if needed; add to namespaceTheory? *)
@@ -955,15 +1014,19 @@ Definition member_get_ins_def[simp]:
 End
 
 Triviality map_from_exp_len:
-  map_from_exp es = INR cml_es ⇒ LENGTH cml_es = LENGTH es
+  ∀es cml_es. map_from_exp es = INR cml_es ⇒ LENGTH cml_es = LENGTH es
 Proof
-  cheat
+  Induct_on ‘es’ \\ rpt strip_tac
+  \\ gvs [from_exp_def, oneline bind_def, AllCaseEqs()]
 QED
 
 Triviality evaluate_exps_length:
-  evaluate_exps s env es = (s', Rval vs) ⇒ LENGTH vs = LENGTH es
+  ∀s env es s' vs.
+    evaluate_exps s env es = (s', Rval vs) ⇒ LENGTH vs = LENGTH es
 Proof
-  cheat
+  Induct_on ‘es’ \\ rpt strip_tac
+  \\ gvs [evaluate_exp_def, AllCaseEqs()]
+  \\ res_tac
 QED
 
 Definition enumerate_from_def:
@@ -989,15 +1052,36 @@ Proof
   cheat
 QED
 
+(* Triviality add_refs_to_env_nsbind: *)
+(*   add_refs_to_env (nsBind n v nspc) ns offset = *)
+(*   add_refs_to_env nspc (n::ns) offset *)
+(* Proof *)
+(*   cheat *)
+(* QED *)
+
 Triviality evaluate_set_up_in_refs:
-  LIST_REL (λn v. nsLookup env.v (Short n) = SOME v) params vs ⇒
-  evaluate (s: 'ffi cml_state) env [set_up_in_refs params body] =
-  evaluate
-    (s with refs := s.refs ++ (MAP Refv vs))
-    (env with v := add_refs_to_env env.v params (LENGTH s.refs))
-    [body]
+  ∀params vs s env body.
+    LIST_REL (λn v. nsLookup env.v (Short n) = SOME v) params vs ⇒
+    evaluate (s: 'ffi cml_state) env [set_up_in_refs params body] =
+    evaluate
+      (s with refs := s.refs ++ (MAP Refv vs))
+      (env with v := add_refs_to_env env.v params (LENGTH s.refs))
+      [body]
 Proof
   cheat
+  (* Induct_on ‘params’ \\ rpt strip_tac *)
+  (* >- (‘s with refs := s.refs = s’ by *)
+  (*       gvs [semanticPrimitivesTheory.state_component_equality] *)
+  (*     \\ gvs [set_up_in_refs_def, add_refs_to_env_def, enumerate_from_def]) *)
+  (* \\ gvs [set_up_in_refs_def, evaluate_def] *)
+  (* \\ rename [‘LIST_REL _ params' vs'’, ‘nsLookup _ (Short n) = SOME v’] *)
+  (* \\ last_x_assum $ *)
+  (*      qspecl_then *)
+  (*        [‘vs'’, ‘s’, ‘env with v := nsOptBind (SOME n) v env.v’, ‘body’] *)
+  (*        mp_tac *)
+  (* \\ impl_tac >- cheat *)
+  (* \\ strip_tac *)
+  (* \\ gvs [nsOptBind_def, add_refs_to_env_nsbind] *)
 QED
 
 Triviality refv_same_rel_append_imp:
@@ -1709,6 +1793,21 @@ Proof
     \\ reverse $ Cases_on ‘r’ \\ gvs []
     >- (drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs [evaluate_def])
     \\ drule exp_ress_rel_rval \\ rpt strip_tac \\ gvs [evaluate_def])
+QED
+
+Theorem correct_from_stmt:
+  ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l.
+    evaluate_stmt s env_dfy stmt_dfy = (s', r_dfy) ∧
+    from_stmt stmt_dfy lvl = INR e_cml ∧ state_rel m l s t env_cml ∧
+    env_rel env_dfy env_cml ∧ is_fresh_stmt stmt_dfy ∧
+    r_dfy ≠ Rstop (Serr Rtype_error)
+    ⇒ ∃ck (t': 'ffi cml_state) m' l' r_cml.
+        evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
+        (t', r_cml) ∧
+        refv_same_rel t.refs t'.refs ∧ state_rel m' l' s' t' env_cml ∧
+        m ⊑ m' ∧ l ⊑ l' ∧ stmt_res_rel r_dfy r_cml
+Proof
+  cheat
 QED
 
 val _ = export_theory ();
