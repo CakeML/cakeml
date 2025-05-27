@@ -1230,7 +1230,7 @@ Proof
 QED
 
 Theorem state_rel_imp_semantics_decls:
-  !s t pan_code start prog. state_rel s t t.code ∧
+  !s t pan_code start. state_rel s t t.code ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ∧
   s.code = FEMPTY ∧
   t.code = FEMPTY ∧
