@@ -316,11 +316,12 @@ Definition check_xlrup_list_def:
       let B = conv_bnn rB in
         SOME (cfml, xfml, update_resize bfml NONE (SOME B) n, tn, def, Clist)
     else NONE
-  | BAdd n rB ib i0 =>
+  | BAdd n rB ib i0 => NONE
+    (*
     if is_bnn_list rB cfml bfml ib i0 then
       let B = conv_bnn rB in
         SOME (cfml, xfml, update_resize bfml NONE (SOME B) n, tn, def, Clist)
-    else NONE
+    else NONE *)
   | BDel bl =>
     SOME (cfml, xfml, list_delete_list bl bfml, tn, def, Clist)
   | CFromB n c ib i0 =>
@@ -975,9 +976,7 @@ Proof
     every_case_tac>>gvs[]>>
     metis_tac[fml_rel_update_resize]
   )
-  >- (
-    rw[] >- cheat>>
-    metis_tac[fml_rel_update_resize])
+  (* >- (* BAdd *) *)
   >- (* BDel *)
     metis_tac[fml_rel_list_delete_list]
   >- (

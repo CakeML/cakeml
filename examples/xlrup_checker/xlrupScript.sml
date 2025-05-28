@@ -1349,9 +1349,13 @@ Definition check_xlrup_def:
   | BAdd n rB ib i0 =>
     (* check the raw BNN before adding it *)
     let B = conv_bnn rB in
-    if is_bnn B cfml bfml ib i0 then
-      SOME (cfml, xfml, insert n B bfml, tn, def)
-    else NONE
+      (* TODO: add support TODO: add support  *)
+      NONE
+    (*
+      if is_bnn B cfml bfml ib i0 then
+        SOME (cfml, xfml, insert n B bfml, tn, def)
+      else NONE
+    *)
   | BDel bl =>
       SOME (cfml, xfml, FOLDL (\a b. delete b a) bfml bl,
         tn, def)
@@ -3086,6 +3090,8 @@ Proof
     fs[isat_fml_def]>>
     match_mp_tac isat_fml_gen_insert>>
     gvs[])
+  (* TODO add support *)
+  (*
   >~ [‘BAdd n rB ib i0’] >- (
     gvs[wf_xlrup_def,AllCasePreds()]>>
     rename1`wf_cmsbnn rB`>>
@@ -3099,8 +3105,7 @@ Proof
     match_mp_tac isat_fml_gen_insert>>
     gvs[SF DNF_ss]>>
     rename [‘sat_cmsbnn w (C1,k,oy)’]>>
-    cheat (* TO BE ADDED *)
-    )
+    ) *)
   >~ [‘BDel’] >- (
     rw[]
     >-

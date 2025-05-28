@@ -1987,12 +1987,7 @@ val check_xlrup_arr = process_topdecs`
       else
         raise Fail (format_failure lno "unable to find original XOR")
   | Badd n rb ib i0 =>
-    let
-      val b = conv_bnn rb
-    in
-      (cfml, xfml, resize_update_arr (Some b) n bfml,
-        tn, def, carr)
-    end
+        raise Fail (format_failure lno "BNN addition not yet supported")
   | Bdel bl =>
     (list_delete_arr bl bfml; (cfml, xfml, bfml, tn, def, carr))
   | Cfromb n c ib i0 =>
@@ -2000,7 +1995,7 @@ val check_xlrup_arr = process_topdecs`
         val u = is_cfromb_arr lno c cfml bfml ib i0 in
       (resize_update_arr (Some c) n cfml, xfml, bfml, tn, def, carr)
     end
-  ` |> append_prog
+  ` |> append_prog;
 
 val XLRUP_XLRUP_TYPE_def = fetch "-" "XLRUP_XLRUP_TYPE_def";
 
@@ -2363,26 +2358,13 @@ Proof
       qexists_tac`SOME lll`>>
       simp[OPTION_TYPE_def])>>
     xcon>>xsimpl)
-  >- ( (* Bdel *)
+  >- ( (* Badd *)
     xmatch>>
-    simp[is_bnn_list_def]>> (*TODO*)
     rpt xlet_autop >>
-    qmatch_goalsub_abbrev_tac`update_resize _ _ (SOME lll) _` >>
-    xlet`(POSTv resv.
-        W8ARRAY Carrv Clist *
-        SEP_EXISTS bfmllsv'.
-        ARRAY cfmlv cfmllsv *
-        ARRAY xfmlv xfmllsv *
-        ARRAY resv bfmllsv' *
-        &(LIST_REL (OPTION_TYPE ibnn_TYPE) (update_resize bfmlls NONE (SOME lll) n) bfmllsv'))`
-    >- (
-      xapp_spec (resize_update_arr_spec |> Q.GEN `vty` |> ISPEC ``ibnn_TYPE``)>>
-      xsimpl>>
-      asm_exists_tac>>simp[]>>
-      asm_exists_tac>>simp[]>>
-      qexists_tac`SOME lll`>>
-      simp[OPTION_TYPE_def])>>
-    xcon>>xsimpl)
+    xraise>>
+    xsimpl>>
+    gvs[Fail_exn_def]>>
+    metis_tac[])
   >- ( (* Bdel *)
     xmatch>>
     xlet_autop >>
