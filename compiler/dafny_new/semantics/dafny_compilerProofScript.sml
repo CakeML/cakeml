@@ -10,6 +10,7 @@ open evaluatePropsTheory
 open evaluate_appsTheory
 open dafny_semanticPrimitivesTheory
 open dafny_evaluateTheory
+open dafny_evaluatePropsTheory
 open namespaceTheory
 open namespacePropsTheory
 open mlstringTheory
@@ -321,68 +322,67 @@ End
 
 Definition from_stmt_def:
   (* lvl keeps track of nested while loops to generate new unique names *)
-  from_stmt stmt (lvl: num) =
-  (case stmt of
-   | Skip => return Unit
-   | Assert _ => return Unit
-   | Then stmt₁ stmt₂ =>
-     do
-       cml_stmt₁ <- from_stmt stmt₁ lvl;
-       cml_stmt₂ <- from_stmt stmt₂ lvl;
-       return (Let NONE cml_stmt₁ cml_stmt₂)
-     od
-   | If tst thn els =>
-     do
-       cml_tst <- from_exp tst;
-       cml_thn <- from_stmt thn lvl;
-       cml_els <- from_stmt els lvl;
-       return (If cml_tst cml_thn cml_els)
-     od
-   | Dec (n, _) scope =>
-     do
-       cml_scope <- from_stmt scope lvl;
-       return (cml_new_refs [explode n] cml_scope)
-     od
-   | Assign lhss rhss =>
-     do
-       cml_rhss <- result_mmap from_rhs_exp rhss;
-       par_assign lhss cml_rhss
-     od
-   | While grd _ _ _ body =>
-     do
-       cml_grd <- from_exp grd;
-       cml_body <- from_stmt body (lvl + 1);
-       loop_name <<- explode («while» ^ (num_to_str lvl));
-       run_loop <<- cml_fapp [] loop_name [Unit];
-       (* Example (see The Definition of Standard ML, Appendix A):
-          let val rec while0 = fn () =>
-            if cml_grd then (cml_body; while0()) else ()
-          in
-            while0()
-          end *)
-       return (Letrec [(loop_name, "",
-                        If cml_grd (Let NONE cml_body run_loop) Unit)]
-                        run_loop)
-     od
-   | Print ets =>
-     do
-       cml_ets <- map_from_exp_tup ets;
-       cml_strs <- result_mmap (λ(e,t). to_string e t) cml_ets;
-       cml_str <<- cml_fapp ["String"] "concat" [cml_list cml_strs];
-       return (cml_fapp [] "print" [cml_str])
-     od
-   | MetCall lhss n args =>
-     do
-       cml_args <- map_from_exp args;
-       cml_call <<- cml_fapp [] (explode n) cml_args;
-       (* Method returns a tuple of size outs_len, so we use case and assign
-          each component to the corresponding left-hand side. *)
-       outs_len <<- LENGTH lhss;
-       outs <<- GENLIST (λn. Var (Short (cml_tup_vname n))) outs_len;
-       cml_assign <- par_assign lhss outs;
-       return (cml_tup_case outs_len cml_call cml_assign);
-     od
-   | Return => return (Raise (Con (SOME (mk_id ["Dafny"] "Return")) [])))
+  from_stmt Skip (lvl: num) = return Unit ∧
+  from_stmt (Assert _) _ = return Unit ∧
+  from_stmt (Then stmt₁ stmt₂) lvl =
+  do
+    cml_stmt₁ <- from_stmt stmt₁ lvl;
+    cml_stmt₂ <- from_stmt stmt₂ lvl;
+    return (Let NONE cml_stmt₁ cml_stmt₂)
+  od ∧
+  from_stmt (If tst thn els) lvl =
+  do
+    cml_tst <- from_exp tst;
+    cml_thn <- from_stmt thn lvl;
+    cml_els <- from_stmt els lvl;
+    return (If cml_tst cml_thn cml_els)
+  od ∧
+  from_stmt (Dec (n, _) scope) lvl =
+  do
+    cml_scope <- from_stmt scope lvl;
+    return (cml_new_refs [explode n] cml_scope)
+  od ∧
+  from_stmt (Assign lhss rhss) _ =
+  do
+    cml_rhss <- result_mmap from_rhs_exp rhss;
+    par_assign lhss cml_rhss
+  od ∧
+  from_stmt (While grd _ _ _ body) lvl =
+  do
+    cml_grd <- from_exp grd;
+    cml_body <- from_stmt body (lvl + 1);
+    loop_name <<- explode («while» ^ (num_to_str lvl));
+    run_loop <<- cml_fapp [] loop_name [Unit];
+     (* Example (see The Definition of Standard ML, Appendix A):
+        let val rec while0 = fn () =>
+          if cml_grd then (cml_body; while0()) else ()
+        in
+          while0()
+        end *)
+    return (Letrec [(loop_name, "",
+                     If cml_grd (Let NONE cml_body run_loop) Unit)]
+                   run_loop)
+  od ∧
+  from_stmt (Print ets) _ =
+  do
+    cml_ets <- map_from_exp_tup ets;
+    cml_strs <- result_mmap (λ(e,t). to_string e t) cml_ets;
+    cml_str <<- cml_fapp ["String"] "concat" [cml_list cml_strs];
+    return (cml_fapp [] "print" [cml_str])
+  od ∧
+  from_stmt (MetCall lhss n args) _ =
+  do
+    cml_args <- map_from_exp args;
+    cml_call <<- cml_fapp [] (explode n) cml_args;
+    (* Method returns a tuple of size outs_len, so we use case and assign
+       each component to the corresponding left-hand side. *)
+    outs_len <<- LENGTH lhss;
+    outs <<- GENLIST (λn. Var (Short (cml_tup_vname n))) outs_len;
+    cml_assign <- par_assign lhss outs;
+    return (cml_tup_case outs_len cml_call cml_assign);
+  od ∧
+  from_stmt Return _ =
+    return (Raise (Con (SOME (mk_id ["Dafny"] "Return")) []))
 End
 
 (* Shadows the parameters with references with the same name (and value). *)
@@ -517,12 +517,22 @@ Definition is_fresh_member_def[simp]:
      EVERY (λe. is_fresh_exp e) decrs ∧ is_fresh_exp body)
 End
 
+Definition ret_stamp_def:
+  ret_stamp = ExnStamp 67  (* TODO Check *)
+End
+
+Definition is_ret_exn_def[simp]:
+  is_ret_exn val ⇔ val = Conv (SOME ret_stamp) []
+End
+
 Definition has_basic_cons_def:
   has_basic_cons env ⇔
     nsLookup env.c (Short "True") = SOME (0, TypeStamp "True" 0) ∧
-    nsLookup env.c (Short "False") = SOME (0, TypeStamp "False" 0)
+    nsLookup env.c (Short "False") = SOME (0, TypeStamp "False" 0) ∧
+    nsLookup env.c (Long "Dafny" (Short "Return")) = SOME (0, ret_stamp)
 End
 
+(* TODO Move to dafny_ast? *)
 Definition dest_program_def:
   dest_program (Program members) = members
 End
@@ -537,6 +547,7 @@ End
 
 Definition env_rel_def:
   env_rel env_dfy env_cml ⇔
+    env_dfy.is_running ∧
     has_basic_cons env_cml ∧
     ∀name member.
       get_member name env_dfy.prog = SOME member ⇒
@@ -610,6 +621,25 @@ Definition exp_res_rel_def[simp]:
   (exp_res_rel _ _ _ ⇔ F)
 End
 
+Triviality exp_res_rel_rval[simp]:
+  exp_res_rel m (Rval dfy_v) r_cml ⇔
+    ∃cml_v. r_cml = Rval [cml_v] ∧ val_rel m dfy_v cml_v
+Proof
+  namedCases_on ‘r_cml’ ["vs", "err"] \\ gvs []
+  \\ namedCases_on ‘vs’ ["", "v rest"] \\ gvs []
+  \\ Cases_on ‘rest’ \\ gvs []
+QED
+
+Triviality exp_res_rel_rerr[simp]:
+  exp_res_rel m (Rerr dfy_err) r_cml ⇔
+  dfy_err = Rtimeout_error ∧ r_cml = (Rerr (Rabort Rtimeout_error))
+Proof
+  namedCases_on ‘r_cml’ ["vs", "err"] \\ gvs []
+  \\ namedCases_on ‘err’ ["raise", "abort"] \\ gvs []
+  \\ Cases_on ‘abort’ \\ gvs []
+  \\ Cases_on ‘dfy_err’ \\ gvs []
+QED
+
 Definition exp_ress_rel_def[simp]:
   (exp_ress_rel m (Rval dfy_vs) (Rval cml_vs) ⇔
      LIST_REL (val_rel m) dfy_vs cml_vs) ∧
@@ -618,20 +648,43 @@ Definition exp_ress_rel_def[simp]:
   (exp_ress_rel _ _ _ ⇔ F)
 End
 
-Definition ret_stamp_def:
-  ret_stamp = ExnStamp 67  (* TODO Check *)
-End
+Triviality exp_ress_rel_rerr[simp]:
+  exp_ress_rel m (Rerr dfy_err) rs_cml ⇔
+  dfy_err = Rtimeout_error ∧ rs_cml = (Rerr (Rabort Rtimeout_error))
+Proof
+  namedCases_on ‘rs_cml’ ["vs", "err"] \\ gvs []
+  \\ namedCases_on ‘err’ ["raise", "abort"] \\ gvs []
+  \\ Cases_on ‘abort’ \\ gvs []
+  \\ Cases_on ‘dfy_err’ \\ gvs []
+QED
 
-Definition is_ret_exn_def[simp]:
-  is_ret_exn val ⇔ val = Conv (SOME ret_stamp) []
-End
+Triviality exp_ress_rel_rval[simp]:
+  exp_ress_rel m (Rval dfy_vs) rs_cml ⇔
+  ∃cml_vs. rs_cml = Rval cml_vs ∧ LIST_REL (val_rel m) dfy_vs cml_vs
+Proof
+  namedCases_on ‘rs_cml’ ["vs", "err"] \\ gvs []
+QED
 
 Definition stmt_res_rel_def[simp]:
   (stmt_res_rel Rcont (Rval _) ⇔ T) ∧
-  (stmt_res_rel (Rstop Sret) (Rval [val]) ⇔ is_ret_exn val) ∧
+  (stmt_res_rel (Rstop Sret) (Rerr (Rraise val)) ⇔ is_ret_exn val) ∧
   (stmt_res_rel (Rstop (Serr Rtimeout_error))
-     (Rerr (Rabort Rtimeout_error)) ⇔ T)
+     (Rerr (Rabort Rtimeout_error)) ⇔ T) ∧
+  (stmt_res_rel _ _ ⇔ F)
 End
+
+Triviality stmt_res_rel_simp[simp]:
+  (stmt_res_rel Rcont r_cml ⇔
+     ∃vs. r_cml = Rval vs) ∧
+  (stmt_res_rel (Rstop Sret) r_cml ⇔
+     ∃v. r_cml = Rerr (Rraise v) ∧ is_ret_exn v) ∧
+  (stmt_res_rel (Rstop (Serr Rtimeout_error)) r_cml ⇔
+     r_cml = (Rerr (Rabort Rtimeout_error)))
+Proof
+  namedCases_on ‘r_cml’ ["vs", "err"] \\ gvs []
+  \\ namedCases_on ‘err’ ["exn", "abrt"] \\ gvs []
+  \\ Cases_on ‘abrt’ \\ gvs []
+QED
 
 Triviality read_local_some_imp:
   read_local s.locals name = SOME dfy_v ∧
@@ -644,43 +697,6 @@ Triviality read_local_some_imp:
     nsLookup env_cml.v (Short (explode name)) = SOME (Loc T loc)
 Proof
   gvs [state_rel_def, locals_rel_def]
-QED
-
-(* TODO Is defining these + manually using drule really the way one does
-   this? *)
-Triviality exp_res_rel_rval:
-  exp_res_rel m (Rval dfy_v) r_cml ⇒ ∃cml_v. r_cml = Rval [cml_v]
-Proof
-  namedCases_on ‘r_cml’ ["vs", "err"] \\ gvs []
-  \\ namedCases_on ‘vs’ ["", "v rest"] \\ gvs []
-  \\ Cases_on ‘rest’ \\ gvs []
-QED
-
-Triviality exp_res_rel_rerr:
-  exp_res_rel m (Rerr dfy_err) r_cml ⇒
-  dfy_err = Rtimeout_error ∧ r_cml = (Rerr (Rabort Rtimeout_error))
-Proof
-  namedCases_on ‘r_cml’ ["vs", "err"] \\ gvs []
-  \\ namedCases_on ‘err’ ["raise", "abort"] \\ gvs []
-  \\ Cases_on ‘abort’ \\ gvs []
-  \\ Cases_on ‘dfy_err’ \\ gvs []
-QED
-
-Triviality exp_ress_rel_rerr:
-  exp_ress_rel m (Rerr dfy_err) rs_cml ⇒
-  dfy_err = Rtimeout_error ∧ rs_cml = (Rerr (Rabort Rtimeout_error))
-Proof
-  namedCases_on ‘rs_cml’ ["vs", "err"] \\ gvs []
-  \\ namedCases_on ‘err’ ["raise", "abort"] \\ gvs []
-  \\ Cases_on ‘abort’ \\ gvs []
-  \\ Cases_on ‘dfy_err’ \\ gvs []
-QED
-
-Triviality exp_ress_rel_rval:
-  exp_ress_rel m (Rval dfy_vs) rs_cml ⇒
-  ∃cml_vs. rs_cml = Rval cml_vs ∧ LIST_REL (val_rel m) dfy_vs cml_vs
-Proof
-  namedCases_on ‘rs_cml’ ["vs", "err"] \\ gvs []
 QED
 
 (* TODO Is there a better way to write these nsLookup lemmas? Maybe in a more
@@ -741,6 +757,13 @@ QED
 
 Triviality with_same_refs_ffi[simp]:
   (t: 'ffi cml_state) with <| refs := t.refs; ffi := t.ffi |> = t
+Proof
+  gvs [semanticPrimitivesTheory.state_component_equality]
+QED
+
+Triviality with_same_ffi[simp]:
+  (t: 'ffi cml_state) with <| clock := c; refs := r; ffi := t.ffi |> =
+  t with <| clock := c; refs := r |>
 Proof
   gvs [semanticPrimitivesTheory.state_component_equality]
 QED
@@ -1324,13 +1347,11 @@ Proof
     \\ rename [‘evaluate (_ with clock := ck + _) _ _ = (t₁,_)’]
     \\ reverse $ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
     >- (* Evaluating arguments failed *)
-     (drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs []
-      \\ qexists ‘ck’
+     (qexists ‘ck’
       \\ Cases_on ‘cml_args = []’ \\ gvs []
       \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
       \\ drule_all evaluate_apps_Rerr
       \\ disch_then $ qspec_then ‘Var (Short fname)’ assume_tac \\ gvs [])
-    \\ drule exp_ress_rel_rval \\ rpt strip_tac \\ gvs []
     \\ drule evaluate_exps_length \\ rpt strip_tac \\ gvs []
     \\ namedCases_on
          ‘set_up_call s₁ (MAP FST ins) in_vs []’ ["", "r"] \\ gvs []
@@ -1357,7 +1378,7 @@ Proof
       \\ qabbrev_tac
          ‘call_env =
             env with v :=
-            nsBind cml_param (LAST cml_vs) (build_rec_env cml_funs env env.v)’
+              nsBind cml_param (LAST cml_vs) (build_rec_env cml_funs env env.v)’
       (* Preparing e for evaluate_apps *)
       \\ gvs [from_member_decl_def, set_up_cml_fun_def, oneline bind_def,
               CaseEq "sum"]
@@ -1392,9 +1413,8 @@ Proof
       \\ last_x_assum $
            qspecl_then
              [‘dec_clock t’,
-              ‘env with
-                 v := nsBind "" (Conv NONE [])
-                       (build_rec_env cml_funs env env.v)’,
+              ‘env with v :=
+                 nsBind "" (Conv NONE []) (build_rec_env cml_funs env env.v)’,
               ‘m’, ‘l’]
              mp_tac
       \\ impl_tac
@@ -1420,7 +1440,7 @@ Proof
     \\ Cases_on ‘cml_args = []’ \\ gvs []
     \\ Cases_on ‘cml_vs = []’ \\ gvs []
     \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
-    (* TODO In case this works, perhaps we should case distinction on args earlier. *)
+    (* TODO Maybe we should case distinction on args earlier? *)
     (* Preparing ns for evaluate_apps *)
     \\ qabbrev_tac ‘params = REVERSE (MAP (explode ∘ FST) ins)’
     \\ ‘LENGTH params = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
@@ -1436,7 +1456,7 @@ Proof
     \\ qabbrev_tac
        ‘call_env =
           env with v :=
-          nsBind cml_param (LAST cml_vs) (build_rec_env cml_funs env env.v)’
+            nsBind cml_param (LAST cml_vs) (build_rec_env cml_funs env env.v)’
     (* Preparing e for evaluate_apps *)
     \\ gvs [from_member_decl_def, set_up_cml_fun_def, oneline bind_def,
             CaseEq "sum"]
@@ -1544,8 +1564,7 @@ Proof
    (qexists ‘0’
     \\ Cases_on ‘l’
     \\ gvs [evaluate_exp_def, from_lit_def, from_exp_def, evaluate_def]
-    \\ rename [‘BoolV b’]
-    \\ Cases_on ‘b’
+    \\ rename [‘Boolv b’] \\ Cases_on ‘b’
     \\ gvs [evaluate_def, do_con_check_def, env_rel_def, has_basic_cons_def,
             build_conv_def, Boolv_def, bool_type_num_def])
   >~ [‘Var name’] >-
@@ -1562,8 +1581,7 @@ Proof
     \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
     \\ gvs [evaluate_def]
     \\ reverse $ namedCases_on ‘r’ ["grd_v", "err"] \\ gvs []
-    >- (qexists ‘ck’ \\ drule exp_res_rel_rerr \\ gvs [])
-    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    >- (qexists ‘ck’ \\ gvs [])
     \\ namedCases_on ‘do_cond grd_v thn els’ ["", "branch"] \\ gvs []
     \\ gvs [oneline do_cond_def, CaseEq "value"]
     \\ rename [‘Boolv b’] \\ Cases_on ‘b’ \\ gvs []
@@ -1583,8 +1601,6 @@ Proof
     \\ qexists ‘ck’
     \\ Cases_on ‘uop’ \\ gvs [from_un_op_def, evaluate_def]
     \\ reverse $ namedCases_on ‘r’ ["v", "err"] \\ gvs []
-    >- (drule exp_res_rel_rerr \\ gvs [])
-    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
     \\ gvs [do_uop_def, CaseEqs ["value", "option"]]
     \\ rename [‘Boolv b’] \\ Cases_on ‘b’ \\ gvs []
     \\ gvs [do_if_def, evaluate_def, do_con_check_def, build_conv_def,
@@ -1597,8 +1613,7 @@ Proof
     \\ rename [‘evaluate (_ with clock := ck + _) _ _ = (t₁, _)’]
     \\ gvs [evaluate_def]
     \\ reverse $ Cases_on ‘r’ \\ gvs []
-    >- (qexists ‘ck’ \\ drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs [])
-    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
+    >- (qexists ‘ck’ \\ gvs [])
     \\ rename [‘val_rel _ dfy_v₀ cml_v₀’]
     \\ Cases_on ‘do_sc bop dfy_v₀’ \\ gvs []
     >- (* Short-circuiting *)
@@ -1625,10 +1640,9 @@ Proof
     \\ drule state_rel_env_pop_not_fresh \\ gvs []
     \\ disch_then $ drule \\ rpt strip_tac \\ gvs []
     \\ reverse $ Cases_on ‘r’ \\ gvs []
-    >- (drule exp_res_rel_rerr \\ rpt strip_tac \\ Cases_on ‘bop’
+    >- (Cases_on ‘bop’
         \\ gvs [oneline do_sc_def, val_rel_cases, from_bin_op_def,
                 evaluate_def, do_log_def, do_if_def, AllCaseEqs()])
-    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
     \\ rename [‘val_rel _ dfy_v₁ cml_v₁’]
     \\ Cases_on ‘do_bop bop dfy_v₀ dfy_v₁’ \\ gvs []
     \\ Cases_on ‘bop = Div’ \\ gvs [] >-
@@ -1702,12 +1716,10 @@ Proof
     \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
     \\ qexists ‘ck’
     \\ reverse $ namedCases_on ‘r’ ["arr_v",  "err"] \\ gvs []
-    >- (drule exp_res_rel_rerr
-        \\ gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def,
-                evaluate_def])
+    >- (gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def,
+             evaluate_def])
     \\ namedCases_on ‘get_array_len arr_v’ ["", "len"] \\ gvs []
     \\ gvs [oneline get_array_len_def, AllCaseEqs()]
-    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
     \\ gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def]
     \\ gvs [evaluate_def, can_pmatch_all_def, pmatch_def, pat_bindings_def,
             cml_tup_vname_def, num_to_str_11]
@@ -1722,10 +1734,8 @@ Proof
     \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
     \\ reverse $ namedCases_on ‘r’ ["arr_v",  "err"] \\ gvs []
     >- (qexists ‘ck’
-        \\ drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs []
         \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
         \\ gvs [evaluate_def])
-    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
     \\ gvs [evaluate_def]
     \\ rename [‘val_rel _ dfy_arr cml_arr’]
     \\ namedCases_on ‘evaluate_exp s₁ env_dfy idx’ ["s₂ r"] \\ gvs []
@@ -1747,8 +1757,6 @@ Proof
     \\ ‘refv_same_rel t.refs t₂.refs’ by
       (irule refv_same_rel_trans \\ gvs [SF SFY_ss])
     \\ reverse $ namedCases_on ‘r’ ["idx_v",  "err"] \\ gvs []
-    >- (drule exp_res_rel_rerr \\ gvs [])
-    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
     \\ namedCases_on ‘index_array s₂ dfy_arr idx_v’ ["", "elem"] \\ gvs []
     \\ gvs [oneline index_array_def, oneline val_to_num_def, CaseEq "value",
             CaseEq "option", CaseEq "heap_value"]
@@ -1774,10 +1782,8 @@ Proof
     \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
     \\ reverse $ namedCases_on ‘r’ ["cml_e",  "err"] \\ gvs []
     >- (qexists ‘ck’
-        \\ drule exp_res_rel_rerr \\ rpt strip_tac \\ gvs []
         \\ rename [‘_::cml_es’]
         \\ Cases_on ‘cml_es’ \\ gvs [evaluate_def])
-    \\ drule exp_res_rel_rval \\ rpt strip_tac \\ gvs []
     \\ namedCases_on ‘es’ ["", "e' es"] \\ gvs []
     >- (qexists ‘ck’ \\ gvs [evaluate_exp_def, from_exp_def])
     \\ namedCases_on ‘evaluate_exps s₁ env_dfy (e'::es')’ ["s₂ r"] \\ gvs []
@@ -1790,9 +1796,7 @@ Proof
     \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
     \\ ‘refv_same_rel t.refs t₂.refs’ by
       (irule refv_same_rel_trans \\ gvs [SF SFY_ss])
-    \\ reverse $ Cases_on ‘r’ \\ gvs []
-    >- (drule exp_ress_rel_rerr \\ rpt strip_tac \\ gvs [evaluate_def])
-    \\ drule exp_ress_rel_rval \\ rpt strip_tac \\ gvs [evaluate_def])
+    \\ reverse $ Cases_on ‘r’ \\ gvs [evaluate_def])
 QED
 
 Theorem correct_from_stmt:
@@ -1801,13 +1805,109 @@ Theorem correct_from_stmt:
     from_stmt stmt_dfy lvl = INR e_cml ∧ state_rel m l s t env_cml ∧
     env_rel env_dfy env_cml ∧ is_fresh_stmt stmt_dfy ∧
     r_dfy ≠ Rstop (Serr Rtype_error)
-    ⇒ ∃ck (t': 'ffi cml_state) m' l' r_cml.
+    ⇒ ∃ck (t': 'ffi cml_state) m' r_cml.
         evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
         (t', r_cml) ∧
-        refv_same_rel t.refs t'.refs ∧ state_rel m' l' s' t' env_cml ∧
-        m ⊑ m' ∧ l ⊑ l' ∧ stmt_res_rel r_dfy r_cml
+        refv_same_rel t.refs t'.refs ∧ state_rel m' l s' t' env_cml ∧
+        m ⊑ m' ∧ stmt_res_rel r_dfy r_cml
 Proof
-  cheat
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt strip_tac
+  >~ [‘Skip’] >-
+   (gvs [evaluate_stmt_def, from_stmt_def, evaluate_def, do_con_check_def,
+         build_conv_def]
+    \\ qexistsl [‘0’, ‘m’] \\ gvs [])
+  >~ [‘Assert e’] >-
+   (gvs [evaluate_stmt_def, from_stmt_def, evaluate_def, do_con_check_def,
+         build_conv_def]
+    \\ ‘env_dfy.is_running’ by gvs [env_rel_def] \\ gvs []
+    \\ qexistsl [‘0’, ‘m’] \\ gvs [])
+  >~ [‘Then stmt₁ stmt₂’] >-
+   (gvs [evaluate_stmt_def, from_stmt_def, oneline bind_def, CaseEq "sum"]
+    \\ namedCases_on ‘evaluate_stmt s env_dfy stmt₁’ ["s₁ r"] \\ gvs []
+    \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (Cases_on ‘r’ \\ gvs []) \\ gvs []
+    \\ first_x_assum drule_all
+    \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’, ‘m₁’] mp_tac
+    \\ rpt strip_tac \\ gvs []
+    \\ gvs [evaluate_def, nsOptBind_def]
+    \\ reverse $ namedCases_on ‘r’ ["", "stp"] \\ gvs []
+    >- (qexists ‘ck’ \\ gvs []
+        \\ namedCases_on ‘stp’ ["", "err"] \\ gvs [SF SFY_ss]
+        \\ Cases_on ‘err’ \\ gvs [SF SFY_ss])
+    \\ last_x_assum drule_all
+    \\ disch_then $ qx_choosel_then [‘ck'’, ‘t₂’, ‘m₂’] mp_tac
+    \\ rpt strip_tac \\ gvs []
+    \\ rev_drule evaluate_add_to_clock \\ gvs []
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac
+    \\ qexists ‘ck' + ck’ \\ gvs []
+    \\ irule_at Any refv_same_rel_trans
+    \\ qexistsl [‘t₁.refs’, ‘m₂’] \\ gvs []
+    \\ irule_at Any SUBMAP_TRANS \\ gvs [SF SFY_ss])
+  >~ [‘If tst thn els’] >-
+   (gvs [evaluate_stmt_def, from_stmt_def, oneline bind_def, CaseEq "sum"]
+    \\ namedCases_on ‘evaluate_exp s env_dfy tst’ ["s₁ r"] \\ gvs []
+    \\ ‘r ≠ Rerr Rtype_error’ by (Cases_on ‘r’ \\ gvs []) \\ gvs []
+    \\ drule_all (cj 1 correct_from_exp)
+    \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’] mp_tac
+    \\ rpt strip_tac \\ gvs []
+    \\ gvs [evaluate_def]
+    \\ reverse $ namedCases_on ‘r’ ["tst_v", "err"] \\ gvs []
+    >- (qexists ‘ck’ \\ gvs [] \\ qexists ‘m’ \\ gvs [])
+    \\ namedCases_on ‘do_cond tst_v thn els’ ["", "branch"] \\ gvs []
+    \\ gvs [oneline do_cond_def, CaseEq "value"]
+    \\ rename [‘Boolv b’] \\ Cases_on ‘b’ \\ gvs []
+    \\ last_x_assum drule_all
+    \\ disch_then $ qx_choosel_then [‘ck'’, ‘t₂’, ‘m₁’] mp_tac
+    \\ rpt strip_tac \\ gvs []
+    \\ rev_drule evaluate_add_to_clock
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
+    \\ qexists ‘ck' + ck’ \\ gvs []
+    \\ gvs [do_if_def]
+    \\ irule_at Any refv_same_rel_trans
+    \\ qexistsl [‘t₁.refs’, ‘m₁’] \\ gvs [])
+  >~ [‘Return’] >-
+   (gvs [evaluate_stmt_def, from_stmt_def, mk_id_def, evaluate_def,
+         do_con_check_def, env_rel_def, has_basic_cons_def, build_conv_def]
+    \\ qexistsl [‘0’, ‘m’] \\ gvs [])
+  >~ [‘Assign lhss rhss’] >-
+   (cheat)
+  >~ [‘Dec local scope’] >-
+   cheat
+   (* (namedCases_on ‘local’ ["n ty"] \\ gvs [] *)
+   (*  \\ gvs [evaluate_stmt_def] \\ rpt (pairarg_tac \\ gvs []) *)
+   (*  \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"] *)
+   (*  \\ rename [‘evaluate_stmt _ _ _ = (s₂, r)’] *)
+   (*  \\ ‘r_dfy = r’ by gvs [AllCaseEqs()] \\ gvs [] *)
+   (*  \\ qspecl_then [‘s’, ‘n’] assume_tac declare_local_len_inc *)
+   (*  \\ drule evaluate_stmt_len_locals \\ rpt strip_tac \\ gvs [] *)
+   (*  \\ gvs [pop_local_def] *)
+   (*  \\ namedCases_on ‘s₂.locals’ ["", "cur prev"] \\ gvs [] *)
+   (*  (* \\ ‘0 < LENGTH s₂.locals’ by gvs [] *) *)
+   (*  (* \\ drule locals_not_empty_pop_locals_some *) *)
+   (*  (* \\ disch_then $ qx_choose_then ‘s₃’ assume_tac \\ gvs [] *) *)
+   (*  \\ last_x_assum drule *)
+   (*  \\ disch_then $ *)
+   (*       qspecl_then *)
+   (*         [‘t with refs := t.refs ++ [Refv (Litv (IntLit 0))]’, *)
+   (*          ‘env_cml with v := *)
+   (*             nsOptBind (SOME (explode n)) (Loc T (LENGTH t.refs)) env_cml.v’, *)
+   (*          ‘m’, *)
+   (*          ‘l |+ (n, (LENGTH t.refs))’] *)
+   (*         mp_tac *)
+   (*  \\ impl_tac >- cheat *)
+   (*  \\ disch_then $ qx_choosel_then [‘ck’, ‘t₂’, ‘m₁’] mp_tac *)
+   (*  \\ rpt strip_tac \\ gvs [] *)
+   (*  \\ qexists ‘ck’ *)
+   (*  \\ gvs [cml_new_refs_def] *)
+   (*  \\ gvs [evaluate_def, do_app_def, store_alloc_def] *)
+   (*  \\ drule refv_same_rel_append_imp \\ rpt strip_tac \\ gvs [] *)
+   (*  \\ qexists ‘m₁’ \\ gvs [] *)
+   (*  \\ gvs [state_rel_def] *)
+   (*  \\ gvs [locals_rel_def] *)
+  (*  \\ rpt strip_tac) *)
+  >~ [‘While grd _ _ _ body’] >-
+   (cheat)
+  \\ cheat
 QED
 
 val _ = export_theory ();

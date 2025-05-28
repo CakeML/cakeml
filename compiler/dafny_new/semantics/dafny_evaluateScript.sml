@@ -272,15 +272,16 @@ Definition STOP_def:
   STOP = I
 End
 
-(* TODO Have separate error for assert failure *)
 Definition evaluate_stmt_ann_def[nocompute]:
   evaluate_stmt st env Skip = (st, Rcont) ∧
   evaluate_stmt st₀ env (Assert e) =
+  (* When a program is running, we want to ignore asserts. *)
+  (if env.is_running then (st₀, Rcont) else
   (case evaluate_exp st₀ env e of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
    | (st₁, Rval vs) =>
        if vs = BoolV T then (st₁, Rcont)
-       else (st₁, Rstop (Serr Rtype_error))) ∧
+       else (st₁, Rstop (Serr Rtype_error)))) ∧
   evaluate_stmt st₀ env (Then stmt₁ stmt₂) =
   (case fix_clock st₀ (evaluate_stmt st₀ env stmt₁) of
    | (st₁, Rstop stp) => (st₁, Rstop stp)
