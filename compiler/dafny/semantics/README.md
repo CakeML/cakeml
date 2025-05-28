@@ -3,8 +3,17 @@ Definition of Dafny's semantics.
 [dafny_compilerProofScript.sml](dafny_compilerProofScript.sml):
 Correctness proof for the Dafny to CakeML compiler.
 
+[dafny_evaluatePropsScript.sml](dafny_evaluatePropsScript.sml):
+Properties of Dafny's functional big-step semantics.
+
 [dafny_evaluateScript.sml](dafny_evaluateScript.sml):
-Functional big-step semantics for evaluation of Dafny programs.
+Defines functional big-step semantics for Dafny.
+
+[dafny_freshenProofScript.sml](dafny_freshenProofScript.sml):
+Correctness proof for the freshen pass.
 
 [dafny_semanticPrimitivesScript.sml](dafny_semanticPrimitivesScript.sml):
-Definition of semantic primitives used in the semantics.
+Defines semantic primitives used in Dafny's semantics.
+
+[evaluate_appsScript.sml](evaluate_appsScript.sml):
+Properties of the operational semantics.

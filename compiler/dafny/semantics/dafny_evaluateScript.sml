@@ -1,646 +1,407 @@
 (*
- Functional big-step semantics for evaluation of Dafny programs.
+  Defines functional big-step semantics for Dafny.
 *)
 
 open preamble
-open dafny_astTheory
-open result_monadTheory
 open dafny_semanticPrimitivesTheory
 
 val _ = new_theory "dafny_evaluate";
 
-Type dafny_result = “:'a dafny_semanticPrimitives$result”
-Type resultM = “:'a result_monad$result”
-Type program = “:module list”
+(* Related papers:
+   "Functional Big-step Semantics", https://cakeml.org/esop16.pdf
+   "Clocked Definitions in HOL", https://arxiv.org/pdf/1803.03417 *)
 
-(* TODO? Move to dafny_ast *)
-Definition method_name_def:
-  method_name (Method _ _ _ _ _ _ nam _ _ _ _ _ _) = nam
-End
+(* Helpers for clocked definition of semantics, which were adapted from
+   semantics/evaluateScript.sml. *)
 
-Definition method_body_def:
-  method_body (Method _ _ _ _ _ _ _ _ _ _ body _ _) = body
-End
-
-Definition dest_classitem_def:
-  dest_classitem (ClassItem_Method m) = m
-End
-
-(* Helper functions to factor out deep pattern matching and simplifying
- * assumptions*)
-
-(* TODO Check whether there is overlap with definitions in dafny_to_cakeml *)
-
-(* Destructs a simple module, stripping away the ClassItem_Method wrapper in the
- * process
- *
- * A simple module has no attributes, does not require extern, and only contains
- * the default class without type parameters, super classes, fields or
- * attributes. *)
-Definition dest_simple_module_def:
-  dest_simple_module (Module mod_nam [] F
-                             (SOME
-                              [ModuleItem_Class
-                               (Class cls_nam cls_enclosingM [] []
-                                      [] cls_body [])])) =
-  (if cls_nam ≠ (Name "__default") then
-     fail "dest_simple_module: class name was not __default"
-   else if mod_nam ≠ dest_Ident cls_enclosingM then
-     fail "dest_simple_module: unexpectedly, mod_nam and cls_enclosingM did not \
-         \match"
-   else
-     return (mod_nam, MAP dest_classitem cls_body)) ∧
-  dest_simple_module _ = fail "dest_simple_module: Not a simple module"
-End
-
-(* Simple call = calling a method without arguments, return value, or inheritance *)
-Definition dest_simple_call_def:
-  dest_simple_call c =
-  case c of
-  | Call (Companion (Ident mod_nam::rest) [])
-         (CallName method_nam NONE NONE F (CallSignature [] []))
-         [] [] NONE =>
-      if rest ≠ [] ∧ rest ≠ [Ident (Name "__default")] then
-        fail "dest_simple_call: not a simple call"
-      else
-        return (mod_nam, method_nam)
-  | _ => fail "dest_simple_call: not a simple call"
-End
-
-Definition is_simple_method_def:
-  is_simple_method (m: method): bool =
-  let (_, isStatic, hasBody,
-       outVarsAreUninitFieldsToAssign,
-       wasFunction, overridingPath, _,
-       typeParams, params, inheritedParams, _, outTypes, outVars) = dest_Method m in
-    isStatic ∧ hasBody ∧
-    ¬outVarsAreUninitFieldsToAssign ∧ ¬wasFunction ∧
-    overridingPath = NONE ∧ typeParams = [] ∧
-    params = [Formal (VarName "__noArgsParameter")
-                     (Seq (Primitive String)) []] ∧
-    inheritedParams = [Formal (VarName "__noArgsParameter")
-                              (Seq (Primitive String)) []] ∧
-    outTypes = [] ∧ outVars = SOME []
-End
-
-(* Find main function in environment *)
-
-Definition is_main_def:
-  (* Derived by looking at how Main is compiled *)
-  is_main (m: method): bool =
-  (is_simple_method m ∧ method_name m = Name "Main")
-End
-
-Definition main_call_def:
-  main_call (env: sem_env): statement resultM =
-  let main = FILTER (λ(_, m). is_main m) env.methods in
-    case main of
-    | [((mod_nam, method_nam), m)] =>
-        do
-          (* Derived by looking at how a function like Main is called *)
-          on <<- Companion [Ident mod_nam] [];
-          callName <<- CallName method_nam NONE NONE F (CallSignature [] []);
-          return (Call on callName [] [] NONE)
-        od
-    | [] => fail "main_call: Found no Main"
-    | _ => fail "main_call: Found more than one Main"
-End
-
-(* Set up initial environment containing all methods defined in the Dafny
-   program *)
-
-Definition env_from_mod_def:
-  env_from_mod (mod: module) =
-  do
-    (mod_name, methods) <- dest_simple_module mod;
-    method_names <<- MAP method_name methods;
-    method_path <<- MAP (λy. (mod_name, y)) method_names;
-    return (ZIP (method_path, methods))
-  od
-End
-
-Definition init_env_def:
-  init_env (p: program): sem_env resultM =
-  do
-    methods <- result_mmap env_from_mod p;
-    methods <<- FLAT methods;
-    return <| methods := methods |>
-  od
-End
-
-(* Functional big-step semantics *)
-
-(* following three definitions/theorems were adapted from
- * semantics/evaluateScript.sml *)
 Definition fix_clock_def:
-  fix_clock s (s', res) =
-  (s' with clock := if s'.clock ≤ s.clock then s'.clock else s.clock, res)
+  fix_clock st₀ (st₁, res) =
+  (st₁ with clock := if st₁.clock ≤ st₀.clock then st₁.clock else st₀.clock, res)
 End
 
 Triviality fix_clock_IMP:
-  fix_clock s x = (s1, res) ==> s1.clock <= s.clock
+  fix_clock st₀ x = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
 Proof
-  Cases_on ‘x’ \\ rw[fix_clock_def] \\ gvs[]
+  Cases_on ‘x’ >> rw[fix_clock_def] >> gvs[]
 QED
 
 Definition dec_clock_def:
-  dec_clock s = (s with clock := s.clock − 1)
+  dec_clock st = (st with clock := st.clock − 1)
 End
 
-(* TODO move to semantic primitives? *)
-Datatype:
-  exp_or_val = Exp dafny_ast$expression | Val dafny_semanticPrimitives$value
-End
+(* Semantics for expressions *)
 
-(* TODO move to semantic primitives? *)
-Definition is_lop_def[simp]:
-  is_lop And = T ∧
-  is_lop Or = T ∧
-  is_lop _ = F
-End
-
-(* TODO move to semantic primitives? *)
-Definition do_lop_def:
-  do_lop bop v e =
-  if (bop = And ∧ v = BoolV T) ∨ (bop = Or ∧ v = BoolV F) then SOME (Exp e)
-  else if (bop = And ∧ v = BoolV F) ∨ (bop = Or ∧ v = BoolV T) then SOME (Val v)
-  else NONE
-End
-
-Definition do_bop_def:
-  do_bop Lt el er =
-  (case (el, er) of
-   | (IntV vl, IntV vr) => SOME (BoolV (vl < vr))
-   | _ => NONE)
-  ∧
-  do_bop (Plus F) el er =
-  (case (el, er) of
-   | (IntV vl, IntV vr) => SOME (IntV (vl + vr))
-   | _ => NONE)
-  ∧
-  do_bop (Minus F) el er =
-  (case (el, er) of
-   | (IntV vl, IntV vr) => SOME (IntV (vl - vr))
-   | _ => NONE)
-  ∧
-  do_bop (Times F) el er =
-  (case (el, er) of
-   | (IntV vl, IntV vr) => SOME (IntV (vl * vr))
-   | _ => NONE)
-  ∧
-  do_bop (EuclidianDiv) el er =
-  (case (el, er) of
-   | (IntV vl, IntV vr) => SOME (IntV (ediv vl vr))
-   | _ => NONE)
-   ∧
-  do_bop _ _ _ = NONE
-End
-
-(* TODO move to semantic primitives? *)
-Definition literal_to_value_def:
-  literal_to_value (BoolLiteral b) = SOME (BoolV b) ∧
-  literal_to_value (IntLiteral s (Primitive Int)) =
-  (case fromString (implode s) of
-   | NONE => NONE
-   | SOME i => SOME (IntV i)) ∧
-  literal_to_value _ = NONE
-End
-
-(* Do an if-then-else *)
-(* TODO move to semantic primitives? *)
-Definition do_if_def:
-  do_if cnd thn els =
-    if cnd = BoolV T then SOME thn
-    else if cnd = BoolV F then SOME els
-    else NONE
-End
-
-(* Returns a list of names if none of the Formals has any attributes. *)
-Definition simple_formal_names_def:
-  simple_formal_names [] = SOME []
-  ∧
-  simple_formal_names ((Formal n _ [])::rest) =
-  (case (simple_formal_names rest) of
-   | SOME rest => SOME (n::rest)
-   | NONE => NONE)
-  ∧
-  simple_formal_names _ = NONE
-End
-
-Definition name_sig_call_def:
-  name_sig_call (Companion [mod_name] []) (CallName met_name NONE NONE F (CallSignature params inheritedParams)) =
-  SOME (dest_Ident mod_name, met_name, params, inheritedParams)
-  ∧
-  name_sig_call _ _ = NONE
-End
-
-Definition resolve_call_def:
-  resolve_call (env: sem_env) (is_exp_call: bool) (call_on: expression) (call_name: callName) call_typeArgs call_outs =
-  (case (name_sig_call call_on call_name) of
-   | NONE => INL Runsupported
-   | SOME (call_mod_name, call_met_name, call_params, call_inheritedParams) =>
-       (case (ALOOKUP env.methods (call_mod_name, call_met_name)) of
-        | NONE => INL Rtype_error
-        | SOME (Method met_attrs met_isStatic met_hasBody _ _
-                       met_overridingPath met_nam met_typeParams
-                       met_params met_inheritedParams met_body met_outTypes
-                       met_outVars) =>
-            (* Ignore outVarsAreUninitFieldsToAssign, wasFunction *)
-            if met_attrs ≠ [] ∨ ¬met_isStatic ∨ met_overridingPath ≠ NONE
-               ∨ met_typeParams ≠ [] ∨ call_typeArgs ≠ [] then
-              INL Runsupported
-            else if ¬met_hasBody ∨ met_nam ≠ call_met_name
-                    ∨ met_params ≠ call_params
-                    ∨ met_inheritedParams ≠ call_inheritedParams
-                    (* TODO Maybe we should only check that they are both NONE,
-                         or contain lists of the same size? *)
-                    ∨ met_outVars ≠ call_outs
-                    ∨ (is_exp_call ∧ (LENGTH met_outTypes ≠ 1)) then
-              INL Rtype_error
-            else
-              (* NOTE I believe that inheritedParams are mainly used in the Rust *)
-              (*   compiler to determine whether something needs to be borrowed. *)
-              (case (simple_formal_names met_params) of
-               | NONE => INL Runsupported
-               | SOME param_names => INR (param_names, met_body))))
-End
-
-Definition alloc_array_def:
-  alloc_array st dim t =
-  (case (val_to_num dim, init_val t) of
-   | (SOME dim, SOME init) =>
-       (st with heap := SNOC (HArray (REPLICATE dim init)) st.heap,
-        Rval (ArrayV [dim] (LENGTH st.heap)))
-   | (NONE, _) => (st, Rerr Rtype_error)
-   | (_, NONE) => (st, Rerr Runsupported))
-End
-
-Theorem alloc_array_clock:
-  ∀ s₁ dim t s₂ r.
-    alloc_array s₁ dim t = (s₂, r) ⇒ s₂.clock = s₁.clock
-Proof
-  rpt strip_tac >> gvs [alloc_array_def, CaseEq "option"]
-QED
-
-Definition index_into_array_def:
-  index_into_array st arr idx =
-  (case (arr, val_to_num idx) of
-   (* If arr is not one-dimensional, we have a type error *)
-   | (ArrayV [dim] loc, SOME idx) =>
-       (case (LLOOKUP st.heap loc) of
-        | SOME (HArray arr) => LLOOKUP arr idx
-        | NONE => NONE)
-   | _ => NONE)
-End
-
-Definition update_list_def:
-  update_list xs n e = if n ≥ LENGTH xs then NONE else SOME (LUPDATE e n xs)
-End
-
-Definition update_array_heap_def:
-  update_array_heap st loc new_arr =
-  (case update_list st.heap loc (HArray new_arr) of
-   | SOME new_heap => INR (st with heap := new_heap)
-   | NONE => INL Rtype_error)
-End
-
-Definition access_update_array_def:
-  access_update_array st loc idx v =
-  (case LLOOKUP st.heap loc of
-   | SOME (HArray arr) =>
-       (case update_list arr idx v of
-        | SOME new_arr => update_array_heap st loc new_arr
-        | NONE => INL Rtype_error)
-   | _ => INL Rtype_error)
-End
-
-Definition assign_to_array_def:
-  assign_to_array st arr idxs v =
-  (case arr of
-   | ArrayV dims loc =>
-       if LENGTH idxs ≠ LENGTH dims then INL Rtype_error else
-         (case idxs of
-          | [] => INL Rtype_error
-          | [idx] =>
-              (case val_to_num idx of
-                 SOME idx_num => access_update_array st loc idx_num v
-               | NONE => INL Rtype_error)
-          | _ => INL Runsupported)
-   | _ => INL Rtype_error)
-End
-
-Theorem assign_to_array_clock:
-  ∀s₁ arr idxs v s₂.
-    assign_to_array s₁ arr idxs v = INR s₂ ⇒ s₂.clock = s₁.clock
-Proof
-  rpt strip_tac
-  >> gvs [assign_to_array_def, AllCaseEqs (), access_update_array_def,
-          update_array_heap_def]
-QED
-
-(* Annotated with fix_clock *)
-Definition evaluate_stmts_ann_def[nocompute]:
-  evaluate_exp (st: state) (env: sem_env) (Literal l) : (state # value dafny_result) =
-  (case literal_to_value l of
-   | NONE => (st, Rerr Runsupported)  (* TODO Could also be Rtype_error *)
-   | SOME v => (st, Rval v))
-  ∧
-  (* TODO? Rename NewUninitArray + drop FinalizeNewArray from IR *)
-  (* We actually do initialize the array; instead, FinalizeNewArray does not do
-     anything special. *)
-  evaluate_exp st env (NewUninitArray dims t) =
-  (case dims of
-   | [] => (st, Rerr Rtype_error)
-   | [dim] =>
-       (case evaluate_exp st env dim of
-        | (st', Rval dim) => alloc_array st' dim t
-        | r => r)
-   | _ => (st, Rerr Runsupported))
-  ∧
-  evaluate_exp st env (FinalizeNewArray e _) =
-    evaluate_exp st env e
-  ∧
-  evaluate_exp st env (BinOp (TypedBinOp bop _ _ _) el er) =
-  (case fix_clock st (evaluate_exp st env el) of
-   | (st', Rval vl) =>
-       if is_lop bop then
-         (case do_lop bop vl er of
-          | NONE => (st', Rerr Rtype_error)
-          | SOME (Exp er) => evaluate_exp st' env er
-          | SOME (Val vl) => (st', Rval vl))
-       else
-         (case evaluate_exp st' env er of
-          | (st'', Rval vr) =>
-              (case do_bop bop vl vr of
-               (* TODO Could also be Runsupported *)
-               | NONE => (st'', Rerr Rtype_error)
-               | SOME r => (st'', Rval r))
-          | r => r)
-   | r => r)
-  ∧
-  (* ArrayLen expr exprType dim native - ignoring exprType, native *)
-  evaluate_exp st env (ArrayLen e _ dim _) =
-  (case evaluate_exp st env e of
-   | (st', Rval v) =>
-       (case v of
-        | ArrayV dims _ =>
-            (case LLOOKUP dims dim of
-             | NONE => (st', Rerr Rtype_error)
-             (* TODO Ponder how to deal with subset types (e.g., nat) *)
-             | SOME len => (st', Rval (IntV &len)))
-        | _ => (st', Rerr Rtype_error))
-   | r => r)
-  ∧
-  evaluate_exp st env (Index e cok idxs) =
-  (case (cok, idxs) of
-   | (CollKind_Array, [idx]) =>
-       (* TODO If we add more cases, remember to factor out common paths *)
-       (case (fix_clock st (evaluate_exp st env e)) of
-        | (st', Rval arr) =>
-            (case evaluate_exp st' env idx of
-             | (st'', Rval idx) =>
-                 (case index_into_array st'' arr idx of
-                  | NONE => (st'', Rerr Rtype_error)
-                  | SOME v => (st'', Rval v))
-             | r => r)
-        | r => r)
-   | _ => (st, Rerr Runsupported))
-  ∧
-  evaluate_exp st env (Expression_Call call_on call_name call_typeArgs call_args) =
-  (let is_exp_call = T; call_outs = NONE in
-     (case (resolve_call env is_exp_call call_on call_name call_typeArgs call_outs) of
-      | INL err => (st, Rerr err)
-      | INR (param_names, met_body) =>
-          (case fix_clock st (evaluate_exps st env call_args) of
-           | (st', Rval vals) =>
-               (case (push_param_frame st' param_names vals) of
-                | NONE => (st', Rerr Rtype_error)
-                | SOME st'' =>
-                    if st''.clock = 0
-                    then (st'', Rerr Rtimeout_error)
-                    else
-                      (evaluate_stmts (dec_clock st'')
-                                      (set_out_vars env call_outs) met_body))
-           (* We mention this case explicitly to avoid type errors *)
-           | (st', Rerr err) => (st', Rerr err))))
-  ∧
-  evaluate_exp st env _ = (st, Rerr Runsupported)
-  ∧
-  evaluate_exps st env [] : (state # (value list) dafny_result) =
-    (st, Rval [])
-  ∧
-  evaluate_exps st env (exp::exps) : (state # (value list) dafny_result) =
-  (case fix_clock st (evaluate_exp st env exp) of
-   | (st', Rval v) =>
-       (case (evaluate_exps st' env exps) of
-        | (sf, Rval vs) => (sf, Rval (v::vs))
-        | r => r)
-   (* We mention this case explicitly to avoid type errors *)
-   | (st', Rerr err) => (st', Rerr err))
-  ∧
-  evaluate_stmt st env (DeclareVar varNam _ (SOME e) in_stmts) =
-  (let varNam = dest_varName varNam in
-     (case fix_clock st (evaluate_exp st env e) of
-      | (st', Rval v) =>
-          (case add_local st' varNam v of
-           | NONE => (st', Rerr Rtype_error)
-           | SOME st'' => evaluate_stmts st'' env in_stmts)
-      | r => r))
-  ∧
-  evaluate_stmt st env (DeclareVar varNam t NONE in_stmts) =
-  (let varNam = dest_varName varNam in
-     (case init_val t of
-      | NONE => (st, Rerr Runsupported)
-      | SOME v =>
-          (case add_local st varNam v of
-              | NONE => (st, Rerr Rtype_error)
-              | SOME st' => evaluate_stmts st' env in_stmts)))
-  ∧
-  evaluate_stmt st env (Assign lhs rhs) =
-  (case fix_clock st (evaluate_exp st env rhs) of
-   | (st', Rval rhs) =>
-       (case lhs of
-        | AssignLhs_Ident id =>
-            (let id = dest_varName id in
-               (case assign_to_local st' id rhs of
-                | NONE => (st', Rerr Rtype_error)
-                | SOME st'' => (st'', Rval UnitV)))
-        | AssignLhs_Index to_e idxs =>
-            (case fix_clock st' (evaluate_exp st' env to_e) of
-             | (st'', Rval to_v) =>
-                 (case evaluate_exps st'' env idxs of
-                  | (st₃, Rval idxs) =>
-                      (case assign_to_array st₃ to_v idxs rhs of
-                       | INR st₄ => (st₄, Rval UnitV)
-                       | INL err => (st₃, Rerr err))
-                  | (st₃, Rerr err) => (st₃, Rerr err))
-             | r => r)
-        | _ => (st', Rerr Runsupported))
-   | r => r)
-  ∧
-  evaluate_stmt st env (If cnd thn els) =
-  (case fix_clock st (evaluate_exp st env cnd) of
-     (st', Rval v) =>
-       (case do_if v thn els of
-          NONE => (st', Rerr Rtype_error)
-        | SOME stmts => evaluate_stmts (dec_clock st') env stmts)
-   | r => r)
-  ∧
-  evaluate_stmt st env (While e stmts) =
-  (case fix_clock st (evaluate_exp st env e) of
-   | (st', Rval v) =>
-       if v = BoolV F then (st', Rval UnitV)
-       else if v = BoolV T then
-         (case fix_clock st' (evaluate_stmts st' env stmts) of
-          | (st'', Rerr e) => (st'', Rerr e)
-          | (st'', _) =>
-              if st''.clock = 0 then
-                (st'', Rerr Rtimeout_error)
-              else
-                evaluate_stmt (dec_clock st'') env (While e stmts))
-       else
-         (st', Rerr Rtype_error)
-   | r => r)
-  ∧
-  evaluate_stmt st env (Call call_on call_name call_typeArgs call_args call_outs) =
-  (let is_exp_call = F in
-     (case (resolve_call env is_exp_call call_on call_name call_typeArgs call_outs) of
-      | INL err => (st, Rerr err)
-      | INR (param_names, met_body) =>
-          (case fix_clock st (evaluate_exps st env call_args) of
-           | (st', Rval vals) =>
-               (case (push_param_frame st' param_names vals) of
-                | NONE => (st', Rerr Rtype_error)
-                | SOME st'' =>
-                    if st''.clock = 0
-                    then (st'', Rerr Rtimeout_error)
-                    else (evaluate_stmts (dec_clock st'')
-                                         (set_out_vars env call_outs) met_body))
-           (* We mention this case explicitly to avoid type errors *)
-           | (st', Rerr err) => (st', Rerr err))))
-  ∧
-  evaluate_stmt st env (Return e) =
-  (if env.outVars ≠ NONE
-   then (st, Rerr Rtype_error)
-   else
-     (case evaluate_exp st env e of
-      | (st', Rval v) => (st', Rret v)
-      | r => r))
-  ∧
-  evaluate_stmt st env EarlyReturn =
-  (case env.outVars of
+Definition evaluate_exp_ann_def[nocompute]:
+  evaluate_exp st env (Lit l) = (st, Rval (lit_to_val l)) ∧
+  evaluate_exp st env (Var name) =
+  (case read_local st.locals name of
    | NONE => (st, Rerr Rtype_error)
-   | SOME outs => )
-  ∧
-  evaluate_stmt (st: state) (env: sem_env) _ =
-  (st, Rerr Runsupported)
-  ∧
-  evaluate_stmts (st: state) (env: sem_env) [] =
-  (st, Rval UnitV)
-  ∧
-  evaluate_stmts (st: state) (env: sem_env) (stmt::stmts) =
-  (case fix_clock st (evaluate_stmt st env stmt) of
-   | (st', Rval _) =>
-       evaluate_stmts st' env stmts
-   | r => r)
+   | SOME v => (st, Rval v)) ∧
+  evaluate_exp st₀ env (If tst thn els) =
+  (case fix_clock st₀ (evaluate_exp st₀ env tst) of
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v) =>
+     (case do_cond v thn els of
+      | NONE => (st₁, Rerr Rtype_error)
+      | SOME branch => evaluate_exp st₁ env branch)) ∧
+  evaluate_exp st₀ env (UnOp uop e) =
+  (case evaluate_exp st₀ env e of
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v) =>
+     (case do_uop uop v of
+      | NONE => (st₁, Rerr Rtype_error)
+      | SOME res => (st₁, Rval res))) ∧
+  evaluate_exp st₀ env (BinOp bop e₀ e₁) =
+  (case fix_clock st₀ (evaluate_exp st₀ env e₀) of
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v₀) =>
+     (case do_sc bop v₀ of
+      | Abort => (st₁, Rerr Rtype_error)
+      | Done v => (st₁, Rval v)
+      | Continue =>
+        (case evaluate_exp st₁ env e₁ of
+         | (st₂, Rerr err) => (st₂, Rerr err)
+         | (st₂, Rval v₁) =>
+           (case do_bop bop v₀ v₁ of
+            | NONE => (st₂, Rerr Rtype_error)
+            | SOME res => (st₂, Rval res))))) ∧
+  evaluate_exp st₀ env (ArrLen e) =
+  (case evaluate_exp st₀ env e of
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v) =>
+     (case get_array_len v of
+      | NONE => (st₁, Rerr Rtype_error)
+      | SOME len => (st₁, Rval (IntV &len)))) ∧
+  evaluate_exp st₀ env (ArrSel arr idx) =
+  (case fix_clock st₀ (evaluate_exp st₀ env arr) of
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval arr) =>
+     (case fix_clock st₁ (evaluate_exp st₁ env idx) of
+      | (st₂, Rerr err) => (st₂, Rerr err)
+      | (st₂, Rval idx) =>
+        (case index_array st₂ arr idx of
+         | NONE => (st₂, Rerr Rtype_error)
+         | SOME v => (st₂, Rval v)))) ∧
+  evaluate_exp st₀ env (FunCall name args) =
+  (case get_member name env.prog of
+   | NONE => (st₀, Rerr Rtype_error)
+   | SOME member =>
+     (case member of
+      | Method _ _ _ _ _ _ _ _ _ => (st₀, Rerr Rtype_error)
+      | Function _ ins _ _ _ _ body =>
+        (let in_names = MAP FST ins in
+         (case fix_clock st₀ (evaluate_exps st₀ env args) of
+          | (st₁, Rerr err) => (st₁, Rerr err)
+          | (st₁, Rval in_vs) =>
+            (case set_up_call st₁ in_names in_vs [] of
+             | NONE => (st₁, Rerr Rtype_error)
+             | SOME (old_locals, st₂) =>
+               if st₂.clock = 0
+               then (restore_locals st₂ old_locals, Rerr Rtimeout_error)
+               else
+                 (case evaluate_exp (dec_clock st₂) env body of
+                  | (st₃, Rerr err) =>
+                      (restore_locals st₃ old_locals, Rerr err)
+                  | (st₃, Rval v) =>
+                      (restore_locals st₃ old_locals, Rval v))))))) ∧
+  evaluate_exp st env (Forall (vn, vt) e) =
+  (if env.is_running then (st, Rerr Rtype_error)
+   else if st.clock = 0 then (st, Rerr Rtimeout_error) else
+   let eval = (λv. evaluate_exp (push_local st vn v) env e) in
+     if (∃v. v ∈ all_values vt ∧ SND (eval v) = Rerr Rtype_error)
+     then (st, Rerr Rtype_error)
+     else if (∃v. v ∈ all_values vt ∧ SND (eval v) = Rerr Rtimeout_error)
+     then (st, Rerr Rtimeout_error)
+     else if (∀v. v ∈ all_values vt ⇒ SND (eval v) = Rval (BoolV T))
+     then (st, Rval (BoolV T))
+     (* NOTE For now, for simplicity reasons, we do not check whether (eval v) *)
+  (*       is a Bool to throw a type error if not. Instead, we return (BoolV F). *)
+     else (st, Rval (BoolV F))) ∧
+  evaluate_exps st env [] = (st, Rval []) ∧
+  evaluate_exps st₀ env (e::es) =
+  (case fix_clock st₀ (evaluate_exp st₀ env e) of
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v) =>
+     (case evaluate_exps st₁ env es of
+      | (st₂, Rerr err) => (st₂, Rerr err)
+      | (st₂, Rval vs) => (st₂, Rval (v::vs))))
 Termination
-  WF_REL_TAC ‘inv_image ($< LEX $<)
+  wf_rel_tac ‘inv_image ($< LEX $<)
               (λx. case x of
                    | INL (s, _, exp) =>
-                       (s.clock, expression_size exp)
-                   | INR (INL (s, _, exps)) =>
-                       (s.clock, list_size expression_size exps)
-                   | INR (INR (INL (s, _, stmt))) =>
-                       (s.clock, statement_size stmt)
-                   | INR (INR (INR (s, _, stmts))) =>
-                       (s.clock, list_size statement_size stmts))’
+                       (s.clock, exp_size exp)
+                   | INR (s, _, exps) =>
+                       (s.clock, list_size exp_size exps))’
   >> rpt strip_tac
   >> imp_res_tac fix_clock_IMP
-  >> gvs [dec_clock_def, AllCaseEqs(), assignLhs_size_eq, do_if_def,
-          add_local_def, do_lop_def, push_param_frame_def]
+  >> gvs [do_sc_def, dec_clock_def, set_up_call_def, push_local_def,
+          oneline do_cond_def, AllCaseEqs ()]
 End
 
-Theorem evaluate_stmts_clock:
-  (∀s₁ env exp r s₂.
-     evaluate_exp s₁ env exp = (s₂, r) ⇒ s₂.clock ≤ s₁.clock) ∧
-  (∀s₁ env exps r s₂.
-     evaluate_exps s₁ env exps = (s₂, r) ⇒ s₂.clock ≤ s₁.clock) ∧
-  (∀s₁ env stmt r s₂.
-     evaluate_stmt s₁ env stmt = (s₂, r) ⇒ s₂.clock ≤ s₁.clock) ∧
-  (∀s₁ env stmts r s₂.
-     evaluate_stmts s₁ env stmts = (s₂, r) ⇒ s₂.clock ≤ s₁.clock)
+Theorem evaluate_exp_clock:
+  (∀st₀ env e st₁ r.
+     evaluate_exp st₀ env e = (st₁, r) ⇒ st₁.clock ≤ st₀.clock) ∧
+  (∀st₀ env es st₁ r.
+     evaluate_exps st₀ env es = (st₁, r) ⇒ st₁.clock ≤ st₀.clock)
 Proof
-  ho_match_mp_tac evaluate_stmts_ann_ind
+  ho_match_mp_tac evaluate_exp_ann_ind
   >> rpt strip_tac
-  >> pop_assum mp_tac >> simp [Once evaluate_stmts_ann_def] >> strip_tac
-  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def]
-  >> EVERY (map imp_res_tac [add_local_clock, assign_to_local_clock,
-                             push_param_frame_clock, alloc_array_clock,
-                             assign_to_array_clock, fix_clock_IMP]) >> gvs[]
+  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def,
+          evaluate_exp_ann_def]
+  >> EVERY (map imp_res_tac
+                [set_up_call_clock, restore_locals_clock, fix_clock_IMP])
+  >> gvs[]
 QED
 
-Theorem fix_clock_evaluate_stmts:
-  (fix_clock s₁ (evaluate_exp s₁ env exp) = evaluate_exp s₁ env exp) ∧
-  (fix_clock s₁ (evaluate_exps s₁ env exps) = evaluate_exps s₁ env exps) ∧
-  (fix_clock s₁ (evaluate_stmt s₁ env stmt) = evaluate_stmt s₁ env stmt) ∧
-  (fix_clock s₁ (evaluate_stmts s₁ env stmts) = evaluate_stmts s₁ env stmts)
+Theorem fix_clock_evaluate_exp:
+  (fix_clock st (evaluate_exp st env exp) = evaluate_exp st env exp) ∧
+  (fix_clock st (evaluate_exps st env exps) = evaluate_exps st env exps)
 Proof
-  Cases_on ‘evaluate_exp s₁ env exp’ >> Cases_on ‘evaluate_exps s₁ env exps’
-  >> Cases_on ‘evaluate_stmt s₁ env stmt’ >> Cases_on ‘evaluate_stmts s₁ env stmts’
-  >> imp_res_tac evaluate_stmts_clock
+  Cases_on ‘evaluate_exp st env exp’ >> Cases_on ‘evaluate_exps st env exps’
+  >> imp_res_tac evaluate_exp_clock
   >> gvs [fix_clock_def, state_component_equality]
 QED
 
-Theorem evaluate_stmts_def[compute] =
-  REWRITE_RULE [fix_clock_evaluate_stmts] evaluate_stmts_ann_def;
+Theorem evaluate_exp_def[compute] =
+  REWRITE_RULE [fix_clock_evaluate_exp] evaluate_exp_ann_def
 
-Theorem evaluate_stmts_ind =
-  REWRITE_RULE [fix_clock_evaluate_stmts] evaluate_stmts_ann_ind;
+Theorem evaluate_exp_ind =
+  REWRITE_RULE [fix_clock_evaluate_exp] evaluate_exp_ann_ind
 
-Definition evaluate_def:
-  evaluate (p: program): (state # value dafny_result) resultM =
-  do
-    env <- init_env p;
-    main <- main_call env;
-    return (evaluate_stmt init_state env main)
-  od
+(* Semantics for rhs_exp *)
+
+Definition evaluate_rhs_exp_def:
+  evaluate_rhs_exp st env (ExpRhs e) = evaluate_exp st env e ∧
+  evaluate_rhs_exp st₀ env (ArrAlloc len init) =
+  (case evaluate_exp st₀ env len of
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval len) =>
+     (case evaluate_exp st₁ env init of
+      | (st₂, Rerr err) => (st₂, Rerr err)
+      | (st₂, Rval init) =>
+        (case alloc_array st₂ len init of
+         | NONE => (st₂, Rerr Rtype_error)
+         | SOME (st₃, arr) => (st₃, Rval arr))))
 End
 
-(* (* Testing *) *)
-(* open dafny_sexpTheory *)
-(* open sexp_to_dafnyTheory *)
-(* open fromSexpTheory simpleSexpParseTheory *)
-(* open TextIO *)
+Theorem evaluate_rhs_exp_clock:
+  ∀st₀ env e st₁ res.
+    evaluate_rhs_exp st₀ env e = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
+Proof
+  rpt strip_tac
+  >> gvs [oneline evaluate_rhs_exp_def, alloc_array_def, AllCaseEqs ()]
+  >> imp_res_tac evaluate_exp_clock >> gvs []
+QED
 
-(* val exp = “(Literal (BoolLiteral T))” *)
+Definition evaluate_rhs_exps_def:
+  evaluate_rhs_exps st env [] = (st, Rval []) ∧
+  evaluate_rhs_exps st₀ env (e::es) =
+  (case evaluate_rhs_exp st₀ env e of
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval v) =>
+     (case evaluate_rhs_exps st₁ env es of
+      | (st₂, Rerr err) => (st₂, Rerr err)
+      | (st₂, Rval vs) => (st₂, Rval (v::vs))))
+End
 
-(* val eval_exp_r = EVAL “(evaluate_exp init_state <||> ^exp)” *)
-(*                    |> concl |> rhs |> rand; *)
+Theorem evaluate_rhs_exps_clock:
+  ∀st₀ env es st₁ res.
+    evaluate_rhs_exps st₀ env es = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
+Proof
+  Induct_on ‘es’
+  >> rpt strip_tac
+  >> gvs [evaluate_rhs_exps_def, AllCaseEqs ()]
+  >> imp_res_tac evaluate_rhs_exp_clock
+  >> last_assum drule >> gvs []
+QED
 
-(* val stmt = “[DeclareVar (VarName "foo") (Primitive Int) *)
-(*                         (SOME (Literal (IntLiteral "999" (Primitive Int)))) *)
-(*                         [If (Literal (BoolLiteral F)) *)
-(*                             [(Assign (AssignLhs_Ident (VarName "foo")) *)
-(*                                      (Literal (IntLiteral "4" (Primitive Int))))] *)
-(*                             [(Assign (AssignLhs_Ident (VarName "foo")) *)
-(*                                      (Literal (IntLiteral "2" (Primitive Int))))]; *)
-(*                          If (Literal (BoolLiteral T)) *)
-(*                             [(Assign (AssignLhs_Ident (VarName "foo")) *)
-(*                                      (Literal (IntLiteral "4" (Primitive Int))))] *)
-(*                             [(Assign (AssignLhs_Ident (VarName "foo")) *)
-(*                                      (Literal (IntLiteral "2" (Primitive Int))))]]]” *)
+(* Semantics for assigning values *)
 
-(* val stmt_exp_r = EVAL “(evaluate_stmts init_state <||> ^stmt)” *)
-(*                    |> concl |> rhs; *)
+Definition assign_value_def:
+  assign_value st₀ env (VarLhs var) val =
+  (case update_local st₀ var val of
+   | NONE => (st₀, Rstop (Serr Rtype_error))
+   | SOME st₁ => (st₁, Rcont)) ∧
+  assign_value st₀ env (ArrSelLhs arr idx) val =
+  (case evaluate_exp st₀ env arr of
+   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rval arr) =>
+     (case evaluate_exp st₁ env idx of
+      | (st₂, Rerr err) => (st₂, Rstop (Serr err))
+      | (st₂, Rval idx) =>
+        (case update_array st₂ arr idx val of
+         | NONE => (st₂, Rstop (Serr Rtype_error))
+         | SOME st₃ => (st₃, Rcont)))) ∧
+  assign_value st env _ val = (st, Rstop (Serr Rtype_error))
+End
 
-(* val inStream = TextIO.openIn "../tests/basic/binary_search.sexp"; *)
-(* val fileContent = TextIO.inputAll inStream; *)
-(* val _ = TextIO.closeIn inStream; *)
-(* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)
+Theorem assign_value_clock:
+  ∀st₀ env e v st₁ res.
+    assign_value st₀ env e v = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
+Proof
+  rpt strip_tac
+  >> gvs [update_local_def, update_array_def,
+          oneline assign_value_def, AllCaseEqs ()]
+  >> imp_res_tac evaluate_exp_clock >> gvs []
+QED
 
-(* val lex_r = EVAL “(lex ^fileContent_tm)” |> concl |> rhs |> rand; *)
-(* val parse_r = EVAL “(parse ^lex_r)” |> concl |> rhs |> rand; *)
-(* val dafny_r = EVAL “(sexp_program ^parse_r)” |> concl |> rhs |> rand; *)
-(* val eval_r = EVAL “(evaluate ^dafny_r)” |> concl |> rhs |> rand; *)
+Definition assign_values_def:
+  assign_values st env [] [] = (st, Rcont) ∧
+  assign_values st₀ env (lhs::lhss) (v::vs) =
+  (case assign_value st₀ env lhs v of
+   | (st₁, Rstop stp) => (st₁, Rstop stp)
+   | (st₁, Rcont) => assign_values st₁ env lhss vs) ∧
+  assign_values st env _ _ = (st, Rstop (Serr Rtype_error))
+End
 
-val _ = export_theory();
+Theorem assign_values_clock:
+  ∀st₀ env lhss vs st₁ res.
+    assign_values st₀ env lhss vs = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
+Proof
+  Induct_on ‘lhss’ >> Induct_on ‘vs’
+  >> rpt strip_tac
+  >> gvs [assign_values_def, AllCaseEqs ()]
+  >> imp_res_tac assign_value_clock
+  >> last_assum drule >> gvs []
+QED
+
+(* Semantics for statements *)
+
+(* Stops the simplifier from non-terminating rewrites. *)
+Definition STOP_def:
+  STOP = I
+End
+
+Definition evaluate_stmt_ann_def[nocompute]:
+  evaluate_stmt st env Skip = (st, Rcont) ∧
+  evaluate_stmt st₀ env (Assert e) =
+  (* When a program is running, we want to ignore asserts. *)
+  (if env.is_running then (st₀, Rcont) else
+  (case evaluate_exp st₀ env e of
+   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rval vs) =>
+       if vs = BoolV T then (st₁, Rcont)
+       else (st₁, Rstop (Serr Rtype_error)))) ∧
+  evaluate_stmt st₀ env (Then stmt₁ stmt₂) =
+  (case fix_clock st₀ (evaluate_stmt st₀ env stmt₁) of
+   | (st₁, Rstop stp) => (st₁, Rstop stp)
+   | (st₁, Rcont) => evaluate_stmt st₁ env stmt₂) ∧
+  evaluate_stmt st₀ env (If tst thn els) =
+  (case evaluate_exp st₀ env tst of
+   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rval tst) =>
+     (case do_cond tst thn els of
+      | NONE => (st₁, Rstop (Serr Rtype_error))
+      | SOME branch => evaluate_stmt st₁ env branch)) ∧
+  evaluate_stmt st₀ env (Dec local scope) =
+  (let (st₁, res) = evaluate_stmt (declare_local st₀ (FST local)) env scope in
+   (case pop_local st₁ of
+    | NONE => (st₁, res)
+    | SOME st₂ => (st₂, res))) ∧
+  evaluate_stmt st₀ env (Assign lhss rhss) =
+  (case evaluate_rhs_exps st₀ env rhss of
+   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rval vals) => assign_values st₁ env lhss vals) ∧
+  evaluate_stmt st₀ env (While guard invs decrs mods body) =
+  (case evaluate_exp st₀ env guard of
+   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rval guard_v) =>
+     if guard_v = BoolV F then (st₁, Rcont)
+     else if guard_v = BoolV T then
+       (case fix_clock st₁ (evaluate_stmt st₁ env body) of
+        | (st₂, Rstop stp) => (st₂, Rstop stp)
+        | (st₂, Rcont) =>
+          if st₂.clock = 0 then (st₂, Rstop (Serr Rtimeout_error)) else
+          evaluate_stmt (dec_clock st₂) env
+                        (STOP (While guard invs decrs mods body)))
+     else (st₁, Rstop (Serr Rtype_error))) ∧
+  evaluate_stmt st₀ env (Print ets) =
+  (let es = MAP FST ets in
+     (case evaluate_exps st₀ env es of
+      | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+      | (st₁, Rval vs) =>
+        (case print_string st₁ vs of
+         | NONE => (st₁, Rstop (Serr Rtype_error))
+         | SOME st₂ => (st₂, Rcont)))) ∧
+  evaluate_stmt st₀ env (MetCall lhss name args) =
+  (case get_member name env.prog of
+   | NONE => (st₀, Rstop (Serr Rtype_error))
+   | SOME member =>
+     (case member of
+      | Function _ _ _ _ _ _ _ => (st₀, Rstop (Serr Rtype_error))
+      | Method _ ins _ _ _ _ outs _ body =>
+        (let in_ns = MAP FST ins; out_ns = MAP FST outs in
+         (case evaluate_exps st₀ env args of
+          | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+          | (st₁, Rval in_vs) =>
+            (case set_up_call st₁ in_ns in_vs out_ns of
+             | NONE => (st₁, Rstop (Serr Rtype_error))
+             | SOME (old_locals, st₂) =>
+               if st₂.clock = 0
+               then (restore_locals st₂ old_locals, Rstop (Serr Rtimeout_error))
+               else
+                 (case evaluate_stmt (dec_clock st₂) env body of
+                  | (st₃, Rcont) =>
+                      (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
+                  | (st₃, Rstop (Serr err)) =>
+                      (restore_locals st₃ old_locals, Rstop (Serr err))
+                  | (st₃, Rstop Sret) =>
+                    (case OPT_MMAP (read_local st₃.locals) out_ns of
+                     | NONE =>
+                       (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
+                     | SOME out_vs =>
+                       (let st₄ = restore_locals st₃ old_locals in
+                        (case assign_values st₄ env lhss out_vs of
+                         | (st₅, Rstop (Serr err)) =>
+                             (st₄, Rstop (Serr err))
+                         | (st₅, Rstop Sret) =>
+                             (st₄, Rstop (Serr Rtype_error))
+                         | (st₅, Rcont) =>
+                             (st₄, Rcont)))))))))) ∧
+  evaluate_stmt st env Return = (st, Rstop Sret)
+Termination
+  wf_rel_tac ‘inv_image ($< LEX $<)
+              (λx. case x of (s, _, stmt) => (s.clock, statement_size stmt))’
+  >> rpt strip_tac
+  >> imp_res_tac fix_clock_IMP
+  >> imp_res_tac evaluate_exp_clock
+  >> gvs [dec_clock_def, set_up_call_def, declare_local_def,
+          oneline do_cond_def, AllCaseEqs ()]
+End
+
+Theorem evaluate_stmt_clock:
+  ∀st₀ env e st₁ r.
+    evaluate_stmt st₀ env e = (st₁, r) ⇒ st₁.clock ≤ st₀.clock
+Proof
+  ho_match_mp_tac evaluate_stmt_ann_ind
+  >> rpt strip_tac
+  >> gvs [evaluate_stmt_ann_def]
+  >> rpt (pairarg_tac \\ gvs [])
+  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def,
+          print_string_def, evaluate_stmt_ann_def, declare_local_clock]
+  >> EVERY (map imp_res_tac
+                [set_up_call_clock, restore_locals_clock, pop_local_clock,
+                 fix_clock_IMP, evaluate_rhs_exps_clock,
+                 evaluate_exp_clock, assign_values_clock]) >> gvs []
+QED
+
+Theorem fix_clock_evaluate_stmt:
+  fix_clock st (evaluate_stmt st env stmt) = evaluate_stmt st env stmt
+Proof
+  Cases_on ‘evaluate_stmt st env stmt’
+  >> imp_res_tac evaluate_stmt_clock
+  >> gvs [fix_clock_def, state_component_equality]
+QED
+
+Theorem evaluate_stmt_def[compute] =
+  REWRITE_RULE [fix_clock_evaluate_stmt] evaluate_stmt_ann_def
+
+Theorem evaluate_stmt_ind =
+  REWRITE_RULE [fix_clock_evaluate_stmt] evaluate_stmt_ann_ind
+
+Definition evaluate_program_def:
+  evaluate_program is_running prog =
+    evaluate_stmt init_state (mk_env is_running prog) (MetCall [] «Main» [])
+End
+
+val _ = export_theory ();

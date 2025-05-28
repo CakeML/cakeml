@@ -96,9 +96,7 @@ def dafny_compiler(program_path, dafny_path, dafny_to_cakeml_path, cakeml_path,
 
     if verbose:
         print("- Run Dafny...")
-    command = [dafny_path, "translate", "sexp", program_path, "--no-verify"]
-    command.extend(["--output", dafny_sexp_path])
-    # TODO Figure out why this command tends to fail
+    command = [dafny_path, "bake", dafny_sexp_path, program_path]
     failed_attempts = 0
     while True:
         result = subprocess.run(command, check=False, text=True,

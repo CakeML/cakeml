@@ -1,11 +1,3 @@
-# $(CAKEMLDIR)/compiler/dafny -> dafny_astTheory
-# $(CAKEMLDIR)/translator -> ml_translatorLib
-# $(CAKEMLDIR)/basis -> basisProg
-# $(CAKEMLDIR)/basis/pure -> mlint
-# $(CAKEMLDIR)/compiler/parsing -> fromSexpTheory
-# $(CAKEMLDIR)/semantics -> astTheory
-# $(CAKEMLDIR)/misc -> preamble
-# $(HOLDIR)/examples/formal-languages/context-free -> simpleSexpTheory
 INCLUDES = $(CAKEMLDIR)/compiler/dafny $(CAKEMLDIR)/translator $(CAKEMLDIR)/basis
 
 all: $(DEFAULT_TARGETS) README.md
