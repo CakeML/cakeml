@@ -5418,10 +5418,9 @@ Proof
   simp[]
 QED
 
-(* TODO: maybe extra = 0 *)
 Triviality evaluate_PushHandler:
   3 ≤ t.stack_space ∧
-  state_rel ac k 0 0 (push_env x' NONE s with <|locals:=LN; locals_size:=SOME 0|>) t (f'::lens) extra ∧
+  state_rel ac k 0 0 (push_env x' NONE s with <|locals:=LN; locals_size:=SOME 0|>) t (f'::lens) 0 ∧
   loc_check t.code (x''2,x''3) ⇒
   ∃t':('a,'c,'ffi)stackSem$state.
   evaluate(PushHandler (x''2:num) (x''3:num) (k,f:num,f'),t) = (NONE,t') ∧
@@ -5432,10 +5431,8 @@ Triviality evaluate_PushHandler:
   (∀i. i ≠ k ⇒ get_var i t' = get_var i t) ∧
   t'.stack_space +3 = t.stack_space ∧
   LENGTH t'.stack = LENGTH t.stack ∧
-  state_rel ac k 0 0 (push_env x' (SOME (x''0,x''1:'a wordLang$prog,x''2,x''3)) s with <|locals:=LN; locals_size:=SOME 0|>) t' (f'::lens) extra
+  state_rel ac k 0 0 (push_env x' (SOME (x''0,x''1:'a wordLang$prog,x''2,x''3)) s with <|locals:=LN; locals_size:=SOME 0|>) t' (f'::lens) 0 
 Proof
-  cheat
-  (*
   rw[]>>
   `t.use_stack ∧ t.use_store ∧ t.stack_space -3 < LENGTH t.stack ∧ ∃h. FLOOKUP t.store Handler = SOME h` by
     (fs[state_rel_def,flookup_thm]>>
@@ -5450,20 +5447,9 @@ Proof
   CONJ_TAC>-
     metis_tac[]>>
   CONJ_TAC>- (
-    fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,the_eqn,stack_size_eq,
-        CaseEq"bool",CaseEq"option"] >>
-     rw[] >> fs[] >> every_case_tac >>
-     fs[] >>
-     rw[] >> rfs[]) >>
-  CONJ_TAC >- (fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,the_eqn,stack_size_eq,
-        CaseEq"bool",CaseEq"option"] >>
-     rw[] >> fs[] >> every_case_tac >>
-     fs[] >> rw[] >> rfs[]) >>
-  CONJ_TAC >- (fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,the_eqn,stack_size_eq,
-        CaseEq"bool",CaseEq"option"] >>
-     rw[] >> fs[] >> every_case_tac >>
-     fs[] >> rw[] >> rfs[])
- >>
+    fs[stack_size_rel_def,stack_size_eq] >>
+    rpt strip_tac >> fs[] >> rveq >>
+    simp[MAX_DEF]) >>
   fs[stack_rel_def]>>
   CONJ_TAC>-
     fs[sorted_env_def]>>
@@ -5503,7 +5489,7 @@ Proof
   `SUC (LENGTH s.stack) - (s.handler+1) = SUC(LENGTH s.stack - (s.handler+1))` by DECIDE_TAC>>
   fs[handler_val_def,GSYM ADD1]>>
   rw[]>>
-  simp[LASTN_CONS] *)
+  simp[LASTN_CONS]
 QED
 
 (* TODO: maybe extra = 0 *)
