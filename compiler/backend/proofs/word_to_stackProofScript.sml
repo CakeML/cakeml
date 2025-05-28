@@ -15,13 +15,13 @@ val _ = temp_delsimps ["fromAList_def", "domain_union", "domain_insert",
                        "sptree.insert_notEmpty","misc.max3_def"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-val _ = numLib.temp_prefer_num();
 val _ = set_grammar_ancestry [
   "semanticsProps", (* for extend_with_resource_limit *)
   "stackProps", (* for extract_labels *)
   "wordProps",
   "stackSem", "wordSem", "word_to_stack"
 ]
+val _ = numLib.temp_prefer_num();
 
 val get_labels_def = stackSemTheory.get_labels_def;
 val extract_labels_def = stackPropsTheory.extract_labels_def
@@ -9743,55 +9743,18 @@ Proof
            simp[])>>
          CONJ_TAC>-
            fsrw_tac[][wf_insert,wf_union,wf_fromAList]>>
-         CONJ_TAC >- cheat >>
-         (*
-         CONJ_TAC >-
-           (imp_res_tac stack_rel_cons_locals_size >>
-            strip_tac >> fsrw_tac[][miscTheory.the_def])>>
-         CONJ_TAC >-
-           (Cases_on `r''.stack_max` >>
-            fsrw_tac[][miscTheory.the_def] >-
-              (ntac 2 (pop_assum mp_tac) >>
-               qpat_x_assum `LENGTH t1.stack <= _` mp_tac >>
-               rpt(WEAKEN_TAC (K true)) >>
-               simp[]) >>
-            rveq >> imp_res_tac evaluate_stack_max >>
-            rev_full_simp_tac std_ss [state_accfupds] >>
-            pop_assum mp_tac >> TOP_CASE_TAC >>
-            strip_tac >>
-            fsrw_tac[][IS_SOME_OPTION_MAP2_EQ,IS_SOME_MAP,stack_size_eq] >>
-            rveq >> fsrw_tac[][IS_SOME_EXISTS,the_eqn] >>
-            fsrw_tac[][] >> rveq >>
-            cruft_tac >> DECIDE_TAC) >>
-         CONJ_TAC >-
-           (strip_tac >> res_tac >>
-            fsrw_tac[][IS_SOME_OPTION_MAP2_EQ,IS_SOME_MAP,stack_size_eq]) >>
-         CONJ_TAC >-
-           (strip_tac >> res_tac >>
-            fsrw_tac[][IS_SOME_OPTION_MAP2_EQ,IS_SOME_MAP,stack_size_eq]) >>
-         CONJ_TAC >-
-           (imp_res_tac stack_rel_cons_locals_size >>
-            cruft_tac >>
-             strip_tac >> res_tac >>
-            fsrw_tac[][IS_SOME_OPTION_MAP2_EQ,IS_SOME_MAP,stack_size_eq] >>
-            rveq >> res_tac >>
-            imp_res_tac evaluate_stack_max >>
-            rev_full_simp_tac std_ss [state_accfupds] >>
-            pop_assum mp_tac >> TOP_CASE_TAC >>
-            strip_tac >>
-            fsrw_tac[][IS_SOME_OPTION_MAP2_EQ,IS_SOME_MAP,stack_size_eq] >>
-            rveq >> fsrw_tac[][IS_SOME_EXISTS,the_eqn] >>
-            rev_full_simp_tac std_ss [] >>
-            rveq >>
-            fsrw_tac[][] >>
-            `f' <> 0` by(spose_not_then strip_assume_tac >> fsrw_tac[][]) >>
-            qpat_x_assum `if f' = 0 then f = 0 else f = f' + 1` mp_tac >>
-            IF_CASES_TAC >- metis_tac[] >>
-            disch_then SUBST_ALL_TAC >>
-            rveq >>
-            qpat_x_assum `f' + 1 + _  = LENGTH t1.stack - t1.stack_space` (assume_tac o GSYM) >>
-            fsrw_tac[][]) >>
-         *)
+         CONJ_TAC >- (
+           qhdtm_x_assum `stack_size_rel` mp_tac >>
+           simp[stack_size_rel_def,stack_size_eq] >>
+           strip_tac >>
+           imp_res_tac stack_rel_cons_locals_size >>
+           CONJ_TAC >- (Cases_on `f = 0` >> fsrw_tac[][]) >>
+           rpt (GEN_TAC ORELSE DISCH_TAC) >>
+           full_simp_tac(srw_ss())[] >>
+           rveq >> full_simp_tac(srw_ss())[miscTheory.the_def] >>
+           rveq >> full_simp_tac(srw_ss())[miscTheory.the_def] >>
+           CONJ_TAC >- (Cases_on `f = 0` >> fsrw_tac[][] >> simp[]) >>
+           (Cases_on `f = 0` >> fsrw_tac[][] >> simp[])) >>
          CONJ_TAC>-
            (`f = f'+1` by (Cases_on`f'`>>fsrw_tac[][])>>
            metis_tac[stack_rel_DROP_NONE])>>
@@ -9808,6 +9771,7 @@ Proof
          (*GC cutset *)
            strip_tac >> rveq >>
            cheat) 
+         (*NON GC cutset*)
          >- (cheat)) >>
          (*
          strip_tac>>
