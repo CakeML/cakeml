@@ -17,6 +17,8 @@ open mlstringTheory
 open integerTheory
 open mlintTheory
 
+(* TODO Decide what to do with printing *)
+
 (* TODO Remove unused definition / trivialities *)
 
 (* TODO Remove this when we move out the compiler *)
@@ -515,6 +517,18 @@ Definition is_fresh_member_def[simp]:
      EVERY (λn. is_fresh n) (MAP FST ins) ∧
      EVERY (λe. is_fresh_exp e) reqs ∧ EVERY (λe. is_fresh_exp e) rds ∧
      EVERY (λe. is_fresh_exp e) decrs ∧ is_fresh_exp body)
+End
+
+Definition no_shadow_def[simp]:
+  (no_shadow t (Dec (n, _) scope) ⇔
+     n ∉ t ∧ no_shadow (n INSERT t) scope) ∧
+  (no_shadow t (Then stmt₁ stmt₂) ⇔
+     no_shadow t stmt₁ ∧ no_shadow t stmt₂) ∧
+  (no_shadow t (If _ thn els) ⇔
+     no_shadow t thn ∧ no_shadow t els) ∧
+  (no_shadow t (While _ _ _ _ body) ⇔
+     no_shadow t body) ∧
+  (no_shadow _ _ ⇔ T)
 End
 
 Definition ret_stamp_def:
@@ -1804,6 +1818,7 @@ Theorem correct_from_stmt:
     evaluate_stmt s env_dfy stmt_dfy = (s', r_dfy) ∧
     from_stmt stmt_dfy lvl = INR e_cml ∧ state_rel m l s t env_cml ∧
     env_rel env_dfy env_cml ∧ is_fresh_stmt stmt_dfy ∧
+    no_shadow (set (MAP FST s.locals)) stmt_dfy ∧
     r_dfy ≠ Rstop (Serr Rtype_error)
     ⇒ ∃ck (t': 'ffi cml_state) m' r_cml.
         evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
@@ -1834,6 +1849,9 @@ Proof
     >- (qexists ‘ck’ \\ gvs []
         \\ namedCases_on ‘stp’ ["", "err"] \\ gvs [SF SFY_ss]
         \\ Cases_on ‘err’ \\ gvs [SF SFY_ss])
+
+    (* TODO *)
+
     \\ last_x_assum drule_all
     \\ disch_then $ qx_choosel_then [‘ck'’, ‘t₂’, ‘m₂’] mp_tac
     \\ rpt strip_tac \\ gvs []
