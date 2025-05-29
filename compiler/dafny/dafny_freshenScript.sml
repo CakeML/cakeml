@@ -137,10 +137,9 @@ Definition freshen_stmt_def:
    let (cnt, mods) = freshen_exps m cnt mods in
    let (cnt, body) = freshen_stmt m cnt body in
      (cnt, While grd invs decrs mods body)) ∧
-  (freshen_stmt m cnt (Print ets) =
-   let (es, ts) = UNZIP ets in
-   let (cnt, es) = freshen_exps m cnt es in
-     (cnt, Print (ZIP (es, ts)))) ∧
+  (freshen_stmt m cnt (Print e ty) =
+   let (cnt, e) = freshen_exp m cnt e in
+     (cnt, Print e ty)) ∧
   (freshen_stmt m cnt (MetCall lhss n args) =
    let (cnt, args) = freshen_exps m cnt args in
    let (cnt, lhss) = freshen_lhs_exps m cnt lhss in

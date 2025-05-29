@@ -315,14 +315,13 @@ Definition evaluate_stmt_ann_def[nocompute]:
           evaluate_stmt (dec_clock st₂) env
                         (STOP (While guard invs decrs mods body)))
      else (st₁, Rstop (Serr Rtype_error))) ∧
-  evaluate_stmt st₀ env (Print ets) =
-  (let es = MAP FST ets in
-     (case evaluate_exps st₀ env es of
-      | (st₁, Rerr err) => (st₁, Rstop (Serr err))
-      | (st₁, Rval vs) =>
-        (case print_string st₁ vs of
-         | NONE => (st₁, Rstop (Serr Rtype_error))
-         | SOME st₂ => (st₂, Rcont)))) ∧
+  evaluate_stmt st₀ env (Print e t) =
+  (case evaluate_exp st₀ env e of
+   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rval v) =>
+     (case print_string st₁ v of
+      | NONE => (st₁, Rstop (Serr Rtype_error))
+      | SOME st₂ => (st₂, Rcont))) ∧
   evaluate_stmt st₀ env (MetCall lhss name args) =
   (case get_member name env.prog of
    | NONE => (st₀, Rstop (Serr Rtype_error))

@@ -18,7 +18,6 @@ open integerTheory
 open mlintTheory
 
 (* TODO Remove unused definition / trivialities *)
-(* TODO Should we simplify print to just be `Print exp type`? *)
 
 (* TODO Remove this when we move out the compiler *)
 (* For compiler definitions *)
@@ -312,12 +311,13 @@ Definition par_assign_def:
 End
 
 Definition to_string_def:
-  to_string cml_e t =
-  (case t of
-   | BoolT => return (cml_fapp ["Dafny"] "bool_to_string" [cml_e])
-   | IntT => return (cml_fapp ["Dafny"] "int_to_string" [cml_e])
-   | StrT => return (cml_e)
-   | _ => fail «to_string: Unsupported»)
+  (to_string cml_e BoolT =
+     return (If cml_e (Lit (StrLit "True")) (Lit (StrLit "False")))) ∧
+  (* TODO Is this the best way to print an integer? *)
+  (to_string cml_e IntT =
+     return (cml_fapp ["Int"] "int_to_string" [Lit (Char #"-"); cml_e])) ∧
+  (to_string cml_e StrT = return cml_e) ∧
+  (to_string cml_e _ = fail «to_string: Unsupported»)
 End
 
 Definition from_stmt_def:
@@ -363,11 +363,11 @@ Definition from_stmt_def:
                      If cml_grd (Let NONE cml_body run_loop) Unit)]
                    run_loop)
   od ∧
-  from_stmt (Print ets) _ =
+  from_stmt (Print e t) _ =
   do
-    cml_ets <- map_from_exp_tup ets;
-    cml_strs <- result_mmap (λ(e,t). to_string e t) cml_ets;
-    cml_str <<- cml_fapp ["String"] "concat" [cml_list cml_strs];
+    cml_e <- from_exp e;
+    cml_str <- to_string cml_e t;
+    (* TODO Is this the best way to print a string? *)
     return (cml_fapp [] "print" [cml_str])
   od ∧
   from_stmt (MetCall lhss n args) _ =
@@ -495,7 +495,7 @@ Definition is_fresh_stmt_def[simp]:
      EVERY (λe. is_fresh_exp e) decrs ∧
      EVERY (λe. is_fresh_exp e) mods ∧
      is_fresh_stmt body) ∧
-  (* TODO Skipped Print for now *)
+  (is_fresh_stmt (Print e _) ⇔ is_fresh_exp e) ∧
   (is_fresh_stmt (MetCall lhss _ args) ⇔
      EVERY (λlhs. is_fresh_lhs_exp lhs) lhss ∧
      EVERY (λe. is_fresh_exp e) args) ∧
@@ -1907,7 +1907,10 @@ Proof
   (*  \\ rpt strip_tac) *)
   >~ [‘While grd _ _ _ body’] >-
    (cheat)
-  \\ cheat
+  >~ [‘Print e t’] >-
+   (cheat)
+  >~ [‘MetCall lhss name args’] >-
+   cheat
 QED
 
 val _ = export_theory ();

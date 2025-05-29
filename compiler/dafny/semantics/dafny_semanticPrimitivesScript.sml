@@ -338,19 +338,19 @@ Proof
 QED
 
 Definition val_to_string_def:
-  val_to_string st (IntV i) =
+  val_to_string (IntV i) =
     SOME (int_to_string #"-" i) ∧
-  val_to_string st (BoolV b) =
+  val_to_string (BoolV b) =
     SOME (if b then (strlit "True") else (strlit "False")) ∧
-  val_to_string st (StrV s) = SOME s ∧
-  val_to_string st _ = NONE
+  val_to_string (StrV s) = SOME s ∧
+  val_to_string _ = NONE
 End
 
 Definition print_string_def:
-  print_string st vs =
-  (case OPT_MMAP (val_to_string st) vs of
+  print_string st v =
+  (case val_to_string v of
    | NONE => NONE
-   | SOME ss => SOME (st with output := SNOC (concat ss) st.output))
+   | SOME s => SOME (st with output := SNOC s st.output))
 End
 
 val _ = export_theory ();

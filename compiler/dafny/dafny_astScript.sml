@@ -80,7 +80,7 @@ Datatype:
   | Assign (lhs_exp list) (rhs_exp list)
   (* While guard invariants decreases mod body *)
   | While exp (exp list) (exp list) (exp list) statement
-  | Print ((exp # type) list)
+  | Print exp type
   (* MetCall lhss name args
      - Results of a method call must always be bound to something, hence lhss *)
   | MetCall (lhs_exp list) mlstring (exp list)

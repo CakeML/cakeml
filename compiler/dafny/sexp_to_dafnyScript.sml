@@ -491,9 +491,10 @@ Definition to_statement_def:
             od)
        else if (cns = «Print») then
          do
-           es <- prefix_error here (dest1 args);
-           es <- prefix_error here (to_exp_type_tup_lst es);
-           return (Print es)
+           (e, ty) <- prefix_error here (dest2 args);
+           e <- prefix_error here (to_exp e);
+           ty <- prefix_error here (to_type ty);
+           return (Print e ty)
          od
        else if (cns = «MetCall») then
          do
