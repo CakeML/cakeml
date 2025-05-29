@@ -90,6 +90,12 @@ Definition application_def:
   application store ks _ _ = (store, ks, FEMPTY, Exception $ strlit "Not a procedure")
 End
 
+Definition letinit_def:
+  letinit store (env : mlstring |-> num) [] = store ∧
+  letinit store env ((x,v)::xvs) =
+    letinit (LUPDATE (SOME v) (env ' x) store) env xvs
+End
+
 Definition return_def:
   return store [] v = (store, [], FEMPTY, Val v) ∧
 
@@ -100,6 +106,10 @@ Definition return_def:
   | [] => application store ks vfn (REVERSE $ v::vargs)
   | e::es => (store, (env, ApplyK (SOME (vfn, v::vargs)) es) :: ks, env, Exp e)) ∧
 
+  return store ((env, LetinitK xvs x bs e) :: ks) v = (case bs of
+  | [] => (letinit store env ((x,v)::xvs), ks, env, Exp e)
+  | (x',e')::bs' => (store, (env, LetinitK ((x,v)::xvs) x' bs' e) :: ks, env, Exp e')) ∧
+
   return store ((env, CondK t f) :: ks) v = (if v = (SBool F)
     then (store, ks, env, Exp f) else (store, ks, env, Exp t)) ∧
 
@@ -109,10 +119,10 @@ Definition return_def:
   return store ((env, SetK x) :: ks) v = (LUPDATE (SOME v) (env ' x) store, ks, env, Val $ Wrong "Unspecified")
 End
 
-Definition letrec_init_def:
-  letrec_init store env [] = (store, env) ∧
-  letrec_init store env (x::xs) = (let (n, store') = fresh_loc store NONE
-    in letrec_init store' (env |+ (x, n)) xs)
+Definition letrec_preinit_def:
+  letrec_preinit store env [] = (store, env) ∧
+  letrec_preinit store env (x::xs) = (let (n, store') = fresh_loc store NONE
+    in letrec_preinit store' (env |+ (x, n)) xs)
 End
 
 Definition step_def:
@@ -122,7 +132,7 @@ Definition step_def:
   step (store, ks, env, Exp $ Cond c t f) = (store, (env, CondK t f) :: ks, env, Exp c) ∧
   (*This is undefined if the program doesn't typecheck*)
   step (store, ks, env, Exp $ Ident s) = (let ev = case EL (env ' s) store of
-    | NONE => Exception $ strlit "Letrec variable touched"
+    | NONE => Exception $ strlit "Letrecstar variable touched"
     | SOME v => Val v
     in (store, ks, env, ev)) ∧
   step (store, ks, env, Exp $ Lambda ps lp e) = (store, ks, env, Val $ Proc env ps lp e) ∧
@@ -131,8 +141,12 @@ Definition step_def:
   | e'::es' => (store, (env, BeginK es' e) :: ks, env, Exp e')) ∧
   step (store, ks, env, Exp $ Set x e) = (store, (env, SetK x) :: ks, env, Exp e) ∧
   (*There is a missing reinit check, though the spec says it is optional*)
-  step (store, ks, env, Exp $ Letrec bs e) = (let
-    (store', env') = letrec_init store env (MAP FST bs)
+  step (store, ks, env, Exp $ Letrec bs e) = (case bs of
+  | [] => (store, ks, env, Exp e)
+  | (x,e')::bs' => let (store', env') = letrec_preinit store env (MAP FST bs)
+      in (store', (env', LetinitK [] x bs' e) :: ks, env', Exp e')) ∧
+  step (store, ks, env, Exp $ Letrecstar bs e) = (let
+    (store', env') = letrec_preinit store env (MAP FST bs)
       in (store', ks, env', Exp $ Begin (MAP (UNCURRY Set) bs) e)) ∧
 
   step (store, ks, env, Exception ex) = (store, [], env, Exception ex)
@@ -146,6 +160,7 @@ End
 (*
   open scheme_semanticsTheory;
 
+  EVAL “steps 100 ([], [], FEMPTY, Exp $ Letrec [(strlit "x",Lit $ LitNum 2);(strlit "y",Ident $ strlit "x")] (Ident $ strlit "y"))”
   EVAL “steps 10 ([], [], FEMPTY, Exp $ Apply (Lit (LitPrim SMinus)) [Lit (LitNum 4); Lit (LitNum 2)])”
   EVAL “steps 4 ([], [], Apply (Val (SNum 7)) [Val (SNum 2); Val (SNum 4)])”
   EVAL “steps 6 ([], [InLetK []], Apply (Val (Prim SMul)) [Val (SNum 2); Val (Prim SAdd)])”
@@ -219,7 +234,7 @@ End
   )”
 
   EVAL “steps 100 ([], [], FEMPTY,
-    Letrec [
+    Letrecstar [
       (strlit $ "to", Lambda [strlit "x"] NONE (
         Apply (Ident $ strlit "fro") [
           Apply (Val $ Prim SAdd) [Val $ SNum 1; Ident $ strlit "x"]
@@ -234,7 +249,7 @@ End
   )”
 
   EVAL “steps 3 ([], [], FEMPTY,
-    Letrec [(strlit $ "fail", Ident $ strlit "fail")] (Val $ SBool F)
+    Letrecstar [(strlit $ "fail", Ident $ strlit "fail")] (Val $ SBool F)
   )”
 
   EVAL “steps 20 ([], [], FEMPTY,
@@ -254,7 +269,7 @@ End
   )”
 
   EVAL “steps 102 ([], [], FEMPTY,
-    Letrec [
+    Letrecstar [
       (strlit $ "double", Val $ SNum 0);
       (strlit $ "x", Val $ SNum 1)
     ] (Begin (
@@ -272,7 +287,7 @@ End
 
   EVAL “steps 10 ([], [], FEMPTY, Apply (Val $ Prim SMinus) [Val $ SNum 3; Val $ SNum 2])”
 
-  EVAL “steps 1000 ([], [], FEMPTY, Letrec [(strlit "fac", Lambda [strlit "x"] NONE (
+  EVAL “steps 1000 ([], [], FEMPTY, Letrecstar [(strlit "fac", Lambda [strlit "x"] NONE (
     Cond (Apply (Val $ Prim SEqv) [Ident $ strlit "x"; Val $ SNum 0]) (
       Val $ SNum 1
     ) (
@@ -282,8 +297,8 @@ End
     )
   ))] (Apply (Ident $ strlit "fac") [Val $ SNum 6]))”
 
-  EVAL “steps 500 ([], [], FEMPTY, Exp $ Letrec [(strlit "fac", Lambda [strlit "x"] NONE (
-    Letrec [(strlit "st", Lit $ LitNum 0); (strlit "acc", Lit $ LitNum 1)] (
+  EVAL “steps 500 ([], [], FEMPTY, Exp $ Letrecstar [(strlit "fac", Lambda [strlit "x"] NONE (
+    Letrecstar [(strlit "st", Lit $ LitNum 0); (strlit "acc", Lit $ LitNum 1)] (
       Begin [ Apply (Lit $ LitPrim CallCC) [ Lambda [strlit "k"] NONE (
         Set (strlit "st") (Ident $ strlit "k")
       )]] (

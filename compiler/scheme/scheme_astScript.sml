@@ -27,6 +27,7 @@ Datatype:
       | Begin (exp list) exp
       | Set mlstring exp
       | Letrec ((mlstring # exp) list) exp
+      | Letrecstar ((mlstring # exp) list) exp
 End
 
 Datatype:
@@ -35,6 +36,7 @@ Datatype:
        | CondK exp exp
        | BeginK (exp list) exp
        | SetK mlstring
+       | LetinitK ((mlstring # val) list) mlstring ((mlstring # exp) list) exp
 ;
   val = Prim prim | SNum int | Wrong string | SBool bool
       | SList (val list)
@@ -74,6 +76,11 @@ Definition static_scope_def:
   static_scope (env ∪ set (x::xs)) e) ∧
 
   static_scope env (Letrec bs e) = (
+  ALL_DISTINCT (MAP FST bs) ∧
+  static_scope_list (env ∪ set (MAP FST bs)) (MAP SND bs) ∧
+  static_scope (env ∪ set (MAP FST bs)) e) ∧
+
+  static_scope env (Letrecstar bs e) = (
   ALL_DISTINCT (MAP FST bs) ∧
   static_scope_list (env ∪ set (MAP FST bs)) (MAP SND bs) ∧
   static_scope (env ∪ set (MAP FST bs)) e) ∧

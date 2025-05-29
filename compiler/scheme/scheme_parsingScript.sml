@@ -253,6 +253,15 @@ Definition cons_ast_def:
             return (Letrec bs e)
           od)
       | _ => INL "Wrong number of expressions in letrec statement")
+    | Word "letrec*" => (case ys of
+      | [xs;y'] => (case pair_to_list xs of
+        | NONE => INL "Invalid S expression"
+        | SOME xs' => do
+            bs <- cons_ast_bindings xs';
+            e <- cons_ast y';
+            return (Letrecstar bs e)
+          od)
+      | _ => INL "Wrong number of expressions in letrec statement")
     | Word "set!" => (case ys of
       | [Word w;y'] => do
           e <- cons_ast y';
