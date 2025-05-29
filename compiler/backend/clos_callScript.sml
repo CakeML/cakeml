@@ -385,13 +385,9 @@ Definition calls_sing_def:
        (e1 :: e2,g))
 Termination
   WF_REL_TAC `measure $ λx. case x of INL (e,_) => exp_size e
-                                    | INR (es,_) => exp3_size es`
+                                    | INR (es,_) => list_size exp_size es`
   \\ REPEAT STRIP_TAC
-  \\ fs [GSYM NOT_LESS]
-  \\ IMP_RES_TAC EL_MEM_LEMMA
-  \\ IMP_RES_TAC exp1_size_lemma
-  \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)
-  \\ DECIDE_TAC
+  \\ fs [GSYM NOT_LESS,list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem calls_sing_eq:

@@ -4433,4 +4433,22 @@ Proof
   \\ fs [] \\ decide_tac
 QED
 
+(* helpful theorems for _size *)
+Theorem list_size_pair_size_MAP_FST_SND:
+  list_size (pair_size f g) ls =
+  list_size f (MAP FST ls) +
+  list_size g (MAP SND ls)
+Proof
+  Induct_on`ls`>>simp[]>>
+  Cases>>rw[]
+QED
+
+Theorem MEM_list_size:
+  MEM x ls ⇒
+  f x ≤ list_size f ls
+Proof
+  Induct_on`ls`>>simp[]>>
+  rw[]>>gvs[]
+QED
+
 val _ = export_theory()

@@ -183,8 +183,8 @@ Definition compile_sing_def:
 Termination
   WF_REL_TAC ‘measure $ λx. case x of
                             | INL (n,env,t,l,x) => exp_size x
-                            | INR (n,env,l,xs) => exp2_size xs’
-  \\ rw [] \\ gvs [exp_size_def]
+                            | INR (n,env,l,xs) => list_size exp_size xs’
+  \\ simp[]
 End
 
 Theorem compile_sing_eq:
