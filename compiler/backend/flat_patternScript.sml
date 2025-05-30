@@ -272,7 +272,7 @@ Definition compile_exp_def:
   (compile_exp cfg (flatLang$Letrec t fs x) =
     let ys = MAP (\(a,b,c). (a, b, compile_exp cfg c)) fs in
     let (i, sgx, y) = compile_exp cfg x in
-    let j = list_max (MAP (\(_,_,(j,_,_)). j) ys) in
+    let j = MAX_LIST (MAP (\(_,_,(j,_,_)). j) ys) in
     let sgfs = EXISTS (\(_,_,(_,sg,_)). sg) ys in
     let fs2 = MAP (\(a, b, (_, _, exp)). (a, b, exp)) ys in
     (MAX i j, sgfs \/ sgx, flatLang$Letrec t fs2 y)) /\

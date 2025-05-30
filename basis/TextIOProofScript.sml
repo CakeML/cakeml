@@ -6796,8 +6796,6 @@ Theorem INSTREAM_STR_fastForwardFD:
 Proof
   rw [INSTREAM_STR_def]
   \\ xsimpl \\ rw[] \\ gs[] \\ rveq
-  \\ rename [‘get_file_content _ _ = SOME z’]
-  \\ PairCases_on ‘z’
   \\ qmatch_assum_rename_tac ‘get_file_content _ _ = SOME (c,off)’
   \\ gs[] \\ rveq \\ simp [GSYM PULL_EXISTS]
   \\ conj_tac
@@ -7169,12 +7167,10 @@ Proof
   \\ rpt $ first_assum $ irule_at Any
   \\ xsimpl \\ rw []
   \\ rpt $ first_assum $ irule_at Any
-  \\ gvs []
-  \\ qexists_tac ‘read'’
-  \\ qexists_tac ‘nr’ \\ gvs [] \\ xsimpl
+  \\ xsimpl
   \\ gvs [NULL_EQ]
   \\ gvs [instream_buffered_inv_alt]
-  \\ Cases_on ‘active’ \\ gvs []
+  \\ Cases_on `active = ""` \\ gvs[]
 QED
 
 Theorem takeUnitlIncl_append:
@@ -7290,7 +7286,7 @@ Proof
     \\ gvs [str_def,implode_def] \\ strip_tac
     \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
     \\ xsimpl \\ rpt gen_tac \\ strip_tac
-    \\ gvs [] \\ qexists_tac ‘x’ \\ gvs [] \\ xsimpl)
+    \\ gvs [] \\ xsimpl)
   \\ gvs [std_preludeTheory.SUM_TYPE_def]
   \\ xmatch
   \\ xlet ‘POSTv retv. INSTREAM_STR' fd is bs2 fs F is_empty1 * STDIO fs *
@@ -7383,7 +7379,7 @@ Proof
       \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
       \\ xsimpl \\ qexists_tac ‘nr’
       \\ rpt gen_tac \\ strip_tac
-      \\ gvs [] \\ qexists_tac ‘x'’ \\ gvs [] \\ xsimpl)
+      \\ gvs [] \\ xsimpl)
     \\ xcon \\ xsimpl
     \\ ‘bs1 ≠ []’ by (Cases_on ‘bs1’ \\ gvs [concat_def,str_def,implode_def])
     \\ gvs [std_preludeTheory.OPTION_TYPE_def]
@@ -7395,7 +7391,7 @@ Proof
     \\ gvs [str_def,implode_def,concat_def,strcat_def]
     \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
     \\ xsimpl \\ rpt gen_tac \\ strip_tac
-    \\ gvs [] \\ qexists_tac ‘x’ \\ gvs [] \\ xsimpl)
+    \\ gvs [] \\ xsimpl)
   \\ gvs [std_preludeTheory.SUM_TYPE_def]
   \\ xmatch
   \\ xlet ‘POSTv retv. INSTREAM_STR' fd is bs2 fs F is_empty1 * STDIO fs *
@@ -7944,7 +7940,6 @@ Proof
   \\ conj_tac >- fs [LIST_TYPE_def]
   \\ fs [INSTREAM_LINES_def,INSTREAM_STR_def]
   \\ xsimpl \\ rw[] \\ gs[lines_of_gen_def,implode_def] \\ rveq
-  \\ PairCases_on ‘z’
   \\ qmatch_assum_rename_tac ‘get_file_content _ _ = SOME (c,off)’
   \\ gs[] \\ rveq \\ simp [GSYM PULL_EXISTS]
   \\ conj_tac

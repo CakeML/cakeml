@@ -28,11 +28,11 @@ val test4 = run_test ``"a_'_3''"`` ``[AlphaT "a_'_3''"]``;
 
 val test5 = run_test ``"a_'_3''||bg+++l"`` ``[AlphaT "a_'_3''"; SymbolT "||"; AlphaT "bg"; SymbolT "+++"; AlphaT "l"]``;
 
-val test6 = run_test ``"a_1'.b_2'"`` ``[LongidT "a_1'" "b_2'"]``;
+val test6 = run_test ``"a_1'.b_2'"`` ``[LongidT (Mod "a_1'" End) "b_2'"]``;
 
-val test7 = run_test ``"a1_'.++"`` ``[LongidT "a1_'" "++"]``;
+val test7 = run_test ``"a1_'.++"`` ``[LongidT (Mod "a1_'" End) "++"]``;
 
-val test10 = run_test ``"a.b.c"`` ``[LongidT "a" "b"; LexErrorT; AlphaT "c"]``
+val test10 = run_test ``"a.b.c"`` ``[LongidT (Mod "a" (Mod "b" End)) "c"]``
 
 val test11 = run_test ``"a{"`` ``[AlphaT "a"; LbraceT]``
 
@@ -46,12 +46,16 @@ val test15 = run_test ``"+'4a--"`` ``[SymbolT "+"; TyvarT "'4a"; SymbolT "--"]``
 
 val test16 = run_test ``"l'4a--"`` ``[AlphaT "l'4a"; SymbolT "--"]``;
 
-val test17 = run_test ``"++a.b%$"`` ``[SymbolT "++"; LongidT "a" "b"; SymbolT "%$"]``;
+val test17 = run_test ``"++a.b%$"`` ``[SymbolT "++"; LongidT (Mod "a" End) "b"; SymbolT "%$"]``;
 
 val test19 = run_test ``"~55+~4"`` ``[IntT ~55; SymbolT "+~"; IntT 4]``;
 
 val test20 = run_test ``"a."`` ``[LexErrorT]``;
 
 val test21 = run_test “"\"1a\\001\\nb\""” “[StringT "1a\001\nb"]”
+
+val test22 = run_test “"\"\\a\\b\\r\""” “[StringT "\a\b\r"]”
+
+val test23 = run_test “"#\"\\n\""” “[CharT #"\n"]”
 
 val _ = export_theory ();

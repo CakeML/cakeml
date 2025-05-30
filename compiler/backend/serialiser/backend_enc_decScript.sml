@@ -194,16 +194,21 @@ QED
 
 val _ = reg_enc_dec const_enc'_thm;
 
-val res = define_enc_dec “:opw”
-val res = define_enc_dec “:ast$shift”
-val res = define_enc_dec “:fp_cmp”
-val res = define_enc_dec “:fp_uop”
-val res = define_enc_dec “:fp_bop”
-val res = define_enc_dec “:fp_top”
-val res = define_enc_dec “:const_part”
-val res = define_enc_dec “:closLang$op”
-val res = define_enc_dec “:gc_kind”
-val res = define_enc_dec “:tap_config”
+val res = define_enc_dec “:opw”;
+val res = define_enc_dec “:ast$shift”;
+val res = define_enc_dec “:fp_cmp”;
+val res = define_enc_dec “:fp_uop”;
+val res = define_enc_dec “:fp_bop”;
+val res = define_enc_dec “:fp_top”;
+val res = define_enc_dec “:const_part”;
+val res = define_enc_dec “:closLang$int_op”;
+val res = define_enc_dec “:closLang$word_op”;
+val res = define_enc_dec “:closLang$block_op”;
+val res = define_enc_dec “:closLang$glob_op”;
+val res = define_enc_dec “:closLang$mem_op”;
+val res = define_enc_dec “:closLang$op”;
+val res = define_enc_dec “:gc_kind”;
+val res = define_enc_dec “:tap_config”;
 
 (* closLang's exp *)
 

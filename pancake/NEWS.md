@@ -4,6 +4,14 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+March 8th 2025
+-------------------
+
+The Pancake compiler now provides a variety of new compilation errors and
+warnings, such as missing `return` statements in function definitions.
+Previously, this was limited to out-of-scope errors. Errors and warnings
+include the location where the issue was found.
+
 November 11th 2024
 -------------------
 

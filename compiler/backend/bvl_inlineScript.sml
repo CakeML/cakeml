@@ -406,7 +406,7 @@ Definition let_op_sing_def:
   let_op_sing x =
     case let_op [x] of
     | (y::ys) => y
-    | _ => Op (Const 0) []
+    | _ => Op (IntOp (Const 0)) []
 End
 
 Theorem let_op_sing_eq = let_op_sing_def |> SRULE [let_op_one];

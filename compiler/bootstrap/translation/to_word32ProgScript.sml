@@ -519,7 +519,7 @@ val word_inst_three_to_two_reg_side = Q.prove(`
 >> fs[]
 >> rw[Once(fetch "-" "word_inst_three_to_two_reg_side_def")]
 >> fs[]
->> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_inst_three_to_two_reg_side_def"])
+>> POP_ASSUM(ASSUME_TAC o PURE_ONCE_REWRITE_RULE[fetch"-" "word_inst_three_to_two_reg_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition
 
@@ -561,7 +561,7 @@ val word_remove_remove_must_terminate_side = Q.prove(`
 >> fs[]
 >> rw[Once(fetch "-" "word_remove_remove_must_terminate_side_def")]
 >> fs[]
->> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_remove_remove_must_terminate_side_def"])
+>> POP_ASSUM(ASSUME_TAC o PURE_ONCE_REWRITE_RULE[fetch"-" "word_remove_remove_must_terminate_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition;
 
@@ -583,7 +583,7 @@ val word_simp_const_fp_loop_side = Q.prove(`
 >> fs[]
 >> rw[Once(fetch "-" "word_simp_const_fp_loop_side_def")]
 >> fs[]
->> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_simp_const_fp_loop_side_def"])
+>> POP_ASSUM(ASSUME_TAC o PURE_ONCE_REWRITE_RULE[fetch"-" "word_simp_const_fp_loop_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition
 
@@ -614,7 +614,7 @@ val word_inst_inst_select_side = Q.prove(`
 >> fs[]
 >> rw[Once(fetch "-" "word_inst_inst_select_side_def")]
 >> fs[]
->> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_inst_inst_select_side_def"])
+>> POP_ASSUM(ASSUME_TAC o PURE_ONCE_REWRITE_RULE[fetch"-" "word_inst_inst_select_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition
 *)

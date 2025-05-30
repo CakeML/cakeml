@@ -67,6 +67,8 @@ val _ = translate get_token_eqn
 
 val _ = translate (read_char_as_3digits_def |> REWRITE_RULE [GSYM sub_check_def]);
 
+val _ = translate read_Ident_def;
+
 val _ = translate (next_sym_alt_def |> REWRITE_RULE [GSYM sub_check_def]);
 
 val _ = translate (next_token_def |> SIMP_RULE std_ss [next_sym_eq])

@@ -268,7 +268,7 @@ fun read_comment_from_script filename = let
     in all_lines end handle e => (TextIO.closeIn(f); raise e)
   end;
 
-(* Read from a raw text file, e.g. COPYING *)
+(* Read from a raw text file, e.g. LICENSE *)
 
 fun read_comment_from_raw filename = let
   val f = open_textfile filename

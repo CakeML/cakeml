@@ -991,7 +991,9 @@ val RATIONAL_TYPE_def = fetch "-" "RATIONAL_TYPE_def"
 Theorem EqualityType_RAT_TYPE = Q.prove(`
   EqualityType RAT_TYPE`,
   rw [EqualityType_def]
-  \\ fs [RAT_TYPE_def,RATIONAL_TYPE_def,INT_def,NUM_def] \\ EVAL_TAC
+  \\ fs [RAT_TYPE_def,RATIONAL_TYPE_def,INT_def,NUM_def]
+  >~ [‘no_closures’] >- EVAL_TAC
+  >~ [‘types_match’] >- EVAL_TAC
   \\ rveq \\ fs []
   \\ EQ_TAC \\ strip_tac \\ fs []
   \\ fs [GSYM rat_of_int_def]

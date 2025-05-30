@@ -2,6 +2,7 @@
   Correctness proof for bvl_handle
 *)
 open preamble bvl_handleTheory bvlSemTheory bvlPropsTheory;
+local open bvl_constProofTheory in end
 
 val _ = new_theory"bvl_handleProof";
 
@@ -297,7 +298,7 @@ Proof
     \\ TRY (match_mp_tac ALOOKUP_MAPi_APPEND2)
     \\ fs [MEM_FILTER,MEM_GENLIST,ALOOKUP_NONE,o_DEF,MAPi_ID] \\ NO_TAC)
   \\ fs [] \\ reverse (Cases_on `has_var (LENGTH env) l1`) \\ fs []
-  \\ fs [evaluate_def,do_app_def,MAPi_def,MAPi_APPEND]
+  \\ fs [evaluate_def,do_app_def,do_int_app_def,MAPi_def,MAPi_APPEND]
   \\ fs [EL_APPEND2] \\ match_mp_tac IMP_EL_SING \\ fs []
 QED
 
@@ -656,7 +657,7 @@ Proof
 QED
 
 Theorem handle_ok_Var_Const_list:
-   EVERY (\x. ?v i. x = Var v \/ x = Op (Const i) []) xs ==> handle_ok xs
+   EVERY (\x. ?v i. x = Var v \/ x = Op (IntOp (Const i)) []) xs ==> handle_ok xs
 Proof
   Induct_on `xs` \\ fs [handle_ok_def,PULL_EXISTS] \\ rw []
   \\ Cases_on `xs` \\ fs [handle_ok_def]

@@ -105,8 +105,8 @@ candle/prover/compute
 pancake
 pancake/semantics
 pancake/parser
+pancake/static_checker
 pancake/proofs
-pancake/ta_progs
 
 # dafny compiler
 compiler/dafny

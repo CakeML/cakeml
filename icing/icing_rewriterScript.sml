@@ -94,7 +94,7 @@ Definition appFPexp_def:
       (case appFPexp p2 s of
       | NONE => NONE
       | SOME e2 => SOME (App (FP_cmp cmp) [e1; e2]))) /\
-  appFPexp (Optimise sc p) s = NONE
+  appFPexp (Optimise fpopt p) s = NONE
 End
 
 Definition isFpArithPat_def:

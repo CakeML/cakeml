@@ -329,7 +329,7 @@ QED
 
 Theorem compile_const_thm:
   (∀i. c ≠ ConstInt i) ∧ (∀t. c ≠ ConstCons t []) ⇒
-  compile_const c = Build (MAP update_tag (to_parts c))
+  compile_const c = BlockOp (Build (MAP update_tag (to_parts c)))
 Proof
   Cases_on ‘c’ \\ fs [compile_const_def,to_parts_def,update_tag_def]
   \\ Cases_on ‘l’ \\ fs []

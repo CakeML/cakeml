@@ -2397,7 +2397,7 @@ Proof
 QED
 
 Triviality opt_case_bool_eq:
-  option_CASE opt nc sc <=> (opt = NONE /\ nc) \/ (?x. opt = SOME x /\ sc x)
+  option_CASE opt nc scc <=> (opt = NONE /\ nc) \/ (?x. opt = SOME x /\ scc x)
 Proof
   Cases_on `opt` \\ simp []
 QED
@@ -5153,8 +5153,8 @@ QED
 Definition init_genv_next:
   init_genv_next = <|
     vidx := 0;
-    tidx := SUC (list_max (MAP (\v. case SND v of TypeStamp _ i => i | _ => 0) init_genv_els));
-    eidx := SUC (list_max (MAP (\v. case SND v of ExnStamp i => i | _ => 0) init_genv_els))
+    tidx := SUC (MAX_LIST (MAP (\v. case SND v of TypeStamp _ i => i | _ => 0) init_genv_els));
+    eidx := SUC (MAX_LIST (MAP (\v. case SND v of ExnStamp i => i | _ => 0) init_genv_els))
   |>
 End
 

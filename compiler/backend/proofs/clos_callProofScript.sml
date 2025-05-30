@@ -1132,7 +1132,6 @@ Proof
     \\ pairmaparg_tac \\ fs[]
     \\ strip_tac \\ rveq \\ fs[]
     \\ pairmaparg_tac \\ fs[]
-    \\ pairmaparg_tac \\ fs[]
     \\ fsrw_tac[DNF_ss][APPEND_EQ_APPEND]
     \\ first_x_assum(qspecl_then[`r''`,`[]`]mp_tac)
     \\ simp[]
@@ -1147,13 +1146,11 @@ Proof
     \\ strip_tac \\ rveq \\ fs[]
     \\ pairmaparg_tac \\ fs[]
     \\ pairmaparg_tac \\ fs[]
-    \\ pairmaparg_tac \\ fs[]
     \\ fs[bool_case_eq] \\ rveq \\ fs[]
     \\ first_x_assum(qspecl_then[`r'`,`r`]mp_tac)
     \\ simp[] )
   >- (
     pairmaparg_tac \\ fs[]
-    \\ pairmaparg_tac \\ fs[]
     \\ first_x_assum drule
     \\ pairmaparg_tac \\ fs[]
     \\ strip_tac \\ rveq \\ fs[]
@@ -1167,7 +1164,6 @@ Proof
     pairmaparg_tac \\ fs[]
     \\ pairmaparg_tac \\ fs[]
     \\ first_x_assum drule
-    \\ pairmaparg_tac \\ fs[]
     \\ strip_tac \\ rveq \\ fs[]
     \\ qmatch_asmsub_abbrev_tac`insert_each p s (FST g, x)`
     \\ `insert_each p s (FST g, x) = (FST (insert_each p s g), x)` by metis_tac[insert_each_pair_arg, PAIR]
@@ -1178,9 +1174,8 @@ Proof
       \\ pairmaparg_tac \\ fs[]
       \\ rveq \\ fs[]
       \\ pairmaparg_tac \\ fs[]
-      \\ pairmaparg_tac \\ fs[]
       \\ strip_tac \\ rveq \\ fs[]
-      \\ first_x_assum(qspecl_then[`r'`,`r`]mp_tac)
+      \\ first_x_assum(qspecl_then[`r'''`,`r`]mp_tac)
       \\ simp[] )
     \\ pairmaparg_tac \\ fs[]
     \\ qmatch_asmsub_abbrev_tac`code_list p ff`
@@ -1192,7 +1187,6 @@ Proof
     \\ strip_tac \\ fs[]
     \\ first_x_assum(qspecl_then[`ls++r'`,`r`]mp_tac)
     \\ simp[]
-    \\ pairmaparg_tac \\ fs[]
     \\ strip_tac \\ rveq \\ fs[]
     \\ pairmaparg_tac \\ fs[]
     \\ `q'' = q` by metis_tac[FST_code_list, FST]
@@ -2304,8 +2298,8 @@ Proof
   ho_match_mp_tac calls_ind
   \\ rw[calls_def] \\ fs[]
   \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
-  \\ imp_res_tac calls_sing \\ fs[closLangTheory.pure_def]
-  \\ fsrw_tac[ETA_ss][bool_case_eq,closLangTheory.pure_def]
+  \\ imp_res_tac calls_sing \\ fs[closLangTheory.pure_def,bool_case_eq]
+  \\ rveq \\  fsrw_tac[ETA_ss][closLangTheory.pure_def]
 QED
 
 Theorem calls_pure_sing:
@@ -4555,14 +4549,14 @@ Proof
 QED
 
 (*
-val tm = ``closLang$Let [Op (Const 0) []; Op (Const 0) []]
-             (App NONE (Fn (SOME 1) NONE 1 (Fn (SOME 2) NONE 1 (Op (Const 1) []))) [Op (Const 2) []])``
+val tm = ``closLang$Let [Op (IntOp (Const 0)) []; Op (IntOp (Const 0)) []]
+             (App NONE (Fn (SOME 1) NONE 1 (Fn (SOME 2) NONE 1 (Op (IntOp (Const 1)) []))) [Op (IntOp (Const 2)) []])``
 val res1 = EVAL``evaluate ([^tm],[],<|clock := 1|>)``
 val (ctm,ctab) = EVAL``clos_call$compile T ^tm`` |> concl |> rhs |> dest_pair
 val res2 = EVAL``evaluate ([^ctm],[],<|clock := 2; code := (alist_to_fmap ^ctab)|>)``
 
-val tm2 = ``closLang$Let [Op (Const 0) []; Op (Const 0) []]
-             (Fn (SOME 1) NONE 1 (App NONE (Fn (SOME 2) NONE 1 (Op (Const 1) [])) [Op (Const 2) []]))``
+val tm2 = ``closLang$Let [Op (IntOp (Const 0)) []; Op (IntOp (Const 0)) []]
+             (Fn (SOME 1) NONE 1 (App NONE (Fn (SOME 2) NONE 1 (Op (IntOp (Const 1)) [])) [Op (IntOp (Const 2)) []]))``
 val res3 = EVAL``evaluate ([^tm2],[],<|clock := 1|>)``
 val (ctm2,ctab2) = EVAL``clos_call$compile T ^tm2`` |> concl |> rhs |> dest_pair
 val res4 = EVAL``evaluate ([^ctm2],[],<|clock := 2; code := (alist_to_fmap ^ctab2)|>)``

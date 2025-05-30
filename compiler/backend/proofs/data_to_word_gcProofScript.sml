@@ -4452,8 +4452,8 @@ Definition code_oracle_rel_def:
 End
 
 Theorem code_oracle_rel_NextFree[simp]:
-   code_oracle_rel c sc sco (ts |+ (NextFree,x)) tcc tco cb db ⇔
-   code_oracle_rel c sc sco ts tcc tco cb db
+   code_oracle_rel c scc sco (ts |+ (NextFree,x)) tcc tco cb db ⇔
+   code_oracle_rel c scc sco ts tcc tco cb db
 Proof
   rw[code_oracle_rel_def,FLOOKUP_UPDATE]
 QED

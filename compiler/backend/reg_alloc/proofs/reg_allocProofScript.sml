@@ -2736,7 +2736,7 @@ Triviality st_ex_list_MIN_cost_success:
   EVERY (λv. v < s.dim) acc ∧
   k < s.dim ⇒
   ∃x y.
-  st_ex_list_MIN_cost sc ls (s.dim) k v acc s = (M_success (x,y),s) ∧
+  st_ex_list_MIN_cost scost ls (s.dim) k v acc s = (M_success (x,y),s) ∧
   x < s.dim ∧
   EVERY (λv. v < s.dim) y
 Proof
@@ -2767,7 +2767,7 @@ Triviality do_spill_success:
     good_ra_state s
     ⇒
     ∃s' b.
-      do_spill sc k s = (M_success b,s') ∧
+      do_spill scost k s = (M_success b,s') ∧
       good_ra_state s' ∧
       is_subgraph s.adj_ls s'.adj_ls ∧
       s.dim = s'.dim ∧
@@ -2780,13 +2780,13 @@ Proof
     fs[good_ra_state_def,is_subgraph_def]>>
     fs[])>>
   fs[degrees_accessor,Marray_sub_def]>>
-  Cases_on`sc`>>fs[]>>
+  Cases_on`scost`>>fs[]>>
   TRY(drule st_ex_list_MAX_deg_success>>
     disch_then(qspecl_then [`t`,`h`,`EL h s.degrees`,`[]`] mp_tac)>>
     impl_tac>-
       fs[good_ra_state_def]>>
     rw[]>>simp[])>>
-  TRY(qmatch_goalsub_abbrev_tac`st_ex_list_MIN_cost sc ls _ kk vv acc _`>>
+  TRY(qmatch_goalsub_abbrev_tac`st_ex_list_MIN_cost scost ls _ kk vv acc _`>>
     FREEZE_THEN drule st_ex_list_MIN_cost_success>>
     rw[]>>fs[good_ra_state_def,degrees_accessor,Marray_sub_def]>>
     first_x_assum(qspecl_then[`ls`,`kk`,`vv`,`acc`] assume_tac)>>
@@ -2810,10 +2810,10 @@ Proof
 QED
 
 Triviality do_step_success:
-  ∀sc k s.
+  ∀scost k s.
     good_ra_state s ⇒
     ∃b s'.
-      do_step sc k s = (M_success b,s') ∧
+      do_step scost k s = (M_success b,s') ∧
       good_ra_state s' ∧
       is_subgraph s.adj_ls s'.adj_ls ∧
       s.dim = s'.dim ∧
@@ -2837,7 +2837,7 @@ Triviality rpt_do_step_success:
   ∀n s k sc.
     good_ra_state s ⇒
     ∃s'.
-      rpt_do_step sc k n s = (M_success (),s') ∧
+      rpt_do_step scost k n s = (M_success (),s') ∧
       good_ra_state s' ∧
       is_subgraph s.adj_ls s'.adj_ls ∧
       s.dim = s'.dim ∧
@@ -2845,7 +2845,7 @@ Triviality rpt_do_step_success:
 Proof
   Induct>>fs[rpt_do_step_def]>>fs msimps>-fs[is_subgraph_def]>>
   rw[]>>
-  drule do_step_success>> disch_then(qspecl_then[`sc`,`k`] assume_tac)>>rfs[]>>
+  drule do_step_success>> disch_then(qspecl_then[`scost`,`k`] assume_tac)>>rfs[]>>
   metis_tac[is_subgraph_trans,do_step_success]
 QED
 
@@ -2893,7 +2893,7 @@ Triviality do_alloc1_success:
   EVERY (λ(p:num,x,y). x < s.dim ∧ y < s.dim) moves
   ⇒
   ∃ls s'.
-  do_alloc1 moves sc k s = (M_success ls,s') ∧
+  do_alloc1 moves scost k s = (M_success ls,s') ∧
   good_ra_state s' ∧
   is_subgraph s.adj_ls s'.adj_ls ∧
   (* This allows the coalescing phase to modify the adjacency list *)
@@ -2986,7 +2986,7 @@ Proof
   disch_then(qspecl_then [`lss`,`lss`] assume_tac)>>
   fs[]>>simp all_eqns>>
   qmatch_goalsub_abbrev_tac`rpt_do_step _ _ _ sss`>>
-  qspecl_then [`LENGTH atemps`,`sss`,`k`,`sc`] mp_tac rpt_do_step_success>>
+  qspecl_then [`LENGTH atemps`,`sss`,`k`,`scost`] mp_tac rpt_do_step_success>>
   impl_tac>-
     (fs[Abbr`sss`,good_ra_state_def,Abbr`lss`,EVERY_MEM]>>
     metis_tac[])>>
@@ -3206,7 +3206,7 @@ QED
 
 (* The top-most correctness theorem *)
 Theorem do_reg_alloc_correct:
-  ∀alg sc k moves ct forced fs st ta fa n.
+  ∀alg scost k moves ct forced fs st ta fa n.
   mk_bij ct = (ta,fa,n)==>
   st.adj_ls = REPLICATE n [] ==>
   st.node_tag = REPLICATE n Atemp ==>
@@ -3222,7 +3222,7 @@ Theorem do_reg_alloc_correct:
   (* Needs to be proved in wordLang *)
   EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
   ∃spcol st' livein flivein.
-    do_reg_alloc alg sc k moves ct forced fs (ta,fa,n) st = (M_success spcol,st') ∧
+    do_reg_alloc alg scost k moves ct forced fs (ta,fa,n) st = (M_success spcol,st') ∧
     check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
     (∀x. in_clash_tree ct x ⇒
     x ∈ domain spcol ∧
@@ -3291,7 +3291,7 @@ Proof
   disch_then (qspec_then `[]` assume_tac)>>fs[]>>
   qpat_abbrev_tac`actualmov = if _ then [] else ts`>>
   drule (GEN_ALL do_alloc1_success)>>
-  disch_then(qspecl_then [`sc`,`actualmov`,`k`] mp_tac)>>
+  disch_then(qspecl_then [`scost`,`actualmov`,`k`] mp_tac)>>
   impl_tac>-
     (unabbrev_all_tac>>rw[])>>
   rw[]>>fs[]>>
@@ -3431,11 +3431,11 @@ fun first_prove_imp thms =
 
 (* The top-most correctness theorem *)
 Theorem reg_alloc_correct:
-  ∀alg sc k moves ct forced fs.
+  ∀alg scost k moves ct forced fs.
   (* Needs to be proved in wordLang *)
   EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
   ∃spcol livein flivein.
-    reg_alloc alg sc k moves ct forced fs = M_success spcol ∧
+    reg_alloc alg scost k moves ct forced fs = M_success spcol ∧
     check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
     (∀x. in_clash_tree ct x ⇒
     x ∈ domain spcol ∧
@@ -3453,7 +3453,7 @@ Proof
   rw[reg_alloc_aux_def,run_ira_state_def,run_def]>>
   qmatch_goalsub_abbrev_tac `do_reg_alloc _ _ _ _ _ _ _ _ st` >>
   qmatch_goalsub_abbrev_tac `(ta,fa,n)` >>
-  ASSUME_TAC (Q.SPECL [`alg`,`sc`,`k`,`moves`,`ct`,`forced`,`fs`,`st`,`ta`,`fa`,`n`] do_reg_alloc_correct)>>
+  ASSUME_TAC (Q.SPECL [`alg`,`scost`,`k`,`moves`,`ct`,`forced`,`fs`,`st`,`ta`,`fa`,`n`] do_reg_alloc_correct)>>
   first_x_assum drule >> rw[] >>
   first_prove_imp [Abbr `st`,ra_state_component_equality] >>
   first_prove_imp [Abbr `st`,ra_state_component_equality] >>

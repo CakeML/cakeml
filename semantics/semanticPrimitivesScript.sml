@@ -863,18 +863,18 @@ Definition do_fprw_def:
 End
 
 Definition do_fpoptimise_def:
- do_fpoptimise sc [] = [] ∧
- do_fpoptimise sc [Litv l] = [Litv l] ∧
- do_fpoptimise sc [Conv st vs] = [Conv st (do_fpoptimise sc vs)] ∧
- do_fpoptimise sc [Closure env x e] = [Closure env x e] ∧
- do_fpoptimise sc [Recclosure env ls x] = [Recclosure env ls x] ∧
- do_fpoptimise sc [Loc b n] = [Loc b n] ∧
- do_fpoptimise sc [Vectorv vs] = [Vectorv (do_fpoptimise sc vs)] ∧
- do_fpoptimise sc [Real r]=  [Real r]  ∧
- do_fpoptimise sc [FP_WordTree fp] = [FP_WordTree (Fp_wopt sc fp)] ∧
- do_fpoptimise sc [FP_BoolTree fp] = [FP_BoolTree (Fp_bopt sc fp)] ∧
- do_fpoptimise sc [Env env n] = [Env env n] ∧
- do_fpoptimise sc (v::vs) = (do_fpoptimise sc [v]) ++ (do_fpoptimise sc vs)
+ do_fpoptimise fpopt [] = [] ∧
+ do_fpoptimise fpopt [Litv l] = [Litv l] ∧
+ do_fpoptimise fpopt [Conv st vs] = [Conv st (do_fpoptimise fpopt vs)] ∧
+ do_fpoptimise fpopt [Closure env x e] = [Closure env x e] ∧
+ do_fpoptimise fpopt [Recclosure env ls x] = [Recclosure env ls x] ∧
+ do_fpoptimise fpopt [Loc b n] = [Loc b n] ∧
+ do_fpoptimise fpopt [Vectorv vs] = [Vectorv (do_fpoptimise fpopt vs)] ∧
+ do_fpoptimise fpopt [Real r]=  [Real r]  ∧
+ do_fpoptimise fpopt [FP_WordTree fp] = [FP_WordTree (Fp_wopt fpopt fp)] ∧
+ do_fpoptimise fpopt [FP_BoolTree fp] = [FP_BoolTree (Fp_bopt fpopt fp)] ∧
+ do_fpoptimise fpopt [Env env n] = [Env env n] ∧
+ do_fpoptimise fpopt (v::vs) = (do_fpoptimise fpopt [v]) ++ (do_fpoptimise fpopt vs)
 Termination
   WF_REL_TAC `measure (\ (_, l). v1_size l)` \\ fs[]
 End
