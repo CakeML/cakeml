@@ -14,6 +14,8 @@ val r = translate nocomment_line_def;
 
 val r = translate parse_op_def;
 val r = translate parse_constraint_def;
+val r = translate parse_annot_def;
+val r = translate parse_annot_constraint_def;
 val r = translate parse_constraints_def;
 
 val r = translate parse_obj_def;
@@ -50,8 +52,8 @@ val b_inputAllTokensFrom_spec_specialize =
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
   |> REWRITE_RULE [blanks_v_thm,tokenize_v_thm] ;
 
-Definition get_fml_def:
-  get_fml fs f =
+Definition get_annot_fml_def:
+  get_annot_fml fs f =
   if inFS_fname fs f then
     parse_pbf (all_lines fs f)
   else NONE
@@ -66,8 +68,8 @@ Theorem parse_pbf_full_spec:
     [fv]
     (STDIO fs)
     (POSTv v.
-    & (∃err. (SUM_TYPE STRING_TYPE prob_TYPE)
-    (case get_fml fs f of
+    & (∃err. (SUM_TYPE STRING_TYPE annot_prob_TYPE)
+    (case get_annot_fml fs f of
       NONE => INL err
     | SOME res => INR res) v) * STDIO fs)
 Proof
@@ -90,7 +92,7 @@ Proof
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
     qexists_tac`emp`>>xsimpl)>>
-  simp[get_fml_def]>>
+  simp[get_annot_fml_def]>>
   IF_CASES_TAC>>fs[OPTION_TYPE_def]>>xmatch
   >- (
     xlet_autop>>
@@ -130,12 +132,16 @@ Definition concl_to_string_def:
     strlit "s VERIFIED BOUNDS " ^ lbs ^ strlit " <= obj <= " ^ ubs ^ strlit"\n")
 End
 
+Definition get_fml_def:
+  get_fml fs f =
+  OPTION_MAP strip_annot_prob (get_annot_fml fs f)
+End
+
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 out ⇔
   (out ≠ strlit"" ⇒
   ∃pres obj fml.
-    get_fml fs f1 = SOME (pres,obj,fml)
-    ∧
+    get_fml fs f1 = SOME (pres,obj,fml) ∧
     ∃concl.
       out = concl_to_string concl ∧
       pbc$sem_concl (set fml) obj concl)
@@ -156,7 +162,9 @@ val check_unsat_2 = (append_prog o process_topdecs) `
   case parse_pbf_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr prob =>
-    let val probt = default_prob in
+    let
+      val prob = strip_annot_prob prob
+      val probt = default_prob in
       (case
         map_concl_to_string
           (check_unsat_top_norm False prob probt f2) of
@@ -181,6 +189,7 @@ Proof
   xcf "check_unsat_2" (get_ml_prog_state ())>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   xlet_autop>>
+  gvs[get_fml_def]>>
   pop_assum mp_tac>>
   TOP_CASE_TAC
   >- (
@@ -195,9 +204,9 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   simp[SUM_TYPE_def]>>rw[]>>
-  rename1`get_fml _ _ = SOME prob`>>
-  PairCases_on`prob`>>fs[PAIR_TYPE_def]>>
   xmatch>>
+  xlet_autop>>
+  `∃pres obj fml. strip_annot_prob x = (pres,obj,fml)` by metis_tac[PAIR]>>
   assume_tac default_prob_v_thm>>
   xlet`POSTv v.
     STDIO fs *
@@ -217,7 +226,7 @@ Proof
          res v ∧
        case res of
          INR (output,bound,concl) =>
-         sem_concl (set prob2) prob1 concl
+         sem_concl (set fml) obj concl
       | INL l => T))`
   >- (
     xapp>>xsimpl>>
@@ -225,8 +234,8 @@ Proof
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
     simp[]>>
-    qexists_tac`(prob0,prob1,prob2)`>>simp[PAIR_TYPE_def]>>
     qexists_tac`f2`>>simp[FILENAME_def,validArg_def]>>
     qexists_tac`emp`>>xsimpl>>
     rw[]>>
@@ -262,8 +271,8 @@ QED
 
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
-  case get_fml fs f1 of
-    SOME prob => out = concat (print_prob prob)
+  case get_annot_fml fs f1 of
+    SOME prob => out = concat (print_annot_prob prob)
   | NONE => out = strlit ""
 End
 
@@ -272,7 +281,7 @@ val check_unsat_1 = (append_prog o process_topdecs) `
   case parse_pbf_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr prob =>
-    TextIO.print_list (print_prob prob)`
+    TextIO.print_list (print_annot_prob prob)`
 
 Theorem check_unsat_1_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -359,7 +368,8 @@ val check_unsat_3 = (append_prog o process_topdecs) `
   | Inr probt =>
     (case
       map_out_concl_to_string
-        (check_unsat_top_norm True prob probt f2) of
+        (check_unsat_top_norm True
+          (strip_annot_prob prob) (strip_annot_prob probt) f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s))`
 
@@ -381,6 +391,7 @@ Proof
   xcf "check_unsat_3" (get_ml_prog_state ())>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   xlet_autop>>
+  gvs[get_fml_def]>>
   pop_assum mp_tac>>
   TOP_CASE_TAC
   >- (
@@ -395,8 +406,6 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   simp[SUM_TYPE_def]>>rw[]>>
-  `∃pres obj fml. x = (pres,obj,fml)` by metis_tac[PAIR]>>
-  fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
   pop_assum mp_tac>>
@@ -413,12 +422,14 @@ Proof
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   simp[SUM_TYPE_def]>>rw[]>>
-  `∃prest objt fmlt. x' = (prest, objt,fmlt)` by metis_tac[PAIR]>>
-  gvs[PAIR_TYPE_def]>>
   xmatch>>
+  xlet_autop>>
+  xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL T v`
   >-
     (xcon>>xsimpl)>>
+  `∃pres obj fml. strip_annot_prob x = (pres,obj,fml)` by metis_tac[PAIR]>>
+  `∃prest objt fmlt. strip_annot_prob x' = (prest, objt,fmlt)` by metis_tac[PAIR]>>
   xlet`(POSTv v.
      STDIO fs *
      SEP_EXISTS res.
@@ -438,8 +449,8 @@ Proof
     fs[validArg_def]>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
-    qexists_tac`(prest,objt,fmlt)`>>
-    qexists_tac`(pres,obj,fml)`>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
     simp[PAIR_TYPE_def]>>
     qexists_tac`f2`>>simp[FILENAME_def,validArg_def]>>
     qexists_tac`emp`>>xsimpl>>
