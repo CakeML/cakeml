@@ -79,6 +79,16 @@ Inductive valid_val:
   can_lookup env store
   ⇒
   valid_cont store ((env, SetK x)::ks)
+[~cont_LetinitK:]
+  EVERY (FDOM env) (MAP FST xvs) ∧
+  EVERY (valid_val store) (MAP SND xvs) ∧
+  (FDOM env) x ∧
+  EVERY (FDOM env) (MAP FST bs) ∧
+  EVERY (static_scope (FDOM env)) (MAP SND bs) ∧
+  valid_cont store ks ∧
+  can_lookup env store
+  ⇒
+  valid_cont store ((env, LetinitK xvs x bs e)::ks)
 End
 
 Inductive valid_state:
@@ -171,29 +181,29 @@ Theorem valid_val_larger_store = SRULE [PULL_FORALL, AND_IMP_INTRO] $
 Theorem valid_cont_larger_store = SRULE [PULL_FORALL, AND_IMP_INTRO] $
   cj 2 valid_larger_store;
 
-Theorem letrec_init_mono:
+Theorem letrec_preinit_mono:
   ∀ bs store env store' env' .
-    letrec_init store env bs = (store', env')
+    letrec_preinit store env bs = (store', env')
     ⇒
     FDOM env ⊆ FDOM env'
 Proof
   Induct
-  >> simp[letrec_init_def]
+  >> simp[letrec_preinit_def]
   >> rpt strip_tac
   >> rpt (pairarg_tac >> gvs[])
   >> last_x_assum drule
   >> simp[]
 QED
 
-Theorem letrec_init_dom:
+Theorem letrec_preinit_dom:
   ∀ xs store env store' env' .
-    letrec_init store env xs = (store', env')
+    letrec_preinit store env xs = (store', env')
     ⇒
     FDOM env ∪ set xs = FDOM env' ∧
     store ++ GENLIST (λ x. NONE) (LENGTH xs) = store'
 Proof
   Induct
-  >> simp[letrec_init_def, fresh_loc_def]
+  >> simp[letrec_preinit_def, fresh_loc_def]
   >> rpt strip_tac
   >> rpt (pairarg_tac >> gvs[])
   >> last_x_assum $ drule_then assume_tac
@@ -214,15 +224,15 @@ Proof
   >> simp[GENLIST]
 QED
 
-Theorem letrec_init_lookup:
+Theorem letrec_preinit_lookup:
   ∀ xs store env store' env' .
     can_lookup env store ∧
-    letrec_init store env xs = (store', env')
+    letrec_preinit store env xs = (store', env')
     ⇒
     can_lookup env' store'
 Proof
   Induct
-  >> simp[letrec_init_def, fresh_loc_def]
+  >> simp[letrec_preinit_def, fresh_loc_def]
   >> rpt strip_tac
   >> rpt (pairarg_tac >> gvs[])
   >> qsuff_tac ‘can_lookup (env |+ (h,LENGTH store)) (SNOC NONE store)’ >- (
@@ -502,12 +512,15 @@ Proof
       >> gvs[Once valid_state_cases, can_lookup_cases]
     )
     >~ [‘Letrec bs e’] >- (
+      cheat
+    )
+    >~ [‘Letrecstar bs e’] >- (
       simp[step_def]
       >> rpt (pairarg_tac >> gvs[])
       >> simp[Once valid_state_cases, Once static_scope_def]
       >> gvs[Once valid_state_cases, Once static_scope_def]
-      >> drule_then assume_tac letrec_init_dom
-      >> drule_all_then assume_tac letrec_init_lookup
+      >> drule_then assume_tac letrec_preinit_dom
+      >> drule_all_then assume_tac letrec_preinit_lookup
       >> gvs[]
       >> irule_at (Pos $ el 2) valid_cont_larger_store
       >> qpat_assum ‘valid_cont _ _’ $ irule_at (Pos $ el 2)
@@ -608,6 +621,9 @@ Proof
       >> irule_at (Pos hd) valid_val_larger_store
       >> pop_assum $ irule_at (Pos last)
       >> simp[]
+    )
+    >~ [‘LetinitK xvs x bs e’] >- (
+      cheat
     )
     >~ [‘ApplyK fnp es’] >- (
       simp[step_def]
@@ -922,6 +938,19 @@ Proof
       >> ‘∀ e e' . e = e' ⇒ exp_size e = exp_size e'’ by simp[]
       >> pop_assum drule
       >> simp[exp_size_def]
+    )
+    >- (
+      CASE_TAC
+      >> simp[]
+      >> rpt strip_tac
+      >- (
+        ‘∀ e e' . e = e' ⇒ exp_size e = exp_size e'’ by simp[]
+        >> pop_assum drule
+        >> simp[exp_size_def]
+      )
+      >> rpt (pairarg_tac >> gvs[])
+      >> PairCases_on ‘h’
+      >> gvs[]
     )
     >> rpt strip_tac
     >> rpt (pairarg_tac >> gvs[])

@@ -380,6 +380,20 @@ Inductive val_cont_rels:
   ⇒
   cont_rel ((se, SetK x) :: ks)
     (Closure env "t" $ inner)
+[~LetinitK:]
+  cont_rel ks kv ∧
+  nsLookup env.v (Short "k") = SOME kv ∧
+  (t, ts) = cps_app_ts xvs ∧
+  inner = cps_transform_letinit
+    ((x,Var (Short t))::ZIP (MAP FST xvs, MAP (Var o Short) ts))
+    bs e (Var (Short "k")) ∧
+  LIST_REL ml_v_vals' (MAP SND xvs) mlvs ∧
+  LIST_REL (λ x mlv . nsLookup env.v (Short x) = SOME mlv) ts mlvs ∧
+  scheme_env env ∧
+  env_rel se env
+  ⇒
+  cont_rel ((se, LetinitK xvs x bs e) :: ks)
+    (Closure env t $ inner)
 End
 
 Theorem val_cont_rels_ind[allow_rebind] = SRULE [] $ val_cont_rels_ind;
@@ -535,6 +549,16 @@ End
 Theorem eval_eq_trivial:
   ∀ st mlenv mle .
     eval_eq st mlenv mle st mlenv mle 0
+Proof
+  simp[eval_eq_def]
+QED
+
+Theorem eval_eq_trans:
+  ∀ st mlenv mle st' mlenv' mle' st'' mlenv'' mle'' ck ck' .
+    eval_eq st mlenv mle st' mlenv' mle' ck ∧
+    eval_eq st' mlenv' mle' st'' mlenv'' mle'' ck'
+    ⇒
+    eval_eq st mlenv mle st'' mlenv'' mle'' (ck + ck')
 Proof
   simp[eval_eq_def]
 QED
@@ -1115,13 +1139,13 @@ QED
 
 Theorem preservation_of_letrec:
   ∀ xs inner (st:'ffi state) mlenv store env store' env' .
-    (store', env') = letrec_init store env xs ∧
+    (store', env') = letrec_preinit store env xs ∧
     env_rel env mlenv ∧
     LIST_REL store_entry_rel store st.refs ∧
     scheme_env mlenv
     ⇒
     ∃ ck st' mlenv' var' .
-      (∀ start . evaluate (st with clock:=ck+start) mlenv [letinit_ml xs inner]
+      (∀ start . evaluate (st with clock:=ck+start) mlenv [letpreinit_ml xs inner]
         = evaluate (st' with clock:=start) mlenv' [inner]) ∧
       env_rel env' mlenv' ∧
       LIST_REL store_entry_rel store' st'.refs ∧
@@ -1132,7 +1156,7 @@ Theorem preservation_of_letrec:
       st.ffi = st'.ffi
 Proof
   Induct
-  >> simp[letrec_init_def, letinit_ml_def]
+  >> simp[letrec_preinit_def, letpreinit_ml_def]
   >> rpt strip_tac >- (
     simp[GSYM eval_eq_def]
     >> irule_at (Pos hd) eval_eq_trivial
@@ -1198,6 +1222,72 @@ Proof
   >> simp[]
   >> Cases_on ‘mlenv’
   >> gvs[]
+QED
+
+Theorem preservation_of_letinit:
+  ∀ (st:'ffi state) mlenv mlvs store env e k kv var xvs ts .
+    EVERY (FDOM env) (MAP FST xvs) ∧
+    EVERY (valid_val store) (MAP SND xvs) ∧
+    LIST_REL ml_v_vals' (MAP SND xvs) mlvs ∧
+    LIST_REL (λx mlv. nsLookup mlenv.v (Short x) = SOME mlv) ts mlvs ∧
+    cont_rel k kv ∧ nsLookup mlenv.v (Short var) = SOME kv ∧
+    scheme_env mlenv ∧
+    env_rel env mlenv ∧
+    can_lookup env store ∧
+    LIST_REL store_entry_rel store st.refs
+    ⇒
+    ∃ck st' mlenv' var' kv' mle'.
+      (∀start.
+         evaluate (st with clock := ck + start) mlenv
+           [letinit_ml
+              (ZIP (MAP FST xvs,MAP (Var ∘ Short) ts))
+              (App Opapp [cps_transform e; Var (Short var)])] =
+         evaluate (st' with clock := start) mlenv' [mle']) ∧
+      cont_rel k kv' ∧ e_ce_rel (Exp e) var' mlenv' kv' mle' ∧
+      env_rel env mlenv' ∧
+      LIST_REL store_entry_rel (letinit store env xvs) st'.refs ∧
+      st.ffi = st'.ffi
+Proof
+  Induct_on ‘xvs’
+  >> rpt strip_tac
+  >> gvs[letinit_ml_def, letinit_def] >- (
+    simp[GSYM eval_eq_def]
+    >> irule_at (Pos hd) eval_eq_trivial
+    >> simp[Once e_ce_rel_cases]
+  )
+  >> PairCases_on ‘h’
+  >> simp[letinit_def]
+  >> gvs[]
+  >> simp[Ntimes evaluate_def 6, do_con_check_def, build_conv_def,
+    nsOptBind_def]
+  >> qpat_assum ‘scheme_env _’ $ simp o single
+    o SRULE [scheme_env_def]
+  >> qpat_assum ‘env_rel env _’ $ drule_then assume_tac
+    o SRULE [env_rel_cases, FEVERY_DEF, SPECIFICATION]
+  >> simp[do_app_def, store_assign_def, store_v_same_type_def]
+  >> qpat_assum ‘can_lookup env _’ $ drule_then assume_tac
+    o SRULE [can_lookup_cases, FEVERY_DEF, SPECIFICATION]
+  >> drule_then assume_tac EVERY2_LENGTH
+  >> drule_all_then assume_tac $ cj 2 $ iffLR LIST_REL_EL_EQN
+  >> gvs[store_entry_rel_cases]
+  >> (‘st.ffi = (st with <|refs := LUPDATE (Refv (Conv (SOME (TypeStamp "Some" 2)) [y]))
+                      (env ' h0) st.refs; ffi := st.ffi|>).ffi’ by simp[]
+  >> first_assum $ once_asm_rewrite_tac o single
+  >> pop_assum $ simp_tac pure_ss o single o Once o GSYM
+  >> last_x_assum $ irule
+  >> first_assum $ irule_at (Pos last)
+  >> simp[]
+  >> irule_at (Pos hd) EVERY_MONOTONIC
+  >> last_assum $ irule_at (Pos $ el 2)
+  >> strip_tac >- (
+    rpt strip_tac
+    >> irule valid_val_larger_store
+    >> pop_assum $ irule_at (Pos last)
+    >> simp[LENGTH_LUPDATE]
+  )
+  >> gvs[can_lookup_cases]
+  >> irule EVERY2_LUPDATE_same
+  >> simp[store_entry_rel_cases])
 QED
 
 Theorem step_preservation:
@@ -1355,6 +1445,56 @@ Proof
       >> gvs[scheme_env_def, env_rel_cases]
     )
     >~ [‘Letrec bs e’] >- (
+      Cases_on ‘bs’
+      >> rpt strip_tac
+      >> gvs[cps_transform_def] >- (
+        qrefine ‘ck+1’
+        >> simp[SimpLHS, Ntimes evaluate_def 4, do_opapp_def,
+          nsOptBind_def, dec_clock_def, letpreinit_ml_def, letinit_ml_def]
+        >> simp[GSYM eval_eq_def]
+        >> irule_at (Pos hd) eval_eq_trivial
+        >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+        >> simp[Once e_ce_rel_cases]
+        >> gvs[scheme_env_def, env_rel_cases]
+      )
+      >> PairCases_on ‘h’
+      >> simp[cps_transform_def]
+      >> rpt (pairarg_tac >> gvs[])
+      >> qrefine ‘ck+1’
+      >> simp[SimpLHS, Ntimes evaluate_def 4, do_opapp_def,
+        nsOptBind_def, dec_clock_def]
+      >> qpat_x_assum ‘letrec_preinit _ _ _ = _’ $ assume_tac o GSYM
+      >> drule preservation_of_letrec
+      >> ‘env_rel env (mlenv with v := nsBind "k" kv mlenv.v)’
+        by gvs[env_rel_cases]
+      >> strip_tac
+      >> pop_assum $ drule_then drule
+      >> ‘scheme_env (mlenv with v := nsBind "k" kv mlenv.v)’
+        by gvs[scheme_env_def]
+      >> strip_tac
+      >> pop_assum $ drule
+      >> strip_tac
+      >> pop_assum $ qspec_then
+        ‘Let (SOME "k'")
+           (Fun "t0"
+              (cps_transform_letinit [(h0,Var (Short "t0"))] t e
+                 (Var (Short "k"))))
+           (App Opapp [cps_transform h1; Var (Short "k'")])’ mp_tac
+      >> rpt strip_tac
+      >> gvs[GSYM eval_eq_def]
+      >> irule_at (Pos hd) eval_eq_trans
+      >> first_assum $ irule_at (Pos hd)
+      >> simp[eval_eq_def]
+      >> simp[Ntimes evaluate_def 2, nsOptBind_def]
+      >> simp[GSYM eval_eq_def]
+      >> irule_at (Pos hd) eval_eq_trivial
+      >> simp[Once cont_rel_cases]
+      >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pat ‘cont_rel _ _’)
+      >> simp[cps_app_ts_def]
+      >> simp[Once e_ce_rel_cases]
+      >> gvs[scheme_env_def, env_rel_cases]
+    )
+    >~ [‘Letrecstar bs e’] >- (
       simp[Once cps_transform_def]
       >> rpt strip_tac
       >> rpt (pairarg_tac >> gvs[])
@@ -1467,6 +1607,85 @@ Proof
       >> gvs[env_rel_cases]
       >> irule EVERY2_LUPDATE_same
       >> simp[store_entry_rel_cases]
+    )
+    >> Cases_on ‘∃ xvs x bs e . h1 = LetinitK xvs x bs e’ >- (
+      gvs[]
+      >> Cases_on ‘bs’
+      >> rpt strip_tac
+      >> gvs[Once cont_rel_cases, Once e_ce_rel_cases]
+      >> gvs[cps_transform_def, step_def, return_def]
+      >> qrefine ‘ck+1’
+      >> simp[SimpLHS, Ntimes evaluate_def 4, do_opapp_def,
+        nsOptBind_def, dec_clock_def] >- (
+        gvs[Once valid_state_cases]
+        >> qpat_x_assum ‘valid_cont _ _’ $ mp_tac
+          o SRULE [Once valid_val_cases]
+        >> strip_tac
+        >> ‘∃ xvs' . (x,v)::xvs = xvs'’ by simp[]
+        >> first_assum $ simp_tac bool_ss o single
+        >> ‘x::(MAP FST xvs) = MAP FST xvs'’ by gvs[]
+        >> simp_tac bool_ss [Once $ cj 3 $ GSYM ZIP_def]
+        >> first_assum $ simp_tac bool_ss o single
+        >> ‘Var (Short t')::MAP (Var o Short) ts = MAP (Var o Short) (t'::ts)’ by gvs[]
+        >> first_assum $ simp_tac bool_ss o single
+        >> irule preservation_of_letinit
+        >> drule cps_app_ts_distinct
+        >> strip_tac
+        >> gvs[]
+        >> last_assum $ irule_at (Pos last)
+        >> irule_at (Pos $ el 5) EQ_REFL
+        >> irule_at Any EQ_REFL
+        >> simp[]
+        >> irule_at (Pos last) EVERY2_MEM_MONO
+        >> qpat_assum ‘LIST_REL _ ts mlvs’ $ irule_at (Pat ‘LIST_REL _ ts mlvs’)
+        >> strip_tac >- (
+          PairCases
+          >> simp[]
+          >> rpt strip_tac
+          >> qpat_assum ‘LIST_REL _ ts mlvs’ $ assume_tac
+          >> dxrule_then assume_tac EVERY2_LENGTH
+          >> drule_at_then (Pos $ el 2) assume_tac $ cj 1 MEM_ZIP_MEM_MAP
+          >> gvs[]
+          >> Cases_on ‘x'0 = t'’
+          >> gvs[]
+        )
+        >> gvs[scheme_env_def, env_rel_cases]
+      )
+      >> PairCases_on ‘h’
+      >> gvs[]
+      >> simp[cps_transform_def]
+      >> simp[Ntimes evaluate_def 2, nsOptBind_def]
+      >> simp[GSYM eval_eq_def]
+      >> irule_at (Pos hd) eval_eq_trivial
+      >> simp[Once e_ce_rel_cases, Once cont_rel_cases]
+      >> simp_tac bool_ss [Once $ GSYM ZIP_def]
+      >> ‘Var (Short t'')::MAP (Var o Short) ts = MAP (Var o Short) (t''::ts)’ by gvs[]
+      >> first_assum $ simp_tac bool_ss o single
+      >> irule_at (Pos hd) EQ_REFL
+      >> simp[cps_app_ts_def]
+      >> rpt (pairarg_tac >> gvs[])
+      >> qpat_assum ‘LIST_REL _ ts mlvs’ $ assume_tac
+      >> dxrule_then assume_tac EVERY2_LENGTH
+      >> qpat_assum ‘LIST_REL ml_v_vals' _ mlvs’ $ assume_tac
+      >> dxrule_then assume_tac EVERY2_LENGTH
+      >> gvs[]
+      >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
+      >> qpat_assum ‘LIST_REL ml_v_vals' _ _’ $ irule_at (Pos $ el 2)
+      >> drule $ GSYM cps_app_ts_distinct
+      >> strip_tac
+      >> simp[]
+      >> irule_at (Pos hd) EVERY2_MEM_MONO
+      >> qpat_assum ‘LIST_REL _ ts mlvs’ $ irule_at (Pat ‘LIST_REL _ ts mlvs’)
+      >> strip_tac >- (
+        PairCases
+        >> simp[]
+        >> rpt strip_tac
+        >> drule_at_then (Pos $ el 2) assume_tac $ cj 1 MEM_ZIP_MEM_MAP
+        >> gvs[]
+        >> Cases_on ‘x'0 = t''’
+        >> gvs[]
+      )
+      >> gvs[scheme_env_def, env_rel_cases]
     )
     >> Cases_on ‘∃ e es . h1 = ApplyK NONE (e::es)’ >- (
       gvs[]
