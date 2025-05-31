@@ -85,6 +85,7 @@ Inductive valid_val:
   (FDOM env) x ∧
   EVERY (FDOM env) (MAP FST bs) ∧
   EVERY (static_scope (FDOM env)) (MAP SND bs) ∧
+  static_scope (FDOM env) e ∧
   valid_cont store ks ∧
   can_lookup env store
   ⇒
@@ -148,6 +149,19 @@ Proof
   >> Induct_on ‘xs’
   >> Cases_on ‘n’
   >> simp[]
+QED
+
+Theorem SET_MEM:
+  ∀ l x . set l x ⇔ MEM x l
+Proof
+  Induct
+  >> simp[]
+QED
+
+Theorem EVERY_SET:
+  ∀ l . EVERY (set l) l
+Proof
+  simp[EVERY_MEM, SET_MEM]
 QED
 
 Theorem valid_larger_store:
@@ -419,6 +433,57 @@ Proof
   >> simp[]
 QED
 
+Theorem letinit_valid:
+  ∀ store env xvs ks .
+    EVERY (OPTION_ALL (valid_val store)) store ∧
+    EVERY (FDOM env) (MAP FST xvs) ∧
+    EVERY (valid_val store) (MAP SND xvs) ∧
+    valid_cont store ks ∧
+    can_lookup env store
+    ⇒
+      valid_cont (letinit store env xvs) ks ∧
+      can_lookup env (letinit store env xvs) ∧
+      EVERY (OPTION_ALL (valid_val (letinit store env xvs)))
+        (letinit store env xvs)
+Proof
+  Induct_on ‘xvs’
+  >> simp[letinit_def]
+  >> PairCases
+  >> simp[letinit_def]
+  >> rpt gen_tac
+  >> strip_tac
+  >> last_x_assum irule
+  >> simp[]
+  >> irule_at (Pos hd) IMP_EVERY_LUPDATE
+  >> simp[]
+  >> irule_at (Pos hd) valid_val_larger_store
+  >> first_assum $ irule_at (Pos $ el 2)
+  >> simp[]
+  >> irule_at (Pos hd) EVERY_MONOTONIC
+  >> last_assum $ irule_at (Pos $ el 2)
+  >> strip_tac >- (
+    rpt strip_tac
+    >> irule OPTION_ALL_MONO
+    >> pop_assum $ irule_at (Pos last)
+    >> rpt strip_tac
+    >> irule_at (Pos hd) valid_val_larger_store
+    >> first_assum $ irule_at (Pos last)
+    >> simp[]
+  )
+  >> irule_at (Pos hd) EVERY_MONOTONIC
+  >> last_assum $ irule_at (Pos $ el 2)
+  >> strip_tac >- (
+    rpt strip_tac
+    >> irule_at (Pos hd) valid_val_larger_store
+    >> first_assum $ irule_at (Pos last)
+    >> simp[]
+  )
+  >> gvs[can_lookup_cases]
+  >> irule valid_cont_larger_store
+  >> first_assum $ irule_at (Pos last)
+  >> simp[]
+QED
+
 Theorem sadd_num_or_exception:
   ∀ vs n .
     (∃ m . sadd vs n = Val (SNum m)) ∨
@@ -512,7 +577,37 @@ Proof
       >> gvs[Once valid_state_cases, can_lookup_cases]
     )
     >~ [‘Letrec bs e’] >- (
-      cheat
+      Cases_on ‘bs’ >- (
+        simp[step_def, Once valid_state_cases]
+        >> gvs[Once valid_state_cases, Once static_scope_def]
+      )
+      >> simp[step_def]
+      >> PairCases_on ‘h’
+      >> rpt (pairarg_tac >> gvs[])
+      >> gvs[Once valid_state_cases, Once static_scope_def]
+      >> simp[Once valid_state_cases]
+      >> simp[Once valid_val_cases]
+      >> drule_then assume_tac letrec_preinit_dom
+      >> drule_all_then assume_tac letrec_preinit_lookup
+      >> gvs[]
+      >> irule_at (Pat ‘valid_cont _ _’) valid_cont_larger_store
+      >> qpat_assum ‘valid_cont _ _’ $ irule_at (Pat ‘valid_cont _ _’)
+      >> simp[]
+      >> qpat_x_assum ‘_ = FDOM _’ $ assume_tac o GSYM
+      >> simp[]
+      >> irule_at (Pos hd) EVERY_MONOTONIC
+      >> irule_at (Pos $ el 2) EVERY_SET
+      >> simp[SET_MEM]
+      >> simp[EVERY_GENLIST]
+      >> irule_at (Pos hd) EVERY_MONOTONIC
+      >> first_assum $ irule_at (Pos $ el 2)
+      >> rpt strip_tac
+      >> irule OPTION_ALL_MONO
+      >> pop_assum $ irule_at (Pos last)
+      >> rpt strip_tac
+      >> irule valid_val_larger_store
+      >> pop_assum $ irule_at (Pos last)
+      >> simp[]
     )
     >~ [‘Letrecstar bs e’] >- (
       simp[step_def]
@@ -623,7 +718,19 @@ Proof
       >> simp[]
     )
     >~ [‘LetinitK xvs x bs e’] >- (
-      cheat
+      simp[step_def, return_def]
+      >> CASE_TAC
+      >> gvs[Once valid_state_cases]
+      >> qpat_x_assum ‘valid_cont _ _’ $ mp_tac o SRULE [Once valid_val_cases]
+      >> rpt strip_tac >- (
+        simp[Once valid_state_cases]
+        >> irule letinit_valid
+        >> simp[]
+      )
+      >> PairCases_on ‘h’
+      >> gvs[]
+      >> simp[Once valid_state_cases]
+      >> simp[Once valid_val_cases]
     )
     >~ [‘ApplyK fnp es’] >- (
       simp[step_def]
