@@ -7,8 +7,16 @@ open preamble evaluateTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      fpSemPropsTheory evaluatePropsTheory;
 
-val _ = new_theory "evaluate_apps";
+(* TODO Proofs may rely on auto-generated names; fix using rename/namedCases *)
+(* TODO Move to evaluateProps *)
+val _ = new_theory "extension_evaluateProps";
 
+Definition Seqs_def:
+  Seqs [] = Con NONE [] ∧
+  Seqs (x::xs) = Let NONE x (Seqs xs)
+End
+
+(* TODO rename apps -> Apps *)
 Definition apps_def:
   apps f [] = f ∧
   apps f (x::xs) = apps (App Opapp [f; x]) xs
