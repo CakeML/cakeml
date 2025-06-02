@@ -958,6 +958,18 @@ Proof
   \\ gvs [MAP_REVERSE, distinct_reverse_append, distinct_nums_names_append]
 QED
 
+Triviality IMP_LENGTH_EQ:
+  xs = ys ⇒ LENGTH xs = LENGTH ys
+Proof
+  gvs []
+QED
+
+Triviality pop_local_some:
+  s.locals ≠ [] ⇒ ∃s'. pop_local s = SOME s'
+Proof
+  rpt strip_tac \\ Cases_on ‘s.locals’ \\ gvs [pop_local_def]
+QED
+
 Theorem correct_freshen_stmt:
   ∀s env stmt s' res t m cnt cnt' stmt' env'.
     evaluate_stmt s env stmt = (s', res) ∧ state_rel s t m cnt ∧
@@ -1048,16 +1060,17 @@ Proof
     \\ gvs [evaluate_stmt_def] \\ rpt (pairarg_tac \\ gvs [])
     \\ qabbrev_tac ‘t₁ = declare_local t (lookup m' old)’
     \\ rename [‘evaluate_stmt t₁ _ _' = (t₂, r')’]
-    \\ qspecl_then [‘s’, ‘old’] assume_tac declare_local_len_inc
-    \\ qspecl_then [‘t’, ‘lookup m' old’] assume_tac declare_local_len_inc
-    \\ imp_res_tac evaluate_stmt_len_locals
-    \\ imp_res_tac locals_not_empty_pop_locals_some
-    \\ ‘0 < LENGTH s₂.locals’ by gvs []
-    \\ ‘0 < LENGTH t₂.locals’ by gvs []
-    \\ imp_res_tac locals_not_empty_pop_locals_some \\ gvs []
-    \\ rpt $ qpat_x_assum ‘LENGTH _ = _’ kall_tac
+    \\ imp_res_tac evaluate_stmt_locals \\ gvs []
+    \\ ‘s₂.locals ≠ []’ by
+      (spose_not_then assume_tac \\ gvs [declare_local_def]
+       \\ unabbrev_all_tac \\ imp_res_tac IMP_LENGTH_EQ \\ gvs [])
+    \\ ‘t₂.locals ≠ []’ by
+      (spose_not_then assume_tac \\ gvs [declare_local_def]
+       \\ unabbrev_all_tac \\ imp_res_tac IMP_LENGTH_EQ \\ gvs [])
+    \\ imp_res_tac pop_local_some
     \\ rename [‘pop_local s₂ = SOME s₃’] \\ pop_assum $ mp_tac
     \\ rename [‘pop_local t₂ = SOME t₃’] \\ strip_tac
+    \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (spose_not_then assume_tac \\ gvs [])
     \\ qsuff_tac ‘state_rel s₁ t₁ m' cnt₁’
     >- (strip_tac \\ last_x_assum $ drule_all \\ strip_tac \\ gvs []
         \\ rename [‘evaluate_stmt _ _ _' = (t₂, _)’]
@@ -1190,7 +1203,7 @@ Proof
        gvs [env_rel_def, mk_env_def]
   \\ drule_all correct_freshen_stmt
   \\ rpt strip_tac \\ gvs []
-  \\ imp_res_tac evaluate_stmt_len_locals
+  \\ imp_res_tac evaluate_stmt_locals
   \\ gvs [state_rel_def, init_state_def, state_component_equality]
 QED
 
