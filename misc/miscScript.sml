@@ -2,7 +2,7 @@
    Miscellaneous definitions and minor lemmas used throughout the
    development.
 *)
-val _ = raise      Domain;
+val _ = raise       Domain;
 open HolKernel bossLib boolLib boolSimps Parse mp_then
 open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
      byteTheory combinTheory dep_rewrite containerTheory listTheory
