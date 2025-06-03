@@ -148,17 +148,10 @@ Definition find_loc_def:
     (find_locL [] = LN) ∧
     (find_locL (e::es) = union (find_loc e) (find_locL es))
 Termination
-        WF_REL_TAC `measure (λ e . case e of
-            | INL x => exp_size x
-            | INR y => exp6_size y)` >>
-        rw[exp_size_def]
-        >- (qspec_then `vv_es` mp_tac exp_size_map_snd_snd >>
-            Cases_on
-                `exp6_size(MAP (λ x . SND (SND x)) vv_es) = exp1_size vv_es` >>
-            rw[])
-        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
-            Cases_on `flatLang$exp6_size(MAP SND p_es) = exp3_size p_es` >>
-            rw[])
+  WF_REL_TAC `measure (λ e . case e of
+      | INL x => exp_size x
+      | INR y => list_size exp_size y)` >>
+  rw[list_size_pair_size_MAP_FST_SND]
 End
 
 Definition find_lookups_def:
@@ -184,17 +177,11 @@ Definition find_lookups_def:
     (find_lookupsL [] = LN) ∧
     (find_lookupsL (e::es) = union (find_lookups e) (find_lookupsL es))
 Termination
-        WF_REL_TAC `measure (λ e . case e of
-                | INL x => exp_size x
-                | INR (y:flatLang$exp list) =>
-                    flatLang$exp6_size y)` >> rw[exp_size_def]
-        >- (qspec_then `vv_es` mp_tac exp_size_map_snd_snd >>
-            Cases_on
-                `exp6_size(MAP (λ x . SND (SND x)) vv_es) = exp1_size vv_es` >>
-            rw[])
-        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
-            Cases_on `exp6_size(MAP SND p_es) = exp3_size p_es` >>
-            rw[])
+  WF_REL_TAC `measure (λ e . case e of
+          | INL x => exp_size x
+          | INR (y:flatLang$exp list) =>
+              list_size exp_size y)` >>
+  rw[list_size_pair_size_MAP_FST_SND]
 End
 
 Definition analyse_exp_def:
