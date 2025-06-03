@@ -40,6 +40,37 @@ Definition result_mmap_def:
     od
 End
 
+Theorem result_mmap_len:
+  ∀f xs ys. result_mmap f xs = INR ys ⇒ LENGTH ys = LENGTH xs
+Proof
+  Induct_on ‘xs’ \\ rpt strip_tac
+  \\ gvs [result_mmap_def, oneline bind_def, CaseEq "sum"]
+  \\ res_tac
+QED
+
+Definition result_mmap2_def:
+  result_mmap2 f [] [] = return [] ∧
+  result_mmap2 f (h0::t0) (h1::t1) =
+  do
+    h <- f h0 h1;
+    t <- result_mmap2 f t0 t1;
+    return (h::t)
+  od ∧
+  result_mmap2 _ _ _ = fail «result_mmap2: Lists of different size»
+End
+
+Theorem result_mmap2_len:
+  ∀f xs ys zs.
+    result_mmap2 f xs ys = INR zs ⇒
+    LENGTH zs = LENGTH ys ∧ LENGTH ys = LENGTH xs
+Proof
+  Induct_on ‘xs’ \\ Cases_on ‘ys’
+  \\ gvs [result_mmap2_def, oneline bind_def, CaseEq "sum"]
+  \\ rpt strip_tac
+  \\ res_tac
+  \\ Cases_on ‘zs’ \\ gvs []
+QED
+
 Definition prefix_error_def:
   prefix_error s r =
   (case r of

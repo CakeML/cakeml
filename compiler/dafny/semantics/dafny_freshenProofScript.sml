@@ -573,13 +573,36 @@ Proof
   \\ drule get_member_aux_some \\ gvs []
 QED
 
-(* freshen_exp *)
+(* len_eq lemmas *)
+
 Triviality freshen_exps_len_eq:
   ∀m cnt es cnt' es'.
     freshen_exps m cnt es = (cnt', es') ⇒ LENGTH es = LENGTH es'
 Proof
   Induct_on ‘es’ \\ rpt strip_tac
   \\ gvs [freshen_exp_def] \\ rpt (pairarg_tac \\ gvs[]) \\ res_tac
+QED
+
+Triviality freshen_rhs_exp_len_eq:
+  ∀m cnt rhss cnt' rhss'.
+    freshen_rhs_exps m cnt rhss = (cnt', rhss') ⇒
+    LENGTH rhss' = LENGTH rhss
+Proof
+  Induct_on ‘rhss’ \\ rpt strip_tac
+  \\ gvs [freshen_rhs_exps_def]
+  \\ rpt (pairarg_tac \\ gvs[])
+  \\ res_tac
+QED
+
+Triviality freshen_lhs_exp_len_eq:
+  ∀m cnt lhss cnt' lhss'.
+    freshen_lhs_exps m cnt lhss = (cnt', lhss') ⇒
+    LENGTH lhss' = LENGTH lhss
+Proof
+  Induct_on ‘lhss’ \\ rpt strip_tac
+  \\ gvs [freshen_lhs_exps_def]
+  \\ rpt (pairarg_tac \\ gvs[])
+  \\ res_tac
 QED
 
 (* Proving the main theorems, namely the correctness of the freshen pass. *)
@@ -1113,10 +1136,18 @@ Proof
         \\ imp_res_tac state_rel_mono)
     \\ ‘state_rel s₁ t₁ m cnt₂’ by imp_res_tac state_rel_mono
     \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs [])
-  >~ [‘Assign lhss rhss’] >-
-   (gvs [evaluate_stmt_def, freshen_stmt_def]
+  >~ [‘Assign ass’] >-
+
+   (gvs [evaluate_stmt_def]
+    \\ qabbrev_tac ‘rhss = (MAP SND ass)’
+    \\ qabbrev_tac ‘lhss = (MAP FST ass)’
+    \\ ‘LENGTH rhss = LENGTH lhss’ by (unabbrev_all_tac \\ gvs [])
+    \\ gvs [freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_stmt_def]
+    \\ drule_then assume_tac freshen_rhs_exp_len_eq
+    \\ drule_then assume_tac freshen_lhs_exp_len_eq
+    \\ gvs [MAP_ZIP]
     \\ namedCases_on ‘evaluate_rhs_exps s env rhss’ ["s₁ r"]
     \\ reverse $ namedCases_on ‘r’ ["rhss_v", "err"] \\ gvs []
     \\ rename [‘evaluate_rhs_exps _ _ _ = (s₁, _)’]
@@ -1124,9 +1155,8 @@ Proof
     \\ gvs [] \\ disch_then drule_all \\ rpt strip_tac \\ gvs []
     >- (imp_res_tac freshen_lhs_exps_mono \\ imp_res_tac state_rel_mono)
     \\ rename [‘assign_values s₁ env lhss rhss_v = (s₂,res)’]
-    \\ qspecl_then [‘s₁’, ‘env’, ‘lhss’, ‘rhss_v’, ‘s₂’, ‘res’] mp_tac
-         assign_values_state_rel \\ gvs []
-    \\ disch_then $ drule_all \\ rpt strip_tac \\ gvs [])
+    \\ irule assign_values_state_rel \\ gvs []
+    \\ gvs [SF SFY_ss])
   >~ [‘While grd invs decrs mods body’] >-
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])

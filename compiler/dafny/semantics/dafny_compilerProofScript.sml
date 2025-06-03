@@ -298,26 +298,14 @@ Definition Pstuple_def:
   Pstuple pvars = Pcon NONE pvars
 End
 
-(* TODO Move to result_monad *)
-Definition result_mmap2_def:
-  result_mmap2 f [] [] =
-    return [] ∧
-  result_mmap2 f (h0::t0) (h1::t1) =
-  do
-    h <- f h0 h1;
-    t <- result_mmap2 f t0 t1;
-    return (h::t)
-  od
-End
-
 Definition par_assign_def:
   par_assign lhss rhss =
   do
-    pvars <<- GENLIST (λn. Pvar (cml_tup_vname n)) (LENGTH rhss);
+    vars <<- GENLIST (λn. cml_tup_vname n) (LENGTH rhss);
     ass <- if LENGTH lhss = LENGTH rhss
-           then result_mmap2 assign_single lhss rhss
+           then result_mmap2 assign_single lhss (MAP (Var ∘ Short) vars)
            else return [];
-    return (Mat (Stuple rhss) [Pstuple pvars, Seqs ass])
+    return (Mat (Stuple rhss) [Pstuple (MAP Pvar vars), Seqs ass])
   od
 End
 
@@ -353,10 +341,10 @@ Definition from_stmt_def:
     cml_scope <- from_stmt scope lvl;
     return (cml_new_refs [explode n] cml_scope)
   od ∧
-  from_stmt (Assign lhss rhss) _ =
+  from_stmt (Assign ass) _ =
   do
-    cml_rhss <- result_mmap from_rhs_exp rhss;
-    par_assign lhss cml_rhss
+    cml_rhss <- result_mmap from_rhs_exp (MAP SND ass);
+    par_assign (MAP FST ass) cml_rhss
   od ∧
   from_stmt (While grd _ _ _ body) lvl =
   do
@@ -497,9 +485,9 @@ Definition is_fresh_stmt_def[simp]:
      is_fresh_exp cnd ∧ is_fresh_stmt thn ∧ is_fresh_stmt els) ∧
   (is_fresh_stmt (Dec (n, _) scope) ⇔
      is_fresh n ∧ is_fresh_stmt scope) ∧
-  (is_fresh_stmt (Assign lhss rhss) ⇔
-     EVERY (λlhs. is_fresh_lhs_exp lhs) lhss ∧
-     EVERY (λrhs. is_fresh_rhs_exp rhs) rhss) ∧
+  (is_fresh_stmt (Assign ass) ⇔
+     EVERY (λlhs. is_fresh_lhs_exp lhs) (MAP FST ass) ∧
+     EVERY (λrhs. is_fresh_rhs_exp rhs) (MAP SND ass)) ∧
   (is_fresh_stmt (While grd invs decrs mods body) ⇔
      is_fresh_exp grd ∧
      EVERY (λe. is_fresh_exp e) invs ∧
@@ -2081,7 +2069,8 @@ Theorem correct_map_from_rhs_exp:
     evaluate_rhs_exps s env_dfy rhss_dfy = (s', r_dfy) ∧
     result_mmap from_rhs_exp rhss_dfy = INR es_cml ∧
     state_rel m l s t env_cml ∧ env_rel env_dfy env_cml ∧
-    EVERY is_fresh_rhs_exp rhss_dfy ∧ r_dfy ≠ Rerr Rtype_error ⇒
+    EVERY (λrhs. is_fresh_rhs_exp rhs) rhss_dfy ∧
+    r_dfy ≠ Rerr Rtype_error ⇒
     ∃ck (t': 'ffi cml_state) m' r_cml.
       evaluate$evaluate (t with clock := t.clock + ck) env_cml es_cml =
       (t', r_cml) ∧ refv_same_rel t.refs t'.refs ∧
@@ -2115,6 +2104,41 @@ Proof
   \\ irule_at Any SUBMAP_TRANS \\ gvs [SF SFY_ss]
   \\ irule_at Any submap_val_rel \\ gvs [SF SFY_ss]
 QED
+
+Triviality update_local_some:
+  update_local s var val' = SOME s' ⇒
+  ∃val.
+    read_local s.locals var = SOME val ∧
+    read_local s'.locals var = SOME val'
+Proof
+  cheat
+QED
+
+Triviality is_fresh_neq_cml_tup_vname:
+  is_fresh n ⇒ explode n ≠ cml_tup_vname idx
+Proof
+  rpt strip_tac
+  \\ gvs [is_fresh_def, cml_tup_vname_def, isprefix_isprefix]
+QED
+
+(* Triviality refv_same_rel_lupdate: *)
+(*   ∀xs ys v loc. *)
+(*     refv_same_rel xs ys ⇒ refv_same_rel xs (LUPDATE (Refv v) loc ys) *)
+(* Proof *)
+(*   ho_match_mp_tac refv_same_rel_ind *)
+(*   \\ rpt strip_tac *)
+(*   \\ gvs [refv_same_rel_def] *)
+(*   \\ Cases_on ‘loc’ \\ gvs [LUPDATE_DEF] *)
+(* QED *)
+
+Definition store_rel_def:
+  store_rel m l t_refs t'_refs ⇔
+    ∀i.
+      (* For any location in the old store, that was not a location for arrays,
+         nor one of my locals, the value has not changed *)
+      i ∉ FRANGE m ∧ i ∉ FRANGE l ∧ i < LENGTH t_refs ⇒
+      store_lookup loc t_refs = store_lookup loc t_refs
+End
 
 Theorem correct_from_stmt:
   ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l.
@@ -2195,10 +2219,66 @@ Proof
    (gvs [evaluate_stmt_def, from_stmt_def, mk_id_def, evaluate_def,
          do_con_check_def, env_rel_def, has_basic_cons_def, build_conv_def]
     \\ qexistsl [‘0’, ‘m’] \\ gvs [])
-  >~ [‘Assign lhss rhss’] >-
+  >~ [‘Assign ass’] >-
 
    (gvs [evaluate_stmt_def]
-    \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"]
+    \\ qabbrev_tac ‘rhss = (MAP SND ass)’
+    \\ qabbrev_tac ‘lhss = (MAP FST ass)’
+    \\ namedCases_on ‘evaluate_rhs_exps s env_dfy rhss’ ["s₁ r"] \\ gvs []
+    \\ gvs [from_stmt_def, par_assign_def, oneline bind_def, CaseEq "sum"]
+    \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ drule_all correct_map_from_rhs_exp
+    \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’, ‘m₁’] mp_tac \\ rpt strip_tac
+    \\ Cases_on ‘LENGTH rhss = 1’ \\ gvs []
+
+    >- (* Simple assignment *)
+     (drule_then assume_tac result_mmap_len \\ gvs [LENGTH_EQ_1]
+      \\ drule_then assume_tac result_mmap2_len \\ gvs [LENGTH_EQ_1]
+      \\ unabbrev_all_tac
+      \\ rename [‘is_fresh_rhs_exp (SND h)’]
+      \\ namedCases_on ‘h’ ["lhs rhs"] \\ gvs []
+      \\ rename [‘result_mmap _ _ = INR [rhs_cml]’,
+                 ‘result_mmap2 _ _ _ = INR [ass_cml]’]
+      \\ gvs [result_mmap2_def, oneline bind_def, CaseEq "sum"]
+      \\ gvs [evaluate_def, Stuple_def, Pstuple_def]
+      \\ reverse $ namedCases_on ‘r’ ["rhs_vs", "err"] \\ gvs []
+      >- (qexistsl [‘ck’, ‘t₁’, ‘m₁’] \\ gvs [])
+      \\ drule_then assume_tac evaluate_rhs_exps_len_eq
+      \\ gvs [LENGTH_EQ_1]
+      \\ rename [‘evaluate_rhs_exps _ _ _ = (_, Rval [rhs_v])’,
+                 ‘evaluate _ _ _ = (_, Rval [rhs_v_cml])’]
+      \\ gvs [assign_values_def]
+      \\ namedCases_on ‘lhs’ ["var", "arr idx"] \\ gvs []
+
+      >- (* Variable assignment *)
+       (qexists ‘ck’
+        \\ gvs [assign_value_def, can_pmatch_all_def, pmatch_def,
+                pat_bindings_def, Seqs_def]
+
+        \\ namedCases_on ‘update_local s₁ var rhs_v’ ["", "s₂"] \\ gvs []
+
+        \\ gvs [assign_single_def]
+
+        \\ gvs [evaluate_def, do_con_check_def, build_conv_def]
+
+        \\ drule update_local_some
+        \\ disch_then $ qx_choose_then ‘old_val’ assume_tac \\ gvs []
+
+        \\ drule is_fresh_neq_cml_tup_vname
+        \\ disch_then $ qspec_then ‘0’ assume_tac \\ gvs []
+
+        \\ rev_drule_all read_local_some_imp
+        \\ disch_then $ qx_choosel_then [‘loc_cml’, ‘old_cml_v’] assume_tac
+        \\ gvs []
+        \\ gvs [do_app_def]
+        \\ gvs [store_lookup_def, store_assign_def, store_v_same_type_def]
+
+        \\ qexists ‘m’
+       )
+
+     )
+
+
    )
   >~ [‘Dec local scope’] >-
    (namedCases_on ‘local’ ["n ty"] \\ gvs []

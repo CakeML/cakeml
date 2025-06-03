@@ -126,10 +126,10 @@ Definition freshen_stmt_def:
    let (cnt, m) = add_fresh m cnt old in
    let (cnt, scope) = freshen_stmt m cnt scope in
      (cnt, Dec (lookup m old, vt) scope)) ∧
-  (freshen_stmt m cnt (Assign lhss rhss) =
-   let (cnt, rhss) = freshen_rhs_exps m cnt rhss in
-   let (cnt, lhss) = freshen_lhs_exps m cnt lhss in
-     (cnt, Assign lhss rhss)) ∧
+  (freshen_stmt m cnt (Assign ass) =
+   let (cnt, rhss) = freshen_rhs_exps m cnt (MAP SND ass) in
+   let (cnt, lhss) = freshen_lhs_exps m cnt (MAP FST ass) in
+     (cnt, Assign (ZIP (lhss, rhss)))) ∧
   (freshen_stmt m cnt (While grd invs decrs mods body) =
    let (cnt, grd) = freshen_exp m cnt grd in
    let (cnt, invs) = freshen_exps m cnt invs in

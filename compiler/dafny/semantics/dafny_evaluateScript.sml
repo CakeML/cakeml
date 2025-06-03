@@ -298,10 +298,10 @@ Definition evaluate_stmt_ann_def[nocompute]:
    (case pop_local st₁ of
     | NONE => (st₁, res)
     | SOME st₂ => (st₂, res))) ∧
-  evaluate_stmt st₀ env (Assign lhss rhss) =
-  (case evaluate_rhs_exps st₀ env rhss of
+  evaluate_stmt st₀ env (Assign ass) =
+  (case evaluate_rhs_exps st₀ env (MAP SND ass) of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
-   | (st₁, Rval vals) => assign_values st₁ env lhss vals) ∧
+   | (st₁, Rval vals) => assign_values st₁ env (MAP FST ass) vals) ∧
   evaluate_stmt st₀ env (While guard invs decrs mods body) =
   (case evaluate_exp st₀ env guard of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))

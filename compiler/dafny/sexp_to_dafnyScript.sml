@@ -415,12 +415,24 @@ Definition to_rhs_exp_def:
    od)
 End
 
-Definition to_rhs_exp_list_def:
-  to_rhs_exp_list se =
-  (let here = extend_path «» «to_rhs_exp_list» in
+Definition to_lhs_rhs_exp_tup_def:
+  to_lhs_rhs_exp_tup se =
+  (let here = extend_path «» «to_lhs_rhs_exp_tup» in
    do
-     es <- prefix_error here (dest_expr se);
-     prefix_error here (result_mmap to_rhs_exp es)
+     tup <- prefix_error here (dest_expr se);
+     (lhs, rhs) <- prefix_error here (dest2 tup);
+     lhs <- prefix_error here (to_lhs_exp lhs);
+     rhs <- prefix_error here (to_rhs_exp rhs);
+     return (lhs, rhs)
+   od)
+End
+
+Definition to_lhs_rhs_exp_tup_list_def:
+  to_lhs_rhs_exp_tup_list se =
+  (let here = extend_path «» «to_lhs_rhs_exp_tup_list» in
+   do
+     lst <- prefix_error here (dest_expr se);
+     prefix_error here (result_mmap to_lhs_rhs_exp_tup lst)
    od)
 End
 
@@ -472,10 +484,9 @@ Definition to_statement_def:
             od)
        else if (cns = «Assign») then
          do
-           (lhss, rhss) <- prefix_error here (dest2 args);
-           lhss <- prefix_error here (to_lhs_exp_list lhss);
-           rhss <- prefix_error here (to_rhs_exp_list rhss);
-           return (Assign lhss rhss)
+           ass <- prefix_error here (dest1 args);
+           ass <- prefix_error here (to_lhs_rhs_exp_tup_list ass);
+           return (Assign ass)
          od
        else if (cns = «While») then
          (case dest5 args of

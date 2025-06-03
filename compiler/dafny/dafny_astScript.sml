@@ -77,7 +77,7 @@ Datatype:
   (* Dec local scope
      - scope also contains possible assignments *)
   | Dec (mlstring # type) statement
-  | Assign (lhs_exp list) (rhs_exp list)
+  | Assign ((lhs_exp # rhs_exp) list)
   (* While guard invariants decreases mod body *)
   | While exp (exp list) (exp list) (exp list) statement
   | Print exp type

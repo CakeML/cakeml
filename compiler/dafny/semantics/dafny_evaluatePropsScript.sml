@@ -107,4 +107,15 @@ Proof
   \\ imp_res_tac evaluate_rhs_exps_locals \\ gvs []
 QED
 
+(* evaluating x elements successfully results in x values *)
+
+Theorem evaluate_rhs_exps_len_eq:
+  ∀s env es s' vs.
+    evaluate_rhs_exps s env es = (s', Rval vs) ⇒ LENGTH vs = LENGTH es
+Proof
+  Induct_on ‘es’ \\ rpt strip_tac
+  \\ gvs [evaluate_rhs_exps_def, AllCaseEqs()]
+  \\ res_tac
+QED
+
 val _ = export_theory ();
