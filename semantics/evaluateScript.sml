@@ -125,7 +125,8 @@ Definition evaluate_def[nocompute]:
         (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
           NONE => (st', Rerr (Rabort Rtype_error))
         | SOME ((refs,ffi),r) =>
-            (( st' with<| refs := refs; ffi := ffi |>), list_result r))))
+            (( st' with<| refs := refs; ffi := ffi |>), list_result r)))
+    | res => res)
   ∧
   evaluate st env [Log lop e1 e2] =
     (case fix_clock st (evaluate st env [e1]) of
@@ -252,7 +253,6 @@ Termination
          | INR(INR (s,_,ds)) => (s.clock,list_size dec_size ds))’
   \\ rw [do_if_def,do_log_def,do_eval_res_def,dec_clock_def]
   \\ imp_res_tac fix_clock_IMP \\ fs []
-  \\ fs [listTheory.list_size_def,dec_size_eq,exp_size_eq,list_size_REVERSE]
 End
 
 (* tidy up evalute_def and evaluate_ind *)
@@ -268,7 +268,7 @@ Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   gvs [AllCaseEqs()] >>
   fs[dec_clock_def,fix_clock_def] >> simp[] >>
-  imp_res_tac fix_clock_IMP >> fs[shift_fp_opts_def] >>
+  imp_res_tac fix_clock_IMP >> fs[] >>
   COND_CASES_TAC >> gs[]
 QED
 
@@ -290,18 +290,8 @@ Proof
   \\ fs [arithmeticTheory.MIN_DEF,state_component_equality]
 QED
 
-Theorem fix_clock_fp_state:
-  fix_clock st (evaluate (st with fp_state := newFpState) env [e]) =
-    evaluate (st with fp_state := newFpState) env [e]
-Proof
-  qmatch_goalsub_abbrev_tac ‘evaluate newSt env [e]’
-  \\ Cases_on ‘evaluate newSt env [e]’ \\ gs[fix_clock_def]
-  \\ imp_res_tac evaluate_clock \\ unabbrev_all_tac
-  \\ gs[arithmeticTheory.MIN_DEF,state_component_equality]
-QED
-
 Theorem full_evaluate_def[compute] =
-  REWRITE_RULE [fix_clock_evaluate, fix_clock_do_eval_res, fix_clock_fp_state] evaluate_def;
+  REWRITE_RULE [fix_clock_evaluate, fix_clock_do_eval_res] evaluate_def;
 
 Theorem full_evaluate_ind =
   REWRITE_RULE [fix_clock_evaluate, fix_clock_do_eval_res] evaluate_ind;

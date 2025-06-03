@@ -86,16 +86,6 @@ Definition semantics_def:
       else IllTyped
 End
 
-Definition semantics_nondet_def:
-  semantics_nondet state prelude input =
-  case parse (lexer_fun input) of
-  | NONE => CannotParse
-  | SOME prog =>
-    if can_type_prog state (prelude ++ prog)
-    then Execute { b | ? fpConf. b IN (semantics_prog (state.sem_st with fp_state:= fpConf) state.sem_env (prelude ++ prog))}
-    else IllTyped
-End
-
 Definition semantics_init_def:
   semantics_init ffi =
     semantics <| sem_st := FST (THE (prim_sem_env ffi));
