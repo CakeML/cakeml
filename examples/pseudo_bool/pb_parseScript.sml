@@ -34,6 +34,53 @@ Definition pbc_string_def:
       int_to_string #"-" i; strlit " ;\n"])
 End
 
+Definition annot_pbc_string_def:
+  annot_pbc_string (annot,str) =
+    let s = pbc_string str in
+      case annot of NONE => s
+      | SOME l =>
+      concat [ strlit"@";l; strlit" ";s]
+End
+
+(* printing a string pbf, possibly with string annotation *)
+Definition obj_string_def:
+  obj_string (f,c:int) =
+  let c_string =
+    if c = 0 then strlit"" else
+    strlit " " ^
+      int_to_string #"-" c in
+  strlit"min: " ^ lhs_string f ^ c_string ^ strlit" ;\n"
+End
+
+Definition pres_string_def:
+  pres_string pres =
+  let c_string =
+    concatWith (strlit" ") pres in
+  strlit"preserve_init " ^ c_string ^ strlit" \n"
+End
+
+(* Problem without annotation *)
+Definition print_prob_def:
+  print_prob (pres,obj,fml) =
+  let obstr = case obj of NONE => [] | SOME fc => [obj_string fc] in
+  let presstr = case pres of NONE => [] | SOME p => [pres_string p] in
+    obstr ++ presstr ++ MAP pbc_string fml
+End
+
+(* Problem without annotation *)
+Definition print_annot_prob_def:
+  print_annot_prob (pres,obj,fml) =
+  let obstr = case obj of NONE => [] | SOME fc => [obj_string fc] in
+  let presstr = case pres of NONE => [] | SOME p => [pres_string p] in
+    obstr ++ presstr ++ MAP annot_pbc_string fml
+End
+
+(* Strips annotations *)
+Definition strip_annot_prob_def:
+  strip_annot_prob (pres,obj,afml) =
+  (pres,obj,MAP SND afml)
+End
+
 (*
   Parse an OPB file as string pbc
 *)
@@ -129,12 +176,30 @@ Definition parse_constraint_def:
       SOME ((op,lhs,deg):mlstring pbc)
 End
 
-(* EVAL ``parse_constraint (toks (strlit "2 ~x1 1 ~x3 >= 1;"))``; *)
+(* strips off the head of a line as an annotation *)
+Definition parse_annot_def:
+  parse_annot line =
+  case line of
+    (INL s)::ls =>
+    if strlen s ≥ 1 ∧ strsub s 0 = #"@" then
+      (SOME (substring s 1 (strlen s - 1)), ls)
+    else (NONE, line)
+  | _ => (NONE, line)
+End
 
+Definition parse_annot_constraint_def:
+  parse_annot_constraint line =
+  case parse_annot line of (annot,line) =>
+    OPTION_MAP (λres. (annot,res)) (parse_constraint line)
+End
+
+(* EVAL ``parse_annot (toks (strlit "2 ~x1 1 ~x3 >= 1;"))``; *)
+(* EVAL ``parse_constraint (toks (strlit "2 ~x1 1 ~x3 >= 1;"))``; *)
+(* EVAL ``parse_annot_constraint (toks (strlit "@asdf 2 ~x1 1 ~x3 >= 1;"))``; *)
 Definition parse_constraints_def:
   (parse_constraints [] acc = SOME (REVERSE acc)) ∧
   (parse_constraints (s::ss) acc =
-    case parse_constraint s of
+    case parse_annot_constraint s of
       NONE => NONE
     | SOME pbc => parse_constraints ss (pbc::acc))
 End
@@ -253,7 +318,7 @@ Definition parse_pbf_toks_def:
   | SOME pbf => SOME (pres,obj,pbf)
 End
 
-(* Parse a list of strings in pbf format *)
+(* Parse a list of strings in annotated pbf format *)
 Definition parse_pbf_def:
   parse_pbf strs = parse_pbf_toks (MAP toks strs)
 End

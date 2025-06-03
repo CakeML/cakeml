@@ -1,5 +1,7 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis $(CAKEMLDIR)/compiler $(CAKEMLDIR)/cv_translator ..
-CLINE_OPTIONS =
+INCLUDES = $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
+					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis/pure $(CAKEMLDIR)/basis\
+					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/characteristic \
+					 $(CAKEMLDIR)/examples/lpr_checker
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
@@ -10,7 +12,5 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
 ifdef POLY
-HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
 endif
-
-cake_xlrup.S: *xlrupCompileScript.sml
