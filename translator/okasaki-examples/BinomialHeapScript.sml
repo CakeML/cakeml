@@ -29,10 +29,6 @@ Definition heap_to_bag_def:
 
 (tree_to_bag (Node _ x hs) =
   BAG_INSERT x (heap_to_bag hs))
-Termination
-  wf_rel_tac `measure (\x. case x of INL x => tree1_size (\x.0) x
-                                  | INR x => tree_size (\x.0) x)` >>
- rw [tree_size_def]
 End
 
 Definition is_heap_ordered_def:
