@@ -229,7 +229,7 @@ Definition evaluate_def:
                 | res => res)
      | res => res)
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure exp2_size)
+  WF_REL_TAC `(inv_image (measure I LEX measure (list_size exp_size))
                           (\(xs,env,s). (s.clock,xs)))`
   >> rpt strip_tac
   >> simp[dec_clock_def]
