@@ -794,6 +794,7 @@ Proof
   \\ qexistsl [‘loc’, ‘cml_v’] \\ gvs []
 QED
 
+(* TODO Better way of writing this? Perhaps using state_fupdcanon? *)
 Triviality with_same_refs_ffi[simp]:
   (t: 'ffi cml_state) with <| refs := t.refs; ffi := t.ffi |> = t
 Proof
@@ -803,6 +804,13 @@ QED
 Triviality with_same_ffi[simp]:
   (t: 'ffi cml_state) with <| clock := c; refs := r; ffi := t.ffi |> =
   t with <| clock := c; refs := r |>
+Proof
+  gvs [semanticPrimitivesTheory.state_component_equality]
+QED
+
+Triviality with_same_ffi1[simp]:
+  (t: 'ffi cml_state) with <| refs := r; ffi := t.ffi |> =
+  t with <| refs := r |>
 Proof
   gvs [semanticPrimitivesTheory.state_component_equality]
 QED
@@ -934,6 +942,7 @@ Proof
   \\ qexists ‘member’ \\ gvs [get_member_def, dest_program_def]
 QED
 
+(* TODO Should we replace refv_same_rel with store_rel? *)
 Definition refv_same_rel_def[simp]:
   (refv_same_rel [] ys ⇔ T) ∧
   (refv_same_rel ((Refv v)::xs) (y::ys) ⇔
@@ -2132,25 +2141,155 @@ QED
 (* QED *)
 
 Definition store_rel_def:
-  store_rel m l t_refs t'_refs ⇔
-    ∀i.
-      (* For any location in the old store, that was not a location for arrays,
-         nor one of my locals, the value has not changed *)
-      i ∉ FRANGE m ∧ i ∉ FRANGE l ∧ i < LENGTH t_refs ⇒
-      store_lookup loc t_refs = store_lookup loc t_refs
+  store_rel base t_refs t'_refs ⇔
+    (* TODO Is this necessary? Can we not infer it from other things we have, like
+       state_rel or so? *)
+    LENGTH t_refs ≤ LENGTH t'_refs ∧
+    (* All references below base are unchanged *)
+    (∀i. i < base ∧ (∃v. store_lookup i t_refs = SOME (Refv v)) ⇒
+             store_lookup i t'_refs = store_lookup i t_refs)
 End
 
+Triviality store_rel_same[simp]:
+  store_rel base xs xs
+Proof
+  gvs [store_rel_def]
+QED
+
+Triviality store_rel_decat:
+  store_rel base (xs ++ ys) zs ⇒ store_rel base xs zs
+Proof
+  gvs [store_rel_def] \\ rpt strip_tac
+  \\ last_x_assum drule
+  \\ impl_tac >-
+   (rename [‘store_lookup i _ = SOME (Refv _)’]
+    \\ qexists ‘v’
+    \\ gvs [store_lookup_def, EL_APPEND])
+  \\ strip_tac \\ gvs []
+  \\ gvs [store_lookup_def, EL_APPEND]
+QED
+
+Triviality store_rel_trans:
+  store_rel base xs ys ∧
+  store_rel base ys zs ⇒
+  store_rel base xs zs
+Proof
+  gvs [store_rel_def] \\ rpt strip_tac \\ res_tac \\ gvs []
+QED
+
+Triviality refv_same_rel_store_rel:
+  ∀xs ys base. refv_same_rel xs ys ⇒ store_rel base xs ys
+Proof
+  ho_match_mp_tac refv_same_rel_ind
+  \\ gvs [refv_same_rel_def, store_rel_def]
+  \\ rpt strip_tac
+  \\ gvs [store_lookup_def]
+  \\ drule_then assume_tac refv_same_rel_len \\ gvs []
+  \\ Cases_on ‘i = 0’ \\ gvs []
+  \\ gvs [EL_CONS]
+  \\ last_x_assum $ qspecl_then [‘base’, ‘PRE i’] mp_tac \\ gvs []
+QED
+
+(* The base can be at most right below our locals or the current length of
+   t_refs. *)
+Definition base_at_most_def:
+  base_at_most base t_refs (l: mlstring |-> num) ⇔
+    (base < LENGTH t_refs ∧ ∀i. i ∈ FRANGE l ⇒ base < i)
+End
+
+Triviality store_rel_base_at_most:
+  store_rel base t.refs t'.refs ∧ base_at_most base t.refs l ⇒
+  base_at_most base t'.refs l
+Proof
+  gvs [base_at_most_def, store_rel_def]
+QED
+
+Triviality refv_same_rel_base_at_most:
+  refv_same_rel t.refs t'.refs ∧ base_at_most base t.refs l ⇒
+  base_at_most base t'.refs l
+Proof
+  rpt strip_tac
+  \\ drule_all refv_same_rel_store_rel
+  \\ disch_then $ qspec_then ‘base’ assume_tac
+  \\ drule_all store_rel_base_at_most \\ gvs []
+QED
+
+Triviality locals_above_extend:
+  base_at_most base t_refs l ⇒
+  base_at_most base (t_refs ++ xs) (l |+ (n, LENGTH t_refs))
+Proof
+  gvs [base_at_most_def] \\ rpt strip_tac \\ gvs []
+  \\ drule_then assume_tac (SRULE [SUBSET_DEF] FRANGE_DOMSUB_SUBSET)
+  \\ gvs []
+QED
+
+Triviality store_rel_lupdate:
+  store_rel base t.refs t₁.refs ∧
+  FLOOKUP l var = SOME loc ∧
+  base_at_most base t.refs l ⇒
+  store_rel base t.refs (LUPDATE v loc t₁.refs)
+Proof
+  gvs [store_rel_def, store_lookup_def, base_at_most_def]
+  \\ rpt strip_tac
+  \\ first_x_assum $ qspec_then ‘loc’ assume_tac
+  \\ gvs [TO_FLOOKUP, SF SFY_ss, EL_LUPDATE]
+QED
+
+Triviality update_local_clock:
+  update_local s var val = SOME s' ⇒ s'.clock = s.clock
+Proof
+  rpt strip_tac \\ gvs [update_local_def, CaseEq "option"]
+QED
+
+Triviality update_local_output:
+  update_local s var val = SOME s' ⇒ s'.output = s.output
+Proof
+  rpt strip_tac \\ gvs [update_local_def, CaseEq "option"]
+QED
+
+Triviality update_local_heap:
+  update_local s var val = SOME s' ⇒ s'.heap = s.heap
+Proof
+  rpt strip_tac \\ gvs [update_local_def, CaseEq "option"]
+QED
+
+Triviality update_local_array_rel:
+Proof
+QED
+
+Triviality state_rel_lupdate:
+  state_rel m l s t env_cml ∧
+  update_local s var rhs_v = SOME s' ∧
+  read_local s'.locals var = SOME rhs_v ∧
+  val_rel m rhs_v rhs_v_cml ∧
+  FLOOKUP l var = SOME loc_cml ⇒
+  state_rel m l s'
+  (t with refs := LUPDATE (Refv rhs_v_cml) loc_cml t.refs) env_cml
+Proof
+  rpt strip_tac
+  \\ gvs [state_rel_def]
+  (* TODO More concise way of writing these rewrites? *)
+  \\ drule_then mp_tac update_local_clock \\ gvs []
+  \\ disch_then kall_tac
+  \\ drule_then mp_tac update_local_output \\ gvs []
+  \\ disch_then kall_tac
+  \\ drule_then mp_tac update_local_heap \\ gvs []
+  \\ disch_then kall_tac
+
+QED
+
 Theorem correct_from_stmt:
-  ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l.
+  ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l base.
     evaluate_stmt s env_dfy stmt_dfy = (s', r_dfy) ∧
     from_stmt stmt_dfy lvl = INR e_cml ∧ state_rel m l s t env_cml ∧
+    base_at_most base t.refs l ∧
     env_rel env_dfy env_cml ∧ is_fresh_stmt stmt_dfy ∧
     no_shadow (set (MAP FST s.locals)) stmt_dfy ∧
     r_dfy ≠ Rstop (Serr Rtype_error)
     ⇒ ∃ck (t': 'ffi cml_state) m' r_cml.
         evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
         (t', r_cml) ∧
-        refv_same_rel t.refs t'.refs ∧ state_rel m' l s' t' env_cml ∧
+        store_rel base t.refs t'.refs ∧ state_rel m' l s' t' env_cml ∧
         m ⊑ m' ∧ stmt_res_rel r_dfy r_cml
 Proof
   ho_match_mp_tac evaluate_stmt_ind
@@ -2180,13 +2319,14 @@ Proof
     \\ disch_then drule
     \\ drule_at (Pos hd) no_shadow_evaluate_stmt
     \\ disch_then drule \\ rpt strip_tac \\ gvs []
+    \\ drule_all_then assume_tac store_rel_base_at_most
     \\ last_x_assum drule_all
     \\ disch_then $ qx_choosel_then [‘ck'’, ‘t₂’, ‘m₂’] mp_tac
     \\ rpt strip_tac \\ gvs []
     \\ rev_drule evaluate_add_to_clock \\ gvs []
     \\ disch_then $ qspec_then ‘ck'’ assume_tac
     \\ qexists ‘ck' + ck’ \\ gvs []
-    \\ irule_at Any refv_same_rel_trans
+    \\ irule_at Any store_rel_trans
     \\ qexistsl [‘t₁.refs’, ‘m₂’] \\ gvs []
     \\ irule_at Any SUBMAP_TRANS \\ gvs [SF SFY_ss])
   >~ [‘If tst thn els’] >-
@@ -2198,7 +2338,9 @@ Proof
     \\ rpt strip_tac \\ gvs []
     \\ gvs [evaluate_def]
     \\ reverse $ namedCases_on ‘r’ ["tst_v", "err"] \\ gvs []
-    >- (qexists ‘ck’ \\ gvs [] \\ qexists ‘m’ \\ gvs [])
+    >- (qexists ‘ck’ \\ gvs []
+        \\ irule_at Any refv_same_rel_store_rel \\ gvs []
+        \\ qexists ‘m’ \\ gvs [])
     \\ namedCases_on ‘do_cond tst_v thn els’ ["", "branch"] \\ gvs []
     \\ gvs [oneline do_cond_def, CaseEq "value"]
     \\ rename [‘Boolv b’] \\ Cases_on ‘b’ \\ gvs []
@@ -2206,6 +2348,7 @@ Proof
     \\ disch_then drule
     \\ drule_at (Pos hd) no_shadow_evaluate_exp
     \\ disch_then drule \\ rpt strip_tac \\ gvs []
+    \\ drule_all_then assume_tac refv_same_rel_base_at_most
     \\ last_x_assum drule_all
     \\ disch_then $ qx_choosel_then [‘ck'’, ‘t₂’, ‘m₁’] mp_tac
     \\ rpt strip_tac \\ gvs []
@@ -2213,12 +2356,57 @@ Proof
     \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
     \\ qexists ‘ck' + ck’ \\ gvs []
     \\ gvs [do_if_def]
-    \\ irule_at Any refv_same_rel_trans
-    \\ qexistsl [‘t₁.refs’, ‘m₁’] \\ gvs [])
+    \\ irule_at Any store_rel_trans
+    \\ qexistsl [‘t₁.refs’, ‘m₁’] \\ gvs []
+    \\ irule_at Any refv_same_rel_store_rel \\ gvs [])
   >~ [‘Return’] >-
    (gvs [evaluate_stmt_def, from_stmt_def, mk_id_def, evaluate_def,
          do_con_check_def, env_rel_def, has_basic_cons_def, build_conv_def]
     \\ qexistsl [‘0’, ‘m’] \\ gvs [])
+  >~ [‘Dec local scope’] >-
+   (namedCases_on ‘local’ ["n ty"] \\ gvs []
+    \\ gvs [evaluate_stmt_def] \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"]
+    \\ rename [‘evaluate_stmt _ _ _ = (s₂, r)’]
+    \\ ‘r_dfy = r’ by gvs [AllCaseEqs()] \\ gvs []
+    \\ drule_then assume_tac evaluate_stmt_locals
+    \\ gvs [declare_local_def]
+    \\ gvs [pop_local_def]
+    \\ namedCases_on ‘s₂.locals’ ["", "hd tl"] \\ gvs []
+    \\ namedCases_on ‘hd’ ["n nv"] \\ gvs []
+    \\ last_x_assum drule
+    \\ disch_then $
+         qspecl_then
+           [‘t with refs := t.refs ++ [Refv (Litv (IntLit 0))]’,
+            ‘env_cml with v :=
+               nsOptBind (SOME (explode n)) (Loc T (LENGTH t.refs)) env_cml.v’,
+            ‘m’,
+            ‘l |+ (n, (LENGTH t.refs))’,
+            ‘base’]
+           mp_tac
+    \\ impl_tac
+    >- (gvs [state_rel_def]
+        \\ irule_at Any array_rel_append \\ gvs []
+        \\ irule_at Any locals_rel_extend \\ gvs []
+        \\ irule_at Any env_rel_nsOptBind \\ gvs []
+        \\ irule locals_above_extend \\ gvs [])
+    \\ disch_then $ qx_choosel_then [‘ck’, ‘t₂’, ‘m₁’] mp_tac
+    \\ rpt strip_tac \\ gvs []
+    \\ qexists ‘ck’
+    \\ gvs [cml_new_refs_def]
+    \\ gvs [evaluate_def, do_app_def, store_alloc_def]
+    \\ drule store_rel_decat \\ rpt strip_tac \\ gvs []
+    \\ qexists ‘m₁’ \\ gvs []
+    \\ gvs [state_rel_def]
+    \\ gvs [locals_rel_def]
+    \\ rpt strip_tac
+    >- (first_x_assum drule \\ gvs [store_rel_def])
+    \\ ‘¬MEM n (MAP FST tl)’ by gvs []
+    \\ drule_all read_local_cons
+    \\ disch_then $ qspec_then ‘nv’ assume_tac \\ gvs []
+    \\ first_x_assum drule_all
+    \\ disch_then $ qx_choosel_then [‘loc’, ‘cml_v’] assume_tac
+    \\ gvs [FLOOKUP_SIMP])
   >~ [‘Assign ass’] >-
 
    (gvs [evaluate_stmt_def]
@@ -2242,7 +2430,8 @@ Proof
       \\ gvs [result_mmap2_def, oneline bind_def, CaseEq "sum"]
       \\ gvs [evaluate_def, Stuple_def, Pstuple_def]
       \\ reverse $ namedCases_on ‘r’ ["rhs_vs", "err"] \\ gvs []
-      >- (qexistsl [‘ck’, ‘t₁’, ‘m₁’] \\ gvs [])
+      >- (qexistsl [‘ck’, ‘t₁’, ‘m₁’] \\ gvs []
+          \\ irule refv_same_rel_store_rel \\ gvs [])
       \\ drule_then assume_tac evaluate_rhs_exps_len_eq
       \\ gvs [LENGTH_EQ_1]
       \\ rename [‘evaluate_rhs_exps _ _ _ = (_, Rval [rhs_v])’,
@@ -2254,74 +2443,31 @@ Proof
        (qexists ‘ck’
         \\ gvs [assign_value_def, can_pmatch_all_def, pmatch_def,
                 pat_bindings_def, Seqs_def]
-
         \\ namedCases_on ‘update_local s₁ var rhs_v’ ["", "s₂"] \\ gvs []
-
         \\ gvs [assign_single_def]
-
         \\ gvs [evaluate_def, do_con_check_def, build_conv_def]
-
         \\ drule update_local_some
         \\ disch_then $ qx_choose_then ‘old_val’ assume_tac \\ gvs []
-
         \\ drule is_fresh_neq_cml_tup_vname
         \\ disch_then $ qspec_then ‘0’ assume_tac \\ gvs []
-
         \\ rev_drule_all read_local_some_imp
         \\ disch_then $ qx_choosel_then [‘loc_cml’, ‘old_cml_v’] assume_tac
         \\ gvs []
         \\ gvs [do_app_def]
         \\ gvs [store_lookup_def, store_assign_def, store_v_same_type_def]
+        \\ qexists ‘m₁’
+        \\ irule_at Any store_rel_lupdate
+        \\ irule_at Any refv_same_rel_store_rel
+        \\ qexistsl [‘var’, ‘l’] \\ gvs []
+        \\ irule state_rel_lupdate \\ gvs [SF SFY_ss]
 
-        \\ qexists ‘m’
+
        )
 
      )
 
 
    )
-  >~ [‘Dec local scope’] >-
-   (namedCases_on ‘local’ ["n ty"] \\ gvs []
-    \\ gvs [evaluate_stmt_def] \\ rpt (pairarg_tac \\ gvs [])
-    \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"]
-    \\ rename [‘evaluate_stmt _ _ _ = (s₂, r)’]
-    \\ ‘r_dfy = r’ by gvs [AllCaseEqs()] \\ gvs []
-    \\ drule_then assume_tac evaluate_stmt_locals
-    \\ gvs [declare_local_def]
-    \\ gvs [pop_local_def]
-    \\ namedCases_on ‘s₂.locals’ ["", "hd tl"] \\ gvs []
-    \\ namedCases_on ‘hd’ ["n nv"] \\ gvs []
-    \\ last_x_assum drule
-    \\ disch_then $
-         qspecl_then
-           [‘t with refs := t.refs ++ [Refv (Litv (IntLit 0))]’,
-            ‘env_cml with v :=
-               nsOptBind (SOME (explode n)) (Loc T (LENGTH t.refs)) env_cml.v’,
-            ‘m’,
-            ‘l |+ (n, (LENGTH t.refs))’]
-           mp_tac
-    \\ impl_tac
-    >- (gvs [state_rel_def]
-        \\ irule_at Any array_rel_append \\ gvs []
-        \\ irule_at Any locals_rel_extend \\ gvs []
-        \\ irule_at Any env_rel_nsOptBind \\ gvs [])
-    \\ disch_then $ qx_choosel_then [‘ck’, ‘t₂’, ‘m₁’] mp_tac
-    \\ rpt strip_tac \\ gvs []
-    \\ qexists ‘ck’
-    \\ gvs [cml_new_refs_def]
-    \\ gvs [evaluate_def, do_app_def, store_alloc_def]
-    \\ drule refv_same_rel_decat \\ rpt strip_tac \\ gvs []
-    \\ qexists ‘m₁’ \\ gvs []
-    \\ gvs [state_rel_def]
-    \\ gvs [locals_rel_def]
-    \\ rpt strip_tac
-    >- (first_x_assum drule \\ drule refv_same_rel_len \\ gvs [])
-    \\ ‘¬MEM n (MAP FST tl)’ by gvs []
-    \\ drule_all read_local_cons
-    \\ disch_then $ qspec_then ‘nv’ assume_tac \\ gvs []
-    \\ first_x_assum drule_all
-    \\ disch_then $ qx_choosel_then [‘loc’, ‘cml_v’] assume_tac
-    \\ gvs [FLOOKUP_SIMP])
   >~ [‘While grd _ _ _ body’] >-
    (cheat)
   >~ [‘Print e t’] >-
