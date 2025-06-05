@@ -112,18 +112,6 @@ Definition nsMap_alt_def:
   nsMap_alt data (Bind v m) = Bind (MAP (λ(n,x). (n,(x,data))) v) (nsMap_alts data m) ∧
   nsMap_alts data [] = [] ∧
   nsMap_alts data ((x,y)::xs) = (x,nsMap_alt data y)::nsMap_alts data xs
-Termination
-  wf_rel_tac ‘measure $ λx.
-                case x of
-                  INL (f,y) => namespace_size (K 0) (K 0) (K 0) y
-                | INR (f,xs) => list_size (namespace_size (K 0) (K 0) (K 0) o SND) xs’ >>
-  rw[namespaceTheory.namespace_size_eq] >>
-  qmatch_goalsub_abbrev_tac ‘a1 < a2 + _’ >>
-  ‘a1 ≤ a2’ suffices_by rw[] >>
-  unabbrev_all_tac >>
-  irule list_size_mono >>
-  Cases >>
-  rw[basicSizeTheory.pair_size_def]
 End
 
 Theorem nsMap_alt_thm:
@@ -414,8 +402,6 @@ Definition exh_pat_alt_def:
   exh_pat_alt _ = F ∧
   exh_pats_alt [] = T ∧
   exh_pats_alt (x::xs) = (exh_pat_alt x ∧ exh_pats_alt xs)
-Termination
-  wf_rel_tac ‘measure $ λx. sum_CASE x pat_size (list_size pat_size)’
 End
 
 val _ = cv_trans exh_pat_alt_def
@@ -539,12 +525,6 @@ Definition compile_exp_alt_def:
     let j = max_dec_name (pat_bindings p []) in
     let (k, sgp, ps2) = compile_match_alt cfg ps in
     (MAX i (MAX j k), sgx \/ sgp, ((p, y) :: ps2)))
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (_, x) => exp_size x
-    | INR (INL (_, xs)) => exp6_size xs
-    | INR (INR (INL (_, ps))) => exp1_size ps
-    | INR (INR (INR (_, ps))) => exp3_size ps)`
-  \\ rw [flatLangTheory.exp_size_def]
 End
 
 (* TODO: move *)
@@ -705,12 +685,7 @@ Definition is_pure_alt_def:
     (is_pure_alts (x::xs) = (is_pure_alt x ∧ is_pure_alts xs))
 Termination
   WF_REL_TAC `measure (λ e . sum_CASE e exp_size $ list_size exp_size)` >>
-  rw[flatLangTheory.exp3_size] >>
-  ‘list_size exp_size (MAP SND pes) ≤ LENGTH pes + (SUM (MAP exp5_size pes))’
-    suffices_by gvs[] >>
-  Induct_on ‘pes’ >>
-  rw[list_size_def,ADD1] >>
-  rename1 ‘SND xx’ >> Cases_on ‘xx’ >> rw[flatLangTheory.exp_size_def]
+  rw[list_size_pair_size_MAP_FST_SND]
 End
 
 val pre = cv_auto_trans_pre_rec is_pure_alt_def
@@ -757,8 +732,6 @@ Definition is_hidden_alt_def:
     (is_hidden_alt _ = F) ∧
     (is_hidden_alts [] = T) ∧
     (is_hidden_alts (x::xs) = (is_hidden_alt x ∧ is_hidden_alts xs))
-Termination
-  WF_REL_TAC `measure (λ e . sum_CASE e exp_size (list_size exp_size))`
 End
 
 val pre = cv_trans_pre is_hidden_alt_def
@@ -855,27 +828,16 @@ Definition flat_to_clos_compile_alt_def:
   (flat_to_clos_compile_lets_alt m [] = []) /\
   (flat_to_clos_compile_lets_alt m ((f,v,x)::xs) = (1, flat_to_clos_compile_alt (SOME v :: m) x) :: flat_to_clos_compile_lets_alt m xs)
 Termination
-  wf_rel_tac ‘measure $ λx.
+  WF_REL_TAC ‘measure $ λx.
              case x of
                INL (m, e) => list_size exp_size e
              | INR (INL (m,e)) => exp_size e
              | INR (INR (m,e)) => list_size (exp_size o SND o SND) e’ >>
-  rw[flatLangTheory.exp1_size,flatLangTheory.exp6_size,
-     list_size_thm
-    ] >>
+  rw[list_size_pair_size_MAP_FST_SND] >>
   gvs[oneline flat_to_closTheory.dest_pat_def,AllCaseEqs(),
       oneline flat_to_closTheory.dest_nop_def,
-      flatLangTheory.op_size_def,
-      MAP_REVERSE,SUM_REVERSE,SUM_APPEND,
-      flatLangTheory.exp_size_def
-     ] >>
-  qmatch_goalsub_abbrev_tac ‘SUM (MAP a1 funs)’ >>
-  ‘SUM(MAP a1 funs) ≤ SUM (MAP exp2_size funs)’
-    suffices_by gvs[] >>
-  unabbrev_all_tac >>
-  irule SUM_MAP_same_LE >>
-  simp[EVERY_MEM,FORALL_PROD] >>
-  rw[flatLangTheory.exp_size_def]
+      MAP_REVERSE,SUM_REVERSE,SUM_APPEND
+     ]
 End
 
 val _ = cv_auto_trans flat_to_closTheory.dest_nop_def
@@ -1023,15 +985,8 @@ Definition exp_size_alt_def:
 Termination
   WF_REL_TAC `measure $ λx. case x of
                               INL e => exp_size e
-                            | INR es => exp3_size es` >>
-  rpt strip_tac >>
-  sg ‘∀x. closLang$exp3_size(MAP SND x) ≤ exp1_size x’
-  >- (Induct
-      >- rw[closLangTheory.exp_size_def] >>
-      Cases >> rw[closLangTheory.exp_size_def]) >>
-  irule LESS_EQ_LESS_TRANS >>
-  first_x_assum $ irule_at $ Pos last >>
-  rw[]
+                            | INR es => list_size exp_size es` >>
+  rw[list_size_pair_size_MAP_FST_SND]
 End
 
 val pre = cv_auto_trans_pre_rec exp_size_alt_def
@@ -1216,11 +1171,8 @@ Definition get_size_sc_aux_alt_def:
        let n = get_size_sc_aux_alt n x in if n = 0 then n else
          get_size_sc_aux_alts n xs)
 Termination
-  WF_REL_TAC `measure $ λx. sum_CASE x (exp_size o SND) (exp3_size o SND)`
-  \\ simp [] \\ rpt strip_tac
-  \\ `exp3_size (MAP SND fns) <= exp1_size fns`
-     by (Induct_on `fns` \\ simp [closLangTheory.exp_size_def] \\ Cases \\ simp [closLangTheory.exp_size_def])
-  \\ simp []
+  WF_REL_TAC `measure $ λx. sum_CASE x (exp_size o SND) (list_size exp_size o SND)`
+  \\ rw[list_size_pair_size_MAP_FST_SND]
 End
 
 val pre = cv_auto_trans_pre_rec get_size_sc_aux_alt_def
@@ -1312,16 +1264,9 @@ Definition free_alt_def:
 Termination
   WF_REL_TAC `measure $ λa. case a of
                             | INL x => closLang$exp_size x
-                            | INR(INL xs) => exp3_size xs
-                            | INR(INR(_,xs)) => exp3_size (MAP SND xs)` >>
-  rw[] >> gvs[closLangTheory.exp_size_eq,list_size_def] >>
-  ‘list_size exp_size (MAP SND fns) ≤ list_size (pair_size (λx. x) exp_size) fns’
-    suffices_by simp[] >>
-  Induct_on ‘fns’ >>
-  simp[list_size_def] >>
-  Cases >>
-  rw[] >>
-  rw[basicSizeTheory.pair_size_def]
+                            | INR(INL xs) => list_size exp_size xs
+                            | INR(INR(_,xs)) => list_size exp_size (MAP SND xs)` >>
+  rw[list_size_pair_size_MAP_FST_SND]
 End
 
 val pre = cv_auto_trans_pre free_alt_def
@@ -1432,8 +1377,6 @@ Definition merge_alt_def:
   (merge_alts (x::xs) (y::ys) =
    merge_alt x y::merge_alts xs ys) ∧
   (merge_alts _ _ = [])
-Termination
-  wf_rel_tac ‘measure $ λx. sum_CASE x (val_approx_size o FST) (val_approx1_size o FST)’
 End
 
 val pre = cv_auto_trans_pre merge_alt_def
@@ -1659,9 +1602,9 @@ Termination
   wf_rel_tac `inv_image (measure I LEX measure I)
                         (λx. case x of
                                INL (c,_,x,vs,g) => (c, closLang$exp_size x)
-                             | INR(INL (c,_,xs,vs,g)) => (c, closLang$exp3_size xs)
-                             | INR(INR (clos,vs,c,_,g,xs)) => (c, closLang$exp1_size xs))`
-  \\ simp [clos_knownTheory.dec_inline_factor_def] \\ rpt strip_tac
+                             | INR(INL (c,_,xs,vs,g)) => (c, list_size closLang$exp_size xs)
+                             | INR(INR (clos,vs,c,_,g,xs)) => (c, list_size (pair_size (λx. x) exp_size) xs))`
+  \\ rw[clos_knownTheory.dec_inline_factor_def]
   \\ imp_res_tac decide_inline_alt_LetInline \\ fs []
 End
 
@@ -1792,9 +1735,9 @@ Definition cons_measure_alt_def:
   cons_measures_alt [] = 0 ∧
   cons_measures_alt (x::xs) = cons_measure_alt x + cons_measures_alt xs
 Termination
-  WF_REL_TAC ‘measure $ λx. sum_CASE x exp_size exp3_size’ >>
+  WF_REL_TAC ‘measure $ λx. sum_CASE x exp_size (list_size exp_size)’ >>
   gvs[oneline clos_opTheory.dest_Op_def,AllCaseEqs(),PULL_EXISTS,
-      oneline clos_opTheory.dest_Cons_def,closLangTheory.exp_size_def]
+      oneline clos_opTheory.dest_Cons_def]
 End
 
 val pre = cv_trans_pre_rec cons_measure_alt_def
@@ -2796,7 +2739,6 @@ Termination
                             | INL e => str_tree$str_tree_size e
                             | INR e => list_size str_tree$str_tree_size e’
   \\ rw [] \\ gvs [str_treeTheory.dest_list_def]
-  \\ rpt (pairarg_tac \\ gvs [])
   \\ imp_res_tac dest_list_size_lemma
   \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
 End
