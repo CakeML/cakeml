@@ -2241,8 +2241,9 @@ QED
 Triviality update_local_state_rel:
   update_local s var rhs_v = SOME s' ∧
   state_rel m l s t env_cml ∧
-  read_local s.locals var = SOME old_val ∧
-  read_local s'.locals var = SOME rhs_v ∧
+  (* TODO Can't we just invoke update_local_some here? *)
+  (* read_local s.locals var = SOME old_val ∧ *)
+  (* read_local s'.locals var = SOME rhs_v ∧ *)
   is_fresh var ∧
   val_rel m rhs_v rhs_v_cml ∧
   FLOOKUP l var = SOME loc_cml ⇒
@@ -2318,6 +2319,8 @@ Proof
 
   >- (* Variable assignment *)
    (namedCases_on ‘update_local s var rhs_v’ ["", "s₁"] \\ gvs []
+    (* TODO Do we actually need update_local_some here? What about the
+       next few lines? *)
     \\ drule update_local_some
     \\ disch_then $ qx_choose_then ‘old_val’ assume_tac \\ gvs []
     \\ rev_drule_all read_local_some_imp
