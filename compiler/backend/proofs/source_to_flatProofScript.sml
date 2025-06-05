@@ -613,10 +613,7 @@ Triviality drestrict_lem:
 Proof
   rw [FLOOKUP_EXT, FUN_EQ_THM, FLOOKUP_FUNION] >>
   every_case_tac >>
-  fs [FLOOKUP_DRESTRICT, SUBMAP_DEF] >>
-  fs [FLOOKUP_DEF] >>
-  rw [] >>
-  metis_tac []
+  fs [FLOOKUP_DRESTRICT, SUBMAP_DEF,AllCaseEqs(),FLOOKUP_DEF]
 QED
 
 Theorem v_rel_weak:
@@ -1879,29 +1876,21 @@ Theorem v_rel_do_fpoptimise:
     LIST_REL (v_rel genv) vs vsF ⇒
     LIST_REL (v_rel genv) (do_fpoptimise annot vs) vsF
 Proof
-  measureInduct_on ‘semanticPrimitives$v1_size vs’ >> Cases_on ‘vs’ >>
+  measureInduct_on ‘list_size semanticPrimitives$v_size vs’ >>
+  Cases_on ‘vs’ >>
   fs[LIST_REL_def] >> rpt strip_tac
-  >- (
-   fs[do_fpoptimise_def]) >>
+  >- fs[do_fpoptimise_def] >>
   first_assum (qspec_then ‘t’ assume_tac) >>
   fs[semanticPrimitivesTheory.v_size_def] >>
   simp[Once fpSemPropsTheory.do_fpoptimise_cons] >>
   Cases_on ‘h’ >> simp[do_fpoptimise_def] >>
   fs[Once v_rel_cases]
   >- (
-   first_x_assum (qspec_then ‘l’ assume_tac) >>
-   fs[semanticPrimitivesTheory.v_size_def] >>
-   simp[do_fpoptimise_length])
-  >- (
-   first_x_assum (qspec_then ‘l’ assume_tac) >>
-   fs[semanticPrimitivesTheory.v_size_def])
-  >- (
-   first_x_assum (qspec_then ‘l’ assume_tac) >>
-   fs[semanticPrimitivesTheory.v_size_def])
-  >- (
-   fs[fpSemTheory.compress_word_def])
-  >- (
-   fs[fpSemTheory.compress_bool_def])
+    first_x_assum (qspec_then ‘l’ assume_tac) >>
+    fs[semanticPrimitivesTheory.v_size_def] >>
+    simp[do_fpoptimise_length])
+  >- fs[fpSemTheory.compress_word_def]
+  >- fs[fpSemTheory.compress_bool_def]
 QED
 
 Triviality global_env_inv_append:
