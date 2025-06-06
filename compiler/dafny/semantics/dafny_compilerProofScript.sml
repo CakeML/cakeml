@@ -2163,13 +2163,6 @@ Proof
   \\ gvs []
 QED
 
-Triviality update_local_simp:
-  update_local s var val = SOME s' ⇒
-  s'.clock = s.clock ∧ s'.output = s.output ∧ s'.heap = s.heap
-Proof
-  rpt strip_tac \\ gvs [update_local_def, CaseEq "option"]
-QED
-
 (* TODO Upstream? *)
 Triviality pmatch_list_MAP_Pvar:
   ∀xs vs env refs acc.
@@ -2237,30 +2230,63 @@ Proof
   \\ Cases_on ‘i = loc’ \\ gvs []
 QED
 
-Triviality update_array_some:
+Triviality update_array_some_eqs:
+  update_array s (ArrV len loc) (IntV idx) val = SOME s' ⇒
+  s'.clock = s.clock ∧ s'.output = s.output ∧ s'.locals = s.locals ∧
+  LENGTH s'.heap = LENGTH s.heap ∧
+  ∀loc'. loc' ≠ loc ⇒ LLOOKUP s'.heap loc' = LLOOKUP s.heap loc'
+Proof
+  rpt strip_tac \\ gvs [update_array_def, LLOOKUP_LUPDATE, AllCaseEqs()]
+QED
+
+(* TODO Rename? *)
+Triviality update_array_some_llookup:
   update_array s arr_v idx_v rhs_v = SOME s' ⇒
   ∃len loc idx arr.
     arr_v = ArrV len loc ∧ idx_v = IntV idx ∧ 0 ≤ idx ∧
     LLOOKUP s.heap loc = SOME (HArr arr) ∧
-    Num idx < LENGTH arr
+    Num idx < LENGTH arr ∧
+    LLOOKUP s'.heap loc = SOME (HArr (LUPDATE rhs_v (Num idx) arr))
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [update_array_def, oneline val_to_num_def, LLOOKUP_LUPDATE,
+          AllCaseEqs()]
+  \\ gvs [LLOOKUP_EQ_EL]  (* Needs to come after LLOOKUP_LUPDATE rewrite *)
+  \\ intLib.COOPER_TAC
 QED
 
-(* TODO Clean up names *)
 Triviality update_array_state_rel:
-  update_array s₂ (ArrV arr_len arr_loc) (IntV idx_int) rhs_v = SOME s₃ ∧
-  FLOOKUP m arr_loc = SOME loc_cml ∧
-  store_lookup loc_cml t₂.refs = SOME (Varray varr) ∧
-  val_rel m rhs_v rhs_v_cml ∧
-  state_rel m l s₂ t₂ env_cml ⇒
+  update_array s (ArrV arr_len loc) (IntV idx) v = SOME s' ∧
+  FLOOKUP m loc = SOME loc_cml ∧
+  store_lookup loc_cml t.refs = SOME (Varray varr) ∧
+  LLOOKUP s'.heap loc = SOME (HArr (LUPDATE v (Num idx) harr)) ∧
+  LIST_REL (val_rel m) harr varr ∧
+  val_rel m v v_cml ∧
+  state_rel m l s t env_cml ⇒
   state_rel
-    m l s₃
-    (t₂ with refs :=
-       LUPDATE (Varray (LUPDATE rhs_v_cml (Num idx_int) varr)) loc_cml t₂.refs)
+    m l s'
+    (t with refs :=
+       LUPDATE (Varray (LUPDATE v_cml (Num idx) varr)) loc_cml t.refs)
     env_cml
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [state_rel_def]
+  \\ drule update_array_some_eqs \\ gvs []
+  \\ rpt strip_tac
+  >~ [‘locals_rel _ _ _ _ _ (* g *)’] >-
+   (gvs [locals_rel_def] \\ rpt strip_tac
+    \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
+    \\ gvs [store_lookup_def, EL_LUPDATE]
+    \\ IF_CASES_TAC \\ gvs [])
+  \\ gvs [array_rel_def]
+  \\ qx_gen_tac ‘loc'’ \\ rpt strip_tac \\ gvs []
+  \\ Cases_on ‘loc' = loc’ \\ gvs []
+  >- (gvs [store_lookup_def, EL_LUPDATE]
+      \\ irule EVERY2_LUPDATE_same \\ gvs [])
+  \\ first_x_assum drule \\ rpt strip_tac \\ gvs []
+  \\ first_x_assum drule \\ rpt strip_tac \\ gvs []
+  \\ gvs [store_lookup_def, EL_LUPDATE]
+  \\ IF_CASES_TAC \\ gvs [INJ_DEF, FLOOKUP_DEF]
 QED
 
 Triviality update_local_aux_some:
@@ -2294,17 +2320,6 @@ Proof
   \\ last_x_assum drule \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality update_local_some:
-  update_local s var val = SOME s' ⇒
-  ALOOKUP s'.locals var = SOME (SOME val) ∧
-  (∃ov. ALOOKUP s.locals var = SOME ov) ∧
-  ∀var'. var' ≠ var ⇒ ALOOKUP s'.locals var' = ALOOKUP s.locals var'
-Proof
-  strip_tac
-  \\ irule update_local_aux_some
-  \\ gvs [update_local_def, CaseEq "option"]
-QED
-
 Triviality lookup_locals_some:
   state_rel m l s t env_cml ∧
   ALOOKUP s.locals var = SOME ov ∧ is_fresh var ⇒
@@ -2317,6 +2332,24 @@ Proof
   \\ gvs [state_rel_def, locals_rel_def]
   \\ first_x_assum drule_all
   \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality update_local_some_eqs:
+  update_local s var val = SOME s' ⇒
+  s'.clock = s.clock ∧ s'.output = s.output ∧ s'.heap = s.heap
+Proof
+  rpt strip_tac \\ gvs [update_local_def, CaseEq "option"]
+QED
+
+Triviality update_local_some_alookup:
+  update_local s var val = SOME s' ⇒
+  ALOOKUP s'.locals var = SOME (SOME val) ∧
+  (∃ov. ALOOKUP s.locals var = SOME ov) ∧
+  ∀var'. var' ≠ var ⇒ ALOOKUP s'.locals var' = ALOOKUP s.locals var'
+Proof
+  strip_tac
+  \\ irule update_local_aux_some
+  \\ gvs [update_local_def, CaseEq "option"]
 QED
 
 Triviality update_local_state_rel:
@@ -2332,9 +2365,9 @@ Triviality update_local_state_rel:
   (t with refs := LUPDATE (Refv new_v_cml) loc t.refs) env_cml
 Proof
   rpt strip_tac
-  \\ drule update_local_some \\ rpt strip_tac \\ gvs []
+  \\ drule update_local_some_alookup \\ rpt strip_tac \\ gvs []
   \\ gvs [state_rel_def]
-  \\ drule update_local_simp \\ gvs []
+  \\ drule update_local_some_eqs \\ gvs []
   \\ disch_then kall_tac \\ rpt strip_tac
   >~ [‘array_rel _ _ _’] >-
    (gvs [array_rel_def] \\ rpt strip_tac
@@ -2384,7 +2417,7 @@ Proof
   \\ rename [‘state_rel _ _ _ t _’, ‘assign_values _ _ _ rhs_vs_rest’]
   >- (* Variable assignment *)
    (namedCases_on ‘update_local s var rhs_v’ ["", "s₁"] \\ gvs []
-    \\ drule update_local_some \\ rpt strip_tac \\ gvs []
+    \\ drule update_local_some_alookup \\ rpt strip_tac \\ gvs []
     \\ drule_all lookup_locals_some
     \\ disch_then $ qx_choosel_then [‘loc_cml’, ‘old_v_cml’] mp_tac
     \\ rpt strip_tac \\ gvs []
@@ -2448,7 +2481,7 @@ Proof
     \\ gvs [SF SFY_ss])
   (* Performing the array update *)
   \\ namedCases_on ‘update_array s₂ arr_v idx_v rhs_v’ ["", "s₃"] \\ gvs []
-  \\ drule update_array_some
+  \\ drule update_array_some_llookup
   \\ disch_then $
        qx_choosel_then [‘arr_len’, ‘arr_loc’, ‘idx_int’, ‘harr’] assume_tac
   \\ gvs []
