@@ -623,16 +623,16 @@ Definition locals_rel_def:
   locals_rel m (l: mlstring |-> num) s_locals t_refs (env_cml: cml_env) ⇔
     INJ (λx. l ' x) (FDOM l) 𝕌(:num) ∧
     (∀i. i ∈ FRANGE l ⇒ i < LENGTH t_refs) ∧
-    ∀var dfy_v.
-      (* SOME dfy_v means that the local was initialized *)
-      read_local s_locals var = (SOME dfy_v) ∧
+    ∀var dfy_ov.
+      (* dfy_v may be uninitialized *)
+      ALOOKUP s_locals var = SOME dfy_ov ∧
       is_fresh var ⇒
       ∃loc cml_v.
         FLOOKUP l var = SOME loc ∧
         (* locals map to references in CakeML *)
         store_lookup loc t_refs = SOME (Refv cml_v) ∧
-        val_rel m dfy_v cml_v ∧
-        nsLookup env_cml.v (Short (explode var)) = SOME (Loc T loc)
+        nsLookup env_cml.v (Short (explode var)) = SOME (Loc T loc) ∧
+        (∀dfy_v. dfy_ov = SOME dfy_v ⇒ val_rel m dfy_v cml_v)
 End
 
 (* TODO *)
@@ -730,7 +730,10 @@ Triviality read_local_some_imp:
     val_rel m dfy_v cml_v ∧
     nsLookup env_cml.v (Short (explode name)) = SOME (Loc T loc)
 Proof
-  gvs [state_rel_def, locals_rel_def]
+  gvs [state_rel_def, read_local_def, locals_rel_def, CaseEq "option"]
+  \\ rpt strip_tac
+  \\ first_x_assum drule_all \\ rpt strip_tac
+  \\ gvs []
 QED
 
 (* TODO Is there a better way to write these nsLookup lemmas? Maybe in a more
@@ -1016,7 +1019,7 @@ Triviality store_preserve_all_locals_rel:
 Proof
   gvs [locals_rel_def, store_preserve_all_def, store_preserve_def]
   \\ rpt strip_tac >- (last_x_assum drule \\ gvs [])
-  \\ qpat_x_assum ‘∀_ _. read_local _ _ = _ ∧ _ ⇒ _’ $ drule_all
+  \\ qpat_x_assum ‘∀_ _. ALOOKUP _ _ = _ ∧ _ ⇒ _’ $ drule_all
   \\ disch_then $ qx_choosel_then [‘loc’, ‘cml_v’] assume_tac \\ gvs []
   \\ qexists ‘cml_v’ \\ gvs []
   \\ gvs [store_lookup_def]
@@ -1230,14 +1233,13 @@ Proof
   \\ gvs [read_local_def]
 QED
 
-Triviality read_local_EL:
+Triviality ALOOKUP_ZIP_SOME_EL:
   ∀(ns: mlstring list) (vs: value list) var val.
-    read_local (ZIP (ns, MAP SOME vs)) var = SOME val ∧
+    ALOOKUP (ZIP (ns, MAP SOME vs)) var = SOME (SOME val) ∧
     ALL_DISTINCT ns ∧ LENGTH vs = LENGTH ns ⇒
     ∃i. var = EL i ns ∧ val = EL i vs ∧ i < LENGTH ns
 Proof
   rpt strip_tac
-  \\ gvs [read_local_def, AllCaseEqs()]
   \\ drule ALOOKUP_find_index_SOME \\ rpt strip_tac
   \\ qexists ‘i’
   \\ gvs [EL_ZIP, find_index_ALL_DISTINCT_EL_eq, EL_MAP, MAP_ZIP]
@@ -1283,9 +1285,19 @@ Proof
   cheat
 QED
 
+Triviality ALOOKUP_ZIP_MAP_SOME_SOME:
+  ALOOKUP (ZIP (ns, MAP SOME vs)) var = SOME ov ∧
+  LENGTH ns = LENGTH vs ⇒
+  ∃v. ov = SOME v
+Proof
+  rpt strip_tac
+  \\ drule ALOOKUP_MEM \\ rpt strip_tac
+  \\ gvs [MEM_ZIP, EL_MAP]
+QED
+
 Triviality flookup_mk_locals_map:
   ∀(s: 'ffi cml_state) env ins in_vs var dfy_v m cml_vs.
-    read_local (ZIP (MAP FST ins, MAP SOME in_vs)) var = SOME dfy_v ∧
+    ALOOKUP (ZIP (MAP FST ins, MAP SOME in_vs)) var = SOME (SOME dfy_v) ∧
     LIST_REL (val_rel m) in_vs cml_vs ∧
     ALL_DISTINCT (MAP FST ins) ∧
     LENGTH in_vs = LENGTH ins ⇒
@@ -1299,7 +1311,7 @@ Triviality flookup_mk_locals_map:
       val_rel m dfy_v cml_v
 Proof
   rpt strip_tac
-  \\ drule_then assume_tac read_local_EL \\ gvs []
+  \\ drule_then assume_tac ALOOKUP_ZIP_SOME_EL \\ gvs []
   \\ qexistsl [‘LENGTH s.refs + i’, ‘EL i cml_vs’]
   \\ gvs [GSYM MAP_MAP_o]
   \\ irule_at Any nsLookup_add_refs_to_env \\ gvs []
@@ -1559,6 +1571,10 @@ Proof
             \\ gvs []
             (* Delete rewriting assumptions we just made *)
             \\ ntac 2 (pop_assum $ kall_tac)
+            \\ ‘ALL_DISTINCT (MAP FST (ZIP (MAP FST ins, MAP SOME in_vs)))’
+              by gvs [MAP_ZIP]
+            \\ gvs [alookup_distinct_reverse]
+            \\ drule ALOOKUP_ZIP_MAP_SOME_SOME \\ rpt strip_tac \\ gvs []
             \\ drule flookup_mk_locals_map
             \\ disch_then drule \\ gvs []
             \\ disch_then $ qspecl_then [‘t₁’, ‘call_env₁’] mp_tac
@@ -1899,8 +1915,9 @@ Proof
       \\ metis_tac [])
   >- (drule (SRULE [SUBSET_DEF] FRANGE_DOMSUB_SUBSET) \\ rpt strip_tac
       \\ last_x_assum drule \\ gvs [])
-  \\ ‘n ≠ var’ by (spose_not_then assume_tac \\ gvs [read_local_def])
-  \\ gvs [read_local_neq]
+  \\ rename [‘is_fresh var’]
+  \\ Cases_on ‘n = var’ \\ gvs []
+  >- (gvs [store_lookup_def, EL_APPEND, FLOOKUP_SIMP])
   \\ last_x_assum drule_all
   \\ rpt strip_tac \\ gvs [FLOOKUP_SIMP]
   \\ gvs [store_lookup_def, EL_APPEND1]
@@ -1989,6 +2006,7 @@ Proof
   >- (last_x_assum drule \\ gvs [])
   \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
   \\ gvs [store_lookup_def, EL_APPEND]
+  \\ rpt strip_tac
   \\ irule submap_val_rel \\ gvs [SF SFY_ss]
 QED
 
@@ -2107,15 +2125,6 @@ Proof
   \\ irule_at Any store_preserve_all_trans \\ gvs []
   \\ irule_at Any SUBMAP_TRANS \\ gvs [SF SFY_ss]
   \\ irule_at Any submap_val_rel \\ gvs [SF SFY_ss]
-QED
-
-Triviality update_local_some:
-  update_local s var val' = SOME s' ⇒
-  ∃val.
-    read_local s.locals var = SOME val ∧
-    read_local s'.locals var = SOME val'
-Proof
-  cheat
 QED
 
 Triviality is_fresh_neq_cml_tup_vname:
@@ -2238,38 +2247,6 @@ Proof
   cheat
 QED
 
-Triviality update_local_state_rel:
-  update_local s var rhs_v = SOME s' ∧
-  state_rel m l s t env_cml ∧
-  (* TODO Can't we just invoke update_local_some here? *)
-  (* read_local s.locals var = SOME old_val ∧ *)
-  (* read_local s'.locals var = SOME rhs_v ∧ *)
-  is_fresh var ∧
-  val_rel m rhs_v rhs_v_cml ∧
-  FLOOKUP l var = SOME loc_cml ⇒
-  state_rel m l s'
-  (t with refs := LUPDATE (Refv rhs_v_cml) loc_cml t.refs) env_cml
-Proof
-  rpt strip_tac
-  \\ gvs [state_rel_def]
-  \\ drule update_local_simp \\ gvs []
-  \\ disch_then kall_tac \\ rpt strip_tac
-  >~ [‘array_rel _ _ _’] >-
-   (gvs [array_rel_def] \\ rpt strip_tac
-    \\ first_x_assum drule \\ rpt strip_tac
-    \\ gvs [store_lookup_def, EL_LUPDATE]
-    \\ IF_CASES_TAC \\ gvs []
-    \\ gvs [locals_rel_def]
-    \\ first_x_assum drule_all
-    \\ rpt strip_tac \\ gvs [store_lookup_def])
-
-  \\ gvs [locals_rel_def]
-  \\ qx_genl_tac [‘var'’, ‘dfy_v’] \\ rpt strip_tac \\ gvs []
-  \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
-  \\ Cases_on ‘var = var'’ \\ gvs []
-  >- (gvs [store_lookup_def, EL_LUPDATE])
-QED
-
 (* TODO Clean up names *)
 Triviality update_array_state_rel:
   update_array s₂ (ArrV arr_len arr_loc) (IntV idx_int) rhs_v = SOME s₃ ∧
@@ -2284,6 +2261,95 @@ Triviality update_array_state_rel:
     env_cml
 Proof
   cheat
+QED
+
+Triviality update_local_aux_some:
+  ∀s_locals var val new_locals.
+    update_local_aux s_locals var val = SOME new_locals ⇒
+    ALOOKUP new_locals var = SOME (SOME val)
+Proof
+  Induct_on ‘s_locals’
+  \\ gvs [update_local_aux_def]
+  \\ rpt strip_tac
+  \\ rename [‘update_local_aux (h::xs) var’]
+  \\ namedCases_on ‘h’ ["x w"] \\ gvs []
+  \\ Cases_on ‘x = var’
+  \\ gvs [update_local_aux_def, AllCaseEqs()]
+QED
+
+Triviality update_local_aux_some:
+  ∀s_locals var val new_locals.
+    update_local_aux s_locals var val = SOME new_locals ⇒
+    ALOOKUP new_locals var = SOME (SOME val) ∧
+    (∃ov. ALOOKUP s_locals var = SOME ov) ∧
+    (∀var'. var' ≠ var ⇒ ALOOKUP new_locals var' = ALOOKUP s_locals var')
+Proof
+  Induct_on ‘s_locals’
+  \\ gvs [update_local_aux_def]
+  \\ qx_genl_tac [‘h’, ‘var’, ‘val’, ‘new_locals’]
+  \\ namedCases_on ‘h’ ["x w"] \\ gvs []
+  \\ rpt strip_tac
+  \\ Cases_on ‘x = var’
+  \\ gvs [update_local_aux_def, CaseEq "option"]
+  \\ last_x_assum drule \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality update_local_some:
+  update_local s var val = SOME s' ⇒
+  ALOOKUP s'.locals var = SOME (SOME val) ∧
+  (∃ov. ALOOKUP s.locals var = SOME ov) ∧
+  ∀var'. var' ≠ var ⇒ ALOOKUP s'.locals var' = ALOOKUP s.locals var'
+Proof
+  strip_tac
+  \\ irule update_local_aux_some
+  \\ gvs [update_local_def, CaseEq "option"]
+QED
+
+Triviality lookup_locals_some:
+  state_rel m l s t env_cml ∧
+  ALOOKUP s.locals var = SOME ov ∧ is_fresh var ⇒
+  ∃loc cml_v.
+    FLOOKUP l var = SOME loc ∧
+    store_lookup loc t.refs = SOME (Refv cml_v) ∧
+    nsLookup env_cml.v (Short (explode var)) = SOME (Loc T loc)
+Proof
+  rpt strip_tac
+  \\ gvs [state_rel_def, locals_rel_def]
+  \\ first_x_assum drule_all
+  \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality update_local_state_rel:
+  update_local s var new_v_dfy = SOME s' ∧
+  is_fresh var ∧
+  state_rel m l s t env_cml ∧
+  FLOOKUP l var = SOME loc ∧
+  store_lookup loc t.refs = SOME (Refv old_v_cml) ∧
+  nsLookup env_cml.v (Short (explode var)) = SOME (Loc T loc) ∧
+  val_rel m new_v_dfy new_v_cml
+  ⇒
+  state_rel m l s'
+  (t with refs := LUPDATE (Refv new_v_cml) loc t.refs) env_cml
+Proof
+  rpt strip_tac
+  \\ drule update_local_some \\ rpt strip_tac \\ gvs []
+  \\ gvs [state_rel_def]
+  \\ drule update_local_simp \\ gvs []
+  \\ disch_then kall_tac \\ rpt strip_tac
+  >~ [‘array_rel _ _ _’] >-
+   (gvs [array_rel_def] \\ rpt strip_tac
+    \\ first_x_assum drule \\ rpt strip_tac
+    \\ gvs [store_lookup_def, EL_LUPDATE]
+    \\ IF_CASES_TAC \\ gvs [])
+  \\ gvs [locals_rel_def]
+  \\ qx_genl_tac [‘var'’] \\ rpt strip_tac \\ gvs []
+  \\ Cases_on ‘var' ≠ var’ \\ gvs []
+  >- (first_x_assum drule \\ rpt strip_tac \\ gvs []
+      \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
+      \\ gvs [store_lookup_def, EL_LUPDATE]
+      \\ IF_CASES_TAC >- (gvs [INJ_DEF, FLOOKUP_DEF])
+      \\ gvs [])
+  \\ gvs [store_lookup_def, EL_LUPDATE]
 QED
 
 Triviality evaluate_assign_values:
@@ -2316,15 +2382,12 @@ Proof
   \\ namedCases_on ‘lhs’ ["var", "arr idx"]
   \\ gvs [assign_single_def, assign_value_def, oneline bind_def, CaseEq "sum"]
   \\ rename [‘state_rel _ _ _ t _’, ‘assign_values _ _ _ rhs_vs_rest’]
-
   >- (* Variable assignment *)
    (namedCases_on ‘update_local s var rhs_v’ ["", "s₁"] \\ gvs []
-    (* TODO Do we actually need update_local_some here? What about the
-       next few lines? *)
-    \\ drule update_local_some
-    \\ disch_then $ qx_choose_then ‘old_val’ assume_tac \\ gvs []
-    \\ rev_drule_all read_local_some_imp
-    \\ disch_then $ qx_choosel_then [‘loc_cml’, ‘old_cml_v’] assume_tac
+    \\ drule update_local_some \\ rpt strip_tac \\ gvs []
+    \\ drule_all lookup_locals_some
+    \\ disch_then $ qx_choosel_then [‘loc_cml’, ‘old_v_cml’] mp_tac
+    \\ rpt strip_tac \\ gvs []
     \\ gvs [evaluate_def, do_app_def, store_assign_def, store_lookup_def,
             store_v_same_type_def]
     \\ last_x_assum drule
@@ -2338,8 +2401,9 @@ Proof
             ‘base’]
            mp_tac
     \\ impl_tac >-
-
-     (irule_at Any update_local_state_rel\\ gvs [base_at_most_def, SF SFY_ss])
+     (irule_at Any update_local_state_rel
+      \\ gvs [base_at_most_def, store_lookup_def]
+      \\ rpt (first_assum $ irule_at Any))
     \\ gvs []
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t'’] mp_tac \\ rpt strip_tac
     \\ qexists ‘ck’ \\ gvs []
@@ -2616,7 +2680,6 @@ Proof
     \\ ‘state_rel m₁ l s₁ t₁ env₁’ by cheat
     \\ ‘base_at_most base t₁.refs l’ by
       (gvs [base_at_most_def, store_preserve_all_def, store_preserve_def])
-    \\
 
     \\ drule evaluate_assign_values
     \\ rpt (disch_then drule)
