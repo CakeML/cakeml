@@ -1340,19 +1340,6 @@ Proof
   cheat
 QED
 
-Triviality list_rel_nslookup_nsappend:
-  ALL_DISTINCT ns ⇒
-  LIST_REL
-    (λn v.
-       nsLookup
-         (nsAppend (alist_to_ns (ZIP (REVERSE ns, vs))) env_v)
-         (Short n) =
-       SOME v)
-    params cml_vs
-Proof
-  cheat
-QED
-
 (* TODO Is this a good way to write this?/Upstream to HOL *)
 Triviality SNOC_HD_REVERSE_TL:
   xs ≠ [] ⇒ SNOC (HD xs) (REVERSE (TL xs)) = REVERSE xs
@@ -1882,15 +1869,15 @@ Proof
     \\ reverse $ Cases_on ‘r’ \\ gvs [evaluate_def])
 QED
 
-Triviality read_local_cons:
-  read_local tl var = SOME dfy_v ∧ ¬MEM n (MAP FST tl) ⇒
-  read_local tl var = read_local ((n,nv)::tl) var ∧ n ≠ var
-Proof
-  rpt strip_tac
-  \\ gvs [read_local_def]
-  \\ Cases_on ‘n = var’
-  \\ gvs [GSYM ALOOKUP_NONE, AllCaseEqs()]
-QED
+(* Triviality read_local_cons: *)
+(*   read_local tl var = SOME dfy_v ∧ ¬MEM n (MAP FST tl) ⇒ *)
+(*   read_local tl var = read_local ((n,nv)::tl) var ∧ n ≠ var *)
+(* Proof *)
+(*   rpt strip_tac *)
+(*   \\ gvs [read_local_def] *)
+(*   \\ Cases_on ‘n = var’ *)
+(*   \\ gvs [GSYM ALOOKUP_NONE, AllCaseEqs()] *)
+(* QED *)
 
 Triviality read_local_neq:
   n ≠ var ⇒ read_local ((n, nv)::s.locals) var = read_local s.locals var
@@ -2180,13 +2167,19 @@ QED
 Triviality Stuple_Tuple:
   LENGTH xs ≠ 1 ⇒ Stuple xs = Tuple xs
 Proof
-  cheat
+  namedCases_on ‘xs’ ["", "x xs'"]
+  \\ gvs [Stuple_def]
+  \\ namedCases_on ‘xs'’ ["", "x' xs''"]
+  \\ gvs [Stuple_def]
 QED
 
 Triviality Pstuple_Tuple:
   LENGTH xs ≠ 1 ⇒ Pstuple xs = Pcon NONE xs
 Proof
-  cheat
+  namedCases_on ‘xs’ ["", "x xs'"]
+  \\ gvs [Pstuple_def]
+  \\ namedCases_on ‘xs'’ ["", "x' xs''"]
+  \\ gvs [Pstuple_def]
 QED
 
 Triviality assign_value_err:
@@ -2539,6 +2532,60 @@ Proof
   cheat
 QED
 
+(* TODO Put constant " arr" into a definition? *)
+Triviality cml_tup_vname_neq_arr:
+  ∀n. cml_tup_vname n ≠ " arr"
+Proof
+  cheat
+QED
+
+(* TODO Oh no. *)
+(* -----------------* *)
+
+(* TODO Upstream? *)
+Triviality LIST_REL_nsLookup_nsAppend:
+  ∀names vals ns.
+    ALL_DISTINCT names ∧
+    LENGTH names = LENGTH vals ⇒
+    LIST_REL
+      (λn v.
+         nsLookup
+           (nsAppend (alist_to_ns (ZIP (names, vals))) ns)
+           (Short n) = SOME v) names vals
+Proof
+  cheat
+QED
+
+Triviality list_rel_nslookup_nsappend:
+  ALL_DISTINCT ns ⇒
+  LIST_REL
+    (λn v.
+       nsLookup
+         (nsAppend (alist_to_ns (ZIP (REVERSE ns, vs))) env_v)
+         (Short n) =
+       SOME v)
+    params cml_vs
+Proof
+  cheat
+QED
+
+(* -----------------* *)
+
+Triviality all_distinct_genlist_cml_tup_vname:
+  ALL_DISTINCT (GENLIST (λn. cml_tup_vname n) len)
+Proof
+  cheat
+QED
+
+Triviality ALL_DISTINCT_pats_bindings:
+  ∀xs ys.
+    ALL_DISTINCT (xs ++ ys) ⇒
+    ALL_DISTINCT (pats_bindings (MAP Pvar xs) ys)
+Proof
+  Induct_on ‘xs’ \\ gvs [pat_bindings_def]
+  \\ rpt strip_tac \\ gvs [ALL_DISTINCT_APPEND]
+QED
+
 Theorem correct_from_stmt:
   ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l base.
     evaluate_stmt s env_dfy stmt_dfy = (s', r_dfy) ∧
@@ -2662,12 +2709,13 @@ Proof
     \\ gvs [locals_rel_def]
     \\ rpt strip_tac
     >- (first_x_assum drule \\ gvs [store_preserve_def])
-    \\ ‘¬MEM n (MAP FST tl)’ by gvs []
-    \\ drule_all read_local_cons
-    \\ disch_then $ qspec_then ‘nv’ assume_tac \\ gvs []
-    \\ first_x_assum drule_all
-    \\ disch_then $ qx_choosel_then [‘loc’, ‘cml_v’] assume_tac
-    \\ gvs [FLOOKUP_SIMP])
+    \\ rename [‘is_fresh var’]
+    \\ ‘n ≠ var’ by
+      (‘¬MEM n (MAP FST tl)’ by gvs []
+       \\ spose_not_then assume_tac
+       \\ fs [GSYM ALOOKUP_NONE])
+    \\ first_x_assum $ qspec_then ‘var’ mp_tac \\ gvs []
+    \\ rpt strip_tac \\ gvs [FLOOKUP_SIMP])
   >~ [‘Assign ass’] >-
 
    (gvs [evaluate_stmt_def]
@@ -2675,7 +2723,9 @@ Proof
     \\ qabbrev_tac ‘lhss = MAP FST ass’
     \\ namedCases_on ‘evaluate_rhs_exps s env_dfy rhss’ ["s₁ r"] \\ gvs []
     \\ gvs [from_stmt_def, par_assign_def, oneline bind_def, CaseEq "sum"]
-    \\ ‘LENGTH ass = LENGTH cml_rhss’ by cheat \\ gvs []
+    \\ ‘LENGTH ass = LENGTH cml_rhss’ by
+      (unabbrev_all_tac \\ imp_res_tac result_mmap_len \\ gvs [])
+    \\ gvs []
     \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
     \\ drule_all correct_map_from_rhs_exp
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’, ‘m₁’] mp_tac \\ rpt strip_tac
@@ -2693,32 +2743,62 @@ Proof
       \\ gvs [can_pmatch_all_def, pmatch_def, pat_bindings_def]
       \\ drule_then assume_tac evaluate_rhs_exps_len_eq \\ gvs [LENGTH_EQ_1]
       \\ rename [‘val_rel _ rhs_v rhs_v_cml’]
-      \\ qexists ‘ck’ (* TODO *)
-      \\ gvs [assign_values_def]
-      \\ cheat)
+      \\ ‘¬is_fresh (implode (cml_tup_vname 0))’ by
+        gvs [is_fresh_def, implode_def, cml_tup_vname_def, isprefix_isprefix]
+      \\ drule_all state_rel_env_push_not_fresh \\ gvs []
+      \\ disch_then $ qspec_then ‘rhs_v_cml’ assume_tac
+      \\ drule evaluate_assign_values \\ gvs []
+      \\ disch_then $ drule_at $ Pos (el 2) \\ gvs []
+      \\ disch_then $ qspec_then ‘[cml_tup_vname 0]’ mp_tac \\ gvs []
+      \\ disch_then $ qspec_then ‘base’ mp_tac \\ gvs []
+      \\ ‘cml_tup_vname 0 ≠ " arr"’ by (gvs [cml_tup_vname_neq_arr]) \\ gvs []
+      \\ impl_tac
+      >- (gvs [base_at_most_def, store_preserve_all_def, store_preserve_def]
+          \\ irule env_rel_nsOptBind1 \\ gvs [cml_tup_vname_def])
+      \\ disch_then $ qx_choosel_then [‘ck₁’, ‘t₂’] mp_tac \\ rpt strip_tac
+      \\ qexists ‘ck₁ + ck’
+      \\ rev_dxrule evaluate_add_to_clock \\ gvs []
+      \\ disch_then $ qspec_then ‘ck₁’ assume_tac \\ gvs []
+      \\ gvs [nsOptBind_def]
+      \\ irule_at (Pos hd) store_preserve_trans
+      \\ irule_at (Pos hd) store_preserve_all_weaken
+      \\ ntac 2 (first_assum $ irule_at (Pos hd))
+      \\ irule_at Any state_rel_env_pop_not_fresh
+      \\ last_assum $ irule_at (Pos hd)
+      \\ gvs [nsOptBind_def]
+      \\ last_assum $ irule_at (Pos hd) \\ gvs [])
     \\ imp_res_tac result_mmap_len
     \\ gvs [Stuple_Tuple, evaluate_def, do_con_check_def, build_conv_def]
     \\ reverse $ namedCases_on ‘r’ ["rhs_vs", "err"] \\ gvs []
     >- (qexists ‘ck’ \\ gvs []
         \\ first_x_assum $ irule_at Any
         \\ gvs [store_preserve_all_def, store_preserve_def, base_at_most_def])
-
-
     \\ qmatch_asmsub_abbrev_tac ‘MAP (Var ∘ Short) names’
-    \\ ‘EVERY (λn. " arr" ≠ n) names’ by cheat
+    \\ ‘EVERY (λn. " arr" ≠ n) names’ by
+      gvs [Abbr ‘names’, EVERY_GENLIST, cml_tup_vname_neq_arr]
     \\ qabbrev_tac
-       ‘env₁ = env_cml with
-           v := nsAppend (alist_to_ns (ZIP (names,cml_vs))) env_cml.v’
+       ‘env₁ =
+          env_cml with v :=
+            nsAppend (alist_to_ns (ZIP (names,cml_vs))) env_cml.v’
+    (* TODO Show that generated names don't clash with basic_cons, nor
+       function names *)
     \\ ‘env_rel env_dfy env₁’ by cheat
+    (* TODO Something like state_rel_env_pop_not_fresh *)
     \\ ‘state_rel m₁ l s₁ t₁ env₁’ by cheat
     \\ ‘base_at_most base t₁.refs l’ by
       (gvs [base_at_most_def, store_preserve_all_def, store_preserve_def])
-
+    \\ ‘LENGTH rhss = LENGTH cml_vs’ by
+      (imp_res_tac evaluate_rhs_exps_len_eq
+       \\ imp_res_tac LIST_REL_LENGTH \\ gvs [])
     \\ drule evaluate_assign_values
     \\ rpt (disch_then drule)
     \\ gvs []
     \\ disch_then $ qspec_then ‘base’ mp_tac
-    \\ impl_tac >- cheat
+    \\ impl_tac \\ gvs [] >-
+     (gvs [Abbr ‘env₁’]
+      \\ irule LIST_REL_nsLookup_nsAppend
+      \\ gvs [Abbr ‘names’]
+      \\ gvs [all_distinct_genlist_cml_tup_vname])
     \\ disch_then $ qx_choosel_then [‘ck'’, ‘t₂’] mp_tac \\ rpt strip_tac
     \\ qexists ‘ck' + ck’
     \\ rev_drule evaluate_add_to_clock \\ gvs []
@@ -2727,26 +2807,33 @@ Proof
     >- (gvs [can_pmatch_all_def, pmatch_def]
         \\ pop_assum mp_tac
         \\ DEP_REWRITE_TAC [Pstuple_Tuple]
-        \\ gvs []
-        \\ gvs [pmatch_def]
-        \\ cheat)
+        \\ imp_res_tac evaluate_length
+        \\ fs [pmatch_def, pmatch_list_MAP_Pvar, Abbr ‘names’])
     \\ pop_assum kall_tac
-    \\ reverse $ IF_CASES_TAC >- cheat
+    \\ reverse $ IF_CASES_TAC >-
+     (‘LENGTH (MAP Pvar (REVERSE names)) ≠ 1’ by gvs [Abbr ‘names’]
+      \\ drule Pstuple_Tuple \\ rpt strip_tac \\ gvs []
+      \\ gvs [pat_bindings_def]
+      \\ qsuff_tac ‘ALL_DISTINCT (REVERSE names ++ [])’
+      >- (strip_tac \\ drule ALL_DISTINCT_pats_bindings \\ gvs [])
+      \\ gvs [Abbr ‘names’, all_distinct_genlist_cml_tup_vname])
     \\ DEP_REWRITE_TAC [Pstuple_Tuple] \\ gvs []
     \\ gvs [pmatch_def]
     \\ pop_assum kall_tac
-    \\ reverse $ IF_CASES_TAC >- cheat
+    \\ reverse $ IF_CASES_TAC >- (gvs [Abbr ‘names’])
     \\ gvs []
     \\ DEP_REWRITE_TAC [pmatch_list_MAP_Pvar]
     \\ gvs []
-
     \\ irule_at Any store_preserve_trans \\ gvs []
-    \\ first_x_assum $ irule_at (Pos hd)
-    \\ first_x_assum $ irule_at (Pos hd)
+    \\ irule_at (Pos hd) store_preserve_all_weaken
+    \\ first_x_assum $ irule_at (Pos hd) \\ gvs []
     \\ first_x_assum $ irule_at Any
-    \\ gvs [Abbr ‘names’]
     \\ irule state_rel_env_change
     \\ first_x_assum $ irule_at Any
+    \\ rpt strip_tac
+    \\ gvs [Abbr ‘env₁’]
+    (* TODO Show that none of the generated names are fresh, and that we can
+       thus ignore them here. *)
     \\ cheat)
   >~ [‘While grd _ _ _ body’] >-
    (cheat)
