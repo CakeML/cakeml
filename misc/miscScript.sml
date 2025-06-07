@@ -1108,8 +1108,7 @@ QED
 Theorem find_index_MEM:
    !ls x n. MEM x ls ==> ?i. (find_index x ls n = SOME (n+i)) /\ i < LENGTH ls /\ (EL i ls = x)
 Proof
-  Induct >> srw_tac[][find_index_def] >- (
-    qexists_tac`0`>>srw_tac[][] ) >>
+  Induct >> srw_tac[][find_index_def] >>
   first_x_assum(qspecl_then[`x`,`n+1`]mp_tac) >>
   srw_tac[][]>>qexists_tac`SUC i`>>srw_tac[ARITH_ss][ADD1]
 QED
@@ -1117,14 +1116,14 @@ QED
 Theorem find_index_LEAST_EL:
    ∀ls x n. find_index x ls n = if MEM x ls then SOME (n + (LEAST n. x = EL n ls)) else NONE
 Proof
-  Induct >- srw_tac[][find_index_def] >>
+  Induct >>
   simp[find_index_def] >>
   rpt gen_tac >>
   Cases_on`h=x`>>full_simp_tac(srw_ss())[] >- (
     numLib.LEAST_ELIM_TAC >>
     conj_tac >- (qexists_tac`0` >> srw_tac[][]) >>
     Cases >> srw_tac[][] >>
-    first_x_assum (qspec_then`0`mp_tac) >> srw_tac[][] ) >>
+    qexists_tac`0` >>simp[])>>
   srw_tac[][] >>
   numLib.LEAST_ELIM_TAC >>
   conj_tac >- metis_tac[MEM_EL,MEM] >>
@@ -1152,18 +1151,20 @@ QED
 Theorem ALOOKUP_find_index_NONE:
    (ALOOKUP env k = NONE) ⇒ (find_index k (MAP FST env) m = NONE)
 Proof
-  srw_tac[][ALOOKUP_FAILS] >> srw_tac[][GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD]
+  srw_tac[][ALOOKUP_FAILS] >>
+  srw_tac[][GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD]
 QED
 
 val ALOOKUP_find_index_SOME = Q.prove(
   `∀env. (ALOOKUP env k = SOME v) ⇒
       ∀m. ∃i. (find_index k (MAP FST env) m = SOME (m+i)) ∧
           (v = EL i (MAP SND env))`,
-  Induct >> simp[] >> Cases >> srw_tac[][find_index_def] >-
-    (qexists_tac`0`>>simp[]) >> full_simp_tac(srw_ss())[] >>
+  Induct >> simp[] >> Cases >>
+  srw_tac[][find_index_def] >> full_simp_tac(srw_ss())[] >>
   first_x_assum(qspec_then`m+1`mp_tac)>>srw_tac[][]>>srw_tac[][]>>
   qexists_tac`SUC i`>>simp[])
 |> SPEC_ALL |> UNDISCH_ALL |> Q.SPEC`0` |> DISCH_ALL |> SIMP_RULE (srw_ss())[]
+
 Theorem ALOOKUP_find_index_SOME:
    (ALOOKUP env k = SOME v) ⇒
     ∃i. (find_index k (MAP FST env) 0 = SOME i) ∧
