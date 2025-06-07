@@ -398,11 +398,11 @@ End
 (* Sets up the in parameters. *)
 Definition set_up_cml_fun_def:
   set_up_cml_fun n ins cml_body =
-  (* Reversing the parameters is an easy way to get left-to-right evaluation
-     on them *)
-    let in_ns = REVERSE (MAP (explode ∘ FST) ins) in
+    let in_ns = MAP (explode ∘ FST) ins in
     let cml_body = set_up_in_refs in_ns cml_body in
-    let (cml_param, cml_body) = cml_fun in_ns cml_body in
+    (* Reversing the parameters is an easy way to get left-to-right evaluation
+       on them *)
+    let (cml_param, cml_body) = cml_fun (REVERSE in_ns) cml_body in
       (* Prepending functions with "dfy_" avoids naming issues. *)
       ("dfy_" ++ (explode n), cml_param, cml_body)
 End
@@ -1249,7 +1249,7 @@ Triviality ALOOKUP_enumerate_from:
   ∀i xs offset.
     ALL_DISTINCT xs ∧
     i < LENGTH xs ⇒
-    ALOOKUP (enumerate_from offset (REVERSE xs)) (EL i xs) = SOME (i + offset)
+    ALOOKUP (enumerate_from offset xs) (EL i xs) = SOME (i + offset)
 Proof
   cheat
 QED
@@ -1258,7 +1258,7 @@ Triviality nsLookup_add_refs_to_env:
   ALL_DISTINCT ns ∧
   i < LENGTH ns ⇒
   nsLookup
-    (add_refs_to_env env.v (REVERSE (MAP explode ns)) offset)
+    (add_refs_to_env env.v (MAP explode ns) offset)
     (Short (explode (EL i ns))) =
   SOME (Loc T (i + offset))
 Proof
@@ -1269,12 +1269,6 @@ Proof
   \\ gvs [nsLookup_alist_to_ns_some]
   \\ gvs [ALOOKUP_MAP]
   \\ gvs [ALOOKUP_enumerate_from, GSYM EL_MAP]
-QED
-
-Triviality FLOOKUP_mk_locals_map:
-  FLOOKUP (mk_locals_map ns offset) (EL i ns) = SOME (i + offset)
-Proof
-  cheat
 QED
 
 Triviality LIST_REL_store_lookup:
@@ -1295,6 +1289,13 @@ Proof
   \\ gvs [MEM_ZIP, EL_MAP]
 QED
 
+Triviality FLOOKUP_mk_locals_map:
+  FLOOKUP (mk_locals_map ns offset) (EL i ns) = SOME (i + offset)
+Proof
+  cheat
+QED
+
+(* TODO Rename *)
 Triviality flookup_mk_locals_map:
   ∀(s: 'ffi cml_state) env ins in_vs var dfy_v m cml_vs.
     ALOOKUP (ZIP (MAP FST ins, MAP SOME in_vs)) var = SOME (SOME dfy_v) ∧
@@ -1303,7 +1304,7 @@ Triviality flookup_mk_locals_map:
     LENGTH in_vs = LENGTH ins ⇒
     ∃loc cml_v.
       nsLookup
-        (add_refs_to_env env.v (REVERSE (MAP (explode ∘ FST) ins))
+        (add_refs_to_env env.v ((MAP (explode ∘ FST) ins))
            (LENGTH s.refs))
         (Short (explode var)) = SOME (Loc T loc) ∧
       FLOOKUP (mk_locals_map (MAP FST ins) (LENGTH s.refs)) var = SOME loc ∧
@@ -1364,6 +1365,20 @@ Triviality state_rel_array_loc_INJ:
   INJ (λx. m ' x) (FDOM m) 𝕌(:num)
 Proof
   gvs [state_rel_def, array_rel_def]
+QED
+
+(* TODO Upstream? *)
+Triviality LIST_REL_nsLookup_nsAppend:
+  ∀names vals ns.
+    ALL_DISTINCT names ∧
+    LENGTH names = LENGTH vals ⇒
+    LIST_REL
+      (λn v.
+         nsLookup
+           (nsAppend (alist_to_ns (ZIP (names, vals))) ns)
+           (Short n) = SOME v) names vals
+Proof
+  cheat
 QED
 
 Theorem correct_from_exp:
@@ -1430,9 +1445,11 @@ Proof
       \\ Cases_on ‘cml_args = []’ \\ gvs []
       \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
       (* Preparing ns for evaluate_apps *)
-      \\ qabbrev_tac ‘params = REVERSE (MAP (explode ∘ FST) ins)’
-      \\ ‘LENGTH params = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
-      \\ ‘SUC (LENGTH (TL params)) = LENGTH ins’ by (Cases_on ‘params’ \\ gvs [])
+
+      \\ qabbrev_tac ‘params = MAP (explode ∘ FST) ins’
+      \\ ‘LENGTH (REVERSE params) = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
+      \\ ‘SUC (LENGTH (TL (REVERSE params))) = LENGTH ins’ by
+        (Cases_on ‘REVERSE params’ \\ gvs [])
       (* Preparing clos_v for evaluate_apps *)
       \\ drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
       (* Preparing env1 for evaluate_apps *)
@@ -1448,7 +1465,7 @@ Proof
       \\ qabbrev_tac ‘call_body = set_up_in_refs params cml_body'’
       (* Instantiating evaluate_apps *)
       \\ drule evaluate_apps
-      \\ disch_then $ qspec_then ‘TL params’ mp_tac \\ gvs []
+      \\ disch_then $ qspec_then ‘TL (REVERSE params)’ mp_tac \\ gvs []
       \\ disch_then $ drule
       \\ disch_then $ qspecl_then [‘call_env’, ‘call_body’] mp_tac
       \\ impl_tac >- gvs [do_opapp_def, cml_fun_def, MAP_MAP_o, AllCaseEqs()]
@@ -1504,12 +1521,13 @@ Proof
     \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
     (* TODO Maybe we should case distinction on args earlier? *)
     (* Preparing ns for evaluate_apps *)
-    \\ qabbrev_tac ‘params = REVERSE (MAP (explode ∘ FST) ins)’
-    \\ ‘LENGTH params = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
-    \\ ‘SUC (LENGTH (TL params)) = LENGTH ins’ by (Cases_on ‘params’ \\ gvs [])
+    \\ qabbrev_tac ‘params = (MAP (explode ∘ FST) ins)’
+    \\ ‘LENGTH (REVERSE params) = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
+    \\ ‘SUC (LENGTH (TL (REVERSE params))) = LENGTH ins’ by
+      (Cases_on ‘REVERSE params’ \\ gvs [])
     \\ ‘LENGTH cml_vs = LENGTH cml_args’ by
       (drule (cj 1 evaluate_length) \\ gvs [])
-    \\ ‘LENGTH (REVERSE (TL params)) = LENGTH (FRONT cml_vs)’ by
+    \\ ‘LENGTH (REVERSE (TL (REVERSE params))) = LENGTH (FRONT cml_vs)’ by
       (Cases_on ‘cml_vs = []’ \\ gvs [FRONT_LENGTH])
     (* Preparing clos_v for evaluate_apps *)
     \\ drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
@@ -1529,7 +1547,7 @@ Proof
          ‘call_env₁ =
             call_env with v :=
               nsAppend
-                (alist_to_ns (ZIP (REVERSE (TL params), FRONT cml_vs)))
+                (alist_to_ns (ZIP (REVERSE (TL (REVERSE params)), FRONT cml_vs)))
                 call_env.v’
     \\ qabbrev_tac
          ‘call_env₂ =
@@ -1570,7 +1588,7 @@ Proof
         >- (unabbrev_all_tac \\ gvs [has_basic_cons_def])
         >- res_tac
         \\ rename [‘get_member name' _ = SOME _’]
-        \\ ‘EVERY (λn. n ≠ STRCAT "dfy_" (explode name')) params’ by
+        \\ ‘EVERY (λn. n ≠ STRCAT "dfy_" (explode name')) (REVERSE params)’ by
           (drule is_fresh_not_dfy
            \\ disch_then $ qspec_then ‘name'’ assume_tac
            \\ gvs [Abbr ‘params’, MAP_MAP_o])
@@ -1580,10 +1598,11 @@ Proof
         \\ DEP_REWRITE_TAC [nslookup_nsappend_alist_neq]
         \\ gvs [MAP_ZIP]
         \\ strip_tac >-
-         (irule EVERY_TL \\ Cases_on ‘params = []’ \\ gvs [])
+         (irule EVERY_TL \\ Cases_on ‘REVERSE params = []’ \\ gvs [])
         \\ gvs [Abbr ‘call_env’]
         \\ DEP_REWRITE_TAC [nsLookup_nsBind_neq]
-        \\ strip_tac >- (Cases_on ‘params’ \\ gvs [cml_fun_def])
+        \\ strip_tac >-
+         (Cases_on ‘REVERSE params’ \\ cheat)
         \\ drule_all nslookup_build_rec_env_reclos \\ gvs [])
     \\ rpt strip_tac
     (* Fixing clocks *)
@@ -1594,23 +1613,24 @@ Proof
     \\ gvs []
     (* Instantiating evaluate_apps *)
     \\ drule evaluate_apps
-    \\ disch_then $ qspec_then ‘TL params’ mp_tac \\ gvs []
+    \\ disch_then $ qspec_then ‘TL (REVERSE params)’ mp_tac \\ gvs []
     \\ disch_then $ drule
     \\ disch_then $ qspecl_then [‘call_env’, ‘call_body’] mp_tac
     \\ impl_tac >- gvs [do_opapp_def, cml_fun_def, MAP_MAP_o, AllCaseEqs()]
     \\ rpt strip_tac \\ gvs []
     \\ pop_assum $ kall_tac
     (* Finished instantiating evaluate_apps *)
-    \\ ‘cml_param = HD params’ by (Cases_on ‘params’ \\ gvs [cml_fun_def])
+    \\ ‘cml_param = HD (REVERSE params)’ by
+      (Cases_on ‘REVERSE params’ \\ gvs [cml_fun_def])
     \\ gvs [evaluateTheory.dec_clock_def]
     \\ gvs [Abbr ‘call_body’]
-    \\ ‘LIST_REL (λn v. nsLookup call_env₁.v (Short n) = SOME v) params cml_vs’ by
-      (gvs [Abbr ‘call_env₁’, Abbr ‘call_env’]
-       \\ DEP_REWRITE_TAC [nsappend_alist_to_ns_nsbind]
-       \\ Cases_on ‘params = []’ \\ gvs []
-       \\ gvs [SNOC_LAST_FRONT, REVERSE_TL, SNOC_HD_REVERSE_TL]
-       \\ irule list_rel_nslookup_nsappend
-       \\ gvs [Abbr ‘params’, GSYM MAP_MAP_o])
+    \\ ‘LIST_REL (λn v. nsLookup call_env₁.v (Short n) = SOME v) params cml_vs’
+      by (gvs [Abbr ‘call_env₁’, Abbr ‘call_env’]
+          \\ DEP_REWRITE_TAC [nsappend_alist_to_ns_nsbind]
+          \\ Cases_on ‘params = []’ \\ gvs []
+          \\ gvs [SNOC_LAST_FRONT, REVERSE_TL, SNOC_HD_REVERSE_TL]
+          \\ irule LIST_REL_nsLookup_nsAppend
+          \\ gvs [Abbr ‘params’, GSYM MAP_MAP_o])
     \\ drule evaluate_set_up_in_refs
     \\ disch_then $
          qspecl_then
@@ -2535,36 +2555,6 @@ QED
 (* TODO Put constant " arr" into a definition? *)
 Triviality cml_tup_vname_neq_arr:
   ∀n. cml_tup_vname n ≠ " arr"
-Proof
-  cheat
-QED
-
-(* TODO Oh no. *)
-(* -----------------* *)
-
-(* TODO Upstream? *)
-Triviality LIST_REL_nsLookup_nsAppend:
-  ∀names vals ns.
-    ALL_DISTINCT names ∧
-    LENGTH names = LENGTH vals ⇒
-    LIST_REL
-      (λn v.
-         nsLookup
-           (nsAppend (alist_to_ns (ZIP (names, vals))) ns)
-           (Short n) = SOME v) names vals
-Proof
-  cheat
-QED
-
-Triviality list_rel_nslookup_nsappend:
-  ALL_DISTINCT ns ⇒
-  LIST_REL
-    (λn v.
-       nsLookup
-         (nsAppend (alist_to_ns (ZIP (REVERSE ns, vs))) env_v)
-         (Short n) =
-       SOME v)
-    params cml_vs
 Proof
   cheat
 QED
