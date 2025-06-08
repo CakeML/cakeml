@@ -9442,11 +9442,10 @@ Definition word_eq_def:
                                 (a1 + bytes_in_word) (a2 + bytes_in_word))
        | _ => NONE)
 Termination
-  cheat (*
   WF_REL_TAC `measure(\x. case x of
                           | INL (c,st,dm,m,l1,ck1,w1,w2) => l1
                           | INR (c,st,dm,m,l1,ck1,w,a1,a2) => l1)` >>
-  rw[] >> imp_res_tac fix_clock_IMP >> rw[] *)
+  rw[] >> imp_res_tac fix_clock_IMP >> rw[]
 End
 
 val word_eq_ind = theorem "word_eq_ind";
@@ -10688,8 +10687,6 @@ Definition list_copy_fwd_def:
                            LUPDATE (EL (xp+1) xs) (yp+1) o
                            LUPDATE (EL (xp+0) xs) (yp+0)) ys)
     else NONE
-Termination
-  cheat
 End
 
 Definition list_copy_fwd_alias_def:
@@ -10708,8 +10705,6 @@ Definition list_copy_fwd_alias_def:
                            LUPDATE (EL (xp+1) ys) (yp+1) o
                            LUPDATE (EL (xp+0) ys) (yp+0)) ys)
     else NONE
-Termination
-  cheat
 End
 
 Theorem word_copy_fwd_thm:
@@ -10941,9 +10936,8 @@ Definition list_copy_bwd_def:
                            LUPDATE (EL (minus xp 1) xs) (minus yp 1) o
                            LUPDATE (EL (minus xp 0) xs) (minus yp 0)) ys)
     else NONE
-Termination
-  cheat
 End
+
 val list_copy_bwd_def = list_copy_bwd_def |> REWRITE_RULE [minus_def];
 
 Definition list_copy_bwd_alias_def:
@@ -10962,8 +10956,6 @@ Definition list_copy_bwd_alias_def:
                            LUPDATE (EL (minus xp 1) ys) (minus yp 1) o
                            LUPDATE (EL (minus xp 0) ys) (minus yp 0)) ys)
     else NONE
-Termination
-  cheat
 End
 val list_copy_bwd_alias_def = list_copy_bwd_alias_def
                                 |> REWRITE_RULE [minus_def];
@@ -12409,8 +12401,6 @@ Definition walk_def:
         NONE => []
       | SOME p =>
           ptr::walk conf heap p (n-1)
-Termination
-  cheat
 End
 
 Theorem v_inv_v_to_list_lemma:
