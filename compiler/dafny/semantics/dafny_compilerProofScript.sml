@@ -323,6 +323,11 @@ Definition to_string_def:
   (to_string cml_e _ = fail «to_string: Unsupported»)
 End
 
+Definition loop_name_def:
+  loop_name lvl = explode (« w» ^ (num_to_str lvl))
+End
+
+
 Definition from_stmt_def:
   (* lvl keeps track of nested while loops to generate new unique names *)
   from_stmt Skip (lvl: num) = return Unit ∧
@@ -354,15 +359,14 @@ Definition from_stmt_def:
   do
     cml_grd <- from_exp grd;
     cml_body <- from_stmt body (lvl + 1);
-    loop_name <<- explode («while» ^ (num_to_str lvl));
-    run_loop <<- cml_fapp [] loop_name [Unit];
+    run_loop <<- cml_fapp [] (loop_name lvl) [Unit];
      (* Example (see The Definition of Standard ML, Appendix A):
-        let val rec while0 = fn () =>
-          if cml_grd then (cml_body; while0()) else ()
+        let val rec w0 = fn () =>
+          if cml_grd then (cml_body; w0()) else ()
         in
-          while0()
+          w0()
         end *)
-    return (Letrec [(loop_name, "",
+    return (Letrec [(loop_name lvl, "",
                      If cml_grd (Let NONE cml_body run_loop) Unit)]
                    run_loop)
   od ∧
@@ -441,6 +445,19 @@ Type cml_state[pp] = “:'ffi semanticPrimitives$state”
 Type cml_env[pp] = “:v semanticPrimitives$sem_env”
 Type cml_exp[pp] = “:ast$exp”
 Type cml_res[pp] = “:(v list, v) semanticPrimitives$result”
+
+(* TODO Upstream these? Most likely will break things. *)
+(* Triviality nsOptBind_some_simp[simp]: *)
+(*   nsOptBind (SOME n) x env = nsBind n x env *)
+(* Proof *)
+(*   gvs [nsOptBind_def] *)
+(* QED *)
+
+(* Triviality nsOptBind_none_simp[simp]: *)
+(*   nsOptBind NONE x env = env *)
+(* Proof *)
+(*   gvs [nsOptBind_def] *)
+(* QED *)
 
 (* Returns whether the name comes from the freshen pass. *)
 Definition is_fresh_def:
@@ -2707,7 +2724,6 @@ Proof
     \\ first_x_assum $ qspec_then ‘var’ mp_tac \\ gvs []
     \\ rpt strip_tac \\ gvs [FLOOKUP_SIMP])
   >~ [‘Assign ass’] >-
-
    (gvs [evaluate_stmt_def]
     \\ qabbrev_tac ‘rhss = MAP SND ass’
     \\ qabbrev_tac ‘lhss = MAP FST ass’
@@ -2826,6 +2842,85 @@ Proof
        thus ignore them here. *)
     \\ cheat)
   >~ [‘While grd _ _ _ body’] >-
+
+   (gvs [evaluate_stmt_def]
+    \\ namedCases_on ‘evaluate_exp s env_dfy grd’ ["s₁ r"] \\ gvs []
+    \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"]
+    \\ qabbrev_tac
+       ‘env_cml₁ =
+          env_cml with v :=
+            nsBind "" (Conv NONE [])
+              (nsBind (loop_name lvl)
+                 (Recclosure env_cml
+                    [(loop_name lvl,"",
+                      If cml_grd
+                        (Let NONE cml_body
+                           (App Opapp
+                              [Var (Short (loop_name lvl)); Unit]))
+                        Unit)] (loop_name lvl)) env_cml.v)’
+    \\ ‘env_rel env_dfy env_cml₁’ by cheat
+    \\ drule (cj 1 correct_from_exp) \\ gvs []
+    \\ disch_then $ qspecl_then [‘t’, ‘env_cml₁’, ‘m’, ‘l’] mp_tac
+    \\ impl_tac >- (gvs [state_rel_def] \\ cheat)
+    \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’] mp_tac
+    \\ rpt strip_tac \\ gvs []
+    \\ gvs [evaluate_def, cml_fapp_def, cml_apps_def, mk_id_def, apps_def,
+            do_con_check_def, build_conv_def, build_rec_env_def, do_opapp_def]
+    \\ gvs [find_recfun_def, evaluate_def]
+    \\ reverse $ namedCases_on ‘r’ ["grd_v", "err"] \\ gvs []
+    >- (qexists ‘ck + 1’
+        \\ gvs [evaluateTheory.dec_clock_def]
+        \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
+        \\ irule_at (Pos hd) state_rel_env_pop_not_fresh
+        \\ ‘¬is_fresh (implode (loop_name lvl))’ by
+          gvs [loop_name_def, is_fresh_def, isprefix_isprefix]
+        \\ first_assum $ irule_at (Pos hd) \\ gvs []
+        \\ irule_at (Pos hd) state_rel_env_pop_not_fresh
+        \\ ‘¬is_fresh «»’ by gvs [is_fresh_def, isprefix_isprefix]
+        \\ first_assum $ irule_at (Pos hd) \\ gvs []
+        \\ gvs [Abbr ‘env_cml₁’, nsOptBind_def]
+        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+    \\ gvs []
+    \\ Cases_on ‘grd_v = BoolV F’ \\ gvs []
+    >- (qexists ‘ck + 1’
+        \\ gvs [evaluateTheory.dec_clock_def]
+        \\ gvs [do_if_def, evaluate_def, do_con_check_def, build_conv_def]
+        \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
+        (* TODO Can we avoid this duplication somehow? Is it worth it? *)
+        \\ irule_at (Pos hd) state_rel_env_pop_not_fresh
+        \\ ‘¬is_fresh (implode (loop_name lvl))’ by
+          gvs [loop_name_def, is_fresh_def, isprefix_isprefix]
+        \\ first_assum $ irule_at (Pos hd) \\ gvs []
+        \\ irule_at (Pos hd) state_rel_env_pop_not_fresh
+        \\ ‘¬is_fresh «»’ by gvs [is_fresh_def, isprefix_isprefix]
+        \\ first_assum $ irule_at (Pos hd) \\ gvs []
+        \\ gvs [Abbr ‘env_cml₁’, nsOptBind_def]
+        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+    \\ Cases_on ‘grd_v = BoolV T’ \\ gvs []
+
+    \\ namedCases_on ‘evaluate_stmt s₁ env_dfy body’ ["s₂ r"] \\ gvs []
+    \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (spose_not_then assume_tac \\ gvs [])
+
+    \\ drule_all no_shadow_evaluate_exp \\ strip_tac \\ gvs []
+
+    \\ first_x_assum drule \\ gvs []
+    \\ disch_then $ drule \\ gvs []
+    \\ disch_then $ qspec_then ‘base’ mp_tac
+    \\ impl_tac
+    >- gvs [base_at_most_def, store_preserve_all_def, store_preserve_def]
+    \\ disch_then $ qx_choosel_then [‘ck₁’, ‘t₂’, ‘m₁’] mp_tac
+    \\ rpt strip_tac \\ gvs []
+
+
+    \\ reverse $ namedCases_on ‘r’ ["", "stp"] \\ gvs []
+    >- (reverse $ namedCases_on ‘stp’ ["", "err"] \\ gvs []
+        >- (Cases_on ‘err’ \\ gvs []
+                     ))
+
+
+   )
+
    (cheat)
   >~ [‘Print e t’] >-
    (cheat)
