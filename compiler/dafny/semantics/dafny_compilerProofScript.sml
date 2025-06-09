@@ -2593,6 +2593,22 @@ Proof
   \\ rpt strip_tac \\ gvs [ALL_DISTINCT_APPEND]
 QED
 
+Triviality state_rel_pop_env_while:
+  state_rel m l s t
+    (env with v := nsBind "" v₀ (nsBind (loop_name lvl) v₁ env.v)) ⇒
+  state_rel m l s t env
+Proof
+  rpt strip_tac
+  \\ irule state_rel_env_pop_not_fresh
+  \\ ‘¬is_fresh (implode (loop_name lvl))’ by
+    gvs [loop_name_def, is_fresh_def, isprefix_isprefix]
+  \\ first_assum $ irule_at (Pos hd) \\ gvs [nsOptBind_def]
+  \\ irule_at (Pos hd) state_rel_env_pop_not_fresh
+  \\ ‘¬is_fresh «»’ by gvs [is_fresh_def, isprefix_isprefix]
+  \\ first_assum $ irule_at (Pos hd) \\ gvs [nsOptBind_def]
+  \\ first_assum $ irule_at Any
+QED
+
 Theorem correct_from_stmt:
   ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l base.
     evaluate_stmt s env_dfy stmt_dfy = (s', r_dfy) ∧
@@ -2872,14 +2888,8 @@ Proof
     >- (qexists ‘ck + 1’
         \\ gvs [evaluateTheory.dec_clock_def]
         \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
-        \\ irule_at (Pos hd) state_rel_env_pop_not_fresh
-        \\ ‘¬is_fresh (implode (loop_name lvl))’ by
-          gvs [loop_name_def, is_fresh_def, isprefix_isprefix]
-        \\ first_assum $ irule_at (Pos hd) \\ gvs []
-        \\ irule_at (Pos hd) state_rel_env_pop_not_fresh
-        \\ ‘¬is_fresh «»’ by gvs [is_fresh_def, isprefix_isprefix]
-        \\ first_assum $ irule_at (Pos hd) \\ gvs []
-        \\ gvs [Abbr ‘env_cml₁’, nsOptBind_def]
+        \\ gvs [Abbr ‘env_cml₁’]
+        \\ irule_at (Pos hd) state_rel_pop_env_while
         \\ first_assum $ irule_at (Pos hd) \\ gvs [])
     \\ gvs []
     \\ Cases_on ‘grd_v = BoolV F’ \\ gvs []
@@ -2887,23 +2897,13 @@ Proof
         \\ gvs [evaluateTheory.dec_clock_def]
         \\ gvs [do_if_def, evaluate_def, do_con_check_def, build_conv_def]
         \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
-        (* TODO Can we avoid this duplication somehow? Is it worth it? *)
-        \\ irule_at (Pos hd) state_rel_env_pop_not_fresh
-        \\ ‘¬is_fresh (implode (loop_name lvl))’ by
-          gvs [loop_name_def, is_fresh_def, isprefix_isprefix]
-        \\ first_assum $ irule_at (Pos hd) \\ gvs []
-        \\ irule_at (Pos hd) state_rel_env_pop_not_fresh
-        \\ ‘¬is_fresh «»’ by gvs [is_fresh_def, isprefix_isprefix]
-        \\ first_assum $ irule_at (Pos hd) \\ gvs []
-        \\ gvs [Abbr ‘env_cml₁’, nsOptBind_def]
+        \\ gvs [Abbr ‘env_cml₁’]
+        \\ irule_at (Pos hd) state_rel_pop_env_while
         \\ first_assum $ irule_at (Pos hd) \\ gvs [])
     \\ Cases_on ‘grd_v = BoolV T’ \\ gvs []
-
     \\ namedCases_on ‘evaluate_stmt s₁ env_dfy body’ ["s₂ r"] \\ gvs []
     \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (spose_not_then assume_tac \\ gvs [])
-
     \\ drule_all no_shadow_evaluate_exp \\ strip_tac \\ gvs []
-
     \\ first_x_assum drule \\ gvs []
     \\ disch_then $ drule \\ gvs []
     \\ disch_then $ qspec_then ‘base’ mp_tac
@@ -2911,16 +2911,42 @@ Proof
     >- gvs [base_at_most_def, store_preserve_all_def, store_preserve_def]
     \\ disch_then $ qx_choosel_then [‘ck₁’, ‘t₂’, ‘m₁’] mp_tac
     \\ rpt strip_tac \\ gvs []
-
-
     \\ reverse $ namedCases_on ‘r’ ["", "stp"] \\ gvs []
     >- (reverse $ namedCases_on ‘stp’ ["", "err"] \\ gvs []
-        >- (Cases_on ‘err’ \\ gvs []
-                     ))
+        (* Definitely not simulating a TRY using rpt here *)
+        \\ rpt $ Cases_on ‘err’ \\ gvs []
+        \\ qexists ‘ck₁ + ck + 1’ \\ gvs []
+        \\ rev_drule evaluate_add_to_clock
+        \\ disch_then $ qspec_then ‘ck₁’ assume_tac \\ gvs []
+        \\ gvs [evaluateTheory.dec_clock_def, do_if_def, evaluate_def]
+        \\ irule_at (Pos hd) store_preserve_trans
+        \\ irule_at (Pos hd) store_preserve_all_weaken
+        \\ ntac 2 (first_assum $ irule_at (Pos hd))
+        \\ gvs [Abbr ‘env_cml₁’]
+        \\ irule_at (Pos hd) state_rel_pop_env_while
+        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+    \\ Cases_on ‘s₂.clock = 0n’ \\ gvs []
+    >- (qexists ‘ck₁ + ck + 1’ \\ gvs []
+        \\ rev_drule evaluate_add_to_clock
+        \\ disch_then $ qspec_then ‘ck₁’ assume_tac \\ gvs []
+        \\ gvs [evaluateTheory.dec_clock_def, do_if_def, evaluate_def,
+                do_con_check_def, build_conv_def, nsOptBind_def,
+                Abbr ‘env_cml₁’, loop_name_def, do_opapp_def]
+        \\ gvs [find_recfun_def]  (* Separate gvs call to avoid looping *)
+        \\ rename [‘state_rel _ _ s₂ t₂’]
+        \\ ‘t₂.clock = s₂.clock’ by gvs [state_rel_def] \\ gvs []
+        \\ irule_at (Pos hd) store_preserve_trans
+        \\ irule_at (Pos hd) store_preserve_all_weaken
+        \\ ntac 2 (first_assum $ irule_at (Pos hd))
+        \\ irule_at (Pos hd) state_rel_pop_env_while
+        \\ gvs [loop_name_def]
+        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+
+    \\ gvs [STOP_def]
+    \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"]
 
 
    )
-
    (cheat)
   >~ [‘Print e t’] >-
    (cheat)
