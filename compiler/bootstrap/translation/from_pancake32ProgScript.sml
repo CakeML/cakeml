@@ -352,7 +352,7 @@ val res = translate $ PURE_REWRITE_RULE [option_map_thm] $ spec32 conv_var_def;
 val res = translate $ conv_shift_def;
 
 Overload ptree_size[local] = ``parsetree_size (K 0) (K 0) (K 0)``;
-Overload ptree1_size[local] = ``parsetree1_size (K 0) (K 0) (K 0)``;
+Overload ptree1_size[local] = ``list_size ptree_size``;
 
 Definition conv_ShapeList_def:
   (conv_Shape_alt tree =
@@ -378,8 +378,7 @@ Definition conv_ShapeList_def:
          | NONE => NONE)))
 Termination
   WF_REL_TAC ‘measure (λx. sum_CASE x ptree_size (ptree1_size))’ >> rw[]
-  >> Cases_on ‘tree’
-  >> gvs[argsNT_def,grammarTheory.parsetree_size_def]
+  >> gvs[oneline  argsNT_def,AllCaseEqs()]
 End
 
 val tree = “tree:(token, pancakeNT, α) parsetree”
@@ -612,7 +611,7 @@ Termination
                            | INR (INL x) => ptree_size x
                            | INL x => ptree1_size x)’ >> rw[]
   >> Cases_on ‘tree’
-  >> gvs[argsNT_def,grammarTheory.parsetree_size_def]
+  >> gvs[argsNT_def]
 End
 
 val tree = “tree:(token, pancakeNT, β) parsetree”
