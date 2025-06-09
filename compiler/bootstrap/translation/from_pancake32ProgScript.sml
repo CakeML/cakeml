@@ -352,7 +352,6 @@ val res = translate $ PURE_REWRITE_RULE [option_map_thm] $ spec32 conv_var_def;
 val res = translate $ conv_shift_def;
 
 Overload ptree_size[local] = ``parsetree_size (K 0) (K 0) (K 0)``;
-Overload ptree1_size[local] = ``list_size ptree_size``;
 
 Definition conv_ShapeList_def:
   (conv_Shape_alt tree =
@@ -377,7 +376,7 @@ Definition conv_ShapeList_def:
            SOME ys => SOME(y::ys)
          | NONE => NONE)))
 Termination
-  WF_REL_TAC ‘measure (λx. sum_CASE x ptree_size (ptree1_size))’ >> rw[]
+  WF_REL_TAC ‘measure (λx. sum_CASE x ptree_size (list_size ptree_size))’ >> rw[]
   >> gvs[oneline  argsNT_def,AllCaseEqs()]
 End
 
@@ -605,11 +604,11 @@ Definition conv_Exp_alt_def:
                   conv_panops_alt ts (Panop op [res; e'])))))
 Termination
   WF_REL_TAC ‘measure (λx. case x of
-                             INR (INR (INR (INL x))) => ptree1_size (FST x)
-                           | INR (INR (INR (INR x))) => ptree1_size (FST x)
+                             INR (INR (INR (INL x))) => (list_size ptree_size) (FST x)
+                           | INR (INR (INR (INR x))) => (list_size ptree_size) (FST x)
                            | INR (INR (INL x)) => ptree_size x
                            | INR (INL x) => ptree_size x
-                           | INL x => ptree1_size x)’ >> rw[]
+                           | INL x => (list_size ptree_size) x)’ >> rw[]
   >> Cases_on ‘tree’
   >> gvs[argsNT_def]
 End
