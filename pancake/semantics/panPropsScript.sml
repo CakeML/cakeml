@@ -935,6 +935,10 @@ End
 
 Definition localised_exp_def:
   (localised_exp (Const w) = T) ∧
+  (localised_exp (BytesInWord) = T) ∧
+  (localised_exp (BaseAddr) = T) ∧
+  (localised_exp (TopAddr) = T) ∧
+  (localised_exp (BytesInWord) = T) ∧
   (localised_exp (Var Local v) = T) ∧
   (localised_exp (Var Global v) = F) ∧
   (localised_exp (Struct es) = EVERY localised_exp es) ∧
