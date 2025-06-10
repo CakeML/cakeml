@@ -2818,8 +2818,8 @@ Proof
   disch_then drule>>rw[]>>
   `i < id` by (
     gvs[any_el_ALT,AND_IMP_INTRO]>>
-    first_x_assum (drule_at Any)>>
-    simp[])>>
+    pop_assum kall_tac>>
+    pop_assum (qspec_then`i` mp_tac)>>simp[])>>
   first_x_assum drule>>
   simp[any_el_ALT]
 QED
