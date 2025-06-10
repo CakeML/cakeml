@@ -2152,4 +2152,67 @@ Proof
   gvs[state_rel_def]
 QED
 
+Theorem compile_exp_localised:
+  ∀ctxt e.
+    localised_exp (compile_exp ctxt e)
+Proof
+  recInduct pan_globalsTheory.compile_exp_ind >>
+  rw[panPropsTheory.localised_exp_def,pan_globalsTheory.compile_exp_def,
+     EVERY_MEM,MEM_MAP] >>
+  gvs[] >>
+  rpt(PURE_TOP_CASE_TAC >> gvs[panPropsTheory.localised_exp_def])
+QED
+
+Theorem compile_localised:
+  ∀ctxt body.
+    localised_prog (compile ctxt body)
+Proof
+  recInduct pan_globalsTheory.compile_ind >>
+  rw[panPropsTheory.localised_prog_def,pan_globalsTheory.compile_def,
+     compile_exp_localised,EVERY_MEM,MEM_MAP] >>
+  rpt(PURE_TOP_CASE_TAC >> gvs[compile_exp_localised,localised_prog_def,localised_exp_def]) >>
+  gvs[AllCaseEqs(),compile_exp_localised]
+QED
+
+Theorem compile_decs_localised:
+  ∀ctxt code.
+    EVERY (localised_prog ∘ SND ∘ SND)
+          (functions (FST (SND (compile_decs ctxt code))))
+Proof
+  recInduct pan_globalsTheory.compile_decs_ind >>
+  rw[panLangTheory.functions_def,pan_globalsTheory.compile_decs_def,
+     ELIM_UNCURRY, compile_localised]
+QED
+
+Theorem compile_decs_localised_main:
+  ∀ctxt code.
+    EVERY localised_prog (FST (compile_decs ctxt code))
+Proof
+  recInduct pan_globalsTheory.compile_decs_ind >>
+  rw[panLangTheory.functions_def,pan_globalsTheory.compile_decs_def,
+     ELIM_UNCURRY, compile_localised, localised_prog_def,
+     localised_exp_def,compile_exp_localised]
+QED
+
+Theorem nested_seqs_localised:
+  ∀ps. localised_prog(nested_seq ps) = EVERY localised_prog ps
+Proof
+  Induct >>
+  rw[nested_seq_def,localised_prog_def]
+QED
+
+Theorem compile_top_localised:
+  ∀pan_code main.
+    EVERY (localised_prog ∘ SND ∘ SND) (functions (compile_top pan_code main))
+Proof
+  rw[pan_globalsTheory.compile_top_def] >>
+  PURE_TOP_CASE_TAC >> simp[panLangTheory.functions_def] >>
+  PURE_TOP_CASE_TAC >>
+  simp[panLangTheory.functions_def,ELIM_UNCURRY, panPropsTheory.localised_prog_def,
+       EVERY_MAP, panPropsTheory.localised_exp_def,
+       compile_decs_localised,nested_seqs_localised,
+       compile_decs_localised_main
+      ]
+QED
+
 val _ = export_theory();
