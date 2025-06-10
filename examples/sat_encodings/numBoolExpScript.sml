@@ -407,7 +407,7 @@ Proof
   Induct
   >- gvs[]
   >> Cases_on‘h’
-  >> rw[]
+  >> rw[] >> metis_tac[]
 QED
 
 Theorem vMap_no_empty_lists_lemma:
