@@ -276,6 +276,14 @@ Proof
   gvs[ELIM_UNCURRY]
 QED
 
+(* TODO: Maybe move to HOL? *)
+Theorem list_size_SUM:
+  list_size f ls =
+  LENGTH ls + SUM (MAP f ls)
+Proof
+  Induct_on `ls`>>rw[]
+QED
+
 Theorem compile_pat_bindings_thm:
   ∀n t i m exp.
   SUM (MAP (pat_size o FST) m) + LENGTH m ≤ n ⇒
@@ -288,7 +296,7 @@ Proof
   >- metis_tac[FST,SND,PAIR]
   >> (PRED_ASSUM is_imp mp_tac >>
       impl_tac
-      >- (gvs[flatLangTheory.pat_size_def,SUM_APPEND, flat_patternTheory.pat1_size,
+      >- (gvs[list_size_SUM,SUM_APPEND,
               LENGTH_enumerate, MAP_enumerate_MAPi, flat_patternTheory.MAPi_eq_MAP,
               ADD1,o_DEF,MAP_MAP_o]) >>
       strip_tac >>
@@ -352,7 +360,7 @@ Proof
   rw[naive_pattern_match_clocked_def,flat_patternTheory.naive_pattern_match_def] >>
   (PRED_ASSUM is_imp mp_tac >>
    impl_tac
-   >- (gvs[flatLangTheory.pat_size_def,SUM_APPEND, flat_patternTheory.pat1_size,
+   >- (gvs[list_size_SUM,SUM_APPEND,
            LENGTH_enumerate, MAP_enumerate_MAPi, flat_patternTheory.MAPi_eq_MAP,
            ADD1,o_DEF,MAP_MAP_o]) >>
    strip_tac >>
