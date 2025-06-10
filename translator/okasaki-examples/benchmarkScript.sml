@@ -5,10 +5,9 @@
 open HolKernel Parse boolLib bossLib;
 open bagTheory relationTheory bagLib miscTheory ml_translatorLib;
 open preamble
+open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
 
 val _ = new_theory "benchmark";
-
-open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
 
 val _ = translation_extends "ListProg";
 
@@ -169,6 +168,14 @@ Definition merge_def:
 (merge get_key leq (Tree a x b) h2 =
   let (ta, tb) = partition get_key leq x h2 in
     Tree (merge get_key leq ta a) x (merge get_key leq tb b))
+
+Termination
+  WF_REL_TAC `measure (\(_,x,y,z).  heap_size (\_.1) y + heap_size (\_.1) z)` >>
+ rw [] >>
+ imp_res_tac partition_size >>
+ pop_assum (MP_TAC o Q.SPEC `(λ_.1)`) >>
+ pop_assum (MP_TAC o Q.SPEC `(λ_.1)`) >>
+ full_simp_tac (srw_ss() ++ ARITH_ss) [partition_size]
 End
 
 val _ = translate merge_def

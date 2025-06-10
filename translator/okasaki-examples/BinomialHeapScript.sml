@@ -20,8 +20,6 @@ End
 
 Type heap = ``:'a tree list``
 
-val tree_size_def = fetch "-" "tree_size_def";
-
 Definition heap_to_bag_def:
 (heap_to_bag [] = {||}) ∧
 (heap_to_bag (h::hs) =
@@ -39,10 +37,6 @@ Definition is_heap_ordered_def:
 (is_heap_ordered_tree get_key leq (Node _ x hs) <=>
   is_heap_ordered get_key leq hs ∧
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag hs))
-Termination
-  wf_rel_tac `measure (\x. case x of INL (_,_,x) => tree1_size (\x.0) x
-                                  | INR (_,_,x) => tree_size (\x.0) x)` >>
- rw [tree_size_def]
 End
 
 Definition empty_def:
@@ -365,10 +359,6 @@ Definition heap_size_def:
 (heap_size [] = 0) ∧
 (heap_size (t::ts) = heap_tree_size t + heap_size ts) ∧
 (heap_tree_size (Node _ _ trees) = (1:num) + heap_size trees)
-Termination
-  wf_rel_tac `measure (\x. case x of INR y => tree_size (\x.0) y
-                                  | INL z => tree1_size (\x.0) z)` >>
- rw []
 End
 
 Definition is_binomial_tree_def:
