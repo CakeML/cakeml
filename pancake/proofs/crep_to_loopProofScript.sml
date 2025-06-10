@@ -3034,13 +3034,6 @@ Proof
         CaseEq "prod"]
   \\ drule_then drule (last (RES_CANON code_rel_intro))
   \\ strip_tac \\ fs [find_code_def,find_lab_def]
-(*  \\ DEP_REWRITE_TAC [find_code_collapse_cases]*)
-(*  \\ conj_tac >- (
-    fs [call_label_def]
-    \\ Cases_on `trgt` \\ fs [] \\ gvs []
-    \\ fs [crepSemTheory.eval_def, CaseEq "option"]
-    \\ simp [find_lab_def]
-  )*)
   \\ simp [cut_res_def, cut_state_def]
   \\ DEP_REWRITE_TAC [domain_alist_insert]
   \\ conj_tac >- (
@@ -3944,7 +3937,7 @@ Proof
 QED
 
 Theorem state_rel_imp_semantics:
-  !s t crep_code start prog lc c. s.memaddrs = t.mdomain ∧
+  !s t crep_code start lc c. s.memaddrs = t.mdomain ∧
   s.be = t.be ∧ s.sh_memaddrs = t.sh_mdomain ∧
   s.ffi = t.ffi ∧ s.base_addr = t.base_addr ∧ s.top_addr = t.top_addr ∧
   mem_rel s.memory t.memory ∧
@@ -3953,13 +3946,24 @@ Theorem state_rel_imp_semantics:
   s.code = alist_to_fmap crep_code ∧
   t.code = fromAList (crep_to_loop$compile_prog c crep_code) ∧
   s.locals = FEMPTY ∧
-  ALOOKUP crep_code start = SOME ([],prog) ∧
   FLOOKUP (make_funcs crep_code) start = SOME (lc, 0) ∧
   semantics s start <> Fail ==>
   semantics t lc = semantics s start
 Proof
   simp [crep_sem_is_wrapper, loop_sem_is_wrapper]
   \\ rw []
+  \\ ‘∃prog. ALOOKUP crep_code start = SOME ([],prog)’
+    by (pop_assum mp_tac
+        \\ qpat_x_assum ‘s.code = _’ mp_tac
+        \\ rpt $ pop_assum kall_tac
+        \\ simp[semantics_wrapper_def,AllCaseEqs()]
+        \\ rpt strip_tac
+        \\ pop_assum kall_tac
+        \\ pop_assum $ qspec_then ‘1’ mp_tac
+        \\ rw[crepSemTheory.evaluate_def,AllCaseEqs(),lookup_code_def]
+        \\ Cases_on ‘ALOOKUP crep_code start’
+        \\ gvs[]
+        \\ metis_tac[FST,SND,PAIR])
   \\ match_mp_tac (semantics_wrapper_eq |> REWRITE_RULE [AND_IMP_INTRO] )
   \\ rw []
 (*  \\ qpat_x_assum `_ <> Fail` kall_tac*)

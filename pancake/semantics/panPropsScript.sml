@@ -1080,8 +1080,8 @@ QED
 
 Theorem semantics_decls_has_main:
   semantics_decls s start code <> Fail ⇒
-  ∃args body.
-    FLOOKUP (s.code |++ functions code) start = SOME (args,body)
+  ∃body.
+    FLOOKUP (s.code |++ functions code) start = SOME ([],body)
 Proof
   rw[semantics_decls_def] >>
   PURE_FULL_CASE_TAC >> gvs[] >>
