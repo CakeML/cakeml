@@ -294,16 +294,15 @@ Proof
     gvs [AllCaseEqs(),check_lstep_def,check_lstep_list_def]
     >-
       simp[any_el_list_delete_list]
-    >> (
-      rpt (pairarg_tac \\ gvs [])>>
+    >- (rpt (pairarg_tac \\ gvs []))
+    >- (
       fs[any_el_update_resize,rollback_def,any_el_list_delete_list]>>
       last_x_assum (qspec_then`n` mp_tac)>>simp[]>>rw[]>>
-      simp[MEM_MAP,MEM_COUNT_LIST]>>
+      gvs[MEM_MAP,MEM_COUNT_LIST]>>
       drule (CONJUNCT2 check_lstep_list_id)>>
       rw[]>>
-      `n < id'` by
-        (CCONTR_TAC>>gvs[])>>
-      intLib.ARITH_TAC))
+      Cases_on`n ≥ id'` >> gvs[]>>
+      `F` by intLib.ARITH_TAC))
   >- gvs [AllCaseEqs(),check_lstep_def,check_lstep_list_def]
   >- (
     qpat_x_assum`_= SOME _ `mp_tac>>
