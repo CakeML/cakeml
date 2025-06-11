@@ -253,8 +253,8 @@ fun spec_namespace_enc' tm1 suffix = let
     |> concl |> subst [r |-> v, r_list |-> v_list]
   val tac =  WF_REL_TAC ‘measure (λx. case x of
                          | INL x => namespace_size (K 0) (K 0) (K 0) x
-                         | INR x => namespace1_size (K 0) (K 0) (K 0) x)’
-  val def = tDefine name [ANTIQUOTE tm] tac
+                         | INR x => list_size (namespace_size (K 0) (K 0) (K 0)) x)’
+  val def = Define [ANTIQUOTE tm]
   val _ = cv_auto_trans def
   val cs = def |> CONJUNCTS |> map (fst o strip_comb o lhs o concl o SPEC_ALL)
   val c = hd cs
