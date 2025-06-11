@@ -66,8 +66,9 @@ QED
 val _ = cv_trans $ GSYM $ cj 1 compile_pat_alt_thm;
 
 val pre = cv_auto_trans_pre
-          (source_to_flatTheory.compile_exp_def
-             |> PURE_REWRITE_RULE [oneline OPTION_MAP_DEF,o_THM]);
+             (source_to_flatTheory.compile_exp_def
+                |> PURE_REWRITE_RULE [oneline OPTION_MAP_DEF,o_THM]
+                |> measure_args [2,2,2,2]);
 
 Theorem source_to_flat_compile_exp_pre[cv_pre,local]:
   (∀t env v. source_to_flat_compile_exp_pre t env v) ∧
@@ -124,7 +125,8 @@ QED
 
 val _ = cv_auto_trans nsMap_alt_def;
 
-val _ = cv_auto_trans (source_to_flatTheory.alloc_tags_def |> PURE_ONCE_REWRITE_RULE[GSYM nsMap_alt_thm])
+val _ = cv_auto_trans (source_to_flatTheory.alloc_tags_def
+                         |> PURE_ONCE_REWRITE_RULE[GSYM nsMap_alt_thm])
 
 Definition compile_decs_alt_def:
   (compile_dec_alt (t:string list) n next env envs (ast$Dlet locs p e) =
@@ -223,7 +225,7 @@ Proof
   simp[compile_decs_cons,UNCURRY_eq_pair,PULL_EXISTS,source_to_flatTheory.extend_env_def]
 QED
 
-val _ = cv_auto_trans compile_decs_alt_def
+val _ = cv_auto_trans (measure_args [5,5] compile_decs_alt_def)
 
 val _ = cv_trans compile_decs_thm
 
@@ -265,7 +267,8 @@ Definition compile_pat_bindings_clocked_def:
     (insert k () spt, Let t (SOME nm) (App t (El 0) [x]) exp2))
 End
 
-val pre = cv_auto_trans_pre (compile_pat_bindings_clocked_def |> PURE_REWRITE_RULE[ELIM_UNCURRY])
+val pre = cv_auto_trans_pre (compile_pat_bindings_clocked_def
+                               |> PURE_REWRITE_RULE[ELIM_UNCURRY])
 
 Theorem compile_pat_bindings_clocked_pre[cv_pre,local]:
   ∀v0 v1 v2 v exp. compile_pat_bindings_clocked_pre v0 v1 v2 v exp
@@ -920,9 +923,9 @@ val _ = cv_trans backend_asmTheory.to_clos_def
 
 (* clos_mti *)
 
-val _ = cv_trans clos_mtiTheory.collect_args_def
+val _ = cv_trans (clos_mtiTheory.collect_args_def |> measure_args [2])
 
-val _ = cv_trans clos_mtiTheory.collect_apps_def
+val _ = cv_trans (clos_mtiTheory.collect_apps_def |> measure_args [2])
 
 Definition intro_multi_alt_def:
   (intro_multi_alt 0 max_app exp = (Var (SourceLoc 0 0 0 0) 0)) ∧
@@ -971,8 +974,8 @@ Definition intro_multi_alt_def:
      ((num_args', intro_multi_alt ck max_app e') :: intro_multi_collect_alt ck max_app fs))
 Termination
   WF_REL_TAC `measure $ λx. case x of
-                              INL(n,_,_) => n
-                            |  INR(INL(n,_,_)) => n
+                            | INL(n,_,_) => n
+                            | INR(INL(n,_,_)) => n
                             | INR(INR(n,_,_)) => n`
 End
 
@@ -1277,7 +1280,7 @@ Termination
   rw[list_size_pair_size_MAP_FST_SND]
 End
 
-val pre = cv_auto_trans_pre free_alt_def
+val pre = cv_auto_trans_pre (free_alt_def |> measure_args [0,0,1])
 
 Theorem free_alt_pre[cv_pre]:
   (∀v. free_alt_pre v) ∧
@@ -1903,7 +1906,7 @@ val _ = cv_auto_trans $
   resolve_then.gen_resolve_then Any EQ_REFL (cj 2 known_alt_thm)
   (fn thm => resolve_then.gen_resolve_then Any EQ_REFL thm GSYM)
 
-val pre = cv_auto_trans_pre clos_fvsTheory.remove_fvs_sing_def
+val pre = cv_auto_trans_pre (clos_fvsTheory.remove_fvs_sing_def |> measure_args [1,1,2])
 
 Theorem clos_fvs_remove_fvs_sing_pre[cv_pre]:
   (∀fvs v. clos_fvs_remove_fvs_sing_pre fvs v) ∧
@@ -2009,7 +2012,7 @@ val _ = cv_trans clos_callTheory.compile_def
 
 (* clos_annotate *)
 
-val pre = cv_auto_trans_pre clos_annotateTheory.shift_sing_def;
+val pre = cv_auto_trans_pre (clos_annotateTheory.shift_sing_def |> measure_args [0,0,3]);
 Theorem clos_annotate_shift_sing_pre[cv_pre]:
   (∀v m l i. clos_annotate_shift_sing_pre v m l i) ∧
   (∀v m l i. clos_annotate_shift_list_pre v m l i) ∧
@@ -2019,7 +2022,7 @@ Proof
   \\ rpt strip_tac \\ simp [Once pre] \\ gvs []
 QED
 
-val pre = cv_auto_trans_pre clos_annotateTheory.alt_free_sing_def;
+val pre = cv_auto_trans_pre (clos_annotateTheory.alt_free_sing_def |> measure_args [0,0,1]);
 Theorem clos_annotate_alt_free_sing_pre[cv_pre]:
   (∀v. clos_annotate_alt_free_sing_pre v) ∧
   (∀v. clos_annotate_alt_free_list_pre v) ∧
@@ -2346,7 +2349,7 @@ val _ = cv_trans bvl_handleTheory.SmartLet_def;
 val _ = cv_auto_trans bvl_handleTheory.LetLet_def;
 val _ = cv_auto_trans bvl_handleTheory.OptionalLetLet_sing_def;
 
-val pre = cv_auto_trans_pre bvl_handleTheory.compile_sing_def;
+val pre = cv_auto_trans_pre (bvl_handleTheory.compile_sing_def |> measure_args [2,2]);
 Theorem bvl_handle_compile_sing_pre[cv_pre,local]:
   (∀v l n. bvl_handle_compile_sing_pre l n v) ∧
   (∀v l n. bvl_handle_compile_list_pre l n v)
@@ -2358,7 +2361,7 @@ val _ = cv_auto_trans bvl_handleTheory.can_raise_def;
 val _ = cv_trans bvl_handleTheory.dest_handle_If_def;
 val _ = cv_trans bvl_handleTheory.dest_handle_Let_def;
 
-val pre = cv_auto_trans_pre bvl_handleTheory.handle_adj_vars_def;
+val pre = cv_auto_trans_pre (bvl_handleTheory.handle_adj_vars_def |> measure_args [2,2]);
 Theorem bvl_handle_handle_adj_vars_pre[cv_pre]:
   (∀v l d. bvl_handle_handle_adj_vars_pre l d v) ∧
   (∀v l d. bvl_handle_handle_adj_vars1_pre l d v)
@@ -2406,9 +2409,9 @@ val _ = cv_trans bvl_handleTheory.compile_any_def;
 
 (* bvl_inline *)
 
-val _ = cv_auto_trans bvl_inlineTheory.tick_inline_sing_def;
+val _ = cv_auto_trans (bvl_inlineTheory.tick_inline_sing_def |> measure_args [1,1]);
 
-val pre = cv_auto_trans_pre bvl_inlineTheory.is_small_sing_def;
+val pre = cv_auto_trans_pre (bvl_inlineTheory.is_small_sing_def |> measure_args [1,1]);
 Theorem bvl_inline_is_small_sing_pre[cv_pre,local]:
   (∀v n. bvl_inline_is_small_sing_pre n v) ∧
   (∀v n. bvl_inline_is_small_list_pre n v)
@@ -2418,7 +2421,7 @@ QED
 
 val _ = cv_auto_trans bvl_inlineTheory.is_small_eq;
 
-val pre = cv_auto_trans_pre bvl_inlineTheory.is_rec_sing_def;
+val pre = cv_auto_trans_pre (bvl_inlineTheory.is_rec_sing_def |> measure_args [1,1]);
 Theorem bvl_inline_is_rec_sing_pre[cv_pre,local]:
   (∀v n. bvl_inline_is_rec_sing_pre n v) ∧
   (∀v n. bvl_inline_is_rec_list_pre n v)
@@ -2461,7 +2464,7 @@ val _ = cv_trans bvl_inlineTheory.compile_prog_def;
 
 (* bvi_tailrec *)
 
-val _ = cv_trans bvi_tailrecTheory.is_rec_def;
+val _ = cv_trans (bvi_tailrecTheory.is_rec_def |> measure_args [1]);
 val _ = cv_auto_trans bvi_tailrecTheory.let_wrap_def;
 
 Triviality term_ok_int_eq:
@@ -2685,7 +2688,7 @@ QED
 val _ = cv_auto_trans bvi_to_dataTheory.optimise_def;
 val _ = cv_auto_trans bvi_to_dataTheory.op_requires_names_eqn;
 
-val pre = cv_auto_trans_pre bvi_to_dataTheory.compile_sing_def;
+val pre = cv_auto_trans_pre (bvi_to_dataTheory.compile_sing_def |> measure_args [4,3]);
 Theorem bvi_to_data_compile_sing_pre[cv_pre,local]:
   (∀n env tail live v. bvi_to_data_compile_sing_pre n env tail live v) ∧
   (∀n env live v. bvi_to_data_compile_list_pre n env live v)
@@ -2897,7 +2900,7 @@ QED
 
 val _ = cv_auto_trans presLangTheory.const_to_display_def;
 
-val pre = cv_auto_trans_pre presLangTheory.clos_to_display_def;
+val pre = cv_auto_trans_pre (presLangTheory.clos_to_display_def |> measure_args [2,2,3,4]);
 
 Theorem presLang_clos_to_display_pre[cv_pre]:
   (∀ns h v. presLang_clos_to_display_pre ns h v) ∧
@@ -2909,7 +2912,7 @@ Proof
   rw[] \\ simp[Once pre]
 QED
 
-val pre = cv_auto_trans_pre presLangTheory.bvl_to_display_def;
+val pre = cv_auto_trans_pre (presLangTheory.bvl_to_display_def |> measure_args [2,2,3]);
 
 Theorem presLang_bvl_to_display_pre[cv_pre]:
   (∀ns h v. presLang_bvl_to_display_pre ns h v) ∧
@@ -2920,7 +2923,7 @@ Proof
   rw[] \\ simp[Once pre]
 QED
 
-val pre = cv_auto_trans_pre presLangTheory.bvi_to_display_def;
+val pre = cv_auto_trans_pre (presLangTheory.bvi_to_display_def |> measure_args [2,2,3]);
 
 Theorem presLang_bvi_to_display_pre[cv_pre]:
   (∀ns h v. presLang_bvi_to_display_pre ns h v) ∧
@@ -2931,7 +2934,7 @@ Proof
   rw[] \\ simp[Once pre]
 QED
 
-val _ = cv_auto_trans presLangTheory.data_prog_to_display_def;
+val _ = cv_auto_trans (presLangTheory.data_prog_to_display_def |> measure_args [0,0]);
 
 val _ = cv_auto_trans presLangTheory.word_exp_to_display_def;
 
