@@ -51,11 +51,8 @@ Termination
                 | INR (INL (p,e)) => list_size exp_size e
                 | INR (INR (INL (p,e))) => list_size (exp_size o SND) e
                 | INR (INR (INR (p,e))) => list_size (exp_size o SND o SND) e’
-  \\ gvs [astTheory.exp_size_eq]
-  \\ conj_tac
-  \\ Induct \\ gvs [list_size_def,FORALL_PROD] \\ rw []
-  \\ first_x_assum $ qspec_then ‘e’ assume_tac
-  \\ gvs [basicSizeTheory.pair_size_def]
+  \\ gvs []
+  \\ rw[list_size_pair_size_MAP_FST_SND]
 End
 
 val pre = cv_trans_pre collect_conses_def;
@@ -358,12 +355,6 @@ Definition closLang_exp_enc_aux_def:
     |> map (SPEC_ALL o SIMP_RULE bool_ss [FORALL_PROD,
               num_tree_enc_decTheory.pair_enc'_def]) |> LIST_CONJ
     |> concl |> subst [c|->r,c_list|->r_list,c_list1|->r_list1])
-Termination
-  WF_REL_TAC ‘measure $ λx. case x of
-              | INL x => closLang$exp_size x
-              | INR (INL xs) => list_size closLang$exp_size xs
-              | INR (INR ys) => list_size (pair_size (λx.x) closLang$exp_size) ys’
-  \\ gvs [closLangTheory.exp_size_eq]
 End
 
 val pre = cv_auto_trans_pre closLang_exp_enc_aux_def;
