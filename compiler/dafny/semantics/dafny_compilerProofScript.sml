@@ -29,8 +29,8 @@ val _ = new_theory "dafny_compilerProof";
 val _ = set_grammar_ancestry
           ["ast", "semanticPrimitives", "evaluate", "evaluateProps",
            "extension_evaluateProps", "dafny_semanticPrimitives",
-           "dafny_evaluate", "namespace", "namespaceProps", "mlstring",
-           "integer", "mlint",
+           "dafny_evaluate", "dafny_evaluateProps", "namespace",
+           "namespaceProps", "mlstring", "integer", "mlint",
            (* TODO Remove this when we move out the compiler *)
            "result_monad"];
 
@@ -2609,6 +2609,20 @@ Proof
   \\ first_assum $ irule_at Any
 QED
 
+(* TODO Move to Props *)
+Theorem evaluate_exp_clock_mono:
+  evaluate_exp s env e = (s', r) ⇒ s'.clock ≤ s.clock
+Proof
+  cheat
+QED
+
+(* TODO Move to Props *)
+Theorem evaluate_stmt_clock_mono:
+  evaluate_stmt s env stmt = (s', r) ⇒ s'.clock ≤ s.clock
+Proof
+  cheat
+QED
+
 Theorem correct_from_stmt:
   ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l base.
     evaluate_stmt s env_dfy stmt_dfy = (s', r_dfy) ∧
@@ -2925,6 +2939,7 @@ Proof
         \\ gvs [Abbr ‘env_cml₁’]
         \\ irule_at (Pos hd) state_rel_pop_env_while
         \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+    \\ ‘t₂.clock = s₂.clock’ by gvs [state_rel_def] \\ gvs []
     \\ Cases_on ‘s₂.clock = 0n’ \\ gvs []
     >- (qexists ‘ck₁ + ck + 1’ \\ gvs []
         \\ rev_drule evaluate_add_to_clock
@@ -2934,17 +2949,96 @@ Proof
                 Abbr ‘env_cml₁’, loop_name_def, do_opapp_def]
         \\ gvs [find_recfun_def]  (* Separate gvs call to avoid looping *)
         \\ rename [‘state_rel _ _ s₂ t₂’]
-        \\ ‘t₂.clock = s₂.clock’ by gvs [state_rel_def] \\ gvs []
         \\ irule_at (Pos hd) store_preserve_trans
         \\ irule_at (Pos hd) store_preserve_all_weaken
         \\ ntac 2 (first_assum $ irule_at (Pos hd))
         \\ irule_at (Pos hd) state_rel_pop_env_while
         \\ gvs [loop_name_def]
         \\ first_assum $ irule_at (Pos hd) \\ gvs [])
-
     \\ gvs [STOP_def]
     \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"]
+    \\ last_x_assum $ qspecl_then [‘lvl’, ‘dec_clock t₂’, ‘env_cml’] mp_tac
+    \\ gvs []
+    \\ disch_then $ qspecl_then [‘m₁’, ‘l’, ‘base’] mp_tac \\ gvs []
+    \\ impl_tac
+    >- (gvs [dec_clock_def, evaluateTheory.dec_clock_def, state_rel_def]
+        \\ gvs [base_at_most_def, store_preserve_all_def, store_preserve_def]
+        \\ cheat
+        (* \\ irule_at Any no_shadow_evaluate_stmt *)
+        (* \\ first_assum $ irule_at (Pos hd) \\ gvs [] *))
 
+    \\ gvs [evaluateTheory.dec_clock_def]
+    \\ disch_then $ qx_choosel_then [‘ck₂’, ‘t₃’, ‘m₂’] mp_tac
+    \\ rpt strip_tac \\ gvs []
+
+    (* Graveyard of broken tactics lies beyond this point *)
+
+    \\ qexists ‘ck₂ + ck₁ + ck + 1’ \\ gvs []
+
+    \\ ‘s₂.clock ≤ s.clock’ by
+      (imp_res_tac evaluate_stmt_clock_mono
+       \\ imp_res_tac evaluate_exp_clock_mono
+       \\ gvs [])
+    \\ gvs []
+    \\ ‘t.clock = s.clock’ by gvs [state_rel_def] \\ gvs []
+
+    \\ namedCases_on ‘ck₂’ ["", "ck₂'"] \\ gvs []
+    >- (namedCases_on ‘ck₁’ ["", "ck₁'"] \\ gvs []
+        >- (namedCases_on ‘ck’ ["", "ck'"] \\ gvs []
+            >- (qexists ‘0’ \\ simp []
+
+                \\ rev_dxrule evaluate_add_to_clock \\ simp []
+                \\ disch_then $ qspec_then ‘x’ mp_tac \\ simp []
+                \\ disch_then $ kall_tac
+                \\ simp [do_if_def, Once evaluate_def]
+
+                \\ rev_dxrule evaluate_add_to_clock \\ simp []
+                \\ disch_then $ qspec_then ‘x’ mp_tac \\ simp []
+                \\ disch_then $ kall_tac
+                \\ simp [nsOptBind_def]
+
+
+               )
+         qexists ‘ck’ \\ simp []
+
+            \\ rev_dxrule evaluate_add_to_clock \\ simp []
+            \\ disch_then $ qspec_then ‘-1’ mp_tac \\ simp []
+            \\ disch_then $ kall_tac
+            \\ simp [do_if_def, Once evaluate_def]
+
+            \\ rev_dxrule evaluate_add_to_clock \\ simp []
+            \\ disch_then $ qspec_then ‘-1’ mp_tac \\ simp []
+            \\ disch_then $ kall_tac
+            \\ simp [nsOptBind_def])
+
+
+        \\ simp [nsOptBind_def]
+     cheat)
+
+
+
+    \\ qexists ‘ck₂' + ck₁ + ck + 1’ \\ simp []
+
+    \\ rev_dxrule evaluate_add_to_clock \\ simp []
+    \\ disch_then $ qspec_then ‘ck₂' + ck₁’ mp_tac \\ simp []
+    \\ disch_then $ kall_tac
+    \\ simp [do_if_def, Once evaluate_def]
+
+    \\ rev_dxrule evaluate_add_to_clock \\ simp []
+    \\ disch_then $ qspec_then ‘ck₂'’ mp_tac \\ simp []
+    \\ disch_then $ kall_tac
+    \\ simp [nsOptBind_def]
+
+    \\ ‘SUC ck₂' + s₂.clock − 1 = ck₂' + s₂.clock’ by gvs [] \\ gvs []
+
+    \\ qhdtm_x_assum ‘evaluate’ mp_tac
+    \\ simp [Once evaluate_def]
+    \\ simp [build_rec_env_def, cml_fapp_def, cml_apps_def, apps_def, mk_id_def]
+
+    \\ simp [evaluate_def, do_con_check_def, build_conv_def, Abbr ‘env_cml₁’,
+             loop_name_def]
+    \\ disch_then kall_tac
+    \\ cheat
 
    )
    (cheat)
