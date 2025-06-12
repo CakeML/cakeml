@@ -3,7 +3,7 @@
   primitive operations) used in the semantics.
 *)
 open HolKernel Parse boolLib bossLib;
-open miscTheory astTheory namespaceTheory ffiTheory fpValTreeTheory fpSemTheory realOpsTheory;
+open miscTheory astTheory namespaceTheory ffiTheory fpSemTheory;
 
 val _ = numLib.temp_prefer_num();
 
@@ -126,15 +126,7 @@ End
 Definition fp_cmp_type_num_def:
   fp_cmp_type_num = 16
 End
-Definition real_uop_type_num_def:
-  real_uop_type_num = 17
-End
-Definition real_bop_type_num_def:
-  real_bop_type_num = 18
-End
-Definition real_cmp_type_num_def:
-  real_cmp_type_num = 19
-End
+
 Definition op_type_num_def:
   op_type_num     = 20
 End
@@ -143,9 +135,6 @@ Definition locn_type_num_def:
 End
 Definition locs_type_num_def:
   locs_type_num   = 22
-End
-Definition fp_opt_num_def:
-  fp_opt_num      = 23
 End
 Definition exp_type_num_def:
   exp_type_num    = 24
@@ -305,6 +294,7 @@ Definition lit_same_type_def:
      | (StrLit _, StrLit _) => T
      | (Word8  _, Word8  _) => T
      | (Word64 _, Word64 _) => T
+     | (Float64 _, Float64 _) => T
      | _ => F
 End
 
@@ -423,6 +413,7 @@ Datatype:
 End
 
 Definition do_eq_def:
+  do_eq (Litv (Float64 f1)) (Litv (Float64 f2)) = Eq_val (fp64_equal f1 f2) ∧
   do_eq (Litv l1) (Litv l2) =
     (if lit_same_type l1 l2 then Eq_val (l1 = l2) else Eq_type_error) ∧
   do_eq (Loc b1 l1) (Loc b2 l2) =
@@ -766,6 +757,7 @@ End
 Type store_ffi = “: 'v store # 'ffi ffi_state”
 
 Overload w64lit[local] = “λw. Litv (Word64 w)”
+Overload f64lit[local] = “λw. Litv (Float64 w)”
 
 Definition do_app_def:
   do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
@@ -786,15 +778,17 @@ Definition do_app_def:
         SOME ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
         SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-    | (FP_top t_op, [w64lit w1; w64lit w2; w64lit w3]) =>
+    | (FP_top t_op, [f64lit w1; f64lit w2; f64lit w3]) =>
         SOME ((s,t),
-              Rval (w64lit (fp_top_comp t_op w1 w2 w3)))
-    | (FP_bop bop, [w64lit w1; w64lit w2]) =>
-        SOME ((s,t),Rval (w64lit (fp_bop_comp bop w1 w2)))
-    | (FP_uop uop, [w64lit w1]) =>
-        SOME ((s,t),Rval (w64lit (fp_uop_comp uop w1)))
-    | (FP_cmp cmp, [w64lit w1; w64lit w2]) =>
+              Rval (f64lit (fp_top_comp t_op w1 w2 w3)))
+    | (FP_bop bop, [f64lit w1; f64lit w2]) =>
+        SOME ((s,t),Rval (f64lit (fp_bop_comp bop w1 w2)))
+    | (FP_uop uop, [f64lit w1]) =>
+        SOME ((s,t),Rval (f64lit (fp_uop_comp uop w1)))
+    | (FP_cmp cmp, [f64lit w1; f64lit w2]) =>
           SOME ((s,t),Rval (Boolv (fp_cmp_comp cmp w1 w2)))
+    | (FpToWord, [f64lit w1]) => SOME ((s,t), Rval (w64lit w1))
+    | (FpFromWord, [w64lit w1]) => SOME ((s,t), Rval (f64lit w1))
     | (Shift W8 op n, [Litv (Word8 w)]) =>
         SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>

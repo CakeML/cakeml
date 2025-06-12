@@ -2,7 +2,7 @@
   Functional big-step semantics for evaluation of CakeML programs.
 *)
 open HolKernel Parse boolLib bossLib;
-open fpValTreeTheory fpSemTheory astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
+open fpSemTheory astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
 
 val _ = numLib.temp_prefer_num();
 

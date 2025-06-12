@@ -2,7 +2,7 @@
   Definitions of the floating point operations used in CakeML.
 *)
 open HolKernel Parse boolLib bossLib;
-open fpValTreeTheory machine_ieeeTheory;
+open astTheory machine_ieeeTheory;
 
 val _ = new_theory "fpSem";
 

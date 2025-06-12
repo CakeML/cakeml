@@ -2,7 +2,7 @@
   Definition of CakeML abstract syntax (AST).
 *)
 open HolKernel Parse boolLib bossLib;
-open namespaceTheory fpSemTheory fpValTreeTheory realOpsTheory;
+open namespaceTheory;
 
 local open integerTheory wordsTheory stringTheory namespaceTheory locationTheory in end;
 val _ = new_theory "ast"
@@ -16,6 +16,7 @@ Datatype:
   | StrLit string
   | Word8 word8
   | Word64 word64
+  | Float64 word64
 End
 
 (* Built-in binary operations *)
@@ -33,6 +34,22 @@ End
 
 Datatype:
   shift = Lsl | Lsr | Asr | Ror
+End
+
+Datatype:
+  fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
+End
+
+Datatype:
+  fp_uop = FP_Abs | FP_Neg | FP_Sqrt
+End
+
+Datatype:
+  fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div
+End
+
+Datatype:
+  fp_top = FP_Fma
 End
 
 (* Module names *)
@@ -71,12 +88,6 @@ Datatype:
   (* Floating-point <-> word translations *)
   | FpFromWord
   | FpToWord
-  (* Real ops for verification *)
-  | Real_cmp real_cmp
-  | Real_uop real_uop
-  | Real_bop real_bop
-  (* Translation from floating-points to reals for verification *)
-  | RealFromFP
   (* Function application *)
   | Opapp
   (* Reference operations *)
