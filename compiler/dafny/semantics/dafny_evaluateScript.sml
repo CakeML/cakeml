@@ -303,18 +303,20 @@ Definition evaluate_stmt_ann_def[nocompute]:
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
    | (st₁, Rval vals) => assign_values st₁ env (MAP FST ass) vals) ∧
   evaluate_stmt st₀ env (While guard invs decrs mods body) =
-  (case evaluate_exp st₀ env guard of
-   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
-   | (st₁, Rval guard_v) =>
-     if guard_v = BoolV F then (st₁, Rcont)
-     else if guard_v = BoolV T then
-       (case fix_clock st₁ (evaluate_stmt st₁ env body) of
-        | (st₂, Rstop stp) => (st₂, Rstop stp)
-        | (st₂, Rcont) =>
-          if st₂.clock = 0 then (st₂, Rstop (Serr Rtimeout_error)) else
-          evaluate_stmt (dec_clock st₂) env
-                        (STOP (While guard invs decrs mods body)))
-     else (st₁, Rstop (Serr Rtype_error))) ∧
+  (* By having the check and decrement at the beginning (instead of right
+     before going into the next iteration), the compiler proof for the While
+     case becomes significantly easier, as the clocks match up. *)
+  (if st₀.clock = 0 then (st₀, Rstop (Serr Rtimeout_error)) else
+   (case evaluate_exp (dec_clock st₀) env guard of
+    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+    | (st₁, Rval guard_v) =>
+      if guard_v = BoolV F then (st₁, Rcont)
+      else if guard_v = BoolV T then
+        (case fix_clock st₁ (evaluate_stmt st₁ env body) of
+         | (st₂, Rstop stp) => (st₂, Rstop stp)
+         | (st₂, Rcont) => evaluate_stmt st₂ env
+                            (STOP (While guard invs decrs mods body)))
+      else (st₁, Rstop (Serr Rtype_error)))) ∧
   evaluate_stmt st₀ env (Print e t) =
   (case evaluate_exp st₀ env e of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
