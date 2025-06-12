@@ -2460,7 +2460,7 @@ Proof
     fs [wlab_wloc_def, AllCaseEqs ()]) >>
   fs [state_rel_def]
   >- (
-   qexists_tac ‘0’ >> fs [] >>
+   fs [] >>
    reverse conj_tac
    >- (
     fs [locals_rel_def] >>
@@ -2470,8 +2470,7 @@ Proof
     rfs [lookup_inter, domain_lookup]) >>
    match_mp_tac write_bytearray_mem_rel >>
    fs []) >>
-  fs [call_env_def] >>
-  qexists_tac ‘0’ >> fs []
+  fs [call_env_def]
 QED
 
 

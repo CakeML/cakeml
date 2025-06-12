@@ -196,8 +196,6 @@ Definition con_check_eqv_def:
     | (Bind xs ys, Bind xs1 ys1) =>
          LIST_REL (λ(a,x1,_) (b,y1,_). a = b ∧ x1 = y1) xs xs1 ∧
          LIST_REL (λ(a,x1) (b,y1). a = b ∧ con_check_eqv x1 y1) ys ys1
-Termination
-  WF_REL_TAC ‘measure $ λ(x,y). namespace_size (K 0) (K 0) (K 0) x’
 End
 
 Theorem con_check_eqv_refl[local,simp]:

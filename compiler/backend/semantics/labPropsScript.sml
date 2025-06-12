@@ -584,9 +584,9 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ imp_res_tac mem_load_32_align_dm
   \\ fs[]
-  \\ fs[mem_load_32_def]
-  \\ fs[align_dm_def]
+  \\ gs[mem_load_32_def]
   \\ every_case_tac \\ fs[]
+  \\ fs[align_dm_def]
 QED
 
 Theorem mem_load_byte_aux_align_dm:
