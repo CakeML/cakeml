@@ -3481,7 +3481,7 @@ Proof
     \\ IMP_RES_TAC env_rel_IMP_LENGTH
     \\ `n < LENGTH env''` by DECIDE_TAC
     \\ SRW_TAC [] [bEval_def]
-    \\ MAP_EVERY Q.EXISTS_TAC [`0`, `f1`] \\ full_simp_tac(srw_ss())[SUBMAP_REFL]
+    \\ MAP_EVERY Q.EXISTS_TAC [`f1`] \\ full_simp_tac(srw_ss())[SUBMAP_REFL]
     \\ MATCH_MP_TAC env_rel_IMP_EL \\ full_simp_tac(srw_ss())[])
   THEN1 (* If *)
    (srw_tac[][] >>
@@ -5695,7 +5695,7 @@ Proof
     by fs [chain_exps_LE, chain_exps_GT]
   \\ Cases_on`es'' = []`
   >- (
-    fs[code_locs_def, chain_exps_def]
+    gvs[code_locs_def, chain_exps_def] >> UNABBREV_ALL_TAC
     \\ imp_res_tac clos_callTheory.compile_LENGTH \\ fs[]
     \\ imp_res_tac clos_callTheory.compile_nil \\ fs[code_locs_def] )
   (* clos_call *)

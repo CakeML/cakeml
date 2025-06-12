@@ -304,8 +304,6 @@ Definition every_exp_def[simp]:
              p (FpOptimise fpopt e) ∧ every_exp p e) ∧
   (every_exp p (Letrec funs e) ⇔
              p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs)
-Termination
-  WF_REL_TAC ‘measure $ exp_size o SND’
 End
 
 val _ = export_theory()

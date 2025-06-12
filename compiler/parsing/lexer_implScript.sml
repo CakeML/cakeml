@@ -552,13 +552,14 @@ Termination
    >> METIS_TAC [lex_aux_tokens_LESS]
 End
 
-val lex_aux_tokens_thm = Q.prove(
-  `!input l acc d res1 res2.
+Triviality lex_aux_tokens_thm_1:
+  !input l acc d res1 res2.
       (lex_aux_tokens acc d (lexer_fun_aux input l) = res1) /\
       (lex_aux acc d input l = res2) ==>
       (case res2 of NONE => (res1 = NONE)
           | SOME (ts, l', rest) =>
-              (res1 = SOME (ts, lexer_fun_aux rest l')))`,
+              (res1 = SOME (ts, lexer_fun_aux rest l')))
+Proof
   HO_MATCH_MP_TAC lexer_fun_aux_ind >> SIMP_TAC std_ss []
   >> REPEAT STRIP_TAC >> SIMP_TAC std_ss [Once lex_aux_def]
   >> ONCE_REWRITE_TAC [lexer_fun_aux_def]
@@ -570,7 +571,11 @@ val lex_aux_tokens_thm = Q.prove(
   >> Cases_on `q`
   >> FULL_SIMP_TAC (srw_ss()) []
   >> SRW_TAC [] [] >> SRW_TAC [] []
-  >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_aux_def]) |> SIMP_RULE std_ss [];
+  >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_aux_def]
+  >> gvs[]
+QED
+
+Triviality lex_aux_tokens_thm = lex_aux_tokens_thm_1 |> SIMP_RULE std_ss [];
 
 Triviality lex_impl_all_tokens_thm:
   !input l. lex_impl_all input l =
@@ -585,32 +590,29 @@ Proof
   >> Cases_on `x` >> Cases_on `r` >> fs[]
 QED
 
-val lex_aux_tokens_thm = Q.prove(
-  `!input d acc.
-      (res = lex_aux_tokens acc d input) ==>
-      case res of
+Triviality lex_aux_tokens_thm_1:
+  !input d acc.
+      case lex_aux_tokens acc d input of
         NONE => (toplevel_semi_dex (LENGTH acc) d input = NONE)
       | SOME (toks,rest) =>
           (toplevel_semi_dex (LENGTH acc) d input = SOME (LENGTH toks)) /\
-          (REVERSE acc ++ input = toks ++ rest)`,
+          (REVERSE acc ++ input = toks ++ rest)
+Proof
   Induct
   >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def]
   >> ONCE_REWRITE_TAC [toplevel_semi_dex_def]
   >> SIMP_TAC std_ss [LET_DEF] >> Cases
-  >> FULL_SIMP_TAC (srw_ss()) []
-  >> REPEAT STRIP_TAC >> RES_TAC
-  >> POP_ASSUM MP_TAC
-  >> POP_ASSUM (ASSUME_TAC o GSYM)
-  >> ASM_REWRITE_TAC []
-  >> Cases_on `res` >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
-  >> Cases_on `d = 0` >> ASM_SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
-  >> Cases_on `q` >> fs[arithmeticTheory.ADD1]
-  >> TRY (Cases_on `x`) >> fs [arithmeticTheory.ADD1]
-  >> SIMP_TAC std_ss [Once EQ_SYM_EQ]
-  >> FULL_SIMP_TAC std_ss []
-  >> REPEAT STRIP_TAC >> RES_TAC
-  >> fs [Once toplevel_semi_dex_def,LENGTH,arithmeticTheory.ADD1])
-  |> Q.SPECL [`input`,`0`,`[]`] |> Q.GEN `res` |> SIMP_RULE std_ss [LENGTH];
+  >> rw[]
+  >> gvs [Once toplevel_semi_dex_def,LENGTH,arithmeticTheory.ADD1]
+  >> qmatch_goalsub_abbrev_tac`lex_aux_tokens accc dd`
+  >> first_x_assum (qspecl_then [`dd`,`accc`] assume_tac)
+  >> gvs[AllCasePreds(),Abbr`accc`,ADD1,Abbr`dd`]
+  >> gvs [Once toplevel_semi_dex_def,LENGTH,arithmeticTheory.ADD1]
+  >> rw[]
+QED
+
+Triviality lex_aux_tokens_thm = lex_aux_tokens_thm_1
+  |> Q.SPECL [`input`,`0`,`[]`] |> SIMP_RULE std_ss [LENGTH];
 
 Triviality split_top_level_semi_thm:
   !input. split_top_level_semi input = lex_impl_all_tokens input
