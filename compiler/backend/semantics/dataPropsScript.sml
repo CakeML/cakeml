@@ -27,7 +27,7 @@ Definition approx_of_def:
   (approx_of lims [Block ts tag vs] refs =
     approx_of lims vs refs + LENGTH vs + 1)
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure v1_size)
+  WF_REL_TAC `(inv_image (measure I LEX measure (list_size v_size))
                           (\(lims,vs,refs). (sptree$size refs,vs)))`
   \\ rpt strip_tac \\ fs [sptreeTheory.size_delete]
   \\ imp_res_tac miscTheory.lookup_zero \\ fs []
@@ -664,13 +664,13 @@ Proof
      \\ fs [] \\ rfs[]
      \\ rveq \\ fs []
      \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-     \\ TRY (metis_tac [] \\ NO_TAC)
+     \\ TRY (simp[state_component_equality] \\ NO_TAC)
      \\ TRY (drule do_app_sm_safe_peak_swap
-     \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] assume_tac)
-     \\ fs [] \\ metis_tac [] \\ NO_TAC)
+     \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] strip_assume_tac)
+     \\ fs[] \\ simp[state_component_equality] \\ NO_TAC)
      \\ TRY (drule do_app_err_sm_safe_peak_swap
-     \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] assume_tac)
-     \\ fs [] \\ metis_tac [] \\ NO_TAC)
+     \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] strip_assume_tac)
+     \\ fs[] \\ simp[state_component_equality] \\ NO_TAC)
      \\ TRY (drule do_app_safe_peak_swap
      \\ disch_then (qspecl_then [`safe`, `peak`] assume_tac)
      \\ Cases_on `s` \\ Cases_on `r'` \\ fs [state_fn_updates] \\ NO_TAC)
@@ -682,14 +682,23 @@ Proof
      \\ full_cases >>  full_fs
      \\ rveq \\ fs []
      \\ every_case_tac
-     \\ TRY (metis_tac [] \\ NO_TAC)
-     \\ TRY (first_assum (mp_then Any (qspecl_then [`smx`, `safe`,`peak`] assume_tac)
-          do_app_sm_safe_peak_swap))
-     \\ TRY (first_assum (mp_then Any (qspecl_then [`smx`, `safe`,`peak`] assume_tac)
-          do_app_err_sm_safe_peak_swap))
-     \\ rfs [] \\ rveq \\ fs [])
+     \\ TRY (simp[state_component_equality] \\ NO_TAC))
   >- basic_tac
-  >- basic_tac
+  >- (qpat_x_assum `evaluate _ = (_,_)` (strip_assume_tac o
+        SIMP_RULE(srw_ss())[evaluate_def,AllCaseEqs()]) >>
+      rveq >> simp[evaluate_def] >> simp[state_component_equality]
+      >~ [`jump_exc _ = NONE`]
+      >- (qmatch_goalsub_abbrev_tac `jump_exc A` >>
+      `jump_exc A = NONE` by fs[Abbr`A`,jump_exc_def,AllCaseEqs()] >>
+      simp[Abbr`A`] >>
+      qmatch_goalsub_abbrev_tac `jump_exc A` >>
+      `jump_exc A = NONE` by fs[Abbr`A`,jump_exc_def,AllCaseEqs()] >>
+      simp[Abbr`A`] >>
+      simp[state_component_equality])
+      >~ [`jump_exc _ = SOME s`]
+      >- (
+      fs[jump_exc_def,AllCaseEqs()] >>
+      rveq >> simp[state_component_equality]))
   >- basic_tac
   (* Seq *)
   >- (IF_CASES_TAC
@@ -2038,6 +2047,10 @@ Definition zero_limits_def   :
 End
 
 
+val trivial_tac = qpat_x_assum `evaluate _ = (_,_)` (strip_assume_tac o
+                   SIMP_RULE(srw_ss())[evaluate_def,AllCaseEqs()] ) >>
+                  rveq >> simp[evaluate_def] >>
+                  simp[state_component_equality];
 
 Theorem evaluate_swap_limits:
   ∀c s r s' limits.
@@ -2049,8 +2062,8 @@ Theorem evaluate_swap_limits:
                                                          peak_heap_length := peak|>)
 Proof
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
-  >- basic_tac
-  >- basic_tac
+  >- trivial_tac
+  >- (trivial_tac >> EVAL_TAC)
   (* Assign *)
   >- (
      fs [evaluate_def]
@@ -2066,14 +2079,12 @@ Proof
      \\ disch_then (qspecl_then [`limits'`] assume_tac)
      \\ fs [state_component_equality] \\ metis_tac [] \\ NO_TAC))
   (*  Tick *)
-  >- (fs [evaluate_def]
-     \\ full_cases >>  full_fs
-     \\ rveq \\ fs []
-     \\ every_case_tac
-     \\ rw[state_component_equality])
-  >- basic_tac
-  >- basic_tac
-  >- basic_tac
+  >- (trivial_tac >> EVAL_TAC)
+  >- (trivial_tac >> EVAL_TAC)
+  >- (trivial_tac >>
+      fs[jump_exc_def,AllCaseEqs()] >> rveq >>
+      simp[state_component_equality])
+  >- (trivial_tac >> EVAL_TAC)
   (* Seq *)
   >- (fs[evaluate_def,ELIM_UNCURRY]
      \\ Cases_on `evaluate (c1,s)`
@@ -2218,8 +2229,8 @@ Proof
   PURE_REWRITE_TAC[LET_THM] >>
   CONV_TAC(DEPTH_CONV BETA_CONV) >>
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
-  >- basics_tac
-  >- basics_tac
+  >- trivial_tac
+  >- (trivial_tac >> EVAL_TAC >> simp[])
   (* Assign *)
   >- (fs [evaluate_def]
      \\ full_cases >> full_fs
@@ -2235,19 +2246,17 @@ Proof
      \\ disch_then (qspecl_then [`lsz`, `xs`, `sfs`] assume_tac)
      \\ fs [state_component_equality] \\ NO_TAC))
   (*  Tick *)
-  >- (fs [evaluate_def]
-     \\ full_cases >>  full_fs
-     \\ rveq \\ fs []
-     \\ every_case_tac
-     \\ rw[state_component_equality])
-  >- basics_tac
-  >- (basics_tac >>
+  >- (trivial_tac >> EVAL_TAC >> simp[])
+  >- (trivial_tac >> EVAL_TAC >> simp[])
+  >- (trivial_tac >>
+      fs[jump_exc_def,AllCaseEqs()] >>
       imp_res_tac LIST_REL_LENGTH >>
+      rfs[] >> rveq >> simp[state_component_equality] >>
       `LIST_REL stack_frame_size_rel (LASTN (s.handler+1) s.stack) (LASTN (s.handler+1) xs)`
         by(match_mp_tac list_rel_lastn \\ rw[]) >>
-      fs[CaseEq"list",CaseEq"stack"] >> rfs[stack_frame_size_rel_def] >>
-      fs[] >> rveq >> fs[stack_frame_size_rel_def])
-  >- basics_tac
+      rfs[] >>
+      fs[oneline stack_frame_size_rel_def,AllCasePreds()])
+  >- (trivial_tac >> EVAL_TAC >> simp[])
   (* Seq *)
   >- (fs[evaluate_def,ELIM_UNCURRY]
      \\ Cases_on `evaluate (c1,s)`
@@ -2694,7 +2703,7 @@ Proof
       rfs[stack_to_vs_def,size_of_heap_def] >>
       fs[])
   >- ((* Raise *)
-      fs[evaluate_def,CaseEq "option",set_var_def,jump_exc_def,
+      fs[evaluate_def,CaseEq "option",CaseEq "bool", set_var_def,jump_exc_def,
          CaseEq "list", CaseEq "stack",add_space_def,cc_co_only_diff_def] >> rveq >>
       fs[])
   >- ((* Return *)

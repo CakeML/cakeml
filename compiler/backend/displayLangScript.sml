@@ -63,9 +63,6 @@ Definition display_to_json_def:
       Object [(strlit "isTuple", Bool T); (strlit "elements", Array es')])
   /\
    (display_to_json (List es) = Array (MAP display_to_json es))
-Termination
-  WF_REL_TAC `measure sExp_size` \\ rw []
-  \\ imp_res_tac MEM_sExp_size \\ fs []
 End
 
 Definition display_to_str_tree_def:

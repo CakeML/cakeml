@@ -322,10 +322,6 @@ Definition type_compare_def:
          (case type_compare t1 t2 of
           | Equal => type_list_compare ts1 ts2
           | other => other))
-Termination
-  WF_REL_TAC `measure (\x. case x of
-                  INR (x,_) => type1_size x
-                | INL (x,_) => type_size x)`
 End
 
 val type_cmp_thm = Q.prove(

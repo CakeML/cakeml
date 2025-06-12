@@ -115,8 +115,6 @@ End
 Definition nsMap_def:
   nsMap (f:'v -> 'w) ((Bind v m):('m,'n,'v)namespace) =
     Bind (MAP (λ(n,x). (n,f x)) v) (MAP (λ(mn,e). (mn,nsMap f e)) m)
-Termination
-  WF_REL_TAC `measure (namespace_size (K 1) (K 1) (K 1) o SND)`
 End
 
 val _ = export_theory()

@@ -40,8 +40,6 @@ Definition freevars_def:
   freevars [FpOptimise opt e] = freevars [e] /\
   freevars (e1::es) =
     freevars [e1] UNION freevars es
-Termination
-  wf_rel_tac `measure exp6_size`
 End
 
 Theorem lookupCMLVar_id_l:

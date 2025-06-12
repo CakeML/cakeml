@@ -60,11 +60,8 @@ Definition get_size_sc_aux_def:
      let n = get_size_sc_aux n [x1] in if n = 0 then 0 else
        get_size_sc_aux n xs)
 Termination
-  WF_REL_TAC `measure (exp3_size o SND)`
-  \\ simp [] \\ rpt strip_tac
-  \\ `exp3_size (MAP SND fns) <= exp1_size fns`
-     by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
-  \\ simp []
+  WF_REL_TAC `measure (list_size exp_size o SND)`
+  \\ fs[list_size_pair_size_MAP_FST_SND]
 End
 
 Definition get_size_sc_def:
@@ -99,11 +96,8 @@ Definition get_size_aux_def:
   (get_size_aux [App t loc_opt x1 xs] =
      1 + get_size_aux [x1] + get_size_aux xs)
 Termination
-  WF_REL_TAC `measure exp3_size`
-  \\ simp [] \\ rpt strip_tac
-  \\ `exp3_size (MAP SND fns) <= exp1_size fns`
-    by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
-  \\ simp []
+  WF_REL_TAC `measure (list_size exp_size)`
+  \\ simp [list_size_pair_size_MAP_FST_SND]
 End
 
 val get_size_aux_ind = theorem "get_size_aux_ind";
@@ -175,9 +169,6 @@ Definition free_def:
   (free [Call t ticks dest xs] =
      let (c1,l1) = free xs in
        ([Call t ticks dest c1],l1))
-Termination
-  WF_REL_TAC `measure exp3_size`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC
 End
 
 (*
@@ -256,8 +247,6 @@ Definition contains_closures_def:
   (contains_closures [App t loc_opt x1 xs] =
      if contains_closures [x1] then T else
        contains_closures xs)
-Termination
-  wf_rel_tac `measure exp3_size`
 End
 
 (* -----------------------------------------------------------------
@@ -299,14 +288,6 @@ Definition merge_def[nocompute]:
        then Clos m1 n1 e1 s1 else Other) ∧
   (merge (Int i) (Int j) = if i = j then Int i else Other) ∧
   (merge _ _ = Other)
-Termination
-  WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
-  rw[val_approx_size_def] >> simp[] >>
-  rename[`MEM x xs`, `MEM y ys`, `SUC (LENGTH xs) = LENGTH ys`,
-          `tag + (val_approx1_size xs + _)`, `val_approx_size x < _`] >>
-  first_x_assum (qspecl_then [`tag`, `y::TL (TL ys)`, `x`, `y`] mp_tac) >>
-  impl_tac >> simp[] >> Cases_on `ys` >> fs[] >> Cases_on `xs` >> fs[] >>
-  rename1 `SUC (LENGTH _) = LENGTH ll` >> Cases_on `ll` >> fs[]
 End
 
 Theorem merge_def[simp,compute,allow_rebind] =
@@ -647,9 +628,13 @@ Definition known_def:
        ([(Letrec t loc_opt NONE new_fns e1,a1)],g))
 Termination
   wf_rel_tac `inv_image (measure I LEX measure I)
-                        (\(c, xs, vs, g). (c.inline_factor, exp3_size xs))`
+                        (\(c, xs, vs, g). (c.inline_factor, list_size exp_size xs))`
   \\ simp [dec_inline_factor_def] \\ rpt strip_tac
-  \\ imp_res_tac decide_inline_LetInline \\ fs []
+  \\ imp_res_tac decide_inline_LetInline
+  \\ fs []
+  \\ drule MEM_list_size
+  \\ disch_then (qspec_then `pair_size (λx. x) exp_size` mp_tac)
+  \\ simp[list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem known_LENGTH:

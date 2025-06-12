@@ -175,22 +175,26 @@ Theorem evaluate_env_rel:
       res <> Rerr (Rabort Rtype_error) ==>
       (evaluate (compile ax d xs,env2,s1) = (res,s2))
 Proof
-  strip_tac \\ completeInduct_on `exp2_size xs`
+  strip_tac \\ completeInduct_on `list_size exp_size xs`
   \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on `xs` \\ fs[compile_def,evaluate_def]
   \\ reverse (Cases_on `t`) \\ fs [] THEN1
    (fs [compile_def,evaluate_def]
     \\ qpat_x_assum `!x._` mp_tac
     \\ once_rewrite_tac [IMP_COMM] \\ rw [AND_IMP_INTRO]
-    \\ every_case_tac \\ fs [] \\ rveq \\ fs [GSYM CONJ_ASSOC]
-    \\ first_assum drule \\ pop_assum mp_tac
-    \\ first_x_assum drule \\ fs [] \\ rw []
-    \\ rpt (first_x_assum drule)
-    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
-    \\ TRY strip_tac
-    \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
+    \\ gvs [CaseEq"prod"]
     \\ once_rewrite_tac [GSYM compile_HD_SING] \\ fs []
-    \\ once_rewrite_tac [evaluate_CONS] \\ fs [compile_HD_SING])
+    \\ once_rewrite_tac [evaluate_CONS] \\ fs [compile_HD_SING]
+    \\ first_assum $ drule_then drule
+    \\ impl_tac >- (CCONTR_TAC \\ gvs [])
+    \\ rpt strip_tac \\ gvs []
+    \\ gvs [CaseEq"result"]
+    \\ imp_res_tac evaluate_SING_IMP \\ gvs []
+    \\ gvs [CaseEq"prod"]
+    \\ pop_assum kall_tac
+    \\ pop_assum $ drule_then drule
+    \\ impl_tac >- (CCONTR_TAC \\ gvs [])
+    \\ gvs [])
   \\ fs [bviTheory.exp_size_def]
   \\ qpat_x_assum `!x._` mp_tac
   \\ once_rewrite_tac [IMP_COMM]
@@ -230,70 +234,63 @@ Proof
    (Cases_on `handler` \\ fs []
     \\ qpat_x_assum `!_ _ _ _ _. bb` mp_tac
     \\ once_rewrite_tac [IMP_COMM] \\ strip_tac THEN1
-     (`exp2_size args < exp_size (Call ts dest args NONE) + 1` by
-           fs [bviTheory.exp_size_def]
-      \\ first_x_assum drule \\ rpt strip_tac
-      \\ fs [evaluate_def,compile_def]
-      \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-      \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs [compile_HD_SING]
-      \\ rw [] \\ first_x_assum match_mp_tac
-      \\ fs [env_rel_def] \\ fs [v_rel_def,LLOOKUP_def])
-    \\ `exp2_size args < exp_size (Call ts dest args (SOME x)) + 1 /\
-        exp2_size [x] < exp_size (Call ts dest args (SOME x)) + 1` by
-          fs [bviTheory.exp_size_def]
-    \\ first_assum drule \\ pop_assum mp_tac
-    \\ first_x_assum drule \\ rpt strip_tac
-    \\ fs [evaluate_def,compile_def]
-    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-    \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs [compile_HD_SING]
-    \\ rw [] \\ first_x_assum match_mp_tac
+     (gvs [compile_def]
+      \\ first_x_assum $ qspec_then ‘args’ mp_tac \\ gvs []
+      \\ gvs [evaluate_def,CaseEq"prod"]
+      \\ disch_then $ drule_then drule
+      \\ impl_tac >- (CCONTR_TAC \\ gvs []) \\ gvs [])
+    \\ gvs [compile_def]
+    \\ first_assum $ qspec_then ‘args’ mp_tac \\ gvs []
+    \\ fs [evaluate_def,CaseEq"prod",CaseEq"bool"]
+    \\ disch_then $ drule_then drule
+    \\ impl_tac >- (CCONTR_TAC \\ gvs []) \\ gvs []
+    \\ gvs [CaseEq"result",CaseEq"option",CaseEq"prod",CaseEq"bool"]
+    \\ gvs [CaseEq"error_result"] \\ rw [compile_HD_SING]
+    \\ first_x_assum $ irule \\ gvs []
+    \\ first_x_assum $ irule_at Any
     \\ fs [env_rel_def] \\ fs [v_rel_def,LLOOKUP_def])
   \\ Cases_on `?xs op. h = Op op xs` \\ fs [] THEN1
    (rw [] \\ qpat_x_assum `!_ _ _ _ _. bb` mp_tac
     \\ once_rewrite_tac [IMP_COMM] \\ strip_tac
-    \\ fs [bviTheory.exp_size_def]
-    \\ `exp2_size xs < exp2_size xs + (op_size op + 2)` by
-          fs [bviTheory.exp_size_def]
-    \\ first_x_assum drule \\ fs [evaluate_def]
-    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [] \\ res_tac \\ fs []
-    \\ res_tac \\ fs [] \\ fs [evaluate_def,compile_def])
+    \\ gvs [compile_def,evaluate_def]
+    \\ gvs [evaluate_def,CaseEq"prod"]
+    \\ pop_assum $ drule_at $ Pos $ el 2 \\ gvs []
+    \\ disch_then drule
+    \\ impl_tac >- (CCONTR_TAC \\ gvs []) \\ gvs [])
   \\ reverse (Cases_on `?ys y. h = Let ys y` \\ fs [])
   THEN1 (Cases_on `h` \\ fs [])
   \\ fs [] \\ rpt (qpat_x_assum `T` kall_tac) \\ rveq \\ fs [evaluate_def]
   \\ pop_assum mp_tac \\ once_rewrite_tac [IMP_COMM] \\ strip_tac
-  \\ fs [bviTheory.exp_size_def]
-  \\ fs [compile_def,LENGTH_NIL] \\ IF_CASES_TAC \\ fs []
-  THEN1
-   (rveq \\ fs [evaluate_def] \\ fs [AND_IMP_INTRO]
-    \\ first_x_assum match_mp_tac \\ fs [bviTheory.exp_size_def]
-    \\ asm_exists_tac \\ fs [])
-  \\ IF_CASES_TAC \\ fs []
+  \\ gvs [CaseEq"prod"]
+  \\ gvs [compile_def]
+  \\ IF_CASES_TAC \\ gvs [evaluate_def]
+  >- (pop_assum $ drule_at $ Pos $ el 2 \\ gvs [])
+  \\ IF_CASES_TAC \\ gvs [evaluate_def]
   THEN1
    (imp_res_tac (METIS_PROVE [SNOC_CASES] ``m <> [] ==> ?x y. m = SNOC x y``)
     \\ rveq \\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC,LENGTH_SNOC,ADD1]
     \\ fs [evaluate_SNOC,evaluate_def,bviTheory.exp_size_def]
     \\ fs [SNOC_APPEND,exp_size_APPEND,bviTheory.exp_size_def]
-    \\ Cases_on `evaluate (y',env1,s1)` \\ fs []
-    \\ `exp2_size y' < LENGTH y' + (exp2_size y' + (exp_size x + 4))` by fs []
-    \\ first_assum drule \\ rpt (disch_then drule) \\ fs []
-    \\ `q ≠ Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
-    \\ fs [] \\ rw [] \\ fs []
-    \\ Cases_on `q` \\ fs [compile_HD_SING]
-    \\ fs [AND_IMP_INTRO] \\ first_x_assum match_mp_tac
-    \\ fs [bviTheory.exp_size_def]
-    \\ Cases_on `evaluate ([x],env1,r)` \\ fs []
-    \\ Cases_on `q` \\ fs []
+    \\ Cases_on `evaluate (y,env1,s1)` \\ fs []
+    \\ first_assum $ drule_at $ Pos $ el 2 \\ gvs []
+    \\ disch_then drule
+    \\ impl_tac >- (CCONTR_TAC \\ gvs []) \\ gvs [compile_HD_SING]
+    \\ Cases_on ‘q’ \\ gvs []
+    \\ rpt strip_tac
+    \\ gvs [CaseEq"prod"]
+    \\ first_x_assum $ irule \\ gvs []
+    \\ Cases_on ‘v3’ \\ gvs [CaseEq"bool"]
+    \\ qexists_tac ‘env1’ \\ gvs []
     \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
     \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
     \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC,EL_APPEND2,EL,HD]
-    \\ asm_exists_tac \\ fs []
     \\ fs [env_rel_def] \\ match_mp_tac env_rel_MAP \\ fs [])
   \\ fs [evaluate_def,compile_HD_SING]
-  \\ `exp2_size ys < exp2_size ys + (exp_size y + 2)` by
-        fs [bviTheory.exp_size_def]
-  \\ first_assum drule
+  \\ first_assum $ qspec_then ‘ys’ mp_tac
+  \\ gvs [] \\ disch_then $ drule_then drule
+  \\ impl_tac >- (CCONTR_TAC \\ gvs []) \\ gvs []
   \\ Cases_on `evaluate (ys,env1,s1)` \\ fs []
-  \\ reverse (Cases_on `q`) \\ fs [] \\ rveq
+  \\ reverse (Cases_on `q`) \\ fs [] \\ rveq \\ gvs []
   \\ rpt (disch_then drule) \\ strip_tac
   THEN1 (drule evaluate_delete_var_Rerr \\ fs [])
   \\ fs [] \\ drule evaluate_delete_var_Rval

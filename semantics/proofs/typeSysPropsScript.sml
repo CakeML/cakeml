@@ -690,6 +690,7 @@ Theorem tveLookup_db_merge_none:
 Proof
  Induct_on `e1`
  >> rw [tveLookup_def, db_merge_def]
+ >> metis_tac[]
 QED
 
 Theorem tveLookup_inc_none:

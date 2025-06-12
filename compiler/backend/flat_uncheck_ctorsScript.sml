@@ -36,8 +36,6 @@ Definition compile_def:
   (compile [Letrec t funs e] =
       [Letrec t (MAP (\(a, b, e). (a,b, HD (compile [e]))) funs) (HD (compile [e]))]) /\
   (compile (x::y::xs) = compile [x] ++ compile (y::xs))
-Termination
-  WF_REL_TAC `measure exp6_size` \\ simp []
 End
 
 Theorem compile_length[simp]:

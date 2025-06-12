@@ -41,9 +41,8 @@ Theorem dest_opapp_exp_size:
 Proof
   ho_match_mp_tac cfNormaliseTheory.dest_opapp_ind
   >> rw[cfNormaliseTheory.dest_opapp_def]
-  >> every_case_tac >> fs[]
-  >> gvs [astTheory.exp_size_eq,listTheory.list_size_def,astTheory.exp_size_def,
-          list_size_append]
+  >> every_case_tac
+  >> gvs [list_size_append]
 QED
 
 Theorem dest_opapp_eq_nil_IMP:
@@ -316,10 +315,9 @@ Termination
    | INR (INR (INR (t,x,funs))) =>
        list_size (pair_size (list_size char_size)
                   (pair_size (list_size char_size) exp_size)) funs)`
-  \\ gvs [astTheory.exp_size_eq] \\ rw []
+  \\ rw[]
   \\ gvs [Once (dest_opapp_def |> DefnBase.one_line_ify NONE)]
   \\ gvs [AllCaseEqs()]
-  \\ fs [list_size_def,astTheory.exp_size_def]
 End
 
 val mk_single_app_ind = fetch "-" "mk_single_app_ind"
@@ -2489,10 +2487,9 @@ Termination
                                  | INR (INR (INR (t,funs))) =>
        list_size (pair_size (list_size char_size)
                   (pair_size (list_size char_size) exp_size)) funs)`
-  \\ gvs [astTheory.exp_size_eq] \\ rw []
+  \\ rw []
   \\ gvs [Once (dest_opapp_def |> DefnBase.one_line_ify NONE)]
   \\ gvs [AllCaseEqs()]
-  \\ fs [list_size_def,astTheory.exp_size_def]
 End
 
 val make_single_app_ind = fetch "-" "make_single_app_ind"

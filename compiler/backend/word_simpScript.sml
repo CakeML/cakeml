@@ -202,8 +202,6 @@ Definition const_fp_exp_def:
                         | _ => Shift sh (Const c) n)
          | _ => Shift sh e n) /\
   (const_fp_exp e _ = e)
-Termination
-  WF_REL_TAC `measure (exp_size (\x.0) o FST)`
 End
 
 Definition const_fp_move_cs_def:

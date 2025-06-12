@@ -1037,11 +1037,12 @@ Theorem concat_lines_of:
 Proof
   rw[lines_of_def] \\
   `s = implode (explode s)` by fs [explode_implode] \\
-  qabbrev_tac `ls = explode s` \\ pop_assum kall_tac \\ rveq \\
-  Induct_on`splitlines ls` \\ rw[] \\
-  pop_assum(assume_tac o SYM) \\
-  fs[splitlines_eq_nil,concat_cons]
+  qabbrev_tac `ls = explode s`
+  \\ pop_assum kall_tac \\ rveq \\
+  Induct_on`splitlines ls` \\ rw[]
   >- EVAL_TAC \\
+  pop_assum(assume_tac o SYM) \\
+  fs[splitlines_eq_nil,concat_cons] \\
   imp_res_tac splitlines_next \\ rw[] \\
   first_x_assum(qspec_then`DROP (SUC (LENGTH h)) ls`mp_tac) \\
   rw[] \\ rw[]

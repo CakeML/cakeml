@@ -994,11 +994,17 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw[]
   >- (
+    fs[subst_thm]
+    \\ fs[satisfies_npbc_def]
+    \\ drule subst_opt_aux_thm_2
+    \\ disch_then(qspec_then`w` assume_tac)
+    \\ intLib.ARITH_TAC)
+  >- (
     simp[subst_def,subst_lhs_def]>>
     rpt (pairarg_tac \\ fs [])>>
     drule subst_opt_aux_thm_1>>
     rw[]>>fs[]>>rw[]>>
-    simp[satisfies_npbc_def]>>
+    gvs[satisfies_npbc_def]>>
     gvs[])
   >- (
     simp[subst_def,subst_lhs_def]>>
@@ -1008,11 +1014,6 @@ Proof
     drule imp_thm>>
     disch_then drule>>
     fs[])
-  \\ fs[subst_thm]
-  \\ fs[satisfies_npbc_def]
-  \\ drule subst_opt_aux_thm_2
-  \\ disch_then(qspec_then`w` assume_tac)
-  \\ intLib.ARITH_TAC
 QED
 
 (* subst is compact *)

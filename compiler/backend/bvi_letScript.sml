@@ -137,9 +137,13 @@ Definition compile_sing_def:
 Termination
   WF_REL_TAC ‘measure $ λx. case x of
                             | INL (_,_,e) => bvi$exp_size e
-                            | INR (_,_,es) => bvi$exp2_size es’
-  \\ conj_tac \\ Cases using SNOC_CASES
-  \\ gvs [SNOC_APPEND,exp2_size_APPEND,bviTheory.exp_size_def]
+                            | INR (_,_,es) => list_size bvi$exp_size es’
+  \\ rw[bviTheory.exp_size_def]
+  \\ rename1`xs ≠ []`
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac`xs`
+  \\ Cases using SNOC_CASES
+  \\ gvs [SNOC_APPEND,exp2_size_APPEND,bviTheory.exp_size_def,list_size_APPEND]
 End
 
 Theorem compile_sing:

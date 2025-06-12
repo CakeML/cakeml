@@ -265,11 +265,6 @@ Definition ssa_cc_trans_exp_def:
   (ssa_cc_trans_exp t (Shift sh exp nexp) =
     Shift sh (ssa_cc_trans_exp t exp) nexp) ∧
   (ssa_cc_trans_exp t expr = expr)
-Termination
-  WF_REL_TAC `measure (exp_size ARB o SND)`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC
 End
 
 (*Attempt to pull out "renaming" moves
@@ -499,11 +494,6 @@ Definition apply_colour_exp_def:
   (apply_colour_exp f (Op wop ls) = Op wop (MAP (apply_colour_exp f) ls)) /\
   (apply_colour_exp f (Shift sh exp nexp) = Shift sh (apply_colour_exp f exp) nexp) /\
   (apply_colour_exp f expr = expr)
-Termination
-  WF_REL_TAC `measure (exp_size ARB o SND)`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC
 End
 
 Definition apply_colour_imm_def:
@@ -684,11 +674,6 @@ Definition get_live_exp_def:
     big_union (MAP get_live_exp ls)) ∧
   (get_live_exp (Shift sh exp nexp) = get_live_exp exp) ∧
   (get_live_exp expr = LN)
-Termination
-  WF_REL_TAC `measure (exp_size ARB)`>>
-  rw[]>>
-  imp_res_tac MEM_IMP_exp_size>>
-  FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`) >> DECIDE_TAC
 End
 
 Definition numset_list_insert_def:
@@ -986,11 +971,6 @@ Definition get_reads_exp_def:
       FLAT (MAP get_reads_exp ls)) ∧
   (get_reads_exp (Shift sh exp nexp) = get_reads_exp exp) ∧
   (get_reads_exp expr = [])
-Termination
-  WF_REL_TAC `measure (exp_size ARB)`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC
 End
 
 Definition get_clash_tree_def:

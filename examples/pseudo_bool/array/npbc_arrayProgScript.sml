@@ -4908,8 +4908,7 @@ Proof
         EVAL_TAC)>>
       rpt xlet_autop>>
       xcon>>xsimpl>>
-      fs[]>>
-      fs[PAIR_TYPE_def,set_chk_def]>>
+      fs[PAIR_TYPE_def,set_chk_def,AllCaseEqs(),check_tcb_ord_def]>>
       metis_tac[ARRAY_W8ARRAY_refl])>>
     xlet`POSTv v. ARRAY fmlv fmllsv *
       W8ARRAY zerosv zeros *
@@ -4924,6 +4923,7 @@ Proof
     >- (
       rpt xlet_autop>>
       xraise>>xsimpl>>
+      fs[check_tcb_ord_def]>>
       metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
     rpt xlet_autop>>
     xlet`POSTv v.

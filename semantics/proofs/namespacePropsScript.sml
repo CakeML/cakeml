@@ -797,7 +797,7 @@ Termination
  >> fs [ALOOKUP_def]
  >> every_case_tac
  >> fs []
- >> rw [namespace_size_def]
+ >> rw [namespace_size_def,basicSizeTheory.pair_size_def]
 End
 
 Theorem nsLookup_FOLDR_nsLift:

@@ -583,15 +583,16 @@ Proof
   \\ pairarg_tac \\ gvs []
   \\ drule_all rup_pass1_thm \\ strip_tac
   \\ gvs [AllCaseEqs()]
-  \\ gvs [satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]
+  >- gvs [satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]
   \\ CCONTR_TAC \\ gvs [lslack_def]
-  \\ qsuff_tac
+  (* two subgoals *)
+  \\ (qsuff_tac
      ‘∀assg m ls1 c1. rup_pass2 assg m ls1 c1 ≠ NONE’
   >- (strip_tac \\ gvs [])
   \\ rpt $ pop_assum kall_tac
   \\ Induct_on ‘ls1’ \\ gvs [rup_pass2_def]
   \\ gvs [FORALL_PROD]
-  \\ gvs [rup_pass2_def] \\ rw []
+  \\ gvs [rup_pass2_def] \\ rw [])
 QED
 
 Theorem update_assg_SOME:

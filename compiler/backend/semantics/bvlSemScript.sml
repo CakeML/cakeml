@@ -74,7 +74,7 @@ Definition isClos_def:
   isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])
 End
 
-Definition do_eq_def:
+Definition do_eq_def[simp]:
   (do_eq _ (CodePtr _) _ = Eq_type_error) ∧
   (do_eq _ _ (CodePtr _) = Eq_type_error) ∧
   (do_eq _ (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
@@ -107,10 +107,7 @@ Definition do_eq_def:
    | Eq_val F => Eq_val F
    | bad => bad) ∧
   (do_eq_list _ _ _ = Eq_val F)
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`
 End
-val _ = export_rewrites["do_eq_def"];
 
 Overload Error[local] = ``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``
 
@@ -548,7 +545,7 @@ Definition evaluate_def:
                   evaluate ([exp],args,dec_clock (ticks + 1) s))
      | res => res)
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure exp1_size)
+  WF_REL_TAC `(inv_image (measure I LEX measure (list_size exp_size))
                          (\(xs,env,s). (s.clock,xs)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]

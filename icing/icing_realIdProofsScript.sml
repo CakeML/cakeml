@@ -71,12 +71,6 @@ Definition isIceFree_def:
   (isIceFreeList (e::exl) = (isIceFree e /\ isIceFreeList exl)) ∧
   (isIceFreePatExpList [] = T) /\
   (isIceFreePatExpList ((p,e)::pel) = (isIceFree e /\ isIceFreePatExpList pel))
-Termination
-  wf_rel_tac (`measure
-    \ x. case x of
-          | INL e => exp_size e
-          | INR (INL exl) => exp6_size exl
-          | INR (INR pel) => exp3_size pel`)
 End
 
 Theorem isIceFreeList_APPEND:

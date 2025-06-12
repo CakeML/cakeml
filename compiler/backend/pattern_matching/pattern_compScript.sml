@@ -389,7 +389,7 @@ Definition pat_to_guard_def:
   pats_to_guard l k (p::ps) = mk_Conj (pat_to_guard (k::l) p) (pats_to_guard l (k+1) ps)
 Termination
   WF_REL_TAC ‘measure (\x. case x of INL (_,p) => pat_size p
-                           | INR (_,k,p) => pat1_size p)’
+                           | INR (_,k,p) => list_size pat_size p)’
 End
 
 Definition pats_to_code_def:

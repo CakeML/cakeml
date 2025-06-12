@@ -363,13 +363,14 @@ Theorem evaluate_complete_ind:
    ∀P.
     (∀xs s.
       (∀ys t.
-        exp2_size ys < exp2_size xs ∧ t.clock ≤ s.clock ∨ t.clock < s.clock ⇒
+        list_size exp_size ys < list_size exp_size xs ∧
+        t.clock ≤ s.clock ∨ t.clock < s.clock ⇒
         P ys t) ⇒
       P xs s) ⇒
     ∀(xs: bvi$exp list) ^s. P xs s
 Proof
   rpt strip_tac
-  \\ `∃sz. exp2_size xs = sz` by fs []
+  \\ `∃sz. list_size exp_size xs = sz` by fs []
   \\ `∃ck0. s.clock = ck0` by fs []
   \\ ntac 2 (pop_assum mp_tac)
   \\ qspec_tac (`xs`,`xs`)
@@ -1984,6 +1985,7 @@ Proof
     \\ qpat_x_assum `¬(_)` kall_tac
     \\ TOP_CASE_TAC
     \\ first_assum (qspecl_then [`xs`, `s`] mp_tac)
+    \\ impl_tac >- gvs []
     \\ simp [bviTheory.exp_size_def]
     \\ sg `env_rel ty F acc env1 env2` >- fs [env_rel_def]
     \\ rpt (disch_then drule) \\ fs []

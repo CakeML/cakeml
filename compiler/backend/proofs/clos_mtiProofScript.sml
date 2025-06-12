@@ -172,13 +172,9 @@ Proof
   \\ fs [collect_args_def] \\ rveq
   \\ TRY (fs [collect_args_def] \\ rveq
           \\ qexists_tac `[]` \\ fs [mk_Fns_def] \\ NO_TAC)
-  \\ FULL_CASE_TAC \\ rveq
-  \\ TRY (fs [collect_args_def] \\ rveq
-          \\ qexists_tac `[]` \\ fs [mk_Fns_def] \\ NO_TAC)
-  \\ first_x_assum drule
-  \\ fs [no_mti_def] \\ rveq
-  \\ strip_tac \\ fs [] \\ rveq
-  \\ qexists_tac `t::ts` \\ fs [mk_Fns_def]
+  \\ NORM_TAC (srw_ss()) []
+  \\ gvs [no_mti_def,mk_Fns_def]
+  \\ qexists_tac `t::ts` \\ rw [mk_Fns_def]
 QED
 
 Theorem dest_closure_SOME_IMP:

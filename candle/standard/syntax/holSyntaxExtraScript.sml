@@ -55,14 +55,13 @@ QED
 
 (* type substitution *)
 
-Theorem TYPE_SUBST_NIL:
+Theorem TYPE_SUBST_NIL[simp]:
    ∀ty. TYPE_SUBST [] ty = ty
 Proof
   ho_match_mp_tac type_ind >>
   rw[REV_ASSOCD,MAP_EQ_ID] >>
   fs[EVERY_MEM]
 QED
-val _ = export_rewrites["TYPE_SUBST_NIL"]
 
 Theorem TYPE_SUBST_Bool:
    ∀tyin. TYPE_SUBST tyin Bool = Bool
@@ -70,12 +69,11 @@ Proof
 rw[TYPE_SUBST_def]
 QED
 
-Theorem is_instance_refl:
+Theorem is_instance_refl[simp]:
    ∀ty. is_instance ty ty
 Proof
   rw[] >> qexists_tac`[]` >> rw[]
 QED
-val _ = export_rewrites["is_instance_refl"]
 
 Theorem swap_ff:
    ∀f g. (λ(x,y). (y,x)) o (f ## g) = (g ## f) o (λ(x,y). (y,x))
@@ -133,7 +131,7 @@ Proof
   simp[welltyped_def] >> metis_tac[WELLTYPED_LEMMA]
 QED
 
-Theorem WELLTYPED_CLAUSES:
+Theorem WELLTYPED_CLAUSES[simp]:
   (!n ty. welltyped(Var n ty)) /\
    (!n ty. welltyped(Const n ty)) /\
    (!s t. welltyped (Comb s t) <=>
@@ -145,7 +143,6 @@ Proof
   rw[Once has_type_cases] >>
   metis_tac[WELLTYPED,WELLTYPED_LEMMA]
 QED
-val _ = export_rewrites["WELLTYPED_CLAUSES"]
 
 (* Alpha-equivalence *)
 
@@ -180,12 +177,11 @@ Proof
   Induct >> simp[RACONV,ALPHAVARS_REFL]
 QED
 
-Theorem ACONV_REFL:
+Theorem ACONV_REFL[simp]:
    ∀t. ACONV t t
 Proof
   simp[ACONV_def,RACONV_REFL]
 QED
-val _ = export_rewrites["ACONV_REFL"]
 
 Theorem RACONV_TRANS:
    ∀env tp. RACONV env tp ⇒ ∀vs t. LENGTH vs = LENGTH env ∧ RACONV (ZIP(MAP SND env,vs)) (SND tp,t) ⇒ RACONV (ZIP(MAP FST env,vs)) (FST tp, t)
@@ -265,11 +261,12 @@ End
 
 val _ = Parse.add_infix("subtype",401,Parse.NONASSOC)
 Overload subtype =``RTC subtype1``
-Theorem subtype_Tyvar =
+
+Theorem subtype_Tyvar[simp] =
   ``ty subtype (Tyvar x)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subtype1_cases]
-val _ = export_rewrites["subtype_Tyvar"]
+
 Theorem subtype_Tyapp =
   ``ty subtype (Tyapp name args)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
@@ -302,15 +299,15 @@ End
 
 val _ = Parse.add_infix("subterm",401,Parse.NONASSOC)
 Overload subterm = ``RTC subterm1``
-Theorem subterm_Var =
+Theorem subterm_Var[simp] =
   ``tm subterm (Var x ty)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subterm1_cases]
-Theorem subterm_Const =
+Theorem subterm_Const[simp] =
   ``tm subterm (Const x ty)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subterm1_cases]
-val _ = export_rewrites["subterm_Var","subterm_Const"]
+
 Theorem subterm_Comb =
   ``tm subterm (Comb t1 t2)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
@@ -544,7 +541,7 @@ Proof
   rw[StrongLinearOrder,StrongOrder]
 QED
 
-val irreflexive_mlstring_lt = MATCH_MP StrongLinearOrder_irreflexive StrongLinearOrder_mlstring_lt
+Triviality irreflexive_mlstring_lt = MATCH_MP StrongLinearOrder_irreflexive StrongLinearOrder_mlstring_lt
 
 Triviality LLEX_irreflexive:
   ∀R. irreflexive R ⇒ irreflexive (LLEX R)
@@ -552,7 +549,7 @@ Proof
   rw[irreflexive_def] >> Induct_on`x`>>rw[]
 QED
 
-val irreflexive_LLEX_type_lt = MATCH_MP LLEX_irreflexive (irreflexive_type_lt)
+Triviality irreflexive_LLEX_type_lt = MATCH_MP LLEX_irreflexive (irreflexive_type_lt)
 
 Theorem type_cmp_thm:
    ∀t1 t2.  type_cmp t1 t2 =
@@ -1580,7 +1577,7 @@ QED
 
 (* tyvars and tvars *)
 
-Theorem tyvars_ALL_DISTINCT:
+Theorem tyvars_ALL_DISTINCT[simp]:
    ∀ty. ALL_DISTINCT (tyvars ty)
 Proof
   ho_match_mp_tac type_ind >>
@@ -1588,14 +1585,12 @@ Proof
   Induct_on`l` >> simp[] >>
   rw[ALL_DISTINCT_LIST_UNION]
 QED
-val _ = export_rewrites["tyvars_ALL_DISTINCT"]
 
-Theorem tvars_ALL_DISTINCT:
+Theorem tvars_ALL_DISTINCT[simp]:
    ∀tm. ALL_DISTINCT (tvars tm)
 Proof
   Induct >> simp[tvars_def,ALL_DISTINCT_LIST_UNION]
 QED
-val _ = export_rewrites["tvars_ALL_DISTINCT"]
 
 Theorem tyvars_TYPE_SUBST:
    ∀ty tyin. set (tyvars (TYPE_SUBST tyin ty)) =
@@ -1856,44 +1851,40 @@ End
 
 (* bind a variable above a de Bruijn term *)
 
-Definition bind_def:
+Definition bind_def[simp]:
   (bind v n (dbVar x ty) = if v = (x,ty) then dbBound n else dbVar x ty) ∧
   bind v n (dbBound m) = dbBound m ∧
   bind v n (dbConst x ty) = dbConst x ty ∧
   bind v n (dbComb t1 t2) = dbComb (bind v n t1) (bind v n t2) ∧
   bind v n (dbAbs ty tm) = dbAbs ty (bind v (n+1) tm)
 End
-val _ = export_rewrites["bind_def"]
 
 (* conversion into de Bruijn *)
 
-Definition db_def:
+Definition db_def[simp]:
   db (Var x ty) = dbVar x ty ∧
   db (Const x ty) = dbConst x ty ∧
   db (Comb t1 t2) = dbComb (db t1) (db t2) ∧
   db (Abs v tm) = dbAbs (typeof v) (bind (dest_var v) 0 (db tm))
 End
-val _ = export_rewrites["db_def"]
 
 (* de Bruijn versions of VSUBST and VFREE_IN *)
 
-Definition dbVSUBST_def:
+Definition dbVSUBST_def[simp]:
   dbVSUBST ilist (dbVar x ty) = REV_ASSOCD (dbVar x ty) ilist (dbVar x ty) ∧
   dbVSUBST ilist (dbBound m) = dbBound m ∧
   dbVSUBST ilist (dbConst x ty) = dbConst x ty ∧
   dbVSUBST ilist (dbComb t1 t2) = dbComb (dbVSUBST ilist t1) (dbVSUBST ilist t2) ∧
   dbVSUBST ilist (dbAbs ty t) = dbAbs ty (dbVSUBST ilist t)
 End
-val _ = export_rewrites["dbVSUBST_def"]
 
-Definition dbVFREE_IN_def:
+Definition dbVFREE_IN_def[simp]:
   (dbVFREE_IN v (dbVar x ty) ⇔ dbVar x ty = v) ∧
   (dbVFREE_IN v (dbBound n) ⇔ F) ∧
   (dbVFREE_IN v (dbConst x ty) ⇔ dbConst x ty = v) ∧
   (dbVFREE_IN v (dbComb t1 t2) ⇔ (dbVFREE_IN v t1 ∨ dbVFREE_IN v t2)) ∧
   (dbVFREE_IN v (dbAbs ty t) ⇔ dbVFREE_IN v t)
 End
-val _ = export_rewrites["dbVFREE_IN_def"]
 
 Theorem bind_not_free:
    ∀t n v. ¬dbVFREE_IN (UNCURRY dbVar v) t ⇒ bind v n t = t
@@ -2114,14 +2105,13 @@ QED
 
 (* de Bruijn version of INST *)
 
-Definition dbINST_def:
+Definition dbINST_def[simp]:
   dbINST tyin (dbVar x ty) = dbVar x (TYPE_SUBST tyin ty) ∧
   dbINST tyin (dbBound n) = dbBound n ∧
   dbINST tyin (dbConst x ty) = dbConst x (TYPE_SUBST tyin ty) ∧
   dbINST tyin (dbComb t1 t2) = dbComb (dbINST tyin t1) (dbINST tyin t2) ∧
   dbINST tyin (dbAbs ty t) = dbAbs (TYPE_SUBST tyin ty) (dbINST tyin t)
 End
-val _ = export_rewrites["dbINST_def"]
 
 Theorem dbINST_bind:
    ∀tm v n ls.
@@ -2135,12 +2125,11 @@ Proof
   BasicProvers.CASE_TAC >> fs[]
 QED
 
-Theorem dbVSUBST_nil:
+Theorem dbVSUBST_nil[simp]:
    ∀tm. dbVSUBST [] tm = tm
 Proof
   Induct >> simp[REV_ASSOCD]
 QED
-val _ = export_rewrites["dbVSUBST_nil"]
 
 Theorem INST_CORE_dbINST:
    ∀tm tyin env tmi.
@@ -2277,20 +2266,18 @@ QED
 
 (* conversion into de Bruijn given an environment of already bound variables *)
 
-Definition dbterm_def:
+Definition dbterm_def[simp]:
   (dbterm env (Var s ty) =
      case find_index (s,ty) env 0 of SOME n => dbBound n | NONE => dbVar s ty) ∧
   (dbterm env (Const s ty) = dbConst s ty) ∧
   (dbterm env (Comb t1 t2) = dbComb (dbterm env t1) (dbterm env t2)) ∧
   (dbterm env (Abs v t) = dbAbs (typeof v) (dbterm ((dest_var v)::env) t))
 End
-val _ = export_rewrites["dbterm_def"]
 
-Definition bind_list_aux_def:
+Definition bind_list_aux_def[simp]:
   bind_list_aux n [] tm = tm ∧
   bind_list_aux n (v::vs) tm = bind_list_aux (n+1) vs (bind v n tm)
 End
-val _ = export_rewrites["bind_list_aux_def"]
 
 Theorem bind_list_aux_clauses:
    (∀env m. bind_list_aux m env (dbBound n) = dbBound n) ∧
@@ -2413,35 +2400,32 @@ QED
 
 (* list of bound variable names in a term *)
 
-Definition bv_names_def:
+Definition bv_names_def[simp]:
   bv_names (Var _ _) = [] ∧
   bv_names (Const _ _) = [] ∧
   bv_names (Comb s t) = bv_names s ++ bv_names t ∧
   bv_names (Abs v t) = (FST(dest_var v))::bv_names t
 End
-val _ = export_rewrites["bv_names_def"]
 
 (* Simpler versions (non-capture-avoiding) of substitution and instantiation.
    We do the semantics proofs on these and then use the fact that it is
    alpha-equivalence respecting, and suitable equivalent term always exists
    (see below). *)
 
-Definition simple_subst_def:
+Definition simple_subst_def[simp]:
   (simple_subst ilist (Var x ty) = REV_ASSOCD (Var x ty) ilist (Var x ty)) ∧
   (simple_subst ilist (Const x ty) = Const x ty) ∧
   (simple_subst ilist (Comb t1 t2) = Comb (simple_subst ilist t1) (simple_subst ilist t2)) ∧
   (simple_subst ilist (Abs v tm) =
     Abs v (simple_subst (FILTER (λ(s',s). (s ≠ v)) ilist) tm))
 End
-val _ = export_rewrites["simple_subst_def"]
 
-Definition simple_inst_def:
+Definition simple_inst_def[simp]:
   simple_inst tyin (Var x ty) = Var x (TYPE_SUBST tyin ty) ∧
   simple_inst tyin (Const x ty) = Const x (TYPE_SUBST tyin ty) ∧
   simple_inst tyin (Comb s t) = Comb (simple_inst tyin s) (simple_inst tyin t) ∧
   simple_inst tyin (Abs v t) = Abs (simple_inst tyin v) (simple_inst tyin t)
 End
-val _ = export_rewrites["simple_inst_def"]
 
 Theorem VSUBST_simple_subst:
    ∀tm ilist. DISJOINT (set (bv_names tm)) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)} ∧
@@ -2727,7 +2711,7 @@ QED
 
 (* various rewrites for FINITE sets to make this go through *)
 
-Theorem FINITE_VFREE_IN:
+Theorem FINITE_VFREE_IN[simp]:
    ∀tm. FINITE {x | ∃ty. VFREE_IN (Var x ty) tm}
 Proof
   Induct >> simp[] >- (
@@ -2745,9 +2729,8 @@ Proof
   unabbrev_all_tac >> simp[SUBSET_DEF] >>
   metis_tac[]
 QED
-val _ = export_rewrites["FINITE_VFREE_IN"]
 
-Theorem FINITE_VFREE_IN_2:
+Theorem FINITE_VFREE_IN_2[simp]:
    ∀tm. FINITE {(x,ty) | VFREE_IN (Var x ty) tm}
 Proof
   Induct >> simp[] >- (
@@ -2771,9 +2754,8 @@ Proof
   unabbrev_all_tac >> simp[SUBSET_DEF] >>
   metis_tac[]
 QED
-val _ = export_rewrites["FINITE_VFREE_IN_2"]
 
-Theorem FINITE_VFREE_IN_list:
+Theorem FINITE_VFREE_IN_list[simp]:
    ∀ls. FINITE {x | ∃ty u. VFREE_IN (Var x ty) u ∧ MEM u ls}
 Proof
   Induct >> simp[] >> rw[] >>
@@ -2785,9 +2767,8 @@ Proof
   pop_assum SUBST1_TAC >>
   simp[FINITE_UNION]
 QED
-val _ = export_rewrites["FINITE_VFREE_IN_list"]
 
-Theorem FINITE_MEM_Var:
+Theorem FINITE_MEM_Var[simp]:
    ∀ls. FINITE {(x,ty) | MEM (Var x ty) ls}
 Proof
   Induct >> simp[] >>
@@ -2800,7 +2781,6 @@ Proof
   pop_assum SUBST1_TAC >>
   simp[FINITE_INSERT]
 QED
-val _ = export_rewrites["FINITE_MEM_Var"]
 
 val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
   Q.prove(`∃f. ∀s tm. FINITE s ⇒
@@ -2873,8 +2853,6 @@ Termination
    match_mp_tac pred_setTheory.IMAGE_FINITE >>
    simp[]
 End
-
-val variant_ind = fetch "-" "variant_ind"
 
 Theorem variant_vsubst_thm =
   prove(
@@ -3927,13 +3905,12 @@ QED
 
 (* types occurring in a term *)
 
-Definition types_in_def:
+Definition types_in_def[simp]:
   types_in (Var x ty) = {ty} ∧
   types_in (Const c ty) = {ty} ∧
   types_in (Comb t1 t2) = types_in t1 ∪ types_in t2 ∧
   types_in (Abs v t) = types_in v ∪ types_in t
 End
-val _ = export_rewrites["types_in_def"]
 
 Theorem type_ok_types_in:
    ∀sig. is_std_sig sig ⇒ ∀tm ty. term_ok sig tm ∧ ty ∈ types_in tm ⇒ type_ok (tysof sig) ty
@@ -4019,11 +3996,7 @@ Definition tymatch_def:
   (tymatch (Tyapp c1 a1::ps) (Tyapp c2 a2::obs) sids =
    if c1=c2 then tymatch (a1++ps) (a2++obs) sids else NONE) ∧
   (tymatch _ _ _ = NONE)
-Termination
-  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (FST(SND x)))` >>
-   simp[type1_size_append]
 End
-val tymatch_ind = theorem "tymatch_ind";
 
 Definition arities_match_def:
   (arities_match [] [] ⇔ T) ∧
@@ -4032,10 +4005,7 @@ Definition arities_match_def:
   (arities_match (Tyapp c1 a1::xs) (Tyapp c2 a2::ys) ⇔
    ((c1 = c2) ⇒ arities_match a1 a2) ∧ arities_match xs ys) ∧
   (arities_match (_::xs) (_::ys) ⇔ arities_match xs ys)
-Termination
-  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (SND x))`
 End
-val arities_match_ind = theorem "arities_match_ind"
 
 Theorem arities_match_length:
    ∀l1 l2. arities_match l1 l2 ⇒ (LENGTH l1 = LENGTH l2)
@@ -4191,4 +4161,4 @@ Proof
   Cases_on`z`>>simp[]
 QED
 
-val _ = export_theory()
+val _ = export_theory();

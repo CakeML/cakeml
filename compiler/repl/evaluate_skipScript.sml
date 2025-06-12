@@ -772,7 +772,8 @@ Proof
   \\ Cases_on ‘m1 = list_type_num ∧ n = "::"’ \\ gvs []
   >- (
     first_x_assum (drule_all_then assume_tac)
-    \\ gs [option_nchotomy])
+    \\ simp[AllCaseEqs()]
+    \\ metis_tac[option_nchotomy])
   \\ Cases_on ‘m1 = list_type_num’ \\ gs [] \\ rw []
   \\ gs [INJ_DEF, flookup_thm]
 QED
@@ -782,6 +783,13 @@ Theorem v_to_list_list_to_v:
     v_to_list (list_to_v xs) = SOME xs
 Proof
   Induct \\ rw [list_to_v_def, v_to_list_def]
+QED
+
+Theorem INJ_EQ_11_alt:
+  ∀f s x y. INJ f s t ∧ x ∈ s ∧ y ∈ s ⇒ (f x = f y ⇔ x = y)
+Proof
+  rw[INJ_DEF]>>
+  metis_tac[]
 QED
 
 Theorem v_rel_do_eq:
@@ -808,8 +816,8 @@ Proof
   \\ imp_res_tac LIST_REL_LENGTH \\ gs []
   \\ rw [EQ_IMP_THM] \\ gs []
   \\ gvs [ctor_same_type_def, same_type_def, stamp_rel_cases, flookup_thm]
-  \\ rpt CASE_TAC \\ gs []
-  \\ gs [INJ_DEF]
+  \\ rpt CASE_TAC \\ gvs[]
+  \\ metis_tac[INJ_DEF]
 QED
 
 Theorem fp_translate_alt:
@@ -2417,7 +2425,6 @@ Proof
     \\ gvs [LIST_REL_EL_EQN] \\ rw []
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gs [flookup_thm]
-    \\ conj_tac >- (qexists_tac ‘0’ \\ simp [])
     \\ simp [FUNION_DEF]
     \\ qmatch_goalsub_abbrev_tac ‘FUN_FMAP f D’
     \\ ‘n ∈ D’
@@ -2471,7 +2478,6 @@ Proof
   \\ rw [stamp_rel_cases]
   \\ gs [flookup_thm, FUN_FMAP_DEF, FUNION_DEF, FAPPLY_FUPDATE_THM, SF CONJ_ss]
   \\ Cases_on ‘m1 = n’ \\ gvs []
-  \\ conj_tac >- (qexists_tac ‘0’ \\ simp [])
   \\ qmatch_goalsub_abbrev_tac ‘FUN_FMAP f D’
   \\ ‘m1 ∈ D’
     by (gs [Abbr ‘D’] \\ qexists_tac ‘0’ \\ gs [])

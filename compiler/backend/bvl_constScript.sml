@@ -319,8 +319,6 @@ Definition compile_def:
   (compile env [Op op xs] = [SmartOp op (compile env xs)]) /\
   (compile env [Tick x] = [Tick (HD (compile env [x]))]) /\
   (compile env [Call t dest xs] = [Call t dest (compile env xs)])
-Termination
-  WF_REL_TAC `measure (exp1_size o SND)`
 End
 
 Definition compile_sing_def:

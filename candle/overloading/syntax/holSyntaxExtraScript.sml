@@ -8196,9 +8196,11 @@ Proof
        fs[tyvars_def,MEM_FOLDR_LIST_UNION,EVERY_MEM] >>
        res_tac >>
        Cases_on `Tyvar a = y` >-
-         (rveq >> fs[MEM_SPLIT,type_size_def,type1_size_append]) >>
+         (rveq >> fs[MEM_SPLIT]>>
+          simp[list_size_APPEND]) >>
        res_tac >>
-       fs[MEM_SPLIT,type_size_def,type1_size_append]) >>
+       fs[MEM_SPLIT,list_size_APPEND]
+       ) >>
   first_x_assum drule_all >>
   `type_size(TYPE_SUBST s (Tyvar a)) = type_size(TYPE_SUBST s ty)`
     by rw[] >>
@@ -14529,12 +14531,7 @@ Definition tymatch_def:
   (tymatch (Tyapp c1 a1::ps) (Tyapp c2 a2::obs) sids =
    if c1=c2 then tymatch (a1++ps) (a2++obs) sids else NONE) ∧
   (tymatch _ _ _ = NONE)
-Termination
-  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (FST(SND x)))`
-  >> simp[type1_size_append]
 End
-
-val tymatch_ind = theorem "tymatch_ind";
 
 Definition arities_match_def:
   (arities_match [] [] ⇔ T) ∧
@@ -14543,10 +14540,7 @@ Definition arities_match_def:
   (arities_match (Tyapp c1 a1::xs) (Tyapp c2 a2::ys) ⇔
    ((c1 = c2) ⇒ arities_match a1 a2) ∧ arities_match xs ys) ∧
   (arities_match (_::xs) (_::ys) ⇔ arities_match xs ys)
-Termination
-  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (SND x))`
 End
-val arities_match_ind = theorem "arities_match_ind"
 
 Theorem arities_match_length:
    ∀l1 l2. arities_match l1 l2 ⇒ (LENGTH l1 = LENGTH l2)

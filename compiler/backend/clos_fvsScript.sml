@@ -42,12 +42,6 @@ Definition remove_fvs_def:
   (remove_fvs fvs [Fn t loc_opt vs num_args x1] =
     let fvs = case vs of NONE => fvs | SOME x => LENGTH x in
     [Fn t loc_opt vs num_args (HD (remove_fvs (num_args+fvs) [x1]))])
-Termination
-  WF_REL_TAC `measure (exp3_size o SND)`
-   \\ simp []
-   \\ rpt strip_tac
-   \\ imp_res_tac exp1_size_lemma
-   \\ simp []
 End
 
 Definition remove_fvs_sing_def:
@@ -91,8 +85,8 @@ Definition remove_fvs_sing_def:
      (num_args, remove_fvs_sing (num_args+m+new_fvs) x)::remove_fvs_let m new_fvs xs)
 Termination
   WF_REL_TAC `measure $ λx. case x of INL (_,e) => exp_size e
-                                    | INR(INL (_,es)) => exp3_size es
-                                    | INR(INR (_,_,es)) => exp1_size es`
+                                    | INR(INL (_,es)) => list_size exp_size es
+                                    | INR(INR (_,_,es)) => list_size (pair_size (λx. x) exp_size) es`
 End
 
 Theorem remove_fvs_sing_eq:

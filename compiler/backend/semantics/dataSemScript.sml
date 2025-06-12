@@ -128,7 +128,7 @@ Definition size_of_def:
        let (n,refs,seen) = size_of lims vs refs (insert ts () seen) in
          (n + LENGTH vs + 1, refs, seen))
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure v1_size)
+  WF_REL_TAC `(inv_image (measure I LEX measure (list_size v_size))
                           (\(lims,vs,refs,seen). (sptree$size refs,vs)))`
   \\ rpt strip_tac \\ fs [sptreeTheory.size_delete]
   \\ imp_res_tac miscTheory.lookup_zero \\ fs []
@@ -260,10 +260,6 @@ End
 Definition vb_size_def:
   (vb_size (Block ts t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
   (vb_size _ = 1n)
-Termination
-  WF_REL_TAC`measure v_size` \\
- ntac 2 gen_tac \\ Induct \\ rw[fetch "-" "v_size_def"] \\ rw[]
- \\ res_tac \\ rw[]
 End
 
 Definition vs_depth_def:
@@ -271,8 +267,6 @@ Definition vs_depth_def:
   (vs_depth _ = 0) ∧
   (vs_depth_list [] = 0) ∧
   (vs_depth_list (x::xs) = MAX (1 + vs_depth x) (vs_depth_list xs))
-Termination
-  WF_REL_TAC`measure (λx. sum_CASE x v_size v1_size)`
 End
 
 Definition eq_code_stack_max_def:
@@ -429,7 +423,7 @@ Definition isClos_def:
   isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])
 End
 
-Definition do_eq_def:
+Definition do_eq_def[simp]:
   (do_eq _ (CodePtr _) _ = Eq_type_error) ∧
   (do_eq _ _ (CodePtr _) = Eq_type_error) ∧
   (do_eq _ (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
@@ -463,10 +457,7 @@ Definition do_eq_def:
    | Eq_val F => Eq_val F
    | bad => bad) ∧
   (do_eq_list _ _ _ = Eq_val F)
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`
 End
-val _ = export_rewrites["do_eq_def"];
 
 Overload Error[local] =
   ``(Rerr(Rabort Rtype_error)):(dataSem$v#('c,'ffi) dataSem$state, dataSem$v)result``

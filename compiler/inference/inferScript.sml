@@ -516,69 +516,65 @@ Theorem check_type_definition_expand = check_type_definition_def
   |> SRULE [check_dups_eq_find_dup,FUN_EQ_THM,st_ex_bind_def,st_ex_return_def];
 
 Definition infer_p_def:
-(infer_p l ienv (Pvar n) =
-  do t <- fresh_uvar;
-     return (t, [(n,t)])
-  od) ∧
-(infer_p l ienv Pany =
-  do t <- fresh_uvar;
-     return (t, [])
-  od) ∧
-(infer_p l ienv (Plit (IntLit i)) =
-  return (Infer_Tapp [] Tint_num, [])) ∧
-(infer_p l ienv (Plit (Char s)) =
-  return (Infer_Tapp [] Tchar_num, [])) ∧
-(infer_p l ienv (Plit (StrLit s)) =
-  return (Infer_Tapp [] Tstring_num, [])) ∧
-(infer_p l ienv (Plit (Word8 w)) =
-  return (Infer_Tapp [] Tword8_num, [])) ∧
-(infer_p l ienv (Plit (Word64 w)) =
-  return (Infer_Tapp [] Tword64_num, [])) ∧
-(infer_p l ienv (Pcon cn_opt ps) =
-  dtcase cn_opt of
-    | NONE =>
-        do (ts,tenv) <- infer_ps l ienv ps;
-           return (Infer_Tapp ts Ttup_num, tenv)
-        od
-    | SOME cn =>
-        do (tvs',ts,tn) <- lookup_st_ex l "constructor" cn ienv.inf_c;
-           (ts'',tenv) <- infer_ps l ienv ps;
-           ts' <- n_fresh_uvar (LENGTH tvs');
-           guard (LENGTH ts'' = LENGTH ts) l
-                 (concat [implode "Constructor "; id_to_string cn; implode " given ";
-                          toString (&LENGTH ts''); implode " arguments, but expected ";
-                          toString (&LENGTH ts)]);
-           () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
-           return (Infer_Tapp ts' tn, tenv)
-        od) ∧
-(infer_p l ienv (Pref p) =
-  do (t,tenv) <- infer_p l ienv p;
-    return (Infer_Tapp [t] Tref_num, tenv)
-  od) ∧
-(infer_p l ienv (Pas p v) =
-  do (t,tenv) <- infer_p l ienv p;
-    return (t, tenv++[(v,t)])
-  od) ∧
-(infer_p l ienv (Ptannot p t) =
- do (t',tenv) <- infer_p l ienv p;
-    t'' <- type_name_check_subst l
-            (\tv. concat [implode "Type variable "; implode tv; implode " found in type annotation. ";
-                          implode "Type variables are not supported in type annotations."])
-            ienv.inf_t [] t;
-    () <- add_constraint l t' (infer_type_subst [] t'');
-    return (t', tenv)
- od) ∧
-(infer_ps l ienv [] =
-  return ([], [])) ∧
-(infer_ps l ienv (p::ps) =
-  do (t, tenv) <- infer_p l ienv p;
-     (ts, tenv') <- infer_ps l ienv ps;
-     return (t::ts, tenv'++tenv)
-  od)
-Termination
- WF_REL_TAC `measure (\x. dtcase x of INL (_,_,p) => pat_size p
-                                    | INR (_,_,ps) => pat1_size ps)` >>
- rw []
+  (infer_p l ienv (Pvar n) =
+    do t <- fresh_uvar;
+       return (t, [(n,t)])
+    od) ∧
+  (infer_p l ienv Pany =
+    do t <- fresh_uvar;
+       return (t, [])
+    od) ∧
+  (infer_p l ienv (Plit (IntLit i)) =
+    return (Infer_Tapp [] Tint_num, [])) ∧
+  (infer_p l ienv (Plit (Char s)) =
+    return (Infer_Tapp [] Tchar_num, [])) ∧
+  (infer_p l ienv (Plit (StrLit s)) =
+    return (Infer_Tapp [] Tstring_num, [])) ∧
+  (infer_p l ienv (Plit (Word8 w)) =
+    return (Infer_Tapp [] Tword8_num, [])) ∧
+  (infer_p l ienv (Plit (Word64 w)) =
+    return (Infer_Tapp [] Tword64_num, [])) ∧
+  (infer_p l ienv (Pcon cn_opt ps) =
+    dtcase cn_opt of
+      | NONE =>
+          do (ts,tenv) <- infer_ps l ienv ps;
+             return (Infer_Tapp ts Ttup_num, tenv)
+          od
+      | SOME cn =>
+          do (tvs',ts,tn) <- lookup_st_ex l "constructor" cn ienv.inf_c;
+             (ts'',tenv) <- infer_ps l ienv ps;
+             ts' <- n_fresh_uvar (LENGTH tvs');
+             guard (LENGTH ts'' = LENGTH ts) l
+                   (concat [implode "Constructor "; id_to_string cn; implode " given ";
+                            toString (&LENGTH ts''); implode " arguments, but expected ";
+                            toString (&LENGTH ts)]);
+             () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
+             return (Infer_Tapp ts' tn, tenv)
+          od) ∧
+  (infer_p l ienv (Pref p) =
+    do (t,tenv) <- infer_p l ienv p;
+      return (Infer_Tapp [t] Tref_num, tenv)
+    od) ∧
+  (infer_p l ienv (Pas p v) =
+    do (t,tenv) <- infer_p l ienv p;
+      return (t, tenv++[(v,t)])
+    od) ∧
+  (infer_p l ienv (Ptannot p t) =
+   do (t',tenv) <- infer_p l ienv p;
+      t'' <- type_name_check_subst l
+              (\tv. concat [implode "Type variable "; implode tv; implode " found in type annotation. ";
+                            implode "Type variables are not supported in type annotations."])
+              ienv.inf_t [] t;
+      () <- add_constraint l t' (infer_type_subst [] t'');
+      return (t', tenv)
+   od) ∧
+  (infer_ps l ienv [] =
+    return ([], [])) ∧
+  (infer_ps l ienv (p::ps) =
+    do (t, tenv) <- infer_p l ienv p;
+       (ts, tenv') <- infer_ps l ienv ps;
+       return (t::ts, tenv'++tenv)
+    od)
 End
 
 Theorem option_case_rand:
@@ -840,175 +836,178 @@ Proof
 QED
 
 Definition infer_e_def:
-(infer_e l ienv (Raise e) =
-  do t2 <- infer_e l ienv e;
-     () <- add_constraint l t2 (Infer_Tapp [] Texn_num);
-     t1 <- fresh_uvar;
-     return t1
-  od) ∧
-(infer_e l ienv (Handle e pes) =
-  if pes = [] then
-    failwith l (implode "No patterns in handle")
-  else
-    do t1 <- infer_e l ienv e;
-       () <- infer_pes l ienv pes (Infer_Tapp [] Texn_num) t1;
+  (infer_e l ienv (Raise e) =
+    do t2 <- infer_e l ienv e;
+       () <- add_constraint l t2 (Infer_Tapp [] Texn_num);
+       t1 <- fresh_uvar;
        return t1
     od) ∧
-(infer_e l ienv (Lit (IntLit i)) =
-  return (Infer_Tapp [] Tint_num)) ∧
-(infer_e l ienv (Lit (Char c)) =
-  return (Infer_Tapp [] Tchar_num)) ∧
-(infer_e l ienv (Lit (StrLit s)) =
-  return (Infer_Tapp [] Tstring_num)) ∧
-(infer_e l ienv (Lit (Word8 w)) =
-  return (Infer_Tapp [] Tword8_num)) ∧
-(infer_e l ienv (Lit (Word64 _)) =
-  return (Infer_Tapp [] Tword64_num)) ∧
-(infer_e l ienv (Var id) =
-  do (tvs,t) <- lookup_st_ex l "variable" id ienv.inf_v;
-     uvs <- n_fresh_uvar tvs;
-     return (infer_deBruijn_subst uvs t)
-  od) ∧
-(infer_e l ienv (Con cn_opt es) =
-  dtcase cn_opt of
-      NONE =>
-       do ts <- infer_es l ienv es;
-          return (Infer_Tapp ts Ttup_num)
-       od
-    | SOME cn =>
-       do (tvs',ts,tn) <- lookup_st_ex l "constructor" cn ienv.inf_c;
-          ts'' <- infer_es l ienv es;
-          ts' <- n_fresh_uvar (LENGTH tvs');
-           guard (LENGTH ts'' = LENGTH ts) l
-                 (concat [implode "Constructor "; id_to_string cn; implode " given ";
-                          toString (&LENGTH ts''); implode " arguments, but expected ";
-                          toString (&LENGTH ts)]);
-          () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
-          return (Infer_Tapp ts' tn)
-       od) ∧
-(infer_e l ienv (Fun x e) =
-  do t1 <- fresh_uvar;
-     t2 <- infer_e l (ienv with inf_v := nsBind x (0,t1) ienv.inf_v) e;
-     return (Infer_Tapp [t1;t2] Tfn_num)
-  od) ∧
-(infer_e l ienv (App op es) =
-  do ts <- infer_es l ienv es;
-     t <- constrain_op l op ts;
-     return t
-  od) ∧
-(infer_e l ienv (Log log e1 e2) =
-  do t1 <- infer_e l ienv e1;
-     t2 <- infer_e l ienv e2;
-     () <- add_constraint l t1 (Infer_Tapp [] Tbool_num);
-     () <- add_constraint l t2 (Infer_Tapp [] Tbool_num);
-     return (Infer_Tapp [] Tbool_num)
-  od) ∧
-(infer_e l ienv (If e1 e2 e3) =
-  do t1 <- infer_e l ienv e1;
-     () <- add_constraint l t1 (Infer_Tapp [] Tbool_num);
-     t2 <- infer_e l ienv e2;
-     t3 <- infer_e l ienv e3;
-     () <- add_constraint l t2 t3;
-     return t2
-  od) ∧
-(infer_e l ienv (Mat e pes) =
-  if pes = [] then
-    failwith l (implode "No patterns in case")
-  else
-    do t1 <- infer_e l ienv e;
-       t2 <- fresh_uvar;
-       () <- infer_pes l ienv pes t1 t2;
-       return t2
-  od) ∧
-(infer_e l ienv (Let x e1 e2) =
-(* Don't do polymorphism for non-top-level lets
-  if is_value e1 then
-    do n <- get_next_uvar;
-       t1 <- infer_e l ienv e1;
-       t1' <- apply_subst t1;
-       (num_gen,s,t1'') <- return (generalise n 0 FEMPTY t1');
-       t2 <- infer_e l (ienv with inf_v:=(bind x (num_gen,t1'') ienv.inf_v)) e2;
-       return t2
-    od
-  else
-    *)
+  (infer_e l ienv (Handle e pes) =
+    if pes = [] then
+      failwith l (implode "No patterns in handle")
+    else
+      do t1 <- infer_e l ienv e;
+         () <- infer_pes l ienv pes (Infer_Tapp [] Texn_num) t1;
+         return t1
+      od) ∧
+  (infer_e l ienv (Lit (IntLit i)) =
+    return (Infer_Tapp [] Tint_num)) ∧
+  (infer_e l ienv (Lit (Char c)) =
+    return (Infer_Tapp [] Tchar_num)) ∧
+  (infer_e l ienv (Lit (StrLit s)) =
+    return (Infer_Tapp [] Tstring_num)) ∧
+  (infer_e l ienv (Lit (Word8 w)) =
+    return (Infer_Tapp [] Tword8_num)) ∧
+  (infer_e l ienv (Lit (Word64 _)) =
+    return (Infer_Tapp [] Tword64_num)) ∧
+  (infer_e l ienv (Var id) =
+    do (tvs,t) <- lookup_st_ex l "variable" id ienv.inf_v;
+       uvs <- n_fresh_uvar tvs;
+       return (infer_deBruijn_subst uvs t)
+    od) ∧
+  (infer_e l ienv (Con cn_opt es) =
+    dtcase cn_opt of
+        NONE =>
+         do ts <- infer_es l ienv es;
+            return (Infer_Tapp ts Ttup_num)
+         od
+      | SOME cn =>
+         do (tvs',ts,tn) <- lookup_st_ex l "constructor" cn ienv.inf_c;
+            ts'' <- infer_es l ienv es;
+            ts' <- n_fresh_uvar (LENGTH tvs');
+             guard (LENGTH ts'' = LENGTH ts) l
+                   (concat [implode "Constructor "; id_to_string cn; implode " given ";
+                            toString (&LENGTH ts''); implode " arguments, but expected ";
+                            toString (&LENGTH ts)]);
+            () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
+            return (Infer_Tapp ts' tn)
+         od) ∧
+  (infer_e l ienv (Fun x e) =
+    do t1 <- fresh_uvar;
+       t2 <- infer_e l (ienv with inf_v := nsBind x (0,t1) ienv.inf_v) e;
+       return (Infer_Tapp [t1;t2] Tfn_num)
+    od) ∧
+  (infer_e l ienv (App op es) =
+    do ts <- infer_es l ienv es;
+       t <- constrain_op l op ts;
+       return t
+    od) ∧
+  (infer_e l ienv (Log log e1 e2) =
     do t1 <- infer_e l ienv e1;
-       t2 <- infer_e l (ienv with inf_v := nsOptBind x (0,t1) ienv.inf_v) e2;
+       t2 <- infer_e l ienv e2;
+       () <- add_constraint l t1 (Infer_Tapp [] Tbool_num);
+       () <- add_constraint l t2 (Infer_Tapp [] Tbool_num);
+       return (Infer_Tapp [] Tbool_num)
+    od) ∧
+  (infer_e l ienv (If e1 e2 e3) =
+    do t1 <- infer_e l ienv e1;
+       () <- add_constraint l t1 (Infer_Tapp [] Tbool_num);
+       t2 <- infer_e l ienv e2;
+       t3 <- infer_e l ienv e3;
+       () <- add_constraint l t2 t3;
        return t2
     od) ∧
-(* Don't do polymorphism for non-top-level let recs
-(infer_e l ienv (Letrec funs e) =
-  do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name variable";
-     next <- get_next_uvar;
-     uvars <- n_fresh_uvar (LENGTH funs);
-     env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
-     funs_ts <- infer_funs l (ienv with inf_v := env') funs;
-     () <- add_constraints l uvars funs_ts;
-     ts <- apply_subst_list uvars;
-     (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
-     env'' <- return (merge (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts') env);
-     t <- infer_e l (ienv with inf_v := env'') e;
-     return t
-  od) ∧
-  *)
-(infer_e l ienv (Letrec funs e) =
-  do
-    check_dups l (\n. concat [implode "Duplicate function name "; implode n;
-                              implode " in mutually recursive function definition"])
-                 (MAP FST funs);
-     uvars <- n_fresh_uvar (LENGTH funs);
-     env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
-     funs_ts <- infer_funs l (ienv with inf_v:=env') funs;
-     () <- add_constraints l uvars funs_ts;
-     t <- infer_e l (ienv with inf_v:=env') e;
-     return t
-  od) ∧
-(infer_e l ienv (Tannot e t) =
-  do t' <- infer_e l ienv e ;
-     t'' <- type_name_check_subst l
-            (\tv. concat [implode "Type variable "; implode tv; implode " found in type annotation. ";
-                          implode "Type variables are not supported in type annotations."])
-            ienv.inf_t [] t;
-     () <- add_constraint l t' (infer_type_subst [] t'');
-     return t'
-   od) ∧
-(infer_e l ienv (FpOptimise annot e) =
-  infer_e l ienv e) /\
-(infer_e l ienv (Lannot e new_l) =
-  infer_e (l with loc := SOME new_l) ienv e) ∧
-(infer_es l ienv [] =
-  return []) ∧
-(infer_es l ienv (e::es) =
-  do t <- infer_e l ienv e;
-     ts <- infer_es l ienv es;
-     return (t::ts)
-  od) ∧
-(infer_pes l ienv [] t1 t2 =
-   return ()) ∧
-(infer_pes l ienv ((p,e)::pes) t1 t2 =
-  do (t1', env') <- infer_p l ienv p;
-    check_dups l (\n. concat [implode "Duplicate variable "; implode n;
-                              implode " in pattern"])
-              (MAP FST env');
-     () <- add_constraint l t1 t1' ;
-     t2' <- infer_e l (ienv with inf_v := nsAppend (alist_to_ns (MAP (\(n,t). (n,(0,t))) env')) ienv.inf_v) e;
-     () <- add_constraint l t2 t2';
-     () <- infer_pes l ienv pes t1 t2;
-     return ()
-  od) ∧
-(infer_funs l ienv [] = return []) ∧
-(infer_funs l ienv ((f, x, e)::funs) =
-  do uvar <- fresh_uvar;
-     t <- infer_e l (ienv with inf_v := nsBind x (0,uvar) ienv.inf_v) e;
-     ts <- infer_funs l ienv funs;
-     return (Infer_Tapp [uvar;t] Tfn_num::ts)
-  od)
+  (infer_e l ienv (Mat e pes) =
+    if pes = [] then
+      failwith l (implode "No patterns in case")
+    else
+      do t1 <- infer_e l ienv e;
+         t2 <- fresh_uvar;
+         () <- infer_pes l ienv pes t1 t2;
+         return t2
+    od) ∧
+  (infer_e l ienv (Let x e1 e2) =
+  (* Don't do polymorphism for non-top-level lets
+    if is_value e1 then
+      do n <- get_next_uvar;
+         t1 <- infer_e l ienv e1;
+         t1' <- apply_subst t1;
+         (num_gen,s,t1'') <- return (generalise n 0 FEMPTY t1');
+         t2 <- infer_e l (ienv with inf_v:=(bind x (num_gen,t1'') ienv.inf_v)) e2;
+         return t2
+      od
+    else
+      *)
+      do t1 <- infer_e l ienv e1;
+         t2 <- infer_e l (ienv with inf_v := nsOptBind x (0,t1) ienv.inf_v) e2;
+         return t2
+      od) ∧
+  (* Don't do polymorphism for non-top-level let recs
+  (infer_e l ienv (Letrec funs e) =
+    do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name variable";
+       next <- get_next_uvar;
+       uvars <- n_fresh_uvar (LENGTH funs);
+       env' <- return (merge (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars) env);
+       funs_ts <- infer_funs l (ienv with inf_v := env') funs;
+       () <- add_constraints l uvars funs_ts;
+       ts <- apply_subst_list uvars;
+       (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
+       env'' <- return (merge (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts') env);
+       t <- infer_e l (ienv with inf_v := env'') e;
+       return t
+    od) ∧
+    *)
+  (infer_e l ienv (Letrec funs e) =
+    do
+      check_dups l (\n. concat [implode "Duplicate function name "; implode n;
+                                implode " in mutually recursive function definition"])
+                   (MAP FST funs);
+       uvars <- n_fresh_uvar (LENGTH funs);
+       env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
+       funs_ts <- infer_funs l (ienv with inf_v:=env') funs;
+       () <- add_constraints l uvars funs_ts;
+       t <- infer_e l (ienv with inf_v:=env') e;
+       return t
+    od) ∧
+  (infer_e l ienv (Tannot e t) =
+    do t' <- infer_e l ienv e ;
+       t'' <- type_name_check_subst l
+              (\tv. concat [implode "Type variable "; implode tv; implode " found in type annotation. ";
+                            implode "Type variables are not supported in type annotations."])
+              ienv.inf_t [] t;
+       () <- add_constraint l t' (infer_type_subst [] t'');
+       return t'
+     od) ∧
+  (infer_e l ienv (FpOptimise annot e) =
+    infer_e l ienv e) /\
+  (infer_e l ienv (Lannot e new_l) =
+    infer_e (l with loc := SOME new_l) ienv e) ∧
+  (infer_es l ienv [] =
+    return []) ∧
+  (infer_es l ienv (e::es) =
+    do t <- infer_e l ienv e;
+       ts <- infer_es l ienv es;
+       return (t::ts)
+    od) ∧
+  (infer_pes l ienv [] t1 t2 =
+     return ()) ∧
+  (infer_pes l ienv ((p,e)::pes) t1 t2 =
+    do (t1', env') <- infer_p l ienv p;
+      check_dups l (\n. concat [implode "Duplicate variable "; implode n;
+                                implode " in pattern"])
+                (MAP FST env');
+       () <- add_constraint l t1 t1' ;
+       t2' <- infer_e l (ienv with inf_v := nsAppend (alist_to_ns (MAP (\(n,t). (n,(0,t))) env')) ienv.inf_v) e;
+       () <- add_constraint l t2 t2';
+       () <- infer_pes l ienv pes t1 t2;
+       return ()
+    od) ∧
+  (infer_funs l ienv [] = return []) ∧
+  (infer_funs l ienv ((f, x, e)::funs) =
+    do uvar <- fresh_uvar;
+       t <- infer_e l (ienv with inf_v := nsBind x (0,uvar) ienv.inf_v) e;
+       ts <- infer_funs l ienv funs;
+       return (Infer_Tapp [uvar;t] Tfn_num::ts)
+    od)
 Termination
- WF_REL_TAC `measure (\x. dtcase x of | INL (_,_,e) => exp_size e
-                                    | INR (INL (_,_,es)) => exp6_size es
-                                    | INR (INR (INL (_,_,pes,_,_))) => exp3_size pes
-                                    | INR (INR (INR (_,_,funs))) => exp1_size funs)` >>
- rw []
+  WF_REL_TAC `measure (\x. dtcase x of
+  | INL (_,_,e) => exp_size e
+  | INR (INL (_,_,es)) => list_size exp_size es
+  | INR (INR (INL (_,_,pes,_,_))) => list_size (pair_size pat_size exp_size) pes
+  | INR (INR (INR (_,_,funs))) =>
+    list_size (pair_size (list_size char_size)
+         (pair_size (list_size char_size) exp_size))  funs)` >>
+  rw []
 End
 
 Triviality FUN_EQ_THM_state:
@@ -1171,35 +1170,21 @@ End
  * about it *)
 
 Definition infer_deBruijn_inc_def:
-(infer_deBruijn_inc n (Infer_Tvar_db m) =
-  Infer_Tvar_db (m + n)) ∧
-(infer_deBruijn_inc n (Infer_Tapp ts tn) =
-  Infer_Tapp (MAP (infer_deBruijn_inc n) ts) tn) ∧
-(infer_deBruijn_inc n (Infer_Tuvar m) =
-  Infer_Tuvar m)
-Termination
- WF_REL_TAC `measure (infer_t_size o SND)` >>
- rw [] >>
- induct_on `ts` >>
- rw [infer_t_size_def] >>
- res_tac >>
- decide_tac
+  (infer_deBruijn_inc n (Infer_Tvar_db m) =
+    Infer_Tvar_db (m + n)) ∧
+  (infer_deBruijn_inc n (Infer_Tapp ts tn) =
+    Infer_Tapp (MAP (infer_deBruijn_inc n) ts) tn) ∧
+  (infer_deBruijn_inc n (Infer_Tuvar m) =
+    Infer_Tuvar m)
 End
 
 Definition infer_subst_def:
-(infer_subst s (Infer_Tvar_db n) = Infer_Tvar_db n) ∧
-(infer_subst s (Infer_Tapp ts tc) = Infer_Tapp (MAP (infer_subst s) ts) tc) ∧
-(infer_subst s (Infer_Tuvar n) =
-  dtcase FLOOKUP s n of
-      NONE => Infer_Tuvar n
-    | SOME m => Infer_Tvar_db m)
-Termination
- wf_rel_tac `measure (infer_t_size o SND)` >>
- rw [] >>
- induct_on `ts` >>
- srw_tac[ARITH_ss] [infer_t_size_def] >>
- res_tac >>
- decide_tac
+  (infer_subst s (Infer_Tvar_db n) = Infer_Tvar_db n) ∧
+  (infer_subst s (Infer_Tapp ts tc) = Infer_Tapp (MAP (infer_subst s) ts) tc) ∧
+  (infer_subst s (Infer_Tuvar n) =
+    dtcase FLOOKUP s n of
+        NONE => Infer_Tuvar n
+      | SOME m => Infer_Tvar_db m)
 End
 
 Definition pure_add_constraints_def:
@@ -1210,17 +1195,10 @@ Definition pure_add_constraints_def:
 End
 
 Definition check_t_def:
-(check_t n uvars (Infer_Tuvar v) = (v ∈ uvars)) ∧
-(check_t n uvars (Infer_Tvar_db n') =
-  (n' < n)) ∧
-(check_t n uvars (Infer_Tapp ts tc) = EVERY (check_t n uvars) ts)
-Termination
- WF_REL_TAC `measure (infer_t_size o SND o SND)` >>
- rw [] >>
- induct_on `ts` >>
- rw [infer_t_size_def] >>
- res_tac >>
- decide_tac
+  (check_t n uvars (Infer_Tuvar v) = (v ∈ uvars)) ∧
+  (check_t n uvars (Infer_Tvar_db n') =
+    (n' < n)) ∧
+  (check_t n uvars (Infer_Tapp ts tc) = EVERY (check_t n uvars) ts)
 End
 
 Definition ienv_val_ok_def:
@@ -1256,11 +1234,6 @@ End
 Definition ns_nub_def:
   ns_nub (Bind xs ys) = Bind (alist_nub xs)
                              (alist_nub (MAP (\(x,y). (x, ns_nub y)) ys))
-Termination
-  WF_REL_TAC `measure (namespace_size (K 0) (K 0) (K 0))` \\ fs []
-  \\ Induct_on `ys` \\ fs [FORALL_PROD] \\ rw []
-  \\ fs [namespace_size_def] \\ res_tac \\ fs []
-  \\ pop_assum (assume_tac o SPEC_ALL) \\ fs []
 End
 
 Definition ns_to_alist_def:

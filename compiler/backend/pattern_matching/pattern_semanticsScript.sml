@@ -93,7 +93,7 @@ Definition pmatch_def:
     | PTypeFailure => PTypeFailure)
 Termination
   WF_REL_TAC `measure (\x. case x of INL (r,p,_) => pat_size p
-                                   | INR (r,ps,_) => pat1_size ps)`
+                                   | INR (r,ps,_) => list_size pat_size ps)`
 End
 
 Definition match_def:

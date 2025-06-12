@@ -636,7 +636,7 @@ Definition gen_d_ind_def:
   (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))
 Termination
   WF_REL_TAC `measure (\x. case x of INL d => dec_size d
-                                    | INR ds => dec1_size ds)`
+                                   | INR ds => list_size dec_size ds)`
 End
 
 val infer_p_wfs_dest = infer_p_wfs |> BODY_CONJUNCTS

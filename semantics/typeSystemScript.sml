@@ -174,8 +174,6 @@ Definition check_freevars_def:
    (EVERY (check_freevars dbmax tvs) ts))
 /\
 ((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (Tvar_db n)=  (n < dbmax))
-Termination
-  WF_REL_TAC `measure (t_size o SND o SND)`
 End
 
 Definition check_freevars_ast_def:
@@ -190,8 +188,6 @@ Definition check_freevars_ast_def:
 /\
 ((check_freevars_ast:(string)list -> ast_t -> bool) tvs (Atapp ts tn)=
    (EVERY (check_freevars_ast tvs) ts))
-Termination
-  WF_REL_TAC `measure (ast_t_size o SND)`
 End
 
 (* Simultaneous substitution of types for type variables in a type *)
@@ -206,8 +202,6 @@ Definition type_subst_def:
    (Tapp (MAP (type_subst s) ts) tn))
 /\
 ((type_subst:((string),(t))fmap -> t -> t) s (Tvar_db n)=  (Tvar_db n))
-Termination
-  WF_REL_TAC `measure (λ(x,y). t_size y)`
 End
 
 (* Increment the deBruijn indices in a type by n levels, skipping all levels
@@ -222,8 +216,6 @@ Definition deBruijn_inc_def:
     Tvar_db (m + n)))
 /\
 ((deBruijn_inc:num -> num -> t -> t) skip n (Tapp ts tn)=  (Tapp (MAP (deBruijn_inc skip n) ts) tn))
-Termination
-  WF_REL_TAC `measure (t_size o SND o SND)`
 End
 
 (* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
@@ -240,8 +232,6 @@ Definition deBruijn_subst_def:
 /\
 ((deBruijn_subst:num ->(t)list -> t -> t) skip ts (Tapp ts' tn)=
    (Tapp (MAP (deBruijn_subst skip ts) ts') tn))
-Termination
-  WF_REL_TAC `measure (λ(_,x,y). t_size y)`
 End
 
 (* Type environments *)
@@ -453,8 +443,6 @@ Definition check_type_names_def:
   | NONE => F
   ) /\
   EVERY (check_type_names tenvT) ts))
-Termination
-  WF_REL_TAC `measure (λ(x,y). ast_t_size y)`
 End
 
 (* Substitution of type names for the type they abbreviate *)
@@ -473,8 +461,6 @@ Definition type_name_subst_def:
     SOME (tvs, t) => type_subst (alist_to_fmap (ZIP (tvs, args))) t
   | NONE => Ttup args (* can't happen, for a type that passes the check *)
   )))
-Termination
-  WF_REL_TAC `measure (λ(x,y). ast_t_size y)`
 End
 
 (* Check that a type definition defines no already defined types or duplicate
@@ -526,8 +512,6 @@ Definition is_value_def:
 ((is_value:exp -> bool) (Lannot e _)=  (is_value e))
 /\
 ((is_value:exp -> bool) _=  F)
-Termination
-  WF_REL_TAC `measure (exp_size)`
 End
 
 Inductive type_p:

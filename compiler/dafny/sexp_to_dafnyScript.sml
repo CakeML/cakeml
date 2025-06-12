@@ -1546,9 +1546,9 @@ Termination
                             | INR (INL se) => sexp_size se
                             | INR (INR (INL ses)) => list_size sexp_size ses
                             | INR (INR (INR se_opt)) => option_size sexp_size se_opt’ \\ rw[]
-  \\ gvs[LENGTH_EQ_NUM_compute, oneline dstrip_sexp_def, sexp_size_def,
-         AllCaseEqs(), oneline strip_sxcons_def, sexp_size_eq,
-         oneline sxsym_to_opt_def, option_size_def]
+  \\ gvs[LENGTH_EQ_NUM_compute, oneline dstrip_sexp_def,
+         AllCaseEqs(), oneline strip_sxcons_def,
+         oneline sxsym_to_opt_def]
 End
 
 Definition sexp_program_def:

@@ -147,8 +147,9 @@ Proof
        rename [‘LENGTH t ≤ n’] >>
        gs[ADD_CLAUSES] >>
        Cases_on ‘t = []’
-       >- gs[ADD1] >>
-       ‘0 < LENGTH t’ by gs[GSYM LENGTH_NIL, Excl "LENGTH_NIL"] >>
+       >- gs[ADD1,EL_APPEND] >>
+       ‘0 < LENGTH t’ by
+          (Cases_on`t`>>gvs[])>>
        gs[ADD1] >>
        ‘LENGTH prefix + 1 = LENGTH (prefix ++ [h])’ suffices_by simp[DROP_LENGTH_APPEND, Excl "LENGTH_APPEND"] >>
        simp[])
@@ -160,7 +161,8 @@ Proof
        simp[EL_APPEND1,EL_APPEND2] >>
        gs[ADD_CLAUSES] >> gs[ADD1] >>
        Cases_on ‘t = []’ >> gs[] >>
-       ‘0 < LENGTH t’ by gs[GSYM LENGTH_NIL, Excl "LENGTH_NIL"] >>
+       ‘0 < LENGTH t’ by
+         (Cases_on`t`>>gvs[])>>
        simp[] >>
        ‘LENGTH prefix + 1 = LENGTH (prefix ++ [h])’ suffices_by simp[DROP_LENGTH_APPEND, Excl "LENGTH_APPEND"] >>
        simp[]))

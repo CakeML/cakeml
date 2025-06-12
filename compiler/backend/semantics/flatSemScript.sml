@@ -152,9 +152,6 @@ Definition do_eq_def:
         Eq_val F))
   ∧
   (do_eq_list _ _ = Eq_val F)
-Termination
-  WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_size x
-                                        | INR (xs,ys) => v4_size xs)`
 End
 
 (* Do an application *)
@@ -608,7 +605,7 @@ Definition pmatch_def:
   (pmatch_list s _ _ bindings = Match_type_error)
 Termination
   WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_size p
-                                        | INR (x,ps,y,z) => pat1_size ps)`
+                                        | INR (x,ps,y,z) => list_size pat_size ps)`
   \\ simp []
 End
 
