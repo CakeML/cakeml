@@ -163,6 +163,7 @@ Datatype:
      ; two_reg_arith  : bool
      ; valid_imm      : (binop + cmp) -> 'a word -> bool
      ; addr_offset    : 'a word # 'a word
+     ; hw_offset      : 'a word # 'a word
      ; byte_offset    : 'a word # 'a word
      ; jump_offset    : 'a word # 'a word
      ; cjump_offset   : 'a word # 'a word
@@ -272,6 +273,7 @@ End
 
 val () = List.app overload_on
   [("addr_offset_ok",  ``\c. offset_ok 0 c.addr_offset``),
+   ("hw_offset_ok",  ``\c. offset_ok 0 c.hw_offset``),
    ("byte_offset_ok",  ``\c. offset_ok 0 c.byte_offset``),
    ("jump_offset_ok",  ``\c. offset_ok c.code_alignment c.jump_offset``),
    ("cjump_offset_ok", ``\c. offset_ok c.code_alignment c.cjump_offset``),
@@ -284,8 +286,10 @@ Definition inst_ok_def:
   (inst_ok (FP x) c = fp_ok x c) /\
   (inst_ok (Mem m r1 (Addr r2 w) : 'a inst) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\
-     (if m IN {Load; Store; Load16; Store16; Load32; Store32} then
+     (if m IN {Load; Store; Load32; Store32} then
         addr_offset_ok c w
+      else if m IN {Load16; Store16} then
+        hw_offset_ok c w
       else
         byte_offset_ok c w))
 End
