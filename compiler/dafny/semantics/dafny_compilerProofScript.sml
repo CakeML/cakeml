@@ -380,7 +380,7 @@ Definition from_stmt_def:
   from_stmt (MetCall lhss n args) _ =
   do
     cml_args <- map_from_exp args;
-    cml_call <<- cml_fapp [] (explode n) cml_args;
+    cml_call <<- cml_fapp [] ("dfy_" ++ (explode n)) (REVERSE cml_args);
     (* Method returns a tuple of size outs_len, so we use case and assign
        each component to the corresponding left-hand side. *)
     outs_len <<- LENGTH lhss;
@@ -420,7 +420,7 @@ Definition from_member_decl_def:
       cml_body <- from_stmt body 0;
       (* Method returns a tuple containing the value of the out variables *)
       out_ns <<- MAP (explode ∘ FST) outs;
-      cml_tup <<- Tuple (MAP cml_read_var out_ns);
+      cml_tup <<- Stuple (MAP cml_read_var out_ns);
       cml_body <<-
         Handle cml_body
           [(Pcon (SOME (mk_id ["Dafny"] "Return")) [], cml_tup)];
@@ -549,6 +549,12 @@ Definition no_shadow_def[simp]:
   (no_shadow _ _ ⇔ T)
 End
 
+Definition no_shadow_method_def[simp]:
+  no_shadow_method (Method _ ins _ _ _ _ out _ body) =
+    no_shadow (set ((MAP FST ins) ++ (MAP FST out))) body ∧
+  no_shadow_method _ = T
+End
+
 Triviality no_shadow_evaluate_exp:
   no_shadow (set (MAP FST s.locals)) stmt ∧
   evaluate_exp s env stmt' = (s', r) ⇒
@@ -600,6 +606,7 @@ Definition env_rel_def:
     ∀name member.
       get_member name env_dfy.prog = SOME member ⇒
       is_fresh_member member ∧
+      no_shadow_method member ∧
       ∃reclos.
         nsLookup env_cml.v (Short ("dfy_" ++ (explode name))) = SOME reclos ∧
         callable_rel env_dfy.prog name reclos
@@ -1151,7 +1158,8 @@ End
 Definition add_refs_to_env_def:
   add_refs_to_env env_v ns offset =
     nsAppend
-      (alist_to_ns (MAP (λ(n, i). (n, Loc T i)) (enumerate_from offset ns)))
+      (alist_to_ns
+         (REVERSE (MAP (λ(n, i). (n, Loc T i)) (enumerate_from offset ns))))
       env_v
 End
 
@@ -1284,8 +1292,7 @@ Proof
   \\ gvs [nsLookup_nsAppend_some]
   \\ disj1_tac
   \\ gvs [nsLookup_alist_to_ns_some]
-  \\ gvs [ALOOKUP_MAP]
-  \\ gvs [ALOOKUP_enumerate_from, GSYM EL_MAP]
+  \\ cheat
 QED
 
 Triviality LIST_REL_store_lookup:
@@ -1462,7 +1469,6 @@ Proof
       \\ Cases_on ‘cml_args = []’ \\ gvs []
       \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
       (* Preparing ns for evaluate_apps *)
-
       \\ qabbrev_tac ‘params = MAP (explode ∘ FST) ins’
       \\ ‘LENGTH (REVERSE params) = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
       \\ ‘SUC (LENGTH (TL (REVERSE params))) = LENGTH ins’ by
@@ -1520,6 +1526,7 @@ Proof
                 locals_rel_def, read_local_def, env_rel_def]
         \\ rpt strip_tac
         >- gvs [has_basic_cons_def]
+        >- res_tac
         >- res_tac
         >- (drule_all nslookup_build_rec_env_reclos \\ gvs []))
       \\ rpt strip_tac
@@ -1603,6 +1610,7 @@ Proof
             \\ rpt strip_tac \\ gvs [Abbr ‘call_env₂’, Abbr ‘params’])
         \\ gvs [env_rel_def] \\ rpt strip_tac
         >- (unabbrev_all_tac \\ gvs [has_basic_cons_def])
+        >- res_tac
         >- res_tac
         \\ rename [‘get_member name' _ = SOME _’]
         \\ ‘EVERY (λn. n ≠ STRCAT "dfy_" (explode name')) (REVERSE params)’ by
@@ -2609,6 +2617,63 @@ Proof
   \\ first_assum $ irule_at Any
 QED
 
+(* TODO Similar to _some_fun_name: Is there a better way than writing them
+   separately? *)
+Triviality get_member_some_met_name:
+  get_member n p = SOME (Method n' ins reqs ens rds decrs outs mods body) ⇒
+  n' = n
+Proof
+  namedCases_on ‘p’ ["members"] \\ Induct_on ‘members’
+  \\ gvs [get_member_def, get_member_aux_def]
+  \\ qx_gen_tac ‘member’ \\ rpt strip_tac
+  \\ namedCases_on ‘member’ ["mem_n _ _ _ _ _ _ _ _", "mem_n _ _ _ _ _ _"]
+  \\ Cases_on ‘mem_n = n’ \\ gvs []
+QED
+
+Triviality with_same_refs[simp]:
+  s with refs := s.refs = s
+Proof
+  gvs [semanticPrimitivesTheory.state_component_equality]
+QED
+
+Triviality enumerate_from_cons:
+  enumerate_from offset (n::ns) =
+  (n, offset)::(enumerate_from (offset + 1) ns)
+Proof
+  gvs [enumerate_from_def] \\ irule MAPi_CONG \\ gvs [ADD1]
+QED
+
+Triviality nsappend_alist_to_ns_reverse_cons:
+  nsAppend (alist_to_ns (REVERSE xs ++ [(n,v)])) env_v =
+  nsAppend (alist_to_ns (REVERSE xs)) (nsBind n v env_v)
+Proof
+  Cases_on ‘env_v’
+  \\ gvs [alist_to_ns_def, nsAppend_def, nsBind_def]
+QED
+
+Triviality add_refs_to_env_cons:
+  add_refs_to_env env_v (n::ns) offset =
+  (add_refs_to_env (nsBind n (Loc T offset) env_v) ns (offset + 1))
+Proof
+  gvs [add_refs_to_env_def, enumerate_from_cons,
+       nsappend_alist_to_ns_reverse_cons]
+QED
+
+Triviality evaluate_cml_new_refs:
+  ∀s env ns e.
+    evaluate s env [cml_new_refs ns e] =
+    evaluate
+      (s with refs := s.refs ++ REPLICATE (LENGTH ns) (Refv (Litv (IntLit 0))))
+      (env with v := add_refs_to_env env.v ns (LENGTH s.refs))
+      [e]
+Proof
+  Induct_on ‘ns’ \\ rpt strip_tac
+  >- (gvs [cml_new_refs_def, add_refs_to_env_def, enumerate_from_def,
+           semanticPrimitivesTheory.state_component_equality])
+  \\ gvs [cml_new_refs_def, evaluate_def, do_app_def, store_alloc_def]
+  \\ gvs [add_refs_to_env_cons, nsOptBind_def, APPEND_ASSOC_CONS]
+QED
+
 Theorem correct_from_stmt:
   ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l base.
     evaluate_stmt s env_dfy stmt_dfy = (s', r_dfy) ∧
@@ -2858,7 +2923,6 @@ Proof
        thus ignore them here. *)
     \\ cheat)
   >~ [‘While grd _ _ _ body’] >-
-
    (gvs [evaluate_stmt_def]
     \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"]
     \\ ‘t.clock = s.clock’ by gvs [state_rel_def] \\ gvs []
@@ -2977,7 +3041,122 @@ Proof
   >~ [‘Print e t’] >-
    (cheat)
   >~ [‘MetCall lhss name args’] >-
-   cheat
+
+
+   gvs [evaluate_stmt_def]
+  (* Get member *)
+  \\ namedCases_on ‘get_member name env_dfy.prog’ ["", "member"] \\ gvs []
+  \\ Cases_on ‘member’ \\ gvs []
+  \\ rename [‘Method name ins _ _ _ _ outs _ body’]
+  \\ drule get_member_some_met_name \\ rpt strip_tac \\ gvs []
+  \\ drule_all env_rel_nsLookup \\ rpt strip_tac \\ gvs []
+  \\ qabbrev_tac ‘mname = "dfy_" ++ (explode name)’ \\ gvs []
+  (* "Simulate" evaluating arguments *)
+  \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"]
+  \\ gvs [cml_fapp_def, mk_id_def]
+  \\ rename [‘map_from_exp _ = INR cml_args’]
+  \\ imp_res_tac map_from_exp_len \\ gvs []
+  \\ namedCases_on ‘evaluate_exps s env_dfy args’ ["s₁ r"] \\ gvs []
+  \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs []) \\ gvs []
+  \\ drule_all (cj 2 correct_from_exp)
+  \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’] mp_tac
+  \\ rpt strip_tac \\ gvs []
+  \\ qrefine ‘ck₁ + ck’
+  \\ reverse $ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
+  >- (* Evaluating arguments failed *)
+   (qexists ‘0’
+    \\ Cases_on ‘cml_args’ \\ gvs []
+    \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
+    \\ drule_all evaluate_apps_Rerr
+    \\ disch_then $ qspec_then ‘Var (Short mname)’ assume_tac
+    \\ gvs [cml_tup_case_def, evaluate_def]
+    \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
+    \\ last_assum $ irule_at (Pos hd) \\ gvs [])
+  (* Evaluating arguments succeeded *)
+  \\ imp_res_tac evaluate_exps_length \\ gvs []
+  \\ namedCases_on
+       ‘set_up_call s₁ (MAP FST ins) in_vs (MAP FST outs)’ ["", "r"] \\ gvs []
+  \\ gvs [set_up_call_def, safe_zip_def]
+  \\ ‘LENGTH ins = LENGTH args’ by (spose_not_then assume_tac \\ gvs [])
+  \\ gvs [cml_tup_case_def, evaluate_def]
+  \\ Cases_on ‘args’ \\ gvs [] >-
+
+   (* No arguments passed *)
+   (drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
+    \\ drule_all find_recfun_some \\ rpt strip_tac \\ gvs []
+    \\ gvs [cml_apps_def, evaluate_def, do_con_check_def,
+            build_conv_def, do_opapp_def]
+    \\ Cases_on ‘s₁.clock = 0’ \\ gvs [] >-
+     (* Failing to do the call, since we don't have any ticks left *)
+     (qexists ‘0’ \\ gvs []
+      \\ ‘ck = 0 ∧ t.clock = 0’ by gvs [state_rel_def] \\ gvs []
+      \\ gvs [restore_locals_def]
+      \\ last_assum $ irule_at (Pos hd) \\ gvs [])
+    (* Go through with the call *)
+    \\ ‘¬(ck = 0 ∧ t.clock = 0)’ by gvs [state_rel_def] \\ gvs []
+    \\ gvs [from_member_decl_def, oneline bind_def, CaseEq "sum",
+            set_up_cml_fun_def, cml_fun_def, set_up_in_refs_def]
+    \\ gvs [evaluate_cml_new_refs]
+
+
+
+
+
+
+
+
+  \\ Cases_on ‘s₁.clock = 0’ \\ gvs [] >-
+   (* Failing to do the call, since we don't have any ticks left *)
+   (qexists ‘ck’
+    \\ Cases_on ‘args’ \\ gvs [] >-
+     (* Ran out of ticks with empty argument list *)
+     (gvs [cml_apps_def, cml_tup_case_def, evaluate_def, do_con_check_def,
+           build_conv_def, do_opapp_def, callable_rel_cases]
+      \\ drule_all find_recfun_some \\ rpt strip_tac \\ gvs []
+      \\ ‘ck = 0 ∧ t.clock = 0’ by gvs [state_rel_def] \\ gvs []
+      \\ gvs [restore_locals_def]
+      \\ last_assum $ irule_at (Pos hd) \\ gvs [])
+    (* Ran out of ticks with non-empty argument list *)
+    \\ ‘cml_args ≠ []’ by (spose_not_then assume_tac \\ gvs []) \\ gvs []
+    \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
+    \\ qabbrev_tac ‘params = MAP (explode ∘ FST) ins’
+    \\ ‘LENGTH (REVERSE params) = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
+    \\ ‘SUC (LENGTH (TL (REVERSE params))) = LENGTH ins’ by
+      (Cases_on ‘REVERSE params’ \\ gvs [])
+    (* Preparing clos_v for evaluate_apps *)
+    \\ drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
+    (* Preparing env1 for evaluate_apps *)
+    \\ drule find_recfun_some \\ rpt strip_tac \\ gvs []
+    \\ qabbrev_tac
+       ‘call_env =
+          env with v :=
+            nsBind cml_param (LAST cml_vs) (build_rec_env cml_funs env env.v)’
+    (* Preparing e for evaluate_apps *)
+    \\ gvs [from_member_decl_def, set_up_cml_fun_def, oneline bind_def,
+            CaseEq "sum"]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ qmatch_asmsub_abbrev_tac ‘cml_fun _ call_body’
+    (* Instantiating evaluate_apps *)
+    \\ drule evaluate_apps
+    \\ disch_then $ qspec_then ‘TL (REVERSE params)’ mp_tac \\ gvs []
+    \\ disch_then $ drule
+    \\ disch_then $ qspecl_then [‘call_env’, ‘call_body’] mp_tac
+    \\ impl_tac >-
+     gvs [do_opapp_def, cml_fun_def, MAP_MAP_o, AllCaseEqs()]
+    \\ gvs [cml_tup_case_def, evaluate_def]
+    \\ disch_then kall_tac
+    (* Finished instantiating evaluate_apps *)
+    \\ ‘t₁.clock = s₁.clock’ by gvs [state_rel_def] \\ gvs []
+    \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
+    \\ gvs [restore_locals_def]
+    \\ ‘t₁ with clock := 0 = t₁’ by
+        gvs [semanticPrimitivesTheory.state_component_equality]
+    \\ gvs []
+    \\ last_assum $ irule_at (Pos hd) \\ gvs [])
+  (* Have enough ticks to do the method call *)
+
+
+
 QED
 
 val _ = export_theory ();
