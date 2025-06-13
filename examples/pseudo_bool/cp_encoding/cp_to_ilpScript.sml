@@ -680,15 +680,32 @@ Definition split_iclin_term_def:
       split_iclin_term xs acc (rhs - c * cc))
 End
 
+Theorem split_iclin_term_sound:
+  ∀Xs rhs acc xs rhs'.
+    split_iclin_term Xs acc rhs = (xs,rhs') ⇒
+    eval_iclin_term wi Xs + eval_ilin_term wi acc - rhs =
+    eval_ilin_term wi xs - rhs'
+Proof
+  Induct
+  >-simp[split_iclin_term_def, eval_iclin_term_def, eval_ilin_term_def, iSUM_def]
+  >-(
+    Cases>>
+    Cases_on ‘r’>>
+    rw[split_iclin_term_def]>>
+    last_x_assum $ drule_then mp_tac>>
+    rw[eval_iclin_term_def, eval_ilin_term_def, iSUM_def, varc_def]>>
+    intLib.ARITH_TAC)
+QED
+
 Definition encode_ilc_def:
   encode_ilc (Xs:'a iclin_term) (op:pbop) (rhs:int) =
   let (xs,rhs) = split_iclin_term Xs [] rhs in
   case op of
     GreaterEqual => [(xs, [], rhs)]
   | Greater => [(xs, [] , rhs+1)]
-  | LessEqual => ARB
-  | Less => ARB
-  | Equal => ARB
+  | LessEqual => [(MAP (λ(x:int, y). (-x, y)) xs, [], -rhs)]
+  | Less => [(MAP (λ(x:int, y). (-x, y)) xs, [], -rhs+1)]
+  | Equal => [(xs, [], rhs); (MAP (λ(x:int, y). (-x, y)) xs, [], -rhs)]
 End
 
 Theorem encode_ilc_sem:
@@ -698,9 +715,22 @@ Theorem encode_ilc_sem:
 Proof
   rw[encode_ilc_def,ilc_sem_def]>>
   pairarg_tac>>gvs[]>>
-  Cases_on`op`>>
-  simp[iconstraint_sem_def]>>
-  cheat
+  CASE_TAC>>
+  simp[iconstraint_sem_def, eval_lin_term_def, iSUM_def]>>
+  ‘∀xs. eval_ilin_term wi (MAP (λ(x,y). (-x,y)) xs) = -(eval_ilin_term wi xs)’ by (
+    Induct
+    >-simp[eval_ilin_term_def, iSUM_def]
+    >-(
+      Cases>>
+      pop_assum mp_tac>>
+      simp[eval_ilin_term_def, iSUM_def]>>
+      intLib.ARITH_TAC))>>
+  pop_assum (fn thm => simp[thm])>>
+  ‘eval_iclin_term wi Xs - rhs = eval_ilin_term wi xs - rhs'’ by (
+    rw[]>>
+    dxrule split_iclin_term_sound>>
+    rw[Once eval_ilin_term_def, iSUM_def])>>
+  intLib.ARITH_TAC
 QED
 
 (* The top-level encodings *)
@@ -739,8 +769,8 @@ Proof
     simp[encode_abs_sem,reify_eilp_def]>>
     every_case_tac>>simp[])
   >- (
-    (**)
-  )
+    simp[encode_ilc_sem,reify_eilp_def]>>
+    every_case_tac>>simp[])
 QED
 
 Theorem encode_cp_one_sem_2:
@@ -758,6 +788,8 @@ Proof
     gvs[encode_element_sem]
   >-
     gvs[encode_abs_sem]
+  >-
+    gvs[encode_ilc_sem]
 QED
 
 (* An actual implementation will avoid duplicates here *)
