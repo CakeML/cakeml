@@ -322,6 +322,7 @@ Definition arm8_config_def:
     ; code_alignment := 2
     ; valid_imm := valid_immediate
     ; addr_offset := (^off_min, ^off_max)
+    ; hw_offset := (^off_min, ^off_max)
     ; byte_offset := (^off_min9, ^off_max12)
     ; jump_offset := (^jump_min, ^jump_max)
     ; cjump_offset := (^cjump_min, ^cjump_max)
