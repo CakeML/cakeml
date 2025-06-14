@@ -2374,6 +2374,8 @@ Type assg_raw = ``:((num # bool) list)``;
 
 Type aord = ``:(npbc list # npbc list # var list # var list # var list)``;
 
+Type specproof = ``:((npbc # subst_raw # scope # (num option)) list)``
+
 Datatype:
   cstep =
   (* Derivation steps *)
@@ -2389,12 +2391,14 @@ Datatype:
   | StrengthenToCore bool
   | LoadOrder mlstring ((bool # var) list)
   | UnloadOrder
-  | StoreOrder mlstring aord
-      (var list)
-      (* reflexivity proof *)
-      subproof
-      (* transitivity proof *)
-      (var list) (var list) subproof
+  | StoreOrder
+    mlstring (* order name *)
+    ((var list) # (var list) # (var list)) (* left, right, aux vars *)
+    specproof  (* specification and proof *)
+    (npbc list) (* the definition of the order *)
+    subproof (* reflexivity proof *)
+    ((var list) # (var list) # (var list) # subproof)
+     (* transitivity proof ws, bs, cs, proof *)
 
   (* Objective steps *)
   | Obj assg_raw bool (int option)
@@ -2621,7 +2625,16 @@ Definition trans_subst_def:
   (lhs,rhs))
 End
 
-(* TODO: is_spec check *)
+Definition mk_aord_def:
+  mk_aord (us,vs,as) f (gspec:specproof) =
+  ((f, MAP FST gspec, us,vs,as):aord)
+End
+
+(* TODO: implement the specification check *)
+Definition check_spec_def:
+  check_spec (us,vs,as) (gspec:specproof) = T
+End
+
 Definition check_good_aord_def:
   check_good_aord (f,g,us,vs,as) ⇔
   LENGTH us = LENGTH vs ∧
@@ -2631,15 +2644,25 @@ Definition check_good_aord_def:
   EVERY (λx. MEM x uvs) (FLAT (MAP (MAP SND o FST) g))
 End
 
-Theorem check_good_aord_good_aord:
-  check_good_aord ord ⇒
-  good_aord ord
+Theorem check_spec_is_spec:
+  check_spec (us,vs,as) gspec ⇒
+  is_spec (set (MAP FST gspec)) as
 Proof
-  PairCases_on`ord`>>EVAL_TAC>>
-  simp[EVERY_MEM,MEM_FLAT,SUBSET_DEF,PULL_EXISTS,FORALL_PROD,npbc_vars_def,MEM_MAP]>>rw[]
+  cheat
+QED
+
+Theorem check_good_aord:
+  check_spec vars gspec ∧
+  check_good_aord (mk_aord vars f gspec) ⇒
+  good_aord (mk_aord vars f gspec)
+Proof
+  rw[oneline mk_aord_def]>>
+  every_case_tac>>
+  gvs[check_good_aord_def,good_aord_def]>>
+  gvs[good_aord_def,check_good_aord_def,EVERY_MEM,MEM_FLAT,SUBSET_DEF,PULL_EXISTS,FORALL_PROD,npbf_vars_def,npbc_vars_def,MEM_MAP]>>rw[]
   >- metis_tac[]
   >- metis_tac[]
-  >- cheat (* specification check *)
+  >- metis_tac[check_spec_is_spec]
 QED
 
 Definition check_reflexivity_def:
@@ -2662,29 +2685,6 @@ Definition check_reflexivity_def:
   | _ => F)
 End
 
-Definition check_transitivity_def:
-  check_transitivity ord ws bs cs pfs =
-  let (lhs,rhs) = trans_subst ord ws bs cs in
-  let fml = build_fml F 1 lhs in
-  let id = LENGTH lhs + 1 in
-  let dsubs = MAP (λc. [not c]) rhs in
-  case extract_clauses (λn. NONE) F LN dsubs pfs [] of
-    NONE => NONE
-  | SOME cpfs =>
-  (case check_subproofs cpfs F fml id of
-    SOME (fml',id') =>
-    let (l,r) = extract_pids pfs LN LN in
-    if
-       EVERY (λ(id,cs).
-              lookup id r ≠ NONE ∨
-              EXISTS check_contradiction cs
-              )
-              (enumerate 0 dsubs)
-    then SOME id'
-    else NONE
-  | _ => NONE)
-End
-
 Definition check_ws_def:
   check_ws (f,g,us,vs,as) ws bs cs ⇔
   LENGTH us = LENGTH ws ∧
@@ -2694,6 +2694,31 @@ Definition check_ws_def:
   EVERY (λy. ¬ MEM y us ∧ ¬ MEM y vs ∧ ¬ MEM y as) ws ∧
   EVERY (λy. ¬ MEM y us ∧ ¬ MEM y vs ∧ ¬ MEM y as) bs ∧
   EVERY (λy. ¬ MEM y us ∧ ¬ MEM y vs ∧ ¬ MEM y as) cs
+End
+
+Definition check_transitivity_def:
+  check_transitivity aord (ws,bs,cs,pfs) =
+  if check_ws aord ws bs cs then
+    let (lhs,rhs) = trans_subst aord ws bs cs in
+    let fml = build_fml F 1 lhs in
+    let id = LENGTH lhs + 1 in
+    let dsubs = MAP (λc. [not c]) rhs in
+    case extract_clauses (λn. NONE) F LN dsubs pfs [] of
+      NONE => NONE
+    | SOME cpfs =>
+    (case check_subproofs cpfs F fml id of
+      SOME (fml',id') =>
+      let (l,r) = extract_pids pfs LN LN in
+      if
+         EVERY (λ(id,cs).
+                lookup id r ≠ NONE ∨
+                EXISTS check_contradiction cs
+                )
+                (enumerate 0 dsubs)
+      then SOME id'
+      else NONE
+    | _ => NONE)
+  else NONE
 End
 
 (* f + c ≤ f' + c' <--> f' + f ≥ *)
@@ -2978,8 +3003,7 @@ Definition guard_ord_t_def:
   EVERY (λxy. ¬ MEM (SND xy) as) xs
 End
 
-(* TODO: Dom is missing proper scoping checks
-  StoreOrder is missing specification check *)
+(* TODO: Dom is missing proper scoping checks *)
 Definition check_cstep_def:
   (check_cstep cstep
     (fml:pbf)
@@ -3068,16 +3092,21 @@ Definition check_cstep_def:
       NONE => NONE
     | SOME spo =>
       SOME (fml, pc with ord := NONE))
-  | StoreOrder name aord ws pfsr bs cs pfst =>
-    if check_good_aord aord ∧ check_ws aord ws bs cs
+  | StoreOrder name vars gspec f pfsr pfst =>
+    if check_spec vars gspec
     then
-      case check_transitivity aord ws bs cs pfst of NONE => NONE
-      | SOME id =>
-        if check_reflexivity aord pfsr id then
-          SOME (fml, pc with orders := (name,aord)::pc.orders)
-        else NONE
-    else
-      NONE
+      let aord = mk_aord vars f gspec in
+      if check_good_aord aord
+      then
+        case check_transitivity aord pfst of
+          NONE => NONE
+        | SOME id =>
+          if check_reflexivity aord pfsr id then
+            SOME (fml, pc with orders := (name,aord)::pc.orders)
+          else NONE
+      else
+        NONE
+    else NONE
   | Obj w mi bopt =>
     (case check_obj pc.obj w
       (MAP SND (toAList (mk_core_fml T fml))) bopt of
@@ -4001,10 +4030,10 @@ Proof
     rw[]>>fs[opt_le_def,bimp_obj_refl]>>
     every_case_tac>>fs[]>>
     rw[good_aord_t_def]>>
-    rename1`good_aspo(p,xs)`>>
-    PairCases_on`p`>>
-    gvs[guard_ord_t_def,EVERY_MEM]>>
-    drule check_good_aord_good_aord>>
+    rename1`mk_aord vars f gspec`>>
+    `∃us vs as. vars = (us,vs,as)` by metis_tac[PAIR]>>
+    drule_all check_good_aord>>
+    gvs[mk_aord_def,guard_ord_t_def,EVERY_MEM,good_aspo_def]>>
     rw[good_aspo_def]
     >- ( (* reflexivity *)
       match_mp_tac (reflexive_po_of_aspo |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
@@ -4054,12 +4083,11 @@ Proof
       )
     >- ( (* transitivity *)
       match_mp_tac (transitive_po_of_aspo |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
-      rename1`check_transitivity _ _ bs cs pfst`>>
+      rename1`check_transitivity _ vpfst`>>
+      `∃ws bs cs pfst. vpfst = (ws,bs,cs,pfst)` by metis_tac[PAIR]>>
       gvs[check_transitivity_def,check_ws_def]>>
       pairarg_tac>>gvs[]>>
-      rename1`ALL_DISTINCT (ws ++ _ ++ _)`>>
-      qexists_tac`ws`>>
-      qexists_tac`cs`>>qexists_tac`bs`>>
+      qexists_tac`ws`>>qexists_tac`cs`>>qexists_tac`bs`>>
       fs[EVERY_MEM]>>
       fs[trans_subst_def,lookup_list_list_insert]>>
       every_case_tac>>fs[]>>
