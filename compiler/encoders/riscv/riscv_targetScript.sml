@@ -278,6 +278,7 @@ Definition riscv_config_def:
     ; valid_imm := (\b i. (if b = INL Sub then ^min12 < i else ^min12 <= i) /\
                           i <= ^max12)
     ; addr_offset := (^min12, ^max12)
+    ; hw_offset := (^min12, ^max12)
     ; byte_offset := (^min12, ^max12)
     ; jump_offset := (^min32, 0x7FFFF7FFw)
     ; cjump_offset := (^min21 + 8w, ^max21 + 4w)
