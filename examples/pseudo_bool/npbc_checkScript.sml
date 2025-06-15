@@ -2005,7 +2005,6 @@ Proof
     metis_tac[sat_implies_tcb,sat_implies_union_right]
   \\ drule sat_implies_transitive
   \\ disch_then (fn th => DEP_REWRITE_TAC[th])
-
   \\ simp [Once implies_explode]
   \\ gvs[MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]
   \\ reverse (rw [])
@@ -3609,24 +3608,32 @@ Theorem check_cstep_correct:
 Proof
   Cases_on`cstep`>>
   fs[check_cstep_def]
+
   >- ( (* Dominance *)
-    cheat
-    (*
     Cases_on`pc.ord`>>fs[]>>
+    pairarg_tac>>gvs[]>>
+    IF_CASES_TAC>>gvs[]>>
     pairarg_tac>>gvs[]>>
     TOP_CASE_TAC>>
     pop_assum mp_tac>>
-    IF_CASES_TAC>>gvs[]>>
     TOP_CASE_TAC>>
-    TOP_CASE_TAC>>
-    TOP_CASE_TAC>>
-    TOP_CASE_TAC>>
+    TOP_CASE_TAC>> gvs [] >>
+    TOP_CASE_TAC>> gvs [] >>
+    pairarg_tac>>gvs[]>>
     rw[]>>
     gvs[insert_fml_def]>>
     `id_ok (insert pc.id (not p,F) fml) (pc.id + 1)` by
       fs[id_ok_def]>>
+    cheat
+    (*
+
     drule check_subproofs_correct>>
-    rename1`check_subproofs pfs _ _`>>
+
+  extract_scopes_def
+  check_scopes_def
+  valid_conf_def
+
+        rename1`check_subproofs pfs _ _`>>
     disch_then(qspecl_then [`pfs`,`F`] mp_tac)>>
     gs[]>> strip_tac>>
     rename1`insert cc (p,_) fml`>>
