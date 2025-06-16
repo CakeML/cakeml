@@ -342,9 +342,9 @@ Definition comp_func_def:
 End
 
 Definition get_eids_def:
-  get_eids prog =
+  get_eids (prog:('b#'c#'a panLang$prog) list) =
    let eids = nub (FLAT (MAP (exp_ids o SND o SND) prog));
-       ns   = GENLIST (λx. n2w x) (LENGTH eids);
+       ns   = GENLIST (λx. (n2w x):'a word) (LENGTH eids);
        es   = MAP2 (λx y. (x,y)) eids ns in
     alist_to_fmap es
 End

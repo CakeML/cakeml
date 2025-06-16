@@ -4554,10 +4554,10 @@ Proof
 QED
 
 Theorem get_eids_imp_excp_rel:
-  !seids pc.
+  !seids (pc:'a decl list).
    panLang$size_of_eids pc < dimword (:'a) /\
-   FDOM seids =  FDOM ((get_eids(functions pc)):mlstring |-> 'a word) ==>
-     excp_rel ((get_eids(functions pc):mlstring |-> 'a word)) seids
+   FDOM seids =  FDOM (get_eids(functions pc)) ==>
+     excp_rel (get_eids(functions pc)) seids
 Proof
   rw[excp_rel_def, get_eids_def] >>
   gvs[MAP2_MAP,pair_map_I] >>
@@ -4588,17 +4588,17 @@ Theorem state_rel_imp_semantics:
     s.locals = FEMPTY ∧
     EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
-    FDOM s.eshapes =  FDOM ((get_eids(functions pan_code)):mlstring |-> 'a word) ∧
+    FDOM s.eshapes =  FDOM (get_eids(functions pan_code)) ∧
     semantics s start <> Fail ==>
       semantics t start = semantics s start
 Proof
   rw [] >>
   drule mk_ctxt_code_imp_code_rel >>
   fs[] >> strip_tac >>
-  ‘excp_rel ((get_eids(functions pan_code)):mlstring |-> 'a word) s.eshapes’ by (
+  ‘excp_rel (get_eids(functions pan_code)) s.eshapes’ by (
     match_mp_tac get_eids_imp_excp_rel >> fs []) >>
   ‘locals_rel (mk_ctxt FEMPTY (make_funcs(functions pan_code)) 0
-               ((get_eids(functions pan_code)):mlstring |-> 'a word)) FEMPTY t.locals’ by (
+               (get_eids(functions pan_code))) FEMPTY t.locals’ by (
     fs [locals_rel_def] >>
     conj_tac
     >- rw [no_overlap_def, mk_ctxt_def] >>
@@ -4858,7 +4858,7 @@ Theorem state_rel_imp_semantics_decls:
     EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
     EVERY is_function pan_code ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
-    FDOM s.eshapes =  FDOM ((get_eids(functions pan_code)):mlstring |-> 'a word) ∧
+    FDOM s.eshapes =  FDOM (get_eids(functions pan_code)) ∧
     semantics_decls s start pan_code <> Fail ==>
       semantics t start = semantics_decls s start pan_code
 Proof
