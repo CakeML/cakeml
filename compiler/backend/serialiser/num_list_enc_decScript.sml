@@ -598,10 +598,6 @@ Definition namespace_enc'_def:
   namespace_enc'_list e ((m,x)::xs) =
     Append (Append (List [1]) (list_enc char_enc m))
       (Append (namespace_enc' e x) (namespace_enc'_list e xs))
-Termination
-  WF_REL_TAC ‘measure (λx. case x of
-                           | INL (_,x) => namespace_size (K 0) (K 0) (K 0) x
-                           | INR (_,x) => namespace1_size (K 0) (K 0) (K 0) x)’
 End
 
 Definition namespace_depth_def:
@@ -609,10 +605,6 @@ Definition namespace_depth_def:
   namespace_depth_list [] = 0 ∧
   namespace_depth_list ((m,x)::xs) =
     1 + MAX (namespace_depth x) (namespace_depth_list xs)
-Termination
-  WF_REL_TAC ‘measure (λx. case x of
-                           | INL x => namespace_size (K 0) (K 0) (K 0) x
-                           | INR x => namespace1_size (K 0) (K 0) (K 0) x)’
 End
 
 Definition namespace_enc_def:

@@ -5,7 +5,7 @@ open preamble dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory data_to_word_memoryProofTheory finite_mapTheory
      data_to_wordTheory wordPropsTheory whileTheory
      set_sepTheory semanticsPropsTheory
-open helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
+     helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
      word_bignumProofTheory gen_gc_partialTheory gc_sharedTheory
      word_gcFunctionsTheory backendPropsTheory
 local open gen_gcTheory in end

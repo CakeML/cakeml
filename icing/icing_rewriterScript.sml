@@ -118,8 +118,6 @@ Definition isFpArithExp_def:
   isFpArithExp _ = F ∧
   isFpArithExpList [] = T ∧
   isFpArithExpList (e1 :: es) = (isFpArithExp e1 ∧ isFpArithExpList es)
-Termination
-  wf_rel_tac ‘measure (λ x. case x of |INR exps => exp6_size exps |INL e => exp_size e)’
 End
 
 (* rewriteExp: Recursive, expression rewriting function applying all rewrites that match.

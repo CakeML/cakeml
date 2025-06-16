@@ -210,6 +210,18 @@ Proof
   rw[strcat_def,concat_def] \\ CASE_TAC \\ rw[]
 QED
 
+Theorem mlstring_common_prefix[simp]:
+  ∀s t1 t2. s ^ t1 = s ^ t2 ⇔ t1 = t2
+Proof
+  rpt Cases \\ gvs [strcat_thm,implode_def]
+QED
+
+Theorem mlstring_common_suffix[simp]:
+  ∀s t1 t2. t1 ^ s = t2 ^ s ⇔ t1 = t2
+Proof
+  rpt Cases \\ gvs [strcat_thm,implode_def]
+QED
+
 Theorem concat_append:
   concat (xs ++ ys) = concat xs ^ concat ys
 Proof

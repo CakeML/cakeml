@@ -352,13 +352,6 @@ Definition exp_to_display_def:
            String (implode n);
            exp_to_display e] ::
     fun_to_display_list xs)
-Termination
-  WF_REL_TAC ‘measure $ λx.
-    case x of
-    INL v => exp_size v
-  | INR (INL v) => list_size exp_size v
-  | INR (INR (INL v)) => exp3_size v
-  | INR (INR (INR v)) => exp1_size v’
 End
 
 Definition source_to_display_dec_def:
@@ -564,13 +557,6 @@ Definition flat_to_display_def:
   (fun_flat_to_display_list ((v1,v2,e)::xs) =
      Tuple [string_imp v1; string_imp v2; flat_to_display e] ::
         fun_flat_to_display_list xs)
-Termination
-  WF_REL_TAC ‘measure $ λx.
-    case x of
-    INL v => flatLang$exp_size v
-  | INR (INL v) => list_size flatLang$exp_size v
-  | INR (INR (INL v)) => flatLang$exp3_size v
-  | INR (INR (INR v)) => flatLang$exp1_size v’
 End
 
 Definition flat_to_display_dec_def:
@@ -777,8 +763,9 @@ Termination
   WF_REL_TAC `measure (\x. case x of
     | INL (_,_,e) => exp_size e
     | INR (INL (_,_,e)) => list_size exp_size e
-    | INR (INR (INL (_,_,_,es))) => exp3_size es
-    | INR (INR (INR (_,_,_,_,es))) => exp1_size es)`
+    | INR (INR (INL (_,_,_,es))) => list_size exp_size es
+    | INR (INR (INR (_,_,_,_,es))) => list_size (pair_size I exp_size) es)`>>
+  rw[list_size_pair_size_MAP_FST_SND]
 End
 
 Definition clos_fun_to_display_def:
@@ -841,7 +828,7 @@ Termination
   case x of
     INL (ns,h,x) => exp_size x
   | INR (INL (ns,h,xs)) => list_size exp_size xs
-  | INR (INR (ns,h,i,xs)) => exp1_size xs’
+  | INR (INR (ns,h,i,xs)) => list_size exp_size xs’
 End
 
 Definition bvl_fun_to_display_def:
@@ -899,7 +886,7 @@ Termination
   case x of
     INL (ns,h,x) => exp_size x
   | INR (INL (ns,h,xs)) => list_size exp_size xs
-  | INR (INR (ns,h,i,xs)) => exp2_size xs’
+  | INR (INR (ns,h,i,xs)) => list_size exp_size xs’
 End
 
 Definition bvi_fun_to_display_def:

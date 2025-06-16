@@ -242,10 +242,14 @@ Theorem canonicalize_upper_bound:
 Proof
   measureInduct_on  ‘exp_size e’
   >> Cases_on ‘e’ >> gs[canonicalize_def] >> rpt strip_tac
-  >> gs[astTheory.exp_size_def]
+  >> gs[]
   >- (
     imp_res_tac MEM_list_flat_sub_exp
     >> first_x_assum $ qspec_then ‘e’ mp_tac >> gs[]
+    >> impl_tac >- (
+      drule MEM_list_size>>
+      disch_then (qspec_then `exp_size` mp_tac)>>
+      simp[])
     >> disch_then (fn ith => first_x_assum (fn th => mp_then Any drule ith th))
     >> gs[])
   >- (
@@ -255,11 +259,19 @@ Proof
       >- (
         imp_res_tac MEM_list_flat_sub_exp
         >> first_x_assum $ qspec_then ‘e’ mp_tac >> gs[]
+        >> impl_tac >- (
+          drule MEM_list_size>>
+          disch_then (qspec_then `exp_size` mp_tac)>>
+          simp[])
         >> disch_then (fn ith => first_x_assum (fn th => mp_then Any drule ith th))
         >> gs[])
       >> imp_res_tac canonicalize_app_upper_bound >> gs[])
     >> imp_res_tac MEM_list_flat_sub_exp
     >> first_x_assum $ qspec_then ‘e’ mp_tac >> gs[]
+    >> impl_tac >- (
+      drule MEM_list_size>>
+      disch_then (qspec_then `exp_size` mp_tac)>>
+      simp[])
     >> disch_then (fn ith => first_x_assum (fn th => mp_then Any drule ith th))
     >> gs[])
   >- (
@@ -286,6 +298,10 @@ Proof
     >- trivial_case_tac ‘e'’
     >> imp_res_tac MEM_list_flat_sub_patexp
     >> first_x_assum $ qspec_then ‘e’ mp_tac >> gs[]
+    >> impl_tac >- (
+      drule MEM_list_size>>
+      disch_then (qspec_then `pair_size pat_size exp_size` mp_tac)>>
+      simp[])
     >> disch_then (fn ith => first_x_assum (fn th => mp_then Any drule ith th))
     >> gs[])
   >- (
