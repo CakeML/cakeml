@@ -72,8 +72,8 @@ QED
 
 
 Theorem FDOM_get_eids_pan_simp_compile_eq:
-  !prog. FDOM ((get_eids(functions prog)): mlstring |-> α word) =
-  FDOM ((get_eids (functions(pan_simp$compile_prog prog))):mlstring |-> α word)
+  !prog. FDOM (get_eids(functions prog)) =
+  FDOM (get_eids (functions(pan_simp$compile_prog prog)))
 Proof
   rw [] >>
   fs [pan_to_crepTheory.get_eids_def] >>
@@ -333,7 +333,8 @@ Proof
                         ALL_DISTINCT_MAP_INJ >>
           simp[MAP_MAP_o,o_DEF]) >>
       simp[crep_state_def] >>
-      gvs[size_of_eids_compile_top,size_of_eids_compile_eq]) >>
+      gvs[size_of_eids_compile_top,size_of_eids_compile_eq]
+     ) >>
   disch_then $ strip_assume_tac o GSYM >>
   gvs[Abbr ‘s1’] >>
   drule_at (Pos last) crep_to_loopProofTheory.state_rel_imp_semantics >>
