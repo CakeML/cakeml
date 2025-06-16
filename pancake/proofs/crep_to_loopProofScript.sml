@@ -55,8 +55,8 @@ Definition wlab_wloc_def:
 End
 
 Definition mem_rel_def:
-  mem_rel smem tmem <=>
-  !ad. wlab_wloc (smem ad) = tmem ad
+  mem_rel smem tmem dom <=>
+  !ad. ad ∈ dom ⇒ wlab_wloc (smem ad) = tmem ad
 End
 
 Definition globals_rel_def:
@@ -118,13 +118,13 @@ End
 val goal =
   ``λ(prog, s). ∀res s1 t ctxt l.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t ∧ mem_rel s.memory t.memory ∧
+      state_rel s t ∧ mem_rel s.memory t.memory s.memaddrs ∧
       globals_rel s.globals t.globals ∧
       code_rel ctxt s.code t.code ∧
       locals_rel ctxt l s.locals t.locals ⇒
       ∃ck res1 t1. evaluate (compile ctxt l prog,
                              t with clock := t.clock + ck) = (res1,t1) /\
-      state_rel s1 t1 ∧ mem_rel s1.memory t1.memory ∧
+      state_rel s1 t1 ∧ mem_rel s1.memory t1.memory s1.memaddrs ∧
       globals_rel s1.globals t1.globals ∧
       code_rel ctxt s1.code t1.code ∧
       (res1 = case res of
@@ -198,8 +198,8 @@ Proof
 QED
 
 Theorem mem_rel_intro:
-  mem_rel smem tmem ==>
-   !ad. wlab_wloc (smem ad) = tmem ad
+  mem_rel smem tmem dm ==>
+   !ad. ad ∈ dm ⇒ wlab_wloc (smem ad) = tmem ad
 Proof
   rw [mem_rel_def] >>
   metis_tac []
@@ -247,9 +247,9 @@ QED
 
 Theorem write_bytearray_mem_rel:
   !nb sm tm w dm be.
-   mem_rel sm tm ==>
+   mem_rel sm tm dm ==>
    mem_rel (write_bytearray w nb sm dm be)
-   (write_bytearray w nb tm dm be)
+   (write_bytearray w nb tm dm be) dm
 Proof
   Induct >>
   rw [panSemTheory.write_bytearray_def,
@@ -277,7 +277,7 @@ Proof
       CaseEq "word_lab", CaseEq "option"] >>
   rveq >>
   first_x_assum drule >>
-  disch_then (qspecl_then [‘w+1w’, ‘dm’, ‘be’] mp_tac) >>
+  disch_then (qspecl_then [‘w+1w’, ‘be’] mp_tac) >>
   strip_tac >> fs [] >>
   fs [mem_rel_def] >>
   rw []
@@ -745,7 +745,7 @@ Theorem compile_exps_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT
 Theorem comp_exp_preserves_eval:
   ∀s e v (t :('a, 'b) state) ctxt tmp l p le ntmp nl.
   eval s e = SOME v /\
-  state_rel s t /\ mem_rel s.memory t.memory /\
+  state_rel s t /\ mem_rel s.memory t.memory s.memaddrs /\
   globals_rel s.globals t.globals /\
   code_rel ctxt s.code t.code /\
   locals_rel ctxt l s.locals t.locals /\
@@ -753,7 +753,7 @@ Theorem comp_exp_preserves_eval:
   ctxt.vmax < tmp ==>
      ?ck st. evaluate (nested_seq p,t with clock := t.clock + ck) = (NONE,st) /\
      eval st le = SOME (wlab_wloc v) /\
-     state_rel s st /\ mem_rel s.memory st.memory /\
+     state_rel s st /\ mem_rel s.memory st.memory s.memaddrs /\
      globals_rel s.globals st.globals /\
      code_rel ctxt s.code st.code /\
      locals_rel ctxt nl s.locals st.locals
@@ -771,7 +771,7 @@ Proof
                  evaluate (nested_seq p,t with clock := ck + t.clock) = (NONE,st) ∧
                  the_words (MAP (λa. eval st a) les) =
                  SOME ((MAP (λw. case w of Word n =>  n) ws)) /\
-                 state_rel s st ∧ mem_rel s.memory st.memory ∧
+                 state_rel s st ∧ mem_rel s.memory st.memory s.memaddrs ∧
                  globals_rel s.globals st.globals ∧
                  code_rel ctxt s.code st.code ∧ locals_rel ctxt l' s.locals st.locals’
     >- (
@@ -965,8 +965,7 @@ Proof
     fs [loopSemTheory.eval_def, wlab_wloc_def] >>
     fs [crepSemTheory.mem_load_def, loopSemTheory.mem_load_def] >> rveq >>
     imp_res_tac state_rel_intro >>
-    imp_res_tac mem_rel_intro >>
-    last_x_assum (qspec_then ‘c’ mp_tac) >> fs [])
+    gvs[mem_rel_def])
    >>~ [‘eval s (LoadByte e)’,‘eval s (Load32 e)’]
   >- (fs [crepSemTheory.eval_def] >>
       TOP_CASE_TAC >> fs [] >>
@@ -989,11 +988,13 @@ Proof
       fs [panSemTheory.mem_load_byte_def, CaseEq "word_lab",
           wordSemTheory.mem_load_byte_aux_def,
           panSemTheory.mem_load_32_def, wordSemTheory.mem_load_32_def] >>
-      imp_res_tac mem_rel_intro >>
+      drule mem_rel_intro >> strip_tac >>
       last_x_assum (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
       strip_tac >> fs [] >>
+      rev_drule mem_rel_intro >> strip_tac >>
       last_x_assum (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
       strip_tac >> fs [wlab_wloc_def] >>
+      rfs[] >>
       imp_res_tac state_rel_intro >>
       fs [eval_def, state_rel_def] >>
       imp_res_tac compile_exp_out_rel >>
@@ -1026,11 +1027,13 @@ Proof
       fs [panSemTheory.mem_load_byte_def, CaseEq "word_lab",
           wordSemTheory.mem_load_byte_aux_def,
           panSemTheory.mem_load_32_def, wordSemTheory.mem_load_32_def] >>
-      imp_res_tac mem_rel_intro >>
-      last_x_assum (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
+      drule mem_rel_intro >>
+      disch_then (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
       strip_tac >> fs [] >>
-      last_x_assum (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
+      rev_drule mem_rel_intro >>
+      disch_then (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
       strip_tac >> fs [wlab_wloc_def] >>
+      rfs[] >>
       imp_res_tac state_rel_intro >>
       fs [eval_def, state_rel_def] >>
       imp_res_tac compile_exp_out_rel >>
@@ -1178,7 +1181,7 @@ QED
 Theorem comp_exps_preserves_eval:
   ∀es s vs (t :('a, 'b) state) ctxt tmp l p les ntmp nl.
   OPT_MMAP (eval s) es = SOME vs /\
-  state_rel s t /\ mem_rel s.memory t.memory /\
+  state_rel s t /\ mem_rel s.memory t.memory s.memaddrs /\
   globals_rel s.globals t.globals /\
   code_rel ctxt s.code t.code /\
   locals_rel ctxt l s.locals t.locals /\
@@ -1186,7 +1189,7 @@ Theorem comp_exps_preserves_eval:
   ctxt.vmax < tmp ==>
      ?ck st. evaluate (nested_seq p,t with clock := t.clock + ck) = (NONE,st) /\
      OPT_MMAP (eval st) les = SOME (MAP wlab_wloc vs) /\
-     state_rel s st /\ mem_rel s.memory st.memory /\
+     state_rel s st /\ mem_rel s.memory st.memory s.memaddrs /\
      globals_rel s.globals st.globals /\
      code_rel ctxt s.code st.code /\
      locals_rel ctxt nl s.locals st.locals
@@ -1562,6 +1565,7 @@ Proof
       compile_def, AllCaseEqs ()] >> rveq >>
   fs [state_rel_def, empty_locals_def,
       crepSemTheory.dec_clock_def, dec_clock_def] >>
+  gvs[] >>
   qexists_tac ‘0’ >> fs []
 QED
 
@@ -1616,8 +1620,9 @@ Proof
   imp_res_tac locals_rel_intro >>
   imp_res_tac code_rel_intro >>
   imp_res_tac globals_rel_intro >>
-  imp_res_tac mem_rel_intro >>
-  rw [FDOM_FLOOKUP] >> res_tac >> fs []
+  drule mem_rel_intro >>
+  rw [FDOM_FLOOKUP] >> res_tac >> fs [] >>
+  gvs[]
 QED
 
 Theorem compile_Raise:
@@ -1629,7 +1634,7 @@ Proof
       call_env_def, state_rel_def, crepSemTheory.empty_locals_def] >> rveq >>
   fs [] >>
   qexists_tac ‘0’ >>
-  fs []
+  gvs []
 QED
 
 Theorem compile_Store:
@@ -1727,10 +1732,9 @@ Proof
    fs [] >>
    match_mp_tac locals_rel_cutset_prop >>
    metis_tac []) >>
-  imp_res_tac mem_rel_intro >>
+  drule mem_rel_intro >>
   rw [mem_rel_def] >>
-  fs [APPLY_UPDATE_THM] >>
-  reverse FULL_CASE_TAC
+  rw [APPLY_UPDATE_THM]
 QED
 
 
@@ -1822,9 +1826,8 @@ Proof
       AllCaseEqs ()] >>
   rveq >> fs [lookup_insert] >>
   ‘st'.memory (byte_align adr) = Word v’ by (
-    imp_res_tac mem_rel_intro >>
-    last_x_assum (qspec_then ‘byte_align adr’ mp_tac) >>
-    metis_tac [wlab_wloc_def]) >>
+    gvs[mem_rel_def] >> res_tac >>
+    metis_tac[wlab_wloc_def]) >>
   fs [state_rel_def] >>
   (reverse conj_tac
    >- (
@@ -1840,11 +1843,10 @@ Proof
     fs [] >>
     match_mp_tac locals_rel_cutset_prop >>
     metis_tac []) >>
-   imp_res_tac mem_rel_intro >>
+   drule mem_rel_intro >>
    rw [mem_rel_def] >>
-   fs [APPLY_UPDATE_THM] >>
-   reverse FULL_CASE_TAC >> fs [] >> rveq >>
-   res_tac >> fs [wlab_wloc_def])
+   rw [APPLY_UPDATE_THM] >>
+   fs [wlab_wloc_def])
 QED
 
 Theorem compile_StoreByte:
@@ -1935,8 +1937,7 @@ Proof
       AllCaseEqs ()] >>
   rveq >> fs [lookup_insert] >>
   ‘st'.memory (byte_align adr) = Word v’ by (
-    imp_res_tac mem_rel_intro >>
-    last_x_assum (qspec_then ‘byte_align adr’ mp_tac) >>
+    gvs[mem_rel_def] >>
     metis_tac [wlab_wloc_def]) >>
   fs [state_rel_def] >>
   reverse conj_tac
@@ -1955,9 +1956,8 @@ Proof
    metis_tac []) >>
   imp_res_tac mem_rel_intro >>
   rw [mem_rel_def] >>
-  fs [APPLY_UPDATE_THM] >>
-  reverse FULL_CASE_TAC >> fs [] >> rveq >>
-  res_tac >> fs [wlab_wloc_def]
+  rw [APPLY_UPDATE_THM] >>
+  gvs[wlab_wloc_def]
 QED
 
 Theorem compile_StoreGlob:
@@ -2390,11 +2390,11 @@ Proof
     rw [] >>
     fs [state_rel_def, panSemTheory.mem_load_byte_def,
         wordSemTheory.mem_load_byte_aux_def] >>
-    fs [mem_rel_def] >>
-    first_x_assum (qspec_then ‘byte_align x’ assume_tac) >>
-    TOP_CASE_TAC >> fs [wlab_wloc_def] >>
-    cases_on ‘s.memory (byte_align x)’ >>
-    fs [wlab_wloc_def, AllCaseEqs ()]) >>
+    gvs[mem_rel_def] >>
+    rpt(PURE_TOP_CASE_TAC >> gvs[]) >>
+    spose_not_then strip_assume_tac >>
+    first_x_assum $ drule_then assume_tac >>
+    gvs[wlab_wloc_def]) >>
   fs [state_rel_def]
   >- (
    qexists_tac ‘0’ >> fs [] >>
@@ -2406,9 +2406,9 @@ Proof
     res_tac >> fs [] >> rveq >>
     rfs [lookup_inter, domain_lookup]) >>
    match_mp_tac write_bytearray_mem_rel >>
-   fs []) >>
+   gvs []) >>
   fs [call_env_def] >>
-  qexists_tac ‘0’ >> fs []
+  qexists_tac ‘0’ >> gvs []
 QED
 
 
@@ -2509,7 +2509,7 @@ Proof
    qexists_tac ‘0’ >>
    fs [Once evaluate_def] >>
    fs [cut_res_def, cut_state_def] >>
-   fs [state_rel_def, crepSemTheory.empty_locals_def]) >>
+   gvs [state_rel_def, crepSemTheory.empty_locals_def]) >>
   pairarg_tac >> fs [] >>
   ‘t.clock <> 0’ by fs [state_rel_def] >>
   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
@@ -2545,10 +2545,11 @@ Proof
    impl_tac
    >- (
     fs [state_rel_def] >>
+    conj_tac >- gvs[] >>
     imp_res_tac compile_exp_out_rel >>
     rveq >>
     fs [locals_rel_def] >>
-    conj_tac
+    conj_asm1_tac
     >- (
      drule cut_sets_union_domain_subset >>
      strip_tac >>
@@ -2556,14 +2557,21 @@ Proof
      qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
      fs [] >>
      fs [SUBSET_INSERT_RIGHT]) >>
-    rw [] >> res_tac >> fs [] >>
+    rw [] >> last_assum drule >> strip_tac >> fs [] >>
     rveq >> fs [] >>
+    rw [] >> first_assum drule >> strip_tac >> fs [] >>
+    gvs[] >>
     ‘n <> tmp’ by (
       CCONTR_TAC >> fs [] >> rveq >>
       imp_res_tac compile_exp_out_rel >>
       rveq >>
-      fs [ctxt_max_def] >> res_tac >> rfs []) >>
-    fs [lookup_insert, domain_lookup]) >>
+      fs [ctxt_max_def] >>
+      last_x_assum drule >>
+      last_x_assum drule >>
+      strip_tac >>
+      disch_then kall_tac >>
+      gvs[]) >>
+    fs [lookup_insert,domain_lookup]) >>
    strip_tac >> fs [] >>
    TOP_CASE_TAC >> fs [] >>
    strip_tac >> rveq >> fs [] >>
@@ -2706,6 +2714,7 @@ Proof
   impl_tac
   >- (
    fs [state_rel_def] >>
+   conj_tac >- gvs[] >>
    imp_res_tac compile_exp_out_rel >>
    rveq >>
    fs [locals_rel_def] >>
@@ -2717,13 +2726,20 @@ Proof
     qexists_tac ‘domain (cut_sets l (nested_seq np))’ >>
     fs [] >>
     fs [SUBSET_INSERT_RIGHT]) >>
-   rw [] >> res_tac >> fs [] >>
+   rw [] >> last_assum drule >> strip_tac >> fs [] >>
    rveq >> fs [] >>
+   rw [] >> first_assum drule >> strip_tac >> fs [] >>
+   gvs[] >>
    ‘n <> tmp’ by (
      CCONTR_TAC >> fs [] >> rveq >>
      imp_res_tac compile_exp_out_rel >>
      rveq >>
-     fs [ctxt_max_def] >> res_tac >> rfs []) >>
+     fs [ctxt_max_def] >>
+     last_x_assum drule >>
+     last_x_assum drule >>
+     strip_tac >>
+     disch_then kall_tac >>
+     gvs[]) >>
    fs [lookup_insert, domain_lookup]) >>
   strip_tac >> fs [] >>
   first_x_assum drule_all >>
@@ -2733,7 +2749,6 @@ Proof
   drule evaluate_add_clock_eq >>
   fs [] >>
   disch_then (qspec_then ‘ck''’ assume_tac) >>
-
   qexists_tac ‘ck + ck' + ck''’ >>
   simp [Once evaluate_def] >>
   fs [cut_res_def, cut_state_def] >>
@@ -2774,7 +2789,7 @@ Theorem call_preserve_state_code_locals_rel:
    LENGTH ns = LENGTH lns /\
    LENGTH args = LENGTH lns /\
    state_rel s st /\
-   mem_rel s.memory st.memory /\
+   mem_rel s.memory st.memory s.memaddrs /\
    globals_rel s.globals st.globals /\
    code_rel ctxt s.code st.code /\
    locals_rel ctxt nl s.locals st.locals /\
@@ -2990,7 +3005,7 @@ Proof
   \\ fs [compile_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ drule_at (Pat `compile_exps _ _ _ _ = _`) comp_exps_preserves_eval
-  \\ disch_then (drule_at (Pat `mem_rel _ _`))
+  \\ disch_then (drule_at (Pat `mem_rel _ _ _`))
   \\ simp [OPT_MMAP_APPEND]
   \\ rw []
   \\ rewrite_tac [GSYM APPEND_ASSOC]
@@ -3309,6 +3324,7 @@ Proof
         \\ gvs []
         \\ fs [state_rel_def, empty_locals_def, ctxt_fc_def]
         \\ fs [code_rel_def]
+        \\ gvs[]
       )
     )
     >- (
@@ -3317,6 +3333,7 @@ Proof
       \\ gvs []
       \\ fs [state_rel_def, empty_locals_def, ctxt_fc_def]
       \\ fs [code_rel_def]
+      \\ gvs[]
     )
   )
 QED
@@ -3337,13 +3354,13 @@ QED
 
 Theorem ocompile_correct:
   evaluate (p,s) = (res,s1) ∧ state_rel s t ∧
-  mem_rel s.memory t.memory ∧
+  mem_rel s.memory t.memory s.memaddrs ∧
   globals_rel s.globals t.globals ∧ code_rel ctxt s.code t.code ∧
   locals_rel ctxt l s.locals t.locals ∧ res ≠ SOME Error ∧ res ≠ SOME Break ∧
   res ≠ SOME Continue ∧ res ≠ NONE ⇒
   ∃ck res1 t1.
     evaluate (ocompile ctxt l p,t with clock := t.clock + ck) =
-    (res1,t1) ∧ state_rel s1 t1 ∧ mem_rel s1.memory t1.memory ∧
+    (res1,t1) ∧ state_rel s1 t1 ∧ mem_rel s1.memory t1.memory s1.memaddrs ∧
     globals_rel s1.globals t1.globals ∧
     code_rel ctxt s1.code t1.code ∧
     case res of
@@ -3695,7 +3712,7 @@ code_rel2 nctxt s_code t_code ==>
   s.be = t.be /\ s.sh_memaddrs = t.sh_mdomain /\
   s.memaddrs = t.mdomain /\ s.clock = t.clock /\
   s.ffi = t.ffi /\ s.base_addr = t.base_addr /\ s.top_addr = t.top_addr /\
-  mem_rel s.memory t.memory /\
+  mem_rel s.memory t.memory s.memaddrs /\
   globals_rel s.globals t.globals /\
   s.locals = FEMPTY /\
   s.code = s_code /\ t.code = t_code ==>
@@ -3724,7 +3741,6 @@ code_rel2 nctxt s_code t_code ==>
          | SOME Error => SOME Error)
 
 Proof
-
   rw []
   \\ dxrule crep_arithProofTheory.simp_prog_correct
   \\ fs [crep_arithTheory.simp_prog_def, crep_arithTheory.simp_exp_def]
@@ -3735,6 +3751,7 @@ Proof
   \\ disch_then (drule_at (Pat `code_rel _ _ _`))
   \\ disch_then (qspec_then `LN` mp_tac)
   \\ simp [state_rel_def, locals_rel_def]
+  \\ gvs[]
   \\ simp [crep_to_loopTheory.compile_def]
   \\ simp [crep_to_loopTheory.compile_exp_def, nested_seq_def, gen_temps_def]
   \\ simp [evaluate_Seq_Skip]
@@ -3940,7 +3957,7 @@ Theorem state_rel_imp_semantics:
   !s t crep_code start lc c. s.memaddrs = t.mdomain ∧
   s.be = t.be ∧ s.sh_memaddrs = t.sh_mdomain ∧
   s.ffi = t.ffi ∧ s.base_addr = t.base_addr ∧ s.top_addr = t.top_addr ∧
-  mem_rel s.memory t.memory ∧
+  mem_rel s.memory t.memory s.memaddrs ∧
   globals_rel s.globals t.globals ∧
   ALL_DISTINCT (MAP FST crep_code) ∧
   s.code = alist_to_fmap crep_code ∧
