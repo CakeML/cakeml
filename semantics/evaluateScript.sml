@@ -307,7 +307,7 @@ Termination
          | INR(INR (s,_,ds)) => (s.clock,list_size dec_size ds))’
   \\ rw [do_if_def,do_log_def,do_eval_res_def,dec_clock_def]
   \\ imp_res_tac fix_clock_IMP \\ fs []
-  \\ fs [listTheory.list_size_def,dec_size_eq,exp_size_eq,list_size_REVERSE]
+  \\ fs [listTheory.list_size_def,list_size_REVERSE]
 End
 
 (* tidy up evalute_def and evaluate_ind *)

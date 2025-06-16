@@ -345,7 +345,7 @@ Termination
                        (s.clock, list_size statement_size stmts))’ >> rw[]
   >> imp_res_tac evaluate_exp_clock
   >> imp_res_tac fix_clock_IMP
-  >> gvs[dec_clock_def, AllCaseEqs(), assignLhs_size_eq]
+  >> gvs[dec_clock_def, AllCaseEqs()]
 End
 
 Theorem evaluate_stmt_clock:

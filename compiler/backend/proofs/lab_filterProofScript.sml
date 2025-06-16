@@ -310,19 +310,34 @@ Triviality loc_to_pc_eq_NONE:
   loc_to_pc n1 n2 (filter_skip code) = NONE ⇒
   loc_to_pc n1 n2 code = NONE
 Proof
-  ho_match_mp_tac loc_to_pc_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[filter_skip_def]>>
-  full_simp_tac(srw_ss())[Once loc_to_pc_def]>>IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-  FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
-  IF_CASES_TAC>>
-  full_simp_tac(srw_ss())[]>>
-  TRY
-    (qpat_x_assum`_=NONE` mp_tac>>
-    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    simp[Once loc_to_pc_def]>>
-    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>NO_TAC)>>
-  full_simp_tac(srw_ss())[not_skip_def]
+  ho_match_mp_tac loc_to_pc_ind>>
+  rw[]>>gvs[filter_skip_def]>>
+  simp[Once loc_to_pc_def]>>
+  pop_assum mp_tac>>
+  simp[Once loc_to_pc_def]>>
+  qmatch_goalsub_abbrev_tac`P ∧ _ = _`>>
+  strip_tac>>
+  qpat_x_assum`Abbrev _` mp_tac>>
+  gvs[]>>
+  TOP_CASE_TAC>>gvs[]>>
+  strip_tac>>
+  CONJ_ASM1_TAC
+  >- (
+    gvs[AllCaseEqs()]>>
+    fs[not_skip_def,AllCasePreds()])>>
+  rename1`P ∧ _ ⇒ _`>>
+  gvs[]>>
+  qpat_x_assum`_ = NONE` mp_tac>>
+  IF_CASES_TAC>>simp[]
+  >-
+    (IF_CASES_TAC>>gvs[AllCaseEqs()])>>
+  `¬is_Label h` by (
+    Cases_on`h`>>
+    gvs[not_skip_def,AllCasePreds()])>>
+  gvs[AllCaseEqs()]>>
+  rw[]>>
+  first_x_assum irule>>
+  simp[Once loc_to_pc_def]
 QED
 
 Triviality loc_to_pc_eq_SOME:

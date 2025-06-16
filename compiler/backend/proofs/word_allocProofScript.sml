@@ -222,7 +222,7 @@ Proof
   metis_tac[]
 QED
 
-val size_tac= (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC);
+val size_tac = impl_tac>- (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC)
 
 Triviality apply_nummap_key_domain:
   ∀f names.
@@ -940,7 +940,6 @@ Proof
     first_x_assum(qspecl_then[
     `st with <|clock:=MustTerminate_limit (:α);termdep:=st.termdep-1|>`,
     `cst with <|clock:=MustTerminate_limit (:α);termdep:=st.termdep-1|>`,`f`,`live`] mp_tac)>>
-    impl_tac>- size_tac>>
     impl_tac>- fs[get_live_def]>>
     strip_tac>>
     qexists_tac`perm'`>>simp[]>>
@@ -1070,8 +1069,7 @@ Proof
     (*Now we can finally use the IH*)
     last_x_assum(qspecl_then[`x'2`,`set_var x'0 w0 y'`
                             ,`set_var (f x'0) w0 y''`,`f`,`live`]mp_tac)>>
-    impl_tac>-size_tac>>
-    full_simp_tac(srw_ss())[colouring_ok_def]>>
+    fs[colouring_ok_def]>>
     impl_tac>-
       (Cases_on`o0`>>TRY(PairCases_on`x''`)>>full_simp_tac(srw_ss())[]>>
       unabbrev_all_tac>>
@@ -1203,8 +1201,7 @@ Proof
       (*Use the IH*)
       last_x_assum(qspecl_then[`x''1`,`set_var x''0 w0 r`
                             ,`set_var (f x''0) w0 cr'`,`f`,`live`]mp_tac)>>
-      impl_tac>-size_tac>>
-      full_simp_tac(srw_ss())[colouring_ok_def]>>
+      fs[colouring_ok_def]>>
       impl_tac>-
       (full_simp_tac(srw_ss())[set_var_def,state_component_equality,Abbr`cr'`]>>
       full_simp_tac(srw_ss())[colouring_ok_def,LET_THM,strong_locals_rel_def]>>
@@ -1262,14 +1259,14 @@ Proof
     (*The rest*)
     srw_tac[][]>>qexists_tac`perm`>>full_simp_tac(srw_ss())[]>>
     pop_assum(qspec_then`envy.stack` mp_tac)>>
-    impl_tac>-
+    TRY(impl_tac>-
       (unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality])>>
-    srw_tac[][]>>full_simp_tac(srw_ss())[]>>NO_TAC)
+    srw_tac[][]>>full_simp_tac(srw_ss())[]>>NO_TAC))
   >- (*Seq*)
     (srw_tac[][]>>fs[evaluate_def,colouring_ok_def,LET_THM,get_live_def]>>
     last_assum(qspecl_then[`p`,`st`,`cst`,`f`,`get_live p0 live`]
       mp_tac)>>
-    impl_tac>-size_tac>>
+    size_tac>>
     srw_tac[][]>>
     Cases_on`evaluate(p,st with permute:=perm')`>>full_simp_tac(srw_ss())[]
     >- (qexists_tac`perm'`>>full_simp_tac(srw_ss())[]) >>
@@ -1279,7 +1276,7 @@ Proof
       (qexists_tac`perm'`>>srw_tac[][])
     >>
     first_assum(qspecl_then[`p0`,`r`,`r'`,`f`,`live`] mp_tac)>>
-    impl_tac>- size_tac>>
+    size_tac>>
     srw_tac[][]>>
     Q.ISPECL_THEN[`p`,`st with permute:=perm'`,`perm''`]
       assume_tac permute_swap_lemma>>
@@ -1301,7 +1298,7 @@ Proof
     Cases_on`x`>>srw_tac[][]>>full_simp_tac(srw_ss())[]
     >-
      (first_assum(qspecl_then[`p`,`st`,`cst`,`f`,`live`] mp_tac)>>
-      impl_tac>- size_tac>>
+      size_tac>>
       impl_tac>-
         (Cases_on`r`>>
         full_simp_tac(srw_ss())[domain_insert,domain_union]>>
@@ -1313,7 +1310,7 @@ Proof
       qexists_tac`perm'''`>>srw_tac[][]>>full_simp_tac(srw_ss())[])
     >>
       (first_assum(qspecl_then[`p0`,`st`,`cst`,`f`,`live`] mp_tac)>>
-      impl_tac>- size_tac>>
+      size_tac>>
       impl_tac>-
         (Cases_on`r`>>full_simp_tac(srw_ss())[domain_insert,domain_union]>>
         metis_tac[SUBSET_OF_INSERT,SUBSET_UNION,strong_locals_rel_subset])>>
@@ -3299,8 +3296,6 @@ Proof
 QED
 
 (*SSA Proof*)
-
-val size_tac = impl_tac>- (full_simp_tac(srw_ss())[prog_size_def]>>DECIDE_TAC)
 
 (*This might not be the optimal invariant.. because it is very
   restrictive on the ssa_mapping*)
@@ -7345,9 +7340,6 @@ Proof
     fs[ssa_cc_trans_inst_def,next_var_rename_def]>>
     every_case_tac>>fs[]>>
     rw[]>>fs[every_stack_var_def,call_arg_convention_def,inst_arg_convention_def])
-  >-
-    (first_x_assum(qspecl_then [`p`,`ssa`,`na`] mp_tac)>>
-    size_tac>>simp[])
   >- ( (* Call *)
     Cases_on`o'`
     >- (
@@ -7519,8 +7511,8 @@ Proof
     DEP_REWRITE_TAC [MOD_TIMES]>>
     fs[] )
   >> (*ShareInst*)
-   IF_CASES_TAC >>
-   fs[every_stack_var_def,call_arg_convention_def]
+    IF_CASES_TAC >>
+    fs[every_stack_var_def,call_arg_convention_def]
 QED
 
 Triviality setup_ssa_props_2:

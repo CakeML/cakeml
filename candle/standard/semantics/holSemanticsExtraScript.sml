@@ -417,6 +417,7 @@ Proof
     simp[Abbr`P`,Abbr`sw`,combinTheory.o_DEF,UNCURRY,LAMBDA_PROD] ) >>
   qunabbrev_tac`ls` >>
   simp[ALOOKUP_FILTER,Abbr`P`,Abbr`sw`,combinTheory.o_DEF,LAMBDA_PROD] >- (
+    simp[IF_NONE_EQUALS_OPTION] >>
     rw[combinTheory.APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
     qmatch_assum_abbrev_tac`P ⇒ ALOOKUP ls vv = NONE` >>
     Q.ISPECL_THEN[`ls`,`termsem Γ i v`,`z`,`tyr`]mp_tac ALOOKUP_MAP_dest_var >>

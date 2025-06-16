@@ -68,10 +68,6 @@ Definition json_to_mlstring_def:
   /\
   (mem_to_string n_obj = let (n, obj) = n_obj in
         List [strlit "\""; n; strlit "\":"] ++ json_to_mlstring obj)
-Termination
-   WF_REL_TAC `measure (\x. case x of
-       | INL obj => obj_size obj
-       | INR p => obj2_size p)` \\ rw []
 End
 
 val _ = export_theory();

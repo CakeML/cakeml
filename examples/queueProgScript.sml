@@ -60,7 +60,8 @@ End
 Theorem lqueue_empty:
    i < LENGTH xs ⇒ lqueue xs i i []
 Proof
-  simp[lqueue_def] >> strip_tac >>
+  rw[lqueue_def] >>
+  DISJ1_TAC>>
   map_every qexists_tac [‘TAKE i xs’, ‘DROP i xs’] >> simp[]
 QED
 

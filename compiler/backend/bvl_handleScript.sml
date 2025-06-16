@@ -198,8 +198,6 @@ Definition compile_def:
   (compile l n [Call t dest xs] =
      let (ys,lx,s1,nr1) = compile l n xs in
        OptionalLetLet (Call t dest ys) n lx (s1+1) l F)
-Termination
-  WF_REL_TAC `measure (bvl$exp1_size o SND o SND)`
 End
 
 val compile_ind = theorem"compile_ind";

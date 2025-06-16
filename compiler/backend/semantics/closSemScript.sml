@@ -91,9 +91,6 @@ Definition do_eq_def:
      | Eq_val T => do_eq_list xs ys
      | res => res) /\
   (do_eq_list _ _ = Eq_val F)
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
-                                   | INR (vs,_) => v1_size vs)`
 End
 
 Definition v_to_list_def:
@@ -685,9 +682,9 @@ Definition evaluate_def[nocompute]:
                evaluate_app loc_opt v rest_args s1
            | res => res)
 Termination
- WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
-               (\x. case x of INL (xs,env,s) => (s.clock,exp3_size xs,0)
-                            | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
+  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
+                (\x. case x of INL (xs,env,s) => (s.clock,list_size exp_size xs,0)
+                             | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
   \\ imp_res_tac fix_clock_IMP

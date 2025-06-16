@@ -281,7 +281,7 @@ Definition term_ok_int_def:
 Termination
   WF_REL_TAC ‘measure (exp_size o SND)’ \\ rw []
   \\ imp_res_tac exp_size_get_bin_args
-  \\ fs [bviTheory.exp_size_def]
+  \\ fs[]
 End
 
 Theorem term_ok_int_ind[allow_rebind] = term_ok_int_ind |> SRULE[]
@@ -304,8 +304,7 @@ Definition term_ok_any_def:
 Termination
   WF_REL_TAC `measure (exp_size o SND o SND)` \\ rw []
    \\ imp_res_tac exp_size_get_bin_args
-   \\ fs [bviTheory.exp_size_def, closLangTheory.op_size_def,
-    closLangTheory.block_op_size_def]
+   \\ fs []
 End
 
 Theorem is_op_thms:
@@ -543,10 +542,7 @@ Definition scan_expr_def:
                 [(update_context opt ts x y, opt, F, NONE)]
           else
             [(ts, Any, F, NONE)])
-Termination
-  WF_REL_TAC `measure (exp2_size o SND o SND)`
 End
-
 
 Definition scan_expr_sing_def:
   (scan_expr_sing ts loc (Var n) =
@@ -703,8 +699,6 @@ Definition has_rec_def:
     if EXISTS (is_rec loc) xs then T
     else has_rec loc xs) /\
   (has_rec loc [x] = F)
-Termination
-  WF_REL_TAC `measure (exp2_size o SND)`
 End
 
 Definition has_rec1_def:
@@ -726,10 +720,6 @@ Definition has_rec_sing_def:
   (has_rec_list loc (x::xs) =
     if has_rec_sing loc x then T
     else has_rec_list loc xs)
-Termination
-  WF_REL_TAC `measure (λx. case x of INL (_,e) => exp_size e
-                                   | INR (_,es) => list_size exp_size es)` >>
-  simp[bviTheory.exp_size_def, listTheory.list_size_def, bviTheory.exp_size_eq]
 End
 
 Theorem has_rec_eq:

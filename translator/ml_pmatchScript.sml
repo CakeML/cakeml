@@ -58,8 +58,6 @@ Definition Pmatch_def:
    | _ => NONE) ∧
   (Pmatch env refs [Ptannot p t] [v] = Pmatch env refs [p] [v]) ∧
   (Pmatch env refs _ _ = NONE)
-Termination
-  WF_REL_TAC`measure (pat1_size o FST o SND o SND)`
 End
 
 val Pmatch_ind = theorem"Pmatch_ind"

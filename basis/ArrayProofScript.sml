@@ -182,7 +182,7 @@ Proof
           \\ `xv = nv` by fs [NUM_def, INT_def]
           \\ instantiate \\ fs [])
       \\ xif >- (xret \\ xsimpl \\ `LENGTH rest = 0` by decide_tac \\ fs[] )
-      \\ fs [NUM_def, INT_def] \\ rfs[])
+      \\ gvs [NUM_def, INT_def] \\ Cases_on ‘rest’ >> gvs[])
     \\ rw[] \\ first_assum match_mp_tac
     \\ xlet `POSTv bv. & BOOL (xv = nv) bv * ARRAY av (l_pre ++ rest)`
       >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def])
