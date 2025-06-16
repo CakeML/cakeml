@@ -262,7 +262,6 @@ Theorem state_rel_imp_semantics:
   start = «main» ∧
   globals_size = SUM (MAP size_of_shape (dec_shapes (compile_prog pan_code))) ∧
   distinct_params(functions pan_code) ∧
-  t.mdomain = s.memaddrs ∧
   t.mdomain = s.memaddrs ∪ addresses s.top_addr globals_size ∧
   t.sh_mdomain = s.sh_memaddrs ∧
   t.be = s.be ∧
