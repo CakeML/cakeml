@@ -11,11 +11,11 @@ val _ = new_theory "pan_to_wordProof";
 
 
 Definition crep_state_def:
-  crep_state (s:('a,'b) panSem$state) pan_code =
+  crep_state (s:('a,'b) panSem$state) pan_code mem =
   <| locals   := FEMPTY;
      globals  := FEMPTY;
      code     := alist_to_fmap (pan_to_crep$compile_prog pan_code);
-     memory   := s.memory;
+     memory   := mem;
      memaddrs := s.memaddrs;
      sh_memaddrs := s.sh_memaddrs;
      clock    := s.clock;
@@ -25,17 +25,25 @@ Definition crep_state_def:
      base_addr := s.base_addr|>
 End
 
-(* wlab_wloc should have taken only funcs of context *)
-Definition mk_mem_def:
-  mk_mem smem =
-        λad. wlab_wloc (smem ad)
+Definition wloc_wlab_def:
+  wloc_wlab (wordLang$Word w) = panSem$Word w
+End
+
+Theorem wloc_wlab_wlab_wloc[simp]:
+  wloc_wlab(wlab_wloc w) = w
+Proof
+  Cases_on ‘w’ >> rw[wlab_wloc_def,wloc_wlab_def]
+QED
+
+Definition no_labels_def:
+  no_labels mem dom = (∀a. a ∈ dom ⇒ ∃w. mem a = wordLang$Word w)
 End
 
 Definition loop_state_def:
-  loop_state (s:('a,'ffi) crepSem$state) c crep_code ck =
+  loop_state (s:('a,'ffi) crepSem$state) c crep_code ck mem =
   <| locals   := LN;
      globals  := FEMPTY;
-     memory   := mk_mem s.memory;
+     memory   := mem;
      mdomain := s.memaddrs;
      sh_mdomain := s.sh_memaddrs;
      code     := fromAList (crep_to_loop$compile_prog c crep_code);
@@ -258,7 +266,8 @@ QED
 
 
 Theorem state_rel_imp_semantics:
-  t.memory = mk_mem s.memory /\
+  (∀addr. addr ∈ s.memaddrs ⇒ t.memory addr = wlab_wloc(s.memory addr)) ∧
+  no_labels t.memory t.mdomain ∧
   start = «main» ∧
   globals_size = SUM (MAP size_of_shape (dec_shapes (compile_prog pan_code))) ∧
   distinct_params(functions pan_code) ∧
@@ -271,7 +280,6 @@ Theorem state_rel_imp_semantics:
   ALL_DISTINCT (MAP FST (functions pan_code)) ∧
   byte_aligned s.top_addr ∧
   globals_allocatable s pan_code ∧
-  (*  ALOOKUP (functions pan_code) start = SOME ([],prog) ∧ derivable *)
   s.code = FEMPTY ∧
   t.code = fromAList (pan_to_word$compile_prog c pan_code) ∧
   s.globals = FEMPTY ∧
@@ -292,15 +300,15 @@ Proof
   gvs[] >>
   drule_at (Pos last) pan_globalsProofTheory.compile_top_semantics_decls >>
   simp[] >>
-  disch_then $ qspecl_then [‘s.memory’,‘s.locals’] mp_tac >>
+  disch_then $ qspecl_then [‘wloc_wlab o t.memory’,‘s.locals’] mp_tac >>
   simp[] >>
   impl_keep_tac
-  >- gvs[globals_allocatable_def,dec_shapes_compile_prog,function_names_compile_prog] >>
+  >- (gvs[globals_allocatable_def,dec_shapes_compile_prog,function_names_compile_prog]) >>
   strip_tac >> gvs[] >>
   drule_at (Pos last) pan_to_crepProofTheory.state_rel_imp_semantics_decls >>
   simp[] >>
   qmatch_goalsub_abbrev_tac ‘state_rel s1’ >>
-  disch_then $ qspec_then ‘crep_state s1 (compile_top (compile_prog pan_code) «main»)’ mp_tac >>
+  disch_then $ qspec_then ‘crep_state s1 (compile_top (compile_prog pan_code) «main») s1.memory’ mp_tac >>
   impl_keep_tac
   >- (simp[compile_top_only_functions,compile_top_localised] >>
       dep_rewrite.DEP_ONCE_REWRITE_TAC [FDOM_get_eids_pan_globals_compile_eq] >>
@@ -309,7 +317,8 @@ Proof
           drule_then irule semantics_decls_has_main' >>
           simp[]) >>
       simp[GSYM FDOM_get_eids_pan_simp_compile_eq] >>
-      conj_tac >- gvs[crep_state_def,pan_to_crepProofTheory.state_rel_def] >>
+      conj_tac
+      >- gvs[crep_state_def,pan_to_crepProofTheory.state_rel_def] >>
       conj_tac
       >- (gvs[pan_globalsTheory.compile_top_def,ELIM_UNCURRY,
               panLangTheory.functions_def,new_main_name_correct,
@@ -330,13 +339,18 @@ Proof
   drule_at (Pos last) crep_to_loopProofTheory.state_rel_imp_semantics >>
   qmatch_goalsub_abbrev_tac ‘crep_state _ pcode’ >>
   qmatch_goalsub_abbrev_tac ‘crepSem$semantics cst’ >>
-  disch_then $ qspecl_then [‘loop_state cst c (pan_to_crep$compile_prog pcode) t.clock’,
+  disch_then $ qspecl_then [‘loop_state cst c (pan_to_crep$compile_prog pcode) t.clock t.memory’,
                             ‘pan_to_crep$compile_prog pcode’,
                             ‘first_name’,
                             ‘c’
                            ] mp_tac >>
   impl_keep_tac
-  >- (simp[loop_state_def,mem_rel_def,mk_mem_def] >>
+  >- (simp[loop_state_def,mem_rel_def] >>
+      conj_tac
+      >- (rw[Abbr ‘cst’, crep_state_def] >> rw[crep_to_loopProofTheory.globals_rel_def] >>
+          gvs[no_labels_def,SF DNF_ss] >>
+          res_tac >>
+          simp[wloc_wlab_def,wlab_wloc_def]) >>
       conj_tac
       >- (rw[Abbr ‘cst’, crep_state_def] >> rw[crep_to_loopProofTheory.globals_rel_def]) >>
       simp[Abbr ‘cst’,crep_state_def] >>
