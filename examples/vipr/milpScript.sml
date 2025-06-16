@@ -620,6 +620,11 @@ Definition unsplit_def:
      INL (resolv_dom_err intv (SND ll1) (SND ll2) is1 is2 lc))
 End
 
+Definition dominates_err_def:
+  dominates_err lc' lc =
+  strlit "Derived constraint: " ^ print_lc lc' ^ strlit " does not imply the given constraint: " ^ print_lc lc
+End
+
 Definition check_vipr_def:
   (check_vipr intv (fml,id) (lc, Assum) =
     INR (insert id ([id],lc) fml, id+1)) ∧
@@ -630,7 +635,7 @@ Definition check_vipr_def:
       if dominates lc' lc then
         INR (insert id (assms,lc) fml, id+1)
       else
-        INL (strlit "Derived constraint does not imply given constraint ")) ∧
+        INL (dominates_err lc' lc)) ∧
   (check_vipr intv (fml,id) (lc, Round lhs) =
     case do_lin fml (FST lc) lhs of
       INL err => INL err
@@ -641,7 +646,7 @@ Definition check_vipr_def:
         if dominates lc'' lc then
           INR (insert id (assms,lc) fml, id+1)
         else
-          INL (strlit "Derived constraint does not imply given constraint ")) ∧
+          INL (dominates_err lc'' lc)) ∧
   (check_vipr intv (fml,id) (lc, Unsplit i1 l1 i2 l2) =
     case unsplit intv fml i1 l1 i2 l2 lc of
       INL err => INL err
@@ -737,7 +742,7 @@ Proof
   >-
     EVAL_TAC>>
   rw[]>>fs[]>>
-  Cases_on`h`>>
+  pairarg_tac>>gvs[AllCasePreds()]>>
   fs[eval_real_term_def,domain_lookup,IS_SOME_EXISTS,PULL_EXISTS]>>
   first_x_assum drule>>
   rw[]>>

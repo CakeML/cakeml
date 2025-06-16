@@ -85,7 +85,9 @@ Definition read_lin_def:
       case xs of
       | (v::x::xs) =>
           (case fromNatString v, str_to_real x of
-           | (SOME n, SOME r) => read_lin (k-1) xs (insert n r m)
+           | (SOME n, SOME r) =>
+              if r = 0 then read_lin (k-1) xs m
+              else read_lin (k-1) xs (insert n r m)
            | _ => NONE)
       | _ => NONE
 End

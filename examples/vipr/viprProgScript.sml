@@ -74,6 +74,7 @@ val r = translate delete_mem_def;
 val r = translate assum_err_def;
 val r = translate resolv_dom_err_def;
 val r = translate (unsplit_def |> REWRITE_RULE [MEMBER_INTRO]);
+val r = translate dominates_err_def;
 val r = translate check_vipr_def;
 
 (* ----------------------------------------------------------------- *
