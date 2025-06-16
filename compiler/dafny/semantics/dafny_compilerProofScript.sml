@@ -3126,7 +3126,7 @@ Proof
   \\ gvs [set_up_call_def, safe_zip_def]
   \\ ‘LENGTH ins = LENGTH args’ by (spose_not_then assume_tac \\ gvs [])
   \\ gvs [cml_tup_case_def, evaluate_def]
-  \\ Cases_on ‘args’ \\ gvs [] >-
+  \\ namedCases_on ‘args’ ["", "arg args'"]\\ gvs [] >-
 
    (* No arguments passed *)
    (drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
@@ -3205,15 +3205,43 @@ Proof
     \\ gvs [can_pmatch_all_def, pmatch_def, mk_id_def, Abbr ‘call_env’,
             has_basic_cons_def, same_type_def, same_ctor_def, ret_stamp_def,
             pat_bindings_def]
-
-
     (* Read outs *)
-    \\ namedCases_on ‘outs’ ["", "out outs'"]
-    >- (gvs [Stuple_def, evaluate_def, do_con_check_def, build_conv_def,
-             pmatch_def])
-)
+    \\ namedCases_on
+         ‘OPT_MMAP (read_local s₂.locals) (MAP FST outs)’
+         ["", "out_vs"]
+    \\ gvs []
+    \\ Cases_on ‘LENGTH lhss ≠ LENGTH out_vs’ \\ gvs []
+    \\ Cases_on ‘LENGTH outs = 0’ \\ gvs []
+    >- (* Nothing to assign *)
+     (gvs [par_assign_def, oneline bind_def, result_mmap2_def,
+           CaseEq "sum"]
+      \\ gvs [assign_values_def]
+      \\ gvs [Stuple_def, Pstuple_def, Seqs_def, evaluate_def,
+              do_con_check_def, build_conv_def, can_pmatch_all_def,
+              pmatch_def, pat_bindings_def]
+      (* TODO Same as the timeout case - refactor? *)
+      \\ ‘store_preserve_all t.refs t₂.refs’ by
+        (gvs [store_preserve_all_def]
+         \\ irule_at Any store_preserve_decat
+         \\ first_assum $ irule_at (Pos hd))
+      \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
+      \\ gvs [state_rel_def, restore_locals_def]
+      \\ first_assum $ irule_at (Pos hd) \\ gvs []
+      \\ irule store_preserve_all_locals_rel \\ gvs []
+      \\ first_assum $ irule_at (Pos hd) \\ gvs []
+      \\ irule locals_rel_submap
+      \\ first_assum $ irule_at (Pos hd) \\ gvs [])
 
-)
+    \\ Cases_on ‘LENGTH outs = 1’ \\ gvs []
+    >- (* Assigning a single value (no tuple used) *)
+     (cheat)
+    (* Assigning multiple values (uses a tuple) *)
+    \\ DEP_REWRITE_TAC [Stuple_Tuple] \\ gvs []
+
+    \\ cheat)
+
+  (* Non-empty argument list *)
+  \\ cheat
 
 
 
