@@ -1002,6 +1002,7 @@ Theorem correct_freshen_stmt:
 Proof
   ho_match_mp_tac evaluate_stmt_ind \\ rpt strip_tac
   >~ [‘MetCall lhss name args’] >-
+
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_stmt_def]
@@ -1064,6 +1065,8 @@ Proof
     \\ drule_all opt_mmap_read_local \\ strip_tac \\ gvs []
     \\ rename [‘OPT_MMAP _ _ = SOME out_vs’]
     \\ gvs [restore_locals_def]
+    \\ ‘LENGTH lhss' = LENGTH lhss’ by (imp_res_tac freshen_lhs_exp_len_eq)
+    \\ IF_CASES_TAC \\ gvs []
     \\ namedCases_on
          ‘assign_values (s₂ with locals := s₁.locals) env lhss out_vs’ ["st₃ r"]
     \\ Cases_on ‘r = Rstop (Serr Rtype_error)’ \\ gvs []
@@ -1137,7 +1140,6 @@ Proof
     \\ ‘state_rel s₁ t₁ m cnt₂’ by imp_res_tac state_rel_mono
     \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs [])
   >~ [‘Assign ass’] >-
-
    (gvs [evaluate_stmt_def]
     \\ qabbrev_tac ‘rhss = (MAP SND ass)’
     \\ qabbrev_tac ‘lhss = (MAP FST ass)’
@@ -1161,11 +1163,19 @@ Proof
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_stmt_def]
-    \\ namedCases_on ‘evaluate_exp s env grd’ ["s₁ r"] \\ gvs []
-    \\ drule (cj 1 correct_freshen_exp)
-    \\ reverse $ namedCases_on ‘r’ ["grd_v", "err"] \\ gvs []
-    \\ disch_then drule_all \\ rpt strip_tac \\ gvs []
+    \\ ‘t.clock = s.clock’ by gvs [state_rel_def] \\ gvs []
+    \\ Cases_on ‘s.clock = 0’ \\ gvs []
+    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac freshen_stmt_mono
+        \\ imp_res_tac state_rel_mono \\ gvs [])
+    \\ namedCases_on ‘evaluate_exp (dec_clock s) env grd’ ["s₁ r"] \\ gvs []
+    \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ drule (cj 1 correct_freshen_exp) \\ gvs []
+    \\ ntac 2 (disch_then $ drule_at (Pos last))
+    \\ disch_then $ qspec_then ‘dec_clock t’ mp_tac
+    \\ impl_tac >- (irule state_rel_dec_clock \\ gvs [])
+    \\ rpt strip_tac \\ gvs []
     \\ rename [‘evaluate_exp t env' grd' = (t₁, _)’]
+    \\ reverse $ namedCases_on ‘r’ ["grd_v", "err"] \\ gvs []
     >- (imp_res_tac freshen_exp_mono \\ imp_res_tac freshen_stmt_mono
         \\ imp_res_tac state_rel_mono \\ gvs [])
     \\ IF_CASES_TAC \\ gvs []
@@ -1180,9 +1190,7 @@ Proof
     \\ reverse $ namedCases_on ‘r’ ["", "stp"] \\ gvs []
     \\ disch_then drule_all \\ rpt strip_tac \\ gvs []
     \\ rename [‘evaluate_stmt _ _ _ = (t₂,_)’]
-    \\ ‘s₂.clock = t₂.clock’ by gvs [state_rel_def]
-    \\ IF_CASES_TAC \\ gvs [STOP_def]
-    \\ drule_then assume_tac state_rel_dec_clock
+    \\ gvs [STOP_def]
     \\ rev_drule state_rel_same_map_imp \\ disch_then dxrule \\ strip_tac
     \\ last_x_assum drule
     \\ disch_then $ drule_at $ Pos last

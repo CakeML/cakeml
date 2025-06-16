@@ -332,33 +332,29 @@ Definition evaluate_stmt_ann_def[nocompute]:
       | Function _ _ _ _ _ _ _ => (st₀, Rstop (Serr Rtype_error))
       | Method _ ins _ _ _ _ outs _ body =>
         (let in_ns = MAP FST ins; out_ns = MAP FST outs in
-         (case evaluate_exps st₀ env args of
-          | (st₁, Rerr err) => (st₁, Rstop (Serr err))
-          | (st₁, Rval in_vs) =>
-            (case set_up_call st₁ in_ns in_vs out_ns of
-             | NONE => (st₁, Rstop (Serr Rtype_error))
-             | SOME (old_locals, st₂) =>
-               if st₂.clock = 0
-               then (restore_locals st₂ old_locals, Rstop (Serr Rtimeout_error))
-               else
-                 (case evaluate_stmt (dec_clock st₂) env body of
-                  | (st₃, Rcont) =>
-                      (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
-                  | (st₃, Rstop (Serr err)) =>
-                      (restore_locals st₃ old_locals, Rstop (Serr err))
-                  | (st₃, Rstop Sret) =>
-                    (case OPT_MMAP (read_local st₃.locals) out_ns of
-                     | NONE =>
-                       (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
-                     | SOME out_vs =>
-                       (let st₄ = restore_locals st₃ old_locals in
-                        (case assign_values st₄ env lhss out_vs of
-                         | (st₅, Rstop (Serr err)) =>
-                             (st₄, Rstop (Serr err))
-                         | (st₅, Rstop Sret) =>
-                             (st₄, Rstop (Serr Rtype_error))
-                         | (st₅, Rcont) =>
-                             (st₄, Rcont)))))))))) ∧
+        (case evaluate_exps st₀ env args of
+         | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+         | (st₁, Rval in_vs) =>
+           (case set_up_call st₁ in_ns in_vs out_ns of
+            | NONE => (st₁, Rstop (Serr Rtype_error))
+            | SOME (old_locals, st₂) =>
+              if st₂.clock = 0
+              then (restore_locals st₂ old_locals, Rstop (Serr Rtimeout_error))
+              else
+                (case evaluate_stmt (dec_clock st₂) env body of
+                 | (st₃, Rcont) =>
+                     (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
+                 | (st₃, Rstop (Serr err)) =>
+                     (restore_locals st₃ old_locals, Rstop (Serr err))
+                 | (st₃, Rstop Sret) =>
+                   (let st₄ = restore_locals st₃ old_locals in
+                   (case OPT_MMAP (read_local st₃.locals) out_ns of
+                    | NONE => (st₄, Rstop (Serr Rtype_error))
+                    | SOME out_vs =>
+                        if LENGTH lhss ≠ LENGTH out_vs then
+                          (st₄, Rstop (Serr Rtype_error))
+                        else
+                          assign_values st₄ env lhss out_vs)))))))) ∧
   evaluate_stmt st env Return = (st, Rstop Sret)
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
