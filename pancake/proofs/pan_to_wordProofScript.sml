@@ -276,7 +276,8 @@ Theorem state_rel_imp_semantics:
   t.be = s.be ∧
   t.ffi = s.ffi ∧
   ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
-  ALOOKUP (fmap_to_alist t.store) EndOfHeap = SOME (Word(s.top_addr + bytes_in_word * n2w globals_size)) ∧
+  ALOOKUP (fmap_to_alist t.store) HeapLength = SOME(Word heap_len) ∧
+  s.top_addr = s.base_addr + 2w*heap_len - bytes_in_word * n2w globals_size ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ∧
   byte_aligned s.top_addr ∧
   globals_allocatable s pan_code ∧
