@@ -105,8 +105,8 @@ candle/prover/compute
 pancake
 pancake/semantics
 pancake/parser
+pancake/static_checker
 pancake/proofs
-pancake/ta_progs
 
 # dafny compiler
 compiler/dafny
@@ -136,6 +136,11 @@ examples/xlrup_checker
 examples/xlrup_checker/array
 examples/xlrup_checker/array/compilation
 examples/xlrup_checker/array/compilation/proofs
+
+examples/scpog_checker
+examples/scpog_checker/array
+examples/scpog_checker/array/compilation
+examples/scpog_checker/array/compilation/proofs
 
 examples/pseudo_bool
 examples/pseudo_bool/cnf_encoding

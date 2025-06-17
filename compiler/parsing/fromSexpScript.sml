@@ -7,7 +7,7 @@
 *)
 
 open preamble match_goal
-open simpleSexpTheory astTheory
+open simpleSexpTheory astTheory quantHeuristicsTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -854,24 +854,11 @@ Definition sexpexp_def:
               (sexpexp (EL 1 args)))
     od
 Termination
-  WF_REL_TAC `measure sexp_size` >> simp[] >> rpt strip_tac
-   >> TRY
-     (rename1 `sxMEM sx0 (EL 1 args)` >>
-       `sexp_size sx0 < sexp_size (EL 1 args)` by simp[sxMEM_sizelt] >>
-       rw[] >> fs[sexp_size_def] >>
-       `sexp_size (EL 1 args) < sexp_size s`
-         by simp[dstrip_sexp_size, rich_listTheory.EL_MEM] >>
-       simp[])
-   >- (
-     rw[] >>
-     imp_res_tac dstrip_sexp_size >>
-     imp_res_tac sxMEM_sizelt >>
-     fs[sexp_size_def] >>
-     `sexp_size a < sexp_size (HD args)` by decide_tac >>
-     metis_tac[listTheory.EL,rich_listTheory.EL_MEM,DECIDE``0n < 2``,arithmeticTheory.LESS_TRANS])
-   >> metis_tac[rich_listTheory.EL_MEM, listTheory.EL,
-                DECIDE ``1n < 2 ∧ 0n < 2 ∧ 0n < 1 ∧ 2n < 3 ∧ 0n < 3 ∧ 1n < 3``,
-                dstrip_sexp_size, sxMEM_sizelt, arithmeticTheory.LESS_TRANS]
+  WF_REL_TAC `measure sexp_size` >>
+  rw[]>>
+  imp_res_tac dstrip_sexp_size >>
+  imp_res_tac sxMEM_sizelt >>
+  gvs[sexp_size_def,DB.fetch "quantHeuristics" "LIST_LENGTH_3",SF DNF_ss]
 End
 
 (* translator friendly version for bootstrapping *)
@@ -1490,9 +1477,7 @@ Definition expsexp_def:
    expsexp e⟫ ∧
   expsexp (Tannot e t) = ⟪SX_SYM "Tannot"; expsexp e; typesexp t⟫ ∧
   expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫ ∧
-  expsexp (FpOptimise sc e) = listsexp [SX_SYM "FpOptimise"; scsexp sc; expsexp e]
-Termination
-  WF_REL_TAC`measure exp_size`
+  expsexp (FpOptimise fpopt e) = listsexp [SX_SYM "FpOptimise"; scsexp fpopt; expsexp e]
 End
 
 Theorem expsexp_11[simp]:
@@ -1568,8 +1553,6 @@ Definition decsexp_def:
   decsexp (Dlocal ldecs decs) =
     listsexp [SX_SYM "Dlocal"; listsexp (MAP decsexp ldecs);
               listsexp (MAP decsexp decs)]
-Termination
-  wf_rel_tac`measure dec_size`
 End
 
 Theorem decsexp_11[simp]:
@@ -1804,9 +1787,9 @@ Proof
 QED
 
 Theorem sexpsc_scsexp[simp]:
-  sexpsc (scsexp sc) = SOME sc
+  sexpsc (scsexp se) = SOME se
 Proof
-  Cases_on `sc` >> fs[sexpsc_def, scsexp_def]
+  Cases_on `se` >> fs[sexpsc_def, scsexp_def]
 QED
 
 Theorem sexpexp_expsexp[simp]:
@@ -1999,7 +1982,7 @@ Proof
 QED
 
 Theorem scsexp_sexpsc:
-  sexpsc s = SOME sc ==> scsexp sc = s
+  sexpsc s = SOME se ==> scsexp se = s
 Proof
   Cases_on `s` \\ fs[sexpsc_def, scsexp_def]
   \\ TOP_CASE_TAC
@@ -2178,7 +2161,7 @@ Proof
 QED
 
 Theorem scsexp_valid[simp]:
-  ! sc. valid_sexp (scsexp sc)
+  ! se. valid_sexp (scsexp se)
 Proof
   Cases \\ EVAL_TAC
 QED

@@ -2,7 +2,7 @@
   Prove `encoder_correct` for ag32, i.e. Silver ISA
 *)
 open HolKernel Parse boolLib bossLib
-open asmLib ag32_targetTheory;
+open asmLib ag32_targetTheory Import;
 
 val () = new_theory "ag32_targetProof"
 
@@ -274,7 +274,7 @@ local
   val thms =
     List.map (DB.fetch "ag32")
      (List.filter (fn s => not (Lib.mem s ["Next_def", "Encode_def"]))
-        (#C (ag32Theory.inventory)))
+        (#C (Import.gen_inventory {thyname="ag32"})))
   val is_ag32_next = #4 (HolKernel.syntax_fns1 "ag32" "Next")
 in
   fun next_state_tac (asl, g) =

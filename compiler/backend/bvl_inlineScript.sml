@@ -35,8 +35,6 @@ Definition tick_inline_def:
      case lookup n cs of
      | NONE => [Call ticks dest (tick_inline cs xs)]
      | SOME (arity,code) => [Let (tick_inline cs xs) (mk_tick (SUC ticks) code)])
-Termination
-  WF_REL_TAC `measure (exp1_size o SND)`
 End
 
 Definition tick_inline_sing_def:
@@ -108,8 +106,6 @@ Definition is_small_aux_def:
   (is_small_aux n [Call ticks dest xs] =
      let n = n - 1 in if n = 0 then 0 else
        is_small_aux n xs)
-Termination
-  WF_REL_TAC `measure (exp1_size o SND)`
 End
 
 Definition is_small_sing_def:
@@ -182,8 +178,6 @@ Definition is_rec_def:
   (is_rec n [Tick x] = is_rec n [x]) /\
   (is_rec n [Call ticks dest xs] =
      if dest = SOME n then T else is_rec n xs)
-Termination
-  WF_REL_TAC `measure (exp1_size o SND)`
 End
 
 Definition is_rec_sing_def:
@@ -277,8 +271,6 @@ Definition remove_ticks_def:
   (remove_ticks [Tick x] = remove_ticks [x]) /\
   (remove_ticks [Call ticks dest xs] =
      [Call 0 dest (remove_ticks xs)])
-Termination
-  WF_REL_TAC `measure exp1_size`
 End
 
 Definition remove_ticks_sing_def:
@@ -363,8 +355,6 @@ Definition let_op_def:
      [Op op (let_op xs)]) /\
   (let_op [Tick x] = [Tick (HD (let_op [x]))]) /\
   (let_op [Call ticks dest xs] = [Call ticks dest (let_op xs)])
-Termination
-  WF_REL_TAC `measure exp1_size`
 End
 
 Definition let_op_one_def:
@@ -406,7 +396,7 @@ Definition let_op_sing_def:
   let_op_sing x =
     case let_op [x] of
     | (y::ys) => y
-    | _ => Op (Const 0) []
+    | _ => Op (IntOp (Const 0)) []
 End
 
 Theorem let_op_sing_eq = let_op_sing_def |> SRULE [let_op_one];

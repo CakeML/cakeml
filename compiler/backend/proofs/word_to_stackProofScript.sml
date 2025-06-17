@@ -4459,7 +4459,7 @@ Proof
     \\ simp[]
     \\ simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def]
     \\ gen_tac \\ strip_tac
-    \\ TRY (
+    >- (
       drule word_exp_thm1
       \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
               reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
@@ -4476,24 +4476,21 @@ Proof
       \\ BasicProvers.CASE_TAC \\ fs[]
       \\ fs[wordLangTheory.word_op_def]
       \\ rveq
-      \\ BasicProvers.FULL_CASE_TAC \\ fs[]
-      \\ NO_TAC)
-    \\ TRY (
+      \\ BasicProvers.FULL_CASE_TAC \\ fs[])
+    >- (
       drule (GEN_ALL word_exp_thm3)
       \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
               reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
               wordLangTheory.max_var_exp_def,list_max_def]
       \\ disch_then drule
-      \\ simp[EQ_MULT_LCANCEL]
-      \\ NO_TAC)
-    \\ TRY (
+      \\ simp[EQ_MULT_LCANCEL])
+    >- (
       drule (GEN_ALL word_exp_thm4)
       \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
               reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
               wordLangTheory.max_var_exp_def,list_max_def]
       \\ disch_then drule
-      \\ simp[EQ_MULT_LCANCEL]
-      \\ NO_TAC)
+      \\ simp[EQ_MULT_LCANCEL])
     \\ drule (GEN_ALL word_exp_thm5)
     \\ simp[wordLangTheory.every_var_exp_def]
     \\ disch_then drule
@@ -6404,7 +6401,7 @@ Proof
       t.stack_space <= LENGTH t.stack` by
    (fs [state_rel_def] \\ decide_tac) \\ fs [LET_DEF]
   \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
-  THEN1
+  >-
    (`(get_var (n DIV 2) t = SOME (Loc l1 l2)) /\ (get_var 1 t = SOME x')` by
      (fs [state_rel_def,get_var_def,LET_DEF]
       \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
@@ -6417,8 +6414,7 @@ Proof
         CaseEq"bool",CaseEq"option"]
     \\ rw[] \\ fs[] \\ every_case_tac
     \\ fs[]
-    \\ rw[] \\ rfs[]
-   )
+    \\ rw[] \\ rfs[])
   \\ `(t.stack_space + (f +k - (n DIV 2 + 1)) < LENGTH t.stack) /\
       (EL (t.stack_space + (f +k - (n DIV 2 + 1))) t.stack = Loc l1 l2) /\
       (get_var 1 t = SOME x')` by
@@ -6441,10 +6437,6 @@ Proof
          fromList2_def,lookup_def]
   \\ conj_tac >- metis_tac[]
   \\ simp[wf_def,GSYM DROP_DROP]
-  \\ fs[OPTION_MAP2_DEF,IS_SOME_EXISTS,MAX_DEF,the_eqn,stack_size_eq,
-        CaseEq"bool",CaseEq"option"]
-  \\ rw[] \\ fs[] \\ every_case_tac
-  \\ fs[] \\ rw[] \\ rfs[]
 QED
 
 Theorem stack_rel_aux_stack_size:
@@ -7317,46 +7309,47 @@ Theorem evaluate_ShareInst_Load:
     (res = NONE /\ state_rel ac k f f' s1 t1 lens))
 Proof
   rpt strip_tac >>
-  gvs[evaluate_def,wShareInst_def,AllCaseEqs()] >>
-  (pairarg_tac >>
-  gvs[word_exp_def,AllCaseEqs(),the_words_def,GSYM get_var_def] >>
-  simp[evaluate_wStackLoad_seq]>>
-  simp[stackSemTheory.evaluate_def] >>
-  simp[evaluate_wStackLoad_clock]>>
-  `EVEN (2 * ad)` by simp[EVEN_DOUBLE] >>
-  drule_all $ GEN_ALL evaluate_wStackLoad_wReg1>>
-  rpt strip_tac >>
-  gvs[] >>
-  simp[wRegWrite1_def] >>
-  IF_CASES_TAC >>
-  simp[stackSemTheory.evaluate_def,
-    stackSemTheory.dec_clock_def,AllCaseEqs()] >>
-  gvs[stackSemTheory.word_exp_def,
-    stackSemTheory.get_var_def,AllCaseEqs()]
-  >- (
-    drule $ GEN_ALL share_load_lemma2 >>
+  gvs[evaluate_def,wShareInst_def,AllCaseEqs()]
+  >> (
+    pairarg_tac >>
+    gvs[word_exp_def,AllCaseEqs(),the_words_def,GSYM get_var_def] >>
+    simp[evaluate_wStackLoad_seq]>>
+    simp[stackSemTheory.evaluate_def] >>
+    simp[evaluate_wStackLoad_clock]>>
+    `EVEN (2 * ad)` by simp[EVEN_DOUBLE] >>
+    drule_all $ GEN_ALL evaluate_wStackLoad_wReg1>>
+    rpt strip_tac >>
+    gvs[] >>
+    simp[wRegWrite1_def] >>
+    IF_CASES_TAC >>
+    simp[stackSemTheory.evaluate_def,
+      stackSemTheory.dec_clock_def,AllCaseEqs()] >>
+    gvs[stackSemTheory.word_exp_def,
+      stackSemTheory.get_var_def,AllCaseEqs()]
+    >- (
+      drule $ GEN_ALL share_load_lemma2 >>
+      simp[] >>
+      disch_then drule >>
+      simp[] >>
+      rpt strip_tac >>
+      gvs[]
+      >- (
+        irule_at (Pos last) EQ_REFL >>
+        simp[] >>
+        qexists_tac `1` >>
+        simp[] ) >>
+      first_x_assum $ irule_at (Pos last) >>
+      qexists_tac `1` >>
+      simp[] ) >>
+    drule $ GEN_ALL share_load_lemma1 >>
     simp[] >>
     disch_then drule >>
     simp[] >>
     rpt strip_tac >>
-    gvs[]
-    >- (
-      irule_at (Pos last) EQ_REFL >>
-      simp[] >>
-      qexists_tac `1` >>
-      simp[] ) >>
-    first_x_assum $ irule_at (Pos last) >>
     qexists_tac `1` >>
-    simp[] ) >>
-  drule $ GEN_ALL share_load_lemma1 >>
-  simp[] >>
-  disch_then drule >>
-  simp[] >>
-  rpt strip_tac >>
-  qexists_tac `1` >>
-  simp[] >>
-  first_assum $ irule_at (Pos last) >>
-  gvs[state_rel_def,state_component_equality] )
+    simp[] >>
+    first_assum $ irule_at (Pos last) >>
+    gvs[state_rel_def,state_component_equality] )
 QED
 
 Theorem evaluate_ShareInst_Store:
@@ -7529,6 +7522,8 @@ Proof
   rfs[]
 QED
 
+fun note_tac s g = (print ("comp_Call_correct: " ^ s ^ "\n"); ALL_TAC g);
+
 Theorem comp_Call_correct:
   ^(get_goal "wordLang$Call")
 Proof
@@ -7537,7 +7532,7 @@ Proof
   \\ pairarg_tac \\ fs []
   \\ Cases_on `ret` \\ fs [] \\ rw[]
   THEN1 (
-    goalStack.print_tac "comp_correct tail call case"
+    note_tac "comp_correct tail call case"
     \\ rw[]
     \\ simp[stackSemTheory.evaluate_def]
     \\ `¬bad_dest_args dest args` by
@@ -7763,7 +7758,7 @@ Proof
     \\ Cases_on `res1` \\ fsrw_tac[] []
     \\ fsrw_tac[] [EVAL ``(call_env q r' (dec_clock s)).handler``,
                    AC ADD_COMM ADD_ASSOC])
-  \\ goalStack.print_tac "comp_correct returning call case(s)"
+  \\ note_tac "comp_correct returning call case(s)"
   \\ PairCases_on `x` \\ fs []
   \\ pairarg_tac \\ fs []
   \\ pairarg_tac \\ fs []
@@ -7835,7 +7830,7 @@ Proof
   pop_assum (qspec_then`t4` assume_tac)>>
   Cases_on`handler`>>fs[]
   >- (
-    goalStack.print_tac"No handler case">>
+    note_tac "No handler case">>
     fs[]>>
     qpat_x_assum`_=sprog` sym_sub_tac>>
     simp[stackSemTheory.evaluate_def]>>
@@ -8527,7 +8522,7 @@ Proof
       fsrw_tac[][]>>
       strip_tac>>
       fsrw_tac[][state_rel_def])) >>
-  goalStack.print_tac"Handler case">>
+  note_tac "Handler case">>
   rename1 `push_env _ (SOME handler)` >>
   PairCases_on`handler` >> fs[] >>
   pairarg_tac >> fs[]>>

@@ -26,11 +26,39 @@ val () = use_long_names := true;
 
 val spec64 = INST_TYPE[alpha|->``:64``]
 
-val res = translate $ spec64 $ panScopeTheory.scope_check_exp_def;
-val res = translate $ spec64 $ panScopeTheory.scope_check_prog_def;
+val res = translate $ errorLogMonadTheory.return_def;
+val res = translate $ errorLogMonadTheory.bind_def;
+val res = translate $ errorLogMonadTheory.log_def;
+val res = translate $ errorLogMonadTheory.error_def;
+
+val res = translate $ panStaticTheory.based_merge_def;
+val res = translate $ panStaticTheory.based_cmp_def;
+val res = translate $ panStaticTheory.branch_vbases_def;
+val res = translate $ panStaticTheory.seq_vbases_def;
+
+val res = translate $ panStaticTheory.last_to_str_def;
+val res = translate $ panStaticTheory.next_is_reachable_def;
+val res = translate $ panStaticTheory.next_now_unreachable_def;
+val res = translate $ spec64 $ panStaticTheory.reached_warnable_def;
+val res = translate $ panStaticTheory.branch_last_stmt_def;
+val res = translate $ panStaticTheory.seq_last_stmt_def;
+
+val res = translate $ panStaticTheory.get_scope_msg_def;
+val res = translate $ panStaticTheory.get_redec_msg_def;
+val res = translate $ panStaticTheory.get_memop_msg_def;
+val res = translate $ panStaticTheory.get_oparg_msg_def;
+val res = translate $ panStaticTheory.get_unreach_msg_def;
+val res = translate $ panStaticTheory.get_rogue_msg_def;
+
+val res = translate $ panStaticTheory.first_repeat_def;
+val res = translate $ panStaticTheory.binop_to_str_def;
+val res = translate $ panStaticTheory.panop_to_str_def;
+
+val res = translate $ spec64 $ panStaticTheory.static_check_exp_def;
+val res = translate $ spec64 $ panStaticTheory.static_check_prog_def;
 val res = translate $
-  INST_TYPE[beta|->``:64``] panScopeTheory.scope_check_funs_def;
-val res = translate $ INST_TYPE[beta|->``:64``] panScopeTheory.scope_check_def;
+  INST_TYPE[beta|->``:64``] panStaticTheory.static_check_funs_def;
+val res = translate $ INST_TYPE[beta|->``:64``] panStaticTheory.static_check_def;
 
 Definition max_heap_limit_64_def:
                                   max_heap_limit_64 c =

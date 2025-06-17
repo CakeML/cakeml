@@ -126,7 +126,7 @@ Definition LetLet_def:
     let zs = FILTER (\n. IS_SOME (lookup n fvs)) xs in
     let ys = MAPi (\i x. (x,i)) zs in
     let long_list = GENLIST (\n. dtcase ALOOKUP ys n of
-                                 | NONE => Op (Const 0) []
+                                 | NONE => Op (IntOp (Const 0)) []
                                  | SOME k => Var k) env_length in
       Let (MAP Var zs) (SmartLet long_list body)
 End
@@ -161,7 +161,7 @@ Definition compile_def:
      let (dy,ly,s2,nr2) = compile l n (y::xs) in
        (dx ++ dy, mk_Union lx ly, s1+s2, nr1 /\ nr2)) /\
   (compile l n [Var v] = if v < n then ([Var v],Var v,1,T)
-                         else ([Op (Const 0) []],Empty,1,T)) /\
+                         else ([Op (IntOp (Const 0)) []],Empty,1,T)) /\
   (compile l n [If x1 x2 x3] =
      let (x1,l1,s1,nr1) = compile l n [x1] in
      let (x2,l2,s2,nr2) = compile l n [x2] in
@@ -198,15 +198,13 @@ Definition compile_def:
   (compile l n [Call t dest xs] =
      let (ys,lx,s1,nr1) = compile l n xs in
        OptionalLetLet (Call t dest ys) n lx (s1+1) l F)
-Termination
-  WF_REL_TAC `measure (bvl$exp1_size o SND o SND)`
 End
 
 val compile_ind = theorem"compile_ind";
 
 Definition compile_sing_def:
   (compile_sing l n (Var v) = if v < n then (Var v,Var v,1,T)
-                         else (Op (Const 0) [],Empty,1,T)) /\
+                         else (Op (IntOp (Const 0)) [],Empty,1,T)) /\
   (compile_sing l n (If x1 x2 x3) =
      let (x1,l1,s1,nr1) = compile_sing l n x1 in
      let (x2,l2,s2,nr2) = compile_sing l n x2 in

@@ -4456,8 +4456,8 @@ Definition code_oracle_rel_def:
 End
 
 Theorem code_oracle_rel_NextFree[simp]:
-   code_oracle_rel c sc sco (ts |+ (NextFree,x)) tcc tco cb db ⇔
-   code_oracle_rel c sc sco ts tcc tco cb db
+   code_oracle_rel c scc sco (ts |+ (NextFree,x)) tcc tco cb db ⇔
+   code_oracle_rel c scc sco ts tcc tco cb db
 Proof
   rw[code_oracle_rel_def,FLOOKUP_UPDATE]
 QED
@@ -5668,7 +5668,6 @@ Proof
   \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ Cases_on `t.handler = LENGTH t.stack` \\ full_simp_tac(srw_ss())[LASTN_ADD1]
   \\ Cases_on `~(t.handler < LENGTH t.stack)` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  THEN1 (`F` by DECIDE_TAC)
   \\ fs [CaseEq"list",CaseEq"stack_frame",CaseEq"option",pair_case_eq]
   \\ `LASTN (t.handler + 1) (StackFrame t.locals_size q NONE::t.stack) =
      LASTN (t.handler + 1) t.stack` by
@@ -5846,7 +5845,7 @@ Theorem lookup_ODD_adjust_set:
    ODD n ==> lookup n (adjust_set l) = NONE
 Proof
   fs[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
-  \\ IF_CASES_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ rw [] \\ fs []
   \\ fs[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
   \\ CCONTR_TAC \\ fs [] \\ rveq
   \\ fs [EVEN_adjust_var,ODD_EVEN]

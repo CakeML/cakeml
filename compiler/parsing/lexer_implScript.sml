@@ -2,8 +2,6 @@
   Definition of the lexer: code for consuming tokens until a top-level
   semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks,
   structures, signatures, and between parentheses).
-
-  TODO: update this description if it is incorrect.
 *)
 
 open preamble tokensTheory lexer_funTheory
@@ -209,7 +207,7 @@ Definition next_sym_alt_def:
      else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
          SOME (NumberS (0- &(num_from_dec_string_alt n)),
-               Locs loc (next_loc (LENGTH n) loc),
+               Locs loc (next_loc (LENGTH n + 1) loc),
                rest)
      else if c = #"'" then (* read type variable *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
@@ -233,44 +231,9 @@ Definition next_sym_alt_def:
        case skip_comment (TL str) (0:num) (next_loc 2 loc) of
        | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_sym_alt rest loc'
-     else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
-       SOME (OtherS [c], Locs loc loc, str)
-     else if isSymbol c then
-       let (n,rest) = read_while isSymbol str [c] in
-         SOME (OtherS n,
-               Locs loc (next_loc (LENGTH n - 1) loc),
-               rest)
-     else if isAlpha c then (* read identifier *)
-       let (n,rest) = read_while isAlphaNumPrime str [c] in
-         case rest of
-              #"."::rest' =>
-                (case rest' of
-                      c'::rest' =>
-                        if isAlpha c' then
-                          let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'),
-                                  Locs loc
-                                       (next_loc (LENGTH n + LENGTH n') loc),
-                                  rest'')
-                        else if isSymbol c' then
-                          let (n', rest'') = read_while isSymbol rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'),
-                                  Locs loc
-                                       (next_loc (LENGTH n + LENGTH n') loc),
-                                  rest'')
-                        else
-                          SOME (ErrorS,
-                                Locs loc (next_loc (LENGTH n) loc),
-                                rest')
-                    | "" => SOME (ErrorS,
-                                  Locs loc (next_loc (LENGTH n) loc),
-                                  []))
-            | _ => SOME (OtherS n,
-                         Locs loc (next_loc (LENGTH n - 1) loc),
-                         rest)
-     else if c = #"_" then SOME (OtherS "_", Locs loc loc, str)
-     else (* input not recognised *)
-       SOME (ErrorS, Locs loc loc, str))
+     else if c = #"_" then SOME (OtherS "_", Locs loc loc, str) else
+       let (tok,end_loc,rest) = read_Ident (STRING c str) loc [] in
+         SOME (tok,Locs loc end_loc,rest))
 Termination
    WF_REL_TAC `measure (LENGTH o FST) ` THEN REPEAT STRIP_TAC
    THEN IMP_RES_TAC (GSYM read_while_thm)
@@ -305,7 +268,7 @@ QED
 
 Triviality num_from_hex_string_rw:
   ∀x. EVERY isHexDigit x ⇒
-  num_from_hex_string x = num_from_hex_string_alt x
+      num_from_hex_string x = num_from_hex_string_alt x
 Proof
   rw[ASCIInumbersTheory.s2n_def,ASCIInumbersTheory.num_from_hex_string_def,num_from_hex_string_alt_def]>>
   AP_TERM_TAC>>
@@ -315,16 +278,16 @@ QED
 
 Triviality EVERY_IMPLODE:
   ∀ls P.
-  EVERY P (IMPLODE ls) ⇔ EVERY P ls
+    EVERY P (IMPLODE ls) ⇔ EVERY P ls
 Proof
   Induct>>fs[]
 QED
 
 Triviality read_while_P_lem:
   ∀ls rest P x y.
-  EVERY P rest ∧
-  read_while P ls rest = (x,y) ⇒
-  EVERY P x
+    EVERY P rest ∧
+    read_while P ls rest = (x,y) ⇒
+    EVERY P x
 Proof
   Induct>>fs[read_while_def]>>rw[]>>
   fs[EVERY_IMPLODE,rich_listTheory.EVERY_REVERSE]>>
@@ -340,9 +303,10 @@ Proof
 QED
 
 Theorem next_sym_eq:
-   ∀x l. next_sym x l = next_sym_alt x l
+  ∀x l. next_sym x l = next_sym_alt x l
 Proof
-  ho_match_mp_tac next_sym_ind>>fs[next_sym_def,next_sym_alt_def]>>rw[]>>
+  ho_match_mp_tac next_sym_ind
+  \\ fs[next_sym_def,next_sym_alt_def] \\ rw [] >>
   TRY(BasicProvers.TOP_CASE_TAC>>fs[]>>NO_TAC)>>
   TRY(rpt(pop_assum mp_tac)>> EVAL_TAC>> simp[]>>NO_TAC)>>
   TRY(pairarg_tac) >>fs[]>>
@@ -588,13 +552,14 @@ Termination
    >> METIS_TAC [lex_aux_tokens_LESS]
 End
 
-val lex_aux_tokens_thm = Q.prove(
-  `!input l acc d res1 res2.
+Triviality lex_aux_tokens_thm_1:
+  !input l acc d res1 res2.
       (lex_aux_tokens acc d (lexer_fun_aux input l) = res1) /\
       (lex_aux acc d input l = res2) ==>
       (case res2 of NONE => (res1 = NONE)
           | SOME (ts, l', rest) =>
-              (res1 = SOME (ts, lexer_fun_aux rest l')))`,
+              (res1 = SOME (ts, lexer_fun_aux rest l')))
+Proof
   HO_MATCH_MP_TAC lexer_fun_aux_ind >> SIMP_TAC std_ss []
   >> REPEAT STRIP_TAC >> SIMP_TAC std_ss [Once lex_aux_def]
   >> ONCE_REWRITE_TAC [lexer_fun_aux_def]
@@ -606,7 +571,11 @@ val lex_aux_tokens_thm = Q.prove(
   >> Cases_on `q`
   >> FULL_SIMP_TAC (srw_ss()) []
   >> SRW_TAC [] [] >> SRW_TAC [] []
-  >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_aux_def]) |> SIMP_RULE std_ss [];
+  >> ASM_SIMP_TAC std_ss [GSYM lexer_fun_aux_def]
+  >> gvs[]
+QED
+
+Triviality lex_aux_tokens_thm = lex_aux_tokens_thm_1 |> SIMP_RULE std_ss [];
 
 Triviality lex_impl_all_tokens_thm:
   !input l. lex_impl_all input l =
@@ -621,32 +590,29 @@ Proof
   >> Cases_on `x` >> Cases_on `r` >> fs[]
 QED
 
-val lex_aux_tokens_thm = Q.prove(
-  `!input d acc.
-      (res = lex_aux_tokens acc d input) ==>
-      case res of
+Triviality lex_aux_tokens_thm_1:
+  !input d acc.
+      case lex_aux_tokens acc d input of
         NONE => (toplevel_semi_dex (LENGTH acc) d input = NONE)
       | SOME (toks,rest) =>
           (toplevel_semi_dex (LENGTH acc) d input = SOME (LENGTH toks)) /\
-          (REVERSE acc ++ input = toks ++ rest)`,
+          (REVERSE acc ++ input = toks ++ rest)
+Proof
   Induct
   >> SIMP_TAC (srw_ss()) [Once lex_aux_tokens_def]
   >> ONCE_REWRITE_TAC [toplevel_semi_dex_def]
   >> SIMP_TAC std_ss [LET_DEF] >> Cases
-  >> FULL_SIMP_TAC (srw_ss()) []
-  >> REPEAT STRIP_TAC >> RES_TAC
-  >> POP_ASSUM MP_TAC
-  >> POP_ASSUM (ASSUME_TAC o GSYM)
-  >> ASM_REWRITE_TAC []
-  >> Cases_on `res` >> SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
-  >> Cases_on `d = 0` >> ASM_SIMP_TAC (srw_ss()) [arithmeticTheory.ADD1]
-  >> Cases_on `q` >> fs[arithmeticTheory.ADD1]
-  >> TRY (Cases_on `x`) >> fs [arithmeticTheory.ADD1]
-  >> SIMP_TAC std_ss [Once EQ_SYM_EQ]
-  >> FULL_SIMP_TAC std_ss []
-  >> REPEAT STRIP_TAC >> RES_TAC
-  >> fs [Once toplevel_semi_dex_def,LENGTH,arithmeticTheory.ADD1])
-  |> Q.SPECL [`input`,`0`,`[]`] |> Q.GEN `res` |> SIMP_RULE std_ss [LENGTH];
+  >> rw[]
+  >> gvs [Once toplevel_semi_dex_def,LENGTH,arithmeticTheory.ADD1]
+  >> qmatch_goalsub_abbrev_tac`lex_aux_tokens accc dd`
+  >> first_x_assum (qspecl_then [`dd`,`accc`] assume_tac)
+  >> gvs[AllCasePreds(),Abbr`accc`,ADD1,Abbr`dd`]
+  >> gvs [Once toplevel_semi_dex_def,LENGTH,arithmeticTheory.ADD1]
+  >> rw[]
+QED
+
+Triviality lex_aux_tokens_thm = lex_aux_tokens_thm_1
+  |> Q.SPECL [`input`,`0`,`[]`] |> SIMP_RULE std_ss [LENGTH];
 
 Triviality split_top_level_semi_thm:
   !input. split_top_level_semi input = lex_impl_all_tokens input

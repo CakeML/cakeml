@@ -79,11 +79,6 @@ Definition every_var_exp_def:
   (every_var_exp P (Op wop ls) = EVERY (every_var_exp P) ls) ∧
   (every_var_exp P (Shift sh exp n) = every_var_exp P exp) ∧
   (every_var_exp P expr = T)
-Termination
-  WF_REL_TAC `measure (exp_size ARB o SND)`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC
 End
 
 Definition every_var_imm_def:
@@ -104,6 +99,8 @@ Definition every_var_inst_def:
   (every_var_inst P (Arith (LongDiv r1 r2 r3 r4 r5)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ P r5)) ∧
   (every_var_inst P (Mem Load r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Store r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst P (Mem Load32 r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst P (Mem Store32 r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Load8 r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Store8 r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (FP (FPLess r d1 d2)) = P r) ∧
@@ -199,11 +196,6 @@ Definition max_var_exp_def:
   (max_var_exp (Op wop ls) = list_max (MAP (max_var_exp) ls))∧
   (max_var_exp (Shift sh exp n) = max_var_exp exp) ∧
   (max_var_exp exp = 0:num)
-Termination
-  WF_REL_TAC `measure (exp_size ARB )`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC
 End
 
 Definition max_var_inst_def:
@@ -220,6 +212,8 @@ Definition max_var_inst_def:
   (max_var_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧
   (max_var_inst (Mem Load r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Store r (Addr a w)) = MAX a r) ∧
+  (max_var_inst (Mem Load32 r (Addr a w)) = MAX a r) ∧
+  (max_var_inst (Mem Store32 r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Load8 r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Store8 r (Addr a w)) = MAX a r) ∧
   (max_var_inst (FP (FPLess r f1 f2)) = r) ∧

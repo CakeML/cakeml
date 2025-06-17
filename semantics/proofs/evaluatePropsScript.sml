@@ -396,10 +396,10 @@ Theorem is_clock_io_mono_fp_optimise:
   ! (s:'ffi state) env es.
     is_clock_io_mono (\ s. evaluate s env [e])
       (s with fp_state :=
-        (if s.fp_state.canOpt = Strict then s.fp_state else s.fp_state with canOpt := FPScope sc)) ==>
-    is_clock_io_mono (\ s. evaluate s env [FpOptimise sc e]) s
+        (if s.fp_state.canOpt = Strict then s.fp_state else s.fp_state with canOpt := FPScope fpopt)) ==>
+    is_clock_io_mono (\ s. evaluate s env [FpOptimise fpopt e]) s
 Proof
-  Cases_on `sc` \\ fs[is_clock_io_mono_def, evaluate_def]
+  Cases_on `fpopt` \\ fs[is_clock_io_mono_def, evaluate_def]
   \\ rpt gen_tac
   \\ ntac 2 (TOP_CASE_TAC \\ fs[])
   \\ rename [`evaluate _ env [e] = (s1, r1)`]
@@ -562,7 +562,7 @@ QED
 Theorem do_fpoptimise_list_length[local]:
   ! vs.
     LENGTH vs = n ==>
-    LENGTH (do_fpoptimise sc vs) = n
+    LENGTH (do_fpoptimise fpopt vs) = n
 Proof
   Induct_on `n` \\ fs[do_fpoptimise_def] \\ rpt strip_tac
   \\ Cases_on `vs` \\ fs[] \\ res_tac \\ fs[do_fpoptimise_def, Once do_fpoptimise_cons]
@@ -933,11 +933,10 @@ Proof
   \\ rfs [store_v_same_type_def]
 QED
 
-local
-  val trivial =
+val trivial =
     rpt strip_tac \\ rveq
     \\ fs[fpState_component_equality, state_component_equality];
-  val by_eq =
+val by_eq =
       `s1.fp_state.choices = s2.fp_state.choices`
         by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
             \\ fs[fpState_component_equality, dec_clock_def])
@@ -950,7 +949,7 @@ local
                    \\ fs[fpState_component_equality, dec_clock_def])
              \\ gs[])
       \\ fs[fpState_component_equality, state_component_equality];
-in
+
 Theorem evaluate_fp_intro_strict:
   (∀ (s:'a state) env e s' r.
     evaluate s env e = (s', r) ∧
@@ -1439,7 +1438,6 @@ Proof
     \\ by_eq
     \\ qexists_tac ‘s1 with fp_state := fp_state2’ \\ gs[])
 QED
-end
 
 Theorem evaluate_ffi_intro:
   (∀(s:'a state) env e s' r.
@@ -1468,7 +1466,7 @@ Theorem evaluate_ffi_intro:
 Proof
   ho_match_mp_tac full_evaluate_ind
   \\ rpt strip_tac \\ fs [full_evaluate_def,combine_dec_result_def]
-  \\ fs [pair_case_eq, CaseEq "result", CaseEq "error_result", bool_case_eq,
+  \\ gvs [pair_case_eq, CaseEq "result", CaseEq "error_result", bool_case_eq,
         option_case_eq, list_case_eq, CaseEq "exp_or_val", do_eval_res_def, CaseEq"op_class"]
   \\ full_simp_tac bool_ss [CaseEq "match_result"]
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []

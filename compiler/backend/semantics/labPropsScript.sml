@@ -563,6 +563,32 @@ Proof
     \\ metis_tac[Q.SPECL[`8`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[],ADD_0])
 QED
 
+Theorem mem_load_32_align_dm:
+   mem_load_32 s.mem s.mem_domain be x = SOME y ⇒
+   mem_load_32 s.mem (align_dm s).mem_domain be x = SOME y
+Proof
+  rw[mem_load_32_def]
+  \\ every_case_tac \\ fs[]
+  \\ fs[align_dm_def]
+  \\ last_x_assum mp_tac \\ simp[]
+  \\ fs[IN_DEF,alignmentTheory.byte_aligned_def,alignmentTheory.byte_align_def]
+  \\ fs[alignmentTheory.aligned_align]
+QED
+
+Theorem mem_load32_align_dm:
+   good_dimindex (:α) ⇒
+   mem_load32 n (a:α addr) (align_dm s) = align_dm (mem_load32 n a s)
+Proof
+  strip_tac
+  \\ simp[mem_load32_def]
+  \\ every_case_tac \\ fs[]
+  \\ imp_res_tac mem_load_32_align_dm
+  \\ fs[]
+  \\ gs[mem_load_32_def]
+  \\ every_case_tac \\ fs[]
+  \\ fs[align_dm_def]
+QED
+
 Theorem mem_load_byte_aux_align_dm:
    mem_load_byte_aux s.mem s.mem_domain be x = SOME y ⇒
    mem_load_byte_aux s.mem (align_dm s).mem_domain be x = SOME y
@@ -624,6 +650,32 @@ Proof
     \\ metis_tac[Q.SPECL[`8`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[],ADD_0])
 QED
 
+Theorem mem_store_32_align_dm:
+   mem_store_32 mem s.mem_domain be x c = SOME y ⇒
+   mem_store_32 mem (align_dm s).mem_domain be x c = SOME y
+Proof
+  rw[mem_store_32_def]
+  \\ every_case_tac \\ fs[]
+  \\ fs[align_dm_def]
+  \\ last_x_assum mp_tac \\ simp[]
+  \\ fs[IN_DEF,alignmentTheory.byte_aligned_def,alignmentTheory.byte_align_def]
+  \\ fs[alignmentTheory.aligned_align]
+QED
+
+Theorem mem_store32_align_dm:
+   good_dimindex (:α) ⇒
+   mem_store32 n (a:α addr) (align_dm s) = align_dm (mem_store32 n a s)
+Proof
+  strip_tac
+  \\ simp[mem_store32_def]
+  \\ every_case_tac \\ fs[]
+  \\ imp_res_tac mem_store_32_align_dm
+  \\ fs[]
+  \\ fs[mem_store_32_def]
+  \\ fs[align_dm_def]
+  \\ every_case_tac \\ fs[]
+QED
+
 Theorem mem_store_byte_aux_align_dm:
    mem_store_byte_aux mem s.mem_domain be x c = SOME y ⇒
    mem_store_byte_aux mem (align_dm s).mem_domain be x c = SOME y
@@ -656,8 +708,8 @@ Theorem mem_op_align_dm:
 Proof
   Cases_on`m`
   \\ simp[mem_op_def,
-          mem_load_align_dm,mem_load_byte_align_dm,
-          mem_store_align_dm,mem_store_byte_align_dm]
+          mem_load_align_dm,mem_load32_align_dm,mem_load_byte_align_dm,
+          mem_store_align_dm,mem_store32_align_dm,mem_store_byte_align_dm]
 QED
 
 Theorem asm_inst_align_dm:
@@ -911,6 +963,13 @@ Proof
   \\ every_case_tac \\ fs[]
 QED
 
+Theorem mem_load32_align_sdm:
+   mem_load32 n (a:α addr) (align_sdm s) = align_sdm (mem_load32 n a s)
+Proof
+  simp[mem_load32_def]
+  \\ every_case_tac \\ fs[]
+QED
+
 Theorem mem_load_byte_align_sdm:
    mem_load_byte n (a:α addr) (align_sdm s) = align_sdm (mem_load_byte n a s)
 Proof
@@ -925,6 +984,13 @@ Proof
   \\ every_case_tac \\ fs[]
 QED
 
+Theorem mem_store32_align_sdm:
+   mem_store32 n (a:α addr) (align_sdm s) = align_sdm (mem_store32 n a s)
+Proof
+  simp[mem_store32_def]
+  \\ every_case_tac \\ fs[align_sdm_def]
+QED
+
 Theorem mem_store_byte_align_sdm:
    mem_store_byte n (a:α addr) (align_sdm s) = align_sdm (mem_store_byte n a s)
 Proof
@@ -937,8 +1003,8 @@ Theorem mem_op_align_sdm:
 Proof
   Cases_on`m`
   \\ simp[mem_op_def,
-          mem_load_align_sdm,mem_load_byte_align_sdm,
-          mem_store_align_sdm,mem_store_byte_align_sdm]
+          mem_load_align_sdm,mem_load32_align_sdm,mem_load_byte_align_sdm,
+          mem_store_align_sdm,mem_store32_align_sdm,mem_store_byte_align_sdm]
 QED
 
 Theorem asm_inst_align_sdm:

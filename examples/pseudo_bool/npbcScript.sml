@@ -553,26 +553,29 @@ Definition weaken_aux_def:
 End
 *)
 
-(* Faster weaken_aux, if the constraint is compact *)
+(* List weakening
+  assumes the constraint is compact
+  weakens the vs in order *)
 Definition weaken_aux_def:
-  (weaken_aux v [] n = ([],n)) ∧
-  (weaken_aux v ((c:int,l)::xs) n =
+  (weaken_aux vs [] n = ([],n)) ∧
+  (weaken_aux [] xs n = (xs,n)) ∧
+  (weaken_aux (v::vs) ((c:int,l)::xs) n =
     if l = v then
-      (xs,n-Num(ABS c))
+      weaken_aux vs xs (n-Num(ABS c))
     else
-    let (xs',n') = weaken_aux v xs n in
+    let (xs',n') = weaken_aux (v::vs) xs n in
       ((c,l)::xs',n'))
 End
 
 (* weakening *)
 Definition weaken_def:
-  weaken (l,n) v = weaken_aux v l n
+  weaken (l,n) vs = weaken_aux vs l n
 End
 
 Theorem weaken_aux_theorem:
-  ∀v l n l' n' a.
+  ∀vs l n l' n' a.
   n ≤ SUM (MAP (eval_term w) l) + a ∧
-  weaken_aux v l n = (l',n') ⇒
+  weaken_aux vs l n = (l',n') ⇒
   n' ≤ SUM (MAP (eval_term w) l') + a
 Proof
   ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
@@ -581,17 +584,24 @@ Proof
   \\ qmatch_goalsub_abbrev_tac`SUM A`
   \\ TRY(qmatch_goalsub_abbrev_tac`B + SUM A`)
   \\ TRY(qmatch_goalsub_abbrev_tac`SUM A + B`)
+  >- (
+    qmatch_goalsub_abbrev_tac` _ ≤ rhs`
+    \\ `rhs = (a + B) + SUM A` by
+      (unabbrev_all_tac>>
+      simp[])
+    \\ pop_assum SUBST1_TAC
+    \\ first_x_assum match_mp_tac
+    \\ fs[])
+  >- (
+    first_x_assum irule
+    \\ Cases_on`w l`
+    \\ gvs[])
   \\ qmatch_goalsub_abbrev_tac` _ ≤ rhs`
   \\ `rhs = (a + B) + SUM A` by
     (unabbrev_all_tac>>
     simp[])
   \\ pop_assum SUBST1_TAC
-  >- (
-    first_x_assum match_mp_tac
-    \\ fs[])
   \\ fs[]
-  \\ Cases_on`w l`
-  \\ fs[Abbr`rhs`]
 QED
 
 (* set a = 0 *)
@@ -611,20 +621,21 @@ Proof
 QED
 
 Theorem weaken_aux_contains:
-  ∀v ls n ls' n' x.
-  weaken_aux v ls n = (ls',n') ∧
+  ∀vs ls n ls' n' x.
+  weaken_aux vs ls n = (ls',n') ∧
   MEM x ls' ⇒ MEM x ls
 Proof
   ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
+  \\ gvs[]
   \\ pairarg_tac \\ fs[]
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ fs[]
 QED
 
 Theorem SORTED_weaken_aux:
-  ∀v ls n ls' n'.
+  ∀vs ls n ls' n'.
   SORTED $< (MAP SND ls) ∧
-  weaken_aux v ls n = (ls',n') ⇒
+  weaken_aux vs ls n = (ls',n') ⇒
   SORTED $< (MAP SND ls')
 Proof
   ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
@@ -983,11 +994,17 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw[]
   >- (
+    fs[subst_thm]
+    \\ fs[satisfies_npbc_def]
+    \\ drule subst_opt_aux_thm_2
+    \\ disch_then(qspec_then`w` assume_tac)
+    \\ intLib.ARITH_TAC)
+  >- (
     simp[subst_def,subst_lhs_def]>>
     rpt (pairarg_tac \\ fs [])>>
     drule subst_opt_aux_thm_1>>
     rw[]>>fs[]>>rw[]>>
-    simp[satisfies_npbc_def]>>
+    gvs[satisfies_npbc_def]>>
     gvs[])
   >- (
     simp[subst_def,subst_lhs_def]>>
@@ -997,11 +1014,6 @@ Proof
     drule imp_thm>>
     disch_then drule>>
     fs[])
-  \\ fs[subst_thm]
-  \\ fs[satisfies_npbc_def]
-  \\ drule subst_opt_aux_thm_2
-  \\ disch_then(qspec_then`w` assume_tac)
-  \\ intLib.ARITH_TAC
 QED
 
 (* subst is compact *)

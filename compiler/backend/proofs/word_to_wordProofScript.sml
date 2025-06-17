@@ -534,7 +534,7 @@ Proof
     first_assum(qspecl_then[`p`,`st`,`l`,`cc`] mp_tac)>>
     impl_tac>-
       size_tac>>
-    rw[]>>
+    strip_tac>>
     pop_assum mp_tac >>
     pairarg_tac>>fs[]>>
     strip_tac
@@ -1209,7 +1209,7 @@ Proof
     gs[no_install_def, no_alloc_def]>>
     first_assum(qspecl_then[`p`,`st`,`l`] mp_tac)>>
     impl_tac>- size_tac>>
-    rw[]>>
+    strip_tac>>
     pop_assum mp_tac >>
     pairarg_tac>>fs[]>>
     strip_tac

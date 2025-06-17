@@ -17,7 +17,7 @@ Proof
   \\ IF_CASES_TAC THEN1 fs []
   \\ IF_CASES_TAC THEN1 fs []
   \\ fs [] \\ rw []
-  \\ fs[bvlSemTheory.evaluate_def,do_app_def]
+  \\ fs[bvlSemTheory.evaluate_def,do_app_def,do_int_app_def]
   \\ Q.ISPEC_THEN`xs`strip_assume_tac SPLIT_LIST
   \\ FULL_SIMP_TAC std_ss []
   \\ `(LENGTH ys = 0) ==> LENGTH zs <> 0` by (fs[] \\ DECIDE_TAC)

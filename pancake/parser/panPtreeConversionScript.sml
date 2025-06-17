@@ -189,13 +189,6 @@ Definition conv_cmp_def:
 End
 
 (** A single tree is smaller than the forest. *)
-Theorem mem_ptree_thm:
-  ∀a l. MEM a l ⇒ ptree_size a < ptree1_size l
-Proof
-  Induct_on ‘l’ >> rw[] >> simp[parsetree_size_def]
-  >> first_x_assum drule >> simp[]
-QED
-
 Definition conv_Shape_def:
   conv_Shape tree =
   case conv_int tree of
@@ -211,8 +204,10 @@ Definition conv_Shape_def:
 Termination
   WF_REL_TAC ‘measure ptree_size’ >> rw[]
   >> Cases_on ‘tree’
-  >> gvs[argsNT_def,parsetree_size_def]
-  >> drule_then assume_tac mem_ptree_thm >> gvs[]
+  >> gvs[argsNT_def]
+  >> drule MEM_list_size
+  >> disch_then (qspec_then`ptree_size` assume_tac)
+  >> simp[]
 End
 
 Definition conv_params_def:
@@ -277,6 +272,10 @@ Definition conv_Exp_def:
     else if isNT nodeNT ELoadByteNT then
       case args of
         [t] => lift LoadByte (conv_Exp t)
+      | _ => NONE
+    else if isNT nodeNT ELoad32NT then
+      case args of
+        [t] => lift Load32 (conv_Exp t)
       | _ => NONE
     else if isNT nodeNT ELoadNT then
       case args of
@@ -351,18 +350,23 @@ Termination
   WF_REL_TAC ‘measure (λx. case x of
                            | INR (INL x) => ptree_size x
                            | INL x => ptree_size x
-                           | INR (INR(INL x)) => ptree1_size (FST x)
-                           | INR (INR(INR x)) => ptree1_size (FST x))’ >> rw[]
-  >> rename1 ‘ptree_size tree’
+                           | INR (INR(INL x)) => list_size ptree_size (FST x)
+                           | INR (INR(INR x)) => list_size ptree_size (FST x))’ >> rw[]
+  >> simp[]
+  >- (
+    drule MEM_list_size
+    >> disch_then (qspec_then `ptree_size` assume_tac)
+    >> simp[])
+  >- (
+    drule MEM_list_size
+    >> disch_then (qspec_then `ptree_size` assume_tac)
+    >> simp[])
   >> Cases_on ‘tree’
-  >> gvs[argsNT_def,parsetree_size_def]
-  >> drule_then assume_tac mem_ptree_thm >> gvs[]
-  >> rename1 ‘ptree_size tree’
-  >> Cases_on ‘tree’
-  >> gvs[argsNT_def,parsetree_size_def]
-  >> drule_then assume_tac mem_ptree_thm >> gvs[]
+  >> gvs[argsNT_def]
+  >> drule MEM_list_size
+  >> disch_then (qspec_then `ptree_size` assume_tac)
+  >> simp[]
 End
-
 
 (** Handles all statements which cannot contain
   * Prog nodes as children. *)
@@ -379,6 +383,10 @@ Definition conv_NonRecStmt_def:
     else if isNT nodeNT StoreByteNT then
       case args of
         [dst; src] => lift2 StoreByte (conv_Exp dst) (conv_Exp src)
+      | _ => NONE
+    else if isNT nodeNT Store32NT then
+      case args of
+        [dst; src] => lift2 Store32 (conv_Exp dst) (conv_Exp src)
       | _ => NONE
     else if isNT nodeNT SharedLoadNT then
       case args of
@@ -678,23 +686,21 @@ Termination
   WF_REL_TAC ‘measure (λx. case x of
                              INR x => sum_CASE x ptree_size ptree_size
                            | INL x => ptree_size x)’
-  >> rw[] >> gvs[argsNT_def,parsetree_size_def]>>
-  TRY (Cases_on ‘tree’ >> gvs[argsNT_def,parsetree_size_def])
+  >> rw[] >> gvs[argsNT_def]
   >- (
-  drule mem_ptree_thm>>strip_tac>>
-  gs[parsetree_size_eq]>>
-  gvs[parsetree_size_def]>>
-  ‘list_size ptree_size (butlast ts) ≤ list_size ptree_size ts’
-    by irule list_size_butlast>>
-  gs[])>>
-  gs[parsetree_size_eq]>>
-  gvs[parsetree_size_def]>>
-  ‘ptree_size (LAST ts) ≤ list_size ptree_size ts’
-    by (irule list_size_MEM>>
-        gs[LAST_EL, MEM_EL]>>
-        qexists_tac ‘PRE (LENGTH ts)’>>gs[]>>
-        Cases_on ‘ts’>>gs[])>>
-  gs[]
+    drule MEM_list_size>>
+    disch_then (qspec_then `ptree_size` assume_tac)>>
+    ‘list_size ptree_size (butlast ts) ≤ list_size ptree_size ts’
+      by irule list_size_butlast>>
+    gs[])
+  >- (
+    ‘ptree_size (LAST ts) ≤ list_size ptree_size ts’
+      by (irule list_size_MEM>>
+          gs[LAST_EL, MEM_EL]>>
+          qexists_tac ‘PRE (LENGTH ts)’>>gs[]>>
+          Cases_on ‘ts’>>gs[])>>
+    gs[])>>
+  Cases_on ‘tree’ >> gvs[argsNT_def]
 End
 
 Definition conv_expos_def:

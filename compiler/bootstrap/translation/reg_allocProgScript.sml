@@ -237,8 +237,8 @@ val _ = m_translate do_reg_alloc_def;
 (* Rewrite reg_alloc_aux before giving it to the monadic translator *)
 Triviality reg_alloc_aux_trans_def:
   ∀k mtable ct forced fs x.
-     reg_alloc_aux alg sc k mtable ct forced fs x =
-     run_ira_state (do_reg_alloc alg sc k mtable ct forced fs x)
+     reg_alloc_aux alg scost k mtable ct forced fs x =
+     run_ira_state (do_reg_alloc alg scost k mtable ct forced fs x)
        <|adj_ls := (SND(SND x),[]);
          node_tag := (SND(SND x),Atemp);
          degrees := (SND(SND x),0);

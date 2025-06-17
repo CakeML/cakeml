@@ -52,17 +52,14 @@ Definition canonicalize_app_def:
     | _ => (e, [])
 Termination
   wf_rel_tac ‘measure (λe. exp_size e)’ \\ fs[]
-  \\ rpt strip_tac
-  \\ fs[astTheory.exp_size_def]
-  \\ fs[astTheory.op_size_def, fpValTreeTheory.fp_bop_size_def]
 End
 
 Definition canonicalize_def:
-  canonicalize (cfg: config) (FpOptimise sc e) = (
+  canonicalize (cfg: config) (FpOptimise fpopt e) = (
   let (e_can, plan: fp_plan) =
-      canonicalize (cfg with canOpt := if sc = Opt then T else F) e
+      canonicalize (cfg with canOpt := if fpopt = Opt then T else F) e
   in
-    (FpOptimise sc e_can, MAP_plan_to_path center plan)) ∧
+    (FpOptimise fpopt e_can, MAP_plan_to_path center plan)) ∧
   canonicalize cfg (App op exps) = (
     let individuals = MAP (canonicalize cfg) exps in
       let exps_can = MAP FST individuals;
@@ -127,14 +124,12 @@ Definition canonicalize_def:
       (Mat e_can pes_can, e_plan ++ pes_plan)) ∧
   (* We do not apply any canonicalization plan to the rest *)
   canonicalize cfg e = (e, [])
-Termination
-  wf_rel_tac ‘measure (λ (cfg, e). exp_size e)’
 End
 
 Definition post_order_dfs_for_plan_def:
-  post_order_dfs_for_plan (f: config -> exp -> (exp # fp_plan) option) (cfg: config) (FpOptimise sc e) = (
-  let (e_can, plan: fp_plan) = post_order_dfs_for_plan f (cfg with canOpt := if sc = Opt then T else F) e in
-    ((FpOptimise sc e_can), MAP_plan_to_path center plan)
+  post_order_dfs_for_plan (f: config -> exp -> (exp # fp_plan) option) (cfg: config) (FpOptimise fpopt e) = (
+  let (e_can, plan: fp_plan) = post_order_dfs_for_plan f (cfg with canOpt := if fpopt = Opt then T else F) e in
+    ((FpOptimise fpopt e_can), MAP_plan_to_path center plan)
   ) ∧
   post_order_dfs_for_plan f cfg (App op exps) = (
     let individuals = MAP (post_order_dfs_for_plan f cfg) exps in
@@ -196,8 +191,6 @@ Definition post_order_dfs_for_plan_def:
     ) ∧
   (* We do not apply any canonicalization plan to the rest *)
   post_order_dfs_for_plan f cfg e = (e, [])
-Termination
-  wf_rel_tac ‘measure (λ (f, cfg, e). exp_size e)’
 End
 
 Definition optimise_linear_interpolation_def:
@@ -595,12 +588,8 @@ Definition fpNum_def:
   fpNum (e1::(e2::es)) = fpNum [e1] + fpNum (e2::es) ∧
   fpNum [] = 0
 Termination
-  wf_rel_tac ‘measure exp6_size’ >> gs[]
-  >> Induct_on ‘pes’ >> gs[astTheory.exp_size_def]
-  >> rpt strip_tac >> irule LESS_TRANS
-  >> qexists_tac ‘exp3_size pes + (exp_size e) + 2 + (exp_size (SND h) + 1)’
-  >> gs[]
-  >> Cases_on ‘h’ >> gs[astTheory.exp_size_def]
+  wf_rel_tac ‘measure (list_size exp_size)’ >> gs[] >>
+  rw[list_size_pair_size_MAP_FST_SND]
 End
 
 Definition fpNum_decs_def:

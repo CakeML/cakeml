@@ -673,11 +673,8 @@ end;
                       |> map (#2 o #1)
                       |> dedup
                       |> List.foldl (fn (elem, acc) => acc ^ " " ^ elem ^ " ;") "Used rewrites:"
-    val _ = adjoin_to_theory
-             { sig_ps =
-            SOME (fn _ => PP.add_string
-                      ("(* "^hotRewrites^" *)")),
-            struct_ps = NONE };
+    (* REMOVED: this Lib used to print hotRewrites to the theory signature
+      using adjoin_to_theory. That feature has now been removed. *)
   (** The code below stores in theorem theAST_opt the optimized version of the AST
       from above and in errorbounds_AST the inferred FloVer roundoff error bounds
    **)

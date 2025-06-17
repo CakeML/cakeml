@@ -137,7 +137,7 @@ Definition sexp_primitive_def:
     else if (ss = "Primitive.String") then
       return String
     else if (ss = "Primitive.Bool") then
-      return Bool
+      return Primitive_Bool
     else if (ss = "Primitive.Char") then
       return Char
     else if (ss = "Primitive.Native") then
@@ -161,19 +161,6 @@ Definition sexp_collKind_def:
   od
 End
 
-Definition sexp_typeArgBound_def:
-  sexp_typeArgBound se =
-  do
-    (ss, args) <- dstrip_sexp se;
-    assert (LENGTH args = 0);
-    if (ss = "TypeArgBound.SupportsEquality") then
-      return SupportsEquality
-    else if (ss = "TypeArgBound.SupportsDefault") then
-      return SupportsDefault
-    else fail
-  od
-End
-
 Definition sexp_variance_def:
   sexp_variance se =
   do
@@ -185,20 +172,31 @@ Definition sexp_variance_def:
       return Covariant
     else if (ss = "Variance.Contravariant") then
       return Contravariant
-    else
-      fail
+    else fail
   od
 End
 
-Definition sexp_typeArgDecl_def:
-  sexp_typeArgDecl se =
+Definition sexp_typeParameterInfo_def:
+  sexp_typeParameterInfo se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "TypeArgDecl.TypeArgDecl" ∧ LENGTH args = 3);
-    nam <- sexp_ident (EL 0 args);
-    bounds <- opt_mmap_sexp_list sexp_typeArgBound (EL 1 args);
-    vrnc <- sexp_variance (EL 2 args);
-    return (TypeArgDecl nam bounds vrnc)
+    assert (ss = "TypeParameterInfo.TypeParameterInfo" ∧ LENGTH args = 2);
+    vrnc <- sexp_variance (EL 0 args);
+    nec <- sxsym_to_bool (EL 1 args);
+    return (TypeParameterInfo vrnc nec)
+  od
+End
+
+Definition sexp_equalitySupport_def:
+  sexp_equalitySupport se =
+  do
+    (ss, args) <- dstrip_sexp se;
+    assert (LENGTH args = 0);
+    if (ss = "EqualitySupport.Never") then
+      return Never
+    else if (ss = "EqualitySupport.ConsultTypeArguments") then
+      return ConsultTypeArguments
+    else fail
   od
 End
 
@@ -206,32 +204,67 @@ Definition sexp_newtypeRange_def:
   sexp_newtypeRange se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (LENGTH args = 0);
-    if (ss = "NewtypeRange.U8") then
-      return U8
-    else if (ss = "NewtypeRange.I8") then
-      return I8
-    else if (ss = "NewtypeRange.U16") then
-      return U16
-    else if (ss = "NewtypeRange.I16") then
-      return I16
-    else if (ss = "NewtypeRange.U32") then
-      return U32
-    else if (ss = "NewtypeRange.I32") then
-      return I32
-    else if (ss = "NewtypeRange.U64") then
-      return U64
-    else if (ss = "NewtypeRange.I64") then
-      return I64
-    else if (ss = "NewtypeRange.U128") then
-      return U128
-    else if (ss = "NewtypeRange.I128") then
-      return I128
-    else if (ss = "NewtypeRange.BigInt") then
+    if (ss = "NewtypeRange.U8" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (U8 overflow)
+      od
+    else if (ss = "NewtypeRange.I8" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (I8 overflow)
+      od
+    else if (ss = "NewtypeRange.U16" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (U16 overflow)
+      od
+    else if (ss = "NewtypeRange.I16" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (I16 overflow)
+      od
+    else if (ss = "NewtypeRange.U32" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (U32 overflow)
+      od
+    else if (ss = "NewtypeRange.I32" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (I32 overflow)
+      od
+    else if (ss = "NewtypeRange.U64" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (U64 overflow)
+      od
+    else if (ss = "NewtypeRange.I64" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (I64 overflow)
+      od
+    else if (ss = "NewtypeRange.U128" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (U128 overflow)
+      od
+    else if (ss = "NewtypeRange.I128" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (I128 overflow)
+      od
+    else if (ss = "NewtypeRange.NativeArrayIndex" ∧ LENGTH args = 0) then
+      return NativeArrayIndex
+    else if (ss = "NewtypeRange.BigInt" ∧ LENGTH args = 0) then
       return BigInt
-    else if (ss = "NewtypeRange.USIZE") then
-      return USIZE
-    else if (ss = "NewtypeRange.NoRange") then
+    else if (ss = "NewtypeRange.Bool" ∧ LENGTH args = 0) then
+      return NewtypeRange_Bool
+    else if (ss = "NewtypeRange.Sequence" ∧ LENGTH args = 0) then
+      return Sequence
+    else if (ss = "NewtypeRange.Map" ∧ LENGTH args = 0) then
+      return NewtypeRange_Map
+    else if (ss = "NewtypeRange.NoRange" ∧ LENGTH args = 0) then
       return NoRange
     else fail
   od
@@ -261,8 +294,11 @@ Definition sexp_binOp_def:
         referential <- sxsym_to_bool (EL 0 args);
         return (Eq referential)
       od
-    else if (ss = "BinOp.Div" ∧ LENGTH args = 0) then
-      return Div
+    else if (ss = "BinOp.Div" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (Div overflow)
+      od
     else if (ss = "BinOp.EuclidianDiv" ∧ LENGTH args = 0) then
       return EuclidianDiv
     else if (ss = "BinOp.Mod" ∧ LENGTH args = 0) then
@@ -273,12 +309,21 @@ Definition sexp_binOp_def:
       return Lt
     else if (ss = "BinOp.LtChar" ∧ LENGTH args = 0) then
       return LtChar
-    else if (ss = "BinOp.Plus" ∧ LENGTH args = 0) then
-      return Plus
-    else if (ss = "BinOp.Minus" ∧ LENGTH args = 0) then
-      return Minus
-    else if (ss = "BinOp.Times" ∧ LENGTH args = 0) then
-      return Times
+    else if (ss = "BinOp.Plus" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (Plus overflow)
+      od
+    else if (ss = "BinOp.Minus" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (Minus overflow)
+      od
+    else if (ss = "BinOp.Times" ∧ LENGTH args = 1) then
+      do
+        overflow <- sxsym_to_bool (EL 0 args);
+        return (Times overflow)
+      od
     else if (ss = "BinOp.BitwiseAnd" ∧ LENGTH args = 0) then
       return BitwiseAnd
     else if (ss = "BinOp.BitwiseOr" ∧ LENGTH args = 0) then
@@ -338,12 +383,18 @@ Definition sexp_binOp_def:
   od
 End
 
-Definition sexp_datatypeType_def:
-  sexp_datatypeType se =
+Definition sexp_selectContext_def:
+  sexp_selectContext se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "DatatypeType.DatatypeType" ∧ LENGTH args = 0);
-    return DatatypeType
+    assert (LENGTH args = 0);
+    if (ss = "SelectContext.SelectContextDatatype") then
+      return SelectContextDatatype
+    else if (ss = "SelectContext.SelectContextGeneralTrait") then
+      return SelectContextGeneralTrait
+    else if (ss = "SelectContext.SelectContextClassOrObjectTrait") then
+      return SelectContextClassOrObjectTrait
+    else fail
   od
 End
 
@@ -351,8 +402,12 @@ Definition sexp_traitType_def:
   sexp_traitType se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "DatatypeType.DatatypeType" ∧ LENGTH args = 0);
-    return TraitType
+    assert (LENGTH args = 0);
+    if (ss = "TraitType.ObjectTrait") then
+       return ObjectTrait
+    else if (ss = "TraitType.GeneralTrait") then
+      return GeneralTrait
+    else fail
   od
 End
 
@@ -397,7 +452,7 @@ Definition sexp_type_def:
        do
          key <- sexp_type (EL 0 args);
          value <- sexp_type (EL 1 args);
-         return (Map key value)
+         return (Type_Map key value)
        od
      else if (ss = "Type.SetBuilder" ∧ LENGTH args = 1) then
        do
@@ -452,13 +507,22 @@ Definition sexp_type_def:
      (ss, args) <- dstrip_sexp se;
      if (ss = "ResolvedTypeBase.Class" ∧ LENGTH args = 0) then
        return ResolvedTypeBase_Class
-     else if (ss = "ResolvedTypeBase.Datatype" ∧ LENGTH args = 1) then
+     else if (ss = "ResolvedTypeBase.Datatype" ∧ LENGTH args = 2) then
        do
-         vrncs <- opt_mmap_sexp_list sexp_variance (EL 0 args);
-         return (ResolvedTypeBase_Datatype vrncs)
+         eqSup <- sexp_equalitySupport (EL 0 args);
+         info <- opt_mmap_sexp_list sexp_typeParameterInfo (EL 1 args);
+         return (ResolvedTypeBase_Datatype eqSup info)
        od
-     else if (ss = "ResolvedTypeBase.Trait" ∧ LENGTH args = 0) then
-       return ResolvedTypeBase_Trait
+     else if (ss = "ResolvedTypeBase.Trait" ∧ LENGTH args = 1) then
+       do
+         tt <- sexp_traitType (EL 0 args);
+         return (ResolvedTypeBase_Trait tt)
+       od
+     else if (ss = "ResolvedTypeBase.SynonymType" ∧ LENGTH args = 1) then
+       do
+         baseT <- sexp_type (EL 0 args);
+         return (ResolvedTypeBase_SynonymType baseT)
+       od
      else if (ss = "ResolvedTypeBase.Newtype" ∧ LENGTH args = 3) then
        do
          baseT <- sexp_type (EL 0 args);
@@ -495,11 +559,53 @@ Termination
   (*        AllCaseEqs(), oneline strip_sxcons_def, sexp_size_eq] *)
 End
 
+Definition sexp_typedBinOp_def:
+  sexp_typedBinOp se =
+  do
+    (ss, args) <- dstrip_sexp se;
+    assert (ss = "TypedBinOp.TypedBinOp" ∧ LENGTH args = 4);
+    op <- sexp_binOp (EL 0 args);
+    leftT <- sexp_type (EL 1 args);
+    rightT <- sexp_type (EL 2 args);
+    resT <- sexp_type (EL 3 args);
+    return (TypedBinOp op leftT rightT resT)
+  od
+End
+
+Definition sexp_typeArgBound_def:
+  sexp_typeArgBound se =
+  do
+    (ss, args) <- dstrip_sexp se;
+    if (ss = "TypeArgBound.SupportsEquality" ∧ LENGTH args = 0) then
+      return SupportsEquality
+    else if (ss = "TypeArgBound.SupportsDefault" ∧ LENGTH args = 0) then
+      return SupportsDefault
+    else if (ss = "TypeArgBound.TraitBound" ∧ LENGTH args = 1) then
+      do
+        typ <- sexp_type (EL 0 args);
+        return (TraitBound typ)
+      od
+    else fail
+  od
+End
+
+Definition sexp_typeArgDecl_def:
+  sexp_typeArgDecl se =
+  do
+    (ss, args) <- dstrip_sexp se;
+    assert (ss = "TypeArgDecl.TypeArgDecl" ∧ LENGTH args = 3);
+    nam <- sexp_ident (EL 0 args);
+    bounds <- opt_mmap_sexp_list sexp_typeArgBound (EL 1 args);
+    info <- sexp_typeParameterInfo (EL 2 args);
+    return (TypeArgDecl nam bounds info)
+  od
+End
+
 Definition sexp_newtypeType_def:
   sexp_newtypeType se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "DatatypeType.DatatypeType" ∧ LENGTH args = 3);
+    assert (ss = "NewtypeType.NewtypeType" ∧ LENGTH args = 3);
     baseT <- sexp_type (EL 0 args);
     rang <- sexp_newtypeRange (EL 1 args);
     erase <- sxsym_to_bool (EL 2 args);
@@ -570,9 +676,10 @@ Definition sexp_callSignature_def:
   sexp_callSignature se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "CallSignature.CallSignature" ∧ LENGTH args = 1);
+    assert (ss = "CallSignature.CallSignature" ∧ LENGTH args = 2);
     params <- opt_mmap_sexp_list sexp_formal (EL 0 args);
-    return (CallSignature params)
+    inheritedP <- opt_mmap_sexp_list sexp_formal (EL 1 args);
+    return (CallSignature params inheritedP)
   od
 End
 
@@ -605,6 +712,21 @@ Definition sexp_callName_def:
   od
 End
 
+Definition sexp_fieldMutability_def:
+  sexp_fieldMutability se =
+  do
+    (ss, args) <- dstrip_sexp se;
+    assert (LENGTH args = 0);
+    if (ss = "FieldMutability.ConstantField") then
+      return ConstantField
+    else if (ss = "FieldMutability.InternalClassConstantFieldOrDatatypeDestructor") then
+      return InternalClassConstantFieldOrDatatypeDestructor
+    else if (ss = "FieldMutability.ClassMutableField") then
+      return ClassMutableField
+    else fail
+  od
+End
+
 (* TODO Move sexp_statement to the first position in sexp_statement_def
  *
  * I have the suspicion that the name for the induction in the translator is
@@ -621,11 +743,12 @@ Definition sexp_statement_def:
          id <- sexp_varName (EL 0 args);
          return (AssignLhs_Ident id)
        od
-     else if (ss = "AssignLhs.Select" ∧ LENGTH args = 2) then
+     else if (ss = "AssignLhs.Select" ∧ LENGTH args = 3) then
        do
          expr <- sexp_expression (EL 0 args);
          field <- sexp_varName (EL 1 args);
-         return (AssignLhs_Select expr field)
+         isCnst <- sxsym_to_bool (EL 2 args);
+         return (AssignLhs_Select expr field isCnst)
        od
      else if (ss = "AssignLhs.Index" ∧ LENGTH args = 2) then
        do
@@ -636,6 +759,28 @@ Definition sexp_statement_def:
        od
      else fail
    od)
+  ∧
+  (sexp_field se =
+   do
+     (ss, args) <- dstrip_sexp se;
+     assert (ss = "Field.Field" ∧ LENGTH args = 4);
+     f <- sexp_formal (EL 0 args);
+     isCnst <- sxsym_to_bool (EL 1 args);
+     opt <- sxsym_to_opt (EL 2 args);
+     expr <<- monad_bind opt sexp_expression;
+     isStatic <- sxsym_to_bool (EL 3 args);
+     return (Field f isCnst expr isStatic)
+   od)
+  ∧
+  (map_sexp_field ses =
+   case ses of
+   | [] => return []
+   | (se::rest) =>
+       do
+         fse <- sexp_field se;
+         frest <- map_sexp_field rest;
+         return (fse::frest)
+       od)
   ∧
   (sexp_expression se =
    do
@@ -735,11 +880,13 @@ Definition sexp_statement_def:
          exprs <- map_sexp_expression arg0_list;
          return (MultisetValue exprs)
        od
-     else if (ss = "Expression.MapValue" ∧ LENGTH args = 1) then
+     else if (ss = "Expression.MapValue" ∧ LENGTH args = 3) then
        do
          arg0_list <- strip_sxcons (EL 0 args);
          e_tuples <- map_sexp_expression_sexp_expression_tuple arg0_list;
-         return (MapValue e_tuples)
+         domainT <- sexp_type (EL 1 args);
+         rangeT <- sexp_type (EL 2 args);
+         return (MapValue e_tuples domainT rangeT)
        od
      else if (ss = "Expression.MapBuilder" ∧ LENGTH args = 2) then
        do
@@ -747,19 +894,23 @@ Definition sexp_statement_def:
          valTyp <- sexp_type (EL 1 args);
          return (Expression_MapBuilder keyTyp valTyp)
        od
-     else if (ss = "Expression.SeqUpdate" ∧ LENGTH args = 3) then
+     else if (ss = "Expression.SeqUpdate" ∧ LENGTH args = 5) then
        do
          expr <- sexp_expression (EL 0 args);
          indexExpr <- sexp_expression (EL 1 args);
          v <- sexp_expression (EL 2 args);
-         return (SeqUpdate expr indexExpr v)
+         collT <- sexp_type (EL 3 args);
+         exprT <- sexp_type (EL 4 args);
+         return (SeqUpdate expr indexExpr v collT exprT)
        od
-     else if (ss = "Expression.MapUpdate" ∧ LENGTH args = 3) then
+     else if (ss = "Expression.MapUpdate" ∧ LENGTH args = 5) then
        do
          expr <- sexp_expression (EL 0 args);
          indexExpr <- sexp_expression (EL 1 args);
          v <- sexp_expression (EL 2 args);
-         return (MapUpdate expr indexExpr v)
+         collT <- sexp_type (EL 3 args);
+         exprT <- sexp_type (EL 4 args);
+         return (MapUpdate expr indexExpr v collT exprT)
        od
      else if (ss = "Expression.SetBuilder" ∧ LENGTH args = 1) then
        do
@@ -788,7 +939,7 @@ Definition sexp_statement_def:
        od
      else if (ss = "Expression.BinOp" ∧ LENGTH args = 3) then
        do
-         op <- sexp_binOp (EL 0 args);
+         op <- sexp_typedBinOp (EL 0 args);
          left <- sexp_expression (EL 1 args);
          right <- sexp_expression (EL 2 args);
          return (BinOp op left right)
@@ -820,10 +971,10 @@ Definition sexp_statement_def:
        do
          expr <- sexp_expression (EL 0 args);
          field <- sexp_varName (EL 1 args);
-         isConstant <- sxsym_to_bool (EL 2 args);
-         onDatatype <- sxsym_to_bool (EL 3 args);
+         fieldMut <- sexp_fieldMutability (EL 2 args);
+         selCon <- sexp_selectContext (EL 3 args);
          fieldTyp <- sexp_type (EL 4 args);
-         return (Select expr field isConstant onDatatype fieldTyp)
+         return (Select expr field fieldMut selCon fieldTyp)
        od
      else if (ss = "Expression.SelectFn" ∧ LENGTH args = 6) then
        do
@@ -833,7 +984,7 @@ Definition sexp_statement_def:
          isStatic <- sxsym_to_bool (EL 3 args);
          isConstant <- sxsym_to_bool (EL 4 args);
          arguments <- opt_mmap_sexp_list sexp_type (EL 5 args);
-         return (SelectFn expr field onDatatype isStatic isStatic arguments)
+         return (SelectFn expr field onDatatype isStatic isConstant arguments)
        od
      else if (ss = "Expression.Index" ∧ LENGTH args = 3) then
        do
@@ -936,6 +1087,12 @@ Definition sexp_statement_def:
          of_expr <- sexp_expression (EL 0 args);
          includeDuplicates <- sxsym_to_bool (EL 1 args);
          return (SeqBoundedPool of_expr includeDuplicates)
+       od
+     else if (ss = "Expression.MultisetBoundedPool" ∧ LENGTH args = 2) then
+       do
+         of_expr <- sexp_expression (EL 0 args);
+         includeDuplicates <- sxsym_to_bool (EL 1 args);
+         return (MultisetBoundedPool of_expr includeDuplicates)
        od
      else if (ss = "Expression.ExactBoundedPool" ∧ LENGTH args = 1) then
        do
@@ -1110,8 +1267,9 @@ Definition sexp_statement_def:
        od
      else if (ss = "Statement.ConstructorNewSeparator" ∧ LENGTH args = 1) then
        do
-         expr <- opt_mmap_sexp_list sexp_formal (EL 0 args);
-         return (ConstructorNewSeparator expr)
+         arg0_list <- strip_sxcons (EL 0 args);
+         fields <- map_sexp_field arg0_list;
+         return (ConstructorNewSeparator fields)
        od
      else fail
    od
@@ -1147,36 +1305,26 @@ Definition sexp_method_def:
   sexp_method se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "Method.Method" ∧ LENGTH args = 12);
-    attrs <- opt_mmap_sexp_list sexp_attribute (EL 0 args);
-    isStatic <- sxsym_to_bool (EL 1 args);
-    hasBody <- sxsym_to_bool (EL 2 args);
-    outVarsAreUninitFieldsToAssign <- sxsym_to_bool (EL 3 args);
-    wasFunction <- sxsym_to_bool (EL 4 args);
-    opt <- sxsym_to_opt (EL 5 args);
+    assert (ss = "Method.Method" ∧ LENGTH args = 14);
+    (* Skip docString at first position *)
+    attrs <- opt_mmap_sexp_list sexp_attribute (EL 1 args);
+    isStatic <- sxsym_to_bool (EL 2 args);
+    hasBody <- sxsym_to_bool (EL 3 args);
+    outVarsAreUninitFieldsToAssign <- sxsym_to_bool (EL 4 args);
+    wasFunction <- sxsym_to_bool (EL 5 args);
+    opt <- sxsym_to_opt (EL 6 args);
     overridingPath <<- monad_bind opt (opt_mmap_sexp_list sexp_ident);
-    n <- sexp_name (EL 6 args);
-    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 7 args);
-    params <- opt_mmap_sexp_list sexp_formal (EL 8 args);
-    body <- opt_mmap_sexp_list sexp_statement (EL 9 args);
-    outTypes <- opt_mmap_sexp_list sexp_type (EL 10 args);
-    opt <- sxsym_to_opt (EL 11 args);
+    n <- sexp_name (EL 7 args);
+    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 8 args);
+    params <- opt_mmap_sexp_list sexp_formal (EL 9 args);
+    inheritedParams <- opt_mmap_sexp_list sexp_formal (EL 10 args);
+    body <- opt_mmap_sexp_list sexp_statement (EL 11 args);
+    outTypes <- opt_mmap_sexp_list sexp_type (EL 12 args);
+    opt <- sxsym_to_opt (EL 13 args);
     outVars <<- monad_bind opt (opt_mmap_sexp_list sexp_varName);
     return (Method attrs isStatic hasBody outVarsAreUninitFieldsToAssign
-                   wasFunction overridingPath n typeParams params body
-                   outTypes outVars)
-  od
-End
-
-Definition sexp_field_def:
-  sexp_field se =
-  do
-    (ss, args) <- dstrip_sexp se;
-    assert (ss = "Field.Field" ∧ LENGTH args = 2);
-    f <- sexp_formal (EL 0 args);
-    opt <- sxsym_to_opt (EL 1 args);
-    expr <<- monad_bind opt sexp_expression;
-    return (Field f expr)
+                   wasFunction overridingPath n typeParams params
+                   inheritedParams body outTypes outVars)
   od
 End
 
@@ -1194,13 +1342,16 @@ Definition sexp_trait_def:
   sexp_trait se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "Trait.Trait" ∧ LENGTH args = 5);
+    assert (ss = "Trait.Trait" ∧ LENGTH args = 8);
     nam <- sexp_name (EL 0 args);
-    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 1 args);
-    parents <- opt_mmap_sexp_list sexp_type (EL 2 args);
-    body <- opt_mmap_sexp_list sexp_classItem (EL 3 args);
-    attrs <- opt_mmap_sexp_list sexp_attribute (EL 4 args);
-    return (Trait nam typeParams parents body attrs)
+    (* Skip docString at second position *)
+    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 2 args);
+    traitT <- sexp_traitType (EL 3 args);
+    parents <- opt_mmap_sexp_list sexp_type (EL 4 args);
+    dwncstTrt <- opt_mmap_sexp_list sexp_type (EL 5 args);
+    body <- opt_mmap_sexp_list sexp_classItem (EL 6 args);
+    attrs <- opt_mmap_sexp_list sexp_attribute (EL 7 args);
+    return (Trait nam typeParams traitT parents dwncstTrt body attrs)
   od
 End
 
@@ -1208,14 +1359,15 @@ Definition sexp_class_def:
   sexp_class se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "Class.Class" ∧ LENGTH args = 7);
+    assert (ss = "Class.Class" ∧ LENGTH args = 8);
     n <- sexp_name (EL 0 args);
-    enclosingModule <- sexp_ident (EL 1 args);
-    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 2 args);
-    superClasses <- opt_mmap_sexp_list sexp_type (EL 3 args);
-    fields <- opt_mmap_sexp_list sexp_field (EL 4 args);
-    body <- opt_mmap_sexp_list sexp_classItem (EL 5 args);
-    attrs <- opt_mmap_sexp_list sexp_attribute (EL 6 args);
+    (* Skip docString at second position *)
+    enclosingModule <- sexp_ident (EL 2 args);
+    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 3 args);
+    superClasses <- opt_mmap_sexp_list sexp_type (EL 4 args);
+    fields <- opt_mmap_sexp_list sexp_field (EL 5 args);
+    body <- opt_mmap_sexp_list sexp_classItem (EL 6 args);
+    attrs <- opt_mmap_sexp_list sexp_attribute (EL 7 args);
     return (Class n enclosingModule typeParams superClasses fields body attrs)
   od
 End
@@ -1226,8 +1378,8 @@ Definition sexp_newtypeConstraint_def:
     (ss, args) <- dstrip_sexp se;
     assert (ss = "NewtypeConstraint.NewtypeConstraint" ∧ LENGTH args = 2);
     vrbl <- sexp_formal (EL 0 args);
-    attrs <- opt_mmap_sexp_list sexp_statement (EL 1 args);
-    return (NewtypeConstraint vrbl attrs)
+    constraintStmts <- opt_mmap_sexp_list sexp_statement (EL 1 args);
+    return (NewtypeConstraint vrbl constraintStmts)
   od
 End
 
@@ -1235,19 +1387,22 @@ Definition sexp_newtype_def:
   sexp_newtype se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "Newtype.Newtype" ∧ LENGTH args = 8);
+    assert (ss = "Newtype.Newtype" ∧ LENGTH args = 11);
     n <- sexp_name (EL 0 args);
-    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 1 args);
-    base <- sexp_type (EL 2 args);
-    rnge <- sexp_newtypeRange (EL 3 args);
-    opt <- sxsym_to_opt (EL 4 args);
+    (* Skip docString at second position *)
+    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 2 args);
+    base <- sexp_type (EL 3 args);
+    rnge <- sexp_newtypeRange (EL 4 args);
+    opt <- sxsym_to_opt (EL 5 args);
     cnstrnt <<- monad_bind opt sexp_newtypeConstraint;
-    witnessStmts <- opt_mmap_sexp_list sexp_statement (EL 5 args);
-    opt <- sxsym_to_opt (EL 6 args);
+    witnessStmts <- opt_mmap_sexp_list sexp_statement (EL 6 args);
+    opt <- sxsym_to_opt (EL 7 args);
     witnessExpr <<- monad_bind opt sexp_expression;
-    attrs <- opt_mmap_sexp_list sexp_attribute (EL 7 args);
+    eqSup <- sexp_equalitySupport (EL 8 args);
+    attrs <- opt_mmap_sexp_list sexp_attribute (EL 9 args);
+    clsItms <- opt_mmap_sexp_list sexp_classItem (EL 10 args);
     return (Newtype n typeParams base rnge cnstrnt
-                    witnessStmts witnessExpr attrs)
+                    witnessStmts witnessExpr eqSup attrs clsItms)
   od
 End
 
@@ -1267,11 +1422,12 @@ Definition sexp_datatypeCtor_def:
   sexp_datatypeCtor se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "DatatypeCtor.DatatypeCtor" ∧ LENGTH args = 3);
+    assert (ss = "DatatypeCtor.DatatypeCtor" ∧ LENGTH args = 4);
     n <- sexp_name (EL 0 args);
-    ctor_args <- opt_mmap_sexp_list sexp_datatypeDtor (EL 1 args);
-    hasAnyArgs <- sxsym_to_bool (EL 2 args);
-    return (DatatypeCtor n ctor_args hasAnyArgs)
+    (* Skip docString at second position *)
+    dtor_args <- opt_mmap_sexp_list sexp_datatypeDtor (EL 2 args);
+    hasAnyArgs <- sxsym_to_bool (EL 3 args);
+    return (DatatypeCtor n dtor_args hasAnyArgs)
   od
 End
 
@@ -1279,15 +1435,20 @@ Definition sexp_datatype_def:
   sexp_datatype se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "Datatype.Datatype" ∧ LENGTH args = 7);
+    assert (ss = "Datatype.Datatype" ∧ LENGTH args = 11);
     n <- sexp_name (EL 0 args);
-    enclosingModule <- sexp_ident (EL 1 args);
-    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 2 args);
-    ctors <- opt_mmap_sexp_list sexp_datatypeCtor (EL 3 args);
-    body <- opt_mmap_sexp_list sexp_classItem (EL 4 args);
-    isCo <- sxsym_to_bool (EL 5 args);
-    attr <- opt_mmap_sexp_list sexp_attribute (EL 6 args);
-    return (Datatype n enclosingModule typeParams ctors body isCo attr)
+    (* Skip docString at second position *)
+    enclosingModule <- sexp_ident (EL 2 args);
+    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 3 args);
+    ctors <- opt_mmap_sexp_list sexp_datatypeCtor (EL 4 args);
+    body <- opt_mmap_sexp_list sexp_classItem (EL 5 args);
+    isCo <- sxsym_to_bool (EL 6 args);
+    eqSup <- sexp_equalitySupport (EL 7 args);
+    attr <- opt_mmap_sexp_list sexp_attribute (EL 8 args);
+    superTraitT <- opt_mmap_sexp_list sexp_type (EL 9 args);
+    superTraitNegT <- opt_mmap_sexp_list sexp_type (EL 10 args);
+    return (Datatype n enclosingModule typeParams ctors body isCo eqSup attr
+                     superTraitT superTraitNegT)
   od
 End
 
@@ -1295,14 +1456,15 @@ Definition sexp_synonymType_def:
   sexp_synonymType se =
   do
     (ss, args) <- dstrip_sexp se;
-    assert (ss = "SynonymType.SynonymType" ∧ LENGTH args = 6);
+    assert (ss = "SynonymType.SynonymType" ∧ LENGTH args = 7);
     nam <- sexp_name (EL 0 args);
-    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 1 args);
-    base <- sexp_type (EL 2 args);
-    witnessStmts <- opt_mmap_sexp_list sexp_statement (EL 3 args);
-    opt <- sxsym_to_opt (EL 4 args);
+    (* Skip docString at second position *)
+    typeParams <- opt_mmap_sexp_list sexp_typeArgDecl (EL 2 args);
+    base <- sexp_type (EL 3 args);
+    witnessStmts <- opt_mmap_sexp_list sexp_statement (EL 4 args);
+    opt <- sxsym_to_opt (EL 5 args);
     witnessExpr <<- monad_bind opt sexp_expression;
-    attrs <- opt_mmap_sexp_list sexp_attribute (EL 5 args);
+    attrs <- opt_mmap_sexp_list sexp_attribute (EL 6 args);
     return (SynonymType nam typeParams base witnessStmts witnessExpr attrs)
   od
 End
@@ -1312,11 +1474,12 @@ Definition sexp_module_def:
   (sexp_module se =
    do
      (ss, args) <- dstrip_sexp se;
-     assert (ss = "Module.Module" ∧ LENGTH args = 4);
+     assert (ss = "Module.Module" ∧ LENGTH args = 5);
      n <- sexp_name (EL 0 args);
-     attrs <- opt_mmap_sexp_list sexp_attribute (EL 1 args);
-     requiresExtern <- sxsym_to_bool (EL 2 args);
-     opt <- sxsym_to_opt (EL 3 args);
+     (* Skip docString at second position *)
+     attrs <- opt_mmap_sexp_list sexp_attribute (EL 2 args);
+     requiresExtern <- sxsym_to_bool (EL 3 args);
+     opt <- sxsym_to_opt (EL 4 args);
      body <- map_opt_sexp_moduleItem opt;
      return (Module n attrs requiresExtern body)
    od
@@ -1383,16 +1546,16 @@ Termination
                             | INR (INL se) => sexp_size se
                             | INR (INR (INL ses)) => list_size sexp_size ses
                             | INR (INR (INR se_opt)) => option_size sexp_size se_opt’ \\ rw[]
-  \\ gvs[LENGTH_EQ_NUM_compute, oneline dstrip_sexp_def, sexp_size_def,
-         AllCaseEqs(), oneline strip_sxcons_def, sexp_size_eq,
-         oneline sxsym_to_opt_def, option_size_def]
+  \\ gvs[LENGTH_EQ_NUM_compute, oneline dstrip_sexp_def,
+         AllCaseEqs(), oneline strip_sxcons_def,
+         oneline sxsym_to_opt_def]
 End
 
 Definition sexp_program_def:
   (sexp_program se =
    do
      (ss, args) <- dstrip_sexp se;
-     assert (ss = "Program");
+     assert (ss = "Program" ∧ LENGTH args = 1);
      opt_mmap_sexp_list sexp_module (EL 0 args)
    od
   )

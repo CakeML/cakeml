@@ -2303,10 +2303,9 @@ Triviality first_dup_thm:
   ∀ls acc. (first_dup ls acc = NONE) ⇒ ALL_DISTINCT ls ∧ (∀x. MEM x ls ⇒ ¬MEM x acc)
 Proof
   Induct >> simp[Once first_dup_def] >>
-  rpt gen_tac >>
-  BasicProvers.CASE_TAC >>
-  strip_tac >> res_tac >>
-  fs[MEM] >> METIS_TAC[]
+  rpt (gen_tac ORELSE disch_then strip_assume_tac) >>
+  first_x_assum drule >>
+  fs[DISJ_IMP_THM,IMP_CONJ_THM,FORALL_AND_THM]
 QED
 
 Triviality first_dup_SOME:

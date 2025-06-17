@@ -57,23 +57,10 @@ End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
-
-Theorem MEM_IMP_v_size:
-   !xs a. MEM a xs ==> (v_size l a < 1 + v1_size l xs)
-Proof
-  Induct >> fs [] >>
-  rpt strip_tac >> rw [fetch "-" "v_size_def"] >>
-  res_tac >> decide_tac
-QED
-
-
 Definition shape_of_def:
   shape_of (ValWord _) = One /\
   shape_of (ValLabel _) = One /\
   shape_of (Struct vs) = Comb (MAP shape_of vs)
-Termination
-  wf_rel_tac `measure (\v. v_size ARB v)` >>
-  fs [MEM_IMP_v_size]
 End
 
 Definition mem_load_byte_def:
@@ -83,6 +70,31 @@ Definition mem_load_byte_def:
     | Word v =>
        if byte_align w IN dm
        then SOME (get_byte w v be) else NONE
+End
+
+Definition mem_load_32_def:
+  (* returns 32 word, first or second half of w if a = 64 *)
+  mem_load_32 m dm be (w:'a word) =
+  if aligned 2 w
+  then
+    case m (byte_align w) of
+    | Label _ => NONE
+    | Word v =>
+        if byte_align w IN dm
+        then
+          let b0 = get_byte w v be in
+          let b1 = get_byte (w + 1w) v be in
+          let b2 = get_byte (w + 2w) v be in
+          let b3 = get_byte (w + 3w) v be in
+          let v' =
+              (if be
+               then
+                 (w2w b0) ≪ 24 ‖ (w2w b1) ≪ 16 ‖ (w2w b2) ≪ 8 ‖ (w2w b3)
+               else
+                 (w2w b0) ‖ (w2w b1) ≪ 8 ‖ (w2w b2) ≪ 16 ‖ (w2w b3) ≪ 24)
+          in SOME (v': word32)
+        else NONE
+  else NONE
 End
 
 Definition mem_load_def:
@@ -108,11 +120,6 @@ Termination
                             | T => list_size shape_size (FST (OUTR x))
                             | F => shape_size (FST (OUTL x)))’ >>
   rw []
-  >- (
-   qid_spec_tac ‘shapes’ >>
-   Induct >> rw [] >> fs [list_size_def, shape_size_def]) >>
-  fs [list_size_def, shape_size_def] >>
-  fs [list_size_def, shape_size_def]
 End
 
 Definition pan_op_def:
@@ -145,6 +152,13 @@ Definition eval_def:
     case eval s addr of
      | SOME (ValWord w) => mem_load shape w s.memaddrs s.memory
      | _ => NONE) /\
+  (eval s (Load32 addr) =
+    case eval s addr of
+     | SOME (ValWord w) =>
+        (case mem_load_32 s.memory s.memaddrs s.be w of
+           | NONE => NONE
+           | SOME w => SOME (ValWord (w2w w)))
+        | _ => NONE) /\
   (eval s (LoadByte addr) =
     case eval s addr of
      | SOME (ValWord w) =>
@@ -186,7 +200,6 @@ Termination
   \\ decide_tac
 End
 
-
 (* TODISC: why NONE is returned here on write failure *)
 Definition mem_store_byte_def:
   mem_store_byte m dm be w b =
@@ -217,6 +230,33 @@ Definition write_bytearray_def:
 End
 *)
 
+Definition mem_store_32_def:
+  (* takes a 32 word *)
+  mem_store_32 m dm be (w:'a word) (hw:word32) =
+  if aligned 2 w
+  then
+    case m (byte_align w) of
+    | Word v =>
+        if byte_align w IN dm
+        then
+          if be
+          then
+            let v0 = set_byte w (w2w (hw ⋙  24)) v be in
+            let v1 = set_byte (w + 1w) (w2w (hw ⋙  16)) v0 be in
+            let v2 = set_byte (w + 2w) (w2w (hw ⋙  8)) v1 be in
+            let v3 = set_byte (w + 3w) (w2w hw) v2 be in
+              SOME ((byte_align w =+ Word v3) m)
+          else
+            let v0 = set_byte w (w2w hw) v be in
+            let v1 = set_byte (w + 1w) (w2w (hw ⋙  8)) v0 be in
+            let v2 = set_byte (w + 2w) (w2w (hw ⋙  16)) v1 be in
+            let v3 = set_byte (w + 3w) (w2w (hw ⋙  24)) v2 be in
+              SOME ((byte_align w =+ Word v3) m)
+        else NONE
+    | Label _ => NONE
+  else NONE
+End
+
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_lab) dm m =
     if addr IN dm then
@@ -235,9 +275,6 @@ End
 Definition flatten_def:
   (flatten (Val w) = [w]) ∧
   (flatten (Struct vs) = FLAT (MAP flatten vs))
-Termination
-  wf_rel_tac `measure (\v. v_size ARB v)` >>
-  fs [MEM_IMP_v_size]
 End
 
 Definition set_var_def:
@@ -361,6 +398,13 @@ Definition evaluate_def:
        (case mem_stores addr (flatten value) s.memaddrs s.memory of
          | SOME m => (NONE, s with memory := m)
          | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (Store32 dst src,s) =
+    case (eval s dst, eval s src) of
+     | (SOME (ValWord adr), SOME (ValWord w)) =>
+        (case mem_store_32 s.memory s.memaddrs s.be adr (w2w w) of
+          | SOME m => (NONE, s with memory := m)
+          | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (StoreByte dst src,s) =
     case (eval s dst, eval s src) of

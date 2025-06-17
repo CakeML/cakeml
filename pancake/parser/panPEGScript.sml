@@ -15,14 +15,14 @@ val _ = new_theory "panPEG";
 
 Datatype:
   pancakeNT = FunListNT | FunNT | ProgNT | BlockNT | StmtNT | ExpNT
-            | DecNT | AssignNT | StoreNT | StoreByteNT
+            | DecNT | AssignNT | StoreNT | StoreByteNT | Store32NT
             | IfNT | WhileNT | CallNT | RetNT | HandleNT
             | ExtCallNT | RaiseNT | ReturnNT
             | DecCallNT | RetCallNT
             | ArgListNT | NotNT
             | ParamListNT
             | EBoolAndNT | EEqNT | ECmpNT
-            | ELoadNT | ELoadByteNT
+            | ELoadNT | ELoadByteNT | ELoad32NT
             | EXorNT | EOrNT | EAndNT
             | EShiftNT | EAddNT | EMulNT
             | EBaseNT
@@ -167,6 +167,7 @@ Definition pancake_peg_def[nocompute]:
                               mknt CallNT;
                               mknt AssignNT; mknt StoreNT;
                               mknt StoreByteNT;
+                              mknt Store32NT;
                               mknt SharedLoadByteNT;
                               mknt SharedLoad32NT;
                               mknt SharedLoadNT;
@@ -197,6 +198,9 @@ Definition pancake_peg_def[nocompute]:
         (INL StoreByteNT, seql [consume_kw St8K; mknt ExpNT;
                                 consume_tok CommaT; mknt ExpNT]
                                (mksubtree StoreByteNT));
+        (INL Store32NT, seql [consume_kw St32K; mknt ExpNT;
+                                consume_tok CommaT; mknt ExpNT]
+                               (mksubtree Store32NT));
         (INL IfNT, seql [consume_kw IfK; mknt ExpNT; consume_tok LCurT;
                          mknt ProgNT;
                          try (seql [keep_kw ElseK; consume_tok LCurT;
@@ -257,8 +261,11 @@ Definition pancake_peg_def[nocompute]:
         (INL ELoadNT, choicel [seql [consume_kw LdsK; mknt ShapeNT; mknt ELoadByteNT]
                                 (mksubtree ELoadNT);
                                mknt ELoadByteNT]);
-        (INL ELoadByteNT, choicel [seql [consume_kw Ld8K; mknt EOrNT]
+        (INL ELoadByteNT, choicel [seql [consume_kw Ld8K; mknt ELoad32NT]
                                     (mksubtree ELoadByteNT);
+                                   mknt ELoad32NT]);
+        (INL ELoad32NT, choicel [seql [consume_kw Ld32K; mknt EOrNT]
+                                    (mksubtree ELoad32NT);
                                    mknt EOrNT]);
         (INL EOrNT, seql [mknt EXorNT;
                           rpt (seql [keep_tok OrT; mknt EXorNT] I)
@@ -646,11 +653,11 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
                 “EqOpsNT”, “ShapeNT”,
                 “ShapeCombNT”, “NotNT”, “LabelNT”, “FLabelNT”, “StructNT”,
                 “EBaseNT”, “EMulNT”, “EAddNT”, “EShiftNT”, “EAndNT”, “EXorNT”, “EOrNT”,
-                “ELoadByteNT”, “ELoadNT”, “ECmpNT”, “EEqNT”, “EBoolAndNT”,
+                “ELoad32NT”, “ELoadByteNT”, “ELoadNT”, “ECmpNT”, “EEqNT”, “EBoolAndNT”,
                 “ExpNT”, “ArgListNT”, “ReturnNT”,
                 “RaiseNT”, “ExtCallNT”,
                 “HandleNT”, “RetNT”, “RetCallNT”, “CallNT”,
-                “WhileNT”, “IfNT”, “StoreByteNT”,
+                “WhileNT”, “IfNT”, “StoreByteNT”, “Store32NT”,
                 “StoreNT”, “AssignNT”,
                 “SharedLoadByteNT”, “SharedLoad32NT”, “SharedLoadNT”,
                 “SharedStoreByteNT”, “SharedStore32NT”, “SharedStoreNT”, “DecNT”,

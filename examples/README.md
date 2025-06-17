@@ -60,9 +60,6 @@ An LPR checker built on CakeML
 [md5ProgScript.sml](md5ProgScript.sml):
 Translate md5 function
 
-[md5Script.sml](md5Script.sml):
-Functional definition of md5 hash based on HOL/src/portableML/poly/MD5.sml
-
 [opentheory](opentheory):
 Implementation of an OpenTheory reader based on the Candle kernel.
 
@@ -84,6 +81,9 @@ The CakeML REPL
 
 [sat_encodings](sat_encodings):
 Encodings of puzzles to CNF, to use as SAT-solver input.
+
+[scpog_checker](scpog_checker):
+A checker for SCPOG format in CakeML
 
 [sortProgScript.sml](sortProgScript.sml):
 Program to sort the lines in a file, built on top of the quick sort example.

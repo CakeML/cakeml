@@ -15,11 +15,11 @@ Type program = “:module list”
 
 (* TODO? Move to dafny_ast *)
 Definition method_name_def:
-  method_name (Method _ _ _ _ _ _ nam _ _ _ _ _) = nam
+  method_name (Method _ _ _ _ _ _ nam _ _ _ _ _ _) = nam
 End
 
 Definition method_body_def:
-  method_body (Method _ _ _ _ _ _ _ _ _ body _ _) = body
+  method_body (Method _ _ _ _ _ _ _ _ _ _ body _ _) = body
 End
 
 Definition dest_classitem_def:
@@ -53,12 +53,12 @@ Definition dest_simple_module_def:
   dest_simple_module _ = fail "dest_simple_module: Not a simple module"
 End
 
-(* Simple call = calling a method without arguments or return value *)
+(* Simple call = calling a method without arguments, return value, or inheritance *)
 Definition dest_simple_call_def:
   dest_simple_call c =
   case c of
   | Call (Companion (Ident mod_nam::rest) [])
-         (CallName method_nam NONE NONE F (CallSignature []))
+         (CallName method_nam NONE NONE F (CallSignature [] []))
          [] [] NONE =>
       if rest ≠ [] ∧ rest ≠ [Ident (Name "__default")] then
         fail "dest_simple_call: not a simple call"
@@ -72,11 +72,11 @@ Definition is_simple_method_def:
   let (_, isStatic, hasBody,
        outVarsAreUninitFieldsToAssign,
        wasFunction, overridingPath, _,
-       typeParams, params, _, outTypes, outVars) = dest_Method m in
+       typeParams, params, inheritedParams, _, outTypes, outVars) = dest_Method m in
     isStatic ∧ hasBody ∧
     ¬outVarsAreUninitFieldsToAssign ∧ ¬wasFunction ∧
     overridingPath = NONE ∧ typeParams = [] ∧
-    params = [] ∧ outTypes = [] ∧ outVars = SOME []
+    params = [] ∧ inheritedParams = [] ∧ outTypes = [] ∧ outVars = SOME []
 End
 
 (* Find main function in environment *)
@@ -95,7 +95,7 @@ Definition main_call_def:
         do
           (* Derived by looking at how a function like Main is called *)
           on <<- Companion [Ident mod_nam] [];
-          callName <<- CallName method_nam NONE NONE F (CallSignature []);
+          callName <<- CallName method_nam NONE NONE F (CallSignature [] []);
           return (Call on callName [] [] NONE)
         od
     | _ =>
@@ -172,25 +172,24 @@ Definition do_lop_def:
   else NONE
 End
 
-(* TODO Is this good style of pattern matching? Maybe (el, er) would be better?
- *)
+(* TODO Is this good style of pattern matching? Maybe (el, er) would be better? *)
 Definition do_bop_def:
   do_bop Lt el er =
   (case el of
    | IntV vl => (case er of IntV vr => SOME (BoolV (vl < vr)) | _ => NONE)
    | _ => NONE)
   ∧
-  do_bop Plus el er =
+  do_bop (Plus F) el er =
   (case el of
    | IntV vl => (case er of IntV vr => SOME (IntV (vl + vr)) | _ => NONE)
    | _ => NONE)
   ∧
-  do_bop Minus el er =
+  do_bop (Minus F) el er =
   (case el of
    | IntV vl => (case er of IntV vr => SOME (IntV (vl - vr)) | _ => NONE)
    | _ => NONE)
   ∧
-  do_bop Times el er =
+  do_bop (Times F) el er =
   (case el of
    | IntV vl => (case er of IntV vr => SOME (IntV (vl * vr)) | _ => NONE)
    | _ => NONE)
@@ -219,7 +218,7 @@ Definition evaluate_exp_def:
    | NONE => (st, Rerr Runsupported)  (* TODO Could also be Rtype_error *)
    | SOME v => (st, Rval v))
   ∧
-  evaluate_exp st env (BinOp bop el er) =
+  evaluate_exp st env (BinOp (TypedBinOp bop _ _ _) el er) =
   (case evaluate_exp st env el of
    | (st', Rval vl) =>
        if is_lop bop then
@@ -346,7 +345,7 @@ Termination
                        (s.clock, list_size statement_size stmts))’ >> rw[]
   >> imp_res_tac evaluate_exp_clock
   >> imp_res_tac fix_clock_IMP
-  >> gvs[dec_clock_def, AllCaseEqs(), assignLhs_size_eq]
+  >> gvs[dec_clock_def, AllCaseEqs()]
 End
 
 Theorem evaluate_stmt_clock:
