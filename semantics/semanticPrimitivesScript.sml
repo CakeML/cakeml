@@ -413,7 +413,6 @@ Datatype:
 End
 
 Definition do_eq_def:
-  do_eq (Litv (Float64 f1)) (Litv (Float64 f2)) = Eq_val (fp64_equal f1 f2) ∧
   do_eq (Litv l1) (Litv l2) =
     (if lit_same_type l1 l2 then Eq_val (l1 = l2) else Eq_type_error) ∧
   do_eq (Loc b1 l1) (Loc b2 l2) =
