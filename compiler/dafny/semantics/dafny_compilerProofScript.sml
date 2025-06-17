@@ -1412,7 +1412,7 @@ QED
 
 (* TODO Upstream? *)
 Triviality LIST_REL_nsLookup_nsAppend:
-  ∀names vals ns.
+  ∀names vals (ns: (string, string, v) namespace).
     ALL_DISTINCT names ∧
     LENGTH names = LENGTH vals ⇒
     LIST_REL
@@ -1422,6 +1422,44 @@ Triviality LIST_REL_nsLookup_nsAppend:
            (Short n) = SOME v) names vals
 Proof
   cheat
+QED
+
+(* TODO better way to write this? *)
+Triviality LIST_REL_nsLookup_nsAppend_REVERSE:
+  ∀names vals (ns: (string, string, v) namespace).
+    ALL_DISTINCT names ∧
+    LENGTH names = LENGTH vals ⇒
+    LIST_REL
+      (λn v.
+         nsLookup
+         (nsAppend (alist_to_ns (ZIP (REVERSE names, vals))) ns)
+         (Short n) = SOME v) names (REVERSE vals)
+Proof
+  rpt strip_tac
+  \\ qspecl_then [‘REVERSE names’, ‘vals’, ‘ns’] mp_tac
+       LIST_REL_nsLookup_nsAppend
+  \\ strip_tac \\ gvs []
+  \\ drule_all EVERY2_REVERSE
+  \\ pure_rewrite_tac [REVERSE_REVERSE]
+  \\ gvs []
+QED
+
+(* TODO better way to write this? *)
+Triviality LIST_REL_nsLookup_nsAppend_REVERSE1:
+  ∀names vals (ns: (string, string, v) namespace).
+    ALL_DISTINCT names ∧
+    LENGTH names = LENGTH vals ⇒
+    LIST_REL
+      (λn v.
+         nsLookup
+         (nsAppend (alist_to_ns (ZIP (names, REVERSE vals))) ns)
+         (Short n) = SOME v) names (REVERSE vals)
+Proof
+  rpt strip_tac
+  \\ qspecl_then [‘names’, ‘REVERSE vals’, ‘ns’] mp_tac
+       LIST_REL_nsLookup_nsAppend
+  \\ strip_tac \\ gvs []
+  \\ drule_all EVERY2_REVERSE
 QED
 
 Theorem correct_from_exp:
@@ -2711,7 +2749,7 @@ QED
 
 Triviality evaluate_cml_read_var:
   read_local s.locals var = SOME val ∧
-  state_rel m l s t env ∧
+  state_rel m l s (t: 'ffi cml_state) env ∧
   is_fresh var ⇒
   ∃val_cml.
     evaluate t env [cml_read_var (explode var)] =
@@ -2723,7 +2761,23 @@ Proof
   \\ gvs [evaluate_def, cml_read_var_def, do_app_def]
 QED
 
-(* TODO Any connection with state_rel_restore_locals? *)
+Triviality evaluate_map_cml_read_var:
+  ∀s vars vals m l t env.
+    OPT_MMAP (read_local s.locals) vars = SOME vals ∧
+    state_rel m l s (t: 'ffi cml_state) env ∧
+    EVERY (λv. is_fresh v) vars ⇒
+    ∃val_cmls.
+      evaluate t env (REVERSE (MAP (cml_read_var ∘ explode) vars)) =
+      (t, Rval val_cmls) ∧ LIST_REL (val_rel m) vals (REVERSE val_cmls)
+Proof
+  Induct_on ‘vars’ \\ gvs []
+  \\ rpt strip_tac
+  \\ drule_all read_local_some_imp \\ rpt strip_tac
+  \\ last_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
+  \\ gvs [evaluate_append, cml_read_var_def, evaluate_def, do_app_def]
+QED
+
+(* TODO Merge with state_rel_restore_locals *)
 Triviality state_rel_restore_locals1:
   state_rel m l s (t: 'ffi cml_state) env ∧
   state_rel m' l' s' (t': 'ffi cml_state) env' ∧
@@ -2739,6 +2793,38 @@ Proof
   \\ first_assum $ irule_at (Pos hd) \\ gvs []
 QED
 
+Triviality OPT_MMAP_SOME_LENGTH:
+  ∀f xs ys. OPT_MMAP f xs = SOME ys ⇒ LENGTH ys = LENGTH xs
+Proof
+  Induct_on ‘xs’ \\ gvs []
+  \\ rpt strip_tac \\ gvs []
+  \\ last_assum drule \\ gvs []
+QED
+
+Triviality GENLIST_lambda_MAP:
+  GENLIST (λx. f (g x)) len = MAP f (GENLIST (λx. g x) len)
+Proof
+  gvs [MAP_GENLIST, o_DEF]
+QED
+
+Triviality GENLIST_MAP_Pvar:
+  GENLIST (λn. Pvar (cml_tup_vname n)) len =
+  MAP Pvar (GENLIST (λn. cml_tup_vname n) len)
+Proof
+  gvs [GENLIST_lambda_MAP]
+QED
+
+Triviality evaluate_map_var_short:
+  ∀env vars vals t.
+    LIST_REL (λn v. nsLookup env.v (Short n) = SOME v) vars vals ⇒
+    evaluate (t: 'ffi cml_state) env (MAP (Var ∘ Short) vars) = (t, Rval vals)
+Proof
+  Induct_on ‘vars’ \\ Cases_on ‘vals’ \\ gvs []
+  \\ rpt strip_tac
+  \\ last_x_assum drule \\ gvs []
+  \\ simp [Once evaluate_cons]
+  \\ gvs [evaluate_def]
+QED
 
 Theorem correct_from_stmt:
   ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l base.
@@ -3253,6 +3339,7 @@ Proof
       \\ irule locals_rel_submap
       \\ first_assum $ irule_at (Pos hd) \\ gvs [])
     \\ Cases_on ‘LENGTH outs = 1’ \\ gvs []
+
     >- (* Assigning a single value (no tuple used) *)
      (gvs [LENGTH_EQ_1, Stuple_def, Pstuple_def]
       \\ gvs [par_assign_def, oneline bind_def, CaseEq "sum"]
@@ -3265,7 +3352,6 @@ Proof
       \\ gvs [pmatch_def, pat_bindings_def, Stuple_def, Pstuple_def,
               evaluate_def, can_pmatch_all_def]
       \\ qpat_assum ‘_ ⊑ _’ $ irule_at Any
-      (* Cannot irule for some reason :( *)
       \\ drule evaluate_assign_values \\ gvs []
       \\ disch_then $ qspec_then ‘[cml_tup_vname 0]’ mp_tac \\ gvs []
       \\ disch_then $
@@ -3297,11 +3383,78 @@ Proof
       \\ irule_at (Pos hd) store_preserve_all_weaken
       \\ ntac 2 (first_assum $ irule_at (Pos hd))
       \\ gvs [state_rel_def]
-      \\ cheat  (* locals_rel: Knocking out internal variables *))
+      \\ cheat  (* locals_rel with irrelevant addition to environment *))
     (* Assigning multiple values (uses a tuple) *)
     \\ DEP_REWRITE_TAC [Stuple_Tuple] \\ gvs []
+    \\ gvs [evaluate_def, do_con_check_def]
+    \\ drule_all evaluate_map_cml_read_var \\ rpt strip_tac \\ gvs [MAP_MAP_o]
+    \\ drule evaluate_add_to_clock \\ gvs []
+    \\ disch_then kall_tac
+    \\ gvs [build_conv_def]
+    \\ DEP_REWRITE_TAC [Pstuple_Tuple] \\ gvs []
+    \\ imp_res_tac OPT_MMAP_SOME_LENGTH \\ gvs []
+    \\ gvs [pmatch_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
+    \\ gvs [GENLIST_MAP_Pvar]
+    \\ DEP_REWRITE_TAC [pmatch_list_MAP_Pvar] \\ gvs []
+    \\ gvs [pat_bindings_def]
+    \\ DEP_REWRITE_TAC [ALL_DISTINCT_pats_bindings] \\ gvs []
+    \\ gvs [all_distinct_genlist_cml_tup_vname]
+    \\ gvs [par_assign_def, oneline bind_def, CaseEq "sum"]
+    \\ qmatch_goalsub_abbrev_tac ‘evaluate _ ass_env’
+    \\ DEP_REWRITE_TAC [Stuple_Tuple, Pstuple_Tuple] \\ gvs []
+    \\ gvs [evaluate_def, do_con_check_def]
+    \\ simp [Ntimes GENLIST_lambda_MAP 2, MAP_MAP_o]
+    \\ qspecl_then
+         [‘ass_env’,
+          ‘GENLIST (λn. cml_tup_vname n) (LENGTH outs)’,
+          ‘REVERSE val_cmls’]
+         mp_tac
+         evaluate_map_var_short
+    \\ impl_tac >-
+     (gvs [Abbr ‘ass_env’]
+      \\ irule LIST_REL_nsLookup_nsAppend_REVERSE
+      \\ gvs [all_distinct_genlist_cml_tup_vname])
+    \\ gvs [] \\ disch_then kall_tac
+    \\ gvs [build_conv_def, can_pmatch_all_def, pmatch_def]
+    \\ DEP_REWRITE_TAC [pmatch_list_MAP_Pvar] \\ gvs []
+    \\ gvs [pat_bindings_def]
+    \\ DEP_REWRITE_TAC [ALL_DISTINCT_pats_bindings] \\ gvs []
+    \\ gvs [all_distinct_genlist_cml_tup_vname]
 
-    \\ cheat)
+    \\ qmatch_goalsub_abbrev_tac ‘evaluate _ ass_env₁’
+    \\ drule evaluate_assign_values \\ gvs []
+    \\ disch_then drule \\ gvs []
+    \\ disch_then $ drule_at (Pos $ el 3) \\ gvs []
+    \\ disch_then $ qspecl_then [‘l’, ‘t₂’, ‘ass_env₁’, ‘base’] mp_tac \\ gvs []
+    \\ impl_tac >-
+     (rpt strip_tac
+      >- (* state_rel *)
+       (irule state_rel_restore_locals1 \\ gvs []
+        \\ first_assum $ irule_at (Pos hd) \\ gvs []
+        \\ qexists ‘t with clock := ck + t.clock’ \\ gvs []
+        \\ first_assum $ irule_at (Pos last) \\ gvs []
+        \\ gvs [state_rel_def]
+        \\ cheat (* locals_rel with irrelevant addition to environment *))
+      >- (* env_rel *)
+       (cheat  (* env_rel with irrelevant additions to environment *))
+      >- (* LIST_REL nsLookup *)
+       (gvs [Abbr ‘ass_env₁’]
+        \\ irule LIST_REL_nsLookup_nsAppend_REVERSE1
+        \\ gvs [all_distinct_genlist_cml_tup_vname])
+      >- (gvs [EVERY_GENLIST, cml_tup_vname_neq_arr])
+      >- (* base_at_most *)
+       (gvs [base_at_most_def, store_preserve_all_def, store_preserve_def]))
+    \\ disch_then $ qx_choosel_then [‘ck₂’, ‘t₃’] mp_tac
+    \\ rpt strip_tac \\ gvs []
+    \\ qexists ‘ck₂’ \\ gvs []
+    \\ first_assum $ irule_at (Pos last) \\ gvs []
+    \\ irule_at (Pos hd) store_preserve_trans
+    \\ irule_at (Pos hd) store_preserve_all_weaken
+    \\ ntac 2 (first_assum $ irule_at (Pos hd))
+    \\ gvs [state_rel_def]
+    \\ cheat (* locals_rel with irrelevant addition to environment *))
+
 
   (* Non-empty argument list *)
   \\ cheat
