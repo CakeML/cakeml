@@ -72,11 +72,40 @@ Definition cml_tup_vname_def:
   cml_tup_vname (idx : num) = explode (« » ^ (num_to_str idx))
 End
 
+(* S = "Smart" in the sense that it doesn't create singleton tuples. *)
+Definition Stuple_def:
+  Stuple [e] = e ∧
+  Stuple es = Tuple es
+End
+
+Definition Pstuple_def:
+  Pstuple [pvar] = pvar ∧
+  Pstuple pvars = Pcon NONE pvars
+End
+
+Triviality Stuple_Tuple:
+  LENGTH xs ≠ 1 ⇒ Stuple xs = Tuple xs
+Proof
+  namedCases_on ‘xs’ ["", "x xs'"]
+  \\ gvs [Stuple_def]
+  \\ namedCases_on ‘xs'’ ["", "x' xs''"]
+  \\ gvs [Stuple_def]
+QED
+
+Triviality Pstuple_Tuple:
+  LENGTH xs ≠ 1 ⇒ Pstuple xs = Pcon NONE xs
+Proof
+  namedCases_on ‘xs’ ["", "x xs'"]
+  \\ gvs [Pstuple_def]
+  \\ namedCases_on ‘xs'’ ["", "x' xs''"]
+  \\ gvs [Pstuple_def]
+QED
+
 (* Generates code of the form: case cml_te of ( 0,  1, ...) => cml_e *)
 Definition cml_tup_case_def:
   cml_tup_case len cml_te cml_e =
   let tup_pvars = GENLIST (λn. Pvar (cml_tup_vname n)) len in
-    Mat cml_te [Pcon NONE tup_pvars, cml_e]
+    Mat cml_te [Pstuple tup_pvars, cml_e]
 End
 
 Definition cml_tup_select_def:
@@ -288,17 +317,6 @@ Definition assign_single_def:
                  (App Aupdate [cml_get_arr_data (Var (Short n_arr));
                                cml_idx; cml_rhs]))
    od)
-End
-
-(* S = "Smart" in the sense that it doesn't create singleton tuples. *)
-Definition Stuple_def:
-  Stuple [e] = e ∧
-  Stuple es = Tuple es
-End
-
-Definition Pstuple_def:
-  Pstuple [pvar] = pvar ∧
-  Pstuple pvars = Pcon NONE pvars
 End
 
 Definition par_assign_def:
@@ -1831,13 +1849,13 @@ Proof
     \\ last_x_assum drule_all \\ rpt strip_tac
     \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
     \\ qexists ‘ck’
+    \\ gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def]
+    \\ DEP_REWRITE_TAC [Pstuple_Tuple] \\ gvs []
+    \\ gvs [evaluate_def]
     \\ reverse $ namedCases_on ‘r’ ["arr_v",  "err"] \\ gvs []
-    >- (gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def,
-             evaluate_def])
     \\ namedCases_on ‘get_array_len arr_v’ ["", "len"] \\ gvs []
     \\ gvs [oneline get_array_len_def, AllCaseEqs()]
-    \\ gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def]
-    \\ gvs [evaluate_def, can_pmatch_all_def, pmatch_def, pat_bindings_def,
+    \\ gvs [can_pmatch_all_def, pmatch_def, pat_bindings_def,
             cml_tup_vname_def, num_to_str_11]
     \\ Cases_on ‘env_cml.v’
     \\ gvs [alist_to_ns_def, nsAppend_def, nsLookup_def, num_to_str_11])
@@ -1848,10 +1866,10 @@ Proof
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     \\ first_x_assum drule_all \\ rpt strip_tac
     \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
+    \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
+    \\ DEP_REWRITE_TAC [Pstuple_Tuple] \\ gvs []
     \\ reverse $ namedCases_on ‘r’ ["arr_v",  "err"] \\ gvs []
-    >- (qexists ‘ck’
-        \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
-        \\ gvs [evaluate_def])
+    >- (qexists ‘ck’ \\ gvs [evaluate_def])
     \\ gvs [evaluate_def]
     \\ rename [‘val_rel _ dfy_arr cml_arr’]
     \\ namedCases_on ‘evaluate_exp s₁ env_dfy idx’ ["s₂ r"] \\ gvs []
@@ -1876,12 +1894,8 @@ Proof
     \\ namedCases_on ‘index_array s₂ dfy_arr idx_v’ ["", "elem"] \\ gvs []
     \\ gvs [oneline index_array_def, oneline val_to_num_def, CaseEq "value",
             CaseEq "option", CaseEq "heap_value"]
-    \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
-    \\ gvs [evaluate_def, can_pmatch_all_def, pmatch_def, cml_tup_vname_def,
+    \\ gvs [can_pmatch_all_def, pmatch_def, cml_tup_vname_def,
             pat_bindings_def, num_to_str_11]
-    \\ Cases_on ‘env_cml.v’ \\ gvs []
-    \\ gvs [nsOptBind_def, nsBind_def, alist_to_ns_def, nsAppend_def,
-            nsLookup_def]
     \\ gvs [do_app_def]
     \\ drule_all state_rel_llookup \\ rpt strip_tac \\ gvs []
     \\ gvs [INT_ABS]
@@ -1914,16 +1928,6 @@ Proof
       (irule store_preserve_all_trans \\ gvs [SF SFY_ss])
     \\ reverse $ Cases_on ‘r’ \\ gvs [evaluate_def])
 QED
-
-(* Triviality read_local_cons: *)
-(*   read_local tl var = SOME dfy_v ∧ ¬MEM n (MAP FST tl) ⇒ *)
-(*   read_local tl var = read_local ((n,nv)::tl) var ∧ n ≠ var *)
-(* Proof *)
-(*   rpt strip_tac *)
-(*   \\ gvs [read_local_def] *)
-(*   \\ Cases_on ‘n = var’ *)
-(*   \\ gvs [GSYM ALOOKUP_NONE, AllCaseEqs()] *)
-(* QED *)
 
 Triviality read_local_neq:
   n ≠ var ⇒ read_local ((n, nv)::s.locals) var = read_local s.locals var
@@ -2208,24 +2212,6 @@ Proof
   \\ rpt strip_tac
   \\ DEP_REWRITE_TAC [ZIP_SNOC]
   \\ gvs []
-QED
-
-Triviality Stuple_Tuple:
-  LENGTH xs ≠ 1 ⇒ Stuple xs = Tuple xs
-Proof
-  namedCases_on ‘xs’ ["", "x xs'"]
-  \\ gvs [Stuple_def]
-  \\ namedCases_on ‘xs'’ ["", "x' xs''"]
-  \\ gvs [Stuple_def]
-QED
-
-Triviality Pstuple_Tuple:
-  LENGTH xs ≠ 1 ⇒ Pstuple xs = Pcon NONE xs
-Proof
-  namedCases_on ‘xs’ ["", "x xs'"]
-  \\ gvs [Pstuple_def]
-  \\ namedCases_on ‘xs'’ ["", "x' xs''"]
-  \\ gvs [Pstuple_def]
 QED
 
 Triviality assign_value_err:
@@ -2551,8 +2537,9 @@ Proof
   \\ rev_dxrule evaluate_add_to_clock \\ gvs []
   \\ disch_then $ qspec_then ‘ck₂’ assume_tac \\ gvs []
   \\ gvs [evaluate_def]
-  \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def,
-          evaluate_def, can_pmatch_all_def, pmatch_def, pat_bindings_def,
+  \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
+  \\ DEP_REWRITE_TAC [Pstuple_Tuple] \\ gvs []
+  \\ gvs [evaluate_def, can_pmatch_all_def, pmatch_def, pat_bindings_def,
           cml_tup_vname_def, num_to_str_11, do_app_def]
   \\ ‘¬(idx_int < 0)’ by intLib.COOPER_TAC \\ gvs [INT_ABS]
   \\ ‘Num idx_int < LENGTH varr’ by (drule LIST_REL_LENGTH \\ gvs []) \\ gvs []
@@ -2721,6 +2708,37 @@ Proof
   \\ last_assum $ irule_at (Pos hd)
   \\ gvs []
 QED
+
+Triviality evaluate_cml_read_var:
+  read_local s.locals var = SOME val ∧
+  state_rel m l s t env ∧
+  is_fresh var ⇒
+  ∃val_cml.
+    evaluate t env [cml_read_var (explode var)] =
+    (t, Rval [val_cml]) ∧ val_rel m val val_cml
+Proof
+  rpt strip_tac
+  \\ drule_all read_local_some_imp
+  \\ rpt strip_tac
+  \\ gvs [evaluate_def, cml_read_var_def, do_app_def]
+QED
+
+(* TODO Any connection with state_rel_restore_locals? *)
+Triviality state_rel_restore_locals1:
+  state_rel m l s (t: 'ffi cml_state) env ∧
+  state_rel m' l' s' (t': 'ffi cml_state) env' ∧
+  store_preserve_all t.refs t'.refs ∧
+  m ⊑ m' ⇒
+  state_rel m' l (restore_locals s' s.locals) t' env
+Proof
+  rpt strip_tac
+  \\ gvs [restore_locals_def, state_rel_def]
+  \\ irule store_preserve_all_locals_rel
+  \\ last_x_assum $ irule_at Any \\ gvs []
+  \\ irule locals_rel_submap \\ gvs []
+  \\ first_assum $ irule_at (Pos hd) \\ gvs []
+QED
+
 
 Theorem correct_from_stmt:
   ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l base.
@@ -3126,7 +3144,7 @@ Proof
   \\ gvs [set_up_call_def, safe_zip_def]
   \\ ‘LENGTH ins = LENGTH args’ by (spose_not_then assume_tac \\ gvs [])
   \\ gvs [cml_tup_case_def, evaluate_def]
-  \\ namedCases_on ‘args’ ["", "arg args'"]\\ gvs [] >-
+  \\ namedCases_on ‘args’ ["", "arg args'"] \\ gvs [] >-
 
    (* No arguments passed *)
    (drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
@@ -3184,46 +3202,19 @@ Proof
       >- (gvs [dec_clock_def, Abbr ‘dfy_locals’, REVERSE_ZIP, MAP_ZIP]))
     \\ disch_then $ qx_choosel_then [‘ck₁’, ‘t₂’, ‘m₁’] mp_tac
     \\ rpt strip_tac \\ gvs []
-    \\ qexists ‘ck₁’
     \\ gvs [Abbr ‘call_t’]
+    (* Will be useful for finishing up proofs *)
+    \\ ‘store_preserve_all t.refs t₂.refs’ by
+      (gvs [store_preserve_all_def]
+       \\ irule_at Any store_preserve_decat
+       \\ first_assum $ irule_at (Pos hd))
+    \\ qrefine ‘ck₂ + ck₁’
     \\ namedCases_on ‘r’ ["", "stp"] \\ gvs []
     \\ reverse $ namedCases_on ‘stp’ ["", "err"] \\ gvs []
-    >- (Cases_on ‘err’ \\ gvs []
-        (* Timed out *)
-        \\ ‘store_preserve_all t.refs t₂.refs’ by
-          (gvs [store_preserve_all_def]
-           \\ irule_at Any store_preserve_decat
-           \\ first_assum $ irule_at (Pos hd))
-        \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
-        \\ gvs [state_rel_def, restore_locals_def]
-        \\ first_assum $ irule_at (Pos hd) \\ gvs []
-        \\ irule store_preserve_all_locals_rel \\ gvs []
-        \\ first_assum $ irule_at (Pos hd) \\ gvs []
-        \\ irule locals_rel_submap
-        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
-    (* Return exception was raised *)
-    \\ gvs [can_pmatch_all_def, pmatch_def, mk_id_def, Abbr ‘call_env’,
-            has_basic_cons_def, same_type_def, same_ctor_def, ret_stamp_def,
-            pat_bindings_def]
-    (* Read outs *)
-    \\ namedCases_on
-         ‘OPT_MMAP (read_local s₂.locals) (MAP FST outs)’
-         ["", "out_vs"]
-    \\ gvs []
-    \\ Cases_on ‘LENGTH lhss ≠ LENGTH out_vs’ \\ gvs []
-    \\ Cases_on ‘LENGTH outs = 0’ \\ gvs []
-    >- (* Nothing to assign *)
-     (gvs [par_assign_def, oneline bind_def, result_mmap2_def,
-           CaseEq "sum"]
-      \\ gvs [assign_values_def]
-      \\ gvs [Stuple_def, Pstuple_def, Seqs_def, evaluate_def,
-              do_con_check_def, build_conv_def, can_pmatch_all_def,
-              pmatch_def, pat_bindings_def]
-      (* TODO Same as the timeout case - refactor? *)
-      \\ ‘store_preserve_all t.refs t₂.refs’ by
-        (gvs [store_preserve_all_def]
-         \\ irule_at Any store_preserve_decat
-         \\ first_assum $ irule_at (Pos hd))
+    >-
+     (qexists ‘0’
+      \\ Cases_on ‘err’ \\ gvs []
+      (* Timed out *)
       \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
       \\ gvs [state_rel_def, restore_locals_def]
       \\ first_assum $ irule_at (Pos hd) \\ gvs []
@@ -3231,10 +3222,82 @@ Proof
       \\ first_assum $ irule_at (Pos hd) \\ gvs []
       \\ irule locals_rel_submap
       \\ first_assum $ irule_at (Pos hd) \\ gvs [])
-
+    (* Read outs *)
+    \\ namedCases_on
+         ‘OPT_MMAP (read_local s₂.locals) (MAP FST outs)’
+         ["", "out_vs"]
+    \\ gvs []
+    \\ Cases_on ‘LENGTH lhss ≠ LENGTH out_vs’ \\ gvs []
+    \\ Cases_on ‘LENGTH outs = 0’ \\ gvs []
+    (* Rewrite works without having to instantiate the clock, nice. *)
+    \\ rev_drule evaluate_add_to_clock \\ gvs []
+    \\ disch_then kall_tac
+    \\ gvs [can_pmatch_all_def, pmatch_def, mk_id_def, Abbr ‘call_env’,
+            has_basic_cons_def, same_type_def, same_ctor_def, ret_stamp_def,
+            pat_bindings_def]
+    >- (* Nothing to assign *)
+     (qexists ‘0’
+      (* Return exception was raised *)
+      \\ gvs [par_assign_def, oneline bind_def, result_mmap2_def,
+              CaseEq "sum"]
+      \\ gvs [assign_values_def]
+      \\ gvs [Stuple_def, Pstuple_def, Seqs_def, evaluate_def,
+              do_con_check_def, build_conv_def, can_pmatch_all_def,
+              pmatch_def, pat_bindings_def]
+      (* TODO Same as the timeout case - refactor? *)
+      \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
+      \\ gvs [state_rel_def, restore_locals_def]
+      \\ first_assum $ irule_at (Pos hd) \\ gvs []
+      \\ irule store_preserve_all_locals_rel \\ gvs []
+      \\ first_assum $ irule_at (Pos hd) \\ gvs []
+      \\ irule locals_rel_submap
+      \\ first_assum $ irule_at (Pos hd) \\ gvs [])
     \\ Cases_on ‘LENGTH outs = 1’ \\ gvs []
     >- (* Assigning a single value (no tuple used) *)
-     (cheat)
+     (gvs [LENGTH_EQ_1, Stuple_def, Pstuple_def]
+      \\ gvs [par_assign_def, oneline bind_def, CaseEq "sum"]
+      \\ rename [‘explode (FST out)’]
+      \\ namedCases_on ‘out’ ["out_n out_v"] \\ gvs []
+      \\ drule_all evaluate_cml_read_var \\ rpt strip_tac \\ gvs []
+      \\ rename [‘val_rel _ out_v out_v_cml’]
+      \\ drule evaluate_add_to_clock \\ gvs []
+      \\ disch_then kall_tac
+      \\ gvs [pmatch_def, pat_bindings_def, Stuple_def, Pstuple_def,
+              evaluate_def, can_pmatch_all_def]
+      \\ qpat_assum ‘_ ⊑ _’ $ irule_at Any
+      (* Cannot irule for some reason :( *)
+      \\ drule evaluate_assign_values \\ gvs []
+      \\ disch_then $ qspec_then ‘[cml_tup_vname 0]’ mp_tac \\ gvs []
+      \\ disch_then $
+           qspecl_then
+           [‘[out_v_cml]’, ‘m₁’, ‘l’, ‘t₂’,
+            ‘(env_cml with
+                v :=
+                  nsBind (cml_tup_vname 0) out_v_cml
+                    (nsBind (cml_tup_vname 0) out_v_cml env_cml.v))’,
+            ‘base’] mp_tac
+      \\ gvs []
+      \\ impl_tac >-
+       (rpt strip_tac
+        >- (* state_rel *)
+         (irule state_rel_restore_locals1 \\ gvs []
+          \\ first_assum $ irule_at (Pos hd) \\ gvs []
+          \\ qexists ‘t with clock := ck + t.clock’ \\ gvs []
+          \\ first_assum $ irule_at (Pos last) \\ gvs []
+          \\ cheat)
+        >- (* env_rel *)
+         (cheat)
+        >- gvs [cml_tup_vname_neq_arr]
+        >- (* base_at_most *)
+         (gvs [base_at_most_def, store_preserve_all_def, store_preserve_def]))
+      \\ disch_then $ qx_choosel_then [‘ck₂’, ‘t₃’] mp_tac
+      \\ rpt strip_tac \\ gvs []
+      \\ first_assum $ irule_at (Pos hd) \\ gvs []
+      \\ irule_at (Pos hd) store_preserve_trans
+      \\ irule_at (Pos hd) store_preserve_all_weaken
+      \\ ntac 2 (first_assum $ irule_at (Pos hd))
+      \\ gvs [state_rel_def]
+      \\ cheat  (* locals_rel: Knocking out internal variables *))
     (* Assigning multiple values (uses a tuple) *)
     \\ DEP_REWRITE_TAC [Stuple_Tuple] \\ gvs []
 
