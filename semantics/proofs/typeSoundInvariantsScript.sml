@@ -94,6 +94,8 @@ Inductive type_v:
     type_v tvs ctMap tenvS (Litv (Word8 w)) Tword8) ∧
   (!tvs ctMap tenvS w.
     type_v tvs ctMap tenvS (Litv (Word64 w)) Tword64) ∧
+  (!tvs ctMap tenvS w.
+    type_v tvs ctMap tenvS (Litv (Float64 w)) Tdouble) ∧
   (!tvs ctMap tenvS vs tvs' stamp ts' ts ti.
     EVERY (check_freevars tvs []) ts' ∧
     LENGTH tvs' = LENGTH ts' ∧
