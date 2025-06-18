@@ -3576,6 +3576,13 @@ Proof
   rw[pbcTheory.proj_pres_def]
 QED
 
+Theorem weaken:
+  x ⊆ y ∧ x ⊨ p ⇒ y ⊨ p
+Proof
+  gvs [sat_implies_def,satisfies_def]
+  \\ metis_tac [SUBSET_DEF]
+QED
+
 Theorem check_cstep_correct:
   id_ok fml pc.id ∧
   OPTION_ALL good_aspo pc.ord ∧
@@ -3745,7 +3752,6 @@ Proof
         \\ strip_tac
         \\ gvs [lookup_list_list_insert])>>
       CONJ_TAC >- (
-
         (* order constraints *)
         fs[core_only_fml_def]>>
         simp[GSYM LIST_TO_SET_MAP]>>
@@ -3760,22 +3766,22 @@ Proof
           rw[]>>
           drule extract_scopes_MEM_INR>>
           disch_then $ drule_then drule>>
+          strip_tac>>
+          first_x_assum drule >> simp [] >> strip_tac>>
+          first_x_assum drule >> simp [] >>
           gvs [neg_dom_subst_def]>>
           simp [EL_APPEND_EQN]>>
           fs[EL_MAP]>>
           strip_tac>>
-          first_x_assum drule >> simp [] >> strip_tac>>
-          pop_assum drule>> simp []>>
-          strip_tac>>
           drule unsatisfiable_not_sat_implies>>
           simp[lookup_list_list_insert]>>
-          strip_tac>>
-          cheat  (*
           gvs [mk_scope_def]>>
           Cases_on ‘scopt’>>gvs []>>
-          simp[lookup_list_list_insert(*,ALOOKUP_ZIP_MAP*)]>>
-          simp[range_insert]>>
-          metis_tac[INSERT_SING_UNION,UNION_COMM] *))
+          gvs [extract_scope_val_def]
+          \\ strip_tac \\ irule weaken
+          \\ pop_assum $ irule_at Any
+          \\ gvs [SUBSET_DEF]
+          \\ rw [] \\ gvs [lookup_list_list_insert])
         >- (
           fs[check_hash_triv_def]
           \\ pop_assum mp_tac
