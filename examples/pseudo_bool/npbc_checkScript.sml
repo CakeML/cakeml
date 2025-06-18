@@ -2647,7 +2647,9 @@ Theorem check_spec_is_spec:
   check_spec (us,vs,as) gspec ⇒
   is_spec (set (MAP FST gspec)) as
 Proof
-  cheat
+  gvs [is_spec_def,the_spec_def,satisfies_def,MEM_MAP,PULL_EXISTS]
+  \\ simp [Once FORALL_PROD] \\ rw []
+  \\ cheat
 QED
 
 Theorem check_good_aord:
@@ -3583,6 +3585,14 @@ Proof
   \\ metis_tac [SUBSET_DEF]
 QED
 
+Theorem unsatisfiable_SUBSET:
+  unsatisfiable s ∧ s ⊆ t ⇒ unsatisfiable t
+Proof
+  CCONTR_TAC
+  \\ gvs [unsatisfiable_def]
+  \\ drule_all satisfiable_SUBSET \\ gvs []
+QED
+
 Theorem check_cstep_correct:
   id_ok fml pc.id ∧
   OPTION_ALL good_aspo pc.ord ∧
@@ -3797,18 +3807,18 @@ Proof
                 ‘{v | ∃n b. lookup n fml = SOME (v,b)} ∪ set pp’ mp_tac
           \\ simp [AC UNION_COMM UNION_ASSOC])
       )>>
-
       CONJ_TAC >- (
 
         (* negated order constraint *)
         fs[core_only_fml_def]>>
-        last_x_assum(qspec_then`dindex` mp_tac)>>
+        last_x_assum(qspec_then `dindex` mp_tac)>>
         gs[ADD1]>>
-        ‘dindex < LENGTH dsubs’ by cheat >>
+        ‘dindex < LENGTH dsubs’ by gvs [dom_subst_def,neg_dom_subst_def] >>
         PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
         asm_rewrite_tac []>>
         strip_tac
         >- (
+
           drule_all lookup_extract_scoped_pids_r>>
           simp[]>> rw[]
           \\ drule extract_scopes_MEM_INR
@@ -3819,9 +3829,14 @@ Proof
           \\ gvs[mk_scope_def,AllCaseEqs()]
           \\ gvs[neg_dom_subst_def,lookup_list_list_insert,range_insert,dom_subst_def]
           \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
-          \\ DEP_REWRITE_TAC [EL_APPEND2]
-          \\ gvs []
-          \\ cheat)
+          \\ DEP_REWRITE_TAC [EL_APPEND2] \\ gvs []
+          \\ ‘n' = 1’ by cheat \\ gvs []
+          \\ strip_tac
+          \\ irule unsatisfiable_SUBSET
+          \\ pop_assum $ irule_at Any
+          \\ gvs [SUBSET_DEF] \\ rw [] \\ gvs []
+          \\ gvs [MEM_MAP]
+          \\ metis_tac [])
         >- (
           fs[check_hash_triv_def]
           \\ pop_assum mp_tac
