@@ -138,7 +138,7 @@ Proof
 QED
 
 Theorem evaluate_apps:
-  ∀xs f (st:'ffi state) env s1 s2 vs.
+  ∀xs (st:'ffi state) env s1 s2 vs.
     evaluate st env xs = (s1,Rval vs) ∧
     LENGTH xs = SUC (LENGTH ns) ∧
     nsLookup env.v n = SOME clos_v ∧

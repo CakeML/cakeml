@@ -2826,6 +2826,54 @@ Proof
   \\ gvs [evaluate_def]
 QED
 
+Triviality evaluate_apps_with_clock:
+  ∀xs (st:'ffi cml_state) env s1 s2 vs ck.
+    evaluate st env xs = (s1,Rval vs) ∧
+    LENGTH xs = SUC (LENGTH ns) ∧
+    nsLookup env.v n = SOME clos_v ∧
+    do_opapp [clos_v; LAST vs] = SOME (env1,Funs ns e) ⇒
+    evaluate (st with clock := st.clock + ck) env [apps (Var n) (REVERSE xs)] =
+    if (s1.clock + ck) < LENGTH xs then
+      (s1 with clock := 0,Rerr (Rabort Rtimeout_error))
+    else
+      evaluate
+        (s1 with clock := s1.clock + ck - LENGTH xs)
+        (env1 with v := nsAppend (alist_to_ns (ZIP (REVERSE ns,BUTLAST vs))) env1.v) [e]
+Proof
+  rpt strip_tac
+  \\ drule evaluate_add_to_clock \\ gvs []
+  \\ disch_then $ qspec_then ‘ck’ assume_tac
+  \\ drule_all evaluate_apps \\ gvs []
+QED
+
+Triviality locals_rel_FEMPTY:
+  locals_rel m FEMPTY [] t.refs env
+Proof
+  gvs [locals_rel_def]
+QED
+
+
+Triviality mk_locals_map_append:
+  mk_locals_map (xs ++ ys) offset =
+  (mk_locals_map xs offset) |++ (enumerate_from (offset + LENGTH xs) ys)
+Proof
+QED
+
+(* TODO Replace locals_rel_mk_locals_map with this *)
+Triviality locals_rel_mk_locals_map_general:
+
+  locals_rel m (mk_locals_map (in_ns ++ out_ns) (LENGTH t.refs))
+    (REVERSE
+       (ZIP (in_ns, MAP SOME in_vs) ++
+        ZIP (out_ns, REPLICATE (LENGTH out_ns) NONE)))
+    (t.refs ++ MAP Refv in_vs ++ REPLICATE (LENGTH out_ns) (Refv v))
+    (env with v :=
+     add_refs_to_env
+     (add_refs_to_env env.v in_ns (LENGTH t.refs)) out_ns
+     (LENGTH t.refs + LENGTH in_ns))
+Proof
+QED
+
 Theorem correct_from_stmt:
   ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l base.
     evaluate_stmt s env_dfy stmt_dfy = (s', r_dfy) ∧
@@ -3194,6 +3242,10 @@ Proof
    (cheat)
   >~ [‘MetCall lhss name args’] >-
 
+   (* TODO Can we minimize the proof by avoiding the case distinction on args?
+      Perhaps we can write a more general version of evaluate_apps, that
+      applies to cml_apps (i.e. also considers empty list?) *)
+
    gvs [evaluate_stmt_def]
   (* Get member *)
   \\ namedCases_on ‘get_member name env_dfy.prog’ ["", "member"] \\ gvs []
@@ -3231,7 +3283,6 @@ Proof
   \\ ‘LENGTH ins = LENGTH args’ by (spose_not_then assume_tac \\ gvs [])
   \\ gvs [cml_tup_case_def, evaluate_def]
   \\ namedCases_on ‘args’ ["", "arg args'"] \\ gvs [] >-
-
    (* No arguments passed *)
    (drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
     \\ drule_all find_recfun_some \\ rpt strip_tac \\ gvs []
@@ -3339,7 +3390,6 @@ Proof
       \\ irule locals_rel_submap
       \\ first_assum $ irule_at (Pos hd) \\ gvs [])
     \\ Cases_on ‘LENGTH outs = 1’ \\ gvs []
-
     >- (* Assigning a single value (no tuple used) *)
      (gvs [LENGTH_EQ_1, Stuple_def, Pstuple_def]
       \\ gvs [par_assign_def, oneline bind_def, CaseEq "sum"]
@@ -3421,7 +3471,6 @@ Proof
     \\ gvs [pat_bindings_def]
     \\ DEP_REWRITE_TAC [ALL_DISTINCT_pats_bindings] \\ gvs []
     \\ gvs [all_distinct_genlist_cml_tup_vname]
-
     \\ qmatch_goalsub_abbrev_tac ‘evaluate _ ass_env₁’
     \\ drule evaluate_assign_values \\ gvs []
     \\ disch_then drule \\ gvs []
@@ -3455,9 +3504,114 @@ Proof
     \\ gvs [state_rel_def]
     \\ cheat (* locals_rel with irrelevant addition to environment *))
 
-
   (* Non-empty argument list *)
-  \\ cheat
+  \\ ‘cml_args ≠ []’ by (spose_not_then assume_tac \\ gvs []) \\ gvs []
+  \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
+  (* Preparing ns for evaluate_apps *)
+  \\ qabbrev_tac ‘params = MAP (explode ∘ FST) ins’
+  \\ ‘LENGTH (REVERSE params) = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
+  \\ ‘SUC (LENGTH (TL (REVERSE params))) = LENGTH ins’ by
+    (Cases_on ‘REVERSE params’ \\ gvs [])
+  (* Preparing clos_v for evaluate_apps *)
+  \\ drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
+  (* Preparing env1 for evaluate_apps *)
+  \\ drule find_recfun_some \\ rpt strip_tac \\ gvs []
+
+  \\ qabbrev_tac
+     ‘call_env =
+        env with v :=
+          nsBind cml_param (LAST cml_vs) (build_rec_env cml_funs env env.v)’
+  (* Preparing e for evaluate_apps *)
+  \\ gvs [from_member_decl_def, set_up_cml_fun_def, oneline bind_def,
+          CaseEq "sum"]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ qmatch_asmsub_abbrev_tac ‘cml_fun _ call_body’
+  (* Instantiate evaluate_apps with clock *)
+  \\ drule evaluate_apps_with_clock
+  \\ disch_then $ qspec_then ‘TL (REVERSE params)’ mp_tac \\ gvs []
+  \\ disch_then $ drule
+  \\ disch_then $ qspecl_then [‘call_env’, ‘call_body’] mp_tac
+  \\ impl_tac >- (gvs [do_opapp_def, cml_fun_def, AllCaseEqs()]) \\ gvs []
+  \\ disch_then kall_tac
+  \\ qrefine ‘LENGTH ins - 1 + ck'’
+  (* Dafny ran out of ticks *)
+  \\ ‘t₁.clock = s₁.clock’ by gvs [state_rel_def]
+  \\ Cases_on ‘s₁.clock = 0’ \\ gvs []
+  >- (qexists ‘0’ \\ gvs []
+      \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
+      \\ qexists ‘m’ \\ gvs [restore_locals_def, state_rel_def])
+  (* Dafny ran the call *)
+  \\ ‘cml_param = HD (REVERSE params)’ by
+    (Cases_on ‘REVERSE params’ \\ gvs [cml_fun_def])
+  (* Start chipping away at the compilation of a method *)
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate _ call_env₁’
+  \\ ‘LIST_REL (λn v. nsLookup call_env₁.v (Short n) = SOME v) params cml_vs’ by
+    (gvs [Abbr ‘call_env₁’, Abbr ‘call_env’]
+     \\ DEP_REWRITE_TAC [nsappend_alist_to_ns_nsbind]
+     \\ ‘params ≠ []’ by (spose_not_then assume_tac \\ gvs []) \\ gvs []
+     \\ ‘cml_vs ≠ []’ by (spose_not_then assume_tac \\ gvs []) \\ gvs []
+     \\ gvs [SNOC_LAST_FRONT, REVERSE_TL, SNOC_HD_REVERSE_TL]
+     \\ irule LIST_REL_nsLookup_nsAppend
+     \\ imp_res_tac evaluate_length \\ gvs []
+     \\ gvs [Abbr ‘params’, GSYM MAP_MAP_o, ALL_DISTINCT_APPEND])
+  \\ gvs [Abbr ‘call_body’]
+  \\ drule evaluate_set_up_in_refs \\ gvs []
+  \\ disch_then kall_tac
+  \\ gvs [evaluate_cml_new_refs]
+  \\ gvs [evaluate_def]
+
+  (* Dafny: Call method *)
+  \\ qmatch_asmsub_abbrev_tac ‘evaluate_stmt (_ (_ with locals := dfy_locals))’
+  \\ namedCases_on
+       ‘evaluate_stmt (dec_clock (s₁ with locals := dfy_locals)) env_dfy body’
+       ["s₂ r"]
+  \\ gvs []
+  \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (spose_not_then assume_tac \\ gvs [])
+  \\ gvs []
+  (* Apply induction hypothesis *)
+  \\ qmatch_goalsub_abbrev_tac
+       ‘evaluate (_ with <| clock := _; refs := call_refs |>) call_env₂’
+
+  \\ last_x_assum drule
+  \\ disch_then $
+       qspecl_then
+         [‘dec_clock (t₁ with refs := call_refs)’,
+          ‘call_env₂’,
+          ‘m’,
+          ‘mk_locals_map (MAP FST ins ++ MAP FST outs) (LENGTH t₁.refs)’,
+          ‘LENGTH t₁.refs’]
+       mp_tac
+  \\ impl_tac >-
+
+   (gvs [Abbr ‘dfy_locals’, dec_clock_def, evaluateTheory.dec_clock_def,
+         state_rel_def, MAP_REVERSE, MAP_ZIP]
+    \\ rpt strip_tac
+    >- (* array_rel *)
+     (gvs [Abbr ‘call_refs’] \\ ntac 2 (irule array_rel_append) \\ gvs [])
+    >- (* locals_rel *)
+     (gvs [])
+    >- (* base_at_most *)
+     cheat
+    (* env_rel *)
+    \\ gvs [Abbr ‘call_env₁’, env_rel_def, has_basic_cons_def]
+    \\ rpt strip_tac \\ cheat
+   )
+  \\ disch_then $ qx_choosel_then [‘ck₁’, ‘t₂’, ‘m₁’] mp_tac
+  \\ rpt strip_tac \\ gvs []
+  \\ qrefine ‘ck₁ +  + ck₂’ \\ gvs []
+
+  \\ namedCases_on ‘r’ ["", "stp"] \\ gvs []
+  \\ reverse $ namedCases_on ‘stp’ ["", "err"] \\ gvs []
+  >- (Cases_on ‘err’ \\ gvs []
+      (* Evaluating the body timed out *)
+      \\ qexists ‘0’ \\ gvs []
+      \\ gvs [evaluateTheory.dec_clock_def])
+
+
+
+
+
+
 
 
 
