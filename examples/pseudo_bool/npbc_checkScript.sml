@@ -3833,6 +3833,7 @@ Proof
           \\ disch_then match_mp_tac
           \\ simp[])
         )>>
+
       (* objective constraint *)
       fs[core_only_fml_def]>>
       Cases_on`pc.obj`>>simp[]>>
@@ -3848,15 +3849,21 @@ Proof
         simp[]>>rw[]
         \\ drule extract_scopes_MEM_INR
         \\ disch_then $ drule_then drule
-        \\ cheat (*
-        \\ fs[]
         \\ DEP_REWRITE_TAC [EL_APPEND2]
         \\ simp[]
-        \\ rw[]
-        \\ first_x_assum drule \\ strip_tac
-        \\ gs[range_insert]
+        \\ strip_tac
+        \\ first_x_assum drule \\ simp [] \\ strip_tac
+        \\ first_x_assum drule \\ simp [] \\ strip_tac
         \\ drule unsatisfiable_not_sat_implies
-        \\ metis_tac[INSERT_SING_UNION,UNION_COMM] *))
+        \\ strip_tac
+        \\ irule weaken
+        \\ pop_assum $ irule_at Any
+        \\ gvs [SUBSET_DEF] \\ rw [] \\ gvs []
+        \\ Cases_on ‘scopt’ \\ gvs [mk_scope_def]
+        \\ gvs [extract_scope_val_def]
+        \\ rpt disj2_tac
+        \\ pop_assum mp_tac
+        \\ gvs [MEM_MAP,lookup_list_list_insert])
       >- (
           match_mp_tac unsatisfiable_not_sat_implies
           \\ gvs [check_hash_triv_def]
@@ -3865,7 +3872,6 @@ Proof
           \\ disch_then $ qspec_then ‘ss ∪ {v | ∃n b. lookup n fml = SOME (v,b)}’ mp_tac
           \\ simp [AC UNION_COMM UNION_ASSOC])
       )>>
-
     CONJ_TAC >- (
       pop_assum mp_tac>>
       DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
