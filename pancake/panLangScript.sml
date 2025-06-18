@@ -66,7 +66,7 @@ End
 
 Datatype:
   prog = Skip
-       | Dec varname ('a exp) prog
+       | Dec varname shape ('a exp) prog
        | Assign varkind varname ('a exp)  (* dest, source *)
        | Store     ('a exp) ('a exp) (* dest, source *)
        | Store32   ('a exp) ('a exp) (* dest, source *)
@@ -94,6 +94,7 @@ Datatype:
    ; export      : bool
    ; params      : (varname # shape) list
    ; body        : 'a prog
+   ; return      : shape
   |>
 End
 
@@ -146,7 +147,7 @@ End
 Definition exp_ids_def:
   (exp_ids Skip = ([]:mlstring list)) ∧
   (exp_ids (Raise e _) = [e]) ∧
-  (exp_ids (Dec _ _ p) = exp_ids p) ∧
+  (exp_ids (Dec _ _ _ p) = exp_ids p) ∧
   (exp_ids (Seq p q) = exp_ids p ++ exp_ids q) ∧
   (exp_ids (If _ p q) = exp_ids p ++ exp_ids q) ∧
   (exp_ids (While _ p) = exp_ids p) ∧
@@ -247,7 +248,7 @@ Definition functions_def:
 End
 
 Definition fun_ids_def:
-  (fun_ids (Dec _ _ p) = fun_ids p) ∧
+  (fun_ids (Dec _ _ _ p) = fun_ids p) ∧
   (fun_ids (Seq p q) = fun_ids p ++ fun_ids q) ∧
   (fun_ids (If _ p q) = fun_ids p ++ fun_ids q) ∧
   (fun_ids (While _ p) = fun_ids p) ∧

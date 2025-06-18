@@ -185,16 +185,19 @@ End
 (** A single tree is smaller than the forest. *)
 Definition conv_Shape_def:
   conv_Shape tree =
-  case conv_int tree of
-    SOME n =>
-      if n < 1 then NONE
-      else if n = 1 then SOME One
-      else
-        SOME $ Comb $ REPLICATE (Num n) One
-  | NONE =>
-      (case argsNT tree ShapeCombNT of
-         SOME ts => lift Comb $ OPT_MMAP conv_Shape ts
-       | _ => NONE)
+    case destTOK ' (destLf tree) of
+    | SOME (DefaultShT) => SOME One
+    | _ =>
+      case conv_int tree of
+        SOME n =>
+          if n < 1 then NONE
+          else if n = 1 then SOME One
+          else
+            SOME $ Comb $ REPLICATE (Num n) One
+      | NONE =>
+          (case argsNT tree ShapeCombNT of
+            SOME ts => lift Comb $ OPT_MMAP conv_Shape ts
+          | _ => NONE)
 Termination
   WF_REL_TAC ‘measure ptree_size’ >> rw[]
   >> Cases_on ‘tree’
@@ -499,10 +502,12 @@ Definition conv_Dec_def:
   (conv_Dec (^Nd nodeNT args) =
    if isNT nodeNT DecNT then
      case args of
-       [id; e] => do v <- conv_ident id;
-                     e' <- conv_Exp e;
-                     SOME (v,e')
-                  od
+       [sh; id; e] =>
+         do sh <- conv_Shape sh;
+            v <- conv_ident id;
+            e' <- conv_Exp e;
+            SOME (sh,v,e')
+         od
      | _ => NONE
    else
      NONE) ∧
@@ -513,11 +518,12 @@ Definition conv_GlobalDec_def:
   (conv_GlobalDec (^Nd nodeNT args) =
    if isNT nodeNT GlobalDecNT then
      case args of
-       [sh; id; e] => do sh <- conv_Shape sh;
-                         v <- conv_ident id;
-                         e' <- conv_Exp e;
-                         SOME (sh,v,e')
-                      od
+       [sh; id; e] =>
+         do sh <- conv_Shape sh;
+            v <- conv_ident id;
+            e' <- conv_Exp e;
+            SOME (sh,v,e')
+         od
      | _ => NONE
    else
      NONE) ∧
@@ -567,9 +573,9 @@ Definition conv_Prog_def:
      let nd = Nd nodeNT args in
      if isNT nodeNT DecNT then
        case args of
-         [d; p] => do (v,e') <- conv_Dec d;
+         [d; p] => do (sh,v,e') <- conv_Dec d;
                       p' <- conv_Prog p;
-                      SOME (add_locs_annot nd (Dec v e' p'))
+                      SOME (add_locs_annot nd (Dec v sh e' p'))
                    od
        | _ => NONE
      else if isNT nodeNT IfNT then
@@ -676,14 +682,15 @@ End
 Definition conv_TopDec_def:
   conv_TopDec tree =
   case argsNT tree FunNT of
-  | SOME [e;n;ps;c] =>
+  | SOME [e;sh;n;ps;c] =>
       (case (argsNT ps ParamListNT) of
          SOME args =>
            (do ps'  <- conv_params args;
                body <- conv_Prog c;
                n'   <- conv_ident n;
                e'   <- conv_export e;
-               SOME $ Function <| name := n'; export := e'; params := ps'; body := body |>
+               sh'  <- conv_Shape sh;
+               SOME $ Function <| name := n'; export := e'; params := ps'; body := body; return := sh' |>
             od)
        | _ => NONE)
   | _ =>
@@ -747,8 +754,8 @@ Definition localise_exp_def:
 End
 
 Definition localise_prog_def:
-  localise_prog ls (Dec varname exp prog) =
-  Dec varname
+  localise_prog ls (Dec varname shape exp prog) =
+  Dec varname shape
       (localise_exp ls exp)
       (localise_prog (insert ls varname ()) prog) ∧
   localise_prog ls (Assign varkind varname exp) =
@@ -803,8 +810,14 @@ End
 
 Definition localise_topdec_def:
   localise_topdec ls (Decl sh v e) = Decl sh v e ∧
+<<<<<<< HEAD
   localise_topdec ls (Function fi) =
   Function $ fi with body := localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST fi.params)) fi.body
+=======
+  localise_topdec ls (Function sh f b args body) =
+  Function sh f b args $
+           localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST args)) body
+>>>>>>> 2fcd73030 (Add shape declaration for local variables and function returns to parser & make all shape declarations optional with default One (up to panConcreteExamples))
 End
 
 Definition localise_topdecs_def:
