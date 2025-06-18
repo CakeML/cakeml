@@ -2508,7 +2508,7 @@ Definition dom_subgoals_def:
   let cobj =
     case obj of NONE => []
     | SOME l => [[not (obj_constraint s l)]] in
-  ((MAP (λc. [not c]) fs) ++ fs' :: cobj, [gs; gs'])
+  ((MAP (λc. [not c]) fs) ++ fs' :: cobj, [gs; gs'] (*, LENGTH fs*) )
 End
 
 (* non-core *)
@@ -3012,7 +3012,7 @@ Definition check_cstep_def:
     (case pc.ord of
       NONE => NONE
     | SOME aspo =>
-    if check_pres pc.pres s then
+    if check_pres pc.pres s ∧ check_fresh_aspo fml c pc.obj s pc.ord then
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml F fml pc.id (not c) in
       let s = mk_subst s in
@@ -3032,6 +3032,7 @@ Definition check_cstep_def:
               let (l,r) = extract_scoped_pids pfs LN LN in
               let gfml = mk_core_fml F fml in
                 split_goals gfml nc l goals ∧
+
                 EVERY (λ(id,cs).
                   lookup id r ≠ NONE ∨
                   check_hash_triv nc cs
@@ -3610,31 +3611,25 @@ Proof
   fs[check_cstep_def]
 
   >- ( (* Dominance *)
+
     Cases_on`pc.ord`>>fs[]>>
-    pairarg_tac>>gvs[]>>
-    IF_CASES_TAC>>gvs[]>>
     pairarg_tac>>gvs[]>>
     TOP_CASE_TAC>>
     pop_assum mp_tac>>
-    TOP_CASE_TAC>>
-    TOP_CASE_TAC>> gvs [] >>
-    TOP_CASE_TAC>> gvs [] >>
+    IF_CASES_TAC>>gvs[]>>
     pairarg_tac>>gvs[]>>
+    TOP_CASE_TAC>>
+    TOP_CASE_TAC>>
+    TOP_CASE_TAC>>
+    TOP_CASE_TAC>>
     rw[]>>
+    pairarg_tac>>gvs[]>>
     gvs[insert_fml_def]>>
     `id_ok (insert pc.id (not p,F) fml) (pc.id + 1)` by
       fs[id_ok_def]>>
-    cheat
-    (*
-
-    drule check_subproofs_correct>>
-
-  extract_scopes_def
-  check_scopes_def
-  valid_conf_def
-
-        rename1`check_subproofs pfs _ _`>>
-    disch_then(qspecl_then [`pfs`,`F`] mp_tac)>>
+    drule check_scopes_correct>>
+    rename1`check_scopes scpfs`>>
+    disch_then(qspecl_then [`scpfs`,`F`] mp_tac)>>
     gs[]>> strip_tac>>
     rename1`insert cc (p,_) fml`>>
     CONJ_TAC>-
@@ -3646,9 +3641,11 @@ Proof
       DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_F_insert_b]>>
       fs[id_ok_def]>>
       metis_tac[sat_implies_INSERT])>>
+
     `sat_obj_po (pres_set_spt pc.pres) (SOME x) pc.obj
       (core_only_fml T fml)
       (core_only_fml F (insert cc (p,F) fml))` by (
+
       reverse (every_case_tac)
       >- (
         `sat_obj_po (pres_set_spt pc.pres) (SOME x) pc.obj
@@ -3657,25 +3654,30 @@ Proof
           DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
           CONJ_TAC >- fs[id_ok_def]>>
           match_mp_tac sat_obj_po_insert_contr>>
-          fs[id_ok_def,good_spo_def]>>
+          fs[id_ok_def,good_aspo_def]>>
           drule check_contradiction_fml_unsat>>
           qpat_x_assum`sat_implies _ _` mp_tac>>
+          gvs [good_aspo_imp_po_of_aspo_refl,reflexive_def]>>
           DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
           simp[]>>
           fs[core_only_fml_def]>>
           gs[sat_implies_def,satisfiable_def,unsatisfiable_def]>>
           metis_tac[])>>
         metis_tac[OPTION_ALL_def,sat_obj_po_trans])>>
-      pairarg_tac>>fs[]>>
       simp[sat_obj_po_def]>>
       DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
       CONJ_TAC >- fs[id_ok_def]>>
       simp[satisfies_simp]>>
       simp[GSYM CONJ_ASSOC]>>
       PairCases_on`x`>>
-      match_mp_tac (GEN_ALL good_spo_dominance)>>
+      match_mp_tac (GEN_ALL good_aspo_dominance)>>
       simp[]>>
       qexists_tac ‘subst_fun (mk_subst l)’>>fs[]>>
+      conj_tac >-
+       (drule check_fresh_aspo_fresh
+        \\ gvs [fresh_aux_aspo_def]
+        \\ disch_then (qspecl_then [‘F’,‘F’] mp_tac)
+        \\ gvs [])>>
       CONJ_TAC >-
         metis_tac[check_pres_subst_fun]>>
       CONJ_TAC >-
@@ -3715,18 +3717,16 @@ Proof
           fs[range_def]>>
           rw[]>>
           metis_tac[not_thm,imp_thm])
-        \\ drule_all lookup_extract_pids_l>>rw[]
-        \\ drule_all extract_clauses_MEM_INL
+        \\ drule_all lookup_extract_scoped_pids_l>>rw[]
+        \\ drule_all extract_scopes_MEM_INL
         \\ strip_tac
-        \\ last_x_assum drule
-        \\ gvs[unsatisfiable_def,satisfiable_def, MEM_toAList,lookup_map_opt,AllCaseEqs(),satisfies_def,core_only_fml_def]
+        \\ last_x_assum drule \\ simp []
+        \\ disch_then drule \\ simp []
+        \\ gvs[unsatisfiable_def,satisfiable_def, MEM_toAList,lookup_map_opt,
+               AllCaseEqs(),satisfies_def,core_only_fml_def,FORALL_PROD]
         \\ fs[not_thm,range_def,PULL_EXISTS]
         \\ rw[]
         \\ first_x_assum(qspec_then`w` mp_tac) \\ simp[]
-        \\ strip_tac
-        >- (
-          fs[lookup_core_only_def,AllCaseEqs(),PULL_EXISTS]>>
-          metis_tac[])
         \\ rename1`lookup i _ = SOME xxx`
         \\ `xxx = c` by (
           gvs[lookup_mk_core_fml]>>
@@ -3735,47 +3735,69 @@ Proof
         \\ `subst (subst_fun (mk_subst l)) c =
             subst (subst_fun (mk_subst l)) x` by
           metis_tac[subst_opt_SOME]
-        \\ metis_tac[])>>
+        \\ strip_tac \\ gvs []
+        >- (
+          fs[lookup_core_only_def,AllCaseEqs(),PULL_EXISTS]>>
+          metis_tac[])
+        \\ Cases_on ‘scopt’ \\ gvs [mk_scope_def,extract_scope_val_def]
+        \\ gvs [dom_subst_def,neg_dom_subst_def]
+        \\ gvs [MEM_MAP,EXISTS_PROD]
+        \\ first_x_assum drule
+        \\ strip_tac
+        \\ gvs [lookup_list_list_insert])>>
       CONJ_TAC >- (
+
         (* order constraints *)
         fs[core_only_fml_def]>>
         simp[GSYM LIST_TO_SET_MAP]>>
         rw[sat_implies_EL,EL_MAP]>>
         last_x_assum(qspec_then`n` mp_tac)>>
+        ‘n < LENGTH dsubs’ by gvs [neg_dom_subst_def,dom_subst_def]>>
         gvs[dom_subst_def]>>
         PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
         strip_tac
         >- (
-          drule_all lookup_extract_pids_r>>
+          drule_all lookup_extract_scoped_pids_r>>
           rw[]>>
-          drule extract_clauses_MEM_INR>>
-          disch_then drule>>
+          drule extract_scopes_MEM_INR>>
+          disch_then $ drule_then drule>>
           fs[EL_MAP]>>
           DEP_REWRITE_TAC [EL_APPEND_EQN] >> simp[]>>
           simp[EL_MAP]>>
           rw[]>>
           first_x_assum drule >> strip_tac>>
           gs[]>>
+          pop_assum drule>>
+          gvs []>>
+          rw []>>
+          cheat (*
+          gvs [mk_scope_def]>>
+          Cases_on ‘scopt’>>gvs []>>
           drule unsatisfiable_not_sat_implies>>
-          simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]>>
+          simp[lookup_list_list_insert(*,ALOOKUP_ZIP_MAP*)]>>
           simp[range_insert]>>
-          metis_tac[INSERT_SING_UNION,UNION_COMM])
-        >- (
+          metis_tac[INSERT_SING_UNION,UNION_COMM] *))
+        >- cheat (* (
           fs[check_hash_triv_def]
           \\ pop_assum mp_tac
           \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
           \\ simp[EL_MAP]
-          \\ simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]
+          \\ simp[lookup_list_list_insert]
           \\ strip_tac
           \\ match_mp_tac unsatisfiable_not_sat_implies
-          \\ metis_tac[check_triv_unsatisfiable])
+          \\ metis_tac[check_triv_unsatisfiable]) *)
       )>>
+
+
       CONJ_TAC >- (
+
         (* negated order constraint *)
         fs[core_only_fml_def]>>
-        last_x_assum(qspec_then`LENGTH (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2),x3)))` mp_tac)>>
+
+        last_x_assum(qspec_then`LENGTH (FST (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2,x3,x4),x5))))` mp_tac)>>
         gs[ADD1]>>
         PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+        cheat (*
         strip_tac
         >- (
           drule_all lookup_extract_pids_r>>
@@ -3797,12 +3819,13 @@ Proof
           \\ strip_tac \\ rw[]
           \\ drule check_triv_unsatisfiable_2
           \\ disch_then match_mp_tac
-          \\ simp[])
+          \\ simp[]) *)
         )>>
       (* objective constraint *)
       fs[core_only_fml_def]>>
       Cases_on`pc.obj`>>
       simp[]>>
+      cheat (*
       last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2),x3))))` mp_tac)>>
       gs[ADD1]>>
       PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
@@ -3828,8 +3851,10 @@ Proof
           \\ simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]
           \\ strip_tac
           \\ match_mp_tac unsatisfiable_not_sat_implies
-          \\ metis_tac[check_triv_unsatisfiable])
+          \\ metis_tac[check_triv_unsatisfiable]) *)
       )>>
+
+
     CONJ_TAC >- (
       pop_assum mp_tac>>
       DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
@@ -3856,7 +3881,7 @@ Proof
     rw[]>>match_mp_tac bimp_pres_obj_SUBSET>>
     Cases_on`pc.tcb`>> simp[]>>
     DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_T_insert_F]>>
-    fs[id_ok_def,SUBSET_DEF] *) )
+    fs[id_ok_def,SUBSET_DEF] )
   >- ( (* Sstep *)
     rw[]>>
     drule check_sstep_correct>>
