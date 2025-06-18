@@ -2508,7 +2508,7 @@ Definition dom_subgoals_def:
   let cobj =
     case obj of NONE => []
     | SOME l => [[not (obj_constraint s l)]] in
-  ((MAP (λc. [not c]) fs) ++ fs' :: cobj, [gs; gs'] (*, LENGTH fs*) )
+  ((MAP (λc. [not c]) fs) ++ fs' :: cobj, [gs; gs'] , LENGTH fs)
 End
 
 (* non-core *)
@@ -3017,7 +3017,7 @@ Definition check_cstep_def:
       let (fml_not_c,id1) = insert_fml F fml pc.id (not c) in
       let s = mk_subst s in
       let w = subst_fun s in
-      let (dsubs,dscopes) = dom_subgoals aspo w c pc.obj in
+      let (dsubs,dscopes,dindex) = dom_subgoals aspo w c pc.obj in
       case extract_scopes dscopes pfs w F fml dsubs of
         NONE => NONE
       | SOME cpfs =>
@@ -3032,7 +3032,6 @@ Definition check_cstep_def:
               let (l,r) = extract_scoped_pids pfs LN LN in
               let gfml = mk_core_fml F fml in
                 split_goals gfml nc l goals ∧
-
                 EVERY (λ(id,cs).
                   lookup id r ≠ NONE ∨
                   check_hash_triv nc cs
@@ -3761,80 +3760,91 @@ Proof
           rw[]>>
           drule extract_scopes_MEM_INR>>
           disch_then $ drule_then drule>>
+          gvs [neg_dom_subst_def]>>
+          simp [EL_APPEND_EQN]>>
           fs[EL_MAP]>>
-          DEP_REWRITE_TAC [EL_APPEND_EQN] >> simp[]>>
-          simp[EL_MAP]>>
-          rw[]>>
-          first_x_assum drule >> strip_tac>>
-          gs[]>>
-          pop_assum drule>>
-          gvs []>>
-          rw []>>
-          cheat (*
+          strip_tac>>
+          first_x_assum drule >> simp [] >> strip_tac>>
+          pop_assum drule>> simp []>>
+          strip_tac>>
+          drule unsatisfiable_not_sat_implies>>
+          simp[lookup_list_list_insert]>>
+          strip_tac>>
+          cheat  (*
           gvs [mk_scope_def]>>
           Cases_on ‘scopt’>>gvs []>>
-          drule unsatisfiable_not_sat_implies>>
           simp[lookup_list_list_insert(*,ALOOKUP_ZIP_MAP*)]>>
           simp[range_insert]>>
           metis_tac[INSERT_SING_UNION,UNION_COMM] *))
-        >- cheat (* (
+        >- (
           fs[check_hash_triv_def]
           \\ pop_assum mp_tac
+          \\ gvs [neg_dom_subst_def]
           \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
           \\ simp[EL_MAP]
           \\ simp[lookup_list_list_insert]
           \\ strip_tac
           \\ match_mp_tac unsatisfiable_not_sat_implies
-          \\ metis_tac[check_triv_unsatisfiable]) *)
+          \\ drule check_triv_unsatisfiable
+          \\ qmatch_goalsub_abbrev_tac ‘set pp’
+          \\ disch_then $ qspec_then
+                ‘{v | ∃n b. lookup n fml = SOME (v,b)} ∪ set pp’ mp_tac
+          \\ simp [AC UNION_COMM UNION_ASSOC])
       )>>
-
 
       CONJ_TAC >- (
 
         (* negated order constraint *)
         fs[core_only_fml_def]>>
-
-        last_x_assum(qspec_then`LENGTH (FST (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2,x3,x4),x5))))` mp_tac)>>
+        last_x_assum(qspec_then`dindex` mp_tac)>>
         gs[ADD1]>>
+        ‘dindex < LENGTH dsubs’ by cheat >>
         PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
-        cheat (*
+        asm_rewrite_tac []>>
         strip_tac
         >- (
-          drule_all lookup_extract_pids_r>>
+          drule_all lookup_extract_scoped_pids_r>>
           simp[]>> rw[]
-          \\ drule extract_clauses_MEM_INR
-          \\ disch_then drule
-          \\ fs[]
+          \\ drule extract_scopes_MEM_INR
+          \\ disch_then drule_all \\ strip_tac
+          \\ fs []
+          \\ first_x_assum drule \\ simp []
+          \\ disch_then drule \\ simp []
+          \\ gvs[mk_scope_def,AllCaseEqs()]
+          \\ gvs[neg_dom_subst_def,lookup_list_list_insert,range_insert,dom_subst_def]
+          \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
           \\ DEP_REWRITE_TAC [EL_APPEND2]
-          \\ simp[]
-          \\ rw[]
-          \\ first_x_assum drule \\ strip_tac
-          \\ gs[neg_dom_subst_def,lookup_list_list_insert,ALOOKUP_ZIP_MAP,range_insert]
-          \\ metis_tac[INSERT_SING_UNION,UNION_COMM,LIST_TO_SET_MAP])
+          \\ gvs []
+          \\ cheat)
         >- (
           fs[check_hash_triv_def]
           \\ pop_assum mp_tac
-          \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
-          \\ gs[neg_dom_subst_def,lookup_list_list_insert,ALOOKUP_ZIP_MAP,range_insert,EXISTS_MEM,MEM_MAP]
+          \\ gvs [neg_dom_subst_def,dom_subst_def]
+          \\ DEP_REWRITE_TAC [EL_APPEND_EQN] \\ gvs []
+          \\ gs[lookup_list_list_insert,range_insert,EXISTS_MEM,MEM_MAP]
           \\ strip_tac \\ rw[]
           \\ drule check_triv_unsatisfiable_2
           \\ disch_then match_mp_tac
-          \\ simp[]) *)
+          \\ simp[])
         )>>
+
       (* objective constraint *)
       fs[core_only_fml_def]>>
-      Cases_on`pc.obj`>>
-      simp[]>>
-      cheat (*
+      Cases_on`pc.obj`>>simp[]>>
+      last_x_assum (qspec_then`dindex` mp_tac)>>
+      (*
       last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2),x3))))` mp_tac)>>
-      gs[ADD1]>>
+      gs[ADD1]>> *)
       PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+      ‘dindex < LENGTH dsubs’ by cheat >>
+      asm_rewrite_tac []>>
       strip_tac
       >- (
-        drule_all lookup_extract_pids_r>>
+        drule_all lookup_extract_scoped_pids_r>>
         simp[]>>rw[]
-        \\ drule extract_clauses_MEM_INR
-        \\ disch_then drule
+        \\ drule extract_scopes_MEM_INR
+        \\ disch_then $ drule_then drule
+        \\ cheat (*
         \\ fs[]
         \\ DEP_REWRITE_TAC [EL_APPEND2]
         \\ simp[]
@@ -3842,18 +3852,18 @@ Proof
         \\ first_x_assum drule \\ strip_tac
         \\ gs[range_insert]
         \\ drule unsatisfiable_not_sat_implies
-        \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
-      >- (
+        \\ metis_tac[INSERT_SING_UNION,UNION_COMM] *))
+      >- cheat (* (
           fs[check_hash_triv_def]
           \\ pop_assum mp_tac
           \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
           \\ simp[EL_MAP]
-          \\ simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]
+          \\ gvs [dom_subst_def,neg_dom_subst_def]
+          \\ simp[lookup_list_list_insert(*,ALOOKUP_ZIP_MAP*)]
           \\ strip_tac
           \\ match_mp_tac unsatisfiable_not_sat_implies
           \\ metis_tac[check_triv_unsatisfiable]) *)
       )>>
-
 
     CONJ_TAC >- (
       pop_assum mp_tac>>
