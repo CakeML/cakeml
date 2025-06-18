@@ -3827,16 +3827,14 @@ Proof
           \\ disch_then match_mp_tac
           \\ simp[])
         )>>
-
       (* objective constraint *)
       fs[core_only_fml_def]>>
       Cases_on`pc.obj`>>simp[]>>
-      last_x_assum (qspec_then`dindex` mp_tac)>>
-      (*
-      last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2),x3))))` mp_tac)>>
-      gs[ADD1]>> *)
+      gvs [neg_dom_subst_def,dom_subst_def]
+      \\ Cases_on ‘pc.obj’ \\ gvs []
+      \\ last_x_assum (qspec_then`LENGTH x0 + 1` mp_tac)
+      \\ DEP_REWRITE_TAC [EL_APPEND2] \\ gvs []>>
       PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
-      ‘dindex < LENGTH dsubs’ by cheat >>
       asm_rewrite_tac []>>
       strip_tac
       >- (
@@ -3853,16 +3851,13 @@ Proof
         \\ gs[range_insert]
         \\ drule unsatisfiable_not_sat_implies
         \\ metis_tac[INSERT_SING_UNION,UNION_COMM] *))
-      >- cheat (* (
-          fs[check_hash_triv_def]
-          \\ pop_assum mp_tac
-          \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
-          \\ simp[EL_MAP]
-          \\ gvs [dom_subst_def,neg_dom_subst_def]
-          \\ simp[lookup_list_list_insert(*,ALOOKUP_ZIP_MAP*)]
-          \\ strip_tac
-          \\ match_mp_tac unsatisfiable_not_sat_implies
-          \\ metis_tac[check_triv_unsatisfiable]) *)
+      >- (
+          match_mp_tac unsatisfiable_not_sat_implies
+          \\ gvs [check_hash_triv_def]
+          \\ drule check_triv_unsatisfiable
+          \\ qpat_abbrev_tac ‘ss = set x1 ⇂ _’
+          \\ disch_then $ qspec_then ‘ss ∪ {v | ∃n b. lookup n fml = SOME (v,b)}’ mp_tac
+          \\ simp [AC UNION_COMM UNION_ASSOC])
       )>>
 
     CONJ_TAC >- (
