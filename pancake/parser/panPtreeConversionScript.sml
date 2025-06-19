@@ -572,53 +572,17 @@ Definition conv_Prog_def:
        | _ => NONE
      else if isNT nodeNT IfNT then
        case args of
-         [e] =>
-           do e' <- conv_Exp e;
-              SOME (add_locs_annot nd (If e' Skip Skip))
-           od
-       | [e; p] =>
-           (if tokcheck p (kw ElseK) then
-              do e' <- conv_Exp e;
-                 SOME (add_locs_annot nd (If e' Skip Skip))
-              od
-            else
-              do e' <- conv_Exp e;
-                 p' <- conv_Prog p;
-                 SOME (add_locs_annot nd (If e' p' Skip))
-              od
-            )
-       | [e; p1; p2] =>
-           (if tokcheck p1 (kw ElseK) then
-              do e' <- conv_Exp e;
-                 p2' <- conv_Prog p2;
-                 SOME (add_locs_annot nd (If e' Skip p2'))
-              od
-            else if tokcheck p2 (kw ElseK) then
-              do e' <- conv_Exp e;
-                 p1' <- conv_Prog p1;
-                 SOME (add_locs_annot nd (If e' p1' Skip))
-              od
-            else
-              do e' <- conv_Exp e;
-                 p1' <- conv_Prog p1;
-                 p2' <- conv_Prog p2;
-                 SOME (add_locs_annot nd (If e' p1' p2'))
-              od)
-       | [e; p1; _; p2] =>
-              do e' <- conv_Exp e;
-                 p1' <- conv_Prog p1;
-                 p2' <- conv_Prog p2;
-                 SOME (add_locs_annot nd (If e' p1' p2'))
-              od
+       | [e; p1; p2] => do e' <- conv_Exp e;
+                           p1' <- conv_Prog p1;
+                           p2' <- conv_Prog p2;
+                           SOME (add_locs_annot nd (If e' p1' p2'))
+                        od
        | _ => NONE
      else if isNT nodeNT WhileNT then
        case args of
          [e; p] => do e' <- conv_Exp e;
                       p' <- conv_Prog p;
                       SOME (add_locs_annot nd (While e' p'))
-                   od
-       | [e] => do e' <- conv_Exp e;
-                      SOME (add_locs_annot nd (While e' Skip))
                    od
        | _ => NONE
      else if isNT nodeNT DecCallNT then
@@ -627,10 +591,6 @@ Definition conv_Prog_def:
            do (s',i',e',args') <- conv_DecCall dec;
                p' <- conv_Prog p;
                SOME $ add_locs_annot nd $ DecCall i' s' e' args' p'
-           od
-       | [dec] =>
-           do (s',i',e',args') <- conv_DecCall dec;
-               SOME $ add_locs_annot nd $ DecCall i' s' e' args' Skip
            od
        | _ => NONE
      else if isNT nodeNT CallNT then
@@ -714,15 +674,6 @@ End
 Definition conv_Fun_def:
   conv_Fun tree =
   case argsNT tree FunNT of
-    SOME [e;n;ps] =>
-      (case (argsNT ps ParamListNT) of
-         SOME args =>
-           (do ps'  <- conv_params args;
-               n'   <- conv_ident n;
-               e'   <- conv_expos e;
-               SOME (n', e', ps', Skip)
-            od)
-       | _ => NONE)
   | SOME [e;n;ps;c] =>
       (case (argsNT ps ParamListNT) of
          SOME args =>
