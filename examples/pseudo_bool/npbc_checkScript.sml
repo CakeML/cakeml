@@ -2629,9 +2629,26 @@ Definition mk_aord_def:
   ((f, MAP FST gspec, us,vs,as):aord)
 End
 
+Definition check_support_def:
+  check_support as s ⇔
+  EVERY (λx. MEM (FST x) as) s
+End
+
+Definition check_spec_aux_def:
+  (check_spec_aux as (fml,id) [] = T) ∧
+  (check_spec_aux as (fml,id) (((c,s,pfs,idopt)::gs):specproof) =
+    if check_support as s then
+      case check_red (NONE:num_set option) NONE NONE F F fml id c s pfs idopt of
+        NONE => F
+      | SOME id' =>
+        check_spec_aux as (insert_fml F fml id' c) gs
+    else F)
+End
+
 (* TODO: implement the specification check *)
 Definition check_spec_def:
-  check_spec (us,vs,as) (gspec:specproof) = T
+  check_spec (us,vs,as) gspec =
+  check_spec_aux as (LN,1) gspec
 End
 
 Definition check_good_aord_def:

@@ -1501,7 +1501,6 @@ Definition parse_load_order_def:
   (parse_load_order f_ns _ = NONE)
 End
 
-(* TODO: strengthening to core mode syntax? *)
 Definition parse_strengthen_def:
   (parse_strengthen f_ns [INL b] =
     if b = strlit"on" then SOME (Done (StrengthenToCore T), f_ns)
@@ -1561,7 +1560,6 @@ Definition parse_obj_term_npbc_def:
       | SOME fc' => SOME (fc', f_ns'))
 End
 
-(* TODO: syntax? *)
 Definition parse_eobj_def:
   parse_eobj f_ns rs =
   case parse_obj_term_npbc f_ns rs of
