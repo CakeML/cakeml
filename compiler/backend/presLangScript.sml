@@ -126,7 +126,7 @@ End
 
 Definition fp_bop_to_display_def:
   fp_bop_to_display op = case op of
-    | fpValTree$FP_Add => empty_item (strlit "FP_Add")
+    | ast$FP_Add => empty_item (strlit "FP_Add")
     | FP_Sub => empty_item (strlit "FP_Sub")
     | FP_Mul => empty_item (strlit "FP_Mul")
     | FP_Div => empty_item (strlit "FP_Div")

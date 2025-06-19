@@ -2,7 +2,7 @@
   The formal semantics of wordLang
 *)
 open preamble wordLangTheory;
-local open alignmentTheory asmTheory ffiTheory in end;
+local open alignmentTheory asmTheory ffiTheory fpSemTheory in end;
 
 val _ = new_theory"wordSem";
 val _ = set_grammar_ancestry [

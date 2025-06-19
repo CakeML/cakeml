@@ -6,7 +6,7 @@
 open integerTheory ml_progTheory
      astTheory semanticPrimitivesTheory
      semanticPrimitivesPropsTheory evaluatePropsTheory
-     fpOptTheory fpValTreeTheory fpSemTheory fpSemPropsTheory;
+     fpSemTheory
 open mlvectorTheory mlstringTheory packLib;
 open integer_wordSyntax
 open evaluateTheory
@@ -29,10 +29,6 @@ Definition empty_state_def:
     ffi := initial_ffi_state ARB ();
     next_type_stamp := 0;
     next_exn_stamp := 0;
-    fp_state := <|
-      rws := []; canOpt := FPScope Opt; choices := 0;
-      opts := \x.[];
-      real_sem := F |>;
     eval_state := NONE|>
 End
 
@@ -184,22 +180,11 @@ in
   val Eval_rw = CONJ evaluate_def Eval_lemma
 end;
 
-Theorem fp_state_eq_thm[local]:
-  s with <| clock := ck1; refs := refsN; fp_state := s.fp_state |> =
-  s with <| clock := ck1; refs := refsN |>
-Proof
-  fs[state_component_equality]
-QED
-
 Theorem evaluate_empty_state_IMP:
    eval_rel (empty_state with refs := s.refs) env exp (empty_state with refs := s.refs ++ refs') x ⇒
    eval_rel (s:'ffi state) env exp (s with refs := s.refs ++ refs') x
 Proof
   rw [eval_rel_def]
-  \\ drule (CONJUNCT1 evaluatePropsTheory.evaluate_fp_intro_canOpt_true)
-  \\ disch_then (qspec_then `s.fp_state` mp_tac) \\ impl_tac
-  >- (fs[fpState_component_equality, state_component_equality, empty_state_def])
-  \\ strip_tac
   \\ dxrule_then (qspec_then `s` mp_tac) evaluatePropsTheory.evaluate_ffi_etc_intro
   \\ simp [empty_state_def]
 QED
@@ -418,7 +403,6 @@ Definition types_match_def:
   (types_match (Loc b1 l1) (Loc b2 l2) = (b1 ∧ b2)) /\
   (types_match (Conv cn1 vs1) (Conv cn2 vs2) =
     (ctor_same_type cn1 cn2 /\ ((cn1 = cn2) ⇒ types_match_list vs1 vs2))) /\
-  (types_match (FP_WordTree (Fp_const w1)) (FP_WordTree (Fp_const w2)) = T) /\
   (types_match _ _ = F) /\
   (types_match_list [] [] = T) /\
   (types_match_list (v1::vs1) (v2::vs2) =
@@ -635,17 +619,15 @@ Proof
 QED
 
 Theorem type_match_implies_do_eq_succeeds:
-   (!v1 v2. types_match v1 v2 ==> (do_eq v1 v2 = Eq_val (v1 = v2))) /\
-    (!vs1 vs2.
-       types_match_list vs1 vs2 ==> (do_eq_list vs1 vs2 = Eq_val (vs1 = vs2)))
+  (!v1 v2. types_match v1 v2 ==> (do_eq v1 v2 = Eq_val (v1 = v2))) /\
+  (!vs1 vs2.
+     types_match_list vs1 vs2 ==> (do_eq_list vs1 vs2 = Eq_val (vs1 = vs2)))
 Proof
   ho_match_mp_tac do_eq_ind
   \\ rw [do_eq_def, types_match_def]
   \\ imp_res_tac types_match_list_length
   \\ fs[] \\ Cases_on`cn1=cn2`\\fs[]
   \\ imp_res_tac types_match_list_length
-  \\ rename1 `types_match (FP_WordTree fp1) (FP_WordTree fp2)`
-  \\ Cases_on `fp1` \\ Cases_on `fp2` \\ fs[types_match_def, compress_word_def]
 QED
 
 Triviality do_eq_succeeds:

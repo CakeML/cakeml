@@ -938,7 +938,7 @@ Definition semantics_def:
     of SOME res => res
      | NONE =>
        Diverge
-         (build_lprefix_lub
+         (lprefix_lub$build_lprefix_lub
            (IMAGE (λk. fromList
              (FST (evaluate_decs (initial_state ffi k ec) prog)).ffi.io_events)
                UNIV))
