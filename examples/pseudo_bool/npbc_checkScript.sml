@@ -3004,6 +3004,14 @@ Definition guard_ord_t_def:
   EVERY (λxy. ¬ MEM (SND xy) as) xs
 End
 
+Definition find_scope_1_def:
+  find_scope_1 dindex pfs ⇔
+    EXISTS (λx. FST x = SOME 1 ∧
+                EXISTS (λy. case FST y of
+                            | SOME (INR i,n) => i = dindex
+                            | _ => F) (SND x)) pfs
+End
+
 (* TODO: Dom is missing proper scoping checks *)
 Definition check_cstep_def:
   (check_cstep cstep
@@ -3034,6 +3042,7 @@ Definition check_cstep_def:
               let (l,r) = extract_scoped_pids pfs LN LN in
               let gfml = mk_core_fml F fml in
                 split_goals gfml nc l goals ∧
+                find_scope_1 dindex pfs ∧
                 EVERY (λ(id,cs).
                   lookup id r ≠ NONE ∨
                   check_hash_triv nc cs
@@ -3625,9 +3634,7 @@ Theorem check_cstep_correct:
 Proof
   Cases_on`cstep`>>
   fs[check_cstep_def]
-
   >- ( (* Dominance *)
-
     Cases_on`pc.ord`>>fs[]>>
     pairarg_tac>>gvs[]>>
     TOP_CASE_TAC>>
@@ -3657,11 +3664,9 @@ Proof
       DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_F_insert_b]>>
       fs[id_ok_def]>>
       metis_tac[sat_implies_INSERT])>>
-
     `sat_obj_po (pres_set_spt pc.pres) (SOME x) pc.obj
       (core_only_fml T fml)
       (core_only_fml F (insert cc (p,F) fml))` by (
-
       reverse (every_case_tac)
       >- (
         `sat_obj_po (pres_set_spt pc.pres) (SOME x) pc.obj
@@ -3808,47 +3813,34 @@ Proof
           \\ simp [AC UNION_COMM UNION_ASSOC])
       )>>
       CONJ_TAC >- (
-
-        (* negated order constraint *)
-        fs[core_only_fml_def]>>
-        last_x_assum(qspec_then `dindex` mp_tac)>>
-        gs[ADD1]>>
-        ‘dindex < LENGTH dsubs’ by gvs [dom_subst_def,neg_dom_subst_def] >>
-        PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
-        asm_rewrite_tac []>>
-        strip_tac
-        >- (
-
-          drule_all lookup_extract_scoped_pids_r>>
-          simp[]>> rw[]
-          \\ drule extract_scopes_MEM_INR
-          \\ disch_then drule_all \\ strip_tac
-          \\ fs []
-          \\ first_x_assum drule \\ simp []
-          \\ disch_then drule \\ simp []
-          \\ gvs[mk_scope_def,AllCaseEqs()]
-          \\ gvs[neg_dom_subst_def,lookup_list_list_insert,range_insert,dom_subst_def]
-          \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
-          \\ DEP_REWRITE_TAC [EL_APPEND2] \\ gvs []
-          \\ ‘n' = 1’ by cheat \\ gvs []
-          \\ strip_tac
-          \\ irule unsatisfiable_SUBSET
-          \\ pop_assum $ irule_at Any
-          \\ gvs [SUBSET_DEF] \\ rw [] \\ gvs []
-          \\ gvs [MEM_MAP]
-          \\ metis_tac [])
-        >- (
-          fs[check_hash_triv_def]
-          \\ pop_assum mp_tac
-          \\ gvs [neg_dom_subst_def,dom_subst_def]
-          \\ DEP_REWRITE_TAC [EL_APPEND_EQN] \\ gvs []
-          \\ gs[lookup_list_list_insert,range_insert,EXISTS_MEM,MEM_MAP]
-          \\ strip_tac \\ rw[]
-          \\ drule check_triv_unsatisfiable_2
-          \\ disch_then match_mp_tac
-          \\ simp[])
-        )>>
-
+        fs[core_only_fml_def]
+        \\ ‘dindex < LENGTH dsubs’ by gvs [dom_subst_def,neg_dom_subst_def]
+        \\ ‘∃n spf pf.
+              MEM (SOME 1,spf) l0 ∧
+              MEM (SOME (INR dindex,n),pf) spf’ by
+          (gvs [find_scope_1_def,EXISTS_MEM,EXISTS_PROD]
+           \\ first_x_assum $ irule_at $ Pos hd
+           \\ rename [‘MEM (x,y) _’] \\ Cases_on ‘x’ \\ gvs []
+           \\ rename [‘MEM (SOME x,y) _’] \\ Cases_on ‘x’ \\ gvs []
+           \\ rename [‘MEM (SOME (x,_),y) _’] \\ Cases_on ‘x’ \\ gvs []
+           \\ first_x_assum $ irule_at $ Pos hd)
+        \\ drule extract_scopes_MEM_INR
+        \\ disch_then drule_all \\ strip_tac
+        \\ fs []
+        \\ first_x_assum drule \\ simp []
+        \\ disch_then kall_tac
+        \\ first_x_assum drule \\ simp []
+        \\ disch_then drule \\ simp []
+        \\ gvs[mk_scope_def,AllCaseEqs()]
+        \\ gvs[neg_dom_subst_def,lookup_list_list_insert,range_insert,dom_subst_def]
+        \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+        \\ DEP_REWRITE_TAC [EL_APPEND2] \\ gvs []
+        \\ strip_tac
+        \\ irule unsatisfiable_SUBSET
+        \\ pop_assum $ irule_at Any
+        \\ gvs [SUBSET_DEF] \\ rw [] \\ gvs []
+        \\ gvs [MEM_MAP]
+        \\ metis_tac [])>>
       (* objective constraint *)
       fs[core_only_fml_def]>>
       Cases_on`pc.obj`>>simp[]>>
