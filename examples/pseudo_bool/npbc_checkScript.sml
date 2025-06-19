@@ -1938,21 +1938,34 @@ Proof
   rw[]>>metis_tac[]
 QED
 
-Theorem check_red_correct:
+Theorem IMP_subst_funs_NONE:
+  ∀s x. ~MEM x (MAP FST s) ⇒ subst_fun (mk_subst s) x = NONE
+Proof
+  ho_match_mp_tac mk_subst_ind
+  \\ gvs [mk_subst_def,subst_fun_def]
+  \\ gvs [spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList]
+  \\ simp [vec_lookup_def,regexp_compilerTheory.length_def]
+  \\ gvs [ALOOKUP_NONE]
+QED
+
+Theorem check_red_correct_extra:
+ ∀extra.
   id_ok fml id ∧
   OPTION_ALL good_aspo ord ∧
   (tcb ⇒ core_only_fml T fml ⊨ core_only_fml b fml) ∧
   check_red (pres: num_set option) ord obj b tcb fml id
-    c s (pfs:scope) idopt = SOME id' ⇒
+    c s (pfs:scope) idopt = SOME id' ∧
+  DISJOINT extra (set (MAP FST s)) ⇒
   id ≤ id' ∧
   case idopt of
     SOME u =>
     (core_only_fml (b ∨ tcb) fml) ⊨ {c}
   | NONE =>
-    sat_obj_po (pres_set_spt pres) ord obj
+    sat_obj_po (pres_set_spt pres ∪ extra) ord obj
       (core_only_fml (b ∨ tcb) fml)
       (c INSERT (core_only_fml (b ∨ tcb) fml))
 Proof
+  gen_tac>>
   simp[check_red_def]>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
@@ -1981,7 +1994,8 @@ Proof
       metis_tac[])
     >-
       metis_tac[])>>
-  qsuff_tac ‘redundant_wrt_obj_po (core_only_fml (b ∨ tcb) fml) (pres_set_spt pres) ord obj c’
+  qsuff_tac ‘redundant_wrt_obj_po (core_only_fml (b ∨ tcb) fml)
+                (pres_set_spt pres ∪ extra) ord obj c’
   >- (
     fs [redundant_wrt_obj_po_def] \\ rw []
     \\ irule sat_obj_po_fml_SUBSET
@@ -1989,6 +2003,7 @@ Proof
     \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])
   \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po_spec)
   \\ simp[]
+  \\ simp [SF DNF_ss]
   \\ qexists_tac ‘subst_fun (mk_subst s)’ \\ fs []
   \\ gvs[red_subgoals_def]
   \\ pairarg_tac \\ gvs[]
@@ -1999,15 +2014,18 @@ Proof
     metis_tac[check_pres_subst_fun]
   \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,LAMBDA_PROD,FORALL_PROD]
   \\ `id ∉ domain fml` by fs[id_ok_def]
-  \\
-    `(core_only_fml (b ∨ tcb) fml ∪ {not c} ∪ set gs) ⊨
-    (core_only_fml b fml ∪ {not c} ∪ set gs)` by
+  \\ `(core_only_fml (b ∨ tcb) fml ∪ {not c} ∪ set gs) ⊨
+      (core_only_fml b fml ∪ {not c} ∪ set gs)` by
     metis_tac[sat_implies_tcb,sat_implies_union_right]
   \\ drule sat_implies_transitive
   \\ disch_then (fn th => DEP_REWRITE_TAC[th])
   \\ simp [Once implies_explode]
   \\ gvs[MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]
   \\ reverse (rw [])
+  >- (
+    irule IMP_subst_funs_NONE
+    \\ gvs [IN_DISJOINT]
+    \\ metis_tac [])
   >- (
     (* dominance *)
     rw[sat_implies_EL]>>
@@ -2135,6 +2153,13 @@ Proof
   \\ rw[CONTRAPOS_THM,satisfiable_def]
   \\ metis_tac[subst_opt_SOME,lookup_mk_core_fml_inj]
 QED
+
+Theorem check_red_correct = check_red_correct_extra
+  |> Q.SPEC ‘{}’ |> SRULE [];
+
+Theorem check_red_correct_max = check_red_correct_extra
+  |> Q.SPEC ‘UNIV DIFF set (MAP FST (s:(num # (bool + num lit)) list))’
+  |> SRULE [IN_DISJOINT];
 
 Theorem core_only_fml_T_cong:
   (∀n x. lookup n fml = SOME (x,T) ⇔ lookup n fml' = SOME (x,T))
@@ -2268,9 +2293,10 @@ Proof
     gvs[insert_fml_def]>>
     DEP_REWRITE_TAC[core_only_fml_F_insert_b,core_only_fml_T_insert_b]>>
     fs[id_ok_def]>>
-    CONJ_TAC >- (
+    CONJ_TAC
+     >- (
       every_case_tac>>
-      gvs[satisfiable_def,sat_implies_def,sat_obj_po_def]>>
+      gvs[satisfiable_def,sat_implies_def,sat_obj_po_def,SF DNF_ss]>>
       Cases_on`tcb`>>fs[]
       >-
         metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F]
@@ -2660,13 +2686,77 @@ Definition check_good_aord_def:
   EVERY (λx. MEM x uvs) (FLAT (MAP (MAP SND o FST) g))
 End
 
+Theorem check_spec_aux:
+  ∀gspec fml_i.
+    check_spec_aux as fml_i gspec ∧ id_ok (FST fml_i) (SND fml_i) ⇒
+    ∀w. satisfies w (core_only_fml F (FST fml_i)) ⇒
+        ∃w'.
+          (∀x. x ∉ set as ⇒ (w x ⇔ w' x)) ∧
+          satisfies w' (set (MAP FST gspec) ∪ core_only_fml F (FST fml_i))
+Proof
+  Induct
+  >- (Cases \\ gvs [check_spec_aux_def]
+      \\ rw [] \\ qexists_tac ‘w’ \\ gvs [])
+  \\ PairCases
+  \\ Cases \\ gvs [check_spec_aux_def]
+  \\ CASE_TAC \\ rw []
+  \\ drule_at (Pos $ el 4) check_red_correct_max
+  \\ impl_tac >- simp []
+  \\ strip_tac
+  \\ rename [‘_ opt = SOME j’]
+  \\ reverse $ Cases_on ‘opt’ \\ gvs []
+  >-
+   (last_x_assum drule
+    \\ disch_then $ qspec_then ‘w’ mp_tac
+    \\ fs [insert_fml_def]
+    \\ DEP_REWRITE_TAC [core_only_fml_F_insert_b]
+    \\ conj_tac >- gvs [id_ok_def]
+    \\ impl_tac
+    >-
+     (irule_at Any id_ok_insert_1 \\ gvs [id_ok_def]
+      \\ gvs [sat_implies_def])
+    \\ strip_tac
+    \\ rename [‘satisfies w1 (set (MAP FST gspec))’]
+    \\ qexists_tac ‘w1’
+    \\ gvs [])
+  \\ gvs [sat_obj_po_def,SF DNF_ss]
+  \\ last_x_assum drule
+  \\ pop_assum drule \\ strip_tac
+  \\ rename [‘satisfies_npbc w1 (h0,h1)’]
+  \\ gvs [insert_fml_def]
+  \\ DEP_REWRITE_TAC [core_only_fml_F_insert_b]
+  \\ conj_tac >- gvs [id_ok_def]
+  \\ disch_then $ qspec_then ‘w1’ mp_tac
+  \\ impl_tac
+  >-
+   (irule_at Any id_ok_insert_1 \\ gvs [id_ok_def]
+    \\ gvs [sat_implies_def])
+  \\ strip_tac
+  \\ rename [‘satisfies w2 (set (MAP FST gspec))’]
+  \\ qexists_tac ‘w2’
+  \\ conj_tac
+  >-
+   (gvs [check_support_def,EVERY_MEM] \\ rw []
+    \\ gvs [FORALL_PROD,MEM_MAP,PULL_EXISTS]
+    \\ metis_tac [])
+  \\ gvs [satisfies_def]
+QED
+
 Theorem check_spec_is_spec:
   check_spec (us,vs,as) gspec ⇒
   is_spec (set (MAP FST gspec)) as
 Proof
-  gvs [is_spec_def,the_spec_def,satisfies_def,MEM_MAP,PULL_EXISTS]
-  \\ simp [Once FORALL_PROD] \\ rw []
-  \\ cheat
+  simp [check_spec_def,is_spec_def,the_spec_def]
+  \\ strip_tac
+  \\ drule check_spec_aux
+  \\ gvs [core_only_fml_def,id_ok_def] \\ rw []
+  \\ pop_assum $ qspec_then ‘w’ strip_assume_tac
+  \\ qexists_tac ‘MAP w' as’ \\ gvs []
+  \\ qsuff_tac ‘assign (ALOOKUP (ZIP (as,MAP INL (MAP w' as)))) w = w'’ >- gvs []
+  \\ simp [FUN_EQ_THM,assign_def]
+  \\ rw [] \\ CASE_TAC >- (gvs [ALOOKUP_NONE,MAP_ZIP])
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ gvs [MEM_ZIP,EL_MAP]
 QED
 
 Theorem check_good_aord:
