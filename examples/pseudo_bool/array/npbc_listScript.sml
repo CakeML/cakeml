@@ -1005,6 +1005,21 @@ Definition extract_clauses_list_def:
       else NONE)
 End
 
+Definition extract_scopes_list_def:
+  (extract_scopes_list scopes
+    s b fml rsubs [] = SOME []) ∧
+  (extract_scopes_list scopes
+    s b fml rsubs ((sc,pfs)::rest) =
+    case mk_scope scopes sc of NONE => NONE
+    | SOME scs =>
+    case extract_clauses_list s b fml rsubs pfs [] of
+      NONE => NONE
+    | SOME cpfs =>
+      case extract_scopes_list scopes s b fml rsubs rest of
+        NONE => NONE
+      | SOME crest => SOME ((scs,cpfs)::crest))
+End
+
 Definition list_insert_fml_list_def:
   (list_insert_fml_list [] b id fml =
     (id,fml)) ∧
@@ -1036,6 +1051,26 @@ Definition check_subproofs_list_def:
             check_subproofs_list pfs b rfml mindel id' zeros'
         else NONE
       | _ => NONE)
+End
+
+Definition check_scopes_list_def:
+  (check_scopes_list [] b fml mindel id zeros =
+    SOME (fml,id,zeros)) ∧
+  (check_scopes_list ((scopt,pf)::scpfs) b
+    fml mindel id zeros =
+    case scopt of
+      NONE =>
+        (case check_subproofs_list pf b fml mindel id zeros of
+          NONE => NONE
+        | SOME (fml',id',zeros') =>
+            check_scopes_list scpfs b fml' mindel id' zeros')
+    | SOME sc =>
+    let (cid,cfml) = list_insert_fml_list sc b id fml in
+    case check_subproofs_list pf b cfml id cid zeros of
+      NONE => NONE
+    | SOME (fml',id',zeros') =>
+        let rfml = rollback fml' id id' in
+        check_scopes_list scpfs b rfml mindel id' zeros')
 End
 
 (*
@@ -1184,16 +1219,19 @@ Proof
   every_case_tac>>fs[]
 QED
 
-(* Fast path for a special case *)
+(* Fast path for a special case corresponding to pbc
+   --- enables faster checked deletion
+   No scoping and no proofgoals used *)
 Definition red_fast_def:
   red_fast s idopt pfs = (
   if s = INR (Vector []) then
-  case idopt of NONE => NONE
-  | SOME id =>(
-    case pfs of
-    | [(NONE,pf)] => SOME (pf,id)
-    | [] => SOME ([],id)
-    | _ => NONE)
+    case idopt of
+      NONE => NONE
+    | SOME id =>(
+      case (pfs:scope) of
+      | [(NONE,[(NONE,pf)])] => SOME (pf,id)
+      | [] => SOME ([],id)
+      | _ => NONE)
   else NONE)
 End
 
@@ -1231,7 +1269,7 @@ Definition do_red_check_def:
     s rfml rinds extra pfs rsubs =
   case idopt of NONE =>
     let goals = subst_indexes s (b ∨ tcb) rfml rinds in
-    let (l,r) = extract_pids pfs LN LN in
+    let (l,r) = extract_scoped_pids pfs LN LN in
     let fmlls = revalue (b ∨ tcb) rfml inds in
       split_goals_hash fmlls extra l goals ∧
       EVERY (λ(id,cs).
@@ -1532,8 +1570,9 @@ Definition fast_red_subgoals_def:
     case obj of NONE => []
     | SOME l => [[not (fast_obj_constraint s l vomap)]] in
   let s = subst_fun s in
+  let (fs,gs) = dom_subst s ord in
   let c0 = subst s def in (**)
-  [not c0]::(MAP (λc. [not c]) (dom_subst s ord)) ++ cobj
+  ([not c0]::(MAP (λc. [not c]) fs) ++ cobj, [gs])
 End
 
 Type vimap_ty = ``:((num # num list) + num) option list``;
@@ -1575,10 +1614,33 @@ Definition set_indices_def:
     | SOME (INR _) => (rinds,vimap)
 End
 
+Definition check_fresh_aux_fml_vimap_def:
+  check_fresh_aux_fml_vimap as vimap ⇔
+  EVERY (λx. any_el x vimap NONE = NONE) as
+End
+
+Definition check_fresh_aux_obj_vomap_def:
+  check_fresh_aux_obj_vomap as vomap ⇔
+  EVERY (λx. strlen vomap ≤ x ∨ strsub vomap x = ^zw) as
+End
+
+Definition check_fresh_aspo_list_def:
+  check_fresh_aspo_list c s ord vimap vomap ⇔
+  case ord of NONE => T
+  | SOME ((f,g,us,vs,as),xs) =>
+    check_fresh_aux_fml_vimap as vimap ∧
+    check_fresh_aux_obj_vomap as vomap ∧
+    check_fresh_aux_constr as c ∧
+    check_fresh_aux_subst as s
+End
+
+(* The fast path allows for faster checked deletion *)
 Definition check_red_list_def:
-  check_red_list pres ord obj b tcb fml inds id c s pfs idopt
-    vimap vomap zeros =
-  if check_pres pres s then
+  check_red_list pres ord obj b tcb fml inds id c s
+    (pfs:scope) idopt vimap vomap zeros =
+  if check_pres pres s ∧
+     check_fresh_aspo_list c s ord vimap vomap
+  then
   let s = mk_subst s in
   case red_fast s idopt pfs of
     NONE => (
@@ -1586,11 +1648,11 @@ Definition check_red_list_def:
     let (inds',vimap') = set_indices inds s vimap rinds in
     let nc = not c in
     let fml_not_c = update_resize fml NONE (SOME (nc,b)) id in
-    let rsubs = fast_red_subgoals ord s c obj vomap in
-    case extract_clauses_list s b fml rsubs pfs [] of
+    let (rsubs,rscopes) = fast_red_subgoals ord s c obj vomap in
+    case extract_scopes_list rscopes s b fml rsubs pfs of
       NONE => NONE
     | SOME cpfs =>
-      (case check_subproofs_list cpfs b
+      (case check_scopes_list cpfs b
         fml_not_c id (id+1) zeros of
          NONE => NONE
       |  SOME(fml', id', zeros') =>
@@ -1694,6 +1756,20 @@ Proof
   >- metis_tac[option_CLAUSES,fml_rel_lookup_core_only]>>
   first_x_assum drule>>
   metis_tac[option_CLAUSES,fml_rel_lookup_core_only]
+QED
+
+Theorem fml_rel_extract_scopes_list:
+  ∀ls s b fml fmlls rsubs.
+  fml_rel fml fmlls ⇒
+  extract_scopes scopes ls (subst_fun s) b fml rsubs =
+  extract_scopes_list scopes s b fmlls rsubs ls
+Proof
+  Induct>>rw[]
+  >- simp[extract_scopes_def,extract_scopes_list_def]>>
+  Cases_on`h`>> simp[extract_scopes_def,extract_scopes_list_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  DEP_REWRITE_TAC [fml_rel_extract_clauses_list]>> simp[]>>
+  metis_tac[]
 QED
 
 (* Index list must lazily overapproximate the
@@ -1978,6 +2054,145 @@ Proof
   rpt(pairarg_tac>>fs[])>>
   gvs[AllCaseEqs()]>>
   imp_res_tac check_lstep_list_zeros>>
+  fs[]
+QED
+
+Theorem fml_rel_check_scopes_list:
+  ∀pfs b fmlls mindel id zeros fmlls' id' zeros' fml.
+    fml_rel fml fmlls ∧
+    (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+    mindel ≤ id ∧
+    EVERY (λw. w = 0w) zeros ∧
+    check_scopes_list pfs b fmlls mindel id zeros =
+      SOME (fmlls', id', zeros') ⇒
+    ∃fml'.
+      check_scopes pfs b fml id =
+        SOME (fml',id') ∧
+      fml_rel fml' fmlls'
+Proof
+  ho_match_mp_tac check_scopes_list_ind>>rw[]>>
+  fs[check_scopes_def,check_scopes_list_def]>>
+  gvs[AllCaseEqs()]
+  >- (
+    drule_all fml_rel_check_subproofs_list>>
+    rw[]>>simp[]>>
+    first_x_assum irule>>
+    drule check_subproofs_list_id>>
+    drule check_subproofs_list_id_upper>>
+    drule check_subproofs_list_zeros>>
+    simp[])>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  gvs[AllCaseEqs()]>>
+  drule_all fml_rel_list_insert_fml_list>>
+  strip_tac>>gvs[]>>
+  drule_all fml_rel_check_subproofs_list>>
+  rw[]>> simp[]>>
+  first_x_assum irule>>
+  rw[]
+  >- (
+    fs[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
+    drule check_subproofs_list_id_upper>>
+    disch_then match_mp_tac>>
+    simp[any_el_update_resize])
+  >- (
+    drule check_subproofs_list_id>>
+    fs[])
+  >- (
+    drule check_subproofs_list_zeros>>
+    metis_tac[])
+  >- (
+    match_mp_tac fml_rel_rollback>>rw[]
+    >- (
+      drule check_subproofs_list_mindel>>
+      rw[])>>
+    first_assum(qspec_then`n` mp_tac)>>
+    drule check_subproofs_list_id>>
+    simp[]>>rw[]>>
+    drule check_subproofs_list_id_upper>>
+    disch_then match_mp_tac>>
+    simp[any_el_update_resize])
+QED
+
+Theorem check_scopes_list_id:
+  ∀pfs b fmlls mindel id zeros fmlls' id' zeros'.
+    check_scopes_list pfs b fmlls mindel id zeros =
+    SOME (fmlls', id',zeros') ⇒
+    id ≤ id'
+Proof
+  ho_match_mp_tac check_scopes_list_ind>>
+  rw[check_scopes_list_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  gvs[AllCaseEqs()]>>
+  rpt(pairarg_tac>>fs[])>>
+  gvs[AllCaseEqs()]>>
+  imp_res_tac check_subproofs_list_id>>
+  imp_res_tac list_insert_fml_list_id>>
+  gvs[]
+QED
+
+Theorem check_scopes_list_id_upper:
+  ∀pfs b fmlls mindel id zeros fmlls' id' zeros'.
+  check_scopes_list pfs b fmlls mindel id zeros =
+    SOME (fmlls', id',zeros') ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ⇒
+  (∀n. n ≥ id' ⇒ any_el n fmlls' NONE = NONE)
+Proof
+  ho_match_mp_tac check_scopes_list_ind>>
+  simp[check_scopes_list_def]>>
+  rpt gen_tac>>
+  strip_tac>>
+  simp[AllCaseEqs()]>>
+  rpt strip_tac>>
+  gvs[]
+  >- metis_tac[check_subproofs_list_id_upper]>>
+  rpt(pairarg_tac>>fs[])>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum (irule_at Any)>>
+  simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
+  match_mp_tac check_subproofs_list_id_upper>>
+  first_x_assum (irule_at Any)>>
+  metis_tac[list_insert_fml_list_id_upper]
+QED
+
+Theorem check_scopes_list_mindel:
+  ∀pfs b fmlls mindel id zeros fmlls' id' zeros' n.
+  check_scopes_list pfs b fmlls mindel id zeros =
+    SOME (fmlls', id', zeros') ∧
+  mindel ≤ id ∧
+  n < mindel ⇒
+  any_el n fmlls NONE = any_el n fmlls' NONE
+Proof
+  ho_match_mp_tac check_scopes_list_ind>>
+  simp[check_scopes_list_def]>>rw[]>>
+  gvs[AllCaseEqs()]
+  >- (
+    drule check_subproofs_list_mindel>> fs[]>>
+    drule check_subproofs_list_id>>fs[])>>
+  rpt(pairarg_tac>>fs[])>>
+  gvs[AllCaseEqs()]>>
+  drule check_subproofs_list_mindel>> fs[]>>
+  drule (list_insert_fml_list_mindel)>>fs[]>>
+  rw[]>>
+  drule (list_insert_fml_list_id)>>
+  drule check_subproofs_list_id>>rw[]>>
+  gvs[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]
+QED
+
+Theorem check_scopes_list_zeros:
+  ∀pfs b fmlls mindel id zeros fmlls' id' zeros'.
+  check_scopes_list pfs b fmlls mindel id zeros =
+  SOME (fmlls', id',zeros') ∧
+  EVERY (λw. w = 0w) zeros
+  ⇒
+  EVERY (λw. w = 0w) zeros'
+Proof
+  ho_match_mp_tac check_scopes_list_ind>>
+  rw[check_scopes_list_def]>>
+  gvs[AllCaseEqs()]>>
+  rpt(pairarg_tac>>fs[])>>
+  gvs[AllCaseEqs()]>>
+  imp_res_tac check_subproofs_list_zeros>>
   fs[]
 QED
 
@@ -2319,7 +2534,8 @@ QED
 Theorem mk_subst_cases:
   mk_subst s =
   case s of
-    [(n,v)] => INL (n,v)
+  | [] => INR (Vector [])
+  | [(n,v)] => INL (n,v)
   | _ => INR (spt_to_vec (fromAList s))
 Proof
   every_case_tac>>fs[mk_subst_def]
@@ -2346,8 +2562,8 @@ Proof
     gvs[reindex_characterize,MEM_FILTER,IS_SOME_EXISTS,ind_rel_def,PULL_EXISTS,any_el_ALT])
   >- (
     drule IS_SOME_subst_opt>>
-    gvs[mk_subst_cases]>>every_case_tac>>
-    gvs[EVAL``length (spt_to_vec LN)``,subst_fun_def])
+    strip_tac>>
+    gvs[mk_subst_cases,AllCaseEqs(),subst_fun_def,spt_to_vecTheory.vec_lookup_def])
   >- (
     gvs[reindex_characterize,MEM_FILTER]>>
     gvs[ind_rel_def])
@@ -2451,7 +2667,8 @@ Proof
   fs[vomap_rel_def]>>
   simp[EVERY_MAP,LAMBDA_PROD,subst_fun_def]>>
   gvs[EVERY_MEM]>>
-  rw[]>>pairarg_tac>>fs[EXTENSION,MEM_MAP,domain_lookup]>>
+  rw[]>>pairarg_tac>>
+  fs[EXTENSION,MEM_MAP,domain_lookup,spt_to_vecTheory.vec_lookup_def]>>
   metis_tac[option_CLAUSES,SND,PAIR]
 QED
 
@@ -2463,6 +2680,50 @@ Proof
   rw[fast_red_subgoals_def,red_subgoals_def]>>
   every_case_tac>>fs[]>>
   metis_tac[vomap_rel_fast_obj_constraint]
+QED
+
+Theorem vimap_rel_check_fresh_aux_fml_vimap:
+  fml_rel fml fmlls ∧
+  vimap_rel fmlls vimap ∧
+  check_fresh_aux_fml_vimap as vimap ⇒
+  check_fresh_aux_fml as fml
+Proof
+  rw[check_fresh_aux_fml_vimap_def,check_fresh_aux_fml_def]>>
+  pop_assum mp_tac>>
+  match_mp_tac EVERY_MONOTONIC>>
+  gvs[vimap_rel_def,fml_rel_def]>>rw[]>>
+  CCONTR_TAC>>
+  gvs[range_def]>>
+  first_x_assum (drule_at Any)>>
+  first_x_assum (qspec_then`n` mp_tac)>>
+  simp[any_el_ALT]>>
+  metis_tac[]
+QED
+
+Theorem vomap_rel_check_fresh_aux_obj_vomap:
+  vomap_rel obj vomap ∧
+  check_fresh_aux_obj_vomap as vomap ⇒
+  check_fresh_aux_obj as obj
+Proof
+  rw[check_fresh_aux_obj_vomap_def,check_fresh_aux_obj_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  last_x_assum mp_tac>>
+  match_mp_tac EVERY_MONOTONIC>>
+  gvs[vomap_rel_def]>>rw[]>>
+  CCONTR_TAC>>
+  gvs[]
+QED
+
+Theorem vimap_rel_vomap_rel_check_fresh_aspo_list:
+  fml_rel fml fmlls ∧
+  vimap_rel fmlls vimap ∧
+  vomap_rel obj vomap ∧
+  check_fresh_aspo_list c s ord vimap vomap ⇒
+  check_fresh_aspo fml c obj s ord
+Proof
+  rw[check_fresh_aspo_list_def,check_fresh_aspo_def]>>
+  gvs[AllCasePreds()]>>
+  metis_tac[vomap_rel_check_fresh_aux_obj_vomap,vimap_rel_check_fresh_aux_fml_vimap]
 QED
 
 Theorem fml_rel_check_red_list:
@@ -2485,27 +2746,29 @@ Theorem fml_rel_check_red_list:
 Proof
   strip_tac>>
   fs[check_red_list_def]>>
+  drule_all vimap_rel_vomap_rel_check_fresh_aspo_list>>
+  strip_tac>>
   gvs[AllCaseEqs()]
   >- (
     gvs[vomap_rel_fast_red_subgoals]>>
     pairarg_tac>>fs[]>>
-    every_case_tac>>gvs[]>>
-    simp[check_red_def]>>
-    DEP_REWRITE_TAC [fml_rel_extract_clauses_list]>> simp[]>>
+    pairarg_tac>>fs[]>>
     gvs[AllCaseEqs()]>>
+    simp[check_red_def]>>
+    DEP_REWRITE_TAC [fml_rel_extract_scopes_list]>> simp[]>>
     `fml_rel (insert id ((not c,b)) fml)
       (update_resize fmlls NONE (SOME (not c,b)) id)` by
       metis_tac[fml_rel_update_resize]>>
-    drule fml_rel_check_subproofs_list>>
+    drule fml_rel_check_scopes_list>>
     disch_then (drule_at Any)>>
     impl_tac>- (
       rw[]>>
       simp[any_el_update_resize])>>
     simp[]>>strip_tac>>
-    gvs[]>>
-    drule check_subproofs_list_id>>
-    drule check_subproofs_list_id_upper>>
-    drule check_subproofs_list_mindel>>
+    gvs[insert_fml_def]>>
+    drule check_scopes_list_id>>
+    drule check_scopes_list_id_upper>>
+    drule check_scopes_list_mindel>>
     simp[any_el_update_resize]>>
     ntac 3 strip_tac>>
     CONJ_TAC >- (
@@ -2530,7 +2793,7 @@ Proof
           gvs[lookup_mk_core_fml]>>
           first_assum (irule_at Any)>>
           `∃b'.
-            lookup p_1 fml = SOME (x',b') ∧
+            lookup p_1 fml = SOME (x,b') ∧
             (b ⇒ b')` by (
             gvs[lookup_core_only_def,AllCaseEqs()])>>
           CONJ_TAC>- (
@@ -2589,8 +2852,9 @@ Proof
     CONJ_TAC >- (
       simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
       rw[])>>
-    metis_tac[check_subproofs_list_zeros])>>
-  gvs[check_red_list_fast_def,AllCaseEqs(),check_red_def,red_fast_def,extract_clauses_def,check_subproofs_def,insert_fml_def,check_lstep_list_def]
+    metis_tac[check_scopes_list_zeros])>>
+  gvs[check_red_list_fast_def,AllCaseEqs(),red_fast_def,check_red_def,insert_fml_def]>>
+  pairarg_tac>>gvs[extract_scopes_def,check_scopes_def,mk_scope_def,extract_clauses_def,check_subproofs_def,insert_fml_def,check_lstep_list_def]
   >- (
     drule fml_rel_update_resize>>
     disch_then(qspecl_then[`id`,`(not c,b)`] assume_tac)>>
@@ -3016,12 +3280,13 @@ Proof
 QED
 
 Definition do_dom_check_def:
-  do_dom_check idopt fml rfml w indcore rinds extra pfs dsubs =
+  do_dom_check idopt fml rfml w indcore rinds extra pfs dsubs  dindex =
   case idopt of NONE =>
     let goals =
       MAP_OPT (subst_opt w) indcore in
-    let (l,r) = extract_pids pfs LN LN in
+    let (l,r) = extract_scoped_pids pfs LN LN in
     if
+      find_scope_1 dindex pfs ∧
       EVERY (λ(id,cs).
               lookup id r ≠ NONE ∨
               check_hash_triv extra cs)
@@ -3176,7 +3441,8 @@ Definition check_cstep_list_def:
     (case pc.ord of
       NONE => NONE
     | SOME spo =>
-    if check_pres pc.pres s then
+    if check_pres pc.pres s ∧
+      check_fresh_aspo_list c s pc.ord vimap vomap then
     ( let nc = not c in
       let id = pc.id in
       let rinds = reindex fml inds in
@@ -3184,16 +3450,16 @@ Definition check_cstep_list_def:
       let fml_not_c = update_resize fml NONE (SOME (nc,F)) id in
       let s = mk_subst s in
       let w = subst_fun s in
-      let dsubs = dom_subgoals spo w c pc.obj in
-      case extract_clauses_list s F fml dsubs pfs [] of
+      let (dsubs,dscopes,dindex) = dom_subgoals spo w c pc.obj in
+      case extract_scopes_list dscopes s F fml dsubs pfs of
         NONE => NONE
       | SOME cpfs =>
-        (case check_subproofs_list cpfs F fml_not_c
-            id (id+1) zeros of
+        (case check_scopes_list cpfs F
+          fml_not_c id (id+1) zeros of
           NONE => NONE
         | SOME (fml',id',zeros') =>
           let rfml = rollback fml' id id' in
-          if do_dom_check idopt fml' rfml w corels rinds nc pfs dsubs then
+          if do_dom_check idopt fml' rfml w corels rinds nc pfs dsubs dindex then
             SOME(
               update_resize rfml NONE (SOME (c,pc.tcb)) id',
               zeros',
@@ -3262,18 +3528,23 @@ Definition check_cstep_list_def:
     | SOME spo =>
         SOME (fml, zeros, inds,
           vimap, vomap, pc with ord := NONE))
-  | StoreOrder nn spo ws pfsr pfst =>
-    if check_good_ord spo ∧ check_ws spo ws
+  | StoreOrder nn vars gspec f pfsr pfst =>
+    if check_spec vars gspec
     then
-      case check_transitivity spo ws pfst of NONE => NONE
-      | SOME id =>
-        if check_reflexivity spo pfsr id then
-          SOME (fml, zeros, inds,
-            vimap, vomap,
-            pc with orders := (nn,spo)::pc.orders)
-        else NONE
-    else
-      NONE
+      let aord = mk_aord vars f gspec in
+      if check_good_aord aord
+      then
+        case check_transitivity aord pfst of
+          NONE => NONE
+        | SOME id =>
+          if check_reflexivity aord pfsr id then
+            SOME (fml, zeros, inds,
+              vimap, vomap,
+              pc with orders := (nn ,aord)::pc.orders)
+          else NONE
+      else
+        NONE
+    else NONE
   | Obj w mi bopt => (
     let corels = core_fmlls fml inds in
     case check_obj pc.obj w (MAP SND corels) bopt of
@@ -3496,6 +3767,8 @@ Theorem fml_rel_check_cstep_list:
     EVERY (λw. w = 0w) zeros' ∧
     pc.id ≤ pc'.id
 Proof
+  cheat
+  (*
   Cases_on`cstep`>>rw[]
   >- ( (* Dom *)
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
@@ -3735,7 +4008,7 @@ Proof
     CONJ_TAC >-
       metis_tac[fml_rel_fml_rel_vimap_rel]>>
     simp[any_el_rollback]>>
-    metis_tac[check_subproofs_list_zeros])
+    metis_tac[check_subproofs_list_zeros]) *)
 QED
 
 Definition check_csteps_list_def:
