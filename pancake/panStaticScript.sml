@@ -562,7 +562,7 @@ Definition static_check_prog_def:
             ; last       := OtherLast
             ; var_delta  := empty mlstring$compare
             ; curr_loc   := ctxt.loc |> ∧
-  static_check_prog ctxt (Dec v e p) =
+  static_check_prog ctxt (Dec v s e p) =
     do
       (* check for reclaration *)
       check_redec_var ctxt v;

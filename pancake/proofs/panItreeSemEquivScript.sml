@@ -109,7 +109,7 @@ Definition itree_semantics_beh_def:
 End
 
 Theorem fbs_sem_div_compos_thm:
-  fbs_semantics_beh s (Dec v e prog) = SemDiverge l ∧
+  fbs_semantics_beh s (Dec v sh e prog) = SemDiverge l ∧
   eval (reclock s) e = SOME x ⇒
   fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l
 Proof
@@ -176,10 +176,10 @@ QED
 Theorem fbs_semantics_beh_simps:
   fbs_semantics_beh s Skip = SemTerminate (NONE,s) ∧
   fbs_semantics_beh s (Annot _ _) = SemTerminate (NONE,s) ∧
-  (eval (reclock s) e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p)
+  (eval (reclock s) e = NONE ⇒ fbs_semantics_beh s (Dec v sh e prog) ≠ SemTerminate p)
 Proof
   rw []
-  >~ [‘Dec _ _ _’]
+  >~ [‘Dec _ _ _ _’]
   >- (rw [fbs_semantics_beh_def,
           evaluate_def] >>
       rw [eval_upd_clock_eq] >>
@@ -194,7 +194,7 @@ Proof
 QED
 
 Theorem itree_semantics_beh_Dec:
-  itree_semantics_beh s (Dec vname e prog) =
+  itree_semantics_beh s (Dec vname shape e prog) =
   case eval (reclock s) e of
     NONE => SemFail
   | SOME value =>

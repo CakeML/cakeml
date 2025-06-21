@@ -111,7 +111,7 @@ val warns_ =
 (* Error: Main function parameters *)
 
 val ex_arg_main = `
-  fun main (1 a) {
+  fun 1 main (1 a) {
     return 1;
   }
 `;
@@ -129,7 +129,7 @@ val warns_arg_main =
 (* Error: Exported main function *)
 
 val ex_export_main = `
-  export fun main () {
+  export fun 1 main () {
     return 1;
   }
 `;
@@ -147,7 +147,7 @@ val warns_export_main =
 (* Error: Exported function with >4 arguments *)
 
 val ex_export_4_arg = `
-  export fun f (1 a, 1 b, 1 c, 1 d, 1 e) {
+  export fun 1 f (1 a, 1 b, 1 c, 1 d, 1 e) {
     return 1;
   }
 `;
@@ -165,7 +165,7 @@ val warns_ =
 (* Error: Missing function exit (return, tail call, etc) *)
 
 val ex_empty_fun = `
-  fun f () {}
+  fun 1 f () {}
 `;
 
 val parse_empty_fun =
@@ -179,8 +179,8 @@ val warns_empty_fun =
 
 
 val ex_no_ret_fun = `
-  fun f () {
-    var x = 0;
+  fun 1 f () {
+    var 1 x = 0;
     x = 1;
   }
 `;
@@ -196,7 +196,7 @@ val warns_no_ret_fun =
 
 
 val ex_while_ret_fun = `
-  fun f () {
+  fun 1 f () {
     while (1) {
       return 1;
     }
@@ -214,8 +214,8 @@ val warns_while_ret_fun =
 
 
 val ex_half_if_ret_fun = `
-  fun f () {
-    var x = 0;
+  fun 1 f () {
+    var 1 x = 0;
     if true {
       return 1;
     } else {
@@ -235,7 +235,7 @@ val warns_half_if_ret_fun =
 
 
 val ex_full_if_ret_fun = `
-  fun g () {
+  fun 1 f () {
     if true {
       return 1;
     } else {
@@ -257,7 +257,7 @@ val warns_full_if_ret_fun =
 (* Error: Loop exit outside loop (break, continue) *)
 
 val ex_rogue_break = `
-  fun f () {
+  fun 1 f () {
     break;
     return 1;
   }
@@ -274,7 +274,7 @@ val warns_rogue_break =
 
 
 val ex_rogue_continue = `
-  fun f () {
+  fun 1 f () {
     continue;
     return 1;
   }
@@ -293,7 +293,7 @@ val warns_rogue_continue =
 (* Error: Function parameter names not distinct *)
 
 val ex_repeat_params = `
-  fun f (1 a, 1 b, 1 c, 1 a) {
+  fun 1 f (1 a, 1 b, 1 c, 1 a) {
     return 1;
   }
 `;
@@ -317,6 +317,7 @@ val parse_missing_arg_binop = ``
       ; params := []
       ; body := Seq (Annot «location» «(0:0 0:0)»)
                     (Return (Op Xor [Const 1w]))
+      ; return := One
       |>
   ]
 ``;
@@ -335,6 +336,7 @@ val parse_missing_arg_panop = ``
       ; params := []
       ; body := Seq (Annot «location» «(0:0 0:0)»)
                     (Return (Panop Mul [Const 1w]))
+      ; return := One
       |>
   ]
 ``;
@@ -353,6 +355,7 @@ val parse_missing_arg_sub = ``
       ; params := []
       ; body := Seq (Annot «location» «(0:0 0:0)»)
                     (Return (Op Sub [Const 1w]))
+      ; return := One
       |>
   ]
 ``;
@@ -371,6 +374,7 @@ val parse_extra_arg_panop = ``
       ; params := []
       ; body := Seq (Annot «location» «(0:0 0:0)»)
                     (Return (Panop Mul [Const 1w; Const 1w; Const 1w]))
+      ; return := One
       |>
   ]
 ``;
@@ -389,6 +393,7 @@ val parse_extra_arg_sub = ``
       ; params := []
       ; body := Seq (Annot «location» «(0:0 0:0)»)
                     (Return (Op Sub [Const 1w; Const 1w; Const 1w]))
+      ; return := One
       |>
   ]
 ``;
@@ -403,7 +408,7 @@ val warns_extra_arg_sub =
 (* Warning: Unreachable statements (after function exit, after loop exit) *)
 
 val ex_stmt_after_ret = `
-  fun f () {
+  fun 1 f () {
     return 1;
     skip;
   }
@@ -420,7 +425,7 @@ val warns_stmt_after_ret =
 
 
 val ex_stmt_after_retcall = `
-  fun f () {
+  fun 1 f () {
     return f();
     skip;
   }
@@ -437,7 +442,7 @@ val warns_stmt_after_retcall =
 
 
 val ex_stmt_after_raise = `
-  fun f () {
+  fun 1 f () {
     raise Err 1;
     skip;
   }
@@ -454,7 +459,7 @@ val warns_stmt_after_raise =
 
 
 val ex_annot_after_ret = `
-  fun j () {
+  fun 1 f () {
     return 1;
     /@ annot @/
   }
@@ -471,7 +476,7 @@ val warns_annot_after_ret =
 
 
 val ex_stmt_after_annot_after_ret = `
-  fun k () {
+  fun 1 f () {
     return 1;
     /@ annot @/
     skip;
@@ -489,9 +494,9 @@ val warns_stmt_after_annot_after_ret =
 
 
 val ex_stmt_after_inner_ret = `
-  fun f () {
+  fun 1 f () {
     {
-      var x = 12;
+      var 1 x = 12;
       return x;
     };
     skip;
@@ -509,7 +514,7 @@ val warns_stmt_after_inner_ret =
 
 
 val ex_stmt_after_always_ret = `
-  fun f () {
+  fun 1 f () {
     if true {
       return 1;
     } else {
@@ -530,7 +535,7 @@ val warns_stmt_after_always_ret =
 
 
 val ex_stmt_after_maybe_ret = `
-  fun f () {
+  fun 1 f () {
     if true {
       return 1;
     } else {
@@ -551,7 +556,7 @@ val warns_stmt_after_maybe_ret =
 
 
 val ex_maybe_stmt_after_always_ret = `
-  fun f () {
+  fun 1 f () {
     if true {
       return 1;
       skip;
@@ -572,7 +577,7 @@ val warns_stmt_after_inner_ret =
 
 
 val ex_stmt_after_loop_ret = `
-  fun f () {
+  fun 1 f () {
     while (1) {
       return 1;
     }
@@ -591,7 +596,7 @@ val warns_stmt_after_loop_ret =
 
 
 val ex_stmt_after_brk = `
-  fun f () {
+  fun 1 f () {
     while (1) {
       break;
       skip;
@@ -611,7 +616,7 @@ val warns_stmt_after_brk =
 
 
 val ex_stmt_after_cont = `
-  fun f () {
+  fun 1 f () {
     while (1) {
       continue;
       skip;
@@ -631,10 +636,10 @@ val warns_stmt_after_cont =
 
 
 val ex_stmt_after_inner_brk = `
-  fun f () {
+  fun 1 f () {
     while (1) {
       {
-        var x = 0;
+        var 1 x = 0;
         break;
       };
       skip;
@@ -654,7 +659,7 @@ val warns_stmt_after_inner_brk =
 
 
 val ex_stmt_after_always_brk = `
-  fun f () {
+  fun 1 f () {
     while (1) {
       if true {
         break;
@@ -678,7 +683,7 @@ val warns_stmt_after_always_brk =
 
 
 val ex_stmt_after_maybe_brk = `
-  fun f () {
+  fun 1 f () {
     while (1) {
       if true {
         break;
@@ -702,7 +707,7 @@ val warns_stmt_after_maybe_brk =
 
 
 val ex_maybe_stmt_after_always_brk = `
-  fun f () {
+  fun 1 f () {
     while (1) {
       if true {
         break;
@@ -728,8 +733,8 @@ val warns_maybe_stmt_after_always_brk =
 (* Warning: Non-base-calculated address in local memory operation *)
 
 val ex_local_word_notbased = `
-  fun f () {
-    var x = lds 1 0;
+  fun 1 f () {
+    var 1 x = lds 1 0;
     st 0, x;
 
     return 1;
@@ -747,8 +752,8 @@ val warns_local_word_notbased =
 
 
 val ex_local_byte_notbased = `
-  fun f () {
-    var x = ld8 0;
+  fun 1 f () {
+    var 1 x = ld8 0;
     st8 0, x;
 
     return 1;
@@ -766,8 +771,8 @@ val warns_local_byte_notbased =
 
 
 val ex_local_word_based = `
-  fun f () {
-    var x = lds 1 @base;
+  fun 1 f () {
+    var 1 x = lds 1 @base;
     st @base, x;
 
     return 1;
@@ -785,8 +790,8 @@ val warns_local_word_based =
 
 
 val ex_local_byte_based = `
-  fun f () {
-    var x = ld8 @base;
+  fun 1 f () {
+    var 1 x = ld8 @base;
     st8 @base, x;
 
     return 1;
@@ -804,8 +809,8 @@ val warns_local_byte_based =
 
 
 val ex_local_word_arg = `
-  fun f (1 a) {
-    var x = lds 1 a;
+  fun 1 f (1 a) {
+    var 1 x = lds 1 a;
     st a, x;
 
     return 1;
@@ -823,10 +828,10 @@ val warns_local_word_arg =
 
 
 val ex_local_word_local = `
-  fun f () {
-    var a = (lds 1 @base);
+  fun 1 f () {
+    var 1 a = (lds 1 @base);
 
-    var x = lds 1 a;
+    var 1 x = lds 1 a;
     st a, x;
 
     return 1;
@@ -844,11 +849,11 @@ val warns_local_word_local =
 
 
 val ex_local_word_shared = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     !ldw a, 0;
 
-    var x = lds 1 a;
+    var 1 x = lds 1 a;
     st a, x;
 
     return 1;
@@ -866,15 +871,15 @@ val warns_local_word_shared =
 
 
 val ex_local_word_always_based = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     if (1) {
       a = @base;
     } else {
       a = @base;
     }
 
-    var x = lds 1 a;
+    var 1 x = lds 1 a;
     st a, x;
 
     return 1;
@@ -892,15 +897,15 @@ val warns_local_word_always_based =
 
 
 val ex_local_word_else_based = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     if (1) {
       a = 0;
     } else {
       a = @base;
     }
 
-    var x = lds 1 a;
+    var 1 x = lds 1 a;
     st a, x;
 
     return 1;
@@ -918,13 +923,13 @@ val warns_local_word_else_based =
 
 
 val ex_local_word_based_while_based = `
-  fun f () {
-    var a = @base;
+  fun 1 f () {
+    var 1 a = @base;
     while (1) {
       a = @base;
     }
 
-    var x = lds 1 a;
+    var 1 x = lds 1 a;
     st a, x;
 
     return 1;
@@ -942,13 +947,13 @@ val warns_local_word_based_while_based =
 
 
 val ex_local_word_nonbased_while_based = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     while (1) {
       a = @base;
     }
 
-    var x = lds 1 a;
+    var 1 x = lds 1 a;
     st a, x;
 
     return 1;
@@ -966,15 +971,15 @@ val warns_local_word_nonbased_while_based =
 
 
 val ex_local_word_always_nonbased = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     if (1) {
       a = 0;
     } else {
       a = 0;
     }
 
-    var x = lds 1 a;
+    var 1 x = lds 1 a;
     st a, x;
 
     return 1;
@@ -992,15 +997,15 @@ val warns_local_word_always_nonbased =
 
 
 val ex_local_word_else_nonbased = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     if (1) {
       a = @base;
     } else {
       a = 0;
     }
 
-    var x = lds 1 a;
+    var 1 x = lds 1 a;
     st a, x;
 
     return 1;
@@ -1018,13 +1023,13 @@ val warns_local_word_else_nonbased =
 
 
 val ex_local_word_nonbased_while_nonbased = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     while (1) {
       a = 0;
     }
 
-    var x = lds 1 a;
+    var 1 x = lds 1 a;
     st a, x;
 
     return 1;
@@ -1042,13 +1047,13 @@ val warns_local_word_nonbased_while_nonbased =
 
 
 val ex_local_word_based_while_nonbased = `
-  fun f () {
-    var a = @base;
+  fun 1 f () {
+    var 1 a = @base;
     while (1) {
       a = 0;
     }
 
-    var x = lds 1 a;
+    var 1 x = lds 1 a;
     st a, x;
 
     return 1;
@@ -1068,8 +1073,8 @@ val warns_local_word_based_while_nonbased =
 (* Warning: Base-calculated address in shared memory operation *)
 
 val ex_shared_word_nonbased = `
-  fun f () {
-    var x = 0;
+  fun 1 f () {
+    var 1 x = 0;
     !ldw x, 0;
     !stw 0, x;
 
@@ -1089,8 +1094,8 @@ val warns_shared_word_nonbased =
 
 
 val ex_shared_word_based = `
-  fun f () {
-    var x = 0;
+  fun 1 f () {
+    var 1 x = 0;
     !ldw x, @base;
     !stw @base, x;
 
@@ -1109,8 +1114,8 @@ val warns_shared_word_based =
 
 
 val ex_shared_word_arg = `
-  fun f (1 a) {
-    var x = 0;
+  fun 1 f (1 a) {
+    var 1 x = 0;
     !ldw x, a;
     !stw a, x;
 
@@ -1129,10 +1134,10 @@ val warns_shared_word_arg =
 
 
 val ex_shared_word_local = `
-  fun f () {
-    var a = (lds 1 @base);
+  fun 1 f () {
+    var 1 a = (lds 1 @base);
 
-    var x = 0;
+    var 1 x = 0;
     !ldw x, a;
     !stw a, x;
 
@@ -1151,11 +1156,11 @@ val warns_shared_word_local =
 
 
 val ex_shared_word_shared = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     !ldw a, 0;
 
-    var x = 0;
+    var 1 x = 0;
     !ldw x, a;
     !stw a, x;
 
@@ -1174,15 +1179,15 @@ val warns_shared_word_shared =
 
 
 val ex_shared_word_always_based = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     if (1) {
       a = @base;
     } else {
       a = @base;
     }
 
-    var x = 0;
+    var 1 x = 0;
     !ldw x, a;
     !stw a, x;
 
@@ -1201,15 +1206,15 @@ val warns_shared_word_always_based =
 
 
 val ex_shared_word_else_based = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     if (1) {
       a = 0;
     } else {
       a = @base;
     }
 
-    var x = 0;
+    var 1 x = 0;
     !ldw x, a;
     !stw a, x;
 
@@ -1228,13 +1233,13 @@ val warns_shared_word_else_based =
 
 
 val ex_shared_word_based_while_based = `
-  fun f () {
-    var a = @base;
+  fun 1 f () {
+    var 1 a = @base;
     while (1) {
       a = @base;
     }
 
-    var x = 0;
+    var 1 x = 0;
     !ldw x, a;
     !stw a, x;
 
@@ -1253,13 +1258,13 @@ val warns_shared_word_based_while_based =
 
 
 val ex_shared_word_nonbased_while_based = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     while (1) {
       a = @base;
     }
 
-    var x = 0;
+    var 1 x = 0;
     !ldw x, a;
     !stw a, x;
 
@@ -1278,15 +1283,15 @@ val warns_shared_word_nonbased_while_based =
 
 
 val ex_shared_word_always_nonbased = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     if (1) {
       a = 0;
     } else {
       a = 0;
     }
 
-    var x = 0;
+    var 1 x = 0;
     !ldw x, a;
     !stw a, x;
 
@@ -1305,15 +1310,15 @@ val warns_shared_word_always_nonbased =
 
 
 val ex_shared_word_else_nonbased = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     if (1) {
       a = @base;
     } else {
       a = 0;
     }
 
-    var x = 0;
+    var 1 x = 0;
     !ldw x, a;
     !stw a, x;
 
@@ -1332,13 +1337,13 @@ val warns_shared_word_else_nonbased =
 
 
 val ex_shared_word_nonbased_while_nonbased = `
-  fun f () {
-    var a = 0;
+  fun 1 f () {
+    var 1 a = 0;
     while (1) {
       a = 0;
     }
 
-    var x = 0;
+    var 1 x = 0;
     !ldw x, a;
     !stw a, x;
 
@@ -1357,13 +1362,13 @@ val warns_shared_word_nonbased_while_nonbased =
 
 
 val ex_shared_word_based_while_nonbased = `
-  fun f () {
-    var a = @base;
+  fun 1 f () {
+    var 1 a = @base;
     while (1) {
       a = 0;
     }
 
-    var x = 0;
+    var 1 x = 0;
     !ldw x, a;
     !stw a, x;
 
@@ -1387,7 +1392,7 @@ val warns_shared_word_based_while_nonbased =
 (* Error: Undefined/out-of-scope functions *)
 
 val ex_undefined_fun = `
-  fun f () {
+  fun 1 f () {
     foo();
     return 1;
   }
@@ -1406,7 +1411,7 @@ val warns_undefined_fun =
 (* Error: Undefined/out-of-scope variables *)
 
 val ex_undefined_var = `
-  fun f () {
+  fun 1 f () {
     return x;
   }
 `;
@@ -1452,7 +1457,7 @@ val warns_well_scoped_globals =
 
 
 val ex_global_function_order = `
-  fun f() { return x; }
+  fun 1 f() { return x; }
   var 1 x = 1;
 `;
 
@@ -1468,10 +1473,10 @@ val warns_global_function_order =
 (* Error: Redefined functions *)
 
 val ex_redefined_fun = `
-  fun f () {
+  fun 1 f () {
     return 1;
   }
-  fun f () {
+  fun 1 f () {
     return 1;
   }
 `;
@@ -1489,9 +1494,9 @@ val warns_redefined_fun =
 (* Warning: Redefined variables *)
 
 val ex_redefined_var_dec_dec = `
-  fun f () {
-    var x = 0;
-    var x = 0;
+  fun 1 f () {
+    var 1 x = 0;
+    var 1 x = 0;
     return 1;
   }
 `;
@@ -1507,8 +1512,8 @@ val warns_redefined_var_dec_dec =
 
 
 val ex_redefined_var_dec_deccall = `
-  fun f () {
-    var x = 0;
+  fun 1 f () {
+    var 1 x = 0;
     var 1 x = f();
     return 1;
   }
@@ -1525,9 +1530,9 @@ val warns_redefined_var_dec_deccall =
 
 
 val ex_redefined_var_deccall_dec = `
-  fun f () {
+  fun 1 f () {
     var 1 x = f();
-    var x = 0;
+    var 1 x = 0;
     return 1;
   }
 `;
@@ -1543,7 +1548,7 @@ val warns_redefined_var_deccall_dec =
 
 
 val ex_redefined_var_deccall_deccall = `
-  fun f () {
+  fun 1 f () {
     var 1 x = f();
     var 1 x = f();
     return 1;
@@ -1577,8 +1582,8 @@ val warns_redefined_global_var =
 
 val ex_redefined_global_var_locally = `
   var 1 x = 1;
-  fun f() {
-    var x = 1;
+  fun 1 f() {
+    var 1 x = 1;
     return x;
   }
 `;
@@ -1595,7 +1600,7 @@ val warns_redefined_global_var_locally =
 
 val ex_redefined_global_var_deccall = `
   var 1 x = 1;
-  fun f() {
+  fun 1 f() {
     var 1 x = f();
     return x;
   }

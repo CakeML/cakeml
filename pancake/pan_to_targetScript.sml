@@ -26,7 +26,9 @@ Definition compile_prog_def:
                                 <| name := «main»
                                  ; export := F
                                  ; params := []
-                                 ; body := Return (Const 0w)|>
+                                 ; body := Return (Const 0w)
+                                 ; return := One
+                                |>
                                 ::xs
                 | (xs,y::ys) => y::xs ++ ys in
     (* Compiler passes *)
@@ -60,7 +62,9 @@ Theorem compile_prog_eq:
                                 <| name := «main»
                                  ; export := F
                                  ; params := []
-                                 ; body := Return (Const 0w)|>
+                                 ; body := Return (Const 0w)
+                                 ; return := One
+                                |>
                                 ::xs
                 | (xs,y::ys) => y::xs ++ ys in
     (* Compiler passes *)
