@@ -374,12 +374,16 @@ End
 (* parse as integers, except if it ends with ; *)
 Definition int_start_def:
   int_start s =
-  if strsub s (strlen s - 1) = #";" then F
+  if strlen s > 0
+  then
+    if strsub s (strlen s - 1) = #";" then F
+    else
+      is_numeric (strsub s 0) ∨
+      (strlen s > 1 ∧
+      is_num_prefix (strsub s 0) ∧
+      is_numeric (strsub s 1))
   else
-  ((strlen s > 0 ∧ is_numeric (strsub s 0)) ∨
-  (strlen s > 1 ∧
-    is_num_prefix (strsub s 0) ∧
-    is_numeric (strsub s 1)))
+    F
 End
 
 Definition tokenize_fast_def:
@@ -1008,7 +1012,7 @@ Definition parse_sstep_def:
     | SOME (INL step,f_ns') =>
         SOME (INR (Lstep step),f_ns',ss)
     | SOME (INR c, f_ns') =>
-      (case parse_lsteps_aux f_ns' ss [] of
+      (case parse_lsteps f_ns' ss of
         NONE => NONE
       | SOME (pf,f_ns'',s,rest) =>
         case check_mark_qed_id (INL (strlit"pbc")) s of
@@ -1031,25 +1035,6 @@ End
   strlit"qed : 17;";
   strlit"qed;";])``
 *)
-
-val headertrm = rconc (EVAL``toks_fast (strlit"pseudo-Boolean proof version 3.0")``);
-
-(* TODO: We should check that the number of constraints is correct here *)
-Definition check_f_line_def:
-  check_f_line s =
-  case s of [] => F
-  | x::xs => x = INL(strlit "f")
-End
-
-Definition parse_header_def:
-  parse_header ss =
-  case ss of
-    x::y::rest =>
-    if x = ^headertrm ∧ check_f_line y
-      then SOME rest
-      else NONE
-  | _ => NONE
-End
 
 (* def_order parsing. We parse the sections in order.
   First, the vars block
@@ -1165,7 +1150,7 @@ Theorem parse_sstep_LENGTH:
   LENGTH ss' < LENGTH ss
 Proof
   Cases_on`ss`>>rw[parse_sstep_def]>>
-  gvs[AllCaseEqs(),parse_scope_def]
+  gvs[AllCaseEqs(),parse_scope_def,parse_lsteps_def]
   >- (
     imp_res_tac parse_scope_aux_LENGTH>>
     simp[])>>

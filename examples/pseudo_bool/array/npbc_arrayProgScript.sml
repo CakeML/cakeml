@@ -1370,7 +1370,7 @@ val check_lstep_arr = process_topdecs`
               (fml', (Some (c,b), (id',zeros)))
             end
           else
-            raise Fail (format_failure lno ("Subproof did not derive contradiction from index:" ^ Int.toString n))))
+            raise Fail (format_failure lno ("Subproof did not derive contradiction from index: " ^ Int.toString n))))
   | _ => raise Fail (format_failure lno ("Proof step not supported"))
   and check_lsteps_arr lno steps b fml mindel id zeros =
   case steps of
@@ -2291,7 +2291,7 @@ val check_subproofs_arr = process_topdecs`
             check_subproofs_arr lno pfs b fml' mindel id' zeros'
           end
           else
-            raise Fail (format_failure lno ("Subproof did not derive contradiction from index:" ^ Int.toString n))))` |> append_prog
+            raise Fail (format_failure lno ("Subproof did not derive contradiction from index: " ^ Int.toString n))))` |> append_prog
 
 Theorem check_subproofs_arr_spec:
   ∀pfs fmlls mindel id pfsv zeros lno lnov idv fmlv fmllsv mindelv b bv zerosv.
@@ -2940,7 +2940,7 @@ val check_red_arr_fast = process_topdecs`
         let val u = rollback_arr fml' id id' in
           (fml', (inds, (vimap, (id',zeros'))))
         end
-      else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid))
+      else raise Fail (format_failure lno ("did not derive contradiction from index: " ^ Int.toString cid))
     end` |> append_prog;
 
 Overload "vimapn_TYPE" = ``
@@ -3219,7 +3219,7 @@ val check_red_arr = process_topdecs`
         let val u = rollback_arr fml' id id' in
            (fml', (inds', (vimap', (id', zeros'))))
         end
-      else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
+      else raise Fail (format_failure lno ("did not derive contradiction from index: " ^ Int.toString cid)))
   end
   end)
   | Some (pf,cid) =>
@@ -4035,7 +4035,7 @@ val check_dom_arr = process_topdecs`
            let val u = rollback_arr fml' id id' in
              (fml', (rinds, (id', zeros')))
            end
-         else raise Fail (format_failure lno ("did not derive contradiction from index:" ^ Int.toString cid)))
+         else raise Fail (format_failure lno ("did not derive contradiction from index: " ^ Int.toString cid)))
     end` |> append_prog;
 
 Theorem check_dom_arr_spec:
