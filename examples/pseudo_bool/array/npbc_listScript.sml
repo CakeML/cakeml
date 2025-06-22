@@ -3280,7 +3280,7 @@ Proof
 QED
 
 Definition do_dom_check_def:
-  do_dom_check idopt fml rfml w indcore rinds extra pfs dsubs  dindex =
+  do_dom_check idopt fml rfml w indcore rinds extra pfs dsubs dindex =
   case idopt of NONE =>
     let goals =
       MAP_OPT (subst_opt w) indcore in
@@ -3289,8 +3289,9 @@ Definition do_dom_check_def:
       find_scope_1 dindex pfs ∧
       EVERY (λ(id,cs).
               lookup id r ≠ NONE ∨
-              check_hash_triv extra cs)
-              (enumerate 0 dsubs)
+              check_hash_triv extra cs ∨
+              id = dindex)
+      (enumerate 0 dsubs)
     then
       let fmlls = revalue F rfml rinds in
       split_goals_hash fmlls extra l goals
