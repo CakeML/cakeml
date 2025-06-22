@@ -3152,7 +3152,8 @@ Definition check_cstep_def:
                 find_scope_1 dindex pfs ∧
                 EVERY (λ(id,cs).
                   lookup id r ≠ NONE ∨
-                  check_hash_triv nc cs
+                  check_hash_triv nc cs ∨
+                  id = dindex
                 )
                 (enumerate 0 dsubs)
           | SOME cid =>
@@ -3918,6 +3919,8 @@ Proof
           \\ disch_then $ qspec_then
                 ‘{v | ∃n b. lookup n fml = SOME (v,b)} ∪ set pp’ mp_tac
           \\ simp [AC UNION_COMM UNION_ASSOC])
+        >- (
+          gvs [neg_dom_subst_def])
       )>>
       CONJ_TAC >- (
         fs[core_only_fml_def]
@@ -3935,7 +3938,6 @@ Proof
         \\ disch_then drule_all \\ strip_tac
         \\ fs []
         \\ first_x_assum drule \\ simp []
-        \\ disch_then kall_tac
         \\ first_x_assum drule \\ simp []
         \\ disch_then drule \\ simp []
         \\ gvs[mk_scope_def,AllCaseEqs()]
