@@ -2569,7 +2569,8 @@ Theorem substitution_redundancy_obj_po:
   fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ ((fml ∪ {c}) ⇂ w ∪
     (case obj of NONE => {}
       | SOME obj => {obj_constraint w obj})) ∧
-  fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ (set f) ⇂ sub_leq
+  (~EVERY (λ(b,v). w v = NONE) xs ⇒
+    fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ (set f) ⇂ sub_leq)
   ⇒
   (∀w.
     satisfies w fml ⇒
@@ -2587,17 +2588,32 @@ Proof
     qexists_tac`s`>>simp[]>>
     gvs[good_aspo_def]>>
     metis_tac[reflexive_def])>>
-  gvs[good_aspo_def,fresh_aux_def]>>
-  drule_at (Pos last) imp_sat_ord_po_of_aspo>>
-  disch_then (drule_at Any)>>
-  disch_then (drule_at Any)>>
-  disch_then (drule_at Any)>>
-  disch_then(qspec_then`w` mp_tac)>>
-  impl_tac >-
-    rw[]>>
+  ‘sat_ord (fml ∪ {not c}) (po_of_aspo ((f,g,us,vs,as),xs)) w’ by
+    (reverse $ Cases_on ‘EVERY (λ(b,v). w v = NONE) xs’ \\ gvs []
+     >-
+      (gvs[good_aspo_def,fresh_aux_def]>>
+       drule_at (Pos last) imp_sat_ord_po_of_aspo>>
+       disch_then (drule_at Any)>>
+       disch_then (drule_at Any)>>
+       disch_then (drule_at Any)>>
+       disch_then(qspec_then`w` mp_tac)>>
+       impl_tac >- rw[] \\ rewrite_tac [])
+     \\ qpat_x_assum ‘_ ⇒ _’ kall_tac
+     \\ gvs [sat_ord_def,reflexive_def]
+     \\ gvs[not_thm,fresh_aux_def,good_aspo_def]
+     \\ rw []
+     \\ ‘po_of_aspo ((f,g,us,vs,as),xs) z z’ by (gvs [reflexive_def])
+     \\ pop_assum mp_tac
+     \\ simp [po_of_aspo_def,FUN_EQ_THM]
+     \\ qsuff_tac ‘get_bits (assign w z) xs = get_bits z xs : (bool + num lit) list’
+     >- fs []
+     \\ simp [FUN_EQ_THM,get_bits_def,MAP_EQ_f,FORALL_PROD]
+     \\ gvs [assign_def,EVERY_MEM] \\ rw []
+     \\ res_tac \\ fs [])
+  \\ qpat_x_assum ‘_ ⇒ _’ kall_tac
+  \\ pop_assum mp_tac >>
   rw[sat_ord_def]>>
-  qpat_x_assum`_ ⊨ (set f  ⇂ _)` kall_tac>>
-  gvs[not_thm]>>
+  gvs[not_thm,fresh_aux_def,good_aspo_def]>>
   pop_assum drule_all>>
   disch_then (irule_at Any)>>
   simp[assign_def]>>
