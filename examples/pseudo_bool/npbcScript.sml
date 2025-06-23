@@ -2645,6 +2645,65 @@ Proof
     fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint])
 QED
 
+(* In the special case where the substitution does not touch the loaded
+  variables and we do not use any scopes. *)
+Theorem substitution_redundancy_obj_po_spec_2:
+  good_aspo (((f,g,us,vs,as),xs)) ∧
+  EVERY (λ(b,v). w v = NONE) xs ∧
+  (∀x. x ∈ pres ⇒ w x = NONE) ∧
+  fml ∪ {not c} ⊨ ((fml ∪ {c}) ⇂ w ∪
+    (case obj of NONE => {}
+      | SOME obj => {obj_constraint w obj}))
+  ⇒
+  (∀w.
+    satisfies w fml ⇒
+    ∃w'.
+      (∀x. x ∈ pres ⇒ w x = w' x) ∧
+      satisfies_npbc w' c ∧
+      satisfies w' fml ∧
+      po_of_aspo (((f,g,us,vs,as),xs)) w' w ∧
+      eval_obj obj w' ≤ eval_obj obj w)
+Proof
+  rw[]
+  \\ rename1`satisfies s fml`
+  \\ Cases_on ‘satisfies_npbc s c’
+  >- (
+    qexists_tac`s`>>simp[]>>
+    gvs[good_aspo_def]>>
+    metis_tac[reflexive_def])>>
+  ‘sat_ord (fml ∪ {not c}) (po_of_aspo ((f,g,us,vs,as),xs)) w’ by
+    (
+     gvs [sat_ord_def,reflexive_def]
+     \\ gvs[not_thm,fresh_aux_def,good_aspo_def]
+     \\ rw []
+     \\ ‘po_of_aspo ((f,g,us,vs,as),xs) z z’ by (gvs [reflexive_def])
+     \\ pop_assum mp_tac
+     \\ simp [po_of_aspo_def,FUN_EQ_THM]
+     \\ qsuff_tac ‘get_bits (assign w z) xs = get_bits z xs : (bool + num lit) list’
+     >- fs []
+     \\ simp [FUN_EQ_THM,get_bits_def,MAP_EQ_f,FORALL_PROD]
+     \\ gvs [assign_def,EVERY_MEM] \\ rw []
+     \\ res_tac \\ fs [])
+  \\ pop_assum mp_tac >>
+  rw[sat_ord_def]>>
+  gvs[not_thm,fresh_aux_def,good_aspo_def]>>
+  pop_assum drule_all>>
+  disch_then (irule_at Any)>>
+  simp[assign_def]>>
+  qpat_x_assum`sat_implies _ _` mp_tac>>
+  simp[sat_implies_def,not_thm]>>
+  disch_then drule_all>>
+  rw[]
+  >-
+    fs[subst_thm]
+  >-
+    gvs[satisfies_subst_thm]
+  >- (
+    every_case_tac
+    >- fs [eval_obj_def] >>
+    fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint])
+QED
+
 Theorem good_aspo_dominance:
   fresh_aux as fml c obj w ∧
   good_aspo (((f,g,us,vs,as),xs)) ∧

@@ -1252,16 +1252,21 @@ Definition has_scope_def:
   has_scope (pfs : scope) = (EXISTS (\x. FST x ≠ NONE) pfs)
 End
 
+Definition untouched_order_def:
+  untouched_order w xs =
+  EVERY (λ(b,v). w v = NONE) xs
+End
+
 (* Subgoals that can be skipped, starting from 1
   (since the order proofgoals start at #1 in our internal count) *)
 Definition skip_ord_subgoal_def:
   skip_ord_subgoal w ord =
-  case ord of NONE => []
+  case ord of NONE => (T,[])
   | (SOME ((f,g,us,vs,as),xs)) =>
-  if EVERY (λ(b,v). w v = NONE) xs
+  if untouched_order w xs
   then
-    GENLIST SUC (LENGTH f)
-  else []
+    (T,GENLIST SUC (LENGTH f))
+  else (F,[])
 End
 
 (*
@@ -1271,15 +1276,14 @@ End
   The "hs" flag skips computation of certain checks related to scopes
 *)
 Definition check_red_def:
-  check_red pres ord obj b tcb fml id c s
+  check_red pres ord obj b tcb fml id c (s: subst_raw )
     (pfs:scope) idopt =
-  let hs = has_scope pfs in
-  if check_pres pres s ∧
-    check_fresh_aspo fml c obj s ord then
+  if check_pres pres s then
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml b fml id (not c) in
-      let s = mk_subst s in
-      let w = subst_fun s in
+      let ss = mk_subst s in
+      let w = subst_fun ss in
+      let hs = has_scope pfs in
       let (rsubs,rscopes) = red_subgoals ord w c obj hs in
       case extract_scopes rscopes pfs w b fml rsubs of
         NONE => NONE
@@ -1291,9 +1295,13 @@ Definition check_red_def:
           (case idopt of
             NONE =>
               let gfml = mk_core_fml (b ∨ tcb) fml in
-              let skipped = skip_ord_subgoal w ord in
+              let (untouched,skipped) = skip_ord_subgoal w ord in
               let goals = toAList (map_opt (subst_opt w) gfml) in
               let (l,r) = extract_scoped_pids pfs LN LN in
+                (* Freshness check needed if scope is used or
+                  if the order is touched *)
+                (hs ∨ ¬ untouched ⇒
+                  check_fresh_aspo fml c obj s ord) ∧
                 (* Every goal from the formula is checked *)
                 split_goals gfml nc l goals  ∧
                 (* Every # goal is checked *)
