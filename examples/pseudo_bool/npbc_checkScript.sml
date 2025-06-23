@@ -1275,7 +1275,7 @@ Definition check_red_def:
     (pfs:scope) idopt =
   let hs = has_scope pfs in
   if check_pres pres s ∧
-    (hs ⇒ check_fresh_aspo fml c obj s ord) then
+    check_fresh_aspo fml c obj s ord then
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml b fml id (not c) in
       let s = mk_subst s in
