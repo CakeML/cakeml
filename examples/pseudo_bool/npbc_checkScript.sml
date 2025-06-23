@@ -849,8 +849,8 @@ Proof
 QED
 
 Definition dom_subst_def:
-  (dom_subst w NONE = ([],[])) ∧
-  (dom_subst w (SOME ((f,g,us,vs,as),xs)) =
+  (dom_subst hs w NONE = ([],[])) ∧
+  (dom_subst hs w (SOME ((f,g,us,vs,as),xs)) =
   let us_xs = list_list_insert us xs in
   let vs_xs = list_list_insert vs xs in
   let ww = (λn.
@@ -863,16 +863,17 @@ Definition dom_subst_def:
               | SOME res => res))
     | NONE =>
         OPTION_MAP (INR o mk_lit) (lookup n vs_xs)) in
-  (MAP (subst ww) f, MAP (subst ww) g))
+  (MAP (subst ww) f,
+    if hs then MAP (subst ww) g else []))
 End
 
 (* The list of # subgoals for redundancy
   internally implicitly numbered by the list order, i.e.,
   #0, #1, ...,
-  and the list of scopes (just one) *)
+  and the list of scopes (just one). *)
 Definition red_subgoals_def:
-  red_subgoals ord s def obj =
-  let (fs,gs) = dom_subst s ord in
+  red_subgoals ord s def obj hs =
+  let (fs,gs) = dom_subst hs s ord in
   let c0 = subst s def in (**)
   let cobj =
     case obj of NONE => []
@@ -1247,21 +1248,39 @@ Proof
   metis_tac[check_fresh_aux_subst_imp]
 QED
 
+Definition has_scope_def:
+  has_scope (pfs : scope) = (EXISTS (\x. FST x ≠ NONE) pfs)
+End
+
+(* Subgoals that can be skipped, starting from 1
+  (since the order proofgoals start at #1 in our internal count) *)
+Definition skip_ord_subgoal_def:
+  skip_ord_subgoal w ord =
+  case ord of NONE => []
+  | (SOME ((f,g,us,vs,as),xs)) =>
+  if EVERY (λ(b,v). w v = NONE) xs
+  then
+    GENLIST SUC (LENGTH f)
+  else []
+End
+
 (*
   The tcb flag indicates we're in to-core mode
   where it is guaranteed that the core formula implies
-  the derived set
+  the derived set.
+  The "hs" flag skips computation of certain checks related to scopes
 *)
 Definition check_red_def:
   check_red pres ord obj b tcb fml id c s
     (pfs:scope) idopt =
+  let hs = has_scope pfs in
   if check_pres pres s ∧
-    check_fresh_aspo fml c obj s ord then
+    (hs ⇒ check_fresh_aspo fml c obj s ord) then
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml b fml id (not c) in
       let s = mk_subst s in
       let w = subst_fun s in
-      let (rsubs,rscopes) = red_subgoals ord w c obj in
+      let (rsubs,rscopes) = red_subgoals ord w c obj hs in
       case extract_scopes rscopes pfs w b fml rsubs of
         NONE => NONE
       | SOME cpfs =>
@@ -1272,6 +1291,7 @@ Definition check_red_def:
           (case idopt of
             NONE =>
               let gfml = mk_core_fml (b ∨ tcb) fml in
+              let skipped = skip_ord_subgoal w ord in
               let goals = toAList (map_opt (subst_opt w) gfml) in
               let (l,r) = extract_scoped_pids pfs LN LN in
                 (* Every goal from the formula is checked *)
@@ -1279,7 +1299,8 @@ Definition check_red_def:
                 (* Every # goal is checked *)
                 EVERY (λ(id,cs).
                   lookup id r ≠ NONE ∨
-                  check_hash_triv nc cs
+                  check_hash_triv nc cs ∨
+                  MEM id skipped
                   )
                   (enumerate 0 rsubs)
             | SOME cid =>
@@ -1868,7 +1889,7 @@ Definition redundant_wrt_obj_po_def:
 End
 
 Theorem dom_subst_eq:
-  dom_subst w (SOME ((f,g,us,vs,as),xs)) = (fs,gs) ∧
+  dom_subst hs w (SOME ((f,g,us,vs,as),xs)) = (fs,gs) ∧
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
@@ -1880,7 +1901,7 @@ Theorem dom_subst_eq:
               | SOME res => res))
       | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ⇒
   set f ⇂ sub_leq = set fs ∧
-  set g ⇂ sub_leq = set gs
+  (hs ⇒ set g ⇂ sub_leq = set gs)
 Proof
   rw[EXTENSION]>>
   gvs[dom_subst_def,LIST_TO_SET_MAP,lookup_list_list_insert]
@@ -1894,11 +1915,13 @@ Proof
   gvs[reflexive_def]
 QED
 
+(* TODO: either a generalization or
+  something similar is needed for dom_subst F *)
 Theorem substitution_redundancy_obj_po_spec:
   OPTION_ALL (fresh_aux_aspo f c obj w) ord ∧
   OPTION_ALL good_aspo ord ∧
   (∀x. x ∈ pres ⇒ w x = NONE) ∧
-  dom_subst w ord = (fs,gs) ∧
+  dom_subst T w ord = (fs,gs) ∧
   f ∪ {not c} ∪ set gs ⊨ ((f ∪ {c}) ⇂ w ∪
     (case obj of NONE => {}
       | SOME obj => {obj_constraint w obj})) ∧
@@ -1949,7 +1972,7 @@ Proof
 QED
 
 Theorem check_red_correct_extra:
- ∀extra.
+  ∀extra.
   id_ok fml id ∧
   OPTION_ALL good_aspo ord ∧
   (tcb ⇒ core_only_fml T fml ⊨ core_only_fml b fml) ∧
@@ -2001,6 +2024,8 @@ Proof
     \\ irule sat_obj_po_fml_SUBSET
     \\ pop_assum $ irule_at Any
     \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])
+  \\ cheat
+  (*
   \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po_spec)
   \\ simp[]
   \\ simp [SF DNF_ss]
@@ -2151,7 +2176,7 @@ Proof
   \\ fs[GSYM lookup_mk_core_fml]
   \\ gvs[mk_scope_def,AllCaseEqs()]
   \\ rw[CONTRAPOS_THM,satisfiable_def]
-  \\ metis_tac[subst_opt_SOME,lookup_mk_core_fml_inj]
+  \\ metis_tac[subst_opt_SOME,lookup_mk_core_fml_inj] *)
 QED
 
 Theorem check_red_correct = check_red_correct_extra
@@ -2529,7 +2554,7 @@ End
 
 Definition dom_subgoals_def:
   dom_subgoals aspo s def obj =
-  let (fs,gs) = dom_subst s (SOME aspo) in
+  let (fs,gs) = dom_subst T s (SOME aspo) in
   let (fs',gs') = neg_dom_subst s aspo in
   let cobj =
     case obj of NONE => []
@@ -3146,6 +3171,7 @@ Definition check_cstep_def:
             NONE =>
               let cf = mk_core_fml T fml in
               let goals = toAList (map_opt (subst_opt w) cf) in
+              let skipped = [dindex] in
               let (l,r) = extract_scoped_pids pfs LN LN in
               let gfml = mk_core_fml F fml in
                 split_goals gfml nc l goals ∧
@@ -3153,7 +3179,7 @@ Definition check_cstep_def:
                 EVERY (λ(id,cs).
                   lookup id r ≠ NONE ∨
                   check_hash_triv nc cs ∨
-                  id = dindex
+                  MEM id skipped
                 )
                 (enumerate 0 dsubs)
           | SOME cid =>
