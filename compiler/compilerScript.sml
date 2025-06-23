@@ -282,7 +282,7 @@ End
 Definition compile_pancake_def:
   compile_pancake c input =
   let _ = empty_ffi (strlit "finished: start up") in
-  case panPtreeConversion$parse_funs_to_ast input of
+  case panPtreeConversion$parse_topdecs_to_ast input of
   | INR errs =>
     ((Failure $ ParseError $ concat $
        MAP (λ(msg,loc). concat [msg; strlit " at ";
