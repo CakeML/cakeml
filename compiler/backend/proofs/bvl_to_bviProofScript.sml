@@ -18,6 +18,10 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj",
                        "fromAList_def", "domain_union", "domain_insert",
                        "domain_inter"]
 
+val every_case_tac = legacy_every_case_tac;
+val TOP_CASE_TAC = LEGACY_TOP_CASE_TAC;
+val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
+
 val _ = new_theory"bvl_to_bviProof";
 
 val _ = set_grammar_ancestry

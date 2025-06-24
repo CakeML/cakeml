@@ -14,6 +14,9 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
+val every_case_tac = legacy_every_case_tac;
+val TOP_CASE_TAC = LEGACY_TOP_CASE_TAC;
+val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
 val grammar_ancestry =
   ["source_to_flat","flatProps","namespaceProps",

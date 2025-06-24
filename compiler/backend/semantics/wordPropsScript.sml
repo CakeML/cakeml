@@ -15,6 +15,8 @@ Main lemmas:
 *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"];
+val every_case_tac = legacy_every_case_tac;
+val TOP_CASE_TAC = LEGACY_TOP_CASE_TAC;
 
 val _ = new_theory "wordProps";
 

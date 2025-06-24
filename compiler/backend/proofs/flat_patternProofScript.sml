@@ -9,6 +9,9 @@ open preamble flat_patternTheory
 local open bagSimps induct_tweakLib in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val every_case_tac = legacy_every_case_tac;
+val TOP_CASE_TAC = LEGACY_TOP_CASE_TAC;
+val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
 val _ = new_theory "flat_patternProof"
 
