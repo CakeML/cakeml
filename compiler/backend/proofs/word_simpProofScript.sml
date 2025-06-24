@@ -7,6 +7,10 @@ val _ = new_theory "word_simpProof";
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
 
+val every_case_tac = legacy_every_case_tac;
+val TOP_CASE_TAC = LEGACY_TOP_CASE_TAC;
+val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
+
 val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_simp"];
 
 (** verification of Seq_assoc **)

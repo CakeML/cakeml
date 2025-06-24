@@ -6,6 +6,9 @@ open preamble word_removeTheory wordSemTheory wordPropsTheory wordConvsTheory;
 val _ = new_theory "word_removeProof";
 
 val _ = set_grammar_ancestry["word_remove","wordSem","wordProps"];
+val every_case_tac = legacy_every_case_tac;
+val TOP_CASE_TAC = LEGACY_TOP_CASE_TAC;
+val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
 Definition compile_state_def:
   compile_state clk c s =
