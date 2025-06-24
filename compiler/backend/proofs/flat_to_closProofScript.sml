@@ -8,6 +8,9 @@ open preamble
      clos_interpProofTheory;
 local open helperLib induct_tweakLib in end;
 
+val every_case_tac = legacy_every_case_tac;
+val TOP_CASE_TAC = LEGACY_TOP_CASE_TAC;
+
 val _ = new_theory"flat_to_closProof"
 
 val _ = set_grammar_ancestry ["misc","ffi","flatProps","closProps",
@@ -1914,7 +1917,7 @@ Proof
   \\ fs [dest_nop_def]
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
   \\ simp [arg1_def, arg2_def]
-  \\ EVERY_CASE_TAC
+  \\ every_case_tac
   \\ simp [flatPropsTheory.op_gbag_def, closPropsTheory.op_gbag_def]
   \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION]
   \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO

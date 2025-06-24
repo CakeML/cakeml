@@ -16,7 +16,6 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 val every_case_tac = legacy_every_case_tac;
 val TOP_CASE_TAC = LEGACY_TOP_CASE_TAC;
-val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
 val grammar_ancestry =
   ["source_to_flat","flatProps","namespaceProps",
@@ -5692,7 +5691,7 @@ val COUNT_LIST_ADD_SYM = COUNT_LIST_ADD
 Theorem MAPi_SNOC: (* TODO: move *)
   !xs x f. MAPi f (SNOC x xs) = SNOC (f (LENGTH xs) x) (MAPi f xs)
 Proof
-  Induct \\ fs [SNOC]
+  Induct \\ fs [SNOC,SNOC_APPEND]
 QED
 
 Theorem compile_decs_elist_globals:
