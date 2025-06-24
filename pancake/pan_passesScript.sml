@@ -24,12 +24,14 @@ Definition pan_to_target_all_def:
                             Function fi => fi.name = «main»
                           | Decl _ _ _ => F) prog of
               | ([],ys) => ys
-                | (xs,[]) => Function
-                                <| name := «main»
-                                 ; export := F
-                                 ; params := []
-                                 ; body := Return (Const 0w)|>
-                                ::xs
+              | (xs,[]) => Function
+                            <| name := «main»
+                              ; export := F
+                              ; params := []
+                              ; body := Return (Const 0w)
+                              ; return := One
+                            |>
+                            ::xs
               | (xs,y::ys) => y::xs ++ ys
     in
       let
@@ -220,9 +222,9 @@ Definition pan_prog_to_display_def:
      Item NONE (strlit "while")
           [pan_exp_to_display e;
            pan_prog_to_display p]) ∧
-  (pan_prog_to_display (Dec n e p) =
+  (pan_prog_to_display (Dec n shape e p) =
      Item NONE (strlit "dec")
-          [Tuple [
+          [Tuple [String (shape_to_str shape);
                   String (strlit "local");
                   String n;
                   String (strlit ":=");
@@ -299,7 +301,7 @@ Definition pan_fun_to_display_def:
   pan_fun_to_display decl =
     case decl of
       Function fi => Tuple
-        [String «func»; String fi.name;
+        [String (shape_to_str fi.return); String «func»; String fi.name;
         Tuple (MAP (λ(s,shape). Tuple [String s;
                                        String (strlit ":");
                                        String (shape_to_str shape)]) fi.params);
