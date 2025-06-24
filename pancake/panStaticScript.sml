@@ -132,6 +132,14 @@ Datatype:
   |>
 End
 
+(* Record for static_check_exp returns *)
+Datatype:
+  exp_return = <|
+    basedness : based (* func exit status for all paths *)
+  ; shape     : shape (* loop exit status for all paths *)
+  |>
+End
+
 (* Record for static_check_prog returns *)
 Datatype:
   prog_return = <|
@@ -920,41 +928,20 @@ Definition static_check_prog_def:
 End
 
 (*
-  static_check_funs returns:
+  static_check_progs returns:
     (unit) static_result
 *)
-Definition static_check_funs_def:
-  static_check_funs fctxt gctxt [] =
+Definition static_check_progs_def:
+  static_check_progs fctxt gctxt [] =
     (* no more decls *)
     return () ∧
-  static_check_funs fctxt gctxt (Decl _ _ _::decls) =
+  static_check_progs fctxt gctxt (Decl _ _ _::decls) =
     (* not a function *)
-    static_check_funs fctxt gctxt decls ∧
-  static_check_funs fctxt gctxt (Function fi::decls) =
+    static_check_progs fctxt gctxt decls ∧
+  static_check_progs fctxt gctxt (Function fi::decls) =
     do
-      (* check main function arguments *)
-      if (fi.name = «main» /\ LENGTH fi.params > 0) then
-        error (GenErr $ strlit "main function has arguments\n")
-      else return ();
-      (* check main function export status *)
-      if (fi.name = «main» /\ fi.export) then
-        error (GenErr $ strlit "main function is exported\n")
-      else return ();
-      (* check exported function arg num *)
-      if (LENGTH fi.params > 4 /\ fi.export) then
-        error (GenErr $ concat
-          [strlit "exported function "; fi.name;
-           strlit " has more than 4 arguments\n"])
-      else return ();
-      (* check parameter name uniqueness *)
-      pnames <<- MAP FST fi.params;
-      case first_repeat $ sort mlstring_lt pnames of
-        SOME p => error (GenErr $ concat
-          [strlit "parameter "; p; strlit " is redeclared in function ";
-           fi.name; strlit "\n"])
-      | NONE => return ();
       (* setup initial checking context *)
-      ctxt <<- <| locals := FOLDL (\m p. insert m p <| based := Trusted ; locl_shape := One |>) (empty mlstring$compare) pnames (* #!TEMP *)
+      ctxt <<- <| locals := FOLDL (\m p. insert m p <| based := Trusted ; locl_shape := One |>) (empty mlstring$compare) (MAP FST fi.params) (* #!TEMP *)
                 ; globals := gctxt
                 ; funcs := fctxt
                 ; scope := FunScope fi.name
@@ -971,15 +958,19 @@ Definition static_check_funs_def:
            fi.name; strlit "\n"])
       else return ();
       (* check remaining functions *)
-      static_check_funs fctxt gctxt decls
+      static_check_progs fctxt gctxt decls
     od
 End
 
-Definition static_check_globals_def:
-  static_check_globals gctxt [] =
+(*
+  static_check_decls returns:
+    ((varname, global_info) map, (funname, func_info) map)
+*)
+Definition static_check_decls_def:
+  static_check_decls fctxt gctxt [] =
     (* no more decls *)
-    return gctxt ∧
-  static_check_globals gctxt (Decl shape vname exp::decls) =
+    return (fctxt, gctxt) ∧
+  static_check_decls fctxt gctxt (Decl shape vname exp::decls) =
     do
       (* setup initial checking context *)
       ctxt <<- <| locals := empty mlstring$compare
@@ -994,12 +985,77 @@ Definition static_check_globals_def:
       static_check_exp ctxt exp;
       (* check for redeclaration *)
       check_redec_var (ctxt with scope := TopLevel) vname;
-      (* check remaining globals *)
-      static_check_globals (insert gctxt vname <| glob_shape := One |>) decls (* #!TEMP *)
+      (* check remaining decls *)
+      static_check_decls fctxt (insert gctxt vname <| glob_shape := shape |>) decls
     od ∧
-  static_check_globals gctxt (Function _::funs) =
-    (* not a global variable declaration *)
-    static_check_globals gctxt funs
+  static_check_decls fctxt gctxt (Function fi::funs) =
+    do
+      (* check func name uniqueness *)
+      if member fi.name fctxt
+        then error (GenErr $ concat
+        (* TODO: swap this to `get_redec_msg F <loc> f TopLevel` once function locations exist *)
+          [strlit "function "; fi.name; strlit " is redeclared\n"])
+      else return ();
+      (* check main func *)
+      if fi.name = «main»
+        then do
+          (* check main func args *)
+          if LENGTH fi.params > 0
+            then error (GenErr $ strlit "main function has arguments\n")
+          else return ();
+          (* check main func export status *)
+          if fi.export
+            then error (GenErr $ strlit "main function is exported\n")
+          else return ();
+          (* check main func return shape *)
+          if ~(fi.return = One)
+            then error (GenErr $ strlit "main function does not return a word\n")
+          else return ();
+        od
+      else
+        do
+          (* check arg name uniqueness *)
+          case first_repeat $ QSORT mlstring_lt (MAP FST fi.params) of
+            SOME p => error (GenErr $ concat
+              [strlit "parameter "; p; strlit " is redeclared in function ";
+              fi.name; strlit "\n"])
+          | NONE => return ();
+          (* check exported func *)
+          if fi.export
+            then do
+              (* check exported func arg num *)
+              if LENGTH fi.params > 4
+                then error (GenErr $ concat
+                  [strlit "exported function "; fi.name;
+                  strlit " has more than 4 arguments\n"])
+              else return ();
+              (* check exported func arg shape *)
+              if EXISTS (\shape. ~(shape = One)) (MAP SND fi.params)
+                then error (GenErr $ concat
+                  [strlit "exported function "; fi.name;
+                  strlit " has non-word argument/s\n"])
+              else return ();
+              (* check exported func return shape *)
+              if ~(fi.return = One)
+                then error (GenErr $ concat
+                  [strlit "exported function "; fi.name;
+                  strlit " does not return a word\n"])
+              else return ();
+            od
+          else
+            (* check func return shape size *)
+            if size_of_shape fi.return > 32
+              then error (GenErr $ concat
+                [strlit "function "; fi.name;
+                strlit " returns a shape bigger than 32 words\n"])
+            else return () ;
+        od ;
+      (* check remaining decls *)
+      static_check_decls
+        (insert fctxt fi.name
+          <| ret_shape := fi.return ; param_shapes := MAP SND fi.params |>)
+        gctxt decls
+    od
 End
 
 (*
@@ -1013,16 +1069,9 @@ End
 Definition static_check_def:
   static_check decls =
     do
-      (* check func name uniqueness *)
-      fnames <<- MAP FST (functions decls);
-      case first_repeat $ sort mlstring_lt fnames of
-        (* TODO: swap this to `get_redec_msg F <loc> f TopLevel` once function locations exist *)
-        SOME f => error (GenErr $ concat
-          [strlit "function "; f; strlit " is redeclared\n"])
-      | NONE => return ();
-      fctxt <<- FOLDR (\fname fctxt. insert fctxt fname <| ret_shape := One ; param_shapes := [] |>) (empty mlstring$compare) fnames ; (* #!TEMP *)
-      gctxt <- static_check_globals (empty mlstring$compare) decls;
-      (* check functions *)
-      static_check_funs fctxt gctxt decls
+      (* check decls and build context *)
+      (fctxt, gctxt) <- static_check_decls (empty mlstring$compare) (empty mlstring$compare) decls;
+      (* check function bodies with context *)
+      static_check_progs fctxt gctxt decls
     od
 End
