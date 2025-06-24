@@ -1266,7 +1266,7 @@ End
 (* Not meant to be executed, mainly just abbrevation... *)
 Definition do_red_check_def:
   do_red_check idopt b tcb fml inds
-    s rfml rinds extra pfs rsubs =
+    s rfml rinds extra pfs rsubs skipped =
   case idopt of NONE =>
     let goals = subst_indexes s (b ∨ tcb) rfml rinds in
     let (l,r) = extract_scoped_pids pfs LN LN in
@@ -1274,7 +1274,8 @@ Definition do_red_check_def:
       split_goals_hash fmlls extra l goals ∧
       EVERY (λ(id,cs).
         lookup id r ≠ NONE ∨
-        check_hash_triv extra cs
+        check_hash_triv extra cs  ∨
+        MEM id skipped
         )
         (enumerate 0 rsubs)
   | SOME cid =>
@@ -1565,12 +1566,12 @@ Definition fast_obj_constraint_def:
 End
 
 Definition fast_red_subgoals_def:
-  fast_red_subgoals ord s def obj vomap =
+  fast_red_subgoals ord s def obj vomap hs =
   let cobj =
     case obj of NONE => []
     | SOME l => [[not (fast_obj_constraint s l vomap)]] in
   let s = subst_fun s in
-  let (fs,gs) = dom_subst s ord in
+  let (fs,gs) = dom_subst hs s ord in
   let c0 = subst s def in (**)
   ([not c0]::(MAP (λc. [not c]) fs) ++ cobj, [gs])
 End
@@ -1638,18 +1639,18 @@ End
 Definition check_red_list_def:
   check_red_list pres ord obj b tcb fml inds id c s
     (pfs:scope) idopt vimap vomap zeros =
-  if check_pres pres s ∧
-     check_fresh_aspo_list c s ord vimap vomap
+  if check_pres pres s
   then
-  let s = mk_subst s in
-  case red_fast s idopt pfs of
+  let ss = mk_subst s in
+  case red_fast ss idopt pfs of
     NONE => (
-    let rinds = get_indices fml inds s vimap in
-    let (inds',vimap') = set_indices inds s vimap rinds in
+    let rinds = get_indices fml inds ss vimap in
+    let (inds',vimap') = set_indices inds ss vimap rinds in
     let nc = not c in
     let fml_not_c = update_resize fml NONE (SOME (nc,b)) id in
-    let (rsubs,rscopes) = fast_red_subgoals ord s c obj vomap in
-    case extract_scopes_list rscopes s b fml rsubs pfs of
+    let hs = has_scope pfs in
+    let (rsubs,rscopes) = fast_red_subgoals ord ss c obj vomap hs in
+    case extract_scopes_list rscopes ss b fml rsubs pfs of
       NONE => NONE
     | SOME cpfs =>
       (case check_scopes_list cpfs b
@@ -1657,9 +1658,13 @@ Definition check_red_list_def:
          NONE => NONE
       |  SOME(fml', id', zeros') =>
         let rfml = rollback fml' id id' in
-        if do_red_check idopt b tcb fml' inds'
-            s rfml rinds nc pfs rsubs then
-            SOME (rfml,inds',vimap',id',zeros')
+        let (untouched,skipped) = skip_ord_subgoal (subst_fun ss) ord in
+        if
+          (hs ∨ ¬ untouched ⇒
+            check_fresh_aspo_list c s ord vimap vomap) ∧
+          do_red_check idopt b tcb fml' inds'
+            ss rfml rinds nc pfs rsubs skipped then
+          SOME (rfml,inds',vimap',id',zeros')
         else NONE))
   | SOME (pf,cid) =>
     check_red_list_fast b fml inds id c pf cid vimap zeros
@@ -2674,8 +2679,8 @@ QED
 
 Theorem vomap_rel_fast_red_subgoals:
   vomap_rel obj vomap ⇒
-  fast_red_subgoals ord s def obj vomap =
-  red_subgoals ord (subst_fun s) def obj
+  fast_red_subgoals ord s def obj vomap hs =
+  red_subgoals ord (subst_fun s) def obj hs
 Proof
   rw[fast_red_subgoals_def,red_subgoals_def]>>
   every_case_tac>>fs[]>>
