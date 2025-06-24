@@ -789,17 +789,19 @@ Definition localise_exp_def:
    case lookup ls varname of
      NONE   => Var varkind varname
    | SOME _ => Var Local varname) ∧
-  localise_exp ls (Struct exps) = Struct (MAP (localise_exp ls) exps) ∧
+  localise_exp ls (Struct exps) = Struct (localise_exps ls exps) ∧
   localise_exp ls (Field index exp) = Field index (localise_exp ls exp) ∧
   localise_exp ls (Load shape exp) = Load shape (localise_exp ls exp)∧
   localise_exp ls (LoadByte exp) = LoadByte (localise_exp ls exp) ∧
-  localise_exp ls (Op binop exps) = Op binop (MAP (localise_exp ls) exps) ∧
-  localise_exp ls (Panop panop exps) = Panop panop (MAP (localise_exp ls) exps) ∧
+  localise_exp ls (Op binop exps) = Op binop (localise_exps ls exps) ∧
+  localise_exp ls (Panop panop exps) = Panop panop (localise_exps ls exps) ∧
   localise_exp ls (Cmp cmp exp1 exp2) = Cmp cmp (localise_exp ls exp1) (localise_exp ls exp2) ∧
   localise_exp ls (Shift shift exp num) = Shift shift (localise_exp ls exp) num ∧
-  localise_exp ls e = e
+  localise_exp ls e = e ∧
+  localise_exps ls [] = [] ∧
+  localise_exps ls (e::es) = localise_exp ls e::localise_exps ls es
 Termination
-  wf_rel_tac ‘measure $ exp_size ARB o SND’
+  wf_rel_tac ‘measure $ λx. sum_CASE x (exp_size ARB o SND) (exp1_size ARB o SND)’
 End
 
 Definition localise_prog_def:
