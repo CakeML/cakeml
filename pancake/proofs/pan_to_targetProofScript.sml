@@ -1152,6 +1152,7 @@ Theorem pan_to_target_compile_semantics:
   globals_allocatable s pan_code ∧
   heap_len = w2n ((mc.target.get_reg ms mc.ptr2_reg) + -1w * s.base_addr) DIV (dimindex (:α) DIV 8) ∧
   s.top_addr = s.base_addr + bytes_in_word * n2w heap_len - n2w(globals_size*dimindex (:α) DIV 8) ∧
+  globals_size ≤ heap_len ∧
   s.memaddrs = addresses (mc.target.get_reg ms mc.len_reg) (heap_len-globals_size) ∧
   aligned (shift (:'a) + 1) ((mc.target.get_reg ms mc.ptr2_reg) + -1w * (mc.target.get_reg ms mc.len_reg)) ∧
   adj_ptr2 = (mc.target.get_reg ms mc.len_reg) + bytes_in_word * n2w max_stack_alloc ∧
@@ -1976,7 +1977,7 @@ Proof
      simp[LESS_MOD])>>
   gs[]>>
 
-  (* pan_to_word *)        
+  (* pan_to_word *)
 
   Q.SUBGOAL_THEN ‘InitGlobals_location = first_name’ SUBST_ALL_TAC >- EVAL_TAC >>
   ‘wst0.code = fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)’
@@ -2019,8 +2020,6 @@ Proof
          stack_removeTheory.store_init_def,
          APPLY_UPDATE_LIST_ALOOKUP,
          wordSemTheory.theWord_def] >>
-      
-
       conj_tac
       >- (rpt strip_tac >>
           irule EQ_TRANS >>
@@ -2032,7 +2031,9 @@ Proof
           first_assum $ irule_at $ Pos hd >>
           simp[] >>
           conj_tac
-          >- cheat >>
+          >- (gs[stack_removeProofTheory.addresses_thm] >>
+              irule_at Any EQ_REFL >>
+              simp[]) >>
           gs[Abbr ‘ssx’, Abbr ‘labst’]>>
           rewrite_tac[lab_to_targetProofTheory.make_init_def]>>simp[]>>
           gs[wordSemTheory.theWord_def]>>
@@ -2050,12 +2051,72 @@ Proof
           gs[set_sepTheory.fun2set_eq]>>
           qpat_x_assum ‘good_init_state _ _ _ _ _ _ _ _ _ _’ mp_tac >>
           simp[targetSemTheory.good_init_state_def] >>
-          ‘byte_aligned a’ by cheat >>
+          ‘byte_aligned a’
+            by(gs[stack_removeProofTheory.addresses_thm] >>
+               simp[PURE_ONCE_REWRITE_RULE [WORD_ADD_COMM] byte_aligned_mult]) >>
           pop_assum mp_tac >>
           rpt $ pop_assum kall_tac >>
           metis_tac[byte_align_aligned]) >>
       conj_tac
-      >- cheat >>
+      >- (rw[SET_EQ_SUBSET,SUBSET_DEF,stack_removeProofTheory.addresses_thm,
+             addressTheory.WORD_EQ_ADD_CANCEL,WORD_EQ_ADD_RCANCEL]
+          >- (simp[addressTheory.WORD_EQ_ADD_CANCEL] >>
+              qmatch_goalsub_abbrev_tac ‘_ < www’ >>
+              Cases_on ‘i < www’
+              >- (disj1_tac >> irule_at Any EQ_REFL >> simp[]) >>
+              disj2_tac >>
+              simp[WORD_EQ_ADD_RCANCEL] >>
+              qexists ‘i - www’ >>
+              gs[Abbr ‘www’,NOT_LESS] >>
+              gs[good_dimindex_def,bytes_in_word_def,word_mul_n2w,word_add_n2w] >>
+              simp[REWRITE_RULE[wordsTheory.word_sub_def] addressTheory.word_arith_lemma2] >>
+              ‘∀x. 32 * x DIV 8 = 4 * x’
+                by(rpt $ pop_assum kall_tac >>
+                   strip_tac >>
+                   irule_at Any EQ_TRANS >>
+                   irule_at (Pos last) $ Q.SPEC ‘4*x’ MULT_TO_DIV >>
+                   qexists ‘8’ >>
+                   intLib.COOPER_TAC) >>
+              pop_assum $ simp o single >>
+              ‘∀x. 64 * x DIV 8 = 8 * x’
+                by(rpt $ pop_assum kall_tac >>
+                   strip_tac >>
+                   irule_at Any EQ_TRANS >>
+                   irule_at (Pos last) $ Q.SPEC ‘8*x’ MULT_TO_DIV >>
+                   qexists ‘8’ >>
+                   intLib.COOPER_TAC) >>
+              pop_assum $ simp o single >>
+              PURE_REWRITE_TAC[GSYM LEFT_ADD_DISTRIB,LT_MULT_LCANCEL] >>
+              simp[SUB_LEFT_SUB] >>
+              simp[LEFT_ADD_DISTRIB])
+          >- (irule_at Any EQ_REFL >> simp[])
+          >- (simp[WORD_EQ_ADD_RCANCEL] >>
+              qexists ‘(w2n
+                        (-1w * mc.target.get_reg ms mc.len_reg +
+                         mc.target.get_reg ms mc.ptr2_reg) DIV (dimindex (:α) DIV 8)) + i - SUM (MAP size_of_shape (dec_shapes (compile_prog pan_code)))
+                      ’ >>
+              simp[] >>
+              gs[good_dimindex_def,bytes_in_word_def,word_mul_n2w,word_add_n2w] >>
+              simp[REWRITE_RULE[wordsTheory.word_sub_def] addressTheory.word_arith_lemma2] >>
+              ‘∀x. 32 * x DIV 8 = 4 * x’
+                by(rpt $ pop_assum kall_tac >>
+                   strip_tac >>
+                   irule_at Any EQ_TRANS >>
+                   irule_at (Pos last) $ Q.SPEC ‘4*x’ MULT_TO_DIV >>
+                   qexists ‘8’ >>
+                   intLib.COOPER_TAC) >>
+              pop_assum $ simp o single >>
+              ‘∀x. 64 * x DIV 8 = 8 * x’
+                by(rpt $ pop_assum kall_tac >>
+                   strip_tac >>
+                   irule_at Any EQ_TRANS >>
+                   irule_at (Pos last) $ Q.SPEC ‘8*x’ MULT_TO_DIV >>
+                   qexists ‘8’ >>
+                   intLib.COOPER_TAC) >>
+              pop_assum $ simp o single >>
+              PURE_REWRITE_TAC[GSYM LEFT_ADD_DISTRIB,LT_MULT_LCANCEL] >>
+              simp[SUB_LEFT_SUB] >>
+              simp[LEFT_ADD_DISTRIB])) >>
       gvs[Abbr ‘sp’] >>
       gs[word_to_stackProofTheory.make_init_def]>>
       gs[Abbr ‘labst’,Abbr ‘ssx’] >>
