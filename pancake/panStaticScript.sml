@@ -88,11 +88,28 @@ Datatype:
   | InvisLast | OtherLast           (* non-exit *)
 End
 
-(* Type for holding var state *)
-Type var_info = ``:(varname, based) map``
+(* Type for function state *)
+Datatype:
+  func_info = <|
+    ret_shape    : shape      (* shape of return value *)
+  ; param_shapes : shape list (* shape of parameters *)
+  |>
+End
+
+(* Type for local var state *)
+Datatype:
+  local_info = <|
+    based : based       (* basedness of var *)
+  ; locl_shape : shape  (* shape of var *)
+  |>
+End
 
 (* Type for global var state *)
-Type global_info = ``:(varname, unit) map``
+Datatype:
+  global_info = <|
+    glob_shape : shape  (* shape of var *)
+  |>
+End
 
 Datatype:
   scope =
@@ -104,25 +121,25 @@ End
 (* Record for current (per-func) context *)
 Datatype:
   context = <|
-    vars         : var_info     (* tracked var state *)
-  ; globals      : global_info  (* declared globals *)
-  ; funcs        : funname list (* all function info *)
-  ; scope        : scope        (* current scope info *)
-  ; in_loop      : bool         (* loop status *)
-  ; is_reachable : reachable    (* reachability *)
-  ; last         : last_stmt    (* exit-ness of last statement *)
-  ; loc          : mlstring     (* location string *)
+    locals       : (varname, local_info ) map (* tracked var state *)
+  ; globals      : (varname, global_info) map (* declared globals *)
+  ; funcs        : (funname, func_info  ) map (* all function info *)
+  ; scope        : scope                      (* current scope info *)
+  ; in_loop      : bool                       (* loop status *)
+  ; is_reachable : reachable                  (* reachability *)
+  ; last         : last_stmt                  (* exit-ness of last statement *)
+  ; loc          : mlstring                   (* location string *)
   |>
 End
 
 (* Record for static_check_prog returns *)
 Datatype:
   prog_return = <|
-    exits_fun  : bool       (* func exit status for all paths *)
-  ; exits_loop : bool       (* loop exit status for all paths *)
-  ; last       : last_stmt  (* new exit-ness of last statement *)
-  ; var_delta  : var_info   (* change in var state *)
-  ; curr_loc   : mlstring   (* latest location string *)
+    exits_fun  : bool                       (* func exit status for all paths *)
+  ; exits_loop : bool                       (* loop exit status for all paths *)
+  ; last       : last_stmt                  (* new exit-ness of last statement *)
+  ; var_delta  : (varname, local_info) map  (* change in var state *)
+  ; curr_loc   : mlstring                   (* latest location string *)
   |>
 End
 
@@ -151,23 +168,23 @@ End
   Combine var state deltas of If/While branches
     where states are either combined between the two deltas (if in both) or with
     prior context (if in just one)
-  Needs extension with extension of `var_info` type
+  Needs extension with extension of `local_info` type
 *)
 Definition branch_vbases_def:
-  branch_vbases (vctxt: var_info) x y =
-    let x' = mapWithKey (\k v.
-              if ~(member k y) then
+  branch_vbases vctxt x y =
+    let x' = mapWithKey (\k v. v with <| based :=
+              (if ~(member k y) then
                 case lookup vctxt k of
-                  SOME v' => based_cmp v v'
+                  SOME v' => based_cmp v.based v'.based
                 | NONE => NotTrusted
-              else v) x;
-        y' = mapWithKey (\k v.
-              if ~(member k x) then
+              else v.based) |>) x;
+        y' = mlmap$mapWithKey (\k v. v with <| based :=
+              (if ~(member k x) then
                 case lookup vctxt k of
-                  SOME v' => based_cmp v v'
+                  SOME v' => based_cmp v.based v'.based
                 | NONE => NotTrusted
-              else v) y
-    in unionWith based_cmp x' y'
+              else v.based) |>) y;
+    in mlmap$unionWith (\vx vy. vx with <| based := based_cmp vx.based vy.based |>) x' y'
 End
 
 (* Combine var state deltas of Seq progs *)
@@ -376,25 +393,25 @@ End
 Definition scope_check_fun_name_def:
   scope_check_fun_name ctxt fname =
     (* check for out of scope func *)
-    (if ¬MEM fname ctxt.funcs
-     then error (ScopeErr $ get_scope_msg F ctxt.loc fname ctxt.scope)
-     else return ())
+    case lookup ctxt.funcs fname of
+      NONE => error (ScopeErr $ get_scope_msg F ctxt.loc fname ctxt.scope)
+    | SOME f => return ()
 End
 
 Definition scope_check_global_var_def:
   scope_check_global_var ctxt vname =
     (* check for out of scope global *)
     case lookup ctxt.globals vname of
-       NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
-     | SOME x => return ()
+      NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
+    | SOME v => return ()
 End
 
 Definition scope_check_local_var_def:
   scope_check_local_var ctxt vname =
     (* check for out of scope local *)
-    case lookup ctxt.vars vname of
-       NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
-     | SOME x => return ()
+    case lookup ctxt.locals vname of
+      NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
+    | SOME v => return ()
 End
 
 Definition scope_check_var_def:
@@ -417,10 +434,10 @@ Definition static_check_exp_def:
     return (NotBased) ∧
   static_check_exp ctxt (Var Local vname) =
     (* check for out of scope var *)
-    (case lookup ctxt.vars vname of
+    (case lookup ctxt.locals vname of
       NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
       (* return stored based-ness *)
-    | SOME x => return x) ∧
+    | SOME v => return v.based) ∧
   static_check_exp ctxt (Var Global vname) =
     (* check for out of scope var *)
     do
@@ -544,7 +561,7 @@ End
 
 Definition check_redec_var_def:
   check_redec_var ctxt vname =
-    case (lookup ctxt.vars vname,lookup ctxt.globals vname) of
+    case (lookup ctxt.locals vname,lookup ctxt.globals vname) of
        (NONE,NONE) => return ()
     |  _ => log (WarningErr $ get_redec_msg T ctxt.loc vname ctxt.scope)
 End
@@ -569,7 +586,7 @@ Definition static_check_prog_def:
       (* check initialising exp *)
       b <- static_check_exp ctxt e;
       (* check prog with declared var *)
-      ctxt' <<- ctxt with <| vars := insert ctxt.vars v b
+      ctxt' <<- ctxt with <| locals := insert ctxt.locals v <| based := b ; locl_shape := s |>
                            ; last := OtherLast |>;
       pret <- static_check_prog ctxt' p;
       (* return prog info without declared var *)
@@ -587,7 +604,7 @@ Definition static_check_prog_def:
       scope_check_fun_name ctxt fname;
       static_check_exps ctxt args;
       (* check prog with declared var *)
-      ctxt' <<- ctxt with <| vars := insert ctxt.vars v Trusted
+      ctxt' <<- ctxt with <| locals := insert ctxt.locals v <| based := Trusted; locl_shape := s |>
                            ; last := OtherLast |>;
       pret <- static_check_prog ctxt' p;
       (* return prog info without declared var *)
@@ -607,7 +624,7 @@ Definition static_check_prog_def:
       return <| exits_fun  := F
               ; exits_loop := F
               ; last       := OtherLast
-              ; var_delta  := singleton mlstring$compare v b
+              ; var_delta  := singleton mlstring$compare v <| based := b ; locl_shape := One |> (* #!TEMP *)
               ; curr_loc   := ctxt.loc |>
     od ∧
   static_check_prog ctxt (Store addr exp) =
@@ -674,7 +691,7 @@ Definition static_check_prog_def:
       (* update unreachability after first prog *)
       next_r <<- next_is_reachable ctxt1.is_reachable pret1.last;
       ctxt2 <<- ctxt1 with <|
-          vars := seq_vbases ctxt1.vars pret1.var_delta
+          locals := seq_vbases ctxt1.locals pret1.var_delta
         ; is_reachable := next_r
         ; last := if next_now_unreachable ctxt1.is_reachable next_r
                     then pret1.last
@@ -709,7 +726,7 @@ Definition static_check_prog_def:
         exits_fun  := double_ret
       ; exits_loop := double_loop_exit
       ; last       := branch_last_stmt double_ret double_loop_exit
-      ; var_delta  := branch_vbases ctxt.vars pret1.var_delta pret2.var_delta
+      ; var_delta  := branch_vbases ctxt.locals pret1.var_delta pret2.var_delta
       ; curr_loc   := pret2.curr_loc |>
     od ∧
   static_check_prog ctxt (While e p) =
@@ -724,7 +741,7 @@ Definition static_check_prog_def:
       ; exits_loop := F
       ; last       := OtherLast
       ; var_delta  :=
-          branch_vbases ctxt.vars pret.var_delta $ mlmap$empty mlstring$compare
+          branch_vbases ctxt.locals pret.var_delta $ mlmap$empty mlstring$compare
       ; curr_loc   := ctxt.loc |>
     od ∧
   static_check_prog ctxt Break =
@@ -779,7 +796,7 @@ Definition static_check_prog_def:
       | SOME (eid, evar, p) =>
           do
             scope_check_local_var ctxt evar;
-            static_check_prog (ctxt with vars := insert ctxt.vars evar Trusted) p;
+            static_check_prog (ctxt with locals := insert ctxt.locals evar <| based := Trusted ; locl_shape := One |>) p; (* #!TEMP *)
             return ()
           od;
       (* return prog info with updated var *)
@@ -787,7 +804,7 @@ Definition static_check_prog_def:
               ; exits_loop := F
               ; last       := OtherLast
               ; var_delta  := if rk = Local then
-                                singleton mlstring$compare rt Trusted
+                                singleton mlstring$compare rt <| based := Trusted ; locl_shape := One |> (* #!TEMP *)
                               else
                                 empty mlstring$compare
               ; curr_loc   := ctxt.loc |>
@@ -804,7 +821,7 @@ Definition static_check_prog_def:
       | SOME (eid, evar, p) =>
           do
             scope_check_local_var ctxt evar;
-            static_check_prog (ctxt with vars := insert ctxt.vars evar Trusted) p;
+            static_check_prog (ctxt with locals := insert ctxt.locals evar <| based := Trusted ; locl_shape := One |>) p; (* #!TEMP *)
             return ()
           od;
       (* return prog info *)
@@ -862,7 +879,7 @@ Definition static_check_prog_def:
       return <| exits_fun  := F
               ; exits_loop := F
               ; last       := OtherLast
-              ; var_delta  := singleton mlstring$compare v Trusted
+              ; var_delta  := singleton mlstring$compare v <| based := Trusted ; locl_shape := One |> (* #!TEMP *)
               ; curr_loc   := ctxt.loc |>
     od ∧
   static_check_prog ctxt (ShMemStore mop a e) =
@@ -907,13 +924,13 @@ End
     (unit) static_result
 *)
 Definition static_check_funs_def:
-  static_check_funs fnames gnames [] =
+  static_check_funs fctxt gctxt [] =
     (* no more decls *)
     return () ∧
-  static_check_funs fnames gnames (Decl _ _ _::decls) =
+  static_check_funs fctxt gctxt (Decl _ _ _::decls) =
     (* not a function *)
-    static_check_funs fnames gnames decls ∧
-  static_check_funs fnames gnames (Function fi::decls) =
+    static_check_funs fctxt gctxt decls ∧
+  static_check_funs fctxt gctxt (Function fi::decls) =
     do
       (* check main function arguments *)
       if (fi.name = «main» /\ LENGTH fi.params > 0) then
@@ -937,9 +954,9 @@ Definition static_check_funs_def:
            fi.name; strlit "\n"])
       | NONE => return ();
       (* setup initial checking context *)
-      ctxt <<- <| vars := FOLDL (\m p. insert m p Trusted) (empty mlstring$compare) pnames
-                ; globals := gnames
-                ; funcs := fnames
+      ctxt <<- <| locals := FOLDL (\m p. insert m p <| based := Trusted ; locl_shape := One |>) (empty mlstring$compare) pnames (* #!TEMP *)
+                ; globals := gctxt
+                ; funcs := fctxt
                 ; scope := FunScope fi.name
                 ; in_loop := F
                 ; is_reachable := IsReach
@@ -954,20 +971,20 @@ Definition static_check_funs_def:
            fi.name; strlit "\n"])
       else return ();
       (* check remaining functions *)
-      static_check_funs fnames gnames decls
+      static_check_funs fctxt gctxt decls
     od
 End
 
 Definition static_check_globals_def:
-  static_check_globals gnames [] =
+  static_check_globals gctxt [] =
     (* no more decls *)
-    return gnames ∧
-  static_check_globals gnames (Decl shape vname exp::decls) =
+    return gctxt ∧
+  static_check_globals gctxt (Decl shape vname exp::decls) =
     do
       (* setup initial checking context *)
-      ctxt <<- <| vars := empty mlstring$compare
-                ; globals := gnames
-                ; funcs := []
+      ctxt <<- <| locals := empty mlstring$compare
+                ; globals := gctxt
+                ; funcs := empty mlstring$compare
                 ; scope := DeclScope vname
                 ; in_loop := F
                 ; is_reachable := IsReach
@@ -978,11 +995,11 @@ Definition static_check_globals_def:
       (* check for redeclaration *)
       check_redec_var (ctxt with scope := TopLevel) vname;
       (* check remaining globals *)
-      static_check_globals (insert gnames vname ()) decls
+      static_check_globals (insert gctxt vname <| glob_shape := One |>) decls (* #!TEMP *)
     od ∧
-  static_check_globals gnames (Function _::funs) =
+  static_check_globals gctxt (Function _::funs) =
     (* not a global variable declaration *)
-    static_check_globals gnames funs
+    static_check_globals gctxt funs
 End
 
 (*
@@ -1003,8 +1020,9 @@ Definition static_check_def:
         SOME f => error (GenErr $ concat
           [strlit "function "; f; strlit " is redeclared\n"])
       | NONE => return ();
-      gnames <- static_check_globals (empty mlstring$compare) decls;
+      fctxt <<- FOLDR (\fname fctxt. insert fctxt fname <| ret_shape := One ; param_shapes := [] |>) (empty mlstring$compare) fnames ; (* #!TEMP *)
+      gctxt <- static_check_globals (empty mlstring$compare) decls;
       (* check functions *)
-      static_check_funs fnames gnames decls
+      static_check_funs fctxt gctxt decls
     od
 End
