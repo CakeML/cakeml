@@ -12,7 +12,8 @@ Definition exports_def:
   (exports(Function n e p b::ds) =
    if e then n::exports ds
    else exports ds) ∧
-  exports (_::ds) = exports ds
+  exports (_::ds) = exports ds ∧
+  exports [] = []
 End
 
 Definition compile_prog_def:
