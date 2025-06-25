@@ -1914,9 +1914,10 @@ Proof
   \\ fs [dest_nop_def]
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
   \\ simp [arg1_def, arg2_def]
+  \\ gvs [AllCaseEqs()]
   \\ EVERY_CASE_TAC
   \\ simp [flatPropsTheory.op_gbag_def, closPropsTheory.op_gbag_def]
-  \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION]
+  \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION, dest_pat_def]
   \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
           \\ rw [] \\ fs [])
   \\ fs [dest_pat_def]
