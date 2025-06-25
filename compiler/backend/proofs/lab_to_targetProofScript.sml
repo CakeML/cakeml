@@ -1841,8 +1841,10 @@ Proof
   >- (
     EVAL_TAC >>
     every_case_tac >> full_simp_tac(srw_ss())[APPLY_UPDATE_THM] >> srw_tac[][] >>
-    pop_assum mp_tac >>
+    gvs [] >>
+    rpt $ pop_assum mp_tac >>
     EVAL_TAC >>
+    rw [] >>
     qmatch_assum_rename_tac`read_reg r _ = _` >>
     first_x_assum(qspec_then`r`mp_tac) >>
     simp[] >> EVAL_TAC >> srw_tac[][] )
@@ -4329,13 +4331,13 @@ Proof
     \\ qmatch_goalsub_rename_tac`REPLICATE z`
     \\ qexists_tac`SUC z`
     \\ rewrite_tac[REPLICATE_GENLIST]
-    \\ simp[GENLIST] )
+    \\ simp[GENLIST,SNOC_APPEND] )
   \\ Cases_on`a` \\ fs[line_enc_with_nop_def]
   \\ fs[enc_with_nop_thm,LENGTH_EQ_NUM_compute]
   \\ qmatch_goalsub_rename_tac`REPLICATE z`
   \\ qexists_tac`SUC z`
   \\ rewrite_tac[REPLICATE_GENLIST]
-  \\ simp[GENLIST]
+  \\ simp[GENLIST,SNOC_APPEND]
 QED
 
 Theorem lines_enc_with_nop_pad_section1:
@@ -9863,8 +9865,7 @@ Proof
   >- (gvs[lab_filterTheory.not_skip_def,asm_fetch_aux_def] >> metis_tac[])
   >- (
     gvs[asm_fetch_aux_def] >>
-    last_x_assum mp_tac >>
-    last_x_assum mp_tac >>
+    rpt $ last_x_assum mp_tac >>
     IF_CASES_TAC
     >- (gvs[] >- metis_tac[]) >>
     gvs[] >>
@@ -9875,8 +9876,7 @@ Proof
   )
   >- (
     gvs[asm_fetch_aux_def] >>
-    last_x_assum mp_tac >>
-    last_x_assum mp_tac >>
+    rpt $ last_x_assum mp_tac >>
     IF_CASES_TAC
     >- metis_tac[] >>
     gvs[asm_fetch_aux_def] >>
