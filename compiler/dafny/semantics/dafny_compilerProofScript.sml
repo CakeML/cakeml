@@ -2655,17 +2655,20 @@ Proof
   cheat
 QED
 
-(* TODO Put constant " arr" into a definition? *)
+(* TODO Why does this work *)
 Triviality cml_tup_vname_neq_arr:
-  ∀n. cml_tup_vname n ≠ " arr"
+  cml_tup_vname n ≠ " arr"
 Proof
-  cheat
+  simp [cml_tup_vname_def]
+  \\ Cases_on ‘toString n’
+  \\ imp_res_tac num_to_str_imp_cons \\ simp []
+  \\ strip_tac \\ fs []
 QED
 
 Triviality all_distinct_genlist_cml_tup_vname:
   ALL_DISTINCT (GENLIST (λn. cml_tup_vname n) len)
 Proof
-  cheat
+  simp [ALL_DISTINCT_GENLIST, cml_tup_vname_def, num_to_str_11]
 QED
 
 Triviality ALL_DISTINCT_pats_bindings:
@@ -2743,11 +2746,31 @@ Proof
   gvs [locals_rel_def, ALL_DISTINCT_APPEND]
   \\ rpt strip_tac
   >- (* INJ (l |++ enumerate_from ...) *)
-   ((* l is INJ, and FRANGE < LENGTH t_refs;
-       enumerate_from is INJ, FRANGE is >= LENGTH t_refs*)
-   cheat)
+   (simp [INJ_DEF, TO_FLOOKUP]
+    \\ rpt strip_tac
+    \\ gvs [GSYM IS_SOME_EQ_NOT_NONE, IS_SOME_EXISTS]
+    \\ gvs [flookup_update_list_some]
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ gvs [MEM_EL, enumerate_from_def]
+    >- (rename [‘FLOOKUP _ _ = SOME (i + _)’]
+        \\ ‘i + LENGTH t_refs ∈ FRANGE l’ by
+          (simp [TO_FLOOKUP] \\ first_assum $ irule_at Any)
+        \\ last_x_assum drule \\ gvs [])
+    >- (rename [‘FLOOKUP _ _ = SOME (i + _)’]
+        \\ ‘i + LENGTH t_refs ∈ FRANGE l’ by
+          (simp [TO_FLOOKUP] \\ first_assum $ irule_at Any)
+        \\ last_x_assum drule \\ gvs [])
+    \\ gvs [INJ_DEF, TO_FLOOKUP])
   >- (* FRANGE < LENGTH vars + LENGTH t_refs *)
-   cheat
+   (pop_assum mp_tac
+    \\ simp [TO_FLOOKUP, flookup_update_list_some]
+    \\ rpt strip_tac
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ gvs [MEM_EL, enumerate_from_def]
+    \\ rename [‘FLOOKUP _ _ = SOME i’]
+    \\ ‘i ∈ FRANGE l’ by
+      (simp [TO_FLOOKUP] \\ first_assum $ irule_at Any)
+    \\ last_x_assum drule \\ simp [])
   \\ qmatch_asmsub_abbrev_tac ‘ZIP (vars, nones)’
   \\ ‘LENGTH nones = LENGTH vars’ by gvs [Abbr ‘nones’]
   \\ ‘ALL_DISTINCT (MAP FST (ZIP (vars, nones)))’ by
@@ -2766,9 +2789,8 @@ Proof
     \\ gvs [store_lookup_def, EL_APPEND]
     \\ DEP_REWRITE_TAC [not_mem_nslookup_add_refs_to_env] \\ gvs []
     \\ rpt strip_tac
-    (* MEM (explode var) (MAP explode vars)
-       ⇒ MEM var vars   <<-- cheat
-       ⇒ contradiction with MEM var (MAP FST s_locals) *)
+    \\ qsuff_tac ‘MEM var vars’
+    >- (strip_tac \\ last_x_assum drule \\ simp [])
     \\ cheat)
   (* in the added variables *)
   \\ drule alookup_distinct_reverse \\ rpt strip_tac \\ gvs []
