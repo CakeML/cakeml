@@ -6,9 +6,6 @@ open astTheory semanticPrimitivesTheory bigStepTheory smallStepTheory;
 open bigSmallInvariantsTheory semanticPrimitivesPropsTheory determTheory bigClockTheory;
 open smallStepPropsTheory bigStepPropsTheory evaluatePropsTheory interpTheory funBigStepEquivTheory;
 
-val every_case_tac = legacy_every_case_tac;
-val TOP_CASE_TAC = LEGACY_TOP_CASE_TAC;
-
 val _ = new_theory "bigSmallEquiv";
 
 Triviality result_cases:
@@ -240,7 +237,7 @@ Proof
         application_thm,do_opapp_def] >>
      srw_tac[boolSimps.DNF_ss][] >>
      srw_tac[][Once e_step_def,application_thm,do_opapp_def] >>
-     BasicProvers.LEGACY_CASE_TAC >- full_simp_tac(srw_ss())[Once small_eval_list_cases, fix_fp_state_def] >>
+     BasicProvers.CASE_TAC >- full_simp_tac(srw_ss())[Once small_eval_list_cases, fix_fp_state_def] >>
      qpat_x_assum ‘getOpClass _ = _’ kall_tac >>
      disj2_tac >>
      srw_tac[][push_def] >>
