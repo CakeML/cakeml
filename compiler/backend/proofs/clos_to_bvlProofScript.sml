@@ -102,7 +102,7 @@ Proof
   `l2 = [] ∨ ?h l2'. l2 = h::l2'` by (Cases_on `l2` >> srw_tac[][]) >>
   Cases_on `l2` >>
   full_simp_tac(srw_ss())[] >>
-  srw_tac[][]
+  metis_tac[SNOC_APPEND]
 QED
 
 Triviality el_map2:
@@ -191,7 +191,7 @@ Proof
   Induct_on `x` >>
   srw_tac[][GENLIST] >>
   `(x+1) * y = y + x * y` by decide_tac >>
-  full_simp_tac(srw_ss())[ADD1, GENLIST_APPEND, twod_table_lemma]
+  full_simp_tac(srw_ss())[ADD1, GENLIST_APPEND, twod_table_lemma,SNOC_APPEND]
 QED
 
 Triviality less_rectangle:

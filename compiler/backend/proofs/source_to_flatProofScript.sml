@@ -5689,7 +5689,7 @@ val COUNT_LIST_ADD_SYM = COUNT_LIST_ADD
 Theorem MAPi_SNOC: (* TODO: move *)
   !xs x f. MAPi f (SNOC x xs) = SNOC (f (LENGTH xs) x) (MAPi f xs)
 Proof
-  Induct \\ fs [SNOC]
+  Induct \\ fs [SNOC,SNOC_APPEND]
 QED
 
 Theorem compile_decs_elist_globals:
