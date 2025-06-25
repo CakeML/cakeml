@@ -10,8 +10,6 @@ val _ = new_theory "clos_mtiProof";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-val every_case_tac = legacy_every_case_tac;
-val TOP_CASE_TAC = LEGACY_TOP_CASE_TAC;
 
 fun bring_fwd_ctors th ty = map ((fn s=> Parse.bring_to_front_overload s {Name = s,Thy = th}) o term_to_string) (TypeBase.constructors_of ty)
 
@@ -308,14 +306,13 @@ Definition evaluate_apps_def:
     | res => res
 End
 
-Triviality evaluate_mk_Apps_ok:
-  !other ts env1 s1 vs.
+val evaluate_mk_Apps_ok = prove(
+  ``!other ts env1 s1 vs.
       evaluate ([e],env1,s3) = (Rval [f],s2') /\
       evaluate (other,env1,s1) = (Rval vs,s3) /\
       LENGTH other = LENGTH ts ==>
       evaluate ([mk_Apps e (ZIP (ts,other))],env1,s1) =
-      evaluate_apps f vs s2'
-Proof
+      evaluate_apps f vs s2'``,
   once_rewrite_tac [CONJ_COMM]
   \\ Induct \\ Cases_on `ts` \\ fs [mk_Apps_def]
   \\ fs [evaluate_def,evaluate_apps_def]
@@ -330,26 +327,22 @@ Proof
   \\ fs [evaluate_apps_def]
   \\ Cases_on `q` \\ fs []
   \\ imp_res_tac evaluate_SING \\ fs []
-  \\ rveq \\ fs []
-QED
+  \\ rveq \\ fs []);
 
-Triviality dest_closure_NONE_IMP_apps:
-  !xs f1 s1.
+val dest_closure_NONE_IMP_apps = prove(
+  ``!xs f1 s1.
       dest_closure s1.max_app NONE f1 [LAST xs] = NONE /\ xs <> [] ==>
-      evaluate_apps f1 xs s1 = (Rerr (Rabort Rtype_error),s1)
-Proof
+      evaluate_apps f1 xs s1 = (Rerr (Rabort Rtype_error),s1)``,
   Induct \\ fs [evaluate_apps_def]
   \\ Cases_on `xs` \\ fs [evaluate_apps_def]
-  \\ fs [evaluate_apps_def,evaluate_def]
-QED
+  \\ fs [evaluate_apps_def,evaluate_def]);
 
-Triviality evaluate_apps_SNOC:
-  !xs x f s.
+val evaluate_apps_SNOC = prove(
+  ``!xs x f s.
       evaluate_apps f (SNOC x xs) s =
       case evaluate_app NONE f [x] s of
       | (Rval [v], s) => evaluate_apps v xs s
-      | res => res
-Proof
+      | res => res``,
   Induct
   THEN1 (fs [evaluate_apps_def] \\ rw []
          \\ every_case_tac \\ fs [])
@@ -358,16 +351,14 @@ Proof
   \\ Cases_on `evaluate_app NONE f [x] s` \\ fs []
   \\ Cases_on `q` \\ fs []
   \\ Cases_on `a` \\ fs []
-  \\ Cases_on `t` \\ fs []
-QED
+  \\ Cases_on `t` \\ fs []);
 
-Triviality evaluate_apps_Clos_timeout:
-  !ys ts s1 e1 env.
+val evaluate_apps_Clos_timeout = prove(
+  ``!ys ts s1 e1 env.
       s1.clock < LENGTH ys /\ LENGTH ys <= LENGTH ts /\
       1 ≤ s1.max_app ==>
       evaluate_apps (Closure NONE [] env 1 (mk_Fns ts e1))
-        ys s1 = (Rerr (Rabort Rtimeout_error),s1 with clock := 0)
-Proof
+        ys s1 = (Rerr (Rabort Rtimeout_error),s1 with clock := 0)``,
   recInduct SNOC_INDUCT \\ rw []
   \\ fs [evaluate_apps_SNOC]
   \\ fs [evaluate_def,dest_closure_def,check_loc_def]
@@ -376,16 +367,14 @@ Proof
   \\ fs [EVAL ``(dec_clock 1 s).max_app``]
   \\ `(dec_clock 1 s1).clock < LENGTH l` by (EVAL_TAC \\ fs [])
   \\ first_x_assum drule
-  \\ fs [dec_clock_def]
-QED
+  \\ fs [dec_clock_def]);
 
-Triviality evaluate_apps_Clos_timeout_alt:
-  !ys ts s1 e1 env.
+val evaluate_apps_Clos_timeout_alt = prove(
+  ``!ys ts s1 e1 env.
       s1.clock <= LENGTH ts /\ LENGTH ts < LENGTH ys /\
       1 ≤ s1.max_app ==>
       evaluate_apps (Closure NONE [] env 1 (mk_Fns ts e1))
-        ys s1 = (Rerr (Rabort Rtimeout_error),s1 with clock := 0)
-Proof
+        ys s1 = (Rerr (Rabort Rtimeout_error),s1 with clock := 0)``,
   recInduct SNOC_INDUCT \\ rw []
   \\ fs [evaluate_apps_SNOC]
   \\ fs [evaluate_def,dest_closure_def,check_loc_def]
@@ -394,18 +383,16 @@ Proof
   \\ fs [EVAL ``(dec_clock 1 s).max_app``]
   \\ `(dec_clock 1 s1).clock <= LENGTH t` by (EVAL_TAC \\ fs [])
   \\ first_x_assum drule
-  \\ fs [dec_clock_def]
-QED
+  \\ fs [dec_clock_def]);
 
-Triviality evaluate_apps_Clos_short:
-  !ys ts s1 e1 env.
+val evaluate_apps_Clos_short = prove(
+  ``!ys ts s1 e1 env.
       LENGTH ys <= s1.clock /\ LENGTH ys <= LENGTH ts /\
       1 ≤ s1.max_app ==>
       evaluate_apps (Closure NONE [] env 1 (mk_Fns ts e1)) ys s1 =
          (Rval [Closure NONE [] (ys ++ env) 1
                    (mk_Fns (DROP (LENGTH ys) ts) e1)],
-          dec_clock (LENGTH ys) s1)
-Proof
+          dec_clock (LENGTH ys) s1)``,
   recInduct SNOC_INDUCT \\ rw []
   \\ fs [evaluate_apps_SNOC,evaluate_apps_def]
   THEN1 (fs [state_component_equality,dec_clock_def])
@@ -416,11 +403,10 @@ Proof
   \\ first_x_assum drule
   \\ fs [EVAL ``(dec_clock 1 s).max_app``]
   \\ disch_then drule
-  \\ fs [dec_clock_def,ADD1]
-QED
+  \\ fs [dec_clock_def,ADD1]);
 
-Triviality evaluate_apps_Clos_long:
-  !ys ts s1 e1 env.
+val evaluate_apps_Clos_long = prove(
+  ``!ys ts s1 e1 env.
       LENGTH ts < s1.clock /\ LENGTH ts < LENGTH ys /\
       1 ≤ s1.max_app ==>
       evaluate_apps (Closure NONE [] env 1 (mk_Fns ts e1)) ys s1 =
@@ -428,8 +414,7 @@ Triviality evaluate_apps_Clos_long:
                 dec_clock (1+LENGTH ts) s1) of
         | (Rval [v],s) =>
              evaluate_apps v (REVERSE (DROP (1+LENGTH ts) (REVERSE ys))) s
-        | res => res
-Proof
+        | res => res``,
   recInduct SNOC_INDUCT \\ rw []
   \\ fs [evaluate_apps_SNOC,evaluate_apps_def]
   \\ fs [evaluate_def,Once dest_closure_def,check_loc_def]
@@ -447,16 +432,13 @@ Proof
   \\ disch_then kall_tac
   \\ fs [REVERSE_SNOC] \\ fs [ADD1]
   \\ fs [dec_clock_def,ADD1]
-  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-QED
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]);
 
-Triviality LIST_REL_f_rel_IMP:
-  !fns funs1. LIST_REL (f_rel max_app) funs1 fns ==> !x. ~(MEM (0,x) fns)
-Proof
+val LIST_REL_f_rel_IMP = prove(
+  ``!fns funs1. LIST_REL (f_rel max_app) funs1 fns ==> !x. ~(MEM (0,x) fns)``,
   Induct \\ fs [PULL_EXISTS] \\ rw [] \\ res_tac
   \\ res_tac \\ fs []
-  \\ Cases_on `x` \\ Cases_on `h` \\ fs [f_rel_def]
-QED
+  \\ Cases_on `x` \\ Cases_on `h` \\ fs [f_rel_def]);
 
 Theorem v_rel_simps[simp] =
   LIST_CONJ ([
@@ -961,7 +943,6 @@ Proof
       \\ qexists_tac `funs1` \\ fs []
       \\ qexists_tac `DROP (LENGTH ys) t` \\ fs []
       \\ qexists_tac `b1` \\ fs []
-      \\ simp[GSYM SNOC_APPEND]
       \\ qpat_x_assum `x::xs = _` (fn th => simp [GSYM th])
       \\ fs [LIST_REL_GENLIST] \\ rw []
       \\ simp [ADD1])
