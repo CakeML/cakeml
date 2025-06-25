@@ -5,7 +5,7 @@
 open preamble;
 open ml_translatorLib ml_translatorTheory;
 open to_target64ProgTheory std_preludeTheory;
-local open backendTheory in end
+local open backendTheory pan_to_crepTheory in end
 
 val _ = new_theory "from_pancake64Prog"
 
@@ -91,6 +91,8 @@ val _ = register_type “:64 panLang$exp”;
 
 val _ = register_type “:64 panLang$prog”;
 
+val _ = register_type “:64 panLang$decl”;
+
 val _ = translate $ spec64 exp_ids_def;
 
 open crepLangTheory;
@@ -100,8 +102,6 @@ val _ = register_type “:64 crepLang$exp”;
 val _ = register_type “:64 crepLang$prog”;
 
 val _ = translate $ spec64 var_cexp_def;
-
-val _ = translate $ spec64 acc_vars_def;
 
 val _ = translate $ spec64 nested_decs_def;
 
@@ -135,7 +135,56 @@ val _ = translate $ conv64 ret_to_tail_def;
 
 val _ = translate $ conv64 compile_def;
 
-val _ = translate $ INST_TYPE[gamma|->“:64”] compile_prog_def;
+val _ = translate $ conv64 compile_prog_def;
+
+open pan_globalsTheory;
+
+val _ = register_type “:64 pan_globals$context”;
+
+val _ = translate $ conv64 compile_exp_def;
+
+val _ = translate $ conv64 compile_def;
+
+val _ = translate size_of_shape_def;
+
+val _ = translate_no_ind $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] $ conv64 compile_decs_def;
+
+Triviality pan_globals_compile_decs_ind:
+  pan_globals_compile_decs_ind
+Proof
+  once_rewrite_tac [fetch "-" "pan_globals_compile_decs_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,bytes_in_word_def]
+QED
+
+val _ = pan_globals_compile_decs_ind |> update_precondition;
+
+val _ = translate $ spec64 is_function_def;
+
+val _ = translate $ spec64 resort_decls_def;
+
+val _ = translate fperm_name_def;
+
+val _ = translate $ spec64 fperm_def;
+
+val _ = translate $ spec64 fperm_decs_def;
+
+val _ = translate $ fresh_name_def;
+
+val _ = translate $ spec64 functions_def;
+
+val _ = translate $ spec64 new_main_name_def;
+
+val _ = translate $ spec64 dec_shapes_def;
+
+val _ = translate $ spec64 panLangTheory.nested_seq_def;
+
+val _ = translate $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] $ spec64 compile_top_def;
 
 open loopLangTheory;
 
@@ -268,8 +317,6 @@ val _ = translate $ spec64 compile_crepop_def;
 
 val _ = translate $ spec64 compile_exp_def;
 
-val _ = translate $ spec64 call_label_def;
-
 val _ = translate $ spec64 compile_def;
 
 val _ = translate $ spec64 comp_func_def;
@@ -310,6 +357,8 @@ val _ = translate $ SIMP_RULE std_ss [dimword_def,lem,backend_commonTheory.word_
 val _ = translate $ spec64 from_word_def;
 
 open pan_to_targetTheory;
+
+val _ = translate $ spec64 exports_def;
 
 val _ = translate $ spec64 compile_prog_def;
 
@@ -483,16 +532,6 @@ Definition conv_Exp_alt_def:
           | t::v4::v5 =>
               FOLDL (λe t. OPTION_MAP2 Field (conv_nat t) e)
                     (OPTION_CHOICE (conv_var t) (conv_Exp_alt t)) (v4::v5)
-        else if isNT nodeNT LabelNT then
-          case args of
-            [] => NONE
-          | [t] => OPTION_MAP Label (conv_ident t)
-          | t::v6::v7 => NONE
-        else if isNT nodeNT FLabelNT then
-          case args of
-            [] => NONE
-          | [t] => OPTION_MAP Label (conv_ident t)
-          | t::v6::v7 => NONE
         else if isNT nodeNT StructNT then
           case args of
             [] => NONE
@@ -650,10 +689,6 @@ Proof
       IF_CASES_TAC
       >- (fs[]>>ntac 2 (CASE_TAC>>fs[]))>>
       IF_CASES_TAC
-      >- (fs[]>>ntac 2 (CASE_TAC>>fs[]))>>
-      IF_CASES_TAC
-      >- (fs[]>>ntac 2 (CASE_TAC>>fs[]))>>
-      IF_CASES_TAC
       >- (fs[]>>ntac 2 (CASE_TAC>>fs[]) >> metis_tac[])>>
       IF_CASES_TAC
       >- (fs[]>>ntac 6 (CASE_TAC>>fs[]))>>
@@ -707,6 +742,8 @@ val res = translate butlast_def;
 
 val res = translate $ spec64 $ conv_Dec_def;
 
+val res = translate $ spec64 $ conv_GlobalDec_def;
+
 val res = translate $ spec64 $ conv_DecCall_def;
 
 val res = preprocess $ spec64 conv_Prog_def |> translate_no_ind;
@@ -719,37 +756,80 @@ Proof
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac (spec64 $ latest_ind ())
   \\ rpt strip_tac
-  >> (last_x_assum match_mp_tac>>
-      rpt strip_tac>>fs[])
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac \\ simp[]
+  \\ fs[]
 QED
 
 val _ = conv_Prog_ind  |> update_precondition;
 
-val res  = translate $ spec64 conv_Fun_def;
+val res  = translate $ conv_export_def;
 
-val res = translate_no_ind $ spec64 conv_FunList_def;
+val res = translate_no_ind $ spec64 conv_TopDec_def;
 
-Triviality panptreeconversion_conv_funlist_ind:
-  panptreeconversion_conv_funlist_ind
+Triviality panptreeconversion_conv_topdec_side:
+  ∀t. panptreeconversion_conv_topdec_side t
 Proof
-  once_rewrite_tac [fetch "-" "panptreeconversion_conv_funlist_ind_def"]
+  once_rewrite_tac [fetch "-" "panptreeconversion_conv_topdec_side_def"]
+  \\ rpt gen_tac
+  \\ rw[]
+  \\ once_rewrite_tac [fetch "-" "panptreeconversion_conv_params_ind_def"]
   \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac $ spec64 conv_FunList_ind
+  \\ match_mp_tac conv_params_ind
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
   \\ gvs [FORALL_PROD]
-  \\ metis_tac[FST,SND,PAIR]
 QED
 
-val _ = panptreeconversion_conv_funlist_ind |> update_precondition;
+val _ = panptreeconversion_conv_topdec_side |> update_precondition;
+
+val res = translate_no_ind $ spec64 conv_TopDecList_def;
+
+Triviality panptreeconversion_conv_topdeclist_ind:
+  panptreeconversion_conv_topdeclist_ind
+Proof
+  once_rewrite_tac [fetch "-" "panptreeconversion_conv_topdeclist_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac $ spec64 conv_TopDecList_ind
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+QED
+
+val _ = panptreeconversion_conv_topdeclist_ind |> update_precondition;
 
 val res = translate $ spec64 panLexerTheory.dest_lexErrorT_def;
 
-val res = translate $ spec64 parse_funs_to_ast_def;
+val res = translate $ spec64 collect_globals_def;
 
-val res = translate $ spec64 parse_to_ast_def;
+val res = translate $ spec64 localise_exp_def;
+
+val res = translate_no_ind $ preprocess $ spec64 localise_prog_def;
+
+Triviality panptreeconversion_localise_prog_ind:
+  panptreeconversion_localise_prog_ind
+Proof
+  once_rewrite_tac [fetch "-" "panptreeconversion_localise_prog_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac localise_prog_ind
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+QED
+
+val _ = panptreeconversion_localise_prog_ind |> update_precondition;
+
+val res = translate $ spec64 localise_topdec_def;
+
+val res = translate $ spec64 localise_topdecs_def;
+
+val res = translate $ spec64 parse_topdecs_to_ast_def;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
