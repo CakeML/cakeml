@@ -310,7 +310,7 @@ End
 (*
   Get message for memory op addresses
   is_local: local vs shared
-  is_local: load vs store
+  is_load: load vs store
   is_untrust: NotTrusted vs other
 *)
 Definition get_memop_msg_def:
@@ -941,7 +941,7 @@ Definition static_check_progs_def:
   static_check_progs fctxt gctxt (Function fi::decls) =
     do
       (* setup initial checking context *)
-      ctxt <<- <| locals := FOLDL (\m p. insert m p <| based := Trusted ; locl_shape := One |>) (empty mlstring$compare) (MAP FST fi.params) (* #!TEMP *)
+      ctxt <<- <| locals := FOLDL (\m (v, s). insert m v <| based := Trusted ; locl_shape := s |>) (empty mlstring$compare) fi.params
                 ; globals := gctxt
                 ; funcs := fctxt
                 ; scope := FunScope fi.name
@@ -982,7 +982,7 @@ Definition static_check_decls_def:
                 ; last := InvisLast
                 ; loc := strlit "" |>;
       (* check initialisation expression *)
-      static_check_exp ctxt exp;
+      static_check_exp ctxt exp; (* #!TODO shape *)
       (* check for redeclaration *)
       check_redec_var (ctxt with scope := TopLevel) vname;
       (* check remaining decls *)
