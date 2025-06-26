@@ -157,6 +157,7 @@ val sub_overflow_rwt =
 local
   val thms =
     [e_gen_rm_reg_def, e_ModRM_def, e_opsize_def,
+     mk_let_thm `([102w]++rex_prefix (7w && v),1w: word8)`,
      mk_let_thm `(rex_prefix (v || 8w),1w: word8)`,
      mk_let_thm `(rex_prefix (7w && v),1w: word8)`]
 in

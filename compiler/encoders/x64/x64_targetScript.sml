@@ -111,7 +111,7 @@ Definition x64_ast_def:
    (x64_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z32, ld r1 r2 a)]) /\
    (x64_ast (Inst (Mem Load16 r1 (Addr r2 a))) =
-      [Zmov (Z_ALWAYS, Z16, ld r1 r2 a)]) /\
+      [Zmovzx (Z16, ld r1 r2 a, Z64)]) /\
    (x64_ast (Inst (Mem Load8 r1 (Addr r2 a))) =
       [Zmovzx (Z8 T, ld r1 r2 a, Z64)]) /\
    (x64_ast (Inst (Mem Store r1 (Addr r2 a))) =
@@ -232,6 +232,7 @@ Definition x64_config_def:
     ; big_endian := F
     ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
     ; addr_offset := (^min32, ^max32)
+    ; hw_offset := (^min32, ^max32)
     ; byte_offset := (^min32, ^max32)
     ; jump_offset := (^min32 + 13w, ^max32 + 5w)
     ; cjump_offset := (^min32 + 13w, ^max32 + 5w)
