@@ -3662,7 +3662,7 @@ Proof
   \\ fs [stack_removeProofTheory.init_prop_def]
   \\ `x.stack <> []` by (rpt strip_tac \\ fs [])
   \\ `?t1 t2. x.stack = SNOC t1 t2` by metis_tac [SNOC_CASES]
-  \\ fs [] \\ rpt var_eq_tac \\ fs[ADD1]
+  \\ fs [] \\ rpt var_eq_tac \\ fs[ADD1,SNOC_APPEND]
   \\ qpat_x_assum `LENGTH t2 = x.stack_space` (assume_tac o GSYM)
   \\ fs [DROP_LENGTH_APPEND] \\ fs [FLOOKUP_DEF] >>
   fs[data_to_word_gcProofTheory.gc_fun_ok_word_gc_fun] >>
