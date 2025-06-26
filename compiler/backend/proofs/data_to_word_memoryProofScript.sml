@@ -6685,9 +6685,9 @@ Proof
     unabbrev_all_tac \\ fs [map_replicate] \\
     Cases_on`byte_len (:'a) n` \\ fs[]
     >- ( fs[byte_len_def,REPLICATE,LUPDATE_def,write_bytes_def] )
-    \\ rename1`REPLICATE l`
+    \\ rename1`REPLICATE l 0w`
     \\ rewrite_tac[GSYM REPLICATE]
-    \\ rewrite_tac[REPLICATE_SNOC]
+    \\ rewrite_tac[REPLICATE_SNOC,SNOC_APPEND]
     \\ simp[LUPDATE_APPEND2,LUPDATE_def,write_bytes_APPEND]
     \\ simp[APPEND_EQ_APPEND] \\ disj1_tac \\ qexists_tac`[]` \\ simp[]
     \\ conj_tac
@@ -9601,7 +9601,7 @@ val memory_rel_Block_explode_lemma = prove(
   \\ reverse (Cases_on `n < LENGTH v1`)
   THEN1 (fs [TAKE_LENGTH_TOO_LONG])
   \\ drule (GSYM SNOC_EL_TAKE)
-  \\ fs [] \\ ntac 2 strip_tac
+  \\ fs [SNOC_APPEND] \\ ntac 2 strip_tac
   \\ fs [eq_explode_APPEND,eq_explode_def,eq_assum_APPEND,eq_assum_def]
   \\ `memory_rel c be ts refs sp st m dm
         ((Block ts1 t1 v1,Word w1)::
