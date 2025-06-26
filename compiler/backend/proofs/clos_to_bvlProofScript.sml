@@ -4668,11 +4668,12 @@ Proof
     \\ ASM_SIMP_TAC (srw_ss()) [FLOOKUP_DEF, DECIDE ``n < 1 + (n + m):num``]
     \\ `exps <> []` by (full_simp_tac(std_ss)[GSYM LENGTH_NIL] \\ DECIDE_TAC)
     \\ `?ll x. exps = SNOC x ll` by METIS_TAC [SNOC_CASES] \\ full_simp_tac(srw_ss())[]
-    \\ simp [REVERSE_APPEND, MAP_REVERSE, LENGTH_MAP]
+    \\ simp [REVERSE_APPEND, MAP_REVERSE, LENGTH_MAP, SNOC_APPEND]
     \\ `LENGTH ll = LENGTH ((MAP (K (Number 0)) (MAP FST ll)) : bvlSem$v list)`
          by full_simp_tac(srw_ss())[LENGTH_MAP]
     \\ POP_ASSUM (fn th => REWRITE_TAC [th])
-    \\ srw_tac[][lupdate_append2]
+    \\ gvs [SNOC_APPEND]
+    \\ srw_tac[][lupdate_append2,MAP_MAP_o]
     \\ `EVERY (\n. x + num_stubs s.max_app + 2*n IN domain t1.code) (GENLIST I (LENGTH ll))` by
      (full_simp_tac(srw_ss())[EVERY_GENLIST]
       \\ IMP_RES_TAC compile_exps_IMP_code_installed
@@ -4690,7 +4691,11 @@ Proof
     \\ full_simp_tac(srw_ss())[hd_append, tl_append]
     \\ qspec_then`num_stubs s.max_app`(fn th => first_assum(mp_tac o MATCH_MP th))
          (Q.GEN`ns`(SIMP_RULE(srw_ss())[]evaluate_recc_Lets))
-    \\ simp[] \\ disch_then kall_tac
+    \\ ‘LENGTH ll = LENGTH (MAP (K (Number 0)) ll)’ by fs []
+    \\ asm_rewrite_tac [lupdate_append2]
+    \\ simp_tac (srw_ss()) [AC ADD_ASSOC ADD_COMM,MAP_MAP_o]
+    \\ pop_assum kall_tac
+    \\ disch_then kall_tac
     \\ `[HD c8] = c8` by (IMP_RES_TAC compile_exps_SING \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
     \\ qpat_abbrev_tac`t1refs = t1.refs |+ (rr,vv)`
     \\ FIRST_X_ASSUM (qspecl_then [`t1 with <| refs := t1refs; clock := ck+s.clock|>`,
@@ -4709,7 +4714,8 @@ Proof
         \\ full_simp_tac (srw_ss()++ARITH_ss) [Abbr `t1refs`]
         \\ srw_tac[][]
         \\ fs[LENGTH_EQ_NUM_compute] \\ rveq \\ fs[]
-        \\ Q.EXISTS_TAC `f2` \\ IMP_RES_TAC SUBMAP_TRANS
+        \\ qpat_x_assum ‘state_rel f2 s2 t2’ $ irule_at Any
+        \\ IMP_RES_TAC SUBMAP_TRANS
         \\ ASM_SIMP_TAC std_ss []
         \\ FIRST_X_ASSUM MATCH_MP_TAC
         \\ UNABBREV_ALL_TAC
@@ -4719,10 +4725,10 @@ Proof
         \\ ASSUME_TAC (EXISTS_NOT_IN_refs |>
              SIMP_RULE std_ss [whileTheory.LEAST_EXISTS])
         \\ full_simp_tac(srw_ss())[])
-    THEN1
-     (reverse (REPEAT STRIP_TAC) THEN1
-       (full_simp_tac(srw_ss())[state_rel_def,Abbr`t1refs`] \\ STRIP_TAC THEN1
-         (Q.PAT_X_ASSUM `LIST_REL ppp s.globals (DROP _ t1.globals)` MP_TAC
+    \\ conj_tac >- simp []
+    \\ reverse (REPEAT STRIP_TAC) THEN1
+      (full_simp_tac(srw_ss())[state_rel_def,Abbr`t1refs`] \\ STRIP_TAC THEN1
+      (Q.PAT_X_ASSUM `LIST_REL ppp s.globals (DROP _ t1.globals)` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ METIS_TAC [OPTREL_v_rel_NEW_REF])
         \\ STRIP_TAC >- (
@@ -4736,56 +4742,59 @@ Proof
         \\ Q.PAT_X_ASSUM `LIST_REL ppp xs ys'` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ IMP_RES_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[])
-      \\ TRY (simp[] \\ NO_TAC)
-      \\ MATCH_MP_TAC env_rel_APPEND
-      \\ reverse STRIP_TAC THEN1
-       (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[]
-        \\ MATCH_MP_TAC (env_rel_NEW_REF |> GEN_ALL) \\ full_simp_tac(srw_ss())[])
-      \\ srw_tac[][LIST_REL_EL_EQN, LENGTH_GENLIST, LENGTH_MAP2, el_map2]
-      \\ srw_tac[][v_rel_cases, cl_rel_cases]
-      \\ full_simp_tac(srw_ss())[]
-      \\ srw_tac [boolSimps.DNF_ss] []
-      \\ disj2_tac
-      \\ qexists_tac `ys`
-      \\ qabbrev_tac `exps = ll++[x'']`
-      \\ `LENGTH ll + 1 = LENGTH exps` by full_simp_tac(srw_ss())[Abbr `exps`]
-      \\ Q.EXISTS_TAC `ZIP (exps,GENLIST (\i.x+num_stubs s.max_app+2*i) (LENGTH exps))`
-      \\ full_simp_tac(srw_ss())[LENGTH_ZIP, EL_MAP, LENGTH_MAP, EL_ZIP, MAP_ZIP]
-      \\ `?num e. EL n exps = (num, e)` by metis_tac [pair_CASES]
-      \\ `1 < LENGTH exps` by (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
-      \\ full_simp_tac(srw_ss())[Abbr `t1refs`,FLOOKUP_UPDATE]
-      \\ `MAP FST ll ++ [FST x''] = MAP FST exps` by srw_tac[][Abbr `exps`]
-      \\ simp [EL_MAP]
-      \\ srw_tac[][]
-      THEN1
-       (Q.PAT_X_ASSUM `LIST_REL (v_rel _ f1 t1.refs t1.code) x' ys` MP_TAC
-        \\ MATCH_MP_TAC listTheory.LIST_REL_mono
-        \\ METIS_TAC [v_rel_NEW_REF])
-      THEN1
-       (full_simp_tac(srw_ss())[state_rel_def, SUBSET_DEF] >> metis_tac [])
-      THEN1
-       (rpt (pop_assum kall_tac)
-        \\ Q.SPEC_TAC (`exps`, `exps`)
-        \\ recInduct SNOC_INDUCT
-        \\ srw_tac[][GENLIST, GSYM ADD1]
-        \\ rw_tac std_ss [GSYM SNOC_APPEND, map2_snoc, LENGTH_GENLIST, LENGTH_MAP]
-        \\ srw_tac[][GSYM ZIP_APPEND]
-        \\ PairCases_on `x'`
-        \\ simp [])
-      THEN1 ( full_simp_tac(srw_ss())[Abbr`exps`])
-      THEN1 ( full_simp_tac(srw_ss())[Abbr`exps`])
-      \\ full_simp_tac(srw_ss())[closure_code_installed_def]
-      \\ MATCH_MP_TAC EVERY_ZIP_GENLIST \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM]
-      \\ REPEAT STRIP_TAC
-      \\ IMP_RES_TAC compile_exps_IMP_code_installed
-      \\ `EVERY (λ(num_args,e). num_args ≤ s.max_app ∧ num_args ≠ 0) exps` by full_simp_tac(srw_ss())[Abbr `exps`]
-      \\ full_simp_tac(srw_ss())[EVERY_EL]
-      \\ res_tac
-      \\ `?num e. EL i exps = (num, e)` by metis_tac [pair_CASES]
-      \\ full_simp_tac(srw_ss())[]
-      \\ REWRITE_TAC[ADD_ASSOC]
-      \\ MATCH_MP_TAC (compile_exps_LIST_IMP_compile_exps_EL |> SPEC_ALL)
-      \\ full_simp_tac(srw_ss())[Abbr`exps`]))
+    \\ MATCH_MP_TAC env_rel_APPEND
+    \\ reverse STRIP_TAC THEN1
+     (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[]
+      \\ MATCH_MP_TAC (env_rel_NEW_REF |> GEN_ALL) \\ full_simp_tac(srw_ss())[])
+    \\ srw_tac[][LIST_REL_EL_EQN, LENGTH_GENLIST, LENGTH_MAP2, ADD1]
+    \\ DEP_REWRITE_TAC [el_map2]
+    \\ conj_tac >- gvs []
+    \\ srw_tac[][v_rel_cases, cl_rel_cases]
+    \\ full_simp_tac(srw_ss())[]
+    \\ simp_tac std_ss [SF DNF_ss]
+    \\ disj2_tac
+    \\ qexists_tac `ys`
+    \\ qabbrev_tac `exps = ll++[x'']`
+    \\ `LENGTH ll + 1 = LENGTH exps` by full_simp_tac(srw_ss())[Abbr `exps`]
+    \\ Q.EXISTS_TAC `ZIP (exps,GENLIST (\i.x+num_stubs s.max_app+2*i) (LENGTH exps))`
+    \\ full_simp_tac(srw_ss())[LENGTH_ZIP, EL_MAP, LENGTH_MAP, EL_ZIP, MAP_ZIP]
+    \\ `?num e. EL n exps = (num, e)` by metis_tac [pair_CASES]
+    \\ `1 < LENGTH exps` by (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
+    \\ full_simp_tac(srw_ss())[Abbr `t1refs`,FLOOKUP_UPDATE]
+    \\ `MAP FST ll ++ [FST x''] = MAP FST exps` by srw_tac[][Abbr `exps`]
+    \\ simp [EL_MAP,EL_ZIP]
+    \\ srw_tac[][]
+    THEN1
+     (Q.PAT_X_ASSUM `LIST_REL (v_rel _ f1 t1.refs t1.code) x' ys` MP_TAC
+      \\ MATCH_MP_TAC listTheory.LIST_REL_mono
+      \\ METIS_TAC [v_rel_NEW_REF])
+    THEN1
+     (full_simp_tac(srw_ss())[state_rel_def, SUBSET_DEF] >> metis_tac [])
+    THEN1
+     (rpt (pop_assum kall_tac)
+      \\ simp [LIST_EQ_REWRITE] \\ rw []
+      \\ DEP_REWRITE_TAC [EL_MAP2,EL_MAP,EL_ZIP] \\ simp []
+      \\ rename [‘EL x exps’]
+      \\ Cases_on ‘EL x exps’ \\ gvs [])
+    THEN1 ( full_simp_tac(srw_ss())[Abbr`exps`])
+    THEN1 ( full_simp_tac(srw_ss())[Abbr`exps`])
+    \\ full_simp_tac(srw_ss())[closure_code_installed_def]
+    \\ MATCH_MP_TAC EVERY_ZIP_GENLIST \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM]
+    \\ REPEAT STRIP_TAC
+    \\ IMP_RES_TAC compile_exps_IMP_code_installed
+    \\ `EVERY (λ(num_args,e). num_args ≤ s.max_app ∧ num_args ≠ 0) exps` by full_simp_tac(srw_ss())[Abbr `exps`]
+    \\ full_simp_tac(srw_ss())[EVERY_EL]
+    \\ first_x_assum drule
+    \\ `?num e. EL i exps = (num, e)` by metis_tac [pair_CASES]
+    \\ full_simp_tac(srw_ss())[]
+    \\ REWRITE_TAC[ADD_ASSOC]
+    \\ strip_tac
+    \\ MATCH_MP_TAC (compile_exps_LIST_IMP_compile_exps_EL |> SPEC_ALL)
+    \\ gvs []
+    \\ full_simp_tac(srw_ss())[Abbr`exps`,ADD1]
+    \\ irule EQ_TRANS
+    \\ first_x_assum $ irule_at $ Pos last
+    \\ simp [])
   THEN1 (* App *)
    (srw_tac[][] >>
     full_simp_tac(srw_ss())[cEval_def, compile_exps_def]
