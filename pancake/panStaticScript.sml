@@ -99,7 +99,7 @@ End
 (* Type for local var state *)
 Datatype:
   local_info = <|
-    based : based       (* basedness of var *)
+    based      : based  (* basedness of var *)
   ; locl_shape : shape  (* shape of var *)
   |>
 End
@@ -136,7 +136,7 @@ End
 Datatype:
   exp_return = <|
     basedness : based (* func exit status for all paths *)
-  ; shape     : shape (* loop exit status for all paths *)
+  ; exp_shape : shape (* loop exit status for all paths *)
   |>
 End
 
@@ -270,9 +270,7 @@ End
 
 (* Error message helpers *)
 
-(*
-  Get description of current scope
-*)
+(* Get description of current scope *)
 Definition get_scope_desc_def:
   get_scope_desc scope =
     case scope of
@@ -396,58 +394,51 @@ Definition panop_to_str_def:
 End
 
 
-(* Static checking functions *)
+(* Static check helpers *)
 
+(* Check for out of scope func *)
 Definition scope_check_fun_name_def:
   scope_check_fun_name ctxt fname =
-    (* check for out of scope func *)
     case lookup ctxt.funcs fname of
       NONE => error (ScopeErr $ get_scope_msg F ctxt.loc fname ctxt.scope)
-    | SOME f => return ()
+    | SOME f => return f
 End
 
+(* Check for out of scope global *)
 Definition scope_check_global_var_def:
   scope_check_global_var ctxt vname =
-    (* check for out of scope global *)
     case lookup ctxt.globals vname of
       NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
-    | SOME v => return ()
+    | SOME v => return v
 End
 
+(* Check for out of scope local *)
 Definition scope_check_local_var_def:
   scope_check_local_var ctxt vname =
-    (* check for out of scope local *)
     case lookup ctxt.locals vname of
       NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
-    | SOME v => return ()
+    | SOME v => return v
 End
 
-Definition scope_check_var_def:
-  scope_check_var ctxt vk vname =
-    (* check for out of scope variable *)
-    case vk of
-      Local =>
-        scope_check_local_var ctxt vname
-    | Global =>
-        scope_check_global_var ctxt vname
-End
+
+(* Main static checking functions *)
 
 (*
   static_check_exp[s] returns:
-    (basedness of expression (:based)) static_result
+    (exp info (:exp_ret)) static_result
 *)
 Definition static_check_exp_def:
   static_check_exp ctxt (Const c) =
     (* return based-ness *)
     return (NotBased) ∧
   static_check_exp ctxt (Var Local vname) =
-    (* check for out of scope var *)
-    (case lookup ctxt.locals vname of
-      NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
-      (* return stored based-ness *)
-    | SOME v => return v.based) ∧
+    (* check for out of scope var & return stored basedness *)
+    do
+      vinf <- scope_check_local_var ctxt vname;
+      return (vinf.based)
+    od ∧
   static_check_exp ctxt (Var Global vname) =
-    (* check for out of scope var *)
+    (* check for out of scope var & return basedness *)
     do
       scope_check_global_var ctxt vname;
       return (Trusted)
@@ -622,10 +613,23 @@ Definition static_check_prog_def:
               ; var_delta  := delete pret.var_delta v
               ; curr_loc   := pret.curr_loc |>
     od ∧
-  static_check_prog ctxt (Assign vk v e) =
+  static_check_prog ctxt (Assign Local v e) =
     do
       (* check for out of scope assignment *)
-      scope_check_var ctxt vk v;
+      vinf <- scope_check_local_var ctxt v;
+      (* check assigning exp *)
+      b <- static_check_exp ctxt e;
+      (* return prog info with updated var *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
+              ; var_delta  := singleton mlstring$compare v <| based := b ; locl_shape := One |> (* #!TEMP *)
+              ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (Assign Global v e) =
+    do
+      (* check for out of scope assignment *)
+      vinf <- scope_check_global_var ctxt v;
       (* check assigning exp *)
       b <- static_check_exp ctxt e;
       (* return prog info with updated var *)
@@ -872,10 +876,28 @@ Definition static_check_prog_def:
               ; var_delta  := empty mlstring$compare
               ; curr_loc   := ctxt.loc |>
     od ∧
-  static_check_prog ctxt (ShMemLoad mop vk v e) =
+  static_check_prog ctxt (ShMemLoad mop Local v e) =
     do
       (* check for out of scope var *)
-      scope_check_var ctxt vk v;
+      vinf <- scope_check_local_var ctxt v;
+      (* check address exp *)
+      b <- static_check_exp ctxt e;
+      (* check address does not reference base *)
+      case b of
+      | Based      => log (WarningErr $ get_memop_msg F T F ctxt.loc ctxt.scope)
+      | NotTrusted => log (WarningErr $ get_memop_msg F T T ctxt.loc ctxt.scope)
+      | _          => return ();
+      (* return prog info with updated var *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
+              ; var_delta  := singleton mlstring$compare v <| based := Trusted ; locl_shape := One |> (* #!TEMP *)
+              ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (ShMemLoad mop Global v e) =
+    do
+      (* check for out of scope var *)
+      vinf <- scope_check_global_var ctxt v;
       (* check address exp *)
       b <- static_check_exp ctxt e;
       (* check address does not reference base *)
