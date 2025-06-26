@@ -1524,7 +1524,7 @@ End
 Triviality prepend_eq:
   ∀n x xs. prepend n x xs = REPLICATE n x ++ xs
 Proof
-  Induct \\ rewrite_tac [GSYM SNOC_REPLICATE]
+  Induct \\ rewrite_tac [GSYM SNOC_REPLICATE, SNOC_APPEND]
   \\ fs [ADD1] \\ once_rewrite_tac [prepend_def] \\ fs []
 QED
 
