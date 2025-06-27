@@ -2647,7 +2647,7 @@ QED
 
 (* In the special case where the substitution does not touch the loaded
   variables and we do not use any scopes. *)
-Theorem substitution_redundancy_obj_po_spec_2:
+Theorem substitution_redundancy_obj_po_2:
   good_aspo (((f,g,us,vs,as),xs)) ∧
   EVERY (λ(b,v). w v = NONE) xs ∧
   (∀x. x ∈ pres ⇒ w x = NONE) ∧

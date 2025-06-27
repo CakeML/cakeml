@@ -1926,19 +1926,19 @@ QED
 (* TODO: either a generalization or
   something similar is needed for dom_subst F *)
 Theorem substitution_redundancy_obj_po_spec:
-  OPTION_ALL (fresh_aux_aspo f c obj w) ord ∧
+  OPTION_ALL (λord1.
+    (b ∨ ~untouched_order w (SND ord1) ⇒ fresh_aux_aspo f c obj w ord1) ∧
+    (~untouched_order w (SND ord1) ⇒ f ∪ {not c} ∪ set gs ⊨ set fs)) ord ∧
   OPTION_ALL good_aspo ord ∧
   (∀x. x ∈ pres ⇒ w x = NONE) ∧
-  dom_subst T w ord = (fs,gs) ∧
+  dom_subst b w ord = (fs,gs) ∧
   f ∪ {not c} ∪ set gs ⊨ ((f ∪ {c}) ⇂ w ∪
     (case obj of NONE => {}
-      | SOME obj => {obj_constraint w obj})) ∧
-  f ∪ {not c} ∪ set gs ⊨ set fs
+      | SOME obj => {obj_constraint w obj}))
   ⇒
   redundant_wrt_obj_po f pres ord obj c
 Proof
-  simp[Once sat_implies_def]
-  \\ rw[redundant_wrt_obj_po_def, sat_obj_po_def,not_thm]
+  rw[redundant_wrt_obj_po_def, sat_obj_po_def,not_thm]
   \\ rename1`satisfies s f`
   \\ Cases_on ‘satisfies_npbc s c’
   >- (
@@ -1948,6 +1948,7 @@ Proof
     metis_tac[ good_aspo_imp_po_of_aspo_refl])>>
   Cases_on`ord`>>gvs[dom_subst_def]
   >- (
+    fs [sat_implies_def,not_thm] >>
     first_x_assum drule_all>>
     rw[satisfies_subst_thm]>>
     first_x_assum (irule_at Any)>>
@@ -1956,17 +1957,44 @@ Proof
     >- fs [eval_obj_def] >>
     fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint])>>
   rename1`good_aspo xx`>>PairCases_on`xx`>>
-  drule dom_subst_eq>>
-  rw[]>>gvs[fresh_aux_aspo_def]>>
-  drule substitution_redundancy_obj_po>>
-  fs[]>>
-  rpt (disch_then drule)>>
-  gvs[]>>
-  disch_then (drule_at Any)>>
-  impl_tac >- (
-    gvs[sat_implies_def]>>
-    metis_tac[not_thm])>>
-  rw[]>>metis_tac[]
+  gvs [] >>
+  reverse $ Cases_on ‘untouched_order w xx5’ >> gvs [] >-
+   (drule dom_subst_eq>>
+    rw[]>>gvs[fresh_aux_aspo_def]>>
+    drule substitution_redundancy_obj_po>>
+    Cases_on ‘b’
+    >-
+     (fs[]>>
+      rpt (disch_then drule)>>
+      gvs[]>>
+      gvs [AC CONJ_ASSOC CONJ_COMM]) >>
+    gvs [AC CONJ_ASSOC CONJ_COMM] >>
+    disch_then irule >>
+    simp [] >>
+    gvs [dom_subst_def,untouched_order_def] >>
+    rpt strip_tac
+    >-
+     (irule sat_implies_transitive
+      \\ first_x_assum $ irule_at $ Pos last
+      \\ gvs [sat_implies_def]) >>
+    fs [sat_implies_def] >>
+    fs [not_thm]) >>
+  Cases_on ‘b’ >> gvs [] >-
+   (drule dom_subst_eq>>
+    rw[]>>gvs[fresh_aux_aspo_def]>>
+    drule substitution_redundancy_obj_po>>
+    gvs [AC CONJ_ASSOC CONJ_COMM] >>
+    disch_then irule >>
+    fs [untouched_order_def] >>
+    CCONTR_TAC \\ gvs [EXISTS_MEM,EVERY_MEM]) >>
+  gvs [dom_subst_def,untouched_order_def] >>
+  drule substitution_redundancy_obj_po_2 >>
+  rpt $ disch_then drule >>
+  gvs [] >>
+  rpt $ disch_then drule >>
+  strip_tac >>
+  pop_assum $ irule_at Any >>
+  gvs []
 QED
 
 Theorem IMP_subst_funs_NONE:
@@ -2032,42 +2060,36 @@ Proof
     \\ irule sat_obj_po_fml_SUBSET
     \\ pop_assum $ irule_at Any
     \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])
-  \\ cheat
-  (*
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs []
   \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po_spec)
   \\ simp[]
   \\ simp [SF DNF_ss]
   \\ qexists_tac ‘subst_fun (mk_subst s)’ \\ fs []
   \\ gvs[red_subgoals_def]
   \\ pairarg_tac \\ gvs[]
-  \\ pairarg_tac \\ gvs[]
-  \\ CONJ_TAC >-
-    metis_tac[check_fresh_aspo_fresh]
-  \\ CONJ_TAC >-
-    metis_tac[check_pres_subst_fun]
-  \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,LAMBDA_PROD,FORALL_PROD]
-  \\ `id ∉ domain fml` by fs[id_ok_def]
-  \\ `(core_only_fml (b ∨ tcb) fml ∪ {not c} ∪ set gs) ⊨
-      (core_only_fml b fml ∪ {not c} ∪ set gs)` by
-    metis_tac[sat_implies_tcb,sat_implies_union_right]
-  \\ drule sat_implies_transitive
-  \\ disch_then (fn th => DEP_REWRITE_TAC[th])
-  \\ simp [Once implies_explode]
-  \\ gvs[MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]
-  \\ reverse (rw [])
-  >- (
-    irule IMP_subst_funs_NONE
-    \\ gvs [IN_DISJOINT]
-    \\ metis_tac [])
-  >- (
-    (* dominance *)
-    rw[sat_implies_EL]>>
-    last_x_assum(qspec_then`SUC n` mp_tac)>>
-    gvs[]>>
-    PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
-    strip_tac
-    >- (
-      drule_all lookup_extract_scoped_pids_r>> rw[]
+  \\ first_assum $ irule_at Any
+  \\ conj_tac
+  >-
+   (Cases_on ‘ord’ >> gvs []
+    \\ rw [] \\ gvs []
+    \\ imp_res_tac check_fresh_aspo_fresh \\ gvs []
+    \\ ‘~untouched’ by gvs [skip_ord_subgoal_def,AllCaseEqs()]
+    \\ gvs []\\ imp_res_tac check_fresh_aspo_fresh \\ gvs []
+    \\ rw[sat_implies_EL]
+    \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,LAMBDA_PROD,FORALL_PROD]
+    \\ gvs[MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]
+    \\ last_x_assum(qspec_then`SUC n` mp_tac)
+    \\ ‘skipped = []’ by gvs [skip_ord_subgoal_def,AllCaseEqs()]
+    \\ gvs[]
+    \\ PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]
+    \\ `id ∉ domain fml` by fs[id_ok_def]
+    \\ `(core_only_fml (b ∨ tcb) fml ∪ {not c} ∪ set gs) ⊨
+        (core_only_fml b fml ∪ {not c} ∪ set gs)` by
+      metis_tac[sat_implies_tcb,sat_implies_union_right]
+    \\ strip_tac
+    >-
+     (drule_all lookup_extract_scoped_pids_r>> rw[]
       \\ drule_all extract_scopes_MEM_INR
       \\ fs[EL]
       \\ DEP_REWRITE_TAC [EL_APPEND_EQN] \\ simp[]
@@ -2076,27 +2098,50 @@ Proof
       \\ strip_tac
       \\ gs[EL_MAP]
       \\ pairarg_tac \\ gvs[]
-      \\ drule unsatisfiable_not_sat_implies
+        \\ drule unsatisfiable_not_sat_implies
       \\ gvs[mk_scope_def,AllCaseEqs()]
       \\ simp[range_insert]
-      \\ metis_tac[INSERT_SING_UNION,UNION_COMM,sat_implies_subset,sat_implies_transitive,SUBSET_UNION])
-   >- (
-      fs[check_hash_triv_def]
-      \\ pop_assum mp_tac
-      \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
-      \\ simp[EL_MAP]
-      \\ pairarg_tac \\ gvs[]
-      \\ strip_tac
-      \\ match_mp_tac unsatisfiable_not_sat_implies
-      \\ irule check_triv_unsatisfiable_2
-      \\ simp[]
-      \\ metis_tac[]) )
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM,
+                   sat_implies_subset,sat_implies_transitive,SUBSET_UNION])
+    >- (
+     fs[check_hash_triv_def]
+     \\ pop_assum mp_tac
+     \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
+     \\ simp[EL_MAP]
+     \\ pairarg_tac \\ gvs[]
+     \\ strip_tac
+     \\ match_mp_tac unsatisfiable_not_sat_implies
+     \\ irule check_triv_unsatisfiable_2
+     \\ simp[]
+     \\ metis_tac[]))
+  \\ CONJ_TAC >-
+   metis_tac[check_pres_subst_fun]
+  \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,LAMBDA_PROD,FORALL_PROD]
+  \\ `id ∉ domain fml` by fs[id_ok_def]
+  \\ `(core_only_fml (b ∨ tcb) fml ∪ {not c} ∪ set gs) ⊨
+      (core_only_fml b fml ∪ {not c} ∪ set gs)` by
+    metis_tac[sat_implies_tcb,sat_implies_union_right]
+  \\ simp [Once implies_explode]
+  \\ gvs[MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]
+  \\ gvs [skip_ord_subgoal_def]
+  \\ conj_tac
+  >- (
+    rw [] \\ irule IMP_subst_funs_NONE
+    \\ gvs [IN_DISJOINT]
+    \\ metis_tac [])
+    \\ reverse (rw [])
   >- (
     (* objective *)
     Cases_on`obj`>> gvs[]>>
     pairarg_tac >> gvs[]>>
     last_x_assum(qspec_then`SUC(LENGTH fs)` mp_tac)>>
     gvs[]>>
+    ‘~MEM (SUC (LENGTH fs)) skipped’ by
+      (gvs [CaseEq"option"]
+       \\ rename [‘dom_subst _ _ (SOME ord_)’] \\ PairCases_on ‘ord_’
+       \\ gvs [MEM_GENLIST]
+       \\ gvs [dom_subst_def,AllCaseEqs(),MEM_GENLIST]) >>
+    asm_rewrite_tac [] >>
     PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
     strip_tac
     >- (
@@ -2126,6 +2171,8 @@ Proof
     (* redundancy #0 *)
     last_x_assum(qspec_then`0` mp_tac)>>
     gvs[]>>
+    ‘~MEM 0 skipped’ by gvs [AllCaseEqs(),MEM_GENLIST] >>
+    asm_rewrite_tac [] >>
     PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
     strip_tac
     >- (
@@ -2148,6 +2195,8 @@ Proof
       \\ irule check_triv_unsatisfiable_2
       \\ simp[]
       \\ metis_tac[]))
+  \\ drule sat_implies_transitive
+  \\ disch_then (fn th => DEP_REWRITE_TAC[th])
   \\ gvs [GSYM unsat_iff_implies]
   \\ rename1 `cc ∈ _ _ _`
   \\ Cases_on ‘subst_opt (subst_fun (mk_subst s)) cc’ \\ fs []
@@ -2163,8 +2212,8 @@ Proof
   \\ rename1`lookup nn _ = SOME cc`
   \\ rename1`subst_opt _ _ = SOME yy`
   \\ `MEM (nn,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst s)))
-      (mk_core_fml (b ∨ tcb) fml)))` by
-     simp[MEM_toAList,lookup_map_opt]
+                                    (mk_core_fml (b ∨ tcb) fml)))` by
+    simp[MEM_toAList,lookup_map_opt]
   \\ drule_all split_goals_checked \\ rw[]
   >- (
     fs[satisfiable_def,not_thm,satisfies_def]>>
@@ -2180,11 +2229,13 @@ Proof
   \\ drule_all extract_scopes_MEM_INL
   \\ strip_tac
   \\ first_x_assum drule_all
-  \\ gvs[unsatisfiable_def, MEM_toAList,lookup_map_opt,AllCaseEqs()]
+  \\ simp [unsatisfiable_def]
+  \\ qpat_x_assum ‘_ = (_,skipped)’ kall_tac
+  \\ gvs[mk_scope_def, MEM_toAList,lookup_map_opt,AllCaseEqs()]
   \\ fs[GSYM lookup_mk_core_fml]
   \\ gvs[mk_scope_def,AllCaseEqs()]
   \\ rw[CONTRAPOS_THM,satisfiable_def]
-  \\ metis_tac[subst_opt_SOME,lookup_mk_core_fml_inj] *)
+  \\ metis_tac[subst_opt_SOME,lookup_mk_core_fml_inj]
 QED
 
 Theorem check_red_correct = check_red_correct_extra
