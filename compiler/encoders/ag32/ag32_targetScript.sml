@@ -254,6 +254,7 @@ Definition ag32_config_def:
                          else
                            -32w <= n /\ n < 32w
     ; addr_offset := (-0x7FFFFFw, 0x7FFFFFw)
+    ; hw_offset := (-0x7FFFFFw, 0x7FFFFFw)
     ; byte_offset := (-32w, 31w)
     ; jump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
     ; cjump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
