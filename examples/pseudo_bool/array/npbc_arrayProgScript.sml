@@ -1351,7 +1351,7 @@ val check_lstep_arr = process_topdecs`
       if every_less mindel fml ls then
         (list_delete_arr ls fml; (fml, (None, (id, zeros))))
       else
-        raise Fail (format_failure lno ("Deletion not permitted for core constraints and constraint index < " ^ Int.toString mindel))
+        raise Fail (format_failure lno ("deletion not permitted for core constraints and constraint index < " ^ Int.toString mindel))
   | Cutting constr =>
     let val c = check_cutting_arr lno b fml (to_triv constr) in
       (fml, (Some(c,b), (id, zeros)))
@@ -1370,8 +1370,8 @@ val check_lstep_arr = process_topdecs`
               (fml', (Some (c,b), (id',zeros)))
             end
           else
-            raise Fail (format_failure lno ("Subproof did not derive contradiction from index: " ^ Int.toString n))))
-  | _ => raise Fail (format_failure lno ("Proof step not supported"))
+            raise Fail (format_failure lno ("subproof did not derive contradiction from index: " ^ Int.toString n))))
+  | _ => raise Fail (format_failure lno ("proof step not supported"))
   and check_lsteps_arr lno steps b fml mindel id zeros =
   case steps of
     [] => (fml, (id, zeros))
@@ -2291,7 +2291,7 @@ val check_subproofs_arr = process_topdecs`
             check_subproofs_arr lno pfs b fml' mindel id' zeros'
           end
           else
-            raise Fail (format_failure lno ("Subproof did not derive contradiction from index: " ^ Int.toString n))))` |> append_prog
+            raise Fail (format_failure lno ("subproof did not derive contradiction from index: " ^ Int.toString n))))` |> append_prog
 
 Theorem check_subproofs_arr_spec:
   ∀pfs fmlls mindel id pfsv zeros lno lnov idv fmlv fmllsv mindelv b bv zerosv.
@@ -2504,11 +2504,6 @@ QED
 
 val res = translate npbc_checkTheory.extract_pids_def;
 
-Definition do_rso_def:
-  do_rso ord s c obj vomap =
-  fast_red_subgoals ord s c obj vomap
-End
-
 val res = translate npbc_checkTheory.list_list_insert_def;
 val res = translate npbcTheory.mk_lit_def;
 val res = translate npbcTheory.mk_bit_lit_def;
@@ -2520,7 +2515,6 @@ val res = translate full_obj_single_def;
 
 val res = translate fast_obj_constraint_def;
 val res = translate fast_red_subgoals_def;
-val res = translate do_rso_def;
 
 val res = translate npbc_checkTheory.list_pair_eq_def;
 val res = translate npbc_checkTheory.equal_constraint_def;
@@ -3183,36 +3177,219 @@ val res = translate print_lno_mini_def; *)
 
 val res = translate npbc_checkTheory.check_pres_def;
 
-(* TODO: add the check for
-  check_fresh_aspo_list c s ord vimap vomap *)
+Definition skip_ord_subgoal_sf_def:
+  skip_ord_subgoal_sf ss ord =
+    skip_ord_subgoal (subst_fun ss) ord
+End
+
+val res = translate npbc_checkTheory.untouched_order_def;
+val res = translate (npbc_checkTheory.skip_ord_subgoal_def |> SIMP_RULE std_ss [SUC_LEMMA]);
+val res = translate skip_ord_subgoal_sf_def;
+
+val res = translate check_fresh_aux_obj_vomap_def;
+val res = translate (npbc_checkTheory.check_fresh_aux_constr_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
+val res = translate npbc_checkTheory.filter_map_inr_def;
+val res = translate (npbc_checkTheory.check_fresh_aux_subst_def  |> SIMP_RULE std_ss [MEMBER_INTRO]);
+
+val check_fresh_aux_fml_vimap_arr = process_topdecs`
+  fun check_fresh_aux_fml_vimap_arr xs vimap =
+  case xs of
+    [] => True
+  | (x::xs) =>
+    case Array.lookup vimap None x of
+      None => check_fresh_aux_fml_vimap_arr xs vimap
+    | Some _ => False` |> append_prog;
+
+Theorem check_fresh_aux_fml_vimap_arr_spec:
+  ∀xs xsv.
+  LIST_TYPE NUM xs xsv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_fresh_aux_fml_vimap_arr" (get_ml_prog_state()))
+    [xsv; vimapv]
+    (ARRAY vimapv vimaplsv)
+    (POSTv v.
+      ARRAY vimapv vimaplsv *
+      &(
+        BOOL (check_fresh_aux_fml_vimap xs vimap) v
+        ))
+Proof
+  simp[check_fresh_aux_fml_vimap_def]>>
+  Induct_on`xs`>> rw[]>>
+  xcf "check_fresh_aux_fml_vimap_arr" (get_ml_prog_state ())>>
+  gvs[LIST_TYPE_def]>>xmatch
+  >- (xcon>>xsimpl)>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  `OPTION_TYPE vimapn_TYPE (any_el h vimap NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  Cases_on`any_el h vimap NONE`>>fs[OPTION_TYPE_def]>>
+  xmatch
+  >- (xapp>>xsimpl)>>
+  xcon>>xsimpl
+QED
+
+Definition mk_get_ord_def:
+  mk_get_ord (c:npbc) (s:subst_raw) (ord:aspo option) vomap =
+  case ord of NONE => SOME (INL ())
+  | SOME ((f,(g,(us,(vs,as)))),xs) =>
+    if
+      check_fresh_aux_obj_vomap as vomap ∧
+      check_fresh_aux_constr as c ∧
+      check_fresh_aux_subst as s
+    then SOME (INR as)
+    else NONE
+End
+
+val res = translate mk_get_ord_def;
+
+val check_fresh_aspo_arr = process_topdecs`
+  fun check_fresh_aspo_arr c s ord vimap vomap =
+  case mk_get_ord c s ord vomap of
+    None => False
+  | Some res =>
+    case res of
+      Inl u => True
+    | Inr xs => check_fresh_aux_fml_vimap_arr xs vimap` |> append_prog;
+
+val cond_check_fresh_aspo_arr = process_topdecs`
+  fun cond_check_fresh_aspo_arr hs untouched
+    c s ord vimap vomap =
+    if hs orelse not untouched then
+      check_fresh_aspo_arr c s ord vimap vomap
+    else True` |> append_prog;
+
+(* Overloads all the _TYPEs that we will reuse *)
+Overload "aspo_TYPE" = ``
+  PAIR_TYPE
+    (PAIR_TYPE (LIST_TYPE constraint_TYPE)
+      (PAIR_TYPE (LIST_TYPE constraint_TYPE)
+      (PAIR_TYPE (LIST_TYPE NUM)
+      (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)))))
+    (LIST_TYPE (PAIR_TYPE BOOL NUM))``
+
+Overload "obj_TYPE" = ``
+  OPTION_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT)``
+
+Overload "pres_TYPE" = ``OPTION_TYPE (SPTREE_SPT_TYPE UNIT_TYPE)``
+
+Overload "subst_raw_TYPE" = ``LIST_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))``
+
+Theorem OPTION_TYPE_SPLIT:
+  OPTION_TYPE a x v ⇔
+  (x = NONE ∧ v = Conv (SOME (TypeStamp "None" 2)) []) ∨
+  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp "Some" 2)) [vv] ∧ a y vv)
+Proof
+  Cases_on`x`>>rw[OPTION_TYPE_def]
+QED
+
+Theorem PAIR_TYPE_SPLIT:
+  PAIR_TYPE a b x v ⇔
+  ∃x1 x2 v1 v2. x = (x1,x2) ∧ v = Conv NONE [v1; v2] ∧ a x1 v1 ∧ b x2 v2
+Proof
+  Cases_on`x`>>EVAL_TAC>>rw[]
+QED
+
+Theorem check_fresh_aspo_arr_spec:
+  constraint_TYPE c cv ∧
+  subst_raw_TYPE s sv ∧
+  OPTION_TYPE aspo_TYPE ord ordv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
+  vomap_TYPE vomap vomapv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_fresh_aspo_arr" (get_ml_prog_state()))
+    [cv; sv; ordv; vimapv; vomapv]
+    (ARRAY vimapv vimaplsv)
+    (POSTv v.
+      ARRAY vimapv vimaplsv *
+      &(
+        BOOL (check_fresh_aspo_list c s ord vimap vomap) v
+        ))
+Proof
+  rw[]>>
+  xcf "check_fresh_aspo_arr" (get_ml_prog_state ())>>
+  xlet_autop>>
+  pop_assum mp_tac>> simp[OPTION_TYPE_SPLIT]>>rw[]
+  >- (
+    xmatch>>xcon>>
+    gvs[check_fresh_aspo_list_def,mk_get_ord_def,AllCaseEqs()]>>xsimpl)>>
+  xmatch>>
+  gvs[mk_get_ord_def,AllCaseEqs(),SUM_TYPE_def,check_fresh_aspo_list_def]>>
+  xmatch
+  >- (xcon>>xsimpl)
+  >- (xapp>>xsimpl)
+QED
+
+Theorem cond_check_fresh_aspo_arr_spec:
+  BOOL hs hsv ∧
+  BOOL untouched untouchedv ∧
+  constraint_TYPE c cv ∧
+  subst_raw_TYPE s sv ∧
+  OPTION_TYPE aspo_TYPE ord ordv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
+  vomap_TYPE vomap vomapv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "cond_check_fresh_aspo_arr" (get_ml_prog_state()))
+    [hsv; untouchedv; cv; sv; ordv; vimapv; vomapv]
+    (ARRAY vimapv vimaplsv)
+    (POSTv v.
+      ARRAY vimapv vimaplsv *
+      &(
+        BOOL (hs ∨ ¬ untouched ⇒ check_fresh_aspo_list c s ord vimap vomap) v
+        ))
+Proof
+  rw[]>>
+  xcf "cond_check_fresh_aspo_arr" (get_ml_prog_state ())>>
+  xlet`POSTv v. ARRAY vimapv vimaplsv * &BOOL (hs ∨ ¬ untouched) v`
+  >- (
+    xlog>>rw[]>>xsimpl>>
+    xapp>>xsimpl>>
+    metis_tac[])>>
+  xif
+  >- (xapp>>xsimpl)>>
+  xcon>>xsimpl
+QED
+
+val res = translate npbc_checkTheory.has_scope_def;
+
 val check_red_arr = process_topdecs`
   fun check_red_arr lno pres ord obj b tcb fml inds id
     c s pfs idopt vimap vomap zeros =
   if check_pres pres s then
-  let val s = mk_subst s in
-  case red_fast s idopt pfs of
+  let val ss = mk_subst s in
+  case red_fast ss idopt pfs of
   None =>
   (
   let
     val bortcb = b orelse tcb
-    val rinds = get_indices_arr fml inds s vimap in
-    case set_indices_arr inds s vimap rinds of (inds',vimap') =>
-    case do_rso ord s c obj vomap of (rsubs,rscopes) =>
+    val rinds = get_indices_arr fml inds ss vimap
+    val hs = has_scope pfs in
+    case set_indices_arr inds ss vimap rinds of (inds',vimap') =>
+    case fast_red_subgoals ord ss c obj vomap hs of (rsubs,rscopes) =>
   let
     val nc = not_1 c
-    val cpfs = extract_scopes_arr lno rscopes s b fml rsubs pfs
+    val cpfs = extract_scopes_arr lno rscopes ss b fml rsubs pfs
     val fml_not_c = Array.updateResize fml None id (Some (nc,b)) in
      case check_scopes_arr lno cpfs b fml_not_c id (id+1) zeros of
        (fml', (id', zeros')) =>
      (case idopt of
        None =>
        let val u = rollback_arr fml' id id'
-           val goals = subst_indexes_arr s bortcb fml' rinds in
-           case red_cond_check bortcb fml' inds' nc pfs rsubs goals []
-             of None =>
-             (fml', (inds', (vimap', (id', zeros'))))
-           | Some err =>
-           raise Fail (format_failure_2 lno ("Redundancy subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err rsubs goals))
+           val goals = subst_indexes_arr ss bortcb fml' rinds in
+           case skip_ord_subgoal_sf ss ord of (untouched,skipped) =>
+           if cond_check_fresh_aspo_arr hs untouched c s ord vimap' vomap
+           then
+             case red_cond_check bortcb fml' inds' nc pfs rsubs goals skipped
+               of None =>
+               (fml', (inds', (vimap', (id', zeros'))))
+             | Some err =>
+             raise Fail (format_failure_2 lno ("redundancy subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err rsubs goals))
+          else
+             raise Fail (format_failure lno ("freshness check failed on auxiliary variables."))
        end
     | Some cid =>
       if check_contradiction_fml_arr b fml' cid then
@@ -3227,22 +3404,6 @@ val check_red_arr = process_topdecs`
   end
   else raise Fail (format_failure lno ("domain of substitution must not mention projection set."))
   ` |> append_prog;
-
-(* Overloads all the _TYPEs that we will reuse *)
-Overload "aspo_TYPE" = ``
-  PAIR_TYPE
-    (PAIR_TYPE (LIST_TYPE constraint_TYPE)
-      (PAIR_TYPE (LIST_TYPE constraint_TYPE)
-      (PAIR_TYPE (LIST_TYPE NUM)
-      (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)))))
-    (LIST_TYPE (PAIR_TYPE BOOL NUM))``
-
-Overload "obj_TYPE" = ``
-  OPTION_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT)``
-
-Overload "subst_raw_TYPE" = ``LIST_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))``
-
-Overload "pres_TYPE" = ``OPTION_TYPE (SPTREE_SPT_TYPE UNIT_TYPE)``
 
 Theorem check_red_arr_spec:
   NUM lno lnov ∧
@@ -3313,7 +3474,6 @@ Proof
     xsimpl>>
     simp (eq_lemmas()))>>
   xlet_autop>>
-  `check_fresh_aspo_list c s ord vimap vomap` by cheat>>
   rw[check_red_list_def]>>
   reverse (Cases_on`red_fast (mk_subst s) idopt pfs`)
   >- (
@@ -3330,7 +3490,7 @@ Proof
     xlog>>xsimpl>>rw[]>>fs[]>>
     xvar>>xsimpl)>>
   pairarg_tac>>gs[]>>
-  xlet_autop>>
+  rpt xlet_autop>>
   xlet_auto
   >- (
     xsimpl>>
@@ -3338,7 +3498,7 @@ Proof
   fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
-  pairarg_tac>>gs[do_rso_def]>>
+  pairarg_tac>>gs[]>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop
@@ -3365,30 +3525,49 @@ Proof
   xmatch>>
   Cases_on`idopt`>>fs[OPTION_TYPE_def,do_red_check_def]>>xmatch
   >- (
-    ntac 2 xlet_autop>>
-    xlet`POSTv v. W8ARRAY zerosv' zeros' * ARRAY fmlv' fmllsv'' *
-           ARRAY vimapv' vimaplsv' * &(LIST_TYPE NUM) [] v`
-    >- (
-      xcon>>xsimpl>>
-      simp[LIST_TYPE_def])>>
+    ntac 3 xlet_autop>>
+    gvs[skip_ord_subgoal_sf_def]>>
+    pairarg_tac>>gvs[PAIR_TYPE_def]>>
+    xmatch>>
     xlet_autop>>
-    fs[do_red_check_def]>>
-    pop_assum mp_tac>>IF_CASES_TAC>>
-    strip_tac>>fs[OPTION_TYPE_def]>>xmatch
+    reverse xif
     >- (
+      rpt xlet_autop>>
+      xraise>>
+      xsimpl>>
+      simp[Fail_exn_def]>>
+      first_x_assum (irule_at Any)>>
+      CONV_TAC (RESORT_EXISTS_CONV List.rev)>>
+      rename1`ARRAY AA BB * ARRAY CC DD * W8ARRAY EE FF`>>
+      map_every qexists_tac [`AA`,`BB`,`EE`,`FF`,`CC`,`DD`]>>
+      xsimpl)>>
+    (* TODO: CF is very slow below here for some reason *)
+    rename1`A ⇒ B`>>
+    pairarg_tac>>fs[]>>
+    xlet_autop>>
+    pop_assum mp_tac>>IF_CASES_TAC>>
+    strip_tac>>fs[OPTION_TYPE_def]
+    >- (
+      xmatch>>
       fs[red_cond_check_def]>>
       pairarg_tac>>fs[]>>
       rpt xlet_autop>>
       xcon>>xsimpl>>
       fs[PAIR_TYPE_def]>>
-      xsimpl)
+      xsimpl>>
+      metis_tac[NOT_EVERY])
     >- (
+      xmatch>>
       rpt xlet_autop>>
       fs[red_cond_check_def]>>
       xraise>>
       xsimpl>>
-      rw[]>>fs[]>>
-      metis_tac[ARRAY_W8ARRAY_refl,NOT_EVERY,Fail_exn_def]) )>>
+      rw[]>>gvs[Fail_exn_def]>>
+      first_x_assum (irule_at Any)>>
+      CONV_TAC (RESORT_EXISTS_CONV List.rev)>>
+      rename1`ARRAY AA BB * ARRAY CC DD * W8ARRAY EE FF`>>
+      map_every qexists_tac [`AA`,`BB`,`EE`,`FF`,`CC`,`DD`]>>
+      xsimpl))>>
   rpt xlet_autop>>
   reverse xif
   >- (
@@ -3691,7 +3870,7 @@ Theorem check_red_simp_eq:
       let (fml_not_c,id1) = insert_fml F fml id (not c) in
       let s = mk_subst s in
       let w = subst_fun s in
-      let (rsubs,rscopes) = red_subgoals NONE w c NONE in
+      let (rsubs,rscopes) = red_subgoals NONE w c NONE F in
       case extract_scopes rscopes pfs w F fml rsubs of
         NONE => NONE
       | SOME cpfs =>
@@ -3719,7 +3898,7 @@ Theorem check_red_simp_eq:
         else NONE) )
 Proof
   simp[npbc_checkTheory.check_red_def,npbc_checkTheory.check_pres_def,npbc_checkTheory.check_fresh_aspo_def]>>
-  gvs[npbc_checkTheory.red_subgoals_def,npbc_checkTheory.dom_subst_def]>>
+  gvs[npbc_checkTheory.red_subgoals_def,npbc_checkTheory.dom_subst_def,npbc_checkTheory.skip_ord_subgoal_def]>>
   rpt (pairarg_tac>>fs[])
 QED
 
@@ -3797,7 +3976,7 @@ Proof
   simp[npbc_checkTheory.check_spec_aux_def]>>
   PairCases_on`h`>>simp[npbc_checkTheory.check_spec_aux_def]>>
   simp[npbc_checkTheory.check_red_def,npbc_checkTheory.check_pres_def,npbc_checkTheory.check_fresh_aspo_def]>>
-  gvs[npbc_checkTheory.red_subgoals_def,npbc_checkTheory.dom_subst_def]>>
+  gvs[npbc_checkTheory.red_subgoals_def,npbc_checkTheory.dom_subst_def,npbc_checkTheory.skip_ord_subgoal_def]>>
   rpt (pairarg_tac>>fs[])>>
   eq_tac>>rw[]>>gvs[AllCasePreds(),AllCaseEqs()]
 QED
@@ -4026,9 +4205,9 @@ val check_dom_arr = process_topdecs`
                case red_cond_check False fml' rinds nc pfs dsubs goals [dindex] of
                  None => (fml',(rinds,(id',zeros')))
                | Some err =>
-                raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err dsubs goals))
+                raise Fail (format_failure_2 lno ("dominance subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err dsubs goals))
             else
-                raise Fail (format_failure_2 lno ("Dominance subproofs did not cover all subgoals. Info: missing geq scope proof.") (print_subproofs_err dsubs goals))
+                raise Fail (format_failure_2 lno ("dominance subproofs did not cover all subgoals. Info: missing geq scope proof.") (print_subproofs_err dsubs goals))
          end
        | Some cid =>
          if check_contradiction_fml_arr False fml' cid then
@@ -4381,7 +4560,7 @@ val check_change_obj_arr = process_topdecs `
       let val u = rollback_arr fml' id id' in
         if do_change_check pfs csubs then
           (fml',(mk_diff_obj b fc fc', (id', zeros')))
-       else raise Fail (format_failure lno ("Objective change subproofs did not cover all subgoals. Expected: #[1-2]"))
+       else raise Fail (format_failure lno ("objective change subproofs did not cover all subgoals. Expected: #[1-2]"))
        end
     end` |> append_prog
 
@@ -4906,15 +5085,17 @@ val check_cstep_arr = process_topdecs`
       raise Fail (format_failure lno "no order loaded for dominance step")
     | Some spo =>
       if check_pres (get_pres pc) s then
-      case check_dom_arr lno spo (get_obj pc)
-        fml inds (get_id pc) c (mk_subst s) pfs idopt zeros of
-        (fml',(rinds,(id',zeros'))) =>
-      (Array.updateResize fml' None id' (Some (c,get_tcb pc)),
-       (zeros',
-       (sorted_insert id' rinds,
-       (update_vimap_arr vimap id' (fst c),
-        (vomap, set_id pc (id'+1))))))
-      else raise Fail (format_failure lno ("domain of substitution must not mention projection set."))
+      if check_fresh_aspo_arr c s (get_ord pc) vimap vomap then
+        case check_dom_arr lno spo (get_obj pc)
+          fml inds (get_id pc) c (mk_subst s) pfs idopt zeros of
+          (fml',(rinds,(id',zeros'))) =>
+        (Array.updateResize fml' None id' (Some (c,get_tcb pc)),
+         (zeros',
+         (sorted_insert id' rinds,
+         (update_vimap_arr vimap id' (fst c),
+          (vomap, set_id pc (id'+1))))))
+      else raise Fail (format_failure lno ("freshness check failed on auxiliary variables"))
+      else raise Fail (format_failure lno ("domain of substitution must not mention projection set"))
     )
   | Sstep sstep => (
     case check_sstep_arr lno sstep (get_pres pc) (get_ord pc) (get_obj pc)
@@ -5111,9 +5292,18 @@ Proof
       gvs[get_pres_def]>>
       metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
     fs[get_pres_def]>>
-    `check_fresh_aspo_list p' l (SOME x) vimap vomap` by cheat>>
-    simp[]>>
     rpt xlet_autop>>
+    reverse xif
+    >- (
+      rpt xlet_autop>>
+      xraise>> xsimpl>>
+      gvs[get_pres_def,get_ord_def,Fail_exn_def]>>
+      first_x_assum (irule_at Any)>>
+      CONV_TAC (RESORT_EXISTS_CONV List.rev)>>
+      rename1`ARRAY AA BB * ARRAY CC DD * W8ARRAY EE FF`>>
+      map_every qexists_tac [`AA`,`BB`,`EE`,`FF`,`CC`,`DD`]>>
+      xsimpl)>>
+    gvs[get_ord_def]>>
     xlet_auto >-
       (xsimpl>> simp (eq_lemmas()))>>
     rpt xlet_autop>>
