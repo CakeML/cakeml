@@ -5663,7 +5663,7 @@ Proof
         \\ `x = pp - pos` by fs[]
         \\ rw[] )
       \\ unabbrev_all_tac \\ simp[DROP_DROP]
-      \\ simp[TAKE1_DROP,CHAR_EQ_THM] \\ xsimpl )
+      \\ simp[TAKE1_DROP,CHAR_EQ_THM,EL_DROP] \\ xsimpl )
     \\ fs[forwardFD_o,STDIO_numchars]
     \\ xsimpl
     \\ conj_asm1_tac

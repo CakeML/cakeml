@@ -23,7 +23,7 @@ open Parse
 val add_namespace_compset = computeLib.extend_compset
   [computeLib.Defs
     [namespaceTheory.mk_id_def
-    ,namespacePropsTheory.nsSub_compute_thm
+(*  ,namespacePropsTheory.nsSub_compute_thm *)
     ,namespacePropsTheory.nsSub_compute_def
     ,namespacePropsTheory.alistSub_def
     ,namespacePropsTheory.alist_rel_restr_def
