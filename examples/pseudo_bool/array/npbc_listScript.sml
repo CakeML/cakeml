@@ -1266,11 +1266,12 @@ End
 (* Not meant to be executed, mainly just abbrevation... *)
 Definition do_red_check_def:
   do_red_check idopt b tcb fml inds
-    s rfml rinds extra pfs rsubs skipped =
+    s rfml rinds extra pfs rsubs skipped cond =
   case idopt of NONE =>
     let goals = subst_indexes s (b ∨ tcb) rfml rinds in
     let (l,r) = extract_scoped_pids pfs LN LN in
     let fmlls = revalue (b ∨ tcb) rfml inds in
+      cond ∧
       split_goals_hash fmlls extra l goals ∧
       EVERY (λ(id,cs).
         lookup id r ≠ NONE ∨
@@ -1660,10 +1661,11 @@ Definition check_red_list_def:
         let rfml = rollback fml' id id' in
         let (untouched,skipped) = skip_ord_subgoal (subst_fun ss) ord in
         if
-          (hs ∨ ¬ untouched ⇒
-            check_fresh_aspo_list c s ord vimap vomap) ∧
           do_red_check idopt b tcb fml' inds'
-            ss rfml rinds nc pfs rsubs skipped then
+            ss rfml rinds nc pfs rsubs skipped
+          (hs ∨ ¬ untouched ⇒
+            check_fresh_aspo_list c s ord vimap' vomap)
+        then
           SOME (rfml,inds',vimap',id',zeros')
         else NONE))
   | SOME (pf,cid) =>
@@ -2751,11 +2753,10 @@ Theorem fml_rel_check_red_list:
 Proof
   strip_tac>>
   fs[check_red_list_def]>>
-  drule_all vimap_rel_vomap_rel_check_fresh_aspo_list>>
-  strip_tac>>
   gvs[AllCaseEqs()]
   >- (
     gvs[vomap_rel_fast_red_subgoals]>>
+    pairarg_tac>>fs[]>>
     pairarg_tac>>fs[]>>
     pairarg_tac>>fs[]>>
     gvs[AllCaseEqs()]>>
@@ -2774,13 +2775,16 @@ Proof
     drule check_scopes_list_id>>
     drule check_scopes_list_id_upper>>
     drule check_scopes_list_mindel>>
+    drule_all vimap_rel_get_indices_set_indices>>
     simp[any_el_update_resize]>>
-    ntac 3 strip_tac>>
+    ntac 4 strip_tac>>
     CONJ_TAC >- (
       gvs[do_red_check_def,AllCaseEqs(),insert_fml_def]>>
       TOP_CASE_TAC>>fs[]
       >- (
         rpt (pairarg_tac>>fs[])>>
+        CONJ_TAC >-
+          metis_tac[vimap_rel_vomap_rel_check_fresh_aspo_list]>>
         (drule_at Any) split_goals_hash_imp_split_goals>>
         disch_then (qspec_then`mk_core_fml (b ∨ tcb) fml` mp_tac)>>
         impl_tac >- (
@@ -2852,7 +2856,6 @@ Proof
       simp[] >>
       metis_tac[ind_rel_get_indices_set_indices])>>
     CONJ_TAC >- (
-      drule_all vimap_rel_get_indices_set_indices>>
       metis_tac[fml_rel_fml_rel_vimap_rel])>>
     CONJ_TAC >- (
       simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
