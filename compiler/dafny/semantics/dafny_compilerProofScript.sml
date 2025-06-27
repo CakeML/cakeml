@@ -3129,6 +3129,18 @@ Proof
   gvs []
 QED
 
+Triviality is_fresh_cml_tup_vname_neq:
+  is_fresh n ⇒ explode n ≠ cml_tup_vname i
+Proof
+  rpt strip_tac \\ gvs [is_fresh_def, isprefix_thm, cml_tup_vname_def]
+QED
+
+Triviality dfy_pfx_cml_tup_vname_neq:
+  "dfy_" ≼ n ⇒ n ≠ cml_tup_vname i
+Proof
+  rpt strip_tac \\ gvs [cml_tup_vname_def]
+QED
+
 Theorem correct_from_stmt:
   ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l base.
     evaluate_stmt s env_dfy stmt_dfy = (s', r_dfy) ∧
@@ -3698,6 +3710,7 @@ Proof
         \\ irule locals_rel_submap
         \\ first_assum $ irule_at (Pos hd) \\ gvs [])
       \\ Cases_on ‘LENGTH outs = 1’ \\ gvs []
+
       >- (* Assigning a single value (no tuple used) *)
        (gvs [LENGTH_EQ_1, Stuple_def, Pstuple_def]
         \\ gvs [par_assign_def, oneline bind_def, CaseEq "sum"]
@@ -3722,16 +3735,24 @@ Proof
               ‘base’] mp_tac
         \\ gvs []
         \\ impl_tac >-
+
          (rpt strip_tac
           >- (* state_rel *)
            (irule state_rel_restore_locals1 \\ gvs []
             \\ first_assum $ irule_at (Pos hd) \\ gvs []
             \\ qexists ‘t with clock := ck + t.clock’ \\ gvs []
             \\ first_assum $ irule_at (Pos last) \\ gvs []
-
-            \\ cheat)
+            \\ irule state_rel_env_change
+            \\ first_assum $ irule_at (Pos last)
+            \\ rpt strip_tac
+            \\ drule is_fresh_cml_tup_vname_neq \\ simp [])
           >- (* env_rel *)
-           (cheat)
+           (irule env_rel_env_change
+            \\ strip_tac
+            >- (gvs [env_rel_def, has_basic_cons_def, cml_tup_vname_def])
+            \\ first_assum $ irule_at (Pos last)
+            \\ rpt strip_tac
+            \\ drule dfy_pfx_cml_tup_vname_neq \\ simp [])
           >- gvs [cml_tup_vname_neq_arr]
           >- (* base_at_most *)
            (gvs [base_at_most_def, store_preserve_all_def, store_preserve_def]))
@@ -3742,7 +3763,10 @@ Proof
         \\ irule_at (Pos hd) store_preserve_all_weaken
         \\ ntac 2 (first_assum $ irule_at (Pos hd))
         \\ gvs [state_rel_def]
-        \\ cheat  (* locals_rel with irrelevant addition to environment *))
+        \\ irule locals_rel_env_change
+        \\ first_assum $ irule_at (Pos last)
+        \\ rpt strip_tac
+        \\ drule is_fresh_cml_tup_vname_neq \\ simp [])
       (* Assigning multiple values (uses a tuple) *)
       \\ DEP_REWRITE_TAC [Stuple_Tuple] \\ gvs []
       \\ gvs [evaluate_def, do_con_check_def]
@@ -3786,6 +3810,7 @@ Proof
       \\ disch_then $ drule_at (Pos $ el 3) \\ gvs []
       \\ disch_then $ qspecl_then [‘l’, ‘t₂’, ‘ass_env₁’, ‘base’] mp_tac \\ gvs []
       \\ impl_tac >-
+
        (rpt strip_tac
         >- (* state_rel *)
          (irule state_rel_restore_locals1 \\ gvs []
