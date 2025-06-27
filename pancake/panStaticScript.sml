@@ -135,8 +135,16 @@ End
 (* Record for static_check_exp returns *)
 Datatype:
   exp_return = <|
-    basedness : based (* func exit status for all paths *)
-  ; exp_shape : shape (* loop exit status for all paths *)
+    basedness : based (* basedness of exp *)
+  ; exp_shape : shape (* shape of exp *)
+  |>
+End
+
+(* Record for static_check_exps returns *)
+Datatype:
+  exps_return = <|
+    basedness  : based      (* combined basedness of exps (for op args only) *)
+  ; exps_shape : shape list (* shapes of exps *)
   |>
 End
 
@@ -158,7 +166,7 @@ End
 Definition based_merge_def:
   based_merge x y =
     case (x,y) of
-      (Based, _) => Based
+    | (Based, _) => Based
     | (_, Based) => Based
     | (NotTrusted, _) => NotTrusted
     | (_, NotTrusted) => NotTrusted
@@ -183,13 +191,13 @@ Definition branch_vbases_def:
     let x' = mapWithKey (\k v. v with <| based :=
               (if ~(member k y) then
                 case lookup vctxt k of
-                  SOME v' => based_cmp v.based v'.based
+                | SOME v' => based_cmp v.based v'.based
                 | NONE => NotTrusted
               else v.based) |>) x;
         y' = mlmap$mapWithKey (\k v. v with <| based :=
               (if ~(member k x) then
                 case lookup vctxt k of
-                  SOME v' => based_cmp v.based v'.based
+                | SOME v' => based_cmp v.based v'.based
                 | NONE => NotTrusted
               else v.based) |>) y;
     in mlmap$unionWith (\vx vy. vx with <| based := based_cmp vx.based vy.based |>) x' y'
@@ -274,7 +282,7 @@ End
 Definition get_scope_desc_def:
   get_scope_desc scope =
     case scope of
-      FunScope fname =>
+    | FunScope fname =>
         concat [strlit "function "; fname]
     | DeclScope vname =>
         concat [strlit "initialisation of global variable "; vname]
@@ -368,7 +376,7 @@ End
 Definition first_repeat_def:
   first_repeat xs =
     case xs of
-      (x1::x2::xs) =>
+    | (x1::x2::xs) =>
         if x1 = x2
           then SOME x1
         else first_repeat $ x2::xs
@@ -393,6 +401,12 @@ Definition panop_to_str_def:
     | Mul => implode "Mul"
 End
 
+(* Get shape at a certain struct index *)
+Definition index_shape_def:
+  index_shape i One = NONE ∧
+  index_shape i (Comb shs) = LLOOKUP shs i
+End
+
 
 (* Static check helpers *)
 
@@ -400,7 +414,7 @@ End
 Definition scope_check_fun_name_def:
   scope_check_fun_name ctxt fname =
     case lookup ctxt.funcs fname of
-      NONE => error (ScopeErr $ get_scope_msg F ctxt.loc fname ctxt.scope)
+    | NONE => error (ScopeErr $ get_scope_msg F ctxt.loc fname ctxt.scope)
     | SOME f => return f
 End
 
@@ -408,7 +422,7 @@ End
 Definition scope_check_global_var_def:
   scope_check_global_var ctxt vname =
     case lookup ctxt.globals vname of
-      NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
+    | NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
     | SOME v => return v
 End
 
@@ -416,84 +430,125 @@ End
 Definition scope_check_local_var_def:
   scope_check_local_var ctxt vname =
     case lookup ctxt.locals vname of
-      NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
+    | NONE => error (ScopeErr $ get_scope_msg T ctxt.loc vname ctxt.scope)
     | SOME v => return v
+End
+
+(* Check for redeclared variable *)
+Definition check_redec_var_def:
+  check_redec_var ctxt vname =
+    case (lookup ctxt.locals vname,lookup ctxt.globals vname) of
+    |  (NONE,NONE) => return ()
+    |  _ => log (WarningErr $ get_redec_msg T ctxt.loc vname ctxt.scope)
 End
 
 
 (* Main static checking functions *)
 
 (*
-  static_check_exp[s] returns:
-    (exp info (:exp_ret)) static_result
+  static_check_exp returns:
+    (exp info (:exp_return)) static_result
+  static_check_exps returns:
+    (exps info (:exps_return)) static_result
 *)
 Definition static_check_exp_def:
   static_check_exp ctxt (Const c) =
-    (* return based-ness *)
-    return (NotBased) ∧
+    (* return exp info *)
+    return <| basedness := NotBased
+            ; exp_shape := One |> ∧
   static_check_exp ctxt (Var Local vname) =
-    (* check for out of scope var & return stored basedness *)
     do
+      (* check for out of scope var *)
       vinf <- scope_check_local_var ctxt vname;
-      return (vinf.based)
+      (* return stored info *)
+      return <| basedness := vinf.based
+              ; exp_shape := vinf.locl_shape |>
     od ∧
   static_check_exp ctxt (Var Global vname) =
-    (* check for out of scope var & return basedness *)
     do
-      scope_check_global_var ctxt vname;
-      return (Trusted)
+      (* check for out of scope var *)
+      vinf <- scope_check_global_var ctxt vname;
+      (* return exp info with stored shape *)
+      return <| basedness := Trusted
+              ; exp_shape := vinf.glob_shape |>
     od ∧
   static_check_exp ctxt (Struct es) =
     do
       (* check struct field exps *)
-      static_check_exps ctxt es;
-      (* return based-ness *)
-      return (Trusted)
-      (* retval doesn't matter too much, since future shape checking will pick
-        up a struct being used an address *)
+      esret <- static_check_exps ctxt es;
+      (* return exp info with found shape *)
+      return <| basedness := Trusted (* basedness doesn't matter since shape
+                                        checking will prevent a struct addr *)
+              ; exp_shape := Comb esret.exps_shape |>
     od ∧
   static_check_exp ctxt (Field index e) =
     do
       (* check struct exp *)
-      static_check_exp ctxt e;
-      (* return based-ness *)
-      return (NotTrusted)
+      eret <- static_check_exp ctxt e;
+      case index_shape index eret.exp_shape of
+      | NONE => error (ShapeErr $ concat
+        [ctxt.loc; strlit "expression has no field at index "; num_to_str index;
+          get_scope_desc ctxt.scope; strlit "\n"])
+      (* return exp info with found shape *)
+      | SOME sh => return <| basedness := Trusted
+                           ; exp_shape := sh |>
     od ∧
   static_check_exp ctxt (Load shape addr) =
     do
       (* check addr exp *)
-      b <- static_check_exp ctxt addr;
+      eret <- static_check_exp ctxt addr;
+      (* check addr shape *)
+      if ~(eret.exp_shape = One)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "load address is not a word in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
       (* check address references base *)
-      case b of
+      case eret.basedness of
       | NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.scope)
       | NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.scope)
       | _          => return ();
-      (* return based-ness *)
-      return (Trusted)
+      (* return exp info *)
+      return <| basedness := Trusted
+              ; exp_shape := shape |>
     od ∧
   static_check_exp ctxt (Load32 addr) =
     do
       (* check addr exp *)
-      b <- static_check_exp ctxt addr;
+      eret <- static_check_exp ctxt addr;
+      (* check addr shape *)
+      if ~(eret.exp_shape = One)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "load address is not a word in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
       (* check address references base *)
-      case b of
+      case eret.basedness of
       | NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.scope)
       | NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.scope)
       | _          => return ();
-      (* return based-ness *)
-      return (Trusted)
+      (* return exp info *)
+      return <| basedness := Trusted
+              ; exp_shape := One |>
     od ∧
   static_check_exp ctxt (LoadByte addr) =
     do
       (* check addr exp *)
-      b <- static_check_exp ctxt addr;
+      eret <- static_check_exp ctxt addr;
+      (* check addr shape *)
+      if ~(eret.exp_shape = One)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "load address is not a word in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
       (* check address references base *)
-      case b of
+      case eret.basedness of
       | NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.scope)
       | NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.scope)
       | _          => return ();
-      (* return based-ness *)
-      return (Trusted)
+      (* return exp info *)
+      return <| basedness := Trusted
+              ; exp_shape := One |>
     od ∧
   static_check_exp ctxt (Op bop es) =
     do
@@ -508,8 +563,18 @@ Definition static_check_exp_def:
                   then error (GenErr $ get_oparg_msg F (strlit "2")
                     (num_to_str nargs) ctxt.loc (binop_to_str bop) ctxt.scope)
                 else return ();
-      (* return combined based-ness of checked op args *)
-      static_check_exps ctxt es
+      (* check op args *)
+      esret <- static_check_exps ctxt es;
+      (* check arg shapes *)
+      if ~(REPLICATE nargs One = esret.exps_shape)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "operation "; binop_to_str bop;
+           strlit " given a non-word operand in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
+      (* return exp info with combined basedness of args *)
+      return <| basedness := esret.basedness
+              ; exp_shape := One |>
     od ∧
   static_check_exp ctxt (Panop pop es) =
     do
@@ -520,49 +585,72 @@ Definition static_check_exp_def:
                   then error (GenErr $ get_oparg_msg T (strlit "2")
                     (num_to_str nargs) ctxt.loc (panop_to_str pop) ctxt.scope)
                 else return ();
-      (* return combined based-ness of checked op args *)
-      static_check_exps ctxt es
+      (* check op args *)
+      esret <- static_check_exps ctxt es;
+      (* check arg shapes *)
+      if ~(REPLICATE nargs One = esret.exps_shape)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "operation "; panop_to_str pop;
+           strlit " given a non-word operand in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
+      (* return exp info with combined basedness of args *)
+      return <| basedness := esret.basedness
+              ; exp_shape := One |>
     od ∧
   static_check_exp ctxt (Cmp cmp e1 e2) =
     do
       (* check cmp arg exps *)
-      static_check_exp ctxt e1;
-      static_check_exp ctxt e2;
-      (* return based-ness *)
-      return (NotBased)
+      eret1 <- static_check_exp ctxt e1;
+      eret2 <- static_check_exp ctxt e2;
+      (* check for shape match *)
+      if ~(eret1.exp_shape = eret2.exp_shape)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "comparison given operands of different shapes in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
+      (* return exp info *)
+      return <| basedness := NotBased
+              ; exp_shape := One |>
     od ∧
   static_check_exp ctxt (Shift sh e n) =
-    (* return based-ness of checked shifted exp *)
-    static_check_exp ctxt e ∧
+    do
+      (* check shifted exp *)
+      eret <- static_check_exp ctxt e;
+      (* check exp shape *)
+      if ~(eret.exp_shape = One)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "shifted expression is not a word in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
+      (* return exp info *)
+      return (eret)
+    od ∧
   static_check_exp ctxt BaseAddr =
-    (* return based-ness *)
-    return (Based) ∧
+    (* return exp info *)
+    return <| basedness := Based
+            ; exp_shape := One |> ∧
   static_check_exp ctxt TopAddr =
-    (* return based-ness *)
-    return (Based) ∧
+    (* return exp info *)
+    return <| basedness := Based
+            ; exp_shape := One |> ∧
   static_check_exp ctxt BytesInWord =
-    (* return based-ness *)
-    return (NotBased) ∧
+    (* return exp info *)
+    return <| basedness := NotBased
+            ; exp_shape := One |> ∧
   static_check_exps ctxt [] =
-    (* return based-ness *)
-    return (NotBased) ∧
+    (* return exps info *)
+    return <| basedness := NotBased
+            ; exps_shape := [] |> ∧
   static_check_exps ctxt (e::es) =
     do
       (* check exps *)
-      b1 <- static_check_exp ctxt e;
-      b2 <- static_check_exps ctxt es;
-      (* return combined based-ness *)
-      return (based_merge b1 b2)
-      (* retval only applies to operations; use of check_exps for eg. args
-          ignores the return *)
+      eret <- static_check_exp ctxt e;
+      esret <- static_check_exps ctxt es;
+      (* return exps info with combined basedness and all shapes *)
+      return <| basedness := based_merge eret.basedness esret.basedness
+              ; exps_shape := (eret.exp_shape::esret.exps_shape) |>
     od
-End
-
-Definition check_redec_var_def:
-  check_redec_var ctxt vname =
-    case (lookup ctxt.locals vname,lookup ctxt.globals vname) of
-       (NONE,NONE) => return ()
-    |  _ => log (WarningErr $ get_redec_msg T ctxt.loc vname ctxt.scope)
 End
 
 
@@ -580,12 +668,12 @@ Definition static_check_prog_def:
             ; curr_loc   := ctxt.loc |> ∧
   static_check_prog ctxt (Dec v s e p) =
     do
-      (* check for reclaration *)
+      (* check for redeclaration *)
       check_redec_var ctxt v;
       (* check initialising exp *)
-      b <- static_check_exp ctxt e;
+      eret <- static_check_exp ctxt e;
       (* check prog with declared var *)
-      ctxt' <<- ctxt with <| locals := insert ctxt.locals v <| based := b ; locl_shape := s |>
+      ctxt' <<- ctxt with <| locals := insert ctxt.locals v <| based := eret.basedness ; locl_shape := s |>
                            ; last := OtherLast |>;
       pret <- static_check_prog ctxt' p;
       (* return prog info without declared var *)
@@ -618,12 +706,12 @@ Definition static_check_prog_def:
       (* check for out of scope assignment *)
       vinf <- scope_check_local_var ctxt v;
       (* check assigning exp *)
-      b <- static_check_exp ctxt e;
+      eret <- static_check_exp ctxt e;
       (* return prog info with updated var *)
       return <| exits_fun  := F
               ; exits_loop := F
               ; last       := OtherLast
-              ; var_delta  := singleton mlstring$compare v <| based := b ; locl_shape := One |> (* #!TEMP *)
+              ; var_delta  := singleton mlstring$compare v <| based := eret.basedness ; locl_shape := One |> (* #!TEMP *)
               ; curr_loc   := ctxt.loc |>
     od ∧
   static_check_prog ctxt (Assign Global v e) =
@@ -631,21 +719,21 @@ Definition static_check_prog_def:
       (* check for out of scope assignment *)
       vinf <- scope_check_global_var ctxt v;
       (* check assigning exp *)
-      b <- static_check_exp ctxt e;
+      eret <- static_check_exp ctxt e;
       (* return prog info with updated var *)
       return <| exits_fun  := F
               ; exits_loop := F
               ; last       := OtherLast
-              ; var_delta  := singleton mlstring$compare v <| based := b ; locl_shape := One |> (* #!TEMP *)
+              ; var_delta  := singleton mlstring$compare v <| based := eret.basedness ; locl_shape := One |> (* #!TEMP *)
               ; curr_loc   := ctxt.loc |>
     od ∧
   static_check_prog ctxt (Store addr exp) =
     do
       (* check address and value exps *)
-      b <- static_check_exp ctxt addr;
+      eret <- static_check_exp ctxt addr;
       static_check_exp ctxt exp;
       (* check address references base *)
-      case b of
+      case eret.basedness of
       | NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
       | NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
       | Based      => return ()
@@ -660,10 +748,10 @@ Definition static_check_prog_def:
   static_check_prog ctxt (Store32 addr exp) =
     do
       (* check address and value exps *)
-      b <- static_check_exp ctxt addr;
+      eret <- static_check_exp ctxt addr;
       static_check_exp ctxt exp;
       (* check address references base *)
-      case b of
+      case eret.basedness of
       | NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
       | NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
       | _          => return ();
@@ -677,10 +765,10 @@ Definition static_check_prog_def:
   static_check_prog ctxt (StoreByte addr exp) =
     do
       (* check address and value exps *)
-      b <- static_check_exp ctxt addr;
+      eret <- static_check_exp ctxt addr;
       static_check_exp ctxt exp;
       (* check address references base *)
-      case b of
+      case eret.basedness of
       | NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
       | NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
       | _          => return ();
@@ -881,9 +969,9 @@ Definition static_check_prog_def:
       (* check for out of scope var *)
       vinf <- scope_check_local_var ctxt v;
       (* check address exp *)
-      b <- static_check_exp ctxt e;
+      eret <- static_check_exp ctxt e;
       (* check address does not reference base *)
-      case b of
+      case eret.basedness of
       | Based      => log (WarningErr $ get_memop_msg F T F ctxt.loc ctxt.scope)
       | NotTrusted => log (WarningErr $ get_memop_msg F T T ctxt.loc ctxt.scope)
       | _          => return ();
@@ -899,9 +987,9 @@ Definition static_check_prog_def:
       (* check for out of scope var *)
       vinf <- scope_check_global_var ctxt v;
       (* check address exp *)
-      b <- static_check_exp ctxt e;
+      eret <- static_check_exp ctxt e;
       (* check address does not reference base *)
-      case b of
+      case eret.basedness of
       | Based      => log (WarningErr $ get_memop_msg F T F ctxt.loc ctxt.scope)
       | NotTrusted => log (WarningErr $ get_memop_msg F T T ctxt.loc ctxt.scope)
       | _          => return ();
@@ -915,10 +1003,10 @@ Definition static_check_prog_def:
   static_check_prog ctxt (ShMemStore mop a e) =
     do
       (* check address and value exps *)
-      b <- static_check_exp ctxt a;
+      eret <- static_check_exp ctxt a;
       static_check_exp ctxt e;
       (* check address does not reference base *)
-      case b of
+      case eret.basedness of
       | Based      => log (WarningErr $ get_memop_msg F F F ctxt.loc ctxt.scope)
       | NotTrusted => log (WarningErr $ get_memop_msg F F T ctxt.loc ctxt.scope)
       | _          => return ();
@@ -976,8 +1064,8 @@ Definition static_check_progs_def:
       (* check missing function exit *)
       if ~(prog_ret.exits_fun)
         then error (GenErr $ concat
-          [strlit "branches missing return statement in function ";
-           fi.name; strlit "\n"])
+          [strlit "branches missing return statement in ";
+           get_scope_desc (FunScope fi.name); strlit "\n"])
       else return ();
       (* check remaining functions *)
       static_check_progs fctxt gctxt decls
@@ -1003,17 +1091,23 @@ Definition static_check_decls_def:
                 ; is_reachable := IsReach
                 ; last := InvisLast
                 ; loc := strlit "" |>;
-      (* check initialisation expression *)
-      static_check_exp ctxt exp; (* #!TODO shape *)
       (* check for redeclaration *)
       check_redec_var (ctxt with scope := TopLevel) vname;
+      (* check initialisation expression *)
+      eret <- static_check_exp ctxt exp;
+      (* check for shape match *)
+      if ~(shape = eret.exp_shape)
+        then error (ShapeErr $ concat
+          [strlit "global variable "; vname;
+           strlit "declared and initialised with different shapes\n"])
+      else return ();
       (* check remaining decls *)
       static_check_decls fctxt (insert gctxt vname <| glob_shape := shape |>) decls
     od ∧
   static_check_decls fctxt gctxt (Function fi::funs) =
     do
-      (* check func name uniqueness *)
-      if member fi.name fctxt
+      (* check for redeclaration *)
+      if member fi.fname fctxt
         then error (GenErr $ concat
         (* TODO: swap this to `get_redec_msg F <loc> f TopLevel` once function locations exist *)
           [strlit "function "; fi.name; strlit " is redeclared\n"])
@@ -1031,7 +1125,7 @@ Definition static_check_decls_def:
           else return ();
           (* check main func return shape *)
           if ~(fi.return = One)
-            then error (GenErr $ strlit "main function does not return a word\n")
+            then error (ShapeErr $ strlit "main function does not return a word\n")
           else return ();
         od
       else
@@ -1053,13 +1147,13 @@ Definition static_check_decls_def:
               else return ();
               (* check exported func arg shape *)
               if EXISTS (\shape. ~(shape = One)) (MAP SND fi.params)
-                then error (GenErr $ concat
+                then error (ShapeErr $ concat
                   [strlit "exported function "; fi.name;
                   strlit " has non-word argument/s\n"])
               else return ();
               (* check exported func return shape *)
               if ~(fi.return = One)
-                then error (GenErr $ concat
+                then error (ShapeErr $ concat
                   [strlit "exported function "; fi.name;
                   strlit " does not return a word\n"])
               else return ();
@@ -1067,7 +1161,7 @@ Definition static_check_decls_def:
           else
             (* check func return shape size *)
             if size_of_shape fi.return > 32
-              then error (GenErr $ concat
+              then error (ShapeErr $ concat
                 [strlit "function "; fi.name;
                 strlit " returns a shape bigger than 32 words\n"])
             else return () ;
