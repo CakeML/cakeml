@@ -1,7 +1,7 @@
 (*
   Refine PB proof checker to use arrays
 *)
-open preamble (* basis *) npbc_checkTheory;
+open preamble npbc_checkTheory;
 
 val _ = new_theory "npbc_list"
 
@@ -3526,7 +3526,7 @@ Definition check_cstep_list_def:
     (let inds' = reindex fml inds in
       case ALOOKUP pc.orders nn of NONE => NONE
       | SOME ord' =>
-        if LENGTH xs = LENGTH (FST (SND ord')) then
+        if guard_ord_t ord' xs then
           case core_from_inds fml inds' of NONE => NONE
           | SOME fml' =>
           SOME (fml',zeros, inds',

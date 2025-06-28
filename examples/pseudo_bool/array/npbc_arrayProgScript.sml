@@ -5077,6 +5077,8 @@ Proof
   EVAL_TAC
 QED
 
+val res = translate (npbc_checkTheory.guard_ord_t_def |> SIMP_RULE std_ss[MEMBER_INTRO]);
+
 val check_cstep_arr = process_topdecs`
   fun check_cstep_arr lno cstep fml zeros inds vimap vomap pc =
   case cstep of
@@ -5148,7 +5150,7 @@ val check_cstep_arr = process_topdecs`
       None =>
         raise Fail (format_failure lno ("no such order: " ^ nn))
     | Some ord' =>
-      if List.length xs = List.length (fst (snd ord')) then
+      if guard_ord_t ord' xs then
         let val fml' = core_from_inds_arr lno fml inds' in
         (fml', (zeros, (inds', (vimap, (vomap, set_ord pc (Some (ord',xs)))))))
         end
