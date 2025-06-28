@@ -1581,12 +1581,12 @@ val res = translate parse_pre_order_pure_def;
 val parse_pre_order = process_topdecs`
   fun parse_pre_order fns fd lno =
   case read_while lno pre_order_symbols fd [] of
-    (preord,lno) =>
+    (preord,lno') =>
   case parse_pre_order_pure fns preord of
     None =>
       raise Fail (format_failure lno ("failed to parse order definition starting at line."))
   | Some (vars,(gspec,(f,(pfr,(pft,fns))))) =>
-    (vars,(gspec,(f,(pfr,(pft,(fns,lno))))))` |> append_prog;
+    (vars,(gspec,(f,(pfr,(pft,(fns,lno'))))))` |> append_prog;
 
 Theorem parse_pre_order_spec:
   NUM lno lnov ∧

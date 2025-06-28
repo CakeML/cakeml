@@ -1064,11 +1064,9 @@ End
 
 Definition parse_vars_line_def:
   parse_vars_line f_ns n l =
-  case l of
-    h::rest =>
+  case strip_term_line l of
+    SOME (h::rest) =>
     if h = INL n then
-      case strip_term_line rest of NONE => NONE
-      | SOME rest =>
         parse_vars_line_aux f_ns rest
     else NONE
   | _ => NONE
