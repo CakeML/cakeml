@@ -1,7 +1,7 @@
 (*
   Refine PB proof checker to use arrays
 *)
-open preamble basis npbc_checkTheory;
+open preamble (* basis *) npbc_checkTheory;
 
 val _ = new_theory "npbc_list"
 
@@ -3776,10 +3776,9 @@ Theorem fml_rel_check_cstep_list:
     EVERY (λw. w = 0w) zeros' ∧
     pc.id ≤ pc'.id
 Proof
-  cheat
-  (*
+
   Cases_on`cstep`>>rw[]
-  >- ( (* Dom *)
+  >~ [‘Dom’] >- cheat (* (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     rpt(pairarg_tac>>gvs[])>>
     gvs[AllCaseEqs()]>>
@@ -3824,12 +3823,13 @@ Proof
       match_mp_tac fml_rel_fml_rel_vimap_rel>>fs[]>>
       match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
     CONJ_TAC >- simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
-    metis_tac[check_subproofs_list_zeros])
-  >- ( (* Sstep *)
+    metis_tac[check_subproofs_list_zeros]) *)
+
+  >~ [‘Sstep’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     drule_all fml_rel_check_sstep_list>>
     rw[]>>simp[])
-  >- ( (* CheckedDelete *)
+  >~ [‘CheckedDelete’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     drule fml_rel_lookup_core_only>>
     rw[]>>gvs[]>>
@@ -3852,7 +3852,7 @@ Proof
       disch_then(qspec_then`[n]` mp_tac)>>
       simp[list_delete_list_def])>>
     metis_tac[any_el_list_delete_list,list_delete_list_def])
-  >- ( (* UncheckedDelete *)
+  >~ [‘UncheckedDelete’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]
     >- (
       CONJ_TAC >-
@@ -3872,7 +3872,7 @@ Proof
       CONJ_TAC >-
         metis_tac[vimap_rel_list_delete_list]>>
       simp[any_el_list_delete_list]))
-  >- ( (* Transfer *)
+  >~ [‘Transfer’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     drule_all core_from_inds_do_transfer>>
     drule any_el_core_from_inds>>
@@ -3882,7 +3882,7 @@ Proof
     `vimap_rel fmlls' vimap` by
       metis_tac[vimap_rel_core_from_inds]>>
     metis_tac[IS_SOME_EXISTS,option_CLAUSES])
-  >- ( (* StrengthenToCore *)
+  >~ [‘StrengthenToCore’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     drule_all ind_rel_reindex
     >- (
@@ -3914,7 +3914,8 @@ Proof
         )
     >-
       fs[])
-  >- ( (* LoadOrder *)
+
+  >~ [‘LoadOrder’] >- cheat (* (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     drule_all ind_rel_reindex>>
     drule any_el_core_from_inds>>
@@ -3933,12 +3934,13 @@ Proof
       fs[ind_rel_def]>>
       rw[]>>
       metis_tac[IS_SOME_EXISTS,option_CLAUSES])>>
-    metis_tac[vimap_rel_core_from_inds])
-  >- ( (* UnloadOrder *)
+    metis_tac[vimap_rel_core_from_inds]) *)
+  >~ [‘UnloadOrder’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
-  >- ( (* StoreOrder *)
+  >~ [‘StoreOrder’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
-  >- ( (* Obj *)
+
+  >~ [‘Obj’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     rw[PULL_EXISTS]>>
     `set (MAP SND (core_fmlls fmlls inds)) =
@@ -3953,7 +3955,7 @@ Proof
     >- metis_tac[ind_rel_update_resize_sorted_insert]
     >- metis_tac[vimap_rel_update_resize_update_vimap]>>
     simp[any_el_update_resize])
-  >- ( (* ChangeObj *)
+  >~ [‘ChangeObj’] >- (
     fs[check_cstep_def,check_cstep_list_def]>>
     gvs[AllCaseEqs(),check_change_obj_list_def,check_change_obj_def]>>
     qpat_x_assum`_ = SOME cpfs` mp_tac>>
@@ -3985,10 +3987,10 @@ Proof
       metis_tac[vomap_rel_mk_vomap]>>
     simp[any_el_rollback]>>
     metis_tac[check_subproofs_list_zeros])
-  >- ( (* CheckObj *)
+  >~ [‘CheckObj’] >- (
     fs[check_cstep_def,check_cstep_list_def]
   )
-  >- ( (* ChangePres *)
+  >~ [‘ChangePres’] >- (
     fs[check_cstep_def,check_cstep_list_def]>>
     gvs[AllCaseEqs(),check_change_pres_list_def,check_change_pres_def]>>
     qpat_x_assum`_ = SOME cpfs` mp_tac>>
@@ -4017,7 +4019,7 @@ Proof
     CONJ_TAC >-
       metis_tac[fml_rel_fml_rel_vimap_rel]>>
     simp[any_el_rollback]>>
-    metis_tac[check_subproofs_list_zeros]) *)
+    metis_tac[check_subproofs_list_zeros])
 QED
 
 Definition check_csteps_list_def:
