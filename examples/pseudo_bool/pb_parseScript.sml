@@ -1039,10 +1039,6 @@ End
 (* def_order parsing. We parse the sections in order.
   First, the vars block
 *)
-Definition hashString_nf_def:
-  hashString_nf s t = SOME(hashString s,t)
-End
-
 Definition parse_def_order_head_def:
   parse_preorder_head s =
   case s of
@@ -1067,53 +1063,56 @@ Definition parse_vars_line_aux_def:
 End
 
 Definition parse_vars_line_def:
-  parse_vars_line n l =
+  parse_vars_line f_ns n l =
   case l of
     h::rest =>
     if h = INL n then
       case strip_term_line rest of NONE => NONE
       | SOME rest =>
-      OPTION_MAP FST
-        (parse_vars_line_aux (hashString_nf,()) rest)
+        parse_vars_line_aux f_ns rest
     else NONE
   | _ => NONE
 End
 
 Definition parse_vars_aux_def:
-  parse_vars_aux v l r a =
+  parse_vars_aux f_ns v l r a =
     if v = [INL (strlit"vars")] then
-      case parse_vars_line (strlit "left") l of NONE => NONE
-      | SOME us =>
-      case parse_vars_line (strlit "right") r of NONE => NONE
-      | SOME vs =>
-      case a of NONE => SOME (us,vs,[])
+      case parse_vars_line f_ns (strlit "left") l of NONE => NONE
+      | SOME (us,f_ns) =>
+      case parse_vars_line f_ns (strlit "right") r of NONE => NONE
+      | SOME (vs,f_ns) =>
+      case a of NONE => SOME ((us,vs,[]),f_ns)
       | SOME a =>
-      case parse_vars_line (strlit "aux") a of NONE => NONE
-      | SOME as => SOME (us,vs,as)
+      case parse_vars_line f_ns (strlit "aux") a of NONE => NONE
+      | SOME (as,f_ns) => SOME ((us,vs,as),f_ns)
   else NONE
 End
 
 Definition parse_vars_block_def:
-  parse_vars_block ss =
+  parse_vars_block f_ns ss =
   case ss of
     v::l::r::ae::rest =>
     if check_end [INL (strlit"vars")] ae
     then
-      OPTION_MAP (λres. (res,rest))
-        (parse_vars_aux v l r NONE)
+      OPTION_MAP (λ(res,f_ns). (res,f_ns,rest))
+        (parse_vars_aux f_ns v l r NONE)
     else
       (case rest of [] => NONE
       | e::rest =>
       if check_end [INL (strlit"vars")] e
       then
-        OPTION_MAP (λres. (res,rest))
-          (parse_vars_aux v l r (SOME ae))
+        OPTION_MAP (λ(res,f_ns). (res,f_ns,rest))
+          (parse_vars_aux f_ns v l r (SOME ae))
       else NONE)
   | _ => NONE
 End
 
 (*
-EVAL ``parse_vars_block
+Definition hashString_nf_def:
+  hashString_nf s (t:num) = SOME(hashString s,t+1)
+End
+
+EVAL ``parse_vars_block (hashString_nf,0)
   (MAP toks_fast
   [strlit"vars";
   strlit"  left u1 u2 u3 u4 u5 u6 u7 u8 u9 u10;";
@@ -1121,7 +1120,7 @@ EVAL ``parse_vars_block
   strlit"  aux $a1 $a2 $a3 $a4 $a5 $a6 $a7 $a8 $a9 $d1 $d2 $d3 $d4 $d5 $d6 $d7 $d8 $d9 $d10 ;";
   strlit"end;";])``
 
-EVAL ``parse_vars_block
+EVAL ``parse_vars_block (hashString_nf,0)
   (MAP toks_fast
   [strlit"vars";
   strlit"  left u1 u2 u3 u4 u5 u6 u7 u8 u9 u10;";
@@ -1160,40 +1159,40 @@ QED
 
 (* parse specification block *)
 Definition parse_spec_aux_def:
-  (parse_spec_aux ss acc =
-     case parse_sstep (hashString_nf,()) ss of
-      SOME (INR (Red c s pf idopt),_,ss) =>
-      parse_spec_aux ss ((c,s,pf,idopt)::acc)
-    | SOME (INL s,_,ss) =>
+  (parse_spec_aux f_ns ss acc =
+    case parse_sstep f_ns ss of
+    | SOME (INR (Red c s pf idopt),f_ns',ss) =>
+      parse_spec_aux f_ns' ss ((c,s,pf,idopt)::acc)
+    | SOME (INL s,f_ns',ss) =>
       if check_end [INL (strlit"spec")] s then
-        SOME(REVERSE acc,ss)
-      else NONE)
+        SOME(REVERSE acc,f_ns',ss)
+      else NONE
+    | _ => NONE)
 Termination
-  WF_REL_TAC ‘measure (LENGTH o FST)’
+  WF_REL_TAC ‘measure (LENGTH o FST o SND)’
   \\ rw[]
-  \\ imp_res_tac parse_sstep_LENGTH>>
-  fs[]
+  \\ imp_res_tac parse_sstep_LENGTH
 End
 
 (* Return an optional line since spec block is optional,
   but following blocks are mandatory *)
 Definition parse_spec_block_def:
-  parse_spec_block ss =
+  parse_spec_block f_ns ss =
   case ss of
     h::rest =>
     if h = [INL (strlit"spec")] then
-      case parse_spec_aux rest [] of
+      case parse_spec_aux f_ns rest [] of
         NONE => NONE
-      | SOME (spec,ss) =>
-        SOME (NONE, spec, ss)
+      | SOME (spec,f_ns',ss) =>
+        SOME (NONE, spec, f_ns', ss)
     else
-      SOME (SOME h, [], rest)
+      SOME (SOME h, [], f_ns, rest)
   | _ => NONE
 End
 
 (*
   -- handle spec parsing if it exists
-  EVAL``parse_spec_block
+  EVAL``parse_spec_block (hashString_nf,0)
   (MAP toks_fast ([strlit"spec";
   strlit"red 1 u1 1 ~v1 1 ~$a1 >= 1 : $a1 -> 0 : subproof";
   strlit"qed;";
@@ -1203,7 +1202,7 @@ End
   ]))``
 
   -- if no spec block, then the next block is the definition block
-  EVAL``parse_spec_block
+  EVAL``parse_spec_block (hashString_nf,0)
   (MAP toks_fast ([strlit"def";
   strlit"FOO";
   ]))``
@@ -1211,42 +1210,43 @@ End
 
 (* parse definition block of constraints *)
 Definition parse_def_aux_def:
-  (parse_def_aux [] acc = NONE) ∧
-  (parse_def_aux (s::ss) acc =
+  (parse_def_aux f_ns [] acc = NONE) ∧
+  (parse_def_aux f_ns (s::ss) acc =
     if check_end [INL (strlit"def")] s then
-      SOME(REVERSE acc,ss)
+      SOME(REVERSE acc,f_ns,ss)
     else
       case strip_term_line s of NONE => NONE
       | SOME s =>
-      case parse_constraint_npbc (hashString_nf,()) s of
-        NONE => NONE
-      | SOME (c,_) => parse_def_aux ss (c::acc))
+      (case parse_constraint_npbc f_ns s of
+        SOME (c,[],f_ns') =>
+          parse_def_aux f_ns' ss (c::acc)
+      | _ => NONE))
 End
 
 Definition parse_def_block_def:
-  parse_def_block s ss =
+  parse_def_block f_ns s ss =
   (case s of NONE =>
     (case ss of
       h::rest =>
       if h = [INL (strlit"def")] then
-        parse_def_aux rest []
+        parse_def_aux f_ns rest []
       else NONE
     | _ => NONE)
   | SOME h =>
     if h = [INL (strlit"def")] then
-      parse_def_aux ss []
+      parse_def_aux f_ns ss []
     else NONE)
 End
 
 (* -- the def block takes an optional line from the optional spec block
-  EVAL``parse_def_block
+  EVAL``parse_def_block (hashString_nf,0)
   NONE
   (MAP toks_fast ([
     strlit"def";
     strlit"1 $d10 >= 1;";
     strlit"end;";]))``
 
-  EVAL``parse_def_block
+  EVAL``parse_def_block (hashString_nf,0)
   (SOME ([INL (strlit"def")]))
   (MAP toks_fast ([
     strlit"1 $d10 >= 1;";
@@ -1269,19 +1269,19 @@ End
   with an extra "proof" and "qed" at the end,
   followed by an "end" line *)
 Definition parse_proof_block_def:
-  parse_proof_block end ss =
+  parse_proof_block f_ns end ss =
   case ss of [] => NONE
   | h::ss =>
   if h = [INL(strlit"proof")] then
-    case parse_subproof (hashString_nf,()) ss of
-    | SOME (pf,_,s,rest) =>
+    case parse_subproof f_ns ss of
+    | SOME (pf,f_ns',s,rest) =>
       if check_qed [INL(strlit"proof")] s
       then
         case rest of [] => NONE
         | (s::rest) =>
           if check_end end s
           then
-            SOME (pf,rest)
+            SOME (pf,f_ns',rest)
           else NONE
       else NONE
     | _ => NONE
@@ -1289,60 +1289,63 @@ Definition parse_proof_block_def:
 End
 
 Definition parse_trans_aux_def:
-  parse_trans_aux h v f a12 =
+  parse_trans_aux f_ns h v f a12 =
     if
        h = [INL (strlit"transitivity")] ∧
        v = [INL (strlit"vars")]
     then
-      case parse_vars_line (strlit "fresh_right") f of NONE => NONE
-      | SOME ws =>
-      case a12 of NONE => SOME (ws,[],[])
+      case parse_vars_line f_ns (strlit "fresh_right") f of
+        NONE => NONE
+      | SOME (ws,f_ns) =>
+      case a12 of NONE =>
+        SOME ((ws,[],[]),f_ns)
       | SOME (a1,a2) =>
-        case parse_vars_line (strlit "fresh_aux_1") a1 of
+        case parse_vars_line f_ns (strlit "fresh_aux_1") a1 of
           NONE => NONE
-        | SOME bs =>
-        case parse_vars_line (strlit "fresh_aux_2") a2 of
+        | SOME (bs,f_ns) =>
+        case parse_vars_line f_ns (strlit "fresh_aux_2") a2 of
           NONE => NONE
-        | SOME cs =>
-          SOME (ws,bs,cs)
+        | SOME (cs,f_ns) =>
+          SOME ((ws,bs,cs),f_ns)
     else NONE
 End
 
 Definition parse_trans_block_aux_def:
-  parse_trans_block_aux ss =
+  parse_trans_block_aux f_ns ss =
   case ss of
     h::v::f::ae::rest =>
     if check_end [INL (strlit"vars")] ae
     then
-      case parse_trans_aux h v f NONE of
+      case parse_trans_aux f_ns h v f NONE of
         NONE => NONE
-      | SOME vars => SOME (vars,rest)
+      | SOME (vars,f_ns) => SOME (vars,f_ns,rest)
     else
       (case rest of
       | a2::e::rest =>
         if check_end [INL (strlit"vars")] e
         then
-          case parse_trans_aux h v f (SOME (ae,a2)) of
+          case parse_trans_aux f_ns h v f (SOME (ae,a2)) of
             NONE => NONE
-          | SOME vars => SOME (vars,rest)
+          | SOME (vars,f_ns) => SOME (vars,f_ns,rest)
         else NONE
       | _ => NONE)
   | _ => NONE
 End
 
 Definition parse_trans_block_def:
-  parse_trans_block ss =
-  case parse_trans_block_aux ss of
+  parse_trans_block f_ns ss =
+  case parse_trans_block_aux f_ns ss of
     NONE => NONE
-  | SOME ((ws,bs,cs),rest) =>
-  case parse_proof_block [INL (strlit"transitivity")] rest of
+  | SOME ((ws,bs,cs),f_ns,rest) =>
+  case parse_proof_block f_ns
+    [INL (strlit"transitivity")] rest of
     NONE => NONE
-  | SOME (pf,ss) =>
-    SOME((ws,bs,cs,pf),ss)
+  | SOME (pf,f_ns',ss) =>
+    SOME((ws,bs,cs,pf),f_ns',ss)
 End
 
 (*
-EVAL``parse_trans_block
+EVAL``parse_trans_block (hashString_nf,0)
   (MAP toks_fast ([
   strlit"transitivity";
   strlit"vars";
@@ -1354,12 +1357,12 @@ EVAL``parse_trans_block
   strlit"pol 120 148 + 222 + 223 + s 241 3 * +;";
   strlit"pol 242 114 + s;";
   strlit"proofgoal #1";
-  strlit"pol 243 117 +;";
+  strlit"pol ~x5 243 117 + +;";
   strlit"qed : 244;";
   strlit"qed;";
   strlit"end;";]))``
 
-EVAL``parse_trans_block
+EVAL``parse_trans_block (hashString_nf,0)
   (MAP toks_fast ([
   strlit"transitivity";
   strlit"vars";
@@ -1376,48 +1379,104 @@ EVAL``parse_trans_block
 *)
 
 Definition parse_refl_block_def:
-  parse_refl_block ss =
+  parse_refl_block f_ns ss =
   case ss of
     h::ss =>
     if h = [INL (strlit"reflexivity")] then
-      parse_proof_block [INL (strlit"reflexivity")] ss
+      parse_proof_block f_ns [INL (strlit"reflexivity")] ss
     else NONE
   | _ => NONE
 End
 
 Definition parse_trans_refl_block_def:
-  parse_trans_refl_block ss =
-  case parse_trans_block ss of NONE => NONE
-  | SOME (pft,ss) =>
-  case parse_refl_block ss of NONE => NONE
-  | SOME(pfr,ss) => SOME (pfr, pft, ss)
+  parse_trans_refl_block f_ns ss =
+  case parse_trans_block f_ns ss of NONE => NONE
+  | SOME (pft,f_ns,ss) =>
+  case parse_refl_block f_ns ss of NONE => NONE
+  | SOME(pfr,f_ns,ss) => SOME (pfr, pft, f_ns, ss)
 End
 
 Definition parse_spec_def_block_def:
-  parse_spec_def_block ss =
-  case parse_spec_block ss of NONE => NONE
-  | SOME (sopt,gspec,ss) =>
-  case parse_def_block sopt ss of NONE => NONE
-  | SOME (f, ss) => SOME (f,gspec,ss)
+  parse_spec_def_block f_ns ss =
+  case parse_spec_block f_ns ss of NONE => NONE
+  | SOME (sopt,gspec,f_ns,ss) =>
+  case parse_def_block f_ns sopt ss of NONE => NONE
+  | SOME (f, f_ns, ss) => SOME (f,gspec,f_ns,ss)
+End
+
+(* read until we have all the lines for def_order
+  for unambiguity, we must read until we find
+  "reflexivity" "end reflexivity" "end [def_order]"
+  INL means a opening keyword
+  INR means an ending keyword *)
+Definition check_open_def:
+  check_open h (x: (mlstring + int) list) =
+    ( x = [INL h] )
+End
+
+Definition read_open_def:
+  (read_open h [] acc = NONE) ∧
+  (read_open h (x::xs) acc =
+    if check_open h x then SOME (x::acc,xs)
+    else read_open h xs (x::acc))
+End
+
+Definition check_end_full_def:
+  check_end_full xx h =
+  check_end [INL xx] h
+End
+
+Definition read_end_def:
+  (read_end h [] acc = NONE) ∧
+  (read_end h (x::xs) acc =
+    if check_end_full h x then SOME (x::acc,xs)
+    else read_end h xs (x::acc))
+End
+
+Definition read_while_def:
+  (read_while [] ss acc = SOME (REVERSE acc,ss)) ∧
+  (read_while (h::hs) ss acc =
+    case h of
+      INL h =>
+        (case read_open h ss acc of NONE => NONE
+        | SOME (acc,ss) => read_while hs ss acc)
+    | INR h =>
+        case read_end h ss acc of NONE => NONE
+        | SOME (acc,ss) => read_while hs ss acc)
+End
+
+Definition pre_order_symbols_def:
+  pre_order_symbols =
+  [ INL (strlit "reflexivity"); INR (strlit "reflexivity"); INR (strlit "def_order")]
+End
+
+Definition parse_pre_order_pure_def:
+  parse_pre_order_pure f_ns ss =
+  case parse_vars_block f_ns ss of NONE => NONE
+  | SOME (vars, f_ns, ss) =>
+  case parse_spec_def_block f_ns ss of NONE => NONE
+  | SOME (f,gspec,f_ns, ss) =>
+  case parse_trans_refl_block f_ns ss of NONE => NONE
+  | SOME (pfr, pft,f_ns, ss) =>
+  case ss of
+    [h] =>
+    if check_end [INL (strlit"def_order")] h then
+      SOME (vars,gspec,f,pfr,pft,f_ns)
+    else NONE
+  | _ => NONE
 End
 
 Definition parse_pre_order_def:
-  parse_pre_order ss =
-  case parse_vars_block ss of NONE => NONE
-  | SOME (vars, ss) =>
-  case parse_spec_def_block ss of NONE => NONE
-  | SOME (f,gspec,ss) =>
-  case parse_trans_refl_block ss of NONE => NONE
-  | SOME (pfr, pft, ss) =>
-  case ss of [] => NONE
-  | h::ss =>
-    if check_end [INL (strlit"def_order")] h then
-      SOME (vars,gspec,f,pfr,pft,ss)
-    else NONE
+  parse_pre_order f_ns ss =
+  case read_while pre_order_symbols ss [] of NONE => NONE
+  | SOME (ss,rest) =>
+  case parse_pre_order_pure f_ns ss of NONE => NONE
+  | SOME (vars,gspec,f,pfr,pft,f_ns) =>
+    SOME (vars,gspec,f,pfr,pft,f_ns,rest)
 End
 
 (*
-  EVAL``parse_pre_order
+  EVAL``parse_pre_order (hashString_nf,0)
   (MAP toks_fast ([
   strlit"vars";
   strlit"left u1;";
@@ -1444,7 +1503,9 @@ End
   strlit"proof";
   strlit"qed proof;";
   strlit"end reflexivity;";
-  strlit"end def_order;";]))``
+  strlit"end;";
+  strlit"AFTER END;";
+  ]))``
 *)
 
 (* Partially parsed information for csteps *)
@@ -1708,9 +1769,9 @@ Definition parse_cstep_def:
         | SOME (res,pf,f_ns'',rest) =>
           SOME (INR (CheckedDelete n s pf res), f_ns'', rest)) *)
       | SOME (StoreOrderpar name, f_ns'') =>
-        (case parse_pre_order rest of NONE => NONE
-        | SOME (vars,gspec,f,pfr,pft,rest) =>
-          SOME (INR (StoreOrder name vars gspec f pfr pft), f_ns'',rest))
+        (case parse_pre_order f_ns'' rest of NONE => NONE
+        | SOME (vars,gspec,f,pfr,pft,f_ns''',rest) =>
+          SOME (INR (StoreOrder name vars gspec f pfr pft), f_ns''',rest))
       | SOME (ChangeObjpar b f, f_ns'') => NONE
         (* TODO
         (case parse_red_aux f_ns'' rest [] of
@@ -1731,8 +1792,6 @@ Definition parse_cstep_def:
         ) *)
   )
 End
-
-(* TODO below *)
 
 (* parse a hconcl *)
 Definition parse_unsat_def:
