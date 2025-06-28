@@ -3197,7 +3197,7 @@ End
 
 Definition find_scope_1_def:
   find_scope_1 dindex pfs ⇔
-    EXISTS (λx. FST x = SOME 1 ∧
+    EXISTS (λx. (FST x = NONE ∨ FST x = SOME 1) ∧
                 EXISTS (λy. case FST y of
                             | SOME (INR i,n) => i = dindex
                             | _ => F) (SND x)) pfs
