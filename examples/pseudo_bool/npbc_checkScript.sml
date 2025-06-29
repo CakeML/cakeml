@@ -4010,11 +4010,12 @@ Proof
       CONJ_TAC >- (
         fs[core_only_fml_def]
         \\ ‘dindex < LENGTH dsubs’ by gvs [dom_subst_def,neg_dom_subst_def]
-        \\ ‘∃n spf pf.
-              MEM (SOME 1,spf) l0 ∧
-              MEM (SOME (INR dindex,n),pf) spf’ by
+        \\ ‘∃n spf pf none_or_1.
+              MEM (none_or_1,spf) l0 ∧
+              MEM (SOME (INR dindex,n),pf) spf ∧
+              (none_or_1 ≠ NONE ⇒ none_or_1 = SOME 1)’ by
           (gvs [find_scope_1_def,EXISTS_MEM,EXISTS_PROD]
-           \\ first_x_assum $ irule_at $ Pos hd
+           \\ first_x_assum $ irule_at $ Pos hd \\ simp []
            \\ rename [‘MEM (x,y) _’] \\ Cases_on ‘x’ \\ gvs []
            \\ rename [‘MEM (SOME x,y) _’] \\ Cases_on ‘x’ \\ gvs []
            \\ rename [‘MEM (SOME (x,_),y) _’] \\ Cases_on ‘x’ \\ gvs []
