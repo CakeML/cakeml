@@ -84,8 +84,8 @@ Theorem machine_code_sound:
           parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
           (
           out = UNSAT_string ∧ unsatisfiable (interp fml) ∨
-          out = SAT_string ∧ satisfiable (interp fml)) ∨
-          out = NO_CONCLUSION_string )
+          out = SAT_string ∧ satisfiable (interp fml) ∨
+          out = NO_CONCLUSION_string ))
       )
     )
 Proof
