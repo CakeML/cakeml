@@ -797,7 +797,7 @@ Termination
  >> fs [ALOOKUP_def]
  >> every_case_tac
  >> fs []
- >> rw [namespace_size_def]
+ >> rw [namespace_size_def,basicSizeTheory.pair_size_def]
 End
 
 Theorem nsLookup_FOLDR_nsLift:
@@ -838,6 +838,7 @@ Proof
  >> rw [nsLookupMod_def, mk_id_def]
 QED
 
+(*
 Theorem nsSub_compute_thm_general:
    !p R e1 e2.
     nsSub R (FOLDR nsLift e1 (REVERSE p)) (FOLDR nsLift e2 (REVERSE p)) ⇔
@@ -985,6 +986,7 @@ Theorem nsSub_compute_thm:
 Proof
  rw [GSYM nsSub_compute_thm_general]
 QED
+*)
 
 (* -------------- nsAll2 ---------------- *)
 

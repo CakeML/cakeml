@@ -109,7 +109,7 @@ Definition exec_def:
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) $
               λx. case x of INL (_,_,ck,cv) => (ck, ce_size cv)
-                          | INR (_,_,ck,cv,_) => (ck, ce1_size cv)’
+                          | INR (_,_,ck,cv,_) => (ck, list_size ce_size cv)’
   \\ rw [] \\ fs []
 End
 
@@ -224,4 +224,3 @@ Definition cv2term_def:
 End
 
 val _ = export_theory ();
-

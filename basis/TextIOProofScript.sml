@@ -5663,7 +5663,7 @@ Proof
         \\ `x = pp - pos` by fs[]
         \\ rw[] )
       \\ unabbrev_all_tac \\ simp[DROP_DROP]
-      \\ simp[TAKE1_DROP,CHAR_EQ_THM] \\ xsimpl )
+      \\ simp[TAKE1_DROP,CHAR_EQ_THM,EL_DROP] \\ xsimpl )
     \\ fs[forwardFD_o,STDIO_numchars]
     \\ xsimpl
     \\ conj_asm1_tac
@@ -5724,8 +5724,7 @@ Theorem inputLines_spec:
 Proof
   Induct_on`splitlines (DROP pos content)` \\ rw[]
   >- (
-    qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[DROP_NIL]
-    \\ `LENGTH content - pos = 0` by simp[]
+    `LENGTH content - pos = 0` by simp[]
     \\ pop_assum SUBST1_TAC
     \\ `DROP pos content = []` by fs[DROP_NIL]
     \\ rpt strip_tac

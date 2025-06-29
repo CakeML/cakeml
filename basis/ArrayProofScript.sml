@@ -182,7 +182,7 @@ Proof
           \\ `xv = nv` by fs [NUM_def, INT_def]
           \\ instantiate \\ fs [])
       \\ xif >- (xret \\ xsimpl \\ `LENGTH rest = 0` by decide_tac \\ fs[] )
-      \\ fs [NUM_def, INT_def] \\ rfs[])
+      \\ gvs [NUM_def, INT_def] \\ Cases_on ‘rest’ >> gvs[])
     \\ rw[] \\ first_assum match_mp_tac
     \\ xlet `POSTv bv. & BOOL (xv = nv) bv * ARRAY av (l_pre ++ rest)`
       >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def])
@@ -959,6 +959,115 @@ Proof
     \\ first_x_assum $ irule_at Any
     \\ xsimpl \\ unabbrev_all_tac \\ fs [])
   \\ xvar \\ fs [] \\ xsimpl
+QED
+
+Theorem array_exists_aux_spec:
+  ∀n nv.
+  NUM max maxv ∧
+  NUM n nv ∧
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv ∧
+  n ≤ max ∧
+  max = LENGTH ls
+  ⇒
+  app (p:'ffi ffi_proj) Array_exists_aux_v [fv; arrv; maxv; nv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EXISTS f (DROP n ls)) v)
+Proof
+  Induct_on`max - n`>>rw[]
+  \\ xcf_with_def Array_exists_aux_v_def
+  >- (
+    xlet_auto >> xsimpl>>
+    xif >> instantiate>>
+    xcon>>xsimpl>>
+    DEP_REWRITE_TAC[DROP_LENGTH_NIL_rwt]>>
+    simp[]>>EVAL_TAC)>>
+  xlet_auto >- xsimpl >>
+  xif >> instantiate >>
+  gvs[LIST_REL_EL_EQN]>>
+  xlet_auto >- xsimpl>>
+  rename1`EL n arr`>>
+  `DROP n ls = EL n ls :: DROP (n+1) ls` by
+    (irule DROP_EL_CONS>>
+    gvs[])>>
+  first_x_assum (qspec_then`n` assume_tac)>>gvs[]>>
+  xlet_auto >-xsimpl>>
+  xif>- (xcon>>xsimpl)>>
+  xlet_auto >- xsimpl>>
+  xapp>>
+  xsimpl
+QED
+
+Theorem array_exists_spec:
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv
+  ⇒
+  app (p:'ffi ffi_proj) Array_exists_v [fv; arrv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EXISTS f ls) v)
+Proof
+  rw[]>>xcf_with_def Array_exists_v_def>>
+  xlet_auto >- xsimpl>>
+  imp_res_tac LIST_REL_LENGTH>>
+  xapp>> xsimpl>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  simp[]
+QED
+
+Theorem array_all_aux_spec:
+  ∀n nv.
+  NUM max maxv ∧
+  NUM n nv ∧
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv ∧
+  n ≤ max ∧
+  max = LENGTH ls
+  ⇒
+  app (p:'ffi ffi_proj) Array_all_aux_v [fv; arrv; maxv; nv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EVERY f (DROP n ls)) v)
+Proof
+  Induct_on`max - n`>>rw[]
+  \\ xcf_with_def Array_all_aux_v_def
+  >- (
+    xlet_auto >> xsimpl>>
+    xif >> instantiate>>
+    xcon>>xsimpl>>
+    DEP_REWRITE_TAC[DROP_LENGTH_NIL_rwt]>>
+    simp[]>>EVAL_TAC)>>
+  xlet_auto >- xsimpl >>
+  xif >> instantiate >>
+  gvs[LIST_REL_EL_EQN]>>
+  xlet_auto >- xsimpl>>
+  rename1`EL n arr`>>
+  `DROP n ls = EL n ls :: DROP (n+1) ls` by
+    (irule DROP_EL_CONS>>
+    gvs[])>>
+  first_x_assum (qspec_then`n` assume_tac)>>gvs[]>>
+  xlet_auto >-xsimpl>>
+  xif>- (
+    xlet_auto >- xsimpl>>
+    xapp>>
+    xsimpl)>>
+  xcon>>xsimpl
+QED
+
+Theorem array_all_spec:
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv
+  ⇒
+  app (p:'ffi ffi_proj) Array_all_v [fv; arrv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EVERY f ls) v)
+Proof
+  rw[]>>xcf_with_def Array_all_v_def>>
+  xlet_auto >- xsimpl>>
+  imp_res_tac LIST_REL_LENGTH>>
+  xapp>> xsimpl>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  simp[]
 QED
 
 val _ = export_theory();

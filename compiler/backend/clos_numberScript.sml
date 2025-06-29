@@ -53,14 +53,13 @@ Definition renumber_code_locs_def:
      let (n,xs) = renumber_code_locs_list n xs in
        (n,Op t (IntOp Add) xs)) (* this case cannot occur *)
 Termination
-  WF_REL_TAC `inv_image $< (λx. case x of INL p => exp3_size (SND p) | INR p => exp_size (SND p))` >>
+  WF_REL_TAC `inv_image $< (λx. case x of INL p => list_size exp_size (SND p) | INR p => exp_size (SND p))` >>
  rw [] >>
  TRY decide_tac >>
  Induct_on `fns` >>
  srw_tac [ARITH_ss] [exp_size_def] >>
  Cases_on `h` >>
- rw [exp_size_def] >>
- decide_tac
+ rw [exp_size_def, basicSizeTheory.pair_size_def]
 End
 
 val renumber_code_locs_ind = theorem"renumber_code_locs_ind";

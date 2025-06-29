@@ -77,12 +77,6 @@ Definition alt_free_def:
   (alt_free [Call t ticks dest xs] =
      let (c1,l1) = alt_free xs in
        ([Call t ticks dest c1],l1))
-Termination
-  WF_REL_TAC `measure exp3_size`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[]
-  \\ rename1 `MEM ee xx`
-  \\ Induct_on `xx` \\ rpt strip_tac \\ lfs[exp_size_def] \\ res_tac
-  \\ simp[]
 End
 
 Definition alt_free_sing_def:
@@ -148,8 +142,8 @@ Definition alt_free_sing_def:
        ((n,c),Shift (n + m) l) :: alt_free_letrec m rest)
 Termination
   WF_REL_TAC `measure $ λx. case x of INL e => exp_size e
-                                    | INR (INL es) => exp3_size es
-                                    | INR (INR (_,fns)) => exp1_size fns`
+                                    | INR (INL es) => list_size exp_size es
+                                    | INR (INR (_,fns)) => list_size (pair_size (λx. x) exp_size) fns`
 End
 
 Theorem alt_free_sing_eq:
@@ -294,10 +288,6 @@ Definition shift_def:
   (shift [Call t ticks dest xs] m l i =
      let c1 = shift xs m l i in
        ([Call t ticks dest c1]))
-Termination
-  WF_REL_TAC `measure (exp3_size o FST)`
-  \\ REPEAT STRIP_TAC
-  \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC
 End
 
 Definition shift_sing_def:
@@ -362,8 +352,8 @@ Definition shift_sing_def:
        (n,c) :: shift_letrec fns_len k new_i rest)
 Termination
   WF_REL_TAC `measure $ λx. case x of INL (e,_,_,_) => exp_size e
-                                    | INR (INL (es,_,_,_)) => exp3_size es
-                                    | INR (INR (_,_,_,l)) => exp1_size l`
+                                    | INR (INL (es,_,_,_)) => list_size exp_size es
+                                    | INR (INR (_,_,_,l)) => list_size (pair_size (λx. x) exp_size) l`
 End
 
 Theorem shift_sing_eq:

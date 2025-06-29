@@ -177,8 +177,6 @@ Definition freevars_list_def:
   freevars_list [FpOptimise opt e] = freevars_list [e] /\
   freevars_list (e1::es) =
     freevars_list [e1] ++ freevars_list es
-Termination
-  wf_rel_tac `measure exp6_size`
 End
 
 Definition checkFreevars_def:
