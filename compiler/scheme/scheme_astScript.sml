@@ -97,6 +97,7 @@ Termination
   WF_REL_TAC ‘measure (λ x . case x of
     | INL(_,e) => exp_size e
     | INR(_,es) => list_size exp_size es)’
+  >> conj_tac
   >> Induct_on ‘bs’
   >> gvs[list_size_def, fetch "-" "exp_size_def"]
   >> PairCases

@@ -1002,7 +1002,7 @@ Proof
     >> irule_at (Pos hd) eval_eq_trivial
     >> simp[]
     >> rpt (pairarg_tac >> gvs[])
-    >> gvs[fresh_loc_def, store_entry_rel_cases]
+    >> gvs[fresh_loc_def, store_entry_rel_cases, SNOC_APPEND]
     >> simp[Once ml_v_vals'_cases]
     >> simp[Once e_ce_rel_cases]
     >> irule_at Any EQ_REFL
@@ -1192,7 +1192,7 @@ Proof
     >> simp[]
     >> strip_tac >- gvs[scheme_env_def]
     >> irule_at (Pos hd) EQ_REFL
-    >> gvs[env_rel_cases, fresh_loc_def, store_entry_rel_cases]
+    >> gvs[env_rel_cases, fresh_loc_def, store_entry_rel_cases,SNOC_APPEND]
     >> Cases_on ‘h ∈ FDOM env’ >- (
       simp[FEVERY_DEF]
       >> strip_tac
@@ -1544,7 +1544,7 @@ Proof
       >> simp[SimpLHS, Ntimes evaluate_def 6, do_con_check_def,
         build_conv_def, scheme_env_def, do_opapp_def,
       can_pmatch_all_def, pmatch_def, dec_clock_def]
-      >> qpat_assum ‘scheme_env env''’ $ simp o curry ((::) o swap) [
+      >> qpat_assum ‘scheme_env env''’ $ simp o curry ((op ::) o swap) [
           same_type_def, same_ctor_def, do_opapp_def,
           evaluate_match_def, pmatch_def, pat_bindings_def]
         o SRULE [scheme_env_def]
@@ -1837,7 +1837,7 @@ Proof
         >> irule preservation_of_proc
         >> simp[]
         >> qpat_assum ‘scheme_env env'³'’ $ simp
-          o curry ((::) o swap) [scheme_env_def]
+          o curry ((op ::) o swap) [scheme_env_def]
           o SRULE [scheme_env_def]
         >> first_assum $ irule_at Any o GSYM
         >> simp[vcons_list_def]
@@ -1949,7 +1949,7 @@ Proof
           >> irule preservation_of_proc
           >> simp[]
           >> qpat_assum ‘scheme_env env'³'’ $ simp
-            o curry ((::) o swap) [scheme_env_def]
+            o curry ((op ::) o swap) [scheme_env_def]
             o SRULE [scheme_env_def]
           >> first_assum $ irule_at Any o GSYM
           >> rpt $ irule_at Any EQ_REFL

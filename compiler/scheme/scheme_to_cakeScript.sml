@@ -176,7 +176,9 @@ Termination
     | INR(INL(_,_,es,_)) => (list_size exp_size es, 2n)
     | INR(INR(INL(_,bs,e,_))) => (exp1_size bs + exp_size e, 2)
     | INR(INR(INR(_,es,e))) => (list_size exp_size es + exp_size e, 2))’
-  >> rpt (strip_tac >- (Cases >> simp[]))
+  >> rpt conj_tac
+  >> simp[exp_size_def]
+  >> rpt (Cases >> simp[] >> NO_TAC)
   >> Induct
   >> simp[exp_size_def]
   >> PairCases
