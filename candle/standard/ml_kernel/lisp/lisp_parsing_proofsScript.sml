@@ -500,7 +500,7 @@ Proof
   \\ rpt strip_tac \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on ‘vs = []’ THEN1 rw []
   \\ ‘∃x l. vs = SNOC x l’ by metis_tac [SNOC_CASES]
-  \\ fs [REVERSE_APPEND]
+  \\ fs [REVERSE_APPEND,SNOC_APPEND]
   \\ Cases_on ‘l ≠ []’ THEN1
    (first_assum
        (qspecl_then [‘[x]’,‘ys’,‘xs’,‘REVERSE (FLAT (MAP v2toks l)) ⧺ ts’,‘e’] mp_tac)

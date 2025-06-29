@@ -3312,9 +3312,7 @@ Theorem TOKENS_FLAT_MAP_SNOC:
    TOKENS ((=) x) (FLAT (MAP (SNOC x) ls)) = ls
 Proof
   Induct_on`ls` \\ rw[TOKENS_NIL]
-  \\ Q.ISPEC_THEN`x`(mp_tac o GSYM) CONS_APPEND
-  \\ rewrite_tac[GSYM APPEND_ASSOC]
-  \\ disch_then(rewrite_tac o mlibUseful.sing)
+  \\ rewrite_tac[GSYM APPEND_ASSOC,SNOC_APPEND,APPEND]
   \\ DEP_REWRITE_TAC[TOKENS_APPEND] \\ rw[]
   \\ DEP_REWRITE_TAC[TOKENS_unchanged]
   \\ fs[EVERY_MEM]
