@@ -2507,6 +2507,7 @@ val res = translate npbc_checkTheory.extract_pids_def;
 val res = translate npbc_checkTheory.list_list_insert_def;
 val res = translate npbcTheory.mk_lit_def;
 val res = translate npbcTheory.mk_bit_lit_def;
+val res = translate spt_to_vecTheory.vec_lookup_def;
 val res = translate npbc_checkTheory.dom_subst_def;
 
 val res = translate obj_single_aux_def;
@@ -3232,9 +3233,9 @@ Proof
 QED
 
 Definition mk_get_ord_def:
-  mk_get_ord (c:npbc) (s:subst_raw) (ord:aspo option) vomap =
+  mk_get_ord (c:npbc) (s:subst_raw) (ord:ord_s option) vomap =
   case ord of NONE => SOME (INL ())
-  | SOME ((f,(g,(us,(vs,as)))),xs) =>
+  | SOME (((f,g,us,vs,as),xs),us_xs,vs_xs) =>
     if
       check_fresh_aux_obj_vomap as vomap ∧
       check_fresh_aux_constr as c ∧
@@ -3270,6 +3271,12 @@ Overload "aspo_TYPE" = ``
       (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)))))
     (LIST_TYPE (PAIR_TYPE BOOL NUM))``
 
+Overload "ords_TYPE" = ``
+  PAIR_TYPE aspo_TYPE
+  (PAIR_TYPE
+     (VECTOR_TYPE (OPTION_TYPE (PAIR_TYPE BOOL NUM)))
+      (VECTOR_TYPE (OPTION_TYPE (PAIR_TYPE BOOL NUM))))``
+
 Overload "obj_TYPE" = ``
   OPTION_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT)``
 
@@ -3295,7 +3302,7 @@ QED
 Theorem check_fresh_aspo_arr_spec:
   constraint_TYPE c cv ∧
   subst_raw_TYPE s sv ∧
-  OPTION_TYPE aspo_TYPE ord ordv ∧
+  OPTION_TYPE ords_TYPE ord ordv ∧
   LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
   vomap_TYPE vomap vomapv
   ⇒
@@ -3328,7 +3335,7 @@ Theorem cond_check_fresh_aspo_arr_spec:
   BOOL untouched untouchedv ∧
   constraint_TYPE c cv ∧
   subst_raw_TYPE s sv ∧
-  OPTION_TYPE aspo_TYPE ord ordv ∧
+  OPTION_TYPE ords_TYPE ord ordv ∧
   LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
   vomap_TYPE vomap vomapv
   ⇒
@@ -3408,7 +3415,7 @@ val check_red_arr = process_topdecs`
 Theorem check_red_arr_spec:
   NUM lno lnov ∧
   pres_TYPE pres presv ∧
-  OPTION_TYPE aspo_TYPE ord ordv ∧
+  OPTION_TYPE ords_TYPE ord ordv ∧
   obj_TYPE obj objv ∧
   BOOL b bv ∧
   BOOL tcb tcbv ∧
@@ -3671,7 +3678,7 @@ Theorem check_sstep_arr_spec:
   NUM lno lnov ∧
   NPBC_CHECK_SSTEP_TYPE step stepv ∧
   pres_TYPE pres presv ∧
-  OPTION_TYPE aspo_TYPE ord ordv ∧
+  OPTION_TYPE ords_TYPE ord ordv ∧
   obj_TYPE obj objv ∧
   BOOL tcb tcbv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
@@ -4219,7 +4226,7 @@ val check_dom_arr = process_topdecs`
 
 Theorem check_dom_arr_spec:
   NUM lno lnov ∧
-  aspo_TYPE spo spov ∧
+  ords_TYPE spo spov ∧
   obj_TYPE obj objv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
@@ -4904,7 +4911,9 @@ val res = translate npbc_checkTheory.check_tcb_idopt_def;
 val res = translate check_tcb_idopt_pc_def;
 
 Definition check_tcb_ord_def:
-  check_tcb_ord pc ⇔ ¬pc.tcb ∧ pc.ord = NONE
+  check_tcb_ord pc ⇔
+    ¬pc.tcb ∧
+    case pc.ord of NONE => T | SOME _ => F
 End
 
 val res = translate check_tcb_ord_def;
@@ -5079,6 +5088,8 @@ QED
 
 val res = translate (npbc_checkTheory.guard_ord_t_def |> SIMP_RULE std_ss[MEMBER_INTRO]);
 
+val res = translate (npbc_checkTheory.mk_ordsub_def);
+
 val check_cstep_arr = process_topdecs`
   fun check_cstep_arr lno cstep fml zeros inds vimap vomap pc =
   case cstep of
@@ -5152,7 +5163,7 @@ val check_cstep_arr = process_topdecs`
     | Some ord' =>
       if guard_ord_t ord' xs then
         let val fml' = core_from_inds_arr lno fml inds' in
-        (fml', (zeros, (inds', (vimap, (vomap, set_ord pc (Some (ord',xs)))))))
+        (fml', (zeros, (inds', (vimap, (vomap, set_ord pc (mk_ordsub ord' xs))))))
         end
       else
         raise Fail
@@ -5448,7 +5459,7 @@ Proof
         EVAL_TAC)>>
       rpt xlet_autop>>
       xcon>>xsimpl>>
-      fs[PAIR_TYPE_def,set_chk_def,AllCaseEqs(),check_tcb_ord_def]>>
+      fs[PAIR_TYPE_def,set_chk_def,AllCaseEqs(),check_tcb_ord_def,AllCasePreds()]>>
       metis_tac[ARRAY_W8ARRAY_refl])>>
     xlet`POSTv v. ARRAY fmlv fmllsv *
       W8ARRAY zerosv zeros *
@@ -5463,7 +5474,7 @@ Proof
     >- (
       rpt xlet_autop>>
       xraise>>xsimpl>>
-      fs[check_tcb_ord_def]>>
+      fs[check_tcb_ord_def,AllCasePreds()]>>
       metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
     rpt xlet_autop>>
     xlet`POSTv v.
@@ -5479,7 +5490,8 @@ Proof
       EVAL_TAC)>>
     rpt xlet_autop>>
     xcon>>xsimpl >>
-    fs[PAIR_TYPE_def]>>
+    IF_CASES_TAC>>gvs[]>>
+    fs[PAIR_TYPE_def,check_tcb_ord_def,AllCasePreds()]>>
     asm_exists_tac>>simp[]>>
     fs[set_chk_def]>>
     xsimpl)
@@ -5541,14 +5553,10 @@ Proof
       xsimpl>>
       metis_tac[ARRAY_W8ARRAY_refl])>>
     rpt xlet_autop>>
-    xlet`POSTv v. ARRAY fmlv' fmllsv' * W8ARRAY zerosv zeros *
-      ARRAY vimapv vimaplsv *
-      &NPBC_CHECK_PROOF_CONF_TYPE (set_ord pc (SOME (x,l))) v`
+    xlet_auto
     >- (
-      xapp>>xsimpl>>
-      asm_exists_tac>>simp[]>>
-      qexists_tac`SOME (x,l)`>>
-      simp[OPTION_TYPE_def,PAIR_TYPE_def])>>
+      xsimpl>>
+      simp(eq_lemmas()))>>
     rpt xlet_autop>>
     xcon>>xsimpl>>
     every_case_tac>>

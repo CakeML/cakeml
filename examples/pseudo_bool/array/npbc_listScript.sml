@@ -1629,7 +1629,7 @@ End
 Definition check_fresh_aspo_list_def:
   check_fresh_aspo_list c s ord vimap vomap ⇔
   case ord of NONE => T
-  | SOME ((f,g,us,vs,as),xs) =>
+  | SOME (((f,g,us,vs,as),xs),us_xs,vs_xs) =>
     check_fresh_aux_fml_vimap as vimap ∧
     check_fresh_aux_obj_vomap as vomap ∧
     check_fresh_aux_constr as c ∧
@@ -3530,7 +3530,7 @@ Definition check_cstep_list_def:
           case core_from_inds fml inds' of NONE => NONE
           | SOME fml' =>
           SOME (fml',zeros, inds',
-            vimap,vomap,pc with ord := SOME (ord',xs))
+            vimap,vomap,pc with ord := mk_ordsub ord' xs)
         else NONE)
   | UnloadOrder =>
     (case pc.ord of NONE => NONE
