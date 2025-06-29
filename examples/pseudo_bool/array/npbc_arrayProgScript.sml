@@ -3867,148 +3867,253 @@ val res = translate
 val res = translate npbc_checkTheory.refl_subst_def;
 val res = translate npbc_checkTheory.check_reflexivity_def;
 
-val res = translate npbc_checkTheory.red_subgoals_def;
-val res = translate npbc_checkTheory.extract_scopes_def;
-val res = translate npbc_checkTheory.check_scopes_def;
+val res = translate check_support_spt_def;
 
-Theorem check_red_simp_eq:
-  check_red NONE NONE NONE F F fml id c s pfs idopt =
-    ( let nc = not c in
-      let (fml_not_c,id1) = insert_fml F fml id (not c) in
-      let s = mk_subst s in
-      let w = subst_fun s in
-      let (rsubs,rscopes) = red_subgoals NONE w c NONE F in
-      case extract_scopes rscopes pfs w F fml rsubs of
-        NONE => NONE
-      | SOME cpfs =>
-      (case check_scopes cpfs F fml_not_c id1 of
-        NONE => NONE
-      | SOME (fml',id') =>
-        let chk =
-          (case idopt of
-            NONE =>
-              let gfml = mk_core_fml F fml in
-              let goals = toAList (map_opt (subst_opt w) gfml) in
-              let (l,r) = extract_scoped_pids pfs LN LN in
-                (* Every goal from the formula is checked *)
-                split_goals gfml nc l goals  ∧
-                (* Every # goal is checked *)
-                EVERY (λ(id,cs).
-                  lookup id r ≠ NONE ∨
-                  check_hash_triv nc cs
-                  )
-                  (enumerate 0 rsubs)
-            | SOME cid =>
-              check_contradiction_fml F fml' cid) in
-        if chk then
-          SOME id'
-        else NONE) )
+val check_spec_aux_arr = process_topdecs`
+  fun check_spec_aux_arr lno aa fml inds id gs vimap zeros =
+    case gs of [] => True
+  | (c,(s,(pfs,idopt)))::gs =>
+    if check_support_spt aa s then
+    case
+      check_red_arr lno None None None False False
+        fml inds id c s pfs idopt vimap "" zeros of
+        (fml',(inds',(vimap',(id',zeros')))) =>
+      check_spec_aux_arr lno aa
+        (Array.updateResize fml' None id' (Some (c,False)))
+        (sorted_insert id' inds')
+        (id' + 1)
+        gs
+        (update_vimap_arr vimap' id' (fst c))
+        zeros'
+    else
+      raise Fail (format_failure lno ("specification proof in order definition failed."))` |> append_prog;
+
+Theorem check_spec_aux_arr_spec:
+  ∀gs gsv fmlls fmllsv id idv vimap vimaplsv zeros fmlv indsv vimapv zerosv inds.
+  NUM lno lnov ∧
+  SPTREE_SPT_TYPE (UNIT_TYPE) aa aav ∧
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  (LIST_TYPE NUM) inds indsv ∧
+  NUM id idv ∧
+  LIST_TYPE
+    (PAIR_TYPE constraint_TYPE
+    (PAIR_TYPE subst_raw_TYPE
+    (PAIR_TYPE scpfs_TYPE (OPTION_TYPE NUM)))) gs gsv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
+  EVERY (λw. w = 0w) zeros
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_spec_aux_arr" (get_ml_prog_state()))
+    [lnov; aav; fmlv; indsv; idv;
+      gsv; vimapv; zerosv]
+    (ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv)
+    (POSTve
+      (λv.
+        &(check_spec_aux_list aa fmlls inds id gs vimap zeros))
+      (λe.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
+        ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
+        & (Fail_exn e ∧ ¬check_spec_aux_list aa fmlls inds id gs vimap zeros)))
 Proof
-  simp[npbc_checkTheory.check_red_def,npbc_checkTheory.check_pres_def,npbc_checkTheory.check_fresh_aspo_def]>>
-  gvs[npbc_checkTheory.red_subgoals_def,npbc_checkTheory.dom_subst_def,npbc_checkTheory.skip_ord_subgoal_def]>>
-  rpt (pairarg_tac>>fs[])
+  Induct>>rw[]>>
+  xcf "check_spec_aux_arr" (get_ml_prog_state ())
+  >- (
+    gvs[LIST_TYPE_def]>>
+    xmatch>>
+    xcon>>xsimpl>>
+    simp[check_spec_aux_list_def])>>
+  `∃c s pfs idopt. h = (c,s,pfs,idopt)` by metis_tac[PAIR]>>
+  gvs[PAIR_TYPE_def,LIST_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  simp[check_spec_aux_list_def]>>
+  reverse xif>>simp[]
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    simp[Fail_exn_def]>>
+    metis_tac[ARRAY_W8ARRAY_refl])>>
+  rpt xlet_autop>>
+  qmatch_goalsub_abbrev_tac`check_red_list A B C F F`>>
+  xlet`(POSTve
+      (λv.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros' vimapv' vimaplsv'.
+        ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
+        &(
+          case check_red_list A B C F F fmlls inds id
+              c s pfs idopt vimap (strlit "") zeros of
+            NONE => F
+          | SOME res =>
+            PAIR_TYPE (λl v.
+              LIST_REL (OPTION_TYPE bconstraint_TYPE) l fmllsv' ∧
+              v = fmlv')
+              (PAIR_TYPE (LIST_TYPE NUM)
+                (PAIR_TYPE
+                  (λl v.
+                    LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+                    v = vimapv')
+                (PAIR_TYPE NUM (λl v. l = zeros' ∧ v = zerosv'  ∧ EVERY (λw. w = 0w) zeros') ))) res v
+          ))
+      (λe.
+        SEP_EXISTS fmlv' fmllsv' zerosv' zeros'
+          vimapv' vimaplsv'.
+        ARRAY fmlv' fmllsv' * W8ARRAY zerosv' zeros' *
+        ARRAY vimapv' vimaplsv' *
+        & (Fail_exn e ∧
+          check_red_list A B C F F fmlls inds id
+              c s pfs idopt vimap (strlit "") zeros = NONE)))`
+  >- (
+    xapp>>xsimpl>>
+    first_x_assum (irule_at Any)>>
+    unabbrev_all_tac>>simp[PAIR_TYPE_def]>>
+    EVAL_TAC)
+  >- (
+    xsimpl>>
+    metis_tac[ARRAY_W8ARRAY_refl])>>
+  gvs[AllCasePreds()]>>
+  PairCases_on`res`>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xapp>>xsimpl>>
+  rpt (first_x_assum (irule_at Any))>>
+  qmatch_goalsub_abbrev_tac`check_spec_aux_list aa lss`>>
+  qexists_tac`lss`>>
+  rw[Abbr`lss`]
+  >- (
+    match_mp_tac LIST_REL_update_resize>>
+    fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
+    EVAL_TAC)>>
+  metis_tac[ARRAY_W8ARRAY_refl]
 QED
 
-Definition check_spec_aux'_def:
-  (check_spec_aux' (as:num list) fmlid (ls:specproof) =
-    case ls of [] => T
-  | (c,s,pfs,idopt)::gs =>
-    if check_support as s then
-      let (fml,id) = fmlid in
-      let nc = not c in
-      let (fml_not_c,id1) = insert_fml F fml id (not c) in
-      let s = mk_subst s in
-      let w = subst_fun s in
-      let rsubs = [[not (subst w c)]] in
-      case extract_scopes ([[]]:((int # num) list # num) list list) pfs w F fml rsubs of
-        NONE => F
-      | SOME cpfs =>
-      (case check_scopes cpfs F fml_not_c id1 of
-        NONE => F
-      | SOME (fml',id') =>
-        let chk =
-          (case idopt of
-            NONE =>
-              let gfml = mk_core_fml F fml in
-              let goals = toAList (map_opt (subst_opt w) gfml) in
-              let (l,r) = extract_scoped_pids pfs LN LN in
-                (* Every goal from the formula is checked *)
-                split_goals gfml nc l goals  ∧
-                (* Every # goal is checked *)
-                EVERY (λ(id,cs).
-                  lookup id r ≠ NONE ∨
-                  check_hash_triv nc cs
-                  )
-                  (enumerate 0 rsubs)
-            | SOME cid =>
-              check_contradiction_fml F fml' cid) in
-        if chk then
-          check_spec_aux' as (insert_fml F fml id' c) gs
-        else F)
-    else F
-  )
+Definition mk_as_spt_def:
+  mk_as_spt as = fromAList (MAP (λx. (x,())) as)
 End
 
-Theorem split_goals_alt:
-  split_goals (fml:npbc num_map)
-    (extra:npbc) (proved:num_set)
-    (goals:(num # (int # num) list # num) list) =
-  let (lp,lf) =
-    PARTITION (λ(i,c). sptree$lookup i proved ≠ NONE) goals in
-  let proved = MAP SND lp in
-  let f = MAP SND (toAList fml) in
-  EVERY (λ(i,c). check_triv extra (not c) ∨ mem_constraint c proved ∨ MEMBER c f) lf
+val res = translate mk_as_spt_def;
+
+val check_spec_arr = process_topdecs`
+  fun check_spec_arr lno vvs gs =
+  (case vvs of (us,(vs,aa)) =>
+  let
+    val aa = mk_as_spt aa
+    val fml = Array.array 0 None
+    val vimap = Array.array 0 None
+    val zeros = Word8Array.array 0 w8z
+  in
+    check_spec_aux_arr lno aa fml [] 1 gs vimap zeros
+  end)` |> append_prog;
+
+Theorem check_spec_arr_spec:
+  NUM lno lnov ∧
+  PAIR_TYPE (LIST_TYPE NUM)
+    (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)) vvs vvsv ∧
+  LIST_TYPE
+    (PAIR_TYPE constraint_TYPE
+    (PAIR_TYPE subst_raw_TYPE
+    (PAIR_TYPE scpfs_TYPE (OPTION_TYPE NUM)))) gs gsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_spec_arr" (get_ml_prog_state()))
+    [lnov; vvsv; gsv]
+    (emp)
+    (POSTve
+      (λv.
+        &(check_spec_list vvs gs))
+      (λe.
+        & (Fail_exn e ∧ ¬check_spec_list vvs gs)))
 Proof
-  rw[npbc_checkTheory.split_goals_def]>>
-  pairarg_tac>>rw[EVERY_MEM]>>
-  simp[GSYM MEMBER_INTRO,MEM_MAP,range_def,MEM_toAList,EXISTS_PROD,PULL_EXISTS]>>
-  eq_tac>>rw[]>>first_x_assum drule>>
-  pairarg_tac>>rw[]>>
-  metis_tac[PAIR]
+  rw[]>>
+  xcf "check_spec_arr" (get_ml_prog_state ())>>
+  PairCases_on`vvs`>>gvs[PAIR_TYPE_def,check_spec_list_def]>>
+  xmatch>>
+  assume_tac w8z_v_thm>>
+  rpt xlet_autop>>
+  xapp>>xsimpl>>
+  rpt (first_x_assum (irule_at Any))>>
+  qexists_tac`[]`>> simp[mk_as_spt_def,LIST_TYPE_def]
 QED
-
-val res = translate npbc_checkTheory.map_opt_def;
-val res = translate npbc_checkTheory.mk_core_fml_def;
-val res = translate split_goals_alt;
-val res = translate (npbc_checkTheory.check_support_def |> REWRITE_RULE [MEMBER_INTRO]);
-val res = translate check_spec_aux'_def;
-
-Theorem check_spec_aux_eq:
-  ∀ls fmlid.
-  check_spec_aux as fmlid ls =
-  check_spec_aux' as fmlid ls
-Proof
-  Induct>>rw[Once check_spec_aux'_def]>>
-  Cases_on`fmlid`>>
-  simp[npbc_checkTheory.check_spec_aux_def]>>
-  PairCases_on`h`>>simp[npbc_checkTheory.check_spec_aux_def]>>
-  simp[npbc_checkTheory.check_red_def,npbc_checkTheory.check_pres_def,npbc_checkTheory.check_fresh_aspo_def]>>
-  gvs[npbc_checkTheory.red_subgoals_def,npbc_checkTheory.dom_subst_def,npbc_checkTheory.skip_ord_subgoal_def]>>
-  rpt (pairarg_tac>>fs[])>>
-  eq_tac>>rw[]>>gvs[AllCasePreds(),AllCaseEqs()]
-QED
-
-val res = translate (npbc_checkTheory.check_spec_def |> REWRITE_RULE[check_spec_aux_eq]);
-
-Definition check_storeorder_def:
-  check_storeorder vars gspec f pfst pfsr =
-  if check_spec vars gspec
-  then
-    let aord = mk_aord vars f gspec in
-    if check_good_aord aord
-    then
-      case check_transitivity aord pfst of
-        NONE => NONE
-      | SOME id =>
-        if check_reflexivity aord pfsr id then SOME aord
-        else NONE
-    else NONE
-  else NONE
-End
 
 val res = translate npbc_checkTheory.mk_aord_def;
-val res = translate (npbc_checkTheory.check_good_aord_def |> REWRITE_RULE [MEMBER_INTRO]);
-val res = translate check_storeorder_def;
+val res = translate insert_distinct_def;
+val res = translate check_good_aord_fast_def;
+
+val check_storeorder_arr = process_topdecs`
+  fun check_storeorder_arr lno vvs gs f pfst pfsr =
+  let
+    val u = check_spec_arr lno vvs gs
+    val aord = mk_aord vvs f gs in
+    if check_good_aord_fast aord
+    then
+      case check_transitivity aord pfst of
+        None =>
+          raise Fail (format_failure lno ("transitivity proof in order definition failed."))
+      | Some id =>
+        if check_reflexivity aord pfsr id then aord
+        else raise Fail (format_failure lno ("reflexivity proof in order definition failed."))
+    else
+      raise Fail (format_failure lno ("illegal variable usage in order definition."))
+  end` |> append_prog;
+
+Theorem check_storeorder_arr_spec:
+  NUM lno lnov ∧
+  PAIR_TYPE (LIST_TYPE NUM)
+    (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)) vvs vvsv ∧
+  LIST_TYPE
+    (PAIR_TYPE constraint_TYPE
+    (PAIR_TYPE subst_raw_TYPE
+    (PAIR_TYPE scpfs_TYPE (OPTION_TYPE NUM)))) gs gsv ∧
+  LIST_TYPE constraint_TYPE f fv ∧
+  PAIR_TYPE (LIST_TYPE NUM)
+      (PAIR_TYPE (LIST_TYPE NUM) (PAIR_TYPE (LIST_TYPE NUM) pfs_TYPE)) pfst pfstv ∧
+  pfs_TYPE pfsr pfsrv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_storeorder_arr" (get_ml_prog_state()))
+    [lnov; vvsv; gsv; fv; pfstv; pfsrv]
+    (emp)
+    (POSTve
+      (λv.
+        &(∃aord.
+        check_storeorder vvs gs f pfst pfsr = SOME aord ∧
+        (PAIR_TYPE (LIST_TYPE constraint_TYPE)
+           (PAIR_TYPE (LIST_TYPE constraint_TYPE)
+              (PAIR_TYPE (LIST_TYPE NUM)
+                 (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)))) aord v)
+        ))
+      (λe.
+        & (Fail_exn e ∧ check_storeorder vvs gs f pfst pfsr = NONE)))
+Proof
+  rw[]>>
+  xcf "check_storeorder_arr" (get_ml_prog_state ())>>
+  xlet_autop
+  >-
+    (xsimpl>>simp[check_storeorder_def])>>
+  rpt xlet_autop>>
+  simp[check_storeorder_def]>>
+  reverse xif
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    metis_tac[Fail_exn_def])>>
+  xlet_autop>>
+  TOP_CASE_TAC>>gvs[OPTION_TYPE_def]>>xmatch
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    metis_tac[Fail_exn_def])>>
+  xlet_autop>>
+  reverse xif
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    metis_tac[Fail_exn_def])>>
+  xvar>>xsimpl
+QED
 
 val res = translate npbcTheory.b2n_def;
 val res = translate npbcTheory.eval_lit_def;
@@ -5175,10 +5280,9 @@ val check_cstep_arr = process_topdecs`
     | Some spo =>
       (fml,(zeros,(inds,(vimap,(vomap,set_ord pc None))))))
   | Storeorder name vars gspec f pfsr pfst =>
-    (case check_storeorder vars gspec f pfst pfsr of
-      Some aord =>
+    let val aord = check_storeorder_arr lno vars gspec f pfst pfsr in
        (fml, (zeros, (inds, (vimap, (vomap, set_orders pc ((name,aord)::get_orders pc))))))
-    | _ => raise Fail (format_failure lno ("invalid order definition")))
+    end
   | Obj w mi bopt => (
     let val obj = get_obj pc in
       case check_obj obj w
@@ -5585,24 +5689,17 @@ Proof
     metis_tac[ARRAY_W8ARRAY_refl])
   >- ( (* StoreOrder *)
     xmatch>>
-    xlet_autop>>
-    rename1`check_storeorder a b c d e`>>
-    Cases_on`check_storeorder a b c d e`>>
-    gvs[OPTION_TYPE_def]>>xmatch
+    rpt xlet_autop
     >- (
-      rpt xlet_autop>>
-      xraise>>xsimpl>>
-      gvs[check_storeorder_def,Fail_exn_def,AllCaseEqs()]>>
+      xsimpl>>
       metis_tac[ARRAY_W8ARRAY_refl])>>
-    gvs[check_storeorder_def,AllCaseEqs()]>>
-    rpt xlet_autop>>
     xlet`POSTv v. ARRAY fmlv fmllsv * W8ARRAY zerosv zeros *
       ARRAY vimapv vimaplsv *
-      &NPBC_CHECK_PROOF_CONF_TYPE (set_orders pc ((m,mk_aord a c b)::pc.orders)) v`
+      &NPBC_CHECK_PROOF_CONF_TYPE (set_orders pc ((m,aord)::pc.orders)) v`
     >- (
       xapp>>xsimpl>>simp[set_orders_def]>>
       asm_exists_tac>>
-      qexists_tac`(m,mk_aord a c b)::pc.orders`>>xsimpl>>
+      qexists_tac`(m,aord)::pc.orders`>>xsimpl>>
       fs[LIST_TYPE_def,PAIR_TYPE_def,get_orders_def])>>
     rpt xlet_autop>>
     xcon>>xsimpl>>

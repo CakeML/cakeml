@@ -3443,6 +3443,170 @@ Definition check_change_pres_list_def:
     else NONE
 End
 
+Definition check_support_spt_def:
+  check_support_spt as s =
+  EVERY (λx. case sptree$lookup (FST x) as of NONE => F | _ => T) s
+End
+
+Definition check_spec_aux_list_def:
+  (check_spec_aux_list as fml inds id [] vimap zeros = T) ∧
+  (check_spec_aux_list as fml inds id (((c,s,pfs,idopt)::gs):specproof) vimap zeros =
+  if check_support_spt as s then
+    case check_red_list (NONE:num_set option) (NONE:ord_s option) NONE F F
+      fml inds id c s pfs idopt vimap (strlit "") zeros of
+        NONE => F
+      | SOME (fml',inds',vimap',id',zeros') =>
+        let fml'' = update_resize fml' NONE (SOME (c,F)) id' in
+        let inds'' = sorted_insert id' inds' in
+        let vimap'' = update_vimap vimap' id' (FST c) in
+        let id'' = id' + 1 in
+        check_spec_aux_list as fml'' inds'' id'' gs vimap'' zeros'
+  else F)
+End
+
+Theorem check_support_spt_check_support:
+  check_support_spt (fromAList (MAP (λx. (x,())) as)) s ⇔
+  check_support as s
+Proof
+  rw[check_support_spt_def,check_support_def]>>
+  irule EVERY_CONG >>
+  simp[FORALL_PROD,lookup_fromAList]>>rw[]>>
+  eq_tac>>rw[]>>gvs[AllCasePreds()]
+  >-
+    (drule ALOOKUP_MEM>>simp[MEM_MAP])>>
+  DEP_REWRITE_TAC[ALOOKUP_TABULATE]>>
+  simp[]
+QED
+
+Theorem fml_rel_check_spec_aux_list:
+  ∀gs fml fmlls inds vimap id zeros.
+  fml_rel fml fmlls ∧
+  ind_rel fmlls inds ∧
+  vimap_rel fmlls vimap ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls NONE = NONE) ∧
+  EVERY (λw. w = 0w) zeros ∧
+  check_spec_aux_list (fromAList (MAP (λx. (x,())) as)) fmlls inds id gs vimap zeros ⇒
+  check_spec_aux as (fml,id) gs
+Proof
+  Induct>>rw[check_spec_aux_def,check_spec_aux_list_def]>>
+  `?c s pfs idopt. h = (c,s,pfs,idopt)` by metis_tac[PAIR]>>
+  gvs[check_spec_aux_def,check_spec_aux_list_def,AllCasePreds(),check_support_spt_check_support]>>
+  drule_at (Pos last) fml_rel_check_red_list>>
+  simp[vomap_rel_def]>>
+  disch_then drule>>
+  strip_tac>>
+  simp[insert_fml_def]>>
+  first_x_assum irule>>
+  first_x_assum (irule_at (Pos last))>>
+  simp[fml_rel_update_resize,any_el_update_resize]>>
+  rw[]
+  >- (
+    match_mp_tac ind_rel_update_resize_sorted_insert>>
+    gvs[])>>
+  match_mp_tac vimap_rel_update_resize_update_vimap>>
+  gvs[]
+QED
+
+Definition check_spec_list_def:
+  check_spec_list (us,vs,as) gs =
+    let as = (fromAList (MAP (λx. (x,())) as)) in
+    check_spec_aux_list as [] [] 1 gs [] []
+End
+
+Theorem fml_rel_check_spec_list:
+  check_spec_list vars gs ⇒
+  check_spec vars gs
+Proof
+  PairCases_on`vars`>>rw[check_spec_list_def,check_spec_def]>>
+  drule_at (Pos last) fml_rel_check_spec_aux_list>>
+  disch_then irule>>
+  EVAL_TAC>>simp[]
+QED
+
+Definition insert_distinct_def:
+  (insert_distinct t [] = SOME t) ∧
+  (insert_distinct t (x::xs) =
+    case sptree$lookup x t of
+      NONE => insert_distinct (insert x () t) xs
+    | SOME () => NONE
+  )
+End
+
+Theorem insert_distinct_NONE:
+  ∀ls t.
+  insert_distinct t ls = NONE ⇔
+  (¬ALL_DISTINCT ls ∨ set ls ∩ domain t ≠ {})
+Proof
+  Induct>>rw[insert_distinct_def]>>
+  TOP_CASE_TAC>>rw[]>>
+  gvs[EXTENSION,INTER_DEF,domain_lookup]
+  >- (
+    eq_tac>>rw[]>>
+    metis_tac[option_CLAUSES])>>
+  metis_tac[]
+QED
+
+Theorem insert_distinct_SOME:
+  ∀ls t.
+  insert_distinct t ls = SOME t' ⇒
+  domain t' = domain t ∪ set ls ∧
+  ALL_DISTINCT ls ∧
+  set ls ∩ domain t = {}
+Proof
+  Induct>>rw[insert_distinct_def]>>gvs[AllCaseEqs()]>>
+  first_x_assum drule>>
+  rw[EXTENSION]>>
+  gvs[domain_lookup]>>
+  metis_tac[option_CLAUSES]
+QED
+
+Definition check_good_aord_fast_def:
+  check_good_aord_fast ((f,g,us,vs,as):aord) ⇔
+  LENGTH us = LENGTH vs ∧
+  case insert_distinct LN us of NONE => F
+  | SOME t =>
+  case insert_distinct t vs of NONE => F
+  | SOME t =>
+  case insert_distinct t as of NONE => F
+  | SOME t =>
+  EVERY (λls. EVERY (λx. case lookup x t of NONE => F | _ => T) ls) (MAP (MAP SND o FST) f) ∧
+  EVERY (λls. EVERY (λx. case lookup x t of NONE => F | _ => T) ls) (MAP (MAP SND o FST) g)
+End
+
+Theorem check_good_aord_fast_correct:
+  check_good_aord_fast aord ⇒
+  check_good_aord aord
+Proof
+  PairCases_on`aord`>>
+  rw[check_good_aord_fast_def,npbc_checkTheory.check_good_aord_def]>>
+  gvs[AllCasePreds()]>>
+  imp_res_tac insert_distinct_SOME>>gvs[ALL_DISTINCT_APPEND,EXTENSION]>>
+  simp[EVERY_FLAT]
+  >- metis_tac[]>>
+  irule EVERY_MONOTONIC>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  irule EVERY_MONOTONIC>>
+  first_x_assum (irule_at Any)>>
+  gvs[domain_lookup]
+QED
+
+Definition check_storeorder_def:
+  check_storeorder vars gspec f pfst pfsr =
+  if check_spec_list vars gspec
+  then
+    let aord = mk_aord vars f gspec in
+    if check_good_aord_fast aord
+    then
+      case check_transitivity aord pfst of
+        NONE => NONE
+      | SOME id =>
+        if check_reflexivity aord pfsr id then SOME aord
+        else NONE
+    else NONE
+  else NONE
+End
+
 Definition check_cstep_list_def:
   check_cstep_list cstep fml zeros inds vimap vomap pc =
   case cstep of
@@ -3538,22 +3702,11 @@ Definition check_cstep_list_def:
         SOME (fml, zeros, inds,
           vimap, vomap, pc with ord := NONE))
   | StoreOrder nn vars gspec f pfsr pfst =>
-    if check_spec vars gspec
-    then
-      let aord = mk_aord vars f gspec in
-      if check_good_aord aord
-      then
-        case check_transitivity aord pfst of
-          NONE => NONE
-        | SOME id =>
-          if check_reflexivity aord pfsr id then
-            SOME (fml, zeros, inds,
-              vimap, vomap,
-              pc with orders := (nn ,aord)::pc.orders)
-          else NONE
-      else
-        NONE
-    else NONE
+    (case check_storeorder vars gspec f pfst pfsr of NONE => NONE
+    | SOME aord =>
+      SOME (fml, zeros, inds,
+        vimap, vomap,
+        pc with orders := (nn ,aord)::pc.orders))
   | Obj w mi bopt => (
     let corels = core_fmlls fml inds in
     case check_obj pc.obj w (MAP SND corels) bopt of
@@ -3937,7 +4090,8 @@ Proof
   >~ [‘UnloadOrder’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
   >~ [‘StoreOrder’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def,check_storeorder_def]>>
+    metis_tac[fml_rel_check_spec_list,check_good_aord_fast_correct])
   >~ [‘Obj’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     rw[PULL_EXISTS]>>
