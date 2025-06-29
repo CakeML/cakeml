@@ -5809,7 +5809,6 @@ Proof
   \\ Cases_on `env_to_list (SND y) t.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ Cases_on `t.handler = LENGTH t.stack` \\ full_simp_tac(srw_ss())[LASTN_ADD1]
   \\ Cases_on `~(t.handler < LENGTH t.stack)` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  THEN1 (`F` by DECIDE_TAC)
   \\ fs [CaseEq"list",CaseEq"stack_frame",CaseEq"option",pair_case_eq]
   \\ `LASTN (t.handler + 1) (StackFrame t.locals_size (toAList (FST y)) q NONE::t.stack) =
       LASTN (t.handler + 1) t.stack` by
