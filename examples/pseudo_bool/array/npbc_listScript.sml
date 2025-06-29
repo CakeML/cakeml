@@ -3776,22 +3776,23 @@ Theorem fml_rel_check_cstep_list:
     EVERY (λw. w = 0w) zeros' ∧
     pc.id ≤ pc'.id
 Proof
-
   Cases_on`cstep`>>rw[]
-  >~ [‘Dom’] >- cheat (* (
+  >~ [‘Dom’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     rpt(pairarg_tac>>gvs[])>>
     gvs[AllCaseEqs()]>>
-    DEP_REWRITE_TAC[fml_rel_extract_clauses_list]>>
+    drule_all vimap_rel_vomap_rel_check_fresh_aspo_list >>
+    disch_then $ irule_at Any >>
+    DEP_REWRITE_TAC[fml_rel_extract_scopes_list]>>
     simp[PULL_EXISTS]>>
-    (drule_at Any) fml_rel_check_subproofs_list>>
+    drule_at (Pos last) fml_rel_check_scopes_list >>
     disch_then(qspec_then`insert pc.id (not p,F) fml` mp_tac)>>
     impl_tac >- (
       simp[fml_rel_update_resize,any_el_update_resize])>>
-    rw[]>>simp[]>>
-    drule check_subproofs_list_id>>
-    drule check_subproofs_list_id_upper>>
-    drule check_subproofs_list_mindel>>
+    strip_tac>>simp[]>>
+    drule check_scopes_list_id>>
+    drule check_scopes_list_id_upper>>
+    drule check_scopes_list_mindel>>
     simp[any_el_update_resize]>>
     ntac 3 strip_tac>>
     gvs[insert_fml_def]>>
@@ -3823,8 +3824,7 @@ Proof
       match_mp_tac fml_rel_fml_rel_vimap_rel>>fs[]>>
       match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
     CONJ_TAC >- simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
-    metis_tac[check_subproofs_list_zeros]) *)
-
+    metis_tac[check_scopes_list_zeros])
   >~ [‘Sstep’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     drule_all fml_rel_check_sstep_list>>
@@ -3914,8 +3914,7 @@ Proof
         )
     >-
       fs[])
-
-  >~ [‘LoadOrder’] >- cheat (* (
+  >~ [‘LoadOrder’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     drule_all ind_rel_reindex>>
     drule any_el_core_from_inds>>
@@ -3934,12 +3933,11 @@ Proof
       fs[ind_rel_def]>>
       rw[]>>
       metis_tac[IS_SOME_EXISTS,option_CLAUSES])>>
-    metis_tac[vimap_rel_core_from_inds]) *)
+    metis_tac[vimap_rel_core_from_inds])
   >~ [‘UnloadOrder’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
   >~ [‘StoreOrder’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
-
   >~ [‘Obj’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     rw[PULL_EXISTS]>>
