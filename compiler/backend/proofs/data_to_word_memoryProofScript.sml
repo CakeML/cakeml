@@ -11565,6 +11565,69 @@ Proof
   \\ match_mp_tac memory_rel_rearrange \\ fs []
 QED
 
+Theorem write_bytearray_append:
+  ∀xs ys a m dm be.
+    (∀i. i < LENGTH xs + LENGTH ys ⇒
+         ∃b. mem_load_byte_aux m dm be (a + n2w i) = SOME b) ⇒
+    write_bytearray a (xs ++ ys) m dm be =
+    write_bytearray a xs (write_bytearray (a + n2w (LENGTH xs)) ys m dm be) dm be
+Proof
+  Induct \\ gvs [wordSemTheory.write_bytearray_def,ADD1,GSYM word_add_n2w]
+  \\ rw []
+  \\ first_assum $ qspec_then ‘0’ mp_tac
+  \\ last_x_assum $ DEP_REWRITE_TAC o single
+  \\ conj_tac
+  >- (rw [] \\ first_x_assum $ qspec_then ‘i+1’ mp_tac \\ gvs [GSYM word_add_n2w])
+  \\ strip_tac \\ fs []
+  \\ CASE_TAC \\ gvs []
+  \\ last_x_assum $ kall_tac
+  \\ gvs []
+  \\ gvs [wordSemTheory.mem_store_byte_aux_def,AllCaseEqs()]
+  \\ gvs [wordSemTheory.mem_load_byte_aux_def,AllCaseEqs()]
+  \\ metis_tac [write_bytearray_isWord,isWord_def]
+QED
+
+Theorem memory_rel_write_bytearray_lemma[local]:
+  ∀rest bytes bytes0 m refs.
+    memory_rel c be stm refs sp st m dm ((RefPtr b n,Word (w:'a word))::vs) ∧
+    lookup n refs = SOME (ByteArray F (bytes0 ++ rest)) ∧ LENGTH bytes = LENGTH bytes0 ∧
+    get_real_simple_addr c st w = SOME a ∧ good_dimindex (:'a) ⇒
+    memory_rel c be stm (insert n (ByteArray F (bytes ++ rest)) refs) sp st
+      (write_bytearray (a + bytes_in_word) bytes m dm be)
+      dm ((RefPtr b n,Word w)::vs)
+Proof
+  Induct_on ‘bytes’ using SNOC_INDUCT \\ rpt strip_tac
+  >- (gvs [wordSemTheory.write_bytearray_def,insert_unchanged])
+  \\ drule_all memory_rel_ByteArray_IMP \\ simp []
+  \\ strip_tac
+  \\ rename [‘SNOC new_b _’]
+  \\ Cases_on ‘bytes0’ using SNOC_CASES >- gvs [SNOC_APPEND]
+  \\ fs [SNOC_APPEND]
+  \\ first_x_assum $ qspecl_then [‘LENGTH bytes’,‘new_b’] mp_tac
+  \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ simp [EL_APPEND2]
+  \\ rpt strip_tac
+  \\ last_x_assum drule \\ simp []
+  \\ disch_then $ qspecl_then [‘new_b::rest’,‘l’] mp_tac
+  \\ impl_tac
+  >- (gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND])
+  \\ simp [Once insert_insert]
+  \\ match_mp_tac (METIS_PROVE [] “x = y ⇒ (x ⇒ y)”)
+  \\ rpt AP_THM_TAC \\ rpt AP_TERM_TAC
+  \\ DEP_REWRITE_TAC [write_bytearray_append]
+  \\ conj_tac >- rw []
+  \\ rpt AP_THM_TAC \\ rpt AP_TERM_TAC
+  \\ gvs [wordSemTheory.write_bytearray_def]
+  \\ first_x_assum $ qspec_then ‘LENGTH l’ mp_tac
+  \\ impl_tac >- gvs []
+  \\ strip_tac
+  \\ gvs [AllCaseEqs(),wordSemTheory.mem_load_byte_aux_def]
+  \\ gvs [wordSemTheory.mem_store_byte_aux_def,theWord_def]
+QED
+
+Theorem memory_rel_write_bytearra =
+  memory_rel_write_bytearray_lemma |> Q.SPEC ‘[]’ |> SRULE [] |> SPEC_ALL;
+
 Theorem memory_rel_space_max:
    memory_rel c be ts refs old_sp st m dm vars ==>
     ?next_free trig_gc sp.
