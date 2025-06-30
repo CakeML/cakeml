@@ -13513,17 +13513,17 @@ Theorem evaluate_StoreAnyConsts:
       lookup r1 ll = SOME (word_cond_add c a w) ∧
       ∀n. ~ MEM n [r1;r2;r3] ⇒ lookup n ll = lookup n s.locals
 Proof
-  cheat (*
   ho_match_mp_tac StoreAnyConsts_ind \\ rw []
   THEN1
    (Cases_on ‘w’
     \\ fs [StoreAnyConsts_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
-          wordSemTheory.set_store_def,store_list_def]
+          wordSemTheory.set_store_def,store_list_def,wordSemTheory.get_var_def]
     \\ Cases_on ‘r’ \\ gvs [] \\ Cases_on ‘q’
-    \\ fs [StoreAnyConsts_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
-          wordSemTheory.set_store_def,store_list_def,word_cond_add_def,
-          wordSemTheory.the_words_def,wordLangTheory.word_op_def,wordSemTheory.set_var_def]
-    \\ gvs [wordSemTheory.state_component_equality,good_loc_def,lookup_insert])
+    \\ gvs [StoreAnyConsts_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
+            wordSemTheory.set_store_def,store_list_def,word_cond_add_def,
+            wordSemTheory.get_var_def,
+            wordSemTheory.the_words_def,wordLangTheory.word_op_def,wordSemTheory.set_var_def,
+            wordSemTheory.state_component_equality,good_loc_def,lookup_insert])
   \\ fs [StoreAnyConsts_def]
   \\ rename [‘SND xx’] \\ PairCases_on ‘xx’ \\ fs []
   \\ reverse (Cases_on ‘xx1’) \\ gvs []
@@ -13570,7 +13570,7 @@ Proof
   \\ fs [lookup_insert]
   \\ strip_tac \\ fs []
   \\ fs [wordSemTheory.state_component_equality]
-  \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,lookup_delete] *)
+  \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,lookup_delete]
 QED
 
 Theorem do_build_const_IMP_SOME:
