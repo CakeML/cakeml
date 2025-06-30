@@ -400,7 +400,8 @@ Theorem ALOOKUP_LIST_REL_sf_gc_consts:
 Proof
   Induct_on `l2`
     >- (rpt gen_tac \\ rpt strip_tac \\ fs [] \\ rveq \\ fs [ALOOKUP_def]) \\
-  rw [] \\ Cases_on `h` \\ Cases_on `x` \\ fs [ALOOKUP_def] \\ rveq \\ TOP_CASE_TAC \\ fs [] \\
+  rw [] \\
+  Cases_on `h` \\ Cases_on `x` \\ fs [ALOOKUP_def] \\ rveq \\ TOP_CASE_TAC \\ fs [] \\
   first_assum irule \\ rw [] \\ asm_exists_tac \\ rw []
 QED
 
@@ -412,7 +413,8 @@ Theorem ALOOKUP_LIST_REL_sf_gc_consts_NONE:
 Proof
   Induct_on `l2`
     >- (rpt gen_tac \\ rpt strip_tac \\ fs [] \\ rveq \\ fs [ALOOKUP_def]) \\
-  rw [] \\ Cases_on `h` \\ Cases_on `x` \\ fs [ALOOKUP_def] \\ rveq \\ TOP_CASE_TAC \\ fs [] \\
+  rw [] \\ Cases_on `h` \\ Cases_on `x` \\
+  gvs [ALOOKUP_def] \\
   first_assum irule \\ rw [] \\ asm_exists_tac \\ rw []
 QED
 
