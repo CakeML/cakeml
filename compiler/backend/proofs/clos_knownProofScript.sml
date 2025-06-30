@@ -12,6 +12,7 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
 val _ = new_theory "clos_knownProof";
 val _ = diminish_srw_ss ["ABBREV"];
 val _ = set_trace "BasicProvers.var_eq_old" 1;
+val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
 val _ = set_grammar_ancestry
   [ "closLang", "closSem", "closProps", "clos_known", "clos_knownProps" ];

@@ -55,7 +55,7 @@ Termination
   \\ rw[list_size_pair_size_MAP_FST_SND]
 End
 
-val pre = cv_trans_pre collect_conses_def;
+val pre = cv_trans_pre $ measure_args [1,1,1,1] collect_conses_def;
 
 Theorem collect_conses_pre[cv_pre]:
   (∀p v. collect_conses_pre p v) ∧

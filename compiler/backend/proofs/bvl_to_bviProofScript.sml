@@ -17,6 +17,7 @@ local open helperLib in end
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj",
                        "fromAList_def", "domain_union", "domain_insert",
                        "domain_inter"]
+val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
 val _ = new_theory"bvl_to_bviProof";
 

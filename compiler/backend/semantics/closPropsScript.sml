@@ -2637,7 +2637,7 @@ Theorem LIST_REL_LAST:
 Proof
   Q.ISPEC_THEN `xs` ASSUME_TAC SNOC_CASES
   \\ Q.ISPEC_THEN `ys` ASSUME_TAC SNOC_CASES
-  \\ fs []
+  \\ fs [LIST_REL_SNOC]
 QED
 
 

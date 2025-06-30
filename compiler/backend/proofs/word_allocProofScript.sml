@@ -296,7 +296,7 @@ Triviality GENLIST_MAP:
 Proof
   Induct \\ full_simp_tac(srw_ss())[GENLIST] \\ REPEAT STRIP_TAC
   \\ `k < LENGTH l /\ k <= LENGTH l` by DECIDE_TAC
-  \\ full_simp_tac(srw_ss())[EL_MAP]
+  \\ full_simp_tac(srw_ss())[EL_MAP,SNOC_APPEND]
 QED
 
 Theorem list_rearrange_MAP:
