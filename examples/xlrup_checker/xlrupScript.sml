@@ -3309,7 +3309,7 @@ Proof
   >- (
     TOP_CASE_TAC>>fs[]>>
     EVAL_TAC)>>
-  TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[SNOC_APPEND]>>
   simp[LUPDATE_def]
 QED
 
