@@ -91,8 +91,8 @@ End
 (* Type for function state *)
 Datatype:
   func_info = <|
-    ret_shape    : shape      (* shape of return value *)
-  ; param_shapes : shape list (* shape of parameters *)
+    ret_shape : shape                  (* shape of return value *)
+  ; params    : (varname # shape) list (* parameter info *)
   |>
 End
 
@@ -442,6 +442,30 @@ Definition check_redec_var_def:
     |  _ => log (WarningErr $ get_redec_msg T ctxt.loc vname ctxt.scope)
 End
 
+(* Check for arg number and shape *)
+Definition check_func_args_def:
+  check_func_args ctxt fname params shapes =
+    case (params, shapes) of
+    | ((p,s)::ps, s'::ss) =>
+      if ~(s = s')
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "value for argument "; p;
+           strlit " given to function "; fname;
+           strlit " does not match declared shape in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else check_func_args ctxt fname ps ss
+    | ((p,s)::ps, []) => error (GenErr $ concat
+          [ctxt.loc; strlit "argument "; p;
+           strlit " for call to function "; fname;
+           strlit " is missing in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+    | ([], s'::ss) => error (GenErr $ concat
+          [ctxt.loc; strlit "extra arguments given to function "; fname;
+           strlit " in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+    | ([], []) => return ()
+End
+
 
 (* Main static checking functions *)
 
@@ -704,13 +728,8 @@ Definition static_check_prog_def:
            strlit " does not match declared shape in ";
            get_scope_desc ctxt.scope; strlit "\n"])
       else return ();
-      (* check arg shapes *)
-      if ~(finf.param_shapes = esret.exps_shape)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "arguments given to function "; fname;
-           strlit " do not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
-      else return ();
+      (* check arg num and shapes *)
+      check_func_args ctxt fname finf.params esret.exps_shape;
       (* check prog with declared var *)
       ctxt' <<- ctxt with <| locals := insert ctxt.locals v <| based := Trusted; locl_shape := s |>
                            ; last := OtherLast |>;
@@ -731,7 +750,7 @@ Definition static_check_prog_def:
       (* check for shape match *)
       if ~(vinf.locl_shape = eret.exp_shape)
         then error (ShapeErr $ concat
-          [ctxt.loc; strlit "assigning expression of local variable "; v;
+          [ctxt.loc; strlit "expression assigned to local variable "; v;
            strlit " does not match declared shape in ";
            get_scope_desc ctxt.scope; strlit "\n"])
       else return ();
@@ -751,7 +770,7 @@ Definition static_check_prog_def:
       (* check for shape match *)
       if ~(vinf.glob_shape = eret.exp_shape)
         then error (ShapeErr $ concat
-          [ctxt.loc; strlit "assigning expression of global variable "; v;
+          [ctxt.loc; strlit "expression assigned to global variable "; v;
            strlit " does not match declared shape in ";
            get_scope_desc ctxt.scope; strlit "\n"])
       else return ();
@@ -960,13 +979,8 @@ Definition static_check_prog_def:
           [ctxt.loc; strlit "call result to return does not match declared shape in ";
            get_scope_desc ctxt.scope; strlit "\n"])
       else return ();
-      (* check arg shapes *)
-      if ~(finf'.param_shapes = esret.exps_shape)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "arguments given to function "; trgt;
-           strlit " do not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
-      else return ();
+      (* check arg num and shapes *)
+      check_func_args ctxt trgt finf.params esret.exps_shape;
       (* return prog info *)
       return <| exits_fun  := T
               ; exits_loop := F
@@ -984,20 +998,15 @@ Definition static_check_prog_def:
       (* check for shape match *)
       if ~(vinf.locl_shape = finf.ret_shape)
         then error (ShapeErr $ concat
-          [ctxt.loc; strlit "return value assigned to local variable "; rt;
+          [ctxt.loc; strlit "call result assigned to local variable "; rt;
            strlit " does not match declared shape in ";
            get_scope_desc ctxt.scope; strlit "\n"])
       else return ();
-      (* check arg shapes *)
-      if ~(finf.param_shapes = esret.exps_shape)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "arguments given to function "; trgt;
-           strlit " do not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
-      else return ();
+      (* check arg num and shapes *)
+      check_func_args ctxt trgt finf.params esret.exps_shape;
       (* check exception handling info *)
       case hdl of
-        NONE => return ()
+      | NONE => return ()
         (* check for out of scope exception variable *)
       | SOME (eid, evar, p) =>
           do
@@ -1055,16 +1064,11 @@ Definition static_check_prog_def:
       (* check func ptr exp and arg exps *)
       finf <- scope_check_fun_name ctxt trgt;
       esret <- static_check_exps ctxt args;
-      (* check arg shapes *)
-      if ~(finf.param_shapes = esret.exps_shape)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "arguments given to function "; trgt;
-           strlit " do not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
-      else return ();
+      (* check arg num and shapes *)
+      check_func_args ctxt trgt finf.params esret.exps_shape;
       (* check exception handling info *)
       case hdl of
-        NONE => return ()
+      | NONE => return ()
         (* check for out of scope exception variable *)
       | SOME (eid, evar, p) =>
           do
@@ -1115,6 +1119,7 @@ Definition static_check_prog_def:
       (* lookup current function info *)
       finf <- case ctxt.scope of
               | FunScope fname => scope_check_fun_name ctxt fname
+              (* should never occur if static checker implemented correctly *)
               | _ => error (GenErr $ strlit "return found outside function scope");
       (* check for shape match *)
       if ~(finf.ret_shape = eret.exp_shape)
@@ -1367,7 +1372,7 @@ Definition static_check_decls_def:
       (* check remaining decls *)
       static_check_decls
         (insert fctxt fi.name
-          <| ret_shape := fi.return ; param_shapes := MAP SND fi.params |>)
+          <| ret_shape := fi.return ; params := fi.params |>)
         gctxt decls
     od
 End
