@@ -13613,13 +13613,58 @@ QED
 
 val _ = Parse.hide "free";
 
+Theorem parts_to_words_NONE[local]:
+  ∀parts (off:'a word) m aa (t:('a,'c,'ffi) wordSem$state) (s:('c,'ffi) dataSem$state).
+    parts_to_words c m aa parts off = NONE ∧ good_dimindex (:'a) ∧
+    heap_in_memory_store heap a sp sp1 gens c t.store t.memory t.mdomain limit ⇒
+    limits_inv s.limits (FLOOKUP t.store HeapLength) t.stack_limit
+               c.len_size c.has_fp_ops c.has_fp_tern ⇒
+    EXISTS ($¬ ∘ lim_safe_part s.limits) parts
+Proof
+  Induct
+  \\ fs [parts_to_words_def,AllCaseEqs(),PULL_EXISTS]
+  \\ rpt gen_tac
+  \\ reverse (Cases_on ‘part_to_words c m h off’)
+  THEN1 (gvs [] \\ rw [] \\ res_tac \\ fs [])
+  \\ fs [] \\ disch_tac
+  \\ simp [limits_inv_def] \\ strip_tac
+  \\ disj1_tac \\ strip_tac
+  \\ Cases_on ‘∃n l. h = Con n l’
+  THEN1
+   (gvs [part_to_words_def,arch_size_def,CaseEq "bool"]
+    \\ Cases_on ‘l’
+    \\ gvs [good_dimindex_def,dimword_def,encode_header_def])
+  \\ Cases_on ‘∃i. h = Int i’
+  THEN1
+   (gvs [part_to_words_def,arch_size_def]
+    \\ gvs [AllCaseEqs(),multiwordTheory.i2mw_def,encode_header_def]
+    THEN1
+     (Cases_on ‘i < 0’ \\ fs [b2w_def,EVAL “1w ≪ 2 ‖ 3w”]
+      \\ gvs [good_dimindex_def,dimword_def,NOT_LESS]
+      \\ ‘7 < 2 ** 4 ∧ 3 < 2 ** 4’ by EVAL_TAC
+      \\ drule_all LESS_EQ_LESS_TRANS
+      \\ simp [EXP_BASE_LT_MONO]
+      \\ fs [heap_in_memory_store_def])
+    THEN1
+     (qpat_x_assum ‘~(n < m:num)’ mp_tac
+      \\ Cases_on ‘i < 0’ \\ gvs [good_dimindex_def,dimword_def]
+      \\ ntac 10 (fs [dimword_def] \\ EVAL_TAC))
+    \\ gvs [bignum_size]
+    \\ qsuff_tac ‘2 ** c.len_size ≤ 2 ** (dimindex (:α) − 4)’
+    THEN1 decide_tac
+    \\ fs [heap_in_memory_store_def])
+  \\ Cases_on ‘h’ \\ gvs [part_to_words_def,arch_size_def]
+  \\ gvs [good_dimindex_def,dimword_def,byte_len_def,encode_header_def,
+          AllCaseEqs(),NOT_LESS]
+  \\ imp_res_tac TWO_POW_LEMMA
+  \\ fs [heap_in_memory_store_def,encode_header_def,AllCaseEqs()]
+QED
+
 Theorem assign_Build:
    (∃parts. op = BlockOp (Build parts)) ==> ^assign_thm_goal
 Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
                       LT_EXP_LOG_SIMP LOG_NUMERAL EXP_LT_1
-                      ONE_LE_EXP TWO_LE_EXP
-]
-  cheat (*
+                      ONE_LE_EXP TWO_LE_EXP]
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
@@ -13641,51 +13686,8 @@ Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
            imp_res_tac get_vars_IMP_LENGTH >>
            rveq >> fs[arch_size_def,limits_inv_def,good_dimindex_def] >>
            gvs [consume_space_def,AllCaseEqs()])
-    \\ qpat_x_assum ‘limits_inv _ _ _ _ _ _’ mp_tac
-    \\ pop_assum mp_tac
     \\ fs [const_parts_to_words_def]
-    \\ qmatch_goalsub_rename_tac ‘parts_to_words c m aa parts off’
-    \\ qid_spec_tac ‘aa’
-    \\ qid_spec_tac ‘m’
-    \\ qid_spec_tac ‘off’
-    \\ qid_spec_tac ‘parts’
-    \\ Induct
-    \\ fs [parts_to_words_def,AllCaseEqs(),PULL_EXISTS]
-    \\ rpt gen_tac
-    \\ reverse (Cases_on ‘part_to_words c m h off’)
-    THEN1 (gvs [] \\ rw [] \\ res_tac \\ fs [])
-    \\ fs []
-    \\ simp [limits_inv_def] \\ strip_tac
-    \\ disj1_tac \\ strip_tac
-    \\ Cases_on ‘∃n l. h = Con n l’
-    THEN1
-     (gvs [part_to_words_def,arch_size_def]
-      \\ Cases_on ‘l’
-      \\ gvs [good_dimindex_def,dimword_def,encode_header_def])
-    \\ Cases_on ‘∃i. h = Int i’
-    THEN1
-     (gvs [part_to_words_def,arch_size_def]
-      \\ gvs [AllCaseEqs(),multiwordTheory.i2mw_def,encode_header_def]
-      THEN1
-       (Cases_on ‘i < 0’ \\ fs [b2w_def,EVAL “1w ≪ 2 ‖ 3w”]
-        \\ gvs [good_dimindex_def,dimword_def,NOT_LESS]
-        \\ ‘7 < 2 ** 4 ∧ 3 < 2 ** 4’ by EVAL_TAC
-        \\ drule_all LESS_EQ_LESS_TRANS
-        \\ simp [EXP_BASE_LT_MONO]
-        \\ fs [heap_in_memory_store_def])
-      THEN1
-       (qpat_x_assum ‘~(n < m:num)’ mp_tac
-        \\ Cases_on ‘i < 0’ \\ gvs [good_dimindex_def,dimword_def]
-        \\ ntac 10 (fs [dimword_def] \\ EVAL_TAC))
-      \\ gvs [bignum_size]
-      \\ qsuff_tac ‘2 ** c.len_size ≤ 2 ** (dimindex (:α) − 4)’
-      THEN1 decide_tac
-      \\ fs [heap_in_memory_store_def])
-    \\ Cases_on ‘h’ \\ gvs [part_to_words_def,arch_size_def]
-    \\ gvs [good_dimindex_def,dimword_def,byte_len_def,encode_header_def,
-            AllCaseEqs(),NOT_LESS]
-    \\ imp_res_tac TWO_POW_LEMMA
-    \\ fs [heap_in_memory_store_def,encode_header_def,AllCaseEqs()])
+    \\ drule_all parts_to_words_NONE \\ rewrite_tac [])
   \\ gvs [assign_def]
   \\ fs [] \\ Cases_on ‘const_parts_to_words c parts’ THEN1 fs []
   \\ rename [‘_ = SOME y’]
@@ -13698,14 +13700,16 @@ Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
         good_dimindex (:'a) ∧ shift_length c < dimindex (:α)’ by
           fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def]
   \\ once_rewrite_tac [list_Seq_def]
-  \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,wordSemTheory.set_var_def]
+  \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,wordSemTheory.set_var_def,
+         wordSemTheory.get_store_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,wordSemTheory.set_var_def,
-         wordSemTheory.the_words_def,wordLangTheory.word_op_def,wordLangTheory.word_sh_def]
+         wordSemTheory.the_words_def,wordLangTheory.word_op_def,wordLangTheory.word_sh_def,
+         wordSemTheory.get_var_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ qpat_x_assum ‘state_rel c l1 l2 x t [] locs’ mp_tac
   \\ simp [Once state_rel_thm] \\ strip_tac
-  \\ Cases_on ‘x.tstamps’ \\ gvs []
+  \\ Cases_on ‘x.tstamps’ \\ gvs [get_var_def,wordSemTheory.get_store_def]
   \\ rename [‘x.tstamps = SOME ts’]
   \\ fs [do_app]
   \\ qabbrev_tac ‘x3 = if SUM (MAP part_space_req parts) = 0 then SOME x
@@ -13752,7 +13756,7 @@ Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
   \\ match_mp_tac memory_rel_insert
   \\ fs[inter_insert_ODD_adjust_set_alt,inter_delete_ODD_adjust_set_alt]
   \\ irule memory_rel_less_space
-  \\ qexists_tac ‘x.space − LENGTH y2’ \\ fs [] *)
+  \\ qexists_tac ‘x.space − LENGTH y2’ \\ fs []
 QED
 
 Theorem assign_thm:
