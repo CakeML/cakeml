@@ -13284,14 +13284,26 @@ Theorem assign_FFI_final:
      option_le r.stack_max s.stack_max /\
      q <> SOME NotEnoughSpace /\ r.ffi = t.ffi /\ q = SOME(FinalFFI f)
 Proof
-  cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
+  \\ drule data_to_word_gcProofTheory.cut_env_IMP_cut_env
+  \\ disch_then $ qspecl_then [‘x.locals’,‘THE names_opt’] mp_tac
+  \\ impl_tac
+  >-
+   (gvs [dataLangTheory.op_requires_names_def]
+    \\ Cases_on ‘names_opt’
+    \\ gvs [cut_state_opt_def,cut_state_def,CaseEq"option"])
+  \\ strip_tac
+  \\ rename [‘cut_env _ _ = SOME t_cut’]
+  \\ ‘s.stack_max = x.stack_max’ by
+   (gvs [dataLangTheory.op_requires_names_def]
+    \\ Cases_on ‘names_opt’
+    \\ gvs [cut_state_opt_def,cut_state_def,CaseEq"option"])
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ fs[do_app, allowed_op_def] \\ clean_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ every_case_tac \\ fs[] \\ clean_tac
+  \\ gvs [AllCaseEqs()]
   \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
@@ -13303,17 +13315,16 @@ Proof
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP )
   \\ strip_tac
-  \\ fs[get_vars_def]
-  \\ every_case_tac \\ fs[] \\ clean_tac
+  \\ fs[get_vars_def,AllCaseEqs()] \\ clean_tac
   \\ rpt_drule0 memory_rel_ByteArray_IMP
   \\ drule0 memory_rel_tl \\ strip_tac
   \\ rpt_drule0 memory_rel_ByteArray_IMP
   \\ pop_assum kall_tac
   \\ ntac 2 strip_tac \\ clean_tac
-  \\ simp[assign_def,list_Seq_def] \\ eval_tac
   \\ rpt_drule0 get_var_get_real_addr_lemma
   \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm => rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
+  \\ simp[assign_def,list_Seq_def] \\ eval_tac
   \\ simp[]
   \\ rename1`_ ∧ ffi_name = ""`
   \\ Cases_on`ffi_name = ""`
@@ -13324,7 +13335,8 @@ Proof
     \\ rveq
     \\ qhdtm_x_assum`call_FFI`mp_tac
     \\ simp[ffiTheory.call_FFI_def])
-  \\ pop_assum (SUBST_ALL_TAC o EQF_INTRO)
+  \\ rpt disch_tac
+(*  \\ pop_assum (SUBST_ALL_TAC o EQF_INTRO) *)
   \\ rewrite_tac[]
   \\ eval_tac
   \\ qpat_abbrev_tac`tt = t with locals := _`
@@ -13332,7 +13344,7 @@ Proof
   by fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert]
   \\ `get_var (adjust_var e2) tt = get_var (adjust_var e2) t`
   by fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert]
-  \\ rfs[]
+  \\ gvs[wordSemTheory.get_vars_def,CaseEq"option"]
   \\ rpt_drule0 get_var_get_real_addr_lemma
   \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
@@ -13353,8 +13365,8 @@ Proof
   by fs[Abbr`ttt`,wordSemTheory.get_var_def,lookup_insert]
   \\ rfs[]
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
-     (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
+  \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
+     (fn thm => rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `ttt.store = t.store` by simp[Abbr`ttt`]
   \\ simp[]
   \\ eval_tac
@@ -13364,25 +13376,29 @@ Proof
   \\ `get_var (adjust_var e2) tttt = get_var (adjust_var e2) t`
   by fs[Abbr`tttt`,wordSemTheory.get_var_def,lookup_insert]
   \\ rfs[]
+  \\ ‘get_var (adjust_var e1) tttt = SOME (Word w') ∧
+      get_var (adjust_var e2) tttt = SOME (Word w)’ by gvs [wordSemTheory.get_var_def]
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
+  \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `tttt.store = t.store` by simp[Abbr`tttt`]
-  \\ simp[]
-  \\ simp[]
+  \\ simp[lookup_insert]
   \\ qpat_abbrev_tac`ttttt = t with locals := _`
   \\ `get_var (adjust_var e1) ttttt = get_var (adjust_var e1) t`
   by fs[Abbr`ttttt`,wordSemTheory.get_var_def,lookup_insert]
-  \\ `get_var (adjust_var e2) tttt = get_var (adjust_var e2) t`
+  \\ `get_var (adjust_var e2) ttttt = get_var (adjust_var e2) t`
   by fs[Abbr`ttttt`,wordSemTheory.get_var_def,lookup_insert]
+  \\ simp [cut_env_adjust_sets_ODD]
   \\ qpat_x_assum`¬_` kall_tac
-  \\ rfs[]
+  \\ ‘get_var (adjust_var e1) ttttt = SOME (Word w') ∧
+      get_var (adjust_var e2) ttttt = SOME (Word w)’ by gvs [wordSemTheory.get_var_def]
   \\ rpt_drule0 get_var_get_real_addr_lemma
-  \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
+  \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `ttttt.store = t.store` by simp[Abbr`ttttt`]
   \\ simp[]
   \\ simp[wordSemTheory.get_var_def,lookup_insert]
+  \\ gvs [Abbr‘ttttt’,lookup_insert]
   \\ qmatch_goalsub_abbrev_tac`read_bytearray aa len g`
   \\ qmatch_asmsub_rename_tac`LENGTH ls + 4`
   \\ qispl_then[`ls`,`LENGTH ls`,`aa`]mp_tac IMP_read_bytearray_GENLIST
@@ -13395,9 +13411,9 @@ Proof
     \\ simp[dimword_def] )
   \\ fs[] \\ strip_tac
   \\ qmatch_goalsub_abbrev_tac`read_bytearray aa2 len2 _`
-  \\ qispl_then[`l'`,`LENGTH l'`,`aa2`]mp_tac IMP_read_bytearray_GENLIST
+  \\ qispl_then[`ws`,`LENGTH ws`,`aa2`]mp_tac IMP_read_bytearray_GENLIST
   \\ impl_tac >- simp[]
-  \\ `len2 = LENGTH l'`
+  \\ `len2 = LENGTH ws`
   by (
     simp[Abbr`len2`]
     \\ rfs[good_dimindex_def] \\ rfs[shift_def]
@@ -13406,53 +13422,8 @@ Proof
   \\ fs[]
   \\ rpt strip_tac
   \\ simp[Unit_def]
-  \\ eval_tac
-  \\ simp[lookup_insert]
-  \\ fs[wordSemTheory.cut_env_def] \\ clean_tac
-  \\ simp[lookup_inter,lookup_insert,lookup_adjust_var_adjust_set]
-  \\ IF_CASES_TAC
-     >- (fs[adjust_set_def,lookup_fromAList,cut_state_opt_def,cut_state_def,
-         cut_env_def]
-         >> Cases_on `domain x' ⊆ domain s.locals` >> fs[]
-         >> fs[domain_fromAList,MAP_MAP_o,o_DEF,pairTheory.ELIM_UNCURRY,adjust_var_def,
-               lookup_insert,lookup_inter,lookup_fromAList]
-         >> fs[Q.prove(`!(n:num). 2 * n + 2 ≠ 7`, intLib.COOPER_TAC),
-               Q.prove(`!(n:num). 2 * n + 2 ≠ 5`, intLib.COOPER_TAC),
-               Q.prove(`!(n:num). 2 * n + 2 ≠ 3`, intLib.COOPER_TAC),
-               Q.prove(`!(n:num). 2 * n + 2 ≠ 1`, intLib.COOPER_TAC)]
-         >> `!(n:num). 2 * n + 2 ≠ 7` by intLib.COOPER_TAC
-         >> fs[]
-         >> unabbrev_all_tac >> fs[state_component_equality,wordSemTheory.flush_state_def,
-            dataSemTheory.state_component_equality])
-   >> `F` suffices_by rw[]
-   >> pop_assum mp_tac
-   >> fs[cut_state_opt_def]
-   >> drule0 (#1(EQ_IMP_RULE cut_state_eq_some))
-   >> strip_tac
-   >> clean_tac
-   >> simp[wordSemTheory.cut_env_def]
-   >> rw[SUBSET_DEF,domain_lookup]
-   >> fs[dataSemTheory.cut_env_def]
-   >> clean_tac >> fs[]
-   >> Cases_on`x=0` >- metis_tac[]
-   >> qmatch_assum_abbrev_tac`lookup x ss = SOME _`
-   >> `x ∈ domain ss` by metis_tac[domain_lookup]
-   >> qunabbrev_tac`ss`
-   >> imp_res_tac domain_adjust_set_EVEN
-   >> `∃z. x = adjust_var z`
-   by (
-       simp[adjust_var_def]
-       \\ fs[EVEN_EXISTS]
-       \\ Cases_on`m` \\ fs[ADD1,LEFT_ADD_DISTRIB] )
-   >> rveq
-   >> fs[lookup_adjust_var_adjust_set_SOME_UNIT]
-   >> last_x_assum(qspec_then`z`mp_tac)
-   >> simp[lookup_inter]
-   >> fs[IS_SOME_EXISTS]
-   >> disch_then match_mp_tac
-   >> BasicProvers.CASE_TAC
-   >> fs[SUBSET_DEF,domain_lookup]
-   >> res_tac >> fs[] *)
+  \\ fs [dataSemTheory.cut_state_opt_def]
+  \\ gvs [wordSemTheory.flush_state_def]
 QED
 
 Theorem getWords_acc:
