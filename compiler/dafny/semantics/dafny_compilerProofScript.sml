@@ -8,6 +8,7 @@ open semanticPrimitivesTheory
 open evaluateTheory
 open evaluatePropsTheory
 open extension_evaluatePropsTheory
+open dafny_astTheory
 open dafny_semanticPrimitivesTheory
 open dafny_evaluateTheory
 open dafny_evaluatePropsTheory
@@ -450,6 +451,21 @@ Definition from_member_decl_def:
       cml_body <- from_exp body;
       return (set_up_cml_fun n ins cml_body)
     od
+End
+
+Definition from_program_def:
+  from_program (Program mems) : (dec list) result =
+  do
+    cml_funs <- result_mmap from_member_decl mems;
+    (* TODO Optimize this by only putting mutually recursive functions
+       together *)
+    cml_funs <<- Dletrec unknown_loc cml_funs;
+    (* NOTE For now, we assume the every program has a method called Main that
+       is not mutually recursive with anything else, takes no arguments, and
+       returns nothing. *)
+    cml_main <<- Dlet unknown_loc Pany (cml_fapp [] "Main" [Unit]);
+    return ([cml_funs; cml_main])
+  od
 End
 
 (* ************************************************************************** *)
@@ -1164,12 +1180,6 @@ Triviality nsAppend_empty[simp]:
 Proof
   Cases_on ‘b’ \\ gvs [nsAppend_def]
 QED
-
-(* Triviality with_same_v[simp]: *)
-(*   (env with v := env.v) = env *)
-(* Proof *)
-(*   gvs [semanticPrimitivesTheory.sem_env_component_equality] *)
-(* QED *)
 
 Triviality with_same_clock[simp]:
   (t: 'ffi cml_state) with clock := t.clock = t
@@ -2262,7 +2272,6 @@ Proof
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t'’, ‘r_cml’] assume_tac
     \\ qexistsl [‘ck’, ‘t'’, ‘m’, ‘r_cml’] \\ gvs [])
   >~ [‘ArrAlloc len init’] >-
-
    (gvs [evaluate_rhs_exp_def]
     \\ gvs [from_rhs_exp_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy len’ ["s₁ r"] \\ gvs []
@@ -2285,7 +2294,6 @@ Proof
            mp_tac
     \\ ‘¬is_fresh « len»’ by gvs [is_fresh_def, isprefix_thm]
     \\ impl_tac \\ gvs []
-
     >- (drule_all state_rel_env_push_not_fresh \\ gvs []
         \\ strip_tac
         \\ irule env_rel_env_change
@@ -2617,7 +2625,6 @@ Proof
   \\ namedCases_on ‘lhs’ ["var", "arr idx"]
   \\ gvs [assign_single_def, assign_value_def, oneline bind_def, CaseEq "sum"]
   \\ rename [‘state_rel _ _ _ t _’, ‘assign_values _ _ _ rhs_vs_rest’]
-
   >- (* Variable assignment *)
    (namedCases_on ‘update_local s var rhs_v’ ["", "s₁"] \\ gvs []
     \\ drule update_local_some_alookup \\ rpt strip_tac \\ gvs []
@@ -3295,7 +3302,6 @@ Proof
     \\ first_x_assum $ qspec_then ‘var’ mp_tac \\ gvs []
     \\ rpt strip_tac \\ gvs [FLOOKUP_SIMP])
   >~ [‘Assign ass’] >-
-
    (gvs [evaluate_stmt_def]
     \\ qabbrev_tac ‘rhss = MAP SND ass’
     \\ qabbrev_tac ‘lhss = MAP FST ass’
@@ -3349,7 +3355,6 @@ Proof
       \\ last_assum $ irule_at (Pos hd)
       \\ gvs []
       \\ last_assum $ irule_at (Pos hd) \\ gvs [])
-
     \\ imp_res_tac result_mmap_len
     \\ gvs [Stuple_Tuple, evaluate_def, do_con_check_def, build_conv_def]
     \\ reverse $ namedCases_on ‘r’ ["rhs_vs", "err"] \\ gvs []
@@ -3574,7 +3579,6 @@ Proof
   >~ [‘Print e t’] >-
    (cheat)
   >~ [‘MetCall lhss name args’] >-
-
    (* TODO Can we minimize the proof by avoiding the case distinction on args?
       Perhaps we can write a more general version of evaluate_apps, that
       applies to cml_apps (i.e. also considers empty list?) *)
@@ -3976,7 +3980,6 @@ Proof
             ‘LENGTH t₁.refs’]
            mp_tac
     \\ impl_tac >-
-
      (gvs [Abbr ‘dfy_locals’, dec_clock_def, evaluateTheory.dec_clock_def,
            state_rel_def, MAP_REVERSE, MAP_ZIP]
       \\ rpt strip_tac
@@ -4205,6 +4208,341 @@ Proof
     \\ simp [Abbr ‘ass_env₁’]
     \\ DEP_REWRITE_TAC [not_mem_nslookup_nsappend_alist]
     \\ simp [MAP_ZIP, is_fresh_not_mem_genlist])
+QED
+
+Triviality from_member_decl_name:
+  from_member_decl member = INR cml_f ⇒
+  (λ(x,y,z). x) $ cml_f = "dfy_" ++ explode (member_name member)
+Proof
+  rpt strip_tac
+  \\ gvs [from_member_decl_def, oneline bind_def, set_up_cml_fun_def,
+          member_name_def, AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Triviality map_from_member_decl_name:
+  ∀members cml_fs.
+    result_mmap from_member_decl members = INR cml_fs ⇒
+    MAP (λ(x,y,z). x) cml_fs =
+    MAP (STRCAT "dfy_" ∘ explode ∘ member_name) members
+Proof
+  Induct \\ rpt strip_tac
+  \\ gvs [result_mmap_def, oneline bind_def, CaseEq "sum"]
+  \\ imp_res_tac from_member_decl_name \\ gvs []
+QED
+
+Triviality MEM_dfy_MAP:
+  ∀xs x. MEM ("dfy_" ++ x) (MAP (λx. "dfy_" ++ x) xs) = MEM x xs
+Proof
+  Induct \\ gvs []
+QED
+
+Triviality ALL_DISTINCT_member_name:
+  ∀members cml_fs.
+    ALL_DISTINCT (MAP member_name members) ∧
+    result_mmap from_member_decl members = INR cml_fs ⇒
+    ALL_DISTINCT (MAP (λ(x,y,z). x) cml_fs)
+Proof
+  Induct \\ rpt strip_tac
+  \\ gvs [result_mmap_def, oneline bind_def, CaseEq "sum"]
+  \\ imp_res_tac from_member_decl_name
+  \\ imp_res_tac map_from_member_decl_name
+  \\ gvs []
+  \\ rename [‘from_member_decl member’]
+  \\ qspecl_then
+       [‘MAP (explode ∘ member_name) members’, ‘explode (member_name member)’]
+       assume_tac MEM_dfy_MAP
+  \\ gvs [MAP_MAP_o, o_DEF]
+  \\ simp [GSYM o_DEF, GSYM MAP_MAP_o]
+QED
+
+(* Proving that a generated CakeML expression e satisfies
+   every_exp (one_con_check env_c) e *)
+
+Triviality apps_one_con_check:
+  ∀xs env_c f.
+    every_exp (one_con_check env_c) f ∧
+    EVERY (every_exp (one_con_check env_c)) xs ⇒
+    every_exp (one_con_check env_c) (apps f xs)
+Proof
+  Induct \\ gvs [apps_def]
+QED
+
+Triviality Funs_one_con_check:
+  ∀xs env_c body.
+    every_exp (one_con_check env_c) body ⇒
+    every_exp (one_con_check env_c) (Funs xs body)
+Proof
+  Induct \\ gvs [Funs_def]
+QED
+
+Triviality from_exp_one_con_check:
+  (∀body cml_body (env: cml_env).
+     from_exp body = INR cml_body ∧
+     has_basic_cons env ⇒
+     every_exp (one_con_check env.c) cml_body) ∧
+  (∀bodys cml_bodys (env: cml_env).
+     map_from_exp bodys = INR cml_bodys ∧
+     has_basic_cons env ⇒
+     EVERY (every_exp (one_con_check env.c)) cml_bodys)
+Proof
+  Induct \\ rpt gen_tac
+  >~ [‘FunCall name args’] >-
+   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ rpt strip_tac
+    \\ gvs [cml_fapp_def, mk_id_def]
+    \\ namedCases_on ‘REVERSE cml_args’ ["", "cml_arg cml_args'"]
+    \\ gvs [cml_apps_def, do_con_check_def]
+    \\ DEP_REWRITE_TAC [apps_one_con_check] \\ simp []
+    \\ last_x_assum $ drule_then assume_tac
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [Once $ GSYM EVERY_REVERSE]
+    \\ disch_tac
+    \\ rev_full_simp_tac std_ss [EVERY_DEF])
+  >~ [‘Forall var term’] >-
+   (simp [from_exp_def])
+  >~ [‘Lit l’] >-
+   (simp [from_exp_def] \\ disch_tac
+    \\ gvs [oneline from_lit_def, do_con_check_def, has_basic_cons_def,
+            AllCaseEqs()])
+  >~ [‘Var name’] >-
+   (simp [from_exp_def] \\ disch_tac \\ gvs [cml_read_var_def])
+  >~ [‘If grd thn els’] >-
+   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ rpt strip_tac \\ res_tac \\ gvs [])
+  >~ [‘UnOp uop e’] >-
+   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ rpt strip_tac
+    \\ gvs [oneline from_un_op_def, do_con_check_def, has_basic_cons_def])
+  >~ [‘BinOp bop e₀ e₁’] >-
+   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ rpt strip_tac \\ gvs []
+    \\ Cases_on ‘bop’
+    \\ gvs [from_bin_op_def, do_con_check_def, has_basic_cons_def])
+  >~ [‘ArrLen arr’] >-
+   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ rpt strip_tac
+    \\ gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def])
+  >~ [‘ArrSel arr idx’] >-
+   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ rpt strip_tac
+    \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def])
+  >~ [‘map_from_exp []’] >-
+   (simp [from_exp_def])
+  >~ [‘map_from_exp (e::es)’] >-
+   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ rpt strip_tac \\ gvs [])
+QED
+
+Triviality cml_new_refs_one_con_check:
+  ∀names env_c body.
+    every_exp (one_con_check env_c) body ⇒
+    every_exp (one_con_check env_c) (cml_new_refs names body)
+Proof
+  Induct \\ gvs [cml_new_refs_def]
+QED
+
+Triviality from_rhs_exp_one_con_check:
+  ∀rhs cml_rhs (env: cml_env).
+    from_rhs_exp rhs = INR cml_rhs ∧
+    has_basic_cons env ⇒
+    every_exp (one_con_check env.c) cml_rhs
+Proof
+  Induct \\ rpt gen_tac
+  >~ [‘ExpRhs e’] >-
+   (simp [from_rhs_exp_def] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_one_con_check) \\ gvs [])
+  >~ [‘ArrAlloc len init’] >-
+   (simp [from_rhs_exp_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_one_con_check)
+    \\ gvs [cml_alloc_arr_def, do_con_check_def])
+QED
+
+Triviality map_from_rhs_exp_one_con_check:
+  ∀rhss cml_rhss (env: cml_env).
+    result_mmap from_rhs_exp rhss = INR cml_rhss ∧
+    has_basic_cons env ⇒
+    EVERY (λe. every_exp (one_con_check env.c) e) cml_rhss
+Proof
+  Induct
+  \\ simp [result_mmap_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+  \\ imp_res_tac from_rhs_exp_one_con_check \\ gvs []
+QED
+
+Triviality Seqs_one_con_check:
+  ∀es env.
+    EVERY (λe. every_exp (one_con_check env.c) e) es ⇒
+    every_exp (one_con_check env.c) (Seqs es)
+Proof
+  Induct \\ gvs [Seqs_def, do_con_check_def]
+QED
+
+Triviality assign_single_one_con_check:
+  assign_single lhs (Var (Short n)) = INR ass ∧
+  has_basic_cons (env: cml_env) ⇒
+  every_exp (one_con_check env.c) ass
+Proof
+  Cases_on ‘lhs’
+  \\ simp [assign_single_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+  \\ imp_res_tac (cj 1 from_exp_one_con_check)
+  \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
+QED
+
+Triviality map_assign_single_one_con_check:
+  ∀lhss ns ass (env: cml_env).
+    result_mmap2 assign_single lhss (MAP (Var ∘ Short) ns) = INR ass ∧
+    has_basic_cons env ⇒
+    EVERY (λe. every_exp (one_con_check env.c) e) ass
+Proof
+  Induct \\ Cases_on ‘ns’
+  \\ simp [result_mmap2_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+  \\ imp_res_tac assign_single_one_con_check
+  \\ res_tac \\ gvs []
+QED
+
+Triviality par_assign_one_con_check:
+  par_assign lhss cml_rhss = INR cml_body ∧
+  EVERY (λe. every_exp (one_con_check env.c) e) cml_rhss ∧
+  has_basic_cons (env: cml_env) ⇒
+  every_exp (one_con_check env.c) cml_body
+Proof
+  simp [par_assign_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+  \\ Cases_on ‘LENGTH lhss = LENGTH cml_rhss’ \\ gvs []
+  \\ DEP_REWRITE_TAC [Seqs_one_con_check, Stuple_one_con_check]
+  \\ imp_res_tac map_assign_single_one_con_check \\ gvs []
+QED
+
+Triviality to_string_one_con_check:
+  to_string cml_e t = INR cml_str ∧
+  every_exp (one_con_check env_c) cml_e ⇒
+  every_exp (one_con_check env_c) cml_str
+Proof
+  Cases_on ‘t’ \\ simp [to_string_def] \\ rpt strip_tac
+  \\ gvs [cml_fapp_def, cml_apps_def, apps_def]
+QED
+
+Triviality from_stmt_one_con_check:
+  ∀body lvl cml_body (env: cml_env).
+    from_stmt body lvl = INR cml_body ∧
+    has_basic_cons env ⇒
+    every_exp (one_con_check env.c) cml_body
+Proof
+  Induct \\ rpt gen_tac
+  >~ [‘Skip’] >-
+   (simp [from_stmt_def, do_con_check_def])
+  >~ [‘Assert e’] >-
+   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_one_con_check) \\ simp [do_con_check_def])
+  >~ [‘Then stmt₁ stmt₂’] >-
+   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ res_tac \\ gvs [])
+  >~ [‘If tst thn els’] >-
+   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_one_con_check) \\ res_tac \\ gvs [])
+  >~ [‘Return’] >-
+   (simp [from_stmt_def, mk_id_def, do_con_check_def, has_basic_cons_def])
+  >~ [‘Dec local scope’] >-
+   (Cases_on ‘local’
+    \\ simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ res_tac \\ drule_then assume_tac cml_new_refs_one_con_check \\ gvs [])
+  >~ [‘Assign ass’] >-
+   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac map_from_rhs_exp_one_con_check
+    \\ imp_res_tac par_assign_one_con_check)
+  >~ [‘While grd _ _ _ body’] >-
+   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_one_con_check) \\ res_tac
+    \\ gvs [cml_fapp_def, cml_apps_def, mk_id_def, apps_def, do_con_check_def])
+  >~ [‘Print e t’] >-
+   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_one_con_check)
+    \\ imp_res_tac to_string_one_con_check
+    \\ gvs [cml_fapp_def, cml_apps_def, mk_id_def, apps_def])
+  >~ [‘MetCall lhss name args’] >-
+   ()
+QED
+
+Triviality set_up_in_refs_one_con_check:
+  ∀names env_c body.
+    every_exp (one_con_check env_c) body ⇒
+    every_exp (one_con_check env_c) (set_up_in_refs names body)
+Proof
+  Induct \\ gvs [set_up_in_refs_def]
+QED
+
+Triviality set_up_cml_fun_one_con_check:
+  every_exp (one_con_check env_c) body ⇒
+  (λ(f,n,e). every_exp (one_con_check env_c) e)
+    (set_up_cml_fun n ins body)
+Proof
+  disch_tac
+  \\ simp [set_up_cml_fun_def, cml_fun_def]
+  \\ drule_then assume_tac set_up_in_refs_one_con_check
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
+  \\ DEP_REWRITE_TAC [Funs_one_con_check] \\ simp []
+QED
+
+Triviality Stuple_one_con_check:
+  EVERY (λe. every_exp (one_con_check env_c) e) es ⇒
+  every_exp (one_con_check env_c) (Stuple es)
+Proof
+  Cases_on ‘LENGTH es = 1’
+  >- (gvs [LENGTH_EQ_1, Stuple_def])
+  \\ DEP_REWRITE_TAC [Stuple_Tuple]
+  \\ simp [do_con_check_def]
+QED
+
+Triviality MAP_cml_read_var_one_con_check:
+  ∀ns env_c e.
+    EVERY (λe. every_exp (one_con_check env_c) e) (MAP cml_read_var ns)
+Proof
+  Induct \\ gvs [one_con_check_def, cml_read_var_def]
+QED
+
+Triviality from_member_decl_one_con_check:
+  from_member_decl member = INR cml_f ∧
+  has_basic_cons (env: cml_env) ⇒
+  (λ(f,n,e). every_exp (one_con_check env.c) e) cml_f
+Proof
+  rpt strip_tac
+  \\ gvs [from_member_decl_def, oneline bind_def, AllCaseEqs()]
+  >- (* Method *)
+   (DEP_REWRITE_TAC [set_up_cml_fun_one_con_check, cml_new_refs_one_con_check]
+    \\ simp []
+    \\ DEP_REWRITE_TAC [Stuple_one_con_check] \\ simp []
+    \\ gvs [MAP_cml_read_var_one_con_check]
+      )
+  (* Function *)
+  \\ DEP_REWRITE_TAC [set_up_cml_fun_one_con_check, cj 1 from_exp_one_con_check]
+  \\ last_assum $ irule_at (Pos hd) \\ simp []
+QED
+
+Triviality map_from_member_decl_one_con_check:
+  result_mmap from_member_decl members = INR cml_fs ⇒
+  EVERY (λ(f,n,e). every_exp (one_con_check env_cml.c) e) cml_fs
+Proof
+  cheat
+QED
+
+Theorem correct_from_program:
+  ∀is_running prog s' r_dfy cml_decs env_cml t t' r_cml.
+    evaluate_program is_running prog = (s', r_dfy) ∧
+    from_program prog = INR cml_decs ∧
+    r_dfy ≠ Rstop (Serr Rtype_error) ⇒
+    ∃t'.
+      evaluate_decs t env_cml cml_decs = (t', r_cml) ∧
+      stmt_res_rel r_dfy r_cml
+Proof
+  rpt strip_tac
+  \\ namedCases_on ‘prog’ ["members"]
+  \\ gvs [evaluate_program_def]
+  \\ Cases_on ‘¬ALL_DISTINCT (MAP member_name members)’ \\ gvs []
+  \\ gvs [from_program_def, oneline bind_def, CaseEq "sum"]
+  \\ gvs [evaluate_decs_def]
+  \\ drule_all ALL_DISTINCT_member_name
+  \\ simp [] \\ disch_then kall_tac
+  \\ cheat
 QED
 
 val _ = export_theory ();

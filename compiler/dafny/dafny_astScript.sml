@@ -99,6 +99,11 @@ Datatype:
              (exp list) exp
 End
 
+Definition member_name_def:
+  member_name (Method name _ _ _ _ _ _ _ _) = name ∧
+  member_name (Function name _ _ _ _ _ _) = name
+End
+
 Datatype:
   (* For now, we only consider programs with a single module that use the
      default class *)
