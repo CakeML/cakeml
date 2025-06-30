@@ -21,6 +21,13 @@ val _ = new_theory "wordProps";
 
 val _ = set_grammar_ancestry ["backendProps","wordConvs", "wordLang","wordSem"]
 
+(*TODO move*)
+Theorem domain_fromAList_toAList:
+  domain (fromAList (toAList l)) = domain l
+Proof
+  fs[domain_fromAList,set_MAP_FST_toAList_domain]
+QED
+
 (* TODO: move *)
 Theorem mem_list_rearrange:
     ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls

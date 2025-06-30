@@ -621,12 +621,6 @@ val LIST_REL_lemma = prove(
       LIST_REL P xs ys ==>
       LIST_REL Q xs ys``,
   Induct \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []);
-(*TODO move*)
-Theorem domain_fromAList_toAList:
-  domain (fromAList (toAList l)) = domain l
-Proof
-  fs[domain_fromAList,set_MAP_FST_toAList_domain]
-QED
 
 fun uncurry_case_rand x = x
                          |> TypeBase.case_rand_of
