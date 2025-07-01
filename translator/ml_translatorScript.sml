@@ -90,6 +90,11 @@ Definition WORD_def:
                      else Word64 (w2w w << (64 - dimindex (:'a)))))
 End
 
+Definition FLOAT64_def:
+  FLOAT64 (f:(52,11)float) =
+    λv:v. v = Litv (Float64 (machine_ieee$float_to_fp64 f))
+End
+
 Definition CHAR_def:
   CHAR (c:char) = \v:v. (v = Litv (Char c))
 End

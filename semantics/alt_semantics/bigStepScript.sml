@@ -154,6 +154,13 @@ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
 ==>
 evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
+/\ (! ck env op es vs s1 s2.
+      evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
+      do_app (s2.refs,s2.ffi) op (REVERSE vs) = NONE /\
+      ¬opClass op FunApp
+==>
+      evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
+
 /\ (! ck env op es err s1 s2.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rerr err))
 ==>
