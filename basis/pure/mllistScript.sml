@@ -1,7 +1,7 @@
 (*
   Pure functions for the List module.
 *)
-open preamble
+open preamble mergesortTheory
 
 val _ = new_theory"mllist"
 
@@ -343,5 +343,9 @@ Proof
   \\ Induct_on ‘xs’
   \\ rw[flat_rev'_def, flat_rev'_lemma, REV_REVERSE_LEM]
 QED
+
+Definition sort_def:
+  sort = mergesort$mergesort_tail
+End
 
 val _ = export_theory()
