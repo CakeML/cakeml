@@ -4627,7 +4627,6 @@ QED
 Theorem assign_WordToInt:
    op = WordOp WordToInt ==> ^assign_thm_goal
 Proof
-  cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
@@ -4635,7 +4634,7 @@ Proof
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app,oneline do_word_app_def,allowed_op_def]
-  \\ every_case_tac \\ fs[]
+  \\ gvs [AllCaseEqs()]
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
@@ -4673,7 +4672,7 @@ Proof
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
     \\ drule0 memory_rel_Word64_IMP \\ fs [] \\ strip_tac
-    \\ fs [get_vars_def]
+    \\ fs [get_vars_def,GSYM wordSemTheory.get_var_def]
     \\ rpt_drule0 get_var_get_real_addr_lemma
     \\ disch_then kall_tac
     \\ fs [WORD_MUL_LSL]
@@ -4699,7 +4698,8 @@ Proof
            AP_TERM_TAC)
       \\ fs [FAPPLY_FUPDATE_THM]
       \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-      \\ Cases_on `c'` \\ rfs [word_extract_n2w,dimword_def,bitTheory.BITS_THM]
+      \\ rename [‘_ = w2n ccc’]
+      \\ Cases_on `ccc` \\ rfs [word_extract_n2w,dimword_def,bitTheory.BITS_THM]
       \\ fs [DIV_MOD_MOD_DIV]
       \\ `0 < 4294967296n` by fs []
       \\ drule0 DIVISION
@@ -4727,7 +4727,8 @@ Proof
         \\ qexists_tac`x.space` \\ fs[] )
       \\ simp[Abbr`sn`,Abbr`i`]
       \\ fs [Smallnum_def]
-      \\ Cases_on `c'` \\ fs []
+      \\ rename [‘(31 >< 0) ccc ≪ 2 = _’]
+      \\ Cases_on `ccc` \\ fs []
       \\ fs [word_extract_n2w,WORD_MUL_LSL,word_mul_n2w,
              bitTheory.BITS_THM2,dimword_def] \\ rfs []
       \\ fs [DIV_MOD_MOD_DIV]
@@ -4745,7 +4746,8 @@ Proof
       \\ pop_assum drule0
       \\ impl_tac THEN1 (
         fs [consume_space_def]
-        \\ Cases_on `c'` \\ fs []
+        \\ rename [‘(&w2n ((31 >< 0) ccc))’]
+        \\ Cases_on `ccc` \\ fs []
         \\ fs [word_extract_n2w,WORD_MUL_LSL,word_mul_n2w,
                bitTheory.BITS_THM2,dimword_def] \\ rfs []
         \\ fs [DIV_MOD_MOD_DIV]
@@ -4768,18 +4770,25 @@ Proof
            AP_TERM_TAC)
       \\ fs [FAPPLY_FUPDATE_THM]
       \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-      \\ Cases_on `c'` \\ fs []
+      \\ rename [‘w2n ((31 >< 0) ccc) = w2n ccc’]
+      \\ Cases_on `ccc` \\ fs []
       \\ fs [word_extract_n2w,WORD_MUL_LSL,word_mul_n2w,
              bitTheory.BITS_THM2,dimword_def] \\ rfs []
       \\ fs [DIV_MOD_MOD_DIV]
       \\ fs [DIV_EQ_X] \\ rfs []))
   \\ BasicProvers.TOP_CASE_TAC >-
       (simp[]>>
-       conj_tac >- metis_tac[consume_space_stack_max,backendPropsTheory.option_le_trans,option_le_max_right] >>
-       strip_tac >> spose_not_then strip_assume_tac >>
-       fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
+       conj_tac >- metis_tac[consume_space_stack_max,
+                             backendPropsTheory.option_le_trans,option_le_max_right] >>
+       qsuff_tac ‘F’ >- simp [] >>
+       pop_assum mp_tac >>
+       gvs [encode_header_def,good_dimindex_def,dimword_def] >>
+       gvs [limits_inv_def] >>
+       gvs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
           memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-       rveq >> rfs[])
+       irule LESS_LESS_EQ_TRANS >>
+       qexists_tac ‘2 ** 2’ >>
+       gvs [])
   \\ `dimindex (:'a) = 64` by fs [good_dimindex_def] \\ simp []
   \\ simp[list_Seq_def]
   \\ simp[Once wordSemTheory.evaluate_def]
@@ -4809,13 +4818,14 @@ Proof
       \\ match_mp_tac (GEN_ALL memory_rel_less_space)
       \\ qexists_tac`x.space` \\ fs[] )
     \\ simp[Abbr`sn`,Abbr`i`]
+    \\ rename [‘w2w ccc ⋙ 61 = 0w’]
     \\ reverse conj_tac
-    >- (`c' >>> 61 = 0w`
+    >- (`ccc >>> 61 = 0w`
         by (qpat_x_assum `w2w c' >>> 61 = 0w` mp_tac
             \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][])
         \\ simp[small_int_def,wordsTheory.dimword_def]
         \\ wordsLib.n2w_INTRO_TAC 64
-        \\ qpat_x_assum `c' >>> 61 = 0w` mp_tac
+        \\ qpat_x_assum `ccc >>> 61 = 0w` mp_tac
         \\ blastLib.BBLAST_TAC)
     \\ simp_tac(std_ss++wordsLib.WORD_MUL_LSL_ss)
          [Smallnum_i2w,GSYM integerTheory.INT_MUL,
@@ -4849,7 +4859,7 @@ Proof
   \\ qmatch_asmsub_abbrev_tac`Number w2`
   \\ `w1 = w2` suffices_by simp[]
   \\ simp[Abbr`w1`,Abbr`w2`]
-  \\ simp[w2n_w2w] *)
+  \\ simp[w2n_w2w]
 QED
 
 Theorem push_env_tstamps:
