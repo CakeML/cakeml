@@ -5,22 +5,11 @@
 open preamble evaluateTheory
      namespaceTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     fpSemPropsTheory evaluatePropsTheory;
+     fpSemPropsTheory evaluatePropsTheory extension_astTheory;
 
 (* TODO Proofs may rely on auto-generated names; fix using rename/namedCases *)
 (* TODO Move to evaluateProps *)
 val _ = new_theory "extension_evaluateProps";
-
-Definition Seqs_def:
-  Seqs [] = Con NONE [] ∧
-  Seqs (x::xs) = Let NONE x (Seqs xs)
-End
-
-(* TODO rename apps -> Apps *)
-Definition apps_def:
-  apps f [] = f ∧
-  apps f (x::xs) = apps (App Opapp [f; x]) xs
-End
 
 Theorem apps_append:
   ∀xs ys f. apps f (xs ++ ys) = apps (apps f xs) ys
@@ -44,11 +33,6 @@ Proof
   \\ last_x_assum drule
   \\ strip_tac \\ gvs []
 QED
-
-Definition Funs_def:
-  Funs [] e = e ∧
-  Funs (x::xs) e = Fun x (Funs xs e)
-End
 
 Theorem evaluate_apps_Funs:
   ∀l x ns vs (st: 'ffi state) s1 s2 env env1 e.

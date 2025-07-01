@@ -6,6 +6,7 @@ open preamble
 open dafny_freshenTheory
 open mlstringTheory
 open mlintTheory
+open dafny_astTheory
 open dafny_evaluateTheory
 open dafny_semanticPrimitivesTheory
 open dafny_evaluatePropsTheory
@@ -1224,6 +1225,17 @@ Proof
   \\ gvs [evaluate_stmt_def, freshen_stmt_def]
 QED
 
+Triviality MAP_member_name_MAP_freshen_member_eq:
+  ∀members.
+    (MAP member_name (MAP freshen_member members)) =
+    (MAP member_name members)
+Proof
+  Induct \\ simp []
+  \\ Cases \\ simp [freshen_member_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ simp [member_name_def]
+QED
+
 (* Correctness of the freshen pass. *)
 Theorem correct_freshen_program:
   ∀is_running prog s r.
@@ -1231,14 +1243,19 @@ Theorem correct_freshen_program:
     r ≠ Rstop (Serr Rtype_error) ⇒
     evaluate_program is_running (freshen_program prog) = (s, r)
 Proof
-  rpt strip_tac \\ gvs [evaluate_program_def]
+  rpt strip_tac
+  \\ namedCases_on ‘prog’ ["members"]
+  \\ gvs [evaluate_program_def, freshen_program_def,
+          MAP_member_name_MAP_freshen_member_eq]
+  \\ IF_CASES_TAC \\ gvs []
   \\ ‘state_rel init_state init_state [] 0’ by
        gvs [state_rel_def, init_state_def, locals_rel_def, map_inv_def]
   \\ ‘freshen_stmt [] 0 (MetCall [] «Main» []) = (0, MetCall [] «Main» [])’ by
        gvs [freshen_stmt_def, freshen_lhs_exps_def, freshen_exp_def]
   \\ ‘env_rel
-        (mk_env is_running prog) (mk_env is_running (freshen_program prog))’ by
-       gvs [env_rel_def, mk_env_def]
+        (mk_env is_running (Program members))
+        (mk_env is_running (Program (MAP freshen_member members)))’ by
+    (gvs [freshen_program_def, env_rel_def, mk_env_def])
   \\ drule_all correct_freshen_stmt
   \\ rpt strip_tac \\ gvs []
   \\ imp_res_tac evaluate_stmt_locals
