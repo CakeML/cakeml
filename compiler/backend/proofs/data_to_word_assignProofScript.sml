@@ -11799,25 +11799,25 @@ QED
 Theorem assign_GlobalsPtr:
    op = GlobOp GlobalsPtr ==> ^assign_thm_goal
 Proof
-  cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
-  \\ rpt var_eq_tac
-  \\ fs [assign_def]
-  \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
-  \\ fs [state_rel_def]
+  \\ fs [do_app,allowed_op_def]
+  \\ gvs [AllCaseEqs()]
+  \\ fs [assign_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
+         wordSemTheory.get_store_def,wordSemTheory.set_var_def]
+  \\ fs [state_rel_thm,set_var_def]
   \\ fs [the_global_def,miscTheory.the_def]
   \\ fs [FLOOKUP_DEF,wordSemTheory.set_var_def,lookup_insert,
          adjust_var_11,miscTheory.the_def,set_var_def]
-  \\ rw [] \\ fs [option_le_max_right]
-  \\ asm_exists_tac \\ fs []
+  \\ conj_tac >- rw []
+  \\ conj_tac >- fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ match_mp_tac word_ml_inv_insert \\ fs []
-  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
-  \\ fs [] \\ rw [] \\ fs [] *)
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ pop_assum mp_tac
+  \\ match_mp_tac memory_rel_rearrange
+  \\ fs [] \\ rw [] \\ fs [the_def]
 QED
 
 Theorem assign_Global:
@@ -11913,22 +11913,17 @@ QED
 Theorem assign_SetGlobalsPtr:
    op = GlobOp SetGlobalsPtr ==> ^assign_thm_goal
 Proof
-  cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ fs [do_app,allowed_op_def] \\ every_case_tac \\ fs []
-  \\ rpt var_eq_tac
+  \\ fs [do_app,allowed_op_def]
+  \\ gvs [AllCaseEqs()]
+  \\ drule_all state_rel_get_vars_IMP \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH
+  \\ gvs [LENGTH_EQ_NUM_compute]
   \\ fs [assign_def]
-  \\ imp_res_tac get_vars_SING \\ fs []
-  \\ `args <> []` by (strip_tac \\ fs [dataSemTheory.get_vars_def])
   \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,Unit_def]
-  \\ imp_res_tac state_rel_get_vars_IMP
-  \\ Cases_on `ws` \\ fs [LENGTH_NIL] \\ rpt var_eq_tac
-  \\ pop_assum (fn th => assume_tac th THEN mp_tac th)
-  \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
-  \\ every_case_tac \\ fs [] \\ rpt var_eq_tac
   \\ ‘isWord h’ by
    (fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
          adjust_var_11,miscTheory.the_def,set_var_def,
@@ -11941,19 +11936,21 @@ Proof
     \\ gvs [word_ml_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
     \\ fs [word_addr_def,isWord_def])
   \\ Cases_on ‘h’ \\ fs [isWord_def]
+  \\ gvs [wordSemTheory.get_vars_def,AllCaseEqs()]
   \\ rename [‘_ = SOME (Word www)’]
-  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm,option_le_max_right]
+  \\ eval_tac \\ fs [state_rel_thm,option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ disch_then drule0 \\ fs []
   \\ imp_res_tac get_vars_1_IMP \\ fs []
   \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
+  \\ rename [‘(real_addr c (adjust_var y))’]
   \\ strip_tac
   \\ drule_all memory_rel_RefPtr_IMP' \\ strip_tac
   \\ ‘word_exp (set_store Globals (Word www) t) (real_addr c (adjust_var y)) =
       word_exp t (real_addr c (adjust_var y))’ by
-      (rw[wordSemTheory.set_store_def,wordSemTheory.word_exp_def,real_addr_def]>>
-      simp[FLOOKUP_UPDATE])
+      (rw[wordSemTheory.set_store_def,wordSemTheory.word_exp_def,real_addr_def,
+          wordSemTheory.get_store_def,FLOOKUP_SIMP])
   \\ first_assum (mp_then (Pos last) mp_tac get_real_addr_lemma)
   \\ gvs []
   \\ disch_then (qspec_then ‘adjust_var y’ mp_tac)
@@ -11987,7 +11984,7 @@ Proof
   \\ match_mp_tac word_ml_inv_Unit
   \\ pop_assum mp_tac \\ fs []
   \\ match_mp_tac word_ml_inv_rearrange \\ rw [] \\ fs []
-  \\ fs [FAPPLY_FUPDATE_THM] *)
+  \\ fs [FAPPLY_FUPDATE_THM]
 QED
 
 Theorem IMP:
