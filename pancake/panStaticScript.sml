@@ -808,69 +808,184 @@ Definition static_check_prog_def:
               ; var_delta  := empty mlstring$compare
               ; curr_loc   := ctxt.loc |>
     od ∧
-  static_check_prog ctxt (Store addr exp) =
+      static_check_prog ctxt (AssignCall (Local,rt) hdl trgt args) =
     do
-      (* check address and value exps *)
-      aret <- static_check_exp ctxt addr;
-      eret <- static_check_exp ctxt exp;
-      (* check address shape and references base *)
-      case aret.sh_based of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "store address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
-      | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
-      | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
-      | _               => return ();
-      (* return prog info *)
+      (* check for out of scope assignment *)
+      vinf <- scope_check_local_var ctxt rt;
+      (* check func ptr exp and arg exps *)
+      finf <- scope_check_fun_name ctxt trgt;
+      esret <- static_check_exps ctxt args;
+      (* check for shape match *)
+      if ~(sh_based_has_shape finf.ret_shape vinf.vsh_based)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "call result assigned to local variable "; rt;
+           strlit " does not match declared shape in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
+      (* check arg num and shapes *)
+      check_func_args ctxt trgt finf.params esret.sh_baseds;
+      (* check exception handling info *)
+      case hdl of
+      | NONE => return ()
+        (* check for out of scope exception variable *)
+      | SOME (eid, evar, p) =>
+          do
+            evinf <- scope_check_local_var ctxt evar;
+            static_check_prog (ctxt with locals := insert ctxt.locals evar (evinf with <| vsh_based := sh_based_set Trusted evinf.vsh_based |>)) p;
+            return ()
+          od;
+      (* return prog info with updated var *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
+              ; var_delta  := singleton mlstring$compare rt (vinf with <| vsh_based := sh_based_set Trusted vinf.vsh_based |>)
+              ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (AssignCall (Global,rt) hdl trgt args) =
+    do
+      (* check for out of scope assignment *)
+      vinf <- scope_check_global_var ctxt rt;
+      (* check func ptr exp and arg exps *)
+      finf <- scope_check_fun_name ctxt trgt;
+      esret <- static_check_exps ctxt args;
+      (* check for shape match *)
+      if ~(vinf.glob_shape = finf.ret_shape)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "call result assigned to global variable "; rt;
+           strlit " does not match declared shape in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
+      (* check arg num and shapes *)
+      check_func_args ctxt trgt finf.params esret.sh_baseds;
+      (* check exception handling info *)
+      case hdl of
+        NONE => return ()
+        (* check for out of scope exception variable *)
+      | SOME (eid, evar, p) =>
+          do
+            evinf <- scope_check_local_var ctxt evar;
+            static_check_prog (ctxt with locals := insert ctxt.locals evar (evinf with <| based := Trusted |>)) p;
+            return ()
+          od;
+      (* return prog info with updated var *)
       return <| exits_fun  := F
               ; exits_loop := F
               ; last       := OtherLast
               ; var_delta  := empty mlstring$compare
               ; curr_loc   := ctxt.loc |>
     od ∧
-  static_check_prog ctxt (Store32 addr exp) =
+  static_check_prog ctxt (AssignCall rt hdl trgt args) =
     do
-      (* check address and value exps *)
-      aret <- static_check_exp ctxt addr;
-      eret <- static_check_exp ctxt exp;
-      (* check address shape and references base *)
-      case aret.sh_based of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "store address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
-      | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
-      | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
-      | _               => return ();
-      (* check value shape *)
-      if ~(sh_based_has_shape One eret.sh_based)
+      (* check for out of scope assignment *)
+      vinf <- scope_check_local_var ctxt rt;
+      (* check func ptr exp and arg exps *)
+      finf <- scope_check_fun_name ctxt trgt;
+      esret <- static_check_exps ctxt args;
+      (* check for shape match *)
+      if ~(sh_based_has_shape finf.ret_shape vinf.vsh_based)
         then error (ShapeErr $ concat
-          [ctxt.loc; strlit "store value is not a word in ";
+          [ctxt.loc; strlit "call result assigned to local variable "; rt;
+           strlit " does not match declared shape in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
+      (* check arg num and shapes *)
+      check_func_args ctxt trgt finf.params esret.sh_baseds;
+      (* check exception handling info *)
+      case hdl of
+      | NONE => return ()
+        (* check for out of scope exception variable *)
+      | SOME (eid, evar, p) =>
+          do
+            evinf <- scope_check_local_var ctxt evar;
+            static_check_prog (ctxt with locals := insert ctxt.locals evar (evinf with <| vsh_based := sh_based_set Trusted evinf.vsh_based |>)) p;
+            return ()
+          od;
+      (* return prog info with updated var *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
+              ; var_delta  := singleton mlstring$compare rt (vinf with <| vsh_based := sh_based_set Trusted vinf.vsh_based |>)
+              ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (Return rt) =
+    do
+      (* check return value exp *)
+      eret <- static_check_exp ctxt rt;
+      (* lookup current function info *)
+      finf <- case ctxt.scope of
+              | FunScope fname => scope_check_fun_name ctxt fname
+              (* should never occur if static checker implemented correctly *)
+              | _ => error (GenErr $ strlit "return found outside function scope");
+      (* check for shape match *)
+      if ~(sh_based_has_shape finf.ret_shape eret.sh_based)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "expression to return does not match declared shape in ";
            get_scope_desc ctxt.scope; strlit "\n"])
       else return ();
       (* return prog info *)
+      return <| exits_fun  := T
+              ; exits_loop := F
+              ; last       := RetLast
+              ; var_delta  := empty mlstring$compare
+              ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (TailCall trgt args) =
+    do
+      (* lookup current function info *)
+      finf <- case ctxt.scope of
+              | FunScope fname => scope_check_fun_name ctxt fname
+              | _ => error (GenErr $ strlit "tail call found outside function scope");
+      (* check func ptr exp and arg exps *)
+      finf' <- scope_check_fun_name ctxt trgt;
+      esret <- static_check_exps ctxt args;
+      (* check for shape match *)
+      if ~(finf.ret_shape = finf'.ret_shape)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "call result to return does not match declared shape in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
+      (* check arg num and shapes *)
+      check_func_args ctxt trgt finf.params esret.sh_baseds;
+      (* return prog info *)
+      return <| exits_fun  := T
+              ; exits_loop := F
+              ; last       := TailLast
+              ; var_delta  := empty mlstring$compare
+              ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (StandAloneCall hdl trgt args) =
+    do
+      (* check func ptr exp and arg exps *)
+      finf <- scope_check_fun_name ctxt trgt;
+      esret <- static_check_exps ctxt args;
+      (* check arg num and shapes *)
+      check_func_args ctxt trgt finf.params esret.sh_baseds;
+      (* check exception handling info *)
+      case hdl of
+      | NONE => return ()
+        (* check for out of scope exception variable *)
+      | SOME (eid, evar, p) =>
+          do
+            evinf <- scope_check_local_var ctxt evar;
+            static_check_prog (ctxt with locals := insert ctxt.locals evar (evinf with <| vsh_based := sh_based_set Trusted evinf.vsh_based |>)) p;
+            return ()
+          od;
+      (* return prog info *)
       return <| exits_fun  := F
               ; exits_loop := F
               ; last       := OtherLast
               ; var_delta  := empty mlstring$compare
               ; curr_loc   := ctxt.loc |>
     od ∧
-  static_check_prog ctxt (StoreByte addr exp) =
+  static_check_prog ctxt (ExtCall fname ptr1 len1 ptr2 len2) =
     do
-      (* check address and value exps *)
-      aret <- static_check_exp ctxt addr;
-      eret <- static_check_exp ctxt exp;
-      (* check address shape and references base *)
-      case aret.sh_based of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "store address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
-      | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
-      | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
-      | _               => return ();
-      (* check value shape *)
-      if ~(sh_based_has_shape One eret.sh_based)
+      (* check arg exps *)
+      esret <- static_check_exps ctxt [ptr1;len1;ptr2;len2];
+      (* check arg shapes *)
+      if ~(EVERY (sh_based_has_shape One) esret.sh_baseds)
         then error (ShapeErr $ concat
-          [ctxt.loc; strlit "store value is not a word in ";
+          [ctxt.loc; strlit "FFI call to "; fname;
+           strlit " given a non-word operand in ";
            get_scope_desc ctxt.scope; strlit "\n"])
       else return ();
       (* return prog info *)
@@ -983,143 +1098,6 @@ Definition static_check_prog_def:
               ; var_delta  := empty mlstring$compare
               ; curr_loc   := ctxt.loc |>
     od ∧
-  static_check_prog ctxt (TailCall trgt args) =
-    do
-      (* lookup current function info *)
-      finf <- case ctxt.scope of
-              | FunScope fname => scope_check_fun_name ctxt fname
-              | _ => error (GenErr $ strlit "tail call found outside function scope");
-      (* check func ptr exp and arg exps *)
-      finf' <- scope_check_fun_name ctxt trgt;
-      esret <- static_check_exps ctxt args;
-      (* check for shape match *)
-      if ~(finf.ret_shape = finf'.ret_shape)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "call result to return does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
-      else return ();
-      (* check arg num and shapes *)
-      check_func_args ctxt trgt finf.params esret.sh_baseds;
-      (* return prog info *)
-      return <| exits_fun  := T
-              ; exits_loop := F
-              ; last       := TailLast
-              ; var_delta  := empty mlstring$compare
-              ; curr_loc   := ctxt.loc |>
-    od ∧
-  static_check_prog ctxt (AssignCall (Local,rt) hdl trgt args) =
-    do
-      (* check for out of scope assignment *)
-      vinf <- scope_check_local_var ctxt rt;
-      (* check func ptr exp and arg exps *)
-      finf <- scope_check_fun_name ctxt trgt;
-      esret <- static_check_exps ctxt args;
-      (* check for shape match *)
-      if ~(sh_based_has_shape finf.ret_shape vinf.vsh_based)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "call result assigned to local variable "; rt;
-           strlit " does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
-      else return ();
-      (* check arg num and shapes *)
-      check_func_args ctxt trgt finf.params esret.sh_baseds;
-      (* check exception handling info *)
-      case hdl of
-      | NONE => return ()
-        (* check for out of scope exception variable *)
-      | SOME (eid, evar, p) =>
-          do
-            evinf <- scope_check_local_var ctxt evar;
-            static_check_prog (ctxt with locals := insert ctxt.locals evar (evinf with <| vsh_based := sh_based_set Trusted evinf.vsh_based |>)) p;
-            return ()
-          od;
-      (* return prog info with updated var *)
-      return <| exits_fun  := F
-              ; exits_loop := F
-              ; last       := OtherLast
-              ; var_delta  := singleton mlstring$compare rt (vinf with <| vsh_based := sh_based_set Trusted vinf.vsh_based |>)
-              ; curr_loc   := ctxt.loc |>
-    od ∧
-  static_check_prog ctxt (AssignCall (Global,rt) hdl trgt args) =
-    do
-      (* check for out of scope assignment *)
-      vinf <- scope_check_global_var ctxt rt;
-      (* check func ptr exp and arg exps *)
-      finf <- scope_check_fun_name ctxt trgt;
-      esret <- static_check_exps ctxt args;
-      (* check for shape match *)
-      if ~(vinf.glob_shape = finf.ret_shape)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "return value assigned to global variable "; rt;
-           strlit " does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
-      else return ();
-      (* check arg shapes *)
-      if ~(finf.param_shapes = esret.exps_shape)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "arguments given to function "; trgt;
-           strlit " do not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
-      else return ();
-      (* check exception handling info *)
-      case hdl of
-        NONE => return ()
-        (* check for out of scope exception variable *)
-      | SOME (eid, evar, p) =>
-          do
-            evinf <- scope_check_local_var ctxt evar;
-            static_check_prog (ctxt with locals := insert ctxt.locals evar (evinf with <| based := Trusted |>)) p;
-            return ()
-          od;
-      (* return prog info with updated var *)
-      return <| exits_fun  := F
-              ; exits_loop := F
-              ; last       := OtherLast
-              ; var_delta  := empty mlstring$compare
-              ; curr_loc   := ctxt.loc |>
-    od ∧
-  static_check_prog ctxt (StandAloneCall hdl trgt args) =
-    do
-      (* check func ptr exp and arg exps *)
-      finf <- scope_check_fun_name ctxt trgt;
-      esret <- static_check_exps ctxt args;
-      (* check arg num and shapes *)
-      check_func_args ctxt trgt finf.params esret.sh_baseds;
-      (* check exception handling info *)
-      case hdl of
-      | NONE => return ()
-        (* check for out of scope exception variable *)
-      | SOME (eid, evar, p) =>
-          do
-            evinf <- scope_check_local_var ctxt evar;
-            static_check_prog (ctxt with locals := insert ctxt.locals evar (evinf with <| vsh_based := sh_based_set Trusted evinf.vsh_based |>)) p;
-            return ()
-          od;
-      (* return prog info *)
-      return <| exits_fun  := F
-              ; exits_loop := F
-              ; last       := OtherLast
-              ; var_delta  := empty mlstring$compare
-              ; curr_loc   := ctxt.loc |>
-    od ∧
-  static_check_prog ctxt (ExtCall fname ptr1 len1 ptr2 len2) =
-    do
-      (* check arg exps *)
-      esret <- static_check_exps ctxt [ptr1;len1;ptr2;len2];
-      (* check arg shapes *)
-      if ~(EVERY (sh_based_has_shape One) esret.sh_baseds)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "FFI call to "; fname;
-           strlit " given a non-word operand in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
-      else return ();
-      (* return prog info *)
-      return <| exits_fun  := F
-              ; exits_loop := F
-              ; last       := OtherLast
-              ; var_delta  := empty mlstring$compare
-              ; curr_loc   := ctxt.loc |>
-    od ∧
   static_check_prog ctxt (Raise eid excp) =
     do
       (* check exception value exp *)
@@ -1131,25 +1109,75 @@ Definition static_check_prog_def:
               ; var_delta  := empty mlstring$compare
               ; curr_loc   := ctxt.loc |>
     od ∧
-  static_check_prog ctxt (Return rt) =
+  static_check_prog ctxt (Store addr exp) =
     do
-      (* check return value exp *)
-      eret <- static_check_exp ctxt rt;
-      (* lookup current function info *)
-      finf <- case ctxt.scope of
-              | FunScope fname => scope_check_fun_name ctxt fname
-              (* should never occur if static checker implemented correctly *)
-              | _ => error (GenErr $ strlit "return found outside function scope");
-      (* check for shape match *)
-      if ~(sh_based_has_shape finf.ret_shape eret.sh_based)
+      (* check address and value exps *)
+      aret <- static_check_exp ctxt addr;
+      eret <- static_check_exp ctxt exp;
+      (* check address shape and references base *)
+      case aret.sh_based of
+      | StructB _        => error (ShapeErr $ concat
+                            [ctxt.loc; strlit "store address is not a word in ";
+                             get_scope_desc ctxt.scope; strlit "\n"])
+      | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
+      | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
+      | _               => return ();
+      (* return prog info *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
+              ; var_delta  := empty mlstring$compare
+              ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (Store32 addr exp) =
+    do
+      (* check address and value exps *)
+      aret <- static_check_exp ctxt addr;
+      eret <- static_check_exp ctxt exp;
+      (* check address shape and references base *)
+      case aret.sh_based of
+      | StructB _        => error (ShapeErr $ concat
+                            [ctxt.loc; strlit "store address is not a word in ";
+                             get_scope_desc ctxt.scope; strlit "\n"])
+      | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
+      | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
+      | _               => return ();
+      (* check value shape *)
+      if ~(sh_based_has_shape One eret.sh_based)
         then error (ShapeErr $ concat
-          [ctxt.loc; strlit "expression to return does not match declared shape in ";
+          [ctxt.loc; strlit "store value is not a word in ";
            get_scope_desc ctxt.scope; strlit "\n"])
       else return ();
       (* return prog info *)
-      return <| exits_fun  := T
+      return <| exits_fun  := F
               ; exits_loop := F
-              ; last       := RetLast
+              ; last       := OtherLast
+              ; var_delta  := empty mlstring$compare
+              ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (StoreByte addr exp) =
+    do
+      (* check address and value exps *)
+      aret <- static_check_exp ctxt addr;
+      eret <- static_check_exp ctxt exp;
+      (* check address shape and references base *)
+      case aret.sh_based of
+      | StructB _        => error (ShapeErr $ concat
+                            [ctxt.loc; strlit "store address is not a word in ";
+                             get_scope_desc ctxt.scope; strlit "\n"])
+      | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
+      | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
+      | _               => return ();
+      (* check value shape *)
+      if ~(sh_based_has_shape One eret.sh_based)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "store value is not a word in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
+      (* return prog info *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
               ; var_delta  := empty mlstring$compare
               ; curr_loc   := ctxt.loc |>
     od ∧
