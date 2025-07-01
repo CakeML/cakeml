@@ -2413,18 +2413,18 @@ Theorem CopyByteAdd_thm:
                        (OPTION_MAP2 $+ (stack_size s.stack)
                        (lookup ByteCopyAdd_location s.stack_size))|>)
 Proof
-  cheat (*
   ho_match_mp_tac word_copy_fwd_ind >>
   rw[]>>
   qpat_x_assum`A=SOME m1` mp_tac>>
   simp[Once word_copy_fwd_def]>>
   rpt (IF_CASES_TAC)>>rw[]
   >-
-    (fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]>>
-    EVAL_TAC>>fs[wordSemTheory.state_component_equality])
+    (fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,
+        wordSemTheory.get_var_def,asmTheory.word_cmp_def,wordSemTheory.get_vars_def]>>
+     EVAL_TAC>>fs[wordSemTheory.state_component_equality])
   >-
     (imp_res_tac get_var_to_word_exp>>
-    fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+    fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def,wordSemTheory.get_vars_def]>>
     simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
     simp[good_dimindex_w2w_byte]>>
     simp[get_var_set_var_thm,get_var_consts]>>
@@ -2437,7 +2437,7 @@ Proof
     (FULL_CASE_TAC>>fs[]
     >-
       (imp_res_tac get_var_to_word_exp>>
-      fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+      fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def,wordSemTheory.get_vars_def]>>
       simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
       simp[good_dimindex_w2w_byte]>>
       simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
@@ -2450,7 +2450,7 @@ Proof
       fs[])
     >>
       (imp_res_tac get_var_to_word_exp>>
-      fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+      fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def,wordSemTheory.get_vars_def]>>
       simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
       simp[good_dimindex_w2w_byte]>>
       simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
@@ -2465,7 +2465,7 @@ Proof
       fs[]))
   >>
     (imp_res_tac get_var_to_word_exp>>
-    simp[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+    simp[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def,wordSemTheory.get_vars_def]>>
     simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
     simp[good_dimindex_w2w_byte]>>
     simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
@@ -2498,7 +2498,7 @@ Proof
       simp[wordSemTheory.get_var_def,lookup_fromList2,lookup_fromList,set_var_consts])>>
     rw[]>>
     unabbrev_all_tac>>simp[wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]>>
-    simp[wordSemTheory.state_component_equality,wordSemTheory.set_var_def]) *)
+    simp[wordSemTheory.state_component_equality,wordSemTheory.set_var_def])
 QED
 
 Theorem CopyByteSub_thm:
@@ -2526,18 +2526,18 @@ Theorem CopyByteSub_thm:
                        (OPTION_MAP2 $+ (stack_size s.stack)
                        (lookup ByteCopySub_location s.stack_size))|>)
 Proof
-  cheat (*
   ho_match_mp_tac word_copy_bwd_ind >>
   rw[]>>
   qpat_x_assum`A=SOME m1` mp_tac>>
   simp[Once word_copy_bwd_def]>>
   rpt (IF_CASES_TAC)>>rw[]
   >-
-    (fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]>>
+    (fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,
+        wordSemTheory.get_vars_def]>>
     EVAL_TAC>>fs[wordSemTheory.state_component_equality])
   >-
     (imp_res_tac get_var_to_word_exp>>
-    fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+    fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def,wordSemTheory.get_vars_def]>>
     simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
     simp[good_dimindex_w2w_byte]>>
     simp[get_var_set_var_thm,get_var_consts]>>
@@ -2550,7 +2550,7 @@ Proof
     (FULL_CASE_TAC>>fs[]
     >-
       (imp_res_tac get_var_to_word_exp>>
-      fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+      fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def,wordSemTheory.get_vars_def]>>
       simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
       simp[good_dimindex_w2w_byte]>>
       simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
@@ -2563,7 +2563,7 @@ Proof
       fs[])
     >>
       (imp_res_tac get_var_to_word_exp>>
-      fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+      fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def,wordSemTheory.get_vars_def]>>
       simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
       simp[good_dimindex_w2w_byte]>>
       simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
@@ -2611,7 +2611,7 @@ Proof
       simp[wordSemTheory.get_var_def,lookup_fromList2,lookup_fromList,set_var_consts])>>
     rw[]>>
     unabbrev_all_tac>>simp[wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]>>
-    simp[wordSemTheory.state_component_equality,wordSemTheory.set_var_def]) *)
+    simp[wordSemTheory.state_component_equality,wordSemTheory.set_var_def])
 QED
 
 Theorem push_env_store:
@@ -4890,12 +4890,12 @@ Theorem FromList1_code_thm:
       k < r.clock ==>
       evaluate (Call NONE (SOME FromList1_location) [a1;a2;a3;a4;a5;a6] NONE,r) =
         (SOME (Result (Loc l1 l2) [ret_val]),
-         r with <| memory := m1 ; clock := r.clock - k - 1; locals := LN ; locals_size := SOME 0;
+         r with <| memory := m1 ; clock := r.clock - k - 1;
+                   locals := LN ; locals_size := SOME 0;
                    store := r.store |+ (NextFree, Word b1) ;
                    stack_max := OPTION_MAP2 MAX r.stack_max (OPTION_MAP2 $+ (stack_size r.stack)
                                 (lookup FromList1_location r.stack_size)) |>)
 Proof
-  cheat (*
   Induct \\ rw [] \\ simp [wordSemTheory.evaluate_def]
   \\ simp [wordSemTheory.get_vars_def,wordSemTheory.bad_dest_args_def,
         wordSemTheory.find_code_def,wordSemTheory.add_ret_loc_def]
@@ -4906,7 +4906,7 @@ Proof
   \\ strip_tac THEN1
    (rveq
     \\ simp [wordSemTheory.evaluate_def,wordSemTheory.call_env_def,
-             wordSemTheory.get_var_def,word_exp_rw,fromList2_def,
+             wordSemTheory.get_var_def,word_exp_rw,fromList2_def,wordSemTheory.get_vars_def,
              asmTheory.word_cmp_def,wordSemTheory.dec_clock_def,lookup_insert,
              wordSemTheory.mem_store_def,list_Seq_def,wordSemTheory.set_var_def,
              wordSemTheory.set_store_def]
@@ -4916,7 +4916,7 @@ Proof
   \\ qabbrev_tac `m9 = (b =+ x) r.memory`
   \\ ntac 2 (simp [Once list_Seq_def])
   \\ simp [wordSemTheory.evaluate_def,word_exp_rw,wordSemTheory.call_env_def,
-           wordSemTheory.get_var_def,word_exp_rw,fromList2_def,
+           wordSemTheory.get_var_def,word_exp_rw,fromList2_def,wordSemTheory.get_vars_def,
            wordSemTheory.mem_store_def,wordSemTheory.dec_clock_def,lookup_insert,
            wordSemTheory.set_var_def,asmTheory.word_cmp_def]
   \\ ntac 4 (simp [Once list_Seq_def])
@@ -4950,7 +4950,7 @@ Proof
     (strip_tac \\ fs [] \\ rw [wordSemTheory.state_component_equality,Abbr `r7`])
   \\ unabbrev_all_tac \\ fs []
   \\ fs [wordSemTheory.get_var_def,lookup_insert]
-  \\ fs [MULT_CLAUSES,GSYM word_add_n2w] *)
+  \\ fs [MULT_CLAUSES,GSYM word_add_n2w]
 QED
 
 Theorem FromList_thm:
@@ -4983,7 +4983,6 @@ Theorem FromList_thm:
                                            stack := s.stack|>)
                 r [(v,rv)] locs
 Proof
-  cheat (*
   fs [do_app_def,do_app_aux_def,do_space_def,
       dataLangTheory.op_space_reset_def]
   \\ Cases_on `v_to_list v2` \\ fs [with_fresh_ts_def]
@@ -5007,7 +5006,7 @@ Proof
     \\ fs [LENGTH_NIL] \\ rveq \\ rw []
     \\ fs [list_Seq_def,wordSemTheory.evaluate_def,word_exp_rw,
            wordSemTheory.get_var_def,adjust_var_def,wordSemTheory.set_var_def,
-           wordSemTheory.flush_state_def]
+           wordSemTheory.get_vars_def,wordSemTheory.flush_state_def]
     \\ rveq \\ fs [lookup_insert]
     \\ `lookup 0 t.locals = SOME (Loc l1 l2)` by fs [state_rel_def] \\ fs []
     \\ fs [state_rel_thm,wordSemTheory.call_env_def,lookup_def,with_fresh_ts_def]
@@ -5033,8 +5032,10 @@ Proof
   \\ rpt_drule0 state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_2]
   \\ rveq \\ fs [adjust_var_def,get_vars_SOME_IFF]
   \\ fs [get_vars_SOME_IFF_data]
+  \\ fs [GSYM wordSemTheory.get_var_def]
   \\ rpt_drule0 state_rel_get_var_Number_IMP_alt \\ fs []
   \\ strip_tac \\ rveq
+  \\ fs [GSYM wordSemTheory.get_var_def]
   \\ rpt_drule0 evaluate_BignumHalt2
   \\ reverse(Cases_on `small_int (:α) (&(LENGTH x))`)
   >- (fs[] >> strip_tac >> fs[] >>
@@ -5212,7 +5213,7 @@ Proof
       simp[size_of_stack_eq,option_le_max_right,option_le_max,option_map2_max_add,AC option_add_comm option_add_assoc,option_le_eq_eqns,option_map2_max_add,stack_size_eq])
   \\ drule0 memory_rel_zero_space
   \\ match_mp_tac memory_rel_rearrange
-  \\ fs [] \\ rw [] \\ fs [] *)
+  \\ fs [] \\ rw [] \\ fs []
 QED
 
 Theorem assign_FromList:
