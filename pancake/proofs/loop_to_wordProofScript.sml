@@ -513,6 +513,7 @@ QED
 
 Theorem compile_Store:
   ^(get_goal "loopLang$Store") ∧
+  ^(get_goal "loopLang$Store32") ∧
   ^(get_goal "loopLang$StoreByte")
 Proof
   rpt strip_tac >>
@@ -534,6 +535,32 @@ Proof
   fs [find_var_def, the_words_def, word_op_def] >>
   fs [get_var_def] >>
   fs [state_rel_def]
+QED
+
+Theorem compile_Load32:
+  ^(get_goal "loopLang$Load32")
+Proof
+  rpt strip_tac >>
+  fs [loopSemTheory.evaluate_def,
+      comp_def, evaluate_def] >>
+  fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
+  fs [inst_def, word_exp_def] >>
+  drule locals_rel_intro >>
+  strip_tac >>
+  res_tac >> fs [] >>
+  fs [find_var_def, the_words_def, word_op_def] >>
+  drule state_rel_intro >>
+  strip_tac >> fs [] >>
+  fs [loopSemTheory.set_var_def, set_var_def] >>
+  conj_tac >- fs [state_rel_def] >>
+  fs [loopLangTheory.acc_vars_def] >>
+  imp_res_tac find_var_neq_0 >>
+  fs [domain_lookup, lookup_insert, CaseEq "bool"] >>
+  conj_tac
+  >- (CCONTR_TAC >> res_tac >> fs []) >>
+  drule locals_rel_insert >>
+  disch_then (qspecl_then [‘Word (w2w b)’, ‘v’] mp_tac) >>
+  fs [domain_lookup, find_var_def]
 QED
 
 Theorem compile_LoadByte:
@@ -578,7 +605,7 @@ Proof
 QED
 
 Theorem acc_vars_acc'[local] =
-        acc_vars_acc |> CONV_RULE SWAP_FORALL_CONV |> SPEC “acc_vars q LN”;
+        acc_vars_acc |> CONV_RULE SWAP_FORALL_CONV |> SPEC “acc_vars (q:'a loopLang$prog) LN”;
 
 Theorem compile_If:
   ^(get_goal "loopLang$If")
@@ -1012,6 +1039,7 @@ Proof
        compile_Mark, compile_Return, compile_Assign, compile_Store,
        compile_SetGlobal, compile_Call, compile_Seq, compile_If,
        compile_FFI, compile_Loop, compile_LoadByte, compile_Arith,
+       compile_Load32,
        compile_ShMem])
   >> asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
@@ -1381,7 +1409,6 @@ Proof
   impl_tac >- fs [loopLangTheory.acc_vars_def] >>
   fs [comp_def] >>
   strip_tac >>
-  qmatch_assum_abbrev_tac`n < LENGTH (SND (wordSem$evaluate (exps,ss))).ffi.io_events` >>
   assume_tac (INST_TYPE [``:'a``|->``:'a``,
                          ``:'b``|->``:'c``,
                          ``:'c``|->``:'b``]
@@ -1900,7 +1927,8 @@ End
 
 Theorem loop_to_word_comp_every_inst_ok_less:
   ∀ctxt prog l.
-    byte_offset_ok c 0w ∧ every_prog (loop_inst_ok c) prog ∧
+    byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
+    every_prog (loop_inst_ok c) prog ∧
     domain(acc_vars prog LN) ⊆ domain ctxt ∧
     INJ (find_var ctxt) (domain ctxt) 𝕌(:num) ∧
     (∀n m. lookup n ctxt = SOME m ⇒ m ≠ 0)
@@ -1932,15 +1960,15 @@ Proof
        rename1 ‘SOME x’>>PairCases_on ‘x’)>>
   gs[]>>rpt (pairarg_tac>>gs[])>>
   gs[every_inst_def,
-     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars x (acc_vars y z))”,
-     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars x (insert y () z))”
+     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:'a loopLang$prog) (acc_vars (y:'a loopLang$prog) z))”,
+     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:'a loopLang$prog) (insert y () z))”
      ]
 QED
 
 Theorem loop_to_word_comp_func_every_inst_ok_less:
   comp_func n params body = p ∧
   every_prog (loop_inst_ok c) body ∧
-  byte_offset_ok c 0w ⇒
+  addr_offset_ok c 0w ∧ byte_offset_ok c 0w ⇒
   every_inst (inst_ok_less c) p
 Proof
   strip_tac>>gs[loop_to_wordTheory.comp_func_def]>>
@@ -1956,7 +1984,7 @@ QED
 
 Theorem loop_to_word_compile_prog_every_inst_ok_less:
   compile_prog lprog = wprog0 ∧
-  byte_offset_ok c 0w ∧
+  byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
   EVERY (λ(n,params,body). every_prog (loop_inst_ok c) body) lprog
   ⇒
   EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
@@ -2064,7 +2092,7 @@ QED
 
 Theorem loop_to_word_every_inst_ok_less:
   compile lprog = wprog0 ∧
-  byte_offset_ok c 0w ∧
+  byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
   EVERY (λ(n,params,body). every_prog (loop_inst_ok c) body) lprog ⇒
   EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
 Proof

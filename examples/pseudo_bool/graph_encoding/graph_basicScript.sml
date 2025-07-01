@@ -361,7 +361,7 @@ Theorem FLAT_GENLIST_APPEND_FOLDN:
   FLAT (GENLIST f n) ++ y =
   FOLDN (λu. $++ (f u)) n y
 Proof
-  Induct_on`n`>>rw[FOLDN_def,GENLIST]>>
+  Induct_on`n`>>rw[FOLDN_def,GENLIST,SNOC_APPEND]>>
   simp[FOLDN_APPEND]
 QED
 

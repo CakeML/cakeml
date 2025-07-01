@@ -700,7 +700,7 @@ Definition FV_def:
   (FV (Letrec defs b) = FV_defs defs ∪ FV b DIFF set (MAP (Short o FST) defs)) ∧
   (FV (Tannot e t) = FV e) ∧
   (FV (Lannot e l) = FV e) ∧
-  (FV (FpOptimise sc e) = FV e) ∧
+  (FV (FpOptimise fpopt e) = FV e) ∧
   (FV_list [] = {}) ∧
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧
@@ -709,12 +709,6 @@ Definition FV_def:
   (FV_defs [] = {}) ∧
   (FV_defs ((_,x,e)::defs) =
      (FV e DIFF {Short x}) ∪ FV_defs defs)
-Termination
-  WF_REL_TAC `inv_image $< (λx. case x of
-     | INL e => exp_size e
-     | INR (INL es) => exp6_size es
-     | INR (INR (INL pes)) => exp3_size pes
-     | INR (INR (INR (defs))) => exp1_size defs)`
 End
 val _ = export_rewrites["FV_def"]
 

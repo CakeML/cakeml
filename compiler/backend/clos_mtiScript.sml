@@ -74,20 +74,6 @@ Proof
  simp [exp_size_def]
 QED
 
-Theorem collect_apps_size:
-   !max_app args e args' e'.
-    (args', e') = collect_apps max_app args e ⇒
-    exp3_size args' + exp_size e' ≤ exp3_size args + exp_size e
-Proof
-   ho_match_mp_tac collect_apps_ind >>
-   simp [collect_apps_def, exp_size_def, basicSizeTheory.option_size_def] >>
-   srw_tac[][] >>
-   simp [exp_size_def, basicSizeTheory.option_size_def] >>
-   res_tac >>
-   full_simp_tac(srw_ss())[exp_size_def, exp3_size_append] >>
-   decide_tac
-QED
-
 Triviality collect_apps_more:
   !max_app args e args' e'.
     (args', e') = collect_apps max_app args e
@@ -99,6 +85,17 @@ Proof
   srw_tac[][] >>
   res_tac >>
   decide_tac
+QED
+
+Theorem collect_apps_size:
+   !max_app args e args' e'.
+    (args', e') = collect_apps max_app args e ⇒
+    list_size exp_size args' + exp_size e' ≤ list_size exp_size args + exp_size e
+Proof
+  ho_match_mp_tac collect_apps_ind >>
+  simp [collect_apps_def]>>
+  rw[]>>
+  first_x_assum drule>>gvs[list_size_APPEND]
 QED
 
 Definition intro_multi_def:
@@ -143,18 +140,14 @@ Definition intro_multi_def:
   (intro_multi max_app [Op t op es] =
     [Op t op (intro_multi max_app es)])
 Termination
-  WF_REL_TAC `measure (exp3_size o SND)` >>
-   srw_tac [ARITH_ss] [exp_size_def] >>
-   imp_res_tac collect_args_size >>
-   imp_res_tac collect_apps_size >>
-   TRY decide_tac >>
-   `num_args + exp_size e' ≤ exp1_size funs`
-           by (Induct_on `funs` >>
-               srw_tac[][exp_size_def] >>
-               srw_tac[][exp_size_def] >>
-               res_tac >>
-               decide_tac) >>
-   decide_tac
+  WF_REL_TAC `measure (list_size exp_size o SND)` >>
+  rw[]>>
+  imp_res_tac collect_args_size >>
+  imp_res_tac collect_apps_size >>
+  gvs[]>>
+  drule MEM_list_size>>
+  disch_then (qspec_then `pair_size (λx. x) exp_size` mp_tac)>>
+  simp[list_size_pair_size_MAP_FST_SND]
 End
 
 val intro_multi_ind = theorem "intro_multi_ind";

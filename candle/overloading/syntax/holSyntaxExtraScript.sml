@@ -7987,14 +7987,12 @@ Proof
   >- (
     fs[unify_types_invariant_def,EVERY_MEM]
     >> rw[MEM_MAP]
-    >> Cases_on `y`
+    >> rename [`MEM (q,r) l`]
     >> qpat_x_assum `!a b. (_ /\ _) \/ _ ==> _` (qspecl_then [`q`,`r`] mp_tac)
     >> rw[]
     >> NTAC 2 (
       qmatch_asmsub_rename_tac `subtype_at (TYPE_SUBST sigma x) _ = SOME in_x`
       >> qmatch_asmsub_rename_tac `subtype_at (TYPE_SUBST sigma y) _ = SOME in_y`
-      >> qmatch_asmsub_rename_tac `(subs_in_x, subs_in_y) = _ (in_x,in_y)`
-        ORELSE qmatch_asmsub_rename_tac `(subs_in_y, subs_in_x) = _ (in_y,in_x)`
       >> asm_exists_tac
       >> qexists_tac `p`
       >> rw[AC DISJ_ASSOC DISJ_COMM]
@@ -8198,9 +8196,11 @@ Proof
        fs[tyvars_def,MEM_FOLDR_LIST_UNION,EVERY_MEM] >>
        res_tac >>
        Cases_on `Tyvar a = y` >-
-         (rveq >> fs[MEM_SPLIT,type_size_def,type1_size_append]) >>
+         (rveq >> fs[MEM_SPLIT]>>
+          simp[list_size_APPEND]) >>
        res_tac >>
-       fs[MEM_SPLIT,type_size_def,type1_size_append]) >>
+       fs[MEM_SPLIT,list_size_APPEND]
+       ) >>
   first_x_assum drule_all >>
   `type_size(TYPE_SUBST s (Tyvar a)) = type_size(TYPE_SUBST s ty)`
     by rw[] >>
@@ -14531,12 +14531,7 @@ Definition tymatch_def:
   (tymatch (Tyapp c1 a1::ps) (Tyapp c2 a2::obs) sids =
    if c1=c2 then tymatch (a1++ps) (a2++obs) sids else NONE) ∧
   (tymatch _ _ _ = NONE)
-Termination
-  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (FST(SND x)))`
-  >> simp[type1_size_append]
 End
-
-val tymatch_ind = theorem "tymatch_ind";
 
 Definition arities_match_def:
   (arities_match [] [] ⇔ T) ∧
@@ -14545,10 +14540,7 @@ Definition arities_match_def:
   (arities_match (Tyapp c1 a1::xs) (Tyapp c2 a2::ys) ⇔
    ((c1 = c2) ⇒ arities_match a1 a2) ∧ arities_match xs ys) ∧
   (arities_match (_::xs) (_::ys) ⇔ arities_match xs ys)
-Termination
-  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (SND x))`
 End
-val arities_match_ind = theorem "arities_match_ind"
 
 Theorem arities_match_length:
    ∀l1 l2. arities_match l1 l2 ⇒ (LENGTH l1 = LENGTH l2)

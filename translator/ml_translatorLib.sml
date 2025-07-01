@@ -1755,7 +1755,6 @@ val th = inv_defs |> map #2 |> hd
     val (x1,x2) = cases_th |> CONJUNCTS |> hd |> concl |> repeat (snd o dest_forall)
                            |> dest_eq
     val case_const = x1 |> repeat rator
-    (* val _ = persistent_skip_case_const case_const *)
     val ty1 = case_const |> type_of |> domain
     val ty2 = x2 |> type_of
     val cases_th = INST_TYPE [ty2 |-> mk_vartype "'return_type"] cases_th
@@ -3634,8 +3633,8 @@ fun hol2deep tm =
     fun pat_match pat tm = (match_term pat tm; rator pat)
     val r = pat_match MAP_pattern tm handle HOL_ERR _ =>
             pat_match EVERY_pattern tm handle HOL_ERR _ =>
-         (* pat_match EXISTS_pattern tm handle HOL_ERR _ =>
-            pat_match FILTER_pattern tm handle HOL_ERR _ => *) fail()
+            pat_match EXISTS_pattern tm handle HOL_ERR _ =>
+          (* pat_match FILTER_pattern tm handle HOL_ERR _ => *) fail()
     val (m,f) = dest_comb tm
     val th_m = hol2deep r
     val (v,x) = dest_abs f

@@ -814,6 +814,11 @@ Proof
    rveq >> fs [mem_load_def])
   >- (
    rpt gen_tac >>
+   strip_tac >> fs [var_exp_def] >>
+   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   rveq >> fs [mem_load_def])
+  >- (
+   rpt gen_tac >>
    strip_tac >> fs [var_exp_def, ETA_AX] >>
    fs [eval_def, CaseEq "option", ETA_AX] >>
    qexists_tac ‘ws’ >>
@@ -916,6 +921,7 @@ Definition every_exp_def:
   (every_exp P (Struct es) = (P(Struct es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Field i e) = (P(Field i e) ∧ every_exp P e)) ∧
   (every_exp P (Load sh e) = (P(Load sh e) ∧ every_exp P e)) ∧
+  (every_exp P (Load32 e) = (P(Load32 e) ∧ every_exp P e)) ∧
   (every_exp P (LoadByte e) = (P(LoadByte e) ∧ every_exp P e)) ∧
   (every_exp P (Op bop es) = (P(Op bop es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Panop op es) = (P(Panop op es) ∧ EVERY (every_exp P) es)) ∧
@@ -942,6 +948,7 @@ Definition exps_of_def:
   (exps_of (Call (SOME (_ , NONE)) e es) = e::es) ∧
   (exps_of (DecCall _ _ e es p) = e::es++exps_of p) ∧
   (exps_of (Store e1 e2) = [e1;e2]) ∧
+  (exps_of (Store32 e1 e2) = [e1;e2]) ∧
   (exps_of (StoreByte e1 e2) = [e1;e2]) ∧
   (exps_of (Return e) = [e]) ∧
   (exps_of (ExtCall _ e1 e2 e3 e4) = [e1;e2;e3;e4]) ∧

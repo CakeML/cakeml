@@ -431,7 +431,9 @@ QED
 
 Theorem PAIR_MAP_I[local,simp]:
   (f ## I) x = (f (FST x), SND x) ⇔ T
-Proof simp[PAIR_MAP]
+Proof
+  PURE_REWRITE_TAC[PAIR_MAP]>>
+  rw[]
 QED
 
 Theorem bindNT0_lemma[local,simp] = REWRITE_RULE [GSYM mkNd_def] bindNT0_def
@@ -478,7 +480,7 @@ val pmap_cases =
 Theorem pmap_EQ_pair[simp,local]:
   (f ## g) p = (a,b) ⇔ ∃c d. p = (c,d) ∧ f c = a ∧ g d = b
 Proof
-  Cases_on ‘p’ >> simp[]
+  simp[]>>metis_tac[]
 QED
 
 Theorem pair_EQ_components[simp,local]:

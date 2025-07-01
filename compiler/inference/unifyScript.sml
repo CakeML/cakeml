@@ -2075,7 +2075,7 @@ Theorem t_vwalk_eqn:
     dtcase FLOOKUP s v of
       | NONE => Infer_Tuvar v
       | SOME (Infer_Tuvar u) => t_vwalk s u
-      | SOME (Infer_Tapp ts tc') => Infer_Tapp ts tc'
+      | SOME (Infer_Tapp ts tc) => Infer_Tapp ts tc
       | SOME (Infer_Tvar_db n) => Infer_Tvar_db n)
 Proof
 rw [t_vwalk_def] >>
@@ -2172,7 +2172,7 @@ Theorem t_oc_eqn:
   !t v. t_oc s t v =
     dtcase t_walk s t of
       | Infer_Tuvar u => v = u
-      | Infer_Tapp ts tc' => EXISTS (\t. t_oc s t v) ts
+      | Infer_Tapp ts tc => EXISTS (\t. t_oc s t v) ts
       | Infer_Tvar_db n => F
 Proof
 rw [t_oc_def] >>
@@ -3007,7 +3007,7 @@ rw [] >>
 imp_res_tac t_oc_eqn >>
 pop_assum (fn _ => all_tac) >>
 pop_assum (fn _ => all_tac) >>
-pop_assum (ASSUME_TAC o Q.SPECL [`uv`, `Infer_Tapp [] tc'`]) >>
+pop_assum (ASSUME_TAC o Q.SPECL [`uv`, `Infer_Tapp [] tc`]) >>
 rw [t_walk_eqn]
 QED
 

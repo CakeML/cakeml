@@ -2002,6 +2002,7 @@ fun derive_corr_thm const_def = let
                   [DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM,APPLY_UPDATE_THM]))
               \\ simp_tac std_ss [Once LET_THM]))
         \\ fs [] \\ rw []
+        \\ TRY (CHANGED_TAC (simp[oneline SND]) \\ TOP_CASE_TAC \\ fs[])
         \\ imp_res_tac single_add_word_imp_0_1
         \\ rw [] \\ TRY eq_tac \\ rw [] \\ fs [true_pres]
         \\ CONV_TAC sort_writes_conv \\ fs []
