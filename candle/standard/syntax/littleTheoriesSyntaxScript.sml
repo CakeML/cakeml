@@ -214,6 +214,12 @@ Proof
   metis_tac[REV_ASSOCD_MEM]
 QED
 
+Theorem neq_error:
+  (∀e. x ≠ error e) ⇔ ∃v. x = return v
+Proof
+  Cases_on ‘x’ >> rw[]
+QED
+
 Theorem vsubst_has_type:
   ∀ilist. t has_type τ ∧ vsubst_tys_ok ilist ⇒ (VSUBST ilist t) has_type τ
 Proof
@@ -293,37 +299,166 @@ Proof
   rw[vsubst_tys_ok_def]
 QED
 
+Theorem VSUBST_nil:
+  ∀tm. VSUBST [] tm = tm
+Proof
+  Induct_on ‘tm’ >> rw[VSUBST_def, REV_ASSOCD_def]
+QED
+
+Theorem term_ok_vsubst_variant:
+  ∀tm ty inst sig x σ. esubst_ty0 [] σ tm = return inst
+       ∧ term_ok sig tm
+       ∧ type_ok (tysof sig) ty
+       ⇒ term_ok sig (VSUBST [(Var (VARIANT inst (explode x) (ty_esubst σ ty)) ty,
+                               Var x ty)] tm)
+Proof
+  Induct_on ‘tm’
+  >> rw[esubst_ty0_def, REV_ASSOCD_def, VSUBST_def, term_ok_def]
+  >> rw[welltyped_comb_vsubst, term_ok_def, VSUBST_nil]
+  >> (irule term_ok_vsubst >> rw[vsubst_tys_ok_def, term_ok_def])
+QED
+
+Theorem VARIANT_ENV_THM:
+  ∀t x ty.
+    ¬VFREE_IN (Var (VARIANT t x ty env) ty) t
+    ∧ ¬(∃p. MEM (p, Var (VARIANT t x ty env) ty))
+Proof
+  cheat
+QED
+
+Theorem term_var_ok:
+  ∀n sig ty. type_ok (tysof sig) ty ⇒ term_ok sig (Var n ty)
+Proof
+  rw[term_ok_def]
+QED
+      
+Theorem variant_not_self:
+  ∀tm n ty. Var (VARIANT tm n ty) ty ≠ tm
+Proof
+  rw[] >> qspecl_then [‘tm’, ‘n’, ‘ty’] assume_tac VARIANT_THM
+  >> metis_tac[VFREE_IN_def]
+QED
+
+Theorem variant_name_not_self:
+  ∀n ty x. VARIANT (Var n ty) x ty ≠ n
+Proof
+  rw[] >> qspecl_then [‘Var n ty’, ‘x’, ‘ty’] assume_tac VARIANT_THM
+  >> metis_tac[VFREE_IN_def]
+QED
+
+Theorem bind_return_comb:
+  ∀a b q. (do
+            a' <- a;
+            b' <- b;
+            return (Comb a' b')
+          od = return q)
+          ⇒ ∃x y. a = return x ∧ b = return y ∧ q = Comb x y
+Proof
+  Cases_on ‘a’
+  >> Cases_on ‘b’
+  >> gvs[bind_EQ_error]
+QED
+
+Theorem VFREE_IN_VSUBST:
+  ∀tm ilist.
+    term_ok sig tm 
+    ∧ (∀v1 v2. MEM (v1, v2) ilist ⇒
+               ∃n1 t1 n2 t2. v1 = Var n1 t1 ∧ v2 = Var n2 t2 ∧ v1 ≠ v)
+    ∧ VFREE_IN v (VSUBST ilist tm) ⇒ VFREE_IN v tm
+Proof
+  Induct_on ‘tm’ >> rw[VSUBST_def, VFREE_IN_def, term_ok_def]
+  >- (Cases_on ‘REV_ASSOCD (Var m t) ilist (Var m t) = Var m t’ >> gvs[]
+      >> drule rev_assocd_neq_mem >> rw[]
+      >> first_x_assum drule >> rw[] >> gvs[])
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (gvs[dest_var_def, term_ok_def, EXISTS_MEM, MEM_FILTER]
+      >> ‘∃en1 ety1 en2 ety2. e = (Var en1 ety1, Var en2 ety2)’ by metis_tac[PAIR]
+      >> gvs[] >> strip_tac >> gvs[] >> first_x_assum drule >> rw[])
+  >- (gvs[dest_var_def, term_ok_def, EXISTS_MEM, MEM_FILTER]
+      >> ‘∃en1 ety1 en2 ety2. e = (Var en1 ety1, Var en2 ety2)’ by metis_tac[PAIR]
+      >> gvs[] >> first_x_assum irule >> first_assum $ irule_at Any
+      >> simp[MEM_FILTER] >> rw[] >> gvs[])
+  >- (gvs[EVERY_MEM, MEM_FILTER, FORALL_PROD] >> first_x_assum irule
+      >> first_x_assum $ irule_at Any >> simp[MEM_FILTER])
+QED
+        
 Theorem esubst_ty0_never_errors:
   ∀env σ tm e. 
-    (∀v1 v2. MEM (v1, v2) env ⇒ ∃n1 n2 t1 t2. v1 = Var n1 t1 ∧ v2 = Var n2 t2)
+    (∀v1 v2. MEM (v1, v2) env ⇒ ∃n t1 t2. v1 = Var n t1 ∧ v2 = Var n t2)
     ∧ esubst_ty0 env σ tm = error e
     ∧ term_ok sig tm
-    (* ∧ saadssadad *)
-    ⇒ ∃v1. MEM (v1, e) env
+    ∧ type_ok (tysof sig) ty
+    ⇒ ∃n ty1 ty2.
+        e = Var n (ty_esubst σ ty1) ∧ MEM (Var n ty2, e) env
+        ∧ ty1 ≠ ty2 ∧ VFREE_IN (Var n ty1) tm
 Proof
   recInduct esubst_ty0_ind >> rw[] >> gvs[esubst_ty0_def, AllCaseEqs()]
-  >- (drule REV_ASSOCD_NEQ_DEFAULT >> rw[] >> metis_tac[])
+  >- (drule REV_ASSOCD_NEQ_DEFAULT >> rw[]
+      >> first_x_assum drule >> rw[] >> metis_tac[])
   >- (gvs[bind_EQ_error, term_ok_def] >> metis_tac[])
-  >- (gvs[term_ok_def, try_eq_error, AllCaseEqs(), bind_EQ_error,
-          FORALL_AND_THM, DISJ_IMP_THM] >- metis_tac[]
-      >> first_assum (drule_at (Pat ‘esubst_ty0 _ _ _ = error _’))
-      >> impl_tac
-      >- (irule term_ok_vsubst >> rw[term_ok_def])
-      >- (gvs[PULL_EXISTS, EXISTS_OR_THM, DISJ_IMP_THM, FORALL_AND_THM]
-          >> reverse conj_tac >- metis_tac[] >> first_x_assum drule
-          >> impl_tac
-          >- (irule term_ok_vsubst >> simp[term_ok_def])
-          >- (reverse $ rw[] >- metis_tac[]
-              >> qabbrev_tac ‘V = Var (VARIANT inst (explode x) (ty_esubst σ ty))
-                                      (ty_esubst σ ty)’
-              >> (* todo *))
-          >- (qexists ‘Var (VARIANT inst (explode x) (ty_esubst σ ty)) ty’
-              >> cheat)
-          >- metis_tac[])
-      >- (irule term_ok_vsubst >> rw[term_ok_def])
-      >- (rw[]
-          >- cheat
-          >- metis_tac[]))
+  >> gvs[term_ok_def, try_eq_error, AllCaseEqs(), bind_EQ_error,
+          FORALL_AND_THM, DISJ_IMP_THM]
+  >- metis_tac[]
+  >- (first_x_assum drule >> rw[] >> drule term_ok_vsubst_variant
+      >> rw[] >> )
+  >- cheat
+QED
+
+Theorem error_do_block:
+  (∃q. do
+          a' <- a;
+          b' <- b;
+          return (P a' b')
+        od = return q)
+        ⇔ ∃x y. a = return x ∧ b = return y
+Proof
+  Cases_on ‘a’
+  >> Cases_on ‘b’
+  >> gvs[bind_EQ_error]
+QED
+
+Theorem REPLACE_THIS:
+  ∀P Q. (∃x. P x) ∧ (∃y. Q y) ⇒ (∃x y. P x ∧ Q y)
+Proof
+  metis_tac[]
+QED
+
+Theorem VSUBST_fresh:
+  ¬VFREE_IN v tm ⇒ VSUBST [(v', v)] tm = tm
+Proof
+  Induct_on ‘tm’ >> rw[VSUBST_def, REV_ASSOCD_def, VSUBST_nil]
+  >> gvs[]
+QED
+
+Theorem esubst_fresh_env:
+  ∀tm σ v v'.
+    ¬VFREE_IN v tm
+    ⇒ esubst_ty0 [(v, v')] σ tm = esubst_ty0 [] σ tm
+Proof
+  Induct_on ‘tm’ >> rw[esubst_ty0_def, REV_ASSOCD_def, AllCaseEqs()]
+  >> cheat
+QED
+
+Theorem esubst_ty0_safety:
+  ∀tm sig σ.
+    term_ok sig tm
+    ⇒ ∃v. esubst_ty0 [] σ tm = return v
+Proof
+  Induct_on ‘tm’ >> rw[esubst_ty0_def]
+  >- (drule REV_ASSOCD_NEQ_DEFAULT >> rw[])
+  >- (gvs[term_ok_def]
+      >> rpt $ first_x_assum (drule_then assume_tac)
+      >> rpt $ first_x_assum (qspec_then ‘σ’ assume_tac)
+      >> gvs[bind_EQ_error])
+  >- (gvs[term_ok_def] >> rpt $ first_x_assum (drule_then assume_tac)
+      >> rpt $ first_x_assum (qspec_then ‘σ’ assume_tac)
+      >> Cases_on ‘∃e. esubst_ty0 [(Var x ty,Var x (ty_esubst σ ty))] σ tm'
+                       = error e’
+      >> gvs[term_ok_def, try_eq_error, AllCaseEqs(), bind_EQ_error,
+             FORALL_AND_THM, DISJ_IMP_THM, try_def, neq_error]
+      >> dxrule esubst_ty0_singleton_error >> rw[]
+      >> Induct_on ‘tm'’)
 QED
 
 Definition esubsts_ok_def:
