@@ -35,3 +35,6 @@ Contains programs to test the Dafny compiler.
 
 [translation](translation):
 Translation scripts for the Dafny compiler.
+
+[vcg](vcg):
+Verification condition generation (VCG) for Dafny.
