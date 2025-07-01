@@ -8675,12 +8675,13 @@ Theorem env_to_list_cut_env_IMP:
    env_to_list x t.permute = (l,permute) /\ cut_env y s = SOME x ==>
     (fromAList l = x)
 Proof
-  cheat (*
   strip_tac \\ match_mp_tac IMP_spt_eq
   \\ fs [wf_fromAList]
   \\ drule0 env_to_list_lookup_equiv
   \\ fs [lookup_fromAList]
-  \\ fs [wordSemTheory.cut_env_def] \\ rveq \\ rw [] *)
+  \\ fs [wordSemTheory.cut_env_def] \\ rveq \\ rw []
+  \\ gvs [wordSemTheory.cut_envs_def,AllCaseEqs(),wordSemTheory.cut_names_def]
+  \\ irule wf_union \\ rpt conj_tac \\ irule wf_inter
 QED
 
 Theorem dimword_LESS_MustTerminate_limit:
@@ -13417,7 +13418,9 @@ Theorem parts_to_words_NONE[local]:
     limits_inv s.limits (FLOOKUP t.store HeapLength) t.stack_limit
                c.len_size c.has_fp_ops c.has_fp_tern ⇒
     EXISTS ($¬ ∘ lim_safe_part s.limits) parts
-Proof
+Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
+                      LT_EXP_LOG_SIMP LOG_NUMERAL EXP_LT_1
+                      ONE_LE_EXP TWO_LE_EXP]
   Induct
   \\ fs [parts_to_words_def,AllCaseEqs(),PULL_EXISTS]
   \\ rpt gen_tac
