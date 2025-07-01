@@ -2,8 +2,7 @@
   Proves correctness of the graph-colouring register allocator.
 *)
 open preamble state_transformerTheory reg_allocTheory
-open sortingTheory;
-open ml_monadBaseTheory ml_monadBaseLib;
+  mllistTheory ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -618,7 +617,7 @@ Proof
   qmatch_goalsub_abbrev_tac`prefs n bads`>>
   `SORTED (\ x y. x ≤ y) bads` by
       (fs[Abbr`bads`]>>
-      match_mp_tac QSORT_SORTED>>
+      match_mp_tac sort_SORTED>>
       fs[relationTheory.transitive_def,relationTheory.total_def])>>
   disch_then(qspecl_then[`n`,`bads`] assume_tac)>>gvs[]>>
   TOP_CASE_TAC >> simp[]
@@ -632,7 +631,7 @@ Proof
     rw[]>>
     first_x_assum(qspec_then`k` assume_tac)>>
     qabbrev_tac`k' = unbound_colour k bads`>>
-    fs[Abbr`bads`,QSORT_MEM,MEM_MAP]>>
+    fs[Abbr`bads`,sort_MEM,MEM_MAP]>>
     first_x_assum(qspec_then`Fixed k'` assume_tac)>>fs[tag_col_def]>>
     pop_assum(qspec_then`EL n' (EL n s.adj_ls)` assume_tac)>>fs[]>>
     metis_tac[MEM_EL])
@@ -641,7 +640,7 @@ Proof
     match_mp_tac no_clash_LUPDATE_Fixed>>
     simp[MEM_EL,PULL_EXISTS]>>
     rw[]>>
-    fs[Abbr`bads`,QSORT_MEM,MEM_MAP]>>
+    fs[Abbr`bads`,sort_MEM,MEM_MAP]>>
     first_x_assum(qspec_then`Fixed x` assume_tac)>>fs[tag_col_def]>>
     pop_assum(qspec_then`EL n' (EL n s.adj_ls)` assume_tac)>>fs[]>>
     metis_tac[MEM_EL]
@@ -2171,7 +2170,7 @@ Proof
   fs get_eqns>> fs set_eqns>>
   pairarg_tac>>fs[]>>
   fs[EVERY_MEM,MEM_smerge]>>
-  fs[PARTITION_DEF,sort_moves_def,QSORT_MEM]>>
+  fs[PARTITION_DEF,sort_moves_def,sort_MEM]>>
   pop_assum (assume_tac o GSYM)>>
   drule PART_MEM>>
   simp[]>>
@@ -2970,11 +2969,11 @@ Proof
   Q.ISPECL_THEN [`moves`,`ss`] mp_tac  reset_move_related_success>>
   impl_tac>-
     (fs[good_ra_state_def,Abbr`ss`]>>
-    fs[EVERY_MEM,FORALL_PROD,sort_moves_def,QSORT_MEM]>>
+    fs[EVERY_MEM,FORALL_PROD,sort_moves_def,sort_MEM]>>
     metis_tac[])>>
   rw[]>> fs[]>>
   `good_ra_state (ss with move_related := mv)` by (
-    fs[good_ra_state_def,Abbr`ss`,sort_moves_def,EVERY_MEM,QSORT_MEM]>>
+    fs[good_ra_state_def,Abbr`ss`,sort_moves_def,EVERY_MEM,sort_MEM]>>
     metis_tac[])>>
   drule st_ex_PARTITION_split_degree >>
   disch_then(qspecl_then[`atemps`,`k`,`lss`,`lss`] assume_tac)>>fs[]>>

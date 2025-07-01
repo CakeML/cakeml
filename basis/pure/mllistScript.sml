@@ -348,4 +348,17 @@ Definition sort_def:
   sort = mergesort$mergesort_tail
 End
 
+(* TODO: add relevant theorems to be used in the codebase theorems *)
+Theorem sort_SORTED:
+  transitive R ∧ total R ⇒ SORTED R (sort R L)
+Proof
+  cheat
+QED
+
+Theorem sort_MEM:
+  MEM x (sort R L) ⇔ MEM x L
+Proof
+  cheat
+QED
+
 val _ = export_theory()
