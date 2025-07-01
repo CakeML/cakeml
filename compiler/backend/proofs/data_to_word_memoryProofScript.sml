@@ -11565,6 +11565,18 @@ Proof
   \\ match_mp_tac memory_rel_rearrange \\ fs []
 QED
 
+Theorem write_bytearray_isWord:
+   ∀ls a m x.
+   isWord (m x) ⇒
+   isWord (write_bytearray a ls m dm be x)
+Proof
+  Induct \\ rw[wordSemTheory.write_bytearray_def]
+  \\ rw[wordSemTheory.mem_store_byte_aux_def]
+  \\ every_case_tac \\ fs[]
+  \\ simp[APPLY_UPDATE_THM]
+  \\ rw[isWord_def]
+QED
+
 Theorem write_bytearray_append:
   ∀xs ys a m dm be.
     (∀i. i < LENGTH xs + LENGTH ys ⇒
@@ -11625,7 +11637,7 @@ Proof
   \\ gvs [wordSemTheory.mem_store_byte_aux_def,theWord_def]
 QED
 
-Theorem memory_rel_write_bytearra =
+Theorem memory_rel_write_bytearray =
   memory_rel_write_bytearray_lemma |> Q.SPEC ‘[]’ |> SRULE [] |> SPEC_ALL;
 
 Theorem memory_rel_space_max:

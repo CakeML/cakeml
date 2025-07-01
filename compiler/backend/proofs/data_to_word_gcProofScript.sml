@@ -259,18 +259,6 @@ Proof
   Induct \\ full_simp_tac(srw_ss())[]
 QED
 
-Theorem write_bytearray_isWord:
-   ∀ls a m x.
-   isWord (m x) ⇒
-   isWord (write_bytearray a ls m dm be x)
-Proof
-  Induct \\ rw[wordSemTheory.write_bytearray_def]
-  \\ rw[wordSemTheory.mem_store_byte_aux_def]
-  \\ every_case_tac \\ fs[]
-  \\ simp[APPLY_UPDATE_THM]
-  \\ rw[isWord_def]
-QED
-
 Theorem FOLDL_LENGTH_LEMMA:
    !xs k l d q r.
       FOLDL (λ(i,t) a. (i + d,insert i a t)) (k,l) xs = (q,r) ==>
