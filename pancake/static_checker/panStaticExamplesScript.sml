@@ -1442,8 +1442,8 @@ val warns_self_referential_global =
 
 val ex_well_scoped_globals = `
   var 1 x = 1;
-  var 2 y = x;
-  var 3 z = x + y;
+  var 1 y = x;
+  var 1 z = x + y;
 `;
 
 val parse_well_scoped_globals =
