@@ -1899,18 +1899,18 @@ QED
 
 (*--Stack Swap Lemma--*)
 
-(*Stacks look the same except for the keys (e.g. recoloured and in order)*)
+(*Stacks look the same to the GC except for the keys (e.g. recoloured and in order)*)
 Definition s_frame_val_eq_def:
   (s_frame_val_eq (StackFrame n ls1 ls NONE) (StackFrame n' ls1' ls' NONE) ⇔
-     MAP SND ls = MAP SND ls' ∧ MAP SND ls1 = MAP SND ls1' ∧ n = n') ∧
+     MAP SND ls = MAP SND ls' ∧ n = n') ∧
   (s_frame_val_eq (StackFrame n ls1 ls (SOME y)) (StackFrame n' ls1' ls' (SOME y')) ⇔
-     MAP SND ls = MAP SND ls' ∧ y = y' ∧ MAP SND ls1 = MAP SND ls1' ∧ n = n') ∧
+     MAP SND ls = MAP SND ls' ∧ y = y' ∧ n = n') ∧
   (s_frame_val_eq _ _ = F)
 End
 
 Theorem s_frame_val_eq_def2:
   (s_frame_val_eq (StackFrame n ls0 ls y) (StackFrame n' ls0' ls' y')
-     ⇔ MAP SND ls = MAP SND ls' ∧ y = y' ∧ MAP SND ls0 = MAP SND ls0' ∧ n = n')
+     ⇔ MAP SND ls = MAP SND ls' ∧ y = y' ∧ n = n')
 Proof
   Cases_on `y` >> Cases_on `y'` >> fs[s_frame_val_eq_def]
 QED
@@ -2362,7 +2362,6 @@ Theorem s_val_eq_LASTN_exists:
    !s t n m e0 e y xs. s_val_eq s t /\
    LASTN n s = StackFrame m e0 e (SOME y)::xs
     ==> ?e0' e' ls. LASTN n t = StackFrame m e0' e' (SOME y)::ls
-       /\ MAP SND e0' = MAP SND e0
        /\ MAP SND e' = MAP SND e
        /\ s_val_eq xs ls
 Proof
