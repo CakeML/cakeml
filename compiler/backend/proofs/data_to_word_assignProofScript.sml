@@ -11892,7 +11892,6 @@ QED
 Theorem assign_SetGlobal:
    (∃n. op = GlobOp (SetGlobal n)) ==> ^assign_thm_goal
 Proof
-  cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
@@ -11930,7 +11929,8 @@ Proof
   \\ drule0 (memory_rel_Update' |> GEN_ALL) \\ fs []
   \\ disch_then drule \\ strip_tac
   \\ fs [] \\ gvs[get_real_simple_addr_def]
-  \\ gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,wordSemTheory.mem_store_def]
+  \\ gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,wordSemTheory.mem_store_def,
+         wordSemTheory.get_var_def]
   \\ gvs [FLOOKUP_DEF,wordSemTheory.word_exp_def,data_to_wordTheory.Unit_def]
   \\ fs [lookup_insert,adjust_var_11]
   \\ rw [] \\ fs [option_le_max_right]
@@ -11938,7 +11938,7 @@ Proof
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ match_mp_tac memory_rel_Unit \\ fs []
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
-  \\ rw [] \\ fs [] *)
+  \\ rw [] \\ fs []
 QED
 
 Theorem assign_SetGlobalsPtr:
