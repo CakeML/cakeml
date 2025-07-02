@@ -769,7 +769,7 @@ Definition Equal1_code_def:
         (Seq (Assign 2 (Const 1w)) (Return 0 [2])) Skip;
       Assign 1 (Load (Var 4));
       Assign 3 (Load (Var 6));
-      Call (SOME ([5],(LS (),list_insert [2;4;6] LN),Skip,Equal1_location,2))
+      Call (SOME ([5],(list_insert [0;2;4;6] LN,LN),Skip,Equal1_location,2))
         (SOME Equal_location) [1;3] NONE;
       If Equal 5 (Imm 1w) Skip (Return 0 [5]);
       Assign 2 (Op Sub [Var 2; Const 1w]);
