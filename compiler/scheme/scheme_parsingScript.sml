@@ -217,6 +217,9 @@ Definition cons_ast_def:
     if w = "*" then INR (Lit (LitPrim SMul)) else
     if w = "eqv?" then INR (Lit (LitPrim SEqv)) else
     if w = "call/cc" then INR (Lit (LitPrim CallCC)) else
+    if w = "cons" then INR (Lit (LitPrim Cons)) else
+    if w = "car" then INR (Lit (LitPrim Car)) else
+    if w = "cdr" then INR (Lit (LitPrim Cdr)) else
       INR (Ident (implode w))) ∧
   cons_ast Nil = INL "Empty S expression" ∧
   cons_ast (Pair x y) = (case pair_to_list y of
@@ -326,6 +329,7 @@ EVAL “do e <- do es' <- mapM cons_ast [Word "t"; Word "h"]; return (Apply (Val
 EVAL “parse_to_ast "((if #t + * ) 2 3)"”
 EVAL “parse_to_ast "(lambda (x y . l) 2)"”
 EVAL “parse_to_ast "(letrec ((x 3) (y x)) 2)"”
+EVAL “parse_to_ast "(cons 3 2)"”
 *)
 
 val _ = export_theory();

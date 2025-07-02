@@ -10,109 +10,117 @@ open finite_mapTheory;
 val _ = new_theory "scheme_semanticsProps";
 
 Inductive can_lookup:
-  FEVERY (λ (x, n). n < LENGTH store) env
+  FEVERY (λ (x, n). n < LENGTH st.muts) env
   ⇒
-  can_lookup env store
+  can_lookup env st
 End
 
-Inductive valid_val:
-[~val_SNum:]
-  valid_val store (SNum n)
-[~val_SBool:]
-  valid_val store (SBool b)
-[~val_Prim:]
-  valid_val store (Prim p)
-[~val_Wrong:]
-  valid_val store (Wrong w)
-[~val_SList:]
-  EVERY (valid_val store) vs
+Inductive valid_val_cont:
+[~SNum:]
+  valid_val st (SNum n)
+[~SBool:]
+  valid_val st (SBool b)
+[~Prim:]
+  valid_val st (Prim p)
+[~Wrong:]
+  valid_val st (Wrong w)
+[~SList:]
+  EVERY (valid_val st) vs
   ⇒
-  valid_val store (SList vs)
-[~val_Proc_NONE:]
+  valid_val st (SList vs)
+[~Proc_NONE:]
   static_scope (FDOM env ∪ set xs) e ∧
-  can_lookup env store
+  can_lookup env st
   ⇒
-  valid_val store (Proc env xs NONE e)
-[~val_Proc_SOME:]
+  valid_val st (Proc env xs NONE e)
+[~Proc_SOME:]
   static_scope (FDOM env ∪ set (x::xs)) e ∧
-  can_lookup env store
+  can_lookup env st
   ⇒
-  valid_val store (Proc env xs (SOME x) e)
-[~val_Throw:]
-  valid_cont store ks
+  valid_val st (Proc env xs (SOME x) e)
+[~Throw:]
+  valid_cont st ks
   ⇒
-  valid_val store (Throw ks)
+  valid_val st (Throw ks)
+[~PairP:]
+  l < LENGTH st.pairs
+  ⇒
+  valid_val st (PairP l)
+[~Null:]
+  valid_val st Null
 
-[~cont_Id:]
-  valid_cont store []
-[~cont_CondK:]
+[~Id:]
+  valid_cont st []
+[~CondK:]
   static_scope (FDOM env) t ∧
   static_scope (FDOM env) f ∧
-  valid_cont store ks ∧
-  can_lookup env store
+  valid_cont st ks ∧
+  can_lookup env st
   ⇒
-  valid_cont store ((env, CondK t f)::ks)
-[~cont_ApplyK_NONE:]
+  valid_cont st ((env, CondK t f)::ks)
+[~ApplyK_NONE:]
   EVERY (static_scope (FDOM env)) es ∧
-  valid_cont store ks ∧
-  can_lookup env store
+  valid_cont st ks ∧
+  can_lookup env st
   ⇒
-  valid_cont store ((env, ApplyK NONE es)::ks)
-[~cont_ApplyK_SOME:]
-  valid_val store fn ∧
-  EVERY (valid_val store) vs ∧
+  valid_cont st ((env, ApplyK NONE es)::ks)
+[~ApplyK_SOME:]
+  valid_val st fn ∧
+  EVERY (valid_val st) vs ∧
   EVERY (static_scope (FDOM env)) es ∧
-  valid_cont store ks ∧
-  can_lookup env store
+  valid_cont st ks ∧
+  can_lookup env st
   ⇒
-  valid_cont store ((env, ApplyK (SOME (fn, vs)) es)::ks)
-[~cont_BeginK:]
+  valid_cont st ((env, ApplyK (SOME (fn, vs)) es)::ks)
+[~BeginK:]
   EVERY (static_scope (FDOM env)) es ∧
   static_scope (FDOM env) e ∧
-  valid_cont store ks ∧
-  can_lookup env store
+  valid_cont st ks ∧
+  can_lookup env st
   ⇒
-  valid_cont store ((env, BeginK es e)::ks)
-[~cont_SetK:]
+  valid_cont st ((env, BeginK es e)::ks)
+[~SetK:]
   (FDOM env) x ∧
-  valid_cont store ks ∧
-  can_lookup env store
+  valid_cont st ks ∧
+  can_lookup env st
   ⇒
-  valid_cont store ((env, SetK x)::ks)
-[~cont_LetinitK:]
+  valid_cont st ((env, SetK x)::ks)
+[~LetinitK:]
   EVERY (FDOM env) (MAP FST xvs) ∧
-  EVERY (valid_val store) (MAP SND xvs) ∧
+  EVERY (valid_val st) (MAP SND xvs) ∧
   (FDOM env) x ∧
   EVERY (FDOM env) (MAP FST bs) ∧
   EVERY (static_scope (FDOM env)) (MAP SND bs) ∧
   static_scope (FDOM env) e ∧
-  valid_cont store ks ∧
-  can_lookup env store
+  valid_cont st ks ∧
+  can_lookup env st
   ⇒
-  valid_cont store ((env, LetinitK xvs x bs e)::ks)
+  valid_cont st ((env, LetinitK xvs x bs e)::ks)
 End
+
+Theorem valid_val_cases = cj 1 valid_val_cont_cases;
+Theorem valid_cont_cases = cj 2 valid_val_cont_cases;
 
 Inductive valid_state:
 [~Val:]
-  valid_val store v ∧
-  valid_cont store ks ∧
-  can_lookup env store ∧
-  EVERY (OPTION_ALL (valid_val store)) store
+  valid_val st v ∧
+  valid_cont st ks ∧
+  EVERY (OPTION_ALL (valid_val st)) st.muts
   ⇒
-  valid_state store ks env (Val v)
+  valid_state st ks (Val v)
 [~Exp:]
   static_scope (FDOM env) e ∧
-  valid_cont store ks ∧
-  can_lookup env store ∧
-  EVERY (OPTION_ALL (valid_val store)) store
+  valid_cont st ks ∧
+  can_lookup env st ∧
+  EVERY (OPTION_ALL (valid_val st)) st.muts
   ⇒
-  valid_state store ks env (Exp e)
+  valid_state st ks (Exp env e)
 [~Exception:]
-  valid_state store ks env (Exception s)
+  valid_state st ks (Exception s)
 End
 
 Definition terminating_state_def:
-  terminating_state (store, ks, env, e)
+  terminating_state (st, ks, e)
     ⇔ (ks = [] ∧ ∃ v . e = Val v) ∨ (∃ ex . e = Exception ex)
 End
 
@@ -164,21 +172,22 @@ Proof
   simp[EVERY_MEM, SET_MEM]
 QED
 
-Theorem valid_larger_store:
-  ∀ (store :'a list) (store' :'a list) .
-    LENGTH store ≤ LENGTH store'
+Theorem valid_larger_st:
+  ∀ st st' .
+    LENGTH st.muts ≤ LENGTH st'.muts ∧
+    LENGTH st.pairs ≤ LENGTH st'.pairs
     ⇒
     (∀ v .
-      valid_val store v
+      valid_val st v
       ⇒
-      valid_val store' v) ∧
+      valid_val st' v) ∧
     ∀ ks .
-      valid_cont store ks
+      valid_cont st ks
       ⇒
-      valid_cont store' ks
+      valid_cont st' ks
 Proof
   rpt gen_tac >> strip_tac
-  >> ho_match_mp_tac valid_val_ind
+  >> ho_match_mp_tac valid_val_cont_ind
   >> rpt strip_tac
   >> simp[Once valid_val_cases]
   >> gvs[can_lookup_cases]
@@ -190,14 +199,14 @@ Proof
   >> gvs[]
 QED
 
-Theorem valid_val_larger_store = SRULE [PULL_FORALL, AND_IMP_INTRO] $
-  cj 1 valid_larger_store;
-Theorem valid_cont_larger_store = SRULE [PULL_FORALL, AND_IMP_INTRO] $
-  cj 2 valid_larger_store;
+Theorem valid_val_larger_st = SRULE [PULL_FORALL, AND_IMP_INTRO] $
+  cj 1 valid_larger_st;
+Theorem valid_cont_larger_st = SRULE [PULL_FORALL, AND_IMP_INTRO] $
+  cj 2 valid_larger_st;
 
 Theorem letrec_preinit_mono:
-  ∀ bs store env store' env' .
-    letrec_preinit store env bs = (store', env')
+  ∀ bs st env st' env' .
+    letrec_preinit st env bs = (st', env')
     ⇒
     FDOM env ⊆ FDOM env'
 Proof
@@ -210,11 +219,11 @@ Proof
 QED
 
 Theorem letrec_preinit_dom:
-  ∀ xs store env store' env' .
-    letrec_preinit store env xs = (store', env')
+  ∀ xs st env st' env' .
+    letrec_preinit st env xs = (st', env')
     ⇒
     FDOM env ∪ set xs = FDOM env' ∧
-    store ++ GENLIST (λ x. NONE) (LENGTH xs) = store'
+    st ++ GENLIST (λ x. NONE) (LENGTH xs) = st'
 Proof
   Induct
   >> simp[letrec_preinit_def, fresh_loc_def]
@@ -239,23 +248,23 @@ Proof
 QED
 
 Theorem letrec_preinit_lookup:
-  ∀ xs store env store' env' .
-    can_lookup env store ∧
-    letrec_preinit store env xs = (store', env')
+  ∀ xs st env st' env' .
+    can_lookup env st ∧
+    letrec_preinit st env xs = (st', env')
     ⇒
-    can_lookup env' store'
+    can_lookup env' st'
 Proof
   Induct
   >> simp[letrec_preinit_def, fresh_loc_def]
   >> rpt strip_tac
   >> rpt (pairarg_tac >> gvs[])
-  >> qsuff_tac ‘can_lookup (env |+ (h,LENGTH store)) (SNOC NONE store)’ >- (
+  >> qsuff_tac ‘can_lookup (env |+ (h,LENGTH st)) (SNOC NONE st)’ >- (
     strip_tac
     >> last_x_assum drule_all
     >> simp[]
   )
   >> gvs[can_lookup_cases]
-  >> qsuff_tac ‘FEVERY (λ(x,n). n < SUC (LENGTH store)) env’ >- (
+  >> qsuff_tac ‘FEVERY (λ(x,n). n < SUC (LENGTH st)) env’ >- (
     strip_tac
     >> irule $ cj 2 FEVERY_STRENGTHEN_THM
     >> simp[]
@@ -267,13 +276,13 @@ Proof
 QED
 
 Theorem parameterize_NONE_dom:
-  ∀ xs store env vs store' env' e e' .
+  ∀ xs st env vs st' env' e e' .
     LENGTH xs = LENGTH vs ∧
-    parameterize store env xs NONE e vs = (store', env', e')
+    parameterize st env xs NONE e vs = (st', env', e')
     ⇒
     Exp e = e' ∧
     FDOM env ∪ set xs = FDOM env' ∧
-    store ++ MAP SOME vs = store'
+    st ++ MAP SOME vs = st'
 Proof
   Induct
   >> simp[parameterize_def]
@@ -295,12 +304,12 @@ Proof
 QED
 
 Theorem parameterize_NONE_lookup:
-  ∀ xs store env vs store' env' e e' .
+  ∀ xs st env vs st' env' e e' .
     LENGTH xs = LENGTH vs ∧
-    can_lookup env store ∧
-    parameterize store env xs NONE e vs = (store', env', e')
+    can_lookup env st ∧
+    parameterize st env xs NONE e vs = (st', env', e')
     ⇒
-    can_lookup env' store'
+    can_lookup env' st'
 Proof
   Induct
   >> simp[parameterize_def]
@@ -322,9 +331,9 @@ Proof
 QED
 
 Theorem parameterize_NONE_exception:
-  ∀ xs store env vs store' env' e e' .
+  ∀ xs st env vs st' env' e e' .
     LENGTH xs ≠ LENGTH vs ∧
-    parameterize store env xs NONE e vs = (store', env', e')
+    parameterize st env xs NONE e vs = (st', env', e')
     ⇒
     ∃ s . Exception s = e'
 Proof
@@ -338,15 +347,15 @@ Proof
 QED
 
 Theorem parameterize_SOME_dom:
-  ∀ xs vs store env x store' env' e e' .
+  ∀ xs vs st env x st' env' e e' .
     LENGTH xs ≤ LENGTH vs ∧
-    parameterize store env xs (SOME x) e vs = (store', env', e')
+    parameterize st env xs (SOME x) e vs = (st', env', e')
     ⇒
     Exp e = e' ∧
     FDOM env ∪ set (x::xs) = FDOM env' ∧
-    store ++ MAP SOME (TAKE (LENGTH xs) vs)
+    st ++ MAP SOME (TAKE (LENGTH xs) vs)
       ++ [SOME (SList (REVERSE (TAKE (LENGTH vs - LENGTH xs) (REVERSE vs))))]
-      = store'
+      = st'
 Proof
   gen_tac >> gen_tac
   >> ‘∃ n . n = LENGTH vs - LENGTH xs’ by simp[]
@@ -378,12 +387,12 @@ Proof
 QED
 
 Theorem parameterize_SOME_lookup:
-  ∀ xs vs store env x store' env' e e' .
+  ∀ xs vs st env x st' env' e e' .
     LENGTH xs ≤ LENGTH vs ∧
-    can_lookup env store ∧
-    parameterize store env xs (SOME x) e vs = (store', env', e')
+    can_lookup env st ∧
+    parameterize st env xs (SOME x) e vs = (st', env', e')
     ⇒
-    can_lookup env' store'
+    can_lookup env' st'
 Proof
   gen_tac >> gen_tac
   >> ‘∃ n . n = LENGTH vs - LENGTH xs’ by simp[]
@@ -418,9 +427,9 @@ Proof
 QED
 
 Theorem parameterize_SOME_exception:
-  ∀ xs store env x vs store' env' e e' .
+  ∀ xs st env x vs st' env' e e' .
     LENGTH vs < LENGTH xs ∧
-    parameterize store env xs (SOME x) e vs = (store', env', e')
+    parameterize st env xs (SOME x) e vs = (st', env', e')
     ⇒
     ∃ s . Exception s = e'
 Proof
@@ -434,17 +443,17 @@ Proof
 QED
 
 Theorem letinit_valid:
-  ∀ store env xvs ks .
-    EVERY (OPTION_ALL (valid_val store)) store ∧
+  ∀ st env xvs ks .
+    EVERY (OPTION_ALL (valid_val st)) st ∧
     EVERY (FDOM env) (MAP FST xvs) ∧
-    EVERY (valid_val store) (MAP SND xvs) ∧
-    valid_cont store ks ∧
-    can_lookup env store
+    EVERY (valid_val st) (MAP SND xvs) ∧
+    valid_cont st ks ∧
+    can_lookup env st
     ⇒
-      valid_cont (letinit store env xvs) ks ∧
-      can_lookup env (letinit store env xvs) ∧
-      EVERY (OPTION_ALL (valid_val (letinit store env xvs)))
-        (letinit store env xvs)
+      valid_cont (letinit st env xvs) ks ∧
+      can_lookup env (letinit st env xvs) ∧
+      EVERY (OPTION_ALL (valid_val (letinit st env xvs)))
+        (letinit st env xvs)
 Proof
   Induct_on ‘xvs’
   >> simp[letinit_def]
@@ -456,7 +465,7 @@ Proof
   >> simp[]
   >> irule_at (Pos hd) IMP_EVERY_LUPDATE
   >> simp[]
-  >> irule_at (Pos hd) valid_val_larger_store
+  >> irule_at (Pos hd) valid_val_larger_st
   >> first_assum $ irule_at (Pos $ el 2)
   >> simp[]
   >> irule_at (Pos hd) EVERY_MONOTONIC
@@ -466,7 +475,7 @@ Proof
     >> irule OPTION_ALL_MONO
     >> pop_assum $ irule_at (Pos last)
     >> rpt strip_tac
-    >> irule_at (Pos hd) valid_val_larger_store
+    >> irule_at (Pos hd) valid_val_larger_st
     >> first_assum $ irule_at (Pos last)
     >> simp[]
   )
@@ -474,12 +483,12 @@ Proof
   >> last_assum $ irule_at (Pos $ el 2)
   >> strip_tac >- (
     rpt strip_tac
-    >> irule_at (Pos hd) valid_val_larger_store
+    >> irule_at (Pos hd) valid_val_larger_st
     >> first_assum $ irule_at (Pos last)
     >> simp[]
   )
   >> gvs[can_lookup_cases]
-  >> irule valid_cont_larger_store
+  >> irule valid_cont_larger_st
   >> first_assum $ irule_at (Pos last)
   >> simp[]
 QED
@@ -534,12 +543,12 @@ Proof
 QED
 
 Theorem valid_state_progress:
-  ∀ store ks env state .
-    valid_state store ks env state
+  ∀ st ks env state .
+    valid_state st ks env state
     ⇒
-    ∃ store' ks' env' state' .
-      step (store, ks, env, state) = (store', ks', env', state') ∧
-      valid_state store' ks' env' state'
+    ∃ st' ks' env' state' .
+      step (st, ks, env, state) = (st', ks', env', state') ∧
+      valid_state st' ks' env' state'
 Proof
   Cases_on ‘state’
   >> rpt strip_tac
@@ -573,7 +582,7 @@ Proof
       >> ‘∀ x a . FLOOKUP env x = SOME a ⇒ env ' x = a’ by simp[FLOOKUP_DEF]
       >> pop_assum $ drule_then assume_tac
       >> simp[]
-      >> Cases_on ‘EL a store’ >- simp[Once valid_state_cases]
+      >> Cases_on ‘EL a st’ >- simp[Once valid_state_cases]
       >> gvs[Once valid_state_cases, can_lookup_cases]
     )
     >~ [‘Letrec bs e’] >- (
@@ -590,7 +599,7 @@ Proof
       >> drule_then assume_tac letrec_preinit_dom
       >> drule_all_then assume_tac letrec_preinit_lookup
       >> gvs[]
-      >> irule_at (Pat ‘valid_cont _ _’) valid_cont_larger_store
+      >> irule_at (Pat ‘valid_cont _ _’) valid_cont_larger_st
       >> qpat_assum ‘valid_cont _ _’ $ irule_at (Pat ‘valid_cont _ _’)
       >> simp[]
       >> qpat_x_assum ‘_ = FDOM _’ $ assume_tac o GSYM
@@ -605,7 +614,7 @@ Proof
       >> irule OPTION_ALL_MONO
       >> pop_assum $ irule_at (Pos last)
       >> rpt strip_tac
-      >> irule valid_val_larger_store
+      >> irule valid_val_larger_st
       >> pop_assum $ irule_at (Pos last)
       >> simp[]
     )
@@ -617,7 +626,7 @@ Proof
       >> drule_then assume_tac letrec_preinit_dom
       >> drule_all_then assume_tac letrec_preinit_lookup
       >> gvs[]
-      >> irule_at (Pos $ el 2) valid_cont_larger_store
+      >> irule_at (Pos $ el 2) valid_cont_larger_st
       >> qpat_assum ‘valid_cont _ _’ $ irule_at (Pos $ el 2)
       >> simp[]
       >> irule_at (Pos $ el 2) EVERY_MONOTONIC
@@ -627,7 +636,7 @@ Proof
         >> irule_at (Pos hd) OPTION_ALL_MONO
         >> pop_assum $ irule_at (Pos last)
         >> rpt strip_tac
-        >> irule valid_val_larger_store
+        >> irule valid_val_larger_st
         >> pop_assum $ irule_at (Pos last)
         >> simp[]
       )
@@ -698,13 +707,13 @@ Proof
       >> rpt strip_tac
       >> simp[Once valid_state_cases]
       >> simp[Once valid_val_cases]
-      >> irule_at (Pos hd) valid_cont_larger_store
+      >> irule_at (Pos hd) valid_cont_larger_st
       >> qpat_assum ‘valid_cont _ _’ $ irule_at (Pos $ el 2)
       >> simp[]
       >> gvs[can_lookup_cases]
       >> irule IMP_EVERY_LUPDATE
       >> simp[OPTION_ALL_def]
-      >> irule_at (Pos hd) valid_val_larger_store
+      >> irule_at (Pos hd) valid_val_larger_st
       >> last_assum $ irule_at (Pos $ el 2)
       >> simp[]
       >> irule EVERY_MONOTONIC
@@ -713,7 +722,7 @@ Proof
       >> irule OPTION_ALL_MONO
       >> pop_assum $ irule_at (Pos last)
       >> rpt strip_tac
-      >> irule_at (Pos hd) valid_val_larger_store
+      >> irule_at (Pos hd) valid_val_larger_st
       >> pop_assum $ irule_at (Pos last)
       >> simp[]
     )
@@ -779,7 +788,7 @@ Proof
             >> gvs[Once valid_val_cases]
             >> gvs[Once valid_val_cases]
             >> simp[Once INSERT_SING_UNION, Once UNION_COMM]
-            >> irule_at (Pos hd) valid_cont_larger_store
+            >> irule_at (Pos hd) valid_cont_larger_st
             >> qpat_assum ‘valid_cont _ _’ $ irule_at (Pos $ el 2)
             >> simp[Once valid_val_cases]
             >> irule_at (Pos $ el 2) $ EVERY_MONOTONIC
@@ -793,7 +802,7 @@ Proof
             >> irule OPTION_ALL_MONO
             >> pop_assum $ irule_at (Pos last)
             >> rpt strip_tac
-            >> irule valid_val_larger_store
+            >> irule valid_val_larger_st
             >> pop_assum $ irule_at (Pos last)
             >> simp[]
           )
@@ -880,31 +889,31 @@ Proof
             >> simp[Once valid_state_cases]
             >> qpat_x_assum ‘_ ∪ _ = _’ $ simp o single o GSYM
             >> qpat_x_assum ‘_ ++ _ = _’ $ simp o single o GSYM
-            >> irule_at (Pos hd) $ valid_cont_larger_store
+            >> irule_at (Pos hd) $ valid_cont_larger_st
             >> qpat_assum ‘valid_cont _ _’ $ irule_at (Pos $ el 2)
             >> simp[]
             >> irule_at (Pos hd) EVERY_MONOTONIC
-            >> qpat_assum ‘EVERY _ store’ $ irule_at (Pos $ el 2)
+            >> qpat_assum ‘EVERY _ st’ $ irule_at (Pos $ el 2)
             >> strip_tac >- (
               rpt strip_tac
               >> irule OPTION_ALL_MONO
               >> pop_assum $ irule_at (Pos last)
               >> rpt strip_tac
-              >> irule valid_val_larger_store
+              >> irule valid_val_larger_st
               >> pop_assum $ irule_at (Pos last)
               >> simp[]
             )
             >> strip_tac >- (
               irule EVERY_OPTION_ALL_MAP_SOME
               >> irule EVERY_MONOTONIC
-              >> qexists ‘valid_val store’
+              >> qexists ‘valid_val st’
               >> simp[]
               >> rpt strip_tac
-              >> irule valid_val_larger_store
+              >> irule valid_val_larger_st
               >> pop_assum $ irule_at (Pos last)
               >> simp[]
             )
-            >> irule valid_val_larger_store
+            >> irule valid_val_larger_st
             >> last_assum $ irule_at (Pos last)
             >> simp[]
           )
@@ -919,17 +928,17 @@ Proof
           >> rpt strip_tac
           >> simp[Once valid_state_cases]
           >> gvs[]
-          >> irule_at (Pos hd) $ valid_cont_larger_store
+          >> irule_at (Pos hd) $ valid_cont_larger_st
           >> qpat_assum ‘valid_cont _ _’ $ irule_at (Pos $ el 2)
           >> simp[]
           >> irule_at (Pos hd) EVERY_MONOTONIC
-          >> qpat_assum ‘EVERY _ store’ $ irule_at (Pos $ el 2)
+          >> qpat_assum ‘EVERY _ st’ $ irule_at (Pos $ el 2)
           >> strip_tac >- (
             rpt strip_tac
             >> irule OPTION_ALL_MONO
             >> pop_assum $ irule_at (Pos last)
             >> rpt strip_tac
-            >> irule valid_val_larger_store
+            >> irule valid_val_larger_st
             >> pop_assum $ irule_at (Pos last)
             >> simp[]
           )
@@ -941,11 +950,11 @@ Proof
               irule EVERY_MONOTONIC
               >> qpat_assum ‘EVERY _ x1’ $ irule_at (Pos last)
               >> rpt strip_tac
-              >> irule valid_val_larger_store
+              >> irule valid_val_larger_st
               >> pop_assum $ irule_at (Pos last)
               >> simp[]
             )
-            >> irule valid_val_larger_store
+            >> irule valid_val_larger_st
             >> last_assum $ irule_at (Pos last)
             >> simp[]
           )
@@ -953,14 +962,14 @@ Proof
           >> irule EVERY_TAKE
           >> simp[]
           >> strip_tac >- (
-            irule valid_val_larger_store
+            irule valid_val_larger_st
             >> last_assum $ irule_at (Pos last)
             >> simp[]
           )
           >> irule EVERY_MONOTONIC
           >> qpat_assum ‘EVERY _ x1’ $ irule_at (Pos last)
           >> rpt strip_tac
-          >> irule valid_val_larger_store
+          >> irule valid_val_larger_st
           >> pop_assum $ irule_at (Pos last)
           >> simp[]
         )
@@ -993,11 +1002,11 @@ Proof
 QED
 
 Theorem terminating_direction:
-  ∀ store ks env e store' ks' env' e' .
-    step (store, ks, env, e) = (store', ks', env', e') ∧
-    ¬ terminating_state (store', ks', env', e')
+  ∀ st ks env e st' ks' env' e' .
+    step (st, ks, env, e) = (st', ks', env', e') ∧
+    ¬ terminating_state (st', ks', env', e')
     ⇒
-    ¬ terminating_state (store, ks, env, e)
+    ¬ terminating_state (st, ks, env, e)
 Proof
   simp[terminating_state_def]
   >> rpt strip_tac
@@ -1005,29 +1014,29 @@ Proof
 QED
 
 Theorem terminating_direction_n:
-  ∀ n store ks env e store' ks' env' e' .
-    FUNPOW step n (store, ks, env, e) = (store', ks', env', e') ∧
-    ¬ terminating_state (store', ks', env', e')
+  ∀ n st ks env e st' ks' env' e' .
+    FUNPOW step n (st, ks, env, e) = (st', ks', env', e') ∧
+    ¬ terminating_state (st', ks', env', e')
     ⇒
-    ¬ terminating_state (store, ks, env, e)
+    ¬ terminating_state (st, ks, env, e)
 Proof
   Induct
   >> simp[FUNPOW_SUC]
   >> rpt gen_tac
   >> strip_tac
   >> last_x_assum irule
-  >> Cases_on ‘FUNPOW step n (store,ks,env,e)’
+  >> Cases_on ‘FUNPOW step n (st,ks,env,e)’
   >> PairCases_on ‘r’
   >> drule_all_then assume_tac terminating_direction
   >> simp[]
 QED
 
 Theorem scheme_divergence:
-  ∀ store ks env state store' ks' env' state' .
-    step (store, ks, env, state) = (store', ks', env', state') ∧
-    ¬ terminating_state (store, ks, env, state)
+  ∀ st ks env state st' ks' env' state' .
+    step (st, ks, env, state) = (st', ks', env', state') ∧
+    ¬ terminating_state (st, ks, env, state)
     ⇒
-    (store, ks, env, state) ≠ (store', ks', env', state')
+    (st, ks, env, state) ≠ (st', ks', env', state')
 Proof
   Cases_on ‘state’
   >> simp[terminating_state_def]
@@ -1035,7 +1044,7 @@ Proof
     Cases_on ‘e’
     >> simp[step_def] >- (
       rpt strip_tac
-      >> Cases_on ‘EL (env ' m) store’
+      >> Cases_on ‘EL (env ' m) st’
       >> gvs[]
     )
     >- (

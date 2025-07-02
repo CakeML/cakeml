@@ -9,7 +9,11 @@ open finite_mapTheory;
 val _ = new_theory "scheme_semantics";
 
 Datatype:
-  e_or_v = Exp exp | Val val | Exception mlstring
+  e_or_v = Exp senv exp | Val val | Exception mlstring
+End
+
+Datatype:
+  store = <| muts : val option list; pairs : (val # val) list |>
 End
 
 Definition sadd_def:
@@ -61,95 +65,109 @@ End
 *)
 
 Definition fresh_loc_def:
-  fresh_loc store ov = (LENGTH store, SNOC ov store)
+  fresh_loc stl ov = (LENGTH stl, SNOC ov stl)
 End
-
+ 
 Definition parameterize_def:
-  parameterize store env [] NONE e [] = (store, env, Exp e) ∧
-  parameterize store env [] (SOME (l:mlstring)) e xs = (let (n, store') = fresh_loc store (SOME $ SList xs)
-    in (store', (env |+ (l, n)), Exp e)) ∧
-  parameterize store env (p::ps) lp e (x::xs) = (let (n, store') = fresh_loc store (SOME x)
-    in parameterize store' (env |+ (p, n)) ps lp e xs) ∧
-  parameterize store _ _ _ _ _ = (store, FEMPTY, Exception $ strlit "Wrong number of arguments")
+  parameterize st env [] NONE e [] = (st, Exp env e) ∧
+  parameterize st env [] (SOME (l:mlstring)) e xs = (let (n, muts') = fresh_loc st.muts (SOME $ SList xs)
+    in (st with muts := muts', Exp (env |+ (l, n)) e)) ∧
+  parameterize st env (p::ps) lp e (x::xs) = (let (n, muts') = fresh_loc st.muts (SOME x)
+    in parameterize (st with muts := muts') (env |+ (p, n)) ps lp e xs) ∧
+  parameterize st _ _ _ _ _ = (st, Exception $ strlit "Wrong number of arguments")
 End
 
 Definition application_def:
-  application store ks (Prim p) xs = (case p of
-  | SAdd => (store, ks, FEMPTY, sadd xs 0)
-  | SMul => (store, ks, FEMPTY, smul xs 1)
-  | SMinus => (store, ks, FEMPTY, sminus xs)
-  | SEqv => (store, ks, FEMPTY, seqv xs)
-  | CallCC => case xs of
-    | [v] => (store, (FEMPTY, ApplyK (SOME (v, [])) []) :: ks, FEMPTY, Val $ Throw ks)
-    | _ => (store, ks, FEMPTY, Exception $ strlit "Arity mismatch")) ∧
-  application store ks (Proc env ps lp e) xs = (let (store', env', e') =
-    parameterize store env ps lp e xs in (store', ks, env', e')) ∧
-  application store ks (Throw ks') xs = (case xs of
-    | [v] => (store, ks', FEMPTY, Val v)
-    | _ => (store, ks, FEMPTY, Exception $ strlit "Arity mismatch")) ∧
-  application store ks _ _ = (store, ks, FEMPTY, Exception $ strlit "Not a procedure")
+  application st ks (Prim p) xs = (case p of
+  | SAdd => (st, ks, sadd xs 0)
+  | SMul => (st, ks, smul xs 1)
+  | SMinus => (st, ks, sminus xs)
+  | SEqv => (st, ks, seqv xs)
+  | CallCC => (case xs of
+    | [v] => (st, (FEMPTY, ApplyK (SOME (v, [])) []) :: ks, Val $ Throw ks)
+    | _ => (st, ks, Exception $ strlit "Arity mismatch"))
+  | Cons => (case xs of
+    | [v1; v2] => (let (l, pairs') = fresh_loc st.pairs (v1, v2)
+      in (st with pairs := pairs', ks, Val $ PairP l))
+    | _ => (st, ks, Exception $ strlit "Arity mismatch"))
+  | Car => (case xs of
+    | [v] => (case v of
+      | PairP l => (st, ks, Val $ FST $ EL l st.pairs)
+      | _ => (st, ks, Exception $ strlit "Can't take car of non-pair"))
+    | _ => (st, ks, Exception $ strlit "Arity mismatch"))
+  | Cdr => case xs of
+    | [v] => (case v of
+      | PairP l => (st, ks, Val $ SND $ EL l st.pairs)
+      | _ => (st, ks, Exception $ strlit "Can't take cdr of non-pair"))
+    | _ => (st, ks, Exception $ strlit "Arity mismatch")) ∧
+  application st ks (Proc env ps lp e) xs = (let (st', e') =
+    parameterize st env ps lp e xs in (st', ks, e')) ∧
+  application st ks (Throw ks') xs = (case xs of
+    | [v] => (st, ks', Val v)
+    | _ => (st, ks, Exception $ strlit "Arity mismatch")) ∧
+  application st ks _ _ = (st, ks, Exception $ strlit "Not a procedure")
 End
 
 Definition letinit_def:
-  letinit store (env : mlstring |-> num) [] = store ∧
-  letinit store env ((x,v)::xvs) =
-    letinit (LUPDATE (SOME v) (env ' x) store) env xvs
+  letinit st (env : mlstring |-> num) [] = st ∧
+  letinit st env ((x,v)::xvs) =
+    letinit (st with muts := LUPDATE (SOME v) (env ' x) st.muts) env xvs
 End
 
 Definition return_def:
-  return store [] v = (store, [], FEMPTY, Val v) ∧
+  return st [] v = (st, [], Val v) ∧
 
-  return store ((env, ApplyK NONE eargs) :: ks) v = (case eargs of
-  | [] => application store ks v []
-  | e::es => (store, (env, ApplyK (SOME (v, [])) es) :: ks, env, Exp e)) ∧
-  return store ((env, ApplyK (SOME (vfn, vargs)) eargs) :: ks) v = (case eargs of
-  | [] => application store ks vfn (REVERSE $ v::vargs)
-  | e::es => (store, (env, ApplyK (SOME (vfn, v::vargs)) es) :: ks, env, Exp e)) ∧
+  return st ((env, ApplyK NONE eargs) :: ks) v = (case eargs of
+  | [] => application st ks v []
+  | e::es => (st, (env, ApplyK (SOME (v, [])) es) :: ks, Exp env e)) ∧
+  return st ((env, ApplyK (SOME (vfn, vargs)) eargs) :: ks) v = (case eargs of
+  | [] => application st ks vfn (REVERSE $ v::vargs)
+  | e::es => (st, (env, ApplyK (SOME (vfn, v::vargs)) es) :: ks, Exp env e)) ∧
 
-  return store ((env, LetinitK xvs x bs e) :: ks) v = (case bs of
-  | [] => (letinit store env ((x,v)::xvs), ks, env, Exp e)
-  | (x',e')::bs' => (store, (env, LetinitK ((x,v)::xvs) x' bs' e) :: ks, env, Exp e')) ∧
+  return st ((env, LetinitK xvs x bs e) :: ks) v = (case bs of
+  | [] => (letinit st env ((x,v)::xvs), ks, Exp env e)
+  | (x',e')::bs' => (st, (env, LetinitK ((x,v)::xvs) x' bs' e) :: ks, Exp env e')) ∧
 
-  return store ((env, CondK t f) :: ks) v = (if v = (SBool F)
-    then (store, ks, env, Exp f) else (store, ks, env, Exp t)) ∧
+  return st ((env, CondK t f) :: ks) v = (if v = (SBool F)
+    then (st, ks, Exp env f) else (st, ks, Exp env t)) ∧
 
-  return store ((env, BeginK es e) :: ks) v = (case es of
-  | [] => (store, ks, env, Exp e)
-  | e'::es' => (store, (env, BeginK es' e) :: ks, env, Exp e')) ∧
-  return store ((env, SetK x) :: ks) v = (LUPDATE (SOME v) (env ' x) store, ks, env, Val $ Wrong "Unspecified")
+  return st ((env, BeginK es e) :: ks) v = (case es of
+  | [] => (st, ks, Exp env e)
+  | e'::es' => (st, (env, BeginK es' e) :: ks, Exp env e')) ∧
+  return st ((env, SetK x) :: ks) v = (st with muts := LUPDATE (SOME v) (env ' x) st.muts, ks, Val $ Wrong "Unspecified")
 End
 
 Definition letrec_preinit_def:
-  letrec_preinit store env [] = (store, env) ∧
-  letrec_preinit store env (x::xs) = (let (n, store') = fresh_loc store NONE
-    in letrec_preinit store' (env |+ (x, n)) xs)
+  letrec_preinit st env [] = (st, env) ∧
+  letrec_preinit st env (x::xs) = (let (n, muts') = fresh_loc st.muts NONE
+    in letrec_preinit (st with muts := muts') (env |+ (x, n)) xs)
 End
 
 Definition step_def:
-  step (store, ks, env, Val v) = return store ks v ∧
-  step (store, ks, env, Exp $ Lit lit) = (store, ks, env, Val $ lit_to_val lit) ∧
-  step (store, ks, env, Exp $ Apply fn args) = (store, (env, ApplyK NONE args) :: ks, env, Exp fn) ∧
-  step (store, ks, env, Exp $ Cond c t f) = (store, (env, CondK t f) :: ks, env, Exp c) ∧
+  step (st, ks, Val v) = return st ks v ∧
+  step (st, ks, Exp env $ Lit lit) = (st, ks, Val $ lit_to_val lit) ∧
+  step (st, ks, Exp env $ Apply fn args) = (st, (env, ApplyK NONE args) :: ks, Exp env fn) ∧
+  step (st, ks, Exp env $ Cond c t f) = (st, (env, CondK t f) :: ks, Exp env c) ∧
   (*This is undefined if the program doesn't typecheck*)
-  step (store, ks, env, Exp $ Ident s) = (let ev = case EL (env ' s) store of
+  step (st, ks, Exp env $ Ident s) = (let ev = case EL (env ' s) st.muts of
     | NONE => Exception $ strlit "Letrec variable touched"
     | SOME v => Val v
-    in (store, ks, env, ev)) ∧
-  step (store, ks, env, Exp $ Lambda ps lp e) = (store, ks, env, Val $ Proc env ps lp e) ∧
-  step (store, ks, env, Exp $ Begin es e) = (case es of
-  | [] => (store, ks, env, Exp e)
-  | e'::es' => (store, (env, BeginK es' e) :: ks, env, Exp e')) ∧
-  step (store, ks, env, Exp $ Set x e) = (store, (env, SetK x) :: ks, env, Exp e) ∧
+    in (st, ks, ev)) ∧
+  step (st, ks, Exp env $ Lambda ps lp e) = (st, ks, Val $ Proc env ps lp e) ∧
+  step (st, ks, Exp env $ Begin es e) = (case es of
+  | [] => (st, ks, Exp env e)
+  | e'::es' => (st, (env, BeginK es' e) :: ks, Exp env e')) ∧
+  step (st, ks, Exp env $ Set x e) = (st, (env, SetK x) :: ks, Exp env e) ∧
   (*There is a missing reinit check, though the spec says it is optional*)
-  step (store, ks, env, Exp $ Letrec bs e) = (case bs of
-  | [] => (store, ks, env, Exp e)
-  | (x,e')::bs' => let (store', env') = letrec_preinit store env (MAP FST bs)
-      in (store', (env', LetinitK [] x bs' e) :: ks, env', Exp e')) ∧
-  step (store, ks, env, Exp $ Letrecstar bs e) = (let
-    (store', env') = letrec_preinit store env (MAP FST bs)
-      in (store', ks, env', Exp $ Begin (MAP (UNCURRY Set) bs) e)) ∧
+  step (st, ks, Exp env $ Letrec bs e) = (case bs of
+  | [] => (st, ks, Exp env e)
+  | (x,e')::bs' => let (st', env') = letrec_preinit st env (MAP FST bs)
+      in (st', (env', LetinitK [] x bs' e) :: ks, Exp env' e')) ∧
+  step (st, ks, Exp env $ Letrecstar bs e) = (let
+    (st', env') = letrec_preinit st env (MAP FST bs)
+      in (st', ks, Exp env' $ Begin (MAP (UNCURRY Set) bs) e)) ∧
 
-  step (store, ks, env, Exception ex) = (store, [], env, Exception ex)
+  step (st, ks, Exception ex) = (st, [], Exception ex)
 End
 
 Definition steps_def:
@@ -160,7 +178,12 @@ End
 (*
   open scheme_semanticsTheory;
 
+Definition empty_store_def:
+ empty_store = <| muts := []; pairs := [] |>
+End
+
   EVAL “steps 100 ([], [], FEMPTY, Exp $ Letrec [(strlit "x",Lit $ LitNum 2);(strlit "y",Ident $ strlit "x")] (Ident $ strlit "y"))”
+  EVAL “steps 100 (empty_store, [], Exp FEMPTY $ Apply (Lit $ LitPrim Cdr) [Apply (Lit $ LitPrim Cons) [Lit $ LitNum 1; Lit $ LitNull]])”
   EVAL “steps 10 ([], [], FEMPTY, Exp $ Apply (Lit (LitPrim SMinus)) [Lit (LitNum 4); Lit (LitNum 2)])”
   EVAL “steps 4 ([], [], Apply (Val (SNum 7)) [Val (SNum 2); Val (SNum 4)])”
   EVAL “steps 6 ([], [InLetK []], Apply (Val (Prim SMul)) [Val (SNum 2); Val (Prim SAdd)])”
