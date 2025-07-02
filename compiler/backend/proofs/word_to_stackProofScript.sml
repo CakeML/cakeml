@@ -816,21 +816,25 @@ Definition stack_rel_aux_def:
   (stack_rel_aux k len ((StackFrame n l0 l NONE)::xs) ((NONE,bits,frame)::stack) ⇔
     (∀n v.
       ALOOKUP l0 n = SOME v ∧ ALOOKUP l n = NONE ⇒
+      adjust_names n < k + LENGTH bits ∧
+      oEL (k + LENGTH bits - (adjust_names n + 1)) bits = SOME F ∧
       ALOOKUP (index_list frame k) (n DIV 2) = SOME v) ∧
     filter_bitmap bits (index_list frame k) = SOME (MAP_FST adjust_names l,[]) ∧
     the (LENGTH frame + 1) n = LENGTH frame + 1 ∧
     stack_rel_aux k len xs stack) ∧
   (stack_rel_aux k len ((StackFrame n l0 l (SOME (h1,l1,l2)))::xs) ((SOME(loc,hv),bits,frame)::stack) ⇔
-      (h1 < LENGTH stack ∧
-      is_handler_frame (EL (LENGTH stack - (h1+1)) xs) ⇒
-      hv = Word (n2w (len - handler_val (LASTN (h1+1) stack)))) ∧
-      loc = Loc l1 l2 ∧
-      (∀n v.
-        ALOOKUP l0 n = SOME v ∧ ALOOKUP l n = NONE ⇒
-        ALOOKUP (index_list frame k) (n DIV 2) = SOME v) ∧
-      filter_bitmap bits (index_list frame k) = SOME (MAP_FST adjust_names l,[]) ∧
-      the (LENGTH frame + 1) n = LENGTH frame + 1 ∧
-      stack_rel_aux k len xs stack) ∧
+    (h1 < LENGTH stack ∧
+    is_handler_frame (EL (LENGTH stack - (h1+1)) xs) ⇒
+    hv = Word (n2w (len - handler_val (LASTN (h1+1) stack)))) ∧
+    loc = Loc l1 l2 ∧
+    (∀n v.
+      ALOOKUP l0 n = SOME v ∧ ALOOKUP l n = NONE ⇒
+      adjust_names n < k + LENGTH bits ∧
+      oEL (k + LENGTH bits - (adjust_names n + 1)) bits = SOME F ∧
+      ALOOKUP (index_list frame k) (n DIV 2) = SOME v) ∧
+    filter_bitmap bits (index_list frame k) = SOME (MAP_FST adjust_names l,[]) ∧
+    the (LENGTH frame + 1) n = LENGTH frame + 1 ∧
+    stack_rel_aux k len xs stack) ∧
   (stack_rel_aux k len _ _ = F)
 End
 
@@ -1462,20 +1466,45 @@ Proof
     \\ asm_simp_tac(std_ss)[Abbr`ll`,Abbr`nn`]
     \\ simp[]
     \\ fs[stack_size_rel_def]
-    \\ rpt strip_tac
+    \\ strip_tac
+    \\ CONJ_TAC
     >- (
+      rpt gen_tac >> strip_tac>>
       qpat_x_assum`cut_envs _ _ = SOME _` mp_tac>>
       simp[cut_envs_def,cut_names_def,AllCaseEqs()]>>
-      rw[]>>
-      gvs[ALOOKUP_toAList,lookup_inter,AllCaseEqs(),domain_lookup]>>
+      strip_tac>>
+      gvs[ALOOKUP_toAList,lookup_inter,AllCaseEqs(),domain_lookup,ALOOKUP_NONE,MEM_MAP]>>
       last_x_assum drule>>
       strip_tac>>
-      first_x_assum drule>>
-      simp[]>>
+      first_assum drule>>
+      fs[oEL_EQ_EL,adjust_names_def,MEM_MAP,FORALL_PROD,MEM_QSORT]>>
       strip_tac>>
-      DEP_REWRITE_TAC[ALOOKUP_index_list]>>
-      rw[LENGTH_TAKE_EQ]>>
-      gvs[LLOOKUP_cons_SUC])
+      CONJ_TAC >- (
+        CCONTR_TAC>>fs[]>>
+        fs[MEM_toAList]>>
+        last_x_assum drule>>
+        fs[SUBSET_DEF,domain_lookup]>>
+        first_x_assum drule>>
+        strip_tac>>
+        last_x_assum drule>>
+        strip_tac>>
+        strip_tac>>
+        fs[]>>
+        qpat_x_assum`_ + _ - _ = _` mp_tac>>
+        DEP_REWRITE_TAC[SUB_CANCEL]>>
+        simp[]>>
+        CCONTR_TAC>>
+        rfs[lookup_inter]>>
+        rename1`A DIV 2 = B DIV 2`>>
+        `A = B` by metis_tac[EVEN_DIV2_INJ,DIV2_def]>>
+        gvs[])
+      >- (
+        DEP_REWRITE_TAC[ALOOKUP_index_list]>>
+        rw[LENGTH_TAKE_EQ,oEL_EQ_EL]>>
+        simp[EL_CONS_IF]>>
+        AP_THM_TAC>>
+        AP_TERM_TAC>>
+        simp[]))
     \\ match_mp_tac IMP_filter_bitmap_EQ_SOME_NIL
     \\ fsrw_tac[] [] \\ once_rewrite_tac [EQ_SYM_EQ]
     \\ conj_asm1_tac THEN1 (
@@ -1728,6 +1757,18 @@ Proof
   metis_tac[TAKE_DROP,map_bitmap_more]
 QED
 
+Theorem map_bitmap_LLOOKUP_F:
+  ∀bm ls stack n res ls1 stack1.
+  LLOOKUP bm n = SOME F ∧
+  map_bitmap bm ls stack = SOME (res,ls1,stack1) ⇒
+  ∃v.
+  LLOOKUP res n = SOME v ∧
+  LLOOKUP stack n = SOME v
+Proof
+  ho_match_mp_tac map_bitmap_ind>>rw[map_bitmap_def]>>
+  gvs[oEL_def,AllCaseEqs()]
+QED
+
 (*These two are actually implied by s_key_eq*)
 Triviality word_stack_dec_stack_shape:
   ∀ls wstack res n.
@@ -1800,6 +1841,13 @@ Proof
   Cases_on`p_1`>>fs[handler_val_def]
 QED
 
+Theorem EVEN_DIV2_INJ:
+   EVEN x ∧ EVEN y ∧ DIV2 x = DIV2 y ⇒ x = y
+Proof
+  srw_tac[][EVEN_EXISTS,DIV2_def,MULT_COMM]
+  \\ fs[MULT_DIV]
+QED
+
 (*Prove the inductive bits first...*)
 Triviality dec_stack_lemma1:
   ∀bs (wstack:'a stack_frame list) sstack lens astack wdec ls.
@@ -1851,16 +1899,27 @@ Proof
     simp[stack_rel_aux_def,TAKE_APPEND2]>>
     rpt CONJ_TAC
     >- (
-      rw[]>>
+      rename1`LENGTH yyy = LENGTH xxx`>>
+      `LENGTH yyy <= LENGTH stack` by fs[]>>
+      qpat_x_assum`LENGTH stack = _` kall_tac>>
+      gvs[]>>
+      rpt gen_tac>>
+      strip_tac>>
       last_x_assum drule>>
-      impl_tac >- (
+      impl_keep_tac >- (
         pop_assum mp_tac>>
         simp[ALOOKUP_NONE,MEM_MAP,MEM_ZIP,FORALL_PROD]>>
         simp[MEM_EL]>>
         metis_tac[PAIR,EL_MAP,FST])>>
-      (* TODO: need to show it is not in the bitmap
-        using filter_bitmap then use map_bitmap assumption *)
-      cheat)
+      strip_tac>>
+      pop_assum mp_tac>>
+      DEP_REWRITE_TAC[ALOOKUP_index_list]>>
+      fs[adjust_names_def]>>
+      drule_at (Pos last) map_bitmap_LLOOKUP_F>>
+      disch_then drule>>
+      rw[]>>
+      drule oEL_TAKE_E>>
+      gvs[])
     >- (
       simp[ZIP_MAP,MAP_FST_def,MAP_MAP_o,o_DEF]
       \\ imp_res_tac filter_bitmap_IMP_MAP_FST
@@ -1906,9 +1965,10 @@ Proof
     imp_res_tac map_bitmap_length>>
     simp[DROP_APPEND2]>>
     simp[stack_rel_aux_def,TAKE_APPEND2]>>
-    srw_tac[][]
-    >-
-      (qpat_x_assum`A ∧ B ⇒ C` mp_tac>>
+    rpt CONJ_TAC
+    >- (
+      strip_tac>>
+      qpat_x_assum`A ∧ B ⇒ C` mp_tac>>
       imp_res_tac abs_stack_IMP_LENGTH>>
       simp[]>>
       impl_tac>-
@@ -1919,15 +1979,23 @@ Proof
         DECIDE_TAC>>
       metis_tac[LIST_REL_abs_frame_eq_handler_val])
     >- (
+      rpt gen_tac>>
+      strip_tac>>
       last_x_assum drule>>
-      impl_tac >- (
+      impl_keep_tac >- (
         pop_assum mp_tac>>
         simp[ALOOKUP_NONE,MEM_MAP,MEM_ZIP,FORALL_PROD]>>
         simp[MEM_EL]>>
         metis_tac[PAIR,EL_MAP,FST])>>
-      (* TODO: need to show it is not in the bitmap
-        using filter_bitmap then use map_bitmap assumption *)
-      cheat)
+      strip_tac>>
+      pop_assum mp_tac>>
+      DEP_REWRITE_TAC[ALOOKUP_index_list]>>
+      fs[adjust_names_def]>>
+      drule_at (Pos last) map_bitmap_LLOOKUP_F>>
+      disch_then drule>>
+      rw[]>>
+      drule oEL_TAKE_E>>
+      gvs[])
     >- (
       imp_res_tac filter_bitmap_IMP_MAP_FST
       \\ imp_res_tac filter_bitmap_IMP_MAP_SND
@@ -1940,9 +2008,10 @@ Proof
       \\ simp[GSYM o_DEF]
       \\ simp[MAP_ZIP,MAP_MAP_o])
     >>
-    fsrw_tac[][abs_frame_eq_def]>>
-    simp[] >>
-    fs[LENGTH_TAKE])
+      fsrw_tac[][abs_frame_eq_def]>>
+      simp[] >>
+      fs[LENGTH_TAKE]
+    )
 QED
 
 val _ = get_time timer;
@@ -2819,13 +2888,6 @@ Proof
   \\ Cases_on`bitmaps'` \\ fs[]
   \\ first_x_assum drule
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []
-QED
-
-Theorem EVEN_DIV2_INJ:
-   EVEN x ∧ EVEN y ∧ DIV2 x = DIV2 y ⇒ x = y
-Proof
-  srw_tac[][EVEN_EXISTS,DIV2_def,MULT_COMM]
-  \\ fs[MULT_DIV]
 QED
 
 Theorem wMoveAux_thm:
@@ -5431,7 +5493,7 @@ Triviality evaluate_PushHandler:
   (∀i. i ≠ k ⇒ get_var i t' = get_var i t) ∧
   t'.stack_space +3 = t.stack_space ∧
   LENGTH t'.stack = LENGTH t.stack ∧
-  state_rel ac k 0 0 (push_env x' (SOME (x''0,x''1:'a wordLang$prog,x''2,x''3)) s with <|locals:=LN; locals_size:=SOME 0|>) t' (f'::lens) 0 
+  state_rel ac k 0 0 (push_env x' (SOME (x''0,x''1:'a wordLang$prog,x''2,x''3)) s with <|locals:=LN; locals_size:=SOME 0|>) t' (f'::lens) 0
 Proof
   rw[]>>
   `t.use_stack ∧ t.use_store ∧ t.stack_space -3 < LENGTH t.stack ∧ ∃h. FLOOKUP t.store Handler = SOME h` by
@@ -8568,13 +8630,13 @@ Proof
           simp[wf_alist_insert,wf_fromAList,wf_union]>>
         CONJ_TAC >-
            (rpt (qhdtm_x_assum `stack_size_rel` mp_tac) >>
-            simp[stack_size_rel_def] >> 
-            rpt (GEN_TAC ORELSE DISCH_THEN STRIP_ASSUME_TAC) >> 
+            simp[stack_size_rel_def] >>
+            rpt (GEN_TAC ORELSE DISCH_THEN STRIP_ASSUME_TAC) >>
             first_x_assum drule >>
             simp[stack_size_eq] >>
             strip_tac >>
             CONJ_TAC >- (simp[]) >>
-            full_simp_tac(srw_ss())[the_eqn] >> 
+            full_simp_tac(srw_ss())[the_eqn] >>
             simp[]) >>
         CONJ_ASM1_TAC >- (
            drule stack_rel_DROP_NONE >>
@@ -8714,9 +8776,9 @@ Proof
            simp[LLOOKUP_THM,Excl"SUB_RIGHT_LESS"] >>
            DEP_REWRITE_TAC[EL_TAKE,EL_DROP,GSYM EL] >>
            rewrite_tac[CONJ_ASSOC] >>
-           CONJ_ASM1_TAC >- ( 
+           CONJ_ASM1_TAC >- (
               full_simp_tac(srw_ss())[LLOOKUP_THM,Excl "SUB_RIGHT_LESS",
-              LENGTH_TAKE_EQ_MIN] >> 
+              LENGTH_TAKE_EQ_MIN] >>
               fs[MIN_DEF,Excl "SUB_RIGHT_LESS"]) >>
            qmatch_goalsub_abbrev_tac `EL A _ = EL B _` >>
            `B = A` by
@@ -8806,7 +8868,7 @@ Proof
         REVERSE CONJ_TAC
         >- (
           qpat_x_assum`A<2 * _ + 2 * _:num` mp_tac>>
-          `!a b c. max3 a b c = MAX a (MAX b c)` by simp[MAX_DEF,max3_def] >> 
+          `!a b c. max3 a b c = MAX a (MAX b c)` by simp[MAX_DEF,max3_def] >>
           simp[wordLangTheory.max_var_def])>>
         REVERSE CONJ_TAC
         >- (
@@ -9239,8 +9301,8 @@ Proof
         rpt $ qpat_x_assum `EL _ _ = EL _ _` mp_tac >>
         simp[]) >>
     Cases_on`evaluate(prog,word_state)`>>fsrw_tac[][]>>
-    LABEL_X_ASSUM "IND" (fn x => (case CONJUNCTS x of [x1,x2,x3,x4] => 
-                        mp_tac x3 >> 
+    LABEL_X_ASSUM "IND" (fn x => (case CONJUNCTS x of [x1,x2,x3,x4] =>
+                        mp_tac x3 >>
                         ASSUME_NAMED_TAC "Result_IND" x1 >>
                         ASSUME_NAMED_TAC "Exception_IND" x2)) >>
     simp[] >>
@@ -9408,13 +9470,13 @@ Proof
           simp[wf_alist_insert,wf_fromAList,wf_union]>>
         CONJ_TAC >-
            (rpt (qhdtm_x_assum `stack_size_rel` mp_tac) >>
-            simp[stack_size_rel_def] >> 
-            rpt (GEN_TAC ORELSE DISCH_THEN STRIP_ASSUME_TAC) >> 
+            simp[stack_size_rel_def] >>
+            rpt (GEN_TAC ORELSE DISCH_THEN STRIP_ASSUME_TAC) >>
             first_x_assum drule >>
             simp[stack_size_eq] >>
             strip_tac >>
             CONJ_TAC >- (simp[]) >>
-            full_simp_tac(srw_ss())[the_eqn] >> 
+            full_simp_tac(srw_ss())[the_eqn] >>
             simp[]) >>
         CONJ_ASM1_TAC >- (
            simp[FLOOKUP_UPDATE] >>
@@ -9422,8 +9484,8 @@ Proof
            `f' = f - 1 ` by (Cases_on `f' = 0` >> fsrw_tac[][]) >>
            POP_ASSUM (SUBST_TAC o single) >>
            simp[DROP_DROP_T] >>
-           qpat_x_assum `!_. _ ==> EL _ _ = EL _ _` kall_tac >> 
-           qpat_x_assum `!_. _ ==> EL _ _ = EL _ _` mp_tac>> 
+           qpat_x_assum `!_. _ ==> EL _ _ = EL _ _` kall_tac >>
+           qpat_x_assum `!_. _ ==> EL _ _ = EL _ _` mp_tac>>
            disch_then (qspec_then `2` mp_tac) >>
            impl_tac >-(
              simp[Abbr`num_stack_ret'`] >>
@@ -9571,9 +9633,9 @@ Proof
            simp[LLOOKUP_THM,Excl"SUB_RIGHT_LESS"] >>
            DEP_REWRITE_TAC[EL_TAKE,EL_DROP,GSYM EL] >>
            rewrite_tac[CONJ_ASSOC] >>
-           CONJ_ASM1_TAC >- ( 
+           CONJ_ASM1_TAC >- (
               full_simp_tac(srw_ss())[LLOOKUP_THM,Excl "SUB_RIGHT_LESS",
-              LENGTH_TAKE_EQ_MIN] >> 
+              LENGTH_TAKE_EQ_MIN] >>
               fs[MIN_DEF,Excl "SUB_RIGHT_LESS"]) >>
            qmatch_goalsub_abbrev_tac `EL A _ = EL B _` >>
            `B = A` by
@@ -9672,7 +9734,7 @@ Proof
         REVERSE CONJ_TAC
         >- (
           qpat_x_assum`A<2 * _ + 2 * _:num` mp_tac>>
-          `!a b c. max3 a b c = MAX a (MAX b c)` by simp[MAX_DEF,max3_def] >> 
+          `!a b c. max3 a b c = MAX a (MAX b c)` by simp[MAX_DEF,max3_def] >>
           simp[wordLangTheory.max_var_def])>>
         REVERSE CONJ_TAC
         >- (
@@ -9715,7 +9777,7 @@ Proof
       qpat_x_assum `_ = (res,s1)` mp_tac >>
       disch_then (mp_tac o SRULE[AllCaseEqs()]) >>
       simp[] >> strip_tac >>
-      `state_rel ac k f f' (set_var handle_var w0 r') t1 lens 0 /\ 
+      `state_rel ac k f f' (set_var handle_var w0 r') t1 lens 0 /\
        r'.handler = s.handler` by (
          Q.ISPECL_THEN [`prog`,`word_state`] assume_tac evaluate_stack_swap>>
          rfs[Abbr`word_state`]>>
@@ -9766,11 +9828,11 @@ Proof
          fsrw_tac[][lookup_insert,convs_def]>>
          IF_CASES_TAC>-
            simp[]>>
-         simp[lookup_union] >> 
+         simp[lookup_union] >>
          REVERSE TOP_CASE_TAC >-(
          (*GC cutset *)
            strip_tac >> rveq >>
-           cheat) 
+           cheat)
          (*NON GC cutset*)
          >- (cheat)) >>
          (*
@@ -9844,7 +9906,7 @@ Proof
         REVERSE CONJ_TAC
         >- (
           qpat_x_assum`A<2 * _ + 2 * _:num` mp_tac>>
-          `!a b c. max3 a b c = MAX a (MAX b c)` by simp[MAX_DEF,max3_def] >> 
+          `!a b c. max3 a b c = MAX a (MAX b c)` by simp[MAX_DEF,max3_def] >>
           simp[wordLangTheory.max_var_def])>>
         REVERSE CONJ_TAC
         >- (
