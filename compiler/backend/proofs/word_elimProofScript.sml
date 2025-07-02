@@ -286,19 +286,6 @@ Proof
     >- fs[dec_stack_def]
 QED
 
-Theorem s_val_eq_get_stack:
-     ∀ stack1 stack2 . s_val_eq stack1 stack2
-    ⇒ get_stack stack1 = get_stack stack2
-Proof
-  recInduct get_stack_ind >> rw[]
-  >> fs[s_val_eq_def2] >> fs[get_stack_def]
-  >> rename1 `get_stack (y:: ys)` >> Cases_on `y`
-  >> fs [s_frame_val_eq_def2,get_stack_def]
-  >> rveq >> fs[] >> res_tac >> fs[]
-  >> fs[get_num_wordloc_alist_def]
-  >> fs[GSYM MAP_MAP_o]
-QED
-
 Definition get_memory_def:
   (* 'a word -> 'a word_loc *)
     get_memory (mem:'a word -> 'a word_loc) (mdom:'a word set) =
