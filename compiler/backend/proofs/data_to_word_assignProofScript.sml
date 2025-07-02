@@ -10173,7 +10173,6 @@ QED
 Theorem assign_WordOpW64:
    (?opw. op = WordOp (WordOpw W64 opw)) ==> ^assign_thm_goal
 Proof
-  cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
@@ -10181,8 +10180,7 @@ Proof
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH
   \\ fs[do_app,oneline do_word_app_def,allowed_op_def]
-  \\ every_case_tac \\ fs[]
-  \\ clean_tac
+  \\ gvs [AllCaseEqs()]
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[LENGTH_EQ_NUM_compute]
   \\ clean_tac
@@ -10216,6 +10214,7 @@ Proof
     \\ clean_tac
     \\ eval_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
+    \\ full_simp_tac std_ss [GSYM wordSemTheory.get_var_def]
     \\ rpt_drule0 get_var_get_real_addr_lemma
     \\ qpat_x_assum `get_var (adjust_var e2) t =
          SOME (Word (get_addr c ptr (Word 0w)))` assume_tac
@@ -10256,15 +10255,27 @@ Proof
     \\ match_mp_tac (GEN_ALL memory_rel_less_space) \\ fs []
     \\ asm_exists_tac \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
-  >- (conj_tac >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max] >>
-      strip_tac >> spose_not_then strip_assume_tac >>
-      fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
-         memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-      rveq >> rfs[])
+  >- (conj_tac >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max]
+      \\ qsuff_tac ‘F’ \\ simp []
+      \\ pop_assum mp_tac
+      \\ fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
+            memory_rel_def,heap_in_memory_store_def,consume_space_def] \\ rfs[NOT_LESS]
+      \\ gvs [word_ml_inv_def]
+      \\ irule_at Any LESS_LESS_EQ_TRANS
+      \\ qexists_tac ‘2 ** 2’
+      \\ CCONTR_TAC
+      \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
+      \\ ‘c.len_size = 1’ by decide_tac
+      \\ qpat_x_assum ‘decode_length _ _ = 2w’ mp_tac
+      \\ simp [decode_length_def,make_header_def]
+      \\ EVAL_TAC \\ simp [dimword_def]
+      \\ EVAL_TAC \\ simp [dimword_def])
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM wordSemTheory.get_var_def]
+  \\ full_simp_tac std_ss [GSYM wordSemTheory.get_var_def]
   \\ qpat_x_assum `get_var (adjust_var e1) t =
        SOME (Word (get_addr c _ (Word 0w)))` assume_tac
   \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -10291,20 +10302,19 @@ Proof
   \\ fs [inter_insert_ODD_adjust_set_alt]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ disch_then drule0
-  \\ disch_then (qspec_then `opw_lookup opw c'' c'` mp_tac)
+  \\ disch_then (qspec_then `opw_lookup opw w1 w2` mp_tac)
   \\ simp []
   \\ impl_tac
   THEN1 (fs [consume_space_def,good_dimindex_def] \\ rw [] \\ fs [])
   \\ strip_tac \\ fs []
   \\ fs[FAPPLY_FUPDATE_THM]
   \\ fs [consume_space_def]
-  \\ rveq \\ fs [] \\ rw [] \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE] *)
+  \\ rveq \\ fs [] \\ rw [] \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE]
 QED
 
 Theorem assign_WordShiftW8:
    (?sh n. op = WordOp (WordShift W8 sh n)) ==> ^assign_thm_goal
 Proof
-  cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
@@ -10556,7 +10566,7 @@ Proof
       \\ strip_tac \\ fs []
       \\ drule0 (DECIDE ``n < 8n ==> n=0 \/ n=1 \/ n=2 \/ n=3 \/
                                     n=4 \/ n=5 \/ n=6 \/ n=7``)
-      \\ strip_tac \\ fs [w2w])) *)
+      \\ strip_tac \\ fs [w2w]))
 QED
 
 val assign_WordShift64 =
@@ -10660,7 +10670,6 @@ QED
 Theorem assign_WordShiftW64:
   (?sh n. op = WordOp (WordShift W64 sh n)) ==> ^assign_thm_goal
 Proof
-  cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
@@ -10677,11 +10686,28 @@ Proof
   \\ TOP_CASE_TAC \\ fs[]
   >-
     (conj_tac >-
-      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right]) >>
-     strip_tac >> spose_not_then strip_assume_tac >>
-     fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
-        memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-     rveq >> rfs[])
+      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,
+                                    consume_space_stack_max,option_le_max_right])
+     \\ ‘good_dimindex (:'a)’ by gvs [state_rel_thm]
+     \\ qsuff_tac ‘F’ >- rewrite_tac []
+     \\ fs [state_rel_thm]
+     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+     \\ rpt_drule0 (memory_rel_get_vars_IMP |> Q.GEN ‘n’ |> Q.SPEC ‘[xx]’ |> SRULE [])
+     \\ CCONTR_TAC \\ gvs []
+     \\ dxrule memory_rel_Word64_IMP
+     \\ strip_tac \\ rfs []
+     \\ gvs [good_dimindex_def,limits_inv_def,
+             memory_rel_def,heap_in_memory_store_def,consume_space_def]
+     \\ qpat_x_assum ‘encode_header _ _ _ = NONE’ mp_tac
+     \\ gvs [encode_header_def,dimword_def]
+     \\ irule_at Any LESS_LESS_EQ_TRANS
+     \\ qexists_tac ‘2 ** 2’ \\ gvs []
+     \\ CCONTR_TAC
+     \\ ‘c.len_size = 1’ by decide_tac
+     \\ qpat_x_assum ‘decode_length _ _ = 2w’ mp_tac
+     \\ simp [decode_length_def,make_header_def]
+     \\ EVAL_TAC \\ simp [dimword_def]
+     \\ EVAL_TAC \\ simp [dimword_def])
   \\ TOP_CASE_TAC \\ fs[]
   THEN1 (* dimindex (:'a) = 64 *)
    (
@@ -10764,6 +10790,7 @@ Proof
   \\ strip_tac \\ fs []
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM wordSemTheory.get_var_def]
   \\ qpat_x_assum `get_var (adjust_var e1) t =
        SOME (Word (get_addr c _ (Word 0w)))` assume_tac
   \\ rpt_drule0 get_var_get_real_addr_lemma
@@ -10788,7 +10815,7 @@ Proof
   \\ fs[FAPPLY_FUPDATE_THM]
   \\ fs [consume_space_def]
   \\ rveq \\ fs [] \\ rw [] \\ fs []
-  \\ fs[limits_inv_def, FLOOKUP_UPDATE] *)
+  \\ fs[limits_inv_def, FLOOKUP_UPDATE]
 QED
 
 val assign_FP_cmp = SIMP_CONV (srw_ss()) [assign_def]
@@ -10840,9 +10867,10 @@ Proof
   Cases \\ fs [w2w_def,dimword_def]
 QED
 
-val fp_greater = prove(
-  ``fp64_greaterThan a b = fp64_lessThan b a /\
-    fp64_greaterEqual a b = fp64_lessEqual b a``,
+Triviality fp_greater:
+  fp64_greaterThan a b = fp64_lessThan b a /\
+  fp64_greaterEqual a b = fp64_lessEqual b a
+Proof
   fs [machine_ieeeTheory.fp64_greaterEqual_def,
       machine_ieeeTheory.fp64_lessEqual_def,
       binary_ieeeTheory.float_greater_equal_def,
@@ -10854,7 +10882,8 @@ val fp_greater = prove(
       binary_ieeeTheory.float_compare_def]
   \\ every_case_tac \\ fs [] \\ rveq \\ fs []
   \\ metis_tac [realTheory.REAL_LT_ANTISYM,
-                realTheory.REAL_LT_TOTAL,word1_cases]);
+                realTheory.REAL_LT_TOTAL,word1_cases]
+QED
 
 Theorem assign_FP_cmp:
    (?fpc. op = WordOp (FP_cmp fpc)) ==> ^assign_thm_goal
