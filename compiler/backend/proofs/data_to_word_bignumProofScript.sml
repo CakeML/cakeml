@@ -898,30 +898,18 @@ Theorem div_code_assum_thm:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
     div_code_assum (:'ffi) (:'c) t.code
 Proof
-  cheat (*
   fs [DivCode_def,div_code_assum_def,eq_eval] \\ rpt strip_tac
   \\ fs [state_rel_thm,code_rel_def,stubs_def]
   \\ fs [EVAL ``LongDiv_location``,div_location_def]
-  \\ qpat_abbrev_tac `x = cut_env (LS ()) _`
+  \\ qpat_abbrev_tac `x = cut_envs (LS (),LN) _`
   \\ `x = SOME (insert 0 ret_val LN,LN)` by
-   (unabbrev_all_tac \\ fs [wordSemTheory.cut_env_def,domain_lookup]
-    \\ match_mp_tac (spt_eq_thm |> REWRITE_RULE [EQ_IMP_THM]
-                       |> SPEC_ALL |> UNDISCH_ALL |> CONJUNCT2
-                       |> DISCH_ALL |> MP_CANON |> GEN_ALL)
-    \\ conj_tac THEN1 (rewrite_tac [wf_inter] \\ EVAL_TAC)
-    \\ simp_tac std_ss [lookup_inter_alt,lookup_def,domain_lookup]
-    \\ fs [lookup_insert,lookup_def] \\ NO_TAC)
+    (unabbrev_all_tac
+     \\ gvs [wordSemTheory.cut_envs_def,wordSemTheory.cut_names_def]
+     \\ simp [domain_lookup]
+     \\ DEP_REWRITE_TAC [spt_eq_thm]
+     \\ simp [wf_insert,lookup_inter_alt,lookup_insert,lookup_def])
   \\ fs [eq_eval,wordSemTheory.push_env_def]
-  \\ `env_to_list (insert 0 ret_val LN,LN) t1.permute =
-        ([(0,ret_val)],\n. t1.permute (n+1))` by
-   (fs [wordSemTheory.env_to_list_def,wordSemTheory.list_rearrange_def]
-    \\ fs [EVAL ``(QSORT key_val_compare (toAList (insert 0 x LN)))``]
-    \\ fs [EVAL ``count 1``] \\ rw []
-    \\ EVAL_TAC
-    \\ fs [BIJ_DEF,SURJ_DEF]
-    \\ first_x_assum (qspec_then`0` kall_tac)
-    \\ first_x_assum (qspec_then`0` mp_tac)
-    \\ EVAL_TAC \\ simp[])
+  \\ simp [wordSemTheory.env_to_list_def]
   \\ fs []
   \\ `dimindex (:'a) + 5 < dimword (:'a)` by
         (fs [dimword_def,good_dimindex_def] \\ NO_TAC)
@@ -930,18 +918,18 @@ Proof
   \\ fs [Abbr `t2`,lookup_insert,multiwordTheory.single_div_def]
   \\ impl_tac THEN1 fs [wordSemTheory.MustTerminate_limit_def]
   \\ strip_tac \\ fs [] \\ pop_assum kall_tac
-  \\ fs [wordSemTheory.pop_env_def,EVAL ``domain (fromAList [(0,ret_val)])``,
-         FLOOKUP_UPDATE,wordSemTheory.set_store_def]
+  \\ fs [wordSemTheory.pop_env_def,EVAL “QSORT R []”,
+         FLOOKUP_UPDATE,wordSemTheory.set_store_def,wordSemTheory.set_vars_def]
+  \\ gvs [alist_insert_def,EVAL “list_rearrange p []”,fromAList_def,
+          domain_fromAList_toAList,wordSemTheory.get_store_def,FLOOKUP_SIMP]
   \\ fs [fromAList_def,wordSemTheory.state_component_equality]
-  \\ match_mp_tac (spt_eq_thm |> REWRITE_RULE [EQ_IMP_THM]
-                     |> SPEC_ALL |> UNDISCH_ALL |> CONJUNCT2
-                     |> DISCH_ALL |> MP_CANON |> GEN_ALL)
-  \\ conj_tac THEN1 metis_tac [wf_def,wf_insert]
-  \\ simp_tac std_ss [lookup_insert,lookup_def]
+  \\ DEP_REWRITE_TAC [spt_eq_thm]
+  \\ conj_tac THEN1 metis_tac [wf_def,wf_insert,wf_fromAList]
+  \\ simp_tac std_ss [lookup_insert,lookup_def,lookup_fromAList,ALOOKUP_toAList]
   \\ rpt strip_tac
   \\ rpt (IF_CASES_TAC \\ asm_rewrite_tac [])
   \\ rveq \\ qpat_x_assum `0 < 0n` mp_tac
-  \\ simp_tac (srw_ss()) [] *)
+  \\ simp_tac (srw_ss()) []
 QED
 
 Theorem IMP_bignum_code_rel:
