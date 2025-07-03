@@ -7609,6 +7609,19 @@ Proof
   \\ rw [] \\ gvs []
 QED
 
+Theorem cut_envs_adjust_sets_ODD:
+  ODD n ⇒ cut_envs (adjust_sets names) (insert n w s) =
+          cut_envs (adjust_sets names) s
+Proof
+  gvs [wordSemTheory.cut_envs_def,adjust_sets_def]
+  \\ gvs [cut_names_adjust_set_insert_ODD]
+  \\ gvs [wordSemTheory.cut_names_def]
+  \\ rw [] \\ gvs []
+  \\ gvs [lookup_inter_alt]
+  \\ gvs [lookup_insert]
+  \\ rw [] \\ gvs []
+QED
+
 Theorem alloc_locals_insert_1:
   alloc k (adjust_sets names) (t with locals := insert 1 w t.locals) =
   alloc k (adjust_sets names) t
