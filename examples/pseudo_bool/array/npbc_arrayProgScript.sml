@@ -181,6 +181,10 @@ val _ = mergesortn_tail_side |> update_precondition;
 
 val r = translate mergesortTheory.mergesort_tail_def;
 
+val res = translate npbc_checkTheory.mk_strict_aux_def;
+val res = translate npbc_checkTheory.mk_strict_def;
+val res = translate npbc_checkTheory.mk_strict_sorted_num_def;
+
 val r = translate npbc_checkTheory.weaken_sorted_def;
 
 val r = translate npbc_checkTheory.fuse_weaken_def;

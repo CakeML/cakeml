@@ -149,9 +149,30 @@ Definition clean_triv_def:
         (MAP sing_lit (append ls))))
 End
 
+(* TODO: copied from scpog *)
+Definition mk_strict_aux_def:
+  (mk_strict_aux x [] acc = x::acc) ∧
+  (mk_strict_aux x (y::ys) acc =
+    if x = y then
+      mk_strict_aux x ys acc
+    else mk_strict_aux y ys (x::acc))
+End
+
+Definition mk_strict_def:
+  mk_strict ls =
+  case ls of
+    [] => []
+  | (x::xs) => mk_strict_aux x xs []
+End
+
+Definition mk_strict_sorted_num_def:
+  mk_strict_sorted_num ls =
+  mk_strict (mergesort_tail (\x y:num. y ≤ x) ls)
+End
+
 Definition weaken_sorted_def:
   weaken_sorted c vs =
-  weaken c (mergesort_tail (λx y. x ≤ y) vs)
+  weaken c (mk_strict_sorted_num vs)
 End
 
 Definition check_cutting_def:
