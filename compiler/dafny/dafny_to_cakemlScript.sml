@@ -11,6 +11,8 @@ open result_monadTheory
 
 val _ = new_theory "dafny_to_cakeml";
 
+(* TODO Remove mk_id; unnecessary *)
+
 Overload Unit = “Con NONE []”
 Overload False = “Con (SOME (Short "False")) []”
 Overload True = “Con (SOME (Short "True")) []”
@@ -363,7 +365,7 @@ Definition from_stmt_def:
     return (cml_tup_case outs_len cml_call cml_assign);
   od ∧
   from_stmt Return _ =
-    return (Raise (Con (SOME (mk_id ["Dafny"] "Return")) []))
+    return (Raise (Con (SOME (mk_id [] "Return")) []))
 End
 
 (* Shadows the parameters with references with the same name (and value). *)
@@ -397,7 +399,7 @@ Definition from_member_decl_def:
       cml_tup <<- Stuple (MAP cml_read_var out_ns);
       cml_body <<-
         Handle cml_body
-          [(Pcon (SOME (mk_id ["Dafny"] "Return")) [], cml_tup)];
+          [(Pcon (SOME (mk_id [] "Return")) [], cml_tup)];
       cml_body <<- cml_new_refs out_ns cml_body;
       return (set_up_cml_fun n ins cml_body)
     od
@@ -408,20 +410,7 @@ Definition from_member_decl_def:
     od
 End
 
-Definition from_program_def:
-  from_program (Program mems) : (dec list) result =
-  do
-    cml_funs <- result_mmap from_member_decl mems;
-    (* TODO Optimize this by only putting mutually recursive functions
-       together *)
-    cml_funs <<- Dletrec unknown_loc cml_funs;
-    (* NOTE For now, we assume the every program has a method called Main that
-       is not mutually recursive with anything else, takes no arguments, and
-       returns nothing. *)
-    cml_main <<- Dlet unknown_loc Pany (cml_fapp [] "Main" [Unit]);
-    return ([cml_funs; cml_main])
-  od
-End
+(* TODO from_program in ProofScript *)
 
 
 (* Testing *)

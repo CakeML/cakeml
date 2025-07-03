@@ -1250,7 +1250,7 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
   \\ ‘state_rel init_state init_state [] 0’ by
        gvs [state_rel_def, init_state_def, locals_rel_def, map_inv_def]
-  \\ ‘freshen_stmt [] 0 (MetCall [] «Main» []) = (0, MetCall [] «Main» [])’ by
+  \\ ‘freshen_stmt [] 0 (MetCall [] «main» []) = (0, MetCall [] «main» [])’ by
        gvs [freshen_stmt_def, freshen_lhs_exps_def, freshen_exp_def]
   \\ ‘env_rel
         (mk_env is_running (Program members))

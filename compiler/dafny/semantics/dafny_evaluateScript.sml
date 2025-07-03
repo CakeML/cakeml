@@ -397,12 +397,12 @@ Theorem evaluate_stmt_ind =
   REWRITE_RULE [fix_clock_evaluate_stmt] evaluate_stmt_ann_ind
 
 Definition evaluate_program_def:
-  evaluate_program is_running (Program members) =
+  evaluate_program ck is_running (Program members) =
   if ¬ALL_DISTINCT (MAP member_name members)
-  then (init_state, Rstop (Serr Rtype_error))
+  then (init_state ck, Rstop (Serr Rtype_error))
   else
-    evaluate_stmt init_state (mk_env is_running (Program members))
-      (MetCall [] «Main» [])
+    evaluate_stmt (init_state ck) (mk_env is_running (Program members))
+      (MetCall [] «main» [])
 End
 
 val _ = export_theory ();

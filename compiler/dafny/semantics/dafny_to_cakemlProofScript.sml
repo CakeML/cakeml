@@ -197,7 +197,7 @@ Definition has_basic_cons_def:
   has_basic_cons env ⇔
     nsLookup env.c (Short "True") = SOME (0, TypeStamp "True" 0) ∧
     nsLookup env.c (Short "False") = SOME (0, TypeStamp "False" 0) ∧
-    nsLookup env.c (Long "Dafny" (Short "Return")) = SOME (0, ret_stamp)
+    nsLookup env.c (Short "Return") = SOME (0, ret_stamp)
 End
 
 (* TODO Move to dafny_ast? *)
@@ -615,14 +615,13 @@ Proof
   Cases_on ‘b’ \\ gvs [nsLookup_def, nsBind_def]
 QED
 
-(* TODO Can we do this without manually unfolding? *)
 Triviality nslookup_build_rec_env_reclos_aux:
-  ∀name members member cml_funs' cml_funs env.
+  ∀name members member cml_funs' cml_funs env (env₂_v: cml_ns).
     get_member_aux name members = SOME member ∧
     result_mmap from_member_decl members = INR cml_funs ⇒
     nsLookup
-      (FOLDR (λ(f,x,e) env'. nsBind f (Recclosure env cml_funs' f) env')
-             env.v cml_funs)
+      (FOLDR (λ(f,x,e) env₁. nsBind f (Recclosure env cml_funs' f) env₁)
+             env₂_v cml_funs)
       (Short ("dfy_" ++ (explode name))) =
     SOME (Recclosure env cml_funs' ("dfy_" ++ (explode name)))
 Proof
@@ -653,7 +652,7 @@ Proof
   \\ gvs [build_rec_env_def]
   \\ gvs [get_member_def, dest_program_def]
   \\ drule_all nslookup_build_rec_env_reclos_aux
-  \\ disch_then $ qspecl_then [‘cml_funs’, ‘env’] mp_tac
+  \\ disch_then $ qspecl_then [‘cml_funs’, ‘env’, ‘env.v’] mp_tac
   \\ rpt strip_tac \\ gvs []
   \\ gvs [callable_rel_cases]
   \\ qexists ‘member’ \\ gvs [get_member_def, dest_program_def]
@@ -3521,7 +3520,7 @@ Proof
       (Cases_on ‘REVERSE params’ \\ gvs [cml_fun_def])
     (* Start chipping away at the compilation of a method *)
     \\ qmatch_goalsub_abbrev_tac ‘evaluate _ call_env₁’
-    \\ ‘nsLookup call_env₁.c (mk_id ["Dafny"] "Return") = SOME (0, ret_stamp)’
+    \\ ‘nsLookup call_env₁.c (mk_id [] "Return") = SOME (0, ret_stamp)’
       by gvs [Abbr ‘call_env₁’, Abbr ‘call_env’, mk_id_def, has_basic_cons_def]
     \\ ‘LIST_REL (λn v. nsLookup call_env₁.v (Short n) = SOME v) params cml_vs’ by
       (gvs [Abbr ‘call_env₁’, Abbr ‘call_env’]
@@ -4048,7 +4047,17 @@ Proof
     \\ imp_res_tac to_string_one_con_check
     \\ gvs [cml_fapp_def, cml_apps_def, mk_id_def, apps_def])
   >~ [‘MetCall lhss name args’] >-
-   (cheat)
+   (simp [from_stmt_def, oneline bind_def, CaseEq "sum", cml_tup_case_def,
+          cml_fapp_def]
+    \\ rpt strip_tac
+    \\ drule par_assign_one_con_check
+    \\ disch_then $ drule_at (Pos last)
+    \\ impl_tac >- (simp [EVERY_GENLIST])
+    \\ rename [‘map_from_exp _ = INR cml_args’] \\ gvs []
+    \\ Cases_on ‘REVERSE cml_args = []’
+    >- (gvs [cml_apps_def, do_con_check_def])
+    \\ DEP_REWRITE_TAC [cml_apps_apps, apps_one_con_check] \\ simp []
+    \\ imp_res_tac (cj 2 from_exp_one_con_check))
 QED
 
 Triviality set_up_in_refs_one_con_check:
@@ -4091,37 +4100,223 @@ Proof
     \\ simp []
     \\ DEP_REWRITE_TAC [Stuple_one_con_check] \\ simp []
     \\ gvs [MAP_cml_read_var_one_con_check]
-    \\ cheat)
+    \\ imp_res_tac from_stmt_one_con_check \\ simp [])
   (* Function *)
   \\ DEP_REWRITE_TAC [set_up_cml_fun_one_con_check, cj 1 from_exp_one_con_check]
   \\ last_assum $ irule_at (Pos hd) \\ simp []
 QED
 
 Triviality map_from_member_decl_one_con_check:
-  result_mmap from_member_decl members = INR cml_fs ⇒
-  EVERY (λ(f,n,e). every_exp (one_con_check env_cml.c) e) cml_fs
+  ∀members cml_fs env.
+    result_mmap from_member_decl members = INR cml_fs ∧
+    has_basic_cons (env: cml_env) ⇒
+    EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) cml_fs
 Proof
-  cheat
+  Induct
+  \\ simp [result_mmap_def, oneline bind_def, CaseEq "sum"]
+  \\ rpt strip_tac
+  \\ imp_res_tac from_member_decl_one_con_check
+  \\ res_tac \\ gvs []
+QED
+
+(* TODO Move back to dafny_to_cakeml *)
+Definition from_program_def:
+  from_program (Program mems) : (dec list) result =
+  do
+    return_exn <<- Dexn unknown_loc "Return" [];
+    cml_funs <- result_mmap from_member_decl mems;
+    (* TODO Optimize: Only put mutually recursive functions together *)
+    cml_funs <<- Dletrec unknown_loc cml_funs;
+    main_call <<- Handle (cml_fapp [] "dfy_main" [Unit])
+              [(Pcon (SOME (mk_id [] "Return")) [], Unit)];
+    cml_main <<- Dlet unknown_loc Pany main_call;
+    return ([return_exn; cml_funs; cml_main])
+  od
+End
+
+Definition valid_prog_def:
+  valid_prog (Program members) ⇔
+    (∃name reqs ens reads decrs mods body.
+       get_member «main» (Program members) =
+       SOME (Method name [] reqs ens reads decrs [] mods body)) ∧
+    EVERY is_fresh_member members ∧
+    EVERY no_shadow_method members
+End
+
+Triviality find_recfun_main:
+  ∀members reqs ens rds decrs mod body cml_funs.
+    get_member_aux «main» members =
+      SOME (Method «main» [] reqs ens rds decrs [] mod body) ∧
+    result_mmap from_member_decl members = INR cml_funs ∧
+    EVERY is_fresh_member members ⇒
+    ∃cml_param cml_body.
+      from_stmt body 0 = INR cml_body ∧
+      ¬("dfy" ≼ cml_param) ∧
+      find_recfun "dfy_main" cml_funs =
+        SOME (cml_param,
+              Handle cml_body [(Pcon (SOME (Short "Return")) [], Unit)])
+Proof
+  Induct
+  \\ simp [get_member_aux_def]
+  \\ rpt gen_tac
+  \\ reverse CASE_TAC
+  \\ rename [‘m = «main»’]
+  >- (* Function *)
+   (IF_CASES_TAC \\ simp []
+    \\ ‘explode m ≠ "main"’ by
+      (spose_not_then assume_tac \\ Cases_on ‘m’ \\ gvs [])
+    \\ disch_tac
+    \\ gvs [result_mmap_def, oneline bind_def, from_member_decl_def,
+            CaseEq "sum"]
+    \\ simp [Once find_recfun_def, set_up_cml_fun_def]
+    \\ rpt (pairarg_tac \\ gvs []))
+  (* Method *)
+  \\ IF_CASES_TAC
+  \\ disch_tac
+  \\ gvs [result_mmap_def, from_member_decl_def, oneline bind_def,
+          CaseEq "sum"]
+  >- (* found main at head *)
+   (simp [set_up_cml_fun_def, cml_fun_def, set_up_in_refs_def,
+          cml_new_refs_def, mk_id_def, Stuple_def, Once find_recfun_def])
+  (* main is in tail *)
+  \\ ‘explode m ≠ "main"’ by
+    (spose_not_then assume_tac \\ Cases_on ‘m’ \\ gvs [])
+  \\ simp [set_up_cml_fun_def, Once find_recfun_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Triviality valid_main_nslookup:
+  get_member «main» (Program members) =
+    SOME (Method «main» [] reqs ens rds decrs [] mod body) ∧
+  result_mmap from_member_decl members = INR cml_funs ∧
+  EVERY is_fresh_member members ⇒
+  ∃cml_param cml_body.
+    from_stmt body 0 = INR cml_body ∧
+    ¬("dfy" ≼ cml_param) ∧
+    find_recfun "dfy_main" cml_funs =
+      SOME (cml_param,
+            Handle cml_body [(Pcon (SOME (Short "Return")) [], Unit)]) ∧
+    nsLookup (nsAppend (build_rec_env cml_funs cl_env env) env₁.v)
+      (Short "dfy_main") =
+    SOME (Recclosure cl_env cml_funs "dfy_main")
+Proof
+  rpt strip_tac
+  \\ fs [get_member_def]
+  \\ drule_all find_recfun_main
+  \\ rpt strip_tac \\ gvs []
+  \\ simp [nsLookup_nsAppend_some]
+  \\ disj1_tac
+  \\ simp [build_rec_env_def]
+  \\ drule_all nslookup_build_rec_env_reclos_aux \\ simp []
+QED
+
+Triviality get_member_MEM_aux:
+  ∀members. get_member_aux name members = SOME member ⇒ MEM member members
+Proof
+  Induct
+  \\ simp [get_member_aux_def]
+  \\ gen_tac
+  \\ CASE_TAC
+  \\ IF_CASES_TAC \\ simp []
+QED
+
+Triviality get_member_MEM:
+  get_member name (Program members) = SOME member ⇒ MEM member members
+Proof
+  simp [get_member_def] \\ disch_tac \\ imp_res_tac get_member_MEM_aux
 QED
 
 Theorem correct_from_program:
-  ∀is_running prog s' r_dfy cml_decs env_cml t t' r_cml.
-    evaluate_program is_running prog = (s', r_dfy) ∧
+  ∀dfy_ck is_running prog s' r_dfy cml_decs env_cml (t: 'ffi cml_state).
+    evaluate_program dfy_ck T prog = (s', r_dfy) ∧
     from_program prog = INR cml_decs ∧
+    valid_prog prog ∧ has_basic_cons env_cml ∧
+    0 < dfy_ck ∧ t.clock = dfy_ck ∧
+    ExnStamp t.next_exn_stamp = ret_stamp ∧
     r_dfy ≠ Rstop (Serr Rtype_error) ⇒
-    ∃t'.
-      evaluate_decs t env_cml cml_decs = (t', r_cml) ∧
-      stmt_res_rel r_dfy r_cml
+    ∃ck t' m' r_cml.
+      evaluate_decs (t with clock := t.clock + ck) env_cml cml_decs =
+        (t', r_cml) ∧
+      state_rel m' FEMPTY s' t' env_cml ∧ stmt_res_rel r_dfy r_cml
 Proof
   rpt strip_tac
   \\ namedCases_on ‘prog’ ["members"]
   \\ gvs [evaluate_program_def]
   \\ Cases_on ‘¬ALL_DISTINCT (MAP member_name members)’ \\ gvs []
+  \\ gvs [evaluate_stmt_def, mk_env_def]
+  \\ namedCases_on ‘get_member «main» (Program members)’ ["", "member"] \\ gvs []
+  \\ namedCases_on ‘member’
+       ["n ins reqs ens rds decrs outs mod body", "_ _ _ _ _ _ _"] \\ gvs []
+  \\ imp_res_tac get_member_some_met_name \\ gvs []
+  \\ gvs [evaluate_exp_def, valid_prog_def, set_up_call_def, safe_zip_def,
+          init_state_def]
+  \\ qmatch_asmsub_abbrev_tac ‘evaluate_stmt s env’
+  \\ namedCases_on ‘evaluate_stmt s env body’ ["s r"] \\ gvs []
+
   \\ gvs [from_program_def, oneline bind_def, CaseEq "sum"]
   \\ gvs [evaluate_decs_def]
-  \\ drule_all ALL_DISTINCT_member_name
-  \\ simp [] \\ disch_then kall_tac
-  \\ cheat
+  \\ drule_all_then assume_tac ALL_DISTINCT_member_name \\ simp []
+  \\ DEP_REWRITE_TAC [map_from_member_decl_one_con_check] \\ simp []
+  \\ last_assum $ irule_at (Pos hd)
+  \\ simp [pat_bindings_def, cml_fapp_def, cml_apps_def, apps_def, evaluate_def,
+           do_con_check_def, build_conv_def, mk_id_def, extend_dec_env_def]
+  \\ gvs [has_basic_cons_def]
+
+  \\ qmatch_goalsub_abbrev_tac ‘build_rec_env _ cl_env _’
+  \\ drule_all valid_main_nslookup
+  \\ disch_then $ qspecl_then [‘env_cml’, ‘nsEmpty’, ‘cl_env’] mp_tac
+  \\ rpt strip_tac
+  \\ simp [do_opapp_def]
+
+  \\ simp [evaluate_def]
+
+  \\ drule correct_from_stmt
+  \\ disch_then drule
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate _ env_cml₁’
+  \\ disch_then $
+       qspecl_then
+         [‘dec_clock (t with next_exn_stamp := t.next_exn_stamp + 1)’,
+          ‘env_cml₁’, ‘FEMPTY’, ‘FEMPTY’, ‘LENGTH t.refs’]
+         mp_tac
+  \\ impl_tac >-
+
+   (unabbrev_all_tac
+    \\ rpt strip_tac
+    \\ gvs [dec_clock_def, evaluateTheory.dec_clock_def]
+    >- (* state_rel *)
+     (gvs [state_rel_def, array_rel_def, LLOOKUP_def, locals_rel_def]
+      \\ cheat (* TODO print_rel: ARB *))
+    >- (* base_at_most *)
+     (gvs [base_at_most_def])
+    >- (* env_rel *)
+     (gvs [env_rel_def, has_basic_cons_def]
+      \\ rpt gen_tac \\ disch_tac
+      \\ drule get_member_MEM
+      \\ gvs [EVERY_MEM]
+      \\ disch_then kall_tac
+      \\ ‘∀n. cml_param ≠ "dfy_" ++ explode n’ by (rpt strip_tac \\ gvs [])
+      \\ gvs []
+
+      \\ cheat)
+    >- (* is_fresh_stmt *)
+     (cheat)
+    >- (* no_shadow *)
+     (cheat))
+
+  \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’, ‘m’, ‘r_cml’] mp_tac
+  \\ rpt strip_tac
+  \\ gvs [evaluateTheory.dec_clock_def]
+  \\ qrefinel [‘_’, ‘_’, ‘m’, ‘ck’] \\ simp []
+  \\ namedCases_on ‘r’ ["", "stp"] \\ gvs []
+  \\ reverse $ namedCases_on ‘stp’ ["", "err"] \\ gvs []
+  >- (Cases_on ‘err’
+      \\ gvs [combine_dec_result_def, restore_locals_def, state_rel_def,
+              locals_rel_def])
+  \\ simp [Abbr ‘cl_env’]
+  \\ gvs [assign_values_def, can_pmatch_all_def, pmatch_def, same_type_def,
+          ret_stamp_def, same_ctor_def, combine_dec_result_def, state_rel_def,
+          restore_locals_def, locals_rel_def, pat_bindings_def,
+          do_con_check_def, build_conv_def]
 QED
 
 val _ = export_theory ();

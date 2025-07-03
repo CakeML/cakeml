@@ -99,7 +99,7 @@ Definition get_member_def:
 End
 
 Definition init_state_def:
-  init_state = <| clock := 424242; locals := []; heap := []; output := [] |>
+  init_state ck = <| clock := ck; locals := []; heap := []; output := [] |>
 End
 
 Definition safe_zip_def:

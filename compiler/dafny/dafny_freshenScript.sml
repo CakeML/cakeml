@@ -69,7 +69,7 @@ Definition freshen_exp_def:
 Termination
   wf_rel_tac ‘measure $ λx. case x of
                             | INL (_,_,e) => exp_size e
-                            | INR (_,_,e) => exp1_size e’
+                            | INR (_,_,e) => list_size exp_size e’
 End
 
 Definition freshen_lhs_exp_def:
