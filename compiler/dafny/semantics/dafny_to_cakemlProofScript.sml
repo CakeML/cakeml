@@ -642,7 +642,7 @@ Triviality nslookup_build_rec_env_reclos:
   has_basic_cons env ⇒
   ∃reclos.
     nsLookup
-      (build_rec_env cml_funs env env.v)
+      (build_rec_env cml_funs env env'_v)
       (Short ("dfy_" ++ (explode name))) = SOME reclos ∧
     callable_rel prog name reclos ∧
     reclos = Recclosure env cml_funs ("dfy_" ++ (explode name))
@@ -652,7 +652,7 @@ Proof
   \\ gvs [build_rec_env_def]
   \\ gvs [get_member_def, dest_program_def]
   \\ drule_all nslookup_build_rec_env_reclos_aux
-  \\ disch_then $ qspecl_then [‘cml_funs’, ‘env’, ‘env.v’] mp_tac
+  \\ disch_then $ qspecl_then [‘cml_funs’, ‘env’, ‘env'_v’] mp_tac
   \\ rpt strip_tac \\ gvs []
   \\ gvs [callable_rel_cases]
   \\ qexists ‘member’ \\ gvs [get_member_def, dest_program_def]
@@ -3279,6 +3279,7 @@ Proof
           \\ DEP_REWRITE_TAC [not_mem_nslookup_add_refs_to_env] \\ simp []
           \\ simp [Abbr ‘call_env’]
           \\ drule_all nslookup_build_rec_env_reclos
+          \\ disch_then $ qspec_then ‘env.v’ mp_tac
           \\ rpt strip_tac
           \\ first_assum $ irule_at (Pos last) \\ gvs [])
         >- (gvs [dec_clock_def, Abbr ‘dfy_locals’, REVERSE_ZIP, MAP_ZIP]))
@@ -3578,6 +3579,7 @@ Proof
       \\ first_x_assum drule
       \\ strip_tac
       \\ drule_all nslookup_build_rec_env_reclos
+      \\ disch_then $ qspec_then ‘env.v’ mp_tac
       \\ strip_tac
       \\ first_assum $ irule_at (Pos last)
       \\ simp [Abbr ‘call_env₂’, Abbr ‘call_env₁’, Abbr ‘call_env’]
@@ -4148,9 +4150,12 @@ Triviality find_recfun_main:
     get_member_aux «main» members =
       SOME (Method «main» [] reqs ens rds decrs [] mod body) ∧
     result_mmap from_member_decl members = INR cml_funs ∧
-    EVERY is_fresh_member members ⇒
+    EVERY is_fresh_member members ∧
+    EVERY no_shadow_method members ⇒
     ∃cml_param cml_body.
       from_stmt body 0 = INR cml_body ∧
+      is_fresh_stmt body ∧
+      no_shadow ∅ body ∧
       ¬("dfy" ≼ cml_param) ∧
       find_recfun "dfy_main" cml_funs =
         SOME (cml_param,
@@ -4189,9 +4194,12 @@ Triviality valid_main_nslookup:
   get_member «main» (Program members) =
     SOME (Method «main» [] reqs ens rds decrs [] mod body) ∧
   result_mmap from_member_decl members = INR cml_funs ∧
-  EVERY is_fresh_member members ⇒
+  EVERY is_fresh_member members ∧
+  EVERY no_shadow_method members ⇒
   ∃cml_param cml_body.
     from_stmt body 0 = INR cml_body ∧
+    is_fresh_stmt body ∧
+    no_shadow ∅ body ∧
     ¬("dfy" ≼ cml_param) ∧
     find_recfun "dfy_main" cml_funs =
       SOME (cml_param,
@@ -4231,8 +4239,7 @@ Theorem correct_from_program:
     evaluate_program dfy_ck T prog = (s', r_dfy) ∧
     from_program prog = INR cml_decs ∧
     valid_prog prog ∧ has_basic_cons env_cml ∧
-    0 < dfy_ck ∧ t.clock = dfy_ck ∧
-    ExnStamp t.next_exn_stamp = ret_stamp ∧
+    0 < dfy_ck ∧ t.clock = dfy_ck ∧ ExnStamp t.next_exn_stamp = ret_stamp ∧
     r_dfy ≠ Rstop (Serr Rtype_error) ⇒
     ∃ck t' m' r_cml.
       evaluate_decs (t with clock := t.clock + ck) env_cml cml_decs =
@@ -4252,7 +4259,6 @@ Proof
           init_state_def]
   \\ qmatch_asmsub_abbrev_tac ‘evaluate_stmt s env’
   \\ namedCases_on ‘evaluate_stmt s env body’ ["s r"] \\ gvs []
-
   \\ gvs [from_program_def, oneline bind_def, CaseEq "sum"]
   \\ gvs [evaluate_decs_def]
   \\ drule_all_then assume_tac ALL_DISTINCT_member_name \\ simp []
@@ -4261,15 +4267,11 @@ Proof
   \\ simp [pat_bindings_def, cml_fapp_def, cml_apps_def, apps_def, evaluate_def,
            do_con_check_def, build_conv_def, mk_id_def, extend_dec_env_def]
   \\ gvs [has_basic_cons_def]
-
   \\ qmatch_goalsub_abbrev_tac ‘build_rec_env _ cl_env _’
   \\ drule_all valid_main_nslookup
   \\ disch_then $ qspecl_then [‘env_cml’, ‘nsEmpty’, ‘cl_env’] mp_tac
   \\ rpt strip_tac
-  \\ simp [do_opapp_def]
-
-  \\ simp [evaluate_def]
-
+  \\ simp [do_opapp_def, evaluate_def]
   \\ drule correct_from_stmt
   \\ disch_then drule
   \\ qmatch_goalsub_abbrev_tac ‘evaluate _ env_cml₁’
@@ -4279,7 +4281,6 @@ Proof
           ‘env_cml₁’, ‘FEMPTY’, ‘FEMPTY’, ‘LENGTH t.refs’]
          mp_tac
   \\ impl_tac >-
-
    (unabbrev_all_tac
     \\ rpt strip_tac
     \\ gvs [dec_clock_def, evaluateTheory.dec_clock_def]
@@ -4296,13 +4297,8 @@ Proof
       \\ disch_then kall_tac
       \\ ‘∀n. cml_param ≠ "dfy_" ++ explode n’ by (rpt strip_tac \\ gvs [])
       \\ gvs []
-
-      \\ cheat)
-    >- (* is_fresh_stmt *)
-     (cheat)
-    >- (* no_shadow *)
-     (cheat))
-
+      \\ drule nslookup_build_rec_env_reclos
+      \\ simp [dest_program_def, has_basic_cons_def]))
   \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’, ‘m’, ‘r_cml’] mp_tac
   \\ rpt strip_tac
   \\ gvs [evaluateTheory.dec_clock_def]
