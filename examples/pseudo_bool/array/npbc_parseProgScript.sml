@@ -1740,7 +1740,7 @@ val parse_cstep = process_topdecs`
               None =>
                 raise Fail (format_failure (sub_one lno'') "Incorrectly terminated dominance step")
             | Some idopt =>
-              (Inr (Dom c s pf idopt),(fns''',lno'))))
+              (Inr (Dom c s pf idopt),(fns''',lno''))))
     | Some (Checkeddeletepar n s, fns'') =>
         raise Fail (format_failure lno "Parsing checked deletion not yet supported")
     | Some (Storeorderpar name, fns'') =>
