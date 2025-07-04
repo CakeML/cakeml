@@ -1238,17 +1238,17 @@ QED
 
 (* Correctness of the freshen pass. *)
 Theorem correct_freshen_program:
-  ∀is_running prog s r.
-    evaluate_program is_running prog = (s, r) ∧
+  ∀ck is_running prog s r.
+    evaluate_program ck is_running prog = (s, r) ∧
     r ≠ Rstop (Serr Rtype_error) ⇒
-    evaluate_program is_running (freshen_program prog) = (s, r)
+    evaluate_program ck is_running (freshen_program prog) = (s, r)
 Proof
   rpt strip_tac
   \\ namedCases_on ‘prog’ ["members"]
   \\ gvs [evaluate_program_def, freshen_program_def,
           MAP_member_name_MAP_freshen_member_eq]
   \\ IF_CASES_TAC \\ gvs []
-  \\ ‘state_rel init_state init_state [] 0’ by
+  \\ ‘state_rel (init_state ck) (init_state ck) [] 0’ by
        gvs [state_rel_def, init_state_def, locals_rel_def, map_inv_def]
   \\ ‘freshen_stmt [] 0 (MetCall [] «main» []) = (0, MetCall [] «main» [])’ by
        gvs [freshen_stmt_def, freshen_lhs_exps_def, freshen_exp_def]

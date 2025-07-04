@@ -1,5 +1,8 @@
 Definition of Dafny's semantics.
 
+[dafny_compilerProofScript.sml](dafny_compilerProofScript.sml):
+Correctness proof for the Dafny compiler with all of its passes.
+
 [dafny_evaluatePropsScript.sml](dafny_evaluatePropsScript.sml):
 Properties of Dafny's functional big-step semantics.
 

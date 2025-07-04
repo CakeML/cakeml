@@ -410,7 +410,19 @@ Definition from_member_decl_def:
     od
 End
 
-(* TODO from_program in ProofScript *)
+Definition from_program_def:
+  from_program (Program mems) : (dec list) result =
+  do
+    return_exn <<- Dexn unknown_loc "Return" [];
+    cml_funs <- result_mmap from_member_decl mems;
+    (* TODO Optimize: Only put mutually recursive functions together *)
+    cml_funs <<- Dletrec unknown_loc cml_funs;
+    main_call <<- Handle (cml_fapp [] "dfy_main" [Unit])
+              [(Pcon (SOME (mk_id [] "Return")) [], Unit)];
+    cml_main <<- Dlet unknown_loc Pany main_call;
+    return ([return_exn; cml_funs; cml_main])
+  od
+End
 
 
 (* Testing *)

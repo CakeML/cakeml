@@ -4121,26 +4121,16 @@ Proof
   \\ res_tac \\ gvs []
 QED
 
-(* TODO Move back to dafny_to_cakeml *)
-Definition from_program_def:
-  from_program (Program mems) : (dec list) result =
-  do
-    return_exn <<- Dexn unknown_loc "Return" [];
-    cml_funs <- result_mmap from_member_decl mems;
-    (* TODO Optimize: Only put mutually recursive functions together *)
-    cml_funs <<- Dletrec unknown_loc cml_funs;
-    main_call <<- Handle (cml_fapp [] "dfy_main" [Unit])
-              [(Pcon (SOME (mk_id [] "Return")) [], Unit)];
-    cml_main <<- Dlet unknown_loc Pany main_call;
-    return ([return_exn; cml_funs; cml_main])
-  od
+Definition has_main_def:
+  has_main prog ⇔
+    (∃name reqs ens reads decrs mods body.
+       get_member «main» prog =
+       SOME (Method name [] reqs ens reads decrs [] mods body))
 End
 
 Definition valid_prog_def:
   valid_prog (Program members) ⇔
-    (∃name reqs ens reads decrs mods body.
-       get_member «main» (Program members) =
-       SOME (Method name [] reqs ens reads decrs [] mods body)) ∧
+    has_main (Program members) ∧
     EVERY is_fresh_member members ∧
     EVERY no_shadow_method members
 End
@@ -4235,7 +4225,7 @@ Proof
 QED
 
 Theorem correct_from_program:
-  ∀dfy_ck is_running prog s' r_dfy cml_decs env_cml (t: 'ffi cml_state).
+  ∀dfy_ck prog s' r_dfy cml_decs env_cml (t: 'ffi cml_state).
     evaluate_program dfy_ck T prog = (s', r_dfy) ∧
     from_program prog = INR cml_decs ∧
     valid_prog prog ∧ has_basic_cons env_cml ∧
@@ -4255,8 +4245,8 @@ Proof
   \\ namedCases_on ‘member’
        ["n ins reqs ens rds decrs outs mod body", "_ _ _ _ _ _ _"] \\ gvs []
   \\ imp_res_tac get_member_some_met_name \\ gvs []
-  \\ gvs [evaluate_exp_def, valid_prog_def, set_up_call_def, safe_zip_def,
-          init_state_def]
+  \\ gvs [evaluate_exp_def, valid_prog_def, has_main_def,
+          set_up_call_def, safe_zip_def, init_state_def]
   \\ qmatch_asmsub_abbrev_tac ‘evaluate_stmt s env’
   \\ namedCases_on ‘evaluate_stmt s env body’ ["s r"] \\ gvs []
   \\ gvs [from_program_def, oneline bind_def, CaseEq "sum"]
