@@ -32,7 +32,7 @@ Proof
   Cases_on ‘l’ \\ gvs []
 QED
 
-(* TODO Upstream? *) (* by magnus *)
+(* TODO Upstream? *) (* by Magnus *)
 Theorem exists_mlstring:
   (∃x:mlstring. P x) ⇔ (∃s. P (strlit s))
 Proof
@@ -289,13 +289,95 @@ Proof
   \\ gvs [MAP_ZIP, UNZIP_MAP, ALL_DISTINCT_APPEND]
 QED
 
-Triviality map_freshen_member_is_fresh:
-  EVERY (λmember. ALL_DISTINCT (get_param_names member)) members ⇒
-  EVERY is_fresh_member (MAP freshen_member members)
+(* *** *)
+
+
+(* no_shadow *)
+
+Triviality map_add_fresh_no_shadow:
+  ∀stmt stmt' m m₁ m₂ cnt cnt₁ cnt₂ cnt₃ ns ns'.
+    map_add_fresh m cnt ns = (cnt₁, m₁) ∧
+    freshen_stmt (m₂ ++ m₁) cnt₂ stmt = (cnt₃, stmt') ⇒
+    no_shadow (set (MAP (lookup (m₂ ++ m₁)) ns')) stmt'
 Proof
-  Induct_on ‘members’ \\ simp []
+  Induct \\ rpt gen_tac
+  >~ [‘Dec local scope’] >-
+   (strip_tac
+    \\ namedCases_on ‘local’ ["n ty"]
+    \\ fs [freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+
+    \\ last_x_assum drule
+    \\ gvs [add_fresh_def]
+    \\ rename [‘freshen_stmt _ _ _ = (_, scope')’]
+    \\ disch_then $ qspecl_then [‘scope'’, ‘[(n, cnt₂)]’] mp_tac \\ simp []
+    \\ disch_then drule
+
+    \\ cheat)
+  \\ cheat
+QED
+
+Triviality INSERT_UNION_INSERT:
+  (n INSERT ys) ∪ (n INSERT xs) = (n INSERT (xs ∪ ys))
+Proof
+  SET_TAC []
+QED
+
+Triviality no_shadow_union:
+  ∀stmt xs ys.
+    no_shadow xs stmt ∧ no_shadow ys stmt ⇒ no_shadow (xs ∪ ys) stmt
+Proof
+  Induct \\ simp []
   \\ rpt strip_tac
-  \\ irule freshen_member_is_fresh \\ simp []
+  \\ rename [‘Dec local _’]
+  \\ namedCases_on ‘local’ ["n ty"] \\ fs []
+  \\ last_x_assum drule
+  \\ disch_then rev_drule
+  \\ simp [INSERT_UNION_INSERT]
+QED
+
+Triviality foo:
+  ∀stmt m cnt cnt' stmt' ns.
+    map_inv m cnt ∧
+    freshen_stmt m cnt stmt = (cnt', stmt') ⇒
+    no_shadow (set (MAP (lookup m) (MAP FST m))) stmt'
+Proof
+  Induct \\ rpt gen_tac
+  >~ [‘Dec local scope’] >-
+   (rpt strip_tac
+    \\ gvs [freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [add_fresh_def, lookup_def]
+    \\ ‘map_inv ((old,cnt)::m) (cnt + 1)’ by cheat
+
+    \\ last_x_assum drule \\ gvs []
+    \\ disch_tac \\ gvs [lookup_def]
+
+    \\ gvs [lookup_def]
+    \\ disch_then $ qspec_then ‘ns’ assume_tac
+   )
+QED
+
+Triviality no_shadow_method_freshen_member:
+  no_shadow_method (freshen_member member)
+Proof
+  namedCases_on ‘member’
+    ["name ins reqs ens rds decrs outs mods body",
+     "name ins res_t reqs rds decrs body"]
+  \\ simp [freshen_member_def]
+  \\ rpt (pairarg_tac \\ simp [])
+  \\ imp_res_tac UNZIP_LENGTH
+  \\ gvs [MAP_ZIP, UNZIP_MAP]
+
+  \\ drule_all map_add_fresh_no_shadow
+  \\ rev_drule_all map_add_fresh_no_shadow
+
+  \\ rename [‘no_shadow _ body'’]
+  \\ disch_then $ qspec_then ‘body'’ assume_tac
+  \\ rev_drule map_add_fresh_no_shadow
+  \\ rename [‘no_shadow _ body'’]
+  \\ disch_then $ qspec_then ‘body'’ assume_tac
+  \\ drule no_shadow_union \\ simp []
 QED
 
 (* *** *)
@@ -320,6 +402,15 @@ Definition valid_members_def:
   valid_members (Program members) =
   EVERY (λmember. ALL_DISTINCT (get_param_names member)) members
 End
+
+Triviality map_freshen_member_is_fresh:
+  EVERY (λmember. ALL_DISTINCT (get_param_names member)) members ⇒
+  EVERY is_fresh_member (MAP freshen_member members)
+Proof
+  Induct_on ‘members’ \\ simp []
+  \\ rpt strip_tac
+  \\ irule freshen_member_is_fresh \\ simp []
+QED
 
 Theorem correct_compile:
   ∀dfy_ck prog s' r_dfy cml_decs env_cml (t: 'ffi cml_state).
