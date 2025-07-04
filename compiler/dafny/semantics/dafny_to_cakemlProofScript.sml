@@ -92,7 +92,7 @@ Definition is_fresh_exp_def[simp]:
   (is_fresh_exp (ArrSel arr idx) ⇔
      is_fresh_exp arr ∧ is_fresh_exp idx) ∧
   (is_fresh_exp (FunCall name es) ⇔
-     is_fresh name ∧ EVERY (λe. is_fresh_exp e) es) ∧
+     EVERY (λe. is_fresh_exp e) es) ∧
   (is_fresh_exp (Forall (name, _) term) ⇔
      is_fresh name ∧ is_fresh_exp term)
 Termination

@@ -249,7 +249,9 @@ Triviality map_inv_lookup_neq:
     map_inv m tnum ⇒ lookup m var ≠ «v» ^ toString tnum
 Proof
   Induct_on ‘m’ \\ rpt strip_tac
-  >- (gvs [lookup_def, strcat_thm, implode_def])
+  >- (gvs [lookup_def, strcat_thm, implode_def]
+      \\ Cases_on ‘toString tnum’
+      \\ drule num_to_str_not_nil \\ gvs [])
   \\ drule map_inv_cons \\ rpt strip_tac \\ gvs []
   \\ drule map_inv_pop \\ strip_tac
   \\ last_x_assum drule \\ disch_then $ qspec_then ‘var’ assume_tac
@@ -1003,7 +1005,6 @@ Theorem correct_freshen_stmt:
 Proof
   ho_match_mp_tac evaluate_stmt_ind \\ rpt strip_tac
   >~ [‘MetCall lhss name args’] >-
-
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_stmt_def]

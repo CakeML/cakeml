@@ -12,7 +12,7 @@ val _ = new_theory "dafny_freshen";
 Definition lookup_def:
   lookup m old =
   case ALOOKUP m old of
-  | NONE => «»
+  | NONE => «v»
   | SOME cnt => «v» ^ num_to_str cnt
 End
 
@@ -163,7 +163,7 @@ Definition freshen_member_def:
    let (cnt, m) = map_add_fresh m cnt out_ns in
    let out_ns = MAP (lookup m) out_ns in
    let (cnt, reqs) = freshen_exps m cnt reqs in
-   let (cnt, reqs) = freshen_exps m cnt ens in
+   let (cnt, ens) = freshen_exps m cnt ens in
    let (cnt, reads) = freshen_exps m cnt reads in
    let (cnt, decrs) = freshen_exps m cnt decrs in
    let (cnt, mods) = freshen_exps m cnt mods in
