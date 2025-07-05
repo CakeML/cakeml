@@ -1263,4 +1263,72 @@ Proof
   \\ gvs [state_rel_def, init_state_def, state_component_equality]
 QED
 
+(* no_shadow *)
+(* todo move somewhere else? *)
+open dafny_to_cakemlProofTheory
+
+Triviality freshen_stmt_no_shadow:
+  ∀stmt m cnt cnt' stmt'.
+    freshen_stmt m cnt stmt = (cnt', stmt') ∧
+    map_inv m cnt ⇒
+    no_shadow (set (MAP (lookup m) (MAP FST m))) stmt'
+Proof
+  Induct \\ rpt gen_tac
+  >~ [‘Dec local scope’] >-
+   (rpt strip_tac
+    \\ gvs [freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [add_fresh_def, lookup_def]
+    \\ conj_tac >-
+     (drule map_inv_lookup_neq
+      \\ rpt strip_tac
+      \\ gvs [MEM_MAP])
+
+    \\ ‘map_inv ((old,cnt)::m) (cnt + 1)’ by cheat
+
+    \\ last_x_assum drule \\ gvs [] \\ disch_tac
+
+    \\ Cases_on ‘MEM old (MAP FST m)’ \\ gvs []
+
+    \\ cheat)
+  \\ cheat
+QED
+
+Triviality no_shadow_method_freshen_member:
+  ALL_DISTINCT (get_param_names member) ⇒
+  no_shadow_method (freshen_member member)
+Proof
+  disch_tac
+  \\ namedCases_on ‘member’
+       ["name ins reqs ens rds decrs outs mods body",
+        "name ins res_t reqs rds decrs body"]
+  \\ simp [freshen_member_def]
+  \\ rpt (pairarg_tac \\ simp [])
+  \\ imp_res_tac UNZIP_LENGTH
+  \\ gvs [MAP_ZIP, UNZIP_MAP]
+  \\ rev_drule map_add_fresh_map_inv
+  \\ impl_tac >- (gvs [map_inv_def])
+  \\ disch_tac
+  \\ drule map_add_fresh_map_inv
+  \\ simp []
+  \\ disch_tac
+  \\ drule freshen_stmt_no_shadow
+  \\ impl_tac >-
+   (EVERY
+    (map imp_res_tac [cj 2 freshen_exp_mono, freshen_stmt_mono, map_inv_mono]))
+  \\ rpt strip_tac
+  \\ drule map_add_fresh_exists
+  \\ rpt strip_tac \\ gvs []
+  \\ rev_drule map_add_fresh_exists
+  \\ rpt strip_tac \\ gvs []
+  \\ ‘MAP (lookup m) (MAP FST ins) =
+      MAP (lookup (m₁ ++ m)) (MAP FST ins)’ by
+    (irule MAP_CONG \\ simp []
+     \\ qx_gen_tac ‘x’ \\ disch_tac
+     \\ gvs [lookup_def, ALOOKUP_APPEND]
+     \\ ‘ALOOKUP m₁ x = NONE’ by (gvs [ALOOKUP_NONE, ALL_DISTINCT_APPEND])
+     \\ simp [])
+  \\ gvs [MAP_REVERSE, UNION_COMM]
+QED
+
 val _ = export_theory ();
