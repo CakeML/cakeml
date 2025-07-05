@@ -1265,33 +1265,68 @@ QED
 
 (* no_shadow *)
 (* todo move somewhere else? *)
-open dafny_to_cakemlProofTheory
+open dafny_to_cakemlProofTheory;
 
 Triviality freshen_stmt_no_shadow:
   ∀stmt m cnt cnt' stmt'.
     freshen_stmt m cnt stmt = (cnt', stmt') ∧
     map_inv m cnt ⇒
-    no_shadow (set (MAP (lookup m) (MAP FST m))) stmt'
+    no_shadow (set (MAP (λi. «v» ^ toString i) (MAP SND m))) stmt'
 Proof
   Induct \\ rpt gen_tac
   >~ [‘Dec local scope’] >-
    (rpt strip_tac
     \\ gvs [freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
+    \\ drule_all add_fresh_map_inv \\ disch_tac
     \\ gvs [add_fresh_def, lookup_def]
     \\ conj_tac >-
-     (drule map_inv_lookup_neq
-      \\ rpt strip_tac
-      \\ gvs [MEM_MAP])
-
-    \\ ‘map_inv ((old,cnt)::m) (cnt + 1)’ by cheat
-
-    \\ last_x_assum drule \\ gvs [] \\ disch_tac
-
-    \\ Cases_on ‘MEM old (MAP FST m)’ \\ gvs []
-
-    \\ cheat)
-  \\ cheat
+     (simp [MEM_MAP] \\ rpt strip_tac
+      \\ gvs [num_to_str_11]
+      \\ rename [‘MEM y m’]
+      \\ gvs [map_inv_def, EVERY_MEM]
+      \\ last_assum $ qspec_then ‘SND y’ mp_tac
+      \\ simp [MEM_MAP]
+      \\ last_assum $ irule_at (Pos last) \\ simp [])
+    \\ last_x_assum drule \\ gvs [] \\ disch_tac)
+  >~ [‘Then stmt₀ stmt₁’] >-
+   (rpt strip_tac
+    \\ gvs [freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ last_x_assum $ irule_at (Pos hd)
+    \\ last_assum $ irule_at (Pos hd) \\ simp []
+    \\ last_x_assum $ irule
+    \\ last_assum $ irule_at (Pos hd)
+    \\ irule map_inv_mono
+    \\ last_assum $ irule_at (Pos last)
+    \\ imp_res_tac freshen_stmt_mono)
+  >~ [‘If tst thn els’] >-
+   (rpt strip_tac
+    \\ gvs [freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ last_x_assum $ irule_at (Pos hd)
+    \\ last_assum $ irule_at (Pos hd)
+    \\ irule_at (Pos hd) map_inv_mono
+    \\ last_assum $ irule_at (Pos hd)
+    \\ imp_res_tac freshen_exp_mono \\ simp []
+    \\ last_x_assum irule
+    \\ first_assum $ irule_at (Pos hd)
+    \\ irule map_inv_mono
+    \\ last_assum $ irule_at (Pos last)
+    \\ imp_res_tac freshen_stmt_mono \\ simp [])
+  >~ [‘While grd invs decrs mods body’] >-
+   (rpt strip_tac
+    \\ gvs [freshen_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ last_x_assum irule
+    \\ first_assum $ irule_at (Pos hd)
+    \\ irule map_inv_mono
+    \\ last_assum $ irule_at (Pos last)
+    \\ imp_res_tac freshen_exp_mono
+    \\ imp_res_tac freshen_stmt_mono \\ simp [])
+  \\ rpt strip_tac
+  \\ gvs [freshen_stmt_def]
+  \\ rpt (pairarg_tac \\ gvs [])
 QED
 
 Triviality no_shadow_method_freshen_member:

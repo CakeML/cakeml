@@ -256,7 +256,7 @@ Proof
    (simp [freshen_stmt_def]
     \\ rpt strip_tac
     \\ rpt (pairarg_tac \\ gvs [])
-    \\ EVERY (map imp_res_tac (CONJUNCTS freshen_exp_is_fresh))
+    \\ imp_res_tac freshen_exp_is_fresh
     \\ simp [] \\ res_tac)
   >~ [‘Print e ty’] >-
    (simp [freshen_stmt_def]
@@ -283,9 +283,8 @@ Proof
   \\ gvs [freshen_member_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ EVERY (map imp_res_tac
-               ((CONJUNCTS freshen_exp_is_fresh) @
-                [UNZIP_LENGTH, map_add_fresh_every_is_fresh,
-                 freshen_stmt_is_fresh]))
+                [freshen_exp_is_fresh, UNZIP_LENGTH,
+                 map_add_fresh_every_is_fresh, freshen_stmt_is_fresh])
   \\ gvs [MAP_ZIP, UNZIP_MAP, ALL_DISTINCT_APPEND]
 QED
 
