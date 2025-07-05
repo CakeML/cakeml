@@ -10,7 +10,7 @@ Properties of Dafny's functional big-step semantics.
 Defines functional big-step semantics for Dafny.
 
 [dafny_freshenProofScript.sml](dafny_freshenProofScript.sml):
-Correctness proof for the freshen pass.
+Correctness proof and properties for freshen.
 
 [dafny_semanticPrimitivesScript.sml](dafny_semanticPrimitivesScript.sml):
 Defines semantic primitives used in Dafny's semantics.

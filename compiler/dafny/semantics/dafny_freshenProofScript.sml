@@ -1,5 +1,5 @@
 (*
-  Correctness proof for the freshen pass.
+  Correctness proof and properties for freshen.
 *)
 
 open preamble
@@ -10,6 +10,8 @@ open dafny_astTheory
 open dafny_evaluateTheory
 open dafny_semanticPrimitivesTheory
 open dafny_evaluatePropsTheory
+
+open danielTheory
 
 val _ = new_theory "dafny_freshenProof";
 
@@ -92,15 +94,6 @@ Proof
   \\ qexists ‘λi. i < ub’ \\ gvs []
 QED
 
-(* TODO Check status of HOL#1492 *)
-Triviality greater_sorted_eq:
-  SORTED $> ((x: num)::L) ⇔ SORTED $> L ∧ ∀y. MEM y L ⇒ y < x
-Proof
-  qsuff_tac ‘(∀y. MEM y L ⇒ y < x) = (∀y. MEM y L ⇒ x > y)’
-  >- (strip_tac \\ gvs [] \\ irule SORTED_EQ \\ rw [transitive_def])
-  \\ eq_tac \\ rpt strip_tac \\ res_tac \\ decide_tac
-QED
-
 Triviality sorted_desc_cons_not_mem:
   SORTED $> ((x: num)::xs) ⇒ ¬MEM x xs
 Proof
@@ -114,13 +107,6 @@ Proof
   Induct_on ‘xs’ \\ rpt strip_tac \\ gvs []
   \\ last_x_assum drule \\ rpt strip_tac \\ gvs []
   \\ irule MONO_EVERY \\ qexists ‘λi. i < h’ \\ gvs []
-QED
-
-(* TODO Check status of CakeML#1174 *)
-Theorem mlstring_common_prefix:
-  ∀s t1 t2. s ^ t1 = s ^ t2 ⇔ t1 = t2
-Proof
-  rpt Cases \\ gvs [strcat_thm, implode_def]
 QED
 
 (* lookup *)
@@ -1234,7 +1220,6 @@ Proof
   Induct \\ simp []
   \\ Cases \\ simp [freshen_member_def]
   \\ rpt (pairarg_tac \\ gvs [])
-  \\ simp [member_name_def]
 QED
 
 (* Correctness of the freshen pass. *)
@@ -1263,9 +1248,284 @@ Proof
   \\ gvs [state_rel_def, init_state_def, state_component_equality]
 QED
 
-(* no_shadow *)
-(* todo move somewhere else? *)
-open dafny_to_cakemlProofTheory;
+(** is_fresh: After the freshening pass, all variable names start with v. **)
+(* Returns whether the name comes from the freshen pass. *)
+Definition is_fresh_def:
+  is_fresh name = isPrefix «v» name
+End
+
+(* NOTE If we have multiple of these, can abstract aways into a function that
+   takes a predicate, and walks the AST *)
+Definition is_fresh_exp_def[simp]:
+  (is_fresh_exp (Lit _) ⇔ T) ∧
+  (is_fresh_exp (Var name) ⇔ is_fresh name) ∧
+  (is_fresh_exp (If tst thn els) ⇔
+     is_fresh_exp tst ∧ is_fresh_exp thn ∧ is_fresh_exp els) ∧
+  (is_fresh_exp (UnOp _ e) ⇔ is_fresh_exp e) ∧
+  (is_fresh_exp (BinOp _ e₀ e₁) ⇔
+     is_fresh_exp e₀ ∧ is_fresh_exp e₁) ∧
+  (is_fresh_exp (ArrLen arr) ⇔ is_fresh_exp arr) ∧
+  (is_fresh_exp (ArrSel arr idx) ⇔
+     is_fresh_exp arr ∧ is_fresh_exp idx) ∧
+  (is_fresh_exp (FunCall name es) ⇔
+     EVERY (λe. is_fresh_exp e) es) ∧
+  (is_fresh_exp (Forall (name, _) term) ⇔
+     is_fresh name ∧ is_fresh_exp term)
+Termination
+  wf_rel_tac ‘measure $ exp_size’
+End
+
+Definition is_fresh_lhs_exp[simp]:
+  (is_fresh_lhs_exp (VarLhs name) ⇔ is_fresh name) ∧
+  (is_fresh_lhs_exp (ArrSelLhs arr idx) ⇔
+     is_fresh_exp arr ∧ is_fresh_exp idx)
+End
+
+Definition is_fresh_rhs_exp[simp]:
+  (is_fresh_rhs_exp (ExpRhs e) ⇔ is_fresh_exp e) ∧
+  (is_fresh_rhs_exp (ArrAlloc len init_e) ⇔
+     is_fresh_exp len ∧ is_fresh_exp init_e)
+End
+
+Definition is_fresh_stmt_def[simp]:
+  (is_fresh_stmt Skip ⇔ T) ∧
+  (is_fresh_stmt (Assert e) ⇔ is_fresh_exp e) ∧
+  (is_fresh_stmt (Then stmt₀ stmt₁) ⇔
+     is_fresh_stmt stmt₀ ∧ is_fresh_stmt stmt₁) ∧
+  (is_fresh_stmt (If cnd thn els) ⇔
+     is_fresh_exp cnd ∧ is_fresh_stmt thn ∧ is_fresh_stmt els) ∧
+  (is_fresh_stmt (Dec (n, _) scope) ⇔
+     is_fresh n ∧ is_fresh_stmt scope) ∧
+  (is_fresh_stmt (Assign ass) ⇔
+     EVERY (λlhs. is_fresh_lhs_exp lhs) (MAP FST ass) ∧
+     EVERY (λrhs. is_fresh_rhs_exp rhs) (MAP SND ass)) ∧
+  (is_fresh_stmt (While grd invs decrs mods body) ⇔
+     is_fresh_exp grd ∧
+     EVERY (λe. is_fresh_exp e) invs ∧
+     EVERY (λe. is_fresh_exp e) decrs ∧
+     EVERY (λe. is_fresh_exp e) mods ∧
+     is_fresh_stmt body) ∧
+  (is_fresh_stmt (Print e _) ⇔ is_fresh_exp e) ∧
+  (is_fresh_stmt (MetCall lhss _ args) ⇔
+     EVERY (λlhs. is_fresh_lhs_exp lhs) lhss ∧
+     EVERY (λe. is_fresh_exp e) args) ∧
+  (is_fresh_stmt Return ⇔ T)
+End
+
+Definition is_fresh_member_def[simp]:
+  (is_fresh_member (Method _ ins reqs ens rds decrs outs mods body) ⇔
+     EVERY (λn. is_fresh n) (MAP FST ins) ∧
+     EVERY (λe. is_fresh_exp e) reqs ∧
+     EVERY (λe. is_fresh_exp e) ens ∧
+     EVERY (λe. is_fresh_exp e) rds ∧
+     EVERY (λe. is_fresh_exp e) decrs ∧
+     EVERY (λn. is_fresh n) (MAP FST outs) ∧
+     is_fresh_stmt body) ∧
+  (is_fresh_member (Function _ ins _ reqs rds decrs body) ⇔
+     EVERY (λn. is_fresh n) (MAP FST ins) ∧
+     EVERY (λe. is_fresh_exp e) reqs ∧ EVERY (λe. is_fresh_exp e) rds ∧
+     EVERY (λe. is_fresh_exp e) decrs ∧ is_fresh_exp body)
+End
+
+Triviality add_fresh_is_fresh:
+  add_fresh m cnt v = (cnt', m') ⇒ is_fresh (lookup m' v)
+Proof
+  disch_tac \\ gvs [add_fresh_def, lookup_def, is_fresh_def, isprefix_strcat]
+QED
+
+Triviality freshen_exp_is_fresh:
+  (∀m cnt e cnt' e'.
+     freshen_exp m cnt e = (cnt', e') ⇒ is_fresh_exp e') ∧
+  (∀m cnt es cnt' es'.
+     freshen_exps m cnt es = (cnt', es') ⇒
+     EVERY (λe. is_fresh_exp e) es')
+Proof
+  ho_match_mp_tac freshen_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Var v’] >-
+   (gvs [freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [is_fresh_def, lookup_def]
+    \\ CASE_TAC >- (simp [isprefix_thm])
+    \\ simp [isprefix_strcat])
+  >~ [‘Forall (v,ty) e’] >-
+   (gvs [freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac add_fresh_is_fresh)
+  \\ gvs [freshen_exp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Triviality freshen_lhs_exp_is_fresh:
+  freshen_lhs_exp m cnt lhs = (cnt', lhs') ⇒ is_fresh_lhs_exp lhs'
+Proof
+  Cases_on ‘lhs’
+  >~ [‘VarLhs var’] >-
+   (rpt strip_tac
+    \\ gvs [is_fresh_lhs_exp, freshen_lhs_exp_def, lookup_def, is_fresh_def]
+    \\ CASE_TAC >- simp [isprefix_thm]
+    \\ simp [isprefix_strcat])
+  >~ [‘ArrSelLhs arr idx’] >-
+   (rpt strip_tac
+    \\ gvs [freshen_lhs_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac (cj 1 freshen_exp_is_fresh) \\ simp [])
+QED
+
+Triviality freshen_lhs_exps_is_fresh:
+  ∀lhss m cnt cnt' lhss'.
+    freshen_lhs_exps m cnt lhss = (cnt', lhss') ⇒
+    EVERY (λe. is_fresh_lhs_exp e) lhss'
+Proof
+  Induct \\ simp [freshen_lhs_exps_def]
+  \\ rpt strip_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac freshen_lhs_exp_is_fresh \\ simp []
+  \\ res_tac
+QED
+
+Triviality freshen_rhs_exp_is_fresh:
+  freshen_rhs_exp m cnt rhs = (cnt', rhs') ⇒ is_fresh_rhs_exp rhs'
+Proof
+  Cases_on ‘rhs’
+  >~ [‘ExpRhs e’] >-
+   (simp [freshen_rhs_exp_def]
+    \\ rpt strip_tac
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac (cj 1 freshen_exp_is_fresh))
+  >~ [‘ArrAlloc len init’] >-
+   (simp [freshen_rhs_exp_def]
+    \\ rpt strip_tac
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac (cj 1 freshen_exp_is_fresh) \\ simp [])
+QED
+
+Triviality freshen_rhs_exps_is_fresh:
+  ∀rhss m cnt cnt' rhss'.
+    freshen_rhs_exps m cnt rhss = (cnt', rhss') ⇒
+    EVERY (λe. is_fresh_rhs_exp e) rhss'
+Proof
+  Induct \\ simp [freshen_rhs_exps_def]
+  \\ rpt strip_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac freshen_rhs_exp_is_fresh \\ simp []
+  \\ res_tac
+QED
+
+Triviality freshen_stmt_is_fresh:
+  ∀stmt m cnt cnt' stmt'.
+    freshen_stmt m cnt stmt = (cnt', stmt') ⇒ is_fresh_stmt stmt'
+Proof
+  Induct \\ rpt gen_tac
+  >~ [‘MetCall lhss name args’] >-
+   (simp [freshen_stmt_def]
+    \\ rpt strip_tac
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac freshen_lhs_exps_is_fresh \\ simp []
+    \\ imp_res_tac (cj 2 freshen_exp_is_fresh))
+  >~ [‘Dec local scope’] >-
+   (simp [freshen_stmt_def]
+    \\ rpt strip_tac
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac add_fresh_is_fresh \\ simp []
+    \\ res_tac)
+  >~ [‘Then stmt₀ stmt₁’] >-
+   (simp [freshen_stmt_def]
+    \\ rpt strip_tac
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ res_tac \\ simp [])
+  >~ [‘If tst thn els’] >-
+   (simp [freshen_stmt_def]
+    \\ rpt strip_tac
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac (cj 1 freshen_exp_is_fresh) \\ simp []
+    \\ res_tac \\ simp [])
+  >~ [‘Assign ass’] >-
+   (simp [freshen_stmt_def]
+    \\ rpt strip_tac
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ EVERY (map imp_res_tac
+               [freshen_rhs_exp_len_eq, freshen_lhs_exp_len_eq,
+                freshen_rhs_exps_is_fresh, freshen_lhs_exps_is_fresh])
+    \\ simp [MAP_ZIP])
+  >~ [‘While grd invs decrs mods body’] >-
+   (simp [freshen_stmt_def]
+    \\ rpt strip_tac
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac freshen_exp_is_fresh
+    \\ simp [] \\ res_tac)
+  >~ [‘Print e ty’] >-
+   (simp [freshen_stmt_def]
+    \\ rpt strip_tac
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac freshen_exp_is_fresh)
+  >~ [‘Assert e’] >-
+   (simp [freshen_stmt_def]
+    \\ rpt strip_tac
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac freshen_exp_is_fresh)
+  (* Return, Skip *)
+  \\ simp [freshen_stmt_def]
+QED
+
+Triviality map_add_fresh_every_is_fresh:
+  ∀ns m cnt cnt' m'.
+    map_add_fresh m cnt ns = (cnt', m') ∧
+    ALL_DISTINCT ns ⇒
+    EVERY (λn. is_fresh n) (MAP (lookup m') ns)
+Proof
+  Induct \\ simp []
+  \\ qx_gen_tac ‘n’ \\ rpt strip_tac
+  >-
+   (drule map_add_fresh_exists
+    \\ rpt strip_tac \\ gvs []
+    \\ ‘MEM n (MAP FST m₁)’ by gvs []
+    \\ drule lookup_append_eq \\ simp []
+    \\ disch_then kall_tac
+    \\ simp [lookup_def]
+    \\ CASE_TAC
+    >- (gvs [ALOOKUP_NONE])
+    \\ simp [is_fresh_def, isprefix_strcat])
+  \\ gvs [map_add_fresh_def, add_fresh_def]
+  \\ last_assum irule
+  \\ last_assum $ irule_at Any
+QED
+
+Theorem freshen_member_is_fresh:
+  ALL_DISTINCT (get_param_names member) ⇒
+  is_fresh_member (freshen_member member)
+Proof
+  disch_tac
+  \\ namedCases_on ‘member’
+       ["name ins reqs ens rds decrs outs mods body",
+        "name ins res_t reqs rds decrs body"]
+  \\ gvs [freshen_member_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ EVERY (map imp_res_tac
+                [freshen_exp_is_fresh, UNZIP_LENGTH,
+                 map_add_fresh_every_is_fresh, freshen_stmt_is_fresh])
+  \\ gvs [MAP_ZIP, UNZIP_MAP, ALL_DISTINCT_APPEND]
+QED
+
+(** no_shadow: After the freshening pass no variables are shadowed. **)
+
+Definition no_shadow_def[simp]:
+  (no_shadow t (Dec (n, _) scope) ⇔
+     n ∉ t ∧ no_shadow (n INSERT t) scope) ∧
+  (no_shadow t (Then stmt₁ stmt₂) ⇔
+     no_shadow t stmt₁ ∧ no_shadow t stmt₂) ∧
+  (no_shadow t (If _ thn els) ⇔
+     no_shadow t thn ∧ no_shadow t els) ∧
+  (no_shadow t (While _ _ _ _ body) ⇔
+     no_shadow t body) ∧
+  (no_shadow _ _ ⇔ T)
+End
+
+Definition no_shadow_method_def[simp]:
+  no_shadow_method (Method _ ins _ _ _ _ out _ body) =
+    no_shadow (set ((MAP FST ins) ++ (MAP FST out))) body ∧
+  no_shadow_method _ = T
+End
 
 Triviality freshen_stmt_no_shadow:
   ∀stmt m cnt cnt' stmt'.
@@ -1329,7 +1589,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
-Triviality no_shadow_method_freshen_member:
+Theorem no_shadow_method_freshen_member:
   ALL_DISTINCT (get_param_names member) ⇒
   no_shadow_method (freshen_member member)
 Proof
@@ -1354,16 +1614,16 @@ Proof
   \\ rpt strip_tac
   \\ drule map_add_fresh_exists
   \\ rpt strip_tac \\ gvs []
+  \\ drule map_lookup_append_eq \\ simp []
+  \\ disch_then kall_tac
   \\ rev_drule map_add_fresh_exists
   \\ rpt strip_tac \\ gvs []
-  \\ ‘MAP (lookup m) (MAP FST ins) =
-      MAP (lookup (m₁ ++ m)) (MAP FST ins)’ by
-    (irule MAP_CONG \\ simp []
-     \\ qx_gen_tac ‘x’ \\ disch_tac
-     \\ gvs [lookup_def, ALOOKUP_APPEND]
-     \\ ‘ALOOKUP m₁ x = NONE’ by (gvs [ALOOKUP_NONE, ALL_DISTINCT_APPEND])
-     \\ simp [])
-  \\ gvs [MAP_REVERSE, UNION_COMM]
+  \\ ‘MAP FST ins = REVERSE (MAP FST m)’ by (gvs []) \\ fs []
+  \\ ‘MAP FST outs = REVERSE (MAP FST m₁)’ by (gvs []) \\ fs []
+  \\ simp [MAP_REVERSE]
+  \\ DEP_REWRITE_TAC [gen_map_lookup_map_tostring]
+  \\ conj_tac >- (gvs [ALL_DISTINCT_APPEND])
+  \\ gvs [UNION_COMM]
 QED
 
 val _ = export_theory ();

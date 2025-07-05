@@ -19,7 +19,10 @@ open mlstringTheory
 open integerTheory
 open mlintTheory
 open result_monadTheory
+open dafny_freshenProofTheory
 open dafny_to_cakemlTheory
+
+open danielTheory
 
 val _ = new_theory "dafny_to_cakemlProof";
 val _ = set_grammar_ancestry
@@ -27,7 +30,8 @@ val _ = set_grammar_ancestry
            "extension_evaluateProps", "dafny_semanticPrimitives",
            "dafny_evaluate", "dafny_evaluateProps", "namespace",
            "namespaceProps", "mlstring", "integer", "mlint",
-           "result_monad", "dafny_to_cakeml"];
+           "result_monad", "dafny_freshenProof", "dafny_to_cakeml",
+           "daniel"];
 
 (* TODO Remove unused definition / trivialities *)
 
@@ -60,6 +64,12 @@ Proof
   \\ gvs [Pstuple_def]
 QED
 
+Triviality is_fresh_neq[simp]:
+  is_fresh n ∧ ¬is_fresh n' ⇒ n ≠ n'
+Proof
+  rpt strip_tac \\ gvs [is_fresh_def]
+QED
+
 (* TODO Upstream these? Most likely will break things. *)
 Triviality nsOptBind_some_simp[simp]:
   nsOptBind (SOME n) x env = nsBind n x env
@@ -72,102 +82,6 @@ Triviality nsOptBind_none_simp[simp]:
 Proof
   gvs [nsOptBind_def]
 QED
-
-(* Returns whether the name comes from the freshen pass. *)
-Definition is_fresh_def:
-  is_fresh name = isPrefix «v» name
-End
-
-(* NOTE If we have multiple of these, can abstract aways into a function that
-   takes a predicate, and walks the AST *)
-Definition is_fresh_exp_def[simp]:
-  (is_fresh_exp (Lit _) ⇔ T) ∧
-  (is_fresh_exp (Var name) ⇔ is_fresh name) ∧
-  (is_fresh_exp (If tst thn els) ⇔
-     is_fresh_exp tst ∧ is_fresh_exp thn ∧ is_fresh_exp els) ∧
-  (is_fresh_exp (UnOp _ e) ⇔ is_fresh_exp e) ∧
-  (is_fresh_exp (BinOp _ e₀ e₁) ⇔
-     is_fresh_exp e₀ ∧ is_fresh_exp e₁) ∧
-  (is_fresh_exp (ArrLen arr) ⇔ is_fresh_exp arr) ∧
-  (is_fresh_exp (ArrSel arr idx) ⇔
-     is_fresh_exp arr ∧ is_fresh_exp idx) ∧
-  (is_fresh_exp (FunCall name es) ⇔
-     EVERY (λe. is_fresh_exp e) es) ∧
-  (is_fresh_exp (Forall (name, _) term) ⇔
-     is_fresh name ∧ is_fresh_exp term)
-Termination
-  wf_rel_tac ‘measure $ exp_size’
-End
-
-Definition is_fresh_lhs_exp[simp]:
-  (is_fresh_lhs_exp (VarLhs name) ⇔ is_fresh name) ∧
-  (is_fresh_lhs_exp (ArrSelLhs arr idx) ⇔
-     is_fresh_exp arr ∧ is_fresh_exp idx)
-End
-
-Definition is_fresh_rhs_exp[simp]:
-  (is_fresh_rhs_exp (ExpRhs e) ⇔ is_fresh_exp e) ∧
-  (is_fresh_rhs_exp (ArrAlloc len init_e) ⇔
-     is_fresh_exp len ∧ is_fresh_exp init_e)
-End
-
-Definition is_fresh_stmt_def[simp]:
-  (is_fresh_stmt Skip ⇔ T) ∧
-  (is_fresh_stmt (Assert e) ⇔ is_fresh_exp e) ∧
-  (is_fresh_stmt (Then stmt₀ stmt₁) ⇔
-     is_fresh_stmt stmt₀ ∧ is_fresh_stmt stmt₁) ∧
-  (is_fresh_stmt (If cnd thn els) ⇔
-     is_fresh_exp cnd ∧ is_fresh_stmt thn ∧ is_fresh_stmt els) ∧
-  (is_fresh_stmt (Dec (n, _) scope) ⇔
-     is_fresh n ∧ is_fresh_stmt scope) ∧
-  (is_fresh_stmt (Assign ass) ⇔
-     EVERY (λlhs. is_fresh_lhs_exp lhs) (MAP FST ass) ∧
-     EVERY (λrhs. is_fresh_rhs_exp rhs) (MAP SND ass)) ∧
-  (is_fresh_stmt (While grd invs decrs mods body) ⇔
-     is_fresh_exp grd ∧
-     EVERY (λe. is_fresh_exp e) invs ∧
-     EVERY (λe. is_fresh_exp e) decrs ∧
-     EVERY (λe. is_fresh_exp e) mods ∧
-     is_fresh_stmt body) ∧
-  (is_fresh_stmt (Print e _) ⇔ is_fresh_exp e) ∧
-  (is_fresh_stmt (MetCall lhss _ args) ⇔
-     EVERY (λlhs. is_fresh_lhs_exp lhs) lhss ∧
-     EVERY (λe. is_fresh_exp e) args) ∧
-  (is_fresh_stmt Return ⇔ T)
-End
-
-Definition is_fresh_member_def[simp]:
-  (is_fresh_member (Method _ ins reqs ens rds decrs outs mods body) ⇔
-     EVERY (λn. is_fresh n) (MAP FST ins) ∧
-     EVERY (λe. is_fresh_exp e) reqs ∧
-     EVERY (λe. is_fresh_exp e) ens ∧
-     EVERY (λe. is_fresh_exp e) rds ∧
-     EVERY (λe. is_fresh_exp e) decrs ∧
-     EVERY (λn. is_fresh n) (MAP FST outs) ∧
-     is_fresh_stmt body) ∧
-  (is_fresh_member (Function _ ins _ reqs rds decrs body) ⇔
-     EVERY (λn. is_fresh n) (MAP FST ins) ∧
-     EVERY (λe. is_fresh_exp e) reqs ∧ EVERY (λe. is_fresh_exp e) rds ∧
-     EVERY (λe. is_fresh_exp e) decrs ∧ is_fresh_exp body)
-End
-
-Definition no_shadow_def[simp]:
-  (no_shadow t (Dec (n, _) scope) ⇔
-     n ∉ t ∧ no_shadow (n INSERT t) scope) ∧
-  (no_shadow t (Then stmt₁ stmt₂) ⇔
-     no_shadow t stmt₁ ∧ no_shadow t stmt₂) ∧
-  (no_shadow t (If _ thn els) ⇔
-     no_shadow t thn ∧ no_shadow t els) ∧
-  (no_shadow t (While _ _ _ _ body) ⇔
-     no_shadow t body) ∧
-  (no_shadow _ _ ⇔ T)
-End
-
-Definition no_shadow_method_def[simp]:
-  no_shadow_method (Method _ ins _ _ _ _ out _ body) =
-    no_shadow (set ((MAP FST ins) ++ (MAP FST out))) body ∧
-  no_shadow_method _ = T
-End
 
 Triviality no_shadow_evaluate_exp:
   no_shadow (set (MAP FST s.locals)) stmt ∧
@@ -390,42 +304,6 @@ Triviality neq_nslookup_nsbind:
   nsLookup (nsBind n' v env) (Short n) = nsLookup env (Short n)
 Proof
   Cases_on ‘env’ \\ gvs [nsBind_def, nsLookup_def]
-QED
-
-(* TODO Move to mlstring *)
-Triviality isprefix_thm_aux:
-  ∀ys xs zs.
-    LENGTH ys ≤ LENGTH zs ⇒
-    (isStringThere_aux (strlit (xs ++ ys)) (strlit (xs ++ zs))
-       (LENGTH xs) (LENGTH xs) (LENGTH ys) ⇔
-       ys ≼ zs)
-Proof
-  Induct \\ gvs [isStringThere_aux_def]
-  \\ rpt strip_tac
-  \\ Cases_on ‘zs’ \\ gvs []
-  \\ rename [‘_ = h' ∧ _ ≼ zs’]
-  \\ gvs [EL_APPEND]
-  \\ last_x_assum $ qspecl_then [‘xs ++ [h]’, ‘zs’] mp_tac
-  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND]
-  \\ gvs [] \\ metis_tac []
-QED
-
-(* TODO Move to mlstring *)
-Theorem isprefix_thm:
-  isPrefix s₁ s₂ ⇔ explode s₁ ≼ explode s₂
-Proof
-  namedCases_on ‘s₁’ ["s"]
-  \\ namedCases_on ‘s₂’ ["t"]
-  \\ gvs [isPrefix_def]
-  \\ Cases_on ‘LENGTH s ≤ LENGTH t’ \\ gvs []
-  >- (qspecl_then [‘s’, ‘[]’, ‘t’] mp_tac isprefix_thm_aux \\ gvs [])
-  \\ strip_tac \\ imp_res_tac IS_PREFIX_LENGTH
-QED
-
-Triviality is_fresh_neq[simp]:
-  is_fresh n ∧ ¬is_fresh n' ⇒ n ≠ n'
-Proof
-  rpt strip_tac \\ gvs [is_fresh_def]
 QED
 
 Triviality state_rel_env_push_not_fresh:
@@ -3796,7 +3674,7 @@ Triviality from_member_decl_name:
 Proof
   rpt strip_tac
   \\ gvs [from_member_decl_def, oneline bind_def, set_up_cml_fun_def,
-          member_name_def, AllCaseEqs()]
+          AllCaseEqs()]
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 

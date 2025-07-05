@@ -99,9 +99,15 @@ Datatype:
              (exp list) exp
 End
 
-Definition member_name_def:
+Definition member_name_def[simp]:
   member_name (Method name _ _ _ _ _ _ _ _) = name ∧
   member_name (Function name _ _ _ _ _ _) = name
+End
+
+Definition get_param_names_def[simp]:
+  get_param_names (Method _ ins _ _ _ _ outs _ _) =
+    MAP FST ins ++ MAP FST outs ∧
+  get_param_names (Function _ ins _ _ _ _ _) = MAP FST ins
 End
 
 Datatype:
