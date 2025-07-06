@@ -252,11 +252,11 @@ End
 Definition AppendLenLoop_location_def:
   AppendLenLoop_location = AppendMainLoop_location+1
 End
-Definition AppendFastLoop_location_def:
-  AppendFastLoop_location = AppendLenLoop_location+1
+Definition XorLoop_location_def:
+  XorLoop_location = AppendLenLoop_location+1
 End
 Definition Bignum_location_def:
-  Bignum_location = AppendFastLoop_location+1
+  Bignum_location = XorLoop_location+1
 End
 
 Theorem FromList_location_eq =
@@ -319,8 +319,8 @@ Theorem AppendMainLoop_location_eq =
   ``AppendMainLoop_location`` |> EVAL
 Theorem AppendLenLoop_location_eq =
   ``AppendLenLoop_location`` |> EVAL
-Theorem AppendFastLoop_location_eq =
-  ``AppendFastLoop_location`` |> EVAL
+Theorem XorLoop_location_eq =
+  ``XorLoop_location`` |> EVAL
 
 Definition SilentFFI_def:
   SilentFFI c n names =
@@ -913,8 +913,8 @@ Definition AppendLenLoop_code_def:
          Call NONE (SOME AppendLenLoop_location) [0; 2; 4] NONE])
 End
 
-Definition AppendFastLoop_code_def:
-  AppendFastLoop_code c = Skip :'a wordLang$prog
+Definition XorLoop_code_def:
+  XorLoop_code c = Skip :'a wordLang$prog
 End
 
 Definition get_names_def:
@@ -2533,7 +2533,7 @@ Definition stubs_def:
     (Append_location,3n,Append_code data_conf);
     (AppendMainLoop_location,6n,AppendMainLoop_code data_conf);
     (AppendLenLoop_location,3n,AppendLenLoop_code data_conf);
-    (AppendFastLoop_location,5n,AppendFastLoop_code data_conf);
+    (XorLoop_location,5n,XorLoop_code data_conf);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
@@ -2568,7 +2568,7 @@ Definition stub_names_def:
     (Append_location,«_Append»);
     (AppendMainLoop_location,«_AppendMainLoop»);
     (AppendLenLoop_location,«_AppendLenLoop»);
-    (AppendFastLoop_location,«_AppendFastLoop»);
+    (XorLoop_location,«_XorLoop»);
     (MemCopy_location,«_MemCopy»);
     (ByteCopy_location,«_ByteCopy»);
     (ByteCopyAdd_location,«_ByteCopyAdd»);
