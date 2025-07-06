@@ -109,6 +109,14 @@ Proof
   gvs [cml_init_state_def]
 QED
 
+(* Allows us to irule the correctness theorem for from_program. *)
+Triviality cml_init_state_extra_clock:
+  cml_init_state ffi (dfy_ck + ck) =
+  cml_init_state ffi dfy_ck with clock := (cml_init_state ffi dfy_ck).clock + ck
+Proof
+  gvs [cml_init_state_def]
+QED
+
 Theorem correct_compile:
   ∀dfy_ck prog s' r_dfy cml_decs (ffi: 'ffi ffi_state).
     evaluate_program dfy_ck T prog = (s', r_dfy) ∧
@@ -116,13 +124,13 @@ Theorem correct_compile:
     0 < dfy_ck ∧ r_dfy ≠ Rstop (Serr Rtype_error) ⇒
     ∃ck t' m' r_cml.
       evaluate_decs
-        ((cml_init_state ffi dfy_ck) with
-           clock := (cml_init_state ffi dfy_ck).clock + ck)
+        (cml_init_state ffi (dfy_ck + ck))
         (cml_init_env ffi) cml_decs = (t', r_cml) ∧
       state_rel m' FEMPTY s' t' (cml_init_env ffi) ∧
       stmt_res_rel r_dfy r_cml
 Proof
   rpt strip_tac
+  \\ rewrite_tac [cml_init_state_extra_clock]
   \\ irule correct_from_program \\ simp []
   \\ irule_at Any has_basic_cons_cml_init_env
   \\ irule_at Any cml_init_state_next_exn_stamp
