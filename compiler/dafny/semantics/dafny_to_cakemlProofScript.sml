@@ -94,7 +94,7 @@ Proof
 QED
 
 Definition ret_stamp_def:
-  ret_stamp = ExnStamp 67  (* TODO Check *)
+  ret_stamp = ExnStamp 4
 End
 
 Definition is_ret_exn_def[simp]:
