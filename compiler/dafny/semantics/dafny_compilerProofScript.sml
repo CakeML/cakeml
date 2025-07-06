@@ -11,13 +11,23 @@ open dafny_to_cakemlProofTheory
 open dafny_compilerTheory
 open mlstringTheory  (* isPrefix *)
 
-open danielTheory
-
 val _ = new_theory "dafny_compilerProof";
 val _ = set_grammar_ancestry
           ["dafny_semanticPrimitives", "dafny_freshen", "dafny_freshenProof",
            "dafny_to_cakeml", "dafny_to_cakemlProof", "dafny_compiler",
-           "mlstring", "daniel"];
+           "mlstring"];
+
+Triviality UNZIP_LENGTH:
+  ∀xs ys zs. UNZIP xs = (ys, zs) ⇒ LENGTH ys = LENGTH zs
+Proof
+  Induct \\ gvs []
+QED
+
+Triviality UNZIP_EQ_NIL:
+  UNZIP l = ([], []) ⇔ l = []
+Proof
+  Cases_on ‘l’ \\ gvs []
+QED
 
 Triviality has_main_freshen:
   has_main (Program (MAP freshen_member members)) =

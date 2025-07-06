@@ -245,6 +245,8 @@ val r = translate fromSexpTheory.decsexp_def;
 
 (* Translating dafny_compilerTheory *)
 
+val r = translate dafny_compilerTheory.frontend_def;
+val r = translate dafny_compilerTheory.compile_def;
 val r = translate dafny_compilerTheory.dfy_to_cml_def;
 val r = translate dafny_compilerTheory.unpack_def;
 val r = translate dafny_compilerTheory.cmlm_to_str_def;

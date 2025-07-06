@@ -17,6 +17,3 @@ Defines semantic primitives used in Dafny's semantics.
 
 [dafny_to_cakemlProofScript.sml](dafny_to_cakemlProofScript.sml):
 Correctness proof for the Dafny to CakeML compiler.
-
-[extension_evaluatePropsScript.sml](extension_evaluatePropsScript.sml):
-Properties of the operational semantics.

@@ -402,7 +402,7 @@ Definition evaluate_program_def:
   then (init_state ck, Rstop (Serr Rtype_error))
   else
     evaluate_stmt (init_state ck) (mk_env is_running (Program members))
-      (MetCall [] «main» [])
+      (MetCall [] «Main» [])
 End
 
 val _ = export_theory ();

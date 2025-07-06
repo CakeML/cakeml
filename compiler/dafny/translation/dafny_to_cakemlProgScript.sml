@@ -3,7 +3,6 @@
 *)
 
 open preamble
-open extension_astTheory
 open ml_translatorLib
 open sexp_to_dafnyProgTheory
 open dafny_to_cakemlTheory
@@ -16,7 +15,7 @@ val _ = translation_extends "sexp_to_dafnyProg";
 
 val r = translate dafny_to_cakemlTheory.cml_list_def;
 
-val r = translate extension_astTheory.Funs_def;
+val r = translate astTheory.Funs_def;
 val r = translate dafny_to_cakemlTheory.cml_new_refs_def;
 
 val r = translate dafny_to_cakemlTheory.cml_fun_def;
@@ -29,7 +28,7 @@ val r = translate dafny_to_cakemlTheory.cml_alloc_arr_def;
 val r = translate dafny_to_cakemlTheory.cml_get_arr_dim_def;
 val r = translate dafny_to_cakemlTheory.cml_get_arr_data_def;
 
-val r = translate extension_astTheory.apps_def;
+val r = translate astTheory.Apps_def;
 val r = translate dafny_to_cakemlTheory.cml_apps_def;
 val r = translate dafny_to_cakemlTheory.cml_lets_def;
 
@@ -47,7 +46,7 @@ val r = translate dafny_to_cakemlTheory.from_rhs_exp_def;
 val r = translate dafny_to_cakemlTheory.cml_tmp_vname_def;
 val r = translate dafny_to_cakemlTheory.assign_single_def;
 
-val r = translate extension_astTheory.Seqs_def;
+val r = translate astTheory.Seqs_def;
 val r = translate dafny_to_cakemlTheory.par_assign_def;
 
 val r = translate dafny_to_cakemlTheory.to_string_def;

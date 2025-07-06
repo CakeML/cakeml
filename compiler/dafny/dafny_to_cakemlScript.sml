@@ -5,7 +5,6 @@
 open preamble
 open dafny_astTheory
 open astTheory  (* CakeML AST *)
-open extension_astTheory
 open mlintTheory  (* num_to_str *)
 open result_monadTheory
 
@@ -95,7 +94,7 @@ End
 
 Definition cml_apps_def:
   cml_apps id [] = App Opapp [id; Unit] ∧
-  cml_apps id args = apps id args
+  cml_apps id args = Apps id args
 End
 
 (* Creates nested lets. *)
@@ -417,7 +416,7 @@ Definition from_program_def:
     cml_funs <- result_mmap from_member_decl mems;
     (* TODO Optimize: Only put mutually recursive functions together *)
     cml_funs <<- Dletrec unknown_loc cml_funs;
-    main_call <<- Handle (cml_fapp [] "dfy_main" [Unit])
+    main_call <<- Handle (cml_fapp [] "dfy_Main" [Unit])
               [(Pcon (SOME (mk_id [] "Return")) [], Unit)];
     cml_main <<- Dlet unknown_loc Pany main_call;
     return ([return_exn; cml_funs; cml_main])
@@ -429,7 +428,6 @@ End
 (* open dafny_sexpTheory *)
 (* open sexp_to_dafnyTheory *)
 (* open TextIO *)
-(* open dafny_transformTheory *)
 
 (* val _ = astPP.disable_astPP(); *)
 (* val _ = astPP.enable_astPP(); *)

@@ -11,8 +11,6 @@ open dafny_evaluateTheory
 open dafny_semanticPrimitivesTheory
 open dafny_evaluatePropsTheory
 
-open danielTheory
-
 val _ = new_theory "dafny_freshenProof";
 
 (* Relations and invariants *)
@@ -107,6 +105,12 @@ Proof
   Induct_on ‘xs’ \\ rpt strip_tac \\ gvs []
   \\ last_x_assum drule \\ rpt strip_tac \\ gvs []
   \\ irule MONO_EVERY \\ qexists ‘λi. i < h’ \\ gvs []
+QED
+
+Triviality UNZIP_LENGTH:
+  ∀xs ys zs. UNZIP xs = (ys, zs) ⇒ LENGTH ys = LENGTH zs
+Proof
+  Induct \\ gvs []
 QED
 
 (* lookup *)
@@ -1236,7 +1240,7 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
   \\ ‘state_rel (init_state ck) (init_state ck) [] 0’ by
        gvs [state_rel_def, init_state_def, locals_rel_def, map_inv_def]
-  \\ ‘freshen_stmt [] 0 (MetCall [] «main» []) = (0, MetCall [] «main» [])’ by
+  \\ ‘freshen_stmt [] 0 (MetCall [] «Main» []) = (0, MetCall [] «Main» [])’ by
        gvs [freshen_stmt_def, freshen_lhs_exps_def, freshen_exp_def]
   \\ ‘env_rel
         (mk_env is_running (Program members))
