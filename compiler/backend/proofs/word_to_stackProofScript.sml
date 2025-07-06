@@ -1354,6 +1354,13 @@ Proof
   simp[LLOOKUP_def]
 QED
 
+Theorem EVEN_DIV2_INJ:
+   EVEN x ∧ EVEN y ∧ DIV2 x = DIV2 y ⇒ x = y
+Proof
+  srw_tac[][EVEN_EXISTS,DIV2_def,MULT_COMM]
+  \\ fs[MULT_DIV]
+QED
+
 Theorem evaluate_wLive[local]:
   wLive names (bs,n) (k,f,f') = (wlive_prog,(bs',n')) /\
   (∀x. x ∈ domain (FST names) ⇒ EVEN x /\ k ≤ x DIV 2) /\
@@ -1839,13 +1846,6 @@ Proof
   ho_match_mp_tac LIST_REL_ind>>
   fs[handler_val_def,abs_frame_eq_def,FORALL_PROD]>>rw[]>>
   Cases_on`p_1`>>fs[handler_val_def]
-QED
-
-Theorem EVEN_DIV2_INJ:
-   EVEN x ∧ EVEN y ∧ DIV2 x = DIV2 y ⇒ x = y
-Proof
-  srw_tac[][EVEN_EXISTS,DIV2_def,MULT_COMM]
-  \\ fs[MULT_DIV]
 QED
 
 (*Prove the inductive bits first...*)
@@ -2457,12 +2457,9 @@ val stack_evaluate_add_clock_NONE =
   stackPropsTheory.evaluate_add_clock
   |> Q.SPECL [`p`,`s`,`NONE`] |> SIMP_RULE (srw_ss()) [] |> GEN_ALL
 
-(* TODO: this is used for exceptions. Not quite right *)
 Definition push_locals_def:
-  push_locals cs s = s with <| locals := LN; locals_size := SOME 0;
-    stack := StackFrame s.locals_size
-      (FST (env_to_list (difference s.locals cs) (K I)))
-      (FST (env_to_list (inter s.locals cs) (K I))) NONE :: s.stack |>
+  push_locals l0 l s = s with <| locals := LN; locals_size := SOME 0;
+    stack := StackFrame s.locals_size l0 l NONE :: s.stack |>
 End
 
 Triviality stack_rel_aux_LENGTH:
@@ -2735,14 +2732,12 @@ Triviality stack_rel_raise:
         Word (n2w
           (LENGTH sstack - handler_val (LASTN (h1+1) (LASTN (handler+1) stack)))))) /\
     stack_rel_aux k (LENGTH sstack)
-      (StackFrame m
-        (FST (env_to_list (difference (union (fromAList l) (fromAList l0)) (fromAList l)) (K I)))
-        (FST (env_to_list (inter (union (fromAList l) (fromAList l0)) (fromAList l)) (K I))) NONE::rest)
+      (StackFrame m l0
+        (FST (env_to_list (fromAList l) (K I))) NONE::rest)
           ((NONE,payload) :: LASTN handler stack) /\
     abs_stack bs
-      (StackFrame m
-        (FST (env_to_list (difference (union (fromAList l) (fromAList l0)) (fromAList l)) (K I)))
-        (FST (env_to_list (inter (union (fromAList l) (fromAList l0)) (fromAList l)) (K I))) NONE::rest)
+      (StackFrame m l0
+        (FST (env_to_list (fromAList l) (K I))) NONE::rest)
       (DROP (LENGTH sstack - handler_val (LASTN (handler+1) stack) + 3)
          sstack) (LASTN (handler+1) lens) = SOME ((NONE,payload) :: LASTN handler stack)
 Proof
@@ -2827,8 +2822,7 @@ Proof
   rw[]>>
   fs[abs_stack_def,LET_THM]>>
   first_x_assum irule>>
-  simp[]>>
-  cheat
+  simp[]
 QED
 
 Theorem insert_bitmap_isPREFIX:
@@ -5830,8 +5824,8 @@ val goal = ``
               (FLOOKUP t1.regs (i+1) = SOME (EL i ys)) else
             (LLOOKUP (DROP t1.stack_space t1.stack) (LENGTH ys - (i + 1)) = SOME (EL i ys))))
          | SOME (Exception _ y) =>
-           ∃cs.
-           state_rel ac k 0 0 (push_locals cs s1) t1 (LASTN (s.handler+1) lens) 0 /\
+           ∃l0 l.
+           state_rel ac k 0 0 (push_locals l0 l s1) t1 (LASTN (s.handler+1) lens) 0 /\
            FLOOKUP t1.regs 1 = SOME y
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock``
 
@@ -6708,7 +6702,6 @@ QED
 Theorem comp_Raise_correct:
   ^(get_goal "wordLang$Raise")
 Proof
-  cheat (*
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   fs [wordSemTheory.evaluate_def,jump_exc_def]
   \\ `1 < k` by (fs [state_rel_def] \\ decide_tac)
@@ -6729,7 +6722,7 @@ Proof
   \\ fs []
   \\ pop_assum kall_tac
   \\ fs [stackSemTheory.dec_clock_def,raise_stub_def,wordLangTheory.max_var_def]
-  \\ fs [state_rel_def,LET_DEF,push_locals_def,stackSemTheory.evaluate_def,LET_THM]
+  \\ fs [state_rel_def,LET_DEF,stackSemTheory.evaluate_def,LET_THM]
   \\ fs [DROP_DROP_EQ] \\ fs [stack_rel_def]
   \\ qpat_x_assum` A ⇒ B` mp_tac
   \\ impl_tac >- (
@@ -6755,58 +6748,32 @@ Proof
   \\ simp[]
   \\ strip_tac
   \\ fsrw_tac[][]
+  \\ qexists_tac`ll0`
+  \\ qexists_tac`(FST (env_to_list (fromAList ll) (K I)))`
+  \\ simp[GSYM CONJ_ASSOC]
   \\ conj_tac THEN1 metis_tac[]
+  \\ conj_tac >- (
+    (* previous cases got merged into stack_size_rel_def *)
+    qhdtm_x_assum`stack_size_rel` mp_tac>>
+    simp[stack_size_rel_def]>>
+    ntac 3 strip_tac>>
+    first_assum drule>>simp[]>>
+    cheat
+    )
   \\ conj_tac THEN1 (
-     imp_res_tac stack_rel_aux_stack_size >>
-     rw[the_eqn] >> PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
-     qpat_x_assum `IS_SOME _ ==> IS_SOME (stack_size _)` assume_tac >>
-     fsrw_tac[][IS_SOME_EXISTS,miscTheory.the_def] >>
-     drule_then drule LASTN_stack_size_SOME >>
-     impl_tac >- simp[] >>
-     strip_tac >>
-     fs[stack_size_eq2] >>
-     Cases_on `payload` >> fs[handler_val_def,stack_size_frame_def] >>
-     rveq >> fs[miscTheory.the_def]
-   )
-  \\ conj_tac THEN1
-     (
-       strip_tac >> last_x_assum drule >> simp[IS_SOME_EXISTS] >>
-       strip_tac >>
-       drule_then drule LASTN_stack_size_SOME >>
-       impl_tac >- simp[] >>
-       rw[stack_size_eq2,stack_size_frame_def]
-     )
-  \\ conj_tac THEN1
-     (
-       rw [handler_val_def]>>
-       imp_res_tac stack_rel_aux_stack_size >>
-       rw[the_eqn] >>
-       PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
-       Cases_on `payload` >>
-       fsrw_tac[][miscTheory.the_def,handler_val_def,stack_size_eq] >>
-       `LENGTH t.stack -
-        (LENGTH r + (handler_val (LASTN s.handler stack) + 4)) <=
-        LENGTH t.stack` by intLib.COOPER_TAC >>
-       simp[SUB_RIGHT_ADD] >>
-       reverse IF_CASES_TAC
-       >- intLib.COOPER_TAC >>
-       imp_res_tac abs_stack_LENGTH >>
-       qpat_x_assum `handler_val (_::_) = LENGTH (DROP _ _)` (mp_tac o GSYM) >>
-       simp[handler_val_def,LENGTH_DROP]
-     )
-  \\ conj_tac THEN1 (
-    fs [sorted_env_def] \\ Cases_on `env_to_list (union (fromAList ll) (fromAList ll0)) (K I)`
+    fs [sorted_env_def]
+    \\ Cases_on `env_to_list (fromAList ll) (K I)`
     \\ imp_res_tac env_to_list_K_I_IMP \\ fs [])
-  \\ conj_tac >-
-     (rpt (qpat_x_assum`∀x. _`kall_tac)
+  \\ conj_tac >- (
+     rpt (qpat_x_assum`∀x. _`kall_tac)
      \\imp_res_tac LASTN_LENGTH_BOUNDS
      \\imp_res_tac abs_stack_IMP_LENGTH \\ fs[]
      \\imp_res_tac EVERY_IMP_EVERY_LASTN \\ fs [])
   \\ reverse CONJ_TAC>- (
-    fs [get_var_def,FLOOKUP_UPDATE,convs_def]>>
+    fs [get_var_def,FLOOKUP_UPDATE,convs_def,lookup_def]>>
     `1 < k` by fs[state_rel_def]>>
     res_tac>>qpat_x_assum`!n.P` kall_tac>>rfs[])
-  \\ rfs[]
+  \\ rfs[FLOOKUP_SIMP,handler_val_def]
   \\ rw[]
   \\ Cases_on`h1+1 = SUC (LENGTH rest)`>- (
       fs[is_handler_frame_def])>>
@@ -6816,7 +6783,7 @@ Proof
   \\ fs [LASTN_CONS]
   \\ imp_res_tac abs_stack_IMP_LENGTH \\ fs[] >>
   simp[LASTN_CONS] >>
-  simp[FLOOKUP_UPDATE] *)
+  simp[FLOOKUP_UPDATE]
 QED
 
 Triviality evaluate_const_inst:
