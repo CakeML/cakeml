@@ -10,12 +10,17 @@ open dafny_to_cakemlTheory
 open dafny_to_cakemlProofTheory
 open dafny_compilerTheory
 open mlstringTheory  (* isPrefix *)
+open primTypesTheory
+open evaluateTheory
+open semanticPrimitivesTheory
+open namespaceTheory
 
 val _ = new_theory "dafny_compilerProof";
 val _ = set_grammar_ancestry
           ["dafny_semanticPrimitives", "dafny_freshen", "dafny_freshenProof",
            "dafny_to_cakeml", "dafny_to_cakemlProof", "dafny_compiler",
-           "mlstring"];
+           "mlstring", "primTypes", "evaluate", "semanticPrimitives",
+           "namespace"];
 
 Triviality UNZIP_LENGTH:
   ∀xs ys zs. UNZIP xs = (ys, zs) ⇒ LENGTH ys = LENGTH zs
@@ -68,20 +73,30 @@ Proof
   \\ irule no_shadow_method_freshen_member \\ simp []
 QED
 
+Triviality has_basic_cons_prim_sem_env:
+  has_basic_cons (SND (THE (prim_sem_env ffi)))
+Proof
+  gvs [prim_sem_env_def, prim_types_program_def, add_to_sem_env_def,
+       evaluate_decs_def, check_dup_ctors_def, combine_dec_result_def,
+       has_basic_cons_def, build_tdefs_def, build_constrs_def,
+       extend_dec_env_def]
+QED
+
 Theorem correct_compile:
-  ∀dfy_ck prog s' r_dfy cml_decs env_cml (t: 'ffi cml_state).
+  ∀dfy_ck prog s' r_dfy cml_decs ffi (t: 'ffi cml_state).
     evaluate_program dfy_ck T prog = (s', r_dfy) ∧
-    compile prog = INR cml_decs ∧
-    has_main prog ∧ valid_members prog ∧ has_basic_cons env_cml ∧
+    compile prog = INR cml_decs ∧ has_main prog ∧ valid_members prog ∧
     0 < dfy_ck ∧ t.clock = dfy_ck ∧ ExnStamp t.next_exn_stamp = ret_stamp ∧
     r_dfy ≠ Rstop (Serr Rtype_error) ⇒
     ∃ck t' m' r_cml.
-      evaluate_decs (t with clock := t.clock + ck) env_cml cml_decs =
-        (t', r_cml) ∧
-      state_rel m' FEMPTY s' t' env_cml ∧ stmt_res_rel r_dfy r_cml
+      evaluate_decs (t with clock := t.clock + ck)
+        (SND (THE (prim_sem_env ffi))) cml_decs = (t', r_cml) ∧
+      state_rel m' FEMPTY s' t' (SND (THE (prim_sem_env ffi))) ∧
+      stmt_res_rel r_dfy r_cml
 Proof
   rpt strip_tac
   \\ irule correct_from_program
+  \\ irule_at (Pos hd) has_basic_cons_prim_sem_env
   \\ fs [compile_def]
   \\ last_assum $ irule_at (Pos last)
   \\ irule_at (Pos last) correct_freshen_program \\ simp []
