@@ -17,6 +17,7 @@
     - Missing function exit (return, tail call, etc)
     - Loop exit outside loop (break, continue)
     - Function parameter names not distinct
+    - Incorrect number of function arguments
     - Incorrect number of Op arguments (impossible from parser)
   - Warnings:
     - Unreachable statements (after function exit, after loop exit)
@@ -28,7 +29,22 @@
     - Base-calculated address in shared memory operation
     - Non-base -calculated address in local memory operation
 
-  Shape checks: TODO
+  Shape checks:
+  - Errors:
+    - Mismatched variable declarations
+    - Mismatched variable assignments
+    - Mismatched function arguments
+    - Mismatched function returns
+    - Non-word main function return declarations
+    - Non-word FFI arguments
+    - Non-word entry point argument declarations
+    - Non-word entry point return declarations
+    - Invalid field index
+    - Non-word addresses for memory operations
+    - Mismatched source/destination for memory operations
+    - Non-word/mismatched operator operands
+    - Non-word condition expressions
+    - Returned shape size >32 words (TODO: raised shape size)
 *)
 Theory panStatic
 Libs
@@ -417,6 +433,22 @@ Definition get_rogue_msg_def:
         get_scope_desc scope; strlit "\n"]
 End
 
+(* Get message for non-word shape *)
+Definition get_non_word_msg_def:
+  get_non_word_msg exp loc scope =
+    concat
+      [loc; exp; strlit " is not a word in ";
+        get_scope_desc scope; strlit "\n"]
+End
+
+(* Get message for declared shape mismatch *)
+Definition get_shape_mismatch_msg_def:
+  get_shape_mismatch_msg exp loc scope =
+    concat
+      [loc; exp; strlit " does not match declared shape in ";
+        get_scope_desc scope; strlit "\n"]
+End
+
 
 (* Misc functions *)
 
@@ -507,11 +539,10 @@ Definition check_func_args_def:
     case (params, sh_bds) of
     | ((p,s)::ps, sb::sbs) =>
       if ~(sh_bd_has_shape s sb)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "value for argument "; p;
-           strlit " given to function "; fname;
-           strlit " does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_shape_mismatch_msg (concat [
+            strlit "value for argument "; p;
+            strlit " given to function "; fname
+          ]) ctxt.loc ctxt.scope)
       else check_func_args ctxt fname ps sbs
     | ((p,s)::ps, []) => error (GenErr $ concat
           [ctxt.loc; strlit "argument "; p;
@@ -576,9 +607,7 @@ Definition static_check_exp_def:
       aret <- static_check_exp ctxt addr;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "load address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
+      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "load address") ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.scope)
       | _               => return ();
@@ -591,9 +620,7 @@ Definition static_check_exp_def:
       aret <- static_check_exp ctxt addr;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "load address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
+      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "load address") ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.scope)
       | _               => return ();
@@ -606,9 +633,7 @@ Definition static_check_exp_def:
       aret <- static_check_exp ctxt addr;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "load address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
+      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "load address") ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.scope)
       | _               => return ();
@@ -671,9 +696,7 @@ Definition static_check_exp_def:
       eret <- static_check_exp ctxt e;
       (* check exp shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "shifted expression is not a word in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_non_word_msg (strlit "shifted expression") ctxt.loc ctxt.scope)
       else return ();
       (* return exp info *)
       return (eret)
@@ -721,10 +744,9 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt e;
       (* check for shape match *)
       if ~(sh_bd_has_shape s eret.sh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "expression to initialise local variable "; v;
-           strlit " does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_shape_mismatch_msg (concat [
+            strlit "expression to initialise local variable "; v
+          ]) ctxt.loc ctxt.scope)
       else return ();
       (* check prog with declared var *)
       ctxt' <<- ctxt with <| locals := insert ctxt.locals v <| vsh_bd := eret.sh_bd |>
@@ -746,10 +768,9 @@ Definition static_check_prog_def:
       esret <- static_check_exps ctxt args;
       (* check for shape match *)
       if ~(s = finf.ret_shape)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "call result to initialise local variable "; v;
-           strlit " does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_shape_mismatch_msg (concat [
+            strlit "expression to initialise local variable "; v
+          ]) ctxt.loc ctxt.scope)
       else return ();
       (* check arg num and shapes *)
       check_func_args ctxt fname finf.params esret.sh_bds;
@@ -772,10 +793,9 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt e;
       (* check for shape match *)
       if ~(sh_bd_eq_shapes vinf.vsh_bd eret.sh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "expression assigned to local variable "; v;
-           strlit " does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_shape_mismatch_msg (concat [
+            strlit "expression assigned to local variable "; v
+          ]) ctxt.loc ctxt.scope)
       else return ();
       (* return prog info with updated var *)
       return <| exits_fun  := F
@@ -792,10 +812,9 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt e;
       (* check for shape match *)
       if ~(sh_bd_has_shape vinf.vshape eret.sh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "expression assigned to global variable "; v;
-           strlit " does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_shape_mismatch_msg (concat [
+            strlit "expression assigned to global variable "; v
+          ]) ctxt.loc ctxt.scope)
       else return ();
       (* return prog info with updated var *)
       return <| exits_fun  := F
@@ -879,10 +898,9 @@ Definition static_check_prog_def:
       esret <- static_check_exps ctxt args;
       (* check for shape match *)
       if ~(sh_bd_has_shape finf.ret_shape vinf.vsh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "call result assigned to local variable "; rt;
-           strlit " does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_shape_mismatch_msg (concat [
+            strlit "call result assigned to local variable "; rt
+          ]) ctxt.loc ctxt.scope)
       else return ();
       (* check arg num and shapes *)
       check_func_args ctxt trgt finf.params esret.sh_bds;
@@ -914,9 +932,7 @@ Definition static_check_prog_def:
               | _ => error (GenErr $ strlit "return found outside function scope");
       (* check for shape match *)
       if ~(sh_bd_has_shape finf.ret_shape eret.sh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "expression to return does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_shape_mismatch_msg (strlit "expression to return") ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
       return <| exits_fun  := T
@@ -930,15 +946,14 @@ Definition static_check_prog_def:
       (* lookup current function info *)
       finf <- case ctxt.scope of
               | FunScope fname => scope_check_fun_name ctxt fname
+              (* should never occur if static checker implemented correctly *)
               | _ => error (GenErr $ strlit "tail call found outside function scope");
       (* check func ptr exp and arg exps *)
       finf' <- scope_check_fun_name ctxt trgt;
       esret <- static_check_exps ctxt args;
       (* check for shape match *)
       if ~(finf.ret_shape = finf'.ret_shape)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "call result to return does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_shape_mismatch_msg (strlit "call result to return") ctxt.loc ctxt.scope)
       else return ();
       (* check arg num and shapes *)
       check_func_args ctxt trgt finf.params esret.sh_bds;
@@ -979,10 +994,9 @@ Definition static_check_prog_def:
       esret <- static_check_exps ctxt [ptr1;len1;ptr2;len2];
       (* check arg shapes *)
       if ~(EVERY (sh_bd_has_shape One) esret.sh_bds)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "FFI call "; fname;
-           strlit " argument is not a word in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_non_word_msg (concat [
+            strlit "FFI call "; fname; strlit " argument"
+          ]) ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
       return <| exits_fun  := F
@@ -1030,9 +1044,7 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt e;
       (* check condition shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "if condition is not a word in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_non_word_msg (strlit "if condition") ctxt.loc ctxt.scope)
       else return ();
       (* check branches *)
       pret1 <- static_check_prog ctxt p1;
@@ -1053,9 +1065,7 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt e;
       (* check condition shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "while condition is not a word in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_non_word_msg (strlit "while condition") ctxt.loc ctxt.scope)
       else return ();
       (* check loop body *)
       pret <- static_check_prog (ctxt with in_loop := T) p;
@@ -1112,9 +1122,7 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt exp;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "store address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
+      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "store address") ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
       | _               => return ();
@@ -1132,17 +1140,13 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt exp;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "store address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
+      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "store address") ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
       | _               => return ();
       (* check value shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "store value is not a word in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_non_word_msg (strlit "store value") ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
       return <| exits_fun  := F
@@ -1158,17 +1162,13 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt exp;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "store address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
+      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "store address") ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
       | _               => return ();
       (* check value shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "store value is not a word in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_non_word_msg (strlit "store value") ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
       return <| exits_fun  := F
@@ -1185,17 +1185,13 @@ Definition static_check_prog_def:
       aret <- static_check_exp ctxt e;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "load address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
+      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "load address") ctxt.loc ctxt.scope)
       | WordB Based      => log (WarningErr $ get_memop_msg F T F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg F T T ctxt.loc ctxt.scope)
       | _               => return ();
       (* check value shape *)
       if ~(sh_bd_has_shape One vinf.vsh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "load variable is not a word in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_non_word_msg (strlit "load variable") ctxt.loc ctxt.scope)
       else return ();
       (* return prog info with updated var *)
       return <| exits_fun  := F
@@ -1212,17 +1208,13 @@ Definition static_check_prog_def:
       aret <- static_check_exp ctxt e;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "load address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
+      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "load address") ctxt.loc ctxt.scope)
       | WordB Based      => log (WarningErr $ get_memop_msg F T F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg F T T ctxt.loc ctxt.scope)
       | _               => return ();
       (* check value shape *)
       if ~(One = vinf.vshape)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "load variable is not a word in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_non_word_msg (strlit "load variable") ctxt.loc ctxt.scope)
       else return ();
       (* return prog info with updated var *)
       return <| exits_fun  := F
@@ -1238,17 +1230,13 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt e;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ concat
-                            [ctxt.loc; strlit "store address is not a word in ";
-                             get_scope_desc ctxt.scope; strlit "\n"])
+      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "store address") ctxt.loc ctxt.scope)
       | WordB Based      => log (WarningErr $ get_memop_msg F F F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg F F T ctxt.loc ctxt.scope)
       | _               => return ();
       (* check value shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "store value is not a word in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+        then error (ShapeErr $ get_non_word_msg (strlit "store value") ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
       return <| exits_fun  := F
