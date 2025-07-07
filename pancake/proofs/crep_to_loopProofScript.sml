@@ -1632,9 +1632,7 @@ Proof
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, eval_def, set_var_def, lookup_insert,
       call_env_def, state_rel_def, crepSemTheory.empty_locals_def] >> rveq >>
-  fs [] >>
-  qexists_tac ‘0’ >>
-  gvs []
+  fs [mem_rel_def]
 QED
 
 Theorem compile_Store:
@@ -2407,8 +2405,7 @@ Proof
     rfs [lookup_inter, domain_lookup]) >>
    match_mp_tac write_bytearray_mem_rel >>
    gvs []) >>
-  fs [call_env_def] >>
-  qexists_tac ‘0’ >> gvs []
+  fs [call_env_def,mem_rel_def]
 QED
 
 
