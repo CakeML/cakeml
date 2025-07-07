@@ -99,8 +99,6 @@ val _ = register_type “:32 crepLang$prog”;
 
 val _ = translate $ spec32 var_cexp_def;
 
-val _ = translate $ spec32 acc_vars_def;
-
 val _ = translate $ spec32 nested_decs_def;
 
 val _ = translate $ spec32 nested_seq_def;
