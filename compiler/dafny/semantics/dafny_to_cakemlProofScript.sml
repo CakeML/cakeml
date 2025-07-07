@@ -590,14 +590,14 @@ Proof
   gvs [store_preserve_all_def, store_preserve_def, store_lookup_def]
 QED
 
-Triviality state_rel_restore_locals:
+Triviality state_rel_restore_caller:
   state_rel m l s (t: 'ffi cml_state) env ∧
   state_rel m l s' (t': 'ffi cml_state) env' ∧
   store_preserve_all t.refs t'.refs ⇒
-  state_rel m l (restore_locals s' s.locals) t' env
+  state_rel m l (restore_caller s' s) t' env
 Proof
   rpt strip_tac
-  \\ gvs [restore_locals_def, state_rel_def]
+  \\ gvs [restore_caller_def, state_rel_def]
   \\ irule store_preserve_all_locals_rel
   \\ last_x_assum $ irule_at Any \\ gvs []
 QED
@@ -1132,7 +1132,7 @@ Proof
                do_opapp_def, callable_rel_cases]
           \\ drule_all find_recfun_some \\ rpt strip_tac \\ gvs []
           \\ ‘ck = 0 ∧ t.clock = 0’ by gvs [state_rel_def] \\ gvs []
-          \\ gvs [restore_locals_def])
+          \\ gvs [restore_caller_def, state_rel_def])
       \\ Cases_on ‘cml_args = []’ \\ gvs []
       \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
       (* Preparing ns for evaluate_Apps *)
@@ -1163,12 +1163,11 @@ Proof
       \\ pop_assum $ kall_tac
       (* Finished instantiating evaluate_Apps *)
       \\ ‘t₁.clock = s₁.clock’ by gvs [state_rel_def] \\ gvs []
-      \\ gvs [restore_locals_def, state_rel_def])
+      \\ gvs [restore_caller_def, state_rel_def])
     \\ qabbrev_tac ‘dfy_locals = REVERSE (ZIP (MAP FST ins, MAP SOME in_vs))’
-    \\ namedCases_on
-         ‘evaluate_exp (dec_clock (s₁ with locals := dfy_locals)) env_dfy body’
-         ["s₂ r"]
-    \\ gvs []
+    \\ qmatch_asmsub_abbrev_tac ‘evaluate_exp call_t’
+    \\ namedCases_on ‘evaluate_exp call_t env_dfy body’ ["s₂ r"]
+    \\ gvs [Abbr ‘call_t’]
     \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
     (* Show how compiling the function body succeeds *)
     \\ drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
@@ -1205,7 +1204,7 @@ Proof
       \\ gvs [evaluate_def, do_con_check_def, build_conv_def,
               evaluateTheory.dec_clock_def]
       \\ Cases_on ‘r’ \\ gvs []
-      \\ drule_all state_rel_restore_locals \\ gvs [])
+      \\ drule_all state_rel_restore_caller \\ gvs [])
     (* Evaluating (non-empty) args succeeded *)
     \\ Cases_on ‘cml_args = []’ \\ gvs []
     \\ Cases_on ‘cml_vs = []’ \\ gvs []
@@ -1342,11 +1341,9 @@ Proof
        \\ last_assum $ irule_at Any \\ gvs [])
     \\ gvs []
     \\ namedCases_on ‘r’ ["", "v err"] \\ gvs []
-    \\ gvs [state_rel_def, restore_locals_def]
+    \\ gvs [state_rel_def, restore_caller_def]
     \\ irule store_preserve_all_locals_rel
     \\ last_assum $ irule_at (Pos hd) \\ gvs [])
-  >~ [‘Forall var term’] >-
-   (gvs [from_exp_def])
   >~ [‘Lit l’] >-
    (qexists ‘0’
     \\ Cases_on ‘l’
@@ -1582,6 +1579,9 @@ Proof
     \\ ‘store_preserve_all t.refs t₂.refs’ by
       (irule store_preserve_all_trans \\ gvs [SF SFY_ss])
     \\ reverse $ Cases_on ‘r’ \\ gvs [evaluate_def])
+  (* These expression do not get compiled *)
+  >~ [‘Forall var term’] >- (gvs [from_exp_def])
+  >~ [‘Old e’] >- (gvs [from_exp_def])
 QED
 
 Triviality array_rel_submap:
@@ -2470,16 +2470,16 @@ Proof
   \\ gvs [evaluate_append, cml_read_var_def, evaluate_def, do_app_def]
 QED
 
-(* TODO Merge with state_rel_restore_locals *)
-Triviality state_rel_restore_locals1:
+(* TODO Merge with state_rel_restore_caller *)
+Triviality state_rel_restore_caller1:
   state_rel m l s (t: 'ffi cml_state) env ∧
   state_rel m' l' s' (t': 'ffi cml_state) env' ∧
   store_preserve_all t.refs t'.refs ∧
   m ⊑ m' ⇒
-  state_rel m' l (restore_locals s' s.locals) t' env
+  state_rel m' l (restore_caller s' s) t' env
 Proof
   rpt strip_tac
-  \\ gvs [restore_locals_def, state_rel_def]
+  \\ gvs [restore_caller_def, state_rel_def]
   \\ irule store_preserve_all_locals_rel
   \\ last_x_assum $ irule_at Any \\ gvs []
   \\ irule locals_rel_submap \\ gvs []
@@ -3082,7 +3082,7 @@ Proof
        (* Failing to do the call, since we don't have any ticks left *)
        (qexists ‘0’ \\ gvs []
         \\ ‘ck = 0 ∧ t.clock = 0’ by gvs [state_rel_def] \\ gvs []
-        \\ gvs [restore_locals_def]
+        \\ gvs [restore_caller_def, state_rel_def]
         \\ last_assum $ irule_at (Pos hd) \\ gvs [])
       (* Go through with the call *)
       \\ ‘¬(ck = 0 ∧ t.clock = 0)’ by gvs [state_rel_def] \\ gvs []
@@ -3099,10 +3099,9 @@ Proof
       \\ qmatch_goalsub_abbrev_tac ‘evaluate _ call_env₁’
       \\ qmatch_asmsub_abbrev_tac
            ‘evaluate_stmt (_ (_ with locals := dfy_locals))’
-      \\ namedCases_on
-          ‘evaluate_stmt (dec_clock (s₁ with locals := dfy_locals)) env_dfy body’
-          ["s₂ r"]
-      \\ gvs []
+      \\ qmatch_asmsub_abbrev_tac ‘evaluate_stmt call_s’
+      \\ namedCases_on ‘evaluate_stmt call_s env_dfy body’ ["s₂ r"]
+      \\ gvs [Abbr ‘call_s’]
       \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (spose_not_then assume_tac \\ gvs [])
       \\ gvs []
       \\ last_x_assum drule
@@ -3155,7 +3154,7 @@ Proof
         \\ Cases_on ‘err’ \\ gvs []
         (* Timed out *)
         \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
-        \\ gvs [state_rel_def, restore_locals_def]
+        \\ gvs [state_rel_def, restore_caller_def]
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
         \\ irule store_preserve_all_locals_rel \\ gvs []
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
@@ -3185,7 +3184,7 @@ Proof
                 pmatch_def, pat_bindings_def]
         (* TODO Same as the timeout case - refactor? *)
         \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
-        \\ gvs [state_rel_def, restore_locals_def]
+        \\ gvs [state_rel_def, restore_caller_def]
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
         \\ irule store_preserve_all_locals_rel \\ gvs []
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
@@ -3218,7 +3217,7 @@ Proof
         \\ impl_tac >-
          (rpt strip_tac
           >- (* state_rel *)
-           (irule state_rel_restore_locals1 \\ gvs []
+           (irule state_rel_restore_caller1 \\ gvs []
             \\ first_assum $ irule_at (Pos hd) \\ gvs []
             \\ qexists ‘t with clock := ck + t.clock’ \\ gvs []
             \\ first_assum $ irule_at (Pos last) \\ gvs []
@@ -3292,7 +3291,7 @@ Proof
       \\ impl_tac >-
        (rpt strip_tac
         >- (* state_rel *)
-         (irule state_rel_restore_locals1 \\ gvs []
+         (irule state_rel_restore_caller1 \\ gvs []
           \\ first_assum $ irule_at (Pos hd) \\ gvs []
           \\ qexists ‘t with clock := ck + t.clock’ \\ gvs []
           \\ first_assum $ irule_at (Pos last) \\ gvs []
@@ -3371,7 +3370,7 @@ Proof
     \\ Cases_on ‘s₁.clock = 0’ \\ gvs []
     >- (qexists ‘0’ \\ gvs []
         \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
-        \\ qexists ‘m’ \\ gvs [restore_locals_def, state_rel_def])
+        \\ qexists ‘m’ \\ gvs [restore_caller_def, state_rel_def])
     (* Dafny ran the call *)
     \\ ‘cml_param = HD (REVERSE params)’ by
       (Cases_on ‘REVERSE params’ \\ gvs [cml_fun_def])
@@ -3396,10 +3395,10 @@ Proof
     \\ gvs [evaluate_def]
     (* Dafny: Call method *)
     \\ qmatch_asmsub_abbrev_tac ‘evaluate_stmt (_ (_ with locals := dfy_locals))’
-    \\ namedCases_on
-         ‘evaluate_stmt (dec_clock (s₁ with locals := dfy_locals)) env_dfy body’
-         ["s₂ r"]
-    \\ gvs []
+
+    \\ qmatch_asmsub_abbrev_tac ‘evaluate_stmt call_s₁’
+    \\ namedCases_on ‘evaluate_stmt call_s₁ env_dfy body’ ["s₂ r"]
+    \\ gvs [Abbr ‘call_s₁’]
     \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (spose_not_then assume_tac \\ gvs [])
     \\ gvs []
     (* Apply induction hypothesis *)
@@ -3480,7 +3479,7 @@ Proof
         \\ last_assum $ irule_at (Pos hd)
         \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
         (* state_rel *)
-        \\ irule_at (Pos hd) state_rel_restore_locals1
+        \\ irule_at (Pos hd) state_rel_restore_caller1
         \\ last_assum $ irule_at (Pos hd) \\ gvs []
         \\ first_assum $ irule_at (Pos hd) \\ gvs [])
     (* Dafny: read_locals *)
@@ -3525,7 +3524,7 @@ Proof
       \\ impl_tac >-
        (rpt strip_tac
           >- (* state_rel *)
-           (irule state_rel_restore_locals1 \\ gvs []
+           (irule state_rel_restore_caller1 \\ gvs []
             \\ first_assum $ irule_at (Pos hd) \\ gvs []
             \\ qexists ‘t₁’ \\ simp []
             \\ first_assum $ irule_at (Pos last) \\ gvs []
@@ -3601,7 +3600,7 @@ Proof
     \\ impl_tac >-
      (rpt strip_tac
       >- (* state_rel *)
-       (irule state_rel_restore_locals1 \\ gvs []
+       (irule state_rel_restore_caller1 \\ gvs []
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
         \\ qexists ‘t₁’ \\ gvs []
         \\ first_assum $ irule_at (Pos last) \\ gvs []
@@ -3735,8 +3734,6 @@ Proof
     \\ rewrite_tac [Once $ GSYM EVERY_REVERSE]
     \\ disch_tac
     \\ rev_full_simp_tac std_ss [EVERY_DEF])
-  >~ [‘Forall var term’] >-
-   (simp [from_exp_def])
   >~ [‘Lit l’] >-
    (simp [from_exp_def] \\ disch_tac
     \\ gvs [oneline from_lit_def, do_con_check_def, has_cons_def,
@@ -3768,6 +3765,8 @@ Proof
   >~ [‘map_from_exp (e::es)’] >-
    (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ rpt strip_tac \\ gvs [])
+  >~ [‘Forall var term’] >- (simp [from_exp_def])
+  >~ [‘Old e’] >- (simp [from_exp_def])
 QED
 
 Triviality cml_new_refs_one_con_check:
@@ -4158,12 +4157,12 @@ Proof
   \\ namedCases_on ‘r’ ["", "stp"] \\ gvs []
   \\ reverse $ namedCases_on ‘stp’ ["", "err"] \\ gvs []
   >- (Cases_on ‘err’
-      \\ gvs [combine_dec_result_def, restore_locals_def, state_rel_def,
+      \\ gvs [combine_dec_result_def, restore_caller_def, state_rel_def,
               locals_rel_def])
   \\ simp [Abbr ‘cl_env’]
   \\ gvs [assign_values_def, can_pmatch_all_def, pmatch_def, same_type_def,
           ret_stamp_def, same_ctor_def, combine_dec_result_def, state_rel_def,
-          restore_locals_def, locals_rel_def, pat_bindings_def,
+          restore_caller_def, locals_rel_def, pat_bindings_def,
           do_con_check_def, build_conv_def]
 QED
 

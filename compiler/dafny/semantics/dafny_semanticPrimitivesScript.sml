@@ -34,11 +34,15 @@ Datatype:
 End
 
 Datatype:
-  state =
-  <| clock: num;
-     locals: (mlstring, (value option)) alist;
-     heap: heap_value list;
-     output: mlstring list |>
+  state = <|
+    clock: num;
+    locals: (mlstring, (value option)) alist;
+    heap: heap_value list;
+    output: mlstring list;
+    (* For old-expressions *)
+    locals_old: (mlstring, (value option)) alist;
+    heap_old: heap_value list;
+  |>
 End
 
 Datatype:
@@ -98,7 +102,14 @@ Definition get_member_def:
 End
 
 Definition init_state_def:
-  init_state ck = <| clock := ck; locals := []; heap := []; output := [] |>
+  init_state ck = <|
+    clock := ck;
+    locals := [];
+    heap := [];
+    output := [];
+    locals_old := [];
+    heap_old := [];
+  |>
 End
 
 Definition safe_zip_def:
@@ -116,28 +127,42 @@ Definition set_up_call_def:
   (case (safe_zip in_ns (MAP SOME in_vs)) of
    | NONE => NONE
    | SOME params =>
-     (let old_locals = st.locals in
-      let new_locals = params ++ ZIP (outs, REPLICATE (LENGTH outs) NONE) in
-        SOME (old_locals, st with locals := REVERSE new_locals)))
+     (let new_locals = params ++ ZIP (outs, REPLICATE (LENGTH outs) NONE) in
+      SOME (st with <|
+                 locals := REVERSE new_locals;
+                 locals_old := REVERSE new_locals;
+                 heap_old := st.heap;
+               |>)))
 End
 
 Theorem set_up_call_clock:
-  ∀ st₀ ins ivs os locals st₁.
-    set_up_call st₀ ins ivs os = SOME (locals, st₁) ⇒ st₁.clock = st₀.clock
+  set_up_call st₀ ins ivs os = SOME st₁ ⇒ st₁.clock = st₀.clock
 Proof
   rpt strip_tac \\ gvs [set_up_call_def, CaseEq "option"]
 QED
 
-Definition restore_locals_def:
-  restore_locals st old_locals = (st with locals := old_locals)
+Definition restore_caller_def:
+  restore_caller cur prev =
+    cur with <|
+      locals := prev.locals;
+      locals_old := prev.locals_old;
+      heap_old := prev.heap_old
+    |>
 End
 
-Theorem restore_locals_clock:
-  ∀ st₀ old_locals st₁.
-    restore_locals st₀ old_locals = st₁ ⇒ st₁.clock = st₀.clock
+Theorem restore_caller_clock:
+  restore_caller cur prev = st ⇒ st.clock = cur.clock
 Proof
-  rpt strip_tac \\ gvs [restore_locals_def]
+  rpt strip_tac \\ gvs [restore_caller_def]
 QED
+
+Definition use_old_def:
+  use_old st = st with <| locals := st.locals_old; heap := st.heap_old |>
+End
+
+Definition unuse_old_def:
+  unuse_old cur prev = cur with <| locals := prev.locals; heap := prev.heap |>
+End
 
 Definition read_local_def:
   read_local locals var =

@@ -47,6 +47,7 @@ Datatype:
   | FunCall mlstring (exp list)
   (* Forall var term *)
   | Forall (mlstring # type) exp
+  | Old exp
 End
 
 Overload If = “Exp_If”
