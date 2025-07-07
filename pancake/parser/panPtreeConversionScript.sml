@@ -750,8 +750,6 @@ Definition localise_exp_def:
   localise_exp ls e = e ∧
   localise_exps ls [] = [] ∧
   localise_exps ls (e::es) = localise_exp ls e::localise_exps ls es
-Termination
-  wf_rel_tac ‘measure $ λx. sum_CASE x (exp_size ARB o SND) (exp1_size ARB o SND)’
 End
 
 Definition localise_prog_def:
@@ -805,8 +803,6 @@ Definition localise_prog_def:
   localise_prog ls (ShMemStore opsize exp1 exp2) =
   ShMemStore opsize (localise_exp ls exp1) (localise_exp ls exp2) ∧
   localise_prog ls p = p
-Termination
-  wf_rel_tac ‘measure $ prog_size ARB o SND’
 End
 
 Definition localise_topdec_def:
