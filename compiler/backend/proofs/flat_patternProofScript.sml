@@ -902,12 +902,14 @@ Proof
   )
   >- (
     fs [store_lookup_def, bool_case_eq, option_case_eq]
+    \\ res_tac
     \\ every_case_tac \\ rfs []
+    \\ gvs []
     \\ rpt (first_x_assum drule)
     \\ fs [state_rel_def, LIST_REL_EL_EQN]
     \\ rfs []
-    \\ rpt (first_x_assum drule)
-    \\ simp []
+    \\ rpt strip_tac
+    \\ metis_tac [sv_rel_def]
   )
   >- (
     rpt ((first_x_assum drule ORELSE CASE_TAC) \\ rw [] \\ fs [match_rel_def])

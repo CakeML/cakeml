@@ -913,11 +913,10 @@ Proof
   )
   THEN1 (
     fs [pmatch_def, pat_bindings_def, v_of_pat_def] \\
-    every_case_tac \\ fs [] \\ rw [] \\
-    try_finally (
-      progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
-      rename1 `insts' ++ rest` \\ first_assum (qspec_then `insts'` (fs o sing))
-    ) \\
+    gvs [AllCaseEqs()] \\
+    Cases_on ‘pmatch envC s pat v env_v’ \\ gvs [] \\
+    progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
+    res_tac \\
     once_rewrite_tac [snd (CONJ_PAIR semanticPrimitivesPropsTheory.pat_bindings_accum)] \\
     fs [] \\ progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
     fs [REVERSE_APPEND] \\ progress (snd (CONJ_PAIR v_of_pat_insts_length)) \\
@@ -983,21 +982,22 @@ Proof
   THEN1 (fs [pat_without_Pref_Pas_def,pat_bindings_def,v_of_pat_def,pmatch_def]
          \\ metis_tac[])
   THEN1 (
-    fs [pmatch_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    first_assum progress \\ rw [] \\ fs [pat_bindings_def] \\
+    gvs [pmatch_def,AllCaseEqs()] \\
+    fs [pat_bindings_def] \\
     once_rewrite_tac [semanticPrimitivesPropsTheory.pat_bindings_accum] \\ fs [] \\
-    rename1 `v_of_pat _ _ insts wildcards = _` \\
-    rename1 `v_of_pat_list _ _ insts' wildcards' = _` \\
-    qexists_tac `insts ++ insts'` \\ qexists_tac `wildcards ++ wildcards'` \\
+    fs [AllCaseEqs(),PULL_EXISTS] \\
+    rename1 `v_of_pat _ _ insts1 wildcards1 = _` \\
+    rename1 `v_of_pat_list _ _ insts2 wildcards2 = _` \\
+    qexists_tac `insts1 ++ insts2` \\ qexists_tac `wildcards1 ++ wildcards2` \\
     progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\
     progress (snd (CONJ_PAIR v_of_pat_insts_length)) \\ fs [ZIP_APPEND] \\
-    progress_then (qspec_then `insts'` assume_tac)
+    progress_then (qspec_then `insts2` assume_tac)
       (fst (CONJ_PAIR v_of_pat_extend_insts)) \\
-    progress_then (qspec_then `wildcards'` assume_tac)
+    progress_then (qspec_then `wildcards2` assume_tac)
       (fst (CONJ_PAIR v_of_pat_extend_wildcards)) \\
-    progress_then (qspec_then `insts'` assume_tac)
+    progress_then (qspec_then `insts1` assume_tac)
       (snd (CONJ_PAIR v_of_pat_extend_insts)) \\
-    progress_then (qspec_then `wildcards'` assume_tac)
+    progress_then (qspec_then `wildcards1` assume_tac)
       (snd (CONJ_PAIR v_of_pat_extend_insts)) \\
     fs [v_of_pat_def]
   )

@@ -17,6 +17,7 @@ local open helperLib in end
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj",
                        "fromAList_def", "domain_union", "domain_insert",
                        "domain_inter"]
+val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
 val _ = new_theory"bvl_to_bviProof";
 
@@ -1532,9 +1533,9 @@ Theorem eval_ind_alt:
         P ([If x1 x2 x3],env,s)) ∧
      (∀xs x2 env s.
         (∀ys v2 s1 vs.
-           exp1_size ys <= exp_size x2 /\ evaluate (xs,env,s) = (v2,s1) ⇒
+           list_size exp_size ys <= exp_size x2 /\ evaluate (xs,env,s) = (v2,s1) ⇒
            P (ys,vs,s1)) ∧
-        (∀ys env. exp1_size ys <= exp_size x2 ⇒ P (ys,env,s)) ∧
+        (∀ys env. list_size exp_size ys <= exp_size x2 ⇒ P (ys,env,s)) ∧
         (∀v2 s1 vs.
            evaluate (xs,env,s) = (v2,s1) ∧ v2 = Rval vs ⇒
            P ([x2],vs ++ env,s1)) ∧
@@ -1546,7 +1547,7 @@ Theorem eval_ind_alt:
            evaluate ([x1],env,s1) = (v3,s) ∧ v3 = Rerr v8 ∧
            v8 = Rraise v ⇒
            P ([x2],v::env,s)) ∧
-        (∀xs env. exp1_size xs <= exp_size x1 ⇒ P (xs,env,s1)) ⇒
+        (∀xs env. list_size exp_size xs <= exp_size x1 ⇒ P (xs,env,s1)) ⇒
         P ([Handle x1 x2],env,s1)) ∧
      (∀op xs env s. P (xs,env,s) ⇒ P ([Op op xs],env,s)) ∧
      (∀x env s.
@@ -1563,19 +1564,19 @@ Theorem eval_ind_alt:
 Proof
   rpt strip_tac
   \\ HO_MATCH_MP_TAC (MP_CANON WF_INDUCTION_THM)
-  \\ WF_REL_TAC `(inv_image (measure I LEX measure exp1_size)
+  \\ WF_REL_TAC `(inv_image (measure I LEX measure (list_size exp_size))
                               (\(xs,env,s). (s.clock,xs)))`
   \\ rw [] \\ Cases_on `p_1` \\ fs []
   \\ reverse (Cases_on `t`) \\ fs [] THEN1
    (pop_assum (fn th => first_x_assum match_mp_tac \\ assume_tac th)
     \\ rw [] \\ first_x_assum match_mp_tac \\ fs []
     \\ imp_res_tac bvlSemTheory.evaluate_clock
-    \\ fs [LESS_OR_EQ,bvlTheory.exp_size_def])
+    \\ fs [LESS_OR_EQ])
   \\ Cases_on `h` \\ fs []
   \\ pop_assum (fn th => first_x_assum match_mp_tac \\ assume_tac th)
   \\ rw [] \\ first_x_assum match_mp_tac \\ fs []
   \\ imp_res_tac bvlSemTheory.evaluate_clock
-  \\ fs [LESS_OR_EQ,bvlTheory.exp_size_def]
+  \\ fs [LESS_OR_EQ]
   \\ fs [bvlSemTheory.dec_clock_def]
 QED
 
@@ -3306,8 +3307,9 @@ Proof
     \\ ntac 2 (pairarg_tac \\ fs []) \\ rveq \\ fs []
     \\ fs [bviSemTheory.evaluate_def,bvlSemTheory.evaluate_def]
     \\ Cases_on `evaluate (l,env,s)` \\ fs []
-    \\ `exp1_size l ≤ exp_size (Let l e)` by fs [bvlTheory.exp_size_def]
-    \\ first_assum drule \\ disch_then drule
+    \\ first_x_assum (qspec_then `l` (mp_tac o SRULE[GSYM PULL_FORALL]))
+    \\ impl_tac >- simp[]
+    \\ disch_then drule
     \\ `q ≠ Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs []) \\ fs []
     \\ rpt (disch_then drule) \\ fs []
     \\ impl_tac THEN1
@@ -3323,13 +3325,12 @@ Proof
     \\ fs [aux_code_installed_def,compile_aux_def]
     \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
     \\ imp_res_tac compile_exps_LENGTH \\ fs []
-    \\ `exp1_size [e] ≤ exp_size (Let l e)` by fs [bvlTheory.exp_size_def]
-    \\ ntac 3 (qpat_x_assum `!x y. _` kall_tac)
     \\ `r = s` by
      (drule (evaluate_Var_list
          |> INST_TYPE [beta|->``:'ffi``,alpha|->``:num # 'c``] |> GEN_ALL)
       \\ disch_then (qspecl_then [`s`,`env`] mp_tac) \\ fs []) \\ rveq
-    \\ first_x_assum drule
+    \\ first_x_assum (qspec_then `[e]` (mp_tac o SRULE[GSYM PULL_FORALL]))
+    \\ impl_tac >- simp[]
     \\ `evaluate ([e],a,r) = (res,s2)` by
      (qpat_x_assum `_ = (res,s2)` (fn th => once_rewrite_tac [GSYM th])
       \\ match_mp_tac (GSYM bEval_bVarBound) \\ fs [] \\ NO_TAC)
@@ -3415,9 +3416,8 @@ Proof
      (match_mp_tac bvl_handleProofTheory.handle_ok_Var_Const_list \\ fs []
       \\ fs [EVERY_MEM] \\ rpt strip_tac
       \\ first_x_assum drule \\ Cases_on `x` \\ fs [isVar_def])
-    \\ `exp1_size [e] <= exp_size (Let l e)` by
-           (fs [bvlTheory.exp_size_def] \\ NO_TAC)
-    \\ first_x_assum drule \\ fs [] \\ strip_tac
+    \\ first_x_assum (qspec_then `[e]` (mp_tac o SRULE[GSYM PULL_EXISTS]))
+    \\ fs [] \\ strip_tac
     \\ `EVERY (bv_ok s1.refs) vs` by
      (imp_res_tac evaluate_IMP_bv_ok
       \\ IMP_RES_TAC evaluate_ok \\ rfs [] \\ NO_TAC)
@@ -4553,7 +4553,7 @@ Theorem compile_exps_get_code_labels:
 Proof
   recInduct bvl_to_bviTheory.compile_exps_ind
   \\ rw[bvl_to_bviTheory.compile_exps_def]
-  \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ fs[UNCURRY_EQ] \\ rveq \\ fs[]
   \\ imp_res_tac destLet_code_labels \\ fs[NULL_EQ]
   \\ fsrw_tac[DNF_ss][SUBSET_DEF, PULL_EXISTS]
   \\ imp_res_tac compile_exps_aux_sorted \\ fs[]

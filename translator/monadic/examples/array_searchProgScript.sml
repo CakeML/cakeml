@@ -75,12 +75,10 @@ Definition binary_search_aux_def:
             od
   od
 Termination
-    WF_REL_TAC `measure (λ (_, start, finish) . finish - start)` >>
-    rw[] >>
-    fs[NOT_GREATER_EQ, NOT_GREATER, ADD1] >>
-    `start <= (finish + start) DIV 2` by fs[X_LE_DIV]
-    >- DECIDE_TAC
-    >- fs[DIV_LT_X]
+  simp[]>>
+  WF_REL_TAC `measure (λ (value, start, finish) . finish - start)`>>
+  rw[]>>
+  intLib.ARITH_TAC
 End
 
 Definition binary_search_def:

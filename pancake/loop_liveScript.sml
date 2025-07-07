@@ -21,8 +21,8 @@ Definition vars_of_exp_def:
     (case xs of [] => l
      | (x::xs) => vars_of_exp x (vars_of_exp_list xs l))
 Termination
-  WF_REL_TAC ‘measure (λx. case x of INL (x,_) => exp_size (K 0) x
-                                   | INR (x,_) => exp1_size (K 0) x)’
+  WF_REL_TAC ‘measure (λx. case x of INL (x,_) => exp_size ARB x
+                                   | INR (x,_) => list_size (exp_size ARB) x)’
 End
 
 Theorem size_mk_BN:
@@ -146,7 +146,8 @@ Termination
                     | INL (_,c,_) => (prog_size (K 0) c, 0:num, 0)
                     | INR (live_in,l1,l2,body) =>
                         (prog_size (K 0) body, 1, size live_in - size l1))`
-  \\ rw [] \\ fs [GSYM NOT_LESS]
+  \\ rw []
+  \\ fs [GSYM NOT_LESS]
   \\ qsuff_tac ‘size l1 < size live_in’ \\ fs []
   \\ match_mp_tac LESS_LESS_EQ_TRANS
   \\ asm_exists_tac \\ fs [size_inter]

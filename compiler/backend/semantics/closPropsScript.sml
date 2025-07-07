@@ -152,13 +152,8 @@ Definition code_locs_def:
   (code_locs [Call _ ticks dest xs] =
      code_locs xs)
 Termination
-  WF_REL_TAC `measure (exp3_size)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
-   Induct_on `fns` >>
-   srw_tac [ARITH_ss] [exp_size_def] >>
-   Cases_on `h` >>
-   full_simp_tac(srw_ss())[exp_size_def] >>
-   decide_tac
+  WF_REL_TAC `measure (list_size exp_size)` \\ rw []
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem code_locs_cons:
@@ -225,13 +220,8 @@ Definition contains_App_SOME_def:
   (contains_App_SOME max_app [Call _ ticks dest xs] ⇔
      contains_App_SOME max_app xs)
 Termination
-  WF_REL_TAC `measure (exp3_size o SND)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
-   Induct_on `fns` >>
-   srw_tac [ARITH_ss] [exp_size_def] >>
-   Cases_on `h` >>
-   full_simp_tac(srw_ss())[exp_size_def] >>
-   decide_tac
+  WF_REL_TAC `measure (list_size exp_size o SND)`
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem contains_App_SOME_EXISTS:
@@ -276,13 +266,8 @@ Definition every_Fn_SOME_def:
   (every_Fn_SOME [Call _ ticks dest xs] ⇔
      every_Fn_SOME xs)
 Termination
-  WF_REL_TAC `measure (exp3_size)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
-   Induct_on `fns` >>
-   srw_tac [ARITH_ss] [exp_size_def] >>
-   Cases_on `h` >>
-   full_simp_tac(srw_ss())[exp_size_def] >>
-   decide_tac
+  WF_REL_TAC `measure (list_size exp_size)`
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 val _ = export_rewrites["every_Fn_SOME_def"];
 
@@ -334,13 +319,8 @@ Definition every_Fn_vs_NONE_def:
   (every_Fn_vs_NONE [Call _ ticks dest xs] ⇔
      every_Fn_vs_NONE xs)
 Termination
-  WF_REL_TAC `measure (exp3_size)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
-   Induct_on `fns` >>
-   srw_tac [ARITH_ss] [exp_size_def] >>
-   Cases_on `h` >>
-   full_simp_tac(srw_ss())[exp_size_def] >>
-   decide_tac
+  WF_REL_TAC `measure (list_size exp_size)`
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 val _ = export_rewrites["every_Fn_vs_NONE_def"];
 
@@ -399,13 +379,8 @@ Definition every_Fn_vs_SOME_def:
   (every_Fn_vs_SOME [Call _ ticks dest xs] ⇔
      every_Fn_vs_SOME xs)
 Termination
-  WF_REL_TAC `measure (exp3_size)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
-   Induct_on `fns` >>
-   srw_tac [ARITH_ss] [exp_size_def] >>
-   Cases_on `h` >>
-   full_simp_tac(srw_ss())[exp_size_def] >>
-   decide_tac
+  WF_REL_TAC `measure (list_size exp_size)`
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 val _ = export_rewrites["every_Fn_vs_SOME_def"];
 
@@ -492,10 +467,8 @@ Definition fv_def:
      fv n [x1] \/ fv (n+1) [x2]) /\
   (fv n [Call _ ticks dest xs] <=> fv n xs)
 Termination
-  WF_REL_TAC `measure (exp3_size o SND)`
-  \\ simp []
-  \\ rw []
-  \\ fs [MEM_SPLIT, exp3_size, SUM_APPEND]
+  WF_REL_TAC `measure (list_size exp_size o SND)` \\ rw []
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem fv_append[simp]:
@@ -1336,19 +1309,15 @@ Proof
 QED
 
 Theorem dest_closure_none_append2:
- !max_app l f args1 args2.
-  LENGTH args1 + LENGTH args2 ≤ max_app ∧
-  dest_closure max_app NONE f (args1 ++ args2) = NONE ⇒
-  dest_closure max_app NONE f args2 = NONE
+  ∀max_app l f args1 args2.
+    LENGTH args1 + LENGTH args2 ≤ max_app ∧
+    dest_closure max_app NONE f (args1 ++ args2) = NONE ⇒
+    dest_closure max_app NONE f args2 = NONE
 Proof
- srw_tac[][dest_closure_def] >>
- Cases_on `f` >>
- full_simp_tac(srw_ss())[check_loc_def] >>
- srw_tac[][] >>
- full_simp_tac(srw_ss())[LET_THM] >>
- every_case_tac >>
- full_simp_tac(srw_ss())[] >>
- simp []
+  rw [dest_closure_def]
+  \\ gvs [AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs(),check_loc_def]
 QED
 
 Theorem dest_closure_rest_length:
@@ -1855,10 +1824,8 @@ Definition set_globals_def:
   (elist_globals [] = {||}) ∧
   (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
 Termination
-  WF_REL_TAC `
-      measure (λa. case a of INL e => exp_size e | INR x => exp3_size x)` >>
-   simp[] >> rpt strip_tac >>
-   imp_res_tac exp_size_MEM >> simp[]
+  WF_REL_TAC ‘measure (sum_size exp_size (list_size exp_size))’
+  \\ rw [] \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 val _ = export_rewrites ["set_globals_def"]
 
@@ -1924,10 +1891,8 @@ Definition esgc_free_def:
   (esgc_free (Letrec _ _ _ binds bod) ⇔
     elist_globals (MAP SND binds) = {||} ∧ esgc_free bod) ∧
   (esgc_free (Op _ _ args) ⇔ EVERY esgc_free args)
-Termination
-  WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
-   imp_res_tac exp_size_MEM >> simp[]
 End
+
 Theorem esgc_free_def[simp,compute,allow_rebind] =
   SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def
 
@@ -2672,7 +2637,7 @@ Theorem LIST_REL_LAST:
 Proof
   Q.ISPEC_THEN `xs` ASSUME_TAC SNOC_CASES
   \\ Q.ISPEC_THEN `ys` ASSUME_TAC SNOC_CASES
-  \\ fs []
+  \\ fs [LIST_REL_SNOC]
 QED
 
 
@@ -3433,11 +3398,10 @@ Definition obeys_max_app_def:
   (obeys_max_app m (Op _ _ es) ⇔ EVERY (obeys_max_app m) es)
 Termination
   wf_rel_tac`measure (exp_size o SND)`
- \\ simp [closLangTheory.exp_size_def]
- \\ rpt conj_tac \\ rpt gen_tac
- \\ Induct_on`es`
- \\ rw [closLangTheory.exp_size_def]
- \\ simp [] \\ res_tac \\ simp []
+  \\ rw [list_size_pair_size_MAP_FST_SND]
+  \\ imp_res_tac MEM_list_size
+  \\ pop_assum $ qspec_then ‘exp_size’ mp_tac
+  \\ gvs []
 End
 
 Theorem obeys_max_app_def[simp,compute,allow_rebind] =
@@ -3457,12 +3421,11 @@ Definition no_Labels_def:
   (no_Labels (Letrec _ _ _ es e) ⇔ EVERY no_Labels (MAP SND es) ∧ no_Labels e) ∧
   (no_Labels (Op _ op es) ⇔ (∀n. op ≠ Label n) ∧ EVERY no_Labels es)
 Termination
-  wf_rel_tac`measure exp_size`
- \\ simp [closLangTheory.exp_size_def]
- \\ rpt conj_tac \\ rpt gen_tac
- \\ Induct_on`es`
- \\ rw [closLangTheory.exp_size_def]
- \\ simp [] \\ res_tac \\ simp []
+  wf_rel_tac `measure exp_size`
+  \\ rw [list_size_pair_size_MAP_FST_SND]
+  \\ imp_res_tac MEM_list_size
+  \\ pop_assum $ qspec_then ‘exp_size’ mp_tac
+  \\ gvs []
 End
 
 Theorem no_Labels_def[simp,compute,allow_rebind] =
@@ -3511,13 +3474,8 @@ Definition app_call_dests_def:
      if opt = SOME F then app_call_dests opt xs else
        dest INSERT app_call_dests opt xs)
 Termination
-  WF_REL_TAC `measure (exp3_size o SND)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
-   Induct_on `fns` >>
-   srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
-   Cases_on `h` >>
-   full_simp_tac(srw_ss())[closLangTheory.exp_size_def] >>
-   decide_tac
+  wf_rel_tac `measure (list_size exp_size o SND)`
+  \\ rw [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem app_call_dests_def[simp,compute,allow_rebind] =
@@ -3611,11 +3569,10 @@ Definition get_code_labels_def:
     closLang$assign_get_code_label op)
 Termination
   wf_rel_tac `measure exp_size`
-   \\ simp [closLangTheory.exp_size_def]
-   \\ rpt conj_tac \\ rpt gen_tac
-   \\ Induct_on`es`
-   \\ rw [closLangTheory.exp_size_def]
-   \\ simp [] \\ res_tac \\ simp []
+  \\ rw [list_size_pair_size_MAP_FST_SND]
+  \\ imp_res_tac MEM_list_size
+  \\ pop_assum $ qspec_then ‘exp_size’ mp_tac
+  \\ gvs []
 End
 
 Theorem get_code_labels_def[simp,compute,allow_rebind] =
@@ -3654,7 +3611,8 @@ QED
 
 Theorem initial_state_clock:
   (initial_state ffi max_app f co cc k).clock = k /\
-  ((initial_state ffi max_app f co cc k' with clock := k) = initial_state ffi max_app f co cc k)
+  ((initial_state ffi max_app f co cc k' with clock := k) =
+   initial_state ffi max_app f co cc k)
 Proof
   EVAL_TAC
 QED

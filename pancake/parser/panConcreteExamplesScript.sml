@@ -420,6 +420,21 @@ val error_line_ex2 =
 
 val error_line_ex2_parse = check_failure $ parse_pancake error_line_ex2
 
+val error_line_ex3 =
+‘
+  fun foo() {
+    skip;
+    while (1) {
+      skip;
+      skip;
+      skeep;
+      skip;
+    }
+  }
+’
+
+val error_line_ex3_parse = check_failure $ parse_pancake error_line_ex3
+
 (* Exporting a function, that is, making a function callable for external entry into Pancake,
    uses the `export` keyword. Functions without this keyword are not callable in this way *)
 val entry_fun =
@@ -490,6 +505,16 @@ val globals3 =
   ’
 
 val globals3_parse = check_success $ parse_pancake globals3;
+
+(* Dec blocks with no subsequent prog *)
+val empty_dec_prog =
+ ‘
+  fun f() { var x = 0; }
+
+  fun g() { var 1 x = f(); }
+  ’
+
+val empty_dec_prog_parse = check_success $ parse_pancake empty_dec_prog;
 
 (* Using the annotation comment syntax. *)
 val annot_fun =

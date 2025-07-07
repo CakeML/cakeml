@@ -190,13 +190,6 @@ Definition conv_cmp_def:
 End
 
 (** A single tree is smaller than the forest. *)
-Theorem mem_ptree_thm:
-  ∀a l. MEM a l ⇒ ptree_size a < ptree1_size l
-Proof
-  Induct_on ‘l’ >> rw[] >> simp[parsetree_size_def]
-  >> first_x_assum drule >> simp[]
-QED
-
 Definition conv_Shape_def:
   conv_Shape tree =
   case conv_int tree of
@@ -212,8 +205,10 @@ Definition conv_Shape_def:
 Termination
   WF_REL_TAC ‘measure ptree_size’ >> rw[]
   >> Cases_on ‘tree’
-  >> gvs[argsNT_def,parsetree_size_def]
-  >> drule_then assume_tac mem_ptree_thm >> gvs[]
+  >> gvs[argsNT_def]
+  >> drule MEM_list_size
+  >> disch_then (qspec_then`ptree_size` assume_tac)
+  >> simp[]
 End
 
 Definition conv_params_def:
@@ -348,16 +343,22 @@ Termination
   WF_REL_TAC ‘measure (λx. case x of
                            | INR (INL x) => ptree_size x
                            | INL x => ptree_size x
-                           | INR (INR(INL x)) => ptree1_size (FST x)
-                           | INR (INR(INR x)) => ptree1_size (FST x))’ >> rw[]
-  >> rename1 ‘ptree_size tree’
+                           | INR (INR(INL x)) => list_size ptree_size (FST x)
+                           | INR (INR(INR x)) => list_size ptree_size (FST x))’ >> rw[]
+  >> simp[]
+  >- (
+    drule MEM_list_size
+    >> disch_then (qspec_then `ptree_size` assume_tac)
+    >> simp[])
+  >- (
+    drule MEM_list_size
+    >> disch_then (qspec_then `ptree_size` assume_tac)
+    >> simp[])
   >> Cases_on ‘tree’
-  >> gvs[argsNT_def,parsetree_size_def]
-  >> drule_then assume_tac mem_ptree_thm >> gvs[]
-  >> rename1 ‘ptree_size tree’
-  >> Cases_on ‘tree’
-  >> gvs[argsNT_def,parsetree_size_def]
-  >> drule_then assume_tac mem_ptree_thm >> gvs[]
+  >> gvs[argsNT_def]
+  >> drule MEM_list_size
+  >> disch_then (qspec_then `ptree_size` assume_tac)
+  >> simp[]
 End
 
 (** Handles all statements which cannot contain
@@ -579,53 +580,17 @@ Definition conv_Prog_def:
        | _ => NONE
      else if isNT nodeNT IfNT then
        case args of
-         [e] =>
-           do e' <- conv_Exp e;
-              SOME (add_locs_annot nd (If e' Skip Skip))
-           od
-       | [e; p] =>
-           (if tokcheck p (kw ElseK) then
-              do e' <- conv_Exp e;
-                 SOME (add_locs_annot nd (If e' Skip Skip))
-              od
-            else
-              do e' <- conv_Exp e;
-                 p' <- conv_Prog p;
-                 SOME (add_locs_annot nd (If e' p' Skip))
-              od
-            )
-       | [e; p1; p2] =>
-           (if tokcheck p1 (kw ElseK) then
-              do e' <- conv_Exp e;
-                 p2' <- conv_Prog p2;
-                 SOME (add_locs_annot nd (If e' Skip p2'))
-              od
-            else if tokcheck p2 (kw ElseK) then
-              do e' <- conv_Exp e;
-                 p1' <- conv_Prog p1;
-                 SOME (add_locs_annot nd (If e' p1' Skip))
-              od
-            else
-              do e' <- conv_Exp e;
-                 p1' <- conv_Prog p1;
-                 p2' <- conv_Prog p2;
-                 SOME (add_locs_annot nd (If e' p1' p2'))
-              od)
-       | [e; p1; _; p2] =>
-              do e' <- conv_Exp e;
-                 p1' <- conv_Prog p1;
-                 p2' <- conv_Prog p2;
-                 SOME (add_locs_annot nd (If e' p1' p2'))
-              od
+       | [e; p1; p2] => do e' <- conv_Exp e;
+                           p1' <- conv_Prog p1;
+                           p2' <- conv_Prog p2;
+                           SOME (add_locs_annot nd (If e' p1' p2'))
+                        od
        | _ => NONE
      else if isNT nodeNT WhileNT then
        case args of
          [e; p] => do e' <- conv_Exp e;
                       p' <- conv_Prog p;
                       SOME (add_locs_annot nd (While e' p'))
-                   od
-       | [e] => do e' <- conv_Exp e;
-                      SOME (add_locs_annot nd (While e' Skip))
                    od
        | _ => NONE
      else if isNT nodeNT DecCallNT then
@@ -634,10 +599,6 @@ Definition conv_Prog_def:
            do (s',i',e',args') <- conv_DecCall dec;
                p' <- conv_Prog p;
                SOME $ add_locs_annot nd $ DecCall i' s' e' args' p'
-           od
-       | [dec] =>
-           do (s',i',e',args') <- conv_DecCall dec;
-               SOME $ add_locs_annot nd $ DecCall i' s' e' args' Skip
            od
        | _ => NONE
      else if isNT nodeNT CallNT then
@@ -693,23 +654,21 @@ Termination
   WF_REL_TAC ‘measure (λx. case x of
                              INR x => sum_CASE x ptree_size ptree_size
                            | INL x => ptree_size x)’
-  >> rw[] >> gvs[argsNT_def,parsetree_size_def]>>
-  TRY (Cases_on ‘tree’ >> gvs[argsNT_def,parsetree_size_def])
+  >> rw[] >> gvs[argsNT_def]
   >- (
-  drule mem_ptree_thm>>strip_tac>>
-  gs[parsetree_size_eq]>>
-  gvs[parsetree_size_def]>>
-  ‘list_size ptree_size (butlast ts) ≤ list_size ptree_size ts’
-    by irule list_size_butlast>>
-  gs[])>>
-  gs[parsetree_size_eq]>>
-  gvs[parsetree_size_def]>>
-  ‘ptree_size (LAST ts) ≤ list_size ptree_size ts’
-    by (irule list_size_MEM>>
-        gs[LAST_EL, MEM_EL]>>
-        qexists_tac ‘PRE (LENGTH ts)’>>gs[]>>
-        Cases_on ‘ts’>>gs[])>>
-  gs[]
+    drule MEM_list_size>>
+    disch_then (qspec_then `ptree_size` assume_tac)>>
+    ‘list_size ptree_size (butlast ts) ≤ list_size ptree_size ts’
+      by irule list_size_butlast>>
+    gs[])
+  >- (
+    ‘ptree_size (LAST ts) ≤ list_size ptree_size ts’
+      by (irule list_size_MEM>>
+          gs[LAST_EL, MEM_EL]>>
+          qexists_tac ‘PRE (LENGTH ts)’>>gs[]>>
+          Cases_on ‘ts’>>gs[])>>
+    gs[])>>
+  Cases_on ‘tree’ >> gvs[argsNT_def]
 End
 
 Definition conv_export_def:
@@ -723,15 +682,6 @@ End
 Definition conv_TopDec_def:
   conv_TopDec tree =
   case argsNT tree FunNT of
-    SOME [e;n;ps] =>
-      (case (argsNT ps ParamListNT) of
-         SOME args =>
-           (do ps'  <- conv_params args;
-               n'   <- conv_ident n;
-               e'   <- conv_export e;
-               SOME $ Function n' e' ps' Skip
-            od)
-       | _ => NONE)
   | SOME [e;n;ps;c] =>
       (case (argsNT ps ParamListNT) of
          SOME args =>

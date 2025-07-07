@@ -458,6 +458,16 @@ Proof
   Cases_on ‘f h’ \\ gvs[]
 QED
 
+Triviality OPT_MMAP_eval_some_eq:
+  OPT_MMAP (λa. eval s a) es = SOME vs /\
+  state_rel s t t.code ==>
+  OPT_MMAP (λa. eval t a) es = SOME vs
+Proof
+  rw []
+  \\ gvs [pan_commonPropsTheory.opt_mmap_eq_some,MAP_EQ_EVERY2,LIST_REL_EL_EQN]
+  \\ metis_tac [compile_eval_correct]
+QED
+
 Theorem compile_eval_correct_none:
   ∀s e t.
       eval s e = NONE /\
@@ -561,9 +571,9 @@ Proof
           res_tac \\
           disj1_tac \\
           metis_tac[OPT_MMAP_NONE']) \\
-   gvs[] \\
+   gvs[optionTheory.IF_NONE_EQUALS_OPTION] \\
    strip_tac \\
-   gvs[eval_def,AllCaseEqs()]
+   fs[CaseEq "option", CaseEq "bool"]
    THEN1 (imp_res_tac OPT_MMAP_NONE \\
           fs[] \\
           metis_tac[NOT_NONE_SOME,OPT_MMAP_NONE']) \\

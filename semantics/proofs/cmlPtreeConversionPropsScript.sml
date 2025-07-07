@@ -75,11 +75,8 @@ Definition user_expressible_type_def:
      EVERY user_expressible_type tys ∧ 2 ≤ LENGTH tys) ∧
   (user_expressible_type (Atfun dty rty) ⇔
      user_expressible_type dty ∧ user_expressible_type rty)
-Termination
-  WF_REL_TAC ‘measure ast$ast_t_size’ >> simp[] >> conj_tac >> rpt gen_tac >>
-   Induct_on ‘tys’ >>
-   dsimp[astTheory.ast_t_size_def] >> rpt strip_tac >> res_tac  >> simp[]
 End
+
 val _ = augment_srw_ss [rewrites [
            SIMP_RULE (srw_ss() ++ ETA_ss) [] user_expressible_type_def]]
 
@@ -139,11 +136,6 @@ Definition type_to_AST_def:
     ND nPType [ND nDType [ND nTbase [LF LparT; type_to_AST ty; LF RparT]];
                LF StarT;
                typel_to_AST_PType tys]
-Termination
-  WF_REL_TAC
-     ‘measure (λs. case s of INL ty => ast_t_size ty
-                           | INR (INL tyl) => ast_t1_size tyl
-                           | INR (INR tyl) => ast_t1_size tyl)’
 End
 
 Theorem destTyvarPT_tyname_to_AST:

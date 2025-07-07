@@ -2397,7 +2397,7 @@ Proof
     gvs[wlab_wloc_def]) >>
   fs [state_rel_def]
   >- (
-   qexists_tac ‘0’ >> fs [] >>
+   fs [] >>
    reverse conj_tac
    >- (
     fs [locals_rel_def] >>

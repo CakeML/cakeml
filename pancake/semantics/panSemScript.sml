@@ -58,22 +58,9 @@ End
 
 val s = ``(s:('a,'ffi) panSem$state)``
 
-
-Theorem MEM_IMP_v_size:
-   !xs a. MEM a xs ==> (v_size l a < 1 + v1_size l xs)
-Proof
-  Induct >> fs [] >>
-  rpt strip_tac >> rw [fetch "-" "v_size_def"] >>
-  res_tac >> decide_tac
-QED
-
-
 Definition shape_of_def:
   shape_of (ValWord _) = One /\
   shape_of (Struct vs) = Comb (MAP shape_of vs)
-Termination
-  wf_rel_tac `measure (\v. v_size ARB v)` >>
-  fs [MEM_IMP_v_size]
 End
 
 Definition mem_load_byte_def:
@@ -131,11 +118,6 @@ Termination
                             | T => list_size shape_size (FST (OUTR x))
                             | F => shape_size (FST (OUTL x)))’ >>
   rw []
-  >- (
-   qid_spec_tac ‘shapes’ >>
-   Induct >> rw [] >> fs [list_size_def, shape_size_def]) >>
-  fs [list_size_def, shape_size_def] >>
-  fs [list_size_def, shape_size_def]
 End
 
 Definition pan_op_def:
@@ -211,7 +193,6 @@ Termination
   \\ decide_tac
 End
 
-
 (* TODISC: why NONE is returned here on write failure *)
 Definition mem_store_byte_def:
   mem_store_byte m dm be w b =
@@ -284,9 +265,6 @@ End
 Definition flatten_def:
   (flatten (Val w) = [w]) ∧
   (flatten (Struct vs) = FLAT (MAP flatten vs))
-Termination
-  wf_rel_tac `measure (\v. v_size ARB v)` >>
-  fs [MEM_IMP_v_size]
 End
 
 Definition set_var_def:

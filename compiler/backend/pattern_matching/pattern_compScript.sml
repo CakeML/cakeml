@@ -180,11 +180,12 @@ Proof
   \\ fs [FORALL_PROD]
   \\ rw [] \\ fs []
   THEN1
-   (fs [match_def] \\ Cases_on ‘pmatch refs p_1 (Term t [])’ \\ fs []
+   (fs [match_def,REVERSE_SNOC]
+    \\ Cases_on ‘pmatch refs p_1 (Term t [])’ \\ fs [SNOC_APPEND]
     \\ Cases_on ‘match refs (l ++ [x']) (Term t [])’ \\ fs []
     \\ Cases_on ‘match refs (FILTER is_const_row (l ++ [x'])) (Term t [])’ \\ fs []
     \\ rveq \\ fs [])
-  \\ fs [match_def]
+  \\ fs [match_def,REVERSE_SNOC]
   \\ qsuff_tac ‘pmatch refs p_1 (Term t []) <> PMatchSuccess’
   THEN1 (Cases_on ‘pmatch refs p_1 (Term t [])’ \\ fs [])
   \\ imp_res_tac not_is_const_row \\ fs []
@@ -389,7 +390,7 @@ Definition pat_to_guard_def:
   pats_to_guard l k (p::ps) = mk_Conj (pat_to_guard (k::l) p) (pats_to_guard l (k+1) ps)
 Termination
   WF_REL_TAC ‘measure (\x. case x of INL (_,p) => pat_size p
-                           | INR (_,k,p) => pat1_size p)’
+                           | INR (_,k,p) => list_size pat_size p)’
 End
 
 Definition pats_to_code_def:

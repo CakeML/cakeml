@@ -13,6 +13,4 @@ ifdef POLY
 HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
 endif
 
-cake_lpr.S: *lpr_arrayCompileScript.sml
-cake_lpr_arm8.S: *lpr_arrayCompileARM8Script.sml
-cake_lpr_ramsey.S: *lpr_arrayRamseyCompileScript.sml
+cake_xlrup.S: *xlrupCompileScript.sml
