@@ -33,7 +33,7 @@ Datatype:
 End
 
 Datatype:
-  binop = BinOpTemp
+  binop = Add
 End
 
 Datatype:
@@ -96,7 +96,7 @@ Datatype:
   <|
     type : tf ;
     body : instr list ;
-    locals : t list
+    types_of_locals : t list
   |>
 End
 
@@ -209,6 +209,33 @@ Definition lookup_func_tables_def:
     | SOME tbl => oEL (w2n w) tbl
 End
 
+Definition set_local_def:
+  set_local n x (s:state) =
+    if n < LENGTH s.locals then
+      SOME (s with locals := LUPDATE x n s.locals)
+    else NONE
+End
+
+Definition set_global_def:
+  set_global n x (s:state) =
+    if n < LENGTH s.globals then
+      SOME (s with globals := LUPDATE x n s.globals)
+    else NONE
+End
+
+Definition stack_op_def:
+  stack_op (I32Const w) stack = SOME (I32 w :: stack) ∧
+  stack_op (I64Const w) stack = SOME (I64 w :: stack)
+End
+
+Definition exec_load_def:
+  exec_load res_t size_ext addr memory = ARB
+End
+
+Definition exec_store_def:
+  exec_store res_t size_ext addr memory = ARB
+End
+
 Definition exec_def:
   (exec Unreachable s = (RTrap,s)) ∧
   (exec Nop s = (RNormal,s)) ∧
@@ -270,14 +297,18 @@ Definition exec_def:
     case nonzero c of NONE => (RInvalid,s) | SOME t =>
     if t then (RBreak n, s) else (RNormal, s)
   ) ∧
-  (exec (BrTable table n) s = ARB) ∧
+  (exec (BrTable table default) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    (RBreak (case oEL (w2n w) table of NONE => default | SOME i => i), s)
+  ) ∧
   (exec Return s = (RReturn, s)) ∧
   (exec (Call fi) s =
     case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
     let np = LENGTH (FST f.type) in
     let nr = LENGTH (SND f.type) in
     case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
-    let init_locals = args ++ MAP init_val_of f.locals in
+    let init_locals = args ++ MAP init_val_of f.types_of_locals in
     if s.clock = 0 then (RTimeout,s) else
     let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
     (* real WASM treats the body as wrapped in a Block *)
@@ -299,20 +330,47 @@ Definition exec_def:
     case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
     if f.type ≠ tf then (RInvalid,s) else
       exec (Call fi) s) ∧
-  (exec (LocalGet n) s = ARB) ∧
-  (exec (LocalSet n) s = ARB) ∧
-  (exec (LocalTee n) s = ARB) ∧
-  (exec (GlobalGet n) s = ARB) ∧
-  (exec (GlobalSet n) s = ARB) ∧
-  (exec (Load _ _ _) s = ARB) ∧
-  (exec (Store _ _ _) s = ARB) ∧
-  (exec (Instr _) s = ARB) ∧
+  (exec (LocalGet n) s =
+    case oEL n s.locals of NONE => (RInvalid,s) | SOME x =>
+    (RNormal, push x s)
+  ) ∧
+  (exec (LocalSet n) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case set_local n x s of NONE => (RInvalid,s) | SOME s =>
+      (RNormal,s)) ∧
+  (exec (LocalTee n) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,_) =>
+    case set_local n x s of NONE => (RInvalid,s) | SOME s =>
+      (RNormal,s)) ∧
+  (exec (GlobalGet n) s =
+    case oEL n s.globals of NONE => (RInvalid,s) | SOME x =>
+    (RNormal, push x s)
+  ) ∧
+  (exec (GlobalSet n) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case set_global n x s of NONE => (RInvalid,s) | SOME s =>
+      (RNormal,s)) ∧
+  (exec (Load res_t size_ext off) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    case exec_load res_t size_ext (w + off) s.memory of NONE => (RTrap,s) | SOME y =>
+    (RNormal, push y s)
+  ) ∧
+  (exec (Store res_t size off) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    case exec_store res_t size (w + off) s.memory of NONE => (RTrap,s) | SOME m =>
+    (RNormal, s with memory := m)
+  ) ∧
+  (exec (Instr op) s =
+    case stack_op op s.stack of NONE => (RInvalid,s) | SOME stack1 =>
+    (RNormal, s with stack := stack1)) ∧
   (exec (ReturnCall fi) s =
     case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
     let np = LENGTH (FST f.type) in
     let nr = LENGTH (SND f.type) in
     case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
-    let init_locals = args ++ MAP init_val_of f.locals in
+    let init_locals = args ++ MAP init_val_of f.types_of_locals in
     if s.clock = 0 then (RTimeout,s) else
     let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
     (* real WASM treats the body as wrapped in a Block *)
