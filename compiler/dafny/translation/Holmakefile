@@ -9,5 +9,5 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
 
 ifdef POLY
-HOLHEAP = $(CAKEMLDIR)/basis/basis-heap
+HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
 endif
