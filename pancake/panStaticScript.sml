@@ -540,9 +540,6 @@ Definition static_check_exp_def:
       (* retval only applies to operations; use of check_exps for eg. args
           ignores the return *)
     od
-Termination
-  WF_REL_TAC ‘measure $ λx. case x of INL(_,x) => exp_size (K 0) x
-                                   | INR(_,x) => exp1_size (K 0) x’
 End
 
 Definition check_redec_var_def:
