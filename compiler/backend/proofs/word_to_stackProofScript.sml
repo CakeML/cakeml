@@ -874,6 +874,23 @@ Definition stack_size_rel_def:
         ss = LENGTH t_stack - t_stack_space - f - extra)
 End
 
+Theorem stack_size_rel_iff:
+  stack_size_rel f s_locals_size s_stack_limit s_stack_max s_stack
+    t_stack t_stack_space extra ⇔
+  (f <> 0 ==> the f s_locals_size = f) /\
+  s_stack_limit = LENGTH t_stack /\
+  LENGTH t_stack - t_stack_space - f - extra <= the (LENGTH t_stack - t_stack_space - f - extra) s_stack_max /\
+  (IS_SOME s_stack_max ==> IS_SOME (stack_size s_stack)) /\
+  (IS_SOME s_stack_max ==> IS_SOME s_locals_size) /\
+  (IS_SOME s_stack_max ==> the (LENGTH t_stack - t_stack_space - f - extra) (stack_size s_stack) = LENGTH t_stack - t_stack_space - f - extra)
+Proof
+  rw[stack_size_rel_def,the_eqn]>>
+  eq_tac>>gvs[]>>
+  rw[]>>
+  every_case_tac>>gvs[]>>
+  gvs[IS_SOME_EXISTS]
+QED
+
 Definition state_rel_def:
   state_rel ac k f f' (s:('a,num # 'c,'ffi) wordSem$state)
     (t:('a,'c,'ffi) stackSem$state) lens extra ⇔
@@ -6722,7 +6739,7 @@ Proof
   \\ fs []
   \\ pop_assum kall_tac
   \\ fs [stackSemTheory.dec_clock_def,raise_stub_def,wordLangTheory.max_var_def]
-  \\ fs [state_rel_def,LET_DEF,stackSemTheory.evaluate_def,LET_THM]
+  \\ fs [state_rel_def,LET_DEF,stackSemTheory.evaluate_def,LET_THM,stack_size_rel_iff]
   \\ fs [DROP_DROP_EQ] \\ fs [stack_rel_def]
   \\ qpat_x_assum` A ⇒ B` mp_tac
   \\ impl_tac >- (
@@ -6753,13 +6770,41 @@ Proof
   \\ simp[GSYM CONJ_ASSOC]
   \\ conj_tac THEN1 metis_tac[]
   \\ conj_tac >- (
-    (* previous cases got merged into stack_size_rel_def *)
-    qhdtm_x_assum`stack_size_rel` mp_tac>>
-    simp[stack_size_rel_def]>>
-    ntac 3 strip_tac>>
-    first_assum drule>>simp[]>>
-    cheat
-    )
+     imp_res_tac stack_rel_aux_stack_size >>
+     rw[the_eqn] >> PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
+     qpat_x_assum `IS_SOME _ ==> IS_SOME (stack_size _)` assume_tac >>
+     fsrw_tac[][IS_SOME_EXISTS,miscTheory.the_def] >>
+     drule_then drule LASTN_stack_size_SOME >>
+     impl_tac >- simp[] >>
+     strip_tac >>
+     fs[stack_size_eq2] >>
+     Cases_on `payload` >> fs[handler_val_def,stack_size_frame_def] >>
+     rveq >> fs[miscTheory.the_def]
+   )
+  \\ conj_tac THEN1 (
+       strip_tac >> last_x_assum drule >> simp[IS_SOME_EXISTS] >>
+       strip_tac >>
+       drule_then drule LASTN_stack_size_SOME >>
+       impl_tac >- simp[] >>
+       rw[stack_size_eq2,stack_size_frame_def]
+     )
+  \\ conj_tac THEN1 (
+       rw [handler_val_def]>>
+       imp_res_tac stack_rel_aux_stack_size >>
+       rw[the_eqn] >>
+       PURE_TOP_CASE_TAC >> rw[handler_val_def] >>
+       Cases_on `payload` >>
+       fsrw_tac[][miscTheory.the_def,handler_val_def,stack_size_eq] >>
+       `LENGTH t.stack -
+        (LENGTH r + (handler_val (LASTN s.handler stack) + 4)) <=
+        LENGTH t.stack` by intLib.COOPER_TAC >>
+       simp[SUB_RIGHT_ADD] >>
+       reverse IF_CASES_TAC
+       >- intLib.COOPER_TAC >>
+       imp_res_tac abs_stack_LENGTH >>
+       qpat_x_assum `handler_val (_::_) = LENGTH (DROP _ _)` (mp_tac o GSYM) >>
+       simp[handler_val_def,LENGTH_DROP]
+     )
   \\ conj_tac THEN1 (
     fs [sorted_env_def]
     \\ Cases_on `env_to_list (fromAList ll) (K I)`
