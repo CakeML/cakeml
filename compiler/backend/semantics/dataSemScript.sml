@@ -905,6 +905,13 @@ Definition do_app_aux_def:
                  (ByteArray f (LUPDATE (i2w b) (Num i) bs)) s.refs)
              else Error)
          | _ => Error)
+    | (MemOp XorByte,[RefPtr _ dst; RefPtr _ src]) =>
+        (case (lookup src s.refs, lookup dst s.refs) of
+         | (SOME (ByteArray _ ws),SOME (ByteArray f ds)) =>
+           (case xor_bytes ws ds of
+            | SOME ds1 => Rval (Unit, s with refs := insert dst (ByteArray f ds1) s.refs)
+            | NONE => Error)
+         | _ => Error)
     | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (lookup src s.refs, lookup dst s.refs) of
          | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>

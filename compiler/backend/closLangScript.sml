@@ -178,6 +178,7 @@ Definition pure_op_def:
     | MemOp RefArray => F
     | MemOp UpdateByte => F
     | MemOp (CopyByte F) => F
+    | MemOp XorByte => F
     | MemOp Ref => F
     | MemOp Update => F
     | Install => F
