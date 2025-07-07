@@ -103,6 +103,7 @@ Datatype:
      | ToListByte    (* convert ByteVector to list of chars *)
      | LengthByteVec (* get length of ByteVector *)
      | DerefByteVec  (* load a byte from a ByteVector *)
+     | XorByte       (* xor a btye vector into a byte array *)
      | BoundsCheckArray
      | BoundsCheckByte bool (* T = loose (<=) bound *)
      | ConfigGC

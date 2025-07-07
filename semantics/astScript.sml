@@ -96,6 +96,7 @@ Datatype:
   | CopyStrAw8
   | CopyAw8Str
   | CopyAw8Aw8
+  | XorAw8Str_unsafe
   (* Char operations *)
   | Ord
   | Chr
