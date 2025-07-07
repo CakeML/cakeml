@@ -576,18 +576,18 @@ Proof
    fs[CaseEq "option", CaseEq "bool"]
    THEN1 (imp_res_tac OPT_MMAP_NONE \\
           fs[] \\
-          metis_tac[NOT_NONE_SOME,OPT_MMAP_NONE']) \\
-   qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_keep_tac
-   THEN1 (gvs[EVERY_MEM] \\
-          rw[] \\
-          gvs[pan_commonPropsTheory.opt_mmap_eq_some,MAP_EQ_EVERY2,LIST_REL_EL_EQN,MEM_EL,PULL_EXISTS] \\
-          res_tac \\
-          drule_all_then strip_assume_tac compile_eval_correct \\
-          gvs[]) \\
-   imp_res_tac pan_commonPropsTheory.opt_mmap_length_eq \\
-   rw[DefnBase.one_line_ify NONE pan_op_def,AllCaseEqs(),MAP_EQ_CONS,PULL_EXISTS] \\
-   gvs[quantHeuristicsTheory.LIST_LENGTH_1,LENGTH_CONS] \\
-   every_case_tac \\ gvs[] \\ metis_tac[word_lab_nchotomy])
+          metis_tac[NOT_NONE_SOME,OPT_MMAP_NONE'])
+   THEN1 (imp_res_tac pan_commonPropsTheory.opt_mmap_length_eq \\
+          qhdtm_x_assum ‘pan_op’ $ assume_tac o REWRITE_RULE[oneline pan_op_def] \\
+          gvs[pan_op_def,AllCaseEqs(),
+              quantHeuristicsTheory.LIST_LENGTH_1,LENGTH_CONS,MAP_EQ_CONS,PULL_EXISTS,
+              EVERY_MEM] \\
+          simp[oneline pan_op_def]) \\
+   gvs[EXISTS_MEM,EVERY_MEM] \\
+   gvs[pan_commonPropsTheory.opt_mmap_eq_some,MAP_EQ_EVERY2,LIST_REL_EL_EQN,MEM_EL,PULL_EXISTS] \\
+   res_tac \\
+   drule_all_then strip_assume_tac compile_eval_correct \\
+   gvs[])
   >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def] >>
