@@ -5,7 +5,7 @@
 *)
 open preamble;
 
-val _ = new_theory "wasmSem";
+val _ = new_theory "wasm";
 
 (* Syntax *)
 
@@ -26,9 +26,7 @@ Datatype:
   tb = Tbf num (* | Tbv (t option) *)
 End
 
-Datatype:
-  tf = FunctionTypeTemp
-End
+Type tf = “:t list # t list”;
 
 Datatype:
   unop = UnOpTemp
@@ -94,6 +92,15 @@ Datatype:
 End
 
 Datatype:
+  func =
+  <|
+    type : tf ;
+    body : instr list ;
+    locals : t list
+  |>
+End
+
+Datatype:
   state =
   <|
     clock: num;
@@ -102,7 +109,8 @@ Datatype:
     globals: value list;
     memory: word8 list;
     types: (t list # t list) list;
-    (* TODO: funcs: func list *)
+    funcs: func list;
+    func_tables : num list list;
   |>
 End
 
@@ -110,6 +118,7 @@ Datatype:
   result =
     RNormal
   | RBreak num
+  | RReturn
   | RTrap
   | RInvalid (* failures from "Assert: due to validation ..." *)
   | RTimeout
@@ -120,20 +129,106 @@ Definition tb_tf_def:
   tb_tf types (Tbf n) = oEL n types
 End
 
+Definition init_val_of_def:
+  init_val_of T_i32 = I32 0w ∧
+  init_val_of T_i64 = I64 0w
+End
+
+Definition nonzero_def:
+  nonzero (I32 n) = SOME (n ≠ 0w) ∧
+  nonzero (I64 n) = NONE
+End
+
+Definition pop_def:
+  pop s =
+    case s.stack of
+    | [] => NONE
+    | (x::ss) => SOME (x, s with stack := ss)
+End
+
+Definition pop_n_def:
+  pop_n n s =
+    if LENGTH s.stack < n then NONE else
+      SOME (TAKE n s.stack, s with stack := DROP n s.stack)
+End
+
+Definition push_def:
+  push x s = s with stack := x :: s.stack
+End
+
+Definition dest_i32_def:
+  dest_i32 (I32 w) = SOME w ∧
+  dest_i32 _ = NONE
+End
+
+Definition fix_clock_def:
+  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
+End
+
+Triviality fix_clock_def':
+  fix_clock s x =
+  case x of (res,s1) =>
+  (res,s1 with clock := MIN s.clock s1.clock)
+Proof
+  Cases_on‘x’
+  >>rw[fix_clock_def]
+QED
+
+Triviality fix_clock_IMP:
+  (fix_clock s x = (res,s1) ==> s1.clock <= s.clock) ∧
+  ((res,s1) = fix_clock s x ==> s1.clock <= s.clock)
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
+
+Definition inst_size'_def:
+  inst_size' (If _ i1 i2) = 2 + list_size inst_size' i1 + list_size inst_size' i2 ∧
+  inst_size' (Block _ b) = 1 + list_size inst_size' b ∧
+  inst_size' (Loop _ b) = 1 + list_size inst_size' b ∧
+  inst_size' (CallIndirect _ _) = 2 ∧
+  inst_size' (ReturnCallIndirect _ _) = 2 ∧
+  inst_size' _ = 1
+End
+
+Theorem pop_clock:
+  pop s = SOME (x,s1) ⇒ s1.clock = s.clock
+Proof
+  gvs [pop_def,AllCaseEqs()] \\ rw [] \\ simp []
+QED
+
+Theorem pop_n_clock:
+  pop_n n s = SOME (x,s1) ⇒ s1.clock = s.clock
+Proof
+  gvs [pop_n_def,AllCaseEqs()] \\ rw [] \\ simp []
+QED
+
+Definition lookup_func_tables_def:
+  lookup_func_tables tbls n (w:word32) =
+    case oEL n tbls of
+    | NONE => NONE
+    | SOME tbl => oEL (w2n w) tbl
+End
+
 Definition exec_def:
   (exec Unreachable s = (RTrap,s)) ∧
   (exec Nop s = (RNormal,s)) ∧
   (exec Drop s =
-    case s.stack of [] => (RInvalid, s) | (_::ss) =>
-      (RNormal, s with stack := ss)) ∧
-  (exec Select s = ARB) ∧
+    case pop s of NONE => (RInvalid, s) | SOME (_,s) => (RNormal, s)) ∧
+  (exec Select s =
+    case pop s of NONE => (RInvalid, s) | SOME (c,s) =>
+    case pop s of NONE => (RInvalid, s) | SOME (val2,s) =>
+    case pop s of NONE => (RInvalid, s) | SOME (val1,s) =>
+    case nonzero c of NONE => (RInvalid, s) | SOME b =>
+    (RNormal, push (if b then val1 else val2) s)
+  ) ∧
   (exec (Block tb b) s =
     case tb_tf s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
     let m = LENGTH mts in
     let n = LENGTH nts in
     if LENGTH s.stack < m then (RInvalid,s) else
     let stack0 = s.stack in
-    let (res, s) = exec_list b (s with stack:=TAKE m stack0) in
+    let s1 = s with stack:=TAKE m stack0 in
+    let (res, s) = exec_list b s1 in
     case res of
       RBreak 0 =>
       if LENGTH s.stack < n then (RInvalid,s) else
@@ -144,14 +239,66 @@ Definition exec_def:
       (RNormal, (s with stack := s.stack ++ (DROP m stack0)))
     | _ => (res, s)
   ) ∧
-  (exec (Loop tb b) s = ARB) ∧
-  (exec (If tb bl br) s = ARB) ∧
+  (exec (Loop tb b) s =
+    case tb_tf s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
+    let m = LENGTH mts in
+    let n = LENGTH nts in
+    if LENGTH s.stack < m then (RInvalid,s) else
+    let stack0 = s.stack in
+    let s1 = s with stack:=TAKE m stack0 in
+    let (res, s) = fix_clock s1 (exec_list b s1) in
+    case res of
+      RBreak 0 =>
+      if LENGTH s.stack < n then (RInvalid,s) else
+      if s.clock = 0 then (RTimeout,s) else
+        exec (Loop tb b) (s with <| stack := (TAKE n s.stack) ++ (DROP m stack0);
+                                    clock := s.clock - 1|>)
+    | RBreak (SUC l) => (RBreak l, s)
+    | RNormal =>
+      if LENGTH s.stack ≠ n then (RInvalid,s) else
+      (RNormal, (s with stack := s.stack ++ (DROP m stack0)))
+    | _ => (res, s)
+  ) ∧
+  (exec (If tb bl br) s =
+    case pop s of NONE => (RInvalid,s) | SOME (c,s) =>
+    case nonzero c of NONE => (RInvalid,s) | SOME t =>
+    exec (Block tb (if t then bl else br)) s
+  ) ∧
   (exec (Br n) s = (RBreak n, s)) ∧
-  (exec (BrIf n) s = ARB) ∧
+  (exec (BrIf n) s =
+    case pop s of NONE => (RInvalid,s) | SOME (c,s) =>
+    case nonzero c of NONE => (RInvalid,s) | SOME t =>
+    if t then (RBreak n, s) else (RNormal, s)
+  ) ∧
   (exec (BrTable table n) s = ARB) ∧
-  (exec Return s = ARB) ∧
-  (exec (Call n) s = ARB) ∧
-  (exec (CallIndirect n tf) s = ARB) ∧
+  (exec Return s = (RReturn, s)) ∧
+  (exec (Call fi) s =
+    case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
+    let np = LENGTH (FST f.type) in
+    let nr = LENGTH (SND f.type) in
+    case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
+    let init_locals = args ++ MAP init_val_of f.locals in
+    if s.clock = 0 then (RTimeout,s) else
+    let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
+    (* real WASM treats the body as wrapped in a Block *)
+    let (res, s1) = fix_clock s_call (exec_list f.body s_call) in
+      case res of
+      | RNormal =>
+          if LENGTH s1.stack ≠ nr then (RInvalid,s1) else
+            (RNormal, s with stack := s1.stack ++ s.stack)
+      | RReturn =>
+          if LENGTH s1.stack < nr then (RInvalid,s1) else
+            (RNormal, s with stack := TAKE nr s1.stack ++ s.stack)
+      | RBreak _ => (RInvalid, s1)
+      | _ => (res, s1)
+  ) ∧
+  (exec (CallIndirect n tf) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    case lookup_func_tables s.func_tables n w of NONE => (RInvalid,s) | SOME fi =>
+    case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
+    if f.type ≠ tf then (RInvalid,s) else
+      exec (Call fi) s) ∧
   (exec (LocalGet n) s = ARB) ∧
   (exec (LocalSet n) s = ARB) ∧
   (exec (LocalTee n) s = ARB) ∧
@@ -160,14 +307,49 @@ Definition exec_def:
   (exec (Load _ _ _) s = ARB) ∧
   (exec (Store _ _ _) s = ARB) ∧
   (exec (Instr _) s = ARB) ∧
-  (exec (ReturnCall n) s = ARB) ∧
-  (exec (ReturnCallIndirect n tf) s = ARB) ∧
+  (exec (ReturnCall fi) s =
+    case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
+    let np = LENGTH (FST f.type) in
+    let nr = LENGTH (SND f.type) in
+    case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
+    let init_locals = args ++ MAP init_val_of f.locals in
+    if s.clock = 0 then (RTimeout,s) else
+    let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
+    (* real WASM treats the body as wrapped in a Block *)
+    let (res, s1) = fix_clock s_call (exec_list f.body s_call) in
+      case res of
+      | RNormal =>
+          if LENGTH s1.stack ≠ nr then (RInvalid,s1) else
+            (RReturn, s with stack := s1.stack)
+      | RReturn =>
+          if LENGTH s1.stack < nr then (RInvalid,s1) else
+            (RReturn, s with stack := TAKE nr s1.stack)
+      | RBreak _ => (RInvalid, s1)
+      | _ => (res, s1)
+  ) ∧
+  (exec (ReturnCallIndirect n tf) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    case lookup_func_tables s.func_tables n w of NONE => (RInvalid,s) | SOME fi =>
+    case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
+    if f.type ≠ tf then (RInvalid,s) else
+      exec (ReturnCall fi) s) ∧
   (exec_list [] s = (RNormal, s)) ∧
   (exec_list (b::bs) s =
-    let (res,s) = exec b s in
+    let (res,s) = fix_clock s (exec b s) in
     case res of
       RNormal => exec_list bs s
     | _ => (res,s))
+Termination
+  WF_REL_TAC ‘inv_image (measure I LEX measure I) $ λx. case x of
+               | INL (i,s) => (s.clock, inst_size' i)
+               | INR (is,s) => (s.clock, list_size inst_size' is)’
+  \\ gvs [inst_size'_def]
+  \\ rw [SF ETA_ss]
+  \\ imp_res_tac pop_clock
+  \\ imp_res_tac pop_n_clock
+  \\ imp_res_tac fix_clock_IMP
+  \\ gvs [fix_clock_def]
 End
 
 val _ = export_theory();
