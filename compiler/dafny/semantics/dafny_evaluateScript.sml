@@ -96,15 +96,15 @@ Definition evaluate_exp_ann_def[nocompute]:
           | (st₁, Rval in_vs) =>
             (case set_up_call st₁ in_names in_vs [] of
              | NONE => (st₁, Rerr Rtype_error)
-             | SOME (old_locals, st₂) =>
+             | SOME st₂ =>
                if st₂.clock = 0
-               then (restore_locals st₂ old_locals, Rerr Rtimeout_error)
+               then (restore_caller st₂ st₁, Rerr Rtimeout_error)
                else
                  (case evaluate_exp (dec_clock st₂) env body of
                   | (st₃, Rerr err) =>
-                      (restore_locals st₃ old_locals, Rerr err)
+                      (restore_caller st₃ st₁, Rerr err)
                   | (st₃, Rval v) =>
-                      (restore_locals st₃ old_locals, Rval v))))))) ∧
+                      (restore_caller st₃ st₁, Rval v))))))) ∧
   evaluate_exp st env (Forall (vn, vt) e) =
   (if env.is_running then (st, Rerr Rtype_error)
    else if st.clock = 0 then (st, Rerr Rtimeout_error) else
@@ -118,6 +118,10 @@ Definition evaluate_exp_ann_def[nocompute]:
      (* NOTE For now, for simplicity reasons, we do not check whether (eval v) *)
   (*       is a Bool to throw a type error if not. Instead, we return (BoolV F). *)
      else (st, Rval (BoolV F))) ∧
+  evaluate_exp st env (Old e) =
+  (if env.is_running then (st, Rerr Rtype_error) else
+   (case evaluate_exp (use_old st) env e of
+    | (st₁, r) => (unuse_old st₁ st, r))) ∧
   evaluate_exps st env [] = (st, Rval []) ∧
   evaluate_exps st₀ env (e::es) =
   (case fix_clock st₀ (evaluate_exp st₀ env e) of
@@ -136,7 +140,7 @@ Termination
   >> rpt strip_tac
   >> imp_res_tac fix_clock_IMP
   >> gvs [do_sc_def, dec_clock_def, set_up_call_def, push_local_def,
-          oneline do_cond_def, AllCaseEqs ()]
+          use_old_def, unuse_old_def, oneline do_cond_def, AllCaseEqs ()]
 End
 
 Theorem evaluate_exp_clock:
@@ -147,10 +151,10 @@ Theorem evaluate_exp_clock:
 Proof
   ho_match_mp_tac evaluate_exp_ann_ind
   >> rpt strip_tac
-  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def,
-          evaluate_exp_ann_def]
+  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_caller_def,
+          use_old_def, unuse_old_def, evaluate_exp_ann_def]
   >> EVERY (map imp_res_tac
-                [set_up_call_clock, restore_locals_clock, fix_clock_IMP])
+                [set_up_call_clock, restore_caller_clock, fix_clock_IMP])
   >> gvs[]
 QED
 
@@ -338,17 +342,17 @@ Definition evaluate_stmt_ann_def[nocompute]:
          | (st₁, Rval in_vs) =>
            (case set_up_call st₁ in_ns in_vs out_ns of
             | NONE => (st₁, Rstop (Serr Rtype_error))
-            | SOME (old_locals, st₂) =>
+            | SOME st₂ =>
               if st₂.clock = 0
-              then (restore_locals st₂ old_locals, Rstop (Serr Rtimeout_error))
+              then (restore_caller st₂ st₁, Rstop (Serr Rtimeout_error))
               else
                 (case evaluate_stmt (dec_clock st₂) env body of
                  | (st₃, Rcont) =>
-                     (restore_locals st₃ old_locals, Rstop (Serr Rtype_error))
+                     (restore_caller st₃ st₁, Rstop (Serr Rtype_error))
                  | (st₃, Rstop (Serr err)) =>
-                     (restore_locals st₃ old_locals, Rstop (Serr err))
+                     (restore_caller st₃ st₁, Rstop (Serr err))
                  | (st₃, Rstop Sret) =>
-                   (let st₄ = restore_locals st₃ old_locals in
+                   (let st₄ = restore_caller st₃ st₁ in
                    (case OPT_MMAP (read_local st₃.locals) out_ns of
                     | NONE => (st₄, Rstop (Serr Rtype_error))
                     | SOME out_vs =>
@@ -375,10 +379,10 @@ Proof
   >> rpt strip_tac
   >> gvs [evaluate_stmt_ann_def]
   >> rpt (pairarg_tac \\ gvs [])
-  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_locals_def,
+  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_caller_def,
           print_string_def, evaluate_stmt_ann_def, declare_local_clock]
   >> EVERY (map imp_res_tac
-                [set_up_call_clock, restore_locals_clock, pop_local_clock,
+                [set_up_call_clock, restore_caller_clock, pop_local_clock,
                  fix_clock_IMP, evaluate_rhs_exps_clock,
                  evaluate_exp_clock, assign_values_clock]) >> gvs []
 QED

@@ -20,7 +20,8 @@ Theorem evaluate_exp_locals:
 Proof
   ho_match_mp_tac evaluate_exp_ind
   \\ rpt strip_tac
-  \\ gvs [evaluate_exp_def, set_up_call_def, restore_locals_def, AllCaseEqs()]
+  \\ gvs [evaluate_exp_def, set_up_call_def, restore_caller_def, unuse_old_def,
+          AllCaseEqs()]
 QED
 
 Theorem evaluate_rhs_exp_locals:
@@ -101,7 +102,7 @@ Proof
     \\ ‘s₁.locals ≠ []’ by (spose_not_then assume_tac \\ gvs [])
     \\ gvs [pop_local_def, AllCaseEqs()])
   \\ gvs [evaluate_stmt_def, dec_clock_def, print_string_def,
-          restore_locals_def, set_up_call_def, AllCaseEqs()]
+          restore_caller_def, set_up_call_def, AllCaseEqs()]
   \\ imp_res_tac evaluate_exp_locals
   \\ imp_res_tac assign_values_locals
   \\ imp_res_tac evaluate_rhs_exps_locals \\ gvs []

@@ -224,6 +224,7 @@ Definition from_exp_def:
     return (cml_fapp [] ("dfy_" ++ (explode n)) (REVERSE cml_args))
   od ∧
   from_exp (Forall _ _) = fail «from_exp:Forall: Unsupported» ∧
+  from_exp (Old _) = fail «from_exp:Old: Unsupported» ∧
   map_from_exp [] = return [] ∧
   map_from_exp (e::es) =
   do
