@@ -5843,6 +5843,7 @@ val goal = ``
          | SOME (Exception _ y) =>
            ∃l0 l.
            state_rel ac k 0 0 (push_locals l0 l s1) t1 (LASTN (s.handler+1) lens) 0 /\
+           s1.locals = union (fromAList l) (fromAList l0) ∧
            FLOOKUP t1.regs 1 = SOME y
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock``
 
@@ -9822,15 +9823,49 @@ Proof
                      kall_tac) >>
       ntac 2 strip_tac>>
       fsrw_tac[][lookup_insert,convs_def]>>
-      IF_CASES_TAC>-
-        simp[]>>
+      IF_CASES_TAC>- simp[]>>
+      qpat_x_assum`union _ _ = union _ _` sym_sub_tac>>
       simp[lookup_union] >>
       REVERSE TOP_CASE_TAC >-(
         (*GC cutset *)
-        cheat
-      )
-      (*NON GC cutset*)
-      >- (cheat)) >>
+        strip_tac>>
+        rename1`EVEN nn`>>
+        `nn ∈ domain (fromAList l)` by metis_tac[domain_lookup]>>
+        (* use assumptions on domain of l, live and env *)
+        `EVEN nn ∧ k ≤ nn DIV 2` by cheat>>
+        simp[]>>
+        fsrw_tac[][stack_rel_def]>>
+        qpat_x_assum`abs_stack _ _ _ _ =SOME _` mp_tac>>
+        qpat_abbrev_tac`L = DROP A B`>>
+        Cases_on`L`>>simp[abs_stack_def]>>
+        cruft_tac>>
+        simp[AllCaseEqs()]>>
+        strip_tac>>
+        qpat_x_assum`stack_rel_aux A B C D` mp_tac>>
+        rveq>>simp[stack_rel_aux_def]>>
+        strip_tac>>
+        fsrw_tac[][lookup_fromAList]>>
+        `MEM (nn,v) l` by metis_tac[ALOOKUP_MEM]>>
+        `MEM (nn DIV 2,v) (MAP_FST adjust_names l)` by
+          (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
+          metis_tac[])>>
+        simp[LLOOKUP_THM]>>
+        drule filter_bitmap_MEM>>
+        disch_then drule>>
+        strip_tac >>
+        drule MEM_index_list_EL>>
+        drule MEM_index_list_LIM>>
+        simp[LENGTH_TAKE,EL_TAKE]>>
+        strip_tac>>
+        fs[]>>
+        qpat_x_assum`COND (_ = []) _ _`mp_tac >>
+        rename1`ls = []` >> Cases_on`ls` \\ fs[] >>
+        rename1`SUC nnn`>>
+        strip_tac>>
+        `k + (SUC nnn)- nn DIV 2 = SUC (k + SUC nnn - (nn DIV 2 + 1))` by intLib.ARITH_TAC >>
+        pop_assum SUBST1_TAC>>
+        simp[ADD1,EL_TAKE])
+      >- cheat) >>
       (*
       strip_tac>>
       rename1`EVEN nn`>>
