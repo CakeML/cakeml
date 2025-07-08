@@ -1,4 +1,5 @@
-INCLUDES = $(HOLDIR)/examples/machine-code/multiword\
+INCLUDES = $(HOLDIR)/examples/machine-code/multiword \
+					../dafny\
 					 $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
 					 $(CAKEMLDIR)/basis/pure
 

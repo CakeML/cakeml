@@ -94,6 +94,7 @@ End
 Datatype:
   func =
   <|
+    name : string ;
     type : tf ;
     body : instr list ;
     types_of_locals : t list
