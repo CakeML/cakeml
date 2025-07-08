@@ -325,11 +325,6 @@ Definition update_array_def:
    | _ => NONE)
 End
 
-Definition push_local_def:
-  push_local st var val =
-  (st with locals := (var, SOME val)::st.locals)
-End
-
 Definition all_values_def:
   all_values IntT = {IntV i | i ∈ 𝕌(:int)} ∧
   all_values BoolT = {BoolV T; BoolV F} ∧
@@ -348,18 +343,44 @@ Proof
   gvs [declare_local_def]
 QED
 
-Definition pop_local_def:
-  pop_local st =
-  (case st.locals of
-   | [] => NONE
-   | l::rest => SOME (st with locals := rest))
+Definition push_local_def:
+  push_local st var val =
+  (st with locals := (var, SOME val)::st.locals)
 End
 
-Theorem pop_local_clock:
-  ∀st st'. pop_local st = SOME st' ⇒ st'.clock = st.clock
+Definition push_locals_def:
+  push_locals st binds =
+  let binds = (MAP (λ(var,val). (var, SOME val)) binds) in
+    (st with locals := REVERSE binds ++ st.locals)
+End
+
+Theorem push_locals_cons:
+  push_locals s ((n,v)::(ZIP (ns,vs))) =
+  (push_locals (push_local s n v) (ZIP (ns,vs)))
 Proof
-  rpt strip_tac \\ gvs [pop_local_def, AllCaseEqs ()]
+  gvs [push_locals_def, push_local_def]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC, APPEND]
 QED
+
+Theorem push_locals_len:
+  ∀binds s s'.
+    LENGTH (push_locals s binds).locals = LENGTH s.locals + LENGTH binds
+Proof
+  Induct \\ gvs [push_locals_def]
+QED
+
+(* TODO Instead of safe_{drop,zip}, it would probably more accurate to call them
+   strict *)
+Definition safe_drop_def:
+  safe_drop n xs = if n ≤ LENGTH xs then SOME (DROP n xs) else NONE
+End
+
+Definition pop_locals_def:
+  pop_locals n st =
+  (case safe_drop n st.locals of
+   | NONE => NONE
+   | SOME rest => SOME (st with locals := rest))
+End
 
 Definition val_to_string_def:
   val_to_string (IntV i) =

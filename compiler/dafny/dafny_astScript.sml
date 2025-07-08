@@ -48,6 +48,8 @@ Datatype:
   (* Forall var term *)
   | Forall (mlstring # type) exp
   | Old exp
+  (* Let [(name, type), rhs] body *)
+  | Let (((mlstring # type) # exp) list) exp
 End
 
 Overload If = “Exp_If”

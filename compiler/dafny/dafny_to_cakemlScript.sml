@@ -223,8 +223,7 @@ Definition from_exp_def:
        application without defining a new function/lambda. *)
     return (cml_fapp [] ("dfy_" ++ (explode n)) (REVERSE cml_args))
   od ∧
-  from_exp (Forall _ _) = fail «from_exp:Forall: Unsupported» ∧
-  from_exp (Old _) = fail «from_exp:Old: Unsupported» ∧
+  from_exp _ = fail «from_exp: Unsupported expression» ∧
   map_from_exp [] = return [] ∧
   map_from_exp (e::es) =
   do

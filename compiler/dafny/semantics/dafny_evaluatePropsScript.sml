@@ -8,7 +8,34 @@ Libs
   preamble
 
 
+(* evaluating x elements successfully results in x values *)
+
+Theorem evaluate_exps_len_eq:
+  ∀es s env s' vs.
+    evaluate_exps s env es = (s', Rval vs) ⇒ LENGTH vs = LENGTH es
+Proof
+  Induct \\ simp [evaluate_exp_def]
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ res_tac
+QED
+
+Theorem evaluate_rhs_exps_len_eq:
+  ∀s env es s' vs.
+    evaluate_rhs_exps s env es = (s', Rval vs) ⇒ LENGTH vs = LENGTH es
+Proof
+  Induct_on ‘es’ \\ rpt strip_tac
+  \\ gvs [evaluate_rhs_exps_def, AllCaseEqs()]
+  \\ res_tac
+QED
+
 (* After evaluate, only the value of locals can have changed. *)
+
+Triviality MAP_LENGTH:
+  MAP f xs = MAP g ys ⇒ LENGTH xs = LENGTH ys
+Proof
+  gvs [MAP_EQ_EVERY2]
+QED
 
 Theorem evaluate_exp_locals:
   (∀s env e s' r.
@@ -19,6 +46,22 @@ Theorem evaluate_exp_locals:
      MAP FST s'.locals = MAP FST s.locals)
 Proof
   ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Let vars body’] >-
+   (gvs [evaluate_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘¬ALL_DISTINCT (MAP FST lhss)’]
+    \\ Cases_on ‘¬ALL_DISTINCT (MAP FST lhss)’ \\ gvs []
+    \\ rename [‘evaluate_exps _ _ rhss’]
+    \\ namedCases_on ‘evaluate_exps s env rhss’ ["s₁ r'"] \\ gvs []
+    \\ namedCases_on ‘r'’ ["vs", "err"] \\ gvs []
+    \\ imp_res_tac evaluate_exps_len_eq \\ gvs [UNZIP_MAP]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘evaluate_exp _ _ _ = (s₂, _)’]
+    \\ ‘LENGTH vars ≤ LENGTH s₂.locals’ by
+      (imp_res_tac MAP_LENGTH \\ simp [push_locals_len])
+    \\ gvs [pop_locals_def, safe_drop_def, push_locals_def]
+    \\ gvs [MAP_DROP, DROP_APPEND])
   \\ rpt strip_tac
   \\ gvs [evaluate_exp_def, set_up_call_def, restore_caller_def, unuse_old_def,
           AllCaseEqs()]
@@ -88,6 +131,12 @@ Proof
   \\ res_tac \\ gvs []
 QED
 
+Triviality CONS_LENGTH:
+  xs = x::xs' ⇒ 1 ≤ LENGTH xs
+Proof
+  gvs []
+QED
+
 Theorem evaluate_stmt_locals:
   ∀s env stmt s' r.
     evaluate_stmt s env stmt = (s', r) ⇒
@@ -98,15 +147,17 @@ Proof
   >~ [‘Dec local scope’] >-
    (gvs [evaluate_stmt_def, declare_local_def]
     \\ rpt (pairarg_tac \\ gvs [])
-    \\ rename [‘pop_local s₁’]
-    \\ ‘s₁.locals ≠ []’ by (spose_not_then assume_tac \\ gvs [])
-    \\ gvs [pop_local_def, AllCaseEqs()])
+    \\ rename [‘pop_locals _ s₁’]
+    \\ gvs [pop_locals_def, safe_drop_def]
+    \\ ‘1 ≤ LENGTH s₁.locals’ by (imp_res_tac CONS_LENGTH \\ gvs [])
+    \\ gvs [MAP_DROP])
   \\ gvs [evaluate_stmt_def, dec_clock_def, print_string_def,
           restore_caller_def, set_up_call_def, AllCaseEqs()]
   \\ imp_res_tac evaluate_exp_locals
   \\ imp_res_tac assign_values_locals
   \\ imp_res_tac evaluate_rhs_exps_locals \\ gvs []
 QED
+
 
 (* evaluating x elements successfully results in x values *)
 
@@ -118,4 +169,3 @@ Proof
   \\ gvs [evaluate_rhs_exps_def, AllCaseEqs()]
   \\ res_tac
 QED
-
