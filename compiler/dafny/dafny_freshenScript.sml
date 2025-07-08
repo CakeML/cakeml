@@ -19,6 +19,13 @@ Definition add_fresh_def:
   add_fresh m (cnt: num) old = (cnt + 1, (old, cnt)::m)
 End
 
+Definition map_add_fresh_def:
+  map_add_fresh (m: (mlstring # num) list) (cnt: num) ([]: mlstring list) =
+    (cnt, m) ∧
+  map_add_fresh m cnt (n::ns) =
+    let (cnt, m) = add_fresh m cnt n in map_add_fresh m cnt ns
+End
+
 Definition freshen_exp_def:
   freshen_exp m m_old cnt (Lit l) = (cnt, Lit l) ∧
   freshen_exp m m_old cnt (Var old) = (cnt, Var (lookup m old)) ∧
@@ -60,6 +67,15 @@ Definition freshen_exp_def:
        (cnt, Forall (lookup m old, vt) e)) ∧
   freshen_exp m m_old cnt (Old e) =
     (let (cnt, e) = freshen_exp m_old m_old cnt e in (cnt, Old e)) ∧
+  freshen_exp m m_old cnt (Let vars body) =
+    (let (lhss, rhss) = UNZIP vars in
+     let (names, tys) = UNZIP lhss in
+     let (cnt, rhss) = freshen_exps m m_old cnt rhss in
+     let (cnt, m) = map_add_fresh m cnt names in
+     let names = MAP (lookup m) names in
+     let lhss = ZIP (names, tys) in
+     let (cnt, body) = freshen_exp m m_old cnt body in
+       (cnt, Let (ZIP (lhss, rhss)) body)) ∧
   freshen_exps m m_old cnt [] = (cnt, []) ∧
   freshen_exps m m_old cnt (e::es) =
     (let
@@ -71,6 +87,7 @@ Termination
   wf_rel_tac ‘measure $ λx. case x of
                             | INL (_,_,_,e) => exp_size e
                             | INR (_,_,_,e) => list_size exp_size e’
+  \\ gvs [UNZIP_MAP, list_size_pair_size_MAP_FST_SND]
 End
 
 Definition freshen_lhs_exp_def:
@@ -146,13 +163,6 @@ Definition freshen_stmt_def:
    let (cnt, lhss) = freshen_lhs_exps m m_old cnt lhss in
      (cnt, MetCall lhss n args)) ∧
   freshen_stmt m m_old cnt Return = (cnt, Return)
-End
-
-Definition map_add_fresh_def:
-  map_add_fresh (m: (mlstring # num) list) (cnt: num) ([]: mlstring list) =
-    (cnt, m) ∧
-  map_add_fresh m cnt (n::ns) =
-    let (cnt, m) = add_fresh m cnt n in map_add_fresh m cnt ns
 End
 
 Definition freshen_member_def:

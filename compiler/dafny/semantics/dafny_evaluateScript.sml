@@ -116,12 +116,26 @@ Definition evaluate_exp_ann_def[nocompute]:
      else if (∀v. v ∈ all_values vt ⇒ SND (eval v) = Rval (BoolV T))
      then (st, Rval (BoolV T))
      (* NOTE For now, for simplicity reasons, we do not check whether (eval v) *)
-  (*       is a Bool to throw a type error if not. Instead, we return (BoolV F). *)
+     (*   is a Bool to throw a type error if not. Instead, we return (BoolV F). *)
      else (st, Rval (BoolV F))) ∧
   evaluate_exp st env (Old e) =
   (if env.is_running then (st, Rerr Rtype_error) else
    (case evaluate_exp (use_old st) env e of
     | (st₁, r) => (unuse_old st₁ st, r))) ∧
+  evaluate_exp st env (Let vars body) =
+  (let (lhss, rhss) = UNZIP vars in
+   if ¬ALL_DISTINCT (MAP FST lhss)
+   then (st, Rerr Rtype_error)
+   else
+     (case fix_clock st (evaluate_exps st env rhss) of
+      | (st₁, Rerr err) => (st₁, Rerr err)
+      | (st₁, Rval vs) =>
+        (let binds = ZIP (MAP FST lhss, vs) in
+         let len_binds = LENGTH binds in
+         let (st₂, res) = evaluate_exp (push_locals st₁ binds) env body in
+         (case pop_locals len_binds st₂ of
+          | NONE => (st₂, Rerr Rtype_error)  (* unreachable *)
+          | SOME st₃ => (st₃, res))))) ∧
   evaluate_exps st env [] = (st, Rval []) ∧
   evaluate_exps st₀ env (e::es) =
   (case fix_clock st₀ (evaluate_exp st₀ env e) of
@@ -137,10 +151,11 @@ Termination
                        (s.clock, exp_size exp)
                    | INR (s, _, exps) =>
                        (s.clock, list_size exp_size exps))’
-  >> rpt strip_tac
-  >> imp_res_tac fix_clock_IMP
-  >> gvs [do_sc_def, dec_clock_def, set_up_call_def, push_local_def,
-          use_old_def, unuse_old_def, oneline do_cond_def, AllCaseEqs ()]
+  \\ rpt strip_tac
+  \\ imp_res_tac fix_clock_IMP
+  \\ gvs [do_sc_def, dec_clock_def, set_up_call_def, push_local_def,
+          push_locals_def, use_old_def, unuse_old_def, oneline do_cond_def,
+          UNZIP_MAP, list_size_pair_size_MAP_FST_SND, AllCaseEqs ()]
 End
 
 Theorem evaluate_exp_clock:
@@ -150,12 +165,17 @@ Theorem evaluate_exp_clock:
      evaluate_exps st₀ env es = (st₁, r) ⇒ st₁.clock ≤ st₀.clock)
 Proof
   ho_match_mp_tac evaluate_exp_ann_ind
-  >> rpt strip_tac
-  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_caller_def,
-          use_old_def, unuse_old_def, evaluate_exp_ann_def]
-  >> EVERY (map imp_res_tac
+  \\ rpt strip_tac
+  \\ gvs [evaluate_exp_ann_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [dec_clock_def, fix_clock_def, restore_caller_def,
+          push_locals_def, pop_locals_def,
+          use_old_def, unuse_old_def, evaluate_exp_ann_def, AllCaseEqs ()]
+  \\ EVERY (map imp_res_tac
                 [set_up_call_clock, restore_caller_clock, fix_clock_IMP])
-  >> gvs[]
+  \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
 QED
 
 Theorem fix_clock_evaluate_exp:
@@ -300,8 +320,8 @@ Definition evaluate_stmt_ann_def[nocompute]:
       | SOME branch => evaluate_stmt st₁ env branch)) ∧
   evaluate_stmt st₀ env (Dec local scope) =
   (let (st₁, res) = evaluate_stmt (declare_local st₀ (FST local)) env scope in
-   (case pop_local st₁ of
-    | NONE => (st₁, res)
+   (case pop_locals 1 st₁ of
+    | NONE => (st₁, Rstop (Serr Rtype_error))  (* unreachable *)
     | SOME st₂ => (st₂, res))) ∧
   evaluate_stmt st₀ env (Assign ass) =
   (case evaluate_rhs_exps st₀ env (MAP SND ass) of
@@ -376,15 +396,16 @@ Theorem evaluate_stmt_clock:
     evaluate_stmt st₀ env e = (st₁, r) ⇒ st₁.clock ≤ st₀.clock
 Proof
   ho_match_mp_tac evaluate_stmt_ann_ind
-  >> rpt strip_tac
-  >> gvs [evaluate_stmt_ann_def]
-  >> rpt (pairarg_tac \\ gvs [])
-  >> gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_caller_def,
-          print_string_def, evaluate_stmt_ann_def, declare_local_clock]
-  >> EVERY (map imp_res_tac
-                [set_up_call_clock, restore_caller_clock, pop_local_clock,
-                 fix_clock_IMP, evaluate_rhs_exps_clock,
-                 evaluate_exp_clock, assign_values_clock]) >> gvs []
+  \\ rpt strip_tac
+  \\ gvs [evaluate_stmt_ann_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_caller_def,
+          print_string_def, evaluate_stmt_ann_def, declare_local_clock,
+          pop_locals_def]
+  \\ EVERY (map imp_res_tac
+                [set_up_call_clock, restore_caller_clock, fix_clock_IMP,
+                 evaluate_rhs_exps_clock, evaluate_exp_clock,
+                 assign_values_clock]) \\ gvs []
 QED
 
 Theorem fix_clock_evaluate_stmt:

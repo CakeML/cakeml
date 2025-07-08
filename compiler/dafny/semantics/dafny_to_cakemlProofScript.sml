@@ -1582,6 +1582,7 @@ Proof
   (* These expression do not get compiled *)
   >~ [‘Forall var term’] >- (gvs [from_exp_def])
   >~ [‘Old e’] >- (gvs [from_exp_def])
+  >~ [‘Let vars body’] >- (gvs [from_exp_def])
 QED
 
 Triviality array_rel_submap:
@@ -2689,7 +2690,7 @@ Proof
     \\ ‘r_dfy = r’ by gvs [AllCaseEqs()] \\ gvs []
     \\ drule_then assume_tac evaluate_stmt_locals
     \\ gvs [declare_local_def]
-    \\ gvs [pop_local_def]
+    \\ gvs [pop_locals_def, safe_drop_def]
     \\ namedCases_on ‘s₂.locals’ ["", "hd tl"] \\ gvs []
     \\ namedCases_on ‘hd’ ["n nv"] \\ gvs []
     \\ last_x_assum drule
@@ -3767,6 +3768,7 @@ Proof
     \\ rpt strip_tac \\ gvs [])
   >~ [‘Forall var term’] >- (simp [from_exp_def])
   >~ [‘Old e’] >- (simp [from_exp_def])
+  >~ [‘Let vars body’] >- (simp [from_exp_def])
 QED
 
 Triviality cml_new_refs_one_con_check:
