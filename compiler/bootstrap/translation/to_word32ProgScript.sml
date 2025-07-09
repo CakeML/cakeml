@@ -4,7 +4,7 @@
 
 open preamble ml_translatorLib ml_translatorTheory
      basis_defProgTheory std_preludeTheory
-local open backendTheory in end
+local open backendTheory blastLib in end
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
@@ -404,6 +404,7 @@ val _ = translate (spec32 is_simple_pmatch_def)
 val _ = translate (spec32 dest_Raise_num_pmatch_def)
 val _ = translate (spec32 try_if_hoist2_def)
 val _ = translate (spec32 try_if_hoist1_def)
+val _ = translate (spec32 Seq_assoc_def)
 val _ = translate (spec32 simp_duplicate_if_def)
 
 val _ = translate (spec32 compile_exp_def)
