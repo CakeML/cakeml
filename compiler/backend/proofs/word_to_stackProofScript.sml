@@ -7126,7 +7126,7 @@ Theorem flat_exp_conventions_ShareInst_exp_simp:
   (?ad.exp = Var ad) \/
   (?ad offset. exp = Op Add [Var ad; Const offset])
 Proof
-  gvs[flat_exp_conventions_def] >>
+  gvs[oneline flat_exp_conventions_def] >>
   rpt (every_case_tac >> fs[])
 QED
 
@@ -7191,7 +7191,7 @@ Proof
     stackSemTheory.sh_mem_load_byte_def,
     stackSemTheory.sh_mem_load32_def,
     stackSemTheory.sh_mem_load_def,
-    sh_mem_set_var_def,
+    oneline sh_mem_set_var_def,
     AllCaseEqs()] >>
   fs[FLOOKUP_UPDATE] >>
   qmatch_goalsub_abbrev_tac `state_rel _ _ _ _ (set_var _ WORD _ with ffi := new_ffi)  t' _ _` >>
@@ -7231,7 +7231,7 @@ Proof
     stackSemTheory.sh_mem_load_byte_def,
     stackSemTheory.sh_mem_load32_def,
     stackSemTheory.sh_mem_load_def,AllCaseEqs(),
-    sh_mem_set_var_def] >>
+    oneline sh_mem_set_var_def] >>
   rpt strip_tac >>
   fs[PULL_EXISTS] >>
   gvs[state_rel_def,set_var_def,state_component_equality] >>
@@ -10561,7 +10561,7 @@ Proof
     EVERY_CASE_TAC>>fs[]>>rveq>>fs[]>>EVAL_TAC)
   >~ [`wShareInst`]
   >- (
-    gvs[wShareInst_def] >>
+    gvs[oneline wShareInst_def] >>
     TOP_CASE_TAC >- simp[extract_labels_def] >>
     TOP_CASE_TAC >>
     TOP_CASE_TAC >>
@@ -11609,7 +11609,7 @@ Theorem wMoveAux_no_install_lem:
 Proof
   ho_match_mp_tac wMoveAux_ind >>
   rw[wMoveAux_def,no_install_def] >>
-  rw[wMoveSingle_def] >>
+  rw[oneline wMoveSingle_def] >>
   rpt (TOP_CASE_TAC >> gvs[no_install_def])
 QED
 
@@ -11643,7 +11643,7 @@ QED
 Theorem wLive_no_install_lem:
   no_install $ FST (wLive live bs kf)
 Proof
-  simp[wLive_def] >>
+  simp[oneline wLive_def] >>
   rpt (TOP_CASE_TAC >> gvs[no_install_def]) >>
   pairarg_tac >>
   gvs[no_install_def]
@@ -11684,11 +11684,11 @@ Proof
   simp[no_install_def,comp_def] >>
   rw[]
   >- ((* Move *)
-    gvs[no_install_def,wMove_def] >>
+    gvs[no_install_def,oneline wMove_def] >>
     rpt TOP_CASE_TAC >>
     metis_tac[wMoveAux_no_install_lem])
   >- ( (* Inst *)
-    gvs[no_install_def,wInst_def] >>
+    gvs[no_install_def,oneline wInst_def] >>
     rpt (TOP_CASE_TAC >>
       gvs[ELIM_UNCURRY,no_install_def,wStackLoad_no_install_lem])
     >~ [`wRegWrite2`]
@@ -11736,7 +11736,7 @@ Proof
     PairCases_on `kf` >>
     gvs[AllCaseEqs(),no_install_def,
       wordConvsTheory.no_install_def,
-      call_dest_def,
+      oneline call_dest_def,
       SeqStackFree_def,ELIM_UNCURRY] >>
     rpt TOP_CASE_TAC >>
     gvs[no_install_def,wStackLoad_no_install_lem,
@@ -11760,7 +11760,7 @@ Proof
   >- ( (* ShareInst *)
     Cases_on `exp_to_addr exp` >> fs[] >- gvs[no_install_def]>>
     rename1 ‘SOME x’ >> Cases_on ‘x’>>
-    gvs[wShareInst_def,no_install_def,ELIM_UNCURRY] >>
+    gvs[oneline wShareInst_def,no_install_def,ELIM_UNCURRY] >>
     TOP_CASE_TAC >>
     gvs[wStackLoad_no_install_lem,no_install_def] >>
     irule wRegWrite1_no_install_lem >>
@@ -11793,7 +11793,7 @@ Theorem wMoveAux_no_shmemop_lem:
 Proof
   ho_match_mp_tac wMoveAux_ind >>
   rw[wMoveAux_def,no_shmemop_def] >>
-  rw[wMoveSingle_def] >>
+  rw[oneline wMoveSingle_def] >>
   rpt (TOP_CASE_TAC >> gvs[no_shmemop_def])
 QED
 
@@ -11827,7 +11827,7 @@ QED
 Theorem wLive_no_shmemop_lem:
   no_shmemop $ FST (wLive live bs kf)
 Proof
-  simp[wLive_def] >>
+  simp[oneline wLive_def] >>
   rpt (TOP_CASE_TAC >> gvs[no_shmemop_def]) >>
   pairarg_tac >>
   gvs[no_shmemop_def]
@@ -11868,11 +11868,11 @@ Proof
   simp[no_shmemop_def,comp_def] >>
   rw[]
   >- ((* Move *)
-    gvs[no_shmemop_def,wMove_def] >>
+    gvs[no_shmemop_def,oneline wMove_def] >>
     rpt TOP_CASE_TAC >>
     metis_tac[wMoveAux_no_shmemop_lem])
   >- ( (* Inst *)
-    gvs[no_shmemop_def,wInst_def] >>
+    gvs[no_shmemop_def,oneline wInst_def] >>
     rpt (TOP_CASE_TAC >>
       gvs[ELIM_UNCURRY,no_shmemop_def,wStackLoad_no_shmemop_lem])
     >~ [`wRegWrite2`]
@@ -11920,7 +11920,7 @@ Proof
     PairCases_on `kf` >>
     gvs[AllCaseEqs(),no_shmemop_def,
       no_share_inst_def,
-      call_dest_def,
+      oneline call_dest_def,
       SeqStackFree_def,ELIM_UNCURRY] >>
     rpt TOP_CASE_TAC >>
     gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
