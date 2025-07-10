@@ -3,21 +3,34 @@
 *)
 Theory dafny_wp_calc
 Ancestors
-  dafny_evaluate
+  dafny_ast dafny_semanticPrimitives dafny_evaluate
 Libs
   preamble
 
 
 (*
   TODO:
-    - add ‘Let [(n,e1);(m,e2)] rest’ to expressions
-    - exp needs to take two states
-    - and Old switches to old state
+   - drop types from Let
+   - prove cheats up tp and incl stmt_wp_sound
 *)
+
+Datatype:
+  met_spec = <| ins       : (mlstring # type) list
+              ; reqs      : exp list
+              ; ens       : exp list
+              ; reads     : exp list
+              ; decreases : exp list
+              ; outs      : (mlstring # type) list
+              ; mods      : exp list |>
+End
+
+Datatype:
+  met = Method mlstring met_spec statement
+End
 
 Overload False = “Lit (BoolL F)”;
 
-Definition eval_true_def:
+Definition eval_true_def[simp]:
   eval_true st env e ⇔
     ∃ck1 ck2.
       evaluate_exp (st with clock := ck1) env e =
@@ -45,7 +58,7 @@ Inductive stmt_wp:
   ∀m ens post.
     stmt_wp m post Skip (post:exp list) (ens:exp list)
 [~Assert:]
-  ∀m ens post.
+  ∀m ens post e.
     stmt_wp m (e::post) (Assert e) (post:exp list) (ens:exp list)
 [~Return:]
   ∀m ens post.
@@ -57,7 +70,7 @@ Inductive stmt_wp:
     ⇒
     stmt_wp m pre1 (Then s1 s2) post ens
 [~If:]
-  ∀m s1 s2 pre1 pre2 post ens.
+  ∀m s1 s2 pre1 pre2 post ens g.
     stmt_wp m pre1 s1 post ens ∧
     stmt_wp m pre2 s2 post ens
     ⇒
@@ -69,13 +82,14 @@ Inductive stmt_wp:
     ⇒
     stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens
 [~MetCall:]
-  ∀m mname mins mreqs mens mreads mdecreases mouts mmods mbody ret_names args ens post rets.
-    Method mname mins mreqs mens mreads mdecreases mouts mmods mbody ∈ m ∧
-    LENGTH mins = LENGTH args ∧
+  ∀m mname mspec mbody args ret_names rets post ens.
+    Method mname mspec mbody ∈ m ∧
+    LENGTH mspec.ins = LENGTH args ∧
     LIST_REL (λr rn. r = VarLhs (FST rn)) rets ret_names ∧
-    ⊢ (imp (conj mens) (Let (ZIP (ret_names,MAP (λ(m,ty). Var m) mouts)) (conj post)))
+    ⊢ (imp (conj mspec.ens) (Let (ZIP (ret_names,MAP (λ(m,ty). Var m) mspec.outs)) (conj post)))
     ⇒
-    stmt_wp m [Let (ZIP (mins,args)) (conj mreqs)] (MetCall rets mname args) post ens
+    stmt_wp m [Let (ZIP (mspec.ins,args)) (conj mspec.reqs)]
+              (MetCall rets mname args) post ens
 End
 
 Inductive adjust_calls:
@@ -83,24 +97,27 @@ Inductive adjust_calls:
   adjust_calls decreases mutrec body adjusted_body
 End
 
-Inductive mspec:
+Inductive proved_methods:
 [~empty:]
-  mspec {}
+  proved_methods {}
 [~nonrec:]
-  mspec m ∧
-  stmt_wp m wp_pre body [False] ens ∧
-  ⊢ (imp (conj reqs) (conj wp_pre))
-  ⇒
-  mspec ((Method name ins reqs ens reads decreases outs mods body) INSERT m)
+  ∀m body mspec wp_pre.
+    proved_methods m ∧
+    stmt_wp m wp_pre body [False] mspec.ens ∧
+    ⊢ (imp (conj mspec.reqs) (conj wp_pre))
+    ⇒
+    proved_methods ((Method name mspec body) INSERT m)
 [~mutrec:]
-  mspec m ∧
-  (∀name ins reqs ens reads outs decreases mods body.
-     Method name ins reqs ens reads decreases outs mods body ∈ mutrec ⇒
-     ∃adjusted_body.
-       adjust_calls decreases mutrec body adjusted_body ∧
-       stmt_wp (mutrec ∪ m) reqs adjusted_body [False] ens)
-  ⇒
-  mspec (mutrec ∪ m)
+  ∀m mutrec.
+    proved_methods m ∧
+    (∀name mspec body.
+       Method name mspec body ∈ mutrec ⇒
+       ∃adjusted_body wp_pre.
+         adjust_calls mspec.decreases mutrec body adjusted_body ∧
+         stmt_wp (mutrec ∪ m) wp_pre adjusted_body [False] mspec.ens) ∧
+         ⊢ (imp (conj mspec.reqs) (conj wp_pre))
+    ⇒
+    proved_methods (mutrec ∪ m)
 End
 
 Definition eval_stmt_def:
@@ -164,15 +181,16 @@ Proof
   simp [conditions_hold_def,eval_true_def,evaluate_exp_def]
 QED
 
-Theorem mspec_sound:
-  ∀m. mspec m ⇒
-      ∀name ins reqs ens reads decreases outs mods body env.
-        Method name ins reqs ens reads decreases outs mods body ∈ m ⇒
-        ∀st. conditions_hold st env reqs ∧ compatible_env env m ⇒
-             ∃st'. eval_stmt st env body st' (Rstop Sret) ∧
-                   conditions_hold st' env ens
+Theorem proved_methods_sound:
+  ∀m.
+    proved_methods m ⇒
+    ∀name mspec body env.
+      Method name mspec body ∈ m ⇒
+      ∀st. conditions_hold st env mspec.reqs ∧ compatible_env env m ⇒
+           ∃st'. eval_stmt st env body st' (Rstop Sret) ∧
+                 conditions_hold st' env mspec.ens
 Proof
-  ho_match_mp_tac mspec_ind
+  ho_match_mp_tac proved_methods_ind
   \\ rpt conj_tac
   >- (* empty *) simp []
   >- (* nonrec *)
@@ -201,4 +219,3 @@ Proof
     \\ gvs [compatible_env_def])
   \\ cheat
 QED
-
