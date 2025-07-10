@@ -1,11 +1,306 @@
 (*
   Pure functions for the List module.
 *)
-open preamble mergesortTheory
+open preamble sortingTheory mergesortTheory
 
-val _ = new_theory"mllist"
+val _ = new_theory "mllist"
 
-val _ = set_grammar_ancestry ["indexedLists", "toto"]
+val _ = set_grammar_ancestry ["mergesort", "indexedLists", "toto"];
+
+(* ===== TO BE PORTED TO HOL ===== *)
+Theorem merge_tail_MEM:
+  !negate R xs ys acc. MEM x (merge_tail negate R xs ys acc) = ((MEM x xs) \/ (MEM x ys) \/ (MEM x acc))
+Proof
+  ho_match_mp_tac merge_tail_ind
+  \\ rpt strip_tac
+  \\ fs[merge_tail_def]
+  >- (simp[REV_REVERSE_LEM] \\ metis_tac[])
+  >- (simp[REV_REVERSE_LEM] \\ metis_tac[])
+  >- (
+      rw[]
+      \\ fs[]
+      \\ metis_tac[]
+    )
+QED
+
+Theorem mergesortN_tail_MEM:
+  !negate R length lst. (MEM x (mergesortN_tail negate R length lst) <=> MEM x (TAKE length lst))
+Proof
+  ho_match_mp_tac mergesortN_tail_ind
+  \\ reverse (rw[])
+  >- (
+      reverse (rw[Once $ mergesortN_tail_def])
+      >- (
+        gvs[]
+        \\ simp[merge_tail_MEM]
+        \\ `DIV2 length ≤ length` by (
+            fs[DIV2_def]
+            \\ qspecl_then [`length`, `2`] assume_tac DIV_LESS
+            \\ `0 < length /\ 1 < 2 ` by fs[]
+            \\ fs[arithmeticTheory.LT_IMP_LE]
+          )
+        \\ simp[TAKE_DROP_SWAP]
+        \\ metis_tac[MEM_APPEND, TAKE_TAKE_T, TAKE_DROP]
+      )
+      \\ EVERY_CASE_TAC
+      \\ rw[mergesortN_tail_def, sort2_tail_def, sort3_tail_def]
+      \\ metis_tac[]
+    )
+    \\ rw[mergesortN_tail_def, sort2_tail_def, sort3_tail_def]
+    \\ metis_tac[]
+QED
+
+Theorem sort3_tail_sort3:
+  !negate R x y z. sort3_tail negate R x y z =
+    (if negate then REVERSE(sort3 R x y z) else sort3 R x y z)
+Proof
+  simp[sort3_tail_def, sort3_def]
+  \\ rw[]
+  \\ fs[]
+QED
+
+Theorem sort2_tail_sort2:
+  !negate R x y. sort2_tail negate R x y =
+    (if negate then REVERSE(sort2 R x y) else sort2 R x y)
+Proof
+  simp[sort2_tail_def, sort2_def]
+  \\ rw[]
+  \\ fs[]
+QED
+
+Theorem mergetail_merge:
+  !negate R xs ys acc.
+     merge_tail negate R xs ys acc =
+     (if negate then REVERSE (merge (\x y. ¬ R x y) xs ys) ++ acc
+      else REVERSE (merge R xs ys) ++ acc)
+Proof
+  ho_match_mp_tac merge_tail_ind
+  \\ rw[merge_tail_def, merge_def, REV_REVERSE_LEM, merge_empty]
+  \\ fs[]
+QED
+
+Theorem merge_tail_acc:
+  ∀negate R xs ys acc acc'. merge_tail negate R xs ys (acc ++ acc')
+    = (merge_tail negate R xs ys acc) ++ acc'
+Proof
+  ho_match_mp_tac merge_tail_ind
+  \\ rw[merge_tail_def, REV_REVERSE_LEM, merge_empty]
+QED
+
+Theorem mergesort_tail_MEM:
+  ∀R l. MEM x (mergesort$mergesort_tail R l) ⇔ MEM x l
+Proof
+  simp[mergesort_tail_def, mergesortN_tail_MEM]
+QED
+
+Theorem merge_tail_PERM:
+  !negate R xs ys acc. PERM (xs++ys++acc) (merge_tail negate R xs ys acc)
+Proof
+  ho_match_mp_tac merge_tail_ind
+  \\ fs[merge_tail_def]
+  \\ reverse (rpt strip_tac)
+  >- (
+      rw[]
+      >- (
+        gvs[]
+        \\ `PERM (x::(xs ++ y::ys ++ acc)) (xs ++ y::ys ++ x::acc)` by (
+            rename1 `PERM (x::(mid ++ acc)) (mid ++ x::acc)`
+            \\ match_mp_tac CONS_PERM
+            \\ rw[]
+          )
+        \\ qspecl_then [ `(x::(xs ⧺ y::ys ⧺ acc))`,
+                         `(xs ++ y::ys ++ x::acc)`,
+                         `(merge_tail negate R xs (y::ys) (x::acc))`
+            ] assume_tac PERM_TRANS
+        \\ fs[]
+      )
+      >- (
+          `PERM (x::(xs ++ y::ys ++ acc)) (x::(xs ++ ys ++ y::acc))` by simp[PERM_TO_APPEND_SIMPS]
+          \\ qspecl_then [ `(x::(xs ++ y::ys ++ acc))`,
+                           `(x::(xs ++ ys ++ y::acc))`,
+                           `(merge_tail (R x y) R (x::xs) ys (y::acc))`
+              ] assume_tac PERM_TRANS
+          \\ fs[]
+        )
+    )
+    \\ simp[REV_REVERSE_LEM]
+    \\ pure_rewrite_tac [GSYM APPEND_ASSOC, GSYM CONS_APPEND]
+    \\ match_mp_tac CONS_PERM
+    \\ simp[PERM_APPEND_IFF]
+QED
+
+Theorem sort2_tail_PERM:
+  !neg R x y. PERM [x;y] (sort2_tail neg R x y)
+Proof
+  rw[sort2_tail_def]
+  \\ `[y;x] = (REVERSE [x;y])` by rw[]
+  \\ pop_assum (fn x => pure_rewrite_tac [x] \\ simp[PERM_REVERSE])
+QED
+
+Theorem sort3_tail_PERM:
+  !neg R x y z. PERM [x;y;z] (sort3_tail neg R x y z)
+Proof
+  reverse (rw[sort3_tail_def])
+  >- (
+      `[z;y;x] = REVERSE [x;y;z]` by rw[]
+      \\ pop_assum (fn x => pure_rewrite_tac [x] \\ simp[PERM_REVERSE])
+    )
+  >- (
+      `[x;y;z] = REVERSE [z;y;x]` by rw[]
+      \\ pop_assum (fn x => pure_rewrite_tac [x] \\ simp[PERM_REVERSE_EQ])
+      \\ `PERM ([z;y] ++ [x]) ([y;z] ++ [x])` suffices_by rw[]
+      \\ `PERM [z;y] [y;z]` suffices_by simp[PERM_APPEND_IFF]
+      \\ `[y;z] = REVERSE [z;y]` by rw[]
+      \\ pop_assum (fn x => pure_rewrite_tac [x] \\ simp[PERM_REVERSE])
+    )
+  >- (
+      `PERM ([x;y] ++ [z]) ([y;x] ++ [z])` suffices_by rw[]
+      \\ `PERM [x;y] [y;x]` suffices_by simp[PERM_APPEND_IFF]
+      \\ `[y;x] = REVERSE [x;y]` by rw[]
+      \\ pop_assum (fn x => pure_rewrite_tac [x] \\ simp[PERM_REVERSE])
+    )
+  >- (
+      `[z;x;y] = REVERSE [y;x;z]` by rw[]
+      \\ pop_assum (fn x => pure_rewrite_tac [x] \\ simp[PERM_REVERSE_EQ])
+      \\ `PERM ([x;y] ++ [z]) ([y;x] ++ [z])` suffices_by rw[]
+      \\ `PERM [x;y] [y;x]` suffices_by simp[PERM_APPEND_IFF]
+      \\ `[y;x] = REVERSE [x;y]` by rw[]
+      \\ pop_assum (fn x => pure_rewrite_tac [x] \\ simp[PERM_REVERSE])
+    )
+  >- (
+      `[z;y] = REVERSE [y;z]` by rw[]
+      \\ pop_assum (fn x => pure_rewrite_tac [x] \\ simp[PERM_REVERSE_EQ])
+    )
+QED
+
+Theorem mergesortN_tail_PERM:
+  !neg R len l. PERM (TAKE len l) (mergesortN_tail neg R len l)
+Proof
+  ho_match_mp_tac mergesortN_tail_ind
+  \\ reverse(rw[])
+  \\ fs[]
+  >- (
+      rw[Once $ mergesortN_tail_def]
+      >- (Cases_on `l` \\ fs[])
+      >- (
+          Cases_on `l`
+          \\ fs[]
+          \\ Cases_on `t`
+          \\ fs[]
+          \\ simp[sort2_tail_PERM]
+        )
+      >- (
+          Cases_on `l`
+              \\ fs[]
+              \\ Cases_on `t`
+              \\ fs[]
+              \\ Cases_on `t'`
+              \\ fs[]
+              \\ simp[sort2_tail_PERM, sort3_tail_PERM]
+        )
+      >- (
+          fs[]
+          \\ irule PERM_TRANS
+          \\ irule_at (Pos last) merge_tail_PERM
+          \\ rw[]
+          \\ irule PERM_FUN_SPLIT
+          \\ irule_at (Pos last) (iffRL PERM_SYM)
+          \\ first_x_assum (irule_at Any)
+          \\ irule PERM_TRANS
+          \\ irule_at (Pos last) PERM_APPEND
+          \\ irule PERM_FUN_SPLIT
+          \\ irule_at (Pos last) (iffRL PERM_SYM)
+          \\ first_x_assum (irule_at Any)
+          \\ simp[TAKE_DROP_SWAP]
+          \\ `DIV2 len < len` by (simp[DIV2_def])
+          \\ `DIV2 len + (len - (DIV2 len)) = len` by (
+                simp[DIV2_def, SUB_LEFT_ADD]
+                \\ rw[]
+                \\ gvs[DIV2_def]
+             )
+          \\ fs[]
+          \\ irule PERM_TRANS
+          \\ irule_at (Pos last) PERM_APPEND
+          \\ `TAKE len l = (TAKE (DIV2 len) l ⧺ DROP (DIV2 len) (TAKE len l))` suffices_by metis_tac[PERM_REFL]
+          \\ simp[LIST_EQ_REWRITE]
+          \\ conj_tac
+          >- (
+              Cases_on `len <= (LENGTH l)`
+              \\ fs[]
+              >- (
+                  Cases_on `DIV2 len <= LENGTH l`
+                  \\ `!n l. n > LENGTH l ==> (LENGTH (TAKE n l) = LENGTH l)` by (
+                      rw[]
+                      \\ `TAKE n l' = l'` by fs[]
+                      \\ pop_assum (fn x => pure_rewrite_tac [x])
+                      \\ REFL_TAC
+                    )
+                  \\ fs[]
+                )
+            )
+          >- (
+              rw[EL_APPEND]
+              >- (
+                  Cases_on `(DIV2 len) <= (LENGTH l)`
+                  \\ fs[EL_TAKE]
+                  >- (
+                      `!n l. n > LENGTH l ==> (TAKE n l = l)` by rw[]
+                      \\ `DIV2 len > LENGTH l` by fs[]
+                      \\ simp[EL_TAKE]
+                    )
+                )
+              >- (
+                  Cases_on `DIV2 len <= LENGTH l`
+                  \\ fs[]
+                  >- (simp[EL_DROP])
+                  >- (
+                      (* False case. *)
+                      `LENGTH (TAKE (DIV2 len) l) = (LENGTH l)` by (
+                        `TAKE (DIV2 len) l = l` by fs[]
+                        \\ pop_assum (fn x => rw [x])
+                        )
+                      \\ `x >= LENGTH l` by fs[]
+                      \\ `x < LENGTH l` by (
+                           `l = TAKE len l` by fs[]
+                            \\ pop_assum (fn x => pure_rewrite_tac [Once $ x])
+                            \\ rfs[]
+                        )
+                      \\ fs[]
+                    )
+                )
+            )
+        )
+    )
+  \\ rw[mergesortN_tail_def]
+  \\ simp[sort2_tail_PERM, sort3_tail_PERM]
+QED
+(* ^^^^^ TO BE PORTED TO HOL ^^^^^ *)
+
+Definition sort_def:
+  sort = mergesort$mergesort_tail
+End
+
+Theorem sort_SORTED:
+  transitive R ∧ total R ==> sorting$SORTED R (sort R L)
+Proof
+  simp[sort_def, mergesort_tail_def, mergesortN_correct, mergesortN_sorted]
+QED
+
+Theorem sort_MEM:
+  !R L. MEM x (sort R L) ⇔ MEM x L
+Proof
+  simp[sort_def, mergesort_tail_MEM]
+QED
+
+Theorem sort_PERM:
+  !R L. sorting$PERM L (sort R L)
+Proof
+  simp[sort_def, mergesort_tail_def]
+  \\ rpt strip_tac
+  \\ `L = TAKE (LENGTH L) L` by rw[]
+  \\ pop_assum (fn x => pure_rewrite_tac [Once $ x])
+  \\ rw[mergesortN_tail_PERM]
+QED
 
 Definition getItem_def:
   (getItem [] = NONE) /\
@@ -342,23 +637,6 @@ Proof
   rw[flat_rev_def]
   \\ Induct_on ‘xs’
   \\ rw[flat_rev'_def, flat_rev'_lemma, REV_REVERSE_LEM]
-QED
-
-Definition sort_def:
-  sort = mergesort$mergesort_tail
-End
-
-(* TODO: add relevant theorems to be used in the codebase theorems *)
-Theorem sort_SORTED:
-  transitive R ∧ total R ⇒ SORTED R (sort R L)
-Proof
-  cheat
-QED
-
-Theorem sort_MEM:
-  MEM x (sort R L) ⇔ MEM x L
-Proof
-  cheat
 QED
 
 val _ = export_theory()
