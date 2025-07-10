@@ -17,9 +17,65 @@ Libs
 
 Overload False = “Lit (BoolL F)”;
 
-Inductive sspec:
-  T ⇒
-  sspec m (reqs:exp list) (body:statement) (post:exp list) (ens:exp list)
+Definition eval_true_def:
+  eval_true st env e ⇔
+    ∃ck1 ck2.
+      evaluate_exp (st with clock := ck1) env e =
+        (st with clock := ck2, Rval (BoolV T))
+End
+
+Definition valid_def:
+  valid e = ∀st env. eval_true st env e
+End
+
+Overload "⊢" = “valid”;
+
+Definition conj_def:
+  conj [] = Lit (BoolL T) ∧
+  conj [x] = x ∧
+  conj (x::xs) = BinOp And (x) (conj xs)
+End
+
+Overload "imp" = “BinOp Imp”
+
+Overload "not" = “UnOp Not”
+
+Inductive stmt_wp:
+[~Skip:]
+  ∀m ens post.
+    stmt_wp m post Skip (post:exp list) (ens:exp list)
+[~Assert:]
+  ∀m ens post.
+    stmt_wp m (e::post) (Assert e) (post:exp list) (ens:exp list)
+[~Return:]
+  ∀m ens post.
+    stmt_wp m (ens:exp list) Return (post:exp list) (ens:exp list)
+[~Then:]
+  ∀m s1 s2 pre1 pre2 post ens.
+    stmt_wp m pre1 s1 pre2 ens ∧
+    stmt_wp m pre2 s2 post ens
+    ⇒
+    stmt_wp m pre1 (Then s1 s2) post ens
+[~If:]
+  ∀m s1 s2 pre1 pre2 post ens.
+    stmt_wp m pre1 s1 post ens ∧
+    stmt_wp m pre2 s2 post ens
+    ⇒
+    stmt_wp m [imp g (conj pre1); imp (not g) (conj pre2)] (If g s1 s2) post ens
+[~Assign:]
+  ∀m ret_names exps l post ens.
+    LIST_REL (λr (n,ty). r = VarLhs n) (MAP FST l) ret_names ∧
+    LIST_REL (λr e. r = ExpRhs e) (MAP SND l) exps
+    ⇒
+    stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens
+[~MetCall:]
+  ∀m mname mins mreqs mens mreads mdecreases mouts mmods mbody ret_names args ens post rets.
+    Method mname mins mreqs mens mreads mdecreases mouts mmods mbody ∈ m ∧
+    LENGTH mins = LENGTH args ∧
+    LIST_REL (λr rn. r = VarLhs (FST rn)) rets ret_names ∧
+    ⊢ (imp (conj mens) (Let (ZIP (ret_names,MAP (λ(m,ty). Var m) mouts)) (conj post)))
+    ⇒
+    stmt_wp m [Let (ZIP (mins,args)) (conj mreqs)] (MetCall rets mname args) post ens
 End
 
 Inductive adjust_calls:
@@ -32,7 +88,8 @@ Inductive mspec:
   mspec {}
 [~nonrec:]
   mspec m ∧
-  sspec m reqs body [False] ens
+  stmt_wp m wp_pre body [False] ens ∧
+  ⊢ (imp (conj reqs) (conj wp_pre))
   ⇒
   mspec ((Method name ins reqs ens reads decreases outs mods body) INSERT m)
 [~mutrec:]
@@ -41,16 +98,9 @@ Inductive mspec:
      Method name ins reqs ens reads decreases outs mods body ∈ mutrec ⇒
      ∃adjusted_body.
        adjust_calls decreases mutrec body adjusted_body ∧
-       sspec (mutrec ∪ m) reqs adjusted_body [False] ens)
+       stmt_wp (mutrec ∪ m) reqs adjusted_body [False] ens)
   ⇒
   mspec (mutrec ∪ m)
-End
-
-Definition eval_true_def:
-  eval_true st env e ⇔
-    ∃ck1 ck2.
-      evaluate_exp (st with clock := ck1) env e =
-        (st with clock := ck2, Rval (BoolV T))
 End
 
 Definition eval_stmt_def:
@@ -65,12 +115,22 @@ Definition conditions_hold_def:
 End
 
 Definition compatible_env_def:
-  compatible_env env m = T
+  compatible_env env m = ¬env.is_running
 End
 
-Theorem sspec_sound:
-  ∀m stmt post ens.
-    sspec m reqs stmt post ens ⇒
+Theorem imp_conditions_hold:
+  ⊢ (imp (conj reqs) (conj wp_pre)) ∧
+  conditions_hold st env reqs ⇒
+  conditions_hold st env wp_pre
+Proof
+  rw [valid_def]
+  \\ last_x_assum $ qspecl_then [‘st’,‘env’] mp_tac
+  \\ cheat
+QED
+
+Theorem stmt_wp_sound:
+  ∀m reqs stmt post ens.
+    stmt_wp m reqs stmt post ens ⇒
     ∀st env.
       conditions_hold st env reqs ∧ compatible_env env m ⇒
       ∃st' ret.
@@ -80,7 +140,22 @@ Theorem sspec_sound:
         | Rcont => conditions_hold st' env post
         | _ => F
 Proof
-  cheat
+  Induct_on ‘stmt_wp’ \\ rpt strip_tac
+  >~ [‘Skip’] >-
+   (gvs [eval_stmt_def,evaluate_stmt_def,PULL_EXISTS]
+    \\ last_x_assum $ irule_at Any
+    \\ gvs [dafny_semanticPrimitivesTheory.state_component_equality])
+  >~ [‘Assert’] >-
+   (gvs [eval_stmt_def,evaluate_stmt_def,PULL_EXISTS,AllCaseEqs(),SF DNF_ss]
+    \\ gvs [compatible_env_def,conditions_hold_def]
+    \\ first_x_assum $ irule_at Any
+    \\ gvs [eval_true_def]
+    \\ first_x_assum $ irule_at Any)
+  >~ [‘Return’] >-
+   (gvs [eval_stmt_def,evaluate_stmt_def,PULL_EXISTS]
+    \\ last_x_assum $ irule_at Any
+    \\ gvs [dafny_semanticPrimitivesTheory.state_component_equality])
+  \\ cheat
 QED
 
 Theorem False_thm:
@@ -107,7 +182,8 @@ Proof
      (last_x_assum drule
       \\ disch_then irule
       \\ gvs [compatible_env_def])
-    \\ drule sspec_sound
+    \\ drule_all imp_conditions_hold \\ strip_tac
+    \\ drule stmt_wp_sound
     \\ disch_then drule
     \\ impl_tac
     >- gvs [compatible_env_def]
