@@ -256,7 +256,7 @@ Definition scheme_basis_def:
           ])
       ])
     ];
-  
+
     Dletrec unknown_loc [
       ("smul", "k", Fun "n" $ Fun "ts" $ Mat (Var (Short "ts")) [
         (Pcon (SOME $ Short "[]") [],
@@ -277,7 +277,7 @@ Definition scheme_basis_def:
           ])
       ])
     ];
-  
+
     Dlet unknown_loc (Pvar "sminus") $ Fun "k" $ Fun "ts" $
       Mat (Var (Short "ts")) [
         (Pcon (SOME $ Short "[]") [],
@@ -305,7 +305,7 @@ Definition scheme_basis_def:
               Con (SOME $ Short "Ex") [Lit $ StrLit "Arith-op applied to non-number"])
           ])
       ];
-  
+
     Dlet unknown_loc (Pvar "seqv") $ Fun "k" $ Fun "ts" $
       Mat (Var (Short "ts")) [
         (Pcon (SOME $ Short "[]") [],
@@ -362,7 +362,7 @@ Definition scheme_basis_def:
               ])
           ])
       ];
-  
+
     Dlet unknown_loc (Pvar "car") $ Fun "k" $ Fun "ts" $
       Mat (Var (Short "ts")) [
         (Pcon (SOME $ Short "[]") [],
@@ -381,7 +381,7 @@ Definition scheme_basis_def:
               Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
           ])
       ];
-  
+
     Dlet unknown_loc (Pvar "cdr") $ Fun "k" $ Fun "ts" $
       Mat (Var (Short "ts")) [
         (Pcon (SOME $ Short "[]") [],
@@ -400,7 +400,7 @@ Definition scheme_basis_def:
               Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
           ])
       ];
-  
+
     Dlet unknown_loc (Pvar "throw") $ Fun "k" $ Fun "ts" $
       Mat (Var (Short "ts")) [
         (Pcon (SOME $ Short "[]") [],
@@ -445,6 +445,12 @@ Definition scheme_basis_app_def:
         App Opapp [Var (Short "sminus"); Var (Short "k")]);
       (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "SEqv") []],
         App Opapp [Var (Short "seqv"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "Cons") []],
+        App Opapp [Var (Short "cons"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "Car") []],
+        App Opapp [Var (Short "car"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "Cdr") []],
+        App Opapp [Var (Short "cdr"); Var (Short "k")]);
       (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "CallCC") []],
         App Opapp [Var (Short "callcc"); Var (Short "k")]);
       (Pcon (SOME $ Short "Proc") [Pvar "e"],
