@@ -94,7 +94,7 @@ End
 
 Inductive adjust_calls:
   T ⇒
-  adjust_calls decreases mutrec body adjusted_body
+  adjust_calls decreases mutrec body
 End
 
 Inductive proved_methods:
@@ -112,10 +112,10 @@ Inductive proved_methods:
     proved_methods m ∧
     (∀name mspec body.
        Method name mspec body ∈ mutrec ⇒
-       ∃adjusted_body wp_pre.
-         adjust_calls mspec.decreases mutrec body adjusted_body ∧
-         stmt_wp (mutrec ∪ m) wp_pre adjusted_body [False] mspec.ens) ∧
-         ⊢ (imp (conj mspec.reqs) (conj wp_pre))
+       ∃wp_pre.
+         adjust_calls mspec.decreases mutrec body ∧
+         stmt_wp (mutrec ∪ m) wp_pre body [False] mspec.ens ∧
+         ⊢ (imp (conj mspec.reqs) (conj wp_pre)))
     ⇒
     proved_methods (mutrec ∪ m)
 End
@@ -145,10 +145,20 @@ Proof
   \\ cheat
 QED
 
+Definition methods_sound_def:
+  methods_sound m ⇔
+    ∀name mspec body env.
+      Method name mspec body ∈ m ⇒
+      ∀st. conditions_hold st env mspec.reqs ∧ compatible_env env m ⇒
+           ∃st'. eval_stmt st env body st' (Rstop Sret) ∧
+                 conditions_hold st' env mspec.ens
+End
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens.
     stmt_wp m reqs stmt post ens ⇒
     ∀st env.
+      methods_sound m ∧
       conditions_hold st env reqs ∧ compatible_env env m ⇒
       ∃st' ret.
         eval_stmt st env stmt st' ret ∧
@@ -182,26 +192,23 @@ Proof
 QED
 
 Theorem proved_methods_sound:
-  ∀m.
-    proved_methods m ⇒
-    ∀name mspec body env.
-      Method name mspec body ∈ m ⇒
-      ∀st. conditions_hold st env mspec.reqs ∧ compatible_env env m ⇒
-           ∃st'. eval_stmt st env body st' (Rstop Sret) ∧
-                 conditions_hold st' env mspec.ens
+  ∀m. proved_methods m ⇒ methods_sound m
 Proof
   ho_match_mp_tac proved_methods_ind
   \\ rpt conj_tac
-  >- (* empty *) simp []
+  >- (* empty *) simp [methods_sound_def]
   >- (* nonrec *)
-   (rpt strip_tac
-    \\ reverse $ gvs [IN_INSERT]
+   (rewrite_tac [methods_sound_def]
+    \\ rpt strip_tac
+    \\ reverse $ fs [IN_INSERT]
     >-
      (last_x_assum drule
       \\ disch_then irule
       \\ gvs [compatible_env_def])
+    \\ gvs []
     \\ drule_all imp_conditions_hold \\ strip_tac
     \\ drule stmt_wp_sound
+    \\ gvs [GSYM methods_sound_def]
     \\ disch_then drule
     \\ impl_tac
     >- gvs [compatible_env_def]
@@ -210,12 +217,19 @@ Proof
     \\ Cases_on ‘ret’ \\ gvs []
     \\ rename [‘eval_stmt _ _ _ _ (Rstop ret)’] \\ Cases_on ‘ret’ \\ gvs []
     \\ first_x_assum $ irule_at $ Pos hd \\ asm_rewrite_tac [])
-  (*mutrec *)
+  (* mutrec *)
+  \\ rewrite_tac [methods_sound_def]
   \\ rpt strip_tac
   \\ reverse $ gvs [IN_UNION]
   >-
    (last_x_assum drule
     \\ disch_then irule
     \\ gvs [compatible_env_def])
+  \\ rename [‘Method name mspec body ∈ mutrec’]
+  \\ first_assum drule
+  \\ strip_tac \\ gvs []
+  \\ drule_all imp_conditions_hold \\ strip_tac
+  \\ drule stmt_wp_sound
+  \\ gvs [False_thm]
   \\ cheat
 QED
