@@ -185,7 +185,7 @@ Theorem get_vars_with_const[simp]:
    get_vars x (y with be := b) = get_vars x y /\
    get_vars x (y with ffi := ffi) = get_vars x y
 Proof
-  time (Induct_on`x` >>  simp[get_vars_def])
+  Induct_on`x` >>  simp[get_vars_def]
 QED
 
 Theorem set_var_const[simp]:
