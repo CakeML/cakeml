@@ -39,9 +39,8 @@ val r = translate parse_to_ast_def;
 (* codegen *)
 
 val r = translate locationTheory.unknown_loc_def;
-val r = translate lit_to_val_def;
+val r = translate lit_to_ml_val_def;
 val r = translate cake_print_def;
-val r = translate to_ml_vals_def;
 val r = translate cons_list_def;
 val r = translate proc_ml_def;
 val r = translate letpreinit_ml_def;
@@ -49,14 +48,9 @@ val r = translate refunc_set_def;
 val r = translate letinit_ml_def;
 val r = translate cps_transform_def;
 val r = translate compile_scheme_prog_def;
-val r = translate scheme_basis1_def;
-val r = translate scheme_basis2_def;
-val r = translate scheme_basis3_def;
-val r = translate scheme_basis4_def;
-val r = translate scheme_basis5_def;
-val r = translate scheme_basis6_def;
-val r = translate scheme_basis7_def;
+val r = translate scheme_basis_types_def;
 val r = translate scheme_basis_def;
+val r = translate scheme_basis_app_def;
 val r = translate codegen_def;
 
 (* top-level compiler *)
