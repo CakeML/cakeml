@@ -213,6 +213,58 @@ Definition compatible_env_def:
                     mspec.reads mspec.decreases mspec.outs mspec.mods body))
 End
 
+(* todo move to evaluateProps *)
+Theorem evaluate_exp_add_to_clock:
+  (∀s env e s' r extra.
+     evaluate_exp s env e = (s', r) ∧ r ≠ Rerr Rtimeout_error ⇒
+     evaluate_exp (s with clock := s.clock + extra) env e =
+     (s' with clock := s'.clock + extra, r)) ∧
+  (∀s env es s' r extra.
+     evaluate_exps s env es = (s', r) ∧ r ≠ Rerr Rtimeout_error ⇒
+     evaluate_exps (s with clock := s.clock + extra) env es =
+     (s' with clock := s'.clock + extra, r))
+Proof
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Forall var term’] >- cheat
+  >- (gvs [evaluate_exp_def])
+  >- (gvs [evaluate_exp_def, AllCaseEqs()])
+  >- (gvs [evaluate_exp_def, AllCaseEqs()])
+  >- (gvs [evaluate_exp_def, AllCaseEqs()])
+  >- (gvs [evaluate_exp_def, AllCaseEqs()])
+  >- (gvs [evaluate_exp_def, AllCaseEqs()])
+  >- (gvs [evaluate_exp_def, index_array_def, AllCaseEqs()])
+  >- (gvs [evaluate_exp_def, set_up_call_def, restore_caller_def,
+           dec_clock_def, AllCaseEqs()])
+  \\ cheat
+QED
+
+Triviality eval_true_mp:
+  eval_true st env (imp p q) ∧ eval_true st env p ⇒ eval_true st env q
+Proof
+  gvs [eval_true_def, eval_exp_def]
+  \\ gvs [PULL_EXISTS]
+  \\ qx_genl_tac [‘ck₁’, ‘ck₂’, ‘ck₃’, ‘ck₄’]
+  \\ rpt strip_tac
+  \\ dxrule evaluate_exp_add_to_clock \\ simp []
+  \\ disch_then $ qspec_then ‘ck₁’ mp_tac
+  \\ dxrule evaluate_exp_add_to_clock \\ simp []
+  \\ disch_then $ qspec_then ‘ck₃’ mp_tac
+  \\ rpt strip_tac
+  \\ gvs [evaluate_exp_def, do_sc_def, do_bop_def, AllCaseEqs()]
+  \\ first_assum $ irule_at $ Pos hd
+QED
+
+Triviality eval_true_conj_every:   !(s:'ffi state) env es s' r extra.
+    evaluate s env es = (s',r) ∧
+    r ≠ Rerr (Rabort Rtimeout_error) ⇒
+    evaluate (s with clock := s.clock + extra) env es =
+    (s' with clock := s'.clock + extra,r)
+  eval_true st env (conj xs) ⇔ EVERY (eval_true st env) xs
+Proof
+  cheat
+QED
+
 Theorem imp_conditions_hold:
   ⊢ (imp (conj reqs) (conj wp_pre)) ∧
   conditions_hold st env reqs ⇒
@@ -220,7 +272,10 @@ Theorem imp_conditions_hold:
 Proof
   rw [valid_def]
   \\ last_x_assum $ qspecl_then [‘st’,‘env’] mp_tac
-  \\ cheat
+  \\ gvs [conditions_hold_def]
+  \\ strip_tac
+  \\ drule eval_true_mp
+  \\ gvs [eval_true_conj_every]
 QED
 
 Definition methods_sound_def:
