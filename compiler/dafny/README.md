@@ -3,9 +3,6 @@ Translate Dafny into CakeML.
 [compilation](compilation):
 Compilation scripts for the Dafny to CakeML backend.
 
-[dafny_astScript.sml](dafny_astScript.sml):
-Abstract Syntax Tree for a subset of Dafny.
-
 [dafny_compilerScript.sml](dafny_compilerScript.sml):
 Definition of the Dafny to CakeML compiler.
 
@@ -17,6 +14,9 @@ Definitions to lex and parse S-expressions.
 
 [dafny_to_cakemlScript.sml](dafny_to_cakemlScript.sml):
 Defines the translation of Dafny's to CakeML's AST.
+
+[proofs](proofs):
+Correctness proofs for the Dafny compiler.
 
 [result_monadScript.sml](result_monadScript.sml):
 Definition of a specialized Either monad, where an error is an mlstring.
