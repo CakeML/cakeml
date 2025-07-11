@@ -428,9 +428,9 @@ Proof
       >> TOP_CASE_TAC
       >> simp[Once valid_state_cases]
       >> gvs[fresh_loc_def]
-      >> simp[valid_cont_alloc]
+      >> simp[Once valid_val_cases, EL_LENGTH_SNOC]
+      >> simp[SNOC_APPEND, valid_cont_alloc]
       >> simp[Once valid_store_entry_cases, valid_val_alloc]
-      >> simp[Once valid_val_cases, SRULE [SNOC_APPEND] EL_LENGTH_SNOC]
       >> irule EVERY_MONOTONIC
       >> first_assum $ irule_at $ Pos last
       >> rpt strip_tac

@@ -1166,7 +1166,7 @@ Proof
           >> gvs[fresh_loc_def]
           >> simp[GSYM eval_eq_def]
           >> irule_at (Pos hd) eval_eq_trivial
-          >> simp[Once cps_rel_cases]
+          >> simp[Once cps_rel_cases, SNOC, SNOC_APPEND]
           >> simp[Once ml_v_vals_cases]
           >> simp[Once store_entry_rel_cases]
           >> irule $ GSYM LIST_REL_LENGTH
