@@ -1,89 +1,21 @@
 (*
-  WASM semantics
-  incomplete and possibly incorrect
-  NOT YET TESTED AGAINST THE OFFICIAL WASM SPECIFICATION
+  WebAssembly (Wasm) syntax
 *)
-
-open preamble
+open preamble wasmLangTheory;
 
 val _ = new_theory "wasmSem";
 
 Datatype:
-  value_type = I32 | I64 | F32 | F64
-End
-
-Type func_type = “:value_type list # value_type list”
-
-
-Datatype:
-  value = VALUE num
-End
-
-Definition nonzero_def:
-  nonzero (VALUE n) = (n≠0)
-End
-
-Definition nat_value_def:
-  nat_value (VALUE n) = n
-End
-
-
-Datatype:
-  regular_inst =
-    const value
-
-End
-
-Datatype:
-  inst =
-    Regular regular_inst
-  | Seq inst inst
-  | Block func_type inst
-  | Loop func_type inst
-  | Br num
-  | If func_type inst inst
-  | BrIf num
-  | Call num
-
-  | Local_get num
-  | Local_set num
-  | Local_tee num
-  | Global_get num
-  | Global_set num
-End
-
-Definition inst_size'_def:
-  inst_size' (Regular _) = 1 ∧
-  inst_size' (Seq i1 i2) = SUC (inst_size' i1 + inst_size' i2) ∧
-  inst_size' (Block _ b) = SUC (inst_size' b) ∧
-  inst_size' (Loop _ b) = SUC (inst_size' b) ∧
-  inst_size' (Br _) = 1 ∧
-  inst_size' (If _ i1 i2) = SUC (inst_size' i1 + inst_size' i2) ∧
-  inst_size' (BrIf _) = 1 ∧
-  inst_size' (Call _) = 1 ∧
-  inst_size' (Local_get _) = 1 ∧
-  inst_size' (Local_set _) = 1 ∧
-  inst_size' (Local_tee _) = 1 ∧
-  inst_size' (Global_get _) = 1 ∧
-  inst_size' (Global_set _) = 1
-End
-
-Triviality inst_size'_nonzero:
-  0 < inst_size' i
-Proof
-  Induct_on‘i’>>rw[inst_size'_def]
-QED
-
-Datatype:
-  result = RNormal | RBreak num | RTrap | RTimeout
+  value = I32 word32 | I64 word64
 End
 
 Datatype:
   func =
   <|
-    type: func_type;
-    locals: value_type list;
-    body: inst
+    name : string ;
+    type : tf ;
+    body : instr list ;
+    types_of_locals : t list
   |>
 End
 
@@ -94,47 +26,59 @@ Datatype:
     stack: value list;
     locals: value list;
     globals: value list;
-    funcs: func list
+    memory: word8 list;
+    types: (t list # t list) list;
+    funcs: func list;
+    func_tables : num list list; (* TODO change *)
   |>
 End
 
+Datatype:
+  result =
+    RNormal
+  | RBreak num
+  | RReturn
+  | RTrap
+  | RInvalid (* failures from "Assert: due to validation ..." *)
+  | RTimeout
+End
+
+(* Returns the function type for tb *)
+Definition tb_tf_def:
+  tb_tf types (Tbf n) = oEL n types
+End
+
+Definition init_val_of_def:
+  init_val_of T_i32 = I32 0w ∧
+  init_val_of T_i64 = I64 0w
+End
+
+Definition nonzero_def:
+  nonzero (I32 n) = SOME (n ≠ 0w) ∧
+  nonzero (I64 n) = NONE
+End
+
 Definition pop_def:
-  pop s = (HD s.stack, (s with stack := TL s.stack))
+  pop s =
+    case s.stack of
+    | [] => NONE
+    | (x::ss) => SOME (x, s with stack := ss)
 End
 
 Definition pop_n_def:
-  (pop_n 0 s = ([], s)) ∧
-  (pop_n (SUC n) s =
-    let (first, s1) = pop s in
-    let (rest, s') = pop_n n s1 in
-    (first::rest, s')
-  )
+  pop_n n s =
+    if LENGTH s.stack < n then NONE else
+      SOME (TAKE n s.stack, s with stack := DROP n s.stack)
 End
-
-Theorem pop_clock:
-  (x, s') = pop s ⇒ s'.clock = s.clock
-Proof rw[pop_def]
-QED
-
-Theorem pop_n_clock:
-  (xx, s') = pop_n n s ⇒ s'.clock = s.clock
-Proof
-  qid_spec_tac‘s’>>qid_spec_tac‘s'’>>qid_spec_tac‘xx’
-  >>Induct_on‘n’
-  >>rw[pop_n_def,pop_def]
-  >>(pairarg_tac>>fs[])
-  >>‘s''.clock = (s with stack:=TL s.stack).clock’ by metis_tac[]
-  >>rw(#rewrs(TypeBase.simpls_of“:state”))
-QED
 
 Definition push_def:
-  push x s = s with locals updated_by CONS x
+  push x s = s with stack := x :: s.stack
 End
 
-Theorem push_clock:
-  push x s = s' ⇒ s'.clock = s.clock
-Proof rw[push_def]>>rw(#rewrs(TypeBase.simpls_of“:state”))
-QED
+Definition dest_i32_def:
+  dest_i32 (I32 w) = SOME w ∧
+  dest_i32 _ = NONE
+End
 
 Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
@@ -150,162 +94,264 @@ Proof
 QED
 
 Triviality fix_clock_IMP:
-  fix_clock s x = (res,s1) ==> s1.clock <= s.clock
+  (fix_clock s x = (res,s1) ==> s1.clock <= s.clock) ∧
+  ((res,s1) = fix_clock s x ==> s1.clock <= s.clock)
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Definition exec_R_def:
-  exec_R = (inv_image (measure I LEX measure inst_size') (\(i,s). (s.clock,i)))
+Definition inst_size'_def:
+  inst_size' (If _ i1 i2) = 2 + list_size inst_size' i1 + list_size inst_size' i2 ∧
+  inst_size' (Block _ b) = 1 + list_size inst_size' b ∧
+  inst_size' (Loop _ b) = 1 + list_size inst_size' b ∧
+  inst_size' (CallIndirect _ _) = 2 ∧
+  inst_size' (ReturnCallIndirect _ _) = 2 ∧
+  inst_size' _ = 1
 End
 
-Theorem exec_R_WF:
-  WF exec_R
+Theorem pop_clock:
+  pop s = SOME (x,s1) ⇒ s1.clock = s.clock
 Proof
-  rw[exec_R_def]
-  >>irule WF_inv_image
-  >>irule WF_LEX
-  >>rw[]
+  gvs [pop_def,AllCaseEqs()] \\ rw [] \\ simp []
 QED
+
+Theorem pop_n_clock:
+  pop_n n s = SOME (x,s1) ⇒ s1.clock = s.clock
+Proof
+  gvs [pop_n_def,AllCaseEqs()] \\ rw [] \\ simp []
+QED
+
+Definition lookup_func_tables_def:
+  lookup_func_tables tbls n (w:word32) =
+    case oEL n tbls of
+    | NONE => NONE
+    | SOME tbl => oEL (w2n w) tbl
+End
+
+Definition set_local_def:
+  set_local n x (s:state) =
+    if n < LENGTH s.locals then
+      SOME (s with locals := LUPDATE x n s.locals)
+    else NONE
+End
+
+Definition set_global_def:
+  set_global n x (s:state) =
+    if n < LENGTH s.globals then
+      SOME (s with globals := LUPDATE x n s.globals)
+    else NONE
+End
+
+Inductive binop_rel:
+  (∀w1 w2. binop_rel (Add Int w32) (I32 w1) (I32 w2) (I32 (word_add w1 w2))) ∧
+  (∀w1 w2. binop_rel (Add Int w64) (I64 w1) (I64 w2) (I64 (word_add w1 w2)))
+End
+
+Definition do_binop_def:
+  do_binop b v1 v2 = some res. binop_rel b v1 v2 res
+End
+
+Theorem binop_rel_det:
+  ∀b v1 v2 r1 r2. binop_rel b v1 v2 r1 ∧ binop_rel b v1 v2 r2 ⇒ r1 = r2
+Proof
+  once_rewrite_tac [binop_rel_cases] \\ simp [] \\ rw [] \\ simp []
+QED
+
+Theorem do_binop_thm:
+  do_binop b v1 v2 = SOME res ⇔ binop_rel b v1 v2 res
+Proof
+  rw [do_binop_def] \\ DEEP_INTRO_TAC some_intro
+  \\ fs [] \\ metis_tac [binop_rel_det]
+QED
+
+Definition stack_op_def:
+  stack_op (I32Const w) stack = SOME (I32 w :: stack) ∧
+  stack_op (I64Const w) stack = SOME (I64 w :: stack) ∧
+  stack_op (Bny binop) (v1::v2::stack) =
+    case do_binop binop v1 v2 of NONE => NONE | SOME res =>
+      SOME (res :: stack)
+End
+
+Definition exec_load_def:
+  exec_load res_t size_ext addr memory = ARB
+End
+
+Definition exec_store_def:
+  exec_store res_t size_ext addr memory = ARB
+End
 
 Definition exec_def:
-  (exec (Seq i1 i2) s =
-    let (res, s) = fix_clock s (exec i1 s) in
-    case res of
-      RNormal => exec i2 s
-    | _ => (res, s)
+  (exec Unreachable s = (RTrap,s)) ∧
+  (exec Nop s = (RNormal,s)) ∧
+  (exec Drop s =
+    case pop s of NONE => (RInvalid, s) | SOME (_,s) => (RNormal, s)) ∧
+  (exec Select s =
+    case pop s of NONE => (RInvalid, s) | SOME (c,s) =>
+    case pop s of NONE => (RInvalid, s) | SOME (val2,s) =>
+    case pop s of NONE => (RInvalid, s) | SOME (val1,s) =>
+    case nonzero c of NONE => (RInvalid, s) | SOME b =>
+    (RNormal, push (if b then val1 else val2) s)
   ) ∧
-
-  (exec (Block ft b) s =
+  (exec (Block tb b) s =
+    case tb_tf s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
+    let m = LENGTH mts in
+    let n = LENGTH nts in
+    if LENGTH s.stack < m then (RInvalid,s) else
     let stack0 = s.stack in
-    let (res, s) = exec b (s with stack:=[]) in
+    let s1 = s with stack:=TAKE m stack0 in
+    let (res, s) = exec_list b s1 in
     case res of
       RBreak 0 =>
-      let args = FST (pop_n (LENGTH (SND ft)) s) in
-      (RNormal, (s with stack := REV args stack0))
-
+      if LENGTH s.stack < n then (RInvalid,s) else
+      (RNormal, (s with stack := (TAKE n s.stack) ++ (DROP m stack0)))
     | RBreak (SUC l) => (RBreak l, s)
+    | RNormal =>
+      if LENGTH s.stack ≠ n then (RInvalid,s) else
+      (RNormal, (s with stack := s.stack ++ (DROP m stack0)))
     | _ => (res, s)
   ) ∧
-
-  (exec (Loop ft b) s =
+  (exec (Loop tb b) s =
+    case tb_tf s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
+    let m = LENGTH mts in
+    let n = LENGTH nts in
+    if LENGTH s.stack < m then (RInvalid,s) else
     let stack0 = s.stack in
-    let (res, s) = fix_clock s (exec b s) in
+    let s1 = s with stack:=TAKE m stack0 in
+    let (res, s) = fix_clock s1 (exec_list b s1) in
     case res of
       RBreak 0 =>
-      (case s.clock of
-        0 => (RTimeout, s)
-      | SUC c =>
-        let args = FST (pop_n (LENGTH (SND ft)) s) in
-        exec (Loop ft b) (s with <|clock := c; stack := REV args s.stack|>)
-      )
+      if LENGTH s.stack < n then (RInvalid,s) else
+      if s.clock = 0 then (RTimeout,s) else
+        exec (Loop tb b) (s with <| stack := (TAKE n s.stack) ++ (DROP m stack0);
+                                    clock := s.clock - 1|>)
     | RBreak (SUC l) => (RBreak l, s)
+    | RNormal =>
+      if LENGTH s.stack ≠ n then (RInvalid,s) else
+      (RNormal, (s with stack := s.stack ++ (DROP m stack0)))
     | _ => (res, s)
   ) ∧
-
+  (exec (If tb bl br) s =
+    case pop s of NONE => (RInvalid,s) | SOME (c,s) =>
+    case nonzero c of NONE => (RInvalid,s) | SOME t =>
+    exec (Block tb (if t then bl else br)) s
+  ) ∧
   (exec (Br n) s = (RBreak n, s)) ∧
-  (exec (Regular r) s = (RNormal, s)) ∧
-
-  (exec (If bt i1 i2) s =
-    let (c,s) = pop s in
-    if nonzero c
-    then exec (Block bt i1) s
-    else exec (Block bt i2) s
+  (exec (BrIf n) s =
+    case pop s of NONE => (RInvalid,s) | SOME (c,s) =>
+    case nonzero c of NONE => (RInvalid,s) | SOME t =>
+    if t then (RBreak n, s) else (RNormal, s)
   ) ∧
-
-  (exec (BrIf l) s =
-    let (c,s) = pop s in
-    if nonzero c
-    then (RBreak l, s)
-    else (RNormal, s)
+  (exec (BrTable table default) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    (RBreak (case oEL (w2n w) table of NONE => default | SOME i => i), s)
   ) ∧
-
+  (exec Return s = (RReturn, s)) ∧
   (exec (Call fi) s =
-    case s.clock of
-      0 => (RTimeout, s)
-    | SUC c =>
-      let f = EL fi s.funcs in
-      let np = LENGTH (FST f.type) in
-      let nr = LENGTH (SND f.type) in
-      let (args, s) = pop_n np s in
-      let init_locals = args ++ REPLICATE (LENGTH f.locals) ARB in
-      let (res, s1) = fix_clock s (exec (Block ([], SND f.type) f.body) (s with <|clock:=c; stack:=[]; locals:=init_locals|>)) in
+    case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
+    let np = LENGTH (FST f.type) in
+    let nr = LENGTH (SND f.type) in
+    case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
+    let init_locals = args ++ MAP init_val_of f.types_of_locals in
+    if s.clock = 0 then (RTimeout,s) else
+    let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
+    (* real WASM treats the body as wrapped in a Block *)
+    let (res, s1) = fix_clock s_call (exec_list f.body s_call) in
       case res of
       | RNormal =>
-        let (args, _) = pop_n nr s1 in
-        (RNormal, s with stack updated_by REV args)
+          if LENGTH s1.stack ≠ nr then (RInvalid,s1) else
+            (RNormal, s with stack := s1.stack ++ s.stack)
+      | RReturn =>
+          if LENGTH s1.stack < nr then (RInvalid,s1) else
+            (RNormal, s with stack := TAKE nr s1.stack ++ s.stack)
+      | RBreak _ => (RInvalid, s1)
       | _ => (res, s1)
   ) ∧
-
-  (exec (Local_get i) s =
-    (RNormal, push (EL i s.locals) s)
+  (exec (CallIndirect n tf) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    case lookup_func_tables s.func_tables n w of NONE => (RInvalid,s) | SOME fi =>
+    case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
+    if f.type ≠ tf then (RInvalid,s) else
+      exec (Call fi) s) ∧
+  (exec (LocalGet n) s =
+    case oEL n s.locals of NONE => (RInvalid,s) | SOME x =>
+    (RNormal, push x s)
   ) ∧
-
-  (exec (Local_set i) s =
-    let (x,s) = pop s in
-    (RNormal, s with locals updated_by LUPDATE x i)
+  (exec (LocalSet n) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case set_local n x s of NONE => (RInvalid,s) | SOME s =>
+      (RNormal,s)) ∧
+  (exec (LocalTee n) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,_) =>
+    case set_local n x s of NONE => (RInvalid,s) | SOME s =>
+      (RNormal,s)) ∧
+  (exec (GlobalGet n) s =
+    case oEL n s.globals of NONE => (RInvalid,s) | SOME x =>
+    (RNormal, push x s)
   ) ∧
-
-  (exec (Local_tee i) s =
-    let x = HD s.locals in
-    (RNormal, s with locals updated_by LUPDATE x i)
+  (exec (GlobalSet n) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case set_global n x s of NONE => (RInvalid,s) | SOME s =>
+      (RNormal,s)) ∧
+  (exec (Load res_t size_ext off) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    case exec_load res_t size_ext (w + off) s.memory of NONE => (RTrap,s) | SOME y =>
+    (RNormal, push y s)
   ) ∧
-
-  (exec (Global_get i) s =
-    (RNormal, push (EL i s.globals) s)
+  (exec (Store res_t size off) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    case exec_store res_t size (w + off) s.memory of NONE => (RTrap,s) | SOME m =>
+    (RNormal, s with memory := m)
   ) ∧
-
-  (exec (Global_set i) s =
-    let (x,s) = pop s in
-    (RNormal, s with globals updated_by LUPDATE x i)
-  )
-
+  (exec (Instr op) s =
+    case stack_op op s.stack of NONE => (RInvalid,s) | SOME stack1 =>
+    (RNormal, s with stack := stack1)) ∧
+  (exec (ReturnCall fi) s =
+    case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
+    let np = LENGTH (FST f.type) in
+    let nr = LENGTH (SND f.type) in
+    case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
+    let init_locals = args ++ MAP init_val_of f.types_of_locals in
+    if s.clock = 0 then (RTimeout,s) else
+    let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
+    (* real WASM treats the body as wrapped in a Block *)
+    let (res, s1) = fix_clock s_call (exec_list f.body s_call) in
+      case res of
+      | RNormal =>
+          if LENGTH s1.stack ≠ nr then (RInvalid,s1) else
+            (RReturn, s with stack := s1.stack)
+      | RReturn =>
+          if LENGTH s1.stack < nr then (RInvalid,s1) else
+            (RReturn, s with stack := TAKE nr s1.stack)
+      | RBreak _ => (RInvalid, s1)
+      | _ => (res, s1)
+  ) ∧
+  (exec (ReturnCallIndirect n tf) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    case lookup_func_tables s.func_tables n w of NONE => (RInvalid,s) | SOME fi =>
+    case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
+    if f.type ≠ tf then (RInvalid,s) else
+      exec (ReturnCall fi) s) ∧
+  (exec_list [] s = (RNormal, s)) ∧
+  (exec_list (b::bs) s =
+    let (res,s) = fix_clock s (exec b s) in
+    case res of
+      RNormal => exec_list bs s
+    | _ => (res,s))
 Termination
-  WF_REL_TAC ‘(inv_image (measure I LEX measure inst_size') (\(i,s). (s.clock,i)))’
-  >>rw[pop_def,inst_size'_def,inst_size'_nonzero]
-  >>imp_res_tac(GSYM fix_clock_IMP)
-  >>rpt(dxrule pop_n_clock)
-  >>decide_tac
+  WF_REL_TAC ‘inv_image (measure I LEX measure I) $ λx. case x of
+               | INL (i,s) => (s.clock, inst_size' i)
+               | INR (is,s) => (s.clock, list_size inst_size' is)’
+  \\ gvs [inst_size'_def]
+  \\ rw [SF ETA_ss]
+  \\ imp_res_tac pop_clock
+  \\ imp_res_tac pop_n_clock
+  \\ imp_res_tac fix_clock_IMP
+  \\ gvs [fix_clock_def]
 End
-
-val ace = gvs[AllCaseEqs()];
-val pa = rpt(pairarg_tac>>fs[]);
-
-Theorem exec_clock:
-  ∀inst s s' res'. exec inst s = (res',s') ⇒ s'.clock ≤ s.clock
-Proof
-  recInduct exec_ind
-  >>rw[]
-  >>TRY(
-    rename1‘Loop’ ORELSE rename1‘If’ ORELSE rename1‘Call’
-    >>pop_assum mp_tac
-    >>simp[Once exec_def]
-    >>TOP_CASE_TAC
-    >>pa>>rw[]
-    >>imp_res_tac(fix_clock_IMP)
-    >>imp_res_tac(GSYM pop_clock)
-    >>imp_res_tac(GSYM pop_n_clock)
-    >>ace
-  )
-  >>fs[exec_def,push_def]
-  >>pa
-  >>imp_res_tac(fix_clock_IMP)
-  >>imp_res_tac(GSYM pop_clock)
-  >>ace
-QED
-
-Theorem fix_clock_exec:
-  fix_clock s (exec i s) = exec i s
-Proof
-  Cases_on‘exec i s’>>fs[fix_clock_def]
-  >>imp_res_tac exec_clock
-  >>fs[MIN_DEF,DB.theorem"state_component_equality"]
-QED
-
-Theorem exec_def[compute,allow_rebind] =
-  REWRITE_RULE [fix_clock_exec] exec_def;
-
-Theorem exec_ind[allow_rebind] =
-  REWRITE_RULE [fix_clock_exec] exec_ind;
 
 val _ = export_theory();

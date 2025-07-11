@@ -45,3 +45,6 @@ and Candle read-eval-print loop (REPL).
 
 [scheme](scheme):
 A compiler from Scheme to CakeML
+
+[wasm](wasm):
+WebAssembly backend for CakeML
