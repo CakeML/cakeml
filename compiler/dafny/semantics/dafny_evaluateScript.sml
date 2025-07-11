@@ -123,14 +123,14 @@ Definition evaluate_exp_ann_def[nocompute]:
    (case evaluate_exp (use_old st) env e of
     | (st₁, r) => (unuse_old st₁ st, r))) ∧
   evaluate_exp st env (Let vars body) =
-  (let (lhss, rhss) = UNZIP vars in
-   if ¬ALL_DISTINCT (MAP FST lhss)
+  (let (names, rhss) = UNZIP vars in
+   if ¬ALL_DISTINCT names
    then (st, Rerr Rtype_error)
    else
      (case fix_clock st (evaluate_exps st env rhss) of
       | (st₁, Rerr err) => (st₁, Rerr err)
       | (st₁, Rval vs) =>
-        (let binds = ZIP (MAP FST lhss, vs) in
+        (let binds = ZIP (names, vs) in
          let len_binds = LENGTH binds in
          let (st₂, res) = evaluate_exp (push_locals st₁ binds) env body in
          (case pop_locals len_binds st₂ of

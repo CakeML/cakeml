@@ -68,14 +68,12 @@ Definition freshen_exp_def:
   freshen_exp m m_old cnt (Old e) =
     (let (cnt, e) = freshen_exp m_old m_old cnt e in (cnt, Old e)) ∧
   freshen_exp m m_old cnt (Let vars body) =
-    (let (lhss, rhss) = UNZIP vars in
-     let (names, tys) = UNZIP lhss in
+    (let (names, rhss) = UNZIP vars in
      let (cnt, rhss) = freshen_exps m m_old cnt rhss in
      let (cnt, m) = map_add_fresh m cnt names in
      let names = MAP (lookup m) names in
-     let lhss = ZIP (names, tys) in
      let (cnt, body) = freshen_exp m m_old cnt body in
-       (cnt, Let (ZIP (lhss, rhss)) body)) ∧
+       (cnt, Let (ZIP (names, rhss)) body)) ∧
   freshen_exps m m_old cnt [] = (cnt, []) ∧
   freshen_exps m m_old cnt (e::es) =
     (let

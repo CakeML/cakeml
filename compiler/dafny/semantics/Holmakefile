@@ -1,4 +1,4 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/compiler/dafny $(CAKEMLDIR)/semantics
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
