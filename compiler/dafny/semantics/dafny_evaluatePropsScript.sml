@@ -50,8 +50,8 @@ Proof
   >~ [‘Let vars body’] >-
    (gvs [evaluate_exp_def]
     \\ rpt (pairarg_tac \\ gvs [])
-    \\ rename [‘¬ALL_DISTINCT (MAP FST lhss)’]
-    \\ Cases_on ‘¬ALL_DISTINCT (MAP FST lhss)’ \\ gvs []
+    \\ rename [‘¬ALL_DISTINCT names’]
+    \\ Cases_on ‘¬ALL_DISTINCT names’ \\ gvs []
     \\ rename [‘evaluate_exps _ _ rhss’]
     \\ namedCases_on ‘evaluate_exps s env rhss’ ["s₁ r'"] \\ gvs []
     \\ namedCases_on ‘r'’ ["vs", "err"] \\ gvs []

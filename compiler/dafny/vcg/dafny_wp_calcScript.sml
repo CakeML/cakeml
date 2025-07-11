@@ -134,7 +134,7 @@ Inductive stmt_wp:
     stmt_wp m [imp g (conj pre1); imp (not g) (conj pre2)] (If g s1 s2) post ens decs
 [~Assign:]
   ∀m ret_names exps l post ens.
-    LIST_REL (λr (n,ty). r = VarLhs n) (MAP FST l) ret_names ∧
+    LIST_REL (λr n. r = VarLhs n) (MAP FST l) ret_names ∧
     LIST_REL (λr e. r = ExpRhs e) (MAP SND l) exps
     ⇒
     stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs
@@ -143,14 +143,14 @@ Inductive stmt_wp:
     Method mname mspec mbody ∈ m ∧
     LENGTH mspec.ins = LENGTH args ∧
     ALL_DISTINCT (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
-    LIST_REL (λr rn. r = VarLhs (FST rn)) rets ret_names ∧
+    LIST_REL (λr rn. r = VarLhs rn) rets ret_names ∧
     ⊢ (imp (conj mspec.ens)
          (Let (ZIP (ret_names,MAP (λ(m,ty). Var m) mspec.outs)) (conj post)))
     ⇒
-    stmt_wp m (Let (ZIP (mspec.ins,args)) (conj mspec.reqs) ::
+    stmt_wp m (Let (ZIP (MAP FST mspec.ins,args)) (conj mspec.reqs) ::
                MAP CanEval args ++
                decreases_check (mspec.rank,
-                                MAP (Let (ZIP (mspec.ins,args))) mspec.decreases)
+                                MAP (Let (ZIP (MAP FST mspec.ins,args))) mspec.decreases)
                                (wrap_old decs))
               (MetCall rets mname args) post ens decs
 End

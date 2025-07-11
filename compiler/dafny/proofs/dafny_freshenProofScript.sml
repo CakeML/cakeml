@@ -770,8 +770,8 @@ Proof
   >~ [‘Let vars body’] >-
    (gvs [evaluate_exp_def, freshen_exp_def]
     \\ rpt (pairarg_tac \\ gvs [])
-    \\ rename [‘¬ALL_DISTINCT (MAP FST lhss)’]
-    \\ Cases_on ‘¬ALL_DISTINCT (MAP FST lhss)’ \\ gvs []
+    \\ rename [‘¬ALL_DISTINCT lhss’]
+    \\ Cases_on ‘¬ALL_DISTINCT lhss’ \\ gvs []
     \\ drule map_add_fresh_all_distinct
     \\ impl_tac >-
      (gvs [UNZIP_MAP]
@@ -785,13 +785,9 @@ Proof
     \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
     \\ gvs []
     \\ qmatch_goalsub_abbrev_tac ‘ZIP (fresh_lhss, fresh_rhss)’
-    \\ ‘ALL_DISTINCT (MAP FST fresh_lhss)’ by
-      (unabbrev_all_tac \\ gvs [UNZIP_MAP, MAP_ZIP])
     \\ ‘LENGTH lhss = LENGTH rhss’ by (imp_res_tac UNZIP_LENGTH)
     \\ ‘LENGTH fresh_lhss = LENGTH fresh_rhss’ by
-      (unabbrev_all_tac
-       \\ imp_res_tac freshen_exps_len_eq
-       \\ gvs [LENGTH_ZIP, UNZIP_MAP])
+      (unabbrev_all_tac \\ imp_res_tac freshen_exps_len_eq \\ gvs [])
     \\ first_x_assum drule_all
     \\ disch_then $ qx_choose_then ‘t₁’ mp_tac
     \\ rpt strip_tac \\ gvs []
@@ -813,12 +809,9 @@ Proof
     \\ last_x_assum $ drule_at (Pos last)
     \\ disch_then $ drule_at (Pos last)
     \\ disch_then $
-         qspec_then ‘(push_locals t₁ (ZIP (MAP FST fresh_lhss,vs)))’ mp_tac
+         qspec_then ‘(push_locals t₁ (ZIP (fresh_lhss,vs)))’ mp_tac
     \\ impl_tac >-
-     (‘MAP FST lhss = names’ by (gvs [UNZIP_MAP]) \\ simp []
-      \\ ‘MAP FST fresh_lhss = MAP (lookup m') names’ by
-        (gvs [Abbr ‘fresh_lhss’, UNZIP_MAP, MAP_ZIP])
-      \\ simp []
+     (unabbrev_all_tac
       \\ irule state_rel_push_locals \\ gvs []
       \\ first_assum $ irule_at $ Pos (el 2)
       \\ first_assum $ irule_at (Pos last) \\ simp [])
@@ -828,7 +821,6 @@ Proof
     \\ ‘LENGTH t₂.locals = LENGTH s₂.locals’ by
       (gvs [state_rel_def] \\ imp_res_tac locals_rel_length \\ simp [])
     \\ gvs [pop_locals_def, safe_drop_def]
-    \\ ‘LENGTH names = LENGTH lhss’ by (gvs [UNZIP_MAP]) \\ gvs []
     \\ irule state_rel_drop \\ gvs [PULL_EXISTS]
     \\ first_assum $ irule_at (Pos last)
     \\ first_assum $ irule_at (Pos last) \\ simp []
@@ -1535,7 +1527,7 @@ Definition is_fresh_exp_def[simp]:
      is_fresh name ∧ is_fresh_exp term) ∧
   (is_fresh_exp (Old e) ⇔ is_fresh_exp e) ∧
   (is_fresh_exp (Let vars body) ⇔
-     EVERY (λn. is_fresh n) (MAP (FST ∘ FST) vars) ∧
+     EVERY (λn. is_fresh n) (MAP FST vars) ∧
      EVERY (λe. is_fresh_exp e) (MAP SND vars) ∧
      is_fresh_exp body)
 Termination
