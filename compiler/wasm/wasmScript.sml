@@ -224,9 +224,16 @@ Definition set_global_def:
     else NONE
 End
 
+Definition do_binop_def:
+  do_binop t binop v1 v2 = SOME v1
+End
+
 Definition stack_op_def:
   stack_op (I32Const w) stack = SOME (I32 w :: stack) ∧
-  stack_op (I64Const w) stack = SOME (I64 w :: stack)
+  stack_op (I64Const w) stack = SOME (I64 w :: stack) ∧
+  stack_op (Binop t binop) (v1::v2::stack) =
+    case do_binop t binop v1 v2 of NONE => NONE | SOME res =>
+      SOME (res :: stack)
 End
 
 Definition exec_load_def:
