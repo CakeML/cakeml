@@ -3,6 +3,9 @@ Translate Dafny into CakeML.
 [compilation](compilation):
 Compilation scripts for the Dafny to CakeML backend.
 
+[dafny_astScript.sml](dafny_astScript.sml):
+Abstract Syntax Tree for a subset of Dafny.
+
 [dafny_compilerScript.sml](dafny_compilerScript.sml):
 Definition of the Dafny to CakeML compiler.
 

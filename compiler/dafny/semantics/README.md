@@ -1,8 +1,5 @@
 Definition of Dafny's semantics.
 
-[dafny_astScript.sml](dafny_astScript.sml):
-Abstract Syntax Tree for a subset of Dafny.
-
 [dafny_evaluatePropsScript.sml](dafny_evaluatePropsScript.sml):
 Properties of Dafny's functional big-step semantics.
 
