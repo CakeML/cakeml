@@ -164,6 +164,9 @@ Proof
   \\ fs [] \\ metis_tac [binop_rel_det]
 QED
 
+Theorem do_binop_eq = REWRITE_RULE [GSYM do_binop_thm] binop_rel_rules;
+Theorem do_binop_cases = REWRITE_RULE [GSYM do_binop_thm] binop_rel_cases;
+
 Definition stack_op_def:
   stack_op (I32Const w) stack = SOME (I32 w :: stack) ∧
   stack_op (I64Const w) stack = SOME (I64 w :: stack) ∧
