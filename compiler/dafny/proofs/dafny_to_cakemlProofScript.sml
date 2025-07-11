@@ -66,7 +66,8 @@ Triviality no_shadow_evaluate_exp:
   evaluate_exp s env stmt' = (s', r) ⇒
   no_shadow (set (MAP FST s'.locals)) stmt
 Proof
-  rpt strip_tac \\ drule (cj 1 evaluate_exp_locals) \\ gvs []
+  rpt strip_tac
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
 QED
 
 Triviality no_shadow_evaluate_stmt:

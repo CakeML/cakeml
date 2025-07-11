@@ -29,15 +29,35 @@ Proof
   \\ res_tac
 QED
 
-(* After evaluate, only the value of locals can have changed. *)
+(* Evaluating an expression only changes the clock. *)
 
-Triviality MAP_LENGTH:
-  MAP f xs = MAP g ys ⇒ LENGTH xs = LENGTH ys
+Theorem evaluate_exp_with_clock:
+  (∀s env e s' r.
+     evaluate_exp s env e = (s', r) ⇒ ∃ck. s' = s with clock := ck) ∧
+  (∀s env es s' r.
+     evaluate_exps s env es = (s', r) ⇒ ∃ck. s' = s with clock := ck)
 Proof
-  gvs [MAP_EQ_EVERY2]
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Let vars body’] >-
+   (gvs [evaluate_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [AllCaseEqs()]
+    \\ simp [state_component_equality]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ imp_res_tac evaluate_exps_len_eq
+    \\ gvs [UNZIP_MAP]
+    \\ gvs [pop_locals_def, safe_drop_def, push_locals_len]
+    \\ DEP_REWRITE_TAC [drop_push_locals]
+    \\ gvs [push_locals_def])
+  \\ gvs [evaluate_exp_def, unuse_old_def, use_old_def, restore_caller_def,
+          set_up_call_def, dec_clock_def, AllCaseEqs()]
+  \\ simp [state_component_equality]
 QED
 
-Theorem evaluate_exp_locals:
+(* After evaluate, only the value of locals can have changed. *)
+
+Triviality evaluate_exp_locals:
   (∀s env e s' r.
      evaluate_exp s env e = (s', r) ⇒
      MAP FST s'.locals = MAP FST s.locals) ∧
@@ -45,26 +65,8 @@ Theorem evaluate_exp_locals:
      evaluate_exps s env es = (s', r) ⇒
      MAP FST s'.locals = MAP FST s.locals)
 Proof
-  ho_match_mp_tac evaluate_exp_ind
-  \\ rpt strip_tac
-  >~ [‘Let vars body’] >-
-   (gvs [evaluate_exp_def]
-    \\ rpt (pairarg_tac \\ gvs [])
-    \\ rename [‘¬ALL_DISTINCT names’]
-    \\ Cases_on ‘¬ALL_DISTINCT names’ \\ gvs []
-    \\ rename [‘evaluate_exps _ _ rhss’]
-    \\ namedCases_on ‘evaluate_exps s env rhss’ ["s₁ r'"] \\ gvs []
-    \\ namedCases_on ‘r'’ ["vs", "err"] \\ gvs []
-    \\ imp_res_tac evaluate_exps_len_eq \\ gvs [UNZIP_MAP]
-    \\ rpt (pairarg_tac \\ gvs [])
-    \\ rename [‘evaluate_exp _ _ _ = (s₂, _)’]
-    \\ ‘LENGTH vars ≤ LENGTH s₂.locals’ by
-      (imp_res_tac MAP_LENGTH \\ simp [push_locals_len])
-    \\ gvs [pop_locals_def, safe_drop_def, push_locals_def]
-    \\ gvs [MAP_DROP, DROP_APPEND])
-  \\ rpt strip_tac
-  \\ gvs [evaluate_exp_def, set_up_call_def, restore_caller_def, unuse_old_def,
-          AllCaseEqs()]
+  rpt strip_tac
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
 QED
 
 Theorem evaluate_rhs_exp_locals:

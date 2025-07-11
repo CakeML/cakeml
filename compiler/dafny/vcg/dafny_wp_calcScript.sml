@@ -3,14 +3,14 @@
 *)
 Theory dafny_wp_calc
 Ancestors
-  dafny_ast dafny_semanticPrimitives dafny_evaluate
+  dafny_ast dafny_semanticPrimitives dafny_evaluate dafny_evaluateProps
 Libs
   preamble
 
 
+
 (*
   TODO:
-   - drop types from Let
    - prove cheats up tp and incl stmt_wp_sound
 *)
 
@@ -72,12 +72,22 @@ Definition CanEval_def: (* beautiful or not.. *)
   CanEval e = dfy_eq e e
 End
 
+Triviality value_same_type_same_value:
+  value_same_type v v
+Proof
+  Cases_on ‘v’ \\ gvs [value_same_type_def]
+QED
+
 Theorem eval_true_CanEval:
   eval_true st env (CanEval e) ⇒ ∃v. eval_exp st env e v
 Proof
   gvs [eval_true_def,CanEval_def,evaluate_exp_def,eval_exp_def]
   \\ gvs [AllCaseEqs(),PULL_EXISTS,do_sc_def,do_bop_def]
-  \\ cheat
+  \\ gvs [value_same_type_same_value]
+  \\ rpt strip_tac
+  \\ rev_drule (cj 1 evaluate_exp_with_clock)
+  \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
+  \\ last_assum $ irule_at Any
 QED
 
 Theorem EVERY_eval_true_CanEval:
