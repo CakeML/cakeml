@@ -62,12 +62,6 @@ QED
 
 (* Various trivialities *)
 
-Triviality MAP_LENGTH:
-  MAP f xs = MAP g ys ⇒ LENGTH xs = LENGTH ys
-Proof
-  gvs [MAP_EQ_EVERY2]
-QED
-
 Triviality REVERSE_LENGTH:
   ∀xs ys. ys = REVERSE xs ⇒ LENGTH ys = LENGTH xs
 Proof
@@ -802,8 +796,7 @@ Proof
     \\ imp_res_tac evaluate_exps_len_eq \\ gvs []
     \\ ‘LENGTH fresh_rhss ≤ LENGTH s₂.locals’ by
       (unabbrev_all_tac
-       \\ imp_res_tac evaluate_exp_locals
-       \\ imp_res_tac MAP_LENGTH
+       \\ imp_res_tac evaluate_exp_with_clock
        \\ gvs [push_locals_len])
     \\ gvs [pop_locals_def, safe_drop_def]
     \\ last_x_assum $ drule_at (Pos last)

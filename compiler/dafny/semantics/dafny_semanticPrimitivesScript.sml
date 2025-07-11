@@ -369,6 +369,13 @@ Proof
   Induct \\ gvs [push_locals_def]
 QED
 
+Theorem drop_push_locals:
+  ∀n ys s. LENGTH ys = n ⇒ DROP n (push_locals s ys).locals = s.locals
+Proof
+  Induct \\ rpt strip_tac
+  \\ gvs [push_locals_def, DROP_APPEND]
+QED
+
 (* TODO Instead of safe_{drop,zip}, it would probably more accurate to call them
    strict *)
 Definition safe_drop_def:
