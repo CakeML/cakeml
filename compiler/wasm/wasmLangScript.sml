@@ -21,10 +21,10 @@ Datatype: numtype
   = NT bvtype width
 End
 
-Overload i32 = ``NT Int   w32``
-Overload i64 = ``NT Int   w64``
-Overload f32 = ``NT Float w32``
-Overload f64 = ``NT Float w64``
+Overload i32 = “NT Int   w32”
+Overload i64 = “NT Int   w64”
+Overload f32 = “NT Float w32”
+Overload f64 = “NT Float w64”
 
 Datatype: sign
   = Signed
@@ -272,6 +272,11 @@ Overload f64_add = “Bny (Add Float w64)”
 Overload f64_sub = “Bny (Sub Float w64)”
 Overload f64_mul = “Bny (Mul Float w64)”
 
+(*  CHRC todo: HOL says this block has > 1 resolution of overloading.
+
+    The instr name "f32_div" appears to be unique as does the HOL term 
+    “Bny (Div      Float w32)”
+    *)
 Overload f32_div      = “Bny (Div      Float w32)”
 Overload f32_min      = “Bny (Min      Float w32)”
 Overload f32_max      = “Bny (Max      Float w32)”
