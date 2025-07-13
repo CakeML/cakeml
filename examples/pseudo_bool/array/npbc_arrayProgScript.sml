@@ -3182,19 +3182,13 @@ val res = translate print_lno_mini_def; *)
 
 val res = translate npbc_checkTheory.check_pres_def;
 
-Definition skip_ord_subgoal_sf_def:
-  skip_ord_subgoal_sf ss ord =
-    skip_ord_subgoal (subst_fun ss) ord
-End
-
-val res = translate npbc_checkTheory.untouched_order_def;
+val res = translate npbc_checkTheory.untouched_order_impl_def;
 val res = translate (npbc_checkTheory.skip_ord_subgoal_def |> SIMP_RULE std_ss [SUC_LEMMA]);
-val res = translate skip_ord_subgoal_sf_def;
 
 val res = translate check_fresh_aux_obj_vomap_def;
-val res = translate (npbc_checkTheory.check_fresh_aux_constr_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
+val res = translate (npbc_checkTheory.check_fresh_aux_constr_def);
 val res = translate npbc_checkTheory.filter_map_inr_def;
-val res = translate (npbc_checkTheory.check_fresh_aux_subst_def  |> SIMP_RULE std_ss [MEMBER_INTRO]);
+val res = translate (npbc_checkTheory.check_fresh_aux_subst_def);
 
 val check_fresh_aux_fml_vimap_arr = process_topdecs`
   fun check_fresh_aux_fml_vimap_arr xs vimap =
@@ -3239,11 +3233,11 @@ QED
 Definition mk_get_ord_def:
   mk_get_ord (c:npbc) (s:subst_raw) (ord:ord_s option) vomap =
   case ord of NONE => SOME (INL ())
-  | SOME (((f,g,us,vs,as),xs),us_xs,vs_xs) =>
+  | SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) =>
     if
       check_fresh_aux_obj_vomap as vomap ∧
-      check_fresh_aux_constr as c ∧
-      check_fresh_aux_subst as s
+      check_fresh_aux_constr asv c ∧
+      check_fresh_aux_subst asv s
     then SOME (INR as)
     else NONE
 End
@@ -3273,13 +3267,15 @@ Overload "aspo_TYPE" = ``
       (PAIR_TYPE (LIST_TYPE constraint_TYPE)
       (PAIR_TYPE (LIST_TYPE NUM)
       (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)))))
-    (LIST_TYPE (PAIR_TYPE BOOL NUM))``
+    (LIST_TYPE (PAIR_TYPE NUM BOOL))``
 
 Overload "ords_TYPE" = ``
   PAIR_TYPE aspo_TYPE
-  (PAIR_TYPE
-     (VECTOR_TYPE (OPTION_TYPE (PAIR_TYPE BOOL NUM)))
-      (VECTOR_TYPE (OPTION_TYPE (PAIR_TYPE BOOL NUM))))``
+  (PAIR_TYPE (VECTOR_TYPE (OPTION_TYPE (PAIR_TYPE NUM BOOL)))
+  (PAIR_TYPE (VECTOR_TYPE (OPTION_TYPE (PAIR_TYPE NUM BOOL)))
+  (PAIR_TYPE (VECTOR_TYPE (OPTION_TYPE BOOL))
+    (VECTOR_TYPE (OPTION_TYPE UNIT_TYPE))
+  )))``
 
 Overload "obj_TYPE" = ``
   OPTION_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT)``
@@ -3391,7 +3387,7 @@ val check_red_arr = process_topdecs`
        None =>
        let val u = rollback_arr fml' id id'
            val goals = subst_indexes_arr ss bortcb fml' rinds in
-           case skip_ord_subgoal_sf ss ord of (untouched,skipped) =>
+           case skip_ord_subgoal s ord of (untouched,skipped) =>
            if cond_check_fresh_aspo_arr hs untouched c s ord vimap' vomap
            then
              case red_cond_check bortcb fml' inds' nc pfs rsubs goals skipped
@@ -3537,7 +3533,6 @@ Proof
   Cases_on`idopt`>>fs[OPTION_TYPE_def,do_red_check_def]>>xmatch
   >- (
     ntac 3 xlet_autop>>
-    gvs[skip_ord_subgoal_sf_def]>>
     pairarg_tac>>gvs[PAIR_TYPE_def]>>
     xmatch>>
     xlet_autop>>
@@ -3864,20 +3859,22 @@ val res = translate npbc_checkTheory.check_lstep_def;
 val res = translate npbc_checkTheory.list_insert_fml_def;
 val res = translate npbc_checkTheory.check_subproofs_def;
 
-val res = translate (npbc_checkTheory.check_ws_def |> REWRITE_RULE [MEMBER_INTRO]);
+val res = translate insert_distinct_def;
+val res = translate check_ws_fast_def;
+val res = translate check_ws_eq;
 val res = translate
   (npbc_checkTheory.check_transitivity_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 val res = translate npbc_checkTheory.refl_subst_def;
 val res = translate npbc_checkTheory.check_reflexivity_def;
 
-val res = translate check_support_spt_def;
+val res = translate npbc_checkTheory.check_support_def;
 
 val check_spec_aux_arr = process_topdecs`
   fun check_spec_aux_arr lno aa fml inds id gs vimap zeros =
     case gs of [] => True
   | (c,(s,(pfs,idopt)))::gs =>
-    if check_support_spt aa s then
+    if check_support aa s then
     case
       check_red_arr lno None None None False False
         fml inds id c s pfs idopt vimap "" zeros of
@@ -3895,7 +3892,7 @@ val check_spec_aux_arr = process_topdecs`
 Theorem check_spec_aux_arr_spec:
   ∀gs gsv fmlls fmllsv id idv vimap vimaplsv zeros fmlv indsv vimapv zerosv inds.
   NUM lno lnov ∧
-  SPTREE_SPT_TYPE (UNIT_TYPE) aa aav ∧
+  VECTOR_TYPE (OPTION_TYPE UNIT_TYPE) aa aav ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   NUM id idv ∧
@@ -3994,22 +3991,22 @@ Proof
   metis_tac[ARRAY_W8ARRAY_refl]
 QED
 
-Definition mk_as_spt_def:
-  mk_as_spt as = fromAList (MAP (λx. (x,())) as)
+Definition mk_as_vec_def:
+  mk_as_vec as = spt_to_vec (fromAList (MAP (\n. n,()) as))
 End
 
-val res = translate mk_as_spt_def;
+val res = translate mk_as_vec_def;
 
 val check_spec_arr = process_topdecs`
   fun check_spec_arr lno vvs gs =
   (case vvs of (us,(vs,aa)) =>
   let
-    val aa = mk_as_spt aa
+    val aa = mk_as_vec aa
     val fml = Array.array 0 None
     val vimap = Array.array 0 None
     val zeros = Word8Array.array 0 w8z
   in
-    check_spec_aux_arr lno aa fml [] 1 gs vimap zeros
+    (check_spec_aux_arr lno aa fml [] 1 gs vimap zeros; aa)
   end)` |> append_prog;
 
 Theorem check_spec_arr_spec:
@@ -4027,9 +4024,11 @@ Theorem check_spec_arr_spec:
     (emp)
     (POSTve
       (λv.
-        &(check_spec_list vvs gs))
+        SEP_EXISTS av.
+        &(check_spec_list vvs gs = SOME av ∧
+        VECTOR_TYPE (OPTION_TYPE UNIT_TYPE) av v))
       (λe.
-        & (Fail_exn e ∧ ¬check_spec_list vvs gs)))
+        & (Fail_exn e ∧ check_spec_list vvs gs = NONE)))
 Proof
   rw[]>>
   xcf "check_spec_arr" (get_ml_prog_state ())>>
@@ -4037,27 +4036,35 @@ Proof
   xmatch>>
   assume_tac w8z_v_thm>>
   rpt xlet_autop>>
-  xapp>>xsimpl>>
-  rpt (first_x_assum (irule_at Any))>>
-  qexists_tac`[]`>> simp[mk_as_spt_def,LIST_TYPE_def]
+  qmatch_goalsub_abbrev_tac`check_spec_aux_list aa`>>
+  xlet`
+  POSTve (λv. &check_spec_aux_list aa [] [] 1 gs [] [])
+         (λe. &(Fail_exn e ∧ ¬check_spec_aux_list aa [] [] 1 gs [] []))`
+  >- (
+    xapp >>xsimpl>>
+    rpt (first_x_assum (irule_at Any))>>
+    qexists_tac`[]`>> simp[mk_as_vec_def,LIST_TYPE_def])
+  >- xsimpl>>
+  xvar>>xsimpl>>
+  gvs[mk_as_vec_def]
 QED
 
 val res = translate npbc_checkTheory.mk_aord_def;
-val res = translate insert_distinct_def;
 val res = translate check_good_aord_fast_def;
+val res = translate check_good_aord_eq;
 
 val check_storeorder_arr = process_topdecs`
   fun check_storeorder_arr lno vvs gs f pfst pfsr =
   let
-    val u = check_spec_arr lno vvs gs
+    val asv = check_spec_arr lno vvs gs
     val aord = mk_aord vvs f gs in
-    if check_good_aord_fast aord
+    if check_good_aord aord
     then
       case check_transitivity aord pfst of
         None =>
           raise Fail (format_failure lno ("transitivity proof in order definition failed."))
       | Some id =>
-        if check_reflexivity aord pfsr id then aord
+        if check_reflexivity aord pfsr id then (aord,asv)
         else raise Fail (format_failure lno ("reflexivity proof in order definition failed."))
     else
       raise Fail (format_failure lno ("illegal variable usage in order definition."))
@@ -4084,10 +4091,12 @@ Theorem check_storeorder_arr_spec:
       (λv.
         &(∃aord.
         check_storeorder vvs gs f pfst pfsr = SOME aord ∧
-        (PAIR_TYPE (LIST_TYPE constraint_TYPE)
+        PAIR_TYPE
+          (PAIR_TYPE (LIST_TYPE constraint_TYPE)
            (PAIR_TYPE (LIST_TYPE constraint_TYPE)
               (PAIR_TYPE (LIST_TYPE NUM)
-                 (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)))) aord v)
+                 (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)))))
+          (VECTOR_TYPE (OPTION_TYPE UNIT_TYPE)) aord v
         ))
       (λe.
         & (Fail_exn e ∧ check_storeorder vvs gs f pfst pfsr = NONE)))
@@ -4095,8 +4104,7 @@ Proof
   rw[]>>
   xcf "check_storeorder_arr" (get_ml_prog_state ())>>
   xlet_autop
-  >-
-    (xsimpl>>simp[check_storeorder_def])>>
+  >- (xsimpl>>simp[check_storeorder_def])>>
   rpt xlet_autop>>
   simp[check_storeorder_def]>>
   reverse xif
@@ -4116,7 +4124,8 @@ Proof
     rpt xlet_autop>>
     xraise>>xsimpl>>
     metis_tac[Fail_exn_def])>>
-  xvar>>xsimpl
+  xcon>>xsimpl>>
+  gvs[PAIR_TYPE_def]
 QED
 
 val res = translate npbcTheory.b2n_def;

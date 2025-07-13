@@ -1708,7 +1708,6 @@ val res = translate split_lit_def;
 val res = translate parse_lits_line_aux_def;
 val res = translate parse_load_order_def;
 
-val res = translate insert_lit_def;
 val res = translate parse_assg_def;
 val res = translate parse_sol_def;
 
