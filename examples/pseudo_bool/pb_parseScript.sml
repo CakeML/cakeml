@@ -1519,7 +1519,7 @@ End
 
 Definition split_lit_def:
   split_lit l =
-  case l of Pos v => (T,v) | Neg v => (F,v)
+  case l of Pos v => (v,T) | Neg v => (v,F)
 End
 
 Definition parse_lits_line_aux_def:
@@ -1563,12 +1563,6 @@ Definition parse_to_core_def:
   (parse_to_core _ _ = NONE)
 End
 
-(* TODO: this should be more unified with split_lit... *)
-Definition insert_lit_def:
-  (insert_lit (Pos v) f = (v,T)::f) ∧
-  (insert_lit (Neg v) f = (v,F)::f)
-End
-
 Definition parse_assg_def:
   (parse_assg f_ns [] acc = SOME (acc,NONE,f_ns)) ∧
   (parse_assg f_ns (INL s::ss) acc =
@@ -1578,7 +1572,7 @@ Definition parse_assg_def:
           (case ss of [INR i] => SOME (acc,SOME i,f_ns)
           | _ => NONE)
         else NONE
-    | SOME (l,f_ns') => parse_assg f_ns' ss (insert_lit l acc)) ∧
+    | SOME (l,f_ns') => parse_assg f_ns' ss (split_lit l :: acc)) ∧
   (parse_assg f_ns _ acc = NONE)
 End
 
