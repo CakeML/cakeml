@@ -5670,11 +5670,6 @@ Proof
       xsimpl>>
       metis_tac[ARRAY_W8ARRAY_refl])>>
     rpt xlet_autop>>
-    xlet_auto
-    >- (
-      xsimpl>>
-      simp(eq_lemmas()))>>
-    rpt xlet_autop>>
     xcon>>xsimpl>>
     every_case_tac>>
     gvs[AllCaseEqs(),PAIR_TYPE_def,OPTION_TYPE_def,set_ord_def]>>
