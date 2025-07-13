@@ -1678,10 +1678,10 @@ End
   - vars(f) = us ∪ vs ∪ as
   - vars(g) = us ∪ vs ∪ as
   - |xs| = |us|
-  - xs represents literals as bool # var pairs *)
+  - xs represents literals as var # bool pairs *)
 Type aspo = ``:(
   npbc list # npbc list #
-  var list # var list # var list) # (bool # var) list``
+  var list # var list # var list) # (var # bool) list``
 
 (* The partial order induced by an aspo is such that:
     w ≤ w' iff
@@ -1694,7 +1694,7 @@ Type aspo = ``:(
   Then this extension satisfies f. *)
 Definition get_bits_def:
   get_bits w xs =
-  MAP (λ(b,x). INL (b ⇔ w x)) xs
+  MAP (λ(x,b). INL (b ⇔ w x)) xs
 End
 
 Theorem LENGTH_get_bits[simp]:
@@ -1715,20 +1715,20 @@ Definition po_of_aspo_def:
 End
 
 Theorem get_bits_MEM_MAP:
-  get_bits (λv. MEM v (MAP SND xs) ∧ w v) xs =
+  get_bits (λv. MEM v (MAP FST xs) ∧ w v) xs =
   get_bits w xs
 Proof
   rw[get_bits_def,MAP_EQ_f]>>
   pairarg_tac>>simp[MEM_MAP]>>
-  metis_tac[SND]
+  metis_tac[FST,SND]
 QED
 
 Theorem finite_support_po_of_aspo:
-  finite_support (po_of_aspo (fuv,xs)) (set (MAP SND xs))
+  finite_support (po_of_aspo (fuv,xs)) (set (MAP FST xs))
 Proof
   PairCases_on`fuv`>>
   rw[finite_support_def,po_of_aspo_def]>>
-  Cases_on`(∀x. MEM x (MAP SND xs) ⇒ (w x ⇔ w' x))`>>simp[]>>
+  Cases_on`(∀x. MEM x (MAP FST xs) ⇒ (w x ⇔ w' x))`>>simp[]>>
   ho_match_mp_tac ConseqConvTheory.exists_eq_thm>>
   rw[]>>
   ho_match_mp_tac ConseqConvTheory.exists_eq_thm>>
@@ -1772,7 +1772,7 @@ QED
 Theorem ALOOKUP_get_bits[simp]:
   LENGTH us = LENGTH xs ⇒
   ALOOKUP (ZIP (us,get_bits w xs)) =
-  (OPTION_MAP (λbx. INL (FST bx ⇔ w (SND bx))) o
+  (OPTION_MAP (λbx. INL (SND bx ⇔ w (FST bx))) o
     ALOOKUP (ZIP (us,xs)))
 Proof
   rw[]>>
@@ -2119,7 +2119,7 @@ Definition good_aspo_def:
   reflexive (po_of_aspo ((f,g,us,vs,as),xs)) ∧
   transitive (po_of_aspo ((f,g,us,vs,as),xs)) ∧
   LENGTH xs = LENGTH us ∧
-  set as ∩ set (MAP SND xs) = {}
+  set as ∩ set (MAP FST xs) = {}
 End
 
 Theorem the_spec_assign:
@@ -2187,13 +2187,13 @@ QED
 
 Definition get_lits_subst_def:
   get_lits_subst xs =
-  MAP (λ(b,x).
+  MAP (λ(x,b).
     if b then INR (Pos x) else INR (Neg x)) xs
 End
 
 Definition mk_lit_def:
   mk_lit bv =
-  case bv of (b,v) =>
+  case bv of (v,b) =>
   if b then Pos v
   else Neg v
 End
@@ -2202,8 +2202,8 @@ Definition mk_bit_lit_def:
   mk_bit_lit b l =
   case l of
     INL b' => INL (b ⇔ b')
-  | INR (Pos v) => INR (mk_lit (b,v))
-  | INR (Neg v) => INR (mk_lit (¬b,v))
+  | INR (Pos v) => INR (mk_lit (v,b))
+  | INR (Neg v) => INR (mk_lit (v,~b))
 End
 
 Theorem imp_sat_ord_po_of_aspo:
@@ -2214,11 +2214,11 @@ Theorem imp_sat_ord_po_of_aspo:
     (∀n. w n ≠ SOME (INR (Neg a)))) ∧
   good_aord (f,g,us,vs,as) ∧
   LENGTH xs = LENGTH us ∧
-  set as ∩ set (MAP SND xs) = {} ∧
+  set as ∩ set (MAP FST xs) = {} ∧
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
-        SOME (b,v) =>
+        SOME (v,b) =>
           SOME (
             mk_bit_lit b
               (case w v of
@@ -2248,13 +2248,13 @@ Proof
       drule ALOOKUP_MEM>> strip_tac>>
       drule_at Any MEM_ZIP_MEM_MAP>>
       gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
-      metis_tac[SND])
+      metis_tac[FST,SND])
     >- (
       CCONTR_TAC>>gvs[AllCaseEqs()]>>
       drule ALOOKUP_MEM>> strip_tac>>
       drule_at Any MEM_ZIP_MEM_MAP>>
       gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
-      metis_tac[SND]))>>
+      metis_tac[FST,SND]))>>
   strip_tac>>
   gvs[the_spec_def]>>
   first_x_assum (drule_at (Pos last))>>
@@ -2295,13 +2295,13 @@ Proof
         rw[]>>
         DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
         gvs[MEM_MAP]>>
-        metis_tac[SND])>>
+        metis_tac[FST,SND])>>
       TOP_CASE_TAC>>simp[]>>
       TOP_CASE_TAC>>simp[]>>
       rw[]>>
       DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
       gvs[MEM_MAP]>>
-      metis_tac[SND])
+      metis_tac[FST,SND])
     >- (
       Cases_on`ALOOKUP (ZIP (vs,xs)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
@@ -2316,7 +2316,7 @@ Proof
       TOP_CASE_TAC>>simp[]>>
       DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
       gvs[MEM_MAP,AllCaseEqs()]>>
-      metis_tac[SND])
+      metis_tac[FST,SND])
     >- (
       Cases_on`ALOOKUP (ZIP (as,vvv)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
@@ -2333,11 +2333,11 @@ Theorem imp_sat_strict_ord_po_of_aspo:
     (∀n. w n ≠ SOME (INR (Neg a)))) ∧
   good_aord (f,g,us,vs,as) ∧
   LENGTH xs = LENGTH us ∧
-  set as ∩ set (MAP SND xs) = {} ∧
+  set as ∩ set (MAP FST xs) = {} ∧
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
-        SOME (b,v) =>
+        SOME (v,b) =>
           SOME (
             mk_bit_lit b
               (case w v of
@@ -2347,7 +2347,7 @@ Theorem imp_sat_strict_ord_po_of_aspo:
   sub_geq =
     (λn.
       case ALOOKUP (ZIP (vs,xs)) n of
-        SOME (b,v) =>
+        SOME (v,b) =>
           SOME (
             mk_bit_lit b
               (case w v of
@@ -2427,7 +2427,7 @@ Proof
       TOP_CASE_TAC>>simp[]>>
       DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
       gvs[AllCaseEqs(),MEM_MAP]>>
-      metis_tac[SND])
+      metis_tac[FST,SND])
     >- (
       Cases_on`ALOOKUP (ZIP (vs,xs)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
@@ -2444,13 +2444,13 @@ Proof
         rw[]>>
         DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
         gvs[MEM_MAP]>>
-        metis_tac[SND])>>
+        metis_tac[FST,SND])>>
       TOP_CASE_TAC>>simp[]>>
       TOP_CASE_TAC>>simp[]>>
       rw[]>>
       DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
       gvs[MEM_MAP]>>
-      metis_tac[SND])
+      metis_tac[FST,SND])
     >- (
       Cases_on`ALOOKUP (ZIP (as,vvv)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
@@ -2481,11 +2481,11 @@ Theorem sat_implies_more_left_spec:
     a ∉ npbf_vars rhs) ∧
   good_aord (f,g,us,vs,as) ∧
   LENGTH xs = LENGTH us ∧
-  set as ∩ set (MAP SND xs) = {} ∧
+  set as ∩ set (MAP FST xs) = {} ∧
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
-        SOME (b,v) =>
+        SOME (v,b) =>
           SOME (
             mk_bit_lit b
               (case w v of
@@ -2522,13 +2522,13 @@ Proof
         drule ALOOKUP_MEM>> strip_tac>>
         drule_at Any MEM_ZIP_MEM_MAP>>
         gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
-        metis_tac[SND])
+        metis_tac[FST,SND])
       >- (
         CCONTR_TAC>>gvs[AllCaseEqs()]>>
         drule ALOOKUP_MEM>> strip_tac>>
         drule_at Any MEM_ZIP_MEM_MAP>>
         gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
-        metis_tac[SND]))>>
+        metis_tac[FST,SND]))>>
     rw[the_spec_def]>>
     first_x_assum (irule_at Any)>>
     rw[assign_def]>>
@@ -2559,7 +2559,7 @@ Theorem substitution_redundancy_obj_po:
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
-        SOME (b,v) =>
+        SOME (v,b) =>
           SOME (
             mk_bit_lit b
               (case w v of
@@ -2569,7 +2569,7 @@ Theorem substitution_redundancy_obj_po:
   fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ ((fml ∪ {c}) ⇂ w ∪
     (case obj of NONE => {}
       | SOME obj => {obj_constraint w obj})) ∧
-  (~EVERY (λ(b,v). w v = NONE) xs ⇒
+  (~EVERY (λ(v,b). w v = NONE) xs ⇒
     fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ (set f) ⇂ sub_leq)
   ⇒
   (∀w.
@@ -2589,7 +2589,7 @@ Proof
     gvs[good_aspo_def]>>
     metis_tac[reflexive_def])>>
   ‘sat_ord (fml ∪ {not c}) (po_of_aspo ((f,g,us,vs,as),xs)) w’ by
-    (reverse $ Cases_on ‘EVERY (λ(b,v). w v = NONE) xs’ \\ gvs []
+    (reverse $ Cases_on ‘EVERY (λ(v,b). w v = NONE) xs’ \\ gvs []
      >-
       (gvs[good_aspo_def,fresh_aux_def]>>
        drule_at (Pos last) imp_sat_ord_po_of_aspo>>
@@ -2649,7 +2649,7 @@ QED
   variables and we do not use any scopes. *)
 Theorem substitution_redundancy_obj_po_2:
   good_aspo (((f,g,us,vs,as),xs)) ∧
-  EVERY (λ(b,v). w v = NONE) xs ∧
+  EVERY (λ(v,b). w v = NONE) xs ∧
   (∀x. x ∈ pres ⇒ w x = NONE) ∧
   fml ∪ {not c} ⊨ ((fml ∪ {c}) ⇂ w ∪
     (case obj of NONE => {}
@@ -2719,7 +2719,7 @@ Theorem good_aspo_dominance:
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
-        SOME (b,v) =>
+        SOME (v,b) =>
           SOME (
             mk_bit_lit b
               (case w v of
@@ -2729,7 +2729,7 @@ Theorem good_aspo_dominance:
   sub_geq =
     (λn.
       case ALOOKUP (ZIP (vs,xs)) n of
-        SOME (b,v) =>
+        SOME (v,b) =>
           SOME (
             mk_bit_lit b
               (case w v of
@@ -2768,7 +2768,7 @@ Proof
     fs[EXTENSION,SUBSET_DEF]>>
     metis_tac[])>>
   disch_then (drule_at Any)>>
-  disch_then (qspec_then`set (MAP SND xs)` mp_tac)>>
+  disch_then (qspec_then`set (MAP FST xs)` mp_tac)>>
   simp[finite_support_po_of_aspo]>>
   disch_then (qspec_then`c` mp_tac)>>
   impl_tac>- (
