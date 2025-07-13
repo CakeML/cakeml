@@ -426,9 +426,6 @@ Definition types_match_def:
 (* We could change this case to T, or change the semantics to have a type error
  * when equality reaches unequal-length lists *)
   (types_match_list _ _ = F)
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (v1,v2) => v_size v1 |
-                                     INR (vs1,vs2) => v1_size vs1)`
 End
 
 Definition EqualityType_def:
@@ -2688,7 +2685,7 @@ Termination
   WF_REL_TAC `measure exp_size`
   \\ simp [MEM_MAP, EXISTS_PROD]
   \\ rw [MEM_SPLIT]
-  \\ simp [exp_size_eq, list_size_APPEND, list_size_def, basicSizeTheory.pair_size_def]
+  \\ simp [list_size_APPEND, list_size_def, basicSizeTheory.pair_size_def]
 End
 
 Theorem evaluate_no_change_refs:

@@ -321,12 +321,7 @@ Proof
          (∀v. list_size (exp_size (K 0)) v = n ⇒ backend_cv_flatten_exp_list_pre v)’
   >- metis_tac []
   \\ completeInduct_on ‘n’ \\ reverse (rw []) \\ gvs [PULL_FORALL]
-  >- (simp [Once pre] \\ rpt gen_tac \\ strip_tac \\ gvs []
-      \\ gvs [SF DNF_ss] \\ rw []
-      \\ first_x_assum irule \\ gvs [listTheory.list_size_def])
-  \\ simp [Once pre] \\ rpt gen_tac \\ strip_tac \\ gvs []
-  \\ rw [] \\ gvs [SF DNF_ss]\\ first_x_assum irule
-  \\ gvs [wordLangTheory.exp_size_def, wordLangTheory.exp_size_eq]
+  \\ simp [Once pre]
 QED
 
 val _ = cv_trans word_instTheory.three_to_two_reg_def;

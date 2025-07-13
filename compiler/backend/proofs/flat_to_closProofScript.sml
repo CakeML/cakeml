@@ -864,9 +864,9 @@ Proof
   \\ fs [compile_op_def,subscript_exn_v_def,v_rel_def,CopyByteAw8_def,CopyByteStr_def]
   \\ simp [evaluate_def,do_app_def,do_int_app_def]
   THEN1
-   (fs [copy_array_def]
-    \\ qpat_x_assum `IS_SOME _ ==> _` mp_tac
-    \\ rpt (IF_CASES_TAC \\ fs [ws_to_chars_def])
+   (fs [copy_array_def,AllCaseEqs()]
+    \\ first_x_assum $ irule_at $ Pos last
+    \\ fs [ws_to_chars_def]
     \\ intLib.COOPER_TAC)
   THEN1
    (fs [copy_array_def] \\ fs [ws_to_chars_def]
@@ -890,9 +890,9 @@ Proof
     \\ fs [MAP_MAP_o,o_DEF])
   THEN1
    (fs [copy_array_def] \\ fs [ws_to_chars_def]
-    \\ qpat_x_assum `IS_SOME _ ==> _` mp_tac
-    \\ IF_CASES_TAC \\ fs [] \\ rpt strip_tac \\ fs []
-    \\ rpt (IF_CASES_TAC \\ fs [] \\ rpt strip_tac \\ fs [])
+    \\ gvs [AllCaseEqs()]
+    \\ first_x_assum $ irule_at $ Pos last
+    \\ fs [ws_to_chars_def]
     \\ intLib.COOPER_TAC)
   THEN1
    (fs [copy_array_def] \\ fs [ws_to_chars_def]
@@ -1914,9 +1914,10 @@ Proof
   \\ fs [dest_nop_def]
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
   \\ simp [arg1_def, arg2_def]
+  \\ gvs [AllCaseEqs()]
   \\ EVERY_CASE_TAC
   \\ simp [flatPropsTheory.op_gbag_def, closPropsTheory.op_gbag_def]
-  \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION]
+  \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION, dest_pat_def]
   \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
           \\ rw [] \\ fs [])
   \\ fs [dest_pat_def]

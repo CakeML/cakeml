@@ -241,7 +241,13 @@ Termination
   wf_rel_tac ‘measure term_size_alt’ \\ rw []
   \\ drule_then assume_tac list_dest_comb_term_size
   \\ gs [list_term_size_alt_def, term_size_alt_def]
-  \\ drule_then assume_tac list_term_size_MEM \\ gs []
+  \\ pop_assum $ rewrite_tac o single o GSYM
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘a’
+  \\ qid_spec_tac ‘args’
+  \\ Induct \\ gvs [] \\ rw []
+  \\ gvs [list_term_size_alt_def]
+  \\ rw [] \\ res_tac \\ decide_tac
 End
 
 (* TODO use term_size and list_size as measure instead *)
@@ -436,7 +442,7 @@ Definition compute_eval_def:
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
              (λx. case x of INL (ck,_,cv) => (ck, compute_exp_size cv)
-                          | INR (ck,_,cv) => (ck, compute_exp1_size cv))’
+                          | INR (ck,_,cv) => (ck, list_size compute_exp_size cv))’
 End
 
 (* Let and App cases are modified below to get a more useful ind theorem *)
@@ -492,7 +498,7 @@ Definition compute_eval_ind_def:
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
              (λx. case x of INL (ck,_,cv) => (ck, compute_exp_size cv)
-                          | INR (ck,_,cv) => (ck, compute_exp1_size cv))’
+                          | INR (ck,_,cv) => (ck, list_size compute_exp_size cv))’
 End
 
 val _ = Theory.delete_binding "compute_eval_ind_def"

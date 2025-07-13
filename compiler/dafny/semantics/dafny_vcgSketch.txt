@@ -1,0 +1,10 @@
+int main(int i)
+  requires i > 0
+  ensures out == i * i
+{
+
+  return i * i;
+}
+
+∀s. main.requires s ⇒
+    ∃t. evaluate s (CallMain) = t ∧ main.ensures t

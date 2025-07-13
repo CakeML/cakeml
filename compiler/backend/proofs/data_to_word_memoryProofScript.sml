@@ -485,10 +485,11 @@ Proof
 QED
 
 Triviality MEM_IMP_v_size:
-  !l a. MEM a l ==> v_size a < 1 + v1_size l
+  !l a. MEM a l ==> v_size a < 1 + list_size v_size l
 Proof
-  Induct \\ full_simp_tac std_ss [MEM,v_size_def]
-  \\ rpt strip_tac \\ full_simp_tac std_ss [] \\ res_tac \\ DECIDE_TAC
+  rw []
+  \\ imp_res_tac MEM_list_size
+  \\ pop_assum $ qspec_then ‘v_size’ mp_tac \\ gvs []
 QED
 
 Triviality EL_ADDR_MAP:
@@ -535,10 +536,10 @@ Proof
     \\ fs[LENGTH_ADDR_MAP] \\ strip_tac
     \\ reverse strip_tac THEN1
      (fs[get_refs_def,EVERY_MEM,MEM_FLAT,PULL_EXISTS,MEM_MAP]
-      \\ fs[v_size_def] \\ rpt strip_tac
+      \\ gvs[v_size_def] \\ rpt strip_tac
       \\ Q.MATCH_ASSUM_RENAME_TAC `MEM k (get_f a)`
       \\ imp_res_tac MEM_IMP_v_size
-      \\ `v_size a < 1 + (n0 + (n + v1_size l))` by DECIDE_TAC
+      \\ last_x_assum $ qspec_then ‘a’ mp_tac \\ gvs []
       \\ `?l1 l2. l = l1 ++ a::l2` by metis_tac [MEM_SPLIT]
       \\ full_simp_tac std_ss [] \\ imp_res_tac LIST_REL_SPLIT1
       \\ fs[] \\ rw[] \\ fs[]
@@ -550,12 +551,11 @@ Proof
     THEN1 (fs [f_o_f_DEF,FLOOKUP_DEF])
     \\ strip_tac \\ strip_tac
     \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ res_tac
-    \\ `MEM (EL t l) l` by (fs[MEM_EL] \\ metis_tac [])
     \\ `MEM (EL t xs) xs` by (fs[MEM_EL] \\ metis_tac [])
+    \\ `MEM (EL t l) l` by (fs[MEM_EL] \\ metis_tac [])
     \\ `(!ptr u. (EL t xs = Pointer ptr u) ==> ptr IN FDOM g)` by metis_tac []
-    \\ `v_size (EL t l)  < v_size (Block n0 n l)` by
-     (fs[v_size_def]
-      \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC)
+    \\ last_x_assum $ qspec_then ‘EL t l’ mp_tac
+    \\ imp_res_tac MEM_IMP_v_size \\ gvs []
     \\ res_tac \\ fs[EL_ADDR_MAP]
     \\ first_assum match_mp_tac \\ fs [])
   THEN1
@@ -1651,9 +1651,9 @@ Proof
     THEN1 (drule_then (drule_then (fn t => fs [t])) FLOOKUP_SUBMAP)
     \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ res_tac
     \\ `MEM (EL t l) l` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
-    \\ `v_size (EL t l) < v_size (Block n0 n l)` by
-     (full_simp_tac std_ss [v_size_def]
-      \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC) \\ res_tac)
+    \\ last_x_assum irule
+    \\ imp_res_tac MEM_IMP_v_size
+    \\ gvs [])
   THEN1 (full_simp_tac std_ss [v_inv_def] \\ metis_tac [])
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF] \\ rw [])
 QED
@@ -2150,8 +2150,6 @@ Definition v_all_vs_def:
   v_all_vs (Block ts tag l :: xs) = Block ts tag l :: v_all_vs l ++ v_all_vs xs
 ∧ v_all_vs (x::xs)                = x :: v_all_vs xs
 ∧ v_all_vs [] = []
-Termination
-  WF_REL_TAC `measure (v1_size)`
 End
 
 Definition all_vs_def:
@@ -2994,10 +2992,9 @@ Proof
       \\ rpt strip_tac
       \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ res_tac
       \\ `MEM (EL t l) l` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
-      \\ `v_size (EL t l) < v_size (Block n0 n l)` by
-       (full_simp_tac std_ss [v_size_def]
-        \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC) \\ res_tac
-      \\ full_simp_tac std_ss [])
+      \\ imp_res_tac MEM_IMP_v_size
+      \\ last_x_assum $ qspec_then ‘EL t l’ mp_tac \\ gvs []
+      \\ metis_tac [])
     THEN1
      (qpat_x_assum `LENGTH l = LENGTH xs` ASSUME_TAC
       \\ full_simp_tac (srw_ss()) [MEM_ZIP,LENGTH_ADDR_MAP,PULL_EXISTS]
@@ -3008,10 +3005,10 @@ Proof
       \\ rpt strip_tac
       \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ res_tac
       \\ `MEM (EL t l) l` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
-      \\ `v_size (EL t l) < v_size (Block n0 n l)` by
-       (full_simp_tac std_ss [v_size_def]
-        \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC) \\ res_tac
-      \\ full_simp_tac std_ss []))
+      \\ `MEM (EL t l) l` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
+      \\ imp_res_tac MEM_IMP_v_size
+      \\ last_x_assum $ qspec_then ‘EL t l’ mp_tac \\ gvs []
+      \\ metis_tac []))
   THEN1 (full_simp_tac std_ss [v_inv_def])
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF])
 QED
@@ -3397,9 +3394,10 @@ Proof
 QED
 
 Triviality v_size_LESS_EQ:
-  !l x. MEM x l ==> v_size x <= v1_size l
+  !l x. MEM x l ==> v_size x <= list_size v_size l
 Proof
-  Induct \\ fs [v_size_def] \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  rw [] \\ imp_res_tac MEM_list_size
+  \\ pop_assum $ qspec_then ‘v_size’ mp_tac \\ gvs []
 QED
 
 Triviality v_inv_IMP:
@@ -6687,9 +6685,9 @@ Proof
     unabbrev_all_tac \\ fs [map_replicate] \\
     Cases_on`byte_len (:'a) n` \\ fs[]
     >- ( fs[byte_len_def,REPLICATE,LUPDATE_def,write_bytes_def] )
-    \\ rename1`REPLICATE l`
+    \\ rename1`REPLICATE l 0w`
     \\ rewrite_tac[GSYM REPLICATE]
-    \\ rewrite_tac[REPLICATE_SNOC]
+    \\ rewrite_tac[REPLICATE_SNOC,SNOC_APPEND]
     \\ simp[LUPDATE_APPEND2,LUPDATE_def,write_bytes_APPEND]
     \\ simp[APPEND_EQ_APPEND] \\ disj1_tac \\ qexists_tac`[]` \\ simp[]
     \\ conj_tac
@@ -9603,7 +9601,7 @@ val memory_rel_Block_explode_lemma = prove(
   \\ reverse (Cases_on `n < LENGTH v1`)
   THEN1 (fs [TAKE_LENGTH_TOO_LONG])
   \\ drule (GSYM SNOC_EL_TAKE)
-  \\ fs [] \\ ntac 2 strip_tac
+  \\ fs [SNOC_APPEND] \\ ntac 2 strip_tac
   \\ fs [eq_explode_APPEND,eq_explode_def,eq_assum_APPEND,eq_assum_def]
   \\ `memory_rel c be ts refs sp st m dm
         ((Block ts1 t1 v1,Word w1)::
@@ -10923,7 +10921,7 @@ Definition minus_def:
 End
 
 Definition list_copy_bwd_def:
-  list_copy_bwd n xp xs yp ys =
+  list_copy_bwd (n:num) xp xs yp ys =
     if n <= xp +1 /\ xp < LENGTH xs /\ n <= yp+1 /\ yp < LENGTH ys then
       if n = 0 then SOME ys else
       if n = 1 then SOME (LUPDATE (EL xp xs) yp ys) else
@@ -10939,6 +10937,7 @@ Definition list_copy_bwd_def:
                            LUPDATE (EL (minus xp 0) xs) (minus yp 0)) ys)
     else NONE
 End
+
 val list_copy_bwd_def = list_copy_bwd_def |> REWRITE_RULE [minus_def];
 
 Definition list_copy_bwd_alias_def:
