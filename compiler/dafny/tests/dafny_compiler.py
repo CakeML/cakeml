@@ -96,9 +96,7 @@ def dafny_compiler(program_path, dafny_path, dafny_to_cakeml_path, cakeml_path,
 
     if verbose:
         print("- Run Dafny...")
-    command = [dafny_path, "translate", "sexp", program_path, "--no-verify"]
-    command.extend(["--output", dafny_sexp_path])
-    # TODO Figure out why this command tends to fail
+    command = [dafny_path, "bake", dafny_sexp_path, program_path]
     failed_attempts = 0
     while True:
         result = subprocess.run(command, check=False, text=True,
@@ -126,7 +124,11 @@ def dafny_compiler(program_path, dafny_path, dafny_to_cakeml_path, cakeml_path,
 
     if verbose:
         print("- Generate assembly from CakeML S-expression...")
-    command = [cakeml_path / "cake", "--sexp=true"]
+    command = [cakeml_path / "cake", "--sexp=true",
+               # Generated code is not type safe (e.g., initializes arrays with
+               # 0) - but that's okay, since we proved our own correctness
+               # theorem.
+               "--skip_type_inference=true"]
     with open(cakeml_sexp_path, 'r') as cakeml_sexp:
         with open(cakeml_assembly_path, 'w') as cakeml_assembly:
             subprocess.run(command, stdin=cakeml_sexp, stdout=cakeml_assembly,
