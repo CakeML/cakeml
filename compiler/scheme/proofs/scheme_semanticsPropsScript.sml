@@ -261,6 +261,43 @@ Theorem valid_val_alloc = SRULE [PULL_FORALL] $
 Theorem valid_cont_alloc = SRULE [PULL_FORALL] $
   cj 2 valid_alloc;
 
+Theorem allocate_list_FOLDR:
+  ! xs store .
+    allocate_list store xs
+    =
+    FOLDR (\ x (store, tail). let
+        (l, store') = fresh_loc store (Pair (x, tail))
+      in (store', PairP l)) (store, Null) xs
+Proof
+  Induct
+  >> simp[allocate_list_def, FOLDR]
+QED
+
+Theorem allocate_list_valid:
+  ! xs store store' tail .
+    EVERY (valid_val store) xs /\
+    allocate_list store xs = (store', tail)
+    ==>
+    ? pairs .
+      store' = store ++ pairs /\
+      EVERY (valid_store_entry store') pairs /\
+      valid_val store' tail
+Proof
+  Induct
+  >> simp[allocate_list_def] >- simp[Once valid_val_cases]
+  >> rpt strip_tac
+  >> gvs[fresh_loc_def, SNOC_APPEND]
+  >> rpt (pairarg_tac >> gvs[])
+  >> last_x_assum drule
+  >> strip_tac
+  >> gvs[]
+  >> simp[Once valid_val_cases, EL_APPEND]
+  >> simp[Once valid_store_entry_cases, valid_val_alloc]
+  >> irule_at (Pos hd) EVERY_MONOTONIC
+  >> first_assum $ irule_at $ Pat `EVERY _ _`
+  >> rpt strip_tac >> gvs[valid_store_entry_cases, valid_val_alloc]
+QED
+
 Definition letrec_preinit_env_def:
   letrec_preinit_env env xs l
   =
@@ -466,29 +503,53 @@ Proof
   )
   >~ [`Proc env xs xp e`] >- (
     rpt (pairarg_tac >> gvs[])
-    >> Cases_on `xp`
-    >~ [`SOME x`] >- cheat
     >> rpt $ pop_assum mp_tac
     >> qid_spec_tac `store`
     >> qid_spec_tac `env`
     >> qid_spec_tac `vs`
     >> Induct_on `xs`
-    >> rpt strip_tac
+    >> rpt strip_tac >- (
+      Cases_on `xp` >- (
+        Cases_on `vs`
+        >> gvs[parameterize_def]
+        >> simp[Once valid_state_cases] >- gvs[Once valid_val_cases]
+      )
+      >> gvs[parameterize_def, fresh_loc_def]
+      >> rpt (pairarg_tac >> gvs[])
+      >> drule_all_then assume_tac allocate_list_valid
+      >> gvs[Once valid_val_cases]
+      >> simp[Once valid_state_cases]
+      >> simp[Once valid_state_cases, SNOC_APPEND,
+        Once INSERT_SING_UNION, Once UNION_COMM]
+      >> simp[valid_cont_alloc]
+      >> simp[valid_store_entry_cases, valid_val_alloc]
+      >> rpt (
+        irule_at (Pos last) EVERY_MONOTONIC
+        >> first_assum $ irule_at $ Pat `EVERY _ _`
+        >> conj_tac >- (rpt strip_tac >> gvs[valid_store_entry_cases, valid_val_alloc])
+      )
+      >> gvs[can_lookup_cases]
+      >> irule $ cj 2 FEVERY_STRENGTHEN_THM
+      >> irule_at (Pos last) FEVERY_MONO
+      >> first_assum $ irule_at $ Pat `FEVERY _ _`
+      >> conj_tac >- (PairCases >> rpt strip_tac >> gvs[EL_APPEND])
+      >> simp[EL_APPEND]
+    )
     >> Cases_on `vs`
     >> gvs[parameterize_def]
     >>> LASTGOAL (last_x_assum irule)
-    >> simp[Once valid_state_cases] >- gvs[Once valid_val_cases]
+    >> simp[Once valid_state_cases]
     >> gvs[parameterize_def, fresh_loc_def]
     >> pop_assum $ irule_at $ Pos hd
     >> simp[SNOC_APPEND, valid_store_entry_cases, valid_cont_alloc, valid_val_alloc]
-    >> strip_tac >- (
+    >> conj_tac >- (
       irule EVERY_MONOTONIC
       >> qpat_assum `EVERY (valid_store_entry _) _` $ irule_at Any
       >> rpt strip_tac
       >> gvs[Once valid_store_entry_cases]
       >> simp[Once valid_store_entry_cases, valid_val_alloc]
     )
-    >> strip_tac >- (
+    >> conj_tac >- (
       irule EVERY_MONOTONIC
       >> qpat_assum `EVERY (valid_val _) _` $ irule_at Any
       >> rpt strip_tac
@@ -497,25 +558,27 @@ Proof
     >> last_x_assum kall_tac
     >> gvs[Once valid_val_cases]
     >> simp[Once valid_val_cases]
-    >> qmatch_goalsub_abbrev_tac `static_scope left_sub _`
-    >> qmatch_asmsub_abbrev_tac `static_scope right_sub _`
-    >> qsuff_tac `left_sub = right_sub` >- (
-      strip_tac
-      >> gvs[can_lookup_cases]
-      >> irule $ cj 2 FEVERY_STRENGTHEN_THM
-      >> simp[EL_APPEND_EQN]
-      >> irule FEVERY_MONO
-      >> first_assum $ irule_at $ Pos last
-      >> PairCases
+    >> (
+      qmatch_goalsub_abbrev_tac `static_scope left_sub _`
+      >> qmatch_asmsub_abbrev_tac `static_scope right_sub _`
+      >> qsuff_tac `left_sub = right_sub` >- (
+        strip_tac
+        >> gvs[can_lookup_cases]
+        >> irule $ cj 2 FEVERY_STRENGTHEN_THM
+        >> simp[EL_APPEND_EQN]
+        >> irule FEVERY_MONO
+        >> first_assum $ irule_at $ Pos last
+        >> PairCases
+        >> rpt strip_tac
+        >> gvs[]
+      )
+      >> unabbrev_all_tac
+      >> simp[EXTENSION]
+      >> strip_tac
+      >> iff_tac
       >> rpt strip_tac
-      >> gvs[]
+      >> simp[]
     )
-    >> unabbrev_all_tac
-    >> simp[EXTENSION]
-    >> strip_tac
-    >> iff_tac
-    >> rpt strip_tac
-    >> simp[]
   )
   >~ [`Throw ks`] >- (
     TOP_CASE_TAC >- simp[Once valid_state_cases]

@@ -76,11 +76,22 @@ Definition fresh_loc_def:
   fresh_loc stl ov = (LENGTH stl, SNOC ov stl)
 End
 
+Definition allocate_list_def:
+  allocate_list store [] = (store, Null) /\
+  allocate_list store (x::xs) = let
+      (store', tail) = allocate_list store xs;
+      (l, store'') = fresh_loc store' (Pair (x, tail))
+    in (store'', PairP l)
+End
+
 Definition parameterize_def:
   parameterize store env [] NONE e [] = (store, Exp env e) ∧
-  parameterize store env [] (SOME (l:mlstring)) e xs = (let (n, store') = fresh_loc store (Mut $ SOME $ SList xs)
-    in (store', Exp (env |+ (l, n)) e)) ∧
-  parameterize store env (p::ps) lp e (x::xs) = (let (n, store') = fresh_loc store (Mut $ SOME x)
+  parameterize store env [] (SOME (l:mlstring)) e xs = (let
+      (store', listv) = allocate_list store xs;
+      (n, store'') = fresh_loc store' (Mut $ SOME listv)
+    in (store'', Exp (env |+ (l, n)) e)) ∧
+  parameterize store env (p::ps) lp e (x::xs) = (let
+      (n, store') = fresh_loc store (Mut $ SOME x)
     in parameterize store' (env |+ (p, n)) ps lp e xs) ∧
   parameterize store _ _ _ _ _ = (store, Exception $ strlit "Wrong number of arguments")
 End
