@@ -32,6 +32,7 @@ End
 Overload True = “Lit (BoolL T)”;
 Overload False = “Lit (BoolL F)”;
 
+(* TODO move to dafny_eval_rel *)
 Definition eval_exp_def:
   eval_exp st env e v ⇔
     ∃ck1 ck2.
@@ -39,6 +40,7 @@ Definition eval_exp_def:
         (st with clock := ck2, Rval v)
 End
 
+(* TODO move to dafny_eval_rel *)
 Definition eval_stmt_def:
   eval_stmt st env body st' ret =
     ∃ck1 ck2.
@@ -46,10 +48,12 @@ Definition eval_stmt_def:
         (st' with clock := ck2, ret)
 End
 
+(* TODO move to dafny_eval_rel *)
 Definition eval_true_def:
   eval_true st env e ⇔ eval_exp st env e (BoolV T)
 End
 
+(* TODO move to dafny_eval_rel *)
 Definition valid_def:
   valid e = ∀st env. eval_true st env e
 End
@@ -213,32 +217,6 @@ Definition compatible_env_def:
                     mspec.reads mspec.decreases mspec.outs mspec.mods body))
 End
 
-(* todo move to evaluateProps *)
-Theorem evaluate_exp_add_to_clock:
-  (∀s env e s' r extra.
-     evaluate_exp s env e = (s', r) ∧ r ≠ Rerr Rtimeout_error ⇒
-     evaluate_exp (s with clock := s.clock + extra) env e =
-     (s' with clock := s'.clock + extra, r)) ∧
-  (∀s env es s' r extra.
-     evaluate_exps s env es = (s', r) ∧ r ≠ Rerr Rtimeout_error ⇒
-     evaluate_exps (s with clock := s.clock + extra) env es =
-     (s' with clock := s'.clock + extra, r))
-Proof
-  ho_match_mp_tac evaluate_exp_ind
-  \\ rpt strip_tac
-  >~ [‘Forall var term’] >- cheat
-  >- (gvs [evaluate_exp_def])
-  >- (gvs [evaluate_exp_def, AllCaseEqs()])
-  >- (gvs [evaluate_exp_def, AllCaseEqs()])
-  >- (gvs [evaluate_exp_def, AllCaseEqs()])
-  >- (gvs [evaluate_exp_def, AllCaseEqs()])
-  >- (gvs [evaluate_exp_def, AllCaseEqs()])
-  >- (gvs [evaluate_exp_def, index_array_def, AllCaseEqs()])
-  >- (gvs [evaluate_exp_def, set_up_call_def, restore_caller_def,
-           dec_clock_def, AllCaseEqs()])
-  \\ cheat
-QED
-
 Triviality eval_true_mp:
   eval_true st env (imp p q) ∧ eval_true st env p ⇒ eval_true st env q
 Proof
@@ -246,23 +224,58 @@ Proof
   \\ gvs [PULL_EXISTS]
   \\ qx_genl_tac [‘ck₁’, ‘ck₂’, ‘ck₃’, ‘ck₄’]
   \\ rpt strip_tac
-  \\ dxrule evaluate_exp_add_to_clock \\ simp []
+  \\ dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
   \\ disch_then $ qspec_then ‘ck₁’ mp_tac
-  \\ dxrule evaluate_exp_add_to_clock \\ simp []
+  \\ dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
   \\ disch_then $ qspec_then ‘ck₃’ mp_tac
   \\ rpt strip_tac
   \\ gvs [evaluate_exp_def, do_sc_def, do_bop_def, AllCaseEqs()]
   \\ first_assum $ irule_at $ Pos hd
 QED
 
-Triviality eval_true_conj_every:   !(s:'ffi state) env es s' r extra.
-    evaluate s env es = (s',r) ∧
-    r ≠ Rerr (Rabort Rtimeout_error) ⇒
-    evaluate (s with clock := s.clock + extra) env es =
-    (s' with clock := s'.clock + extra,r)
-  eval_true st env (conj xs) ⇔ EVERY (eval_true st env) xs
+Triviality conj_empty[simp]:
+  conj [] = True
 Proof
-  cheat
+  rewrite_tac [conj_def]
+QED
+
+Triviality eval_true_true[simp]:
+  eval_true st env True
+Proof
+  gvs [eval_true_def, eval_exp_def, evaluate_exp_def]
+  \\ qexistsl [‘0’, ‘0’] \\ simp []
+QED
+
+Triviality eval_true_cons:
+  eval_true st env (conj (x::xs)) =
+  (eval_true st env x ∧ eval_true st env (conj xs))
+Proof
+  namedCases_on ‘xs’ ["", "x₁ xs₁"] \\ simp [conj_def]
+  \\ gvs [eval_true_def, eval_exp_def]
+  \\ gvs [evaluate_exp_def, do_sc_def, PULL_EXISTS, do_bop_def, AllCaseEqs()]
+  \\ iff_tac
+  >- (rpt strip_tac
+      \\ rev_drule (cj 1 evaluate_exp_with_clock)
+      \\ rpt strip_tac \\ gvs []
+      \\ last_x_assum $ irule_at (Pos hd)
+      \\ last_x_assum $ irule_at (Pos hd))
+  \\ disch_then $ qx_choosel_then [‘ck₁’, ‘ck₂’, ‘ck₃’, ‘ck₄’] mp_tac
+  \\ rpt strip_tac
+  \\ dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck₂’ mp_tac
+  \\ dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck₃’ mp_tac
+  \\ rpt strip_tac
+  \\ first_assum $ irule_at $ Pos hd
+  \\ first_assum $ irule_at $ Pos hd
+QED
+
+Triviality eval_true_conj_every:
+  ∀xs st env. eval_true st env (conj xs) ⇔ EVERY (eval_true st env) xs
+Proof
+  Induct \\ simp []
+  \\ qx_genl_tac [‘x’, ‘st’, ‘env’]
+  \\ simp [eval_true_cons]
 QED
 
 Theorem imp_conditions_hold:
@@ -323,6 +336,48 @@ Proof
   simp [conditions_hold_def,eval_true_def,evaluate_exp_def,eval_exp_def]
 QED
 
+(* TODO move to dafny_eval_rel *)
+Triviality eval_exp_evaluate_exps:
+  ∀es vs st env.
+    LIST_REL (eval_exp st env) es vs ⇒
+    ∃ck ck₁.
+      evaluate_exps (st with clock := ck) env es =
+      (st with clock := ck₁, Rval vs)
+Proof
+  Induct >-
+   (simp [evaluate_exp_def] \\ gen_tac \\ qexistsl [‘0’, ‘0’] \\ simp [])
+  \\ qx_genl_tac [‘e’, ‘vs’, ‘st’, ‘env’] \\ disch_tac
+  \\ namedCases_on ‘vs’ ["", "v vs₁"] \\ gvs []
+  \\ simp [evaluate_exp_def]
+  \\ fs [eval_exp_def]
+  \\ rename
+       [‘evaluate_exp (_ with clock := ck₁) _ _ = (_ with clock := ck₂, _) ’]
+  \\ last_x_assum drule
+  \\ disch_then $ qx_choosel_then [‘ck₃’, ‘ck₄’] assume_tac
+  \\ dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck₃’ assume_tac
+  \\ dxrule (cj 2 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck₂’ assume_tac
+  \\ qexistsl [‘ck₁ + ck₃’, ‘ck₂ + ck₄’] \\ gvs []
+QED
+
+(* TODO Move to semanticPrimitives *)
+Triviality set_up_call_some_add_to_clock:
+  set_up_call st in_ns in_vs outs = SOME st₁ ⇒
+  set_up_call (st with clock := ck) in_ns in_vs outs =
+  SOME (st₁ with clock := ck)
+Proof
+  cheat
+QED
+
+Triviality evaluate_stmt_add_to_clock:
+  evaluate_stmt s env stmt = (s', r) ∧ r ≠ Rstop (Serr Rtimeout_error) ⇒
+  evaluate_stmt (s with clock := s.clock + extra) env stmt =
+  (s' with clock := s'.clock + extra, r)
+Proof
+  cheat
+QED
+
 Theorem evaluate_stmt_MetCall:
   get_member mname env.prog =
     SOME (Method name ins reqs ens rds decrs outs mods body) ∧
@@ -335,7 +390,23 @@ Theorem evaluate_stmt_MetCall:
   ⇒
   eval_stmt st env (MetCall rets mname args) st' Rcont
 Proof
-  cheat
+  rpt strip_tac
+  \\ simp [eval_stmt_def, evaluate_stmt_def]
+  \\ dxrule_then mp_tac eval_exp_evaluate_exps
+  \\ disch_then $ qx_choosel_then [‘ck’, ‘ck₁’] assume_tac \\ simp []
+  \\ fs [eval_stmt_def]
+  \\ rename
+       [‘evaluate_stmt (_ with clock := ck₂) _ _ = (_ with clock := ck₃, _)’]
+  \\ qexists ‘ck + ck₂ + 1’
+  \\ dxrule (cj 2 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck₂ + 1’ assume_tac
+
+  \\ qmatch_goalsub_abbrev_tac ‘set_up_call (_ with clock := ck₃')’
+  \\ dxrule set_up_call_some_add_to_clock
+  \\ disch_then $ qspec_then ‘ck₃'’ assume_tac \\ simp [Abbr ‘ck₃'’]
+
+  \\ gvs [dec_clock_def]
+
 QED
 
 Theorem stmt_wp_sound:
