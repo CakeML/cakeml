@@ -1682,7 +1682,7 @@ Proof
   \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [pred_setTheory.IN_UNION]
 QED
 
-Theorem SORT_type_vars_in_term:
+Theorem sort_type_vars_in_term:
   (sort $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))
 Proof
   REPEAT STRIP_TAC \\
@@ -3551,14 +3551,9 @@ Proof
   simp[Once st_ex_ignore_bind_def] >>
   Q.PAT_ABBREV_TAC `s1 = (s with
       <|the_type_constants := Y::s.the_type_constants|>)` >>
-
   `get_type_arity tyname s1 = (M_success (LENGTH vs), s1)` by (
     simp[get_type_arity_def,st_ex_bind_def,Abbr`s1`] >>
-    simp[Abbr`vs`]>>
-    EVAL_TAC
-    (*stuck*)
-    )>>
-
+    EVAL_TAC)>>
   simp[mk_type_def,try_def,otherwise_def,raise_Fail_def,st_ex_return_def,Once st_ex_bind_def] >>
   simp[mk_fun_ty_def] >>
   `get_type_arity (strlit "fun") s1 = (M_success 2, s1)` by (
@@ -3603,12 +3598,9 @@ Proof
       rfs[TERM_def] >> METIS_TAC[]) >>
     imp_res_tac THM >> rfs[TERM_Comb] >>
     imp_res_tac THM_term_ok_bool >>
-    fs[term_ok_def,QSORT_type_vars_in_term] >>
+    fs[term_ok_def,sort_type_vars_in_term] >>
     rfs[WELLTYPED] >>
     simp[Abbr`s2`,Abbr`s1`,Abbr`vs`,Abbr`l1`] >>
-    CONJ_TAC >- (
-      qspec_then ‘P’ (mp_tac o Q.AP_TERM ‘LENGTH’) (GEN_ALL QSORT_type_vars_in_term) >>
-      simp[LENGTH_QSORT,LENGTH_STRING_SORT,LENGTH_MAP,tvars_ALL_DISTINCT]) >>
     METIS_TAC[term_type]) >>
   qmatch_assum_abbrev_tac`Abbrev(l1 = [(absname,absty);(repname,repty)])` >>
   `mk_const (repname,[]) s2 = (M_success (Const repname repty), s2)` by (
@@ -3784,15 +3776,15 @@ Proof
     \\ conj_tac
     >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
     \\ simp [Abbr`s2`,conexts_of_upd_def]
-    \\ imp_res_tac QSORT_type_vars_in_term
-    \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX,QSORT_type_vars_in_term])
+    \\ imp_res_tac sort_type_vars_in_term
+    \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX,sort_type_vars_in_term])
   \\ conj_tac
   >-
    (match_mp_tac (List.nth(CONJUNCTS proves_rules,9))
     \\ conj_tac
     >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
     \\ simp [Abbr`s2`,conexts_of_upd_def]
-    \\ simp [QSORT_type_vars_in_term,equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
+    \\ simp [sort_type_vars_in_term,equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
   \\ Cases
   \\ once_rewrite_tac [THM_def]
   \\ strip_tac
