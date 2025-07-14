@@ -281,7 +281,7 @@ Definition sort_def:
 End
 
 Theorem sort_SORTED:
-  transitive R ∧ total R ==> sorting$SORTED R (sort R L)
+  !R L. transitive R ∧ total R ==> sorting$SORTED R (sort R L)
 Proof
   simp[sort_def, mergesort_tail_def, mergesortN_correct, mergesortN_sorted]
 QED
@@ -300,6 +300,12 @@ Proof
   \\ `L = TAKE (LENGTH L) L` by rw[]
   \\ pop_assum (fn x => pure_rewrite_tac [Once $ x])
   \\ rw[mergesortN_tail_PERM]
+QED
+
+Theorem sort_LENGTH:
+  !R l. LENGTH (sort R l) = LENGTH l
+Proof
+  simp[sort_def, PERM_LENGTH, sort_PERM]
 QED
 
 Definition getItem_def:

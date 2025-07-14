@@ -3,6 +3,7 @@
   faithful to the inference rules of the Candle logic.
 *)
 open preamble mlstringTheory ml_monadBaseTheory holKernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+open mllistTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -1681,8 +1682,8 @@ Proof
   \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [pred_setTheory.IN_UNION]
 QED
 
-Theorem QSORT_type_vars_in_term:
-  (QSORT $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))
+Theorem SORT_type_vars_in_term:
+  (sort $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))
 Proof
   REPEAT STRIP_TAC \\
   MATCH_MP_TAC (MP_CANON sortingTheory.SORTED_PERM_EQ) \\
@@ -1691,7 +1692,7 @@ Proof
     simp[relationTheory.transitive_def,relationTheory.antisymmetric_def,stringTheory.string_le_def] >>
     METIS_TAC[stringTheory.string_lt_antisym,stringTheory.string_lt_trans] ) >>
   conj_tac >- (
-    MATCH_MP_TAC sortingTheory.QSORT_SORTED >>
+    MATCH_MP_TAC sort_SORTED >>
     simp[relationTheory.total_def,stringTheory.string_le_def] >>
     METIS_TAC[stringTheory.string_lt_cases] ) >>
   conj_tac >- (
@@ -1701,11 +1702,11 @@ Proof
   MATCH_MP_TAC (MP_CANON sortingTheory.PERM_ALL_DISTINCT) >>
   conj_tac >- (
     METIS_TAC[sortingTheory.ALL_DISTINCT_PERM
-             ,sortingTheory.QSORT_PERM
+             ,sort_PERM
              ,ALL_DISTINCT_type_vars_in_term
              ,ALL_DISTINCT_MAP_explode] ) >>
   simp[ALL_DISTINCT_STRING_SORT] >>
-  METIS_TAC[sortingTheory.QSORT_MEM,MEM_type_vars_in_term,MEM_MAP]
+  METIS_TAC[sort_MEM,MEM_type_vars_in_term,MEM_MAP]
 QED
 
 (* ------------------------------------------------------------------------- *)
@@ -3542,7 +3543,7 @@ Proof
   impl_tac >- METIS_TAC[STATE_def,TERM_Comb,THM] >>
   simp[] >> disch_then kall_tac >>
   simp[Once st_ex_bind_def] >>
-  Q.PAT_ABBREV_TAC`vs:string list = QSORT R X` >>
+  Q.PAT_ABBREV_TAC`vs:string list = sort R X` >>
   simp[add_type_def,can_def,otherwise_def,st_ex_return_def] >>
   ntac 2 (simp[Once st_ex_bind_def]) >>
   simp[Once st_ex_bind_def,get_the_type_constants_def] >>
@@ -3550,10 +3551,14 @@ Proof
   simp[Once st_ex_ignore_bind_def] >>
   Q.PAT_ABBREV_TAC `s1 = (s with
       <|the_type_constants := Y::s.the_type_constants|>)` >>
+
   `get_type_arity tyname s1 = (M_success (LENGTH vs), s1)` by (
     simp[get_type_arity_def,st_ex_bind_def,Abbr`s1`] >>
     simp[Abbr`vs`]>>
-    EVAL_TAC)>>
+    EVAL_TAC
+    (*stuck*)
+    )>>
+
   simp[mk_type_def,try_def,otherwise_def,raise_Fail_def,st_ex_return_def,Once st_ex_bind_def] >>
   simp[mk_fun_ty_def] >>
   `get_type_arity (strlit "fun") s1 = (M_success 2, s1)` by (
