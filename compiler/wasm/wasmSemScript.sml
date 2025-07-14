@@ -142,21 +142,151 @@ Definition set_global_def:
     else NONE
 End
 
+
+(*
+*)
+Inductive unary_op_rel:
+
+  (∀ w. unary_op_rel (Popcnt      w32     ) (I32 w) (I32 (n2w (bit_count w)))) ∧ (* ? *)
+
+
+  (∀ w. unary_op_rel (Popcnt      w64     ) (I64 w) (I64 (n2w (bit_count w))))  (* ? *)
+
+End
+(*
+  (* nn -> nn *)
+  (∀ w. unary_op_rel (Clz         w32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Ctz         w32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Extend8_s   w32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Extend16_s  w32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
+
+  (* 32 -> 64 *)
+  (∀ w. unary_op_rel  Extend32_s            (I32 w) (I64 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Extend_i32_ Unsigned) (I32 w) (I64 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Extend_i32_ Signed  ) (I32 w) (I64 (op w)))   (* TODO *)
+
+
+  (* nn -> nn *)
+  (∀ w. unary_op_rel (Clz         w64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Ctz         w64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Extend8_s   w64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Extend16_s  w64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
+*)
+
+
+
+
+
+
+(* MODIFY [Add more ops] - where can I find word operations *)
 Inductive binop_rel:
+
+  (***************)
+  (*   Int ops   *)
+  (***************)
   (∀w1 w2. binop_rel (Add Int w32) (I32 w1) (I32 w2) (I32 (word_add w1 w2))) ∧
-  (∀w1 w2. binop_rel (Add Int w64) (I64 w1) (I64 w2) (I64 (word_add w1 w2)))
+  (∀w1 w2. binop_rel (Sub Int w32) (I32 w1) (I32 w2) (I32 (word_sub w1 w2))) ∧
+  (∀w1 w2. binop_rel (Mul Int w32) (I32 w1) (I32 w2) (I32 (word_mul w1 w2))) ∧
+  (∀w1 w2. binop_rel (And     w32) (I32 w1) (I32 w2) (I32 (word_and w1 w2))) ∧
+  (∀w1 w2. binop_rel (Or      w32) (I32 w1) (I32 w2) (I32 (word_or  w1 w2))) ∧
+  (∀w1 w2. binop_rel (Xor     w32) (I32 w1) (I32 w2) (I32 (word_xor w1 w2))) ∧
+
+  (* HOL complains when I change the 1 to w2 *)
+  (* "at Preterm.type-analysis:\nat line 185, character 20:\nCouldn't infer type for overloaded name _ inject_number", *)
+  (* check semantics line up *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* w2 = 0 ? undefined : truncated towards 0 *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* TODO *)
+
+
+
+  (∀w1 w2. binop_rel (Add Int w64) (I64 w1) (I64 w2) (I64 (word_add w1 w2))) ∧
+  (∀w1 w2. binop_rel (Mul Int w64) (I64 w1) (I64 w2) (I64 (word_mul w1 w2))) ∧
+  (∀w1 w2. binop_rel (Sub Int w64) (I64 w1) (I64 w2) (I64 (word_sub w1 w2))) ∧
+  (∀w1 w2. binop_rel (And     w64) (I64 w1) (I64 w2) (I64 (word_and w1 w2))) ∧
+  (∀w1 w2. binop_rel (Or      w64) (I64 w1) (I64 w2) (I64 (word_or  w1 w2))) ∧
+  (∀w1 w2. binop_rel (Xor     w64) (I64 w1) (I64 w2) (I64 (word_xor w1 w2))) ∧
+
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Unsigned w64) (I64 w1) (I64 w2) (I64 (word_div w1 w2))) ∧ (* cf i32 *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Unsigned w64) (I64 w1) (I64 w2) (I64 (word_div w1 w2)))   (* TODO *)
 End
 
+  (* To be completed. check semantics of signed word_div matches wasm
+
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Signed   w32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* cf i32 *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Signed   w64) (I64 w1) (I64 w2) (I64 (word_div w1 w2))) ∧ (* cf i32 *)
+
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Signed   w32) (I32 w1) (I32 w2) (I32 (word_xxx w1 w2))) ∧ (* TODO *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Signed   w64) (I64 w1) (I64 w2) (I64 (word_xxx w1 w2))) ∧ (* TODO *)
+
+  *)
+
+  (* Errors
+
+  unification failure message: Attempt to unify different type operators: num$num and fcp$cart
+
+  (∀w1 w2. binop_rel (Shl     w32) (I32 w1) (I32 w2) (I32 (word_lsl w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Rotl    w32) (I32 w1) (I32 w2) (I32 (word_rol w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Rotr    w32) (I32 w1) (I32 w2) (I32 (word_ror w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Shr_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_lsr w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Shr_ Signed   w32) (I32 w1) (I32 w2) (I32 (word_asr w1 w2))) ∧ (* Error *)
+
+  (∀w1 w2. binop_rel (Shl     w64) (I64 w1) (I64 w2) (I64 (word_lsl w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Rotl    w64) (I64 w1) (I64 w2) (I64 (word_rol w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Rotr    w64) (I64 w1) (I64 w2) (I64 (word_ror w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Shr_ Unsigned w64) (I64 w1) (I64 w2) (I64 (word_lsr w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Shr_ Signed   w64) (I64 w1) (I64 w2) (I64 (word_asr w1 w2))) ∧ (* Error *)
+  *)
+
+
+
+(* TODO a lot of these operations aren't closed in word32/64. need to figure
+   out how to read the library  *)
+(* Inductive compare_op_rel:
+
+  (∀w1 w2. compare_op_rel (Lt_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_lt w1 w2))) ∧
+  (∀w1 w2. compare_op_rel (Gt_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_gt w1 w2))) ∧
+  (∀w1 w2. compare_op_rel (Le_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_le w1 w2))) ∧
+  (∀w1 w2. compare_op_rel (Ge_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_ge w1 w2))) ∧
+
+  (∀w1 w2. compare_op_rel (Eq Int       w32) (I32 w1) (I32 w2) (I32 (word_compare w1 w2))) ∧
+  (∀w1 w2. compare_op_rel (Ne Int       w32) (I32 w1) (I32 w2) (I32 (word_xor (word_compare w1 w2) 1w))) ∧
+  (∀w1 w2. compare_op_rel (Eq Int w64) (I64 w1) (I64 w2) (I64 (word_compare w1 w2))) ∧
+  (∀w1 w2. compare_op_rel (Ne Int w64) (I64 w1) (I64 w2) (I64 (word_xor (word_compare w1 w2) 1w)))
+End *)
+
+(* Inductive test_op_rel:
+  (∀w1 w2. test_op_rel (Eqz w32) (I32 w2) (I32 (word_compare w1 0w))) ∧
+  (∀w1 w2. test_op_rel (Eqz w64) (I64 w2) (I64 (word_compare w1 0w)))
+End *)
+
+
+
+Definition do_unary_op_def:
+  do_unary_op op v = some res. unary_op_rel op v res
+End
+
+(* INVARIANT - changes to ops shouldn't break this *)
+(* Q is "some" some kind of function on options? is it "exists"? *)
 Definition do_binop_def:
   do_binop b v1 v2 = some res. binop_rel b v1 v2 res
 End
 
+
+(* Theorem unary_op_rel_det:
+  ∀o v r1 r2. unary_op_rel o v r1 ∧ unary_op_rel o v r2 ⇒ r1 = r2
+Proof
+  once_rewrite_tac [unary_op_rel_cases] \\ simp [] \\ rw [] \\ simp []
+QED *)
+
+(* INVARIANT - changes to ops shouldn't break this *)
 Theorem binop_rel_det:
   ∀b v1 v2 r1 r2. binop_rel b v1 v2 r1 ∧ binop_rel b v1 v2 r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [binop_rel_cases] \\ simp [] \\ rw [] \\ simp []
 QED
 
+(* Q Now I'm quite confused as to what the relation is between this and do_binop_def *)
+(* INVARIANT - changes to ops shouldn't break this *)
 Theorem do_binop_thm:
   do_binop b v1 v2 = SOME res ⇔ binop_rel b v1 v2 res
 Proof
@@ -164,15 +294,22 @@ Proof
   \\ fs [] \\ metis_tac [binop_rel_det]
 QED
 
+(* INVARIANT - changes to ops shouldn't break this *)
 Theorem do_binop_eq = REWRITE_RULE [GSYM do_binop_thm] binop_rel_rules;
 Theorem do_binop_cases = REWRITE_RULE [GSYM do_binop_thm] binop_rel_cases;
 
+(* MODIFY [Add more ops] - where can I find word operations *)
 Definition stack_op_def:
-  stack_op (I32Const w) stack = SOME (I32 w :: stack) ∧
-  stack_op (I64Const w) stack = SOME (I64 w :: stack) ∧
-  stack_op (Bny binop) (v1::v2::stack) =
-    case do_binop binop v1 v2 of NONE => NONE | SOME res =>
-      SOME (res :: stack)
+  stack_op (N_const32 Int w) stack = SOME (I32 w :: stack) ∧
+  stack_op (N_const64 Int w) stack = SOME (I64 w :: stack) ∧
+  (* stack_op (N_unary unop) (v::stack) =
+    case do_unary_op unop v of
+      NONE     => NONE
+    | SOME res => SOME (res :: stack) ∧ *)
+  stack_op (N_binary binop) (v1::v2::stack) =
+    case do_binop binop v1 v2 of
+      NONE     => NONE
+    | SOME res => SOME (res :: stack)
 End
 
 Definition exec_load_def:
