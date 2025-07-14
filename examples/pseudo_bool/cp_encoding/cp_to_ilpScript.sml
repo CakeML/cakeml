@@ -14,6 +14,7 @@ Datatype:
   | Ge 'a int (* Reifies X ≥ i *)
   | Eq 'a int (* Reifies X = i *)
   | Ne ('a + int) ('a + int)  (* Used to force X ≠ Y *)
+  | Gem ('a + int) ('a + int) (* Used to force X ≥ Y in Array Max *)
 End
 
 Definition min_iterm_def:
@@ -728,6 +729,27 @@ Proof
   pop_assum (fn thm => simp[thm])>>
   drule_then (qspec_then ‘wi’ mp_tac) split_iclin_term_sound>>
   rw[Once eval_ilin_term_def, iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+Definition encode_arr_max_def:
+  encode_arr_max bnd M As =
+  ([], MAP (λA. (1, Pos (Gem A M))) As, 1) ::
+  MAP (λA. mk_constraint_ge 1 M (-1) A 0) As ++
+  MAP (λA. bits_imply bnd [Pos (Gem A M)] (mk_constraint_ge 1 A (-1) M 0)) As
+End
+
+(*** HERE ***)
+
+Theorem encode_arr_max_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_arr_max bnd M As) =
+  (∃A. MEM A As ∧ wb (Gem A M) ∧ ∀A. MEM A) ∧ arr_max_sem M As wi)
+Proof
+  strip_tac>>
+  simp[MATCH_MP IMP_AND_LEFT not_equals_sem_aux]>>
+  simp[encode_not_equals_def,bits_imply_sem,mk_constraint_ge_sem]>>
+  rw[]>>
   intLib.ARITH_TAC
 QED
 

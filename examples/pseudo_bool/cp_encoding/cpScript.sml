@@ -57,6 +57,31 @@ Definition ilc_sem_def:
   do_op op (eval_iclin_term w Xs) rhs
 End
 
+Definition arr_max_sem_def:
+  arr_max_sem (M: 'a varc) (As: ('a varc) list) (w: 'a assignment) =
+  let
+    vM = varc w M;
+    vAs = MAP (varc w) As
+  in
+    MEM vM vAs ∧ EVERY (λe. e ≤ vM) vAs
+End
+
+Definition arr_min_sem_def:
+  arr_min_sem (M: 'a varc) (As: ('a varc) list) (w: 'a assignment) =
+  let
+    vM = varc w M;
+    vAs = MAP (varc w) As
+  in
+    MEM vM vAs ∧ EVERY (λe. vM ≤ e) vAs
+End
+
+Definition count_sem_def:
+  count_sem (Y: 'a varc) (C: 'a varc) (As: ('a varc) list) (w: 'a assignment) =
+  (varc w C =
+    iSUM $
+      MAP (λA. if varc w A = varc w Y then 1 else 0) As)
+End
+
 Datatype:
   constraint =
     NotEquals ('a varc) ('a varc)
@@ -64,6 +89,9 @@ Datatype:
   | Element ('a varc) ('a varc) ('a varc list)
   | Abs ('a varc) ('a varc)
   | Ilc ('a iclin_term) pbop int
+  | ArrMax ('a varc) ('a varc list)
+  | ArrMin ('a varc) ('a varc list)
+  | Count ('a varc) ('a varc) ('a varc list)
 End
 
 Definition constraint_sem_def:
@@ -74,6 +102,9 @@ Definition constraint_sem_def:
   | Element R X As => element_sem R X As w
   | Abs X Y => abs_sem X Y w
   | Ilc Xs op rhs => ilc_sem Xs op rhs w
+  | ArrMax M As => arr_max_sem M As w
+  | ArrMin M As => arr_min_sem M As w
+  | Count Y C As => count_sem Y C As w
 End
 
 Definition valid_assignment_def:
