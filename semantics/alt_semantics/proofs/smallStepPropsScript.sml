@@ -765,7 +765,7 @@ QED
 
 Theorem small_eval_list_not_timeout:
   ∀env s es res. small_eval_list env s es res ⇒
-    SND (SND res) ≠ Rerr (Rabort Rtimeout_error)
+                 SND res ≠ Rerr (Rabort Rtimeout_error)
 Proof
   ho_match_mp_tac small_eval_list_ind >> srw_tac[][] >>
   metis_tac [step_e_not_timeout]
@@ -774,12 +774,12 @@ QED
 Theorem small_eval_list_app_type_error:
   ∀env s es res.
     small_eval_list env s es res ⇒
-    ∀s' ' err.
-      res = (s', ', Rerr (Rabort a)) ⇒
+    ∀s' err.
+      res = (s', Rerr (Rabort a)) ⇒
       ∀op env0 v1 v0.
-        ∃env' e' c' ''.
-          e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s','',e',c') ∧
-          e_step (env',s','',e',c') = Eabort (', a)
+        ∃env' e' c'.
+          e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',e',c') ∧
+          e_step (env',s',e',c') = Eabort a
 Proof
   ho_match_mp_tac (theorem"small_eval_list_strongind") >> simp[] >> srw_tac[][] >- (
   srw_tac[][Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,push_def] >>
@@ -803,11 +803,11 @@ QED
 Theorem small_eval_list_app_error:
   ∀env s es res.
     small_eval_list env s es res ⇒
-    ∀s' ' v.
-      res = (s',',Rerr (Rraise v)) ⇒
+    ∀s' v.
+      res = (s',Rerr (Rraise v)) ⇒
       ∀op env0 v1 v0.
         ∃env' env''.
-          e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',',Exn v,[])
+          e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',Exn v,[])
 Proof
   ho_match_mp_tac (theorem"small_eval_list_strongind") >> simp[] >> srw_tac[][]
   >- (
@@ -845,19 +845,19 @@ Inductive e_step_to_match:
   (ALL_DISTINCT (pat_bindings p []) ∧
    pmatch env.c (FST s) p v [] = Match env' ∧
    RTC e_step_reln (env with v := nsAppend (alist_to_ns env') env.v, s,  Exp e, [])
-    (env'', s', ', ev, cs)
-  ⇒ e_step_to_match env s v ((p,e)::pes) s' ') ∧
+    (env'', s', ev, cs)
+  ⇒ e_step_to_match env s v ((p,e)::pes) s') ∧
 
   (ALL_DISTINCT (pat_bindings p []) ∧
    pmatch env.c (FST s) p v [] = No_match ∧
-   e_step_to_match env s v pes s' '
-  ⇒ e_step_to_match env s v ((p,e)::pes) s' ')
+   e_step_to_match env s v pes s'
+  ⇒ e_step_to_match env s v ((p,e)::pes) s' )
 End
 
 Theorem e_step_to_match_Cmat:
-  ∀env s v pes s' '.  e_step_to_match env s v pes s' ' ⇒
+  ∀env s v pes s'.  e_step_to_match env s v pes s'  ⇒
   ∀env''. ∃ev env' cs.
-    RTC e_step_reln (env'', s,  Val v, [(Cmat () pes v, env)]) (env', s', ', ev, cs)
+    RTC e_step_reln (env'', s,  Val v, [(Cmat () pes v, env)]) (env', s', ev, cs)
 Proof
   ntac 4 strip_tac >> ho_match_mp_tac e_step_to_match_ind >> rw[] >>
   irule_at Any $ cj 2 RTC_rules >>
