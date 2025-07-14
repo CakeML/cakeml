@@ -1577,7 +1577,7 @@ Definition fast_red_subgoals_def:
   ([not c0]::(MAP (λc. [not c]) fs) ++ cobj, [gs])
 End
 
-Type vimap_ty = ``:((num # num list) + num) option list``;
+Type vimap_ty = ``:((num option # num list) + num) option list``;
 
 (* Given a descending sorted list, return the prefix ≥ earliest
 Definition split_earliest_def:
@@ -1603,8 +1603,35 @@ Definition get_indices_def:
     | SOME (INR earliest) => reindex fml inds
 End
 
+(* We use a hard-coded limit on the reverse mapping, i.e.,
+  we store vars -> indices until the length of indices exceeds the limit.
+
+  however, we will ignore this limit for:
+  1. fresh variables that are introduced in a proof
+  2. any variable that is ever used in a witness (and we restore the mapping)
+*)
+Definition ind_lim_def:
+  ind_lim = 10n
+End
+
+Definition restore_aux_def:
+  (restore_aux x fml [] iacc = REVERSE iacc) ∧
+  (restore_aux x fml (i::is) iacc =
+  case any_el i fml NONE of
+    NONE => restore_aux x fml is iacc
+  | SOME c =>
+    if MEM x (MAP SND (FST (FST c)))
+    then
+      restore_aux x fml is (i::iacc)
+    else restore_aux x fml is iacc)
+End
+
+Definition restore_def:
+  (restore x fml is = restore_aux x fml is [])
+End
+
 Definition set_indices_def:
-  set_indices inds s (vimap:vimap_ty) rinds =
+  set_indices fml inds s (vimap:vimap_ty) rinds =
   case s of
     INR v =>
     if length v = 0 then (inds,vimap)
@@ -1612,8 +1639,8 @@ Definition set_indices_def:
   | INL (n,_) =>
     case any_el n vimap NONE of
     | NONE => (inds,vimap)
-    | SOME (INL _) => (inds , update_resize vimap NONE (SOME (INL (LENGTH rinds,rinds))) n)
-    | SOME (INR _) => (rinds,vimap)
+    | SOME (INL _) => (inds , update_resize vimap NONE (SOME (INL (NONE ,rinds))) n)
+    | SOME (INR _) => (rinds, update_resize vimap NONE (SOME (INL (NONE ,restore n fml rinds))) n)
 End
 
 Definition check_fresh_aux_fml_vimap_def:
@@ -1646,7 +1673,7 @@ Definition check_red_list_def:
   case red_fast ss idopt pfs of
     NONE => (
     let rinds = get_indices fml inds ss vimap in
-    let (inds',vimap') = set_indices inds ss vimap rinds in
+    let (inds',vimap') = set_indices fml inds ss vimap rinds in
     let nc = not c in
     let fml_not_c = update_resize fml NONE (SOME (nc,b)) id in
     let hs = has_scope pfs in
@@ -1691,18 +1718,17 @@ Definition update_earliest_def:
     ns)
 End
 *)
-Definition ind_lim_def:
-  ind_lim = 10n
-End
-
 Definition opt_cons_def:
-  (opt_cons (v:num) NONE = INL (1n,[v])) ∧
+  (opt_cons (v:num) NONE = INL (SOME 1n,[v])) ∧
   (opt_cons v (SOME (INL (n,ls))) =
+    case n of NONE =>
+      INL (NONE, v::ls)
+    | SOME n =>
     if ind_lim ≤ n
     then
       INR (0n)
     else
-      INL (n+1, v::ls)) ∧
+      INL (SOME (n+1), v::ls)) ∧
   (opt_cons v (SOME (INR earliest)) = INR earliest)
 End
 
@@ -2593,7 +2619,7 @@ QED
 
 Theorem ind_rel_get_indices_set_indices:
   get_indices fmlls inds s vimap = rinds ∧
-  set_indices inds s vimap rinds = (inds',vimap') ∧
+  set_indices fmlls inds s vimap rinds = (inds',vimap') ∧
   ind_rel fmlls inds ⇒
   ind_rel fmlls inds'
 Proof
@@ -2602,10 +2628,32 @@ Proof
   metis_tac[ind_rel_reindex]
 QED
 
+Theorem restore_aux:
+  ∀inds iacc.
+  restore_aux x fmlls inds iacc =
+  let is = FILTER (λn.
+    case any_el n fmlls NONE of NONE => F
+    | SOME c => MEM x (MAP SND (FST (FST c)))) inds in
+  (REVERSE iacc ++ is)
+Proof
+  Induct>>rw[restore_aux_def]>>
+  gvs[lookup_core_only_list_def,AllCaseEqs(),AllCasePreds()]>>
+  metis_tac[option_CLAUSES]
+QED
+
+Theorem restore_characterize:
+  restore x fmlls inds = FILTER (λn.
+    case any_el n fmlls NONE of NONE => F
+    | SOME c => MEM x (MAP SND (FST (FST c)))) inds
+Proof
+  rw[restore_def,restore_aux]
+QED
+
 Theorem vimap_rel_get_indices_set_indices:
-  set_indices inds s vimap
+  set_indices fmlls inds s vimap
     (get_indices fmlls inds s vimap) = (inds',vimap') ∧
-  vimap_rel fmlls vimap ⇒
+  vimap_rel fmlls vimap ∧
+  ind_rel fmlls inds ⇒
   vimap_rel fmlls vimap'
 Proof
   rw[get_indices_def,set_indices_def] >>
@@ -2613,6 +2661,11 @@ Proof
   every_case_tac>>rw[any_el_update_resize]>>
   first_x_assum drule_all>>
   rw[reindex_characterize,MEM_FILTER]>>
+  simp[any_el_ALT]>>
+  rw[restore_characterize,MEM_FILTER]>>
+  simp[any_el_ALT]>>
+  gvs[ind_rel_def]>>
+  first_x_assum irule>>
   simp[any_el_ALT]
 QED
 
@@ -3099,13 +3152,15 @@ QED
 Theorem opt_cons_alt:
   opt_cons (v:num) opt =
   case opt of
-    NONE => INL (1n,[v])
+    NONE => INL (SOME 1n,[v])
   | (SOME (INL (n,ls))) =>
+    (case n of NONE => INL (NONE, v::ls)
+    | SOME n =>
     if ind_lim ≤ n
     then
       INR (0n)
     else
-      INL (n+1, v::ls)
+      INL (SOME (n+1), v::ls))
   | (SOME (INR earliest)) => INR earliest
 Proof
   every_case_tac>>rw[opt_cons_def]
@@ -3130,12 +3185,12 @@ Proof
     (update_resize vimap NONE
        (SOME (opt_cons n (any_el p_2 vimap NONE))) p_2) NONE = SOME ll ∧
     case ll0 of
-      INL (n,ls) =>
-      (case ll of INL (n',ls') => ∀i. MEM i ls ⇒ MEM i ls'
+      INL (nn,ls) =>
+      (case ll of INL (nn',ls') => ∀i. MEM i ls ⇒ MEM i ls'
       | INR _ => T)
     | INR _ => ISR ll` by
     (rw[any_el_update_resize]>>gvs[]>>
-    every_case_tac>>gvs[opt_cons_alt])
+    every_case_tac>>gvs[opt_cons_alt,AllCaseEqs()])
   \\ first_x_assum drule_all
   \\ rw[]>>simp[]
   \\ every_case_tac \\ gvs[]
