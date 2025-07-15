@@ -299,7 +299,9 @@ Triviality eval_stmt_Then_ret:
   ⇒
   eval_stmt st env (Then stmt₁ stmt₂) st₁ (Rstop Sret)
 Proof
-  cheat
+  strip_tac
+  \\ gvs [eval_stmt_def, evaluate_stmt_def, AllCaseEqs()]
+  \\ last_assum $ irule_at (Pos hd) \\ simp [state_component_equality]
 QED
 
 (* TODO Move to dafny_eval_rel *)
@@ -309,7 +311,21 @@ Triviality eval_stmt_Then_cont_ret:
   ⇒
   eval_stmt st env (Then stmt₁ stmt₂) st₂ (Rstop Sret)
 Proof
-  cheat
+  strip_tac
+  \\ gvs [eval_stmt_def]
+  \\ rename
+       [‘evaluate_stmt (_ with clock := ck₃) _ _ = (_ with clock := ck₄, _)’]
+  \\ pop_assum mp_tac
+  \\ rename
+       [‘evaluate_stmt (_ with clock := ck₁) _ _ = (_ with clock := ck₂, _)’]
+  \\ disch_tac
+  \\ rev_dxrule evaluate_stmt_add_to_clock \\ simp []
+  \\ disch_then $ qspec_then ‘ck₃’ assume_tac
+  \\ rev_dxrule evaluate_stmt_add_to_clock \\ simp []
+  \\ disch_then $ qspec_then ‘ck₂’ assume_tac
+  \\ simp [evaluate_stmt_def, AllCaseEqs()]
+  \\ last_x_assum $ irule_at (Pos hd)
+  \\ gvs [state_component_equality]
 QED
 
 (* TODO Move to dafny_eval_rel *)
