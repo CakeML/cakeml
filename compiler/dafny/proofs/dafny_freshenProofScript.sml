@@ -1198,12 +1198,6 @@ Proof
   gvs []
 QED
 
-Triviality pop_local_some:
-  s.locals ≠ [] ⇒ ∃s'. pop_locals 1 s = SOME s'
-Proof
-  rpt strip_tac \\ Cases_on ‘s.locals’ \\ gvs [safe_drop_def, pop_locals_def]
-QED
-
 Theorem correct_freshen_stmt:
   ∀s env stmt s' res t m m_old cnt cnt' stmt' env'.
     evaluate_stmt s env stmt = (s', res) ∧ state_rel s t m m_old cnt ∧
