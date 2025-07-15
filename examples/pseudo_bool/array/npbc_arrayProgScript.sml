@@ -2945,7 +2945,7 @@ val check_red_arr_fast = process_topdecs`
     end` |> append_prog;
 
 Overload "vimapn_TYPE" = ``
-  SUM_TYPE (PAIR_TYPE (OPTION_TYPE NUM) (LIST_TYPE NUM)) NUM``
+  SUM_TYPE (PAIR_TYPE (OPTION_TYPE NUM) (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM))) NUM``
 
 Theorem check_red_arr_fast_spec:
   NUM lno lnov ∧
@@ -3027,44 +3027,47 @@ Proof
   metis_tac[ARRAY_W8ARRAY_refl,Fail_exn_def]
 QED
 
-Definition cons_if_mem_def:
-  cons_if_mem x c i acc =
-    if MEM x (MAP SND (FST (FST c))) then i::acc
-    else acc
-End
-
-val res = translate (cons_if_mem_def |> SIMP_RULE std_ss[MEMBER_INTRO]);
+val res = translate cond_pos_def;
+val res = translate cond_neg_def;
+val res = translate cond_pos_acc_def;
+val res = translate cond_neg_acc_def;
 
 val restore_aux_arr = process_topdecs `
-  fun restore_aux_arr x fml ls iacc =
+  fun restore_aux_arr x fml ls lacc racc =
   case ls of
-    [] => (List.rev iacc)
+    [] => (List.rev lacc, List.rev racc)
   | (i::is) =>
   case Array.lookup fml None i of
-    None => restore_aux_arr x fml is iacc
+    None => restore_aux_arr x fml is lacc racc
   | Some vb =>
-      restore_aux_arr x fml is (cons_if_mem x vb i iacc)` |> append_prog;
+    let val cc = fst (fst vb) in
+    restore_aux_arr x fml is
+      (cond_pos_acc x cc i lacc)
+      (cond_neg_acc x cc i racc)
+    end` |> append_prog;
 
 val restore_arr = process_topdecs `
   fun restore_arr x fml is =
-    restore_aux_arr x fml is []`
+    restore_aux_arr x fml is [] []`
   |> append_prog;
 
 Theorem restore_aux_arr_spec:
-  ∀inds indsv fmlls fmlv iacc iaccv.
+  ∀inds indsv fmlls fmlv lacc laccv racc raccv.
   NUM x xv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
-  (LIST_TYPE NUM) iacc iaccv
+  (LIST_TYPE NUM) lacc laccv ∧
+  (LIST_TYPE NUM) racc raccv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "restore_aux_arr" (get_ml_prog_state()))
-    [xv; fmlv; indsv; iaccv]
+    [xv; fmlv; indsv; laccv; raccv]
     (ARRAY fmlv fmllsv)
     (POSTv v.
       ARRAY fmlv fmllsv *
-      &(LIST_TYPE NUM
-        (restore_aux x fmlls inds iacc) v))
+      &(PAIR_TYPE
+        (LIST_TYPE NUM) (LIST_TYPE NUM)
+        (restore_aux x fmlls inds lacc racc) v))
 Proof
   Induct>>
   rw[]>>
@@ -3072,10 +3075,10 @@ Proof
   fs[LIST_TYPE_def]
   >- (
     xmatch>>
-    xapp_spec (ListProgTheory.reverse_v_thm |> INST_TYPE [alpha |-> ``:num``])>>
-    xsimpl>>
-    simp[restore_aux_def,LIST_TYPE_def,PAIR_TYPE_def]>>
-    metis_tac[])>>
+    xlet_autop>>
+    xlet_autop>>
+    xcon>> xsimpl>>
+    simp[restore_aux_def,LIST_TYPE_def,PAIR_TYPE_def])>>
   xmatch>>
   xlet_auto>- (xcon>>xsimpl)>>
   xlet_auto>>
@@ -3090,13 +3093,9 @@ Proof
     xmatch>>
     xapp>>simp[])>>
   xmatch>>
-  xlet_autop>>
+  rpt xlet_autop>>
   xapp>>
-  xsimpl>>
-  fs[LIST_TYPE_def,cons_if_mem_def]>>
-  first_x_assum $ irule_at Any>>
-  first_x_assum $ irule_at Any>>
-  rw[]>>gvs[]
+  xsimpl
 QED
 
 Theorem restore_arr_spec:
@@ -3111,7 +3110,8 @@ Theorem restore_arr_spec:
     (ARRAY fmlv fmllsv)
     (POSTv v.
       ARRAY fmlv fmllsv *
-      &(LIST_TYPE NUM
+      &(PAIR_TYPE
+        (LIST_TYPE NUM) (LIST_TYPE NUM)
         (restore x fmlls inds) v))
 Proof
   rw[]>>
@@ -3123,123 +3123,98 @@ Proof
   metis_tac[LIST_TYPE_def]
 QED
 
-val get_indices_arr = process_topdecs`
-  fun get_indices_arr fml inds s vimap =
+val res = translate get_inds_rhs_def;
+
+val get_set_indices_arr = process_topdecs`
+  fun get_set_indices_arr fml inds s vimap =
   case s of
     Inr v =>
-    if Vector.length v = 0 then []
-    else reindex_arr fml inds
-  | Inl (n,ls) =>
+    if Vector.length v = 0 then ([], (inds, vimap))
+    else
+      let val rinds = reindex_arr fml inds in
+        (rinds, (rinds, vimap))
+      end
+  | Inl (n,rhs) =>
     case Array.lookup vimap None n of
-      None => []
-    | Some (Inl (nn,inds)) => reindex_arr fml inds
-    | Some (Inr (earliest)) => restore_arr n fml inds` |> append_prog;
+      None => ([], (inds, vimap))
+    | Some (Inl (nn,(pinds,ninds))) =>
+      let
+        val pinds = reindex_arr fml pinds
+        val ninds = reindex_arr fml ninds
+        val rinds = get_inds_rhs rhs pinds ninds in
+      (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
+      end
+    | Some (Inr (earliest)) =>
+      case restore_arr n fml inds of (pinds,ninds) =>
+      let
+        val rinds = get_inds_rhs rhs pinds ninds in
+        (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
+      end
+      ` |> append_prog;
 
-Theorem get_indices_arr_spec:
+Theorem get_set_indices_arr_spec:
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   subst_TYPE s sv ∧
   LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "get_indices_arr" (get_ml_prog_state()))
+    ^(fetch_v "get_set_indices_arr" (get_ml_prog_state()))
     [fmlv; indsv; sv; vimapv]
     (ARRAY fmlv fmllsv * ARRAY vimapv vimaplsv)
     (POSTv v.
-        ARRAY fmlv fmllsv * ARRAY vimapv vimaplsv *
-        &(
-          LIST_TYPE NUM
-            (get_indices fmlls inds s vimap) v))
-Proof
-  rw[]>>
-  xcf "get_indices_arr" (get_ml_prog_state ())>>
-  reverse (Cases_on`s`)>>fs[SUM_TYPE_def]
-  >- (
-    xmatch>>
-    simp[get_indices_def]>>
-    rpt xlet_autop>>
-    xif
-    >-  (xcon>>xsimpl>> simp[LIST_TYPE_def])>>
-    xapp>>xsimpl>>
-    metis_tac[])>>
-  Cases_on`x`>>gvs[PAIR_TYPE_def]>>
-  xmatch>>
-  rpt xlet_autop>>
-  simp[get_indices_def]>>
-  `OPTION_TYPE vimapn_TYPE (any_el q vimap NONE) v'` by (
-    rw[any_el_ALT]>>
-    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
-  every_case_tac>>
-  gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
-  xmatch
-  >- (xcon>>xsimpl>>EVAL_TAC)
-  >- (
-    xapp>>xsimpl>>
-    metis_tac[])>>
-  xapp>>xsimpl>>
-  metis_tac[]
-QED
-
-val set_indices_arr = process_topdecs`
-  fun set_indices_arr inds s vimap rinds =
-  case s of
-    Inr v =>
-    if Vector.length v = 0 then (inds,vimap)
-    else (rinds,vimap)
-  | Inl (n,ls) =>
-    (case Array.lookup vimap None n of
-      None => (inds,vimap)
-    | Some _ =>
-        (inds, Array.updateResize vimap None n (Some (Inl (None,rinds)))))` |> append_prog;
-
-Theorem set_indices_arr_spec:
-  (LIST_TYPE NUM) inds indsv ∧
-  subst_TYPE s sv ∧
-  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv ∧
-  (LIST_TYPE NUM) rinds rindsv
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "set_indices_arr" (get_ml_prog_state()))
-    [indsv; sv; vimapv; rindsv]
-    (ARRAY vimapv vimaplsv)
-    (POSTv v.
         SEP_EXISTS vimapv' vimaplsv'.
-        ARRAY vimapv' vimaplsv' *
+        ARRAY fmlv fmllsv * ARRAY vimapv' vimaplsv' *
         &(
-          PAIR_TYPE
+          PAIR_TYPE (LIST_TYPE NUM)
+          (PAIR_TYPE
             (LIST_TYPE NUM)
             (λl v.
               LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
-              v = vimapv')
-            (set_indices inds s vimap rinds) v))
+              v = vimapv'))
+            (get_set_indices fmlls inds s vimap) v))
 Proof
   rw[]>>
-  xcf "set_indices_arr" (get_ml_prog_state ())>>
+  xcf "get_set_indices_arr" (get_ml_prog_state ())>>
   reverse (Cases_on`s`)>>fs[SUM_TYPE_def]
   >- (
     xmatch>>
-    simp[set_indices_def]>>
+    simp[get_set_indices_def]>>
     rpt xlet_autop>>
     xif
-    >-  (xcon>>xsimpl>> simp[LIST_TYPE_def,PAIR_TYPE_def]>>metis_tac[ARRAY_refl])>>
+    >-(
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[LIST_TYPE_def,PAIR_TYPE_def]>>
+      metis_tac[ARRAY_refl])>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
     simp[PAIR_TYPE_def]>>
     metis_tac[ARRAY_refl])>>
-  Cases_on`x`>>gvs[PAIR_TYPE_def,set_indices_def]>>
+  Cases_on`x`>>gvs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
-  xlet_auto>>
+  simp[get_set_indices_def]>>
   `OPTION_TYPE vimapn_TYPE (any_el q vimap NONE) v'` by (
     rw[any_el_ALT]>>
     fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
   every_case_tac>>
   gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
   xmatch
-  >-
-    (xcon>>xsimpl)
   >- (
     rpt xlet_autop>>
-    xlet_auto>>
+    xcon>>xsimpl>>
+    EVAL_TAC)
+  >- (
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    irule LIST_REL_update_resize>>
+    fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def])
+  >- (
+    rpt xlet_autop>>
+    pairarg_tac>>gvs[PAIR_TYPE_def]>>
+    xmatch>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
     irule LIST_REL_update_resize>>
     fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def])
@@ -3471,9 +3446,8 @@ val check_red_arr = process_topdecs`
   (
   let
     val bortcb = b orelse tcb
-    val rinds = get_indices_arr fml inds ss vimap
     val hs = has_scope pfs in
-    case set_indices_arr inds ss vimap rinds of (inds',vimap') =>
+    case get_set_indices_arr fml inds ss vimap of (rinds, (inds',vimap')) =>
     case fast_red_subgoals ord ss c obj vomap hs of (rsubs,rscopes) =>
   let
     val nc = not_1 c
@@ -3686,6 +3660,7 @@ Proof
   xsimpl
 QED
 
+val res = translate opt_cons_aux_def;
 val res = translate (opt_cons_def |> REWRITE_RULE [ind_lim_def]);
 
 val update_vimap_arr = process_topdecs`
@@ -3694,7 +3669,7 @@ val update_vimap_arr = process_topdecs`
   | ((i,n)::ns) =>
     update_vimap_arr
     (Array.updateResize vimap None n
-      (Some (opt_cons v (Array.lookup vimap None n))))
+      (Some (opt_cons i v (Array.lookup vimap None n))))
     v
     ns` |> append_prog;
 
@@ -3731,7 +3706,7 @@ Proof
     fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
   xlet`POSTv res.
     ARRAY vimapv vimaplsv *
-    &vimapn_TYPE (opt_cons v (any_el r vimap NONE)) res`
+    &vimapn_TYPE (opt_cons q v (any_el r vimap NONE)) res`
   >- (
     xapp>>xsimpl  >>
     metis_tac[])>>
