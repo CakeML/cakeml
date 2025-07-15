@@ -6,8 +6,7 @@
 *.uo
 *.ui
 *.o
-.HOLMK
-.hollogs
+.hol
 
 # TacticToe
 *Script_ttt.sml
