@@ -1148,7 +1148,6 @@ Theorem AnyArith_thm:
                            clock := new_c; space := 0; stack_max := NONE |>) r
                 [(Number v,rv)] locs
 Proof
-  cheat (*
   rpt strip_tac \\ fs [AnyArith_code_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
@@ -1230,8 +1229,8 @@ Proof
   \\ full_simp_tac bool_ss [GSYM set_store_with_const, GSYM wordSemTheory.set_var_def]
   \\ qpat_abbrev_tac `s8 = set_store _ _ _`
   \\ `state_rel c l1 l2 s0 s8 [] locs` by
-      (unabbrev_all_tac \\ fs [state_rel_set_store_Temp,state_rel_insert_7,
-  wordSemTheory.set_var_def] \\ NO_TAC)
+    (unabbrev_all_tac \\ fs [state_rel_set_store_Temp,state_rel_insert_7,
+                             wordSemTheory.set_var_def] \\ NO_TAC)
   \\ rpt_drule AnyHeader_thm
   \\ disch_then (qspecl_then [`j`,`T`,`1w`,`30w`,`11w`,`1`] mp_tac)
   \\ impl_tac THEN1
@@ -1289,15 +1288,15 @@ Proof
       FLOOKUP s9.store (Temp 30w) = SOME (Word a2')` by
         (fs [Abbr`s9`,wordSemTheory.set_store_def,FLOOKUP_UPDATE,
            wordSemTheory.set_var_def,Abbr `t4`] \\ NO_TAC)
-  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
-  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.get_store_def]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.get_store_def]
   \\ fs [wordSemTheory.mem_store_def]
   \\ SEP_R_TAC \\ fs []
-  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
-  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.get_store_def]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.get_store_def]
   \\ fs [wordSemTheory.mem_store_def]
   \\ SEP_R_TAC \\ fs []
-  \\ ntac 5 (once_rewrite_tac [list_Seq_def] \\ fs [eq_eval])
+  \\ ntac 5 (once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.get_store_def])
   \\ simp [wordSemTheory.set_store_def]
   \\ once_rewrite_tac [list_Seq_def] \\ fs []
   \\ once_rewrite_tac [eq_eval]
@@ -1387,15 +1386,17 @@ Proof
      (qunabbrev_tac `t9` \\ fs [wordSemTheory.set_store_def,FLOOKUP_UPDATE]
       \\ qunabbrev_tac `s9` \\ fs [wordSemTheory.set_store_def,FLOOKUP_UPDATE])
   \\ once_rewrite_tac [list_Seq_def]
-  \\ simp [eq_eval,cut_env_fromList_sing]
+  \\ simp [eq_eval,cut_env_fromList_sing,wordSemTheory.get_store_def]
   \\ once_rewrite_tac [list_Seq_def]
-  \\ simp [eq_eval,cut_env_fromList_sing,wordSemTheory.set_store_def]
+  \\ simp [eq_eval,cut_env_fromList_sing,wordSemTheory.set_store_def,
+           wordSemTheory.get_store_def]
   \\ `code_rel c s.code t.code` by (fs [state_rel_def] \\ NO_TAC)
   \\ pop_assum mp_tac
   \\ rewrite_tac [code_rel_def,stubs_def,generated_bignum_stubs_def,LET_THM]
   \\ Cases_on `compile Bignum_location 2 1 (Bignum_location + 1,[]) mc_iop_code`
   \\ PairCases_on `r`
-  \\ simp_tac (srw_ss())[APPEND,EVERY_DEF,EVAL ``domain (fromList [()]) = ∅``]
+  \\ simp_tac (srw_ss())[APPEND,EVERY_DEF,EVAL ``domain (fromList [()]) = ∅``,
+                         EVAL “cut_envs (fromList [()],LN) (insert 0 (Loc l1 l2) LN)”]
   \\ strip_tac
   \\ `il + (jl + 1) < dimword (:α) DIV 8` by fs []
   \\ IF_CASES_TAC THEN1
@@ -1419,7 +1420,7 @@ Proof
     \\ fs [])
   \\ `t9.mdomain = dm` by
         (qunabbrev_tac `dm` \\ qunabbrev_tac `t9` \\ fs [])
-  \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (Seq q (Return 0 0),t3)` \\ rveq
+  \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (Seq q (Return 0 [0]),t3)` \\ rveq
   \\ qabbrev_tac `my_frame = word_heap curr ha c *
          one (curr + bytes_in_word * n2w (heap_length ha),Word a3) *
          hb_heap * hb_heap1 * one (other,Word a3') * other_heap`
@@ -1687,10 +1688,10 @@ Proof
         \\ asm_exists_tac \\ asm_rewrite_tac [])))
   \\ strip_tac \\ simp []
   \\ rewrite_tac [eq_eval]
-  \\ fs [wordSemTheory.get_var_def,push_env_insert_0]
+  \\ fs [wordSemTheory.get_var_def,push_env_insert_0 |> SRULE [Once insert_def]]
   \\ simp [Abbr `t3`,wordSemTheory.pop_env_def,
-       EVAL ``domain (fromAList [(0,x)])``]
-  \\ simp_tac std_ss [fromAList_def]
+       EVAL ``domain (union (fromAList []) (fromAList [(0,Loc l1 l2)]))``]
+  \\ simp_tac std_ss [fromAList_def,wordSemTheory.set_vars_def,alist_insert_def]
   \\ `int_op (get_iop op_index) i j = v` by
    (qpat_x_assum `_ = SOME v` mp_tac
     \\ rpt (pop_assum kall_tac)
@@ -1703,7 +1704,8 @@ Proof
     \\ rpt strip_tac
     \\ qpat_x_assum `∀a v. _ ==> _` mp_tac
     \\ simp_tac (srw_ss()) [FLOOKUP_UPDATE] \\ NO_TAC)
-  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,insert_shadow]
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [eq_eval,insert_shadow,wordSemTheory.get_store_def]
   \\ `(mc_header (i2mw v) = 0w:'a word <=> v = 0) /\
       (mc_header (i2mw v) = 2w:'a word <=> ?v1. i2mw v = (F,[v1:'a word])) /\
       (mc_header (i2mw v) = 3w:'a word <=> ?v1. i2mw v = (T,[v1:'a word]))` by
@@ -1872,7 +1874,9 @@ Proof
     \\ fs [word_list_def] \\ SEP_R_TAC \\ fs [] \\ NO_TAC)
   \\ simp []
   \\ qpat_abbrev_tac `if_stmt = wordLang$If _ _ _ _ _`
-  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.get_store_def]
+  \\ qpat_x_assum ‘SOME _ = FLOOKUP s9.store NextFree’ $ assume_tac o GSYM
+  \\ fs [eq_eval,wordSemTheory.get_store_def]
   \\ Cases_on `small_int (:'a) v`
   THEN1
    (qunabbrev_tac `if_stmt` \\ fs [eq_eval]
@@ -1899,8 +1903,8 @@ Proof
       \\ drule state_rel_with_clock_0
       \\ simp_tac (srw_ss()) [] \\ strip_tac
       \\ rpt_drule state_rel_Number_small_int
-      \\ strip_tac \\ qexists_tac `new_c` \\
-       fs [wordSemTheory.flush_state_def])
+      \\ strip_tac \\ qexists_tac `new_c`
+      \\ fs [wordSemTheory.flush_state_def])
     \\ IF_CASES_TAC THEN1
      (fs [word_sh_def,lookup_insert]
       \\ `(v1 + -1w) >>> (dimindex (:α) - 3) = 0w /\
@@ -1926,8 +1930,8 @@ Proof
       \\ drule state_rel_with_clock_0
       \\ simp_tac (srw_ss()) [] \\ strip_tac
       \\ rpt_drule state_rel_Number_small_int
-      \\ strip_tac \\ qexists_tac `new_c` \\
-       fs [wordSemTheory.flush_state_def])
+      \\ strip_tac \\ qexists_tac `new_c`
+      \\ fs [wordSemTheory.flush_state_def])
     \\ sg `F` \\ fs []
     \\ rpt_drule i2mw_small_int_IMP_0)
   \\ qmatch_goalsub_abbrev_tac `evaluate (if_stmt,t8)`
@@ -1971,8 +1975,7 @@ Proof
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ simp_tac (srw_ss()) [wordSemTheory.set_var_def,Abbr `t8`]
   \\ qunabbrev_tac `if_stmt`
-  \\ qpat_x_assum `SOME _ = _` (assume_tac o GSYM)
-  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,wordSemTheory.get_store_def]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ simp [eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
@@ -1997,7 +2000,7 @@ Proof
   \\ SEP_W_TAC \\ qpat_x_assum `_ (fun2set _)` mp_tac
   \\ rpt (qpat_x_assum `_ (fun2set _)` kall_tac)
   \\ strip_tac
-  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,wordSemTheory.get_store_def]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ simp [eq_eval]
   \\ qmatch_goalsub_abbrev_tac `insert 1 (Word new_ret_val)`
@@ -2005,7 +2008,8 @@ Proof
   \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ simp [eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,wordSemTheory.set_store_def]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
-  \\ simp [state_rel_thm,lookup_def,EVAL ``join_env LN []``,FAPPLY_FUPDATE_THM]
+  \\ simp [state_rel_thm,lookup_def,EVAL ``join_env LN []``,FAPPLY_FUPDATE_THM,
+           wordSemTheory.flush_state_def,FAPPLY_FUPDATE_THM]
   \\ rewrite_tac [CONJ_ASSOC]
   \\ qpat_x_assum `state_rel c r1 r2 _ _ _ _` mp_tac
   \\ fs [state_rel_thm,EVAL ``join_env LN []``]
@@ -2069,11 +2073,9 @@ Proof
   \\ fs [] \\ pop_assum kall_tac
   \\ fs [wordSemTheory.flush_state_def]
   \\ strip_tac
-  \\ conj_tac
-  >- fs [limits_inv_def, FLOOKUP_UPDATE]
   \\ drule memory_rel_zero_space
   \\ match_mp_tac memory_rel_rearrange
-  \\ fs [join_env_def] \\ rw [] \\ fs [FAPPLY_FUPDATE_THM] *)
+  \\ fs [join_env_def] \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
 QED
 
 Theorem MAP_FST_EQ_IMP_IS_SOME_ALOOKUP:
