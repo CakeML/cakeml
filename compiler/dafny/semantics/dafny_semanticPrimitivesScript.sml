@@ -10,6 +10,9 @@ open alistTheory
 
 val _ = new_theory "dafny_semanticPrimitives";
 
+(* TODO Move lemmas that are not strictly needed here (and are general enough)
+   to dafnyProps *)
+
 Datatype:
   sem_env =
   <|
@@ -136,6 +139,7 @@ Definition set_up_call_def:
                |>)))
 End
 
+(* TODO rename/merge with set_up_call_clock_eq *)
 Theorem set_up_call_clock:
   set_up_call st₀ ins ivs os = SOME st₁ ⇒ st₁.clock = st₀.clock
 Proof
@@ -389,6 +393,12 @@ Definition pop_locals_def:
    | NONE => NONE
    | SOME rest => SOME (st with locals := rest))
 End
+
+Theorem pop_local_some:
+  s.locals ≠ [] ⇒ ∃s'. pop_locals 1 s = SOME s'
+Proof
+  rpt strip_tac \\ Cases_on ‘s.locals’ \\ gvs [safe_drop_def, pop_locals_def]
+QED
 
 Definition val_to_string_def:
   val_to_string (IntV i) =
