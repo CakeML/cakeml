@@ -9,6 +9,7 @@ open mlintTheory
 open dafny_astTheory
 open dafny_evaluateTheory
 open dafny_semanticPrimitivesTheory
+open dafnyPropsTheory
 open dafny_evaluatePropsTheory
 
 val _ = new_theory "dafny_freshenProof";
