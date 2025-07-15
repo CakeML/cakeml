@@ -180,12 +180,6 @@ Proof
     \\ fs [wordSemTheory.get_var_def,real_offset_def]
 QED
 
-Theorem domain_adjust_sets:
-  domain (FST (adjust_sets kept_names)) ≠ {}
-Proof
-  gvs [adjust_sets_def]
-QED
-
 Theorem state_rel_push_env_loc:
   state_rel c n l s (call_env args b (push_env (y1,y2) NONE t)) ys ((l1,l2)::locs) ⇒
   lookup 0 y1 = SOME (Loc l1 l2)
