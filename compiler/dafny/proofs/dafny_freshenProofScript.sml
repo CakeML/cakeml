@@ -6,7 +6,7 @@ Libs
   preamble
 Ancestors
   mlstring mlint dafny_ast dafny_semanticPrimitives
-  dafny_evaluate dafny_evaluateProps dafny_freshen
+  dafnyProps dafny_evaluate dafny_evaluateProps dafny_freshen
 
 
 (* Relations and invariants *)

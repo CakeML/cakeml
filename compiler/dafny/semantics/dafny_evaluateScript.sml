@@ -3,7 +3,7 @@
 *)
 Theory dafny_evaluate
 Ancestors
-  dafny_semanticPrimitives
+  dafny_semanticPrimitives dafnyProps
 Libs
   preamble
 
@@ -158,6 +158,7 @@ Termination
           UNZIP_MAP, list_size_pair_size_MAP_FST_SND, AllCaseEqs ()]
 End
 
+(* TODO append _mono *)
 Theorem evaluate_exp_clock:
   (∀st₀ env e st₁ r.
      evaluate_exp st₀ env e = (st₁, r) ⇒ st₁.clock ≤ st₀.clock) ∧
@@ -172,7 +173,7 @@ Proof
           push_locals_def, pop_locals_def,
           use_old_def, unuse_old_def, evaluate_exp_ann_def, AllCaseEqs ()]
   \\ EVERY (map imp_res_tac
-                [set_up_call_clock, restore_caller_clock, fix_clock_IMP])
+                [set_up_call_clock_eq, restore_caller_clock, fix_clock_IMP])
   \\ gvs []
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [AllCaseEqs()]
@@ -209,6 +210,7 @@ Definition evaluate_rhs_exp_def:
          | SOME (st₃, arr) => (st₃, Rval arr))))
 End
 
+(* TODO append _mono *)
 Theorem evaluate_rhs_exp_clock:
   ∀st₀ env e st₁ res.
     evaluate_rhs_exp st₀ env e = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
@@ -229,6 +231,7 @@ Definition evaluate_rhs_exps_def:
       | (st₂, Rval vs) => (st₂, Rval (v::vs))))
 End
 
+(* TODO append _mono *)
 Theorem evaluate_rhs_exps_clock:
   ∀st₀ env es st₁ res.
     evaluate_rhs_exps st₀ env es = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
@@ -260,6 +263,7 @@ Definition assign_value_def:
   assign_value st env _ val = (st, Rstop (Serr Rtype_error))
 End
 
+(* TODO append _mono *)
 Theorem assign_value_clock:
   ∀st₀ env e v st₁ res.
     assign_value st₀ env e v = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
@@ -279,6 +283,7 @@ Definition assign_values_def:
   assign_values st env _ _ = (st, Rstop (Serr Rtype_error))
 End
 
+(* TODO append _mono *)
 Theorem assign_values_clock:
   ∀st₀ env lhss vs st₁ res.
     assign_values st₀ env lhss vs = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
@@ -391,6 +396,7 @@ Termination
           oneline do_cond_def, AllCaseEqs ()]
 End
 
+(* TODO append _mono *)
 Theorem evaluate_stmt_clock:
   ∀st₀ env e st₁ r.
     evaluate_stmt st₀ env e = (st₁, r) ⇒ st₁.clock ≤ st₀.clock
@@ -403,7 +409,7 @@ Proof
           print_string_def, evaluate_stmt_ann_def, declare_local_clock,
           pop_locals_def]
   \\ EVERY (map imp_res_tac
-                [set_up_call_clock, restore_caller_clock, fix_clock_IMP,
+                [set_up_call_clock_eq, restore_caller_clock, fix_clock_IMP,
                  evaluate_rhs_exps_clock, evaluate_exp_clock,
                  assign_values_clock]) \\ gvs []
 QED
@@ -430,4 +436,3 @@ Definition evaluate_program_def:
     evaluate_stmt (init_state ck) (mk_env is_running (Program members))
       (MetCall [] «Main» [])
 End
-

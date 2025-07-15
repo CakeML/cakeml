@@ -9,9 +9,6 @@ Ancestors
 Libs
   preamble
 
-(* TODO Move lemmas that are not strictly needed here (and are general enough)
-   to dafnyProps *)
-
 Datatype:
   sem_env =
   <|
@@ -74,12 +71,6 @@ Datatype:
   | Rstop stop
 End
 
-Theorem with_same_locals[simp]:
-  ∀s. s with locals := s.locals = s
-Proof
-  gvs [theorem "state_component_equality"]
-QED
-
 Definition mk_env_def:
   mk_env is_running program =
     <| is_running := is_running; prog := program |>
@@ -138,13 +129,6 @@ Definition set_up_call_def:
                |>)))
 End
 
-(* TODO rename/merge with set_up_call_clock_eq *)
-Theorem set_up_call_clock:
-  set_up_call st₀ ins ivs os = SOME st₁ ⇒ st₁.clock = st₀.clock
-Proof
-  rpt strip_tac \\ gvs [set_up_call_def, CaseEq "option"]
-QED
-
 Definition restore_caller_def:
   restore_caller cur prev =
     cur with <|
@@ -153,12 +137,6 @@ Definition restore_caller_def:
       heap_old := prev.heap_old
     |>
 End
-
-Theorem restore_caller_clock:
-  restore_caller cur prev = st ⇒ st.clock = cur.clock
-Proof
-  rpt strip_tac \\ gvs [restore_caller_def]
-QED
 
 Definition use_old_def:
   use_old st = st with <| locals := st.locals_old; heap := st.heap_old |>
@@ -341,12 +319,6 @@ Definition declare_local_def:
     st with locals := (n, NONE)::st.locals
 End
 
-Theorem declare_local_clock:
-  (declare_local st names).clock = st.clock
-Proof
-  gvs [declare_local_def]
-QED
-
 Definition push_local_def:
   push_local st var val =
   (st with locals := (var, SOME val)::st.locals)
@@ -357,28 +329,6 @@ Definition push_locals_def:
   let binds = (MAP (λ(var,val). (var, SOME val)) binds) in
     (st with locals := REVERSE binds ++ st.locals)
 End
-
-Theorem push_locals_cons:
-  push_locals s ((n,v)::(ZIP (ns,vs))) =
-  (push_locals (push_local s n v) (ZIP (ns,vs)))
-Proof
-  gvs [push_locals_def, push_local_def]
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC, APPEND]
-QED
-
-Theorem push_locals_len:
-  ∀binds s s'.
-    LENGTH (push_locals s binds).locals = LENGTH s.locals + LENGTH binds
-Proof
-  Induct \\ gvs [push_locals_def]
-QED
-
-Theorem drop_push_locals:
-  ∀n ys s. LENGTH ys = n ⇒ DROP n (push_locals s ys).locals = s.locals
-Proof
-  Induct \\ rpt strip_tac
-  \\ gvs [push_locals_def, DROP_APPEND]
-QED
 
 (* TODO Instead of safe_{drop,zip}, it would probably more accurate to call them
    strict *)
@@ -392,12 +342,6 @@ Definition pop_locals_def:
    | NONE => NONE
    | SOME rest => SOME (st with locals := rest))
 End
-
-Theorem pop_local_some:
-  s.locals ≠ [] ⇒ ∃s'. pop_locals 1 s = SOME s'
-Proof
-  rpt strip_tac \\ Cases_on ‘s.locals’ \\ gvs [safe_drop_def, pop_locals_def]
-QED
 
 Definition val_to_string_def:
   val_to_string (IntV i) =
