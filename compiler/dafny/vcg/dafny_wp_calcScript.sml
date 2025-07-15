@@ -238,7 +238,79 @@ Proof
   simp [conditions_hold_def,eval_true_def,evaluate_exp_def,eval_exp_def]
 QED
 
-Theorem evaluate_stmt_MetCall:
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_stmt_Skip:
+  eval_stmt st env Skip st Rcont
+Proof
+  gvs [eval_stmt_def, evaluate_stmt_def, state_component_equality]
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_stmt_Assert:
+  eval_true st env e
+  ⇒
+  eval_stmt st env (Assert e) st Rcont
+Proof
+  strip_tac
+  \\ gvs [eval_stmt_def, evaluate_stmt_def]
+  \\ Cases_on ‘env.is_running’ \\ simp []
+  >- (gvs [state_component_equality])
+  \\ gvs [eval_true_def, eval_exp_def, AllCaseEqs()]
+  \\ last_assum $ irule_at (Pos hd)
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_stmt_Return:
+  eval_stmt st env Return st (Rstop Sret)
+Proof
+  gvs [eval_stmt_def, evaluate_stmt_def, state_component_equality]
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_stmt_Then_cont:
+  eval_stmt st env stmt₁ st₁ Rcont ∧
+  eval_stmt st₁ env stmt₂ st₂ Rcont
+  ⇒
+  eval_stmt st env (Then stmt₁ stmt₂) st₂ Rcont
+Proof
+  strip_tac
+  \\ gvs [eval_stmt_def]
+  \\ rename
+       [‘evaluate_stmt (_ with clock := ck₃) _ _ = (_ with clock := ck₄, _)’]
+  \\ pop_assum mp_tac
+  \\ rename
+       [‘evaluate_stmt (_ with clock := ck₁) _ _ = (_ with clock := ck₂, _)’]
+  \\ disch_tac
+  \\ rev_dxrule evaluate_stmt_add_to_clock \\ simp []
+  \\ disch_then $ qspec_then ‘ck₃’ assume_tac
+  \\ rev_dxrule evaluate_stmt_add_to_clock \\ simp []
+  \\ disch_then $ qspec_then ‘ck₂’ assume_tac
+  \\ simp [evaluate_stmt_def, AllCaseEqs()]
+  \\ last_x_assum $ irule_at (Pos hd)
+  \\ gvs [state_component_equality]
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_stmt_Then_ret:
+  eval_stmt st env stmt₁ st₁ (Rstop Sret)
+  ⇒
+  eval_stmt st env (Then stmt₁ stmt₂) st₁ (Rstop Sret)
+Proof
+  cheat
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_stmt_Then_cont_ret:
+  eval_stmt st env stmt₁ st₁ Rcont ∧
+  eval_stmt st₁ env stmt₂ st₂ (Rstop Sret)
+  ⇒
+  eval_stmt st env (Then stmt₁ stmt₂) st₂ (Rstop Sret)
+Proof
+  cheat
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Theorem eval_stmt_MetCall:
   get_member mname env.prog =
     SOME (Method name ins reqs ens rds decrs outs mods body) ∧
   LIST_REL (eval_exp st env) args in_vs ∧
@@ -272,6 +344,13 @@ Proof
   \\ simp [state_component_equality]
 QED
 
+Triviality conditions_hold_cons:
+  conditions_hold st env (e::es) ⇔
+  eval_true st env e ∧ conditions_hold st env es
+Proof
+  gvs [conditions_hold_def]
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
@@ -294,10 +373,27 @@ Theorem stmt_wp_sound:
         | Rcont => conditions_hold st' env post
         | _ => F
 Proof
-
   Induct_on ‘stmt_wp’ \\ rpt strip_tac
+  >~ [‘Skip’] >-
+   (irule_at (Pos hd) eval_stmt_Skip \\ simp [])
+  >~ [‘Assert e’] >-
+   (irule_at (Pos hd) eval_stmt_Assert \\ simp []
+    \\ gvs [conditions_hold_cons])
+  >~ [‘Return’] >-
+   (irule_at (Pos hd) eval_stmt_Return \\ simp [])
+  >~ [‘Then stmt₁ stmt₂’] >-
+   (last_x_assum drule \\ simp []
+    \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
+    \\ strip_tac
+    \\ reverse $ namedCases_on ‘ret₁’ ["", "stp"] \\ gvs []
+    >-
+     (Cases_on ‘stp’ \\ gvs []
+      (* First statement has returned *)
+      \\ irule_at (Pos hd) eval_stmt_Then_ret
+      \\ first_assum $ irule_at (Pos hd) \\ simp [])
+    \\ cheat)
   >~ [‘MetCall rets mname args’] >-
-   (irule_at Any evaluate_stmt_MetCall \\ gvs []
+   (irule_at Any eval_stmt_MetCall \\ gvs []
     \\ qpat_assum ‘compatible_env env m’ mp_tac
     \\ rewrite_tac [compatible_env_def]
     \\ strip_tac
@@ -323,7 +419,6 @@ Proof
       \\ qpat_x_assum ‘EVERY _ (decreases_check _ _)’ mp_tac
       \\ simp [decreases_check_def] \\ cheat)
     \\ cheat)
-
   \\ cheat
 QED
 
