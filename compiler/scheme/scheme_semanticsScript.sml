@@ -114,10 +114,20 @@ Definition application_def:
       | PairP l => (store, ks, Val $ FST $ pair_entry $ EL l store)
       | _ => (store, ks, Exception $ strlit "Can't take car of non-pair"))
     | _ => (store, ks, Exception $ strlit "Arity mismatch"))
-  | Cdr => case xs of
+  | Cdr => (case xs of
     | [v] => (case v of
       | PairP l => (store, ks, Val $ SND $ pair_entry $ EL l store)
       | _ => (store, ks, Exception $ strlit "Can't take cdr of non-pair"))
+    | _ => (store, ks, Exception $ strlit "Arity mismatch"))
+  | IsNull => (case xs of
+    | [v] => (case v of
+      | Null => (store, ks, Val $ SBool T)
+      | _ => (store, ks, Val $ SBool F))
+    | _ => (store, ks, Exception $ strlit "Arity mismatch"))
+  | IsPair => case xs of
+    | [v] => (case v of
+      | PairP _ => (store, ks, Val $ SBool T)
+      | _ => (store, ks, Val $ SBool F))
     | _ => (store, ks, Exception $ strlit "Arity mismatch")) ∧
   application store ks (Proc env ps lp e) xs = (let (store', e') =
     parameterize store env ps lp e xs in (store', ks, e')) ∧

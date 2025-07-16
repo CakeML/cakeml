@@ -496,6 +496,18 @@ Proof
       )
       >> simp[Once valid_state_cases]
     )
+    >~ [`Prim IsNull`] >- (
+      rpt (TOP_CASE_TAC >- simp[Once valid_state_cases])
+      >> TOP_CASE_TAC >>> LASTGOAL (simp[Once valid_state_cases])
+      >> CASE_TAC
+      >> simp[Once valid_state_cases, Once valid_val_cases]
+    )
+    >~ [`Prim IsPair`] >- (
+      rpt (TOP_CASE_TAC >- simp[Once valid_state_cases])
+      >> TOP_CASE_TAC >>> LASTGOAL (simp[Once valid_state_cases])
+      >> CASE_TAC
+      >> simp[Once valid_state_cases, Once valid_val_cases]
+    )
   )
   >~ [`Proc env xs xp e`] >- (
     rpt (pairarg_tac >> gvs[])

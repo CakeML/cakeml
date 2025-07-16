@@ -1,1 +1,1 @@
-((lambda (y . x) (car (cdr x))) 1 2 3)
+((lambda (y . x) (pair? (cdr x))) 1 2 3)

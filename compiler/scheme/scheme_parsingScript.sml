@@ -220,6 +220,8 @@ Definition cons_ast_def:
     if w = "cons" then INR (Lit (LitPrim Cons)) else
     if w = "car" then INR (Lit (LitPrim Car)) else
     if w = "cdr" then INR (Lit (LitPrim Cdr)) else
+    if w = "null?" then INR (Lit (LitPrim IsNull)) else
+    if w = "pair?" then INR (Lit (LitPrim IsPair)) else
       INR (Ident (implode w))) ∧
   cons_ast Nil = INL "Empty S expression" ∧
   cons_ast (Pair x y) = (case pair_to_list y of

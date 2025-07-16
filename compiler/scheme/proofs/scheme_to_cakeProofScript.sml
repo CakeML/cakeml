@@ -166,7 +166,9 @@ val (prim_val_rel_rules,prim_val_rel_ind,prim_val_rel_cases) =
   prim_val_rel CallCC (Conv (SOME (scheme_typestamp "CallCC")) []) ∧
   prim_val_rel Cons (Conv (SOME (scheme_typestamp "Cons")) []) ∧
   prim_val_rel Car (Conv (SOME (scheme_typestamp "Car")) []) ∧
-  prim_val_rel Cdr (Conv (SOME (scheme_typestamp "Cdr")) [])
+  prim_val_rel Cdr (Conv (SOME (scheme_typestamp "Cdr")) []) ∧
+  prim_val_rel IsNull (Conv (SOME (scheme_typestamp "IsNull")) []) ∧
+  prim_val_rel IsPair (Conv (SOME (scheme_typestamp "IsPair")) [])
 ’;
 
 Inductive val_cont_rels:
@@ -873,7 +875,7 @@ Proof
     >> first_assum $ irule_at $ Pos hd
   )
   >~ [`Prim SMinus`] >- (
-    drule $ cj 10 $ iffLR scheme_env_app_def
+    drule $ cj 12 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
     >> qrefine ‘ck+1’
@@ -1211,7 +1213,7 @@ Proof
     >> first_assum $ irule_at $ Pos hd
   )
   >~ [`Throw ks`] >- (
-    drule $ cj 8 $ iffLR scheme_env_app_def
+    drule $ cj 10 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
     >> qrefine ‘ck+1’
@@ -1353,6 +1355,60 @@ Proof
     >> simp[GSYM eval_eq_def]
     >> irule_at (Pos hd) eval_eq_trivial
     >> simp[Once cps_rel_cases]
+    >> first_assum $ irule_at $ Pos hd
+  )
+  >~ [`Prim IsNull`] >- (
+    drule $ cj 8 $ iffLR scheme_env_app_def
+    >> strip_tac
+    >> gvs[application_def]
+    >> qrefine ‘ck+1’
+    >> simp[evaluate_def]
+    >> simp[do_opapp_def, dec_clock_def]
+    >> simp[Once evaluate_def]
+    >> Cases_on `mlvs`
+    >> Cases_on `vs`
+    >> gvs[vcons_list_def] >>> LASTGOAL (
+      rename1 `vcons_list mlvs`
+      >> rename1 `LIST_REL ml_v_vals vs mlvs`
+      >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
+        same_type_def, same_ctor_def, evaluate_match_def,
+        pat_bindings_def, opn_lookup_def]
+      >> Cases_on `mlvs`
+      >> Cases_on `vs`
+      >> gvs[vcons_list_def] >>> HEADGOAL (gvs[Once ml_v_vals_cases])
+    )
+    >> reduce_to_cps 0 [can_pmatch_all_def, vcons_list_def, pmatch_def, nsLookup_def]
+    >> simp[GSYM eval_eq_def]
+    >> irule_at (Pos hd) eval_eq_trivial
+    >> simp[Once cps_rel_cases]
+    >> simp[Once ml_v_vals_cases, bool_val_rel_cases]
+    >> first_assum $ irule_at $ Pos hd
+  )
+  >~ [`Prim IsPair`] >- (
+    drule $ cj 9 $ iffLR scheme_env_app_def
+    >> strip_tac
+    >> gvs[application_def]
+    >> qrefine ‘ck+1’
+    >> simp[evaluate_def]
+    >> simp[do_opapp_def, dec_clock_def]
+    >> simp[Once evaluate_def]
+    >> Cases_on `mlvs`
+    >> Cases_on `vs`
+    >> gvs[vcons_list_def] >>> LASTGOAL (
+      rename1 `vcons_list mlvs`
+      >> rename1 `LIST_REL ml_v_vals vs mlvs`
+      >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
+        same_type_def, same_ctor_def, evaluate_match_def,
+        pat_bindings_def, opn_lookup_def]
+      >> Cases_on `mlvs`
+      >> Cases_on `vs`
+      >> gvs[vcons_list_def] >>> HEADGOAL (gvs[Once ml_v_vals_cases])
+    )
+    >> reduce_to_cps 0 [can_pmatch_all_def, vcons_list_def, pmatch_def, nsLookup_def]
+    >> simp[GSYM eval_eq_def]
+    >> irule_at (Pos hd) eval_eq_trivial
+    >> simp[Once cps_rel_cases]
+    >> simp[Once ml_v_vals_cases, bool_val_rel_cases]
     >> first_assum $ irule_at $ Pos hd
   )
   >> reduce_to_cps 0 []

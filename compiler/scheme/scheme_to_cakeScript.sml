@@ -19,7 +19,9 @@ Definition lit_to_ml_val_def:
   | CallCC => Con (SOME $ Short "CallCC") []
   | Cons => Con (SOME $ Short "Cons") []
   | Car => Con (SOME $ Short "Car") []
-  | Cdr => Con (SOME $ Short "Cdr") []] ∧
+  | Cdr => Con (SOME $ Short "Cdr") []
+  | IsNull => Con (SOME $ Short "IsNull") []
+  | IsPair => Con (SOME $ Short "IsPair") []] ∧
   lit_to_ml_val (LitNum n) = Con (SOME $ Short "SNum") [Lit $ IntLit n] ∧
   lit_to_ml_val (LitBool b) = Con (SOME $ Short "SBool") [Con (SOME $ Short
     if b then "True" else "False") []] ∧
@@ -211,7 +213,9 @@ Definition scheme_basis_types_def:
       ("CallCC", []);
       ("Cons", []);
       ("Car", []);
-      ("Cdr", [])
+      ("Cdr", []);
+      ("IsNull", []);
+      ("IsPair", [])
     ]);
     ([], "sval", [
       ("SNum", [Atapp [] (Short "int")]);
@@ -402,6 +406,42 @@ Definition scheme_basis_def:
           ])
       ];
 
+    Dlet unknown_loc (Pvar "isnull") $ Fun "k" $ Fun "ts" $
+      Mat (Var (Short "ts")) [
+        (Pcon (SOME $ Short "[]") [],
+          Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+        (Pcon (SOME $ Short "::") [Pvar "t"; Pvar "ts'"],
+          Mat (Var (Short "ts'")) [
+            (Pcon (SOME $ Short "[]") [],
+              Let (SOME "t") (Mat (Var (Short "t")) [
+                (Pcon (SOME $ Short "Null") [],
+                  Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]);
+                (Pany,
+                  Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []])
+              ]) $ App Opapp [Var (Short "k"); Var (Short "t")]);
+            (Pany,
+              Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+          ])
+      ];
+
+    Dlet unknown_loc (Pvar "ispair") $ Fun "k" $ Fun "ts" $
+      Mat (Var (Short "ts")) [
+        (Pcon (SOME $ Short "[]") [],
+          Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+        (Pcon (SOME $ Short "::") [Pvar "t"; Pvar "ts'"],
+          Mat (Var (Short "ts'")) [
+            (Pcon (SOME $ Short "[]") [],
+              Let (SOME "t") (Mat (Var (Short "t")) [
+                (Pcon (SOME $ Short "PairP") [Pany],
+                  Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]);
+                (Pany,
+                  Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []])
+              ]) $ App Opapp [Var (Short "k"); Var (Short "t")]);
+            (Pany,
+              Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
+          ])
+      ];
+
     Dlet unknown_loc (Pvar "throw") $ Fun "k" $ Fun "ts" $
       Mat (Var (Short "ts")) [
         (Pcon (SOME $ Short "[]") [],
@@ -468,6 +508,10 @@ Definition scheme_basis_app_def:
         App Opapp [Var (Short "car"); Var (Short "k")]);
       (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "Cdr") []],
         App Opapp [Var (Short "cdr"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "IsNull") []],
+        App Opapp [Var (Short "isnull"); Var (Short "k")]);
+      (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "IsPair") []],
+        App Opapp [Var (Short "ispair"); Var (Short "k")]);
       (Pcon (SOME $ Short "Prim") [Pcon (SOME $ Short "CallCC") []],
         App Opapp [Var (Short "callcc"); Var (Short "k")]);
       (Pcon (SOME $ Short "Proc") [Pvar "e"],
