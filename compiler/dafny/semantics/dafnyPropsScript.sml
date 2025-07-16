@@ -10,7 +10,13 @@ val _ = new_theory "dafnyProps";
 
 (* simps *)
 Theorem with_same_locals[simp]:
-  ∀s. s with locals := s.locals = s
+  s with locals := s.locals = s
+Proof
+  gvs [state_component_equality]
+QED
+
+Theorem with_same_clock[simp]:
+  s with clock := s.clock = s
 Proof
   gvs [state_component_equality]
 QED
