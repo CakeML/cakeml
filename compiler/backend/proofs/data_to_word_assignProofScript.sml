@@ -12293,7 +12293,7 @@ Proof
   \\ fs[]
 QED
 
-Theorem assign_ConsExtend =
+Theorem assign_ConsExtend_expand =
   ``assign c n l dest (BlockOp (ConsExtend tag)) args names_opt``
   |> SIMP_CONV (srw_ss()) [assign_def]
 
@@ -12549,7 +12549,7 @@ Proof
   \\ imp_res_tac MEM_toAList \\ fs []
 QED
 
-Theorem assign_ConsExtend[allow_rebind]:
+Theorem assign_ConsExtend:
   (?tag. op = BlockOp (ConsExtend tag)) ==> ^assign_thm_goal
 Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
@@ -12572,7 +12572,7 @@ Proof
    (Cases_on `args` \\ fs []
     \\ rpt (rename1 `LENGTH args = _` \\ Cases_on `args` \\ fs []) \\ NO_TAC)
   \\ rveq \\ fs []
-  \\ rewrite_tac [assign_ConsExtend] \\ fs []
+  \\ rewrite_tac [assign_ConsExtend_expand] \\ fs []
   \\ CASE_TAC THEN1
      (simp [check_lim_def,space_consumed_def]
       \\ fs [check_lim_def,option_le_max_right,state_rel_def,
@@ -13026,26 +13026,6 @@ Proof
     \\ qpat_x_assum ‘∀n. _ ⇔ IS_SOME (lookup n xx)’ $ mp_tac o GSYM
     \\ rewrite_tac [IS_SOME_lookup,domain_inter]
     \\ strip_tac \\ fs [])
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ match_mp_tac memory_rel_insert \\ fs [flat_def]
-  \\ rfs [THE_DEF]
-  \\ drule memory_rel_tl \\ strip_tac
-  \\ drule (GEN_ALL memory_rel_less_space)
-  \\ disch_then (qspec_then `0` mp_tac) \\ fs []
-  \\ fs [join_env_def,inter_union_distrib]
-  \\ drule_all cut_envs_inter \\ strip_tac \\ simp []
-  \\ qsuff_tac `inter (fromAList q) (adjust_set x) = inter t.locals (adjust_set x)`
-  >- asm_simp_tac std_ss []
-  \\ fs [spt_eq_thm,lookup_inter_alt]
-  \\ rw [] \\ fs []
-  \\ drule env_to_list_lookup_equiv
-  \\ fs [lookup_insert,lookup_fromAList,adjust_var_11]
-  \\ rpt strip_tac \\ fs []
-  \\ fs [wordSemTheory.cut_envs_def,cut_env_def] \\ rveq
-  \\ gvs [wordSemTheory.cut_names_def,AllCaseEqs()]
-  \\ fs [lookup_inter_alt] \\ rw []
-  \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]
-  \\ gvs [adjust_sets_def])
   \\ conj_tac THEN1
    (drule evaluate_stack_max_le >>
     simp[option_le_max,stack_size_eq,AC option_add_comm option_add_assoc])
