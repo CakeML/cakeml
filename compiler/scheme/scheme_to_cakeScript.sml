@@ -219,7 +219,6 @@ Definition scheme_basis_types_def:
       ("Prim", [Atapp [] (Short "sprim")]);
       ("Null", []);
       ("PairP", [Atapp [] (Short "sval")]);
-      ("SList", [Atapp [Atapp [] (Short "sval")] (Short "list")]);
       ("Wrong", [Atapp [] (Short "string")]);
       ("Ex", [Atapp [] (Short "string")]);
       ("Proc", [Atfun

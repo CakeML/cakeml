@@ -151,41 +151,37 @@ Definition cps_app_ts_def:
   cps_app_ts [] = ("t0", [])
 End
 
+val (bool_val_rel_rules,bool_val_rel_ind,bool_val_rel_cases) =
+(fn (x,y,z) => (SRULE [] x,SRULE [] y, SRULE [] z)) $ Hol_reln ‘
+  bool_val_rel T (Conv (SOME (scheme_typestamp "True")) []) ∧
+  bool_val_rel F (Conv (SOME (scheme_typestamp "False")) [])
+’;
+
+val (prim_val_rel_rules,prim_val_rel_ind,prim_val_rel_cases) =
+(fn (x,y,z) => (SRULE [] x,SRULE [] y, SRULE [] z)) $ Hol_reln ‘
+  prim_val_rel SAdd (Conv (SOME (scheme_typestamp "SAdd")) []) ∧
+  prim_val_rel SMul (Conv (SOME (scheme_typestamp "SMul")) []) ∧
+  prim_val_rel SMinus (Conv (SOME (scheme_typestamp "SMinus")) []) ∧
+  prim_val_rel SEqv (Conv (SOME (scheme_typestamp "SEqv")) []) ∧
+  prim_val_rel CallCC (Conv (SOME (scheme_typestamp "CallCC")) []) ∧
+  prim_val_rel Cons (Conv (SOME (scheme_typestamp "Cons")) []) ∧
+  prim_val_rel Car (Conv (SOME (scheme_typestamp "Car")) []) ∧
+  prim_val_rel Cdr (Conv (SOME (scheme_typestamp "Cdr")) [])
+’;
+
 Inductive val_cont_rels:
-[~SBool_T:]
-  ml_v_vals (SBool T) $
-    Conv (SOME (scheme_typestamp "SBool")) [Conv (SOME (scheme_typestamp "True")) []]
-[~SBool_F:]
-  ml_v_vals (SBool F) $
-    Conv (SOME (scheme_typestamp "SBool")) [Conv (SOME (scheme_typestamp "False")) []]
+[~SBool:]
+  bool_val_rel b mlb
+  ==>
+  ml_v_vals (SBool b) $ Conv (SOME (scheme_typestamp "SBool")) [mlb]
 [~SNum:]
   ml_v_vals (SNum i) $
     Conv (SOME (scheme_typestamp "SNum")) [Litv (IntLit i)]
-[~Prim_SAdd:]
-  ml_v_vals (Prim SAdd) $
-    Conv (SOME (scheme_typestamp "Prim")) [Conv (SOME (scheme_typestamp "SAdd")) []]
-[~Prim_SMul:]
-  ml_v_vals (Prim SMul) $
-    Conv (SOME (scheme_typestamp "Prim")) [Conv (SOME (scheme_typestamp "SMul")) []]
-[~Prim_SMinus:]
-  ml_v_vals (Prim SMinus) $
-    Conv (SOME (scheme_typestamp "Prim")) [Conv (SOME (scheme_typestamp "SMinus")) []]
-[~Prim_SEqv:]
-  ml_v_vals (Prim SEqv) $
-    Conv (SOME (scheme_typestamp "Prim")) [Conv (SOME (scheme_typestamp "SEqv")) []]
-[~Prim_CallCC:]
-  ml_v_vals (Prim CallCC) $
-    Conv (SOME (scheme_typestamp "Prim")) [Conv (SOME (scheme_typestamp "CallCC")) []]
-[~Prim_Cons:]
-  ml_v_vals (Prim Cons) $
-    Conv (SOME (scheme_typestamp "Prim")) [Conv (SOME (scheme_typestamp "Cons")) []]
-[~Prim_Car:]
-  ml_v_vals (Prim Car) $
-    Conv (SOME (scheme_typestamp "Prim")) [Conv (SOME (scheme_typestamp "Car")) []]
-[~Prim_Cdr:]
-  ml_v_vals (Prim Cdr) $
-    Conv (SOME (scheme_typestamp "Prim")) [Conv (SOME (scheme_typestamp "Cdr")) []]
-[~Prim_Wrong:]
+[~Prim:]
+  prim_val_rel prim mlprim
+  ==>
+  ml_v_vals (Prim prim) $ Conv (SOME (scheme_typestamp "Prim")) [mlprim]
+[~Wrong:]
   ml_v_vals (Wrong s) $
     Conv (SOME (scheme_typestamp "Wrong")) [Litv (StrLit s)]
 [~Proc:]
@@ -203,15 +199,10 @@ Inductive val_cont_rels:
   ⇒
   ml_v_vals (Throw ks) $
     Conv (SOME (scheme_typestamp "Throw")) [kv]
-[~SList:]
-  LIST_REL ml_v_vals vs mlvs
-  ⇒
-  ml_v_vals (SList vs) $
-    Conv (SOME (scheme_typestamp "SList")) [vcons_list mlvs]
 [~PairP:]
   ml_v_vals (PairP l) $
     Conv (SOME (scheme_typestamp "PairP")) [Loc T l]
-[~Nul:]
+[~Null:]
   ml_v_vals Null $
     Conv (SOME (scheme_typestamp "Null")) []
 
@@ -753,7 +744,7 @@ Proof
   >> drule_all_then assume_tac cons_list_val
   >> drule $ cj 2 $ iffLR scheme_env_def
   >> strip_tac
-  >> gvs[Once ml_v_vals_cases]
+  >> gvs[Once ml_v_vals_cases, prim_val_rel_cases]
   >> qrefine ‘ck+3’
   >> simp[Ntimes evaluate_def 10, do_opapp_def, dec_clock_def,
        Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
@@ -1012,31 +1003,26 @@ Proof
               do_eq_def, Boolv_def, bool_type_num_def, ctor_same_type_def, lit_same_type_def]
             >> simp[GSYM eval_eq_def]
             >> irule_at (Pos hd) eval_eq_trivial
-            >> simp[Once cps_rel_cases, Once ml_v_vals_cases]
+            >> simp[Once cps_rel_cases, Once ml_v_vals_cases, bool_val_rel_cases]
             >> IF_CASES_TAC
             >> simp[]
           )
-          >~ [`SBool T`] >- (
+          >~ [`bool_val_rel b _`] >- (
             gvs[Once ml_v_vals_cases]
+            >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
+              do_eq_def, Boolv_def, bool_type_num_def, ctor_same_type_def]
+            >> gvs[bool_val_rel_cases]
             >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
               do_eq_def, Boolv_def, bool_type_num_def, ctor_same_type_def]
             >> simp[GSYM eval_eq_def]
             >> irule_at (Pos hd) eval_eq_trivial
-            >> simp[Once cps_rel_cases, Once ml_v_vals_cases]
-          )
-          >~ [`SBool F`] >- (
-            gvs[Once ml_v_vals_cases]
-            >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
-              do_eq_def, Boolv_def, bool_type_num_def, ctor_same_type_def]
-            >> simp[GSYM eval_eq_def]
-            >> irule_at (Pos hd) eval_eq_trivial
-            >> simp[Once cps_rel_cases, Once ml_v_vals_cases]
+            >> simp[Once cps_rel_cases, Once ml_v_vals_cases, bool_val_rel_cases]
           )
           >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
             do_eq_def, Boolv_def, bool_type_num_def, ctor_same_type_def]
           >> simp[GSYM eval_eq_def]
           >> irule_at (Pos hd) eval_eq_trivial
-          >> simp[Once cps_rel_cases, Once ml_v_vals_cases]
+          >> simp[Once cps_rel_cases, Once ml_v_vals_cases, bool_val_rel_cases]
           (*At some point I will need to find a way to evaluate a match
           expression without expanding all val cases, based on non-equality,
           because these rewrites take far too long*)
@@ -1529,7 +1515,8 @@ Proof
     >> irule_at (Pos hd) eval_eq_trivial
     >> TRY $ qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
     >> simp[Once cps_rel_cases]
-    >> simp[Once ml_v_vals_cases, Once cont_rel_cases]
+    >> simp[Once ml_v_vals_cases, Once cont_rel_cases,
+      bool_val_rel_cases, prim_val_rel_cases]
     >> rpt scheme_env_tac
   )
   >~ [‘Val v’] >- (
@@ -1547,7 +1534,7 @@ Proof
       gvs[]
       >> simp[step_def, return_def]
       >> simp[Once cps_rel_cases, Once cont_rel_cases]
-      >> simp[Once ml_v_vals_cases]
+      >> simp[Once ml_v_vals_cases, bool_val_rel_cases]
       >> rpt strip_tac
       >> gvs[]
       >> simp[Once evaluate_def]

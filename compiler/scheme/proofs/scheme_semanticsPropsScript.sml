@@ -76,10 +76,6 @@ Inductive valid_val_cont:
   valid_val store (Prim p)
 [~Wrong:]
   valid_val store (Wrong w)
-[~SList:]
-  EVERY (valid_val store) vs
-  ⇒
-  valid_val store (SList vs)
 [~Proc_NONE:]
   static_scope (FDOM env ∪ set xs) e ∧
   can_lookup env store
