@@ -12,7 +12,7 @@ else
 	EVALFLAG = -DEVAL
 endif
 
-CAKEOPT = --sexp=true
+CAKEOPT = --sexp=true --call=false --skip_type_inference=true
 
 ifeq ($(OS),Darwin)
 	# These options avoid linker warnings on macOS
