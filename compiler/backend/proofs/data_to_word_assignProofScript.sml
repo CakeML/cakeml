@@ -13,6 +13,8 @@ local open bvi_to_dataTheory in end
 
 val _ = new_theory "data_to_word_assignProof";
 
+val _ = (max_print_depth := 1);
+
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = temp_delsimps ["DIV_NUMERAL_THM"]
@@ -2929,14 +2931,6 @@ Proof
    )
 QED
 
-Theorem lookup_0_adjust_sets:
-  lookup 0 t.locals = SOME (Loc l1 l2) ∧
-  cut_envs (adjust_sets kept_names) t.locals = SOME (y1,y2) ⇒
-  lookup 0 (union (fromAList q) (fromAList (toAList y1))) = SOME (Loc l1 l2)
-Proof
-  cheat
-QED
-
 Theorem IS_SOME_lookup:
   IS_SOME (lookup n l) ⇔ n ∈ domain l
 Proof
@@ -2944,13 +2938,19 @@ Proof
 QED
 
 Theorem IN_adjust_var_lemma:
-  (∀n. n ∈ domain x ⇒ adjust_var n ∈ domain t_locals) ∧
   cut_env kept_names s_locals = SOME x ∧
   cut_envs (adjust_sets kept_names) t_locals = SOME (y1,y2) ∧
   n ∈ domain x ⇒
   adjust_var n ∈ domain y2
 Proof
-  cheat
+  rw []
+  \\ gvs [wordSemTheory.cut_envs_def,AllCaseEqs(),adjust_sets_def,
+          wordSemTheory.cut_names_def,lookup_inter_alt,
+          dataSemTheory.cut_env_def]
+  \\ gvs [domain_union,domain_inter,adjust_var_IN_adjust_set]
+  \\ gvs [SUBSET_DEF]
+  \\ first_x_assum irule
+  \\ simp [adjust_var_IN_adjust_set]
 QED
 
 Theorem cut_env_envs_lookup_lookup:
@@ -2960,35 +2960,23 @@ Theorem cut_env_envs_lookup_lookup:
   ∃v. lookup k t_locals = SOME v ∧
       lookup k y2 = SOME v
 Proof
-  cheat
+  rw []
+  \\ gvs [wordSemTheory.cut_envs_def,AllCaseEqs(),adjust_sets_def,
+          wordSemTheory.cut_names_def,lookup_inter_alt,
+          dataSemTheory.cut_env_def]
+  \\ simp [SF CONJ_ss]
+  \\ gvs [IN_domain_adjust_set_inter]
+  \\ gvs [SUBSET_DEF]
+  \\ simp [GSYM domain_lookup]
+QED
 
-(*
-
-
-      \\ cheat
-       (*
-      \\ fs [wordSemTheory.cut_env_def] \\ rveq
-      \\ qpat_x_assum `!x._` imp_res_tac
-      \\ fs [cut_state_def,cut_env_def] \\ rveq
-      \\ Cases_on `domain x'' ⊆ domain s.locals` \\ fs [] \\ rveq \\ fs []
-      \\ fs [join_env_def]
-      \\ match_mp_tac (METIS_PROVE [] ``f x = g x /\ x = y ==> f x = g y``)
-      \\ conj_tac THEN1
-       (fs [MAP_EQ_f,FORALL_PROD,MEM_FILTER,MEM_toAList,lookup_inter_alt]
-        \\ rpt strip_tac \\ rw [] \\ sg `F` \\ fs []
-        \\ pop_assum mp_tac \\ fs [Abbr `nms`,domain_list_insert])
-      \\ AP_TERM_TAC \\ AP_TERM_TAC
-      \\ fs [spt_eq_thm,lookup_inter_alt]
-      \\ rw [] \\ fs []
-      \\ drule0 env_to_list_lookup_equiv
-      \\ fs [lookup_insert,lookup_fromAList,adjust_var_11]
-      \\ rpt strip_tac \\ fs []
-      \\ fs [lookup_inter_alt] \\ rw []
-      \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
-      \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter] *)
-
-*)
-
+Theorem env_to_list_domain:
+  env_to_list y2 p = (l,permute) ⇒
+  domain (fromAList l) = domain y2
+Proof
+  rw [] \\ drule wordPropsTheory.env_to_list_lookup_equiv
+  \\ gvs [EXTENSION]
+  \\ simp [domain_lookup,lookup_fromAList]
 QED
 
 Theorem assign_CopyByte:
@@ -3095,7 +3083,6 @@ Proof
   \\ pop_assum kall_tac \\ clean_tac
   \\ once_rewrite_tac [list_Seq_def]
   \\ Cases_on `src = dst` (* alias case *) \\ rveq
-
   THEN1
    (`wa2 = wa1` by
      (drule0 memory_rel_swap \\ strip_tac
@@ -3147,7 +3134,8 @@ Proof
       \\ fs [state_rel_thm,lookup_insert,lookup_fromAList,adjust_var_11]
       \\ drule0 env_to_list_lookup_equiv \\ fs [] \\ strip_tac
       \\ conj_tac THEN1
-       (drule_all lookup_0_adjust_sets \\ simp_tac std_ss [])
+       (drule_all cut_envs_lookup_0
+        \\ simp [lookup_union,lookup_fromAList,ALOOKUP_toAList])
       \\ conj_tac THEN1
        (gen_tac \\ IF_CASES_TAC \\ asm_simp_tac std_ss []
         \\ full_simp_tac std_ss [IS_SOME_lookup,domain_union] \\ strip_tac
@@ -3201,7 +3189,8 @@ Proof
       \\ fs [state_rel_thm,lookup_insert,lookup_fromAList,adjust_var_11]
       \\ drule0 env_to_list_lookup_equiv \\ fs [] \\ strip_tac
       \\ conj_tac THEN1
-       (drule_all lookup_0_adjust_sets \\ simp_tac std_ss [])
+       (drule_all cut_envs_lookup_0
+        \\ simp [lookup_union,lookup_fromAList,ALOOKUP_toAList])
       \\ conj_tac THEN1
        (gen_tac \\ IF_CASES_TAC \\ asm_simp_tac std_ss []
         \\ full_simp_tac std_ss [IS_SOME_lookup,domain_union] \\ strip_tac
@@ -3226,6 +3215,8 @@ Proof
       \\ simp [lookup_inter_alt,lookup_union,lookup_fromAList,ALOOKUP_toAList]
       \\ rw [] \\ drule_all cut_env_envs_lookup_lookup
       \\ rw [] \\ asm_simp_tac std_ss []))
+  \\ cheat (* CopyByte *)
+(*
 
   THEN1
    (`memory_rel c t.be (THE s1.tstamps) s1.refs s1.space t.store t.memory t.mdomain
@@ -3397,8 +3388,7 @@ Proof
       \\ fs [lookup_inter_alt] \\ rw []
       \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]))
-
-\\ cheat (* CopyByte *)
+ *)
 QED
 
 Triviality evaluate_AppendMainLoop_code:
@@ -4002,15 +3992,6 @@ Proof
   \\ rw [] \\ gvs [wordSemTheory.cut_envs_def,AllCaseEqs(),wordSemTheory.cut_names_def]
   \\ gvs [adjust_sets_def,lookup_inter_alt]
   \\ rw [] \\ gvs [NOT_0_domain]
-QED
-
-Theorem env_to_list_domain:
-  env_to_list y2 p = (l,permute) ⇒
-  domain (fromAList l) = domain y2
-Proof
-  rw [] \\ drule wordPropsTheory.env_to_list_lookup_equiv
-  \\ gvs [EXTENSION]
-  \\ simp [domain_lookup,lookup_fromAList]
 QED
 
 Theorem assign_ListAppend:
