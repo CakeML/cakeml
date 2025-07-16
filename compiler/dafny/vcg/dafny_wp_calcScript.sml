@@ -9,11 +9,6 @@ Libs
   preamble
 
 
-(*
-  TODO:
-   - prove cheats in stmt_wp_sound
-*)
-
 Datatype:
   met_spec = <| ins       : (mlstring # type) list
               ; reqs      : exp list
@@ -35,16 +30,24 @@ Overload "dfy_eq" = “BinOp Eq”
 
 Overload "not" = “UnOp Not”
 
+(* TODO Move to dafny_eval_rel *)
 Definition CanEval_def: (* beautiful or not.. *)
   CanEval e = dfy_eq e e
 End
 
+(* TODO Move to dafny_eval_rel *)
+Definition IsBool_def:
+  IsBool e = CanEval $ dfy_eq e True
+End
+
+(* TODO Make this a simp *)
 Triviality value_same_type_same_value:
   value_same_type v v
 Proof
   Cases_on ‘v’ \\ gvs [value_same_type_def]
 QED
 
+(* TODO Move to dafny_eval_rel *)
 Theorem eval_true_CanEval:
   eval_true st env (CanEval e) ⇒ ∃v. eval_exp st env e v
 Proof
@@ -57,6 +60,7 @@ Proof
   \\ last_assum $ irule_at Any
 QED
 
+(* TODO Move to dafny_eval_rel *)
 Theorem EVERY_eval_true_CanEval:
   EVERY (eval_true st env) (MAP CanEval args) ⇒
   ∃in_vs. LIST_REL (eval_exp st env) args in_vs
@@ -108,7 +112,8 @@ Inductive stmt_wp:
     stmt_wp m pre1 s1 post ens decs ∧
     stmt_wp m pre2 s2 post ens decs
     ⇒
-    stmt_wp m [imp g (conj pre1); imp (not g) (conj pre2)] (If g s1 s2) post ens decs
+    stmt_wp m [IsBool g; imp g (conj pre1); imp (not g) (conj pre2)]
+      (If g s1 s2) post ens decs
 [~Assign:]
   ∀m ret_names exps l post ens.
     LIST_REL (λr n. r = VarLhs n) (MAP FST l) ret_names ∧
@@ -326,6 +331,102 @@ Proof
 QED
 
 (* TODO Move to dafny_eval_rel *)
+Triviality eval_stmt_If_thn:
+  eval_true st env grd ∧
+  eval_stmt st env thn st₁ ret ∧
+  ret ≠ Rstop (Serr Rtimeout_error)
+  ⇒
+  eval_stmt st env (If grd thn els) st₁ ret
+Proof
+  gvs [eval_stmt_def, eval_true_def, eval_exp_def, PULL_EXISTS]
+  \\ qx_genl_tac [‘ck₁’, ‘ck₂’, ‘ck₃’, ‘ck₄’]
+  \\ strip_tac
+  \\ simp [evaluate_stmt_def]
+  \\ dxrule (cj 1 evaluate_exp_add_to_clock) \\ gvs []
+  \\ disch_then $ qspec_then ‘ck₃’ assume_tac
+  \\ dxrule evaluate_stmt_add_to_clock \\ gvs []
+  \\ disch_then $ qspec_then ‘ck₂’ assume_tac
+  \\ qexists ‘ck₁ + ck₃’ \\ gvs []
+  \\ simp [do_cond_def, state_component_equality]
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_exp_not_not:
+  eval_exp st env (not (not x)) (BoolV b) ⇒ eval_exp st env x (BoolV b)
+Proof
+  strip_tac
+  \\ gvs [eval_exp_def, evaluate_exp_def, do_uop_def, AllCaseEqs()]
+  \\ last_x_assum $ irule_at (Pos hd)
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_exp_bool_not:
+  eval_exp st env a (BoolV b) ⇒ eval_exp st env (not a) (BoolV ¬b)
+Proof
+  strip_tac
+  \\ gvs [eval_exp_def, evaluate_exp_def, do_uop_def, PULL_EXISTS, AllCaseEqs()]
+  \\ last_x_assum $ irule_at (Pos hd)
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_stmt_If_els:
+  eval_true st env (not grd) ∧
+  eval_stmt st env els st₁ ret ∧
+  ret ≠ Rstop (Serr Rtimeout_error)
+  ⇒
+  eval_stmt st env (If grd thn els) st₁ ret
+Proof
+  gvs [eval_stmt_def, eval_true_def]
+  \\ strip_tac
+  \\ dxrule_then assume_tac eval_exp_bool_not
+  \\ dxrule_then assume_tac eval_exp_not_not \\ gvs []
+  \\ gvs [eval_exp_def]
+  \\ rename
+       [‘evaluate_exp (_ with clock := ck₁) _ _ = (_ with clock := ck₂, _)’,
+        ‘evaluate_stmt (_ with clock := ck₃) _ _ = (_ with clock := ck₄, _)’]
+  \\ simp [evaluate_stmt_def]
+  \\ dxrule (cj 1 evaluate_exp_add_to_clock) \\ gvs []
+  \\ disch_then $ qspec_then ‘ck₃’ assume_tac
+  \\ dxrule evaluate_stmt_add_to_clock \\ gvs []
+  \\ disch_then $ qspec_then ‘ck₂’ assume_tac
+  \\ qexists ‘ck₁ + ck₃’ \\ gvs []
+  \\ simp [do_cond_def, state_component_equality]
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Definition eval_rhs_exp_def:
+  eval_rhs_exp st env e st' v ⇔
+    ∃ck1 ck2.
+      evaluate_rhs_exp (st with clock := ck1) env e =
+        (st' with clock := ck2, Rval v)
+End
+
+(* TODO Move to dafny_eval_rel *)
+Definition eval_rhs_exps_def:
+  eval_rhs_exps st env es st' vs ⇔
+    ∃ck1 ck2.
+      evaluate_rhs_exps (st with clock := ck1) env es =
+        (st' with clock := ck2, Rval vs)
+End
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_stmt_Assign:
+  eval_rhs_exps st env (MAP SND ass) st₁ vs ∧
+  assign_values st₁ env (MAP FST ass) vs = (st', Rcont)
+  ⇒
+  eval_stmt st env (Assign ass) st' Rcont
+Proof
+  strip_tac
+  \\ simp [eval_stmt_def, evaluate_stmt_def]
+  \\ fs [eval_rhs_exps_def, PULL_EXISTS, AllCaseEqs()]
+  \\ dxrule evaluate_rhs_exps_add_to_clock \\ simp []
+  \\ disch_then $ qspec_then ‘st₁.clock’ assume_tac
+  \\ last_x_assum $ irule_at (Pos hd)
+  \\ dxrule assign_values_add_to_clock \\ simp []
+  \\ simp [state_component_equality]
+QED
+
+(* TODO Move to dafny_eval_rel *)
 Theorem eval_stmt_MetCall:
   get_member mname env.prog =
     SOME (Method name ins reqs ens rds decrs outs mods body) ∧
@@ -365,6 +466,340 @@ Triviality conditions_hold_cons:
   eval_true st env e ∧ conditions_hold st env es
 Proof
   gvs [conditions_hold_def]
+QED
+
+(* TODO Move to dafny_evaluateProps *)
+Triviality assign_value_Rcont_old:
+  assign_value st env lhs v = (st', Rcont) ⇒
+  st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+Proof
+  disch_tac
+  \\ Cases_on ‘lhs’
+  \\ gvs [assign_value_def, update_local_def, update_array_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+QED
+
+(* TODO Move to dafny_evaluateProps *)
+Triviality assign_values_Rcont_old:
+  ∀lhss vs st env st'.
+    assign_values st env lhss vs = (st', Rcont) ⇒
+    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+Proof
+  Induct \\ namedCases_on ‘vs’ ["", "v vs₁"]
+  \\ simp [assign_values_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac assign_value_Rcont_old
+  \\ res_tac \\ gvs []
+QED
+
+(* TODO Move to dafny_evaluateProps *)
+Triviality evaluate_rhs_exp_Rval_old:
+  evaluate_rhs_exp st env rhs = (st', Rval v) ⇒
+  st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+Proof
+  disch_tac
+  \\ Cases_on ‘rhs’
+  \\ gvs [evaluate_rhs_exp_def, alloc_array_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+QED
+
+(* TODO Move to dafny_evaluateProps *)
+Triviality evaluate_rhs_exps_Rval_old:
+  ∀rhss st st' env vs.
+    evaluate_rhs_exps st env rhss = (st', Rval vs) ⇒
+    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+Proof
+  Induct \\ gvs [evaluate_rhs_exps_def]
+  \\ rpt gen_tac \\ disch_tac
+  \\ gvs [AllCaseEqs()]
+  \\ res_tac \\ imp_res_tac evaluate_rhs_exp_Rval_old \\ gvs []
+QED
+
+(* TODO Move to dafny_evaluateProps *)
+Triviality evaluate_stmt_Rcont_old:
+  ∀st env stmt st'.
+    evaluate_stmt st env stmt = (st', Rcont) ⇒
+    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_tac)
+  >~ [‘Skip’] >-
+   (gvs [evaluate_stmt_def])
+  >~ [‘Assert e’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [])
+  >~ [‘Then stmt₁ stmt₂’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ res_tac \\ gvs [])
+  >~ [‘If grd thn els’] >-
+   (strip_tac
+    \\ gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ gvs [oneline do_cond_def, AllCaseEqs()]
+    \\ res_tac \\ gvs [])
+  >~ [‘Dec local scope’] >-
+   (gvs [evaluate_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [pop_locals_def, safe_drop_def, declare_local_def, AllCaseEqs()]
+    \\ last_x_assum drule \\ gvs [])
+  >~ [‘Assign ass’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_rhs_exps_Rval_old
+    \\ imp_res_tac assign_values_Rcont_old \\ gvs [])
+  >~ [‘While grd invs decrs mods body’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [dec_clock_def])
+  >~ [‘Print e t’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock
+    \\ gvs [print_string_def, AllCaseEqs()])
+  >~ [‘MetCall lhss name args’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ imp_res_tac assign_values_Rcont_old \\ gvs []
+    \\ gvs [restore_caller_def])
+  >~ [‘Return’] >-
+   (gvs [evaluate_stmt_def])
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_stmt_Rcont_old:
+  eval_stmt st env stmt st' Rcont ⇒
+  st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+Proof
+  simp [eval_stmt_def] \\ strip_tac
+  \\ imp_res_tac evaluate_stmt_Rcont_old \\ gvs []
+QED
+
+(* TODO Move to dafny_evaluateProps *)
+Triviality evaluate_exp_Rval_eq:
+  (∀st env e st' v st₁.
+     evaluate_exp st env e = (st', Rval v) ∧
+     st₁.locals = st.locals ∧ st₁.heap = st.heap ∧
+     st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ⇒
+     ∃st₁'. evaluate_exp st₁ env e = (st₁', Rval v)) ∧
+  (∀st env es st' vs st₁.
+     evaluate_exps st env es = (st', Rval vs) ∧
+     st₁.locals = st.locals ∧ st₁.heap = st.heap ∧
+     st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ⇒
+     ∃st₁'. evaluate_exps st₁ env es = (st₁', Rval vs))
+Proof
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Lit l’] >-
+   (gvs [evaluate_exp_def])
+  >~ [‘Var name’] >-
+   (gvs [evaluate_exp_def, AllCaseEqs()])
+  >~ [‘If grd thn els’] >-
+   (gvs [evaluate_exp_def]
+    (* st -> st₂ -> st₄, since st₁ is already used (I know, I know.) *)
+    \\ namedCases_on ‘evaluate_exp st env grd’ ["st₂ r₂"] \\ gvs []
+    \\ Cases_on ‘r₂’ \\ gvs []
+    \\ first_x_assum drule_all
+    \\ strip_tac \\ gvs []
+    \\ CASE_TAC \\ gvs []
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [])
+  >~ [‘UnOp uop e’] >-
+   (gvs [evaluate_exp_def, PULL_EXISTS, AllCaseEqs()]
+    \\ last_x_assum drule \\ simp []
+    \\ strip_tac
+    \\ first_assum $ irule_at (Pos hd) \\ simp [])
+  >~ [‘BinOp bop e₀ e₁’] >-
+   (gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp st env e₀’ ["st₂ r₂"] \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
+    \\ namedCases_on ‘r₂’ ["v₀", "err"] \\ gvs []
+    \\ first_x_assum drule_all
+    \\ strip_tac \\ gvs []
+    \\ Cases_on ‘do_sc bop v₀’ \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck₁’ assume_tac \\ gvs []
+    \\ namedCases_on ‘evaluate_exp (st with clock := ck) env e₁’ ["st₄ r₄"]
+    \\ gvs []
+    \\ Cases_on ‘r₄’ \\ gvs []
+    \\ last_x_assum $ qspec_then ‘st₁ with clock := ck₁’ mp_tac \\ simp []
+    \\ strip_tac \\ simp []
+    \\ CASE_TAC \\ gvs [])
+  >~ [‘ArrLen arr’] >-
+   (gvs [evaluate_exp_def, PULL_EXISTS, AllCaseEqs()]
+    \\ last_x_assum drule \\ simp []
+    \\ strip_tac
+    \\ first_assum $ irule_at (Pos hd) \\ simp [])
+  >~ [‘ArrSel arr idx’] >-
+   (gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp st env arr’ ["st₂ r₂"]\\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
+    \\ namedCases_on ‘r₂’ ["v₀", "err"] \\ gvs []
+    \\ first_x_assum drule_all
+    \\ strip_tac \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck₁’ assume_tac \\ gvs []
+    \\ namedCases_on ‘evaluate_exp (st with clock := ck) env idx’ ["st₄ r₄"]
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck₂’ assume_tac \\ gvs []
+    \\ gvs []
+    \\ Cases_on ‘r₄’ \\ gvs []
+    \\ last_x_assum $ qspec_then ‘st₁ with clock := ck₁’ mp_tac \\ simp []
+    \\ strip_tac \\ simp []
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ rpt strip_tac \\ gvs []
+    \\ gvs [index_array_def, AllCaseEqs()])
+  >~ [‘FunCall name args’] >-
+
+   (gvs [evaluate_exp_def]
+    \\ namedCases_on ‘get_member name env.prog’ ["", "mem₁"] \\ gvs []
+    \\ Cases_on ‘mem₁’ \\ gvs []
+    \\ rename [‘get_member _ _ = SOME (Function _ _ _ _ _ _ body)’]
+    \\ namedCases_on ‘evaluate_exps st env args’ ["st₂ r₂"] \\ gvs []
+    \\ drule (cj 2 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
+
+    \\ namedCases_on ‘r₂’ ["in_vs", "err"] \\ gvs []
+    \\ first_x_assum drule_all
+    \\ strip_tac \\ gvs []
+    \\ drule (cj 2 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck₁’ assume_tac \\ gvs []
+    (* TODO Is the statement even true? I feel like we need to assume that
+       evaluate_exp st₁ env e = Rval, or at least does not timeout *)
+    \\ gvs [set_up_call_def, AllCaseEqs()]
+
+   )
+
+  \\ cheat
+QED
+
+(* TODO Move to dafny_evaluateProps *)
+Triviality evaluate_exp_old_Rval_eq:
+  evaluate_exp st₁ env (Old e) = (st₁', Rval v) ∧
+  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ⇒
+  ∃st'. evaluate_exp st env (Old e) = (st', Rval v)
+Proof
+  rpt strip_tac
+  \\ gvs [evaluate_exp_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+  \\ drule (cj 1 evaluate_exp_Rval_eq)  \\ gvs [use_old_def]
+QED
+
+(* TODO Move to dafny_eval_rel - Keep as triviality *)
+Triviality eval_exp_old_eq:
+  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
+  eval_exp st₁ env (Old e) v ⇒
+  eval_exp st env (Old e) v
+Proof
+  strip_tac
+  \\ gvs [eval_exp_def]
+  \\ drule evaluate_exp_old_Rval_eq \\ gvs []
+  \\ disch_then $ qspec_then ‘st’ mp_tac \\ simp []
+  \\ rpt strip_tac
+  \\ qexists ‘st.clock’ \\ gvs []
+  \\ imp_res_tac evaluate_exp_with_clock
+  \\ gvs [state_component_equality]
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Theorem eval_exp_old_eq:
+  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ⇒
+  eval_exp st₁ env (Old e) v =
+  eval_exp st env (Old e) v
+Proof
+  metis_tac [eval_exp_old_eq]
+QED
+
+Triviality eval_decreases_old_eq:
+  ∀es st st₁ env.
+    st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ⇒
+    eval_decreases st₁ env (MAP Old es) =
+    eval_decreases st env (MAP Old es)
+Proof
+  Induct
+  >- (simp [eval_decreases_def])
+  \\ rpt gen_tac \\ strip_tac
+  \\ last_x_assum drule_all
+  \\ disch_then $ qspec_then ‘env’ assume_tac
+  \\ simp [eval_decreases_def]
+  \\ simp [evaluate_exp_total_def]
+  \\ drule_all eval_exp_old_eq \\ gvs []
+QED
+
+Triviality Rcont_eval_measure:
+  eval_stmt st env stmt st₁ Rcont ⇒
+  eval_measure st₁ env (wrap_old decs) =
+  eval_measure st env (wrap_old decs)
+Proof
+  strip_tac
+  \\ imp_res_tac eval_stmt_Rcont_old
+  \\ namedCases_on ‘decs’ ["rank es"]
+  \\ simp [wrap_old_def, eval_measure_def]
+  \\ DEP_REWRITE_TAC [eval_decreases_old_eq]
+  \\ simp []
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_true_isbool:
+  eval_true st env (IsBool a) ⇒ ∃b. eval_exp st env a (BoolV b)
+Proof
+  strip_tac
+  \\ gvs [eval_true_def, eval_exp_def, IsBool_def, CanEval_def,
+          evaluate_exp_def, do_sc_def, do_bop_def, value_same_type_def,
+          AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+  \\ rename [‘_ ⇔ v₀ = _’]
+  \\ Cases_on ‘v₀’ \\ gvs []
+  \\ last_x_assum $ irule_at (Pos hd)
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_true_isbool_cases:
+  eval_true st env (IsBool a) ⇒
+  eval_true st env a ∨ eval_true st env (not a)
+Proof
+  strip_tac
+  \\ drule eval_true_isbool
+  \\ disch_then $ qx_choose_then ‘b’ assume_tac
+  \\ Cases_on ‘b’
+  \\ gvs [eval_true_def]
+  \\ drule eval_exp_bool_not \\ simp []
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_true_imp:
+  eval_true st env (imp a b) ⇒
+  (eval_true st env a ⇒ eval_true st env b)
+Proof
+  simp [eval_true_def, eval_exp_def, PULL_EXISTS, PULL_FORALL]
+  \\ qx_genl_tac [‘ck₁’, ‘ck₂’, ‘ck₃’, ‘ck₄’]
+  \\ rpt strip_tac
+  \\ rev_dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck₃’ assume_tac
+  \\ rev_dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck₁’ assume_tac
+  \\ gvs [evaluate_exp_def]
+  \\ gvs [do_sc_def, do_bop_def, AllCaseEqs()]
+  \\ last_x_assum $ irule_at (Pos hd)
+QED
+
+Triviality conditions_hold_imp_case_split:
+  conditions_hold st env [IsBool a; imp a b; imp (not a) c] ⇒
+  conditions_hold st env [a] ∧ conditions_hold st env [b] ∨
+  conditions_hold st env [not a] ∧ conditions_hold st env [c]
+Proof
+  strip_tac
+  \\ gvs [conditions_hold_def]
+  \\ imp_res_tac eval_true_imp
+  \\ imp_res_tac eval_true_isbool_cases
+  \\ gvs []
+QED
+
+Theorem conditions_hold_sing_conj[simp]:
+  conditions_hold st env [conj xs] =
+  conditions_hold st env xs
+Proof
+  Induct_on ‘xs’ \\ gvs [conditions_hold_def]
+  \\ qx_gen_tac ‘x’
+  \\ rewrite_tac [eval_true_cons] \\ simp []
 QED
 
 Theorem stmt_wp_sound:
@@ -407,6 +842,43 @@ Proof
       (* First statement has returned *)
       \\ irule_at (Pos hd) eval_stmt_Then_ret
       \\ first_assum $ irule_at (Pos hd) \\ simp [])
+    \\ last_x_assum $ drule_at (Pos last)
+    \\ disch_then $ drule_at (Pos last)
+    \\ imp_res_tac Rcont_eval_measure \\ gvs []
+    \\ impl_tac >- (gvs [])
+    \\ disch_then $ qx_choosel_then [‘st₂’, ‘ret₂’] mp_tac
+    \\ strip_tac
+    \\ reverse $ namedCases_on ‘ret₂’ ["", "stp"] \\ gvs []
+    >-
+     (Cases_on ‘stp’ \\ gvs []
+      (* Second statement has returned *)
+      \\ irule_at (Pos hd) eval_stmt_Then_cont_ret
+      \\ first_assum $ irule_at (Pos hd) \\ simp []
+      \\ first_assum $ irule_at (Pos hd) \\ simp [])
+    (* Both statements continued *)
+    \\ irule_at (Pos hd) eval_stmt_Then_cont
+    \\ first_assum $ irule_at (Pos hd) \\ simp []
+    \\ first_assum $ irule_at (Pos hd) \\ simp [])
+  >~ [‘If grd thn els’] >-
+   (dxrule conditions_hold_imp_case_split \\ strip_tac \\ gvs []
+    >- (* Execute thn branch *)
+     (last_x_assum $ drule_at (Pos $ el 2) \\ simp []
+      \\ impl_tac >- (gvs [])
+      \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
+      \\ strip_tac
+      \\ irule_at (Pos hd) eval_stmt_If_thn
+      \\ gvs [conditions_hold_def]
+      \\ first_assum $ irule_at (Pos hd) \\ simp [])
+    (* Execute els branch *)
+    \\ last_x_assum $ drule_at (Pos $ el 2) \\ simp []
+    \\ impl_tac >- (gvs [])
+    \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
+    \\ strip_tac
+    \\ irule_at (Pos hd) eval_stmt_If_els
+    \\ gvs [conditions_hold_def]
+    \\ first_assum $ irule_at (Pos hd) \\ simp [])
+  >~ [‘Assign ass’] >-
+   (irule_at (Pos hd) eval_stmt_Assign
     \\ cheat)
   >~ [‘MetCall rets mname args’] >-
    (irule_at Any eval_stmt_MetCall \\ gvs []
