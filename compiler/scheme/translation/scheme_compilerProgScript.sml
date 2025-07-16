@@ -50,6 +50,7 @@ val r = translate cps_transform_def;
 val r = translate compile_scheme_prog_def;
 val r = translate scheme_basis_types_def;
 val r = translate scheme_basis_def;
+val r = translate scheme_basis_list_def;
 val r = translate scheme_basis_app_def;
 val r = translate codegen_def;
 

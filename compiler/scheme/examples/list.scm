@@ -1,1 +1,1 @@
-(car (cdr (cdr (cons 10 (cons 20 (cons 30 0)))))
+((lambda (y . x) (car (cdr x))) 1 2 3)

@@ -40,7 +40,7 @@ Definition proc_ml_def:
     ] ∧
   proc_ml [] (SOME x) k ce = Let (SOME $ "var" ++ explode x)
       (App Opref [Con (SOME $ Short "Some") [
-        Con (SOME $ Short "SList") [Var (Short "ts")]]])
+        App Opapp [Var (Short "allocate_list"); Var (Short "ts")]]])
       (App Opapp [ce; Var (Short k)]) ∧
   proc_ml (x::xs) xp k ce = (let
     inner = proc_ml xs xp k ce
@@ -418,6 +418,22 @@ Definition scheme_basis_def:
   ]
 End
 
+Definition scheme_basis_list_def:
+  scheme_basis_list = Dletrec unknown_loc [
+    ("allocate_list", "ts", Mat (Var (Short "ts")) [
+      (Pcon (SOME $ Short "[]") [],
+        Con (SOME $ Short "Null") []);
+      (Pcon (SOME $ Short "::") [Pvar "t"; Pvar "ts'"],
+        Con (SOME $ Short "PairP") [
+          App AallocFixed [
+            Var (Short "t");
+            App Opapp [Var (Short "allocate_list"); Var (Short "ts'")]
+          ]
+        ])
+    ])
+  ]
+End
+
 Definition scheme_basis_app_def:
   scheme_basis_app = Dletrec unknown_loc [
     ("callcc", "k", Fun "ts" $ Mat (Var (Short "ts")) [
@@ -465,7 +481,7 @@ Definition scheme_basis_app_def:
 End
 
 Definition codegen_def:
-  codegen p = INR $ [scheme_basis_types] ++ scheme_basis ++ [scheme_basis_app] ++ [
+  codegen p = INR $ [scheme_basis_types] ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app] ++ [
     Dlet unknown_loc (Pvar "res") $ compile_scheme_prog p;
     Dlet unknown_loc Pany $ Mat (Var (Short "res")) [
       (Pcon (SOME $ Short "SNum") [Pvar "n"],
