@@ -588,7 +588,7 @@ val def = allCInsts_eqn |> translate
 val def = REPLICATE |> translate
 
 val def = holSyntaxTheory.dependency_compute_def
-          |> PURE_REWRITE_RULE[GSYM QSORT_type_vars_in_term,GSYM allTypes_ty_def]
+          |> PURE_REWRITE_RULE[GSYM sort_type_vars_in_term,GSYM allTypes_ty_def]
           |> translate
 
 val def = list_max_def |> translate
@@ -677,7 +677,7 @@ val def = holSyntaxExtraTheory.unify_def
 
 val def = holSyntaxExtraTheory.orth_ctxt_compute_def
           |> PURE_REWRITE_RULE[holSyntaxLibTheory.mlstring_sort_def,
-                               GSYM QSORT_type_vars_in_term]
+                               GSYM sort_type_vars_in_term]
           |> translate
 
 val def = holSyntaxCyclicityTheory.unify_LR_def |> translate
@@ -766,4 +766,4 @@ val def = m_translate constants_def;
 val _ = Globals.max_print_depth := 10;
 val _ = print_asts := false;
 
-val _ = export_theory();
+val _ = export_theory()

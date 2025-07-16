@@ -3,7 +3,7 @@
 *)
 open preamble ml_translatorLib ml_progLib cfLib std_preludeTheory
 open mllistTheory ml_translatorTheory OptionProgTheory
-open basisFunctionsLib mergesortTheory
+open basisFunctionsLib mergesortTheory mllistTheory
 
 val _ = new_theory"ListProg"
 
@@ -347,8 +347,6 @@ val _ = translate mllistTheory.list_compare_def;
 
 val _ = ml_prog_update open_local_block;
 
-Globals.max_print_depth := 50;
-
 val result = translate sort2_tail_def;
 val result = translate sort3_tail_def;
 val result = translate REV_DEF;
@@ -372,8 +370,6 @@ QED
 
 val result = mergesortn_tail_ind |> update_precondition;
 
-val result = translate mergesort_tail_def;
-
 Triviality mergesortn_tail_side:
   !w x y z. mergesortn_tail_side w x y z
 Proof
@@ -396,10 +392,13 @@ Proof
 QED
 
 val result = mergesortn_tail_side |> update_precondition;
+val result = translate mergesort_tail_def
 
 val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["sort"];
+
+val result = translate sort_def;
 
 val _ =  ml_prog_update close_local_blocks;
 val _ =  ml_prog_update (close_module NONE);
