@@ -5788,21 +5788,6 @@ Proof
   gvs [wordSemTheory.call_env_def,lookup_fromList2,lookup_fromList]
 QED
 
-Theorem env_to_list_domain:
-  env_to_list y2 pp = (l',permute) ⇒
-  domain (fromAList l') = domain y2
-Proof
-  rw[] \\ imp_res_tac env_to_list_lookup_equiv
-  \\ simp [EXTENSION,domain_fromAList]
-  \\ simp [domain_lookup]
-  \\ pop_assum kall_tac
-  \\ pop_assum $ rewrite_tac o single o GSYM
-  \\ pop_assum kall_tac
-  \\ rename [‘ALOOKUP xs’] \\ Induct_on ‘xs’ \\ gvs []
-  \\ gvs [FORALL_PROD,ALOOKUP_def]
-  \\ rw []
-QED
-
 Theorem assign_RefArray:
   op = MemOp RefArray ==> ^assign_thm_goal
 Proof
