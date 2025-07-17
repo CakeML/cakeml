@@ -914,7 +914,29 @@ Definition AppendLenLoop_code_def:
 End
 
 Definition XorLoop_code_def:
-  XorLoop_code c = Skip :'a wordLang$prog
+  XorLoop_code =
+    If Lower 6 (Imm 2w)
+      (If Equal 6 (Imm 0w)
+         (list_Seq [Assign 1 (Const 2w);
+                    Return 0 1])
+         (list_Seq [Assign 5 (Load (Var 4));
+                    Assign 3 (Load (Var 2));
+                    Assign 7 (Op Xor [Var 5; Var 3]);
+                    Store (Var 2) 7;
+                    Assign 1 (Const 2w);
+                    Return 0 1]))
+      (list_Seq [Assign 5 (Load (Var 4));
+                 Assign 3 (Load (Var 2));
+                 Assign 9 (Load (Op Add [Var 4; Const bytes_in_word]));
+                 Assign 7 (Load (Op Add [Var 2; Const bytes_in_word]));
+                 Assign 6 (Op Sub [Var 6; Const 2w]);
+                 Assign 5 (Op Xor [Var 5; Var 3]);
+                 Assign 9 (Op Xor [Var 9; Var 7]);
+                 Store (Var 2) 5;
+                 Store (Op Add [Var 2; Const bytes_in_word]) 9;
+                 Assign 4 (Op Add [Var 4; Const (2w * bytes_in_word)]);
+                 Assign 2 (Op Add [Var 2; Const (2w * bytes_in_word)]);
+                 Call NONE (SOME XorLoop_location) [0;2;4;6] NONE]) :'a wordLang$prog
 End
 
 Definition get_names_def:
@@ -1483,8 +1505,7 @@ val def = assign_Define `
         MustTerminate
           (Call
             (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
-            (SOME XorLoop_location) [1;3;5] NONE);
-        Assign (adjust_var dest) Unit],l + 1)
+            (SOME XorLoop_location) [1;3;5] NONE)],l + 1)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -2550,7 +2571,7 @@ Definition stubs_def:
     (Append_location,3n,Append_code data_conf);
     (AppendMainLoop_location,6n,AppendMainLoop_code data_conf);
     (AppendLenLoop_location,3n,AppendLenLoop_code data_conf);
-    (XorLoop_location,4n,XorLoop_code data_conf);
+    (XorLoop_location,4n,XorLoop_code);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);

@@ -294,6 +294,8 @@ Definition stack_consumed_def:
     OPTION_MAP2 MAX
      (lookup RefArray_location sfs)
      (lookup Replicate_location sfs)) /\
+  (stack_consumed sfs lims (MemOp XorByte) vs =
+    lookup XorLoop_location sfs) /\
   (stack_consumed sfs lims (BlockOp (ConsExtend _)) vs =
     lookup MemCopy_location sfs) /\
     (* MemCopy looks not always necessary. Could be refined for more precise bounds. *)
