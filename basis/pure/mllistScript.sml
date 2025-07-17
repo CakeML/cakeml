@@ -308,6 +308,12 @@ Proof
   simp[sort_def, PERM_LENGTH, sort_PERM]
 QED
 
+Theorem sort_SORTS:
+  !R. (transitive R /\ total R) ==> SORTS sort R
+Proof
+  simp[SORTS_DEF, sort_PERM, sort_SORTED]
+QED
+
 Definition getItem_def:
   (getItem [] = NONE) /\
   (getItem (h::t) = SOME(h, t))
