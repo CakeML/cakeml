@@ -147,12 +147,19 @@ End
 *)
 Inductive unary_op_rel:
 
+  (* 32 -> 32 *)
   (∀ w. unary_op_rel (Popcnt      w32     ) (I32 w) (I32 (n2w (bit_count w)))) ∧ (* ? *)
+
+
+  (* 32 -> 64 *)
+  (∀ w. unary_op_rel (Extend_i32_ Unsigned) (I32 w) (I64 (op w))) ∧
+  (∀ w. unary_op_rel (Extend_i32_ Signed  ) (I32 w) (I64 (op w))) ∧
 
 
   (∀ w. unary_op_rel (Popcnt      w64     ) (I64 w) (I64 (n2w (bit_count w))))  (* ? *)
 
 End
+
 (*
   (* nn -> nn *)
   (∀ w. unary_op_rel (Clz         w32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
@@ -162,8 +169,6 @@ End
 
   (* 32 -> 64 *)
   (∀ w. unary_op_rel  Extend32_s            (I32 w) (I64 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend_i32_ Unsigned) (I32 w) (I64 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend_i32_ Signed  ) (I32 w) (I64 (op w)))   (* TODO *)
 
 
   (* nn -> nn *)
@@ -191,13 +196,13 @@ Inductive binop_rel:
   (∀w1 w2. binop_rel (Or      w32) (I32 w1) (I32 w2) (I32 (word_or  w1 w2))) ∧
   (∀w1 w2. binop_rel (Xor     w32) (I32 w1) (I32 w2) (I32 (word_xor w1 w2))) ∧
 
-  (* HOL complains when I change the 1 to w2 *)
-  (* "at Preterm.type-analysis:\nat line 185, character 20:\nCouldn't infer type for overloaded name _ inject_number", *)
-  (* check semantics line up *)
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* w2 = 0 ? undefined : truncated towards 0 *)
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* TODO *)
+
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Div_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* w2 = 0 ? undefined : truncated towards 0 *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Rem_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* TODO *)
 
 
+  (∀w1 w2. (w2n w2) ⋖ 32 ⇒ binop_rel (Shl     w32) (I32 w1) (I32 w2) (I32 (word_lsl w1 (w2n w2)))) ∧ (* Error *)
+  (∀w1 w2. compare_op_rel (Eq Int       w32) (I32 w1) (I32 w2) (I32 (w2w (word_compare w1 w2)))) ∧
 
   (∀w1 w2. binop_rel (Add Int w64) (I64 w1) (I64 w2) (I64 (word_add w1 w2))) ∧
   (∀w1 w2. binop_rel (Mul Int w64) (I64 w1) (I64 w2) (I64 (word_mul w1 w2))) ∧
@@ -206,9 +211,10 @@ Inductive binop_rel:
   (∀w1 w2. binop_rel (Or      w64) (I64 w1) (I64 w2) (I64 (word_or  w1 w2))) ∧
   (∀w1 w2. binop_rel (Xor     w64) (I64 w1) (I64 w2) (I64 (word_xor w1 w2))) ∧
 
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Unsigned w64) (I64 w1) (I64 w2) (I64 (word_div w1 w2))) ∧ (* cf i32 *)
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Unsigned w64) (I64 w1) (I64 w2) (I64 (word_div w1 w2)))   (* TODO *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Div_ Unsigned w64) (I64 w1) (I64 w2) (I64 (word_div w1 w2))) ∧ (* cf i32 *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Rem_ Unsigned w64) (I64 w1) (I64 w2) (I64 (word_div w1 w2)))   (* TODO *)
 End
+type_of ``word_lsl``
 
   (* To be completed. check semantics of signed word_div matches wasm
 
@@ -248,7 +254,6 @@ End
   (∀w1 w2. compare_op_rel (Le_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_le w1 w2))) ∧
   (∀w1 w2. compare_op_rel (Ge_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_ge w1 w2))) ∧
 
-  (∀w1 w2. compare_op_rel (Eq Int       w32) (I32 w1) (I32 w2) (I32 (word_compare w1 w2))) ∧
   (∀w1 w2. compare_op_rel (Ne Int       w32) (I32 w1) (I32 w2) (I32 (word_xor (word_compare w1 w2) 1w))) ∧
   (∀w1 w2. compare_op_rel (Eq Int w64) (I64 w1) (I64 w2) (I64 (word_compare w1 w2))) ∧
   (∀w1 w2. compare_op_rel (Ne Int w64) (I64 w1) (I64 w2) (I64 (word_xor (word_compare w1 w2) 1w)))

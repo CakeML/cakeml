@@ -5,6 +5,13 @@ open preamble;
 
 val _ = new_theory "wasmLang";
 
+
+(***********************)
+(*                     *)
+(*     Basic Types     *)
+(*                     *)
+(***********************)
+
 Datatype: bvtype (* bit vector type (Does anyone have a better name? *)
   = Int
   (* | Float *)
@@ -13,6 +20,11 @@ End
 Datatype: width
   = w32
   | w64
+End
+
+Datatype: sign
+  = Signed
+  | Unsigned
 End
 
 (* Doing it this way allows us to -- for exmaple -- later limit things
@@ -27,15 +39,11 @@ Overload i64 = “NT Int   w64”
 (* Overload f32 = “NT Float w32”
 Overload f64 = “NT Float w64” *)
 
-Datatype: sign
-  = Signed
-  | Unsigned
-End
-
-(*******************)
-(*   Operations    *)
-(*******************)
-(* Ctrl-f "Notations" to see some examples *)
+(********************************)
+(*                              *)
+(*     Numeric Instructions     *)
+(*                              *)
+(********************************)
 
 Datatype: unary_op
 
@@ -132,6 +140,249 @@ Datatype: num_instr
   | (* all *) N_convert convert_op
 End
 
+
+
+(*******************************)
+(*                             *)
+(*     Vector Instructions     *)
+(*                             *)
+(*******************************)
+
+(********************)
+(*   vec "types"    *)
+(********************)
+
+Datatype: is2
+  = I8x16
+  | I16x8
+End
+
+Datatype: is3
+  = Is2 ishp
+  | I32x4
+End
+
+Datatype: ishape
+  = Is3 ishap
+  | I64x2
+End
+
+Datatype: fshape
+  = F32x4
+  | F64x2
+End
+
+Datatype: shape
+  = IShp ishape
+  | FShp fshape
+End
+
+Datatype: half
+  = Low
+  | High
+End
+
+(**************************)
+(*   Vector Operations    *)
+(**************************)
+
+Datatype: vec_unary_op
+
+  = (* v128 *) Vnot
+
+  | (* 8x16 *) Vpopcnt
+
+  | (* all  *) Vabs shape
+  | (* all  *) Vneg shape
+
+  | (* fall *) Vsqrt    fshape
+  | (* fall *) Vceil    fshape
+  | (* fall *) Vfloor   fshape
+  | (* fall *) Vtrunc   fshape
+  | (* fall *) Vnearest fshape
+
+End
+
+Datatype: vec_binary_op
+
+  (* vec *)
+  = (* v128 *) Vand
+  | (* v128 *) VandNot
+  | (* v128 *) Vor
+  | (* v128 *) Vxor
+
+  (* int (& float) *)
+  | (*  all *) Vadd shape
+  | (*  all *) Vsub shape
+
+  | (* fall *) Vmul  fshape
+  | (* fall *) Vdiv  fshape
+  | (* fall *) Vmin  fshape
+  | (* fall *) Vmax  fshape
+  | (* fall *) Vpmin fshape
+  | (* fall *) Vpmax fshape
+
+  | (* 16x8 *) Q15mulr_sat_s
+
+End
+
+Datatype: vec_tern_op
+  = VbitSelect
+End
+
+Datatype: vec_test_op
+  = VanyTrue
+  | VallTrue
+End
+
+Datatype: vec_itest_op
+End
+
+Datatype: vec_minmax_op
+  = Vmin sign
+  | Vmax sign
+End
+
+Datatype:
+End
+
+Datatype: vec_instr
+  = V_unary   vec_unary_op
+  | V_binary vec_binary_op
+End
+
+
+(*
+
+vvunop ::= not
+viunop ::= abs | neg
+vfunop ::= abs | neg | sqrt | ceil | floor | trunc | nearest
+
+vvbinop ::= and | andnot | or | xor
+vibinop ::= add | sub
+vfbinop ::= add | sub | mul | div | min | max | pmin | pmax
+
+vvternop ::= bitselect
+vvtestop ::= any_true
+
+vitestop ::= all_true
+virelop ::= eq | ne | lt_sx | gt_sx | le_sx | ge_sx
+
+viminmaxop ::= min_sx | max_sx
+visatbinop ::= add_sat_sx | sub_sat_sx
+vishiftop ::= shl | shr_sx
+
+vfrelop ::= eq | ne | lt | gt | le | ge
+
+
+vec_instr ::= . . .
+| v128.const i128
+
+| v128.vvunop
+| i8x16.popcnt
+| ishape.viunop
+| fshape.vfunop
+===============================================
+| v128.vvbinop
+| ishape.vibinop
+| fshape.vfbinop
+
+| i8x16.viminmaxop
+| i16x8.viminmaxop
+| i32x4.viminmaxop
+
+| i8x16.visatbinop
+| i16x8.visatbinop
+
+| i16x8.mul
+| i32x4.mul
+| i64x2.mul
+
+| i8x16.avgr_u
+| i16x8.avgr_u
+
+| i16x8.q15mulr_sat_s
+==================================================
+
+
+| i8x16.virelop
+| i16x8.virelop
+| i32x4.virelop
+| fshape.vfrelop
+
+
+
+| i8x16.extract_lane_sx laneidx
+| i16x8.extract_lane_sx laneidx
+| i32x4.extract_lane laneidx
+| i64x2.extract_lane laneidx
+| fshape.extract_lane laneidx
+
+
+
+
+
+
+
+| v128.vvternop
+| v128.vvtestop
+
+
+
+| i8x16.shuffle laneidx 16
+| i8x16.swizzle
+| i8x16.narrow_i16x8_sx
+
+| i16x8.narrow_i32x4_sx
+| i16x8.extend_half _i8x16_sx
+| i16x8.extmul_half _i8x16_sx
+| i16x8.extadd_pairwise_i8x16_sx
+
+| i32x4.dot_i16x8_s
+| i32x4.extend_half _i16x8_sx
+| i32x4.extmul_half _i16x8_sx
+| i32x4.extadd_pairwise_i16x8_sx
+| i32x4.trunc_sat_f32x4_sx
+| i32x4.trunc_sat_f64x2_sx _zero
+
+| i64x2.eq
+| i64x2.ne
+| i64x2.lt_s
+| i64x2.gt_s
+| i64x2.le_s
+| i64x2.ge_s
+| i64x2.extend_half _i32x4_sx
+| i64x2.extmul_half _i32x4_sx
+
+
+| shape.splat
+| shape.replace_lane laneidx
+
+| ishape.vitestop
+| ishape.bitmask
+| ishape.vishiftop
+
+
+
+
+*)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Type t = “:numtype”
 
 (* memory operations other than 64 bits *)
@@ -167,9 +418,10 @@ Datatype:
   | GlobalSet num
   | Load t ((tp_num # bool) option) word32 (* TODO: alignment *)
   | Store t tp_num word32 (* TODO: alignment *)
-  | Instr num_instr
   | ReturnCall num (* TODO: tail call *)
   | ReturnCallIndirect num tf (* TODO: input/output params, names *)
+  | Instr num_instr
+  (* | Vec   vec_instr *)
 
 End
 
