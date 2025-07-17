@@ -653,11 +653,12 @@ Proof
     \\ fs [CaseEq "wordSem$result"] \\ gvs []
     \\ fs [push_env_mem_upd, push_env_mem_const]
     \\ last_x_assum (qspec_then `m` assume_tac)
-    \\ gs[wordSemTheory.pop_env_def, wordSemTheory.set_var_def]
+    \\ gs[wordSemTheory.pop_env_def, wordSemTheory.set_var_def,
+          wordSemTheory.set_vars_def, alist_insert_def]
     \\ fs [AllCaseEqs ()] \\ gvs []
     \\ imp_res_tac mem_upd_lemma \\ gs []
     \\ imp_res_tac wordPropsTheory.no_install_evaluate_const_code
-    \\ gs []
+    \\ gvs [PULL_EXISTS,SF DNF_ss]
   )
   \\ (
     fs [wordSemTheory.get_var_def, wordSemTheory.set_var_def,
