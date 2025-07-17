@@ -4,6 +4,7 @@
 open preamble cv_transLib cv_stdTheory;
 open backendTheory to_data_cvTheory exportTheory;
 open unify_cvTheory infer_cvTheory basis_cvTheory;
+open mllistTheory;
 
 val _ = new_theory "backend_cv";
 
