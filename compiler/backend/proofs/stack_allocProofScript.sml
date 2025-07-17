@@ -892,7 +892,6 @@ Theorem word_gc_move_code_thm:
                                             (5,w1);
                                             (6,r6)] |>)
 Proof
-  cheat (*
   reverse (Cases_on `w`) \\ full_simp_tac(srw_ss())[word_gc_move_def] THEN1
    (srw_tac[][word_gc_move_code_def,evaluate_def]
     \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
@@ -953,7 +952,7 @@ Proof
   \\ full_simp_tac(srw_ss())[nine_less]
   \\ `shift_length conf <> 0` by (EVAL_TAC \\ decide_tac)
   \\ full_simp_tac(srw_ss())[select_lower_lemma,
-        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``] *)
+        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
 QED
 
 Theorem word_gc_move_list_code_thm:
@@ -2552,7 +2551,6 @@ Theorem word_gen_gc_move_code_thm:
                                             (5,w1);
                                             (6,r6)] |>)
 Proof
-  cheat (*
   reverse (Cases_on `w`) \\ full_simp_tac(srw_ss())[word_gen_gc_move_def] THEN1
    (srw_tac[][word_gen_gc_move_code_def,evaluate_def]
     \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
@@ -2669,7 +2667,7 @@ Proof
         DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
   \\ qexists_tac `s.store ' (Temp 0w)`
   \\ qexists_tac `s.store ' (Temp 1w)`
-  \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [] *)
+  \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
 QED
 
 Theorem word_gen_gc_partial_move_code_thm:
@@ -2701,7 +2699,6 @@ Theorem word_gen_gc_partial_move_code_thm:
                                             (5,w1);
                                             (6,r6)] |>)
 Proof
-  cheat (*
   reverse (Cases_on `w`)
   \\ full_simp_tac(srw_ss())[word_gen_gc_partial_move_def] THEN1
    (srw_tac[][word_gen_gc_partial_move_code_def,evaluate_def]
@@ -2795,7 +2792,7 @@ Proof
   \\ full_simp_tac(srw_ss())[nine_less]
   \\ `shift_length conf <> 0` by (EVAL_TAC \\ decide_tac)
   \\ full_simp_tac(srw_ss())[select_lower_lemma,
-        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``] *)
+        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
 QED
 
 Theorem word_gen_gc_move_bitmap_code_thm:
