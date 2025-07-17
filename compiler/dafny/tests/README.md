@@ -1,1 +1,1 @@
-Contains programs and scripts to test the compiler.
+Contains programs to test the Dafny compiler.
