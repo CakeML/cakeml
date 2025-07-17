@@ -1472,6 +1472,22 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_XorByte (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+    (list_Seq [
+        Assign 1 (real_addr c (adjust_var v1));
+        Assign 3 (real_addr c (adjust_var v2));
+        Assign 5 (SmallLsr (Load (Var 3)) (dimindex (:'a) - c.len_size));
+        Assign 1 (Op Add [Var 1; Const bytes_in_word]);
+        Assign 3 (Op Add [Var 3; Const (bytes_in_word:'a word)]);
+        MustTerminate
+          (Call
+            (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+            (SOME XorLoop_location) [1;3;5] NONE);
+        Assign (adjust_var dest) Unit],l + 1)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_CopyByte (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) args =
       (dtcase args of
@@ -2289,6 +2305,7 @@ Definition assign_def:
     | BlockOp (ConsExtend tag) => assign_ConsExtend c secn l dest names tag args
     | MemOp Ref => assign_Ref c secn l dest names args
     | MemOp (RefByte imm) => arg2 args (assign_RefByte c secn l dest names imm) (Skip,l)
+    | MemOp XorByte => arg2 args (assign_XorByte c secn l dest names) (Skip,l)
     | Label n => (LocValue (adjust_var dest) n,l)
     | MemOp (CopyByte alloc_new) => assign_CopyByte c secn l dest names args
     | MemOp RefArray => arg2 args (assign_RefArray c secn l dest names) (Skip,l)
@@ -2533,7 +2550,7 @@ Definition stubs_def:
     (Append_location,3n,Append_code data_conf);
     (AppendMainLoop_location,6n,AppendMainLoop_code data_conf);
     (AppendLenLoop_location,3n,AppendLenLoop_code data_conf);
-    (XorLoop_location,5n,XorLoop_code data_conf);
+    (XorLoop_location,4n,XorLoop_code data_conf);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);

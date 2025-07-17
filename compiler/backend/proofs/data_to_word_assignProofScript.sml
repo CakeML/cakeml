@@ -3199,30 +3199,87 @@ Proof
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]))
 QED
 
+Triviality assign_alt_def:
+  assign c secn l dest (MemOp XorByte) args names =
+    case args of [v1;v2] =>
+            (list_Seq [
+                Assign 1 (real_addr c (adjust_var v1));
+                Assign 3 (real_addr c (adjust_var v2));
+                Assign 5 (SmallLsr (Load (Var 3)) (dimindex (:'a) - c.len_size));
+                Assign 1 (Op Add [Var 1; Const bytes_in_word]);
+                Assign 3 (Op Add [Var 3; Const (bytes_in_word:'a word)]);
+                MustTerminate
+                  (Call
+                    (SOME
+                      (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+                    (SOME XorLoop_location) [1;3;5] NONE);
+                Assign (adjust_var dest) Unit],l + 1)
+Proof
+  cheat
+QED
+
 Theorem assign_XorByte:
   op = MemOp XorByte ==> ^assign_thm_goal
 Proof
-  cheat (*
+
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP \\ strip_tac
-  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw []
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_alt_def] \\ rw []
   \\ fs [do_app,allowed_op_def]
-  \\ `?src srcoff le dst dstoff src_b dst_b. vals =
-             [RefPtr src_b src; Number srcoff; Number le; RefPtr dst_b dst;
-              Number dstoff]` by gvs [AllCaseEqs()]
-  \\ fs [] \\ every_case_tac \\ fs [] \\ rveq
+  \\ gvs [AllCaseEqs()]
+  \\ gvs [LENGTH_EQ_NUM_compute]
+  \\ rename [‘get_vars [h1;h2] x.locals = SOME [RefPtr dst_b dst; RefPtr src_b src]’]
   \\ rename1 `lookup dst x.refs = SOME (ByteArray ys_fl ys)`
   \\ rename1 `lookup src x.refs = SOME (ByteArray xs_fl xs)`
   \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
+  \\ rename [‘cut_state kept_names s = SOME x’]
+  \\ first_assum (mp_tac o last o CONJUNCTS o SRULE [state_rel_thm])
+  \\ strip_tac
+  \\ drule_all state_rel_get_vars_IMP \\ strip_tac
+  \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ drule_all memory_rel_lookup_var_IMP
+  \\ gvs [LENGTH_EQ_2]
+  \\ qpat_x_assum ‘_ t.mdomain _’ kall_tac
+  \\ strip_tac
+  \\ ‘good_dimindex (:'a) ∧ shift_length c < dimindex (:α)’ by fs [state_rel_thm]
+  \\ dxrule memory_rel_swap \\ strip_tac
+  \\ dxrule_all memory_rel_xor_bytes
+  \\ ‘good_dimindex (:'a) ∧ shift_length c < dimindex (:α)’ by fs [state_rel_thm]
+  \\ strip_tac \\ gvs []
+  (* simulation of generated code *)
+  \\ gvs [wordSemTheory.get_vars_def,CaseEq"option"]
+  \\ qpat_x_assum ‘get_var (adjust_var h1) t = SOME _’ assume_tac
+  \\ dxrule_then drule_all get_var_get_real_addr_lemma
+  \\ full_simp_tac std_ss [wordSemTheory.get_var_def]
+  \\ dxrule_then drule_all word_exp_real_addr
+  \\ rpt strip_tac
+  \\ rpt $ qpat_x_assum ‘get_real_addr c t.store _ = SOME _’ kall_tac
+  \\ ntac 2 $ once_rewrite_tac [list_Seq_def]
+  \\ simp [eq_eval]
+  (* load *)
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ simp [eq_eval,word_exp_SmallLsr,GSYM decode_length_def]
+  \\ IF_CASES_TAC >-
+   (qsuff_tac ‘F’ >- rewrite_tac []
+    \\ fs [heap_in_memory_store_def,memory_rel_def])
+  \\ simp []
+  \\ ntac 3 $ pop_assum kall_tac
+  (* two adds *)
+  \\ ntac 2 $ once_rewrite_tac [list_Seq_def]
+  \\ simp [eq_eval,get_names_def]
+  (* call *)
+
+  \\  cheat (* XorByte
+
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.add_ret_loc_def,
          wordSemTheory.bad_dest_args_def,wordSemTheory.find_code_def,
          get_names_def]
   \\ rpt_drule0 state_rel_get_vars_IMP \\ strip_tac \\ fs []
-  \\ `lookup ByteCopy_location t.code = SOME (6,ByteCopy_code c)` by
-       (fs [state_rel_def,code_rel_def,stubs_def] \\ NO_TAC) \\ fs []
+  \\ `lookup XorLoop_location t.code = SOME (4,XorLoop_code c)` by cheat (*
+       (fs [state_rel_def,code_rel_def,stubs_def] \\ NO_TAC) \\ fs [] *)
   \\ fs [cut_state_opt_def,cut_state_def]
   \\ pop_assum kall_tac
   \\ rename1 `state_rel c l1 l2 s1 t [] locs`
@@ -3645,7 +3702,10 @@ Proof
       \\ rpt strip_tac \\ fs []
       \\ fs [lookup_inter_alt] \\ rw []
       \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
-      \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter])) *)
+      \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]))
+
+  *)
+
 QED
 
 Triviality evaluate_AppendMainLoop_code:
