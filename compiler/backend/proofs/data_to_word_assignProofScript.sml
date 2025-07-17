@@ -3322,7 +3322,7 @@ Proof
   \\ qabbrev_tac `s1 = s with locals := env` \\ var_eq_tac
   \\ drule_all cut_env_IMP_cut_env \\ strip_tac
   \\ once_rewrite_tac [list_Seq_def]
-  \\ `lookup XorLoop_location t.code = SOME (4,XorLoop_code c)` by
+  \\ `lookup XorLoop_location t.code = SOME (4,XorLoop_code)` by
     fs [state_rel_def,code_rel_def,stubs_def]
   \\ simp [eq_eval,cut_env_adjust_set_insert_ODD]
   \\ Cases_on ‘env_to_list y t.permute’
@@ -3350,9 +3350,10 @@ Proof
     \\ fs[GSYM IS_SOME_EXISTS]
     \\ CCONTR_TAC \\ fs [])
   \\ simp []
+  \\ qpat_x_assum ‘evaluate (XorLoop_code,_) = _’ kall_tac
+  \\ fs [] \\ rpt var_eq_tac
   (* final part: proving state_rel *)
   \\ simp [list_Seq_def,eq_eval,data_to_wordTheory.Unit_def]
-  \\ ntac 2 $ pop_assum kall_tac
   \\ qpat_x_assum ‘state_rel c l1 l2 s1 t [] locs’ mp_tac
   \\ simp [state_rel_thm,dataSemTheory.set_var_def,lookup_insert]
   \\ strip_tac \\ pop_assum kall_tac
@@ -3372,8 +3373,13 @@ Proof
     \\ qunabbrev_tac ‘s1’
     \\ rpt var_eq_tac
     \\ fs [domain_inter])
-  \\ conj_tac >- cheat
-  \\ conj_tac >- cheat
+  \\ conj_tac >-
+   (simp[stack_size_eq,option_le_max_right,AC option_add_comm option_add_assoc])
+  \\ conj_tac >-
+   (imp_res_tac stack_rel_IMP_size_of_stack
+    \\ rfs[stack_size_eq,option_le_max,option_le_max_right,
+           AC option_add_comm option_add_assoc,option_le_eq_eqns,
+           option_map2_max_add,option_le_add])
   (* memory_rel *)
   \\ once_rewrite_tac [insert_insert] \\ rewrite_tac []
   \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
