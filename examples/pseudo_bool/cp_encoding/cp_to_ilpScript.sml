@@ -458,6 +458,7 @@ Definition reify_eilp_def:
     Ge X i => wi X ≥ i
   | Eq X i => wi X = i
   | Ne X Y => varc wi X > varc wi Y
+  | Gem X Y => varc wi X ≥ varc wi Y
 End
 
 Theorem encode_element_sem_1:
@@ -739,18 +740,46 @@ Definition encode_arr_max_def:
   MAP (λA. bits_imply bnd [Pos (Gem A M)] (mk_constraint_ge 1 A (-1) M 0)) As
 End
 
-(*** HERE ***)
+Theorem eval_lin_term_ge_1:
+  eval_lin_term wb (MAP (λe. (1, f e)) ls) ≥ 1 ⇔ ∃e. MEM e ls ∧ lit wb (f e)
+Proof
+  rw[eval_lin_term_def]>>
+  Induct_on ‘ls’>>
+  simp[iSUM_def]>>
+  rw[iSUM_def]>>
+  Cases_on ‘lit wb (f h)’
+  >-(
+    simp[integerTheory.INT_LE_ADDR,integerTheory.int_ge]>>
+    simp[GSYM integerTheory.int_ge]>>
+    DEP_REWRITE_TAC[iSUM_ge_0]>>
+    simp[MEM_MAP,PULL_EXISTS,b2i_alt]>>
+    qexists ‘h’>>
+    rw[])
+  >-(
+    simp[b2i_alt]>>
+    metis_tac[])
+QED
 
 Theorem encode_arr_max_sem:
   valid_assignment bnd wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_arr_max bnd M As) =
-  (∃A. MEM A As ∧ wb (Gem A M) ∧ ∀A. MEM A) ∧ arr_max_sem M As wi)
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_arr_max bnd M As) = (
+    (∃A. MEM A As ∧ wb (Gem A M)) ∧
+    (∀A. MEM A As ∧ wb (Gem A M) ⇒ varc wi A ≥ varc wi M) ∧
+    arr_max_sem M As wi)
 Proof
   strip_tac>>
-  simp[MATCH_MP IMP_AND_LEFT not_equals_sem_aux]>>
-  simp[encode_not_equals_def,bits_imply_sem,mk_constraint_ge_sem]>>
-  rw[]>>
-  intLib.ARITH_TAC
+  iff_tac
+  >-(
+    rw[iconstraint_sem_def,encode_arr_max_def]
+    >-(
+      gvs[eval_ilin_term_def,iSUM_def]>>
+      fs[eval_lin_term_ge_1]>>
+      qexists ‘A’>>
+      simp[])
+    (* START WORK FROM HERE *)
+    >-(fs[bits_imply_def,mk_constraint_ge_def])
+    >-())
+  >-()
 QED
 
 (* The top-level encodings *)
