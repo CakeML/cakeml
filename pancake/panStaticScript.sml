@@ -37,8 +37,8 @@
     - Mismatched function returns
     - Non-word main function return declarations
     - Non-word FFI arguments
-    - Non-word entry point argument declarations
-    - Non-word entry point return declarations
+    - Non-word exported argument declarations
+    - Non-word exported return declarations
     - Invalid field index
     - Non-word addresses for memory operations
     - Mismatched source/destination for memory operations
@@ -203,7 +203,7 @@ Definition sh_bd_has_shape_def:
   sh_bd_has_shape sh sb =
     case (sh, sb) of
     | (One, WordB b) => T
-    | (Comb shs, StructB sbs) => ((LENGTH shs = LENGTH sbs) /\ EVERY2 (\x y. sh_bd_has_shape x y) shs sbs)
+    | (Comb shs, StructB sbs) => EVERY2 (\x y. sh_bd_has_shape x y) shs sbs
     | _ => F
 Termination
 	WF_REL_TAC ‘measure (shaped_based_size o SND)’
@@ -214,7 +214,7 @@ Definition sh_bd_eq_shapes_def:
   sh_bd_eq_shapes sb sh =
     case (sb, sh) of
     | (WordB b, WordB b') => T
-    | (StructB (sbs), StructB (sbs')) => ((LENGTH sbs = LENGTH sbs') /\ EVERY2 (\x y. sh_bd_eq_shapes x y) sbs sbs')
+    | (StructB (sbs), StructB (sbs')) => EVERY2 (\x y. sh_bd_eq_shapes x y) sbs sbs'
     | _ => F
 Termination
 	WF_REL_TAC ‘measure (shaped_based_size o FST)’
@@ -374,7 +374,7 @@ Definition get_redec_msg_def:
   get_redec_msg is_var loc id scope =
     let id_type = if is_var then strlit "variable " else strlit "function " in
     concat [loc; id_type; id;
-      strlit " is redeclared in"; get_scope_desc scope; strlit "\n"]
+      strlit " is redeclared in "; get_scope_desc scope; strlit "\n"]
 End
 
 (*
@@ -516,9 +516,19 @@ Definition check_redec_var_def:
     |  _ => log (WarningErr $ get_redec_msg T ctxt.loc vname ctxt.scope)
 End
 
-(*
-  Check operand shape and return merged shaped basedness
-*)
+(* Check shapes of exported arguments *)
+Definition check_export_params_def:
+  check_export_params fname [] = return () /\
+  check_export_params fname ((vname,shape)::ps) =
+    if ~(shape = One)
+      then error (ShapeErr $ concat
+        [strlit "exported function "; fname;
+        strlit " has non-word argument " ; vname; strlit "\n"])
+    else
+      check_export_params fname ps
+End
+
+(* Check operand shape and return merged shaped basedness *)
 Definition check_operands_def:
   check_operands ctxt op_str [] = return $ NotBased /\
   check_operands ctxt op_str (sb::sbs) =
@@ -597,7 +607,7 @@ Definition static_check_exp_def:
       case index_sh_bd index eret.sh_bd of
       | NONE => error (ShapeErr $ concat
         [ctxt.loc; strlit "expression has no field at index "; num_to_str index;
-          get_scope_desc ctxt.scope; strlit "\n"])
+          strlit " in "; get_scope_desc ctxt.scope; strlit "\n"])
       (* return exp info with found shape *)
       | SOME sb => return <| sh_bd := sb |>
     od ∧
@@ -769,7 +779,7 @@ Definition static_check_prog_def:
       (* check for shape match *)
       if ~(s = finf.ret_shape)
         then error (ShapeErr $ get_shape_mismatch_msg (concat [
-            strlit "expression to initialise local variable "; v
+            strlit "call result to initialise local variable "; v
           ]) ctxt.loc ctxt.scope)
       else return ();
       (* check arg num and shapes *)
@@ -995,7 +1005,7 @@ Definition static_check_prog_def:
       (* check arg shapes *)
       if ~(EVERY (sh_bd_has_shape One) esret.sh_bds)
         then error (ShapeErr $ get_non_word_msg (concat [
-            strlit "FFI call "; fname; strlit " argument"
+            strlit "value for argument given to FFI "; fname
           ]) ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
@@ -1374,11 +1384,7 @@ Definition static_check_decls_def:
                   strlit " has more than 4 arguments\n"])
               else return ();
               (* check exported func arg shape *)
-              if EXISTS (\shape. ~(shape = One)) (MAP SND fi.params)
-                then error (ShapeErr $ concat
-                  [strlit "exported function "; fi.name;
-                  strlit " has non-word argument/s\n"])
-              else return ();
+              check_export_params fi.name fi.params;
               (* check exported func return shape *)
               if ~(fi.return = One)
                 then error (ShapeErr $ concat
