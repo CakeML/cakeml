@@ -16,7 +16,7 @@ Formalisation of normalised pseudo-boolean constraints
 Pseudo-boolean constraints proof format and checker
 
 [pb_parseScript.sml](pb_parseScript.sml):
-Parse and print for pbc, npb_check
+Parse and print for pbc, npbc_check
 
 [pbcScript.sml](pbcScript.sml):
 Formalisation of a flexible surface syntax and semantics for
