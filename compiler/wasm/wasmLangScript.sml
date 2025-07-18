@@ -39,6 +39,8 @@ Overload i64 = “NT Int   w64”
 (* Overload f32 = “NT Float w32”
 Overload f64 = “NT Float w64” *)
 
+
+
 (********************************)
 (*                              *)
 (*     Numeric Instructions     *)
@@ -148,6 +150,8 @@ End
 (*                             *)
 (*******************************)
 
+Type word128 = “:128 word”
+
 (********************)
 (*   vec "types"    *)
 (********************)
@@ -158,12 +162,12 @@ Datatype: is2
 End
 
 Datatype: is3
-  = Is2 ishp
+  = Is2 is2
   | I32x4
 End
 
 Datatype: ishape
-  = Is3 ishap
+  = Is3 is3
   | I64x2
 End
 
@@ -192,8 +196,8 @@ Datatype: vec_unary_op
 
   | (* 8x16 *) Vpopcnt
 
-  | (* all  *) Vabs shape
-  | (* all  *) Vneg shape
+  | (*  all *) Vabs shape
+  | (*  all *) Vneg shape
 
   | (* fall *) Vsqrt    fshape
   | (* fall *) Vceil    fshape
@@ -211,18 +215,52 @@ Datatype: vec_binary_op
   | (* v128 *) Vor
   | (* v128 *) Vxor
 
-  (* int (& float) *)
+  (* both *)
   | (*  all *) Vadd shape
   | (*  all *) Vsub shape
+  | (*  all *) Vmul shape (* i16x8 is really "q15mulr_sat_s" *)
 
-  | (* fall *) Vmul  fshape
+  (* int *)
+  | (* IS3  *) Vmin_     sign is3
+  | (* IS3  *) Vmax_     sign is3
+  | (* IS2  *) Vadd_sat_ sign is2
+  | (* IS2  *) Vsub_sat_ sign is2
+  | (* IS2  *) Vavgr_u        is2
+
+  (* float *)
   | (* fall *) Vdiv  fshape
   | (* fall *) Vmin  fshape
   | (* fall *) Vmax  fshape
   | (* fall *) Vpmin fshape
   | (* fall *) Vpmax fshape
 
-  | (* 16x8 *) Q15mulr_sat_s
+End
+
+Datatype: vec_compare_op
+  = (*  all *) Veq shape
+  | (*  all *) Vne shape
+
+  | (* IS3  *) Vlt_ sign is3
+  | (* IS3  *) Vgt_ sign is3
+  | (* IS3  *) Vle_ sign is3
+  | (* IS3  *) Vge_ sign is3
+  | (* 64x2 *) Vlt_s
+  | (* 64x2 *) Vgt_s
+  | (* 64x2 *) Vle_s
+  | (* 64x2 *) Vge_s
+
+  | (* fall *) Vlt fshape
+  | (* fall *) Vgt fshape
+  | (* fall *) Vle fshape
+  | (* fall *) Vge fshape
+End
+
+Datatype: vec_test_op
+  (* vec *)
+  = (* v128 *) VanyTrue
+
+  (* int *)
+  | (* iall *) VallTrue ishape
 
 End
 
@@ -230,25 +268,19 @@ Datatype: vec_tern_op
   = VbitSelect
 End
 
-Datatype: vec_test_op
-  = VanyTrue
-  | VallTrue
-End
-
-Datatype: vec_itest_op
-End
-
-Datatype: vec_minmax_op
-  = Vmin sign
-  | Vmax sign
+(* Datatype:
 End
 
 Datatype:
-End
+End *)
 
 Datatype: vec_instr
-  = V_unary   vec_unary_op
-  | V_binary vec_binary_op
+  = V_const    word128
+  | V_unary    vec_unary_op
+  | V_binary   vec_binary_op
+  | V_compare  vec_compare_op
+  | V_test     vec_test_op
+  | V_tern     vec_tern_op
 End
 
 
@@ -261,23 +293,24 @@ vfunop ::= abs | neg | sqrt | ceil | floor | trunc | nearest
 vvbinop ::= and | andnot | or | xor
 vibinop ::= add | sub
 vfbinop ::= add | sub | mul | div | min | max | pmin | pmax
-
-vvternop ::= bitselect
-vvtestop ::= any_true
-
-vitestop ::= all_true
-virelop ::= eq | ne | lt_sx | gt_sx | le_sx | ge_sx
-
 viminmaxop ::= min_sx | max_sx
 visatbinop ::= add_sat_sx | sub_sat_sx
+
+virelop ::= eq | ne | lt_sx | gt_sx | le_sx | ge_sx
+vfrelop ::= eq | ne | lt | gt | le | ge
+
+vvtestop ::= any_true
+vitestop ::= all_true
+
+
+vvternop ::= bitselect
 vishiftop ::= shl | shr_sx
 
-vfrelop ::= eq | ne | lt | gt | le | ge
 
 
 vec_instr ::= . . .
 | v128.const i128
-
+===============================================
 | v128.vvunop
 | i8x16.popcnt
 | ishape.viunop
@@ -303,14 +336,44 @@ vec_instr ::= . . .
 
 | i16x8.q15mulr_sat_s
 ==================================================
-
-
 | i8x16.virelop
 | i16x8.virelop
 | i32x4.virelop
+| i64x2.eq
+| i64x2.ne
+| i64x2.lt_s
+| i64x2.gt_s
+| i64x2.le_s
+| i64x2.ge_s
 | fshape.vfrelop
+==================================================
+| v128.vvtestop
+| ishape.vitestop
+==================================================
 
 
+
+| v128.vvternop
+
+==================================================
+| i16x8.extend_half _i8x16_sx
+| i16x8.extmul_half _i8x16_sx
+| i16x8.extadd_pairwise_i8x16_sx
+| i64x2.extend_half _i32x4_sx
+| i64x2.extmul_half _i32x4_sx
+
+| i32x4.trunc_sat_f32x4_sx
+| i32x4.trunc_sat_f64x2_sx _zero
+
+| f32x4.convert_i32x4_sx
+| f32x4.demote_f64x2_zero
+| f64x2.convert_low_i32x4_sx
+| f64x2.promote_low_f32x4
+
+
+
+
+?
 
 | i8x16.extract_lane_sx laneidx
 | i16x8.extract_lane_sx laneidx
@@ -319,60 +382,26 @@ vec_instr ::= . . .
 | fshape.extract_lane laneidx
 
 
-
-
-
-
-
-| v128.vvternop
-| v128.vvtestop
-
-
-
 | i8x16.shuffle laneidx 16
 | i8x16.swizzle
 | i8x16.narrow_i16x8_sx
 
 | i16x8.narrow_i32x4_sx
-| i16x8.extend_half _i8x16_sx
-| i16x8.extmul_half _i8x16_sx
-| i16x8.extadd_pairwise_i8x16_sx
 
 | i32x4.dot_i16x8_s
 | i32x4.extend_half _i16x8_sx
 | i32x4.extmul_half _i16x8_sx
 | i32x4.extadd_pairwise_i16x8_sx
-| i32x4.trunc_sat_f32x4_sx
-| i32x4.trunc_sat_f64x2_sx _zero
-
-| i64x2.eq
-| i64x2.ne
-| i64x2.lt_s
-| i64x2.gt_s
-| i64x2.le_s
-| i64x2.ge_s
-| i64x2.extend_half _i32x4_sx
-| i64x2.extmul_half _i32x4_sx
 
 
 | shape.splat
 | shape.replace_lane laneidx
 
-| ishape.vitestop
 | ishape.bitmask
 | ishape.vishiftop
 
 
-
-
 *)
-
-
-
-
-
-
-
 
 
 
@@ -594,3 +623,4 @@ Overload f64_le = “N_compare (Le w64)”
 Overload f64_ge = “N_compare (Ge w64)” *)
 
 val _ = export_theory();
+
