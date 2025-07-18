@@ -51,7 +51,7 @@ Inductive evaluate_ctxt:
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
    SOME ((new_refs, new_ffi) ,vFp) ∧
-   s2.fp_state.canOpt ≠ FPScope Opt ∧
+   s2.fp_state.canOpt ≠ FPScope fpValTree$Opt ∧
    compress_if_bool op vFp = res
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
           (s2 with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
@@ -60,7 +60,7 @@ Inductive evaluate_ctxt:
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
    SOME ((new_refs, new_ffi) ,vFp) ∧
-   s2.fp_state.canOpt = FPScope Opt ∧
+   s2.fp_state.canOpt = FPScope fpValTree$Opt ∧
    do_fprw vFp (s2.fp_state.opts 0) s2.fp_state.rws = NONE ∧
    compress_if_bool op vFp = res
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
@@ -70,7 +70,7 @@ Inductive evaluate_ctxt:
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
    SOME ((new_refs, new_ffi) ,vFp) ∧
-   s2.fp_state.canOpt = FPScope Opt ∧
+   s2.fp_state.canOpt = FPScope fpValTree$Opt ∧
    do_fprw vFp (s2.fp_state.opts 0) s2.fp_state.rws = SOME rOpt ∧
    compress_if_bool op rOpt = res
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v

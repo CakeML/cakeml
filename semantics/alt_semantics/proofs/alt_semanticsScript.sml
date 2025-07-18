@@ -10,7 +10,8 @@ open preamble semanticsTheory bigStepTheory smallStepTheory
 val _ = set_grammar_ancestry ["semantics", "bigStep", "smallStep",
                               "semanticPrimitivesProps", "bigClock",
                               "smallStepProps", "itree_semanticsProps",
-                              "funBigStepEquiv", "bigSmallEquiv"];
+                              "funBigStepEquiv", "bigSmallEquiv",
+                              "itree_semanticsEquiv"];
 
 val _ = new_theory "alt_semantics";
 

@@ -554,14 +554,14 @@ Theorem application_thm:
          NONE => Etype_error (fix_fp_state c fp)
        | SOME (s',r) =>
         let fp_opt =
-          (if fp.canOpt = FPScope Opt then
+          (if fp.canOpt = FPScope fpValTree$Opt then
             case (do_fprw r (fp.opts 0) fp.rws) of
             (* if it fails, just use the old value tree *)
               NONE => r
             | SOME r_opt => r_opt
           else r)
         in
-        let fpN = (if fp.canOpt = FPScope Opt then shift_fp_state fp else fp) in
+        let fpN = (if fp.canOpt = FPScope fpValTree$Opt then shift_fp_state fp else fp) in
         let fp_res =
           (if (isFpBool op)
           then (case fp_opt of

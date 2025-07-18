@@ -2498,7 +2498,7 @@ Proof
       ‘~ opClass op Reals’ by (Cases_on ‘op’ >> gs[opClass_cases]) >>
       Cases_on `do_app (r0.refs,r0.ffi) op (REVERSE a ++ [v] ++ l)` >> gvs[SF SFY_ss] >>
       PairCases_on `x` >> gvs[SF SFY_ss] >>
-      reverse $ Cases_on ‘r0.fp_state.canOpt = FPScope Opt’ >> gvs[SF SFY_ss] >>
+      reverse $ Cases_on ‘r0.fp_state.canOpt = FPScope fpValTree$Opt’ >> gvs[SF SFY_ss] >>
       Cases_on ‘do_fprw x2 (r0.fp_state.opts 0) (r0.fp_state.rws)’ >> gvs[SF SFY_ss]) >>
     Cases_on ‘opClass op Reals’ >> gvs[]
     >- (

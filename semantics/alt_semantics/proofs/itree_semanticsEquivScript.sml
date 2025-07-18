@@ -11,7 +11,8 @@ val _ = set_grammar_ancestry ["option", "relation", "pair", "list",
                               "arithmetic", "llist", "namespace", "ast", "ffi",
                               "lprefix_lub", "semanticPrimitives", "semantics",
                               "evaluateProps", "smallStep", "smallStepProps",
-                              "primSemEnv", "itree", "itree_semantics"];
+                              "primSemEnv", "itree", "itree_semantics",
+                              "itree_semanticsProps"];
 
 val _ = new_theory "itree_semanticsEquiv";
 
