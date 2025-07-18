@@ -736,28 +736,26 @@ QED
 Definition encode_arr_max_def:
   encode_arr_max bnd M As =
   ([], MAP (λA. (1, Pos (Gem A M))) As, 1) ::
-  MAP (λA. mk_constraint_ge 1 M (-1) A 0) As ++
-  MAP (λA. bits_imply bnd [Pos (Gem A M)] (mk_constraint_ge 1 A (-1) M 0)) As
+  MAP (λA. bits_imply bnd [Pos (Gem A M)] (mk_constraint_ge 1 A (-1) M 0)) As ++
+  MAP (λA. mk_constraint_ge 1 M (-1) A 0) As
 End
 
 Theorem eval_lin_term_ge_1:
-  eval_lin_term wb (MAP (λe. (1, f e)) ls) ≥ 1 ⇔ ∃e. MEM e ls ∧ lit wb (f e)
+  eval_lin_term wb (MAP (λe. (1, f e)) ls) ≥ 1 ⇔
+  ∃e. MEM e ls ∧ lit wb (f e)
 Proof
   rw[eval_lin_term_def]>>
   Induct_on ‘ls’>>
-  simp[iSUM_def]>>
-  rw[iSUM_def]>>
-  Cases_on ‘lit wb (f h)’
+  rw[iSUM_def,b2i_alt]
   >-(
-    simp[integerTheory.INT_LE_ADDR,integerTheory.int_ge]>>
-    simp[GSYM integerTheory.int_ge]>>
-    DEP_REWRITE_TAC[iSUM_ge_0]>>
-    simp[MEM_MAP,PULL_EXISTS,b2i_alt]>>
-    qexists ‘h’>>
-    rw[])
-  >-(
-    simp[b2i_alt]>>
-    metis_tac[])
+    simp[SF DNF_ss]>>
+    qmatch_goalsub_abbrev_tac`_ + iSUM lss ≥ _`>>
+    `iSUM lss ≥ 0` by (
+      irule iSUM_ge_0>>
+      simp[Abbr`lss`,MEM_MAP,PULL_EXISTS,b2i_alt]>>
+      rw[])>>
+    intLib.ARITH_TAC)
+  >- metis_tac[]
 QED
 
 Theorem encode_arr_max_sem:
@@ -768,18 +766,16 @@ Theorem encode_arr_max_sem:
     arr_max_sem M As wi)
 Proof
   strip_tac>>
-  iff_tac
-  >-(
-    rw[iconstraint_sem_def,encode_arr_max_def]
-    >-(
-      gvs[eval_ilin_term_def,iSUM_def]>>
-      fs[eval_lin_term_ge_1]>>
-      qexists ‘A’>>
-      simp[])
-    (* START WORK FROM HERE *)
-    >-(fs[bits_imply_def,mk_constraint_ge_def])
-    >-())
-  >-()
+  simp[encode_arr_max_def]>>
+  match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC >-
+    simp[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_ge_1]>>
+  strip_tac>>
+  match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC >-
+    cheat>>
+  strip_tac>>
+  cheat
 QED
 
 (* The top-level encodings *)
