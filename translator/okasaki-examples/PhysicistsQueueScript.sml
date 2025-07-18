@@ -2,9 +2,13 @@
   This is an example of applying the translator to the Physicists
   Heap algorithm from Chris Okasaki's book.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "PhysicistsQueue";
+open HolKernel Parse boolLib bossLib;
 
 open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
+
+val _ = set_grammar_ancestry ["list", "arithmetic", "ListProg"];
+
+val _ = new_theory "PhysicistsQueue";
 
 val _ = translation_extends "ListProg";
 

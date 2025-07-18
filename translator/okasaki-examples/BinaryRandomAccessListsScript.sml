@@ -5,6 +5,8 @@
 open preamble
 open okasaki_miscTheory ml_translatorLib ListProgTheory;
 
+val _ = set_grammar_ancestry ["okasaki_misc", "ListProg"];
+
 val _ = new_theory "BinaryRandomAccessLists"
 
 val _ = translation_extends "ListProg";

@@ -6,6 +6,8 @@ open preamble
 open okasaki_miscTheory pred_setTheory pred_setSimps
 open ml_translatorLib ListProgTheory;
 
+val _ = set_grammar_ancestry ["okasaki_misc", "pred_set", "ListProg"];
+
 val _ = new_theory "UnbalancedSet"
 
 val _ = translation_extends "ListProg";

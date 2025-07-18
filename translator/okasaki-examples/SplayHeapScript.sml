@@ -8,6 +8,8 @@ open bagTheory relationTheory bagLib okasaki_miscTheory ml_translatorLib ListPro
 val rw = srw_tac []
 val fs = full_simp_tac (srw_ss())
 
+val _ = set_grammar_ancestry ["bag", "relation", "okasaki_misc", "ListProg"];
+
 val _ = new_theory "SplayHeap"
 
 val _ = translation_extends "ListProg";

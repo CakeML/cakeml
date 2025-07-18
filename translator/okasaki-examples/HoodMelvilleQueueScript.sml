@@ -2,9 +2,13 @@
   This is an example of applying the translator to the Hood Melville
   Queue algorithm from Chris Okasaki's book.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "HoodMelvilleQueue";
+open HolKernel Parse boolLib bossLib;
 
 open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
+
+val _ = set_grammar_ancestry ["list", "arithmetic", "ListProg"];
+
+val _ = new_theory "HoodMelvilleQueue";
 
 val _ = translation_extends "ListProg";
 
