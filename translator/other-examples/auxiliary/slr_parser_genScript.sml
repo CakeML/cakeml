@@ -5,8 +5,11 @@
   hol2miniml translator on them.
 *)
 open HolKernel Parse boolLib bossLib;
-val _ = new_theory "slr_parser_gen";
 open arithmeticTheory listTheory combinTheory stringTheory;
+
+val _ = set_grammar_ancestry ["arithmetic", "list", "combin", "string"];
+
+val _ = new_theory "slr_parser_gen";
 
 Definition push_def:
   push l e = e::l

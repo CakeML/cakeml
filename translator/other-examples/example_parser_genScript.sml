@@ -2,10 +2,15 @@
   This is a simple example of applying the translator to a
   parser generator.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "example_parser_gen";
+open HolKernel Parse boolLib bossLib;
 
 open slr_parser_genTheory optionTheory;
 open ml_translatorTheory ml_translatorLib ListProgTheory;
+
+val _ = set_grammar_ancestry ["slr_parser_gen", "option", "ml_translator",
+                              "ListProg"];
+
+val _ = new_theory "example_parser_gen";
 
 val _ = translation_extends "ListProg";
 

@@ -2,11 +2,15 @@
   This is a simple example of applying the translator to a
   matcher for regular expressions.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "example_regexp_matcher";
+open HolKernel Parse boolLib bossLib;
 
 open arithmeticTheory listTheory sortingTheory regexpMatchTheory;
-
 open ml_translatorLib ml_translatorTheory;
+
+val _ = set_grammar_ancestry ["arithmetic", "list", "sorting", "regexpMatch",
+                              "ml_translator"];
+
+val _ = new_theory "example_regexp_matcher";
 
 (* matcher -- recursion over a datatype *)
 

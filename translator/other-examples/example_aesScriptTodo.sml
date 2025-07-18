@@ -3,10 +3,10 @@
 *)
 open HolKernel bossLib Theory Parse Tactic boolLib Lib;
 
-val _ = new_theory "example_aes";
-
 open wordsTheory wordsLib arithmeticTheory listTheory aesTheory;
 open ml_translatorTheory ml_translatorLib word_preludeTheory;
+
+val _ = new_theory "example_aes";
 
 val _ = translation_extends "word_prelude";
 

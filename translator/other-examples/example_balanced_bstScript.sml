@@ -2,11 +2,15 @@
   This is a simple example of applying the translator to
   a balanced binary tree from HOL.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "example_balanced_bst";
+open HolKernel Parse boolLib bossLib;
 
 open comparisonTheory balanced_mapTheory;
 
 open ml_translatorLib ml_progLib;
+
+val _ = set_grammar_ancestry ["comparison", "balanced_map"];
+
+val _ = new_theory "example_balanced_bst";
 
 val _ = register_type ``:('k,'v) balanced_map``;
 

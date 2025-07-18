@@ -4,6 +4,8 @@
 open bossLib Theory Parse Tactic boolLib Lib
 open TotalDefn numLib prim_recTheory arithmeticTheory;
 
+val _ = set_grammar_ancestry ["prim_rec", "arithmetic"];
+
 val _ = new_theory "ninetyOne"
 
 val _ = ParseExtras.temp_loose_equality()
