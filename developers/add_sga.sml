@@ -10,8 +10,9 @@ fun break_at max s [] = [s]
   | break_at max s (x::xs) =
       if size (s ^ ", " ^ x) < max then
         break_at max (s ^ ", " ^ x) xs
-      else if xs = [] then [s] else
-        s ^ ",\n" :: break_at max (space ^ x) xs;
+      else
+        s ^ ",\n" ::
+        (if xs = [] then [space ^ x] else break_at max (space ^ x) xs);
 
 val esc = str (chr 27)
 val red = esc ^ "[31m"
@@ -21,7 +22,7 @@ fun make_red s = red ^ s ^ reset;
 fun make_green s = green ^ s ^ reset;
 
 (*
-val filename = "/home/myreen/cakeml-set-grammar-ancestry/semantics/fpSemScript.sml"
+val filename = "/home/myreen/cakeml-set-grammar-ancestry/characteristic/cfHeapsBaseScript.sml"
 *)
 fun process_file filename = let
   (* read file *)
