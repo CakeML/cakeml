@@ -1756,21 +1756,40 @@ Theorem evaluate_io_events_mono:
    s1.ffi.io_events ≼ s2.ffi.io_events
 Proof
   recInduct evaluate_ind >> rpt strip_tac >>
-  (qpat_x_assum `evaluate _ = _` mp_tac) >>
-  fs[evaluate_def]
-  >> (rpt (CASE_ONE >> gvs[]))
-  >> rpt (strip_tac) >> gvs[]
-  >> TRY (drulel[alloc_const,inst_const,mem_store_const,jump_exc_const,share_inst_const,pop_env_const]
-  >> gvs[])
+  (qpat_x_assum `evaluate _ = _`
+    (strip_assume_tac o SRULE[evaluate_def,LET_DEF,AllCaseEqs(),UNCURRY_EQ])) >>
+  rveq >> simp_tac(srw_ss())[]
+  >~[`alloc`]
+  >-(drule_then (simp_tac(srw_ss()) o single) alloc_const)
+  >~[`inst`]
+  >-(drule_then (simp_tac(srw_ss()) o single) inst_const)
+  >~[`mem_store`]
+  >-(drule_then (simp_tac(srw_ss()) o single) mem_store_const)
+  >~[`jump_exc`]
+  >-(drule_then (simp_tac(srw_ss()) o single) jump_exc_const)
+  >~ [`call_FFI`]
+  >- (
+    qhdtm_x_assum `call_FFI`
+       (strip_assume_tac o SRULE[ffiTheory.call_FFI_def,AllCaseEqs()]) >>
+    rveq >> simp_tac(srw_ss())[])
   >~ [`share_inst`]
-  >- (gvs[oneline share_inst_def,sh_mem_store_def,sh_mem_store_byte_def,
-          sh_mem_load_def,sh_mem_load_byte_def,AllCaseEqs(),
-          oneline sh_mem_set_var_def, oneline ffiTheory.call_FFI_def,
-          sh_mem_load32_def,sh_mem_store32_def
-         ]) >>
-  TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
-       every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
-  metis_tac[IS_PREFIX_TRANS]
+  >- (qhdtm_x_assum `share_inst`
+       (strip_assume_tac o SRULE[oneline share_inst_def,
+          sh_mem_store_def,sh_mem_store_byte_def,
+          sh_mem_load_def,sh_mem_load_byte_def,
+          sh_mem_load32_def,sh_mem_store32_def,
+          oneline sh_mem_set_var_def,
+          AllCaseEqs()]) >>
+    rveq >> simp_tac(srw_ss())[] >>
+    qhdtm_x_assum `call_FFI`
+       (strip_assume_tac o SRULE[ffiTheory.call_FFI_def,AllCaseEqs()]) >>
+    rveq >> simp_tac(srw_ss())[])
+  (*TODO this simp call is still very slow*)
+  >> full_simp_tac(srw_ss())[]
+  >>~-([`pop_env`],
+     drule_then (full_simp_tac(srw_ss()) o single) pop_env_const >>
+     metis_tac[IS_PREFIX_TRANS])
+  >> (metis_tac[IS_PREFIX_TRANS])
 QED
 
 Triviality SND_alt_def:

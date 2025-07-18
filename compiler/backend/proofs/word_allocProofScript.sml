@@ -760,15 +760,20 @@ Proof
 QED
 
 Theorem permute_swap_lemma4:
-   (?perm. P ((I ## (\s . s with permute := perm)) (evaluate (prog,st)))) ==>
+   (!st'. evaluate (prog,st) = (SOME Error,st') ==> 
+   P (SOME Error,st')) /\ (?perm. P ((I ## (\s . s with permute := perm)) (evaluate (prog,st)))) ==>
    (?perm. P (evaluate (prog,st with permute := perm)))
 Proof
    strip_tac >>
    qspecl_then [`prog`,`st`,`perm`] mp_tac permute_swap_lemma >>
    LET_ELIM_TAC >>
-   (*remove this cheat by changing permute_swap_lemma*)
-   `res <> SOME Error` by cheat >>
-   fs[] >> metis_tac[]
+   Cases_on `res = SOME Error` >> fs[] 
+   >-(
+     Q.EXISTS_TAC `st.permute` >> 
+     `st with permute := st.permute = st` by simp[state_component_equality] >>
+     pop_assum SUBST_ALL_TAC >> 
+     simp[])
+   >- metis_tac[]
 QED
 
 Theorem MEM_ZIP_weak:
@@ -1199,7 +1204,9 @@ Proof
     pop_assum (simp o single) >>
     qho_match_abbrev_tac `?perm''. P (evaluate (x'1,st'' with permute := perm''))`
     ho_match_mp_tac permute_swap_lemma4 >>
-    Q.UNABBREV_TAC `P` >> simp_tac(srw_ss())[] >>
+    Q.UNABBREV_TAC `P` >> 
+    CONJ_TAC >- simp[] >>
+    simp_tac(srw_ss())[] >>
     simp[PAIR_CASE_PAIR_MAP] >>
     namedCases_on `evaluate (x'1,st'')` ["res1 st1"] >>
     namedCases_on `res1` ["","res2"] >>
