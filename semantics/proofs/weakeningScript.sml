@@ -9,6 +9,10 @@ open semanticPrimitivesTheory;
 open astPropsTheory;
 open typeSoundInvariantsTheory;
 
+val _ = set_grammar_ancestry ["option", "rich_list", "alist", "ast",
+                              "typeSystem", "typeSysProps", "namespaceProps",
+                              "semanticPrimitives", "astProps"];
+
 val _ = new_theory "weakening";
 
 Definition weak_tenvE_def:

@@ -8,6 +8,8 @@ val _ = new_theory "lexer_fun";
 open preamble locationTheory;
 open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
 
+val _ = set_grammar_ancestry ["misc", "location", "tokens", "ASCIInumbers"];
+
 (* This script defines the functional spec for the assembly
    implementation of the lexer. This lexer specification consists of
    two phases. The first phase reads a string and returns a list of

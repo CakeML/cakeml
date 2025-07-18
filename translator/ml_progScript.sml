@@ -12,6 +12,10 @@ open alist_treeTheory;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
+val _ = set_grammar_ancestry ["ast", "semanticPrimitives", "evaluate",
+                              "semanticPrimitivesProps", "evaluateProps",
+                              "mlstring", "integer", "evaluate_dec"];
+
 val _ = new_theory "ml_prog";
 
 (* --- env operators --- *)

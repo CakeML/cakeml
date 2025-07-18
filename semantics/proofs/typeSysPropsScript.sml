@@ -10,6 +10,9 @@ local open semanticPrimitivesPropsTheory in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
+val _ = set_grammar_ancestry ["ast", "namespace", "typeSystem",
+                              "typeSoundInvariants", "astProps"];
+
 val _ = new_theory "typeSysProps";
 
 val find_recfun_def = semanticPrimitivesTheory.find_recfun_def;

@@ -7,6 +7,9 @@ open astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
 open namespacePropsTheory;
 open boolSimps;
 
+val _ = set_grammar_ancestry
+  ["ast", "namespace", "ffi", "semanticPrimitives", "namespaceProps"];
+
 val _ = new_theory "semanticPrimitivesProps";
 
 Theorem with_same_v[simp]:

@@ -5,9 +5,13 @@
 open preamble astTheory evaluateTheory
      namespaceTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     fpSemPropsTheory;
+     fpSemTheory fpSemPropsTheory miscTheory;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
+val _ = set_grammar_ancestry
+  ["ast", "evaluate", "namespace", "namespaceProps", "fpSem",
+   "semanticPrimitives", "semanticPrimitivesProps", "fpSemProps", "misc"];
 
 val _ = new_theory"evaluateProps";
 

@@ -7,6 +7,9 @@ open preamble
      semanticsTheory lprefix_lubTheory
      typeSoundTheory;
 
+val _ = set_grammar_ancestry
+  ["evaluate", "evaluateProps", "semantics", "lprefix_lub", "typeSound"];
+
 val _ = new_theory"semanticsProps"
 
 Theorem evaluate_prog_events_determ:

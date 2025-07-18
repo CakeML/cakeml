@@ -6,6 +6,9 @@ open fpValTreeTheory astTheory namespaceTheory semanticPrimitivesTheory;
 
 val _ = numLib.temp_prefer_num();
 
+val _ = set_grammar_ancestry
+  ["fpValTree", "ast", "namespace", "semanticPrimitives"];
+
 val _ = new_theory "typeSystem"
 
 Type type_ident = “:num”

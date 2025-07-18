@@ -6,6 +6,9 @@ open HolKernel Parse boolLib bossLib;
 open astTheory namespaceTheory semanticPrimitivesTheory typeSystemTheory;
 open namespacePropsTheory;
 
+val _ = set_grammar_ancestry
+  ["ast", "namespace", "semanticPrimitives", "typeSystem", "namespaceProps"];
+
 val _ = new_theory "typeSoundInvariants"
 
 Datatype:

@@ -4,6 +4,8 @@
 open HolKernel Parse boolLib bossLib;
 open miscTheory;
 
+val _ = set_grammar_ancestry ["misc"];
+
 val _ = numLib.temp_prefer_num();
 
 val _ = new_theory "ffi"

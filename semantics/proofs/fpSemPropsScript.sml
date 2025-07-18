@@ -6,6 +6,9 @@ open fpSemTheory fpOptPropsTheory fpValTreeTheory
      semanticPrimitivesTheory evaluateTheory;
 open preamble;
 
+val _ = set_grammar_ancestry
+  ["fpSem", "fpOptProps", "fpValTree", "semanticPrimitives", "evaluate"];
+
 val _ = new_theory "fpSemProps";
 
 Theorem do_fpoptimise_cons:
