@@ -775,7 +775,7 @@ val quietDefine = (* quiet version of Define -- by Anthony Fox *)
   Lib.with_flag (Feedback.emit_WARNING, false) $
   Lib.with_flag (Feedback.emit_ERR, false) $
   Lib.with_flag (Feedback.emit_MESG, false) $
-  Feedback.trace ("auto Defn.tgoal", 0) $
+  Feedback.trace ("Definition.auto Defn.tgoal", 0) $
   allowing_rebind $
     TotalDefn.Define
 
