@@ -286,7 +286,7 @@ Proof
   simp[sort_def, mergesort_tail_def, mergesortN_correct, mergesortN_sorted]
 QED
 
-Theorem sort_MEM:
+Theorem sort_MEM[simp]:
   !R L. MEM x (sort R L) ⇔ MEM x L
 Proof
   simp[sort_def, mergesort_tail_MEM]
@@ -302,7 +302,7 @@ Proof
   \\ rw[mergesortN_tail_PERM]
 QED
 
-Theorem sort_LENGTH:
+Theorem sort_LENGTH[simp]:
   !R l. LENGTH (sort R l) = LENGTH l
 Proof
   simp[sort_def, PERM_LENGTH, sort_PERM]
@@ -312,6 +312,12 @@ Theorem sort_SORTS:
   !R. (transitive R /\ total R) ==> SORTS sort R
 Proof
   simp[SORTS_DEF, sort_PERM, sort_SORTED]
+QED
+
+Theorem sort_set[simp]:
+  set (sort R ls) = set ls
+Proof
+  rw[EXTENSION]
 QED
 
 Definition getItem_def:

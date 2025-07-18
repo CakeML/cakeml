@@ -1706,7 +1706,7 @@ Proof
              ,ALL_DISTINCT_type_vars_in_term
              ,ALL_DISTINCT_MAP_explode] ) >>
   simp[ALL_DISTINCT_STRING_SORT] >>
-  METIS_TAC[sort_MEM,MEM_type_vars_in_term,MEM_MAP]
+  METIS_TAC[MEM_type_vars_in_term,MEM_MAP]
 QED
 
 (* ------------------------------------------------------------------------- *)

@@ -48,11 +48,11 @@ Proof
   rw[fmap_eq_flookup]>>
   Cases_on`FLOOKUP x x'`>>
   rw[FLOOKUP_FUPDATE_LIST,AllCaseEqs()]
-  >- fs[ALOOKUP_FAILS,MEM_MAP,flookup_thm,sort_MEM] >>
+  >- fs[ALOOKUP_FAILS,MEM_MAP,flookup_thm] >>
   DEP_REWRITE_TAC[alookup_distinct_reverse] >>
   simp[MAP_MAP_o,o_DEF]>>
   DEP_REWRITE_TAC[ALOOKUP_TABULATE]>>
-  fs[flookup_thm ,sort_MEM]
+  fs[flookup_thm]
 QED
 
 Theorem from_to_str_fmap[cv_from_to]:
@@ -203,10 +203,10 @@ Proof
     match_mp_tac PERM_ALL_DISTINCT>>
     simp[FORALL_PROD]>>
     unabbrev_all_tac>>
-    simp[MEM_MAP,sort_MEM]>>
+    simp[MEM_MAP]>>
     rw[]>>
     DEP_REWRITE_TAC [MEM_str_insert]>>
-    simp[MAP_MAP_o,o_DEF,MEM_MAP,sort_MEM]>>
+    simp[MAP_MAP_o,o_DEF,MEM_MAP]>>
     IF_CASES_TAC>>rw[NOT_EQ_FAPPLY])>>
   CONJ_TAC >-
     simp[antisymmetric_def,string_lt_antisym]>>

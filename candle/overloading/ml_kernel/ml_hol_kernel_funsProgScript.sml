@@ -583,7 +583,7 @@ Triviality allCInsts_eqn =
 
 val def = allCInsts_eqn |> translate
 
-(* MAP Tyvar (MAP implode (QSORT string_le (MAP explode (type_vars_in_term P)))) *)
+(* MAP Tyvar (MAP implode (sort string_le (MAP explode (type_vars_in_term P)))) *)
 
 val def = REPLICATE |> translate
 
