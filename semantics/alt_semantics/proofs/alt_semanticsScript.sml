@@ -7,6 +7,11 @@ open preamble semanticsTheory bigStepTheory smallStepTheory
      smallStepPropsTheory itree_semanticsPropsTheory
      funBigStepEquivTheory bigSmallEquivTheory itree_semanticsEquivTheory
 
+val _ = set_grammar_ancestry ["semantics", "bigStep", "smallStep",
+                              "semanticPrimitivesProps", "bigClock",
+                              "smallStepProps", "itree_semanticsProps",
+                              "funBigStepEquiv", "bigSmallEquiv"];
+
 val _ = new_theory "alt_semantics";
 
 Theorem big_step_semantics:

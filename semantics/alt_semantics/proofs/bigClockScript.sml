@@ -6,9 +6,13 @@
 
 open preamble;
 open astTheory bigStepTheory semanticPrimitivesTheory;
-open evaluateTheory determTheory;
+open evaluateTheory determTheory fpSemTheory realOpsTheory;
 open semanticPrimitivesPropsTheory fpSemPropsTheory;
 open boolSimps;
+
+val _ = set_grammar_ancestry ["ast", "bigStep", "semanticPrimitives",
+                              "fpSem", "realOps", "evaluate",
+                              "determ", "semanticPrimitivesProps"];
 
 val _ = new_theory "bigClock";
 

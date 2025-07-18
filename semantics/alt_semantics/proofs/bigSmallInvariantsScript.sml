@@ -8,6 +8,9 @@ open namespaceTheory astTheory semanticPrimitivesTheory
 
 val _ = numLib.temp_prefer_num();
 
+val _ = set_grammar_ancestry ["namespace", "ast", "semanticPrimitives",
+                              "smallStep", "bigStep"];
+
 val _ = new_theory "bigSmallInvariants"
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)

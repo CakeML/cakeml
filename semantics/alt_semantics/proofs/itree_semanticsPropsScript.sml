@@ -8,6 +8,12 @@ open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory
      evaluatePropsTheory smallStepTheory smallStepPropsTheory lprefix_lubTheory;
 open itreeTheory itree_semanticsTheory;
 
+val _ = set_grammar_ancestry ["option", "relation", "pair", "list",
+                              "arithmetic", "llist", "pred_set", "namespace",
+                              "ast", "ffi", "semanticPrimitives",
+                              "evaluateProps", "smallStep", "smallStepProps",
+                              "lprefix_lub", "itree", "itree_semantics"];
+
 val _ = new_theory "itree_semanticsProps";
 
 (******************** Definitions ********************)
@@ -559,7 +565,7 @@ Theorem application_thm:
         let fp_res =
           (if (isFpBool op)
           then (case fp_opt of
-              Rval (FP_BoolTree fv) => Rval (Boolv (compress_bool fv))
+              Rval (FP_BoolTree fv) => Rval (Boolv (fpSem$compress_bool fv))
             | v => v
             )
           else fp_opt)

@@ -4,6 +4,8 @@
 
 open preamble semanticPrimitivesTheory bigStepTheory smallStepTheory;
 
+val _ = set_grammar_ancestry ["semanticPrimitives", "bigStep", "smallStep"];
+
 val _ = new_theory "determ";
 
 val s = ``s:'ffi state``;

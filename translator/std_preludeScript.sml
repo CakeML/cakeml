@@ -6,6 +6,8 @@
 open preamble astTheory semanticPrimitivesTheory whileTheory;
 open evaluateTheory ml_translatorLib ml_translatorTheory ml_progLib;
 
+val _ = set_grammar_ancestry ["ast", "semanticPrimitives", "while", "evaluate"];
+
 val _ = new_theory "std_prelude";
 
 (* type registration *)

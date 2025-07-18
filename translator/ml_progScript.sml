@@ -9,12 +9,14 @@ open astTheory semanticPrimitivesTheory evaluateTheory
 open mlstringTheory integerTheory evaluate_decTheory;
 open namespaceTheory;
 open alist_treeTheory;
+local open primSemEnvTheory in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = set_grammar_ancestry ["ast", "semanticPrimitives", "evaluate",
                               "semanticPrimitivesProps", "evaluateProps",
-                              "mlstring", "integer", "evaluate_dec"];
+                              "mlstring", "integer", "evaluate_dec",
+                              "namespace", "alist_tree", "primSemEnv"];
 
 val _ = new_theory "ml_prog";
 

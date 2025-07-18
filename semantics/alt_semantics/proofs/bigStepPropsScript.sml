@@ -5,6 +5,9 @@ open preamble;
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory;
 open bigStepTheory evaluatePropsTheory;
 
+val _ = set_grammar_ancestry ["semanticPrimitives", "semanticPrimitivesProps",
+                              "bigStep", "evaluateProps"];
+
 val _ = new_theory "bigStepProps";
 
 val st = ``st:'ffi state``

@@ -5,6 +5,11 @@ open preamble;
 open fpSemPropsTheory astTheory semanticPrimitivesTheory bigStepTheory;
 open determTheory bigClockTheory;
 
+(*
+val _ = set_grammar_ancestry ["fpSemProps", "ast", "semanticPrimitives",
+                              "bigStep", "determ", "bigClock"];
+*)
+
 val _ = new_theory "interp";
 
 val st = ``st:'ffi state``;
@@ -239,7 +244,7 @@ Theorem run_eval_def:
            | NONE => raise (Rabort Rtype_error)
            | SOME ((refs,ffi),r) => let
              fp_opt =
-               (if (st.fp_state.canOpt = FPScope Opt) then
+               (if (st.fp_state.canOpt = FPScope fpValTree$Opt) then
                 (case (do_fprw r (st.fp_state.opts 0) st.fp_state.rws) of
                  (* if it fails, just use the old value tree *)
                  | NONE => r
@@ -247,10 +252,10 @@ Theorem run_eval_def:
                 (* If we cannot optimize, we should not allow matching on the
                    structure in the oracle *)
                 else r);
-             (stN:'ffi state) = (if st.fp_state.canOpt = FPScope Opt then shift_fp_opts st else st);
+             (stN:'ffi state) = (if st.fp_state.canOpt = FPScope fpValTree$Opt then shift_fp_opts st else st);
              fp_res = if (isFpBool op) then
                       (case fp_opt of
-                         Rval (FP_BoolTree fv) => Rval (Boolv (compress_bool fv))
+                         Rval (FP_BoolTree fv) => Rval (Boolv (fpSem$compress_bool fv))
                        | v => v)
                       else fp_opt
             in
@@ -435,8 +440,8 @@ Proof
       TOP_CASE_TAC >> gs[]
       >- metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec] >>
       ntac 2 TOP_CASE_TAC >> gs[getOpClass_opClass] >>
-      rename1 ‘s2.fp_state.canOpt = FPScope Opt’ >>
-      reverse $ Cases_on ‘s2.fp_state.canOpt = FPScope Opt’ >> gs[]
+      rename1 ‘s2.fp_state.canOpt = FPScope fpValTree$Opt’ >>
+      reverse $ Cases_on ‘s2.fp_state.canOpt = FPScope fpValTree$Opt’ >> gs[]
       >- ( fs[state_transformerTheory.UNIT_DEF, compress_if_bool_def] >>
            metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
       disj2_tac >>

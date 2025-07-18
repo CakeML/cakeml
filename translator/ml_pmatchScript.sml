@@ -9,6 +9,11 @@ open preamble
      semanticPrimitivesPropsTheory evaluatePropsTheory;
 open ml_translatorTheory integerTheory;
 
+val _ = set_grammar_ancestry ["ast", "semanticPrimitives", "patternMatches",
+                              "ml_prog", "ml_translator", "evaluate",
+                              "semanticPrimitivesProps", "evaluateProps",
+                              "ml_translator", "integer"];
+
 val _ = new_theory "ml_pmatch";
 
 val write_def = ml_progTheory.write_def;

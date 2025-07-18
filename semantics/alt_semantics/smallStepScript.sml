@@ -2,12 +2,12 @@
   A small-step semantics for CakeML. This semantics is no longer used
   in the main CakeML development, but is used in PureCake and choreographies.
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory;
+open HolKernel Parse boolLib bossLib fpSemTheory;
+open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory miscTheory;
+
+val _ = set_grammar_ancestry ["namespace", "ast", "ffi", "fpSem", "semanticPrimitives", "misc"];
 
 val _ = numLib.temp_prefer_num();
-
-
 
 val _ = new_theory "smallStep"
 

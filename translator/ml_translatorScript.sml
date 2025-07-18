@@ -13,6 +13,11 @@ open evaluateTheory
 local open integer_wordSyntax in end;
 open preamble;
 
+val _ = set_grammar_ancestry ["integer", "ml_prog", "ast", "semanticPrimitives",
+                              "semanticPrimitivesProps", "evaluateProps",
+                              "fpOpt", "fpValTree", "fpSem", "fpSemProps",
+                              "mlvector", "mlstring", "evaluate"];
+
 val _ = new_theory "ml_translator";
 
 infix \\ val op \\ = op THEN;

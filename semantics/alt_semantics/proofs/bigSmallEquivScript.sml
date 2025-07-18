@@ -6,6 +6,12 @@ open astTheory semanticPrimitivesTheory bigStepTheory smallStepTheory;
 open bigSmallInvariantsTheory semanticPrimitivesPropsTheory determTheory bigClockTheory;
 open smallStepPropsTheory bigStepPropsTheory evaluatePropsTheory interpTheory funBigStepEquivTheory;
 
+val _ = set_grammar_ancestry ["ast", "semanticPrimitives", "bigStep",
+                              "smallStep", "bigSmallInvariants",
+                              "semanticPrimitivesProps", "determ", "bigClock",
+                              "smallStepProps", "bigStepProps", "evaluateProps",
+                              "interp", "funBigStepEquiv"];
+
 val _ = new_theory "bigSmallEquiv";
 
 Triviality result_cases:
@@ -49,7 +55,7 @@ Definition compress_v_def:
   compress_v op v =
   if isFpBool op then
     case v of
-    | FP_BoolTree fv => Boolv (compress_bool fv)
+    | FP_BoolTree fv => Boolv (fpSem$compress_bool fv)
     | _ => v
   else v
 End

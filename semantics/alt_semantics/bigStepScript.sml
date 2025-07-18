@@ -3,11 +3,14 @@
   is no longer used in the CakeML development.
 *)
 open HolKernel Parse boolLib bossLib;
-open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory smallStepTheory;
+open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory
+     smallStepTheory fpSemTheory;
+
+val _ = set_grammar_ancestry ["namespace", "ast", "ffi", "semanticPrimitives", "fpSem"];
 
 val _ = numLib.temp_prefer_num();
 
-val _ = new_theory "bigStep"
+val _ = new_theory "bigStep";
 
 (* To get the definition of expression divergence to use in defining definition
  * divergence *)

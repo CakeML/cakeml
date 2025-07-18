@@ -7,6 +7,12 @@ open namespaceTheory astTheory ffiTheory lprefix_lubTheory semanticPrimitivesThe
      semanticsTheory evaluatePropsTheory smallStepTheory smallStepPropsTheory primSemEnvTheory;
 open itreeTheory itree_semanticsTheory itree_semanticsPropsTheory;
 
+val _ = set_grammar_ancestry ["option", "relation", "pair", "list",
+                              "arithmetic", "llist", "namespace", "ast", "ffi",
+                              "lprefix_lub", "semanticPrimitives", "semantics",
+                              "evaluateProps", "smallStep", "smallStepProps",
+                              "primSemEnv", "itree", "itree_semantics"];
+
 val _ = new_theory "itree_semanticsEquiv";
 
 
