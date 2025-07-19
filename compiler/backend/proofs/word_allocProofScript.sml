@@ -637,12 +637,11 @@ Proof
 QED
 
 Theorem pop_env_frame:
-   s_val_eq r'.stack st' ∧
-    s_key_eq y'.stack y''.stack ∧
-    pop_env (r' with stack:= st') = SOME y'' ∧
-    pop_env r' = SOME y'
-    ⇒
-    word_state_eq_rel y' y''
+  s_val_eq r'.stack st' ∧
+  s_key_eq y'.stack y''.stack ∧
+  pop_env (r' with stack:= st') = SOME y'' ∧
+  pop_env r' = SOME y' ⇒
+  word_state_eq_rel y' y''
 Proof
     full_simp_tac(srw_ss())[pop_env_def]>>EVERY_CASE_TAC>>
     full_simp_tac(srw_ss())[s_val_eq_def,s_frame_val_eq_def,word_state_eq_rel_def
@@ -760,18 +759,18 @@ Proof
 QED
 
 Theorem permute_swap_lemma4:
-   (!st'. evaluate (prog,st) = (SOME Error,st') ==> 
+   (!st'. evaluate (prog,st) = (SOME Error,st') ==>
    P (SOME Error,st')) /\ (?perm. P ((I ## (\s . s with permute := perm)) (evaluate (prog,st)))) ==>
    (?perm. P (evaluate (prog,st with permute := perm)))
 Proof
    strip_tac >>
    qspecl_then [`prog`,`st`,`perm`] mp_tac permute_swap_lemma >>
    LET_ELIM_TAC >>
-   Cases_on `res = SOME Error` >> fs[] 
+   Cases_on `res = SOME Error` >> fs[]
    >-(
-     Q.EXISTS_TAC `st.permute` >> 
+     Q.EXISTS_TAC `st.permute` >>
      `st with permute := st.permute = st` by simp[state_component_equality] >>
-     pop_assum SUBST_ALL_TAC >> 
+     pop_assum SUBST_ALL_TAC >>
      simp[])
    >- metis_tac[]
 QED
@@ -786,6 +785,47 @@ Proof
   DEP_REWRITE_TAC[MEM_ZIP]>>
   rw[]>>gvs[MEM_EL]>>
   metis_tac[]
+QED
+
+Theorem strong_locals_rel_set_vars_dom:
+  LENGTH ns = LENGTH ls ∧
+  INJ f X UNIV ∧
+  domain s.locals ⊆ X ∧
+  set ns ⊆ X ∧
+  strong_locals_rel f d s.locals t.locals ⇒
+  strong_locals_rel f d (set_vars ns ls s).locals (set_vars (MAP f ns) ls t).locals
+Proof
+  rw[strong_locals_rel_def,set_vars_def,lookup_alist_insert]>>
+  gvs[AllCaseEqs()]
+  >- (
+    DISJ1_TAC>>
+    CCONTR_TAC>>
+    gvs[ALOOKUP_NONE,MEM_MAP,MEM_ZIP,PULL_FORALL,EL_MAP]>>
+    gvs[INJ_DEF]>>
+    last_x_assum (drule_at Any)>>
+    impl_tac>-
+      gvs[SUBSET_DEF,EL_MEM,domain_lookup]>>
+    metis_tac[])>>
+  DISJ2_TAC>>
+  irule ALOOKUP_key_remap_2>>
+  simp[]>>
+  rw[]>>gvs[INJ_DEF]>>
+  first_x_assum irule>>
+  gvs[SUBSET_DEF]
+QED
+
+Theorem s_key_eq_push_env_imp_MAP_FST:
+  s_key_eq
+    (push_env (x',x'') o0 s).stack
+    (StackFrame n' bb l opt::ls) ∧
+  env_to_list x'' s.permute = (ll,res) ⇒
+  MAP FST ll = MAP FST l ∧
+  set (MAP FST bb) = domain x'
+Proof
+  rw[oneline push_env_def]>>
+  every_case_tac>>
+  gvs[s_key_eq_def,oneline s_frame_key_eq_def,AllCasePreds()]>>
+  simp[EXTENSION,domain_lookup,MEM_MAP,EXISTS_PROD,MEM_toAList]
 QED
 
 (*liveness theorem*)
@@ -1171,8 +1211,7 @@ Proof
       `y'`,`y`,`x'`,`x''`,`dec_clock st`,
       `f`,`dec_clock cst `,`f_o0`,`o0`,`λn. cst.permute (n+1)`]
      mp_tac (GEN_ALL push_env_s_val_eq)  >>
-    impl_tac >-
-      (
+    impl_tac >- (
       full_simp_tac(srw_ss())[word_state_eq_rel_def] >>
       rev_full_simp_tac(srw_ss())[LET_THM,Abbr`f_o0`]>>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
@@ -1202,9 +1241,9 @@ Proof
        by (namedCases_on `o0` ["","HAND"] >> TRY (PairCases_on `HAND`) >>
       simp[oneline push_env_def,Abbr`st'`,env_to_list_def,dec_clock_def,SF ETA_ss]) >>
     pop_assum (simp o single) >>
-    qho_match_abbrev_tac `?perm''. P (evaluate (x'1,st'' with permute := perm''))`
+    qho_match_abbrev_tac `?perm''. P (evaluate (x'1,st'' with permute := perm''))`>>
     ho_match_mp_tac permute_swap_lemma4 >>
-    Q.UNABBREV_TAC `P` >> 
+    Q.UNABBREV_TAC `P` >>
     CONJ_TAC >- simp[] >>
     simp_tac(srw_ss())[] >>
     simp[PAIR_CASE_PAIR_MAP] >>
@@ -1213,7 +1252,7 @@ Proof
     TRY (Cases_on `res2`) >>
     asm_simp_tac(srw_ss())[]
     (*Result*)
-    >-(
+    >- (
       Q.SPECL_THEN [`x'1`,`st''`]  mp_tac evaluate_stack_swap >>
       simp[] >> disch_then strip_assume_tac >>
       first_x_assum (qspec_then `cst''.stack` mp_tac) >>
@@ -1225,19 +1264,64 @@ Proof
       `st''' = (st1 with stack := st''').stack` by simp[] >>
       pop_assum (RULE_ASSUM_TAC o SUBS o single) >>
       EVERY_ASSUM (TRY o (mp_then.mp_then (Pos hd) mp_tac push_env_pop_env_s_key_eq)) >>
-      strip_tac >> gvs[s_val_eq_def2,s_key_eq_def2,
-      oneline s_frame_key_eq_def2,oneline s_frame_val_eq_def2,CasePred "stack_frame"] >>
-      strip_tac >> gvs[s_val_eq_def2,s_key_eq_def2,
-      oneline s_frame_key_eq_def2,oneline s_frame_val_eq_def2,CasePred "stack_frame"] >>
+      rw[]>>
+      gvs[domain_union,s_val_eq_def,s_key_eq_def,s_frame_val_eq_def2,s_frame_key_eq_def2]>>
       fs[domain_union,AC UNION_COMM UNION_ASSOC] >>
       (*finally using IH*)
       first_x_assum irule >>
       CONJ_TAC >- (
         full_simp_tac(srw_ss())[word_state_eq_rel_def] >>
-        gvs[AllCaseEqs(),pop_env_def])
-      CONJ_TAC >- cheat>>
-      CONJ_TAC >- fs[colouring_ok_def] >>
-      cheat)
+        gvs[AllCaseEqs(),pop_env_def])>>
+      CONJ_TAC >- (
+        drule_at (Pos (el 3)) pop_env_frame>>
+        disch_then (drule_at (Pos (el 3)))>>
+        impl_tac >- (
+          fs[s_val_eq_def,s_frame_val_eq_def2]>>
+          metis_tac[s_key_eq_trans,s_key_eq_sym,word_state_eq_rel_def])>>
+        simp[word_state_eq_rel_def])>>
+      gvs[colouring_ok_def,domain_numset_list_insert,domain_union]>>
+      irule strong_locals_rel_set_vars_dom>>
+      simp[]>>
+      qpat_x_assum`INJ _ (_ ∪ _ ∪ set n) _` (irule_at Any)>>
+      CONJ_TAC >-
+        simp[SUBSET_DEF]>>
+      CONJ_TAC >-(
+        fs[domain_union,AC UNION_COMM UNION_ASSOC] >>
+        simp[SUBSET_DEF])>>
+      (* Strong locals rel *)
+      fs[domain_fromAList]>>
+      pairarg_tac>>gvs[]>>
+      pairarg_tac>>gvs[]>>
+      imp_res_tac s_key_eq_push_env_imp_MAP_FST>>
+      rfs[]>>
+      ntac 2 (pop_assum kall_tac)>>
+      rename1`strong_locals_rel _ _ (union (fromAList ll) _) (union (fromAList lll) _)`>>
+      `MAP FST lll = MAP f (MAP FST ll)` by
+        metis_tac[key_map_implies]>>
+      rw[strong_locals_rel_def]>>
+      rename1`lookup (f nn) _`>>
+      qpat_x_assum` nn ∈ domain _` kall_tac>>
+      fs[AC UNION_COMM UNION_ASSOC] >>
+      fs[lookup_union,lookup_fromAList]>>
+      `ALOOKUP ll nn = ALOOKUP lll (f nn)` by (
+        simp[Once (GSYM ZIP_MAP_FST_SND_EQ)]>>
+        simp[Once (GSYM ZIP_MAP_FST_SND_EQ), SimpRHS]>>
+        irule ALOOKUP_key_remap_INJ>>
+        CONJ_TAC >-
+          metis_tac[LENGTH_MAP]>>
+        irule INJ_less>>
+        last_x_assum (irule_at Any)>>
+        simp[SUBSET_DEF]>>
+        gvs[AllCaseEqs()]>>
+        drule ALOOKUP_MEM>>
+        metis_tac[MEM_MAP,FST])>>
+      fs[AllCaseEqs(),ALOOKUP_toAList]>>
+      `~MEM nn (MAP FST ll)` by (
+        fs[ALOOKUP_NONE]>>
+        metis_tac[MEM_MAP])>>
+      fs[strong_locals_rel_def]>>
+      first_x_assum irule>>
+      metis_tac[domain_lookup])
     (*Exception*)
     >-(
       Q.SPECL_THEN [`x'1`,`st''`]  mp_tac evaluate_stack_swap >>
@@ -1251,8 +1335,7 @@ Proof
       TOP_CASE_TAC
       >- (
         gvs[word_state_eq_rel_def]>>
-
-       cheat) >>
+        cheat) >>
       `?n' h l1' l2'. x''' = (n',h,l1',l2')`
         by (PairCases_on `x'''` >> simp[]) >>
       POP_ASSUM SUBST_ALL_TAC >>
@@ -1260,7 +1343,7 @@ Proof
       TOP_CASE_TAC >>
       cheat)
     (*Remaining Cases*)
-    >>(
+    >> (
      Q.SPECL_THEN [`x'1`,`st''`]  mp_tac evaluate_stack_swap >>
      simp[] >> disch_then strip_assume_tac >>
      first_x_assum (qspec_then `cst''.stack` mp_tac) >>
@@ -1629,6 +1712,7 @@ Proof
         fs[strong_locals_rel_def,lookup_union,lookup_fromAList]>>
         rw[]>>
         rename1`nn ∈ domain live`>>
+        qpat_x_assum` nn ∈ domain live` kall_tac>>
         `MAP FST l = MAP f (MAP FST lsB)` by
           fs[s_key_eq_def,s_frame_key_eq_def,MAP_EQ_f,MAP_MAP_o,MAP_EQ_f,FORALL_PROD]>>
         `LENGTH (MAP FST lsB) = LENGTH (MAP SND l)` by
