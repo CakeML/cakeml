@@ -1372,17 +1372,43 @@ Proof
       simp[] >> disch_then strip_assume_tac >> simp[] >>
       drule_all s_val_eq_LASTN_exists >>
       disch_then strip_assume_tac >> fs[] >>
-      Q.UNABBREV_TAC `f_o0` >>
-      TOP_CASE_TAC
-      >- (
-        gvs[word_state_eq_rel_def]>>
-
-       cheat) >>
+      Cases_on `o0`
+      (*No handler*)
+      >-
+        (full_simp_tac(srw_ss())[Abbr`f_o0`]>>
+        `e0=e0' /\ ls = ls'` by
+        (unabbrev_all_tac>>
+        full_simp_tac(srw_ss())[word_state_eq_rel_def,push_env_def,env_to_list_def,LET_THM]>>
+        Cases_on`st.handler < LENGTH st.stack` >> full_simp_tac(srw_ss())[]
+        >-
+          (imp_res_tac LASTN_TL>>
+          rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[])
+        >>
+          `st.handler = LENGTH st.stack` by DECIDE_TAC>>
+          rpt (qpat_x_assum `LASTN A B = C` mp_tac)>-
+          simp[LASTN_LENGTH_cond])>>
+      rev_full_simp_tac(srw_ss())[]>>
+      `lss = lss'` by
+        (match_mp_tac LIST_EQ_MAP_PAIR>>full_simp_tac(srw_ss())[]>>
+        qsuff_tac `e = e'`>-metis_tac[]>>
+        unabbrev_all_tac>>
+        full_simp_tac(srw_ss())[word_state_eq_rel_def,push_env_def,LET_THM,env_to_list_def]>>
+        `st.handler < LENGTH st.stack` by
+          (CCONTR_TAC>>
+          `st.handler = LENGTH st.stack` by DECIDE_TAC>>
+          ntac 2 (qpat_x_assum`LASTN A B = C` mp_tac)>>
+          simp[LASTN_LENGTH2])>>
+        ntac 2 (qpat_x_assum`LASTN A B = C` mp_tac)>>
+        full_simp_tac(srw_ss())[LASTN_TL])>>
+      full_simp_tac(srw_ss())[word_state_eq_rel_def] >>
+      metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans]) >>
+      (*Handler*)
       `?n' h l1' l2'. x''' = (n',h,l1',l2')`
         by (PairCases_on `x'''` >> simp[]) >>
       POP_ASSUM SUBST_ALL_TAC >>
+      full_simp_tac(srw_ss())[Abbr`f_o0`] >>
+      IF_CASES_TAC >- simp[] >>
       simp[] >>
-      TOP_CASE_TAC >>
       cheat)
     (*Remaining Cases*)
     >>(
@@ -1394,97 +1420,6 @@ Proof
      Q.EXISTS_TAC `st1.permute` >>
      simp[word_state_eq_rel_def]))
 (*
-    >-
-    (*Result*)
-    (strip_tac>>pop_assum(qspec_then`envy.stack` mp_tac)>>
-    impl_tac>-
-      (unabbrev_all_tac>>
-       full_simp_tac(srw_ss())[state_component_equality,dec_clock_def])>>
-    strip_tac>>full_simp_tac(srw_ss())[]>>
-    rev_full_simp_tac(srw_ss())[]>>
-    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>-
-      (qexists_tac`perm`>>full_simp_tac(srw_ss())[dec_clock_def])>>
-    (*Backwards chaining*)
-    fs [Abbr`envy`,Abbr`envx`,state_component_equality]>>
-    Q.ISPECL_THEN [`(cst with clock := st.clock-1)`,
-                  `r with stack := st'`,`y`,`f_o0`]
-                  mp_tac push_env_pop_env_s_key_eq >>
-    impl_tac>-
-      (unabbrev_all_tac>>full_simp_tac(srw_ss())[])>>
-    Q.ISPECL_THEN [`(st with <|permute:=perm;clock := st.clock-1|>)`,
-                  `r`,`x'`,`o0`]
-                  mp_tac push_env_pop_env_s_key_eq>>
-    impl_tac>-
-      (unabbrev_all_tac>>full_simp_tac(srw_ss())[])>>
-     ntac 2 strip_tac>>
-    rev_full_simp_tac(srw_ss())[]>>
-    (*Now we can finally use the IH*)
-    last_x_assum(qspecl_then[`x'2`,`set_var x'0 w0 y'`
-                            ,`set_var (f x'0) w0 y''`,`f`,`live`]mp_tac)>>
-    impl_tac>-size_tac>>
-    full_simp_tac(srw_ss())[colouring_ok_def]>>
-    impl_tac>-
-      (Cases_on`o0`>>TRY(PairCases_on`x''`)>>full_simp_tac(srw_ss())[]>>
-      unabbrev_all_tac>>
-      full_simp_tac(srw_ss())[set_var_def,state_component_equality]>>
-      `s_key_eq y'.stack y''.stack` by
-        metis_tac[s_key_eq_trans,s_key_eq_sym]>>
-      Q.ISPECL_THEN [`y''`,`y'`] mp_tac (GEN_ALL pop_env_frame|>SIMP_RULE std_ss [Once CONJ_COMM])>>
-      simp[GSYM AND_IMP_INTRO]>>
-      rpt(disch_then drule)>>simp[]>>
-      strip_tac>>
-      rev_full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
-      full_simp_tac(srw_ss())[colouring_ok_def,LET_THM,strong_locals_rel_def]>>
-      srw_tac[][]>>
-      full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def]>>
-      full_simp_tac(srw_ss())[s_key_eq_def,s_val_eq_def]>>
-      Cases_on`opt`>>TRY(PairCases_on`x''`)>>
-      Cases_on`opt'`>>TRY(PairCases_on`x''`)>>
-      full_simp_tac(srw_ss())[s_frame_key_eq_def,s_frame_val_eq_def]>>
-      Cases_on`n'' = x'0`>>
-      full_simp_tac(srw_ss())[lookup_insert]>>
-      `f n'' ≠ f x'0` by
-        (imp_res_tac domain_lookup>>
-        full_simp_tac(srw_ss())[domain_fromAList]>>
-        (*some assumption movements to make this faster*)
-        qpat_x_assum `INJ f (x'0 INSERT A) B` mp_tac>>
-        rpt (qpat_x_assum `INJ f A B` kall_tac)>>
-        strip_tac>>
-        FULL_SIMP_TAC bool_ss [INJ_DEF]>>
-        pop_assum(qspecl_then [`n''`,`x'0`] mp_tac)>>
-        srw_tac[][domain_union])>>
-      full_simp_tac(srw_ss())[lookup_fromAList]>>
-      imp_res_tac key_map_implies>>
-      rev_full_simp_tac(srw_ss())[]>>
-      `l'' = ZIP(MAP FST l'',MAP SND l'')` by full_simp_tac(srw_ss())[ZIP_MAP_FST_SND_EQ]>>
-      pop_assum SUBST1_TAC>>
-      pop_assum (SUBST1_TAC o SYM)>>
-      match_mp_tac ALOOKUP_key_remap_2>>
-      full_simp_tac(srw_ss())[]>>CONJ_TAC>>
-      metis_tac[LENGTH_MAP,ZIP_MAP_FST_SND_EQ])>>
-    strip_tac>>
-    Q.ISPECL_THEN [`q'`,`push_env x' o0
-            (st with <|permute := perm; clock := st.clock − 1|>) with
-          <|locals := fromList2 (q);
-            locals_size := r';
-            stack_max := OPTION_MAP2 MAX (push_env y f_o0 cst).stack_max
-                 (OPTION_MAP2 $+ (stack_size (push_env y f_o0 cst).stack) r')|> `,`perm'`]
-      assume_tac permute_swap_lemma>>
-    rev_full_simp_tac(srw_ss())[LET_THM]>>
-    (*"Hot-swap" the suffix of perm, maybe move into lemma*)
-    qexists_tac`λn. if n = 0:num then perm 0 else perm'' (n-1)`>>
-    qpat_abbrev_tac `env1 = push_env A B C with <|locals := D; locals_size := E ; stack_max := SM|>`>>
-    qpat_x_assum `A = (SOME B,C)` mp_tac>>
-    qpat_abbrev_tac `env2 = push_env A B C with
-                    <|locals:=D; locals_size := E; stack_max := SM'; permute:=E'|>`>>
-    strip_tac>>
-    Cases_on`o0`>>TRY(PairCases_on`x''`)>>full_simp_tac(srw_ss())[]>>
-    `env1 = env2` by
-      (unabbrev_all_tac>>
-      simp[push_env_def,LET_THM,env_to_list_def,
-           state_component_equality,ETA_AX, stack_size_def, stack_size_frame_def]) >>
-    full_simp_tac(srw_ss())[]>>
-    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
     >-
     (*Exceptions*)
     (full_simp_tac(srw_ss())[]>>strip_tac>>
