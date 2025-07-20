@@ -1409,6 +1409,58 @@ Proof
       full_simp_tac(srw_ss())[Abbr`f_o0`] >>
       IF_CASES_TAC >- simp[] >>
       simp[] >>
+      unabbrev_all_tac>>
+      full_simp_tac(srw_ss())[word_state_eq_rel_def,push_env_def,LET_THM,env_to_list_def]>>
+      rpt (qpat_x_assum `LASTN A B = C` mp_tac)>>
+      simp[LASTN_LENGTH_cond]>>
+      rpt strip_tac>>
+      full_simp_tac(srw_ss())[domain_union,domain_fromAList]>>
+      imp_res_tac list_rearrange_keys>>
+      `set (MAP FST lss') = domain y` by
+        (qpat_x_assum`A=MAP FST lss'` (SUBST1_TAC o SYM)>>
+        full_simp_tac(srw_ss())[EXTENSION]>>srw_tac[][EXISTS_PROD]>>
+        simp[MEM_MAP,QSORT_MEM]>>srw_tac[][EQ_IMP_THM]
+        >-
+          (Cases_on`y''`>>
+          full_simp_tac(srw_ss())[MEM_toAList]>>
+          imp_res_tac domain_lookup>>
+          metis_tac[])
+        >>
+          full_simp_tac(srw_ss())[EXISTS_PROD,MEM_toAList]>>
+          metis_tac[domain_lookup])>>
+      `domain (SND names) = set (MAP FST lss)` by
+        (qpat_x_assum `A = MAP FST lss` (SUBST1_TAC o SYM)>>
+          full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,QSORT_MEM,MEM_toAList
+            ,EXISTS_PROD,domain_lookup])>>
+      `set (MAP FST e0) = domain x'` by
+        (full_simp_tac(srw_ss())[EXTENSION]>>srw_tac[][EXISTS_PROD]>>
+        simp[MEM_MAP,QSORT_MEM]>>srw_tac[][EQ_IMP_THM]
+        >-
+          (Cases_on`y''`>>
+          full_simp_tac(srw_ss())[MEM_toAList]>>
+          imp_res_tac domain_lookup>>
+          metis_tac[])
+        >>
+          full_simp_tac(srw_ss())[EXISTS_PROD,MEM_toAList]>>
+          metis_tac[domain_lookup])>>
+      `domain (FST names) = set (MAP FST e0)` by
+         (full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,QSORT_MEM,MEM_toAList
+            ,EXISTS_PROD,domain_lookup])>>
+      `set (MAP FST e0') = IMAGE f (domain x')` by
+        (full_simp_tac(srw_ss())[EXTENSION]>>srw_tac[][EXISTS_PROD]>>
+        simp[MEM_MAP,QSORT_MEM]>>srw_tac[][EQ_IMP_THM]
+        >-
+          (Cases_on`y''`>>
+          full_simp_tac(srw_ss())[MEM_toAList]>>
+          imp_res_tac domain_lookup>>
+          metis_tac[])
+        >>
+          full_simp_tac(srw_ss())[EXISTS_PROD,MEM_toAList]>>
+          metis_tac[domain_lookup])>>
+      fs[domain_union,AC UNION_COMM UNION_ASSOC] >>
+      (*Use IH*)
+      first_x_assum irule >>
+      simp[] >>
       cheat)
     (*Remaining Cases*)
     >>(
