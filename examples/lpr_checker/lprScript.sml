@@ -233,7 +233,7 @@ Theorem canon_clause_interp:
   interp_cclause (canon_clause cl) = interp_cclause cl
 Proof
   rw[canon_clause_def,interp_cclause_def]>>
-  simp[set_sorted_dup,set_sort]
+  simp[set_sorted_dup,sort_set]
 QED
 
 Definition contains_clauses_def:

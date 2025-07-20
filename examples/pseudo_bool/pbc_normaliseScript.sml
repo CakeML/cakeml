@@ -413,7 +413,7 @@ Theorem iSUM_sort_term_le[simp]:
 Proof
   match_mp_tac iSUM_PERM>>
   match_mp_tac PERM_MAP>>
-  metis_tac[sort_perm,PERM_SYM]
+  metis_tac[sort_PERM,PERM_SYM]
 QED
 
 Theorem eval_lit_eq_flip:
@@ -648,7 +648,7 @@ Proof
   imp_res_tac compact_lhs_no_dup>>
   pop_assum mp_tac>>
   impl_tac>- (
-    match_mp_tac sort_sorted>>
+    match_mp_tac sort_SORTED>>
     fs[transitive_term_le]>>
     simp[total_def]>>
     Cases>>Cases>>simp[])>>
