@@ -240,20 +240,33 @@ Proof
          \\ qmatch_asmsub_abbrev_tac `state_rel s t1 xx`
          \\ `state_rel
                (s with <|locals := insert 0 v LN; clock := t1.clock - 1|>)
-               (t1 with <|locals := insert 0 v LN; clock := t1.clock - 1|>) xx`
+               (t1 with <|locals := insert 0 v LN; clock := t1.clock - 1|>)
+               (insert 0 () LN)`
            by gvs [state_rel_def] \\ gvs []
-         \\ last_x_assum $ drule_then $ qspec_then `xx` assume_tac \\ gvs []
-         \\ `(AppUnit,xx) = compile AppUnit xx` by cheat \\ gvs []
-         \\ unabbrev_all_tac \\ gvs []
-         \\ first_x_assum drule \\ rw []
+         \\ last_x_assum drule \\ rw []
+         \\ pop_assum $ qspec_then `l2` assume_tac \\ gvs []
+         \\ `∀s. (AppUnit,insert 0 () LN) = compile AppUnit s` by (
+           simp [AppUnit_def, compile_def, is_pure_def, list_insert_def,
+                list_to_num_set_def, lookup_insert]
+           \\ simp [insert_compute, delete_compute, mk_BS_def])
          \\ Cases_on `q = SOME (Rerr (Rabort Rtype_error))` \\ gvs []
          \\ qpat_x_assum `_ ⇒ _` mp_tac
          \\ impl_tac
          >- (rw [] \\ gvs [jump_exc_def, AllCaseEqs(), state_rel_def])
          \\ rw [] \\ gvs []
          \\ gvs [AllCaseEqs(), PULL_EXISTS]
-         \\ first_x_assum (irule_at Any o GSYM) \\ gvs [PULL_EXISTS]
-         \\ cheat)
+         >- metis_tac []
+         >- (
+           first_x_assum (irule_at Any o GSYM) \\ gvs [PULL_EXISTS]
+           \\ qpat_x_assum `update_thunk _ _ _ = SOME _` mp_tac
+           \\ simp [oneline update_thunk_def]
+           \\ ntac 4 (TOP_CASE_TAC \\ gvs [])
+           \\ `r.refs = t2.refs` by gvs [state_rel_def] \\ gvs [] \\ rw []
+           \\ gvs [set_var_def]
+           \\ unabbrev_all_tac \\ gvs []
+           \\ gvs [state_rel_def, lookup_insert, lookup_inter_alt,
+                   domain_list_insert])
+         >- metis_tac [])
      \\ Cases_on `names_opt` THEN1
       (fs [compile_def]
        \\ Cases_on `lookup dest l2 = NONE ∧ is_pure op` \\ fs []
