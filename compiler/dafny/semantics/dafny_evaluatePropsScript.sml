@@ -464,3 +464,182 @@ Proof
   >~ [‘Return’] >-
    (gvs [evaluate_stmt_def])
 QED
+
+(* {locals,heap}_old is preserved *)
+
+Theorem assign_value_Rcont_old:
+  assign_value st env lhs v = (st', Rcont) ⇒
+  st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+Proof
+  disch_tac
+  \\ Cases_on ‘lhs’
+  \\ gvs [assign_value_def, update_local_def, update_array_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+QED
+
+Theorem assign_values_Rcont_old:
+  ∀lhss vs st env st'.
+    assign_values st env lhss vs = (st', Rcont) ⇒
+    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+Proof
+  Induct \\ namedCases_on ‘vs’ ["", "v vs₁"]
+  \\ simp [assign_values_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac assign_value_Rcont_old
+  \\ res_tac \\ gvs []
+QED
+
+Theorem evaluate_rhs_exp_Rval_old:
+  evaluate_rhs_exp st env rhs = (st', Rval v) ⇒
+  st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+Proof
+  disch_tac
+  \\ Cases_on ‘rhs’
+  \\ gvs [evaluate_rhs_exp_def, alloc_array_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+QED
+
+Theorem evaluate_rhs_exps_Rval_old:
+  ∀rhss st st' env vs.
+    evaluate_rhs_exps st env rhss = (st', Rval vs) ⇒
+    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+Proof
+  Induct \\ gvs [evaluate_rhs_exps_def]
+  \\ rpt gen_tac \\ disch_tac
+  \\ gvs [AllCaseEqs()]
+  \\ res_tac \\ imp_res_tac evaluate_rhs_exp_Rval_old \\ gvs []
+QED
+
+Theorem evaluate_stmt_Rcont_old:
+  ∀st env stmt st'.
+    evaluate_stmt st env stmt = (st', Rcont) ⇒
+    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_tac)
+  >~ [‘Skip’] >-
+   (gvs [evaluate_stmt_def])
+  >~ [‘Assert e’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [])
+  >~ [‘Then stmt₁ stmt₂’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ res_tac \\ gvs [])
+  >~ [‘If grd thn els’] >-
+   (strip_tac
+    \\ gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ gvs [oneline do_cond_def, AllCaseEqs()]
+    \\ res_tac \\ gvs [])
+  >~ [‘Dec local scope’] >-
+   (gvs [evaluate_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [pop_locals_def, safe_drop_def, declare_local_def, AllCaseEqs()]
+    \\ last_x_assum drule \\ gvs [])
+  >~ [‘Assign ass’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_rhs_exps_Rval_old
+    \\ imp_res_tac assign_values_Rcont_old \\ gvs [])
+  >~ [‘While grd invs decrs mods body’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [dec_clock_def])
+  >~ [‘Print e t’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock
+    \\ gvs [print_string_def, AllCaseEqs()])
+  >~ [‘MetCall lhss name args’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ imp_res_tac assign_values_Rcont_old \\ gvs []
+    \\ gvs [restore_caller_def])
+  >~ [‘Return’] >-
+   (gvs [evaluate_stmt_def])
+QED
+
+(* output field does not matter for expression evaluation *)
+
+Triviality push_local_with_output:
+  push_local (s with output := out) vn v =
+  push_local s vn v with output := out
+Proof
+  gvs [push_local_def]
+QED
+
+Triviality push_locals_with_output:
+  push_locals (s with output := out) xs =
+  push_locals s xs with output := out
+Proof
+  gvs [push_locals_def]
+QED
+
+Theorem evaluate_exp_with_output:
+  (∀s env e s' r out.
+     evaluate_exp s env e = (s', r) ⇒
+     evaluate_exp (s with output := out) env e =
+     (s' with output := out, r)) ∧
+  (∀s env es s' r out.
+     evaluate_exps s env es = (s', r) ⇒
+     evaluate_exps (s with output := out) env es =
+     (s' with output := out, r))
+Proof
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘ArrSel arr idx’] >-
+   (gvs [evaluate_exp_def, index_array_def, AllCaseEqs()])
+  >~ [‘FunCall name args’] >-
+   (gvs [evaluate_exp_def, set_up_call_def, restore_caller_def, dec_clock_def,
+         AllCaseEqs()])
+  >~ [‘Old e’] >-
+   (gvs [evaluate_exp_def, use_old_def, unuse_old_def, AllCaseEqs()])
+  >~ [‘Let vars e’] >-
+   (gvs [evaluate_exp_def, UNZIP_MAP]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ namedCases_on ‘evaluate_exps s env (MAP SND vars)’ ["s₁ r₁"] \\ gvs []
+    \\ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
+    \\ namedCases_on
+       ‘evaluate_exp (push_locals s₁ (ZIP (MAP FST vars,vs))) env e’
+         ["s₂ r₂"]
+    \\ gvs [push_locals_with_output, pop_locals_def, AllCaseEqs()])
+  >~ [‘Forall (vn,vt) e’] >-
+   (qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ simp [evaluate_exp_def]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ IF_CASES_TAC \\ gvs []
+    \\ gvs [push_local_with_output]
+    \\ ‘∀v. SND (evaluate_exp (push_local s vn v with output := out) env e) =
+            SND (evaluate_exp (push_local s vn v) env e)’ by
+      (gen_tac
+       \\ namedCases_on ‘evaluate_exp (push_local s vn v) env e’ ["s₁ r₁"]
+       \\ last_x_assum drule \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    >- (* Type error *)
+     (rpt strip_tac \\ gvs []
+      \\ gvs [AllCaseEqs()]
+      \\ first_assum $ irule_at $ Pos hd \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    >- (* Timeout *)
+     (rpt strip_tac \\ gvs [] \\ gvs [AllCaseEqs()])
+    \\ IF_CASES_TAC \\ gvs []
+    >- (* True *)
+     (rpt strip_tac \\ gvs [] \\ gvs [AllCaseEqs()])
+    (* False *)
+    \\ rpt strip_tac \\ gvs [] \\ gvs [AllCaseEqs()])
+  \\ gvs [evaluate_exp_def, AllCaseEqs()]
+QED
+
+Theorem evaluate_exp_old_Rval_eq:
+  evaluate_exp st₁ env (Old e) = (st₁', Rval v) ∧
+  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ⇒
+  ∃ck st'. evaluate_exp (st with clock := ck) env (Old e) = (st', Rval v)
+Proof
+  rpt strip_tac
+  \\ gvs [evaluate_exp_def, AllCaseEqs()]
+  \\ qexists ‘st₁.clock’
+  \\ drule (cj 1 evaluate_exp_with_output)
+  \\ disch_then $ qspec_then ‘st.output’ assume_tac
+  \\ ‘use_old st₁ with output := st.output =
+      use_old (st with clock := st₁.clock)’ by
+    (gvs [use_old_def, state_component_equality])
+  \\ gvs []
+QED
