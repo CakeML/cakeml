@@ -17,14 +17,3 @@ README.md: $(CAKEMLDIR)/developers/readme_gen tests/README.md readmePrefix $(pat
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
 
 EXTRA_CLEANS = dafny_ast-heap
-
-ifdef POLY
-
-all: dafny_ast-heap
-
-dafny_ast-heap: dafny_astTheory.uo
-	$(HOLDIR)/bin/buildheap -o $@ $<
-
-HOLHEAP = $(CAKEMLDIR)/basis/basis-heap
-
-endif
