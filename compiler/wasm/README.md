@@ -4,7 +4,7 @@ WebAssembly backend for CakeML
 WebAssembly (Wasm) syntax
 
 [wasmSemScript.sml](wasmSemScript.sml):
-WebAssembly (Wasm) syntax
+WebAssembly (Wasm) semantics
 
 [wasm_parseScript.sml](wasm_parseScript.sml):
 WASM parser -- supports part of WASM text format
