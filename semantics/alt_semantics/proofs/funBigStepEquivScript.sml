@@ -35,6 +35,14 @@ val prove_tac =
   gvs [do_eval_res_def,do_eval_def] >>
   gvs [do_app_def,AllCaseEqs()];
 
+(*TODO move*)
+Theorem list_result_INJ[simp]:
+  list_result x = list_result y <=>
+  x = y
+Proof
+  rw[oneline list_result_def] >> EVERY_CASE_TAC >> fs[]
+QED
+
 Theorem evaluate_eq_run_eval_list:
   (∀^s env e.
     s.eval_state = NONE ⇒
@@ -79,9 +87,7 @@ Theorem functional_evaluate_match:
   (evaluate_match s env v pes errv = (s',list_result r) ⇔
      evaluate_match T env s v pes errv (s',r))
 Proof
-  rw[evaluate_run_eval_match,evaluate_eq_run_eval_list] >>
-  Cases_on`run_eval_match env v pes errv s`>>rw[] >>
-  Cases_on`r`>>Cases_on`r'`>>rw[list_result_def]
+  rw[evaluate_run_eval_match,evaluate_eq_run_eval_list]
 QED
 
 Theorem evaluate_decs_eq_run_eval_decs:

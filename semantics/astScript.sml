@@ -300,12 +300,25 @@ Definition every_exp_def[simp]:
              p (Tannot e a) ∧ every_exp p e) ∧
   (every_exp p (Lannot e a) ⇔
              p (Lannot e a) ∧ every_exp p e) ∧
-  (every_exp p (FpOptimise sc e) ⇔
-             p (FpOptimise sc e) ∧ every_exp p e) ∧
+  (every_exp p (FpOptimise fpopt e) ⇔
+             p (FpOptimise fpopt e) ∧ every_exp p e) ∧
   (every_exp p (Letrec funs e) ⇔
              p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs)
-Termination
-  WF_REL_TAC ‘measure $ exp_size o SND’
+End
+
+Definition Seqs_def:
+  Seqs [] = Con NONE [] ∧
+  Seqs (x::xs) = Let NONE x (Seqs xs)
+End
+
+Definition Apps_def:
+  Apps f [] = f ∧
+  Apps f (x::xs) = Apps (App Opapp [f; x]) xs
+End
+
+Definition Funs_def:
+  Funs [] e = e ∧
+  Funs (x::xs) e = Fun x (Funs xs e)
 End
 
 val _ = export_theory()

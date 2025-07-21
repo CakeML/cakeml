@@ -66,8 +66,6 @@ Definition pp_of_ast_t_def:
   pp_of_ast_t fixes (Attup ts) = (Fun "x" (App Opapp
     [Var (mod_pp (Short "tuple")); Mat (Var (Short "x"))
         [(con_x_i_pat NONE (LENGTH ts), x_i_list_f_apps (MAP (pp_of_ast_t fixes) ts))]]))
-Termination
-  WF_REL_TAC `measure (ast_t_size o SND)`
 End
 
 Definition mk_pps_for_type_def:

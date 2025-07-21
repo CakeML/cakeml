@@ -1,1 +1,0 @@
-Dafny's tests to facilitate incremental compiler development.

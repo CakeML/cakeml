@@ -107,13 +107,19 @@ pancake/semantics
 pancake/parser
 pancake/static_checker
 pancake/proofs
-pancake/ta_progs
 
 # dafny compiler
 compiler/dafny
 compiler/dafny/translation
 compiler/dafny/compilation
 compiler/dafny/semantics
+compiler/dafny/vcg
+
+# Scheme compiler
+compiler/scheme
+compiler/scheme/translation
+compiler/scheme/compilation
+compiler/scheme/proofs
 
 # examples and tests
 characteristic/examples
@@ -137,6 +143,11 @@ examples/xlrup_checker
 examples/xlrup_checker/array
 examples/xlrup_checker/array/compilation
 examples/xlrup_checker/array/compilation/proofs
+
+examples/scpog_checker
+examples/scpog_checker/array
+examples/scpog_checker/array/compilation
+examples/scpog_checker/array/compilation/proofs
 
 examples/pseudo_bool
 examples/pseudo_bool/cnf_encoding

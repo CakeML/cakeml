@@ -1271,24 +1271,18 @@ Theorem v_rel_do_fpoptimise:
     LIST_REL (v_rel R) vs vsF ⇒
     LIST_REL (v_rel R) (do_fpoptimise annot vs) (do_fpoptimise annot vsF)
 Proof
-  measureInduct_on ‘semanticPrimitives$v1_size vs’ >> Cases_on ‘vs’
+  measureInduct_on ‘list_size semanticPrimitives$v_size vs’ >> Cases_on ‘vs’
   >> fs[LIST_REL_def] >> rpt strip_tac
   >- (
    fs[do_fpoptimise_def])
   >> first_assum (qspec_then ‘t’ assume_tac)
-  >> fs[semanticPrimitivesTheory.v_size_def]
+  >> fs[]
   >> simp[Once fpSemPropsTheory.do_fpoptimise_cons]
   >> Cases_on ‘h’ >> simp[do_fpoptimise_def]
-  >> fs[Once v_rel_cases]
+  >> fs[v_rel_l_simps]
   >> first_x_assum (qspec_then ‘ys’ assume_tac)
   >> simp[Once fpSemPropsTheory.do_fpoptimise_cons]
   >> gs[do_fpoptimise_def]
-  >- (
-   first_x_assum $ qspec_then ‘l’ assume_tac
-   >> fs[semanticPrimitivesTheory.v_size_def])
-  >- (
-   first_x_assum $ qspec_then ‘l’ assume_tac
-   >> fs[semanticPrimitivesTheory.v_size_def])
   >> imp_res_tac do_fpoptimise_env_id
   >> first_x_assum $ qspec_then ‘annot’ strip_assume_tac >> gs[]
 QED

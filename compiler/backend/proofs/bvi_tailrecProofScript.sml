@@ -156,23 +156,21 @@ Proof
   \\ TRY
    (rename1 `is_const op` \\ Cases_on `op` \\ fs [] \\ Cases_on `i` \\ fs []
     \\ gvs [evaluate_def, pair_case_eq, bool_case_eq, do_app_def,
-           do_app_aux_def, bvlSemTheory.do_app_def, small_int_def,
-           backend_commonTheory.small_enough_int_def]
+           do_app_aux_def, bvlSemTheory.do_app_def]
     \\ rw [] \\ fs [])
   \\ rename1 `is_arith op`
   \\ Cases_on `op` \\ fs [is_arith_def] \\ Cases_on `i` \\ fs [is_arith_def]
   \\ gvs [evaluate_def, pair_case_eq, bool_case_eq, do_app_def,
-         do_app_aux_def, bvlSemTheory.do_app_def, small_int_def,
-         backend_commonTheory.small_enough_int_def,
+         do_app_aux_def, bvlSemTheory.do_app_def,
          case_elim_thms, case_eq_thms]
   \\ rw [] \\ fs []
   \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rw []
   \\ res_tac \\ rw [] \\ fs []
   \\ fs [bvl_to_bvi_id]
+  \\ gvs[bvlSemTheory.do_int_app_def]
 QED
 
 fun cases_on_op q = Cases_on q
-  >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘IntOp i_’]) (Cases_on `i_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘WordOp w_’]) (Cases_on `w_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp g_’]) (Cases_on `g_`))
@@ -188,43 +186,43 @@ Theorem term_ok_any_SING:
        (!^s1. evaluate ([exp], env, s) = (r, s)) /\
        (list ==> ?ys. v_to_list v = SOME ys))
 Proof
-  recInduct term_ok_any_ind \\ rw []
+  recInduct term_ok_any_ind \\ rpt CONJ_TAC \\
+  rpt (gen_tac ORELSE disch_tac) \\ fs[]
   \\ qhdtm_x_assum `term_ok_any` mp_tac
   \\ once_rewrite_tac [term_ok_any_def] \\ fs []
-  \\ TRY PURE_TOP_CASE_TAC \\ fs [] \\ rw [] \\ fs []
-  >>~- ([`Var n`], rw []
-    \\ rfs [ty_rel_def, evaluate_def, LIST_REL_EL_EQN, case_elim_thms,
-            case_elim_thms, pair_case_eq, bool_case_eq] \\ rw [] \\ fs [])
-  \\ TRY (rename1 `is_const op` \\ cases_on_op `op`
-    \\ fs [evaluate_def, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
-           case_eq_thms, case_elim_thms, pair_case_eq]
-    \\ fs [backend_commonTheory.small_enough_int_def, small_int_def])
-  \\ fs [is_op_thms]
-  >>~- ([`Op (Cons 0) []`],
-    fs [evaluate_def, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
-        case_eq_thms, case_elim_thms, pair_case_eq]
-    \\ fs [bvl_to_bvi_id]
-    \\ rw [] \\ fs [bvlSemTheory.v_to_list_def]
-    \\ EVAL_TAC)
-  >>~- ([`is_rel op`], Cases_on `op` \\ fs [is_rel_def] \\ Cases_on `i` \\ fs []
-    \\ fs [evaluate_def, pair_case_eq, case_elim_thms, case_eq_thms] \\ rw []
-    \\ imp_res_tac evaluate_SING_IMP \\ rw [] \\ fs []
-    \\ imp_res_tac term_ok_int_SING \\ fs []
-    \\ rfs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def] \\ rw []
-    \\ fs [bvl_to_bvi_id])
-  >>~- ([`is_arith op`], Cases_on `op` \\ fs [is_arith_def] \\ Cases_on `i` \\ fs []
-    \\ fs [evaluate_def, pair_case_eq, case_elim_thms, case_eq_thms] \\ rw []
-    \\ imp_res_tac term_ok_int_SING \\ fs [] \\ rw []
-    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def] \\ rw []
-    \\ fs [bvl_to_bvi_id])
-  \\ fs [evaluate_def, pair_case_eq, case_eq_thms, case_elim_thms] \\ rw []
-  \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
-  \\ fs [LENGTH_EQ_NUM_compute] \\ rw []
-  \\ fs [LENGTH_EQ_NUM_compute] \\ rw [] \\ fs []
-  \\ res_tac \\ fs [] \\ rw []
-  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def] \\ rw []
-  \\ fs [bvl_to_bvi_id]
-  \\ fs [bvlSemTheory.v_to_list_def] \\ EVAL_TAC
+  \\ disch_then (strip_assume_tac o SRULE[AllCasePreds()])
+  \\ gvs[]
+  >>~- ([`Var n`], gvs[evaluate_def,ty_rel_def,LIST_REL_EL_EQN])
+  >~[`is_const`]
+  >- (gvs[oneline is_const_def,AllCasePreds()] >>
+      gvs[evaluate_def,do_app_def,bvlSemTheory.do_app_def,
+      do_app_aux_def])
+  >>~- ([`BlockOp (Cons 0)`],
+         fs[get_bin_args_def] >>
+         gvs[evaluate_def,do_app_def,bvlSemTheory.do_app_def,
+         do_app_aux_def,bvl_to_bvi_id,bvlSemTheory.v_to_list_def,
+         AllCaseEqs()] >>
+         res_tac >> gvs[bvlSemTheory.v_to_list_def] >>
+        EVAL_TAC)
+  >~ [`Op (BlockOp ListAppend)`]
+  >- (
+     gvs[evaluate_def,do_app_def,do_app_aux_def,
+     bvlSemTheory.do_app_def] >>
+     gvs[AllCaseEqs()] >>
+     res_tac >> gvs[bvl_to_bvi_id])
+  >- (
+      imp_res_tac term_ok_int_SING >>
+      pop_assum mp_tac >>
+      impl_keep_tac >-
+      simp[Once term_ok_int_def,get_bin_args_def] >>
+     rw[])
+  >- (
+  gvs[oneline is_rel_def,AllCasePreds()] >>
+  gvs[evaluate_def,AllCaseEqs()] >>
+  imp_res_tac term_ok_int_SING >>
+  gvs[] >> gvs[do_app_def,do_app_aux_def,
+  bvlSemTheory.do_app_def,bvlSemTheory.do_int_app_def] >>
+  gvs[bvl_to_bvi_id])
 QED
 
 Theorem term_ok_SING:
@@ -365,13 +363,14 @@ Theorem evaluate_complete_ind:
    ∀P.
     (∀xs s.
       (∀ys t.
-        exp2_size ys < exp2_size xs ∧ t.clock ≤ s.clock ∨ t.clock < s.clock ⇒
+        list_size exp_size ys < list_size exp_size xs ∧
+        t.clock ≤ s.clock ∨ t.clock < s.clock ⇒
         P ys t) ⇒
       P xs s) ⇒
     ∀(xs: bvi$exp list) ^s. P xs s
 Proof
   rpt strip_tac
-  \\ `∃sz. exp2_size xs = sz` by fs []
+  \\ `∃sz. list_size exp_size xs = sz` by fs []
   \\ `∃ck0. s.clock = ck0` by fs []
   \\ ntac 2 (pop_assum mp_tac)
   \\ qspec_tac (`xs`,`xs`)
@@ -406,8 +405,7 @@ Proof
   \\ rw [try_update_LENGTH]
   \\ fs [LAST1_def, case_eq_thms] \\ rw [] \\ fs []
   \\ imp_res_tac EVERY_LAST1 \\ fs []
-  \\ cases_on_op `op` \\ fs [arg_ty_def, update_context_def, check_op_def]
-  \\ Cases_on `b` \\ fs [arg_ty_def, update_context_def, check_op_def]
+  \\ TOP_CASE_TAC \\ fs[]
 QED
 
 Theorem ty_rel_decide_ty:
@@ -499,45 +497,36 @@ Proof
   ho_match_mp_tac scan_expr_ind
   \\ fs [scan_expr_def]
   \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [evaluate_def]
-  >- (fs [ty_rel_def] \\ NO_TAC)
+  >- (fs [ty_rel_def,evaluate_def] \\ NO_TAC)
   >- (* Cons *)
-   (fs [case_eq_thms, pair_case_eq, case_elim_thms, PULL_EXISTS] \\ rw []
+   (fs [case_eq_thms, pair_case_eq, case_elim_thms,evaluate_def,
+     PULL_EXISTS] \\ rw []
     \\ rpt (pairarg_tac \\ fs [])
     \\ fs [ty_rel_def]
     \\ res_tac \\ fs [] \\ rw [])
   >- (* Var *)
-   (fs[case_eq_thms]
+   (fs[case_eq_thms,evaluate_def]
     \\ fs [ty_rel_def, LIST_REL_EL_EQN]
     \\ rw []
     \\ metis_tac [])
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
-  \\ TRY (* All but Let, Op, If *)
-   (fs [case_eq_thms, pair_case_eq, case_elim_thms, bool_case_eq, PULL_EXISTS]
-    \\ rw []
-    \\ res_tac \\ fs [] \\ rw []
-    \\ TRY (metis_tac [])
-    \\ imp_res_tac evaluate_SING_IMP \\ fs []
-    \\ imp_res_tac scan_expr_LENGTH \\ fs []
-    \\ TRY (fs [ty_rel_def] \\ NO_TAC)
-    \\ Cases_on `ty1` \\ fs []
-    \\ TRY (metis_tac [ty_rel_decide_ty])
-    \\ fs [decide_ty_def, ty_rel_def]
-    \\ metis_tac [])
-  >- (* If *)
-   (fs [pair_case_eq, case_eq_thms, case_elim_thms, PULL_EXISTS] \\ rw []
-    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [] \\ rveq
-    \\ fs [LENGTH_EQ_NUM_compute] \\ rveq
-    \\ fs [LENGTH_EQ_NUM_compute] \\ rveq
-    \\ fs []
-    \\ TRY
-     (imp_res_tac scan_expr_LENGTH \\ fs []
-      \\ metis_tac [ty_rel_decide_ty])
-    \\ rpt (PURE_CASE_TAC \\ fs [])
-    \\ res_tac
-    \\ fs [ty_rel_def, decide_ty_def])
-  >- (* Let *)
-   (fs [case_eq_thms, pair_case_eq, case_elim_thms, bool_case_eq]
+  >~ [`Raise`]
+  >- (fs[case_eq_thms,evaluate_def])
+  >~ [`Tick`]
+  >- (fs[case_eq_thms,evaluate_def] >>
+     first_x_assum irule >> metis_tac[])
+  >~ [`Call`]
+  >- (gvs[case_eq_thms,evaluate_def,ty_rel_def] >>
+     imp_res_tac evaluate_SING_IMP \\ fs [])
+  >~ [`If`]
+  >- (gvs[case_eq_thms,evaluate_def] >>
+      rpt $ first_x_assum (drule_all_then strip_assume_tac) >>
+      irule_at (Pos hd) ty_rel_decide_ty >> simp[] >>
+      imp_res_tac scan_expr_LENGTH \\ fs [] >>
+      rpt (TOP_CASE_TAC >> gvs[AllCaseEqs()]) >>
+      gvs [decide_ty_def, ty_rel_def])
+  >~ [`Let`]
+  >- (fs [evaluate_def,case_eq_thms, pair_case_eq, case_elim_thms, bool_case_eq]
     \\ fs [PULL_EXISTS]
     \\ rpt (gen_tac ORELSE DISCH_TAC) \\ fs []
     \\ reverse conj_tac
@@ -568,7 +557,8 @@ Proof
     \\ `n + LENGTH vs' < LENGTH tu` by fs []
     \\ rpt (first_x_assum drule) \\ rw []
     \\ rfs [EL_APPEND1, EL_APPEND2, EL_LENGTH_APPEND])
-  \\ CASE_TAC \\ fs []
+  (*Op*)
+  \\ CASE_TAC \\ fs [evaluate_def]
   >-
    (rw [case_eq_thms, case_elim_thms, IS_SOME_EXISTS, PULL_EXISTS, bool_case_eq,
         pair_case_eq, from_op_def, arg_ty_def, op_ty_def]
@@ -585,7 +575,8 @@ Proof
   \\ cases_on_op `op` \\ fs [from_op_def, arg_ty_def]
   \\ fs [pair_case_eq, case_eq_thms, case_elim_thms, bool_case_eq] \\ rw []
   \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
-  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
+     oneline bvlSemTheory.do_int_app_def]
   \\ fs [pair_case_eq, case_eq_thms, case_elim_thms, bool_case_eq] \\ rw []
   \\ fs [check_op_def, term_ok_def, opbinargs_def, get_bin_args_def, op_type_def]
   \\ fs [ty_rel_def, LIST_REL_EL_EQN] \\ rw []
@@ -1180,7 +1171,7 @@ Proof
   once_rewrite_tac [scan_expr_def]
   \\ rw [check_op_def, opbinargs_def, get_bin_args_def, case_elim_thms,
          case_eq_thms, bool_case_eq, IS_SOME_EXISTS]
-  \\ cases_on_op `op` \\ fs []
+  \\ fs[from_op_def,AllCaseEqs()] \\  gvs[]
 QED
 
 Theorem term_ok_int_extend:
@@ -1234,14 +1225,16 @@ Theorem scan_expr_Op:
      op = to_op opr /\
      (op1 = opr <=> lr)
 Proof
-  rw [scan_expr_def, rewrite_def, case_elim_thms, case_eq_thms, IS_SOME_EXISTS]
-  \\ cases_on_op `op` \\ fs []
-  \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs []
-  \\ TRY (Cases_on `op1`)
-  \\ fs [check_op_def, try_swap_def, opbinargs_def,
-         get_bin_args_def, IS_SOME_EXISTS, case_eq_thms,
-         case_elim_thms] \\ rw [] \\ fs []
-  \\ fs [apply_op_def]
+  rw [scan_expr_def, rewrite_def, case_elim_thms, case_eq_thms,   IS_SOME_EXISTS]
+  \\ rfs[]
+  \\ fs[from_op_def,AllCaseEqs()]
+  \\ TRY (STRIP_TAC)
+  \\ gvs[]
+  \\ gvs[check_op_def,try_swap_def,case_eq_thms,
+   apply_op_def,to_op_def]
+  \\ fs[opbinargs_def,get_bin_args_def]
+  \\ Cases_on `op1` >> fs[]
+  \\ fs[try_swap_def,opbinargs_def,to_op_def]
 QED
 
 Theorem is_rec_term_ok:
@@ -1871,7 +1864,8 @@ Proof
            | List => ?ys. v_to_list val = SOME ys
            | Any => T` by
      (Cases_on `op` \\ fs [to_op_def, from_op_def, op_type_def]
-      \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, env_rel_def]
+      \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, env_rel_def,
+              bvlSemTheory.do_int_app_def]
       \\ fs [bvl_to_bvi_id])
     \\ fs []
     \\ (reverse (Cases_on `res_args`) \\ fs []
@@ -1974,7 +1968,8 @@ Proof
     \\ pop_assum mp_tac
     \\ simp [ty_rel_def] \\ rw []
     \\ Cases_on `op` \\ fs [to_op_def, op_type_def, op_id_val_def] \\ rw []
-    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, bvlSemTheory.v_to_list_def]
+    \\ gvs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, bvlSemTheory.do_int_app_def,
+       bvlSemTheory.v_to_list_def]
     \\ fs [bvl_to_bvi_id] \\ rveq \\ fs []
     \\ fs [bvl_to_bvi_id]
     \\ rfs [] \\ rveq
@@ -1990,6 +1985,7 @@ Proof
     \\ qpat_x_assum `¬(_)` kall_tac
     \\ TOP_CASE_TAC
     \\ first_assum (qspecl_then [`xs`, `s`] mp_tac)
+    \\ impl_tac >- gvs []
     \\ simp [bviTheory.exp_size_def]
     \\ sg `env_rel ty F acc env1 env2` >- fs [env_rel_def]
     \\ rpt (disch_then drule) \\ fs []
@@ -2082,9 +2078,11 @@ Proof
       \\ rpt (disch_then drule) \\ strip_tac \\ fs []
       \\ pop_assum mp_tac \\ fs [] \\ once_rewrite_tac [ty_rel_def] \\ strip_tac
       \\ fs []
+      \\ PRED_ASSUM is_forall kall_tac
       \\ Cases_on `x`
-      \\ fs [to_op_def, op_id_val_def, do_app_def, do_app_aux_def,
-             bvlSemTheory.do_app_def, bvl_to_bvi_id, op_type_def]
+      \\ gvs [to_op_def, op_id_val_def, do_app_def, do_app_aux_def,
+             bvlSemTheory.do_app_def, bvlSemTheory.do_int_app_def,
+             bvl_to_bvi_id, op_type_def]
       \\ fs [bvlSemTheory.v_to_list_def]
       \\ fs [case_eq_thms, case_elim_thms, pair_case_eq, bool_case_eq] \\ rw []
       \\ fs [bvl_to_bvi_id, list_to_v_imp])
@@ -2167,9 +2165,11 @@ Proof
     \\ rpt (disch_then drule) \\ fs [] \\ strip_tac
     \\ pop_assum mp_tac
     \\ simp [ty_rel_def] \\ strip_tac \\ fs []
+    \\ PRED_ASSUM is_forall kall_tac
     \\ Cases_on `x'`
     \\ fs [to_op_def, op_type_def, do_app_def, do_app_aux_def, op_id_val_def,
-           bvlSemTheory.do_app_def, bvl_to_bvi_id, bvlSemTheory.v_to_list_def]
+           bvlSemTheory.do_app_def,bvlSemTheory.do_int_app_def,
+           bvl_to_bvi_id, bvlSemTheory.v_to_list_def]
     \\ rw [] \\ fs []
     \\ fs [list_to_v_imp]
     \\ fs [bvl_to_bvi_id])

@@ -411,7 +411,6 @@ Definition inst_def:
           let res = w2n l + w2n r + if c = (0w:'a word) then 0 else 1 in
             SOME (set_var r4 (Word (if dimword(:'a) ≤ res then (1w:'a word) else 0w))
                  (set_var r1 (Word (n2w res)) s))
-
         | _ => NONE)
     | Arith (AddOverflow r1 r2 r3 r4) =>
         (let vs = get_vars [r2;r3] s in
@@ -459,7 +458,13 @@ Definition inst_def:
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
-    | Mem Load32 _ _ => NONE
+    | Mem Load32 r (Addr a w) =>
+       (case word_exp s (Op Add [Var a; Const w]) of
+        | SOME w =>
+           (case mem_load_32 s.memory s.mdomain s.be w of
+            | NONE => NONE
+            | SOME w => SOME (set_var r (Word (w2w w)) s))
+        | _ => NONE)
     | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME w) =>
@@ -474,7 +479,13 @@ Definition inst_def:
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
-    | Mem Store32 _ _ => NONE
+    | Mem Store32 r (Addr a w) =>
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+        | (SOME a, SOME (Word w)) =>
+            (case mem_store_32 s.memory s.mdomain s.be a (w2w w) of
+             | SOME new_m => SOME (s with memory := new_m)
+             | NONE => NONE)
+        | _ => NONE)
     | FP (FPLess r d1 d2) =>
       (case (get_fp_var d1 s,get_fp_var d2 s) of
       | (SOME f1 ,SOME f2) =>
@@ -701,7 +712,7 @@ End
 Definition check_store_consts_opt_def:
   check_store_consts_opt t1 t2 NONE _ = T ∧
   check_store_consts_opt t1 t2 (SOME n) c =
-    (lookup n c = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0 0)))
+    (lookup n c = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0)))
 End
 
 Definition dest_Seq_def:
@@ -750,9 +761,9 @@ Definition evaluate_def:
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
-  (evaluate (Return n m,s) =
-     case (get_var n s ,get_var m s) of
-     | (SOME (Loc l1 l2),SOME _) => (SOME (Result (Loc l1 l2)),s)
+  (evaluate (Return n,s) =
+     case get_var n s of
+     | SOME (Loc l1 l2) => (SOME (Result (Loc l1 l2)),s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise n,s) =
      case get_var n s of

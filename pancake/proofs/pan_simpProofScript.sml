@@ -296,6 +296,7 @@ Theorem ret_to_tail_Others:
   ^(get_goal "panLang$Skip") /\
   ^(get_goal "panLang$Assign") /\
   ^(get_goal "panLang$Store") /\
+  ^(get_goal "panLang$Store32") /\
   ^(get_goal "panLang$StoreByte") /\
   ^(get_goal "panLang$Break") /\
   ^(get_goal "panLang$Continue") /\
@@ -406,6 +407,12 @@ Proof
        CaseEq "word_lab"] >> rveq >> fs [] >>
    fs [state_rel_def, state_component_equality])
   >- (
+   rename [‘eval s (Load32 e)’] >>
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab", option_case_eq] >> rveq >> fs [] >>
+   fs [state_rel_def, state_component_equality])
+  >- (
    rename [‘eval s (LoadByte e)’] >>
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
@@ -464,6 +471,16 @@ Proof
   Cases_on ‘f h’ \\ gvs[]
 QED
 
+Triviality OPT_MMAP_eval_some_eq:
+  OPT_MMAP (λa. eval s a) es = SOME vs /\
+  state_rel s t t.code ==>
+  OPT_MMAP (λa. eval t a) es = SOME vs
+Proof
+  rw []
+  \\ gvs [pan_commonPropsTheory.opt_mmap_eq_some,MAP_EQ_EVERY2,LIST_REL_EL_EQN]
+  \\ metis_tac [compile_eval_correct]
+QED
+
 Theorem compile_eval_correct_none:
   ∀s e t.
       eval s e = NONE /\
@@ -507,6 +524,14 @@ Proof
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
        CaseEq "word_lab"] >> rveq >> fs [] >>
+   imp_res_tac compile_eval_correct >>
+   fs [] >>
+   fs [state_rel_def, state_component_equality])
+  >- (
+   rename [‘eval s (Load32 e)’] >>
+   rpt gen_tac >> strip_tac >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
+       CaseEq "word_lab", option_case_eq] >> rveq >> fs [] >>
    imp_res_tac compile_eval_correct >>
    fs [] >>
    fs [state_rel_def, state_component_equality])
@@ -560,23 +585,19 @@ Proof
           res_tac \\
           disj1_tac \\
           metis_tac[OPT_MMAP_NONE']) \\
-   gvs[] \\
+   gvs[optionTheory.IF_NONE_EQUALS_OPTION] \\
    strip_tac \\
-   gvs[eval_def,AllCaseEqs()]
+   fs[CaseEq "option", CaseEq "bool"]
    THEN1 (imp_res_tac OPT_MMAP_NONE \\
           fs[] \\
-          metis_tac[NOT_NONE_SOME,OPT_MMAP_NONE']) \\
-   qpat_x_assum ‘_ ⇒ _’ mp_tac \\ impl_keep_tac
-   THEN1 (gvs[EVERY_MEM] \\
-          rw[] \\
-          gvs[pan_commonPropsTheory.opt_mmap_eq_some,MAP_EQ_EVERY2,LIST_REL_EL_EQN,MEM_EL,PULL_EXISTS] \\
-          res_tac \\
-          drule_all_then strip_assume_tac compile_eval_correct \\
-          gvs[]) \\
-   imp_res_tac pan_commonPropsTheory.opt_mmap_length_eq \\
-   rw[DefnBase.one_line_ify NONE pan_op_def,AllCaseEqs(),MAP_EQ_CONS,PULL_EXISTS] \\
-   gvs[quantHeuristicsTheory.LIST_LENGTH_1,LENGTH_CONS] \\
-   every_case_tac \\ gvs[])
+          metis_tac[NOT_NONE_SOME,OPT_MMAP_NONE'])
+   THEN1 (dxrule_then drule OPT_MMAP_eval_some_eq \\
+          simp [])
+   THEN1 (dxrule_then drule OPT_MMAP_eval_some_eq \\
+          rw [] \\
+          full_simp_tac bool_ss [listTheory.EXISTS_NOT_EVERY, o_DEF]
+         )
+  )
   >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def] >>
@@ -904,6 +925,7 @@ Theorem compile_Others:
   ^(get_goal "panLang$Skip") /\
   ^(get_goal "panLang$Assign") /\
   ^(get_goal "panLang$Store") /\
+  ^(get_goal "panLang$Store32") /\
   ^(get_goal "panLang$StoreByte") /\
   ^(get_goal "panLang$Break") /\
   ^(get_goal "panLang$Continue") /\

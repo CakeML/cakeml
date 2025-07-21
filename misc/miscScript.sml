@@ -11,7 +11,7 @@ open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
      bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory BasicProvers
      indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
      integer_wordTheory
-local open bagLib addressTheory blastLib in end
+local open bagLib addressTheory blastLib pathTheory in end
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
@@ -1101,14 +1101,14 @@ QED
 Theorem find_index_NOT_MEM:
    ∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)
 Proof
-  Induct >> srw_tac[][find_index_def]
+  Induct >> srw_tac[][find_index_def]>>
+  metis_tac[]
 QED
 
 Theorem find_index_MEM:
    !ls x n. MEM x ls ==> ?i. (find_index x ls n = SOME (n+i)) /\ i < LENGTH ls /\ (EL i ls = x)
 Proof
-  Induct >> srw_tac[][find_index_def] >- (
-    qexists_tac`0`>>srw_tac[][] ) >>
+  Induct >> srw_tac[][find_index_def] >>
   first_x_assum(qspecl_then[`x`,`n+1`]mp_tac) >>
   srw_tac[][]>>qexists_tac`SUC i`>>srw_tac[ARITH_ss][ADD1]
 QED
@@ -1116,14 +1116,14 @@ QED
 Theorem find_index_LEAST_EL:
    ∀ls x n. find_index x ls n = if MEM x ls then SOME (n + (LEAST n. x = EL n ls)) else NONE
 Proof
-  Induct >- srw_tac[][find_index_def] >>
+  Induct >>
   simp[find_index_def] >>
   rpt gen_tac >>
   Cases_on`h=x`>>full_simp_tac(srw_ss())[] >- (
     numLib.LEAST_ELIM_TAC >>
     conj_tac >- (qexists_tac`0` >> srw_tac[][]) >>
     Cases >> srw_tac[][] >>
-    first_x_assum (qspec_then`0`mp_tac) >> srw_tac[][] ) >>
+    qexists_tac`0` >>simp[])>>
   srw_tac[][] >>
   numLib.LEAST_ELIM_TAC >>
   conj_tac >- metis_tac[MEM_EL,MEM] >>
@@ -1151,18 +1151,20 @@ QED
 Theorem ALOOKUP_find_index_NONE:
    (ALOOKUP env k = NONE) ⇒ (find_index k (MAP FST env) m = NONE)
 Proof
-  srw_tac[][ALOOKUP_FAILS] >> srw_tac[][GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD]
+  srw_tac[][ALOOKUP_FAILS] >>
+  srw_tac[][GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD]
 QED
 
 val ALOOKUP_find_index_SOME = Q.prove(
   `∀env. (ALOOKUP env k = SOME v) ⇒
       ∀m. ∃i. (find_index k (MAP FST env) m = SOME (m+i)) ∧
           (v = EL i (MAP SND env))`,
-  Induct >> simp[] >> Cases >> srw_tac[][find_index_def] >-
-    (qexists_tac`0`>>simp[]) >> full_simp_tac(srw_ss())[] >>
+  Induct >> simp[] >> Cases >>
+  srw_tac[][find_index_def] >> full_simp_tac(srw_ss())[] >>
   first_x_assum(qspec_then`m+1`mp_tac)>>srw_tac[][]>>srw_tac[][]>>
   qexists_tac`SUC i`>>simp[])
 |> SPEC_ALL |> UNDISCH_ALL |> Q.SPEC`0` |> DISCH_ALL |> SIMP_RULE (srw_ss())[]
+
 Theorem ALOOKUP_find_index_SOME:
    (ALOOKUP env k = SOME v) ⇒
     ∃i. (find_index k (MAP FST env) 0 = SOME i) ∧
@@ -3310,9 +3312,7 @@ Theorem TOKENS_FLAT_MAP_SNOC:
    TOKENS ((=) x) (FLAT (MAP (SNOC x) ls)) = ls
 Proof
   Induct_on`ls` \\ rw[TOKENS_NIL]
-  \\ Q.ISPEC_THEN`x`(mp_tac o GSYM) CONS_APPEND
-  \\ rewrite_tac[GSYM APPEND_ASSOC]
-  \\ disch_then(rewrite_tac o mlibUseful.sing)
+  \\ rewrite_tac[GSYM APPEND_ASSOC,SNOC_APPEND,APPEND]
   \\ DEP_REWRITE_TAC[TOKENS_APPEND] \\ rw[]
   \\ DEP_REWRITE_TAC[TOKENS_unchanged]
   \\ fs[EVERY_MEM]
@@ -3684,8 +3684,6 @@ Proof
   \\ drule DIVISION \\ disch_then (qspec_then `m` (strip_assume_tac o GSYM))
   \\ rfs [] \\ metis_tac [LT_MULT_LCANCEL]
 QED
-
-open pathTheory
 
 Theorem toPath_fromList:
    (toPath (x, fromList []) = stopped_at x) ∧
@@ -4432,6 +4430,24 @@ Proof
   \\ imp_res_tac byte_index_LESS_IMP
   \\ fs [w2w] \\ TRY (match_mp_tac NOT_w2w_bit)
   \\ fs [] \\ decide_tac
+QED
+
+(* helpful theorems for _size *)
+Theorem list_size_pair_size_MAP_FST_SND:
+  list_size (pair_size f g) ls =
+  list_size f (MAP FST ls) +
+  list_size g (MAP SND ls)
+Proof
+  Induct_on`ls`>>simp[]>>
+  Cases>>rw[]
+QED
+
+Theorem MEM_list_size:
+  MEM x ls ⇒
+  f x ≤ list_size f ls
+Proof
+  Induct_on`ls`>>simp[]>>
+  rw[]>>gvs[]
 QED
 
 val _ = export_theory()

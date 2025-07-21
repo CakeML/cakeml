@@ -393,7 +393,7 @@ Theorem evaluate_MAP_Const:
       evaluate (MAP (K (Op (IntOp (Const i)) [])) (exps:'a list),env,t1) =
         (Rval (MAP (K (Number i)) exps),t1)
 Proof
-  Induct \\ full_simp_tac(srw_ss())[evaluate_def,evaluate_CONS,do_app_def]
+  Induct \\ full_simp_tac(srw_ss())[evaluate_def,evaluate_CONS,do_app_def,do_int_app_def]
 QED
 
 Theorem evaluate_Bool[simp]:
@@ -537,12 +537,11 @@ Proof
       Cases_on `q` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
       srw_tac[][inc_clock_def] >>
       BasicProvers.EVERY_CASE_TAC >>
-      full_simp_tac(srw_ss())[] >>
+      gvs [] >>
       imp_res_tac do_app_const >>
       imp_res_tac do_app_change_clock >>
       imp_res_tac do_app_change_clock_err >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][])
+      fs [])
   >- (srw_tac[][] >>
       full_simp_tac(srw_ss())[inc_clock_def, dec_clock_def] >>
       srw_tac[][] >>

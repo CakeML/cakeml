@@ -8,11 +8,10 @@ val _ = new_theory"stackProps";
 
 val _ = set_grammar_ancestry["stackSem", "stack_names","backendProps"];
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
-   map (prove_case_eq_thm o get_thms)
+   map (TypeBase.case_eq_of)
         [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``,
          ``:'a reg_imm`` ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``,
          ``:'a ffi_result``])
@@ -27,6 +26,7 @@ Theorem set_store_const[simp]:
    (set_store x y z).code = z.code ∧
    (set_store x y z).be = z.be ∧
    (set_store x y z).gc_fun = z.gc_fun ∧
+   (set_store x y z).memory = z.memory ∧
    (set_store x y z).mdomain = z.mdomain ∧
    (set_store x y z).sh_mdomain = z.sh_mdomain ∧
    (set_store x y z).bitmaps = z.bitmaps ∧
@@ -54,12 +54,17 @@ Theorem set_var_const[simp]:
    (set_var x y z).use_stack = z.use_stack ∧
    (set_var x y z).code = z.code ∧
    (set_var x y z).be = z.be ∧
+   (set_var x y z).fp_regs = z.fp_regs ∧
+   (set_var x y z).data_buffer = z.data_buffer ∧
+   (set_var x y z).code_buffer = z.code_buffer ∧
    (set_var x y z).gc_fun = z.gc_fun ∧
+   (set_var x y z).memory = z.memory ∧
    (set_var x y z).mdomain = z.mdomain ∧
    (set_var x y z).sh_mdomain = z.sh_mdomain ∧
    (set_var x y z).bitmaps = z.bitmaps ∧
    (set_var x y z).compile = z.compile ∧
    (set_var x y z).compile_oracle = z.compile_oracle ∧
+   (set_var x y z).store = z.store ∧
    (set_var x y z).stack = z.stack ∧
    (set_var x y z).stack_space = z.stack_space
 Proof
@@ -67,16 +72,73 @@ Proof
 QED
 
 Theorem set_var_with_const[simp]:
-   set_var x y (z with clock := k) = set_var x y z with clock := k ∧
-   set_var x y (z with stack_space := k) = set_var x y z with stack_space := k
+   set_var x y (z with clock := clk) = set_var x y z with clock := clk ∧
+   set_var x y (z with memory := m) = set_var x y z with memory := m ∧
+   set_var x y (z with ffi := ffi) = set_var x y z with ffi := ffi /\
+   set_var x y (z with stack := stk) = set_var x y z with stack := stk /\
+   set_var x y (z with stack_space := stk_space) = set_var x y z with stack_space := stk_space
 Proof
   EVAL_TAC
+QED
+
+Triviality set_fp_var_with_const[simp]:
+   set_fp_var x y (z with clock := k) = set_fp_var x y z with clock := k
+Proof
+  EVAL_TAC
+QED
+
+Triviality set_fp_var_const[simp]:
+   (set_fp_var x y z).ffi = z.ffi ∧
+   (set_fp_var x y z).clock = z.clock ∧
+   (set_fp_var x y z).use_alloc = z.use_alloc ∧
+   (set_fp_var x y z).use_store = z.use_store ∧
+   (set_fp_var x y z).use_stack = z.use_stack ∧
+   (set_fp_var x y z).code = z.code ∧
+   (set_fp_var x y z).be = z.be ∧
+   (set_fp_var x y z).gc_fun = z.gc_fun ∧
+   (set_fp_var x y z).mdomain = z.mdomain ∧
+   (set_fp_var x y z).sh_mdomain = z.sh_mdomain ∧
+   (set_fp_var x y z).bitmaps = z.bitmaps ∧
+   (set_fp_var x y z).compile = z.compile ∧
+   (set_fp_var x y z).compile_oracle = z.compile_oracle ∧
+   (set_fp_var x y z).stack = z.stack ∧
+   (set_fp_var x y z).stack_space = z.stack_space
+Proof
+  EVAL_TAC
+QED
+
+Triviality get_fp_var_with_const[simp]:
+   get_fp_var x (y with clock := k) = get_fp_var x y
+Proof
+  EVAL_TAC
+QED
+
+Theorem get_var_with_const[simp]:
+  get_var r (t with clock := clk) =
+  (get_var r t) /\
+  get_var r (t with stack_space := stk_space) =
+  (get_var r t)
+Proof
+  EVAL_TAC
+QED
+
+Triviality get_vars_with_const[simp]:
+   get_vars xs (y with clock := k) = get_vars xs y
+Proof
+  Induct_on `xs` >> EVAL_TAC >> simp[]
 QED
 
 Theorem get_var_imm_with_const[simp]:
    get_var_imm x (y with clock := k) = get_var_imm x y
 Proof
   Cases_on`x`>>EVAL_TAC
+QED
+
+Theorem set_fp_var_const[simp]:
+  (set_fp_var x y z).stack_space = z.stack_space /\
+  (set_fp_var x y z).stack = z.stack
+Proof
+  EVAL_TAC
 QED
 
 Theorem empty_env_const[simp]:
@@ -175,31 +237,52 @@ Proof
 QED
 
 Theorem sh_mem_load_with_const[simp]:
-  FST (sh_mem_load r x (y with clock := k)) = FST (sh_mem_load r x y)
+  (sh_mem_load r x (y with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_load r x y)
 Proof
   simp[sh_mem_load_def,ffiTheory.call_FFI_def]>>every_case_tac>>
   fs[]
 QED
 
 Theorem sh_mem_store_with_const[simp]:
-   FST (sh_mem_store x y (z with clock := k)) = FST (sh_mem_store x y z)
+  (sh_mem_store x y (z with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_store x y z)
 Proof
   gs[sh_mem_store_def,ffiTheory.call_FFI_def]>>every_case_tac>>
-  gs[get_var_def]
+  gs[]
+QED
+
+Theorem sh_mem_load32_with_const[simp]:
+  (sh_mem_load32 r x (y with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_load32 r x y)
+Proof
+  simp[sh_mem_load32_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  fs[]
+QED
+
+Theorem sh_mem_store32_with_const[simp]:
+  (sh_mem_store32 x y (z with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_store32 x y z)
+Proof
+  gs[sh_mem_store32_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[]
 QED
 
 Theorem sh_mem_load_byte_with_const[simp]:
-   FST (sh_mem_load_byte r x (y with clock := k)) = FST (sh_mem_load_byte r x y)
+   (sh_mem_load_byte r x (y with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_load_byte r x y)
 Proof
   simp[sh_mem_load_byte_def,ffiTheory.call_FFI_def]>>every_case_tac>>
   fs[]
 QED
 
 Theorem sh_mem_store_byte_with_const[simp]:
-   FST (sh_mem_store_byte x y (z with clock := k)) = FST (sh_mem_store_byte x y z)
+  (sh_mem_store_byte x y (z with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_store_byte x y z)
 Proof
   gs[sh_mem_store_byte_def,ffiTheory.call_FFI_def]>>every_case_tac>>
-  gs[get_var_def]
+  gs[]
+QED
+
+Triviality sh_mem_op_with_const[simp]:
+   (sh_mem_op op x y (z with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_op op x y z)
+Proof
+  gs[oneline sh_mem_op_def] >>
+  TOP_CASE_TAC >> gs[]
 QED
 
 Theorem word_exp_with_const[simp]:
@@ -222,6 +305,7 @@ Proof
   srw_tac[][assign_def] >> every_case_tac >> full_simp_tac(srw_ss())[]
 QED
 
+
 Theorem inst_const:
    inst i s = SOME t ⇒
     t.ffi = s.ffi ∧
@@ -238,22 +322,16 @@ Theorem inst_const:
     t.compile = s.compile ∧
     t.compile_oracle = s.compile_oracle
 Proof
-  Cases_on`i`>>srw_tac[][inst_def,assign_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[set_fp_var_def,set_var_def,word_exp_def,LET_THM] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[mem_store_def] >> srw_tac[][] >>
-  fs[get_vars_def]>>every_case_tac>>fs[state_component_equality]
+  Cases_on`i`>> strip_tac >>
+  gvs[inst_def,assign_def,word_exp_def,
+  mem_store_def,AllCaseEqs(),UNCURRY_EQ]
 QED
 
 Theorem inst_with_const[simp]:
    inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)
 Proof
-  srw_tac[][inst_def] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[]>>
-  fs[get_vars_def,get_var_def,get_fp_var_def,set_fp_var_def]>>
-  every_case_tac>>fs[]>>
-  rw[]>>fs[]>>rw[]>>fs[] >>
-  gvs [mem_load_def]
+  srw_tac[][inst_def]
+  >> rpt (TOP_CASE_TAC >> gvs[mem_load_def])
 QED
 
 Theorem dec_clock_const[simp]:
@@ -261,17 +339,25 @@ Theorem dec_clock_const[simp]:
    (dec_clock z).use_alloc = z.use_alloc ∧
    (dec_clock z).use_store = z.use_store ∧
    (dec_clock z).use_stack = z.use_stack ∧
+   (dec_clock z).stack = z.stack ∧
+   (dec_clock z).store = z.store ∧
    (dec_clock z).code = z.code ∧
+   (dec_clock z).data_buffer = z.data_buffer ∧
+   (dec_clock z).code_buffer = z.code_buffer ∧
+   (dec_clock z).fp_regs = z.fp_regs ∧
    (dec_clock z).be = z.be ∧
    (dec_clock z).gc_fun = z.gc_fun ∧
+   (dec_clock z).memory = z.memory ∧
    (dec_clock z).mdomain = z.mdomain ∧
    (dec_clock z).sh_mdomain = z.sh_mdomain ∧
    (dec_clock z).bitmaps = z.bitmaps ∧
+   (dec_clock z).stack_space = z.stack_space ∧
    (dec_clock z).compile = z.compile ∧
    (dec_clock z).compile_oracle = z.compile_oracle
 Proof
   EVAL_TAC
 QED
+
 
 Theorem sh_mem_op_const[simp]:
    sh_mem_op op a r s = (res,t) ⇒
@@ -311,16 +397,10 @@ Proof
   recInduct evaluate_ind >>
   rpt conj_tac >>
   simp[evaluate_def] >>
-  rpt gen_tac >>
-  rpt (
-    (strip_tac >> CHANGED_TAC(imp_res_tac alloc_const) >> full_simp_tac(srw_ss())[]) ORELSE
-    (strip_tac >> CHANGED_TAC(imp_res_tac inst_const) >> full_simp_tac(srw_ss())[]) ORELSE
-    (strip_tac >> CHANGED_TAC(imp_res_tac sh_mem_op_const) >> full_simp_tac(srw_ss())[]) ORELSE
-    (strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[]) ORELSE
-    (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
-    (pairarg_tac >> simp[]))>>
-  (every_case_tac>>fs[]>>rw[]) >>
-  imp_res_tac store_const_sem_const >> fs []
+  rpt (gen_tac ORELSE disch_tac) >>
+  gvs[AllCaseEqs(),UNCURRY_EQ] >>
+  map_every imp_res_tac [alloc_const,inst_const,store_const_sem_const,sh_mem_op_const] >>
+  fs[]
 QED
 
 Theorem evaluate_code_bitmaps:
@@ -332,45 +412,16 @@ Theorem evaluate_code_bitmaps:
     s1.bitmaps = s.bitmaps ++ FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n))
 Proof
   recInduct evaluate_ind >>
-  rw[evaluate_def] >>
-  TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-  TRY(
-    fs[case_eq_thms,empty_env_def,dec_clock_def]>>rw[]>>
-    TRY (qpat_x_assum ‘(r',s1) = _’ $ assume_tac o GSYM)>>
-    imp_res_tac alloc_const \\ imp_res_tac inst_const \\
-    imp_res_tac store_const_sem_const \\
-    imp_res_tac sh_mem_op_const \\
-    qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC)
-  (* Seq *)
-  >- (
-    fs[case_eq_thms,UNCURRY_EQ] \\ rw[] \\
-    gs[] \\
-    PURE_REWRITE_TAC[GSYM FLAT_APPEND,GSYM MAP_APPEND,GSYM GENLIST_APPEND,
-    GSYM FOLDL_APPEND, shift_seq_def] \\
-    fs[GSYM shift_seq_def] \\ METIS_TAC[])
-  (* If *)
-  >- (
-    fs[case_eq_thms,UNCURRY_EQ] \\ rw[] \\
-    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    gs[] \\
-    PURE_REWRITE_TAC[GSYM FLAT_APPEND,GSYM MAP_APPEND,GSYM GENLIST_APPEND,
-    GSYM FOLDL_APPEND, shift_seq_def] \\
-    fs[GSYM shift_seq_def] \\ METIS_TAC[])
-  (* While *)
-  >- (
-    fs[case_eq_thms,UNCURRY_EQ] \\ rw[] \\
-    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    gs[] \\
-    PURE_REWRITE_TAC[GSYM FLAT_APPEND,GSYM MAP_APPEND,GSYM GENLIST_APPEND,
-    GSYM FOLDL_APPEND, shift_seq_def] \\
-    fs[GSYM shift_seq_def] \\ METIS_TAC[])
-  (* Call *)
-  >- (
-    fs[case_eq_thms,UNCURRY_EQ] \\ rw[] \\
-    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    qmatch_goalsub_abbrev_tac`shift_seq w` \\
-    qexists_tac`w` \\ simp[] \\
-    simp[Abbr`w`])
+  rpt conj_tac >>
+  simp[evaluate_def] >>
+  rpt (gen_tac ORELSE disch_tac) >>
+  gvs[AllCaseEqs(),UNCURRY_EQ] >>
+  map_every imp_res_tac [alloc_const,inst_const,store_const_sem_const,sh_mem_op_const] >>
+  fs[shift_seq_def] >>
+  TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][] \\ NO_TAC) >>
+  PURE_REWRITE_TAC[GSYM FLAT_APPEND,GSYM MAP_APPEND,GSYM GENLIST_APPEND,GSYM FOLDL_APPEND] >>
+  TRY ( qmatch_goalsub_abbrev_tac `s.compile_oracle (_ + N)`>>
+  qexists_tac `N` >> fsrw_tac[ETA_ss][Abbr`N`] \\ NO_TAC)
 QED
 
 Theorem evaluate_mono:
@@ -392,22 +443,25 @@ Theorem evaluate_io_events_mono:
     s1.ffi.io_events ≼ s2.ffi.io_events
 Proof
   recInduct evaluate_ind >>
-  srw_tac[][evaluate_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >>
-  TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac alloc_const >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac store_const_sem_const >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[set_var_def] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
-       every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
-  TRY (Cases_on ‘op’>>fs[sh_mem_op_def]>>
-       fs[sh_mem_load_def,sh_mem_store_def,sh_mem_load32_def,sh_mem_store32_def,
-          sh_mem_load_byte_def,sh_mem_store_byte_def]>>
-       fs[ffiTheory.call_FFI_def]>>
-       rpt (FULL_CASE_TAC>>gvs[]))>>
-  metis_tac[IS_PREFIX_TRANS]
+  rpt conj_tac >>
+  simp[evaluate_def] >>
+  rpt (gen_tac ORELSE disch_tac) >>
+  gvs[AllCaseEqs(),UNCURRY_EQ] >>
+  map_every imp_res_tac [alloc_const,inst_const,store_const_sem_const] >>
+  fs[] >> rpt (drule_then MATCH_MP_TAC IS_PREFIX_TRANS) >> fs[]
+  >~[`sh_mem_op`]
+  >-(
+    gvs[oneline sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
+    sh_mem_load32_def,sh_mem_store32_def,sh_mem_load_byte_def,
+    sh_mem_store_byte_def,ffiTheory.call_FFI_def,AllCaseEqs()])
+  >-(gvs[ffiTheory.call_FFI_def,AllCaseEqs()])
+QED
+
+Theorem pair_map_eq:
+   (f ## g) p = (x,y) <=> (∃q r. p = (q,r) /\ x = (f q) /\ y = (g r))
+Proof
+  Cases_on `p` >> simp[] >>
+  EQ_TAC >> simp[]
 QED
 
 Theorem evaluate_add_clock:
@@ -415,87 +469,36 @@ Theorem evaluate_add_clock:
     evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
     evaluate (p,s with clock := s.clock + extra) = (r,s' with clock := s'.clock + extra)
 Proof
-  recInduct evaluate_ind >>
-  srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
-  TRY (
-    rename1`find_code dest (_ \\ _)` >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-      BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-      BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-      every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >>
-      fsrw_tac[ARITH_ss][dec_clock_def] >>
-      rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
-    ntac 3 BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  recInduct evaluate_ind >> rpt conj_tac
+  >~[`Call`]
+  >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
+    gvs[AllCaseEqs(),UNCURRY_EQ] >>
     fsrw_tac[ARITH_ss][dec_clock_def] >>
-    reverse BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >- (
-      BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-      BasicProvers.FULL_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-      every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
-      fsrw_tac[ARITH_ss][] >>
-      rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
-    qpat_x_assum`_ = (_,_)`mp_tac >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> strip_tac >> rveq >>
-    fsrw_tac[ARITH_ss][] >> rveq >>
-    rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
-    NO_TAC) >>
-  TRY (
-    rename1`find_code` >>
-    full_simp_tac(srw_ss())[get_var_def] >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >>
-    rveq >> fsrw_tac[ARITH_ss][dec_clock_def] >>
-    rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
-  TRY (
-    rename1`While`
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[get_var_def]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ qpat_x_assum`_ = (_,_)`mp_tac
-    \\ pairarg_tac \\ fs[]
-    \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
-    >- (
-      strip_tac \\ rveq \\ fs[]
-      \\ pairarg_tac \\ fs[] )
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    >- ( strip_tac \\ rveq \\ fs[] )
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ strip_tac \\ fs[] \\ rfs[]
-    \\ fsrw_tac[ARITH_ss][dec_clock_def] ) >>
-  TRY (
-    rename1 `buffer_flush _ _ _` >>
-    qpat_x_assum`_ = (_,_)` mp_tac>>
-    TOP_CASE_TAC>>fs[get_var_def]>-
-      (rw[]>>fs[])>>
-    ntac 11 (TOP_CASE_TAC>>fs[])>>
-    pairarg_tac>>fs[]>>
-    ntac 5 (TOP_CASE_TAC>>fs[])>>
-    rw[]>>fs[])>>
-  TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
-  TRY BasicProvers.TOP_CASE_TAC \\ fs[get_var_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >>
-  full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac alloc_const >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac store_const_sem_const >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
-  fsrw_tac[ARITH_ss][dec_clock_def] >>
-  TRY (
-    rename1`call_FFI` >>
-    pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >> simp[] ) >>
-  Cases_on ‘op’>>fs[sh_mem_op_def]>>
-  gs[sh_mem_load_def,sh_mem_store_def,get_var_def,sh_mem_load32_def,sh_mem_store32_def,
-     sh_mem_load_byte_def,sh_mem_store_byte_def,ffiTheory.call_FFI_def]>>
-  rpt (FULL_CASE_TAC>>gvs[])
+    rev_full_simp_tac(arith_ss)[] >>
+    fs[])
+  >~[`RawCall`]
+  >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
+    gvs[AllCaseEqs(),UNCURRY_EQ] >>
+    fsrw_tac[ARITH_ss][dec_clock_def] >>
+    rev_full_simp_tac(arith_ss)[] >>
+    fs[])
+  >~[`While`]
+  >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
+    gvs[AllCaseEqs(),UNCURRY_EQ] >>
+    fsrw_tac[ARITH_ss][dec_clock_def] >>
+    irule pair_CASES)
+  >~[`Tick`]
+  >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
+    gvs[AllCaseEqs(),UNCURRY_EQ] >>
+    fsrw_tac[ARITH_ss][dec_clock_def] >>
+    rev_full_simp_tac(arith_ss)[] >>
+    fs[])
+  >> srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM]
+  >> gvs[AllCaseEqs(),UNCURRY_EQ]
+  >> map_every imp_res_tac [alloc_const,inst_const,store_const_sem_const,sh_mem_op_const]
+  >> fs[]
+  >> fsrw_tac[ARITH_ss][dec_clock_def]
+  >> fs[pair_map_eq]
 QED
 
 Theorem with_clock_ffi:
@@ -509,51 +512,101 @@ Theorem evaluate_add_clock_io_events_mono:
      (SND(evaluate(e,s))).ffi.io_events ≼
      (SND(evaluate(e,s with clock := s.clock + extra))).ffi.io_events
 Proof
-  recInduct evaluate_ind >>
-  srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM,get_var_def] >>
-  TRY BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  TRY (
-    rename1`While`
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ fsrw_tac[ARITH_ss][dec_clock_def]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ imp_res_tac evaluate_io_events_mono \\ fs[]
-    \\ imp_res_tac evaluate_add_clock \\ fs[]
-    \\ qmatch_assum_rename_tac`evaluate (c1,s) = (res1,_)`
-    \\ Cases_on`res1=NONE` \\fs[]
-    \\ rpt(first_x_assum(qspec_then`extra`mp_tac))\\ simp[]
-    \\ TRY (
-      strip_tac \\ CHANGED_TAC rveq \\ fs[]
-      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-      \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
-      \\ metis_tac[evaluate_io_events_mono,PAIR,with_clock_ffi] )
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR,with_clock_ffi] ) >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[dec_clock_def] >>
-  rveq >> fsrw_tac[ARITH_ss][] >>
-  rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
-  rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[])>> full_simp_tac(srw_ss())[] >>
-  TRY(
-    CHANGED_TAC(simp[ffiTheory.call_FFI_def,get_var_def]) >>
-    every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >>
-    rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[]) >>
-  TRY(
-    rename1 `buffer_flush _ _ _ = _`>>
-    pairarg_tac>>fs[]>>
-    every_case_tac >> fs[get_var_def])>>
-  TRY (Cases_on ‘op’>>fs[sh_mem_op_def]>>
-       gs[sh_mem_load_def,sh_mem_store_def,ffiTheory.call_FFI_def,
-          sh_mem_load32_def,sh_mem_store32_def,
-          sh_mem_load_byte_def,sh_mem_store_byte_def,get_var_def]>>
-      rpt (FULL_CASE_TAC>>gvs[]))>>
-  metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]
+  rw[oneline SND] >> ntac 2 (TOP_CASE_TAC >> fs[]) >>
+  reverse $ Cases_on `q = (SOME TimeOut)` >> gvs[]
+  >- (
+     drule_all evaluate_add_clock >>
+     strip_tac >> gvs[]) >>
+  rpt (pop_assum mp_tac) >>
+  map_every qid_spec_tac (rev [`e`,`s`,`r`,`q'`,`r'`]) >>
+  recInduct evaluate_ind >> rpt conj_tac
+  >~ [`Seq`]
+  >-
+    (rpt strip_tac >> pop_assum mp_tac >>
+    gvs[evaluate_def,UNCURRY_EQ,AllCaseEqs()]
+    >-(imp_res_tac evaluate_add_clock >> fs[]) >>
+    strip_tac >> gvs[] >>
+    imp_res_tac evaluate_io_events_mono >> fs[] >>
+    METIS_TAC[IS_PREFIX_TRANS])
+  >~ [`While`]
+  >-
+    (rpt strip_tac >>
+    gvs[evaluate_def,Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 7]
+    >-(
+      gvs[AllCaseEqs(),UNCURRY_EQ] >>
+      imp_res_tac evaluate_io_events_mono >> fs[] >>
+      METIS_TAC[IS_PREFIX_TRANS]) >>
+    imp_res_tac evaluate_add_clock >> fs[] >>
+    gvs[AllCaseEqs()]
+    >-(
+    imp_res_tac evaluate_io_events_mono >> fs[] >>
+    METIS_TAC[IS_PREFIX_TRANS]) >>
+    fsrw_tac[ARITH_ss][dec_clock_def])
+  >~ [`JumpLower`]
+  >- (rpt strip_tac >>
+    gvs[evaluate_def,Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 7]
+    >-(
+      gvs[AllCaseEqs(),UNCURRY_EQ] >>
+      imp_res_tac evaluate_io_events_mono >> fs[] >>
+      METIS_TAC[IS_PREFIX_TRANS]) >>
+    gvs[AllCaseEqs()]
+    >- (fsrw_tac[ARITH_ss][dec_clock_def])
+    >- (fsrw_tac[ARITH_ss][dec_clock_def]))
+  >~ [`RawCall`]
+  >- (rpt strip_tac >>
+    gvs[evaluate_def,Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 7]
+    >-(
+      gvs[AllCaseEqs(),UNCURRY_EQ] >>
+      imp_res_tac evaluate_io_events_mono >> fs[] >>
+      METIS_TAC[IS_PREFIX_TRANS]) >>
+    gvs[AllCaseEqs()]
+    >- fsrw_tac[ARITH_ss][dec_clock_def]
+    >- fsrw_tac[ARITH_ss][dec_clock_def])
+  >~ [`Call`]
+  >- (rpt strip_tac >>
+    gvs[evaluate_def,Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 2]
+    >- (
+      gvs[Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 2]
+      >-(
+        gvs[AllCaseEqs(),UNCURRY_EQ] >>
+        imp_res_tac evaluate_io_events_mono >> fs[] >>
+        METIS_TAC[IS_PREFIX_TRANS]) >>
+      gvs[AllCaseEqs()]
+      >- fsrw_tac[ARITH_ss][dec_clock_def]
+      >- fsrw_tac[ARITH_ss][dec_clock_def])
+    >- (
+      gvs[Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 5]
+      >-(
+        gvs[AllCaseEqs(),UNCURRY_EQ] >>
+        imp_res_tac evaluate_io_events_mono >> fs[] >>
+        METIS_TAC[IS_PREFIX_TRANS]) >>
+      gvs[Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 3]
+      >-(
+        imp_res_tac evaluate_add_clock >> fs[] >>
+        fsrw_tac[ARITH_ss][dec_clock_def] >>
+        gvs[] >> gvs[AllCaseEqs()])
+      >-(
+        imp_res_tac evaluate_add_clock >> fs[] >>
+        fsrw_tac[ARITH_ss][dec_clock_def] >>
+        gvs[] >> gvs[AllCaseEqs()]) >>
+      fsrw_tac[ARITH_ss][dec_clock_def] >>
+      gvs[Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 3]
+      >-(
+        gvs[AllCaseEqs(),UNCURRY_EQ] >>
+        imp_res_tac evaluate_io_events_mono >> fs[] >>
+        METIS_TAC[IS_PREFIX_TRANS])
+      >-(
+        gvs[AllCaseEqs(),UNCURRY_EQ] >>
+        imp_res_tac evaluate_io_events_mono >> fs[] >>
+        METIS_TAC[IS_PREFIX_TRANS])))
+  >~ [`ShMemOp`]
+  >- (rpt strip_tac >>
+     imp_res_tac evaluate_io_events_mono >>
+     gvs[evaluate_def,AllCaseEqs()] >>
+     fsrw_tac[ARITH_ss][dec_clock_def] >>
+     gvs[pair_map_eq])
+  >> (rpt (strip_tac) >> gvs[evaluate_def,AllCaseEqs(),UNCURRY_EQ] >>
+  NO_TAC)
 QED
 
 Definition clock_neutral_def:
@@ -733,7 +786,7 @@ Definition stack_asm_ok_def:
   (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
   (stack_asm_ok c (While cmp n r p) ⇔ stack_asm_ok c p) ∧
   (stack_asm_ok c (Raise n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
-  (stack_asm_ok c (Return n _) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_asm_ok c (Return n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
   (stack_asm_ok c (Call r tar h) ⇔
     (case tar of INR r => r < c.reg_count ∧ ¬MEM r c.avoid_regs | _ => T) ∧
     case r of
@@ -855,7 +908,7 @@ Definition stack_asm_name_def:
   (stack_asm_name c (If cmp n r p p') ⇔ stack_asm_name c p ∧ stack_asm_name c p') ∧
   (stack_asm_name c (While cmp n r p) ⇔ stack_asm_name c p) ∧
   (stack_asm_name c (Raise n) ⇔ reg_name n c) ∧
-  (stack_asm_name c (Return n _) ⇔ reg_name n c) ∧
+  (stack_asm_name c (Return n) ⇔ reg_name n c) ∧
   (stack_asm_name c (Call r tar h) ⇔
     (case tar of INR r => reg_name r c | _ => T) ∧
     case r of
@@ -974,8 +1027,8 @@ Definition reg_bound_def:
      v1 < k) /\
   (reg_bound (StoreConsts t1 t2 _) k <=>
      3 < k ∧ t1 < k ∧ t2 < k) /\
-  (reg_bound (Return v1 v2) k <=>
-     v1 < k /\ v2 < k) /\
+  (reg_bound (Return v1) k <=>
+     v1 < k) /\
   (reg_bound (JumpLower v1 v2 dest) k <=>
      v1 < k /\ v2 < k) /\
   (reg_bound ((Seq p1 p2):'a stackLang$prog) k <=>

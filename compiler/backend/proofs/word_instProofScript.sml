@@ -453,19 +453,22 @@ Proof
     simp[inst_select_exp_def]>>
     full_simp_tac(srw_ss())[LET_THM,evaluate_def,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def]>>
     simp[state_component_equality,locals_rel_def,lookup_insert]>>
-    full_simp_tac(srw_ss())[locals_rel_def])
+    full_simp_tac(srw_ss())[locals_rel_def]>>
+    gvs[AllCaseEqs()])
   >-
     (rename [‘Var’] >>
     simp[inst_select_exp_def]>>
     full_simp_tac(srw_ss())[LET_THM,evaluate_def,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def,get_vars_def,set_vars_def,get_var_def]>>
     full_simp_tac(srw_ss())[locals_rel_def]>>
     res_tac>>fs[alist_insert_def]>>
-    simp[state_component_equality,lookup_insert])
+    simp[state_component_equality,lookup_insert]>>
+    gvs[AllCaseEqs()])
   >-
     (rename [‘Lookup’]>>
     simp[inst_select_exp_def]>>
     full_simp_tac(srw_ss())[LET_THM,evaluate_def,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def,get_vars_def,set_vars_def,get_var_def]>>
-    fs[locals_rel_def,state_component_equality,lookup_insert])
+    fs[locals_rel_def,state_component_equality,lookup_insert]>>
+    gvs[AllCaseEqs()])
   >-
     (rename [‘Load’]>>
     Cases_on`∃exp' w'. e = Op Add[exp';Const w']` >>full_simp_tac(srw_ss())[]
@@ -477,7 +480,7 @@ Proof
         pop_assum(qspecl_then[`temp`,`c`] assume_tac)>>full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
         simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def,the_words_def]>>
         `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>full_simp_tac(srw_ss())[mem_load_def]>>
-        full_simp_tac(srw_ss())[state_component_equality,set_var_def,lookup_insert]>>srw_tac[][]>>
+        full_simp_tac(srw_ss())[state_component_equality,get_var_def,set_var_def,lookup_insert]>>srw_tac[][]>>
         DISJ2_TAC>>strip_tac>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[])
       >>
         (last_x_assum mp_tac>>simp[Once PULL_FORALL]>>
@@ -491,7 +494,7 @@ Proof
         simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def,the_words_def]>>
         `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>full_simp_tac(srw_ss())[mem_load_def]>>
         full_simp_tac(srw_ss())[state_component_equality,set_var_def,lookup_insert]>>srw_tac[][]>>
-        simp[state_component_equality,set_var_def,lookup_insert,word_op_def]>>
+        simp[state_component_equality,set_var_def,get_var_def,lookup_insert,word_op_def]>>
         rw[]>>DISJ2_TAC>>rw[]>>
         `x ≠ temp` by DECIDE_TAC>>metis_tac[]))
     >>
@@ -507,7 +510,7 @@ Proof
       pop_assum(qspecl_then[`temp`,`c`] assume_tac)>>full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
       `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
       simp[inst_def,assign_def,word_exp_def,word_op_def]>>full_simp_tac(srw_ss())[mem_load_def,the_words_def]>>
-      simp[state_component_equality,set_var_def,lookup_insert]>>
+      simp[state_component_equality,set_var_def,get_var_def,lookup_insert]>>
       srw_tac[][]>>DISJ2_TAC>>strip_tac>>
       `x ≠ temp` by DECIDE_TAC>>metis_tac[])
   >-
@@ -528,7 +531,7 @@ Proof
         first_assum (qspec_then ‘temp’ assume_tac) >> fs [] >>
         Cases_on ‘e2’ >> fs [is_Lookup_CurrHeap_def] >>
         rename [‘Lookup ss’] \\ Cases_on ‘ss’ >> fs [is_Lookup_CurrHeap_def] >>
-        gvs [word_exp_def,set_var_def,state_component_equality,lookup_insert] >>
+        gvs [word_exp_def,set_var_def,get_var_def,state_component_equality,lookup_insert] >>
         rw [] >> metis_tac [prim_recTheory.LESS_REFL]) >>
       pop_assum mp_tac >>
       IF_CASES_TAC THEN1
@@ -548,51 +551,52 @@ Proof
         rename [‘word_op b [x1; x2] = SOME x3’] >>
         ‘word_op b [x2; x1] = SOME x3’ by
           (Cases_on ‘b’ \\ fs [word_op_def,AllCaseEqs()]) >>
-        gvs [word_exp_def,set_var_def,state_component_equality,lookup_insert] >>
+        gvs [word_exp_def,set_var_def,get_var_def,state_component_equality,lookup_insert] >>
         rw [] >> metis_tac [prim_recTheory.LESS_REFL]) >>
       pop_assum mp_tac>>
       `binary_branch_exp e1` by
         (Cases_on`b`>>full_simp_tac(srw_ss())[binary_branch_exp_def])>>
-      full_simp_tac(srw_ss())[word_exp_def,the_words_def,IS_SOME_EXISTS]>>
+      fs[word_exp_def,the_words_def,IS_SOME_EXISTS]>>
+      gvs[AllCaseEqs()]>>
       last_x_assum mp_tac>>simp[Once PULL_FORALL]>>
-      disch_then assume_tac>> first_assum mp_tac>>
+      disch_then assume_tac>>
+      first_assum mp_tac>>
       disch_then (qspec_then`e1`mp_tac)>>
-        impl_tac>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
-      Cases_on`word_exp s e1`>>fs[]>>Cases_on`x`>>
-      Cases_on`word_exp s e2`>>fs[]>>Cases_on`x`>>fs[]>>
-      strip_tac>>res_tac>>
-      pop_assum(qspecl_then[`temp`,`c`] assume_tac)>>full_simp_tac(srw_ss())[]>>
+      impl_tac>- simp[]>>
+      rpt (disch_then drule)>>
+      disch_then (qspecl_then[`c`,`temp`] assume_tac)>>
+      fs[]>>
       Cases_on`∃w. e2 = Const w`
-      >-
-        (rpt (disch_then kall_tac) >>
-        full_simp_tac(srw_ss())[]>>IF_CASES_TAC
+      >- (
+        rpt (disch_then kall_tac) >>fs[]>>
+        IF_CASES_TAC
         >-
-          (full_simp_tac(srw_ss())[evaluate_def]>>
-          simp[LET_THM,inst_def,mem_load_def,word_exp_def,assign_def,the_words_def]>>
-          `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
+          (gvs[evaluate_def,inst_def,mem_load_def,word_exp_def,assign_def,the_words_def]>>
+          gvs[COND_EXPAND_IMP,SF DNF_ss]>>
           full_simp_tac(srw_ss())[word_op_def]>>
           Cases_on`b`>>
-          full_simp_tac(srw_ss())[set_var_def,state_component_equality,lookup_insert,word_exp_def]>>
-          srw_tac[][]>>DISJ2_TAC>>strip_tac>>`x ≠ temp` by DECIDE_TAC>>metis_tac[])
+          full_simp_tac(srw_ss())[set_var_def,get_var_def,
+          state_component_equality,lookup_insert,word_exp_def]>>
+          srw_tac[][]>>
+          first_x_assum irule>>
+          fs[])
         >> IF_CASES_TAC
         >-
-          (simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,lookup_insert,the_words_def]>>
-          `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
+          (fs[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,
+          word_exp_def,set_var_def,lookup_insert,the_words_def]>>
+          gvs[COND_EXPAND_IMP,SF DNF_ss]>>
           full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[word_exp_def,word_op_def]>>
-          full_simp_tac(srw_ss())[state_component_equality,lookup_insert]>>srw_tac[][]>>
-          DISJ2_TAC>>strip_tac>>
-          `x ≠ temp` by DECIDE_TAC>>
-          metis_tac[])
-        >>
-          (simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,lookup_insert,the_words_def]>>
-          `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
-          full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[word_exp_def]>>
-          full_simp_tac(srw_ss())[state_component_equality,lookup_insert]>>
-          srw_tac[][]>>
-          DISJ2_TAC>>strip_tac>-`F` by DECIDE_TAC>>
-          `x ≠ temp` by DECIDE_TAC>>
-          `¬ (temp+1 < temp)` by DECIDE_TAC>>
-          metis_tac[])) >>
+          full_simp_tac(srw_ss())[get_var_def,state_component_equality,lookup_insert]>>srw_tac[][]>>
+          first_x_assum irule>>fs[])
+        >- (
+          full_simp_tac(srw_ss())[evaluate_def,LET_THM] >>
+          gvs[COND_EXPAND_IMP,SF DNF_ss]>>
+          simp[inst_def,assign_def,word_exp_def] >>
+          simp[get_var_def,set_var_def,lookup_insert] >>
+          simp[the_words_def] >>
+          rev_full_simp_tac(srw_ss())[word_exp_def] >>
+          simp[lookup_insert] >>
+          srw_tac[][]))>>
       ntac 2 (disch_then assume_tac)
       >>
         `inst_select_exp c tar temp (Op b [e1;e2]) =
@@ -613,7 +617,8 @@ Proof
         disch_then kall_tac >>
         first_x_assum(qspecl_then[`e2`] mp_tac)>>
         simp[exp_size_def]>>
-        disch_then(qspecl_then [`c`,`temp+1`,`temp+1`,`s with locals:=loc''`,`Word c''`,`loc''`] mp_tac)>>
+        rename1`word_exp s e2 = SOME (Word cc)`>>
+        disch_then(qspecl_then [`c`,`temp+1`,`temp+1`,`s with locals:=loc''`,`Word cc`,`loc''`] mp_tac)>>
         impl_tac>-
           (srw_tac[][locals_rel_def]>-(Cases_on`b`>>full_simp_tac(srw_ss())[binary_branch_exp_def])
           >-
@@ -621,22 +626,15 @@ Proof
             HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>DECIDE_TAC)
           >>
             (*word_exp invariant under extra locals*)
-            match_mp_tac locals_rel_word_exp>>
-            full_simp_tac(srw_ss())[locals_rel_def]>>
-            srw_tac[][]>>`x ≠ temp` by DECIDE_TAC>>
-            metis_tac[])>>
+            irule locals_rel_word_exp>>
+            fs[locals_rel_def]>>
+            first_x_assum (irule_at Any)>>
+            rw[]>>
+            gvs[COND_EXPAND_IMP,SF DNF_ss])>>
         strip_tac>>full_simp_tac(srw_ss())[word_exp_def]>>
-        `lookup temp loc''' = SOME (Word c') ∧
-         lookup (temp+1) loc''' = SOME (Word c'')` by
-         (first_assum(qspecl_then[`temp`] assume_tac)>>
-         first_x_assum(qspecl_then[`temp+1`] assume_tac)>>
-         `temp ≠ temp+1` by DECIDE_TAC>>
-         full_simp_tac(srw_ss())[]>>metis_tac[])>>
-        rev_full_simp_tac(srw_ss())[]>>
-        simp[inst_def,assign_def,word_exp_def,LET_THM,state_component_equality,set_var_def,lookup_insert,the_words_def]>>
-        srw_tac[][]>>DISJ2_TAC>>strip_tac>>
-        `x<temp+1 ∧ x ≠ temp ∧ x≠ temp+1` by DECIDE_TAC>>
-        metis_tac[])
+        gvs[COND_EXPAND_IMP,SF DNF_ss]>>
+        simp[inst_def,assign_def,word_exp_def,LET_THM,state_component_equality,
+        get_var_def,set_var_def,lookup_insert,the_words_def])
     >>
       (Cases_on`b`>>full_simp_tac(srw_ss())[binary_branch_exp_def,word_exp_def,the_words_def,word_op_def]>>
       Cases_on`l`>>fs[the_words_def]>>
@@ -669,7 +667,7 @@ Proof
       first_assum(qspecl_then[`temp`,`c`] assume_tac)>>
       full_simp_tac(srw_ss())[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def]>>
       `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
-      full_simp_tac(srw_ss())[set_var_def,state_component_equality,lookup_insert]>>
+      full_simp_tac(srw_ss())[get_var_def,set_var_def,state_component_equality,lookup_insert]>>
       srw_tac[][]>>DISJ2_TAC>>strip_tac>>`x ≠ temp` by DECIDE_TAC>>
       metis_tac[])
     >-
@@ -732,7 +730,7 @@ Proof
     first_x_assum(qspecl_then[`temp`,`c`] assume_tac)>>full_simp_tac(srw_ss())[]>>
     full_simp_tac(srw_ss())[LET_THM,evaluate_def,word_exp_def]>>
     first_assum(qspec_then`temp` assume_tac)>>full_simp_tac(srw_ss())[set_store_def]>>
-    full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
+    full_simp_tac(srw_ss())[get_var_def,state_component_equality,locals_rel_def]>>
     srw_tac[][]>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[])
   >-(*Store has optimizations*)
     (full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>
@@ -765,6 +763,7 @@ Proof
           (full_simp_tac(srw_ss())[get_var_def]>>
           `var ≠ temp` by DECIDE_TAC>>metis_tac[])>>
         fs[mem_store_def]>>
+        simp[get_var_def] >>
         IF_CASES_TAC>>fs[state_component_equality]>>
         TOP_CASE_TAC>>fs[locals_rel_def]>>
         rw[]>>
@@ -789,6 +788,7 @@ Proof
           `var ≠ temp` by DECIDE_TAC>>
           metis_tac[])>>
         fs[mem_store_def]>>
+        simp[get_var_def] >>
         IF_CASES_TAC>>fs[state_component_equality,locals_rel_def]>>
         TOP_CASE_TAC>>rw[]>>
         `x' ≠ temp` by DECIDE_TAC>>metis_tac[])
@@ -818,6 +818,7 @@ Proof
         (full_simp_tac(srw_ss())[get_var_def]>>`var ≠ temp` by DECIDE_TAC>>
         metis_tac[])>>
       full_simp_tac(srw_ss())[mem_store_def]>>
+      simp[get_var_def] >>
       IF_CASES_TAC>>fs[state_component_equality]>>
       FULL_CASE_TAC>>fs[locals_rel_def]>>rw[]>>
       `x' ≠ temp` by DECIDE_TAC>>metis_tac[])
@@ -955,7 +956,7 @@ Proof
         IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
         ntac 2 (FULL_CASE_TAC>>full_simp_tac(srw_ss())[])>>srw_tac[][]>>
         res_tac>>full_simp_tac(srw_ss())[]>>
-        qpat_abbrev_tac`D = set_var A B C`>>
+        qpat_abbrev_tac`D = set_vars A B C`>>
         first_x_assum(qspec_then`D.locals` assume_tac)>>full_simp_tac(srw_ss())[locals_rel_def]>>
         full_simp_tac(srw_ss())[locals_rm,state_component_equality])
       >-
@@ -995,13 +996,26 @@ Proof
     NO_TAC)
   >- (
     rpt (pairarg_tac>>gvs[])>>
-    gvs[AllCaseEqs(),every_inst_def]>>
-    rpt(first_x_assum drule)>>gvs[])
+    gvs[inst_def,assign_def,word_exp_def,get_vars_def,get_var_def,set_vars_def,alist_insert_def,the_words_def,distinct_tar_reg_def,every_inst_def]>>
+    gvs[AllCaseEqs()] >>
+    fs[lookup_alist_insert] >>
+    EVERY_CASE_TAC >>
+    gvs[word_exp_def,alist_insert_def] >>
+    fs[get_var_def,set_var_def,lookup_insert,insert_shadow])
   >- (
     rw[]>>gvs[]>>
     rpt (pairarg_tac>>gvs[])>>
     gvs[AllCaseEqs(),every_inst_def]>>
-    first_x_assum drule_all>>rw[])
+    first_x_assum drule_all>>rw[] >>
+    first_x_assum drule >> rw[])
+  >- (
+    gvs[AllCaseEqs(),every_inst_def]>>
+    fs[add_ret_loc_def]>>
+    every_case_tac>>
+    gvs[call_env_def,push_env_def] >>
+    rpt (pairarg_tac >> gvs[]) >>
+    every_case_tac>> gvs[] >>
+    res_tac >> gvs[])
   >- (
     gvs[AllCaseEqs(),every_inst_def]>>
     fs[add_ret_loc_def]>>
