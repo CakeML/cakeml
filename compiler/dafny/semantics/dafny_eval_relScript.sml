@@ -441,10 +441,29 @@ QED
 
 Theorem eval_exp_old_eq:
   st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ⇒
-  eval_exp st₁ env (Old e) v =
-  eval_exp st env (Old e) v
+  eval_exp st₁ env (Old e) v = eval_exp st env (Old e) v
 Proof
   metis_tac [eval_exp_old_eq]
+QED
+
+Theorem eval_exp_old_eq_not_old:
+  st.locals_old = st.locals ∧ st.heap_old = st.heap ∧ ¬env.is_running ⇒
+  eval_exp st env (Old e) v = eval_exp st env e v
+Proof
+  rpt strip_tac
+  \\ iff_tac
+  \\ gvs [eval_exp_def]
+  \\ disch_then $ qx_choosel_then [‘ck’, ‘ck₁’] mp_tac
+  \\ gvs [evaluate_exp_def, use_old_def, unuse_old_def, AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+  \\ qexistsl [‘ck’, ‘ck₁’] \\ gvs [state_component_equality]
+  (* The big part is in the goal in one case, and in the assumptions in the
+     other case *)
+  \\ ‘st with <|clock := ck; locals := st.locals; heap := st.heap|> =
+      st with clock := ck’ by
+    (gvs [state_component_equality])
+  \\ gvs []
 QED
 
 val _ = export_theory ();
