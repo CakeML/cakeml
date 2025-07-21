@@ -14,7 +14,7 @@ val _ = new_theory "wasmLang";
 
 Datatype: bvtype (* bit vector type (Does anyone have a better name? *)
   = Int
-  (* | Float *)
+  | Float
 End
 
 Datatype: width
@@ -35,9 +35,8 @@ End
 
 Overload i32 = “NT Int   w32”
 Overload i64 = “NT Int   w64”
-
-(* Overload f32 = “NT Float w32”
-Overload f64 = “NT Float w64” *)
+Overload f32 = “NT Float w32”
+Overload f64 = “NT Float w64”
 
 
 
@@ -150,6 +149,7 @@ End
 (*                             *)
 (*******************************)
 
+Type laneidx = “:word8”
 Type word128 = “:128 word”
 
 (********************)
@@ -192,13 +192,19 @@ End
 
 Datatype: vec_unary_op
 
+  (* vec *)
   = (* v128 *) Vnot
+  (* misc *)
+  | (* iall *) Vbitmask ishape
 
+  (* int *)
   | (* 8x16 *) Vpopcnt
 
+  (* int & float *)
   | (*  all *) Vabs shape
   | (*  all *) Vneg shape
 
+  (* float *)
   | (* fall *) Vsqrt    fshape
   | (* fall *) Vceil    fshape
   | (* fall *) Vfloor   fshape
@@ -214,6 +220,11 @@ Datatype: vec_binary_op
   | (* v128 *) VandNot
   | (* v128 *) Vor
   | (* v128 *) Vxor
+  (* misc *)
+  | (* v128 *) Vswizzle
+  | (* v128 *) Vshuffle laneidx laneidx laneidx laneidx laneidx laneidx laneidx laneidx laneidx laneidx laneidx laneidx laneidx laneidx laneidx laneidx
+  | (* v128 *) Vnarrow sign is2
+  | (* i2x4 *) Vdot
 
   (* both *)
   | (*  all *) Vadd shape
@@ -269,33 +280,36 @@ Datatype: vec_test_op
 End
 
 Datatype: vec_shift_op
+
   (* int *)
   = (* v128 *) Vshl       ishape
   | (* v128 *) Vshr_ sign ishape
+
 End
 
 Datatype: vec_convert_op
-  (* TODO *)
-  (* =
-  |  *)
+
+  = (* il3  *) Vextend     half sign
+  | (* il3  *) VextMul     is2  sign
+  | (* il3  *) VextAdd     is2  sign
+  | (* i2x4 *) VtruncSat        sign
+  | (* i2x4 *) VtruncSat0       sign
+  | (* fall *) Vconvert    half sign
+  | (* f2x4 *) Vdemote
+  | (* f4x2 *) Vpromote
+
+End
+
+Datatype: vec_splat_op (* consume a value of numeric type and produce a v128 result of a specified shape *)
+  = (*  all *) Vsplat shape
 End
 
 Datatype: vec_lane_op
-  (* TODO *)
-  (* =
-  |  *)
-End
-
-Datatype: vec_splat_op (* consume a values of numeric type and produce a v128 result of a specified shape *)
-  (* TODO *)
-  = Vsplat shape
-  |
-End
-
-Datatype: vec_ _op
-End
-
-Datatype: vec_ _op
+  = VextractLane_ sign is2 laneidx
+  | VextractLane32_4       laneidx
+  | VextractLane64_2       laneidx
+  | VextractLanef          laneidx
+  | VreplaceLane shape     laneidx
 End
 
 (* Datatype:
@@ -308,98 +322,11 @@ Datatype: vec_instr
   | V_ternary  vec_ternary_op
   | V_compare  vec_compare_op
   | V_test     vec_test_op
+  | V_shift    vec_shift_op
   | V_convert  vec_convert_op
+  | V_splat    vec_splat_op
+  | V_lane     vec_lane_op
 End
-
-
-(*
-
-vvunop ::= not
-viunop ::= abs | neg
-vfunop ::= abs | neg | sqrt | ceil | floor | trunc | nearest
-
-vvbinop ::= and | andnot | or | xor
-vibinop ::= add | sub
-vfbinop ::= add | sub | mul | div | min | max | pmin | pmax
-viminmaxop ::= min_sx | max_sx
-visatbinop ::= add_sat_sx | sub_sat_sx
-
-virelop ::= eq | ne | lt_sx | gt_sx | le_sx | ge_sx
-vfrelop ::= eq | ne | lt | gt | le | ge
-
-vvtestop ::= any_true
-vitestop ::= all_true
-
-
-vvternop ::= bitselect
-vishiftop ::= shl | shr_sx
-
-
-
-vec_instr ::= . . .
-== const =============================================
-DONE
-== unary =============================================
-DONE
-== binary =============================================
-DONE
-== ternary ================================================
-DONE
-== compare ================================================
-DONE
-== test ===================================================
-DONE
-== shift ==================================================
-| ishape.vishiftop
-== convert ================================================
-| i16x8.extend_half _i8x16_sx
-| i16x8.extmul_half _i8x16_sx
-| i16x8.extadd_pairwise_i8x16_sx
-| i32x4.extend_half _i16x8_sx
-| i32x4.extmul_half _i16x8_sx
-| i64x2.extend_half _i32x4_sx
-| i64x2.extmul_half _i32x4_sx
-
-| i32x4.trunc_sat_f32x4_sx
-| i32x4.trunc_sat_f64x2_sx _zero
-
-| f32x4.convert_i32x4_sx
-| f32x4.demote_f64x2_zero
-| f64x2.convert_low_i32x4_sx
-| f64x2.promote_low_f32x4
-== lane ==================================================
-| i8x16.extract_lane_sx laneidx
-| i16x8.extract_lane_sx laneidx
-| i32x4.extract_lane laneidx
-| i64x2.extract_lane laneidx
-| fshape.extract_lane laneidx
-| shape.replace_lane laneidx
-== splat ==================================================
-| shape.splat
-
-
-?
-
-
-| i8x16.shuffle laneidx 16
-| i8x16.swizzle
-| i8x16.narrow_i16x8_sx
-| i16x8.narrow_i32x4_sx
-| i32x4.dot_i16x8_s
-| i32x4.extadd_pairwise_i16x8_sx
-| ishape.bitmask
-
-
-*)
-
-
-
-
-
-
-
-
-
 
 Type t = “:numtype”
 
@@ -449,7 +376,7 @@ End
 (*     Notations     *)
 (*                   *)
 (*********************)
-(* This was done manually & therefore is error prone *)
+(* This was done manually & is therefore error prone *)
 
 
 Overload i32_const = “N_const32 Int”
