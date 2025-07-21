@@ -454,6 +454,11 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ rw [perms_ok_ref_def])
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def]

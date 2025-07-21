@@ -713,6 +713,7 @@ Definition sexpop_def:
   if s = "CopyStrAw8" then SOME CopyStrAw8 else
   if s = "CopyAw8Str" then SOME CopyAw8Str else
   if s = "CopyAw8Aw8" then SOME CopyAw8Aw8 else
+  if s = "XorAw8Strunsafe" then SOME XorAw8Str_unsafe else
   if s = "Ord" then SOME Ord else
   if s = "Chr" then SOME Chr else
   if s = "W8fromInt" then SOME (WordFromInt W8) else
@@ -1363,6 +1364,7 @@ Definition opsexp_def:
   (opsexp CopyStrAw8 = SX_SYM "CopyStrAw8") ∧
   (opsexp CopyAw8Str = SX_SYM "CopyAw8Str") ∧
   (opsexp CopyAw8Aw8 = SX_SYM "CopyAw8Aw8") ∧
+  (opsexp XorAw8Str_unsafe = SX_SYM "XorAw8Strunsafe") ∧
   (opsexp Ord = SX_SYM "Ord") ∧
   (opsexp Chr = SX_SYM "Chr") ∧
   (opsexp (WordFromInt W8) = SX_SYM "W8fromInt") ∧

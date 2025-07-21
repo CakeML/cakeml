@@ -877,6 +877,15 @@ Definition do_fpoptimise_def:
   do_fpoptimise fpopt (v::vs) = (do_fpoptimise fpopt [v]) ++ (do_fpoptimise fpopt vs)
 End
 
+Definition xor_bytes_def:
+  xor_bytes [] bs2 = SOME (bs2:word8 list) ∧
+  xor_bytes bs1 [] = NONE ∧
+  xor_bytes (b1::bs1) (b2::bs2) =
+    case xor_bytes bs1 bs2 of
+    | NONE => NONE
+    | SOME rest => SOME (word_xor b1 b2 :: rest)
+End
+
 Definition do_app_def:
   do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
     case (op, vs) of
@@ -1092,6 +1101,17 @@ Definition do_app_def:
           )
       | _ => NONE
       )
+    | (XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
+        (case store_lookup dst s of
+          SOME (W8array bs) =>
+            (case xor_bytes (MAP (n2w o ORD) str_arg) bs of
+             | NONE => NONE
+             | SOME new_bs =>
+                case store_assign dst (W8array new_bs) s of
+                | NONE => NONE
+                | SOME s' => SOME ((s',t), Rval (Conv NONE [])))
+        | _ => NONE
+        )
     | (Ord, [Litv (Char c)]) =>
           SOME ((s,t), Rval (Litv(IntLit(int_of_num(ORD c)))))
     | (Chr, [Litv (IntLit i)]) =>
