@@ -1232,10 +1232,26 @@ End
 
 Definition AppUnit_def:
   AppUnit =
-            Seq (Assign 1 (BlockOp (Cons 0)) [] NONE) $
-            Seq (Assign 2 (IntOp (Const 0)) [] NONE) $
-            Seq (Assign 3 (MemOp El) [0; 2] NONE)
-                (Call NONE NONE [1; 0; 3] NONE)
+    Seq
+      (Seq
+        (Seq
+          (Assign 1 (IntOp (Const 0)) [] NONE)
+          (Seq
+            (Assign 2 (IntOp (Const 1)) [] NONE)
+            (Assign 3 (MemOp El) [0; 2] NONE)))
+        (Assign 4 (BlockOp Equal) [3; 1]
+           (SOME (list_to_num_set [3; 1; 0]))))
+      (If 4
+        (Seq
+          (Seq
+            (Assign 5 (BlockOp (Cons 0)) [] NONE)
+            (Seq
+              (Assign 6 (IntOp (Const 0)) [] NONE)
+              (Assign 7 (MemOp El) [0; 6] NONE)))
+          (Call NONE NONE [5; 0; 7] NONE))
+        (Seq
+          (Assign 9 (BlockOp (Cons 0)) [] NONE)
+          (Call NONE (SOME bvl_num_stubs) [9; 0] NONE)))
 End
 
 Definition evaluate_def:

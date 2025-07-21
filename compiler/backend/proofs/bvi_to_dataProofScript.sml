@@ -693,18 +693,32 @@ QED
 
 Theorem AppUnit_eq:
   evaluate (AppUnit,t) =
-    evaluate (Seq (Seq (Seq Skip (Assign 1 (BlockOp (Cons 0)) [] NONE))
-          (Seq Skip
+    evaluate (Seq
+             (Seq
+                (Seq (Seq Skip (Assign 1 (IntOp (Const 0)) [] NONE))
                    (Seq
-                      (Seq (Seq Skip (Assign 2 (IntOp (Const 0)) [] NONE))
-                         Skip) (Assign 3 (MemOp El) [0; 2] NONE))))
-             (Call NONE NONE [1; 0; 3] NONE),t)
+                      (Seq (Seq Skip (Assign 2 (IntOp (Const 1)) [] NONE))
+                         Skip) (Assign 3 (MemOp El) [0; 2] NONE)))
+                (Assign 4 (BlockOp Equal) [3; 1]
+                   (SOME (list_to_num_set [3; 1; 0]))))
+             (If 4
+                (Seq
+                   (Seq (Seq Skip (Assign 5 (BlockOp (Cons 0)) [] NONE))
+                      (Seq Skip
+                         (Seq
+                            (Seq
+                               (Seq Skip (Assign 6 (IntOp (Const 0)) [] NONE))
+                               Skip) (Assign 7 (MemOp El) [0; 6] NONE))))
+                   (Call NONE NONE [5; 0; 7] NONE))
+                (Seq
+                   (Seq (Seq Skip (Assign 9 (BlockOp (Cons 0)) [] NONE)) Skip)
+                   (Call NONE (SOME bvl_num_stubs) [9; 0] NONE))),t)
 Proof
-  rw [AppUnit_def]
+  simp [AppUnit_def]
   \\ simp [evaluate_def, dataLangTheory.op_requires_names_def,
            dataLangTheory.op_space_reset_def, cut_state_opt_def, get_vars_def,
-           do_app_def, do_space_def, data_spaceTheory.op_space_req_def,
-           do_app_aux_def, set_var_def, flush_state_def, do_stack_def,
+           do_app_def, do_app_aux_def, do_space_def,
+           data_spaceTheory.op_space_req_def,
            backend_commonTheory.small_enough_int_def]
 QED
 
@@ -1082,8 +1096,6 @@ Proof
         \\ strip_tac \\ gvs []
         \\ Cases_on `pres` \\ gvs []
         \\ gvs [data_to_bvi_v_def, SF ETA_ss]
-        \\ `∃ts tag w1 ws1. a = Block ts tag (w1::ws1)` by cheat \\ gvs []
-        \\ `∃loc. w1 = CodePtr loc` by cheat \\ gvs []
         \\ gvs [bviSemTheory.AppUnit_def, compile_def]
         \\ gvs [any_el_def, dataLangTheory.mk_ticks_def]
         \\ gvs [iAssign_def, dataLangTheory.op_requires_names_def,
@@ -1100,7 +1112,7 @@ Proof
         \\ simp [bviSemTheory.store_thunk_def]
         \\ ntac 3 (TOP_CASE_TAC \\ simp []) \\ strip_tac \\ gvs []
         \\ simp [update_thunk_def]
-        \\ `dest_thunk [a] t2'.refs = NotThunk` by (
+        \\ `dest_thunk [a'] t2'.refs = NotThunk` by (
           gvs [state_rel_def, oneline bviSemTheory.dest_thunk_def,
                oneline dest_thunk_def]
           \\ CASE_TAC \\ gvs [data_to_bvi_v_def]

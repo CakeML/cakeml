@@ -246,9 +246,14 @@ Proof
          \\ last_x_assum drule \\ rw []
          \\ pop_assum $ qspec_then `l2` assume_tac \\ gvs []
          \\ `∀s. (AppUnit,insert 0 () LN) = compile AppUnit s` by (
-           simp [AppUnit_def, compile_def, is_pure_def, list_insert_def,
+           rpt (pop_assum kall_tac)
+           \\ rw []
+           \\ simp [AppUnit_def, compile_def, is_pure_def, list_insert_def,
                 list_to_num_set_def, lookup_insert]
-           \\ simp [insert_compute, delete_compute, mk_BS_def])
+           \\ rpt (pairarg_tac \\ simp [] \\ gvs [])
+           \\ gvs [AllCaseEqs(), lookup_inter_alt, lookup_delete, lookup_insert]
+           \\ gvs [insert_compute, delete_compute, mk_BN_def, mk_BS_def, union_def,
+                   inter_def])
          \\ Cases_on `q = SOME (Rerr (Rabort Rtype_error))` \\ gvs []
          \\ qpat_x_assum `_ ⇒ _` mp_tac
          \\ impl_tac
