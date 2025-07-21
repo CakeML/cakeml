@@ -519,9 +519,9 @@ End
 
 Definition AppUnit_def:
   AppUnit =
-    If (Op (BlockOp Equal) [mk_const 0; mk_el (Var 0) (mk_const 1)])
+    (*If (Op (BlockOp Equal) [mk_const 0; mk_el (Var 0) (mk_const 1)])*)
        (Call 0 NONE [mk_unit; Var 0; mk_el (Var 0) (mk_const 0)])
-       (Call 0 (SOME 0) [mk_unit; Var 0])
+       (*(Call 0 (SOME 0) [mk_unit; Var 0])*)
 End
 
 (* The evaluation is defined as a clocked functional version of

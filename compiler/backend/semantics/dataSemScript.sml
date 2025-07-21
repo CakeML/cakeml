@@ -1231,7 +1231,11 @@ Definition update_thunk_def:
 End
 
 Definition AppUnit_def:
-  AppUnit = ARB
+  AppUnit =
+            Seq (Assign 1 (BlockOp (Cons 0)) [] NONE) $
+            Seq (Assign 2 (IntOp (Const 0)) [] NONE) $
+            Seq (Assign 3 (MemOp El) [0; 2] NONE)
+                (Call NONE NONE [1; 0; 3] NONE)
 End
 
 Definition evaluate_def:
@@ -1258,13 +1262,16 @@ Definition evaluate_def:
                   (SOME (Rerr (Rabort Rtimeout_error)), flush_state T s)
                 else
                   case evaluate (
-                    AppUnit,s with <| locals := (insert 0 f LN);
-                                      clock := (s.clock - 1) |>) of
-                  | (SOME (Rval x),s) =>
-                      (case update_thunk xs s.refs [x] of
-                       | NONE => (SOME (Rerr (Rabort Rtype_error)),s)
+                    AppUnit,s with <|
+                      clock := s.clock - 1;
+                      locals := insert 0 f LN |>) of
+                  | (SOME (Rval x),s1) =>
+                      (case update_thunk xs s1.refs [x] of
+                       | NONE => (SOME (Rerr (Rabort Rtype_error)),s1)
                        | SOME refs =>
-                           (NONE,set_var dest x (s with refs := refs)))
+                           (NONE,set_var dest x (s1 with
+                              <| refs := refs;
+                                 locals := s.locals |>)))
                   | (err,s) => (err,s))
            else
             (case do_app op xs s of
@@ -1339,16 +1346,17 @@ Definition evaluate_def:
                          | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                          | res => res)))))
 Termination
-  cheat
-  (*WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
+  simp [AppUnit_def]
+  \\ WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
                           (\(xs,s). (s.clock,xs)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
   \\ imp_res_tac fix_clock_IMP
   \\ imp_res_tac (GSYM fix_clock_IMP)
   \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,push_env_clock, call_env_def,LET_THM]
+  >- gvs [op_requires_names_def, cut_state_opt_def, AllCaseEqs(), cut_state_def]
   >- fs [LESS_OR_EQ,dec_clock_def]
-  \\ decide_tac*)
+  \\ decide_tac
 End
 
 val evaluate_ind = theorem"evaluate_ind";
