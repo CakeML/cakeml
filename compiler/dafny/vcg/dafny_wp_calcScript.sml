@@ -368,12 +368,33 @@ Proof
     \\ cheat)
 QED
 
+Triviality evaluate_exp_total_old:
+  st.locals_old = st.locals ∧ st.heap_old = st.heap ∧ ¬env.is_running ⇒
+  evaluate_exp_total st env (Old e) = evaluate_exp_total st env e
+Proof
+  rpt strip_tac
+  \\ simp [evaluate_exp_total_def, eval_exp_old_eq_not_old]
+QED
+
+Triviality eval_decreases_map_old:
+  ∀es st env.
+    st.locals_old = st.locals ∧ st.heap_old = st.heap ∧ ¬env.is_running ⇒
+    eval_decreases st env (MAP Old es) = eval_decreases st env es
+Proof
+  Induct \\ gvs []
+  \\ qx_genl_tac [‘e’, ‘st’, ‘env’]
+  \\ rpt strip_tac
+  \\ simp [eval_decreases_def, evaluate_exp_total_old]
+QED
+
 Theorem eval_measure_wrap_old:
-  st.locals_old = st.locals ∧ st.heap_old = st.heap ⇒
+  st.locals_old = st.locals ∧ st.heap_old = st.heap ∧ ¬env.is_running ⇒
   eval_measure st env (wrap_old decs) =
   eval_measure st env decs
 Proof
-  cheat
+  rpt strip_tac
+  \\ namedCases_on ‘decs’ ["rank es"]
+  \\ simp [wrap_old_def, eval_measure_def, eval_decreases_map_old]
 QED
 
 Theorem methods_lemma[local]:
@@ -401,7 +422,7 @@ Proof
    (asm_rewrite_tac []
     \\ drule_all imp_conditions_hold \\ strip_tac \\ gvs []
     \\ rpt strip_tac
-    \\ gvs [eval_measure_wrap_old]
+    \\ gvs [eval_measure_wrap_old, compatible_env_def]
     \\ simp [SF SFY_ss])
   \\ gvs [False_thm]
   \\ strip_tac
