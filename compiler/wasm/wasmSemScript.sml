@@ -1,5 +1,5 @@
 (*
-  WebAssembly (Wasm) syntax
+  WebAssembly (Wasm) semantics
 *)
 open preamble wasmLangTheory;
 
