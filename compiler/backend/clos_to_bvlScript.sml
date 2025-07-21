@@ -296,7 +296,7 @@ End
 
 Definition mk_cl_call_def:
   mk_cl_call cl args =
-    If (Op (BlockOp Equal) [mk_const (LENGTH args - 1); mk_el cl (mk_const 1)])
+    If (Op (BlockOp (EqualConst (closLang$Int (& (LENGTH args - 1))))) [mk_el cl (mk_const 1)])
        (Call (LENGTH args - 1) NONE (args ++ [cl] ++ [mk_el cl (mk_const 0)]))
        (Call 0 (SOME (generic_app_fn_location (LENGTH args - 1))) (args ++ [cl]))
 End
