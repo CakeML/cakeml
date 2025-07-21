@@ -236,6 +236,10 @@ Datatype: vec_binary_op
 
 End
 
+Datatype: vec_ternary_op
+  = VbitSelect
+End
+
 Datatype: vec_compare_op
   = (*  all *) Veq shape
   | (*  all *) Vne shape
@@ -264,23 +268,47 @@ Datatype: vec_test_op
 
 End
 
-Datatype: vec_tern_op
-  = VbitSelect
+Datatype: vec_shift_op
+  (* int *)
+  = (* v128 *) Vshl       ishape
+  | (* v128 *) Vshr_ sign ishape
+End
+
+Datatype: vec_convert_op
+  (* TODO *)
+  (* =
+  |  *)
+End
+
+Datatype: vec_lane_op
+  (* TODO *)
+  (* =
+  |  *)
+End
+
+Datatype: vec_splat_op (* consume a values of numeric type and produce a v128 result of a specified shape *)
+  (* TODO *)
+  = Vsplat shape
+  |
+End
+
+Datatype: vec_ _op
+End
+
+Datatype: vec_ _op
 End
 
 (* Datatype:
-End
-
-Datatype:
 End *)
 
 Datatype: vec_instr
   = V_const    word128
   | V_unary    vec_unary_op
   | V_binary   vec_binary_op
+  | V_ternary  vec_ternary_op
   | V_compare  vec_compare_op
   | V_test     vec_test_op
-  | V_tern     vec_tern_op
+  | V_convert  vec_convert_op
 End
 
 
@@ -309,56 +337,26 @@ vishiftop ::= shl | shr_sx
 
 
 vec_instr ::= . . .
-| v128.const i128
-===============================================
-| v128.vvunop
-| i8x16.popcnt
-| ishape.viunop
-| fshape.vfunop
-===============================================
-| v128.vvbinop
-| ishape.vibinop
-| fshape.vfbinop
-
-| i8x16.viminmaxop
-| i16x8.viminmaxop
-| i32x4.viminmaxop
-
-| i8x16.visatbinop
-| i16x8.visatbinop
-
-| i16x8.mul
-| i32x4.mul
-| i64x2.mul
-
-| i8x16.avgr_u
-| i16x8.avgr_u
-
-| i16x8.q15mulr_sat_s
-==================================================
-| i8x16.virelop
-| i16x8.virelop
-| i32x4.virelop
-| i64x2.eq
-| i64x2.ne
-| i64x2.lt_s
-| i64x2.gt_s
-| i64x2.le_s
-| i64x2.ge_s
-| fshape.vfrelop
-==================================================
-| v128.vvtestop
-| ishape.vitestop
-==================================================
-
-
-
-| v128.vvternop
-
-==================================================
+== const =============================================
+DONE
+== unary =============================================
+DONE
+== binary =============================================
+DONE
+== ternary ================================================
+DONE
+== compare ================================================
+DONE
+== test ===================================================
+DONE
+== shift ==================================================
+| ishape.vishiftop
+== convert ================================================
 | i16x8.extend_half _i8x16_sx
 | i16x8.extmul_half _i8x16_sx
 | i16x8.extadd_pairwise_i8x16_sx
+| i32x4.extend_half _i16x8_sx
+| i32x4.extmul_half _i16x8_sx
 | i64x2.extend_half _i32x4_sx
 | i64x2.extmul_half _i32x4_sx
 
@@ -369,36 +367,27 @@ vec_instr ::= . . .
 | f32x4.demote_f64x2_zero
 | f64x2.convert_low_i32x4_sx
 | f64x2.promote_low_f32x4
-
-
-
-
-?
-
+== lane ==================================================
 | i8x16.extract_lane_sx laneidx
 | i16x8.extract_lane_sx laneidx
 | i32x4.extract_lane laneidx
 | i64x2.extract_lane laneidx
 | fshape.extract_lane laneidx
+| shape.replace_lane laneidx
+== splat ==================================================
+| shape.splat
+
+
+?
 
 
 | i8x16.shuffle laneidx 16
 | i8x16.swizzle
 | i8x16.narrow_i16x8_sx
-
 | i16x8.narrow_i32x4_sx
-
 | i32x4.dot_i16x8_s
-| i32x4.extend_half _i16x8_sx
-| i32x4.extmul_half _i16x8_sx
 | i32x4.extadd_pairwise_i16x8_sx
-
-
-| shape.splat
-| shape.replace_lane laneidx
-
 | ishape.bitmask
-| ishape.vishiftop
 
 
 *)
