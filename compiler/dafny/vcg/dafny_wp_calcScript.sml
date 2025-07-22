@@ -73,16 +73,18 @@ Inductive stmt_wp:
       (If g s1 s2) post ens decs
 [~Assign:]
   ∀m ret_names exps l post ens.
-    LIST_REL (λr n. r = VarLhs n) (MAP FST l) ret_names ∧
-    LIST_REL (λr e. r = ExpRhs e) (MAP SND l) exps
+    (MAP FST l) = (MAP VarLhs ret_names) ∧
+    (MAP SND l) = (MAP ExpRhs exps) ∧
+    LENGTH exps = LENGTH ret_names
     ⇒
-    stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs
+    stmt_wp m ((Let (ZIP (ret_names,exps)) (conj post))::
+               MAP (CanEval ∘ Var) ret_names) (Assign l) post ens decs
 [~MetCall:]
   ∀m mname mspec mbody args ret_names rets post ens.
     Method mname mspec mbody ∈ m ∧
     LENGTH mspec.ins = LENGTH args ∧
     ALL_DISTINCT (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
-    LIST_REL (λr rn. r = VarLhs rn) rets ret_names ∧
+    rets = (MAP VarLhs ret_names) ∧
     ⊢ (imp (conj mspec.ens)
          (Let (ZIP (ret_names,MAP (λ(m,ty). Var m) mspec.outs)) (conj post)))
     ⇒
