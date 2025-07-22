@@ -499,9 +499,6 @@ Proof
   srw_tac[][DECIDE ``x + 2 = SUC (SUC x)``, el_append2_lemma, evaluate_APPEND] >>
   srw_tac [ARITH_ss] [ADD1, evaluate_genlist_vars_rev, evaluate_def] >>
   rw [LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND, el_append2] >>
-
-
-
   TRY (fs [dec_clock_def, LESS_OR_EQ]) >>
   simp [evaluate_partial_app_fn_location_code, global_table_def] >>
   simp [triangle_table_size, partial_app_fn_location_def, triangle_el_no_suff,
