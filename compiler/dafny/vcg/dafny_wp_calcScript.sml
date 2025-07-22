@@ -24,17 +24,24 @@ Datatype:
   met = Method mlstring met_spec statement
 End
 
-
 Overload "int_lt" = “BinOp Lt”
+Overload "int_le" = “BinOp Le”
+Overload "int_lit" = “λn. Lit (IntL n)”
+
+Definition lex_lt_def:
+  lex_lt [] = False ∧
+  lex_lt ((x,y)::rest) =
+    conj [int_le (int_lit 0) x;
+          int_le (int_lit 0) y;
+          If (dfy_eq x y) (lex_lt rest) (int_lt x y)]
+End
 
 Definition decrease_lt_def:
-  decrease_lt [] [] = False ∧
-  decrease_lt [] ys = True ∧
-  decrease_lt xs [] = False ∧
-  decrease_lt (x::xs) (y::ys) =
+  decrease_lt xs ys =
     if LENGTH xs = LENGTH ys then
-      If (dfy_eq x y) (decrease_lt xs ys) (int_lt x y)
-    else if LENGTH xs < LENGTH ys then True else False
+      lex_lt (ZIP (xs,ys))
+    else
+      if LENGTH xs < LENGTH ys then True else False
 End
 
 Definition decreases_check_def:
@@ -46,6 +53,18 @@ End
 
 Definition wrap_old_def:
   wrap_old (x,es) = (x,MAP Old es)
+End
+
+Definition freevars_def:
+  freevars (Var n) = {n} ∧
+  freevars (Lit _) = {} ∧
+  freevars _ = ARB (* TODO *)
+End
+
+Definition no_Old_def:
+  no_Old (Old _) = F ∧
+  no_Old (Var _) = T ∧
+  no_Old _ = ARB (* TODO *)
 End
 
 Inductive stmt_wp:
@@ -83,8 +102,10 @@ Inductive stmt_wp:
   ∀m mname mspec mbody args ret_names rets post ens.
     Method mname mspec mbody ∈ m ∧
     LENGTH mspec.ins = LENGTH args ∧
+    LENGTH mspec.outs = LENGTH rets ∧
     ALL_DISTINCT (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
     rets = (MAP VarLhs ret_names) ∧
+    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.decreases ∧
     ⊢ (imp (conj mspec.ens)
          (Let (ZIP (ret_names,MAP (λ(m,ty). Var m) mspec.outs)) (conj post)))
     ⇒
@@ -101,7 +122,9 @@ Definition proved_methods_def:
     ∀name mspec body.
       Method name mspec body ∈ m ⇒
       ∃wp_pre.
-        stmt_wp m wp_pre body [False] mspec.ens (mspec.rank, mspec.decreases) ∧
+        stmt_wp m wp_pre body [False]
+          (mspec.ens ++ MAP (CanEval o Var o FST) mspec.outs)
+          (mspec.rank, mspec.decreases) ∧
         ⊢ (imp (conj mspec.reqs) (conj wp_pre))
 End
 
@@ -166,12 +189,25 @@ Definition methods_sound_def:
                  conditions_hold st' env mspec.ens
 End
 
+Definition opt_lt_def:
+  opt_lt (SOME m) (SOME n) = (m < n:num) ∧
+  opt_lt _ _ = F
+End
+
 Triviality WF_lemma:
-  WF (prim_rec$< LEX SHORTLEX prim_rec$<)
+  WF (prim_rec$< LEX SHORTLEX opt_lt)
 Proof
   irule pairTheory.WF_LEX
   \\ irule_at Any listTheory.WF_SHORTLEX
   \\ rewrite_tac [prim_recTheory.WF_LESS]
+  \\ rewrite_tac [relationTheory.WF_EQ_INDUCTION_THM]
+  \\ rw []
+  \\ Cases_on ‘x’ \\ gvs []
+  >- (pop_assum irule \\ Cases \\ gvs [opt_lt_def])
+  \\ rename [‘SOME n’]
+  \\ completeInduct_on ‘n’
+  \\ last_x_assum irule
+  \\ Cases \\ gvs [opt_lt_def]
 QED
 
 Triviality WF_ind =
@@ -182,18 +218,20 @@ Definition evaluate_exp_total_def:
     some v. eval_exp st env e v
 End
 
-Definition eval_decreases_def:
-  eval_decreases st env [] = SOME [] ∧
-  eval_decreases st env (e::es) =
-    case evaluate_exp_total st env e, eval_decreases st env es of
-    | (SOME (IntV i), SOME rest) =>
-        if i < 0 then NONE else SOME (Num i :: rest)
+Definition evaluate_exp_num_def:
+  evaluate_exp_num st env e =
+    case evaluate_exp_total st env e of
+    | SOME (IntV i) => (if i < 0 then NONE else SOME (Num i))
     | _ => NONE
+End
+
+Definition eval_decreases_def:
+  eval_decreases st env es = MAP (evaluate_exp_num st env) es
 End
 
 Definition eval_measure_def:
   eval_measure st env (rank:num,es) =
-    (rank, THE (eval_decreases st env es))
+    (rank, eval_decreases st env es)
 End
 
 Theorem False_thm[simp,local]:
@@ -220,7 +258,8 @@ Proof
   \\ rpt gen_tac \\ strip_tac
   \\ last_x_assum drule_all
   \\ disch_then $ qspec_then ‘env’ assume_tac
-  \\ simp [eval_decreases_def]
+  \\ fs [eval_decreases_def]
+  \\ simp [evaluate_exp_num_def]
   \\ simp [evaluate_exp_total_def]
   \\ drule_all eval_exp_old_eq \\ gvs []
 QED
@@ -259,20 +298,165 @@ Proof
   \\ rewrite_tac [eval_true_cons] \\ simp []
 QED
 
+Triviality LIST_REL_eval_exp_MAP_Var:
+  ∀ns vs.
+    LIST_REL (eval_exp st env) (MAP Var ns) vs ⇒
+    OPT_MMAP (read_local st.locals) ns = SOME vs
+Proof
+  Induct \\ Cases_on ‘vs’ \\ gvs []
+  \\ gvs [eval_exp_def,evaluate_exp_def,AllCaseEqs(),PULL_EXISTS]
+QED
+
+Theorem eval_true_False[simp]:
+  ~eval_true st env False
+Proof
+  simp [eval_true_def,eval_exp_def,evaluate_exp_def]
+QED
+
+Theorem eval_true_le_0:
+  eval_true st env (int_le (int_lit 0) x) ⇒
+  ∃n. eval_exp st env x (IntV (&n))
+Proof
+  cheat
+QED
+
+Theorem IMP_evaluate_exp_num:
+  eval_exp st env x (IntV (&n)) ⇒
+  evaluate_exp_num st env x = SOME n
+Proof
+  cheat
+QED
+
+Theorem eval_true_If_IMP:
+  eval_true st env (If b x y) ⇒
+  eval_true st env (imp b x) ∧
+  eval_true st env (imp (not b) y)
+Proof
+  cheat
+QED
+
+Theorem eval_true_lt_IMP:
+  eval_exp st env xi (IntV i) ∧
+  eval_exp st env xj (IntV j) ∧
+  eval_true st env (int_lt xi xj) ⇒
+  i < j
+Proof
+  cheat
+QED
+
+Theorem eval_true_eq_int:
+  eval_exp st env h1 (IntV i) ∧
+  eval_exp st env h2 (IntV j) ⇒
+  eval_exp st env (dfy_eq h1 h2) (BoolV (i = j))
+Proof
+  cheat
+QED
+
+Theorem eval_exp_old:
+  no_Old e ⇒
+  eval_exp st env e v =
+  eval_exp (st with <| heap_old := h; locals_old := l |>) env e v
+Proof
+  cheat
+QED
+
+Theorem eval_exp_Let:
+  LIST_REL (eval_exp st env) args vs ∧
+  LENGTH ns = LENGTH args ∧
+  ALL_DISTINCT ns
+  ⇒
+  eval_exp st env (Let (ZIP (ns,args)) e) v =
+  eval_exp (st with locals := REVERSE (ZIP (ns,MAP SOME vs)) ++ st.locals) env e v
+Proof
+  cheat
+QED
+
+Theorem eval_exp_swap_locals:
+  ALOOKUP st.locals = ALOOKUP l ⇒
+  eval_exp st env e =
+  eval_exp (st with locals := l) env e
+Proof
+  cheat
+QED
+
+Theorem eval_exp_freevars:
+  (∀n. n ∈ freevars e ⇒ ALOOKUP l1 n = ALOOKUP l2 n) ⇒
+  eval_exp (st with locals := l1) env e v =
+  eval_exp (st with locals := l2) env e v
+Proof
+  cheat
+QED
+
+Triviality ALOOKUP_MAP_SOME:
+  ∀ns vs.
+    LENGTH ns = LENGTH vs ⇒
+    (ALOOKUP (ZIP (ns,MAP SOME vs)) n = SOME (SOME v) ⇔
+     ALOOKUP (ZIP (ns,vs)) n = SOME v)
+Proof
+  Induct \\ Cases_on ‘vs’ \\ gvs [] \\ rw []
+QED
+
+Theorem eval_exp_Let_equiv:
+  LIST_REL (eval_exp st env) args vs ∧
+  ALL_DISTINCT ns ∧
+  LENGTH ns = LENGTH args ∧
+  LENGTH ns = LENGTH vs ∧
+  (∀n. n ∈ freevars e ⇒ ∃v. ALOOKUP l n = SOME (SOME v) ∧
+                            ALOOKUP (ZIP (ns,vs)) n = SOME v)
+  ⇒
+  eval_exp st env (Let (ZIP (ns,args)) e) v =
+  eval_exp (st with locals := l) env e v
+Proof
+  strip_tac
+  \\ irule EQ_TRANS
+  \\ irule_at (Pos hd) eval_exp_Let
+  \\ last_x_assum $ irule_at Any \\ fs []
+  \\ irule eval_exp_freevars \\ rw []
+  \\ simp [ALOOKUP_APPEND,CaseEq"option"]
+  \\ disj2_tac
+  \\ res_tac \\ gvs []
+  \\ DEP_REWRITE_TAC [alookup_distinct_reverse]
+  \\ gvs [MAP_ZIP]
+  \\ gvs [ALOOKUP_MAP_SOME]
+QED
+
+Theorem eval_true_lex_lt:
+  ∀xs ys.
+    eval_true st env (lex_lt (ZIP (xs,ys))) ∧ LENGTH xs = LENGTH ys ⇒
+    SHORTLEX opt_lt (eval_decreases st env xs) (eval_decreases st env ys)
+Proof
+  Induct \\ Cases_on ‘ys’ \\ gvs [lex_lt_def] \\ rw []
+  \\ gvs [eval_decreases_def,eval_true_conj_every]
+  \\ imp_res_tac eval_true_le_0
+  \\ imp_res_tac IMP_evaluate_exp_num \\ gvs [opt_lt_def]
+  \\ rename [‘m < k’]
+  \\ drule eval_true_If_IMP \\ strip_tac
+  \\ imp_res_tac eval_true_imp
+  \\ rename [‘(dfy_eq h1 h2)’]
+  \\ ‘eval_exp st env (dfy_eq h1 h2) (BoolV (m = k))’ by
+    (imp_res_tac eval_true_eq_int \\ gvs [])
+  \\ imp_res_tac eval_exp_bool_not
+  \\ Cases_on ‘m = k’ >- gvs [GSYM eval_true_def]
+  \\ gvs [GSYM eval_true_def]
+  \\ drule_all eval_true_lt_IMP
+  \\ gvs []
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
     ∀st env.
       (∀st' name' mspec' body'.
-          ($< LEX SHORTLEX $<)
+          ($< LEX SHORTLEX opt_lt)
             (eval_measure st' env (mspec'.rank,mspec'.decreases))
             (eval_measure st env (wrap_old decs)) ∧
           Method name' mspec' body' ∈ m ∧ st'.locals_old = st'.locals ∧
           st'.heap_old = st'.heap ∧ conditions_hold st' env mspec'.reqs ∧
           compatible_env env m ⇒
-          ∃st''.
+          ∃st'' out_vs.
             eval_stmt st' env body' st'' (Rstop Sret) ∧
-            conditions_hold st'' env mspec'.ens) ∧
+            conditions_hold st'' env mspec'.ens ∧
+            LIST_REL (eval_exp st'' env) (MAP (Var o FST) mspec'.outs) out_vs) ∧
       conditions_hold st env reqs ∧ compatible_env env m ⇒
       ∃st' ret.
         eval_stmt st env stmt st' ret ∧
@@ -281,6 +465,7 @@ Theorem stmt_wp_sound:
         | Rcont => conditions_hold st' env post
         | _ => F
 Proof
+
   Induct_on ‘stmt_wp’ \\ rpt strip_tac
   >~ [‘Skip’] >-
    (irule_at (Pos hd) eval_stmt_Skip \\ simp [])
@@ -341,33 +526,94 @@ Proof
   >~ [‘Assign ass’] >-
    (irule_at (Pos hd) eval_stmt_Assign
     \\ cheat)
-  >~ [‘MetCall rets mname args’] >-
-   (irule_at Any eval_stmt_MetCall \\ gvs []
-    \\ qpat_assum ‘compatible_env env m’ mp_tac
-    \\ rewrite_tac [compatible_env_def]
-    \\ strip_tac
-    \\ pop_assum drule
-    \\ strip_tac \\ gvs []
-    \\ gvs [conditions_hold_def]
-    \\ drule EVERY_eval_true_CanEval \\ strip_tac
-    \\ first_assum $ irule_at Any
-    \\ gvs [set_up_call_def]
-    \\ simp [safe_zip_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
-    \\ qpat_abbrev_tac ‘new_l = REVERSE _’
-    \\ qmatch_goalsub_abbrev_tac ‘eval_stmt st1’
-    \\ first_x_assum $ drule_at $ Pos $ el 2
-    \\ disch_then $ qspec_then ‘st1’ mp_tac
-    \\ impl_tac
+  \\ rename [‘MetCall rets mname args’]
+  \\ irule_at Any eval_stmt_MetCall \\ gvs []
+  \\ qpat_assum ‘compatible_env env m’ mp_tac
+  \\ rewrite_tac [compatible_env_def]
+  \\ strip_tac
+  \\ pop_assum drule
+  \\ strip_tac \\ gvs []
+  \\ gvs [conditions_hold_def]
+  \\ drule EVERY_eval_true_CanEval \\ strip_tac
+  \\ first_assum $ irule_at Any
+  \\ gvs [set_up_call_def]
+  \\ simp [safe_zip_def]
+  \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
+  \\ qpat_abbrev_tac ‘new_l = REVERSE _’
+  \\ qmatch_goalsub_abbrev_tac ‘eval_stmt st1’
+  \\ first_x_assum $ drule_at $ Pos $ el 2
+  \\ disch_then $ qspec_then ‘st1’ mp_tac
+  \\ impl_tac
+
+  >-
+   (reverse $ rpt conj_tac
     >-
-     (reverse $ rpt conj_tac
-      >- cheat
-      >- gvs [Abbr‘st1’]
-      >- gvs [Abbr‘st1’]
-      \\ PairCases_on ‘decs’ \\ gvs [wrap_old_def]
-      \\ qpat_x_assum ‘EVERY _ (decreases_check _ _)’ mp_tac
-      \\ simp [decreases_check_def] \\ cheat)
-    \\ cheat)
+     (rewrite_tac [GSYM eval_true_conj_every]
+      \\ qpat_x_assum ‘eval_true st env (Let _ (conj mspec.reqs))’ mp_tac
+      \\ cheat)
+    >- gvs [Abbr‘st1’]
+    >- gvs [Abbr‘st1’]
+    \\ PairCases_on ‘decs’ \\ gvs [wrap_old_def]
+    \\ qpat_x_assum ‘EVERY _ (decreases_check _ _)’ mp_tac
+    \\ simp [decreases_check_def]
+    \\ Cases_on ‘mspec.rank ≠ decs0’ \\ simp []
+      >-
+       (‘mspec.rank < decs0 ∨ decs0 < mspec.rank’ by decide_tac
+        \\ simp [LEX_DEF,eval_measure_def]
+        \\ simp [eval_true_def,eval_exp_def,evaluate_exp_def])
+    \\ gvs [eval_measure_def,LEX_DEF]
+    \\ simp [decrease_lt_def]
+    \\ reverse $ rw []
+    >- (irule listTheory.LENGTH_LT_SHORTLEX
+        \\ gvs [eval_decreases_def])
+    \\ drule eval_true_lex_lt
+    \\ simp []
+    \\ qsuff_tac
+       ‘eval_decreases st1 env mspec.decreases =
+        eval_decreases st env
+                       (MAP (Let (ZIP (MAP FST mspec.ins,args))) mspec.decreases)’
+    >- simp []
+    \\ simp [eval_decreases_def]
+    \\ simp [MAP_MAP_o,MAP_EQ_f] \\ rw []
+    \\ gvs [evaluate_exp_num_def,evaluate_exp_total_def]
+    \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ simp [FUN_EQ_THM]
+    \\ gen_tac
+    \\ once_rewrite_tac [EQ_SYM_EQ]
+    \\ irule EQ_TRANS
+    \\ irule_at (Pos hd) eval_exp_Let_equiv
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ simp [] \\ fs [ALL_DISTINCT_APPEND]
+    \\ qexists_tac ‘new_l’
+    \\ reverse conj_tac
+    >- (irule EQ_TRANS
+        \\ irule_at (Pos hd) eval_exp_old
+        \\ qexistsl [‘new_l’,‘st.heap’]
+        \\ fs [EVERY_MEM] \\ res_tac \\ simp [])
+    \\ rw []
+    \\ ‘MEM n (MAP FST mspec.ins)’ by
+      (fs [EVERY_MEM,SUBSET_DEF] \\ res_tac \\ simp [])
+    \\ unabbrev_all_tac
+    \\ simp [REVERSE_APPEND,ALOOKUP_APPEND]
+    \\ gvs [CaseEq"option"]
+    \\ DEP_REWRITE_TAC [alookup_distinct_reverse]
+    \\ simp [ALOOKUP_NONE,MAP_ZIP]
+    \\ fs [ALOOKUP_MAP_SOME]
+    \\ pop_assum mp_tac
+    \\ qpat_x_assum ‘LENGTH mspec.ins = LENGTH in_vs’ mp_tac
+    \\ qid_spec_tac ‘in_vs’
+      \\ qspec_tac (‘mspec.ins’,‘xs’)
+    \\ Induct_on ‘xs’ \\ gvs [] \\ gen_tac
+    \\ Cases \\ gvs [] \\ rw [] \\ gvs [])
+  \\ strip_tac
+  \\ first_assum $ irule_at $ Pos hd
+  \\ fs [GSYM MAP_MAP_o]
+  \\ drule LIST_REL_eval_exp_MAP_Var
+  \\ disch_then $ irule_at Any
+  \\ drule LIST_REL_LENGTH \\ strip_tac \\ fs []
+  \\ gvs [GSYM conditions_hold_def]
+  \\ drule_all (imp_conditions_hold |> Q.GEN ‘wp_pre’
+                                    |> Q.SPEC ‘[x]’ |> SRULE [conj_def])
+  \\ cheat
 QED
 
 Triviality evaluate_exp_total_old:
@@ -384,9 +630,8 @@ Triviality eval_decreases_map_old:
     eval_decreases st env (MAP Old es) = eval_decreases st env es
 Proof
   Induct \\ gvs []
-  \\ qx_genl_tac [‘e’, ‘st’, ‘env’]
-  \\ rpt strip_tac
-  \\ simp [eval_decreases_def, evaluate_exp_total_old]
+  \\ simp [eval_decreases_def, evaluate_exp_total_old,
+           evaluate_exp_num_def,MAP_MAP_o,MAP_EQ_f]
 QED
 
 Theorem eval_measure_wrap_old:
@@ -408,8 +653,10 @@ Theorem methods_lemma[local]:
       st.locals_old = st.locals ∧
       st.heap_old = st.heap ∧
       conditions_hold st env mspec.reqs ∧ compatible_env env m ⇒
-      ∃st'. eval_stmt st env body st' (Rstop Sret) ∧
-            conditions_hold st' env mspec.ens
+      ∃st' out_vs.
+        eval_stmt st env body st' (Rstop Sret) ∧
+        conditions_hold st' env mspec.ens ∧
+        LIST_REL (eval_exp st' env) (MAP (Var o FST) mspec.outs) out_vs
 Proof
   gen_tac
   \\ disch_tac
@@ -430,6 +677,10 @@ Proof
   \\ strip_tac
   \\ every_case_tac \\ gvs []
   \\ rpt $ first_assum $ irule_at Any
+  \\ fs [conditions_hold_def]
+  \\ fs [GSYM MAP_MAP_o]
+  \\ drule EVERY_eval_true_CanEval
+  \\ strip_tac \\ pop_assum $ irule_at Any
 QED
 
 Theorem methods_correct = SRULE [] methods_lemma;
