@@ -15,6 +15,7 @@ Datatype:
   | Eq 'a int (* Reifies X = i *)
   | Ne ('a + int) ('a + int)  (* Used to force X ≠ Y *)
   | Gem ('a + int) ('a + int) (* Used to force X ≥ Y in Array Max *)
+  | Eqc ('a + int) ('a + int) (* Used to force X = Y in Count *)
 End
 
 Definition min_iterm_def:
@@ -459,6 +460,7 @@ Definition reify_eilp_def:
   | Eq X i => wi X = i
   | Ne X Y => varc wi X > varc wi Y
   | Gem X Y => varc wi X ≥ varc wi Y
+  | Eqc X Y => varc wi X = varc wi Y
 End
 
 Theorem encode_element_sem_1:
@@ -733,13 +735,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Definition encode_arr_max_def:
-  encode_arr_max bnd M As =
-  ([], MAP (λA. (1, Pos (Gem A M))) As, 1) ::
-  MAP (λA. bits_imply bnd [Pos (Gem A M)] (mk_constraint_ge 1 A (-1) M 0)) As ++
-  MAP (λA. mk_constraint_ge 1 M (-1) A 0) As
-End
-
 Theorem eval_lin_term_ge_1:
   eval_lin_term wb (MAP (λe. (1, f e)) ls) ≥ 1 ⇔
   ∃e. MEM e ls ∧ lit wb (f e)
@@ -757,6 +752,13 @@ Proof
     intLib.ARITH_TAC)
   >- metis_tac[]
 QED
+
+Definition encode_arr_max_def:
+  encode_arr_max bnd M As =
+  ([], MAP (λA. (1, Pos (Gem A M))) As, 1) ::
+  MAP (λA. bits_imply bnd [Pos (Gem A M)] (mk_constraint_ge 1 A (-1) M 0)) As ++
+  MAP (λA. mk_constraint_ge 1 M (-1) A 0) As
+End
 
 Theorem encode_arr_max_sem:
   valid_assignment bnd wi ⇒
@@ -785,6 +787,78 @@ Proof
   pop_assum drule>>
   rw[integerTheory.INT_GE,GSYM integerTheory.INT_LE_ANTISYM]>>
   simp[SF SFY_ss]
+QED
+
+Definition encode_arr_min_def:
+  encode_arr_min bnd M As =
+  ([], MAP (λA. (1, Pos (Gem M A))) As, 1) ::
+  MAP (λA. bits_imply bnd [Pos (Gem M A)] (mk_constraint_ge 1 M (-1) A 0)) As ++
+  MAP (λA. mk_constraint_ge 1 A (-1) M 0) As
+End
+
+Theorem encode_arr_min_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_arr_min bnd M As) = (
+    (∃A. MEM A As ∧ wb (Gem M A)) ∧
+    (∀A. MEM A As ∧ wb (Gem M A) ⇒ varc wi A ≤ varc wi M) ∧
+    arr_min_sem M As wi)
+Proof
+  strip_tac>>
+  simp[encode_arr_min_def]>>
+  match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC >-
+    simp[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_ge_1]>>
+  strip_tac>>
+  match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC >-
+    simp[EVERY_MAP,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,
+         AND_IMP_INTRO,GSYM integerTheory.INT_POLY_CONV_rth,integerTheory.INT_GE,
+         integerTheory.INT_SUB_LE]>>
+  strip_tac>>
+  simp[arr_min_sem_def,EVERY_MAP,mk_constraint_ge_sem,GSYM integerTheory.INT_POLY_CONV_rth,
+       integerTheory.INT_GE,integerTheory.INT_SUB_LE,MEM_MAP,EVERY_MEM]>>
+  iff_tac>>
+  rw[]>>
+  pop_assum drule>>
+  pop_assum drule>>
+  rw[integerTheory.INT_GE,GSYM integerTheory.INT_LE_ANTISYM]>>
+  simp[SF SFY_ss]
+QED
+
+Definition encode_count_def:
+  encode_count bnd Y C As =
+  let
+    ilpc =
+    case C of
+      INL vC => [
+        ([(-1, vC)], MAP (λA. (1, Pos (Eqc A Y))) As, 0);
+        ([(1, vC)], MAP (λA. (-1, Pos (Eqc A Y))) As, 0)]
+    | INR cC => [
+        ([], MAP (λA. (1, Pos (Eqc A Y))) As, cC);
+        ([], MAP (λA. (-1, Pos (Eqc A Y))) As, -cC)]
+  in
+    MAP (λA. bits_imply bnd [Pos (Gem A Y)] (mk_constraint_ge 1 A (-1) Y 0)) As ++
+    MAP (λA. bits_imply bnd [Neg (Gem A Y)] (mk_constraint_ge 1 Y (-1) A 1)) As ++
+    MAP (λA. bits_imply bnd [Pos (Gem Y A)] (mk_constraint_ge 1 Y (-1) A 0)) As ++
+    MAP (λA. bits_imply bnd [Neg (Gem Y A)] (mk_constraint_ge 1 A (-1) Y 1)) As ++
+    MAP (λA. bits_imply bnd [Pos (Eqc A Y)]
+                        ([], [(1, Pos (Gem A Y)); (1, Pos (Gem Y A))], 2)) As ++
+    MAP (λA. bits_imply bnd [Neg (Eqc A Y)]
+                        ([], [(1, Neg (Gem A Y)); (1, Neg (Gem Y A))], 1)) As ++
+    ilpc
+End
+
+Theorem encode_count_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_count bnd Y C As) = (
+    EVERY (λA. wb (Gem A Y) ⇔ varc wi A ≥ varc wi Y) As ∧
+    EVERY (λA. wb (Gem Y A) ⇔ varc wi Y ≥ varc wi A) As ∧
+    EVERY (λA. wb (Eqc A Y) ⇔ wb (Gem A Y) ∧ wb (Gem Y A)) As ∧
+    count_sem Y C As wi)
+Proof
+  strip_tac>>
+  simp[encode_count_def]>>
+  (* FROM HERE *)
 QED
 
 (* The top-level encodings *)
