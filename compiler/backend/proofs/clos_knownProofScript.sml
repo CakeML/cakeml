@@ -732,6 +732,8 @@ Proof
   >>~- ([`WordShift`], dsimp[])
   >>~- ([`WordFromWord`], dsimp[])
   >>~- ([`BoundsCheckByte`], dsimp[])
+  >~ [‘XorByte’] >-
+   (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
   >- (rename [‘Ref’]
       \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
   >- (rename [‘Update’] \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >>

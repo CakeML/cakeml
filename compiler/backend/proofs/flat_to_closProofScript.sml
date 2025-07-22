@@ -852,7 +852,8 @@ Theorem op_byte_copy:
   op = CopyStrAw8 \/
   op = CopyAw8Str \/
   op = CopyAw8Aw8 \/
-  op = CopyStrStr ==>
+  op = CopyStrStr \/
+  op = Aw8xor_unsafe ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -912,6 +913,14 @@ Proof
    (fs [copy_array_def] \\ fs [ws_to_chars_def]
     \\ reverse IF_CASES_TAC THEN1 (fs [] \\ intLib.COOPER_TAC)
     \\ fs [] \\ rveq \\ fs [MAP_TAKE,MAP_DROP])
+  THEN1
+   (fs [copy_array_def] \\ fs [ws_to_chars_def]
+    \\ fs [Unit_def,EVAL ``tuple_tag``] \\ rveq \\ fs []
+    \\ fs [state_rel_def,store_rel_def,v_rel_def]
+    \\ strip_tac \\ last_x_assum (qspec_then `i` mp_tac)
+    \\ fs [FLOOKUP_UPDATE,EL_LUPDATE]
+    \\ IF_CASES_TAC \\ fs []
+    \\ IF_CASES_TAC \\ fs [])
 QED
 
 Theorem op_eq_gc:

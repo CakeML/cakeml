@@ -1528,7 +1528,7 @@ Theorem do_app[local]:
    state_rel f s1 t1 /\
    LIST_REL (v_rel s1.max_app f t1.refs t1.code) xs ys /\
    (* store updates need special treatment *)
-   (op <> MemOp Ref) /\ (op <> MemOp Update) ∧
+   (op <> MemOp Ref) /\ (op <> MemOp Update) ∧ (op <> MemOp XorByte) ∧
    (op ≠ MemOp RefArray) ∧ (∀f. op ≠ MemOp (RefByte f)) ∧ (op ≠ MemOp UpdateByte) ∧
    (op ≠ MemOp FromListByte) ∧ op ≠ MemOp ConcatByteVec ∧
    (∀b. op ≠ MemOp (CopyByte b)) ∧ (∀c. op ≠ BlockOp (Constant c)) ∧
@@ -4489,6 +4489,21 @@ Proof
       asm_exists_tac \\ fs[] \\ rw[] \\
       match_mp_tac v_rel_NEW_REF
       \\ fs[Abbr`ptr`,LEAST_NOTIN_FDOM] )
+    \\ Cases_on`∃fl. op = MemOp XorByte` \\ fs[] >- (
+      fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def,PULL_EXISTS]
+      \\ fs[case_eq_thms,v_case_eq_thms,PULL_EXISTS,SWAP_REVERSE_SYM,AllCaseEqs()]
+      \\ rveq \\ fs[v_rel_SIMP] \\ rw[] \\ fs[FLOOKUP_UPDATE] \\ rw[]
+      \\ TRY (drule (GEN_ALL state_rel_refs_lookup)
+              \\ disch_then imp_res_tac \\ fs[FLOOKUP_UPDATE])
+      \\ rename1`FLOOKUP _ _ = SOME (ByteArray F _)`
+      \\ qexists_tac`f2` \\ fs[]
+      \\ reverse conj_tac
+      >- (fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
+          \\ rw[DRESTRICT_DEF,FAPPLY_FUPDATE_THM]
+          \\ rw[] \\ fs[IN_FRANGE_FLOOKUP] )
+      \\ rw[]
+      \\ match_mp_tac (GEN_ALL state_rel_UPDATE_REF)
+      \\ simp[])
     \\ Cases_on`∃fl. op = MemOp (CopyByte fl)` \\ fs[] >- (
       fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def,PULL_EXISTS]
       \\ Cases_on`fl`
