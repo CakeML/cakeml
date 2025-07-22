@@ -28,6 +28,11 @@ Overload "int_lt" = “BinOp Lt”
 Overload "int_le" = “BinOp Le”
 Overload "int_lit" = “λn. Lit (IntL n)”
 
+Definition Foralls_def:
+  Foralls [] e = e ∧
+  Foralls (v::vs) e = Forall v (Foralls vs e)
+End
+
 Definition lex_lt_def:
   lex_lt [] = False ∧
   lex_lt ((x,y)::rest) =
@@ -104,16 +109,22 @@ Inductive stmt_wp:
     LENGTH mspec.ins = LENGTH args ∧
     LENGTH mspec.outs = LENGTH rets ∧
     ALL_DISTINCT (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
+    ALL_DISTINCT ret_names ∧
     rets = (MAP VarLhs ret_names) ∧
-    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.decreases ∧
-    ⊢ (imp (conj mspec.ens)
-         (Let (ZIP (ret_names,MAP (λ(m,ty). Var m) mspec.outs)) (conj post)))
+    EVERY (λe. DISJOINT (freevars e) (set ret_names)) args ∧
+    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.decreases
     ⇒
     stmt_wp m (Let (ZIP (MAP FST mspec.ins,args)) (conj mspec.reqs) ::
                MAP CanEval args ++
+               MAP CanEval (MAP Var ret_names) ++
                decreases_check (mspec.rank,
                                 MAP (Let (ZIP (MAP FST mspec.ins,args))) mspec.decreases)
-                               (wrap_old decs))
+                               (wrap_old decs) ++
+               [Foralls (ZIP (ret_names, MAP SND mspec.outs))
+                  (imp (Let (ZIP(MAP FST mspec.ins ++ MAP FST mspec.outs,
+                                 args              ++ MAP Var ret_names))
+                          (conj mspec.ens))
+                       (conj post))])
               (MetCall rets mname args) post ens decs
 End
 
@@ -379,6 +390,14 @@ Proof
   cheat
 QED
 
+Theorem eval_exp_swap_locals_alt:
+  ALOOKUP l' = ALOOKUP l ∧
+  eval_exp (st with locals := l') env e v ⇒
+  eval_exp (st with locals := l) env e v
+Proof
+  cheat
+QED
+
 Theorem eval_exp_freevars:
   (∀n. n ∈ freevars e ⇒ ALOOKUP l1 n = ALOOKUP l2 n) ⇒
   eval_exp (st with locals := l1) env e v =
@@ -442,6 +461,33 @@ Proof
   \\ gvs []
 QED
 
+Theorem eval_true_Foralls:
+  eval_true st env (Foralls ns b) ∧ ALL_DISTINCT (MAP FST ns) ⇒
+  ∀xs.
+    LIST_REL (λ(n,ty) (m,x). m = n ∧ ∃v. v ∈ all_values ty ∧ x = SOME v) ns xs ⇒
+    eval_true (st with locals := xs ++ st.locals) env b
+Proof
+  cheat
+QED
+
+Theorem IMP_assi_values:
+  ∀ret_names out_vs st.
+    EVERY (eval_true st env) (MAP CanEval (MAP Var ret_names)) ∧
+    ALL_DISTINCT ret_names ∧ LENGTH out_vs = LENGTH ret_names
+    ⇒
+    ∃l. assi_values st env (MAP VarLhs ret_names) out_vs (st with locals := l) ∧
+        ALOOKUP l = ALOOKUP (ZIP(ret_names,MAP SOME out_vs) ++ st.locals)
+Proof
+  Induct \\ Cases_on ‘out_vs’ \\ gvs []
+  >-
+   (fs [assi_values_def,assign_values_def]
+    \\ simp [state_component_equality])
+  \\ rw []
+  \\ gvs [assi_values_def,assign_values_def,PULL_EXISTS,AllCaseEqs()]
+  \\ gvs [assign_value_def,update_local_def,PULL_EXISTS,AllCaseEqs()]
+  \\ cheat
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
@@ -465,7 +511,6 @@ Theorem stmt_wp_sound:
         | Rcont => conditions_hold st' env post
         | _ => F
 Proof
-
   Induct_on ‘stmt_wp’ \\ rpt strip_tac
   >~ [‘Skip’] >-
    (irule_at (Pos hd) eval_stmt_Skip \\ simp [])
@@ -534,6 +579,7 @@ Proof
   \\ pop_assum drule
   \\ strip_tac \\ gvs []
   \\ gvs [conditions_hold_def]
+  \\ qpat_x_assum ‘EVERY (eval_true st env) (MAP CanEval args)’ assume_tac
   \\ drule EVERY_eval_true_CanEval \\ strip_tac
   \\ first_assum $ irule_at Any
   \\ gvs [set_up_call_def]
@@ -544,7 +590,6 @@ Proof
   \\ first_x_assum $ drule_at $ Pos $ el 2
   \\ disch_then $ qspec_then ‘st1’ mp_tac
   \\ impl_tac
-
   >-
    (reverse $ rpt conj_tac
     >-
@@ -611,8 +656,21 @@ Proof
   \\ disch_then $ irule_at Any
   \\ drule LIST_REL_LENGTH \\ strip_tac \\ fs []
   \\ gvs [GSYM conditions_hold_def]
-  \\ drule_all (imp_conditions_hold |> Q.GEN ‘wp_pre’
-                                    |> Q.SPEC ‘[x]’ |> SRULE [conj_def])
+  \\ drule eval_true_Foralls
+  \\ simp [MAP_ZIP] \\ strip_tac
+  \\ gvs [conditions_hold_def]
+  \\ rename [‘restore_caller st2 st’]
+  \\ qabbrev_tac ‘st3 = restore_caller st2 st’
+  \\ ‘EVERY (eval_true st3 env) (MAP CanEval (MAP Var ret_names))’ by cheat
+  \\ drule IMP_assi_values
+  \\ disch_then $ qspec_then ‘out_vs’ mp_tac
+  \\ impl_tac >- fs []
+  \\ strip_tac
+  \\ first_assum $ irule_at $ Pos hd
+  \\ rewrite_tac [GSYM eval_true_conj_every]
+  \\ rewrite_tac [eval_true_def]
+  \\ irule eval_exp_swap_locals_alt
+  \\ pop_assum $ irule_at Any o GSYM
   \\ cheat
 QED
 
