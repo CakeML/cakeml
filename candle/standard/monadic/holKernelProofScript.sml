@@ -2682,6 +2682,7 @@ Proof
       <|the_type_constants := Y::s.the_type_constants|>)` >>
   `get_type_arity tyname s1 = (M_success (LENGTH vs), s1)` by (
     simp[get_type_arity_def,st_ex_bind_def,Abbr`s1`] >>
+    simp[Abbr`vs`]>>
     EVAL_TAC)>>
 
   simp[mk_type_def,try_def,otherwise_def,raise_Failure_def,st_ex_return_def,Once st_ex_bind_def] >>
@@ -2732,6 +2733,10 @@ Proof
     fs[term_ok_def] >>
     rfs[WELLTYPED] >>
     simp[Abbr`s2`,Abbr`s1`,Abbr`vs`,Abbr`l1`] >>
+    CONJ_TAC >- (
+      qpat_x_assum`_ = STRING_SORT _` (mp_tac o Q.AP_TERM`LENGTH`)>>
+      qpat_x_assum`_ = STRING_SORT _` (mp_tac o Q.AP_TERM`LENGTH`)>>
+      simp[LENGTH_QSORT,LENGTH_STRING_SORT,LENGTH_MAP,tvars_ALL_DISTINCT]) >>
     METIS_TAC[term_type]) >>
   qmatch_assum_abbrev_tac`Abbrev(l1 = [(absname,absty);(repname,repty)])` >>
   `mk_const (repname,[]) s2 = (M_success (Const repname repty), s2)` by (
