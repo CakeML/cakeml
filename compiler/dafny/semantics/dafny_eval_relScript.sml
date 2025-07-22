@@ -39,6 +39,13 @@ Definition eval_rhs_exps_def:
         (st' with clock := ck2, Rval vs)
 End
 
+Definition assi_values_def:
+  assi_values st env lhss rhss st' ⇔
+    ∃ck1 ck2.
+      assign_values (st with clock := ck1) env lhss rhss =
+      (st' with clock := ck2, Rcont)
+End
+
 Definition eval_stmt_def:
   eval_stmt st env body st' ret =
     ∃ck1 ck2.
@@ -368,17 +375,21 @@ QED
 
 Theorem eval_stmt_Assign:
   eval_rhs_exps st env (MAP SND ass) st₁ vs ∧
-  assign_values st₁ env (MAP FST ass) vs = (st', Rcont)
+  assi_values st₁ env (MAP FST ass) vs st'
   ⇒
   eval_stmt st env (Assign ass) st' Rcont
 Proof
-  strip_tac
+  fs [eval_rhs_exps_def, assi_values_def, PULL_EXISTS]
+  \\ qx_genl_tac [‘ck’, ‘ck₁’, ‘ck₂’, ‘ck₃’]
+  \\ strip_tac
   \\ simp [eval_stmt_def, evaluate_stmt_def]
-  \\ fs [eval_rhs_exps_def, PULL_EXISTS, AllCaseEqs()]
   \\ dxrule evaluate_rhs_exps_add_to_clock \\ simp []
-  \\ disch_then $ qspec_then ‘st₁.clock’ assume_tac
-  \\ last_x_assum $ irule_at (Pos hd)
+  \\ disch_then $ qspec_then ‘ck₂’ assume_tac
   \\ dxrule assign_values_add_to_clock \\ simp []
+  \\ disch_then $ qspec_then ‘ck₁’ assume_tac
+  \\ simp [AllCaseEqs()]
+  \\ last_x_assum $ irule_at (Pos hd)
+  \\ full_simp_tac std_ss [AC ADD_COMM ADD_ASSOC]
   \\ simp [state_component_equality]
 QED
 
@@ -390,7 +401,7 @@ Theorem eval_stmt_MetCall:
   eval_stmt st₁ env body st₂ (Rstop Sret) ∧
   OPT_MMAP (read_local st₂.locals) (MAP FST outs) = SOME out_vs ∧
   LENGTH rets = LENGTH out_vs ∧
-  assign_values (restore_caller st₂ st) env rets out_vs = (st',Rcont)
+  assi_values (restore_caller st₂ st) env rets out_vs st'
   ⇒
   eval_stmt st env (MetCall rets mname args) st' Rcont
 Proof
@@ -398,21 +409,22 @@ Proof
   \\ simp [eval_stmt_def, evaluate_stmt_def]
   \\ dxrule_then mp_tac eval_exp_evaluate_exps
   \\ disch_then $ qx_choosel_then [‘ck’, ‘ck₁’] assume_tac \\ simp []
-  \\ fs [eval_stmt_def]
+  \\ fs [eval_stmt_def, assi_values_def]
   \\ rename
-       [‘evaluate_stmt (_ with clock := ck₂) _ _ = (_ with clock := ck₃, _)’]
-  \\ qexists ‘st₂.clock + ck + ck₂ + 1’
+       [‘evaluate_stmt (_ with clock := ck₂) _ _ = (_ with clock := ck₃, _)’,
+        ‘assign_values (_ with clock := ck₄) _ _ _ = (_ with clock := ck₅, _)’]
+  \\ qexists ‘st₂.clock + ck + ck₂ + ck₄ + 1’
   \\ dxrule (cj 2 evaluate_exp_add_to_clock) \\ simp []
   \\ disch_then assume_tac
-  \\ qmatch_goalsub_abbrev_tac ‘set_up_call (_ with clock := ck₄)’
+  \\ qmatch_goalsub_abbrev_tac ‘set_up_call (_ with clock := ck₆)’
   \\ dxrule set_up_call_some_with_clock
   \\ disch_then assume_tac
-  \\ simp [Abbr ‘ck₄’, dec_clock_def]
+  \\ simp [Abbr ‘ck₆’, dec_clock_def]
   \\ dxrule evaluate_stmt_add_to_clock \\ simp []
-  \\ disch_then $ qspec_then ‘ck₁ + st₂.clock’ assume_tac \\ gvs []
+  \\ disch_then $ qspec_then ‘ck₁ + ck₄ + st₂.clock’ assume_tac \\ gvs []
   \\ rewrite_tac [restore_caller_cur_with_clock, restore_caller_prev_with_clock]
   \\ dxrule assign_values_add_to_clock \\ simp []
-  \\ disch_then $ qspec_then ‘ck₁ + ck₃’ assume_tac \\ gvs []
+  \\ disch_then $ qspec_then ‘ck₁ + ck₃ + st₂.clock’ assume_tac \\ gvs []
   \\ simp [state_component_equality]
 QED
 
