@@ -924,13 +924,13 @@ Definition XorLoop_code_def:
     If Lower 6 (Imm 2w)
       (If Equal 6 (Imm 0w)
          (list_Seq [Assign 1 (Const 2w);
-                    Return 0 1])
+                    Return 0 [1]])
          (list_Seq [Assign 5 (Load (Var 4));
                     Assign 3 (Load (Var 2));
                     Assign 7 (Op Xor [Var 5; Var 3]);
                     Store (Var 2) 7;
                     Assign 1 (Const 2w);
-                    Return 0 1]))
+                    Return 0 [1]]))
       (list_Seq [Assign 5 (Load (Var 4));
                  Assign 3 (Load (Var 2));
                  Assign 9 (Load (Op Add [Var 4; Const bytes_in_word]));
@@ -1510,7 +1510,7 @@ val def = assign_Define `
         Assign 3 (Op Add [Var 3; Const (bytes_in_word:'a word)]);
         MustTerminate
           (Call
-            (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+            (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
             (SOME XorLoop_location) [1;3;5] NONE)],l + 1)
       : 'a wordLang$prog # num`;
 

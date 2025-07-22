@@ -3409,7 +3409,7 @@ Theorem evaluate_XorLoop:
     get_var 6 t1 = SOME (Word l) ⇒
     ∃ck max_stack.
       evaluate (XorLoop_code,t1) =
-      (SOME (Result (Loc l1 l2) (Word 2w)),
+      (SOME (Result (Loc l1 l2) [Word 2w]),
        t1 with <| memory := m1; clock := ck; stack_max := max_stack;
                   locals := LN; locals_size := SOME 0 |>) ∧
       (max_stack ≠ t1.stack_max ⇒
@@ -3520,11 +3520,12 @@ Proof
   \\ fs [cut_state_opt_def,cut_state_def,CaseEq"option"]
   \\ qabbrev_tac `s1 = s with locals := env` \\ var_eq_tac
   \\ drule_all cut_env_IMP_cut_env \\ strip_tac
+  \\ drule cut_env_IMP_cut_envs \\ strip_tac \\ fs []
   \\ once_rewrite_tac [list_Seq_def]
   \\ `lookup XorLoop_location t.code = SOME (4,XorLoop_code)` by
     fs [state_rel_def,code_rel_def,stubs_def]
-  \\ simp [eq_eval,cut_env_adjust_set_insert_ODD]
-  \\ Cases_on ‘env_to_list y t.permute’
+  \\ simp [eq_eval,cut_envs_adjust_sets_insert_ODD,domain_adjust_sets]
+  \\ Cases_on ‘env_to_list y2 t.permute’
   \\ simp [wordSemTheory.push_env_def]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate (XorLoop_code,t1)’
   \\ rename [‘insert 0 (Loc rl1 rl2) LN’]
@@ -3544,11 +3545,11 @@ Proof
   \\ reverse $ IF_CASES_TAC
   >-
    (qsuff_tac ‘F’ >- rewrite_tac []
-    \\ drule env_to_list_lookup_equiv
-    \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
-    \\ fs[GSYM IS_SOME_EXISTS]
-    \\ CCONTR_TAC \\ fs [])
-  \\ simp []
+    \\ fs [domain_union,domain_fromAList_toAList]
+    \\ pop_assum mp_tac
+    \\ drule env_to_list_domain
+    \\ simp_tac std_ss [AC UNION_COMM UNION_ASSOC])
+  \\ simp [wordSemTheory.set_vars_def,alist_insert_def]
   \\ qpat_x_assum ‘evaluate (XorLoop_code,_) = _’ kall_tac
   \\ fs [] \\ rpt var_eq_tac
   (* final part: proving state_rel *)
@@ -3557,21 +3558,12 @@ Proof
   \\ simp [state_rel_thm,dataSemTheory.set_var_def,lookup_insert]
   \\ strip_tac \\ pop_assum kall_tac
   \\ conj_tac >-
-   (gvs [wordSemTheory.cut_env_def]
-    \\ drule env_to_list_lookup_equiv
-    \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
-    \\ strip_tac \\ fs [lookup_inter,lookup_0_adjust_set])
+   (drule_all cut_envs_lookup_0
+    \\ simp [lookup_union,lookup_fromAList,ALOOKUP_toAList])
   \\ conj_tac >-
-   (rewrite_tac [adjust_var_11] \\ rw []
-    \\ gvs [wordSemTheory.cut_env_def]
-    \\ drule env_to_list_lookup_equiv
-    \\ simp [lookup_fromAList]
-    \\ fs [IS_SOME_lookup_domain,domain_inter]
-    \\ rw [adjust_var_IN_adjust_set]
-    \\ fs [dataSemTheory.cut_env_def]
-    \\ qunabbrev_tac ‘s1’
-    \\ rpt var_eq_tac
-    \\ fs [domain_inter])
+   (gen_tac \\ IF_CASES_TAC \\ asm_simp_tac std_ss [adjust_var_11]
+    \\ full_simp_tac std_ss [IS_SOME_lookup,domain_union] \\ strip_tac
+    \\ fs [Abbr‘s1’] \\ drule_all IN_adjust_var_lemma \\ simp_tac std_ss [])
   \\ conj_tac >-
    (simp[stack_size_eq,option_le_max_right,AC option_add_comm option_add_assoc])
   \\ conj_tac >-
@@ -3587,21 +3579,21 @@ Proof
   \\ qpat_x_assum ‘_ t.mdomain _’ mp_tac
   \\ match_mp_tac memory_rel_rearrange
   \\ simp [SF DNF_ss]
-  \\ qsuff_tac ‘inter (fromAList q) (adjust_set s1.locals) =
-                inter t.locals (adjust_set s1.locals)’
-  >- asm_simp_tac std_ss []
-  \\ simp [lookup_inter_alt]
+  \\ fs [join_env_def,inter_union_distrib]
+  \\ drule_all cut_envs_inter \\ strip_tac \\ simp []
   \\ qunabbrev_tac ‘s1’ \\ simp []
-  \\ qx_gen_tac ‘nm’
-  \\ IF_CASES_TAC \\ rewrite_tac []
-  \\ drule0 env_to_list_lookup_equiv
+  \\ qsuff_tac `inter (fromAList q) (adjust_set env) = inter t.locals (adjust_set env)`
+  >- asm_simp_tac std_ss []
+  \\ fs [spt_eq_thm,lookup_inter_alt]
+  \\ rw [] \\ fs []
+  \\ drule env_to_list_lookup_equiv
   \\ fs [lookup_insert,lookup_fromAList,adjust_var_11]
-  \\ fs [wordSemTheory.cut_env_def]
-  \\ fs [dataSemTheory.cut_env_def]
-  \\ rpt var_eq_tac
-  \\ simp [lookup_inter_alt]
-  \\ rpt strip_tac
-  \\ fs [IN_domain_adjust_set_inter]
+  \\ rpt strip_tac \\ fs []
+  \\ fs [wordSemTheory.cut_envs_def,cut_env_def] \\ rveq
+  \\ gvs [wordSemTheory.cut_names_def,AllCaseEqs()]
+  \\ fs [lookup_inter_alt] \\ rw []
+  \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]
+  \\ gvs [adjust_sets_def]
 QED
 
 Triviality evaluate_AppendMainLoop_code:
