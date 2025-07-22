@@ -773,9 +773,18 @@ Proof
   strip_tac>>
   match_mp_tac LEFT_AND_CONG>>
   CONJ_TAC >-
-    cheat>>
+    simp[EVERY_MAP,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,
+         AND_IMP_INTRO,GSYM integerTheory.INT_POLY_CONV_rth,integerTheory.INT_GE,
+         integerTheory.INT_SUB_LE]>>
   strip_tac>>
-  cheat
+  simp[arr_max_sem_def,EVERY_MAP,mk_constraint_ge_sem,GSYM integerTheory.INT_POLY_CONV_rth,
+       integerTheory.INT_GE,integerTheory.INT_SUB_LE,MEM_MAP,EVERY_MEM]>>
+  iff_tac>>
+  rw[]>>
+  pop_assum drule>>
+  pop_assum drule>>
+  rw[integerTheory.INT_GE,GSYM integerTheory.INT_LE_ANTISYM]>>
+  simp[SF SFY_ss]
 QED
 
 (* The top-level encodings *)
