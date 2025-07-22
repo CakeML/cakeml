@@ -152,9 +152,6 @@ Definition do_eq_def:
         Eq_val F))
   ∧
   (do_eq_list _ _ = Eq_val F)
-Termination
-  WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_size x
-                                        | INR (xs,ys) => v4_size xs)`
 End
 
 (* Do an application *)
@@ -371,6 +368,16 @@ Definition do_app_def:
               SOME s' => SOME (s with refs := s', Rval Unitv)
             | _ => NONE))
     | _ => NONE)
+  | (Aw8xor_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
+    (case store_lookup dst s.refs of
+     | SOME (W8array ds) =>
+         (case xor_bytes (MAP (n2w o ORD) str_arg) ds of
+          | NONE => NONE
+          | SOME new_bs =>
+              (case store_assign dst (W8array new_bs) s.refs of
+               | NONE => NONE
+               | SOME s' => SOME (s with refs := s', Rval Unitv)))
+     | _ => NONE)
   | (Ord, [Litv (Char c)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>
@@ -618,7 +625,7 @@ Definition pmatch_def:
   (pmatch_list s _ _ bindings = Match_type_error)
 Termination
   WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_size p
-                                        | INR (x,ps,y,z) => pat1_size ps)`
+                                        | INR (x,ps,y,z) => list_size pat_size ps)`
   \\ simp []
 End
 

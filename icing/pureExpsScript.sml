@@ -30,6 +30,7 @@ Definition isPureOp_def:
     | CopyAw8Aw8 => F
     | CopyStrAw8 => F
     | CopyAw8Str => F
+    | XorAw8Str_unsafe => F
     | Eval => F
     | FFI _ => F
     | ThunkOp _ => F
@@ -49,8 +50,6 @@ Definition isPurePat_def:
   /\
   (isPurePatList [] = T) /\
   (isPurePatList (p::pl) = (isPurePat p /\ isPurePatList pl))
-Termination
-  wf_rel_tac `measure (\x. case x of |INL p =>  pat_size p | INR pl => pat1_size pl)`
 End
 
 Definition isPureExp_def:
@@ -75,12 +74,6 @@ Definition isPureExp_def:
   /\
     isPurePatExpList [] = T /\
     isPurePatExpList ((p,e)::pel) = (isPurePat p /\ isPureExp e /\ isPurePatExpList pel)
-Termination
-  wf_rel_tac (`measure
-    \ x. case x of
-          | INL e => exp_size e
-          | INR (INL exl) => exp6_size exl
-          | INR (INR pel) => exp3_size pel`)
 End
 
 val isPureOp_simp =

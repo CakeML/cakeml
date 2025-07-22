@@ -123,8 +123,11 @@ Definition find_v_globals_def:
 Termination
     WF_REL_TAC `measure (λ e . case e of
             | INL x => v_size x
-            | INR y => v4_size y)` >>
-    rw[v_size_def, v_size_aux, SUM_MAP_v3_size, MAP_MAP_o]
+            | INR y => list_size v_size y)`
+    \\ rw [list_size_pair_size_MAP_FST_SND]
+    \\ Cases_on ‘env’
+    \\ gvs [environment_size_def]
+    \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 
 val find_v_globals_ind = theorem "find_v_globals_ind";
@@ -317,9 +320,12 @@ Definition v_has_Eval_def1:
   (v_has_Eval (Vectorv vl) = EXISTS v_has_Eval vl) ∧
   (v_has_Eval _ = F)
 Termination
-  WF_REL_TAC `measure (λe. v_size e)`
-  \\ rw [v_size_def]
-  \\ fs [v_size_aux, MEM_MAP, EXISTS_PROD, MEM_SPLIT, SUM_APPEND, v_size_def]
+  WF_REL_TAC `measure v_size`
+  \\ gvs [list_size_pair_size_MAP_FST_SND] \\ rw []
+  \\ Cases_on ‘env’ \\ gvs [environment_size_def]
+  \\ imp_res_tac MEM_list_size
+  \\ pop_assum $ qspec_then ‘v_size’ mp_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem v_has_Eval_def = CONV_RULE (DEPTH_CONV ETA_CONV) v_has_Eval_def1

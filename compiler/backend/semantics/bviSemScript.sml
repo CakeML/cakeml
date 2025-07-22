@@ -53,7 +53,7 @@ Definition do_app_aux_def:
   do_app_aux op (vs:bvlSem$v list) ^s =
     case (op,vs) of
     | (IntOp (Const i),xs) =>
-      if small_enough_int i then
+      if small_enough_int i /\ NULL xs then
         SOME (SOME (Number i, s))
       else NONE
     | (Label l,xs) => (case xs of
@@ -291,7 +291,7 @@ Definition evaluate_def:
                 | res => res)
      | res => res)
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure exp2_size)
+  WF_REL_TAC `(inv_image (measure I LEX measure (list_size exp_size))
                           (\(xs,env,s). (s.clock,xs)))`
   >> rpt strip_tac
   >> simp[dec_clock_def]

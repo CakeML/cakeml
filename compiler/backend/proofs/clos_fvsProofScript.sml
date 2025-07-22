@@ -549,20 +549,18 @@ Proof
   \\ `s1.max_app = t1.max_app` by fs [state_rel_def]
   \\ fs [case_eq_thms] \\ rveq \\ fs []
   THEN1 (* dest_closure returns NONE *) (
-    rw[evaluate_def]
+    first_assum $ irule_at $ Pos last
+    \\ rw[evaluate_def]
+    \\ qsuff_tac ‘dest_closure t1.max_app loc_opt f2 (y::ys) = NONE’ >- gvs []
     \\ fs [dest_closure_def]
-    \\ fs [case_eq_thms] \\ rveq \\ fs[]
-    >- (
-      rw[] \\ fs[CaseEq"bool"]
-      \\ imp_res_tac LIST_REL_LENGTH \\ fs [] )
+    \\ gvs [AllCaseEqs()]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ Cases_on ‘i < LENGTH fns’ \\ gvs []
+    \\ res_tac
     \\ rpt(pairarg_tac \\ fs[]) \\ rveq
-    \\ imp_res_tac LIST_REL_LENGTH
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ simp[Once COND_RAND]
-    \\ Cases_on`i < LENGTH fns` \\ fs[]
-    \\ imp_res_tac LIST_REL_EL_EQN
-    \\ rfs[f_rel_def] \\ rveq
-    \\ strip_tac \\ fs[] )
+    \\ fs [f_rel_def]
+    \\ gvs [AllCaseEqs()])
   THEN1 (* dest_closure returns SOME Partial_app *)
    (imp_res_tac dest_closure_SOME_IMP
     \\ rveq \\ fs [] \\ rveq

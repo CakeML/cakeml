@@ -48,7 +48,7 @@ End
 Definition alloc_glob_count_def:
   (alloc_glob_count [] = 0:num) /\
   (alloc_glob_count (x::y::xs) =
-     alloc_glob_count [x] + alloc_glob_count (y::xs) /\
+     alloc_glob_count [x] + alloc_glob_count (y::xs)) /\
   (alloc_glob_count [(Var _):bvl$exp] = 0) /\
   (alloc_glob_count [If x y z] =
      alloc_glob_count [x] +
@@ -64,9 +64,7 @@ Definition alloc_glob_count_def:
   (alloc_glob_count [Op op xs] =
      if op = GlobOp AllocGlobal then 1 + alloc_glob_count xs
                                 else alloc_glob_count xs) /\
-  (alloc_glob_count [_] = 0))
-Termination
-  WF_REL_TAC `measure exp1_size`
+  (alloc_glob_count [_] = 0) (* Impossible *)
 End
 
 Definition global_count_sing_def:

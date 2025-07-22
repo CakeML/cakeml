@@ -774,7 +774,8 @@ Proof
   \\ Cases_on ‘m1 = list_type_num ∧ n = "::"’ \\ gvs []
   >- (
     first_x_assum (drule_all_then assume_tac)
-    \\ gs [option_nchotomy])
+    \\ simp[AllCaseEqs()]
+    \\ metis_tac[option_nchotomy])
   \\ Cases_on ‘m1 = list_type_num’ \\ gs [] \\ rw []
   \\ gs [INJ_DEF, flookup_thm]
 QED
@@ -784,6 +785,13 @@ Theorem v_to_list_list_to_v:
     v_to_list (list_to_v xs) = SOME xs
 Proof
   Induct \\ rw [list_to_v_def, v_to_list_def]
+QED
+
+Theorem INJ_EQ_11_alt:
+  ∀f s x y. INJ f s t ∧ x ∈ s ∧ y ∈ s ⇒ (f x = f y ⇔ x = y)
+Proof
+  rw[INJ_DEF]>>
+  metis_tac[]
 QED
 
 Theorem v_rel_do_eq:
@@ -810,8 +818,8 @@ Proof
   \\ imp_res_tac LIST_REL_LENGTH \\ gs []
   \\ rw [EQ_IMP_THM] \\ gs []
   \\ gvs [ctor_same_type_def, same_type_def, stamp_rel_cases, flookup_thm]
-  \\ rpt CASE_TAC \\ gs []
-  \\ gs [INJ_DEF]
+  \\ rpt CASE_TAC \\ gvs[]
+  \\ metis_tac[INJ_DEF]
 QED
 
 Theorem fp_translate_alt:
@@ -1376,6 +1384,34 @@ Proof
                                     "store_v"]]
     \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
     \\ first_assum (irule_at Any) \\ gs [])
+  \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"], PULL_EXISTS]
+    \\ rpt (irule_at Any SUBMAP_REFL \\ gs [])
+    \\ imp_res_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rpt (rename [‘ref_rel _ (_ _) y0’] \\ Cases_on ‘y0’ \\ gvs [ref_rel_def])
+    \\ gvs [store_assign_def, store_lookup_def, copy_array_def,
+            v_rel_def, sub_exn_v_def, subscript_stamp_def, stamp_rel_cases]
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          fp_state := fp1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          fp_state := fp2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, EL_LUPDATE]
+    \\ qx_gen_tac ‘n1’
+    \\ first_x_assum (qspec_then ‘n1’ mp_tac)
+    \\ rw [] \\ gs [ref_rel_def]
+    \\ rw [] \\ gs [ref_rel_def]
+    \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac
+    \\ rpt (qpat_x_assum ‘FLOOKUP _ _ = _’ mp_tac)
+    \\ rw [flookup_thm, INJ_DEF] \\ gs [])
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
@@ -2421,7 +2457,6 @@ Proof
     \\ gvs [LIST_REL_EL_EQN] \\ rw []
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gs [flookup_thm]
-    \\ conj_tac >- (qexists_tac ‘0’ \\ simp [])
     \\ simp [FUNION_DEF]
     \\ qmatch_goalsub_abbrev_tac ‘FUN_FMAP f D’
     \\ ‘n ∈ D’
@@ -2475,7 +2510,6 @@ Proof
   \\ rw [stamp_rel_cases]
   \\ gs [flookup_thm, FUN_FMAP_DEF, FUNION_DEF, FAPPLY_FUPDATE_THM, SF CONJ_ss]
   \\ Cases_on ‘m1 = n’ \\ gvs []
-  \\ conj_tac >- (qexists_tac ‘0’ \\ simp [])
   \\ qmatch_goalsub_abbrev_tac ‘FUN_FMAP f D’
   \\ ‘m1 ∈ D’
     by (gs [Abbr ‘D’] \\ qexists_tac ‘0’ \\ gs [])

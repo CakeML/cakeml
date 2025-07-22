@@ -7,7 +7,7 @@
 *)
 
 open preamble match_goal
-open simpleSexpTheory astTheory
+open simpleSexpTheory astTheory quantHeuristicsTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -725,6 +725,7 @@ Definition sexpop_def:
   if s = "CopyStrAw8" then SOME CopyStrAw8 else
   if s = "CopyAw8Str" then SOME CopyAw8Str else
   if s = "CopyAw8Aw8" then SOME CopyAw8Aw8 else
+  if s = "XorAw8Strunsafe" then SOME XorAw8Str_unsafe else
   if s = "Ord" then SOME Ord else
   if s = "Chr" then SOME Chr else
   if s = "W8fromInt" then SOME (WordFromInt W8) else
@@ -874,24 +875,11 @@ Definition sexpexp_def:
               (sexpexp (EL 1 args)))
     od
 Termination
-  WF_REL_TAC `measure sexp_size` >> simp[] >> rpt strip_tac
-   >> TRY
-     (rename1 `sxMEM sx0 (EL 1 args)` >>
-       `sexp_size sx0 < sexp_size (EL 1 args)` by simp[sxMEM_sizelt] >>
-       rw[] >> fs[sexp_size_def] >>
-       `sexp_size (EL 1 args) < sexp_size s`
-         by simp[dstrip_sexp_size, rich_listTheory.EL_MEM] >>
-       simp[])
-   >- (
-     rw[] >>
-     imp_res_tac dstrip_sexp_size >>
-     imp_res_tac sxMEM_sizelt >>
-     fs[sexp_size_def] >>
-     `sexp_size a < sexp_size (HD args)` by decide_tac >>
-     metis_tac[listTheory.EL,rich_listTheory.EL_MEM,DECIDE``0n < 2``,arithmeticTheory.LESS_TRANS])
-   >> metis_tac[rich_listTheory.EL_MEM, listTheory.EL,
-                DECIDE ``1n < 2 ∧ 0n < 2 ∧ 0n < 1 ∧ 2n < 3 ∧ 0n < 3 ∧ 1n < 3``,
-                dstrip_sexp_size, sxMEM_sizelt, arithmeticTheory.LESS_TRANS]
+  WF_REL_TAC `measure sexp_size` >>
+  rw[]>>
+  imp_res_tac dstrip_sexp_size >>
+  imp_res_tac sxMEM_sizelt >>
+  gvs[sexp_size_def,DB.fetch "quantHeuristics" "LIST_LENGTH_3",SF DNF_ss]
 End
 
 (* translator friendly version for bootstrapping *)
@@ -1396,6 +1384,7 @@ Definition opsexp_def:
   (opsexp CopyStrAw8 = SX_SYM "CopyStrAw8") ∧
   (opsexp CopyAw8Str = SX_SYM "CopyAw8Str") ∧
   (opsexp CopyAw8Aw8 = SX_SYM "CopyAw8Aw8") ∧
+  (opsexp XorAw8Str_unsafe = SX_SYM "XorAw8Strunsafe") ∧
   (opsexp Ord = SX_SYM "Ord") ∧
   (opsexp Chr = SX_SYM "Chr") ∧
   (opsexp (WordFromInt W8) = SX_SYM "W8fromInt") ∧
@@ -1521,8 +1510,6 @@ Definition expsexp_def:
   expsexp (Tannot e t) = ⟪SX_SYM "Tannot"; expsexp e; typesexp t⟫ ∧
   expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫ ∧
   expsexp (FpOptimise fpopt e) = listsexp [SX_SYM "FpOptimise"; scsexp fpopt; expsexp e]
-Termination
-  WF_REL_TAC`measure exp_size`
 End
 
 Theorem expsexp_11[simp]:
@@ -1598,8 +1585,6 @@ Definition decsexp_def:
   decsexp (Dlocal ldecs decs) =
     listsexp [SX_SYM "Dlocal"; listsexp (MAP decsexp ldecs);
               listsexp (MAP decsexp decs)]
-Termination
-  wf_rel_tac`measure dec_size`
 End
 
 Theorem decsexp_11[simp]:

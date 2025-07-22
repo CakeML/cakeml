@@ -444,6 +444,28 @@ Proof
   TRY (pairarg_tac >> fs [] >> rveq >> NO_TAC) >>
   fs [nested_seq_def, comp_syntax_ok_def, cut_sets_def] >> NO_TAC)
   >- (
+   rename [‘compile_exp _ _ _ (Load32 e)’] >>
+   rpt gen_tac >> strip_tac >>
+   conj_asm1_tac
+   >- (
+    fs [compile_exp_def] >>
+    pairarg_tac >> fs [] >> rveq >> fs [] >>
+    match_mp_tac comp_syn_ok_nested_seq >>
+    fs [] >>
+    fs [nested_seq_def] >>
+    rpt (
+    match_mp_tac comp_syn_ok_seq2 >>
+    fs [comp_syntax_ok_def])) >>
+   fs [compile_exp_def] >>
+   pairarg_tac >> fs [] >> rveq >>
+   res_tac >> fs [] >>
+   imp_res_tac comp_syn_ok_nested_seq2 >>
+   last_x_assum assume_tac >>
+   qmatch_goalsub_abbrev_tac ‘p' ++ np’ >>
+   fs [cut_sets_nested_seq] >>
+   fs [Abbr ‘np’] >> pop_assum kall_tac >>
+   fs [nested_seq_def, cut_sets_def, Once insert_insert])
+  >- (
    rename [‘compile_exp _ _ _ (LoadByte e)’] >>
    rpt gen_tac >> strip_tac >>
    conj_asm1_tac
@@ -591,6 +613,15 @@ Proof
   TRY (
   fs [Once compile_exp_def] >> TRY (pairarg_tac >> fs []) >>
   rveq >> fs [nested_seq_def, assigned_vars_def] >> NO_TAC)
+  >- (
+   rpt gen_tac >> strip_tac >>
+   fs [compile_exp_def] >> rveq >>
+   pairarg_tac >> fs [] >> rveq >>
+   drule compile_exp_out_rel >>
+   strip_tac >> fs [] >>
+   fs [assigned_vars_nested_seq_split]
+   >- (res_tac >> fs []) >>
+   fs [nested_seq_def, assigned_vars_def])
   >- (
    rpt gen_tac >> strip_tac >>
    fs [compile_exp_def] >> rveq >>
@@ -968,42 +999,81 @@ Proof
     imp_res_tac state_rel_intro >>
     imp_res_tac mem_rel_intro >>
     last_x_assum (qspec_then ‘c’ mp_tac) >> fs [])
-  >~ [‘eval s (LoadByte e)’] >-
-   (fs [crepSemTheory.eval_def] >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
-    rw [] >>
-    fs [compile_exp_def] >>
-    pairarg_tac >> fs [] >> rveq >>
-    last_x_assum drule_all >>
-    fs [] >> rveq >>
-    strip_tac >> fs [] >>
-    qexists_tac ‘ck’ >> fs [] >>
-    drule evaluate_none_nested_seq_append >>
-    disch_then (qspec_then
-                ‘[Assign tmp' le'; LoadByte tmp' tmp']’ mp_tac) >>
-    strip_tac >> fs [] >>
-    pop_assum kall_tac >>
-    fs [nested_seq_def, loopSemTheory.evaluate_def] >>
-    fs [set_var_def, wlab_wloc_def] >>
-    fs [panSemTheory.mem_load_byte_def, CaseEq "word_lab",
-        wordSemTheory.mem_load_byte_aux_def] >>
-    imp_res_tac mem_rel_intro >>
-    last_x_assum (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
-    strip_tac >> fs [] >>
-    last_x_assum (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
-    strip_tac >> fs [wlab_wloc_def] >>
-    imp_res_tac state_rel_intro >>
-    fs [eval_def, state_rel_def] >>
-    imp_res_tac compile_exp_out_rel >>
-    fs [locals_rel_def, SUBSET_INSERT_RIGHT] >> rw [] >>
-    first_x_assum drule >> fs [] >>
-    strip_tac >> fs [] >>
-    fs [lookup_insert] >>
-    TOP_CASE_TAC >> fs [] >>
-    fs [ctxt_max_def] >>
-    first_x_assum drule >> fs [])
+   >>~ [‘eval s (LoadByte e)’,‘eval s (Load32 e)’]
+  >- (fs [crepSemTheory.eval_def] >>
+      TOP_CASE_TAC >> fs [] >>
+      TOP_CASE_TAC >> fs [] >>
+      TOP_CASE_TAC >> fs [] >>
+      rw [] >>
+      fs [compile_exp_def] >>
+      pairarg_tac >> fs [] >> rveq >>
+      last_x_assum drule_all >>
+      fs [] >> rveq >>
+      strip_tac >> fs [] >>
+      qexists_tac ‘ck’ >> fs [] >>
+      drule evaluate_none_nested_seq_append >>
+      qpat_abbrev_tac ‘X = [Assign tmp' _; _]’ >>
+      disch_then (qspec_then ‘X’ mp_tac) >>
+      strip_tac >> fs [Abbr‘X’] >>
+      pop_assum kall_tac >>
+      fs [nested_seq_def, loopSemTheory.evaluate_def] >>
+      fs [set_var_def, wlab_wloc_def] >>
+      fs [panSemTheory.mem_load_byte_def, CaseEq "word_lab",
+          wordSemTheory.mem_load_byte_aux_def,
+          panSemTheory.mem_load_32_def, wordSemTheory.mem_load_32_def] >>
+      imp_res_tac mem_rel_intro >>
+      last_x_assum (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
+      strip_tac >> fs [] >>
+      last_x_assum (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
+      strip_tac >> fs [wlab_wloc_def] >>
+      imp_res_tac state_rel_intro >>
+      fs [eval_def, state_rel_def] >>
+      imp_res_tac compile_exp_out_rel >>
+      fs [locals_rel_def, SUBSET_INSERT_RIGHT] >>
+      rpt gen_tac >> strip_tac >>
+      first_x_assum drule >> fs [] >>
+      strip_tac >> fs [] >>
+      fs [lookup_insert] >>
+      TOP_CASE_TAC >> fs [] >>
+      fs [ctxt_max_def] >>
+      first_x_assum drule >> fs [])
+  >- (fs [crepSemTheory.eval_def] >>
+      TOP_CASE_TAC >> fs [] >>
+      TOP_CASE_TAC >> fs [] >>
+      TOP_CASE_TAC >> fs [] >>
+      rw [] >>
+      fs [compile_exp_def] >>
+      pairarg_tac >> fs [] >> rveq >>
+      last_x_assum drule_all >>
+      fs [] >> rveq >>
+      strip_tac >> fs [] >>
+      qexists_tac ‘ck’ >> fs [] >>
+      drule evaluate_none_nested_seq_append >>
+      qpat_abbrev_tac ‘X = [Assign tmp' _; _]’ >>
+      disch_then (qspec_then ‘X’ mp_tac) >>
+      strip_tac >> fs [Abbr‘X’] >>
+      pop_assum kall_tac >>
+      fs [nested_seq_def, loopSemTheory.evaluate_def] >>
+      fs [set_var_def, wlab_wloc_def] >>
+      fs [panSemTheory.mem_load_byte_def, CaseEq "word_lab",
+          wordSemTheory.mem_load_byte_aux_def,
+          panSemTheory.mem_load_32_def, wordSemTheory.mem_load_32_def] >>
+      imp_res_tac mem_rel_intro >>
+      last_x_assum (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
+      strip_tac >> fs [] >>
+      last_x_assum (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
+      strip_tac >> fs [wlab_wloc_def] >>
+      imp_res_tac state_rel_intro >>
+      fs [eval_def, state_rel_def] >>
+      imp_res_tac compile_exp_out_rel >>
+      fs [locals_rel_def, SUBSET_INSERT_RIGHT] >>
+      rpt gen_tac >> strip_tac >>
+      first_x_assum drule >> fs [] >>
+      strip_tac >> fs [] >>
+      fs [lookup_insert] >>
+      TOP_CASE_TAC >> fs [] >>
+      fs [ctxt_max_def] >>
+      first_x_assum drule >> fs [])
   >~ [‘eval s (LoadGlob gadr)’] >-
    (fs [crepSemTheory.eval_def, compile_exp_def] >> rveq >>
     fs [nested_seq_def, loopSemTheory.evaluate_def] >>
@@ -1243,6 +1313,12 @@ Proof
    fs [nested_seq_def, survives_def])
   >- (
    rw [] >>
+   fs [compile_exp_def, AllCaseEqs()] >> rveq >>
+   pairarg_tac >> fs [] >> rveq >>
+   match_mp_tac survives_nested_seq_intro >>
+   fs [nested_seq_def, survives_def])
+  >- (
+   rw [] >>
    pop_assum mp_tac >>
    rw [Once compile_exp_def, AllCaseEqs()] >> rveq >>
    pairarg_tac >> fs [])
@@ -1369,6 +1445,14 @@ Proof
   >- (
    fs [compile_exp_def, AllCaseEqs()] >> rveq >>
    pairarg_tac >> fs [])
+  >- (
+   rw [] >>
+   fs [compile_exp_def, AllCaseEqs()] >> rveq >>
+   pairarg_tac >> fs [] >> rveq >>
+   fs [assigned_vars_nested_seq_split] >>
+   fs [nested_seq_def, assigned_vars_def] >>
+   drule compile_exp_out_rel >>
+   strip_tac >> fs [])
   >- (
    rw [] >>
    fs [compile_exp_def, AllCaseEqs()] >> rveq >>
@@ -1690,6 +1774,119 @@ Proof
   rw [] >> res_tac >> fs []
 QED
 
+
+Theorem compile_Store32:
+  ^(get_goal "compile _ _ (crepLang$Store32 _ _)")
+Proof
+  rw [] >>
+  fs [crepSemTheory.evaluate_def, evaluate_def,
+      compile_def, AllCaseEqs ()] >> rveq >>
+  pairarg_tac >> fs [] >>
+  pairarg_tac >> fs [] >>
+  qmatch_asmsub_rename_tac ‘compile_exp _ _ _ dst = (dp, dle,dtmp,dl)’ >>
+  qmatch_asmsub_rename_tac ‘compile_exp _ _ _ src = (sp, sle, stmp, sl)’ >>
+  qpat_x_assum ‘eval _ dst = _’ assume_tac >>
+  drule comp_exp_preserves_eval >>
+  disch_then (qspecl_then [‘t’, ‘ctxt’, ‘ctxt.vmax + 1’, ‘l’,
+                           ‘dp’,‘dle’,‘dtmp’,‘dl’] mp_tac) >>
+  fs [] >> strip_tac >> fs [] >>
+  qpat_x_assum ‘eval _ src = _’ assume_tac >>
+  drule comp_exp_preserves_eval >>
+  disch_then (qspecl_then [‘st’, ‘ctxt’, ‘dtmp’, ‘dl’,
+                           ‘sp’,‘sle’,‘stmp’,‘sl’] mp_tac) >>
+  fs [] >>
+  impl_tac
+  >- (
+   imp_res_tac compile_exp_out_rel >> fs []) >>
+  strip_tac >> fs [] >>
+  qexists_tac ‘ck + ck'’ >> fs [] >>
+  qpat_x_assum ‘evaluate (nested_seq dp, _) = _’ assume_tac >>
+  drule evaluate_add_clock_eq >>
+  fs [] >>
+  disch_then (qspec_then ‘ck'’ mp_tac) >>
+  strip_tac >>
+  drule evaluate_comb_seq >>
+  disch_then drule >>
+  fs [evaluate_nested_seq_comb_seq] >>
+  strip_tac >>
+  drule evaluate_none_nested_seq_append >>
+  disch_then (qspec_then
+              ‘[Assign stmp dle; Assign (stmp + 1) sle;
+                   Store32 stmp (stmp + 1)]’ mp_tac) >>
+  fs [] >>
+  strip_tac >> pop_assum kall_tac >>
+  fs [nested_seq_def, evaluate_def, set_var_def] >>
+  fs [wlab_wloc_def] >>
+  ‘eval st' dle = SOME (Word adr)’ by (
+    qpat_x_assum ‘evaluate (nested_seq dp,_ with clock := ck + _) = _’ assume_tac >>
+    drule nested_seq_pure_evaluation >>
+    disch_then (qspecl_then [‘sp’, ‘st'’, ‘l’, ‘dtmp’, ‘dle’,
+                             ‘Word adr’,‘ck'’] mp_tac) >> fs [] >>
+    impl_tac
+    >- (
+     imp_res_tac compile_exp_out_rel >> rveq >> fs [] >>
+     imp_res_tac comp_exp_assigned_vars_tmp_bound >> fs [] >>
+     gen_tac >> strip_tac >> fs [] >>
+     imp_res_tac locals_rel_intro >>
+     drule compile_exp_le_tmp_domain >>
+     disch_then (qspecl_then [‘ctxt.vmax + 1’, ‘l’, ‘dst’, ‘dp’, ‘dle’,
+                              ‘dtmp’, ‘cut_sets l (nested_seq dp)’, ‘n’] mp_tac) >>
+     fs [] >>
+     impl_tac
+     >- (
+      rw [] >>
+      imp_res_tac eval_some_var_cexp_local_lookup >>
+      res_tac >> fs []) >>
+     fs []) >>
+    fs []) >>
+  fs [] >> pop_assum kall_tac >>
+  ‘eval (st' with locals := insert stmp (Word adr) st'.locals) sle =
+   eval st' sle’ by (
+    match_mp_tac locals_touched_eq_eval_eq >>
+    fs [] >> rw [] >>
+    fs [lookup_insert] >>
+    TOP_CASE_TAC >> fs [] >> rveq >>
+    imp_res_tac compile_exp_out_rel >> rveq >> fs [] >>
+    imp_res_tac comp_exp_assigned_vars_tmp_bound >> fs [] >>
+    imp_res_tac locals_rel_intro >>
+    drule compile_exp_le_tmp_domain >>
+    disch_then (qspecl_then [‘dtmp’, ‘cut_sets l (nested_seq dp)’, ‘src’,
+                             ‘sp’, ‘sle’, ‘n’,
+                             ‘cut_sets (cut_sets l (nested_seq dp)) (nested_seq sp)’,
+                             ‘n’] mp_tac) >>
+    fs [] >>
+    strip_tac >> fs [] >>
+    imp_res_tac eval_some_var_cexp_local_lookup >>
+    res_tac >> fs [] >> rveq >> rfs []) >>
+  fs [] >> pop_assum kall_tac >>
+  fs [wordSemTheory.mem_store_32_def, panSemTheory.mem_store_32_def,
+      AllCaseEqs ()] >>
+  rveq >> fs [lookup_insert] >>
+  ‘st'.memory (byte_align adr) = Word v’ by (
+    imp_res_tac mem_rel_intro >>
+    last_x_assum (qspec_then ‘byte_align adr’ mp_tac) >>
+    metis_tac [wlab_wloc_def]) >>
+  fs [state_rel_def] >>
+  (reverse conj_tac
+   >- (
+    ‘subspt l sl’ by (
+      imp_res_tac compile_exp_out_rel >> fs [] >>
+      imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
+      rveq >> metis_tac [subspt_trans]) >>
+    match_mp_tac locals_rel_insert_gt_vmax >>
+    imp_res_tac compile_exp_out_rel >>
+    fs [] >>
+    match_mp_tac locals_rel_insert_gt_vmax >>
+    imp_res_tac compile_exp_out_rel >>
+    fs [] >>
+    match_mp_tac locals_rel_cutset_prop >>
+    metis_tac []) >>
+   imp_res_tac mem_rel_intro >>
+   rw [mem_rel_def] >>
+   fs [APPLY_UPDATE_THM] >>
+   reverse FULL_CASE_TAC >> fs [] >> rveq >>
+   res_tac >> fs [wlab_wloc_def])
+QED
 
 Theorem compile_StoreByte:
   ^(get_goal "compile _ _ (crepLang$StoreByte _ _)")
@@ -2263,7 +2460,7 @@ Proof
     fs [wlab_wloc_def, AllCaseEqs ()]) >>
   fs [state_rel_def]
   >- (
-   qexists_tac ‘0’ >> fs [] >>
+   fs [] >>
    reverse conj_tac
    >- (
     fs [locals_rel_def] >>
@@ -2273,8 +2470,7 @@ Proof
     rfs [lookup_inter, domain_lookup]) >>
    match_mp_tac write_bytearray_mem_rel >>
    fs []) >>
-  fs [call_env_def] >>
-  qexists_tac ‘0’ >> fs []
+  fs [call_env_def]
 QED
 
 
@@ -3256,7 +3452,7 @@ Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
          [compile_Skip_Break_Continue, compile_Tick, compile_ShMem,
-          compile_Seq, compile_Return, compile_Raise,
+          compile_Seq, compile_Return, compile_Raise, compile_Store32,
           compile_Store, compile_StoreByte, compile_StoreGlob,
           compile_Assign, compile_Dec, compile_If, compile_FFI,
           compile_While, compile_Call]) >>

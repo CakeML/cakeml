@@ -24,29 +24,6 @@ val _ = new_theory "ml_optimise";
 
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 
-Triviality MEM_exp_size1:
-  !xs a. MEM a xs ==> exp_size a <= exp6_size xs
-Proof
-  Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC
-QED
-
-Triviality MEM_exp_size2:
-  !ys p x. MEM (p,x) ys ==> exp_size x < exp3_size ys
-Proof
-  Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def] THEN Cases
-  THEN FULL_SIMP_TAC std_ss [exp_size_def]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC
-QED
-
-val exp6_size_SNOC = prove(
-  ``!xs y. exp6_size (xs ++ [y]) = exp6_size xs + exp6_size [y]``,
-  Induct \\ fs [exp_size_def]);
-
-val exp6_size_REVERSE = prove(
-  ``!xs. exp6_size (REVERSE xs) = exp6_size xs``,
-  Induct \\ fs [exp_size_def,exp6_size_SNOC]);
-
 Definition BOTTOM_UP_OPT_def[nocompute]:
   (BOTTOM_UP_OPT f (Lit v) = f (Lit v)) /\
   (BOTTOM_UP_OPT f (Raise ex) = f (Raise ex)) /\
@@ -73,12 +50,6 @@ Definition BOTTOM_UP_OPT_def[nocompute]:
   (BOTTOM_UP_OPT_PAT f [] = []) /\
   (BOTTOM_UP_OPT_PAT f ((p,y)::ys) =
      (p,BOTTOM_UP_OPT f y) :: BOTTOM_UP_OPT_PAT f ys)
-Termination
-  WF_REL_TAC `measure (\x. case x of
-                  | INL x => (exp_size o SND) x
-                  | INR (INL x) => (exp6_size o SND) x
-                  | INR (INR x) => (exp3_size o SND) x)`
-   \\ rw [exp6_size_REVERSE]
 End
 
 Theorem BOTTOM_UP_OPT_def[allow_rebind,compute] =

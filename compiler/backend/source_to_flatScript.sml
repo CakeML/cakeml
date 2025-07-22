@@ -106,6 +106,7 @@ Definition astOp_to_flatOp_def:
   | CopyStrAw8 => flatLang$CopyStrAw8
   | CopyAw8Str => flatLang$CopyAw8Str
   | CopyAw8Aw8 => flatLang$CopyAw8Aw8
+  | XorAw8Str_unsafe => flatLang$Aw8xor_unsafe
   | Ord => flatLang$Ord
   | Chr => flatLang$Chr
   | Chopb opb => flatLang$Chopb opb

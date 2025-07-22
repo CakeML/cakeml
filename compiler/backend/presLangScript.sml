@@ -253,6 +253,7 @@ Definition op_to_display_def:
   | Aupdate_unsafe => empty_item (strlit "Aupdate_unsafe")
   | Aw8sub_unsafe => empty_item (strlit "Aw8sub_unsafe")
   | Aw8update_unsafe => empty_item (strlit "Aw8update_unsafe")
+  | XorAw8Str_unsafe => empty_item (strlit "XorAw8Str_unsafe")
   | ListAppend => empty_item (strlit "ListAppend")
   | ConfigGC => empty_item (strlit "ConfigGC")
   | FFI v35 => empty_item (strlit "FFI v35")
@@ -365,13 +366,6 @@ Definition exp_to_display_def:
            String (implode n);
            exp_to_display e] ::
     fun_to_display_list xs)
-Termination
-  WF_REL_TAC ‘measure $ λx.
-    case x of
-    INL v => exp_size v
-  | INR (INL v) => list_size exp_size v
-  | INR (INR (INL v)) => exp3_size v
-  | INR (INR (INR v)) => exp1_size v’
 End
 
 Definition source_to_display_dec_def:
@@ -470,6 +464,7 @@ Definition flat_op_to_display_def:
     | CopyStrAw8 => empty_item (strlit "CopyStrAw8")
     | CopyAw8Str => empty_item (strlit "CopyAw8Str")
     | CopyAw8Aw8 => empty_item (strlit "CopyAw8Aw8")
+    | Aw8xor_unsafe => empty_item (strlit "Aw8xor_unsafe")
     | Ord => empty_item (strlit "Ord")
     | Chr => empty_item (strlit "Chr")
     | Chopb op => Item NONE (strlit "Chopb") [opb_to_display op]
@@ -584,13 +579,6 @@ Definition flat_to_display_def:
   (fun_flat_to_display_list ((v1,v2,e)::xs) =
      Tuple [string_imp v1; string_imp v2; flat_to_display e] ::
         fun_flat_to_display_list xs)
-Termination
-  WF_REL_TAC ‘measure $ λx.
-    case x of
-    INL v => flatLang$exp_size v
-  | INR (INL v) => list_size flatLang$exp_size v
-  | INR (INR (INL v)) => flatLang$exp3_size v
-  | INR (INR (INR v)) => flatLang$exp1_size v’
 End
 
 Definition flat_to_display_dec_def:
@@ -694,6 +682,7 @@ Definition clos_op_to_display_def:
     | MemOp BoundsCheckArray => String (strlit "BoundsCheckArray")
     | MemOp (BoundsCheckByte b) => Item NONE (strlit "BoundsCheckByte") [bool_to_display b]
     | MemOp closLang$ConfigGC => String (strlit "ConfigGC")
+    | MemOp XorByte => String (strlit "XorByte")
     | Label num => Item NONE (strlit "Label") [String (attach_name ns (SOME num))]
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
     | IntOp (Const i) => Item NONE (strlit "Const") [int_to_display i]
@@ -797,8 +786,9 @@ Termination
   WF_REL_TAC `measure (\x. case x of
     | INL (_,_,e) => exp_size e
     | INR (INL (_,_,e)) => list_size exp_size e
-    | INR (INR (INL (_,_,_,es))) => exp3_size es
-    | INR (INR (INR (_,_,_,_,es))) => exp1_size es)`
+    | INR (INR (INL (_,_,_,es))) => list_size exp_size es
+    | INR (INR (INR (_,_,_,_,es))) => list_size (pair_size I exp_size) es)`>>
+  rw[list_size_pair_size_MAP_FST_SND]
 End
 
 Definition clos_fun_to_display_def:
@@ -861,7 +851,7 @@ Termination
   case x of
     INL (ns,h,x) => exp_size x
   | INR (INL (ns,h,xs)) => list_size exp_size xs
-  | INR (INR (ns,h,i,xs)) => exp1_size xs’
+  | INR (INR (ns,h,i,xs)) => list_size exp_size xs’
 End
 
 Definition bvl_fun_to_display_def:
@@ -919,7 +909,7 @@ Termination
   case x of
     INL (ns,h,x) => exp_size x
   | INR (INL (ns,h,xs)) => list_size exp_size xs
-  | INR (INR (ns,h,i,xs)) => exp2_size xs’
+  | INR (INR (ns,h,i,xs)) => list_size exp_size xs’
 End
 
 Definition bvi_fun_to_display_def:

@@ -23,13 +23,6 @@ Proof
   Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []
 QED
 
-(* TODO defined in bviSemTheory, should be moved to bviTheory?
-   On the other hand: its use here is temporary.
-*)
-Definition small_int_def:
-  small_int (i:int) <=> -268435457 <= i /\ i <= 268435457
-End
-
 Definition is_rec_def:
   (is_rec name (bvi$Call _ d _ NONE) ⇔ d = SOME name) ∧
   (is_rec _    _                     ⇔ F)
@@ -48,14 +41,14 @@ Proof
 QED
 
 Definition is_const_def:
-  (is_const (IntOp (Const i)) <=> small_int i) /\
+  (is_const (IntOp (Const i)) <=> small_enough_int i) /\
   (is_const _                 <=> F)
 End
 
 Theorem is_const_PMATCH:
    !op. is_const op =
     case op of
-      IntOp (Const i) => small_int i
+      IntOp (Const i) => small_enough_int i
     | _               => F
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
@@ -288,7 +281,7 @@ Definition term_ok_int_def:
 Termination
   WF_REL_TAC ‘measure (exp_size o SND)’ \\ rw []
   \\ imp_res_tac exp_size_get_bin_args
-  \\ fs [bviTheory.exp_size_def]
+  \\ fs[]
 End
 
 Theorem term_ok_int_ind[allow_rebind] = term_ok_int_ind |> SRULE[]
@@ -311,8 +304,7 @@ Definition term_ok_any_def:
 Termination
   WF_REL_TAC `measure (exp_size o SND o SND)` \\ rw []
    \\ imp_res_tac exp_size_get_bin_args
-   \\ fs [bviTheory.exp_size_def, closLangTheory.op_size_def,
-    closLangTheory.block_op_size_def]
+   \\ fs []
 End
 
 Theorem is_op_thms:
@@ -419,7 +411,7 @@ Definition update_context_def:
 End
 
 Definition arg_ty_def:
-  arg_ty (IntOp (Const i))    = (if small_int i then Int else Any) /\
+  arg_ty (IntOp (Const i))    = (if small_enough_int i then Int else Any) /\
   arg_ty (IntOp Add)          = Int /\
   arg_ty (IntOp Sub)          = Int /\
   arg_ty (IntOp Mult)         = Int /\
@@ -446,7 +438,7 @@ Theorem arg_ty_PMATCH:
        | IntOp Less         => Int
        | IntOp Greater      => Int
        | IntOp GreaterEq    => Int
-       | IntOp (Const i)    => if small_int i then Int else Any
+       | IntOp (Const i)    => if small_enough_int i then Int else Any
        | BlockOp ListAppend => List
        | _                  => Any
 Proof
@@ -461,7 +453,7 @@ Definition op_ty_def:
   (op_ty (IntOp Mod)          = Int) /\
   (op_ty (BlockOp ListAppend) = List) /\
   (op_ty (BlockOp (Cons tag)) = if tag = nil_tag \/ tag = cons_tag then List else Any) /\
-  (op_ty (IntOp (Const i))    = if small_int i then Int else Any) /\
+  (op_ty (IntOp (Const i))    = if small_enough_int i then Int else Any) /\
   (op_ty _          = Any)
 End
 
@@ -476,7 +468,7 @@ Theorem op_ty_PMATCH:
        | IntOp Mod          => Int
        | BlockOp ListAppend => List
        | BlockOp (Cons tag) => if tag = cons_tag \/ tag = nil_tag then List else Any
-       | IntOp (Const i)    => if small_int i then Int else Any
+       | IntOp (Const i)    => if small_enough_int i then Int else Any
        | _                  => Any
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ strip_tac \\ rpt CASE_TAC \\ rw [op_ty_def]
@@ -550,10 +542,7 @@ Definition scan_expr_def:
                 [(update_context opt ts x y, opt, F, NONE)]
           else
             [(ts, Any, F, NONE)])
-Termination
-  WF_REL_TAC `measure (exp2_size o SND o SND)`
 End
-
 
 Definition scan_expr_sing_def:
   (scan_expr_sing ts loc (Var n) =
@@ -710,8 +699,6 @@ Definition has_rec_def:
     if EXISTS (is_rec loc) xs then T
     else has_rec loc xs) /\
   (has_rec loc [x] = F)
-Termination
-  WF_REL_TAC `measure (exp2_size o SND)`
 End
 
 Definition has_rec1_def:
@@ -733,10 +720,6 @@ Definition has_rec_sing_def:
   (has_rec_list loc (x::xs) =
     if has_rec_sing loc x then T
     else has_rec_list loc xs)
-Termination
-  WF_REL_TAC `measure (λx. case x of INL (_,e) => exp_size e
-                                   | INR (_,es) => list_size exp_size es)` >>
-  simp[bviTheory.exp_size_def, listTheory.list_size_def, bviTheory.exp_size_eq]
 End
 
 Theorem has_rec_eq:

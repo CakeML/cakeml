@@ -1,7 +1,7 @@
 (*
    Parsing interface for XLRUP
 *)
-open preamble miscTheory cnf_xorTheory xlrupTheory mlintTheory;
+open preamble miscTheory cnf_extTheory xlrupTheory mlintTheory;
 
 val _ = new_theory "xlrup_parsing";
 
@@ -139,7 +139,7 @@ Definition starts_with_def:
   (starts_with s [] = INL [])
 End
 
-(* RUP or deletion *)
+(* RUP or deletion (line prefix is a number) *)
 Definition parse_rup_del_def:
   parse_rup_del n rest =
   if n ≥ 0 then
@@ -155,7 +155,7 @@ Definition parse_rup_del_def:
   else NONE
 End
 
-(* XAdd or Xdel *)
+(* XAdd or Xdel (line prefix is "x") *)
 Definition parse_xadd_xdel_def:
   parse_xadd_xdel rest =
   case starts_with (INL (strlit "d")) rest of
@@ -170,54 +170,111 @@ Definition parse_xadd_xdel_def:
     | _ => NONE
 End
 
-(* CFromX or XFromC *)
-Definition parse_cfromx_xfromc_def:
-  parse_cfromx_xfromc rest =
-  case starts_with (INL (strlit "x")) rest of
-    INL rest =>
-    (* CFromX *)
-    (case parse_id_rest rest of NONE => NONE
-      | SOME (n,c,hints) => SOME (CFromX n c hints))
-  | INR rest =>
-    (* XFromC *)
-    (case parse_id_rest rest of NONE => NONE
-        | SOME (n,c,hints) => SOME (XFromC n c hints))
+Definition parse_badd_tail_def:
+  parse_badd_tail (tl:int list) = parse_bnn_tail ((MAP INR tl ++ [INR 0]):(unit + int) list)
 End
 
-(* Copied from cnf_xor *)
-Definition parse_lits_aux_nomv_def:
-  (parse_lits_aux_nomv [] (acc:lit list) = NONE) ∧
-  (parse_lits_aux_nomv [c] acc =
-    if c = INR 0i then SOME (REVERSE acc) else NONE) ∧
-  (parse_lits_aux_nomv (x::xs) acc =
-    case x of
-      INR l =>
-      let n = Num (ABS l) in
-      let v = if l > 0 then Pos n else Neg n in
-      if n = 0 then NONE
-      else parse_lits_aux_nomv xs (v::acc)
-    | INL (_:mlstring) => NONE)
+Definition split_hint_def:
+  split_hint ls = case ls of [] => NONE
+  | b::rest => SOME (b,rest)
 End
 
-Definition parse_id_xor_nomv_def:
-  parse_id_xor_nomv xs =
-  case xs of
-  | (c::INR n::cs) =>
-  if c = INL (strlit "x") ∧ n ≥ 0
-  then
-    case parse_lits_aux_nomv cs [] of
-      SOME x => SOME (Num (ABS n), x)
-    | _ => NONE
-  else NONE
+(* id lits 0 bnn_tail 0 bid cids 0 *)
+Definition parse_badd_def:
+  parse_badd ls =
+  case ls of (id::rest) =>
+    (case id of INL _ => NONE
+    | INR n =>
+      if n ≥ 0 then
+      case parse_lits_aux rest [] of
+        NONE => NONE
+      | SOME (ls,rest) =>
+        case parse_rest rest of NONE => NONE
+        | SOME (tl,allhints) =>
+          case parse_badd_tail tl of NONE => NONE
+          | SOME (k,oy) =>
+          case split_hint allhints of NONE => NONE
+          | SOME (bid,cids) =>
+            SOME(Num (ABS n), (ls, k, oy), bid, cids)
+      else NONE)
   | _ => NONE
 End
 
-(* XOrig *)
-Definition parse_xorig_def:
-  parse_xorig rest =
-  (* o x [... 0] *)
-  (case parse_id_xor_nomv rest of NONE => NONE
-  | SOME (n, c) => SOME (XOrig n c))
+(* BAdd or BDel (line prefix is "b") *)
+Definition parse_badd_bdel_def:
+  parse_badd_bdel rest =
+  case starts_with (INL (strlit "d")) rest of
+    INL rest =>
+    (* BAdd *)
+    (case parse_badd rest of
+      NONE => NONE
+    | SOME (n,cmsbnn,bid,cids) =>
+      SOME (BAdd n cmsbnn bid cids))
+  | INR rest =>
+    (* BDel *)
+    case parse_until_zero_nn rest [] of
+       SOME (ls, []) => SOME (BDel ls)
+    | _ => NONE
+End
+
+(* CFromX or XFromC or CFromB (line prefix is "i", followed by character *)
+Definition parse_imply_def:
+  parse_imply rest =
+  case rest of
+  | INL s::rest =>
+    if s = strlit "x" then
+      (* XFromC *)
+      (case parse_id_rest rest of NONE => NONE
+        | SOME (n,c,hints) => SOME (XFromC n c hints))
+    else if s = strlit"cx" then
+      (* CFromX *)
+      (case parse_id_rest rest of NONE => NONE
+      | SOME (n,c,hints) => SOME (CFromX n c hints))
+    else if s = strlit "cb" then
+      (case parse_id_u_rest rest of
+      | SOME (n,c,[b],hints) => SOME (CFromB n c b hints)
+      | _ => NONE)
+    else NONE
+  | _ => NONE
+End
+
+Definition parse_xor_nomv_def:
+  parse_xor_nomv xs =
+  case parse_lits_aux xs [] of
+    SOME (x,[]) => SOME x
+  | _ => NONE
+End
+
+Definition parse_bnn_nomv_def:
+  parse_bnn_nomv ls =
+  case parse_lits_aux ls [] of
+    NONE => NONE
+  | SOME (ls,xs) =>
+    (case parse_bnn_tail xs of NONE => NONE
+    |  SOME (k,oy) => SOME (ls,k,oy))
+End
+
+(* orig lines (line prefix is "o") *)
+Definition parse_orig_def:
+  parse_orig xs =
+  case xs of
+  | (c::INR n::rest) =>
+  if n ≥ 0
+  then
+    let n = Num (ABS n) in
+    if c = INL (strlit "x")
+    then
+      (* x [... 0] *)
+      (case parse_xor_nomv rest of NONE => NONE
+      | SOME c => SOME (XOrig n c))
+    else if c = INL (strlit "b")
+    then
+      (* b [... 0] *)
+      (case parse_bnn_nomv rest of NONE => NONE
+      | SOME b => SOME (BOrig n b))
+    else NONE
+  else NONE
+  | _ => NONE
 End
 
 Definition parse_xlrup_def:
@@ -229,14 +286,15 @@ Definition parse_xlrup_def:
     if c = strlit"x"
     then
       parse_xadd_xdel rest
-    else
-    if c = strlit"i"
+    else if c = strlit"i"
     then
-      parse_cfromx_xfromc rest
-    else
-    if c = strlit"o"
+      parse_imply rest
+    else if c = strlit"o"
     then
-      parse_xorig rest
+      parse_orig rest
+    else if c = strlit"b"
+    then
+      parse_badd_bdel rest
     else
        NONE)
 End
@@ -258,10 +316,10 @@ Theorem parse_rest_wf_clause:
   parse_rest ls = SOME (c,hints) ⇒
   wf_clause c
 Proof
- rw[parse_rest_def]>>
- gvs[AllCaseEqs()]>>
- drule parse_until_zero_wf_clause>>
- fs[wf_clause_def]
+  rw[parse_rest_def]>>
+  gvs[AllCaseEqs()]>>
+  drule parse_until_zero_wf_clause>>
+  fs[wf_clause_def]
 QED
 
 Theorem parse_id_rest_wf_clause:
@@ -273,26 +331,75 @@ Proof
   metis_tac[parse_rest_wf_clause,PAIR,FST,SND]
 QED
 
-Theorem parse_lits_aux_nomv_nz_lit:
+Theorem parse_u_rest_wf_clause:
+  parse_u_rest ls = SOME (c,hints,chints) ⇒
+  wf_clause c
+Proof
+  rw[parse_u_rest_def]>>
+  gvs[AllCaseEqs()]>>
+  drule parse_until_zero_wf_clause>>
+  fs[wf_clause_def]
+QED
+
+Theorem parse_id_u_rest_wf_clause:
+  parse_id_u_rest ls = SOME(n,c,h0,hints) ⇒
+  wf_clause c
+Proof
+  Cases_on`ls`>>fs[parse_id_u_rest_def]>>
+  gvs[AllCaseEqs()]>>
+  metis_tac[parse_u_rest_wf_clause,PAIR,FST,SND]
+QED
+
+Theorem parse_lits_aux_nz_lit:
   ∀cs acc acc'.
-  parse_lits_aux_nomv cs acc = SOME acc' ∧
+  parse_lits_aux cs acc = SOME (acc',rest) ∧
   EVERY nz_lit acc ⇒
   EVERY nz_lit acc'
 Proof
-  ho_match_mp_tac parse_lits_aux_nomv_ind>>
-  rw[parse_lits_aux_nomv_def]>>
+  Induct>>
+  rw[parse_lits_aux_def]>>
   gvs[AllCaseEqs()]>>
-  every_case_tac>>fs[]
+  first_x_assum drule>>
+  disch_then irule>>
+  simp[mk_lit_def]>>rw[]
 QED
 
-Theorem parse_id_xor_nomv_nz_lit:
-  parse_id_xor_nomv ls = SOME (n,c) ⇒
+Theorem parse_xor_nomv_nz_lit:
+  parse_xor_nomv ls = SOME c ⇒
   EVERY nz_lit c
 Proof
-  simp[parse_id_xor_nomv_def]>>
+  simp[parse_xor_nomv_def]>>
   rw[AllCaseEqs()]>>
-  drule parse_lits_aux_nomv_nz_lit>>
+  drule parse_lits_aux_nz_lit>>
   simp[]
+QED
+
+Theorem parse_bnn_nomv_wf:
+  parse_bnn_nomv rest = SOME cmsbnn ⇒
+  wf_cmsbnn cmsbnn
+Proof
+  rw[parse_bnn_nomv_def]>>
+  every_case_tac>>
+  gvs[wf_cmsbnn_def]>>rw[]
+  >- (
+    gvs[parse_rest_def,AllCaseEqs(),split_hint_def,parse_badd_tail_def,parse_bnn_tail_def]>>
+    rw[mk_lit_def])>>
+  drule parse_lits_aux_nz_lit>>
+  rw[]
+QED
+
+Theorem parse_badd_wf:
+  parse_badd rest = SOME (n,cmsbnn,bid,cids) ⇒
+  wf_cmsbnn cmsbnn
+Proof
+  rw[parse_badd_def]>>
+  every_case_tac>>
+  gvs[wf_cmsbnn_def]>>rw[]
+  >- (
+    gvs[parse_rest_def,AllCaseEqs(),split_hint_def,parse_badd_tail_def,parse_bnn_tail_def]>>
+    rw[mk_lit_def])>>
+  drule parse_lits_aux_nz_lit>>
+  rw[]
 QED
 
 Theorem parse_xlrup_wf:
@@ -300,8 +407,9 @@ Theorem parse_xlrup_wf:
   wf_xlrup line
 Proof
   Cases_on`ls`>>rw[parse_xlrup_def]>>
-  gvs[AllCaseEqs(),wf_xlrup_def,parse_xadd_xdel_def,parse_cfromx_xfromc_def,parse_rup_del_def,parse_xorig_def]>>
-  metis_tac[parse_id_rest_wf_clause,parse_rest_wf_clause,parse_id_xor_nomv_nz_lit]
+  gvs[AllCaseEqs(),wf_xlrup_def,parse_xadd_xdel_def,parse_imply_def,
+    parse_rup_del_def,parse_orig_def,parse_badd_bdel_def]>>
+  metis_tac[parse_id_rest_wf_clause,parse_rest_wf_clause,parse_xor_nomv_nz_lit,parse_id_u_rest_wf_clause,parse_badd_wf,parse_bnn_nomv_wf]
 QED
 
 (* Mostly semantic!*)
@@ -345,8 +453,14 @@ val xlrupsraw = ``[
   strlit"14 6 0 9 10 11 7 0";
   strlit"14 d 9 10 11 7 0";
   strlit"16 0 14 12 13 8 0";
-  strlit"i 17 0 14 12 13 8 0";
+  strlit"i cx 17 1 2 3 4 0 14 12 13 8 0";
   strlit"i x 17 0 14 12 13 8 0";
+  strlit"o b 18 1 2 3 4 0 14 15 0 ";
+  strlit"o b 18 1 2 3 4 0 14 0 ";
+  strlit"i cb 17 1 2 3 4 0 14 u 12 13 8 0";
+  strlit"b 18 1 2 3 4 0 14 15 0 12 13 8 0";
+  strlit"b 18 1 2 3 4 0 14 0 12 13 8 0";
+  strlit"b d 1 2 3 4 0";
   ]``;
 
 val xlrups = rconc (EVAL ``THE (parse_xlrups ^(xlrupsraw))``);

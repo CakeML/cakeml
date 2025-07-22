@@ -41,6 +41,7 @@ Definition is_pure_def:
   (is_pure (MemOp UpdateByte) = F) /\
   (is_pure (MemOp FromListByte) = F) /\
   (is_pure (MemOp (CopyByte _)) = F) /\
+  (is_pure (MemOp XorByte) = F) /\
   (is_pure (MemOp ConfigGC) = F) /\
   (is_pure Install = F) /\
   (is_pure (ThunkOp _) = F) /\
@@ -75,6 +76,7 @@ Theorem is_pure_pmatch:
     | MemOp UpdateByte => F
     | MemOp FromListByte => F
     | MemOp (CopyByte _) => F
+    | MemOp XorByte => F
     | IntOp Add => F
     | IntOp Sub => F
     | IntOp Mult => F

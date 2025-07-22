@@ -654,7 +654,7 @@ val r = translate(InstallData_code_def |> inline_simp |> conv32)
 val _ = translate(Append_code_def|> inline_simp |> conv32 |> we_simp |> econv |> SIMP_RULE std_ss [shift_left_rwt])
 val _ = translate(AppendMainLoop_code_def|> inline_simp |> conv32)
 val _ = translate(AppendLenLoop_code_def|> inline_simp |> conv32)
-val _ = translate(AppendFastLoop_code_def|> inline_simp |> conv32)
+val _ = translate(XorLoop_code_def|> inline_simp |> conv32)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv32)
 val _ = translate(Compare_code_def|> inline_simp |> conv32)

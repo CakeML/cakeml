@@ -555,8 +555,6 @@ Definition isDoubleExp_def:
   ∧
   isDoubleExpList [] = T ∧
   isDoubleExpList (e1::es) = (isDoubleExp e1 ∧ isDoubleExpList es)
-Termination
-  wf_rel_tac ‘measure (λ x. case x of |INL e => exp_size e |INR es => exp6_size es)’
 End
 
 Theorem isDoubleExp_evaluates:
@@ -2465,25 +2463,14 @@ Proof
     >- ( fs[do_app_def] \\ imp_res_tac v_to_list_v_sim1 \\ rfs[]
          \\ imp_res_tac vs_to_string_v_sim \\ fs[] )
     >- ( fs[do_app_def] \\ imp_res_tac v_to_list_v_sim1 \\ rfs[] )
-    >- ( fs[do_app_def] \\ TOP_CASE_TAC \\ fs[]
-         \\ TOP_CASE_TAC \\ fs[v_sim_LIST_REL]
-         \\ imp_res_tac LIST_REL_LENGTH
-         \\ TOP_CASE_TAC \\ fs[] )
     >- ( fs[do_app_def, store_alloc_def] \\ TOP_CASE_TAC \\ fs[] )
     >- ( fs[do_app_def] \\ TOP_CASE_TAC \\ fs[store_alloc_def]
          \\ TOP_CASE_TAC \\ fs[]
          \\ TOP_CASE_TAC \\ fs[]
          \\ fs[v_sim_LIST_REL] )
     >- ( fs[do_app_def, store_alloc_def])
-    >- ( fs[do_app_def] \\ TOP_CASE_TAC \\ fs[]
-         \\ TOP_CASE_TAC \\ fs[]
-         \\ TOP_CASE_TAC \\ fs[]
-         \\ TOP_CASE_TAC \\ fs[]
-         \\ fs[store_assign_def, store_v_same_type_def] )
-    >- ( fs[do_app_def] \\ TOP_CASE_TAC \\ fs[]
-         \\ TOP_CASE_TAC \\ fs[]
-         \\ TOP_CASE_TAC \\ fs[]
-         \\ fs[store_assign_def, store_v_same_type_def] )
+    >- fs[do_app_def,AllCaseEqs(),store_assign_def,store_v_same_type_def]
+    >- fs[do_app_def,AllCaseEqs(),store_assign_def,store_v_same_type_def]
     >- ( fs[do_app_def] \\ imp_res_tac v_to_list_v_sim1 \\ rfs[] )
     >- ( fs[do_app_def] \\ imp_res_tac v_to_list_v_sim1 \\ rfs[] )
     >- ( fs[do_app_def] \\ Cases_on ‘y’ \\ gs[v_sim1_def] \\ rpt (TOP_CASE_TAC \\ gs[v_sim_def])))

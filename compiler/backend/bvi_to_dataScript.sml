@@ -47,6 +47,7 @@ Theorem op_requires_names_eqn:
                           | FFI n => T
                           | Install => T
                           | MemOp (CopyByte new_flag) => T
+                          | MemOp XorByte => T
                           | _ => F))
 Proof
   strip_tac >> rpt CASE_TAC >> fs[op_requires_names_def]
@@ -58,6 +59,7 @@ Theorem op_requires_names_pmatch:
                         | FFI n => T
                         | Install => T
                         | MemOp (CopyByte new_flag) => T
+                        | MemOp XorByte => T
                         | _ => F))
 Proof
   rpt strip_tac >>
@@ -130,8 +132,6 @@ Definition compile_def:
      let ret = SOME (n2, list_to_num_set (live ++ env)) in
      let c3 = (if tail then Return n2 else Skip) in
        (Seq c1 (mk_ticks ticks (Seq (Call ret dest vs (SOME (n1,Seq c2 (Move n2 (HD v))))) c3)), [n2], n2+1))
-Termination
-  WF_REL_TAC `measure (exp2_size o SND o SND o SND o SND)`
 End
 
 Definition compile_sing_def:
@@ -186,8 +186,8 @@ Definition compile_sing_def:
 Termination
   WF_REL_TAC ‘measure $ λx. case x of
                             | INL (n,env,t,l,x) => exp_size x
-                            | INR (n,env,l,xs) => exp2_size xs’
-  \\ rw [] \\ gvs [exp_size_def]
+                            | INR (n,env,l,xs) => list_size exp_size xs’
+  \\ simp[]
 End
 
 Theorem compile_sing_eq:

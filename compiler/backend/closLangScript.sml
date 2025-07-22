@@ -103,6 +103,7 @@ Datatype:
      | ToListByte    (* convert ByteVector to list of chars *)
      | LengthByteVec (* get length of ByteVector *)
      | DerefByteVec  (* load a byte from a ByteVector *)
+     | XorByte       (* xor a btye vector into a byte array *)
      | BoundsCheckArray
      | BoundsCheckByte bool (* T = loose (<=) bound *)
      | ConfigGC
@@ -153,7 +154,7 @@ Definition has_install_def:
 Termination
   WF_REL_TAC ‘measure $ λx. case x of INL e => closLang$exp_size e
                                     | INR es => list_size closLang$exp_size es’
-  \\ fs [fetch "-" "exp_size_eq"] \\ rw []
+  \\ rw []
   \\ qsuff_tac ‘list_size exp_size (MAP SND fns) ≤ list_size (pair_size (λx. x) exp_size) fns’
   >- fs []
   \\ Induct_on ‘fns’ \\ fs []
@@ -178,6 +179,7 @@ Definition pure_op_def:
     | MemOp RefArray => F
     | MemOp UpdateByte => F
     | MemOp (CopyByte F) => F
+    | MemOp XorByte => F
     | MemOp Ref => F
     | MemOp Update => F
     | Install => F
@@ -208,10 +210,6 @@ Definition pure_def:
   (pure (Letrec _ _ _ _ x) ⇔ pure x)
     ∧
   (pure (Op _ opn es) ⇔ EVERY pure es ∧ pure_op opn)
-Termination
-  WF_REL_TAC `measure exp_size` >> simp[] >> rpt conj_tac >> rpt gen_tac >>
-   (Induct_on `es` ORELSE Induct_on `fns`) >> dsimp[exp_size_def] >>
-   rpt strip_tac >> res_tac >> simp[]
 End
 
 (* used in proofs about closLang, BVL, BVI and dataLang *)

@@ -119,10 +119,11 @@ Definition pull_exp_def:
   (pull_exp exp = exp)
 Termination
   WF_REL_TAC `measure (exp_size ARB)`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ fs[exp_size_def,asmTheory.binop_size_def,astTheory.shift_size_def,store_name_size_def]
-   \\ TRY (DECIDE_TAC)
+  \\ rw[]
+  \\ gvs[]
+  \\ drule MEM_list_size
+  \\ disch_then(qspec_then `exp_size ARB` mp_tac)
+  \\ rw[]
 End
 
 Theorem pull_exp_pmatch:
@@ -391,6 +392,7 @@ Definition inst_select_def:
     dtcase exp of
     | Op Add [exp';Const w] =>
       if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) ∨
+          ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) ∨
           ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op v (Op Add [Var temp; Const w]))
@@ -449,6 +451,7 @@ Theorem inst_select_pmatch:
     case exp of
     | Op Add [exp';Const w] =>
       if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) \/
+          ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) \/
           ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op var (Op Add [Var temp; Const w]))

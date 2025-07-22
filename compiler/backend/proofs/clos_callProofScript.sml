@@ -13,6 +13,7 @@ val _ = new_theory"clos_callProof";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
+val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
 (* TODO These are the same. Put in closLang? *)
 val _ = temp_bring_to_front_overload "free" {Name="free", Thy="clos_call"};

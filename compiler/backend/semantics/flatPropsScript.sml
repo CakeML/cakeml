@@ -830,15 +830,19 @@ Definition set_globals_def:
   (elist_globals [] = {||}) /\
   (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
 Termination
-  WF_REL_TAC
-     `measure (\a. case a of INL e => exp_size e | INR es => exp6_size es)`
-   \\ rw [flatLangTheory.exp_size_def]
-   \\ fs [GSYM o_DEF]
-   >-
-    (`exp6_size (MAP (SND o SND) fs) < exp1_size fs + 1` suffices_by rw []
-     \\ fs [flatLangTheory.exp_size_MAP])
-   \\ `exp6_size (MAP SND pes) < exp3_size pes + 1` suffices_by rw []
-   \\ fs [flatLangTheory.exp_size_MAP]
+  WF_REL_TAC ‘measure (\a. case a of INL e => exp_size e
+                                   | INR es => list_size exp_size es)’
+  \\ rw [flatLangTheory.exp_size_def]
+  \\ fs [GSYM o_DEF]
+  >-
+   (irule LESS_EQ_LESS_TRANS
+    \\ qexists_tac ‘list_size
+           (pair_size (list_size char_size)
+              (pair_size (list_size char_size) exp_size)) fs’
+    \\ gvs [] \\ Induct_on ‘fs’ \\ gvs [FORALL_PROD])
+  \\ irule LESS_EQ_LESS_TRANS
+  \\ qexists_tac ‘list_size (pair_size pat_size exp_size) pes’ \\ gvs []
+  \\ Induct_on ‘pes’ \\ gvs [FORALL_PROD]
 End
 
 val _ = export_rewrites ["set_globals_def"];
@@ -858,10 +862,11 @@ Definition esgc_free_def:
     esgc_free e /\ elist_globals (MAP (SND o SND) fs) = {||}) /\
   (esgc_free _ <=> T)
 Termination
-  WF_REL_TAC `measure exp_size`
-  \\ rw []
-  \\ fs [MEM_MAP] \\ rw []
-  \\ imp_res_tac flatLangTheory.exp_size_MEM \\ fs []
+  WF_REL_TAC `measure exp_size` \\ rw []
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
+  \\ drule MEM_list_size
+  \\ disch_then $ qspec_then ‘exp_size’ mp_tac
+  \\ gvs []
 End
 
 Theorem esgc_free_def[simp,compute,allow_rebind] =
@@ -1417,8 +1422,9 @@ Definition no_Mat_def[simp]:
   (no_Mat (Letrec t funs e) <=> EVERY no_Mat (MAP (SND o SND) funs) /\ no_Mat e)
 Termination
   WF_REL_TAC `measure (flatLang$exp_size)` \\ rw []
-  \\ fs [MEM_MAP, EXISTS_PROD]
-  \\ fs [MEM_SPLIT, exp1_size, exp3_size, SUM_APPEND, exp_size_def]
+  \\ imp_res_tac MEM_list_size
+  \\ pop_assum $ qspec_then ‘exp_size’ mp_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 
 Definition no_Mat_decs_def[simp]:

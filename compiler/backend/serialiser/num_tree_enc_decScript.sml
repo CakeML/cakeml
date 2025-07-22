@@ -20,8 +20,6 @@ Definition num_tree_enc'_def:
   num_tree_enc' ((Tree k xs)::ts) =
     Append (Append (List [k; LENGTH xs]) (num_tree_enc' xs))
            (num_tree_enc' ts)
-Termination
-  WF_REL_TAC ‘measure num_tree1_size’
 End
 
 Theorem fix_res_IMP:

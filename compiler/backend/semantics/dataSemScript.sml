@@ -130,7 +130,7 @@ Definition size_of_def:
        let (n,refs,seen) = size_of lims vs refs (insert ts () seen) in
          (n + LENGTH vs + 1, refs, seen))
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure v1_size)
+  WF_REL_TAC `(inv_image (measure I LEX measure (list_size v_size))
                           (\(lims,vs,refs,seen). (sptree$size refs,vs)))`
   \\ rpt strip_tac \\ fs [sptreeTheory.size_delete]
   \\ imp_res_tac miscTheory.lookup_zero \\ fs []
@@ -262,10 +262,6 @@ End
 Definition vb_size_def:
   (vb_size (Block ts t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
   (vb_size _ = 1n)
-Termination
-  WF_REL_TAC`measure v_size` \\
- ntac 2 gen_tac \\ Induct \\ rw[fetch "-" "v_size_def"] \\ rw[]
- \\ res_tac \\ rw[]
 End
 
 Definition vs_depth_def:
@@ -273,8 +269,6 @@ Definition vs_depth_def:
   (vs_depth _ = 0) ∧
   (vs_depth_list [] = 0) ∧
   (vs_depth_list (x::xs) = MAX (1 + vs_depth x) (vs_depth_list xs))
-Termination
-  WF_REL_TAC`measure (λx. sum_CASE x v_size v1_size)`
 End
 
 Definition eq_code_stack_max_def:
@@ -302,6 +296,8 @@ Definition stack_consumed_def:
     OPTION_MAP2 MAX
      (lookup RefArray_location sfs)
      (lookup Replicate_location sfs)) /\
+  (stack_consumed sfs lims (MemOp XorByte) vs =
+    lookup XorLoop_location sfs) /\
   (stack_consumed sfs lims (BlockOp (ConsExtend _)) vs =
     lookup MemCopy_location sfs) /\
     (* MemCopy looks not always necessary. Could be refined for more precise bounds. *)
@@ -431,7 +427,7 @@ Definition isClos_def:
   isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])
 End
 
-Definition do_eq_def:
+Definition do_eq_def[simp]:
   (do_eq _ (CodePtr _) _ = Eq_type_error) ∧
   (do_eq _ _ (CodePtr _) = Eq_type_error) ∧
   (do_eq _ (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
@@ -465,10 +461,7 @@ Definition do_eq_def:
    | Eq_val F => Eq_val F
    | bad => bad) ∧
   (do_eq_list _ _ _ = Eq_val F)
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`
 End
-val _ = export_rewrites["do_eq_def"];
 
 Overload Error[local] =
   ``(Rerr(Rabort Rtype_error)):(dataSem$v#('c,'ffi) dataSem$state, dataSem$v)result``
@@ -701,14 +694,74 @@ Definition do_build_const_def:
   do_build_const xs s ts = do_build (λx. Number 0) 0 xs s ts
 End
 
+Definition do_int_app_def:
+  do_int_app (Const n) [] =
+    (if small_enough_int n then SOME (Number n)
+    else NONE) /\
+  do_int_app (Add) [Number n1;Number n2] = SOME (Number (n1 + n2)) /\
+  do_int_app (Sub) [Number n1;Number n2] = SOME (Number (n1 - n2)) /\
+  do_int_app (Mult) [Number n1;Number n2] = SOME (Number (n1 * n2)) /\
+  do_int_app (Div) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 / n2))) /\
+  do_int_app (Mod) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 % n2))) /\
+  do_int_app (Less) [Number n1;Number n2] = SOME (Boolv (n1 < n2)) /\
+  do_int_app (LessEq) [Number n1;Number n2] = SOME (Boolv (n1 <= n2)) /\
+  do_int_app (Greater) [Number n1;Number n2] = SOME (Boolv (n1 > n2)) /\
+  do_int_app (GreaterEq) [Number n1;Number n2] = SOME (Boolv (n1 >= n2)) /\
+  do_int_app (LessConstSmall n) [Number i] =
+        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
+          SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (op:closLang$int_op) (vs:dataSem$v list) = NONE
+End
+
+Definition do_word_app_def:
+  (do_word_app (WordOpw W8 opw) [Number n1; Number n2] =
+       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
+        | NONE => NONE
+        | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
+  do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
+        SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordShift W8 sh n) [Number i] =
+       (case some (w:word8). i = &(w2n w) of
+        | NONE => NONE
+        | SOME w => SOME (Number &(w2n (shift_lookup sh w n)))) /\
+  do_word_app (WordShift W64 sh n) [Word64 w] =
+       SOME (Word64 (shift_lookup sh w n)) /\
+  do_word_app (WordFromInt) [Number i] =
+       SOME (Word64 (i2w i)) /\
+  do_word_app WordToInt [Word64 w] =
+       SOME (Number (&(w2n w))) /\
+  do_word_app (WordFromWord T) [Word64 w] =
+       SOME (Number (&(w2n ((w2w:word64->word8) w)))) /\
+  do_word_app (WordFromWord F) [Number n] =
+       (case some (w:word8). n = &(w2n w) of
+        | NONE => NONE
+        | SOME w => SOME (Word64 (w2w w))) /\
+  do_word_app (FP_top t_op) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2; Word64 w3] =>
+             (SOME (Word64 (fp_top_comp t_op w1 w2 w3)))
+         | _ => NONE) /\
+  do_word_app (FP_bop bop) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2] => (SOME (Word64 (fp_bop_comp bop w1 w2)))
+         | _ => NONE) /\
+  do_word_app (FP_uop uop) ws =
+        (case ws of
+         | [Word64 w] => (SOME (Word64 (fp_uop_comp uop w)))
+         | _ => NONE) /\
+  do_word_app (FP_cmp cmp) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2] => (SOME (Boolv (fp_cmp_comp cmp w1 w2)))
+         | _ => NONE) /\
+  do_word_app (op:closLang$word_op) (vs:dataSem$v list) = NONE
+End
+
 Definition do_app_aux_def:
   do_app_aux op ^vs ^s =
     case (op,vs) of
     (* bvi part *)
-    | (IntOp (Const i),xs) =>
-      if small_enough_int i then
-        Rval (Number i : v, s)
-      else Error
     | (Label l,xs) =>
         (case xs of
          | [] => if l IN domain s.code then
@@ -856,6 +909,13 @@ Definition do_app_aux_def:
                  (ByteArray f (LUPDATE (i2w b) (Num i) bs)) s.refs)
              else Error)
          | _ => Error)
+    | (MemOp XorByte,[RefPtr _ dst; RefPtr _ src]) =>
+        (case (lookup src s.refs, lookup dst s.refs) of
+         | (SOME (ByteArray _ ws),SOME (ByteArray f ds)) =>
+           (case xor_bytes ws ds of
+            | SOME ds1 => Rval (Unit, s with refs := insert dst (ByteArray f ds1) s.refs)
+            | NONE => Error)
+         | _ => Error)
     | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (lookup src s.refs, lookup dst s.refs) of
          | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
@@ -895,43 +955,14 @@ Definition do_app_aux_def:
                               (ValueArray (LUPDATE x (Num i) xs)) s.refs)
              else Error)
          | _ => Error)
-    | (IntOp Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
-    | (IntOp Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
-    | (IntOp Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
-    | (IntOp Div,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 / n2),s)
-    | (IntOp Mod,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 % n2),s)
-    | (IntOp Less,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 < n2),s)
-    | (IntOp LessEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 <= n2),s)
-    | (IntOp Greater,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 > n2),s)
-    | (IntOp GreaterEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 >= n2),s)
-    | (WordOp (WordOpw W8 opw),[Number n1; Number n2]) =>
-       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
-        | NONE => Error
-        | SOME (w1,w2) => Rval (Number &(w2n (opw_lookup opw w1 w2)),s))
-    | (WordOp (WordOpw W64 opw),[Word64 w1; Word64 w2]) =>
-        Rval (Word64 (opw_lookup opw w1 w2),s)
-    | (WordOp (WordShift W8 sh n), [Number i]) =>
-       (case some (w:word8). i = &(w2n w) of
-        | NONE => Error
-        | SOME w => Rval (Number &(w2n (shift_lookup sh w n)),s))
-    | (WordOp (WordShift W64 sh n), [Word64 w]) =>
-        Rval (Word64 (shift_lookup sh w n),s)
-    | (WordOp (WordFromInt), [Number i]) =>
-        Rval (Word64 (i2w i),s)
-    | (WordOp (WordToInt), [Word64 w]) =>
-        Rval (Number (&(w2n w)),s)
-    | (WordOp (WordFromWord T), [Word64 w]) =>
-        Rval (Number (&(w2n ((w2w:word64->word8) w))),s)
-    | (WordOp (WordFromWord F), [Number n]) =>
-       (case some (w:word8). n = &(w2n w) of
-        | NONE => Error
-        | SOME w => Rval (Word64 (w2w w),s))
+    | (IntOp intop, vs) =>
+        (case do_int_app intop vs of
+        | SOME res => Rval (res ,s)
+        | _ => Error)
+    | (WordOp wordop, vs) =>
+        (case do_word_app wordop vs of
+        | SOME res => Rval (res ,s)
+        | _ => Error)
     | (FFI n, [RefPtr _ cptr; RefPtr _ ptr]) =>
         (case (lookup cptr s.refs, lookup ptr s.refs) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
@@ -942,23 +973,6 @@ Definition do_app_aux_def:
                               ; ffi   := ffi'|>)
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
-         | _ => Error)
-    | (WordOp (FP_top t_op), ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2; Word64 w3] =>
-            (Rval (Word64 (fp_top_comp t_op w1 w2 w3),s))
-         | _ => Error)
-    | (WordOp (FP_bop bop), ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop_comp bop w1 w2),s))
-         | _ => Error)
-    | (WordOp (FP_uop uop), ws) =>
-        (case ws of
-         | [Word64 w] => (Rval (Word64 (fp_uop_comp uop w),s))
-         | _ => Error)
-    | (WordOp (FP_cmp cmp), ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp_comp cmp w1 w2),s))
          | _ => Error)
     | (BlockOp BoundsCheckBlock,xs) =>
         (case xs of
@@ -980,11 +994,6 @@ Definition do_app_aux_def:
            | SOME (ValueArray ws) =>
                Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
            | _ => Error)
-         | _ => Error)
-    | (IntOp (LessConstSmall n),xs) =>
-        (case xs of
-         | [Number i] => if 0 <= i /\ i <= 1000000 /\ n < 1000000
-                         then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | (ThunkOp th_op,vs) =>

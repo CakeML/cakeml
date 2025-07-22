@@ -332,17 +332,23 @@ Theorem eval_list_total[local]:
   ⇒
   ?s2 r2. evaluate_list T env (s with clock := count') l (s2,r2)
 Proof
-  induct_on `l` >>
+  Induct_on `l` >>
   rw [] >>
   ONCE_REWRITE_TAC [evaluate_cases] >>
   rw [] >>
-  `exp_size h < exp_size (Con i (h::l)) ∧
-  exp_size (Con i l) < exp_size (Con i (h::l))`
-    by srw_tac [ARITH_ss] [exp_size_def] >>
-  `?s1 r1. evaluate T env (s with clock := count') h (s1,r1)`
-    by metis_tac [] >>
-  `?s2 r2. evaluate_list T env s1 l (s2,r2)`
-    by metis_tac [clock_monotone, with_clock_clock, with_same_clock, LESS_OR_EQ, LESS_TRANS] >>
+  rename1`s with clock := cc`>>
+  `?s1 r1. evaluate T env (s with clock := cc) h (s1,r1)` by
+    (first_x_assum irule>>simp[])>>
+  `?s2 r2. evaluate_list T env s1 l (s2,r2)` by (
+    PURE_REWRITE_TAC [Once (GSYM with_same_clock)]>>
+    first_x_assum irule>>
+    qexists_tac`i`>>simp[]>>
+    `s1.clock ≤ cc` by
+      metis_tac [clock_monotone, with_clock_clock] >>
+    simp[]>>
+    rw[]>>
+    first_x_assum (irule_at Any)>>
+    gvs[])>>
   metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES]
 QED
 
@@ -356,17 +362,22 @@ Theorem eval_list_total_app[local]:
   ⇒
   ?s2 r2. evaluate_list T env (s with clock := count') es (s2,r2)
 Proof
-  induct_on `es` >>
+  Induct_on `es` >>
   rw [] >>
   ONCE_REWRITE_TAC [evaluate_cases] >>
   rw [] >>
-  `exp_size h < exp_size (App op (h::es)) ∧
-   exp_size (App op es) < exp_size (App op (h::es))`
-    by srw_tac [ARITH_ss] [exp_size_def] >>
-  `?s1 r1. evaluate T env (s with clock := count') h (s1,r1)`
-    by metis_tac [] >>
-  `?s2 r2. evaluate_list T env s1 es (s2,r2)`
-    by metis_tac [clock_monotone, LESS_OR_EQ, LESS_TRANS, with_clock_clock, with_same_clock] >>
+  rename1`s with clock := cc`>>
+  `?s1 r1. evaluate T env (s with clock := cc) h (s1,r1)` by
+    (first_x_assum irule>>simp[])>>
+  `?s2 r2. evaluate_list T env s1 es (s2,r2)` by (
+    PURE_REWRITE_TAC [Once (GSYM with_same_clock)]>>
+    first_x_assum irule>>
+    `s1.clock ≤ cc` by
+      metis_tac [clock_monotone, with_clock_clock] >>
+    simp[]>>
+    rw[]>>
+    first_x_assum (irule_at Any)>>
+    gvs[])>>
   metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES]
 QED
 
@@ -381,29 +392,38 @@ Theorem eval_match_total[local]:
   ⇒
   ?s2 r2. evaluate_match T env s v l err_v (s2,r2)
 Proof
-  induct_on `l` >>
+  Induct_on `l` >>
   rw [] >>
   ONCE_REWRITE_TAC [evaluate_cases] >>
   rw [] >>
   `?p e. h = (p,e)` by metis_tac [pair_CASES] >>
   rw [] >>
-  `exp_size e < exp_size (Mat e' ((p,e)::l)) ∧
-  exp_size (Mat e' l) < exp_size (Mat e' ((p,e)::l))`
-    by srw_tac [ARITH_ss] [exp_size_def] >>
-  fs [] >>
-  rw [] >>
   `(pmatch env.c s.refs p v [] = Match_type_error) ∨
   (pmatch env.c s.refs p v [] = No_match) ∨
   (?env'. pmatch env.c s.refs p v [] = Match env')`
     by metis_tac [match_result_nchotomy] >>
-  rw [] >>
-  metis_tac [LESS_TRANS,LESS_OR_EQ,with_same_clock]
+  rw []
+  >- metis_tac[]
+  >- (
+    Cases_on`ALL_DISTINCT (pat_bindings p [])`>>
+    gvs[]>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    simp[]>>
+    rw[]>>first_x_assum (irule_at Any)>>simp[])
+  >- (
+    Cases_on`ALL_DISTINCT (pat_bindings p [])`>>
+    gvs[]>>
+    PURE_REWRITE_TAC [Once (GSYM with_same_clock)]>>
+    first_x_assum irule>>
+    simp[])
 QED
 
 Theorem eval_handle_total[local]:
   ∀env ^s l i count' v err_v.
     (∀p_1 p_2.
-       p_1 < count' ∨ p_1 = count' ∧ exp_size p_2 < exp_size (Handle e' l) ⇒
+       p_1 < count' ∨ p_1 = count' ∧
+       exp_size p_2 < exp_size e' + (list_size (pair_size pat_size exp_size) l + 1) ⇒
        ∀^s env.
       ∃s' r.
         evaluate T env (s with clock := p_1) p_2 (s',r)) ∧
@@ -411,24 +431,30 @@ Theorem eval_handle_total[local]:
     ⇒
     ?s2 r2. evaluate_match T env s v l err_v (s2,r2)
 Proof
-  induct_on `l` >>
+  Induct_on `l` >>
   rw [] >>
   ONCE_REWRITE_TAC [evaluate_cases] >>
   rw [] >>
   `?p e. h = (p,e)` by metis_tac [pair_CASES] >>
-  rw [] >>
-  `exp_size e < exp_size (Handle e' ((p,e)::l)) ∧
-  exp_size (Handle e' l) < exp_size (Handle e' ((p,e)::l))`
-    by srw_tac [ARITH_ss] [exp_size_def] >>
-  rw [] >>
-  fs [] >>
   `(pmatch env.c s.refs p v [] = Match_type_error) ∨
   (pmatch env.c s.refs p v [] = No_match) ∨
   (?env'. pmatch env.c s.refs p v [] = Match env')`
     by metis_tac [match_result_nchotomy] >>
-  rw [] >>
-  metis_tac [arithmeticTheory.LESS_TRANS,
-             LESS_OR_EQ,with_same_clock]
+  rw []
+  >- metis_tac[]
+  >- (
+    Cases_on`ALL_DISTINCT (pat_bindings p [])`>>
+    gvs[]>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    simp[]>>
+    rw[]>>first_x_assum (irule_at Any)>>simp[])
+  >- (
+    Cases_on`ALL_DISTINCT (pat_bindings p [])`>>
+    gvs[]>>
+    PURE_REWRITE_TAC [Once (GSYM with_same_clock)]>>
+    first_x_assum irule>>
+    simp[])
 QED
 
 Theorem evaluate_raise_empty_ctor[local]:
@@ -439,18 +465,6 @@ Proof
   every_case_tac >>
   rw [] >>
   metis_tac [do_con_check_build_conv]
-QED
-
-Triviality list_size_REVERSE:
-  ∀xs. list_size f (REVERSE xs) = list_size f xs
-Proof
-  Induct \\ fs [listTheory.list_size_def,listTheory.list_size_append]
-QED
-
-Triviality exp6_size_rev:
-  !es. exp6_size (REVERSE es) = exp6_size es
-Proof
-  fs [exp_size_eq,list_size_REVERSE]
 QED
 
 Theorem big_clocked_total_lem[local]:
@@ -483,8 +497,7 @@ Proof
       >- metis_tac [])
   >- ((* Con *)
       `!i l. exp_size (Con i (REVERSE l)) = exp_size (Con i l)`
-             by (rw [exp_size_def] >>
-                 metis_tac [exp6_size_rev]) >>
+             by rw [] >>
       `?s2 r2. evaluate_list T env (s with clock := count') (REVERSE l) (s2,r2)`
                 by metis_tac [eval_list_total] >>
       metis_tac [do_con_check_build_conv, result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES])
@@ -493,8 +506,7 @@ Proof
           rw [])
   >- ((* App *)
       `!op es. exp_size (App op (REVERSE es)) = exp_size (App op es)`
-             by (rw [exp_size_def] >>
-                 metis_tac [exp6_size_rev]) >>
+             by rw [] >>
       `?s2 r2. evaluate_list T env (s with clock := count') (REVERSE l) (s2,r2)`
                 by metis_tac [pair_CASES, eval_list_total_app] >>
       `(?err. r2 = Rerr err) ∨ (?v. r2 = Rval v)` by (cases_on `r2` >> metis_tac []) >>
@@ -621,10 +633,6 @@ Proof
       `exp_size e' < exp_size (Letrec l e')`
              by srw_tac [ARITH_ss] [exp_size_def] >>
       metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, with_clock_clock])
-  >- ((* Tannot *)
-     rw [exp_size_def])
-  >- ((* Lannot *)
-     rw [exp_size_def])
   >- ((* FpOptimise Strict *)
       `exp_size e' < exp_size (FpOptimise f e')`
              by srw_tac [ARITH_ss] [exp_size_def] >>

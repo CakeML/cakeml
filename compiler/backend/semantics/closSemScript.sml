@@ -92,9 +92,6 @@ Definition do_eq_def:
      | Eq_val T => do_eq_list xs ys
      | res => res) /\
   (do_eq_list _ _ = Eq_val F)
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
-                                   | INR (vs,_) => v1_size vs)`
 End
 
 Definition v_to_list_def:
@@ -175,6 +172,68 @@ Termination
   \\ pop_assum (qspec_then ‘t’ assume_tac) \\ fs []
 End
 
+Definition do_int_app_def:
+  do_int_app (Const n) [] = SOME (Number n) /\
+  do_int_app (Add) [Number n1;Number n2] = SOME (Number (n1 + n2)) /\
+  do_int_app (Sub) [Number n1;Number n2] = SOME (Number (n1 - n2)) /\
+  do_int_app (Mult) [Number n1;Number n2] = SOME (Number (n1 * n2)) /\
+  do_int_app (Div) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 / n2))) /\
+  do_int_app (Mod) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 % n2))) /\
+  do_int_app (Less) [Number n1;Number n2] = SOME (Boolv (n1 < n2)) /\
+  do_int_app (LessEq) [Number n1;Number n2] = SOME (Boolv (n1 <= n2)) /\
+  do_int_app (Greater) [Number n1;Number n2] = SOME (Boolv (n1 > n2)) /\
+  do_int_app (GreaterEq) [Number n1;Number n2] = SOME (Boolv (n1 >= n2)) /\
+  do_int_app (LessConstSmall n) [Number i] =
+        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
+          SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (op:closLang$int_op) (vs:closSem$v list) = NONE
+End
+
+Definition do_word_app_def:
+  (do_word_app (WordOpw W8 opw) [Number n1; Number n2] =
+       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
+        | NONE => NONE
+        | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
+  do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
+        SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordShift W8 sh n) [Number i] =
+       (case some (w:word8). i = &(w2n w) of
+        | NONE => NONE
+        | SOME w => SOME (Number &(w2n (shift_lookup sh w n)))) /\
+  do_word_app (WordShift W64 sh n) [Word64 w] =
+       SOME (Word64 (shift_lookup sh w n)) /\
+  do_word_app (WordFromInt) [Number i] =
+       SOME (Word64 (i2w i)) /\
+  do_word_app WordToInt [Word64 w] =
+       SOME (Number (&(w2n w))) /\
+  do_word_app (WordFromWord T) [Word64 w] =
+       SOME (Number (&(w2n ((w2w:word64->word8) w)))) /\
+  do_word_app (WordFromWord F) [Number n] =
+       (case some (w:word8). n = &(w2n w) of
+        | NONE => NONE
+        | SOME w => SOME (Word64 (w2w w))) /\
+  do_word_app (FP_top t_op) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2; Word64 w3] =>
+             (SOME (Word64 (fp_top_comp t_op w1 w2 w3)))
+         | _ => NONE) /\
+  do_word_app (FP_bop bop) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2] => (SOME (Word64 (fp_bop_comp bop w1 w2)))
+         | _ => NONE) /\
+  do_word_app (FP_uop uop) ws =
+        (case ws of
+         | [Word64 w] => (SOME (Word64 (fp_uop_comp uop w)))
+         | _ => NONE) /\
+  do_word_app (FP_cmp cmp) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2] => (SOME (Boolv (fp_cmp_comp cmp w1 w2)))
+         | _ => NONE) /\
+  do_word_app (op:closLang$word_op) (vs:closSem$v list) = NONE
+End
+
 Definition do_app_def:
   do_app (op:closLang$op) (vs:closSem$v list) ^s =
     case (op,vs) of
@@ -195,7 +254,6 @@ Definition do_app_def:
     | (GlobOp AllocGlobal,[Number i]) =>
         (if i < 0 then Error
          else Rval (Unit, s with globals := s.globals ++ REPLICATE (Num i) NONE))
-    | (IntOp (Const i),[]) => Rval (Number i, s)
     | (BlockOp (Constant c),[]) => Rval (make_const c, s)
     | (BlockOp (Cons tag),xs) => Rval (Block tag xs, s)
     | (BlockOp (ConsExtend tag), Block _ xs'::Number lower::Number len::Number tot::xs) =>
@@ -305,6 +363,13 @@ Definition do_app_def:
            | SOME ds => Rval (ByteVector ds, s)
            | _ => Error)
         | _ => Error)
+    | (MemOp XorByte,[RefPtr _ dst; ByteVector ws]) =>
+       (case FLOOKUP s.refs dst of
+        | SOME (ByteArray ds) =>
+          (case xor_bytes ws ds of
+           | SOME ds1 => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds1))
+           | _ => Error)
+        | _ => Error)
     | (BlockOp (TagEq n),[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (BlockOp (LenEq l),[Block tag xs]) =>
@@ -334,43 +399,14 @@ Definition do_app_def:
                               (ptr,ValueArray (LUPDATE x (Num i) xs)))
              else Error)
          | _ => Error)
-    | (IntOp Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
-    | (IntOp Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
-    | (IntOp Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
-    | (IntOp Div,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 / n2),s)
-    | (IntOp Mod,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 % n2),s)
-    | (IntOp Less,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 < n2),s)
-    | (IntOp LessEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 <= n2),s)
-    | (IntOp Greater,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 > n2),s)
-    | (IntOp GreaterEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 >= n2),s)
-    | (WordOp (WordOpw W8 opw),[Number n1; Number n2]) =>
-       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
-        | NONE => Error
-        | SOME (w1,w2) => Rval (Number &(w2n (opw_lookup opw w1 w2)),s))
-    | (WordOp (WordOpw W64 opw),[Word64 w1; Word64 w2]) =>
-        Rval (Word64 (opw_lookup opw w1 w2),s)
-    | (WordOp (WordShift W8 sh n), [Number i]) =>
-       (case some (w:word8). i = &(w2n w) of
-        | NONE => Error
-        | SOME w => Rval (Number &(w2n (shift_lookup sh w n)),s))
-    | (WordOp (WordShift W64 sh n), [Word64 w]) =>
-        Rval (Word64 (shift_lookup sh w n),s)
-    | (WordOp WordFromInt, [Number i]) =>
-        Rval (Word64 (i2w i),s)
-    | (WordOp WordToInt, [Word64 w]) =>
-        Rval (Number (&(w2n w)),s)
-    | (WordOp (WordFromWord T), [Word64 w]) =>
-        Rval (Number (&(w2n ((w2w:word64->word8) w))),s)
-    | (WordOp (WordFromWord F), [Number n]) =>
-       (case some (w:word8). n = &(w2n w) of
-        | NONE => Error
-        | SOME w => Rval (Word64 (w2w w),s))
+    | (IntOp int_op, vs) =>
+        (case do_int_app int_op vs of
+        | SOME res => Rval (res ,s)
+        | _ => Error)
+    | (WordOp word_op, vs) =>
+        (case do_word_app word_op vs of
+        | SOME res => Rval (res ,s)
+        | _ => Error)
     | (FFI n, [ByteVector conf; RefPtr _ ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
@@ -381,23 +417,6 @@ Definition do_app_def:
                               ; ffi   := ffi'|>)
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
-         | _ => Error)
-    | (WordOp (FP_top t_op), ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2; Word64 w3] =>
-             (Rval (Word64 (fp_top_comp t_op w1 w2 w3),s))
-         | _ => Error)
-    | (WordOp (FP_bop bop), ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop_comp bop w1 w2),s))
-         | _ => Error)
-    | (WordOp (FP_uop uop), ws) =>
-        (case ws of
-         | [Word64 w] => (Rval (Word64 (fp_uop_comp uop w),s))
-         | _ => Error)
-    | (WordOp (FP_cmp cmp), ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp_comp cmp w1 w2),s))
          | _ => Error)
     | (BlockOp BoundsCheckBlock,[Block tag ys; Number i]) =>
         Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
@@ -413,8 +432,6 @@ Definition do_app_def:
          | SOME (ValueArray ws) =>
              Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
          | _ => Error)
-    | (IntOp (LessConstSmall n),[Number i]) =>
-        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then Rval (Boolv (i < &n),s) else Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | (ThunkOp th_op, vs) =>
         (case (th_op,vs) of
@@ -736,9 +753,9 @@ Definition evaluate_def[nocompute]:
                evaluate_app loc_opt v rest_args s1
            | res => res)
 Termination
- WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
-               (\x. case x of INL (xs,env,s) => (s.clock,exp3_size xs,0)
-                            | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
+  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
+                (\x. case x of INL (xs,env,s) => (s.clock,list_size exp_size xs,0)
+                             | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
   \\ imp_res_tac fix_clock_IMP

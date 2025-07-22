@@ -613,10 +613,7 @@ Triviality drestrict_lem:
 Proof
   rw [FLOOKUP_EXT, FUN_EQ_THM, FLOOKUP_FUNION] >>
   every_case_tac >>
-  fs [FLOOKUP_DRESTRICT, SUBMAP_DEF] >>
-  fs [FLOOKUP_DEF] >>
-  rw [] >>
-  metis_tac []
+  fs [FLOOKUP_DRESTRICT, SUBMAP_DEF,AllCaseEqs(),FLOOKUP_DEF]
 QED
 
 Theorem v_rel_weak:
@@ -969,8 +966,8 @@ QED
 val s_i1 = ``s_i1 : ('f_orac_st, 'ffi) flatSem$state``;
 val s1_i1 = mk_var ("s1_i1", type_of s_i1);
 
-val do_app = time Q.prove (
-  `!genv s1 s2 op vs r ^s1_i1 vs_i1.
+Theorem do_app[local]:
+  ∀genv s1 s2 op vs r ^s1_i1 vs_i1.
     do_app s1 op vs = SOME (s2, r) ∧
     LIST_REL (sv_rel genv) (FST s1) (TL s1_i1.refs) ∧
     ~ NULL s1_i1.refs ∧
@@ -988,7 +985,8 @@ val do_app = time Q.prove (
        s1_i1.globals = s2_i1.globals ∧
        TAKE 1 s1_i1.refs = TAKE 1 s2_i1.refs ∧
        result_rel v_rel genv r r_i1 ∧
-       do_app s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)`,
+       do_app s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)
+Proof
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i1.refs` >> simp [] >>
@@ -1000,18 +998,18 @@ val do_app = time Q.prove (
   pop_assum mp_tac >>
   Cases_on `op` >>
   simp [astOp_to_flatOp_def, astTheory.getOpClass_def]
-  >- ((* Opn *)
+  >~ [‘Opn’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       fs [AllCaseEqs()] \\ CCONTR_TAC \\ fs [] \\ gvs [])
-  >- ((* Opb *)
+  >~ [‘Opb’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >- ((* Opw *)
+  >~ [‘Opw’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems]
       \\ Cases_on`o'` \\ fs[opw8_lookup_def,opw64_lookup_def])
-  >- ((* Shift *)
+  >~ [‘Shift’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases] >>
       full_simp_tac(srw_ss())[v_rel_eqns] >>
       fs[flatSemTheory.do_app_def] >>
@@ -1019,48 +1017,48 @@ val do_app = time Q.prove (
       TRY (rename1 `shift64_lookup s11 w11 n11`) >>
       full_simp_tac(srw_ss())[v_rel_eqns]
       \\ Cases_on`w11` \\ Cases_on`s11` \\ fs[shift8_lookup_def,shift64_lookup_def, result_rel_cases, Once v_rel_eqns])
-  >- ((* Equality *)
+  >~ [‘Equality’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       every_case_tac >>
       full_simp_tac(srw_ss())[] >>
       metis_tac [Boolv_11, do_eq, eq_result_11, eq_result_distinct, v_rel_lems])
-  >- ( (*FP_cmp *)
+  >~ [‘FP_cmp’] >- (
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
       fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       TOP_CASE_TAC >> fs[genv_c_ok_def, has_bools_def] >>
       fs[fpSemTheory.fp_cmp_comp_def, fpValTreeTheory.fp_cmp_def,
          fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def])
-  >- ( (*FP_uop *)
+  >~ [‘FP_uop’] >- (
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
       fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       fs[fpSemTheory.fp_uop_comp_def, fpValTreeTheory.fp_uop_def] >>
       TOP_CASE_TAC >> fs[] >> rveq >>
       fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_uop_comp_def, v_rel_eqns])
-  >- ( (*FP_bop *)
+  >~ [‘FP_bop’] >- (
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
       fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       fs[fpSemTheory.fp_bop_comp_def, fpValTreeTheory.fp_bop_def] >>
       TOP_CASE_TAC >> fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_bop_comp_def])
-  >- ( (*FP_top *)
+  >~ [‘FP_top’] >- (
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       imp_res_tac fpSemPropsTheory.fp_translate_cases >> rveq >>
       fs[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       fs[fpSemTheory.fp_top_comp_def, fpValTreeTheory.fp_top_def] >>
       fs[fpSemTheory.compress_bool_def, fpSemTheory.compress_word_def, fpSemTheory.fp_top_comp_def])
-  >- ( (*FpFromWord *)
+  >~ [‘FpFromWord’] >- (
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       fs[v_rel_eqns, result_rel_cases, v_rel_lems, fpSemTheory.compress_word_def])
-  >- ( (*FpToWord *)
+  >~ [‘FpToWord’] >- (
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       fs[v_rel_eqns, result_rel_cases, v_rel_lems, fpSemTheory.compress_word_def])
-  >- ((* Opapp *)
+  >~ [‘Opapp’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >- ((* Opassign *)
+  >~ [‘Opassign’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_assign_def,store_v_same_type_def, Unitv_def] >>
@@ -1068,14 +1066,14 @@ val do_app = time Q.prove (
       metis_tac [EVERY2_LUPDATE_same, sv_rel_rules] >>
       full_simp_tac(srw_ss())[LIST_REL_EL_EQN,sv_rel_cases] >>
       srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> res_tac >> full_simp_tac(srw_ss())[])
-  >- ((* Opref *)
+  >~ [‘Opref’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_alloc_def] >>
       srw_tac[][sv_rel_cases] >>
       full_simp_tac(srw_ss())[ADD1] >>
       metis_tac [LIST_REL_LENGTH])
-  >- ((* Opderef *)
+  >~ [‘Opderef’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_lookup_def, ADD1] >>
@@ -1087,14 +1085,14 @@ val do_app = time Q.prove (
       srw_tac[][] >>
       full_simp_tac(srw_ss())[] >>
       srw_tac[][])
-  >- ((* Aw8alloc *)
+  >~ [‘Aw8alloc’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_alloc_def] >>
       full_simp_tac(srw_ss())[store_lookup_def, ADD1, REWRITE_RULE [ADD1] EL] >>
       srw_tac[][sv_rel_cases, PULL_EXISTS, ADD1] >>
       metis_tac [LIST_REL_LENGTH, v_rel_lems])
-  >- ((* Aw8sub *)
+  >~ [‘Aw8sub’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_lookup_def] >>
@@ -1106,7 +1104,7 @@ val do_app = time Q.prove (
       srw_tac[][] >>
       full_simp_tac(srw_ss())[] >>
       srw_tac[][markerTheory.Abbrev_def, v_rel_lems])
-  >- ((* Aw8length *)
+  >~ [‘Aw8length’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_lookup_def] >>
@@ -1119,7 +1117,7 @@ val do_app = time Q.prove (
       srw_tac[][] >>
       full_simp_tac(srw_ss())[] >>
       srw_tac[][markerTheory.Abbrev_def])
-  >- ((* Aw8update *)
+  >~ [‘Aw8update’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
@@ -1133,17 +1131,17 @@ val do_app = time Q.prove (
       fsrw_tac[][] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][v_rel_lems])
-  >- ((* WordFromInt *)
+  >~ [‘WordFromInt’] >- (
     srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
-  >- ((* WordToInt *)
+  >~ [‘WordToInt’] >- (
     srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
-  >- ((* CopyStrStr *)
+  >~ [‘CopyStrStr’] >- (
     rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases]
     \\ simp[v_rel_lems,v_rel_eqns])
-  >- ((* CopyStrAw8 *)
+  >~ [‘CopyStrAw8’] >- (
     rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases,PULL_EXISTS,
           store_lookup_def,EXISTS_PROD,store_assign_def,Unitv_def]
@@ -1154,7 +1152,7 @@ val do_app = time Q.prove (
     \\ simp[store_v_same_type_def, REWRITE_RULE [ADD1] LUPDATE_def]
     \\ match_mp_tac EVERY2_LUPDATE_same
     \\ simp[sv_rel_cases])
-  >- ((* CopyAw8Str *)
+  >~ [‘CopyAw8Str’] >- (
     rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases,PULL_EXISTS,
           store_lookup_def,EXISTS_PROD,store_assign_def,Unitv_def]
@@ -1162,7 +1160,7 @@ val do_app = time Q.prove (
     \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
     \\ imp_res_tac LIST_REL_EL_EQN
     \\ rfs[sv_rel_cases,v_rel_lems,v_rel_eqns])
-  >- ((* CopyAw8Aw8 *)
+  >~ [‘CopyAw8Aw8’] >- (
     rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases,PULL_EXISTS,
           store_lookup_def,EXISTS_PROD,store_assign_def,Unitv_def]
@@ -1174,21 +1172,33 @@ val do_app = time Q.prove (
     \\ simp[store_v_same_type_def, REWRITE_RULE [ADD1] LUPDATE_def]
     \\ match_mp_tac EVERY2_LUPDATE_same
     \\ simp[sv_rel_cases])
-  >- ((* Ord *)
+  >~ [‘XorAw8Str_unsafe’] >- (
+    rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
+    \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases,PULL_EXISTS,
+          store_lookup_def,EXISTS_PROD,store_assign_def,Unitv_def]
+    \\ fs [REWRITE_RULE [ADD1] EL, ADD1]
+    \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
+    \\ TRY (asm_exists_tac \\ simp[])
+    \\ imp_res_tac LIST_REL_EL_EQN
+    \\ rfs[sv_rel_cases,v_rel_lems,v_rel_eqns]
+    \\ simp[store_v_same_type_def, REWRITE_RULE [ADD1] LUPDATE_def]
+    \\ match_mp_tac EVERY2_LUPDATE_same
+    \\ simp[sv_rel_cases])
+  >~ [‘Ord’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems])
-  >- ((* Chr *)
+  >~ [‘Chr’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >- ((* Chopb *)
+  >~ [‘Chopb’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >- ((* Implode *)
+  >~ [‘Implode’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       imp_res_tac v_to_char_list >>
       srw_tac[][])
-  >- (rename [`Explode`] >>
+  >~ [‘Explode’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       imp_res_tac v_to_char_list >>
@@ -1198,26 +1208,26 @@ val do_app = time Q.prove (
       simp [Once v_rel_cases] >>
       fs [genv_c_ok_def,has_lists_def] >>
       simp [Once v_rel_cases])
-  >- ((* Strsub *)
+  >~ [‘Strsub’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_eqns] >>
       srw_tac[][markerTheory.Abbrev_def] >>
       srw_tac[][markerTheory.Abbrev_def] >>
       full_simp_tac(srw_ss())[stringTheory.IMPLODE_EXPLODE_I, v_rel_lems])
-  >- ((* Strlen *)
+  >~ [‘Strlen’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >- ((* Strcat *)
+  >~ [‘Strcat’] >- (
     rw[semanticPrimitivesPropsTheory.do_app_cases,flatSemTheory.do_app_def]
     \\ fs[LIST_REL_def]
     \\ imp_res_tac v_to_list \\ fs[]
     \\ imp_res_tac vs_to_string \\ fs[result_rel_cases,v_rel_eqns] )
-  >- ((* VfromList *)
+  >~ [‘VfromList’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_eqns] >>
       imp_res_tac v_to_list >>
       srw_tac[][])
-  >- ((* Vsub *)
+  >~ [‘Vsub’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       srw_tac[][markerTheory.Abbrev_def] >>
@@ -1226,24 +1236,24 @@ val do_app = time Q.prove (
       imp_res_tac LIST_REL_LENGTH >>
       full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
       full_simp_tac(srw_ss())[arithmeticTheory.NOT_GREATER_EQ, GSYM arithmeticTheory.LESS_EQ, v_rel_lems])
-  >- ((* Vlength *)
+  >~ [‘Vlength’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       srw_tac[][] >>
       metis_tac [LIST_REL_LENGTH])
-  >- ((* Aalloc *)
+  >~ [‘Aalloc’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_alloc_def] >>
       srw_tac[][sv_rel_cases, LIST_REL_REPLICATE_same, ADD1] >>
       metis_tac [LIST_REL_LENGTH, v_rel_lems])
-  >- ((* AallocFixed *)
+  >~ [‘AallocFixed’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_alloc_def] >>
       srw_tac[][sv_rel_cases, LIST_REL_REPLICATE_same, ADD1] >>
       metis_tac [LIST_REL_LENGTH, v_rel_lems])
-  >- ((* Asub *)
+  >~ [‘Asub’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_lookup_def] >>
@@ -1262,7 +1272,7 @@ val do_app = time Q.prove (
       imp_res_tac LIST_REL_LENGTH >>
       full_simp_tac(srw_ss())[LIST_REL_EL_EQN, v_rel_lems] >>
       decide_tac)
-  >- ((* Alength *)
+  >~ [‘Alength’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       srw_tac[][] >>
@@ -1273,7 +1283,7 @@ val do_app = time Q.prove (
       res_tac >>
       full_simp_tac(srw_ss())[sv_rel_cases] >>
       metis_tac [store_v_distinct, store_v_11, LIST_REL_LENGTH])
-  >- ((* Aupdate *)
+  >~ [‘Aupdate’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def,Unitv_def] >>
@@ -1294,7 +1304,7 @@ val do_app = time Q.prove (
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][] >>
       decide_tac)
-  >- ((* Asub_unsafe *)
+  >~ [‘Asub_unsafe’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_lookup_def] >>
@@ -1313,7 +1323,7 @@ val do_app = time Q.prove (
       imp_res_tac LIST_REL_LENGTH >>
       full_simp_tac(srw_ss())[LIST_REL_EL_EQN, v_rel_lems] >>
       decide_tac)
-  >- ((* Aupdate_unsafe *)
+  >~ [‘Aupdate_unsafe’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
@@ -1331,9 +1341,9 @@ val do_app = time Q.prove (
       DEP_REWRITE_TAC [listTheory.EVERY2_LUPDATE_same] >>
       full_simp_tac(srw_ss())[Unitv_def, sv_rel_cases] >>
       DEP_REWRITE_TAC [listTheory.EVERY2_LUPDATE_same] >>
-      full_simp_tac(srw_ss())[] >>
+      gvs [] >>
       decide_tac)
-  >- ((* Aw8sub_unsafe *)
+  >~ [‘Aw8sub_unsafe’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_lookup_def] >>
@@ -1346,7 +1356,7 @@ val do_app = time Q.prove (
       full_simp_tac(srw_ss())[] >>
       rfs[] >>
       srw_tac[][markerTheory.Abbrev_def, v_rel_lems])
-  >- ((* Aw8update_unsafe *)
+  >~ [‘Aw8update_unsafe’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
@@ -1380,7 +1390,7 @@ val do_app = time Q.prove (
         rw[REWRITE_RULE [ADD1] EL] >>
         first_x_assum drule >> gvs[] >>
         CASE_TAC >> rw[Once sv_rel_cases])))
-  >- ((* ListAppend *)
+  >~ [‘ListAppend’] >- (
     simp [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
     rw [] >>
     fs [] >>
@@ -1391,7 +1401,7 @@ val do_app = time Q.prove (
     irule list_to_v_v_rel >>
     fs [genv_c_ok_def, LIST_REL_EL_EQN, EL_APPEND_EQN] >>
     rw [])
-  >- ((* FFI *)
+  >~ [‘FFI’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       fs[v_rel_eqns,Unitv_def] \\ rw[] \\
       fs[store_lookup_def, LIST_REL_EL_EQN] \\ fs[] \\ rfs[] \\
@@ -1405,9 +1415,10 @@ val do_app = time Q.prove (
       fs [REWRITE_RULE [ADD1] EL, ADD1, REWRITE_RULE [ADD1] LUPDATE_def]
       \\ rfs[] \\ rw[EL_LUPDATE]
       \\ rw[sv_rel_cases, result_rel_cases, v_rel_eqns])
-  >- ((* Eval *)
+  >~ [‘Eval’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
-  ));
+  )
+QED
 
 Triviality find_recfun:
   !x funs e comp_map y t.
@@ -1903,29 +1914,21 @@ Theorem v_rel_do_fpoptimise:
     LIST_REL (v_rel genv) vs vsF ⇒
     LIST_REL (v_rel genv) (do_fpoptimise annot vs) vsF
 Proof
-  measureInduct_on ‘semanticPrimitives$v1_size vs’ >> Cases_on ‘vs’ >>
+  measureInduct_on ‘list_size semanticPrimitives$v_size vs’ >>
+  Cases_on ‘vs’ >>
   fs[LIST_REL_def] >> rpt strip_tac
-  >- (
-   fs[do_fpoptimise_def]) >>
+  >- fs[do_fpoptimise_def] >>
   first_assum (qspec_then ‘t’ assume_tac) >>
   fs[semanticPrimitivesTheory.v_size_def] >>
   simp[Once fpSemPropsTheory.do_fpoptimise_cons] >>
   Cases_on ‘h’ >> simp[do_fpoptimise_def] >>
   fs[Once v_rel_cases]
   >- (
-   first_x_assum (qspec_then ‘l’ assume_tac) >>
-   fs[semanticPrimitivesTheory.v_size_def] >>
-   simp[do_fpoptimise_length])
-  >- (
-   first_x_assum (qspec_then ‘l’ assume_tac) >>
-   fs[semanticPrimitivesTheory.v_size_def])
-  >- (
-   first_x_assum (qspec_then ‘l’ assume_tac) >>
-   fs[semanticPrimitivesTheory.v_size_def])
-  >- (
-   fs[fpSemTheory.compress_word_def])
-  >- (
-   fs[fpSemTheory.compress_bool_def])
+    first_x_assum (qspec_then ‘l’ assume_tac) >>
+    fs[semanticPrimitivesTheory.v_size_def] >>
+    simp[do_fpoptimise_length])
+  >- fs[fpSemTheory.compress_word_def]
+  >- fs[fpSemTheory.compress_bool_def]
 QED
 
 Triviality global_env_inv_append:
@@ -5884,7 +5887,7 @@ val COUNT_LIST_ADD_SYM = COUNT_LIST_ADD
 Theorem MAPi_SNOC: (* TODO: move *)
   !xs x f. MAPi f (SNOC x xs) = SNOC (f (LENGTH xs) x) (MAPi f xs)
 Proof
-  Induct \\ fs [SNOC]
+  Induct \\ fs [SNOC,SNOC_APPEND]
 QED
 
 Theorem compile_decs_elist_globals:

@@ -775,7 +775,7 @@ val quietDefine = (* quiet version of Define -- by Anthony Fox *)
   Lib.with_flag (Feedback.emit_WARNING, false) $
   Lib.with_flag (Feedback.emit_ERR, false) $
   Lib.with_flag (Feedback.emit_MESG, false) $
-  Feedback.trace ("auto Defn.tgoal", 0) $
+  Feedback.trace ("Definition.auto Defn.tgoal", 0) $
   allowing_rebind $
     TotalDefn.Define
 
@@ -3633,8 +3633,8 @@ fun hol2deep tm =
     fun pat_match pat tm = (match_term pat tm; rator pat)
     val r = pat_match MAP_pattern tm handle HOL_ERR _ =>
             pat_match EVERY_pattern tm handle HOL_ERR _ =>
-         (* pat_match EXISTS_pattern tm handle HOL_ERR _ =>
-            pat_match FILTER_pattern tm handle HOL_ERR _ => *) fail()
+            pat_match EXISTS_pattern tm handle HOL_ERR _ =>
+          (* pat_match FILTER_pattern tm handle HOL_ERR _ => *) fail()
     val (m,f) = dest_comb tm
     val th_m = hol2deep r
     val (v,x) = dest_abs f
