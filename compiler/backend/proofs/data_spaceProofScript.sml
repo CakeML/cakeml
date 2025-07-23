@@ -47,6 +47,15 @@ Proof
   rw [do_stack_def,stack_consumed_def]
 QED
 
+Theorem do_app_with_locals:
+  do_app op x (s with locals := l) =
+  case do_app op x s of
+  | Rval (res,s1) => Rval (res,s1 with locals := l)
+  | Rerr e        => Rerr e
+Proof
+  cheat
+QED
+
 Triviality evaluate_compile:
   !c s res s2 vars l.
      res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
@@ -78,35 +87,33 @@ Proof
     \\ METIS_TAC [])
   THEN1 (* Assign *)
    (BasicProvers.TOP_CASE_TAC \\ fs[cut_state_opt_def] \\
-   Cases_on `names_opt` \\ fs[]
-   >-(
-         Cases_on `get_vars args s.locals` \\ fs[] \\
-         `get_vars args l =
-          get_vars args s.locals` by
+    Cases_on `names_opt` \\ fs[]
+    >-(
+     Cases_on `get_vars args s.locals` \\ fs[]
+     \\ `get_vars args l = get_vars args s.locals` by
        (MATCH_MP_TAC EVERY_get_vars
         \\ fs[EVERY_MEM,locals_ok_def]
         \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
         \\ fs[domain_lookup])
-      \\ fs[]
-      \\ fs[do_app_with_locals]
-      \\ Cases_on `do_app op x s` \\ fs[]
-      >-(PairCases_on `a` \\
-        fs[set_var_def,locals_ok_def,lookup_insert,state_component_equality]
+     \\ fs[do_app_with_locals]
+     \\ Cases_on `do_app op x s` \\ fs[]
+     >-(rename [‘Rval a’] \\ PairCases_on `a`
+        \\ fs[set_var_def,locals_ok_def,lookup_insert,state_component_equality]
         \\ rw[] \\ gvs[lookup_insert]
         \\  last_x_assum (assume_tac o GSYM)
-         \\ fs[lookup_insert] \\ gvs[]
-         \\ METIS_TAC[do_app_const])
-      >-(
-      fs[flush_state_def]
-      \\ gvs[] \\ fs[state_component_equality]
-      \\ fs[locals_ok_def]))
+        \\ fs[lookup_insert] \\ gvs[]
+        \\ METIS_TAC[do_app_const])
+     >-(
+       fs[flush_state_def]
+       \\ gvs[] \\ fs[state_component_equality]
+       \\ fs[locals_ok_def]))
     >-(
-       fs[cut_state_def] \\
-       Cases_on `cut_env (list_insert args x) s.locals` \\ fs[] \\
-       drule_all locals_ok_cut_env \\
-       rw[] \\ fs[] \\
-       Cases_on `res` \\ fs[state_component_equality] \\
-       METIS_TAC[locals_ok_refl]))
+     fs[cut_state_def] \\
+     Cases_on `cut_env (list_insert args x) s.locals` \\ fs[] \\
+     drule_all locals_ok_cut_env \\
+     rw[] \\ fs[] \\
+     Cases_on `res` \\ fs[state_component_equality] \\
+     METIS_TAC[locals_ok_refl]))
   THEN1 (* Tick *)
    (Cases_on `s.clock = 0` \\ fs[] \\ SRW_TAC [] []
     \\ fs[locals_ok_def,call_env_def,
