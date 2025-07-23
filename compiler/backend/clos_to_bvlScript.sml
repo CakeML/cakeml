@@ -165,29 +165,29 @@ Proof
   >> fs[compile_op_def]
 QED
 
-Definition mk_const_def:
+Definition mk_const_def[simp]:
   mk_const n : bvl$exp = Op (IntOp (Const (&n))) []
 End
 
-Definition mk_label_def:
+Definition mk_label_def[simp]:
   mk_label n : bvl$exp = Op (Label n) []
 End
 
-Definition mk_el_def:
+Definition mk_el_def[simp]:
   mk_el b i : bvl$exp = Op (MemOp El) [i; b]
 End
 
-val _ = export_rewrites ["mk_const_def", "mk_label_def", "mk_el_def"];
+Overload mk_elem_at[local] = “λb i. bvl$Op (BlockOp (ElemAt i)) [b]”;
 
 Definition free_let_def:
-  free_let cl n = (GENLIST (\n. mk_el cl (mk_const (n+2))) n)
+  free_let cl n = (GENLIST (\n. mk_elem_at cl (n+2)) n)
 End
 
 Definition code_for_recc_case_def:
   code_for_recc_case n num_args (c:bvl$exp) =
     (num_args + 1,
-     Let [mk_el (Var num_args) (mk_const 2)]
-      (Let (GENLIST (\a. Var (a + 1)) num_args ++ GENLIST (\i. Op (MemOp El) [mk_const i; Var 0]) n) c))
+     Let [mk_elem_at (Var num_args) 2]
+      (Let (GENLIST (\a. Var (a + 1)) num_args ++ GENLIST (\i. mk_elem_at (Var 0) i) n) c))
 End
 
 Definition build_aux_def:
@@ -244,7 +244,7 @@ QED
 
 Definition recc_Let_def:
   recc_Let n num_args i =
-    Let [mk_el (Var 0) (mk_const 2)]
+    Let [mk_elem_at (Var 0) 2]
      (Let [Op (BlockOp (Cons closure_tag)) [Var 0; mk_const (num_args-1); mk_label n]]
        (Let [Op (MemOp Update) [Var 0; mk_const i; Var 1]]
          (Var 1 : bvl$exp)))
@@ -296,24 +296,24 @@ End
 
 Definition mk_cl_call_def:
   mk_cl_call cl args =
-    If (Op (BlockOp Equal) [mk_const (LENGTH args - 1); mk_el cl (mk_const 1)])
-       (Call (LENGTH args - 1) NONE (args ++ [cl] ++ [mk_el cl (mk_const 0)]))
+    If (Op (BlockOp (EqualConst (closLang$Int (& (LENGTH args - 1))))) [mk_elem_at cl 1])
+       (Call (LENGTH args - 1) NONE (args ++ [cl] ++ [mk_elem_at cl 0]))
        (Call 0 (SOME (generic_app_fn_location (LENGTH args - 1))) (args ++ [cl]))
 End
 
 (* Generic application of a function to n+1 arguments *)
 Definition generate_generic_app_def:
   generate_generic_app max_app n =
-    Let [Op (IntOp Sub) [mk_const (n+1); mk_el (Var (n+1)) (mk_const 1)]] (* The number of arguments remaining - 1 *)
+    Let [Op (IntOp Sub) [mk_const (n+1); mk_elem_at (Var (n+1)) 1]] (* The number of arguments remaining - 1 *)
         (If (Op (IntOp Less) [mk_const 0; Var 0])
             (* Over application *)
-            (Jump (mk_el (Var (n+2)) (mk_const 1))
+            (Jump (mk_elem_at (Var (n+2)) 1)
               (GENLIST (\num_args.
                  Let [Call num_args
                            NONE
                            (GENLIST (\arg. Var (arg + 2 + n - num_args)) (num_args + 1) ++
                             [Var (n + 3)] ++
-                            [mk_el (Var (n + 3)) (mk_const 0)])]
+                            [mk_elem_at (Var (n + 3)) 0])]
                    (mk_cl_call (Var 0) (GENLIST (\n. Var (n + 3)) (n - num_args))))
                max_app))
             (* Partial application *)
@@ -324,7 +324,7 @@ Definition generate_generic_app_def:
                     (REVERSE
                       (mk_el (Op (GlobOp (Global 0)) [])
                         (partial_app_fn_location_code max_app
-                          (mk_el (Var (n+2)) (mk_const 1))
+                          (mk_elem_at (Var (n+2)) 1)
                           (mk_const n)) ::
                        Var 0 ::
                        Var (n + 2) ::
@@ -344,7 +344,7 @@ Definition generate_generic_app_def:
                             * partial_app_fn_location_code *)
                            (Op (IntOp Add) [Var 1; mk_const n])) ::
                        Var 1 ::
-                       mk_el (Var (n+3)) (mk_const 2) ::
+                       mk_elem_at (Var (n+3)) 2 ::
                        GENLIST (\this_arg. Var (this_arg + 2)) (n + 1))))))))
 End
 
@@ -355,14 +355,14 @@ End
  * has seen no arguments yet. *)
 Definition generate_partial_app_closure_fn_def:
   generate_partial_app_closure_fn total_args prev_args =
-    Let [mk_el (Var (total_args - prev_args)) (mk_const 2)]
+    Let [mk_elem_at (Var (total_args - prev_args)) 2]
       (Call 0
         NONE
         (GENLIST (\this_arg. Var (this_arg + 1)) (total_args - prev_args) ++
          GENLIST (\prev_arg.
-           mk_el (Var (total_args - prev_args + 1)) (mk_const (prev_arg + 3))) (prev_args + 1) ++
+           mk_elem_at (Var (total_args - prev_args + 1)) (prev_arg + 3)) (prev_args + 1) ++
          [Var 0] ++
-         [mk_el (Var 0) (mk_const 0)]))
+         [mk_elem_at (Var 0) 0]))
 End
 
 Definition check_closure_def:
