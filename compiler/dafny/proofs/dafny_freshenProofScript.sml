@@ -1488,13 +1488,6 @@ Definition is_fresh_def:
   is_fresh name = isPrefix «v» name
 End
 
-Triviality list_size_snd:
-  list_size (λx. exp_size (SND x)) vars =
-  list_size (λx. exp_size x) (MAP SND vars)
-Proof
-  Induct_on ‘vars’ \\ gvs []
-QED
-
 (* NOTE If we have multiple of these, can abstract aways into a function that
    takes a predicate, and walks the AST *)
 Definition is_fresh_exp_def[simp]:
@@ -1521,7 +1514,7 @@ Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
   \\ gvs [list_size_pair_size_MAP_FST_SND]
-  \\ rewrite_tac [list_size_snd]
+  \\ rewrite_tac [list_exp_size_snd]
   \\ drule MEM_list_size
   \\ disch_then $ qspec_then ‘exp_size’ assume_tac
   \\ gvs []
