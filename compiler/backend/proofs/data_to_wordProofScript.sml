@@ -109,12 +109,8 @@ Proof
     \\ match_mp_tac word_ml_inv_insert \\ fs [])
   >~ [‘evaluate (Assign _ _ _ _,s)’] >-
    (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
-    \\ imp_res_tac (METIS_PROVE [] ``(if b1 /\ b2 then x1 else x2) = y ==>
-                                     b1 /\ b2 /\ x1 = y \/
-                                     (b1 ==> ~b2) /\ x2 = y``)
-    \\ fs [] \\ srw_tac[][]
+    \\ gvs [CaseEq"bool"]
     \\ gvs [CaseEq"option"]
-    \\ last_x_assum kall_tac
     \\ reverse (Cases_on `do_app op xs v`) \\ fs []
     THEN1 (imp_res_tac do_app_Rerr \\ rveq \\ fs []
            \\ drule_all assign_FFI_final
