@@ -304,11 +304,11 @@ End
 End *)
 
 Datatype: vec_lane_op
-  = VextractLane_    sign ishap2
-  | VextractLane32_4
-  | VextractLane64_2
-  | VextractLanef    fshape
-  | VreplaceLane     shape
+  = Vextract_    sign ishap2
+  | VextractI32x4
+  | VextractI64x2
+  | VextractF    fshape
+  | Vreplace      shape
   | (* v128 *) Vshuffle
 End
 
