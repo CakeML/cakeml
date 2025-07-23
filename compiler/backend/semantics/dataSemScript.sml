@@ -1191,7 +1191,7 @@ Definition evaluate_def:
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME v => (NONE, set_var dest v s)) /\
   (evaluate (Assign dest op args names_opt,s) =
-     if op_requires_names op /\ IS_NONE names_opt then
+     if op_requires_names op = IS_NONE names_opt then
        (SOME (Rerr(Rabort Rtype_error)),s)
      else
        case cut_state_opt (OPTION_MAP (list_insert args) names_opt) s of
