@@ -4040,7 +4040,8 @@ Proof
         \\ qrefinel [`_`, `f2'`, `v''`, `t2'`] \\ rw [GSYM PULL_EXISTS]
         >- (
          gvs [AppUnit_def]
-         \\ gvs [evaluate_def, clos_tag_shift_def, mk_cl_call_def, do_app_def]
+         \\ gvs [evaluate_def, clos_tag_shift_def, mk_cl_call_def, do_app_def,
+                 do_int_app_def]
          \\ Cases_on `r2`
          \\ gvs [AllCaseEqs(), PULL_EXISTS, mk_unit_def, evaluate_def,
                  generic_app_fn_location_def]
@@ -4108,12 +4109,12 @@ Proof
         \\ qrefinel [`_`, `Rerr e'`, `t2'`] \\ rw [GSYM PULL_EXISTS]
         >- (
          gvs [AppUnit_def]
-         \\ gvs [evaluate_def, clos_tag_shift_def, mk_cl_call_def, do_app_def]
-         \\ rpt (
-           CASE_TAC
-           \\ gvs [mk_unit_def, evaluate_def, generic_app_fn_location_def])
-         \\ gvs [AllCaseEqs()]
-         \\ qexists `ck'` \\ gvs [])
+         \\ simp [do_app_def, do_int_app_def, mk_unit_def, evaluate_def]
+         \\ qexists `ck'` \\ gvs []
+         \\ gvs [evaluate_def, mk_cl_call_def, generic_app_fn_location_def,
+                 do_app_def, clos_tag_shift_def, find_code_def]
+         \\ rpt (PURE_CASE_TAC \\ gvs [])
+         \\ gvs [AllCaseEqs()])
         \\ imp_res_tac SUBMAP_TRANS)
       >- (
         first_x_assum drule_all \\ rw [] \\ gvs []
