@@ -993,7 +993,7 @@ Proof
     \\ gvs [Abbr‘vr’] >- (Cases_on ‘err’ \\ gvs [])
     \\ fs [state_rel_def,state_rel_1_def]
     \\ drule_then irule do_app_oHD_globals \\ fs [])
-  >~ [`Install`] >- (
+  >~ [`do_install`] >- (
     rename [‘state_rel s3 t3’]
     \\ qpat_x_assum ‘do_install _ _ = _’ mp_tac
     \\ simp [Once do_install_def]
@@ -1045,7 +1045,7 @@ Proof
     \\ fs [do_install_def,pure_co_def,shift_seq_def,pure_cc_def,pure_co_def,PULL_EXISTS]
     \\ gvs [FUPDATE_LIST]
     \\ gvs [AllCaseEqs()])
-  >~ [`ThunkOp ForceThunk`] >- (
+  >~ [`dest_thunk`] >- (
     gvs [AllCaseEqs()]
     \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
     \\ qrefine `ck + ck'` \\ gvs []

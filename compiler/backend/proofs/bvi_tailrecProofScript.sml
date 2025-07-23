@@ -1637,8 +1637,6 @@ Proof
       >- (
         gvs []
         \\ last_assum $ qspecl_then [`xs`, `s`] mp_tac \\ gvs[]
-        \\ impl_tac
-        >- simp [bviTheory.exp_size_def]
         \\ `env_rel ty F acc env1 env2` by fs [env_rel_def] \\ gvs []
         \\ rpt (disch_then drule) \\ rw []
         \\ gvs [AllCaseEqs(), PULL_EXISTS]

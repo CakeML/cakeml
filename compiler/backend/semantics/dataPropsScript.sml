@@ -297,7 +297,7 @@ Proof
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,check_lim_def]
     \\ rveq \\ full_simp_tac(srw_ss()) [] \\ rw [])
-  \\ TRY (rename [‘lookup _ _ = SOME (Thunk m_ _)’] \\ Cases_on `m_`)
+  \\ TRY (rename [‘lookup _ _ = SOME (Thunk m_ _)’] \\ Cases_on `m_` \\ gvs [])
 QED
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
@@ -315,7 +315,7 @@ Proof
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,check_lim_def,UNCURRY_EQ]
     \\ rveq \\ fs [] \\ rw [])
-  \\ TRY (rename [‘lookup _ _ = SOME (Thunk m_ _)’] \\ Cases_on `m_`) \\ gvs []
+  \\ TRY (rename [‘lookup _ _ = SOME (Thunk m_ _)’] \\ Cases_on `m_` \\ gvs [])
 QED
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
@@ -455,6 +455,7 @@ val do_app_swap_tac =
               , consume_space_def
               , stack_consumed_def
               , size_of_heap_with_safe
+              , MAX_DEF
               , check_lim_def]
   \\ TRY (full_simp_tac(srw_ss())[LET_DEF,UNCURRY_EQ,list_case_eq,option_case_eq,v_case_eq,bool_case_eq,bvlSemTheory.ref_case_eq
         , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
@@ -462,7 +463,9 @@ val do_app_swap_tac =
         , limits_component_equality,stack_consumed_def]
           \\ full_simp_tac(srw_ss())  [data_spaceTheory.op_space_req_def,stack_consumed_def]
           \\ rev_full_simp_tac(srw_ss())[data_spaceTheory.op_space_req_def]
-          \\ simp [Once CONJ_COMM] \\ NO_TAC));
+          \\ simp [Once CONJ_COMM] \\ NO_TAC)
+  \\ rpt(PURE_TOP_CASE_TAC \\ fs[] \\ rveq) \\ fs[state_component_equality,stack_consumed_def]
+  \\ gvs [AllCaseEqs()]);
 
 
 Theorem do_app_aux_safe_peak_swap:
@@ -674,7 +677,7 @@ Proof
      \\ rveq \\ fs []
      \\ every_case_tac \\ fs [] \\ rveq \\ fs []
      \\ gvs [AllCaseEqs(), PULL_EXISTS]
-     >>~- ([`evaluate (AppUnit,_) = (SOME _,_)`,
+     >>~- ([`evaluate (AppUnit,_) = _`,
             `dest_thunk _ _ = IsThunk NotEvaluated _`],
        TRY (
         first_x_assum $ qspecl_then [`T`, `smx`, `safe`, `peak`] assume_tac

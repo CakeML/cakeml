@@ -1537,7 +1537,7 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem do_app[local]:
    (do_app op xs s1 = Rval (v,s2)) /\
@@ -5052,10 +5052,12 @@ Proof
       \\ reverse STRIP_TAC THEN1
        (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[]
         \\ MATCH_MP_TAC (env_rel_NEW_REF |> GEN_ALL) \\ full_simp_tac(srw_ss())[])
-      \\ srw_tac[][LIST_REL_EL_EQN, LENGTH_GENLIST, LENGTH_MAP2, el_map2]
+      \\ srw_tac[][LIST_REL_EL_EQN, LENGTH_GENLIST, LENGTH_MAP2, ADD1]
+      \\ DEP_REWRITE_TAC [el_map2]
+      \\ conj_tac >- gvs []
       \\ srw_tac[][v_rel_cases, cl_rel_cases]
       \\ full_simp_tac(srw_ss())[]
-      \\ srw_tac [boolSimps.DNF_ss] []
+      \\ simp_tac std_ss [SF DNF_ss]
       \\ disj2_tac
       \\ qexists_tac `ys`
       \\ qabbrev_tac `exps = ll++[x'']`
@@ -5072,32 +5074,6 @@ Proof
        (Q.PAT_X_ASSUM `LIST_REL (v_rel _ f1 t1.refs t1.code) x' ys` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ IMP_RES_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[])
-    \\ MATCH_MP_TAC env_rel_APPEND
-    \\ reverse STRIP_TAC THEN1
-     (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[]
-      \\ MATCH_MP_TAC (env_rel_NEW_REF |> GEN_ALL) \\ full_simp_tac(srw_ss())[])
-    \\ srw_tac[][LIST_REL_EL_EQN, LENGTH_GENLIST, LENGTH_MAP2, ADD1]
-    \\ DEP_REWRITE_TAC [el_map2]
-    \\ conj_tac >- gvs []
-    \\ srw_tac[][v_rel_cases, cl_rel_cases]
-    \\ full_simp_tac(srw_ss())[]
-    \\ simp_tac std_ss [SF DNF_ss]
-    \\ disj2_tac
-    \\ qexists_tac `ys`
-    \\ qabbrev_tac `exps = ll++[x'']`
-    \\ `LENGTH ll + 1 = LENGTH exps` by full_simp_tac(srw_ss())[Abbr `exps`]
-    \\ Q.EXISTS_TAC `ZIP (exps,GENLIST (\i.x+num_stubs s.max_app+2*i) (LENGTH exps))`
-    \\ full_simp_tac(srw_ss())[LENGTH_ZIP, EL_MAP, LENGTH_MAP, EL_ZIP, MAP_ZIP]
-    \\ `?num e. EL n exps = (num, e)` by metis_tac [pair_CASES]
-    \\ `1 < LENGTH exps` by (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
-    \\ full_simp_tac(srw_ss())[Abbr `t1refs`,FLOOKUP_UPDATE]
-    \\ `MAP FST ll ++ [FST x''] = MAP FST exps` by srw_tac[][Abbr `exps`]
-    \\ simp [EL_MAP,EL_ZIP]
-    \\ srw_tac[][]
-    THEN1
-     (Q.PAT_X_ASSUM `LIST_REL (v_rel _ f1 t1.refs t1.code) x' ys` MP_TAC
-      \\ MATCH_MP_TAC listTheory.LIST_REL_mono
-      \\ METIS_TAC [v_rel_NEW_REF])
     THEN1
      (full_simp_tac(srw_ss())[state_rel_def, SUBSET_DEF] >> metis_tac [])
     THEN1
