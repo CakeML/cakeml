@@ -200,24 +200,30 @@ End
 
 (* Determine if shaped based has a given shape *)
 Definition sh_bd_has_shape_def:
-  sh_bd_has_shape sh sb =
+  (sh_bd_has_shape sh sb =
     case (sh, sb) of
     | (One, WordB b) => T
-    | (Comb shs, StructB sbs) => EVERY2 (\x y. sh_bd_has_shape x y) shs sbs
-    | _ => F
-Termination
-	WF_REL_TAC ‘measure (shaped_based_size o SND)’
+    | (Comb shs, StructB sbs) => sh_bd_has_shape_list shs sbs
+    | _ => F) /\
+  (sh_bd_has_shape_list [] [] = T) /\
+  (sh_bd_has_shape_list (sh::shs) [] = F) /\
+  (sh_bd_has_shape_list [] (sb::sbs) = F) /\
+  sh_bd_has_shape_list (sh::shs) (sb::sbs) =
+    (sh_bd_has_shape sh sb /\ sh_bd_has_shape_list shs sbs)
 End
 
 (* Determine if two shaped baseds have the same shape *)
 Definition sh_bd_eq_shapes_def:
-  sh_bd_eq_shapes sb sh =
+  (sh_bd_eq_shapes sb sh =
     case (sb, sh) of
     | (WordB b, WordB b') => T
-    | (StructB (sbs), StructB (sbs')) => EVERY2 (\x y. sh_bd_eq_shapes x y) sbs sbs'
-    | _ => F
-Termination
-	WF_REL_TAC ‘measure (shaped_based_size o FST)’
+    | (StructB sbs, StructB sbs') => sh_bd_eq_shapes_list sbs sbs'
+    | _ => F) /\
+  (sh_bd_eq_shapes_list [] [] = T) /\
+  (sh_bd_eq_shapes_list (sb::sbs) [] = F) /\
+  (sh_bd_eq_shapes_list [] (sb::sbs) = F) /\
+  sh_bd_eq_shapes_list (sb::sbs) (sb'::sbs') =
+    (sh_bd_eq_shapes sb sb' /\ sh_bd_eq_shapes_list sbs sbs')
 End
 
 (* Lookup shaped basedness at a certain struct index *)

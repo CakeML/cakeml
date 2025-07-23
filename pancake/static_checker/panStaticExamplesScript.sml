@@ -18,9 +18,6 @@ val [static_check_progs] = decls "static_check_progs";
 computeLib.monitoring := SOME (fn t => same_const static_check t orelse same_const static_check_decls t orelse same_const static_check_progs t);
 *)
 
-(* Add LIST_REL/EVERY2 to the compset *)
-val _ = computeLib.add_thms [LIST_REL_def] the_compset;
-
 
 (* Following copied from panConcreteExamples*)
 

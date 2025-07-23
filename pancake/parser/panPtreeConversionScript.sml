@@ -182,11 +182,18 @@ Definition conv_cmp_def:
   else NONE
 End
 
+Definition conv_default_shape_def:
+  conv_default_shape tree =
+    case destTOK ' (destLf tree) of
+        | SOME (DefaultShT) => SOME One
+        | _ => NONE
+End
+
 (** A single tree is smaller than the forest. *)
 Definition conv_Shape_def:
   conv_Shape tree =
-    case destTOK ' (destLf tree) of
-    | SOME (DefaultShT) => SOME One
+    case conv_default_shape tree of
+    | SOME s => SOME s
     | _ =>
       case conv_int tree of
         SOME n =>

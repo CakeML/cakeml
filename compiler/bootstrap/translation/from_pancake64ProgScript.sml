@@ -420,20 +420,25 @@ val res = translate $ conv_shift_def;
 
 Overload ptree_size[local] = ``parsetree_size (K 0) (K 0) (K 0)``;
 
+val res = translate $ conv_default_shape_def;
+
 Definition conv_ShapeList_def:
   (conv_Shape_alt tree =
-   case conv_int tree of
-     NONE =>
-       (case argsNT tree ShapeCombNT of
-          NONE => NONE
-        | SOME ts =>
-            (case conv_ShapeList ts of
-               NONE => NONE
-             | SOME x => SOME (Comb x)))
-   | SOME n =>
-       if n < 1 then NONE
-       else if n = 1 then SOME One
-       else SOME (Comb (REPLICATE (num_of_int n) One))) ∧
+    case conv_default_shape tree of
+    | SOME s => SOME s
+    | _ =>
+      case conv_int tree of
+        NONE =>
+          (case argsNT tree ShapeCombNT of
+              NONE => NONE
+            | SOME ts =>
+                (case conv_ShapeList ts of
+                  NONE => NONE
+                | SOME x => SOME (Comb x)))
+      | SOME n =>
+          if n < 1 then NONE
+          else if n = 1 then SOME One
+          else SOME (Comb (REPLICATE (num_of_int n) One))) ∧
   (conv_ShapeList [] = SOME []) ∧
   (conv_ShapeList (x::xs) =
    (case conv_Shape_alt x of
