@@ -56,8 +56,14 @@ Proof
   \\ gvs[do_space_def,AllCaseEqs(),consume_space_def]
 QED
 
+Triviality cut_state_opt_ffi:
+  dataSem$cut_state_opt names_opt r = SOME v1 ⇒ v1.ffi = r.ffi
+Proof
+  rw [] \\ gvs [cut_state_def,cut_env_def,cut_state_opt_def,AllCaseEqs()]
+QED
+
 Theorem data_compile_correct:
-   !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
+   ∀prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t [] locs /\
@@ -107,36 +113,34 @@ Proof
                                      b1 /\ b2 /\ x1 = y \/
                                      (b1 ==> ~b2) /\ x2 = y``)
     \\ fs [] \\ srw_tac[][]
-    \\ Cases_on `cut_state_opt names_opt s` \\ fs []
-    \\ Cases_on `get_vars args x.locals` \\ fs []
-    \\ reverse (Cases_on `do_app op x' x`) \\ fs []
+    \\ gvs [CaseEq"option"]
+    \\ last_x_assum kall_tac
+    \\ reverse (Cases_on `do_app op xs v`) \\ fs []
     THEN1 (imp_res_tac do_app_Rerr \\ rveq \\ fs []
-           \\ drule_all_then assume_tac assign_FFI_final
-           \\ first_x_assum(qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
-           \\ asm_exists_tac >> fs[] >> rpt strip_tac \\ fs[]
+           \\ drule_all assign_FFI_final
+           \\ disch_then $ qspecl_then [`n`,`l`,`dest`] strip_assume_tac
+           \\ asm_exists_tac >> fs[] >> rpt strip_tac \\ fs[flush_state_def]
+           \\ imp_res_tac cut_state_opt_ffi \\ fs []
            \\ imp_res_tac cut_state_opt_const \\ fs[state_rel_def,flush_state_def]
            \\ fs [cut_state_opt_def,CaseEq"option",cut_state_def] \\ rveq \\ fs [])
-    \\ Cases_on `a`
-    \\ drule assign_thm \\ fs []
-    \\ rpt (disch_then old_drule)
+    \\ Cases_on `a` \\ gvs [CaseEq"option"]
+    \\ drule_all assign_thm \\ fs []
     \\ disch_then (qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
-    \\ `option_le r'.stack_max r.stack_max` by
+    \\ `option_le r'.stack_max v1.stack_max` by
         (Cases_on `q' = SOME NotEnoughSpace` \\ fs [state_rel_def,set_var_def])
-    \\ fs [] \\ srw_tac[][] \\ fs []
+    \\ fs [set_var_def]
     \\ imp_res_tac do_app_io_events_mono \\ rfs []
-    \\ `s.ffi = t.ffi` by fs [state_rel_def] \\ fs []
-    \\ sg `x.ffi = s.ffi`
-    \\ imp_res_tac do_app_io_events_mono \\ rfs []
-    \\ Cases_on `names_opt` \\ fs [cut_state_opt_def] \\ srw_tac[][] \\ fs []
-    \\ fs [cut_state_def,cut_env_def] \\ every_case_tac
-    \\ fs [] \\ rw [] \\ fs [set_var_def])
+    \\ `s.ffi = t.ffi` by fs [state_rel_def]
+    \\ strip_tac \\ gvs []
+    \\ imp_res_tac cut_state_opt_ffi \\ fs [])
   >~ [‘evaluate (Tick,s)’] >-
    (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs [] \\ srw_tac[][]
     \\ fs [] \\ srw_tac[][] \\ rpt (pop_assum mp_tac)
     \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.dec_clock_def] \\ srw_tac[][]
     \\ fs [state_rel_def,dataSemTheory.dec_clock_def,wordSemTheory.dec_clock_def]
-    \\ fs [call_env_def,wordSemTheory.call_env_def,wordSemTheory.flush_state_def,flush_state_def]
+    \\ fs [call_env_def,wordSemTheory.call_env_def,
+           wordSemTheory.flush_state_def,flush_state_def]
     \\ asm_exists_tac \\ fs [])
   >~ [‘evaluate (MakeSpace k names,s)’] >-
    (fs [comp_def,dataSemTheory.evaluate_def,

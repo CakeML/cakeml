@@ -1732,19 +1732,20 @@ Proof
 QED
 
 val assign_thm_goal =
-  ``state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
-   (op_requires_names op ==> names_opt <> NONE) /\
-   cut_state_opt names_opt s = SOME x /\
-   get_vars args x.locals = SOME vals /\
-   t.termdep > 1 /\
+  “state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ∧
+   (op_requires_names op ==> names_opt <> NONE) ∧
+   cut_state_opt (OPTION_MAP (list_insert args) names_opt) s = SOME x ∧
+   get_vars args x.locals = SOME vals ∧
+   cut_state_opt names_opt s2 = SOME s2_cut ∧
+   t.termdep > 1 ∧
    do_app op vals x = Rval (v,s2) ==>
    ?q r.
-     evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
+     evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) ∧
      (q = SOME NotEnoughSpace ==>
-      r.ffi = t.ffi /\ option_le r.stack_max s2.stack_max /\
-      (c.gc_kind <> None ==> ~s2.safe_for_space)) /\
+      r.ffi = t.ffi ∧ option_le r.stack_max s2_cut.stack_max ∧
+      (c.gc_kind <> None ==> ~s2_cut.safe_for_space)) ∧
      (q <> SOME NotEnoughSpace ==>
-      state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)``;
+      state_rel c l1 l2 (set_var dest v s2_cut) r [] locs ∧ q = NONE)”;
 
 val evaluate_Assign =
   SIMP_CONV(srw_ss())[wordSemTheory.evaluate_def]``evaluate (Assign _ _, _)``
@@ -13404,7 +13405,7 @@ QED
 Theorem assign_FFI_final:
    state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
    (op_requires_names (FFI i) ==> names_opt <> NONE) /\
-   cut_state_opt names_opt s = SOME x /\
+   cut_state_opt (OPTION_MAP (list_insert args) names_opt) s = SOME x /\
    get_vars args x.locals = SOME vals /\
    t.termdep > 1 /\
    do_app (FFI i) vals x = Rerr(Rabort(Rffi_error f)) ==>
