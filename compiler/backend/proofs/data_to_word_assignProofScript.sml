@@ -6243,7 +6243,7 @@ val BIT_Lemma2 = prove(
   \\ fs [LESS_DIV_EQ_ZERO]);
 
 Theorem assign_WordFromInt:
-   op = WordOp WordFromInt ==> ^assign_thm_goal
+  op = WordOp WordFromInt ==> ^assign_thm_goal
 Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
@@ -6709,7 +6709,7 @@ Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
 QED
 
 Theorem assign_TagEq:
-   (?tag. op = BlockOp (TagEq tag)) ==> ^assign_thm_goal
+  (∃tag. op = BlockOp (TagEq tag)) ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac
@@ -6897,7 +6897,7 @@ Proof
 QED
 
 Theorem assign_TagLenEq:
-   (?tag len. op = BlockOp (TagLenEq tag len)) ==> ^assign_thm_goal
+  (∃tag len. op = BlockOp (TagLenEq tag len)) ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -7022,7 +7022,7 @@ Proof
 QED
 
 Theorem assign_LenEq:
-   (?len. op = BlockOp (LenEq len)) ==> ^assign_thm_goal
+  (∃len. op = BlockOp (LenEq len)) ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -7278,7 +7278,7 @@ Proof
 QED
 
 Theorem assign_Add:
-   op = IntOp Add ==> ^assign_thm_goal
+  op = IntOp Add ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -7397,7 +7397,7 @@ Proof
 QED
 
 Theorem assign_Sub:
-   op = IntOp Sub ==> ^assign_thm_goal
+  op = IntOp Sub ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -8267,7 +8267,7 @@ Proof
 QED
 
 Theorem assign_LengthByte:
-   op = MemOp LengthByte ==> ^assign_thm_goal
+  op = MemOp LengthByte ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -8365,7 +8365,7 @@ Proof
 QED
 
 Theorem assign_LengthBlock:
-   op = BlockOp LengthBlock ==> ^assign_thm_goal
+  op = BlockOp LengthBlock ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -8524,7 +8524,7 @@ Proof
 QED
 
 Theorem assign_BoundsCheckArray[allow_rebind]:
-   op = MemOp BoundsCheckArray ==> ^assign_thm_goal
+  op = MemOp BoundsCheckArray ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -8600,7 +8600,7 @@ Proof
 QED
 
 Theorem assign_BoundsCheckByte[allow_rebind]:
-   (?leq. op = MemOp (BoundsCheckByte leq)) ==> ^assign_thm_goal
+  (∃leq. op = MemOp (BoundsCheckByte leq)) ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -8670,7 +8670,7 @@ Proof
 QED
 
 Theorem assign_LessSmallConst[allow_rebind]:
-   (?i. op = IntOp (LessConstSmall i)) ==> ^assign_thm_goal
+  (∃i. op = IntOp (LessConstSmall i)) ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -8962,7 +8962,7 @@ Proof
 QED
 
 Theorem assign_Less:
-   op = IntOp Less ==> ^assign_thm_goal
+  op = IntOp Less ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -9094,7 +9094,7 @@ Proof
 QED
 
 Theorem assign_LessEq:
-   op = IntOp LessEq ==> ^assign_thm_goal
+  op = IntOp LessEq ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -9269,7 +9269,7 @@ Theorem MemEqList_thm = MemEqList_thm
   |> Q.SPEC `0w` |> SIMP_RULE std_ss [WORD_ADD_0];
 
 Theorem assign_EqualConst:
-   (?p. op = BlockOp (EqualConst p)) ==> ^assign_thm_goal
+  (∃p. op = BlockOp (EqualConst p)) ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ rveq \\ fs []
@@ -9863,7 +9863,7 @@ Proof
 QED
 
 Theorem assign_Equal:
-   op = BlockOp Equal ==> ^assign_thm_goal
+  op = BlockOp Equal ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -10016,7 +10016,7 @@ Proof
 QED
 
 Theorem assign_WordOpW8:
-   (?opw. op = WordOp (WordOpw W8 opw)) ==> ^assign_thm_goal
+  (∃opw. op = WordOp (WordOpw W8 opw)) ==> ^assign_thm_goal
 Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
