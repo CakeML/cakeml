@@ -11609,31 +11609,28 @@ Proof
 QED
 
 Theorem assign_Label:
-   (?lab. op = Label lab) ==> ^assign_thm_goal
+  (∃lab. op = Label lab) ==> ^assign_thm_goal
 Proof
-  cheat (*
-  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
-  \\ `t.termdep <> 0` by fs[]
-  \\ rpt_drule0 state_rel_cut_IMP
-  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ fs [assign_def] \\ fs [do_app,allowed_op_def]
-  \\ Cases_on `vals` \\ fs []
-  \\ qpat_assum `_ = Rval (v,s2)` mp_tac
-  \\ IF_CASES_TAC \\ fs []
-  \\ rveq \\ fs []
-  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
-  \\ simp [state_rel_thm] \\ eval_tac
-  \\ fs [state_rel_thm] \\ eval_tac
+  rpt strip_tac
+  \\ gvs [dataLangTheory.op_requires_names_def,
+          dataLangTheory.op_space_reset_def,
+          dataSemTheory.cut_state_opt_def,
+          dataSemTheory.allowed_op_def]
+  \\ gvs [do_app,AllCaseEqs()]
+  \\ fs [assign_def,eq_eval]
+  \\ fs [state_rel_thm]
   \\ fs [domain_lookup,lookup_map]
   \\ reverse IF_CASES_TAC THEN1
    (sg `F` \\ fs [code_rel_def]
     \\ rename1 `lookup _ s2.code = SOME zzz` \\ PairCases_on `zzz`
     \\ res_tac \\ fs []) \\ fs []
+  \\ fs [wordSemTheory.set_var_def,set_var_def]
   \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE]
-  \\ rw [] \\ fs [] \\ rw [] \\ fs [option_le_max_right]
+  \\ conj_tac >- rw []
+  \\ fs [option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
-  \\ match_mp_tac memory_rel_CodePtr \\ fs [] *)
+  \\ match_mp_tac memory_rel_CodePtr \\ fs []
 QED
 
 Theorem do_app_Ref:
