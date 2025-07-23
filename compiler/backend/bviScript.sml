@@ -48,4 +48,8 @@ Datatype:
       | Op op (exp list)
 End
 
+Overload mk_unit = “bvi$Op (BlockOp (Cons 0)) []”
+
+Overload mk_elem_at = “λb i. bvi$Op (BlockOp (ElemAt i)) [b]”
+
 val _ = export_theory();

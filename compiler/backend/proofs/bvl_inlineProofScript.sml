@@ -235,7 +235,7 @@ Proof
         \\ gvs [PULL_EXISTS]
         \\ `evaluate (remove_ticks [AppUnit],[v],dec_clock 1 r) =
            evaluate ([AppUnit],[v],dec_clock 1 r)`
-          by gvs [AppUnit_def, mk_unit_def, remove_ticks_def]
+          by gvs [AppUnit_def, remove_ticks_def]
         \\ gvs []
         \\ `(dec_clock 1 r).clock < s.clock` by (
           imp_res_tac evaluate_clock \\ gvs [dec_clock_def])
@@ -1604,7 +1604,7 @@ Proof
         \\ `s'.clock = t2.clock` by gvs [let_state_rel_def] \\ gvs []
         \\ `let_state_rel q4 l4 (dec_clock 1 s') (dec_clock 1 t2)`
           by gvs [let_state_rel_def, dec_clock_def]
-        \\ last_x_assum drule \\ rw [AppUnit_def, let_op_def, mk_unit_def]
+        \\ last_x_assum drule \\ rw [AppUnit_def, let_op_def]
         \\ gvs []
         \\ gvs [let_state_rel_def]))
     \\ fs [case_eq_thms] \\ rveq \\ fs []

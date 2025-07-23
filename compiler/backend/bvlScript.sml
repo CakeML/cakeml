@@ -45,4 +45,8 @@ Definition mk_tick_def:
   mk_tick n e = FUNPOW Tick n e : bvl$exp
 End
 
+Overload mk_unit = “bvl$Op (BlockOp (Cons 0)) []”
+
+Overload mk_elem_at = “λb i. bvl$Op (BlockOp (ElemAt i)) [b]”;
+
 val _ = export_theory();

@@ -2310,7 +2310,7 @@ Proof
           gvs [state_rel_def, bvlSemTheory.dec_clock_def, dec_clock_def] \\ gvs []
         \\ last_x_assum $ drule_at (Pat `state_rel _ _ _`)
         \\ simp [bvlSemTheory.AppUnit_def, compile_exps_def, compile_op_def,
-                 compile_int_def, bvlSemTheory.mk_unit_def]
+                 compile_int_def]
         \\ impl_tac
         >- (
           rw [handle_ok_def, aux_code_installed_def]
@@ -2386,7 +2386,7 @@ Proof
             gvs [state_rel_def, bvlSemTheory.dec_clock_def, dec_clock_def] \\ gvs []
           \\ last_x_assum $ drule_at (Pat `state_rel _ _ _`)
           \\ simp [bvlSemTheory.AppUnit_def, compile_exps_def, compile_op_def,
-                   compile_int_def, bvlSemTheory.mk_unit_def]
+                   compile_int_def]
           \\ impl_tac
           >- (
             rw [handle_ok_def, aux_code_installed_def]

@@ -39,8 +39,6 @@ val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvlSem"};
 val _ = temp_bring_to_front_overload"num_stubs"{Name="num_stubs",Thy="clos_to_bvl"};
 val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos_to_bvl"};
 
-Overload mk_elem_at[local] = “λb i. bvl$Op (BlockOp (ElemAt i)) [b]”;
-
 (* TODO: move? *)
 
 val EVERY2_GENLIST = LIST_REL_GENLIST |> EQ_IMP_RULE |> snd |> Q.GEN`l`
@@ -4043,7 +4041,7 @@ Proof
          \\ gvs [evaluate_def, clos_tag_shift_def, mk_cl_call_def, do_app_def,
                  do_int_app_def]
          \\ Cases_on `r2`
-         \\ gvs [AllCaseEqs(), PULL_EXISTS, mk_unit_def, evaluate_def,
+         \\ gvs [AllCaseEqs(), PULL_EXISTS, evaluate_def,
                  generic_app_fn_location_def]
          \\ goal_assum drule \\ gvs [])
         \\ gvs [oneline closSemTheory.update_thunk_def, oneline update_thunk_def,
@@ -4109,7 +4107,7 @@ Proof
         \\ qrefinel [`_`, `Rerr e'`, `t2'`] \\ rw [GSYM PULL_EXISTS]
         >- (
          gvs [AppUnit_def]
-         \\ simp [do_app_def, do_int_app_def, mk_unit_def, evaluate_def]
+         \\ simp [do_app_def, do_int_app_def, evaluate_def]
          \\ qexists `ck'` \\ gvs []
          \\ gvs [evaluate_def, mk_cl_call_def, generic_app_fn_location_def,
                  do_app_def, clos_tag_shift_def, find_code_def]

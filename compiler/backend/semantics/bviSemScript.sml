@@ -195,14 +195,9 @@ End
 
 Definition AppUnit_def:
   AppUnit =
-      If (Op (BlockOp Equal)
-           [Op (IntOp (Const 0)) [];
-            Op (MemOp El) [Op (IntOp (Const 1)) []; Var 0]])
-       (Call 0 NONE
-             [Op (BlockOp (Cons 0)) []; Var 0;
-              Op (MemOp El) [Op (IntOp (Const 0)) []; Var 0]]
-             NONE)
-       (Call 0 (SOME num_stubs) [Op (BlockOp (Cons 0)) []; Var 0] NONE)
+    If (Op (BlockOp (EqualConst (Int 0))) [mk_elem_at (Var 0) 1])
+       (Call 0 NONE [mk_unit; Var 0; mk_elem_at (Var 0) 0] NONE)
+       (Call 0 (SOME num_stubs) [mk_unit; Var 0] NONE)
 End
 
 

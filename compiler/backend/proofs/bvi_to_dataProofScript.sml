@@ -667,25 +667,20 @@ QED
 Theorem AppUnit_eq:
   evaluate (AppUnit,t) =
     evaluate (Seq
-             (Seq
-                (Seq (Seq Skip (Assign 1 (IntOp (Const 0)) [] NONE))
+               (Seq
+                 (Seq Skip (Assign 1 (BlockOp (ElemAt 1)) [0] NONE))
+                 (Assign 2 (BlockOp (EqualConst (Int 0))) [1] NONE))
+               (If 2
+                 (Seq
                    (Seq
-                      (Seq (Seq Skip (Assign 2 (IntOp (Const 1)) [] NONE))
-                         Skip) (Assign 3 (MemOp El) [0; 2] NONE)))
-                (Assign 4 (BlockOp Equal) [3; 1]
-                   (SOME (list_to_num_set [3; 1; 0]))))
-             (If 4
-                (Seq
-                   (Seq (Seq Skip (Assign 5 (BlockOp (Cons 0)) [] NONE))
-                      (Seq Skip
-                         (Seq
-                            (Seq
-                               (Seq Skip (Assign 6 (IntOp (Const 0)) [] NONE))
-                               Skip) (Assign 7 (MemOp El) [0; 6] NONE))))
-                   (Call NONE NONE [5; 0; 7] NONE))
-                (Seq
-                   (Seq (Seq Skip (Assign 9 (BlockOp (Cons 0)) [] NONE)) Skip)
-                   (Call NONE (SOME bvl_num_stubs) [9; 0] NONE))),t)
+                     (Seq Skip (Assign 3 (BlockOp (Cons 0)) [] NONE))
+                     (Seq
+                       Skip
+                       (Seq Skip (Assign 4 (BlockOp (ElemAt 0)) [0] NONE))))
+                   (Call NONE NONE [3; 0; 4] NONE))
+                 (Seq
+                   (Seq (Seq Skip (Assign 6 (BlockOp (Cons 0)) [] NONE)) Skip)
+                   (Call NONE (SOME bvl_num_stubs) [6; 0] NONE))),t)
 Proof
   simp [AppUnit_def]
   \\ simp [evaluate_def, dataLangTheory.op_requires_names_def,

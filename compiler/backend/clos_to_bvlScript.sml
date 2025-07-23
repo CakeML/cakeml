@@ -177,8 +177,6 @@ Definition mk_el_def[simp]:
   mk_el b i : bvl$exp = Op (MemOp El) [i; b]
 End
 
-Overload mk_elem_at[local] = “λb i. bvl$Op (BlockOp (ElemAt i)) [b]”;
-
 Definition free_let_def:
   free_let cl n = (GENLIST (\n. mk_elem_at cl (n+2)) n)
 End

@@ -528,14 +528,10 @@ Definition update_thunk_def:
   update_thunk _ _ _ = NONE
 End
 
-Definition mk_unit_def:
-  mk_unit = bvl$Op (BlockOp (Cons 0)) []
-End
-
 Definition AppUnit_def:
   AppUnit =
-    If (Op (BlockOp Equal) [mk_const 0; mk_el (Var 0) (mk_const 1)])
-       (Call 0 NONE [mk_unit; Var 0; mk_el (Var 0) (mk_const 0)])
+    If (Op (BlockOp (EqualConst (Int 0))) [mk_elem_at (Var 0) 1])
+       (Call 0 NONE [mk_unit; Var 0; mk_elem_at (Var 0) 0])
        (Call 0 (SOME 0) [mk_unit; Var 0])
 End
 
