@@ -61,9 +61,23 @@ Definition wrap_old_def:
 End
 
 Definition freevars_def:
-  freevars (Var n) = {n} ∧
-  freevars (Lit _) = {} ∧
-  freevars _ = ARB (* TODO *)
+  (freevars (Let binds body) ⇔
+     (freevars body) DIFF (set (MAP FST binds))) ∧
+  (freevars (Var n) ⇔ {n}) ∧
+  (freevars (Lit _) ⇔ {}) ∧
+  (freevars (If grd thn els) ⇔
+     freevars grd UNION freevars thn UNION freevars els) ∧
+  (freevars (UnOp _ e) ⇔ freevars e) ∧
+  (freevars (BinOp _ e₀ e₁) ⇔
+     (freevars e₀) UNION (freevars e₁)) ∧
+  (freevars (ArrLen arr) ⇔ freevars arr) ∧
+  (freevars (ArrSel arr idx) ⇔
+     freevars arr UNION freevars idx) ∧
+  (freevars (FunCall _ args) ⇔
+     BIGUNION (set (MAP freevars args))) ∧
+  (freevars (Forall (vn,_) e) ⇔
+     freevars e DELETE vn) ∧
+  (freevars (Old e) ⇔ freevars e)
 End
 
 Definition no_Old_def:
@@ -692,20 +706,36 @@ Proof
   \\ drule_all eval_exp_Let_rl \\ simp []
 QED
 
-Theorem eval_exp_swap_locals:
-  ALOOKUP st.locals = ALOOKUP l ⇒
-  eval_exp st env e =
-  eval_exp (st with locals := l) env e
+Theorem evaluate_exp_freevars:
+  (∀st env e st' r l2.
+     (∀n. n ∈ freevars e ⇒ ALOOKUP st.locals n = ALOOKUP l2 n) ⇒
+     evaluate_exp st env e = (st', r) ⇒
+     evaluate_exp (st with locals := l2) env e = (st' with locals := l2, r)) ∧
+  (∀st env es st' r l2.
+     EVERY (λe. (∀n. n ∈ freevars e ⇒ ALOOKUP st.locals n = ALOOKUP l2 n)) es ⇒
+     evaluate_exps st env es = (st', r) ⇒
+     evaluate_exps (st with locals := l2) env es = (st' with locals := l2, r))
 Proof
-  cheat
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Let binds body’] >-
+   (cheat)
+  >~ [‘Lit l’] >-
+   (gvs [evaluate_exp_def])
+  \\ cheat
 QED
 
-Theorem eval_exp_swap_locals_alt:
-  ALOOKUP l' = ALOOKUP l ∧
-  eval_exp (st with locals := l') env e v ⇒
-  eval_exp (st with locals := l) env e v
+Triviality eval_exp_freevars:
+  (∀n. n ∈ freevars e ⇒ ALOOKUP l1 n = ALOOKUP l2 n) ⇒
+  eval_exp (st with locals := l1) env e v ⇒
+  eval_exp (st with locals := l2) env e v
 Proof
-  cheat
+  rpt strip_tac
+  \\ qsuff_tac ‘eval_exp ((st with locals := l1) with locals := l2) env e v’
+  >- (simp [])
+  \\ gvs [eval_exp_def]
+  \\ drule_at (Pos last) (cj 1 evaluate_exp_freevars) \\ simp []
+  \\ disch_then $ irule_at Any \\ simp []
 QED
 
 Theorem eval_exp_freevars:
@@ -713,7 +743,32 @@ Theorem eval_exp_freevars:
   eval_exp (st with locals := l1) env e v =
   eval_exp (st with locals := l2) env e v
 Proof
-  cheat
+  strip_tac \\ iff_tac \\ metis_tac [eval_exp_freevars]
+QED
+
+Theorem eval_exp_swap_locals_alt:
+  ALOOKUP l' = ALOOKUP l ∧
+  eval_exp (st with locals := l') env e v ⇒
+  eval_exp (st with locals := l) env e v
+Proof
+  rpt strip_tac
+  \\ ‘∀n. n ∈ freevars e ⇒ ALOOKUP l' n = ALOOKUP l n’ by (gvs [])
+  \\ drule (iffLR eval_exp_freevars) \\ gvs []
+QED
+
+Theorem eval_exp_swap_locals:
+  ALOOKUP st.locals = ALOOKUP l ⇒
+  eval_exp st env e =
+  eval_exp (st with locals := l) env e
+Proof
+  strip_tac
+  \\ simp [FUN_EQ_THM]
+  \\ strip_tac
+  \\ iff_tac \\ strip_tac
+  >-
+   (drule eval_exp_swap_locals_alt
+    \\ disch_then $ irule_at $ Pos hd \\ simp [])
+  \\ drule_all $ GSYM eval_exp_swap_locals_alt \\ simp []
 QED
 
 Triviality ALOOKUP_MAP_SOME:
