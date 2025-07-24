@@ -848,17 +848,79 @@ Definition encode_count_def:
     ilpc
 End
 
+Theorem iSUM_MAP_lin:
+  ∀ls a f b. iSUM (MAP (λx. a * f x + b) ls) = a * iSUM (MAP (λx. f x) ls) + b * &LENGTH ls
+Proof
+  Induct>>
+  simp[iSUM_def,MAP,LENGTH]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
 Theorem encode_count_sem:
   valid_assignment bnd wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb)) (encode_count bnd Y C As) = (
     EVERY (λA. wb (Gem A Y) ⇔ varc wi A ≥ varc wi Y) As ∧
     EVERY (λA. wb (Gem Y A) ⇔ varc wi Y ≥ varc wi A) As ∧
-    EVERY (λA. wb (Eqc A Y) ⇔ wb (Gem A Y) ∧ wb (Gem Y A)) As ∧
+    EVERY (λA. wb (Eqc A Y) ⇔ varc wi A = varc wi Y) As ∧
     count_sem Y C As wi)
 Proof
   strip_tac>>
   simp[encode_count_def]>>
-  (* FROM HERE *)
+  ho_match_mp_tac (
+    METIS_PROVE[]
+      “∀P1 P2 P3 P4 P5 P6 P7 Q1 Q2 Q3 Q4.
+        (Q3 ⇒ (P7 ⇔ Q4)) ∧
+        (Q1 ∧ Q2 ⇒ (P5 ∧ P6 ⇔ Q3)) ∧
+        (P1 ∧ P2 ⇔ Q1) ∧
+        (P3 ∧ P4 ⇔ Q2) ⇒
+        ((((((P1 ∧ P2) ∧ P3) ∧ P4) ∧ P5) ∧ P6) ∧ P7 ⇔ Q1 ∧ Q2 ∧ Q3 ∧ Q4)”)>>
+  simp[EVERY_MAP,EVERY_MEM]>>
+  CONJ_TAC
+  >-(
+    Cases_on ‘C’>>
+    simp[count_sem_def]>>
+    rw[METIS_PROVE[] “∀P a b. (∀x. x = a ∨ x = b ⇒ P x) ⇔ P a ∧ P b”]>>
+    simp[iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
+      MAP_MAP_o,combinTheory.o_ABS_R,b2i_alt,iSUM_def,Once varc_def]>>
+    ‘(∀A. MEM A As ⇒ (wb (Eqc A Y) ⇔ varc wi A = varc wi Y)) ⇒
+     iSUM (MAP (λA. if wb (Eqc A Y) then 1 else 0) As) =
+     iSUM (MAP (λA. if varc wi A = varc wi Y then 1 else 0) As)’ by simp[Cong MAP_CONG]>>
+    gvs[]>>
+    qspecl_then [‘As’, ‘-1’, ‘λA. if wb (Eqc A Y) then 1 else 0’, ‘0’]
+      assume_tac iSUM_MAP_lin>>
+    gvs[]>>
+    intLib.ARITH_TAC)
+  >-(
+    rw[]>>
+    ho_match_mp_tac (
+      METIS_PROVE[]
+        “∀P Q1 Q2 Q3.
+          (∀x. P x ⇒ (Q1 x ∧ Q2 x ⇔ Q3 x)) ⇒
+          ((∀x. P x ⇒ Q1 x) ∧ (∀x. P x ⇒ Q2 x) ⇔
+            ∀x. P x ⇒ Q3 x)”)>>
+    rw[]>>
+    simp[bits_imply_sem,mk_constraint_ge_sem,iconstraint_sem_def,
+      eval_ilin_term_def,eval_lin_term_def,b2i_alt,iSUM_def,
+      GSYM integerTheory.INT_LE_ANTISYM]>>
+    fs[integerTheory.INT_GE]>>
+    last_x_assum $ kall_tac>>
+    rw[]>>
+    (
+      iff_tac>>
+      rw[]
+      >-(
+        iff_tac
+        >-(
+          rw[]>>
+          gvs[]>>
+          intLib.ARITH_TAC)
+        >-(
+          simp[Once MONO_NOT_EQ]>>
+          rw[]>>
+          gvs[]>>
+          intLib.ARITH_TAC))>>
+      intLib.ARITH_TAC))
 QED
 
 (* The top-level encodings *)
