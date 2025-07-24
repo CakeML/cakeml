@@ -62,7 +62,8 @@ End
 
 Definition freevars_def:
   (freevars (Let binds body) ⇔
-     (freevars body) DIFF (set (MAP FST binds))) ∧
+     (BIGUNION (set (MAP freevars (MAP SND binds))))
+      UNION ((freevars body) DIFF (set (MAP FST binds)))) ∧
   (freevars (Var n) ⇔ {n}) ∧
   (freevars (Lit _) ⇔ {}) ∧
   (freevars (If grd thn els) ⇔
@@ -78,6 +79,14 @@ Definition freevars_def:
   (freevars (Forall (vn,_) e) ⇔
      freevars e DELETE vn) ∧
   (freevars (Old e) ⇔ freevars e)
+Termination
+  wf_rel_tac ‘measure $ exp_size’
+  \\ rpt strip_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
+  \\ rewrite_tac [list_exp_size_snd]
+  \\ drule MEM_list_size
+  \\ disch_then $ qspec_then ‘exp_size’ assume_tac
+  \\ gvs []
 End
 
 Definition no_Old_def:
@@ -719,7 +728,9 @@ Proof
   ho_match_mp_tac evaluate_exp_ind
   \\ rpt strip_tac
   >~ [‘Let binds body’] >-
-   (cheat)
+   (gvs [evaluate_exp_def, freevars_def, UNZIP_MAP]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ cheat)
   >~ [‘Lit l’] >-
    (gvs [evaluate_exp_def])
   \\ cheat
