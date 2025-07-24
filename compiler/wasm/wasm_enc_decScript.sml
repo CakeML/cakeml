@@ -214,6 +214,7 @@ Proof
 QED
 
 
+(* Magnus orig code *)
 (* --- example --- *)
 
 Definition encode_def:
@@ -237,6 +238,7 @@ Proof
 QED
 
 (* --- example --- *)
+(* End Magnus orig code *)
 
 
 
@@ -250,14 +252,20 @@ QED
   (*   Helpers   *)
   (***************)
 
-Overload selWidth = “λbool. if bool then W64      else W32”
-Overload selSign  = “λbool. if bool then Unsigned else Signed”
+Overload selWidth = “λ(b:bool). if b then W64      else W32”
+Overload selSign  = “λ(b:bool). if b then Unsigned else Signed”
 
+  (********************)
+  (*   Number types   *)
+  (********************)
 
-
-  (****************)
-  (*   Numtypes   *)
-  (****************)
+Definition encode_numtype_def:
+  encode_numtype (t:numtype) : byte = case t of
+  | (NT Int   W32) => 0x7Fw
+  | (NT Int   W64) => 0x7Ew
+  | (NT Float W32) => 0x7Dw
+  | (NT Float W64) => 0x7Cw
+End
 
 Definition decode_numtype_def:
   decode_numtype (b:byte) : numtype option =
@@ -266,14 +274,6 @@ Definition decode_numtype_def:
   if b = 0x7Ew then SOME (NT Int   W64) else
   if b = 0x7Dw then SOME (NT Float W32) else
   if b = 0x7Cw then SOME (NT Float W64) else NONE
-End
-
-Definition encode_numtype_def:
-  encode_numtype (t:numtype) : byte = case t of
-  | (NT Int   W32) => 0x7Fw
-  | (NT Int   W64) => 0x7Ew
-  | (NT Float W32) => 0x7Dw
-  | (NT Float W64) => 0x7Cw
 End
 
 Theorem dec_enc_numtype[simp]:
@@ -292,6 +292,49 @@ Proof
 
   simp[decode_numtype_def, encode_numtype_def]
 QED *)
+
+  (*******************)
+  (*   Value types   *)
+  (*******************)
+
+Datatype: valtype
+  = Tnum numtype
+  | Tvec
+  | TFunRef
+  | TExtRef
+End
+
+Definition encode_valtype_def:
+  encode_valtype (t:valtype) : byte = case t of
+  | Tnum (NT Int   W32) => 0x7Fw
+  | Tnum (NT Int   W64) => 0x7Ew
+  | Tnum (NT Float W32) => 0x7Dw
+  | Tnum (NT Float W64) => 0x7Cw
+  | Tvec                => 0x7Bw
+  | TFunRef             => 0x70w
+  | TExtRef             => 0x6Fw
+End
+
+Definition decode_valtype_def:
+  decode_valtype (b:byte) : valtype option =
+  if b = 0x7Fw then SOME (Tnum (NT Int   W32)) else
+  if b = 0x7Ew then SOME (Tnum (NT Int   W64)) else
+  if b = 0x7Dw then SOME (Tnum (NT Float W32)) else
+  if b = 0x7Cw then SOME (Tnum (NT Float W64)) else
+  if b = 0x7Bw then SOME (Tvec               ) else
+  if b = 0x70w then SOME (TFunRef            ) else
+  if b = 0x6Fw then SOME (TExtRef            ) else NONE
+End
+
+Theorem dec_enc_valtype[simp]:
+  ∀ t. decode_valtype (encode_valtype t) = SOME t
+Proof
+  cheat
+  (* Cases >>
+  simp[decode_valtype_def, encode_valtype_def] *)
+QED
+
+
 
   (****************************)
   (*   Numeric Instructions   *)

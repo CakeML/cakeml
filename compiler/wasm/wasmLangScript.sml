@@ -47,6 +47,13 @@ Overload i64 = “NT Int   W64”
 Overload f32 = “NT Float W32”
 Overload f64 = “NT Float W64”
 
+Datatype: valtype
+  = Tnum numtype
+  | Tvec
+  | TFunRef
+  | TExtRef
+End
+
 (********************************)
 (*                              *)
 (*     Numeric Instructions     *)
