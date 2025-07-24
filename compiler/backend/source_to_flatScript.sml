@@ -89,8 +89,8 @@ Definition astOp_to_flatOp_def:
   | FP_uop uop => flatLang$FP_uop uop
   | FP_bop bop => flatLang$FP_bop bop
   | FP_top t_op => flatLang$FP_top t_op
-  | FpFromWord => Id
-  | FpToWord => Id
+  | FpFromWord => flatLang$FpFromWord
+  | FpToWord => flatLang$FpToWord
   | Equality => flatLang$Equality
   | Opapp => flatLang$Opapp
   | Opassign => flatLang$Opassign
