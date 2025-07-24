@@ -201,21 +201,21 @@ Overload i64_eqz = “N_test (Eqz W64)”
 Overload i32_wrap_i64        = “N_convert Wrap_i64”
 
 Overload i32_trunc_f32_s     = “N_convert (Trunc_f W32   Signed W32)”
-Overload i32_trunc_f64_s     = “N_convert (Trunc_f W64   Signed W32)”
 Overload i32_trunc_f32_u     = “N_convert (Trunc_f W32 Unsigned W32)”
+Overload i32_trunc_f64_s     = “N_convert (Trunc_f W64   Signed W32)”
 Overload i32_trunc_f64_u     = “N_convert (Trunc_f W64 Unsigned W32)”
 Overload i64_trunc_f32_s     = “N_convert (Trunc_f W32   Signed W64)”
-Overload i64_trunc_f64_s     = “N_convert (Trunc_f W64   Signed W64)”
 Overload i64_trunc_f32_u     = “N_convert (Trunc_f W32 Unsigned W64)”
+Overload i64_trunc_f64_s     = “N_convert (Trunc_f W64   Signed W64)”
 Overload i64_trunc_f64_u     = “N_convert (Trunc_f W64 Unsigned W64)”
 
 Overload i32_trunc_sat_f32_s = “N_convert (Trunc_sat_f W32   Signed W32)”
-Overload i32_trunc_sat_f64_s = “N_convert (Trunc_sat_f W64   Signed W32)”
 Overload i32_trunc_sat_f32_u = “N_convert (Trunc_sat_f W32 Unsigned W32)”
+Overload i32_trunc_sat_f64_s = “N_convert (Trunc_sat_f W64   Signed W32)”
 Overload i32_trunc_sat_f64_u = “N_convert (Trunc_sat_f W64 Unsigned W32)”
 Overload i64_trunc_sat_f32_s = “N_convert (Trunc_sat_f W32   Signed W64)”
-Overload i64_trunc_sat_f64_s = “N_convert (Trunc_sat_f W64   Signed W64)”
 Overload i64_trunc_sat_f32_u = “N_convert (Trunc_sat_f W32 Unsigned W64)”
+Overload i64_trunc_sat_f64_s = “N_convert (Trunc_sat_f W64   Signed W64)”
 Overload i64_trunc_sat_f64_u = “N_convert (Trunc_sat_f W64 Unsigned W64)”
 
 Overload f32_demote_f64      = “N_convert  Demote ”
