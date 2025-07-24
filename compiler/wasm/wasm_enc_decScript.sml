@@ -8,6 +8,24 @@ val _ = new_theory "wasm_enc_dec";
 
 (* --- basic LEB128 functions --- *)
 
+Type byte[local]       = “:word8”
+Type byteStream[local] = “:word8 list”
+
+Overload        n128[local] = “(128:num)”
+Overload     under7b[local] = “λ n. (n <   n128)”         (* : num -> bool    *)
+Overload      last7b[local] = “λ n. (n MOD n128)”         (* : num -> num     *)
+Overload sans_last7b[local] = “λ n. (n DIV n128)”         (* : num -> num     *)
+Overload     not_MSB[local] = “word_msb”                  (* : α word -> bool *)
+Overload      mk_lsB[local] = “λ n.128w + n2w (last7b n)” (* : num -> byte    *)
+(*           under7b := is a num representable in 7 bits / is less than 128
+              last7b := the last 7 bits of the binary rep of a num
+         sans_last7b := binary rep of a num with last 7 bits truncated
+             not_MSB := not the most sig Byte of a LEB128 encoded int
+              mk_lsB := LEB128 encode 7 bits into a less significant (than the most) Byte
+         *)
+
+
+
 Definition read_num_def:
   read_num [] = NONE ∧
   read_num (b::rest) =
