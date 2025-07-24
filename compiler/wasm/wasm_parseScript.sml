@@ -1,13 +1,14 @@
 (*
   WASM parser -- supports part of WASM text format
 *)
-(* open preamble;
+open preamble;
 open dafny_sexpTheory;
-open wasmTheory;
+open wasmLangTheory;
 open mlintTheory mlstringTheory;
 
 val _ = new_theory "wasm_parse";
 
+(*
 Definition parse_sexp_def:
   parse_sexp input =
     do
@@ -148,5 +149,6 @@ Quote tm = as_hol_term_string:
 End
 
 val res = EVAL “parse_wasm ^tm”
+*)
 
-val _ = export_theory(); *)
+val _ = export_theory();
