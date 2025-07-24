@@ -240,9 +240,13 @@ Datatype: vec_binary_op
   (* both *)
   | (*  all *) Vadd shape
   | (*  all *) Vsub shape
-  | (*  all *) Vmul shape (* i16x8 is really "q15mulr_sat_s" *)
+
 
   (* int *)
+  | (* 16x8 *) VmulQ15
+  | (* 16x8 *) VmulI16
+  | (* 32x4 *) VmulI32
+  | (* 64x2 *) VmulI64
   | (* IS3  *) Vmin_     sign ishap3
   | (* IS3  *) Vmax_     sign ishap3
   | (* IS2  *) Vadd_sat_ sign ishap2
@@ -250,6 +254,7 @@ Datatype: vec_binary_op
   | (* IS2  *) Vavgr_u        ishap2
 
   (* float *)
+  | (* fall *) VmulF fshape
   | (* fall *) Vdiv  fshape
   | (* fall *) Vmin  fshape
   | (* fall *) Vmax  fshape
@@ -325,7 +330,10 @@ Datatype: vec_lane_op
   | VextractI64x2
   | VextractF    fshape
   | Vreplace      shape
-  | (* v128 *) Vshuffle
+  | Vshuffle laneidx laneidx laneidx laneidx
+             laneidx laneidx laneidx laneidx
+             laneidx laneidx laneidx laneidx
+             laneidx laneidx laneidx (* from V_lane *)
 End
 
 Datatype: vec_instr
@@ -338,7 +346,7 @@ Datatype: vec_instr
   | V_shift    vec_shift_op
   | V_convert  vec_convert_op
   | V_splat    shape   (* vec_splat_op *)
-  | V_lane     vec_lane_op
+  | V_lane     vec_lane_op laneidx
 
 End
 

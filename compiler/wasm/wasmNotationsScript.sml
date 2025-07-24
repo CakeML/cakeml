@@ -264,7 +264,7 @@ Overload v128_const = “V_const”
   (*   V Unaries   *)
   (*****************)
 
-Overload v128_const    = “V_unary  Vnot”
+Overload v128_not    = “V_unary  Vnot”
 
 Overload i8x16_bitmask = “V_unary (Vbitmask e8x16)”
 Overload i16x8_bitmask = “V_unary (Vbitmask e16x8)”
@@ -312,14 +312,14 @@ Overload v128_andNot = “V_binary VandNot”
 Overload v128_or     = “V_binary Vor”
 Overload v128_xor    = “V_binary Vxor”
 
-Overload v128_swizzle = “V_binary Vswizzle”
+Overload i8x16_swizzle = “V_binary Vswizzle”
 
 Overload i8x16_narrow_i16x8_s = “V_binary (Vnarrow   Signed I8x16)”
 Overload i8x16_narrow_i16x8_u = “V_binary (Vnarrow Unsigned I8x16)”
 Overload i16x8_narrow_i32x4_s = “V_binary (Vnarrow   Signed I16x8)”
 Overload i16x8_narrow_i32x4_u = “V_binary (Vnarrow Unsigned I16x8)”
 
-Overload v128_dot = “V_binary Vdot”
+Overload i32x4_dot_i16x8_s = “V_binary Vdot”
 
 Overload i8x16_add = “V_binary (Vadd i8x16)”
 Overload i16x8_add = “V_binary (Vadd i16x8)”
@@ -335,12 +335,12 @@ Overload i64x2_sub = “V_binary (Vsub i64x2)”
 Overload f32x4_sub = “V_binary (Vsub f32x4)”
 Overload f64x2_sub = “V_binary (Vsub f64x2)”
 
-Overload i8x16_mul = “V_binary (Vmul i8x16)”
-Overload i16x8_mul = “V_binary (Vmul i16x8)”
-Overload i32x4_mul = “V_binary (Vmul i32x4)”
-Overload i64x2_mul = “V_binary (Vmul i64x2)”
-Overload f32x4_mul = “V_binary (Vmul f32x4)”
-Overload f64x2_mul = “V_binary (Vmul f64x2)”
+Overload i16x8_q15mulr_sat_s = “V_binary VmulQ15”
+Overload i16x8_mul = “V_binary VmulI16”
+Overload i32x4_mul = “V_binary VmulI32”
+Overload i64x2_mul = “V_binary VmulI64”
+Overload f32x4_mul = “V_binary (VmulF F32x4)”
+Overload f64x2_mul = “V_binary (VmulF F64x2)”
 
 Overload i8x16_min_s = “V_binary (Vmin_   Signed t8x16)”
 Overload i8x16_min_u = “V_binary (Vmin_ Unsigned t8x16)”
@@ -388,7 +388,7 @@ Overload f64x2_pmax = “V_binary (Vpmax F64x2)”
   (*   V Ternaries   *)
   (*******************)
 
-Overload v128_const = “V_ternary VbitSelect”
+Overload v128_bitselect = “V_ternary VbitSelect”
 
   (*********************)
   (*   V Comparisons   *)
@@ -422,10 +422,10 @@ Overload i16x8_gt_u = “V_compare (Vgt_ Unsigned t16x8)”
 Overload i32x4_gt_s = “V_compare (Vgt_   Signed I32x4)”
 Overload i32x4_gt_u = “V_compare (Vgt_ Unsigned I32x4)”
 
-Overload i8x16_le_s = “V_compare (Vle_   Signed tI8x16)”
-Overload i8x16_le_u = “V_compare (Vle_ Unsigned tI8x16)”
-Overload i16x8_le_s = “V_compare (Vle_   Signed tI16x8)”
-Overload i16x8_le_u = “V_compare (Vle_ Unsigned tI16x8)”
+Overload i8x16_le_s = “V_compare (Vle_   Signed t8x16)”
+Overload i8x16_le_u = “V_compare (Vle_ Unsigned t8x16)”
+Overload i16x8_le_s = “V_compare (Vle_   Signed t16x8)”
+Overload i16x8_le_u = “V_compare (Vle_ Unsigned t16x8)”
 Overload i32x4_le_s = “V_compare (Vle_   Signed I32x4)”
 Overload i32x4_le_u = “V_compare (Vle_ Unsigned I32x4)”
 
@@ -570,6 +570,6 @@ Overload i64x2_replaceLane = “V_lane (Vreplace i64x2)”
 Overload f32x4_replaceLane = “V_lane (Vreplace f32x4)”
 Overload f64x2_replaceLane = “V_lane (Vreplace f64x2)”
 
-Overload v128_shuffle = “V_lane Vshuffle”
+Overload v128_shuffle = “λ l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 l11 l12 l13 l14 l15. V_lane (Vshuffle l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 l11 l12 l13 l14 l15)”
 
 val _ = export_theory();

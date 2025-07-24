@@ -143,7 +143,7 @@ Definition read_u_word_def:
 End
 
 Definition write_u_word_def:
-  write_u_word (x:(α word)) (acc:byteStream) : byteStream = (encode_num (w2n x)) ++ acc
+  write_u_word (acc:byteStream) (x:(α word)) : byteStream = (encode_num (w2n x)) ++ acc
 End
 
 Overload read_u_B   = “read_u_word : byteStream -> (byte    # byteStream) option”
@@ -164,10 +164,10 @@ Overload read_f_8B  = “read_u_8B ”
 Overload read_f_16B = “read_u_16B”
 
 
-Overload write_u_B   = “write_u_word : byte    -> byteStream -> byteStream”
-Overload write_u_4B  = “write_u_word : word32  -> byteStream -> byteStream”
-Overload write_u_8B  = “write_u_word : word64  -> byteStream -> byteStream”
-Overload write_u_16B = “write_u_word : word128 -> byteStream -> byteStream”
+Overload write_u_B   = “(write_u_word : byteStream -> byte    -> byteStream)”
+Overload write_u_4B  = “(write_u_word : byteStream -> word32  -> byteStream)”
+Overload write_u_8B  = “(write_u_word : byteStream -> word64  -> byteStream)”
+Overload write_u_16B = “(write_u_word : byteStream -> word128 -> byteStream)”
 
 (* TODO: implement signed leb *)
 Overload write_s_B   = “write_u_B  ”
@@ -182,7 +182,7 @@ Overload write_f_8B  = “write_u_8B ”
 Overload write_f_16B = “write_u_16B”
 
 Theorem read_write_u_B[simp]:
-  read_u_B (write_u_B x rest) = SOME (x, rest)
+  read_u_B (write_u_B rest x) = SOME (x, rest)
 Proof
   simp [read_u_word_def,dec_enc_num_id,write_u_word_def]
   \\ irule LESS_LESS_EQ_TRANS
@@ -190,7 +190,7 @@ Proof
 QED
 
 Theorem read_write_u_4B[simp]:
-  read_u_4B (write_u_4B x rest) = SOME (x, rest)
+  read_u_4B (write_u_4B rest x) = SOME (x, rest)
 Proof
   simp [read_u_word_def,dec_enc_num_id,write_u_word_def]
   \\ irule LESS_LESS_EQ_TRANS
@@ -198,7 +198,7 @@ Proof
 QED
 
 Theorem read_write_u_8B[simp]:
-  read_u_8B (write_u_8B x rest) = SOME (x, rest)
+  read_u_8B (write_u_8B rest x) = SOME (x, rest)
 Proof
   simp [read_u_word_def,dec_enc_num_id,write_u_word_def]
   \\ irule LESS_LESS_EQ_TRANS
@@ -206,7 +206,7 @@ Proof
 QED
 
 Theorem read_write_u_16B[simp]:
-  read_u_16B (write_u_16B x rest) = SOME (x, rest)
+  read_u_16B (write_u_16B rest x) = SOME (x, rest)
 Proof
   simp [read_u_word_def,dec_enc_num_id,write_u_word_def]
   \\ irule LESS_LESS_EQ_TRANS
@@ -219,7 +219,7 @@ QED
 
 Definition encode_def:
   encode (b1,b2,b3) =
-    write_u_B b1 (write_u_B b2 (write_u_B b3 []))
+    write_u_B (write_u_B (write_u_B [] b3) b2) b1
 End
 
 Definition decode_def:
@@ -239,7 +239,6 @@ QED
 
 (* --- example --- *)
 (* End Magnus orig code *)
-
 
 
 (***********************************************)
@@ -326,6 +325,7 @@ Definition decode_valtype_def:
   if b = 0x6Fw then SOME (TExtRef            ) else NONE
 End
 
+(* TODO *)
 Theorem dec_enc_valtype[simp]:
   ∀ t. decode_valtype (encode_valtype t) = SOME t
 Proof
@@ -341,6 +341,155 @@ QED
   (****************************)
   (*  NB: numeric instructions are variable length as some take numbers as part of their encoding
       eg constant functions *)
+
+(* encode a numeric instruction into bytes. *)
+Definition encode_numI_def:
+  encode_numI (i:num_instr) : byteStream = case i of
+
+  | N_test       (Eqz W32)                    => [0x45w]
+  | N_compare    (Eq Int W32)                 => [0x46w]
+  | N_compare    (Ne Int W32)                 => [0x47w]
+  | N_compare    (Lt_   Signed W32)           => [0x48w]
+  | N_compare    (Lt_ Unsigned W32)           => [0x49w]
+  | N_compare    (Gt_   Signed W32)           => [0x4Aw]
+  | N_compare    (Gt_ Unsigned W32)           => [0x4Bw]
+  | N_compare    (Le_   Signed W32)           => [0x4Cw]
+  | N_compare    (Le_ Unsigned W32)           => [0x4Dw]
+  | N_compare    (Ge_   Signed W32)           => [0x4Ew]
+  | N_compare    (Ge_ Unsigned W32)           => [0x4Fw]
+  | N_test       (Eqz W64)                    => [0x50w]
+  | N_compare    (Eq Int W64)                 => [0x51w]
+  | N_compare    (Ne Int W64)                 => [0x52w]
+  | N_compare    (Lt_   Signed W64)           => [0x53w]
+  | N_compare    (Lt_ Unsigned W64)           => [0x54w]
+  | N_compare    (Gt_   Signed W64)           => [0x55w]
+  | N_compare    (Gt_ Unsigned W64)           => [0x56w]
+  | N_compare    (Le_   Signed W64)           => [0x57w]
+  | N_compare    (Le_ Unsigned W64)           => [0x58w]
+  | N_compare    (Ge_   Signed W64)           => [0x59w]
+  | N_compare    (Ge_ Unsigned W64)           => [0x5Aw]
+  | N_compare    (Eq Float W32)               => [0x5Bw]
+  | N_compare    (Ne Float W32)               => [0x5Cw]
+  | N_compare    (Lt W32)                     => [0x5Dw]
+  | N_compare    (Gt W32)                     => [0x5Ew]
+  | N_compare    (Le W32)                     => [0x5Fw]
+  | N_compare    (Ge W32)                     => [0x60w]
+  | N_compare    (Eq Float W64)               => [0x61w]
+  | N_compare    (Ne Float W64)               => [0x62w]
+  | N_compare    (Lt W64)                     => [0x63w]
+  | N_compare    (Gt W64)                     => [0x64w]
+  | N_compare    (Le W64)                     => [0x65w]
+  | N_compare    (Ge W64)                     => [0x66w]
+  | N_unary      (Clz    W32)                 => [0x67w]
+  | N_unary      (Ctz    W32)                 => [0x68w]
+  | N_unary      (Popcnt W32)                 => [0x69w]
+  | N_binary     (Add Int W32)                => [0x6Aw]
+  | N_binary     (Sub Int W32)                => [0x6Bw]
+  | N_binary     (Mul Int W32)                => [0x6Cw]
+  | N_binary     (Div_   Signed W32)          => [0x6Dw]
+  | N_binary     (Div_ Unsigned W32)          => [0x6Ew]
+  | N_binary     (Rem_   Signed W32)          => [0x6Fw]
+  | N_binary     (Rem_ Unsigned W32)          => [0x70w]
+  | N_binary     (And W32)                    => [0x71w]
+  | N_binary     (Or W32)                     => [0x72w]
+  | N_binary     (Xor W32)                    => [0x73w]
+  | N_binary     (Shl W32)                    => [0x74w]
+  | N_binary     (Shr_   Signed W32)          => [0x75w]
+  | N_binary     (Shr_ Unsigned W32)          => [0x76w]
+  | N_binary     (Rotl W32)                   => [0x77w]
+  | N_binary     (Rotr W32)                   => [0x78w]
+  | N_unary      (Clz    W64)                 => [0x79w]
+  | N_unary      (Ctz    W64)                 => [0x7Aw]
+  | N_unary      (Popcnt W64)                 => [0x7Bw]
+  | N_binary     (Add Int W64)                => [0x7Cw]
+  | N_binary     (Sub Int W64)                => [0x7Dw]
+  | N_binary     (Mul Int W64)                => [0x7Ew]
+  | N_binary     (Div_   Signed W64)          => [0x7Fw]
+  | N_binary     (Div_ Unsigned W64)          => [0x80w]
+  | N_binary     (Rem_   Signed W64)          => [0x81w]
+  | N_binary     (Rem_ Unsigned W64)          => [0x82w]
+  | N_binary     (And W64)                    => [0x83w]
+  | N_binary     (Or  W64)                    => [0x84w]
+  | N_binary     (Xor W64)                    => [0x85w]
+  | N_binary     (Shl W64)                    => [0x86w]
+  | N_binary     (Shr_   Signed W64)          => [0x87w]
+  | N_binary     (Shr_ Unsigned W64)          => [0x88w]
+  | N_binary     (Rotl W64)                   => [0x89w]
+  | N_binary     (Rotr W64)                   => [0x8Aw]
+  | N_unary      (Abs     W32)                => [0x8Bw]
+  | N_unary      (Neg     W32)                => [0x8Cw]
+  | N_unary      (Ceil    W32)                => [0x8Dw]
+  | N_unary      (Floor   W32)                => [0x8Ew]
+  | N_unary      (Trunc   W32)                => [0x8Fw]
+  | N_unary      (Nearest W32)                => [0x90w]
+  | N_unary      (Sqrt    W32)                => [0x91w]
+  | N_binary     (Add Float W32)              => [0x92w]
+  | N_binary     (Sub Float W32)              => [0x93w]
+  | N_binary     (Mul Float W32)              => [0x94w]
+  | N_binary     (Div W32)                    => [0x95w]
+  | N_binary     (Min W32)                    => [0x96w]
+  | N_binary     (Max W32)                    => [0x97w]
+  | N_binary     (Copysign W32)               => [0x98w]
+  | N_unary      (Abs     W64)                => [0x99w]
+  | N_unary      (Neg     W64)                => [0x9Aw]
+  | N_unary      (Ceil    W64)                => [0x9Bw]
+  | N_unary      (Floor   W64)                => [0x9Cw]
+  | N_unary      (Trunc   W64)                => [0x9Dw]
+  | N_unary      (Nearest W64)                => [0x9Ew]
+  | N_unary      (Sqrt    W64)                => [0x9Fw]
+  | N_binary     (Add Float W64)              => [0xA0w]
+  | N_binary     (Sub Float W64)              => [0xA1w]
+  | N_binary     (Mul Float W64)              => [0xA2w]
+  | N_binary     (Div W64)                    => [0xA3w]
+  | N_binary     (Min W64)                    => [0xA4w]
+  | N_binary     (Max W64)                    => [0xA5w]
+  | N_binary     (Copysign W64)               => [0xA6w]
+  | N_convert     Wrap_i64                    => [0xA7w]
+  | N_convert    (Trunc_f W32   Signed W32)   => [0xA8w]
+  | N_convert    (Trunc_f W32 Unsigned W32)   => [0xA9w]
+  | N_convert    (Trunc_f W64   Signed W32)   => [0xAAw]
+  | N_convert    (Trunc_f W64 Unsigned W32)   => [0xABw]
+  | N_unary      (Extend_i32_   Signed)       => [0xACw]
+  | N_unary      (Extend_i32_ Unsigned)       => [0xADw]
+  | N_convert    (Trunc_f W32   Signed W64)   => [0xAEw]
+  | N_convert    (Trunc_f W32 Unsigned W64)   => [0xAFw]
+  | N_convert    (Trunc_f W64   Signed W64)   => [0xB0w]
+  | N_convert    (Trunc_f W64 Unsigned W64)   => [0xB1w]
+  | N_convert    (Convert W32   Signed W32)   => [0xB2w]
+  | N_convert    (Convert W32 Unsigned W32)   => [0xB3w]
+  | N_convert    (Convert W64   Signed W32)   => [0xB4w]
+  | N_convert    (Convert W64 Unsigned W32)   => [0xB5w]
+  | N_convert     Demote                      => [0xB6w]
+  | N_convert    (Convert W32   Signed W64)   => [0xB7w]
+  | N_convert    (Convert W32 Unsigned W64)   => [0xB8w]
+  | N_convert    (Convert W64   Signed W64)   => [0xB9w]
+  | N_convert    (Convert W64 Unsigned W64)   => [0xBAw]
+  | N_convert     Promote                     => [0xBBw]
+  | N_convert    (Reinterpret_f W32)          => [0xBCw]
+  | N_convert    (Reinterpret_f W64)          => [0xBDw]
+  | N_convert    (Reinterpret_i W32)          => [0xBEw]
+  | N_convert    (Reinterpret_i W64)          => [0xBFw]
+  | N_unary      (Extend8_s  W32)             => [0xC0w]
+  | N_unary      (Extend16_s W32)             => [0xC1w]
+  | N_unary      (Extend8_s  W64)             => [0xC2w]
+  | N_unary      (Extend16_s W64)             => [0xC3w]
+  | N_unary       Extend32_s                  => [0xC4w]
+
+  | N_const32 Int   c32                       =>  0x41w :: write_s_4B [] c32
+  | N_const64 Int   c64                       =>  0x42w :: write_s_8B [] c64
+  | N_const32 Float c32                       =>  0x43w :: write_f_4B [] c32
+  | N_const64 Float c64                       =>  0x44w :: write_f_8B [] c64
+
+  | N_convert (Trunc_sat_f W32   Signed W32)  =>  0xFCw :: write_u_4B [] 0x0w
+  | N_convert (Trunc_sat_f W32 Unsigned W32)  =>  0xFCw :: write_u_4B [] 0x1w
+  | N_convert (Trunc_sat_f W64   Signed W32)  =>  0xFCw :: write_u_4B [] 0x2w
+  | N_convert (Trunc_sat_f W64 Unsigned W32)  =>  0xFCw :: write_u_4B [] 0x3w
+  | N_convert (Trunc_sat_f W32   Signed W64)  =>  0xFCw :: write_u_4B [] 0x4w
+  | N_convert (Trunc_sat_f W32 Unsigned W64)  =>  0xFCw :: write_u_4B [] 0x5w
+  | N_convert (Trunc_sat_f W64   Signed W64)  =>  0xFCw :: write_u_4B [] 0x6w
+  | N_convert (Trunc_sat_f W64 Unsigned W64)  =>  0xFCw :: write_u_4B [] 0x7w
+
+End
 
 (* decode a numeric instruction from a stream of bytes. *)
 Definition decode_numI_def:
@@ -483,10 +632,10 @@ Definition decode_numI_def:
 
   (* TODO: BOGUS until read_s and read_f properly implemented *)
   (* Constant instructions *)
-  if b = 0x41w then case read_s_4B bs of SOME (c32,rest) => (SOME (N_const32 Int   c32), rest) | NONE => default else
-  if b = 0x42w then case read_s_8B bs of SOME (c64,rest) => (SOME (N_const64 Int   c64), rest) | NONE => default else
-  if b = 0x43w then case read_f_4B bs of SOME (c32,rest) => (SOME (N_const32 Float c32), rest) | NONE => default else
-  if b = 0x44w then case read_f_8B bs of SOME (c64,rest) => (SOME (N_const64 Float c64), rest) | NONE => default else
+  if b = 0x41w then case read_s_4B bs of SOME (c32,cs) => (SOME (N_const32 Int   c32), cs) | NONE => default else
+  if b = 0x42w then case read_s_8B bs of SOME (c64,cs) => (SOME (N_const64 Int   c64), cs) | NONE => default else
+  if b = 0x43w then case read_f_4B bs of SOME (c32,cs) => (SOME (N_const32 Float c32), cs) | NONE => default else
+  if b = 0x44w then case read_f_8B bs of SOME (c64,cs) => (SOME (N_const64 Float c64), cs) | NONE => default else
 
   (* trunc_sat_f. Forwhatever reason is coded as 2 bytes, instead of  *)
   if b = 0xFCw then case read_u_4B bs of
@@ -500,158 +649,7 @@ Definition decode_numI_def:
   default
 End
 
-
-(* encode a numeric instruction into bytes. *)
-
-Definition encode_numI_def:
-  encode_numI (i:num_instr) : byteStream = case i of
-
-  | N_test       (Eqz W32)                    => [0x45w]
-  | N_compare    (Eq Int W32)                 => [0x46w]
-  | N_compare    (Ne Int W32)                 => [0x47w]
-  | N_compare    (Lt_   Signed W32)           => [0x48w]
-  | N_compare    (Lt_ Unsigned W32)           => [0x49w]
-  | N_compare    (Gt_   Signed W32)           => [0x4Aw]
-  | N_compare    (Gt_ Unsigned W32)           => [0x4Bw]
-  | N_compare    (Le_   Signed W32)           => [0x4Cw]
-  | N_compare    (Le_ Unsigned W32)           => [0x4Dw]
-  | N_compare    (Ge_   Signed W32)           => [0x4Ew]
-  | N_compare    (Ge_ Unsigned W32)           => [0x4Fw]
-  | N_test       (Eqz W64)                    => [0x50w]
-  | N_compare    (Eq Int W64)                 => [0x51w]
-  | N_compare    (Ne Int W64)                 => [0x52w]
-  | N_compare    (Lt_   Signed W64)           => [0x53w]
-  | N_compare    (Lt_ Unsigned W64)           => [0x54w]
-  | N_compare    (Gt_   Signed W64)           => [0x55w]
-  | N_compare    (Gt_ Unsigned W64)           => [0x56w]
-  | N_compare    (Le_   Signed W64)           => [0x57w]
-  | N_compare    (Le_ Unsigned W64)           => [0x58w]
-  | N_compare    (Ge_   Signed W64)           => [0x59w]
-  | N_compare    (Ge_ Unsigned W64)           => [0x5Aw]
-  | N_compare    (Eq Float W32)               => [0x5Bw]
-  | N_compare    (Ne Float W32)               => [0x5Cw]
-  | N_compare    (Lt W32)                     => [0x5Dw]
-  | N_compare    (Gt W32)                     => [0x5Ew]
-  | N_compare    (Le W32)                     => [0x5Fw]
-  | N_compare    (Ge W32)                     => [0x60w]
-  | N_compare    (Eq Float W64)               => [0x61w]
-  | N_compare    (Ne Float W64)               => [0x62w]
-  | N_compare    (Lt W64)                     => [0x63w]
-  | N_compare    (Gt W64)                     => [0x64w]
-  | N_compare    (Le W64)                     => [0x65w]
-  | N_compare    (Ge W64)                     => [0x66w]
-  | N_unary      (Clz    W32)                 => [0x67w]
-  | N_unary      (Ctz    W32)                 => [0x68w]
-  | N_unary      (Popcnt W32)                 => [0x69w]
-  | N_binary     (Add Int W32)                => [0x6Aw]
-  | N_binary     (Sub Int W32)                => [0x6Bw]
-  | N_binary     (Mul Int W32)                => [0x6Cw]
-  | N_binary     (Div_   Signed W32)          => [0x6Dw]
-  | N_binary     (Div_ Unsigned W32)          => [0x6Ew]
-  | N_binary     (Rem_   Signed W32)          => [0x6Fw]
-  | N_binary     (Rem_ Unsigned W32)          => [0x70w]
-  | N_binary     (And W32)                    => [0x71w]
-  | N_binary     (Or W32)                     => [0x72w]
-  | N_binary     (Xor W32)                    => [0x73w]
-  | N_binary     (Shl W32)                    => [0x74w]
-  | N_binary     (Shr_   Signed W32)          => [0x75w]
-  | N_binary     (Shr_ Unsigned W32)          => [0x76w]
-  | N_binary     (Rotl W32)                   => [0x77w]
-  | N_binary     (Rotr W32)                   => [0x78w]
-  | N_unary      (Clz    W64)                 => [0x79w]
-  | N_unary      (Ctz    W64)                 => [0x7Aw]
-  | N_unary      (Popcnt W64)                 => [0x7Bw]
-  | N_binary     (Add Int W64)                => [0x7Cw]
-  | N_binary     (Sub Int W64)                => [0x7Dw]
-  | N_binary     (Mul Int W64)                => [0x7Ew]
-  | N_binary     (Div_   Signed W64)          => [0x7Fw]
-  | N_binary     (Div_ Unsigned W64)          => [0x80w]
-  | N_binary     (Rem_   Signed W64)          => [0x81w]
-  | N_binary     (Rem_ Unsigned W64)          => [0x82w]
-  | N_binary     (And W64)                    => [0x83w]
-  | N_binary     (Or  W64)                    => [0x84w]
-  | N_binary     (Xor W64)                    => [0x85w]
-  | N_binary     (Shl W64)                    => [0x86w]
-  | N_binary     (Shr_   Signed W64)          => [0x87w]
-  | N_binary     (Shr_ Unsigned W64)          => [0x88w]
-  | N_binary     (Rotl W64)                   => [0x89w]
-  | N_binary     (Rotr W64)                   => [0x8Aw]
-  | N_unary      (Abs     W32)                => [0x8Bw]
-  | N_unary      (Neg     W32)                => [0x8Cw]
-  | N_unary      (Ceil    W32)                => [0x8Dw]
-  | N_unary      (Floor   W32)                => [0x8Ew]
-  | N_unary      (Trunc   W32)                => [0x8Fw]
-  | N_unary      (Nearest W32)                => [0x90w]
-  | N_unary      (Sqrt    W32)                => [0x91w]
-  | N_binary     (Add Float W32)              => [0x92w]
-  | N_binary     (Sub Float W32)              => [0x93w]
-  | N_binary     (Mul Float W32)              => [0x94w]
-  | N_binary     (Div W32)                    => [0x95w]
-  | N_binary     (Min W32)                    => [0x96w]
-  | N_binary     (Max W32)                    => [0x97w]
-  | N_binary     (Copysign W32)               => [0x98w]
-  | N_unary      (Abs     W64)                => [0x99w]
-  | N_unary      (Neg     W64)                => [0x9Aw]
-  | N_unary      (Ceil    W64)                => [0x9Bw]
-  | N_unary      (Floor   W64)                => [0x9Cw]
-  | N_unary      (Trunc   W64)                => [0x9Dw]
-  | N_unary      (Nearest W64)                => [0x9Ew]
-  | N_unary      (Sqrt    W64)                => [0x9Fw]
-  | N_binary     (Add Float W64)              => [0xA0w]
-  | N_binary     (Sub Float W64)              => [0xA1w]
-  | N_binary     (Mul Float W64)              => [0xA2w]
-  | N_binary     (Div W64)                    => [0xA3w]
-  | N_binary     (Min W64)                    => [0xA4w]
-  | N_binary     (Max W64)                    => [0xA5w]
-  | N_binary     (Copysign W64)               => [0xA6w]
-  | N_convert     Wrap_i64                    => [0xA7w]
-  | N_convert    (Trunc_f W32   Signed W32)   => [0xA8w]
-  | N_convert    (Trunc_f W32 Unsigned W32)   => [0xA9w]
-  | N_convert    (Trunc_f W64   Signed W32)   => [0xAAw]
-  | N_convert    (Trunc_f W64 Unsigned W32)   => [0xABw]
-  | N_unary      (Extend_i32_   Signed)       => [0xACw]
-  | N_unary      (Extend_i32_ Unsigned)       => [0xADw]
-  | N_convert    (Trunc_f W32   Signed W64)   => [0xAEw]
-  | N_convert    (Trunc_f W32 Unsigned W64)   => [0xAFw]
-  | N_convert    (Trunc_f W64   Signed W64)   => [0xB0w]
-  | N_convert    (Trunc_f W64 Unsigned W64)   => [0xB1w]
-  | N_convert    (Convert W32   Signed W32)   => [0xB2w]
-  | N_convert    (Convert W32 Unsigned W32)   => [0xB3w]
-  | N_convert    (Convert W64   Signed W32)   => [0xB4w]
-  | N_convert    (Convert W64 Unsigned W32)   => [0xB5w]
-  | N_convert     Demote                      => [0xB6w]
-  | N_convert    (Convert W32   Signed W64)   => [0xB7w]
-  | N_convert    (Convert W32 Unsigned W64)   => [0xB8w]
-  | N_convert    (Convert W64   Signed W64)   => [0xB9w]
-  | N_convert    (Convert W64 Unsigned W64)   => [0xBAw]
-  | N_convert     Promote                     => [0xBBw]
-  | N_convert    (Reinterpret_f W32)          => [0xBCw]
-  | N_convert    (Reinterpret_f W64)          => [0xBDw]
-  | N_convert    (Reinterpret_i W32)          => [0xBEw]
-  | N_convert    (Reinterpret_i W64)          => [0xBFw]
-  | N_unary      (Extend8_s  W32)             => [0xC0w]
-  | N_unary      (Extend16_s W32)             => [0xC1w]
-  | N_unary      (Extend8_s  W64)             => [0xC2w]
-  | N_unary      (Extend16_s W64)             => [0xC3w]
-  | N_unary       Extend32_s                  => [0xC4w]
-
-  | N_const32 Int   c32                       =>  0x41w :: write_s_4B c32 []
-  | N_const64 Int   c64                       =>  0x42w :: write_s_8B c64 []
-  | N_const32 Float c32                       =>  0x43w :: write_f_4B c32 []
-  | N_const64 Float c64                       =>  0x44w :: write_f_8B c64 []
-
-  | N_convert (Trunc_sat_f W32   Signed W32)  =>  0xFCw :: write_u_4B 0x0w []
-  | N_convert (Trunc_sat_f W32 Unsigned W32)  =>  0xFCw :: write_u_4B 0x1w []
-  | N_convert (Trunc_sat_f W64   Signed W32)  =>  0xFCw :: write_u_4B 0x2w []
-  | N_convert (Trunc_sat_f W64 Unsigned W32)  =>  0xFCw :: write_u_4B 0x3w []
-  | N_convert (Trunc_sat_f W32   Signed W64)  =>  0xFCw :: write_u_4B 0x4w []
-  | N_convert (Trunc_sat_f W32 Unsigned W64)  =>  0xFCw :: write_u_4B 0x5w []
-  | N_convert (Trunc_sat_f W64   Signed W64)  =>  0xFCw :: write_u_4B 0x6w []
-  | N_convert (Trunc_sat_f W64 Unsigned W64)  =>  0xFCw :: write_u_4B 0x7w []
-
-End
-
-
+(* TODO *)
 Theorem dec_enc_numI[simp]:
   ∀ t. decode_numI (encode_numI i) = (SOME t,[])
 Proof
@@ -659,5 +657,308 @@ Proof
   cheat
 QED
 
+Overload v_opcode = “λ n. 0xFDw :: encode_num n”
+  (***************************)
+  (*   Vector Instructions   *)
+  (***************************)
+
+(* encode a numeric instruction into bytes. *)
+Definition encode_vecI_def:
+  encode_vecI (i:vec_instr) : byteStream = case i of
+
+  | V_binary     Vswizzle                               => v_opcode 14
+  | V_splat     (IShp (Is3 (Is2 I8x16)))                => v_opcode 15
+  | V_splat     (IShp (Is3 (Is2 I16x8)))                => v_opcode 16
+  | V_splat     (IShp (Is3      I32x4 ))                => v_opcode 17
+  | V_splat     (IShp           I64x2  )                => v_opcode 18
+  | V_splat     (FShp           F32x4  )                => v_opcode 19
+  | V_splat     (FShp           F64x2  )                => v_opcode 20
+  | V_compare   (Veq (IShp (Is3 (Is2 I8x16))))          => v_opcode 35
+  | V_compare   (Vne (IShp (Is3 (Is2 I8x16))))          => v_opcode 36
+  | V_compare   (Vlt_   Signed (Is2 I8x16))             => v_opcode 37
+  | V_compare   (Vlt_ Unsigned (Is2 I8x16))             => v_opcode 38
+  | V_compare   (Vgt_   Signed (Is2 I8x16))             => v_opcode 39
+  | V_compare   (Vgt_ Unsigned (Is2 I8x16))             => v_opcode 40
+  | V_compare   (Vle_   Signed (Is2 I8x16))             => v_opcode 41
+  | V_compare   (Vle_ Unsigned (Is2 I8x16))             => v_opcode 42
+  | V_compare   (Vge_   Signed (Is2 I8x16))             => v_opcode 43
+  | V_compare   (Vge_ Unsigned (Is2 I8x16))             => v_opcode 44
+  | V_compare   (Veq (IShp (Is3 (Is2 I16x8))))          => v_opcode 45
+  | V_compare   (Vne (IShp (Is3 (Is2 I16x8))))          => v_opcode 46
+  | V_compare   (Vlt_   Signed (Is2 I16x8))             => v_opcode 47
+  | V_compare   (Vlt_ Unsigned (Is2 I16x8))             => v_opcode 48
+  | V_compare   (Vgt_   Signed (Is2 I16x8))             => v_opcode 49
+  | V_compare   (Vgt_ Unsigned (Is2 I16x8))             => v_opcode 50
+  | V_compare   (Vle_   Signed (Is2 I16x8))             => v_opcode 51
+  | V_compare   (Vle_ Unsigned (Is2 I16x8))             => v_opcode 52
+  | V_compare   (Vge_   Signed (Is2 I16x8))             => v_opcode 53
+  | V_compare   (Vge_ Unsigned (Is2 I16x8))             => v_opcode 54
+  | V_compare   (Veq (IShp (Is3 I32x4)))                => v_opcode 55
+  | V_compare   (Vne (IShp (Is3 I32x4)))                => v_opcode 56
+  | V_compare   (Vlt_   Signed I32x4)                   => v_opcode 57
+  | V_compare   (Vlt_ Unsigned I32x4)                   => v_opcode 58
+  | V_compare   (Vgt_   Signed I32x4)                   => v_opcode 59
+  | V_compare   (Vgt_ Unsigned I32x4)                   => v_opcode 60
+  | V_compare   (Vle_   Signed I32x4)                   => v_opcode 61
+  | V_compare   (Vle_ Unsigned I32x4)                   => v_opcode 62
+  | V_compare   (Vge_   Signed I32x4)                   => v_opcode 63
+  | V_compare   (Vge_ Unsigned I32x4)                   => v_opcode 64
+  | V_compare   (Veq (IShp I64x2))                      => v_opcode 214
+  | V_compare   (Vne (IShp I64x2))                      => v_opcode 215
+  | V_compare    Vlt_s                                  => v_opcode 216
+  | V_compare    Vgt_s                                  => v_opcode 217
+  | V_compare    Vle_s                                  => v_opcode 218
+  | V_compare    Vge_s                                  => v_opcode 219
+  | V_compare   (Veq (FShp F32x4))                      => v_opcode 65
+  | V_compare   (Vne (FShp F32x4))                      => v_opcode 66
+  | V_compare   (Vlt F32x4)                             => v_opcode 67
+  | V_compare   (Vgt F32x4)                             => v_opcode 68
+  | V_compare   (Vle F32x4)                             => v_opcode 69
+  | V_compare   (Vge F32x4)                             => v_opcode 70
+  | V_compare   (Veq (FShp F64x2))                      => v_opcode 71
+  | V_compare   (Vne (FShp F64x2))                      => v_opcode 72
+  | V_compare   (Vlt F64x2)                             => v_opcode 73
+  | V_compare   (Vgt F64x2)                             => v_opcode 74
+  | V_compare   (Vle F64x2)                             => v_opcode 75
+  | V_compare   (Vge F64x2)                             => v_opcode 76
+  | V_ternary    VbitSelect                             => v_opcode 77
+  | V_binary     Vand                                   => v_opcode 78
+  | V_binary     VandNot                                => v_opcode 79
+  | V_binary     Vor                                    => v_opcode 80
+  | V_binary     Vxor                                   => v_opcode 81
+  | V_ternary    VbitSelect                             => v_opcode 82
+  | V_test       VanyTrue                               => v_opcode 83
+  | V_unary     (Vabs (IShp (Is3 (Is2 I8x16))))         => v_opcode 96
+  | V_unary     (Vneg (IShp (Is3 (Is2 I8x16))))         => v_opcode 97
+  | V_unary      Vpopcnt                                => v_opcode 98
+  | V_test      (VallTrue (Is3 (Is2 I8x16)))            => v_opcode 99
+  | V_unary     (Vbitmask (Is3 (Is2 I8x16)))            => v_opcode 100
+  | V_binary    (Vnarrow   Signed I8x16)                => v_opcode 101
+  | V_binary    (Vnarrow Unsigned I8x16)                => v_opcode 102
+  | V_shift     (Vshl (Is3 (Is2 I8x16)))                => v_opcode 107
+  | V_shift     (Vshr_   Signed (Is3 (Is2 I8x16)))      => v_opcode 108
+  | V_shift     (Vshr_ Unsigned (Is3 (Is2 I8x16)))      => v_opcode 109
+  | V_binary    (Vadd (IShp (Is3 (Is2 I8x16))))         => v_opcode 110
+  | V_binary    (Vadd_sat_   Signed I8x16)              => v_opcode 111
+  | V_binary    (Vadd_sat_ Unsigned I8x16)              => v_opcode 112
+  | V_binary    (Vsub (IShp (Is3 (Is2 I8x16))))         => v_opcode 113
+  | V_binary    (Vsub_sat_   Signed I8x16)              => v_opcode 114
+  | V_binary    (Vsub_sat_ Unsigned I8x16)              => v_opcode 115
+  | V_binary    (Vmin_   Signed (Is2 I8x16))            => v_opcode 118
+  | V_binary    (Vmin_ Unsigned (Is2 I8x16))            => v_opcode 119
+  | V_binary    (Vmax_   Signed (Is2 I8x16))            => v_opcode 120
+  | V_binary    (Vmax_ Unsigned (Is2 I8x16))            => v_opcode 121
+  | V_binary    (Vavgr_u I8x16)                         => v_opcode 123
+  | V_convert   (VextAdd I8x16   Signed)                => v_opcode 124
+  | V_convert   (VextAdd I8x16 Unsigned)                => v_opcode 125
+  | V_unary     (Vabs (IShp (Is3 (Is2 I16x8))))         => v_opcode 128
+  | V_unary     (Vneg (IShp (Is3 (Is2 I16x8))))         => v_opcode 129
+  | V_binary     VmulQ15                                => v_opcode 130
+  | V_test      (VallTrue (Is3 (Is2 I16x8)))            => v_opcode 131
+  | V_unary     (Vbitmask (Is3 (Is2 I16x8)))            => v_opcode 132
+  | V_binary    (Vnarrow   Signed I16x8)                => v_opcode 133
+  | V_binary    (Vnarrow Unsigned I16x8)                => v_opcode 134
+  | V_convert   (Vextend   Low  (Is2 I8x16)    Signed)  => v_opcode 135
+  | V_convert   (Vextend  High  (Is2 I8x16)    Signed)  => v_opcode 136
+  | V_convert   (Vextend   Low  (Is2 I8x16)  Unsigned)  => v_opcode 137
+  | V_convert   (Vextend  High  (Is2 I8x16)  Unsigned)  => v_opcode 138
+  | V_shift     (Vshl (Is3 (Is2 I16x8)))                => v_opcode 139
+  | V_shift     (Vshr_   Signed (Is3 (Is2 I16x8)))      => v_opcode 140
+  | V_shift     (Vshr_ Unsigned (Is3 (Is2 I16x8)))      => v_opcode 141
+  | V_binary    (Vadd (IShp (Is3 (Is2 I16x8))))         => v_opcode 142
+  | V_binary    (Vadd_sat_   Signed I16x8)              => v_opcode 143
+  | V_binary    (Vadd_sat_ Unsigned I16x8)              => v_opcode 144
+  | V_binary    (Vsub (IShp (Is3 (Is2 I16x8))))         => v_opcode 145
+  | V_binary    (Vsub_sat_   Signed I16x8)              => v_opcode 146
+  | V_binary    (Vsub_sat_ Unsigned I16x8)              => v_opcode 147
+  | V_binary     VmulI16                                => v_opcode 149
+  | V_binary    (Vmin_   Signed (Is2 I16x8))            => v_opcode 150
+  | V_binary    (Vmin_ Unsigned (Is2 I16x8))            => v_opcode 151
+  | V_binary    (Vmax_   Signed (Is2 I16x8))            => v_opcode 152
+  | V_binary    (Vmax_ Unsigned (Is2 I16x8))            => v_opcode 153
+  | V_binary    (Vavgr_u I16x8)                         => v_opcode 155
+  | V_convert   (VextMul   Low  (Is2 I8x16)   Signed)   => v_opcode 156
+  | V_convert   (VextMul  High  (Is2 I8x16)   Signed)   => v_opcode 157
+  | V_convert   (VextMul   Low  (Is2 I8x16) Unsigned)   => v_opcode 158
+  | V_convert   (VextMul  High  (Is2 I8x16) Unsigned)   => v_opcode 159
+  | V_convert   (VextAdd I16x8   Signed)                => v_opcode 126
+  | V_convert   (VextAdd I16x8 Unsigned)                => v_opcode 127
+  | V_unary     (Vabs (IShp (Is3 I32x4)))               => v_opcode 160
+  | V_unary     (Vneg (IShp (Is3 I32x4)))               => v_opcode 161
+  | V_test      (VallTrue (Is3 I32x4))                  => v_opcode 163
+  | V_unary     (Vbitmask (Is3 I32x4))                  => v_opcode 164
+  | V_convert   (Vextend   Low  (Is2 I16x8)   Signed)   => v_opcode 167
+  | V_convert   (Vextend  High  (Is2 I16x8)   Signed)   => v_opcode 168
+  | V_convert   (Vextend   Low  (Is2 I16x8) Unsigned)   => v_opcode 169
+  | V_convert   (Vextend  High  (Is2 I16x8) Unsigned)   => v_opcode 170
+  | V_shift     (Vshl           (Is3 I32x4))            => v_opcode 171
+  | V_shift     (Vshr_   Signed (Is3 I32x4))            => v_opcode 172
+  | V_shift     (Vshr_ Unsigned (Is3 I32x4))            => v_opcode 173
+  | V_binary    (Vadd (IShp (Is3 I32x4)))               => v_opcode 174
+  | V_binary    (Vsub (IShp (Is3 I32x4)))               => v_opcode 177
+  | V_binary     VmulI32                                => v_opcode 181
+  | V_binary    (Vmin_   Signed I32x4)                  => v_opcode 182
+  | V_binary    (Vmin_ Unsigned I32x4)                  => v_opcode 183
+  | V_binary    (Vmax_   Signed I32x4)                  => v_opcode 184
+  | V_binary    (Vmax_ Unsigned I32x4)                  => v_opcode 185
+  | V_binary     Vdot                                   => v_opcode 186
+  | V_convert   (VextMul   Low  (Is2 I16x8)    Signed)  => v_opcode 188
+  | V_convert   (VextMul  High  (Is2 I16x8)    Signed)  => v_opcode 189
+  | V_convert   (VextMul   Low  (Is2 I16x8)  Unsigned)  => v_opcode 190
+  | V_convert   (VextMul  High  (Is2 I16x8)  Unsigned)  => v_opcode 191
+  | V_unary     (Vabs (IShp I64x2))                     => v_opcode 192
+  | V_unary     (Vneg (IShp I64x2))                     => v_opcode 193
+  | V_test      (VallTrue I64x2)                        => v_opcode 195
+  | V_unary     (Vbitmask I64x2)                        => v_opcode 196
+  | V_convert   (Vextend   Low  I32x4    Signed)        => v_opcode 199
+  | V_convert   (Vextend  High  I32x4    Signed)        => v_opcode 200
+  | V_convert   (Vextend   Low  I32x4  Unsigned)        => v_opcode 201
+  | V_convert   (Vextend  High  I32x4  Unsigned)        => v_opcode 202
+  | V_shift     (Vshl I64x2)                            => v_opcode 203
+  | V_shift     (Vshr_   Signed I64x2)                  => v_opcode 204
+  | V_shift     (Vshr_ Unsigned I64x2)                  => v_opcode 205
+  | V_binary    (Vadd (IShp I64x2))                     => v_opcode 206
+  | V_binary    (Vsub (IShp I64x2))                     => v_opcode 209
+  | V_binary     VmulI64                                => v_opcode 213
+  | V_convert   (VextMul   Low  I32x4    Signed)        => v_opcode 220
+  | V_convert   (VextMul  High  I32x4    Signed)        => v_opcode 221
+  | V_convert   (VextMul   Low  I32x4  Unsigned)        => v_opcode 222
+  | V_convert   (VextMul  High  I32x4  Unsigned)        => v_opcode 223
+  | V_unary     (Vceil    F32x4)                        => v_opcode 103
+  | V_unary     (Vfloor   F32x4)                        => v_opcode 104
+  | V_unary     (Vtrunc   F32x4)                        => v_opcode 105
+  | V_unary     (Vnearest F32x4)                        => v_opcode 106
+  | V_unary     (Vabs (FShp F32x4))                     => v_opcode 224
+  | V_unary     (Vneg (FShp F32x4))                     => v_opcode 225
+  | V_unary     (Vsqrt    F32x4)                        => v_opcode 227
+  | V_binary    (Vadd (FShp F32x4))                     => v_opcode 228
+  | V_binary    (Vsub (FShp F32x4))                     => v_opcode 229
+  | V_binary    (VmulF F32x4)                           => v_opcode 230
+  | V_binary    (Vdiv  F32x4)                           => v_opcode 231
+  | V_binary    (Vmin  F32x4)                           => v_opcode 232
+  | V_binary    (Vmax  F32x4)                           => v_opcode 233
+  | V_binary    (Vpmin F32x4)                           => v_opcode 234
+  | V_binary    (Vpmax F32x4)                           => v_opcode 235
+  | V_unary     (Vceil    F64x2)                        => v_opcode 116
+  | V_unary     (Vfloor   F64x2)                        => v_opcode 117
+  | V_unary     (Vtrunc   F64x2)                        => v_opcode 122
+  | V_unary     (Vnearest F64x2)                        => v_opcode 148
+  | V_unary     (Vabs (FShp F64x2))                     => v_opcode 236
+  | V_unary     (Vneg (FShp F64x2))                     => v_opcode 237
+  | V_unary     (Vsqrt    F64x2)                        => v_opcode 239
+  | V_binary    (Vadd (FShp F64x2))                     => v_opcode 240
+  | V_binary    (Vsub (FShp F64x2))                     => v_opcode 241
+  | V_binary    (VmulF F64x2)                           => v_opcode 242
+  | V_binary    (Vdiv  F64x2)                           => v_opcode 243
+  | V_binary    (Vmin  F64x2)                           => v_opcode 244
+  | V_binary    (Vmax  F64x2)                           => v_opcode 245
+  | V_binary    (Vpmin F64x2)                           => v_opcode 246
+  | V_binary    (Vpmax F64x2)                           => v_opcode 247
+  | V_convert   (VtruncSat       Signed)                => v_opcode 248
+  | V_convert   (VtruncSat     Unsigned)                => v_opcode 249
+  | V_convert   (Vconvert High   Signed)                => v_opcode 250
+  | V_convert   (Vconvert High Unsigned)                => v_opcode 251
+  | V_convert   (VtruncSat0      Signed)                => v_opcode 252
+  | V_convert   (VtruncSat0    Unsigned)                => v_opcode 253
+  | V_convert   (Vconvert  Low   Signed)                => v_opcode 254
+  | V_convert   (Vconvert  Low Unsigned)                => v_opcode 255
+  | V_convert    Vdemote                                => v_opcode 94
+  | V_convert    Vpromote                               => v_opcode 95
+  | _ => []
+End
+
+
+(* decode a numeric instruction from a stream of bytes. *)
+Definition decode_vec_def:
+  decode_vecI ([]:byteStream) : (vec_instr option # byteStream) = (NONE, []) ∧
+  decode_vecI (b::bs) = let default = (NONE,b::bs) in
+  default
+End
+
+(* TODO *)
+Theorem dec_enc_vecI[simp]:
+  ∀ t. decode_vecI (encode_vecI i) = (SOME t,[])
+Proof
+  cheat
+QED
+
 
 val _ = export_theory();
+
+
+(*
+
+Overload v128_const = “V_const”
+
+
+The const instruction is followed by 16 immediate bytes, which are converted into a i128 in littleendian byte
+order:
+instr ::= _ _ _
+| 0xFD 12:u32 (𝑏:byte)16 ⇒ v128_const bytes−1
+i128(𝑏0 _ _ _ 𝑏15)
+
+
+Overload v128_shuffle = “λ l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 l11 l12 l13 l14 l15 l16. V_lane (Vshuffle l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 l11 l12 l13 l14 l15 l16)”
+
+The shuffle instruction is also followed by the encoding of 16 laneidx immediates_
+instr ::= _ _ _
+| 0xFD 13:u32 (𝑙:laneidx)16 ⇒ i8x16_shuffle 𝑙16
+
+
+Overload i8x16_extractLane_s = “V_lane (Vextract_   Signed I8x16)”
+Overload i8x16_extractLane_u = “V_lane (Vextract_ Unsigned I8x16)”
+Overload i16x8_extractLane_s = “V_lane (Vextract_   Signed I16x8)”
+Overload i16x8_extractLane_u = “V_lane (Vextract_ Unsigned I16x8)”
+
+Overload i32x4_extractLane   = “V_lane  VextractI32x4”
+Overload i64x2_extractLane   = “V_lane  VextractI64x2”
+
+Overload f32x4_extractLane   = “V_lane (VextractF F32x4)”
+Overload f64x2_extractLane   = “V_lane (VextractF F64x2)”
+
+Overload i8x16_replaceLane = “V_lane (Vreplace i8x16)”
+Overload i16x8_replaceLane = “V_lane (Vreplace i16x8)”
+Overload i32x4_replaceLane = “V_lane (Vreplace i32x4)”
+Overload i64x2_replaceLane = “V_lane (Vreplace i64x2)”
+Overload f32x4_replaceLane = “V_lane (Vreplace f32x4)”
+Overload f64x2_replaceLane = “V_lane (Vreplace f64x2)”
+
+extract_lane and replace_lane instructions are followed by the encoding of a laneidx immediate_
+instr ::= _ _ _
+| 0xFD 21:u32 𝑙:laneidx ⇒ i8x16_extract_lane_s 𝑙
+| 0xFD 22:u32 𝑙:laneidx ⇒ i8x16_extract_lane_u 𝑙
+| 0xFD 23:u32 𝑙:laneidx ⇒ i8x16_replace_lane 𝑙
+| 0xFD 24:u32 𝑙:laneidx ⇒ i16x8_extract_lane_s 𝑙
+| 0xFD 25:u32 𝑙:laneidx ⇒ i16x8_extract_lane_u 𝑙
+| 0xFD 26:u32 𝑙:laneidx ⇒ i16x8_replace_lane 𝑙
+| 0xFD 27:u32 𝑙:laneidx ⇒ i32x4_extract_lane 𝑙
+| 0xFD 28:u32 𝑙:laneidx ⇒ i32x4_replace_lane 𝑙
+| 0xFD 29:u32 𝑙:laneidx ⇒ i64x2_extract_lane 𝑙
+| 0xFD 30:u32 𝑙:laneidx ⇒ i64x2_replace_lane 𝑙
+| 0xFD 31:u32 𝑙:laneidx ⇒ f32x4_extract_lane 𝑙
+| 0xFD 32:u32 𝑙:laneidx ⇒ f32x4_replace_lane 𝑙
+| 0xFD 33:u32 𝑙:laneidx ⇒ f64x2_extract_lane 𝑙
+| 0xFD 34:u32 𝑙:laneidx ⇒ f64x2_replace_lane 𝑙
+
+
+*)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
