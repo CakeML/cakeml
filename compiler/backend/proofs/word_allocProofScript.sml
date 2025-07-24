@@ -5272,7 +5272,7 @@ Proof
     res_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,mem_load_def])
 QED
 
-val exp_tac =
+val exp_tac2 =
     (last_x_assum kall_tac>>
     exists_tac>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[next_var_rename_def]>>
@@ -5912,11 +5912,11 @@ Proof
       rw[]>>fs[]))
     )
   >-(*Assign*)
-    exp_tac
+    exp_tac2
   >-(*Get*)
-    exp_tac
+    exp_tac2
   >-(*Set*)
-    exp_tac
+    exp_tac2
   >-(*Store*)
     (exists_tac>>
     full_simp_tac(srw_ss())[]>>
@@ -7202,7 +7202,7 @@ Proof
     match_mp_tac ssa_locals_rel_set_var>>
     full_simp_tac(srw_ss())[every_var_def])
   >-
-    exp_tac
+    exp_tac2
   >~[`Install`]
   >- (
     qexists_tac`cst.permute`>>
@@ -7352,9 +7352,9 @@ Proof
       asm_exists_tac>>fs[])>>
     pairarg_tac>>fs[word_state_eq_rel_def])
   >-
-    exp_tac
+    exp_tac2
   >-
-    exp_tac
+    exp_tac2
   >- (
     (*FFI*)
     exists_tac>>
@@ -8531,7 +8531,7 @@ Proof
   HINT_EXISTS_TAC>>fs[get_reads_exp_get_live_exp]
 QED
 
-val exp_tac =
+val exp_tac3 =
   assume_tac (Q.SPEC `exp` every_var_exp_get_reads_exp)>>
   ho_match_mp_tac every_var_exp_mono>>
   HINT_EXISTS_TAC>>fs[in_clash_tree_def];
@@ -8542,7 +8542,7 @@ Triviality every_var_in_get_clash_tree:
 Proof
   ho_match_mp_tac get_clash_tree_ind>>rw[get_clash_tree_def]>>
   fs[every_var_def,in_clash_tree_def,EVERY_MEM,in_clash_tree_def,every_name_def,toAList_domain]>>
-  TRY(exp_tac)
+  TRY(exp_tac3)
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>>TRY(Cases_on`f`)>>
     fs[every_var_imm_def,get_delta_inst_def,every_var_inst_def,in_clash_tree_def])
