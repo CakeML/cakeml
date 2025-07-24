@@ -32,6 +32,7 @@ Inductive v_rel:
   (!s. v_rel (Litv (StrLit s)) (ByteVector (MAP (n2w o ORD) s))) /\
   (!b. v_rel (Litv (Word8 b)) (Number (& (w2n b)))) /\
   (!w. v_rel (Litv (Word64 w)) (Word64 w)) /\
+  (!f. v_rel (Litv (Float64 f)) (Word64 f)) /\
   (!vs ws. LIST_REL v_rel vs ws ==> v_rel (Conv NONE vs) (Block 0 ws)) /\
   (!vs ws t r. LIST_REL v_rel vs ws ==> v_rel (Conv (SOME (t,r)) vs) (Block t ws)) /\
   (!vs ws. LIST_REL v_rel vs ws ==> v_rel (Vectorv vs) (Block 0 ws)) /\
@@ -61,6 +62,7 @@ Theorem v_rel_def =
    ``v_rel (Litv (Char c)) x1``,
    ``v_rel (Litv (Word8 b)) x1``,
    ``v_rel (Litv (Word64 w)) x1``,
+   ``v_rel (Litv (Float64 w)) x1``,
    ``v_rel (Vectorv y) x1``,
    ``v_rel (Conv x y) x1``,
    ``v_rel (Closure x y z) x1``,

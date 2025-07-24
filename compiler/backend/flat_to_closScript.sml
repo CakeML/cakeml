@@ -42,7 +42,8 @@ Definition compile_lit_def:
       | Char c => IntOp (Const (& (ORD c)))
       | StrLit s => BlockOp (Constant (ConstStr (mlstring$implode s)))
       | Word8 b => IntOp (Const (& (w2n b)))
-      | Word64 w => BlockOp (Constant (ConstWord64 w))) []
+      | Word64 w => BlockOp (Constant (ConstWord64 w))
+      | Float64 w => BlockOp (Constant (ConstWord64 w))) []
 End
 
 Definition arg1_def:
