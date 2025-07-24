@@ -612,7 +612,8 @@ Theorem interp_Ret_Termination:
   (
     interp env (Dstep dst deva dcs) = Ret Termination ⇔
     (∃v st'. small_eval_dec env (st,devb,dcs) (st', Rval v) ∧ st.ffi = st'.ffi) ∨
-    (∃v st'. small_eval_dec env (st,devb,dcs) (st', Rerr (Rraise v)) ∧ st.ffi = st'.ffi)
+    (∃v st'. small_eval_dec env (st,devb,dcs) (st', Rerr (Rraise v)) ∧
+             st.ffi = st'.ffi)
   )
 Proof
   rw[Once interp] >> eq_tac >> rw[]
@@ -708,16 +709,16 @@ Proof
     qspecl_then [`d`,`d0`,`l`,`(st',dev2,l)`,`env`]
       assume_tac dstep_result_rel_single >>
     gvs[dstep_result_rel_cases, is_Dffi_def, dget_ffi_def] >>
-    qexists_tac ‘st' with fp_state := f’ >> gs[] >>
+    qexists_tac ‘st'’ >> gs[] >>
     qexists_tac ‘n’ >> qexists_tac ‘dev2’ >> qexists_tac ‘l’ >>
-    qexists_tac ‘st'.fp_state’ >> gs[]
+    gs[]
     )
   >- (
     gvs[small_eval_dec_eq_step_n_cml] >>
     qspecl_then [`n`,`dst`,`deva`,`dcs`,`(st,devb,dcs)`,`env`]
       assume_tac dstep_result_rel_n' >>
     gvs[dstep_result_rel_cases, is_Dffi_def, dget_ffi_def] >>
-    qspecl_then [`dst'`,`dev1`,`dcs'`,`(st' with fp_state := fp,dev,dcs')`,`env`]
+    qspecl_then [`dst'`,`dev1`,`dcs'`,`(st',dev,dcs')`,`env`]
       assume_tac dstep_result_rel_single' >>
     gvs[dstep_result_rel_cases, dget_ffi_def] >>
     simp[step_until_halt_def] >> DEEP_INTRO_TAC some_intro >> reverse $ rw[]
@@ -783,8 +784,9 @@ QED
 
 (* use FFI instead of SharedMem *)
 Theorem do_app_not_SharedMem:
-  semanticPrimitives$do_app s op vs ≠ SOME (v, Rerr (Rabort (Rffi_error (Final_event (SharedMem
-  s') conf ws outcome))))
+  semanticPrimitives$do_app s op vs ≠
+  SOME (v,
+        Rerr (Rabort (Rffi_error (Final_event (SharedMem s') conf ws outcome))))
 Proof
   rpt strip_tac >>
   gvs[DefnBase.one_line_ify NONE semanticPrimitivesTheory.do_app_def,
@@ -794,18 +796,18 @@ Proof
 QED
 
 Theorem application_not_SharedMem:
-  smallStep$application op env (refs,ffi) fp_state vs vs' ≠
-    Eabort (fp,Rffi_error (Final_event (SharedMem s') conf ws outcome))
+  smallStep$application op env (refs,ffi) vs vs' ≠
+    Eabort (Rffi_error (Final_event (SharedMem s') conf ws outcome))
 Proof
   rpt strip_tac >>
   gvs[smallStepTheory.application_def,AllCaseEqs(),SF smallstep_ss,
     do_app_not_SharedMem] >>
-  gvs[semanticPrimitivesTheory.do_fprw_def,AllCaseEqs()]
+  gvs[AllCaseEqs()]
 QED
 
 Theorem decl_step_not_SharedMem:
-  decl_step env (st,devb,dcs) ≠ Dabort (fp,Rffi_error (Final_event (SharedMem
-  s') conf ws outcome))
+  decl_step env (st,devb,dcs) ≠
+  Dabort (Rffi_error (Final_event (SharedMem s') conf ws outcome))
 Proof
   strip_tac >>
   gvs[decl_step_def,AllCaseEqs(),decl_continue_def] >>
@@ -819,13 +821,13 @@ Theorem trace_prefix_dec_Error:
   ((∃n. trace_prefix n (oracle, ffi_st)
     (interp env (Dstep dsta deva dcs)) = (io, SOME Error)) ⇔
 
-  ∃dst ffi' fp.
+  ∃dst ffi'.
     (decl_step_reln env)^*
       (st with ffi := st.ffi with <| oracle := oracle; ffi_state := ffi_st |>,
        devb, dcs) dst ∧
     dget_ffi (Dstep dst) = SOME ffi' ∧
     ffi'.io_events = st.ffi.io_events ++ io ∧
-    decl_step env dst = Dabort (fp, Rtype_error))
+    decl_step env dst = Dabort Rtype_error)
 Proof
   rw[] >> eq_tac >> rw[] >> rpt $ pop_assum mp_tac
   >- (
@@ -919,7 +921,7 @@ Proof
       gvs[step_n_cml_def] >>
       qexists_tac `SUC 0` >> once_rewrite_tac[trace_prefix_interp] >>
       simp[step_until_halt_def] >>
-      `dstep env dsta deva dcs = Dtype_error fp` by (
+      `dstep env dsta deva dcs = Dtype_error` by (
         qmatch_asmsub_abbrev_tac `Dstep (st',_)` >>
         qspecl_then [`dsta`,`deva`,`dcs`,`(st',devb,dcs)`,`env`]
           assume_tac dstep_result_rel_single' >>
@@ -1273,13 +1275,13 @@ Theorem trace_prefix_dec_FinalFFI:
   ((∃n. trace_prefix n (oracle, ffi_st)
     (interp env (Dstep dsta deva dcs)) = (io, SOME $ FinalFFI (s,conf,ws) outcome)) ⇔
 
-  ∃dst ffi' fp.
+  ∃dst ffi'.
     (decl_step_reln env)^*
       (st with ffi := st.ffi with <| oracle := oracle; ffi_state := ffi_st |>,
        devb, dcs) dst ∧
     dget_ffi (Dstep dst) = SOME ffi' ∧
     ffi'.io_events = st.ffi.io_events ++ io ∧
-    decl_step env dst = Dabort (fp, Rffi_error $ Final_event s conf ws outcome))
+    decl_step env dst = Dabort (Rffi_error $ Final_event s conf ws outcome))
 Proof
   rw[] >> eq_tac >> rw[] >> rpt $ pop_assum mp_tac
   >- (
@@ -1621,7 +1623,7 @@ Definition dstate_of_def:
     next_type_stamp := st.next_type_stamp;
     next_exn_stamp := st.next_exn_stamp;
     eval_state := st.eval_state;
-    fp_state := st.fp_state|>
+  |>
 End
 
 Theorem dstate_rel_dstate_of:
@@ -1699,9 +1701,10 @@ Proof
   >- (irule_at Any OR_INTRO_THM1 >> goal_assum drule >> gvs[dget_ffi_def])
   >- (
     irule_at Any OR_INTRO_THM2 >> simp[PULL_EXISTS, GSYM CONJ_ASSOC, EXISTS_PROD] >>
-    gvs[dget_ffi_def] >> Cases_on ‘v’ >> rename1 ‘Draise (fpN, res)’ >>
-    qexists_tac ‘res’ >> qexists_tac ‘dst0 with fp_state := fpN’ >>
-    qexists_tac ‘dst1’ >> qexists_tac ‘dst2’ >> qexists_tac ‘dst0.fp_state’ >>
+    gvs[dget_ffi_def] >> Cases_on ‘v’ >> (* 7 *)
+    qmatch_asmsub_abbrev_tac ‘Draise res’ >>
+    qexists_tac ‘res’ >> qexists_tac ‘dst0’ >>
+    qexists_tac ‘dst1’ >> qexists_tac ‘dst2’ >>
     gs[]
     )
 QED
@@ -1744,9 +1747,9 @@ Proof
        ffi_state_component_equality]) >>
   unabbrev_all_tac >> gvs[] >>
   simp[small_eval_dec_def, PULL_EXISTS, EXISTS_PROD] >> rw[] >> gvs[] >>
-  PairCases_on `dst` >> simp[] >> rename1 ‘Dabort (fpN, _)’ >>
-  qexists_tac ‘dst0 with fp_state := fpN’ >>
-  qexists_tac ‘dst1’ >> qexists_tac ‘dst2’ >> qexists_tac ‘dst0.fp_state’ >>
+  PairCases_on `dst` >> simp[] >>
+  qexists_tac ‘dst0’ >>
+  qexists_tac ‘dst1’ >> qexists_tac ‘dst2’ >>
   gs[]
 QED
 
@@ -1793,9 +1796,8 @@ Proof
        ffi_state_component_equality]) >>
   unabbrev_all_tac >> gvs[] >>
   simp[small_eval_dec_def, PULL_EXISTS, EXISTS_PROD] >> rw[] >> gvs[] >>
-  PairCases_on `dst` >> gvs[dget_ffi_def] >> rename1 ‘Dabort (fpN, _)’ >>
-  qexists_tac ‘dst0 with fp_state := fpN’ >>
-  qexists_tac ‘dst1’ >> qexists_tac ‘dst2’ >> qexists_tac ‘dst0.fp_state’ >>
+  PairCases_on `dst` >> gvs[dget_ffi_def] >>
+  qexists_tac ‘dst0’ >> qexists_tac ‘dst1’ >> qexists_tac ‘dst2’ >>
   gs[]
 QED
 
