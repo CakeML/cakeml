@@ -5,6 +5,15 @@ open preamble;
 
 val _ = new_theory "wasmLang";
 
+(*  TODOs
+    - Well... most AST?
+
+    DODOnes
+    - Numeric AST should be sound&complete ie, no malformed+missing instructions
+      But this validation is neither formal nor mechanical
+    - Vector AST implemented - no validation yet
+ *)
+
 
 (***********************)
 (*                     *)
@@ -137,7 +146,6 @@ Datatype: num_instr
   | (* inn *) N_test       test_op
   | (* all *) N_convert convert_op
 End
-
 
 
 (*******************************)
@@ -299,7 +307,8 @@ Datatype: vec_convert_op
 End
 
 (* This wasn't worth encoding -- no need for an "empty" constructor *)
-(* Datatype: vec_splat_op (* consume a value of numeric type and produce a v128 result of a specified shape *)
+(* consume a value of numeric type and produce a v128 result of a specified shape *)
+(* Datatype: vec_splat_op
   = (*  all *) Vsplat shape
 End *)
 
