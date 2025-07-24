@@ -501,8 +501,7 @@ Proof
   \\ rpt strip_tac
   >~ [‘Forall (vn,vt) e’] >-
    (qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
-    \\ simp [evaluate_exp_def]
-    \\ IF_CASES_TAC \\ gvs []
+    \\ simp [evaluate_exp_def, eval_forall_def]
     \\ IF_CASES_TAC \\ gvs []
     \\ gvs [push_local_with_old, no_Old_def]
     \\ ‘∀v. SND (evaluate_exp
@@ -511,6 +510,9 @@ Proof
       (gen_tac
        \\ namedCases_on ‘evaluate_exp (push_local s vn v) env e’ ["s₁ r₁"]
        \\ last_x_assum drule \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    >- (rpt strip_tac \\ gvs [AllCaseEqs()]
+        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
     \\ IF_CASES_TAC \\ gvs []
     >- (* Type error *)
      (rpt strip_tac \\ gvs []
@@ -523,7 +525,10 @@ Proof
     >- (* True *)
      (rpt strip_tac \\ gvs [] \\ gvs [AllCaseEqs()])
     (* False *)
-    \\ rpt strip_tac \\ gvs [] \\ gvs [AllCaseEqs()])
+    \\ rpt strip_tac \\ gvs [] \\ gvs [AllCaseEqs()]
+    \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+  >~ [‘ForallHeap’] >-
+   (cheat)
   >~ [‘Let vars e’] >-
    (gvs [evaluate_exp_def, UNZIP_MAP, no_Old_def]
     \\ IF_CASES_TAC \\ gvs []
