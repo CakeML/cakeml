@@ -106,18 +106,9 @@ Definition evaluate_exp_ann_def[nocompute]:
                   | (st₃, Rval v) =>
                       (restore_caller st₃ st₁, Rval v))))))) ∧
   evaluate_exp st env (Forall (vn, vt) e) =
-  (if env.is_running then (st, Rerr Rtype_error)
-   else if st.clock = 0 then (st, Rerr Rtimeout_error) else
+  (if env.is_running then (st, Rerr Rtype_error) else
    let eval = (λv. evaluate_exp (push_local st vn v) env e) in
-     if (∃v. v ∈ all_values vt ∧ SND (eval v) = Rerr Rtype_error)
-     then (st, Rerr Rtype_error)
-     else if (∃v. v ∈ all_values vt ∧ SND (eval v) = Rerr Rtimeout_error)
-     then (st, Rerr Rtimeout_error)
-     else if (∀v. v ∈ all_values vt ⇒ SND (eval v) = Rval (BoolV T))
-     then (st, Rval (BoolV T))
-     (* NOTE For now, for simplicity reasons, we do not check whether (eval v) *)
-     (*   is a Bool to throw a type error if not. Instead, we return (BoolV F). *)
-     else (st, Rval (BoolV F))) ∧
+     (st, eval_forall (all_values vt) eval)) ∧
   evaluate_exp st env (Old e) =
   (if env.is_running then (st, Rerr Rtype_error) else
    (case evaluate_exp (use_old st) env e of
@@ -136,6 +127,16 @@ Definition evaluate_exp_ann_def[nocompute]:
          (case pop_locals len_binds st₂ of
           | NONE => (st₂, Rerr Rtype_error)  (* unreachable *)
           | SOME st₃ => (st₃, res))))) ∧
+  evaluate_exp st env (ForallHeap mods body) =
+  (if env.is_running then (st, Rerr Rtype_error) else
+   case fix_clock st (evaluate_exps st env mods) of
+   | (st₁, Rerr err) => (st₁, Rerr err)
+   | (st₁, Rval vs) =>
+     case get_locs vs of
+     | NONE => (st₁, Rerr Rtype_error)
+     | SOME locs =>
+       let eval = (λhs. evaluate_exp (st₁ with heap := hs) env body) in
+         (st₁, eval_forall (valid_mod st.heap locs) eval)) ∧
   evaluate_exps st env [] = (st, Rval []) ∧
   evaluate_exps st₀ env (e::es) =
   (case fix_clock st₀ (evaluate_exp st₀ env e) of
@@ -158,7 +159,8 @@ Termination
           UNZIP_MAP, list_size_pair_size_MAP_FST_SND, AllCaseEqs ()]
 End
 
-(* TODO append _mono *)
+
+(* TODO append _mono to name *)
 Theorem evaluate_exp_clock:
   (∀st₀ env e st₁ r.
      evaluate_exp st₀ env e = (st₁, r) ⇒ st₁.clock ≤ st₀.clock) ∧
