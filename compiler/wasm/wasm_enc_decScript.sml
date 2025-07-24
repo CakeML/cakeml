@@ -7,7 +7,8 @@ open wasmLangTheory wordsTheory wordsLib;
 
 (*  TODOs
     - unsigned LEB
-    - finish up numeric instructions
+    - monad notation, dear god
+    - encode numeric instructions
     - more of the AST
     - parser for the decoder
     - right now LEB decoding takes a detour through HOL nums;
@@ -162,10 +163,23 @@ Overload read_f_4B  = “read_u_4B ”
 Overload read_f_8B  = “read_u_8B ”
 Overload read_f_16B = “read_u_16B”
 
+
 Overload write_u_B   = “write_u_word : byte    -> byteStream -> byteStream”
 Overload write_u_4B  = “write_u_word : word32  -> byteStream -> byteStream”
 Overload write_u_8B  = “write_u_word : word64  -> byteStream -> byteStream”
 Overload write_u_16B = “write_u_word : word128 -> byteStream -> byteStream”
+
+(* TODO: implement signed leb *)
+Overload write_s_B   = “write_u_B  ”
+Overload write_s_4B  = “write_u_4B ”
+Overload write_s_8B  = “write_u_8B ”
+Overload write_s_16B = “write_u_16B”
+
+(* TODO: floats *)
+Overload write_f_B   = “write_u_B  ”
+Overload write_f_4B  = “write_u_4B ”
+Overload write_f_8B  = “write_u_8B ”
+Overload write_f_16B = “write_u_16B”
 
 Theorem read_write_u_B[simp]:
   read_u_B (write_u_B x rest) = SOME (x, rest)
@@ -282,10 +296,10 @@ QED *)
   (****************************)
   (*   Numeric Instructions   *)
   (****************************)
+  (*  NB: numeric instructions are variable length as some take numbers as part of their encoding
+      eg constant functions *)
 
 (* decode a numeric instruction from a stream of bytes. *)
-(*  NB: numeric instructions are variable length as some take numbers as part of their encoding
-    eg constant functions *)
 Definition decode_numI_def:
   decode_numI ([]:byteStream) : (num_instr option # byteStream) = (NONE, []) ∧
   decode_numI (b::bs) = let default = (NONE,b::bs) in
@@ -426,17 +440,10 @@ Definition decode_numI_def:
 
   (* TODO: BOGUS until read_s and read_f properly implemented *)
   (* Constant instructions *)
-  if b = 0x41w then   case read_s_4B bs of
-  | SOME (c32,rest) => (SOME (N_const32 Int   c32), rest)
-  | NONE            => default                                                else
-  if b = 0x42w then   case read_s_8B bs of
-  | SOME (c64,rest) => (SOME (N_const64 Int   c64), rest)
-  | NONE            => default                                                else
-  if b = 0x43w then   case read_f_4B bs of
-  | SOME (c32,rest) => (SOME (N_const32 Float c32), rest)
-  | NONE            => default                                                else
-  if b = 0x44w then case read_f_8B bs of SOME (c64,rest) => (SOME (N_const64 Float c64), rest)
-  | NONE            => default                                                else
+  if b = 0x41w then case read_s_4B bs of SOME (c32,rest) => (SOME (N_const32 Int   c32), rest) | NONE => default else
+  if b = 0x42w then case read_s_8B bs of SOME (c64,rest) => (SOME (N_const64 Int   c64), rest) | NONE => default else
+  if b = 0x43w then case read_f_4B bs of SOME (c32,rest) => (SOME (N_const32 Float c32), rest) | NONE => default else
+  if b = 0x44w then case read_f_8B bs of SOME (c64,rest) => (SOME (N_const64 Float c64), rest) | NONE => default else
 
   (* trunc_sat_f. Forwhatever reason is coded as 2 bytes, instead of  *)
   if b = 0xFCw then case read_u_4B bs of
@@ -445,31 +452,169 @@ Definition decode_numI_def:
                           (selSign  $ sel ' 2)
                           (selWidth $ sel ' 0)
                         )) , rest)
-  | NONE            => default                                                else
+  | NONE => default else
 
   default
 End
 
 
-(*
+(* encode a numeric instruction into bytes. *)
+
+Definition encode_numI_def:
+  encode_numI (i:num_instr) : byteStream = case i of
+
+  | N_test       (Eqz W32)                    => [0x45w]
+  | N_compare    (Eq Int W32)                 => [0x46w]
+  | N_compare    (Ne Int W32)                 => [0x47w]
+  | N_compare    (Lt_   Signed W32)           => [0x48w]
+  | N_compare    (Lt_ Unsigned W32)           => [0x49w]
+  | N_compare    (Gt_   Signed W32)           => [0x4Aw]
+  | N_compare    (Gt_ Unsigned W32)           => [0x4Bw]
+  | N_compare    (Le_   Signed W32)           => [0x4Cw]
+  | N_compare    (Le_ Unsigned W32)           => [0x4Dw]
+  | N_compare    (Ge_   Signed W32)           => [0x4Ew]
+  | N_compare    (Ge_ Unsigned W32)           => [0x4Fw]
+  | N_test       (Eqz W64)                    => [0x50w]
+  | N_compare    (Eq Int W64)                 => [0x51w]
+  | N_compare    (Ne Int W64)                 => [0x52w]
+  | N_compare    (Lt_   Signed W64)           => [0x53w]
+  | N_compare    (Lt_ Unsigned W64)           => [0x54w]
+  | N_compare    (Gt_   Signed W64)           => [0x55w]
+  | N_compare    (Gt_ Unsigned W64)           => [0x56w]
+  | N_compare    (Le_   Signed W64)           => [0x57w]
+  | N_compare    (Le_ Unsigned W64)           => [0x58w]
+  | N_compare    (Ge_   Signed W64)           => [0x59w]
+  | N_compare    (Ge_ Unsigned W64)           => [0x5Aw]
+  | N_compare    (Eq Float W32)               => [0x5Bw]
+  | N_compare    (Ne Float W32)               => [0x5Cw]
+  | N_compare    (Lt W32)                     => [0x5Dw]
+  | N_compare    (Gt W32)                     => [0x5Ew]
+  | N_compare    (Le W32)                     => [0x5Fw]
+  | N_compare    (Ge W32)                     => [0x60w]
+  | N_compare    (Eq Float W64)               => [0x61w]
+  | N_compare    (Ne Float W64)               => [0x62w]
+  | N_compare    (Lt W64)                     => [0x63w]
+  | N_compare    (Gt W64)                     => [0x64w]
+  | N_compare    (Le W64)                     => [0x65w]
+  | N_compare    (Ge W64)                     => [0x66w]
+  | N_unary      (Clz    W32)                 => [0x67w]
+  | N_unary      (Ctz    W32)                 => [0x68w]
+  | N_unary      (Popcnt W32)                 => [0x69w]
+  | N_binary     (Add Int W32)                => [0x6Aw]
+  | N_binary     (Sub Int W32)                => [0x6Bw]
+  | N_binary     (Mul Int W32)                => [0x6Cw]
+  | N_binary     (Div_   Signed W32)          => [0x6Dw]
+  | N_binary     (Div_ Unsigned W32)          => [0x6Ew]
+  | N_binary     (Rem_   Signed W32)          => [0x6Fw]
+  | N_binary     (Rem_ Unsigned W32)          => [0x70w]
+  | N_binary     (And W32)                    => [0x71w]
+  | N_binary     (Or W32)                     => [0x72w]
+  | N_binary     (Xor W32)                    => [0x73w]
+  | N_binary     (Shl W32)                    => [0x74w]
+  | N_binary     (Shr_   Signed W32)          => [0x75w]
+  | N_binary     (Shr_ Unsigned W32)          => [0x76w]
+  | N_binary     (Rotl W32)                   => [0x77w]
+  | N_binary     (Rotr W32)                   => [0x78w]
+  | N_unary      (Clz    W64)                 => [0x79w]
+  | N_unary      (Ctz    W64)                 => [0x7Aw]
+  | N_unary      (Popcnt W64)                 => [0x7Bw]
+  | N_binary     (Add Int W64)                => [0x7Cw]
+  | N_binary     (Sub Int W64)                => [0x7Dw]
+  | N_binary     (Mul Int W64)                => [0x7Ew]
+  | N_binary     (Div_   Signed W64)          => [0x7Fw]
+  | N_binary     (Div_ Unsigned W64)          => [0x80w]
+  | N_binary     (Rem_   Signed W64)          => [0x81w]
+  | N_binary     (Rem_ Unsigned W64)          => [0x82w]
+  | N_binary     (And W64)                    => [0x83w]
+  | N_binary     (Or  W64)                    => [0x84w]
+  | N_binary     (Xor W64)                    => [0x85w]
+  | N_binary     (Shl W64)                    => [0x86w]
+  | N_binary     (Shr_   Signed W64)          => [0x87w]
+  | N_binary     (Shr_ Unsigned W64)          => [0x88w]
+  | N_binary     (Rotl W64)                   => [0x89w]
+  | N_binary     (Rotr W64)                   => [0x8Aw]
+  | N_unary      (Abs     W32)                => [0x8Bw]
+  | N_unary      (Neg     W32)                => [0x8Cw]
+  | N_unary      (Ceil    W32)                => [0x8Dw]
+  | N_unary      (Floor   W32)                => [0x8Ew]
+  | N_unary      (Trunc   W32)                => [0x8Fw]
+  | N_unary      (Nearest W32)                => [0x90w]
+  | N_unary      (Sqrt    W32)                => [0x91w]
+  | N_binary     (Add Float W32)              => [0x92w]
+  | N_binary     (Sub Float W32)              => [0x93w]
+  | N_binary     (Mul Float W32)              => [0x94w]
+  | N_binary     (Div W32)                    => [0x95w]
+  | N_binary     (Min W32)                    => [0x96w]
+  | N_binary     (Max W32)                    => [0x97w]
+  | N_binary     (Copysign W32)               => [0x98w]
+  | N_unary      (Abs     W64)                => [0x99w]
+  | N_unary      (Neg     W64)                => [0x9Aw]
+  | N_unary      (Ceil    W64)                => [0x9Bw]
+  | N_unary      (Floor   W64)                => [0x9Cw]
+  | N_unary      (Trunc   W64)                => [0x9Dw]
+  | N_unary      (Nearest W64)                => [0x9Ew]
+  | N_unary      (Sqrt    W64)                => [0x9Fw]
+  | N_binary     (Add Float W64)              => [0xA0w]
+  | N_binary     (Sub Float W64)              => [0xA1w]
+  | N_binary     (Mul Float W64)              => [0xA2w]
+  | N_binary     (Div W64)                    => [0xA3w]
+  | N_binary     (Min W64)                    => [0xA4w]
+  | N_binary     (Max W64)                    => [0xA5w]
+  | N_binary     (Copysign W64)               => [0xA6w]
+  | N_convert     Wrap_i64                    => [0xA7w]
+  | N_convert    (Trunc_f W32   Signed W32)   => [0xA8w]
+  | N_convert    (Trunc_f W32 Unsigned W32)   => [0xA9w]
+  | N_convert    (Trunc_f W64   Signed W32)   => [0xAAw]
+  | N_convert    (Trunc_f W64 Unsigned W32)   => [0xABw]
+  | N_unary      (Extend_i32_   Signed)       => [0xACw]
+  | N_unary      (Extend_i32_ Unsigned)       => [0xADw]
+  | N_convert    (Trunc_f W32   Signed W64)   => [0xAEw]
+  | N_convert    (Trunc_f W32 Unsigned W64)   => [0xAFw]
+  | N_convert    (Trunc_f W64   Signed W64)   => [0xB0w]
+  | N_convert    (Trunc_f W64 Unsigned W64)   => [0xB1w]
+  | N_convert    (Convert W32   Signed W32)   => [0xB2w]
+  | N_convert    (Convert W32 Unsigned W32)   => [0xB3w]
+  | N_convert    (Convert W64   Signed W32)   => [0xB4w]
+  | N_convert    (Convert W64 Unsigned W32)   => [0xB5w]
+  | N_convert     Demote                      => [0xB6w]
+  | N_convert    (Convert W32   Signed W64)   => [0xB7w]
+  | N_convert    (Convert W32 Unsigned W64)   => [0xB8w]
+  | N_convert    (Convert W64   Signed W64)   => [0xB9w]
+  | N_convert    (Convert W64 Unsigned W64)   => [0xBAw]
+  | N_convert     Promote                     => [0xBBw]
+  | N_convert    (Reinterpret_f W32)          => [0xBCw]
+  | N_convert    (Reinterpret_f W64)          => [0xBDw]
+  | N_convert    (Reinterpret_i W32)          => [0xBEw]
+  | N_convert    (Reinterpret_i W64)          => [0xBFw]
+  | N_unary      (Extend8_s  W32)             => [0xC0w]
+  | N_unary      (Extend16_s W32)             => [0xC1w]
+  | N_unary      (Extend8_s  W64)             => [0xC2w]
+  | N_unary      (Extend16_s W64)             => [0xC3w]
+  | N_unary       Extend32_s                  => [0xC4w]
+
+  | N_const32 Int   c32                       =>  0x41w :: write_s_4B c32 []
+  | N_const64 Int   c64                       =>  0x42w :: write_s_8B c64 []
+  | N_const32 Float c32                       =>  0x43w :: write_f_4B c32 []
+  | N_const64 Float c64                       =>  0x44w :: write_f_8B c64 []
+
+  | N_convert (Trunc_sat_f W32   Signed W32)  =>  0xFCw :: write_u_4B 0x0w []
+  | N_convert (Trunc_sat_f W32 Unsigned W32)  =>  0xFCw :: write_u_4B 0x1w []
+  | N_convert (Trunc_sat_f W64   Signed W32)  =>  0xFCw :: write_u_4B 0x2w []
+  | N_convert (Trunc_sat_f W64 Unsigned W32)  =>  0xFCw :: write_u_4B 0x3w []
+  | N_convert (Trunc_sat_f W32   Signed W64)  =>  0xFCw :: write_u_4B 0x4w []
+  | N_convert (Trunc_sat_f W32 Unsigned W64)  =>  0xFCw :: write_u_4B 0x5w []
+  | N_convert (Trunc_sat_f W64   Signed W64)  =>  0xFCw :: write_u_4B 0x6w []
+  | N_convert (Trunc_sat_f W64 Unsigned W64)  =>  0xFCw :: write_u_4B 0x7w []
+
+End
 
 
+Theorem dec_enc_numI[simp]:
+  ∀ t. decode_numI (encode_numI i) = (SOME t,[])
+Proof
+  Cases >> TRY (simp[decode_numI_def, encode_numI_def, read_u_word_def, write_u_word_def, read_write_u_4B]) >>
+  cheat
+QED
 
-  (* Curiosity (ie, not technically impt): why is the encoding not contiguous??? *)
-  if b = 0xFCw then case read_4B bs of
-    | SOME (sel, rest) => (SOME (N_convert (Trunc_sat_f
-                            (selWidth $ sel ' 1)
-                            (selSign $ sel ' 2)
-                            (selWidth $ sel ' 0)
-                          )) , rest)
-    | NONE => (NONE,b::bs)                                                    else (NONE, bs)
-  (* 0:u32 ⇒ (Trunc_sat_f W32   Signed W32)
-  1:u32 ⇒ (Trunc_sat_f W32 Unsigned W32)
-  2:u32 ⇒ (Trunc_sat_f W64   Signed W32)
-  3:u32 ⇒ (Trunc_sat_f W64 Unsigned W32)
-  4:u32 ⇒ (Trunc_sat_f W32   Signed W64)
-  5:u32 ⇒ (Trunc_sat_f W32 Unsigned W64)
-  6:u32 ⇒ (Trunc_sat_f W64   Signed W64)
-  7:u32 ⇒ (Trunc_sat_f W64 Unsigned W64) *) *)
 
 val _ = export_theory();
