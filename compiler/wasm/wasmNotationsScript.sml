@@ -1,5 +1,5 @@
 (*
-  Notations for the development's WebAssembly (Wasm) AST (in wasmLang)
+  Notations for cake's Wasm AST
 *)
 open preamble;
 open wasmLangTheory;
