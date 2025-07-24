@@ -17,14 +17,11 @@ Overload      last7b[local] = “λ n. (n MOD n128)”         (* : num -> num  
 Overload sans_last7b[local] = “λ n. (n DIV n128)”         (* : num -> num     *)
 Overload     not_MSB[local] = “word_msb”                  (* : α word -> bool *)
 Overload      mk_lsB[local] = “λ n.128w + n2w (last7b n)” (* : num -> byte    *)
-(*           under7b := is a num representable in 7 bits / is less than 128
-              last7b := the last 7 bits of the binary rep of a num
-         sans_last7b := binary rep of a num with last 7 bits truncated
-             not_MSB := not the most sig Byte of a LEB128 encoded int
-              mk_lsB := LEB128 encode 7 bits into a less significant (than the most) Byte
-         *)
-
-
+(*  under7b := is a num representable in 7 bits
+     last7b := the last 7 bits of the binary rep of a num
+sans_last7b := binary rep of a num with last 7 bits truncated
+    not_MSB := not the most sig Byte of a LEB128 encoded int
+     mk_lsB := LEB128 encode 7 bits into a less significant (than the most) Byte *)
 
 Definition read_num_def:
   read_num [] = NONE ∧
@@ -66,6 +63,27 @@ Proof
   \\ disch_then (fn th => CONV_TAC (RAND_CONV $ ONCE_REWRITE_CONV [th]))
   \\ gvs []
 QED
+
+
+Definition read_word_def:
+  read_word input = case read_num input of
+  | SOME (n,rest) => if n < dimword(:α) then SOME ((n2w n):α word, rest) else NONE
+  | NONE => NONE
+End
+
+Overload read_byte    = “read_word : byteStream -> (byte    # byteStream) option”
+Overload read_4bytes  = “read_word : byteStream -> (word32  # byteStream) option”
+Overload read_8bytes  = “read_word : byteStream -> (word64  # byteStream) option”
+Overload read_16bytes = “read_word : byteStream -> (word128 # byteStream) option”
+
+Definition write_word_def:
+  write_word (x:(α word)) acc = (num_to_leb128 (w2n x)) ++ acc
+End
+
+Overload write_byte    = “write_word : byte    -> byteStream -> byteStream”
+Overload write_4bytes  = “write_word : word32  -> byteStream -> byteStream”
+Overload write_8bytes  = “write_word : word64  -> byteStream -> byteStream”
+Overload write_16bytes = “write_word : word128 -> byteStream -> byteStream”
 
 Definition read_w8_def:
   read_w8 input =
