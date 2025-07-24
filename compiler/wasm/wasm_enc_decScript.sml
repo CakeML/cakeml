@@ -864,6 +864,34 @@ Definition encode_vecI_def:
   | V_convert   (Vconvert  Low Unsigned)                => v_opcode 255
   | V_convert    Vdemote                                => v_opcode 94
   | V_convert    Vpromote                               => v_opcode 95
+
+  | V_lane (Vextract_   Signed I8x16)           lidx    => (v_opcode 21) ++ write_u_B [] lidx
+  | V_lane (Vextract_ Unsigned I8x16)           lidx    => (v_opcode 22) ++ write_u_B [] lidx
+  | V_lane (Vreplace (IShp (Is3 (Is2 I8x16))))  lidx    => (v_opcode 23) ++ write_u_B [] lidx
+  | V_lane (Vextract_   Signed I16x8)           lidx    => (v_opcode 24) ++ write_u_B [] lidx
+  | V_lane (Vextract_ Unsigned I16x8)           lidx    => (v_opcode 25) ++ write_u_B [] lidx
+  | V_lane (Vreplace (IShp (Is3 (Is2 I16x8))))  lidx    => (v_opcode 26) ++ write_u_B [] lidx
+  | V_lane  VextractI32x4                       lidx    => (v_opcode 27) ++ write_u_B [] lidx
+  | V_lane (Vreplace (IShp (Is3      I32x4 )))  lidx    => (v_opcode 28) ++ write_u_B [] lidx
+  | V_lane  VextractI64x2                       lidx    => (v_opcode 29) ++ write_u_B [] lidx
+  | V_lane (Vreplace (IShp           I64x2  ))  lidx    => (v_opcode 30) ++ write_u_B [] lidx
+  | V_lane (VextractF F32x4)                    lidx    => (v_opcode 31) ++ write_u_B [] lidx
+  | V_lane (Vreplace (FShp           F32x4  ))  lidx    => (v_opcode 32) ++ write_u_B [] lidx
+  | V_lane (VextractF F64x2)                    lidx    => (v_opcode 33) ++ write_u_B [] lidx
+  | V_lane (Vreplace (FShp           F64x2  ))  lidx    => (v_opcode 34) ++ write_u_B [] lidx
+
+  | V_lane (Vshuffle li1 li2 li3 li4 li5 li6 li7 li8 li9 li10 li11 li12 li13 li14 li15) li16
+  => (v_opcode 13) ++ (FLAT $ MAP (write_u_B []) [li1; li2; li3; li4; li5; li6; li7; li8; li9; li10; li11; li12; li13; li14; li15; li16])
+
+
+(*  TODO: ask conrad: is the V_const constant encoded? the spec seems to be saying
+    it's just byte-reversed, no LEB128 encoding
+
+    Spec: The const instruction is followed by 16 immediate bytes, which are converted into a i128 in littleendian byte
+    order:
+    TODO
+    *)
+  | V_const w128                                        => (v_opcode 12) ++ []
   | _ => []
 End
 
@@ -890,55 +918,6 @@ val _ = export_theory();
 
 Overload v128_const = “V_const”
 
-
-The const instruction is followed by 16 immediate bytes, which are converted into a i128 in littleendian byte
-order:
-instr ::= _ _ _
-| 0xFD 12:u32 (𝑏:byte)16 ⇒ v128_const bytes−1
-i128(𝑏0 _ _ _ 𝑏15)
-
-
-Overload v128_shuffle = “λ l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 l11 l12 l13 l14 l15 l16. V_lane (Vshuffle l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 l11 l12 l13 l14 l15 l16)”
-
-The shuffle instruction is also followed by the encoding of 16 laneidx immediates_
-instr ::= _ _ _
-| 0xFD 13:u32 (𝑙:laneidx)16 ⇒ i8x16_shuffle 𝑙16
-
-
-Overload i8x16_extractLane_s = “V_lane (Vextract_   Signed I8x16)”
-Overload i8x16_extractLane_u = “V_lane (Vextract_ Unsigned I8x16)”
-Overload i16x8_extractLane_s = “V_lane (Vextract_   Signed I16x8)”
-Overload i16x8_extractLane_u = “V_lane (Vextract_ Unsigned I16x8)”
-
-Overload i32x4_extractLane   = “V_lane  VextractI32x4”
-Overload i64x2_extractLane   = “V_lane  VextractI64x2”
-
-Overload f32x4_extractLane   = “V_lane (VextractF F32x4)”
-Overload f64x2_extractLane   = “V_lane (VextractF F64x2)”
-
-Overload i8x16_replaceLane = “V_lane (Vreplace i8x16)”
-Overload i16x8_replaceLane = “V_lane (Vreplace i16x8)”
-Overload i32x4_replaceLane = “V_lane (Vreplace i32x4)”
-Overload i64x2_replaceLane = “V_lane (Vreplace i64x2)”
-Overload f32x4_replaceLane = “V_lane (Vreplace f32x4)”
-Overload f64x2_replaceLane = “V_lane (Vreplace f64x2)”
-
-extract_lane and replace_lane instructions are followed by the encoding of a laneidx immediate_
-instr ::= _ _ _
-| 0xFD 21:u32 𝑙:laneidx ⇒ i8x16_extract_lane_s 𝑙
-| 0xFD 22:u32 𝑙:laneidx ⇒ i8x16_extract_lane_u 𝑙
-| 0xFD 23:u32 𝑙:laneidx ⇒ i8x16_replace_lane 𝑙
-| 0xFD 24:u32 𝑙:laneidx ⇒ i16x8_extract_lane_s 𝑙
-| 0xFD 25:u32 𝑙:laneidx ⇒ i16x8_extract_lane_u 𝑙
-| 0xFD 26:u32 𝑙:laneidx ⇒ i16x8_replace_lane 𝑙
-| 0xFD 27:u32 𝑙:laneidx ⇒ i32x4_extract_lane 𝑙
-| 0xFD 28:u32 𝑙:laneidx ⇒ i32x4_replace_lane 𝑙
-| 0xFD 29:u32 𝑙:laneidx ⇒ i64x2_extract_lane 𝑙
-| 0xFD 30:u32 𝑙:laneidx ⇒ i64x2_replace_lane 𝑙
-| 0xFD 31:u32 𝑙:laneidx ⇒ f32x4_extract_lane 𝑙
-| 0xFD 32:u32 𝑙:laneidx ⇒ f32x4_replace_lane 𝑙
-| 0xFD 33:u32 𝑙:laneidx ⇒ f64x2_extract_lane 𝑙
-| 0xFD 34:u32 𝑙:laneidx ⇒ f64x2_replace_lane 𝑙
 
 
 *)
