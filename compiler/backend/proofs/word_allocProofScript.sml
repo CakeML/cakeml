@@ -6942,19 +6942,21 @@ Proof
     full_simp_tac(srw_ss())[alloc_def]>>
     PairCases_on`p`>>
     PairCases_on`x`>>
+    `INJ (option_lookup ssa') (domain p0 UNION domain p1 ) 𝕌(:num)`
+      by( rw[INJ_DEF]
+      >> (
+        drule list_next_var_rename_move_distinct>>
+        disch_then match_mp_tac>>
+        simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList,toAList_domain,Abbr`all_names`,domain_union])) >>
     drule_at Any cut_envs_lemma>>
     disch_then (qspecl_then [`rcstlocs`,`option_lookup ssa'`] mp_tac)>>
     impl_tac>- (
       gvs[ssa_locals_rel_def,strong_locals_rel_def]>>
-      rw[INJ_DEF]
+      rw[]
       >- (
-        drule list_next_var_rename_move_distinct>>
-        disch_then match_mp_tac>>
-        simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList,toAList_domain,Abbr`all_names`,domain_union])
+        drule INJ_UNION >> simp[])
       >- (
-        drule list_next_var_rename_move_distinct>>
-        disch_then match_mp_tac>>
-        simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList,toAList_domain,Abbr`all_names`,domain_union])
+        drule INJ_UNION >> simp[])
       >>
         full_simp_tac(srw_ss())[option_lookup_def,domain_lookup,Abbr`rcstlocs`,lookup_insert]>>
         last_x_assum kall_tac>>
@@ -7013,6 +7015,19 @@ Proof
     `LENGTH ls' = LENGTH l ∧ LENGTH lsB = LENGTH l` by
       metis_tac[s_key_eq_def,s_frame_key_eq_def,
                 s_val_eq_def,LENGTH_MAP,s_frame_val_eq_def]>>
+    `x'.stack = ls /\ y.stack = ls /\ s_key_eq ls st.stack /\ rest = ls ` by
+       (rpt $ irule_at Any s_val_and_key_eq >>
+        rpt $ PRED_ASSUM is_forall (K ALL_TAC) >>
+        rpt $ PRED_ASSUM is_imp (K ALL_TAC) >>
+        gvs[s_key_eq_def,s_val_eq_def,s_key_eq_refl,s_val_eq_refl] >>
+        rpt (qpat_x_assum `s_key_eq _ _` mp_tac) >>
+        rpt (qpat_x_assum `s_val_eq _ _` mp_tac) >>
+        POP_ASSUM_LIST $ K ALL_TAC >>
+        metis_tac[s_key_eq_trans,s_key_eq_sym,s_val_eq_trans,s_val_eq_sym]) >>
+     POP_ASSUM SUBST_ALL_TAC >>
+     `lsz' = (toAList x0)`
+        by fs[s_key_eq_def,s_frame_key_eq_def2] >>
+     POP_ASSUM SUBST_ALL_TAC >>
     (*Establish invariants about ssa_cut to use later*)
     qabbrev_tac `s = union p0 p1`>>
     qabbrev_tac `ssa_cut = inter ssa' s` >>
@@ -7039,10 +7054,16 @@ Proof
       word_state_eq_rel x' y` by (
       CONJ_TAC
       >- (
-        rpt (qpat_x_assum`_ cst = _` kall_tac)>>
-        rpt (qpat_x_assum`_ rcst = _` kall_tac)>>
-        rpt (qpat_x_assum`_ x = _` kall_tac)>>
-        rpt (qpat_x_assum`_ t' = _` kall_tac)>>
+        qmatch_goalsub_abbrev_tac `GOAL` >>
+        rpt (qpat_x_assum`_ cst = _` mp_tac)>>
+        rpt (qpat_x_assum`_ rcst = _` mp_tac)>>
+        rpt (qpat_x_assum`_ x = _` mp_tac)>>
+        rpt (qpat_x_assum`_ t' = _` mp_tac)>>
+        simp_tac(srw_ss())[AND_IMP_INTRO] >>
+        disch_then (ASSUME_NAMED_TAC "recordSTUFF") >>
+        (*move to the back*)
+        (fn (g as (a::asl,w)) => ([(asl @ [a],w)], hd)) >>
+        Q.UNABBREV_TAC `GOAL` >>
         fs[ssa_locals_rel_def,Abbr`ssa_cut`,Abbr`s`]>>
         CONJ_TAC
         >- (
@@ -7054,22 +7075,70 @@ Proof
         rename1`lookup xx`>>
         `set (MAP FST lsB) = domain x1` by
           simp[Abbr`lsB`, MAP_FST_list_rearrange_keys_QSORT]>>
-        simp[lookup_union,lookup_fromAList,AllCaseEqs()]>>
-        strip_tac
-        >- ( (* xx is in x0 *)
-          drule ALOOKUP_MEM>>
-          simp[MEM_toAList]>>
-          strip_tac>>
-          `xx ∈ domain x0` by metis_tac[domain_lookup]>>
-          CONJ_TAC >- metis_tac[]>>
-          CONJ_TAC >- cheat>>
-          cheat)
-        >- ( (* xx is in x1 *)
-          drule ALOOKUP_MEM>>
-          strip_tac>>
-          drule_at Any MEM_ZIP_weak>>
-          simp[]>> strip_tac>>
-          cheat))
+        strip_tac >>
+        `xx ∈ ((domain x0) UNION (domain x1))`
+             by ( imp_res_tac$  GSYM domain_lookup >>
+               fs[domain_union,domain_fromAList] >>
+               rfs[MAP_ZIP] >> fs[set_MAP_FST_toAList_domain] >>metis_tac[]) >>
+        CONJ_TAC >- (ASM_SET_TAC[]) >>
+        reverse CONJ_TAC >- (
+          disch_tac >>
+          `xx < na`
+            by (
+             qpat_x_assum `every_var _ _` mp_tac >>
+             simp[every_var_def,every_name_def,EVERY_MEM,set_MAP_FST_toAList_domain] >>
+             ASM_SET_TAC[]) >>
+          intLib.ARITH_TAC) >>
+        Q.ISPECL_THEN [`MAP SND l`, `xx`, `MAP FST lsB`,`option_lookup ssa'`]
+          MP_TAC $  GEN_ALL ALOOKUP_key_remap_INJ >>
+        impl_tac >-
+          (simp[] >>
+          irule INJ_SUBSET >>
+          Q.EXISTS_TAC `(domain p0 UNION domain p1)` >>
+          first_x_assum (irule_at (Pos last)) >>
+          simp[] >> ASM_SET_TAC[]) >>
+        disch_tac >>
+        Q.PAT_X_ASSUM `lookup xx _ = SOME _` mp_tac >>
+        simp_tac(srw_ss())[lookup_union,lookup_fromAList] >>
+        qmatch_asmsub_abbrev_tac `ALOOKUP  A B = ALOOKUP C D` >>
+        disch_tac >>
+        qmatch_goalsub_abbrev_tac `ALOOKUP C' D'` >>
+        `C = C' /\ D = D'`
+          by (
+          simp[Abbr`C`,Abbr`C'`,Abbr`D`,Abbr`D'`] >>
+          simp[SimpRHS,Once $GSYM ZIP_MAP_FST_SND_EQ ] >>
+          simp[] >>
+          CONJ_TAC >-
+            (`MAP FST l = MAP FST (MAP (λ(x,y). (option_lookup ssa' x,y)) lsB)`
+                by fs[s_key_eq_def,s_frame_key_eq_def2] >>
+            POP_ASSUM SUBST_ALL_TAC >>
+            simp[MAP_MAP_o,ELIM_UNCURRY,o_DEF]) >>
+          qmatch_goalsub_abbrev_tac `_ = THE C`>>
+          `?y. C = SOME y`
+             by (
+               simp[Abbr`C`,Abbr`B`,Abbr`A`,GSYM domain_lookup] >>
+               ASM_SET_TAC[domain_union]) >>
+          `lookup B ssa' = C`
+              by (simp[Abbr`C`] >> METIS_TAC[]) >>
+          simp_tac(srw_ss())[option_lookup_def,Abbr`C`] >>
+          ASM_REWRITE_TAC[] >>
+          simp_tac(srw_ss())[]) >>
+        ntac 2 $ POP_ASSUM (SUBST_TAC o single o GSYM) >>
+        ntac 2 $ POP_ASSUM $ K ALL_TAC >>
+        POP_ASSUM MP_TAC >>
+        simp[AllCaseEqs(),DISJ_IMP_THM] >>
+        MAP_EVERY Q.UNABBREV_TAC [`A`,`B`,`C`,`D`] >>
+        strip_tac >>
+        qpat_x_assum `strong_locals_rel (option_lookup ssa') (domain p0) x0 y1` mp_tac
+        simp[strong_locals_rel_def] >>
+        disch_then (qspec_then `xx` mp_tac) >>
+        full_simp_tac(bool_ss)[ALOOKUP_toAList] >>
+        simp_tac(srw_ss())[] >>
+        impl_tac >- (
+          EVERY_ASSUM (TRY o (mp_then.mp_then (Pos hd) mp_tac (iffLR ALOOKUP_NONE))) >>
+          simp[MAP_ZIP] >>
+          ASM_SET_TAC[]) >>
+        simp_tac(srw_ss())[])
       >-
         (full_simp_tac(srw_ss())[word_state_eq_rel_def,pop_env_def]>>
         rev_full_simp_tac(srw_ss())[state_component_equality, stack_size_def, stack_size_frame_def]>>
