@@ -82,16 +82,43 @@ Definition count_sem_def:
       MAP (λA. if varc w A = varc w Y then 1 else 0) As)
 End
 
+Definition nvalue_sem_def:
+  nvalue_sem (Y: 'a varc) (As: ('a varc) list) (w: 'a assignment) =
+  (Num $ varc w Y = CARD $ set (MAP (varc w) As))
+End
+
+Definition table_sem_def:
+  table_sem (Xs: ('a varc) list) (Tss: ('a varc) list list) (w: 'a assignment) =
+  let n = LENGTH Xs in
+    EVERY (λTs. LENGTH Ts = n) Tss ∧ MEM (MAP (varc w) Xs) (MAP (MAP (varc w)) Tss)
+End
+
+Definition element2d_sem_def:
+  element2d_sem (R: 'a varc) (X: 'a varc) (Y: 'a varc) (Tss: ('a varc) list list)
+                (w: 'a assignment) =
+  let
+    n = LENGTH Tss;
+    m = if n = 0 then 0 else LENGTH $ EL 1 Tss
+  in
+    EVERY (λTs. LENGTH Ts = m) Tss ∧
+    1 ≤ Num $ varc w X ∧ Num $ varc w X ≤ n ∧
+    1 ≤ Num $ varc w Y ∧ Num $ varc w Y ≤ m ∧
+    EL (Num $ varc w Y) $ EL (Num $ varc w X) (MAP (MAP (varc w)) Tss) = varc w R
+End
+
 Datatype:
   constraint =
     NotEquals ('a varc) ('a varc)
   | AllDifferent ('a varc list)
   | Element ('a varc) ('a varc) ('a varc list)
+  | Element2D ('a varc) ('a varc) ('a varc) ('a varc list list)
   | Abs ('a varc) ('a varc)
   | Ilc ('a iclin_term) pbop int
   | ArrMax ('a varc) ('a varc list)
   | ArrMin ('a varc) ('a varc list)
   | Count ('a varc) ('a varc) ('a varc list)
+  | Nvalue ('a varc) ('a varc list)
+  | Table ('a varc list) ('a varc list list)
 End
 
 Definition constraint_sem_def:
@@ -100,11 +127,14 @@ Definition constraint_sem_def:
     NotEquals X Y => not_equals_sem X Y w
   | AllDifferent As => all_different_sem As w
   | Element R X As => element_sem R X As w
+  | Element2D R X Y Tss => element2d_sem R X Y Tss w
   | Abs X Y => abs_sem X Y w
   | Ilc Xs op rhs => ilc_sem Xs op rhs w
   | ArrMax M As => arr_max_sem M As w
   | ArrMin M As => arr_min_sem M As w
   | Count Y C As => count_sem Y C As w
+  | Nvalue Y As => nvalue_sem Y As w
+  | Table Xs Tss => table_sem Xs Tss w
 End
 
 Definition valid_assignment_def:
