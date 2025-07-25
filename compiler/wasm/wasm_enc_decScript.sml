@@ -893,49 +893,219 @@ Definition encode_vecI_def:
         *)
     | V_const w128                                        => (v_opcode 12) ++ []
 End
-Definition decode_vec_def:
+
+Definition decode_vecI_def:
   decode_vecI ([]:byteStream) : (vec_instr option # byteStream) = (NONE, []) ∧
+  decode_vecI (b::bs) = let default = (NONE, b::bs) in
+    if b <> 0xFDw ∨ bs = [] then default else
+    case read_u_4B (bs:byteStream) of NONE => default | SOME (oc,rest) =>
+    if oc =  14w then (SOME (V_binary     Vswizzle                               ),rest) else
+    if oc = 15w  then (SOME (V_splat     (IShp (Is3 (Is2 I8x16)))                ),rest) else
+    if oc = 16w  then (SOME (V_splat     (IShp (Is3 (Is2 I16x8)))                ),rest) else
+    if oc = 17w  then (SOME (V_splat     (IShp (Is3      I32x4 ))                ),rest) else
+    if oc = 18w  then (SOME (V_splat     (IShp           I64x2  )                ),rest) else
+    if oc = 19w  then (SOME (V_splat     (FShp           F32x4  )                ),rest) else
+    if oc = 20w  then (SOME (V_splat     (FShp           F64x2  )                ),rest) else
+    if oc = 35w  then (SOME (V_compare   (Veq (IShp (Is3 (Is2 I8x16))))          ),rest) else
+    if oc = 36w  then (SOME (V_compare   (Vne (IShp (Is3 (Is2 I8x16))))          ),rest) else
+    if oc = 37w  then (SOME (V_compare   (Vlt_   Signed (Is2 I8x16))             ),rest) else
+    if oc = 38w  then (SOME (V_compare   (Vlt_ Unsigned (Is2 I8x16))             ),rest) else
+    if oc = 39w  then (SOME (V_compare   (Vgt_   Signed (Is2 I8x16))             ),rest) else
+    if oc = 40w  then (SOME (V_compare   (Vgt_ Unsigned (Is2 I8x16))             ),rest) else
+    if oc = 41w  then (SOME (V_compare   (Vle_   Signed (Is2 I8x16))             ),rest) else
+    if oc = 42w  then (SOME (V_compare   (Vle_ Unsigned (Is2 I8x16))             ),rest) else
+    if oc = 43w  then (SOME (V_compare   (Vge_   Signed (Is2 I8x16))             ),rest) else
+    if oc = 44w  then (SOME (V_compare   (Vge_ Unsigned (Is2 I8x16))             ),rest) else
+    if oc = 45w  then (SOME (V_compare   (Veq (IShp (Is3 (Is2 I16x8))))          ),rest) else
+    if oc = 46w  then (SOME (V_compare   (Vne (IShp (Is3 (Is2 I16x8))))          ),rest) else
+    if oc = 47w  then (SOME (V_compare   (Vlt_   Signed (Is2 I16x8))             ),rest) else
+    if oc = 48w  then (SOME (V_compare   (Vlt_ Unsigned (Is2 I16x8))             ),rest) else
+    if oc = 49w  then (SOME (V_compare   (Vgt_   Signed (Is2 I16x8))             ),rest) else
+    if oc = 50w  then (SOME (V_compare   (Vgt_ Unsigned (Is2 I16x8))             ),rest) else
+    if oc = 51w  then (SOME (V_compare   (Vle_   Signed (Is2 I16x8))             ),rest) else
+    if oc = 52w  then (SOME (V_compare   (Vle_ Unsigned (Is2 I16x8))             ),rest) else
+    if oc = 53w  then (SOME (V_compare   (Vge_   Signed (Is2 I16x8))             ),rest) else
+    if oc = 54w  then (SOME (V_compare   (Vge_ Unsigned (Is2 I16x8))             ),rest) else
+    if oc = 55w  then (SOME (V_compare   (Veq (IShp (Is3 I32x4)))                ),rest) else
+    if oc = 56w  then (SOME (V_compare   (Vne (IShp (Is3 I32x4)))                ),rest) else
+    if oc = 57w  then (SOME (V_compare   (Vlt_   Signed I32x4)                   ),rest) else
+    if oc = 58w  then (SOME (V_compare   (Vlt_ Unsigned I32x4)                   ),rest) else
+    if oc = 59w  then (SOME (V_compare   (Vgt_   Signed I32x4)                   ),rest) else
+    if oc = 60w  then (SOME (V_compare   (Vgt_ Unsigned I32x4)                   ),rest) else
+    if oc = 61w  then (SOME (V_compare   (Vle_   Signed I32x4)                   ),rest) else
+    if oc = 62w  then (SOME (V_compare   (Vle_ Unsigned I32x4)                   ),rest) else
+    if oc = 63w  then (SOME (V_compare   (Vge_   Signed I32x4)                   ),rest) else
+    if oc = 64w  then (SOME (V_compare   (Vge_ Unsigned I32x4)                   ),rest) else
+    if oc = 214w then (SOME (V_compare   (Veq (IShp I64x2))                      ),rest) else
+    if oc = 215w then (SOME (V_compare   (Vne (IShp I64x2))                      ),rest) else
+    if oc = 216w then (SOME (V_compare    Vlt_s                                  ),rest) else
+    if oc = 217w then (SOME (V_compare    Vgt_s                                  ),rest) else
+    if oc = 218w then (SOME (V_compare    Vle_s                                  ),rest) else
+    if oc = 219w then (SOME (V_compare    Vge_s                                  ),rest) else
+    if oc = 65w  then (SOME (V_compare   (Veq (FShp F32x4))                      ),rest) else
+    if oc = 66w  then (SOME (V_compare   (Vne (FShp F32x4))                      ),rest) else
+    if oc = 67w  then (SOME (V_compare   (Vlt F32x4)                             ),rest) else
+    if oc = 68w  then (SOME (V_compare   (Vgt F32x4)                             ),rest) else
+    if oc = 69w  then (SOME (V_compare   (Vle F32x4)                             ),rest) else
+    if oc = 70w  then (SOME (V_compare   (Vge F32x4)                             ),rest) else
+    if oc = 71w  then (SOME (V_compare   (Veq (FShp F64x2))                      ),rest) else
+    if oc = 72w  then (SOME (V_compare   (Vne (FShp F64x2))                      ),rest) else
+    if oc = 73w  then (SOME (V_compare   (Vlt F64x2)                             ),rest) else
+    if oc = 74w  then (SOME (V_compare   (Vgt F64x2)                             ),rest) else
+    if oc = 75w  then (SOME (V_compare   (Vle F64x2)                             ),rest) else
+    if oc = 76w  then (SOME (V_compare   (Vge F64x2)                             ),rest) else
+    if oc = 77w  then (SOME (V_ternary    VbitSelect                             ),rest) else
+    if oc = 78w  then (SOME (V_binary     Vand                                   ),rest) else
+    if oc = 79w  then (SOME (V_binary     VandNot                                ),rest) else
+    if oc = 80w  then (SOME (V_binary     Vor                                    ),rest) else
+    if oc = 81w  then (SOME (V_binary     Vxor                                   ),rest) else
+    if oc = 82w  then (SOME (V_ternary    VbitSelect                             ),rest) else
+    if oc = 83w  then (SOME (V_test       VanyTrue                               ),rest) else
+    if oc = 96w  then (SOME (V_unary     (Vabs (IShp (Is3 (Is2 I8x16))))         ),rest) else
+    if oc = 97w  then (SOME (V_unary     (Vneg (IShp (Is3 (Is2 I8x16))))         ),rest) else
+    if oc = 98w  then (SOME (V_unary      Vpopcnt                                ),rest) else
+    if oc = 99w  then (SOME (V_test      (VallTrue (Is3 (Is2 I8x16)))            ),rest) else
+    if oc = 100w then (SOME (V_unary     (Vbitmask (Is3 (Is2 I8x16)))            ),rest) else
+    if oc = 101w then (SOME (V_binary    (Vnarrow   Signed I8x16)                ),rest) else
+    if oc = 102w then (SOME (V_binary    (Vnarrow Unsigned I8x16)                ),rest) else
+    if oc = 107w then (SOME (V_shift     (Vshl (Is3 (Is2 I8x16)))                ),rest) else
+    if oc = 108w then (SOME (V_shift     (Vshr_   Signed (Is3 (Is2 I8x16)))      ),rest) else
+    if oc = 109w then (SOME (V_shift     (Vshr_ Unsigned (Is3 (Is2 I8x16)))      ),rest) else
+    if oc = 110w then (SOME (V_binary    (Vadd (IShp (Is3 (Is2 I8x16))))         ),rest) else
+    if oc = 111w then (SOME (V_binary    (Vadd_sat_   Signed I8x16)              ),rest) else
+    if oc = 112w then (SOME (V_binary    (Vadd_sat_ Unsigned I8x16)              ),rest) else
+    if oc = 113w then (SOME (V_binary    (Vsub (IShp (Is3 (Is2 I8x16))))         ),rest) else
+    if oc = 114w then (SOME (V_binary    (Vsub_sat_   Signed I8x16)              ),rest) else
+    if oc = 115w then (SOME (V_binary    (Vsub_sat_ Unsigned I8x16)              ),rest) else
+    if oc = 118w then (SOME (V_binary    (Vmin_   Signed (Is2 I8x16))            ),rest) else
+    if oc = 119w then (SOME (V_binary    (Vmin_ Unsigned (Is2 I8x16))            ),rest) else
+    if oc = 120w then (SOME (V_binary    (Vmax_   Signed (Is2 I8x16))            ),rest) else
+    if oc = 121w then (SOME (V_binary    (Vmax_ Unsigned (Is2 I8x16))            ),rest) else
+    if oc = 123w then (SOME (V_binary    (Vavgr_u I8x16)                         ),rest) else
+    if oc = 124w then (SOME (V_convert   (VextAdd I8x16   Signed)                ),rest) else
+    if oc = 125w then (SOME (V_convert   (VextAdd I8x16 Unsigned)                ),rest) else
+    if oc = 128w then (SOME (V_unary     (Vabs (IShp (Is3 (Is2 I16x8))))         ),rest) else
+    if oc = 129w then (SOME (V_unary     (Vneg (IShp (Is3 (Is2 I16x8))))         ),rest) else
+    if oc = 130w then (SOME (V_binary     VmulQ15                                ),rest) else
+    if oc = 131w then (SOME (V_test      (VallTrue (Is3 (Is2 I16x8)))            ),rest) else
+    if oc = 132w then (SOME (V_unary     (Vbitmask (Is3 (Is2 I16x8)))            ),rest) else
+    if oc = 133w then (SOME (V_binary    (Vnarrow   Signed I16x8)                ),rest) else
+    if oc = 134w then (SOME (V_binary    (Vnarrow Unsigned I16x8)                ),rest) else
+    if oc = 135w then (SOME (V_convert   (Vextend   Low  (Is2 I8x16)   Signed)   ),rest) else
+    if oc = 136w then (SOME (V_convert   (Vextend  High  (Is2 I8x16)   Signed)   ),rest) else
+    if oc = 137w then (SOME (V_convert   (Vextend   Low  (Is2 I8x16) Unsigned)   ),rest) else
+    if oc = 138w then (SOME (V_convert   (Vextend  High  (Is2 I8x16) Unsigned)   ),rest) else
+    if oc = 139w then (SOME (V_shift     (Vshl (Is3 (Is2 I16x8)))                ),rest) else
+    if oc = 140w then (SOME (V_shift     (Vshr_   Signed (Is3 (Is2 I16x8)))      ),rest) else
+    if oc = 141w then (SOME (V_shift     (Vshr_ Unsigned (Is3 (Is2 I16x8)))      ),rest) else
+    if oc = 142w then (SOME (V_binary    (Vadd (IShp (Is3 (Is2 I16x8))))         ),rest) else
+    if oc = 143w then (SOME (V_binary    (Vadd_sat_   Signed I16x8)              ),rest) else
+    if oc = 144w then (SOME (V_binary    (Vadd_sat_ Unsigned I16x8)              ),rest) else
+    if oc = 145w then (SOME (V_binary    (Vsub (IShp (Is3 (Is2 I16x8))))         ),rest) else
+    if oc = 146w then (SOME (V_binary    (Vsub_sat_   Signed I16x8)              ),rest) else
+    if oc = 147w then (SOME (V_binary    (Vsub_sat_ Unsigned I16x8)              ),rest) else
+    if oc = 149w then (SOME (V_binary     VmulI16                                ),rest) else
+    if oc = 150w then (SOME (V_binary    (Vmin_   Signed (Is2 I16x8))            ),rest) else
+    if oc = 151w then (SOME (V_binary    (Vmin_ Unsigned (Is2 I16x8))            ),rest) else
+    if oc = 152w then (SOME (V_binary    (Vmax_   Signed (Is2 I16x8))            ),rest) else
+    if oc = 153w then (SOME (V_binary    (Vmax_ Unsigned (Is2 I16x8))            ),rest) else
+    if oc = 155w then (SOME (V_binary    (Vavgr_u I16x8)                         ),rest) else
+    if oc = 156w then (SOME (V_convert   (VextMul   Low  (Is2 I8x16)   Signed)   ),rest) else
+    if oc = 157w then (SOME (V_convert   (VextMul  High  (Is2 I8x16)   Signed)   ),rest) else
+    if oc = 158w then (SOME (V_convert   (VextMul   Low  (Is2 I8x16) Unsigned)   ),rest) else
+    if oc = 159w then (SOME (V_convert   (VextMul  High  (Is2 I8x16) Unsigned)   ),rest) else
+    if oc = 126w then (SOME (V_convert   (VextAdd I16x8   Signed)                ),rest) else
+    if oc = 127w then (SOME (V_convert   (VextAdd I16x8 Unsigned)                ),rest) else
+    if oc = 160w then (SOME (V_unary     (Vabs (IShp (Is3 I32x4)))               ),rest) else
+    if oc = 161w then (SOME (V_unary     (Vneg (IShp (Is3 I32x4)))               ),rest) else
+    if oc = 163w then (SOME (V_test      (VallTrue (Is3 I32x4))                  ),rest) else
+    if oc = 164w then (SOME (V_unary     (Vbitmask (Is3 I32x4))                  ),rest) else
+    if oc = 167w then (SOME (V_convert   (Vextend   Low  (Is2 I16x8)   Signed)   ),rest) else
+    if oc = 168w then (SOME (V_convert   (Vextend  High  (Is2 I16x8)   Signed)   ),rest) else
+    if oc = 169w then (SOME (V_convert   (Vextend   Low  (Is2 I16x8) Unsigned)   ),rest) else
+    if oc = 170w then (SOME (V_convert   (Vextend  High  (Is2 I16x8) Unsigned)   ),rest) else
+    if oc = 171w then (SOME (V_shift     (Vshl           (Is3 I32x4))            ),rest) else
+    if oc = 172w then (SOME (V_shift     (Vshr_   Signed (Is3 I32x4))            ),rest) else
+    if oc = 173w then (SOME (V_shift     (Vshr_ Unsigned (Is3 I32x4))            ),rest) else
+    if oc = 174w then (SOME (V_binary    (Vadd (IShp (Is3 I32x4)))               ),rest) else
+    if oc = 177w then (SOME (V_binary    (Vsub (IShp (Is3 I32x4)))               ),rest) else
+    if oc = 181w then (SOME (V_binary     VmulI32                                ),rest) else
+    if oc = 182w then (SOME (V_binary    (Vmin_   Signed I32x4)                  ),rest) else
+    if oc = 183w then (SOME (V_binary    (Vmin_ Unsigned I32x4)                  ),rest) else
+    if oc = 184w then (SOME (V_binary    (Vmax_   Signed I32x4)                  ),rest) else
+    if oc = 185w then (SOME (V_binary    (Vmax_ Unsigned I32x4)                  ),rest) else
+    if oc = 186w then (SOME (V_binary     Vdot                                   ),rest) else
+    if oc = 188w then (SOME (V_convert   (VextMul   Low  (Is2 I16x8)   Signed)   ),rest) else
+    if oc = 189w then (SOME (V_convert   (VextMul  High  (Is2 I16x8)   Signed)   ),rest) else
+    if oc = 190w then (SOME (V_convert   (VextMul   Low  (Is2 I16x8) Unsigned)   ),rest) else
+    if oc = 191w then (SOME (V_convert   (VextMul  High  (Is2 I16x8) Unsigned)   ),rest) else
+    if oc = 192w then (SOME (V_unary     (Vabs (IShp I64x2))                     ),rest) else
+    if oc = 193w then (SOME (V_unary     (Vneg (IShp I64x2))                     ),rest) else
+    if oc = 195w then (SOME (V_test      (VallTrue I64x2)                        ),rest) else
+    if oc = 196w then (SOME (V_unary     (Vbitmask I64x2)                        ),rest) else
+    if oc = 199w then (SOME (V_convert   (Vextend   Low  I32x4   Signed)         ),rest) else
+    if oc = 200w then (SOME (V_convert   (Vextend  High  I32x4   Signed)         ),rest) else
+    if oc = 201w then (SOME (V_convert   (Vextend   Low  I32x4 Unsigned)         ),rest) else
+    if oc = 202w then (SOME (V_convert   (Vextend  High  I32x4 Unsigned)         ),rest) else
+    if oc = 203w then (SOME (V_shift     (Vshl I64x2)                            ),rest) else
+    if oc = 204w then (SOME (V_shift     (Vshr_   Signed I64x2)                  ),rest) else
+    if oc = 205w then (SOME (V_shift     (Vshr_ Unsigned I64x2)                  ),rest) else
+    if oc = 206w then (SOME (V_binary    (Vadd (IShp I64x2))                     ),rest) else
+    if oc = 209w then (SOME (V_binary    (Vsub (IShp I64x2))                     ),rest) else
+    if oc = 213w then (SOME (V_binary     VmulI64                                ),rest) else
+    if oc = 220w then (SOME (V_convert   (VextMul   Low  I32x4   Signed)         ),rest) else
+    if oc = 221w then (SOME (V_convert   (VextMul  High  I32x4   Signed)         ),rest) else
+    if oc = 222w then (SOME (V_convert   (VextMul   Low  I32x4 Unsigned)         ),rest) else
+    if oc = 223w then (SOME (V_convert   (VextMul  High  I32x4 Unsigned)         ),rest) else
+    if oc = 103w then (SOME (V_unary     (Vceil    F32x4)                        ),rest) else
+    if oc = 104w then (SOME (V_unary     (Vfloor   F32x4)                        ),rest) else
+    if oc = 105w then (SOME (V_unary     (Vtrunc   F32x4)                        ),rest) else
+    if oc = 106w then (SOME (V_unary     (Vnearest F32x4)                        ),rest) else
+    if oc = 224w then (SOME (V_unary     (Vabs (FShp F32x4))                     ),rest) else
+    if oc = 225w then (SOME (V_unary     (Vneg (FShp F32x4))                     ),rest) else
+    if oc = 227w then (SOME (V_unary     (Vsqrt    F32x4)                        ),rest) else
+    if oc = 228w then (SOME (V_binary    (Vadd (FShp F32x4))                     ),rest) else
+    if oc = 229w then (SOME (V_binary    (Vsub (FShp F32x4))                     ),rest) else
+    if oc = 230w then (SOME (V_binary    (VmulF F32x4)                           ),rest) else
+    if oc = 231w then (SOME (V_binary    (Vdiv  F32x4)                           ),rest) else
+    if oc = 232w then (SOME (V_binary    (Vmin  F32x4)                           ),rest) else
+    if oc = 233w then (SOME (V_binary    (Vmax  F32x4)                           ),rest) else
+    if oc = 234w then (SOME (V_binary    (Vpmin F32x4)                           ),rest) else
+    if oc = 235w then (SOME (V_binary    (Vpmax F32x4)                           ),rest) else
+    if oc = 116w then (SOME (V_unary     (Vceil    F64x2)                        ),rest) else
+    if oc = 117w then (SOME (V_unary     (Vfloor   F64x2)                        ),rest) else
+    if oc = 122w then (SOME (V_unary     (Vtrunc   F64x2)                        ),rest) else
+    if oc = 148w then (SOME (V_unary     (Vnearest F64x2)                        ),rest) else
+    if oc = 236w then (SOME (V_unary     (Vabs (FShp F64x2))                     ),rest) else
+    if oc = 237w then (SOME (V_unary     (Vneg (FShp F64x2))                     ),rest) else
+    if oc = 239w then (SOME (V_unary     (Vsqrt    F64x2)                        ),rest) else
+    if oc = 240w then (SOME (V_binary    (Vadd (FShp F64x2))                     ),rest) else
+    if oc = 241w then (SOME (V_binary    (Vsub (FShp F64x2))                     ),rest) else
+    if oc = 242w then (SOME (V_binary    (VmulF F64x2)                           ),rest) else
+    if oc = 243w then (SOME (V_binary    (Vdiv  F64x2)                           ),rest) else
+    if oc = 244w then (SOME (V_binary    (Vmin  F64x2)                           ),rest) else
+    if oc = 245w then (SOME (V_binary    (Vmax  F64x2)                           ),rest) else
+    if oc = 246w then (SOME (V_binary    (Vpmin F64x2)                           ),rest) else
+    if oc = 247w then (SOME (V_binary    (Vpmax F64x2)                           ),rest) else
+    if oc = 248w then (SOME (V_convert   (VtruncSat       Signed)                ),rest) else
+    if oc = 249w then (SOME (V_convert   (VtruncSat     Unsigned)                ),rest) else
+    if oc = 250w then (SOME (V_convert   (Vconvert High   Signed)                ),rest) else
+    if oc = 251w then (SOME (V_convert   (Vconvert High Unsigned)                ),rest) else
+    if oc = 252w then (SOME (V_convert   (VtruncSat0      Signed)                ),rest) else
+    if oc = 253w then (SOME (V_convert   (VtruncSat0    Unsigned)                ),rest) else
+    if oc = 254w then (SOME (V_convert   (Vconvert  Low   Signed)                ),rest) else
+    if oc = 255w then (SOME (V_convert   (Vconvert  Low Unsigned)                ),rest) else
+    if oc = 94w  then (SOME (V_convert    Vdemote                                ),rest) else
+    if oc = 95w  then (SOME (V_convert    Vpromote                               ),rest) else
+    default
 
-  (*  I'm trying to write anoter case of decode_vecI.
-      I don't know why either of these break things.  *)
-
-
-  (* WHY WOULD THIS BREAK THINGS??? *)
-
-  (* decode_vecI (0xFDw::bs) = let default = (NONE,[]) in default ∧ *)
-
-  (* Fails with following error:
-    Saved definition ____ "decode_numI_def"
-    Saved CHEAT _________ "dec_enc_numI"
-    <<HOL message: mk_functional: The following input rows (counting from zero) are inaccessible: 60.
-    They have been ignored.>>
-    Saved definition ____ "encode_vecI_def"
-    error in quse /home/cesally/work/cakeml/compiler/wasm/wasm_enc_decScript.sml : HOL_ERR {message = "at Defn.parse_quote:\nat Preterm.type-analysis:\non line 905, characters 43-49:\n\nType inference failure: unable to infer a type for the application of\n\nLET\n  (\206\187(default :bool).\n       default \226\136\167\n       (decode_vecI :\206\179 word list -> \206\177 option # \206\178 list) (bs :\206\179 word list) =\n       ((NONE :\206\177 option),([] :\206\178 list)))\n\nroughly between line 905, character 55 and line 919, character 28\n\nwhich has type\n\n:bool -> bool\n\nto\n\n((NONE :\206\177 option),([] :\206\178 list))\n\non line 905, characters 43-49\n\nwhich has type\n\n:\206\177 option # \206\178 list\n\nunification failure message: Attempt to unify different type operators: min$bool and pair$prod\n", origin_function = "Hol_defn", origin_structure = "Defn", source_location = Loc_Near (Loc (LocA (896, 2), LocA (918, 28)))}
-    error in load /home/cesally/work/cakeml/compiler/wasm/wasm_enc_decScript : HOL_ERR {message = "at Defn.parse_quote:\nat Preterm.type-analysis:\non line 905, characters 43-49:\n\nType inference failure: unable to infer a type for the application of\n\nLET\n  (\206\187(default :bool).\n       default \226\136\167\n       (decode_vecI :\206\179 word list -> \206\177 option # \206\178 list) (bs :\206\179 word list) =\n       ((NONE :\206\177 option),([] :\206\178 list)))\n\nroughly between line 905, character 55 and line 919, character 28\n\nwhich has type\n\n:bool -> bool\n\nto\n\n((NONE :\206\177 option),([] :\206\178 list))\n\non line 905, characters 43-49\n\nwhich has type\n\n:\206\177 option # \206\178 list\n\nunification failure message: Attempt to unify different type operators: min$bool and pair$prod\n", origin_function = "Hol_defn", origin_structure = "Defn", source_location = Loc_Near (Loc (LocA (896, 2), LocA (918, 28)))}
-    Uncaught exception at /home/cesally/apps/HOL/src/num/termination/TotalDefn.sml:37: HOL_ERR {message = "at Defn.parse_quote:\nat Preterm.type-analysis:\non line 905, characters 43-49:\n\nType inference failure: unable to infer a type for the application of\n\nLET\n  (\206\187(default :bool).\n       default \226\136\167\n       (decode_vecI :\206\179 word list -> \206\177 option # \206\178 list) (bs :\206\179 word list) =\n       ((NONE :\206\177 option),([] :\206\178 list)))\n\nroughly between line 905, character 55 and line 919, character 28\n\nwhich has type\n\n:bool -> bool\n\nto\n\n((NONE :\206\177 option),([] :\206\178 list))\n\non line 905, characters 43-49\n\nwhich has type\n\n:\206\177 option # \206\178 list\n\nunification failure message: Attempt to unify different type operators: min$bool and pair$prod\n", origin_function = "Hol_defn", origin_structure = "Defn", source_location = Loc_Near (Loc (LocA (896, 2), LocA (918, 28)))} *)
-
-
-
-
-  (* WHY WOULD THIS BREAK THINGS??? *)
-
-  (* decode_vecI (0xFDw::bs) = case read_u_B bs of
-    | _ => (NONE,[])                                                 ∧ *)
-
-  (* Fails with following error:
-    Saved definition ____ "decode_numI_def"
-    Saved CHEAT _________ "dec_enc_numI"
-    <<HOL message: mk_functional: The following input rows (counting from zero) are inaccessible: 60.
-    They have been ignored.>>
-    Saved definition ____ "encode_vecI_def"
-    error in quse /home/cesally/work/cakeml/compiler/wasm/wasm_enc_decScript.sml : HOL_ERR {message = "at Defn.parse_quote:\nat Preterm.type-analysis:\non line 923, characters 12-18:\n\nType inference failure: unable to infer a type for the application of\n\n$/\\ :bool -> bool -> bool\n\non line 923, characters 11-19\n\nto\n\n((NONE :\206\177 option),([] :\206\178 list))\n\non line 923, characters 12-18\n\nwhich has type\n\n:\206\177 option # \206\178 list\n\nunification failure message: Attempt to unify different type operators: min$bool and pair$prod\n", origin_function = "Hol_defn", origin_structure = "Defn", source_location = Loc_Near (Loc (LocA (896, 2), LocA (926, 28)))}
-    error in load /home/cesally/work/cakeml/compiler/wasm/wasm_enc_decScript : HOL_ERR {message = "at Defn.parse_quote:\nat Preterm.type-analysis:\non line 923, characters 12-18:\n\nType inference failure: unable to infer a type for the application of\n\n$/\\ :bool -> bool -> bool\n\non line 923, characters 11-19\n\nto\n\n((NONE :\206\177 option),([] :\206\178 list))\n\non line 923, characters 12-18\n\nwhich has type\n\n:\206\177 option # \206\178 list\n\nunification failure message: Attempt to unify different type operators: min$bool and pair$prod\n", origin_function = "Hol_defn", origin_structure = "Defn", source_location = Loc_Near (Loc (LocA (896, 2), LocA (926, 28)))}
-    Uncaught exception at /home/cesally/apps/HOL/src/num/termination/TotalDefn.sml:37: HOL_ERR {message = "at Defn.parse_quote:\nat Preterm.type-analysis:\non line 923, characters 12-18:\n\nType inference failure: unable to infer a type for the application of\n\n$/\\ :bool -> bool -> bool\n\non line 923, characters 11-19\n\nto\n\n((NONE :\206\177 option),([] :\206\178 list))\n\non line 923, characters 12-18\n\nwhich has type\n\n:\206\177 option # \206\178 list\n\nunification failure message: Attempt to unify different type operators: min$bool and pair$prod\n", origin_function = "Hol_defn", origin_structure = "Defn", source_location = Loc_Near (Loc (LocA (896, 2), LocA (926, 28)))} *)
-
-
-  decode_vecI bs = (NONE, [])
+    (* if oc = 12w then (SOME (V_const                                   ),rest) else
+    if oc = 13w then (SOME (V_lane (Vshuffle ...) lidx                                  ),rest) else
+    if oc = 21 - 34 w then (SOME (V_lane   (lane_op)                    lidx            ),rest) else
+    if oc = w then (SOME (V_                                   ),rest) else
+    if oc = w then (SOME (V_                                   ),rest) else
+    if oc = w then (SOME (V_                                   ),rest) else *)
 End
-
 
 (* TODO *)
 Theorem dec_enc_vecI[simp]:
@@ -944,215 +1114,4 @@ Proof
   cheat
 QED
 
-
 val _ = export_theory();
-(*
-
-(* decode a numeric instruction from a stream of bytes. *)
-Definition decode_vec_def:
-  decode_vecI ([]:byteStream) : (vec_instr option # byteStream) = (NONE, []) ∧
-  decode_vecI (0xFDw::bs) = (* let default = (NONE,[]) in *)
-    case read_u_B bs of SOME (oc,rest) =>
-      (* if oc = 14  then (SOME (V_binary     Vswizzle                               ),rest) else
-      if oc = 15  then (SOME (V_splat     (IShp (Is3 (Is2 I8x16)))                ),rest) else
-      if oc = 16  then (SOME (V_splat     (IShp (Is3 (Is2 I16x8)))                ),rest) else
-      if oc = 17  then (SOME (V_splat     (IShp (Is3      I32x4 ))                ),rest) else
-      if oc = 18  then (SOME (V_splat     (IShp           I64x2  )                ),rest) else
-      if oc = 19  then (SOME (V_splat     (FShp           F32x4  )                ),rest) else
-      if oc = 20  then (SOME (V_splat     (FShp           F64x2  )                ),rest) else
-      if oc = 35  then (SOME (V_compare   (Veq (IShp (Is3 (Is2 I8x16))))          ),rest) else
-      if oc = 36  then (SOME (V_compare   (Vne (IShp (Is3 (Is2 I8x16))))          ),rest) else
-      if oc = 37  then (SOME (V_compare   (Vlt_   Signed (Is2 I8x16))             ),rest) else
-      if oc = 38  then (SOME (V_compare   (Vlt_ Unsigned (Is2 I8x16))             ),rest) else
-      if oc = 39  then (SOME (V_compare   (Vgt_   Signed (Is2 I8x16))             ),rest) else
-      if oc = 40  then (SOME (V_compare   (Vgt_ Unsigned (Is2 I8x16))             ),rest) else
-      if oc = 41  then (SOME (V_compare   (Vle_   Signed (Is2 I8x16))             ),rest) else
-      if oc = 42  then (SOME (V_compare   (Vle_ Unsigned (Is2 I8x16))             ),rest) else
-      if oc = 43  then (SOME (V_compare   (Vge_   Signed (Is2 I8x16))             ),rest) else
-      if oc = 44  then (SOME (V_compare   (Vge_ Unsigned (Is2 I8x16))             ),rest) else
-      if oc = 45  then (SOME (V_compare   (Veq (IShp (Is3 (Is2 I16x8))))          ),rest) else
-      if oc = 46  then (SOME (V_compare   (Vne (IShp (Is3 (Is2 I16x8))))          ),rest) else
-      if oc = 47  then (SOME (V_compare   (Vlt_   Signed (Is2 I16x8))             ),rest) else
-      if oc = 48  then (SOME (V_compare   (Vlt_ Unsigned (Is2 I16x8))             ),rest) else
-      if oc = 49  then (SOME (V_compare   (Vgt_   Signed (Is2 I16x8))             ),rest) else
-      if oc = 50  then (SOME (V_compare   (Vgt_ Unsigned (Is2 I16x8))             ),rest) else
-      if oc = 51  then (SOME (V_compare   (Vle_   Signed (Is2 I16x8))             ),rest) else
-      if oc = 52  then (SOME (V_compare   (Vle_ Unsigned (Is2 I16x8))             ),rest) else
-      if oc = 53  then (SOME (V_compare   (Vge_   Signed (Is2 I16x8))             ),rest) else
-      if oc = 54  then (SOME (V_compare   (Vge_ Unsigned (Is2 I16x8))             ),rest) else
-      if oc = 55  then (SOME (V_compare   (Veq (IShp (Is3 I32x4)))                ),rest) else
-      if oc = 56  then (SOME (V_compare   (Vne (IShp (Is3 I32x4)))                ),rest) else
-      if oc = 57  then (SOME (V_compare   (Vlt_   Signed I32x4)                   ),rest) else
-      if oc = 58  then (SOME (V_compare   (Vlt_ Unsigned I32x4)                   ),rest) else
-      if oc = 59  then (SOME (V_compare   (Vgt_   Signed I32x4)                   ),rest) else
-      if oc = 60  then (SOME (V_compare   (Vgt_ Unsigned I32x4)                   ),rest) else
-      if oc = 61  then (SOME (V_compare   (Vle_   Signed I32x4)                   ),rest) else
-      if oc = 62  then (SOME (V_compare   (Vle_ Unsigned I32x4)                   ),rest) else
-      if oc = 63  then (SOME (V_compare   (Vge_   Signed I32x4)                   ),rest) else
-      if oc = 64  then (SOME (V_compare   (Vge_ Unsigned I32x4)                   ),rest) else
-      if oc = 214 then (SOME (V_compare   (Veq (IShp I64x2))                      ),rest) else
-      if oc = 215 then (SOME (V_compare   (Vne (IShp I64x2))                      ),rest) else
-      if oc = 216 then (SOME (V_compare    Vlt_s                                  ),rest) else
-      if oc = 217 then (SOME (V_compare    Vgt_s                                  ),rest) else
-      if oc = 218 then (SOME (V_compare    Vle_s                                  ),rest) else
-      if oc = 219 then (SOME (V_compare    Vge_s                                  ),rest) else
-      if oc = 65  then (SOME (V_compare   (Veq (FShp F32x4))                      ),rest) else
-      if oc = 66  then (SOME (V_compare   (Vne (FShp F32x4))                      ),rest) else
-      if oc = 67  then (SOME (V_compare   (Vlt F32x4)                             ),rest) else
-      if oc = 68  then (SOME (V_compare   (Vgt F32x4)                             ),rest) else
-      if oc = 69  then (SOME (V_compare   (Vle F32x4)                             ),rest) else
-      if oc = 70  then (SOME (V_compare   (Vge F32x4)                             ),rest) else
-      if oc = 71  then (SOME (V_compare   (Veq (FShp F64x2))                      ),rest) else
-      if oc = 72  then (SOME (V_compare   (Vne (FShp F64x2))                      ),rest) else
-      if oc = 73  then (SOME (V_compare   (Vlt F64x2)                             ),rest) else
-      if oc = 74  then (SOME (V_compare   (Vgt F64x2)                             ),rest) else
-      if oc = 75  then (SOME (V_compare   (Vle F64x2)                             ),rest) else
-      if oc = 76  then (SOME (V_compare   (Vge F64x2)                             ),rest) else
-      if oc = 77  then (SOME (V_ternary    VbitSelect                             ),rest) else
-      if oc = 78  then (SOME (V_binary     Vand                                   ),rest) else
-      if oc = 79  then (SOME (V_binary     VandNot                                ),rest) else
-      if oc = 80  then (SOME (V_binary     Vor                                    ),rest) else
-      if oc = 81  then (SOME (V_binary     Vxor                                   ),rest) else
-      if oc = 82  then (SOME (V_ternary    VbitSelect                             ),rest) else
-      if oc = 83  then (SOME (V_test       VanyTrue                               ),rest) else
-      if oc = 96  then (SOME (V_unary     (Vabs (IShp (Is3 (Is2 I8x16))))         ),rest) else
-      if oc = 97  then (SOME (V_unary     (Vneg (IShp (Is3 (Is2 I8x16))))         ),rest) else
-      if oc = 98  then (SOME (V_unary      Vpopcnt                                ),rest) else
-      if oc = 99  then (SOME (V_test      (VallTrue (Is3 (Is2 I8x16)))            ),rest) else
-      if oc = 100 then (SOME (V_unary     (Vbitmask (Is3 (Is2 I8x16)))            ),rest) else
-      if oc = 101 then (SOME (V_binary    (Vnarrow   Signed I8x16)                ),rest) else
-      if oc = 102 then (SOME (V_binary    (Vnarrow Unsigned I8x16)                ),rest) else
-      if oc = 107 then (SOME (V_shift     (Vshl (Is3 (Is2 I8x16)))                ),rest) else
-      if oc = 108 then (SOME (V_shift     (Vshr_   Signed (Is3 (Is2 I8x16)))      ),rest) else
-      if oc = 109 then (SOME (V_shift     (Vshr_ Unsigned (Is3 (Is2 I8x16)))      ),rest) else
-      if oc = 110 then (SOME (V_binary    (Vadd (IShp (Is3 (Is2 I8x16))))         ),rest) else
-      if oc = 111 then (SOME (V_binary    (Vadd_sat_   Signed I8x16)              ),rest) else
-      if oc = 112 then (SOME (V_binary    (Vadd_sat_ Unsigned I8x16)              ),rest) else
-      if oc = 113 then (SOME (V_binary    (Vsub (IShp (Is3 (Is2 I8x16))))         ),rest) else
-      if oc = 114 then (SOME (V_binary    (Vsub_sat_   Signed I8x16)              ),rest) else
-      if oc = 115 then (SOME (V_binary    (Vsub_sat_ Unsigned I8x16)              ),rest) else
-      if oc = 118 then (SOME (V_binary    (Vmin_   Signed (Is2 I8x16))            ),rest) else
-      if oc = 119 then (SOME (V_binary    (Vmin_ Unsigned (Is2 I8x16))            ),rest) else
-      if oc = 120 then (SOME (V_binary    (Vmax_   Signed (Is2 I8x16))            ),rest) else
-      if oc = 121 then (SOME (V_binary    (Vmax_ Unsigned (Is2 I8x16))            ),rest) else
-      if oc = 123 then (SOME (V_binary    (Vavgr_u I8x16)                         ),rest) else
-      if oc = 124 then (SOME (V_convert   (VextAdd I8x16   Signed)                ),rest) else
-      if oc = 125 then (SOME (V_convert   (VextAdd I8x16 Unsigned)                ),rest) else
-      if oc = 128 then (SOME (V_unary     (Vabs (IShp (Is3 (Is2 I16x8))))         ),rest) else
-      if oc = 129 then (SOME (V_unary     (Vneg (IShp (Is3 (Is2 I16x8))))         ),rest) else
-      if oc = 130 then (SOME (V_binary     VmulQ15                                ),rest) else
-      if oc = 131 then (SOME (V_test      (VallTrue (Is3 (Is2 I16x8)))            ),rest) else
-      if oc = 132 then (SOME (V_unary     (Vbitmask (Is3 (Is2 I16x8)))            ),rest) else
-      if oc = 133 then (SOME (V_binary    (Vnarrow   Signed I16x8)                ),rest) else
-      if oc = 134 then (SOME (V_binary    (Vnarrow Unsigned I16x8)                ),rest) else
-      if oc = 135 then (SOME (V_convert   (Vextend   Low  (Is2 I8x16)   Signed)   ),rest) else
-      if oc = 136 then (SOME (V_convert   (Vextend  High  (Is2 I8x16)   Signed)   ),rest) else
-      if oc = 137 then (SOME (V_convert   (Vextend   Low  (Is2 I8x16) Unsigned)   ),rest) else
-      if oc = 138 then (SOME (V_convert   (Vextend  High  (Is2 I8x16) Unsigned)   ),rest) else
-      if oc = 139 then (SOME (V_shift     (Vshl (Is3 (Is2 I16x8)))                ),rest) else
-      if oc = 140 then (SOME (V_shift     (Vshr_   Signed (Is3 (Is2 I16x8)))      ),rest) else
-      if oc = 141 then (SOME (V_shift     (Vshr_ Unsigned (Is3 (Is2 I16x8)))      ),rest) else
-      if oc = 142 then (SOME (V_binary    (Vadd (IShp (Is3 (Is2 I16x8))))         ),rest) else
-      if oc = 143 then (SOME (V_binary    (Vadd_sat_   Signed I16x8)              ),rest) else
-      if oc = 144 then (SOME (V_binary    (Vadd_sat_ Unsigned I16x8)              ),rest) else
-      if oc = 145 then (SOME (V_binary    (Vsub (IShp (Is3 (Is2 I16x8))))         ),rest) else
-      if oc = 146 then (SOME (V_binary    (Vsub_sat_   Signed I16x8)              ),rest) else
-      if oc = 147 then (SOME (V_binary    (Vsub_sat_ Unsigned I16x8)              ),rest) else
-      if oc = 149 then (SOME (V_binary     VmulI16                                ),rest) else
-      if oc = 150 then (SOME (V_binary    (Vmin_   Signed (Is2 I16x8))            ),rest) else
-      if oc = 151 then (SOME (V_binary    (Vmin_ Unsigned (Is2 I16x8))            ),rest) else
-      if oc = 152 then (SOME (V_binary    (Vmax_   Signed (Is2 I16x8))            ),rest) else
-      if oc = 153 then (SOME (V_binary    (Vmax_ Unsigned (Is2 I16x8))            ),rest) else
-      if oc = 155 then (SOME (V_binary    (Vavgr_u I16x8)                         ),rest) else
-      if oc = 156 then (SOME (V_convert   (VextMul   Low  (Is2 I8x16)   Signed)   ),rest) else
-      if oc = 157 then (SOME (V_convert   (VextMul  High  (Is2 I8x16)   Signed)   ),rest) else
-      if oc = 158 then (SOME (V_convert   (VextMul   Low  (Is2 I8x16) Unsigned)   ),rest) else
-      if oc = 159 then (SOME (V_convert   (VextMul  High  (Is2 I8x16) Unsigned)   ),rest) else
-      if oc = 126 then (SOME (V_convert   (VextAdd I16x8   Signed)                ),rest) else
-      if oc = 127 then (SOME (V_convert   (VextAdd I16x8 Unsigned)                ),rest) else
-      if oc = 160 then (SOME (V_unary     (Vabs (IShp (Is3 I32x4)))               ),rest) else
-      if oc = 161 then (SOME (V_unary     (Vneg (IShp (Is3 I32x4)))               ),rest) else
-      if oc = 163 then (SOME (V_test      (VallTrue (Is3 I32x4))                  ),rest) else
-      if oc = 164 then (SOME (V_unary     (Vbitmask (Is3 I32x4))                  ),rest) else
-      if oc = 167 then (SOME (V_convert   (Vextend   Low  (Is2 I16x8)   Signed)   ),rest) else
-      if oc = 168 then (SOME (V_convert   (Vextend  High  (Is2 I16x8)   Signed)   ),rest) else
-      if oc = 169 then (SOME (V_convert   (Vextend   Low  (Is2 I16x8) Unsigned)   ),rest) else
-      if oc = 170 then (SOME (V_convert   (Vextend  High  (Is2 I16x8) Unsigned)   ),rest) else
-      if oc = 171 then (SOME (V_shift     (Vshl           (Is3 I32x4))            ),rest) else
-      if oc = 172 then (SOME (V_shift     (Vshr_   Signed (Is3 I32x4))            ),rest) else
-      if oc = 173 then (SOME (V_shift     (Vshr_ Unsigned (Is3 I32x4))            ),rest) else
-      if oc = 174 then (SOME (V_binary    (Vadd (IShp (Is3 I32x4)))               ),rest) else
-      if oc = 177 then (SOME (V_binary    (Vsub (IShp (Is3 I32x4)))               ),rest) else
-      if oc = 181 then (SOME (V_binary     VmulI32                                ),rest) else
-      if oc = 182 then (SOME (V_binary    (Vmin_   Signed I32x4)                  ),rest) else
-      if oc = 183 then (SOME (V_binary    (Vmin_ Unsigned I32x4)                  ),rest) else
-      if oc = 184 then (SOME (V_binary    (Vmax_   Signed I32x4)                  ),rest) else
-      if oc = 185 then (SOME (V_binary    (Vmax_ Unsigned I32x4)                  ),rest) else
-      if oc = 186 then (SOME (V_binary     Vdot                                   ),rest) else
-      if oc = 188 then (SOME (V_convert   (VextMul   Low  (Is2 I16x8)   Signed)   ),rest) else
-      if oc = 189 then (SOME (V_convert   (VextMul  High  (Is2 I16x8)   Signed)   ),rest) else
-      if oc = 190 then (SOME (V_convert   (VextMul   Low  (Is2 I16x8) Unsigned)   ),rest) else
-      if oc = 191 then (SOME (V_convert   (VextMul  High  (Is2 I16x8) Unsigned)   ),rest) else
-      if oc = 192 then (SOME (V_unary     (Vabs (IShp I64x2))                     ),rest) else
-      if oc = 193 then (SOME (V_unary     (Vneg (IShp I64x2))                     ),rest) else
-      if oc = 195 then (SOME (V_test      (VallTrue I64x2)                        ),rest) else
-      if oc = 196 then (SOME (V_unary     (Vbitmask I64x2)                        ),rest) else
-      if oc = 199 then (SOME (V_convert   (Vextend   Low  I32x4   Signed)         ),rest) else
-      if oc = 200 then (SOME (V_convert   (Vextend  High  I32x4   Signed)         ),rest) else
-      if oc = 201 then (SOME (V_convert   (Vextend   Low  I32x4 Unsigned)         ),rest) else
-      if oc = 202 then (SOME (V_convert   (Vextend  High  I32x4 Unsigned)         ),rest) else
-      if oc = 203 then (SOME (V_shift     (Vshl I64x2)                            ),rest) else
-      if oc = 204 then (SOME (V_shift     (Vshr_   Signed I64x2)                  ),rest) else
-      if oc = 205 then (SOME (V_shift     (Vshr_ Unsigned I64x2)                  ),rest) else
-      if oc = 206 then (SOME (V_binary    (Vadd (IShp I64x2))                     ),rest) else
-      if oc = 209 then (SOME (V_binary    (Vsub (IShp I64x2))                     ),rest) else
-      if oc = 213 then (SOME (V_binary     VmulI64                                ),rest) else
-      if oc = 220 then (SOME (V_convert   (VextMul   Low  I32x4   Signed)         ),rest) else
-      if oc = 221 then (SOME (V_convert   (VextMul  High  I32x4   Signed)         ),rest) else
-      if oc = 222 then (SOME (V_convert   (VextMul   Low  I32x4 Unsigned)         ),rest) else
-      if oc = 223 then (SOME (V_convert   (VextMul  High  I32x4 Unsigned)         ),rest) else
-      if oc = 103 then (SOME (V_unary     (Vceil    F32x4)                        ),rest) else
-      if oc = 104 then (SOME (V_unary     (Vfloor   F32x4)                        ),rest) else
-      if oc = 105 then (SOME (V_unary     (Vtrunc   F32x4)                        ),rest) else
-      if oc = 106 then (SOME (V_unary     (Vnearest F32x4)                        ),rest) else
-      if oc = 224 then (SOME (V_unary     (Vabs (FShp F32x4))                     ),rest) else
-      if oc = 225 then (SOME (V_unary     (Vneg (FShp F32x4))                     ),rest) else
-      if oc = 227 then (SOME (V_unary     (Vsqrt    F32x4)                        ),rest) else
-      if oc = 228 then (SOME (V_binary    (Vadd (FShp F32x4))                     ),rest) else
-      if oc = 229 then (SOME (V_binary    (Vsub (FShp F32x4))                     ),rest) else
-      if oc = 230 then (SOME (V_binary    (VmulF F32x4)                           ),rest) else
-      if oc = 231 then (SOME (V_binary    (Vdiv  F32x4)                           ),rest) else
-      if oc = 232 then (SOME (V_binary    (Vmin  F32x4)                           ),rest) else
-      if oc = 233 then (SOME (V_binary    (Vmax  F32x4)                           ),rest) else
-      if oc = 234 then (SOME (V_binary    (Vpmin F32x4)                           ),rest) else
-      if oc = 235 then (SOME (V_binary    (Vpmax F32x4)                           ),rest) else
-      if oc = 116 then (SOME (V_unary     (Vceil    F64x2)                        ),rest) else
-      if oc = 117 then (SOME (V_unary     (Vfloor   F64x2)                        ),rest) else
-      if oc = 122 then (SOME (V_unary     (Vtrunc   F64x2)                        ),rest) else
-      if oc = 148 then (SOME (V_unary     (Vnearest F64x2)                        ),rest) else
-      if oc = 236 then (SOME (V_unary     (Vabs (FShp F64x2))                     ),rest) else
-      if oc = 237 then (SOME (V_unary     (Vneg (FShp F64x2))                     ),rest) else
-      if oc = 239 then (SOME (V_unary     (Vsqrt    F64x2)                        ),rest) else
-      if oc = 240 then (SOME (V_binary    (Vadd (FShp F64x2))                     ),rest) else
-      if oc = 241 then (SOME (V_binary    (Vsub (FShp F64x2))                     ),rest) else
-      if oc = 242 then (SOME (V_binary    (VmulF F64x2)                           ),rest) else
-      if oc = 243 then (SOME (V_binary    (Vdiv  F64x2)                           ),rest) else
-      if oc = 244 then (SOME (V_binary    (Vmin  F64x2)                           ),rest) else
-      if oc = 245 then (SOME (V_binary    (Vmax  F64x2)                           ),rest) else
-      if oc = 246 then (SOME (V_binary    (Vpmin F64x2)                           ),rest) else
-      if oc = 247 then (SOME (V_binary    (Vpmax F64x2)                           ),rest) else
-      if oc = 248 then (SOME (V_convert   (VtruncSat       Signed)                ),rest) else
-      if oc = 249 then (SOME (V_convert   (VtruncSat     Unsigned)                ),rest) else
-      if oc = 250 then (SOME (V_convert   (Vconvert High   Signed)                ),rest) else
-      if oc = 251 then (SOME (V_convert   (Vconvert High Unsigned)                ),rest) else
-      if oc = 252 then (SOME (V_convert   (VtruncSat0      Signed)                ),rest) else
-      if oc = 253 then (SOME (V_convert   (VtruncSat0    Unsigned)                ),rest) else
-      if oc = 254 then (SOME (V_convert   (Vconvert  Low   Signed)                ),rest) else
-      if oc = 255 then (SOME (V_convert   (Vconvert  Low Unsigned)                ),rest) else
-      if oc = 94  then (SOME (V_convert    Vdemote                                ),rest) else
-      if oc = 95  then (SOME (V_convert    Vpromote                               ),rest) else *)
-      (NONE,[])
-    | NONE => (NONE,[]) ∧
-  decode_vecI bs = (NONE, [])
-End
-*)
