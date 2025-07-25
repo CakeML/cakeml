@@ -67,6 +67,10 @@ Definition freshen_exp_def:
        (cnt, Forall (lookup m old, vt) e)) ∧
   freshen_exp m m_old cnt (Old e) =
     (let (cnt, e) = freshen_exp m_old m_old cnt e in (cnt, Old e)) ∧
+  freshen_exp m m_old cnt (ForallHeap mods term) =
+  (let (cnt, mods) = freshen_exps m m_old cnt mods in
+   let (cnt, term) = freshen_exp m m_old cnt term in
+     (cnt, ForallHeap mods term)) ∧
   freshen_exp m m_old cnt (Let vars body) =
     (let (names, rhss) = UNZIP vars in
      let (cnt, rhss) = freshen_exps m m_old cnt rhss in
