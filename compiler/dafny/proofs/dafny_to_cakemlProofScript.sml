@@ -1581,9 +1581,7 @@ Proof
       (irule store_preserve_all_trans \\ gvs [SF SFY_ss])
     \\ reverse $ Cases_on ‘r’ \\ gvs [evaluate_def])
   (* These expression do not get compiled *)
-  >~ [‘Forall var term’] >- (gvs [from_exp_def])
-  >~ [‘Old e’] >- (gvs [from_exp_def])
-  >~ [‘Let vars body’] >- (gvs [from_exp_def])
+  \\ gvs [from_exp_def]
 QED
 
 Triviality array_rel_submap:
@@ -3767,9 +3765,8 @@ Proof
   >~ [‘map_from_exp (e::es)’] >-
    (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ rpt strip_tac \\ gvs [])
-  >~ [‘Forall var term’] >- (simp [from_exp_def])
-  >~ [‘Old e’] >- (simp [from_exp_def])
-  >~ [‘Let vars body’] >- (simp [from_exp_def])
+  (* Uncompiled expressions *)
+  \\ simp [from_exp_def]
 QED
 
 Triviality cml_new_refs_one_con_check:
