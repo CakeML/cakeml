@@ -78,7 +78,9 @@ Definition freevars_def:
      BIGUNION (set (MAP freevars args))) ∧
   (freevars (Forall (vn,_) e) ⇔
      freevars e DELETE vn) ∧
-  (freevars (Old e) ⇔ freevars e)
+  (freevars (Old e) ⇔ freevars e) ∧
+  (freevars (ForallHeap mods e) ⇔
+     BIGUNION (set (MAP freevars mods)) UNION freevars e)
 Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
@@ -103,7 +105,9 @@ Definition no_Old_def:
   (no_Old (FunCall _ args) ⇔ EVERY (λe. no_Old e) args) ∧
   (no_Old (Forall _ term) ⇔ no_Old term) ∧
   (no_Old (Let binds body) ⇔
-     EVERY (λe. no_Old e) (MAP SND binds) ∧ no_Old body)
+     EVERY (λe. no_Old e) (MAP SND binds) ∧ no_Old body) ∧
+  (no_Old (ForallHeap mods e) ⇔
+     EVERY (λe. no_Old e) mods ∧ no_Old e)
 Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
@@ -527,8 +531,25 @@ Proof
     (* False *)
     \\ rpt strip_tac \\ gvs [] \\ gvs [AllCaseEqs()]
     \\ first_assum $ irule_at (Pos hd) \\ gvs [])
-  >~ [‘ForallHeap’] >-
-   (cheat)
+  >~ [‘ForallHeap mods e’] >-
+   (qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ simp [evaluate_exp_def]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ gvs [no_Old_def]
+    \\ namedCases_on ‘evaluate_exps s env mods’ ["s₁ r₁"] \\ gvs []
+    \\ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
+    \\ namedCases_on ‘get_locs vs’ ["", "locs"] \\ gvs []
+    \\ rewrite_tac [GSYM AND_IMP_INTRO]
+    \\ disch_then $ SUBST_ALL_TAC o GSYM
+    \\ simp [eval_forall_def]
+    \\ ‘∀hs.
+          SND (evaluate_exp
+                 (s₁ with <|heap := hs; locals_old := l; heap_old := h|>) env e)
+          = SND (evaluate_exp (s₁ with heap := hs) env e)’ by
+      (gen_tac
+       \\ namedCases_on ‘evaluate_exp (s₁ with heap := hs) env e’ ["s₂ r₁"]
+       \\ last_x_assum drule \\ gvs [])
+    \\ gvs [])
   >~ [‘Let vars e’] >-
    (gvs [evaluate_exp_def, UNZIP_MAP, no_Old_def]
     \\ IF_CASES_TAC \\ gvs []
@@ -720,6 +741,21 @@ Proof
   \\ drule_all eval_exp_Let_rl \\ simp []
 QED
 
+Triviality push_locals_with_locals:
+  push_locals s xs with locals := l =
+  s with locals := l
+Proof
+  gvs [push_locals_def]
+QED
+
+Triviality push_locals_zip:
+  LENGTH xs = LENGTH ys ⇒
+  push_locals s (ZIP (xs,ys)) =
+  s with locals := REVERSE (ZIP (xs, MAP SOME ys)) ++ s.locals
+Proof
+  gvs [push_locals_def, map_lambda_pair_zip]
+QED
+
 Theorem evaluate_exp_freevars:
   (∀st env e st' r l2.
      (∀n. n ∈ freevars e ⇒ ALOOKUP st.locals n = ALOOKUP l2 n) ⇒
@@ -735,10 +771,125 @@ Proof
   >~ [‘Let binds body’] >-
    (gvs [evaluate_exp_def, freevars_def, UNZIP_MAP]
     \\ IF_CASES_TAC \\ gvs []
-    \\ cheat)
+    \\ namedCases_on ‘evaluate_exps st env (MAP SND binds)’ ["st₁ r₁"] \\ gvs []
+    \\ drule (cj 2 evaluate_exp_with_clock)
+    \\ strip_tac \\ gvs []
+    \\ last_x_assum $ qspec_then ‘l2’ mp_tac
+    \\ impl_tac >- (simp [EVERY_MEM] \\ metis_tac [MEM_MAP])
+    \\ strip_tac \\ gvs []
+    \\ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
+    \\ qmatch_asmsub_abbrev_tac ‘evaluate_exp st₁'’
+    \\ namedCases_on ‘evaluate_exp st₁' env body’ ["st₂ r₂"] \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ strip_tac \\ gvs []
+    \\ simp [Abbr ‘st₁'’]
+    \\ gvs [push_locals_with_locals]
+    \\ imp_res_tac evaluate_exps_len_eq \\ gvs []
+    \\ gvs [push_locals_zip]
+    \\ qmatch_goalsub_abbrev_tac
+         ‘evaluate_exp (_ with <| clock := _; locals := lcls |>)’
+    \\ last_x_assum $ qspec_then ‘lcls’ mp_tac
+    \\ simp [Abbr ‘lcls’]
+    \\ impl_tac >-
+     (rpt strip_tac
+      \\ qmatch_goalsub_abbrev_tac ‘ALOOKUP (xs ++ _)’
+      \\ simp [ALOOKUP_APPEND]
+      \\ Cases_on ‘ALOOKUP xs n’ \\ gvs []
+      \\ last_x_assum irule
+      \\ disj2_tac \\ simp [Abbr ‘xs’]
+      \\ imp_res_tac evaluate_exps_len_eq
+      \\ gvs [ALOOKUP_NONE, MAP_ZIP, MAP_REVERSE])
+    \\ strip_tac \\ gvs []
+    \\ gvs [pop_locals_def, safe_drop_def]
+    \\ simp [state_component_equality]
+    \\ simp [DROP_APPEND])
+  >~ [‘Forall (vn,vt) e’] >-
+   (gvs [evaluate_exp_def, freevars_def]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ simp [eval_forall_def]
+    \\ ‘∀v. SND (evaluate_exp (push_local (st with locals := l2) vn v) env e) =
+            SND (evaluate_exp (push_local st vn v) env e)’ by
+      (gen_tac
+       \\ namedCases_on ‘evaluate_exp (push_local st vn v) env e’ ["s₁ r₁"]
+       \\ gvs [snd_tuple]
+       \\ last_x_assum $ drule_at (Pos last)
+       \\ gvs [push_local_def])
+    \\ gvs [])
+  >~ [‘ForallHeap mods e’] >-
+   (gvs [evaluate_exp_def, freevars_def]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ namedCases_on ‘evaluate_exps st env mods’ ["st₁ r₁"] \\ gvs []
+    \\ drule (cj 2 evaluate_exp_with_clock)
+    \\ strip_tac \\ gvs []
+    \\ last_x_assum $ qspec_then ‘l2’ mp_tac
+    \\ impl_tac >- (simp [EVERY_MEM] \\ metis_tac [MEM_MAP])
+    \\ strip_tac \\ gvs []
+    \\ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
+    \\ namedCases_on ‘get_locs vs’ ["", "locs"] \\ gvs []
+    \\ simp [eval_forall_def]
+    \\ ‘∀hs. SND (evaluate_exp
+                   (st with <|clock := ck; locals := l2; heap := hs|>) env e)
+             = SND (evaluate_exp (st with <| clock := ck; heap := hs |>) env e)’
+      by
+      (gen_tac
+       \\ namedCases_on
+            ‘evaluate_exp (st with <|clock := ck; heap := hs|>) env e’ ["st₁ r₁"]
+       \\ gvs [snd_tuple]
+       \\ last_x_assum $ irule_at Any \\ gvs [])
+    \\ gvs [])
+  >~ [‘FunCall name args’] >-
+   (gvs [evaluate_exp_def, freevars_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ namedCases_on ‘evaluate_exps st env args’ ["st₁ r₁"] \\ gvs []
+    \\ drule (cj 2 evaluate_exp_with_clock)
+    \\ strip_tac \\ gvs []
+    \\ first_x_assum $ qspec_then ‘l2’ mp_tac
+    \\ impl_tac >- (simp [EVERY_MEM] \\ metis_tac [MEM_MAP])
+    \\ strip_tac \\ gvs []
+    \\ namedCases_on ‘r₁’ ["in_vs", "err"] \\ gvs []
+    \\ gvs [set_up_call_def]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ gvs [safe_zip_def]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ IF_CASES_TAC \\ gvs []
+    >- (gvs [restore_caller_def])
+    \\ qmatch_goalsub_abbrev_tac ‘evaluate_exp st₁’
+    \\ namedCases_on ‘evaluate_exp st₁ env e’ ["st₂ r₂"] \\ gvs []
+    \\ Cases_on ‘r₂’ \\ gvs [restore_caller_def])
+  >~ [‘If grd thn els’] >-
+   (gvs [evaluate_exp_def, freevars_def]
+    \\ namedCases_on ‘evaluate_exp st env grd’ ["st₁ r₁"] \\ gvs []
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ first_x_assum $ qspec_then ‘l2’ mp_tac
+    \\ impl_tac >- (gvs [])
+    \\ strip_tac \\ gvs []
+    \\ namedCases_on ‘r₁’ ["v", "err"] \\ gvs []
+    \\ namedCases_on ‘do_cond v thn els’ ["", "branch"] \\ gvs []
+    \\ imp_res_tac do_cond_some_cases \\ gvs []
+    \\ last_x_assum irule \\ gvs [])
+  >~ [‘UnOp uop e’] >-
+   (gvs [freevars_def, evaluate_exp_def, AllCaseEqs()])
+  >~ [‘BinOp bop e₀ e₁’] >-
+   (gvs [freevars_def, evaluate_exp_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [])
+  >~ [‘ArrSel arr idx’] >-
+   (gvs [evaluate_exp_def, freevars_def, index_array_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [])
+  >~ [‘Old e’] >-
+   (gvs [freevars_def, evaluate_exp_def, unuse_old_def, use_old_def,
+         AllCaseEqs()])
+  >~ [‘Var n’] >-
+   (gvs [evaluate_exp_def, freevars_def, read_local_def, AllCaseEqs()])
+  >~ [‘ArrLen arr’] >-
+   (gvs [freevars_def, evaluate_exp_def, AllCaseEqs()])
   >~ [‘Lit l’] >-
    (gvs [evaluate_exp_def])
-  \\ cheat
+  >~ [‘[]’] >-
+   (gvs [evaluate_exp_def])
+  >~ [‘e::es’] >-
+   (gvs [evaluate_exp_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [])
 QED
 
 Triviality eval_exp_freevars:

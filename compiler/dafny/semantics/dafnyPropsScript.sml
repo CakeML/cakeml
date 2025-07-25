@@ -33,6 +33,15 @@ Proof
   gvs [restore_caller_def]
 QED
 
+(* misc *)
+
+(* Used often when trying to prove statements about Forall *)
+Theorem snd_tuple:
+  SND x = z ⇔ ∃y. x = (y, z)
+Proof
+  Cases_on ‘x’ \\ gvs []
+QED
+
 (* size *)
 Theorem list_exp_size_snd:
   list_size (λx. exp_size (SND x)) vars =

@@ -55,12 +55,6 @@ Proof
   \\ simp [state_component_equality]
 QED
 
-Triviality snd_tuple:
-  SND x = z ⇔ ∃y. x = (y, z)
-Proof
-  Cases_on ‘x’ \\ gvs []
-QED
-
 (* After evaluate, only the value of locals can have changed. *)
 
 Triviality evaluate_exp_locals:

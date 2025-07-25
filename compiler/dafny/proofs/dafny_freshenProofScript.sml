@@ -748,12 +748,6 @@ Proof
   \\ gvs [MAP_REVERSE, distinct_nums_names]
 QED
 
-Triviality snd_tuple:
-  SND x = z ⇔ ∃y. x = (y, z)
-Proof
-  Cases_on ‘x’ \\ gvs []
-QED
-
 Theorem correct_freshen_exp:
   (∀s env e s' res t m m_old cnt cnt' e' env'.
      evaluate_exp s env e = (s', res) ∧ state_rel s t m m_old cnt ∧
