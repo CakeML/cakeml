@@ -6942,9 +6942,8 @@ Proof
     full_simp_tac(srw_ss())[alloc_def]>>
     PairCases_on`p`>>
     PairCases_on`x`>>
-    `INJ (option_lookup ssa') (domain p0 UNION domain p1 ) 𝕌(:num)`
-      by( rw[INJ_DEF]
-      >> (
+    `INJ (option_lookup ssa') (domain p0 UNION domain p1 ) 𝕌(:num)` by(
+      rw[INJ_DEF] >> (
         drule list_next_var_rename_move_distinct>>
         disch_then match_mp_tac>>
         simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList,toAList_domain,Abbr`all_names`,domain_union])) >>
@@ -7024,10 +7023,10 @@ Proof
         rpt (qpat_x_assum `s_val_eq _ _` mp_tac) >>
         POP_ASSUM_LIST $ K ALL_TAC >>
         metis_tac[s_key_eq_trans,s_key_eq_sym,s_val_eq_trans,s_val_eq_sym]) >>
-     POP_ASSUM SUBST_ALL_TAC >>
-     `lsz' = (toAList x0)`
-        by fs[s_key_eq_def,s_frame_key_eq_def2] >>
-     POP_ASSUM SUBST_ALL_TAC >>
+    POP_ASSUM SUBST_ALL_TAC >>
+    `lsz' = (toAList x0)`
+       by fs[s_key_eq_def,s_frame_key_eq_def2] >>
+    POP_ASSUM SUBST_ALL_TAC >>
     (*Establish invariants about ssa_cut to use later*)
     qabbrev_tac `s = union p0 p1`>>
     qabbrev_tac `ssa_cut = inter ssa' s` >>
@@ -7054,16 +7053,10 @@ Proof
       word_state_eq_rel x' y` by (
       CONJ_TAC
       >- (
-        qmatch_goalsub_abbrev_tac `GOAL` >>
-        rpt (qpat_x_assum`_ cst = _` mp_tac)>>
-        rpt (qpat_x_assum`_ rcst = _` mp_tac)>>
-        rpt (qpat_x_assum`_ x = _` mp_tac)>>
-        rpt (qpat_x_assum`_ t' = _` mp_tac)>>
-        simp_tac(srw_ss())[AND_IMP_INTRO] >>
-        disch_then (ASSUME_NAMED_TAC "recordSTUFF") >>
-        (*move to the back*)
-        (fn (g as (a::asl,w)) => ([(asl @ [a],w)], hd)) >>
-        Q.UNABBREV_TAC `GOAL` >>
+        rpt (qpat_x_assum`_ cst = _` kall_tac)>>
+        rpt (qpat_x_assum`_ rcst = _` kall_tac)>>
+        rpt (qpat_x_assum`_ x = _` kall_tac)>>
+        rpt (qpat_x_assum`_ t' = _` kall_tac)>>
         fs[ssa_locals_rel_def,Abbr`ssa_cut`,Abbr`s`]>>
         CONJ_TAC
         >- (
@@ -7103,8 +7096,7 @@ Proof
         qmatch_asmsub_abbrev_tac `ALOOKUP  A B = ALOOKUP C D` >>
         disch_tac >>
         qmatch_goalsub_abbrev_tac `ALOOKUP C' D'` >>
-        `C = C' /\ D = D'`
-          by (
+        `C = C' /\ D = D'`  by (
           simp[Abbr`C`,Abbr`C'`,Abbr`D`,Abbr`D'`] >>
           simp[SimpRHS,Once $GSYM ZIP_MAP_FST_SND_EQ ] >>
           simp[] >>
@@ -7129,7 +7121,7 @@ Proof
         simp[AllCaseEqs(),DISJ_IMP_THM] >>
         MAP_EVERY Q.UNABBREV_TAC [`A`,`B`,`C`,`D`] >>
         strip_tac >>
-        qpat_x_assum `strong_locals_rel (option_lookup ssa') (domain p0) x0 y1` mp_tac
+        qpat_x_assum `strong_locals_rel (option_lookup ssa') (domain p0) x0 y1` mp_tac>>
         simp[strong_locals_rel_def] >>
         disch_then (qspec_then `xx` mp_tac) >>
         full_simp_tac(bool_ss)[ALOOKUP_toAList] >>
