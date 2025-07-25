@@ -307,7 +307,7 @@ Definition word_gen_gc_partial_full_def:
 End
 
 Definition is_ref_header_def:
-  is_ref_header (v:'a word) <=> ((v && 0b11100w) = 0b01000w)
+  is_ref_header (v:'a word) <=> ((v && 0b1100w) = 0b01000w)
 End
 
 Definition word_gen_gc_move_def:

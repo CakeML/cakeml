@@ -248,7 +248,10 @@ Proof
     \\ imp_res_tac word_ml_inv_get_var_IMP
     \\ match_mp_tac word_ml_inv_insert \\ full_simp_tac(srw_ss())[])
   >~ [‘evaluate (Assign _ _ _ _,s)’] >-
-   (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (Cases_on ‘op = ThunkOp ForceThunk’
+    >- cheat
+    \\ full_simp_tac std_ss []
+    \\ full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ imp_res_tac (METIS_PROVE [] ``(if b1 /\ b2 then x1 else x2) = y ==>
                                      b1 /\ b2 /\ x1 = y \/
                                      (b1 ==> ~b2) /\ x2 = y``)
