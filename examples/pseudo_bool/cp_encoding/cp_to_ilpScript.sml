@@ -753,10 +753,71 @@ Proof
   >- metis_tac[]
 QED
 
+(* Encodes that all As ≥ M *)
+Definition encode_Gem_ge_def:
+  encode_Gem_ge bnd As M =
+  MAP (λA. bits_imply bnd [Pos (Gem A M)] (mk_constraint_ge 1 A (-1) M 0)) As
+End
+
+(* iff versions *)
+Definition encode_Gem_ge_iff_def:
+  encode_Gem_ge_iff bnd As M =
+  encode_Gem_ge bnd As M ++
+  MAP (λA. bits_imply bnd [Neg (Gem A M)] (mk_constraint_ge 1 M (-1) A 1)) As
+End
+
+Definition encode_Gem_le_iff_def:
+  encode_Gem_le_iff bnd As M =
+  encode_Gem_le bnd As M ++
+  MAP (λA. bits_imply bnd [Neg (Gem M A)] (mk_constraint_ge 1 A (-1) M 1)) As
+End
+
+Theorem encode_Gem_ge_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_Gem_ge bnd As M) =
+    (∀A. MEM A As ∧ wb (Gem A M) ⇒ varc wi A ≥ varc wi M)
+Proof
+  rw[encode_Gem_ge_def]>>
+  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,GSYM integerTheory.INT_POLY_CONV_rth,integerTheory.INT_GE, integerTheory.INT_SUB_LE]>>
+  metis_tac[]
+QED
+
+Theorem encode_Gem_le_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_Gem_le bnd As M) =
+    (∀A. MEM A As ∧ wb (Gem M A) ⇒ varc wi A ≤ varc wi M)
+Proof
+  rw[encode_Gem_le_def]>>
+  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,GSYM integerTheory.INT_POLY_CONV_rth,integerTheory.INT_GE, integerTheory.INT_SUB_LE]>>
+  metis_tac[]
+QED
+
+Theorem encode_Gem_ge_iff_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_Gem_ge_iff bnd As M) =
+    (∀A. MEM A As ⇒ (wb (Gem A M) ⇔ varc wi A ≥ varc wi M))
+Proof
+  rw[encode_Gem_ge_iff_def,encode_Gem_ge_sem]>>
+  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,
+    intLib.ARITH_PROVE ``X + -1 * (Y:int) ≥ 1 ⇔ ¬ (Y ≥ X)``]>>
+  metis_tac[]
+QED
+
+Theorem encode_Gem_le_iff_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_Gem_le_iff bnd As M) =
+    (∀A. MEM A As ⇒ (wb (Gem M A) ⇔ varc wi A ≤ varc wi M))
+Proof
+  rw[encode_Gem_le_iff_def,encode_Gem_le_sem]>>
+  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,
+    intLib.ARITH_PROVE ``X + -1 * (Y:int) ≥ 1 ⇔ ¬ (X <= Y)``]>>
+  metis_tac[]
+QED
+
 Definition encode_arr_max_def:
   encode_arr_max bnd M As =
   ([], MAP (λA. (1, Pos (Gem A M))) As, 1) ::
-  MAP (λA. bits_imply bnd [Pos (Gem A M)] (mk_constraint_ge 1 A (-1) M 0)) As ++
+  encode_Gem_ge bnd As M ++
   MAP (λA. mk_constraint_ge 1 M (-1) A 0) As
 End
 
@@ -768,16 +829,12 @@ Theorem encode_arr_max_sem:
     arr_max_sem M As wi)
 Proof
   strip_tac>>
-  simp[encode_arr_max_def]>>
+  simp[encode_arr_max_def,encode_Gem_ge_sem]>>
   match_mp_tac LEFT_AND_CONG>>
   CONJ_TAC >-
     simp[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_ge_1]>>
   strip_tac>>
-  match_mp_tac LEFT_AND_CONG>>
-  CONJ_TAC >-
-    simp[EVERY_MAP,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,
-         AND_IMP_INTRO,GSYM integerTheory.INT_POLY_CONV_rth,integerTheory.INT_GE,
-         integerTheory.INT_SUB_LE]>>
+  match_mp_tac LEFT_AND_CONG>> simp[]>>
   strip_tac>>
   simp[arr_max_sem_def,EVERY_MAP,mk_constraint_ge_sem,GSYM integerTheory.INT_POLY_CONV_rth,
        integerTheory.INT_GE,integerTheory.INT_SUB_LE,MEM_MAP,EVERY_MEM]>>
@@ -792,7 +849,7 @@ QED
 Definition encode_arr_min_def:
   encode_arr_min bnd M As =
   ([], MAP (λA. (1, Pos (Gem M A))) As, 1) ::
-  MAP (λA. bits_imply bnd [Pos (Gem M A)] (mk_constraint_ge 1 M (-1) A 0)) As ++
+  encode_Gem_le bnd As M ++
   MAP (λA. mk_constraint_ge 1 A (-1) M 0) As
 End
 
@@ -804,16 +861,12 @@ Theorem encode_arr_min_sem:
     arr_min_sem M As wi)
 Proof
   strip_tac>>
-  simp[encode_arr_min_def]>>
+  simp[encode_arr_min_def,encode_Gem_le_sem]>>
   match_mp_tac LEFT_AND_CONG>>
   CONJ_TAC >-
     simp[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_ge_1]>>
   strip_tac>>
-  match_mp_tac LEFT_AND_CONG>>
-  CONJ_TAC >-
-    simp[EVERY_MAP,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,
-         AND_IMP_INTRO,GSYM integerTheory.INT_POLY_CONV_rth,integerTheory.INT_GE,
-         integerTheory.INT_SUB_LE]>>
+  match_mp_tac LEFT_AND_CONG>> simp[]>>
   strip_tac>>
   simp[arr_min_sem_def,EVERY_MAP,mk_constraint_ge_sem,GSYM integerTheory.INT_POLY_CONV_rth,
        integerTheory.INT_GE,integerTheory.INT_SUB_LE,MEM_MAP,EVERY_MEM]>>
@@ -837,10 +890,8 @@ Definition encode_count_def:
         ([], MAP (λA. (1, Pos (Eqc A Y))) As, cC);
         ([], MAP (λA. (-1, Pos (Eqc A Y))) As, -cC)]
   in
-    MAP (λA. bits_imply bnd [Pos (Gem A Y)] (mk_constraint_ge 1 A (-1) Y 0)) As ++
-    MAP (λA. bits_imply bnd [Neg (Gem A Y)] (mk_constraint_ge 1 Y (-1) A 1)) As ++
-    MAP (λA. bits_imply bnd [Pos (Gem Y A)] (mk_constraint_ge 1 Y (-1) A 0)) As ++
-    MAP (λA. bits_imply bnd [Neg (Gem Y A)] (mk_constraint_ge 1 A (-1) Y 1)) As ++
+    encode_Gem_ge_iff bnd As Y ++
+    encode_Gem_le_iff bnd As Y ++
     MAP (λA. bits_imply bnd [Pos (Eqc A Y)]
                         ([], [(1, Pos (Gem A Y)); (1, Pos (Gem Y A))], 2)) As ++
     MAP (λA. bits_imply bnd [Neg (Eqc A Y)]
@@ -857,6 +908,20 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem iSUM_MAP_lin_const = iSUM_MAP_lin |> CONV_RULE (RESORT_FORALL_CONV List.rev) |> Q.SPEC `0` |> SRULE [] |> SPEC_ALL;
+
+Theorem b2i_ge_2[simp]:
+  b2i b1 + b2i b2 ≥ 2 ⇔ b1 ∧ b2
+Proof
+  rw[b2i_alt]
+QED
+
+Theorem b2i_ge_1[simp]:
+  b2i b1 + b2i b2 ≥ 1 ⇔ b1 ∨ b2
+Proof
+  rw[b2i_alt]
+QED
+
 Theorem encode_count_sem:
   valid_assignment bnd wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb)) (encode_count bnd Y C As) = (
@@ -867,60 +932,32 @@ Theorem encode_count_sem:
 Proof
   strip_tac>>
   simp[encode_count_def]>>
-  ho_match_mp_tac (
-    METIS_PROVE[]
-      “∀P1 P2 P3 P4 P5 P6 P7 Q1 Q2 Q3 Q4.
-        (Q3 ⇒ (P7 ⇔ Q4)) ∧
-        (Q1 ∧ Q2 ⇒ (P5 ∧ P6 ⇔ Q3)) ∧
-        (P1 ∧ P2 ⇔ Q1) ∧
-        (P3 ∧ P4 ⇔ Q2) ⇒
-        ((((((P1 ∧ P2) ∧ P3) ∧ P4) ∧ P5) ∧ P6) ∧ P7 ⇔ Q1 ∧ Q2 ∧ Q3 ∧ Q4)”)>>
-  simp[EVERY_MAP,EVERY_MEM]>>
-  CONJ_TAC
-  >-(
+  simp[GSYM CONJ_ASSOC]>>
+  ho_match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC >-
+    simp[encode_Gem_ge_iff_sem,EVERY_MEM]>>
+  strip_tac>>
+  ho_match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC >-
+    simp[encode_Gem_le_iff_sem,EVERY_MEM,integerTheory.INT_GE]>>
+  strip_tac>>
+  simp[CONJ_ASSOC]>>
+  ho_match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC >- (
+    fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,bits_imply_sem,iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,iSUM_def]>>
+    metis_tac[integerTheory.INT_LE_ANTISYM,integerTheory.INT_GE])>>
+  strip_tac
+  >- (
     Cases_on ‘C’>>
     simp[count_sem_def]>>
     rw[METIS_PROVE[] “∀P a b. (∀x. x = a ∨ x = b ⇒ P x) ⇔ P a ∧ P b”]>>
     simp[iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
       MAP_MAP_o,combinTheory.o_ABS_R,b2i_alt,iSUM_def,Once varc_def]>>
-    ‘(∀A. MEM A As ⇒ (wb (Eqc A Y) ⇔ varc wi A = varc wi Y)) ⇒
-     iSUM (MAP (λA. if wb (Eqc A Y) then 1 else 0) As) =
-     iSUM (MAP (λA. if varc wi A = varc wi Y then 1 else 0) As)’ by simp[Cong MAP_CONG]>>
-    gvs[]>>
-    qspecl_then [‘As’, ‘-1’, ‘λA. if wb (Eqc A Y) then 1 else 0’, ‘0’]
-      assume_tac iSUM_MAP_lin>>
-    gvs[]>>
+    ‘iSUM (MAP (λA. if wb (Eqc A Y) then 1 else 0) As) =
+     iSUM (MAP (λA. if varc wi A = varc wi Y then 1 else 0) As)’ by
+      fs[EVERY_MEM,Cong MAP_CONG]>>
+    simp[iSUM_MAP_lin_const]>>
     intLib.ARITH_TAC)
-  >-(
-    rw[]>>
-    ho_match_mp_tac (
-      METIS_PROVE[]
-        “∀P Q1 Q2 Q3.
-          (∀x. P x ⇒ (Q1 x ∧ Q2 x ⇔ Q3 x)) ⇒
-          ((∀x. P x ⇒ Q1 x) ∧ (∀x. P x ⇒ Q2 x) ⇔
-            ∀x. P x ⇒ Q3 x)”)>>
-    rw[]>>
-    simp[bits_imply_sem,mk_constraint_ge_sem,iconstraint_sem_def,
-      eval_ilin_term_def,eval_lin_term_def,b2i_alt,iSUM_def,
-      GSYM integerTheory.INT_LE_ANTISYM]>>
-    fs[integerTheory.INT_GE]>>
-    last_x_assum $ kall_tac>>
-    rw[]>>
-    (
-      iff_tac>>
-      rw[]
-      >-(
-        iff_tac
-        >-(
-          rw[]>>
-          gvs[]>>
-          intLib.ARITH_TAC)
-        >-(
-          simp[Once MONO_NOT_EQ]>>
-          rw[]>>
-          gvs[]>>
-          intLib.ARITH_TAC))>>
-      intLib.ARITH_TAC))
 QED
 
 (* The top-level encodings *)
