@@ -1030,7 +1030,7 @@ Proof
         (*Regular Call Case*)
         >> qmatch_asmsub_rename_tac`add_ret_loc (SOME l)`
         >>  PairCases_on `l` >> fs[] >>
-            Cases_on `domain l1 = {}` >> fs[] >>
+            Cases_on `domain l1 = {} ∨ ¬ALL_DISTINCT l0` >> fs[] >>
             fs[cut_envs_def,cut_names_def] >>
             Cases_on `domain l1 ⊆ domain s.locals` >>
             fs[] >>
