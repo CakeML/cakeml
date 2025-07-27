@@ -1083,7 +1083,7 @@ Definition evaluate_def:
                          | (SOME res,s) => (SOME res,s))
                  else (SOME Error,s)
              | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
-                 if domain (FST names) = {} then (SOME Error,s)
+                 if domain (FST names) = {} ∨ ¬ALL_DISTINCT n then (SOME Error,s)
                  else
                    (case cut_envs names s.locals of
                     | NONE => (SOME Error,s)
