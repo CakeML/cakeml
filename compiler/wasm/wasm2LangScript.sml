@@ -64,11 +64,11 @@ Datatype: unary_op
   (* float *)
   | (* fnn *) Abs     width
   | (* fnn *) Neg     width
-  | (* fnn *) Sqrt    width
   | (* fnn *) Ceil    width
   | (* fnn *) Floor   width
   | (* fnn *) Trunc   width
   | (* fnn *) Nearest width
+  | (* fnn *) Sqrt    width
 End
 
 Datatype: binary_op
