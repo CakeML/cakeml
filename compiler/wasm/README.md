@@ -15,6 +15,9 @@ CakeML Wasm 2.0 (+ tail calls) AST
 [wasm2NotationsScript.sml](wasm2NotationsScript.sml):
 Notations for cake's Wasm 2.0 AST
 
+[wasmBinaryFormatScript.sml](wasmBinaryFormatScript.sml):
+En- & De- coding between Cake's Wasm 1.0 AST & Wasm's binary format
+
 [wasmLangScript.sml](wasmLangScript.sml):
 CakeML Wasm 1.0 (+ tail calls) AST
 
