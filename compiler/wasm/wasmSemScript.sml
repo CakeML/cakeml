@@ -2,6 +2,7 @@
   WebAssembly (Wasm) semantics
 *)
 open preamble wasmLangTheory;
+open someWordOpsTheory;
 
 val _ = new_theory "wasmSem";
 
@@ -146,19 +147,20 @@ End
 (*
 *)
 Inductive unary_op_rel:
-
-  (∀ w. unary_op_rel (Popcnt      w32     ) (I32 w) (I32 (n2w (bit_count w)))) ∧ (* ? *)
-
-
-  (∀ w. unary_op_rel (Popcnt      w64     ) (I64 w) (I64 (n2w (bit_count w))))  (* ? *)
+(∀ w. unary_op_rel (Popcnt      W32     ) (I32 w) (I32 $ popcnt w))
 
 End
 (*
+
+
+
+
+  (∀ w. unary_op_rel (Popcnt      W64     ) (I64 w) (I64 (n2w (bit_count w))))  (* ? *)
   (* nn -> nn *)
-  (∀ w. unary_op_rel (Clz         w32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Ctz         w32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend8_s   w32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend16_s  w32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Clz         W32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Ctz         W32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Extend8_s   W32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Extend16_s  W32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
 
   (* 32 -> 64 *)
   (∀ w. unary_op_rel  Extend32_s            (I32 w) (I64 (op w))) ∧ (* TODO *)
@@ -167,10 +169,10 @@ End
 
 
   (* nn -> nn *)
-  (∀ w. unary_op_rel (Clz         w64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Ctz         w64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend8_s   w64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend16_s  w64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Clz         W64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Ctz         W64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Extend8_s   W64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
+  (∀ w. unary_op_rel (Extend16_s  W64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
 *)
 
 
@@ -184,39 +186,39 @@ Inductive binop_rel:
   (***************)
   (*   Int ops   *)
   (***************)
-  (∀w1 w2. binop_rel (Add Int w32) (I32 w1) (I32 w2) (I32 (word_add w1 w2))) ∧
-  (∀w1 w2. binop_rel (Sub Int w32) (I32 w1) (I32 w2) (I32 (word_sub w1 w2))) ∧
-  (∀w1 w2. binop_rel (Mul Int w32) (I32 w1) (I32 w2) (I32 (word_mul w1 w2))) ∧
-  (∀w1 w2. binop_rel (And     w32) (I32 w1) (I32 w2) (I32 (word_and w1 w2))) ∧
-  (∀w1 w2. binop_rel (Or      w32) (I32 w1) (I32 w2) (I32 (word_or  w1 w2))) ∧
-  (∀w1 w2. binop_rel (Xor     w32) (I32 w1) (I32 w2) (I32 (word_xor w1 w2))) ∧
+  (∀w1 w2. binop_rel (Add Int W32) (I32 w1) (I32 w2) (I32 (word_add w1 w2))) ∧
+  (∀w1 w2. binop_rel (Sub Int W32) (I32 w1) (I32 w2) (I32 (word_sub w1 w2))) ∧
+  (∀w1 w2. binop_rel (Mul Int W32) (I32 w1) (I32 w2) (I32 (word_mul w1 w2))) ∧
+  (∀w1 w2. binop_rel (And     W32) (I32 w1) (I32 w2) (I32 (word_and w1 w2))) ∧
+  (∀w1 w2. binop_rel (Or      W32) (I32 w1) (I32 w2) (I32 (word_or  w1 w2))) ∧
+  (∀w1 w2. binop_rel (Xor     W32) (I32 w1) (I32 w2) (I32 (word_xor w1 w2))) ∧
 
   (* HOL complains when I change the 1 to w2 *)
   (* "at Preterm.type-analysis:\nat line 185, character 20:\nCouldn't infer type for overloaded name _ inject_number", *)
   (* check semantics line up *)
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* w2 = 0 ? undefined : truncated towards 0 *)
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* TODO *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* w2 = 0 ? undefined : truncated towards 0 *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* TODO *)
 
 
 
-  (∀w1 w2. binop_rel (Add Int w64) (I64 w1) (I64 w2) (I64 (word_add w1 w2))) ∧
-  (∀w1 w2. binop_rel (Mul Int w64) (I64 w1) (I64 w2) (I64 (word_mul w1 w2))) ∧
-  (∀w1 w2. binop_rel (Sub Int w64) (I64 w1) (I64 w2) (I64 (word_sub w1 w2))) ∧
-  (∀w1 w2. binop_rel (And     w64) (I64 w1) (I64 w2) (I64 (word_and w1 w2))) ∧
-  (∀w1 w2. binop_rel (Or      w64) (I64 w1) (I64 w2) (I64 (word_or  w1 w2))) ∧
-  (∀w1 w2. binop_rel (Xor     w64) (I64 w1) (I64 w2) (I64 (word_xor w1 w2))) ∧
+  (∀w1 w2. binop_rel (Add Int W64) (I64 w1) (I64 w2) (I64 (word_add w1 w2))) ∧
+  (∀w1 w2. binop_rel (Mul Int W64) (I64 w1) (I64 w2) (I64 (word_mul w1 w2))) ∧
+  (∀w1 w2. binop_rel (Sub Int W64) (I64 w1) (I64 w2) (I64 (word_sub w1 w2))) ∧
+  (∀w1 w2. binop_rel (And     W64) (I64 w1) (I64 w2) (I64 (word_and w1 w2))) ∧
+  (∀w1 w2. binop_rel (Or      W64) (I64 w1) (I64 w2) (I64 (word_or  w1 w2))) ∧
+  (∀w1 w2. binop_rel (Xor     W64) (I64 w1) (I64 w2) (I64 (word_xor w1 w2))) ∧
 
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Unsigned w64) (I64 w1) (I64 w2) (I64 (word_div w1 w2))) ∧ (* cf i32 *)
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Unsigned w64) (I64 w1) (I64 w2) (I64 (word_div w1 w2)))   (* TODO *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Unsigned W64) (I64 w1) (I64 w2) (I64 (word_div w1 w2))) ∧ (* cf i32 *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Unsigned W64) (I64 w1) (I64 w2) (I64 (word_div w1 w2)))   (* TODO *)
 End
 
   (* To be completed. check semantics of signed word_div matches wasm
 
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Signed   w32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* cf i32 *)
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Signed   w64) (I64 w1) (I64 w2) (I64 (word_div w1 w2))) ∧ (* cf i32 *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Signed   W32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* cf i32 *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Signed   W64) (I64 w1) (I64 w2) (I64 (word_div w1 w2))) ∧ (* cf i32 *)
 
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Signed   w32) (I32 w1) (I32 w2) (I32 (word_xxx w1 w2))) ∧ (* TODO *)
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Signed   w64) (I64 w1) (I64 w2) (I64 (word_xxx w1 w2))) ∧ (* TODO *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Signed   W32) (I32 w1) (I32 w2) (I32 (word_xxx w1 w2))) ∧ (* TODO *)
+  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Signed   W64) (I64 w1) (I64 w2) (I64 (word_xxx w1 w2))) ∧ (* TODO *)
 
   *)
 
@@ -224,17 +226,17 @@ End
 
   unification failure message: Attempt to unify different type operators: num$num and fcp$cart
 
-  (∀w1 w2. binop_rel (Shl     w32) (I32 w1) (I32 w2) (I32 (word_lsl w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Rotl    w32) (I32 w1) (I32 w2) (I32 (word_rol w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Rotr    w32) (I32 w1) (I32 w2) (I32 (word_ror w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Shr_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_lsr w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Shr_ Signed   w32) (I32 w1) (I32 w2) (I32 (word_asr w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Shl     W32) (I32 w1) (I32 w2) (I32 (word_lsl w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Rotl    W32) (I32 w1) (I32 w2) (I32 (word_rol w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Rotr    W32) (I32 w1) (I32 w2) (I32 (word_ror w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Shr_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_lsr w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Shr_ Signed   W32) (I32 w1) (I32 w2) (I32 (word_asr w1 w2))) ∧ (* Error *)
 
-  (∀w1 w2. binop_rel (Shl     w64) (I64 w1) (I64 w2) (I64 (word_lsl w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Rotl    w64) (I64 w1) (I64 w2) (I64 (word_rol w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Rotr    w64) (I64 w1) (I64 w2) (I64 (word_ror w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Shr_ Unsigned w64) (I64 w1) (I64 w2) (I64 (word_lsr w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Shr_ Signed   w64) (I64 w1) (I64 w2) (I64 (word_asr w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Shl     W64) (I64 w1) (I64 w2) (I64 (word_lsl w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Rotl    W64) (I64 w1) (I64 w2) (I64 (word_rol w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Rotr    W64) (I64 w1) (I64 w2) (I64 (word_ror w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Shr_ Unsigned W64) (I64 w1) (I64 w2) (I64 (word_lsr w1 w2))) ∧ (* Error *)
+  (∀w1 w2. binop_rel (Shr_ Signed   W64) (I64 w1) (I64 w2) (I64 (word_asr w1 w2))) ∧ (* Error *)
   *)
 
 
@@ -243,20 +245,20 @@ End
    out how to read the library  *)
 (* Inductive compare_op_rel:
 
-  (∀w1 w2. compare_op_rel (Lt_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_lt w1 w2))) ∧
-  (∀w1 w2. compare_op_rel (Gt_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_gt w1 w2))) ∧
-  (∀w1 w2. compare_op_rel (Le_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_le w1 w2))) ∧
-  (∀w1 w2. compare_op_rel (Ge_ Unsigned w32) (I32 w1) (I32 w2) (I32 (word_ge w1 w2))) ∧
+  (∀w1 w2. compare_op_rel (Lt_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_lt w1 w2))) ∧
+  (∀w1 w2. compare_op_rel (Gt_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_gt w1 w2))) ∧
+  (∀w1 w2. compare_op_rel (Le_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_le w1 w2))) ∧
+  (∀w1 w2. compare_op_rel (Ge_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_ge w1 w2))) ∧
 
-  (∀w1 w2. compare_op_rel (Eq Int       w32) (I32 w1) (I32 w2) (I32 (word_compare w1 w2))) ∧
-  (∀w1 w2. compare_op_rel (Ne Int       w32) (I32 w1) (I32 w2) (I32 (word_xor (word_compare w1 w2) 1w))) ∧
-  (∀w1 w2. compare_op_rel (Eq Int w64) (I64 w1) (I64 w2) (I64 (word_compare w1 w2))) ∧
-  (∀w1 w2. compare_op_rel (Ne Int w64) (I64 w1) (I64 w2) (I64 (word_xor (word_compare w1 w2) 1w)))
+  (∀w1 w2. compare_op_rel (Eq Int       W32) (I32 w1) (I32 w2) (I32 (word_compare w1 w2))) ∧
+  (∀w1 w2. compare_op_rel (Ne Int       W32) (I32 w1) (I32 w2) (I32 (word_xor (word_compare w1 w2) 1w))) ∧
+  (∀w1 w2. compare_op_rel (Eq Int W64) (I64 w1) (I64 w2) (I64 (word_compare w1 w2))) ∧
+  (∀w1 w2. compare_op_rel (Ne Int W64) (I64 w1) (I64 w2) (I64 (word_xor (word_compare w1 w2) 1w)))
 End *)
 
 (* Inductive test_op_rel:
-  (∀w1 w2. test_op_rel (Eqz w32) (I32 w2) (I32 (word_compare w1 0w))) ∧
-  (∀w1 w2. test_op_rel (Eqz w64) (I64 w2) (I64 (word_compare w1 0w)))
+  (∀w1 w2. test_op_rel (Eqz W32) (I32 w2) (I32 (word_compare w1 0w))) ∧
+  (∀w1 w2. test_op_rel (Eqz W64) (I64 w2) (I64 (word_compare w1 0w)))
 End *)
 
 
@@ -446,7 +448,7 @@ Definition exec_def:
     case exec_store res_t size (w + off) s.memory of NONE => (RTrap,s) | SOME m =>
     (RNormal, s with memory := m)
   ) ∧
-  (exec (Instr op) s =
+  (exec (Numeric op) s =
     case stack_op op s.stack of NONE => (RInvalid,s) | SOME stack1 =>
     (RNormal, s with stack := stack1)) ∧
   (exec (ReturnCall fi) s =
