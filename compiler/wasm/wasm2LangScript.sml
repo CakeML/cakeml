@@ -352,12 +352,14 @@ End
 
 Type t = “:numtype”
 Type tf = “:t list # t list”;
+(* QQ this is a table id? *)
 
 (* memory operations other than 64 bits *)
 Datatype:
   tp_num = Tp_i8 | Tp_i16 | Tp_i32
 End
 
+(* QQ these represent block types? *)
 Datatype:
   tb = Tbf num (* | Tbv (t option) *)
 End
@@ -367,11 +369,11 @@ End
 End *)
 
 Datatype: instr
+
+  (* control instructions *)
   = Unreachable
   | Nop
 
-  | Drop
-  | Select
   | Block tb (instr list)
   | Loop  tb (instr list)
   | If    tb (instr list) (instr list)
@@ -386,17 +388,23 @@ Datatype: instr
   | Call               num
   | CallIndirect       num tf               (* TODO: first num is tableid *)
 
-  | Load  t ((tp_num # bool) option) word32 (* TODO: alignment *)
-  | Store t tp_num word32                   (* TODO: alignment *)
+  (* parametric instructions *)
+  | Drop
+  | Select
 
+  (* variable instructions *)
   | LocalGet     num
   | LocalSet     num
   | LocalTee     num
   | GlobalGet    num
   | GlobalSet    num
 
-  | Instr     num_instr
-  | Vec       vec_instr
+  (* memory instructions *)
+  | Load  t ((tp_num # bool) option) word32 (* TODO: alignment *)
+  | Store t tp_num word32                   (* TODO: alignment *)
+
+  | Numeric num_instr
+  | Vec     vec_instr
 
 End
 
