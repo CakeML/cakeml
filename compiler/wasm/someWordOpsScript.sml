@@ -34,7 +34,7 @@ End *)
 Overload one_hot = “λ (w:α word). (popcnt w = 1w)”
 
 Definition ctz_def: (* count trailing zeros *)
-  ctz (w:α word) : β word = popcnt $ w ⊕ (w && (w-1w))
+  ctz (w:α word) : β word = n2w (bit_count (w ⊕ (w-1w)) - 1)
 End
 
 Definition clz_def: (* count leading zeros *)
