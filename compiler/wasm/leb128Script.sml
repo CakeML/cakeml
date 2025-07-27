@@ -6,6 +6,27 @@ open wordsTheory wordsLib;
 
 val _ = new_theory "leb128";
 
+(*  API
+    enc goes from words/nums to leb stream
+    dec goes from leb stream to words/nums
+
+  dec_num : lebStream -> (num # lebStream) option
+  enc_num : num -> lebStream
+  enc_num_def_primitive :num -> lebStream
+
+  dec_unsigned_word : lebStream -> (α word # lebStream) option
+  enc_unsigned_word : α word -> lebStream
+
+  dec_w7s : lebStream -> (7 word list # lebStream) option
+  enc_w7s : 7 word list -> lebStream
+  or_w7s  : word7 list -> α word
+
+  dec_signed        : lebStream -> (α word # lebStream) option
+  enc_signed_byte   : byte -> lebStream
+  enc_signed_word32 : word32 -> lebStream
+  enc_signed_word64 : word64 -> lebStream
+*)
+
 (*----------------------------------------------------------------------------*
    Decoding and encoding natrual numbers from / to LEB128
  *----------------------------------------------------------------------------*)
