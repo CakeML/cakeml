@@ -33,8 +33,10 @@ val _ = new_theory "wasm2BinaryFormat";
 Type byte[local]       = “:word8”
 Type byteStream[local] = “:word8 list”
 
-Overload dec_signed32[local] = “dec_signed : byteStream -> (word32 # byteStream) option”
-Overload dec_signed64[local] = “dec_signed : byteStream -> (word64 # byteStream) option”
+Overload dec_s32[local] = “dec_signed : byteStream -> (word32 # byteStream) option”
+Overload dec_s64[local] = “dec_signed : byteStream -> (word64 # byteStream) option”
+Overload dec_u32[local] = “dec_unsigned_word : byteStream -> (word64 # byteStream) option”
+
 
 (***************************************)
 (*   Encode-Decode pairs - Functions   *)
@@ -340,12 +342,12 @@ Definition dec_numI_def:
   if b = 0xC3w then (SOME   (N_unary      (Extend16_s W64)             ), bs) else
   if b = 0xC4w then (SOME   (N_unary       Extend32_s                  ), bs) else
 
-  if b = 0x41w then case dec_signed32 bs of SOME (s32,cs) => (SOME (N_const32 Int   s32), cs) | NONE => default else
-  if b = 0x42w then case dec_signed64 bs of SOME (s64,cs) => (SOME (N_const64 Int   s64), cs) | NONE => default else
+  if b = 0x41w then case dec_s32 bs of SOME (s32,cs) => (SOME (N_const32 Int   s32), cs) | NONE => default else
+  if b = 0x42w then case dec_s64 bs of SOME (s64,cs) => (SOME (N_const64 Int   s64), cs) | NONE => default else
 
   (* TODO decode IEEE 754 not ints *)
-  if b = 0x43w then case dec_signed32 bs of SOME (c32,cs) => (SOME (N_const32 Float c32), cs) | NONE => default else
-  if b = 0x44w then case dec_signed64 bs of SOME (c64,cs) => (SOME (N_const64 Float c64), cs) | NONE => default else
+  if b = 0x43w then case dec_s32 bs of SOME (c32,cs) => (SOME (N_const32 Float c32), cs) | NONE => default else
+  if b = 0x44w then case dec_s64 bs of SOME (c64,cs) => (SOME (N_const64 Float c64), cs) | NONE => default else
 
   if b = 0xFCw then case dec_num bs of
   | SOME (0,cs) => (SOME    (N_convert  (Trunc_sat_f W32   Signed W32)  ),cs)
@@ -794,15 +796,16 @@ Definition decode_vecI_def:
   if oc =  94w then (SOME (V_convert    Vdemote                                ),cs) else
   if oc =  95w then (SOME (V_convert    Vpromote                               ),cs) else
 
-  if oc = 12w then case unlend128 cs of NONE => default | SOME (w128, ds) =>
+  if oc =  12w then   case unlend128 cs of NONE => default | SOME (w128, ds) =>
                     (SOME (V_const      w128                                  ) ,ds) else
 
+  (* if oc =  21w then   case
+  (SOME (V_                                   ),rest) else *)
   default
 
 End (*
     if oc = 13w then (SOME (V_lane (Vshuffle ...) lidx                                  ),rest) else
     if oc = 21 - 34 w then (SOME (V_lane   (lane_op)                    lidx            ),rest) else
-    if oc = w then (SOME (V_                                   ),rest) else
     if oc = w then (SOME (V_                                   ),rest) else
     if oc = w then (SOME (V_                                   ),rest) else
 
