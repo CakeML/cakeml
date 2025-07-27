@@ -1,5 +1,5 @@
 (*
-  En- & De- coding between Cake's Wasm 2.0 AST & Wasm's binary format
+  En- & De- coding between Cake's Wasm 1.0 AST & Wasm's binary format
 
   Notes
   - Rotten in Denmark: There's no way we're going to know the type of instructions ahead of time,
