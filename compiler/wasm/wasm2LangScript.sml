@@ -324,6 +324,7 @@ Datatype: vec_lane_op
 End
 
 Datatype: vec_instr
+
   = V_const    word128
   | V_unary    vec_unary_op
   | V_binary   vec_binary_op
@@ -378,8 +379,8 @@ Datatype: instr
   | Loop  tb (instr list)
   | If    tb (instr list) (instr list)
 
-  | Br   num
-  | BrIf num
+  | Br                 num
+  | BrIf               num
   | BrTable (num list) num
 
   | Return
@@ -393,18 +394,18 @@ Datatype: instr
   | Select
 
   (* variable instructions *)
-  | LocalGet     num
-  | LocalSet     num
-  | LocalTee     num
-  | GlobalGet    num
-  | GlobalSet    num
+  | LocalGet  num
+  | LocalSet  num
+  | LocalTee  num
+  | GlobalGet num
+  | GlobalSet num
 
   (* memory instructions *)
   | Load  t ((tp_num # bool) option) word32 (* TODO: alignment *)
   | Store t tp_num word32                   (* TODO: alignment *)
 
   | Numeric num_instr
-  | Vec     vec_instr
+  | Vector  vec_instr
 
 End
 

@@ -4,7 +4,7 @@
 open preamble;
 open wasm2LangTheory;
 
-val _ = new_theory "wasm2Notations";
+val _ = new_theory "wasm2_notations";
 
 (*********************)
 (*                   *)
@@ -30,46 +30,6 @@ Overload i32 = “NT Int   W32”
 Overload i64 = “NT Int   W64”
 Overload f32 = “NT Float W32”
 Overload f64 = “NT Float W64”
-
-(*
-(***************)
-(*   Control   *)
-(***************)
-
-
-  | Br   num
-  | BrIf num
-  | BrTable (num list) num
-
-  | Return
-  | ReturnCall         num                  (* TODO: tail call *)
-  | ReturnCallIndirect num tf               (* TODO: input/output params, names *)
-  | Call               num
-  | CallIndirect       num tf               (* TODO: first num is tableid *)
-
-
-
-
-(******************)
-(*   Parametric   *)
-(******************)
-
-(****************)
-(*   Variable   *)
-(****************)
-
-Overload local_get  = “LocalGet ”
-Overload local_set  = “LocalSet ”
-Overload local_tee  = “LocalTee ”
-Overload global_get = “GlobalGet”
-Overload global_set = “GlobalSet”
-*)
-
-
-
-
-
-
 
 
 (****************)
