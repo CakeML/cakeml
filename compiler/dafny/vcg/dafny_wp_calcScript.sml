@@ -145,6 +145,7 @@ Inductive stmt_wp:
   ∀m ret_names exps l post ens.
     (MAP FST l) = (MAP VarLhs ret_names) ∧
     (MAP SND l) = (MAP ExpRhs exps) ∧
+    ALL_DISTINCT ret_names ∧
     LENGTH exps = LENGTH ret_names
     ⇒
     stmt_wp m ((Let (ZIP (ret_names,exps)) (conj post))::
@@ -902,7 +903,7 @@ Proof
     \\ imp_res_tac evaluate_exp_with_clock \\ gvs [])
 QED
 
-Triviality eval_exp_freevars:
+Triviality eval_exp_freevars_lemma:
   (∀n. n ∈ freevars e ⇒ ALOOKUP l1 n = ALOOKUP l2 n) ⇒
   eval_exp (st with locals := l1) env e v ⇒
   eval_exp (st with locals := l2) env e v
@@ -920,7 +921,7 @@ Theorem eval_exp_freevars:
   eval_exp (st with locals := l1) env e v =
   eval_exp (st with locals := l2) env e v
 Proof
-  strip_tac \\ iff_tac \\ metis_tac [eval_exp_freevars]
+  strip_tac \\ iff_tac \\ metis_tac [eval_exp_freevars_lemma]
 QED
 
 Theorem eval_exp_swap_locals_alt:
@@ -1058,6 +1059,20 @@ Proof
   \\ simp [state_component_equality,SF CONJ_ss,value_same_type_refl]
 QED
 
+Theorem eval_true_Let_IMP:
+  eval_true st env (Let (ZIP (ns,exps)) p) ∧ LENGTH exps = LENGTH ns ⇒
+  ∃vs. LIST_REL (eval_exp st env) exps vs
+Proof
+  cheat
+QED
+
+Theorem IMP_eval_rhs_exps_MAP_ExpRhs:
+  LIST_REL (eval_exp st env) exps vs ⇒
+  eval_rhs_exps st env (MAP ExpRhs exps) st vs
+Proof
+  cheat
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
@@ -1081,7 +1096,6 @@ Theorem stmt_wp_sound:
         | Rcont => conditions_hold st' env post
         | _ => F
 Proof
-
   Induct_on ‘stmt_wp’ \\ rpt strip_tac
   >~ [‘Skip’] >-
    (irule_at (Pos hd) eval_stmt_Skip \\ simp [])
@@ -1140,8 +1154,34 @@ Proof
     \\ namedCases_on ‘ret₁’ ["", "err"] \\ gvs []
     \\ Cases_on ‘err’ \\ gvs [])
   >~ [‘Assign ass’] >-
-   (irule_at (Pos hd) eval_stmt_Assign
-    \\ cheat)
+   (irule_at (Pos hd) eval_stmt_Assign \\ simp []
+    \\ qpat_x_assum ‘∀x._’ kall_tac
+    \\ fs [conditions_hold_def]
+    \\ drule eval_true_Let_IMP \\ simp []
+    \\ strip_tac
+    \\ irule_at Any IMP_eval_rhs_exps_MAP_ExpRhs
+    \\ first_assum $ irule_at $ Pos hd
+    \\ fs [GSYM MAP_MAP_o]
+    \\ drule IMP_assi_values
+    \\ disch_then $ qspec_then ‘vs’ mp_tac
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ impl_tac >- simp []
+    \\ strip_tac
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ simp [eval_true_def,GSYM eval_true_conj_every]
+    \\ irule $ iffLR eval_exp_freevars
+    \\ qexists_tac ‘ZIP (ret_names,MAP SOME vs) ++ st.locals’
+    \\ qpat_x_assum ‘eval_true st env (Let _ _)’ mp_tac
+    \\ simp [eval_true_def]
+    \\ strip_tac
+    \\ drule_at (Pos last) eval_exp_Let_lr
+    \\ disch_then drule
+    \\ impl_tac >- simp []
+    \\ match_mp_tac EQ_IMPLIES
+    \\ match_mp_tac eval_exp_freevars
+    \\ simp [ALOOKUP_APPEND] \\ rw []
+    \\ DEP_REWRITE_TAC [alistTheory.alookup_distinct_reverse]
+    \\ simp [MAP_ZIP])
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
   \\ qpat_assum ‘compatible_env env m’ mp_tac
