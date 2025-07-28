@@ -10,9 +10,10 @@
 open preamble;
 open leb128Theory;
 (* open someWordOpsTheory; *)
+open mlstringTheory;
 open wasmLangTheory;
 
-val _ = new_theory "wasmBinaryFormat";
+val _ = new_theory "wasm_binary_format";
 
 (*  API
     enc goes from AST to Wasm Binary format (WBF)
@@ -21,8 +22,8 @@ val _ = new_theory "wasmBinaryFormat";
     enc_numtype : numtype -> byte
     dec_numtype : byte -> numtype option
 
-    enc_numI : num_instr -> byteStream
-    dec_numI : byteStream -> (num_instr option # byteStream)
+    enc_numI : num_instr -> byteList
+    dec_numI : byteList -> (num_instr option # byteList)
  *)
 
 
@@ -36,13 +37,15 @@ val _ = new_theory "wasmBinaryFormat";
 (*   Misc notations/helps/etc   *)
 (********************************)
 
-Type byte[local]       = “:word8”
-Type byteStream[local] = “:word8 list”
+Type byte[local]     = “:word8”
+Type byteList[local] = “:word8 list”
 
-Overload dec_s32[local] = “dec_signed : byteStream -> (word32 # byteStream) option”
-Overload dec_s64[local] = “dec_signed : byteStream -> (word64 # byteStream) option”
-Overload dec_u8[local]  = “dec_unsigned_word : byteStream -> (byte # byteStream) option”
-Overload dec_u32[local] = “dec_unsigned_word : byteStream -> (word64 # byteStream) option”
+Overload dec_s32[local] = “dec_signed : byteList -> (word32 # byteList) option”
+Overload dec_s64[local] = “dec_signed : byteList -> (word64 # byteList) option”
+Overload dec_u8[local]  = “dec_unsigned_word : byteList -> (byte # byteList) option”
+Overload dec_u32[local] = “dec_unsigned_word : byteList -> (word64 # byteList) option”
+Overload error = “λ str obj. (INL (strlit str),obj)”
+
 
 (***************************************)
 (*   Encode-Decode pairs - Functions   *)
@@ -80,7 +83,7 @@ Definition dec_valtype_def:
 End
 
 Definition enc_numI_def:
-  enc_numI (i:num_instr) : byteStream = case i of
+  enc_numI (i:num_instr) : byteList = case i of
 
   | N_eqz         W32                         => [0x45w]
   | N_compare    (Eq Int W32)                 => [0x46w]
@@ -155,81 +158,90 @@ Definition enc_numI_def:
 End
 
 Definition dec_numI_def:
-  dec_numI ([]:byteStream) : (num_instr option # byteStream) = (NONE, []) ∧
-  dec_numI (b::bs) = let default = (NONE,b::bs) in
+  dec_numI ([]:byteList) : ((mlstring + num_instr) # byteList) = error "[dec_numI] : Given empty byteList." [] ∧
+  dec_numI (b::bs) = let failure = error "[dec_numI] : " (b::bs) in
 
-  if b = 0x45w then (SOME   (N_eqz         W32                         ), bs) else
-  if b = 0x46w then (SOME   (N_compare    (Eq Int W32)                 ), bs) else
-  if b = 0x47w then (SOME   (N_compare    (Ne Int W32)                 ), bs) else
-  if b = 0x48w then (SOME   (N_compare    (Lt_   Signed W32)           ), bs) else
-  if b = 0x49w then (SOME   (N_compare    (Lt_ Unsigned W32)           ), bs) else
-  if b = 0x4Aw then (SOME   (N_compare    (Gt_   Signed W32)           ), bs) else
-  if b = 0x4Bw then (SOME   (N_compare    (Gt_ Unsigned W32)           ), bs) else
-  if b = 0x4Cw then (SOME   (N_compare    (Le_   Signed W32)           ), bs) else
-  if b = 0x4Dw then (SOME   (N_compare    (Le_ Unsigned W32)           ), bs) else
-  if b = 0x4Ew then (SOME   (N_compare    (Ge_   Signed W32)           ), bs) else
-  if b = 0x4Fw then (SOME   (N_compare    (Ge_ Unsigned W32)           ), bs) else
-  if b = 0x45w then (SOME   (N_eqz         W64                         ), bs) else
-  if b = 0x51w then (SOME   (N_compare    (Eq Int W64)                 ), bs) else
-  if b = 0x52w then (SOME   (N_compare    (Ne Int W64)                 ), bs) else
-  if b = 0x53w then (SOME   (N_compare    (Lt_   Signed W64)           ), bs) else
-  if b = 0x54w then (SOME   (N_compare    (Lt_ Unsigned W64)           ), bs) else
-  if b = 0x55w then (SOME   (N_compare    (Gt_   Signed W64)           ), bs) else
-  if b = 0x56w then (SOME   (N_compare    (Gt_ Unsigned W64)           ), bs) else
-  if b = 0x57w then (SOME   (N_compare    (Le_   Signed W64)           ), bs) else
-  if b = 0x58w then (SOME   (N_compare    (Le_ Unsigned W64)           ), bs) else
-  if b = 0x59w then (SOME   (N_compare    (Ge_   Signed W64)           ), bs) else
-  if b = 0x5Aw then (SOME   (N_compare    (Ge_ Unsigned W64)           ), bs) else
-  if b = 0x67w then (SOME   (N_unary      (Clz    W32)                 ), bs) else
-  if b = 0x68w then (SOME   (N_unary      (Ctz    W32)                 ), bs) else
-  if b = 0x69w then (SOME   (N_unary      (Popcnt W32)                 ), bs) else
-  if b = 0x6Aw then (SOME   (N_binary     (Add Int W32)                ), bs) else
-  if b = 0x6Bw then (SOME   (N_binary     (Sub Int W32)                ), bs) else
-  if b = 0x6Cw then (SOME   (N_binary     (Mul Int W32)                ), bs) else
-  if b = 0x6Dw then (SOME   (N_binary     (Div_   Signed W32)          ), bs) else
-  if b = 0x6Ew then (SOME   (N_binary     (Div_ Unsigned W32)          ), bs) else
-  if b = 0x6Fw then (SOME   (N_binary     (Rem_   Signed W32)          ), bs) else
-  if b = 0x70w then (SOME   (N_binary     (Rem_ Unsigned W32)          ), bs) else
-  if b = 0x71w then (SOME   (N_binary     (And W32)                    ), bs) else
-  if b = 0x72w then (SOME   (N_binary     (Or W32)                     ), bs) else
-  if b = 0x73w then (SOME   (N_binary     (Xor W32)                    ), bs) else
-  if b = 0x74w then (SOME   (N_binary     (Shl W32)                    ), bs) else
-  if b = 0x75w then (SOME   (N_binary     (Shr_   Signed W32)          ), bs) else
-  if b = 0x76w then (SOME   (N_binary     (Shr_ Unsigned W32)          ), bs) else
-  if b = 0x77w then (SOME   (N_binary     (Rotl W32)                   ), bs) else
-  if b = 0x78w then (SOME   (N_binary     (Rotr W32)                   ), bs) else
-  if b = 0x79w then (SOME   (N_unary      (Clz    W64)                 ), bs) else
-  if b = 0x7Aw then (SOME   (N_unary      (Ctz    W64)                 ), bs) else
-  if b = 0x7Bw then (SOME   (N_unary      (Popcnt W64)                 ), bs) else
-  if b = 0x7Cw then (SOME   (N_binary     (Add Int W64)                ), bs) else
-  if b = 0x7Dw then (SOME   (N_binary     (Sub Int W64)                ), bs) else
-  if b = 0x7Ew then (SOME   (N_binary     (Mul Int W64)                ), bs) else
-  if b = 0x7Fw then (SOME   (N_binary     (Div_   Signed W64)          ), bs) else
-  if b = 0x80w then (SOME   (N_binary     (Div_ Unsigned W64)          ), bs) else
-  if b = 0x81w then (SOME   (N_binary     (Rem_   Signed W64)          ), bs) else
-  if b = 0x82w then (SOME   (N_binary     (Rem_ Unsigned W64)          ), bs) else
-  if b = 0x83w then (SOME   (N_binary     (And W64)                    ), bs) else
-  if b = 0x84w then (SOME   (N_binary     (Or  W64)                    ), bs) else
-  if b = 0x85w then (SOME   (N_binary     (Xor W64)                    ), bs) else
-  if b = 0x86w then (SOME   (N_binary     (Shl W64)                    ), bs) else
-  if b = 0x87w then (SOME   (N_binary     (Shr_   Signed W64)          ), bs) else
-  if b = 0x88w then (SOME   (N_binary     (Shr_ Unsigned W64)          ), bs) else
-  if b = 0x89w then (SOME   (N_binary     (Rotl W64)                   ), bs) else
-  if b = 0x8Aw then (SOME   (N_binary     (Rotr W64)                   ), bs) else
-  if b = 0xA7w then (SOME   (N_convert     Wrap_i64                    ), bs) else
-  if b = 0xACw then (SOME   (N_unary      (Extend_i32_   Signed)       ), bs) else
-  if b = 0xADw then (SOME   (N_unary      (Extend_i32_ Unsigned)       ), bs) else
-  if b = 0xC0w then (SOME   (N_unary      (Extend8_s  W32)             ), bs) else
-  if b = 0xC1w then (SOME   (N_unary      (Extend16_s W32)             ), bs) else
-  if b = 0xC2w then (SOME   (N_unary      (Extend8_s  W64)             ), bs) else
-  if b = 0xC3w then (SOME   (N_unary      (Extend16_s W64)             ), bs) else
-  if b = 0xC4w then (SOME   (N_unary       Extend32_s                  ), bs) else
+  if b = 0x45w then (INR $ N_eqz     $    W32                         ,bs) else
+  if b = 0x46w then (INR $ N_compare $    Eq Int W32                  ,bs) else
+  if b = 0x47w then (INR $ N_compare $    Ne Int W32                  ,bs) else
+  if b = 0x48w then (INR $ N_compare $    Lt_   Signed W32            ,bs) else
+  if b = 0x49w then (INR $ N_compare $    Lt_ Unsigned W32            ,bs) else
+  if b = 0x4Aw then (INR $ N_compare $    Gt_   Signed W32            ,bs) else
+  if b = 0x4Bw then (INR $ N_compare $    Gt_ Unsigned W32            ,bs) else
+  if b = 0x4Cw then (INR $ N_compare $    Le_   Signed W32            ,bs) else
+  if b = 0x4Dw then (INR $ N_compare $    Le_ Unsigned W32            ,bs) else
+  if b = 0x4Ew then (INR $ N_compare $    Ge_   Signed W32            ,bs) else
+  if b = 0x4Fw then (INR $ N_compare $    Ge_ Unsigned W32            ,bs) else
+  if b = 0x45w then (INR $ N_eqz     $    W64                         ,bs) else
+  if b = 0x51w then (INR $ N_compare $    Eq Int W64                  ,bs) else
+  if b = 0x52w then (INR $ N_compare $    Ne Int W64                  ,bs) else
+  if b = 0x53w then (INR $ N_compare $    Lt_   Signed W64            ,bs) else
+  if b = 0x54w then (INR $ N_compare $    Lt_ Unsigned W64            ,bs) else
+  if b = 0x55w then (INR $ N_compare $    Gt_   Signed W64            ,bs) else
+  if b = 0x56w then (INR $ N_compare $    Gt_ Unsigned W64            ,bs) else
+  if b = 0x57w then (INR $ N_compare $    Le_   Signed W64            ,bs) else
+  if b = 0x58w then (INR $ N_compare $    Le_ Unsigned W64            ,bs) else
+  if b = 0x59w then (INR $ N_compare $    Ge_   Signed W64            ,bs) else
+  if b = 0x5Aw then (INR $ N_compare $    Ge_ Unsigned W64            ,bs) else
+  if b = 0x67w then (INR $ N_unary   $    Clz    W32                  ,bs) else
+  if b = 0x68w then (INR $ N_unary   $    Ctz    W32                  ,bs) else
+  if b = 0x69w then (INR $ N_unary   $    Popcnt W32                  ,bs) else
+  if b = 0x6Aw then (INR $ N_binary  $    Add  Int      W32           ,bs) else
+  if b = 0x6Bw then (INR $ N_binary  $    Sub  Int      W32           ,bs) else
+  if b = 0x6Cw then (INR $ N_binary  $    Mul  Int      W32           ,bs) else
+  if b = 0x6Dw then (INR $ N_binary  $    Div_   Signed W32           ,bs) else
+  if b = 0x6Ew then (INR $ N_binary  $    Div_ Unsigned W32           ,bs) else
+  if b = 0x6Fw then (INR $ N_binary  $    Rem_   Signed W32           ,bs) else
+  if b = 0x70w then (INR $ N_binary  $    Rem_ Unsigned W32           ,bs) else
+  if b = 0x71w then (INR $ N_binary  $    And           W32           ,bs) else
+  if b = 0x72w then (INR $ N_binary  $    Or            W32           ,bs) else
+  if b = 0x73w then (INR $ N_binary  $    Xor           W32           ,bs) else
+  if b = 0x74w then (INR $ N_binary  $    Shl           W32           ,bs) else
+  if b = 0x75w then (INR $ N_binary  $    Shr_   Signed W32           ,bs) else
+  if b = 0x76w then (INR $ N_binary  $    Shr_ Unsigned W32           ,bs) else
+  if b = 0x77w then (INR $ N_binary  $    Rotl          W32           ,bs) else
+  if b = 0x78w then (INR $ N_binary  $    Rotr          W32           ,bs) else
+  if b = 0x79w then (INR $ N_unary   $    Clz    W64                  ,bs) else
+  if b = 0x7Aw then (INR $ N_unary   $    Ctz    W64                  ,bs) else
+  if b = 0x7Bw then (INR $ N_unary   $    Popcnt W64                  ,bs) else
+  if b = 0x7Cw then (INR $ N_binary  $    Add Int W64                 ,bs) else
+  if b = 0x7Dw then (INR $ N_binary  $    Sub Int W64                 ,bs) else
+  if b = 0x7Ew then (INR $ N_binary  $    Mul Int W64                 ,bs) else
+  if b = 0x7Fw then (INR $ N_binary  $    Div_   Signed W64           ,bs) else
+  if b = 0x80w then (INR $ N_binary  $    Div_ Unsigned W64           ,bs) else
+  if b = 0x81w then (INR $ N_binary  $    Rem_   Signed W64           ,bs) else
+  if b = 0x82w then (INR $ N_binary  $    Rem_ Unsigned W64           ,bs) else
+  if b = 0x83w then (INR $ N_binary  $    And W64                     ,bs) else
+  if b = 0x84w then (INR $ N_binary  $    Or  W64                     ,bs) else
+  if b = 0x85w then (INR $ N_binary  $    Xor W64                     ,bs) else
+  if b = 0x86w then (INR $ N_binary  $    Shl W64                     ,bs) else
+  if b = 0x87w then (INR $ N_binary  $    Shr_   Signed W64           ,bs) else
+  if b = 0x88w then (INR $ N_binary  $    Shr_ Unsigned W64           ,bs) else
+  if b = 0x89w then (INR $ N_binary  $    Rotl W64                    ,bs) else
+  if b = 0x8Aw then (INR $ N_binary  $    Rotr W64                    ,bs) else
+  if b = 0xA7w then (INR $ N_convert $    Wrap_i64                    ,bs) else
+  if b = 0xACw then (INR $ N_unary   $    Extend_i32_   Signed        ,bs) else
+  if b = 0xADw then (INR $ N_unary   $    Extend_i32_ Unsigned        ,bs) else
+  if b = 0xC0w then (INR $ N_unary   $    Extend8_s  W32              ,bs) else
+  if b = 0xC1w then (INR $ N_unary   $    Extend16_s W32              ,bs) else
+  if b = 0xC2w then (INR $ N_unary   $    Extend8_s  W64              ,bs) else
+  if b = 0xC3w then (INR $ N_unary   $    Extend16_s W64              ,bs) else
+  if b = 0xC4w then (INR $ N_unary   $    Extend32_s                  ,bs) else
 
-  if b = 0x41w then case dec_s32 bs of SOME (s32,cs) => (SOME (N_const32 Int   s32), cs) | NONE => default else
-  if b = 0x42w then case dec_s64 bs of SOME (s64,cs) => (SOME (N_const64 Int   s64), cs) | NONE => default else
+  if b = 0x41w then case dec_s32 bs of SOME (s32,cs) => (INR (N_const32 Int s32), cs) | NONE => failure else
+  if b = 0x42w then case dec_s64 bs of SOME (s64,cs) => (INR (N_const64 Int s64), cs) | NONE => failure else
 
-  default
+  failure
 End
+
+(* TODO *)
+Theorem dec_enc_numI[simp]:
+  ∀ t rest . dec_numI (enc_numI i ++ rest) = (INR t, rest)
+Proof
+  Cases >> simp[dec_numI_def, enc_numI_def ] >>
+  cheat
+QED
+
 
 (***************)
 (*             *)
@@ -248,27 +260,28 @@ End
 *)
 Overload elseOC = “0x05w : byte”
 Overload endOC  = “0x0Bw : byte”
+
+(* TODO : helper to make sure AST nums fit within the Wasm spec'd sizes like u32 etc *)
+(*
 Definition enc_instr_def:
-  enc_instr (inst:instr) (bs:byteStream) : byteStream = case inst of
+(  enc_instr (inst:instr) (bs:byteList) : byteList = case inst of
 
   (* control instructions *)
   | Unreachable => 0x00w :: bs
   | Nop         => 0x01w :: bs
 
-  (* TODO termination
-  | Block bTyp body          => 0x02w :: enc_blocktype bTyp ++ (FOLDR enc_instr (endOC :: bs) body)
-  | Loop  bTyp body          => 0x03w :: enc_blocktype bTyp ++ (FOLDR enc_instr (endOC :: bs) body)
-  | If    bTyp bodyTh [    ] => 0x04w :: enc_blocktype bTyp ++ (FOLDR enc_instr (endOC :: bs) body)
-  | If    bTyp bodyTh bodyEl => 0x04w :: enc_blocktype bTyp ++ (FOLDR enc_instr
-                                                                  (elseOC :: (FOLDR enc_instr (endOC :: bs) bodyEl))
-                                                                  bodyTh) *)
+  (* TODO termination *)
+  | Block bTyp body          => 0x02w :: enc_blocktype bTyp ++ enc_instr_list body
+  | Loop  bTyp body          => 0x03w :: enc_blocktype bTyp ++ enc_instr_list body
+  | If    bTyp bodyTh [    ] => 0x04w :: enc_blocktype bTyp ++ enc_instr_list body
+  | If    bTyp bodyTh bodyEl => 0x04w :: enc_blocktype bTyp ++ enc_instr_list bodyTh ++ elseOC :: enc_instr_list bodyEl
 
   | Br           lbl => 0x0Cw ::                    enc_num lbl ++ bs
   | BrIf         lbl => 0x0Dw ::                    enc_num lbl ++ bs
   | BrTable lbls lbl => 0x0Ew :: (* TODO lbls ++ *) enc_num lbl ++ bs
 
   | Return      => 0x0Fw :: bs
-  | Call   fnId => 0x10w :: enc_num fnId ++ bs
+  | Call   fnId => (* TODO *) 0x10w :: enc_num fnId ++ bs
 
   (* TODO
     (* | CallIndirect       num tf               TODO: first num is tableid *)
@@ -295,12 +308,15 @@ Definition enc_instr_def:
 
   (* other classes of instructions *)
   | Numeric i => enc_numI i ++ bs
-
+) ∧
+  (enc_instr_list ([]:instr list) = [endOC]) ∧
+  (enc_instr_list (i::instrs) = enc_instr i ++ enc_instr_list instrs)
 End
+*)
 
 Definition dec_instr_def:
 
-  dec_instr ([]:byteStream) : (instr option # byteStream) = (NONE,[]) ∧
+  dec_instr ([]:byteList) : (instr option # byteList) = (NONE,[]) ∧
   dec_instr (b::bs) = let default = (NONE, b::bs) in
 
   (* control instructions *)

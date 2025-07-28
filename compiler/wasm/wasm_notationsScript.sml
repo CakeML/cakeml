@@ -4,7 +4,7 @@
 open preamble;
 open wasmLangTheory;
 
-val _ = new_theory "wasmNotations";
+val _ = new_theory "wasm_notations";
 
 (*********************)
 (*                   *)
