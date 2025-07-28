@@ -41,17 +41,31 @@ Definition clz_def: (* count leading zeros *)
   clz (w:α word) : β word = ctz $ word_reverse w
 End
 
-Definition lend128_def:
-  lend128 (w:128 word) : word8 list  =
-    MAP (λ (n:num). w2w (w >>> (8*n))) [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15]
+Definition list_to_def:
+  list_to (0:num) : num list = [0] ∧
+  list_to n = list_to (n-1) ++ [n]
 End
 
-Definition unlend128_def:
-  unlend128 (b0::b1::b3::b4::b5::b6::b7::b8::b9::bA::bB::bC::bD::bE::bF::rest) =
-  SOME (concat_word_list [bF; bE; bD; bC; bB; bA; b9; b8; b7; b6; b5; b4; b3; b1; b0],rest)
-  ∧ unlend128 _ = NONE
+Definition lend_def:
+  lend (w:α word) : word8 list = let width = dimindex(:α) in
+    MAP (λ n. w2w (w >>> (8*n))) $ list_to $
+      if 0 <> width MOD 8 then width + 1 else width
 End
 
+(* Definition lend_def:
+  lend (w:α word) : (word8 list) option = let width = dimindex(:α) in
+    if 0 <> width MOD 8 then NONE else SOME $
+    MAP (λ n. w2w (w >>> (8*n))) $ list_to width
+End *)
+
+Definition unlend_def:
+  unlend (0:num) (res:word8 list) (bs:word8 list) = SOME (concat_word_list res, bs) ∧
+  unlend n acc (b::bs) = unlend (n-1) (b::acc) bs ∧
+  unlend _ _ [] = NONE
+End
+
+Overload unlend32  = “unlend 4  []”
+Overload unlend128 = “unlend 16 []”
 
 Theorem ctz_spec:
   ∀ n. n < w2n (ctz w) ⇒ w ' n = F
