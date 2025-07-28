@@ -32,9 +32,81 @@ Overload f32 = “NT Float W32”
 Overload f64 = “NT Float W64”
 
 
-(****************)
-(*   Numerics   *)
-(****************)
+(******************)
+(*                *)
+(*     Memory     *)
+(*                *)
+(******************)
+
+Overload i32_load     = “Load  Int                   W32”
+Overload i32_load8_s  = “LoadNarrow I8x16    Signed  W32”
+Overload i32_load8_u  = “LoadNarrow I8x16  Unsigned  W32”
+Overload i32_load16_s = “LoadNarrow I16x8    Signed  W32”
+Overload i32_load16_u = “LoadNarrow I16x8  Unsigned  W32”
+
+Overload i64_load     = “Load  Int                   W64”
+Overload i64_load8_s  = “LoadNarrow I8x16    Signed  W64”
+Overload i64_load8_u  = “LoadNarrow I8x16  Unsigned  W64”
+Overload i64_load16_s = “LoadNarrow I16x8    Signed  W64”
+Overload i64_load16_u = “LoadNarrow I16x8  Unsigned  W64”
+Overload i64_load32_s = “LoadNarrow32        Signed”
+Overload i64_load32_u = “LoadNarrow32      Unsigned”
+
+Overload i32_store   = “Store Int         W32”
+Overload i32_store8  = “StoreNarrow I8x16 W32”
+Overload i32_store16 = “StoreNarrow I16x8 W32”
+
+Overload i64_store   = “Store Int         W64”
+Overload i64_store8  = “StoreNarrow I8x16 W64”
+Overload i64_store16 = “StoreNarrow I16x8 W64”
+Overload i64_store32 = “StoreNarrow32”
+
+Overload f32_load  = “Load  Float W32”
+Overload f64_load  = “Load  Float W64”
+
+Overload f32_store = “Store Float W32”
+Overload f64_store = “Store Float W64”
+
+Overload v128_load  = “Load128”
+Overload v128_store = “Store128”
+Overload v128_load32_zero = “LoadZero W32”
+Overload v128_load64_zero = “LoadZero W64”
+
+Overload v128_load8_splat  = “LoadSplat $ Is3 $ Is2 I16x8”
+Overload v128_load16_splat = “LoadSplat $ Is3 $ Is2 I8x16”
+Overload v128_load32_splat = “LoadSplat $ Is3 $     I32x4”
+Overload v128_load64_splat = “LoadSplat             I64x2”
+
+Overload v128_load8_lane  = “LoadLane $ Is3 $ Is2 I16x8”
+Overload v128_load16_lane = “LoadLane $ Is3 $ Is2 I8x16”
+Overload v128_load32_lane = “LoadLane $ Is3 $     I32x4”
+Overload v128_load64_lane = “LoadLane             I64x2”
+
+Overload v128_load8x8_s  = “LoadHalf  (Is2 I16x8)    Signed”
+Overload v128_load8x8_u  = “LoadHalf  (Is2 I16x8)  Unsigned”
+Overload v128_load16x4_s = “LoadHalf  (Is2 I8x16)    Signed”
+Overload v128_load16x4_u = “LoadHalf  (Is2 I8x16)  Unsigned”
+Overload v128_load32x2_s = “LoadHalf  (    I32x4)    Signed”
+Overload v128_load32x2_u = “LoadHalf  (    I32x4)  Unsigned”
+
+Overload v128_store8_lane  = “StoreLane $ Is3 $ Is2 I16x8”
+Overload v128_store16_lane = “StoreLane $ Is3 $ Is2 I8x16”
+Overload v128_store32_lane = “StoreLane $ Is3 $     I32x4”
+Overload v128_store64_lane = “StoreLane             I64x2”
+
+
+Overload memory_size = “Size”
+Overload memory_grow = “Grow”
+Overload memory_fill = “Fill”
+Overload memory_copy = “Copy”
+Overload memory_init = “Init”
+Overload data_drop   = “Drop”
+
+(********************)
+(*                  *)
+(*     Numerics     *)
+(*                  *)
+(********************)
 
   (****************)
   (*   N Consts   *)
@@ -267,6 +339,8 @@ Overload i64_reinterpret_f64 = “N_convert (Reinterpret_f W64)”
 
 Overload f32_reinterpret_i32 = “N_convert (Reinterpret_i W32)”
 Overload f64_reinterpret_i64 = “N_convert (Reinterpret_i W64)”
+
+
 (***************)
 (*   Vectors   *)
 (***************)

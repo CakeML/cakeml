@@ -339,6 +339,41 @@ Datatype: vec_instr
 
 End
 
+(*******************************)
+(*                             *)
+(*     Memory Instructions     *)
+(*                             *)
+(*******************************)
+
+Datatype: mem_instr
+
+  = Load            bvtype width (word32 # word32)
+  | LoadNarrow ishap2 sign width (word32 # word32)
+  | LoadNarrow32      sign       (word32 # word32)
+
+  | Store       bvtype width (word32 # word32)
+  | StoreNarrow ishap2 width (word32 # word32)
+  | StoreNarrow32            (word32 # word32)
+
+  (* vec *)
+  | Load128               (word32 # word32)
+  | LoadHalf  ishap3 sign (word32 # word32)
+  | LoadZero  width       (word32 # word32)
+  | LoadSplat ishape      (word32 # word32)
+  | LoadLane  ishape      (word32 # word32) word8
+
+  | Store128         (word32 # word32)
+  | StoreLane ishape (word32 # word32) word8
+
+  | Size
+  | Grow
+  | Fill
+  | Copy
+  | Init num
+  | Drop num
+
+End
+
 
 
 (*************************************)
@@ -401,9 +436,10 @@ Datatype: instr
   | GlobalSet num
 
   (* memory instructions *)
-  | Load  t ((tp_num # bool) option) word32 (* TODO: alignment *)
-  | Store t tp_num word32                   (* TODO: alignment *)
+  | OLoad  t ((tp_num # bool) option) word32 (* TODO: alignment *)
+  | OStore t tp_num word32                   (* TODO: alignment *)
 
+  | Memory  mem_instr
   | Numeric num_instr
   | Vector  vec_instr
 
