@@ -6140,23 +6140,22 @@ Proof
       full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
       qabbrev_tac`f = option_lookup ssa'`>>
       (*Try to use cut_envs_lemma from word_live*)
+      `INJ f (domain x1 ∪ domain x2) UNIV` by (
+        srw_tac[][INJ_DEF]>>
+        drule list_next_var_rename_move_distinct>>
+        disch_then match_mp_tac>>
+        simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList,toAList_domain,domain_union])>>
       rename1`push_env yy NONE _`>>
       PairCases_on`yy`>>
       drule_at Any cut_envs_lemma>>
       disch_then (qspecl_then [`rcst'.locals`,`f`] mp_tac)>>
       impl_tac>- (
+        CONJ_TAC >- metis_tac[INJ_UNION]>>
+        CONJ_TAC >- metis_tac[INJ_UNION]>>
         rfs[Abbr`f`]>>
         fs[ssa_locals_rel_def,strong_locals_rel_def]>>
         ntac 1 (last_x_assum kall_tac)>>
-        srw_tac[][INJ_DEF]
-        >- (
-          drule list_next_var_rename_move_distinct>>
-          disch_then match_mp_tac>>
-          simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList,toAList_domain,domain_union])
-        >- (
-          drule list_next_var_rename_move_distinct>>
-          disch_then match_mp_tac>>
-          simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList,toAList_domain,domain_union])>>
+        srw_tac[][]>>
         full_simp_tac(srw_ss())[option_lookup_def,domain_lookup]>>
         res_tac>>
         full_simp_tac(srw_ss())[]>>
@@ -6264,27 +6263,36 @@ Proof
             intLib.ARITH_TAC) >>
           `xx ∈ domain (inter ssa' (union x1 x2))` by
             fs[domain_inter,domain_union]>>
-          full_simp_tac(srw_ss())[domain_lookup]>>
-          cheat
-            (* (`x'' ∈ domain ssa_cut` by metis_tac[domain_lookup]>>
-            full_simp_tac(srw_ss())[domain_lookup]>>
-            ntac 20 (last_x_assum kall_tac)>>
-            res_tac>>
-            `v = f x''` by full_simp_tac(srw_ss())[Abbr`f`,option_lookup_def]>>
-            full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def]>>
-            full_simp_tac(srw_ss())[s_key_eq_def,s_val_eq_def]>>
-            Cases_on`opt`>>Cases_on`opt'`>>
-            full_simp_tac(srw_ss())[s_frame_key_eq_def,s_frame_val_eq_def]>>
-            full_simp_tac(srw_ss())[lookup_fromAList]>>
+          pop_assum mp_tac>> simp[domain_lookup]>>
+          strip_tac>>
+          `v = f xx` by full_simp_tac(srw_ss())[Abbr`f`,option_lookup_def,lookup_inter,lookup_union,AllCaseEqs()]>>
+          rveq>>
+          full_simp_tac(srw_ss())[lookup_fromAList,lookup_union]>>
+          rename1`ALOOKUP lll xx` >>
+          rename1`ALOOKUP flll (f xx)` >>
+          full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def]>>
+          full_simp_tac(srw_ss())[s_key_eq_def,s_val_eq_def]>>
+          Cases_on`opt`>>Cases_on`opt'`>>
+          full_simp_tac(srw_ss())[s_frame_key_eq_def,s_frame_val_eq_def]>>
+          full_simp_tac(srw_ss())[lookup_fromAList]>>
+          `flll = ZIP (MAP f (MAP FST lll), MAP SND lll)` by (
             imp_res_tac key_map_implies>>
             rev_full_simp_tac(srw_ss())[]>>
-            `l'' = ZIP(MAP FST l'',MAP SND l'')` by full_simp_tac(srw_ss())[ZIP_MAP_FST_SND_EQ]>>
-            pop_assum SUBST1_TAC>>
-            pop_assum (SUBST1_TAC o SYM)>>
-            match_mp_tac ALOOKUP_key_remap_2>>
-            full_simp_tac(srw_ss())[]>>CONJ_TAC>>
-            metis_tac[LENGTH_MAP,ZIP_MAP_FST_SND_EQ]) *)
-          )>>
+            metis_tac[ZIP_MAP_FST_SND_EQ])>>
+          Q.ISPECL_THEN [`MAP SND lll`, `xx`, `MAP FST lll`,`f`]
+            MP_TAC $  GEN_ALL ALOOKUP_key_remap_INJ >>
+          impl_tac >- (
+            simp[]>>
+            irule INJ_less>>
+            last_x_assum (irule_at Any)>>
+            fs[domain_union,domain_fromAList,SUBSET_DEF,EXTENSION]>>
+            metis_tac[])>>
+          strip_tac>>fs[ZIP_MAP_FST_SND_EQ]>>
+          TOP_CASE_TAC>> fs[]>>
+          qpat_x_assum`strong_locals_rel f (domain x1) yy0 y1` mp_tac>>
+          simp[strong_locals_rel_def]>>
+          fs[ALOOKUP_toAList]>>
+          metis_tac[domain_lookup])>>
         full_simp_tac(srw_ss())[AC UNION_COMM UNION_ASSOC]>>
         (*We set the return variables but it is never in the
           locals so the ssa_locals_rel property is preserved*)
@@ -6466,24 +6474,23 @@ Proof
       is_phy_var_tac) >>
     full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
     qabbrev_tac`f = option_lookup ssa'`>>
+    `INJ f (domain x1 ∪ domain x2) UNIV` by (
+      srw_tac[][INJ_DEF]>>
+      drule list_next_var_rename_move_distinct>>
+      disch_then match_mp_tac>>
+      simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList,toAList_domain,domain_union])>>
     (*Try to use cut_env_lemma from word_live*)
     rename1`push_env yy (SOME _) _`>>
     PairCases_on`yy`>>
     drule_at Any cut_envs_lemma>>
     disch_then (qspecl_then [`rcst'.locals`,`f`] mp_tac)>>
     impl_tac>- (
+      CONJ_TAC >- metis_tac[INJ_UNION]>>
+      CONJ_TAC >- metis_tac[INJ_UNION]>>
       rfs[Abbr`f`]>>
       fs[ssa_locals_rel_def,strong_locals_rel_def]>>
       ntac 1 (last_x_assum kall_tac)>>
-      srw_tac[][INJ_DEF]
-      >- (
-        drule list_next_var_rename_move_distinct>>
-        disch_then match_mp_tac>>
-        simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList,toAList_domain,domain_union])
-      >- (
-        drule list_next_var_rename_move_distinct>>
-        disch_then match_mp_tac>>
-        simp[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList,toAList_domain,domain_union])>>
+      srw_tac[][]>>
       full_simp_tac(srw_ss())[option_lookup_def,domain_lookup]>>
       res_tac>>
       full_simp_tac(srw_ss())[]>>
@@ -6569,59 +6576,75 @@ Proof
       (*Now is a good place to establish the invariant ssa_locals_rel*)
       `ssa_locals_rel na' ssa_cut y.locals y'.locals ∧
        word_state_eq_rel y y'` by (
-        full_simp_tac(srw_ss())[state_component_equality]>>
-        `s_key_eq y.stack y'.stack` by
-          metis_tac[s_key_eq_trans,s_key_eq_sym] >>
-        Q.ISPECL_THEN [`y'`, `y`,  `st'`, `r`]
-          assume_tac (GEN_ALL pop_env_frame) >>
-        rev_full_simp_tac(srw_ss())[]>>
-        rpt (qpat_x_assum`_ cst = _` kall_tac)>>
-        rpt (qpat_x_assum`_ rcst = _` kall_tac)>>
-        rpt (qpat_x_assum`_ st = _` kall_tac)>>
-        last_x_assum kall_tac>>
-        fs[ssa_locals_rel_def,Abbr`ssa_cut`]>>
-        CONJ_TAC  >- (
-          rpt (qpat_x_assum`A=domain _` mp_tac)>>
-          fs[Abbr`f`]>>
-          rpt (pop_assum kall_tac)>>
-          rw[]>>
-          qpat_x_assum`_ ∪ _ = _` kall_tac>>
-          qpat_x_assum`_ ∪ _ = _` sym_sub_tac>>
-          gvs[lookup_inter,lookup_union,AllCaseEqs(),option_lookup_def]>>
-          metis_tac[domain_lookup])>>
-        rpt gen_tac>>
-        rename1`lookup xx`>>
-        strip_tac>>
-        `xx ∈ (domain x1 ∪ domain x2)` by
-          metis_tac[domain_lookup,UNION_COMM]>>
-        CONJ_TAC >- ASM_SET_TAC[] >>
-        reverse CONJ_TAC >- (
+          full_simp_tac(srw_ss())[state_component_equality]>>
+          `s_key_eq y.stack y'.stack` by
+            metis_tac[s_key_eq_trans,s_key_eq_sym] >>
+          Q.ISPECL_THEN [`y'`, `y`,  `st'`, `r`]
+            assume_tac (GEN_ALL pop_env_frame) >>
+          rev_full_simp_tac(srw_ss())[]>>
+          rpt (qpat_x_assum`_ cst = _` kall_tac)>>
+          rpt (qpat_x_assum`_ rcst = _` kall_tac)>>
+          rpt (qpat_x_assum`_ st = _` kall_tac)>>
+          last_x_assum kall_tac>>
+          fs[ssa_locals_rel_def,Abbr`ssa_cut`]>>
+          CONJ_TAC  >- (
+            rpt (qpat_x_assum`A=domain _` mp_tac)>>
+            fs[Abbr`f`]>>
+            rpt (pop_assum kall_tac)>>
+            rw[]>>
+            qpat_x_assum`_ ∪ _ = _` kall_tac>>
+            qpat_x_assum`_ ∪ _ = _` sym_sub_tac>>
+            gvs[lookup_inter,lookup_union,AllCaseEqs(),option_lookup_def]>>
+            metis_tac[domain_lookup])>>
+          rpt gen_tac>>
+          rename1`lookup xx`>>
           strip_tac>>
-          `xx < na` by (
-             qpat_x_assum `every_var _ _` mp_tac >>
-             simp[every_var_def,every_name_def,EVERY_MEM,set_MAP_FST_toAList_domain] >>
-             ASM_SET_TAC[]) >>
-          intLib.ARITH_TAC) >>
-        cheat
-          (* (`x'' ∈ domain ssa_cut` by metis_tac[domain_lookup]>>
-          full_simp_tac(srw_ss())[domain_lookup]>>
-          ntac 20 (last_x_assum kall_tac)>>
-          res_tac>>
-          `v = f x''` by full_simp_tac(srw_ss())[Abbr`f`,option_lookup_def]>>
+          `xx ∈ domain (union x1 x2)` by
+            metis_tac[domain_lookup,UNION_COMM,domain_union]>>
+          `xx ∈ domain ssa'` by (
+            qpat_x_assum `_ ∩ _ = _` mp_tac>>
+            fs[EXTENSION,domain_union]>>
+            metis_tac[domain_union])>>
+          CONJ_TAC >- ASM_SET_TAC[] >>
+          reverse CONJ_TAC >- (
+            strip_tac>>
+            `xx < na` by (
+               qpat_x_assum `every_var _ _` mp_tac >>
+               simp[every_var_def,every_name_def,EVERY_MEM,set_MAP_FST_toAList_domain] >>
+               ASM_SET_TAC[]) >>
+            intLib.ARITH_TAC) >>
+          `xx ∈ domain (inter ssa' (union x1 x2))` by
+            fs[domain_inter,domain_union]>>
+          pop_assum mp_tac>> simp[domain_lookup]>>
+          strip_tac>>
+          `v = f xx` by full_simp_tac(srw_ss())[Abbr`f`,option_lookup_def,lookup_inter,lookup_union,AllCaseEqs()]>>
+          rveq>>
+          full_simp_tac(srw_ss())[lookup_fromAList,lookup_union]>>
+          rename1`ALOOKUP lll xx` >>
+          rename1`ALOOKUP flll (f xx)` >>
           full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def]>>
           full_simp_tac(srw_ss())[s_key_eq_def,s_val_eq_def]>>
           Cases_on`opt`>>Cases_on`opt'`>>
           full_simp_tac(srw_ss())[s_frame_key_eq_def,s_frame_val_eq_def]>>
           full_simp_tac(srw_ss())[lookup_fromAList]>>
-          imp_res_tac key_map_implies>>
-          rev_full_simp_tac(srw_ss())[]>>
-          `l'' = ZIP(MAP FST l'',MAP SND l'')` by full_simp_tac(srw_ss())[ZIP_MAP_FST_SND_EQ]>>
-          pop_assum SUBST1_TAC>>
-          pop_assum (SUBST1_TAC o SYM)>>
-          match_mp_tac ALOOKUP_key_remap_2>>
-          full_simp_tac(srw_ss())[]>>CONJ_TAC>>
-          metis_tac[LENGTH_MAP,ZIP_MAP_FST_SND_EQ]) *)
-          )>>
+          `flll = ZIP (MAP f (MAP FST lll), MAP SND lll)` by (
+            imp_res_tac key_map_implies>>
+            rev_full_simp_tac(srw_ss())[]>>
+            metis_tac[ZIP_MAP_FST_SND_EQ])>>
+          Q.ISPECL_THEN [`MAP SND lll`, `xx`, `MAP FST lll`,`f`]
+            MP_TAC $  GEN_ALL ALOOKUP_key_remap_INJ >>
+          impl_tac >- (
+            simp[]>>
+            irule INJ_less>>
+            last_x_assum (irule_at Any)>>
+            fs[domain_union,domain_fromAList,SUBSET_DEF,EXTENSION]>>
+            metis_tac[])>>
+          strip_tac>>fs[ZIP_MAP_FST_SND_EQ]>>
+          TOP_CASE_TAC>> fs[]>>
+          qpat_x_assum`strong_locals_rel f (domain x1) yy0 y1` mp_tac>>
+          simp[strong_locals_rel_def]>>
+          fs[ALOOKUP_toAList]>>
+          metis_tac[domain_lookup])>>
       full_simp_tac(srw_ss())[AC UNION_COMM UNION_ASSOC]>>
       (*We set the return variables but it is never in the
           locals so the ssa_locals_rel property is preserved*)
@@ -6811,29 +6834,33 @@ Proof
           pop_assum mp_tac>>
           rpt(pop_assum kall_tac)>>
           intLib.ARITH_TAC)>>
-        cheat
-        (*
-        >-
-          (`x'' ∈ domain (fromAList lss)` by metis_tac[domain_lookup]>>
-          full_simp_tac(srw_ss())[domain_fromAList]>>
-          `x'' ∈ domain x'` by metis_tac[MEM_MAP,mem_list_rearrange]>>
-          `x'' ∈ domain ssa' ∧ x'' ∈ domain x1` by
-            (full_simp_tac(srw_ss())[cut_env_def,EXTENSION,domain_inter]>>
-            metis_tac[])>>
-          `THE (lookup x'' (inter ssa' x1)) = option_lookup ssa' x''` by
-            full_simp_tac(srw_ss())[lookup_inter,option_lookup_def,domain_lookup]>>
-          full_simp_tac(srw_ss())[lookup_fromAList]>>
-          `lss' = ZIP(MAP FST lss',MAP SND lss')` by full_simp_tac(srw_ss())[ZIP_MAP_FST_SND_EQ]>>
-          pop_assum SUBST_ALL_TAC>>
-          `lss = ZIP(MAP FST lss,MAP SND lss)` by full_simp_tac(srw_ss())[ZIP_MAP_FST_SND_EQ]>>
-          pop_assum SUBST_ALL_TAC>>
-          full_simp_tac(srw_ss())[MAP_ZIP]>>
+        `xx ∈ domain (inter ssa' (union x1 x2))` by
+          fs[domain_inter]>>
+        pop_assum mp_tac>> simp[domain_lookup]>>
+        strip_tac>>
+        `v = (option_lookup ssa') xx` by full_simp_tac(srw_ss())[option_lookup_def,lookup_inter,lookup_union,AllCaseEqs()]>>
+        rveq>>
+        full_simp_tac(srw_ss())[lookup_fromAList,lookup_union]>>
+        rename1`ALOOKUP lll xx` >>
+        rename1`ALOOKUP flll (f xx)` >>
+        `flll = ZIP (MAP f (MAP FST lll), MAP SND lll)` by (
           imp_res_tac key_map_implies>>
           rev_full_simp_tac(srw_ss())[]>>
-          pop_assum sym_sub_tac>>
-          qpat_x_assum `A=MAP SND lss'` sym_sub_tac>>
-          match_mp_tac ALOOKUP_key_remap_2>>
-          srw_tac[][]) *))>>
+          metis_tac[ZIP_MAP_FST_SND_EQ])>>
+        Q.ISPECL_THEN [`MAP SND lll`, `xx`, `MAP FST lll`,`f`]
+          MP_TAC $  GEN_ALL ALOOKUP_key_remap_INJ >>
+        impl_tac >- (
+          simp[]>>
+          irule INJ_less>>
+          last_x_assum (irule_at Any)>>
+          fs[domain_union,domain_fromAList,SUBSET_DEF,EXTENSION]>>
+          metis_tac[])>>
+        strip_tac>>fs[ZIP_MAP_FST_SND_EQ]>>
+        TOP_CASE_TAC>> fs[]>>
+        qpat_x_assum`strong_locals_rel f (domain x1) yy0 y1` mp_tac>>
+        simp[strong_locals_rel_def]>>
+        fs[ALOOKUP_toAList]>>
+        metis_tac[domain_lookup])>>
       `ssa_locals_rel na' ssa_cut r.locals
         (set_var 2 w0 cres).locals` by
         (match_mp_tac ssa_locals_rel_ignore_set_var>>
