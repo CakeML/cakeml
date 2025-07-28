@@ -158,6 +158,7 @@ Inductive stmt_wp:
     ALL_DISTINCT ret_names ∧
     rets = (MAP VarLhs ret_names) ∧
     EVERY (λe. DISJOINT (freevars e) (set ret_names)) args ∧
+    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.reqs ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.decreases
     ⇒
     stmt_wp m (Let (ZIP (MAP FST mspec.ins,args)) (conj mspec.reqs) ::
@@ -571,7 +572,7 @@ Proof
 QED
 
 (* TODO Keep triv; Move to dafny_eval_rel *)
-Triviality eval_exp_no_old:
+Triviality eval_exp_no_old_lemma:
   no_Old e ∧ eval_exp st env e v ⇒
   eval_exp (st with <| heap_old := h; locals_old := l |>) env e v
 Proof
@@ -588,14 +589,23 @@ Theorem eval_exp_no_old:
   eval_exp (st with <| heap_old := h; locals_old := l |>) env e v
 Proof
   strip_tac
-  \\ iff_tac >- (simp [eval_exp_no_old])
+  \\ iff_tac >- (simp [eval_exp_no_old_lemma])
   \\ strip_tac
-  \\ drule_all eval_exp_no_old
+  \\ drule_all eval_exp_no_old_lemma
   \\ disch_then $ qspecl_then [‘st.locals_old’, ‘st.heap_old’] mp_tac
   \\ simp []
   \\ match_mp_tac EQ_IMPLIES
   \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
   \\ simp [state_component_equality]
+QED
+
+Theorem eval_exp_no_old_IMP:
+  ∀h l.
+    no_Old e ∧
+    eval_exp (st with <| heap_old := h; locals_old := l |>) env e v ⇒
+    eval_exp st env e v
+Proof
+  metis_tac [eval_exp_no_old]
 QED
 
 (* TODO keep triv; Move to dafny_eval_rel *)
@@ -1020,6 +1030,18 @@ Proof
   \\ cheat
 QED
 
+Theorem IN_freevars_conj:
+  n ∈ freevars (conj xs) ⇒ ∃x. MEM x xs ∧ n ∈ freevars x
+Proof
+  cheat
+QED
+
+Theorem no_Old_conj:
+  ∀xx. no_Old (conj xs) = EVERY no_Old xs
+Proof
+  cheat
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
@@ -1127,7 +1149,46 @@ Proof
     >-
      (rewrite_tac [GSYM eval_true_conj_every]
       \\ qpat_x_assum ‘eval_true st env (Let _ (conj mspec.reqs))’ mp_tac
-      \\ cheat)
+      \\ rewrite_tac [eval_true_def]
+      \\ strip_tac
+      \\ irule eval_exp_no_old_IMP
+      \\ conj_tac >-
+       (simp [no_Old_conj,EVERY_MEM] \\ rw [] \\ fs [EVERY_MEM] \\ res_tac)
+      \\ qexists_tac ‘st.heap_old’
+      \\ qexists_tac ‘st.locals_old’
+      \\ pop_assum mp_tac
+      \\ DEP_REWRITE_TAC [eval_exp_Let_equiv |> Q.INST [‘l’|->‘new_l’,‘vs’|->‘in_vs’]]
+      \\ fs [Abbr‘st1’]
+      \\ conj_tac
+      >- (fs [ALL_DISTINCT_APPEND] \\ rw []
+          \\ drule IN_freevars_conj \\ strip_tac
+          \\ fs [EVERY_MEM]
+          \\ first_x_assum drule
+          \\ simp [SUBSET_DEF,MEM_MAP,EXISTS_PROD]
+          \\ strip_tac
+          \\ first_x_assum drule \\ strip_tac
+          \\ unabbrev_all_tac
+          \\ rewrite_tac [REVERSE_APPEND]
+          \\ simp [ALOOKUP_APPEND,CaseEq"option"]
+          \\ simp [SF DNF_ss] \\ disj1_tac
+          \\ simp [MEM_MAP,FORALL_PROD]
+          \\ DEP_REWRITE_TAC [alistTheory.alookup_distinct_reverse]
+          \\ simp [MAP_ZIP,ALOOKUP_MAP_SOME,SF CONJ_ss]
+          \\ simp [GSYM PULL_EXISTS]
+          \\ conj_tac >-
+           (DEP_REWRITE_TAC [ALOOKUP_ZIP_FAIL] \\ gvs []
+            \\ last_x_assum irule
+            \\ fs [MEM_MAP,EXISTS_PROD]
+            \\ first_x_assum $ irule_at Any)
+          \\ qpat_abbrev_tac ‘opt = ALOOKUP _ n’
+          \\ Cases_on ‘opt’ \\ gvs []
+          \\ pop_assum mp_tac
+          \\ simp [ALOOKUP_NONE, MAP_ZIP]
+          \\ fs [MEM_MAP,EXISTS_PROD]
+          \\ first_x_assum $ irule_at Any)
+      \\ match_mp_tac EQ_IMPLIES
+      \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+      \\ simp [state_component_equality])
     >- gvs [Abbr‘st1’]
     >- gvs [Abbr‘st1’]
     \\ PairCases_on ‘decs’ \\ gvs [wrap_old_def]
