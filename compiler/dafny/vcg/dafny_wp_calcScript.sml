@@ -1044,6 +1044,20 @@ Proof
   ho_match_mp_tac conj_ind \\ rw [conj_def] \\ fs [no_Old_def]
 QED
 
+Theorem value_same_type_refl:
+  ∀x. value_same_type x x
+Proof
+  Cases \\ simp [value_same_type_def]
+QED
+
+Theorem eval_true_CanEval_Var:
+  eval_true st env (CanEval (Var v)) ⇔ ∃val. ALOOKUP st.locals v = SOME (SOME val)
+Proof
+  fs [eval_true_def,eval_exp_def,evaluate_exp_def,CanEval_def,read_local_def]
+  \\ simp [AllCaseEqs(),PULL_EXISTS,do_sc_def,do_bop_def]
+  \\ simp [state_component_equality,SF CONJ_ss,value_same_type_refl]
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
@@ -1067,6 +1081,7 @@ Theorem stmt_wp_sound:
         | Rcont => conditions_hold st' env post
         | _ => F
 Proof
+
   Induct_on ‘stmt_wp’ \\ rpt strip_tac
   >~ [‘Skip’] >-
    (irule_at (Pos hd) eval_stmt_Skip \\ simp [])
@@ -1256,7 +1271,11 @@ Proof
   \\ gvs [conditions_hold_def]
   \\ rename [‘restore_caller st2 st’]
   \\ qabbrev_tac ‘st3 = restore_caller st2 st’
-  \\ ‘EVERY (eval_true st3 env) (MAP CanEval (MAP Var ret_names))’ by cheat
+  \\ ‘EVERY (eval_true st3 env) (MAP CanEval (MAP Var ret_names))’ by
+   (qpat_x_assum ‘EVERY _ (MAP CanEval (MAP Var ret_names))’ mp_tac
+    \\ simp [EVERY_MEM,MEM_MAP,PULL_EXISTS]
+    \\ rpt strip_tac \\ first_x_assum dxrule
+    \\ simp [eval_true_CanEval_Var,Abbr‘st3’,restore_caller_def])
   \\ drule IMP_assi_values
   \\ disch_then $ qspec_then ‘out_vs’ mp_tac
   \\ impl_tac >- fs []
