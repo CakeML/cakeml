@@ -436,13 +436,13 @@ Definition exec_def:
     case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
     case set_global n x s of NONE => (RInvalid,s) | SOME s =>
       (RNormal,s)) ∧
-  (exec (Load res_t size_ext off) s =
+  (exec (OLoad res_t size_ext off) s =
     case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
     case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
     case exec_load res_t size_ext (w + off) s.memory of NONE => (RTrap,s) | SOME y =>
     (RNormal, push y s)
   ) ∧
-  (exec (Store res_t size off) s =
+  (exec (OStore res_t size off) s =
     case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
     case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
     case exec_store res_t size (w + off) s.memory of NONE => (RTrap,s) | SOME m =>
