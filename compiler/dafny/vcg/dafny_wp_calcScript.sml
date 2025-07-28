@@ -1031,15 +1031,17 @@ Proof
 QED
 
 Theorem IN_freevars_conj:
-  n ∈ freevars (conj xs) ⇒ ∃x. MEM x xs ∧ n ∈ freevars x
+  ∀xs n. n ∈ freevars (conj xs) ⇒ ∃x. MEM x xs ∧ n ∈ freevars x
 Proof
-  cheat
+  ho_match_mp_tac conj_ind \\ rw [conj_def] \\ fs [freevars_def]
+  \\ simp [SF DNF_ss]
+  \\ res_tac \\ gvs [] \\ metis_tac []
 QED
 
 Theorem no_Old_conj:
-  ∀xx. no_Old (conj xs) = EVERY no_Old xs
+  ∀xs. no_Old (conj xs) = EVERY no_Old xs
 Proof
-  cheat
+  ho_match_mp_tac conj_ind \\ rw [conj_def] \\ fs [no_Old_def]
 QED
 
 Theorem stmt_wp_sound:
