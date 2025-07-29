@@ -91,7 +91,7 @@ Proof
   rewrite_tac [conj_def]
 QED
 
-Triviality value_same_type_same_value[simp]:
+Theorem value_same_type_same_value[simp]:
   value_same_type v v
 Proof
   Cases_on ‘v’ \\ gvs [value_same_type_def]
