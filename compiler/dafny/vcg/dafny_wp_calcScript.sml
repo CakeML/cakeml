@@ -177,13 +177,19 @@ Inductive stmt_wp:
               (MetCall rets mname args) post ens decs
 End
 
+Definition wrap_Old_def:
+  wrap_Old vs (Var v) = (if MEM v vs then Old (Var v) else Var v) ∧
+  wrap_Old vs e = ARB
+End
+
 Definition proved_methods_def:
   proved_methods m ⇔
     ∀name mspec body.
       Method name mspec body ∈ m ⇒
       ∃wp_pre.
         stmt_wp m wp_pre body [False]
-          (mspec.ens ++ MAP (CanEval o Var o FST) mspec.outs)
+          (MAP (wrap_Old (MAP FST mspec.ins)) mspec.ens ++
+           MAP (CanEval o Var o FST) mspec.outs)
           (mspec.rank, mspec.decreases) ∧
         ⊢ (imp (conj mspec.reqs) (conj wp_pre))
 End
@@ -1288,7 +1294,7 @@ Theorem eval_exp_swap_state:
   (∀ck. (st3 with clock := ck) = (st2 with clock := ck)) ⇒
   eval_exp st3 env e v
 Proof
-  cheat
+  simp [eval_exp_def]
 QED
 
 Theorem stmt_wp_sound:
@@ -1304,7 +1310,8 @@ Theorem stmt_wp_sound:
           compatible_env env m ⇒
           ∃st'' out_vs.
             eval_stmt st' env body' st'' (Rstop Sret) ∧
-            conditions_hold st'' env mspec'.ens ∧
+            conditions_hold st'' env (MAP (wrap_Old (MAP FST mspec'.ins)) mspec'.ens) ∧
+            st''.locals_old = st'.locals_old ∧
             st''.heap = st'.heap ∧
             st''.heap_old = st'.heap_old ∧
             st''.output = st'.output ∧
@@ -1312,6 +1319,7 @@ Theorem stmt_wp_sound:
       conditions_hold st env reqs ∧ compatible_env env m ⇒
       ∃st' ret.
         eval_stmt st env stmt st' ret ∧
+        st'.locals_old = st.locals_old ∧
         st'.heap = st.heap ∧
         st'.heap_old = st.heap_old ∧
         st'.output = st.output ∧
@@ -1320,7 +1328,6 @@ Theorem stmt_wp_sound:
         | Rcont => conditions_hold st' env post
         | _ => F
 Proof
-
   Induct_on ‘stmt_wp’ \\ rpt strip_tac
   >~ [‘Skip’] >-
    (irule_at (Pos hd) eval_stmt_Skip \\ simp [])
@@ -1555,6 +1562,7 @@ Proof
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
+  \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ rewrite_tac [GSYM eval_true_conj_every]
   \\ rewrite_tac [eval_true_def]
   \\ irule (iffLR eval_exp_swap_locals_alt)
@@ -1614,10 +1622,11 @@ Theorem methods_lemma[local]:
       conditions_hold st env mspec.reqs ∧ compatible_env env m ⇒
       ∃st' out_vs.
         eval_stmt st env body st' (Rstop Sret) ∧
+        st'.locals_old = st.locals_old ∧
         st'.heap = st.heap ∧
         st'.heap_old = st.heap_old ∧
         st'.output = st.output ∧
-        conditions_hold st' env mspec.ens ∧
+        conditions_hold st' env (MAP (wrap_Old (MAP FST mspec.ins)) mspec.ens) ∧
         LIST_REL (eval_exp st' env) (MAP (Var o FST) mspec.outs) out_vs
 Proof
   gen_tac
@@ -1635,7 +1644,7 @@ Proof
     \\ rpt strip_tac
     \\ gvs [eval_measure_wrap_old, compatible_env_def]
     \\ last_x_assum $ drule_then drule
-    \\ simp [SF SFY_ss]
+    \\ impl_tac >- simp [SF SFY_ss]
     \\ strip_tac \\ gvs []
     \\ first_x_assum $ irule_at $ Pos hd \\ fs []
     \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
@@ -1647,6 +1656,7 @@ Proof
   \\ fs [GSYM MAP_MAP_o]
   \\ drule EVERY_eval_true_CanEval
   \\ strip_tac \\ pop_assum $ irule_at Any
+  \\ gvs [GSYM eval_true_conj_every]
 QED
 
 Theorem methods_correct = SRULE [] methods_lemma;
