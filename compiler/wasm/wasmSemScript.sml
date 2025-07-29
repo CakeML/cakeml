@@ -23,13 +23,13 @@ End
 Datatype:
   state =
   <|
-    clock: num;
-    stack: value list;
-    locals: value list;
-    globals: value list;
-    memory: word8 list;
-    types: (t list # t list) list;
-    funcs: func list;
+    clock   : num;
+    stack   : value list;
+    locals  : value list;
+    globals : value list;
+    memory  : word8 list;
+    types   : (t list # t list) list;
+    funcs   : func list;
     func_tables : num list list; (* TODO change *)
   |>
 End
@@ -49,6 +49,7 @@ Definition tb_tf_def:
   tb_tf types (Tbf n) = oEL n types
 End
 
+(* QQ what is T_i32? *)
 Definition init_val_of_def:
   init_val_of T_i32 = I32 0w ∧
   init_val_of T_i64 = I64 0w
@@ -102,10 +103,10 @@ Proof
 QED
 
 Definition inst_size'_def:
-  inst_size' (If _ i1 i2) = 2 + list_size inst_size' i1 + list_size inst_size' i2 ∧
-  inst_size' (Block _ b) = 1 + list_size inst_size' b ∧
-  inst_size' (Loop _ b) = 1 + list_size inst_size' b ∧
-  inst_size' (CallIndirect _ _) = 2 ∧
+  inst_size' (If    _ bt be         ) = 2 + list_size inst_size' bt + list_size inst_size' be ∧
+  inst_size' (Block _ b             ) = 1 + list_size inst_size' b ∧
+  inst_size' (Loop  _ b             ) = 1 + list_size inst_size' b ∧
+  inst_size' (CallIndirect       _ _) = 2 ∧
   inst_size' (ReturnCallIndirect _ _) = 2 ∧
   inst_size' _ = 1
 End
@@ -144,40 +145,35 @@ Definition set_global_def:
 End
 
 
-(*
-*)
 Inductive unary_op_rel:
-(∀ w. unary_op_rel (Popcnt      W32     ) (I32 w) (I32 $ popcnt w))
+  (∀ w. unary_op_rel (Popcnt    W32) (I32 w) (I32 $ popcnt w)) ∧
+  (∀ w. unary_op_rel (Clz       W32) (I32 w) (I32 $ clz    w)) ∧
+  (∀ w. unary_op_rel (Ctz       W32) (I32 w) (I32 $ ctz    w)) ∧
 
+  (∀ w. unary_op_rel (Popcnt    W64) (I64 w) (I64 $ popcnt w)) ∧
+  (∀ w. unary_op_rel (Clz       W64) (I64 w) (I64 $ clz    w)) ∧
+  (∀ w. unary_op_rel (Ctz       W64) (I64 w) (I64 $ ctz    w)) ∧
+
+  (∀ w. unary_op_rel (Extend8s  W32) (I32 w) (I32 $ sw2sw $ (w2w w):word8 )) ∧
+  (∀ w. unary_op_rel (Extend16s W32) (I32 w) (I32 $ sw2sw $ (w2w w):word16)) ∧
+
+  (∀ w. unary_op_rel (Extend8s  W64      ) (I64 w) (I64 $ sw2sw $ (w2w w):word8 )) ∧
+  (∀ w. unary_op_rel (Extend16s W64      ) (I64 w) (I64 $ sw2sw $ (w2w w):word16)) ∧
+  (∀ w. unary_op_rel  Extend32_s           (I64 w) (I64 $ sw2sw $ (w2w w):word32)) ∧
+  (∀ w. unary_op_rel (ExtendI32_   Signed) (I32 w) (I64 $ sw2sw  w)) ∧
+  (∀ w. unary_op_rel (ExtendI32_ Unsigned) (I32 w) (I64 $  w2w   w))
 End
-(*
 
+Definition do_unary_op_def:
+  do_unary_op op v = some res. unary_op_rel op v res
+End
 
-
-
-  (∀ w. unary_op_rel (Popcnt      W64     ) (I64 w) (I64 (n2w (bit_count w))))  (* ? *)
-  (* nn -> nn *)
-  (∀ w. unary_op_rel (Clz         W32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Ctz         W32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend8_s   W32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend16_s  W32     ) (I32 w) (I32 (op w))) ∧ (* TODO *)
-
-  (* 32 -> 64 *)
-  (∀ w. unary_op_rel  Extend32_s            (I32 w) (I64 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend_i32_ Unsigned) (I32 w) (I64 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend_i32_ Signed  ) (I32 w) (I64 (op w)))   (* TODO *)
-
-
-  (* nn -> nn *)
-  (∀ w. unary_op_rel (Clz         W64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Ctz         W64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend8_s   W64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
-  (∀ w. unary_op_rel (Extend16_s  W64     ) (I64 w) (I64 (op w))) ∧ (* TODO *)
-*)
-
-
-
-
+(* Theorem unary_op_rel_det:
+  ∀ o v r1 r2. unary_op_rel o v r1 ∧ unary_op_rel o v r2 ==> r1 = r2
+Proof
+  (* once_rewrite_tac [unary_op_rel_cases] \\ simp [] \\ rw [] \\ simp [] *)
+  cheat
+QED *)
 
 
 (* MODIFY [Add more ops] - where can I find word operations *)
@@ -196,8 +192,8 @@ Inductive binop_rel:
   (* HOL complains when I change the 1 to w2 *)
   (* "at Preterm.type-analysis:\nat line 185, character 20:\nCouldn't infer type for overloaded name _ inject_number", *)
   (* check semantics line up *)
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* w2 = 0 ? undefined : truncated towards 0 *)
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* TODO *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Div_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* w2 = 0 ? undefined : truncated towards 0 *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Rem_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* TODO *)
 
 
 
@@ -208,8 +204,8 @@ Inductive binop_rel:
   (∀w1 w2. binop_rel (Or      W64) (I64 w1) (I64 w2) (I64 (word_or  w1 w2))) ∧
   (∀w1 w2. binop_rel (Xor     W64) (I64 w1) (I64 w2) (I64 (word_xor w1 w2))) ∧
 
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Div_ Unsigned W64) (I64 w1) (I64 w2) (I64 (word_div w1 w2))) ∧ (* cf i32 *)
-  (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Unsigned W64) (I64 w1) (I64 w2) (I64 (word_div w1 w2)))   (* TODO *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Div_ Unsigned W64) (I64 w1) (I64 w2) (I64 (word_div w1 w2))) ∧ (* cf i32 *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Rem_ Unsigned W64) (I64 w1) (I64 w2) (I64 (word_div w1 w2)))   (* TODO *)
 End
 
   (* To be completed. check semantics of signed word_div matches wasm
@@ -263,22 +259,12 @@ End *)
 
 
 
-Definition do_unary_op_def:
-  do_unary_op op v = some res. unary_op_rel op v res
-End
-
 (* INVARIANT - changes to ops shouldn't break this *)
 (* Q is "some" some kind of function on options? is it "exists"? *)
 Definition do_binop_def:
   do_binop b v1 v2 = some res. binop_rel b v1 v2 res
 End
 
-
-(* Theorem unary_op_rel_det:
-  ∀o v r1 r2. unary_op_rel o v r1 ∧ unary_op_rel o v r2 ⇒ r1 = r2
-Proof
-  once_rewrite_tac [unary_op_rel_cases] \\ simp [] \\ rw [] \\ simp []
-QED *)
 
 (* INVARIANT - changes to ops shouldn't break this *)
 Theorem binop_rel_det:
