@@ -190,6 +190,8 @@ Definition compile_op_def:
     | Shift x1 x2 x3 => Op t (WordOp (WordShift x1 x2 x3)) xs
     | Opw x1 x2 => Op t (WordOp (WordOpw x1 x2)) xs
     | Eval => Op t Install xs (* if need to flip:  Let t xs (Op t Install [Var t 1; Var t 0]) *)
+    | FpFromWord => Let None xs (Var None 0)
+    | FpToWord => Let None xs (Var None 0)
     | _ => Let None xs (Var None 0)
 End
 
