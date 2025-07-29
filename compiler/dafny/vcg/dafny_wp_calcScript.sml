@@ -1283,6 +1283,12 @@ Proof
   simp [eval_exp_def]
 QED
 
+Triviality conj_MAP_wrap_Old:
+  ∀xs vs. conj (MAP (wrap_Old vs) xs) = wrap_Old vs (conj xs)
+Proof
+  cheat
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
@@ -1566,6 +1572,15 @@ Proof
   \\ reverse conj_tac
   >- simp [state_component_equality,Abbr‘st3’,Abbr‘st1’,restore_caller_def]
   \\ fs [GSYM eval_true_def,GSYM eval_true_conj_every]
+  \\ qmatch_goalsub_abbrev_tac ‘eval_true st5’
+  \\ ‘LIST_REL (eval_exp st5 env)
+        (args ++ MAP Var ret_names) (in_vs ++ out_vs)’ by cheat
+  \\ drule eval_exp_Let
+  \\ rewrite_tac [eval_true_def]
+  \\ disch_then $ DEP_REWRITE_TAC o single
+  \\ conj_tac >- fs []
+  \\ simp [Abbr‘st5’]
+  \\ fs [conj_MAP_wrap_Old]
   \\ cheat
 QED
 
