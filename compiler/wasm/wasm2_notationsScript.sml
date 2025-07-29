@@ -1,5 +1,7 @@
 (*
-  Notations for cake's Wasm 2.0 AST
+  Notations (HOL Overloads) for cake's Wasm 2.0 AST
+  Separated from wasm2LangScript for ergonomics/build efficency
+  We have over 400 instructions
 *)
 open preamble;
 open wasm2LangTheory;
@@ -133,15 +135,14 @@ Overload i32_popcnt = “N_unary (Popcnt W32)”
 Overload i64_popcnt = “N_unary (Popcnt W64)”
 
     (* extends *)
-Overload i32_extend8_s    = “N_unary (Extend8_s  W32)”
-Overload i64_extend8_s    = “N_unary (Extend8_s  W64)”
+Overload i32_extend8_s    = “N_unary (Extend8s  W32)”
+Overload i32_extend16_s   = “N_unary (Extend16s W32)”
 
-Overload i64_extend16_s   = “N_unary (Extend16_s W64)”
-Overload i32_extend16_s   = “N_unary (Extend16_s W32)”
-
-Overload i64_extend32_s   = “N_unary  Extend32_s”
-Overload i64_extend_i32_u = “N_unary (Extend_i32_ Unsigned)”
-Overload i64_extend_i32_s = “N_unary (Extend_i32_   Signed)”
+Overload i64_extend8_s    = “N_unary (Extend8s  W64)”
+Overload i64_extend16_s   = “N_unary (Extend16s W64)”
+Overload i64_extend32_s   = “N_unary  Extend32s”
+Overload i64_extend_i32_s = “N_unary (ExtendI32_   Signed)”
+Overload i64_extend_i32_u = “N_unary (ExtendI32_ Unsigned)”
 
     (* floats *)
 Overload f32_abs     = “N_unary (Abs     W32)”
