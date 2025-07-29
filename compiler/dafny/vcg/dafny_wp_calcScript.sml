@@ -1084,20 +1084,85 @@ Definition assi_value_def:
       (st' with clock := ck2,Rcont)
 End
 
+Triviality update_local_aux_cons_neq:
+  xn ≠ n ∧
+  update_local_aux xs n v = SOME ys ⇒
+  update_local_aux ((xn,xv)::xs) n v = SOME ((xn,xv)::ys)
+Proof
+  strip_tac
+  \\ gvs [update_local_aux_def, AllCaseEqs()]
+QED
+
+(* TODO Move to dafnyProps *)
+Theorem read_local_update_local:
+  ∀xs n.
+    read_local xs n = SOME v ⇒
+    ∃ys. update_local_aux xs n v' = SOME ys ∧
+         ALOOKUP ys = ALOOKUP ((n,SOME v')::xs)
+Proof
+  Induct >- (simp [read_local_def])
+  \\ qx_genl_tac [‘x’, ‘n’]
+  \\ simp [read_local_def]
+  \\ namedCases_on ‘x’ ["xn xv"] \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  >-
+   (strip_tac \\ gvs []
+    \\ simp [update_local_aux_def]
+    \\ simp [FUN_EQ_THM])
+  \\ CASE_TAC \\ gvs []
+  \\ strip_tac \\ gvs []
+  \\ last_x_assum $ qspec_then ‘n’ assume_tac
+  \\ gvs [read_local_def]
+  \\ drule_all update_local_aux_cons_neq
+  \\ disch_then $ qspec_then ‘xv’ assume_tac \\ gvs []
+  \\ gvs [FUN_EQ_THM]
+  \\ strip_tac
+  \\ IF_CASES_TAC \\ gvs []
+QED
+
+Theorem can_eval_read_local_lr:
+  eval_true st env (CanEval (Var n)) ⇒
+  ∃v. read_local st.locals n = SOME v
+Proof
+  gvs [eval_true_def, eval_exp_def, CanEval_def, evaluate_exp_def]
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+QED
+
 Theorem can_eval_var_update_local:
   eval_true st env (CanEval (Var n)) ⇒
   ∃l. update_local st n v = SOME (st with locals := l) ∧
       ALOOKUP l = ALOOKUP ((n, SOME v)::st.locals)
 Proof
-  cheat
+  strip_tac
+  \\ dxrule can_eval_read_local_lr
+  \\ rpt strip_tac
+  \\ drule read_local_update_local
+  \\ disch_then $ qspec_then ‘v’ assume_tac
+  \\ gvs [update_local_def, state_component_equality]
+QED
+
+Theorem can_eval_read_local_rl:
+  read_local st.locals n = SOME v ⇒
+  eval_true st env (CanEval (Var n))
+Proof
+  gvs [eval_true_def, eval_exp_def, CanEval_def, evaluate_exp_def,
+       do_sc_def, do_bop_def]
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ cheat
 QED
 
 Theorem can_eval_vars:
-  EVERY (eval_true st env) (MAP CanEval (MAP Var ns)) ∧
-  (∀n. IS_SOME (ALOOKUP st.locals n) ⇒ IS_SOME (ALOOKUP l n)) ⇒
-  EVERY (eval_true (st' with locals := l) env) (MAP CanEval (MAP Var ns))
+  ∀ns.
+    EVERY (eval_true st env) (MAP CanEval (MAP Var ns)) ∧
+    (∀n. IS_SOME (ALOOKUP st.locals n) ⇒ IS_SOME (ALOOKUP l n)) ⇒
+    EVERY (eval_true (st' with locals := l) env) (MAP CanEval (MAP Var ns))
 Proof
-  cheat
+  Induct >- (gvs [])
+  \\ qx_gen_tac ‘n’
+  \\ rpt strip_tac \\ gvs []
+  \\ cheat
 QED
 
 Theorem assi_value_VarLhs:
