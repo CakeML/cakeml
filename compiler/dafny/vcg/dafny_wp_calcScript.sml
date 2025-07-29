@@ -1501,6 +1501,13 @@ Proof
   \\ rewrite_tac [eval_true_def]
   \\ irule (iffLR eval_exp_swap_locals_alt)
   \\ pop_assum $ irule_at Any o GSYM
+  \\ first_x_assum $ qspec_then ‘ZIP (ret_names,MAP SOME out_vs)’ mp_tac
+  \\ impl_tac
+  >- (gvs [LIST_REL_EL_EQN,EL_ZIP,EL_MAP] \\ cheat)
+  \\ strip_tac
+  \\ drule eval_true_imp
+  \\ ‘st3.locals = st.locals’ by fs [Abbr‘st3’,restore_caller_def]
+  \\ simp [GSYM eval_true_def]
   \\ cheat
 QED
 
@@ -1572,79 +1579,3 @@ Proof
 QED
 
 Theorem methods_correct = SRULE [] methods_lemma;
-
-(*
-Theorem stmt_wp_sound:
-  ∀m reqs stmt post ens.
-    stmt_wp m reqs stmt post ens ⇒
-    ∀st env.
-      methods_sound m ∧
-      conditions_hold st env reqs ∧ compatible_env env m ⇒
-      ∃st' ret.
-        eval_stmt st env stmt st' ret ∧
-        case ret of
-        | Rstop Sret => conditions_hold st' env ens
-        | Rcont => conditions_hold st' env post
-        | _ => F
-Proof
-  Induct_on ‘stmt_wp’ \\ rpt strip_tac
-  >~ [‘Skip’] >-
-   (gvs [eval_stmt_def,evaluate_stmt_def,PULL_EXISTS]
-    \\ last_x_assum $ irule_at Any
-    \\ gvs [dafny_semanticPrimitivesTheory.state_component_equality])
-  >~ [‘Assert’] >-
-   (gvs [eval_stmt_def,evaluate_stmt_def,PULL_EXISTS,AllCaseEqs(),SF DNF_ss]
-    \\ gvs [compatible_env_def,conditions_hold_def]
-    \\ first_x_assum $ irule_at Any
-    \\ gvs [eval_true_def]
-    \\ first_x_assum $ irule_at Any)
-  >~ [‘Return’] >-
-   (gvs [eval_stmt_def,evaluate_stmt_def,PULL_EXISTS]
-    \\ last_x_assum $ irule_at Any
-    \\ gvs [dafny_semanticPrimitivesTheory.state_component_equality])
-  \\ cheat
-QED
-
-Theorem proved_methods_sound:
-  ∀m. proved_methods m ⇒ methods_sound m
-Proof
-  ho_match_mp_tac proved_methods_ind
-  \\ rpt conj_tac
-  >- (* empty *) simp [methods_sound_def]
-  >- (* nonrec *)
-   (rewrite_tac [methods_sound_def]
-    \\ rpt strip_tac
-    \\ reverse $ fs [IN_INSERT]
-    >-
-     (last_x_assum drule
-      \\ disch_then irule
-      \\ gvs [compatible_env_def])
-    \\ gvs []
-    \\ drule_all imp_conditions_hold \\ strip_tac
-    \\ drule stmt_wp_sound
-    \\ gvs [GSYM methods_sound_def]
-    \\ disch_then drule
-    \\ impl_tac
-    >- gvs [compatible_env_def]
-    \\ strip_tac
-    \\ gvs [False_thm]
-    \\ Cases_on ‘ret’ \\ gvs []
-    \\ rename [‘eval_stmt _ _ _ _ (Rstop ret)’] \\ Cases_on ‘ret’ \\ gvs []
-    \\ first_x_assum $ irule_at $ Pos hd \\ asm_rewrite_tac [])
-  (* mutrec *)
-  \\ rewrite_tac [methods_sound_def]
-  \\ rpt strip_tac
-  \\ reverse $ gvs [IN_UNION]
-  >-
-   (last_x_assum drule
-    \\ disch_then irule
-    \\ gvs [compatible_env_def])
-  \\ rename [‘Method name mspec body ∈ mutrec’]
-  \\ first_assum drule
-  \\ strip_tac \\ gvs []
-  \\ drule_all imp_conditions_hold \\ strip_tac
-  \\ drule stmt_wp_sound
-  \\ gvs [False_thm]
-  \\ cheat
-QED
-*)
