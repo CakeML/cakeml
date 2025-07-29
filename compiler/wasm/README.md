@@ -13,7 +13,9 @@ CakeML Wasm 2.0 (+ tail calls) AST
 En- & De- coding between Cake's Wasm 2.0 AST & Wasm's binary format
 
 [wasm2_notationsScript.sml](wasm2_notationsScript.sml):
-Notations for cake's Wasm 2.0 AST
+Notations (HOL Overloads) for cake's Wasm 2.0 AST
+Separated from wasm2LangScript for ergonomics/build efficency
+We have over 400 instructions
 
 [wasmLangScript.sml](wasmLangScript.sml):
 CakeML Wasm 1.0 (+ tail calls) AST
@@ -26,6 +28,7 @@ En- & De- coding between Cake's Wasm 1.0 AST & Wasm's binary format
 
 [wasm_notationsScript.sml](wasm_notationsScript.sml):
 Notations for cake's Wasm 1.0 AST
+Separated from wasmLangScript for ergonomics/build efficency
 
 [wasm_parseScript.sml](wasm_parseScript.sml):
 WASM parser -- supports part of WASM text format
