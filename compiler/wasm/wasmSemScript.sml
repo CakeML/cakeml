@@ -176,36 +176,53 @@ Proof
 QED *)
 
 
-(* MODIFY [Add more ops] - where can I find word operations *)
 Inductive binop_rel:
 
-  (***************)
-  (*   Int ops   *)
-  (***************)
-  (∀w1 w2. binop_rel (Add Int W32) (I32 w1) (I32 w2) (I32 (word_add w1 w2))) ∧
-  (∀w1 w2. binop_rel (Sub Int W32) (I32 w1) (I32 w2) (I32 (word_sub w1 w2))) ∧
-  (∀w1 w2. binop_rel (Mul Int W32) (I32 w1) (I32 w2) (I32 (word_mul w1 w2))) ∧
-  (∀w1 w2. binop_rel (And     W32) (I32 w1) (I32 w2) (I32 (word_and w1 w2))) ∧
-  (∀w1 w2. binop_rel (Or      W32) (I32 w1) (I32 w2) (I32 (word_or  w1 w2))) ∧
-  (∀w1 w2. binop_rel (Xor     W32) (I32 w1) (I32 w2) (I32 (word_xor w1 w2))) ∧
+  (∀w1 w2. binop_rel (Add Int W32) (I32 w1) (I32 w2) (I32 $ w1 + w2)) ∧
+  (∀w1 w2. binop_rel (Sub Int W32) (I32 w1) (I32 w2) (I32 $ w1 - w2)) ∧
+  (∀w1 w2. binop_rel (Mul Int W32) (I32 w1) (I32 w2) (I32 $ w1 * w2)) ∧
 
-  (* HOL complains when I change the 1 to w2 *)
-  (* "at Preterm.type-analysis:\nat line 185, character 20:\nCouldn't infer type for overloaded name _ inject_number", *)
-  (* check semantics line up *)
-  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Div_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* w2 = 0 ? undefined : truncated towards 0 *)
-  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Rem_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_div w1 w2))) ∧ (* TODO *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Div_   Signed W32) (I32 w1) (I32 w2) (I32 $ w1 // w2)) ∧ (* TODO *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Div_ Unsigned W32) (I32 w1) (I32 w2) (I32 $ w1 // w2)) ∧
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Rem_   Signed W32) (I32 w1) (I32 w2) (I32 $ w1 // w2)) ∧ (* TODO *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Rem_ Unsigned W32) (I32 w1) (I32 w2) (I32 $ w1 // w2)) ∧
+
+  (∀w1 w2. binop_rel (And W32) (I32 w1) (I32 w2) (I32 $ w1 && w2)) ∧
+  (∀w1 w2. binop_rel (Or  W32) (I32 w1) (I32 w2) (I32 $ w1 || w2)) ∧
+  (∀w1 w2. binop_rel (Xor W32) (I32 w1) (I32 w2) (I32 $ w1 ⊕ w2)) ∧
+
+  (∀w1 w2. w2 < 32w ⇒ binop_rel (Rotl          W32) (I32 w1) (I32 w2) (I32 $ w1 ⇆  (w2n w2))) ∧
+  (∀w1 w2. w2 < 32w ⇒ binop_rel (Rotr          W32) (I32 w1) (I32 w2) (I32 $ w1 ⇄  (w2n w2))) ∧
+  (∀w1 w2. w2 < 32w ⇒ binop_rel (Shl           W32) (I32 w1) (I32 w2) (I32 $ w1 <<  (w2n w2))) ∧
+  (∀w1 w2. w2 < 32w ⇒ binop_rel (Shr_   Signed W32) (I32 w1) (I32 w2) (I32 $ w1 >>  (w2n w2))) ∧
+  (∀w1 w2. w2 < 32w ⇒ binop_rel (Shr_ Unsigned W32) (I32 w1) (I32 w2) (I32 $ w1 >>> (w2n w2))) ∧
 
 
 
-  (∀w1 w2. binop_rel (Add Int W64) (I64 w1) (I64 w2) (I64 (word_add w1 w2))) ∧
-  (∀w1 w2. binop_rel (Mul Int W64) (I64 w1) (I64 w2) (I64 (word_mul w1 w2))) ∧
-  (∀w1 w2. binop_rel (Sub Int W64) (I64 w1) (I64 w2) (I64 (word_sub w1 w2))) ∧
-  (∀w1 w2. binop_rel (And     W64) (I64 w1) (I64 w2) (I64 (word_and w1 w2))) ∧
-  (∀w1 w2. binop_rel (Or      W64) (I64 w1) (I64 w2) (I64 (word_or  w1 w2))) ∧
-  (∀w1 w2. binop_rel (Xor     W64) (I64 w1) (I64 w2) (I64 (word_xor w1 w2))) ∧
+  (∀w1 w2. binop_rel (Add Int W64) (I64 w1) (I64 w2) (I64 $ w1 +  w2)) ∧
+  (∀w1 w2. binop_rel (Mul Int W64) (I64 w1) (I64 w2) (I64 $ w1 -  w2)) ∧
+  (∀w1 w2. binop_rel (Sub Int W64) (I64 w1) (I64 w2) (I64 $ w1 *  w2)) ∧
 
-  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Div_ Unsigned W64) (I64 w1) (I64 w2) (I64 (word_div w1 w2))) ∧ (* cf i32 *)
-  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Rem_ Unsigned W64) (I64 w1) (I64 w2) (I64 (word_div w1 w2)))   (* TODO *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Div_   Signed W64) (I64 w1) (I64 w2) (I64 $ w1 // w2)) ∧ (* TODO *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Div_ Unsigned W64) (I64 w1) (I64 w2) (I64 $ w1 // w2)) ∧
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Rem_   Signed W64) (I64 w1) (I64 w2) (I64 $ w1 // w2)) ∧ (* TODO *)
+  (∀w1 w2. w2 ≠ 0w ⇒ binop_rel (Rem_ Unsigned W64) (I64 w1) (I64 w2) (I64 $ w1 // w2)) ∧
+
+  (∀w1 w2. binop_rel (And W64) (I64 w1) (I64 w2) (I64 $ w1 &&  w2)) ∧
+  (∀w1 w2. binop_rel (Or  W64) (I64 w1) (I64 w2) (I64 $ w1 ||  w2)) ∧
+  (∀w1 w2. binop_rel (Xor W64) (I64 w1) (I64 w2) (I64 $ w1 ⊕  w2)) ∧
+
+  (∀w1 w2. w2 < 64w ⇒ binop_rel (Rotl          W64) (I64 w1) (I64 w2) (I64 $ w1 ⇆  (w2n w2))) ∧
+  (∀w1 w2. w2 < 64w ⇒ binop_rel (Rotr          W64) (I64 w1) (I64 w2) (I64 $ w1 ⇄  (w2n w2))) ∧
+  (∀w1 w2. w2 < 64w ⇒ binop_rel (Shl           W64) (I64 w1) (I64 w2) (I64 $ w1 <<  (w2n w2))) ∧
+  (∀w1 w2. w2 < 64w ⇒ binop_rel (Shr_   Signed W64) (I64 w1) (I64 w2) (I64 $ w1 >>  (w2n w2))) ∧
+  (∀w1 w2. w2 < 64w ⇒ binop_rel (Shr_ Unsigned W64) (I64 w1) (I64 w2) (I64 $ w1 >>> (w2n w2)))
+
+
+(*
+  | (* inn *) Rotl       width
+  | (* inn *) Rotr       width
+*)
 End
 
   (* To be completed. check semantics of signed word_div matches wasm
@@ -217,24 +234,6 @@ End
   (∀w1 w2. 1 ≠ 0 ⇒ binop_rel (Rem_ Signed   W64) (I64 w1) (I64 w2) (I64 (word_xxx w1 w2))) ∧ (* TODO *)
 
   *)
-
-  (* Errors
-
-  unification failure message: Attempt to unify different type operators: num$num and fcp$cart
-
-  (∀w1 w2. binop_rel (Shl     W32) (I32 w1) (I32 w2) (I32 (word_lsl w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Rotl    W32) (I32 w1) (I32 w2) (I32 (word_rol w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Rotr    W32) (I32 w1) (I32 w2) (I32 (word_ror w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Shr_ Unsigned W32) (I32 w1) (I32 w2) (I32 (word_lsr w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Shr_ Signed   W32) (I32 w1) (I32 w2) (I32 (word_asr w1 w2))) ∧ (* Error *)
-
-  (∀w1 w2. binop_rel (Shl     W64) (I64 w1) (I64 w2) (I64 (word_lsl w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Rotl    W64) (I64 w1) (I64 w2) (I64 (word_rol w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Rotr    W64) (I64 w1) (I64 w2) (I64 (word_ror w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Shr_ Unsigned W64) (I64 w1) (I64 w2) (I64 (word_lsr w1 w2))) ∧ (* Error *)
-  (∀w1 w2. binop_rel (Shr_ Signed   W64) (I64 w1) (I64 w2) (I64 (word_asr w1 w2))) ∧ (* Error *)
-  *)
-
 
 
 (* TODO a lot of these operations aren't closed in word32/64. need to figure
