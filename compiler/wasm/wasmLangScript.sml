@@ -35,9 +35,6 @@ Datatype: numtype
   = NT bvtype width
 End
 
-Overload i32 = “NT Int   W32”
-Overload i64 = “NT Int   W64”
-
 Datatype: valtype
   = Tnum numtype
   | Tvec
@@ -148,23 +145,6 @@ Datatype: mem_instr
   | StoreNarrow ishap2 width (word32 # word32)
   | StoreNarrow32            (word32 # word32)
 
-  (* vec *)
-  | Load128               (word32 # word32)
-  | LoadHalf  ishap3 sign (word32 # word32)
-  | LoadZero  width       (word32 # word32)
-  | LoadSplat ishape      (word32 # word32)
-  | LoadLane  ishape      (word32 # word32) word8
-
-  | Store128         (word32 # word32)
-  | StoreLane ishape (word32 # word32) word8
-
-  | Size
-  | Grow
-  | Fill
-  | Copy
-  | Init num
-  | Drop num
-
 End
 
 
@@ -201,8 +181,8 @@ Datatype: instr
   | Loop  tb (instr list)
   | If    tb (instr list) (instr list)
 
-  | Br   num
-  | BrIf num
+  | Br                 num
+  | BrIf               num
   | BrTable (num list) num
 
   | Return
@@ -216,11 +196,11 @@ Datatype: instr
   | Select
 
   (* variable instructions *)
-  | LocalGet     num
-  | LocalSet     num
-  | LocalTee     num
-  | GlobalGet    num
-  | GlobalSet    num
+  | LocalGet  num
+  | LocalSet  num
+  | LocalTee  num
+  | GlobalGet num
+  | GlobalSet num
 
   (* memory instructions *)
   | OLoad  t ((tp_num # bool) option) word32 (* TODO: alignment *)
