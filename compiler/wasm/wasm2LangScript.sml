@@ -405,10 +405,8 @@ Datatype: store_ops
   | StoreLane ishape word32 word32 word8
 End
 
-Datatype: mem_instr
-  = M_read
-  | M_write
-  | Size
+Datatype: mem_others
+  = Size
   | Grow
   | Fill
   | Copy
@@ -493,9 +491,11 @@ Datatype: instr
   | OLoad  t ((tp_num # bool) option) word32 (* TODO: alignment *)
   | OStore t tp_num word32                   (* TODO: alignment *)
 
-  | Memory  mem_instr
-  | Numeric num_instr
-  | Vector  vec_instr
+  | Numeric  num_instr
+  | Vector   vec_instr
+  | MemRead  load_ops
+  | MemWrite store_ops
+  | Memory   mem_others
 
 End
 

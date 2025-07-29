@@ -172,12 +172,10 @@ Datatype: store_ops
   | StoreNarrow32            word32 word32
 End
 
-Datatype: mem_instr
-  = M_read
-  | M_write
-  (* | Size
-  | Grow *)
-End
+(* Datatype: mem_others
+  =  Size
+  | Grow
+End *)
 
 (*************************************)
 (*                                   *)
@@ -236,8 +234,10 @@ Datatype: instr
   | OLoad  t ((tp_num # bool) option) word32 (* TODO: alignment *)
   | OStore t tp_num word32                   (* TODO: alignment *)
 
-  | Memory  mem_instr
-  | Numeric num_instr
+  | Numeric  num_instr
+  | MemRead  load_ops
+  | MemWrite store_ops
+  (* | Memory   mem_others *)
 
 End
 
