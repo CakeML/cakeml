@@ -1126,13 +1126,24 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
-Theorem can_eval_read_local_lr:
-  eval_true st env (CanEval (Var n)) ⇒
+Definition is_initialized_def:
+  is_initialized locals var ⇔
+    ∃val. ALOOKUP locals var = SOME (SOME val)
+End
+
+Theorem eval_true_CanEval_Var:
+  eval_true st env (CanEval (Var v)) ⇔ is_initialized st.locals v
+Proof
+  fs [eval_true_def,eval_exp_def,evaluate_exp_def,CanEval_def,read_local_def]
+  \\ simp [AllCaseEqs(),PULL_EXISTS,do_sc_def,do_bop_def]
+  \\ simp [state_component_equality,SF CONJ_ss,is_initialized_def]
+QED
+
+Theorem can_eval_read_local:
+  eval_true st env (CanEval (Var n)) ⇔
   ∃v. read_local st.locals n = SOME v
 Proof
-  gvs [eval_true_def, eval_exp_def, CanEval_def, evaluate_exp_def]
-  \\ rpt strip_tac
-  \\ gvs [AllCaseEqs()]
+  gvs [read_local_def, AllCaseEqs(), eval_true_CanEval_Var, is_initialized_def]
 QED
 
 Theorem can_eval_var_update_local:
@@ -1141,34 +1152,23 @@ Theorem can_eval_var_update_local:
       ALOOKUP l = ALOOKUP ((n, SOME v)::st.locals)
 Proof
   strip_tac
-  \\ dxrule can_eval_read_local_lr
+  \\ dxrule (iffLR can_eval_read_local)
   \\ rpt strip_tac
   \\ drule read_local_update_local
   \\ disch_then $ qspec_then ‘v’ assume_tac
   \\ gvs [update_local_def, state_component_equality]
 QED
 
-Theorem can_eval_read_local_rl:
-  read_local st.locals n = SOME v ⇒
-  eval_true st env (CanEval (Var n))
-Proof
-  gvs [eval_true_def, eval_exp_def, CanEval_def, evaluate_exp_def,
-       do_sc_def, do_bop_def]
-  \\ rpt strip_tac
-  \\ gvs [AllCaseEqs()]
-  \\ cheat
-QED
-
 Theorem can_eval_vars:
   ∀ns.
     EVERY (eval_true st env) (MAP CanEval (MAP Var ns)) ∧
-    (∀n. IS_SOME (ALOOKUP st.locals n) ⇒ IS_SOME (ALOOKUP l n)) ⇒
+    (∀n. is_initialized st.locals n ⇒ is_initialized l n) ⇒
     EVERY (eval_true (st' with locals := l) env) (MAP CanEval (MAP Var ns))
 Proof
   Induct >- (gvs [])
   \\ qx_gen_tac ‘n’
   \\ rpt strip_tac \\ gvs []
-  \\ cheat
+  \\ gvs [eval_true_CanEval_Var]
 QED
 
 Theorem assi_value_VarLhs:
@@ -1223,7 +1223,7 @@ Proof
   \\ drule can_eval_vars
   \\ disch_then $ qspecl_then [‘st’, ‘l’] mp_tac
   \\ impl_tac >-
-   (strip_tac \\ simp [ALOOKUP_def] \\ IF_CASES_TAC \\ gvs [])
+   (strip_tac \\ simp [is_initialized_def] \\ IF_CASES_TAC \\ gvs [])
   \\ strip_tac
   \\ last_x_assum drule_all \\ simp []
   \\ disch_then $ qx_choose_then ‘l₁’ mp_tac
@@ -1259,20 +1259,6 @@ Theorem no_Old_conj:
   ∀xs. no_Old (conj xs) = EVERY no_Old xs
 Proof
   ho_match_mp_tac conj_ind \\ rw [conj_def] \\ fs [no_Old_def]
-QED
-
-Theorem value_same_type_refl:
-  ∀x. value_same_type x x
-Proof
-  Cases \\ simp [value_same_type_def]
-QED
-
-Theorem eval_true_CanEval_Var:
-  eval_true st env (CanEval (Var v)) ⇔ ∃val. ALOOKUP st.locals v = SOME (SOME val)
-Proof
-  fs [eval_true_def,eval_exp_def,evaluate_exp_def,CanEval_def,read_local_def]
-  \\ simp [AllCaseEqs(),PULL_EXISTS,do_sc_def,do_bop_def]
-  \\ simp [state_component_equality,SF CONJ_ss,value_same_type_refl]
 QED
 
 Theorem eval_true_Let_IMP:
