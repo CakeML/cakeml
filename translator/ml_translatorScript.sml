@@ -1570,15 +1570,25 @@ Proof
   \\ fs [fcpTheory.CART_EQ,word_ror_def,fcpTheory.FCP_BETA,w2w] \\ rw []
 QED
 
+val _ = augment_srw_ss [
+    rewrites [machine_ieeeTheory.float_to_fp64_fp64_to_float]
+  ]
+
 (* arithmetic for doubles (word64) *)
 Theorem Eval_FP_top:
-  ! f w1 w2 w3.
-        Eval env x2 (WORD (w2:64 word)) ==>
-        Eval env x3 (WORD (w3:64 word)) ==>
-        Eval env x1 (WORD (w1:64 word)) ==>
-        Eval env (FpOptimise NoOpt (App (FpToWord) [App (FP_top f) [x1;x2;x3]])) (WORD (fp_top_comp f w1 w2 w3))
+  ! f f1 f2 f3.
+        Eval env x2 (FLOAT64 (f2:(52,11)float)) ==>
+        Eval env x3 (FLOAT64 f3) ==>
+        Eval env x1 (FLOAT64 f1) ==>
+        Eval env
+             (App (FP_top f) [x1;x2;x3])
+             (FLOAT64 (fp64_to_float
+                       (fp_top_comp f
+                                    (float_to_fp64 f1)
+                                    (float_to_fp64 f2)
+                                    (float_to_fp64 f3))))
 Proof
-  rw[Eval_rw,WORD_def]
+  rw[Eval_rw,FLOAT64_def]
   \\ first_x_assum mp_tac
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ strip_tac
@@ -1590,16 +1600,7 @@ Proof
   \\ rpt (disch_then assume_tac)
   \\ pop_assum (qspec_then `ck1' + ck1''` strip_assume_tac)
   \\ fs[] \\ qexists_tac `ck1 + ck1' + ck1''` \\ fs[]
-  \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true))
-  \\ fs[empty_state_def, do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def]
-  \\ disch_then kall_tac
-  \\ first_x_assum (qspec_then `ck1'' + ck2` (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
-  \\ fs[empty_state_def, do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def]
-  \\ disch_then kall_tac
-  \\ first_x_assum (qspec_then `ck2 + ck2'` (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
-  \\ fs[fp_translate_def, compress_word_def, fp_top_def, do_fpoptimise_def, do_fprw_def, rwAllWordTree_def,
-        semanticPrimitivesTheory.shift_fp_opts_def, fpState_component_equality, state_component_equality]
-  \\ Cases_on ‘f’ \\ fs[compress_word_def, fpValTreeTheory.fp_top_def, fp_top_comp_def]
+  \\ fs[empty_state_def, do_app_def, state_component_equality, isFpBool_def]
 QED
 
 local
@@ -1611,16 +1612,16 @@ in
 end;
 
 Theorem Eval_FP_bop:
-  !f w1 w2.
-        Eval env x1 (WORD (w1:word64)) ==>
-        Eval env x2 (WORD (w2:word64)) ==>
-        Eval env (FpOptimise NoOpt (App (FpToWord) [App (FP_bop f) [x1;x2]])) (WORD (fp_bop_comp f w1 w2))
+  !f f1 f2.
+        Eval env x1 (FLOAT64 f1) ==>
+        Eval env x2 (FLOAT64 f2) ==>
+        Eval env (App (FP_bop f) [x1;x2])
+             (FLOAT64 (fp64_to_float $
+                       fp_bop_comp f (float_to_fp64 f1) (float_to_fp64 f2)))
 Proof
-  rw[Eval_rw,WORD_def]
+  rw[Eval_rw,FLOAT64_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
-  \\ ntac 2 (pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
-  \\ fs[empty_state_def, do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def]
-  \\ fs[compress_word_def, fp_bop_def]
+  \\ fs[empty_state_def, do_app_def, state_component_equality,isFpBool_def]
 QED
 
 local
@@ -1635,17 +1636,15 @@ in
 end;
 
 Theorem Eval_FP_cmp:
-!f w1 w2.
-   Eval env x1 (WORD (w1:word64)) ==>
-   Eval env x2 (WORD (w2:word64)) ==>
-   Eval env (FpOptimise NoOpt (App (FP_cmp f) [x1;x2])) (BOOL (fp_cmp_comp f w1 w2))
+  !f f1 f2.
+    Eval env x1 (FLOAT64 f1) ==>
+    Eval env x2 (FLOAT64 f2) ==>
+    Eval env (App (FP_cmp f) [x1;x2])
+         (BOOL (fp_cmp_comp f (float_to_fp64 f1) (float_to_fp64 f2)))
 Proof
-  rw[Eval_rw,WORD_def,BOOL_def]
+  rw[Eval_rw,FLOAT64_def,BOOL_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
-  \\ ntac 2 (pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
-  \\ fs[empty_state_def, fp_translate_def, isFpBool_def, Boolv_def]
-  \\ Cases_on `compress_bool (fp_cmp f (Fp_const w1) (Fp_const w2))`
-  \\ fs[fp_translate_def, do_fpoptimise_def, fp_cmp_def, compress_bool_def, compress_word_def]
+  \\ fs[empty_state_def, isFpBool_def, Boolv_def]
 QED
 
 local
@@ -1662,17 +1661,16 @@ in
 end;
 
 Theorem Eval_FP_uop:
-!f w1 w2.
-  Eval env x1 (WORD (w1:64 word)) ==>
-  Eval env (FpOptimise NoOpt (App (FpToWord) [App (FP_uop f) [x1]])) (WORD (fp_uop_comp f w1))
+  !f f1.
+    Eval env x1 (FLOAT64 f1) ==>
+    Eval env (App (FP_uop f) [x1])
+         (FLOAT64 (fp64_to_float $ fp_uop_comp f $ float_to_fp64 f1))
 Proof
-  rw[Eval_rw,WORD_def,BOOL_def]
+  rw[Eval_rw,FLOAT64_def]
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
-  \\ first_x_assum (mp_then Any assume_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true))
   \\ fs[empty_state_def]
   \\ qexists_tac `ck1`
-  \\ Cases_on `f`
-  \\ fs[do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def, fp_uop_def, fp_uop_comp_def, compress_word_def]
+  \\ fs[do_app_def, state_component_equality, isFpBool_def]
 QED
 
 local
@@ -1685,6 +1683,31 @@ in
   val Eval_FLOAT_NEG = f "FLOAT_NEG" `FP_Neg`
   val Eval_FLOAT_SQRT = f "FLOAT_SQRT" `FP_Sqrt`
 end;
+
+Theorem Eval_FP_fromWord:
+  !w1.
+    Eval env x1 (WORD (w1:word64)) ==>
+    Eval env (App FpFromWord [x1]) (FLOAT64 (fp64_to_float w1))
+Proof
+  rw[Eval_rw,WORD_def,FLOAT64_def] >>
+  first_x_assum (qspec_then `refs` strip_assume_tac) >>
+  fs[empty_state_def] >>
+  qexists_tac `ck1` >>
+  simp[do_app_def]
+QED
+
+Theorem Eval_FP_toWord:
+  !f1.
+    Eval env x1 (FLOAT64 f1) ==>
+    Eval env (App FpToWord [x1]) (WORD (float_to_fp64 f1))
+Proof
+  rw[Eval_rw,WORD_def,FLOAT64_def] >>
+  first_x_assum (qspec_then `refs` strip_assume_tac) >>
+  fs[empty_state_def] >>
+  qexists_tac `ck1` >>
+  simp[do_app_def]
+QED
+
 
 (* list definition *)
 
@@ -2243,7 +2266,7 @@ Proof
   \\ drule evaluate_add_to_clock
   \\ rpt (pop_assum kall_tac) \\ rw []
   \\ first_x_assum (qspec_then `ck1` assume_tac)
-  \\ qexists_tac `ck1' + ck1` \\ fs [pat_bindings_def, compress_def, pmatch_def]
+  \\ qexists_tac `ck1' + ck1` \\ fs [pat_bindings_def, pmatch_def]
   \\ fs [state_component_equality]
   \\ fs [can_pmatch_all_def,pmatch_def]
 QED
@@ -2900,7 +2923,7 @@ Theorem evaluate_match_MAP = Q.prove(`
            (MAP Pvar vars),x)) l1 ++ xs) err =
       evaluate_match s env (Conv (SOME t1) vals) xs err`,
   Induct
-  \\ fs [FORALL_PROD,evaluate_def,compress_def, pmatch_def,pat_bindings_def]
+  \\ fs [FORALL_PROD,evaluate_def,pmatch_def,pat_bindings_def]
   \\ rpt strip_tac
   \\ fs [good_cons_env_def,lookup_cons_def]
   \\ fs [EVERY_MEM]
@@ -2978,7 +3001,7 @@ Proof
     \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
     \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
     \\ asm_exists_tac \\ fs [Mat_cases_def]
-    \\ fs [can_pmatch_all_def,evaluate_def, compress_def, pmatch_def,pat_bindings_def]
+    \\ fs [can_pmatch_all_def,evaluate_def, pmatch_def,pat_bindings_def]
     \\ fs [pmatch_list_MAP_Pvar,GSYM write_list_thm]
     \\ fs [state_component_equality])
   \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
