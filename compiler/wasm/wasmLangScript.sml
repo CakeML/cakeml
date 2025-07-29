@@ -44,9 +44,6 @@ End
 
 Datatype: valtype
   = Tnum numtype
-  (* | Tvec
-  | TFunRef
-  | TExtRef *)
 End
 
 (* Note :
@@ -86,7 +83,6 @@ Datatype: unary_op
   | (* inn *) Extend16s  width
   | (* i64 *) Extend32s
   | (* i64 *) ExtendI32_ sign
-
 End
 
 Datatype: binary_op
@@ -106,21 +102,19 @@ Datatype: binary_op
   | (* inn *) Shr_ sign  width
   | (* inn *) Rotl       width
   | (* inn *) Rotr       width
-
 End
 
 Datatype: compare_op
 
   (* both *)
-  = (* all *) Eq  bvtype width
-  | (* all *) Ne  bvtype width
+  = (* all *) Eq bvtype width
+  | (* all *) Ne bvtype width
 
   (* int *)
   | (* inn *) Lt_ sign width
   | (* inn *) Gt_ sign width
   | (* inn *) Le_ sign width
   | (* inn *) Ge_ sign width
-
 End
 
 (* Datatype: test_op (* for future test instructions? *)
@@ -128,7 +122,7 @@ End
 End *)
 
 Datatype: convert_op
-  = (* i32 *) Wrap_i64
+  = (* i32 *) WrapI64
 End
 
 Datatype: num_instr
@@ -171,7 +165,6 @@ Datatype: mem_instr
   | Store       bvtype width (word32 # word32)
   | StoreNarrow ishap2 width (word32 # word32)
   | StoreNarrow32            (word32 # word32)
-
 End
 
 

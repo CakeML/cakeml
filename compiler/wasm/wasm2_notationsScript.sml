@@ -302,7 +302,7 @@ Overload i64_eqz = “N_eqz W64”
   (*   N Conversions   *)
   (*********************)
 
-Overload i32_wrap_i64        = “N_convert Wrap_i64”
+Overload i32_wrap_i64        = “N_convert WrapI64”
 
 Overload i32_trunc_f32_s     = “N_convert (Trunc_f W32   Signed W32)”
 Overload i32_trunc_f32_u     = “N_convert (Trunc_f W32 Unsigned W32)”

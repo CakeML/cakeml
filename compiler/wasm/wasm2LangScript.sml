@@ -95,7 +95,6 @@ Datatype: unary_op
   | (* fnn *) Trunc   width
   | (* fnn *) Nearest width
   | (* fnn *) Sqrt    width
-
 End
 
 Datatype: binary_op
@@ -121,7 +120,6 @@ Datatype: binary_op
   | (* fnn *) Min        width
   | (* fnn *) Max        width
   | (* fnn *) Copysign   width
-
 End
 
 Datatype: compare_op
@@ -141,7 +139,6 @@ Datatype: compare_op
   | (* fnn *) Gt width
   | (* fnn *) Le width
   | (* fnn *) Ge width
-
 End
 
 (* Datatype: test_op (* for future test instructions? *)
@@ -149,7 +146,7 @@ End
 End *)
 
 Datatype: convert_op
-  = (* i32 *) Wrap_i64
+  = (* i32 *) WrapI64
   | (* inn *) Trunc_f       width sign width
   | (* inn *) Trunc_sat_f   width sign width
   | (* f32 *) Demote
@@ -238,7 +235,6 @@ Datatype: vec_unary_op
   | (* fall *) Vfloor   fshape
   | (* fall *) Vtrunc   fshape
   | (* fall *) Vnearest fshape
-
 End
 
 Datatype: vec_binary_op
@@ -256,7 +252,6 @@ Datatype: vec_binary_op
   (* both *)
   | (*  all *) Vadd shape
   | (*  all *) Vsub shape
-
 
   (* int *)
   | (* 16x8 *) VmulQ15
@@ -276,7 +271,6 @@ Datatype: vec_binary_op
   | (* fall *) Vmax  fshape
   | (* fall *) Vpmin fshape
   | (* fall *) Vpmax fshape
-
 End
 
 Datatype: vec_ternary_op
@@ -301,7 +295,6 @@ Datatype: vec_compare_op
   | (* fall *) Vgt fshape
   | (* fall *) Vle fshape
   | (* fall *) Vge fshape
-
 End
 
 Datatype: vec_test_op
@@ -310,7 +303,6 @@ Datatype: vec_test_op
 
   (* int *)
   | (* iall *) VallTrue ishape
-
 End
 
 Datatype: vec_shift_op
@@ -318,7 +310,6 @@ Datatype: vec_shift_op
   (* int *)
   = (* v128 *) Vshl       ishape
   | (* v128 *) Vshr_ sign ishape
-
 End
 
 Datatype: vec_convert_op
@@ -331,7 +322,6 @@ Datatype: vec_convert_op
   | (* fall *) Vconvert    half   sign
   | (* f2x4 *) Vdemote
   | (* f4x2 *) Vpromote
-
 End
 
 (* Datatype: vec_splat_op
@@ -351,7 +341,6 @@ Datatype: vec_lane_op
 End
 
 Datatype: vec_instr
-
   = V_const    word128
   | V_unary    vec_unary_op
   | V_binary   vec_binary_op
@@ -363,7 +352,6 @@ Datatype: vec_instr
   | V_splat    shape
   (* | V_splat    vec_splat_op *)
   | V_lane     vec_lane_op laneidx
-
 End
 
 (*******************************)
@@ -407,7 +395,6 @@ Datatype: mem_instr
   | Copy
   | Init num
   | Drop num
-
 End
 
 

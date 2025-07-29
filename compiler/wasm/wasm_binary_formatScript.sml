@@ -144,7 +144,7 @@ Definition enc_numI_def:
   | N_binary     (Shr_ Unsigned W64)          => [0x88w]
   | N_binary     (Rotl W64)                   => [0x89w]
   | N_binary     (Rotr W64)                   => [0x8Aw]
-  | N_convert     Wrap_i64                    => [0xA7w]
+  | N_convert     WrapI64                    => [0xA7w]
   | N_unary      (ExtendI32_   Signed)        => [0xACw]
   | N_unary      (ExtendI32_ Unsigned)        => [0xADw]
   | N_unary      (Extend8s  W32)              => [0xC0w]
@@ -220,7 +220,7 @@ Definition dec_numI_def:
   if b = 0x88w then (INR $ N_binary  $   Shr_ Unsigned W64     ,bs) else
   if b = 0x89w then (INR $ N_binary  $   Rotl W64              ,bs) else
   if b = 0x8Aw then (INR $ N_binary  $   Rotr W64              ,bs) else
-  if b = 0xA7w then (INR $ N_convert $   Wrap_i64              ,bs) else
+  if b = 0xA7w then (INR $ N_convert $   WrapI64              ,bs) else
   if b = 0xACw then (INR $ N_unary   $   ExtendI32_   Signed   ,bs) else
   if b = 0xADw then (INR $ N_unary   $   ExtendI32_ Unsigned   ,bs) else
   if b = 0xC0w then (INR $ N_unary   $   Extend8s  W32         ,bs) else

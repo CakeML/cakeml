@@ -192,7 +192,7 @@ Definition enc_numI_def:
   | N_binary  $   Min       W64              => [0xA4w]
   | N_binary  $   Max       W64              => [0xA5w]
   | N_binary  $   Copysign  W64              => [0xA6w]
-  | N_convert $   Wrap_i64                   => [0xA7w]
+  | N_convert $   WrapI64                   => [0xA7w]
   | N_convert $   Trunc_f W32   Signed W32   => [0xA8w]
   | N_convert $   Trunc_f W32 Unsigned W32   => [0xA9w]
   | N_convert $   Trunc_f W64   Signed W32   => [0xAAw]
@@ -342,7 +342,7 @@ Definition dec_numI_def:
   if b = 0xA4w then (INR $ N_binary  $   Min W64                    ,bs) else
   if b = 0xA5w then (INR $ N_binary  $   Max W64                    ,bs) else
   if b = 0xA6w then (INR $ N_binary  $   Copysign W64               ,bs) else
-  if b = 0xA7w then (INR $ N_convert $   Wrap_i64                   ,bs) else
+  if b = 0xA7w then (INR $ N_convert $   WrapI64                   ,bs) else
   if b = 0xA8w then (INR $ N_convert $   Trunc_f W32   Signed W32   ,bs) else
   if b = 0xA9w then (INR $ N_convert $   Trunc_f W32 Unsigned W32   ,bs) else
   if b = 0xAAw then (INR $ N_convert $   Trunc_f W64   Signed W32   ,bs) else

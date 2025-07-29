@@ -319,7 +319,7 @@ Theorem do_cmp_cases = REWRITE_RULE [GSYM do_cmp_thm] compare_op_rel_cases;
 
 
 Inductive convert_op_rel:
-  ∀ w. convert_op_rel Wrap_i64 (I64 w) (I32 $ w2w w)
+  ∀ w. convert_op_rel WrapI64 (I64 w) (I32 $ w2w w)
 End
 
 Definition convert_op_def:
@@ -351,19 +351,20 @@ Theorem do_cvt_eq    = REWRITE_RULE [GSYM do_cvt_thm] convert_op_rel_rules;
 Theorem do_cvt_cases = REWRITE_RULE [GSYM do_cvt_thm] convert_op_rel_cases;
 
 
-
-(* MODIFY [Add more ops] - where can I find word operations *)
-Definition stack_op_def:
-  stack_op (N_const32 Int w) stack = SOME (I32 w :: stack) ∧
-  stack_op (N_const64 Int w) stack = SOME (I64 w :: stack) ∧
-  stack_op (N_eqz W32) (I32 w ::stack) = SOME (I32 (b2w (w = 0w)) :: stack) ∧
-  stack_op (N_eqz W64) (I64 w ::stack) = SOME (I64 (b2w (w = 0w)) :: stack) ∧
- (stack_op (N_unary   op) (v   ::stack) = case do_una op v   of NONE=>NONE| SOME x => SOME (x::stack))∧
- (stack_op (N_binary  op) (l::r::stack) = case do_bin op l r of NONE=>NONE| SOME x => SOME (x::stack))∧
- (stack_op (N_compare op) (l::r::stack) = case do_cmp op l r of NONE=>NONE| SOME x => SOME (x::stack))∧
- (stack_op (N_convert op) (v   ::stack) = case do_cvt op v   of NONE=>NONE| SOME x => SOME (x::stack))
-
+Definition num_stk_op_def:
+  num_stk_op (N_const32 Int w) stack = SOME (I32 w :: stack) ∧
+  num_stk_op (N_const64 Int w) stack = SOME (I64 w :: stack) ∧
+  num_stk_op (N_eqz W32) (I32 w ::stack) = SOME (I32 (b2w (w = 0w)) :: stack) ∧
+  num_stk_op (N_eqz W64) (I64 w ::stack) = SOME (I64 (b2w (w = 0w)) :: stack) ∧
+ (num_stk_op (N_unary   op) (v   ::stack) = case do_una op v   of NONE=>NONE| SOME x => SOME (x::stack))∧
+ (num_stk_op (N_binary  op) (l::r::stack) = case do_bin op l r of NONE=>NONE| SOME x => SOME (x::stack))∧
+ (num_stk_op (N_compare op) (l::r::stack) = case do_cmp op l r of NONE=>NONE| SOME x => SOME (x::stack))∧
+ (num_stk_op (N_convert op) (v   ::stack) = case do_cvt op v   of NONE=>NONE| SOME x => SOME (x::stack))
 End
+
+(* Definition mem_op_def:
+  mem_op
+End *)
 
 Definition exec_load_def:
   exec_load res_t size_ext addr memory = ARB
@@ -500,7 +501,7 @@ Definition exec_def:
     (RNormal, s with memory := m)
   ) ∧
   (exec (Numeric op) s =
-    case stack_op op s.stack of NONE => (RInvalid,s) | SOME stack1 =>
+    case num_stk_op op s.stack of NONE => (RInvalid,s) | SOME stack1 =>
     (RNormal, s with stack := stack1)) ∧
   (exec (ReturnCall fi) s =
     case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
