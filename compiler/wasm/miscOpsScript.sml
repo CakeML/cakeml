@@ -8,6 +8,10 @@ open wordsTheory wordsLib;
 
 val _ = new_theory "someWordOps";
 
+Type byte[local]    = “:word8”
+Type byteSeq[local] = “:word8 list”
+
+
 Overload popcnt  = “λ (w:α word). n2w $ bit_count w”
 Overload one_hot = “λ (w:α word). (popcnt w = 1w)”
 
@@ -21,7 +25,7 @@ End
 
 (* lend := little endian *)
 Definition lend_def:
-  lend (w:α word) : word8 list =
+  lend (w:α word) : byteSeq =
 
     let width        = dimindex(:α)                      in
     let need_1_more  = if 0 <> width MOD 8 then 1 else 0 in
@@ -32,7 +36,7 @@ Definition lend_def:
 End
 
 Definition unlend_def:
-  unlend (0:num) (res:word8 list) (bs:word8 list) = SOME (concat_word_list res, bs) ∧
+  unlend (0:num) (res:byteSeq) (bs:byteSeq) = SOME (concat_word_list res, bs) ∧
   unlend n acc (b::bs) = unlend (n-1) (b::acc) bs ∧
   unlend _ _ [] = NONE
 End
@@ -47,17 +51,37 @@ Proof
 QED
 
 Theorem clz_spec:
-  ∀ n. (dimword(:α) - n) < w2n (ctz (w:α word)) ⇒ w ' n = F
+  ∀ n. (dimindex(:α) - n) < w2n (ctz (w:α word)) ⇒ w ' n = F
 Proof
   cheat
 QED
-
 
 Theorem lend128_spec:
   ∀ w. w = concat_word_list $ REVERSE $ lend128 w
 Proof
   cheat
 QED
+
+Definition take_def:
+  take (n:num) (xs: α list) : (α list # bool) = (TAKE n xs, n <= LENGTH xs)
+End
+
+Definition load_def:
+  load (n:num) (offs:α word) (algn:β word) (bs:byteSeq) : (γ word # bool) =
+    let ofs = w2n offs in
+    let alg = w2n algn in
+    let bs' = DROP (ofs * alg) bs in
+    case unlend n [] bs' of
+    | NONE       => (0w,F)
+    | SOME (v,_) => (v ,T)
+End
+
+Definition store_def:
+  store (x:α word) (offs:β word) (algn:γ word) (bs:byteSeq) : (byteSeq # bool) =
+    let oa = (w2n offs) * (w2n algn) in
+    let n = dimindex(:α) DIV 8 in
+    (TAKE oa bs ⧺ lend x ⧺ DROP (oa + n) bs, oa + n <= LENGTH bs)
+End
 
 val _ = export_theory();
 
