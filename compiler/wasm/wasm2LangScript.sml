@@ -3,12 +3,19 @@
 
   The AST here has
   + control flow instructions
-  + all numeric (stack) instructions ie, no memory operations
-  + all vector (stack) instructions ie, no memory operations
+  + all numeric (stack) instructions
+  + all vector (stack) instructions
+  + all memory operations -- factored into their own datatype
 *)
 open preamble;
 
 val _ = new_theory "wasm2Lang";
+
+(* Note :
+  Most datatypes closely follow the wasm abstractions. ie,
+  The HOL Datatype: <ABC> is named to wasm's <ABC> type.
+  We attempt to note where our encoding differs from wasm specs.
+*)
 
 (***********************)
 (*                     *)
@@ -31,9 +38,7 @@ Datatype: sign
   | Unsigned
 End
 
-(* Doing it this way allows us to -- for exmaple -- later limit things
-to just ints, which we couldn't do if iNN and fNN were all in the same datatype *)
-Datatype: numtype
+Datatype: numtype (* we do not enumerate num types directly because bytypes and widths are useful to have *)
   = NT bvtype width
 End
 
@@ -44,6 +49,27 @@ Datatype: valtype
   | TExtRef
 End
 
+(* Note :
+  ops/instructions data constructors have their return types
+  -- when not present in the data constructor name --
+  as the last argument/s.
+
+  The other arguments distinguish variants of the same function.
+
+  Example:
+  Clz W32  represents the wasm instruction  i32.clz  -- "W32" specified the return type i32.
+  Clz W64  represents  i64.clz  instead.
+  We don't need to encode the "int" part of i32/i64
+  because there is no float version of the clz instruction.
+
+  More examples
+  i32.add :=: Add Int   W32
+  f64.add :=: Add Float W64
+
+  i64_trunc_f32_s :=: Trunc_f  W32    Signed  W64
+  i32_trunc_f64_u :=: Trunc_f  W64  Unsigned  W32
+*)
+
 (********************************)
 (*                              *)
 (*     Numeric Instructions     *)
@@ -52,16 +78,16 @@ End
 
 Datatype: unary_op
 
-  (* int *)
-  = (* inn *) Clz         width
-  | (* inn *) Ctz         width
-  | (* inn *) Popcnt      width
-  | (* inn *) Extend8_s   width
-  | (* inn *) Extend16_s  width
-  | (* i64 *) Extend32_s
-  | (* i64 *) Extend_i32_ sign
+  (* int ops *)
+  = (* inn *) Clz        width
+  | (* inn *) Ctz        width
+  | (* inn *) Popcnt     width
+  | (* inn *) Extend8s   width
+  | (* inn *) Extend16s  width
+  | (* i64 *) Extend32s
+  | (* i64 *) ExtendI32_ sign
 
-  (* float *)
+  (* float ops *)
   | (* fnn *) Abs     width
   | (* fnn *) Neg     width
   | (* fnn *) Ceil    width
@@ -69,11 +95,12 @@ Datatype: unary_op
   | (* fnn *) Trunc   width
   | (* fnn *) Nearest width
   | (* fnn *) Sqrt    width
+
 End
 
 Datatype: binary_op
 
-  (* both int and/or float -- given by {bvtype} *)
+  (* ops for both int and float *)
   = (* all *) Add bvtype width
   | (* all *) Sub bvtype width
   | (* all *) Mul bvtype width
@@ -100,8 +127,8 @@ End
 Datatype: compare_op
 
   (* both *)
-  = (* all *) Eq  bvtype width
-  | (* all *) Ne  bvtype width
+  = (* all *) Eq bvtype width
+  | (* all *) Ne bvtype width
 
   (* int *)
   | (* inn *) Lt_ sign width
@@ -117,7 +144,7 @@ Datatype: compare_op
 
 End
 
-(* Datatype: test_op
+(* Datatype: test_op (* for future test instructions? *)
   = (* inn *) Eqz width
 End *)
 
@@ -138,7 +165,7 @@ Datatype: num_instr
   | N_unary     unary_op
   | N_binary   binary_op
   | N_compare compare_op
-  | N_eqz     width (* this is the only test op *)
+  | N_eqz     width (* eqz is the only test op *)
   (* | N_test       test_op *)
   | N_convert convert_op
 End
@@ -345,6 +372,15 @@ End
 (*                             *)
 (*******************************)
 
+(* NB:
+  We abuse abstraction by (re)use the ishape (ishap2/ishap3) datatype from vectors
+  to specify narrowness for loads.
+
+  eg,
+  We can load 8/16 bits from memory into a 32 bit value : i32.load8_s / i32.load16_s
+  The CWasm AST uses it's encoding for vec shapes (i8x16) to represent "8" etc
+*)
+
 Datatype: mem_instr
 
   = Load            bvtype width (word32 # word32)
@@ -404,6 +440,12 @@ End
   | CtrlFlow  ctrlFlow_instr
 End *)
 
+Datatype: blocktype
+  = BlkNil
+  | BlkVal valtype
+  | BlkIdx num
+End
+
 Datatype: instr
 
   (* control instructions *)
@@ -444,5 +486,9 @@ Datatype: instr
   | Vector  vec_instr
 
 End
+
+(* Datatype: module
+  =
+End *)
 
 val _ = export_theory();
