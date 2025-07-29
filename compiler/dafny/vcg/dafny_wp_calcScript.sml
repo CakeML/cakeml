@@ -1382,6 +1382,27 @@ Proof
   cheat
 QED
 
+Triviality read_out_lemma:
+  LIST_REL (eval_exp st env) (MAP Var names) out_vs ∧
+  MEM n names ∧ ALL_DISTINCT names ⇒
+  ∃v. ALOOKUP st.locals n = SOME v ∧
+      ALOOKUP (ZIP (names,MAP SOME out_vs)) n = SOME v
+Proof
+  rw []
+  \\ ‘ALL_DISTINCT (MAP FST (ZIP (names,MAP SOME out_vs)))’ by
+    (imp_res_tac LIST_REL_LENGTH \\ fs [MAP_ZIP])
+  \\ drule (GSYM MEM_ALOOKUP)
+  \\ simp [] \\ disch_then kall_tac
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ fs [] \\ simp [MEM_ZIP,PULL_EXISTS]
+  \\ gvs [SF CONJ_ss,EL_MAP,LIST_REL_EL_EQN]
+  \\ gvs [MEM_EL]
+  \\ last_x_assum drule
+  \\ gvs [eval_exp_def,evaluate_exp_def,read_local_def,AllCaseEqs()]
+  \\ strip_tac \\ fs []
+  \\ first_assum $ irule_at $ Pos hd \\ fs []
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
@@ -1747,7 +1768,9 @@ Proof
   \\ simp [ALOOKUP_NONE,MAP_ZIP] \\ strip_tac
   \\ first_x_assum drule \\ simp []
   \\ strip_tac
-  \\ cheat
+  \\ fs [ALL_DISTINCT_APPEND]
+  \\ drule_all read_out_lemma
+  \\ strip_tac \\ fs []
 QED
 
 Triviality evaluate_exp_total_old:
