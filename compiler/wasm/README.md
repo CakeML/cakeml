@@ -31,4 +31,5 @@ Notations for cake's Wasm 1.0 AST
 Separated from wasmLangScript for ergonomics/build efficency
 
 [wasm_parseScript.sml](wasm_parseScript.sml):
+To deprecate/delete
 WASM parser -- supports part of WASM text format

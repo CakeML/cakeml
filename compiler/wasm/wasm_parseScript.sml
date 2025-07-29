@@ -1,4 +1,5 @@
 (*
+  To deprecate/delete
   WASM parser -- supports part of WASM text format
 *)
 open preamble;
