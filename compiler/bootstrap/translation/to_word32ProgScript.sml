@@ -4,7 +4,7 @@
 
 open preamble ml_translatorLib ml_translatorTheory
      basis_defProgTheory std_preludeTheory
-local open backendTheory in end
+local open backendTheory blastLib in end
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
@@ -404,6 +404,7 @@ val _ = translate (spec32 is_simple_pmatch_def)
 val _ = translate (spec32 dest_Raise_num_pmatch_def)
 val _ = translate (spec32 try_if_hoist2_def)
 val _ = translate (spec32 try_if_hoist1_def)
+val _ = translate (spec32 Seq_assoc_def)
 val _ = translate (spec32 simp_duplicate_if_def)
 
 val _ = translate (spec32 compile_exp_def)
@@ -486,6 +487,7 @@ val _ = translate (wordLangTheory.every_var_inst_def |> conv32)
 val _ = translate select_reg_alloc_def
 val _ = translate (INST_TYPE [alpha|->``:32``,beta|->``:32``]  word_alloc_def)
 
+(* BROKEN
 val res = translate_no_ind (spec32 three_to_two_reg_pmatch);
 
 Triviality three_to_two_reg_ind:
@@ -523,8 +525,12 @@ val word_inst_three_to_two_reg_side = Q.prove(`
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition
 
+*)
+
+val res = translate (spec32 three_to_two_reg_def);
 val res = translate (spec32 three_to_two_reg_prog_def);
 
+(* BROKEN
 val res = translate_no_ind (spec32 word_removeTheory.remove_must_terminate_pmatch);
 
 Triviality remove_must_terminate_ind:
@@ -564,7 +570,9 @@ val word_remove_remove_must_terminate_side = Q.prove(`
 >> POP_ASSUM(ASSUME_TAC o PURE_ONCE_REWRITE_RULE[fetch"-" "word_remove_remove_must_terminate_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition;
+*)
 
+val res = translate (spec32 word_removeTheory.remove_must_terminate_def);
 val res = translate (spec32 word_to_wordTheory.compile_alt);
 
 (* TODO: remove when pmatch is fixed
