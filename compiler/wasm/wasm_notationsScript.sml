@@ -1,5 +1,6 @@
 (*
   Notations for cake's Wasm 1.0 AST
+  Separated from wasmLangScript for ergonomics/build efficency
 *)
 open preamble;
 open wasmLangTheory;
