@@ -11,7 +11,7 @@
 open preamble;
 open wasm2LangTheory;
 open mlstringTheory;
-open leb128Theory someWordOpsTheory;
+open leb128Theory miscOpsTheory;
 
 val _ = new_theory "wasm2_binary_format";
 
@@ -43,10 +43,25 @@ Type byteSeq[local] = “:word8 list”
 Overload dec_s32[local] = “dec_signed        : byteSeq -> (word32 # byteSeq) option”
 Overload dec_s64[local] = “dec_signed        : byteSeq -> (word64 # byteSeq) option”
 Overload dec_u8[local]  = “dec_unsigned_word : byteSeq -> (byte   # byteSeq) option”
-Overload dec_u32[local] = “dec_unsigned_word : byteSeq -> (word64 # byteSeq) option”
+Overload dec_u32[local] = “dec_unsigned_word : byteSeq -> (word32 # byteSeq) option”
 
 Overload error = “λ str obj. (INL (strlit str),obj)”
 (* ": Ran out of bytes to decode." *)
+
+
+Definition dec_2u32_def:
+  dec_2u32 (bs:byteSeq) : (word32 # word32 # byteSeq) option =
+  case dec_u32 bs of NONE=>NONE| SOME(n,cs) =>
+  case dec_u32 cs of NONE=>NONE| SOME(m,rs) => SOME (n,m,rs)
+End
+
+Definition dec_2u32_8_def:
+  dec_2u32_8 (bs:byteSeq) : (word32 # word32 # byte # byteSeq) option =
+  case dec_u32 bs of NONE=>NONE| SOME(i,cs) =>
+  case dec_u32 cs of NONE=>NONE| SOME(j,ds) =>
+  case dec_u8  ds of NONE=>NONE| SOME(k,rs) => SOME (i,j,k,rs)
+End
+
 
 
 (***************************************)
@@ -70,6 +85,8 @@ Definition dec_numtype_def:
   if b = 0x7Cw then SOME (NT Float W64) else NONE
 End
 
+
+
 Definition enc_valtype_def:
   enc_valtype (t:valtype) : byte = case t of
   | Tnum (NT Int   W32) => 0x7Fw
@@ -91,6 +108,8 @@ Definition dec_valtype_def:
   if b = 0x70w then SOME (TFunRef            ) else
   if b = 0x6Fw then SOME (TExtRef            ) else NONE
 End
+
+
 
 Definition enc_numI_def:
   enc_numI (i:num_instr) : byteSeq = case i of
@@ -397,8 +416,9 @@ Definition dec_numI_def:
   failure
 End
 
-Overload v_opcode[local] = “λ n. 0xFDw :: enc_num n”
 
+
+Overload v_opcode[local] = “λ n. 0xFDw :: enc_num n”
 Definition enc_vecI_def:
   enc_vecI (i:vec_instr) : byteSeq = case i of
 
@@ -623,7 +643,6 @@ Definition enc_vecI_def:
 
 End
 
-(* TODO complete failure msges *)
 Definition dec_vecI_def:
   dec_vecI ([]:byteSeq) : ((mlstring + vec_instr) # byteSeq) = error "[dec_vecI] : Ran out of bytes to decode." [] ∧
   dec_vecI (xFD::bs) = let failure = error "[dec_vecI]" $ xFD::bs in
@@ -870,6 +889,121 @@ Definition dec_vecI_def:
 
 End
 
+
+
+Definition enc_loadI_def:
+  enc_loadI (i:load_instr) : byteSeq = case i of
+  | Load    Int                  W32 ofs al  => 0x28w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Load    Int                  W64 ofs al  => 0x29w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Load  Float                  W32 ofs al  => 0x2Aw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Load  Float                  W64 ofs al  => 0x2Bw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadNarrow I8x16    Signed   W32 ofs al  => 0x2Cw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadNarrow I8x16  Unsigned   W32 ofs al  => 0x2Dw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadNarrow I16x8    Signed   W32 ofs al  => 0x2Ew :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadNarrow I16x8  Unsigned   W32 ofs al  => 0x2Fw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadNarrow I8x16    Signed   W64 ofs al  => 0x30w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadNarrow I8x16  Unsigned   W64 ofs al  => 0x31w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadNarrow I16x8    Signed   W64 ofs al  => 0x32w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadNarrow I16x8  Unsigned   W64 ofs al  => 0x33w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadNarrow32        Signed       ofs al  => 0x34w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadNarrow32      Unsigned       ofs al  => 0x35w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Load128                          ofs al  => 0xFDw :: enc_num  0 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (Is2 I16x8)    Signed  ofs al  => 0xFDw :: enc_num  1 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (Is2 I16x8)  Unsigned  ofs al  => 0xFDw :: enc_num  2 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (Is2 I8x16)    Signed  ofs al  => 0xFDw :: enc_num  3 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (Is2 I8x16)  Unsigned  ofs al  => 0xFDw :: enc_num  4 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (    I32x4)    Signed  ofs al  => 0xFDw :: enc_num  5 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (    I32x4)  Unsigned  ofs al  => 0xFDw :: enc_num  6 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadSplat (Is3 $ Is2 I16x8)      ofs al  => 0xFDw :: enc_num  7 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadSplat (Is3 $ Is2 I8x16)      ofs al  => 0xFDw :: enc_num  8 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadSplat (Is3 $     I32x4)      ofs al  => 0xFDw :: enc_num  9 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadSplat (          I64x2)      ofs al  => 0xFDw :: enc_num 10 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadZero                     W32 ofs al  => 0xFDw :: enc_num 92 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadZero                     W64 ofs al  => 0xFDw :: enc_num 93 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadLane  (Is3 $ Is2 I16x8) ofs al lidx  => 0xFDw :: enc_num 84 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | LoadLane  (Is3 $ Is2 I8x16) ofs al lidx  => 0xFDw :: enc_num 85 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | LoadLane  (Is3 $     I32x4) ofs al lidx  => 0xFDw :: enc_num 86 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | LoadLane  (          I64x2) ofs al lidx  => 0xFDw :: enc_num 87 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+End
+
+Definition enc_storeI_def:
+  enc_storeI (i:store_instr) : byteSeq = case i of
+  | Store   Int                  W32 ofs al  => 0x36w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Store   Int                  W64 ofs al  => 0x37w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Store Float                  W32 ofs al  => 0x38w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Store Float                  W64 ofs al  => 0x39w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreNarrow I8x16            W32 ofs al  => 0x3Aw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreNarrow I16x8            W32 ofs al  => 0x3Bw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreNarrow I8x16            W64 ofs al  => 0x3Cw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreNarrow I16x8            W64 ofs al  => 0x3Dw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreNarrow32                    ofs al  => 0x3Ew :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Store128                         ofs al  => 0xFDw :: enc_num 11 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreLane (Is3 $ Is2 I16x8) ofs al lidx  => 0xFDw :: enc_num 88 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | StoreLane (Is3 $ Is2 I8x16) ofs al lidx  => 0xFDw :: enc_num 89 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | StoreLane (Is3 $     I32x4) ofs al lidx  => 0xFDw :: enc_num 90 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | StoreLane (          I64x2) ofs al lidx  => 0xFDw :: enc_num 91 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+End
+
+Overload i16x8 = “Is3 $ Is2 I16x8”
+Overload i8x16 = “Is3 $ Is2 I8x16”
+Overload i32x4 = “Is3       I32x4”
+Overload i64x2 = “          I64x2”
+
+Definition dec_storeI_def:
+  dec_storeI ([]:byteSeq) : ((mlstring + store_instr) # byteSeq) = error "[dec_storeI] : Ran out of bytes to decode." [] ∧
+  dec_storeI (b::bs) = let failure = error "[dec_storeI]" $ b::bs in
+
+  if b = 0x36w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ Store          Int  W32 ofs al,rs) else
+  if b = 0x37w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ Store          Int  W64 ofs al,rs) else
+  if b = 0x38w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ Store        Float  W32 ofs al,rs) else
+  if b = 0x39w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ Store        Float  W64 ofs al,rs) else
+  if b = 0x3Aw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I8x16  W32 ofs al,rs) else
+  if b = 0x3Bw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I16x8  W32 ofs al,rs) else
+  if b = 0x3Cw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I8x16  W64 ofs al,rs) else
+  if b = 0x3Dw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I16x8  W64 ofs al,rs) else
+  if b = 0x3Ew then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow32           ofs al,rs) else
+  if b = 0xFDw then case dec_num bs of
+    | SOME (11,cs)=>case dec_2u32   cs of NONE=>failure| SOME (al,ofs     ,rs) => (INR $ Store128        ofs al     ,rs)
+    (* WHYYYYY????? *)
+    (* | SOME (88,cs)=>case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i16x8 ofs al lidx,rs) *)
+    (* | SOME (89,cs)=>case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i8x16 ofs al lidx,rs) *)
+    (* | SOME (90,cs)=>case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i32x4 ofs al lidx,rs) *)
+    (* | SOME (91,cs)=>case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i64x2 ofs al lidx,rs) *)
+    | _ => failure
+  else
+  failure
+End
+
+
+
+Definition enc_memI_def:
+  enc_memI (i:mem_others) : byteSeq = case i of
+  | Size       => [0x3Fw; 0x00w]
+  | Grow       => [0x40w; 0x00w]
+  | Init  didx => 0xFCw :: enc_num  8 ++ enc_num didx ++ [0x00w]
+  | DDrop didx => 0xFCw :: enc_num  9 ++ enc_num didx
+  | Copy       => 0xFCw :: enc_num 10 ++ 0x00w :: [0x00w]
+  | Fill       => 0xFCw :: enc_num 11 ++ [0x00w]
+End
+
+Definition dec_memI_def:
+  dec_memI ([]:byteSeq) : ((mlstring + mem_others) # byteSeq) = error "[dec_memI] : Ran out of bytes to decode." [] ∧
+  dec_memI (b::c::cs) = let failure = error "[dec_memI]" $ b::c::cs in
+
+  if b = 0x3Fw ∧ c = 0x00w then (INR Size, cs) else
+  if b = 0x40w ∧ c = 0x00w then (INR Grow, cs) else
+  if b = 0xFCw then case dec_num $ c::cs of
+    | SOME ( 8,ds) => (case dec_num ds of NONE => failure | SOME (didx,e::rst) => if e = 0x00w then (INR $ Init didx, rst) else failure)
+    | SOME ( 9,ds) => (case dec_num ds of NONE => failure | SOME (didx,rst) => (INR $ DDrop didx, rst))
+    | SOME (10,d::e::rst) => if d = 0x00w ∧ e = 0x00w then (INR Copy,rst) else failure
+    | SOME (11,d::   rst) => if d = 0x00w             then (INR Fill,rst) else failure
+    | _ => failure
+  else
+  failure
+End
+
+
+
 (***********************************)
 (*                                 *)
 (*     Decode--Encode Theorems     *)
@@ -900,6 +1034,11 @@ Proof
   cheat
 QED
 
+Theorem dec_enc_memI:
+  ∀ i. dec_memI (enc_memI i ++ rest) = (INR i, rest)
+Proof
+  cheat
+QED
 
 
 (***************)
@@ -907,6 +1046,29 @@ QED
 (*     WIP     *)
 (*             *)
 (***************)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (* TODO *)
 (*
@@ -917,6 +1079,7 @@ Definition dec_blocktype_def:
   dec_blocktype =
 End
 *)
+
 Overload elseOC = “0x05w : byte”
 Overload endOC  = “0x0Bw : byte”
 

@@ -1,12 +1,11 @@
 (*
-  Some word operations
-
-  No specs
+  Some extra operations
+  No specs yet
 *)
 open preamble;
 open wordsTheory wordsLib;
 
-val _ = new_theory "someWordOps";
+val _ = new_theory "miscOps";
 
 Type byte[local]    = “:word8”
 Type byteSeq[local] = “:word8 list”

@@ -3,8 +3,9 @@ WebAssembly backend for CakeML
 [leb128Script.sml](leb128Script.sml):
 A foramlisation of LEB128
 
-[someWordOpsScript.sml](someWordOpsScript.sml):
-Some word operations
+[miscOpsScript.sml](miscOpsScript.sml):
+Some extra operations
+No specs yet
 
 [wasm2LangScript.sml](wasm2LangScript.sml):
 CakeML Wasm 2.0 (+ tail calls) AST

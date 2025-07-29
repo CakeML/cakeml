@@ -9,7 +9,6 @@
 
 open preamble;
 open leb128Theory;
-(* open someWordOpsTheory; *)
 open mlstringTheory;
 open wasmLangTheory;
 

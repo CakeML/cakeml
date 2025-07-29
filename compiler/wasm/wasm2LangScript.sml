@@ -378,7 +378,7 @@ End
   The CWasm AST uses it's encoding for vec shapes (i8x16) to represent "8" etc
 *)
 
-Datatype: load_ops
+Datatype: load_instr
 
   (* int/float *)
   = Load            bvtype width word32 word32
@@ -393,7 +393,7 @@ Datatype: load_ops
   | LoadLane  ishape      word32 word32 word8
 End
 
-Datatype: store_ops
+Datatype: store_instr
 
   (* int/float *)
   = Store       bvtype width word32 word32
@@ -411,7 +411,7 @@ Datatype: mem_others
   | Fill
   | Copy
   | Init num
-  | Drop num
+  | DDrop num
 End
   (* wasm 3 *)
   (* | Size num *)
@@ -493,8 +493,8 @@ Datatype: instr
 
   | Numeric  num_instr
   | Vector   vec_instr
-  | MemRead  load_ops
-  | MemWrite store_ops
+  | MemRead  load_instr
+  | MemWrite store_instr
   | Memory   mem_others
 
 End

@@ -2,7 +2,7 @@
   WebAssembly (Wasm) semantics
 *)
 open preamble wasmLangTheory;
-open someWordOpsTheory;
+open miscOpsTheory;
 
 val _ = new_theory "wasmSem";
 
