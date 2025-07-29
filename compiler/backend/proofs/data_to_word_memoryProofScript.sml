@@ -4458,7 +4458,7 @@ Definition get_addr_def:
 End
 
 Definition word_addr_def:
-  (word_addr conf (Data (Loc l1 l2)) = Loc l1 l2) /\
+  (word_addr conf (Data (Loc l1 l2)) = Loc l1 0) /\
   (word_addr conf (Data (Word v)) = Word (v && (~1w))) /\
   (word_addr conf (Pointer n w) = Word (get_addr conf n w))
 End
@@ -6813,10 +6813,11 @@ Proof
 QED
 
 Theorem word_addr_eq_Loc:
-   word_addr c v = Loc l1 l2 <=> v = Data (Loc l1 l2)
+  word_addr c v = Loc l1 l2 <=> l2 = 0 ∧ ∃l2. v = Data (Loc l1 l2)
 Proof
   Cases_on `v` \\ fs [word_addr_def]
   \\ Cases_on `a` \\ fs [word_addr_def]
+  \\ eq_tac \\ rw []
 QED
 
 Theorem memory_rel_CodePtr:
@@ -6828,7 +6829,7 @@ Proof
   \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []
   \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,
          roots_ok_def,reachable_refs_def]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  \\ rw [] \\ fs [] \\ res_tac \\ fs [PULL_EXISTS]
   \\ qexists_tac `f` \\ qexists_tac `tf`
   \\ fs [PULL_EXISTS] \\ rw [] \\ fs []
   \\ fs [get_refs_def] \\ res_tac
@@ -11563,6 +11564,81 @@ Proof
   \\ pop_assum mp_tac
   \\ match_mp_tac memory_rel_rearrange \\ fs []
 QED
+
+Theorem write_bytearray_isWord:
+   ∀ls a m x.
+   isWord (m x) ⇒
+   isWord (write_bytearray a ls m dm be x)
+Proof
+  Induct \\ rw[wordSemTheory.write_bytearray_def]
+  \\ rw[wordSemTheory.mem_store_byte_aux_def]
+  \\ every_case_tac \\ fs[]
+  \\ simp[APPLY_UPDATE_THM]
+  \\ rw[isWord_def]
+QED
+
+Theorem write_bytearray_append:
+  ∀xs ys a m dm be.
+    (∀i. i < LENGTH xs + LENGTH ys ⇒
+         ∃b. mem_load_byte_aux m dm be (a + n2w i) = SOME b) ⇒
+    write_bytearray a (xs ++ ys) m dm be =
+    write_bytearray a xs (write_bytearray (a + n2w (LENGTH xs)) ys m dm be) dm be
+Proof
+  Induct \\ gvs [wordSemTheory.write_bytearray_def,ADD1,GSYM word_add_n2w]
+  \\ rw []
+  \\ first_assum $ qspec_then ‘0’ mp_tac
+  \\ last_x_assum $ DEP_REWRITE_TAC o single
+  \\ conj_tac
+  >- (rw [] \\ first_x_assum $ qspec_then ‘i+1’ mp_tac \\ gvs [GSYM word_add_n2w])
+  \\ strip_tac \\ fs []
+  \\ CASE_TAC \\ gvs []
+  \\ last_x_assum $ kall_tac
+  \\ gvs []
+  \\ gvs [wordSemTheory.mem_store_byte_aux_def,AllCaseEqs()]
+  \\ gvs [wordSemTheory.mem_load_byte_aux_def,AllCaseEqs()]
+  \\ metis_tac [write_bytearray_isWord,isWord_def]
+QED
+
+Theorem memory_rel_write_bytearray_lemma[local]:
+  ∀rest bytes bytes0 m refs.
+    memory_rel c be stm refs sp st m dm ((RefPtr b n,Word (w:'a word))::vs) ∧
+    lookup n refs = SOME (ByteArray F (bytes0 ++ rest)) ∧ LENGTH bytes = LENGTH bytes0 ∧
+    get_real_simple_addr c st w = SOME a ∧ good_dimindex (:'a) ⇒
+    memory_rel c be stm (insert n (ByteArray F (bytes ++ rest)) refs) sp st
+      (write_bytearray (a + bytes_in_word) bytes m dm be)
+      dm ((RefPtr b n,Word w)::vs)
+Proof
+  Induct_on ‘bytes’ using SNOC_INDUCT \\ rpt strip_tac
+  >- (gvs [wordSemTheory.write_bytearray_def,insert_unchanged])
+  \\ drule_all memory_rel_ByteArray_IMP \\ simp []
+  \\ strip_tac
+  \\ rename [‘SNOC new_b _’]
+  \\ Cases_on ‘bytes0’ using SNOC_CASES >- gvs [SNOC_APPEND]
+  \\ fs [SNOC_APPEND]
+  \\ first_x_assum $ qspecl_then [‘LENGTH bytes’,‘new_b’] mp_tac
+  \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ simp [EL_APPEND2]
+  \\ rpt strip_tac
+  \\ last_x_assum drule \\ simp []
+  \\ disch_then $ qspecl_then [‘new_b::rest’,‘l’] mp_tac
+  \\ impl_tac
+  >- (gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND])
+  \\ simp [Once insert_insert]
+  \\ match_mp_tac (METIS_PROVE [] “x = y ⇒ (x ⇒ y)”)
+  \\ rpt AP_THM_TAC \\ rpt AP_TERM_TAC
+  \\ DEP_REWRITE_TAC [write_bytearray_append]
+  \\ conj_tac >- rw []
+  \\ rpt AP_THM_TAC \\ rpt AP_TERM_TAC
+  \\ gvs [wordSemTheory.write_bytearray_def]
+  \\ first_x_assum $ qspec_then ‘LENGTH l’ mp_tac
+  \\ impl_tac >- gvs []
+  \\ strip_tac
+  \\ gvs [AllCaseEqs(),wordSemTheory.mem_load_byte_aux_def]
+  \\ gvs [wordSemTheory.mem_store_byte_aux_def,theWord_def]
+QED
+
+Theorem memory_rel_write_bytearray =
+  memory_rel_write_bytearray_lemma |> Q.SPEC ‘[]’ |> SRULE [] |> SPEC_ALL;
 
 Theorem memory_rel_space_max:
    memory_rel c be ts refs old_sp st m dm vars ==>

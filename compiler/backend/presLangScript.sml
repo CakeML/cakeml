@@ -1184,7 +1184,7 @@ Definition stack_prog_to_display_def:
    stack_prog_to_display (SUC k) ns (Alloc n) = item_with_num «alloc» n ∧
    stack_prog_to_display (SUC k) ns (StoreConsts n1 n2 _) = item_with_nums «store_consts» [n1; n2] ∧
    stack_prog_to_display (SUC k) ns (Raise n) = item_with_num «raise» n ∧
-   stack_prog_to_display (SUC k) ns (Return n1 n2) = item_with_nums «return» [n1; n2] ∧
+   stack_prog_to_display (SUC k) ns (Return n) = item_with_num «return» n ∧
    stack_prog_to_display (SUC k) ns (FFI nm cp cl ap al ra) = Item NONE «ffi»
         (string_imp nm :: MAP num_to_display [cp; cl; ap; al; ra]) ∧
    stack_prog_to_display (SUC k) ns (Tick) = empty_item «tick» ∧
@@ -1336,6 +1336,12 @@ Definition ws_to_display_def:
     Tuple [bool_to_display b; word_to_display x] :: ws_to_display xs
 End
 
+Definition num_sets_to_display_def:
+  num_sets_to_display (l,r) =
+    Tuple [num_set_to_display l;
+           num_set_to_display r]
+End
+
 Definition word_prog_to_display_def:
   (word_prog_to_display 0 ns x = empty_item (strlit "...")) /\
   (word_prog_to_display (SUC k) ns Skip = empty_item (strlit "skip")) /\
@@ -1380,7 +1386,7 @@ Definition word_prog_to_display_def:
               asm_reg_imm_to_display reg];
        word_prog_to_display k ns p1; word_prog_to_display k ns p2]) /\
   (word_prog_to_display (SUC k) ns (Alloc n ms) = Item NONE (strlit "alloc")
-    [num_to_display n; num_set_to_display ms]) /\
+    [num_to_display n; num_sets_to_display ms]) /\
   (word_prog_to_display (SUC k) ns (StoreConsts a b c d ws) = Item NONE (strlit "store_consts")
     [num_to_display a;
      num_to_display b;
@@ -1388,30 +1394,33 @@ Definition word_prog_to_display_def:
      num_to_display d;
      Tuple (ws_to_display ws)]) /\
   (word_prog_to_display (SUC k) ns (Raise n) = item_with_num (strlit "raise") n) /\
-  (word_prog_to_display (SUC k) ns (Return n1 n2) = item_with_nums (strlit "return") [n1; n2]) /\
+  (word_prog_to_display (SUC k) ns (Return n vs) =
+     Item NONE (strlit "return")
+       [num_to_display n;
+        Tuple (MAP num_to_display vs)]) ∧
   (word_prog_to_display (SUC k) ns Tick = empty_item (strlit "tick")) /\
   (word_prog_to_display (SUC k) ns (LocValue n1 n2) =
     Item NONE (strlit "loc_value") [String (attach_name ns (SOME n1)); num_to_display n2]) /\
   (word_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 ms) =
     Item NONE (strlit "install") (MAP num_to_display [n1; n2; n3; n4]
-        ++ [num_set_to_display ms])) /\
+        ++ [num_sets_to_display ms])) /\
   (word_prog_to_display (SUC k) ns (CodeBufferWrite n1 n2) =
     item_with_nums (strlit "code_buffer_write") [n1; n2]) /\
   (word_prog_to_display (SUC k) ns (DataBufferWrite n1 n2) =
     item_with_nums (strlit "data_buffer_write") [n1; n2]) /\
   (word_prog_to_display (SUC k) ns (FFI nm n1 n2 n3 n4 ms) =
     Item NONE (strlit "ffi") (string_imp nm :: MAP num_to_display [n1; n2; n3; n4]
-        ++ [num_set_to_display ms]))  ∧
+        ++ [num_sets_to_display ms]))  ∧
   (word_prog_to_display_list k ns [] = []) ∧
   (word_prog_to_display_list k ns (x::xs) =
     case k of 0 => []
     | SUC k =>
     word_prog_to_display k ns x :: word_prog_to_display_list k ns xs) /\
   (word_prog_to_display_ret k ns NONE = empty_item (strlit "tail")) /\
-  (word_prog_to_display_ret k ns (SOME (n1, ms, prog, n2, n3)) =
+  (word_prog_to_display_ret k ns (SOME (vs, ms, prog, n2, n3)) =
     case k of 0 => empty_item (strlit "...")
     | SUC k =>
-    Item NONE (strlit "returning") [Tuple [num_to_display n1; num_set_to_display ms;
+    Item NONE (strlit "returning") [Tuple [Tuple (MAP num_to_display vs); num_sets_to_display ms;
         word_prog_to_display k ns prog;
         String (attach_name ns (SOME n2));
         num_to_display n3]]) /\
