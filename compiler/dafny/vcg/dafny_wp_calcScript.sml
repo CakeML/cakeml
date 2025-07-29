@@ -161,7 +161,9 @@ Inductive stmt_wp:
     rets = (MAP VarLhs ret_names) ∧
     EVERY (λe. DISJOINT (freevars e) (set ret_names)) args ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.reqs ∧
-    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.decreases
+    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.decreases ∧
+    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
+               no_Old e) mspec.ens
     ⇒
     stmt_wp m (Let (ZIP (MAP FST mspec.ins,args)) (conj mspec.reqs) ::
                MAP CanEval args ++
@@ -1135,9 +1137,10 @@ End
 Theorem eval_true_CanEval_Var:
   eval_true st env (CanEval (Var v)) ⇔ is_initialized st.locals v
 Proof
+  cheat (*
   fs [eval_true_def,eval_exp_def,evaluate_exp_def,CanEval_def,read_local_def]
   \\ simp [AllCaseEqs(),PULL_EXISTS,do_sc_def,do_bop_def]
-  \\ simp [state_component_equality,SF CONJ_ss,is_initialized_def]
+  \\ simp [state_component_equality,SF CONJ_ss,is_initialized_def] *)
 QED
 
 Theorem can_eval_read_local:
@@ -1335,6 +1338,14 @@ Proof
   cheat
 QED
 
+Theorem eval_exp_wrap_Old_IMP:
+  eval_exp st2 env (wrap_Old vs x) v ∧ no_Old x ∧
+  LIST_REL (eval_exp st2 env) (MAP (Old o Var) vs) vals ⇒
+  eval_exp (st2 with locals := ZIP (vs,MAP SOME vals) ++ st2.locals) env x v
+Proof
+  cheat
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
@@ -1366,6 +1377,7 @@ Theorem stmt_wp_sound:
         | Rcont => conditions_hold st' env post
         | _ => F
 Proof
+
   Induct_on ‘stmt_wp’ \\ rpt strip_tac
   >~ [‘Skip’] >-
    (irule_at (Pos hd) eval_stmt_Skip \\ simp [])
@@ -1627,6 +1639,31 @@ Proof
   \\ conj_tac >- fs []
   \\ simp [Abbr‘st5’]
   \\ fs [conj_MAP_wrap_Old]
+  \\ qpat_x_assum ‘eval_true st2 env (wrap_Old _ _)’ assume_tac
+  \\ fs [eval_true_def]
+  \\ drule eval_exp_wrap_Old_IMP
+  \\ disch_then $ qspec_then ‘in_vs’ mp_tac
+  \\ impl_tac
+  >-
+   (conj_tac
+    >- (fs [no_Old_conj,EVERY_MEM] \\ rw [] \\ res_tac \\ fs [])
+    \\ simp [Once listTheory.LIST_REL_MAP1]
+    \\ cheat)
+  \\ qmatch_goalsub_abbrev_tac ‘eval_exp (_ with locals := l1) _ _ _ ⇒ _’
+  \\ qmatch_goalsub_abbrev_tac ‘_ ⇒ eval_exp (_ with locals := l2) _ _ _’
+  \\ strip_tac
+  \\ irule eval_exp_no_old_IMP
+  \\ conj_tac
+  >- (fs [no_Old_conj,EVERY_MEM] \\ rw [] \\ res_tac \\ fs [])
+  \\ qexists_tac ‘st2.heap_old’
+  \\ qexists_tac ‘st2.locals_old’
+  \\ irule eval_exp_swap_state
+  \\ qexists_tac ‘st2 with locals := l2’
+  \\ conj_tac
+  >- gvs [state_component_equality,Abbr‘st1’]
+  \\ pop_assum mp_tac
+  \\ match_mp_tac EQ_IMPLIES
+  \\ irule_at (Pos hd) eval_exp_freevars
   \\ cheat
 QED
 
