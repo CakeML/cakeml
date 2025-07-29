@@ -1159,10 +1159,9 @@ End
 Theorem eval_true_CanEval_Var:
   eval_true st env (CanEval (Var v)) ⇔ is_initialized st.locals v
 Proof
-  cheat (*
   fs [eval_true_def,eval_exp_def,evaluate_exp_def,CanEval_def,read_local_def]
   \\ simp [AllCaseEqs(),PULL_EXISTS,do_sc_def,do_bop_def]
-  \\ simp [state_component_equality,SF CONJ_ss,is_initialized_def] *)
+  \\ simp [state_component_equality,SF CONJ_ss,is_initialized_def]
 QED
 
 Theorem can_eval_read_local:
@@ -1357,7 +1356,7 @@ QED
 Triviality conj_MAP_wrap_Old:
   ∀xs vs. conj (MAP (wrap_Old vs) xs) = wrap_Old vs (conj xs)
 Proof
-  cheat
+  ho_match_mp_tac conj_ind \\ fs [conj_def,wrap_Old_def]
 QED
 
 Theorem eval_exp_wrap_Old_IMP:
@@ -1377,9 +1376,9 @@ Proof
 QED
 
 Theorem freevars_conj:
-  n ∈ freevars (conj xs) ⇔ ∃x. MEM x xs ∧ n ∈ freevars x
+  ∀xs n. n ∈ freevars (conj xs) ⇔ ∃x. MEM x xs ∧ n ∈ freevars x
 Proof
-  cheat
+  ho_match_mp_tac conj_ind \\ fs [conj_def,freevars_def,SF DNF_ss]
 QED
 
 Triviality read_out_lemma:
