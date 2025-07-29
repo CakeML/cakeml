@@ -1369,10 +1369,21 @@ QED
 
 Theorem IMP_LIST_REL_eval_exp_MAP_Var:
   st5.locals = ZIP (ret_names,MAP SOME out_vs) ++ rest ∧
+  LENGTH ret_names = LENGTH out_vs ∧
   ALL_DISTINCT ret_names ⇒
   LIST_REL (eval_exp st5 env) (MAP Var ret_names) out_vs
 Proof
-  cheat
+  rw [LIST_REL_EL_EQN] \\ gvs [EL_MAP]
+  \\ gvs [eval_exp_def,evaluate_exp_def,read_local_def,AllCaseEqs()]
+  \\ simp [state_component_equality]
+  \\ simp [ALOOKUP_APPEND,CaseEq "option"] \\ disj2_tac
+  \\ ‘ALL_DISTINCT (MAP FST (ZIP (ret_names,MAP SOME out_vs)))’ by
+    (imp_res_tac LIST_REL_LENGTH \\ fs [MAP_ZIP])
+  \\ drule (GSYM MEM_ALOOKUP)
+  \\ simp [] \\ disch_then kall_tac
+  \\ simp [MEM_EL,EL_ZIP]
+  \\ first_assum $ irule_at $ Pos hd
+  \\ simp [MEM_EL,EL_ZIP,EL_MAP]
 QED
 
 Theorem freevars_conj:
