@@ -1368,6 +1368,20 @@ Proof
   cheat
 QED
 
+Theorem IMP_LIST_REL_eval_exp_MAP_Var:
+  st5.locals = ZIP (ret_names,MAP SOME out_vs) ++ rest ∧
+  ALL_DISTINCT ret_names ⇒
+  LIST_REL (eval_exp st5 env) (MAP Var ret_names) out_vs
+Proof
+  cheat
+QED
+
+Theorem freevars_conj:
+  n ∈ freevars (conj xs) ⇔ ∃x. MEM x xs ∧ n ∈ freevars x
+Proof
+  cheat
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
@@ -1399,7 +1413,6 @@ Theorem stmt_wp_sound:
         | Rcont => conditions_hold st' env post
         | _ => F
 Proof
-
   Induct_on ‘stmt_wp’ \\ rpt strip_tac
   >~ [‘Skip’] >-
    (irule_at (Pos hd) eval_stmt_Skip \\ simp [])
@@ -1654,7 +1667,27 @@ Proof
   \\ fs [GSYM eval_true_def,GSYM eval_true_conj_every]
   \\ qmatch_goalsub_abbrev_tac ‘eval_true st5’
   \\ ‘LIST_REL (eval_exp st5 env)
-        (args ++ MAP Var ret_names) (in_vs ++ out_vs)’ by cheat
+        (args ++ MAP Var ret_names) (in_vs ++ out_vs)’ by
+   (irule listTheory.LIST_REL_APPEND_suff
+    \\ reverse conj_tac
+    >- (irule IMP_LIST_REL_eval_exp_MAP_Var \\ simp [Abbr‘st5’])
+    \\ qpat_x_assum ‘LIST_REL (eval_exp st env) args in_vs’ mp_tac
+    \\ qpat_x_assum ‘EVERY _ args’ mp_tac
+    \\ simp [LIST_REL_EL_EQN,EVERY_EL]
+    \\ rpt strip_tac
+    \\ first_x_assum drule
+    \\ first_x_assum drule
+    \\ strip_tac \\ simp [Abbr‘st5’]
+    \\ match_mp_tac EQ_IMPLIES
+    \\ irule EQ_TRANS
+    \\ irule_at (Pos last) eval_exp_freevars
+    \\ qexists_tac ‘st.locals’ \\ fs []
+    \\ rpt strip_tac
+    \\ simp [ALOOKUP_APPEND,CaseEq"option"]
+    \\ disj1_tac
+    \\ simp [ALOOKUP_NONE]
+    \\ simp [MAP_ZIP] \\ fs [IN_DISJOINT]
+    \\ metis_tac [])
   \\ drule eval_exp_Let
   \\ rewrite_tac [eval_true_def]
   \\ disch_then $ DEP_REWRITE_TAC o single
@@ -1670,7 +1703,17 @@ Proof
    (conj_tac
     >- (fs [no_Old_conj,EVERY_MEM] \\ rw [] \\ res_tac \\ fs [])
     \\ simp [Once listTheory.LIST_REL_MAP1]
-    \\ cheat)
+    \\ simp [LIST_REL_EL_EQN,eval_exp_def,evaluate_exp_def,
+             use_old_def,AllCaseEqs()]
+    \\ simp [AllCaseEqs(),unuse_old_def,read_local_def,
+             state_component_equality]
+    \\ fs [Abbr‘st1’,Abbr‘new_l’] \\ rpt gen_tac
+    \\ DEP_REWRITE_TAC [alookup_distinct_reverse] \\ fs [MAP_ZIP]
+    \\ fs [ALOOKUP_APPEND,CaseEq"option"]
+    \\ strip_tac \\ disj2_tac
+    \\ DEP_REWRITE_TAC [GSYM MEM_ALOOKUP]
+    \\ fs [MAP_ZIP,MEM_ZIP,ALL_DISTINCT_APPEND]
+    \\ first_assum $ irule_at $ Pos hd \\ fs [EL_MAP])
   \\ qmatch_goalsub_abbrev_tac ‘eval_exp (_ with locals := l1) _ _ _ ⇒ _’
   \\ qmatch_goalsub_abbrev_tac ‘_ ⇒ eval_exp (_ with locals := l2) _ _ _’
   \\ strip_tac
@@ -1686,6 +1729,24 @@ Proof
   \\ pop_assum mp_tac
   \\ match_mp_tac EQ_IMPLIES
   \\ irule_at (Pos hd) eval_exp_freevars
+  \\ simp [freevars_conj]
+  \\ rpt strip_tac
+  \\ qpat_x_assum ‘EVERY _ mspec.ens’ mp_tac
+  \\ simp [EVERY_MEM]
+  \\ disch_then drule
+  \\ simp [SUBSET_DEF]
+  \\ strip_tac
+  \\ fs [Abbr‘l1’,Abbr‘l2’]
+  \\ simp [ALOOKUP_APPEND]
+  \\ DEP_REWRITE_TAC [alookup_distinct_reverse]
+  \\ DEP_REWRITE_TAC [GSYM rich_listTheory.ZIP_APPEND] \\ fs []
+  \\ simp [ALOOKUP_APPEND]
+  \\ simp [MAP_ZIP |> UNDISCH |> CONJUNCTS |> hd |> DISCH_ALL]
+  \\ CASE_TAC \\ fs []
+  \\ pop_assum mp_tac
+  \\ simp [ALOOKUP_NONE,MAP_ZIP] \\ strip_tac
+  \\ first_x_assum drule \\ simp []
+  \\ strip_tac
   \\ cheat
 QED
 
