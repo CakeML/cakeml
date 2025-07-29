@@ -197,8 +197,8 @@ Definition enc_numI_def:
   | N_convert $   Trunc_f W32 Unsigned W32   => [0xA9w]
   | N_convert $   Trunc_f W64   Signed W32   => [0xAAw]
   | N_convert $   Trunc_f W64 Unsigned W32   => [0xABw]
-  | N_unary   $   Extend_i32_   Signed       => [0xACw]
-  | N_unary   $   Extend_i32_ Unsigned       => [0xADw]
+  | N_unary   $   ExtendI32_   Signed        => [0xACw]
+  | N_unary   $   ExtendI32_ Unsigned        => [0xADw]
   | N_convert $   Trunc_f W32   Signed W64   => [0xAEw]
   | N_convert $   Trunc_f W32 Unsigned W64   => [0xAFw]
   | N_convert $   Trunc_f W64   Signed W64   => [0xB0w]
@@ -217,11 +217,11 @@ Definition enc_numI_def:
   | N_convert $   Reinterpret_f        W64   => [0xBDw]
   | N_convert $   Reinterpret_i        W32   => [0xBEw]
   | N_convert $   Reinterpret_i        W64   => [0xBFw]
-  | N_unary   $   Extend8_s  W32             => [0xC0w]
-  | N_unary   $   Extend16_s W32             => [0xC1w]
-  | N_unary   $   Extend8_s  W64             => [0xC2w]
-  | N_unary   $   Extend16_s W64             => [0xC3w]
-  | N_unary   $   Extend32_s                 => [0xC4w]
+  | N_unary   $   Extend8s  W32              => [0xC0w]
+  | N_unary   $   Extend16s W32              => [0xC1w]
+  | N_unary   $   Extend8s  W64              => [0xC2w]
+  | N_unary   $   Extend16s W64              => [0xC3w]
+  | N_unary   $   Extend32s                  => [0xC4w]
 
   | N_const32 Int   (c32: word32)            =>  0x41w :: enc_signed_word32 c32
   | N_const64 Int   (c64: word64)            =>  0x42w :: enc_signed_word64 c64
@@ -347,8 +347,8 @@ Definition dec_numI_def:
   if b = 0xA9w then (INR $ N_convert $   Trunc_f W32 Unsigned W32   ,bs) else
   if b = 0xAAw then (INR $ N_convert $   Trunc_f W64   Signed W32   ,bs) else
   if b = 0xABw then (INR $ N_convert $   Trunc_f W64 Unsigned W32   ,bs) else
-  if b = 0xACw then (INR $ N_unary   $   Extend_i32_   Signed       ,bs) else
-  if b = 0xADw then (INR $ N_unary   $   Extend_i32_ Unsigned       ,bs) else
+  if b = 0xACw then (INR $ N_unary   $   ExtendI32_   Signed        ,bs) else
+  if b = 0xADw then (INR $ N_unary   $   ExtendI32_ Unsigned        ,bs) else
   if b = 0xAEw then (INR $ N_convert $   Trunc_f W32   Signed W64   ,bs) else
   if b = 0xAFw then (INR $ N_convert $   Trunc_f W32 Unsigned W64   ,bs) else
   if b = 0xB0w then (INR $ N_convert $   Trunc_f W64   Signed W64   ,bs) else
@@ -367,11 +367,11 @@ Definition dec_numI_def:
   if b = 0xBDw then (INR $ N_convert $   Reinterpret_f W64          ,bs) else
   if b = 0xBEw then (INR $ N_convert $   Reinterpret_i W32          ,bs) else
   if b = 0xBFw then (INR $ N_convert $   Reinterpret_i W64          ,bs) else
-  if b = 0xC0w then (INR $ N_unary   $   Extend8_s  W32             ,bs) else
-  if b = 0xC1w then (INR $ N_unary   $   Extend16_s W32             ,bs) else
-  if b = 0xC2w then (INR $ N_unary   $   Extend8_s  W64             ,bs) else
-  if b = 0xC3w then (INR $ N_unary   $   Extend16_s W64             ,bs) else
-  if b = 0xC4w then (INR $ N_unary   $   Extend32_s                 ,bs) else
+  if b = 0xC0w then (INR $ N_unary   $   Extend8s  W32              ,bs) else
+  if b = 0xC1w then (INR $ N_unary   $   Extend16s W32              ,bs) else
+  if b = 0xC2w then (INR $ N_unary   $   Extend8s  W64              ,bs) else
+  if b = 0xC3w then (INR $ N_unary   $   Extend16s W64              ,bs) else
+  if b = 0xC4w then (INR $ N_unary   $   Extend32s                  ,bs) else
 
   if b = 0x41w then case dec_s32 bs of SOME (s32,cs) => (INR $ N_const32  Int  s32, cs) | NONE => failure else
   if b = 0x42w then case dec_s64 bs of SOME (s64,cs) => (INR $ N_const64  Int  s64, cs) | NONE => failure else
@@ -939,11 +939,11 @@ Definition enc_instr_def:
   | BrIf         lbl => 0x0Dw ::                    enc_num lbl
   | BrTable lbls lbl => 0x0Ew :: (* TODO lbls ++ *) enc_num lbl
 
-  | Return                      => [0x0Fw]
-  | Call               f        =>  0x10w :: enc_num f
-  | CallIndirect       f tblIdx =>  0x11w :: enc_num f (* TODO ++ enc_ tblIdx *)
-  | ReturnCall         f        =>  0x12w :: enc_num f
-  | ReturnCallIndirect f tblIdx =>  0x13w :: enc_num f (* TODO ++ enc_ tblIdx *)
+  | Return                    => [0x0Fw]
+  | Call               f      =>  0x10w :: enc_num f
+  (* | CallIndirect       f fsig =>  0x11w :: enc_num fsig ++ enc_num f *)
+  | ReturnCall         f      =>  0x12w :: enc_num f
+  (* | ReturnCallIndirect f fsig =>  0x13w :: enc_num fsig ++ enc_num f *)
 
   (* parametric instructions *)
   | Drop        => [0x1Aw]
