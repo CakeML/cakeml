@@ -4698,13 +4698,13 @@ Proof
 QED
 
 Theorem assign_AllocThunk:
-  op = ThunkOp (AllocThunk ev) ==> ^assign_thm_goal
+  (∃ev. op = ThunkOp (AllocThunk ev)) ==> ^assign_thm_goal
 Proof
   cheat
 QED
 
 Theorem assign_UpdateThunk:
-  op = ThunkOp (UpdateThunk ev) ==> ^assign_thm_goal
+  (∃ev. op = ThunkOp (UpdateThunk ev)) ==> ^assign_thm_goal
 Proof
   cheat
 QED
@@ -13969,13 +13969,22 @@ Proof
   \\ Cases_on`op = MemOp (CopyByte T)` >- (
     fs[do_app_def,do_space_def,do_app_aux_def]
     \\ every_case_tac \\ fs[] )
-  \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
-  \\ qsuff_tac `assign c n l dest op args names_opt = (GiveUp,l)` \\ fs []
-  \\ `?f. f () = op` by (qexists_tac `K op` \\ fs []) (* here for debugging only *)
-  \\ cheat (*
-  \\ cases_on_op `op` \\ fs [assign_def]
-  \\ rpt (PURE_CASE_TAC \\ fs [])
-  \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC *)
+  \\ Cases_on ‘∃i. op = IntOp i’
+  >- (fs [] \\ fs [] \\ gvs [] \\ Cases_on ‘i’ \\ gvs [])
+  \\ Cases_on ‘∃i. op = GlobOp i’
+  >- (fs [] \\ fs [] \\ gvs [] \\ Cases_on ‘i’ \\ gvs [])
+  \\ Cases_on ‘∃i. op = MemOp i’
+  >- (fs [] \\ fs [] \\ gvs [] \\ Cases_on ‘i’ \\ gvs []
+      \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC)
+  \\ Cases_on ‘∃i. op = BlockOp i’
+  >- (fs [] \\ fs [] \\ gvs [] \\ Cases_on ‘i’ \\ gvs []
+      \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC)
+  \\ Cases_on ‘∃i. op = WordOp i’
+  >- (fs [] \\ fs [] \\ gvs [] \\ Cases_on ‘i’ \\ gvs [] \\ Cases_on ‘w’ \\ gvs [])
+  \\ Cases_on ‘∃i. op = ThunkOp i’
+  >- (fs [] \\ fs [] \\ gvs [] \\ Cases_on ‘i’ \\ gvs []
+      \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC)
+  \\ Cases_on ‘op’ \\ gvs []
 QED
 
 val _ = export_theory();
