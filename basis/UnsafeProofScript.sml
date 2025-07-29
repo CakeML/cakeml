@@ -48,12 +48,14 @@ fun prove_array_spec v_def =
   xcf_with_def v_def \\ TRY xpull \\
   fs [cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
       cf_copyaw8aw8_def, cf_aalloc_def, cf_asub_def, cf_alength_def,
-      cf_aupdate_def, cf_copystraw8_def, cf_copyaw8str_def] \\
+      cf_aupdate_def, cf_copystraw8_def, cf_copyaw8str_def,
+      cf_xoraw8str_def] \\
   irule local_elim \\ reduce_tac \\
   fs [app_aw8alloc_def, app_aw8sub_def, app_aw8length_def, app_aw8update_def,
       app_aalloc_def, app_asub_def, app_alength_def, app_aupdate_def,
-      app_copyaw8aw8_def, app_copystraw8_def, app_copyaw8str_def] \\
-  xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def] \\
+      app_copyaw8aw8_def, app_copystraw8_def, app_copyaw8str_def,
+      app_xoraw8str_def] \\
+  xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def,STRING_TYPE_def] \\
   TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\
   TRY (
     qmatch_assum_rename_tac`STRING_TYPE s sv`
@@ -78,6 +80,17 @@ Theorem w8array_update_spec:
        (POSTv v. cond (UNIT_TYPE () v) * W8ARRAY av (LUPDATE w n a))
 Proof
   prove_array_spec Unsafe_w8update_v_def
+QED
+
+Theorem w8xor_str_spec:
+   !s sv n nv xor_res a.
+     STRING_TYPE s sv /\ LENGTH (explode s) ≤ LENGTH a ==>
+     app (p:'ffi ffi_proj) Unsafe_w8xor_str_v [av; sv]
+       (W8ARRAY av a)
+       (POSTv v. cond (UNIT_TYPE () v) *
+         W8ARRAY av (THE (xor_bytes (MAP (n2w o ORD) (explode s)) a)))
+Proof
+  Cases \\ simp [] \\ prove_array_spec Unsafe_w8xor_str_v_def
 QED
 
 val _ = export_theory();

@@ -374,6 +374,13 @@ Definition do_app_def:
                     refs := s.refs |+ (ptr, ByteArray T ds))
             | _ => Error)
         | _ => Error)
+    | (MemOp XorByte,[RefPtr _ dst; RefPtr _ src]) =>
+        (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
+         | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
+           (case xor_bytes ws ds of
+            | SOME ds1 => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray fl ds1))
+            | NONE => Error)
+         | _ => Error)
     | (BlockOp (TagEq n),[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (BlockOp (LenEq l),[Block tag xs]) =>

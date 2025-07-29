@@ -247,6 +247,7 @@ Definition op_to_display_def:
   | Aupdate_unsafe => empty_item (strlit "Aupdate_unsafe")
   | Aw8sub_unsafe => empty_item (strlit "Aw8sub_unsafe")
   | Aw8update_unsafe => empty_item (strlit "Aw8update_unsafe")
+  | XorAw8Str_unsafe => empty_item (strlit "XorAw8Str_unsafe")
   | ListAppend => empty_item (strlit "ListAppend")
   | ConfigGC => empty_item (strlit "ConfigGC")
   | FFI v35 => empty_item (strlit "FFI v35")
@@ -450,6 +451,7 @@ Definition flat_op_to_display_def:
     | CopyStrAw8 => empty_item (strlit "CopyStrAw8")
     | CopyAw8Str => empty_item (strlit "CopyAw8Str")
     | CopyAw8Aw8 => empty_item (strlit "CopyAw8Aw8")
+    | Aw8xor_unsafe => empty_item (strlit "Aw8xor_unsafe")
     | Ord => empty_item (strlit "Ord")
     | Chr => empty_item (strlit "Chr")
     | Chopb op => Item NONE (strlit "Chopb") [opb_to_display op]
@@ -660,6 +662,7 @@ Definition clos_op_to_display_def:
     | MemOp BoundsCheckArray => String (strlit "BoundsCheckArray")
     | MemOp (BoundsCheckByte b) => Item NONE (strlit "BoundsCheckByte") [bool_to_display b]
     | MemOp closLang$ConfigGC => String (strlit "ConfigGC")
+    | MemOp XorByte => String (strlit "XorByte")
     | Label num => Item NONE (strlit "Label") [String (attach_name ns (SOME num))]
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
     | IntOp (Const i) => Item NONE (strlit "Const") [int_to_display i]

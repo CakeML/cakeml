@@ -2046,7 +2046,7 @@ Proof
   fs[]
 QED
 
-Triviality s_val_eq_trans:
+Theorem s_val_eq_trans:
   !a b c. s_val_eq a b /\ s_val_eq b c ==>
             s_val_eq a c
 Proof

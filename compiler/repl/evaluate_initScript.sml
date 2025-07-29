@@ -523,6 +523,12 @@ Proof
   \\ Cases_on ‘op = Ord’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+  \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_lookup_def, copy_array_def, store_assign_def]
+    \\ gs [state_ok_def, state_rel_def, EL_LUPDATE, FLOOKUP_FUN_FMAP]
+    \\ rw [] \\ gs [ref_rel_def])
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
