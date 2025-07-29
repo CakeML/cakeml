@@ -22,8 +22,8 @@ val _ = new_theory "wasm_binary_format";
     enc_numtype : numtype -> byte
     dec_numtype : byte -> numtype option
 
-    enc_numI : num_instr -> byteList
-    dec_numI : byteList -> (num_instr option # byteList)
+    enc_numI : num_instr -> byteSeq
+    dec_numI : byteSeq -> (num_instr option # byteSeq)
  *)
 
 
@@ -37,13 +37,13 @@ val _ = new_theory "wasm_binary_format";
 (*   Misc notations/helps/etc   *)
 (********************************)
 
-Type byte[local]     = “:word8”
-Type byteList[local] = “:word8 list”
+Type byte[local]    = “:word8”
+Type byteSeq[local] = “:word8 list”
 
-Overload dec_s32[local] = “dec_signed : byteList -> (word32 # byteList) option”
-Overload dec_s64[local] = “dec_signed : byteList -> (word64 # byteList) option”
-Overload dec_u8[local]  = “dec_unsigned_word : byteList -> (byte # byteList) option”
-Overload dec_u32[local] = “dec_unsigned_word : byteList -> (word64 # byteList) option”
+Overload dec_s32[local] = “dec_signed : byteSeq -> (word32 # byteSeq) option”
+Overload dec_s64[local] = “dec_signed : byteSeq -> (word64 # byteSeq) option”
+Overload dec_u8[local]  = “dec_unsigned_word : byteSeq -> (byte # byteSeq) option”
+Overload dec_u32[local] = “dec_unsigned_word : byteSeq -> (word64 # byteSeq) option”
 Overload error = “λ str obj. (INL (strlit str),obj)”
 
 
@@ -84,7 +84,7 @@ Definition dec_valtype_def:
 End
 
 Definition enc_numI_def:
-  enc_numI (i:num_instr) : byteList = case i of
+  enc_numI (i:num_instr) : byteSeq = case i of
 
   | N_eqz         W32                         => [0x45w]
   | N_compare    (Eq Int W32)                 => [0x46w]
@@ -159,7 +159,7 @@ Definition enc_numI_def:
 End
 
 Definition dec_numI_def:
-  dec_numI ([]:byteList) : ((mlstring + num_instr) # byteList) = error "[dec_numI] : Given empty byteList." [] ∧
+  dec_numI ([]:byteSeq) : ((mlstring + num_instr) # byteSeq) = error "[dec_numI] : Given empty byteSeq." [] ∧
   dec_numI (b::bs) = let failure = error "[dec_numI] : " (b::bs) in
 
   if b = 0x45w then (INR $ N_eqz     $   W32                   ,bs) else
@@ -265,7 +265,7 @@ Overload endOC  = “0x0Bw : byte”
 (* TODO : helper to make sure AST nums fit within the Wasm spec'd sizes like u32 etc *)
 (*
 Definition enc_instr_def:
-(  enc_instr (inst:instr) (bs:byteList) : byteList = case inst of
+(  enc_instr (inst:instr) (bs:byteSeq) : byteSeq = case inst of
 
   (* control instructions *)
   | Unreachable => 0x00w :: bs
@@ -317,7 +317,7 @@ End
 
 Definition dec_instr_def:
 
-  dec_instr ([]:byteList) : (instr option # byteList) = (NONE,[]) ∧
+  dec_instr ([]:byteSeq) : (instr option # byteSeq) = (NONE,[]) ∧
   dec_instr (b::bs) = let default = (NONE, b::bs) in
 
   (* control instructions *)

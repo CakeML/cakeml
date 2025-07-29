@@ -156,18 +156,28 @@ End
   The CWasm AST uses it's encoding for vec shapes (i8x16) to represent "8" etc
 *)
 
-Datatype: mem_instr
+Datatype: load_ops
 
-  = Load            bvtype width (word32 # word32)
-  | LoadNarrow ishap2 sign width (word32 # word32)
-  | LoadNarrow32      sign       (word32 # word32)
-
-  | Store       bvtype width (word32 # word32)
-  | StoreNarrow ishap2 width (word32 # word32)
-  | StoreNarrow32            (word32 # word32)
+  (* int/float *)
+  = Load            bvtype width word32 word32
+  | LoadNarrow ishap2 sign width word32 word32
+  | LoadNarrow32      sign       word32 word32
 End
 
+Datatype: store_ops
 
+  (* int/float *)
+  = Store       bvtype width word32 word32
+  | StoreNarrow ishap2 width word32 word32
+  | StoreNarrow32            word32 word32
+End
+
+Datatype: mem_instr
+  = M_read
+  | M_write
+  (* | Size
+  | Grow *)
+End
 
 (*************************************)
 (*                                   *)

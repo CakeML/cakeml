@@ -22,8 +22,8 @@ val _ = new_theory "wasm2_binary_format";
     enc_numtype : numtype -> byte
     dec_numtype : byte -> numtype option
 
-    enc_numI : num_instr -> byteList
-    dec_numI : byteList -> (num_instr option # byteList)
+    enc_numI : num_instr -> byteSeq
+    dec_numI : byteSeq -> (num_instr option # byteSeq)
  *)
 
 
@@ -37,13 +37,13 @@ val _ = new_theory "wasm2_binary_format";
 (*   Misc notations/helps/etc   *)
 (********************************)
 
-Type byte[local]     = “:word8”
-Type byteList[local] = “:word8 list”
+Type byte[local]    = “:word8”
+Type byteSeq[local] = “:word8 list”
 
-Overload dec_s32[local] = “dec_signed        : byteList -> (word32 # byteList) option”
-Overload dec_s64[local] = “dec_signed        : byteList -> (word64 # byteList) option”
-Overload dec_u8[local]  = “dec_unsigned_word : byteList -> (byte   # byteList) option”
-Overload dec_u32[local] = “dec_unsigned_word : byteList -> (word64 # byteList) option”
+Overload dec_s32[local] = “dec_signed        : byteSeq -> (word32 # byteSeq) option”
+Overload dec_s64[local] = “dec_signed        : byteSeq -> (word64 # byteSeq) option”
+Overload dec_u8[local]  = “dec_unsigned_word : byteSeq -> (byte   # byteSeq) option”
+Overload dec_u32[local] = “dec_unsigned_word : byteSeq -> (word64 # byteSeq) option”
 
 Overload error = “λ str obj. (INL (strlit str),obj)”
 (* ": Ran out of bytes to decode." *)
@@ -93,7 +93,7 @@ Definition dec_valtype_def:
 End
 
 Definition enc_numI_def:
-  enc_numI (i:num_instr) : byteList = case i of
+  enc_numI (i:num_instr) : byteSeq = case i of
   | N_eqz     $   W32                        => [0x45w]
   | N_compare $   Eq  Int      W32           => [0x46w]
   | N_compare $   Ne  Int      W32           => [0x47w]
@@ -241,7 +241,7 @@ Definition enc_numI_def:
 End
 
 Definition dec_numI_def:
-  dec_numI ([]:byteList) : ((mlstring + num_instr) # byteList) = error "[dec_numI]" [] ∧
+  dec_numI ([]:byteSeq) : ((mlstring + num_instr) # byteSeq) = error "[dec_numI]" [] ∧
   dec_numI (b::bs) = let failure = error "[dec_numI]" $ b::bs in
 
   if b = 0x45w then (INR $ N_eqz     $   W32                        ,bs) else
@@ -400,7 +400,7 @@ End
 Overload v_opcode[local] = “λ n. 0xFDw :: enc_num n”
 
 Definition enc_vecI_def:
-  enc_vecI (i:vec_instr) : byteList = case i of
+  enc_vecI (i:vec_instr) : byteSeq = case i of
 
   | V_binary  $   Vswizzle                              => v_opcode 14
   | V_splat   $          IShp $ Is3 $ Is2 I8x16         => v_opcode 15
@@ -625,12 +625,12 @@ End
 
 (* TODO complete failure msges *)
 Definition dec_vecI_def:
-  dec_vecI ([]:byteList) : ((mlstring + vec_instr) # byteList) = error "[dec_vecI] : Ran out of bytes to decode." [] ∧
+  dec_vecI ([]:byteSeq) : ((mlstring + vec_instr) # byteSeq) = error "[dec_vecI] : Ran out of bytes to decode." [] ∧
   dec_vecI (xFD::bs) = let failure = error "[dec_vecI]" $ xFD::bs in
 
   if xFD <> 0xFDw ∨ NULL bs then failure else
 
-  case dec_unsigned_word (bs:byteList) of NONE => failure | SOME ((oc:word32),cs) =>
+  case dec_unsigned_word (bs:byteSeq) of NONE => failure | SOME ((oc:word32),cs) =>
 
   if oc =  14w then (INR $ V_binary      Vswizzle                              ,cs) else
   if oc =  15w then (INR $ V_splat   $          IShp $ Is3 $ Is2 I8x16         ,cs) else
@@ -922,7 +922,7 @@ Overload endOC  = “0x0Bw : byte”
 
 Definition enc_instr_def:
 
-  (enc_instr (inst:instr) : byteList = case inst of
+  (enc_instr (inst:instr) : byteSeq = case inst of
 
   (* control instructions *)
   | Unreachable => [0x00w]
@@ -969,13 +969,13 @@ Definition enc_instr_def:
   )
 
   (* ∧
-  (enc_instr_list ([]:instr list) : byteList = [endOC])
+  (enc_instr_list ([]:instr list) : byteSeq = [endOC])
   (enc_instr_list (i::ins) = enc_instr i $ enc_instr_list ins) *)
 
 End
 
 Definition dec_instr_def:
-  dec_instr ([]:byteList) : ((mlstring + instr) # byteList) = error "[dec_instr] : Ran out of bytes to decode." [] ∧
+  dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = error "[dec_instr] : Ran out of bytes to decode." [] ∧
   dec_instr (b::bs) = let failure = error "[dec_instr]" $ b::bs in
 
   (* control instructions *)

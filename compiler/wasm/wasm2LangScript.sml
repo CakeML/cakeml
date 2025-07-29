@@ -49,6 +49,15 @@ Datatype: valtype
   | TExtRef
 End
 
+Type addrtype = “:width”
+
+Datatype: limits
+  = Lunb word64
+  | Lwmx word64 word64
+End
+
+Type memtyp = “:(addrtype # limits)”
+
 (* Note :
   ops/instructions data constructors have their return types
   -- when not present in the data constructor name --
@@ -369,26 +378,36 @@ End
   The CWasm AST uses it's encoding for vec shapes (i8x16) to represent "8" etc
 *)
 
-Datatype: mem_instr
+Datatype: load_ops
 
-  = Load            bvtype width (word32 # word32)
-  | LoadNarrow ishap2 sign width (word32 # word32)
-  | LoadNarrow32      sign       (word32 # word32)
-
-  | Store       bvtype width (word32 # word32)
-  | StoreNarrow ishap2 width (word32 # word32)
-  | StoreNarrow32            (word32 # word32)
+  (* int/float *)
+  = Load            bvtype width word32 word32
+  | LoadNarrow ishap2 sign width word32 word32
+  | LoadNarrow32      sign       word32 word32
 
   (* vec *)
-  | Load128               (word32 # word32)
-  | LoadHalf  ishap3 sign (word32 # word32)
-  | LoadZero  width       (word32 # word32)
-  | LoadSplat ishape      (word32 # word32)
-  | LoadLane  ishape      (word32 # word32) word8
+  | Load128               word32 word32
+  | LoadHalf  ishap3 sign word32 word32
+  | LoadZero  width       word32 word32
+  | LoadSplat ishape      word32 word32
+  | LoadLane  ishape      word32 word32 word8
+End
 
-  | Store128         (word32 # word32)
-  | StoreLane ishape (word32 # word32) word8
+Datatype: store_ops
 
+  (* int/float *)
+  = Store       bvtype width word32 word32
+  | StoreNarrow ishap2 width word32 word32
+  | StoreNarrow32            word32 word32
+
+  (* vec *)
+  | Store128         word32 word32
+  | StoreLane ishape word32 word32 word8
+End
+
+Datatype: mem_instr
+  = M_read
+  | M_write
   | Size
   | Grow
   | Fill
@@ -396,7 +415,13 @@ Datatype: mem_instr
   | Init num
   | Drop num
 End
-
+  (* wasm 3 *)
+  (* | Size num *)
+  (* | Grow num *)
+  (* | Fill num *)
+  (* | Copy num *)
+  (* | Init num num *)
+  (* | Drop num num *)
 
 
 (*************************************)
