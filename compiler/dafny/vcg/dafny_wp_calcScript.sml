@@ -181,8 +181,30 @@ End
 
 (* TODO rename definition *)
 Definition wrap_Old_def:
-  wrap_Old vs (Var v) = (if MEM v vs then Old (Var v) else Var v) ∧
-  wrap_Old vs e = ARB
+  wrap_Old vs (Var v) =
+    (if v ∈ vs then Old (Var v) else Var v) ∧
+  wrap_Old _ (Lit l) = Lit l ∧
+  wrap_Old vs (If grd thn els) =
+    If (wrap_Old vs grd) (wrap_Old vs thn) (wrap_Old vs els) ∧
+  wrap_Old vs (UnOp uop e) =
+    UnOp uop (wrap_Old vs e) ∧
+  wrap_Old vs (BinOp bop e₀ e₁) =
+    BinOp bop (wrap_Old vs e₀) (wrap_Old vs e₁) ∧
+  wrap_Old vs (ArrLen arr) =
+    ArrLen (wrap_Old vs arr) ∧
+  wrap_Old vs (ArrSel arr idx) =
+    ArrSel (wrap_Old vs arr) (wrap_Old vs idx) ∧
+  wrap_Old vs (FunCall name args) =
+    FunCall name (MAP (wrap_Old vs) args) ∧
+  wrap_Old vs (Forall (vn,vt) term) =
+    Forall (vn,vt) (wrap_Old (vs DELETE vn) term) ∧
+  wrap_Old vs (Old e) =
+    Old (wrap_Old vs e) ∧
+  wrap_Old vs (Let binds body) =
+    Let (MAP (λ(n,e). (n, wrap_Old vs e)) binds)
+      ((wrap_Old (vs DIFF (set (MAP FST binds)))) body) ∧
+  wrap_Old vs (ForallHeap mods term) =
+    ForallHeap (MAP (wrap_Old vs) mods) (wrap_Old vs term)
 End
 
 Definition proved_methods_def:
@@ -191,7 +213,7 @@ Definition proved_methods_def:
       Method name mspec body ∈ m ⇒
       ∃wp_pre.
         stmt_wp m wp_pre body [False]
-          (MAP (wrap_Old (MAP FST mspec.ins)) mspec.ens ++
+          (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens ++
            MAP (CanEval o Var o FST) mspec.outs)
           (mspec.rank, mspec.decreases) ∧
         ⊢ (imp (conj mspec.reqs) (conj wp_pre))
@@ -1339,7 +1361,7 @@ Proof
 QED
 
 Theorem eval_exp_wrap_Old_IMP:
-  eval_exp st2 env (wrap_Old vs x) v ∧ no_Old x ∧
+  eval_exp st2 env (wrap_Old (set vs) x) v ∧ no_Old x ∧
   LIST_REL (eval_exp st2 env) (MAP (Old o Var) vs) vals ⇒
   eval_exp (st2 with locals := ZIP (vs,MAP SOME vals) ++ st2.locals) env x v
 Proof
@@ -1359,7 +1381,7 @@ Theorem stmt_wp_sound:
           compatible_env env m ⇒
           ∃st'' out_vs.
             eval_stmt st' env body' st'' (Rstop Sret) ∧
-            conditions_hold st'' env (MAP (wrap_Old (MAP FST mspec'.ins)) mspec'.ens) ∧
+            conditions_hold st'' env (MAP (wrap_Old (set (MAP FST mspec'.ins))) mspec'.ens) ∧
             st''.locals_old = st'.locals_old ∧
             st''.heap = st'.heap ∧
             st''.heap_old = st'.heap_old ∧
@@ -1710,7 +1732,7 @@ Theorem methods_lemma[local]:
         st'.heap = st.heap ∧
         st'.heap_old = st.heap_old ∧
         st'.output = st.output ∧
-        conditions_hold st' env (MAP (wrap_Old (MAP FST mspec.ins)) mspec.ens) ∧
+        conditions_hold st' env (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens) ∧
         LIST_REL (eval_exp st' env) (MAP (Var o FST) mspec.outs) out_vs
 Proof
   gen_tac
