@@ -307,6 +307,8 @@ val rh = “rh:'a panLang$prog # 'a bstate -> ('a panSem$result option # 'a bsta
 
 val rh = “rh:'a panLang$prog # 'a bstate -> ('a panSem$result option # 'a bstate, 'a panLang$prog # 'a bstate + ev, 'a panSem$result option # 'a bstate) itree”;
 
+(*** mrec ***)
+
 Definition mrec_def:
   mrec rh =
   itreeTau$itree_iter
@@ -316,6 +318,49 @@ Definition mrec_def:
             | Vis (INL d) k => Ret (INL (itree_bind (rh d) k))
             | Vis (INR e) k => Vis e (Ret o INL o k))
 End
+
+Theorem mrec_simps[simp]:
+  (mrec rh (Ret r) = Ret r) ∧
+  (mrec rh (Tau u) = Tau (mrec rh u)) ∧
+  (mrec rh (Vis (INL seed) k) =
+   Tau (mrec rh (itree_bind (rh seed) k))) ∧
+  (mrec rh (Vis (INR e) k) = (Vis e (Tau o mrec rh o k)))
+Proof
+  rw [mrec_def] >>
+  rw [Once itreeTauTheory.itree_iter_thm] >>
+  CONV_TAC FUN_EQ_CONV >> rw []
+QED
+
+Theorem mrec_bind:
+  mrec rh (itree_bind ht (k:'a -> ('a,'d+'b,'a) itree)) =
+  itree_bind (mrec rh ht) (mrec rh o k)
+Proof
+  rw[Once itree_strong_bisimulation] >>
+  qexists ‘CURRY ({(mrec rh (itree_bind ht (k:'a->('a,'d+'b,'a)itree)),
+                    itree_bind (mrec rh ht) (mrec rh ∘ k)) | ht, k |T}
+           ∪ {(Tau $ mrec rh (itree_bind ht (k:'a->('a,'d+'b,'a)itree)),
+               Tau $ itree_bind (mrec rh ht) (mrec rh ∘ k)) | ht, k | T})’ >>
+  conj_tac >- (rw[EXISTS_PROD] >>  metis_tac[]) >>
+  rw[]
+  >- (Cases_on ‘ht’ >> gvs[mrec_simps] >>
+      rename1 ‘Vis e’ >> Cases_on ‘e’ >> gvs[mrec_simps])
+  >- (Cases_on ‘ht’ >> gvs[mrec_simps,PULL_EXISTS,EXISTS_PROD]
+      >- metis_tac[]
+      >- metis_tac[] >>
+      rename1 ‘Vis e’ >> Cases_on ‘e’ >> gvs[mrec_simps] >>
+      metis_tac[itree_bind_assoc])
+  >- metis_tac[] >>
+  Cases_on ‘ht’ >> gvs[mrec_simps,PULL_EXISTS,EXISTS_PROD]
+  >- metis_tac[] >>
+  rename1 ‘mrec rh (Vis e _)’ >>
+  Cases_on ‘e’ >>
+  gvs[mrec_simps] >>
+  metis_tac[]
+QED
+
+
+
+(*** handler ***)
 
 Definition h_prog_dec_def:
   h_prog_dec vname e p ^s =
@@ -394,12 +439,6 @@ Definition h_prog_cond_def:
    | _ => Ret (INR (SOME Error,s))
 End
 
-(* NB The design of this while denotation restricts the type of Vis at this level of the semantics
- to having k-trees of: (res,bstate) -> (a,b,c) itree. *)
-(* This is converted to the desired state in the top-level semantics. *)
-
-(* Inf ITree of Vis nodes, with inf many branches allowing
- termination of the loop; when the guard is false. *)
 Definition h_prog_while_def:
   h_prog_while g p ^s =
   itree_iter
@@ -422,7 +461,6 @@ End
 
 val s' = ``(s':'a panItreeSem2$bstate)``
 
-(* Handles the return value and exception passing of function calls. *)
 Definition h_handle_call_ret_def:
   (h_handle_call_ret calltyp ^s (INL _) = Ret (INR (SOME Error,s))) ∧
   (h_handle_call_ret calltyp ^s (INR (NONE,s':'a bstate)) =
@@ -470,7 +508,6 @@ Definition h_prog_call_def:
    | (_,_) => Ret (INR (SOME Error,s))
 End
 
-(* Handles the return value and exception passing of function dec calls. *)
 Definition h_handle_deccall_ret_def:
   (h_handle_deccall_ret rt shape prog1 ^s (INL _) = Ret (INR (SOME Error,s))) ∧
   (h_handle_deccall_ret rt shape prog1 ^s (INR (NONE,s':'a bstate)) = Ret (INR (SOME Error,s'))) ∧
@@ -624,7 +661,6 @@ Definition h_prog_sh_mem_store_def:
    | _ => Ret (INR (SOME Error, s))
 End
 
-(* Recursive event handler for program commands *)
 Definition h_prog_def:
   (h_prog (Skip,s) = Ret (INR (NONE,s))) ∧
   (h_prog (Annot _ _,s) = Ret (INR (NONE,s))) ∧
@@ -649,11 +685,11 @@ Definition h_prog_def:
   (h_prog (Tick,s) = Ret (INR (NONE,s)))
 End
 
-(*** imap for itreeTauTheory ***)
 
+(*** maps for itreeTauTheory ***)
 
-Definition imap_def:
-  imap g itr =
+Definition Ret_map_def:
+  Ret_map g itr =
   itree_unfold (λx. case x of
                       Ret r => Ret' (g r)
                     | Tau t => Tau' t
@@ -661,17 +697,322 @@ Definition imap_def:
                ) itr
 End
 
+Definition Vis_dom_INR_def:
+  Vis_dom_INR itr =
+  itree_unfold (λx. case x of
+                      Ret r => Ret' r
+                    | Tau t => Tau' t
+                    | Vis e f => Vis' e (λx. f (INR x))
+               ) itr
+End
+
 (******)
 
-
-Definition temp_def:
-  temp itre =
-  imap (λx. case x of INR (r:'a) => r | INL (l:'b) => (ARB:'a)) itre
-End
-(*
 Definition itree_semantics_def:
   itree_semantics (p:'a panLang$prog, ^s) =
-  temp (mrec h_prog (h_prog (p, s)))
+  let g= (λx. case x of
+              | INR (r:'a result option # 'a bstate) => r
+              | INL (l:ffi_outcome + word8 list) =>
+                  (ARB:'a result option # 'a bstate)) in
+  itree_unfold (λx. case x of
+                      Ret r => Ret' (g r)
+                    | Tau t => Tau' t
+                    | Vis e f => Vis' e (λx. f (INL x)))
+               (mrec h_prog (h_prog (p, s)))
 End
-*)
+
+val h_prog_ss = simpLib.named_rewrites "h_prog_ss" [
+    h_prog_def,
+    h_prog_assign_def,
+    h_prog_store_def,
+    h_prog_store_32_def,
+    h_prog_store_byte_def,
+(*    h_prog_cond_def,*)
+    h_prog_raise_def,
+    h_prog_return_def]
+
+(*** traces ***)
+
+Definition trace_prefix_def:
+  trace_prefix 0 (oracle, ffi_st) itree = ([], NONE) ∧
+  trace_prefix (SUC n) (oracle, ffi_st) (Ret r) = ([], SOME r) ∧
+  trace_prefix (SUC n) (oracle, ffi_st) (Tau t) = trace_prefix n (oracle, ffi_st) t ∧
+  trace_prefix (SUC n) (oracle, ffi_st) (Vis (s, conf, ws) f) =
+    case oracle s ffi_st conf ws of
+    | Oracle_return ffi_st' ws' =>
+        let (io, res) = trace_prefix n (oracle, ffi_st') (f $ INR ws') in
+        if LENGTH ws ≠ LENGTH ws' then (io, res)
+        else (IO_event s conf (ZIP (ws,ws'))::io, res)
+    | Oracle_final outcome => trace_prefix n (oracle, ffi_st) (f $ INL outcome)
+End
+
+Triviality trace_prefix_Ret[simp]:
+  FST (trace_prefix n (or, ffi) (Ret r)) = []
+Proof
+  Cases_on ‘n’>>simp[trace_prefix_def]
+QED
+
+(****)
+
+Definition ext_def:
+  ext ^s k ffi =
+    <| locals      := s.locals
+     ; code        := s.code
+     ; eshapes     := s.eshapes
+     ; memory      := s.memory
+     ; memaddrs    := s.memaddrs
+     ; sh_memaddrs := s.sh_memaddrs
+     ; be          := s.be
+     ; ffi         := ffi
+     ; base_addr   := s.base_addr
+     ; clock       := k
+|>
+End
+
+Theorem ext_access[simp]:
+  (ext t k ffi).locals = t.locals ∧
+  (ext t k ffi).code = t.code ∧
+  (ext t k ffi).eshapes = t.eshapes ∧
+  (ext t k ffi).memory = t.memory ∧
+  (ext t k ffi).memaddrs = t.memaddrs ∧
+  (ext t k ffi).sh_memaddrs = t.sh_memaddrs ∧
+  (ext t k ffi).be = t.be ∧
+  (ext t k ffi).ffi = ffi ∧
+  (ext t k ffi).base_addr = t.base_addr ∧
+  (ext t k ffi).clock = k
+Proof
+  rw[ext_def]
+QED
+
+Theorem eval_ext[simp]:
+  eval (ext s t ffi) e = eval s e
+Proof
+  map_every qid_spec_tac [‘t’,‘ffi’,‘e’,‘s’]>>
+  recInduct eval_ind>>rw[]>>
+  simp[eval_def,panSemTheory.eval_def]>>
+  TRY (simp[ext_def]>>NO_TAC)>>
+  ‘OPT_MMAP (λe. eval (ext s t ffi) e) es = OPT_MMAP (λe. eval s e) es’ by
+    (pop_assum mp_tac>>
+     qid_spec_tac ‘es’>>Induct>>rw[])>>
+  fs[]
+QED
+
+Theorem opt_mmap_eval_ext[simp]:
+  OPT_MMAP (eval (ext s t ffi)) es = OPT_MMAP (eval s) es
+Proof
+  rw [] >>
+  match_mp_tac IMP_OPT_MMAP_EQ >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+QED
+
+(****)
+
+Theorem mrec_Ret_INR:
+  mrec h_prog (h_prog (p,s)) = Ret x ⇒ ∃y. x = INR y
+Proof
+  map_every qid_spec_tac [‘x’,‘s’,‘p’]>>
+  Induct>>rw[]
+  >~[‘While’]>-
+   (fs[h_prog_def,h_prog_while_def]>>
+    fs[Once itree_iter_thm]>>
+    rpt (FULL_CASE_TAC>>fs[])>>gvs[])
+  >~[‘ExtCall’]>-
+   (fs[h_prog_def,h_prog_ext_call_def]>>
+    rpt (PURE_FULL_CASE_TAC>>fs[])>>gvs[])>>
+  fs[SF h_prog_ss,h_prog_call_def,h_prog_deccall_def,
+     h_prog_dec_def,h_prog_seq_def,h_prog_cond_def,
+     h_prog_ext_call_def,h_prog_sh_mem_load_def,h_prog_sh_mem_store_def]>>
+  rpt (FULL_CASE_TAC>>fs[mrec_simps])>>gvs[]
+QED
+
+Type ptree = “:((ffi_outcome + word8 list) + α result option # α bstate, ev,
+     (ffi_outcome + word8 list) + α result option # α bstate) itree”;
+
+Theorem mrec_While:
+  (mrec h_prog (h_prog (While e p,s)):'a ptree) =
+  case eval s e of
+    SOME (ValWord w) =>
+      if w = 0w then Ret (INR (NONE, s))
+      else
+        Tau (itree_bind
+             ((mrec h_prog (h_prog (p,s))):'a ptree)
+             (λa.
+                case a of
+                  INL l => Ret (INR (SOME Error, s))
+                | INR (res,s') =>
+                    case res of
+                      NONE => Tau (mrec h_prog (h_prog (While e p, s')))
+                    | SOME Break => Ret (INR (NONE, s'))
+                    | SOME Continue => Tau (mrec h_prog (h_prog (While e p, s')))
+                    | _ => Ret (INR (res, s'))))
+  | _ => Ret (INR (SOME Error, s))
+Proof
+  simp[SimpLHS,h_prog_def,h_prog_while_def]>>
+  simp[Once itree_iter_thm]>>
+  CASE_TAC>>fs[]>>
+  rpt (CASE_TAC>>fs[])>>fs[mrec_bind]>>
+  qpat_abbrev_tac ‘Y = mrec _ _’>>
+  Cases_on ‘Y’>>simp[itree_bind_thm]
+  >| [fs[markerTheory.Abbrev_def]>>
+      pop_assum $ assume_tac o GSYM>>      
+      imp_res_tac mrec_Ret_INR>>fs[],
+      AP_TERM_TAC>>
+      simp[FUN_EQ_THM]>>strip_tac,
+      simp[FUN_EQ_THM]>>strip_tac>>
+      AP_TERM_TAC>>
+      simp[FUN_EQ_THM]>>strip_tac]>>
+  rpt (CASE_TAC>>fs[])>>
+  simp[GSYM h_prog_while_def,h_prog_def]
+QED
+
+(***)
+Theorem bind_FUNPOW_Ret:
+  itree_bind ht k = FUNPOW Tau n (Ret x) ⇒ ∃r n'. ht = FUNPOW Tau n' (Ret r)
+Proof
+  Cases_on ‘∃t. strip_tau ht t’>>rw[]>>fs[]
+  >- (imp_res_tac strip_tau_FUNPOW>>rw[]>>fs[FUNPOW_Tau_bind]>>
+      Cases_on ‘t’>>fs[itree_bind_thm]>>metis_tac[])>>
+  imp_res_tac strip_tau_spin>>rw[]>>fs[spin_bind]>>
+  pop_assum mp_tac>>
+  rewrite_tac[Once (Q.SPEC ‘n’ spin_FUNPOW_Tau)]>>rw[]>>
+  fs[Tau_INJ,FUNPOW_eq_elim]>>fs[Once spin]
+QED
+
+Theorem FUNPOW_Ret_strip:
+  FUNPOW Tau n t = FUNPOW Tau m (Ret x) ⇒ n ≤ m ∧ t = FUNPOW Tau (m-n) (Ret x)
+Proof
+  strip_tac>>
+  Cases_on ‘n ≤ m’>>fs[]
+  >- (fs[LESS_OR_EQ]
+      >- (fs[FUNPOW_min_cancel,Tau_INJ]>>metis_tac[])>>
+      fs[FUNPOW_eq_elim]>>metis_tac[FUNPOW])>>
+  fs[NOT_LESS_EQUAL]>>
+  last_x_assum $ assume_tac o GSYM>>
+  rfs[FUNPOW_min_cancel,Tau_INJ]>>
+  Cases_on ‘n-m’>>fs[FUNPOW_SUC]
+QED
+
+Theorem mrec_FUNPOW_Ret_INR:
+  (mrec h_prog (h_prog (p,s)):'a ptree) = FUNPOW Tau n (Ret x) ⇒ ∃y. x = INR y
+Proof
+  map_every qid_spec_tac [‘x’,‘s’,‘p’,‘n’]>>
+  completeInduct_on ‘n’>>rw[]>>
+  Cases_on ‘n’>>fs[]
+  >- (imp_res_tac mrec_Ret_INR>>metis_tac[])>>
+  rpt (pop_assum mp_tac)>>
+  map_every qid_spec_tac [‘x’,‘s’,‘n’,‘p’]>>
+  Induct>>rw[]
+  >~[‘While’]>-
+   (fs[Once mrec_While]>>
+    rpt (FULL_CASE_TAC>>fs[])>>gvs[FUNPOW_SUC]>>
+    imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
+    rpt (FULL_CASE_TAC>>fs[])>>
+    imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[GSYM FUNPOW]>>
+    imp_res_tac FUNPOW_Ret_strip>>
+    first_x_assum $ qspec_then ‘n' - SUC n''’ assume_tac>>fs[]>>
+    res_tac>>fs[])
+   >~[‘Dec’]>-
+   (fs[h_prog_def,h_prog_dec_def,FUNPOW_SUC]>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[mrec_bind]>>
+    imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[]>>
+    imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[GSYM FUNPOW])
+   >~[‘Seq’]>-
+   (fs[h_prog_def,h_prog_seq_def,FUNPOW_SUC]>>
+    fs[mrec_bind]>>
+    imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[]>>
+    TRY (imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[GSYM FUNPOW])>>
+    imp_res_tac FUNPOW_Ret_strip>>fs[mrec_bind]>>
+    imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[]>>
+    imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[GSYM FUNPOW])
+   >~[‘If’]>-
+   (fs[h_prog_def,h_prog_cond_def,FUNPOW_SUC]>>
+    fs[mrec_bind]>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[mrec_bind]
+    >- (imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
+        rpt (FULL_CASE_TAC>>fs[])>>fs[]>>
+        imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[GSYM FUNPOW])>>
+    imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[]>>
+    imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[GSYM FUNPOW])
+   >~[‘Call’]>-
+   (fs[h_prog_def,h_prog_call_def,FUNPOW_SUC]>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[mrec_bind]>>
+    imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
+    imp_res_tac FUNPOW_Ret_strip>>fs[mrec_bind]>>
+    Cases_on ‘r'’>>fs[h_handle_call_ret_def]
+    >- (Cases_on ‘n'-n''’>>fs[FUNPOW_SUC]>>gvs[])>>
+    rename1 ‘INR y’>>Cases_on ‘y’>>
+    rename1 ‘INR (q',r')’>>Cases_on ‘q'’>>fs[h_handle_call_ret_def]
+    >- (Cases_on ‘n'-n''’>>fs[FUNPOW_SUC]>>gvs[])>>
+    rename1 ‘INR (SOME x'',_)’>>Cases_on ‘x''’>>
+    Cases_on ‘o'’>>fs[h_handle_call_ret_def]>>
+    TRY (Cases_on ‘n'-n''’>>fs[FUNPOW_SUC]>>gvs[])>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[]>>gvs[]>>
+    fs[mrec_bind]>>
+    imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
+    imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[GSYM FUNPOW]>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[]>>
+    imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[GSYM FUNPOW])
+   >~[‘DecCall’]>-
+   (fs[h_prog_def,h_prog_deccall_def,FUNPOW_SUC]>>
+    fs[mrec_bind]>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[mrec_bind]>>
+    imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
+    imp_res_tac FUNPOW_Ret_strip>>fs[mrec_bind]>>
+    Cases_on ‘r'’>>fs[h_handle_deccall_ret_def]
+    >- (Cases_on ‘n'-n''’>>fs[FUNPOW_SUC]>>gvs[])>>
+    rename1 ‘INR y’>>Cases_on ‘y’>>
+    rename1 ‘INR (q',r')’>>Cases_on ‘q'’>>fs[h_handle_deccall_ret_def]
+    >- (Cases_on ‘n'-n''’>>fs[FUNPOW_SUC]>>gvs[])>>
+    rename1 ‘INR (SOME x'',_)’>>Cases_on ‘x''’>>fs[h_handle_deccall_ret_def]>>
+    TRY (Cases_on ‘n'-n''’>>fs[FUNPOW_SUC]>>gvs[])>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[]>>gvs[]>>
+    fs[mrec_bind]>>
+    imp_res_tac bind_FUNPOW_Ret>>fs[FUNPOW_Tau_bind]>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[]>>
+    imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[GSYM FUNPOW]>>
+    rpt (FULL_CASE_TAC>>fs[])>>fs[]>>
+    imp_res_tac FUNPOW_Tau_Ret_eq>>gvs[GSYM FUNPOW]>>
+    Cases_on ‘n'-n''’>>fs[FUNPOW_SUC]>>gvs[])
+  >~[‘ExtCall’]>-
+   (fs[h_prog_def,h_prog_ext_call_def,FUNPOW_SUC]>>
+    fs[mrec_bind]>>
+    rpt (PURE_FULL_CASE_TAC>>fs[])>>fs[mrec_bind])>>
+  fs[SF h_prog_ss,FUNPOW_SUC,h_prog_sh_mem_load_def,h_prog_sh_mem_store_def]>>
+  rpt (FULL_CASE_TAC>>fs[])
+QED
+
+(***)
+Theorem Skip_loop_spin:
+  itree_semantics (While (Const 1w) Skip, ^s) = spin
+Proof
+  simp[Once itree_bisimulation]>>
+  qexists ‘CURRY ({(itree_semantics (While (Const 1w) Skip, t), spin)|T}
+    ∪ {(Tau (itree_semantics (While (Const 1w) Skip, t)), spin)|T})’>>
+  rw[]>- metis_tac[]
+  >- (fs[itree_semantics_def]>>
+      fs[Once mrec_While,eval_def]>>
+      fs[Once itree_unfold])
+  >- (fs[itree_semantics_def]>>
+      fs[Once mrec_While,eval_def]>>
+      fs[Once h_prog_def]>>
+      pop_assum mp_tac>>
+      rewrite_tac[Once itree_unfold]>>
+      CASE_TAC>>fs[]>>strip_tac>>
+      irule_at Any OR_INTRO_THM2>>
+      gvs[]>>
+      simp[Once itree_unfold]>>
+      irule_at Any EQ_REFL>>
+      irule_at (Pos last) (GSYM spin)>>fs[])
+  >- (irule_at Any OR_INTRO_THM1>>
+      irule_at Any EQ_REFL>>
+      irule_at Any EQ_REFL>>
+      irule spin)>>
+  fs[itree_semantics_def]>>
+  fs[Once mrec_While,eval_def]>>
+  fs[Once itree_unfold]
+QED
 
