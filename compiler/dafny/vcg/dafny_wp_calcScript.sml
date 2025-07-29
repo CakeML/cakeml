@@ -177,6 +177,7 @@ Inductive stmt_wp:
               (MetCall rets mname args) post ens decs
 End
 
+(* TODO rename definition *)
 Definition wrap_Old_def:
   wrap_Old vs (Var v) = (if MEM v vs then Old (Var v) else Var v) ∧
   wrap_Old vs e = ARB
@@ -1261,18 +1262,63 @@ Proof
   ho_match_mp_tac conj_ind \\ rw [conj_def] \\ fs [no_Old_def]
 QED
 
+(* TODO Move to dafny_eval_rel *)
+Theorem eval_exp_with_clock:
+  eval_exp (st with clock := ck) = eval_exp st
+Proof
+  gvs [FUN_EQ_THM, eval_exp_def]
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Theorem evaluate_exps_eval_exp:
+  ∀es vs st.
+    evaluate_exps st env es = (st', Rval vs) ⇒
+    LIST_REL (eval_exp st env) es vs
+Proof
+  Induct >- (gvs [evaluate_exp_def])
+  \\ qx_genl_tac [‘e’, ‘vs’, ‘st’]
+  \\ simp [evaluate_exp_def]
+  \\ namedCases_on ‘evaluate_exp st env e’ ["st₁ r"] \\ gvs []
+  \\ namedCases_on ‘r’ ["v", "err"] \\ gvs []
+  \\ namedCases_on ‘evaluate_exps st₁ env es’ ["st₂ r"] \\ gvs []
+  \\ namedCases_on ‘r’ ["v", "err"] \\ gvs []
+  \\ rpt strip_tac \\ gvs []
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+  \\ last_x_assum $ drule_then assume_tac
+  \\ gvs [eval_exp_with_clock]
+  \\ simp [eval_exp_def]
+  \\ qexists ‘st.clock’ \\ simp []
+  \\ simp [state_component_equality]
+QED
+
 Theorem eval_true_Let_IMP:
   eval_true st env (Let (ZIP (ns,exps)) p) ∧ LENGTH exps = LENGTH ns ⇒
   ∃vs. LIST_REL (eval_exp st env) exps vs
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [eval_true_def, eval_exp_def, evaluate_exp_def, AllCaseEqs()]
+  \\ drule_then assume_tac evaluate_exps_eval_exp
+  \\ gvs [eval_exp_with_clock]
+  \\ first_assum $ irule_at (Pos hd)
+QED
+
+(* TODO move to dafny_evaluateprops *)
+Theorem evaluate_rhs_exps_exprhs_eq:
+  ∀es st env.
+    evaluate_rhs_exps st env (MAP ExpRhs es) = evaluate_exps st env es
+Proof
+  Induct >- (simp [evaluate_rhs_exps_def, evaluate_exp_def])
+  \\ qx_genl_tac [‘e’, ‘st’, ‘env’]
+  \\ simp [evaluate_rhs_exps_def, evaluate_exp_def, evaluate_rhs_exp_def]
 QED
 
 Theorem IMP_eval_rhs_exps_MAP_ExpRhs:
   LIST_REL (eval_exp st env) exps vs ⇒
   eval_rhs_exps st env (MAP ExpRhs exps) st vs
 Proof
-  cheat
+  strip_tac
+  \\ drule eval_exp_evaluate_exps
+  \\ simp [eval_rhs_exps_def, evaluate_rhs_exps_exprhs_eq]
 QED
 
 Theorem eval_exp_swap_state:
