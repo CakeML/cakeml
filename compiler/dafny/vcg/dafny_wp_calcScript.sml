@@ -188,31 +188,6 @@ Definition proved_methods_def:
         ⊢ (imp (conj mspec.reqs) (conj wp_pre))
 End
 
-(*
-Inductive proved_methods:
-[~empty:]
-  proved_methods {}
-[~nonrec:]
-  ∀m body mspec wp_pre.
-    proved_methods m ∧
-    stmt_wp m wp_pre body [False] mspec.ens ∧
-    ⊢ (imp (conj mspec.reqs) (conj wp_pre))
-    ⇒
-    proved_methods ((Method name mspec body) INSERT m)
-[~mutrec:]
-  ∀m mutrec.
-    proved_methods m ∧
-    (∀name mspec body.
-       Method name mspec body ∈ mutrec ⇒
-       ∃wp_pre.
-         adjust_calls mspec.decreases mutrec body ∧
-         stmt_wp (mutrec ∪ m) wp_pre body [False] mspec.ens ∧
-         ⊢ (imp (conj mspec.reqs) (conj wp_pre)))
-    ⇒
-    proved_methods (mutrec ∪ m)
-End
-*)
-
 Definition conditions_hold_def:
   conditions_hold st env ⇔ EVERY (eval_true st env)
 End
@@ -1243,6 +1218,14 @@ Proof
   cheat
 QED
 
+Theorem eval_exp_swap_state:
+  eval_exp st2 env e v ∧
+  (∀ck. (st3 with clock := ck) = (st2 with clock := ck)) ⇒
+  eval_exp st3 env e v
+Proof
+  cheat
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
@@ -1257,15 +1240,22 @@ Theorem stmt_wp_sound:
           ∃st'' out_vs.
             eval_stmt st' env body' st'' (Rstop Sret) ∧
             conditions_hold st'' env mspec'.ens ∧
+            st''.heap = st'.heap ∧
+            st''.heap_old = st'.heap_old ∧
+            st''.output = st'.output ∧
             LIST_REL (eval_exp st'' env) (MAP (Var o FST) mspec'.outs) out_vs) ∧
       conditions_hold st env reqs ∧ compatible_env env m ⇒
       ∃st' ret.
         eval_stmt st env stmt st' ret ∧
+        st'.heap = st.heap ∧
+        st'.heap_old = st.heap_old ∧
+        st'.output = st.output ∧
         case ret of
         | Rstop Sret => conditions_hold st' env ens
         | Rcont => conditions_hold st' env post
         | _ => F
 Proof
+
   Induct_on ‘stmt_wp’ \\ rpt strip_tac
   >~ [‘Skip’] >-
    (irule_at (Pos hd) eval_stmt_Skip \\ simp [])
@@ -1428,10 +1418,10 @@ Proof
     \\ qpat_x_assum ‘EVERY _ (decreases_check _ _)’ mp_tac
     \\ simp [decreases_check_def]
     \\ Cases_on ‘mspec.rank ≠ decs0’ \\ simp []
-      >-
-       (‘mspec.rank < decs0 ∨ decs0 < mspec.rank’ by decide_tac
-        \\ simp [LEX_DEF,eval_measure_def]
-        \\ simp [eval_true_def,eval_exp_def,evaluate_exp_def])
+    >-
+     (‘mspec.rank < decs0 ∨ decs0 < mspec.rank’ by decide_tac
+      \\ simp [LEX_DEF,eval_measure_def]
+      \\ simp [eval_true_def,eval_exp_def,evaluate_exp_def])
     \\ gvs [eval_measure_def,LEX_DEF]
     \\ simp [decrease_lt_def]
     \\ reverse $ rw []
@@ -1497,6 +1487,9 @@ Proof
   \\ impl_tac >- fs []
   \\ strip_tac
   \\ first_assum $ irule_at $ Pos hd
+  \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
+  \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
+  \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ rewrite_tac [GSYM eval_true_conj_every]
   \\ rewrite_tac [eval_true_def]
   \\ irule (iffLR eval_exp_swap_locals_alt)
@@ -1505,9 +1498,15 @@ Proof
   \\ impl_tac
   >- (gvs [LIST_REL_EL_EQN,EL_ZIP,EL_MAP] \\ cheat)
   \\ strip_tac
-  \\ drule eval_true_imp
+  \\ dxrule eval_true_imp
   \\ ‘st3.locals = st.locals’ by fs [Abbr‘st3’,restore_caller_def]
+  \\ strip_tac
+  \\ irule eval_exp_swap_state
   \\ simp [GSYM eval_true_def]
+  \\ pop_assum $ irule_at Any
+  \\ reverse conj_tac
+  >- simp [state_component_equality,Abbr‘st3’,Abbr‘st1’,restore_caller_def]
+  \\ fs [GSYM eval_true_def,GSYM eval_true_conj_every]
   \\ cheat
 QED
 
@@ -1550,6 +1549,9 @@ Theorem methods_lemma[local]:
       conditions_hold st env mspec.reqs ∧ compatible_env env m ⇒
       ∃st' out_vs.
         eval_stmt st env body st' (Rstop Sret) ∧
+        st'.heap = st.heap ∧
+        st'.heap_old = st.heap_old ∧
+        st'.output = st.output ∧
         conditions_hold st' env mspec.ens ∧
         LIST_REL (eval_exp st' env) (MAP (Var o FST) mspec.outs) out_vs
 Proof
@@ -1567,7 +1569,11 @@ Proof
     \\ drule_all imp_conditions_hold \\ strip_tac \\ gvs []
     \\ rpt strip_tac
     \\ gvs [eval_measure_wrap_old, compatible_env_def]
-    \\ simp [SF SFY_ss])
+    \\ last_x_assum $ drule_then drule
+    \\ simp [SF SFY_ss]
+    \\ strip_tac \\ gvs []
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs []
+    \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
   \\ gvs [False_thm]
   \\ strip_tac
   \\ every_case_tac \\ gvs []
