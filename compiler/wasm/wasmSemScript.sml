@@ -3,6 +3,9 @@
 *)
 open preamble wasmLangTheory;
 open miscOpsTheory;
+open wordsTheory wordsLib;
+(* open integer_wordsTheory;
+integer_words$word_rem *)
 
 val _ = new_theory "wasmSem";
 
@@ -19,8 +22,7 @@ Datatype: value
   | I64 word64
 End
 
-Datatype:
-  func =
+Datatype: func =
   <|
     name : string ;
     type : tf ;
@@ -212,11 +214,11 @@ Inductive binop_rel:
   (∀ l r. binop_rel (Or  W32) (I32 l) (I32 r) (I32 $ l || r) )∧
   (∀ l r. binop_rel (Xor W32) (I32 l) (I32 r) (I32 $ l ⊕ r) )∧
 
-  (∀ w n. n < 32w ⇒ binop_rel (Rotl          W32) (I32 w) (I32 n) (I32 $ w ⇆  (w2n n)) )∧
-  (∀ w n. n < 32w ⇒ binop_rel (Rotr          W32) (I32 w) (I32 n) (I32 $ w ⇄  (w2n n)) )∧
-  (∀ w n. n < 32w ⇒ binop_rel (Shw           W32) (I32 w) (I32 n) (I32 $ w <<  (w2n n)) )∧
-  (∀ w n. n < 32w ⇒ binop_rel (Shn_   Signed W32) (I32 w) (I32 n) (I32 $ w >>  (w2n n)) )∧
-  (∀ w n. n < 32w ⇒ binop_rel (Shn_ Unsigned W32) (I32 w) (I32 n) (I32 $ w >>> (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ binop_rel (Rotl          W32) (I32 w) (I32 n) (I32 $ w ⇆  (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ binop_rel (Rotr          W32) (I32 w) (I32 n) (I32 $ w ⇄  (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ binop_rel (Shw           W32) (I32 w) (I32 n) (I32 $ w <<  (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ binop_rel (Shn_   Signed W32) (I32 w) (I32 n) (I32 $ w >>  (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ binop_rel (Shn_ Unsigned W32) (I32 w) (I32 n) (I32 $ w >>> (w2n n)) )∧
 
 
   (∀ l r. binop_rel (Add Int W64) (I64 l) (I64 r) (I64 $ l + r) )∧
@@ -230,13 +232,13 @@ Inductive binop_rel:
   (∀ l r. binop_rel (Or  W64) (I64 l) (I64 r) (I64 $ l || r) )∧
   (∀ l r. binop_rel (Xor W64) (I64 l) (I64 r) (I64 $ l ⊕ r) )∧
 
-  (∀ w n. n < 64w ⇒ binop_rel (Rotl          W64) (I64 w) (I64 n) (I64 $ w ⇆  (w2n n)) )∧
-  (∀ w n. n < 64w ⇒ binop_rel (Rotr          W64) (I64 w) (I64 n) (I64 $ w ⇄  (w2n n)) )∧
-  (∀ w n. n < 64w ⇒ binop_rel (Shl           W64) (I64 w) (I64 n) (I64 $ w <<  (w2n n)) )∧
-  (∀ w n. n < 64w ⇒ binop_rel (Shr_   Signed W64) (I64 w) (I64 n) (I64 $ w >>  (w2n n)) )∧
-  (∀ w n. n < 64w ⇒ binop_rel (Shr_ Unsigned W64) (I64 w) (I64 n) (I64 $ w >>> (w2n n)) )∧
+  (∀ w n. n <+ 64w ⇒ binop_rel (Rotl          W64) (I64 w) (I64 n) (I64 $ w ⇆  (w2n n)) )∧
+  (∀ w n. n <+ 64w ⇒ binop_rel (Rotr          W64) (I64 w) (I64 n) (I64 $ w ⇄  (w2n n)) )∧
+  (∀ w n. n <+ 64w ⇒ binop_rel (Shl           W64) (I64 w) (I64 n) (I64 $ w <<  (w2n n)) )∧
+  (∀ w n. n <+ 64w ⇒ binop_rel (Shr_   Signed W64) (I64 w) (I64 n) (I64 $ w >>  (w2n n)) )∧
+  (∀ w n. n <+ 64w ⇒ binop_rel (Shr_ Unsigned W64) (I64 w) (I64 n) (I64 $ w >>> (w2n n)) )∧
 
-
+  (* integer_words$word_rem *)
   (∀ n d. d ≠ 0w ⇒ binop_den (Div_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧ (* TODO *)
   (∀ n d. d ≠ 0w ⇒ binop_den (Rem_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧ (* TODO *)
   (∀ n d. d ≠ 0w ⇒ binop_rel (Div_   Signed W64) (I64 n) (I64 d) (I64 $ n // d) )∧ (* TODO *)
@@ -271,18 +273,18 @@ Inductive compare_op_rel:
   (∀ l r. compare_op_rel (Eq Int W32) (I32 l) (I32 r) (I32 $ b2w (l =  r)) )∧
   (∀ l r. compare_op_rel (Ne Int W32) (I32 l) (I32 r) (I32 $ b2w (l <> r)) )∧
 
-  (∀ l r. compare_op_rel (Lt_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l <  r)) )∧
-  (∀ l r. compare_op_rel (Gt_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l >  r)) )∧
-  (∀ l r. compare_op_rel (Le_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l <= r)) )∧
-  (∀ l r. compare_op_rel (Ge_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l >= r)) )∧
+  (∀ l r. compare_op_rel (Lt_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l <+  r)) )∧ (* TODO check in HOL i *)
+  (∀ l r. compare_op_rel (Gt_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l >+  r)) )∧
+  (∀ l r. compare_op_rel (Le_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l <=+ r)) )∧
+  (∀ l r. compare_op_rel (Ge_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l >=+ r)) )∧
 
   (∀ l r. compare_op_rel (Eq Int W64) (I64 l) (I64 r) (I64 $ b2w (l =  r)) )∧
   (∀ l r. compare_op_rel (Ne Int W64) (I64 l) (I64 r) (I64 $ b2w (l <> r)) )∧
 
-  (∀ l r. compare_op_rel (Lt_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l <  r)) )∧
-  (∀ l r. compare_op_rel (Gt_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l >  r)) )∧
-  (∀ l r. compare_op_rel (Le_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l <= r)) )∧
-  (∀ l r. compare_op_rel (Ge_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l >= r)) )∧
+  (∀ l r. compare_op_rel (Lt_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l <+  r)) )∧
+  (∀ l r. compare_op_rel (Gt_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l >+  r)) )∧
+  (∀ l r. compare_op_rel (Le_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l <=+ r)) )∧
+  (∀ l r. compare_op_rel (Ge_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l >=+ r)) )∧
 
 
 
