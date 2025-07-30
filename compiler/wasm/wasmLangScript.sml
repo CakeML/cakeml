@@ -156,7 +156,7 @@ End
   The CWasm AST uses it's encoding for vec shapes (i8x16) to represent "8" etc
 *)
 
-Datatype: load_ops
+Datatype: load_instr
 
   (* int/float *)
   = Load            bvtype width word32 word32
@@ -164,7 +164,7 @@ Datatype: load_ops
   | LoadNarrow32      sign       word32 word32
 End
 
-Datatype: store_ops
+Datatype: store_instr
 
   (* int/float *)
   = Store       bvtype width word32 word32
@@ -188,16 +188,27 @@ End *)
   (******************************)
 
 Type t = “:numtype”
-Type tf = “:t list # t list”;
+Type tf = “:t list # t list”
+Type index = “:word32”
+
 
 (* memory operations other than 64 bits *)
-Datatype:
-  tp_num = Tp_i8 | Tp_i16 | Tp_i32
+Datatype: tp_num
+  = Tp_i8 | Tp_i16 | Tp_i32
 End
 
-Datatype:
-  tb = Tbf num (* | Tbv (t option) *)
+Datatype: tb
+  = Tbf num (* | Tbv (t option) *)
 End
+
+Datatype: blocktype
+  = BlkNil
+  | BlkVal valtype
+  | BlkIdx num
+End
+Type index = “:word32”
+
+(* TODO switch out nums in AST to index *)
 
 Datatype: instr
 
@@ -235,10 +246,13 @@ Datatype: instr
   | OStore t tp_num word32                   (* TODO: alignment *)
 
   | Numeric  num_instr
-  | MemRead  load_ops
-  | MemWrite store_ops
-  (* | Memory   mem_others *)
+  | MemRead  load_instr
+  | MemWrite store_instr
 
 End
+
+(* Datatype: module
+  =
+End *)
 
 val _ = export_theory();

@@ -455,6 +455,9 @@ Datatype: blocktype
   | BlkVal valtype
   | BlkIdx num
 End
+Type index = “:word32”
+
+(* TODO switch out nums in AST to index *)
 
 Datatype: instr
 
