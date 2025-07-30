@@ -926,22 +926,66 @@ Definition enc_loadI_def:
   | LoadLane  (          I64x2) ofs al lidx  => 0xFDw :: enc_num 87 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
 End
 
+
+Definition dec_loadI_def:
+  dec_loadI ([]:byteSeq) : ((mlstring + load_instr) # byteSeq) = error "[dec_loadI] : Ran out of bytes to decode." [] ∧
+  dec_loadI (b::bs) = let failure = error "[dec_loadI]" $ b::bs in
+
+  if b = 0x28w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   Load    Int                  W32 ofs al,rs) else
+  if b = 0x29w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   Load    Int                  W64 ofs al,rs) else
+  if b = 0x2Aw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   Load  Float                  W32 ofs al,rs) else
+  if b = 0x2Bw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   Load  Float                  W64 ofs al,rs) else
+  if b = 0x2Cw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I8x16    Signed   W32 ofs al,rs) else
+  if b = 0x2Dw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I8x16  Unsigned   W32 ofs al,rs) else
+  if b = 0x2Ew then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I16x8    Signed   W32 ofs al,rs) else
+  if b = 0x2Fw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I16x8  Unsigned   W32 ofs al,rs) else
+  if b = 0x30w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I8x16    Signed   W64 ofs al,rs) else
+  if b = 0x31w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I8x16  Unsigned   W64 ofs al,rs) else
+  if b = 0x32w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I16x8    Signed   W64 ofs al,rs) else
+  if b = 0x33w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I16x8  Unsigned   W64 ofs al,rs) else
+  if b = 0x34w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow32        Signed       ofs al,rs) else
+  if b = 0x35w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow32      Unsigned       ofs al,rs) else
+  if b = 0xFDw then case dec_num bs of
+  | SOME( 0,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ Load128                          ofs al,rs))
+  | SOME( 1,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I16x8)    Signed  ofs al,rs))
+  | SOME( 2,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I16x8)  Unsigned  ofs al,rs))
+  | SOME( 3,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I8x16)    Signed  ofs al,rs))
+  | SOME( 4,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I8x16)  Unsigned  ofs al,rs))
+  | SOME( 5,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (    I32x4)    Signed  ofs al,rs))
+  | SOME( 6,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (    I32x4)  Unsigned  ofs al,rs))
+  | SOME( 7,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (Is3 $ Is2 I16x8)      ofs al,rs))
+  | SOME( 8,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (Is3 $ Is2 I8x16)      ofs al,rs))
+  | SOME( 9,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (Is3 $     I32x4)      ofs al,rs))
+  | SOME(10,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (          I64x2)      ofs al,rs))
+  | SOME(92,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadZero                     W32 ofs al,rs))
+  | SOME(93,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadZero                     W64 ofs al,rs))
+
+  | SOME(84,cs)=>(case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (Is3 $ Is2 I16x8) ofs al lidx,rs))
+  | SOME(85,cs)=>(case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (Is3 $ Is2 I8x16) ofs al lidx,rs))
+  | SOME(86,cs)=>(case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (Is3 $     I32x4) ofs al lidx,rs))
+  | SOME(87,cs)=>(case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (          I64x2) ofs al lidx,rs))
+  else
+  failure
+End
+
+
+
 Definition enc_storeI_def:
   enc_storeI (i:store_instr) : byteSeq = case i of
-  | Store   Int                  W32 ofs al  => 0x36w :: enc_unsigned_word al ++ enc_unsigned_word ofs
-  | Store   Int                  W64 ofs al  => 0x37w :: enc_unsigned_word al ++ enc_unsigned_word ofs
-  | Store Float                  W32 ofs al  => 0x38w :: enc_unsigned_word al ++ enc_unsigned_word ofs
-  | Store Float                  W64 ofs al  => 0x39w :: enc_unsigned_word al ++ enc_unsigned_word ofs
-  | StoreNarrow I8x16            W32 ofs al  => 0x3Aw :: enc_unsigned_word al ++ enc_unsigned_word ofs
-  | StoreNarrow I16x8            W32 ofs al  => 0x3Bw :: enc_unsigned_word al ++ enc_unsigned_word ofs
-  | StoreNarrow I8x16            W64 ofs al  => 0x3Cw :: enc_unsigned_word al ++ enc_unsigned_word ofs
-  | StoreNarrow I16x8            W64 ofs al  => 0x3Dw :: enc_unsigned_word al ++ enc_unsigned_word ofs
-  | StoreNarrow32                    ofs al  => 0x3Ew :: enc_unsigned_word al ++ enc_unsigned_word ofs
-  | Store128                         ofs al  => 0xFDw :: enc_num 11 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | StoreLane (Is3 $ Is2 I16x8) ofs al lidx  => 0xFDw :: enc_num 88 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
-  | StoreLane (Is3 $ Is2 I8x16) ofs al lidx  => 0xFDw :: enc_num 89 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
-  | StoreLane (Is3 $     I32x4) ofs al lidx  => 0xFDw :: enc_num 90 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
-  | StoreLane (          I64x2) ofs al lidx  => 0xFDw :: enc_num 91 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | Store   Int                  W32 ofs al => 0x36w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Store   Int                  W64 ofs al => 0x37w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Store Float                  W32 ofs al => 0x38w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Store Float                  W64 ofs al => 0x39w :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreNarrow I8x16            W32 ofs al => 0x3Aw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreNarrow I16x8            W32 ofs al => 0x3Bw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreNarrow I8x16            W64 ofs al => 0x3Cw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreNarrow I16x8            W64 ofs al => 0x3Dw :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreNarrow32                    ofs al => 0x3Ew :: enc_unsigned_word al ++ enc_unsigned_word ofs
+  | Store128                         ofs al => 0xFDw :: enc_num 11 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | StoreLane (Is3 $ Is2 I16x8) ofs al lidx => 0xFDw :: enc_num 88 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | StoreLane (Is3 $ Is2 I8x16) ofs al lidx => 0xFDw :: enc_num 89 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | StoreLane (Is3 $     I32x4) ofs al lidx => 0xFDw :: enc_num 90 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | StoreLane (          I64x2) ofs al lidx => 0xFDw :: enc_num 91 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
 End
 
 Overload i16x8 = “Is3 $ Is2 I16x8”
@@ -963,12 +1007,11 @@ Definition dec_storeI_def:
   if b = 0x3Dw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I16x8  W64 ofs al,rs) else
   if b = 0x3Ew then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow32           ofs al,rs) else
   if b = 0xFDw then case dec_num bs of
-    | SOME (11,cs)=>case dec_2u32   cs of NONE=>failure| SOME (al,ofs     ,rs) => (INR $ Store128        ofs al     ,rs)
-    (* WHYYYYY????? *)
-    (* | SOME (88,cs)=>case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i16x8 ofs al lidx,rs) *)
-    (* | SOME (89,cs)=>case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i8x16 ofs al lidx,rs) *)
-    (* | SOME (90,cs)=>case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i32x4 ofs al lidx,rs) *)
-    (* | SOME (91,cs)=>case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i64x2 ofs al lidx,rs) *)
+    | SOME (11,cs)=>(case dec_2u32   cs of NONE=>failure| SOME (al,ofs     ,rs) => (INR $ Store128        ofs al     ,rs))
+    | SOME (88,cs)=>(case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i16x8 ofs al lidx,rs))
+    | SOME (89,cs)=>(case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i8x16 ofs al lidx,rs))
+    | SOME (90,cs)=>(case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i32x4 ofs al lidx,rs))
+    | SOME (91,cs)=>(case dec_2u32_8 cs of NONE=>failure| SOME (al,ofs,lidx,rs) => (INR $ StoreLane i64x2 ofs al lidx,rs))
     | _ => failure
   else
   failure
@@ -994,7 +1037,7 @@ Definition dec_memI_def:
   if b = 0x40w ∧ c = 0x00w then (INR Grow, cs) else
   if b = 0xFCw then case dec_num $ c::cs of
     | SOME ( 8,ds) => (case dec_num ds of NONE => failure | SOME (didx,e::rst) => if e = 0x00w then (INR $ Init didx, rst) else failure)
-    | SOME ( 9,ds) => (case dec_num ds of NONE => failure | SOME (didx,rst) => (INR $ DDrop didx, rst))
+    | SOME ( 9,ds) => (case dec_num ds of NONE => failure | SOME (didx,   rst) => (INR $ DDrop didx, rst))
     | SOME (10,d::e::rst) => if d = 0x00w ∧ e = 0x00w then (INR Copy,rst) else failure
     | SOME (11,d::   rst) => if d = 0x00w             then (INR Fill,rst) else failure
     | _ => failure
