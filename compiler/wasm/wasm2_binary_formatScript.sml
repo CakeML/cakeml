@@ -78,7 +78,7 @@ End
 
 Definition dec_numtype_def:
   dec_numtype (b:byte) : numtype option =
-  (* QQ Why not case? MM: this is better. Explanation elided for now *)
+  (* qq why not case? mm: this is better. explanation elided for now *)
   if b = 0x7Fw then SOME (NT Int   W32) else
   if b = 0x7Ew then SOME (NT Int   W64) else
   if b = 0x7Dw then SOME (NT Float W32) else
@@ -1056,12 +1056,18 @@ End
 Theorem dec_enc_numtype:
   ∀ t. dec_numtype (enc_numtype t) = SOME t
 Proof
-  cheat
+  Cases_on `t` >> Cases_on `b` >> Cases_on `w` \\
+  rw[dec_numtype_def, enc_numtype_def]
 QED
 
 Theorem dec_enc_valtype:
   ∀ t. dec_valtype (enc_valtype t) = SOME t
 Proof
+  (* Cases >>
+  rw[dec_valtype_def, enc_valtype_def] >>
+  Cases_on `n` >>
+  Cases_on `b` >>
+  Cases_on `w` *)
   cheat
 QED
 
@@ -1089,26 +1095,6 @@ QED
 (*     WIP     *)
 (*             *)
 (***************)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
