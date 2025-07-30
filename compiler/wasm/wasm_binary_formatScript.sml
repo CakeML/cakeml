@@ -238,7 +238,7 @@ End
 Theorem dec_enc_numI[simp]:
   ∀ t rest . dec_numI (enc_numI i ++ rest) = (INR t, rest)
 Proof
-  Cases >> simp[dec_numI_def, enc_numI_def ] >>
+  (* Cases >> simp[dec_numI_def, enc_numI_def ] >> *)
   cheat
 QED
 
