@@ -8,8 +8,8 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | --- | --- | --- |
 | Function declaration | `fun FNAME ( ARGS ) { BODY }` | `ARGS` may be empty; each argument must have both shape and identifier, eg `1 x, {1,2} y`. `BODY` must include a function return in all execution branches. Optionally, add `export` keyword before `fun` for multiple entry points feature |
 | Block scope | `{ BODY };` | Must have semicolon after right brace. `BODY` may be empty |
-| Conditional statement | `if CONDITION { BODY } else { BODY }` | `else` and second body optional. `CONDITION` need not be enclosed in brackets. `BODY` may be empty |
-| Loop | `while CONDITION { BODY }` | `CONDITION` need not be enclosed in brackets. `BODY` may be empty |
+| Conditional statement | `if CONDITION { BODY } else { BODY }` | `else` and second body optional. `CONDITION` need not be enclosed in brackets, is considered false if equal to 0 and true otherwise. `BODY` may be empty |
+| Loop | `while CONDITION { BODY }` | `CONDITION` need not be enclosed in brackets, is considered false if equal to 0 and true otherwise. `BODY` may be empty |
 
 ## Statements
 
