@@ -18,6 +18,21 @@ Definition ctz_def: (* count trailing zeros *)
   ctz (w:α word) : β word = n2w (bit_count (w ⊕ (w-1w)) - 1)
 End
 
+Theorem ctz_spec1:
+  ∀ n. n < w2n (ctz w) ⇒ w ' n = F
+Proof
+  (* Induct_on ‘n’
+  rw[ctz_def]
+  Cases_on ‘w’  *)
+  cheat
+QED
+
+Theorem ctz_spec2:
+  w >> w2n (ctz w) <> 0x00w
+Proof
+  cheat
+QED
+
 Definition clz_def: (* count leading zeros *)
   clz (w:α word) : β word = ctz $ word_reverse w
 End
@@ -42,12 +57,6 @@ End
 
 Overload unlend32  = “unlend 4  []”
 Overload unlend128 = “unlend 16 []”
-
-Theorem ctz_spec:
-  ∀ n. n < w2n (ctz w) ⇒ w ' n = F
-Proof
-  cheat
-QED
 
 Theorem clz_spec:
   ∀ n. (dimindex(:α) - n) < w2n (ctz (w:α word)) ⇒ w ' n = F
