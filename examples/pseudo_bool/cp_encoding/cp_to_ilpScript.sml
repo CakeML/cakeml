@@ -16,6 +16,8 @@ Datatype:
   | Ne ('a + int) ('a + int)  (* Used to force X ≠ Y *)
   | Gem ('a + int) ('a + int) (* Used to force X ≥ Y in Array Max *)
   | Eqc ('a + int) ('a + int) (* Used to force X = Y in Count *)
+  | Nv (('a + int) list) int (* Used to force some element in As = v *)
+  | Tb (('a + int) list) (('a + int) list) int
 End
 
 Definition min_iterm_def:
@@ -766,6 +768,12 @@ Definition encode_Gem_ge_iff_def:
   MAP (λA. bits_imply bnd [Neg (Gem A M)] (mk_constraint_ge 1 M (-1) A 1)) As
 End
 
+(* Encodes that all As ≤ M *)
+Definition encode_Gem_le_def:
+  encode_Gem_le bnd As M =
+  MAP (λA. bits_imply bnd [Pos (Gem M A)] (mk_constraint_ge 1 M (-1) A 0)) As
+End
+
 Definition encode_Gem_le_iff_def:
   encode_Gem_le_iff bnd As M =
   encode_Gem_le bnd As M ++
@@ -778,7 +786,7 @@ Theorem encode_Gem_ge_sem:
     (∀A. MEM A As ∧ wb (Gem A M) ⇒ varc wi A ≥ varc wi M)
 Proof
   rw[encode_Gem_ge_def]>>
-  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,GSYM integerTheory.INT_POLY_CONV_rth,integerTheory.INT_GE, integerTheory.INT_SUB_LE]>>
+  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,mk_constraint_ge_sem,GSYM integerTheory.INT_POLY_CONV_rth,integerTheory.INT_GE, integerTheory.INT_SUB_LE]>>
   metis_tac[]
 QED
 
@@ -788,7 +796,7 @@ Theorem encode_Gem_le_sem:
     (∀A. MEM A As ∧ wb (Gem M A) ⇒ varc wi A ≤ varc wi M)
 Proof
   rw[encode_Gem_le_def]>>
-  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,GSYM integerTheory.INT_POLY_CONV_rth,integerTheory.INT_GE, integerTheory.INT_SUB_LE]>>
+  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,mk_constraint_ge_sem,GSYM integerTheory.INT_POLY_CONV_rth,integerTheory.INT_GE, integerTheory.INT_SUB_LE]>>
   metis_tac[]
 QED
 
@@ -798,7 +806,7 @@ Theorem encode_Gem_ge_iff_sem:
     (∀A. MEM A As ⇒ (wb (Gem A M) ⇔ varc wi A ≥ varc wi M))
 Proof
   rw[encode_Gem_ge_iff_def,encode_Gem_ge_sem]>>
-  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,
+  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,mk_constraint_ge_sem,
     intLib.ARITH_PROVE ``X + -1 * (Y:int) ≥ 1 ⇔ ¬ (Y ≥ X)``]>>
   metis_tac[]
 QED
@@ -809,7 +817,7 @@ Theorem encode_Gem_le_iff_sem:
     (∀A. MEM A As ⇒ (wb (Gem M A) ⇔ varc wi A ≤ varc wi M))
 Proof
   rw[encode_Gem_le_iff_def,encode_Gem_le_sem]>>
-  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,EVERY_MEM,mk_constraint_ge_sem,
+  simp[EVERY_MAP,EVERY_MEM,bits_imply_sem,mk_constraint_ge_sem,
     intLib.ARITH_PROVE ``X + -1 * (Y:int) ≥ 1 ⇔ ¬ (X <= Y)``]>>
   metis_tac[]
 QED
@@ -959,6 +967,55 @@ Proof
     simp[iSUM_MAP_lin_const]>>
     intLib.ARITH_TAC)
 QED
+
+(* domain of X given by bnd *)
+Definition dom_def:
+  dom bnd X =
+  case X of
+    INL vX =>
+      let
+        (lb, ub) = bnd vX
+      in
+        if lb > ub then [] else GENLIST (λn. &n + lb) (Num (ub - lb) + 1)
+  | INR cX => [cX]
+End
+
+Definition encode_nvalue_def:
+  encode_nvalue bnd Y As =
+  let
+    Vals = nub $ FLAT $ MAP (dom bnd) As;
+    some_eq = λv. ([], MAP (λA. (1i, Pos (Eqc A (INR v)))) As, 1i);
+    none_eq = λv. ([], MAP (λA. (-1i, Pos (Eqc A (INR v)))) As, 0i)
+  in
+    MAP (λv. bits_imply bnd [Pos (Nv As v)] (some_eq v)) Vals ++
+    MAP (λv. bits_imply bnd [Neg (Nv As v)] (none_eq v)) Vals ++
+    (case Y of
+        INL vY =>
+          [([(-1, vY)], MAP (λv. (1i, Pos (Nv As v))) Vals, 0);
+          ([(1, vY)], MAP (λv. (-1i, Pos (Nv As v))) Vals, 0)]
+      | INR cY =>
+          [([], MAP (λv. (1i, Pos (Nv As v))) Vals, cY);
+          ([], MAP (λv. (-1i, Pos (Nv As v))) Vals, -cY)])
+End
+
+(* TODO: Theorem encode_nvalue_sem *)
+
+Definition encode_table_def:
+  encode_table bnd Xs Tss =
+  let n = LENGTH Xs in
+    if EVERY (λTs. LENGTH Ts = n) Tss
+    then
+      let
+        all_eq = λTs. ([], MAP (λ(X, T). (1i, Pos (Eqc X T))) (ZIP (Xs, Ts)), &n);
+        some_neq = λTs. ([], MAP (λ(X, T). (-1i, Pos (Eqc X T))) (ZIP (Xs, Ts)), -&n + 1i)
+      in
+        MAP (λTs. bits_imply bnd [Pos (Tb Xs Ts &n)] (all_eq Ts)) Tss ++
+        MAP (λTs. bits_imply bnd [Neg (Tb Xs Ts &n)] (some_neq Ts)) Tss ++
+        [([], MAP (λTs. (1i, Pos (Tb Xs Ts &n))) Tss, 1i)]
+    else [([], [], 1i)]
+End
+
+(* TODO: Theorem encode_table_sem *)
 
 (* The top-level encodings *)
 Definition encode_cp_one_def:
