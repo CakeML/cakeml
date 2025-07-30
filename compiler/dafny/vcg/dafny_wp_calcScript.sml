@@ -1359,13 +1359,123 @@ Proof
   ho_match_mp_tac conj_ind \\ fs [conj_def,wrap_Old_def]
 QED
 
+(* *** *)
+
+Theorem evaluate_exp_wrap_Old_locals:
+  (∀st env e st' r l nss.
+     evaluate_exp st env (wrap_Old nss e) = (st', r) ∧
+     (∀n. n ∈ nss ⇒
+          ∃v. read_local st.locals_old n = SOME v ∧
+              ALOOKUP l n = SOME (SOME v)) ∧
+     (∀n. n ∉ nss ⇒ ALOOKUP l n = ALOOKUP st.locals n) ∧
+     ¬env.is_running ⇒
+     evaluate_exp (st with locals := l) env e = (st' with locals := l, r)) ∧
+  (∀st env es st' r l nss.
+     evaluate_exps st env (MAP (wrap_Old nss) es) = (st', r) ∧
+     (∀n. n ∈ nss ⇒
+          ∃v. read_local st.locals_old n = SOME v ∧
+              ALOOKUP l n = SOME (SOME v)) ∧
+     (∀n. n ∉ nss ⇒ ALOOKUP l n = ALOOKUP st.locals n) ∧
+     ¬env.is_running ⇒
+     evaluate_exps (st with locals := l) env es = (st' with locals := l, r))
+Proof
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Var n’] >-
+   (gvs [wrap_Old_def]
+    \\ reverse $ Cases_on ‘n ∈ nss’ \\ gvs []
+    >- (gvs [evaluate_exp_def, read_local_def, AllCaseEqs()])
+    \\ last_x_assum drule \\ strip_tac
+    \\ gvs [evaluate_exp_def, read_local_def, use_old_def, unuse_old_def,
+            state_component_equality])
+  >~ [‘Forall (vn,vt) e’] >-
+   (qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ simp [evaluate_exp_def, eval_forall_def, wrap_Old_def]
+    \\ simp [GSYM AND_IMP_INTRO]
+    \\ strip_tac \\ gvs []
+    \\ ‘∀v.
+          SND (evaluate_exp (push_local st vn v) env
+                 (wrap_Old (nss DELETE vn) e)) =
+          SND (evaluate_exp (push_local (st with locals := l) vn v) env e)’ by
+      (gen_tac
+       \\ namedCases_on
+            ‘evaluate_exp (push_local st vn v) env (wrap_Old (nss DELETE vn) e)’
+            ["s₁ r₁"]
+       \\ gvs [snd_tuple]
+       \\ last_x_assum drule
+       \\ simp [push_local_def]
+       \\ disch_then $ irule_at (Pos hd)
+       \\ rpt strip_tac \\ gvs [])
+    \\ gvs [])
+QED
+
+Triviality list_rel_eval_exp_old_var:
+  ∀ns vs n st env.
+    LIST_REL (eval_exp st env) (MAP (Old ∘ Var) ns) vs ∧ MEM n ns ⇒
+    ∃v.
+      read_local st.locals_old n = SOME v ∧
+      ALOOKUP (ZIP (ns,MAP SOME vs) ++ st.locals) n = SOME (SOME v)
+Proof
+  Induct \\ gvs [PULL_EXISTS]
+  \\ qx_genl_tac [‘n'’, ‘n’, ‘st’, ‘env’, ‘v’, ‘vs’]
+  \\ rpt strip_tac \\ gvs []
+  >- (gvs [eval_exp_def, evaluate_exp_def, use_old_def, AllCaseEqs()])
+  \\ IF_CASES_TAC \\ gvs []
+  >- (gvs [eval_exp_def, evaluate_exp_def, use_old_def, AllCaseEqs()])
+  \\ last_x_assum drule_all \\ simp []
+QED
+
 Theorem eval_exp_wrap_Old_IMP:
-  eval_exp st2 env (wrap_Old (set vs) x) v ∧ no_Old x ∧
-  LIST_REL (eval_exp st2 env) (MAP (Old o Var) vs) vals ⇒
-  eval_exp (st2 with locals := ZIP (vs,MAP SOME vals) ++ st2.locals) env x v
+  eval_exp st env (wrap_Old (set ns) x) v ∧ (* no_Old x ∧ *)
+  LIST_REL (eval_exp st env) (MAP (Old ∘ Var) ns) vs ∧
+  ¬env.is_running ⇒
+  eval_exp (st with locals := ZIP (ns,MAP SOME vs) ++ st.locals) env x v
+Proof
+  simp [eval_exp_def, PULL_EXISTS]
+  \\ qx_genl_tac [‘ck’, ‘ck₁’]
+  \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ drule (cj 1 evaluate_exp_wrap_Old_locals) \\ gvs []
+  \\ disch_then $ qspec_then ‘ZIP (ns, MAP SOME vs) ++ st.locals’ mp_tac
+  \\ impl_tac >-
+   (rpt strip_tac
+    >- (drule_all list_rel_eval_exp_old_var \\ simp [])
+    \\ simp [ALOOKUP_APPEND]
+    \\ simp [AllCaseEqs()]
+    \\ disj1_tac
+    \\ irule $ iffRL ALOOKUP_ZIP_FAIL \\ simp [])
+  \\ disch_then $ irule_at (Pos hd)
+QED
+
+(* *** *)
+
+Theorem evaluate_exp_wrap_Old_locals:
+  (∀st env e ns vs st' r.
+     evaluate_exp st env (wrap_Old (set ns) e) = (st', r) ∧
+     LIST_REL (λn v. read_local st.locals_old n = SOME v) ns vs ∧
+     ¬env.is_running ⇒
+     evaluate_exp (st with locals := ZIP (ns,MAP SOME vs) ++ st.locals) env e =
+     (st' with locals := ZIP (ns,MAP SOME vs) ++ st.locals, r)) ∧
+  (∀st env es ns vs st' r.
+     evaluate_exps st env (MAP (wrap_Old (set ns)) es) = (st', r) ∧
+     LIST_REL (λn v. read_local st.locals_old n = SOME v) ns vs ∧
+     ¬env.is_running ⇒
+     evaluate_exps (st with locals := ZIP (ns,MAP SOME vs) ++ st.locals) env es =
+     (st' with locals := ZIP (ns,MAP SOME vs) ++ st.locals, r))
 Proof
   cheat
 QED
+
+Theorem eval_exp_wrap_Old_IMP:
+  eval_exp st env (wrap_Old (set vs) x) v ∧ (* no_Old x ∧ *)
+  LIST_REL (eval_exp st env) (MAP (Old ∘ Var) vs) vals ∧
+  ¬env.is_running ⇒
+  eval_exp (st with locals := ZIP (vs,MAP SOME vals) ++ st.locals) env x v
+Proof
+  cheat
+QED
+
+(* *** *)
 
 Theorem IMP_LIST_REL_eval_exp_MAP_Var:
   st5.locals = ZIP (ret_names,MAP SOME out_vs) ++ rest ∧
