@@ -19,8 +19,9 @@ Definition ctz_def: (* count trailing zeros *)
 End
 
 Theorem ctz_spec1:
-  ∀ n. n < w2n (ctz w) ⇒ w ' n = F
+  ∀ n. n < w2n (ctz w) ⇒ ¬ w ' n
 Proof
+    (* rw[ctz_def] *)
   (* Induct_on ‘n’
   rw[ctz_def]
   Cases_on ‘w’  *)
@@ -28,7 +29,7 @@ Proof
 QED
 
 Theorem ctz_spec2:
-  w >> w2n (ctz w) <> 0x00w
+  ∀ w. 0w <+ w >> w2n (ctz w)
 Proof
   cheat
 QED
