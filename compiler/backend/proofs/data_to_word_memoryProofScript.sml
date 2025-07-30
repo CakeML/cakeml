@@ -4458,7 +4458,7 @@ Definition get_addr_def:
 End
 
 Definition word_addr_def:
-  (word_addr conf (Data (Loc l1 l2)) = Loc l1 l2) /\
+  (word_addr conf (Data (Loc l1 l2)) = Loc l1 0) /\
   (word_addr conf (Data (Word v)) = Word (v && (~1w))) /\
   (word_addr conf (Pointer n w) = Word (get_addr conf n w))
 End
@@ -6813,10 +6813,11 @@ Proof
 QED
 
 Theorem word_addr_eq_Loc:
-   word_addr c v = Loc l1 l2 <=> v = Data (Loc l1 l2)
+  word_addr c v = Loc l1 l2 <=> l2 = 0 ∧ ∃l2. v = Data (Loc l1 l2)
 Proof
   Cases_on `v` \\ fs [word_addr_def]
   \\ Cases_on `a` \\ fs [word_addr_def]
+  \\ eq_tac \\ rw []
 QED
 
 Theorem memory_rel_CodePtr:
@@ -6828,7 +6829,7 @@ Proof
   \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []
   \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,
          roots_ok_def,reachable_refs_def]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  \\ rw [] \\ fs [] \\ res_tac \\ fs [PULL_EXISTS]
   \\ qexists_tac `f` \\ qexists_tac `tf`
   \\ fs [PULL_EXISTS] \\ rw [] \\ fs []
   \\ fs [get_refs_def] \\ res_tac
@@ -11564,6 +11565,81 @@ Proof
   \\ match_mp_tac memory_rel_rearrange \\ fs []
 QED
 
+Theorem write_bytearray_isWord:
+   ∀ls a m x.
+   isWord (m x) ⇒
+   isWord (write_bytearray a ls m dm be x)
+Proof
+  Induct \\ rw[wordSemTheory.write_bytearray_def]
+  \\ rw[wordSemTheory.mem_store_byte_aux_def]
+  \\ every_case_tac \\ fs[]
+  \\ simp[APPLY_UPDATE_THM]
+  \\ rw[isWord_def]
+QED
+
+Theorem write_bytearray_append:
+  ∀xs ys a m dm be.
+    (∀i. i < LENGTH xs + LENGTH ys ⇒
+         ∃b. mem_load_byte_aux m dm be (a + n2w i) = SOME b) ⇒
+    write_bytearray a (xs ++ ys) m dm be =
+    write_bytearray a xs (write_bytearray (a + n2w (LENGTH xs)) ys m dm be) dm be
+Proof
+  Induct \\ gvs [wordSemTheory.write_bytearray_def,ADD1,GSYM word_add_n2w]
+  \\ rw []
+  \\ first_assum $ qspec_then ‘0’ mp_tac
+  \\ last_x_assum $ DEP_REWRITE_TAC o single
+  \\ conj_tac
+  >- (rw [] \\ first_x_assum $ qspec_then ‘i+1’ mp_tac \\ gvs [GSYM word_add_n2w])
+  \\ strip_tac \\ fs []
+  \\ CASE_TAC \\ gvs []
+  \\ last_x_assum $ kall_tac
+  \\ gvs []
+  \\ gvs [wordSemTheory.mem_store_byte_aux_def,AllCaseEqs()]
+  \\ gvs [wordSemTheory.mem_load_byte_aux_def,AllCaseEqs()]
+  \\ metis_tac [write_bytearray_isWord,isWord_def]
+QED
+
+Theorem memory_rel_write_bytearray_lemma[local]:
+  ∀rest bytes bytes0 m refs.
+    memory_rel c be stm refs sp st m dm ((RefPtr b n,Word (w:'a word))::vs) ∧
+    lookup n refs = SOME (ByteArray F (bytes0 ++ rest)) ∧ LENGTH bytes = LENGTH bytes0 ∧
+    get_real_simple_addr c st w = SOME a ∧ good_dimindex (:'a) ⇒
+    memory_rel c be stm (insert n (ByteArray F (bytes ++ rest)) refs) sp st
+      (write_bytearray (a + bytes_in_word) bytes m dm be)
+      dm ((RefPtr b n,Word w)::vs)
+Proof
+  Induct_on ‘bytes’ using SNOC_INDUCT \\ rpt strip_tac
+  >- (gvs [wordSemTheory.write_bytearray_def,insert_unchanged])
+  \\ drule_all memory_rel_ByteArray_IMP \\ simp []
+  \\ strip_tac
+  \\ rename [‘SNOC new_b _’]
+  \\ Cases_on ‘bytes0’ using SNOC_CASES >- gvs [SNOC_APPEND]
+  \\ fs [SNOC_APPEND]
+  \\ first_x_assum $ qspecl_then [‘LENGTH bytes’,‘new_b’] mp_tac
+  \\ gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ simp [EL_APPEND2]
+  \\ rpt strip_tac
+  \\ last_x_assum drule \\ simp []
+  \\ disch_then $ qspecl_then [‘new_b::rest’,‘l’] mp_tac
+  \\ impl_tac
+  >- (gvs [] \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND])
+  \\ simp [Once insert_insert]
+  \\ match_mp_tac (METIS_PROVE [] “x = y ⇒ (x ⇒ y)”)
+  \\ rpt AP_THM_TAC \\ rpt AP_TERM_TAC
+  \\ DEP_REWRITE_TAC [write_bytearray_append]
+  \\ conj_tac >- rw []
+  \\ rpt AP_THM_TAC \\ rpt AP_TERM_TAC
+  \\ gvs [wordSemTheory.write_bytearray_def]
+  \\ first_x_assum $ qspec_then ‘LENGTH l’ mp_tac
+  \\ impl_tac >- gvs []
+  \\ strip_tac
+  \\ gvs [AllCaseEqs(),wordSemTheory.mem_load_byte_aux_def]
+  \\ gvs [wordSemTheory.mem_store_byte_aux_def,theWord_def]
+QED
+
+Theorem memory_rel_write_bytearray =
+  memory_rel_write_bytearray_lemma |> Q.SPEC ‘[]’ |> SRULE [] |> SPEC_ALL;
+
 Theorem memory_rel_space_max:
    memory_rel c be ts refs old_sp st m dm vars ==>
     ?next_free trig_gc sp.
@@ -13381,6 +13457,584 @@ Proof
   \\ drule parts_to_words_IMP_build_words \\ fs [lookup_mem_def,lookup_def]
   \\ disch_then irule
   \\ fs [memory_rel_def,heap_in_memory_store_def,byte_align_mult_bytes_in_word]
+QED
+
+Definition read_word_def:
+  read_word dm m a = (theWord (m a), a ∈ dm ∧ isWord (m a))
+End
+
+Definition word_xor_bytes_def:
+  word_xor_bytes (a1:'a word) (a2:'a word) (len:'a word) dm m =
+    if len <+ 2w ∨ ~ good_dimindex (:'a) then
+      if len = 0w then SOME m else
+        let (w1a,c1) = read_word dm m a1 in
+        let (w2a,c2) = read_word dm m a2 in
+        let a = word_xor w1a w2a in
+        let m = (a2 =+ Word (a:'a word)) m in
+          if c1 ∧ c2 then SOME m else NONE
+    else
+      let (w1a,c1) = read_word dm m a1 in
+      let (w2a,c2) = read_word dm m a2 in
+      let (w1b,c3) = read_word dm m (a1 + bytes_in_word) in
+      let (w2b,c4) = read_word dm m (a2 + bytes_in_word) in
+      let a = word_xor w1a w2a in
+      let b = word_xor w1b w2b in
+      let m = (a2 + bytes_in_word =+ Word b) ((a2 =+ Word a) m) in
+        if c1 ∧ c2 ∧ c3 ∧ c4 then
+          word_xor_bytes (a1 + 2w * bytes_in_word) (a2 + 2w * bytes_in_word)
+            (len - 2w) dm m
+        else NONE
+Termination
+  WF_REL_TAC ‘measure $ λ(a1,a2,len,dm,m). w2n len’
+  \\ Cases_on ‘len’ \\ gvs [WORD_LO]
+  \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+  \\ Cases_on ‘good_dimindex (:α)’ \\ simp []
+  \\ gvs [dimword_def,good_dimindex_def]
+End
+
+Definition make_zeros_def:
+  make_zeros (vals:word8 list) =
+    REPLICATE (LENGTH vals DIV (dimindex (:α) DIV 8) + 1) (0w:'a word)
+End
+
+Definition xor_words_def:
+  xor_words [] ys = SOME ys ∧
+  xor_words xs [] = NONE ∧
+  xor_words (x::xs) (y::ys) =
+    case xor_words xs ys of
+    | NONE => NONE
+    | SOME rest => SOME (word_xor (x:'a word) y :: rest)
+End
+
+Theorem word_xor_set_byte:
+  word_xor (set_byte a h1 w1 be) (set_byte a h2 w2 be) =
+  set_byte a (word_xor h1 h2) (word_xor w1 w2) be
+Proof
+  gvs [set_byte_def,fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,
+      word_lsl_def,w2w,word_xor_def,word_slice_alt_def,SF CONJ_ss]
+  \\ rpt strip_tac
+  \\ Cases_on ‘h1 ' (i − byte_index a be)’
+  \\ Cases_on ‘h2 ' (i − byte_index a be)’
+  \\ Cases_on ‘w1 ' i’
+  \\ Cases_on ‘w2 ' i’
+  \\ gvs []
+QED
+
+Triviality xor_bytes_bytes_to_word:
+  ∀k vals1 vals2 res_vals a.
+    xor_bytes vals1 vals2 = SOME res_vals ⇒
+    bytes_to_word k a vals1 0w be ⊕
+    bytes_to_word k a vals2 0w be =
+    bytes_to_word k a res_vals 0w be
+Proof
+  Induct \\ gvs []
+  \\ once_rewrite_tac [bytes_to_word_def] \\ simp []
+  \\ Cases \\ Cases_on ‘vals2’ \\ simp [semanticPrimitivesTheory.xor_bytes_def]
+  \\ simp [CaseEq"option",PULL_EXISTS]
+  \\ rpt strip_tac
+  \\ last_x_assum drule
+  \\ disch_then $ rewrite_tac o single o GSYM
+  \\ gvs [word_xor_set_byte]
+QED
+
+Theorem xor_bytes_length:
+  ∀xs ys zs.
+    xor_bytes xs ys = SOME zs ⇒
+    LENGTH xs ≤ LENGTH zs ∧ LENGTH zs = LENGTH ys
+Proof
+  Induct \\ Cases_on ‘ys’ \\ gvs [semanticPrimitivesTheory.xor_bytes_def]
+  \\ rw [CaseEq"option"] \\ gvs [] \\ res_tac \\ gvs []
+QED
+
+Triviality xor_bytes_drop:
+  ∀n xs ys zs.
+    xor_bytes xs ys = SOME zs ⇒
+    xor_bytes (DROP n xs) (DROP n ys) = SOME (DROP n zs)
+Proof
+  Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ gvs [semanticPrimitivesTheory.xor_bytes_def]
+  \\ Cases_on ‘n’ \\ gvs []  \\ gvs []
+  \\ gvs [semanticPrimitivesTheory.xor_bytes_def,CaseEq"option"]
+  \\ rw [] \\ gvs []
+QED
+
+Triviality xor_bytes_xor_words:
+  ∀zs1 zs2 vals1 vals2 res_vals.
+    xor_bytes vals1 vals2 = SOME res_vals ∧ good_dimindex (:'a) ∧
+    EVERY (λw. w = 0w) zs1 ∧ EVERY (λw. w = 0w) zs2 ∧
+    LENGTH zs1 = LENGTH vals1 DIV (dimindex (:α) DIV 8) + 1 ∧
+    LENGTH zs2 = LENGTH vals2 DIV (dimindex (:α) DIV 8) + 1 ⇒
+    xor_words (write_bytes vals1 zs1 be)
+              (write_bytes vals2 zs2 be) =
+    SOME (write_bytes res_vals zs2 be : 'a word list)
+Proof
+  Cases_on ‘good_dimindex (:'a)’ \\ fs []
+  \\ Induct_on ‘zs1’ \\ Cases_on ‘zs2’ \\ gvs []
+  \\ rpt strip_tac \\ gvs [ADD1]
+  \\ gvs [write_bytes_def,xor_words_def,CaseEq"option"]
+  \\ irule_at Any xor_bytes_bytes_to_word
+  \\ simp []
+  \\ drule xor_bytes_drop
+  \\ disch_then $ qspec_then ‘dimindex (:α) DIV 8’ assume_tac
+  \\ Cases_on ‘LENGTH vals1 < (dimindex (:α) DIV 8)’
+  >- (gvs [LESS_DIV_EQ_ZERO]
+      \\ ‘DROP (dimindex (:α) DIV 8) vals1 = []’ by
+           (irule DROP_LENGTH_TOO_LONG \\ gvs [])
+      \\ gvs [write_bytes_def,xor_words_def,semanticPrimitivesTheory.xor_bytes_def])
+  \\ gvs [NOT_LESS]
+  \\ last_x_assum irule \\ gvs []
+  \\ ‘dimindex (:α) DIV 8 ≤ LENGTH vals2’ by
+    (imp_res_tac xor_bytes_length \\ decide_tac)
+  \\ imp_res_tac LESS_EQ_LENGTH \\ gvs []
+  \\ DEP_REWRITE_TAC [ADD_DIV_EQ]
+  \\ gvs [good_dimindex_def]
+QED
+
+Theorem xor_bytes_xor_words:
+  xor_bytes vals1 vals2 = SOME res_vals ∧ good_dimindex (:'a) ⇒
+  xor_words (write_bytes vals1 (make_zeros vals1) be)
+            (write_bytes vals2 (make_zeros vals2) be) =
+  SOME (write_bytes res_vals (make_zeros vals2) be : 'a word list)
+Proof
+  rw [] \\ irule xor_bytes_xor_words \\ gvs []
+  \\ simp [make_zeros_def]
+  \\ DEP_REWRITE_TAC [GSYM DIV_LT_X]
+  \\ simp [] \\ gvs [good_dimindex_def]
+QED
+
+Theorem xor_words_word_list:
+  ∀vals1 vals2 res_vals a1 a2 be frame m.
+    xor_words vals1 vals2 = SOME res_vals ∧
+    good_dimindex (:'a) ∧ LENGTH vals1 < dimword (:'a) ∧
+    (word_list a1 (MAP Word vals1) *
+     word_list a2 (MAP Word vals2) *
+     frame) (fun2set (m,dm)) ⇒
+    ∃m1.
+      (word_list a1 (MAP Word vals1) *
+       word_list a2 (MAP Word res_vals) *
+       frame) (fun2set (m1,dm: 'a word set)) ∧
+      word_xor_bytes a1 a2 (n2w (LENGTH vals1)) dm m = SOME m1
+Proof
+  gen_tac \\ completeInduct_on ‘LENGTH vals1’
+  \\ rpt strip_tac \\ gvs [PULL_FORALL]
+  \\ Cases_on ‘vals1’ \\ gvs [xor_words_def]
+  >-
+   (simp [Once word_xor_bytes_def]
+    \\ gvs [good_dimindex_def,WORD_LO,dimword_def])
+  \\ Cases_on ‘vals2’ \\ gvs [xor_words_def,CaseEq"option"]
+  \\ rename [‘xor_words xs ys = SOME zs’]
+  \\ Cases_on ‘xs’
+  >-
+   (simp [Once word_xor_bytes_def,WORD_LO]
+    \\ reverse IF_CASES_TAC
+    >-
+     (qsuff_tac ‘F’ >- fs []
+      \\ gvs [good_dimindex_def,WORD_LO,dimword_def])
+    \\ gvs [word_list_def,SEP_CLAUSES,read_word_def]
+    \\ SEP_R_TAC \\ gvs [isWord_def,theWord_def]
+    \\ SEP_W_TAC \\ gvs [AC STAR_ASSOC STAR_COMM]
+    \\ gvs [xor_words_def])
+  \\ Cases_on ‘ys’ \\ gvs [xor_words_def,CaseEq"option"]
+  \\ rename [‘xor_words xs ys = SOME zs’]
+  \\ simp [Once word_xor_bytes_def]
+  \\ IF_CASES_TAC
+  >-
+   (qsuff_tac ‘F’ >- fs []
+    \\ gvs [good_dimindex_def,WORD_LO,dimword_def])
+  \\ gvs [word_list_def,SEP_CLAUSES,read_word_def]
+  \\ SEP_R_TAC \\ gvs [isWord_def,theWord_def]
+  \\ simp [ADD1,GSYM word_add_n2w]
+  \\ SEP_W_TAC
+  \\ last_x_assum $ drule_at $ Pos $ el 2
+  \\ simp []
+  \\ disch_then $ qspecl_then [‘a1 + 2w * bytes_in_word’,‘a2 + 2w * bytes_in_word’] assume_tac
+  \\ SEP_F_TAC
+  \\ strip_tac \\ gvs []
+  \\ gvs [AC STAR_ASSOC STAR_COMM]
+QED
+
+Theorem xor_words_word_list_alias:
+  ∀vals1 res_vals a1 be frame m.
+    xor_words vals1 vals1 = SOME res_vals ∧
+    good_dimindex (:'a) ∧ LENGTH vals1 < dimword (:'a) ∧
+    (word_list a1 (MAP Word vals1) *
+     frame) (fun2set (m,dm)) ⇒
+    ∃m1.
+      (word_list a1 (MAP Word res_vals) *
+       frame) (fun2set (m1,dm: 'a word set)) ∧
+      word_xor_bytes a1 a1 (n2w (LENGTH vals1)) dm m = SOME m1
+Proof
+  gen_tac \\ completeInduct_on ‘LENGTH vals1’
+  \\ rpt strip_tac \\ gvs [PULL_FORALL]
+  \\ Cases_on ‘vals1’ \\ gvs [xor_words_def]
+  >-
+   (simp [Once word_xor_bytes_def]
+    \\ gvs [good_dimindex_def,WORD_LO,dimword_def])
+  \\ gvs [xor_words_def,CaseEq"option"]
+  \\ rename [‘xor_words xs _ = SOME zs’]
+  \\ Cases_on ‘xs’
+  >-
+   (simp [Once word_xor_bytes_def]
+    \\ reverse IF_CASES_TAC
+    >-
+     (qsuff_tac ‘F’ >- fs []
+      \\ gvs [good_dimindex_def,WORD_LO,dimword_def])
+    \\ gvs [word_list_def,SEP_CLAUSES,read_word_def,xor_words_def]
+    \\ SEP_R_TAC \\ gvs [isWord_def,theWord_def]
+    \\ SEP_W_TAC \\ gvs [AC STAR_ASSOC STAR_COMM]
+    \\ gvs [xor_words_def])
+  \\ gvs [xor_words_def,CaseEq"option"]
+  \\ rename [‘xor_words xs _ = SOME zs’]
+  \\ simp [Once word_xor_bytes_def]
+  \\ IF_CASES_TAC
+  >-
+   (qsuff_tac ‘F’ >- fs []
+    \\ gvs [good_dimindex_def,WORD_LO,dimword_def])
+  \\ gvs [word_list_def,SEP_CLAUSES,read_word_def]
+  \\ SEP_R_TAC \\ gvs [isWord_def,theWord_def]
+  \\ simp [ADD1,GSYM word_add_n2w]
+  \\ SEP_W_TAC
+  \\ last_x_assum $ drule_at $ Pos $ el 2
+  \\ simp []
+  \\ disch_then $ qspecl_then [‘a1 + 2w * bytes_in_word’] assume_tac
+  \\ SEP_F_TAC
+  \\ strip_tac \\ gvs []
+  \\ gvs [AC STAR_ASSOC STAR_COMM]
+QED
+
+Theorem xor_bytes_word_list:
+  ∀a1 a2 be frame.
+    xor_bytes vals1 vals2 = SOME res_vals ∧
+    good_dimindex (:'a) ∧ LENGTH (make_zeros vals1 :'a word list) < dimword (:'a) ∧
+    (word_list a1 (MAP Word (write_bytes vals1 (make_zeros vals1) be)) *
+     word_list a2 (MAP Word (write_bytes vals2 (make_zeros vals2) be)) *
+     frame) (fun2set (m,dm)) ⇒
+    ∃m1.
+      (word_list a1 (MAP Word (write_bytes vals1 (make_zeros vals1 :'a word list) be)) *
+       word_list a2 (MAP Word (write_bytes res_vals (make_zeros vals2 :'a word list) be)) *
+       frame) (fun2set (m1,dm: 'a word set)) ∧
+      word_xor_bytes a1 a2 (n2w (LENGTH (make_zeros vals1 :'a word list))) dm m = SOME m1
+Proof
+  rpt strip_tac
+  \\ drule_at (Pos last) xor_words_word_list
+  \\ rewrite_tac [LENGTH_write_bytes]
+  \\ disch_then irule
+  \\ asm_rewrite_tac []
+  \\ irule xor_bytes_xor_words
+  \\ asm_rewrite_tac []
+QED
+
+Theorem xor_bytes_word_list_alias:
+  ∀a1 be frame.
+    xor_bytes vals1 vals1 = SOME res_vals1 ∧
+    good_dimindex (:'a) ∧ LENGTH (make_zeros vals1 :'a word list) < dimword (:'a) ∧
+    (word_list a1 (MAP Word (write_bytes vals1 (make_zeros vals1) be)) *
+     frame) (fun2set (m,dm)) ⇒
+    ∃m1.
+      (word_list a1 (MAP Word (write_bytes res_vals1 (make_zeros vals1 :'a word list) be)) *
+       frame) (fun2set (m1,dm: 'a word set)) ∧
+      word_xor_bytes a1 a1 (n2w (LENGTH (make_zeros vals1 :'a word list))) dm m = SOME m1
+Proof
+  rpt strip_tac
+  \\ drule_at (Pos last) xor_words_word_list_alias
+  \\ rewrite_tac [LENGTH_write_bytes]
+  \\ disch_then irule
+  \\ asm_rewrite_tac []
+  \\ irule xor_bytes_xor_words
+  \\ asm_rewrite_tac []
+QED
+
+(*
+Theorem xor_bytes_length:
+  ∀xs ys zs. xor_bytes xs ys = SOME zs ⇒ LENGTH zs = LENGTH ys
+Proof
+  Induct \\ Cases_on ‘ys’ \\ gvs [semanticPrimitivesTheory.xor_bytes_def,AllCaseEqs()]
+  \\ rw [] \\ gvs []
+QED
+*)
+
+Theorem el_length_Bytes:
+  el_length (Bytes be fl vals zeros) = LENGTH zeros + 1
+Proof
+  gvs [el_length_def,Bytes_def]
+QED
+
+Triviality v_inv_alt_ind =
+  v_inv_ind |> Q.SPEC ‘λx (a,b,c,d). P x a’ |> SRULE [];
+
+Theorem memory_rel_xor_bytes:
+   memory_rel c be ts refs sp st m dm
+     ((RefPtr bl1 p1,v1:'a word_loc)::(RefPtr bl2 p2,v2:'a word_loc)::vars) ∧
+   lookup p1 refs = SOME (ByteArray fl1 vals1) ∧
+   lookup p2 refs = SOME (ByteArray fl2 vals2) ∧
+   xor_bytes vals1 vals2 = SOME res_vals ∧
+   good_dimindex (:'a)
+   ⇒
+   ?w1 a1 w2 a2 x1 m1.
+     v1 = Word w1 ∧
+     v2 = Word w2 ∧
+     get_real_addr c st w1 = SOME a1 ∧
+     get_real_addr c st w2 = SOME a2 ∧
+     m a1 = Word x1 ∧ a1 ∈ dm ∧
+     word_xor_bytes (a1 + bytes_in_word) (a2 + bytes_in_word)
+                    (decode_length c x1) dm m = SOME m1 ∧
+     memory_rel c be ts (insert p2 (ByteArray fl2 res_vals) refs) sp st m1 dm
+       ((RefPtr bl1 p1,v1:'a word_loc)::(RefPtr bl2 p2,v2:'a word_loc)::vars)
+Proof
+  strip_tac
+  \\ ‘∃w2 a2. v2 = Word w2 ∧ get_real_addr c st w2 = SOME a2’ by
+    (drule memory_rel_tl \\ strip_tac
+     \\ drule_all memory_rel_ByteArray_IMP \\ strip_tac \\ simp [])
+  \\ ‘∃w1 a1 x1.
+        v1 = Word w1 ∧ get_real_addr c st w1 = SOME a1 ∧
+        LENGTH (make_zeros vals1 :'a word list) < dimword (:'a) ∧
+        m a1 = Word x1 ∧ a1 ∈ dm’ by
+    (drule_all memory_rel_ByteArray_IMP \\ strip_tac \\ simp []
+     \\ gvs [make_zeros_def,good_dimindex_def,dimword_def]
+     \\ irule $ DECIDE “l ≠ 0 ∧ n < l - 1 ⇒ n + 1 < l:num”
+     \\ gvs [DIV_LT_X])
+  \\ gvs [memory_rel_def,PULL_EXISTS]
+  \\ first_assum $ irule_at $ Pos last
+  \\ first_assum $ irule_at $ Pos last
+  \\ qrefinel [‘sp1’,‘_’,‘_’,‘gens’,‘a’]
+  \\ gvs [word_ml_inv_def,PULL_EXISTS]
+  \\ first_assum $ irule_at $ Pos last
+  \\ first_assum $ irule_at $ Pos last
+  \\ first_assum $ irule_at $ Pos last
+  \\ gvs [abs_ml_inv_def,bc_stack_ref_inv_def,PULL_EXISTS]
+  \\ qrefinel [‘_’,‘_’,‘f’,‘tf’] \\ gvs []
+  \\ ‘∃curr. FLOOKUP st CurrHeap = SOME (Word curr) ∧
+             heap_length heap ≤ dimword (:α) DIV 2 ** shift_length c’ by
+    gvs [heap_in_memory_store_def]
+  \\ ‘bc_ref_inv c p1 refs (f,tf,heap,be) ∧
+      bc_ref_inv c p2 refs (f,tf,heap,be)’ by
+   (conj_tac
+    \\ first_x_assum irule
+    \\ gvs [reachable_refs_def,SF DNF_ss,get_refs_def])
+  \\ pop_assum mp_tac \\ simp [Once bc_ref_inv_def]
+  \\ Cases_on ‘FLOOKUP f p2’ \\ gvs []
+  \\ pop_assum mp_tac
+  \\ pop_assum mp_tac \\ simp [Once bc_ref_inv_def]
+  \\ Cases_on ‘FLOOKUP f p1’ \\ gvs []
+  \\ rpt strip_tac
+  \\ gvs [GSYM make_zeros_def]
+  \\ drule_all get_real_addr_get_addr
+  \\ pop_assum mp_tac
+  \\ drule_all get_real_addr_get_addr
+  \\ rpt strip_tac \\ gvs []
+  \\ gvs [v_inv_def,word_addr_def]
+  \\ gvs [TO_FLOOKUP,FLOOKUP_SIMP]
+  \\ rename [‘word_xor_bytes (curr + bytes_in_word + bytes_in_word * n2w k1)
+                             (curr + bytes_in_word + bytes_in_word * n2w k2)’]
+  \\ ntac 2 $ qpat_x_assum ‘∀w. _’ kall_tac
+  \\ ‘decode_length c x1 = n2w (LENGTH (make_zeros vals1 :'a word list))’ by
+   (qpat_x_assum ‘heap_lookup k1 _ = _’ assume_tac
+    \\ dxrule heap_lookup_SPLIT \\ strip_tac
+    \\ last_x_assum mp_tac
+    \\ simp [heap_in_memory_store_def,word_heap_APPEND,word_heap_def]
+    \\ strip_tac \\ pop_assum mp_tac
+    \\ simp [Bytes_def,word_el_def,word_payload_def]
+    \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR,word_list_def]
+    \\ strip_tac
+    \\ qpat_x_assum ‘m _ = Word x1’ mp_tac
+    \\ SEP_R_TAC \\ strip_tac \\ gvs [])
+  \\ qmatch_goalsub_abbrev_tac ‘word_xor_bytes a1 a2’
+  \\ dxrule heap_lookup_SPLIT \\ strip_tac \\ gvs []
+  \\ qabbrev_tac ‘heap0 = ha ++ Bytes be fl2 vals2 (make_zeros vals2)::hb’
+  \\ qabbrev_tac ‘heap1 = ha ++ Bytes be fl2 res_vals (make_zeros vals2)::hb’
+  \\ qrefinel [‘_’,‘heap1’]
+  \\ qsuff_tac
+     ‘∃m1. word_xor_bytes a1 a2 (n2w (LENGTH (make_zeros vals1 :'a word list))) dm m
+             = SOME m1 ∧
+           heap_in_memory_store heap1 a sp' sp1 gens c st m1 dm limit’
+  >- (strip_tac \\ ntac 2 $ pop_assum $ irule_at Any
+      \\ ‘(∀a. heap_lookup a heap0 = NONE ⇔ heap_lookup a heap1 = NONE) ∧
+          (∀a z. heap_lookup a heap0 = SOME (Unused z) ⇔
+                 heap_lookup a heap1 = SOME (Unused z)) ∧
+          (∀a x y z. heap_lookup a heap0 = SOME (ForwardPointer x y z) ⇔
+                     heap_lookup a heap1 = SOME (ForwardPointer x y z)) ∧
+          (∀a t x y z.
+            (∀t1 t2. t ≠ BytesTag t1 t2) ⇒
+            (heap_lookup a heap0 = SOME (DataElement x y (t,z)) ⇔
+             heap_lookup a heap1 = SOME (DataElement x y (t,z)))) ∧
+          (∀a t x xs y z. heap_lookup a heap0 = SOME (DataElement (x::xs) y (t,z)) ⇔
+                          heap_lookup a heap1 = SOME (DataElement (x::xs) y (t,z)))’
+              by (simp [Abbr‘heap0’,Abbr‘heap1’,heap_lookup_APPEND]
+                  \\ rw [heap_lookup_def,el_length_Bytes]
+                  \\ gvs [Bytes_def])
+      \\ ‘∀a. isSomeDataElement (heap_lookup a heap1) =
+              isSomeDataElement (heap_lookup a heap0)’
+        by (simp [isSomeDataElement_def]
+            \\ simp [Abbr‘heap0’,Abbr‘heap1’,heap_lookup_APPEND]
+            \\ rw [heap_lookup_def,el_length_Bytes]
+            \\ gvs [Bytes_def])
+      \\ ‘heap_length heap1 = heap_length heap0 ∧ heap_ok heap1 limit’ by
+        (gvs [heap_ok_def,Abbr‘heap0’,Abbr‘heap1’,heap_lookup_APPEND]
+         \\ gvs [heap_length_def,FILTER_APPEND,el_length_Bytes]
+         \\ gvs [Bytes_def,isForwardPointer_def]
+         \\ gvs [SF DNF_ss, SF SFY_ss])
+      \\ ‘gc_kind_inv c a sp' sp1 gens heap1’ by
+        (qpat_x_assum ‘gc_kind_inv c a sp' sp1 gens heap0’ mp_tac
+         \\ gvs [gc_kind_inv_def]
+         \\ Cases_on ‘c.gc_kind’ \\ simp []
+         \\ rpt strip_tac
+         >- (Cases_on ‘gens’ \\ gvs [gen_state_ok_def]
+             \\ gvs [EVERY_MEM,gen_start_ok_def]
+             \\ rpt strip_tac \\ first_x_assum drule
+             \\ simp [Abbr‘heap0’,Abbr‘heap1’]
+             \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
+             \\ simp [heap_split_APPEND_if]
+             \\ IF_CASES_TAC \\ simp []
+             >-
+              (simp [AllCaseEqs()]
+               \\ rw [] \\ gvs [SF SFY_ss])
+             \\ gvs [heap_split_def,el_length_Bytes]
+             \\ simp [AllCaseEqs()]
+             \\ rw [] \\ gvs [SF SFY_ss]
+             \\ gvs [SF DNF_ss,Bytes_def,SF SFY_ss])
+         \\ qpat_x_assum ‘heap_split (a + (sp' + sp1)) heap0 = SOME (h1,h2)’ mp_tac
+         \\ simp [Abbr‘heap0’,Abbr‘heap1’]
+         \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
+         \\ gvs [heap_split_APPEND_if]
+         \\ IF_CASES_TAC \\ simp []
+         >-
+          (simp [AllCaseEqs()]
+           \\ rw [] \\ gvs [SF SFY_ss]
+           \\ gvs [Bytes_def,isRef_def])
+         \\ gvs [heap_split_def,el_length_Bytes]
+         \\ IF_CASES_TAC \\ gvs []
+         >- (rw [] \\ gvs [isRef_def,Bytes_def])
+         \\ IF_CASES_TAC \\ gvs []
+         \\ simp [AllCaseEqs()]
+         \\ rpt strip_tac \\ gvs []
+         \\ gvs [Bytes_def,isRef_def])
+      \\ ‘unused_space_inv a (sp' + sp1) heap1’ by
+        (gvs [unused_space_inv_def,SF DNF_ss]
+         \\ gvs [data_up_to_def]
+         \\ qpat_x_assum ‘heap_split a heap0 = SOME (h1,h2)’ mp_tac
+         \\ simp [Abbr‘heap0’,Abbr‘heap1’]
+         \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
+         \\ gvs [heap_split_APPEND_if]
+         \\ IF_CASES_TAC \\ simp []
+         >- (simp [AllCaseEqs()] \\ rw [] \\ gvs [SF SFY_ss])
+         \\ simp [heap_split_def,el_length_Bytes]
+         \\ IF_CASES_TAC \\ simp []
+         \\ simp [AllCaseEqs()]
+         \\ rw [] \\ gvs [SF SFY_ss]
+         \\ gvs [Bytes_def,isRef_def])
+      \\ ‘all_ts (insert p2 (ByteArray fl2 res_vals) refs) =
+          all_ts refs’ by
+        (gvs [all_ts_def,FUN_EQ_THM,lookup_insert,CaseEq"bool"]
+         \\ ‘∀n l. lookup n refs = SOME (ValueArray l) ⇔
+                     lookup n refs = SOME (ValueArray l) ∧ n ≠ p2’ by
+           (rw [] \\ eq_tac \\ rw [] \\ gvs []
+            \\ CCONTR_TAC \\ gvs [])
+            \\ rpt gen_tac
+         \\ pop_assum (fn th => CONV_TAC (RAND_CONV $ ONCE_REWRITE_CONV [th]))
+         \\ simp [AC CONJ_ASSOC CONJ_COMM])
+      \\ ‘∀v x. v_inv c v (x,f,tf,heap1) = v_inv c v (x,f,tf,heap0)’ by
+        (ho_match_mp_tac v_inv_alt_ind
+         \\ simp [v_inv_def,Bignum_def,i2mw_def,Word64Rep_def]
+         \\ conj_tac >- gvs [good_dimindex_def]
+         \\ rw [] \\ gvs [BlockRep_def]
+         \\ gvs [LIST_REL_EL_EQN,MEM_EL,PULL_EXISTS]
+         \\ eq_tac \\ rw []
+         \\  metis_tac [])
+      \\ ‘∀vs. reachable_refs vs (insert p2 (ByteArray fl2 res_vals) refs) =
+               reachable_refs vs refs’ by
+        (gen_tac
+         \\ ‘refs = insert p2 (ByteArray fl2 vals2) refs’ by
+           (irule (GSYM sptreeTheory.insert_unchanged) \\ gvs [])
+         \\ pop_assum (fn th => CONV_TAC (RAND_CONV $ ONCE_REWRITE_CONV [th]))
+         \\ rewrite_tac [reachable_refs_def,FUN_EQ_THM]
+         \\ ‘ref_edge (insert p2 (ByteArray fl2 res_vals) refs) =
+             ref_edge (insert p2 (ByteArray fl2 vals2) refs)’ by
+           (gvs [FUN_EQ_THM,ref_edge_def] \\ rw [lookup_insert])
+         \\ asm_rewrite_tac [])
+      \\ ‘p2 INSERT domain refs = domain refs’ by
+        (simp [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ simp [domain_lookup])
+      \\ simp [] \\ gvs [roots_ok_def,SF DNF_ss, SF SFY_ss]
+      \\ gen_tac \\ strip_tac
+      \\ first_x_assum drule
+      \\ simp [bc_ref_inv_def,lookup_insert]
+      \\ IF_CASES_TAC \\ gvs []
+      >-
+       (gvs [Abbr‘heap1’,heap_lookup_APPEND,heap_lookup_def,heap_length_APPEND]
+        \\ gvs [heap_length_def,el_length_Bytes,make_zeros_def]
+        \\ imp_res_tac xor_bytes_length \\ gvs [])
+      \\ TOP_CASE_TAC \\ gvs []
+      \\ TOP_CASE_TAC \\ gvs []
+      \\ TOP_CASE_TAC \\ gvs []
+      \\ gvs [RefBlock_def]
+      \\ ‘x ≠ heap_length ha’ by
+        (qpat_x_assum ‘INJ ($' f) (FDOM f) _’ mp_tac
+         \\ simp [INJ_DEF]
+         \\ rpt strip_tac \\ CCONTR_TAC \\ gvs []
+         \\ pop_assum $ qspecl_then [‘n’,‘p2’] mp_tac
+         \\ gvs [FLOOKUP_DEF])
+      \\ simp [Abbr‘heap0’,Abbr‘heap1’]
+      \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
+      \\ simp [heap_lookup_APPEND,heap_lookup_def,el_length_Bytes])
+  \\ ‘heap_length heap1 = heap_length heap0’ by
+    simp [Abbr‘heap1’,Abbr‘heap0’,heap_length_APPEND,heap_length_def,el_length_Bytes]
+  \\ ‘LENGTH res_vals = LENGTH vals2’ by imp_res_tac xor_bytes_length
+  \\ full_simp_tac std_ss [heap_in_memory_store_def,wordLangTheory.word_loc_11]
+  \\ qpat_x_assum ‘_ (fun2set (m,dm))’ mp_tac
+  \\ gvs [Abbr‘heap0’,Abbr‘heap1’]
+  \\ rename [‘(_ * frame) (fun2set _)’]
+  \\ gvs [word_heap_def,word_heap_APPEND]
+  \\ simp [Bytes_def,word_el_def,word_payload_def,el_length_def]
+  \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR,word_list_def]
+  \\ strip_tac \\ pop_assum mp_tac \\ gvs []
+  \\ Cases_on ‘p1 = p2’ >-
+   (gvs [] \\ strip_tac
+    \\ old_drule xor_bytes_word_list_alias
+    \\ disch_then $ qspecl_then [‘a1’,‘be’] assume_tac
+    \\ SEP_F_TAC
+    \\ strip_tac \\ simp []
+    \\ gvs [SEP_CLAUSES]
+    \\ gvs [AC STAR_COMM STAR_ASSOC])
+  \\ gvs [heap_lookup_APPEND,CaseEq"bool"]
+  >-
+   (dxrule heap_lookup_SPLIT \\ strip_tac \\ gvs []
+    \\ gvs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def,Bytes_def]
+    \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR,word_list_def]
+    \\ gvs [] \\ strip_tac
+    \\ old_drule xor_bytes_word_list
+    \\ disch_then $ qspecl_then [‘a1’,‘a2’,‘be’] assume_tac
+    \\ SEP_F_TAC
+    \\ strip_tac \\ simp []
+    \\ gvs [SEP_CLAUSES]
+    \\ gvs [AC STAR_COMM STAR_ASSOC])
+  \\ gvs [NOT_LESS]
+  \\ qpat_x_assum ‘heap_length ha ≤ k1’ mp_tac
+  \\ simp [Once LESS_EQ_EXISTS]
+  \\ strip_tac \\ gvs []
+  \\ rename [‘FLOOKUP f p1 = SOME (extra + heap_length ha)’]
+  \\ ‘extra ≠ 0’ by
+   (qpat_x_assum ‘p1 ≠ p2’ mp_tac
+    \\ qpat_x_assum ‘INJ ($' f) _ _ ’ mp_tac
+    \\ rpt $ qpat_x_assum ‘FLOOKUP f _ = _’ mp_tac
+    \\ rpt $ pop_assum kall_tac
+    \\ Cases_on ‘extra’ \\ gvs []
+    \\ rpt strip_tac
+    \\ gvs [INJ_DEF,TO_FLOOKUP])
+  \\ gvs [heap_lookup_def,GSYM word_add_n2w]
+  \\ gvs [NOT_LESS]
+  \\ qpat_x_assum ‘_ ≤ extra’ mp_tac
+  \\ simp [Once LESS_EQ_EXISTS]
+  \\ strip_tac \\ gvs [el_length_Bytes]
+  >-
+   (dxrule heap_lookup_SPLIT \\ strip_tac \\ gvs []
+    \\ gvs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+    \\ gvs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def,Bytes_def,el_length_def]
+    \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR,word_list_def]
+    \\ gvs [] \\ strip_tac
+    \\ old_drule xor_bytes_word_list
+    \\ disch_then $ qspecl_then [‘a1’,‘a2’,‘be’] assume_tac
+    \\ SEP_F_TAC
+    \\ strip_tac \\ simp []
+    \\ gvs [SEP_CLAUSES]
+    \\ gvs [AC STAR_COMM STAR_ASSOC])
 QED
 
 val _ = export_theory();

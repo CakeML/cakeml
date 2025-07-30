@@ -2683,6 +2683,7 @@ Definition no_change_refs_def:
         | Aw8update_unsafe => F
         | CopyStrAw8 => F
         | CopyAw8Aw8 => F
+        | XorAw8Str_unsafe => F
         | Aalloc => F
         | AallocEmpty => F
         | AallocFixed => F

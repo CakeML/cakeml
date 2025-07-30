@@ -84,6 +84,7 @@ Datatype:
   | Aupdate_unsafe
   | Aw8sub_unsafe
   | Aw8update_unsafe
+  | Aw8xor_unsafe
   (* List operations *)
   | ListAppend
   (* Configure the GC *)

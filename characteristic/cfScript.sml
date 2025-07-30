@@ -1454,6 +1454,16 @@ Definition app_copyaw8str_def:
      Q =~v> POST_F)
 End
 
+Definition app_xoraw8str_def:
+  app_xoraw8str s d H Q =
+    ((?wd F.
+        LENGTH s ≤ LENGTH wd /\
+        (H ==>> F * W8ARRAY d wd) /\
+        (F * W8ARRAY d (THE (xor_bytes (MAP (n2w o ORD) s) wd))
+            ==>> Q (Val (Conv NONE [])))) /\
+     Q =~v> POST_F)
+End
+
 Definition app_wordFromInt_W8_def:
   app_wordFromInt_W8 (i: int) H Q =
     (H ==>> Q (Val (Litv (Word8 (i2w i)))) /\
@@ -1725,6 +1735,14 @@ Definition cf_copyaw8str_def:
       app_copyaw8str s so l H Q)
 End
 
+Definition cf_xoraw8str_def:
+  cf_xoraw8str xs xd = \env. local (\H Q.
+    ?s d.
+      exp2v env xs = SOME (Litv (StrLit s)) /\
+      exp2v env xd = SOME d /\
+      app_xoraw8str s d H Q)
+End
+
 Definition cf_wordFromInt_W8_def:
   cf_wordFromInt_W8 xi = \env. local (\H Q.
     ?i.
@@ -1958,6 +1976,10 @@ Definition cf_def:
           (case args of
              | [s; so; l] => cf_copyaw8str s so l
              | _ => cf_bottom)
+        | XorAw8Str_unsafe =>
+          (case args of
+             | [d; s] => cf_xoraw8str s d
+             | _ => cf_bottom)
         | WordFromInt W8 =>
           (case args of
              | [i] => cf_wordFromInt_W8 i
@@ -2035,6 +2057,7 @@ val cf_defs = [
   cf_copyaw8aw8_def,
   cf_copystraw8_def,
   cf_copyaw8str_def,
+  cf_xoraw8str_def,
   cf_wordFromInt_W8_def,
   cf_wordFromInt_W64_def,
   cf_wordToInt_W8_def,
@@ -2668,6 +2691,15 @@ Proof
   \\ rw [] \\ res_tac \\ fs [pmatch_NIL_IMP]
 QED
 
+Triviality IMP_xor_bytes_SOME:
+  ∀s wd.
+    STRLEN s ≤ LENGTH wd ⇒
+    ∃xor_res. xor_bytes (MAP (n2w ∘ ORD) s) wd = SOME xor_res
+Proof
+  Induct \\ Cases_on ‘wd’ \\ gvs [xor_bytes_def]
+  \\ rw [] \\ res_tac \\ gvs []
+QED
+
 Theorem cf_sound:
    !p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)
 Proof
@@ -2827,7 +2859,7 @@ Proof
       `MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs` \\
     fs [letrec_pull_params_LENGTH] \\ res_tac \\ instantiate
   )
-  THEN1 (
+  >~ [‘sound p (App op args)’] >- (
     (* App *)
     Cases_on `?ffi_index. op = FFI ffi_index` THEN1 (
       (* FFI *)
@@ -2839,8 +2871,30 @@ Proof
       (fs [sound_def,local_def] \\ rw [] \\ fs [htriple_valid_def]) \\
     Cases_on `op` \\ fs [] \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
     (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
-    cf_strip_sound_tac \\
-    TRY (
+    cf_strip_sound_tac
+    >~ [‘App XorAw8Str_unsafe’] >-
+     (Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\
+      fs [st2heap_def,app_xoraw8str_def] \\
+      fs [W8ARRAY_def] \\
+      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      first_x_assum progress
+      \\ rename1 `d = Loc T ld` \\ rw [] \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      rename1 `W8array _` \\
+      `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] \\
+      drule IMP_xor_bytes_SOME \\ strip_tac \\ gvs [] \\
+      qexists_tac `Mem ld (W8array xor_res) INSERT u` \\
+      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
+      first_assum irule \\
+      qexists_tac`u` \\
+      qexists_tac`{Mem ld (W8array xor_res)}` \\ fs[] \\
+      SPLIT_TAC)
+    \\ TRY (
       (* Opn & Opb *)
       (rename1 `app_opn op` ORELSE rename1 `app_opb op`) \\
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\

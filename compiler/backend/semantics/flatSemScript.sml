@@ -370,6 +370,16 @@ Definition do_app_def:
               SOME s' => SOME (s with refs := s', Rval Unitv)
             | _ => NONE))
     | _ => NONE)
+  | (Aw8xor_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
+    (case store_lookup dst s.refs of
+     | SOME (W8array ds) =>
+         (case xor_bytes (MAP (n2w o ORD) str_arg) ds of
+          | NONE => NONE
+          | SOME new_bs =>
+              (case store_assign dst (W8array new_bs) s.refs of
+               | NONE => NONE
+               | SOME s' => SOME (s with refs := s', Rval Unitv)))
+     | _ => NONE)
   | (Ord, [Litv (Char c)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>

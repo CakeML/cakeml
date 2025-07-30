@@ -30,6 +30,7 @@ Definition isPureOp_def:
     | CopyAw8Aw8 => F
     | CopyStrAw8 => F
     | CopyAw8Str => F
+    | XorAw8Str_unsafe => F
     | Eval => F
     | FFI _ => F
     | Opassign => F
