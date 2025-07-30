@@ -3,6 +3,7 @@
 *)
 open preamble data_spaceTheory dataSemTheory dataPropsTheory;
 local open bvlPropsTheory in end
+
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = new_theory"data_spaceProof";
@@ -47,15 +48,6 @@ Proof
   rw [do_stack_def,stack_consumed_def]
 QED
 
-Theorem do_app_with_locals:
-  do_app op x (s with locals := l) =
-  case do_app op x s of
-  | Rval (res,s1) => Rval (res,s1 with locals := l)
-  | Rerr e        => Rerr e
-Proof
-  cheat
-QED
-
 Triviality evaluate_compile:
   !c s res s2 vars l.
      res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
@@ -95,6 +87,7 @@ Proof
         \\ fs[EVERY_MEM,locals_ok_def]
         \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
         \\ fs[domain_lookup])
+     \\ simp[]
      \\ fs[do_app_with_locals]
      \\ Cases_on `do_app op x s` \\ fs[]
      >-(rename [‘Rval a’] \\ PairCases_on `a`
@@ -217,12 +210,12 @@ Proof
       \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe'''`,`peak'''`,`smx'''`]
       \\ IF_CASES_TAC \\ fs [])
     THEN1 (* Assign *)
-     (cheat (*
-     fs[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
+     (fs[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
       \\ fs[evaluate_def,cut_state_opt_def]
       THEN1
        (fs[pMakeSpace_def,space_def,evaluate_def,
             cut_state_opt_def,cut_state_def]
+        \\ IF_CASES_TAC \\ gvs[]
         \\ Cases_on `cut_env (list_insert l' x) s.locals`
         \\ fs[] \\ SRW_TAC [] []
         \\ IMP_RES_TAC locals_ok_cut_env \\ fs[]
@@ -232,14 +225,14 @@ Proof
          (reverse(Cases_on `do_app o' x'' (s with locals := x')`)
           \\ fs[] \\ SRW_TAC [] []
           \\ Cases_on `a` \\ fs[] \\ SRW_TAC [] []
-          \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs[]
-          \\ REPEAT STRIP_TAC \\ fs[]
+          \\ first_x_assum drule \\ fs[]
+          \\ REPEAT STRIP_TAC
           \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC
-               `(set_var n q (install_sfs o' r')).locals`)
+               `r.locals`)
           \\ fs[]
           \\ fs[locals_ok_refl] \\ REPEAT STRIP_TAC
-          \\ Cases_on `cut_env y1 (set_var n q (install_sfs o' r')).locals`
-          \\ fs[LET_DEF]
+          \\ Cases_on `cut_env y1 r.locals`
+          \\ fs[]
           \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe'`,`peak'`,`smx'`]
           \\ fs[]
           (* \\ Q.PAT_X_ASSUM `evaluate xxx = yyy` (fn th => SIMP_TAC std_ss [GSYM th]) *)
@@ -301,7 +294,7 @@ Proof
          \\ fs[case_eq_thms] \\ rveq
          \\ fs [] \\ rfs []
          \\ fs[state_component_equality] \\ rveq
-         \\ qpat_abbrev_tac `v4_locals = v4.locals`
+         \\ qpat_abbrev_tac `v5_locals = v5.locals`
          \\ rveq
          \\ fs[op_space_req_def]
          \\ first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]evaluate_locals))
@@ -316,15 +309,16 @@ Proof
             \\ fs[locals_ok_def,lookup_insert,lookup_inter_alt]
             \\ fs[domain_delete,domain_list_insert])
          \\ strip_tac \\ simp[]
-         \\ drule_then (qspecl_then [ `v4.stack_max`
-                                    , `v4.safe_for_space`
-                                    , `v4.peak_heap_length`] ASSUME_TAC)
+         \\ drule_then (qspecl_then [ `v5.stack_max`
+                                    , `v5.safe_for_space`
+                                    , `v5.peak_heap_length`] ASSUME_TAC)
                        evaluate_smx_safe_peak_swap
          \\ fs [state_fupdcanon]
          \\ qexists_tac`w`
          \\ qmatch_asmsub_abbrev_tac `evaluate (y2,s0)`
          \\ qmatch_goalsub_abbrev_tac `evaluate (y2,s1)`
-         \\ `s0 = s1` by (UNABBREV_ALL_TAC \\ fs [state_component_equality])
+         \\ `s0 = s1` by (
+          UNABBREV_ALL_TAC \\ fs [state_component_equality])
          \\ MAP_EVERY qexists_tac [`safe''`,`peak''`,`smx`]
          \\ fs[]
          \\ Cases_on`res` \\ fs[]
@@ -376,7 +370,7 @@ Proof
       \\ qexists_tac `w`
       \\ MAP_EVERY qexists_tac [`safe'''`,`peak'''`,`smx`]
       \\ Cases_on `res` \\ fs[]
-      \\ fs [locals_ok_def]*))
+      \\ fs [locals_ok_def])
     THEN1 (* Move *)
      (fs[pMakeSpace_def,space_def]
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
