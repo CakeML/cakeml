@@ -545,20 +545,20 @@ Definition h_prog_ext_call_def:
         (SOME conf_bytes,SOME array_bytes) =>
          (if explode ffi_name ≠ "" then
            Vis (INR (ExtCall (explode ffi_name), conf_bytes, array_bytes))
-               (λres. case res of
-                        INL x =>
-                          (case x of
-                             INL outcome =>
-                               Ret (INR (SOME (FinalFFI (Final_event (ExtCall (explode ffi_name)) conf_bytes array_bytes outcome)),empty_locals s))
-                           | INR new_bytes =>
-                               Ret (INR
-                                    (if LENGTH new_bytes = LENGTH array_bytes
-                                     then
-                                       (let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
-                                          (NONE,s with memory := nmem))
-                                     else
-                                       (SOME (FinalFFI (Final_event (ExtCall (explode ffi_name)) conf_bytes array_bytes FFI_failed)),empty_locals s))))
-                      | INR _ => Ret (INR (SOME Error,s)))
+               (λres. Ret (INR
+                           (case res of
+                              INL x =>
+                                (case x of
+                                   INL outcome =>
+                                     (SOME (FinalFFI (Final_event (ExtCall (explode ffi_name)) conf_bytes array_bytes outcome)),empty_locals s)
+                                 | INR new_bytes =>
+                                     (if LENGTH new_bytes = LENGTH array_bytes
+                                      then
+                                        (let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
+                                           (NONE,s with memory := nmem))
+                                      else
+                                        (SOME (FinalFFI (Final_event (ExtCall (explode ffi_name)) conf_bytes array_bytes FFI_failed)),empty_locals s)))
+                            | INR _ => (SOME Error,s))))
           else Ret (INR (NONE,s)))
       | _ => Ret (INR (SOME Error,s)))
   | _ => Ret (INR (SOME Error,s))
@@ -597,36 +597,36 @@ Definition h_prog_sh_mem_load_def:
                (if addr IN s.sh_memaddrs
                 then
                   Vis (INR (SharedMem MappedRead, [n2w nb], bytes))
-                      (λres. case res of
-                               INL x =>
-                                 (case x of
-                                    INL outcome =>
-                                      Ret (INR (SOME (FinalFFI (Final_event (SharedMem MappedRead) [n2w nb] bytes outcome)),empty_locals s))
-                                  | INR new_bytes =>
-                                      Ret (INR
-                                           (if LENGTH new_bytes = LENGTH bytes
-                                            then
-                                              (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s))
-                                            else
-                                              (SOME (FinalFFI (Final_event (SharedMem MappedRead) [n2w nb] bytes FFI_failed)),empty_locals s))))
-                             | INR _ => Ret (INR (SOME Error,s)))
+                      (λres. Ret (INR
+                                  (case res of
+                                     INL x =>
+                                       (case x of
+                                          INL outcome =>
+                                            (SOME (FinalFFI (Final_event (SharedMem MappedRead) [n2w nb] bytes outcome)),empty_locals s)
+                                        | INR new_bytes =>
+                                            (if LENGTH new_bytes = LENGTH bytes
+                                             then
+                                               (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s))
+                                             else
+                                               (SOME (FinalFFI (Final_event (SharedMem MappedRead) [n2w nb] bytes FFI_failed)),empty_locals s)))
+                                   | INR _ => (SOME Error,s))))
                 else Ret (INR (SOME Error,s)))
              else
                (if (byte_align addr) IN s.sh_memaddrs then
                   Vis (INR (SharedMem MappedRead, [n2w nb], bytes))
-                      (λres. case res of
-                               INL x =>
-                                 (case x of
-                                    INL outcome =>
-                                      Ret (INR (SOME (FinalFFI (Final_event (SharedMem MappedRead) [n2w nb] bytes outcome)),empty_locals s))
-                                  | INR new_bytes =>
-                                      Ret (INR
-                                           (if LENGTH new_bytes = LENGTH bytes
-                                            then
-                                              (NONE,(set_var v (ValWord (word_of_bytes F 0w new_bytes)) s))
-                                            else
-                                              (SOME (FinalFFI (Final_event (SharedMem MappedRead) [n2w nb] bytes FFI_failed)),empty_locals s))))
-                             | INR _ => Ret (INR (SOME Error,s)))
+                      (λres. Ret (INR
+                                  (case res of
+                                     INL x =>
+                                       (case x of
+                                          INL outcome =>
+                                            (SOME (FinalFFI (Final_event (SharedMem MappedRead) [n2w nb] bytes outcome)),empty_locals s)
+                                        | INR new_bytes =>
+                                            (if LENGTH new_bytes = LENGTH bytes
+                                             then
+                                               (NONE,(set_var v (ValWord (word_of_bytes F 0w new_bytes)) s))
+                                             else
+                                               (SOME (FinalFFI (Final_event (SharedMem MappedRead) [n2w nb] bytes FFI_failed)),empty_locals s)))
+                                   | INR _ => (SOME Error,s))))
                 else Ret (INR (SOME Error,s))))
       | _ => Ret (INR (SOME Error, s)))
   | _ => Ret (INR (SOME Error, s))
@@ -641,35 +641,35 @@ Definition h_prog_sh_mem_store_def:
            (if addr IN s.sh_memaddrs then
               let bytes = word_to_bytes w F ++ word_to_bytes addr F in
                 Vis (INR (SharedMem MappedWrite, [n2w nb], bytes))
-                    (λres. case res of
-                             INL x =>
-                               (case x of
-                                  INL outcome =>
-                                    Ret (INR(SOME (FinalFFI (Final_event (SharedMem MappedWrite) [n2w nb] bytes outcome)),s))
-                                | INR new_bytes =>
-                                    Ret (INR
-                                         (if LENGTH new_bytes = LENGTH bytes
-                                          then (NONE,s)
-                                          else
-                                            (SOME (FinalFFI (Final_event (SharedMem MappedWrite) [n2w nb] bytes FFI_failed)),s))))
-                           | INR _ => Ret (INR (SOME Error,s)))
+                    (λres. Ret (INR
+                                (case res of
+                                   INL x =>
+                                     (case x of
+                                        INL outcome =>
+                                          (SOME (FinalFFI (Final_event (SharedMem MappedWrite) [n2w nb] bytes outcome)),s)
+                                      | INR new_bytes =>
+                                          (if LENGTH new_bytes = LENGTH bytes
+                                           then (NONE,s)
+                                           else
+                                             (SOME (FinalFFI (Final_event (SharedMem MappedWrite) [n2w nb] bytes FFI_failed)),s)))
+                                 | INR _ => (SOME Error,s))))
             else Ret (INR (SOME Error,s)))
          else
            (if (byte_align addr) IN s.sh_memaddrs then
               let bytes = TAKE nb (word_to_bytes w F) ++ word_to_bytes addr F in
                 Vis (INR (SharedMem MappedWrite, [n2w nb], bytes))
-                    (λres. case res of
-                             INL x =>
-                               (case x of
-                                  INL outcome =>
-                                    Ret (INR (SOME (FinalFFI (Final_event (SharedMem MappedWrite) [n2w nb] bytes outcome)),s))
-                                | INR new_bytes =>
-                                      Ret (INR
-                                           (if LENGTH new_bytes = LENGTH bytes
-                                            then (NONE,s)
-                                            else
-                                              (SOME (FinalFFI (Final_event (SharedMem MappedWrite) [n2w nb] bytes FFI_failed)),s))))
-                           | INR _ => Ret (INR (SOME Error,s)))
+                    (λres. Ret (INR
+                                (case res of
+                                   INL x =>
+                                     (case x of
+                                        INL outcome =>
+                                          (SOME (FinalFFI (Final_event (SharedMem MappedWrite) [n2w nb] bytes outcome)),s)
+                                      | INR new_bytes =>
+                                          (if LENGTH new_bytes = LENGTH bytes
+                                           then (NONE,s)
+                                           else
+                                             (SOME (FinalFFI (Final_event (SharedMem MappedWrite) [n2w nb] bytes FFI_failed)),s)))
+                                 | INR _ => (SOME Error,s))))
             else Ret (INR (SOME Error,s))))
    | _ => Ret (INR (SOME Error, s))
 End
