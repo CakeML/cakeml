@@ -28,10 +28,10 @@ val _ = new_theory "wasm2_notations";
 (*   Types   *)
 (*************)
 
-Overload i32 = “NT Int   W32”
-Overload i64 = “NT Int   W64”
-Overload f32 = “NT Float W32”
-Overload f64 = “NT Float W64”
+Overload i32 = “Tnum Int   W32”
+Overload i64 = “Tnum Int   W64”
+Overload f32 = “Tnum Float W32”
+Overload f64 = “Tnum Float W64”
 
 
 (******************)
@@ -40,69 +40,68 @@ Overload f64 = “NT Float W64”
 (*                *)
 (******************)
 
-Overload i32_load     = “Load  Int                   W32”
-Overload i32_load8_s  = “LoadNarrow I8x16    Signed  W32”
-Overload i32_load8_u  = “LoadNarrow I8x16  Unsigned  W32”
-Overload i32_load16_s = “LoadNarrow I16x8    Signed  W32”
-Overload i32_load16_u = “LoadNarrow I16x8  Unsigned  W32”
+Overload i32_load     = “λ ofs al. MemRead $ Load  Int                   W32 ofs al”
+Overload i32_load8_s  = “λ ofs al. MemRead $ LoadNarrow I8x16    Signed  W32 ofs al”
+Overload i32_load8_u  = “λ ofs al. MemRead $ LoadNarrow I8x16  Unsigned  W32 ofs al”
+Overload i32_load16_s = “λ ofs al. MemRead $ LoadNarrow I16x8    Signed  W32 ofs al”
+Overload i32_load16_u = “λ ofs al. MemRead $ LoadNarrow I16x8  Unsigned  W32 ofs al”
 
-Overload i64_load     = “Load  Int                   W64”
-Overload i64_load8_s  = “LoadNarrow I8x16    Signed  W64”
-Overload i64_load8_u  = “LoadNarrow I8x16  Unsigned  W64”
-Overload i64_load16_s = “LoadNarrow I16x8    Signed  W64”
-Overload i64_load16_u = “LoadNarrow I16x8  Unsigned  W64”
-Overload i64_load32_s = “LoadNarrow32        Signed”
-Overload i64_load32_u = “LoadNarrow32      Unsigned”
+Overload i64_load     = “λ ofs al. MemRead $ Load  Int                   W64 ofs al”
+Overload i64_load8_s  = “λ ofs al. MemRead $ LoadNarrow I8x16    Signed  W64 ofs al”
+Overload i64_load8_u  = “λ ofs al. MemRead $ LoadNarrow I8x16  Unsigned  W64 ofs al”
+Overload i64_load16_s = “λ ofs al. MemRead $ LoadNarrow I16x8    Signed  W64 ofs al”
+Overload i64_load16_u = “λ ofs al. MemRead $ LoadNarrow I16x8  Unsigned  W64 ofs al”
+Overload i64_load32_s = “λ ofs al. MemRead $ LoadNarrow32        Signed      ofs al”
+Overload i64_load32_u = “λ ofs al. MemRead $ LoadNarrow32      Unsigned      ofs al”
 
-Overload i32_store   = “Store Int         W32”
-Overload i32_store8  = “StoreNarrow I8x16 W32”
-Overload i32_store16 = “StoreNarrow I16x8 W32”
+Overload i32_store   = “λ ofs al. MemWrite $ Store Int         W32 ofs al”
+Overload i32_store8  = “λ ofs al. MemWrite $ StoreNarrow I8x16 W32 ofs al”
+Overload i32_store16 = “λ ofs al. MemWrite $ StoreNarrow I16x8 W32 ofs al”
 
-Overload i64_store   = “Store Int         W64”
-Overload i64_store8  = “StoreNarrow I8x16 W64”
-Overload i64_store16 = “StoreNarrow I16x8 W64”
-Overload i64_store32 = “StoreNarrow32”
+Overload i64_store   = “λ ofs al. MemWrite $ Store Int         W64 ofs al”
+Overload i64_store8  = “λ ofs al. MemWrite $ StoreNarrow I8x16 W64 ofs al”
+Overload i64_store16 = “λ ofs al. MemWrite $ StoreNarrow I16x8 W64 ofs al”
+Overload i64_store32 = “λ ofs al. MemWrite $ StoreNarrow32         ofs al”
 
-Overload f32_load  = “Load  Float W32”
-Overload f64_load  = “Load  Float W64”
+Overload f32_load  = “λ ofs al. MemRead $ Load  Float W32 ofs al”
+Overload f64_load  = “λ ofs al. MemRead $ Load  Float W64 ofs al”
 
-Overload f32_store = “Store Float W32”
-Overload f64_store = “Store Float W64”
+Overload f32_store = “λ ofs al. MemWrite $ Store Float W32 ofs al”
+Overload f64_store = “λ ofs al. MemWrite $ Store Float W64 ofs al”
 
-Overload v128_load  = “Load128”
-Overload v128_store = “Store128”
-Overload v128_load32_zero = “LoadZero W32”
-Overload v128_load64_zero = “LoadZero W64”
+Overload v128_load        = “λ ofs al. MemRead $ Load128      ofs al”
+Overload v128_load32_zero = “λ ofs al. MemRead $ LoadZero W32 ofs al”
+Overload v128_load64_zero = “λ ofs al. MemRead $ LoadZero W64 ofs al”
 
-Overload v128_load8_splat  = “LoadSplat $ Is3 $ Is2 I16x8”
-Overload v128_load16_splat = “LoadSplat $ Is3 $ Is2 I8x16”
-Overload v128_load32_splat = “LoadSplat $ Is3 $     I32x4”
-Overload v128_load64_splat = “LoadSplat             I64x2”
+Overload v128_load8_splat  = “λ ofs al. MemRead $ LoadSplat (Is3 $ Is2 I16x8) ofs al”
+Overload v128_load16_splat = “λ ofs al. MemRead $ LoadSplat (Is3 $ Is2 I8x16) ofs al”
+Overload v128_load32_splat = “λ ofs al. MemRead $ LoadSplat (Is3 $     I32x4) ofs al”
+Overload v128_load64_splat = “λ ofs al. MemRead $ LoadSplat (          I64x2) ofs al”
 
-Overload v128_load8_lane  = “LoadLane $ Is3 $ Is2 I16x8”
-Overload v128_load16_lane = “LoadLane $ Is3 $ Is2 I8x16”
-Overload v128_load32_lane = “LoadLane $ Is3 $     I32x4”
-Overload v128_load64_lane = “LoadLane             I64x2”
+Overload v128_load8_lane  = “λ ofs al lidx. MemRead $ LoadLane (Is3 $ Is2 I16x8) ofs al lidx”
+Overload v128_load16_lane = “λ ofs al lidx. MemRead $ LoadLane (Is3 $ Is2 I8x16) ofs al lidx”
+Overload v128_load32_lane = “λ ofs al lidx. MemRead $ LoadLane (Is3 $     I32x4) ofs al lidx”
+Overload v128_load64_lane = “λ ofs al lidx. MemRead $ LoadLane (          I64x2) ofs al lidx”
 
-Overload v128_load8x8_s  = “LoadHalf  (Is2 I16x8)    Signed”
-Overload v128_load8x8_u  = “LoadHalf  (Is2 I16x8)  Unsigned”
-Overload v128_load16x4_s = “LoadHalf  (Is2 I8x16)    Signed”
-Overload v128_load16x4_u = “LoadHalf  (Is2 I8x16)  Unsigned”
-Overload v128_load32x2_s = “LoadHalf  (    I32x4)    Signed”
-Overload v128_load32x2_u = “LoadHalf  (    I32x4)  Unsigned”
+Overload v128_load8x8_s  = “λ ofs al. MemRead $ LoadHalf  (Is2 I16x8)    Signed ofs al”
+Overload v128_load8x8_u  = “λ ofs al. MemRead $ LoadHalf  (Is2 I16x8)  Unsigned ofs al”
+Overload v128_load16x4_s = “λ ofs al. MemRead $ LoadHalf  (Is2 I8x16)    Signed ofs al”
+Overload v128_load16x4_u = “λ ofs al. MemRead $ LoadHalf  (Is2 I8x16)  Unsigned ofs al”
+Overload v128_load32x2_s = “λ ofs al. MemRead $ LoadHalf  (    I32x4)    Signed ofs al”
+Overload v128_load32x2_u = “λ ofs al. MemRead $ LoadHalf  (    I32x4)  Unsigned ofs al”
 
-Overload v128_store8_lane  = “StoreLane $ Is3 $ Is2 I16x8”
-Overload v128_store16_lane = “StoreLane $ Is3 $ Is2 I8x16”
-Overload v128_store32_lane = “StoreLane $ Is3 $     I32x4”
-Overload v128_store64_lane = “StoreLane             I64x2”
+Overload v128_store        = “λ ofs al. MemWrite $ Store128 ofs al”
+Overload v128_store8_lane  = “λ ofs al lidx. MemWrite $ StoreLane (Is3 $ Is2 I16x8) ofs al lidx”
+Overload v128_store16_lane = “λ ofs al lidx. MemWrite $ StoreLane (Is3 $ Is2 I8x16) ofs al lidx”
+Overload v128_store32_lane = “λ ofs al lidx. MemWrite $ StoreLane (Is3 $     I32x4) ofs al lidx”
+Overload v128_store64_lane = “λ ofs al lidx. MemWrite $ StoreLane (          I64x2) ofs al lidx”
 
-
-Overload memory_size = “Size”
-Overload memory_grow = “Grow”
-Overload memory_fill = “Fill”
-Overload memory_copy = “Copy”
-Overload memory_init = “Init”
-Overload data_drop   = “Drop”
+Overload memory_size = “MemOthers MemorySize”
+Overload memory_grow = “MemOthers MemoryGrow”
+Overload memory_fill = “MemOthers MemoryFill”
+Overload memory_copy = “MemOthers MemoryCopy”
+Overload memory_init = “MemOthers o MemoryInit”
+Overload data_drop   = “MemOthers o DataDrop  ”
 
 (********************)
 (*                  *)

@@ -23,9 +23,48 @@ val _ = new_theory "wasm_notations";
       NB: don't forget that we still have to pattern match against the AST -- no using notations there *)
 
 
-(****************)
-(*   Numerics   *)
-(****************)
+(*************)
+(*   Types   *)
+(*************)
+
+Overload i32 = “Tnum Int   W32”
+Overload i64 = “Tnum Int   W64”
+
+
+(******************)
+(*                *)
+(*     Memory     *)
+(*                *)
+(******************)
+
+Overload i32_load     = “λ ofs al. MemRead $ Load  Int                   W32 ofs al”
+Overload i32_load8_s  = “λ ofs al. MemRead $ LoadNarrow I8x16    Signed  W32 ofs al”
+Overload i32_load8_u  = “λ ofs al. MemRead $ LoadNarrow I8x16  Unsigned  W32 ofs al”
+Overload i32_load16_s = “λ ofs al. MemRead $ LoadNarrow I16x8    Signed  W32 ofs al”
+Overload i32_load16_u = “λ ofs al. MemRead $ LoadNarrow I16x8  Unsigned  W32 ofs al”
+
+Overload i64_load     = “λ ofs al. MemRead $ Load  Int                   W64 ofs al”
+Overload i64_load8_s  = “λ ofs al. MemRead $ LoadNarrow I8x16    Signed  W64 ofs al”
+Overload i64_load8_u  = “λ ofs al. MemRead $ LoadNarrow I8x16  Unsigned  W64 ofs al”
+Overload i64_load16_s = “λ ofs al. MemRead $ LoadNarrow I16x8    Signed  W64 ofs al”
+Overload i64_load16_u = “λ ofs al. MemRead $ LoadNarrow I16x8  Unsigned  W64 ofs al”
+Overload i64_load32_s = “λ ofs al. MemRead $ LoadNarrow32        Signed      ofs al”
+Overload i64_load32_u = “λ ofs al. MemRead $ LoadNarrow32      Unsigned      ofs al”
+
+Overload i32_store   = “λ ofs al. MemWrite $ Store Int         W32 ofs al”
+Overload i32_store8  = “λ ofs al. MemWrite $ StoreNarrow I8x16 W32 ofs al”
+Overload i32_store16 = “λ ofs al. MemWrite $ StoreNarrow I16x8 W32 ofs al”
+
+Overload i64_store   = “λ ofs al. MemWrite $ Store Int         W64 ofs al”
+Overload i64_store8  = “λ ofs al. MemWrite $ StoreNarrow I8x16 W64 ofs al”
+Overload i64_store16 = “λ ofs al. MemWrite $ StoreNarrow I16x8 W64 ofs al”
+Overload i64_store32 = “λ ofs al. MemWrite $ StoreNarrow32         ofs al”
+
+(********************)
+(*                  *)
+(*     Numerics     *)
+(*                  *)
+(********************)
 
   (****************)
   (*   N Consts   *)
@@ -41,11 +80,12 @@ Overload i64_const = “N_const64 Int”
 
     (* ints *)
 Overload i32_clz    = “N_unary (Clz    W32)”
-Overload i32_ctz    = “N_unary (Ctz    W32)”
-Overload i32_popcnt = “N_unary (Popcnt W32)”
-
 Overload i64_clz    = “N_unary (Clz    W64)”
+
+Overload i32_ctz    = “N_unary (Ctz    W32)”
 Overload i64_ctz    = “N_unary (Ctz    W64)”
+
+Overload i32_popcnt = “N_unary (Popcnt W32)”
 Overload i64_popcnt = “N_unary (Popcnt W64)”
 
     (* extends *)
@@ -58,44 +98,54 @@ Overload i64_extend32_s   = “N_unary  Extend32s”
 Overload i64_extend_i32_s = “N_unary (ExtendI32_   Signed)”
 Overload i64_extend_i32_u = “N_unary (ExtendI32_ Unsigned)”
 
-
   (******************)
   (*   N Binaries   *)
   (******************)
 
     (* ints *)
 Overload i32_add = “N_binary (Add Int W32)”
+Overload i64_add = “N_binary (Add Int W64)”
+
+Overload i64_sub = “N_binary (Sub Int W64)”
 Overload i32_sub = “N_binary (Sub Int W32)”
+
+Overload i64_mul = “N_binary (Mul Int W64)”
 Overload i32_mul = “N_binary (Mul Int W32)”
 
-Overload i64_add = “N_binary (Add Int W64)”
-Overload i64_sub = “N_binary (Sub Int W64)”
-Overload i64_mul = “N_binary (Mul Int W64)”
-
 Overload i32_div_u  = “N_binary (Div_ Unsigned W32)”
-Overload i32_div_s  = “N_binary (Div_   Signed W32)”
-Overload i32_rem_u  = “N_binary (Rem_ Unsigned W32)”
-Overload i32_rem_s  = “N_binary (Rem_   Signed W32)”
-Overload i32_and    = “N_binary (And           W32)”
-Overload i32_or     = “N_binary (Or            W32)”
-Overload i32_xor    = “N_binary (Xor           W32)”
-Overload i32_shl    = “N_binary (Shl           W32)”
-Overload i32_shr_u  = “N_binary (Shr_ Unsigned W32)”
-Overload i32_shr_s  = “N_binary (Shr_   Signed W32)”
-Overload i32_rotl   = “N_binary (Rotl          W32)”
-Overload i32_rotr   = “N_binary (Rotr          W32)”
-
 Overload i64_div_u  = “N_binary (Div_ Unsigned W64)”
+
+Overload i32_div_s  = “N_binary (Div_   Signed W32)”
 Overload i64_div_s  = “N_binary (Div_   Signed W64)”
+
+Overload i32_rem_u  = “N_binary (Rem_ Unsigned W32)”
 Overload i64_rem_u  = “N_binary (Rem_ Unsigned W64)”
+
+Overload i32_rem_s  = “N_binary (Rem_   Signed W32)”
 Overload i64_rem_s  = “N_binary (Rem_   Signed W64)”
+
+Overload i32_and    = “N_binary (And           W32)”
 Overload i64_and    = “N_binary (And           W64)”
+
+Overload i32_or     = “N_binary (Or            W32)”
 Overload i64_or     = “N_binary (Or            W64)”
+
+Overload i32_xor    = “N_binary (Xor           W32)”
 Overload i64_xor    = “N_binary (Xor           W64)”
+
+Overload i32_shl    = “N_binary (Shl           W32)”
 Overload i64_shl    = “N_binary (Shl           W64)”
+
+Overload i32_shr_u  = “N_binary (Shr_ Unsigned W32)”
 Overload i64_shr_u  = “N_binary (Shr_ Unsigned W64)”
+
+Overload i32_shr_s  = “N_binary (Shr_   Signed W32)”
 Overload i64_shr_s  = “N_binary (Shr_   Signed W64)”
+
+Overload i32_rotl   = “N_binary (Rotl          W32)”
 Overload i64_rotl   = “N_binary (Rotl          W64)”
+
+Overload i32_rotr   = “N_binary (Rotr          W32)”
 Overload i64_rotr   = “N_binary (Rotr          W64)”
 
   (*********************)
@@ -109,25 +159,25 @@ Overload i64_eq    = “N_compare (Eq Int W64)”
 Overload i32_ne    = “N_compare (Ne Int W32)”
 Overload i64_ne    = “N_compare (Ne Int W64)”
 
-Overload i32_lt_s  = “N_compare (Lt_   Signed W32)”
 Overload i32_lt_u  = “N_compare (Lt_ Unsigned W32)”
-Overload i64_lt_s  = “N_compare (Lt_   Signed W64)”
 Overload i64_lt_u  = “N_compare (Lt_ Unsigned W64)”
+Overload i32_lt_s  = “N_compare (Lt_   Signed W32)”
+Overload i64_lt_s  = “N_compare (Lt_   Signed W64)”
 
-Overload i32_gt_s  = “N_compare (Gt_   Signed W32)”
 Overload i32_gt_u  = “N_compare (Gt_ Unsigned W32)”
-Overload i64_gt_s  = “N_compare (Gt_   Signed W64)”
 Overload i64_gt_u  = “N_compare (Gt_ Unsigned W64)”
+Overload i32_gt_s  = “N_compare (Gt_   Signed W32)”
+Overload i64_gt_s  = “N_compare (Gt_   Signed W64)”
 
-Overload i32_le_s  = “N_compare (Le_   Signed W32)”
 Overload i32_le_u  = “N_compare (Le_ Unsigned W32)”
-Overload i64_le_s  = “N_compare (Le_   Signed W64)”
 Overload i64_le_u  = “N_compare (Le_ Unsigned W64)”
+Overload i32_le_s  = “N_compare (Le_   Signed W32)”
+Overload i64_le_s  = “N_compare (Le_   Signed W64)”
 
-Overload i32_ge_s  = “N_compare (Ge_   Signed W32)”
 Overload i32_ge_u  = “N_compare (Ge_ Unsigned W32)”
-Overload i64_ge_s  = “N_compare (Ge_   Signed W64)”
 Overload i64_ge_u  = “N_compare (Ge_ Unsigned W64)”
+Overload i32_ge_s  = “N_compare (Ge_   Signed W32)”
+Overload i64_ge_s  = “N_compare (Ge_   Signed W64)”
 
 
   (***************)
