@@ -1,16 +1,13 @@
 (*
   Translate the RISC-V instruction encoder and RISC-V-specific config.
 *)
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open arm8ProgTheory
-open riscv_targetTheory riscvTheory;
-open inliningLib;
+Theory riscvProg
+Ancestors
+  evaluate ml_translator arm8Prog riscv_target riscv
+Libs
+  preamble ml_translatorLib inliningLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "riscvProg"
 
 val _ = translation_extends "arm8Prog";
 val _ = ml_translatorLib.use_string_type true;
@@ -382,4 +379,3 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
-val _ = export_theory();

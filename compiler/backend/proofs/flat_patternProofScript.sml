@@ -1,21 +1,17 @@
 (*
   Correctness proof for flat_pattern
 *)
+Theory flat_patternProof
+Ancestors
+  flat_pattern misc[qualified] ffi[qualified] bag[qualified]
+  flatProps backendProps backend_common[qualified]
+  pattern_semantics semanticPrimitives semanticPrimitivesProps
+  flatLang flatSem
+Libs
+  preamble bagSimps[qualified] induct_tweakLib[qualified]
 
-open preamble flat_patternTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
-     pattern_semanticsTheory
-local open bagSimps induct_tweakLib in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "flat_patternProof"
-
-val _ = set_grammar_ancestry ["flat_pattern",
-                              "misc","ffi","bag","flatProps",
-                              "backendProps","backend_common",
-                              "pattern_semantics"];
 
 (* simple properties *)
 Theorem op_sets_globals_gbag:
@@ -2423,4 +2419,3 @@ Proof
   \\ imp_res_tac compile_exp_no_Mat
 QED
 
-val _ = export_theory()

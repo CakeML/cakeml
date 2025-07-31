@@ -1,16 +1,12 @@
 (*
   Correctness proof for --
 *)
-
-open preamble
-     panSemTheory  panPropsTheory
-     crepLangTheory crepSemTheory crepPropsTheory
-     pan_commonTheory pan_commonPropsTheory
-     listRangeTheory pan_to_crepTheory
-
-val _ = new_theory "pan_to_crepProof";
-
-val _ = set_grammar_ancestry  ["listRange", "crepProps", "pan_commonProps", "pan_to_crep"];
+Theory pan_to_crepProof
+Ancestors
+  listRange crepProps pan_commonProps pan_to_crep panSem panProps
+  crepLang crepSem pan_common
+Libs
+  preamble
 
 
 (* state relation *)
@@ -5253,4 +5249,3 @@ Proof
 QED
 
 
-val _ = export_theory();

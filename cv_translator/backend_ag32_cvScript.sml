@@ -1,11 +1,12 @@
 (*
   Translate ag32-specialised functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory backend_cvTheory backend_32_cvTheory;
-open backend_ag32Theory ag32Theory ag32_targetTheory to_data_cvTheory;
-open export_ag32Theory ag32_configTheory;
-
-val _ = new_theory "backend_ag32_cv";
+Theory backend_ag32_cv
+Ancestors
+  cv_std backend_cv backend_32_cv backend_ag32 ag32 ag32_target
+  to_data_cv export_ag32 ag32_config
+Libs
+  preamble cv_transLib
 
 (*---------------------------------------------------------------------------*
   Translation of instruction encoder
@@ -189,4 +190,3 @@ Proof
 QED
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

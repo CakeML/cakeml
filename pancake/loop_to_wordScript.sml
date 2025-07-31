@@ -1,16 +1,11 @@
 (*
   Compilation from looLang to wordLang.
 *)
-open preamble loopLangTheory
-     wordLangTheory
-     loop_removeTheory
-
-val _ = new_theory "loop_to_word"
-
-val _ = set_grammar_ancestry
-        ["loopLang", "wordLang",
-         "backend_common"];
-
+Theory loop_to_word
+Ancestors
+  loopLang wordLang backend_common[qualified] loop_remove
+Libs
+  preamble
 
 Definition find_var_def:
   find_var ctxt v =
@@ -158,4 +153,3 @@ Definition compile_def:
      compile_prog p
 End
 
-val _ = export_theory();

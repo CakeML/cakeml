@@ -1,15 +1,14 @@
 (*
   Correctness proof for lab_to_target
 *)
-open preamble ffiTheory BasicProvers
-     wordSemTheory labSemTheory labPropsTheory
-     lab_to_targetTheory
-     lab_filterProofTheory
-     asmTheory asmSemTheory asmPropsTheory
-     targetSemTheory targetPropsTheory
-local open stack_removeProofTheory in end
+Theory lab_to_targetProof
+Ancestors
+  ffi wordSem labSem labProps lab_to_target lab_filterProof asm
+  asmSem asmProps targetSem targetProps
+  stack_removeProof[qualified]
+Libs
+  preamble BasicProvers
 
-val _ = new_theory "lab_to_targetProof";
 val drule = old_drule
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
@@ -10506,4 +10505,3 @@ Proof
   fs[good_code_def]
 QED
 
-val _ = export_theory();

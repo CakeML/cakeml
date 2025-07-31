@@ -2,11 +2,11 @@
   For RISC-V, prove that the compiler configuration is well formed,
   and instantiate the compiler correctness theorem.
 *)
-open preamble backendProofTheory
-     riscv_configTheory riscv_targetProofTheory
-open blastLib;
-
-val _ = new_theory"riscv_configProof";
+Theory riscv_configProof
+Ancestors
+  backendProof riscv_config riscv_targetProof
+Libs
+  preamble blastLib
 
 Definition is_riscv_machine_config_def:
   is_riscv_machine_config mc ⇔
@@ -77,4 +77,3 @@ Theorem riscv_compile_correct =
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
 
-val _ = export_theory();

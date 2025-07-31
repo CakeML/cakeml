@@ -1,13 +1,13 @@
 (*
   Translate the compiler explorer parts of the compiler.
 *)
-open preamble
-     ml_translatorLib
-     inferProgTheory
+Theory explorerProg
+Ancestors
+  inferProg
+Libs
+  preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "explorerProg"
 
 val _ = translation_extends "inferProg";
 
@@ -116,4 +116,3 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
-val _ = export_theory();

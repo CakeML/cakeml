@@ -1,20 +1,16 @@
 (*
   Prove that kernel functions maintain Candle prover's invariants
  *)
+Theory candle_kernel_funs
+Ancestors
+  candle_kernel_vals candle_prover_inv ast_extras evaluate
+  namespaceProps perms semanticPrimitivesProps misc[qualified]
+  semanticPrimitives evaluateProps sptree holKernelProof
+  ml_hol_kernel_funsProg candle_kernel_perms candle_kernelProg
+  computeProof
+Libs
+  preamble helperLib ml_progLib[qualified]
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory holKernelProofTheory ml_hol_kernel_funsProgTheory
-     candle_kernel_permsTheory candle_kernelProgTheory computeProofTheory;
-open permsTheory candle_kernel_valsTheory candle_prover_invTheory ast_extrasTheory;
-local open ml_progLib in end
-
-val _ = new_theory "candle_kernel_funs";
-
-val _ = set_grammar_ancestry [
-  "candle_kernel_vals", "candle_prover_inv", "ast_extras", "evaluate",
-  "namespaceProps", "perms", "semanticPrimitivesProps", "misc"];
 
 Theorem Arrow1:
   (A --> B) f fv ∧
@@ -2201,4 +2197,3 @@ Proof
   \\ TRY (rewrite_tac [kernel_funs_v_def,v_11] \\ simp [] \\ NO_TAC)
 QED
 
-val _ = export_theory ();

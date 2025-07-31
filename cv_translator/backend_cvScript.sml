@@ -1,11 +1,11 @@
 (*
   Translate non-target-specific backend functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory;
-open backendTheory to_data_cvTheory exportTheory;
-open unify_cvTheory infer_cvTheory basis_cvTheory;
-
-val _ = new_theory "backend_cv";
+Theory backend_cv
+Ancestors
+  cv_std backend to_data_cv export unify_cv infer_cv basis_cv
+Libs
+  preamble cv_transLib
 
 val _ = cv_memLib.use_long_names := true;
 
@@ -1059,4 +1059,3 @@ QED
 val _ = cv_trans word_copyTheory.copy_prop_def;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

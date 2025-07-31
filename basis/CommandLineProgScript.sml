@@ -2,11 +2,11 @@
   A module about command-line arguments for the CakeML standard basis
   library.
 *)
-open preamble
-     ml_translatorLib ml_progLib ml_translatorTheory
-     HashtableProgTheory basisFunctionsLib
-
-val _ = new_theory "CommandLineProg";
+Theory CommandLineProg
+Ancestors
+  ml_translator HashtableProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "HashtableProg";
 
@@ -71,4 +71,3 @@ val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory();

@@ -1,16 +1,12 @@
 (*
 Implementation of LZSS using ringbuffer
 *)
+Theory LZSSrb
+Ancestors
+  list rich_list option pair arithmetic ringBuffer
+Libs
+  preamble
 
-open preamble;
-
-open listTheory  rich_listTheory;
-open optionTheory;
-open pairTheory;
-open arithmeticTheory;
-open ringBufferTheory;
-
-val _ = new_theory"LZSSrb";
 
 Datatype:
   LZSS = Lit 'a | LenDist (num # num)
@@ -188,4 +184,3 @@ Definition LZSS_decompress_def:
   LZSS_decompress s = LZdecompress [] s
 End
 
-val _ = export_theory();

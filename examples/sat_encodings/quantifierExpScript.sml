@@ -1,10 +1,12 @@
 (*
   Quantifiers over Boolean expressions and pseudo-Boolean constraints
 *)
+Theory quantifierExp
+Ancestors
+  misc boolExpToCnf cnf
+Libs
+  preamble
 
-open preamble miscTheory boolExpToCnfTheory cnfTheory;
-
-val _ = new_theory "quantifierExp";
 
 Datatype:
   quant =
@@ -414,4 +416,3 @@ Proof
       pseudoBool_to_quant_preserves_sat, quant_to_boolExp_preserves_sat]
 QED
 
-val _ = export_theory();

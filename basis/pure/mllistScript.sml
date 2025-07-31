@@ -1,11 +1,11 @@
 (*
   Pure functions for the List module.
 *)
-open preamble
-
-val _ = new_theory"mllist"
-
-val _ = set_grammar_ancestry ["indexedLists", "toto"]
+Theory mllist
+Ancestors[qualified]
+  indexedLists toto
+Libs
+  preamble
 
 Definition getItem_def:
   (getItem [] = NONE) /\
@@ -344,4 +344,3 @@ Proof
   \\ rw[flat_rev'_def, flat_rev'_lemma, REV_REVERSE_LEM]
 QED
 
-val _ = export_theory()

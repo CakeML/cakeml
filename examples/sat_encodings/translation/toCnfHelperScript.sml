@@ -1,11 +1,11 @@
 (*
   Helper functions for producing cnf output
 *)
-
-open preamble basis miscTheory;
-open boolExpToCnfTheory;
-
-val _ = new_theory "toCnfHelper";
+Theory toCnfHelper
+Ancestors
+  misc boolExpToCnf
+Libs
+  preamble basis
 
 
 (* ------------------------------ CNF to output ------------------------ *)
@@ -48,4 +48,3 @@ Definition get_max_var_and_clauses_def:
       (MAX max1 max2, numC1 + numC2)
 End
 
-val _ = export_theory();

@@ -5,12 +5,11 @@
   The local correctness proofs for each optimisation are in the file
   icing_optimisationProofsScript.
 *)
-open bossLib;
-open fpOptTheory;
-
-open preamble;
-
-val _ = new_theory "icing_optimisations";
+Theory icing_optimisations
+Ancestors
+  fpOpt
+Libs
+  preamble
 
 Definition reverse_tuple_def:
   reverse_tuple (a, b) = (b, a)
@@ -185,4 +184,3 @@ val fp_div_sub_undistribute_def =
   curry save_thm "fp_div_sub_undistribute_def"
     (Q.SPECL [‘FP_Div’, ‘FP_Sub’] fp_undistribute_gen_def);
 
-val _ = export_theory ();

@@ -1,10 +1,11 @@
 (*
   A linear-scan register allocator.
 *)
-open preamble sptreeTheory reg_allocTheory
-open state_transformerTheory ml_monadBaseLib ml_monadBaseTheory
-
-val _ = new_theory "linear_scan"
+Theory linear_scan
+Ancestors
+  sptree reg_alloc state_transformer ml_monadBase
+Libs
+  preamble ml_monadBaseLib
 
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -1328,4 +1329,3 @@ val res = translate get_intervals_def;
 val res = translate linear_scan_reg_alloc_def;
 
 *)
-val _ = export_theory ();

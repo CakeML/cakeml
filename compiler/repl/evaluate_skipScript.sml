@@ -3,13 +3,13 @@
   evaluate run can be replicated in a state with junk refs, extra type
   stamps and unused exception definitions.
 *)
+Theory evaluate_skip
+Ancestors
+  evaluate semanticPrimitives evaluateProps namespaceProps
+  ml_prog
+Libs
+  preamble helperLib[qualified]
 
-open preamble
-open evaluateTheory semanticPrimitivesTheory evaluatePropsTheory
-open namespacePropsTheory ml_progTheory
-local open helperLib in end
-
-val _ = new_theory "evaluate_skip";
 
 val _ = numLib.temp_prefer_num ();
 
@@ -2631,4 +2631,3 @@ Proof
   \\ drule_all env_rel_update \\  gs []
 QED
 
-val _ = export_theory();

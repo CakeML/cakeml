@@ -1,10 +1,11 @@
 (*
   Proof about the command-line module of the CakeML standard basis library.
 *)
-open preamble ml_translatorTheory ml_progLib ml_translatorLib cfLib
-     CommandLineProgTheory clFFITheory Word8ArrayProofTheory cfMonadTheory
-
-val _ = new_theory"CommandLineProof";
+Theory CommandLineProof
+Ancestors
+  ml_translator CommandLineProg clFFI Word8ArrayProof cfMonad
+Libs
+  preamble ml_progLib ml_translatorLib cfLib
 
 val _ = translation_extends"CommandLineProg";
 
@@ -346,4 +347,3 @@ Proof
   prove_hprop_inj_tac UNIQUE_COMMANDLINE
 QED
 
-val _ = export_theory();

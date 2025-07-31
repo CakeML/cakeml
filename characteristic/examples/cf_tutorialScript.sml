@@ -11,12 +11,12 @@
    - cfTacticsBaseLib and cfTacticsLib contain the automation to deal
      with characteristic formulae, so we open them aswell.
 *)
-open preamble
-open ml_translatorTheory ml_translatorLib cfTacticsBaseLib cfTacticsLib
-open basisFunctionsLib
-local open ml_progLib basisProgTheory in end
-
-val _ = new_theory "cf_tutorial";
+Theory cf_tutorial
+Ancestors
+  ml_translator basisProg[qualified]
+Libs
+  preamble ml_translatorLib cfTacticsBaseLib cfTacticsLib
+  basisFunctionsLib ml_progLib[qualified]
 
 val cakeml = append_prog o process_topdecs;
 
@@ -279,4 +279,3 @@ QED
    - through examples, looking in cf_examplesScript.sml
 *)
 
-val _ = export_theory();

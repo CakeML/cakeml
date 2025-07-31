@@ -5,17 +5,14 @@
   CakeML types into the term structure used there and them bring over
   those definitions and theorems.
 *)
-open preamble;
-open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
-open substTheory;
-open infer_tTheory;
-open rmfmapTheory tcallUnifTheory
-open transferTheory transferLib
-open cpsTheory cpsLib
+Theory unify
+Ancestors
+  unifProps unifDef walk walkstar collapse subst infer_t rmfmap
+  tcallUnif transfer cps
+Libs
+  preamble transferLib cpsLib
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
-val _ = new_theory "unify";
 
 val _ = monadsyntax.temp_enable_monadsyntax()
 val _ = monadsyntax.temp_enable_monad "option"
@@ -3219,4 +3216,3 @@ Proof
   rfs[]
 QED
 
-val _ = export_theory ();

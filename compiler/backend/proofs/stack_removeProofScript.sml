@@ -1,17 +1,12 @@
 (*
   Correctness proof for stack_remove
 *)
-open preamble
-     stack_removeTheory
-     stackLangTheory
-     stackSemTheory
-     stackPropsTheory
-     set_sepTheory
-     semanticsPropsTheory
-     helperLib
-local open dep_rewrite blastLib (*labPropsTheory*) in end
-
-val _ = new_theory"stack_removeProof";
+Theory stack_removeProof
+Ancestors
+  stack_remove stackLang stackSem stackProps set_sep
+  semanticsProps
+Libs
+  preamble helperLib dep_rewrite[qualified] blastLib[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -4316,4 +4311,3 @@ Proof
   >- EVAL_TAC
 QED
 
-val _ = export_theory();

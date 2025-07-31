@@ -1,11 +1,12 @@
 (*
    Basic specification of an xlrup checker (minimal optimization)
 *)
-open preamble miscTheory mlstringTheory cnf_extTheory blastLib sptreeTheory mergesortTheory mlvectorTheory;
-
-val _ = new_theory "xlrup";
-
-val _ = set_grammar_ancestry ["mlvector","sptree","misc","cnf_ext","bitstring"]
+Theory xlrup
+Ancestors
+  mlvector sptree misc cnf_ext bitstring[qualified] mlstring
+  mergesort
+Libs
+  preamble blastLib
 
 (* Internal representations *)
 Type cclause = ``:int list``;
@@ -3388,4 +3389,3 @@ Proof
   simp[strxor_aux_c_strxor_aux,MAP_MAP_o,o_DEF]
 QED
 
-val _ = export_theory ();

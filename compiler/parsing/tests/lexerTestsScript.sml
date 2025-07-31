@@ -1,11 +1,11 @@
 (*
   Some tests for the compiler's lexer.
 *)
-open ASCIInumbersLib intLib;
-open preamble;
-open lexer_funTheory lexer_implTheory;
-
-val _ = new_theory "lexerTests";
+Theory lexerTests
+Ancestors
+  lexer_fun lexer_impl
+Libs
+  ASCIInumbersLib intLib preamble
 
 fun run_test test expected =
   let val result = EVAL (Term`MAP FST (lexer_fun ^test)`) |> concl |> rhs;
@@ -58,4 +58,3 @@ val test22 = run_test “"\"\\a\\b\\r\""” “[StringT "\a\b\r"]”
 
 val test23 = run_test “"#\"\\n\""” “[CharT #"\n"]”
 
-val _ = export_theory ();

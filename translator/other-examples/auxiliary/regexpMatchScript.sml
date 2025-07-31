@@ -34,8 +34,11 @@
 (* ------------------------------------------------------------------------- *)
 (*  HOL Preliminaries                                                        *)
 (* ------------------------------------------------------------------------- *)
-open HolKernel bossLib Theory Parse Tactic boolLib Lib
-open stringLib pairTheory arithmeticTheory listTheory optionTheory;
+Theory regexpMatch
+Ancestors
+   pair arithmetic list option
+Libs
+  Tactic Lib stringLib
 
 val thm_counter = Count.mk_meter();
 val _ = ParseExtras.temp_loose_equality();
@@ -60,8 +63,6 @@ Proof
 QED
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "regexpMatch";
 
 (*--------------------------------------------------------------------------*)
 (* Datatype of regular expressions. Note that by having Charset take a      *)
@@ -914,7 +915,5 @@ Proof
    [RW_TAC list_ss [sem_implies_match],
     IMP_RES_TAC match_implies_sem THEN FULL_SIMP_TAC list_ss [FOLDR,sem_def]]
 QED
-
-val _ = export_theory ();
 
 val _ = Count.report (Count.read thm_counter);

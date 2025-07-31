@@ -1,12 +1,13 @@
 (*
   Big step/small step equivalence
 *)
-open preamble;
-open astTheory semanticPrimitivesTheory bigStepTheory smallStepTheory;
-open bigSmallInvariantsTheory semanticPrimitivesPropsTheory determTheory bigClockTheory;
-open smallStepPropsTheory bigStepPropsTheory evaluatePropsTheory interpTheory funBigStepEquivTheory;
-
-val _ = new_theory "bigSmallEquiv";
+Theory bigSmallEquiv
+Ancestors
+  ast semanticPrimitives bigStep smallStep bigSmallInvariants
+  semanticPrimitivesProps determ bigClock smallStepProps
+  bigStepProps evaluateProps interp funBigStepEquiv
+Libs
+  preamble
 
 Triviality result_cases:
   !r.
@@ -2703,4 +2704,3 @@ Proof
 QED
 
 
-val _ = export_theory ();

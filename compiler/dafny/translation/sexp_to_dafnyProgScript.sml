@@ -1,13 +1,12 @@
 (*
  Translates definitions to generate Dafny's AST from S-expressions.
 *)
+Theory sexp_to_dafnyProg
+Ancestors
+  dafny_sexpProg sexp_to_dafny
+Libs
+  preamble ml_translatorLib
 
-open preamble
-open ml_translatorLib
-open dafny_sexpProgTheory
-open sexp_to_dafnyTheory
-
-val _ = new_theory "sexp_to_dafnyProg";
 
 val _ = translation_extends "dafny_sexpProg";
 
@@ -52,4 +51,3 @@ val r = translate sexp_to_dafnyTheory.to_statement_def;
 val r = translate sexp_to_dafnyTheory.to_member_decl_def;
 val r = translate sexp_to_dafnyTheory.to_program_def;
 
-val _ = export_theory ();

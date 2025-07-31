@@ -1,15 +1,15 @@
 (*
   Prove `encoder_correct` for x64
 *)
-open HolKernel Parse boolLib bossLib;
-open x64_stepLib x64_targetTheory;
-open asmLib;
+Theory x64_targetProof
+Ancestors
+  x64_target
+Libs
+  x64_stepLib asmLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val () = new_theory "x64_targetProof"
 
 val () = wordsLib.guess_lengths()
 
@@ -1288,4 +1288,3 @@ Proof
       )
 QED
 
-val () = export_theory ()

@@ -1,9 +1,9 @@
 (*
   Test the monadic translator's handling of assumptions
 *)
-open preamble ml_monad_translator_interfaceLib
-
-val _ = new_theory "test_assumProg";
+Theory test_assumProg
+Libs
+  preamble ml_monad_translator_interfaceLib
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -106,4 +106,3 @@ Definition mf7_def:
 End
 val mf7_v_thm = m_translate mf7_def;
 
-val _ = export_theory ();

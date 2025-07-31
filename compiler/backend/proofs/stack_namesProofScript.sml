@@ -1,15 +1,14 @@
 (*
   Correctness proof for stack_names
 *)
-open preamble
-     stack_namesTheory
-     stackSemTheory stackPropsTheory
-local open dep_rewrite in end
+Theory stack_namesProof
+Ancestors
+  stack_names stackSem stackProps
+Libs
+  preamble dep_rewrite[qualified]
 
 val _ = bring_to_front_overload"prog_comp"{Name="prog_comp",Thy="stack_names"};
 val _ = bring_to_front_overload"comp"{Name="comp",Thy="stack_names"};
-
-val _ = new_theory"stack_namesProof";
 
 val _ = temp_delsimps ["fromAList_def"]
 
@@ -674,4 +673,3 @@ Proof
   BasicProvers.EVERY_CASE_TAC>>fs[call_args_def]
 QED
 
-val _ = export_theory();

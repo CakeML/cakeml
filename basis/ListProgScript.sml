@@ -1,11 +1,11 @@
 (*
   Module about the built-in list tyoe.
 *)
-open preamble ml_translatorLib ml_progLib cfLib std_preludeTheory
-open mllistTheory ml_translatorTheory OptionProgTheory
-open basisFunctionsLib
-
-val _ = new_theory"ListProg"
+Theory ListProg
+Ancestors
+  std_prelude mllist ml_translator OptionProg
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = translation_extends "OptionProg"
 
@@ -618,4 +618,3 @@ val Eval_fmap_domsub = Q.prove(
 
 val _ =  ml_prog_update (close_module NONE);
 
-val _ = export_theory()

@@ -1,10 +1,12 @@
 (*
   Determinism for the small-step and relational big-step semantics
 *)
+Theory determ
+Ancestors
+  semanticPrimitives bigStep smallStep
+Libs
+  preamble
 
-open preamble semanticPrimitivesTheory bigStepTheory smallStepTheory;
-
-val _ = new_theory "determ";
 
 val s = ``s:'ffi state``;
 
@@ -216,4 +218,3 @@ Proof
     )
 QED
 
-val _ = export_theory ();

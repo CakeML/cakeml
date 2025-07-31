@@ -1,12 +1,12 @@
 (*
   Correctness proof for combined pan_to_word compilation.
 *)
-
-open preamble pan_to_wordTheory
-     pan_simpProofTheory pan_to_crepProofTheory
-     crep_to_loopProofTheory loop_to_wordProofTheory
-
-val _ = new_theory "pan_to_wordProof";
+Theory pan_to_wordProof
+Ancestors
+  pan_to_word pan_simpProof pan_to_crepProof crep_to_loopProof
+  loop_to_wordProof
+Libs
+  preamble
 
 
 Definition pan_simp_st_def:
@@ -1232,4 +1232,3 @@ Proof
   simp []
 QED
 
-val _ = export_theory();

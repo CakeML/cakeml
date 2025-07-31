@@ -2,11 +2,13 @@
  Implementation of cyclicity check for function definitions
  based on [Kunčar, CPP 2015](https://doi.org/10.1145/2676724.2693175)
  *)
-open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
-     holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSyntaxRenamingTyvarTheory
+Theory holSyntaxCyclicity
+Ancestors
+  toto comparison ternaryComparisons mlstring holSyntaxLib
+  holSyntax holSyntaxExtra holSyntaxRenamingTyvar
+Libs
+  preamble
 
-val _ = new_theory"holSyntaxCyclicity"
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 Overload is_instance = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
@@ -8791,4 +8793,3 @@ Proof
   >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,GSYM is_instance_LR_equiv,monotone_dependency_good_constspec_names]
 QED
 
-val _ = export_theory();

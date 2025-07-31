@@ -2,9 +2,9 @@
   HOL functions that aid converting to and from the byte arrays that
   CakeML foreign-function interface (FFI) uses.
 *)
-open preamble
-
-val _ = new_theory "Marshalling";
+Theory Marshalling
+Libs
+  preamble
 
 (* encode/decode nums as 2 or 8 bytes *)
 (* similar to n2l & l2n but with padding *)
@@ -99,4 +99,3 @@ Theorem LENGTH_n2w8:
 Proof
   fs[n2w8_def]
 QED
-val _ = export_theory()

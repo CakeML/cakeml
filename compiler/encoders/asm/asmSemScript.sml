@@ -1,11 +1,11 @@
 (*
   The semantics of the asm instruction description.
 *)
-open HolKernel Parse boolLib bossLib
-open asmTheory machine_ieeeTheory
-open miscTheory (* for bytes_in_memory *)
+Theory asmSem
+Ancestors
+  asm machine_ieee misc
 
-val () = new_theory "asmSem"
+(* for bytes_in_memory *)
 
 (* -- semantics of ASM program -- *)
 
@@ -255,4 +255,3 @@ Definition asm_step_def:
     ~s2.failed /\ asm_ok i c
 End
 
-val () = export_theory ()

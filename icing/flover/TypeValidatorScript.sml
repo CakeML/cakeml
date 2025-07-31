@@ -2,13 +2,12 @@
   Simple Type Inference algorithm with correctness proof to infer machine type
   assignments for FloVer's input expressions
 **)
-open realTheory realLib sptreeTheory;
-open ExpressionsTheory MachineTypeTheory FloverTactics ExpressionAbbrevsTheory
-     ExpressionSemanticsTheory CommandsTheory FloverMapTheory ResultsTheory;
-open ResultsLib;
-open preambleFloVer;
-
-val _ = new_theory "TypeValidator";
+Theory TypeValidator
+Ancestors
+  real sptree Expressions MachineType ExpressionAbbrevs
+  ExpressionSemantics Commands FloverMap Results
+Libs
+  realLib FloverTactics ResultsLib preambleFloVer
 
 Definition validTypes_def:
   validTypes e Gamma =
@@ -1015,4 +1014,3 @@ Proof
   \\ imp_res_tac validTypes_defined_usedVars \\ fs[]
 QED
 
-val _ = export_theory();

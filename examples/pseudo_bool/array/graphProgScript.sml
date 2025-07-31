@@ -1,9 +1,11 @@
 (*
   Basic shared graph encoder definitions
 *)
-open preamble basis npbc_parseProgTheory graph_basicTheory;
-
-val _ = new_theory "graphProg"
+Theory graphProg
+Ancestors
+  npbc_parseProg graph_basic
+Libs
+  preamble basis
 
 val _ = translation_extends"npbc_parseProg";
 
@@ -224,4 +226,3 @@ Proof
   simp[SUM_TYPE_def]
 QED
 
-val _ = export_theory();

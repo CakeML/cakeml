@@ -1,13 +1,15 @@
 (*
   Translate the pan_to_target part of the 64-bit compiler.
 *)
+Theory from_pancake64Prog
+Ancestors
+  ml_translator to_target64Prog std_prelude panLang crepLang
+  pan_simp loopLang loop_remove loop_to_word pan_to_crep
+  loop_call loop_live crep_arith crep_to_loop pan_to_word
+  word_to_word backend pan_to_target panPtreeConversion
+Libs
+  preamble ml_translatorLib
 
-open preamble;
-open ml_translatorLib ml_translatorTheory;
-open to_target64ProgTheory std_preludeTheory;
-local open backendTheory in end
-
-val _ = new_theory "from_pancake64Prog"
 
 val _ = translation_extends "to_target64Prog";
 
@@ -85,15 +87,11 @@ val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a wor
                    ``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``,
                    ``foo:'a stackLang$prog``, “foo:'a pan_to_crep$context”]
 
-open panLangTheory;
-
 val _ = register_type “:64 panLang$exp”;
 
 val _ = register_type “:64 panLang$prog”;
 
 val _ = translate $ spec64 exp_ids_def;
-
-open crepLangTheory;
 
 val _ = register_type “:64 crepLang$exp”;
 
@@ -123,8 +121,6 @@ val _ = translate $ spec64 assign_ret_def;
 
 val _ = translate $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] $ spec64 load_shape_def;
 
-open pan_simpTheory;
-
 val _ = translate $ spec64 SmartSeq_def;
 
 val _ = translate $ spec64 seq_assoc_def;
@@ -137,8 +133,6 @@ val _ = translate $ conv64 compile_def;
 
 val _ = translate $ INST_TYPE[gamma|->“:64”] compile_prog_def;
 
-open loopLangTheory;
-
 val _ = register_type “:64 loopLang$exp”;
 
 val _ = register_type “:64 loopLang$prog”;
@@ -146,8 +140,6 @@ val _ = register_type “:64 loopLang$prog”;
 val _ = translate $ spec64 acc_vars_def;
 
 val _ = translate $ spec64 nested_seq_def;
-
-open loop_removeTheory;
 
 val _ = translate $ INST_TYPE[alpha|->“:64”, beta|->“:64 loopLang$prog”, gamma|->“:one$one”] store_cont_def;
 
@@ -158,8 +150,6 @@ val _ = translate $ spec64 comp_with_loop_def;
 val _ = translate $ spec64 comp_def;
 
 val _ = translate $ spec64 comp_prog_def;
-
-open loop_to_wordTheory;
 
 val _ = translate $ spec64 comp_exp_def;
 
@@ -172,8 +162,6 @@ val _ = translate $ spec64 comp_func_def;
 val _ = translate $ spec64 compile_prog_def;
 
 val _ = translate $ spec64 compile_def;
-
-open pan_to_crepTheory;
 
 val _ = translate $ spec64 ret_hdl_def;
 
@@ -218,11 +206,7 @@ val _ = translate $ INST_TYPE[alpha|->“:64”,
 
 val _ = translate $ spec64 compile_prog_def;
 
-open loop_callTheory;
-
 val _ = translate $ spec64 comp_def;
-
-open loop_liveTheory;
 
 val _ = translate $ spec64 vars_of_exp_def;
 
@@ -248,8 +232,6 @@ val _ = translate $ spec64 comp_def;
 
 val _ = translate $ spec64 optimise_def;
 
-open crep_arithTheory;
-
 val _ = translate $ spec64 dest_const_def;
 
 val _ = translate $ spec64 dest_2exp_def;
@@ -259,8 +241,6 @@ val _ = translate $ spec64 mul_const_def;
 val _ = translate $ spec64 simp_exp_def;
 
 val _ = translate $ spec64 simp_prog_def;
-
-open crep_to_loopTheory;
 
 val _ = translate $ spec64 prog_if_def;
 
@@ -278,11 +258,7 @@ val _ = translate $ make_funcs_def;
 
 val _ = translate $ spec64 compile_prog_def;
 
-open pan_to_wordTheory;
-
 val _ = translate $ spec64 compile_prog_def;
-
-open word_to_wordTheory;
 
 (* TODO: duplicate *)
 val _ = translate $ spec64 compile_single_def;
@@ -290,8 +266,6 @@ val _ = translate $ spec64 compile_single_def;
 val _ = translate $ spec64 full_compile_single_def;
 
 val _ = translate $ spec64 compile_def;
-
-open backendTheory;
 
 (* TODO: duplicated from compiler64ProgScript. *)
 val _ = translate $ INST_TYPE[alpha|->“:word8 list”,
@@ -309,13 +283,9 @@ val _ = translate $ SIMP_RULE std_ss [dimword_def,lem,backend_commonTheory.word_
 
 val _ = translate $ spec64 from_word_def;
 
-open pan_to_targetTheory;
-
 val _ = translate $ spec64 compile_prog_def;
 
 (* ptree conversion *)
-
-open panPtreeConversionTheory;
 
 val res = translate argsNT_def;
 
@@ -752,4 +722,3 @@ val res = translate $ spec64 parse_to_ast_def;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
-val _ = export_theory();

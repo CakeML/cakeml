@@ -1,14 +1,15 @@
 (*
   Translate the data_to_word part of the 32-bit compiler.
 *)
+Theory to_word32Prog
+Ancestors
+  ml_translator basis_defProg std_prelude data_to_word word_simp
+  word_alloc word_inst backend[qualified]
+Libs
+  preamble ml_translatorLib blastLib[qualified]
 
-open preamble ml_translatorLib ml_translatorTheory
-     basis_defProgTheory std_preludeTheory
-local open backendTheory blastLib in end
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "to_word32Prog"
 
 val _ = translation_extends "basis_defProg";
 
@@ -67,8 +68,6 @@ val conv32_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec32 o SP
 val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
-
-open data_to_wordTheory
 
 val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
 
@@ -311,8 +310,6 @@ Theorem comp_ind =
   data_to_wordTheory.comp_ind|> conv32|> wcomp_simp
 (* Inlines the let k = 8 manually *)
 val _ = translate (comp_def |> conv32 |> wcomp_simp |> conv32 |> SIMP_RULE std_ss[LET_THM |> INST_TYPE [alpha|->``:num``]]);
-
-open word_simpTheory word_allocTheory word_instTheory
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
 
@@ -713,4 +710,3 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
-val _ = export_theory();

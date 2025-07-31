@@ -1,13 +1,13 @@
 (*
   Semantics of CNFs and general clausal proofs
 *)
-open preamble miscTheory;
+Theory satSem
+Ancestors
+  pred_set[qualified] list[qualified] rich_list[qualified] misc
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "satSem";
-
-val _ = set_grammar_ancestry ["pred_set", "list", "rich_list"];
 
 (*** Semantics ***
 
@@ -726,4 +726,3 @@ Proof
 QED
 
 
-val _ = export_theory ();

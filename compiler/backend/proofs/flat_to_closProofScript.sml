@@ -1,17 +1,14 @@
 (*
   Correctness proof for flat_to_clos
 *)
-open preamble
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
-     closLangTheory closSemTheory closPropsTheory flat_to_closTheory
-     clos_interpProofTheory;
-local open helperLib induct_tweakLib in end;
-
-val _ = new_theory"flat_to_closProof"
-
-val _ = set_grammar_ancestry ["misc","ffi","flatProps","closProps",
-                              "flat_to_clos","backendProps","backend_common"];
+Theory flat_to_closProof
+Ancestors
+  misc[qualified] ffi[qualified] flatProps closProps flat_to_clos
+  backendProps backend_common[qualified] semanticPrimitives
+  semanticPrimitivesProps flatLang flatSem closLang closSem
+  clos_interpProof
+Libs
+  preamble helperLib[qualified] induct_tweakLib[qualified]
 
 Theorem LIST_REL_EL: (* TODO: move *)
   !xs ys r.
@@ -2205,4 +2202,3 @@ Proof
   \\ simp [compile_decs_esgc_free,insert_interp_esgc_free]
 QED
 
-val _ = export_theory()

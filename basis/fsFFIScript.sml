@@ -1,9 +1,11 @@
 (*
   Logical model of filesystem and I/O streams
 *)
-open preamble mlstringTheory cfHeapsBaseTheory MarshallingTheory
-
-val _ = new_theory"fsFFI"
+Theory fsFFI
+Ancestors
+  mlstring cfHeapsBase Marshalling
+Libs
+  preamble
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
@@ -396,4 +398,3 @@ Definition fs_ffi_part_def:
        ("close",ffi_close)])
 End
 
-val _ = export_theory();

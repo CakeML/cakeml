@@ -2,10 +2,12 @@
   Define the Sliver machine configuration.
   This includes the FFI interference oracle.
 *)
-open preamble ag32_memoryTheory ag32_configProofTheory
-local open asmSemTheory targetSemTheory ag32_targetTheory in end
-
-val _ = new_theory"ag32_machine_config";
+Theory ag32_machine_config
+Ancestors
+  ag32_memory ag32_configProof asmSem[qualified]
+  targetSem[qualified] ag32_target[qualified]
+Libs
+  preamble
 
 Definition ag32_init_asm_state_def:
   ag32_init_asm_state mem md = <|
@@ -148,4 +150,3 @@ Proof
   \\ rfs[]
 QED
 
-val _ = export_theory();

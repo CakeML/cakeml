@@ -1,9 +1,11 @@
 (*
   Translation of basis types and functions for use with cv_compute.
 *)
-open preamble cv_transLib cv_stdTheory;
-
-val _ = new_theory "basis_cv";
+Theory basis_cv
+Ancestors
+  cv_std
+Libs
+  preamble cv_transLib
 
 val _ = cv_memLib.use_long_names := true;
 
@@ -50,4 +52,3 @@ val _ = cv_trans (mlintTheory.toString_def |> SRULE [Num_ABS]);
 val _ = cv_trans mlintTheory.num_to_str_def;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

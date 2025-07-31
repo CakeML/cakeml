@@ -1,14 +1,12 @@
 (*
   Correctness proof for loop_live
 *)
+Theory loop_liveProof
+Ancestors
+  loopSem loopProps loop_live loop_callProof wordSem[qualified]
+Libs
+  preamble
 
-open preamble
-     loopSemTheory loopPropsTheory
-     loop_liveTheory loop_callProofTheory
-
-local open wordSemTheory in end
-
-val _ = new_theory "loop_liveProof";
 
 val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "domain_inter", "domain_difference",
@@ -830,4 +828,3 @@ Proof
 QED
 
 
-val _ = export_theory();

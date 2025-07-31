@@ -1,13 +1,13 @@
 (*
   Verification of the function (called repl) that implements the REPL
 *)
-open preamble
-open semanticsPropsTheory backendProofTheory x64_configProofTheory compiler64ProgTheory
-open evaluateTheory
-open semanticPrimitivesTheory ml_translatorTheory
-open repl_typesTheory repl_check_and_tweakTheory repl_initTheory
-
-val _ = new_theory"replProof";
+Theory replProof
+Ancestors
+  semanticsProps backendProof x64_configProof compiler64Prog
+  evaluate semanticPrimitives ml_translator repl_types
+  repl_check_and_tweak repl_init
+Libs
+  preamble
 
 val _ = (max_print_depth := 12);
 
@@ -1295,4 +1295,3 @@ Proof
   \\ qexists_tac ‘k’ \\ fs []
 QED
 
-val _ = export_theory();

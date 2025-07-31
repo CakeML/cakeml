@@ -2,9 +2,11 @@
   This is an example of applying the translator to the Bankers Queue
   algorithm from Chris Okasaki's book.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "BankersQueue";
-
-open listTheory arithmeticTheory ml_translatorLib listLib ListProgTheory;
+Theory BankersQueue
+Ancestors
+  list arithmetic ListProg
+Libs
+  ml_translatorLib listLib
 
 val _ = translation_extends "ListProg";
 
@@ -96,4 +98,3 @@ Proof
   THEN SRW_TAC [] [queue_inv_def] THEN DECIDE_TAC
 QED
 
-val _ = export_theory();

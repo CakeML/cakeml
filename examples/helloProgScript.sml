@@ -1,9 +1,9 @@
 (*
   Hello World example, printing to standard output.
 *)
-open preamble basis
-
-val _ = new_theory "helloProg"
+Theory helloProg
+Libs
+  preamble basis
 
 val _ = translation_extends"basisProg";
 
@@ -47,4 +47,3 @@ Theorem hello_semantics =
   call_thm_hello |> ONCE_REWRITE_RULE[GSYM hello_prog_def]
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
-val _ = export_theory ()

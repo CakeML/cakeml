@@ -38,9 +38,11 @@
    Let [compile p1; compile p2] (Var 1).
 
 *)
-open preamble bviTheory;
-
-val _ = new_theory "bvi_let";
+Theory bvi_let
+Ancestors
+  bvi
+Libs
+  preamble
 
 Definition extract_def:
   (extract ((Var n):bvi$exp) ys = n + LENGTH ys + 1) /\
@@ -180,4 +182,3 @@ End
 
 Theorem compile_exp_eq = compile_exp_def |> SRULE [compile_sing];
 
-val _ = export_theory();

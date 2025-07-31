@@ -1,15 +1,12 @@
 (*
   crepLang Properties
 *)
+Theory crepProps
+Ancestors
+  panProps crepLang crepSem pan_commonProps panSem pan_common
+Libs
+  preamble
 
-open preamble
-     panSemTheory panPropsTheory
-     crepLangTheory crepSemTheory
-     pan_commonTheory pan_commonPropsTheory;
-
-val _ = new_theory"crepProps";
-
-val _ = set_grammar_ancestry ["panProps", "crepLang","crepSem", "pan_commonProps"];
 
 Definition cexp_heads_simp_def:
   cexp_heads_simp es =
@@ -1364,4 +1361,3 @@ Termination
   decide_tac
 End
 
-val _ = export_theory();

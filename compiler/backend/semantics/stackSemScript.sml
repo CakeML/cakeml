@@ -1,16 +1,12 @@
 (*
   The formal semantics of stackLang
 *)
+Theory stackSem
+Ancestors
+  stackLang wordSem[qualified] labSem[qualified]
+Libs
+  preamble
 
-open preamble stackLangTheory
-local open wordSemTheory labSemTheory in end
-
-val _ = new_theory"stackSem";
-
-val _ = set_grammar_ancestry
-  ["stackLang",
-   "wordSem" (* for word_loc *)
-  ];
 
 Datatype:
   result = Result ('w word_loc)
@@ -1103,4 +1099,3 @@ End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
-val _ = export_theory();

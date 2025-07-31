@@ -1,9 +1,11 @@
 (*
   Add PBF parsing and wrap around the PBP parser
 *)
-open preamble basis pb_parseTheory pbc_normaliseTheory npbc_parseProgTheory;
-
-val _ = new_theory "npbc_fullProg"
+Theory npbc_fullProg
+Ancestors
+  pb_parse pbc_normalise npbc_parseProg
+Libs
+  preamble basis
 
 val _ = translation_extends"npbc_parseProg";
 
@@ -623,4 +625,3 @@ Theorem main_semantics =
 
 end
 
-val _ = export_theory();

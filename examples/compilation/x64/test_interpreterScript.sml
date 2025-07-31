@@ -1,9 +1,11 @@
 (*
   Test insertion of interpreter
 *)
-open preamble helloProgTheory basis
-
-val _ = new_theory "test_interpreter"
+Theory test_interpreter
+Ancestors
+  helloProg
+Libs
+  preamble basis
 
 Overload flat_to_clos_inc_compile[local] = ``flat_to_clos$inc_compile_decs``
 
@@ -30,4 +32,3 @@ val n = th |> concl |> find_terms (can $ match_term “Global 0”) |> length
 
 val _ = (n > 0) orelse failwith "Failed to insert call to interpreter";
 
-val _ = export_theory ();

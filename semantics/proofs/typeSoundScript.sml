@@ -1,21 +1,18 @@
 (*
   Proof of type soundness: a type-correct program does not crash.
 *)
-open preamble;
-open astTheory typeSystemTheory semanticPrimitivesTheory fpSemTheory
-     evaluateTheory;
-open namespacePropsTheory fpSemPropsTheory;
-open semanticPrimitivesPropsTheory;
-open evaluatePropsTheory;
-open weakeningTheory typeSysPropsTheory typeSoundInvariantsTheory;
-open semanticsTheory;
-local open primSemEnvTheory in end;
+Theory typeSound
+Ancestors
+  ast typeSystem semanticPrimitives fpSem evaluate namespaceProps
+  fpSemProps semanticPrimitivesProps evaluateProps weakening
+  typeSysProps typeSoundInvariants semantics
+  primSemEnv[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
-
-val _ = new_theory "typeSound";
 
 val type_num_defs = LIST_CONJ [
   Tarray_num_def,
@@ -3322,4 +3319,3 @@ Proof
  >> metis_tac []
 QED
 
-val _ = export_theory ();

@@ -3,14 +3,11 @@
   checks for exhaustiveness, and then converts the pattern rows into
   an if-then-else decision tree.
 *)
-open preamble astTheory semanticPrimitivesTheory pattern_commonTheory
-     pattern_semanticsTheory;
-
-val _ = new_theory "pattern_comp";
-
-val _ = set_grammar_ancestry
-  ["pattern_common", "semanticPrimitives", "pattern_semantics"];
-
+Theory pattern_comp
+Ancestors
+  pattern_common semanticPrimitives pattern_semantics ast
+Libs
+  preamble
 
 (* moving constant patterns up *)
 
@@ -581,4 +578,3 @@ Proof
   \\ metis_tac [pat_to_code_thm,exh_rows_thm,match_insert_Any]
 QED
 
-val _ = export_theory();

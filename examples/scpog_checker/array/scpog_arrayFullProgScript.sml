@@ -1,10 +1,12 @@
 (*
   This builds the cake_scpog proof checker
 *)
-open preamble basis UnsafeProofTheory cnf_scpogSemTheory scpogTheory
-  scpog_listTheory lpr_parsingTheory scpog_parsingTheory scpog_arrayProgTheory;
-
-val _ = new_theory "scpog_arrayFullProg"
+Theory scpog_arrayFullProg
+Ancestors
+  UnsafeProof cnf_scpogSem scpog scpog_list lpr_parsing
+  scpog_parsing scpog_arrayProg
+Libs
+  preamble basis
 
 val _ = diminish_srw_ss ["ABBREV"]
 
@@ -507,4 +509,3 @@ Theorem main_semantics =
 
 end
 
-val _ = export_theory();

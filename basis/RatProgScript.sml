@@ -1,12 +1,12 @@
 (*
   Module for computing over the rational numbers.
 *)
-open preamble ml_translatorLib ml_translatorTheory ml_progLib
-     mlvectorTheory IntProgTheory basisFunctionsLib
-     ratLib gcdTheory ratTheory mlratTheory
-local open PrettyPrinterProgTheory in end
-
-val _ = new_theory"RatProg"
+Theory RatProg
+Ancestors
+  ml_translator mlvector IntProg gcd rat mlrat
+  PrettyPrinterProg[qualified]
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib ratLib
 
 val _ = translation_extends "PrettyPrinterProg";
 
@@ -1016,4 +1016,3 @@ val _ = ml_prog_update (add_dec
 
 val _ = ml_prog_update close_local_block;
 
-val _ = export_theory ()

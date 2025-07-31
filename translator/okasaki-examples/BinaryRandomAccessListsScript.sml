@@ -2,10 +2,11 @@
   This is an example of applying the translator to the Binary Random
   Access Lists algorithm from Chris Okasaki's book.
 *)
-open preamble
-open okasaki_miscTheory ml_translatorLib ListProgTheory;
-
-val _ = new_theory "BinaryRandomAccessLists"
+Theory BinaryRandomAccessLists
+Ancestors
+  okasaki_misc ListProg
+Libs
+  preamble ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -115,4 +116,3 @@ Definition update_def:
 End
 val r = translate update_def;
 
-val _ = export_theory ();

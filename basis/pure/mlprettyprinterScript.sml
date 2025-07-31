@@ -5,14 +5,11 @@
   setup so that default pretty-printing (c.f. the addTypePP system) will
   work from then on.
 *)
-open
+Theory mlprettyprinter
+Ancestors
+  mlstring mlint mlvector words
+Libs
   preamble
-  mlstringTheory
-  mlintTheory
-  mlvectorTheory
-  wordsTheory
-
-val _ = new_theory "mlprettyprinter"
 
 (* Data for pretty-printing. The bool indicates if this data needs to be
    wrapped in parens, if this data is given as an argument to an application.
@@ -255,4 +252,3 @@ Definition fromOption_def:
     | SOME x => Append (List [strlit "SOME "]) (f x)
 End
 
-val _ = export_theory ()

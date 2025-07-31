@@ -1,11 +1,13 @@
 (*
   Encode natural numbers to Booleans using order encoding
 *)
+Theory numBoolExp
+Ancestors
+  misc quantifierExp arithmetic orderEncodingBool boolExpToCnf
+  cnf
+Libs
+  preamble
 
-open preamble miscTheory quantifierExpTheory arithmeticTheory;
-open orderEncodingBoolTheory boolExpToCnfTheory cnfTheory;
-
-val _ = new_theory "numBoolExp";
 
 (* ----------------------------- Types ------------------------------------ *)
 
@@ -2295,4 +2297,3 @@ QED
 
 *) *)
 
-val _ = export_theory();

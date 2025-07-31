@@ -2,14 +2,11 @@
   Definition of a function for mapping types back to ASTs, and proofs that
   check that the conversion functions are doing something reasonable.
 *)
-open HolKernel Parse boolLib bossLib;
-open preamble boolSimps
-
-open cmlPtreeConversionTheory
-open gramPropsTheory
-
-val _ = new_theory "cmlPtreeConversionProps";
-val _ = set_grammar_ancestry ["cmlPtreeConversion", "gramProps"]
+Theory cmlPtreeConversionProps
+Ancestors
+  cmlPtreeConversion gramProps
+Libs
+  preamble boolSimps
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
@@ -837,4 +834,3 @@ Proof
       metis_tac[Decl_OK, grammarTheory.ptree_fringe_def])
 QED
 
-val _ = export_theory();

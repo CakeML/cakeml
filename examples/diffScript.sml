@@ -1,10 +1,12 @@
 (*
    Implementation and verification of diff and patch algorithms
 *)
+Theory diff
+Ancestors
+  lcs mlint mlstring
+Libs
+  preamble
 
-open preamble lcsTheory mlintTheory mlstringTheory;
-
-val _ = new_theory "diff";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -1354,4 +1356,3 @@ Proof
   >> fs[]
 QED
 
-val _ = export_theory ();

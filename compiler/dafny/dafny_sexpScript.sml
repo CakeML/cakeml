@@ -1,12 +1,12 @@
 (*
   Definitions to lex and parse S-expressions.
 *)
+Theory dafny_sexp
+Ancestors
+  mlstring result_monad
+Libs
+  preamble
 
-open preamble
-open mlstringTheory
-open result_monadTheory
-
-val _ = new_theory "dafny_sexp";
 
 (* Datatypes *)
 
@@ -150,4 +150,3 @@ Definition parse_def:
   | _ => fail «parse: Not exactly one S-expression in input»
 End
 
-val _ = export_theory ();

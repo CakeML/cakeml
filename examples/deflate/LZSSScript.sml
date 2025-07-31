@@ -1,16 +1,12 @@
 (*
 Formalization and implementation of LZSS
 *)
+Theory LZSS
+Ancestors
+  list rich_list option pair arithmetic ringBuffer
+Libs
+  preamble
 
-open preamble;
-
-open listTheory  rich_listTheory;
-open optionTheory;
-open pairTheory;
-open arithmeticTheory;
-open ringBufferTheory;
-
-val _ = new_theory"LZSS";
 
 Overload LAST32k = “LASTN 32768”;
 
@@ -499,4 +495,3 @@ Proof
 QED
 *)
 
-val _ = export_theory();

@@ -1,17 +1,14 @@
 (*
   Translate the ARMv7 instruction encoder and ARMv7-specific config.
 *)
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open from_pancake32ProgTheory
-open arm7_targetTheory armTheory;
-open inliningLib;
-local open to_target32ProgTheory in end;
+Theory arm7Prog
+Ancestors
+  evaluate ml_translator from_pancake32Prog arm7_target arm
+  to_target32Prog[qualified]
+Libs
+  preamble ml_translatorLib inliningLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "arm7Prog"
 
 val _ = translation_extends "from_pancake32Prog";
 val _ = ml_translatorLib.use_string_type true;
@@ -471,4 +468,3 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
-val _ = export_theory();

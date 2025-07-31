@@ -1,9 +1,11 @@
 (*
   Pseudo-boolean constraints proof format and checker
 *)
-open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory spt_to_vecTheory mergesortTheory;
-
-val _ = new_theory "npbc_check";
+Theory npbc_check
+Ancestors
+  npbc mlstring mlint mlvector spt_to_vec mergesort
+Libs
+  preamble
 
 val _ = numLib.temp_prefer_num();
 
@@ -5451,4 +5453,3 @@ Definition constraint_of_spt_def:
 End
 *)
 
-val _ = export_theory ();

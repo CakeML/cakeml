@@ -6,12 +6,12 @@
   idea of annotating the program with the predicate with the set of free and
   defined variables
 **)
-open pred_setSyntax pred_setTheory;
-open AbbrevsTheory ExpressionsTheory ExpressionAbbrevsTheory FloverTactics
-CommandsTheory MachineTypeTheory;
-open preambleFloVer;
-
-val _ = new_theory "ssaPrgs";
+Theory ssaPrgs
+Ancestors
+  pred_set Abbrevs Expressions ExpressionAbbrevs Commands
+  MachineType
+Libs
+  pred_setSyntax FloverTactics preambleFloVer
 
 Theorem validVars_add:
   !(e:'a expr) Vs n.
@@ -144,4 +144,3 @@ Proof
   \\ metis_tac[]
 QED
 
-val _ = export_theory ();

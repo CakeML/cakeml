@@ -2,10 +2,10 @@
   An example showing how to use the monadic translator with
   references, arrays and exceptions.
 *)
+Theory array_local_stateProg
+Libs
+  preamble ml_monad_translator_interfaceLib
 
-open preamble ml_monad_translator_interfaceLib
-
-val _ = new_theory "array_local_stateProg"
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -168,4 +168,3 @@ val crun_test6_v_thm = m_translate_run crun_test6_def;
 
 (* ... *)
 
-val _ = export_theory ();

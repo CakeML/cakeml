@@ -4,9 +4,9 @@ An example of a queue data structure implemented using CakeML arrays, verified
 using CF.
 
 *)
-open preamble basis
-
-val _ = new_theory "queueProg";
+Theory queueProg
+Libs
+  preamble basis
 
 val _ = translation_extends"basisProg";
 
@@ -256,4 +256,3 @@ Proof
   metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]
 QED
 
-val _ = export_theory ()

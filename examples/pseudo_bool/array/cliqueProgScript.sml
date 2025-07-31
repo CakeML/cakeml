@@ -1,9 +1,11 @@
 (*
   Clique encode and checker
 *)
-open preamble basis pbc_normaliseTheory graphProgTheory cliqueTheory graph_basicTheory;
-
-val _ = new_theory "cliqueProg"
+Theory cliqueProg
+Ancestors
+  pbc_normalise graphProg clique graph_basic
+Libs
+  preamble basis
 
 val _ = translation_extends"graphProg";
 
@@ -595,4 +597,3 @@ Theorem main_semantics =
 
 end
 
-val _ = export_theory();

@@ -2,9 +2,12 @@
   This builds a proof checker specialized to the
   packing chromatic number bounds
 *)
-open preamble basis lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory lpr_arrayProgTheory lpr_arrayParsingProgTheory packingTheory;
-
-val _ = new_theory "lpr_arrayPackingProg"
+Theory lpr_arrayPackingProg
+Ancestors
+  lpr_composeProg UnsafeProof lpr lpr_list lpr_parsing
+  HashtableProof lpr_arrayProg lpr_arrayParsingProg packing
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"] (*"*)
 val _ = diminish_srw_ss ["ABBREV"]
@@ -209,4 +212,3 @@ Theorem main_semantics =
 
 end
 
-val _ = export_theory();

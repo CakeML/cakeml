@@ -1,16 +1,13 @@
 (*
   Encoders and decoders to/from configuration types in backend.
 *)
-open integerTheory ml_progTheory
-     astTheory semanticPrimitivesTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory
-     fpSemTheory mlvectorTheory mlstringTheory
-     ml_translatorTheory miscTheory
-     backendTheory backend_commonTheory
-     num_list_enc_decTheory num_tree_enc_decTheory;
-open preamble;
-
-val _ = new_theory "backend_enc_dec";
+Theory backend_enc_dec
+Ancestors
+  integer ml_prog ast semanticPrimitives semanticPrimitivesProps
+  evaluateProps fpSem mlvector mlstring ml_translator misc
+  backend backend_common num_list_enc_dec num_tree_enc_dec
+Libs
+  preamble
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
 
@@ -475,4 +472,3 @@ Proof
       chars_to_nums_nums_to_chars,inc_config_dec_thm,append_rev_thm]
 QED
 
-val _ = export_theory();

@@ -2,10 +2,10 @@
  An example showing how to use the monadic translator to translate polymorphic
  monadic array quicksort, including exceptions.
 *)
+Theory poly_array_sortProg
+Libs
+  preamble ml_monad_translator_interfaceLib
 
-open preamble ml_monad_translator_interfaceLib
-
-val _ = new_theory "poly_array_sortProg"
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
@@ -1338,4 +1338,3 @@ QED
 
 (******************************************************************************)
 
-val _ = export_theory ();

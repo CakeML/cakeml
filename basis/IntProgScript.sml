@@ -2,11 +2,11 @@
   Module about the built-in integer type. Note that CakeML uses
   arbitrary precision integers (the mathematical intergers).
 *)
-open preamble
-     ml_translatorLib ml_progLib mlintTheory
-     mlbasicsProgTheory basisFunctionsLib gcdTheory
-
-val _ = new_theory"IntProg"
+Theory IntProg
+Ancestors
+  mlint mlbasicsProg gcd
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "mlbasicsProg";
 
@@ -186,4 +186,3 @@ val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory();

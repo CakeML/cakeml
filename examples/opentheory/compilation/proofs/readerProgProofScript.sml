@@ -1,12 +1,12 @@
 (*
   End-to-end correctness theorems for the OpenTheory article checker.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     readerProgTheory readerCompileTheory readerProofTheory
-     readerSoundnessTheory;
-
-val _ = new_theory "readerProgProof";
+Theory readerProgProof
+Ancestors
+  semanticsProps backendProof x64_configProof readerProg
+  readerCompile readerProof readerSoundness
+Libs
+  preamble
 
 val reader_io_events_def = new_specification (
   "reader_io_events_def", ["reader_io_events"],
@@ -91,4 +91,3 @@ Proof
               reader_sound]
 QED
 
-val _ = export_theory ();

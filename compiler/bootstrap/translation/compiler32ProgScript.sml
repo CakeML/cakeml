@@ -1,17 +1,14 @@
 (*
   Finish translation of the 32-bit version of the compiler.
 *)
-open preamble;
-local open ag32ProgTheory in end;
-local open arm7ProgTheory in end;
-open compilerTheory
-     exportTheory
-     ml_translatorLib ml_translatorTheory;
-open cfLib basis;
+Theory compiler32Prog
+Ancestors
+  compiler export ml_translator ag32Prog[qualified]
+  arm7Prog[qualified]
+Libs
+  preamble ml_translatorLib cfLib basis
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"compiler32Prog";
 
 val _ = translation_extends "ag32Prog";
 val _ = ml_translatorLib.use_string_type true;
@@ -513,4 +510,3 @@ Theorem semantics_compiler32_prog =
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)
-val _ = export_theory();

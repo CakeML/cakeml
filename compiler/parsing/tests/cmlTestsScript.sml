@@ -1,14 +1,11 @@
 (*
   Some tests for the compiler's parser.
 *)
-open HolKernel Parse boolLib bossLib
-
-open cmlPEGTheory gramTheory cmlPtreeConversionTheory
-     grammarTheory lexer_funTheory lexer_implTheory
-
-local open ASCIInumbersLib stringSyntax in end
-
-val _ = new_theory "cmlTests"
+Theory cmlTests
+Ancestors
+  cmlPEG gram cmlPtreeConversion grammar lexer_fun lexer_impl
+Libs
+  ASCIInumbersLib[qualified] stringSyntax[qualified]
 
 val _ = if !Globals.interactive then Globals.max_print_depth := 10 else ();
 
@@ -724,4 +721,3 @@ val _ = parsetest0 “nE” “ptree_Expr nE”
 \case (n = 9) of True => 55 | False => \
 \fib (n - 1) + fib (n - 2)" NONE
 
-val _ = export_theory()

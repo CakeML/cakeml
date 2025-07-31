@@ -2,12 +2,11 @@
   This module contains CakeML code implementing a functional set type
   using a self-balancing binary tree.
 *)
-open preamble
-  ml_translatorLib ml_translatorTheory ml_progLib
-  balanced_mapTheory MapProgTheory basisFunctionsLib
-local open mlsetTheory in end
-
-val _ = new_theory "SetProg"
+Theory SetProg
+Ancestors
+  ml_translator balanced_map MapProg mlset[qualified]
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "MapProg";
 
@@ -167,4 +166,3 @@ val _ = List.app (fn tm => let val {Name, Thy,...} = dest_thy_const tm
                            end)
                  (constants "mlset");
 
-val _ = export_theory ();

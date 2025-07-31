@@ -1,12 +1,12 @@
 (*
   Translate pancake's lexer
 *)
-open preamble
-     panPEGTheory
-     pancake_lexProgTheory
-     ml_translatorLib ml_translatorTheory
+Theory pancake_parseProg
+Ancestors
+  panPEG pancake_lexProg ml_translator
+Libs
+  preamble ml_translatorLib
 
-val _ = new_theory "pancake_parseProg"
 val _ = translation_extends "pancake_lexProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_parseProg");
@@ -130,4 +130,3 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
-val _ = export_theory();

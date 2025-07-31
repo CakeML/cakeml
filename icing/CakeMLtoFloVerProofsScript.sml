@@ -2,20 +2,22 @@
   Main connection theorem relating FloVer's roundoff error bound
   to CakeML floating-point kernel executions
 *)
-(* HOL4 *)
-open machine_ieeeTheory realTheory realLib RealArith;
-(* CakeML *)
-open semanticPrimitivesTheory evaluateTheory ml_translatorTheory;
-(* FloVer *)
-open ExpressionsTheory ExpressionSemanticsTheory CommandsTheory
-     EnvironmentsTheory IEEE_connectionTheory
-     FloverMapTheory TypeValidatorTheory;
-(* Icing *)
-open fpSemTheory source_to_source2Theory CakeMLtoFloVerTheory
-     CakeMLtoFloVerLemsTheory floatToRealTheory floatToRealProofsTheory;
-open preamble;
 
-val _ = new_theory "CakeMLtoFloVerProofs";
+Theory CakeMLtoFloVerProofs
+Ancestors
+  (* HOL4 *)
+  machine_ieee real
+  (* CakeML *)
+  semanticPrimitives evaluate ml_translator
+  (* FloVer *)
+  Expressions ExpressionSemantics Commands Environments
+  IEEE_connection FloverMap TypeValidator
+  (* Icing *)
+  fpSem source_to_source2
+  CakeMLtoFloVer CakeMLtoFloVerLems floatToReal floatToRealProofs
+Libs
+  realLib RealArith (* HOL4 *)
+  preamble
 
 (* TODO: Move to HOL4 distrib *)
 Theorem float_is_finite_sandwich:
@@ -2062,5 +2064,3 @@ Proof
   \\ strip_tac \\ fs[]
   \\ irule REAL_LE_TRANS \\ rfs[] \\ asm_exists_tac \\ fs[]
 QED
-
-val _ = export_theory ();

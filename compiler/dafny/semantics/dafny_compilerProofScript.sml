@@ -1,27 +1,16 @@
 (*
   Correctness proof for the Dafny compiler with all of its passes.
 *)
+Theory dafny_compilerProof
+Ancestors
+  dafny_semanticPrimitives dafny_freshen dafny_freshenProof
+  dafny_to_cakeml dafny_to_cakemlProof dafny_compiler mlstring
+  primTypes evaluate semanticPrimitives namespace
+Libs
+  preamble
 
-open preamble
-open dafny_semanticPrimitivesTheory
-open dafny_freshenTheory
-open dafny_freshenProofTheory
-open dafny_to_cakemlTheory
-open dafny_to_cakemlProofTheory
-open dafny_compilerTheory
-open mlstringTheory  (* isPrefix *)
-open primTypesTheory
-open evaluateTheory
-open semanticPrimitivesTheory
-open namespaceTheory
 
-val _ = new_theory "dafny_compilerProof";
-val _ = set_grammar_ancestry
-          ["dafny_semanticPrimitives", "dafny_freshen", "dafny_freshenProof",
-           "dafny_to_cakeml", "dafny_to_cakemlProof", "dafny_compiler",
-           "mlstring", "primTypes", "evaluate", "semanticPrimitives",
-           "namespace"];
-
+(* isPrefix *)
 Triviality UNZIP_LENGTH:
   ∀xs ys zs. UNZIP xs = (ys, zs) ⇒ LENGTH ys = LENGTH zs
 Proof
@@ -145,4 +134,3 @@ Proof
   \\ fs [valid_members_def]
 QED
 
-val _ = export_theory ();

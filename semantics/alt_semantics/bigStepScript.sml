@@ -2,12 +2,11 @@
   A clocked relational big-step semantics for CakeML. This semantics
   is no longer used in the CakeML development.
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory smallStepTheory;
+Theory bigStep
+Ancestors
+  namespace ast ffi semanticPrimitives smallStep
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "bigStep"
 
 (* To get the definition of expression divergence to use in defining definition
  * divergence *)
@@ -548,4 +547,3 @@ decs_diverges (extend_dec_env new_env env) s2 ds)
 decs_diverges env s1 (d::ds))
 End
 
-val _ = export_theory()

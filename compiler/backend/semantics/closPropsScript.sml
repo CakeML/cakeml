@@ -1,11 +1,13 @@
 (*
   Properties about closLang and its semantics
 *)
-open preamble closLangTheory closSemTheory backendPropsTheory
+Theory closProps
+Ancestors
+  closLang closSem backendProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"closProps"
 
 Theorem with_same_clock[simp]:
    (s:('c,'ffi) closSem$state) with clock := s.clock = s
@@ -3628,4 +3630,3 @@ Proof
   EVAL_TAC
 QED
 
-val _ = export_theory();

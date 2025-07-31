@@ -1,17 +1,13 @@
 (*
   Correctness proof and properties for freshen.
 *)
+Theory dafny_freshenProof
+Ancestors
+  dafny_freshen mlstring mlint dafny_ast dafny_evaluate
+  dafny_semanticPrimitives dafny_evaluateProps
+Libs
+  preamble
 
-open preamble
-open dafny_freshenTheory
-open mlstringTheory
-open mlintTheory
-open dafny_astTheory
-open dafny_evaluateTheory
-open dafny_semanticPrimitivesTheory
-open dafny_evaluatePropsTheory
-
-val _ = new_theory "dafny_freshenProof";
 
 (* Relations and invariants *)
 
@@ -1630,4 +1626,3 @@ Proof
   \\ gvs [UNION_COMM]
 QED
 
-val _ = export_theory ();

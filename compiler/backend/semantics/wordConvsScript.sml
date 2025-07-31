@@ -1,10 +1,11 @@
 (*
   Syntactic properties used by wordLang across passes.
 *)
-open preamble BasicProvers
-     wordLangTheory asmTheory reg_allocTheory ;
-
-val _ = new_theory "wordConvs";
+Theory wordConvs
+Ancestors
+  wordLang asm reg_alloc
+Libs
+  preamble BasicProvers
 
 (*** Mono and conj lemmas for every_var/every_stack_var ***)
 Theorem every_var_inst_mono:
@@ -588,4 +589,3 @@ Overload word_get_code_labels = ``wordConvs$get_code_labels``
 Overload word_good_handlers = ``wordConvs$good_handlers``
 Overload word_good_code_labels = ``wordConvs$good_code_labels``
 
-val _ = export_theory();

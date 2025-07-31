@@ -1,9 +1,9 @@
 (*
   Pure functions for the Option module.
 *)
-open preamble
-
-val _ = new_theory"mloption"
+Theory mloption
+Libs
+  preamble
 
 Definition getOpt_def:
   (getOpt (SOME v) a = v) /\
@@ -37,4 +37,3 @@ Definition compare_def:
     | SOME vx => (case y of NONE => Greater | SOME vy => f vx vy)
 End
 
-val _ = export_theory()

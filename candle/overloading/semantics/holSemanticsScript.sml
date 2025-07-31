@@ -3,11 +3,13 @@
   i.e. valid sequents, which are those that are satisfied by any model of the
   theory context.
 *)
-open HolKernel boolLib boolSimps bossLib holSyntaxTheory holSyntaxExtraTheory setSpecTheory
+Theory holSemantics
+Ancestors
+  holSyntax holSyntaxExtra setSpec
+Libs
+  boolSimps
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"holSemantics"
 
 val _ = Parse.hide "mem";
 
@@ -1248,4 +1250,3 @@ End
 
 Overload is_structure = ``is_structure0 ^mem``
 
-val _ = export_theory()

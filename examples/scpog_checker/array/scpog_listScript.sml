@@ -1,9 +1,11 @@
 (*
   This refines the SCPOG checker to a fixed-size, list-based implementation.
 *)
-open preamble basis cnf_scpogSemTheory scpogTheory mlvectorTheory;
-
-val _ = new_theory "scpog_list"
+Theory scpog_list
+Ancestors
+  cnf_scpogSem scpog mlvector
+Libs
+  preamble basis
 
 Definition w8z_def:
   w8z = (0w:word8)
@@ -1003,4 +1005,3 @@ Proof
   metis_tac[]
 QED
 
-val _ = export_theory();

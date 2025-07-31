@@ -2,9 +2,11 @@
   Definitions and lemmas that support the implementation of the
   xlet_auto tactic.
 *)
-open preamble ml_translatorTheory cfTacticsLib set_sepTheory cfHeapsBaseTheory cfStoreTheory Satisfy
-
-val _ = new_theory "cfLetAuto";
+Theory cfLetAuto
+Ancestors
+  ml_translator set_sep cfHeapsBase cfStore
+Libs
+  preamble cfTacticsLib Satisfy
 
 (* Rewrite rules for the int_of_num & operator*)
 Theorem INT_OF_NUM_ADD:
@@ -697,4 +699,3 @@ Proof
 rw[CONV_RULE (SIMP_CONV arith_ss []) NUM_EQ_SIMP6]
 QED
 
-val _ = export_theory();

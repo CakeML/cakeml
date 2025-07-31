@@ -2,12 +2,13 @@
   Relate top-level semantics for function big-step / relational big-step /
   small-step semantics.
 *)
-open preamble semanticsTheory bigStepTheory smallStepTheory
-     semanticPrimitivesPropsTheory bigClockTheory
-     smallStepPropsTheory itree_semanticsPropsTheory
-     funBigStepEquivTheory bigSmallEquivTheory itree_semanticsEquivTheory
-
-val _ = new_theory "alt_semantics";
+Theory alt_semantics
+Ancestors
+  semantics bigStep smallStep semanticPrimitivesProps bigClock
+  smallStepProps itree_semanticsProps funBigStepEquiv
+  bigSmallEquiv itree_semanticsEquiv
+Libs
+  preamble
 
 Theorem big_step_semantics:
   st.eval_state = NONE ⇒ (
@@ -201,4 +202,3 @@ Proof
 QED
 
 
-val _ = export_theory();

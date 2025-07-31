@@ -1,9 +1,11 @@
 (*
   Subgraph isomorphism encoder and checker
 *)
-open preamble basis pbc_normaliseTheory graphProgTheory subgraph_isoTheory graph_basicTheory;
-
-val _ = new_theory "subgraph_isoProg";
+Theory subgraph_isoProg
+Ancestors
+  pbc_normalise graphProg subgraph_iso graph_basic
+Libs
+  preamble basis
 
 val _ = translation_extends "graphProg";
 
@@ -454,4 +456,3 @@ Theorem main_semantics =
 
 end
 
-val _ = export_theory();

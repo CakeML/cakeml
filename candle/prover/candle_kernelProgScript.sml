@@ -1,18 +1,14 @@
 (*
   Adds Candle specific functions to the kernel module from ml_hol_kernel_funsProg
 *)
-open preamble;
-open ml_translatorLib ml_monad_translatorLib ml_progLib ml_hol_kernel_funsProgTheory;
-open basisFunctionsLib print_thmTheory;
-open (* lisp: *) lisp_parsingTheory lisp_valuesTheory lisp_printingTheory;
-open (* compute: *) compute_syntaxTheory compute_evalTheory computeTheory
-                    compute_pmatchTheory;
-open runtime_checkTheory runtime_checkLib;
-
-val _ = new_theory "candle_kernelProg";
-
-val _ = set_grammar_ancestry [ "ml_hol_kernel_funsProg", "compute"
-  ];
+Theory candle_kernelProg
+Ancestors
+  ml_hol_kernel_funsProg compute print_thm lisp_parsing
+  lisp_values lisp_printing compute_syntax compute_eval
+  compute_pmatch runtime_check
+Libs
+  preamble ml_translatorLib ml_monad_translatorLib ml_progLib
+  basisFunctionsLib runtime_checkLib
 
 val _ = m_translation_extends "ml_hol_kernel_funsProg"
 
@@ -205,4 +201,3 @@ Theorem EqualityType_UPDATE_TYPE = EqualityType_rule [] “:update”;
 
 val _ = (print_asts := true);
 
-val _ = export_theory();

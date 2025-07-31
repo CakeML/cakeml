@@ -1,9 +1,11 @@
 (*
   Formalisation of a syntax and semantics for MILP
 *)
-open preamble mlratTheory real_sigmaTheory sptree_unionWithTheory realLib;
-
-val _ = new_theory "milp";
+Theory milp
+Ancestors
+  mlrat real_sigma sptree_unionWith
+Libs
+  preamble realLib
 
 val _ = numLib.temp_prefer_num();
 
@@ -1483,4 +1485,3 @@ QED
   val res = EVAL ``check_rtp ^intv ^lcs ^min ^obj ^rtp ^sols ^viprs``
 *)
 
-val _ = export_theory();

@@ -1,11 +1,14 @@
 (*
   Translate the backend phase from BVL to BVI.
 *)
-open preamble ml_translatorLib ml_translatorTheory to_bvlProgTheory
+Theory to_bviProg
+Ancestors
+  ml_translator to_bvlProg
+Libs
+  preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "to_bviProg";
 val _ = translation_extends "to_bvlProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_bviProg");
@@ -151,4 +154,3 @@ val r = translate bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def;
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
-val _ = export_theory ();

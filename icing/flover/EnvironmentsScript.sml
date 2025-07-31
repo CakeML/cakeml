@@ -3,12 +3,12 @@
   an environment with "errors", i.e. where variables are bound to
   finite-precision values
 **)
-open simpLib realTheory realLib RealArith sptreeTheory;
-open AbbrevsTheory ExpressionAbbrevsTheory RealSimpsTheory CommandsTheory
-     FloverTactics FloverMapTheory MachineTypeTheory;
-open preambleFloVer;
-
-val _ = new_theory "Environments";
+Theory Environments
+Ancestors
+  real sptree Abbrevs ExpressionAbbrevs RealSimps Commands
+  FloverMap MachineType
+Libs
+  simpLib realLib RealArith FloverTactics preambleFloVer
 
 Overload abs[local] = “realax$abs”
 
@@ -159,4 +159,4 @@ Proof
   \\ irule computeError_pos
 QED
 
-val _ = export_theory ();;
+;

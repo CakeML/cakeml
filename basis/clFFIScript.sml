@@ -1,11 +1,11 @@
 (*
   Logical model of the commandline state: simply a list of mlstrings
 *)
-open preamble
-     cfHeapsBaseTheory
-
-val _ = new_theory"clFFI";
-
+Theory clFFI
+Ancestors
+  cfHeapsBase
+Libs
+  preamble
 
 (* a valid argument has a length that fits 16 bits and no null bytes *)
 
@@ -91,4 +91,3 @@ Definition cl_ffi_part_def:
      ("get_arg",ffi_get_arg)])
 End
 
-val _ = export_theory();

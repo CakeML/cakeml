@@ -2,13 +2,12 @@
   Reformulates compile definition to expose the result of each internal
   compiler pass
 *)
+Theory pan_passes
+Ancestors
+  pan_to_target backend_passes backend presLang
+Libs
+  preamble
 
-open preamble backendTheory backend_passesTheory presLangTheory;
-open pan_to_targetTheory;
-
-val _ = new_theory"pan_passes";
-
-val _ = set_grammar_ancestry ["pan_to_target","backend_passes"];
 
 Datatype:
   any_pan_prog =
@@ -617,4 +616,3 @@ Proof
   \\ pairarg_tac \\ gvs []
 QED
 
-val _ = export_theory();

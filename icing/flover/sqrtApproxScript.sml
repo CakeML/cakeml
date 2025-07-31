@@ -4,10 +4,11 @@
   As the iteration may fail, the process "self-validates", checkign that
   the result is an over/under-approximation of the real sqrt
 **)
-open transcTheory realTheory realLib RealArith bossLib limTheory;
-open preambleFloVer;
-
-val _ = new_theory "sqrtApprox";
+Theory sqrtApprox
+Ancestors
+  transc real lim
+Libs
+  realLib RealArith preambleFloVer
 
 Definition newton_def:
   newton 0 n (x:real) = x ∧
@@ -607,4 +608,3 @@ MCLAURIN_LN_BOUND |> SPEC_ALL |> GEN “n:num” |> Q.SPEC ‘10:num’ |> GEN_A
                   EVAL “sum (0,10) (λ m. 184/12 pow m / &FACT m)”
 *)
 
-val _ = export_theory();

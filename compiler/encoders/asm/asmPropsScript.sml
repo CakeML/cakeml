@@ -1,9 +1,11 @@
 (*
   Proofs of general properties of the asm language
 *)
-open preamble asmSemTheory
-
-val () = new_theory "asmProps"
+Theory asmProps
+Ancestors
+  asmSem
+Libs
+  preamble
 
 (* -- semantics is deterministic -- *)
 
@@ -500,4 +502,3 @@ Proof
   \\ metis_tac[asm_consts]
 QED
 
-val () = export_theory ()

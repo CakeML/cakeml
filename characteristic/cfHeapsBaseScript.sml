@@ -2,10 +2,11 @@
   Defines the heap type that the separation logic used by CF uses.
   Also defines POSTv etc.
 *)
-open preamble set_sepTheory
-open cfTacticsBaseLib cfFFITypeTheory
-
-val _ = new_theory "cfHeapsBase"
+Theory cfHeapsBase
+Ancestors
+  set_sep cfFFIType
+Libs
+  preamble cfTacticsBaseLib
 
 (*------------------------------------------------------------------*)
 (** Heaps *)
@@ -1001,4 +1002,3 @@ Proof
        SEP_IMP_def, cond_def]
 QED
 
-val _ = export_theory()

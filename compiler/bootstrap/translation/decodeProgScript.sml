@@ -1,11 +1,12 @@
 (*
   Translate the compiler's state decoder.
 *)
-open preamble basisFunctionsLib
-     num_list_enc_decTheory num_tree_enc_decTheory backend_enc_decTheory
-     explorerProgTheory ml_translatorLib ml_translatorTheory cfLib
-
-val _ = new_theory "decodeProg"
+Theory decodeProg
+Ancestors
+  num_list_enc_dec num_tree_enc_dec backend_enc_dec explorerProg
+  ml_translator
+Libs
+  preamble basisFunctionsLib ml_translatorLib cfLib
 
 val _ = translation_extends "explorerProg";
 
@@ -261,4 +262,3 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
-val _ = export_theory();

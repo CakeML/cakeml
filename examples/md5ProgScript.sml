@@ -1,9 +1,11 @@
 (*
   Translate md5 function
 *)
-open preamble basis md5Theory UnsafeProgTheory cfLib basisFunctionsLib;
-
-val _ = new_theory "md5Prog"
+Theory md5Prog
+Ancestors
+  md5 UnsafeProg
+Libs
+  preamble basis cfLib basisFunctionsLib
 
 val _ = translation_extends "UnsafeProg";
 
@@ -162,4 +164,3 @@ Proof
   \\ fs [md5_lem]
 QED
 
-val _ = export_theory();

@@ -1,17 +1,13 @@
 (*
   Prove determinism lemmas about the type inferencer.
 *)
-open preamble;
-open typeSystemTheory astTheory semanticPrimitivesTheory evaluateTheory inferTheory unifyTheory;
-open astPropsTheory;
-open typeSysPropsTheory;
-open inferPropsTheory;
-open infer_eSoundTheory;
-open infer_eCompleteTheory;
-open envRelTheory namespacePropsTheory;
-open namespaceTheory
-
-val _ = new_theory "type_eDeterm";
+Theory type_eDeterm
+Ancestors
+  typeSystem ast semanticPrimitives evaluate infer unify astProps
+  typeSysProps inferProps infer_eSound infer_eComplete envRel
+  namespaceProps namespace
+Libs
+  preamble
 
 Triviality sub_completion_empty:
   !m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'
@@ -641,4 +637,3 @@ Proof
     asm_exists_tac>>fs[ienv_ok_def,init_infer_state_def,check_s_def]
 QED
 
-val _ = export_theory ();

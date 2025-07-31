@@ -1,11 +1,11 @@
 (*
   Translation of the to_data compiler function.
 *)
-open preamble cv_transLib cv_stdTheory basis_cvTheory;
-open backendTheory backend_asmTheory;
-open unify_cvTheory infer_cvTheory;
-
-val _ = new_theory "to_data_cv";
+Theory to_data_cv
+Ancestors
+  cv_std basis_cv backend backend_asm unify_cv infer_cv
+Libs
+  preamble cv_transLib
 
 val _ = cv_memLib.use_long_names := true;
 
@@ -2943,4 +2943,3 @@ val _ = cv_auto_trans presLangTheory.word_prog_to_display_def;
 val _ = cv_auto_trans presLangTheory.stack_prog_to_display_def;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

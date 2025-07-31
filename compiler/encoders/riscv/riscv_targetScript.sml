@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for RISC-V.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib riscv_stepTheory;
-
-val () = new_theory "riscv_target"
+Theory riscv_target
+Ancestors
+  riscv_step
+Libs
+  asmLib
 
 val () = wordsLib.guess_lengths()
 
@@ -313,4 +314,3 @@ Theorem riscv_config =
 Theorem riscv_asm_ok =
   riscv_asm_ok
 
-val () = export_theory ()

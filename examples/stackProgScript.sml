@@ -2,10 +2,10 @@
 An example of a stack data structure implemented using CakeML arrays, verified
 using CF.
 *)
+Theory stackProg
+Libs
+  preamble basis
 
-open preamble basis
-
-val _ = new_theory "stackProg";
 
 val _ = translation_extends"basisProg";
 
@@ -237,4 +237,3 @@ Proof
   fs[NULL_EQ]
 QED
 
-val _ = export_theory ()

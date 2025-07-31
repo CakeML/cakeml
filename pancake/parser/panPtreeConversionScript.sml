@@ -8,17 +8,12 @@
  *
  * Created by Craig McLaughlin on 6/5/2022.
  *)
+Theory panPtreeConversion
+Ancestors
+  arithmetic peg pegexec grammar panLexer panLang panPEG combin
+Libs
+  stringLib numLib intLib preamble ASCIInumbersLib helperLib
 
-open HolKernel Parse boolLib bossLib stringLib numLib intLib;
-
-open arithmeticTheory;
-open preamble pegTheory pegexecTheory;
-open grammarTheory;
-open panLexerTheory panLangTheory panPEGTheory;
-open ASCIInumbersLib combinTheory;
-open helperLib;
-
-val _ = new_theory "panPtreeConversion";
 
 (** Set HOL to parse operations in following definition
   * for Option monad. *)
@@ -728,4 +723,3 @@ Definition parse_funs_to_ast_def:
      | INR err => INR err)
 End
 
-val _ = export_theory();

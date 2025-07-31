@@ -1,16 +1,14 @@
 (*
   The formal semantics of wordLang
 *)
-open preamble wordLangTheory;
-local open alignmentTheory asmTheory ffiTheory in end;
+Theory wordSem
+Ancestors
+  wordLang alignment[qualified] finite_map[qualified]
+  misc[qualified] asm[qualified] ffi[qualified]
+  lprefix_lub[qualified] machine_ieee[qualified]
+Libs
+  preamble
 
-val _ = new_theory"wordSem";
-val _ = set_grammar_ancestry [
-  "wordLang", "alignment", "finite_map", "misc", "asm",
-  "ffi", (* for call_FFI *)
-  "lprefix_lub", (* for build_lprefix_lub *)
-  "machine_ieee" (* for FP *)
-]
 Datatype:
   buffer =
     <| position   : 'a word
@@ -1283,4 +1281,3 @@ End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
-val _ = export_theory();

@@ -1,14 +1,14 @@
 (*
    Verification of fast interpreter for the Candle compute primitive.
  *)
+Theory compute_execProof
+Ancestors
+  holSyntax holSyntaxExtra holSyntaxLib holKernel holKernelProof
+  compute_syntax compute_eval compute_exec compute_evalProof
+  ml_monadBase mlvector
+Libs
+  preamble ml_monadBaseLib
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
-     holKernelTheory holKernelProofTheory compute_syntaxTheory
-     compute_evalTheory compute_execTheory compute_evalProofTheory;
-open ml_monadBaseTheory ml_monadBaseLib;
-open mlvectorTheory
-
-val _ = new_theory "compute_execProof";
 
 (* verification *)
 
@@ -445,6 +445,4 @@ Proof
   \\ gvs [EVERY_MEM,FORALL_PROD]
   \\ rw [] \\ res_tac \\ fs []
 QED
-
-val _ = export_theory ();
 

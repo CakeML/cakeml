@@ -1,15 +1,14 @@
 (**
   Correctness proof for optimization planner
 **)
-open semanticPrimitivesTheory evaluateTheory
-     icing_rewriterTheory icing_optimisationsTheory
-     icing_optimisationProofsTheory fpOptTheory fpValTreeTheory
-     optPlannerTheory source_to_source2Theory source_to_source2ProofsTheory
-     floatToRealProofsTheory icing_realIdProofsTheory;
-
-open preamble;
-
-val _ = new_theory "optPlannerProofs";
+Theory optPlannerProofs
+Ancestors
+  semanticPrimitives evaluate icing_rewriter icing_optimisations
+  icing_optimisationProofs fpOpt fpValTree optPlanner
+  source_to_source2 source_to_source2Proofs floatToRealProofs
+  icing_realIdProofs
+Libs
+  preamble
 
 fun rnCases_on t = rename1 t >> Cases_on t
 
@@ -902,4 +901,3 @@ Proof
     fp_times_zero_real_id, fp_same_sub_real_id]
 QED
 
-val _ = export_theory();

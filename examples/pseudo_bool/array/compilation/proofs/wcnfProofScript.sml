@@ -3,13 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     wcnfProgTheory
-     wcnfCompileTheory;
-
-val _ = new_theory"wcnfProof";
+Theory wcnfProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof
+  wcnfProg wcnfCompile
+Libs
+  preamble
 
 val cake_pb_wcnf_io_events_def = new_specification("cake_pb_wcnf_io_events_def",["cake_pb_wcnf_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
@@ -214,4 +213,3 @@ Proof
   gvs[wcnfProgTheory.maxsat_output_sem_def]
 QED
 
-val _ = export_theory();

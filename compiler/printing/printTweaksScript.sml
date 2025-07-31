@@ -1,12 +1,12 @@
 (*
    The top-level printing adjustment, as called by the REPL.
 *)
+Theory printTweaks
+Ancestors
+  addPrintVals addTypePP infer
+Libs
+  BasicProvers dep_rewrite[qualified]
 
-open HolKernel Parse boolLib bossLib BasicProvers;
-open addPrintValsTheory addTypePPTheory inferTheory;
-local open dep_rewrite in end
-
-val _ = new_theory "printTweaks";
 
 Definition print_failure_message_def:
   print_failure_message s =
@@ -287,4 +287,3 @@ Proof
   )
 QED
 
-val _ = export_theory ();

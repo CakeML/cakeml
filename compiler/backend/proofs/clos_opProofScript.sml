@@ -1,13 +1,12 @@
 (*
   Correctness proof for clos_op
 *)
+Theory clos_opProof
+Ancestors
+  closLang closSem closProps clos_op
+Libs
+  preamble
 
-open preamble;
-open closLangTheory closSemTheory closPropsTheory clos_opTheory;
-
-val _ = new_theory "clos_opProof";
-
-val _ = set_grammar_ancestry ["closLang", "closSem", "closProps", "clos_op"];
 
 Triviality list_split3:
   ∀P. P [] ∧ (∀x y z zs. P (x::y::z::zs)) ∧ (∀x. P [x]) ∧ (∀x y. P [x; y]) ⇒
@@ -1180,4 +1179,3 @@ Proof
   \\ rewrite_tac [fv1_def,fv_def]
 QED
 
-val _ = export_theory();

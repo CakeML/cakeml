@@ -2,11 +2,11 @@
   This is an example of applying the translator to the Red-Black
   Set algorithm from Chris Okasaki's book.
 *)
-open preamble;
-open okasaki_miscTheory pred_setTheory pred_setSimps;
-open ml_translatorLib ListProgTheory
-
-val _ = new_theory "RedBlackSet"
+Theory RedBlackSet
+Ancestors
+  okasaki_misc pred_set ListProg
+Libs
+  preamble pred_setSimps ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -455,4 +455,3 @@ Proof
 rw []
 QED
 
-val _ = export_theory ();

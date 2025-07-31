@@ -3,14 +3,12 @@
    Runs prior to type inference, and defines a pretty-print
    function per datatype definition.
 *)
+Theory addTypePP
+Ancestors
+  typeDecToPP ast string[qualified]
+Libs
+  stringSyntax[qualified]
 
-open HolKernel Parse boolLib bossLib;
-open astTheory;
-open typeDecToPPTheory;
-local open stringTheory stringSyntax in end;
-
-val _ = new_theory "addTypePP";
-val _ = set_grammar_ancestry ["typeDecToPP", "ast", "string"];
 
 Definition add_pp_decs_def:
   add_pp_decs fixes [] = [] /\
@@ -22,6 +20,4 @@ Definition add_pp_decs_def:
 Termination
   WF_REL_TAC `measure (list_size dec_size o SND)`
 End
-
-val _ = export_theory ();
 

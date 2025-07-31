@@ -1,11 +1,12 @@
 (*
   Translate x64-specialised functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory backend_cvTheory backend_64_cvTheory;
-open backend_x64Theory x64Theory x64_targetTheory to_data_cvTheory;
-open export_x64Theory x64_configTheory;
-
-val _ = new_theory "backend_x64_cv";
+Theory backend_x64_cv
+Ancestors
+  cv_std backend_cv backend_64_cv backend_x64 x64 x64_target
+  to_data_cv export_x64 x64_config
+Libs
+  preamble cv_transLib
 
 (*---------------------------------------------------------------------------*
   Translation of instruction encoder
@@ -304,4 +305,3 @@ Proof
 QED
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

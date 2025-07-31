@@ -1,10 +1,11 @@
 (*
   Properties about labLang and its semantics
 *)
-open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
-     semanticsPropsTheory;
-
-val _ = new_theory"labProps";
+Theory labProps
+Ancestors
+  ffi wordSem labSem lab_to_target semanticsProps
+Libs
+  preamble
 
 val _ = Parse.hide"mem";
 
@@ -1321,4 +1322,3 @@ Definition no_share_mem_inst_def:
       SOME (Asm (ShareMem op re a) inst len)
 End
 
-val _ = export_theory();

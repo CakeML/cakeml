@@ -1,11 +1,12 @@
 (*
   Calculus for VCG for Dafny
 *)
+Theory dafny_wp_calc
+Ancestors
+  dafny_evaluate
+Libs
+  preamble
 
-open preamble
-open dafny_evaluateTheory
-
-val _ = new_theory "dafny_wp_calc";
 
 (*
   TODO:
@@ -125,4 +126,3 @@ Proof
   \\ cheat
 QED
 
-val _ = export_theory ();

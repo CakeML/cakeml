@@ -6,16 +6,14 @@
    encoded in the analysis result. The validator is used in the file
    CertificateChecker.v to build the complete checker.
  **)
-open simpLib realTheory realLib RealArith pred_setTheory;
-open AbbrevsTheory ExpressionsTheory ExpressionSemanticsTheory RealSimpsTheory
-     RealRangeArithTheory FloverTactics MachineTypeTheory
-     ExpressionAbbrevsTheory ErrorBoundsTheory IntervalArithTheory
-     TypeValidatorTheory IntervalValidationTheory EnvironmentsTheory
-     RealIntervalInferenceTheory
-     CommandsTheory ssaPrgsTheory FloverMapTheory;
-open preambleFloVer;
-
-val _ = new_theory "ErrorIntervalInference";
+Theory ErrorIntervalInference
+Ancestors
+  real pred_set Abbrevs Expressions ExpressionSemantics RealSimps
+  RealRangeArith MachineType ExpressionAbbrevs ErrorBounds
+  IntervalArith TypeValidator IntervalValidation Environments
+  RealIntervalInference Commands ssaPrgs FloverMap
+Libs
+  simpLib realLib RealArith FloverTactics preambleFloVer
 
 Definition inferErrorbound_def:
   inferErrorbound e (typeMap: typeMap) (I:ivMap) (akk:analysisResult) :analysisResult option=
@@ -136,4 +134,3 @@ Definition inferErrorboundCmd_def:
       inferErrorbound e typeMap I akk
 End
 
-val _ = export_theory();

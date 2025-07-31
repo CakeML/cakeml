@@ -2,12 +2,11 @@
   Correctness proof for closLang interpreter used by the REPL, i.e. Install,
   to avoid spending time compiling simple run-once code in declarations.
 *)
-open preamble backendPropsTheory closLangTheory closSemTheory closPropsTheory
-     clos_interpTheory;
-
-val _ = new_theory "clos_interpProof";
-
-val _ = set_grammar_ancestry ["closLang", "closProps", "clos_interp"];
+Theory clos_interpProof
+Ancestors
+  closLang closProps clos_interp backendProps closSem
+Libs
+  preamble
 
 (* ------------------------------------------------------------------------- *
    correctness of interpreter
@@ -1458,4 +1457,3 @@ Proof
   \\ imp_res_tac opt_interp_lemma \\ fs []
 QED
 
-val _ = export_theory();

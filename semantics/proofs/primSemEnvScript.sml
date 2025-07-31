@@ -1,21 +1,13 @@
 (*
   Proof about the primitive semantic environment
 *)
-open preamble;
-open astTheory evaluateTheory semanticPrimitivesTheory;
-open semanticsTheory;
-open evaluateTheory;
-open semanticPrimitivesPropsTheory;
-open evaluateComputeLib;
-open primTypesTheory;
-open typeSystemTheory;
-open typeSoundInvariantsTheory;
-open namespaceTheory;
-open namespacePropsTheory;
-open typeSysPropsTheory;
-
-val _ = new_theory "primSemEnv";
-
+Theory primSemEnv
+Ancestors
+  ast evaluate semanticPrimitives semantics evaluate
+  semanticPrimitivesProps primTypes typeSystem
+  typeSoundInvariants namespace namespaceProps typeSysProps
+Libs
+  preamble evaluateComputeLib
 
 Theorem prim_sem_env_eq =
   EVAL ``prim_sem_env (ffi:'ffi ffi_state)``
@@ -84,4 +76,3 @@ Proof
     \\ EVAL_TAC)
 QED
 
-val _ = export_theory ();

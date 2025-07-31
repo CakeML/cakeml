@@ -2,9 +2,11 @@
   This is an example of applying the translator to the Implicit
   Queue algorithm from Chris Okasaki's book.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "ImplicitQueue";
-
-open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
+Theory ImplicitQueue
+Ancestors
+  list arithmetic ListProg
+Libs
+  ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -266,4 +268,3 @@ Proof
   THEN FULL_SIMP_TAC std_ss [exps_def,APPEND,depth_def]
 QED
 
-val _ = export_theory();
