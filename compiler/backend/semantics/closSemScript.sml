@@ -362,6 +362,13 @@ Definition do_app_def:
            | SOME ds => Rval (ByteVector ds, s)
            | _ => Error)
         | _ => Error)
+    | (MemOp XorByte,[RefPtr _ dst; ByteVector ws]) =>
+       (case FLOOKUP s.refs dst of
+        | SOME (ByteArray ds) =>
+          (case xor_bytes ws ds of
+           | SOME ds1 => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds1))
+           | _ => Error)
+        | _ => Error)
     | (BlockOp (TagEq n),[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (BlockOp (LenEq l),[Block tag xs]) =>

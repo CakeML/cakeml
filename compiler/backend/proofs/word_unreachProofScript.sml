@@ -290,10 +290,10 @@ Proof
   \\ gvs [evaluate_def] \\ pairarg_tac
   \\ Cases_on ‘get_vars args s’ \\ gvs []
   \\ Cases_on ‘bad_dest_args dest args’ \\ gvs [add_ret_loc_def]
-  \\ Cases_on ‘find_code dest (Loc x3 x4::x) s.code s.stack_size’ \\ gvs []
+  \\ Cases_on ‘find_code dest (Loc x4 x5::x) s.code s.stack_size’ \\ gvs []
   \\ rename [‘_ = SOME y’] \\ PairCases_on ‘y’ \\ gvs []
   \\ Cases_on ‘domain x1 = ∅’ \\ gvs []
-  \\ Cases_on ‘cut_env x1 s.locals’ \\ gvs []
+  \\ Cases_on ‘cut_envs (x1, x2) s.locals’ \\ gvs []
   \\ Cases_on ‘s.clock = 0’
   >-
    (gvs [flush_state_def,state_component_equality,call_env_def,push_env_def]

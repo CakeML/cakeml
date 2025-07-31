@@ -27,7 +27,7 @@ Inductive opClass:
        op = Aw8update ∨ op = CopyStrStr ∨ op = CopyStrAw8 ∨
        op = CopyAw8Str ∨ op = CopyAw8Aw8 ∨ op = Chr ∨ op = Ord ∨
        op = Implode ∨ op = Explode ∨ op = Strsub ∨ op = Strlen ∨
-       op = Strcat ∨ op = VfromList ∨ op = Vsub ∨
+       op = Strcat ∨ op = VfromList ∨ op = Vsub ∨ op = XorAw8Str_unsafe ∨
        op = Vlength ∨ op = Aalloc ∨ op = AallocEmpty ∨ op = Asub ∨
        op = Alength ∨ op = Aupdate ∨ op = Asub_unsafe ∨ op = Aupdate_unsafe ∨
        op = Aw8sub_unsafe ∨ op = Aw8update_unsafe ∨ op = ListAppend ∨

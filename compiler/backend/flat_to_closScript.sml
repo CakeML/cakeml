@@ -147,6 +147,7 @@ Definition compile_op_def:
     | CopyStrAw8 => Let t xs (CopyByteAw8 t)
     | CopyAw8Str => Let t xs (CopyByteStr t)
     | CopyAw8Aw8 => Let t xs (CopyByteAw8 t)
+    | Aw8xor_unsafe => Op t (MemOp XorByte) xs
     | VfromList => Op t (BlockOp (FromList 0)) xs
     | WordFromInt W64 => Op t (WordOp WordFromInt) xs
     | WordToInt W64 => Op t (WordOp WordToInt) xs

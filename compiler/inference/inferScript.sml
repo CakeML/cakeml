@@ -624,6 +624,7 @@ Definition op_to_string_def:
   (op_to_string Aw8update_unsafe = (implode "Aw8update_unsafe", 3)) ∧
   (op_to_string (WordFromInt _) = (implode "WordFromInt", 1)) ∧
   (op_to_string (WordToInt _) = (implode "WordToInt", 1)) ∧
+  (op_to_string XorAw8Str_unsafe = (implode "XorAw8Str_unsafe", 2)) ∧
   (op_to_string CopyStrStr = (implode "CopyStrStr", 3)) ∧
   (op_to_string CopyStrAw8 = (implode "CopyStrAw8", 5)) ∧
   (op_to_string CopyAw8Str = (implode "CopyAw8Str", 3)) ∧
@@ -787,6 +788,7 @@ constrain_op l op ts s =
    | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
+   | (XorAw8Str_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Real_uop _, _) => failwith l (implode "Reals do not have a type") s
    | (Real_bop _, _) => failwith l (implode "Reals do not have a type") s
    | (Real_cmp _, _) => failwith l (implode "Reals do not have a type") s

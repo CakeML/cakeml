@@ -203,6 +203,7 @@ val _ = word_to_stackTheory.chunk_to_bits_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.chunk_to_bitmap_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.raise_stub_def |> arch_spec |> cv_trans;
 val _ = word_to_stackTheory.store_consts_stub_def |> arch_spec |> cv_trans;
+val _ = word_to_stackTheory.copy_ret_def |> arch_spec |> cv_auto_trans;
 
 Theorem cv_rep_if_lt[cv_rep]:
   cv_rep p1a c1a Num m /\
@@ -230,7 +231,7 @@ Proof
   ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
 QED
 
-val _ = wordLangTheory.max_var_def |> arch_spec |> cv_trans;
+val _ = wordLangTheory.max_var_def |> arch_spec |> cv_auto_trans;
 
 val pre = every_stack_var'_eq |> arch_spec |> cv_trans_pre
 Theorem backend_cv_every_stack_var'_pre[cv_pre]:
@@ -287,6 +288,8 @@ val _ = word_allocTheory.remove_dead_prog_def |> arch_spec |> cv_trans;
 val _ = word_instTheory.op_consts_def |> arch_spec |> cv_trans;
 
 val _ = word_instTheory.reduce_const_def |> arch_spec |> cv_auto_trans;
+
+val _ = wordLangTheory.word_op_def |> arch_spec |> cv_auto_trans;
 
 val pre = word_instTheory.optimize_consts_def |> arch_spec |> cv_auto_trans_pre;
 Theorem optimize_consts_pre:
@@ -398,6 +401,7 @@ val _ = data_to_wordTheory.real_byte_offset_def |> arch_spec |> SRULE [] |> cv_t
 val _ = data_to_wordTheory.make_header_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.make_byte_header_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.encode_header_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.adjust_sets_def |> cv_trans;
 val _ = data_to_wordTheory.GiveUp_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.BignumHalt_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.list_Seq_def |> arch_spec |> cv_trans;

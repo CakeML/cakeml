@@ -2295,7 +2295,6 @@ Triviality v_case_const[simp] = case_constant ``:closSem$v``
 Triviality option_case_const[simp] = case_constant ``:'a option``
 Triviality list_case_const[simp] = case_constant ``:'a list``
 
-val _ = print "The following proof is slow due to Rerr cases.\n";
 Theorem LIST_REL_REFL_EVERY:
   ! l.
   LIST_REL R l l <=> EVERY (\x. R x x) l
@@ -2303,13 +2302,13 @@ Proof
   Induct >> fs[]
 QED
 
-
 Theorem POS_INT_EQ_NUM:
   0 ≤ (i:int) <=> ∃n. i = &n
 Proof
- Cases_on `i` >> fs[]
+  Cases_on `i` >> fs[]
 QED
 
+val _ = print "The following proof is slow due to Rerr cases.\n";
 Theorem simple_val_rel_do_app_rev:
     simple_val_rel vr /\ simple_state_rel vr sr ==>
     sr s (t:('c,'ffi) closSem$state) /\ LIST_REL vr xs ys ==>
@@ -2329,6 +2328,18 @@ Proof
      Cases_on `a` >> Cases_on `a'` >>
      fs[])
   \\ `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
+  \\ Cases_on `opp = MemOp XorByte`
+  THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ rw[Once do_app_def,AllCaseEqs(),PULL_EXISTS]
+    \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt
+    \\ fs[] \\ rveq \\ simp[do_app_def]
+    \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC)
+    \\ drule (GEN_ALL simple_state_rel_FLOOKUP_refs_IMP)
+    \\ disch_then drule
+    \\ disch_then imp_res_tac \\ fs []
+    \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
+    \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
   \\ Cases_on `opp = BlockOp ListAppend`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs[] \\ rveq \\ pop_assum mp_tac

@@ -246,6 +246,13 @@ Definition is_gc_const_def:
   is_gc_const c = ((c && 1w) = 0w)
 End
 
+
+Definition all_names_def[simp]:
+  all_names (n,m) = union n m
+End
+
+Overload delete_all[local] = “λn l. FOLDR delete l n”
+
 (* We only drop constants that can potentially be in registers *)
 Definition drop_consts_def:
   drop_consts cs [] = Skip ∧
@@ -285,7 +292,7 @@ Definition const_fp_loop_def:
                  filter_v is_gc_const cs)
       | SOME (n, names, ret_handler, l1, l2) =>
         (if handler = NONE then
-           (let cs' = delete n (filter_v is_gc_const (inter cs names)) in
+           (let cs' = delete_all n (filter_v is_gc_const (inter cs (all_names names))) in
             let (ret_handler', cs'') = const_fp_loop ret_handler cs' in
               (SmartSeq (drop_consts cs args)
                 (Call (SOME (n, names, ret_handler', l1, l2)) dest args handler), cs''))
@@ -293,14 +300,14 @@ Definition const_fp_loop_def:
            (SmartSeq (drop_consts cs args)
              (Call ret dest args handler), LN))) /\
   (const_fp_loop (FFI x0 x1 x2 x3 x4 names) cs =
-    (SmartSeq (drop_consts cs [x1;x2;x3;x4]) (FFI x0 x1 x2 x3 x4 names), inter cs names)) /\
+    (SmartSeq (drop_consts cs [x1;x2;x3;x4]) (FFI x0 x1 x2 x3 x4 names), inter cs (all_names names))) /\
   (const_fp_loop (LocValue v x3) cs = (LocValue v x3, delete v cs)) /\
   (const_fp_loop (Alloc n names) cs =
-    (SmartSeq (drop_consts cs [n]) (Alloc n names), filter_v is_gc_const (inter cs names))) /\
+    (SmartSeq (drop_consts cs [n]) (Alloc n names), filter_v is_gc_const (inter cs (all_names names)))) /\
   (const_fp_loop (StoreConsts a b c d ws) cs = (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))) /\
   (const_fp_loop (Install r1 r2 r3 r4 names) cs =
     (SmartSeq (drop_consts cs [r1;r2;r3;r4])
-      (Install r1 r2 r3 r4 names), delete r1 (filter_v is_gc_const (inter cs names)))) /\
+      (Install r1 r2 r3 r4 names), delete r1 (filter_v is_gc_const (inter cs (all_names names))))) /\
   (const_fp_loop (Store e v) cs =
     (Store (const_fp_exp e cs) v, cs)) /\
   (const_fp_loop (ShareInst Load v e) cs =

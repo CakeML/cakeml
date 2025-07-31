@@ -5109,7 +5109,7 @@ Triviality alloc_correct:
               regs := l2; gc_fun := anything|>) /\ t.regs SUBMAP l2
 Proof
   `find_code (INL gc_stub_location) (l \\ 0) (fromAList (compile c (toAList s.code))) =
-      SOME (Seq (word_gc_code c) (Return 0 0))` by
+      SOME (Seq (word_gc_code c) (Return 0))` by
      simp[find_code_def,lookup_fromAList,compile_def,ALOOKUP_APPEND,stubs_def]
   \\ tac \\ fs [] \\ strip_tac
   \\ mp_tac (Q.GENL [`conf`,`l`,`ret`] alloc_correct_lemma) \\ fs []
@@ -5361,7 +5361,7 @@ Proof
     \\ drule lookup_fromAList_prog_comp \\ fs []
     \\ disch_then kall_tac
     \\ qexists_tac ‘1’ \\ fs [dec_clock_def,set_var_def]
-    \\ fs [EVAL “(comp x n (Seq (StoreConsts t1 t2 NONE) (Return 0 0)))”]
+    \\ fs [EVAL “(comp x n (Seq (StoreConsts t1 t2 NONE) (Return 0)))”]
     \\ fs [evaluate_def,store_const_sem_def,get_var_def,AllCaseEqs(),
            check_store_consts_opt_def,FLOOKUP_UPDATE]
     \\ gvs []

@@ -534,15 +534,100 @@ val strxor_c_arr = process_topdecs`
     val ls = Word8Array.length s
   in
     if lt <= ls
-    then strxor_aux_c_arr s t lt
+    then (Unsafe.w8xor_str s t; s)
     else
       let
         val ss = Word8Array.array lt w8z
         val u = Word8Array.copy s 0 ls ss 0
       in
-        strxor_aux_c_arr ss t lt
+        (Unsafe.w8xor_str ss t; ss)
       end
   end` |> append_prog;
+
+Triviality xor_bytes_eq:
+  ∀xs ys zs.
+    LENGTH xs = LENGTH ys ⇒
+    xor_bytes xs (ys ++ zs) = SOME (MAP2 word_xor xs ys ++ zs)
+Proof
+  Induct \\ Cases_on ‘ys’ \\ gvs [semanticPrimitivesTheory.xor_bytes_def]
+QED
+
+Triviality xor_bytes_same:
+  LENGTH xs = LENGTH ys ⇒
+  xor_bytes xs ys = SOME (MAP2 word_xor xs ys)
+Proof
+  strip_tac
+  \\ drule xor_bytes_eq
+  \\ disch_then $ qspec_then ‘[]’ mp_tac
+  \\ gvs []
+QED
+
+Triviality xor_bytes_rest:
+  ∀s ys1 ys2.
+    LENGTH s = LENGTH ys1 ⇒
+    THE (xor_bytes s (ys1 ++ ys2)) =
+    THE (xor_bytes s ys1) ++ ys2
+Proof
+  rw [xor_bytes_eq]
+  \\ qspecl_then [‘s’,‘ys1’,‘[]’] mp_tac xor_bytes_eq
+  \\ gvs []
+QED
+
+Triviality xor_bytes_snoc:
+  ∀xs ys xs1 ys1.
+    LENGTH xs = LENGTH ys ⇒
+    xor_bytes (xs ++ xs1) (ys ++ ys1) =
+    case xor_bytes xs ys of
+    | NONE => NONE
+    | SOME res =>
+       case xor_bytes xs1 ys1 of
+       | NONE => NONE
+       | SOME res1 => SOME (res ++ res1)
+Proof
+  Induct \\ Cases_on ‘ys’ \\ gvs []
+  \\ gvs [semanticPrimitivesTheory.xor_bytes_def]
+  >- (rw [] \\ CASE_TAC \\ gvs [])
+  \\ rw []
+  \\ CASE_TAC \\ asm_simp_tac (srw_ss()) []
+  \\ CASE_TAC \\ asm_simp_tac (srw_ss()) []
+  \\ CASE_TAC \\ asm_simp_tac (srw_ss()) []
+QED
+
+Triviality xor_bytes_lemma:
+  ∀s r ys1 ys2.
+    LENGTH ys1 = LENGTH s ⇒
+    THE (xor_bytes (MAP (n2w ∘ ORD) s) ys1) ++ ys2 =
+    strxor_aux_c (ys1 ++ ys2) (strlit (s ++ r)) (STRLEN s)
+Proof
+  Induct using SNOC_INDUCT
+  \\ gvs [semanticPrimitivesTheory.xor_bytes_def]
+  >- (rw [] \\ EVAL_TAC)
+  \\ Cases_on ‘ys1’ using SNOC_CASES \\ gvs []
+  \\ rw []
+  \\ simp [Once strxor_aux_c_def]
+  \\ simp_tac std_ss [SNOC_APPEND,GSYM APPEND_ASSOC,APPEND]
+  \\ pop_assum $ assume_tac o GSYM
+  \\ asm_simp_tac std_ss [EL_APPEND,EL,HD,LUPDATE_LENGTH]
+  \\ pop_assum $ assume_tac o GSYM \\ asm_rewrite_tac []
+  \\ last_x_assum $ DEP_REWRITE_TAC o single o GSYM
+  \\ simp []
+  \\ DEP_REWRITE_TAC [xor_bytes_snoc]
+  \\ gvs [semanticPrimitivesTheory.xor_bytes_def,toByte_def]
+  \\ DEP_REWRITE_TAC [xor_bytes_same]   \\ gvs []
+QED
+
+Triviality xor_bytes_strxor_aux_c:
+  LENGTH s ≤ LENGTH cs ⇒
+  THE (xor_bytes (MAP (n2w ∘ ORD) s) cs) =
+  strxor_aux_c cs (strlit s) (STRLEN s)
+Proof
+  strip_tac
+  \\ dxrule LESS_EQ_LENGTH
+  \\ strip_tac \\ gvs[]
+  \\ drule xor_bytes_lemma
+  \\ disch_then $ qspec_then ‘[]’ assume_tac o GSYM \\ gvs []
+  \\ irule xor_bytes_rest \\ gvs []
+QED
 
 Theorem strxor_c_arr_spec:
   strxor_TYPE ds dsv
@@ -562,16 +647,19 @@ Proof
   xif
   >- (
     simp[strxor_c_def]>>
-    xapp>>xsimpl)>>
-  assume_tac w8z_v_thm>>
-  xlet_autop>>
-  xlet_autop>>
+    xlet_auto >- xsimpl >>
+    xvar >> xsimpl >>
+    Cases_on ‘ds’ >> gvs [] >>
+    irule xor_bytes_strxor_aux_c >> simp []) >>
+  assume_tac w8z_v_thm >>
+  xlet_autop >>
+  xlet_autop >>
+  xlet_auto >- xsimpl >>
+  xvar >> xsimpl >>
   simp[strxor_c_def]>>
-  xapp>>
-  xsimpl>>
-  qexists_tac`strlen ds`>>
-  qexists_tac`ds`>>simp[]>>
-  rw[w8z_def]
+  DEP_REWRITE_TAC [xor_bytes_strxor_aux_c] >>
+  conj_tac >- gvs [] >>
+  Cases_on ‘ds’ >> gvs [w8z_def]
 QED
 
 val add_xors_aux_c_arr = process_topdecs`
