@@ -6453,10 +6453,7 @@ Proof
   \\ strip_tac \\ asm_exists_tac \\ fs [word_addr_def]
   \\ fs [heap_in_memory_store_def,FLOOKUP_UPDATE]
   \\ imp_res_tac heap_store_unused_IMP_length \\ fs []
-  \\ fs [wordsTheory.n2w_sub,WORD_LEFT_ADD_DISTRIB]
-  \\ cheat
-
-  (*\\ `LENGTH ws + 1 <= sp' + sp1` by decide_tac
+  \\ `2 <= sp' + sp1` by decide_tac
   \\ pop_assum mp_tac \\ simp_tac std_ss [LESS_EQ_EXISTS]
   \\ strip_tac \\ clean_tac \\ fs []
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
@@ -6466,30 +6463,32 @@ Proof
   \\ fs [GSYM bytes_in_word_mul_eq_shift,GSYM word_add_n2w]
   \\ fs [heap_store_unused_def,el_length_def]
   \\ fs [GSYM word_add_n2w,wordsTheory.n2w_sub,WORD_LEFT_ADD_DISTRIB]
-  \\ every_case_tac \\ fs []
-  \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ clean_tac
-  \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
-  \\ fs [heap_store_lemma] \\ clean_tac \\ fs []
-  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def,
-         SEP_CLAUSES,word_heap_heap_expand,RefBlock_def,el_length_def,
-         heap_length_APPEND,heap_length_heap_expand]
-  \\ fs [word_list_exists_ADD |> Q.SPECL [`sp'`,`sp1`]]
-  \\ `make_header c 14w 1 = hd` by
-       (fs [encode_header_def] \\ every_case_tac \\ fs []
-        \\ fs [WORD_MUL_LSL,word_mul_n2w,EXP_ADD] \\ NO_TAC)
-  \\ fs [] \\ drule encode_header_IMP \\ fs [] \\ strip_tac
-  \\ fs [SEP_CLAUSES,STAR_ASSOC]
-  \\ `LENGTH ws + 1 = LENGTH (Word hd::ws)` by fs []
-  \\ full_simp_tac std_ss []
-  \\ assume_tac store_list_thm
-  \\ SEP_F_TAC \\ strip_tac \\ fs []
-  \\ fs [EVERY2_f_EQ] \\ clean_tac \\ fs []
-  \\ fs [el_length_def,heap_length_APPEND,heap_length_heap_expand,
-         GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-  \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
-  \\ pop_assum mp_tac \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-  \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-  \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]*)
+  \\ every_case_tac \\fs []
+  \\ (
+    imp_res_tac heap_lookup_SPLIT \\ fs [] \\ clean_tac
+    \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+    \\ fs [heap_store_lemma] \\ clean_tac \\ fs []
+    \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def,
+           SEP_CLAUSES,word_heap_heap_expand,ThunkBlock_def,el_length_def,
+           heap_length_APPEND,heap_length_heap_expand,thunk_tag_to_bits_def]
+    \\ fs [word_list_exists_ADD |> Q.SPECL [`sp'`,`sp1`]]
+    \\ qmatch_goalsub_abbrev_tac `make_header c nn 1`
+    \\ `make_header c nn 1 = hd` by
+         (fs [Abbr`nn`,encode_header_def] \\ every_case_tac \\ fs []
+          \\ fs [WORD_MUL_LSL,word_mul_n2w,EXP_ADD] \\ NO_TAC)
+    \\ fs [Abbr`nn`] \\ drule encode_header_IMP \\ fs [] \\ strip_tac
+    \\ fs [SEP_CLAUSES,STAR_ASSOC]
+    \\ `2 = LENGTH [Word hd; word_addr c v']` by fs []
+    \\ full_simp_tac std_ss []
+    \\ assume_tac store_list_thm
+    \\ SEP_F_TAC \\ strip_tac \\ fs []
+    \\ fs [EVERY2_f_EQ] \\ clean_tac \\ fs []
+    \\ fs [el_length_def,heap_length_APPEND,heap_length_heap_expand,
+           GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+    \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
+    \\ pop_assum mp_tac \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+    \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+    \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC])
 QED
 
 Theorem memory_rel_write:
