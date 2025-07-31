@@ -41,7 +41,7 @@ Overload dec_u8[local]  = “dec_unsigned_word : byteSeq -> (byte   # byteSeq) o
 Overload dec_u32[local] = “dec_unsigned_word : byteSeq -> (word32 # byteSeq) option”
 
 Overload error = “λ str obj. (INL (strlit str),obj)”
-(* ": Ran out of bytes to decode." *)
+(* ": Byte sequence unexpectedly empty." *)
 
 
 Definition dec_2u32_def:
@@ -63,45 +63,27 @@ End
 (*   Encode-Decode pairs - Functions   *)
 (***************************************)
 
-Definition enc_numtype_def:
-  enc_numtype (t:numtype) : byte = case t of
-  | (NT Int   W32) => 0x7Fw
-  | (NT Int   W64) => 0x7Ew
-  | (NT Float W32) => 0x7Dw
-  | (NT Float W64) => 0x7Cw
-End
-
-Definition dec_numtype_def:
-  dec_numtype (b:byte) : numtype option =
-  (* qq why not case? mm: this is better. explanation elided for now *)
-  if b = 0x7Fw then SOME (NT Int   W32) else
-  if b = 0x7Ew then SOME (NT Int   W64) else
-  if b = 0x7Dw then SOME (NT Float W32) else
-  if b = 0x7Cw then SOME (NT Float W64) else NONE
-End
-
-
-
 Definition enc_valtype_def:
   enc_valtype (t:valtype) : byte = case t of
-  | Tnum (NT Int   W32) => 0x7Fw
-  | Tnum (NT Int   W64) => 0x7Ew
-  | Tnum (NT Float W32) => 0x7Dw
-  | Tnum (NT Float W64) => 0x7Cw
-  | Tvec                => 0x7Bw
-  | TFunRef             => 0x70w
-  | TExtRef             => 0x6Fw
+  | Tnum   Int W32 => 0x7Fw
+  | Tnum   Int W64 => 0x7Ew
+  | Tnum Float W32 => 0x7Dw
+  | Tnum Float W64 => 0x7Cw
+  | Tvec           => 0x7Bw
+  | TFunRef        => 0x70w
+  | TExtRef        => 0x6Fw
 End
 
 Definition dec_valtype_def:
   dec_valtype (b:byte) : valtype option =
-  if b = 0x7Fw then SOME (Tnum $ NT Int   W32) else
-  if b = 0x7Ew then SOME (Tnum $ NT Int   W64) else
-  if b = 0x7Dw then SOME (Tnum $ NT Float W32) else
-  if b = 0x7Cw then SOME (Tnum $ NT Float W64) else
-  if b = 0x7Bw then SOME (Tvec               ) else
-  if b = 0x70w then SOME (TFunRef            ) else
-  if b = 0x6Fw then SOME (TExtRef            ) else NONE
+  if b = 0x7Fw then SOME (Tnum   Int W32) else
+  if b = 0x7Ew then SOME (Tnum   Int W64) else
+  if b = 0x7Dw then SOME (Tnum Float W32) else
+  if b = 0x7Cw then SOME (Tnum Float W64) else
+  if b = 0x7Bw then SOME  Tvec            else
+  if b = 0x70w then SOME  TFunRef         else
+  if b = 0x6Fw then SOME  TExtRef         else
+  NONE
 End
 
 
@@ -639,7 +621,7 @@ Definition enc_vecI_def:
 End
 
 Definition dec_vecI_def:
-  dec_vecI ([]:byteSeq) : ((mlstring + vec_instr) # byteSeq) = error "[dec_vecI] : Ran out of bytes to decode." [] ∧
+  dec_vecI ([]:byteSeq) : ((mlstring + vec_instr) # byteSeq) = error "[dec_vecI] : Byte sequence unexpectedly empty." [] ∧
   dec_vecI (xFD::bs) = let failure = error "[dec_vecI]" $ xFD::bs in
 
   if xFD <> 0xFDw ∨ NULL bs then failure else
@@ -923,7 +905,7 @@ End
 
 
 Definition dec_loadI_def:
-  dec_loadI ([]:byteSeq) : ((mlstring + load_instr) # byteSeq) = error "[dec_loadI] : Ran out of bytes to decode." [] ∧
+  dec_loadI ([]:byteSeq) : ((mlstring + load_instr) # byteSeq) = error "[dec_loadI] : Byte sequence unexpectedly empty." [] ∧
   dec_loadI (b::bs) = let failure = error "[dec_loadI]" $ b::bs in
 
   if b = 0x28w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   Load    Int                  W32 ofs al,rs) else
@@ -989,7 +971,7 @@ Overload i32x4 = “Is3       I32x4”
 Overload i64x2 = “          I64x2”
 
 Definition dec_storeI_def:
-  dec_storeI ([]:byteSeq) : ((mlstring + store_instr) # byteSeq) = error "[dec_storeI] : Ran out of bytes to decode." [] ∧
+  dec_storeI ([]:byteSeq) : ((mlstring + store_instr) # byteSeq) = error "[dec_storeI] : Byte sequence unexpectedly empty." [] ∧
   dec_storeI (b::bs) = let failure = error "[dec_storeI]" $ b::bs in
 
   if b = 0x36w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ Store          Int  W32 ofs al,rs) else
@@ -1016,26 +998,100 @@ End
 
 Definition enc_memI_def:
   enc_memI (i:mem_others) : byteSeq = case i of
-  | Size       => [0x3Fw; 0x00w]
-  | Grow       => [0x40w; 0x00w]
-  | Init  didx => 0xFCw :: enc_num  8 ++ enc_num didx ++ [0x00w]
-  | DDrop didx => 0xFCw :: enc_num  9 ++ enc_num didx
-  | Copy       => 0xFCw :: enc_num 10 ++ 0x00w :: [0x00w]
-  | Fill       => 0xFCw :: enc_num 11 ++ [0x00w]
+  | MemorySize      => [0x3Fw; 0x00w]
+  | MemoryGrow      => [0x40w; 0x00w]
+  | MemoryInit didx => 0xFCw :: enc_num  8 ++ enc_unsigned_word didx ++ [0x00w]
+  | DataDrop   didx => 0xFCw :: enc_num  9 ++ enc_unsigned_word didx
+  | MemoryCopy      => 0xFCw :: enc_num 10 ++ 0x00w :: [0x00w]
+  | MemoryFill      => 0xFCw :: enc_num 11 ++ [0x00w]
 End
 
+Overload B0[local] = “λ x. x = 0x00w”
 Definition dec_memI_def:
-  dec_memI ([]:byteSeq) : ((mlstring + mem_others) # byteSeq) = error "[dec_memI] : Ran out of bytes to decode." [] ∧
-  dec_memI (b::c::cs) = let failure = error "[dec_memI]" $ b::c::cs in
+  dec_memI ([]:byteSeq) : ((mlstring + mem_others) # byteSeq) = error "[dec_memI] : Byte sequence unexpectedly empty." [] ∧
+  dec_memI (b::nxt::bs) = let failure = error "[dec_memI]" $ b::nxt::bs in
 
-  if b = 0x3Fw ∧ c = 0x00w then (INR Size, cs) else
-  if b = 0x40w ∧ c = 0x00w then (INR Grow, cs) else
-  if b = 0xFCw then case dec_num $ c::cs of
-    | SOME ( 8,ds) => (case dec_num ds of NONE => failure | SOME (didx,e::rst) => if e = 0x00w then (INR $ Init didx, rst) else failure)
-    | SOME ( 9,ds) => (case dec_num ds of NONE => failure | SOME (didx,   rst) => (INR $ DDrop didx, rst))
-    | SOME (10,d::e::rst) => if d = 0x00w ∧ e = 0x00w then (INR Copy,rst) else failure
-    | SOME (11,d::   rst) => if d = 0x00w             then (INR Fill,rst) else failure
+  if b = 0x3Fw ∧ B0 nxt then (INR MemorySize, bs) else
+  if b = 0x40w ∧ B0 nxt then (INR MemoryGrow, bs) else
+  if b = 0xFCw then case dec_num $ nxt::bs of
+    | SOME ( 8,cs) => (case dec_unsigned_word cs of NONE=>failure| SOME (didx,z::rst) => if B0 z then (INR $ MemoryInit didx,rst) else failure)
+    | SOME ( 9,cs) => (case dec_unsigned_word cs of NONE=>failure| SOME (didx,   rst) =>              (INR $ DataDrop   didx,rst)             )
+    | SOME (10,z::n::rst)                                                         => if B0 $ n+z then (INR   MemoryCopy     ,rst) else failure
+    | SOME (11,z::   rst)                                                             => if B0 z then (INR   MemoryFill     ,rst) else failure
     | _ => failure
+  else
+  failure
+End
+
+
+
+Definition enc_paraI_def:
+  enc_paraI (i:para_instr) : byteSeq = case i of
+  | Drop   => [0x1Aw]
+  | Select => [0x1Bw]
+End
+
+Definition dec_paraI_def:
+  dec_paraI ([]:byteSeq) : ((mlstring + para_instr) # byteSeq) = error "[dec_paraI] : Byte sequence unexpectedly empty." [] ∧
+  dec_paraI (b::bs) = let failure = error "[dec_paraI]" $ b::bs in
+
+  if b = 0x1Aw then (INR Drop  , bs) else
+  if b = 0x1Bw then (INR Select, bs) else
+  failure
+End
+
+
+
+Definition enc_varI_def:
+  enc_varI (i:var_instr) : byteSeq = case i of
+  | LocalGet  x => 0x20w :: enc_unsigned_word x
+  | LocalSet  x => 0x21w :: enc_unsigned_word x
+  | LocalTee  x => 0x22w :: enc_unsigned_word x
+  | GlobalGet x => 0x23w :: enc_unsigned_word x
+  | GlobalSet x => 0x24w :: enc_unsigned_word x
+End
+
+Definition dec_varI_def:
+  dec_varI ([]:byteSeq) : ((mlstring + var_instr) # byteSeq) = error "[dec_varI] : Byte sequence unexpectedly empty." [] ∧
+  dec_varI (b::bs) = let failure = error "[dec_varI]" $ b::bs in
+
+  if b = 0x20w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ LocalGet  x,rs) else
+  if b = 0x21w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ LocalSet  x,rs) else
+  if b = 0x22w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ LocalTee  x,rs) else
+  if b = 0x23w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ GlobalGet x,rs) else
+  if b = 0x24w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ GlobalSet x,rs) else
+
+  failure
+End
+
+
+
+Definition enc_tableI_def:
+  enc_tableI (i:table_instr) : byteSeq = case i of
+  | TableSet  x   => 0x25w :: enc_unsigned_word x
+  | TableGet  x   => 0x26w :: enc_unsigned_word x
+  | TableSize x   => 0xFCw :: enc_num 12 ++ enc_unsigned_word x
+  | TableGrow x   => 0xFCw :: enc_num 13 ++ enc_unsigned_word x
+  | TableFill x   => 0xFCw :: enc_num 14 ++ enc_unsigned_word x
+  | TableCopy x y => 0xFCw :: enc_num 15 ++ enc_unsigned_word y ++ enc_unsigned_word x
+  | TableInit x y => 0xFCw :: enc_num 16 ++ enc_unsigned_word y ++ enc_unsigned_word x
+  | Elemdrop  x   => 0xFCw :: enc_num 17 ++ enc_unsigned_word x
+End
+
+Definition dec_tableI_def:
+  dec_tableI ([]:byteSeq) : ((mlstring + table_instr) # byteSeq) = error "[dec_tableI] : Byte sequence unexpectedly empty." [] ∧
+  dec_tableI (b::bs) = let failure = error "[dec_tableI]" $ b::bs in
+
+  if b = 0x25w then  case dec_u32  bs of NONE=>failure| SOME (x,rs) => (INR $ TableSet  x,rs) else
+  if b = 0x26w then  case dec_u32  bs of NONE=>failure| SOME (x,rs) => (INR $ TableGet  x,rs) else
+  if b = 0xFCw then  case dec_num  bs of
+  | SOME (12,cs) => (case dec_u32  cs of NONE=>failure| SOME (x  ,rs) => (INR $ TableSize x  ,rs))
+  | SOME (13,cs) => (case dec_u32  cs of NONE=>failure| SOME (x  ,rs) => (INR $ TableGrow x  ,rs))
+  | SOME (14,cs) => (case dec_u32  cs of NONE=>failure| SOME (x  ,rs) => (INR $ TableFill x  ,rs))
+  | SOME (15,cs) => (case dec_2u32 cs of NONE=>failure| SOME (y,x,rs) => (INR $ TableCopy x y,rs))
+  | SOME (16,cs) => (case dec_2u32 cs of NONE=>failure| SOME (y,x,rs) => (INR $ TableInit x y,rs))
+  | SOME (17,cs) => (case dec_u32  cs of NONE=>failure| SOME (x  ,rs) => (INR $ Elemdrop  x  ,rs))
+  | _ =>failure
   else
   failure
 End
@@ -1048,8 +1104,8 @@ End
 (*                                 *)
 (***********************************)
 
-Theorem dec_enc_numtype:
-  ∀ t. dec_numtype (enc_numtype t) = SOME t
+Theorem dec_enc_valtype:
+  ∀ t. dec_valtype (enc_valtype t) = SOME t
 Proof
   (* TODO ask MM how to use namedCases and fs [oneline] on 1 aug *)
   (* namedCases ["x"] *)
@@ -1065,22 +1121,11 @@ Proof
   (* and every_case_tac doesn't seem to work after the fs tactic.  *)
   (* every_case_tac *)
 
-  (* original: This isn't so bad when there are only 3 vars to destroy
-  num I has 140 instructions, each with a variable amount of vars *)
-  (* Cases_on `t` >> Cases_on `b` >> Cases_on `w` \\
-  rw[dec_numtype_def, enc_numtype_def] *)
-
   (* something I like better *)
-  rw[enc_numtype_def] >> every_case_tac >>
-  rw[dec_numtype_def]
-QED
-
-Theorem dec_enc_valtype:
-  ∀ t. dec_valtype (enc_valtype t) = SOME t
-Proof
   rw[enc_valtype_def] >> every_case_tac >> rw[dec_valtype_def]
 
-  (* vs original *)
+  (* original: This isn't so bad when there are only 3 vars to destroy
+  num I has 140 instructions, each with a variable amount of vars *)
   (* Cases >-
   (Cases_on `n` >> Cases_on `b` >> Cases_on `w` >> rw[dec_valtype_def, enc_valtype_def]) >>
   rw[dec_valtype_def, enc_valtype_def] *)
@@ -1111,27 +1156,55 @@ Proof
   cheat
 QED
 
-Theorem dec_enc_memI:
-  ∀ i. dec_memI (enc_memI i ++ rest) = (INR i, rest)
-Proof
-  (* rw [enc_memI_def] >> every_case_tac >>
-  rw [dec_memI_def, dec_enc_num] *)
-
-
-  cheat
-QED
-
 Theorem dec_enc_loadI:
   ∀ i. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
 Proof
+  rw [enc_loadI_def] >> every_case_tac >>
+  rw [dec_loadI_def, dec_enc_unsigned_word] >>
   cheat
 QED
 
 Theorem dec_enc_storeI:
   ∀ i. dec_storeI (enc_storeI i ++ rest) = (INR i, rest)
 Proof
+  rw [enc_storeI_def] >> every_case_tac >>
   cheat
 QED
+
+Theorem dec_enc_memI:
+  ∀ i. dec_memI (enc_memI i ++ rest) = (INR i, rest)
+Proof
+  rw [enc_memI_def] >> every_case_tac >>
+  rw [dec_memI_def, dec_enc_num_id] >>
+  cheat
+  (* don't know how to move past the multiple encodings *)
+QED
+
+
+Theorem dec_enc_paraI:
+  ∀ i. dec_paraI (enc_paraI i ++ rest) = (INR i, rest)
+Proof
+  rw[enc_paraI_def] >> every_case_tac >>
+  rw[dec_paraI_def]
+QED
+
+Theorem dec_enc_varI:
+  ∀ i. dec_varI (enc_varI i ++ rest) = (INR i, rest)
+Proof
+  rw[enc_varI_def] >> every_case_tac >>
+  rw[dec_varI_def, dec_enc_unsigned_word]
+QED
+
+Theorem dec_enc_tableI:
+  ∀ i. dec_tableI (enc_tableI i ++ rest) = (INR i, rest)
+Proof
+  rw[enc_tableI_def] >> every_case_tac >>
+  rw[dec_tableI_def, dec_enc_unsigned_word] >>
+  cheat
+QED
+
+
+
 
 
 
@@ -1155,7 +1228,7 @@ End
 *)
 
 Overload elseOC = “0x05w : byte”
-Overload endOC  = “0x0Bw : byte”
+Overload endOC  = “[0x0Bw:byte]”
 
 Definition enc_instr_def:
 
@@ -1165,88 +1238,73 @@ Definition enc_instr_def:
   | Unreachable => [0x00w]
   | Nop         => [0x01w]
 
+    | Block bTyp body          => 0x02w :: enc_blocktype bTyp ++ enc_instr_list body ++ endOC
+    | Loop  bTyp body          => 0x03w :: enc_blocktype bTyp ++ enc_instr_list body ++ endOC
+    | If    bTyp bodyTh [    ] => 0x04w :: enc_blocktype bTyp ++ enc_instr_list body ++ endOC
+    | If    bTyp bodyTh bodyEl => 0x04w :: enc_blocktype bTyp ++ enc_instr_list bodyTh ++ elseOC :: enc_instr_list bodyEl ++ endOC
   (*
-    | Block bTyp body          => 0x02w :: enc_blocktype bTyp ++ enc_instr_list body ++ [endOC]
-    | Loop  bTyp body          => 0x03w :: enc_blocktype bTyp ++ enc_instr_list body ++ [endOC]
-    | If    bTyp bodyTh [    ] => 0x04w :: enc_blocktype bTyp ++ enc_instr_list body ++ [endOC]
-    | If    bTyp bodyTh bodyEl => 0x04w :: enc_blocktype bTyp ++ enc_instr_list bodyTh ++ elseOC :: enc_instr_list bodyEl ++ [endOC]
   *)
 
-  | Br           lbl => 0x0Cw ::                    enc_num lbl
-  | BrIf         lbl => 0x0Dw ::                    enc_num lbl
-  | BrTable lbls lbl => 0x0Ew :: (* TODO lbls ++ *) enc_num lbl
+  | Br           lbl => 0x0Cw ::                    enc_unsigned_word lbl
+  | BrIf         lbl => 0x0Dw ::                    enc_unsigned_word lbl
+  | BrTable lbls lbl => 0x0Ew :: (* TODO lbls ++ *) enc_unsigned_word lbl
 
   | Return                    => [0x0Fw]
-  | Call               f      =>  0x10w :: enc_num f
-  (* | CallIndirect       f fsig =>  0x11w :: enc_num fsig ++ enc_num f *)
-  | ReturnCall         f      =>  0x12w :: enc_num f
-  (* | ReturnCallIndirect f fsig =>  0x13w :: enc_num fsig ++ enc_num f *)
+  | Call               f      =>  0x10w :: enc_unsigned_word f
+  (* | CallIndirect       f fsig =>  0x11w :: enc_num fsig ++ enc_unsigned_word f *)
+  | ReturnCall         f      =>  0x12w :: enc_unsigned_word f
+  (* | ReturnCallIndirect f fsig =>  0x13w :: enc_num fsig ++ enc_unsigned_word f *)
 
-  (* parametric instructions *)
-  | Drop        => [0x1Aw]
-  | Select      => [0x1Bw]
-
-  (* variable instructions *)
-  | LocalGet  x => 0x20w :: enc_num x
-  | LocalSet  x => 0x21w :: enc_num x
-  | LocalTee  x => 0x22w :: enc_num x
-  | GlobalGet x => 0x23w :: enc_num x
-  | GlobalSet x => 0x24w :: enc_num x
-
-  (* TODO
-  (* memory instructions *)
-  (* | Load  t ((tp_num # bool) option) word32 TODO: alignment *)
-  (* | Store t tp_num word32                   TODO: alignment *)
-  *)
 
   (* other classes of instructions *)
-  | Numeric i => enc_numI i
-  | Vector  i => enc_vecI i
+  | Variable   i => enc_varI   i
+  | Parametric i => enc_paraI  i
+  | Numeric    i => enc_numI   i
+  | Vector     i => enc_vecI   i
+  | MemRead    i => enc_loadI  i
+  | MemWrite   i => enc_storeI i
+  | MemOthers  i => enc_memI   i
   | _ => []
   )
 
-  (* ∧
-  (enc_instr_list ([]:instr list) : byteSeq = [endOC])
-  (enc_instr_list (i::ins) = enc_instr i $ enc_instr_list ins) *)
+  ∧
+  (enc_instr_list ([]:instr list) : byteSeq = endOC)
+  (enc_instr_list (i::ins) = enc_instr i $ enc_instr_list ins)
 
 End
 
-Definition dec_instr_def:
-  dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = error "[dec_instr] : Ran out of bytes to decode." [] ∧
+(* Definition dec_instr_def:
+  dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = error "[dec_instr] : Byte sequence unexpectedly empty." [] ∧
   dec_instr (b::bs) = let failure = error "[dec_instr]" $ b::bs in
 
   (* control instructions *)
   if b = 0x00w then (INR Unreachable, bs) else
   if b = 0x01w then (INR Nop        , bs) else
 
-  if b = 0x0Cw then case dec_num bs of NONE => failure | SOME (lbl,cs) => (INR $ Br           lbl, cs) else
-  if b = 0x0Dw then case dec_num bs of NONE => failure | SOME (lbl,cs) => (INR $ BrIf         lbl, cs) else
+  if b = 0x0Cw then case dec_unsigned_word bs of NONE => failure | SOME (lbl,cs) => (INR $ Br           lbl, cs) else
+  if b = 0x0Dw then case dec_unsigned_word bs of NONE => failure | SOME (lbl,cs) => (INR $ BrIf         lbl, cs) else
   (* TODO
   if b = 0x0Ew then case dec_u32 bs of NONE => failure | SOME (lbl,cs) => (INR $ BrTable [lbl] lbl ,bs) else *)
 
   if b = 0x0Fw then (INR Return , bs) else
-  if b = 0x10w then case dec_num bs of NONE => failure | SOME (f,cs) => (INR $ Call               f        , cs) else
+  if b = 0x10w then case dec_unsigned_word bs of NONE => failure | SOME (f,cs) => (INR $ Call               f        , cs) else
    (* TODO
-  if b = 0x11w then case dec_num bs of NONE => failure | SOME (f,cs) => (INR $ CallIndirect       f (* tblIdx *) , cs) else *)
-  if b = 0x12w then case dec_num bs of NONE => failure | SOME (f,cs) => (INR $ ReturnCall         f        , cs) else
+  if b = 0x11w then case dec_unsigned_word bs of NONE => failure | SOME (f,cs) => (INR $ CallIndirect       f (* tblIdx *) , cs) else *)
+  if b = 0x12w then case dec_unsigned_word bs of NONE => failure | SOME (f,cs) => (INR $ ReturnCall         f        , cs) else
    (* TODO
-  if b = 0x13w then case dec_num bs of NONE => failure | SOME (f,cs) => (INR $ ReturnCallIndirect f (* tblIdx *) , cs) else *)
-
-  (* parametric instructions *)
-  if b = 0x1Aw then (INR Drop  , bs) else
-  if b = 0x1Bw then (INR Select, bs) else
+  if b = 0x13w then case dec_unsigned_word bs of NONE => failure | SOME (f,cs) => (INR $ ReturnCallIndirect f (* tblIdx *) , cs) else *)
 
   (* variable instructions *)
-  if b = 0x20w then case dec_num bs of NONE => failure | SOME(x,cs) => (INR $ LocalGet  x, cs) else
-  if b = 0x21w then case dec_num bs of NONE => failure | SOME(x,cs) => (INR $ LocalSet  x, cs) else
-  if b = 0x22w then case dec_num bs of NONE => failure | SOME(x,cs) => (INR $ LocalTee  x, cs) else
-  if b = 0x23w then case dec_num bs of NONE => failure | SOME(x,cs) => (INR $ GlobalGet x, cs) else
-  if b = 0x24w then case dec_num bs of NONE => failure | SOME(x,cs) => (INR $ GlobalSet x, cs) else
+  if b = 0x20w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ LocalGet  x, cs) else
+  if b = 0x21w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ LocalSet  x, cs) else
+  if b = 0x22w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ LocalTee  x, cs) else
+  if b = 0x23w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ GlobalGet x, cs) else
+  if b = 0x24w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ GlobalSet x, cs) else
 
   case dec_numI (b::bs) of (INR inum,cs) => (INR $ Numeric inum, cs) | _ =>
   case dec_vecI (b::bs) of (INR ivec,cs) => (INR $ Vector  ivec, cs) | _ =>
 
   failure
-End
+End *)
 
 val _ = export_theory();
