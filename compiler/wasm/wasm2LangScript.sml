@@ -1,11 +1,12 @@
 (*
-  CakeML Wasm 2.0 (+ tail calls) AST
-
-  The AST here has
-  + control flow instructions
-  + all numeric (stack) instructions
-  + all vector (stack) instructions
-  + all memory operations -- factored into their own datatype
+  CWasm AST modelling Wasm 2.0 (+ tail calls)
+  Present here are
+    + control flow instructions
+    + all numeric (stack) instructions
+    + all vector (stack) instructions
+    + all memory operations -- including numeric and vector mem ops factored into their own datatype
+  Imprecisions:
+    We use HOL lists to encode wasm vectors. The latter have a max length of 2^32 elements
 *)
 open preamble;
 
@@ -38,12 +39,8 @@ Datatype: sign
   | Unsigned
 End
 
-Datatype: numtype (* we do not enumerate num types directly because bytypes and widths are useful to have *)
-  = NT bvtype width
-End
-
 Datatype: valtype
-  = Tnum numtype
+  = Tnum bvtype width
   | Tvec
   | TFunRef
   | TExtRef
@@ -58,18 +55,17 @@ End
 
 Type memtyp = “:(addrtype # limits)”
 
-(* Note :
-  ops/instructions data constructors have their return types
-  -- when not present in the data constructor name --
+(* Note on style :
+  instructions data constructors have their return types
+  -- when present in the encoding; they are elided when unnecessary (due to being unique/variant-less) --
   as the last argument/s.
 
   The other arguments distinguish variants of the same function.
 
   Example:
-  Clz W32  represents the wasm instruction  i32.clz  -- "W32" specified the return type i32.
-  Clz W64  represents  i64.clz  instead.
-  We don't need to encode the "int" part of i32/i64
-  because there is no float version of the clz instruction.
+    Clz W32  represents (the wasm instruction)  i32.clz  -- "W32" specified the return type i32.
+  & Clz W64  represents                         i64.clz
+  We don't encode the "int" part of i32/i64 because there is no float version of clz.
 
   More examples
   i32.add :=: Add Int   W32
@@ -370,11 +366,11 @@ End
 (*******************************)
 
 (* NB:
-  We abuse abstraction by (re)use the ishape (ishap2/ishap3) datatype from vectors
+  We abuse abstraction by (re)using the ishape (ishap2/ishap3) datatype from vectors
   to specify narrowness for loads.
 
   eg,
-  We can load 8/16 bits from memory into a 32 bit value : i32.load8_s / i32.load16_s
+  Wasm instructions allow loading 8/16 bits from memory into a 32 bit value : i32.load8_s / i32.load16_s
   The CWasm AST uses it's encoding for vec shapes (i8x16) to represent "8" etc
 *)
 
@@ -405,21 +401,47 @@ Datatype: store_instr
   | StoreLane ishape word32 word32 word8
 End
 
+Type index = “:word32”
+
 Datatype: mem_others
-  = Size
-  | Grow
-  | Fill
-  | Copy
-  | Init num
-  | DDrop num
+  = MemorySize
+  | MemoryGrow
+  | MemoryFill
+  | MemoryCopy
+  | MemoryInit index
+  | DataDrop   index
 End
   (* wasm 3 *)
-  (* | Size num *)
-  (* | Grow num *)
-  (* | Fill num *)
-  (* | Copy num *)
-  (* | Init num num *)
-  (* | Drop num num *)
+  (* | MemorySize index       *)
+  (* | MemoryGrow index       *)
+  (* | MemoryFill index       *)
+  (* | MemoryCopy index       *)
+  (* | MemoryInit index index *)
+  (* | DataDrop   index index *)
+
+
+(******************************)
+(*                            *)
+(*     Other instructions     *)
+(*                            *)
+(******************************)
+
+Datatype: para_instr (* parametric *)
+  = Drop
+  | Select
+End
+
+Datatype: table_instr
+  = TableSet  index
+  | TableGet  index
+  | TableSize index
+  | TableGrow index
+  | TableFill index
+  | TableCopy index index
+  | TableInit index index
+  | Elemdrop  index
+End
+
 
 
 (*************************************)
@@ -432,14 +454,13 @@ End
   (*   Misc Notations/"types"   *)
   (******************************)
 
-Type t = “:numtype”
-Type tf = “:t list # t list”;
-(* QQ this is a table id? *)
+Type t = “:valtype”
+Type functype = “:t list # t list”
+(* Datatype: functype
+  =
+  |
+End *)
 
-(* memory operations other than 64 bits *)
-Datatype:
-  tp_num = Tp_i8 | Tp_i16 | Tp_i32
-End
 
 (* QQ these represent block types? *)
 Datatype:
@@ -455,7 +476,6 @@ Datatype: blocktype
   | BlkVal valtype
   | BlkIdx num
 End
-Type index = “:word32”
 
 (* TODO switch out nums in AST to index *)
 
@@ -465,40 +485,33 @@ Datatype: instr
   = Unreachable
   | Nop
 
-  | Block tb (instr list)
-  | Loop  tb (instr list)
-  | If    tb (instr list) (instr list)
+  | Block blocktype (instr list)
+  | Loop  blocktype (instr list)
+  | If    blocktype (instr list) (instr list)
 
-  | Br                 num
-  | BrIf               num
-  | BrTable (num list) num
+  | Br                   index
+  | BrIf                 index
+  | BrTable (index list) index
 
   | Return
-  | ReturnCall         num                  (* TODO: tail call *)
-  | ReturnCallIndirect num tf               (* TODO: input/output params, names *)
-  | Call               num
-  | CallIndirect       num tf               (* TODO: first num is tableid *)
-
-  (* parametric instructions *)
-  | Drop
-  | Select
+  | ReturnCall         index            (* TODO: tail call *)
+  | ReturnCallIndirect index functype   (* TODO: input/output params, names *)
+  | Call               index
+  | CallIndirect       index functype   (* TODO: first num is tableid *)
 
   (* variable instructions *)
-  | LocalGet  num
-  | LocalSet  num
-  | LocalTee  num
-  | GlobalGet num
-  | GlobalSet num
+  | LocalGet  index
+  | LocalSet  index
+  | LocalTee  index
+  | GlobalGet index
+  | GlobalSet index
 
-  (* memory instructions *)
-  | OLoad  t ((tp_num # bool) option) word32 (* TODO: alignment *)
-  | OStore t tp_num word32                   (* TODO: alignment *)
-
-  | Numeric  num_instr
-  | Vector   vec_instr
-  | MemRead  load_instr
-  | MemWrite store_instr
-  | Memory   mem_others
+  | Parametric para_instr
+  | Numeric    num_instr
+  | Vector     vec_instr
+  | MemRead    load_instr
+  | MemWrite   store_instr
+  | MemOthers  mem_others
 
 End
 

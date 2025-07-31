@@ -1,12 +1,12 @@
 (*
-  CakeML Wasm 1.0 (+ tail calls) AST
-
-  The AST here has
-  + control flow instructions
-  + int numeric instructions (ie, those not involving floats)
-  + int memory operations    (not involving floats/vecs)
+  CWasm AST modelling Wasm 1.0 (+ tail calls)
+  Present here are
+    + control flow instructions
+    + int numeric instructions (ie, those not involving floats)
+    + int memory operations    (not involving floats/vecs)
+  Imprecisions:
+    We use HOL lists to encode wasm vectors. The latter have a max length of 2^32 elements
 *)
-
 open preamble;
 
 val _ = new_theory "wasmLang";
@@ -25,7 +25,6 @@ val _ = new_theory "wasmLang";
 
 Datatype: bvtype (* bit vector type (Does anyone have a better name? *)
   = Int
-
 End
 
 Datatype: width
@@ -38,26 +37,32 @@ Datatype: sign
   | Unsigned
 End
 
-Datatype: numtype (* we do not enumerate num types directly because bytypes and widths are useful to have *)
-  = NT bvtype width
-End
-
 Datatype: valtype
-  = Tnum numtype
+  = Tnum bvtype width
 End
 
-(* Note :
-  ops/instructions data constructors have their return types
-  -- when not present in the data constructor name --
+Type addrtype = “:width”
+
+Datatype: limits
+  = Lunb word64
+  | Lwmx word64 word64
+End
+
+(* Type limits = “word64 # word64 option” *)
+
+Type memtyp = “:(addrtype # limits)”
+
+(* Note on style :
+  instructions data constructors have their return types
+  -- when present in the encoding; they are elided when unnecessary (due to being unique/variant-less) --
   as the last argument/s.
 
   The other arguments distinguish variants of the same function.
 
   Example:
-  Clz W32  represents the wasm instruction  i32.clz  -- "W32" specified the return type i32.
-  Clz W64  represents  i64.clz  instead.
-  We don't need to encode the "int" part of i32/i64
-  because there is no float version of the clz instruction.
+    Clz W32  represents (the wasm instruction)  i32.clz  -- "W32" specified the return type i32.
+  & Clz W64  represents                         i64.clz
+  We don't encode the "int" part of i32/i64 because there is no float version of clz.
 
   More examples
   i32.add :=: Add Int   W32
@@ -136,10 +141,26 @@ Datatype: num_instr
   | N_convert convert_op
 End
 
+  (***************************************)
+  (*   Misc vec notations/"types"/tags   *)
+  (***************************************)
+
 Datatype: ishap2
   = I8x16
   | I16x8
 End
+
+Datatype: ishap3
+  = Is2 ishap2
+  | I32x4
+End
+
+Datatype: ishape
+  = Is3 ishap3
+  | I64x2
+End
+
+
 
 (*******************************)
 (*                             *)
@@ -148,11 +169,11 @@ End
 (*******************************)
 
 (* NB:
-  We abuse abstraction by (re)use the ishape (ishap2/ishap3) datatype from vectors
+  We abuse abstraction by (re)using the ishape (ishap2/ishap3) datatype from vectors
   to specify narrowness for loads.
 
   eg,
-  We can load 8/16 bits from memory into a 32 bit value : i32.load8_s / i32.load16_s
+  Wasm instructions allow loading 8/16 bits from memory into a 32 bit value : i32.load8_s / i32.load16_s
   The CWasm AST uses it's encoding for vec shapes (i8x16) to represent "8" etc
 *)
 
@@ -172,10 +193,20 @@ Datatype: store_instr
   | StoreNarrow32            word32 word32
 End
 
-(* Datatype: mem_others
-  =  Size
-  | Grow
-End *)
+Type index = “:word32”
+
+
+(******************************)
+(*                            *)
+(*     Other instructions     *)
+(*                            *)
+(******************************)
+
+Datatype: para_instr (* parametric *)
+  = Drop
+  | Select
+End
+
 
 (*************************************)
 (*                                   *)
@@ -187,26 +218,28 @@ End *)
   (*   Misc Notations/"types"   *)
   (******************************)
 
-Type t = “:numtype”
-Type tf = “:t list # t list”
-Type index = “:word32”
+Type t = “:valtype”
+Type functype = “:t list # t list”
+(* Datatype: functype
+  =
+  |
+End *)
 
 
-(* memory operations other than 64 bits *)
-Datatype: tp_num
-  = Tp_i8 | Tp_i16 | Tp_i32
+(* QQ these represent block types? *)
+Datatype:
+  tb = Tbf num (* | Tbv (t option) *)
 End
 
-Datatype: tb
-  = Tbf num (* | Tbv (t option) *)
-End
+(* Datatype: ctrlFlow_instr
+  | CtrlFlow  ctrlFlow_instr
+End *)
 
 Datatype: blocktype
   = BlkNil
   | BlkVal valtype
   | BlkIdx num
 End
-Type index = “:word32”
 
 (* TODO switch out nums in AST to index *)
 
@@ -216,38 +249,31 @@ Datatype: instr
   = Unreachable
   | Nop
 
-  | Block tb (instr list)
-  | Loop  tb (instr list)
-  | If    tb (instr list) (instr list)
+  | Block blocktype (instr list)
+  | Loop  blocktype (instr list)
+  | If    blocktype (instr list) (instr list)
 
-  | Br                 num
-  | BrIf               num
-  | BrTable (num list) num
+  | Br                   index
+  | BrIf                 index
+  | BrTable (index list) index
 
   | Return
-  | ReturnCall         num                  (* TODO: tail call *)
-  | ReturnCallIndirect num tf               (* TODO: input/output params, names *)
-  | Call               num
-  | CallIndirect       num tf               (* TODO: first num is tableid *)
-
-  (* parametric instructions *)
-  | Drop
-  | Select
+  | ReturnCall         index            (* TODO: tail call *)
+  | ReturnCallIndirect index functype   (* TODO: input/output params, names *)
+  | Call               index
+  | CallIndirect       index functype   (* TODO: first num is tableid *)
 
   (* variable instructions *)
-  | LocalGet  num
-  | LocalSet  num
-  | LocalTee  num
-  | GlobalGet num
-  | GlobalSet num
+  | LocalGet  index
+  | LocalSet  index
+  | LocalTee  index
+  | GlobalGet index
+  | GlobalSet index
 
-  (* memory instructions *)
-  | OLoad  t ((tp_num # bool) option) word32 (* TODO: alignment *)
-  | OStore t tp_num word32                   (* TODO: alignment *)
-
-  | Numeric  num_instr
-  | MemRead  load_instr
-  | MemWrite store_instr
+  | Parametric para_instr
+  | Numeric    num_instr
+  | MemRead    load_instr
+  | MemWrite   store_instr
 
 End
 
@@ -256,3 +282,4 @@ End
 End *)
 
 val _ = export_theory();
+
