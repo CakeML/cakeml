@@ -1219,7 +1219,7 @@ Proof
   \\ gvs [assign_values_def, state_component_equality]
 QED
 
-Triviality ALOOKUP_APPEND_same_tail:
+Triviality ALOOKUP_APPEND_same_prefix:
   ALOOKUP ys = ALOOKUP zs ⇒ ALOOKUP (xs ++ ys) = ALOOKUP (xs ++ zs)
 Proof
   simp [FUN_EQ_THM, ALOOKUP_APPEND]
@@ -1255,7 +1255,7 @@ Proof
   \\ strip_tac
   \\ first_assum $ irule_at (Pos hd) \\ gvs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC, APPEND]
-  \\ irule ALOOKUP_APPEND_same_tail \\ simp []
+  \\ irule ALOOKUP_APPEND_same_prefix \\ simp []
 QED
 
 Triviality IMP_assi_values_distinct:
@@ -1368,6 +1368,26 @@ Proof
   Cases_on ‘v’ \\ gvs [do_cond_def]
 QED
 
+Triviality fst_lambda:
+  FST ∘ (λ(x, y). (x, f y)) = FST
+Proof
+  simp [FUN_EQ_THM] \\ Cases \\ simp []
+QED
+
+Triviality snd_lambda:
+  SND ∘ (λ(x, y). (x, f y)) = f ∘ SND
+Proof
+  simp [FUN_EQ_THM] \\ Cases \\ simp []
+QED
+
+Triviality ALOOKUP_ZIP_SOME:
+  ∀A B x. LENGTH A = LENGTH B ∧ MEM x A ⇒ ∃v. ALOOKUP (ZIP (A,B)) x = SOME v
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘ALOOKUP (ZIP (A,B)) x’
+  \\ gvs [ALOOKUP_ZIP_FAIL]
+QED
+
 Theorem evaluate_exp_wrap_Old_locals:
   (∀st env e' nss e st' r l.
      evaluate_exp st env e' = (st', r) ∧
@@ -1388,76 +1408,156 @@ Theorem evaluate_exp_wrap_Old_locals:
      ¬env.is_running ⇒
      evaluate_exps (st with locals := l) env es = (st' with locals := l, r))
 Proof
-  cheat
-  (* ho_match_mp_tac evaluate_exp_ind *)
-  (* \\ rpt strip_tac *)
-  (* >~ [‘Var’] >- *)
-  (*  (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac *)
-  (*   \\ simp [Once $ oneline wrap_Old_def] *)
-  (*   \\ simp [AllCaseEqs()] *)
-  (*   \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ gvs [evaluate_exp_def, read_local_def, AllCaseEqs()]) *)
-  (* >~ [‘Lit’] >- *)
-  (*  (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac *)
-  (*   \\ simp [Once $ oneline wrap_Old_def] *)
-  (*   \\ simp [AllCaseEqs()] *)
-  (*   \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ gvs [evaluate_exp_def]) *)
-  (* >~ [‘If’] >- *)
-  (*  (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac *)
-  (*   \\ simp [Once $ oneline wrap_Old_def] *)
-  (*   \\ simp [AllCaseEqs()] *)
-  (*   \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ rename [‘If grd thn els’] *)
-  (*   \\ gvs [evaluate_exp_def] *)
-  (*   \\ namedCases_on ‘evaluate_exp st env (wrap_Old nss grd)’ ["st₁ r₁"] *)
-  (*   \\ gvs [] *)
-  (*   \\ drule (cj 1 evaluate_exp_with_clock) *)
-  (*   \\ strip_tac \\ gvs [] *)
-  (*   \\ first_x_assum $ qspecl_then [‘nss’, ‘grd’] mp_tac \\ simp [] *)
-  (*   \\ disch_then $ drule_all_then assume_tac *)
-  (*   \\ namedCases_on ‘r₁’ ["v", "err"] \\ gvs [] *)
-  (*   \\ namedCases_on ‘do_cond v (wrap_Old nss thn) (wrap_Old nss els)’ *)
-  (*        ["", "branch"] *)
-  (*   \\ gvs [] *)
-  (*   >- (imp_res_tac do_cond_none \\ gvs []) *)
-  (*   \\ imp_res_tac do_cond_some_cases \\ gvs [do_cond_def] *)
-  (*   >- (last_x_assum $ qspecl_then [‘nss’, ‘thn’] mp_tac \\ simp []) *)
-  (*   \\ last_x_assum $ qspecl_then [‘nss’, ‘els’] mp_tac \\ simp []) *)
-  (* >~ [‘Forall’] >- *)
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Var’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ gvs [evaluate_exp_def, read_local_def, AllCaseEqs()])
+  >~ [‘Lit’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ gvs [evaluate_exp_def])
+  >~ [‘If’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ rename [‘If grd thn els’]
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp st env (wrap_Old nss grd)’ ["st₁ r₁"]
+    \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ strip_tac \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘grd’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ namedCases_on ‘r₁’ ["v", "err"] \\ gvs []
+    \\ namedCases_on ‘do_cond v (wrap_Old nss thn) (wrap_Old nss els)’
+         ["", "branch"]
+    \\ gvs []
+    >- (imp_res_tac do_cond_none \\ gvs [])
+    \\ imp_res_tac do_cond_some_cases \\ gvs [do_cond_def]
+    >- (last_x_assum $ qspecl_then [‘nss’, ‘thn’] mp_tac \\ simp [])
+    \\ last_x_assum $ qspecl_then [‘nss’, ‘els’] mp_tac \\ simp [])
+  >~ [‘Forall’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ rename [‘Forall (vn,vt) e’]
+    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ simp [evaluate_exp_def, eval_forall_def, wrap_Old_def]
+    \\ simp [GSYM AND_IMP_INTRO]
+    \\ strip_tac \\ gvs []
+    \\ ‘∀v. SND (evaluate_exp (push_local st vn v) env
+                              (wrap_Old (nss DELETE vn) e)) =
+            SND (evaluate_exp (push_local (st with locals := l) vn v) env e)’ by
+      (gen_tac
+       \\ namedCases_on
+            ‘evaluate_exp (push_local st vn v) env (wrap_Old (nss DELETE vn) e)’
+            ["s₁ r₁"]
+       \\ gvs [snd_tuple]
+       \\ last_x_assum drule
+       \\ disch_then $ qspecl_then [‘nss DELETE vn’, ‘e’] mp_tac
+       \\ simp [push_local_def]
+       \\ disch_then $ irule_at (Pos hd)
+       \\ rpt strip_tac \\ gvs [])
+    \\ gvs [])
+  >~ [‘Let’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ rename [‘Let binds body’]
+    \\ gvs [evaluate_exp_def]
+    \\ gvs [UNZIP_MAP, fst_lambda, snd_lambda, MAP_MAP_o, MAP_ZIP]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ gvs [GSYM MAP_MAP_o]
+    \\ qmatch_asmsub_abbrev_tac ‘evaluate_exps _ _ wrapped_es’
+    \\ namedCases_on ‘evaluate_exps st env wrapped_es’ ["st₁ r₁"] \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘MAP SND binds’] mp_tac
+    \\ simp [Abbr ‘wrapped_es’, SF ETA_ss]
+    \\ disch_then $ drule_all_then assume_tac \\ gvs []
+    \\ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
+    \\ imp_res_tac evaluate_exps_len_eq \\ gvs []
+    (* unfold push_locals before we instantiate the IH, we qmatch gets the
+       right evaluate_exp *)
+    \\ simp [push_locals_def]
+    \\ qmatch_goalsub_abbrev_tac ‘evaluate_exp (_ with locals := lcls)’
+    \\ qmatch_asmsub_abbrev_tac ‘evaluate_exp st₁' _ wrapped_body’
+    \\ namedCases_on ‘evaluate_exp st₁' env wrapped_body’ ["st₂ r₂"] \\ gvs []
+    \\ last_x_assum $
+         qspecl_then [‘nss DIFF set (MAP FST binds)’, ‘body’] mp_tac
+    \\ gvs [Abbr ‘wrapped_body’, Abbr ‘st₁'’]
+    \\ gvs [push_locals_with_locals]
+    \\ gvs [push_locals_def]
+    \\ disch_then $ qspec_then ‘lcls’ mp_tac
+    \\ gvs [Abbr ‘lcls’]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ impl_tac >-
+     (rpt strip_tac
+      >-
+       (first_x_assum drule \\ strip_tac
+        \\ first_assum $ irule_at (Pos hd)
+        \\ DEP_REWRITE_TAC [map_lambda_pair_zip] \\ simp []
+        \\ simp [ALOOKUP_APPEND]
+        \\ simp [REVERSE_ZIP]
+        \\ DEP_REWRITE_TAC [SRULE [AND_IMP_INTRO] $ iffRL ALOOKUP_ZIP_FAIL]
+        \\ simp [])
+      >- (simp [ALOOKUP_APPEND])
+      \\ simp [ALOOKUP_APPEND]
+      \\ DEP_REWRITE_TAC [map_lambda_pair_zip] \\ simp []
+      \\ simp [REVERSE_ZIP]
+      \\ CASE_TAC \\ gvs []
+      \\ gvs [ALOOKUP_ZIP_FAIL])
+    \\ strip_tac \\ gvs []
+    \\ gvs [pop_locals_def, safe_drop_def]
+    \\ gvs [state_component_equality]
+    \\ gvs [DROP_APPEND])
+  >~ [‘ForallHeap’] >-
 
-  (*  (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac *)
-  (*   \\ simp [Once $ oneline wrap_Old_def] *)
-  (*   \\ simp [AllCaseEqs()] *)
-  (*   \\ rpt strip_tac \\ gvs [] *)
-  (*   \\ rename [‘Forall (vn,vt) e’] *)
-  (*             R *)
-  (*   \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac *)
-  (*   \\ simp [evaluate_exp_def, eval_forall_def, wrap_Old_def] *)
-  (*   \\ simp [GSYM AND_IMP_INTRO] *)
-  (*   \\ strip_tac \\ gvs [] *)
-  (*   \\ ‘∀v. SND (evaluate_exp (push_local st vn v) env *)
-  (*                             (wrap_Old (nss DELETE vn) e)) = *)
-  (*           SND (evaluate_exp (push_local (st with locals := l) vn v) env e)’ by *)
-  (*     (gen_tac *)
-  (*      \\ namedCases_on *)
-  (*           ‘evaluate_exp (push_local st vn v) env (wrap_Old (nss DELETE vn) e)’ *)
-  (*           ["s₁ r₁"] *)
-  (*      \\ gvs [snd_tuple] *)
-  (*      \\ last_x_assum drule *)
-  (*      \\ simp [push_local_def] *)
-  (*      \\ disch_then $ irule_at (Pos hd) *)
-  (*      \\ rpt strip_tac \\ gvs [])) *)
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ rename [‘ForallHeap mods e’]
+    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ simp [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exps st env (MAP (λa. wrap_Old nss a) mods)’
+         ["s₁ r₁"]
+    \\ gvs []
+    \\ drule (cj 2 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘mods’] mp_tac
+    \\ simp [SF ETA_ss]
+    \\ disch_then $ drule_all_then assume_tac \\ gvs []
+    \\ reverse $ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
+    >- (simp [state_component_equality])
+    \\ namedCases_on ‘get_locs vs’ ["", "locs"] \\ gvs []
+    >- (simp [state_component_equality])
+    \\ rewrite_tac [GSYM AND_IMP_INTRO]
+    \\ strip_tac \\ gvs []
+    \\ simp [eval_forall_def]
 
-
-
-  (*  ( *)
-
-
-  (*   \\ gvs []) *)
-  (* >~ [‘ForallHeap mods e’] >- *)
-  (*  (cheat) *)
-  (* \\ cheat *)
+    \\ ‘∀hs.
+          SND (evaluate_exp (st with <|clock := ck; heap := hs|>) env
+                  (wrap_Old nss e))
+          = SND (evaluate_exp
+                  (st with <|clock := ck; locals := l; heap := hs|>) env e)’ by
+      (gen_tac
+       \\ namedCases_on
+            ‘evaluate_exp (st with <|clock := ck; heap := hs|>) env
+               (wrap_Old nss e)’
+            ["s₁ r₁"]
+       \\ gvs [snd_tuple]
+       \\ last_x_assum drule
+       \\ disch_then $ qspecl_then [‘nss’, ‘e’] mp_tac \\ gvs [])
+    \\ gvs [])
+  \\ cheat
 QED
 
 Triviality list_rel_eval_exp_old_var:
