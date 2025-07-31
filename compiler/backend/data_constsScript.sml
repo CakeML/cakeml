@@ -9,8 +9,8 @@ open preamble dataLangTheory;
 val _ = new_theory "data_consts";
 
 Definition dest_cheap_def:
-  dest_cheap (IntOp (Const i)) = SOME (INR i) ∧
-  dest_cheap (BlockOp (Cons tag)) = SOME (INL tag) ∧
+  dest_cheap (IntOp (Const i)) = SOME (INL i) ∧
+  dest_cheap (BlockOp (Cons tag)) = SOME (INR tag) ∧
   dest_cheap _ = NONE
 End
 
@@ -48,7 +48,12 @@ Definition comp_def:
      let (d2,m2) = comp c2 m in
        (mk_assigns [n] m $ If n d2 d3, LN)) /\
   (comp (Assign v op vs NONE) m =
-     (mk_assigns vs m $ Assign v op vs NONE, delete v m)) /\
+     (mk_assigns vs m $ Assign v op vs NONE,
+      if NULL vs then
+        (case dest_cheap op of
+         | NONE => delete v m
+         | SOME const => insert v const m)
+      else delete v m)) /\
   (comp (Assign v op vs (SOME l)) m =
      (mk_assigns vs m $ Assign v op vs (SOME l), delete v (inter m l))) /\
   (comp (Call NONE dest vs handler) m =
