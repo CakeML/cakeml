@@ -5,14 +5,15 @@
   to the tree so that users don't have to provide the compare function
   as an explicit argument everywhere.
 *)
-open preamble balanced_mapTheory
+Theory mlmap
+Ancestors
+  balanced_map
+Libs
+  preamble
 
-val _ = set_grammar_ancestry ["balanced_map"];
 val _ = ParseExtras.tight_equality();
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"mlmap"
 
 (* implementation definitions *)
 
@@ -636,4 +637,3 @@ Proof
   \\ fs [FLOOKUP_DEF]
 QED
 
-val _ = export_theory()

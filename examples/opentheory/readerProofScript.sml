@@ -3,11 +3,12 @@
   implementation. In particular, anything the article checker proves
   follows by logical inference in Candle's version of the HOL logic.
 *)
-open preamble ml_monadBaseTheory holKernelTheory holKernelProofTheory
-     holSyntaxTheory holSyntaxExtraTheory readerTheory reader_initTheory
-     TextIOProgTheory;
-
-val _ = new_theory"readerProof";
+Theory readerProof
+Libs
+  preamble
+Ancestors
+  ml_monadBase holKernel holKernelProof holSyntax holSyntaxExtra
+  reader reader_init TextIOProg
 
 Overload return[local] = “st_ex_return”;
 Overload failwith[local] = “raise_Failure”;
@@ -1800,5 +1801,3 @@ Proof
   \\ drule readLines_Fail_not_empty
   \\ Cases_on `e` \\ fs []
 QED
-
-val _ = export_theory();

@@ -2,12 +2,13 @@
   Defines an ag32 instantiation of the machine-code Hoare triple for
   the decompiler.
 *)
-open preamble
-open set_sepTheory progTheory ag32Theory temporal_stateTheory
+Theory ag32_prog
+Libs
+  preamble
+Ancestors
+  set_sep prog ag32 ag32_memory temporal_state
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val () = new_theory "ag32_prog"
 
 Theorem v2w_F_T: (* TODO: move *)
   (v2w [F] = 0w) /\ (v2w [T] = 1w)
@@ -486,5 +487,3 @@ Proof
   \\ rpt (pop_assum kall_tac)
   \\ blastLib.BBLAST_TAC
 QED
-
-val () = export_theory()

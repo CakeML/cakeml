@@ -1,11 +1,13 @@
 (*
   Correctness proof for data_live
 *)
-open preamble data_liveTheory dataSemTheory dataPropsTheory;
+Theory data_liveProof
+Ancestors
+  data_live dataSem dataProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"data_liveProof";
 
 val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
@@ -719,4 +721,3 @@ Proof
   \\ fs[SUBSET_DEF]
 QED
 
-val _ = export_theory();

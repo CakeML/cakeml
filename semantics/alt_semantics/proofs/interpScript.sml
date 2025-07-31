@@ -1,12 +1,12 @@
 (*
   Deriviation of a functional big-step semantics from the relational one.
 *)
-open preamble;
-open fpSemPropsTheory astTheory semanticPrimitivesTheory bigStepTheory;
-open determTheory bigClockTheory;
-local open state_transformerTheory in end
-
-val _ = new_theory "interp";
+Theory interp
+Ancestors
+  fpSemProps ast semanticPrimitives bigStep determ bigClock
+  state_transformer[qualified]
+Libs
+  preamble
 
 val st = ``st:'ffi state``;
 
@@ -590,4 +590,3 @@ Proof
   metis_tac[decs_determ]
 QED
 
-val _ = export_theory ();

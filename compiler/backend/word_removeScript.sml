@@ -3,9 +3,11 @@
   semantic-device used to help keep the logical clocks in sync in the
   data_to_word correctness proofs.
 *)
-open preamble wordLangTheory
-
-val _ = new_theory "word_remove";
+Theory word_remove
+Ancestors
+  wordLang
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -49,4 +51,3 @@ Proof
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
     >> fs[remove_must_terminate_def])
 QED
-val _ = export_theory();

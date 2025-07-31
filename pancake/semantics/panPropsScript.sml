@@ -1,14 +1,11 @@
 (*
   panLang Properties
 *)
-
-open preamble
-     panLangTheory panSemTheory
-     pan_commonPropsTheory;
-
-val _ = new_theory"panProps";
-
-val _ = set_grammar_ancestry ["panLang","panSem", "pan_commonProps"];
+Theory panProps
+Ancestors
+  panLang panSem pan_commonProps
+Libs
+  preamble
 
 
 Definition v2word_def:
@@ -982,4 +979,3 @@ Definition exps_of_def:
   (exps_of _ = [])
 End
 
-val _ = export_theory();

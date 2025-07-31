@@ -1,12 +1,12 @@
 (**
   Support lemmas for CF proofs in the end-to-end correctness theorems
 **)
-open basis_ffiTheory cfHeapsBaseTheory basis;
-open cfTacticsLib ml_translatorLib;
-open source_to_source2Theory CakeMLtoFloVerTheory CakeMLtoFloVerProofsTheory;
-open preamble;
-
-val _ = new_theory "cfSupport";
+Theory cfSupport
+Ancestors
+  basis_ffi cfHeapsBase source_to_source2 CakeMLtoFloVer
+  CakeMLtoFloVerProofs
+Libs
+  basis cfTacticsLib ml_translatorLib preamble
 
 val _ = translation_extends "basisProg";
 
@@ -449,4 +449,3 @@ Proof
   \\ xapp \\ xsimpl
 QED
 
-val _ = export_theory();

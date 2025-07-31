@@ -3,13 +3,14 @@
   for the program, then the type inferencer will find a type (the most
   general type).
 *)
+Theory inferComplete
+Ancestors
+  semanticPrimitives namespaceProps ast astProps typeSystem
+  typeSysProps unify infer infer_t inferProps envRel infer_eSound
+  infer_eComplete type_eDeterm type_dCanon
+Libs
+  preamble
 
-open preamble semanticPrimitivesTheory namespacePropsTheory
-     astTheory astPropsTheory typeSystemTheory typeSysPropsTheory
-     unifyTheory inferTheory infer_tTheory inferPropsTheory envRelTheory
-     infer_eSoundTheory infer_eCompleteTheory type_eDetermTheory type_dCanonTheory;
-
-val _ = new_theory "inferComplete";
 
 Triviality generalise_no_uvars:
   (!t m n s dbvars.
@@ -1788,4 +1789,3 @@ Proof
 QED
 *)
 
-val _ = export_theory ();

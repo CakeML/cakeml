@@ -2,15 +2,13 @@
   Implementation and correctness proof of the global constant lifting
   (Section 7.2)
 **)
-open semanticPrimitivesTheory evaluateTheory
-     icing_rewriterTheory icing_optimisationsTheory
-     icing_optimisationProofsTheory fpOptTheory fpValTreeTheory
-     namespacePropsTheory ml_progTheory
-     optPlannerTheory source_to_source2Theory source_to_source2ProofsTheory;
-
-open preamble;
-
-val _ = new_theory "pull_words";
+Theory pull_words
+Ancestors
+  semanticPrimitives evaluate icing_rewriter icing_optimisations
+  icing_optimisationProofs fpOpt fpValTree namespaceProps ml_prog
+  optPlanner source_to_source2 source_to_source2Proofs
+Libs
+  preamble
 
 Triviality exp_size_lemma:
   (∀f n e l. MEM (f,n,e) l ⇒ exp_size e ≤ exp1_size l) ∧
@@ -1781,7 +1779,7 @@ QED
 *)
 
 Theorem evaluate_decs_app:
-  ∀ (s1:'ffi state) env ds1 ds2 s2 r.
+  ∀ (s1:'ffi semanticPrimitives$state) env ds1 ds2 s2 r.
     evaluate_decs s1 env (ds1 ++ ds2) =
     case evaluate_decs s1 env ds1 of
       |(s2, Rerr e) => (s2, Rerr e)
@@ -2238,5 +2236,3 @@ Proof
       >> cheat (* Also missing assumption *) )
     >> disch_then strip_assume_tac >> gs[]
 *)
-
-val _ = export_theory();

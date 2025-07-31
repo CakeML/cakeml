@@ -3,10 +3,11 @@
   implementation is automatically generated from a shallow embedding
   that is part of the HOL distribution in mc_multiwordTheory.
 *)
-open preamble astTheory wordLangTheory mc_multiwordTheory;
-
-val _ = new_theory "word_bignum";
-
+Theory word_bignum
+Ancestors
+  ast wordLang mc_multiword
+Libs
+  preamble
 
 (* syntax of a little language *)
 
@@ -575,4 +576,3 @@ End
 Theorem generated_bignum_stubs_eq =
   EVAL ``generated_bignum_stubs n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]
 
-val _ = export_theory();

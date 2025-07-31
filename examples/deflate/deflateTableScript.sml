@@ -1,10 +1,10 @@
 (*
 Tables used in Deflate and definitions to interact with them
 *)
+Theory deflateTable
+Libs
+  preamble
 
-open preamble;
-
-val _ = new_theory "deflateTable";
 
 (* (5-bit code value, number of extra bits after value, inclusive exclusive range for extra bits) *)
 Definition dist_table_def:
@@ -102,4 +102,3 @@ Definition find_code_in_table_def:
   else find_code_in_table v tab
 End
 
-val _ = export_theory();

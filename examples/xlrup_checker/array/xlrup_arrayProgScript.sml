@@ -1,9 +1,12 @@
 (*
   This refines xlrup_list to use arrays
 *)
-open preamble mllistTheory basis UnsafeProofTheory xlrupTheory xlrup_listTheory xlrup_parsingTheory blastLib;
+Theory xlrup_arrayProg
+Libs
+  preamble basis blastLib
+Ancestors
+  mllist UnsafeProof xlrup xlrup_list xlrup_parsing mlint
 
-val _ = new_theory "xlrup_arrayProg"
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -2492,8 +2495,6 @@ Proof
   fs[contains_emp_list_def,LIST_REL_EL_EQN]
 QED
 
-open mlintTheory;
-
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
@@ -3520,5 +3521,3 @@ Proof
 QED
 
 val _ = translate rev_enum_full_def;
-
-val _ = export_theory();

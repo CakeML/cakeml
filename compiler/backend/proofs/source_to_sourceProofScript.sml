@@ -1,18 +1,14 @@
 (*
   Proof of correctness for source_to_source.
  *)
+Theory source_to_sourceProof
+Ancestors
+  source_letProof source_to_source evaluate evaluateProps
+  semanticPrimitives semanticPrimitivesProps misc[qualified]
+  semantics ast source_evalProof
+Libs
+  preamble
 
-open preamble astTheory evaluateTheory evaluatePropsTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     semanticsTheory source_to_sourceTheory source_letProofTheory
-     source_evalProofTheory;
-
-val _ = new_theory "source_to_sourceProof";
-
-val _ = set_grammar_ancestry [
-  "source_letProof", "source_to_source", "evaluate", "evaluateProps",
-  "semanticPrimitives", "semanticPrimitivesProps", "misc", "semantics"
-  ];
 
 Theorem compile_semantics:
   ¬semantics_prog s env prog Fail ∧
@@ -38,6 +34,4 @@ Proof
   \\ simp []
 QED
 
-
-val _ = export_theory ();
 

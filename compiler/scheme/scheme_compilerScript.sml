@@ -1,13 +1,12 @@
 (*
   Definition of a compiler from Scheme to CakeML
 *)
-open preamble;
-open fromSexpTheory simpleSexpParseTheory;
-open scheme_astTheory
-     scheme_parsingTheory
-     scheme_to_cakeTheory;
-
-val _ = new_theory "scheme_compiler";
+Theory scheme_compiler
+Ancestors
+  fromSexp simpleSexpParse scheme_ast scheme_parsing
+  scheme_to_cake
+Libs
+  preamble
 
 Definition cake_prog_to_string_def:
   cake_prog_to_string ast =
@@ -38,4 +37,3 @@ Definition main_function_def:
   main_function s = implode (compile (explode s))
 End
 
-val _ = export_theory();

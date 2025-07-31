@@ -1,11 +1,12 @@
 (*
   Types common to some different parts of the pattern match compiler.
 *)
+Theory pattern_common
+Ancestors
+  num list arithmetic
+Libs
+  preamble
 
-open preamble;
-open numTheory listTheory arithmeticTheory;
-
-val _ = new_theory "pattern_common";
 
 (*
 A position describes a path to a sub-term in a term
@@ -37,4 +38,3 @@ Datatype:
   | MatchFailure
 End
 
-val _ = export_theory();

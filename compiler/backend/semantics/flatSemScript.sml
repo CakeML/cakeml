@@ -1,14 +1,14 @@
 (*
   The formal semantics of flatLang
 *)
+Theory flatSem
+Ancestors
+  flatLang semanticPrimitivesProps fpSem[qualified] evaluate
+Libs
+  preamble
 
-open preamble
-open evaluateTheory
-open flatLangTheory semanticPrimitivesPropsTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "flatSem";
 
 (* The values of flatLang differ from source semantic values in that
  * the closures do not carry environments for global definitions.
@@ -27,7 +27,6 @@ val _ = new_theory "flatSem";
  * will bind.
  *)
 
-val _ = set_grammar_ancestry ["flatLang", "semanticPrimitivesProps", "fpSem"];
 val _ = temp_tight_equality();
 
 Datatype:
@@ -958,4 +957,3 @@ val _ = map (can delete_const)
   ["do_eq_UNION_aux","do_eq_UNION",
    "pmatch_UNION_aux","pmatch_UNION"];
 
-val _ = export_theory();

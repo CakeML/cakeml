@@ -1,9 +1,11 @@
 (*
   Useful predicates on the CakeML ast.
  *)
-open preamble astTheory semanticPrimitivesPropsTheory;
-
-val _ = new_theory "ast_extras";
+Theory ast_extras
+Ancestors
+  ast semanticPrimitivesProps
+Libs
+  preamble
 
 Definition every_exp_def[simp]:
   (every_exp f (Raise e) <=>
@@ -146,4 +148,3 @@ Definition do_partial_app_def:
     | _ => NONE
 End
 
-val _ = export_theory ();

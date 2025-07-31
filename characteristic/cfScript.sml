@@ -2,20 +2,14 @@
   Defines the characteristic formula (CF) function cf_def and proves
   that it is sound w.r.t. the evaluate semantics of CakeML.
 *)
-open preamble
-open set_sepTheory helperLib ml_translatorTheory ConseqConv
-open ml_translatorTheory semanticPrimitivesTheory fpSemTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
-open cfNormaliseTheory cfAppTheory
-open cfTacticsBaseLib evaluateTheory
+Theory cf
+Ancestors
+  cfHeapsBase cfHeaps cfStore cfNormalise cfApp ml_translator
+  ffi[qualified] set_sep semanticPrimitives fpSem evaluate
+Libs
+  preamble helperLib ConseqConv cfHeapsBaseLib cfTacticsBaseLib
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "cf"
-
-val _ = set_grammar_ancestry
-  ["cfHeapsBase","cfHeaps","cfStore","cfNormalise","cfApp",
-   "ml_translator", "ffi"];
 
 val _ = monadsyntax.temp_disable_monadsyntax()
 
@@ -3711,4 +3705,3 @@ Proof
   progress (REWRITE_RULE [sound_def] cf_sound)
 QED
 
-val _ = export_theory();

@@ -1,9 +1,11 @@
 (*
   Parsing CNFs and convert into npbc
 *)
-open preamble pbcTheory pbc_normaliseTheory lpr_parsingTheory;
-
-val _ = new_theory "cnf_to_pb";
+Theory cnf_to_pb
+Ancestors
+  pbc pbc_normalise lpr_parsing
+Libs
+  preamble
 
 (* Convert CNF in int list list representation to pbc *)
 Definition clause_to_pbc_def:
@@ -113,4 +115,3 @@ Proof
   metis_tac[ fml_to_pbf_sound,parse_dimacs_wf]
 QED
 
-val _ = export_theory ();

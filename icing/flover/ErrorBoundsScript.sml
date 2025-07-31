@@ -3,12 +3,12 @@ Proofs of general bounds on the error of arithmetic Expressions.
 This shortens soundness proofs later.
 Bounds are exprlained in section 5, Deriving Computable Error Bounds
 **)
-open simpLib realTheory realLib RealArith
-open AbbrevsTheory ExpressionsTheory ExpressionSemanticsTheory RealSimpsTheory
-     FloverTactics MachineTypeTheory ExpressionAbbrevsTheory EnvironmentsTheory;
-open preambleFloVer;
-
-val _ = new_theory "ErrorBounds";
+Theory ErrorBounds
+Ancestors
+  real Abbrevs Expressions ExpressionSemantics RealSimps
+  MachineType ExpressionAbbrevs Environments
+Libs
+  simpLib realLib RealArith FloverTactics preambleFloVer
 
 val _ = Parse.hide "delta"; (* so that it can be used as a variable *)
 
@@ -550,4 +550,3 @@ Proof
   \\ rewrite_tac [POW_MUL] \\ gs[POW_MINUS1]
 QED
 
-val _  = export_theory();

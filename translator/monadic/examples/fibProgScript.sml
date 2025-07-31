@@ -5,9 +5,13 @@
 *)
 
 (* Load the interface to the monadic translator, and basis for IO *)
-open preamble basisProgTheory ml_monad_translator_interfaceLib
+Theory fibProg
+Ancestors
+  basisProg ml_monad_translator
+Libs
+  preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "fibProg"
+val _ = set_up_monadic_translator ();
 
 val _ = translation_extends "basisProg";
 
@@ -83,5 +87,3 @@ val str_to_num_side = Q.prove (
 val res = translate num_to_str_def
 val res = translate fiba_def
 val res = m_translate fibm_def
-
-val _ = export_theory ();

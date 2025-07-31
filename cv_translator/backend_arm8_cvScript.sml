@@ -1,11 +1,12 @@
 (*
   Translate arm8-specialised functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory backend_cvTheory backend_64_cvTheory;
-open backend_arm8Theory arm8Theory arm8_targetTheory to_data_cvTheory;
-open export_arm8Theory arm8_configTheory;
-
-val _ = new_theory "backend_arm8_cv";
+Theory backend_arm8_cv
+Ancestors
+  cv_std backend_cv backend_64_cv backend_arm8 arm8 arm8_target
+  to_data_cv export_arm8 arm8_config
+Libs
+  preamble cv_transLib
 
 (*---------------------------------------------------------------------------*
   Translation of instruction encoder
@@ -318,4 +319,3 @@ Proof
 QED
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

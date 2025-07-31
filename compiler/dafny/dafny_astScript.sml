@@ -1,11 +1,12 @@
 (*
   Abstract Syntax Tree for a subset of Dafny.
 *)
+Theory dafny_ast
+Ancestors
+  mlstring
+Libs
+  preamble
 
-open preamble
-open mlstringTheory
-
-val _ = new_theory "dafny_ast";
 
 Datatype:
   type =
@@ -116,4 +117,3 @@ Datatype:
   program = Program (member_decl list)
 End
 
-val _ = export_theory ();

@@ -1,11 +1,12 @@
 (*
   A module about hash tables for the CakeML standard basis library.
 *)
-open preamble
-     ml_translatorLib ml_progLib basisFunctionsLib
-     SetProgTheory
+Theory HashtableProg
+Ancestors
+  SetProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
-val _ = new_theory "HashtableProg"
 val _ = translation_extends "SetProg"
 val cakeml = append_prog o process_topdecs;
 val () = ml_prog_update(open_module "Hashtable");
@@ -184,4 +185,3 @@ val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory ()

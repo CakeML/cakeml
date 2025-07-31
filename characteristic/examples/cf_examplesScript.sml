@@ -2,12 +2,13 @@
   A collection of small examples that show (and test) what can be done
   in CF proofs.
 *)
-open preamble
-open ml_translatorTheory ml_translatorLib cfTacticsBaseLib cfTacticsLib
-open ml_progLib basisFunctionsLib
-local open basisProgTheory in end
+Theory cf_examples
+Ancestors
+  ml_translator basisProg[qualified]
+Libs
+  preamble ml_translatorLib cfTacticsBaseLib cfTacticsLib
+  ml_progLib basisFunctionsLib
 
-val _ = new_theory "cf_examples";
 val _ = translation_extends "basisProg"
 val cakeml = append_prog o process_topdecs;
 
@@ -470,4 +471,3 @@ Proof
   rw[]>>simp[Once even_odd_def]
 QED
 
-val _ = export_theory();
