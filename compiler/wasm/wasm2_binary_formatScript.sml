@@ -1,11 +1,6 @@
 (*
   En- & De- coding between Cake's Wasm 2.0 AST & Wasm's binary format
 
-  Notes
-  - Float operations are bogus because we aren't doing IEEE-754
-  - Rotten in Denmark: There's no way we're going to know the type of instructions ahead of time,
-    so we need to structure decodes according the the grammar of programs. In particular, no
-    having separate functions for numerics and control flow
 *)
 
 open preamble;
@@ -211,7 +206,7 @@ Definition enc_numI_def:
   | N_binary  $   Min       W64              => [0xA4w]
   | N_binary  $   Max       W64              => [0xA5w]
   | N_binary  $   Copysign  W64              => [0xA6w]
-  | N_convert $   WrapI64                   => [0xA7w]
+  | N_convert $   WrapI64                    => [0xA7w]
   | N_convert $   Trunc_f W32   Signed W32   => [0xA8w]
   | N_convert $   Trunc_f W32 Unsigned W32   => [0xA9w]
   | N_convert $   Trunc_f W64   Signed W32   => [0xAAw]

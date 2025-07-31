@@ -2,6 +2,7 @@
   Some extra operations
   No specs yet
 *)
+
 open preamble;
 open wordsTheory wordsLib;
 
@@ -25,15 +26,15 @@ Proof
   (* clearly the "real" coal face is all the way
      inside ctz_def, starting at "w-1w"
 
-     I want some way to be able to capture how 
+     I want some way to be able to capture how
      w-1w is different from w. Or rather
      To characterize "w ⊕ (w-1w)".
   *)
-  (* Most of all, such a proof won't proceed 
+  (* Most of all, such a proof won't proceed
      "structurally" cos I don't think words
      _are_ defined structurally. (MM said this too I think)
 
-     so we would want to appeal to thms about the 
+     so we would want to appeal to thms about the
      existing word ops that we do already use
      (MM: ditto)
   *)
@@ -74,11 +75,11 @@ End
 Overload unlend32  = “unlend  4 []”
 Overload unlend64  = “unlend  8 []”
 Overload unlend128 = “unlend 16 []”
-m ``COUNT_LIST_def``
+
 Theorem unlend_lend_32:
   unlend32 (lend (w:word32) ++ rest) = SOME (w, rest)
 Proof
-  rw[lend_def, unlend_def]
+  (* rw[lend_def, unlend_def] *)
   (* ok. lend_def will "unfold" (in Coq parlance) but then
      I'm facing "COUNT_LIST", "MAP" and the byte-shifting
      operation. None of which I know how to handle in HOL
