@@ -150,6 +150,12 @@ cv_compute mechanism.
 The dataLang intermediate lannguage is the last language with a
 functional-programming-style data abstraction.
 
+[data_constsScript.sml](data_constsScript.sml):
+This compiler phase copies simple definition of constants
+forward, so their definition always exists right before their
+uses. This is to prevent cheap to compute constants from
+using space in cutsets and thus being stored on the stack.
+
 [data_liveScript.sml](data_liveScript.sml):
 This compiler phase minimises the live-var annotations that are
 attached to MakeSpace, Assign and Call in dataLang programs. This

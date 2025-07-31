@@ -160,6 +160,8 @@ Definition to_data_all_def:
     let (ps,c,p,names) = to_bvi_all c p in
     let p = MAP (λ(a,n,e). (a,n,FST (compile n (COUNT_LIST n) T [] [e]))) p in
     let ps = ps ++ [(strlit "after bvi_to_data",Data p names)] in
+    let p = MAP (λ(a,n,e). (a,n,data_consts$copy_consts e)) p in
+    let ps = ps ++ [(strlit "after data_consts",Data p names)] in
     let p = MAP (λ(a,n,e). (a,n,FST (data_live$compile e LN))) p in
     let ps = ps ++ [(strlit "after data_live",Data p names)] in
     let p = MAP (λ(a,n,e). (a,n,data_simp$simp e Skip)) p in
@@ -472,7 +474,7 @@ Proof
 QED
 
 Theorem number_of_passes:
-  LENGTH (FST (to_target_all c p)) = 39
+  LENGTH (FST (to_target_all c p)) = 40
 Proof
   fs [to_target_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_lab_all_def] \\ rpt (pairarg_tac \\ gvs [])

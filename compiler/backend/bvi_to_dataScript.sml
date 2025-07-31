@@ -3,7 +3,7 @@
   into the first imperative language of the CakeML compiler: dataLang.
 *)
 open preamble bviTheory dataLangTheory
-     data_simpTheory data_liveTheory data_spaceTheory;
+     data_simpTheory data_liveTheory data_spaceTheory data_constsTheory;
 
 val _ = new_theory "bvi_to_data";
 
@@ -253,7 +253,12 @@ QED
 (* combine dataLang optimisations *)
 
 Definition optimise_def:
-  optimise prog = data_space$compile (simp (FST (data_live$compile prog LN)) Skip)
+  optimise prog =
+    data_space$compile
+      (simp
+        (FST
+          (data_live$compile
+            (data_consts$copy_consts prog) LN)) Skip)
 End
 
 (* the top-level compiler includes the optimisations, because the correctness
