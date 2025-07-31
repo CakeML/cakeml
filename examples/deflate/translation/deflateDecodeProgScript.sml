@@ -4,7 +4,8 @@
 Theory deflateDecodeProg
 Ancestors
   misc lispProg list arithmetic deflate deflateTable rle huffman
-  LZSS parsing source_values
+  LZSS
+  (* for parsing: *) parsing source_values
 Libs
   preamble basis
 
@@ -190,4 +191,3 @@ val prog =
 Definition deflateDecode_prog_def:
   deflateDecode_prog = ^prog
 End
-

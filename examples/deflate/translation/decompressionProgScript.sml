@@ -4,7 +4,7 @@
 Theory decompressionProg
 Ancestors
   misc set_sep list lispProg arithmetic numposrep compression
-  parsing source_values
+  (* for parsing: *) parsing source_values
 Libs
   preamble basis
 
@@ -74,4 +74,3 @@ val prog =
 Definition decompression_prog_def:
   decompression_prog = ^prog
 End
-
