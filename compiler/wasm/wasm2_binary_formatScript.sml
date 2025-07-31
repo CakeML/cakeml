@@ -1238,11 +1238,11 @@ Definition enc_instr_def:
   | Unreachable => [0x00w]
   | Nop         => [0x01w]
 
+  (*
     | Block bTyp body          => 0x02w :: enc_blocktype bTyp ++ enc_instr_list body ++ endOC
     | Loop  bTyp body          => 0x03w :: enc_blocktype bTyp ++ enc_instr_list body ++ endOC
     | If    bTyp bodyTh [    ] => 0x04w :: enc_blocktype bTyp ++ enc_instr_list body ++ endOC
     | If    bTyp bodyTh bodyEl => 0x04w :: enc_blocktype bTyp ++ enc_instr_list bodyTh ++ elseOC :: enc_instr_list bodyEl ++ endOC
-  (*
   *)
 
   | Br           lbl => 0x0Cw ::                    enc_unsigned_word lbl
@@ -1267,9 +1267,9 @@ Definition enc_instr_def:
   | _ => []
   )
 
-  ∧
+  (* ∧
   (enc_instr_list ([]:instr list) : byteSeq = endOC)
-  (enc_instr_list (i::ins) = enc_instr i $ enc_instr_list ins)
+  (enc_instr_list (i::ins) = enc_instr i $ enc_instr_list ins) *)
 
 End
 
