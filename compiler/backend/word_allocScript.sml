@@ -8,7 +8,8 @@
 *)
 Theory word_alloc
 Ancestors
-  asm[qualified] reg_alloc misc[qualified] wordLang linear_scan
+  asm[qualified] (* for arity-2 Const *)
+  reg_alloc misc[qualified] wordLang linear_scan
 Libs
   preamble
 
@@ -1647,4 +1648,3 @@ Definition full_ssa_cc_trans_def:
     let (prog',ssa',na') = ssa_cc_trans prog ssa na in
       Seq mov prog'
 End
-

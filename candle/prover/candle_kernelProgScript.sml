@@ -3,9 +3,10 @@
 *)
 Theory candle_kernelProg
 Ancestors
-  ml_hol_kernel_funsProg compute print_thm lisp_parsing
-  lisp_values lisp_printing compute_syntax compute_eval
-  compute_pmatch runtime_check
+  ml_hol_kernel_funsProg compute print_thm
+  (* lisp: *) lisp_parsing lisp_values lisp_printing
+  (* compute: *) compute_syntax compute_eval compute_pmatch
+  runtime_check
 Libs
   preamble ml_translatorLib ml_monad_translatorLib ml_progLib
   basisFunctionsLib runtime_checkLib
@@ -200,4 +201,3 @@ Theorem EqualityType_THM_TYPE = EqualityType_rule [] “:thm”;
 Theorem EqualityType_UPDATE_TYPE = EqualityType_rule [] “:update”;
 
 val _ = (print_asts := true);
-

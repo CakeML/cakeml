@@ -3,12 +3,12 @@
 *)
 Theory dafny_semanticPrimitives
 Ancestors
-  dafny_ast mlstring mlint alist
+  dafny_ast mlstring
+  mlint (* int_to_string *)
+  alist
 Libs
   preamble
 
-
-(* int_to_string *)
 Datatype:
   sem_env =
   <|
@@ -351,4 +351,3 @@ Definition print_string_def:
    | NONE => NONE
    | SOME s => SOME (st with output := SNOC s st.output))
 End
-

@@ -4,8 +4,10 @@
 Theory wordSem
 Ancestors
   wordLang alignment[qualified] finite_map[qualified]
-  misc[qualified] asm[qualified] ffi[qualified]
-  lprefix_lub[qualified] machine_ieee[qualified]
+  misc[qualified] asm[qualified]
+  ffi[qualified] (* for call_FFI *)
+  lprefix_lub[qualified] (* for build_lprefix_lub *)
+  machine_ieee[qualified] (* for FP *)
 Libs
   preamble
 
@@ -1280,4 +1282,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-

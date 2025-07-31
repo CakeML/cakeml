@@ -9,8 +9,6 @@ Ancestors
 Libs
   preamble
 
-(* itree_semanticsEquivTheory;*)
-
 
 (*********** evaluate' **********)
 
@@ -1147,4 +1145,3 @@ QED
 
 
 (**********)
-

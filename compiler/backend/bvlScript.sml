@@ -21,7 +21,8 @@
 *)
 Theory bvl
 Ancestors
-  closLang backend_common
+  closLang (* for op *)
+  backend_common (* for tags *)
 Libs
   preamble
 
@@ -43,4 +44,3 @@ End
 Definition mk_tick_def:
   mk_tick n e = FUNPOW Tick n e : bvl$exp
 End
-

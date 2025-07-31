@@ -6,7 +6,7 @@
 *)
 Theory bvi
 Ancestors
-  closLang
+  closLang (* for op *)
 Libs
   preamble
 
@@ -48,4 +48,3 @@ Datatype:
       | Call num (num option) (exp list) (exp option)
       | Op op (exp list)
 End
-

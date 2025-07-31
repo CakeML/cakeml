@@ -3,7 +3,8 @@
 *)
 Theory stack_allocProof
 Ancestors
-  stack_alloc stackLang stackSem stackProps word_gcFunctions
+  stack_alloc stackLang stackSem stackProps
+  word_gcFunctions (* for memcpy *)
   wordSem[qualified]
 Libs
   preamble blastLib[qualified]
@@ -6344,4 +6345,3 @@ Proof
          word_gen_gc_partial_move_data_code_def,
          word_gen_gc_partial_move_ref_list_code_def]
 QED
-

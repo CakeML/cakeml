@@ -3,13 +3,13 @@
 *)
 Theory dafny_to_cakeml
 Ancestors
-  dafny_ast ast mlint result_monad
+  dafny_ast
+  ast (* CakeML AST *)
+  mlint (* num_to_str *)
+  result_monad
 Libs
   preamble
 
-
-(* CakeML AST *)
-(* num_to_str *)
 (* TODO Remove mk_id; unnecessary *)
 
 Overload Unit = “Con NONE []”
@@ -442,4 +442,3 @@ End
 (* val dafny_r = EVAL “(to_program ^parse_r)” |> concl |> rhs |> rand; *)
 (* val fresh_vars_r = EVAL “(use_fresh_vars ^dafny_r)” |> concl |> rhs; *)
 (* val cakeml_r = EVAL “(from_program ^fresh_vars_r)” |> concl |> rhs |> rand; *)
-

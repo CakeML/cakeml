@@ -7,7 +7,8 @@
 *)
 Theory stackLang
 Ancestors
-  asm backend_common misc[qualified]
+  asm backend_common
+  misc[qualified] (* for bytes_in_word *)
 Libs
   preamble
 
@@ -95,4 +96,3 @@ Theorem gc_stub_location_eq =
   gc_stub_location_def |> CONV_RULE(RAND_CONV EVAL)
 Theorem store_consts_stub_location_eq =
   store_consts_stub_location_def |> CONV_RULE(RAND_CONV EVAL)
-
