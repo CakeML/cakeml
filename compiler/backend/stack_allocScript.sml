@@ -634,7 +634,7 @@ Definition word_gc_code_def:
 End
 
 Definition stubs_def:
-  stubs conf = [(gc_stub_location, Seq (word_gc_code conf) (Return 0 0))]
+  stubs conf = [(gc_stub_location, Seq (word_gc_code conf) (Return 0))]
 End
 
 Definition stub_names_def:

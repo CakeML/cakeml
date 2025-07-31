@@ -1386,7 +1386,6 @@ Proof
     rename [`Return`] >>
     srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
     Cases_on`get_var n s`>>full_simp_tac(srw_ss())[]>> Cases_on`x`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`get_var m s`>>full_simp_tac(srw_ss())[]>>
     rpt var_eq_tac >> simp[] >>
     full_simp_tac(srw_ss())[code_installed_def] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>

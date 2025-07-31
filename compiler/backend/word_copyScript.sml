@@ -247,7 +247,7 @@ Definition copy_prop_prog_def:
     copy_prop_inst i cs) ∧
   (copy_prop_prog (Return v1 v2) cs =
     let v1' = lookup_eq cs v1 in
-    let v2' = lookup_eq cs v2 in
+    let v2' = MAP (lookup_eq cs) v2 in
       (Return v1' v2',cs)) ∧
   (copy_prop_prog (Raise v) cs =
     let v' = lookup_eq cs v in

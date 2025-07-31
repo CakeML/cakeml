@@ -426,8 +426,8 @@ Definition word_cse_def:
   (word_cse data (Call ret dest args handler) =
             case ret of
             | NONE => (empty_data, Call ret dest args handler)
-            | SOME (ret_reg, cut_set, p, l1, k) =>
-                      (empty_data with all_names:=inter data.all_names cut_set, Call ret dest args handler)) ∧
+            | SOME (ret_reg, (c1,c2), p, l1, k) =>
+                      (empty_data with all_names:=inter data.all_names (union c1 c2), Call ret dest args handler)) ∧
   (word_cse data (Seq p1 p2) =
             let (data1, p1') = word_cse data p1 in
             let (data2, p2') = word_cse data1 p2 in

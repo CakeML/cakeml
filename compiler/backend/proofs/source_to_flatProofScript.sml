@@ -1168,6 +1168,18 @@ Proof
     \\ simp[store_v_same_type_def, REWRITE_RULE [ADD1] LUPDATE_def]
     \\ match_mp_tac EVERY2_LUPDATE_same
     \\ simp[sv_rel_cases])
+  >~ [‘XorAw8Str_unsafe’] >- (
+    rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
+    \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases,PULL_EXISTS,
+          store_lookup_def,EXISTS_PROD,store_assign_def,Unitv_def]
+    \\ fs [REWRITE_RULE [ADD1] EL, ADD1]
+    \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
+    \\ TRY (asm_exists_tac \\ simp[])
+    \\ imp_res_tac LIST_REL_EL_EQN
+    \\ rfs[sv_rel_cases,v_rel_lems,v_rel_eqns]
+    \\ simp[store_v_same_type_def, REWRITE_RULE [ADD1] LUPDATE_def]
+    \\ match_mp_tac EVERY2_LUPDATE_same
+    \\ simp[sv_rel_cases])
   >~ [‘Ord’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems])

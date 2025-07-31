@@ -4,6 +4,7 @@
 open preamble;
 open fpSemPropsTheory astTheory semanticPrimitivesTheory bigStepTheory;
 open determTheory bigClockTheory;
+local open state_transformerTheory in end
 
 val _ = new_theory "interp";
 

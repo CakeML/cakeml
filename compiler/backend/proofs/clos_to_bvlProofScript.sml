@@ -39,6 +39,8 @@ val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvlSem"};
 val _ = temp_bring_to_front_overload"num_stubs"{Name="num_stubs",Thy="clos_to_bvl"};
 val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos_to_bvl"};
 
+Overload mk_elem_at[local] = “λb i. bvl$Op (BlockOp (ElemAt i)) [b]”;
+
 (* TODO: move? *)
 
 val EVERY2_GENLIST = LIST_REL_GENLIST |> EQ_IMP_RULE |> snd |> Q.GEN`l`
@@ -367,7 +369,8 @@ QED
 
 Triviality evaluate_genlist_prev_args:
   !prev_args z x tag arg_list st.
-    evaluate (REVERSE (GENLIST (λprev_arg. Op (MemOp El) [Op (IntOp (Const (&(prev_arg + LENGTH z)))) []; Var (LENGTH x)]) (LENGTH prev_args)),
+    evaluate (REVERSE (GENLIST (λprev_arg.
+      mk_elem_at (Var (LENGTH x)) (prev_arg + LENGTH z)) (LENGTH prev_args)),
            x++(Block tag (z++prev_args))::arg_list,
            st)
     =
@@ -390,7 +393,8 @@ QED
 
 Triviality evaluate_genlist_prev_args1_simpl:
   !prev_args x y tag p n cl a st.
-    evaluate (REVERSE (GENLIST (λprev_arg. Op (MemOp El) [Op (IntOp (Const (&(prev_arg + 3)))) []; Var 3]) (LENGTH prev_args)),
+    evaluate (REVERSE (GENLIST (λprev_arg.
+      mk_elem_at (Var 3) (prev_arg + 3)) (LENGTH prev_args)),
            [x;y;a; Block tag (p::n::cl::prev_args)],
            st)
     =
@@ -403,7 +407,8 @@ QED
 
 Triviality evaluate_genlist_prev_args_no_rev:
   !prev_args z x tag arg_list st.
-    evaluate (GENLIST (λprev_arg. Op (MemOp El) [Op (IntOp (Const (&(prev_arg + LENGTH z)))) []; Var (LENGTH x)]) (LENGTH prev_args),
+    evaluate (GENLIST (λprev_arg.
+      mk_elem_at (Var (LENGTH x)) (prev_arg + LENGTH z)) (LENGTH prev_args),
            x++(Block tag (z++prev_args))::arg_list,
            st)
     =
@@ -426,7 +431,8 @@ QED
 
 Triviality evaluate_genlist_prev_args1_no_rev:
   !prev_args x tag p n cl args st.
-    evaluate (GENLIST (λprev_arg. Op (MemOp El) [Op (IntOp (Const (&(prev_arg + 3)))) []; Var (LENGTH args + 1)]) (LENGTH prev_args),
+    evaluate (GENLIST (λprev_arg.
+      mk_elem_at (Var (LENGTH args + 1)) (prev_arg + 3)) (LENGTH prev_args),
            x::(args++[Block tag (p::n::cl::prev_args)]),
            st)
     =
@@ -442,7 +448,7 @@ Triviality evaluate_partial_app_fn_location_code:
      n < total_args ∧ total_args < max_app ⇒
      evaluate
        ([partial_app_fn_location_code max_app
-               (Op (MemOp El) [Op (IntOp (Const 1)) []; Var (LENGTH args + 1)])
+               (mk_elem_at (Var (LENGTH args + 1)) 1)
                (Op (IntOp (Const (&n))) [])],
         (x::(args++[Block tag (ptr::Number(&total_args)::fvs)])),
         st)
@@ -661,7 +667,7 @@ Proof
   fsrw_tac[][do_int_app_def] >>
   `(&rem_args − &(LENGTH args):int < 0)` by intLib.ARITH_TAC >>
   srw_tac[][] >>
-  `evaluate ([Op (MemOp El) [Op (IntOp (Const (1:int))) []; Var (LENGTH args + 1)]],
+  `evaluate ([mk_elem_at (Var (LENGTH args + 1)) 1],
           Number (&rem_args − &LENGTH args):: (args ++ [Block tag (CodePtr l::Number (&rem_args)::vs)]),
           st) =
     (Rval [Number (&rem_args)], st)`
@@ -1528,7 +1534,7 @@ Theorem do_app[local]:
    state_rel f s1 t1 /\
    LIST_REL (v_rel s1.max_app f t1.refs t1.code) xs ys /\
    (* store updates need special treatment *)
-   (op <> MemOp Ref) /\ (op <> MemOp Update) ∧
+   (op <> MemOp Ref) /\ (op <> MemOp Update) ∧ (op <> MemOp XorByte) ∧
    (op ≠ MemOp RefArray) ∧ (∀f. op ≠ MemOp (RefByte f)) ∧ (op ≠ MemOp UpdateByte) ∧
    (op ≠ MemOp FromListByte) ∧ op ≠ MemOp ConcatByteVec ∧
    (∀b. op ≠ MemOp (CopyByte b)) ∧ (∀c. op ≠ BlockOp (Constant c)) ∧
@@ -2476,7 +2482,7 @@ Triviality genlist_el:
     FLOOKUP st.refs r = SOME (ValueArray (ys++xs)) ∧
     skip = LENGTH ys
     ⇒
-    bvlSem$evaluate (GENLIST (λi. Op (MemOp El) [Op (IntOp (Const (&(i + skip)))) []; Var 0]) (LENGTH xs),
+    bvlSem$evaluate (GENLIST (λi. mk_elem_at (Var 0) (i+skip)) (LENGTH xs),
            RefPtr T r:: (args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr T r]::env),
            st)
     =
@@ -4489,6 +4495,21 @@ Proof
       asm_exists_tac \\ fs[] \\ rw[] \\
       match_mp_tac v_rel_NEW_REF
       \\ fs[Abbr`ptr`,LEAST_NOTIN_FDOM] )
+    \\ Cases_on`∃fl. op = MemOp XorByte` \\ fs[] >- (
+      fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def,PULL_EXISTS]
+      \\ fs[case_eq_thms,v_case_eq_thms,PULL_EXISTS,SWAP_REVERSE_SYM,AllCaseEqs()]
+      \\ rveq \\ fs[v_rel_SIMP] \\ rw[] \\ fs[FLOOKUP_UPDATE] \\ rw[]
+      \\ TRY (drule (GEN_ALL state_rel_refs_lookup)
+              \\ disch_then imp_res_tac \\ fs[FLOOKUP_UPDATE])
+      \\ rename1`FLOOKUP _ _ = SOME (ByteArray F _)`
+      \\ qexists_tac`f2` \\ fs[]
+      \\ reverse conj_tac
+      >- (fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
+          \\ rw[DRESTRICT_DEF,FAPPLY_FUPDATE_THM]
+          \\ rw[] \\ fs[IN_FRANGE_FLOOKUP] )
+      \\ rw[]
+      \\ match_mp_tac (GEN_ALL state_rel_UPDATE_REF)
+      \\ simp[])
     \\ Cases_on`∃fl. op = MemOp (CopyByte fl)` \\ fs[] >- (
       fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def,PULL_EXISTS]
       \\ Cases_on`fl`

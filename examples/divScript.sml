@@ -292,6 +292,12 @@ Proof
   \\ xcon \\ xsimpl
 QED
 
+Triviality eq_v_WORD8_thm:
+  (WORD8 --> WORD8 --> BOOL) $= eq_v
+Proof
+  metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]
+QED
+
 Theorem get_char_spec:
   !uv c input events.
   limited_parts names p /\ UNIT_TYPE () uv ==>
@@ -324,6 +330,7 @@ Proof
              names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def]
       \\ xsimpl)
     \\ rpt (xlet_auto THEN1 xsimpl)
+    \\ assume_tac eq_v_WORD8_thm
     \\ xlet_auto THEN1 (xsimpl \\ fs [WORD_def])
     \\ xif \\ instantiate
     \\ rpt (xlet_auto THEN1 xsimpl)

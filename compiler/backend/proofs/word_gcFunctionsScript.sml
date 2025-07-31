@@ -63,7 +63,7 @@ Definition decode_length_def:
 End
 
 Definition word_gc_move_def:
-  (word_gc_move conf (Loc l1 l2,i,pa,old,m,dm) = (Loc l1 l2,i,pa,m,T)) /\
+  (word_gc_move conf (Loc l1 l2,i,pa,old,m,dm) = (Loc l1 l2,i,pa,m,(l2 = 0))) /\
   (word_gc_move conf (Word w,i,pa,old,m,dm) =
      if (w && 1w) = 0w then (Word w,i,pa,m,T) else
        let c = (ptr_to_addr conf old w IN dm) in
@@ -82,7 +82,7 @@ Definition word_gc_move_def:
 End
 
 Definition word_gen_gc_partial_move_def:
-  (word_gen_gc_partial_move conf (Loc l1 l2,i,pa,old,m,dm,gs,rs) = (Loc l1 l2,i,pa,m,T)) /\
+  (word_gen_gc_partial_move conf (Loc l1 l2,i,pa,old,m,dm,gs,rs) = (Loc l1 l2,i,pa,m,(l2 = 0))) /\
   (word_gen_gc_partial_move conf (Word w,i,pa,old,m,dm,gs,rs) =
    if (w && 1w) = 0w then (Word w,i,pa,m,T) else
      let header_addr = ptr_to_addr conf old w in
@@ -312,7 +312,7 @@ End
 
 Definition word_gen_gc_move_def:
   (word_gen_gc_move conf (Loc l1 l2,i,pa,ib,pb,old,m,dm) =
-     (Loc l1 l2,i,pa,ib,pb,m,T)) /\
+     (Loc l1 l2,i,pa,ib,pb,m,(l2 = 0))) /\
   (word_gen_gc_move conf (Word w,i,pa,ib,pb,old,m,dm) =
      if (1w && w) = 0w then (Word w,i,pa,ib,pb,m,T) else
        let c = (ptr_to_addr conf old w IN dm) in
