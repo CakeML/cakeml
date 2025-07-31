@@ -207,6 +207,14 @@ Datatype: para_instr (* parametric *)
   | Select
 End
 
+Datatype: var_instr
+  = LocalGet  index
+  | LocalSet  index
+  | LocalTee  index
+  | GlobalGet index
+  | GlobalSet index
+End
+
 
 (*************************************)
 (*                                   *)
@@ -263,13 +271,7 @@ Datatype: instr
   | Call               index
   | CallIndirect       index functype   (* TODO: first num is tableid *)
 
-  (* variable instructions *)
-  | LocalGet  index
-  | LocalSet  index
-  | LocalTee  index
-  | GlobalGet index
-  | GlobalSet index
-
+  | Variable   var_instr
   | Parametric para_instr
   | Numeric    num_instr
   | MemRead    load_instr
@@ -282,4 +284,3 @@ End
 End *)
 
 val _ = export_theory();
-

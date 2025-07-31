@@ -431,6 +431,14 @@ Datatype: para_instr (* parametric *)
   | Select
 End
 
+Datatype: var_instr
+  = LocalGet  index
+  | LocalSet  index
+  | LocalTee  index
+  | GlobalGet index
+  | GlobalSet index
+End
+
 Datatype: table_instr
   = TableSet  index
   | TableGet  index
@@ -441,7 +449,6 @@ Datatype: table_instr
   | TableInit index index
   | Elemdrop  index
 End
-
 
 
 (*************************************)
@@ -499,13 +506,7 @@ Datatype: instr
   | Call               index
   | CallIndirect       index functype   (* TODO: first num is tableid *)
 
-  (* variable instructions *)
-  | LocalGet  index
-  | LocalSet  index
-  | LocalTee  index
-  | GlobalGet index
-  | GlobalSet index
-
+  | Variable   var_instr
   | Parametric para_instr
   | Numeric    num_instr
   | Vector     vec_instr
