@@ -396,7 +396,7 @@ Definition dec_numI_def:
   if b = 0x42w then case dec_s64 bs of SOME (s64,cs) => (INR $ N_const64  Int  s64, cs) | NONE => failure else
 
   (* TODO decode IEEE 754 not ints *)
-  if b = 0x43w then case dec_s32 bs of SOME (c32,cs) => (INR $ N_const32 Float c32, cs) | NONE => failure else
+  if b = 0x43w then case unlend32 bs of SOME (c32,cs) => (INR $ N_const32 Float c32, cs) | NONE => failure else
   if b = 0x44w then case dec_s64 bs of SOME (c64,cs) => (INR $ N_const64 Float c64, cs) | NONE => failure else
 
   if b = 0xFCw then case dec_num bs of
@@ -1063,12 +1063,10 @@ QED
 Theorem dec_enc_valtype:
   ∀ t. dec_valtype (enc_valtype t) = SOME t
 Proof
-  (* Cases >>
-  rw[dec_valtype_def, enc_valtype_def] >>
-  Cases_on `n` >>
-  Cases_on `b` >>
-  Cases_on `w` *)
-  cheat
+  Cases THEN1
+  (Cases_on `n` >> Cases_on `b` >> Cases_on `w` >>
+  rw[dec_valtype_def, enc_valtype_def]) >>
+  rw[dec_valtype_def, enc_valtype_def]
 QED
 
 Theorem dec_enc_numI:
