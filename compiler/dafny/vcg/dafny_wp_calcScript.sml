@@ -1388,6 +1388,19 @@ Proof
   \\ gvs [ALOOKUP_ZIP_FAIL]
 QED
 
+Triviality index_array_with_locals:
+  index_array (st with locals := l) arr idx = index_array st arr idx
+Proof
+  gvs [index_array_def]
+QED
+
+Triviality set_up_call_with_clock_locals:
+  set_up_call (st with <|clock := ck; locals := l|>) in_ns in_vs outs =
+  set_up_call (st with clock := ck) in_ns in_vs outs
+Proof
+  gvs [set_up_call_def]
+QED
+
 Theorem evaluate_exp_wrap_Old_locals:
   (∀st env e' nss e st' r l.
      evaluate_exp st env e' = (st', r) ∧
@@ -1519,7 +1532,6 @@ Proof
     \\ gvs [state_component_equality]
     \\ gvs [DROP_APPEND])
   >~ [‘ForallHeap’] >-
-
    (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
     \\ simp [Once $ oneline wrap_Old_def]
     \\ simp [AllCaseEqs()]
@@ -1542,12 +1554,11 @@ Proof
     \\ rewrite_tac [GSYM AND_IMP_INTRO]
     \\ strip_tac \\ gvs []
     \\ simp [eval_forall_def]
-
-    \\ ‘∀hs.
-          SND (evaluate_exp (st with <|clock := ck; heap := hs|>) env
-                  (wrap_Old nss e))
-          = SND (evaluate_exp
-                  (st with <|clock := ck; locals := l; heap := hs|>) env e)’ by
+    \\ ‘∀hs. SND (evaluate_exp (st with <|clock := ck; heap := hs|>) env
+                    (wrap_Old nss e))
+             = SND (evaluate_exp
+                      (st with <|clock := ck; locals := l; heap := hs|>) env e)’
+      by
       (gen_tac
        \\ namedCases_on
             ‘evaluate_exp (st with <|clock := ck; heap := hs|>) env
@@ -1557,7 +1568,141 @@ Proof
        \\ last_x_assum drule
        \\ disch_then $ qspecl_then [‘nss’, ‘e’] mp_tac \\ gvs [])
     \\ gvs [])
-  \\ cheat
+  >~ [‘UnOp’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ rename [‘UnOp uop e’]
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp st env (wrap_Old nss e)’ ["st₁ r₁"] \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
+    \\ last_x_assum $ qspecl_then [‘nss’, ‘e’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ CASE_TAC \\ gvs []
+    \\ CASE_TAC \\ gvs [])
+  >~ [‘BinOp’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ rename [‘BinOp bop e₀ e₁’]
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp st env (wrap_Old nss e₀)’ ["st₁ r₁"]
+    \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘e₀’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ pop_assum mp_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘e₁’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs [])
+  >~ [‘ArrLen’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ rename [‘ArrLen arr’]
+    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ gvs [evaluate_exp_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘arr’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs [])
+  >~ [‘ArrSel’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ rename [‘ArrSel arr idx’]
+    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ gvs [evaluate_exp_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ last_x_assum $ qspecl_then [‘nss’, ‘arr’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ reverse TOP_CASE_TAC \\ gvs []
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘idx’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ simp [index_array_with_locals]
+    \\ TOP_CASE_TAC \\ gvs [])
+  >~ [‘FunCall’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ rename [‘FunCall name args’]
+    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ simp [evaluate_exp_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ drule (cj 2 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ last_x_assum $ qspecl_then [‘nss’, ‘args’] mp_tac \\ simp [SF ETA_ss]
+    \\ disch_then $ drule_all_then assume_tac
+    \\ reverse TOP_CASE_TAC \\ gvs []
+    >- (simp [state_component_equality])
+    \\ simp [set_up_call_with_clock_locals]
+    \\ TOP_CASE_TAC \\ gvs []
+    >- (simp [state_component_equality])
+    \\ IF_CASES_TAC \\ gvs []
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ simp [restore_caller_def, state_component_equality])
+  >~ [‘Old e’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    >-
+     (rename [‘Var n’]
+      \\ drule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+      \\ gvs [evaluate_exp_def]
+      \\ first_x_assum drule \\ strip_tac \\ gvs []
+      \\ gvs [read_local_def, use_old_def, unuse_old_def,
+              state_component_equality])
+    \\ rename [‘Old e'’]
+    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ simp [evaluate_exp_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘e'’] mp_tac \\ simp []
+    \\ simp [use_old_def]
+    \\ disch_then $ qspec_then ‘st.locals_old’ mp_tac
+    \\ impl_tac \\ gvs []
+    >- (rpt strip_tac
+        \\ last_x_assum drule
+        \\ rpt strip_tac
+        \\ first_assum $ irule_at (Pos hd)
+        \\ gvs [read_local_def, AllCaseEqs()])
+    \\ gvs [unuse_old_def, state_component_equality])
+  >~ [‘[]’] >-
+   (gvs [evaluate_exp_def])
+  >~ [‘e::es’] >-
+   (rename [‘MAP (wrap_Old _) es₁’]
+    \\ qpat_x_assum ‘evaluate_exps _ _ _ = _’ mp_tac
+    \\ namedCases_on ‘es₁’ ["", "e' es'"] \\ gvs []
+    \\ simp [evaluate_exp_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ last_x_assum $ qspecl_then [‘nss’, ‘e'’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ reverse TOP_CASE_TAC \\ gvs []
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘es'’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ TOP_CASE_TAC \\ gvs [])
 QED
 
 Triviality list_rel_eval_exp_old_var:
