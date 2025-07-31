@@ -1051,22 +1051,57 @@ End
 Theorem dec_enc_numtype:
   ∀ t. dec_numtype (enc_numtype t) = SOME t
 Proof
-  Cases_on `t` >> Cases_on `b` >> Cases_on `w` \\
-  rw[dec_numtype_def, enc_numtype_def]
+  (* TODO ask MM how to use namedCases and fs [oneline] on 1 aug *)
+  (* namedCases ["x"] *)
+  (* fs [oneline enc_numtype_def] \\ every_case_tac *)
+
+  (* QQ what's the diff between the following two?
+  rw[enc_numtype_def]
+  fs [oneline enc_numtype_def] *)
+
+  (* observably, rw also strips the ∀ while fs leaves it on
+  then both unfold enc_numtype_def to expose the case statement *)
+
+  (* and every_case_tac doesn't seem to work after the fs tactic.  *)
+  (* every_case_tac *)
+
+  (* original: This isn't so bad when there are only 3 vars to destroy
+  num I has 140 instructions, each with a variable amount of vars *)
+  (* Cases_on `t` >> Cases_on `b` >> Cases_on `w` \\
+  rw[dec_numtype_def, enc_numtype_def] *)
+
+  (* something I like better *)
+  rw[enc_numtype_def] >> every_case_tac >>
+  rw[dec_numtype_def]
 QED
 
 Theorem dec_enc_valtype:
   ∀ t. dec_valtype (enc_valtype t) = SOME t
 Proof
-  Cases THEN1
-  (Cases_on `n` >> Cases_on `b` >> Cases_on `w` >>
-  rw[dec_valtype_def, enc_valtype_def]) >>
-  rw[dec_valtype_def, enc_valtype_def]
+  rw[enc_valtype_def] >> every_case_tac >> rw[dec_valtype_def]
+
+  (* vs original *)
+  (* Cases >-
+  (Cases_on `n` >> Cases_on `b` >> Cases_on `w` >> rw[dec_valtype_def, enc_valtype_def]) >>
+  rw[dec_valtype_def, enc_valtype_def] *)
 QED
 
 Theorem dec_enc_numI:
   ∀ i. dec_numI (enc_numI i ++ rest) = (INR i, rest)
 Proof
+
+  (* rw[enc_numI_de]
+
+  Cases >> rw[enc_numI_def, dec_numI_def] >-
+  (cheat) >-
+  (cheat) >-
+  (Cases_on `u` >> rw[dec_numI_def] >> cheat) >-
+  Cases_on `b` >> rw[dec_numI_def]
+  Cases_on `w`
+  >> Cases_on`w` >> rw[enc_numI_def, dec_numI_def]
+  (Cases_on `b` >> Cases_on `c`
+    rw[dec_enc_signed_word32]
+  rw[enc_numI_def, dec_numI_def] *)
   cheat
 QED
 
@@ -1079,8 +1114,25 @@ QED
 Theorem dec_enc_memI:
   ∀ i. dec_memI (enc_memI i ++ rest) = (INR i, rest)
 Proof
+  (* rw [enc_memI_def] >> every_case_tac >>
+  rw [dec_memI_def, dec_enc_num] *)
+
+
   cheat
 QED
+
+Theorem dec_enc_loadI:
+  ∀ i. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
+Proof
+  cheat
+QED
+
+Theorem dec_enc_storeI:
+  ∀ i. dec_storeI (enc_storeI i ++ rest) = (INR i, rest)
+Proof
+  cheat
+QED
+
 
 
 (***************)
