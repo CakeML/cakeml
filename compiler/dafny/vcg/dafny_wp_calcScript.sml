@@ -1401,6 +1401,9 @@ Proof
   gvs [set_up_call_def]
 QED
 
+Triviality not_mem_alookup_zip_none =
+  SRULE [AND_IMP_INTRO] $ iffRL ALOOKUP_ZIP_FAIL
+
 Theorem evaluate_exp_wrap_Old_locals:
   (∀st env e' nss e st' r l.
      evaluate_exp st env e' = (st', r) ∧
@@ -1519,7 +1522,7 @@ Proof
         \\ DEP_REWRITE_TAC [map_lambda_pair_zip] \\ simp []
         \\ simp [ALOOKUP_APPEND]
         \\ simp [REVERSE_ZIP]
-        \\ DEP_REWRITE_TAC [SRULE [AND_IMP_INTRO] $ iffRL ALOOKUP_ZIP_FAIL]
+        \\ DEP_REWRITE_TAC [not_mem_alookup_zip_none]
         \\ simp [])
       >- (simp [ALOOKUP_APPEND])
       \\ simp [ALOOKUP_APPEND]
@@ -1722,57 +1725,28 @@ Proof
 QED
 
 Theorem eval_exp_wrap_Old_IMP:
-  eval_exp st env (wrap_Old (set ns) x) v ∧ (* no_Old x ∧ *)
+  eval_exp st env (wrap_Old (set ns) x) v ∧
   LIST_REL (eval_exp st env) (MAP (Old ∘ Var) ns) vs ∧
   ¬env.is_running ⇒
   eval_exp (st with locals := ZIP (ns,MAP SOME vs) ++ st.locals) env x v
 Proof
-  cheat
-  (* simp [eval_exp_def, PULL_EXISTS] *)
-  (* \\ qx_genl_tac [‘ck’, ‘ck₁’] *)
-  (* \\ rpt strip_tac *)
-  (* \\ imp_res_tac LIST_REL_LENGTH *)
-  (* \\ drule (cj 1 evaluate_exp_wrap_Old_locals) \\ gvs [] *)
-  (* \\ disch_then $ qspec_then ‘ZIP (ns, MAP SOME vs) ++ st.locals’ mp_tac *)
-  (* \\ impl_tac >- *)
-  (*  (rpt strip_tac *)
-  (*   >- (drule_all list_rel_eval_exp_old_var \\ simp []) *)
-  (*   \\ simp [ALOOKUP_APPEND] *)
-  (*   \\ simp [AllCaseEqs()] *)
-  (*   \\ disj1_tac *)
-  (*   \\ irule $ iffRL ALOOKUP_ZIP_FAIL \\ simp []) *)
-  (* \\ disch_then $ irule_at (Pos hd) *)
+  simp [eval_exp_def, PULL_EXISTS]
+  \\ qx_genl_tac [‘ck’, ‘ck₁’]
+  \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ drule (cj 1 evaluate_exp_wrap_Old_locals) \\ gvs []
+  \\ disch_then $
+       qspecl_then [‘set ns’, ‘x’, ‘ZIP (ns, MAP SOME vs) ++ st.locals’] mp_tac
+  \\ simp []
+  \\ impl_tac >-
+   (rpt strip_tac
+    >- (drule_all list_rel_eval_exp_old_var \\ simp [])
+    \\ simp [ALOOKUP_APPEND]
+    \\ simp [AllCaseEqs()]
+    \\ disj1_tac
+    \\ irule $ iffRL ALOOKUP_ZIP_FAIL \\ simp [])
+  \\ disch_then $ irule_at (Pos hd)
 QED
-
-(* *** *)
-
-(* Theorem evaluate_exp_wrap_Old_locals: *)
-(*   (∀st env e ns vs st' r. *)
-(*      evaluate_exp st env (wrap_Old (set ns) e) = (st', r) ∧ *)
-(*      LIST_REL (λn v. read_local st.locals_old n = SOME v) ns vs ∧ *)
-(*      ¬env.is_running ⇒ *)
-(*      evaluate_exp (st with locals := ZIP (ns,MAP SOME vs) ++ st.locals) env e = *)
-(*      (st' with locals := ZIP (ns,MAP SOME vs) ++ st.locals, r)) ∧ *)
-(*   (∀st env es ns vs st' r. *)
-(*      evaluate_exps st env (MAP (wrap_Old (set ns)) es) = (st', r) ∧ *)
-(*      LIST_REL (λn v. read_local st.locals_old n = SOME v) ns vs ∧ *)
-(*      ¬env.is_running ⇒ *)
-(*      evaluate_exps (st with locals := ZIP (ns,MAP SOME vs) ++ st.locals) env es = *)
-(*      (st' with locals := ZIP (ns,MAP SOME vs) ++ st.locals, r)) *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
-
-(* Theorem eval_exp_wrap_Old_IMP: *)
-(*   eval_exp st env (wrap_Old (set vs) x) v ∧ (* no_Old x ∧ *) *)
-(*   LIST_REL (eval_exp st env) (MAP (Old ∘ Var) vs) vals ∧ *)
-(*   ¬env.is_running ⇒ *)
-(*   eval_exp (st with locals := ZIP (vs,MAP SOME vals) ++ st.locals) env x v *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
-
-(* *** *)
 
 Theorem IMP_LIST_REL_eval_exp_MAP_Var:
   st5.locals = ZIP (ret_names,MAP SOME out_vs) ++ rest ∧
@@ -2139,7 +2113,6 @@ Proof
   \\ impl_tac
   >-
    (conj_tac
-    >- (fs [no_Old_conj,EVERY_MEM] \\ rw [] \\ res_tac \\ fs [])
     \\ simp [Once listTheory.LIST_REL_MAP1]
     \\ simp [LIST_REL_EL_EQN,eval_exp_def,evaluate_exp_def,
              use_old_def,AllCaseEqs()]
