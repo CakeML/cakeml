@@ -3188,7 +3188,6 @@ Theorem update_ref_thm:
       abs_ml_inv conf (xs ++ (RefPtr b ptr)::stack) (insert ptr (ValueArray xs) refs)
         (roots,heap2,be,a,sp,sp1,gens) limit ts
 Proof
-  cheat (*
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ imp_res_tac EVERY2_APPEND_CONS
@@ -3232,7 +3231,7 @@ Proof
     \\ fs[] \\ fs[heap_lookup_APPEND] \\ every_case_tac \\ fs[] \\ rfs[]
     \\ qpat_x_assum `heap_lookup _ _ = SOME (RefBlock zs)` assume_tac
     \\ drule heap_lookup_SPLIT \\ strip_tac \\ fs[] \\ rveq \\ fs[]
-    THEN1 fs[RefBlock_def,isRef_def]
+    THEN1 fs[RefBlock_def,isRef_def,isMutTag_def]
     \\ qpat_x_assum `heap_store _ _ _ = _` mp_tac
     \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,heap_store_lemma]
     \\ disch_then (assume_tac o GSYM) \\ fs[]
@@ -3299,13 +3298,28 @@ Proof
         \\ rw []
         \\ ho_match_mp_tac MEM_in_all_ts
         \\ qexists_tac `p_2` \\ rw []
-        \\ rw [all_vs_def] \\ disj1_tac
+        \\ rw [all_vs_def] \\ ntac 2 disj1_tac
         \\ map_every qexists_tac [`n`,`l`]
         \\ rw [lookup_insert]
         \\ ho_match_mp_tac MEM_v_all_vs
         \\ drule MEM_ZIP2 \\ rw []
         \\ rw [EL_MEM]))
-  \\ (full_simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac []) *)
+  >- (full_simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
+  >- (
+    qexists `z` \\ conj_tac
+    >- (
+      first_x_assum ho_match_mp_tac \\ rw []
+      \\ CCONTR_TAC
+      \\ metis_tac [INJ_DEF])
+    \\ ho_match_mp_tac v_inv_tf_restrict
+    \\ rw []
+    \\ ho_match_mp_tac MEM_in_all_ts
+    \\ goal_assum $ drule_at Any \\ gvs []
+    \\ rw [all_vs_def] \\ disj1_tac \\ disj2_tac
+    \\ qexistsl [`n`, `t`, `a'`] \\ gvs []
+    \\ simp [lookup_insert]
+    \\ ho_match_mp_tac MEM_v_all_vs
+    \\ simp [EL_MEM])
 QED
 
 Definition heap_deref_def:
@@ -3328,7 +3342,6 @@ Theorem update_ref_thm1:
         (insert ptr (ValueArray (LUPDATE (HD xs) i xs1)) refs)
         (roots,heap2,be,a,sp,sp1,gens) limit ts
 Proof
-  cheat (*
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ imp_res_tac EVERY2_APPEND_CONS
@@ -3376,7 +3389,7 @@ Proof
     \\ fs[] \\ fs[heap_lookup_APPEND] \\ every_case_tac \\ fs[] \\ rfs[]
     \\ qpat_x_assum `heap_lookup _ _ = SOME (RefBlock zs)` assume_tac
     \\ drule heap_lookup_SPLIT \\ strip_tac \\ fs[] \\ rveq \\ fs[]
-    THEN1 fs[RefBlock_def,isRef_def]
+    THEN1 fs[RefBlock_def,isRef_def,isMutTag_def]
     \\ qpat_x_assum `heap_store _ _ _ = _` mp_tac
     \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,heap_store_lemma] \\ disch_then (assume_tac o GSYM)
     \\ fs[]
@@ -3429,7 +3442,7 @@ Proof
        \\ rw []
        \\ ho_match_mp_tac MEM_in_all_ts
        \\ qexists_tac `p_2` \\ rw []
-       \\ rw [all_vs_def] \\ disj1_tac
+       \\ rw [all_vs_def] \\ ntac 2 disj1_tac
        \\ map_every qexists_tac [`n`,`LUPDATE (HD xs) i xs1`]
        \\ rw [FLOOKUP_UPDATE,FLOOKUP_DEF]
        \\ ho_match_mp_tac MEM_v_all_vs
@@ -3457,13 +3470,28 @@ Proof
         \\ rw []
         \\ ho_match_mp_tac MEM_in_all_ts
         \\ qexists_tac `p_2` \\ rw []
-        \\ rw [all_vs_def] \\ disj1_tac
+        \\ rw [all_vs_def] \\ ntac 2 disj1_tac
         \\ map_every qexists_tac [`n`,`l`]
         \\ rw [lookup_insert]
         \\ ho_match_mp_tac MEM_v_all_vs
         \\ drule MEM_ZIP2 \\ rw []
         \\ rw [EL_MEM]))
-  \\ full_simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [] *)
+  >- (full_simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
+  >- (
+    qexists `z` \\ conj_tac
+    >- (
+      first_x_assum ho_match_mp_tac \\ rw []
+      \\ CCONTR_TAC
+      \\ metis_tac [INJ_DEF])
+    \\ ho_match_mp_tac v_inv_tf_restrict
+    \\ rw []
+    \\ ho_match_mp_tac MEM_in_all_ts
+    \\ goal_assum $ drule_at Any \\ gvs []
+    \\ rw [all_vs_def] \\ disj1_tac \\ disj2_tac
+    \\ qexistsl [`n`, `t`, `a'`] \\ gvs []
+    \\ simp [lookup_insert]
+    \\ ho_match_mp_tac MEM_v_all_vs
+    \\ simp [EL_MEM])
 QED
 
 (* update byte ref *)
@@ -3779,7 +3807,6 @@ Theorem new_ref_thm:
                  (rs ++ Pointer (a+sp+sp1-(LENGTH xs + 1)) (Word 0w)::roots2,heap2,be,a,
                   sp - (LENGTH xs + 1),sp1,gens) limit ts
 Proof
-  cheat (*
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ imp_res_tac EVERY2_APPEND_IMP_APPEND
@@ -3914,6 +3941,30 @@ Proof
   \\ Cases_on `lookup n refs` \\ full_simp_tac (srw_ss()) []
   \\ full_simp_tac (srw_ss()) [FDOM_FUPDATE,FAPPLY_FUPDATE_THM,FLOOKUP_DEF,lookup_insert]
   \\ reverse (Cases_on `x'`) \\ full_simp_tac (srw_ss()) []
+  >- (
+    `isSomeDataElement (heap_lookup (f ' n) heap)` by
+      (full_simp_tac std_ss [RefBlock_def] \\ EVAL_TAC
+       \\ simp_tac (srw_ss()) [] \\ NO_TAC)
+    \\ res_tac \\ full_simp_tac std_ss [] \\ simp_tac (srw_ss()) [RefBlock_def]
+    \\ qpat_x_assum `n IN FDOM f` ASSUME_TAC
+    \\ `n IN (domain refs)` by fs [domain_lookup]
+    \\ qpat_x_assum `lookup n refs  = SOME (Thunk t a')` ASSUME_TAC
+    \\ full_simp_tac (srw_ss()) []
+    \\ srw_tac [] [] \\ full_simp_tac std_ss [RefBlock_def,ThunkBlock_def]
+    \\ imp_res_tac heap_store_rel_lemma
+    \\ res_tac \\ full_simp_tac (srw_ss()) []
+    \\ ho_match_mp_tac v_inv_tf_restrict
+    \\ conj_tac
+    >- (match_mp_tac v_inv_SUBMAP
+       \\ full_simp_tac (srw_ss()) [])
+    \\ rw []
+    \\ ho_match_mp_tac MEM_in_all_ts
+    \\ qexists_tac `a'` \\ rw []
+    \\ rw [all_vs_def] \\ disj1_tac \\ disj2_tac
+    \\ qexistsl [`n`,`t`, `a'`]
+    \\ fs [lookup_insert]
+    \\ ho_match_mp_tac MEM_v_all_vs
+    \\ rw [])
   THEN1 (imp_res_tac heap_store_rel_lemma \\ fs [Bytes_def] \\ metis_tac[])
   \\ `isSomeDataElement (heap_lookup (f ' n) heap)` by
     (full_simp_tac std_ss [RefBlock_def] \\ EVAL_TAC
@@ -3937,11 +3988,11 @@ Proof
   \\ rw []
   \\ ho_match_mp_tac MEM_in_all_ts
   \\ qexists_tac `y` \\ rw []
-  \\ rw [all_vs_def] \\ disj1_tac
+  \\ rw [all_vs_def] \\ ntac 2 disj1_tac
   \\ map_every qexists_tac [`n`,`l`]
   \\ fs [lookup_insert]
   \\ ho_match_mp_tac MEM_v_all_vs
-  \\ rw [] *)
+  \\ rw []
 QED
 
 (* deref *)
@@ -3966,8 +4017,11 @@ Theorem deref_thm:
           ?y. (heap_el r n heap = (y,T)) /\
                 abs_ml_inv conf (EL n vs::RefPtr b ptr::stack) refs
                   (y::roots,heap,be,a,sp,sp1,gens) limit ts
+      | Thunk m v =>
+      ?y. (heap_el r 0 heap = (y,T)) /\
+            abs_ml_inv conf (v::RefPtr b ptr::stack) refs
+              (y::roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
-  cheat (*
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ rpt strip_tac \\ Cases_on `roots` \\ full_simp_tac (srw_ss()) [LIST_REL_def]
   \\ full_simp_tac std_ss [v_inv_def]
@@ -3980,46 +4034,85 @@ Proof
   \\ `ptr IN (domain refs)` by fs [SUBSET_DEF]
   \\ full_simp_tac (srw_ss()) [domain_lookup]
   \\ reverse (Cases_on `v`) \\ full_simp_tac (srw_ss()) []
-  \\ NTAC 3 strip_tac
-  \\ imp_res_tac EVERY2_IMP_LENGTH
-  \\ asm_simp_tac (srw_ss()) [heap_el_def,RefBlock_def]
-  \\ srw_tac [] [] THEN1
-   (full_simp_tac std_ss [roots_ok_def,heap_ok_def]
-    \\ imp_res_tac heap_lookup_MEM
-    \\ strip_tac \\ once_rewrite_tac [MEM] \\ once_rewrite_tac [EQ_SYM_EQ]
-    \\ rpt strip_tac \\ res_tac
-    \\ full_simp_tac std_ss [RefBlock_def]
-    \\ res_tac \\ full_simp_tac std_ss [MEM]
+  >- (
+    strip_tac
+    \\ imp_res_tac EVERY2_IMP_LENGTH
+    \\ asm_simp_tac (srw_ss()) [heap_el_def,RefBlock_def,ThunkBlock_def]
+    \\ srw_tac [] [] THEN1
+     (full_simp_tac std_ss [roots_ok_def,heap_ok_def]
+      \\ imp_res_tac heap_lookup_MEM
+      \\ strip_tac \\ once_rewrite_tac [MEM] \\ once_rewrite_tac [EQ_SYM_EQ]
+      \\ rpt strip_tac \\ res_tac
+      \\ full_simp_tac std_ss [RefBlock_def,ThunkBlock_def]
+      \\ res_tac \\ full_simp_tac std_ss [MEM]
+      \\ FIRST_X_ASSUM match_mp_tac
+      \\ metis_tac [MEM_EL])
+    \\ qexists_tac `f` \\ full_simp_tac std_ss []
+    \\ qexists_tac `tf` \\ full_simp_tac std_ss []
+    \\ conj_tac
+    >- (`all_ts refs (RefPtr b ptr::stack) = all_ts refs (a'::RefPtr b ptr::stack)`
+        suffices_by metis_tac []
+        \\ rw [FUN_EQ_THM,all_ts_def]
+        \\ EQ_TAC
+        >- metis_tac []
+        \\ rw []
+        >- metis_tac []
+        >- (qexists_tac `a'` \\ rw [] \\ disj1_tac
+           \\ metis_tac [EL_MEM,FRANGE_FLOOKUP,FLOOKUP_DEF,find_ref_def])
+        \\  metis_tac [])
+    \\ imp_res_tac EVERY2_IMP_EL
+    \\ full_simp_tac std_ss []
+    \\ rpt strip_tac
     \\ FIRST_X_ASSUM match_mp_tac
-    \\ metis_tac [MEM_EL])
-  \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ qexists_tac `tf` \\ full_simp_tac std_ss []
-  \\ conj_tac
-  >- (`all_ts refs (RefPtr b ptr::stack) = all_ts refs (EL n l::RefPtr b ptr::stack)`
-      suffices_by metis_tac []
-      \\ rw [FUN_EQ_THM,all_ts_def]
-      \\ EQ_TAC
-      >- metis_tac []
-      \\ rw []
-      >- metis_tac []
-      >- (qexists_tac `EL n l` \\ rw [] \\ disj1_tac
-         \\ metis_tac [EL_MEM,FRANGE_FLOOKUP,FLOOKUP_DEF])
-      \\  metis_tac [])
-  \\ imp_res_tac EVERY2_IMP_EL
-  \\ full_simp_tac std_ss []
-  \\ rpt strip_tac
-  \\ FIRST_X_ASSUM match_mp_tac
-  \\ qpat_x_assum `reachable_refs (RefPtr b ptr::stack) refs ptr` (K ALL_TAC)
-  \\ full_simp_tac std_ss [reachable_refs_def]
-  \\ reverse (Cases_on `x = EL n l`)
-  THEN1 (full_simp_tac std_ss [MEM] \\ metis_tac [])
-  \\ qexists_tac `RefPtr b ptr` \\ simp_tac std_ss [MEM,get_refs_def]
-  \\ once_rewrite_tac [RTC_CASES1] \\ DISJ2_TAC
-  \\ qexists_tac `r` \\ full_simp_tac std_ss []
-  \\ full_simp_tac (srw_ss()) [ref_edge_def,FLOOKUP_DEF,get_refs_def]
-  \\ full_simp_tac (srw_ss()) [MEM_FLAT,MEM_MAP,PULL_EXISTS]
-  \\ qexists_tac `(EL n l)` \\ full_simp_tac std_ss []
-  \\ full_simp_tac std_ss [MEM_EL] \\ metis_tac [] *)
+    \\ qpat_x_assum `reachable_refs (RefPtr b ptr::stack) refs ptr` (K ALL_TAC)
+    \\ full_simp_tac std_ss [reachable_refs_def]
+    \\ reverse (Cases_on `x = a'`)
+    THEN1 (full_simp_tac std_ss [MEM] \\ metis_tac [])
+    \\ qexists_tac `RefPtr b ptr` \\ simp_tac std_ss [MEM,get_refs_def]
+    \\ once_rewrite_tac [RTC_CASES1] \\ DISJ2_TAC
+    \\ qexists_tac `r` \\ full_simp_tac std_ss []
+    \\ full_simp_tac (srw_ss()) [ref_edge_def,FLOOKUP_DEF,get_refs_def])
+  >- (
+    NTAC 3 strip_tac
+    \\ imp_res_tac EVERY2_IMP_LENGTH
+    \\ asm_simp_tac (srw_ss()) [heap_el_def,RefBlock_def]
+    \\ srw_tac [] [] THEN1
+     (full_simp_tac std_ss [roots_ok_def,heap_ok_def]
+      \\ imp_res_tac heap_lookup_MEM
+      \\ strip_tac \\ once_rewrite_tac [MEM] \\ once_rewrite_tac [EQ_SYM_EQ]
+      \\ rpt strip_tac \\ res_tac
+      \\ full_simp_tac std_ss [RefBlock_def]
+      \\ res_tac \\ full_simp_tac std_ss [MEM]
+      \\ FIRST_X_ASSUM match_mp_tac
+      \\ metis_tac [MEM_EL])
+    \\ qexists_tac `f` \\ full_simp_tac std_ss []
+    \\ qexists_tac `tf` \\ full_simp_tac std_ss []
+    \\ conj_tac
+    >- (`all_ts refs (RefPtr b ptr::stack) = all_ts refs (EL n l::RefPtr b ptr::stack)`
+        suffices_by metis_tac []
+        \\ rw [FUN_EQ_THM,all_ts_def]
+        \\ EQ_TAC
+        >- metis_tac []
+        \\ rw []
+        >- metis_tac []
+        >- (qexists_tac `EL n l` \\ rw [] \\ disj1_tac
+           \\ metis_tac [EL_MEM,FRANGE_FLOOKUP,FLOOKUP_DEF,find_ref_def])
+        \\  metis_tac [])
+    \\ imp_res_tac EVERY2_IMP_EL
+    \\ full_simp_tac std_ss []
+    \\ rpt strip_tac
+    \\ FIRST_X_ASSUM match_mp_tac
+    \\ qpat_x_assum `reachable_refs (RefPtr b ptr::stack) refs ptr` (K ALL_TAC)
+    \\ full_simp_tac std_ss [reachable_refs_def]
+    \\ reverse (Cases_on `x = EL n l`)
+    THEN1 (full_simp_tac std_ss [MEM] \\ metis_tac [])
+    \\ qexists_tac `RefPtr b ptr` \\ simp_tac std_ss [MEM,get_refs_def]
+    \\ once_rewrite_tac [RTC_CASES1] \\ DISJ2_TAC
+    \\ qexists_tac `r` \\ full_simp_tac std_ss []
+    \\ full_simp_tac (srw_ss()) [ref_edge_def,FLOOKUP_DEF,get_refs_def]
+    \\ full_simp_tac (srw_ss()) [MEM_FLAT,MEM_MAP,PULL_EXISTS]
+    \\ qexists_tac `(EL n l)` \\ full_simp_tac std_ss []
+    \\ full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
 QED
 
 (* el *)
