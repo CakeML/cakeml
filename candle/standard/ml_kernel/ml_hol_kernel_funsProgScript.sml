@@ -9,15 +9,14 @@ Ancestors
   ml_translator ml_pmatch patternMatches ast evaluate
   semanticPrimitives ml_prog evaluate set_sep cf cfStore
   cfHeapsBase ml_monadBase ml_monad_translator holKernel
-  basisProg holAxiomsSyntax runtime_check
+  basisProg
+  holAxiomsSyntax (* for setting up the context *)
+  runtime_check (* Adds runtime type checks *)
   holKernelPmatch[qualified]
 Libs
   preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
   basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib
-  runtime_checkLib
-
-(* for setting up the context *)
-(* Adds runtime type checks *)
+  runtime_checkLib (* Adds runtime type checks *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -538,4 +537,3 @@ val def = m_translate constants_eq;
 
 val _ = Globals.max_print_depth := 10;
 val _ = print_asts := false;
-

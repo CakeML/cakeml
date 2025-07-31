@@ -25,7 +25,8 @@
 *)
 Theory dataLang
 Ancestors[qualified]
-  closLang misc
+  closLang (* for op *)
+  misc (* for num_set *)
 Libs
   preamble
 
@@ -79,4 +80,3 @@ End
 Definition mk_ticks_def:
   mk_ticks n e = FUNPOW (Seq Tick) n e
 End
-

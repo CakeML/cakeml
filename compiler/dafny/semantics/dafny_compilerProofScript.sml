@@ -4,13 +4,13 @@
 Theory dafny_compilerProof
 Ancestors
   dafny_semanticPrimitives dafny_freshen dafny_freshenProof
-  dafny_to_cakeml dafny_to_cakemlProof dafny_compiler mlstring
+  dafny_to_cakeml dafny_to_cakemlProof dafny_compiler
+  mlstring (* isPrefix *)
   primTypes evaluate semanticPrimitives namespace
 Libs
   preamble
 
 
-(* isPrefix *)
 Triviality UNZIP_LENGTH:
   ∀xs ys zs. UNZIP xs = (ys, zs) ⇒ LENGTH ys = LENGTH zs
 Proof
@@ -133,4 +133,3 @@ Proof
   \\ irule_at (Pos last) map_freshen_member_no_shadow_method
   \\ fs [valid_members_def]
 QED
-

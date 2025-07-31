@@ -6,15 +6,15 @@ Ancestors
   ml_translator ml_pmatch patternMatches ast evaluate
   semanticPrimitives ml_prog evaluate set_sep cf cfStore
   cfHeapsBase ml_monadBase ml_monad_translator holKernel
-  holKernelProof basisProg holAxiomsSyntax ml_hol_kernel_funsProg
-  ml_hol_kernelProg fromSexp patternMatches
+  holKernelProof basisProg
+  holAxiomsSyntax (* for setting up the context *)
+  ml_hol_kernel_funsProg ml_hol_kernelProg (* for setting up the context *)
+  fromSexp patternMatches
 Libs
   preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
   basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib
   astToSexprLib patternMatchesLib patternMatchesSyntax
 
-(* for setting up the context *)
-(* for setting up the context *)
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -271,4 +271,3 @@ val prog =
   ” |> EVAL |> concl |> rhs
 
 val _ = astToSexprLib.write_ast_to_file "cyclicity_checker.sexp" prog;
-

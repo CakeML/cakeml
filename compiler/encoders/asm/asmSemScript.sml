@@ -3,9 +3,8 @@
 *)
 Theory asmSem
 Ancestors
-  asm machine_ieee misc
-
-(* for bytes_in_memory *)
+  asm machine_ieee
+  misc (* for bytes_in_memory *)
 
 (* -- semantics of ASM program -- *)
 
@@ -254,4 +253,3 @@ Definition asm_step_def:
     (asm i (s1.pc + n2w (LENGTH (c.encode i))) s1 = s2) /\
     ~s2.failed /\ asm_ok i c
 End
-

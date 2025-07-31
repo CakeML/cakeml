@@ -3,11 +3,12 @@
 *)
 Theory bvlSem
 Ancestors
-  bvl closSem clos_to_bvl backendProps[qualified]
+  bvl closSem
+  clos_to_bvl (* for closure_tag and num_added_globals *)
+  backendProps[qualified]
 Libs
   preamble
 
-(* for closure_tag and num_added_globals *)
 val _ = Parse.hide "str";
 
 (* --- Semantics of BVL --- *)
@@ -679,4 +680,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-

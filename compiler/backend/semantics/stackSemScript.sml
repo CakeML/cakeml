@@ -3,7 +3,9 @@
 *)
 Theory stackSem
 Ancestors
-  stackLang wordSem[qualified] labSem[qualified]
+  stackLang
+  wordSem[qualified] (* for word_loc *)
+  labSem[qualified]
 Libs
   preamble
 
@@ -1098,4 +1100,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-

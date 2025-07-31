@@ -3,7 +3,8 @@
 *)
 Theory dataSem
 Ancestors
-  data_simp data_live data_space dataLang bvlSem data_to_word
+  data_simp data_live data_space dataLang bvlSem
+  data_to_word (* TODO: immoral, semantics shouldn't depend on compiler *)
   backendProps[qualified]
 Libs
   preamble
@@ -1455,4 +1456,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-

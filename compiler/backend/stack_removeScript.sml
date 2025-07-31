@@ -4,7 +4,9 @@
 *)
 Theory stack_remove
 Ancestors
-  stackLang misc[qualified] mlstring
+  stackLang
+  misc[qualified] (* for bytes_in_word *)
+  mlstring
 Libs
   preamble
 
@@ -351,4 +353,3 @@ Definition compile_def:
     init_stubs gen_gc max_heap k start ++
     MAP (prog_comp jump off k) prog
 End
-

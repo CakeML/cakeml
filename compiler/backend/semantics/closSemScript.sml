@@ -3,11 +3,10 @@
 *)
 Theory closSem
 Ancestors
-  backend_common closLang flatLang semanticPrimitivesProps
+  backend_common closLang flatLang
+  semanticPrimitivesProps (* for opw_lookup and others *)
 Libs
   preamble
-
-(* for opw_lookup and others *)
 
 (* differs from store_v by removing the single value Refv,
    also, adds flag to ByteArray for equality semantics *)
@@ -804,4 +803,3 @@ Definition semantics_def:
              (IMAGE (λk. fromList
                 (SND (evaluate (es,[],st k))).ffi.io_events) UNIV))
 End
-

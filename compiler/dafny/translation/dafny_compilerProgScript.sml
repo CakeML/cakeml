@@ -3,14 +3,13 @@
 *)
 Theory dafny_compilerProg
 Ancestors
-  dafny_freshenProg dafny_compiler fromSexp string numposrep
-  simpleSexp ml_translator simpleSexpParse
+  dafny_freshenProg dafny_compiler
+  fromSexp (* listsexp *)
+  string numposrep simpleSexp ml_translator simpleSexpParse
 Libs
-  preamble ml_translatorLib cfTacticsLib
+  preamble ml_translatorLib
+  cfTacticsLib (* process_topdecs *)
 
-
-(* process_topdecs *)
-(* listsexp *)
 val _ = translation_extends "dafny_freshenProg";
 
 (* First, we translate the functions for converting the output of the compiler
@@ -275,4 +274,3 @@ val prog =
 Definition dafny_compiler_prog_def:
   dafny_compiler_prog = ^prog
 End
-
