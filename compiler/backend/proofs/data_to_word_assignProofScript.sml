@@ -2102,12 +2102,11 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem do_app_aux_safe_for_space_mono:
   (do_app_aux op xs s = Rval (r,s1)) /\ s1.safe_for_space ==> s.safe_for_space
 Proof
-  cheat (*
   cases_on_op `op` \\
   fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,AllCaseEqs(),
       bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
@@ -2117,7 +2116,7 @@ Proof
       pair_case_eq,consume_space_def,dataLangTheory.op_space_reset_def,data_spaceTheory.op_space_req_def]
   \\ rw [] \\ fs [state_component_equality] \\ rw []
   \\ rpt (pairarg_tac \\ fs [])
-  \\ EVERY_CASE_TAC \\ fs [] *)
+  \\ EVERY_CASE_TAC \\ fs []
 QED
 
 Theorem do_app_safe_for_space_allowed_op:
@@ -4941,10 +4940,98 @@ Proof
   \\ drule ALOOKUP_MEM \\ simp []
 QED
 
+Theorem do_app_AllocThunk:
+   do_app (ThunkOp (AllocThunk m)) [v] x =
+    case consume_space (1 + 1) x of
+      NONE => Rerr (Rabort Rtype_error)
+    | SOME s1 =>
+      Rval
+      (RefPtr F (LEAST ptr. ptr ∉ domain s1.refs),
+         s1 with <|
+           refs := insert (LEAST ptr. ptr ∉ domain s1.refs) (Thunk m v) s1.refs;
+           safe_for_space := (
+             do_stack
+               (ThunkOp (AllocThunk m)) [v]
+               (do_lim_safe s1 (ThunkOp (AllocThunk m)) [v])).safe_for_space;
+           stack_max := (
+             do_stack
+               (ThunkOp (AllocThunk m)) [v]
+               (do_lim_safe s1 (ThunkOp (AllocThunk m)) [v])).stack_max |>)
+Proof
+  gvs [do_app, consume_space_def]
+QED
+
 Theorem assign_AllocThunk:
   (∃ev. op = ThunkOp (AllocThunk ev)) ==> ^assign_thm_goal
 Proof
-  cheat
+  rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ asm_rewrite_tac [] \\ pop_assum kall_tac
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  \\ fs [assign_def] \\ fs [do_app_AllocThunk] \\ fs[do_app]
+  \\ Cases_on `consume_space (LENGTH vals + 1) x` \\ fs [] \\ rveq
+  \\ Cases_on `vals` \\ gvs []
+  \\ Cases_on `t'` \\ gvs []
+  \\ gvs [dataLangTheory.op_requires_names_def,
+          dataLangTheory.op_space_reset_def]
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
+  \\ fs [consume_space_def] \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ Cases_on `ws` \\ gvs []
+  \\ Cases_on `args` \\ gvs []
+  \\ simp [allowed_op_def]
+  \\ TOP_CASE_TAC \\ fs []
+  >- (
+    conj_tac
+    >- (
+      fs [state_rel_def]
+      \\ rw [option_le_max_right]
+      \\ metis_tac[option_le_trans])
+    \\ fs[encode_header_def]
+    \\ fs[encode_header_def, state_rel_def, good_dimindex_def, limits_inv_def,
+          dimword_def, memory_rel_def, heap_in_memory_store_def,
+          consume_space_def, arch_size_def]
+    \\ rfs[NOT_LESS]
+    \\ Cases_on `ev` \\ gvs [])
+  \\ simp [state_rel_thm] \\ eval_tac
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ disch_then drule0 \\ fs [NOT_LESS,DECIDE ``n + 1 <= m <=> n < m:num``]
+  \\ strip_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ qabbrev_tac `new = LEAST ptr. ptr ∉ domain x.refs`
+  \\ `new ∉ domain x.refs` by metis_tac [LEAST_NOTIN_spt_DOMAIN]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 memory_rel_AllocThunk \\ strip_tac
+  \\ fs [list_Seq_def] \\ eval_tac
+  \\ fs [wordSemTheory.set_store_def,FLOOKUP_UPDATE]
+  \\ qpat_abbrev_tac `t5 = t with <| locals := _ ; store := _ |>`
+  \\ pairarg_tac \\ fs []
+  \\ `t.memory = t5.memory /\ t.mdomain = t5.mdomain` by
+       (unabbrev_all_tac \\ fs []) \\ fs []
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ drule0 evaluate_StoreEach
+  \\ disch_then (qspecl_then [`[3; adjust_var h'']`,`1`] mp_tac)
+  \\ impl_tac
+  >- (
+    unabbrev_all_tac
+    \\ gvs [wordSemTheory.get_vars_def, wordSemTheory.get_var_def,
+            lookup_insert])
+  \\ clean_tac \\ fs [] \\ UNABBREV_ALL_TAC
+  \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE,
+         code_oracle_rel_def,FLOOKUP_UPDATE]
+  \\ rpt (qpat_x_assum `!x y z. _` kall_tac)
+  \\ rw [] \\ fs [] \\ rw [] \\ fs []
+  \\ fs [inter_insert_ODD_adjust_set]
+  >- (rw[option_le_max_right] >> metis_tac[option_le_trans])
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ fs [make_ptr_def]
+  \\ `TriggerGC <> EndOfHeap` by fs []
+  \\ pop_assum (fn th => fs [MATCH_MP FUPDATE_COMMUTES th])
 QED
 
 Theorem assign_UpdateThunk:

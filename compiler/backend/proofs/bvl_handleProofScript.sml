@@ -436,12 +436,16 @@ Theorem compile_correct = Q.prove(`
       \\ Cases \\ fs [ADD1]) \\ res_tac \\ fs [])
   THEN1 (* Op *)
    (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
+    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+    >- (
+      gvs [AllCaseEqs()]
+      \\ rpt strip_tac
+      \\ simp [evaluate_def] \\ gvs [])
     \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
     \\ pop_assum match_mp_tac
     \\ drule (GEN_ALL OptionalLetLet_limit)
     \\ imp_res_tac OptionalLetLet_nr
     \\ fs [env_rel_mk_Union] \\ strip_tac
-    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs [] >- cheat
     \\ Cases_on `evaluate (xs,env,s)` \\ Cases_on `q` \\ fs [] \\ rw []
     \\ res_tac \\ fs [evaluate_def]
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []

@@ -191,7 +191,10 @@ Definition compile_def:
        OptionalLetLet (Raise (HD dx)) n lx (s1+1) l F) /\
   (compile l n [Op op xs] =
      let (ys,lx,s1,nr1) = compile l n xs in
-       OptionalLetLet (Op op ys) n lx (s1+1) l nr1) /\
+       if op = ThunkOp ForceThunk then
+         ([Op op ys],lx,s1+1,F)
+       else
+         OptionalLetLet (Op op ys) n lx (s1+1) l nr1) /\
   (compile l n [Tick x] =
      let (y,lx,s1,nr1) = compile l n [x] in
        ([Tick (HD y)],lx,s1,nr1)) /\
@@ -234,7 +237,10 @@ Definition compile_sing_def:
        OptionalLetLet_sing (Raise dx) n lx (s1+1) l F) /\
   (compile_sing l n (Op op xs) =
      let (ys,lx,s1,nr1) = compile_list l n xs in
-       OptionalLetLet_sing (Op op ys) n lx (s1+1) l nr1) /\
+       if op = ThunkOp ForceThunk then
+         (Op op ys,lx,s1+1,F)
+       else
+         OptionalLetLet_sing (Op op ys) n lx (s1+1) l nr1) /\
   (compile_sing l n (Tick x) =
      let (y,lx,s1,nr1) = compile_sing l n x in
        (Tick y,lx,s1,nr1)) /\

@@ -1218,6 +1218,25 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_UpdateThunk ev (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
+      (dtcase ev of
+       | NotEvaluated =>
+           (Seq (Store (Op Add [real_addr c (adjust_var v1);
+                                Const bytes_in_word])
+                       (adjust_var v2))
+                (Assign (adjust_var dest) Unit),l)
+       | Evaluated =>
+           (dtcase encode_header c (8 + 6) 1 of
+            | NONE => (GiveUp,l)
+            | SOME (header:'a word) => (list_Seq
+                [Assign 1 (real_addr c (adjust_var v1));
+                 Assign 3 (Const header);
+                 Store (Var 1) 3;
+                 Store (Op Add [Var 1; Const bytes_in_word]) (adjust_var v2);
+                 Assign (adjust_var dest) Unit],l)))
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_UpdateByte (c:data_to_word$config) (l:num) (dest:num) v1 v2 v3 =
       (list_Seq [
           Assign 1 (Op Add [real_addr c (adjust_var v1);
@@ -1482,6 +1501,28 @@ val def = assign_Define `
                   Set EndOfHeap (Var 1);
                   Assign 3 (Const header);
                   StoreEach 1 (3::MAP adjust_var args) 0w;
+                  Assign (adjust_var dest)
+                    (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                              (shift_length c − shift (:'a));
+                            Const 1w])],l))
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_AllocThunk (ev : thunk_mode) (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) arg =
+          (let tag = (dtcase ev of
+                         | Evaluated => 8 + 6
+                         | NotEvaluated => 0 + 6) in
+           dtcase encode_header c tag 1 of
+              | NONE => (GiveUp,l)
+              | SOME (header:'a word) => (list_Seq
+                 [Set TriggerGC (Op Sub [Lookup TriggerGC;
+                     Const (bytes_in_word * 2w)]);
+                  Assign 1 (Op Sub [Lookup EndOfHeap;
+                     Const (bytes_in_word * 2w)]);
+                  Set EndOfHeap (Var 1);
+                  Assign 3 (Const header);
+                  StoreEach 1 [3; adjust_var arg] 0w;
                   Assign (adjust_var dest)
                     (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (shift_length c − shift (:'a));
@@ -2331,6 +2372,8 @@ Definition assign_def:
     | BlockOp (Build parts) => assign_Build c secn l dest names parts
     | BlockOp (ConsExtend tag) => assign_ConsExtend c secn l dest names tag args
     | MemOp Ref => assign_Ref c secn l dest names args
+    | ThunkOp (AllocThunk ev) => arg1 args (assign_AllocThunk ev c secn l dest names) (Skip,l)
+    | ThunkOp (UpdateThunk ev) => arg2 args (assign_UpdateThunk ev c l dest) (Skip,l)
     | MemOp (RefByte imm) => arg2 args (assign_RefByte c secn l dest names imm) (Skip,l)
     | MemOp XorByte => arg2 args (assign_XorByte c secn l dest names) (Skip,l)
     | Label n => (LocValue (adjust_var dest) n,l)
