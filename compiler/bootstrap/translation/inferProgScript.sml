@@ -1,14 +1,14 @@
 (*
   Translate the compiler's type inferencer.
 *)
-open preamble parserProgTheory
-     reg_allocProgTheory inferTheory
-     ml_translatorLib ml_translatorTheory
-     semanticPrimitivesTheory inferPropsTheory
+Theory inferProg
+Ancestors
+  parserProg reg_allocProg infer ml_translator semanticPrimitives
+  inferProps
+Libs
+  preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "inferProg"
 
 val _ = translation_extends "reg_allocProg";
 val _ = ml_translatorLib.use_string_type true;
@@ -737,4 +737,3 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
-val _ = export_theory();

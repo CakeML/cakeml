@@ -5,9 +5,11 @@
 *)
 
 (* Load the interface to the monadic translator, and basis for IO *)
-open preamble basisProgTheory ml_monad_translator_interfaceLib
-
-val _ = new_theory "fibProg"
+Theory fibProg
+Ancestors
+  basisProg
+Libs
+  preamble ml_monad_translator_interfaceLib
 
 val _ = translation_extends "basisProg";
 
@@ -84,4 +86,3 @@ val res = translate num_to_str_def
 val res = translate fiba_def
 val res = m_translate fibm_def
 
-val _ = export_theory ();

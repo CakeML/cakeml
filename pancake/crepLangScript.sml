@@ -4,13 +4,14 @@
   Pancake, but we flatten locals from
   struct-layout to word-layout
 *)
+Theory crepLang
+Ancestors
+  mlstring
+  asm (* for binop and cmp *)
+  backend_common (* for overloading the shift operation *)
+Libs
+  preamble
 
-open preamble
-     mlstringTheory
-     asmTheory            (* for binop and cmp *)
-     backend_commonTheory (* for overloading the shift operation *);
-
-val _ = new_theory "crepLang";
 
 Type shift = ``:ast$shift``
 
@@ -242,5 +243,3 @@ Definition acc_vars_def:
 End
 
 Overload shift = “backend_common$word_shift”
-
-val _ = export_theory();

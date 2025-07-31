@@ -1,9 +1,11 @@
 (*
   Formalization of the maximum common induced subgraph problem
 *)
-open preamble pbcTheory graph_basicTheory pbc_normaliseTheory;
-
-val _ = new_theory "mcis";
+Theory mcis
+Ancestors
+  pbc graph_basic pbc_normalise
+Libs
+  preamble
 
 (* Given graphs G_p , G_t
   A subset of vertices of G_p is a common induced subgraph in G_t
@@ -2193,4 +2195,3 @@ Theorem full_encode_mccis_eq =
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [enc_encode_connected];
 
-val _ = export_theory();

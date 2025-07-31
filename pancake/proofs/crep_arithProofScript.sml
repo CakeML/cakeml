@@ -1,11 +1,12 @@
 (*
   Correctness proof for crep_arith pass
 *)
+Theory crep_arithProof
+Ancestors
+  crepSem crepProps crep_arith
+Libs
+  preamble
 
-open preamble
-     crepSemTheory crepPropsTheory crep_arithTheory
-
-val _ = new_theory "crep_arithProof";
 
 Theorem dest_const_thm:
   dest_const exp = SOME v ==> exp = Const v
@@ -147,4 +148,3 @@ Proof
   \\ fs [sh_mem_op_code]
 QED
 
-val _ = export_theory();

@@ -1,11 +1,10 @@
 (* --------------------------------------------------------------------------
    Pre-evaluate encoder (to help speed up EVAL)
    -------------------------------------------------------------------------- *)
+Theory arm7_eval_encode
+Ancestors
+  arm arm7_target alignment
 
-open HolKernel Parse boolLib bossLib
-open armTheory arm7_targetTheory alignmentTheory
-
-val () = new_theory "arm7_eval_encode"
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
@@ -110,4 +109,3 @@ val arm7_encode_rwts = Theory.save_thm("arm7_encode_rwts",
      fp_fma_rwt, fp_to_reg_rwt, fp_from_reg_rwt, fp_to_int_rwt,
      fp_from_int_rwt])
 
-val () = export_theory ()

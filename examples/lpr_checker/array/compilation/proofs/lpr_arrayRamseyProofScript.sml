@@ -3,14 +3,13 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     satSemTheory lprTheory lpr_listTheory lpr_arrayRamseyProgTheory
-     lpr_parsingTheory lpr_arrayRamseyCompileTheory lpr_composeProgTheory
-     lpr_listTheory ramseyTheory;
-
-val _ = new_theory"lpr_arrayRamseyProof";
+Theory lpr_arrayRamseyProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof satSem
+  lpr lpr_list lpr_arrayRamseyProg lpr_parsing
+  lpr_arrayRamseyCompile lpr_composeProg lpr_list ramsey
+Libs
+  preamble
 
 val check_unsat_io_events_def = new_specification("check_unsat_io_events_def",["check_unsat_io_events"],
   check_unsat_semantics |> Q.GENL[`cl`,`fs`]
@@ -114,4 +113,3 @@ Proof
     metis_tac[ramsey_lpr_wf])
 QED
 
-val _ = export_theory();

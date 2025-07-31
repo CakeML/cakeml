@@ -1,18 +1,15 @@
 (*
   Correctness proof for word_inst
 *)
-open preamble
-     wordLangTheory wordPropsTheory wordConvsTheory
-     word_instTheory wordSemTheory
-     asmTheory;
+Theory word_instProof
+Ancestors
+  wordLang wordProps word_inst wordSem wordConvs asm
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "word_instProof";
-
-val _ = set_grammar_ancestry ["wordLang", "wordProps", "word_inst", "wordSem"];
 
 (* resolve ambiguity between semanticsPrimitives$result and wordSem$result
    in latter's favour
@@ -1034,4 +1031,3 @@ Proof
   simp[]
 QED
 
-val _ = export_theory ();

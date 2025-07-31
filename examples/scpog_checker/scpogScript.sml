@@ -1,12 +1,11 @@
 (*
   Defines the proof checker for SCPOG
 *)
-open preamble miscTheory mlstringTheory mlintTheory mlvectorTheory sptreeTheory
-  mergesortTheory cnf_scpogSemTheory;
-
-val _ = set_grammar_ancestry ["mlstring","mlvector","sptree","mergesort","misc","cnf_scpogSem"];
-
-val _ = new_theory "scpog";
+Theory scpog
+Ancestors
+  mlstring mlvector sptree mergesort misc cnf_scpogSem mlint
+Libs
+  preamble
 
 (* Implementation *)
 Type clause = ``:int list``;
@@ -3071,4 +3070,3 @@ Proof
   simp[sat_clause_def]
 QED
 
-val _ = export_theory ();

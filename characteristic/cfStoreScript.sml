@@ -1,15 +1,13 @@
 (*
   Conversion from semantic stores to heaps.
 *)
-open preamble
-open set_sepTheory helperLib ConseqConv
-open semanticPrimitivesTheory ml_translatorTheory
-open cfHeapsTheory cfHeapsBaseLib
+Theory cfStore
+Ancestors
+  set_sep semanticPrimitives ml_translator cfHeaps
+Libs
+  preamble helperLib ConseqConv cfHeapsBaseLib
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "cfStore"
-
 
 (* Definitions *)
 
@@ -219,4 +217,3 @@ Proof
   fs [st2heap_def]
 QED
 
-val _ = export_theory ()

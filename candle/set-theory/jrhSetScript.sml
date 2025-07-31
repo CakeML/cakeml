@@ -2,11 +2,13 @@
   A HOL4 port of Model/modelset.ml from the HOL Light distribution.
   Now unused, but was once the set theory behind our semantics.
 *)
-open preamble cardinalTheory
+Theory jrhSet
+Ancestors
+  cardinal relation
+Libs
+  preamble
 
 val _ = numLib.temp_prefer_num()
-
-val _ = new_theory"jrhSet"
 
 Triviality ind_model_exists:
   ∃x. (@s:num->bool. s ≠ {} ∧ FINITE s) x
@@ -747,8 +749,6 @@ Proof
   metis_tac[PAIR_INJ]
 QED
 
-open relationTheory
-
 Theorem WF_inset:
    WF $<:
 Proof
@@ -767,4 +767,3 @@ QED
 Theorem inset_ind =
   MATCH_MP WF_INDUCTION_THM WF_inset
 
-val _ = export_theory()

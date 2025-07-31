@@ -1,11 +1,12 @@
 (*
   Proves an end-to-end correctness theorem for the bootstrapped compiler.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     compiler32ProgTheory x64BootstrapTheory
-
-val _ = new_theory"x64BootstrapProof";
+Theory x64BootstrapProof
+Ancestors
+  semanticsProps backendProof x64_configProof compiler32Prog
+  x64Bootstrap
+Libs
+  preamble
 
 Triviality with_clos_conf_simp:
     (mc_init_ok (x64_backend_config with <| clos_conf := z ; bvl_conf updated_by
@@ -79,4 +80,3 @@ Theorem cake_compiled_thm =
   |> DISCH_ALL
   |> check_thm;
 
-val _ = export_theory();

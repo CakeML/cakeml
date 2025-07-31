@@ -1,9 +1,11 @@
 (*
   Pure functions for the Int module.
 *)
-open preamble mlstringTheory gcdTheory
-
-val _ = new_theory"mlint";
+Theory mlint
+Ancestors
+  mlstring gcd
+Libs
+  preamble
 
 Definition toChar_def:
   toChar digit = if digit < 10 then CHR (ORD #"0" + digit)
@@ -636,4 +638,3 @@ Proof
   \\ Cases_on ‘s2’ \\ gvs []
 QED
 
-val _ = export_theory();

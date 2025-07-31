@@ -4,10 +4,11 @@
   now bundled together with function calls: exceptions can only be
   caught at the point of function calls.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory "bvi";
-val _ = set_grammar_ancestry ["closLang" (* for op *)]
+Theory bvi
+Ancestors
+  closLang
+Libs
+  preamble
 
 (* BVI = bytecode-value intermediate language *)
 
@@ -48,4 +49,3 @@ Datatype:
       | Op op (exp list)
 End
 
-val _ = export_theory();

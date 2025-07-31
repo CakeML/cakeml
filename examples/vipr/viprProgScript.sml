@@ -1,10 +1,11 @@
 (*
   Produces a verified CakeML program that checks VIPR proofs
 *)
-open preamble basis basisProgTheory cfLib basisFunctionsLib
-     vipr_checkerTheory milpTheory;
-
-val _ = new_theory "viprProg"
+Theory viprProg
+Ancestors
+  basisProg vipr_checker milp
+Libs
+  preamble basis cfLib basisFunctionsLib
 
 val _ = translation_extends "basisProg";
 
@@ -336,4 +337,3 @@ Theorem vipr_file_semantics =
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss()) []))
   |> (fn th => MATCH_MP th TRUTH);
 
-val _ = export_theory();

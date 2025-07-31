@@ -1,9 +1,11 @@
 (*
   Properties about wordLang and its semantics
 *)
-open preamble BasicProvers
-     wordLangTheory wordSemTheory wordConvsTheory
-     asmTheory reg_allocTheory backendPropsTheory helperLib;
+Theory wordProps
+Ancestors
+  backendProps wordConvs wordLang wordSem asm reg_alloc
+Libs
+  preamble BasicProvers helperLib
 
 (*
 Main lemmas:
@@ -16,10 +18,6 @@ Main lemmas:
 
 (*TODO remove *)
 val _ = temp_delsimps ["NORMEQ_CONV"];
-
-val _ = new_theory "wordProps";
-
-val _ = set_grammar_ancestry ["backendProps","wordConvs", "wordLang","wordSem"]
 
 (*TODO move*)
 Theorem domain_fromAList_toAList:
@@ -4784,4 +4782,3 @@ Proof
   simp[state_component_equality]
 QED
 
-val _ = export_theory();

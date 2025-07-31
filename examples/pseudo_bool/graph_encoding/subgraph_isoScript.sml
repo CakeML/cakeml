@@ -1,9 +1,11 @@
 (*
   Formalization of the subgraph isomorphism encoder (non-induced)
 *)
-open preamble graph_basicTheory pbcTheory pbc_normaliseTheory;
-
-val _ = new_theory "subgraph_iso";
+Theory subgraph_iso
+Ancestors
+  graph_basic pbc pbc_normalise
+Libs
+  preamble
 
 Definition has_subgraph_iso_def:
   has_subgraph_iso ((vp,ep):graph) ((vt,et):graph) ⇔
@@ -495,4 +497,3 @@ Theorem full_encode_eq =
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [];
 
-val _ = export_theory();

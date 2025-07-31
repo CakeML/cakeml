@@ -4,18 +4,16 @@
   in Silver machine code. Also define shallow embeddings of the FFI primitives
   and prove theorems summarising their effects.
 *)
+Theory ag32_memory
+Ancestors[qualified]
+  ag32 ag32_target asmSem asmProps mlstring Marshalling
+  lab_to_target
+Libs
+  preamble blastLib[qualified]
 
-open preamble
-local open
-  ag32Theory ag32_targetTheory
-  asmSemTheory asmPropsTheory
-  mlstringTheory MarshallingTheory
-  lab_to_targetTheory blastLib
-in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory"ag32_memory";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
@@ -3722,4 +3720,3 @@ Definition init_memory_def:
   get_byte k (EL (w2n (byte_align k) DIV 4) (init_memory_words code data ffis cl stdin)) F
 End
 
-val _ = export_theory();

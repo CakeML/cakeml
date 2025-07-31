@@ -1,16 +1,16 @@
 (*
   Correctness proof for clos_ticks
 *)
-open preamble closPropsTheory clos_ticksTheory closSemTheory;
-open closLangTheory;
-open backendPropsTheory;
+Theory clos_ticksProof
+Ancestors
+  closProps clos_ticks closSem closLang backendProps
+Libs
+  preamble
 
 val qexistsl_tac = map_every qexists_tac;
 fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "clos_ticksProof";
 
 Overload remove_ticks[local] = ``clos_ticks$remove_ticks``
 
@@ -1032,4 +1032,3 @@ Proof
   \\ res_tac \\ fs[]
 QED
 
-val _ = export_theory();

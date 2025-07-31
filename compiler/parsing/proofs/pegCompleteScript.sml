@@ -2,14 +2,14 @@
   Completeness proof for the parser. If a successful parse exists,
   then the parser will find one.
 *)
-open preamble
-     pegTheory grammarTheory pegSoundTheory
-     gramTheory gramPropsTheory cmlPEGTheory cmlNTPropsTheory
+Theory pegComplete
+Ancestors
+  pegSound peg grammar gram gramProps cmlPEG cmlNTProps
+  NTproperties grammar
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "pegComplete"
-val _ = set_grammar_ancestry ["pegSound"]
 
 val bindNT0_lemma = REWRITE_RULE [GSYM mkNd_def] bindNT0_def
 val _ = augment_srw_ss [rewrites [bindNT0_lemma]]
@@ -194,7 +194,6 @@ Theorem ptree_head_eq_tok[simp] =
   CONJ ptree_head_eq_tok0
        (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ)) ptree_head_eq_tok0);
 
-open NTpropertiesTheory
 val cmlPEG_total =
     peg_eval_total |> Q.GEN `G` |> Q.ISPEC `cmlPEG`
                              |> C MATCH_MP PEG_wellformed
@@ -326,8 +325,6 @@ Definition left_insert1_def:
        | [x] => mkNd n [mkNd n [pt]; x]
        | x::xs => mkNd n (left_insert1 pt x :: xs))
 End
-
-open grammarTheory
 
 Theorem left_insert1_FOLDL:
    left_insert1 pt (FOLDL (λa b. mkNd (mkNT P) [a; b]) acc arg) =
@@ -3585,4 +3582,3 @@ Proof
   rw[] >> dxrule_then assume_tac peg_det >> gvs[]
 QED
 
-val _ = export_theory();

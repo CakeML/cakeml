@@ -3,12 +3,11 @@
   syntax trees. In other words, these include calls to the functions in
   `../semantics/cmlPtreeConversion`.
 *)
+Theory cmlParse
+Ancestors
+  cmlPEG cmlPtreeConversion
 
-open HolKernel Parse boolLib bossLib
-     cmlPEGTheory cmlPtreeConversionTheory
 
-val _ = new_theory "cmlParse"
-val _ = set_grammar_ancestry ["cmlPEG", "cmlPtreeConversion"]
 val _ = monadsyntax.temp_add_monadsyntax()
 
 Overload cmlpegexec = ``λn t. peg_exec cmlPEG (pnt n) t [] NONE [] done failed``
@@ -82,4 +81,3 @@ Definition parse_prog_def:
     od
 End
 
-val _ = export_theory()

@@ -2,10 +2,11 @@
   Pure functions for the Set module.
   This file defines a wrapper around the balanced_map type.
 *)
-open preamble balanced_mapTheory;
-
-val _ = set_grammar_ancestry ["balanced_map"];
-val _ = new_theory "mlset";
+Theory mlset
+Ancestors
+  balanced_map
+Libs
+  preamble
 
 (* The type :set would collide with :pred_set$set *)
 Datatype:
@@ -89,4 +90,3 @@ Definition fold_def:
   fold f e (Set cmp s) = balanced_map$foldrWithKey (\k _ t. f k t) e s
 End
 
-val _ = export_theory ();

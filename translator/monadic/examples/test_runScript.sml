@@ -1,12 +1,12 @@
 (*
   An example showing how to make use of m_translate_run
 *)
+Theory test_run
+Libs
+  preamble ml_monad_translator_interfaceLib
 
-open preamble ml_monad_translator_interfaceLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "test_run"
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -218,4 +218,3 @@ End
 val def = r14_def;
 val r14_v_thm = m_translate_run r14_def;
 
-val _ = export_theory ();

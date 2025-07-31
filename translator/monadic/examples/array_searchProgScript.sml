@@ -2,10 +2,10 @@
   An example showing how to use the monadic translator to translate monadic
   array search functions, including exceptions.
  *)
+Theory array_searchProg
+Libs
+  preamble ml_monad_translator_interfaceLib
 
-open preamble ml_monad_translator_interfaceLib
-
-val _ = new_theory "array_searchProg"
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
@@ -94,4 +94,3 @@ val linear_search_v_thm = m_translate linear_search_def;
 val binary_search_aux_v_thm = m_translate binary_search_aux_def;
 val binary_search_v_thm = m_translate binary_search_def;
 
-val _ = export_theory ();

@@ -1,9 +1,11 @@
 (*
   Types, functions and lemmas that are shared between GC definitions
 *)
-open preamble wordsTheory wordsLib integer_wordTheory;
-
-val _ = new_theory "gc_shared";
+Theory gc_shared
+Ancestors
+  words integer_word
+Libs
+  preamble wordsLib
 
 val _ = ParseExtras.temp_loose_equality();
 
@@ -792,4 +794,3 @@ Proof
         (fs [EXTENSION] \\ metis_tac []) \\ fs []
 QED
 
-val _ = export_theory();

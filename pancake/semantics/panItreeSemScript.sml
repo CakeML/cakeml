@@ -1,15 +1,15 @@
 (*
 An itree semantics for Pancake.
 *)
+Theory panItreeSem
+Ancestors
+  panLang itreeTau panSem alignment[qualified]
+  misc[qualified] (* for read_bytearray *)
+  wordLang[qualified] (* for word_op and word_sh *)
+  ffi[qualified]
+Libs
+  preamble
 
-open preamble panLangTheory itreeTauTheory
-              panSemTheory;
-local open alignmentTheory
-        miscTheory     (* for read_bytearray *)
-        wordLangTheory (* for word_op and word_sh *)
-        ffiTheory in end;
-
-val _ = new_theory "panItreeSem";
 
 (* Extension of itreeTauTheory *)
 enable_monadsyntax();
@@ -682,5 +682,3 @@ Proof
   rw[ELIM_UNCURRY] >>
   PURE_TOP_CASE_TAC >> rw[]
 QED
-
-val _ = export_theory();

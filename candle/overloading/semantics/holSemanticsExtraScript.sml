@@ -1,9 +1,11 @@
 (*
   Some lemmas about the semantics.
 *)
-open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
-
-val _ = new_theory"holSemanticsExtra"
+Theory holSemanticsExtra
+Ancestors
+  holSyntaxLib holSyntax holSyntaxExtra holSemantics setSpec
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -903,4 +905,3 @@ Definition equal_on_def:
   fleq (total_fragment sig,i) (total_fragment sig, i')
 End
 
-val _ = export_theory()

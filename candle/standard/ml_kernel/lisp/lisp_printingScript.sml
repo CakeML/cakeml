@@ -1,12 +1,11 @@
 (*
   Pretty printing for Lisp s-expressions
 *)
-open HolKernel Parse boolLib bossLib;
-open arithmeticTheory listTheory pairTheory finite_mapTheory stringTheory;
-open lisp_valuesTheory mp_then;
-
-val _ = new_theory "lisp_printing";
-
+Theory lisp_printing
+Ancestors
+  arithmetic list pair finite_map string lisp_values
+Libs
+  mp_then
 
 (* pretty printing v *)
 
@@ -171,4 +170,3 @@ Definition vs2str_def:
 End
 
 
-val _ = export_theory();

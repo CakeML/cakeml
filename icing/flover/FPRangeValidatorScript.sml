@@ -8,15 +8,15 @@
   value according to IEEE 754.
 
 **)
-open machine_ieeeTheory binary_ieeeTheory lift_ieeeTheory realTheory RealArith;
-open AbbrevsTheory MachineTypeTheory TypeValidatorTheory RealSimpsTheory
-     RealRangeArithTheory IntervalArithTheory ExpressionsTheory
-     ExpressionAbbrevsTheory ExpressionSemanticsTheory FloverTactics
-     IntervalValidationTheory ErrorValidationTheory CommandsTheory
-     EnvironmentsTheory ssaPrgsTheory;
-open preambleFloVer;
-
-val _ = new_theory "FPRangeValidator";
+Theory FPRangeValidator
+Ancestors
+  machine_ieee binary_ieee lift_ieee real Abbrevs MachineType
+  TypeValidator RealSimps RealRangeArith IntervalArith
+  Expressions ExpressionAbbrevs ExpressionSemantics
+  IntervalValidation ErrorValidation Commands Environments
+  ssaPrgs
+Libs
+  RealArith FloverTactics preambleFloVer
 
 Overload abs[local] = “realax$abs”
 
@@ -302,4 +302,3 @@ Proof
   \\ fs[Once validTypesCmd_def, Once validRangesCmd_def]
 QED
 
-val _ = export_theory();

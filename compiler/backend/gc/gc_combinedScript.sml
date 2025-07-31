@@ -1,10 +1,11 @@
 (*
   One function that can run any of the GC algorithms.
 *)
-open preamble gc_sharedTheory copying_gcTheory gen_gcTheory gen_gc_partialTheory;
-open data_to_wordTheory;
-
-val _ = new_theory "gc_combined";
+Theory gc_combined
+Ancestors
+  gc_shared copying_gc gen_gc gen_gc_partial data_to_word
+Libs
+  preamble
 
 Datatype:
   gen_state = GenState num (num list)
@@ -37,4 +38,3 @@ Definition gc_combined_def:
           state.a, state.n, GenState 0 (MAP (K state.a) limits), state.ok))
 End
 
-val _ = export_theory();

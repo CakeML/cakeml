@@ -1,14 +1,15 @@
 (*
   Translate the final part of the compiler backend for 32-bit targets.
 *)
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open to_word32ProgTheory std_preludeTheory;
+Theory to_target32Prog
+Ancestors
+  evaluate ml_translator to_word32Prog std_prelude word_to_stack
+  stack_alloc stack_remove stack_names stack_to_lab lab_filter
+  lab_to_target asm monadic_enc monadic_enc32
+Libs
+  preamble ml_translatorLib ml_monad_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "to_target32Prog"
 
 val _ = translation_extends "to_word32Prog";
 val _ = ml_translatorLib.use_string_type true;
@@ -75,8 +76,6 @@ val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a wor
 
 val _ = inst_tyargs := [alpha]
 
-open word_to_stackTheory
-
 val r = translate (chunk_to_bits_def |> conv32);
 val r = translate (chunk_to_bitmap_def |> conv32);
 Theorem const_words_to_bitmap_ind = const_words_to_bitmap_ind |> conv32;
@@ -116,8 +115,6 @@ val res = translate (stack_rawcallTheory.collect_info_def |> conv32);
 val res = translate (stack_rawcallTheory.comp_pmatch |> conv32);
 val res = translate (stack_rawcallTheory.comp_top_pmatch |> conv32);
 val res = translate (stack_rawcallTheory.compile_def |> conv32);
-
-open stack_allocTheory
 
 val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,
                                     backend_commonTheory.word_shift_def]
@@ -179,8 +176,6 @@ val stack_alloc_compile_side = Q.prove(`∀conf prog. stack_alloc_compile_side c
   fs[fetch "-" "stack_alloc_compile_side_def", stack_alloc_prog_comp_side]) |> update_precondition;
 *)
 
-open stack_removeTheory
-
 val each_def =
   copy_each_def |> inline_simp |> conv32 |> SPEC_ALL |> CONV_RULE (RAND_CONV EVAL);
 val loop_def =
@@ -204,13 +199,9 @@ val _ = translate (init_code_def |> inline_simp |> conv32 |> SIMP_RULE std_ss [w
 
 val _ = translate (spec32 compile_def)
 
-open stack_namesTheory
-
 val _ = translate (spec32 comp_def)
 val _ = translate (prog_comp_def |> INST_TYPE [beta |-> ``:32``])
 val _ = translate (compile_def |> INST_TYPE [beta |-> ``:32``])
-
-open stack_to_labTheory
 
 val _ = matches := [``foo:'a labLang$prog``,``foo:'a
   labLang$sec``,``foo:'a labLang$line``,``foo:'a
@@ -224,9 +215,6 @@ val _ = translate (stack_to_labTheory.is_Seq_def |> spec32)
 val _ = translate (compile_def |> spec32)
 
 val _ = translate (stack_to_labTheory.compile_no_stubs_def |> spec32)
-
-open lab_filterTheory lab_to_targetTheory asmTheory
-open monadic_encTheory monadic_enc32Theory ml_monad_translatorLib;
 
 (* The record types used for the monadic state and exceptions *)
 val exn_type   = ``:monadic_enc32$state_exn_32``;
@@ -399,4 +387,3 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
-val _ = export_theory();

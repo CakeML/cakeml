@@ -1,15 +1,11 @@
 (*
 Implementation of Huffman Trees and Canonical Huffman codes.
 *)
-
-open preamble;
-open listTheory  rich_listTheory;
-open optionTheory;
-open pairTheory;
-open arithmeticTheory;
-open ringBufferTheory;
-
-val _ = new_theory"huffman";
+Theory huffman
+Ancestors
+  list rich_list option pair arithmetic ringBuffer
+Libs
+  preamble
 
 
 (******************************************
@@ -283,4 +279,3 @@ EVAL “canonical_codes [0]”;
 
 EVAL “unique_huff_tree (MAP ORD "aaaaccb")”;
 
-val _ = export_theory();

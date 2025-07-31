@@ -1,12 +1,13 @@
 (*
   diff example: find a patch representing the difference between two files.
 *)
-open preamble basis
-     charsetTheory lcsTheory diffTheory
+Theory diffProg
+Ancestors
+  charset lcs diff
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "diffProg";
 
 val _ = translation_extends"basisProg";
 
@@ -210,4 +211,3 @@ Theorem diff_semantics =
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
 
-val _ = export_theory ();

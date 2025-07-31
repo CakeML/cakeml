@@ -1,25 +1,18 @@
 (*
   Prove `encoder_correct` for ASL-derived ARMv8
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open listTheory wordsTheory finite_mapTheory wordsLib;
-open asmLib asmPropsTheory arm8Theory arm8_stepTheory
-     arm8_targetTheory arm8_targetProofLib arm8_targetProofTheory
-     arm8_asl_targetTheory l3_equivalenceTheory l3_equivalenceProofTheory
-     l3_equivalence_lemmasTheory l3_equivalenceLib
-
-val _ = new_theory "arm8_asl_targetProof"
+Theory arm8_asl_targetProof
+Ancestors
+  arm8 armv86a_termination[qualified] l3_equivalenceProof
+  arm8_target arm8_asl_target list words finite_map asmProps
+  arm8_step arm8_targetProof l3_equivalence l3_equivalence_lemmas
+Libs
+  BasicProvers dep_rewrite wordsLib asmLib arm8_targetProofLib
+  l3_equivalenceLib
 
 val _ = wordsLib.guess_lengths();
 val _ = wordsLib.output_words_as_hex();
 
-val _ = set_grammar_ancestry [
-          "arm8",
-          "armv86a_termination",
-          "l3_equivalenceProof",
-          "arm8_target",
-          "arm8_asl_target"
-          ];
 (*
 val _ = set_trace "Goalstack.howmany_printed_subgoals" 1;
 *)
@@ -3398,4 +3391,3 @@ Proof
     )
 QED
 
-val _ = export_theory();

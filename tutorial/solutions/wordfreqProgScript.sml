@@ -2,14 +2,15 @@
   The CakeML program implementing the word frequency application.
   This is produced by a combination of translation and CF verification.
 *)
+Theory wordfreqProg
+Ancestors
+  splitwords balanced_map mlmap
+Libs
+  preamble basis
 
-open preamble basis
-     splitwordsTheory balanced_mapTheory mlmapTheory
 
 (* note: opening all these theories/libraries can take a while
    and it will print many warning messages which can be ignored *)
-
-val _ = new_theory "wordfreqProg";
 
 val _ = translation_extends"basisProg";
 
@@ -374,4 +375,3 @@ Theorem wordfreq_semantics =
   |> DISCH_ALL |> Q.GENL[`cl`,`contents`]
   |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
-val _ = export_theory();

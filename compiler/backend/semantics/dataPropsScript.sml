@@ -1,9 +1,11 @@
 (*
   Properties about dataLang and its semantics
 *)
-open preamble dataLangTheory dataSemTheory semanticsPropsTheory backendPropsTheory;
-
-val _ = new_theory"dataProps";
+Theory dataProps
+Ancestors
+  dataLang dataSem semanticsProps backendProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -2864,4 +2866,3 @@ Proof
   fs[option_le_max]
 QED
 
-val _ = export_theory();

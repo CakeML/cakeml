@@ -1,10 +1,13 @@
 (*
   The formal semantics of closLang
 *)
-open preamble backend_commonTheory closLangTheory flatLangTheory
-     semanticPrimitivesPropsTheory (* for opw_lookup and others *)
+Theory closSem
+Ancestors
+  backend_common closLang flatLang semanticPrimitivesProps
+Libs
+  preamble
 
-val _ = new_theory"closSem"
+(* for opw_lookup and others *)
 
 (* differs from store_v by removing the single value Refv,
    also, adds flag to ByteArray for equality semantics *)
@@ -802,4 +805,3 @@ Definition semantics_def:
                 (SND (evaluate (es,[],st k))).ffi.io_events) UNIV))
 End
 
-val _ = export_theory()

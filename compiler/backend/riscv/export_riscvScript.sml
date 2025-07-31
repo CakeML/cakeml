@@ -1,9 +1,11 @@
 (*
   Define the format of the compiler-generated .S file for RISC-V
 *)
-open preamble exportTheory
-
-val () = new_theory "export_riscv";
+Theory export_riscv
+Ancestors
+  export
+Libs
+  preamble
 
 (*
 CakeML expects 4 arguments in order:
@@ -186,4 +188,3 @@ Definition riscv_export_def:
       else List []))))
 End
 
-val _ = export_theory ();

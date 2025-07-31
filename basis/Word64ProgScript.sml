@@ -1,10 +1,11 @@
 (*
   Module about the built-in word64 type.
 *)
-open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     CharProgTheory
-
-val _ = new_theory "Word64Prog";
+Theory Word64Prog
+Ancestors
+  CharProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "CharProg";
 
@@ -128,4 +129,3 @@ val sigs = module_signatures ["fromInt", "toInt", "andb",
 
 val _ = ml_prog_update (close_module (SOME sigs));
 
-val _ = export_theory();

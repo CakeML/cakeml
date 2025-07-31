@@ -3,13 +3,12 @@
   Definitions in this file correspond to the function ‘planOpts’
   from Section 5 of the PrincessCake paper.
 **)
-open semanticPrimitivesTheory evaluateTheory icing_rewriterTheory
-     icing_optimisationsTheory fpOptTheory fpValTreeTheory
-     source_to_source2Theory;
-
-open preamble;
-
-val _ = new_theory "optPlanner";
+Theory optPlanner
+Ancestors
+  semanticPrimitives evaluate icing_rewriter icing_optimisations
+  fpOpt fpValTree source_to_source2
+Libs
+  preamble
 
 (* Canonicalize sub to add and mul times -1.0
  TODO: Consider dropping the multiplication with -1.0 *)
@@ -599,4 +598,3 @@ Definition fpNum_decs_def:
   fpNum_decs _ = 0
 End
 
-val _ = export_theory();

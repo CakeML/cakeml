@@ -1,14 +1,11 @@
 (*
   Properties about the target semantics
 *)
-open preamble
-     ffiTheory
-     asmTheory asmSemTheory asmPropsTheory
-     targetSemTheory;
-
-val _ = new_theory"targetProps";
-
-val _ = set_grammar_ancestry["ffi","asm","targetSem","misc"];
+Theory targetProps
+Ancestors
+  ffi asm targetSem misc[qualified] asmSem asmProps
+Libs
+  preamble
 
 Definition shift_interfer_def:
   shift_interfer k s =
@@ -559,4 +556,3 @@ Proof
   \\ asm_exists_tac \\ rw[]
 QED
 
-val _ = export_theory();

@@ -1,12 +1,11 @@
 (*
   Translating inferTheory to cv equations for use with cv_eval
 *)
-open preamble miscTheory;
-open cv_transLib;
-open astTheory namespaceTheory inferTheory inferPropsTheory;
-open basis_cvTheory unify_cvTheory;
-
-val _ = new_theory "infer_cv";
+Theory infer_cv
+Ancestors
+  misc ast namespace infer inferProps basis_cv unify_cv
+Libs
+  preamble cv_transLib
 
 val expand = let
   val th1 = SRULE [FUN_EQ_THM] st_ex_bind_def
@@ -412,4 +411,3 @@ val _ = cv_auto_trans (infertype_prog_inc_eq |> SRULE [extend_dec_ienv_def]);
                            cv_infertype_prog_inc_thm *)
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory ();

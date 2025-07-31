@@ -1,11 +1,11 @@
 (*
   Prove `encoder_correct` for ARMv7
 *)
-open HolKernel Parse boolLib bossLib;
-open arm_stepLib;
-open asmLib arm7_targetTheory;
-
-val () = new_theory "arm7_targetProof"
+Theory arm7_targetProof
+Ancestors
+  arm7_target
+Libs
+  arm_stepLib asmLib
 
 val () = wordsLib.guess_lengths ()
 
@@ -1270,4 +1270,3 @@ Proof
       )
 QED
 
-val () = export_theory ()

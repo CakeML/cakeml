@@ -2,10 +2,12 @@
   Logical model of the FFI calls for functions to-/fromString in
   the Double module.
 *)
+Theory DoubleFFI
+Ancestors
+  cfFFIType cfHeapsBase DoubleProg
+Libs
+  preamble
 
-open preamble cfFFITypeTheory cfHeapsBaseTheory DoubleProgTheory;
-
-val _ = new_theory "DoubleFFI";
 
 Datatype:
   doubleFuns = <|
@@ -139,4 +141,3 @@ Definition double_ffi_part_def:
      ("double_floor",ffi_floor)])
 End
 
-val _ = export_theory ();

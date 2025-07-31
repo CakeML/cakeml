@@ -2,16 +2,13 @@
   Defines the repeat function and the corresponding lemma used to prove
   non-termination of programs in cf.
 *)
-open preamble
-open set_sepTheory helperLib ml_translatorTheory
-open ml_translatorTheory semanticPrimitivesTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
-open cfNormaliseTheory cfAppTheory evaluateTheory
-open cfTacticsBaseLib cfTacticsLib cfTheory
-open std_preludeTheory;
-
-
-val _ = new_theory "cfDiv";
+Theory cfDiv
+Ancestors
+  set_sep ml_translator ml_translator semanticPrimitives
+  cfHeapsBase cfHeaps cfStore cfNormalise cfApp evaluate cf
+  std_prelude
+Libs
+  preamble helperLib cfHeapsBaseLib cfTacticsBaseLib cfTacticsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -4856,4 +4853,3 @@ Proof
   \\ asm_exists_tac \\ fs[] \\ asm_exists_tac \\ fs[]
 QED
 
-val _ = export_theory();

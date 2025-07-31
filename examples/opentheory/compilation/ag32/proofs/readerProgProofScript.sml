@@ -3,14 +3,13 @@
   checker. The theorem reaches the next-state function of the
   verified hardware platform called Silver.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory ag32_configProofTheory
-     ag32_memoryTheory ag32_memoryProofTheory ag32_ffi_codeProofTheory
-     ag32_machine_configTheory ag32_basis_ffiProofTheory
-     readerProgTheory readerCompileTheory
-     holSoundnessTheory
-
-val _ = new_theory "readerProgProof";
+Theory readerProgProof
+Ancestors
+  semanticsProps backendProof ag32_configProof ag32_memory
+  ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
+  ag32_basis_ffiProof readerProg readerCompile holSoundness
+Libs
+  preamble
 
 val reader_io_events_def =
   new_specification ("reader_io_events_def", ["reader_io_events"],
@@ -282,4 +281,3 @@ Proof
   \\ metis_tac []
 QED
 
-val _ = export_theory();

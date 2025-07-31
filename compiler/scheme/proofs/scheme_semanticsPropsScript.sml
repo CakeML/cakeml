@@ -1,13 +1,11 @@
 (*
   Proofs of Scheme semantics properties
 *)
-open preamble;
-open mlstringTheory;
-open scheme_astTheory;
-open scheme_semanticsTheory;
-open finite_mapTheory;
-
-val _ = new_theory "scheme_semanticsProps";
+Theory scheme_semanticsProps
+Ancestors
+  mlstring scheme_ast scheme_semantics finite_map
+Libs
+  preamble
 
 Inductive can_lookup:
   FEVERY (λ (x, l). ? v . l < LENGTH store /\ EL l store = Mut v) env
@@ -898,4 +896,3 @@ Proof
   >> simp[Once valid_cont_cases]
 QED
 
-val _ = export_theory();

@@ -4,15 +4,13 @@
    variable "x" bound in a declaration. This requires type
    checking to know the type of "x".
 *)
+Theory addPrintVals
+Ancestors
+  ast infer namespace[qualified] typeDecToPP[qualified]
+  sptree[qualified] mlprettyprinter[qualified] string[qualified]
+Libs
+  stringSyntax[qualified]
 
-open HolKernel Parse boolLib bossLib;
-open astTheory inferTheory;
-local open sptreeTheory stringTheory stringSyntax typeDecToPPTheory namespaceTheory
-    mlprettyprinterTheory in end;
-
-val _ = new_theory "addPrintVals";
-val _ = set_grammar_ancestry ["ast", "infer", "namespace", "typeDecToPP",
-    "sptree", "mlprettyprinter"];
 
 Definition nsContents_def:
   nsContents (Bind locs mods) = MAP (Short ## I) locs ++
@@ -216,4 +214,3 @@ Definition val_prints_def:
     (prints, tn2)
 End
 
-val _ = export_theory ();

@@ -1,19 +1,17 @@
 (*
   Correctness proof for word_alloc
 *)
-open preamble
-     reg_allocTheory reg_allocProofTheory linear_scanTheory linear_scanProofTheory
-     wordLangTheory wordSemTheory wordPropsTheory wordConvsTheory word_allocTheory;
-
-val _ = new_theory "word_allocProof";
+Theory word_allocProof
+Ancestors
+  wordLang wordSem wordProps word_alloc reg_alloc reg_allocProof
+  linear_scan linear_scanProof wordConvs
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-val _ = set_grammar_ancestry
-  ["wordLang", "wordSem", "wordProps", "word_alloc",
-   "reg_alloc", "reg_allocProof", "linear_scan", "linear_scanProof"];
 val _ = Parse.bring_to_front_overload"numset_list_insert"
              {Thy="word_alloc",Name="numset_list_insert"};
 val _ = Parse.hide"mem";
@@ -8936,4 +8934,3 @@ Proof
   simp[]
 QED
 
-val _ = export_theory();

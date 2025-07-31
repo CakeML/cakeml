@@ -1,10 +1,11 @@
 (*
 * A simple instantiation of machin_config for sanity check share memory access
 *)
-open preamble targetSemTheory riscv_targetTheory riscvTheory ffiTheory
-  bitstringTheory asmPropsTheory;
-
-val _ = new_theory "San";
+Theory San
+Ancestors
+  targetSem riscv_target riscv ffi bitstring asmProps
+Libs
+  preamble
 
 (* the bool is used as indicating whether the pc is accessing shared memory *)
 Definition san_prog_asm_def:
@@ -336,4 +337,3 @@ Proof
     APPLY_UPDATE_THM,riscv_config_def,riscv_target_def]
 QED
 
-val () = export_theory();

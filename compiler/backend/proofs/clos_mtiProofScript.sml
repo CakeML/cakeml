@@ -3,10 +3,12 @@
   proved using a backwards simulation, i.e. against the direction of
   compilation.
 *)
-open preamble backendPropsTheory closPropsTheory
-clos_mtiTheory closSemTheory helperLib;
+Theory clos_mtiProof
+Ancestors
+  backendProps closProps clos_mti closSem
+Libs
+  preamble helperLib
 
-val _ = new_theory "clos_mtiProof";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
@@ -1569,4 +1571,3 @@ Proof
   \\ fs[]
 QED
 
-val _ = export_theory();

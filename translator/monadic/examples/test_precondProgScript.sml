@@ -2,10 +2,10 @@
   An example showing how to use the monadic translator with
   references, arrays and exceptions.
 *)
+Theory test_precondProg
+Libs
+  preamble ml_monad_translator_interfaceLib
 
-open preamble ml_monad_translator_interfaceLib
-
-val _ = new_theory "test_precondProg"
 
 (* Create the data type to handle the references *)
 Datatype:
@@ -156,4 +156,3 @@ Definition tree_sum3_def:
 End
 val tree_sum_v_thm = m_translate tree_sum_def;
 
-val _ = export_theory ();

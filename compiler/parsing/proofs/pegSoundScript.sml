@@ -2,11 +2,11 @@
   Soundness proof for the parser. If the parser returns a parse tree,
   then it is valid w.r.t. the specification grammar.
 *)
-open preamble pegTheory cmlPEGTheory gramTheory gramPropsTheory
-     grammarTheory
-
-val _ = new_theory "pegSound";
-val _ = set_grammar_ancestry ["cmlPEG", "gramProps"]
+Theory pegSound
+Ancestors
+  cmlPEG gramProps peg gram grammar
+Libs
+  preamble
 
 infix >*
 fun t1 >* t2 = (t1 >> conj_tac) >- t2
@@ -1398,4 +1398,3 @@ Proof
   strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied, PAIR_MAP]
 QED
 
-val _ = export_theory()

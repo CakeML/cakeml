@@ -1,11 +1,11 @@
 (*
   Examples on the topic of doubling a number.
 *)
-open preamble semanticPrimitivesTheory
-     ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
-     basisProgTheory
-
-val _ = new_theory "doubleArgProg";
+Theory doubleArgProg
+Ancestors
+  semanticPrimitives ml_translator basisProg
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = translation_extends "basisProg";
 
@@ -244,4 +244,3 @@ Proof
             fs[NUM_def, INT_def]
 QED
 
-val _ = export_theory();

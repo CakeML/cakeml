@@ -3,9 +3,11 @@
   `rename_apart r c` gives a function f, such that
   f(r) ∩ c = ∅ ,  f(r) ∩ r = ∅  and dom(f) = r ∩ c.
  *)
-open preamble mlstringTheory holSyntaxLibTheory
-
-val _ = new_theory"holSyntaxRenaming"
+Theory holSyntaxRenaming
+Ancestors
+  mlstring holSyntaxLib
+Libs
+  preamble
 
 Theorem ALL_DISTINCT_MAP_inj:
   !l f. (!x y. f x = f y <=> x = y) ==> ALL_DISTINCT l = ALL_DISTINCT (MAP f l)
@@ -390,4 +392,3 @@ Proof
   >> gvs[implode_def, REPLICATE_inj]
 QED
 
-val _ = export_theory()

@@ -9,21 +9,21 @@
 *)
 
 (*
-  A script file begins with a descriptive comment like the above, then opens
-  the structures whose contents will be used. When working within the CakeML
-  repository, it is usually sufficient to open preamble. Otherwise, one would
-  typically open HolKernel boolLib bossLib and Parse (at least). CakeML's
-  preamble wrapper includes all of those structures and more.
+  A script file begins with a descriptive comment like the above
 *)
-
-open preamble comparisonTheory
 
 (*
   Create the logical theory in which we will work. Its name should match the name
   of this file, before the "Script.sml" suffix.
+  Immediately afterwards, we mention the structures whose contents will be
+  used. When working within the CakeML repository, it is usually sufficient to
+  mention preamble.
 *)
-
-val _ = new_theory "simple_bst";
+Theory simple_bst
+Ancestors
+  comparison
+Libs
+  preamble
 
 val _ = Parse.hide "cmp";
 
@@ -272,5 +272,3 @@ Proof
   *)
   (* EXERCISE: fill in the rest of this proof *)
 QED
-
-val _ = export_theory();

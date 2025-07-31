@@ -2,10 +2,12 @@
   Definitions for the state-and-exception monad that is supported by the
   proof-producing monadic translator.
 *)
+Theory ml_monadBase
+Ancestors
+  semanticPrimitives
+Libs
+  preamble packLib
 
-open preamble semanticPrimitivesTheory packLib
-
-val _ = new_theory "ml_monadBase";
 
 val _ = hide "state";
 
@@ -559,4 +561,3 @@ Definition run_def:
 End
 
 
-val _ = export_theory ();

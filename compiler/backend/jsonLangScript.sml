@@ -5,9 +5,11 @@
   in {}, in which case it can be viewed as a key-value store of names
   (strings) and JSON objects.
 *)
-open preamble mlintTheory mlstringTheory
-
-val _ = new_theory"jsonLang";
+Theory jsonLang
+Ancestors
+  mlint mlstring
+Libs
+  preamble
 
 Datatype:
   obj =
@@ -70,4 +72,3 @@ Definition json_to_mlstring_def:
         List [strlit "\""; n; strlit "\":"] ++ json_to_mlstring obj)
 End
 
-val _ = export_theory();

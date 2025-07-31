@@ -4,11 +4,11 @@
   @author: Raphael Monat
   @maintainer: Heiko Becker
  **)
-open realTheory realLib;
-open RealSimpsTheory;
-open preambleFloVer;
-
-val _ = new_theory "MachineType";
+Theory MachineType
+Ancestors
+  real RealSimps
+Libs
+  realLib preambleFloVer
 
 Overload abs[local] = “realax$abs”
 
@@ -348,4 +348,3 @@ Proof
   fs[denormal_def, minValue_pos_def, REAL_NOT_LT, REAL_ABS_POS]
 QED
 
-val _ = export_theory();

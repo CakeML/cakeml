@@ -1,10 +1,12 @@
 (*
   The Floyd-Warshall algorithm - testing the monadic translator
 *)
+Theory floyd_warshallProg
+Ancestors
+  ml_monadBase
+Libs
+  preamble ml_monad_translator_interfaceLib
 
-open preamble ml_monad_translator_interfaceLib ml_monadBaseTheory
-
-val _ = new_theory "floyd_warshallProg"
 
 (* An adjacency matrix represented as a 1D-array with a dimension var *)
 Datatype:
@@ -448,4 +450,3 @@ val res = m_translate init_from_ls_def;
 val res = m_translate do_floyd_def;
 
 
-val _ = export_theory();

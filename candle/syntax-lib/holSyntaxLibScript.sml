@@ -1,9 +1,11 @@
 (*
   Definitions for manipulating (deeply embedded) HOL syntax.
 *)
-open preamble mlstringTheory
-
-val _ = new_theory"holSyntaxLib"
+Theory holSyntaxLib
+Ancestors
+  mlstring
+Libs
+  preamble
 
 Definition ALPHAVARS_def:
   (ALPHAVARS [] tmp ⇔ (FST tmp = SND tmp)) ∧
@@ -369,4 +371,3 @@ Proof
       set_MAP_implode_STRING_SORT_MAP_explode]
 QED
 
-val _ = export_theory()

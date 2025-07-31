@@ -1,12 +1,14 @@
 (*
   This compiler phase replaces tuples with constructors (with tag 0).
 *)
-open preamble astTheory flatLangTheory;
+Theory flat_uncheck_ctors
+Ancestors
+  flatLang misc[qualified] ast
+Libs
+  preamble
 
 val _ = numLib.temp_prefer_num();
 
-val _ = new_theory "flat_uncheck_ctors";
-val _ = set_grammar_ancestry ["flatLang", "misc"];
 val _ = temp_tight_equality ();
 
 Definition compile_pat_def:
@@ -106,4 +108,3 @@ Definition compile_decs_def:
   (compile_decs (_::ds) = compile_decs ds)
 End
 
-val _ = export_theory();

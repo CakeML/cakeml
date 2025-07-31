@@ -2,11 +2,11 @@
   For MIPS, prove that the compiler configuration is well formed, and
   instantiate the compiler correctness theorem.
 *)
-open preamble backendProofTheory
-     mips_configTheory mips_targetProofTheory
-open blastLib;
-
-val _ = new_theory"mips_configProof";
+Theory mips_configProof
+Ancestors
+  backendProof mips_config mips_targetProof
+Libs
+  preamble blastLib
 
 Definition is_mips_machine_config_def:
   is_mips_machine_config mc ⇔
@@ -77,4 +77,3 @@ Theorem mips_compile_correct =
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
 
-val _ = export_theory();

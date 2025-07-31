@@ -1,9 +1,11 @@
 (*
   Normalizes pbc into npbc
 *)
-open preamble pbcTheory npbcTheory mlmapTheory mergesortTheory;
-
-val _ = new_theory "pbc_normalise";
+Theory pbc_normalise
+Ancestors
+  pbc npbc mlmap mergesort
+Libs
+  preamble
 
 val _ = numLib.temp_prefer_num();
 
@@ -1533,4 +1535,3 @@ Proof
   gvs[]
 QED
 
-val _ = export_theory();

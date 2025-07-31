@@ -2,21 +2,16 @@
     Proof of correspondence between functional big-step
     and itree semantics for Pancake.
 *)
+Theory panItreeSemEquiv
+Ancestors
+  itreeTau panSem panItreeProps panItreeSem panLang
+  alignment[qualified]
+  misc[qualified] (* for read_bytearray *)
+  wordLang[qualified] (* for word_op and word_sh *)
+  ffi[qualified] panProps[qualified]
+Libs
+  preamble
 
-open preamble
-     itreeTauTheory
-     panSemTheory
-     panItreePropsTheory
-     panItreeSemTheory
-     panLangTheory;
-local open alignmentTheory
-           miscTheory     (* for read_bytearray *)
-           wordLangTheory (* for word_op and word_sh *)
-           ffiTheory
-           panPropsTheory
-in end;
-
-val _ = new_theory "panItreeSemEquiv";
 
 val _ = temp_set_fixity "≈" (Infixl 500);
 Overload "≈" = “itree_wbisim”;
@@ -5793,4 +5788,3 @@ Proof
   >- (cheat)
 QED
 *)
-val _ = export_theory();

@@ -1,10 +1,11 @@
 (*
   CNF encoder and checker
 *)
-open preamble basis lpr_parsingTheory cnf_to_pbTheory npbc_parseProgTheory;
-open cfLib basisFunctionsLib;
-
-val _ = new_theory "cnfProg";
+Theory cnfProg
+Ancestors
+  lpr_parsing cnf_to_pb npbc_parseProg
+Libs
+  preamble basis cfLib basisFunctionsLib
 
 val _ = translation_extends "npbc_parseProg";
 
@@ -907,4 +908,3 @@ Theorem main_semantics =
 
 end
 
-val _ = export_theory();

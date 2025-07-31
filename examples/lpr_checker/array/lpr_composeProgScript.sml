@@ -5,9 +5,11 @@
   s VERIFIED RANGE md5(cnf_file) md5(proof_file) i-j
 
 *)
-open preamble basis md5ProgTheory cfLib basisFunctionsLib spt_closureTheory lpr_parsingTheory;
-
-val _ = new_theory "lpr_composeProg"
+Theory lpr_composeProg
+Ancestors
+  md5Prog spt_closure lpr_parsing
+Libs
+  preamble basis cfLib basisFunctionsLib
 
 val _ = translation_extends "md5Prog";
 
@@ -485,4 +487,3 @@ Proof
   \\ gvs [lookup_insert,lookup_def]
 QED
 
-val _ = export_theory();

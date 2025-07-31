@@ -1,12 +1,11 @@
 (*
   Values used to model floating-points, in the style of Icing
 *)
-open HolKernel Parse boolLib bossLib;
-open miscTheory;
+Theory fpValTree
+Ancestors
+  misc
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "fpValTree";
 
 (*
   Definition of floating point value trees for CakeML
@@ -65,4 +64,3 @@ Definition fp_top_def:
  fp_top fop f1 f2 f3 = Fp_top fop f1 f2 f3
 End
 
-val _ = export_theory()

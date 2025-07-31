@@ -1,9 +1,11 @@
 (*
   Define the compiler configuration for RISC-V
 *)
-open preamble backendTheory riscv_targetTheory riscv_targetLib
-
-val _ = new_theory"riscv_config";
+Theory riscv_config
+Ancestors
+  backend riscv_target
+Libs
+  preamble riscv_targetLib
 
 Definition riscv_names_def:
   riscv_names =
@@ -67,4 +69,3 @@ Definition riscv_backend_config_def:
                |>
 End
 
-val _ = export_theory();

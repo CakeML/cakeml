@@ -1,12 +1,14 @@
 (*
   Program to sort the lines in a file, built on top of the quick sort example.
 *)
+Theory sortProg
+Ancestors
+  quicksortProg
+Libs
+  preamble basis
 
-open preamble basis quicksortProgTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "sortProg";
 
 val _ = translation_extends"quicksortProg";
 
@@ -576,4 +578,3 @@ Theorem sort_semantics =
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
-val _ = export_theory ();

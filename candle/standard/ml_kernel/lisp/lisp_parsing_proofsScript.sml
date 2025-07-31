@@ -1,11 +1,10 @@
 (*
   Proof that pretty printong then parsing returns the same
 *)
-open HolKernel Parse boolLib bossLib;
-open arithmeticTheory listTheory pairTheory finite_mapTheory stringTheory;
-open lisp_valuesTheory lisp_printingTheory lisp_parsingTheory;
-
-val _ = new_theory "lisp_parsing_proofs";
+Theory lisp_parsing_proofs
+Ancestors
+  arithmetic list pair finite_map string lisp_values
+  lisp_printing lisp_parsing
 
 Definition dest_quote_def:
   dest_quote v =
@@ -560,4 +559,3 @@ Proof
   \\ fs [parse_def,any_list_def,list_def]
 QED
 
-val _ = export_theory();

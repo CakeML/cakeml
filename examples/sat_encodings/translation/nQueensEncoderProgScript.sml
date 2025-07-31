@@ -1,14 +1,15 @@
 (*
   Encoding program for the n-queens problem
 *)
+Theory nQueensEncoderProg
+Ancestors
+  misc set_sep list cnf boolExpToCnf quantifierExp
+  orderEncodingBool nqueens
+  (* for parsing: *) parsing source_values
+  toCnfHelper sat_encodersProg
+Libs
+  preamble basis
 
-open preamble basis miscTheory set_sepTheory listTheory cnfTheory;
-open boolExpToCnfTheory quantifierExpTheory orderEncodingBoolTheory;
-open nqueensTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-open toCnfHelperTheory sat_encodersProgTheory;
-
-val _ = new_theory "nQueensEncoderProg";
 
 val _ = translation_extends "sat_encodersProg";
 
@@ -128,6 +129,3 @@ val prog =
 Definition nQueens_encoder_prog_def:
   nQueens_encoder_prog = ^prog
 End
-
-
-val _ = export_theory();

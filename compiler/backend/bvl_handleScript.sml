@@ -3,9 +3,11 @@
   body. This is preparation for BVL --> BVI compilation.  This phase
   also removes Handles in case the body cannot raise an exception.
 *)
-open preamble bvlTheory db_varsTheory bvl_constTheory;
-
-val _ = new_theory "bvl_handle";
+Theory bvl_handle
+Ancestors
+  bvl db_vars bvl_const
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -336,4 +338,3 @@ Theorem compile_seqs_compute =
     |> Q.SPECL [`e`,`c`,`SOME y`]
     |> SIMP_RULE std_ss [LET_THM]]
 
-val _ = export_theory();

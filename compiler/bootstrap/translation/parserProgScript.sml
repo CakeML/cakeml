@@ -1,14 +1,13 @@
 (*
   Translate the compiler's parser.
 *)
-open preamble
-     cmlParseTheory cmlPEGTheory lexerProgTheory
-     ml_translatorLib ml_translatorTheory
-     semanticPrimitivesTheory
+Theory parserProg
+Ancestors
+  cmlParse cmlPEG lexerProg ml_translator semanticPrimitives
+Libs
+  preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "parserProg"
 
 val _ = translation_extends "lexerProg";
 
@@ -236,4 +235,3 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
-val _ = export_theory();

@@ -1,9 +1,11 @@
 (*
   This refines lpr_list to use arrays
 *)
-open preamble basis md5ProgTheory lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory HashtableProofTheory;
-
-val _ = new_theory "lpr_arrayProg"
+Theory lpr_arrayProg
+Ancestors
+  md5Prog lpr_composeProg UnsafeProof lpr lpr_list HashtableProof
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -1978,4 +1980,3 @@ Proof
   simp[MEM_MAP]
 QED
 
-val _ = export_theory();

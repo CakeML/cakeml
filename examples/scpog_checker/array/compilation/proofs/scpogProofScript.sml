@@ -3,14 +3,13 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     x64_configTheory blastLib
-     cnf_scpogSemTheory scpogTheory scpog_listTheory scpog_arrayFullProgTheory
-     scpog_parsingTheory scpogCompileTheory;
-
-val _ = new_theory"scpogProof";
+Theory scpogProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof
+  x64_config cnf_scpogSem scpog scpog_list scpog_arrayFullProg
+  scpog_parsing scpogCompile
+Libs
+  preamble blastLib
 
 val cake_scpog_io_events_def = new_specification("cake_scpog_io_events_def",["cake_scpog_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
@@ -210,4 +209,3 @@ Proof
   metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]
 QED
 
-val _ = export_theory();

@@ -1,11 +1,12 @@
 (*
   Translation of the OCaml lexer.
  *)
+Theory caml_lexProg
+Ancestors
+  caml_lex parserProg ml_translator
+Libs
+  preamble ml_translatorLib
 
-open preamble caml_lexTheory;
-open parserProgTheory ml_translatorLib ml_translatorTheory;
-
-val _ = new_theory "caml_lexProg";
 
 val _ = translation_extends "parserProg";
 
@@ -171,4 +172,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val () = ml_translatorLib.clean_on_exit := true;
 
-val _ = export_theory ();

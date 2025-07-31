@@ -2,9 +2,11 @@
   This compiler phase removes all Skip instructions (generated from
   Tick in stackLang).
 *)
-open preamble labLangTheory;
-
-val _ = new_theory "lab_filter";
+Theory lab_filter
+Ancestors
+  labLang
+Libs
+  preamble
 
 Definition not_skip_def:
   not_skip l = case l of Asm (Asmi (Inst Skip)) _ _ => F | _ => T
@@ -22,4 +24,3 @@ Proof
   Induct \\ simp[filter_skip_def] \\ Cases \\ simp[filter_skip_def]
 QED
 
-val _ = export_theory();

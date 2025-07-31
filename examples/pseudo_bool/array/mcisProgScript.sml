@@ -1,9 +1,11 @@
 (*
   MCIS (unconnected) encode and checker
 *)
-open preamble basis pbc_normaliseTheory graphProgTheory mcisTheory graph_basicTheory;
-
-val _ = new_theory "mcisProg"
+Theory mcisProg
+Ancestors
+  pbc_normalise graphProg mcis graph_basic
+Libs
+  preamble basis
 
 val _ = translation_extends"graphProg";
 
@@ -475,4 +477,3 @@ Theorem main_semantics =
 
 end
 
-val _ = export_theory();

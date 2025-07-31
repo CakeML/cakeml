@@ -1,11 +1,11 @@
 (*
    Basic specification of an LPR checker (minimal optimization)
 *)
-open preamble miscTheory mlstringTheory satSemTheory;
-
-val _ = new_theory "lpr";
-
-val _ = set_grammar_ancestry ["mlstring","satSem","sptree","integer","misc"];
+Theory lpr
+Ancestors
+  mlstring satSem sptree[qualified] integer[qualified] misc
+Libs
+  preamble
 
 (*
   Bridging implementation and semantics
@@ -1334,4 +1334,3 @@ Proof
   fs[interp_def]
 QED
 
-val _ = export_theory ();

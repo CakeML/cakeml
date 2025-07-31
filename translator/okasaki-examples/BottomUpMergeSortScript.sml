@@ -2,11 +2,13 @@
   This is an example of applying the translator to the Bottom Up Merge
   Sort algorithm from Chris Okasaki's book.
 *)
-open preamble
-open okasaki_miscTheory bagLib bagTheory sortingTheory ml_translatorLib ListProgTheory;
-val _ = numLib.temp_prefer_num()
+Theory BottomUpMergeSort
+Ancestors
+  okasaki_misc bag sorting ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
-val _ = new_theory "BottomUpMergeSort"
+val _ = numLib.temp_prefer_num()
 
 val _ = translation_extends "ListProg";
 
@@ -315,4 +317,3 @@ Proof
 metis_tac [add_seg_side]
 QED
 
-val _ = export_theory();

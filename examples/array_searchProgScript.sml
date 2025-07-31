@@ -1,11 +1,12 @@
 (*
   An example based on searching an array.
 *)
-open preamble semanticPrimitivesTheory
-open ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
-open basisProgTheory quicksortProgTheory ArrayProofTheory UnsafeProgTheory UnsafeProofTheory
-
-val _ = new_theory "array_searchProg";
+Theory array_searchProg
+Ancestors
+  semanticPrimitives ml_translator basisProg quicksortProg
+  ArrayProof UnsafeProg UnsafeProof
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -655,4 +656,3 @@ Proof
   )
 QED
 
-val _ = export_theory ();

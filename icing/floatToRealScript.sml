@@ -2,11 +2,11 @@
   Translation from CakeML floating-point computations to
   CakeML real-number computations.
 *)
-open semanticPrimitivesTheory evaluateTheory fpOptTheory fpValTreeTheory;
-
-open preamble;
-
-val _ = new_theory "floatToReal";
+Theory floatToReal
+Ancestors
+  semanticPrimitives evaluate fpOpt fpValTree
+Libs
+  preamble
 
 (**
   Translation from floats to reals, needed for correctness proofs, thus we
@@ -72,4 +72,3 @@ Termination
   wf_rel_tac ‘measure exp_size’
 End
 
-val _ = export_theory();

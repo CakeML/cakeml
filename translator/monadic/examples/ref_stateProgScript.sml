@@ -2,9 +2,9 @@
   An example showing how to use the monadic translator to translate
   monadic functions using references (no arrays, no exceptions).
 *)
-open preamble ml_monad_translator_interfaceLib
-
-val _ = new_theory "ref_stateProg"
+Theory ref_stateProg
+Libs
+  preamble ml_monad_translator_interfaceLib
 
 (* Pattern matching
  * Note that `dtcase` has to be used from now on in the function definitions (and not `case`)
@@ -74,4 +74,3 @@ val if_fun_v_thm = if_fun_def |> m_translate;
 
 (* ... *)
 
-val _ = export_theory ();

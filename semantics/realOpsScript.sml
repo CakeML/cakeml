@@ -1,10 +1,9 @@
 (*
   Real-valued operations for source semantics
 *)
-open HolKernel Parse boolLib bossLib;
-open miscTheory machine_ieeeTheory realTheory;
-
-val _ = new_theory "realOps";
+Theory realOps
+Ancestors
+  misc machine_ieee real
 
 (*
   Definition of real-valued operations
@@ -50,4 +49,3 @@ Definition real_bop_def:
    | Real_Div => (/))
 End
 
-val _ = export_theory();

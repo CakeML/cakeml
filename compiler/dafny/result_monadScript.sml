@@ -1,11 +1,12 @@
 (*
   Definition of a specialized Either monad, where an error is an mlstring.
 *)
+Theory result_monad
+Ancestors
+  mlstring
+Libs
+  preamble
 
-open preamble
-open mlstringTheory
-
-val _ = new_theory "result_monad"
 
 Type error = “:mlstring”;
 
@@ -82,4 +83,3 @@ Definition extend_path_def:
   extend_path cur next = concat [cur; next; «:»]
 End
 
-val _ = export_theory();

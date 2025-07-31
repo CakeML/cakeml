@@ -1,10 +1,9 @@
 (*
   A Lisp inspired tree of mlstrings and a pretty printing function
 *)
-open HolKernel Parse boolLib bossLib;
-open arithmeticTheory listTheory pairTheory mlstringTheory;
-
-val _ = new_theory "str_tree";
+Theory str_tree
+Ancestors
+  arithmetic list pair mlstring
 
 (* datatype and helper functions *)
 
@@ -158,4 +157,3 @@ Definition vs2str_def:
 End
 *)
 
-val _ = export_theory();

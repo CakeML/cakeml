@@ -1,9 +1,9 @@
 (*
   echo program example: print the command line arguments.
 *)
-open preamble basis
-
-val _ = new_theory "echoProg";
+Theory echoProg
+Libs
+  preamble basis
 
 val _ = translation_extends"basisProg";
 
@@ -71,4 +71,3 @@ Theorem echo_semantics =
   |> DISCH_ALL
   |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
-val _ = export_theory();

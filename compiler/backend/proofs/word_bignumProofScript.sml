@@ -1,15 +1,17 @@
 (*
   Correctness proof for word_bignum
 *)
-open preamble astTheory wordLangTheory wordSemTheory wordPropsTheory tailrecTheory;
-open mc_multiwordTheory set_sepTheory helperLib word_bignumTheory;
+Theory word_bignumProof
+Ancestors
+  ast wordLang wordSem wordProps tailrec mc_multiword set_sep
+  word_bignum
+Libs
+  preamble helperLib
 
 val good_dimindex_def = miscTheory.good_dimindex_def;
 val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "word_bignumProof";
 
 val shift_def = backend_commonTheory.word_shift_def
 
@@ -2215,4 +2217,3 @@ Theorem evaluate_mc_iop =
   |> Q.GENL [`i1`,`i2`,`l'`,`frame`,`zs`,`t`,`ret_val`,
              `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]
 
-val _ = export_theory();

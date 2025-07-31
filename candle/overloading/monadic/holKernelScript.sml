@@ -3,11 +3,12 @@
   embedded functions in HOL using a monadic style in order to
   conveniently pass around state and propagate exceptions.
 *)
-open preamble mlstringTheory holSyntaxExtraTheory
-              holSyntaxCyclicityTheory
-              ml_monadBaseTheory ml_monadBaseLib
+Theory holKernel
+Ancestors
+  mlstring holSyntaxExtra holSyntaxCyclicity ml_monadBase
+Libs
+  preamble ml_monadBaseLib
 
-val _ = new_theory "holKernel";
 val _ = ParseExtras.temp_loose_equality();
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -1373,4 +1374,3 @@ Definition context_def:
   context () = get_the_context
 End
 
-val _ = export_theory();

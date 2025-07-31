@@ -1,13 +1,14 @@
 (*
   Lemmas used in Okasaki examples.
 *)
-open preamble
-open relationTheory bagLib bagTheory;
+Theory okasaki_misc
+Ancestors
+  relation bag
+Libs
+  preamble bagLib
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
-
-val _ = new_theory "okasaki_misc"
 
 Theorem WeakLinearOrder_neg:
  !leq x y. WeakLinearOrder leq ⇒ (~leq x y <=> leq y x ∧ x ≠ y)
@@ -132,4 +133,3 @@ fs [] >>
 metis_tac []
 QED
 
-val _ = export_theory ();

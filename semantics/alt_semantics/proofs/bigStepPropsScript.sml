@@ -1,11 +1,12 @@
 (*
   A few properties about the relational big-step semantics.
 *)
-open preamble;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory;
-open bigStepTheory evaluatePropsTheory;
-
-val _ = new_theory "bigStepProps";
+Theory bigStepProps
+Ancestors
+  semanticPrimitives semanticPrimitivesProps bigStep
+  evaluateProps
+Libs
+  preamble
 
 val st = ``st:'ffi state``
 
@@ -106,4 +107,3 @@ Proof
 QED
 
 
-val _ = export_theory ();

@@ -61,10 +61,9 @@
    of the semantics is relational but it only allows deterministic behaviour.
 
    ------------------------------------------------------------------------- *)
-open HolKernel Parse boolLib bossLib
-open wordsTheory alignmentTheory astTheory
-
-val () = new_theory "asm"
+Theory asm
+Ancestors
+  words alignment ast
 
 (* -- syntax of ASM instruction -- *)
 
@@ -321,4 +320,3 @@ Definition is_load_def[simp]:
   (is_load _ = F)
 End
 
-val () = export_theory ()

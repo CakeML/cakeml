@@ -1,10 +1,11 @@
 (*
   Logical model of the Runtime module's exit function calls.
 *)
-open preamble
-     cfHeapsBaseTheory
-
-val _ = new_theory"runtimeFFI";
+Theory runtimeFFI
+Ancestors
+  cfHeapsBase
+Libs
+  preamble
 
 Definition ffi_exit_def:
  ffi_exit (conf:word8 list) (bytes:word8 list) () = SOME(FFIdiverge:unit ffi_result)
@@ -42,4 +43,3 @@ Definition runtime_ffi_part_def:
     [("exit",ffi_exit)])
 End
 
-val _ = export_theory();

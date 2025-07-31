@@ -1,9 +1,11 @@
 (*
   Add shared pbp parsing, normalization and other common stuff to npbc_arrayProg
 *)
-open preamble basis npbc_checkTheory pb_parseTheory npbc_arrayProgTheory pbc_normaliseTheory;
-
-val _ = new_theory "npbc_parseProg"
+Theory npbc_parseProg
+Ancestors
+  npbc_check pb_parse npbc_arrayProg pbc_normalise mlint
+Libs
+  preamble basis
 
 val _ = translation_extends"npbc_arrayProg";
 
@@ -118,8 +120,6 @@ val r = translate parse_lstep_aux_def;
 val r = translate check_end_def;
 
 val r = translate blanks_def;
-
-open mlintTheory;
 
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
@@ -3497,4 +3497,3 @@ Proof
   rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
 QED
 
-val _ = export_theory();

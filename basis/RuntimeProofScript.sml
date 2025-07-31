@@ -1,11 +1,11 @@
 (*
   Proof about the exit function in the Runtime module.
 *)
-open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
-     mlstringTheory runtimeFFITheory RuntimeProgTheory
-
-val _ = new_theory"RuntimeProof";
+Theory RuntimeProof
+Ancestors
+  ml_translator mlstring runtimeFFI RuntimeProg
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = translation_extends "RuntimeProg";
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
@@ -97,4 +97,3 @@ Proof
   \\ fs[SPLIT_emp1,cond_def] \\ metis_tac[]
 QED
 
-val _ = export_theory();

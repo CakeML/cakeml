@@ -1,12 +1,13 @@
 (*
   Examples of non-termination.
 *)
-open preamble basis
-open integerTheory cfDivTheory cfDivLib
+Theory div
+Ancestors
+  integer cfDiv
+Libs
+  preamble basis cfDivLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "div";
 
 val _ = translation_extends "basisProg";
 
@@ -1435,4 +1436,3 @@ Proof
   xvar >> xsimpl
 QED
 
-val _ = export_theory();

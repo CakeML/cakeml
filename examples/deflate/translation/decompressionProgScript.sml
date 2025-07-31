@@ -1,11 +1,12 @@
 (*
   Encoding program for simple decompression
 *)
-open preamble basis miscTheory set_sepTheory listTheory lispProgTheory arithmeticTheory numposrepTheory;
-open compressionTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-
-val _ = new_theory "decompressionProg";
+Theory decompressionProg
+Ancestors
+  misc set_sep list lispProg arithmetic numposrep compression
+  parsing source_values
+Libs
+  preamble basis
 
 val _ = translation_extends "lispProg";
 
@@ -74,4 +75,3 @@ Definition decompression_prog_def:
   decompression_prog = ^prog
 End
 
-val _ = export_theory();

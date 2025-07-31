@@ -1,13 +1,12 @@
 (*
   Correctness proof for word_cse
 *)
-open preamble alistTheory totoTheory;
-open wordLangTheory wordSemTheory wordPropsTheory reg_allocTheory;
-open word_simpTheory word_cseTheory helperLib;
-open wordConvsTheory
-val _ = new_theory "word_cseProof";
-
-val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_cse"];
+Theory word_cseProof
+Ancestors
+  wordLang wordSem wordProps word_cse alist toto reg_alloc
+  word_simp wordConvs
+Libs
+  preamble helperLib
 
 Definition data_inv_def:
   data_inv (data:knowledge) (s:('a,'c,'ffi) wordSem$state) ⇔
@@ -2063,4 +2062,3 @@ Proof
   \\ qspecl_then [‘p’,‘empty_data’,‘ac’] mp_tac word_cse_conventions \\ fs []
 QED
 
-val _ = export_theory();

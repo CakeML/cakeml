@@ -3,10 +3,11 @@
   If we would put them in the Abbrevs file, this would create a circular
   dependency
 **)
-open FloverMapTheory ExpressionsTheory;
-open preambleFloVer;
-
-val _ = new_theory "ExpressionAbbrevs";
+Theory ExpressionAbbrevs
+Ancestors
+  FloverMap Expressions
+Libs
+  preambleFloVer
 
 (**
 We treat a function mapping an exprression arguing on fractions as value type
@@ -78,4 +79,3 @@ Proof
   Induct_on `e3` \\ fs[expr_distinct]
 QED
 
-val _ = export_theory()

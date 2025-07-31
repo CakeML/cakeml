@@ -1,15 +1,15 @@
 (*
   Defines the translation of Dafny's to CakeML's AST.
 *)
+Theory dafny_to_cakeml
+Ancestors
+  dafny_ast ast mlint result_monad
+Libs
+  preamble
 
-open preamble
-open dafny_astTheory
-open astTheory  (* CakeML AST *)
-open mlintTheory  (* num_to_str *)
-open result_monadTheory
 
-val _ = new_theory "dafny_to_cakeml";
-
+(* CakeML AST *)
+(* num_to_str *)
 (* TODO Remove mk_id; unnecessary *)
 
 Overload Unit = “Con NONE []”
@@ -443,4 +443,3 @@ End
 (* val fresh_vars_r = EVAL “(use_fresh_vars ^dafny_r)” |> concl |> rhs; *)
 (* val cakeml_r = EVAL “(from_program ^fresh_vars_r)” |> concl |> rhs |> rand; *)
 
-val _ = export_theory ();

@@ -1,10 +1,11 @@
 (*
   Proofs about the Unsafe module.
 *)
-open preamble ml_translatorTheory ml_translatorLib cfLib
-     mlbasicsProgTheory UnsafeProgTheory
-
-val _ = new_theory"UnsafeProof";
+Theory UnsafeProof
+Ancestors
+  ml_translator mlbasicsProg UnsafeProg
+Libs
+  preamble ml_translatorLib cfLib
 
 val _ = translation_extends "UnsafeProg";
 
@@ -93,4 +94,3 @@ Proof
   Cases \\ simp [] \\ prove_array_spec Unsafe_w8xor_str_v_def
 QED
 
-val _ = export_theory();

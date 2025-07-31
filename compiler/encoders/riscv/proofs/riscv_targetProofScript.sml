@@ -1,10 +1,11 @@
 (*
   Prove `encoder_correct` for RISC-V
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib riscv_stepLib riscv_targetTheory;
-
-val () = new_theory "riscv_targetProof"
+Theory riscv_targetProof
+Ancestors
+  riscv_target
+Libs
+  asmLib riscv_stepLib
 
 val () = wordsLib.guess_lengths()
 
@@ -681,4 +682,3 @@ Proof
       )
 QED
 
-val () = export_theory ()

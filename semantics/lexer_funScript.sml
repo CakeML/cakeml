@@ -1,12 +1,11 @@
 (*
   A functional specification of lexing from strings to token lists.
 *)
-open HolKernel Parse boolLib bossLib;
-
-val _ = new_theory "lexer_fun";
-
-open preamble locationTheory;
-open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
+Theory lexer_fun
+Ancestors
+  location string list tokens ASCIInumbers
+Libs
+  preamble stringLib intLib
 
 (* This script defines the functional spec for the assembly
    implementation of the lexer. This lexer specification consists of
@@ -577,4 +576,3 @@ Termination
   metis_tac [toplevel_semi_dex_non0, DECIDE ``0 < 1:num``, DECIDE ``∀x:num. 0 < x + 1``]
 End
 
-val _ = export_theory();

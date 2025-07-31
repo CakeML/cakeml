@@ -2,11 +2,12 @@
   Recursive correctness predicate for a range analysis with some supporting
   theorems
 **)
-open FloverTactics AbbrevsTheory RealSimpsTheory TypeValidatorTheory
-     ExpressionSemanticsTheory ssaPrgsTheory IntervalArithTheory CommandsTheory;
-open preambleFloVer;
-
-val _ = new_theory "RealRangeArith";
+Theory RealRangeArith
+Ancestors
+  Abbrevs RealSimps TypeValidator ExpressionSemantics ssaPrgs
+  IntervalArith Commands
+Libs
+  FloverTactics preambleFloVer
 
 Definition dVars_range_valid_def:
   dVars_range_valid (dVars:num_set) (E:num -> real option) (A:analysisResult) =
@@ -112,4 +113,3 @@ Proof
   \\ simp[Once validRangesCmd_def] \\ rpt conj_tac \\ metis_tac[]
 QED
 
-val _ = export_theory();

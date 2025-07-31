@@ -6,9 +6,11 @@
   2) Marking clauses (in the is_AT step)
   3) Tracking earliest occurences of pivots
 *)
-open preamble basis lprTheory;
-
-val _ = new_theory "lpr_list"
+Theory lpr_list
+Ancestors
+  lpr
+Libs
+  preamble basis
 
 Definition w8z_def:
   w8z = (0w:word8)
@@ -2172,4 +2174,3 @@ Proof
   rw[]
 QED
 
-val _ = export_theory();

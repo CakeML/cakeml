@@ -4,10 +4,11 @@
   are required for closure conversion, which is implemented in
   the clos_to_bvl phase of the compiler.
 *)
-open preamble closLangTheory db_varsTheory;
-
-val _ = new_theory "clos_annotate";
-val _ = set_grammar_ancestry ["closLang","db_vars","misc"]
+Theory clos_annotate
+Ancestors
+  closLang db_vars misc[qualified]
+Libs
+  preamble
 
 (* alt_free calculates free variable annotations, and replaces unused lets with dummies *)
 
@@ -448,4 +449,3 @@ Proof
   simp[compile_inc_def, annotate_sing_eq]
 QED
 
-val _ = export_theory();

@@ -1,10 +1,11 @@
 (*
   WCNF encoder and checker
 *)
-open preamble basis lpr_parsingTheory wcnf_to_pbTheory npbc_parseProgTheory;
-open cfLib basisFunctionsLib;
-
-val _ = new_theory "wcnfProg";
+Theory wcnfProg
+Ancestors
+  lpr_parsing wcnf_to_pb npbc_parseProg
+Libs
+  preamble basis cfLib basisFunctionsLib
 
 val _ = translation_extends "npbc_parseProg";
 
@@ -943,4 +944,3 @@ Theorem main_semantics =
 
 end
 
-val _ = export_theory();

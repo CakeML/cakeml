@@ -1,16 +1,13 @@
 (*
   Translate the x64 instruction encoder and x64-specific config.
 *)
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open from_pancake64ProgTheory
-open x64_targetTheory x64Theory;
-open inliningLib;
+Theory x64Prog
+Ancestors
+  evaluate ml_translator from_pancake64Prog x64_target x64
+Libs
+  preamble ml_translatorLib inliningLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "x64Prog"
 
 val _ = translation_extends "from_pancake64Prog";
 val _ = ml_translatorLib.use_string_type true;
@@ -542,4 +539,3 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 
-val _ = export_theory();

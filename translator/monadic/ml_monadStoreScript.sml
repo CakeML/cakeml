@@ -1,12 +1,12 @@
 (*
   This file defines theorems and lemma used in the ml_monadStoreLib
 *)
-open preamble evaluateTheory semanticPrimitivesTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib evaluateTheory
-open cfHeapsBaseTheory cfAppTheory ml_monad_translatorBaseTheory
-open packLib
-
-val _ = new_theory "ml_monadStore"
+Theory ml_monadStore
+Ancestors
+  evaluate semanticPrimitives set_sep cf cfStore evaluate
+  cfHeapsBase cfApp ml_monad_translatorBase
+Libs
+  preamble cfTacticsLib packLib
 
 Theorem HCOND_EXTRACT =
   cfLetAutoTheory.HCOND_EXTRACT
@@ -216,4 +216,3 @@ QED
 
 
 
-val _ = export_theory();

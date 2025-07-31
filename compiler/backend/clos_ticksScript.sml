@@ -5,11 +5,11 @@
   to remove them because they get in the way of pattern matching done
   by several optimisations.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory "clos_ticks";
-
-val _ = set_grammar_ancestry ["closLang"]
+Theory clos_ticks
+Ancestors
+  closLang
+Libs
+  preamble
 
 Definition remove_ticks_def:
   (remove_ticks [] = []) /\
@@ -99,4 +99,3 @@ Definition compile_inc_def:
   compile_inc (e, xs) = (remove_ticks e, [])
 End
 
-val _ = export_theory();

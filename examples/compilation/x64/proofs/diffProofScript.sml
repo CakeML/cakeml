@@ -3,11 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     diffProgTheory diffCompileTheory
-
-val _ = new_theory"diffProof";
+Theory diffProof
+Ancestors
+  semanticsProps backendProof x64_configProof diffProg
+  diffCompile
+Libs
+  preamble
 
 val diff_io_events_def = new_specification("diff_io_events_def",["diff_io_events"],
   diff_semantics |> Q.GENL[`cl`,`fs`]
@@ -34,4 +35,3 @@ Theorem diff_compiled_thm =
   |> DISCH_ALL
   |> check_thm
 
-val _ = export_theory();

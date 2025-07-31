@@ -2,11 +2,13 @@
   Define new version of CakeML complier where asm_conf is lifted out to
   be a separate argument and where inc_config is used instead of config.
 *)
+Theory backend_asm
+Ancestors
+  backend lab_to_target backend_enc_dec backend_passes
+  evaluate_dec
+Libs
+  preamble
 
-open preamble backendTheory lab_to_targetTheory backend_enc_decTheory;
-open backend_passesTheory evaluate_decTheory;
-
-val _ = new_theory "backend_asm";
 
 (*----------------------------------------------------------------*
     Early passes adjusted to use inc_config
@@ -705,4 +707,3 @@ Proof
   metis_tac []
 QED
 
-val _ = export_theory();
