@@ -903,7 +903,6 @@ Definition enc_loadI_def:
   | LoadLane  (          I64x2) ofs al lidx  => 0xFDw :: enc_unsigned_word 87w ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
 End
 
-
 Definition dec_loadI_def:
   dec_loadI ([]:byteSeq) : ((mlstring + load_instr) # byteSeq) = error "[dec_loadI] : Byte sequence unexpectedly empty." [] ∧
   dec_loadI (b::bs) = let failure = error "[dec_loadI]" $ b::bs in
@@ -1233,26 +1232,31 @@ QED
 
 
 (* TODO *)
-(*
 Definition enc_blocktype_def:
-  enc_blocktype =
+  enc_blocktype = ARB
 End
 Definition dec_blocktype_def:
-  dec_blocktype =
+  dec_blocktype = ARB
 End
+
+Theorem dec_enc_blocktype:
+  ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
+Proof
+  cheat
+QED
+
 Definition enc_vec_def:
-  enc_blocktype =
+  enc_vec = ARB
 End
 Definition dec_vec_def:
-  dec_blocktype =
+  dec_vec = ARB
 End
 Definition enc_fsig_def:
-  enc_blocktype =
+  enc_fsig = ARB
 End
 Definition dec_fsig_def:
-  dec_blocktype =
+  dec_fsig = ARB
 End
-*)
 
 Overload elseOC = “0x05w : byte”
 Overload endOC  = “[0x0Bw:byte]”
@@ -1265,12 +1269,11 @@ Definition enc_instr_def:
   | Unreachable => [0x00w]
   | Nop         => [0x01w]
 
-  (*
-    | Block bTyp body          => 0x02w :: enc_blocktype bTyp ++ enc_instr_list body ++ endOC
-    | Loop  bTyp body          => 0x03w :: enc_blocktype bTyp ++ enc_instr_list body ++ endOC
-    | If    bTyp bodyTh [    ] => 0x04w :: enc_blocktype bTyp ++ enc_instr_list body ++ endOC
-    | If    bTyp bodyTh bodyEl => 0x04w :: enc_blocktype bTyp ++ enc_instr_list bodyTh ++ elseOC :: enc_instr_list bodyEl ++ endOC
-  *)
+  | Block bTyp body => 0x02w :: enc_blocktype bTyp ++ enc_instr_list body ++ endOC
+  | Loop  bTyp body => 0x03w :: enc_blocktype bTyp ++ enc_instr_list body ++ endOC
+  | If    bTyp bodyTh bodyEl => 0x04w :: enc_blocktype bTyp ++
+      enc_instr_list bodyTh ++
+        (if NULL bodyEl then endOC else elseOC :: enc_instr_list bodyEl ++ endOC)
 
   | Br           lbl => 0x0Cw ::                    enc_unsigned_word lbl
   | BrIf         lbl => 0x0Dw ::                    enc_unsigned_word lbl
@@ -1278,10 +1281,9 @@ Definition enc_instr_def:
 
   | Return                    => [0x0Fw]
   | Call               f      =>  0x10w :: enc_unsigned_word f
-  (* | CallIndirect       f fsig =>  0x11w :: enc_num fsig ++ enc_unsigned_word f *)
+  | CallIndirect       f fsig =>  0x11w :: enc_fsig fsig ++ enc_unsigned_word f
   | ReturnCall         f      =>  0x12w :: enc_unsigned_word f
-  (* | ReturnCallIndirect f fsig =>  0x13w :: enc_num fsig ++ enc_unsigned_word f *)
-
+  | ReturnCallIndirect f fsig =>  0x13w :: enc_fsig fsig ++ enc_unsigned_word f
 
   (* other classes of instructions *)
   | Variable   i => enc_varI   i
@@ -1292,14 +1294,209 @@ Definition enc_instr_def:
   | MemWrite   i => enc_storeI i
   | MemOthers  i => enc_memI   i
   | _ => []
-  )
+  ) ∧
 
-  (* ASKMM *)
-  (* ∧
-  (enc_instr_list ([]:instr list) : byteSeq = endOC)
-  (enc_instr_list (i::ins) = enc_instr i $ enc_instr_list ins) *)
+  (enc_instr_list ([]:instr list) : byteSeq = endOC) ∧
+  (enc_instr_list (i::ins) = enc_instr i ++ enc_instr_list ins)
 
 End
+
+Theorem dec_blocktype_len:
+  dec_blocktype bs = (r,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs
+Proof
+  cheat
+QED
+
+Definition check_len_def:
+  (check_len bs (INR x,bs1) =
+    if LENGTH bs1 < LENGTH bs then (INR x,bs1) else (INR x,[])) ∧
+  (check_len bs (INL x,bs1) =
+    if LENGTH bs1 ≤ LENGTH bs then (INL x,bs1) else (INL x,bs))
+End
+
+Theorem check_len_IMP:
+  check_len bs xs = (INR x,bs1) ⇒
+  (LENGTH bs1 ≤ LENGTH bs) ∧
+  (bs ≠ [] ⇒ LENGTH bs1 < LENGTH bs)
+Proof
+  PairCases_on ‘xs’ \\ rw [check_len_def]
+  \\ Cases_on ‘xs0’ \\ gvs [check_len_def,AllCaseEqs()]
+  \\ fs [] \\ Cases_on ‘bs’ \\ fs []
+QED
+
+Theorem check_len_IMP_INL:
+  check_len bs xs = (INL x,bs1) ⇒
+  (LENGTH bs1 ≤ LENGTH bs)
+Proof
+  PairCases_on ‘xs’ \\ rw [check_len_def]
+  \\ Cases_on ‘xs0’ \\ gvs [check_len_def,AllCaseEqs()]
+QED
+
+Definition dec_instr_def:
+  (dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) =
+     error "[dec_instr] : Byte sequence unexpectedly empty." []) ∧
+  (dec_instr (b::bs) =
+     if b = 0x00w then (INR Unreachable, bs) else
+     if b = 0x01w then (INR Nop, bs) else
+     if b = 0x02w then
+       (case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
+        case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
+        case bs of
+        | [] => error "[dec_instr] : Byte sequence unexpectedly empty." []
+        | (b::bs) =>
+          if b = 0x0Bw then
+            (INR (Block bTyp body),bs)
+          else
+            error "[dec_instr] : Byte sequence unexpectedly empty." []) else
+     if b = 0x03w then
+       (case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
+        case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
+        case bs of
+        | [] => error "[dec_instr] : Byte sequence unexpectedly empty." []
+        | (b::bs) =>
+          if b = 0x0Bw then
+            (INR (Loop bTyp body),bs)
+          else
+            error "[dec_instr] : Byte sequence unexpectedly empty." []) else
+     if b = 0x04w then
+       (case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
+        case check_len bs (dec_instr_list bs) of (INL err,bs) => (INL err,bs) | (INR bodyTh,bs) =>
+        case bs of
+        | [] => error "[dec_instr] : Byte sequence unexpectedly empty." []
+        | (b::bs) =>
+          if b = 0x0Bw then
+            (INR (If bTyp bodyTh []),bs)
+          else if b ≠ 0x05w then
+            error "[dec_instr] : Byte sequence unexpectedly empty." (b::bs)
+          else
+            case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR bodyEl,bs) =>
+            case bs of
+            | [] => error "[dec_instr] : Byte sequence unexpectedly empty." []
+            | (b::bs) =>
+              if b = 0x0Bw then
+                (INR (If bTyp bodyTh bodyEl),bs)
+              else
+                error "[dec_instr] : Byte sequence unexpectedly empty." [])
+     else error "TODO not yet supported" (b::bs)) ∧
+  (dec_instr_list ([]:byteSeq) =
+     error "[dec_instr] : Byte sequence unexpectedly empty." []) ∧
+  (dec_instr_list (b::bs) =
+     if b = 0x0Bw then (INR [],bs) else
+     case check_len (b::bs) (dec_instr (b::bs)) of (INL err,bs) => (INL err,bs) | (INR i,bs) =>
+     case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR is,bs) =>
+       (INR (i::is),bs))
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL bs => 2 * LENGTH bs
+                            | INR bs => 2 * LENGTH bs + 1’
+  \\ rw [] \\ imp_res_tac dec_blocktype_len \\ fs []
+  \\ imp_res_tac check_len_IMP \\ fs []
+End
+
+Triviality check_len_INR:
+  check_len bs0 y = (INR x,bs1) ⇒ ∃y1 y2. y = (INR y1,y2)
+Proof
+  gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
+QED
+
+Triviality check_len_INL:
+  check_len bs0 y = (INL x,bs1) ⇒ ∃y1 y2. y = (INL y1,y2)
+Proof
+  gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
+QED
+
+Theorem dec_instr_length:
+  (∀bs x bs1. dec_instr bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs) ∧
+  (∀bs x bs1. dec_instr_list bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs)
+Proof
+  ho_match_mp_tac dec_instr_ind \\ rw []
+  >~ [‘dec_instr []’] >- simp [dec_instr_def]
+  >~ [‘dec_instr_list []’] >- simp [dec_instr_def]
+  \\ pop_assum mp_tac
+  \\ simp [Once dec_instr_def]
+  \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac dec_blocktype_len \\ fs []
+  \\ imp_res_tac check_len_INL \\ fs []
+  \\ imp_res_tac check_len_INR \\ fs []
+  \\ gvs [check_len_def]
+QED
+
+Theorem dec_instr_INL_length:
+  (∀bs x bs1. dec_instr bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs) ∧
+  (∀bs x bs1. dec_instr_list bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs)
+Proof
+  ho_match_mp_tac dec_instr_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ simp [Once dec_instr_def]
+  \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac dec_blocktype_len \\ gvs []
+  \\ imp_res_tac check_len_IMP_INL \\ gvs []
+  \\ imp_res_tac check_len_INR \\ fs []
+  \\ imp_res_tac check_len_IMP \\ fs []
+  \\ cheat (* not implemented cases *)
+QED
+
+Theorem check_len_thm:
+  check_len bs (dec_instr bs) = dec_instr bs ∧
+  check_len bs (dec_instr_list bs) = dec_instr_list bs
+Proof
+  conj_tac
+  >-
+   (Cases_on ‘dec_instr bs’ \\ fs []
+    \\ Cases_on ‘q’ \\ fs [check_len_def]
+    \\ imp_res_tac dec_instr_INL_length \\ fs []
+    \\ imp_res_tac dec_instr_length \\ fs [])
+  \\ Cases_on ‘dec_instr_list bs’ \\ fs []
+  \\ Cases_on ‘q’ \\ fs [check_len_def]
+  \\ imp_res_tac dec_instr_INL_length \\ fs []
+  \\ imp_res_tac dec_instr_length \\ fs []
+QED
+
+Theorem dec_instr_def[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_def;
+Theorem dec_instr_ind[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_ind;
+
+Theorem enc_instr_not_end:
+  ∀i. ∃h t. enc_instr i = h::t ∧ h ≠ 0x0Bw
+Proof
+  Cases \\ simp [Once enc_instr_def]
+  >~ [‘enc_varI’] >- (simp [enc_varI_def] \\ every_case_tac \\ fs [])
+  >~ [‘enc_paraI’] >- (simp [enc_paraI_def] \\ every_case_tac \\ fs [])
+  >~ [‘enc_numI’] >- (simp [enc_numI_def] \\ every_case_tac \\ fs [])
+  >~ [‘enc_loadI’] >- (simp [enc_loadI_def] \\ every_case_tac \\ fs [])
+  >~ [‘enc_storeI’] >- (simp [enc_storeI_def] \\ every_case_tac \\ fs [])
+  >~ [‘enc_memI’] >- (simp [enc_memI_def] \\ every_case_tac \\ fs [])
+  >~ [‘enc_vecI’] >- cheat (* incomplete *)
+QED
+
+Theorem dec_enc_instr:
+  (∀i rest. dec_instr (enc_instr i ++ rest) = (INR i,rest)) ∧
+  (∀is rest. dec_instr_list (enc_instr_list is ++ rest) = (INR is,rest))
+Proof
+  ho_match_mp_tac enc_instr_ind \\ reverse $ rw []
+  \\ once_rewrite_tac [enc_instr_def]
+  >- (rename [‘enc_instr i’]
+      \\ qspec_then ‘i’ strip_assume_tac enc_instr_not_end \\ fs []
+      \\ simp [Once dec_instr_def]
+      \\ asm_rewrite_tac [GSYM APPEND_ASSOC] \\ simp [])
+  >- simp [dec_instr_def]
+  \\ Cases_on ‘i’ \\ fs []
+  >~ [‘Unreachable’] >- (simp [dec_instr_def])
+  >~ [‘Nop’] >- (simp [dec_instr_def])
+  >~ [‘Block’] >-
+   (simp [dec_instr_def]
+    \\ asm_rewrite_tac [dec_enc_blocktype, GSYM APPEND_ASSOC] \\ simp [])
+  >~ [‘Loop’] >-
+   (simp [dec_instr_def]
+    \\ asm_rewrite_tac [dec_enc_blocktype, GSYM APPEND_ASSOC] \\ simp [])
+  >~ [‘If g b1 b2’] >-
+   (simp [dec_instr_def]
+    \\ asm_rewrite_tac [dec_enc_blocktype, GSYM APPEND_ASSOC] \\ simp []
+    \\ Cases_on ‘b2’ \\ simp []
+    \\ asm_rewrite_tac [GSYM APPEND_ASSOC] \\ simp [])
+  \\ cheat (* not yet implemented cases *)
+QED
 
 (* Definition dec_instr_def:
   dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = error "[dec_instr] : Byte sequence unexpectedly empty." [] ∧
