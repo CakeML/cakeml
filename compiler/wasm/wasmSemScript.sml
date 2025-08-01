@@ -22,14 +22,6 @@ Datatype: value
   | I64 word64
 End
 
-Datatype: func =
-  <|
-    name : string ;
-    type : functype;
-    body : instr list ;
-    types_of_locals : valtype list
-  |>
-End
 
 Datatype:
   state =
