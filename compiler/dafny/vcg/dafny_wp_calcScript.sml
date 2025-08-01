@@ -1805,12 +1805,56 @@ Proof
   \\ first_assum $ irule_at $ Pos hd \\ fs []
 QED
 
+Triviality value_same_type_bool:
+  value_same_type v (BoolV b) ⇒ v ∈ all_values BoolT
+Proof
+  Cases_on ‘v’ \\ gvs [all_values_def]
+QED
+
+Triviality value_same_type_int:
+  value_same_type v (IntV i) ⇒ v ∈ all_values IntT
+Proof
+  Cases_on ‘v’ \\ gvs [all_values_def]
+QED
+
+Triviality eval_true_hastype_imp:
+  eval_true st env (HasType e ty) ⇒
+  ∃v. eval_exp st env e v ∧ v ∈ all_values ty
+Proof
+  strip_tac
+  \\ Cases_on ‘ty’ \\ gvs [HasType_def]
+  \\ gvs [IsBool_def]
+  \\gvs [eval_true_def, eval_exp_def, CanEval_def]
+  \\ gvs [evaluate_exp_def, do_sc_def, do_bop_def, value_same_type_def,
+          AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+  \\ simp [PULL_EXISTS]
+  \\ last_assum $ irule_at (Pos hd)
+  \\ imp_res_tac value_same_type_bool \\ simp []
+  \\ imp_res_tac value_same_type_int \\ simp []
+QED
+
+(* TODO Move to dafny_eval_rel *)
+Triviality eval_exp_eq_value:
+  eval_exp st env e v ∧ eval_exp st env e v' ⇒ v' = v
+Proof
+  gvs [eval_exp_def, PULL_EXISTS]
+  \\ qx_genl_tac [‘ck’, ‘ck₁’, ‘ck₂’, ‘ck₃’]
+  \\ rpt strip_tac
+  \\ rev_dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck₂’ assume_tac
+  \\ rev_dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck’ assume_tac \\ gvs []
+QED
+
 Theorem eval_true_HasType_IMP_all_values:
-  eval_true st env (HasType e ty) ∧
-  eval_exp st env e v ⇒
+  eval_true st env (HasType e ty) ∧ eval_exp st env e v ⇒
   v ∈ all_values ty
 Proof
-  cheat
+  rpt strip_tac
+  \\ drule eval_true_hastype_imp \\ rpt strip_tac
+  \\ drule eval_exp_eq_value
+  \\ disch_then rev_drule \\ gvs []
 QED
 
 Theorem stmt_wp_sound:
