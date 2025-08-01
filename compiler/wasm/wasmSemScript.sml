@@ -25,9 +25,9 @@ End
 Datatype: func =
   <|
     name : string ;
-    type : tf ;
+    type : functype;
     body : instr list ;
-    types_of_locals : t list
+    types_of_locals : valtype list
   |>
 End
 
@@ -39,14 +39,14 @@ Datatype:
     locals  : value list;
     globals : value list;
     memory  : word8 list;
-    types   : (t list # t list) list;
+    types   : (valtype list # valtype list) list;
     funcs   : func list;
     func_tables : num list list; (* TODO change *)
   |>
 End
 
 Datatype:
-  result =
+  result = (* TODO document *)
     RNormal
   | RBreak num
   | RReturn
@@ -55,6 +55,7 @@ Datatype:
   | RTimeout
 End
 
+(* TODO fix *)
 (* Returns the function type for tb *)
 Definition tb_tf_def:
   tb_tf types (Tbf n) = oEL n types

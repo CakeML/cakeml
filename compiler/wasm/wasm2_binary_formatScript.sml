@@ -1104,6 +1104,7 @@ End
 (*                                 *)
 (***********************************)
 
+(* ASKMM *)
 Theorem dec_enc_valtype:
   ∀ t. dec_valtype (enc_valtype t) = SOME t
 Proof
@@ -1180,7 +1181,6 @@ Proof
   (* don't know how to move past the multiple encodings *)
 QED
 
-
 Theorem dec_enc_paraI:
   ∀ i. dec_paraI (enc_paraI i ++ rest) = (INR i, rest)
 Proof
@@ -1225,6 +1225,18 @@ End
 Definition dec_blocktype_def:
   dec_blocktype =
 End
+Definition enc_vec_def:
+  enc_blocktype =
+End
+Definition dec_vec_def:
+  dec_blocktype =
+End
+Definition enc_fsig_def:
+  enc_blocktype =
+End
+Definition dec_fsig_def:
+  dec_blocktype =
+End
 *)
 
 Overload elseOC = “0x05w : byte”
@@ -1267,6 +1279,7 @@ Definition enc_instr_def:
   | _ => []
   )
 
+  (* ASKMM *)
   (* ∧
   (enc_instr_list ([]:instr list) : byteSeq = endOC)
   (enc_instr_list (i::ins) = enc_instr i $ enc_instr_list ins) *)
