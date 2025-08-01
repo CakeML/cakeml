@@ -20,6 +20,10 @@ open preamble
      semanticPrimitivesPropsTheory evaluatePropsTheory;
 open evaluateTheory ml_translatorTheory
 
+val _ = set_grammar_ancestry ["ast", "semanticPrimitives", "ml_prog",
+                              "ml_translator", "semanticPrimitivesProps",
+                              "evaluateProps", "evaluate", "ml_translator"];
+
 val _ = new_theory "ml_optimise";
 
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
@@ -207,7 +211,7 @@ Proof
     \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
   THEN1 (* App Icing 3*)
    (fs[]
-    \\ `s1.fp_state.canOpt ≠ FPScope Opt` by rfs[fpState_component_equality, state_component_equality]
+    \\ `s1.fp_state.canOpt ≠ FPScope fpValTree$Opt` by rfs[fpState_component_equality, state_component_equality]
     \\ rveq
     \\ rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -231,7 +235,7 @@ Proof
     \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
   THEN1 (* App Icing 6*)
    (fs[]
-    \\ `s1.fp_state.canOpt ≠ FPScope Opt` by rfs[fpState_component_equality, state_component_equality]
+    \\ `s1.fp_state.canOpt ≠ FPScope fpValTree$Opt` by rfs[fpState_component_equality, state_component_equality]
     \\ rveq
     \\ rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =

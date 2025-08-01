@@ -5,6 +5,9 @@
 open HolKernel Parse boolLib bossLib;
 open miscTheory astTheory namespaceTheory ffiTheory fpValTreeTheory fpSemTheory realOpsTheory;
 
+val _ = set_grammar_ancestry
+  ["misc", "ast", "namespace", "ffi", "fpValTree", "fpSem", "realOps"];
+
 val _ = numLib.temp_prefer_num();
 
 val _ = new_theory "semanticPrimitives"

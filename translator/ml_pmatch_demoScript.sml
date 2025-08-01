@@ -7,6 +7,8 @@ open patternMatchesLib ml_translatorLib patternMatchesSyntax patternMatchesTheor
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
+val _ = set_grammar_ancestry ["patternMatches","evaluate","ml_pmatch"];
+
 val _ = new_theory "ml_pmatch_demo";
 
 (* basic example *)

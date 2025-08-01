@@ -7,6 +7,9 @@ open bagTheory relationTheory bagLib miscTheory ml_translatorLib;
 open preamble
 open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
 
+val _ = set_grammar_ancestry ["bag", "relation", "misc", "list", "arithmetic",
+                              "ListProg"];
+
 val _ = new_theory "benchmark";
 
 val _ = translation_extends "ListProg";

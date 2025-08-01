@@ -4,10 +4,10 @@
 *)
 open HolKernel bossLib Theory Parse Tactic boolLib Lib
 
-val _ = new_theory "example_rc6";
-
 open wordsTheory wordsLib arithmeticTheory listTheory RC6Theory;
 open ml_translatorTheory ml_translatorLib word_preludeTheory;
+
+val _ = new_theory "example_rc6";
 
 val _ = translation_extends "word_prelude";
 

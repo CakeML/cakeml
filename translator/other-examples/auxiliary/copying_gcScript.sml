@@ -1,10 +1,15 @@
 (*
   Algorithm of a copying garbage collector.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "copying_gc";
+open HolKernel Parse boolLib bossLib;
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory;
+
+val _ = set_grammar_ancestry ["pred_set", "arithmetic", "pair", "list",
+                              "combin", "finite_map", "sum", "relation"];
+
+val _ = new_theory "copying_gc";
 
 val _ = ParseExtras.temp_loose_equality();
 

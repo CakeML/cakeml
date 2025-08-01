@@ -6,6 +6,12 @@ open astTheory semanticPrimitivesTheory bigStepTheory smallStepTheory;
 open bigSmallInvariantsTheory semanticPrimitivesPropsTheory determTheory bigClockTheory;
 open smallStepPropsTheory bigStepPropsTheory evaluatePropsTheory interpTheory funBigStepEquivTheory;
 
+val _ = set_grammar_ancestry ["ast", "semanticPrimitives", "bigStep",
+                              "smallStep", "bigSmallInvariants",
+                              "semanticPrimitivesProps", "determ", "bigClock",
+                              "smallStepProps", "bigStepProps", "evaluateProps",
+                              "interp", "funBigStepEquiv"];
+
 val _ = new_theory "bigSmallEquiv";
 
 Triviality result_cases:
@@ -49,7 +55,7 @@ Definition compress_v_def:
   compress_v op v =
   if isFpBool op then
     case v of
-    | FP_BoolTree fv => Boolv (compress_bool fv)
+    | FP_BoolTree fv => Boolv (fpSem$compress_bool fv)
     | _ => v
   else v
 End
@@ -2492,7 +2498,7 @@ Proof
       ‘~ opClass op Reals’ by (Cases_on ‘op’ >> gs[opClass_cases]) >>
       Cases_on `do_app (r0.refs,r0.ffi) op (REVERSE a ++ [v] ++ l)` >> gvs[SF SFY_ss] >>
       PairCases_on `x` >> gvs[SF SFY_ss] >>
-      reverse $ Cases_on ‘r0.fp_state.canOpt = FPScope Opt’ >> gvs[SF SFY_ss] >>
+      reverse $ Cases_on ‘r0.fp_state.canOpt = FPScope fpValTree$Opt’ >> gvs[SF SFY_ss] >>
       Cases_on ‘do_fprw x2 (r0.fp_state.opts 0) (r0.fp_state.rws)’ >> gvs[SF SFY_ss]) >>
     Cases_on ‘opClass op Reals’ >> gvs[]
     >- (

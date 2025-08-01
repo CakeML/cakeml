@@ -5,6 +5,8 @@
 open preamble
 open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory
 
+val _ = set_grammar_ancestry ["bag", "okasaki_misc", "ListProg"];
+
 val _ = new_theory "LazyPairingHeap"
 
 val _ = translation_extends "ListProg";

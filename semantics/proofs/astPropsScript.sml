@@ -6,6 +6,8 @@
 open preamble;
 open astTheory astSyntax;
 
+val _ = set_grammar_ancestry ["ast"];
+
 val _ = new_theory "astProps";
 
 (*

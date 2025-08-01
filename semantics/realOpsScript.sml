@@ -4,6 +4,8 @@
 open HolKernel Parse boolLib bossLib;
 open miscTheory machine_ieeeTheory realTheory;
 
+val _ = set_grammar_ancestry ["misc", "machine_ieee", "real"];
+
 val _ = new_theory "realOps";
 
 (*
@@ -26,7 +28,7 @@ End
 Definition real_cmp_def:
   real_cmp fop =
   (case fop of
-     Real_Less => (<)
+     Real_Less => (<):real->real->bool
    | Real_LessEqual => (<=)
    | Real_Greater => (>)
    | Real_GreaterEqual => (>=)
@@ -44,7 +46,7 @@ End
 Definition real_bop_def:
   real_bop fop =
   (case fop of
-     Real_Add => (+)
+     Real_Add => (+):real->real->real
    | Real_Sub => (-)
    | Real_Mul => ( * )
    | Real_Div => (/))

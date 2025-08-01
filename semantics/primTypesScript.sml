@@ -6,6 +6,8 @@
 open HolKernel Parse boolLib bossLib;
 open semanticPrimitivesTheory evaluateTheory typeSystemTheory;
 
+val _ = set_grammar_ancestry ["semanticPrimitives", "evaluate", "typeSystem"];
+
 val _ = new_theory "primTypes"
 
 (* The ordering in the following is important. The stamps generated from the

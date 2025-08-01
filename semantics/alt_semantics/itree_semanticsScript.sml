@@ -2,11 +2,14 @@
   An itree-based semantics for CakeML
 *)
 open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open namespaceTheory astTheory
+open namespaceTheory astTheory fpSemTheory realOpsTheory
      ffiTheory semanticPrimitivesTheory smallStepTheory;
 open itreeTheory;
 
-val _ = new_theory "itree_semantics"
+val _ = set_grammar_ancestry ["namespace", "ast", "ffi", "realOps",
+                              "semanticPrimitives", "smallStep", "fpSem", "itree"];
+
+val _ = new_theory "itree_semantics";
 
 (******************** do_app ********************)
 

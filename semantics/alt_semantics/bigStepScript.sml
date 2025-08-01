@@ -3,11 +3,15 @@
   is no longer used in the CakeML development.
 *)
 open HolKernel Parse boolLib bossLib;
-open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory smallStepTheory;
+open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory
+     smallStepTheory fpSemTheory;
+
+val _ = set_grammar_ancestry ["namespace", "ast", "ffi", "semanticPrimitives",
+                              "smallStep", "fpSem"];
 
 val _ = numLib.temp_prefer_num();
 
-val _ = new_theory "bigStep"
+val _ = new_theory "bigStep";
 
 (* To get the definition of expression divergence to use in defining definition
  * divergence *)
@@ -173,7 +177,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_app (s2.refs, s2.ffi) op (REVERSE vs) = SOME ((refs', ffi'), vFp)) /\
 (opClass op Icing) /\
-(s2.fp_state.canOpt ≠ FPScope Opt) /\
+(s2.fp_state.canOpt ≠ FPScope fpValTree$Opt) /\
 (compress_if_bool op vFp = res))
 ==>
 evaluate ck env s1 (App op es) ((s2 with<| refs := refs'; ffi :=ffi' |>), res))
@@ -182,7 +186,7 @@ evaluate ck env s1 (App op es) ((s2 with<| refs := refs'; ffi :=ffi' |>), res))
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_app (s2.refs, s2.ffi) op (REVERSE vs) = SOME ((refs', ffi'), vFp)) /\
 (opClass op Icing) /\
-(s2.fp_state.canOpt = FPScope Opt) /\
+(s2.fp_state.canOpt = FPScope fpValTree$Opt) /\
 (do_fprw vFp (s2.fp_state.opts 0) s2.fp_state.rws = NONE) /\
 (compress_if_bool op vFp = res))
 ==>
@@ -192,7 +196,7 @@ evaluate ck env s1 (App op es) (((shift_fp_opts s2) with<| refs := refs'; ffi :=
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_app (s2.refs, s2.ffi) op (REVERSE vs) = SOME ((refs', ffi'), res)) /\
 (opClass op Icing) /\
-(s2.fp_state.canOpt = FPScope Opt) /\
+(s2.fp_state.canOpt = FPScope fpValTree$Opt) /\
 (do_fprw res (s2.fp_state.opts 0) s2.fp_state.rws = SOME rOpt) /\
 (compress_if_bool op rOpt = resV))
 ==>

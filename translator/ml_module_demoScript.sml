@@ -2,7 +2,9 @@
   Demonstration of using the translator to produce a CakeML module.
 *)
 open HolKernel Parse boolLib bossLib;
-open ml_translatorLib ml_progLib;
+open ml_translatorLib ml_progLib miscTheory;
+
+val _ = set_grammar_ancestry ["misc"];
 
 val _ = new_theory "ml_module_demo";
 

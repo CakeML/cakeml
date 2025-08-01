@@ -2,12 +2,12 @@
   A small-step semantics for CakeML. This semantics is no longer used
   in the main CakeML development, but is used in PureCake and choreographies.
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory;
+open HolKernel Parse boolLib bossLib fpSemTheory;
+open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory miscTheory;
+
+val _ = set_grammar_ancestry ["namespace", "ast", "ffi", "fpSem", "semanticPrimitives", "misc"];
 
 val _ = numLib.temp_prefer_num();
-
-
 
 val _ = new_theory "smallStep"
 
@@ -101,7 +101,7 @@ Definition application_def:
          NONE => Eabort (fix_fp_state c fp, Rtype_error)
        | SOME (s',r) =>
         let fp_opt =
-          (if fp.canOpt = FPScope Opt then
+          (if fp.canOpt = FPScope fpValTree$Opt then
             (case (do_fprw r (fp.opts 0) fp.rws) of
             (* if it fails, just use the old value tree *)
               NONE => r
@@ -109,7 +109,7 @@ Definition application_def:
             (* If we cannot optimize, we should not allow matching on the structure in the oracle *)
           else r)
         in
-        let fpN = (if fp.canOpt = FPScope Opt then shift_fp_state fp else fp) in
+        let fpN = (if fp.canOpt = FPScope fpValTree$Opt then shift_fp_state fp else fp) in
         let fp_res =
           (if (isFpBool op)
           then (case fp_opt of

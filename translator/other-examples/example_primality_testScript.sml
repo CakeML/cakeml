@@ -4,14 +4,17 @@
 *)
 open HolKernel Parse boolLib bossLib;
 
-val _ = new_theory "example_primality_test";
-
 open miller_rabinTheory;
 open arithmeticTheory;
 open combinTheory;
 open ListProgTheory;
 
 open ml_translatorLib;
+
+val _ = set_grammar_ancestry ["miller_rabin", "arithmetic", "combin",
+                              "ListProg"];
+
+val _ = new_theory "example_primality_test";
 
 fun find_def tm = let
   val thy = #Thy (dest_thy_const tm)

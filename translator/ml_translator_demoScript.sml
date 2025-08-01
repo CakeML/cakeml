@@ -6,6 +6,9 @@ open arithmeticTheory listTheory combinTheory pairTheory;
 open semanticPrimitivesTheory
 open ml_translatorLib ml_translatorTheory;
 
+val _ = set_grammar_ancestry ["arithmetic", "list", "combin", "pair",
+                              "semanticPrimitives", "ml_translator"];
+
 val _ = new_theory "ml_translator_demo";
 
 (* --- qsort translation --- *)

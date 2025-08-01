@@ -14,6 +14,11 @@ open namespaceTheory;
 open namespacePropsTheory;
 open typeSysPropsTheory;
 
+val _ = set_grammar_ancestry ["ast", "evaluate", "semanticPrimitives",
+                              "semantics", "evaluate",
+                              "semanticPrimitivesProps", "primTypes",
+                              "typeSystem", "typeSoundInvariants", "namespace"];
+
 val _ = new_theory "primSemEnv";
 
 

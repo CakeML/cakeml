@@ -6,6 +6,8 @@ open preamble
 open okasaki_miscTheory bagLib bagTheory sortingTheory ml_translatorLib ListProgTheory;
 val _ = numLib.temp_prefer_num()
 
+val _ = set_grammar_ancestry ["okasaki_misc", "bag", "sorting", "ListProg"];
+
 val _ = new_theory "BottomUpMergeSort"
 
 val _ = translation_extends "ListProg";

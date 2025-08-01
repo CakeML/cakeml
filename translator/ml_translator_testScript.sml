@@ -7,6 +7,8 @@ open HolKernel Parse boolLib bossLib;
 open listTheory pairTheory ml_translatorLib ml_translatorTheory;
 open ml_progLib blastLib;
 
+val _ = set_grammar_ancestry ["list", "pair", "ml_translator"];
+
 val _ = new_theory "ml_translator_test";
 
 val _ = register_type “:'a list”;

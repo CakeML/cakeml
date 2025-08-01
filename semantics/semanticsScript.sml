@@ -2,9 +2,15 @@
   The top-level semantics of CakeML programs.
 *)
 open preamble;
+open miscTheory
 open lexer_funTheory
-open cmlPtreeConversionTheory;
-open primTypesTheory;
+open cmlPtreeConversionTheory
+open primTypesTheory
+open evaluateTheory
+
+val _ = set_grammar_ancestry ["misc", "lexer_fun",
+                              "cmlPtreeConversion", "primTypes",
+                              "evaluate"];
 
 val _ = new_theory "semantics";
 

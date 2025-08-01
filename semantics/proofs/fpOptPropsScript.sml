@@ -8,6 +8,8 @@
 open fpOptTheory fpValTreeTheory semanticPrimitivesTheory;
 open preamble;
 
+val _ = set_grammar_ancestry ["fpOpt", "fpValTree", "semanticPrimitives"];
+
 val _ = new_theory "fpOptProps";
 
 Theorem substLookup_substUpdate:

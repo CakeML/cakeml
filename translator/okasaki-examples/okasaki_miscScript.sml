@@ -2,10 +2,12 @@
   Lemmas used in Okasaki examples.
 *)
 open preamble
-open relationTheory bagLib bagTheory;
+open relationTheory bagLib bagTheory miscTheory;
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
+
+val _ = set_grammar_ancestry ["relation", "bag", "misc"];
 
 val _ = new_theory "okasaki_misc"
 

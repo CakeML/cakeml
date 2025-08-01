@@ -11,6 +11,11 @@ open mlstringTheory integerTheory;
 open namespaceTheory;
 open alist_treeTheory;
 
+val _ = set_grammar_ancestry ["evaluate", "ast", "semanticPrimitives",
+                              "evaluate", "semanticPrimitivesProps",
+                              "evaluateProps", "mlstring", "integer",
+                              "namespace", "alist_tree"];
+
 val _ = new_theory "evaluate_dec";
 
 (* --- define an alternative to evaluate_decs --- *)

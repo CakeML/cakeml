@@ -5,6 +5,10 @@ open preamble;
 open semanticPrimitivesTheory ffiTheory semanticPrimitivesPropsTheory
      evaluatePropsTheory smallStepTheory determTheory;
 
+val _ = set_grammar_ancestry ["semanticPrimitives", "ffi",
+                              "semanticPrimitivesProps", "evaluateProps",
+                              "smallStep", "determ"];
+
 val _ = new_theory "smallStepProps";
 
 (**

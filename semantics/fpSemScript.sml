@@ -4,6 +4,8 @@
 open HolKernel Parse boolLib bossLib;
 open fpValTreeTheory fpOptTheory machine_ieeeTheory;
 
+val _ = set_grammar_ancestry ["fpValTree", "fpOpt", "machine_ieee"];
+
 val _ = new_theory "fpSem";
 
 Definition fp_cmp_comp_def:

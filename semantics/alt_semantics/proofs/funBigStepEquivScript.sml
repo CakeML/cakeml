@@ -5,6 +5,9 @@
 open preamble evaluateTheory evaluatePropsTheory
      interpTheory semanticPrimitivesTheory fpSemPropsTheory;
 
+val _ = set_grammar_ancestry ["evaluate", "evaluateProps", "interp",
+                              "semanticPrimitives", "fpSemProps"];
+
 val _ = new_theory"funBigStepEquiv"
 
 val s = ``s:'ffi state``;

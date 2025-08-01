@@ -5,6 +5,8 @@ open preamble;
 open astTheory;
 open namespaceTheory;
 
+val _ = set_grammar_ancestry ["ast", "namespace"];
+
 val _ = new_theory "namespaceProps";
 
 Theorem mk_id_11[simp]:

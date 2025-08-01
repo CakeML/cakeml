@@ -2,9 +2,13 @@
   This is a simple example of applying the translator to an
   algorithm-level model of a copying garbage collector.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "example_copying_gc";
+open HolKernel Parse boolLib bossLib;
 
 open copying_gcTheory ml_translatorLib;
+
+val _ = set_grammar_ancestry ["copying_gc"];
+
+val _ = new_theory "example_copying_gc";
 
 val res = translate getBLOCK_def;
 val res = translate combinTheory.UPDATE_def;

@@ -8,6 +8,12 @@ open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory
      evaluatePropsTheory smallStepTheory smallStepPropsTheory lprefix_lubTheory;
 open itreeTheory itree_semanticsTheory;
 
+val _ = set_grammar_ancestry ["option", "relation", "pair", "list",
+                              "arithmetic", "llist", "pred_set", "namespace",
+                              "ast", "ffi", "semanticPrimitives",
+                              "evaluateProps", "smallStep", "smallStepProps",
+                              "lprefix_lub", "itree", "itree_semantics"];
+
 val _ = new_theory "itree_semanticsProps";
 
 (******************** Definitions ********************)
@@ -548,18 +554,18 @@ Theorem application_thm:
          NONE => Etype_error (fix_fp_state c fp)
        | SOME (s',r) =>
         let fp_opt =
-          (if fp.canOpt = FPScope Opt then
+          (if fp.canOpt = FPScope fpValTree$Opt then
             case (do_fprw r (fp.opts 0) fp.rws) of
             (* if it fails, just use the old value tree *)
               NONE => r
             | SOME r_opt => r_opt
           else r)
         in
-        let fpN = (if fp.canOpt = FPScope Opt then shift_fp_state fp else fp) in
+        let fpN = (if fp.canOpt = FPScope fpValTree$Opt then shift_fp_state fp else fp) in
         let fp_res =
           (if (isFpBool op)
           then (case fp_opt of
-              Rval (FP_BoolTree fv) => Rval (Boolv (compress_bool fv))
+              Rval (FP_BoolTree fv) => Rval (Boolv (fpSem$compress_bool fv))
             | v => v
             )
           else fp_opt)

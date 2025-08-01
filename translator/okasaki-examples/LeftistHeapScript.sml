@@ -9,6 +9,8 @@ open ml_translatorLib ListProgTheory;
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
 
+val _ = set_grammar_ancestry ["bag", "okasaki_misc", "ListProg"];
+
 val _ = new_theory "LeftistHeap"
 
 val _ = translation_extends "ListProg";

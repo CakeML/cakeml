@@ -10,8 +10,18 @@ open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
      pairTheory sortingTheory relationTheory totoTheory comparisonTheory
      bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory BasicProvers
      indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
-     integer_wordTheory
+     integer_wordTheory pathTheory lprefix_lubTheory
 local open bagLib addressTheory blastLib pathTheory in end
+
+val _ = set_grammar_ancestry ["alignment", "alist", "bitstring",
+                              "path", "bag", "byte", "combin",
+                              "container", "finite_map", "rich_list",
+                              "llist", "option", "pair", "sorting",
+                              "relation", "toto", "comparison", "bit",
+                              "sptree", "set_sep", "indexedLists",
+                              "string", "machine_ieee", "lprefix_lub",
+                              "integer_word", "words", "list",
+                              "pred_set", "arithmetic"];
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"

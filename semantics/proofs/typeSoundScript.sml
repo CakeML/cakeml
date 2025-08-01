@@ -15,6 +15,12 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
 
+val _ = set_grammar_ancestry ["ast", "typeSystem", "semanticPrimitives",
+                              "fpSem", "evaluate", "namespaceProps",
+                              "fpSemProps", "semanticPrimitivesProps",
+                              "evaluateProps", "weakening", "typeSysProps",
+                              "typeSoundInvariants", "semantics", "primSemEnv"];
+
 val _ = new_theory "typeSound";
 
 val type_num_defs = LIST_CONJ [

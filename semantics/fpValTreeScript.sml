@@ -6,6 +6,8 @@ open miscTheory;
 
 val _ = numLib.temp_prefer_num();
 
+val _ = set_grammar_ancestry ["misc"];
+
 val _ = new_theory "fpValTree";
 
 (*

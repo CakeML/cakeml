@@ -37,8 +37,14 @@
 open HolKernel bossLib Theory Parse Tactic boolLib Lib
 open stringLib pairTheory arithmeticTheory listTheory optionTheory;
 
-val thm_counter = Count.mk_meter();
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+
+val _ = set_grammar_ancestry ["pair", "arithmetic", "list", "option"];
+
+val _ = new_theory "regexpMatch";
+
 val _ = ParseExtras.temp_loose_equality();
+val thm_counter = Count.mk_meter();
 
 (*---------------------------------------------------------------------------*)
 (* Change free variable names to desired ones. Takes a list of (old,new)     *)
@@ -58,10 +64,6 @@ Triviality MEM_EXISTS_LEM:
 Proof
   Induct_on `l` THEN EVAL_TAC THEN METIS_TAC []
 QED
-
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "regexpMatch";
 
 (*--------------------------------------------------------------------------*)
 (* Datatype of regular expressions. Note that by having Charset take a      *)

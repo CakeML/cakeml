@@ -4,6 +4,9 @@
 open HolKernel Parse boolLib bossLib;
 open fpValTreeTheory fpSemTheory astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
 
+val _ = set_grammar_ancestry
+          ["fpValTree", "fpSem", "ast", "namespace", "ffi", "semanticPrimitives"];
+
 val _ = numLib.temp_prefer_num();
 
 val _ = new_theory "evaluate"
