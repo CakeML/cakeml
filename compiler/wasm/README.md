@@ -8,7 +8,14 @@ Some extra operations
 No specs yet
 
 [wasm2LangScript.sml](wasm2LangScript.sml):
-CakeML Wasm 2.0 (+ tail calls) AST
+CWasm AST modelling Wasm 2.0 (+ tail calls)
+Present here are
+  + control flow instructions
+  + all numeric (stack) instructions
+  + all vector (stack) instructions
+  + all (incl num&vec) memory operations -- factored into their own datatype
+Imprecisions:
+  HOL lists encode Wasm vectors; latter has max length of 2^32
 
 [wasm2_binary_formatScript.sml](wasm2_binary_formatScript.sml):
 En- & De- coding between Cake's Wasm 2.0 AST & Wasm's binary format
@@ -19,7 +26,13 @@ Separated from wasm2LangScript for ergonomics/build efficency
 We have over 400 instructions
 
 [wasmLangScript.sml](wasmLangScript.sml):
-CakeML Wasm 1.0 (+ tail calls) AST
+CWasm AST modelling Wasm 1.0 (+ tail calls)
+Present here are
+  + control flow instructions
+  + int numeric instructions (ie, those not involving floats)
+  + int memory operations    (not involving floats/vecs)
+Imprecisions:
+  HOL lists encode Wasm vectors; latter has max length of 2^32
 
 [wasmSemScript.sml](wasmSemScript.sml):
 WebAssembly (Wasm) semantics

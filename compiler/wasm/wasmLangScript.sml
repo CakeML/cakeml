@@ -5,7 +5,7 @@
     + int numeric instructions (ie, those not involving floats)
     + int memory operations    (not involving floats/vecs)
   Imprecisions:
-    We use HOL lists to encode wasm vectors. The latter have a max length of 2^32 elements
+    HOL lists encode Wasm vectors; latter has max length of 2^32
 *)
 open preamble;
 

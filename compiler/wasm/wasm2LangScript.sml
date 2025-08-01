@@ -4,9 +4,9 @@
     + control flow instructions
     + all numeric (stack) instructions
     + all vector (stack) instructions
-    + all memory operations -- including numeric and vector mem ops factored into their own datatype
+    + all (incl num&vec) memory operations -- factored into their own datatype
   Imprecisions:
-    We use HOL lists to encode wasm vectors. The latter have a max length of 2^32 elements
+    HOL lists encode Wasm vectors; latter has max length of 2^32
 *)
 open preamble;
 
