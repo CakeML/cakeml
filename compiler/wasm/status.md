@@ -7,13 +7,16 @@
     + ✓ memories
     + ✓ controls
     + ❌ modules
+    + ❌ names section
 - Missing
     + Functions
     + Modules
     + and supporting/types eg blocktypes
+    + names section
 
 ### Binary Format encoder/decoder - wasm_binary_formatScript.sml
 - Milestone: Wasm 3.0 (for tailcalls) compliant encoder & decoder
+    + ❌ names section
 - Missing
     + dec_enc thms - stating that if we encode then decode a part of the AST, we get back the same thing
 
