@@ -6,7 +6,7 @@
 *)
 Theory mlstring
 Ancestors
-  toto mllist
+  misc toto mllist
 Libs
   preamble
 
@@ -1470,4 +1470,3 @@ QED
 Definition empty_ffi_def:
   empty_ffi (s:mlstring) = ()
 End
-
