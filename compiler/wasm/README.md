@@ -1,4 +1,5 @@
 WebAssembly backend for CakeML
+Defines the Cwasm IR that models Wasm (largely faithfully)
 
 [leb128Script.sml](leb128Script.sml):
 A foramlisation of LEB128
