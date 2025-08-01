@@ -33,7 +33,7 @@ Datatype:
     memory  : word8 list;
     types   : (valtype list # valtype list) list;
     funcs   : func list;
-    func_tables : num list list; (* TODO change *)
+    func_tables : num list ;
   |>
 End
 
@@ -541,6 +541,8 @@ Definition exec_def:
   (exec (CallIndirect n tf) s =
     case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
     case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    (* TODO we removed one layer of indirection *)
+    (* we only use one func table *)
     case lookup_func_tables s.func_tables n w of NONE => (RInvalid,s) | SOME fi =>
     case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
     if f.type ≠ tf then (RInvalid,s) else
