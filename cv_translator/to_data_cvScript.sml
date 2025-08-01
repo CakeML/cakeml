@@ -2661,6 +2661,15 @@ val _ = cv_auto_trans backend_asmTheory.to_bvi_def;
 
 (* to_data *)
 
+val pre = cv_auto_trans_pre data_constsTheory.comp_def;
+Theorem data_consts_comp_pre[cv_pre,local]:
+  ∀v m. data_consts_comp_pre v m
+Proof
+  ho_match_mp_tac data_constsTheory.comp_ind \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_trans data_constsTheory.copy_consts_def;
+
 Definition num_size_acc_def:
   num_size_acc n acc =
     if n < 2 ** 32 then acc + 2:num else num_size_acc (n DIV 2 ** 32) (acc + 1)
