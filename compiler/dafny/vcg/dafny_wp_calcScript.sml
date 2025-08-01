@@ -34,6 +34,12 @@ Definition Foralls_def:
   Foralls (v::vs) e = Forall v (Foralls vs e)
 End
 
+Definition HasType_def:
+  HasType e BoolT = IsBool e ∧
+  HasType e IntT = CanEval (dfy_eq e $ int_lit 0) ∧
+  HasType e _ = False
+End
+
 Definition lex_lt_def:
   lex_lt [] = False ∧
   lex_lt ((x,y)::rest) =
@@ -207,6 +213,11 @@ Definition wrap_Old_def:
     ForallHeap (MAP (wrap_Old vs) mods) (wrap_Old vs term)
 End
 
+Definition vars_have_types_def:
+  vars_have_types vs =
+    MAP (λ(v,ty). HasType (Var v) ty) vs
+End
+
 Definition proved_methods_def:
   proved_methods m ⇔
     ∀name mspec body.
@@ -214,7 +225,7 @@ Definition proved_methods_def:
       ∃wp_pre.
         stmt_wp m wp_pre body [False]
           (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens ++
-           MAP (CanEval o Var o FST) mspec.outs)
+           vars_have_types mspec.outs)
           (mspec.rank, mspec.decreases) ∧
         ⊢ (imp (conj mspec.reqs) (conj wp_pre))
 End
@@ -1794,6 +1805,14 @@ Proof
   \\ first_assum $ irule_at $ Pos hd \\ fs []
 QED
 
+Theorem eval_true_HasType_IMP_all_values:
+  eval_true st env (HasType e ty) ∧
+  eval_exp st env e v ⇒
+  v ∈ all_values ty
+Proof
+  cheat
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs.
     stmt_wp m reqs stmt post ens decs ⇒
@@ -1812,6 +1831,7 @@ Theorem stmt_wp_sound:
             st''.heap = st'.heap ∧
             st''.heap_old = st'.heap_old ∧
             st''.output = st'.output ∧
+            EVERY (eval_true st'' env) (vars_have_types mspec'.outs) ∧
             LIST_REL (eval_exp st'' env) (MAP (Var o FST) mspec'.outs) out_vs) ∧
       conditions_hold st env reqs ∧ compatible_env env m ⇒
       ∃st' ret.
@@ -2066,7 +2086,13 @@ Proof
   \\ pop_assum $ irule_at Any o GSYM
   \\ first_x_assum $ qspec_then ‘ZIP (ret_names,MAP SOME out_vs)’ mp_tac
   \\ impl_tac
-  >- (gvs [LIST_REL_EL_EQN,EL_ZIP,EL_MAP] \\ cheat)
+  >- (gvs [LIST_REL_EL_EQN,EL_ZIP,EL_MAP]
+      \\ qpat_x_assum ‘EVERY _ (vars_have_types mspec.outs)’ mp_tac
+      \\ simp [EVERY_EL,vars_have_types_def,EL_MAP]
+      \\ rpt strip_tac
+      \\ rpt (first_x_assum $ drule_then assume_tac)
+      \\ pairarg_tac \\ fs []
+      \\ drule_all eval_true_HasType_IMP_all_values \\ fs [])
   \\ strip_tac
   \\ dxrule eval_true_imp
   \\ ‘st3.locals = st.locals’ by fs [Abbr‘st3’,restore_caller_def]
@@ -2191,6 +2217,16 @@ Proof
   \\ simp [wrap_old_def, eval_measure_def, eval_decreases_map_old]
 QED
 
+Theorem vars_have_types_IMP:
+  EVERY (eval_true st env) (vars_have_types xs) ⇒
+  EVERY (eval_true st env) (MAP CanEval (MAP (Var o FST) xs))
+Proof
+  fs [EVERY_MEM,vars_have_types_def,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+  \\ rw [] \\ last_x_assum dxrule
+  \\ fs [HasType_def]
+  \\ cheat
+QED
+
 Theorem methods_lemma[local]:
   ∀m.
     proved_methods m ⇒
@@ -2207,6 +2243,7 @@ Theorem methods_lemma[local]:
         st'.heap_old = st.heap_old ∧
         st'.output = st.output ∧
         conditions_hold st' env (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens) ∧
+        EVERY (eval_true st' env) (vars_have_types mspec.outs) ∧
         LIST_REL (eval_exp st' env) (MAP (Var o FST) mspec.outs) out_vs
 Proof
   gen_tac
@@ -2234,9 +2271,9 @@ Proof
   \\ rpt $ first_assum $ irule_at Any
   \\ fs [conditions_hold_def]
   \\ fs [GSYM MAP_MAP_o]
+  \\ drule vars_have_types_IMP \\ strip_tac
   \\ drule EVERY_eval_true_CanEval
-  \\ strip_tac \\ pop_assum $ irule_at Any
-  \\ gvs [GSYM eval_true_conj_every]
+  \\ simp [GSYM MAP_MAP_o]
 QED
 
 Theorem methods_correct = SRULE [] methods_lemma;
