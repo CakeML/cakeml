@@ -2,6 +2,8 @@
   Pure functions for the Option module.
 *)
 Theory mloption
+Ancestors
+  misc
 Libs
   preamble
 
