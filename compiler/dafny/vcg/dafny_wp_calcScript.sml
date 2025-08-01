@@ -2261,14 +2261,26 @@ Proof
   \\ simp [wrap_old_def, eval_measure_def, eval_decreases_map_old]
 QED
 
+Triviality caneval_dfy_eq_lhs_imp:
+  eval_true st env (CanEval (dfy_eq (Var n) e)) ⇒
+  eval_true st env (CanEval (Var n))
+Proof
+  simp [eval_true_def, eval_exp_def, CanEval_def]
+  \\ rpt strip_tac
+  \\ gvs [evaluate_exp_def, do_sc_def, do_bop_def, AllCaseEqs()]
+  \\ simp [state_component_equality]
+QED
+
 Theorem vars_have_types_IMP:
   EVERY (eval_true st env) (vars_have_types xs) ⇒
   EVERY (eval_true st env) (MAP CanEval (MAP (Var o FST) xs))
 Proof
   fs [EVERY_MEM,vars_have_types_def,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+  \\ strip_tac \\ qx_genl_tac [‘xn’, ‘xt’] \\ strip_tac
   \\ rw [] \\ last_x_assum dxrule
-  \\ fs [HasType_def]
-  \\ cheat
+  \\ Cases_on ‘xt’ \\ fs [HasType_def, IsBool_def]
+  \\ rpt strip_tac
+  \\ drule caneval_dfy_eq_lhs_imp \\ simp []
 QED
 
 Theorem methods_lemma[local]:
