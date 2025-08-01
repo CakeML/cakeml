@@ -5,6 +5,7 @@
 
 open preamble;
 open wordsTheory wordsLib;
+open byteTheory;
 
 val _ = new_theory "miscOps";
 
@@ -23,29 +24,67 @@ Definition clz_def: (* count leading zeros *)
   clz (w:α word) : β word = ctz $ word_reverse w
 End
 
+(* this is lend *)
+(* print_match [] ``word_to_bytes`` *)
+
+
 (* REPLACE MMYK say there are library versions of lend and unlend *)
 (* lend := little endian *)
+(* Overload lend = “word_to_bytes”*)
 Definition lend_def:
   lend (w:α word) : byteSeq =
-
-    let width        = dimindex(:α)                      in
-    let need_1_more  = if 0 <> width MOD 8 then 1 else 0 in
-    let bytes_needed = width DIV 8 + need_1_more         in
-
-    MAP (λ n. w2w (w >>> (8*n))) $ COUNT_LIST bytes_needed
-
+    word_to_bytes w F
 End
 
 Definition unlend_def:
-  unlend (0:num) (res:byteSeq) (bs:byteSeq) = SOME (concat_word_list res, bs) ∧
-  unlend n acc (b::bs) = unlend (n-1) (b::acc) bs ∧
-  unlend _ _ [] = NONE
+  unlend (bs:byteSeq) =
+    let n = dimindex(:α) DIV 8 in
+    if LENGTH bs < n then NONE else
+      let xs = TAKE n bs in
+      let ys = DROP n bs in
+(* F selects little endian mode *)
+      SOME (word_of_bytes F (0w:α word) xs, ys)
 End
 
+
+Theorem unlend_lend32[simp]:
+  unlend (lend (w:word32) ++ rest) = SOME (w, rest)
+Proof
+  simp[lend_def, unlend_def] >>
+  (* this is how you do asserts *)
+  `4 = LENGTH (word_to_bytes w F)` by simp[LENGTH_word_to_bytes] >>
+  (* asm_rw additionally uses the assumptions to rewrite *)
+  asm_rewrite_tac[TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND] >>
+  rw[word_to_bytes_word_of_bytes_32]
+QED
+
+(* print_match [] ``TAKE (LENGTH xs) (xs ++ ys)`` *)
+
+Theorem unlend_lend64[simp]:
+  unlend (lend (w:word64) ++ rest) = SOME (w, rest)
+Proof
+  simp[lend_def, unlend_def] >>
+  `8 = LENGTH (word_to_bytes w F)` by simp[LENGTH_word_to_bytes] >>
+  asm_rewrite_tac[TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND] >>
+  rw[word_to_bytes_word_of_bytes_64]
+QED
+
+(*
+Theorem unlend_lend128[simp]:
+  unlend (lend (w:word128) ++ rest) = SOME (w, rest)
+Proof
+  simp[lend_def, unlend_def] >>
+  `16 = LENGTH (word_to_bytes w F)` by simp[LENGTH_word_to_bytes] >>
+  asm_rewrite_tac[TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND] >>
+  rw[word_to_bytes_word_of_bytes_128]
+QED
+*)
+
+(*
 Overload unlend32  = “unlend  4 []”
 Overload unlend64  = “unlend  8 []”
 Overload unlend128 = “unlend 16 []”
-
+*)
 
 (* REPLACE ASKMM *)
 Definition take_def:
@@ -57,7 +96,7 @@ Definition load_def:
     let ofs = w2n offs in
     let alg = w2n algn in
     let bs' = DROP (ofs * alg) bs in
-    case unlend n [] bs' of
+    case unlend bs' of
     | NONE       => (0w,F)
     | SOME (v,_) => (v ,T)
 End
@@ -69,26 +108,7 @@ Definition store_def:
     (TAKE oa bs ⧺ lend x ⧺ DROP (oa + n) bs, oa + n <= LENGTH bs)
 End
 
-
-
-Theorem unlend_lend_32:
-  unlend32 (lend (w:word32) ++ rest) = SOME (w, rest)
-Proof
-  (* rw[lend_def, unlend_def] *)
-  (* ok. lend_def will "unfold" (in Coq parlance) but then
-     I'm facing "COUNT_LIST", "MAP" and the byte-shifting
-     operation. None of which I know how to handle in HOL
-
-     MAP & COUNT_LIST - I could look up their already-loaded-thms
-
-     MAP: seems pretty unhelpful
-     QQ: how the heck do I scroll through the results...
-
-     QQ: tf, so how do I look up the definition of COUNT_LIST
-         so that I can rewrite with it???
-  *)
-cheat
-QED
+(* print_match [] "word_to_bytes" *)
 
 Theorem clz_spec:
   ∀ n. (dimindex(:α) - n) < w2n (ctz (w:α word)) ⇒ w ' n = F
