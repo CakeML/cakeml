@@ -2,10 +2,10 @@
   Pure functions for the Vector module.
 *)
 Theory mlvector
-Ancestors
-  mllist regexp_compiler misc
 Libs
   preamble
+Ancestors
+  misc mllist regexp_compiler
 
 Theorem vector_nchotomy =
   regexp_compilerTheory.vector_nchotomy
@@ -388,4 +388,3 @@ Proof
   rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm,
       collate_aux_less_thm]
 QED
-

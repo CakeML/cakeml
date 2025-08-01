@@ -3,6 +3,8 @@
   for parts of the FFI state.
 *)
 Theory cfFFIType
+Ancestors
+  misc
 Libs
   preamble
 
@@ -290,4 +292,3 @@ val _ = map delete_binding ["ffi_app_def","Num_def","Str_def",
           "Cons_def","List_def","Stream_def","Fun_def","Inner_def"];
 
 val _ = delete_const "ffi_app";
-

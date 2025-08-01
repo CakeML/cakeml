@@ -6,11 +6,11 @@
 (* Misc. lemmas (without any compiler constants) *)
 Theory misc
 Ancestors
-  alignment alist arithmetic bitstring bag byte combin container
-  list pred_set finite_map rich_list llist option pair sorting
-  relation toto comparison bit sptree words set_sep indexedLists
-  string machine_ieee integer_word address[qualified]
-  path[qualified]
+  alignment alist arithmetic blast[qualified] bitstring bag byte
+  combin container list pred_set finite_map rich_list llist option
+  pair sorting relation toto comparison bit sptree words set_sep
+  indexedLists string machine_ieee integer_word address[qualified]
+  path[qualified] res_quan[qualified] lprefix_lub[qualified]
 Libs
   boolSimps mp_then dep_rewrite wordsLib BasicProvers
   ASCIInumbersLib bagLib[qualified] blastLib[qualified]
