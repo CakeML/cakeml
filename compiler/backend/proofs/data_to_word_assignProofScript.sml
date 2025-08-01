@@ -258,6 +258,13 @@ Proof
   match_mp_tac memory_rel_rearrange \\ fs [] \\ rw [] \\ fs []
 QED
 
+Theorem reorder_2_lemma:
+  memory_rel c be ts x.refs x.space t.store t.memory t.mdomain (x1::x2::xs) ==>
+  memory_rel c be ts x.refs x.space t.store t.memory t.mdomain (x2::x1::xs)
+Proof
+  match_mp_tac memory_rel_rearrange \\ fs [] \\ rw [] \\ fs []
+QED
+
 Theorem evaluate_StoreEach = Q.prove(`
   !xs ys t offset m1.
       store_list (a + offset) ys t.memory t.mdomain = SOME m1 /\
@@ -5037,7 +5044,71 @@ QED
 Theorem assign_UpdateThunk:
   (∃ev. op = ThunkOp (UpdateThunk ev)) ==> ^assign_thm_goal
 Proof
-  cheat
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ gvs [dataLangTheory.op_requires_names_def,
+          dataLangTheory.op_space_reset_def]
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  \\ gvs [do_app,allowed_op_def,AllCaseEqs()]
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [bvlSemTheory.Unit_def] \\ rveq
+  \\ fs [GSYM bvlSemTheory.Unit_def] \\ rveq
+  \\ fs [assign_def] \\ eval_tac \\ fs [state_rel_thm]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ disch_then drule0 \\ fs []
+  \\ Cases_on `args` \\ gvs []
+  \\ Cases_on `t'` \\ gvs []
+  \\ Cases_on `t''` \\ gvs []
+  \\ Cases_on `ws` \\ gvs []
+  \\ Cases_on `t'` \\ gvs []
+  \\ imp_res_tac get_vars_2_IMP \\ fs []
+  \\ strip_tac
+  \\ drule0 reorder_2_lemma \\ strip_tac
+  \\ reverse $ Cases_on `ev` \\ gvs []
+  >- (
+    drule0 (memory_rel_UpdateThunk |> GEN_ALL) \\ fs []
+    \\ strip_tac \\ clean_tac
+    \\ `word_exp t (real_addr c (adjust_var h)) = SOME (Word x')` by
+          metis_tac [get_real_offset_lemma,get_real_addr_lemma]
+    \\ fs [] \\ eval_tac \\ fs [EVAL ``word_exp s1 Unit``]
+    \\ fs [wordSemTheory.mem_store_def]
+    \\ fs [lookup_insert,adjust_var_11]
+    \\ rw [] \\ fs [option_le_max_right]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ match_mp_tac memory_rel_Unit \\ fs []
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+    \\ rw [] \\ gvs [])
+  \\ TOP_CASE_TAC \\ gvs []
+  >- (
+    fs[encode_header_def]
+    \\ fs[encode_header_def, state_rel_def, good_dimindex_def, limits_inv_def,
+          dimword_def, memory_rel_def, heap_in_memory_store_def,
+          consume_space_def, arch_size_def]
+    \\ rfs[NOT_LESS])
+  \\ drule0 (memory_rel_UpdateThunk' |> GEN_ALL) \\ fs []
+  \\ disch_then drule
+  \\ strip_tac \\ clean_tac
+  \\ `word_exp t (real_addr c (adjust_var h)) = SOME (Word x'')` by
+        metis_tac [get_real_offset_lemma,get_real_addr_lemma]
+  \\ fs [list_Seq_def] \\ eval_tac \\ fs [EVAL ``word_exp s1 Unit``]
+  \\ fs [wordSemTheory.mem_store_def]
+  \\ fs [lookup_insert,adjust_var_11]
+  \\ rw []
+  >- simp [option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ match_mp_tac memory_rel_Unit \\ fs [UPDATE_LIST_THM]
+  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+  \\ rw [] \\ gvs []
+  \\ ntac 2 disj2_tac \\ ntac 2 disj1_tac \\ gvs []
+  \\ gvs [join_env_def, MEM_MAP, MEM_FILTER]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ qexists `(n,v)` \\ gvs []
+  \\ gvs [MEM_toAList,lookup_inter_alt,lookup_insert,AllCaseEqs()]
 QED
 
 Theorem assign_ConfigGC:
