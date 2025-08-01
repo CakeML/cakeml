@@ -225,14 +225,14 @@ Definition enc_numI_def:
   | N_const32 Float (c32: word32)            =>  0x43w :: lend c32
   | N_const64 Float (c64: word64)            =>  0x44w :: lend c64
 
-  | N_convert $   Trunc_sat_f W32   Signed W32   => 0xFCw :: enc_num 0
-  | N_convert $   Trunc_sat_f W32 Unsigned W32   => 0xFCw :: enc_num 1
-  | N_convert $   Trunc_sat_f W64   Signed W32   => 0xFCw :: enc_num 2
-  | N_convert $   Trunc_sat_f W64 Unsigned W32   => 0xFCw :: enc_num 3
-  | N_convert $   Trunc_sat_f W32   Signed W64   => 0xFCw :: enc_num 4
-  | N_convert $   Trunc_sat_f W32 Unsigned W64   => 0xFCw :: enc_num 5
-  | N_convert $   Trunc_sat_f W64   Signed W64   => 0xFCw :: enc_num 6
-  | N_convert $   Trunc_sat_f W64 Unsigned W64   => 0xFCw :: enc_num 7
+  | N_convert $   Trunc_sat_f W32   Signed W32   => 0xFCw :: enc_unsigned_word 0w
+  | N_convert $   Trunc_sat_f W32 Unsigned W32   => 0xFCw :: enc_unsigned_word 1w
+  | N_convert $   Trunc_sat_f W64   Signed W32   => 0xFCw :: enc_unsigned_word 2w
+  | N_convert $   Trunc_sat_f W64 Unsigned W32   => 0xFCw :: enc_unsigned_word 3w
+  | N_convert $   Trunc_sat_f W32   Signed W64   => 0xFCw :: enc_unsigned_word 4w
+  | N_convert $   Trunc_sat_f W32 Unsigned W64   => 0xFCw :: enc_unsigned_word 5w
+  | N_convert $   Trunc_sat_f W64   Signed W64   => 0xFCw :: enc_unsigned_word 6w
+  | N_convert $   Trunc_sat_f W64 Unsigned W64   => 0xFCw :: enc_unsigned_word 7w
 
 End
 
@@ -338,7 +338,7 @@ Definition dec_numI_def:
   if b = 0xA4w then (INR $ N_binary  $   Min W64                    ,bs) else
   if b = 0xA5w then (INR $ N_binary  $   Max W64                    ,bs) else
   if b = 0xA6w then (INR $ N_binary  $   Copysign W64               ,bs) else
-  if b = 0xA7w then (INR $ N_convert $   WrapI64                   ,bs) else
+  if b = 0xA7w then (INR $ N_convert $   WrapI64                    ,bs) else
   if b = 0xA8w then (INR $ N_convert $   Trunc_f W32   Signed W32   ,bs) else
   if b = 0xA9w then (INR $ N_convert $   Trunc_f W32 Unsigned W32   ,bs) else
   if b = 0xAAw then (INR $ N_convert $   Trunc_f W64   Signed W32   ,bs) else
@@ -373,7 +373,7 @@ Definition dec_numI_def:
   if b = 0x42w then case dec_s64 bs of SOME (s64,cs) => (INR $ N_const64  Int  s64, cs) | NONE => failure else
 
   (* TODO decode IEEE 754 not ints *)
-  if b = 0x43w then case unlend32 bs of SOME (c32,cs) => (INR $ N_const32 Float c32, cs) | NONE => failure else
+  if b = 0x43w then case unlend bs of SOME (c32,cs) => (INR $ N_const32 Float c32, cs) | NONE => failure else
   if b = 0x44w then case dec_s64 bs of SOME (c64,cs) => (INR $ N_const64 Float c64, cs) | NONE => failure else
 
   if b = 0xFCw then case dec_num bs of
@@ -827,7 +827,7 @@ Definition dec_vecI_def:
   if oc =  94w then (INR $ V_convert    Vdemote                                ,cs) else
   if oc =  95w then (INR $ V_convert    Vpromote                               ,cs) else
 
-  if oc=12w then case unlend128 cs of NONE => failure | SOME (w128, ds) => (INR $ V_const w128,ds) else
+  if oc=12w then case unlend cs of NONE => failure | SOME (w128, ds) => (INR $ V_const w128,ds) else
 
   if oc=21w then case dec_u8 cs of NONE => failure | SOME (lidx,ds) => (INR $ V_lane  (Vextract_            Signed I8x16)  lidx,ds) else
   if oc=22w then case dec_u8 cs of NONE => failure | SOME (lidx,ds) => (INR $ V_lane  (Vextract_          Unsigned I8x16)  lidx,ds) else
@@ -884,23 +884,23 @@ Definition enc_loadI_def:
   | LoadNarrow I16x8  Unsigned   W64 ofs al  => 0x33w :: enc_unsigned_word al ++ enc_unsigned_word ofs
   | LoadNarrow32        Signed       ofs al  => 0x34w :: enc_unsigned_word al ++ enc_unsigned_word ofs
   | LoadNarrow32      Unsigned       ofs al  => 0x35w :: enc_unsigned_word al ++ enc_unsigned_word ofs
-  | Load128                          ofs al  => 0xFDw :: enc_num  0 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadHalf  (Is2 I16x8)    Signed  ofs al  => 0xFDw :: enc_num  1 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadHalf  (Is2 I16x8)  Unsigned  ofs al  => 0xFDw :: enc_num  2 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadHalf  (Is2 I8x16)    Signed  ofs al  => 0xFDw :: enc_num  3 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadHalf  (Is2 I8x16)  Unsigned  ofs al  => 0xFDw :: enc_num  4 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadHalf  (    I32x4)    Signed  ofs al  => 0xFDw :: enc_num  5 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadHalf  (    I32x4)  Unsigned  ofs al  => 0xFDw :: enc_num  6 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadSplat (Is3 $ Is2 I16x8)      ofs al  => 0xFDw :: enc_num  7 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadSplat (Is3 $ Is2 I8x16)      ofs al  => 0xFDw :: enc_num  8 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadSplat (Is3 $     I32x4)      ofs al  => 0xFDw :: enc_num  9 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadSplat (          I64x2)      ofs al  => 0xFDw :: enc_num 10 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadZero                     W32 ofs al  => 0xFDw :: enc_num 92 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadZero                     W64 ofs al  => 0xFDw :: enc_num 93 ++ enc_unsigned_word al ++ enc_unsigned_word ofs
-  | LoadLane  (Is3 $ Is2 I16x8) ofs al lidx  => 0xFDw :: enc_num 84 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
-  | LoadLane  (Is3 $ Is2 I8x16) ofs al lidx  => 0xFDw :: enc_num 85 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
-  | LoadLane  (Is3 $     I32x4) ofs al lidx  => 0xFDw :: enc_num 86 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
-  | LoadLane  (          I64x2) ofs al lidx  => 0xFDw :: enc_num 87 ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | Load128                          ofs al  => 0xFDw :: enc_unsigned_word  0w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (Is2 I16x8)    Signed  ofs al  => 0xFDw :: enc_unsigned_word  1w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (Is2 I16x8)  Unsigned  ofs al  => 0xFDw :: enc_unsigned_word  2w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (Is2 I8x16)    Signed  ofs al  => 0xFDw :: enc_unsigned_word  3w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (Is2 I8x16)  Unsigned  ofs al  => 0xFDw :: enc_unsigned_word  4w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (    I32x4)    Signed  ofs al  => 0xFDw :: enc_unsigned_word  5w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadHalf  (    I32x4)  Unsigned  ofs al  => 0xFDw :: enc_unsigned_word  6w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadSplat (Is3 $ Is2 I16x8)      ofs al  => 0xFDw :: enc_unsigned_word  7w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadSplat (Is3 $ Is2 I8x16)      ofs al  => 0xFDw :: enc_unsigned_word  8w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadSplat (Is3 $     I32x4)      ofs al  => 0xFDw :: enc_unsigned_word  9w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadSplat (          I64x2)      ofs al  => 0xFDw :: enc_unsigned_word 10w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadZero                     W32 ofs al  => 0xFDw :: enc_unsigned_word 92w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadZero                     W64 ofs al  => 0xFDw :: enc_unsigned_word 93w ++ enc_unsigned_word al ++ enc_unsigned_word ofs
+  | LoadLane  (Is3 $ Is2 I16x8) ofs al lidx  => 0xFDw :: enc_unsigned_word 84w ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | LoadLane  (Is3 $ Is2 I8x16) ofs al lidx  => 0xFDw :: enc_unsigned_word 85w ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | LoadLane  (Is3 $     I32x4) ofs al lidx  => 0xFDw :: enc_unsigned_word 86w ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
+  | LoadLane  (          I64x2) ofs al lidx  => 0xFDw :: enc_unsigned_word 87w ++ enc_unsigned_word al ++ enc_unsigned_word ofs ++ enc_unsigned_word lidx
 End
 
 
@@ -922,25 +922,25 @@ Definition dec_loadI_def:
   if b = 0x33w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I16x8  Unsigned   W64 ofs al,rs) else
   if b = 0x34w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow32        Signed       ofs al,rs) else
   if b = 0x35w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow32      Unsigned       ofs al,rs) else
-  if b = 0xFDw then case dec_num bs of
-  | SOME( 0,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ Load128                          ofs al,rs))
-  | SOME( 1,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I16x8)    Signed  ofs al,rs))
-  | SOME( 2,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I16x8)  Unsigned  ofs al,rs))
-  | SOME( 3,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I8x16)    Signed  ofs al,rs))
-  | SOME( 4,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I8x16)  Unsigned  ofs al,rs))
-  | SOME( 5,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (    I32x4)    Signed  ofs al,rs))
-  | SOME( 6,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (    I32x4)  Unsigned  ofs al,rs))
-  | SOME( 7,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (Is3 $ Is2 I16x8)      ofs al,rs))
-  | SOME( 8,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (Is3 $ Is2 I8x16)      ofs al,rs))
-  | SOME( 9,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (Is3 $     I32x4)      ofs al,rs))
-  | SOME(10,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (          I64x2)      ofs al,rs))
-  | SOME(92,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadZero                     W32 ofs al,rs))
-  | SOME(93,cs)=>(case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadZero                     W64 ofs al,rs))
+  if b = 0xFDw then case dec_u32 bs of NONE=>failure| SOME (oc, cs) =>
+  if oc =  0w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ Load128                          ofs al,rs)) else
+  if oc =  1w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I16x8)    Signed  ofs al,rs)) else
+  if oc =  2w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I16x8)  Unsigned  ofs al,rs)) else
+  if oc =  3w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I8x16)    Signed  ofs al,rs)) else
+  if oc =  4w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (Is2 I8x16)  Unsigned  ofs al,rs)) else
+  if oc =  5w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (    I32x4)    Signed  ofs al,rs)) else
+  if oc =  6w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadHalf  (    I32x4)  Unsigned  ofs al,rs)) else
+  if oc =  7w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (Is3 $ Is2 I16x8)      ofs al,rs)) else
+  if oc =  8w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (Is3 $ Is2 I8x16)      ofs al,rs)) else
+  if oc =  9w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (Is3 $     I32x4)      ofs al,rs)) else
+  if oc = 10w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadSplat (          I64x2)      ofs al,rs)) else
+  if oc = 92w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadZero                     W32 ofs al,rs)) else
+  if oc = 93w then (case dec_2u32 cs of NONE=>failure|SOME (al,ofs,rs) => (INR $ LoadZero                     W64 ofs al,rs)) else
 
-  | SOME(84,cs)=>(case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (Is3 $ Is2 I16x8) ofs al lidx,rs))
-  | SOME(85,cs)=>(case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (Is3 $ Is2 I8x16) ofs al lidx,rs))
-  | SOME(86,cs)=>(case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (Is3 $     I32x4) ofs al lidx,rs))
-  | SOME(87,cs)=>(case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (          I64x2) ofs al lidx,rs))
+  if oc = 84w then (case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (Is3 $ Is2 I16x8) ofs al lidx,rs)) else
+  if oc = 85w then (case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (Is3 $ Is2 I8x16) ofs al lidx,rs)) else
+  if oc = 86w then (case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (Is3 $     I32x4) ofs al lidx,rs)) else
+  if oc = 87w then (case dec_2u32_8 cs of NONE=>failure|SOME (al,ofs,lidx,rs) => (INR $ LoadLane (          I64x2) ofs al lidx,rs)) else
   else
   failure
 End
@@ -1108,6 +1108,17 @@ End
 Theorem dec_enc_valtype:
   ∀ t. dec_valtype (enc_valtype t) = SOME t
 Proof
+  rpt strip_tac (* this is like intros *)
+  >> `? val. enc_valtype t = val` by simp []
+  >> asm_rewrite_tac[]
+  >> pop_assum mp_tac
+  >> rewrite_tac[enc_valtype_def]
+  >> simp[AllCaseEqs()]
+  >> rpt strip_tac (* this is like intros *)
+  >> gvs[dec_valtype_def]
+QED
+
+(*
   (* TODO ask MM how to use namedCases and fs [oneline] on 1 aug *)
   (* namedCases ["x"] *)
   (* fs [oneline enc_numtype_def] \\ every_case_tac *)
@@ -1130,7 +1141,7 @@ Proof
   (* Cases >-
   (Cases_on `n` >> Cases_on `b` >> Cases_on `w` >> rw[dec_valtype_def, enc_valtype_def]) >>
   rw[dec_valtype_def, enc_valtype_def] *)
-QED
+*)
 
 Theorem dec_enc_numI:
   ∀ i. dec_numI (enc_numI i ++ rest) = (INR i, rest)
@@ -1160,8 +1171,12 @@ QED
 Theorem dec_enc_loadI:
   ∀ i. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
 Proof
-  rw [enc_loadI_def] >> every_case_tac >>
-  rw [dec_loadI_def, dec_enc_unsigned_word] >>
+  rw [enc_loadI_def] >> every_case_tac
+  >> rw [dec_loadI_def, dec_enc_unsigned_word]
+  >> simp[dec_2u32_def]
+  >> rewrite_tac[GSYM APPEND_ASSOC, dec_enc_unsigned_word]
+  >> simp[dec_enc_unsigned_word]
+
   cheat
 QED
 
