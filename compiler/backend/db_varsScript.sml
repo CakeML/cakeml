@@ -3,6 +3,8 @@
   are live when traversing a language using dB vars.
 *)
 Theory db_vars
+Ancestors
+  sptree
 Libs
   preamble
 
@@ -151,4 +153,3 @@ Theorem ALL_DISTINCT_vars_to_list:
 Proof
   fs [vars_to_list_def,ALL_DISTINCT_MAP_FST_toAList]
 QED
-
