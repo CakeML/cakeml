@@ -2,11 +2,11 @@
   Module about the built-in 'a vector.
 *)
 Theory VectorProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 Ancestors
   ast[qualified] regexp_compiler[qualified] ml_translator
   ListProg mlvector
-Libs
-  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "ListProg";
 
@@ -219,4 +219,3 @@ val collate_side_thm = Q.prove (
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
-
