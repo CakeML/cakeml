@@ -4,7 +4,7 @@
 *)
 Theory cfHeapsBase
 Ancestors
-  set_sep cfFFIType
+  integer alist llist semanticPrimitives set_sep cfFFIType
 Libs
   preamble cfTacticsBaseLib
 
@@ -1001,4 +1001,3 @@ Proof
        SEP_IMPPOSTv_def, SEP_IMPPOSTf_def, SEP_IMPPOSTd_def,
        SEP_IMP_def, cond_def]
 QED
-
