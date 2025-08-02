@@ -4,6 +4,10 @@
 Theory realOps
 Ancestors
   misc machine_ieee real
+Libs
+  realSyntax[qualified]
+
+val _ = realSyntax.prefer_real ();
 
 (*
   Definition of real-valued operations
@@ -48,4 +52,3 @@ Definition real_bop_def:
    | Real_Mul => ( * )
    | Real_Div => (/))
 End
-
