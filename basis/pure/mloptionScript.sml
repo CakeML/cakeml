@@ -3,7 +3,7 @@
 *)
 Theory mloption
 Ancestors
-  misc
+  ternaryComparisons
 Libs
   preamble
 
@@ -35,7 +35,6 @@ End
 Definition compare_def:
   compare f x y =
     case x of
-    | NONE => (case y of NONE => Equal | _ => Less)
-    | SOME vx => (case y of NONE => Greater | SOME vy => f vx vy)
+    | NONE => (case y of NONE => EQUAL | _ => LESS)
+    | SOME vx => (case y of NONE => GREATER | SOME vy => f vx vy)
 End
-
