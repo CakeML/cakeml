@@ -3,10 +3,10 @@
   using a self-balancing binary tree.
 *)
 Theory SetProg
-Ancestors
-  ml_translator balanced_map MapProg mlset[qualified]
 Libs
   preamble ml_translatorLib ml_progLib basisFunctionsLib
+Ancestors
+  ml_translator balanced_map MapProg mlset[qualified]
 
 val _ = translation_extends "MapProg";
 
@@ -165,4 +165,3 @@ val _ = List.app (fn tm => let val {Name, Thy,...} = dest_thy_const tm
                            in remove_ovl_mapping Name {Name = Name, Thy = Thy}
                            end)
                  (constants "mlset");
-
