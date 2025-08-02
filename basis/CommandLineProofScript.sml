@@ -3,7 +3,7 @@
 *)
 Theory CommandLineProof
 Ancestors
-  ml_translator CommandLineProg clFFI Word8ArrayProof cfMonad
+  cfMain cfLetAuto ml_translator CommandLineProg clFFI Word8ArrayProof cfMonad
 Libs
   preamble ml_progLib ml_translatorLib cfLib
 
@@ -346,4 +346,3 @@ Theorem COMMANDLINE_HPROP_INJ[hprop_inj]:
 Proof
   prove_hprop_inj_tac UNIQUE_COMMANDLINE
 QED
-
