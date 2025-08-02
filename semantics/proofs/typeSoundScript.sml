@@ -2,13 +2,13 @@
   Proof of type soundness: a type-correct program does not crash.
 *)
 Theory typeSound
+Libs
+  preamble
 Ancestors
   ast typeSystem semanticPrimitives fpSem evaluate namespaceProps
   fpSemProps semanticPrimitivesProps evaluateProps weakening
   typeSysProps typeSoundInvariants semantics
   primSemEnv[qualified]
-Libs
-  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -3318,4 +3318,3 @@ Proof
  >> fs [consistent_ctMap_def]
  >> metis_tac []
 QED
-
