@@ -3,7 +3,7 @@
 *)
 Theory RuntimeProof
 Ancestors
-  ml_translator mlstring runtimeFFI RuntimeProg
+  cfMain cfLetAuto ml_translator mlstring runtimeFFI RuntimeProg
 Libs
   preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
@@ -96,4 +96,3 @@ Proof
   THEN1 (asm_exists_tac \\ rw[] \\ rw[SPLIT_emp1,cond_def])
   \\ fs[SPLIT_emp1,cond_def] \\ metis_tac[]
 QED
-
