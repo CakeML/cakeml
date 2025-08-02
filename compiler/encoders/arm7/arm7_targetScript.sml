@@ -3,7 +3,7 @@
 *)
 Theory arm7_target
 Ancestors
-  arm_step
+  asmProps arm_step
 Libs
   asmLib
 
@@ -304,4 +304,3 @@ Theorem arm7_config =
   arm7_config
 Theorem arm7_asm_ok =
   arm7_asm_ok
-

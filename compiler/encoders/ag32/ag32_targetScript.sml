@@ -3,7 +3,7 @@
 *)
 Theory ag32_target
 Ancestors
-  ag32
+  asmProps ag32
 Libs
   asmLib
 
@@ -262,4 +262,3 @@ Theorem ag32_config =
   ag32_config
 Theorem ag32_asm_ok =
   ag32_asm_ok
-
