@@ -4,7 +4,7 @@
 *)
 Theory cfFFIType
 Ancestors
-  misc
+  string
 Libs
   preamble
 
