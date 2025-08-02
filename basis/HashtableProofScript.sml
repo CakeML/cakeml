@@ -3,11 +3,10 @@ Proof of the hashtable module
 *)
 Theory HashtableProof
 Ancestors
-  ml_translator mlbasicsProg ArrayProg ArrayProof ListProg
+  mlmap ml_translator mlbasicsProg ArrayProg ArrayProof ListProg
   MapProg HashtableProg comparison
 Libs
   preamble ml_translatorLib cfLib
-
 
 val _ = translation_extends "HashtableProg";
 
@@ -1460,4 +1459,3 @@ Proof
       \\ imp_res_tac replicate_empty_map_thm
       \\ fs[list_union_empty_maps]))
 QED
-
