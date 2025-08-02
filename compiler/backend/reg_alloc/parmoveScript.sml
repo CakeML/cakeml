@@ -6,6 +6,8 @@
   http://gallium.inria.fr/~xleroy/publi/parallel-move.pdf
 *)
 Theory parmove
+Ancestors
+  misc
 Libs
   preamble
 
@@ -1330,4 +1332,3 @@ Proof
   \\ fs[]
   \\ simp[map_state_def]
 QED
-
