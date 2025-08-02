@@ -3,7 +3,7 @@
 *)
 Theory clFFI
 Ancestors
-  cfHeapsBase
+  mlstring cfHeapsBase
 Libs
   preamble
 
@@ -90,4 +90,3 @@ Definition cl_ffi_part_def:
      ("get_arg_length",ffi_get_arg_length);
      ("get_arg",ffi_get_arg)])
 End
-
