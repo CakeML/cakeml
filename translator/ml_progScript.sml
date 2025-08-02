@@ -6,7 +6,7 @@ Theory ml_prog
 Ancestors
   ast semanticPrimitives evaluate semanticPrimitivesProps
   evaluateProps mlstring integer evaluate_dec namespace
-  alist_tree
+  alist_tree primSemEnv[qualified]
 Libs
   preamble
 
@@ -1222,4 +1222,3 @@ Proof
           semanticsTheory.evaluate_prog_with_clock_def,
           evaluate_decTheory.evaluate_dec_list_with_clock_def]
 QED
-
