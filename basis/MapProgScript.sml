@@ -3,10 +3,10 @@
   using a self-balancing binary tree.
 *)
 Theory MapProg
-Ancestors
-  ml_translator balanced_map ArrayProg
 Libs
   preamble ml_translatorLib ml_progLib basisFunctionsLib
+Ancestors
+  ml_translator balanced_map ArrayProg
 
 val _ = translation_extends "ArrayProg";
 
@@ -181,4 +181,3 @@ val _ = ml_prog_update (add_dec
              (Atapp [Atvar "'a"; Atvar "'b"] (Short "map"))`` I);
 
 val _ = ml_prog_update close_local_block;
-
