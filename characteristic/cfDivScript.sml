@@ -16,6 +16,10 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = ml_translatorLib.translation_extends "std_prelude";
 
+(* Make sure we are using the option monad even in the presence of other
+   monads *)
+val _ = monadsyntax.temp_enable_monadsyntax ();
+val _ = monadsyntax.temp_enable_monad "option";
 
 (* -- general set up -- *)
 
@@ -4852,4 +4856,3 @@ Proof
   \\ qexists_tac `ns` \\ fs []
   \\ asm_exists_tac \\ fs[] \\ asm_exists_tac \\ fs[]
 QED
-
