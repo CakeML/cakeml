@@ -3,9 +3,9 @@
 *)
 Theory TextIOProof
 Ancestors
-  ml_translator mlstring fsFFI fsFFIProps Word8Prog
-  Word8ArrayProof TextIOProg MarshallingProg Marshalling integer
-  int_arith
+  cfMain cfLetAuto ml_monadBase ml_translator ml_monad_translator
+  mlstring fsFFI fsFFIProps Word8Prog Word8ArrayProof TextIOProg
+  MarshallingProg Marshalling integer int_arith
 Libs
   preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
   cfMonadLib
@@ -8678,4 +8678,3 @@ Proof
   \\ xcon \\ xsimpl
   \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def]
 QED
-
