@@ -305,6 +305,7 @@ Definition apply_def:
   apply ^mem x y = @a. (y,a) <: x
 End
 
+val _ = Parse.add_infix("'",2000,Parse.LEFT);
 Overload "'" = ``apply ^mem``
 
 Overload boolset = ``Two``
@@ -555,4 +556,3 @@ Proof
   simp[bigcross_def,tuple_def,mem_one] >>
   simp[mem_product,PULL_EXISTS,tuple_def]
 QED
-
