@@ -551,7 +551,7 @@ Proof
    metis_tac[pair_CASES]) >>~-
   ([‘∃p. ptree_Op pt = SOME p (* g *)’],
    match_mp_tac (GEN_ALL Ops_OK0) >> simp[]) >>~-
-  ([‘∃es. Eseq_encode el = SOME es’],
+  ([‘∃es. Eseq_encode _ = SOME es’],
    erule strip_assume_tac Eseq_encode_OK >> simp[]) >~
   [‘∃ty. ptree_Type nType pt = SOME ty’]
   >- (erule strip_assume_tac (n Type_OK) >> simp[]) >~
@@ -833,4 +833,3 @@ Proof
       >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs[]) >>
       metis_tac[Decl_OK, grammarTheory.ptree_fringe_def])
 QED
-
