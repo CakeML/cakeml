@@ -4,7 +4,7 @@
 *)
 Theory setModel
 Ancestors
-  bit setSpec
+  numposrep bit setSpec
 Libs
   preamble
 
@@ -249,4 +249,3 @@ Theorem is_model_V:
 Proof
   simp[is_model_def,is_set_theory_V,V_choice_def,V_indset_def]
 QED
-
