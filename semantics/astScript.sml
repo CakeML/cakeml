@@ -4,7 +4,7 @@
 open HolKernel Parse boolLib bossLib;
 open namespaceTheory;
 
-local open integerTheory wordsTheory stringTheory namespaceTheory locationTheory in end;
+local open integerTheory wordsTheory stringTheory mlstringTheory namespaceTheory locationTheory in end;
 val _ = new_theory "ast"
 val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
 
@@ -13,7 +13,7 @@ Datatype:
   lit =
     IntLit int
   | Char char
-  | StrLit string
+  | StrLit mlstring
   | Word8 word8
   | Word64 word64
   | Float64 word64
@@ -53,19 +53,19 @@ Datatype:
 End
 
 (* Module names *)
-Type modN = “:string”
+Type modN = “:mlstring”
 
 (* Variable names *)
-Type varN = “:string”
+Type varN = “:mlstring”
 
 (* Constructor names (from datatype definitions) *)
-Type conN = ``: string``
+Type conN = ``: mlstring``
 
 (* Type names *)
-Type typeN = ``: string``
+Type typeN = ``: mlstring``
 
 (* Type variable names *)
-Type tvarN = ``: string``
+Type tvarN = ``: mlstring``
 
 Datatype:
   word_size = W8 | W64
@@ -139,7 +139,7 @@ Datatype:
   (* Configure the GC *)
   | ConfigGC
   (* Call a given foreign function *)
-  | FFI string
+  | FFI mlstring
   (* Evaluate new code in a given env *)
   | Eval
   (* Get the identifier of an env object *)
