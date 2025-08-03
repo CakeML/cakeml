@@ -133,7 +133,7 @@ val _ = cv_auto_trans (x64_targetTheory.x64_enc_def |>
   Remaining x64-specific functions
  *---------------------------------------------------------------------------*)
 
-val pre = cv_auto_trans_pre comp_x64_def;
+val pre = cv_auto_trans_pre "" comp_x64_def;
 
 Theorem comp_x64_pre[cv_pre,local]:
   ∀v bs kf. comp_x64_pre v bs kf
@@ -148,7 +148,7 @@ QED
 
 val _ = cv_auto_trans compile_prog_x64_def;
 
-val pre = cv_auto_trans_pre compile_word_to_stack_x64_def;
+val pre = cv_auto_trans_pre "" compile_word_to_stack_x64_def;
 
 Theorem compile_word_to_stack_x64_pre[cv_pre]:
   ∀k v bitmaps. compile_word_to_stack_x64_pre k v bitmaps
@@ -180,7 +180,7 @@ Proof
   Induct_on ‘v’ \\ simp [Once pre]
 QED
 
-val pre = cv_auto_trans_pre remove_labels_loop_x64_def;
+val pre = cv_auto_trans_pre "" remove_labels_loop_x64_def;
 
 Theorem remove_labels_loop_x64_pre[cv_pre]:
   ∀clock pos init_labs ffis sec_list.
@@ -237,7 +237,7 @@ Proof
   \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
 QED
 
-val pre = each_inlogic_x64_def |> cv_trans_pre;
+val pre = each_inlogic_x64_def |> cv_trans_pre "";
 Theorem each_inlogic_x64_pre[cv_pre,local]:
   ∀v. each_inlogic_x64_pre v
 Proof

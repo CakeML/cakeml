@@ -154,7 +154,7 @@ val _ = cv_auto_trans (arm8_targetTheory.arm8_enc_def |>
   Remaining arm8-specific functions
  *---------------------------------------------------------------------------*)
 
-val pre = cv_auto_trans_pre comp_arm8_def;
+val pre = cv_auto_trans_pre "" comp_arm8_def;
 
 Theorem comp_arm8_pre[cv_pre,local]:
   ∀v bs kf. comp_arm8_pre v bs kf
@@ -169,7 +169,7 @@ QED
 
 val _ = cv_auto_trans compile_prog_arm8_def;
 
-val pre = cv_auto_trans_pre compile_word_to_stack_arm8_def;
+val pre = cv_auto_trans_pre "" compile_word_to_stack_arm8_def;
 
 Theorem compile_word_to_stack_arm8_pre[cv_pre]:
   ∀k v bitmaps. compile_word_to_stack_arm8_pre k v bitmaps
@@ -201,7 +201,7 @@ Proof
   Induct_on ‘v’ \\ simp [Once pre]
 QED
 
-val pre = cv_auto_trans_pre remove_labels_loop_arm8_def;
+val pre = cv_auto_trans_pre "" remove_labels_loop_arm8_def;
 
 Theorem remove_labels_loop_arm8_pre[cv_pre]:
   ∀clock pos init_labs ffis sec_list.
@@ -258,7 +258,7 @@ Proof
   \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
 QED
 
-val pre = each_inlogic_arm8_def |> cv_trans_pre;
+val pre = each_inlogic_arm8_def |> cv_trans_pre "";
 Theorem each_inlogic_arm8_pre[cv_pre,local]:
   ∀v. each_inlogic_arm8_pre v
 Proof

@@ -36,7 +36,7 @@ val _ = cv_trans ag32_targetTheory.ag32_enc_def;
   Remaining ag32-specific functions
  *---------------------------------------------------------------------------*)
 
-val pre = cv_auto_trans_pre comp_ag32_def;
+val pre = cv_auto_trans_pre "" comp_ag32_def;
 
 Theorem comp_ag32_pre[cv_pre,local]:
   ∀v bs kf. comp_ag32_pre v bs kf
@@ -51,7 +51,7 @@ QED
 
 val _ = cv_auto_trans compile_prog_ag32_def;
 
-val pre = cv_auto_trans_pre compile_word_to_stack_ag32_def;
+val pre = cv_auto_trans_pre "" compile_word_to_stack_ag32_def;
 
 Theorem compile_word_to_stack_ag32_pre[cv_pre]:
   ∀k v bitmaps. compile_word_to_stack_ag32_pre k v bitmaps
@@ -91,7 +91,7 @@ Proof
   Induct_on ‘v’ \\ simp [Once pre]
 QED
 
-val pre = cv_auto_trans_pre remove_labels_loop_ag32_def;
+val pre = cv_auto_trans_pre "" remove_labels_loop_ag32_def;
 
 Theorem remove_labels_loop_ag32_pre[cv_pre]:
   ∀clock pos init_labs ffis sec_list.
@@ -148,7 +148,7 @@ Proof
   \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
 QED
 
-val pre = each_inlogic_ag32_def |> cv_trans_pre;
+val pre = each_inlogic_ag32_def |> cv_trans_pre "";
 Theorem each_inlogic_ag32_pre[cv_pre,local]:
   ∀v. each_inlogic_ag32_pre v
 Proof
