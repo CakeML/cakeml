@@ -2,11 +2,11 @@
    Proofs about the interpreter function for the Candle compute primitive.
  *)
 Theory compute_evalProof
+Libs
+  preamble ml_monadBaseLib
 Ancestors
   holSyntax holSyntaxExtra holSyntaxLib holKernel holKernelProof
   compute_eval compute_syntax compute_syntaxProof ml_monadBase
-Libs
-  preamble ml_monadBaseLib
 
 
 val _ = numLib.temp_prefer_num ();
@@ -1772,4 +1772,3 @@ Proof
   \\ reverse CASE_TAC >- (strip_tac \\ gvs [])
   \\ rw [] \\ gs [SF SFY_ss]
 QED
-

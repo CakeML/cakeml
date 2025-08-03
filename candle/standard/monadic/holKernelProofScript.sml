@@ -3,11 +3,11 @@
   faithful to the inference rules of the Candle logic.
 *)
 Theory holKernelProof
+Libs
+  preamble
 Ancestors
   mlstring ml_monadBase holKernel holSyntaxLib holSyntax
   holSyntaxExtra
-Libs
-  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -3528,4 +3528,3 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs [image_clash_thm]
 QED
 *)
-
