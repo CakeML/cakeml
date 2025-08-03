@@ -3,7 +3,7 @@
 *)
 Theory mips_target
 Ancestors
-  mips_step
+  asmProps mips_step
 Libs
   asmLib
 
@@ -351,4 +351,3 @@ Theorem mips_config =
   mips_config
 Theorem mips_asm_ok =
   mips_asm_ok
-

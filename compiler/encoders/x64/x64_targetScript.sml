@@ -3,7 +3,7 @@
 *)
 Theory x64_target
 Ancestors
-  x64_step
+  asmProps x64_step
 Libs
   asmLib
 
@@ -262,4 +262,3 @@ Theorem x64_config =
   x64_config
 Theorem x64_asm_ok =
   x64_asm_ok
-

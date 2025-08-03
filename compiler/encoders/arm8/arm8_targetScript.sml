@@ -3,7 +3,7 @@
 *)
 Theory arm8_target
 Ancestors
-  arm8_step arithmetic words
+  asmProps arm8_step arithmetic words
 Libs
   asmLib
 
@@ -375,4 +375,3 @@ Proof
   eq_tac>>
   fs[listTheory.EL_GENLIST]
 QED
-

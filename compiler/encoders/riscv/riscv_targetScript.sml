@@ -3,7 +3,7 @@
 *)
 Theory riscv_target
 Ancestors
-  riscv_step
+  asmProps riscv_step
 Libs
   asmLib
 
@@ -313,4 +313,3 @@ Theorem riscv_config =
   riscv_config
 Theorem riscv_asm_ok =
   riscv_asm_ok
-
