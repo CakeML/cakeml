@@ -2,14 +2,14 @@
   Prove that kernel functions maintain Candle prover's invariants
  *)
 Theory candle_kernel_funs
+Libs
+  preamble helperLib ml_progLib[qualified]
 Ancestors
   candle_kernel_vals candle_prover_inv ast_extras evaluate
   namespaceProps perms semanticPrimitivesProps misc[qualified]
   semanticPrimitives evaluateProps sptree holKernelProof
   ml_hol_kernel_funsProg candle_kernel_perms candle_kernelProg
   computeProof
-Libs
-  preamble helperLib ml_progLib[qualified]
 
 
 Theorem Arrow1:
@@ -2196,4 +2196,3 @@ Proof
   \\ fs [kernel_funs_def]
   \\ TRY (rewrite_tac [kernel_funs_v_def,v_11] \\ simp [] \\ NO_TAC)
 QED
-

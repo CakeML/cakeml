@@ -2,14 +2,14 @@
   Adds Candle specific functions to the kernel module from ml_hol_kernel_funsProg
 *)
 Theory candle_kernelProg
+Libs
+  preamble ml_translatorLib ml_monad_translatorLib ml_progLib
+  basisFunctionsLib runtime_checkLib
 Ancestors
   ml_hol_kernel_funsProg compute print_thm
   (* lisp: *) lisp_parsing lisp_values lisp_printing
   (* compute: *) compute_syntax compute_eval compute_pmatch
   runtime_check
-Libs
-  preamble ml_translatorLib ml_monad_translatorLib ml_progLib
-  basisFunctionsLib runtime_checkLib
 
 val _ = m_translation_extends "ml_hol_kernel_funsProg"
 
