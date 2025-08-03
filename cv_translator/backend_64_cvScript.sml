@@ -1,16 +1,16 @@
 (*
   Translate arch-size-specific functions to cv equations.
 *)
+
+(* The following line is (and shall remain) the only difference between
+   the 32-bit and 64-bit versions of this file. *)
 Theory backend_64_cv
 Ancestors
   cv_std backend_cv to_data_cv backend
 Libs
   preamble cv_transLib
 
-(* The following line is (and shall remain) the only difference between
-   the 32-bit and 64-bit versions of this file. *)
-
-val arch_size = “:64”;
+val arch_size = if String.isSubstring "32" (current_theory()) then “:32” else “:64”;
 
 val arch_spec = INST_TYPE [alpha |-> arch_size];
 val arch_spec_beta = INST_TYPE [beta |-> arch_size];
