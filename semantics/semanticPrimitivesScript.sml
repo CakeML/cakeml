@@ -265,7 +265,7 @@ End
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
 Definition do_con_check_def:
-  do_con_check (cenv:((string),(string),(num#stamp))namespace) n_opt l ⇔
+  do_con_check (cenv:((mlstring),(mlstring),(num#stamp))namespace) n_opt l ⇔
     case n_opt of
       NONE => T
     | SOME n => case nsLookup cenv n of NONE => F | SOME (l',v2) => l = l'
@@ -277,7 +277,7 @@ Definition one_con_check_def[simp]:
 End
 
 Definition build_conv_def:
-  build_conv (envC:((string),(string),(num#stamp))namespace) cn vs =
+  build_conv (envC:((mlstring),(mlstring),(num#stamp))namespace) cn vs =
   case cn of
     NONE => SOME (Conv NONE vs)
   | SOME id =>
@@ -325,8 +325,8 @@ End
 
 Definition Boolv_def:
   Boolv b =
-    if b then Conv (SOME (TypeStamp "True" bool_type_num)) []
-         else Conv (SOME (TypeStamp "False" bool_type_num)) []
+    if b then Conv (SOME (TypeStamp «True» bool_type_num)) []
+         else Conv (SOME (TypeStamp «False» bool_type_num)) []
 End
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
@@ -392,15 +392,15 @@ End
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
 Definition build_rec_env_def:
-  (build_rec_env:(varN#varN#exp)list ->(v)sem_env ->((string),(string),(v))namespace
-                 ->((string),(string),(v))namespace) funs cl_env add_to_env =
+  (build_rec_env:(varN#varN#exp)list ->(v)sem_env ->((mlstring),(mlstring),(v))namespace
+                 ->((mlstring),(mlstring),(v))namespace) funs cl_env add_to_env =
   FOLDR (λ(f,x,e) env'. nsBind f (Recclosure cl_env funs f) env')
         add_to_env funs
 End
 
 (* Lookup in the list of mutually recursive functions *)
 Definition find_recfun_def:
-  (find_recfun:string ->(string#'a#'b)list ->('a#'b)option) n funs =
+  (find_recfun:mlstring ->(mlstring#'a#'b)list ->('a#'b)option) n funs =
   case funs of
     [] => NONE
   | (f,x,e)::funs' => if f = n then SOME (x,e) else find_recfun n funs'
@@ -461,48 +461,48 @@ End
 (* If a value represents a list, get that list. Otherwise return Nothing *)
 Definition v_to_list_def:
   v_to_list (Conv (SOME stamp) []) =
-    (if stamp = TypeStamp "[]" list_type_num then SOME [] else NONE) ∧
+    (if stamp = TypeStamp «[]» list_type_num then SOME [] else NONE) ∧
   v_to_list (Conv (SOME stamp) [v1; v2]) =
-    (if stamp = TypeStamp "::" list_type_num then
+    (if stamp = TypeStamp «::» list_type_num then
        case v_to_list v2 of NONE => NONE | SOME vs => SOME (v1::vs)
      else NONE) ∧
   v_to_list _ = NONE
 End
 
 Definition list_to_v_def:
-  list_to_v [] = Conv (SOME (TypeStamp "[]" list_type_num)) [] ∧
-  list_to_v (x::xs) = Conv (SOME (TypeStamp "::" list_type_num)) [x; list_to_v xs]
+  list_to_v [] = Conv (SOME (TypeStamp «[]» list_type_num)) [] ∧
+  list_to_v (x::xs) = Conv (SOME (TypeStamp «::» list_type_num)) [x; list_to_v xs]
 End
 
 Definition v_to_char_list_def:
   v_to_char_list (Conv (SOME stamp) []) =
-    (if stamp = TypeStamp "[]" list_type_num then SOME "" else NONE) ∧
+    (if stamp = TypeStamp «[]» list_type_num then SOME «» else NONE) ∧
   v_to_char_list (Conv (SOME stamp) [Litv (Char c); v]) =
-    (if stamp = TypeStamp "::" list_type_num then
+    (if stamp = TypeStamp «::» list_type_num then
        case v_to_char_list v of NONE => NONE | SOME cs => SOME (STRING c cs)
      else NONE) ∧
   v_to_char_list _ = NONE
 End
 
 Definition vs_to_string_def:
-  vs_to_string [] = SOME "" ∧
+  vs_to_string [] = SOME «»  ∧
   vs_to_string (Litv (StrLit s1)::vs) =
-    (case vs_to_string vs of NONE => NONE | SOME s2 => SOME (STRCAT s1 s2)) ∧
+    (case vs_to_string vs of NONE => NONE | SOME s2 => SOME (strcat s1 s2)) ∧
   vs_to_string (_::v1) = NONE
 End
 
 Definition maybe_to_v_def:
-  maybe_to_v NONE = Conv (SOME (TypeStamp "None" option_type_num)) [] ∧
-  maybe_to_v (SOME v) = Conv (SOME (TypeStamp "Some" option_type_num)) [v]
+  maybe_to_v NONE = Conv (SOME (TypeStamp «None» option_type_num)) [] ∧
+  maybe_to_v (SOME v) = Conv (SOME (TypeStamp «Some» option_type_num)) [v]
 End
 
 Definition v_to_id_def:
   v_to_id (Conv (SOME stamp) [Litv (StrLit s)]) =
-     (if stamp = TypeStamp "Short" id_type_num then
+     (if stamp = TypeStamp «Short» id_type_num then
         SOME (Short s)
       else NONE) ∧
   v_to_id (Conv (SOME stamp) [Litv (StrLit s); v]) =
-     (if stamp = TypeStamp "Long" id_type_num then
+     (if stamp = TypeStamp «Long» id_type_num then
         case v_to_id v of NONE => NONE | SOME id => SOME (Long s id)
       else NONE) ∧
   v_to_id _ = NONE
