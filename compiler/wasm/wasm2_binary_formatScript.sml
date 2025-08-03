@@ -1,5 +1,5 @@
 (*
-  En- & De- coding between Cake's Wasm 2.0 AST & Wasm's binary format
+  En- & De- coding between CWasm 2.0 AST & Wasm's binary format
 
 *)
 
@@ -32,95 +32,6 @@ Overload B0[local]    = “λ x. x = zeroB”
 
 Overload error = “λ str obj. (INL (strlit str),obj)”
 (* ": Byte sequence unexpectedly empty." *)
-
-Overload dec_u8[local]  = “dec_unsigned_word : byteSeq -> (byte   # byteSeq) option”
-Overload dec_u32[local] = “dec_unsigned_word : byteSeq -> (word32 # byteSeq) option”
-Overload dec_u64[local] = “dec_unsigned_word : byteSeq -> (word64 # byteSeq) option”
-
-Overload dec_s8[local]  = “dec_signed        : byteSeq -> (byte   # byteSeq) option”
-Overload dec_s32[local] = “dec_signed        : byteSeq -> (word32 # byteSeq) option”
-Overload dec_s64[local] = “dec_signed        : byteSeq -> (word64 # byteSeq) option”
-
-Overload enc_u8[local]  = “enc_unsigned_word : byte   -> byteSeq”
-Overload enc_u32[local] = “enc_unsigned_word : word32 -> byteSeq”
-Overload enc_u64[local] = “enc_unsigned_word : word64 -> byteSeq”
-
-Overload enc_s8[local]  = “enc_signed_word8  : byte   -> byteSeq”
-Overload enc_s32[local] = “enc_signed_word32 : word32 -> byteSeq”
-Overload enc_s64[local] = “enc_signed_word64 : word64 -> byteSeq”
-
-Definition dec_2u32_def:
-  dec_2u32 (bs:byteSeq) : (word32 # word32 # byteSeq) option =
-  case dec_u32 bs of NONE=>NONE| SOME(n,cs) =>
-  case dec_u32 cs of NONE=>NONE| SOME(m,rs) => SOME (n,m,rs)
-End
-
-Definition enc_2u32_def:
-  enc_2u32 w v = enc_u32 w ++ enc_u32 v
-End
-
-Theorem dec_enc_2u32[simp]:
-  dec_2u32 (enc_2u32 w v ++ rest) = SOME (w,v,rest)
-Proof
-  rw[enc_2u32_def, dec_2u32_def, dec_enc_unsigned_word]
-  >> rewrite_tac[GSYM APPEND_ASSOC]
-  >> rw[dec_enc_unsigned_word]
-QED
-
-
-Definition dec_2u32_u8_def:
-  dec_2u32_u8 (bs:byteSeq) : (word32 # word32 # byte # byteSeq) option =
-    case dec_u32 bs of NONE=>NONE| SOME(i,cs) =>
-    case dec_u32 cs of NONE=>NONE| SOME(j,ds) =>
-    case dec_u8  ds of NONE=>NONE| SOME(k,rs) => SOME (i,j,k,rs)
-End
-
-Definition enc_2u32_u8_def:
-  enc_2u32_u8 ofs al lid = enc_u32 ofs ++ enc_u32 al ++ enc_u8 lid
-End
-
-Theorem dec_enc_2u32_u8[simp]:
-  dec_2u32_u8 (enc_2u32_u8 ofs al lid ++ rest) = SOME (ofs,al,lid,rest)
-Proof
-  rw[enc_2u32_u8_def, dec_2u32_u8_def]
-  (* ASKYK ASKMM *)
-  (* what's the right way to eliminate this repetition *)
-  >> (rewrite_tac[GSYM APPEND_ASSOC]
-  >> rw[dec_enc_unsigned_word])
-  >> (rewrite_tac[GSYM APPEND_ASSOC])
-  >> rw[dec_enc_unsigned_word]
-  (* something else to try *)
-  (* >> simp_tac std_ss [GSYM APPEND_ASSOC]
-  >> rw[dec_enc_unsigned_word] *)
-QED
-
-
-(* ASKYK ASKMM *)
-(* what's the right way to add notated (with word width)
-   dec_enc_unsigned_word versions to the simp set *)
-Theorem dec_enc_u32[simp]:
-  dec_u32 (enc_u32 w ++ rest) = SOME (w,rest)
-Proof
-  rw[dec_enc_unsigned_word]
-QED
-
-Theorem dec_enc_s8[simp]:
-  dec_s8 (enc_s8 w ++ rest) = SOME (w,rest)
-Proof
-  rw[dec_enc_signed_word8]
-QED
-
-Theorem dec_enc_s32[simp]:
-  dec_s32 (enc_s32 w ++ rest) = SOME (w,rest)
-Proof
-  rw[dec_enc_signed_word32]
-QED
-
-Theorem dec_enc_s64[simp]:
-  dec_s64 (enc_s64 w ++ rest) = SOME (w,rest)
-Proof
-  rw[dec_enc_signed_word64]
-QED
 
 (***********************************************)
 (*                                             *)
@@ -291,8 +202,8 @@ Definition enc_numI_def:
   | N_const32 Int   (c32: word32)            =>  0x41w :: enc_s32 c32
   | N_const64 Int   (c64: word64)            =>  0x42w :: enc_s64 c64
 
-  | N_const32 Float (c32: word32)            =>  0x43w :: lend c32
-  | N_const64 Float (c64: word64)            =>  0x44w :: lend c64
+  | N_const32 Float (c32: word32)            =>  0x43w :: lend32 c32
+  | N_const64 Float (c64: word64)            =>  0x44w :: lend64 c64
 
   | N_convert $   Trunc_sat_f W32   Signed W32   => 0xFCw :: enc_u32 0w
   | N_convert $   Trunc_sat_f W32 Unsigned W32   => 0xFCw :: enc_u32 1w
@@ -441,8 +352,8 @@ Definition dec_numI_def:
   if b = 0x41w then case dec_s32 bs of SOME (s32,cs) => (INR $ N_const32  Int  s32, cs) | NONE => failure else
   if b = 0x42w then case dec_s64 bs of SOME (s64,cs) => (INR $ N_const64  Int  s64, cs) | NONE => failure else
 
-  if b = 0x43w then case unlend bs of SOME (c32,cs) => (INR $ N_const32 Float c32, cs) | NONE => failure else
-  if b = 0x44w then case unlend bs of SOME (c64,cs) => (INR $ N_const64 Float c64, cs) | NONE => failure else
+  if b = 0x43w then case unlend32 bs of SOME (c32,cs) => (INR $ N_const32 Float c32, cs) | NONE => failure else
+  if b = 0x44w then case unlend64 bs of SOME (c64,cs) => (INR $ N_const64 Float c64, cs) | NONE => failure else
 
   if b = 0xFCw then case dec_u32 bs of NONE=>failure| SOME (oc, rs) =>
     if oc = 0w then (INR $ N_convert $   Trunc_sat_f W32   Signed W32   ,rs) else
@@ -705,7 +616,7 @@ Definition enc_vecI_def:
   | V_convert $   Vdemote                               => v_opcode 94
   | V_convert $   Vpromote                              => v_opcode 95
 
-  | V_const (w128: word128)                             => (v_opcode 12) ++ lend w128
+  | V_const (w128: word128)                             => (v_opcode 12) ++ lend128 w128
 
   | V_lane   (Vextract_           Signed  I8x16)   lidx => (v_opcode 21) ++ enc_u8 lidx
   | V_lane   (Vextract_         Unsigned  I8x16)   lidx => (v_opcode 22) ++ enc_u8 lidx
@@ -934,7 +845,7 @@ Definition dec_vecI_def:
   if oc =  94w then (INR $ V_convert    Vdemote                                ,cs) else
   if oc =  95w then (INR $ V_convert    Vpromote                               ,cs) else
 
-  if oc=12w then case unlend cs of NONE => failure | SOME (w128, ds) => (INR $ V_const w128,ds) else
+  if oc=12w then case unlend128 cs of NONE => failure | SOME (w128, ds) => (INR $ V_const w128,ds) else
 
   if oc=21w then case dec_u8 cs of NONE => failure | SOME (lidx,ds) => (INR $ V_lane  (Vextract_            Signed I8x16)  lidx,ds) else
   if oc=22w then case dec_u8 cs of NONE => failure | SOME (lidx,ds) => (INR $ V_lane  (Vextract_          Unsigned I8x16)  lidx,ds) else

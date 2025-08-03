@@ -19,7 +19,7 @@ Imprecisions:
   HOL lists encode Wasm vectors; latter has max length of 2^32
 
 [wasm2_binary_formatScript.sml](wasm2_binary_formatScript.sml):
-En- & De- coding between Cake's Wasm 2.0 AST & Wasm's binary format
+En- & De- coding between CWasm 2.0 AST & Wasm's binary format
 
 [wasm2_notationsScript.sml](wasm2_notationsScript.sml):
 Notations (HOL Overloads) for cake's Wasm 2.0 AST
@@ -39,7 +39,7 @@ Imprecisions:
 WebAssembly (Wasm) semantics
 
 [wasm_binary_formatScript.sml](wasm_binary_formatScript.sml):
-En- & De- coding between Cake's Wasm 1.0 AST & Wasm's binary format
+En- & De- coding between CWasm 1.0 AST & Wasm's binary format
 
 [wasm_notationsScript.sml](wasm_notationsScript.sml):
 Notations for cake's Wasm 1.0 AST
