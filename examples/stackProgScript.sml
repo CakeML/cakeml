@@ -5,6 +5,8 @@ using CF.
 Theory stackProg
 Libs
   preamble basis
+Ancestors
+  cfApp mlbasicsProg
 
 
 val _ = translation_extends"basisProg";
@@ -236,4 +238,3 @@ Proof
   rw[] >>
   fs[NULL_EQ]
 QED
-

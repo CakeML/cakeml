@@ -2,10 +2,10 @@
   Translate md5 function
 *)
 Theory md5Prog
-Ancestors
-  md5 UnsafeProg
 Libs
   preamble basis cfLib basisFunctionsLib
+Ancestors
+  md5 UnsafeProg
 
 val _ = translation_extends "UnsafeProg";
 
@@ -163,4 +163,3 @@ Proof
   \\ gvs [std_preludeTheory.OPTION_TYPE_def,md5_final_def]
   \\ fs [md5_lem]
 QED
-

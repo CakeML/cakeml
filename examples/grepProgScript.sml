@@ -2,10 +2,11 @@
   grep example: search for file lines matching a regular expression.
 *)
 Theory grepProg
-Ancestors
-  charset regexp regexp_parser regexp_compiler
 Libs
   preamble basis
+Ancestors
+  charset regexp regexp_parser regexp_compiler mlvector
+  cfApp basis_ffi
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -1050,4 +1051,3 @@ End
 Theorem grep_semantics =
   sem_thm |> REWRITE_RULE[GSYM grep_prog_def]
   |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-
