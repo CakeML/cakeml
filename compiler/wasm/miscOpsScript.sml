@@ -74,7 +74,9 @@ End
 Theorem dec_enc_2u32_u8[simp]:
   dec_2u32_u8 (enc_2u32_u8 ofs al lid ++ rest) = SOME (ofs,al,lid,rest)
 Proof
-  rw[enc_2u32_u8_def, dec_2u32_u8_def]
+  rw[enc_2u32_u8_def, dec_2u32_u8_def]>>
+  simp[GSYM APPEND_ASSOC,Excl "APPEND_ASSOC",dec_enc_unsigned_word]
+  (*
   (* ASKYK ASKMM *)
   (* what's the right way to eliminate this repetition *)
   >> (rewrite_tac[GSYM APPEND_ASSOC]
@@ -84,6 +86,7 @@ Proof
   (* something else to try *)
   (* >> simp_tac std_ss [GSYM APPEND_ASSOC]
   >> rw[dec_enc_unsigned_word] *)
+  *)
 QED
 
 (* NOTE: these cannot be trivialities because they also do typecasting *)

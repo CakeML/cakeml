@@ -1152,17 +1152,8 @@ End
 Theorem dec_enc_tableI:
   ∀ i. dec_tableI (enc_tableI i ++ rest) = (INR i, rest)
 Proof
-  rw[enc_tableI_def] >> every_case_tac
-
-  >- rw[dec_tableI_def, dec_enc_unsigned_word]
-
-  >- rw[dec_tableI_def, dec_enc_unsigned_word]
-
-  >> (rw[dec_tableI_def]
-  >> rewrite_tac[GSYM APPEND_ASSOC]
-  >> rw[dec_enc_unsigned_word])
-
-  >> rw[dec_enc_unsigned_word, dec_enc_2u32]
+  rw[enc_tableI_def] >> every_case_tac>>
+  rw[dec_tableI_def,GSYM APPEND_ASSOC, Excl"APPEND_ASSOC",dec_enc_unsigned_word]
 QED
 
 
