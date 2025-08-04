@@ -66,6 +66,60 @@ Definition dec_valtype_def:
   NONE
 End
 
+Theorem dec_enc_valtype:
+  ∀ t. dec_valtype (enc_valtype t) = SOME t
+Proof
+  rpt strip_tac (* this is like intros *)
+  >> `? val. enc_valtype t = val` by simp []
+  >> asm_rewrite_tac[]
+  >> pop_assum mp_tac
+  >> rewrite_tac[enc_valtype_def]
+  >> simp[AllCaseEqs()]
+  >> rpt strip_tac (* this is like intros *)
+  >> gvs[dec_valtype_def]
+QED
+
+
+
+Definition enc_blocktype_def:
+  enc_blocktype (bt:blocktype) : byteSeq = case bt of
+  | BlkNil    => [0x40w]
+  | BlkVal vt => [enc_valtype vt]
+  | BlkIdx x  => enc_s33 $ w2w x
+End
+
+Definition dec_blocktype_def:
+  dec_blocktype ([]:byteSeq) : ((mlstring + blocktype) # byteSeq) = error "[dec_blocktype] : Byte sequence unexpectedly empty." [] ∧
+  dec_blocktype (x40::bs) = let failure = error "[dec_blocktype]" $ x40::bs in
+
+  if x40 = 0x40w then                      (INR   BlkNil        , bs) else
+  case dec_valtype x40   of SOME t      => (INR $ BlkVal t      , bs) | _ =>
+  case dec_s33 $ x40::bs of SOME (x,rs) => (INR $ BlkIdx $ w2w x, rs) | _ =>
+  failure
+End
+
+Theorem dec_enc_blocktype:
+  ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
+Proof
+  rw[enc_blocktype_def] >> every_case_tac
+
+  >-rw[dec_blocktype_def]
+
+  (* ASKYK *)
+  >-(rw[dec_blocktype_def] (* if we run the 2nd tactic after the sg split, it still solves the 2nd goal??? *)
+    >-( pop_assum mp_tac
+      >>rewrite_tac[enc_valtype_def]
+      >>every_case_tac
+      >>rw[])
+    >- rw[dec_enc_valtype]) (* interactively, this solves the first sg *)
+
+  (* ASKYK *)
+  (* Just don't know how to do *)
+  >- cheat
+QED
+
+
+(*-----------------------------------------------------------------------------------------------------------------------------------------------------------*)
 
 
 Definition enc_numI_def:
@@ -407,7 +461,6 @@ Proof
   >> rw[dec_numI_def]
   *)
 QED
-
 
 
 (*-----------------------------------------------------------------------------------------------------------------------------------------------------------*)
@@ -1177,19 +1230,6 @@ QED
 
 
 
-Theorem dec_enc_valtype:
-  ∀ t. dec_valtype (enc_valtype t) = SOME t
-Proof
-  rpt strip_tac (* this is like intros *)
-  >> `? val. enc_valtype t = val` by simp []
-  >> asm_rewrite_tac[]
-  >> pop_assum mp_tac
-  >> rewrite_tac[enc_valtype_def]
-  >> simp[AllCaseEqs()]
-  >> rpt strip_tac (* this is like intros *)
-  >> gvs[dec_valtype_def]
-QED
-
 Theorem dec_enc_valtype_redux:
   ∀ t. dec_valtype (enc_valtype t) = SOME t
 Proof
@@ -1232,29 +1272,33 @@ QED
 (*             *)
 (***************)
 
-
-
-
 (* TODO *)
-Definition enc_blocktype_def:
-  enc_blocktype = ARB
-End
-Definition dec_blocktype_def:
-  dec_blocktype = ARB
+
+Definition enc_vector_aux_def:
+  enc_vector_aux (encdr:α -> byteSeq) ([]:α list) = (0:num,[]) ∧
+  enc_vector_aux encdr (x::xs) =
+    let (n,ys) = enc_vector_aux encdr xs in
+    (n+1, encdr x ++ ys)
 End
 
-Theorem dec_enc_blocktype:
-  ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
+Definition enc_vector_def:
+  enc_vector (encdr:α -> byteSeq) ([]:α list) : byteSeq option = SOME $ enc_num 0 ∧
+  enc_vector encdr xs =
+    let (n,ys) = enc_vector_aux encdr xs in
+    if n < 2 ** 32 then SOME $ enc_num n ++ ys else NONE
+End
+
+Definition dec_vec_def:
+  dec_vec decdr (bs:byteSeq) =
+End
+
+Theorem dec_enc_vector:
+  ∀ x (enc:α -> byteSeq) (dec:byteSeq -> (α # byteSeq) option) rs1 rs2.
+    dec (enc x ++ rs1) = SOME (x,rs1) ⇒
+  dec_vector dec (enc_vector enc xs  ++ rs2)
 Proof
-  cheat
 QED
 
-Definition enc_vec_def:
-  enc_vec = ARB
-End
-Definition dec_vec_def:
-  dec_vec = ARB
-End
 Definition enc_fsig_def:
   enc_fsig = ARB
 End

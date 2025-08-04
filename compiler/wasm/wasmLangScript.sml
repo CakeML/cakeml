@@ -246,10 +246,8 @@ End *)
 Datatype: blocktype
   = BlkNil
   | BlkVal valtype
-  | BlkIdx num
+  | BlkIdx word32
 End
-
-(* TODO switch out nums in AST to index *)
 
 Datatype: instr
 
@@ -279,8 +277,28 @@ Datatype: instr
 
 End
 
-(* Datatype: module
-  =
-End *)
+Datatype: func =
+  <|
+    name       : string      ;
+    type       : functype    ;
+    body       : instr   list;
+    localTypes : valtype list;
+  |>
+End
+
+(* MM: HOL doesn't have a utf8 library *)
+Datatype: module =
+  <|
+    funcs   : func    list ;
+    (* tables  : table   list ; *)
+    mems    : mem     list ;
+    globals : global  list ;
+    (* elems   : elem    list ; *)
+    (* datas   : data    list ; *)
+    start   : index        ;
+    (* imports : import  list ; *)
+    (* exports : export  list ; *)
+  |>
+End
 
 val _ = export_theory();

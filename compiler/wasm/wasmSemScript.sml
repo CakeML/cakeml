@@ -10,18 +10,26 @@ integer_words$word_rem *)
 val _ = new_theory "wasmSem";
 
 Type memory = “:word8 list”
-Overload b2w[local] = “λ (b:bool). if b then 1w:α word else 0w”
+
+(***************************)
+(*   Ancillary functions   *)
+(***************************)
 
 Definition sext_def:
   sext   Signed = sw2sw ∧
   sext Unsigned = w2w
 End
 
+(****************************)
+(*                          *)
+(*     Semantics Proper     *)
+(*                          *)
+(****************************)
+
 Datatype: value
   = I32 word32
   | I64 word64
 End
-
 
 Datatype:
   state =

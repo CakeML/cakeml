@@ -34,6 +34,8 @@ Overload dec_s8  = “dec_signed        : byteSeq -> (byte   # byteSeq) option�
 Overload dec_s32 = “dec_signed        : byteSeq -> (word32 # byteSeq) option”
 Overload dec_s64 = “dec_signed        : byteSeq -> (word64 # byteSeq) option”
 
+Overload dec_s33 = “dec_signed        : byteSeq ->(33 word # byteSeq) option”
+
 Overload enc_u8  = “enc_unsigned_word : byte   -> byteSeq”
 Overload enc_u32 = “enc_unsigned_word : word32 -> byteSeq”
 Overload enc_u64 = “enc_unsigned_word : word64 -> byteSeq”
@@ -41,6 +43,7 @@ Overload enc_u64 = “enc_unsigned_word : word64 -> byteSeq”
 Overload enc_s8  = “enc_signed_word8  : byte   -> byteSeq”
 Overload enc_s32 = “enc_signed_word32 : word32 -> byteSeq”
 Overload enc_s64 = “enc_signed_word64 : word64 -> byteSeq”
+
 
 Definition dec_2u32_def:
   dec_2u32 (bs:byteSeq) : (word32 # word32 # byteSeq) option =
@@ -109,6 +112,43 @@ Theorem dec_enc_s64[simp]:
   dec_s64 (enc_s64 w ++ rest) = SOME (w,rest)
 Proof
   rw[dec_enc_signed_word64]
+QED
+
+Definition enc_s33_def:
+  enc_s33 (w:33 word) =
+    if sw2sw ((w2w w):7 word) = w then
+      enc_w7s [w2w w]
+    else if sw2sw ((w2w w):14 word) = w then
+      let w = (sw2sw w) :14 word in
+        enc_w7s [w2w w;
+                 w2w (w >>> 7)]
+    else if sw2sw ((w2w w):21 word) = w then
+      let w = (sw2sw w) :21 word in
+        enc_w7s [w2w w;
+                 w2w (w >>> 7);
+                 w2w (w >>> 14)]
+    else if sw2sw ((w2w w):28 word) = w then
+      let w = (sw2sw w) :28 word in
+        enc_w7s [w2w w;
+                 w2w (w >>> 7);
+                 w2w (w >>> 14);
+                 w2w (w >>> 21)]
+    else
+      let w = (sw2sw w) :35 word in
+        enc_w7s [w2w w;
+                 w2w (w >>> 7);
+                 w2w (w >>> 14);
+                 w2w (w >>> 21);
+                 w2w (w >>> 28)]
+End
+
+Theorem dec_enc_s33:
+  ∀b xs rest. dec_s33 (enc_s33 b ++ rest) = SOME (b,rest)
+Proof
+  rw [enc_s33_def,dec_signed_def]
+  \\ simp [dec_enc_w7s,or_w7s_def]
+  \\ pop_assum mp_tac
+  \\ blastLib.BBLAST_TAC
 QED
 
 
