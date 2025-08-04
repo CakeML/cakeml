@@ -3,7 +3,7 @@
 *)
 Theory patchProg
 Ancestors
-  charset diff
+  charset diff cfApp basis_ffi
 Libs
   preamble basis
 
@@ -245,4 +245,3 @@ Theorem patch_semantics =
   sem_thm |> REWRITE_RULE[GSYM patch_prog_def]
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
-

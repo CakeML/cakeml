@@ -5,6 +5,8 @@ using CF.
 
 *)
 Theory queueProg
+Ancestors
+  cfApp
 Libs
   preamble basis
 
@@ -255,4 +257,3 @@ Proof
   Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
   metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]
 QED
-

@@ -3,7 +3,7 @@
 *)
 Theory sortProg
 Ancestors
-  quicksortProg
+  quicksortProg cfApp basis_ffi
 Libs
   preamble basis
 
@@ -577,4 +577,3 @@ Theorem sort_semantics =
   sem_thm |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-

@@ -7,7 +7,7 @@
 *)
 Theory wordcountProg
 Ancestors
-  splitwords
+  splitwords cfApp basis_ffi
 Libs
   preamble basis
 
@@ -273,4 +273,3 @@ Theorem wordcount_semantics =
   |> DISCH_ALL
   |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,LENGTH]
   |> SIMP_RULE (srw_ss()) []
-
