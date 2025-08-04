@@ -3,7 +3,7 @@
 *)
 Theory diffProg
 Ancestors
-  charset lcs diff
+  charset lcs diff basis_ffi
 Libs
   preamble basis
 
@@ -210,4 +210,3 @@ Theorem diff_semantics =
   sem_thm |> REWRITE_RULE[GSYM diff_prog_def]
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
-

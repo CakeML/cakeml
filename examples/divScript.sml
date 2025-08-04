@@ -3,7 +3,7 @@
 *)
 Theory div
 Ancestors
-  integer cfDiv
+  integer cfDiv mlbasicsProg Word8Prog
 Libs
   preamble basis cfDivLib
 
@@ -1435,4 +1435,3 @@ Proof
   xlet_auto >- (xcon >> xsimpl) >>
   xvar >> xsimpl
 QED
-

@@ -2,11 +2,11 @@
   Parsing and pretty printing of s-expressions
 *)
 Theory lispProg
+Libs
+  preamble basis
 Ancestors
   misc set_sep list mlstring
   (* lisp: *) parsing source_values printing
-Libs
-  preamble basis
 
 val _ = translation_extends "basisProg";
 
