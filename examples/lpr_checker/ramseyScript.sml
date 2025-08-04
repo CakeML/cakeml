@@ -2,10 +2,10 @@
    Defining the Ramsey number and SAT encoding
 *)
 Theory ramsey
-Ancestors
-  misc lpr satSem
 Libs
   preamble
+Ancestors
+  misc lpr satSem
 
 (* TODO MOVE *)
 Theorem ALL_DISTINCT_MAP_FST_enumerate:
@@ -832,4 +832,3 @@ Proof
   qexists_tac`solf'`>>match_mp_tac check_sat_satisfies>>
   simp[thm]
 QED
-
