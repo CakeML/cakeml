@@ -1288,16 +1288,26 @@ Definition enc_vector_def:
     if n < 2 ** 32 then SOME $ enc_num n ++ ys else NONE
 End
 
+(* Definition dec_vec_def:
+  (* dec_vec ([]:byteSeq) : ((mlstring + table_instr) # byteSeq) = error "[dec_vec] : Byte sequence unexpectedly empty." [] ∧ *)
+  dec_vec decdr ([]:byteSeq) :  = error "[dec_vec] : Byte sequence unexpectedly empty." [] ∧
+  dec_vec decdr (bs) = let failure = error "[dec_vec]" $ bs in
+  (* dec_vec decdr (bs:byteSeq) = *)
+    (* case dec_num bs of NONE => ARB *)
+    ARB
+End *)
+
 Definition dec_vec_def:
-  dec_vec decdr (bs:byteSeq) =
+  (* dec_vec ([]:byteSeq) : ((mlstring + table_instr) # byteSeq) = error "[dec_vec] : Byte sequence unexpectedly empty." [] ∧ *)
+  dec_vec decdr (bs) = ARB
 End
 
-Theorem dec_enc_vector:
+(* Theorem dec_enc_vector:
   ∀ x (enc:α -> byteSeq) (dec:byteSeq -> (α # byteSeq) option) rs1 rs2.
     dec (enc x ++ rs1) = SOME (x,rs1) ⇒
   dec_vector dec (enc_vector enc xs  ++ rs2)
 Proof
-QED
+QED *)
 
 Definition enc_fsig_def:
   enc_fsig = ARB
