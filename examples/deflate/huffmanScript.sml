@@ -3,7 +3,7 @@ Implementation of Huffman Trees and Canonical Huffman codes.
 *)
 Theory huffman
 Ancestors
-  list rich_list option pair arithmetic ringBuffer
+  alist string list rich_list option pair arithmetic ringBuffer
 Libs
   preamble
 
@@ -278,4 +278,3 @@ EVAL “unique_huff_tree []”;
 EVAL “canonical_codes [0]”;
 
 EVAL “unique_huff_tree (MAP ORD "aaaaccb")”;
-

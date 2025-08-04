@@ -3,7 +3,7 @@ Implementation of LZSS using ringbuffer
 *)
 Theory LZSSrb
 Ancestors
-  list rich_list option pair arithmetic ringBuffer
+  string list rich_list option pair arithmetic ringBuffer
 Libs
   preamble
 
@@ -183,4 +183,3 @@ End
 Definition LZSS_decompress_def:
   LZSS_decompress s = LZdecompress [] s
 End
-
