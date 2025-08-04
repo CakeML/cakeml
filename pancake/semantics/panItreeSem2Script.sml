@@ -367,10 +367,10 @@ Definition h_prog_dec_def:
   case (eval s e) of
   | SOME value =>
       Vis (INL (p,s with locals := s.locals |+ (vname,value)))
-          (λa. case a of
-               | INL _ => Ret (INR (SOME Error, s))
+          (λa. Ret (INR (case a of
+               | INL _ => (SOME Error, s)
                | INR (res,s') =>
-                   Ret (INR (res,s' with locals := res_var s'.locals (vname, FLOOKUP s.locals vname))))
+                   (res,s' with locals := res_var s'.locals (vname, FLOOKUP s.locals vname)))))
   | NONE => Ret (INR (SOME Error,s))
 End
 
@@ -382,50 +382,50 @@ Definition h_prog_seq_def:
            | INR (res,s') =>
                if res = NONE
                then Vis (INL (p2,s'))
-                        (λa. case a of
-                             | INL _ => Ret (INR (SOME Error, s))
-                             | INR (res,s') => Ret (INR (res, s')))
+                        (λa. Ret (INR (case a of
+                             | INL _ => (SOME Error, s)
+                             | INR (res,s') => (res, s'))))
                else Ret (INR (res,s')))
 End
 
 Definition h_prog_assign_def:
   h_prog_assign vname e ^s =
-  case eval s e of
-   | SOME value =>
-      if is_valid_value s.locals vname value
-      then Ret (INR (NONE,s with locals := s.locals |+ (vname,value)))
-      else Ret (INR (SOME Error,s))
-   | NONE => Ret (INR (SOME Error,s))
+  Ret (INR (case eval s e of
+            | SOME value =>
+                if is_valid_value s.locals vname value
+                then (NONE,s with locals := s.locals |+ (vname,value))
+                else (SOME Error,s)
+            | NONE => (SOME Error,s)))
 End
 
 Definition h_prog_store_def:
   h_prog_store dst src ^s =
-  case (eval s dst,eval s src) of
-   | (SOME (ValWord addr),SOME value) =>
-      (case mem_stores addr (flatten value) s.memaddrs s.memory of
-        | SOME m => Ret (INR (NONE,s with memory := m))
-        | NONE => Ret (INR (SOME Error,s)))
-   | _ => Ret (INR (SOME Error,s))
+  Ret (INR (case (eval s dst,eval s src) of
+            | (SOME (ValWord addr),SOME value) =>
+                (case mem_stores addr (flatten value) s.memaddrs s.memory of
+                 | SOME m => (NONE,s with memory := m)
+                 | NONE => (SOME Error,s))
+            | _ => (SOME Error,s)))
 End
 
 Definition h_prog_store_byte_def:
   h_prog_store_byte dst src ^s =
-  case (eval s dst,eval s src) of
-   | (SOME (ValWord addr),SOME (ValWord w)) =>
-      (case mem_store_byte s.memory s.memaddrs s.be addr (w2w w) of
-        | SOME m => Ret (INR (NONE,s with memory := m))
-        | NONE => Ret (INR (SOME Error,s)))
-   | _ => Ret (INR (SOME Error,s))
+  Ret (INR (case (eval s dst,eval s src) of
+            | (SOME (ValWord addr),SOME (ValWord w)) =>
+                (case mem_store_byte s.memory s.memaddrs s.be addr (w2w w) of
+                 | SOME m => (NONE,s with memory := m)
+                 | NONE => (SOME Error,s))
+            | _ => (SOME Error,s)))
 End
 
 Definition h_prog_store_32_def:
   h_prog_store_32 dst src ^s =
-  case (eval s dst,eval s src) of
-   | (SOME (ValWord addr),SOME (ValWord w)) =>
-      (case mem_store_32 s.memory s.memaddrs s.be addr (w2w w) of
-        | SOME m => Ret (INR (NONE,s with memory := m))
-        | NONE => Ret (INR (SOME Error,s)))
-   | _ => Ret (INR (SOME Error,s))
+  Ret (INR (case (eval s dst,eval s src) of
+            | (SOME (ValWord addr),SOME (ValWord w)) =>
+                (case mem_store_32 s.memory s.memaddrs s.be addr (w2w w) of
+                 | SOME m => (NONE,s with memory := m)
+                 | NONE => (SOME Error,s))
+            | _ => (SOME Error,s)))
 End
 
 Definition h_prog_cond_def:
@@ -433,9 +433,9 @@ Definition h_prog_cond_def:
   case (eval s gexp) of
    | SOME (ValWord g) =>
        Vis (INL (if g ≠ 0w then p1 else p2,s))
-           (λa. case a of
-                | INL _ => Ret (INR (SOME Error, s))
-                | INR (res,s') => Ret (INR (res, s')))
+           (λa. Ret (INR (case a of
+                          | INL _ => (SOME Error, s)
+                          | INR (res,s') => (res, s'))))
    | _ => Ret (INR (SOME Error,s))
 End
 
@@ -446,14 +446,14 @@ Definition h_prog_while_def:
            | SOME (ValWord w) =>
                if (w ≠ 0w)
                then (Vis (INL (p,s))
-                         (λa. case a of
-                              | INL _ => Ret (INR (INR (SOME Error,s)))
-                              | INR (res,s') =>
-                                  (case res of
-                                   | SOME Break => Ret (INR (INR (NONE,s')))
-                                   | SOME Continue => Ret (INL (p,s'))
-                                   | NONE => Ret (INL (p,s'))
-                                   | _ => Ret (INR (INR (res,s'))))))
+                         (λa. Ret (case a of
+                                   | INL _ => INR (INR (SOME Error,s))
+                                   | INR (res,s') =>
+                                       (case res of
+                                        | SOME Break => INR (INR (NONE,s'))
+                                        | SOME Continue => INL (p,s')
+                                        | NONE => INL (p,s')
+                                        | _ => INR (INR (res,s'))))))
                else Ret (INR (INR (NONE,s)))
            | _ => Ret (INR (INR (SOME Error,s))))
   (p,s)
@@ -488,9 +488,9 @@ Definition h_handle_call_ret_def:
             SOME sh =>
               if shape_of exn = sh ∧ is_valid_value s.locals evar exn
               then Vis (INL (p,set_var evar exn (s' with locals := s.locals)))
-                       (λa. case a of
-                              | INL _ => Ret (INR (SOME Error, s'))
-                              | INR (res, s') => Ret (INR (res, s')))
+                       (λa. Ret (INR (case a of
+                                      | INL _ => (SOME Error, s')
+                                      | INR (res, s') => (res, s'))))
               else Ret (INR (SOME Error,s'))
           | NONE => Ret (INR (SOME Error,s')))
        else Ret (INR (SOME (Exception eid exn),empty_locals s'))) ∧
@@ -516,10 +516,10 @@ Definition h_handle_deccall_ret_def:
   (h_handle_deccall_ret rt shape prog1 s (INR (SOME (Return retv),s')) =
    if shape_of retv = shape then
      Vis (INL (prog1, set_var rt retv (s' with locals := s.locals)))
-         (λa. case a of
-              | INL _ => Ret (INR (SOME Error, s'))
-              | INR (res', s') =>
-                  Ret (INR (res',s' with locals := res_var s'.locals (rt, FLOOKUP s.locals rt))))
+         (λa. Ret (INR (case a of
+                        | INL _ => (SOME Error, s')
+                        | INR (res', s') =>
+                            (res',s' with locals := res_var s'.locals (rt, FLOOKUP s.locals rt)))))
    else Ret (INR (SOME Error, s'))) ∧
   (h_handle_deccall_ret rt shape prog1 s (INR (res,s')) = Ret (INR (res,empty_locals s')))
 End
@@ -566,23 +566,23 @@ End
 
 Definition h_prog_raise_def:
   h_prog_raise eid e ^s =
-  case (FLOOKUP s.eshapes eid, eval s e) of
-   | (SOME sh, SOME value) =>
-      if shape_of value = sh ∧
-         size_of_shape (shape_of value) <= 32
-      then Ret (INR (SOME (Exception eid value),empty_locals s))
-      else Ret (INR (SOME Error,s))
-   | _ => Ret (INR (SOME Error,s))
+  Ret (INR (case (FLOOKUP s.eshapes eid, eval s e) of
+            | (SOME sh, SOME value) =>
+                if shape_of value = sh ∧
+                   size_of_shape (shape_of value) <= 32
+                then (SOME (Exception eid value),empty_locals s)
+                else (SOME Error,s)
+            | _ => (SOME Error,s)))
 End
 
 Definition h_prog_return_def:
   h_prog_return e ^s =
-  case (eval s e) of
-   | SOME value =>
-      if size_of_shape (shape_of value) <= 32
-      then Ret (INR (SOME (Return value),empty_locals s))
-      else Ret (INR (SOME Error,s))
-   | _ => Ret (INR (SOME Error,s))
+  Ret (INR (case (eval s e) of
+            | SOME value =>
+                if size_of_shape (shape_of value) <= 32
+                then (SOME (Return value),empty_locals s)
+                else (SOME Error,s)
+            | _ => (SOME Error,s)))
 End
 
 Definition h_prog_sh_mem_load_def:
