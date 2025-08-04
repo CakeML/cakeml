@@ -376,7 +376,13 @@ Theorem dec_enc_numI:
   ∀ i. dec_numI (enc_numI i ++ rest) = (INR i, rest)
 Proof
   cheat
-  (* the following script results in
+  (* rw[enc_numI_def] >> every_case_tac
+  >> rw[dec_numI_def]
+  >> cheat *)
+  (* the following script
+
+    1) takes super long...
+    2)  results in:
 
     1 subgoal:
     val it =
@@ -385,29 +391,10 @@ Proof
 
        : proof
 
-    ?????? + it takes super long (like 15 seconds)
-  *)
-  (*
-  rw[enc_numI_def] >> every_case_tac
-  >>~ [ `Trunc_sat_f`]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-
-  >> rw[dec_numI_def]
+    I have no idea what this means, or what could have
+    led to it
   *)
 QED
-
 
 
 (*-----------------------------------------------------------------------------------------------------------------------------------------------------------*)
@@ -962,19 +949,6 @@ Definition dec_loadI_def:
   failure
 End
 
-(* ASKYK ASKMM *)
-(* this is super slow. How to speed up *)
-Theorem dec_enc_loadI:
-  ∀ i. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
-Proof
-  cheat
-  (* rw [enc_loadI_def] >> every_case_tac
-  >> rw [dec_loadI_def]
-  >> (rewrite_tac[GSYM APPEND_ASSOC] >- rw[]) *)
-QED
-
-
-(*-----------------------------------------------------------------------------------------------------------------------------------------------------------*)
 
 
 Definition enc_storeI_def:
@@ -1038,11 +1012,11 @@ End
 
 Definition dec_memI_def:
   dec_memI ([]:byteSeq) : ((mlstring + mem_others) # byteSeq) = error "[dec_memI] : Byte sequence unexpectedly empty." [] ∧
-  dec_memI (b::nxt::bs) = let failure = error "[dec_memI]" $ b::nxt::bs in
+  dec_memI (b::bs) = let failure = error "[dec_memI]" $ b::bs in
 
-  if b = 0x3Fw ∧ B0 nxt then (INR MemorySize, bs) else
-  if b = 0x40w ∧ B0 nxt then (INR MemoryGrow, bs) else
-  if b = 0xFCw then case dec_u32 $ nxt::bs of NONE=>failure| SOME (oc,cs) =>
+  if b = 0x3Fw then case bs of w0::cs => if B0 w0 then (INR MemorySize,cs) else failure| _ =>failure   else
+  if b = 0x40w then case bs of w0::cs => if B0 w0 then (INR MemoryGrow,cs) else failure| _ =>failure   else
+  if b = 0xFCw then case dec_u32 bs of NONE=>failure| SOME (oc,cs) =>
     if oc =  8w then case dec_u32 cs of NONE=>failure| SOME (didx,z::rst) => if B0 z then (INR $ MemoryInit didx,rst) else failure else
     if oc =  9w then case dec_u32 cs of NONE=>failure| SOME (didx,   rst) =>              (INR $ DataDrop   didx,rst)              else
     if oc = 10w then case cs of z::n::rst => if B0 $ n+z then (INR   MemoryCopy     ,rst) else failure | _ => failure              else
@@ -1051,25 +1025,6 @@ Definition dec_memI_def:
   else
   failure
 End
-
-(* ASKYK ASKMMM *)
-Theorem dec_enc_memI:
-  ∀ i. dec_memI (enc_memI i ++ rest) = (INR i, rest)
-Proof
-  rw [enc_memI_def] >> every_case_tac
-  >- rw [dec_memI_def]              (* MemorySize *)
-  >- rw [dec_memI_def]              (* MemoryGrow *)
-
-  (* I don't understand why the following doesn't work
-     on the MemoryFill case. I assume it has something to
-     do with the way I encoded dec_memI *)
-  >> rw[] (* to massage the list from   e :: (xs ++ ys) ++ zs
-                                   to   e :: xs ++ ys ++ zs *)
-  >> rewrite_tac [GSYM APPEND_ASSOC]
-  >> fs[oneline dec_memI_def]    (* this does nothing - but I don't know enough to be surprised *)
-  >> rw [dec_memI_def]           (* this does nothing - I thought it should have... *)
-  >> cheat
-QED
 
 
 (*-----------------------------------------------------------------------------------------------------------------------------------------------------------*)
@@ -1132,9 +1087,10 @@ Definition dec_tableI_def:
   dec_tableI ([]:byteSeq) : ((mlstring + table_instr) # byteSeq) = error "[dec_tableI] : Byte sequence unexpectedly empty." [] ∧
   dec_tableI (b::bs) = let failure = error "[dec_tableI]" $ b::bs in
 
-  if b = 0x25w then  case dec_u32  bs of NONE=>failure| SOME (x,rs) => (INR $ TableSet  x,rs) else
-  if b = 0x26w then  case dec_u32  bs of NONE=>failure| SOME (x,rs) => (INR $ TableGet  x,rs) else
-  if b = 0xFCw then  case dec_u32  bs of NONE=>failure| SOME (oc,cs) =>
+  if b = 0x25w then   case dec_u32  bs of NONE=>failure| SOME (x,rs) => (INR $ TableSet  x,rs)   else
+  if b = 0x26w then   case dec_u32  bs of NONE=>failure| SOME (x,rs) => (INR $ TableGet  x,rs)   else
+
+  if b = 0xFCw then case dec_u32  bs of NONE=>failure| SOME (oc,cs) =>
     if oc = 12w then case dec_u32  cs of NONE=>failure| SOME (  x,rs) => (INR $ TableSize x  ,rs) else
     if oc = 13w then case dec_u32  cs of NONE=>failure| SOME (  x,rs) => (INR $ TableGrow x  ,rs) else
     if oc = 14w then case dec_u32  cs of NONE=>failure| SOME (  x,rs) => (INR $ TableFill x  ,rs) else
@@ -1146,18 +1102,6 @@ Definition dec_tableI_def:
   failure
 End
 
-(* ASKYK ASKMMM *)
-(* I myself don't know how to improve this
-   but surely it can be improved *)
-Theorem dec_enc_tableI:
-  ∀ i. dec_tableI (enc_tableI i ++ rest) = (INR i, rest)
-Proof
-  rw[enc_tableI_def] >> every_case_tac>>
-  rw[dec_tableI_def,GSYM APPEND_ASSOC, Excl"APPEND_ASSOC",dec_enc_unsigned_word]
-QED
-
-
-(*-----------------------------------------------------------------------------------------------------------------------------------------------------------*)
 
 
 (***********************************)
@@ -1194,12 +1138,32 @@ Proof
   (* try this when I know how to speed up dec_enc_numI *)
 QED
 
+(* ASKYK ASKMM *)
+(* this is super slow. Any way to speed up? *)
+Theorem dec_enc_loadI:
+  ∀ i. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
+Proof
+  cheat
+  (* rw [enc_loadI_def] >> every_case_tac
+  >> rw [dec_loadI_def]
+  >> (rewrite_tac[GSYM APPEND_ASSOC] >- rw[]) *)
+QED
+
+(* ASKYK ASKMM *)
+(* this is super slow. Any way to speed up? *)
 Theorem dec_enc_storeI:
   ∀ i. dec_storeI (enc_storeI i ++ rest) = (INR i, rest)
 Proof
   rw[enc_storeI_def] >> every_case_tac
   >> rw[dec_storeI_def]
   >> (rewrite_tac[GSYM APPEND_ASSOC] >- rw[])
+QED
+
+Theorem dec_enc_memI:
+  ∀ i. dec_memI (enc_memI i ++ rest) = (INR i, rest)
+Proof
+  rw [enc_memI_def] >> every_case_tac
+  >> rw [dec_memI_def, GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 QED
 
 Theorem dec_enc_paraI:
@@ -1214,6 +1178,13 @@ Theorem dec_enc_varI:
 Proof
   rw[enc_varI_def] >> every_case_tac >>
   rw[dec_varI_def, dec_enc_unsigned_word]
+QED
+
+Theorem dec_enc_tableI:
+  ∀ i. dec_tableI (enc_tableI i ++ rest) = (INR i, rest)
+Proof
+  rw[enc_tableI_def] >> every_case_tac>>
+  rw[dec_tableI_def,GSYM APPEND_ASSOC, Excl"APPEND_ASSOC",dec_enc_unsigned_word]
 QED
 
 
