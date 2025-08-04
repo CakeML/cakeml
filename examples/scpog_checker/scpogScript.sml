@@ -14,6 +14,8 @@ Type lit = ``:int``;
 Type var = ``:num``;
 Type id = ``:num``;
 
+Overload insert[local] = “sptree$insert”
+
 (* Proof steps *)
 Datatype:
   scpstep =
@@ -3069,4 +3071,3 @@ Proof
   first_x_assum drule>>
   simp[sat_clause_def]
 QED
-
