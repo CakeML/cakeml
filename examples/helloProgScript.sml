@@ -2,6 +2,8 @@
   Hello World example, printing to standard output.
 *)
 Theory helloProg
+Ancestors
+  basis_ffi
 Libs
   preamble basis
 
@@ -46,4 +48,3 @@ End
 Theorem hello_semantics =
   call_thm_hello |> ONCE_REWRITE_RULE[GSYM hello_prog_def]
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
-
