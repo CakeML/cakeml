@@ -55,6 +55,10 @@ End
 
 Type memtyp = “:(addrtype # limits)”
 
+Type resulttype = “:valtype list”
+Type functype = “:resulttype list # resulttype list”
+
+
 (* Note on style :
   instructions data constructors have their return types
   -- when present in the encoding; they are elided when unnecessary (due to being unique/variant-less) --
@@ -461,8 +465,8 @@ End
   (*   Misc Notations/"types"   *)
   (******************************)
 
-Type t = “:valtype”
-Type functype = “:t list # t list”
+(* Type t = “:valtype”
+Type functype = “:t list # t list” *)
 (* Datatype: functype
   =
   |
@@ -470,9 +474,9 @@ End *)
 
 
 (* QQ these represent block types? *)
-Datatype:
+(* Datatype:
   tb = Tbf num (* | Tbv (t option) *)
-End
+End *)
 
 (* Datatype: ctrlFlow_instr
   | CtrlFlow  ctrlFlow_instr
@@ -481,7 +485,7 @@ End *)
 Datatype: blocktype
   = BlkNil
   | BlkVal valtype
-  | BlkIdx num
+  | BlkIdx index
 End
 
 (* TODO switch out nums in AST to index *)
@@ -516,6 +520,12 @@ Datatype: instr
 
 End
 
+Datatype: global
+  = Gconst valtype
+  | Gmut   valtype
+End
+
+(* Type global = “:bool # valtype” *)
 
 Datatype: func =
   <|
@@ -527,18 +537,18 @@ Datatype: func =
 End
 
 (* MM: HOL doesn't have a utf8 library *)
-(* Datatype: module =
+Datatype: module =
   <|
-  funcs   : func list
-  tables  : table list
-  mems    : mem list
-  globals : global list
-  elems   : elem list
-  datas   : data list
-  start   :
-  imports : import list
-  exports : export list
+  funcs   : func list   ;
+  (* tables  : table list  ; *)
+  mems    : (word8 list) list    ;
+  globals : global list ;
+  (* elems   : elem list   ; *)
+  (* datas   : data list   ; *)
+  start   : index       ;
+  (* imports : import list ; *)
+  (* exports : export list ; *)
   |>
-End *)
+End
 
 val _ = export_theory();

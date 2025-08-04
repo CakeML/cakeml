@@ -1223,15 +1223,21 @@ QED
 (*             *)
 (***************)
 
-
-
-
-(* TODO *)
 Definition enc_blocktype_def:
-  enc_blocktype = ARB
+  enc_blocktype (bt:blocktype) : byteSeq = case bt of
+  | BlkNil    => [0x40w]
+  | BlkVal vt => [enc_valtype vt]
+  | BlkIdx x  => enc_s33 $ w2w x
 End
+
 Definition dec_blocktype_def:
-  dec_blocktype = ARB
+  dec_blocktype ([]:byteSeq) : ((mlstring + blocktype) # byteSeq) = error "[dec_blocktype] : Byte sequence unexpectedly empty." [] ∧
+  dec_blocktype (x40::bs) = let failure = error "[dec_blocktype]" $ x40::bs in
+
+  if x40 = 0x40w then                      (INR   BlkNil        , bs) else
+  case dec_valtype x40   of SOME t      => (INR $ BlkVal t      , bs) | _ =>
+  case dec_s33 $ x40::bs of SOME (x,rs) => (INR $ BlkIdx $ w2w x, rs) | _ =>
+  failure
 End
 
 Theorem dec_enc_blocktype:
@@ -1239,13 +1245,82 @@ Theorem dec_enc_blocktype:
 Proof
   cheat
 QED
+  (* ahh, what's really missing here is the fact that the enc_s33 will never
+  collide with the other possible encodings for blocktype... *)
 
-Definition enc_vec_def:
-  enc_vec = ARB
+  (* rw[enc_blocktype_def] >> every_case_tac
+
+  >-rw[dec_blocktype_def]
+
+  (* ASKYK *)
+  >-(rw[dec_blocktype_def] (* if we run the 2nd tactic after the sg split, it still solves the 2nd goal??? *)
+    >-( pop_assum mp_tac
+      >>rewrite_tac[enc_valtype_def]
+      >>every_case_tac
+      >>rw[])
+    >- rw[dec_enc_valtype]) (* interactively, this solves the first sg *)
+  (* ASKYK *)
+  (* Just don't know how to do *)
+  >- cheat *)
+
+
+(* TODO *)
+
+(* Definition *)
+
+
+
+
+
+Definition enc_vector_aux_def:
+  enc_vector_aux (encdr:α -> byteSeq) ([]:α list) = (0:num,[]) ∧
+  enc_vector_aux encdr (x::xs) =
+    let (n,ys) = enc_vector_aux encdr xs in
+    (n+1, encdr x ++ ys)
 End
-Definition dec_vec_def:
-  dec_vec = ARB
+
+Definition enc_vector_def:
+  enc_vector (encdr:α -> byteSeq) ([]:α list) : byteSeq option = SOME $ enc_num 0 ∧
+  enc_vector encdr xs =
+    let (n,ys) = enc_vector_aux encdr xs in
+    if n < 2 ** 32 then SOME $ enc_num n ++ ys else NONE
 End
+
+(* Definition dec_vector_aux:
+  dec_vector_aux decdr (n:num) (bs:byteSeq) =
+  dec_vector_aux decdr (n:num) (bs:byteSeq) =
+  dec_vector_aux decdr (n:num) (bs:byteSeq) =
+    case decdr bs of
+End *)
+
+(* Definition dec_vec_def:
+  dec_vector (_:byteSeq -> ((mlstring + α) # byteSeq)) ([]:byteSeq) : ((mlstring + α) # byteSeq) =
+    error "[dec_vector] : Byte sequence unexpectedly empty." [] ∧
+
+  dec_vector decdr bs = let failure = error "[dec_vector]" $ bs in
+
+    case dec_u32 bs of NONE=>failure| SOME (len, vs) =>
+
+    failure
+  (* dec_vec decdr (bs:byteSeq) =
+    case dec_num bs of NONE => ARB
+    ARB *)
+End *)
+
+(* Definition dec_vec_def:
+  (* dec_vec ([]:byteSeq) : ((mlstring + table_instr) # byteSeq) = error "[dec_vec] : Byte sequence unexpectedly empty." [] ∧ *)
+  dec_vec decdr (bs) = ARB
+End *)
+
+(* Theorem dec_enc_vector:
+  ∀ (enc:α -> byteSeq) (dec:byteSeq -> (α # byteSeq) option) x xs rs1 rs2.
+    dec (enc x ++ rs1) = SOME (x,rs1) ⇒
+  dec_vector dec (enc_vector enc xs ++ rs2) = SOME (xs,rs2)
+Proof
+  cheat
+QED *)
+
+
 Definition enc_fsig_def:
   enc_fsig = ARB
 End
@@ -1263,9 +1338,8 @@ Definition enc_instr_def:
 
   | Block bTyp body => 0x02w :: enc_blocktype bTyp ++ enc_instr_list body ++ [endB]
   | Loop  bTyp body => 0x03w :: enc_blocktype bTyp ++ enc_instr_list body ++ [endB]
-  | If    bTyp bodyTh bodyEl => 0x04w :: enc_blocktype bTyp ++
-      enc_instr_list bodyTh ++
-        (if NULL bodyEl then [endB] else elseB :: enc_instr_list bodyEl ++ [endB])
+  | If    bTyp bodyTh bodyEl => 0x04w :: enc_blocktype bTyp ++ enc_instr_list bodyTh ++
+                  (if NULL bodyEl then [] else elseB :: enc_instr_list bodyEl) ++ [endB]
 
   | Br           lbl => 0x0Cw ::                    enc_unsigned_word lbl
   | BrIf         lbl => 0x0Dw ::                    enc_unsigned_word lbl
