@@ -1067,7 +1067,12 @@ End
 
 (* TODO: push the ## inside *)
 Theorem cencode_cp_one_compute =
-  SRULE [encode_cp_one_def] cencode_cp_one_def;
+  SRULE [encode_cp_one_def,
+    Once
+    (TypeBase.case_rand_of ``:'a constraint``),
+    GSYM cencode_not_equals_def,
+    GSYM cencode_all_different_forget_ilps
+  ] cencode_cp_one_def;
 
 Theorem encode_cp_one_sem_1:
   valid_assignment bnd wi ∧
@@ -1103,6 +1108,13 @@ QED
 
 (* An actual implementation will avoid duplicates here,
   probably with an accumulator *)
+Definition encode_cp_all_def:
+  (encode_cp_all bnd n [] = []) ∧
+  (encode_cp_all bnd n (c::cs) =
+    let (n',c') = encode_cp_one bnd n c in
+    c' ++ encode_cp_all bnd n' cs)
+End
+
 Definition cencode_cp_all_def:
   (cencode_cp_all bnd n [] = []) ∧
   (cencode_cp_all bnd n (c::cs) =
@@ -1113,19 +1125,43 @@ End
 Theorem encode_cp_all_sem_1:
   valid_assignment bnd wi ∧
   EVERY (λc. constraint_sem c wi) cs ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify wi)) (encode_cp_all bnd n cs)
+Proof
+  qid_spec_tac`n`>>Induct_on`cs`>>
+  rw[encode_cp_all_def]>>
+  pairarg_tac>>gvs[]>>
+  metis_tac[encode_cp_one_sem_1,SND]
+QED
+
+Theorem encode_cp_all_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_cp_all bnd n cs) ⇒
+  EVERY (λc. constraint_sem c wi) cs
+Proof
+  qid_spec_tac`n`>>Induct_on`cs`>>
+  rw[encode_cp_all_def]>>
+  pairarg_tac>>gvs[]>>
+  metis_tac[encode_cp_one_sem_2,SND]
+QED
+
+(* The actual final theorems we want *)
+Theorem cencode_cp_all_sem_1:
+  valid_assignment bnd wi ∧
+  EVERY (λc. constraint_sem c wi) cs ⇒
   ∃wb.
   EVERY (λx. iconstraint_sem x (wi,wb)) (cencode_cp_all bnd n cs)
 Proof
   cheat
 QED
 
-Theorem encode_cp_all_sem_2:
+Theorem cencode_cp_all_sem_2:
   valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_cp_all bnd cs) ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_cp_all bnd n cs) ⇒
   EVERY (λc. constraint_sem c wi) cs
 Proof
   cheat
 QED
+
 
 (* === Examples ===
 
