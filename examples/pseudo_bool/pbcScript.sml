@@ -228,7 +228,7 @@ Definition pbf_vars_def:
   BIGUNION (IMAGE pbc_vars pbf)
 End
 
-Definition map_lit_def:
+Definition map_lit_def[simp]:
   (map_lit f (Pos v) = Pos (f v)) ∧
   (map_lit f (Neg v) = Neg (f v))
 End
