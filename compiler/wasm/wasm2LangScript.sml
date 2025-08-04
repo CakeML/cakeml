@@ -61,8 +61,8 @@ End
 Type memtyp = “:(addrtype # limits)”
 Type mem = “:word8 list”
 
-(* Type resulttype = “:[valtype]” *)
-Type functype = “:[valtype] # [valtype]”
+Type resulttype = “:valtype list”
+Type functype = “:resulttype # resulttype”
 
 
 
@@ -511,17 +511,17 @@ Datatype: instr
 
 End
 
-(* Datatype: func =
+Datatype: func =
   <|
     name       : string      ;
     type       : functype    ;
     body       : instr   list;
     localTypes : valtype list;
   |>
-End *)
+End
 
 (* MM: HOL doesn't have a utf8 library *)
-(* Datatype: module =
+Datatype: module =
   <|
     funcs   : func    list ;
     (* tables  : table   list ; *)
@@ -533,6 +533,6 @@ End *)
     (* imports : import  list ; *)
     (* exports : export  list ; *)
   |>
-End *)
+End
 
 val _ = export_theory();
