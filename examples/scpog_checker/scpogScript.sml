@@ -14,7 +14,7 @@ Type lit = ``:int``;
 Type var = ``:num``;
 Type id = ``:num``;
 
-Overload insert[local] = “sptree$insert”
+val _ = temp_bring_to_front_overload "insert" {Name="insert", Thy="sptree"};
 
 (* Proof steps *)
 Datatype:
