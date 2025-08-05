@@ -3,7 +3,7 @@
 *)
 Theory scpogCompile
 Ancestors
-  scpog_arrayFullProg
+  scpog_arrayFullProg x64_config arm8_config
 Libs
   preamble eval_cake_compile_x64Lib eval_cake_compile_arm8Lib
 
@@ -24,4 +24,3 @@ Theorem scpog_compiled =
 
 Theorem scpog_compiled_arm8 =
   eval_cake_compile_arm8_with_conf "arm8_" arm8_config'_def main_prog_def "cake_scpog_arm8.S";
-
