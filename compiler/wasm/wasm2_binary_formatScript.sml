@@ -68,6 +68,49 @@ End
 
 
 
+Definition enc_blocktype_def:
+  enc_blocktype (bt:blocktype) : byteSeq = case bt of
+  | BlkNil    => [0x40w]
+  | BlkVal vt => [enc_valtype vt]
+  | BlkIdx x  => enc_s33 $ w2w x
+End
+
+Definition dec_blocktype_def:
+  dec_blocktype ([]:byteSeq) : ((mlstring + blocktype) # byteSeq) = error "[dec_blocktype] : Byte sequence unexpectedly empty." [] ∧
+  dec_blocktype (x40::bs) = let failure = error "[dec_blocktype]" $ x40::bs in
+
+  if x40 = 0x40w then                      (INR   BlkNil        , bs) else
+  case dec_valtype x40   of SOME t      => (INR $ BlkVal t      , bs) | _ =>
+  case dec_s33 $ x40::bs of SOME (x,rs) => (INR $ BlkIdx $ w2w x, rs) | _ =>
+  failure
+End
+
+Theorem dec_enc_blocktype:
+  ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
+Proof
+  cheat
+QED
+  (* ahh, what's really missing here is the fact that the enc_s33 will never
+  collide with the other possible encodings for blocktype... *)
+
+  (* rw[enc_blocktype_def] >> every_case_tac
+
+  >-rw[dec_blocktype_def]
+
+  (* ASKYK *)
+  >-(rw[dec_blocktype_def] (* if we run the 2nd tactic after the sg split, it still solves the 2nd goal??? *)
+    >-( pop_assum mp_tac
+      >>rewrite_tac[enc_valtype_def]
+      >>every_case_tac
+      >>rw[])
+    >- rw[dec_enc_valtype]) (* interactively, this solves the first sg *)
+  (* ASKYK *)
+  (* Just don't know how to do *)
+  >- cheat *)
+
+
+
+
 Definition enc_numI_def:
   enc_numI (i:num_instr) : byteSeq = case i of
   | N_eqz     $   W32                        => [0x45w]
@@ -1027,8 +1070,6 @@ Definition dec_memI_def:
 End
 
 
-(*-----------------------------------------------------------------------------------------------------------------------------------------------------------*)
-
 
 Definition enc_paraI_def:
   enc_paraI (i:para_instr) : byteSeq = case i of
@@ -1194,54 +1235,7 @@ QED
 (*             *)
 (***************)
 
-Definition enc_blocktype_def:
-  enc_blocktype (bt:blocktype) : byteSeq = case bt of
-  | BlkNil    => [0x40w]
-  | BlkVal vt => [enc_valtype vt]
-  | BlkIdx x  => enc_s33 $ w2w x
-End
-
-Definition dec_blocktype_def:
-  dec_blocktype ([]:byteSeq) : ((mlstring + blocktype) # byteSeq) = error "[dec_blocktype] : Byte sequence unexpectedly empty." [] ∧
-  dec_blocktype (x40::bs) = let failure = error "[dec_blocktype]" $ x40::bs in
-
-  if x40 = 0x40w then                      (INR   BlkNil        , bs) else
-  case dec_valtype x40   of SOME t      => (INR $ BlkVal t      , bs) | _ =>
-  case dec_s33 $ x40::bs of SOME (x,rs) => (INR $ BlkIdx $ w2w x, rs) | _ =>
-  failure
-End
-
-Theorem dec_enc_blocktype:
-  ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
-Proof
-  cheat
-QED
-  (* ahh, what's really missing here is the fact that the enc_s33 will never
-  collide with the other possible encodings for blocktype... *)
-
-  (* rw[enc_blocktype_def] >> every_case_tac
-
-  >-rw[dec_blocktype_def]
-
-  (* ASKYK *)
-  >-(rw[dec_blocktype_def] (* if we run the 2nd tactic after the sg split, it still solves the 2nd goal??? *)
-    >-( pop_assum mp_tac
-      >>rewrite_tac[enc_valtype_def]
-      >>every_case_tac
-      >>rw[])
-    >- rw[dec_enc_valtype]) (* interactively, this solves the first sg *)
-  (* ASKYK *)
-  (* Just don't know how to do *)
-  >- cheat *)
-
-
 (* TODO *)
-
-(* Definition *)
-
-
-
-
 
 Definition enc_vector_aux_def:
   enc_vector_aux (encdr:α -> byteSeq) ([]:α list) = (0:num,[]) ∧

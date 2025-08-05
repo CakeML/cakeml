@@ -58,6 +58,30 @@ End
 
 
 
+Definition enc_blocktype_def:
+  enc_blocktype (bt:blocktype) : byteSeq = case bt of
+  | BlkNil    => [0x40w]
+  | BlkVal vt => [enc_valtype vt]
+End
+
+Definition dec_blocktype_def:
+  dec_blocktype ([]:byteSeq) : ((mlstring + blocktype) # byteSeq) = error "[dec_blocktype] : Byte sequence unexpectedly empty." [] ∧
+  dec_blocktype (x40::bs) = let failure = error "[dec_blocktype]" $ x40::bs in
+
+  if x40 = 0x40w then                      (INR   BlkNil        , bs) else
+  case dec_valtype x40   of SOME t      => (INR $ BlkVal t      , bs) | _ =>
+  failure
+End
+
+Theorem dec_enc_blocktype:
+  ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
+Proof
+  cheat
+QED
+
+
+
+
 Definition enc_numI_def:
   enc_numI (i:num_instr) : byteSeq = case i of
   | N_eqz     $   W32                        => [0x45w]
@@ -208,42 +232,11 @@ Definition dec_numI_def:
   failure
 End
 
-(* ASKYK ASKMM *)
-(* this is super slow. How to speed up *)
+
 Theorem dec_enc_numI:
   ∀ i. dec_numI (enc_numI i ++ rest) = (INR i, rest)
 Proof
   cheat
-  (* the following script results in
-
-    1 subgoal:
-    val it =
-
-       w = W32
-
-       : proof
-
-    ?????? + it takes super long (like 15 seconds)
-  *)
-  (*
-  rw[enc_numI_def] >> every_case_tac
-  >>~ [ `Trunc_sat_f`]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-  >- rw[dec_numI_def]
-
-  >> rw[dec_numI_def]
-  *)
 QED
 
 
@@ -283,19 +276,6 @@ Definition dec_loadI_def:
   failure
 End
 
-(* ASKYK ASKMM *)
-(* this is super slow. How to speed up *)
-Theorem dec_enc_loadI:
-  ∀ i. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
-Proof
-  cheat
-  (* rw [enc_loadI_def] >> every_case_tac
-  >> rw [dec_loadI_def]
-  >> (rewrite_tac[GSYM APPEND_ASSOC] >- rw[]) *)
-QED
-
-
-(*-----------------------------------------------------------------------------------------------------------------------------------------------------------*)
 
 
 Definition enc_storeI_def:
@@ -400,6 +380,15 @@ Proof
   >> rw[dec_valtype_def]
 QED
 
+Theorem dec_enc_loadI:
+  ∀ i. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
+Proof
+  cheat
+  (* rw [enc_loadI_def] >> every_case_tac
+  >> rw [dec_loadI_def]
+  >> (rewrite_tac[GSYM APPEND_ASSOC] >- rw[]) *)
+QED
+
 Theorem dec_enc_storeI:
   ∀ i. dec_storeI (enc_storeI i ++ rest) = (INR i, rest)
 Proof
@@ -431,26 +420,56 @@ QED
 (*             *)
 (***************)
 
-
-
-
 (* TODO *)
-Definition enc_blocktype_def:
-  enc_blocktype = ARB
-End
-Definition dec_blocktype_def:
-  dec_blocktype = ARB
+
+Definition enc_vector_aux_def:
+  enc_vector_aux (encdr:α -> byteSeq) ([]:α list) = (0:num,[]) ∧
+  enc_vector_aux encdr (x::xs) =
+    let (n,ys) = enc_vector_aux encdr xs in
+    (n+1, encdr x ++ ys)
 End
 
-Theorem dec_enc_blocktype:
-  ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
+Definition enc_vector_def:
+  enc_vector (encdr:α -> byteSeq) ([]:α list) : byteSeq option = SOME $ enc_num 0 ∧
+  enc_vector encdr xs =
+    let (n,ys) = enc_vector_aux encdr xs in
+    if n < 2 ** 32 then SOME $ enc_num n ++ ys else NONE
+End
+
+(* Definition dec_vector_aux:
+  dec_vector_aux decdr (n:num) (bs:byteSeq) =
+  dec_vector_aux decdr (n:num) (bs:byteSeq) =
+  dec_vector_aux decdr (n:num) (bs:byteSeq) =
+    case decdr bs of
+End *)
+
+(* Definition dec_vec_def:
+  dec_vector (_:byteSeq -> ((mlstring + α) # byteSeq)) ([]:byteSeq) : ((mlstring + α) # byteSeq) =
+    error "[dec_vector] : Byte sequence unexpectedly empty." [] ∧
+
+  dec_vector decdr bs = let failure = error "[dec_vector]" $ bs in
+
+    case dec_u32 bs of NONE=>failure| SOME (len, vs) =>
+
+    failure
+  (* dec_vec decdr (bs:byteSeq) =
+    case dec_num bs of NONE => ARB
+    ARB *)
+End *)
+
+(* Definition dec_vec_def:
+  (* dec_vec ([]:byteSeq) : ((mlstring + table_instr) # byteSeq) = error "[dec_vec] : Byte sequence unexpectedly empty." [] ∧ *)
+  dec_vec decdr (bs) = ARB
+End *)
+
+(* Theorem dec_enc_vector:
+  ∀ (enc:α -> byteSeq) (dec:byteSeq -> (α # byteSeq) option) x xs rs1 rs2.
+    dec (enc x ++ rs1) = SOME (x,rs1) ⇒
+  dec_vector dec (enc_vector enc xs ++ rs2) = SOME (xs,rs2)
 Proof
   cheat
-QED
+QED *)
 
-Definition enc_vec_def:
-  enc_vec = ARB
-End
 Definition dec_vec_def:
   dec_vec = ARB
 End
