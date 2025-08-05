@@ -7,7 +7,7 @@ open preamble dataSemTheory dataPropsTheory copying_gcTheory
      set_sepTheory semanticsPropsTheory
      helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
      word_bignumProofTheory gen_gc_partialTheory gc_sharedTheory
-     word_gcFunctionsTheory backendPropsTheory
+     word_gcFunctionsTheory backendPropsTheory mllistTheory;
 local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_gcProof";
@@ -5570,7 +5570,7 @@ Proof
   \\ full_simp_tac(srw_ss())[wordSemTheory.env_to_list_def,LET_DEF] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[s_frame_key_eq_def,domain_fromAList] \\ srw_tac[][]
   \\ qpat_x_assum `xxx = MAP FST l` (fn th => full_simp_tac(srw_ss())[GSYM th])
-  \\ full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,EXISTS_PROD,mem_list_rearrange,QSORT_MEM,
+  \\ full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,EXISTS_PROD,mem_list_rearrange,sort_MEM,
          domain_lookup,MEM_toAList] \\ metis_tac []
 QED
 
@@ -5592,7 +5592,7 @@ Proof
   \\ full_simp_tac(srw_ss())[wordSemTheory.env_to_list_def,LET_DEF] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[s_frame_key_eq_def,domain_fromAList] \\ srw_tac[][]
   \\ qpat_x_assum `xxx = MAP FST lss` (fn th => full_simp_tac(srw_ss())[GSYM th])
-  \\ full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,EXISTS_PROD,mem_list_rearrange,QSORT_MEM,
+  \\ full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,EXISTS_PROD,mem_list_rearrange,sort_MEM,
          domain_lookup,MEM_toAList] \\ metis_tac []
 QED
 

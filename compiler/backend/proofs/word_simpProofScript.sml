@@ -1,7 +1,7 @@
 (*
   Correctness proof for word_simp
 *)
-open alistTheory preamble wordLangTheory wordSemTheory wordPropsTheory word_simpTheory;
+open alistTheory preamble wordLangTheory wordSemTheory wordPropsTheory word_simpTheory mllistTheory;
 
 val _ = new_theory "word_simpProof";
 
@@ -635,16 +635,16 @@ Proof
       \\ Cases_on ‘lookup v names0’ \\ fs []
       \\ irule ALOOKUP_LIST_REL_sf_gc_consts_NONE
       \\ first_x_assum $ irule_at Any
-      \\ fs [ALOOKUP_NONE,MEM_MAP,mem_list_rearrange,sortingTheory.QSORT_MEM]
+      \\ fs [ALOOKUP_NONE,MEM_MAP,mem_list_rearrange,sort_MEM]
       \\ fs [MEM_toAList,FORALL_PROD,lookup_inter] \\ NO_TAC)
   \\ disj2_tac \\ drule ALOOKUP_LIST_REL_sf_gc_consts
   \\ disch_then irule \\ fs []
   \\ (irule ALOOKUP_ALL_DISTINCT_FST_PERM_SOME \\ rpt conj_tac
-      >- (irule ALL_DISTINCT_PERM_FST \\ fs [QSORT_PERM,ALL_DISTINCT_MAP_FST_toAList])
-      >- (irule ALOOKUP_ALL_DISTINCT_FST_PERM_SOME \\ fs [ALOOKUP_toAList, QSORT_PERM, ALOOKUP_toAList]
+      >- (irule ALL_DISTINCT_PERM_FST \\ fs [sort_PERM,ALL_DISTINCT_MAP_FST_toAList])
+      >- (irule ALOOKUP_ALL_DISTINCT_FST_PERM_SOME \\ fs [ALOOKUP_toAList, sort_PERM, ALOOKUP_toAList]
           \\ fs [cut_env_def, get_var_def] \\ rw [lookup_inter_EQ,ALL_DISTINCT_MAP_FST_toAList])
       >- (irule PERM_list_rearrange \\
-       metis_tac [ALL_DISTINCT_MAP, QSORT_PERM, ALL_DISTINCT_PERM,ALL_DISTINCT_MAP_FST_toAList]))
+       metis_tac [ALL_DISTINCT_MAP, sort_PERM, ALL_DISTINCT_PERM,ALL_DISTINCT_MAP_FST_toAList]))
 QED
 
 Theorem evaluate_sf_gc_consts:

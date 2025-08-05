@@ -2,8 +2,8 @@
   Correctness proof for word_elim
 *)
 
-open preamble wordLangTheory
-     word_elimTheory wordSemTheory wordPropsTheory wordConvsTheory spt_closureTheory
+open preamble wordLangTheory mllistTheory
+     word_elimTheory wordSemTheory wordPropsTheory wordConvsTheory spt_closureTheory;
 
 val _ = new_theory "word_elimProof";
 val _ = set_grammar_ancestry
@@ -496,12 +496,12 @@ Theorem stack_list_rearrange_lemma:
         domain (get_locals s.locals) ⊆ dr ∧
         domain (get_stack s.stack) ⊆ dr
     ⇒ domain (get_stack (StackFrame lsz (toAList (inter s.locals n)) (list_rearrange (s.permute 0)
-    (QSORT key_val_compare (toAList (inter s.locals locs)))) opt::s.stack))
+    (sort key_val_compare (toAList (inter s.locals locs)))) opt::s.stack))
         ⊆ dr
 Proof
     rw[] >> fs[get_stack_def, domain_union] >> rw[SUBSET_DEF] >>
     imp_res_tac get_num_wordloc_alist_thm >>
-    fs[MEM_MAP] >> fs[mem_list_rearrange, QSORT_MEM] >>
+    fs[MEM_MAP] >> fs[mem_list_rearrange, sort_MEM] >>
     Cases_on `y` >> fs[MEM_toAList] >> fs[lookup_inter] >>
     gvs[option_case_eq] >>
     fs[SUBSET_DEF, domain_get_locals_lookup] >> metis_tac[]
