@@ -77,9 +77,9 @@ End
 
 Definition dec_blocktype_def:
   dec_blocktype ([]:byteSeq) : ((mlstring + blocktype) # byteSeq) = error "[dec_blocktype] : Byte sequence unexpectedly empty." [] ∧
-  dec_blocktype (x40::bs) = let failure = error "[dec_blocktype]" $ x40::bs in
+  dec_blocktype (b::bs) = let failure = error "[dec_blocktype]" $ b::bs in
 
-  if x40 = 0x40w then                      (INR   BlkNil        , bs) else
+  if b = 0x40w then                        (INR   BlkNil        , bs) else
   case dec_valtype x40   of SOME t      => (INR $ BlkVal t      , bs) | _ =>
   case dec_s33 $ x40::bs of SOME (x,rs) => (INR $ BlkIdx $ w2w x, rs) | _ =>
   failure

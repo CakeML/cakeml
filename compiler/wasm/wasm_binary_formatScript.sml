@@ -56,6 +56,14 @@ Definition dec_valtype_def:
   NONE
 End
 
+Theorem dec_enc_valtype_redux:
+  ∀ t. dec_valtype (enc_valtype t) = SOME t
+Proof
+  rw[enc_valtype_def] >> every_case_tac
+  >> Cases_on `b`
+  >> rw[dec_valtype_def]
+QED
+
 
 
 Definition enc_blocktype_def:
@@ -66,9 +74,9 @@ End
 
 Definition dec_blocktype_def:
   dec_blocktype ([]:byteSeq) : ((mlstring + blocktype) # byteSeq) = error "[dec_blocktype] : Byte sequence unexpectedly empty." [] ∧
-  dec_blocktype (x40::bs) = let failure = error "[dec_blocktype]" $ x40::bs in
+  dec_blocktype (b::bs) = let failure = error "[dec_blocktype]" $ b::bs in
 
-  if x40 = 0x40w then                      (INR   BlkNil        , bs) else
+  if b = 0x40w then                        (INR   BlkNil        , bs) else
   case dec_valtype x40   of SOME t      => (INR $ BlkVal t      , bs) | _ =>
   failure
 End
@@ -77,8 +85,13 @@ Theorem dec_enc_blocktype:
   ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
 Proof
   cheat
+  (* rw[enc_blocktype_def] >> every_case_tac
+  >- rw[dec_blocktype_def]
+  >- (rw[dec_blocktype_def, dec_enc_valtype_redux]
+  >- Cases_on `v` >> Cases_on `b` >> Cases_on `w`
+  >> pop_assum mp_tac
+  >> rw[enc_valtype_def] ) *)
 QED
-
 
 
 
@@ -371,14 +384,6 @@ Proof
   >> gvs[dec_valtype_def]
 QED
 *)
-
-Theorem dec_enc_valtype_redux:
-  ∀ t. dec_valtype (enc_valtype t) = SOME t
-Proof
-  rw[enc_valtype_def] >> every_case_tac
-  >> Cases_on `b`
-  >> rw[dec_valtype_def]
-QED
 
 Theorem dec_enc_loadI:
   ∀ i. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
