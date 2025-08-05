@@ -280,6 +280,12 @@ Definition sort_def:
   sort = mergesort$mergesort_tail
 End
 
+Theorem sort_thm:
+  !R l. sort R l = mergesort$mergesort_tail R l
+Proof
+  rw[sort_def]
+QED
+
 Theorem sort_SORTED:
   !R L. transitive R ∧ total R ==> sorting$SORTED R (sort R L)
 Proof
