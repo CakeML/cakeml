@@ -8,6 +8,8 @@ Ancestors
 Libs
   preamble blastLib
 
+val _ = temp_bring_to_front_overload "range" {Name="range", Thy="misc"};
+
 (* Internal representations *)
 Type cclause = ``:int list``;
 
@@ -3388,4 +3390,3 @@ Proof
   first_x_assum drule>>
   simp[strxor_aux_c_strxor_aux,MAP_MAP_o,o_DEF]
 QED
-
