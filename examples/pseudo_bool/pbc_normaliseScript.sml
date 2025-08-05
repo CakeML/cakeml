@@ -2,10 +2,10 @@
   Normalizes pbc into npbc
 *)
 Theory pbc_normalise
-Ancestors
-  pbc npbc mlmap mergesort
 Libs
   preamble
+Ancestors
+  pbc npbc mlmap mergesort
 
 val _ = numLib.temp_prefer_num();
 
@@ -1534,4 +1534,3 @@ Proof
   qexists_tac`st3`>>
   gvs[]
 QED
-

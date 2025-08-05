@@ -2,10 +2,10 @@
   Pseudo-boolean constraints proof format and checker
 *)
 Theory npbc_check
-Ancestors
-  npbc mlstring mlint mlvector spt_to_vec mergesort
 Libs
   preamble
+Ancestors
+  npbc mlstring mlint mlvector spt_to_vec mergesort
 
 val _ = numLib.temp_prefer_num();
 
@@ -5452,4 +5452,3 @@ Definition constraint_of_spt_def:
     (MAP (λ(v,c). (c,v)) ls,n)
 End
 *)
-
