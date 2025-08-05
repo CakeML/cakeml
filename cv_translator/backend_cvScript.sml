@@ -56,7 +56,7 @@ Termination
   \\ rw[list_size_pair_size_MAP_FST_SND]
 End
 
-val pre = cv_trans_pre $ measure_args [1,1,1,1] collect_conses_def;
+val pre = cv_trans_pre "" $ measure_args [1,1,1,1] collect_conses_def;
 
 Theorem collect_conses_pre[cv_pre]:
   (∀p v. collect_conses_pre p v) ∧
@@ -76,7 +76,7 @@ Definition do_con_checks_def:
     | SOME (l,_) => l = n ∧ do_con_checks cenv rest
 End
 
-val pre = cv_trans_pre do_con_checks_def;
+val pre = cv_trans_pre "" do_con_checks_def;
 Theorem do_con_checks_pre[cv_pre]:
   ∀cenv v. do_con_checks_pre cenv v
 Proof
@@ -177,7 +177,7 @@ QED
 
 val _ = cv_auto_trans semanticPrimitivesTheory.build_tdefs_def;
 
-val pre = cv_trans_pre (evaluate_decTheory.check_cons_dec_list_def
+val pre = cv_trans_pre "" (evaluate_decTheory.check_cons_dec_list_def
                           |> REWRITE_RULE [to_do_con_checks_list3]
                           |> REWRITE_RULE [to_do_con_checks]);
 
@@ -214,7 +214,7 @@ Proof
   rw [] \\ gvs []
 QED
 
-val pre = cv_trans_pre $
+val pre = cv_trans_pre "" $
   SRULE [make_cv_term_provable] num_list_enc_decTheory.num_to_chars_def;
 
 Theorem num_list_enc_dec_num_to_chars_pre[cv_pre,local]:
@@ -358,7 +358,7 @@ Definition closLang_exp_enc_aux_def:
     |> concl |> subst [c|->r,c_list|->r_list,c_list1|->r_list1])
 End
 
-val pre = cv_auto_trans_pre closLang_exp_enc_aux_def;
+val pre = cv_auto_trans_pre "" closLang_exp_enc_aux_def;
 
 Theorem closLang_exp_enc_aux_pre[cv_pre,local]:
   (∀v. closLang_exp_enc_aux_pre v) ∧
@@ -576,14 +576,14 @@ val _ = every_name'_eq |> cv_auto_trans;
 
 val _ = check_col'_eq |> cv_auto_trans;
 
-val pre = check_partial_col'_eq |> cv_trans_pre;
+val pre = check_partial_col'_eq |> cv_trans_pre "";
 Theorem check_partial_col'_pre[cv_pre]:
   ∀colour v t ft. check_partial_col'_pre colour v t ft
 Proof
   Induct_on ‘v’ \\ rw [] \\ simp [Once pre]
 QED
 
-val pre = check_clash_tree'_eq |> cv_auto_trans_pre;
+val pre = check_clash_tree'_eq |> cv_auto_trans_pre "";
 Theorem check_clash_tree'_pre[cv_pre]:
   ∀colour v live flive. check_clash_tree'_pre colour v live flive
 Proof
@@ -625,7 +625,7 @@ Triviality get_live_exp_eq =
   @ CONJUNCTS get_live_exps_thm |> map GEN_ALL
   |> LIST_CONJ |> SRULE [GSYM get_live_exps_def];
 
-val pre = cv_trans_pre get_live_exp_eq
+val pre = cv_trans_pre "" get_live_exp_eq
 Theorem word_alloc_get_live_exp_pre[cv_pre]:
   (∀v:'a exp. word_alloc_get_live_exp_pre v) ∧
   (∀v:'a exp list. get_live_exps_pre v)
@@ -682,7 +682,7 @@ val lookup_listCmp_eq =
   balanced_mapTheory.lookup_def |> CONJUNCTS |> map (ISPEC “listCmp”) |> LIST_CONJ
     |> REWRITE_RULE [GSYM lookup_listCmp_def];
 
-val pre = cv_trans_pre lookup_listCmp_eq;
+val pre = cv_trans_pre "" lookup_listCmp_eq;
 Theorem lookup_listCmp_pre[cv_pre]:
   ∀k v. lookup_listCmp_pre k v
 Proof
@@ -705,7 +705,7 @@ val _ = balanced_mapTheory.size_def |> cv_trans;
 val _ = balanced_mapTheory.balanceR_def |> oneline |> fix |> cv_trans;
 val _ = balanced_mapTheory.balanceL_def |> oneline |> fix |> cv_trans;
 
-val pre = insert_listCmp_eq |> cv_trans_pre;
+val pre = insert_listCmp_eq |> cv_trans_pre "";
 Theorem insert_listCmp_pre[cv_pre]:
   ∀k v t. insert_listCmp_pre k v t
 Proof
@@ -849,7 +849,7 @@ val part_eq = sortingTheory.PART_DEF
 
 val qsort_eq = qsort |> SRULE [GSYM PART_canonize_def]
 
-val pre = cv_trans_pre part_eq;
+val pre = cv_trans_pre "" part_eq;
 Theorem PART_canonize_pre[cv_pre]:
   ∀p_1 p_3 p_2 v l1 l2. PART_canonize_pre p_1 p_3 p_2 v l1 l2
 Proof
@@ -886,7 +886,7 @@ Proof
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
-val pre = cv_trans_pre_rec qsort_eq
+val pre = cv_trans_pre_rec "" qsort_eq
   (WF_REL_TAC ‘measure cv_size’ \\ rw []
    \\ Cases_on ‘cv_v’ \\ gvs []
    \\ irule LESS_EQ_LESS_TRANS
@@ -933,7 +933,7 @@ Proof
   \\ irule_at Any w2n_lt \\ gvs []
 QED
 
-val pre = cv_trans_pre byte_to_string_eq_toChar_toChar;
+val pre = cv_trans_pre "" byte_to_string_eq_toChar_toChar;
 Theorem export_byte_to_string_pre[cv_pre]:
   ∀b. export_byte_to_string_pre b
 Proof
@@ -1047,7 +1047,7 @@ val _ = cv_trans word_unreachTheory.SimpSeq_def;
 val _ = cv_trans word_unreachTheory.Seq_assoc_right_def;
 val _ = cv_trans word_unreachTheory.remove_unreach_def;
 
-val pre = cv_auto_trans_pre word_copyTheory.copy_prop_prog_def;
+val pre = cv_auto_trans_pre "" word_copyTheory.copy_prop_prog_def;
 
 Theorem word_copy_copy_prop_prog_pre[cv_pre]:
   ∀v cs. word_copy_copy_prop_prog_pre v cs

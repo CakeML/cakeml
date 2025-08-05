@@ -9144,7 +9144,7 @@ Proof
   \\ rename [‘cut_state_opt (SOME kept_names) s’]
   \\ drule_all state_rel_cut_state_opt_SOME \\ strip_tac
   \\ qpat_x_assum ‘_ (t with locals := y) [] locs’ $ ASSUME_NAMED_TAC "with_locals"
-  \\ last_x_assum $ ASSUME_NAMED_TAC "old"
+  \\ qpat_x_assum `_  s t [] locs`$ ASSUME_NAMED_TAC "old"
   \\ fs [do_app,oneline do_int_app_def]
   \\ gvs[AllCaseEqs()]
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -9275,7 +9275,7 @@ Proof
   \\ rename [‘cut_state_opt (SOME kept_names) s’]
   \\ drule_all state_rel_cut_state_opt_SOME \\ strip_tac
   \\ qpat_x_assum ‘_ (t with locals := y) [] locs’ $ ASSUME_NAMED_TAC "with_locals"
-  \\ last_x_assum $ ASSUME_NAMED_TAC "old"
+  \\ qpat_x_assum `_  s t [] locs`$ ASSUME_NAMED_TAC "old"
   \\ fs [do_app,oneline do_int_app_def]
   \\ gvs[AllCaseEqs()]
   \\ fs [LENGTH_EQ_2] \\ clean_tac
@@ -10042,7 +10042,7 @@ Proof
   \\ rename [‘cut_state_opt (SOME kept_names) s’]
   \\ drule_all state_rel_cut_state_opt_SOME \\ strip_tac
   \\ qpat_x_assum ‘_ (t with locals := y) [] locs’ $ ASSUME_NAMED_TAC "with_locals"
-  \\ last_x_assum $ ASSUME_NAMED_TAC "old"
+  \\ qpat_x_assum `_  s t [] locs`$ ASSUME_NAMED_TAC "old"
   \\ fs [do_app,oneline do_int_app_def]
   \\ gvs[AllCaseEqs()]
   \\ fs [LENGTH_EQ_2] \\ clean_tac
