@@ -2190,6 +2190,14 @@ val _ = cv_auto_trans backend_asmTheory.to_bvl_def;
 
 (* bvl_const *)
 
+(* Bring everything from bvl to the front -- everything because this file is
+   too big for me to try everything separately. *)
+val bvl_names =
+  ["Var", "If", "Let", "Raise", "Handle", "Tick", "Call", "Op", "Bool",
+   "mk_tick"];
+val _ = app (fn name =>
+  temp_bring_to_front_overload name {Name=name, Thy="bvl"}) bvl_names;
+
 Definition mk_add_const_def:
   mk_add_const = λx1 c2.
             if c2 = 0 then x1 else Op (IntOp Add) [x1; Op (IntOp (Const c2)) []]
