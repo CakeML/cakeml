@@ -66,6 +66,19 @@ Definition dec_valtype_def:
   NONE
 End
 
+Theorem dec_enc_valtype:
+  ∀ t. dec_valtype (enc_valtype t) = SOME t
+Proof
+  rpt strip_tac (* this is like intros *)
+  >> `? val. enc_valtype t = val` by simp []
+  >> asm_rewrite_tac[]
+  >> pop_assum mp_tac
+  >> rewrite_tac[enc_valtype_def]
+  >> simp[AllCaseEqs()]
+  >> rpt strip_tac (* this is like intros *)
+  >> gvs[dec_valtype_def]
+QED
+
 
 
 Definition enc_blocktype_def:
@@ -88,25 +101,22 @@ End
 Theorem dec_enc_blocktype:
   ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
 Proof
-  cheat
-QED
   (* ahh, what's really missing here is the fact that the enc_s33 will never
   collide with the other possible encodings for blocktype... *)
 
-  (* rw[enc_blocktype_def] >> every_case_tac
+  rw[enc_blocktype_def] >> every_case_tac
 
-  >-rw[dec_blocktype_def]
+  >- rw[dec_blocktype_def]
 
   (* ASKYK *)
-  >-(rw[dec_blocktype_def] (* if we run the 2nd tactic after the sg split, it still solves the 2nd goal??? *)
-    >-( pop_assum mp_tac
-      >>rewrite_tac[enc_valtype_def]
-      >>every_case_tac
-      >>rw[])
-    >- rw[dec_enc_valtype]) (* interactively, this solves the first sg *)
-  (* ASKYK *)
-  (* Just don't know how to do *)
-  >- cheat *)
+  >- (
+    rw[dec_blocktype_def]
+    >- fs[enc_valtype_def, AllCaseEqs()]
+    >- rw[dec_enc_valtype])
+
+
+  >- cheat
+QED
 
 
 
@@ -1252,14 +1262,15 @@ End
 
 
 (* ASKYK *)
-(* Definition dec_vector_aux:
+(*
+Definition dec_vector_aux_def:
   dec_vector_aux (_:byteSeq -> ((mlstring + α) # byteSeq)) ([]:byteSeq) : (α list # byteSeq) = ([],[]) ∧
   dec_vector_aux decdr bs = case decdr bs of
   | (INL _,_) => ([],bs)
   | (INR x,cs) => let (xs,rs) = dec_vector_aux decdr cs in (x :: xs, rs)
-End *)
+End
 
-(* Definition dec_vector_def:
+Definition dec_vector_def:
   dec_vector (_:byteSeq -> ((mlstring + α list) # byteSeq)) ([]:byteSeq) : ((mlstring + α list) # byteSeq) =
     error "[dec_vector] : Byte sequence unexpectedly empty." [] ∧
 
@@ -1269,8 +1280,8 @@ End *)
     let (vec, rest) = dec_vector_aux decdr vs in
     if len = LENGTH vec then (INR vec, rest) else
     failure
-End *)
-
+End
+*)
 (* Definition dec_vec_def:
   (* dec_vec ([]:byteSeq) : ((mlstring + table_instr) # byteSeq) = error "[dec_vec] : Byte sequence unexpectedly empty." [] ∧ *)
   dec_vec decdr (bs) = ARB

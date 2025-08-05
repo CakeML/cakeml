@@ -249,12 +249,18 @@ End
 Theorem dec_enc_numI:
   ∀ i. dec_numI (enc_numI i ++ rest) = (INR i, rest)
 Proof
-   (* rw[enc_numI_def] >> every_case_tac
+  (* rw[enc_numI_def] >> every_case_tac
   >> rw[dec_numI_def]
+  >> simp[bvtype_nchotomy]
+  >> simp[width_nchotomy]
+  >> simp[bvtype_nchotomy]
+  >> rw[AllCaseEqs()]
   >> (Cases_on `b` >- rw[]) *)
   cheat
 QED
-
+(* TypeBase.case_eq_of ``:bvtype``;
+print_find "width"
+print_apropos ``_:width`` *)
 
 
 Definition enc_loadI_def:
