@@ -77,7 +77,7 @@ Definition dec_blocktype_def:
   dec_blocktype (b::bs) = let failure = error "[dec_blocktype]" $ b::bs in
 
   if b = 0x40w then                        (INR   BlkNil        , bs) else
-  case dec_valtype x40   of SOME t      => (INR $ BlkVal t      , bs) | _ =>
+  case dec_valtype b   of SOME t      => (INR $ BlkVal t      , bs) | _ =>
   failure
 End
 
@@ -249,6 +249,9 @@ End
 Theorem dec_enc_numI:
   ∀ i. dec_numI (enc_numI i ++ rest) = (INR i, rest)
 Proof
+   (* rw[enc_numI_def] >> every_case_tac
+  >> rw[dec_numI_def]
+  >> (Cases_on `b` >- rw[]) *)
   cheat
 QED
 
@@ -428,43 +431,37 @@ QED
 (* TODO *)
 
 Definition enc_vector_aux_def:
-  enc_vector_aux (encdr:α -> byteSeq) ([]:α list) = (0:num,[]) ∧
-  enc_vector_aux encdr (x::xs) =
-    let (n,ys) = enc_vector_aux encdr xs in
-    (n+1, encdr x ++ ys)
+  enc_vector_aux (encdr:α -> byteSeq) ([]:α list) = [] ∧
+  enc_vector_aux encdr (x::xs) = encdr x ++ enc_vector_aux encdr xs
 End
 
 Definition enc_vector_def:
   enc_vector (encdr:α -> byteSeq) ([]:α list) : byteSeq option = SOME $ enc_num 0 ∧
   enc_vector encdr xs =
-    let (n,ys) = enc_vector_aux encdr xs in
-    if n < 2 ** 32 then SOME $ enc_num n ++ ys else NONE
+    let n = LENGTH xs in
+    if n >= 2 ** 32 then NONE
+    else SOME $ enc_num n ++ enc_vector_aux encdr xs
 End
 
+
+(* ASKYK *)
 (* Definition dec_vector_aux:
-  dec_vector_aux decdr (n:num) (bs:byteSeq) =
-  dec_vector_aux decdr (n:num) (bs:byteSeq) =
-  dec_vector_aux decdr (n:num) (bs:byteSeq) =
-    case decdr bs of
+  dec_vector_aux (_:byteSeq -> ((mlstring + α) # byteSeq)) ([]:byteSeq) : (α list # byteSeq) = ([],[]) ∧
+  dec_vector_aux decdr bs = case decdr bs of
+  | (INL _,_) => ([],bs)
+  | (INR x,cs) => let (xs,rs) = dec_vector_aux decdr cs in (x :: xs, rs)
 End *)
 
-(* Definition dec_vec_def:
-  dec_vector (_:byteSeq -> ((mlstring + α) # byteSeq)) ([]:byteSeq) : ((mlstring + α) # byteSeq) =
+(* Definition dec_vector_def:
+  dec_vector (_:byteSeq -> ((mlstring + α list) # byteSeq)) ([]:byteSeq) : ((mlstring + α list) # byteSeq) =
     error "[dec_vector] : Byte sequence unexpectedly empty." [] ∧
 
   dec_vector decdr bs = let failure = error "[dec_vector]" $ bs in
 
     case dec_u32 bs of NONE=>failure| SOME (len, vs) =>
-
+    let (vec, rest) = dec_vector_aux decdr vs in
+    if len = LENGTH vec then (INR vec, rest) else
     failure
-  (* dec_vec decdr (bs:byteSeq) =
-    case dec_num bs of NONE => ARB
-    ARB *)
-End *)
-
-(* Definition dec_vec_def:
-  (* dec_vec ([]:byteSeq) : ((mlstring + table_instr) # byteSeq) = error "[dec_vec] : Byte sequence unexpectedly empty." [] ∧ *)
-  dec_vec decdr (bs) = ARB
 End *)
 
 (* Theorem dec_enc_vector:
