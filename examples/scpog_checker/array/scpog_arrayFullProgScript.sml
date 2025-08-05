@@ -2,11 +2,11 @@
   This builds the cake_scpog proof checker
 *)
 Theory scpog_arrayFullProg
-Ancestors
-  UnsafeProof cnf_scpogSem scpog scpog_list lpr_parsing
-  scpog_parsing scpog_arrayProg
 Libs
   preamble basis
+Ancestors
+  UnsafeProof cnf_scpogSem scpog scpog_list lpr_parsing
+  scpog_parsing scpog_arrayProg basis_ffi
 
 val _ = diminish_srw_ss ["ABBREV"]
 
@@ -508,4 +508,3 @@ Theorem main_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
-
