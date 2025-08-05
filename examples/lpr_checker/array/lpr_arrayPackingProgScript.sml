@@ -6,6 +6,7 @@ Theory lpr_arrayPackingProg
 Ancestors
   lpr_composeProg UnsafeProof lpr lpr_list lpr_parsing
   HashtableProof lpr_arrayProg lpr_arrayParsingProg packing
+  basis_ffi
 Libs
   preamble basis
 
@@ -211,4 +212,3 @@ Theorem main_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
-
