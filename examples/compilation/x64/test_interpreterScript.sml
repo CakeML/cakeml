@@ -3,7 +3,7 @@
 *)
 Theory test_interpreter
 Ancestors
-  helloProg
+  helloProg closLang backend_common
 Libs
   preamble basis
 
@@ -31,4 +31,3 @@ val th = “compile_inc_progs source_to_flat$empty_config ((60,60),^tm)” |> EV
 val n = th |> concl |> find_terms (can $ match_term “Global 0”) |> length
 
 val _ = (n > 0) orelse failwith "Failed to insert call to interpreter";
-
