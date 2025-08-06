@@ -246,22 +246,6 @@ Definition dec_numI_def:
 End
 
 
-Theorem dec_enc_numI:
-  ∀ i. dec_numI (enc_numI i ++ rest) = (INR i, rest)
-Proof
-  (* rw[enc_numI_def] >> every_case_tac
-  >> rw[dec_numI_def]
-  >> simp[bvtype_nchotomy]
-  >> simp[width_nchotomy]
-  >> simp[bvtype_nchotomy]
-  >> rw[AllCaseEqs()]
-  >> (Cases_on `b` >- rw[]) *)
-  cheat
-QED
-(* TypeBase.case_eq_of ``:bvtype``;
-print_find "width"
-print_apropos ``_:width`` *)
-
 
 Definition enc_loadI_def:
   enc_loadI (i:load_instr) : byteSeq = case i of
@@ -373,26 +357,57 @@ End
 
 
 
+Definition enc_list_def:
+  enc_list (encdr:α -> byteSeq) ([]:α list) = [] ∧
+  enc_list encdr (x::xs) = encdr x ++ enc_list encdr xs
+End
+
+Definition enc_vector_def:
+  enc_vector encdr [] : byteSeq option = SOME $ enc_num 0 ∧
+  enc_vector encdr xs = let n = LENGTH xs in
+    if n >= 2 ** 32 then NONE else SOME $ enc_num n ++ enc_list encdr xs
+End
+
+
+
 (***********************************)
 (*                                 *)
 (*     Decode--Encode Theorems     *)
 (*                                 *)
 (***********************************)
 
-(*
+
 Theorem dec_enc_valtype:
   ∀ t. dec_valtype (enc_valtype t) = SOME t
 Proof
-  rpt strip_tac (* this is like intros *)
+  cheat
+  (* rpt strip_tac (* this is like intros *)
   >> `? val. enc_valtype t = val` by simp []
   >> asm_rewrite_tac[]
   >> pop_assum mp_tac
   >> rewrite_tac[enc_valtype_def]
   >> simp[AllCaseEqs()]
   >> rpt strip_tac (* this is like intros *)
-  >> gvs[dec_valtype_def]
+  >> gvs[dec_valtype_def] *)
 QED
-*)
+
+
+
+Theorem dec_enc_numI:
+  ∀ i. dec_numI (enc_numI i ++ rest) = (INR i, rest)
+Proof
+  (* rw[enc_numI_def] >> every_case_tac
+  >> rw[dec_numI_def]
+  >> simp[bvtype_nchotomy]
+  >> simp[width_nchotomy]
+  >> simp[bvtype_nchotomy]
+  >> rw[AllCaseEqs()]
+  >> (Cases_on `b` >- rw[]) *)
+  cheat
+QED
+(* TypeBase.case_eq_of ``:bvtype``;
+print_find "width"
+print_apropos ``_:width`` *)
 
 Theorem dec_enc_loadI:
   ∀ i. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
@@ -433,21 +448,6 @@ QED
 (*     WIP     *)
 (*             *)
 (***************)
-
-(* TODO *)
-
-Definition enc_vector_aux_def:
-  enc_vector_aux (encdr:α -> byteSeq) ([]:α list) = [] ∧
-  enc_vector_aux encdr (x::xs) = encdr x ++ enc_vector_aux encdr xs
-End
-
-Definition enc_vector_def:
-  enc_vector (encdr:α -> byteSeq) ([]:α list) : byteSeq option = SOME $ enc_num 0 ∧
-  enc_vector encdr xs =
-    let n = LENGTH xs in
-    if n >= 2 ** 32 then NONE
-    else SOME $ enc_num n ++ enc_vector_aux encdr xs
-End
 
 
 (* ASKYK *)
