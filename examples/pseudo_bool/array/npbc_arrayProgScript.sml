@@ -2,10 +2,10 @@
   Refine npbc_list to npbc_array
 *)
 Theory npbc_arrayProg
-Ancestors
-  UnsafeProg UnsafeProof npbc npbc_list
 Libs
   preamble basis
+Ancestors
+  UnsafeProg UnsafeProof npbc npbc_list
 
 val _ = translation_extends"UnsafeProg";
 
@@ -6362,4 +6362,3 @@ Proof
     fs[OPTION_TYPE_def,map_snd_def]>>
     metis_tac[])
 QED
-

@@ -2,10 +2,12 @@
   Formalization of the maximum common induced subgraph problem
 *)
 Theory mcis
-Ancestors
-  pbc graph_basic pbc_normalise
 Libs
   preamble
+Ancestors
+  pbc graph_basic pbc_normalise
+
+val _ = numLib.temp_prefer_num();
 
 (* Given graphs G_p , G_t
   A subset of vertices of G_p is a common induced subgraph in G_t
@@ -2194,4 +2196,3 @@ Theorem full_encode_mccis_eq =
   |> SIMP_RULE (srw_ss()) [FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [enc_encode_connected];
-

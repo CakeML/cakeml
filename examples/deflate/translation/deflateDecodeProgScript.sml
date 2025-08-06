@@ -10,7 +10,6 @@ Ancestors
   (* for parsing: *) parsing source_values
   std_prelude
 
-
 val _ = translation_extends "lispProg";
 
 val _ = show_assums := true;

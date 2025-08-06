@@ -3,6 +3,8 @@
   about the compiler backend.
 *)
 Theory backendProps
+Ancestors
+  misc
 Libs
   preamble
 
@@ -494,4 +496,3 @@ Theorem OPTION_MAP2_MAX_ASSOC:
 Proof
   Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs [MAX_DEF]
 QED
-
