@@ -3,7 +3,7 @@
 *)
 Theory toCnfHelper
 Ancestors
-  misc boolExpToCnf
+  misc boolExpToCnf mlstring mlint
 Libs
   preamble basis
 
@@ -47,4 +47,3 @@ Definition get_max_var_and_clauses_def:
     let (max2, numC2) = get_max_var_and_clauses c2 in
       (MAX max1 max2, numC1 + numC2)
 End
-

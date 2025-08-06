@@ -2,12 +2,13 @@
   Encoding program for the Deflate Decoder
 *)
 Theory deflateDecodeProg
+Libs
+  preamble basis
 Ancestors
   misc lispProg list arithmetic deflate deflateTable rle huffman
   LZSS
   (* for parsing: *) parsing source_values
-Libs
-  preamble basis
+  std_prelude
 
 
 val _ = translation_extends "lispProg";
