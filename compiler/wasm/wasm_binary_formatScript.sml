@@ -56,14 +56,6 @@ Definition dec_valtype_def:
   NONE
 End
 
-Theorem dec_enc_valtype_redux:
-  ∀ t. dec_valtype (enc_valtype t) = SOME t
-Proof
-  rw[enc_valtype_def] >> every_case_tac
-  >> Cases_on `b`
-  >> rw[dec_valtype_def]
-QED
-
 
 
 Definition enc_blocktype_def:
@@ -81,18 +73,6 @@ Definition dec_blocktype_def:
   failure
 End
 
-Theorem dec_enc_blocktype:
-  ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
-Proof
-  cheat
-  (* rw[enc_blocktype_def] >> every_case_tac
-  >- rw[dec_blocktype_def]
-  >- (rw[dec_blocktype_def, dec_enc_valtype_redux]
-  >- Cases_on `v` >> Cases_on `b` >> Cases_on `w`
-  >> pop_assum mp_tac
-  >> rw[enc_valtype_def] ) *)
-QED
-
 
 
 Definition enc_numI_def:
@@ -108,7 +88,7 @@ Definition enc_numI_def:
   | N_compare $   Le_ Unsigned W32           => [0x4Dw]
   | N_compare $   Ge_   Signed W32           => [0x4Ew]
   | N_compare $   Ge_ Unsigned W32           => [0x4Fw]
-  | N_eqz     $   W64                        => [0x45w]
+  | N_eqz     $   W64                        => [0x50w]
   | N_compare $   Eq Int       W64           => [0x51w]
   | N_compare $   Ne Int       W64           => [0x52w]
   | N_compare $   Lt_   Signed W64           => [0x53w]
@@ -183,7 +163,7 @@ Definition dec_numI_def:
   if b = 0x4Dw then (INR $ N_compare $   Le_ Unsigned W32           ,bs) else
   if b = 0x4Ew then (INR $ N_compare $   Ge_   Signed W32           ,bs) else
   if b = 0x4Fw then (INR $ N_compare $   Ge_ Unsigned W32           ,bs) else
-  if b = 0x45w then (INR $ N_eqz     $   W64                        ,bs) else
+  if b = 0x50w then (INR $ N_eqz     $   W64                        ,bs) else
   if b = 0x51w then (INR $ N_compare $   Eq Int W64                 ,bs) else
   if b = 0x52w then (INR $ N_compare $   Ne Int W64                 ,bs) else
   if b = 0x53w then (INR $ N_compare $   Lt_   Signed W64           ,bs) else
@@ -376,72 +356,116 @@ End
 (*                                 *)
 (***********************************)
 
+(* neat trick to check if we're making progress (?)
+   due to MM *)
+fun print_dot_tac h = (print "."; all_tac h);
 
 Theorem dec_enc_valtype:
   ∀ t. dec_valtype (enc_valtype t) = SOME t
 Proof
-  cheat
-  (* rpt strip_tac (* this is like intros *)
-  >> `? val. enc_valtype t = val` by simp []
+  rpt strip_tac
+  >> `∃ val. enc_valtype t = val` by simp []
   >> asm_rewrite_tac[]
   >> pop_assum mp_tac
   >> rewrite_tac[enc_valtype_def]
   >> simp[AllCaseEqs()]
-  >> rpt strip_tac (* this is like intros *)
-  >> gvs[dec_valtype_def] *)
+  >> simp[bvtype_nchotomy]
+  >> rpt strip_tac
+  >> gvs[dec_valtype_def]
+
+  (* rw[enc_valtype_def] >> every_case_tac >> rw[dec_valtype_def]
+  >> simp[bvtype_nchotomy] *)
 QED
 
-
+Theorem dec_enc_blocktype:
+  ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
+Proof
+  rpt strip_tac
+  >> `∃ val. enc_blocktype b = val` by simp []
+  >> asm_rewrite_tac[]
+  >> pop_assum mp_tac
+  >> rewrite_tac[enc_blocktype_def]
+  >> simp[AllCaseEqs()]
+  >> rpt strip_tac
+  >- gvs[dec_blocktype_def]
+  >- (gvs[dec_blocktype_def, dec_enc_valtype]
+    >> rw[enc_valtype_def]
+    >> fs[AllCaseEqs()])
+QED
 
 Theorem dec_enc_numI:
-  ∀ i. dec_numI (enc_numI i ++ rest) = (INR i, rest)
+  ∀ i rest. dec_numI (enc_numI i ++ rest) = (INR i, rest)
 Proof
-  (* rw[enc_numI_def] >> every_case_tac
+  rpt gen_tac
+  \\ ‘∃res. enc_numI i = res’ by simp []
+  \\ asm_rewrite_tac []
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [enc_numI_def]
+  \\ simp[AllCaseEqs()]
+  \\ simp[bvtype_nchotomy]
+  \\ simp[convert_op_nchotomy]
+  \\ rpt strip_tac
+
+  (* single byte encoding cases *)
+  \\ asm_rewrite_tac[APPEND, dec_numI_def]
+  \\ simp[AllCaseEqs()]
+
+  (* cases requiring further encoding (of their "immediates") *)
+  \\ ( pop_assum sym_sub_tac >- simp[dec_numI_def, AllCaseEqs()] )
+
+(*
+  rw[enc_numI_def] >> every_case_tac
+  >> simp[bvtype_nchotomy]
   >> rw[dec_numI_def]
-  >> simp[bvtype_nchotomy]
-  >> simp[width_nchotomy]
-  >> simp[bvtype_nchotomy]
-  >> rw[AllCaseEqs()]
-  >> (Cases_on `b` >- rw[]) *)
-  cheat
+  >> simp[convert_op_nchotomy]
+*)
 QED
-(* TypeBase.case_eq_of ``:bvtype``;
-print_find "width"
-print_apropos ``_:width`` *)
 
 Theorem dec_enc_loadI:
-  ∀ i. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
+  ∀ i rest. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
 Proof
-  cheat
-  (* rw [enc_loadI_def] >> every_case_tac
-  >> rw [dec_loadI_def]
-  >> (rewrite_tac[GSYM APPEND_ASSOC] >- rw[]) *)
+  rpt gen_tac
+  \\ ‘∃res. enc_loadI i = res’ by simp [] >> asm_rewrite_tac[]
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [enc_loadI_def]
+  \\ simp[AllCaseEqs()]
+  \\ simp[bvtype_nchotomy]
+  \\ simp[convert_op_nchotomy]
+  \\ rpt strip_tac
+
+  \\ ( pop_assum sym_sub_tac >- simp[dec_loadI_def, AllCaseEqs()] )
 QED
 
 Theorem dec_enc_storeI:
-  ∀ i. dec_storeI (enc_storeI i ++ rest) = (INR i, rest)
+  ∀ i rest. dec_storeI (enc_storeI i ++ rest) = (INR i, rest)
 Proof
+  rpt gen_tac
+  \\ ‘∃res. enc_storeI i = res’ by simp []
+  \\ asm_rewrite_tac []
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [enc_storeI_def]
+  \\ simp[AllCaseEqs()]
+  \\ simp[bvtype_nchotomy]
+  \\ rpt strip_tac
+  \\ gvs[dec_storeI_def, dec_enc_2u32]
+(*
   rw[enc_storeI_def] >> every_case_tac
-  >- (Cases_on `b`  >> rw[dec_storeI_def])
-  >- (Cases_on `b`  >> rw[dec_storeI_def])
+  >> simp[bvtype_nchotomy]
   >> rw[dec_storeI_def]
-  >> (rewrite_tac[GSYM APPEND_ASSOC] >- rw[])
+*)
 QED
 
 Theorem dec_enc_paraI:
-  ∀ i. dec_paraI (enc_paraI i ++ rest) = (INR i, rest)
+  ∀ i rest. dec_paraI (enc_paraI i ++ rest) = (INR i, rest)
 Proof
-  rw[enc_paraI_def] >> every_case_tac >>
-  rw[dec_paraI_def]
+  rw[enc_paraI_def] >> every_case_tac >> rw[dec_paraI_def]
 QED
 
 Theorem dec_enc_varI:
-  ∀ i. dec_varI (enc_varI i ++ rest) = (INR i, rest)
+  ∀ i rest. dec_varI (enc_varI i ++ rest) = (INR i, rest)
 Proof
-  rw[enc_varI_def] >> every_case_tac >>
-  rw[dec_varI_def, dec_enc_unsigned_word]
+  rw[enc_varI_def] >> every_case_tac >> rw[dec_varI_def, dec_enc_unsigned_word]
 QED
-
 
 (***************)
 (*             *)
@@ -525,11 +549,14 @@ Definition enc_instr_def:
   (enc_instr_list (i::ins) = enc_instr i ++ enc_instr_list ins)
 
 End
-(*
+
 Theorem dec_blocktype_len:
-  dec_blocktype bs = (r,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs
+  ∀ bs r bs1. dec_blocktype bs = (r,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs
 Proof
-  cheat
+  Cases
+  >- ( rewrite_tac[dec_blocktype_def] >> cheat )
+  (* >- rewrite_tac[dec_blocktype_def] *)
+  >- cheat
 QED
 
 Definition check_len_def:
@@ -691,8 +718,6 @@ Proof
   >~ [‘enc_numI’] >- (simp [enc_numI_def] \\ every_case_tac \\ fs [])
   >~ [‘enc_loadI’] >- (simp [enc_loadI_def] \\ every_case_tac \\ fs [])
   >~ [‘enc_storeI’] >- (simp [enc_storeI_def] \\ every_case_tac \\ fs [])
-  >~ [‘enc_memI’] >- (simp [enc_memI_def] \\ every_case_tac \\ fs [])
-  >> cheat
 QED
 
 Theorem dec_enc_instr:
@@ -722,8 +747,8 @@ Proof
     \\ asm_rewrite_tac [GSYM APPEND_ASSOC] \\ simp [])
   \\ cheat (* not yet implemented cases *)
 QED
-*)
-(* Definition dec_instr_def:
+
+Definition dec_instr_def:
   dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = error "[dec_instr] : Byte sequence unexpectedly empty." [] ∧
   dec_instr (b::bs) = let failure = error "[dec_instr]" $ b::bs in
 
@@ -744,17 +769,18 @@ QED
    (* TODO
   if b = 0x13w then case dec_unsigned_word bs of NONE => failure | SOME (f,cs) => (INR $ ReturnCallIndirect f (* tblIdx *) , cs) else *)
 
-  (* variable instructions *)
-  if b = 0x20w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ LocalGet  x, cs) else
-  if b = 0x21w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ LocalSet  x, cs) else
-  if b = 0x22w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ LocalTee  x, cs) else
-  if b = 0x23w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ GlobalGet x, cs) else
-  if b = 0x24w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ GlobalSet x, cs) else
-
-  case dec_numI (b::bs) of (INR inum,cs) => (INR $ Numeric inum, cs) | _ =>
-  case dec_vecI (b::bs) of (INR ivec,cs) => (INR $ Vector  ivec, cs) | _ =>
+  case dec_varI   (b::bs) of (INR ivar,cs) => (INR $ Variable   ivar, cs) | _ =>
+  case dec_paraI  (b::bs) of (INR ipar,cs) => (INR $ Parametric ipar, cs) | _ =>
+  case dec_numI   (b::bs) of (INR inum,cs) => (INR $ Numeric    inum, cs) | _ =>
+  case dec_loadI  (b::bs) of (INR imrd,cs) => (INR $ MemRead    imrd, cs) | _ =>
+  case dec_storeI (b::bs) of (INR imwr,cs) => (INR $ MemWrite   imwr, cs) | _ =>
 
   failure
-End *)
+End
 
 val _ = export_theory();
+
+
+(* TypeBase.case_eq_of ``:bvtype``;
+print_find "width"
+print_apropos ``_:width`` *)
