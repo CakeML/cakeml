@@ -2,6 +2,7 @@
   Formalization of the CP to ILP phase
 *)
 open preamble cpTheory ilpTheory pbcTheory pbc_encodeTheory;
+open sptreeTheory;
 
 val _ = new_theory "cp_to_ilp";
 
@@ -16,8 +17,8 @@ Datatype:
   | Ne ('a + int) ('a + int)  (* Used to force X ≠ Y *)
   | Gem ('a + int) ('a + int) (* Used to force X ≥ Y in Array Max *)
   | Eqc ('a + int) ('a + int) (* Used to force X = Y in Count *)
-  | Nv (('a + int) list) int (* Used to force some element in As = v *)
-  | Tb (('a + int) list) (('a + int) list) int
+  | Nv ('a list) int (* Used to force some element in As = v *)
+  | Tb (('a + int) list) (('a + int) list)
 End
 
 Definition min_iterm_def:
@@ -755,6 +756,32 @@ Proof
   >- metis_tac[]
 QED
 
+Theorem iSUM_le_0:
+  (∀x. MEM x ls ⇒ x ≤ 0) ⇒ iSUM ls ≤ 0
+Proof
+  Induct_on`ls`>> rw[iSUM_def]>>
+  fs[SF DNF_ss]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem eval_lin_term_neg_ge_0:
+  eval_lin_term wb (MAP (λe. (-1, f e)) ls) ≥ 0 ⇔
+  ∀e. MEM e ls ⇒ ¬lit wb (f e)
+Proof
+  rw[eval_lin_term_def]>>
+  Induct_on ‘ls’>>
+  rw[iSUM_def,b2i_alt]
+  >-(
+    simp[SF DNF_ss,integerTheory.INT_GE,integerTheory.INT_NOT_LE]>>
+    qmatch_goalsub_abbrev_tac ‘_ + iSUM lss < _’>>
+    ‘iSUM lss ≤ 0’ by (
+      irule iSUM_le_0>>
+      simp[Abbr‘lss’,MEM_MAP,PULL_EXISTS,b2i_alt]>>
+      rw[])>>
+    intLib.ARITH_TAC)
+  >-metis_tac[]
+QED
+
 (* Encodes that all As ≥ M *)
 Definition encode_Gem_ge_def:
   encode_Gem_ge bnd As M =
@@ -768,7 +795,7 @@ Definition encode_Gem_ge_iff_def:
   MAP (λA. bits_imply bnd [Neg (Gem A M)] (mk_constraint_ge 1 M (-1) A 1)) As
 End
 
-(* Encodes that all As ≤ M *)
+ (* Encodes that all As ≤ M *)
 Definition encode_Gem_le_def:
   encode_Gem_le bnd As M =
   MAP (λA. bits_imply bnd [Pos (Gem M A)] (mk_constraint_ge 1 M (-1) A 0)) As
@@ -968,50 +995,132 @@ Proof
     intLib.ARITH_TAC)
 QED
 
-(* domain of X given by bnd *)
-Definition dom_def:
-  dom bnd X =
-  case X of
-    INL vX =>
-      let
-        (lb, ub) = bnd vX
-      in
-        if lb > ub then [] else GENLIST (λn. &n + lb) (Num (ub - lb) + 1)
-  | INR cX => [cX]
+(* domain of X given by bnd (as a list) *)
+Definition domlist_def:
+  domlist bnd X =
+  let
+    (lb, ub) = bnd X
+  in
+    if lb > ub then [] else GENLIST (λn. &n + lb) (Num (ub - lb) + 1)
+End
+
+(* bijection 0, -1, 1, -2, 2,... ⇔ 0, 1, 2, 3, 4,... and its inverse *)
+Definition intnum_def:
+  intnum (n: int) =
+  if n = 0 then 0n
+  else if n < 0 then 2 * Num (-n) - 1
+  else 2 * Num n
+End
+
+Definition numint_def:
+  numint (n: num): int =
+  if EVEN n then &((n + 1) DIV 2)
+  else -&((n + 1) DIV 2)
+End
+
+Definition numset_to_intlist_def:
+  numset_to_intlist t = MAP (numint o FST) $ toSortedAList t
+End
+
+Definition union_dom_def:
+  union_dom bnd Xs =
+  numset_to_intlist $ foldl union LN $
+    MAP (λX. list_to_num_set $ MAP intnum $ domlist bnd X) Xs
+End
+
+(* encodes fnvalue_v ⇒ some X = v and ~fnvalue_v ⇒ no X = v *)
+Definition encode_some_eq_def:
+  encode_some_eq bnd Xs (v: int) = [
+    bits_imply bnd [Pos (Nv Xs v)]
+      ([], MAP (λA. (1i, Pos (Eq A v))) Xs, 1i);
+    bits_imply bnd [Neg (Nv Xs v)]
+      ([], MAP (λA. (-1i, Pos (Eq A v))) Xs, 0i)]
+End
+
+Theorem encode_some_eq_sem:
+  valid_assignment bnd wi ∧
+  EVERY (λX. wb (Eq X v) ⇔ wi X = v) Xs ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_some_eq bnd Xs v) =
+  (wb (Nv Xs v) ⇔ ∃A. MEM A Xs ∧ wb (Eq A v)))
+Proof
+  rw[encode_some_eq_def,bits_imply_sem,iconstraint_sem_def,eval_ilin_term_def,
+    iSUM_def,MAP_MAP_o,eval_lin_term_ge_1,eval_lin_term_neg_ge_0]>>
+  metis_tac[]
+QED
+
+(* the following concerning nvalue (and bitsum) to be redone *)
+
+(* encodes (the sum of bit-array Bs) = Y for Y:int *)
+Definition encode_bitsum_const_def:
+  encode_bitsum_const Bs (Y: int) =
+  [([], MAP (λb. (1i, Pos b)) Bs, Y);([], MAP (λb. (-1i, Pos b)) Bs, -Y)]
+End
+
+(* encodes (the sum of bit-array Bs) = Y for Y:'a *)
+Definition encode_bitsum_var_def:
+  encode_bitsum_var Bs (Y: 'a) =
+  [([(-1i, Y)], MAP (λb. (1i, Pos b)) Bs, 0i);([(1i, Y)], MAP (λb. (-1i, Pos b)) Bs, 0i)]
+End
+
+(* encodes NValue for Y:int *)
+Definition encode_nvalue_const_def:
+  encode_nvalue_const bnd Y Xs =
+  let
+    vals = union_dom bnd Xs;
+    ges = λv. (FLAT $ MAP (λX. encode_ge bnd X v) Xs);
+    eqs = λv. (FLAT $ MAP (λX. encode_eq bnd X v) Xs)
+  in
+    (FLAT $ MAP (λv. ges v ++ eqs v ++ encode_some_eq bnd Xs v) vals) ++
+    encode_bitsum_const (MAP (λv. Nv Xs v) vals) Y
+End
+
+Theorem encode_nvalue_const_sem:
+  let
+    vals = union_dom bnd Xs
+  in
+    valid_assignment bnd wi ⇒
+    EVERY (λx. iconstraint_sem x (wi,wb)) (encode_nvalue_const bnd Y Xs) = (
+      ∀v. MEM v vals ⇒ (
+        EVERY (λX. wb (Ge X v) ⇔ wi X ≥ v) Xs ∧
+        EVERY (λX. wb (Eq X v) ⇔ wi X = v) Xs ∧
+        wb (Nv Xs v) ⇔ ∃A. MEM A Xs ∧ wb (Eq A v)) ∧
+      iSUM (MAP (λv. b2i (wb (Nv Xs v))) vals) = Y ∧
+      nvalue_sem (INR Y) Xs wi)
+Proof
+  cheat
+QED
+
+(* encodes NValue for Y:'a *)
+Definition encode_nvalue_var_def:
+  encode_nvalue_var bnd (Y: 'a) Xs =
+  let
+    vals = union_dom bnd Xs;
+    ges = λv. (FLAT $ MAP (λX. encode_ge bnd X v) Xs);
+    eqs = λv. (FLAT $ MAP (λX. encode_eq bnd X v) Xs)
+  in
+    (FLAT $ MAP (λv. ges v ++ eqs v ++ encode_some_eq bnd Xs v) vals) ++
+    encode_bitsum_var (MAP (λv. Nv Xs v) vals) Y
 End
 
 Definition encode_nvalue_def:
-  encode_nvalue bnd Y As =
-  let
-    Vals = nub $ FLAT $ MAP (dom bnd) As;
-    some_eq = λv. ([], MAP (λA. (1i, Pos (Eqc A (INR v)))) As, 1i);
-    none_eq = λv. ([], MAP (λA. (-1i, Pos (Eqc A (INR v)))) As, 0i)
-  in
-    MAP (λv. bits_imply bnd [Pos (Nv As v)] (some_eq v)) Vals ++
-    MAP (λv. bits_imply bnd [Neg (Nv As v)] (none_eq v)) Vals ++
-    (case Y of
-        INL vY =>
-          [([(-1, vY)], MAP (λv. (1i, Pos (Nv As v))) Vals, 0);
-          ([(1, vY)], MAP (λv. (-1i, Pos (Nv As v))) Vals, 0)]
-      | INR cY =>
-          [([], MAP (λv. (1i, Pos (Nv As v))) Vals, cY);
-          ([], MAP (λv. (-1i, Pos (Nv As v))) Vals, -cY)])
+  encode_nvalue bnd Y Xs =
+  case Y of
+    INL vY => encode_nvalue_var bnd vY Xs
+  | INR cY => encode_nvalue_const bnd cY Xs
 End
 
-(* TODO: Theorem encode_nvalue_sem *)
-
 Definition encode_table_def:
-  encode_table bnd Xs Tss =
+  encode_table bnd Xs Yss =
   let n = LENGTH Xs in
-    if EVERY (λTs. LENGTH Ts = n) Tss
+    if EVERY (λYs. LENGTH Ys = n) Yss
     then
       let
-        all_eq = λTs. ([], MAP (λ(X, T). (1i, Pos (Eqc X T))) (ZIP (Xs, Ts)), &n);
-        some_neq = λTs. ([], MAP (λ(X, T). (-1i, Pos (Eqc X T))) (ZIP (Xs, Ts)), -&n + 1i)
+        all_eq = λYs. ([], MAP (λ(X, Y). (1i, Pos (Eqc X Y))) (ZIP (Xs, Ys)), &n);
+        some_neq = λYs. ([], MAP (λ(X, Y). (-1i, Pos (Eqc X Y))) (ZIP (Xs, Ys)), -&n + 1i)
       in
-        MAP (λTs. bits_imply bnd [Pos (Tb Xs Ts &n)] (all_eq Ts)) Tss ++
-        MAP (λTs. bits_imply bnd [Neg (Tb Xs Ts &n)] (some_neq Ts)) Tss ++
-        [([], MAP (λTs. (1i, Pos (Tb Xs Ts &n))) Tss, 1i)]
+        MAP (λYs. bits_imply bnd [Pos (Tb Xs Ys)] (all_eq Ys)) Yss ++
+        MAP (λYs. bits_imply bnd [Neg (Tb Xs Ys)] (some_neq Ys)) Yss ++
+        [([], MAP (λYs. (1i, Pos (Tb Xs Ys))) Yss, 1i)]
     else [([], [], 1i)]
 End
 

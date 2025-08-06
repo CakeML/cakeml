@@ -98,14 +98,14 @@ Definition count_sem_def:
 End
 
 Definition nvalue_sem_def:
-  nvalue_sem (Y: 'a varc) (As: ('a varc) list) (w: 'a assignment) =
-  (Num $ varc w Y = CARD $ set (MAP (varc w) As))
+  nvalue_sem (Y: 'a varc) (As: 'a list) (w: 'a assignment) =
+  (varc w Y ≥ 0 ∧ (Num $ varc w Y = CARD $ set (MAP w As)))
 End
 
 Definition table_sem_def:
-  table_sem (Xs: ('a varc) list) (Tss: ('a varc) list list) (w: 'a assignment) =
+  table_sem (Xs: ('a varc) list) (Tss: int list list) (w: 'a assignment) =
   let n = LENGTH Xs in
-    EVERY (λTs. LENGTH Ts = n) Tss ∧ MEM (MAP (varc w) Xs) (MAP (MAP (varc w)) Tss)
+    EVERY (λTs. LENGTH Ts = n) Tss ∧ MEM (MAP (varc w) Xs) Tss
 End
 
 Datatype:
@@ -119,8 +119,8 @@ Datatype:
   | ArrMax ('a varc) ('a varc list)
   | ArrMin ('a varc) ('a varc list)
   | Count ('a varc) ('a varc) ('a varc list)
-  | Nvalue ('a varc) ('a varc list)
-  | Table ('a varc list) ('a varc list list)
+  | Nvalue ('a varc) ('a list)
+  | Table ('a varc list) (int list list)
 End
 
 Definition constraint_sem_def:
