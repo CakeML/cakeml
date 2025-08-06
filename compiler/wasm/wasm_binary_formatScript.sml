@@ -748,6 +748,7 @@ Proof
   \\ cheat (* not yet implemented cases *)
 QED
 
+(*
 Definition dec_instr_def:
   dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = error "[dec_instr] : Byte sequence unexpectedly empty." [] ∧
   dec_instr (b::bs) = let failure = error "[dec_instr]" $ b::bs in
@@ -777,6 +778,7 @@ Definition dec_instr_def:
 
   failure
 End
+*)
 
 val _ = export_theory();
 
