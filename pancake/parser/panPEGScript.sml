@@ -309,6 +309,7 @@ Definition pancake_peg_def[nocompute]:
                                      keep_kw TrueK; keep_kw FalseK;
                                      keep_int; keep_ident;
                                      mknt StructNT; keep_kw BaseK; keep_kw BiwK;
+                                     keep_kw TopK;
                                      ];
                             rpt (seql [consume_tok DotT; keep_nat] I)
                                 FLAT]

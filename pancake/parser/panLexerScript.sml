@@ -20,7 +20,7 @@ val _ = new_theory "panLexer";
 Datatype:
   keyword = SkipK | StK | StwK | St8K | St32K | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK | BiwK
-  | LdsK | Ld8K | LdwK | Ld32K | BaseK | InK | FunK | ExportK | TrueK | FalseK
+  | LdsK | Ld8K | LdwK | Ld32K | BaseK | TopK | InK | FunK | ExportK | TrueK | FalseK
 End
 
 Datatype:
@@ -28,7 +28,7 @@ Datatype:
   | EqT | NeqT | LessT | GreaterT | GeqT | LeqT | LowerT | HigherT | HigheqT | LoweqT
   | PlusT | MinusT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
-  | IntT int | IdentT string | ForeignIdent string (* @ffi_str except @base *)
+  | IntT int | IdentT string | ForeignIdent string (* @ffi_str except @base, @biw, @top *)
   | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
@@ -135,6 +135,7 @@ Definition get_keyword_def:
   if s = "ld8" then (KeywordT Ld8K) else
   if s = "ld32" then (KeywordT Ld32K) else
   if s = "@base" then (KeywordT BaseK) else
+  if s = "@top" then (KeywordT BaseK) else
   if s = "@biw" then (KeywordT BiwK) else
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else

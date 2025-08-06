@@ -246,7 +246,7 @@ val ex9 = ‘
    var d = 1;
    @out_morefun(a,b,c,d);
    st @base, ic;
-   return 0;
+   return @top;
  }’;
 
 val treeEx10 = check_success $ parse_pancake ex9;
