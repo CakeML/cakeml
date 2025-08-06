@@ -391,7 +391,7 @@ End
 
 
 
-Overload v_opcode[local] = “λ n. 0xFDw :: enc_num n”
+Overload v_opcode[local] = “λ n. 0xFDw :: enc_u32 (n2w n)”
 Definition enc_vecI_def:
   enc_vecI (i:vec_instr) : byteSeq = case i of
 
@@ -1149,13 +1149,38 @@ Proof
   (* rw[enc_numI_def] >> every_case_tac >> rw[dec_numI_def] *)
 QED
 
+Theorem NOT_NULL_enc_u32:
+  ~(NULL (enc_u32 u))
+Proof
+  cheat
+QED
+
+fun print_dot_tac h = (print "."; all_tac h);
+
 Theorem dec_enc_vecI:
   ∀ i. dec_vecI (enc_vecI i ++ rest) = (INR i, rest)
 Proof
-  (* exploding script? *)
-  (* EXPLODE *)
-  (* rw[enc_vecI_def] >> every_case_tac >> rw[dec_vecI_def] *)
-  cheat
+  rpt gen_tac
+  \\ ‘∃res. enc_vecI i = res’ by simp []
+  \\ asm_rewrite_tac []
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [enc_vecI_def]
+  \\ simp [AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ (rpt var_eq_tac
+      \\ rewrite_tac [dec_vecI_def,APPEND,NOT_NULL_enc_u32,NULL_APPEND]
+      \\ rewrite_tac [GSYM APPEND_ASSOC,dec_enc_u32]
+      \\ rewrite_tac [LET_THM]
+      \\ CONV_TAC ((RATOR_CONV o RAND_CONV) BETA_CONV)
+      \\ rewrite_tac [pair_case_thm,option_case_def]
+      \\ CONV_TAC (DEPTH_CONV BETA_CONV)
+      \\ rewrite_tac [pair_case_thm,option_case_def]
+      \\ CONV_TAC (DEPTH_CONV BETA_CONV)
+      \\ rewrite_tac [AllCaseEqs()]
+      \\ print_dot_tac
+      \\ simp_tac std_ss [n2w_11,EVAL “dimword (:32)”])
+  \\ ntac 16 (rewrite_tac [leb128Theory.dec_enc_unsigned_word,GSYM APPEND_ASSOC] \\ simp [])
+  \\ cheat (* something is wrong in the definitions near VbitSelect *)
 QED
 
 (* ASKYK ASKMM *)
