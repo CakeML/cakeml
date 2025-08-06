@@ -4,8 +4,7 @@ all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
-# Filter out tests/ (they don't have a readmePrefix)
-DIRS = $(patsubst tests/,,$(wildcard */))
+DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
 
