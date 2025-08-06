@@ -30,6 +30,9 @@ val () = append_decs
        (Fun "x" (Fun "y" (Fun "z"
          (App Aw8update_unsafe [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]``;
 
+val () = append_decs
+   ``[mk_binop "w8xor_str" XorAw8Str_unsafe]``;
+
 val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory ()

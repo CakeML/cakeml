@@ -521,6 +521,19 @@ Proof
       rw[AllCaseEqs()] >>
       gvs[NULL_EQ_NIL,MAP_EQ_CONS]>>
       simp[do_app_aux_def,do_word_app_def,bvl_to_bvi_id])
+  >~ [`do_app (MemOp XorByte)`]
+  >- (fs[oneline bviSemTheory.do_app_def,
+      oneline bviSemTheory.do_app_aux_def,
+      bvlSemTheory.do_app_def,
+      oneline bvlSemTheory.do_word_app_def] >>
+      rw[AllCaseEqs()] >>
+      gvs[NULL_EQ_NIL,MAP_EQ_CONS]>>
+      simp[do_app_aux_def,do_word_app_def,bvl_to_bvi_id] >>
+      rw[AllCaseEqs(),PULL_EXISTS] >>
+      pop_assum $ irule_at Any >>
+      gvs [state_rel_def] >>
+      fs[bvi_to_bvl_def,bvl_to_bvi_def,lookup_map,lookup_insert,FLOOKUP_SIMP] >>
+      rw [])
   \\ ntac 2 (fs [ do_app_aux_def
                 , bvlSemTheory.do_app_def
                 , bviSemTheory.do_app_def
@@ -1088,6 +1101,50 @@ Proof
                  \\ IMP_RES_TAC jump_exc_IMP
                  \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
                  \\ full_simp_tac(srw_ss())[jump_exc_def])))
+    \\ Cases_on`op = MemOp XorByte` >- (
+      fs[dataLangTheory.op_requires_names_def]
+      \\ qhdtm_x_assum`bviSem$do_app`mp_tac
+      \\ simp[bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,closSemTheory.case_eq_thms]
+      \\ strip_tac \\ rveq \\ fs[pair_case_eq,domain_map] \\ rw[]
+      \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
+      \\ fs[dataSemTheory.do_app_def,do_space_def,dataLangTheory.op_space_reset_def,
+            data_spaceTheory.op_space_req_def,do_app_aux_def]
+      \\ fs[state_rel_def,code_rel_def]
+      \\ fs [ bvlSemTheory.do_app_def
+              , bvlSemTheory.case_eq_thms
+              , case_eq_thms
+              , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
+      \\ ntac 5 (rfs [MAP_EQ_CONS])
+      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ IMP_RES_TAC data_to_bvi_v_eq \\ rveq
+      \\ fs [lookup_map,case_eq_thms]
+      \\ IMP_RES_TAC data_to_bvi_eq_ByteArray \\ rveq
+      \\ fs [ set_var_def,bvl_to_bvi_id,lookup_insert
+              , lookup_map,map_insert]
+      \\ fs[bvi_to_bvl_def,bvl_to_bvi_def
+            ,bviSemTheory.state_component_equality
+            , data_to_bvi_ref_def]
+      \\ conj_tac >- rw [FLOOKUP_UPDATE, data_to_bvi_ref_def]
+      \\ conj_tac >- ( rw[Abbr`env1`,lookup_inter_EQ] )
+      \\ fs [ var_corr_def,data_to_bvi_v_Unit,get_var_def,lookup_insert
+              , lookup_map,bvlPropsTheory.case_eq_thms
+              , LENGTH_MAP,LIST_REL_LENGTH,lookup_map]
+      \\ fs[] \\ rveq
+      \\ fs[] \\ rveq
+      \\ conj_tac >- (
+        fs[LIST_REL_EL_EQN]
+        \\ rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ METIS_TAC[MEM_EL,prim_recTheory.LESS_REFL] )
+      \\ conj_tac >- (
+        rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ res_tac \\ fs[] )
+      \\ conj_tac >- (
+        fs[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ METIS_TAC[prim_recTheory.LESS_REFL] )
+      \\ rw[] \\ res_tac
+      \\ fs[jump_exc_def]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[])
     \\ Cases_on`∃b. op = MemOp (CopyByte b)` >- (
       fs[dataLangTheory.op_requires_names_def]
       \\ qhdtm_x_assum`bviSem$do_app`mp_tac

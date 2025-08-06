@@ -22,8 +22,8 @@ val _ = cv_auto_trans mlstringTheory.concat_def;
 val _ = cv_trans miscTheory.list_max_def;
 val _ = cv_trans (miscTheory.max3_def |> PURE_REWRITE_RULE [GREATER_DEF]);
 
-val toChar_pre = cv_trans_pre mlintTheory.toChar_def
-val num_to_chars_pre = cv_auto_trans_pre mlintTheory.num_to_chars_def;
+val toChar_pre = cv_trans_pre "mlint_toChar_pre" mlintTheory.toChar_def
+val num_to_chars_pre = cv_auto_trans_pre "mlint_num_to_chars_pre" mlintTheory.num_to_chars_def;
 
 Theorem IMP_toChar_pre:
   n < 16 ⇒ mlint_toChar_pre n

@@ -477,6 +477,14 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
+  \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def, SF SFY_ss]
+    \\ first_assum (irule_at Any) \\ gs [LLOOKUP_EQ_EL]
+    \\ gvs [store_assign_def, EL_LUPDATE, EVERY_EL]
+    \\ rw [ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1
+    \\ rpt strip_tac \\ gvs [])
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def, SF SFY_ss]

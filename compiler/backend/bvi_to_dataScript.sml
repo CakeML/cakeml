@@ -46,6 +46,7 @@ Theorem op_requires_names_eqn:
                           | FFI n => T
                           | Install => T
                           | MemOp (CopyByte new_flag) => T
+                          | MemOp XorByte => T
                           | _ => F))
 Proof
   strip_tac >> rpt CASE_TAC >> fs[op_requires_names_def]
@@ -57,6 +58,7 @@ Theorem op_requires_names_pmatch:
                         | FFI n => T
                         | Install => T
                         | MemOp (CopyByte new_flag) => T
+                        | MemOp XorByte => T
                         | _ => F))
 Proof
   rpt strip_tac >>
