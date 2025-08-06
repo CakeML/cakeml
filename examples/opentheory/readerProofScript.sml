@@ -4,11 +4,11 @@
   follows by logical inference in Candle's version of the HOL logic.
 *)
 Theory readerProof
+Libs
+  preamble
 Ancestors
   ml_monadBase holKernel holKernelProof holSyntax holSyntaxExtra
   reader reader_init TextIOProg
-Libs
-  preamble
 
 Overload return[local] = “st_ex_return”;
 Overload failwith[local] = “raise_Failure”;
@@ -1801,4 +1801,3 @@ Proof
   \\ drule readLines_Fail_not_empty
   \\ Cases_on `e` \\ fs []
 QED
-
