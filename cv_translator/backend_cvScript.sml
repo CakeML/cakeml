@@ -872,7 +872,9 @@ Proof
   \\ rw[]
 QED
 
-val pre = cv_trans_pre_rec "" mergesortN_tail_eq
+val _ = cv_trans DIV2_def;
+
+val pre = cv_auto_trans_pre_rec "" mergesortN_tail_eq
   (WF_REL_TAC ‘measure (cv_size o FST o SND)’ \\ rw []
    \\ rename1`_ < cv_size cvv`
    \\ Cases_on`cvv`
