@@ -53,6 +53,7 @@ Datatype: limits
   | Lwmx word64 word64
 End
 
+Type mem = “:word8 list”
 Type memtyp = “:(addrtype # limits)”
 
 Type resulttype = “:valtype list”
@@ -525,6 +526,7 @@ Datatype: global
   | Gmut   valtype
 End
 
+(* we could also do global much more simply *)
 (* Type global = “:bool # valtype” *)
 
 Datatype: func =
@@ -541,7 +543,7 @@ Datatype: module =
   <|
   funcs   : func list   ;
   (* tables  : table list  ; *)
-  mems    : (word8 list) list    ;
+  mems    : mem list    ;
   globals : global list ;
   (* elems   : elem list   ; *)
   (* datas   : data list   ; *)
