@@ -66,19 +66,6 @@ Definition dec_valtype_def:
   NONE
 End
 
-Theorem dec_enc_valtype:
-  ∀ t. dec_valtype (enc_valtype t) = SOME t
-Proof
-  rpt strip_tac (* this is like intros *)
-  >> `? val. enc_valtype t = val` by simp []
-  >> asm_rewrite_tac[]
-  >> pop_assum mp_tac
-  >> rewrite_tac[enc_valtype_def]
-  >> simp[AllCaseEqs()]
-  >> rpt strip_tac (* this is like intros *)
-  >> gvs[dec_valtype_def]
-QED
-
 
 
 Definition enc_blocktype_def:
@@ -98,27 +85,6 @@ Definition dec_blocktype_def:
   failure
 End
 
-Theorem dec_enc_blocktype:
-  ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
-Proof
-  (* ahh, what's really missing here is the fact that the enc_s33 will never
-  collide with the other possible encodings for blocktype... *)
-
-  rw[enc_blocktype_def] >> every_case_tac
-
-  >- rw[dec_blocktype_def]
-
-  (* ASKYK *)
-  >- (
-    rw[dec_blocktype_def]
-    >- fs[enc_valtype_def, AllCaseEqs()]
-    >- rw[dec_enc_valtype])
-
-
-  >- cheat
-QED
-
-
 
 
 Definition enc_numI_def:
@@ -134,7 +100,7 @@ Definition enc_numI_def:
   | N_compare $   Le_ Unsigned W32           => [0x4Dw]
   | N_compare $   Ge_   Signed W32           => [0x4Ew]
   | N_compare $   Ge_ Unsigned W32           => [0x4Fw]
-  | N_eqz     $   W64                        => [0x45w]
+  | N_eqz     $   W64                        => [0x50w]
   | N_compare $   Eq Int       W64           => [0x51w]
   | N_compare $   Ne Int       W64           => [0x52w]
   | N_compare $   Lt_   Signed W64           => [0x53w]
@@ -284,7 +250,7 @@ Definition dec_numI_def:
   if b = 0x4Dw then (INR $ N_compare $   Le_ Unsigned W32           ,bs) else
   if b = 0x4Ew then (INR $ N_compare $   Ge_   Signed W32           ,bs) else
   if b = 0x4Fw then (INR $ N_compare $   Ge_ Unsigned W32           ,bs) else
-  if b = 0x45w then (INR $ N_eqz     $   W64                        ,bs) else
+  if b = 0x50w then (INR $ N_eqz     $   W64                        ,bs) else
   if b = 0x51w then (INR $ N_compare $   Eq Int W64                 ,bs) else
   if b = 0x52w then (INR $ N_compare $   Ne Int W64                 ,bs) else
   if b = 0x53w then (INR $ N_compare $   Lt_   Signed W64           ,bs) else
@@ -423,34 +389,6 @@ Definition dec_numI_def:
   failure
 End
 
-(* ASKYK ASKMM *)
-(* this is super slow. How to speed up *)
-Theorem dec_enc_numI:
-  ∀ i. dec_numI (enc_numI i ++ rest) = (INR i, rest)
-Proof
-  cheat
-  (* rw[enc_numI_def] >> every_case_tac
-  >> rw[dec_numI_def]
-  >> cheat *)
-  (* the following script
-
-    1) takes super long...
-    2)  results in:
-
-    1 subgoal:
-    val it =
-
-       w = W32
-
-       : proof
-
-    I have no idea what this means, or what could have
-    led to it
-  *)
-QED
-
-
-(*-----------------------------------------------------------------------------------------------------------------------------------------------------------*)
 
 
 Overload v_opcode[local] = “λ n. 0xFDw :: enc_num n”
@@ -512,7 +450,7 @@ Definition enc_vecI_def:
   | V_compare $   Vgt                     F64x2         => v_opcode 74
   | V_compare $   Vle                     F64x2         => v_opcode 75
   | V_compare $   Vge                     F64x2         => v_opcode 76
-  | V_ternary     VbitSelect                            => v_opcode 77
+  | V_unary       Vnot                                  => v_opcode 77
   | V_binary      Vand                                  => v_opcode 78
   | V_binary      VandNot                               => v_opcode 79
   | V_binary      Vor                                   => v_opcode 80
@@ -741,7 +679,7 @@ Definition dec_vecI_def:
   if oc =  74w then (INR $ V_compare $   Vgt                     F64x2         ,cs) else
   if oc =  75w then (INR $ V_compare $   Vle                     F64x2         ,cs) else
   if oc =  76w then (INR $ V_compare $   Vge                     F64x2         ,cs) else
-  if oc =  77w then (INR $ V_ternary     VbitSelect                            ,cs) else
+  if oc =  77w then (INR $ V_unary       Vnot                                  ,cs) else
   if oc =  78w then (INR $ V_binary      Vand                                  ,cs) else
   if oc =  79w then (INR $ V_binary      VandNot                               ,cs) else
   if oc =  80w then (INR $ V_binary      Vor                                   ,cs) else
@@ -1070,7 +1008,12 @@ Definition dec_memI_def:
   if b = 0x3Fw then case bs of w0::cs => if B0 w0 then (INR MemorySize,cs) else failure| _ =>failure   else
   if b = 0x40w then case bs of w0::cs => if B0 w0 then (INR MemoryGrow,cs) else failure| _ =>failure   else
   if b = 0xFCw then case dec_u32 bs of NONE=>failure| SOME (oc,cs) =>
-    if oc =  8w then case dec_u32 cs of NONE=>failure| SOME (didx,z::rst) => if B0 z then (INR $ MemoryInit didx,rst) else failure else
+    if oc =  8w then case dec_u32 cs of
+                     | NONE => failure
+                     | SOME (didx,zrst) => case zrst of
+                                           | []     => failure
+                                           | z::rst => if B0 z then (INR $ MemoryInit didx,rst) else failure
+    else
     if oc =  9w then case dec_u32 cs of NONE=>failure| SOME (didx,   rst) =>              (INR $ DataDrop   didx,rst)              else
     if oc = 10w then case cs of z::n::rst => if B0 $ n+z then (INR   MemoryCopy     ,rst) else failure | _ => failure              else
     if oc = 11w then case cs of z::   rst => if B0     z then (INR   MemoryFill     ,rst) else failure | _ => failure              else
@@ -1155,38 +1098,64 @@ End
 
 
 
+Definition enc_list_def:
+  enc_list (encdr:α -> byteSeq) ([]:α list) = [] ∧
+  enc_list encdr (x::xs) = encdr x ++ enc_list encdr xs
+End
+
+Definition enc_vector_def:
+  enc_vector encdr [] : byteSeq option = SOME $ enc_num 0 ∧
+  enc_vector encdr xs = let n = LENGTH xs in
+    if n >= 2 ** 32 then NONE else SOME $ enc_num n ++ enc_list encdr xs
+End
+
+
+
 (***********************************)
 (*                                 *)
 (*     Decode--Encode Theorems     *)
 (*                                 *)
 (***********************************)
 
-
-
 Theorem dec_enc_valtype:
-  ∀ t. dec_valtype (enc_valtype t) = SOME t
-Proof
-  rpt strip_tac (* this is like intros *)
-  >> `? val. enc_valtype t = val` by simp []
-  >> asm_rewrite_tac[]
-  >> pop_assum mp_tac
-  >> rewrite_tac[enc_valtype_def]
-  >> simp[AllCaseEqs()]
-  >> rpt strip_tac (* this is like intros *)
-  >> gvs[dec_valtype_def]
-QED
-
-Theorem dec_enc_valtype_redux:
   ∀ t. dec_valtype (enc_valtype t) = SOME t
 Proof
   rw[enc_valtype_def] >> every_case_tac >> rw[dec_valtype_def]
 QED
 
+Theorem dec_enc_blocktype:
+  ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
+Proof
+  (* ahh, what's really missing here is the fact that the enc_s33 will never
+  collide with the other possible encodings for blocktype... *)
+
+  rw[enc_blocktype_def] >> every_case_tac
+
+  >- rw[dec_blocktype_def]
+
+  >-(rw[dec_blocktype_def]
+    >- fs[enc_valtype_def, AllCaseEqs()]
+    >- rw[dec_enc_valtype])
+
+  >- cheat
+QED
+
+(* ASKMM *)
+(* this is super slow. Any way to speed up *)
+Theorem dec_enc_numI:
+  ∀ i rest. dec_numI (enc_numI i ++ rest) = (INR i, rest)
+Proof
+  cheat
+  (* rw[enc_numI_def] >> every_case_tac >> rw[dec_numI_def] *)
+QED
+
 Theorem dec_enc_vecI:
   ∀ i. dec_vecI (enc_vecI i ++ rest) = (INR i, rest)
 Proof
+  (* exploding script? *)
+  (* EXPLODE *)
+  (* rw[enc_vecI_def] >> every_case_tac >> rw[dec_vecI_def] *)
   cheat
-  (* try this when I know how to speed up dec_enc_numI *)
 QED
 
 (* ASKYK ASKMM *)
@@ -1238,27 +1207,25 @@ Proof
   rw[dec_tableI_def,GSYM APPEND_ASSOC, Excl"APPEND_ASSOC",dec_enc_unsigned_word]
 QED
 
+Theorem dec_enc_valtype_learning:
+  ∀ t. dec_valtype (enc_valtype t) = SOME t
+Proof
+  rpt strip_tac (* this is like intros *)
+  >> `? val. enc_valtype t = val` by simp []
+  >> asm_rewrite_tac[]
+  >> pop_assum mp_tac
+  >> rewrite_tac[enc_valtype_def]
+  >> simp[AllCaseEqs()]
+  >> rpt strip_tac (* this is like intros *)
+  >> gvs[dec_valtype_def]
+QED
+
 
 (***************)
 (*             *)
 (*     WIP     *)
 (*             *)
 (***************)
-
-(* TODO *)
-
-Definition enc_vector_aux_def:
-  enc_vector_aux (encdr:α -> byteSeq) ([]:α list) = [] ∧
-  enc_vector_aux encdr (x::xs) = encdr x ++ enc_vector_aux encdr xs
-End
-
-Definition enc_vector_def:
-  enc_vector (encdr:α -> byteSeq) ([]:α list) : byteSeq option = SOME $ enc_num 0 ∧
-  enc_vector encdr xs =
-    let n = LENGTH xs in
-    if n >= 2 ** 32 then NONE
-    else SOME $ enc_num n ++ enc_vector_aux encdr xs
-End
 
 
 (* ASKYK *)
