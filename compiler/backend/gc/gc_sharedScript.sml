@@ -3,7 +3,7 @@
 *)
 Theory gc_shared
 Ancestors
-  words integer_word
+  finite_map words integer_word
 Libs
   preamble wordsLib
 
@@ -793,4 +793,3 @@ Proof
       heap_addresses (n + el_length h) xs ∪ (n INSERT s)` by
         (fs [EXTENSION] \\ metis_tac []) \\ fs []
 QED
-

@@ -9,6 +9,8 @@ Ancestors
 Libs
   preamble
 
+val _ =
+  temp_bring_to_front_overload "destResult" {Name="destResult", Thy="pegexec"};
 
 (* -------------------------------------------------------------------------
  * Sum monad syntax
@@ -3427,4 +3429,3 @@ Proof
   CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ gen_tac \\ simp [ptree_Pattern_def]
 QED
-

@@ -2,10 +2,12 @@
   Properties about wordLang and its semantics
 *)
 Theory wordProps
-Ancestors
-  backendProps wordConvs wordLang wordSem asm reg_alloc
 Libs
   preamble BasicProvers helperLib
+Ancestors
+  backendProps wordConvs wordLang wordSem asm reg_alloc
+
+val _ = temp_bring_to_front_overload "Set" {Name="Set", Thy="wordLang"};
 
 (*
 Main lemmas:
@@ -4781,4 +4783,3 @@ Proof
   gvs[] >>
   simp[state_component_equality]
 QED
-

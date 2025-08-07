@@ -8,7 +8,7 @@
 *)
 Theory flat_pattern
 Ancestors
-  misc[qualified] flatLang sptree pattern_semantics pattern_comp
+  misc flatLang sptree pattern_semantics pattern_comp
 Libs
   preamble
 
@@ -320,4 +320,3 @@ Definition compile_dec_def:
   compile_dec cfg (Dtype tid amap) = Dtype tid amap /\
   compile_dec cfg (Dexn n n') = Dexn n n'
 End
-

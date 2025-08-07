@@ -2,6 +2,8 @@
   Correctness proof for clos_to_bvl
 *)
 Theory clos_to_bvlProof
+Libs
+  preamble
 Ancestors
   closSem bvlSem closProps bvlProps clos_to_bvl
   backendProps[qualified] ffi[qualified] lprefix_lub[qualified]
@@ -9,8 +11,6 @@ Ancestors
   clos_mtiProof[qualified] clos_numberProof[qualified]
   clos_knownProof[qualified] clos_annotateProof[qualified]
   clos_callProof[qualified] clos_fvsProof[qualified]
-Libs
-  preamble
 
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
@@ -8942,4 +8942,3 @@ Proof
       |> Q.INST [`l1`|->`x::[]`] |> SIMP_RULE std_ss [APPEND]]
   \\ fs []
 QED
-
