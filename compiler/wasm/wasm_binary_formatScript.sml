@@ -369,6 +369,73 @@ End
 
 
 
+
+Definition dec_list_valtype_def:
+  dec_list_valtype ([]:byteSeq) : (valtype list # byteSeq) = ([],[]) ∧
+  dec_list_valtype bs = ARB
+    (* case dec_valtype bs of
+    | (INL err, rs) => ([], rs)
+    | (INR x  , rs) => let (xs, final) = dec_list_valtype rs in (x::xs, final) *)
+End
+
+Definition dec_list_global_def:
+  dec_list_global ([]:byteSeq) : (global list # byteSeq) = ([],[]) ∧
+  dec_list_global bs = ARB
+    (* case dec_global bs of
+    | (INL err, rs) => ([], rs)
+    | (INR x  , rs) => let (xs, final) = dec_list_global rs in (x::xs, final) *)
+End
+
+Definition dec_list_blocktype_def:
+  dec_list_blocktype ([]:byteSeq) : (blocktype list # byteSeq) = ([],[]) ∧
+  dec_list_blocktype bs = ARB
+    (* case dec_blocktype bs of
+    | (INL err, rs) => ([], rs)
+    | (INR x  , rs) => let (xs, final) = dec_list_blocktype rs in (x::xs, final) *)
+End
+
+Definition dec_list_numI_def:
+  dec_list_numI ([]:byteSeq) : (num_instr list # byteSeq) = ([],[]) ∧
+  dec_list_numI bs = ARB
+    (* case dec_numI bs of
+    | (INL err, rs) => ([], rs)
+    | (INR x  , rs) => let (xs, final) = dec_list_numI rs in (x::xs, final) *)
+End
+
+Definition dec_list_loadI_def:
+  dec_list_loadI ([]:byteSeq) : (load_instr list # byteSeq) = ([],[]) ∧
+  dec_list_loadI bs = ARB
+    (* case dec_loadI bs of
+    | (INL err, rs) => ([], rs)
+    | (INR x  , rs) => let (xs, final) = dec_list_loadI rs in (x::xs, final) *)
+End
+
+Definition dec_list_storeI_def:
+  dec_list_storeI ([]:byteSeq) : (store_instr list # byteSeq) = ([],[]) ∧
+  dec_list_storeI bs = ARB
+    (* case dec_storeI bs of
+    | (INL err, rs) => ([], rs)
+    | (INR x  , rs) => let (xs, final) = dec_list_storeI rs in (x::xs, final) *)
+End
+
+Definition dec_list_paraI_def:
+  dec_list_paraI ([]:byteSeq) : (para_instr list # byteSeq) = ([],[]) ∧
+  dec_list_paraI bs = ARB
+    (* case dec_paraI bs of
+    | (INL err, rs) => ([], rs)
+    | (INR x  , rs) => let (xs, final) = dec_list_paraI rs in (x::xs, final) *)
+End
+
+Definition dec_list_varI_def:
+  dec_list_varI ([]:byteSeq) : (var_instr list # byteSeq) = ([],[]) ∧
+  dec_list_varI bs = ARB
+    (* case dec_varI bs of
+    | (INL err, rs) => ([], rs)
+    | (INR x  , rs) => let (xs, final) = dec_list_varI rs in (x::xs, final) *)
+End
+
+
+
 (***********************************)
 (*                                 *)
 (*     Decode--Encode Theorems     *)
@@ -491,6 +558,59 @@ Theorem dec_enc_varI:
   ∀ i rest. dec_varI (enc_varI i ++ rest) = (INR i, rest)
 Proof
   rw[enc_varI_def] >> every_case_tac >> rw[dec_varI_def, dec_enc_unsigned_word]
+QED
+
+
+
+Theorem dec_enc_list_valtype:
+  ∀ is rest. dec_list_valtype (enc_list (λ x. [enc_valtype x]) is ++ rest) = (is, rest)
+Proof
+  rpt gen_tac
+  >> rw[enc_list_def, enc_valtype_def]
+  >>
+  cheat
+QED
+
+Theorem dec_enc_list_global:
+  ∀ is rest. dec_list_global ((enc_list enc_global) is ++ rest) = (is, rest)
+Proof
+  cheat
+QED
+
+Theorem dec_enc_list_blocktype:
+  ∀ is rest. dec_list_blocktype ((enc_list enc_blocktype) is ++ rest) = (is, rest)
+Proof
+  cheat
+QED
+
+Theorem dec_enc_list_numI:
+  ∀ is rest. dec_list_numI ((enc_list enc_numI) is ++ rest) = (is, rest)
+Proof
+  cheat
+QED
+
+Theorem dec_enc_list_loadI:
+  ∀ is rest. dec_list_loadI ((enc_list enc_loadI) is ++ rest) = (is, rest)
+Proof
+  cheat
+QED
+
+Theorem dec_enc_list_storeI:
+  ∀ is rest. dec_list_storeI ((enc_list enc_storeI) is ++ rest) = (is, rest)
+Proof
+  cheat
+QED
+
+Theorem dec_enc_list_paraI:
+  ∀ is rest. dec_list_paraI ((enc_list enc_paraI) is ++ rest) = (is, rest)
+Proof
+  cheat
+QED
+
+Theorem dec_enc_list_varI:
+  ∀ is rest. dec_list_varI ((enc_list enc_varI) is ++ rest) = (is, rest)
+Proof
+  cheat
 QED
 
 (***************)
