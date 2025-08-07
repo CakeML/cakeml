@@ -518,6 +518,7 @@ Datatype: instr
   | MemRead    load_instr
   | MemWrite   store_instr
   | MemOthers  mem_others
+  | Table      table_instr
 
 End
 
