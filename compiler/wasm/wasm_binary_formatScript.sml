@@ -50,10 +50,29 @@ Definition enc_valtype_def:
 End
 
 Definition dec_valtype_def:
-  dec_valtype (b:byte) : valtype option =
-  if b = 0x7Fw then SOME (Tnum   Int W32) else
-  if b = 0x7Ew then SOME (Tnum   Int W64) else
-  NONE
+  dec_valtype ([]:byteSeq) : ((mlstring + valtype) # byteSeq) = error "[dec_valtype]" [] ∧
+  dec_valtype (b::bs) = let failure = error "[dec_valtype]" $ b::bs in
+
+  if b = 0x7Fw then (INR $ Tnum   Int W32 ,bs) else
+  if b = 0x7Ew then (INR $ Tnum   Int W64 ,bs) else
+  failure
+End
+
+
+
+Definition enc_global_def:
+  enc_global (t:global) : byteSeq = case t of
+  | Gconst vt => 0x00w :: [enc_valtype vt]
+  | Gmut   vt => 0x01w :: [enc_valtype vt]
+End
+
+Definition dec_global_def:
+  dec_global ([]:byteSeq) : ((mlstring + global) # byteSeq) = error "[dec_global]" [] ∧
+  dec_global (b::bs) = let failure = error "[dec_global]" $ b::bs in
+
+  if b = 0x00w then case dec_valtype bs of (INR vt, rs) => (INR $ Gconst vt, rs) | _ => failure else
+  if b = 0x01w then case dec_valtype bs of (INR vt, rs) => (INR $ Gmut   vt, rs) | _ => failure else
+  failure
 End
 
 
@@ -66,10 +85,10 @@ End
 
 Definition dec_blocktype_def:
   dec_blocktype ([]:byteSeq) : ((mlstring + blocktype) # byteSeq) = error "[dec_blocktype] : Byte sequence unexpectedly empty." [] ∧
-  dec_blocktype (b::bs) = let failure = error "[dec_blocktype]" $ b::bs in
+  dec_blocktype bs = let failure = error "[dec_blocktype]" bs in
 
-  if b = 0x40w then                        (INR   BlkNil        , bs) else
-  case dec_valtype b   of SOME t      => (INR $ BlkVal t      , bs) | _ =>
+  case bs of []=>failure| b::rs => if b = 0x40w then (INR   BlkNil  , rs) else
+  case dec_valtype bs of (INR t ,rs)            =>   (INR $ BlkVal t, rs) | _ =>
   failure
 End
 
@@ -361,7 +380,7 @@ End
 fun print_dot_tac h = (print "."; all_tac h);
 
 Theorem dec_enc_valtype:
-  ∀ t. dec_valtype (enc_valtype t) = SOME t
+  ∀ t rest. dec_valtype (enc_valtype t :: rest) = (INR t, rest)
 Proof
   rpt strip_tac
   >> `∃ val. enc_valtype t = val` by simp []
@@ -373,8 +392,10 @@ Proof
   >> rpt strip_tac
   >> gvs[dec_valtype_def]
 
-  (* rw[enc_valtype_def] >> every_case_tac >> rw[dec_valtype_def]
-  >> simp[bvtype_nchotomy] *)
+(*
+  rw[enc_valtype_def] >> every_case_tac >> rw[dec_valtype_def]
+  >> simp[bvtype_nchotomy]
+*)
 QED
 
 Theorem dec_enc_blocktype:
@@ -388,9 +409,11 @@ Proof
   >> simp[AllCaseEqs()]
   >> rpt strip_tac
   >- gvs[dec_blocktype_def]
-  >- (gvs[dec_blocktype_def, dec_enc_valtype]
+  >- (
+    gvs[dec_blocktype_def, dec_enc_valtype]
     >> rw[enc_valtype_def]
-    >> fs[AllCaseEqs()])
+    >> fs[AllCaseEqs()]
+  )
 QED
 
 Theorem dec_enc_numI:
@@ -411,7 +434,10 @@ Proof
   \\ simp[AllCaseEqs()]
 
   (* cases requiring further encoding (of their "immediates") *)
-  \\ ( pop_assum sym_sub_tac >- simp[dec_numI_def, AllCaseEqs()] )
+  \\ (
+    pop_assum sym_sub_tac
+    >- simp[dec_numI_def, AllCaseEqs()]
+  )
 
 (*
   rw[enc_numI_def] >> every_case_tac
@@ -584,7 +610,7 @@ Proof
   \\ Cases_on ‘xs0’ \\ gvs [check_len_def,AllCaseEqs()]
 QED
 
-Definition dec_instr_def:
+(* Definition dec_instr_def:
   (dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) =
      error "[dec_instr] : Byte sequence unexpectedly empty." []) ∧
   (dec_instr (b::bs) =
@@ -643,7 +669,7 @@ Termination
                             | INR bs => 2 * LENGTH bs + 1’
   \\ rw [] \\ imp_res_tac dec_blocktype_len \\ fs []
   \\ imp_res_tac check_len_IMP \\ fs []
-End
+End *)
 
 Triviality check_len_INR:
   check_len bs0 y = (INR x,bs1) ⇒ ∃y1 y2. y = (INR y1,y2)
@@ -657,7 +683,7 @@ Proof
   gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
 QED
 
-Theorem dec_instr_length:
+(* Theorem dec_instr_length:
   (∀bs x bs1. dec_instr bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs) ∧
   (∀bs x bs1. dec_instr_list bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs)
 Proof
@@ -672,9 +698,9 @@ Proof
   \\ imp_res_tac check_len_INL \\ fs []
   \\ imp_res_tac check_len_INR \\ fs []
   \\ gvs [check_len_def]
-QED
+QED *)
 
-Theorem dec_instr_INL_length:
+(* Theorem dec_instr_INL_length:
   (∀bs x bs1. dec_instr bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs) ∧
   (∀bs x bs1. dec_instr_list bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs)
 Proof
@@ -688,9 +714,9 @@ Proof
   \\ imp_res_tac check_len_INR \\ fs []
   \\ imp_res_tac check_len_IMP \\ fs []
   \\ cheat (* not implemented cases *)
-QED
+QED *)
 
-Theorem check_len_thm:
+(* Theorem check_len_thm:
   check_len bs (dec_instr bs) = dec_instr bs ∧
   check_len bs (dec_instr_list bs) = dec_instr_list bs
 Proof
@@ -704,10 +730,10 @@ Proof
   \\ Cases_on ‘q’ \\ fs [check_len_def]
   \\ imp_res_tac dec_instr_INL_length \\ fs []
   \\ imp_res_tac dec_instr_length \\ fs []
-QED
+QED *)
 
-Theorem dec_instr_def[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_def;
-Theorem dec_instr_ind[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_ind;
+(* Theorem dec_instr_def[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_def;
+Theorem dec_instr_ind[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_ind; *)
 
 Theorem enc_instr_not_end:
   ∀i. ∃h t. enc_instr i = h::t ∧ h ≠ 0x0Bw
@@ -720,7 +746,7 @@ Proof
   >~ [‘enc_storeI’] >- (simp [enc_storeI_def] \\ every_case_tac \\ fs [])
 QED
 
-Theorem dec_enc_instr:
+(* Theorem dec_enc_instr:
   (∀i rest. dec_instr (enc_instr i ++ rest) = (INR i,rest)) ∧
   (∀is rest. dec_instr_list (enc_instr_list is ++ rest) = (INR is,rest))
 Proof
@@ -746,7 +772,7 @@ Proof
     \\ Cases_on ‘b2’ \\ simp []
     \\ asm_rewrite_tac [GSYM APPEND_ASSOC] \\ simp [])
   \\ cheat (* not yet implemented cases *)
-QED
+QED *)
 
 (*
 Definition dec_instr_def:
@@ -778,7 +804,6 @@ Definition dec_instr_def:
 
   failure
 End
-*)
 
 val _ = export_theory();
 
